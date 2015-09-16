@@ -14,6 +14,17 @@ REBOL [
 pi: 3.14159265358979323846
 
 
+; Shorthands for radian forms of trig functions, first introduced by Red.
+; http://www.red-lang.org/2014/08/043-floating-point-support.html
+
+cos: :cosine/radians
+sin: :sine/radians
+tan: :tangent/radians ;; contentious with color "tan" (in CSS and elsewhere)
+acos: :arccosine/radians
+asin: :arcsine/radians
+atan: :arctangent/radians
+
+
 mod: function [
     "Compute a nonnegative remainder of A divided by B."
     a [any-number! money! time!]

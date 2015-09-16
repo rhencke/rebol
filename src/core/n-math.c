@@ -106,17 +106,17 @@ static void Arc_Trans(REBVAL *out, const REBVAL *value, REBOOL degrees, REBCNT k
 //
 //  "Returns the trigonometric cosine."
 //
-//      value [any-number!]
-//          "In degrees by default"
+//      return: [decimal!]
+//      angle [any-number!]
 //      /radians
-//          "Value is specified in radians"
+//          "Value is specified in radians (in degrees by default)"
 //  ]
 //
 REBNATIVE(cosine)
 {
     INCLUDE_PARAMS_OF_COSINE;
 
-    REBDEC dval = cos(Trig_Value(ARG(value), NOT(REF(radians)), COSINE));
+    REBDEC dval = cos(Trig_Value(ARG(angle), NOT(REF(radians)), COSINE));
     if (fabs(dval) < DBL_EPSILON) dval = 0.0;
     Init_Decimal(D_OUT, dval);
     return R_OUT;
@@ -128,17 +128,17 @@ REBNATIVE(cosine)
 //
 //  "Returns the trigonometric sine."
 //
-//      value [any-number!]
-//          "In degrees by default"
+//      return: [decimal!]
+//      angle [any-number!]
 //      /radians
-//          "Value is specified in radians"
+//          "Value is specified in radians (in degrees by default)"
 //  ]
 //
 REBNATIVE(sine)
 {
     INCLUDE_PARAMS_OF_SINE;
 
-    REBDEC dval = sin(Trig_Value(ARG(value), NOT(REF(radians)), SINE));
+    REBDEC dval = sin(Trig_Value(ARG(angle), NOT(REF(radians)), SINE));
     if (fabs(dval) < DBL_EPSILON) dval = 0.0;
     Init_Decimal(D_OUT, dval);
     return R_OUT;
@@ -150,17 +150,17 @@ REBNATIVE(sine)
 //
 //  "Returns the trigonometric tangent."
 //
-//      value [any-number!]
-//          "In degrees by default"
+//      return: [decimal!]
+//      angle [any-number!]
 //      /radians
-//          "Value is specified in radians"
+//          "Value is specified in radians (in degrees by default)"
 //  ]
 //
 REBNATIVE(tangent)
 {
     INCLUDE_PARAMS_OF_TANGENT;
 
-    REBDEC dval = Trig_Value(ARG(value), NOT(REF(radians)), TANGENT);
+    REBDEC dval = Trig_Value(ARG(angle), NOT(REF(radians)), TANGENT);
     if (Eq_Decimal(fabs(dval), PI / 2.0))
         fail (Error_Overflow_Raw());
 
@@ -172,18 +172,19 @@ REBNATIVE(tangent)
 //
 //  arccosine: native [
 //
-//  {Returns the trigonometric arccosine (in degrees by default).}
+//  {Returns the trigonometric arccosine.}
 //
-//      value [any-number!]
+//      return: [decimal!]
+//      cosine [any-number!]
 //      /radians
-//          "Returns result in radians"
+//          "Returns result in radians (in degrees by default)"
 //  ]
 //
 REBNATIVE(arccosine)
 {
     INCLUDE_PARAMS_OF_ARCCOSINE;
 
-    Arc_Trans(D_OUT, ARG(value), NOT(REF(radians)), COSINE);
+    Arc_Trans(D_OUT, ARG(cosine), NOT(REF(radians)), COSINE);
     return R_OUT;
 }
 
@@ -191,18 +192,19 @@ REBNATIVE(arccosine)
 //
 //  arcsine: native [
 //
-//  {Returns the trigonometric arcsine (in degrees by default).}
+//  {Returns the trigonometric arcsine.}
 //
-//      value [any-number!]
+//      return: [decimal!]
+//      sine [any-number!]
 //      /radians
-//          "Returns result in radians"
+//          "Returns result in radians (in degrees by default)"
 //  ]
 //
 REBNATIVE(arcsine)
 {
     INCLUDE_PARAMS_OF_ARCSINE;
 
-    Arc_Trans(D_OUT, ARG(value), NOT(REF(radians)), SINE);
+    Arc_Trans(D_OUT, ARG(sine), NOT(REF(radians)), SINE);
     return R_OUT;
 }
 
@@ -210,18 +212,19 @@ REBNATIVE(arcsine)
 //
 //  arctangent: native [
 //
-//  {Returns the trigonometric arctangent (in degrees by default).}
+//  {Returns the trigonometric arctangent.}
 //
-//      value [any-number!]
+//      return: [decimal!]
+//      tangent [any-number!]
 //      /radians
-//          "Returns result in radians"
+//          "Returns result in radians (in degrees by default)"
 //  ]
 //
 REBNATIVE(arctangent)
 {
     INCLUDE_PARAMS_OF_ARCTANGENT;
 
-    Arc_Trans(D_OUT, ARG(value), NOT(REF(radians)), TANGENT);
+    Arc_Trans(D_OUT, ARG(tangent), NOT(REF(radians)), TANGENT);
     return R_OUT;
 }
 
