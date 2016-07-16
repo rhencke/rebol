@@ -1,6 +1,6 @@
 REBOL [
     System: "REBOL [R3] Language Interpreter and Run-time Environment"
-    Title: "Host Interactive Debugging"
+    Title: "Host Read-Eval-Print-Loop (REPL)"
     Rights: {
         Copyright 2012 REBOL Technologies
         Copyright 2012-2016 Rebol Open Source Contributors
@@ -11,169 +11,244 @@ REBOL [
         See: http://www.apache.org/licenses/LICENSE-2.0
     }
     Description: {
-        This implements simple debugging features built on top of the basic
-        FRAME! and breakpoint abstractions offered by Ren-C.  (There is no
-        debugging "UI" in Ren-C itself.)
+        This implements a simple interactive command line for Ren-C, in a
+        FOREVER loop driven by Rebol.  This lowers the barrier to being able
+        to customize it or to add new debugger features.
+
+        Though not implemented in C as the R3-Alpha REPL was, it still relies
+        upon INPUT to receive lines.  INPUT reads lines from the "console
+        port", which is C code that is linked to STDTERM on POSIX and the
+        Win32 Console API on Windows.  Thus, the ability to control the cursor
+        and use it to page through line history is still a "black box" at
+        that layer.
 
         !!! Currently included in the mezzanine for build convenience, though
         really it should be packaged with the "host".
-
-        TIP: When debugging this kind of code, don't forget the tools for
-        working with FRAME!.  If you want to dump a block of frames, you
-        could just say:
-
-            print mold map-each f frame-list [label-of f]
      }
 ]
 
-for-each-userframe: procedure [
-    {Enumerates those Rebol stack frames that aren't part of the REPL/UI}
+; The last REPL to run code gets to set the REPL state.  This is not a
+; reliable way of knowing if a REPL is currently running, as a REPL *could*
+; be exited by Ctrl-C and then some code called internally which is non-REPL
+; based, that could see the stale repl-state.
+;
+; (This is a generalized problem given the language not having constructors
+; and destructors but wishing to maintain a global structures across an
+; "exception".)
+;
+; However, currently the code that calls the REPL calls it in a loop without
+; making any calls.  All halts will cross all the REPLs and start a new one.
+;
+repl-state: none
 
-    'number-var [word!]
-        {Variable to be set to INTEGER! or NONE! (if pending frame)}
-    'frame-var [word!]
-        {Variable to be set to the FRAME! at the given level}
-    relative [function! frame!]
-        {Where to start the counting relative to}
-    body [block!]
+repl: function [
+    {Implements a Read-Eval-Print-Loop (REPL) for Rebol}
 ][
-    ; Get the full backtrace of frames, but then remove FOR-EACH-USERFRAME
-    ; from the listing along with any other frames that should be removed
-    ; "relative to" (e.g. BACKTRACE wouldn't want BACKTRACE in the list)
+    unless repl-state [
+        about ;-- defined in %mezz-banner.r
+    ]
+
+    state: has [
+        focus-frame: none
+        focus-number: none
+        last-error: none
+        repl-frame: context-of 'state ;-- could use any local to get the frame
+    ]
+
+    ; We decide whether to offer debug interactivity based on whether
+    ; `BACKTRACE 1` would give back FRAME! instead of NONE!...with a fallback
+    ; on `BACKTRACE 0` (in case the user just typed BREAKPOINT directly).
     ;
-    block: backtrace-of none
-    assert [(function-of block/1) = :for-each-userframe]
-    if function? :relative [
-        relative: backtrace-of :relative
-        assert [frame? relative]
+    case [
+        ; !!! Note the unusual order for /FROM on backtrace, due to its
+        ; variadic implementation.  This is under review.
+        ;
+        state/focus-frame: backtrace/from :repl 1 [state/focus-number: 1]
+        state/focus-frame: backtrace/from :repl 0 [state/focus-number: 0]
     ]
-    while [block/1 != relative] [
-        take block
-        assert [not tail? block]
+
+    error-handler: func [error] [
+        ;
+        ; An error occured during the evaluation (as opposed to the
+        ; evaluation returning an error _value_).  PRINT instead of MOLD
+        ; so it formats the message vs. showing the ERROR! properties.
+        ;
+        print error
+
+        unless state/last-error [
+            print "** Note: use WHY? for more error information"
+            print/only newline
+        ]
+
+        state/last-error: error
     ]
-    take block ;-- take the relative point, also
 
-    ; Go from the end of the trace to the beginning.  Each time a REPL is
-    ; found, delete frames until a DO is found (because the only DO in the
-    ; REPL is the one that runs the user code)
+    throw-handler: func [thrown name] [
+        ;
+        ; There are some throws that signal a need to exit the REPL.  This
+        ; may not be an exhaustive list, but RESUME is needed to get out
+        ; of a nested REPL at a breakpoint...and QUIT is used to exit.
+        ;
+        if (:name == :resume) or (:name == :quit) [
+            throw/name :thrown :name
+        ]
 
-    block: tail block
-    for-back block [
-        if (function-of block/1) = :repl [
-            while [(function-of block/1) != :do] [
-                if head? block [
-                    ;
-                    ; Must call directly and filter out an unpaired REPL call
-                    ; by passing in :repl as the relative.  Commands like
-                    ; BACKTRACE assume they are being run by the user, and
-                    ; should always be running from inside a DO in the REPL.
-                    ;
-                    fail "REPL found without DO in FOR-EACH-USERFRAME"
-                ]
-                take block
-                block: back block
-            ]
-            take block ;-- now take the DO, too (so just user code left)
+        print ["** No CATCH for THROW of" mold :thrown]
+        if :name [
+            print ["** THROW/NAME was" mold :name]
         ]
     ]
 
-    block: head block
-    if empty? block [leave]
+    forever [ ;-- outer LOOP (run individual DO evals)
 
-    ; Special exception: frame counts usually start at 1, but a BREAKPOINT or
-    ; a PAUSE frame is put at 0 when it's the very first listed that is not
-    ; pending.  This is because users likely want to start inspecting the
-    ; level that triggered the breakpoint, vs. inspecting the breakpoint
-    ; itself.  So it keeps that focus at position "1".
+        source: copy "" ;-- source code potentially built of multiple lines
+        code: copy [] ;-- loaded block of source, or error if unloadable
 
-    index: 0 ;-- will be bumped past 0 on first use if not breakpoint/pause
-
-    ; Call the given FOR-EACH-'s body with the frame and the number set
-
-    use reduce [frame-var number-var] compose/deep [
-        for-next block [
-            ;
-            ; Note: Beware GROUP!s for precedence, block is COMPOSE/DEEP'd
-            ;
-            (to set-word! frame-var) block/1
-            either pending? block/1 [
-                (to set-word! number-var) none
-            ][
-                if all [
-                    | index = 0
-                    | :pause != function-of block/1
-                    | :breakpoint != function-of block/1
-                ][
-                    index: 1 ;-- skip having a 0-frame in the list
-                ]
-                (to set-word! number-var) index
-                index: index + 1
+        ; If a debug frame is in focus then show it in the prompt, e.g.
+        ; as `if:|4|>>` to indicate stack frame 4 is being examined, and
+        ; it was an `if` statement...so it will be used for binding (you
+        ; can examine the condition and branch for instance)
+        ;
+        if state/focus-frame [
+            if label-of state/focus-frame [
+                print/only label-of state/focus-frame
+                print/only ":"
             ]
 
-            (body)
+            print/only "|"
+            print/only state/focus-number
+            print/only "|"
+        ]
+
+        print/only ">>"
+        print/only space
+
+        forever [ ;-- inner LOOP (gather potentially multi-line input)
+
+            line: input
+            if empty? line [
+                break ;-- if empty line, DO whatever's in `code`, even ERROR!
+            ]
+
+            code: trap/with [
+                ;
+                ; Need to LOAD the string because `do "quit"` will quit the
+                ; DO, while `do [quit]` will quit the intepreter (we want the
+                ; latter interpretation).  Note that LOAD/ALL makes BLOCK!
+                ; even for a single "word", e.g. [word]
+                ;
+                load/all append source line
+
+            ] func [error] [
+                ;
+                ; If it was an error, check to see if it was the kind of
+                ; error that comes from having partial input.  If so,
+                ; CONTINUE and read more data until it's complete (or until
+                ; an empty line signals to just report the error as-is)
+
+                code: error
+
+                switch error/code [
+                    200 [
+                        ; Often an invalid string (error isn't perfect but
+                        ; could be tailored specifically, e.g. to report
+                        ; a depth)
+                        ;
+                        print/only "{..."
+                        print/only space
+
+                        append source newline
+                        continue
+                    ]
+
+                    201 [
+                        ; Often a missing bracket (again, imperfect error
+                        ; that could be improved.)
+                        ;
+                        case [
+                            error/arg1 = "]" [print/only "["]
+                            error/arg1 = ")" [print/only "("]
+                            'default [break]
+                        ]
+                        print/only "..."
+                        print/only space
+
+                        append source newline
+                        continue
+                    ]
+                ]
+            ]
+
+            break ;-- Exit gathering loop on all other errors (DO reports them)
+        ]
+
+        ; If we're focused on a debug frame, try binding into it
+        ;
+        if all [state/focus-frame | any-array? :code] [
+            bind code state/focus-frame
+        ]
+
+        ; Set the global repl-state before running any code (see notes)
+        ;
+        set 'repl-state state
+
+        ; The user code may try to "jump" out via TRAP, THROW (also how BREAK
+        ; and CONTINUE) are implemented, or EXIT (how RETURN is implemented).
+        ; For the moment, CATCH and TRAP are needed to cover these cases.
+        ;
+        ; The result is cleared out by default, so the handlers don't get
+        ; mixed up (e.g. the error handler trying to CONTINUE the FOREVER
+        ; but getting intercepted).  It can do nothing, an since the SET
+        ; doesn't run there'll be no output.
+        ;
+        catch/any/with [
+            trap/with [
+                result: do code
+            ] :error-handler
+        ] :throw-handler
+
+        if any-value? :result [
+            print ["==" mold :result]
+            print/only newline
         ]
     ]
 ]
 
 
-backtrace: function [
-    "Backtrace to find a specific FRAME!, or other queried property."
-
-    level [none! integer! function! <...>]
-        "Stack level to return frame for (none to list)"
-    /brief
-        "Do not list depths, just function labels on one line"
-    /quiet
-        "Return backtrace data without printing it to the console"
-    /from
-        "Backtrace from a relative anchor point (NOTE VARIADIC--*BEFORE* arg)"
-    relative [frame! function!]
+why?: procedure [
+    "Explain the last error in more detail."
+    'err [<opt> word! path! error! none!]
+        "Optional error value"
 ][
-    ; Use variadic to have a non-quoted LEVEL argument which can be optional
-    ; (so that you can type just BACKTRACE vs. BACKTRACE NONE).  However
-    ; since it is variadic
-    ;
-    level: either tail? level [none] [take level]
+    last-error: all [repl-state | repl-state/last-error]
 
-    max-frames: 100
+    case [
+        void? :err [err: none]
+        word? err [err: get err]
+        path? err [err: get err]
+    ]
 
-    unless any-value? :level [level: none]
-
-    unless from [relative: :backtrace]
-
-    result: copy []
-    for-each-userframe number frame :relative [
-        either level [
-            if any [level = number | level = function-of frame] [
-                return frame
-            ]
+    either all [
+        error? err: any [:err last-error]
+        err/type ; avoids lower level error types (like halt)
+    ][
+        ; In non-"NDEBUG" (No DEBUG) builds, if an error originated from the
+        ; C sources then it will have a file and line number included of where
+        ; the error was triggered.
+        ;
+        if all [
+            file: attempt [last-error/__FILE__]
+            line: attempt [last-error/__LINE__]
         ][
-            either brief [
-                insert result label-of frame
-            ][
-                insert result new-line compose/only [
-                    (either none? number ['*] [number]) (where-of frame)
-                ] true
-            ]
+            print ["DEBUG BUILD INFO:"]
+            print ["    __FILE__ =" file]
+            print ["    __LINE__ =" line]
         ]
 
-        if (length result) >= max-frames [break]
+        say-browser
+        err: lowercase ajoin [err/type #"-" err/id]
+        browse join http://www.rebol.com/r3/docs/errors/ [err ".html"]
+    ][
+        print "No information is available."
     ]
-
-    if level [return none] ;-- didn't find frame for specific level
-
-    if quiet [return result] ;-- if they want the list vs. having it printed
-
-    print mold result
-]
-
-
-debug: proc [
-    level [integer!]
-][
-    unless repl-state [fail "No REPL currently running"]
-    unless running? repl-state/repl-frame [fail "Stale REPL frame handle"]
-
-    repl-state/focus-frame: backtrace/from :debug level ;-- note variadic :-/
-    repl-state/focus-number: level
 ]
