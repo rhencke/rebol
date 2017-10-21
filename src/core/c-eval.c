@@ -976,18 +976,6 @@ reevaluate:;
                 //
                 f->refine = ORDINARY_ARG;
 
-                // !!! Can a variadic lookback argument be meaningful?
-                // Arguably, if you have an arity-1 function which is variadic
-                // and you enfix it, then giving it a feed of either 0 or 1
-                // values and only letting it take from the left would make
-                // sense.  But if it's arity-2 (e.g. multiple variadic taps)
-                // does that make any sense?
-                //
-                // It may be too wacky to worry about, and SET/ENFIX should
-                // just prohibit it.
-                //
-                assert(NOT_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC));
-
                 Prep_Stack_Cell(f->arg);
 
                 if (IS_END(f->out)) {
@@ -999,12 +987,37 @@ reevaluate:;
                     //
                     //     if + 2 [...]
 
+                    // If an enfixed function finds it has a variadic in its
+                    // first slot, then nothing available on the left is o.k.
+                    // It means we have to put a VARARGS! in that argument
+                    // slot which will react with TRUE to TAIL?, so feed it
+                    // from the global empty array.
+                    //
+                    if (GET_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC)) {
+                        RESET_VAL_HEADER_EXTRA(
+                            f->arg,
+                            REB_VARARGS,
+                            VARARGS_FLAG_ENFIXED // in case anyone cares
+                        );
+                        INIT_BINDING(f->arg, EMPTY_ARRAY); // feed finished
+
+                        const REBOOL make = FALSE; // use existing array
+                        Link_Vararg_Param_To_Frame(f, f->param, f->arg, make);
+                        goto continue_arg_loop;
+                    }
+
                     if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
                         fail (Error_No_Arg(f, f->param));
 
                     Init_Endish_Void(f->arg);
                     goto continue_arg_loop;
                 }
+
+                // The argument might be variadic, but even if it is we only
+                // have one argument to be taken from the left.  So start by
+                // calculating that one value into f->arg.
+                //
+                // !!! See notes on potential semantics problem below.
 
                 switch (pclass) {
                 case PARAM_CLASS_NORMAL:
@@ -1059,6 +1072,40 @@ reevaluate:;
 
                 if (not GET_ACT_FLAG(f->phase, ACTION_FLAG_INVISIBLE))
                     SET_END(f->out);
+
+                // Now that we've gotten the argument figured out, make a
+                // singular array to feed it to the variadic.
+                //
+                // !!! See notes on VARARGS_FLAG_ENFIXED about how this is
+                // somewhat shady, as any evaluations happen *before* the
+                // TAKE on the VARARGS.  Experimental feature.
+                //
+                if (GET_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC)) {
+                    REBARR *feed = Alloc_Singular_Array();
+                    Move_Value(ARR_HEAD(feed), f->arg);
+                    MANAGE_ARRAY(feed);
+
+                    REBARR *array1 = Alloc_Singular_Array();
+                    Init_Block(ARR_HEAD(array1), feed); // index 0 for feeding
+                    MANAGE_ARRAY(array1);
+
+                    RESET_VAL_HEADER_EXTRA(
+                        f->arg,
+                        REB_VARARGS,
+                        VARARGS_FLAG_ENFIXED // don't evaluate *again* on TAKE
+                    );
+                    INIT_BINDING(f->arg, array1);
+
+                    const REBOOL make = FALSE; // use existing array
+                    Link_Vararg_Param_To_Frame(f, f->param, f->arg, make);
+
+                    // As written, the type will be checked when (and if) a
+                    // TAKE happens.  Whether that's good or bad depends on
+                    // the bigger issue of whether this feature is misguided.
+                    //
+                    goto continue_arg_loop;
+                }
+
                 goto check_arg;
             }
 
