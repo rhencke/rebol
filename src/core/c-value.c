@@ -252,13 +252,25 @@ void* Probe_Core_Debug(
             // This routine is also a little catalog of the outlying series
             // types in terms of sizing, just to know what they are.
 
-            if (BYTE_SIZE(s)) {
+            if (SER_WIDE(s) == sizeof(REBYTE)) {
                 Probe_Print_Helper(p, "Byte-Size Series", file, line);
 
-                // !!! It might be text bytes or a binary, currently no way
-                // to distinguish (there is in UTF-8 everywhere)
-                //
-                printf("%s", s_cast(BIN_HEAD(s)));
+                DECLARE_LOCAL (value);
+                VAL_RESET_HEADER(value, REB_BINARY);
+                INIT_VAL_SERIES(value, s);
+                VAL_INDEX(value) = 0;
+
+                Probe_Molded_Value(value);
+            }
+            else if (SER_WIDE(s) == sizeof(REBUNI)) {
+                Probe_Print_Helper(p, "REBWCHAR-Size Series", file, line);
+
+                DECLARE_LOCAL (value);
+                VAL_RESET_HEADER(value, REB_STRING);
+                INIT_VAL_SERIES(value, s);
+                VAL_INDEX(value) = 0;
+
+                Probe_Molded_Value(value);
             }
             else if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
                 Probe_Print_Helper(p, "Array", file, line);
@@ -274,10 +286,6 @@ void* Probe_Core_Debug(
                 VAL_INDEX(block) = 0;
 
                 Probe_Molded_Value(block);
-            }
-            else if (SER_WIDE(s) == sizeof(REBUNI)) {
-                Probe_Print_Helper(p, "UTF16 String", file, line);
-                Debug_Uni(s);
             }
             else if (s == PG_Canons_By_Hash) {
                 printf("can't probe PG_Canons_By_Hash\n");

@@ -1483,23 +1483,27 @@ REBCNT RL_rebSpellingOfW(
 ){
     Enter_Api();
 
+    REBSER *s;
     REBCNT index;
     REBCNT len;
     if (ANY_STRING(v)) {
+        s = VAL_SERIES(v);
         index = VAL_INDEX(v);
         len = VAL_LEN_AT(v);
     }
     else {
         assert(ANY_WORD(v));
-        panic ("extracting wide characters from WORD! not yet supported");
+        s = Make_UTF8_May_Fail(VAL_WORD_HEAD(v)); // makes REBUNI series
+        index = 0;
+        len = SER_LEN(s);
     }
 
     if (buf == NULL) { // querying for size
         assert(buf_chars == 0);
+        if (ANY_WORD(v))
+            Free_Series(s);
         return len; // caller must now allocate buffer of len + 1
     }
-
-    REBSER *s = VAL_SERIES(v);
 
     REBCNT limit = MIN(buf_chars, len);
     REBCNT n = 0;
@@ -1507,6 +1511,9 @@ REBCNT RL_rebSpellingOfW(
         buf[n] = GET_ANY_CHAR(s, index);
 
     buf[limit] = 0;
+
+    if (ANY_WORD(v))
+        Free_Series(s);
     return len;
 }
 
@@ -1519,7 +1526,9 @@ REBWCHAR *RL_rebSpellingOfAllocW(REBCNT *len_out, const REBVAL *v)
     Enter_Api();
 
     REBCNT len = rebSpellingOfW(NULL, 0, v);
-    REBWCHAR *result = cast(REBWCHAR*, rebMalloc(len + 1));
+    REBWCHAR *result = cast(
+        REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
+    );
     rebSpellingOfW(result, len, v);
     if (len_out != NULL)
         *len_out = len;
@@ -1748,6 +1757,32 @@ REBVAL *RL_rebUnmanage(REBVAL *v)
 
 
 //
+//  rebCopyExtra: RL_API
+//
+REBVAL *RL_rebCopyExtra(const REBVAL *v, REBCNT extra)
+{
+    // !!! It's actually a little bit harder than one might think to hook
+    // into the COPY code without actually calling the function via the
+    // evaluator, because it is an "action".  Review a good efficient method
+    // for doing it, but for the moment it's just needed for FILE! so do that.
+    //
+    if (NOT(ANY_STRING(v)))
+        fail ("rebCopy() only supports ANY-STRING! for now");
+
+    return Init_Any_Series(
+        Alloc_Value(),
+        VAL_TYPE(v),
+        Copy_Sequence_At_Len_Extra(
+            VAL_SERIES(v),
+            VAL_INDEX(v),
+            VAL_LEN_AT(v),
+            extra
+        )
+    );
+}
+
+
+//
 //  rebRelease: RL_API
 //
 void RL_rebRelease(REBVAL *v)
@@ -1854,43 +1889,118 @@ void RL_rebPanicValue(const void *p, const void *end)
 
 
 //
-//  rebFileToLocal: RL_API
+//  rebFileToLocalAlloc: RL_API
 //
 // This is the API exposure of TO-LOCAL-FILE.  It takes in a FILE! and
-// returns a STRING!...using the data type to help guide whether a file has
-// had the appropriate transformation applied on it or not.
+// returns an allocated UTF-8 buffer.
 //
-REBVAL *RL_rebFileToLocal(const REBVAL *file, REBOOL full)
+// !!! Should MAX_FILE_NAME be taken into account for the OS?
+//
+char *RL_rebFileToLocalAlloc(REBCNT *len_out, const REBVAL *file, REBOOL full)
 {
     Enter_Api();
 
     if (NOT(IS_FILE(file)))
-        fail ("rebFileToLocal() only works on FILE!");
+        fail ("rebFileToLocalAlloc() only works on FILE!");
 
-    return Init_String(
-        Alloc_Value(),
-        Value_To_Local_Path(file, full)
+    DECLARE_LOCAL (local);
+    Init_String(
+        local,
+        To_Local_Path(VAL_UNI_AT(file), VAL_LEN_AT(file), full)
     );
+
+    return rebSpellingOfAlloc(len_out, local);
+}
+
+
+//
+//  rebFileToLocalAllocW: RL_API
+//
+// This is the API exposure of TO-LOCAL-FILE.  It takes in a FILE! and
+// returns an allocated REBWCHAR buffer.
+//
+// !!! Should MAX_FILE_NAME be taken into account for the OS?
+//
+REBWCHAR *RL_rebFileToLocalAllocW(
+    REBCNT *len_out,
+    const REBVAL *file,
+    REBOOL full
+){
+    Enter_Api();
+
+    if (NOT(IS_FILE(file)))
+        fail ("rebFileToLocalAllocW() only works on FILE!");
+
+    DECLARE_LOCAL (local);
+    Init_String(
+        local,
+        To_Local_Path(VAL_UNI_AT(file), VAL_LEN_AT(file), full)
+    );
+
+    return rebSpellingOfAllocW(len_out, local);
 }
 
 
 //
 //  rebLocalToFile: RL_API
 //
-// This is the API exposure of TO-REBOL-FILE.  It takes in a STRING! and
-// returns a FILE!, as with rebFileToLocal() in order to help cue whether the
-// translations have been done or not.
+// This is the API exposure of TO-REBOL-FILE.  It takes in a UTF-8 buffer and
+// returns a FILE!.
 //
-REBVAL *RL_rebLocalToFile(const REBVAL *string, REBOOL is_dir)
+// !!! Should MAX_FILE_NAME be taken into account for the OS?
+//
+REBVAL *RL_rebLocalToFile(const char *local, REBOOL is_dir)
 {
     Enter_Api();
 
-    if (NOT(IS_STRING(string)))
-        fail ("rebLocalToFile() only works on STRING!");
+    // !!! Current inefficiency is that the platform-specific code isn't
+    // taking responsibility for doing this...Rebol core is going to be
+    // agnostic on how files are translated within the hosts.  So the version
+    // of the code on non-wide-char systems will be written just for it, and
+    // no intermediate string will need be made.
+    //
+    REBVAL *string = rebString(local);
+
+    REBVAL *file = Init_File(
+        Alloc_Value(),
+        To_REBOL_Path(
+            VAL_UNI_AT(string),
+            VAL_LEN_AT(string),
+            is_dir ? PATH_OPT_SRC_IS_DIR : 0
+        )
+    );
+
+    rebRelease(string);
+    return file;
+}
+
+
+//
+//  rebLocalToFileW: RL_API
+//
+// This is the API exposure of TO-REBOL-FILE.  It takes in a REBWCHAR buffer and
+// returns a FILE!.
+//
+// !!! Should MAX_FILE_NAME be taken into account for the OS?
+//
+REBVAL *RL_rebLocalToFileW(const REBWCHAR *local, REBOOL is_dir)
+{
+    Enter_Api();
+
+    REBCNT num_chars = 0;
+    const REBWCHAR *wtemp = local;
+    while (*wtemp != '\0') {
+        ++num_chars;
+        ++wtemp;
+    }
 
     return Init_File(
         Alloc_Value(),
-        Value_To_REBOL_Path(string, is_dir)
+        To_REBOL_Path(
+            local,
+            num_chars,
+            is_dir ? PATH_OPT_SRC_IS_DIR : 0
+        )
     );
 }
 

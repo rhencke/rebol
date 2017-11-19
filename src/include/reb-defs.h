@@ -171,7 +171,7 @@ typedef uintptr_t REBFLGS; // platform-pointer-size unsigned for bit flags
 // http://utf8everywhere.org
 //
 
-typedef uint16_t REBUNI;
+typedef REBWCHAR REBUNI;
 
 #define MAX_UNI \
     ((1 << (8 * sizeof(REBUNI))) - 1)

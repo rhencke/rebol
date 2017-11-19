@@ -232,7 +232,7 @@ typedef struct sInt64 {
 
 struct devreq_file {
     struct rebol_devreq devreq;
-    REBCHR *path;           // file string (in OS local format)
+    REBVAL *path;           // file string (in OS local format)
     int64_t size;           // file size
     int64_t index;          // file index position
     FILETIME_DEVREQ time;   // file modification time (struct)
@@ -249,7 +249,7 @@ struct devreq_net {
 
 struct devreq_serial {
     struct rebol_devreq devreq;
-    REBCHR *path;           //device path string (in OS local format)
+    REBVAL *path;           //device path string (in OS local format)
     void *prior_attr;       // termios: retain previous settings to revert on close
     int32_t baud;           // baud rate of serial port
     uint8_t data_bits;      // 5, 6, 7 or 8

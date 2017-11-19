@@ -448,17 +448,17 @@ int main(int argc, char *argv_ansi[])
     Init_Blank(ext_value);
     LOAD_BOOT_EXTENSIONS(ext_value);
 
-    DECLARE_LOCAL(exec_path);
-    REBCHR *path;
-    REBINT path_len = OS_GET_CURRENT_EXEC(&path);
-    if (path_len < 0)
-        Init_Blank(exec_path);
-    else {
-        Init_File(exec_path,
-            To_REBOL_Path(path, path_len, (OS_WIDE ? PATH_OPT_UNI_SRC : 0))
-            );
-        OS_FREE(path);
-    }
+    // While some people may think that argv[0] in C contains the path to
+    // the running executable, this is not necessarily the case.  The actual
+    // method for getting the current executable path is OS-specific:
+    //
+    // https://stackoverflow.com/questions/1023306/
+    //
+    // It's not foolproof, so BLANK! is passed in if nothing could be found.
+    // The console code can then decide if it wants to fall back on argv[0].
+    //
+    REBVAL *exec_path = OS_GET_CURRENT_EXEC();
+    assert(IS_FILE(exec_path) || IS_BLANK(exec_path));
 
     // !!! Previously the C code would call a separate startup function
     // explicitly.  This created another difficult case to bulletproof
@@ -480,6 +480,7 @@ int main(int argc, char *argv_ansi[])
     REBVAL *code = rebBlank();
     REBVAL *result = rebBlock(exec_path, argv_block, ext_value, END);
     REBVAL *status = rebBlank();
+    rebRelease(exec_path); // ...value in BLOCK! keeps series alive now...
 
     // The DO and APPLY hooks are used to implement things like tracing
     // or debugging.  If they were allowed to run during the host

@@ -721,9 +721,9 @@ SQLRETURN ODBC_DescribeResults(
         // WORD!-interning mechanics require UTF-8 at present.
 
         assert(sizeof(REBUNI) == sizeof(SQLWCHAR));
-        REBSER *title_utf8 =
-            Make_UTF8_Binary(title, title_length, 0, OPT_ENC_UNISRC);
-
+        REBSER *title_utf8 = Make_UTF8_Binary(
+            cast(const REBUNI*, title), title_length, 0, OPT_ENC_0
+        );
         column->title =
             Intern_UTF8_Managed(BIN_HEAD(title_utf8), BIN_LEN(title_utf8));
 

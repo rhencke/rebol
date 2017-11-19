@@ -444,9 +444,9 @@ static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
 //
 // FUNC and PROC search for these tags, like <opt> and <local>.  They are
 // natives and run during bootstrap, so these string comparisons are
-// needed.  This routine does not use a table directly, because the slots
-// it initializes are not constants...and older TCCs don't support local
-// struct arrays of that form.
+// needed.
+//
+// Note: Not done with a table, because older TCCs don't support that.
 //
 static void Init_Function_Tags(void)
 {
@@ -784,14 +784,12 @@ static void Init_Root_Vars(void)
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);
     rebLock(Root_Empty_Block, END);
 
-    // Note: rebString() can't run until the UTF8 buffer is allocated.  We
-    // back a string with a binary although, R3-Alpha always terminated
-    // binaries with zero...so no further termination is needed.
+    // Note: rebString() can't run yet, review.
     //
-    REBSER *nulled_bin = Make_Binary(1);
-    assert(*BIN_AT(nulled_bin, 0) == '\0');
-    assert(BIN_LEN(nulled_bin) == 0);
-    Root_Empty_String = Init_String(Alloc_Value(), nulled_bin);
+    REBSER *nulled_uni = Make_Unicode(1);
+    assert(*UNI_AT(nulled_uni, 0) == '\0');
+    assert(UNI_LEN(nulled_uni) == 0);
+    Root_Empty_String = Init_String(Alloc_Value(), nulled_uni);
     rebLock(Root_Empty_String, END);
 
     Root_Space_Char = rebChar(' ');
