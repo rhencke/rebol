@@ -179,7 +179,7 @@ TVAR REBSER *TG_Mold_Stack; // Used to prevent infinite loop in cyclical molds
 TVAR REBARR *TG_Buf_Collect; // for collecting object keys or words
 TVAR REBSER *TG_Buf_Utf8; // UTF8 reused buffer
 TVAR REBSER *TG_Byte_Buf; // temporary byte buffer used mainly by raw print
-TVAR REBSER *TG_Uni_Buf; // temporary unicode buffer - used mainly by mold
+TVAR REBSER *TG_Mold_Buf; // temporary UTF8 buffer - used mainly by mold
 
 // These manually-managed series must either be freed with Free_Series()
 // or handed over to the GC at certain synchronized points, else they

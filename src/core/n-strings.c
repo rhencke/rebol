@@ -558,7 +558,16 @@ REBNATIVE(enbase)
         fail (Error_Invalid(ARG(base_value)));
     }
 
-    Init_String(D_OUT, enbased);
+    // !!! Enbasing code is common with how a BINARY! molds out.  That needed
+    // the returned series to be UTF-8.  Once STRING! in Rebol is UTF-8 also,
+    // then this conversion won't be necessary.
+
+    Init_String(
+        D_OUT,
+        Append_UTF8_May_Fail(NULL, BIN_HEAD(enbased), BIN_LEN(enbased))
+    );
+    Free_Series(enbased);
+
     return R_OUT;
 }
 
@@ -607,9 +616,7 @@ REBNATIVE(enhex)
     // is smarter and expands the buffer on-demand so routines like this don't
     // need to preallocate it.
     //
-    Expand_Series(mo->series, mo->start, len * 12);
-
-    REBUNI *dp = UNI_AT(mo->series, mo->start); // ^-- Expand_Series may move!
+    REBYTE *dp = Prep_Mold_Overestimated(mo, len * 12);
 
     REBSER *s = VAL_SERIES(ARG(string));
 
@@ -720,13 +727,12 @@ REBNATIVE(enhex)
 
     *dp = '\0';
 
+    SET_SERIES_LEN(mo->series, dp - BIN_HEAD(mo->series));
+
     Init_Any_Series(
         D_OUT,
         VAL_TYPE(ARG(string)),
-        Pop_Molded_String_Len(
-            mo,
-            cast(REBCNT, dp - UNI_AT(mo->series, mo->start)) // generated size
-        )
+        Pop_Molded_String(mo)
     );
 
     return R_OUT;
@@ -753,11 +759,10 @@ REBNATIVE(dehex)
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    // Conservatively assume no %NNs, and output is same length as input.
+    // Conservatively assume no %NNs, and output is same length as input, with
+    // all codepoints expanding to 4 bytes.
     //
-    Expand_Series(mo->series, mo->start, len);
-
-    REBUNI *dp = UNI_AT(mo->series, mo->start); // ^-- Expand_Series may move!
+    REBYTE *dp = Prep_Mold_Overestimated(mo, len * 4);
 
     // RFC 3986 says the encoding/decoding must use UTF-8.  This temporary
     // buffer is used to hold up to 4 bytes (and a terminator) that need
@@ -774,7 +779,7 @@ REBNATIVE(dehex)
     while (i < len) {
 
         if (c != '%') {
-            *dp++ = c;
+            dp += Encode_UTF8_Char(dp, c);
             ++i;
         }
         else {
@@ -820,16 +825,17 @@ REBNATIVE(dehex)
         decode_codepoint:
             scan[scan_size] = '\0';
             const REBYTE *next; // goto would cross initialization
+            REBUNI decoded;
             if (scan[0] < 0x80) {
-                *dp = scan[0];
+                decoded = scan[0];
                 next = &scan[1];
             }
             else {
-                next = Back_Scan_UTF8_Char(dp, scan, &scan_size);
+                next = Back_Scan_UTF8_Char(&decoded, scan, &scan_size);
                 if (next == NULL)
                     fail ("Bad UTF-8 sequence in %XX of dehex");
             }
-            ++dp;
+            dp += Encode_UTF8_Char(dp, decoded);
             --scan_size; // one less (see why it's called "Back_Scan")
 
             // Slide any residual UTF-8 data to the head of the buffer
@@ -851,13 +857,12 @@ REBNATIVE(dehex)
 
     *dp = '\0';
 
+    SET_SERIES_LEN(mo->series, dp - BIN_HEAD(mo->series));
+
     Init_Any_Series(
         D_OUT,
         VAL_TYPE(ARG(string)),
-        Pop_Molded_String_Len(
-            mo,
-            cast(REBCNT, dp - UNI_AT(mo->series, mo->start)) // generated size
-        )
+        Pop_Molded_String(mo)
     );
 
     return R_OUT;
@@ -946,8 +951,12 @@ REBNATIVE(entab)
     else
         tabsize = TAB_SIZE;
 
-    REBSER *ser = Entab_Unicode(VAL_UNI(val), VAL_INDEX(val), len, tabsize);
-    Init_Any_Series(D_OUT, VAL_TYPE(val), ser);
+    Init_Any_Series(
+        D_OUT,
+        VAL_TYPE(val),
+        Make_Entabbed_String(VAL_UNI(val), VAL_INDEX(val), len, tabsize)
+    );
+
 
     return R_OUT;
 }
@@ -979,9 +988,11 @@ REBNATIVE(detab)
     else
         tabsize = TAB_SIZE;
 
-    REBSER *ser = Detab_Unicode(VAL_UNI(val), VAL_INDEX(val), len, tabsize);
-
-    Init_Any_Series(D_OUT, VAL_TYPE(val), ser);
+    Init_Any_Series(
+        D_OUT,
+        VAL_TYPE(val),
+        Make_Detabbed_String(VAL_UNI(val), VAL_INDEX(val), len, tabsize)
+    );
 
     return R_OUT;
 }

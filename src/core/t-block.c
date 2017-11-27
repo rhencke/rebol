@@ -669,10 +669,10 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         SET_MOLD_FLAG(mo, MOLD_FLAG_ALL);
         Pre_Mold(mo, v); // #[block! part
 
-        Append_Codepoint(mo->series, '[');
+        Append_Utf8_Codepoint(mo->series, '[');
         Mold_Array_At(mo, VAL_ARRAY(v), 0, 0);
         Post_Mold(mo, v);
-        Append_Codepoint(mo->series, ']');
+        Append_Utf8_Codepoint(mo->series, ']');
     }
     else {
         const char *sep;
@@ -692,12 +692,12 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, REBOOL form)
             break;
 
         case REB_GET_PATH:
-            Append_Codepoint(mo->series, ':');
+            Append_Utf8_Codepoint(mo->series, ':');
             sep = "/";
             break;
 
         case REB_LIT_PATH:
-            Append_Codepoint(mo->series, '\'');
+            Append_Utf8_Codepoint(mo->series, '\'');
             // fall through
         case REB_PATH:
         case REB_SET_PATH:
@@ -714,7 +714,7 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, REBOOL form)
             Mold_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), sep);
 
         if (VAL_TYPE(v) == REB_SET_PATH)
-            Append_Codepoint(mo->series, ':');
+            Append_Utf8_Codepoint(mo->series, ':');
     }
 }
 

@@ -55,7 +55,7 @@ void Snap_State_Core(struct Reb_State *s)
     s->frame = FS_TOP;
 
     s->manuals_len = SER_LEN(GC_Manuals);
-    s->uni_buf_len = SER_LEN(UNI_BUF);
+    s->mold_buf_len = SER_LEN(MOLD_BUF);
     s->mold_loop_tail = ARR_LEN(TG_Mold_Stack);
 
     // !!! Is this initialization necessary?
@@ -132,7 +132,7 @@ void Assert_State_Balanced_Debug(
         panic_at (manual, file, line);
     }
 
-    assert(s->uni_buf_len == SER_LEN(UNI_BUF));
+    assert(s->mold_buf_len == SER_LEN(MOLD_BUF));
     assert(s->mold_loop_tail == ARR_LEN(TG_Mold_Stack));
 
     assert(s->error == NULL); // !!! necessary?
@@ -194,7 +194,7 @@ void Trapped_Helper(struct Reb_State *s)
 
     SET_SERIES_LEN(GC_Guarded, s->guarded_len);
     TG_Frame_Stack = s->frame;
-    TERM_SEQUENCE_LEN(UNI_BUF, s->uni_buf_len);
+    TERM_SEQUENCE_LEN(MOLD_BUF, s->mold_buf_len);
 
   #if !defined(NDEBUG)
     //
@@ -1727,7 +1727,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     // Form: ** Where: function
     REBVAL *where = KNOWN(&vars->where);
     if (NOT(IS_BLANK(where))) {
-        Append_Codepoint(mo->series, '\n');
+        Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_WHERE);
         Form_Value(mo, where);
     }
@@ -1735,7 +1735,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     // Form: ** Near: location
     REBVAL *nearest = KNOWN(&vars->nearest);
     if (NOT(IS_BLANK(nearest))) {
-        Append_Codepoint(mo->series, '\n');
+        Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_NEAR);
 
         if (IS_STRING(nearest)) {
@@ -1765,7 +1765,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     //
     REBVAL *file = KNOWN(&vars->file);
     if (NOT(IS_BLANK(file))) {
-        Append_Codepoint(mo->series, '\n');
+        Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_FILE);
         if (IS_WORD(file))
             Form_Value(mo, file);
@@ -1776,7 +1776,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     // Form: ** Line: line-number
     REBVAL *line = KNOWN(&vars->line);
     if (NOT(IS_BLANK(line))) {
-        Append_Codepoint(mo->series, '\n');
+        Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_LINE);
         if (IS_INTEGER(line))
             Form_Value(mo, line);
