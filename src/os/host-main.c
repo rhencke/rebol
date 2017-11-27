@@ -452,7 +452,8 @@ int main(int argc, char *argv_ansi[])
     // the running executable, this is not necessarily the case.  The actual
     // method for getting the current executable path is OS-specific:
     //
-    // https://stackoverflow.com/questions/1023306/
+    // https://stackoverflow.com/q/1023306/
+    // http://stackoverflow.com/a/933996/211160
     //
     // It's not foolproof, so BLANK! is passed in if nothing could be found.
     // The console code can then decide if it wants to fall back on argv[0].
