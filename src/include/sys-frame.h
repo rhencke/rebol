@@ -138,7 +138,7 @@ inline static REBSTR* FRM_FILE(REBFRM *f) {
 }
 
 inline static const char* FRM_FILE_UTF8(REBFRM *f) {
-    return cs_cast(STR_HEAD(FRM_FILE(f)));
+    return STR_HEAD(FRM_FILE(f));
 }
 
 inline static int FRM_LINE(REBFRM *f) {
@@ -261,11 +261,11 @@ inline static void Get_Frame_Label_Or_Blank(REBVAL *out, REBFRM *f) {
         Init_Blank(out); // anonymous invocation
 }
 
-inline static const REBYTE* Frame_Label_Or_Anonymous_UTF8(REBFRM *f) {
+inline static const char* Frame_Label_Or_Anonymous_UTF8(REBFRM *f) {
     assert(f->eval_type == REB_FUNCTION);
     if (f->opt_label != NULL)
         return STR_HEAD(f->opt_label);
-    return cb_cast("[anonymous]");
+    return "[anonymous]";
 }
 
 inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {

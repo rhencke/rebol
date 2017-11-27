@@ -1092,6 +1092,7 @@
 // For APPEND_BYTES_LIMIT, m is the max-size allocated for d (dest)
 //
 #include <string.h> // for strlen() etc, but also defines `size_t`
+#define strsize strlen
 #if defined(NDEBUG)
     /* These [S]tring and [B]inary casts are for "flips" between a 'char *'
      * and 'unsigned char *' (or 'const char *' and 'const unsigned char *').

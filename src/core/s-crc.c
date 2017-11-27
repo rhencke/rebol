@@ -140,25 +140,29 @@ REBINT Compute_CRC(REBYTE *str, REBCNT len)
 
 
 //
-//  Hash_Word: C
+//  Hash_UTF8: C
 //
 // Return a case insensitive hash value for the string.
 //
-REBINT Hash_Word(const REBYTE *str, REBCNT len)
+// !!! Review taking size_t for size instead of REBCNT, but Back_Scan_UTF8
+// needs to be changed.
+//
+REBINT Hash_UTF8(const REBYTE *utf8, REBCNT size)
 {
     REBINT hash =
-        cast(REBINT, len) + cast(REBINT, cast(REBYTE, LO_CASE(*str)));
+        cast(REBINT, size) + cast(REBINT, cast(REBYTE, LO_CASE(*utf8)));
 
-    for (; len > 0; str++, len--) {
-        REBUNI n = *str;
+    for (; size != 0; ++utf8, --size) {
+        REBUNI n = *utf8;
 
         if (n >= 0x80) {
-            str = Back_Scan_UTF8_Char(&n, str, &len);
-            assert(str); // UTF8 should have already been verified good
+            utf8 = Back_Scan_UTF8_Char(&n, utf8, &size);
+            assert(utf8 != NULL); // should have already been verified good
         }
 
         // Optimize `n = cast(REBYTE, LO_CASE(n))` (drop upper 8 bits)
         // !!! Is this actually faster?
+        //
         if (n < UNICODE_CASES)
             n = cast(REBYTE, LO_CASE(n));
         else
@@ -168,6 +172,7 @@ REBINT Hash_Word(const REBYTE *str, REBCNT len)
 
         // Left shift math must use unsigned to avoid undefined behavior
         // http://stackoverflow.com/q/3784996/211160
+        //
         hash = cast(REBINT, MASK_CRC(cast(REBCNT, hash) << 8) ^ CRC_Table[n]);
     }
 
@@ -239,7 +244,7 @@ REBCNT Hash_Value(const RELVAL *v)
         break;
 
     case REB_TUPLE:
-        ret = Hash_String(VAL_TUPLE(v), VAL_TUPLE_LEN(v), 1);
+        ret = Hash_Bytes_Or_Uni(VAL_TUPLE(v), VAL_TUPLE_LEN(v), 1);
         break;
 
     case REB_TIME:
@@ -255,7 +260,7 @@ REBCNT Hash_Value(const RELVAL *v)
     case REB_EMAIL:
     case REB_URL:
     case REB_TAG:
-        ret = Hash_String(
+        ret = Hash_Bytes_Or_Uni(
             VAL_RAW_DATA_AT(v),
             VAL_LEN_HEAD(v),
             SER_WIDE(VAL_SERIES(v))
@@ -285,8 +290,7 @@ REBCNT Hash_Value(const RELVAL *v)
         break;
 
     case REB_DATATYPE: {
-        REBSTR *canon = Canon(VAL_TYPE_SYM(v));
-        ret = Hash_Word(STR_HEAD(canon), STR_NUM_BYTES(canon));
+        ret = Hash_String(Canon(VAL_TYPE_SYM(v)));
         break; }
 
     case REB_BITSET:
@@ -315,8 +319,7 @@ REBCNT Hash_Value(const RELVAL *v)
         // !!! Should this hash be cached on the words somehow, e.g. in the
         // data payload before the actual string?
         //
-        REBSTR *spelling = VAL_WORD_SPELLING(v);
-        ret = Hash_Word(STR_HEAD(spelling), STR_NUM_BYTES(spelling));
+        ret = Hash_String(VAL_WORD_SPELLING(v));
         break; }
 
     case REB_FUNCTION:
@@ -556,16 +559,16 @@ REBCNT CRC32(REBYTE *buf, REBCNT len)
 
 
 //
-//  Hash_String: C
+//  Hash_Bytes_Or_Uni: C
 //
 // Return a 32-bit case insensitive hash value for the string.  The
 // string does not have to be zero terminated and UTF8 is ok.
 //
-REBINT Hash_String(
-        const void *data, // REBYTE* or REBUNI*
-        REBCNT len, // chars, not bytes
-        REBCNT wide // 1 = byte-sized, 2 = Unicode
-) {
+REBINT Hash_Bytes_Or_Uni(
+    const void *data, // REBYTE* or REBUNI*
+    REBCNT len, // chars, not bytes
+    REBCNT wide // 1 = byte-sized, 2 = Unicode
+){
     uint32_t c = 0x00000000;
     uint32_t c2 = 0x00000000; // don't change, see [1] below
     REBCNT n;

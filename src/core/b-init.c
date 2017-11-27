@@ -697,7 +697,7 @@ static REBARR *Startup_Actions(REBARR *boot_actions)
 
     // Sanity check the symbol transformation
     //
-    if (0 != strcmp("open", cs_cast(STR_HEAD(Canon(SYM_OPEN)))))
+    if (0 != strcmp("open", STR_HEAD(Canon(SYM_OPEN))))
         panic (Canon(SYM_OPEN));
 
     REBDSP dsp_orig = DSP;

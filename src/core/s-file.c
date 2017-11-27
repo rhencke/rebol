@@ -173,7 +173,7 @@ REBSER *To_Local_Path(
             // that all is going to change with UTF-8 Everywhere, a bit of
             // inefficiency here going via UTF-8 is not that big a deal.
             //
-            REBCNT lpath_size;
+            size_t lpath_size;
             char *lpath_utf8 = rebFileToLocalAlloc(
                 &lpath_size, lpath, full
             );
@@ -182,9 +182,7 @@ REBSER *To_Local_Path(
             // number of codepoints.
             //
             result = Make_Unicode(len + lpath_size + FN_PAD);
-            Append_UTF8_May_Fail(
-                result, cb_cast(lpath_utf8), lpath_size
-            );
+            Append_UTF8_May_Fail(result, lpath_utf8, lpath_size);
 
             rebFree(lpath_utf8);
             rebRelease(lpath);

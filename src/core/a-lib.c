@@ -1420,53 +1420,58 @@ char *RL_rebMoldAlloc(REBCNT *len_out, const REBVAL *v)
 //
 // Extract UTF-8 data from an ANY-STRING! or ANY-WORD!.
 //
-REBCNT RL_rebSpellingOf(
+// API does not return the number of UTF-8 characters for a value, because
+// the answer to that is always cached for any value position as LENGTH OF.
+// The more immediate quantity of concern to return is the number of bytes.
+//
+size_t RL_rebSpellingOf(
     char *buf,
-    REBCNT buf_chars,
+    size_t buf_size, // number of bytes
     const REBVAL *v
 ){
     Enter_Api();
 
-    REBCNT index;
-    REBCNT len;
-    const REBYTE *utf8;
+    const char *utf8;
+    size_t utf8_size;
     if (ANY_STRING(v)) {
-        index = VAL_INDEX(v);
-        len = VAL_LEN_AT(v);
+        REBCNT index = VAL_INDEX(v);
+        REBCNT len = VAL_LEN_AT(v);
         REBSER *temp = Temp_UTF8_At_Managed(v, &index, &len);
-        utf8 = BIN_AT(temp, index);
+        utf8 = cs_cast(BIN_AT(temp, index));
+        utf8_size = len;
     }
     else {
         assert(ANY_WORD(v));
-        index = 0;
-        utf8 = VAL_WORD_HEAD(v);
-        len = LEN_BYTES(utf8);
+
+        REBSTR *spelling = VAL_WORD_SPELLING(v);
+        utf8 = STR_HEAD(spelling);
+        utf8_size = STR_SIZE(spelling);
     }
 
     if (buf == NULL) {
-        assert(buf_chars == 0);
-        return len; // caller must allocate a buffer of size len + 1
+        assert(buf_size == 0);
+        return utf8_size; // caller must allocate a buffer of size + 1
     }
 
-    REBCNT limit = MIN(buf_chars, len);
-    memcpy(buf, cs_cast(utf8), limit);
+    size_t limit = MIN(buf_size, utf8_size);
+    memcpy(buf, utf8, limit);
     buf[limit] = '\0';
-    return len;
+    return utf8_size;
 }
 
 
 //
 //  rebSpellingOfAlloc: RL_API
 //
-char *RL_rebSpellingOfAlloc(REBCNT *len_out, const REBVAL *v)
+char *RL_rebSpellingOfAlloc(size_t *size_out, const REBVAL *v)
 {
     Enter_Api();
 
-    REBCNT len = rebSpellingOf(NULL, 0, v);
-    char *result = cast(char*, rebMalloc(len + 1));
-    rebSpellingOf(result, len, v);
-    if (len_out != NULL)
-        *len_out = len;
+    size_t size = rebSpellingOf(NULL, 0, v);
+    char *result = cast(char*, rebMalloc(size + 1)); // add space for term
+    rebSpellingOf(result, size, v);
+    if (size_out != NULL)
+        *size_out = size;
     return result;
 }
 
@@ -1475,6 +1480,11 @@ char *RL_rebSpellingOfAlloc(REBCNT *len_out, const REBVAL *v)
 //  rebSpellingOfW: RL_API
 //
 // Extract UCS2 data from an ANY-STRING! or ANY-WORD!.
+//
+// !!! Although the rebSpellingOf API deals in bytes, this deals in count of
+// characters.  (The use of REBCNT instead of size_t indicates this.)  It may
+// be more useful for the wide string APIs to do this so leaving it that way
+// for now.
 //
 REBCNT RL_rebSpellingOfW(
     REBWCHAR *buf,
@@ -1493,7 +1503,9 @@ REBCNT RL_rebSpellingOfW(
     }
     else {
         assert(ANY_WORD(v));
-        s = Make_UTF8_May_Fail(VAL_WORD_HEAD(v)); // makes REBUNI series
+
+        REBSTR *spelling = VAL_WORD_SPELLING(v);
+        s = Append_UTF8_May_Fail(NULL, STR_HEAD(spelling), STR_SIZE(spelling));
         index = 0;
         len = SER_LEN(s);
     }
@@ -1605,7 +1617,7 @@ REBVAL *RL_rebSizedString(const char *utf8, size_t size)
 
     return Init_String(
         Alloc_Value(),
-        Append_UTF8_May_Fail(NULL, cast(const REBYTE*, utf8), size)
+        Append_UTF8_May_Fail(NULL, utf8, size)
     );
 }
 
@@ -1616,7 +1628,7 @@ REBVAL *RL_rebSizedString(const char *utf8, size_t size)
 REBVAL *RL_rebString(const char *utf8)
 {
     Enter_Api();
-    return Init_String(Alloc_Value(), Make_UTF8_May_Fail(cb_cast(utf8)));
+    return Init_String(Alloc_Value(), Make_UTF8_May_Fail(utf8));
 }
 
 
@@ -1896,7 +1908,7 @@ void RL_rebPanicValue(const void *p, const void *end)
 //
 // !!! Should MAX_FILE_NAME be taken into account for the OS?
 //
-char *RL_rebFileToLocalAlloc(REBCNT *len_out, const REBVAL *file, REBOOL full)
+char *RL_rebFileToLocalAlloc(size_t *size_out, const REBVAL *file, REBOOL full)
 {
     Enter_Api();
 
@@ -1909,7 +1921,7 @@ char *RL_rebFileToLocalAlloc(REBCNT *len_out, const REBVAL *file, REBOOL full)
         To_Local_Path(VAL_UNI_AT(file), VAL_LEN_AT(file), full)
     );
 
-    return rebSpellingOfAlloc(len_out, local);
+    return rebSpellingOfAlloc(size_out, local);
 }
 
 

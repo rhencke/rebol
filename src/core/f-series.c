@@ -91,7 +91,9 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 // !!! How to tell whether it's a URL! or a FILE! ?
                 //
                 Scan_File(
-                    D_OUT, STR_HEAD(LINK(s).file), SER_LEN(LINK(s).file)
+                    D_OUT,
+                    cb_cast(STR_HEAD(LINK(s).file)),
+                    SER_LEN(LINK(s).file)
                 );
                 return R_OUT;
             }
