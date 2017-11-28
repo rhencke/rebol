@@ -1348,6 +1348,7 @@ inline static REBVAL *Init_Char(RELVAL *out, REBUNI uni) {
 inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
     VAL_RESET_HEADER(out, REB_INTEGER);
     out->payload.integer = i64;
+    out->extra.binding = NULL; // !!! avoids compiler warnings, better way?
     return cast(REBVAL*, out);
 }
 

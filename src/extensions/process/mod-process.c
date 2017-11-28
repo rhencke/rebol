@@ -1607,7 +1607,7 @@ REBNATIVE(call)
         break; }
 
     case REB_BINARY: {
-        os_input = s_cast(rebValBinAlloc(&input_len, ARG(in)));
+        os_input = s_cast(rebBytesOfBinaryAlloc(&input_len, ARG(in)));
         break; }
 
     default:

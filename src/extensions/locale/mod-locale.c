@@ -62,26 +62,32 @@ REBNATIVE(locale)
 {
 #ifdef TO_WINDOWS
     LOCALE_INCLUDE_PARAMS_OF_LOCALE;
-    REBSTR *cat = VAL_WORD_CANON(ARG(category));
-    LCTYPE type;
-    if (cat == LOCALE_WORD_LANGUAGE) {
-        type = LOCALE_SENGLANGUAGE;
-    } else if (cat == LOCALE_WORD_LANGUAGE_P) {
-        type = LOCALE_SNATIVELANGNAME;
-    } else if (cat == LOCALE_WORD_TERRITORY) {
-        type = LOCALE_SENGCOUNTRY;
-    } else if (cat == LOCALE_WORD_TERRITORY_P) {
-        type = LOCALE_SCOUNTRY;
-    } else {
-        fail (Error(RE_EXT_LOCALE_INVALID_CATEGORY, ARG(category), END));
-    }
-    int len = GetLocaleInfo(0, type, 0, 0);
-    REBSER *data = Make_Unicode(len);
-    assert(sizeof(REBUNI) == sizeof(WCHAR));
-    len = GetLocaleInfo(0, type, cast(WCHAR*, UNI_HEAD(data)), len);
-    SET_UNI_LEN(data, len - 1);
 
-    Init_String(D_OUT, data);
+    REBSTR *cat = VAL_WORD_CANON(ARG(category));
+
+    LCTYPE type;
+    if (cat == LOCALE_WORD_LANGUAGE)
+        type = LOCALE_SENGLANGUAGE;
+    else if (cat == LOCALE_WORD_LANGUAGE_P)
+        type = LOCALE_SNATIVELANGNAME;
+    else if (cat == LOCALE_WORD_TERRITORY)
+        type = LOCALE_SENGCOUNTRY;
+    else if (cat == LOCALE_WORD_TERRITORY_P)
+        type = LOCALE_SCOUNTRY;
+    else
+        fail (Error(RE_EXT_LOCALE_INVALID_CATEGORY, ARG(category), END));
+
+    int len_plus_term = GetLocaleInfo(0, type, 0, 0); // fetch needed length
+
+    wchar_t *buffer = OS_ALLOC_N(wchar_t, len_plus_term);
+
+    int len_check = GetLocaleInfo(0, type, buffer, len_plus_term);
+    assert(len_check == len_plus_term);
+    UNUSED(len_check);
+
+    REBVAL *str = rebSizedStringW(buffer, len_plus_term - 1);
+    Move_Value(D_OUT, str);
+    rebRelease(str);
 
     return R_OUT;
 #else
