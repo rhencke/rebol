@@ -55,9 +55,6 @@ REBSER *To_REBOL_Path(const REBUNI *up, REBCNT len, REBFLGS flags)
     REBOOL saw_slash = FALSE; // have we hit a '/' yet?
 #endif
 
-    if (len == 0)
-        len = Strlen_Uni(up);
-
     REBSER *dst = Make_Unicode(len + FN_PAD);
 
     REBUNI c = '\0'; // for test after loop (in case loop does not run)
@@ -125,9 +122,6 @@ REBSER *To_Local_Path(
 ){
     REBCNT n = 0;
 
-    if (len == 0)
-        len = Strlen_Uni(up);
-
     // Prescan for: /c/dir = c:/dir, /vol/dir = //vol/dir, //dir = ??
     //
     REBCNT i = 0;
@@ -169,10 +163,6 @@ REBSER *To_Local_Path(
         if (full) {
             REBVAL *lpath = OS_GET_CURRENT_DIR();
 
-            // !!! For now the wchar_t routines do not work on POSIX.  Given
-            // that all is going to change with UTF-8 Everywhere, a bit of
-            // inefficiency here going via UTF-8 is not that big a deal.
-            //
             size_t lpath_size;
             char *lpath_utf8 = rebFileToLocalAlloc(
                 &lpath_size, lpath, full

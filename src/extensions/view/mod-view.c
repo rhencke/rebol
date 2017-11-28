@@ -306,11 +306,11 @@ REBNATIVE(request_file_p)
 
                 REBCNT dir_len;
                 const REBOOL full = TRUE;
-                wchar_t *dir_wide = rebFileToLocalAllocW(&dir_len, dir, full);
+                WCHAR *dir_wide = rebFileToLocalAllocW(&dir_len, dir, full);
 
                 while ((item_len = wcslen(item)) != 0) {
-                    wchar_t *buffer = OS_ALLOC_N(
-                        wchar_t, dir_len + item_len + 1 // null terminator
+                    WCHAR *buffer = OS_ALLOC_N(
+                        WCHAR, dir_len + item_len + 1 // null terminator
                     );
 
                     wcscpy(buffer, dir_wide);

@@ -80,7 +80,7 @@
 // Excise as soon as possible.
 //
 #ifdef TO_WINDOWS
-    #define REBCHR wchar_t
+    #define REBCHR REBWCHAR
 #else
     #define REBCHR char
 #endif
@@ -120,11 +120,11 @@ REBCHR *rebValSpellingAllocOS(REBCNT *len_out, REBVAL *any_string)
 //
 REBSER *Copy_OS_Str(const void *src, REBINT len)
 {
-#ifdef OS_WIDE_CHAR
-    return Copy_Wide_Str(cast(const wchar_t*, src), len);
-#else
+  #ifdef OS_WIDE_CHAR
+    return Copy_Wide_Str(cast(const WCHAR*, src), len);
+  #else
     return Append_UTF8_May_Fail(NULL, cast(const char*, src), len);
-#endif
+  #endif
 }
 
 // !!! The original implementation of CALL from Atronix had to communicate
@@ -1764,16 +1764,17 @@ REBNATIVE(get_os_browsers)
 
     REBCNT len = num_bytes / 2;
 
-    REBSER *ser = Make_Unicode(len);
+    WCHAR *buffer = OS_ALLOC_N(WCHAR, len + 1); // include terminator
+
     flag = RegQueryValueEx(
-        key, L"", 0, &type, cast(LPBYTE, UNI_HEAD(ser)), &num_bytes
+        key, L"", 0, &type, cast(LPBYTE, buffer), &num_bytes
     );
     RegCloseKey(key);
 
     if (flag != ERROR_SUCCESS)
         fail ("Could not read registry key for http\\shell\\open\\command");
 
-    while (*UNI_AT(ser, len - 1) == 0) {
+    while (buffer[len - 1] == '\0') {
         //
         // Don't count terminators; seems the guarantees are a bit fuzzy
         // about whether the string in the registry has one included in the
@@ -1781,26 +1782,36 @@ REBNATIVE(get_os_browsers)
         //
         --len;
     }
-    TERM_UNI_LEN(ser, len);
 
     DS_PUSH_TRASH;
-    Init_String(DS_TOP, ser);
+    REBVAL *str = rebSizedStringW(buffer, len);
+    Move_Value(DS_TOP, str);
+    rebRelease(str);
+
+    OS_FREE(buffer);
 
   #elif defined(TO_LINUX)
 
     // Caller should try xdg-open first, then try x-www-browser otherwise
     //
     DS_PUSH_TRASH;
-    Init_String(DS_TOP, Make_UTF8_May_Fail("xdg-open %1"));
+    REBVAL *xdg_open = rebString("xdg-open %1");
+    Move_Value(DS_TOP, xdg_open);
+    rebRelease(xdg_open);
+
     DS_PUSH_TRASH;
-    Init_String(DS_TOP, Make_UTF8_May_Fail("x-www-browser %1"));
+    REBVAL *www_browser = rebString("x-www-browser %1");
+    Move_Value(DS_TOP, www_browser);
+    rebRelease(www_browser);
 
   #else // Just try /usr/bin/open on POSIX, OS X, Haiku, etc.
 
     // Just use /usr/bin/open
     //
     DS_PUSH_TRASH;
-    Init_String(DS_TOP, Make_UTF8_May_Fail("/usr/bin/open %1"));
+    REBVAL *usr_bin_open = rebString("/usr/bin/open %1");
+    Move_Value(DS_TOP, usr_bin_open);
+    rebRelease(usr_bin_open);
 
   #endif
 

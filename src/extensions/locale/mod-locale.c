@@ -60,7 +60,7 @@
 REBNATIVE(locale)
 //
 {
-#ifdef TO_WINDOWS
+  #ifdef TO_WINDOWS
     LOCALE_INCLUDE_PARAMS_OF_LOCALE;
 
     REBSTR *cat = VAL_WORD_CANON(ARG(category));
@@ -79,7 +79,7 @@ REBNATIVE(locale)
 
     int len_plus_term = GetLocaleInfo(0, type, 0, 0); // fetch needed length
 
-    wchar_t *buffer = OS_ALLOC_N(wchar_t, len_plus_term);
+    WCHAR *buffer = OS_ALLOC_N(WCHAR, len_plus_term);
 
     int len_check = GetLocaleInfo(0, type, buffer, len_plus_term);
     assert(len_check == len_plus_term);
@@ -90,11 +90,10 @@ REBNATIVE(locale)
     rebRelease(str);
 
     return R_OUT;
-#else
+  #else
     UNUSED(frame_);
     fail ("Locale not implemented for non-windows");
-#endif
-
+  #endif
 }
 
 

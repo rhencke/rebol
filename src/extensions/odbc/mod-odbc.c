@@ -234,7 +234,7 @@ REBNATIVE(open_connection)
     //  UCS2 encoded. iODBC I believe uses wchar_t (this is based on
     //  attempting to support iODBC in DBD::ODBC)"
     //
-    assert(sizeof(SQLWCHAR) == sizeof(uint32_t));
+    assert(sizeof(SQLWCHAR) == sizeof(REBWCHAR));
 
     SQLRETURN rc;
 

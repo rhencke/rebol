@@ -2125,7 +2125,7 @@ void RL_rebFail_OS(int errnum)
     if (errnum == 0)
         errnum = GetLastError();
 
-    wchar_t *lpMsgBuf; // FormatMessage writes allocated buffer address here
+    WCHAR *lpMsgBuf; // FormatMessage writes allocated buffer address here
 
     // Specific errors have %1 %2 slots, and if you know the error ID and
     // that it's one of those then this lets you pass arguments to fill
@@ -2146,7 +2146,7 @@ void RL_rebFail_OS(int errnum)
         lpSource,
         errnum, // message identifier
         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // default language
-        cast(wchar_t*, &lpMsgBuf), // allocated buffer address written here
+        cast(WCHAR*, &lpMsgBuf), // allocated buffer address written here
         0, // buffer size (not used since FORMAT_MESSAGE_ALLOCATE_BUFFER)
         Arguments
     );
