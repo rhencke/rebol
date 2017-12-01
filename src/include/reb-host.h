@@ -42,7 +42,6 @@
 #include "reb-ext.h"        // includes reb-defs.h
 
 #include "reb-device.h"
-#include "reb-file.h"
 #include "reb-event.h"
 #include "reb-evtypes.h"
 
@@ -52,4 +51,3 @@
 #include "reb-lib.h"
 
 #include "host-lib.h"
-

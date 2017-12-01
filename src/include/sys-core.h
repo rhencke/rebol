@@ -232,8 +232,6 @@
 #include "reb-types.h"
 #include "reb-event.h"
 
-#include "reb-file.h"
-
 #include "sys-rebnod.h"
 
 #include "sys-deci.h"

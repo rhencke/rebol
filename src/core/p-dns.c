@@ -39,7 +39,6 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 {
     FAIL_IF_BAD_PORT(port);
 
-    REBINT result;
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     REBREQ *sock = Ensure_Port_State(port, RDI_DNS);
@@ -85,10 +84,8 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
 
-        if (NOT(sock->flags & RRF_OPEN)) {
-            if (OS_DO_DEVICE(sock, RDC_OPEN))
-                fail (Error_On_Port(RE_CANNOT_OPEN, port, sock->error));
-        }
+        if (NOT(sock->flags & RRF_OPEN))
+            OS_DO_DEVICE(sock, RDC_OPEN);
 
         arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
 
@@ -116,28 +113,24 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         else
             fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
 
-        result = OS_DO_DEVICE(sock, RDC_READ);
-        if (result < 0)
-            fail (Error_On_Port(RE_READ_ERROR, port, sock->error));
+        int result = OS_DO_DEVICE(sock, RDC_READ);
 
         assert(NOT(result == DR_PEND)); // async R3-Alpha DNS gone
+        UNUSED(result);
+
         len = 1;
-        goto return_port; }
+        goto pick; }
 
     case SYM_PICK:  // FIRST - return result
         if (NOT(sock->flags & RRF_OPEN))
             fail (Error_On_Port(RE_NOT_OPEN, port, -12));
 
+     pick:
         len = Get_Num_From_Arg(arg); // Position
         if (len != 1)
             fail (Error_Out_Of_Range(arg));
 
         assert(sock->flags & RRF_DONE); // R3-Alpha async DNS removed
-
-        if (sock->error) {
-            OS_DO_DEVICE(sock, RDC_CLOSE);
-            fail (Error_On_Port(RE_READ_ERROR, port, sock->error));
-        }
 
         if (DEVREQ_NET(sock)->host_info == NULL) {
             Init_Blank(D_OUT); // HOST_NOT_FOUND or NO_ADDRESS blank vs. error
@@ -173,8 +166,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
             fail (Error_Bad_Refines_Raw());
         }
 
-        if (OS_DO_DEVICE(sock, RDC_OPEN))
-            fail (Error_On_Port(RE_CANNOT_OPEN, port, -12));
+        OS_DO_DEVICE(sock, RDC_OPEN);
         goto return_port; }
 
     case SYM_CLOSE:

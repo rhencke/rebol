@@ -336,7 +336,6 @@ REBOOL Do_Path_Throws_Core(
     //
     pvs->special = opt_setval;
     pvs->opt_label = NULL;
-    pvs->deferred = NULL;
 
     // Seed the path evaluation process by looking up the first item (to
     // get a datatype to dispatch on for the later path items)
@@ -354,6 +353,8 @@ REBOOL Do_Path_Throws_Core(
             pvs->opt_label = VAL_WORD_SPELLING(pvs->value);
     }
     else if (IS_GROUP(pvs->value)) {
+        pvs->deferred = NULL; // nowhere to R_IMMEDIATE write back to
+
         if (pvs->flags.bits & DO_FLAG_NO_PATH_GROUPS)
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
@@ -366,13 +367,11 @@ REBOOL Do_Path_Throws_Core(
         )){
             goto return_thrown;
         }
-
-        pvs->deferred = NULL; // nowhere to R_IMMEDIATE write back to
     }
     else {
-        Derelativize(pvs->out, pvs->value, pvs->specifier);
-
         pvs->deferred = NULL; // nowhere to R_IMMEDIATE write back to
+
+        Derelativize(pvs->out, pvs->value, pvs->specifier);
     }
 
     if (IS_VOID(pvs->out))
