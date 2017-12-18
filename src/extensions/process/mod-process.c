@@ -76,13 +76,13 @@
 #include "tmp-mod-process-first.h"
 
 
-// !!! %mod-process.c is now the last file that uses this REBCHR definition.
-// Excise as soon as possible.
+// !!! %mod-process.c is now the last file that uses this cross platform OS
+// character definition.  Excise as soon as possible.
 //
 #ifdef TO_WINDOWS
-    #define REBCHR WCHAR
+    #define OSCHR WCHAR
 #else
-    #define REBCHR char
+    #define OSCHR char
 #endif
 
 
@@ -93,7 +93,7 @@
 // On Windows, the result is a wide-char pointer, but on Linux, its UTF-8.
 // The returned pointer must be freed with OS_FREE.
 //
-REBCHR *rebValSpellingAllocOS(REBCNT *len_out, REBVAL *any_string)
+OSCHR *rebValSpellingAllocOS(REBCNT *len_out, REBVAL *any_string)
 {
 #ifdef OS_WIDE_CHAR
     return rebSpellingOfAllocW(len_out, any_string);
@@ -1521,9 +1521,9 @@ REBNATIVE(call)
     // we do dynamic allocations of argc strings through the API.  These need
     // to be freed before we return.
     //
-    REBCHR *cmd;
+    OSCHR *cmd;
     int argc;
-    const REBCHR **argv;
+    const OSCHR **argv;
 
     if (IS_STRING(ARG(command))) {
         // `call {foo bar}` => execute %"foo bar"
@@ -1535,8 +1535,8 @@ REBNATIVE(call)
         cmd = rebValSpellingAllocOS(NULL, ARG(command));
 
         argc = 1;
-        argv = cast(const REBCHR**,
-            rebMalloc(sizeof(const REBCHR*) * (argc + 1))
+        argv = cast(const OSCHR**,
+            rebMalloc(sizeof(const OSCHR*) * (argc + 1))
         );
 
         // !!! Make two copies because it frees cmd and all the argv.  Review.
@@ -1554,8 +1554,8 @@ REBNATIVE(call)
         if (argc == 0)
             fail (Error_Too_Short_Raw());
 
-        argv = cast(const REBCHR**,
-            rebMalloc(sizeof(const REBCHR*) * (argc + 1))
+        argv = cast(const OSCHR**,
+            rebMalloc(sizeof(const OSCHR*) * (argc + 1))
         );
 
         int i;
@@ -1583,8 +1583,8 @@ REBNATIVE(call)
         cmd = NULL;
 
         argc = 1;
-        argv = cast(const REBCHR**,
-            rebMalloc(sizeof(const REBCHR*) * (argc + 1))
+        argv = cast(const OSCHR**,
+            rebMalloc(sizeof(const OSCHR*) * (argc + 1))
         );
 
         const REBOOL full = FALSE;
@@ -1621,15 +1621,9 @@ REBNATIVE(call)
 
     REBINT r = OS_Create_Process(
         frame_,
-      #ifdef TO_WINDOWS
-        cast(const WCHAR*, cmd),
+        cast(const OSCHR*, cmd),
         argc,
-        cast(const WCHAR**, argv),
-      #else
-        cast(const char*, cmd),
-        argc,
-        cast(const char**, argv),
-      #endif
+        cast(const OSCHR**, argv),
         flag_wait,
         &pid,
         &exit_code,
@@ -1648,7 +1642,7 @@ REBNATIVE(call)
 
     int i;
     for (i = 0; i < argc; ++i)
-        rebFree(m_cast(REBCHR*, argv[i]));
+        rebFree(m_cast(OSCHR*, argv[i]));
 
     if (cmd != NULL)
         rebFree(cmd);
