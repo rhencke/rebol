@@ -810,7 +810,7 @@ int OS_Create_Process(
     uint32_t *output_len,
     char **err,
     uint32_t *err_len
-) {
+){
     PROCESS_INCLUDE_PARAMS_OF_CALL;
 
     UNUSED(ARG(command)); // translated into call and argc/argv
@@ -977,9 +977,9 @@ int OS_Create_Process(
 
         /* printf("flag_shell in child: %hhu\n", flag_shell); */
 
-        // We want to be able to compile with all warnings as errors, and
-        // we'd like to use -Wcast-qual if possible.  This is currently
-        // the only barrier in the codebase...so we tunnel under the cast.
+        // We want to be able to compile with most all warnings as errors, and
+        // we'd like to use -Wcast-qual (in builds where it is possible--it
+        // is not possible in plain C builds).  We must tunnel under the cast.
         //
         char * const *argv_hack;
 
