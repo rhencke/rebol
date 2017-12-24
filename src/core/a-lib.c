@@ -1492,9 +1492,7 @@ REBCNT RL_rebSpellingOfW(
         assert(ANY_WORD(v));
 
         REBSTR *spelling = VAL_WORD_SPELLING(v);
-        s = Append_UTF8_May_Fail(
-            NULL, STR_HEAD(spelling), STR_SIZE(spelling)
-        );
+        s = Make_Sized_String_UTF8(STR_HEAD(spelling), STR_SIZE(spelling));
         index = 0;
         len = SER_LEN(s);
     }
@@ -1600,13 +1598,12 @@ REBVAL *RL_rebBinary(const void *bytes, size_t size)
 //
 //  rebSizedString: RL_API
 //
+// If utf8 does not contain valid UTF-8 data, this may fail().
+//
 REBVAL *RL_rebSizedString(const char *utf8, size_t size)
 {
     Enter_Api();
-    return Init_String(
-        Alloc_Value(),
-        Append_UTF8_May_Fail(NULL, utf8, size)
-    );
+    return Init_String(Alloc_Value(), Make_Sized_String_UTF8(utf8, size));
 }
 
 
