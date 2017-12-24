@@ -903,10 +903,10 @@ REBNATIVE(deline)
     REBCNT n;
     for (n = 0; n < len_at; ++n) {
         REBUNI c;
-        src = const_NEXT_CHR(&c, src);
+        src = NEXT_CHR(&c, src);
         if (c == CR) {
             dest = WRITE_CHR(dest, LF);
-            src = const_NEXT_CHR(&c, src);
+            src = NEXT_CHR(&c, src);
             if (c == LF) {
                 --len_head; // don't write carraige return, note loss of char
                 continue;
@@ -1036,7 +1036,7 @@ REBNATIVE(entab)
     REBINT n = 0;
     for (; index < len; index++) {
         REBUNI c;
-        up = const_NEXT_CHR(&c, up);
+        up = NEXT_CHR(&c, up);
 
         // Count leading spaces, insert TAB for each tabsize:
         if (c == ' ') {
@@ -1064,7 +1064,7 @@ REBNATIVE(entab)
                     break;
                 }
                 dp += Encode_UTF8_Char(dp, c);
-                up = const_NEXT_CHR(&c, up);
+                up = NEXT_CHR(&c, up);
             }
         }
     }
@@ -1113,7 +1113,7 @@ REBNATIVE(detab)
     REBCNT n;
     for (n = index; n < len; n++) {
         REBUNI c;
-        cp = const_NEXT_CHR(&c, cp);
+        cp = NEXT_CHR(&c, cp);
         if (c == '\t') // tab character
             ++count;
     }
@@ -1131,7 +1131,7 @@ REBNATIVE(detab)
     n = 0;
     for (; index < len; ++index) {
         REBUNI c;
-        cp = const_NEXT_CHR(&c, cp);
+        cp = NEXT_CHR(&c, cp);
 
         if (c == '\t') {
             *dp++ = ' ';
