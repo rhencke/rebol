@@ -365,6 +365,10 @@ extern const REBYTE Lex_Map[256];
             return temp;
         }
 
+        const REBWCHAR *as_rebuni() {
+            return p;
+        }
+
         bool operator==(const RebchrPtr<const void*> &other) {
             return p == other.p;
         }

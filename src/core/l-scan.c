@@ -2702,7 +2702,7 @@ REBNATIVE(transcode)
     //
     DS_PUSH(ARG(source));
     if (REF(next) || REF(only))
-        VAL_INDEX(DS_TOP) = ss.end - VAL_BIN(ARG(source));
+        VAL_INDEX(DS_TOP) = ss.end - VAL_BIN_HEAD(ARG(source));
     else
         VAL_INDEX(DS_TOP) = VAL_LEN_HEAD(ARG(source)); // ss.end is trash
 
