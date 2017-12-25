@@ -787,7 +787,7 @@ static void Init_Root_Vars(void)
     // Note: rebString() can't run yet, review.
     //
     REBSER *nulled_uni = Make_Unicode(1);
-    assert(*UNI_AT(nulled_uni, 0) == '\0');
+    assert(CHR_CODE(UNI_AT(nulled_uni, 0)) == '\0');
     assert(UNI_LEN(nulled_uni) == 0);
     Root_Empty_String = Init_String(Alloc_Value(), nulled_uni);
     rebLock(Root_Empty_String, END);

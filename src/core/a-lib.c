@@ -1974,12 +1974,10 @@ char *RL_rebFileToLocalAlloc(size_t *size_out, const REBVAL *file, REBOOL full)
         fail ("rebFileToLocalAlloc() only works on FILE!");
 
     DECLARE_LOCAL (local);
-    Init_String(
-        local,
-        To_Local_Path(VAL_UNI_AT(file), VAL_LEN_AT(file), full)
+    return rebSpellingOfAlloc(
+        size_out,
+        Init_String(local, To_Local_Path(file, full))
     );
-
-    return rebSpellingOfAlloc(size_out, local);
 }
 
 
@@ -2002,12 +2000,10 @@ REBWCHAR *RL_rebFileToLocalAllocW(
         fail ("rebFileToLocalAllocW() only works on FILE!");
 
     DECLARE_LOCAL (local);
-    Init_String(
-        local,
-        To_Local_Path(VAL_UNI_AT(file), VAL_LEN_AT(file), full)
+    return rebSpellingOfAllocW(
+        len_out,
+        Init_String(local, To_Local_Path(file, full))
     );
-
-    return rebSpellingOfAllocW(len_out, local);
 }
 
 
@@ -2033,11 +2029,7 @@ REBVAL *RL_rebLocalToFile(const char *local, REBOOL is_dir)
 
     REBVAL *file = Init_File(
         Alloc_Value(),
-        To_REBOL_Path(
-            VAL_UNI_AT(string),
-            VAL_LEN_AT(string),
-            is_dir ? PATH_OPT_SRC_IS_DIR : 0
-        )
+        To_REBOL_Path(string, is_dir ? PATH_OPT_SRC_IS_DIR : 0)
     );
 
     rebRelease(string);
@@ -2057,21 +2049,18 @@ REBVAL *RL_rebLocalToFileW(const REBWCHAR *local, REBOOL is_dir)
 {
     Enter_Api();
 
-    REBCNT num_chars = 0;
-    const REBWCHAR *wtemp = local;
-    while (*wtemp != '\0') {
-        ++num_chars;
-        ++wtemp;
-    }
+    REBVAL *string = rebStringW(local);
 
-    return Init_File(
+    REBVAL *result = Init_File(
         Alloc_Value(),
         To_REBOL_Path(
-            local,
-            num_chars,
+            string,
             is_dir ? PATH_OPT_SRC_IS_DIR : 0
         )
     );
+
+    rebRelease(string);
+    return result;
 }
 
 
