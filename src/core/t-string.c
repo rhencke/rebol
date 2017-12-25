@@ -1376,6 +1376,7 @@ REBTYPE(String)
         }
 
         ser = VAL_SERIES(v);
+        index = VAL_INDEX(v);
 
         // if no /PART, just return value, else return string
         //
