@@ -281,7 +281,7 @@ static REBSER *MAKE_TO_String_Common(const REBVAL *arg)
     }
     // MAKE/TO <type> <any-string>
     else if (ANY_STRING(arg)) {
-        ser = Copy_String_At_Len(VAL_SERIES(arg), VAL_INDEX(arg), VAL_LEN_AT(arg));
+        ser = Copy_String_At_Len(arg, -1);
     }
     // MAKE/TO <type> <any-word>
     else if (ANY_WORD(arg)) {
@@ -1357,11 +1357,18 @@ REBTYPE(String)
         } else
             len = 1;
 
-        index = VAL_INDEX(v); // /PART can change index
+        // Note that /PART can change index
 
-        if (REF(last))
-            index = tail - len;
-        if (index < 0 || index >= tail) {
+        if (REF(last)) {
+            if (tail - len < 0) {
+                VAL_INDEX(v) = 0;
+                len = tail;
+            }
+            else
+                VAL_INDEX(v) = cast(REBCNT, tail - len);
+        }
+
+        if (cast(REBINT, VAL_INDEX(v)) >= tail) {
             if (NOT(REF(part)))
                 return R_BLANK;
             Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
@@ -1373,17 +1380,23 @@ REBTYPE(String)
         // if no /PART, just return value, else return string
         //
         if (NOT(REF(part))) {
-            if (IS_BINARY(v)) {
-                Init_Integer(v, *VAL_BIN_AT_HEAD(v, index));
-            } else
-                str_to_char(v, v, index);
+            if (IS_BINARY(v))
+                Init_Integer(D_OUT, *VAL_BIN_AT(v));
+            else
+                str_to_char(D_OUT, v, VAL_INDEX(v));
         }
         else {
             enum Reb_Kind kind = VAL_TYPE(v);
-            Init_Any_Series(v, kind, Copy_String_At_Len(ser, index, len));
+            if (IS_BINARY(v)) {
+                Init_Binary(
+                    D_OUT,
+                    Copy_Sequence_At_Len(VAL_SERIES(v), VAL_INDEX(v), len)
+                );
+            } else
+                Init_Any_Series(D_OUT, kind, Copy_String_At_Len(v, len));
         }
-        Remove_Series(ser, index, len);
-        break; }
+        Remove_Series(ser, VAL_INDEX(v), len);
+        return R_OUT; }
 
     case SYM_CLEAR: {
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(v));
@@ -1416,7 +1429,7 @@ REBTYPE(String)
         if (IS_BINARY(v))
             ser = Copy_Sequence_At_Len(VAL_SERIES(v), VAL_INDEX(v), len);
         else
-            ser = Copy_String_At_Len(VAL_SERIES(v), VAL_INDEX(v), len);
+            ser = Copy_String_At_Len(v, len);
         goto return_ser; }
 
     //-- Bitwise:

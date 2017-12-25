@@ -2221,7 +2221,7 @@ static REBNATIVE(list_env)
         const char *eq_pos = strchr(key_equals_val, '=');
 
         REBCNT size = strlen(key_equals_val);
- 
+
         REBVAL *key = rebSizedString(
             key_equals_val,
             eq_pos - key_equals_val

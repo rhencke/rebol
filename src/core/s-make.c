@@ -113,19 +113,15 @@ void Insert_Char(REBSER *dst, REBCNT index, REBCNT chr)
 // other series due to the length being counted in characters and not
 // units of the series width.
 //
-REBSER *Copy_String_At_Len(REBSER *src, REBCNT index, REBINT length)
+REBSER *Copy_String_At_Len(const RELVAL *src, REBINT limit)
 {
-#if !defined(NDEBUG)
-    if (SER_WIDE(src) != sizeof(REBUNI))
-        panic (src);
-#endif
+    REBCNT length_limit;
+    REBSIZ size = VAL_SIZE_LIMIT_AT(&length_limit, src, limit);
+    assert(length_limit * 2 == size); // !!! Temporary
 
-    if (length < 0)
-        length = SER_LEN(src) - index;
-
-    REBSER *dst = Make_Unicode(length);
-    memcpy(UNI_AT(dst, 0), UNI_AT(src, index), sizeof(REBUNI) * length);
-    TERM_SEQUENCE_LEN(dst, length);
+    REBSER *dst = Make_Unicode(size / 2);
+    memcpy(UNI_AT(dst, 0), VAL_UNI_AT(src), size);
+    TERM_SEQUENCE_LEN(dst, length_limit);
 
     return dst;
 }

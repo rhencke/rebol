@@ -100,7 +100,7 @@ load-header: function [
     "Loads script header object and body binary (not loaded)."
 
     return: [block! word!]
-        "length 3 BLOCK! (header OBJECT!, body BINARY!, end), or error WORD!" 
+        "length 3 BLOCK! (header OBJECT!, body BINARY!, end), or error WORD!"
     source [binary! string!]
         "Source code (string! will be UTF-8 encoded)"
     /only
