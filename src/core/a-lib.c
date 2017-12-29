@@ -1374,7 +1374,7 @@ REBVAL *RL_rebInitDate(
 // rebRelease()'d.  It might also return a `const char*` to the internal UTF8
 // data with a hold on it.
 //
-char *RL_rebMoldAlloc(REBCNT *len_out, const REBVAL *v)
+char *RL_rebMoldAlloc(REBCNT *size_out, const REBVAL *v)
 {
     Enter_Api();
 
@@ -1382,22 +1382,16 @@ char *RL_rebMoldAlloc(REBCNT *len_out, const REBVAL *v)
     Push_Mold(mo);
     Mold_Value(mo, v);
 
-    // !!! In UTF-8 Everywhere, the mold buffer is UTF-8, and could be copied
-    // out of directly without these extra steps.
-    //
-    DECLARE_LOCAL (molded);
-    Init_String(molded, Pop_Molded_String(mo));
 
-    REBCNT index = VAL_INDEX(molded);
-    REBCNT len = VAL_LEN_AT(molded);
-    REBSER *utf8 = Temp_UTF8_At_Managed(molded, &index, &len);
+    REBSIZ size = BIN_LEN(mo->series) - mo->start;
 
-    char *result = cast(char*, rebMalloc(len + 1));
-    memcpy(result, BIN_AT(utf8, index), len + 1); // has '\0' terminator
+    char *result = cast(char*, rebMalloc(size + 1));
+    memcpy(result, BIN_AT(mo->series, mo->start), size + 1); // \0 terminated
 
-    if (len_out != NULL)
-        *len_out = len;
+    if (size_out != NULL)
+        *size_out = size;
 
+    Drop_Mold(mo);
     return result;
 }
 
@@ -1419,13 +1413,13 @@ size_t RL_rebSpellingOf(
     Enter_Api();
 
     const char *utf8;
-    size_t utf8_size;
+    REBSIZ utf8_size;
     if (ANY_STRING(v)) {
-        REBCNT index = VAL_INDEX(v);
-        REBCNT len = VAL_LEN_AT(v);
-        REBSER *temp = Temp_UTF8_At_Managed(v, &index, &len);
-        utf8 = cs_cast(BIN_AT(temp, index));
-        utf8_size = len;
+        REBSIZ offset;
+        REBSER *temp = Temp_UTF8_At_Managed(
+            &offset, &utf8_size, v, VAL_LEN_AT(v)
+        );
+        utf8 = cs_cast(BIN_AT(temp, offset));
     }
     else {
         assert(ANY_WORD(v));
@@ -1440,7 +1434,7 @@ size_t RL_rebSpellingOf(
         return utf8_size; // caller must allocate a buffer of size + 1
     }
 
-    size_t limit = MIN(buf_size, utf8_size);
+    REBSIZ limit = MIN(buf_size, utf8_size);
     memcpy(buf, utf8, limit);
     buf[limit] = '\0';
     return utf8_size;

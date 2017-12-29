@@ -710,20 +710,18 @@ void Push_Mold(REB_MOLD *mo)
     //
     assert(!TG_Pushing_Mold);
     TG_Pushing_Mold = TRUE;
-#endif
 
-    // Series is nulled out on Pop in debug builds to make sure you don't
-    // Push the same mold tracker twice (without a Pop)
-    //
-    assert(mo->series == NULL);
-
-#if !defined(NDEBUG)
     // Sanity check that if they set a limit it wasn't 0.  (Perhaps over the
     // long term it would be okay, but for now we'll consider it a mistake.)
     //
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_LIMIT))
         assert(mo->limit != 0);
 #endif
+
+    // Set by DECLARE_MOLD/pops so you don't same `mo` twice w/o popping.
+    // Is assigned even in debug build, scanner uses to determine if pushed.
+    //
+    assert(mo->series == NULL);
 
     REBSER *s = mo->series = MOLD_BUF;
     mo->start = SER_LEN(s);
@@ -846,8 +844,7 @@ REBSER *Pop_Molded_String_Core(REB_MOLD *mo, REBCNT len)
     //
     TERM_BIN_LEN(mo->series, mo->start);
 
-    mo->series = NULL;
-
+    mo->series = NULL; // indicates mold is not currently pushed
     return result;
 }
 
@@ -878,7 +875,7 @@ REBSER *Pop_Molded_UTF8(REB_MOLD *mo)
     //
     TERM_BIN_LEN(mo->series, mo->start);
 
-    mo->series = NULL;
+    mo->series = NULL; // indicates mold is not currently pushed
     return bytes;
 }
 
@@ -936,7 +933,7 @@ void Drop_Mold_Core(REB_MOLD *mo, REBOOL not_pushed_ok)
 
     TERM_BIN_LEN(mo->series, mo->start); // see Pop_Molded_String() notes
 
-    mo->series = NULL;
+    mo->series = NULL; // indicates mold is not currently pushed
 }
 
 

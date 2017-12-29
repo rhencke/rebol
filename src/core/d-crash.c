@@ -244,10 +244,11 @@ REBNATIVE(panic)
     // report the contained message.  PANIC-VALUE for the latter intent.
     //
     if (IS_STRING(v)) {
-        REBCNT len = VAL_LEN_AT(v);
-        REBCNT index = VAL_INDEX(v);
-        REBSER *temp = Temp_UTF8_At_Managed(v, &index, &len);
-        p = BIN_HEAD(temp); // UTF-8 data
+        REBSIZ offset;
+        REBSIZ size;
+        REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
+
+        p = BIN_AT(temp, offset); // UTF-8 data
     }
     else {
         assert(IS_ERROR(v));

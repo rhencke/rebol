@@ -208,14 +208,10 @@ inline static void Probe_Molded_Value(const REBVAL *v)
     Push_Mold(mo);
     Mold_Value(mo, v);
 
-    DECLARE_LOCAL (molded);
-    Init_String(molded, Pop_Molded_String(mo));
-
-    REBCNT index = VAL_INDEX(molded);
-    REBCNT len = VAL_LEN_AT(molded);
-    REBSER *utf8 = Temp_UTF8_At_Managed(molded, &index, &len);
-    printf("%s\n", s_cast(BIN_AT(utf8, index)));
+    printf("%s\n", s_cast(BIN_AT(mo->series, mo->start)));
     fflush(stdout);
+
+    Drop_Mold(mo);
 }
 
 
