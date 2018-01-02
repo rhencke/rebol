@@ -698,12 +698,12 @@ void Free_Unbiased_Series_Data(char *unbiased, REBCNT total)
 //
 void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 {
-    assert(index <= SER_LEN(s));
+    assert(index <= SER_USED(s));
     if (delta & 0x80000000) fail (Error_Past_End_Raw()); // 2GB max
 
     if (delta == 0) return;
 
-    REBCNT len_old = SER_LEN(s);
+    REBCNT used_old = SER_USED(s);
 
     REBYTE wide = SER_WIDE(s);
 
@@ -714,7 +714,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     //=//// HEAD INSERTION OPTIMIZATION ///////////////////////////////////=//
 
         s->content.dynamic.data -= wide * delta;
-        s->content.dynamic.len += delta;
+        s->content.dynamic.used += delta;
         s->content.dynamic.rest += delta;
         SER_SUB_BIAS(s, delta);
 
@@ -740,7 +740,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 
     REBCNT start = index * wide;
     REBCNT extra = delta * wide;
-    REBCNT size = SER_LEN(s) * wide;
+    REBCNT size = SER_USED(s) * wide;
 
     // + wide for terminator
     if ((size + extra + wide) <= SER_REST(s) * SER_WIDE(s)) {
@@ -756,10 +756,10 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
             size - start
         );
 
-        SET_SERIES_LEN(s, len_old + delta);
+        SET_SERIES_USED(s, used_old + delta);
         assert(
             not was_dynamic or (
-                SER_TOTAL(s) > ((SER_LEN(s) + SER_BIAS(s)) * wide)
+                SER_TOTAL(s) > ((SER_USED(s) + SER_BIAS(s)) * wide)
             )
         );
 
@@ -798,7 +798,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
             "Expand %p wide: %d tail: %d delta: %d\n",
             cast(void*, s),
             cast(int, wide),
-            cast(int, len_old),
+            cast(int, used_old),
             cast(int, delta)
         );
         fflush(stdout);
@@ -851,8 +851,8 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 
     mutable_LEN_BYTE_OR_255(s) = 255; // series alloc caller sets
     SET_SERIES_FLAG(s, POWER_OF_2);
-    if (not Did_Series_Data_Alloc(s, len_old + delta + x))
-        fail (Error_No_Memory((len_old + delta + x) * wide));
+    if (not Did_Series_Data_Alloc(s, used_old + delta + x))
+        fail (Error_No_Memory((used_old + delta + x) * wide));
 
     assert(IS_SER_DYNAMIC(s));
     if (IS_SER_ARRAY(s))
@@ -874,7 +874,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
         data_old + start,
         size - start
     );
-    s->content.dynamic.len = len_old + delta;
+    s->content.dynamic.used = used_old + delta;
 
     TERM_SERIES(s);
 
@@ -899,6 +899,12 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 //
 // Retain the identity of the two series but do a low-level swap of their
 // content with each other.
+//
+// It does not swap flags, e.g. whether something is managed or a paramlist
+// or anything of that nature.  Those are properties that cannot change, due
+// to the expectations of things that link to the series.  Hence this is
+// a risky operation that should only be called when the client is sure it
+// is safe to do so (more asserts would probably help).
 //
 void Swap_Series_Content(REBSER* a, REBSER* b)
 {
@@ -925,6 +931,14 @@ void Swap_Series_Content(REBSER* a, REBSER* b)
     memcpy(&a_content, &a->content, sizeof(union Reb_Series_Content));
     memcpy(&a->content, &b->content, sizeof(union Reb_Series_Content));
     memcpy(&b->content, &a_content, sizeof(union Reb_Series_Content));
+
+    union Reb_Series_Misc a_misc = MISC(a);
+    MISC(a) = MISC(b);
+    MISC(b) = a_misc;
+
+    union Reb_Series_Link a_link = LINK(a);
+    LINK(a) = LINK(b);
+    LINK(b) = a_link;
 }
 
 
@@ -997,14 +1011,14 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         // operations may extract the data pointer ahead of time and do this
         // more selectively)
 
-        s->content.dynamic.len = MIN(len_old, units);
+        s->content.dynamic.used = MIN(len_old, units);
         memcpy(
             s->content.dynamic.data,
             data_old,
-            s->content.dynamic.len * wide
+            s->content.dynamic.used * wide
         );
     } else
-        s->content.dynamic.len = 0;
+        s->content.dynamic.used = 0;
 
     if (IS_SER_ARRAY(s))
         TERM_ARRAY_LEN(ARR(s), SER_LEN(s));
@@ -1147,10 +1161,10 @@ inline static void Untrack_Manual_Series(REBSER *s)
 {
     REBSER ** const last_ptr
         = &cast(REBSER**, GC_Manuals->content.dynamic.data)[
-            GC_Manuals->content.dynamic.len - 1
+            GC_Manuals->content.dynamic.used - 1
         ];
 
-    assert(GC_Manuals->content.dynamic.len >= 1);
+    assert(GC_Manuals->content.dynamic.used >= 1);
     if (*last_ptr != s) {
         //
         // If the series is not the last manually added series, then
@@ -1176,7 +1190,7 @@ inline static void Untrack_Manual_Series(REBSER *s)
 
     // !!! Should GC_Manuals ever shrink or save memory?
     //
-    GC_Manuals->content.dynamic.len--;
+    --GC_Manuals->content.dynamic.used;
 }
 
 
@@ -1548,7 +1562,7 @@ REBU64 Inspect_Series(bool show)
                 strs++;
                 str_size += SER_TOTAL_IF_DYNAMIC(s);
             }
-            else if (SER_WIDE(s)) {
+            else if (SER_WIDE(s) != 0) {
                 odds++;
                 odd_size += SER_TOTAL_IF_DYNAMIC(s);
             }

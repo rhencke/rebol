@@ -172,7 +172,19 @@ void* Probe_Core_Debug(
         // types in terms of sizing, just to know what they are.
 
         if (SER_WIDE(s) == sizeof(REBYTE)) {
-            Probe_Print_Helper(p, "Byte-Size Series", file, line);
+            /*DECLARE_LOCAL (value);
+            if (GET_SERIES_FLAG(s, UCS2_STRING)) {
+                Probe_Print_Helper(p, "UCS2 'Byte' Series", file, line);
+                Mold_Text_Series_At(mo, s, 0); // or could be TAG!, etc.
+                RESET_VAL_HEADER(value, REB_TEXT);
+                INIT_VAL_SERIES(value, s);
+                VAL_INDEX(value) = 0;
+            }*/
+            
+            if (GET_SERIES_FLAG(s, IS_UTF8_STRING))
+                Probe_Print_Helper(p, "UTF8 Byte Series", file, line);
+            else
+                Probe_Print_Helper(p, "Byte-Size Series", file, line);
 
             // !!! Duplication of code in MF_Binary
             //

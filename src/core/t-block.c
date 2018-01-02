@@ -841,7 +841,7 @@ REBTYPE(Array)
         else
             Derelativize(D_OUT, &ARR_HEAD(arr)[index], specifier);
 
-        Remove_Series(SER(arr), index, len);
+        Remove_Series_Units(SER(arr), index, len);
         return D_OUT; }
 
     //-- Search:
@@ -1002,8 +1002,6 @@ REBTYPE(Array)
 
         return Init_Any_Array(D_OUT, VAL_TYPE(array), copy);
     }
-
-    //-- Special actions:
 
     case SYM_SWAP: {
         if (not ANY_ARRAY(arg))

@@ -188,6 +188,9 @@ replace: function [
 ]
 
 
+;
+; reword "$1 is $2." [1 "This" 2 "that"] => "This is that."
+;
 reword: function [
     {Make a string or binary based on a template and substitution values}
 

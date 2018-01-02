@@ -296,11 +296,10 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 }
 
 #define ACT_NUM_PARAMS(a) \
-    (cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.len - 1)
+    (cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.used - 1) // dynamic
 
 #define ACT_META(a) \
     MISC(a).meta
-
 
 
 // The concept of the "underlying" function is the one which has the actual

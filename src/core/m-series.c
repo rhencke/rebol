@@ -133,10 +133,26 @@ REBSER *Copy_Sequence_Core(REBSER *s, REBFLGS flags)
 {
     assert(not IS_SER_ARRAY(s));
 
-    REBCNT len = SER_LEN(s);
-    REBSER *copy = Make_Series_Core(len + 1, SER_WIDE(s), flags);
+    REBCNT used = SER_USED(s);
+    REBSER *copy;
 
-    memcpy(SER_DATA_RAW(copy), SER_DATA_RAW(s), len * SER_WIDE(s));
+    // !!! Semantics of copying hasn't really covered how flags will be
+    // propagated.  This includes locks, etc.  But the string flag needs
+    // to be copied, for sure.
+    //
+    if (GET_SERIES_FLAG(s, UCS2_STRING)) {
+        // temp, REBUNI term
+        copy = Make_Series_Core(used + 2, SER_WIDE(s), flags);
+        SET_SERIES_FLAG(copy, UCS2_STRING);
+    }
+    else
+        copy = Make_Series_Core(used + 1, SER_WIDE(s), flags);
+
+    memcpy(
+        SER_DATA_RAW(copy),
+        SER_DATA_RAW(s),
+        used * SER_WIDE(s)
+    );
     TERM_SEQUENCE_LEN(copy, SER_LEN(s));
     return copy;
 }
@@ -158,6 +174,7 @@ REBSER *Copy_Sequence_At_Len_Extra(
     REBCNT extra
 ){
     assert(not IS_SER_ARRAY(s));
+    assert(NOT_SERIES_FLAG(s, UCS2_STRING));
 
     REBSER *copy = Make_Series(len + 1 + extra, SER_WIDE(s));
     memcpy(
@@ -171,46 +188,48 @@ REBSER *Copy_Sequence_At_Len_Extra(
 
 
 //
-//  Remove_Series: C
+//  Remove_Series_Units: C
 //
 // Remove a series of values (bytes, longs, reb-vals) from the
 // series at the given index.
 //
-void Remove_Series(REBSER *s, REBCNT index, REBINT len)
+void Remove_Series_Units(REBSER *s, REBSIZ offset, REBINT quantity)
 {
-    if (len <= 0) return;
+    assert(quantity >= 0);
+    if (quantity == 0)
+        return;
 
     bool is_dynamic = IS_SER_DYNAMIC(s);
-    REBCNT len_old = SER_LEN(s);
+    REBCNT used_old = SER_USED(s);
 
-    REBCNT start = index * SER_WIDE(s);
+    REBCNT start = offset * SER_WIDE(s);
 
     // Optimized case of head removal.  For a dynamic series this may just
     // add "bias" to the head...rather than move any bytes.
 
-    if (is_dynamic and index == 0) {
-        if (cast(REBCNT, len) > len_old)
-            len = len_old;
+    if (is_dynamic and offset == 0) {
+        if (cast(REBCNT, quantity) > used_old)
+            quantity = used_old;
 
-        s->content.dynamic.len -= len;
-        if (s->content.dynamic.len == 0) {
+        s->content.dynamic.used -= quantity;
+        if (s->content.dynamic.used == 0) {
             // Reset bias to zero:
-            len = SER_BIAS(s);
+            quantity = SER_BIAS(s);
             SER_SET_BIAS(s, 0);
-            s->content.dynamic.rest += len;
-            s->content.dynamic.data -= SER_WIDE(s) * len;
+            s->content.dynamic.rest += quantity;
+            s->content.dynamic.data -= SER_WIDE(s) * quantity;
             TERM_SERIES(s);
         }
         else {
             // Add bias to head:
             unsigned int bias;
-            if (REB_U32_ADD_OF(SER_BIAS(s), len, &bias))
+            if (REB_U32_ADD_OF(SER_BIAS(s), quantity, &bias))
                 fail (Error_Overflow_Raw());
 
             if (bias > 0xffff) { // 16-bit, simple SER_ADD_BIAS could overflow
-                REBYTE *data = cast(REBYTE*, s->content.dynamic.data);
+                char *data = s->content.dynamic.data;
 
-                data += SER_WIDE(s) * len;
+                data += SER_WIDE(s) * quantity;
                 s->content.dynamic.data -= SER_WIDE(s) * SER_BIAS(s);
 
                 s->content.dynamic.rest += SER_BIAS(s);
@@ -219,14 +238,14 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
                 memmove(
                     s->content.dynamic.data,
                     data,
-                    SER_LEN(s) * SER_WIDE(s)
+                    SER_USED(s) * SER_WIDE(s)
                 );
                 TERM_SERIES(s);
             }
             else {
                 SER_SET_BIAS(s, bias);
-                s->content.dynamic.rest -= len;
-                s->content.dynamic.data += SER_WIDE(s) * len;
+                s->content.dynamic.rest -= quantity;
+                s->content.dynamic.data += SER_WIDE(s) * quantity;
                 if ((start = SER_BIAS(s)) != 0) {
                     // If more than half biased:
                     if (start >= MAX_SERIES_BIAS or start > SER_REST(s))
@@ -237,12 +256,13 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
         return;
     }
 
-    if (index >= len_old) return;
+    if (offset >= used_old)
+        return;
 
     // Clip if past end and optimize the remove operation:
 
-    if (len + index >= len_old) {
-        SET_SERIES_LEN(s, index);
+    if (quantity + offset >= used_old) {
+        SET_SERIES_USED(s, offset);
         TERM_SERIES(s);
         return;
     }
@@ -251,13 +271,31 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
     // be implicit (e.g. there may not be a full SER_WIDE() worth of data
     // at the termination location).  Use TERM_SERIES() instead.
     //
-    REBCNT length = SER_LEN(s) * SER_WIDE(s);
-    SET_SERIES_LEN(s, len_old - cast(REBCNT, len));
-    len *= SER_WIDE(s);
+    REBCNT total = SER_USED(s) * SER_WIDE(s);
+    SET_SERIES_USED(s, used_old - cast(REBCNT, quantity));
+    quantity *= SER_WIDE(s);
 
     REBYTE *data = SER_DATA_RAW(s) + start;
-    memmove(data, data + len, length - (start + len));
+    memmove(data, data + quantity, total - (start + quantity));
     TERM_SERIES(s);
+}
+
+
+//
+//  Remove_Series_Len: C
+//
+// Remove a series of values (bytes, longs, reb-vals) from the
+// series at the given index.
+//
+void Remove_Series_Len(REBSER *s, REBCNT index, REBINT len)
+{
+    if (GET_SERIES_FLAG(s, UCS2_STRING)) {
+        REBCNT old_len = SER_LEN(s);
+        Remove_Series_Units(s, index * 2, len * 2);
+        SET_SERIES_LEN(s, old_len - len);
+    }
+    else
+        Remove_Series_Units(s, index, len);
 }
 
 
@@ -268,39 +306,20 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
 //
 void Unbias_Series(REBSER *s, bool keep)
 {
-    REBCNT len = SER_BIAS(s);
-    if (len == 0)
+    REBCNT bias = SER_BIAS(s);
+    if (bias == 0)
         return;
 
     REBYTE *data = cast(REBYTE*, s->content.dynamic.data);
 
     SER_SET_BIAS(s, 0);
-    s->content.dynamic.rest += len;
-    s->content.dynamic.data -= SER_WIDE(s) * len;
+    s->content.dynamic.rest += bias;
+    s->content.dynamic.data -= SER_WIDE(s) * bias;
 
     if (keep) {
-        memmove(s->content.dynamic.data, data, SER_LEN(s) * SER_WIDE(s));
+        memmove(s->content.dynamic.data, data, SER_USED(s) * SER_WIDE(s));
         TERM_SERIES(s);
     }
-}
-
-
-//
-//  Reset_Sequence: C
-//
-// Reset series to empty. Reset bias, tail, and termination.
-// The tail is reset to zero.
-//
-void Reset_Sequence(REBSER *s)
-{
-    assert(not IS_SER_ARRAY(s));
-    if (IS_SER_DYNAMIC(s)) {
-        Unbias_Series(s, false);
-        s->content.dynamic.len = 0;
-        TERM_SEQUENCE(s);
-    }
-    else
-        TERM_SEQUENCE_LEN(s, 0);
 }
 
 
@@ -340,27 +359,6 @@ void Clear_Series(REBSER *s)
 
 
 //
-//  Resize_Series: C
-//
-// Reset series and expand it to required size.
-// The tail is reset to zero.
-//
-void Resize_Series(REBSER *s, REBCNT size)
-{
-    if (IS_SER_DYNAMIC(s)) {
-        s->content.dynamic.len = 0;
-        Unbias_Series(s, true);
-    }
-    else
-        SET_SERIES_LEN(s, 0);
-
-    EXPAND_SERIES_TAIL(s, size);
-    SET_SERIES_LEN(s, 0);
-    TERM_SERIES(s);
-}
-
-
-//
 //  Reset_Buffer: C
 //
 // Setup to reuse a shared buffer. Expand it if needed.
@@ -395,6 +393,12 @@ void Assert_Series_Term_Core(REBSER *s)
         RELVAL *tail = ARR_TAIL(ARR(s));
         if (NOT_END(tail))
             panic (tail);
+    }
+    else if (GET_SERIES_FLAG(s, UCS2_STRING)) {
+        if (0 != SER_DATA_RAW(s)[SER_LEN(s) * 2])
+            panic(s);
+        if (0 != SER_DATA_RAW(s)[SER_LEN(s) * 2 + 1])
+            panic(s);
     }
     else {
         // If they are terminated, then non-REBVAL-bearing series must have

@@ -769,7 +769,10 @@ REBSER *Pop_Molded_String_Core(REB_MOLD *mo, REBCNT len)
         cs_cast(BIN_AT(mo->series, mo->start)),
         len
     );
-    assert(SER_WIDE(result) == sizeof(REBUNI));
+    assert(
+        SER_WIDE(result) == sizeof(REBYTE)
+        and GET_SERIES_FLAG(result, UCS2_STRING)
+    );
 
     // Though the protocol of Mold_Value does terminate, it only does so if
     // it adds content to the buffer.  If we did not terminate when we

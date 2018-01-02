@@ -328,47 +328,66 @@ void Trim_Tail(REBSER *src, REBYTE chr)
 //
 // Common code for string case handling.
 //
-void Change_Case(REBVAL *out, REBVAL *val, REBVAL *part, bool upper)
-{
-    Move_Value(out, val);
-
+void Change_Case(
+    REBVAL *out,
+    REBVAL *val, // !!! Not const--uses Partial(), may change index, review
+    const REBVAL *part,
+    bool upper
+){
     if (IS_CHAR(val)) {
         REBUNI c = VAL_CHAR(val);
-        if (c < UNICODE_CASES) {
-            c = upper ? UP_CASE(c) : LO_CASE(c);
-        }
-        VAL_CHAR(out) = c;
+        if (c < UNICODE_CASES)
+            Init_Char(out, upper ? UP_CASE(c) : LO_CASE(c));
+        else
+            Init_Char(out, c);
         return;
     }
 
-    // String series:
-
+    assert(ANY_STRING(val));
     FAIL_IF_READ_ONLY(val);
 
-    REBCNT len = Part_Len_May_Modify_Index(val, part);
-    REBCNT n = 0;
+    // This is a mutating operation, and we want to return the same series at
+    // the same index.  However, R3-Alpha code would use Partial() and may
+    // change val's index.  Capture it before potential change, review.
+    //
+    Move_Value(out, val);
 
-    if (VAL_BYTE_SIZE(val)) {
-        REBYTE *bp = VAL_BIN_AT(val);
-        if (upper)
-            for (; n != len; n++)
-                bp[n] = cast(REBYTE, UP_CASE(bp[n]));
-        else {
-            for (; n != len; n++)
-                bp[n] = cast(REBYTE, LO_CASE(bp[n]));
-        }
-    } else {
-        REBUNI *up = VAL_UNI_AT(val);
-        if (upper) {
-            for (; n != len; n++) {
-                if (up[n] < UNICODE_CASES)
-                    up[n] = UP_CASE(up[n]);
+    REBCNT len = Part_Len_May_Modify_Index(val, part);
+
+    // !!! This assumes that all case changes will preserve the encoding size,
+    // but that's not true (some strange multibyte accented characters have
+    // capital or lowercase versions that are single byte).  This may be
+    // uncommon enough to have special handling (only do something weird, e.g.
+    // use the mold buffer, if it happens...for the remaining portion of such
+    // a string...and only if the size *expands*).  Expansions also may never
+    // be possible, only contractions (is that true?)  Review when UTF-8
+    // Everywhere is more mature to the point this is worth worrying about.
+    //
+    REBCHR(*) up = VAL_UNI_AT(val);
+    REBCHR(*) dp;
+    if (upper) {
+        REBCNT n;
+        for (n = 0; n < len; n++) {
+            dp = up;
+
+            REBUNI c;
+            up = NEXT_CHR(&c, up);
+            if (c < UNICODE_CASES) {
+                dp = WRITE_CHR(dp, UP_CASE(c));
+                assert(dp == up); // !!! not all case changes same byte size?
             }
         }
-        else {
-            for (; n != len; n++) {
-                if (up[n] < UNICODE_CASES)
-                    up[n] = LO_CASE(up[n]);
+    }
+    else {
+        REBCNT n;
+        for (n = 0; n < len; n++) {
+            dp = up;
+
+            REBUNI c;
+            up = NEXT_CHR(&c, up);
+            if (c < UNICODE_CASES) {
+                dp = WRITE_CHR(dp, LO_CASE(c));
+                assert(dp == up); // !!! not all case changes same byte size?
             }
         }
     }
@@ -409,13 +428,20 @@ REBARR *Split_Lines(const REBVAL *str)
     up = NEXT_CHR(&c, up);
     ++i;
 
+    // !!! Interim string copy routines are REBVAL-based.
+    //
+    DECLARE_LOCAL (temp);
+
     while (i != len) {
-        if (c == LF or c == CR) {
+        if (c == LF || c == CR) {
+            Init_Any_Series_At(
+                temp, REB_TEXT, s, AS_REBUNI(start) - UNI_HEAD(s)
+            );
+
             Init_Text(
                 DS_PUSH(),
-                Copy_Sequence_At_Len(
-                    s,
-                    AS_REBUNI(start) - UNI_HEAD(s),
+                Copy_String_At_Limit(
+                    temp,
                     AS_REBUNI(up) - AS_REBUNI(start) - 1
                 )
             );
@@ -445,11 +471,14 @@ REBARR *Split_Lines(const REBVAL *str)
         up = BACK_CHR(NULL, up); // back up
 
     if (AS_REBUNI(up) > AS_REBUNI(start)) {
+        Init_Any_Series_At(
+            temp, REB_TEXT, s, AS_REBUNI(start) - UNI_HEAD(s)
+        );
+
         Init_Text(
             DS_PUSH(),
-            Copy_Sequence_At_Len(
-                s,
-                AS_REBUNI(start) - UNI_HEAD(s),
+            Copy_String_At_Limit(
+                temp,
                 AS_REBUNI(up) - AS_REBUNI(start) // no -1, backed up if '\n'
             )
         );

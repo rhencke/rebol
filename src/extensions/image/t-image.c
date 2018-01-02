@@ -1091,7 +1091,7 @@ REBTYPE(Image)
 
         index = cast(REBINT, VAL_IMAGE_POS(value));
         if (index < tail && len != 0) {
-            Remove_Series(series, index, len);
+            Remove_Series_Units(series, VAL_INDEX(value), len);
         }
         Reset_Height(value);
         RETURN (value); }

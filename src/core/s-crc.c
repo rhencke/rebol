@@ -239,7 +239,7 @@ uint32_t Hash_Value(const RELVAL *v)
         break;
 
       case REB_TUPLE:
-        hash = Hash_Bytes_Or_Uni(VAL_TUPLE(cell), VAL_TUPLE_LEN(cell), 1);
+        hash = Hash_Bytes(VAL_TUPLE(cell), VAL_TUPLE_LEN(cell));
         break;
 
       case REB_TIME:
@@ -265,10 +265,9 @@ uint32_t Hash_Value(const RELVAL *v)
       case REB_EMAIL:
       case REB_URL:
       case REB_TAG:
-        hash = Hash_Bytes_Or_Uni(
-            VAL_RAW_DATA_AT(cell),
-            VAL_LEN_HEAD(cell),
-            SER_WIDE(VAL_SERIES(cell))
+        hash = Hash_UTF8_Caseless(
+            SER_AT_RAW(2, VAL_SERIES(cell), VAL_INDEX(cell)),
+            VAL_LEN_HEAD(cell)
         );
         break;
 
@@ -523,44 +522,52 @@ REBINT Compute_IPC(REBYTE *data, REBCNT length)
 
 
 //
-//  Hash_Bytes_Or_Uni: C
+//  Hash_Bytes: C
 //
-// Return a 32-bit case insensitive hash value for the string.  The
-// string does not have to be zero terminated and UTF8 is ok.
+// Return a 32-bit hash value for the bytes.
 //
-REBINT Hash_Bytes_Or_Uni(
-    const void *data, // REBYTE* or REBUNI*
-    REBCNT len, // chars, not bytes
-    REBCNT wide // 1 = byte-sized, 2 = Unicode
-){
-    uint32_t c = 0x00000000;
-    uint32_t c2 = 0x00000000; // don't change, see [1] below
+REBINT Hash_Bytes(const REBYTE *data, REBCNT len) {
+    uint32_t crc = 0x00000000;
+
     REBCNT n;
-    const REBYTE *b = cast(const REBYTE*, data);
-    const REBUNI *u = cast(const REBUNI*, data);
+    for (n = 0; n != len; ++n)
+        crc = (crc >> 8) ^ crc32_table[(crc ^ data[n]) & 0xff];
 
-    if (wide == 1) {
-        for(n = 0; n != len; n++) {
-            c = (c >> 8) ^ crc32_table[(c ^ LO_CASE(b[n])) & 0xff];
-        }
-    } else if (wide == 2) {
-        for(n = 0; n != len; n++) {
-            c = (c >> 8) ^ crc32_table[(c ^ LO_CASE(u[n])) & 0xff];
+    return cast(REBINT, ~crc);
+}
 
-            c2 = (c2 >> 8) ^ crc32_table[
-                (c2 ^ (LO_CASE(u[n]) >> 8)) & 0xff
-            ];
-        }
+
+//
+//  Hash_UTF8_Caseless: C
+//
+// Return a 32-bit case insensitive hash value for UTF-8 data.  Length is in
+// characters, not bytes.
+//
+// !!! See redundant code in Hash_UTF8 which takes a size, not a length
+//
+REBINT Hash_UTF8_Caseless(const REBYTE *data, REBCNT len) {
+    uint32_t crc = 0x00000000;
+
+    REBCHR(const *) up = cast(const REBUNI*, data);
+
+    REBCNT n;
+    for (n = 0; n < len; n++) {
+        REBUNI uni;
+        up = NEXT_CHR(&uni, up);
+
+        unsigned long c = LO_CASE(uni); // !!! change when REBUNI is 4 bytes
+
+        // !!! This takes into account all 4 bytes of the lowercase codepoint
+        // for the CRC calculation.  In ASCII strings this will involve a lot
+        // of zeros.  Review if there's a better way.
+        //
+        crc = (crc >> 8) ^ crc32_table[(crc ^ c) & 0xff];
+        crc = (crc >> 8) ^ crc32_table[(crc ^ (c >> 8)) & 0xff];
+        crc = (crc >> 8) ^ crc32_table[(crc ^ (c >> 16)) & 0xff];
+        crc = (crc >> 8) ^ crc32_table[(crc ^ (c >> 24)) & 0xff];
     }
-    else
-        assert(wide == 1 || wide == 2);
 
-    // [1] If wide = 2 but all chars <= 0xFF then c2 = 0, and c is the same
-    // as wide = 1
-    //
-    c ^= c2;
-
-    return cast(REBINT,~c);
+    return cast(REBINT, ~crc);
 }
 
 

@@ -52,7 +52,7 @@
 // be "widened"--doubling the storage space taken and requiring updating of
 // the character data in memory.  At this time there are no "in-place"
 // cases where a string is reduced from REBUNI to byte sized, but operations
-// like Copy_String_At_Len() will scan a source string to see if a byte-size
+// like Copy_String_At_Limit() will scan a source string to see if a byte-size
 // copy can be made from a REBUNI-sized one without loss of information.
 //
 // Byte-sized series are also used by the BINARY! datatype.  There is no
@@ -202,12 +202,15 @@ inline static bool SAME_STR(REBSTR *s1, REBSTR *s2) {
 //
 
 inline static REBCNT UNI_LEN(REBSER *s) {
-    assert(SER_WIDE(s) == sizeof(REBUNI));
+    assert(SER_WIDE(s) == sizeof(REBYTE));
+    assert(GET_SERIES_FLAG(s, UCS2_STRING));
+    assert(SER_USED(s) == SER_LEN(s) * 2);
     return SER_LEN(s);
 }
 
 inline static void SET_UNI_LEN(REBSER *s, REBCNT len) {
-    assert(SER_WIDE(s) == sizeof(REBUNI));
+    assert(SER_WIDE(s) == sizeof(REBYTE));
+    assert(GET_SERIES_FLAG(s, UCS2_STRING));
     SET_SERIES_LEN(s, len);
 }
 
@@ -223,10 +226,8 @@ inline static void SET_UNI_LEN(REBSER *s, REBCNT len) {
 #define UNI_LAST(s) \
     SER_LAST(REBUNI, (s))
 
-inline static void TERM_UNI_LEN(REBSER *s, REBCNT len) {
-    SET_SERIES_LEN(s, len);
-    *SER_AT(REBUNI, s, len) = '\0';
-}
+#define TERM_UNI_LEN(s, len) \
+    TERM_SEQUENCE_LEN((s), (len))
 
 #define VAL_UNI_HEAD(v) \
     UNI_HEAD(VAL_SERIES(v))
@@ -279,6 +280,37 @@ inline static REBSIZ VAL_SIZE_LIMIT_AT(
     );
 }
 
+#define VAL_SIZE_AT(v) \
+    VAL_SIZE_LIMIT_AT(NULL, v, -1)
+
+inline static REBSIZ VAL_OFFSET(const RELVAL *v) {
+    REBCHR(const *) at = VAL_UNI_AT(v);
+    return (
+        cast(const REBYTE*, AS_REBUNI(at))
+        - SER_DATA_RAW(VAL_SERIES(v))
+    );
+}
+
+inline static REBSIZ VAL_OFFSET_FOR_INDEX(const RELVAL *v, REBCNT index) {
+    REBCHR(const *) at;
+
+    if (index == VAL_INDEX(v))
+        at = VAL_UNI_AT(v); // !!! update cache if needed
+    else if (index == VAL_LEN_HEAD(v))
+        at = VAL_UNI_TAIL(v);
+    else {
+        // !!! arbitrary seeking...this technique needs to be tuned, e.g.
+        // to look from the head or the tail depending on what's closer
+        //
+        at = UNI_AT(VAL_SERIES(v), index);
+    }
+
+    return (
+        cast(const REBYTE*, AS_REBUNI(at))
+        - cast(const REBYTE*, VAL_UNI_HEAD(v))
+    );
+}
+
 
 //
 // Get or set a unit in a binary series or a string series.  Used by routines
@@ -293,16 +325,18 @@ inline static REBSIZ VAL_SIZE_LIMIT_AT(
 //
 
 inline static REBUNI GET_ANY_CHAR(REBSER *s, REBCNT n) {
-    return BYTE_SIZE(s) ? *BIN_AT(s, n) : *SER_AT(REBUNI, s, n);
+    if (GET_SERIES_FLAG(s, UCS2_STRING))
+        return *SER_AT(REBUNI, s, n);
+    return *BIN_AT(s, n);
 }
 
 inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
-    if (BYTE_SIZE(s)) {
+    if (GET_SERIES_FLAG(s, UCS2_STRING))
+        *SER_AT(REBUNI, s, n) = c;
+    else {
         assert(c <= 255);
         *BIN_AT(s, n) = c;
     }
-    else
-        *SER_AT(REBUNI, s, n) = c;
 }
 
 #define VAL_ANY_CHAR(v) \
@@ -394,11 +428,9 @@ inline static REBINT First_Hash_Candidate_Slot(
 // Copy helpers
 //
 
-inline static REBSER *Copy_Sequence_At_Position(const REBVAL *v)
+inline static REBSER *Copy_String_At(const RELVAL *v)
 {
-    return Copy_Sequence_At_Len_Extra(
-        VAL_SERIES(v), VAL_INDEX(v), VAL_LEN_AT(v), 0
-    );
+    return Copy_String_At_Limit(v, -1);
 }
 
 inline static REBSER *Copy_Sequence_At_Len(

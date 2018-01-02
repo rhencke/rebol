@@ -331,7 +331,7 @@ REBNATIVE(make_native)
     else {
         Init_Text(
             ARR_AT(details, IDX_NATIVE_BODY),
-            Copy_String_At_Len(source, -1) // might change before COMPILE call
+            Copy_String_At(source)  // might change before COMPILE call
         );
     }
 
@@ -352,7 +352,7 @@ REBNATIVE(make_native)
         else {
             Init_Text(
                 ARR_AT(details, IDX_TCC_NATIVE_LINKNAME),
-                Copy_String_At_Len(name, -1)
+                Copy_String_At(name)
             );
         }
     }

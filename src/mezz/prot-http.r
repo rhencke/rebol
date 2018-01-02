@@ -671,9 +671,9 @@ sys/make-scheme [
             port [port!]
             /lines
             /string
-            <local> foo
+            <local> data
         ][
-            foo: if action? :port/awake [
+            data: if action? :port/awake [
                 if not open? port [
                     cause-error 'Access 'not-open port/spec/ref
                 ]
@@ -694,7 +694,7 @@ sys/make-scheme [
                 ; from R3-Alpha for ports (and "actions" in general), was
                 ; rather half-baked, so this should all be rethought.
             ]
-            return foo
+            return data
         ]
 
         write: func [

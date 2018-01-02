@@ -188,11 +188,11 @@ static REBCNT find_string(
         else index--;
     }
 
-    if (ANY_BINSTR(target)) {
+    if (ANY_STRING(target)) {
         // Do the optimal search or the general search?
+        bool optimal = false;
         if (
-            BYTE_SIZE(series)
-            && VAL_BYTE_SIZE(target)
+            optimal // !!! "Optimal" UTF-8 search temporarily disabled
             && !(flags & ~(AM_FIND_CASE|AM_FIND_MATCH))
         ) {
             return Find_Byte_Str(
@@ -279,7 +279,7 @@ static REBSER *MAKE_TO_String_Common(const REBVAL *arg)
     }
     // MAKE/TO <type> <any-string>
     else if (ANY_STRING(arg)) {
-        ser = Copy_String_At_Len(arg, -1);
+        ser = Copy_String_At(arg);
     }
     // MAKE/TO <type> <any-word>
     else if (ANY_WORD(arg)) {
@@ -652,7 +652,10 @@ REB_R PD_String(
         // Because Ren-C unified picking and pathing, this somewhat odd
         // feature is now part of PICKing a string from another string.
 
-        REBSER *copy = Copy_Sequence_At_Position(pvs->out);
+        DECLARE_MOLD (mo);
+        Push_Mold(mo);
+
+        Form_Value(mo, pvs->out);
 
         // This makes sure there's always a "/" at the end of the file before
         // appending new material via a picker:
@@ -661,49 +664,26 @@ REB_R PD_String(
         //     >> (x)/("bar")
         //     == %foo/bar
         //
-        REBCNT len = SER_LEN(copy);
-        if (len == 0)
-            Append_Codepoint(copy, '/');
+        if (SER_USED(mo->series) - mo->start == 0)
+            Append_Utf8_Codepoint(mo->series, '/');
         else {
-            REBUNI ch_last = GET_ANY_CHAR(copy, len - 1);
-            if (ch_last != '/')
-                Append_Codepoint(copy, '/');
+            if (*SER_SEEK(REBYTE, mo->series, SER_USED(mo->series) - 1) != '/')
+                Append_Utf8_Codepoint(mo->series, '/');
         }
 
-        DECLARE_MOLD (mo);
-        Push_Mold(mo);
-
-        Form_Value(mo, picker);
-
-        // The `skip` logic here regarding slashes and backslashes apparently
-        // is for an exception to the rule of appending the molded content.
-        // It doesn't want two slashes in a row:
+        // !!! Code here previously would handle this case:
         //
         //     >> x/("/bar")
         //     == %foo/bar
         //
-        // !!! Review if this makes sense under a larger philosophy of string
-        // path composition.
-        //
-        REBUNI ch_start = GET_ANY_CHAR(mo->series, mo->start);
-        REBCNT skip = (ch_start == '/' || ch_start == '\\') ? 1 : 0;
+        // It's changed, so now the way to do that would be to drop the last
+        // codepoint in the mold buffer, or advance the index position of the
+        // picker.  Punt on it for now, as it will be easier to write when
+        // UTF-8 Everywhere is actually in effect.
 
-        // !!! Would be nice if there was a better way of doing this that didn't
-        // involve reaching into mo.start and mo.series.
-        //
-        const bool crlf_to_lf = false;
-        Append_UTF8_May_Fail(
-            copy, // dst
-            cs_cast(BIN_AT(mo->series, mo->start + skip)), // src
-            SER_LEN(mo->series) - mo->start - skip, // len
-            crlf_to_lf
-        );
+        Form_Value(mo, picker);
 
-        Drop_Mold(mo);
-
-        // Note: pvs->out may point to pvs->store
-        //
-        Init_Any_Series(pvs->out, VAL_TYPE(pvs->out), copy);
+        Init_Any_Series(pvs->out, VAL_TYPE(pvs->out), Pop_Molded_String(mo));
         return pvs->out;
     }
 
@@ -1405,20 +1385,26 @@ REBTYPE(String)
                     Copy_Sequence_At_Len(VAL_SERIES(v), VAL_INDEX(v), len)
                 );
             } else
-                Init_Any_Series(D_OUT, kind, Copy_String_At_Len(v, len));
+                Init_Any_Series(D_OUT, kind, Copy_String_At_Limit(v, len));
         }
-        Remove_Series(ser, VAL_INDEX(v), len);
+        Remove_Series_Units(ser, VAL_INDEX(v), len);
         return D_OUT; }
 
     case SYM_CLEAR: {
         FAIL_IF_READ_ONLY(v);
+        REBSER *ser = VAL_SERIES(v);
 
-        if (index < tail) {
-            if (index == 0)
-                Reset_Sequence(VAL_SERIES(v));
-            else
-                TERM_SEQUENCE_LEN(VAL_SERIES(v), cast(REBCNT, index));
-        }
+        if (index >= tail)
+            RETURN (v);  // clearing after available data has no effect
+
+        // !!! R3-Alpha would take this opportunity to make it so that if the
+        // series is now empty, it reclaims the "bias" (unused capacity at
+        // the head of the series).  One of many behaviors worth reviewing.
+        //
+        if (index == 0 and IS_SER_DYNAMIC(ser))
+            Unbias_Series(ser, false);
+
+        TERM_SEQUENCE_LEN(ser, cast(REBCNT, index));
         RETURN (v); }
 
     //-- Creation:
@@ -1442,7 +1428,7 @@ REBTYPE(String)
         if (IS_BINARY(v))
             ser = Copy_Sequence_At_Len(VAL_SERIES(v), VAL_INDEX(v), len);
         else
-            ser = Copy_String_At_Len(v, len);
+            ser = Copy_String_At_Limit(v, len);
         return Init_Any_Series(D_OUT, VAL_TYPE(v), ser); }
 
     //-- Bitwise:
@@ -1608,25 +1594,22 @@ REBTYPE(String)
 
         UNUSED(PAR(value));
 
-        if (REF(seed)) {
-            //
-            // Use the string contents as a seed.  R3-Alpha would try and
-            // treat it as byte-sized hence only take half the data into
-            // account if it were REBUNI-wide.  This multiplies the number
-            // of bytes by the width and offsets by the size.
-            //
-            Set_Random(
-                Compute_CRC24(
-                    SER_AT_RAW(
-                        SER_WIDE(VAL_SERIES(v)),
-                        VAL_SERIES(v),
-                        VAL_INDEX(v)
-                    ),
-                    VAL_LEN_AT(v) * SER_WIDE(VAL_SERIES(v))
-                )
-            );
+        if (REF(seed)) { // string/binary contents are the seed
+            if (IS_BINARY(v))
+                Set_Random(Compute_CRC24(VAL_BIN_AT(v), VAL_LEN_AT(v)));
+            else {
+                assert(ANY_STRING(v));
+                Set_Random(
+                    Compute_CRC24(
+                        cast(REBYTE*, VAL_UNI_AT(v)),
+                        VAL_SIZE_AT(v)
+                    )
+                );
+            }
             return nullptr;
         }
+
+        FAIL_IF_READ_ONLY(v);
 
         if (REF(only)) {
             if (index >= tail)

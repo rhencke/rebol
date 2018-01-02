@@ -195,16 +195,9 @@ REBNATIVE(encode_text)
 {
     UTF_INCLUDE_PARAMS_OF_ENCODE_TEXT;
 
-    if (not VAL_BYTE_SIZE(ARG(string))) {
-        //
-        // For the moment, only write out strings to .txt if they are Latin1.
-        // (Other support was unimplemented in R3-Alpha, and would just wind
-        // up writing garbage.)
-        //
-        fail ("Can only write out strings to .txt if they are Latin1.");
-    }
+    UNUSED(PAR(string));
 
-    return Init_Binary(D_OUT, Copy_Sequence_At_Position(ARG(string)));
+    fail (".txt codec not currently implemented (what should it do?)");
 }
 
 
@@ -255,7 +248,7 @@ static void Decode_Utf16_Core(
     REBCNT len,
     bool little_endian
 ){
-    REBSER *ser = Make_Unicode(len); // 2x too big (?)
+    REBSER *ser = Make_Unicode(len);
 
     REBINT size = Decode_UTF16_Negative_If_ASCII(
         UNI_HEAD(ser), data, len, little_endian, false
@@ -318,7 +311,7 @@ REBNATIVE(decode_utf16le)
         VAL_LEN_AT(D_OUT) > 0
         && GET_ANY_CHAR(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
     ){
-        Remove_Series(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
+        Remove_Series_Len(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
     }
 
     return D_OUT;
@@ -403,7 +396,7 @@ REBNATIVE(decode_utf16be)
         VAL_LEN_AT(D_OUT) > 0
         && GET_ANY_CHAR(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT)) == 0xFEFF
     ){
-        Remove_Series(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
+        Remove_Series_Len(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
     }
 
     return D_OUT;

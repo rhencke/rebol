@@ -584,7 +584,7 @@ REB_R MAKE_Error(
         assert(IS_BLANK(&vars->type));
         assert(IS_BLANK(&vars->id));
 
-        Init_Text(&vars->message, Copy_Sequence_At_Position(arg));
+        Init_Text(&vars->message, Copy_String_At(arg));
     }
     else
         fail (arg);
@@ -1527,14 +1527,11 @@ const REBYTE *Security_Policy(REBSTR *spelling, const REBVAL *name)
         // Must be a policy tuple:
         if (!IS_TUPLE(policy+1)) goto error;
 
-        // Is it a policy word:
         if (IS_WORD(policy)) { // any word works here
             // If no strings found, use the default:
             if (len == 0) flags = VAL_TUPLE(policy+1); // non-aligned
         }
-
-        // Is it a string (file or URL):
-        else if (ANY_BINSTR(policy) and name != NULL) {
+        else if (name and (IS_TEXT(policy) or IS_FILE(policy))) {
             if (Match_Sub_Path(VAL_SERIES(policy), VAL_SERIES(name))) {
                 // Is the match adequate?
                 if (VAL_LEN_HEAD(name) >= len) {

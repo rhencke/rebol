@@ -171,7 +171,7 @@ static void Detach_Gob(REBGOB *gob)
     if (GOB_PANE(par)) {
         REBCNT i = Find_Gob(par, gob);
         if (i != NOT_FOUND)
-            Remove_Series(SER(GOB_PANE(par)), i, 1);
+            Remove_Series_Units(SER(GOB_PANE(par)), i, 1);
         else
             assert(!"Detaching GOB from parent that didn't find it"); // !!! ?
     }
@@ -289,7 +289,7 @@ static void Remove_Gobs(REBGOB *gob, REBCNT index, REBCNT len)
     for (n = 0; n < len; ++n, ++item)
         SET_GOB_PARENT(VAL_GOB(item), nullptr);
 
-    Remove_Series(SER(GOB_PANE(gob)), index, len);
+    Remove_Series_Units(SER(GOB_PANE(gob)), index, len);
 }
 
 

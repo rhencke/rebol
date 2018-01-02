@@ -1044,6 +1044,15 @@ REBNATIVE(free_q)
 //  ]
 //
 REBNATIVE(as)
+//
+// !!! With UTF-8 Everywhere, it will be possible to alias binaries to strings
+// and vice-versa.  However, doing so will require the underlying series to be
+// flagged that it must hold valid UTF-8 bytes.  This flag will prevent access
+// through the BINARY! alias from being able to make edits that would corrupt
+// the data from the STRING! alias point of view.
+//
+// ANY-WORD! and ANY-STRING! categories should also become unified, so all
+// 3 should be able to alias between each other.
 {
     INCLUDE_PARAMS_OF_AS;
 

@@ -123,20 +123,47 @@
 // "content", there's room for a length in the node.
 //
 
-inline static REBCNT SER_LEN(REBSER *s) {
+inline static REBCNT SER_USED(REBSER *s) {
     REBYTE len_byte = LEN_BYTE_OR_255(s);
-    return len_byte == 255 ? s->content.dynamic.len : len_byte;
+    return len_byte == 255 ? s->content.dynamic.used : len_byte;
 }
 
-inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
+inline static REBCNT SER_LEN(REBSER *s) {
+    if (NOT_SERIES_FLAG(s, UCS2_STRING))
+        return SER_USED(s);
+
+    assert(MISC(s).length * 2 == SER_USED(s)); // !!! Temporary
+    return MISC(s).length;
+}
+
+inline static void SET_SERIES_USED(REBSER *s, REBCNT used) {
     assert(NOT_SERIES_FLAG(s, STACK_LIFETIME));
 
     if (LEN_BYTE_OR_255(s) == 255)
-        s->content.dynamic.len = len;
+        s->content.dynamic.used = used;
     else {
-        assert(len < sizeof(s->content));
-        mutable_LEN_BYTE_OR_255(s) = len;
+        assert(used < sizeof(s->content));
+        mutable_LEN_BYTE_OR_255(s) = used;
     }
+
+  #if !defined(NDEBUG)
+    //
+    // Low-level series mechanics will manipulate the used field, but that's
+    // at the byte level.  The higher level string mechanics must be used on
+    // strings.
+    //
+    if (GET_SERIES_FLAG(s, UCS2_STRING))
+        MISC(s).length = 0xDECAFBAD;
+  #endif
+}
+
+inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
+    if (GET_SERIES_FLAG(s, UCS2_STRING)) {
+        SET_SERIES_USED(s, len * 2);
+        MISC(s).length = len;
+    }
+    else
+        SET_SERIES_USED(s, len);
 }
 
 
@@ -157,28 +184,55 @@ inline static REBYTE *SER_DATA_RAW(REBSER *s) {
         : cast(REBYTE*, &s->content);
 }
 
-inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {   
+inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
+    if (GET_SERIES_FLAG(s, UCS2_STRING)) {
+        assert(SER_WIDE(s) == 1);
+        assert(w == 2);
+    }
+    else {
+      #if !defined(NDEBUG)
+        if (w != SER_WIDE(s)) {
+            REBYTE wide = SER_WIDE(s);
+            if (wide == 0)
+                printf("SER_SEEK_RAW asked on freed series\n");
+            else
+                printf("SER_SEEK_RAW asked %d on width=%d\n", w, SER_WIDE(s));
+            panic (s);
+        }
+      #endif
+    }
+
+    // The VAL_CONTEXT(), VAL_SERIES(), VAL_ARRAY() extractors do the failing
+    // upon extraction--that's meant to catch it before it gets this far.
+    //
+    assert(not (s->info.bits & SERIES_INFO_INACCESSIBLE));
+
+    return ((w) * (i)) + ( // v-- inlining of SER_DATA_RAW
+        IS_SER_DYNAMIC(s)
+            ? cast(REBYTE*, s->content.dynamic.data)
+            : cast(REBYTE*, &s->content)
+        );
+}
+
+
+inline static REBYTE *SER_SEEK_RAW(REBYTE w, REBSER *s, REBSIZ n) {
   #if !defined(NDEBUG)
     if (w != SER_WIDE(s)) {
-        //
-        // This is usually a sign that the series was GC'd, as opposed to the
-        // caller passing in the wrong width (freeing sets width to 0).  But
-        // give some debug tracking either way.
-        //
         REBYTE wide = SER_WIDE(s);
         if (wide == 0)
-            printf("SER_AT_RAW asked on freed series\n");
+            printf("SER_SEEK_RAW asked on freed series\n");
         else
-            printf("SER_AT_RAW asked %d on width=%d\n", w, SER_WIDE(s));
+            printf("SER_SEEK_RAW asked %d on width=%d\n", w, SER_WIDE(s));
         panic (s);
     }
+
     // The VAL_CONTEXT(), VAL_SERIES(), VAL_ARRAY() extractors do the failing
     // upon extraction--that's meant to catch it before it gets this far.
     //
     assert(NOT_SERIES_INFO(s, INACCESSIBLE));
   #endif
 
-    return ((w) * (i)) + ( // v-- inlining of SER_DATA_RAW
+    return ((w) * (n)) + ( // v-- inlining of SER_DATA_RAW
         (LEN_BYTE_OR_255(s) == 255)
             ? cast(REBYTE*, s->content.dynamic.data)
             : cast(REBYTE*, &s->content)
@@ -199,6 +253,9 @@ inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
 
 #define SER_AT(t,s,i) \
     ((t*)SER_AT_RAW(sizeof(t), (s), (i)))
+
+#define SER_SEEK(t,s,i) \
+    ((t*)SER_SEEK_RAW(sizeof(t), (s), (i)))
 
 #define SER_HEAD(t,s) \
     SER_AT(t, (s), 0)
@@ -246,7 +303,15 @@ inline static void EXPAND_SERIES_TAIL(REBSER *s, REBCNT delta) {
 
 inline static void TERM_SEQUENCE(REBSER *s) {
     assert(not IS_SER_ARRAY(s));
-    memset(SER_AT_RAW(SER_WIDE(s), s, SER_LEN(s)), 0, SER_WIDE(s));
+
+    // !!! As a stopgap measure, since REBUNI codepoints are being read out
+    // of a byte sized series (for now), go ahead and set *2* bytes of 0 so
+    // that the null terminator can be visited in string enumerations.
+    //
+    if (GET_SERIES_FLAG(s, UCS2_STRING))
+        memset(SER_SEEK_RAW(1, s, SER_USED(s)), 0, 2);
+    else
+        memset(SER_SEEK_RAW(SER_WIDE(s), s, SER_USED(s)), 0, SER_WIDE(s));
 }
 
 inline static void TERM_SEQUENCE_LEN(REBSER *s, REBCNT len) {
@@ -450,7 +515,7 @@ inline static void DROP_GC_GUARD(void *p) {
     }
   #endif
 
-    --GC_Guarded->content.dynamic.len;
+    --GC_Guarded->content.dynamic.used;
 }
 
 
@@ -656,7 +721,7 @@ inline static bool Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
     // We set the tail of all series to zero initially, but currently do
     // leave series termination to callers.  (This is under review.)
     //
-    s->content.dynamic.len = 0;
+    s->content.dynamic.used = 0;
 
     // See if allocation tripped our need to queue a garbage collection
 
@@ -723,7 +788,7 @@ inline static REBSER *Make_Series_Core(
             Extend_Series(GC_Manuals, 8);
 
         cast(REBSER**, GC_Manuals->content.dynamic.data)[
-            GC_Manuals->content.dynamic.len++
+            GC_Manuals->content.dynamic.used++
         ] = s; // start out managed to not need to find/remove from this later
     }
 

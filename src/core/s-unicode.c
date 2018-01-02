@@ -750,31 +750,31 @@ REBYTE *Check_UTF8(REBYTE *utf8, size_t size)
 // do a single byte pointer increment after both kinds of
 // elements, avoiding the need to call any kind of `Scan_Ascii()`:
 //
-//     for (; len > 0; bp++, len--) {
+//     for (; size > 0; ++bp, --size) {
 //         if (*bp < 0x80) {
 //             // do ASCII stuff...
 //         }
 //         else {
 //             REBUNI uni;
-//             bp = Back_Scan_UTF8_Char(&uni, bp, &len);
+//             bp = Back_Scan_UTF8_Char(&uni, bp, &size);
 //             // do UNICODE stuff...
 //         }
 //     }
 //
-// The third parameter is an optional length that will be decremented by
+// The third parameter is an optional size that will be decremented by
 // the number of "extra" bytes the UTF8 has beyond a single byte character.
 // This allows for decrement-style loops such as the above.
 //
 // Prescans source for null, and will not return code point 0.
 //
 // If failure due to insufficient data or malformed bytes, then NULL is
-// returned (size is not decremented).
+// returned (size is not advanced).
 //
 const REBYTE *Back_Scan_UTF8_Char_Core(
     unsigned long *out, // "UTF32" is defined as unsigned long above
     const REBYTE *bp,
     REBSIZ *size
-) {
+){
     *out = 0;
 
     const UTF8 *source = bp;
@@ -841,9 +841,9 @@ const REBYTE *Back_Scan_UTF8_Char_Core(
 // !!! There's a hardcoded table of byte lengths which is used other places,
 // it would probably speed this up.
 //
-size_t Size_As_UTF8(const REBUNI *up, REBCNT len)
+REBSIZ Size_As_UTF8(const REBUNI *up, REBCNT len)
 {
-    size_t size = 0;
+    REBSIZ size = 0;
 
     for (; len > 0; len--) {
         UTF32 c = *up++;

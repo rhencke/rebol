@@ -43,16 +43,50 @@ REBSER *Make_Binary(REBCNT capacity)
 
 
 //
+//  Make_String: C
+//
+// Makes a series to hold a string with enough capacity for a certain amount
+// of encoded data.  Make_Unicode() is how more conservative guesses might
+// be made, but better to either know -or- go via the mold buffer to get
+// the exact right length.
+//
+REBSER *Make_String(REBSIZ encoded_capacity)
+{
+    // !!! Even though this is a byte sized sequence, we add 2 bytes for the
+    // terminator (and TERM_SEQUENCE() terminates with 2 bytes) because we're
+    // in a stopgap position where the series contains REBUNIs, and sometimes
+    // the null terminator is visited in enumerations.
+    //
+    REBSER *s = Make_Series(encoded_capacity + 2, sizeof(REBYTE));
+    SET_SERIES_FLAG(s, UCS2_STRING);
+    MISC(s).length = 0;
+    TERM_SERIES(s);
+
+    // !!! Can the current codebase get away with single-byte termination of
+    // a REBUNI-based string?  Code in the REBUNI-world shouldn't really be
+    // looking for terminators since embedded nulls are legal in STRING!, so
+    // we might get away with it.
+    //
+    ASSERT_SERIES_TERM(s);
+    return s;
+}
+
+
+//
 //  Make_Unicode: C
 //
-// Make a unicode string series. Used for internal strings.
-// Add 1 extra for terminator.
+// !!! This is a very conservative string generator for UTF-8 content which
+// assumes that you could need as much as 4 bytes per codepoint.  It's not a
+// new issue, considering that R3-Alpha had to come up with a string size
+// not knowing whether the string would need 1 or 2 byte codepoints.  But
+// for internal strings, getting this wrong and not doing an expansion could
+// be a bug.  Just make big strings for now.
 //
-REBSER *Make_Unicode(REBCNT capacity)
+REBSER *Make_Unicode(REBCNT codepoint_capacity)
 {
-    REBSER *ser = Make_Series(capacity + 1, sizeof(REBUNI));
-    TERM_SEQUENCE(ser);
-    return ser;
+    REBSER *s = Make_String(codepoint_capacity * 2);
+    ASSERT_SERIES_TERM(s);
+    return s;
 }
 
 
@@ -90,13 +124,13 @@ void Insert_Char(REBSER *dst, REBCNT index, REBCNT chr)
 
 
 //
-//  Copy_String_At_Len: C
+//  Copy_String_At_Limit: C
 //
 // !!! With UTF-8 Everywhere, copying strings will still be distinct from
 // other series due to the length being counted in characters and not
 // units of the series width.
 //
-REBSER *Copy_String_At_Len(const RELVAL *src, REBINT limit)
+REBSER *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
 {
     REBCNT length_limit;
     REBSIZ size = VAL_SIZE_LIMIT_AT(&length_limit, src, limit);
@@ -157,10 +191,8 @@ REBSER *Append_Unencoded(REBSER *dst, const char *src)
 //
 REBSER *Append_Codepoint(REBSER *dst, REBUNI codepoint)
 {
-    assert(SER_WIDE(dst) == sizeof(REBUNI)); // invariant for "Latin1 Nowhere"
-
     REBCNT tail = SER_LEN(dst);
-    EXPAND_SERIES_TAIL(dst, 1);
+    EXPAND_SERIES_TAIL(dst, sizeof(REBUNI));
 
     REBCHR(*) cp = UNI_AT(dst, tail);
     cp = WRITE_CHR(cp, codepoint);
@@ -240,7 +272,8 @@ void Append_Utf8_String(REBSER *dst, const RELVAL *src, REBCNT length_limit)
 {
     assert(
         SER_WIDE(dst) == sizeof(REBYTE)
-        && SER_WIDE(VAL_SERIES(src)) == sizeof(REBUNI)
+        and SER_WIDE(VAL_SERIES(src)) == sizeof(REBYTE)
+        and GET_SERIES_FLAG(VAL_SERIES(src), UCS2_STRING)
     );
 
     REBSIZ offset;
@@ -305,13 +338,17 @@ REBSER *Append_UTF8_May_Fail(
     //   arbitrary outside data from the API.
     // * It's needed to know how many characters (length) are in the series,
     //   not just how many bytes.  The higher level concept of "length" gets
-    //   stored in the series LINK() field.
+    //   stored in the series MISC() field.
     // * In the future, some operations will be accelerated by knowing that
     //   a string only contains ASCII codepoints.
 
-    REBSER *temp = BUF_UTF8; // buffer is Unicode width
+    assert(IS_SER_DYNAMIC(BUF_UTF8));
+    BUF_UTF8->content.dynamic.used = 0;
+    EXPAND_SERIES_TAIL(BUF_UTF8, size * 2); // at most this many unicode chars
+    SET_SERIES_LEN(BUF_UTF8, 0);
+    TERM_SERIES(BUF_UTF8);
 
-    Resize_Series(temp, size + 1); // needs at most this many unicode chars
+    REBSER *temp = BUF_UTF8; // buffer is Unicode width
 
     REBUNI *up = UNI_HEAD(temp);
     const REBYTE *src = cb_cast(utf8);
@@ -340,6 +377,8 @@ REBSER *Append_UTF8_May_Fail(
         *up++ = ch;
     }
 
+    UNUSED(all_ascii);
+
     up = UNI_HEAD(temp);
 
     REBCNT old_len;
@@ -358,10 +397,7 @@ REBSER *Append_UTF8_May_Fail(
     for (; num_codepoints > 0; --num_codepoints)
         *dp++ = *up++;
 
-    *dp = '\0';
-
-    UNUSED(all_ascii);
-
+    TERM_SERIES(dst);
     return dst;
 }
 

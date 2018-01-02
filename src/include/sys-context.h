@@ -159,10 +159,10 @@ static inline void INIT_CTX_KEYLIST_UNIQUE(REBCTX *c, REBARR *keylist) {
 // requested in context creation).
 //
 #define CTX_LEN(c) \
-    (cast(REBSER*, (c))->content.dynamic.len - 1) // len > 1 => dynamic
+    (cast(REBSER*, (c))->content.dynamic.used - 1) // used > 1, so dynamic
 
 #define CTX_ROOTKEY(c) \
-    cast(REBVAL*, SER(CTX_KEYLIST(c))->content.dynamic.data) // len > 1
+    cast(REBVAL*, SER(CTX_KEYLIST(c))->content.dynamic.data) // used > 1
 
 #define CTX_TYPE(c) \
     VAL_TYPE(CTX_ARCHETYPE(c))

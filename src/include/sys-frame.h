@@ -111,7 +111,7 @@ inline static int FRM_LINE(REBFRM *f) {
 // ID ran.  Consider when reviewing the future of ACTION!.
 //
 #define FRM_NUM_ARGS(f) \
-    (cast(REBSER*, (f)->varlist)->content.dynamic.len - 1) // minus rootvar
+    (cast(REBSER*, (f)->varlist)->content.dynamic.used - 1) // minus rootvar
 
 #define FRM_SPARE(f) \
     cast(REBVAL*, &(f)->spare)
@@ -1088,7 +1088,7 @@ inline static void Push_Action(
     INIT_VAL_CONTEXT_PHASE(f->rootvar, act);  // FRM_PHASE() (can be dummy)
     EXTRA(Binding, f->rootvar).node = binding; // FRM_BINDING()
 
-    s->content.dynamic.len = num_args + 1;
+    s->content.dynamic.used = num_args + 1;
     RELVAL *tail = ARR_TAIL(f->varlist);
     tail->header.bits = NODE_FLAG_STACK | FLAG_KIND_BYTE(REB_0);
     TRACK_CELL_IF_DEBUG(tail, __FILE__, __LINE__);

@@ -252,11 +252,11 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 Move_Value(DS_PUSH(), EMPTY_BLOCK); // need block in position
 
             if (IS_BLOCK(DS_TOP)) { // we're in right spot to push notes/title
-                Init_Text(DS_PUSH(), Copy_String_At_Len(item, -1));
+                Init_Text(DS_PUSH(),  Copy_String_At(item));
             }
             else { // !!! A string was already pushed.  Should we append?
                 assert(IS_TEXT(DS_TOP));
-                Init_Text(DS_TOP, Copy_String_At_Len(item, -1));
+                Init_Text(DS_TOP, Copy_String_At(item));
             }
 
             if (DS_TOP == DS_AT(dsp_orig + 3))

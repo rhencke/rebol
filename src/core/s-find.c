@@ -498,7 +498,7 @@ REBCNT Find_Str_Char(
     // If searching a potentially much longer string, take opportunities to
     // use optimized C library functions if possible.
     //
-    if (BYTE_SIZE(series)) {
+    if (NOT_SERIES_FLAG(series, UCS2_STRING)) {
         REBYTE *bp = BIN_HEAD(series);
         REBYTE breakset[3];
 

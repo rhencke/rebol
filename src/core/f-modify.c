@@ -146,7 +146,7 @@ REBCNT Modify_Array(
         if (size > dst_len)
             Expand_Series(SER(dst_arr), dst_idx, size - dst_len);
         else if (size < dst_len and (flags & AM_PART))
-            Remove_Series(SER(dst_arr), dst_idx, dst_len - size);
+            Remove_Series_Units(SER(dst_arr), dst_idx, dst_len - size);
         else if (size + dst_idx > tail) {
             EXPAND_SERIES_TAIL(SER(dst_arr), size - (tail - dst_idx));
         }
@@ -337,7 +337,7 @@ REBCNT Modify_Binary(
         if (size > dst_len)
             Expand_Series(dst_ser, dst_idx, size - dst_len);
         else if (size < dst_len && (flags & AM_PART))
-            Remove_Series(dst_ser, dst_idx, dst_len - size);
+            Remove_Series_Units(dst_ser, dst_idx, dst_len - size);
         else if (size + dst_idx > tail) {
             EXPAND_SERIES_TAIL(dst_ser, size - (tail - dst_idx));
         }
@@ -363,75 +363,113 @@ REBCNT Modify_Binary(
 //
 // Returns new dst_idx.
 //
+// !!! This routine and Modify_Binary used to be the same function.  However,
+// with UTF-8 strings the logic gets more complicated due to the fact that
+// "lengths" of ranges (in characters) can be different from "sizes" (in bytes)
+// for the amount of content being manipulated.  If that difference can be
+// sufficiently abstracted, then the string case's more complex logic could
+// apply for the binary case as well...just decaying to where length is equal
+// to byte size.  Might be a little bit slower to run binary through the more
+// complex handling it doesn't actually require--but less code total.
+//
+// !!! One issue which might block reunification is the additional concern that
+// are created by allowing AS STRING! of a BINARY! and AS BINARY! of a STRING!,
+// because modifications through the binary must fail if a mutation of the
+// aliased series would produce invalid UTF-8 bytes.  That concern would only
+// be applicable to binaries, as all string modifications produce valid UTF-8.
+//
 REBCNT Modify_String(
-    REBVAL *dst_val,        // target
-    REBSTR *verb,            // INSERT, APPEND, CHANGE
-    const REBVAL *src_val,  // source
-    REBFLGS flags,          // AM_PART
-    REBINT dst_len,         // length to remove
-    REBINT dups             // dup count
+    REBVAL *dst, // ANY-STRING! value to modify (at its current index)
+    REBSTR *verb, // SYM_INSERT, SYM_APPEND, SYM_CHANGE
+    const REBVAL *src, // ANY-VALUE! argument with content to inject
+    REBFLGS flags, // currently just AM_PART
+    REBINT dst_len, // number of codepoints of dst to remove
+    REBINT dups // dup count of how many times to insert the src content
 ){
     REBSYM sym = STR_SYMBOL(verb);
     assert(sym == SYM_INSERT or sym == SYM_CHANGE or sym == SYM_APPEND);
 
-    REBSER *dst_ser = VAL_SERIES(dst_val);
-    REBCNT dst_idx = VAL_INDEX(dst_val);
+    REBSER *dst_ser = VAL_SERIES(dst);
+    REBCNT dst_idx = VAL_INDEX(dst);
 
     // For INSERT/PART and APPEND/PART
     //
     REBINT limit;
-    if (sym != SYM_CHANGE && (flags & AM_PART))
-        limit = dst_len; // should be non-negative
+    if (sym != SYM_CHANGE && (flags & AM_PART)) {
+        assert(dst_len >= 0);
+        limit = dst_len;
+    }
     else
         limit = -1;
 
-    if (IS_NULLED(src_val) and sym == SYM_CHANGE) {
+    if (IS_NULLED(src) and sym == SYM_CHANGE) {
         //
         // Tweak requests to CHANGE to a null to be a deletion; basically
         // what happens with an empty string.
         //
         flags |= AM_SPLICE;
-        src_val = EMPTY_TEXT;
+        src = EMPTY_TEXT;
     }
 
-    if (IS_NULLED(src_val) || limit == 0 || dups < 0)
+    if (IS_NULLED(src) or limit == 0 or dups <= 0)
         return sym == SYM_APPEND ? 0 : dst_idx;
 
     REBCNT tail = SER_LEN(dst_ser);
     if (sym == SYM_APPEND or dst_idx > tail)
         dst_idx = tail;
 
-    // If the src_val is not a string, then we need to create a string:
-
-    REBCNT src_idx = 0;
-    REBSER *src_ser;
-    REBCNT src_len;
+    // If the src is not an ANY-STRING!, then we need to create string data
+    // from the value to use its content.
+    //
+    // !!! The supporting routines here should write their output into the
+    // mold buffer instead of generating entirely new series nodes w/entirely
+    // new data allocations.  Data could be used from the buffer, then dropped.
+    //
     bool needs_free;
-    if (IS_CHAR(src_val)) {
-        src_ser = Make_Ser_Codepoint(VAL_CHAR(src_val));
-        src_len = SER_LEN(src_ser);
+
+    REBSIZ src_off;
+    REBSER *src_ser;
+    REBCNT src_len; // length in characters
+    REBSIZ src_size; // size in bytes
+
+    if (IS_CHAR(src)) {
+        src_ser = Make_Ser_Codepoint(VAL_CHAR(src));
+        assert(SER_LEN(src_ser) == 1);
+        src_len = 1;
+        src_size = SER_USED(src_ser);
+        assert(src_size <= 4); // biggest UTF-8 encoded character
+        src_off = 0;
 
         needs_free = true;
     }
-    else if (IS_BLOCK(src_val)) {
-        src_ser = Form_Tight_Block(src_val);
+    else if (IS_BLOCK(src)) {
+        //
+        // !!! For APPEND and INSERT, the /PART should apply to *block* units,
+        // and not character units from the generated string.
+        //
+        src_ser = Form_Tight_Block(src);
         src_len = SER_LEN(src_ser);
+        src_size = SER_USED(src_ser);
+        src_off = 0;
 
         needs_free = true;
     }
     else if (
-        ANY_STRING(src_val)
-        and not (IS_TAG(src_val) or (flags & AM_LINE))
+        ANY_STRING(src)
+        and not (IS_TAG(src) or (flags & AM_LINE))
     ){
-        src_ser = VAL_SERIES(src_val);
-        src_idx = VAL_INDEX(src_val);
-        src_len = VAL_LEN_AT(src_val);
+        src_ser = VAL_SERIES(src);
+        // src_len set by next line --v
+        src_size = VAL_SIZE_LIMIT_AT(&src_len, src, limit);
+        src_off = VAL_OFFSET(src);
 
         needs_free = false;
     }
     else {
-        src_ser = Copy_Form_Value(src_val, 0);
+        src_ser = Copy_Form_Value(src, 0);
         src_len = SER_LEN(src_ser);
+        src_size = SER_USED(src_ser);
+        src_off = 0;
 
         needs_free = true;
     }
@@ -439,15 +477,17 @@ REBCNT Modify_String(
     if (limit >= 0)
         src_len = limit;
 
-    // If Source == Destination we need to prevent possible conflicts.
-    // Clone the argument just to be safe.
-    // (Note: It may be possible to optimize special cases like append !!)
+    // If Source == Destination we need to prevent possible conflicts in the
+    // memory regions being moved.  Clone the series just to be safe.
+    //
+    // !!! It may be possible to optimize special cases like append.  Also,
+    // this should be using the mold buffer as well.
     //
     if (dst_ser == src_ser) {
         assert(!needs_free);
-        src_ser = Copy_Sequence_At_Len(src_ser, src_idx, src_len);
+        src_ser = Copy_Sequence_At_Len(src_ser, VAL_INDEX(src), src_len);
         needs_free = true;
-        src_idx = 0;
+        src_off = 0;
     }
 
     if (flags & AM_LINE) {
@@ -456,39 +496,52 @@ REBCNT Modify_String(
         ++src_len;
     }
 
-    // Total to insert:
-    //
-    REBINT size = dups * src_len;
+    REBSIZ size = dups * src_size; // total bytes to insert
+
+    REBSIZ dst_used = SER_USED(dst_ser);
+    REBSIZ dst_size = VAL_SIZE_LIMIT_AT(NULL, dst, dst_len);
+    REBSIZ dst_off = VAL_OFFSET_FOR_INDEX(dst, dst_idx); // !!! review perf
 
     if (sym != SYM_CHANGE) {
-        // Always expand dst_ser for INSERT and APPEND actions:
-        Expand_Series(dst_ser, dst_idx, size);
+        //
+        // Always expand dst_ser for INSERT and APPEND
+        //
+        Expand_Series(dst_ser, dst_off, size);
     }
     else {
-        if (size > dst_len)
-            Expand_Series(dst_ser, dst_idx, size - dst_len);
-        else if (size < dst_len && (flags & AM_PART))
-            Remove_Series(dst_ser, dst_idx, dst_len - size);
-        else if (size + dst_idx > tail) {
-            EXPAND_SERIES_TAIL(dst_ser, size - (tail - dst_idx));
+        // Change operations only need expansion if more content is being
+        // added than being overwritten.
+        //
+        if (size > dst_size)
+            Expand_Series(dst_ser, dst_off, size - dst_size);
+        else if (size < dst_size && (flags & AM_PART))
+            Remove_Series_Units(dst_ser, dst_off, dst_size - size);
+        else if (size + dst_off > dst_used) {
+            EXPAND_SERIES_TAIL(dst_ser, size - (dst_used - dst_off));
         }
     }
 
-    // For dup count:
-    for (; dups > 0; dups--) {
-        memcpy(
-            AS_REBUNI(UNI_AT(dst_ser, dst_idx)),
-            AS_REBUNI(UNI_AT(src_ser, src_idx)),
-            sizeof(REBUNI) * src_len
-        );
+    REBYTE *dst_ptr = SER_SEEK(REBYTE, dst_ser, dst_off);
+    REBYTE *src_ptr = SER_SEEK(REBYTE, src_ser, src_off);
 
+    for (; dups > 0; dups--) {
+        memcpy(dst_ptr, src_ptr, src_size);
+        dst_ptr += src_size;
         dst_idx += src_len;
     }
 
-    TERM_SEQUENCE(dst_ser);
+    if (sym == SYM_CHANGE)
+        SET_SERIES_LEN(dst_ser, tail + src_len - dst_len);
+    else
+        SET_SERIES_LEN(dst_ser, tail + src_len);
 
-    if (needs_free) // didn't use original data as-is
+    if (needs_free) { // didn't use original data as-is
+        //
+        // !!! See notes above regarding how it should not be necessary to
+        // create new series--this would just Drop_Mold() on the mold buffer.
+        //
         Free_Unmanaged_Series(src_ser);
+    }
 
     return (sym == SYM_APPEND) ? 0 : dst_idx;
 }

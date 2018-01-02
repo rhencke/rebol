@@ -190,11 +190,12 @@
     FLAG_LEFT_BIT(11)
 
 
-//=//// SERIES_FLAG_12 ////////////////////////////////////////////////////=//
+//=//// SERIES_FLAG_UCS2_STRING ///////////////////////////////////////////=//
 //
-// Reclaimed.
+// !!! Temporary flag to be used while a backing store for an ANY-STRING! is
+// separate from the SERIES_FLAG_UTF8_STRING.
 //
-#define SERIES_FLAG_12 \
+#define SERIES_FLAG_UCS2_STRING \
     FLAG_LEFT_BIT(12)
 
 
@@ -663,9 +664,14 @@ struct Reb_Series_Dynamic {
     //
     char *data;
 
-    // `len` is one past end of useful data.
+    // `used` is the count of *physical* elements.  If a series is byte-sized
+    // and holding a UTF-8 string, then this may be a size in bytes distinct
+    // than the count of "logical" elements, e.g. codepoints.  The actual
+    // logical length in such cases will be in the MISC(length) field.
     //
-    REBCNT len;
+    // !!! Series with SER_LEN() != SER_USED() are a work-in-progress.
+    //
+    REBCNT used;
 
     // `rest` is the total number of units from bias to end.  Having a
     // slightly weird name draws attention to the idea that it's not really
@@ -865,7 +871,9 @@ union Reb_Series_Misc {
     // SER_SIZE() and SER_LEN() can therefore be different...where SER_LEN()
     // on a string series comes from here, vs. just report the size.
     //
-    REBSIZ length;
+    // !!! UTF-8 everywhere is a work-in-progress.
+    //
+    REBCNT length;
 
     // When binding words into a context, it's necessary to keep a table
     // mapping those words to indices in the context's keylist.  R3-Alpha

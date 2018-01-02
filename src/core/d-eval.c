@@ -265,11 +265,21 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 
     REBACT *phase = FRM_PHASE(f);
 
+  #ifdef DEBUG_UTF8_EVERYWHERE
+    if (ANY_STRING(f->out)) {
+        REBCNT len = SER_LEN(VAL_SERIES(f->out));
+        UNUSED(len); // just one invariant for now, SER_LEN checks it
+    }
+  #endif
+
     // Usermode functions check the return type via Returner_Dispatcher(),
     // with everything else assumed to return the correct type.  But this
     // double checks any function marked with RETURN in the debug build,
     // so native return types are checked instead of just trusting the C.
     //
+    // !!! PG_Dispatcher() should do this, so every phase gets checked.
+    //
+  #ifdef DEBUG_NATIVE_RETURNS
     if (GET_ACTION_FLAG(phase, HAS_RETURN)) {
         REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
         assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
@@ -284,6 +294,7 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
             panic (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
         }
     }
+  #endif
 }
 
 

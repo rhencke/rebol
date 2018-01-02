@@ -165,8 +165,7 @@ REBNATIVE(checksum)
     REBCNT len = Part_Len_May_Modify_Index(arg, ARG(limit));
     UNUSED(REF(part)); // checked by if limit is nulled
 
-    REBYTE *data = VAL_RAW_DATA_AT(arg); // after Partial() in case of change
-    REBCNT wide = SER_WIDE(VAL_SERIES(arg));
+    REBYTE *data = VAL_RAW_DATA_AT(arg); // after Part_Len in case of change
 
     REBSYM sym;
     if (REF(method)) {
@@ -285,7 +284,7 @@ REBNATIVE(checksum)
         if (sum <= 1)
             sum = 1;
 
-        REBINT hash = Hash_Bytes_Or_Uni(data, len, wide) % sum;
+        REBINT hash = Hash_Bytes(data, len) % sum;
         Init_Integer(D_OUT, hash);
     }
     else

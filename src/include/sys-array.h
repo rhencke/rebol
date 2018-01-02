@@ -140,7 +140,7 @@ inline static void TERM_SERIES(REBSER *s) {
     if (IS_SER_ARRAY(s))
         TERM_ARRAY_LEN(ARR(s), SER_LEN(s));
     else
-        memset(SER_AT_RAW(SER_WIDE(s), s, SER_LEN(s)), 0, SER_WIDE(s));
+        TERM_SEQUENCE(s);
 }
 
 
@@ -274,7 +274,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
             Extend_Series(GC_Manuals, 8);
 
         cast(REBSER**, GC_Manuals->content.dynamic.data)[
-            GC_Manuals->content.dynamic.len++
+            GC_Manuals->content.dynamic.used++
         ] = s; // start out managed to not need to find/remove from this later
     }
 
