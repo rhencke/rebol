@@ -151,8 +151,11 @@ static REBOOL Seek_File_64(struct devreq_file *file)
 
 static int Get_File_Info(struct devreq_file *file)
 {
-    const REBOOL full = TRUE;
-    char *path_utf8 = rebFileToLocalAlloc(NULL, file->path, full);
+    char *path_utf8 = rebFileToLocalAlloc(
+        NULL,
+        file->path,
+        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+    );
 
     struct stat info;
     int stat_result = stat(path_utf8, &info);
@@ -227,15 +230,12 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     REBREQ *dir_req = AS_REBREQ(dir);
     REBREQ *file_req = AS_REBREQ(file);
 
-    //
-    // Extract UTF-8 data from the FILE! value into a temporary buffer,
-    // and remove * from tail if present.
-    //
     size_t size_dir;
-    const REBOOL full = TRUE;
-    char *dir_utf8 = rebFileToLocalAlloc(&size_dir, dir->path, full);
-    if (size_dir > 0 && dir_utf8[size_dir - 1] == '*')
-        dir_utf8[size_dir - 1] = '\0';
+    char *dir_utf8 = rebFileToLocalAlloc(
+        &size_dir,
+        dir->path,
+        REB_FILETOLOCAL_FULL // "wild" append of * not necessary on POSIX
+    );
 
     // If no dir handle, open the dir:
     //
@@ -358,8 +358,11 @@ DEVICE_CMD Open_File(REBREQ *req)
     // Open the file:
     // printf("Open: %s %d %d\n", path, modes, access);
 
-    const REBOOL full = TRUE;
-    char *path_utf8 = rebFileToLocalAlloc(NULL, file->path, full);
+    REBFLGS flags = REB_FILETOLOCAL_FULL;
+    if (req->modes & RFM_DIR)
+        flags |= REB_FILETOLOCAL_WILD; // !!! necessary?  Didn't remove * here
+
+    char *path_utf8 = rebFileToLocalAlloc(NULL, file->path, flags);
 
     struct stat info;
     int h = open(path_utf8, modes, access);
@@ -502,8 +505,11 @@ DEVICE_CMD Create_File(REBREQ *req)
     if (NOT(req->modes & RFM_DIR))
         return Open_File(req);
 
-    const REBOOL full = TRUE;
-    char *path_utf8 = rebFileToLocalAlloc(NULL, file->path, full);
+    char *path_utf8 = rebFileToLocalAlloc(
+        NULL,
+        file->path,
+        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+    );
 
     int mkdir_result = mkdir(path_utf8, 0777);
 
@@ -528,8 +534,11 @@ DEVICE_CMD Delete_File(REBREQ *req)
 {
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    const REBOOL full = TRUE;
-    char *path_utf8 = rebFileToLocalAlloc(NULL, file->path, full);
+    char *path_utf8 = rebFileToLocalAlloc(
+        NULL,
+        file->path,
+        REB_FILETOLOCAL_FULL // leave tail slash on for directory removal
+    );
 
     int removal_result;
     if (req->modes & RFM_DIR)
@@ -558,11 +567,16 @@ DEVICE_CMD Rename_File(REBREQ *req)
 
     REBVAL *to = cast(REBVAL*, req->common.data); // !!! hack!
 
-    // Convert file name to OS format:
-    //
-    const REBOOL full = TRUE;
-    char *from_utf8 = rebFileToLocalAlloc(NULL, file->path, full);
-    char *to_utf8 = rebFileToLocalAlloc(NULL, to, full);
+    char *from_utf8 = rebFileToLocalAlloc(
+        NULL,
+        file->path,
+        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+    );
+    char *to_utf8 = rebFileToLocalAlloc(
+        NULL,
+        to,
+        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+    );
 
     int rename_result = rename(from_utf8, to_utf8);
 

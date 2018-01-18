@@ -73,8 +73,7 @@ void *OS_Open_Library(const REBVAL *path)
     // default.  So if %foo is passed in, you don't want to prepend the
     // current dir to make it absolute, because it will only look there.
     //
-    const REBOOL full = FALSE;
-    char *path_utf8 = rebFileToLocalAlloc(NULL, path, full);
+    char *path_utf8 = rebFileToLocalAlloc(NULL, path, REB_FILETOLOCAL_0);
 
     void *dll = dlopen(path_utf8, RTLD_LAZY/*|RTLD_GLOBAL*/);
 

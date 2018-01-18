@@ -30,19 +30,21 @@
 
 #include "sys-core.h"
 
-#define FN_PAD 2    // pad file name len for adding /, /*, and /?
-
 
 //
 //  To_REBOL_Path: C
 //
-// Convert local filename to a REBOL filename.
+// Convert local-format filename to a Rebol-format filename.  This basically
+// means that on Windows, "C:\" is translated to "/C/", backslashes are
+// turned into forward slashes, multiple slashes get turned into one slash.
+// If something is supposed to be a directory, then it is ensured that the
+// Rebol-format filename ends in a slash.
 //
-// Allocate and return a new series with the converted path.
-// Return NULL on error.
+// To try and keep it straight whether a path has been converted already or
+// not, STRING!s are used to hold local-format filenames, while FILE! is
+// assumed to denote a Rebol-format filename.
 //
-// Adds extra space at end for appending a dir /(star)
-//     (Note: don't put actual star, as "/" "*" ends this comment)
+// Allocates and returns a new series with the converted path.
 //
 // Note: This routine apparently once appended the current directory to the
 // volume when no root slash was provided.  It was an odd case to support
@@ -52,192 +54,302 @@ REBSER *To_REBOL_Path(const RELVAL *string, REBFLGS flags)
 {
     assert(IS_STRING(string));
 
-    const REBUNI *up = VAL_UNI_AT(string);
-    REBCNT len = VAL_LEN_AT(string);
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
 
-#ifdef TO_WINDOWS
-    REBOOL saw_colon = FALSE;  // have we hit a ':' yet?
+    REBOOL lead_slash = FALSE; // did we restart to insert a leading slash?
+    REBOOL saw_colon = FALSE; // have we hit a ':' yet?
     REBOOL saw_slash = FALSE; // have we hit a '/' yet?
-#endif
+    REBOOL last_was_slash = FALSE; // was last character appended a slash?
 
-    REBSER *dst = Make_Unicode(len + FN_PAD);
+restart:;
+    REBCHR(const *) up = VAL_UNI_AT(string);
+    REBCNT len = VAL_LEN_AT(string);
 
     REBUNI c = '\0'; // for test after loop (in case loop does not run)
 
     REBCNT i;
-    REBCNT n = 0;
     for (i = 0; i < len;) {
-        c = up[i];
-        i++;
-#ifdef TO_WINDOWS
+        up = NEXT_CHR(&c, up);
+        ++i;
+
         if (c == ':') {
+            //
             // Handle the vol:dir/file format:
+            //
             if (saw_colon || saw_slash)
-                return NULL; // no prior : or / allowed
-            saw_colon = TRUE;
-            if (i < len) {
-                c = up[i];
-                if (c == '\\' || c == '/') i++; // skip / in foo:/file
+                fail ("no prior : or / allowed for vol:dir/file format");
+
+            if (NOT(lead_slash)) {
+                //
+                // Change C:/ to /C/ (and C:X to /C/X)
+                //
+                TERM_SEQUENCE_LEN(mo->series, mo->start); // drop mold so far
+                Append_Utf8_Codepoint(mo->series, '/'); // insert a /
+                lead_slash = TRUE; // don't do this the second time around
+                goto restart;
             }
-            c = '/'; // replace : with a /
+
+            saw_colon = TRUE;
+
+            Append_Utf8_Codepoint(mo->series, '/'); // replace : with a /
+
+            if (i < len) {
+                up = NEXT_CHR(&c, up);
+                ++i;
+
+                if (c == '\\' || c == '/') {
+                    //
+                    // skip / in foo:/file
+                    //
+                    if (i >= len)
+                        break;
+                    up = NEXT_CHR(&c, up);
+                    ++i;
+                }
+            }
         }
-        else if (c == '\\' || c== '/') {
-            if (saw_slash)
-                continue;
+        else if (c == '\\' || c== '/') { // !!! Should this use OS_DIR_SEP
+            if (last_was_slash)
+                continue; // Collapse multiple / or \ to a single slash
+
             c = '/';
+            last_was_slash = TRUE;
             saw_slash = TRUE;
         }
         else
-            saw_slash = FALSE;
-#endif
-        SET_ANY_CHAR(dst, n++, c);
-    }
-    if ((flags & PATH_OPT_SRC_IS_DIR) && c != '/') {  // watch for %/c/ case
-        SET_ANY_CHAR(dst, n++, '/');
-    }
-    TERM_SEQUENCE_LEN(dst, n);
+            last_was_slash = FALSE;
 
-#ifdef TO_WINDOWS
-    // Change C:/ to /C/ (and C:X to /C/X):
-    if (saw_colon)
-        Insert_Char(dst, 0, '/');
-#endif
+        Append_Utf8_Codepoint(mo->series, c);
+    }
 
-    return dst;
+    // If this is supposed to be a directory and the last character is not a
+    // slash, make it one (this is Rebol's rule for FILE!s that are dirs)
+    //
+    if ((flags & PATH_OPT_SRC_IS_DIR) && c != '/') // watch for %/c/ case
+        Append_Utf8_Codepoint(mo->series, '/');
+
+    return Pop_Molded_String(mo);
 }
 
 
 //
-//  To_Local_Path: C
+//  Mold_File_To_Local: C
 //
-// Convert REBOL filename to a local filename.
+// Implementation routine of To_Local_Path which leaves the path in the mold
+// buffer (e.g. for further appending or just counting the number of bytes)
 //
-// Allocate and return a new series with the converted path.
-// Return 0 on error.
-//
-// Adds extra space at end for appending a dir /(star)
-//     (Note: don't put actual star, as "/" "*" ends this comment)
-//
-// Expands width for OS's that require it.
-//
-REBSER *To_Local_Path(const RELVAL *file, REBOOL full) {
+void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
     assert(IS_FILE(file));
 
-    const REBUNI *up = VAL_UNI_AT(file);
+    REBCHR(const *) up = VAL_UNI_AT(file);
     REBCNT len = VAL_LEN_AT(file);
 
-    REBCNT n = 0;
+    REBCNT i = 0;
+
+    REBUNI c;
+    if (len == 0)
+        c = '\0';
+    else
+        up = NEXT_CHR(&c, up);
 
     // Prescan for: /c/dir = c:/dir, /vol/dir = //vol/dir, //dir = ??
     //
-    REBCNT i = 0;
-    REBUNI c = up[i];
-
-    // may be longer (if lpath is encoded)
-    //
-    REBSER *result;
-    REBUNI *out;
-
-    if (c == '/') {         // %/
-        result = Make_Unicode(len + FN_PAD);
-        out = UNI_HEAD(result);
-    #ifdef TO_WINDOWS
-        i++;
+    if (c == '/') { // %/
         if (i < len) {
-            c = up[i];
-            i++;
+            up = NEXT_CHR(&c, up);
+            ++i;
         }
-        if (c != '/') {     // %/c or %/c/ but not %/ %// %//c
-            // peek ahead for a '/':
+        else
+            c = '\0';
+
+    #ifdef TO_WINDOWS
+        if (c != '/') { // %/c or %/c/ but not %/ %// %//c
+            //
+            // peek ahead for a '/'
+            //
             REBUNI d = '/';
+            REBCHR(const *) dp;
             if (i < len)
-                d = up[i];
+                dp = NEXT_CHR(&d, up);
+            else
+                dp = up;
             if (d == '/') { // %/c/ => "c:/"
-                i++;
-                out[n++] = c;
-                out[n++] = ':';
+                ++i;
+                Append_Utf8_Codepoint(mo->series, c);
+                Append_Utf8_Codepoint(mo->series, ':');
+                up = NEXT_CHR(&c, dp);
+                ++i;
             }
             else {
-                out[n++] = OS_DIR_SEP;  // %/cc %//cc => "//cc"
-                i--;
+                // %/cc %//cc => "//cc"
+                //
+                Append_Utf8_Codepoint(mo->series, OS_DIR_SEP);
             }
         }
     #endif
-        out[n++] = OS_DIR_SEP;
+
+        Append_Utf8_Codepoint(mo->series, OS_DIR_SEP);
     }
-    else {
-        if (full) {
-            REBVAL *lpath = OS_GET_CURRENT_DIR();
-
-            size_t lpath_size;
-            char *lpath_utf8 = rebFileToLocalAlloc(
-                &lpath_size, lpath, full
-            );
-
-            // !!! Overestimate: lpath_size is going to be greater than
-            // number of codepoints.
-            //
-            result = Make_Unicode(len + lpath_size + FN_PAD);
-
-            const REBOOL crlf_to_lf = FALSE;
-            Append_UTF8_May_Fail(result, lpath_utf8, lpath_size, crlf_to_lf);
-
-            rebFree(lpath_utf8);
-            rebRelease(lpath);
-        }
-        else
-            result = Make_Unicode(len + FN_PAD);
-
-        out = UNI_HEAD(result);
-        n = SER_LEN(result);
+    else if (flags & REB_FILETOLOCAL_FULL) {
+        //
+        // When full path is requested and the source path was relative (e.g.
+        // did not start with `/`) then prepend the current directory.
+        //
+        // OS_GET_CURRENT_DIR() comes back in Rebol-format FILE! form, hence
+        // it has to be converted to the local-format before being prepended
+        // to the local-format file path we're generating.  So recurse.  Don't
+        // use REB_FILETOLOCAL_FULL as that would recurse (we assume a fully
+        // qualified path was returned by OS_GET_CURRENT_DIR())
+        //
+        REBVAL *lpath = OS_GET_CURRENT_DIR();
+        Mold_File_To_Local(mo, lpath, REB_FILETOLOCAL_0);
+        rebRelease(lpath);
     }
 
     // Prescan each file segment for: . .. directory names.  (Note the top of
     // this loop always follows / or start).  Each iteration takes care of one
     // segment of the path, i.e. stops after OS_DIR_SEP
     //
-    while (i < len) {
-        if (full) {
-            // Peek for: . ..
-            c = up[i];
-            if (c == '.') {     // .
-                i++;
-                c = up[i];
-                if (c == '.') { // ..
-                    c = up[i + 1];
-                    if (c == 0 || c == '/') { // ../ or ..
-                        i++;
-                        // backup a dir
-                        n -= (n > 2) ? 2 : n;
-                        for (; n > 0 && out[n] != OS_DIR_SEP; n--)
-                            NOOP;
-                        c = c ? 0 : OS_DIR_SEP; // add / if necessary
-                    }
-                    // fall through on invalid ..x combination:
+    for (; i < len; up = NEXT_CHR(&c, up), ++i) {
+        if (flags & REB_FILETOLOCAL_FULL) {
+            //
+            // While file and directory names like %.foo or %..foo/ are legal,
+            // lone %. and %.. have special meaning.  If a file path component
+            // starts with `.` then look ahead for special consideration.
+            //
+            if (c == '.') {
+                up = NEXT_CHR(&c, up);
+                ++i;
+                assert(c != '\0' || i == len);
+
+                if (c == '\0' || c == '/')
+                    continue; // . or ./ mean stay in same directory
+
+                if (c != '.') {
+                    //
+                    // It's a filename like %.xxx, which is legal.  Output the
+                    // . character we'd found before the peek ahead and break
+                    // to the next loop that copies without further `.` search
+                    //
+                    Append_Utf8_Codepoint(mo->series, '.');
+                    goto segment_loop;
                 }
-                else {  // .a or . or ./
-                    if (c == '/') {
-                        c = 0; // ignore it
+
+                // We've seen two sequential dots, so .. or ../ or ..xxx
+
+                up = NEXT_CHR(&c, up);
+                ++i;
+                assert(c != '\0' || i == len);
+
+                if (c == '\0' || c == '/') { // .. or ../ means back up a dir
+                    //
+                    // Seek back to the previous slash in the mold buffer and
+                    // truncate it there, to trim off one path segment.
+                    //
+                    REBCNT n = SER_LEN(mo->series);
+                    if (n > mo->start) {
+                        --n;
+                        assert(*BIN_AT(mo->series, n) == OS_DIR_SEP);
+                        if (n > mo->start)
+                            --n; // don't want the *ending* slash
+
+                        while (
+                            n > mo->start
+                            && *BIN_AT(mo->series, n) != OS_DIR_SEP
+                        ){
+                            --n;
+                        }
+                        TERM_SEQUENCE_LEN(mo->series, n); // loses /
                     }
-                    else if (c) c = '.'; // for store below
+
+                    // Add separator and keep looking (%../../ can happen)
+                    //
+                    Append_Utf8_Codepoint(mo->series, OS_DIR_SEP);
+                    continue;
                 }
-                if (c) out[n++] = c;
+
+                // Files named `..foo` are ordinary files.  Account for the
+                // pending `..` and fall through to the loop that doesn't look
+                // further at .
+                //
+                Append_Utf8_Codepoint(mo->series, '.');
+                Append_Utf8_Codepoint(mo->series, '.');
             }
         }
-        for (; i < len; i++) {
-            c = up[i];
-            if (c == '/') {
-                if (n == 0 || out[n-1] != OS_DIR_SEP)
-                    out[n++] = OS_DIR_SEP;
-                i++;
-                break;
+
+    segment_loop:;
+        for (; i < len; up = NEXT_CHR(&c, up), ++i) {
+            //
+            // Keep copying characters out of the path segment until we find
+            // a slash or hit the end of the input path string.
+            //
+            if (c != '/') {
+                Append_Utf8_Codepoint(mo->series, c);
+                continue;
             }
-            out[n++] = c;
+
+            REBCNT n = SER_LEN(mo->series);
+            if (
+                n > mo->start
+                && *BIN_AT(mo->series, n - 1) == OS_DIR_SEP
+            ){
+                // Collapse multiple sequential slashes into just one, by
+                // skipping to the next character without adding to mold.
+                //
+                // !!! While this might (?) make sense when converting a local
+                // path into a FILE! to "clean it up", it seems perhaps that
+                // here going the opposite way it would be best left to the OS
+                // if someone has an actual FILE! with sequential slashes.
+                //
+                // https://unix.stackexchange.com/a/1919/118919
+                //
+                continue;
+            }
+
+            // Accept the slash, but translate to backslash on Windows.
+            //
+            Append_Utf8_Codepoint(mo->series, OS_DIR_SEP);
+            break;
+        }
+
+        // If we're past the end of the content, we don't want to run the
+        // outer loop test and NEXT_CHR() again...that's past the terminator.
+        //
+        assert(i <= len);
+        if (i == len) {
+            assert(c == '\0');
+            break;
         }
     }
-    out[n] = '\0';
-    SET_SERIES_LEN(result, n);
-    ASSERT_SERIES_TERM(result);
 
-    return result;
+    // Some operations on directories in various OSes will fail if the slash
+    // is included in the filename (move, delete), so it might not be wanted.
+    //
+    if (flags & REB_FILETOLOCAL_NO_TAIL_SLASH) {
+        REBCNT n = SER_LEN(mo->series);
+        if (n > mo->start && *BIN_AT(mo->series, n - 1) == OS_DIR_SEP)
+            TERM_SEQUENCE_LEN(mo->series, n - 1);
+    }
+
+    // If one is to list a directory's contents, you might want the name to
+    // be `c:\foo\*` instead of just `c:\foo` (Windows needs this)
+    //
+    if (flags & REB_FILETOLOCAL_WILD)
+        Append_Utf8_Codepoint(mo->series, '*');
+}
+
+
+//
+//  To_Local_Path: C
+//
+// Convert Rebol-format filename to a local-format filename.  This is the
+// opposite operation of To_REBOL_Path.
+//
+REBSER *To_Local_Path(const RELVAL *file, REBFLGS flags) {
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
+
+    Mold_File_To_Local(mo, file, flags);
+    return Pop_Molded_String(mo);
 }

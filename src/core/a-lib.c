@@ -1374,14 +1374,13 @@ REBVAL *RL_rebInitDate(
 // rebRelease()'d.  It might also return a `const char*` to the internal UTF8
 // data with a hold on it.
 //
-char *RL_rebMoldAlloc(REBCNT *size_out, const REBVAL *v)
+char *RL_rebMoldAlloc(REBSIZ *size_out, const REBVAL *v)
 {
     Enter_Api();
 
     DECLARE_MOLD (mo);
     Push_Mold(mo);
     Mold_Value(mo, v);
-
 
     REBSIZ size = BIN_LEN(mo->series) - mo->start;
 
@@ -1960,8 +1959,11 @@ void RL_rebPanicValue(const void *p, const void *end)
 //
 // !!! Should MAX_FILE_NAME be taken into account for the OS?
 //
-char *RL_rebFileToLocalAlloc(size_t *size_out, const REBVAL *file, REBOOL full)
-{
+char *RL_rebFileToLocalAlloc(
+    size_t *size_out,
+    const REBVAL *file,
+    REBFLGS flags // REB_FILETOLOCAL_XXX (FULL, WILD, NO_SLASH)
+){
     Enter_Api();
 
     if (NOT(IS_FILE(file)))
@@ -1970,7 +1972,7 @@ char *RL_rebFileToLocalAlloc(size_t *size_out, const REBVAL *file, REBOOL full)
     DECLARE_LOCAL (local);
     return rebSpellingOfAlloc(
         size_out,
-        Init_String(local, To_Local_Path(file, full))
+        Init_String(local, To_Local_Path(file, flags))
     );
 }
 
@@ -1986,7 +1988,7 @@ char *RL_rebFileToLocalAlloc(size_t *size_out, const REBVAL *file, REBOOL full)
 REBWCHAR *RL_rebFileToLocalAllocW(
     REBCNT *len_out,
     const REBVAL *file,
-    REBOOL full
+    REBFLGS flags // REB_FILETOLOCAL_XXX (FULL, WILD, NO_SLASH)
 ){
     Enter_Api();
 
@@ -1996,7 +1998,7 @@ REBWCHAR *RL_rebFileToLocalAllocW(
     DECLARE_LOCAL (local);
     return rebSpellingOfAllocW(
         len_out,
-        Init_String(local, To_Local_Path(file, full))
+        Init_String(local, To_Local_Path(file, flags))
     );
 }
 

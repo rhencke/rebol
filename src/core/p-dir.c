@@ -30,9 +30,6 @@
 
 #include "sys-core.h"
 
-// Special policy: Win32 does not wanting tail slash for dir info
-#define REMOVE_TAIL_SLASH (1<<10)
-
 
 //
 //  Read_Dir_May_Fail: C
@@ -70,7 +67,7 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
         // "devreq" is can protect its own state, e.g. be a Rebol object,
         // so there'd not be any API handles to free here.
         //
-        rebRelease(file.path);
+        rebRelease(m_cast(REBVAL*, file.path));
     }
 
     // !!! This is some kind of error tolerance, review what it is for.
@@ -109,96 +106,36 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
 //
 //  Init_Dir_Path: C
 //
-// Convert REBOL dir path to file system path.
-// On Windows, we will also need to append a * if necessary.
-//
-// ARGS:
-// Wild:
-//     0 - no wild cards, path must end in / else error
-//     1 - accept wild cards * and ?, and * if need
-//    -1 - not wild, if path does not end in /, add it
+// !!! In R3-Alpha, this routine would do manipulations on the FILE! which was
+// representing the directory, for instance by adding "*" onto the end of
+// the directory so that Windows could use it for wildcard reading.  Yet this
+// wasn't even needed in the POSIX code, so it would have to strip it out.
+// The code has been changed so that any necessary transformations are done
+// in the "device" code, during the File_To_Local translation.
 //
 static void Init_Dir_Path(
     struct devreq_file *dir,
     const REBVAL *path,
-    REBINT wild,
     REBCNT policy
 ){
+    UNUSED(policy);
+
     REBREQ *req = AS_REBREQ(dir);
     req->modes |= RFM_DIR;
-
     Secure_Port(SYM_FILE, req, path /* , dir->path */);
 
-    // !!! This code wants to do some mutations on the result.  When the idea
-    // of "local file translation" was known to the core, it used FN_PAD to
-    // make sure the generated path had enough at least 2 extra characters
-    // so it could mutate it for / and *.  For the moment, we just make a
-    // copy of the incoming path value with 2 extra chars so we can mutate it,
-    // and hope that the mutation wasn't dependent on the "local conversion".
-    //
-    dir->path = rebCopyExtra(path, 2);
-
-    REBUNI *up = VAL_UNI_AT(dir->path);
-    REBCNT len = VAL_LEN_AT(dir->path);
-    if (len == 1 && up[0] == '.') {
-        if (wild > 0) {
-            up[0] = '*';
-            up[1] = '\0';
-        }
-    }
-    else if (len == 2 && up[0] == '.' && up[1] == '.') {
-        // Insert * if needed:
-        if (wild > 0) {
-            up[len++] = '/';
-            up[len++] = '*';
-            up[len] = '\0';
-        }
-    }
-    else if (up[len - 1] == '/' || up[len - 1] == '\\') {
-        if ((policy & REMOVE_TAIL_SLASH) && len > 1) {
-            up[len - 1] = '\0';
-        }
-        else {
-            // Insert * if needed:
-            if (wild > 0) {
-                up[len++] = '*';
-                up[len] = '\0';
-            }
-        }
-    } else {
-        // Path did not end with /, so we better be wild:
-        if (wild == 0) {
-            rebRelease(dir->path);
-            fail (Error_Bad_File_Path_Raw(path));
-        }
-
-        if (wild < 0) {
-            up[len++] = OS_DIR_SEP;
-            up[len] = '\0';
-        }
-    }
-
-    TERM_UNI_LEN(VAL_SERIES(dir->path), len + VAL_INDEX(dir->path));
-
-    // Because an error can occur during the directory dispatch, the code may
-    // not be able to get to the rebRelease() of the allocated FILE!.  Rather
-    // than trap for the errors to do the cleanup, make it managed.  (It is
-    // still legal to release a managed value if you know it's not needed.)
-    //
-    rebManage(dir->path);
+    dir->path = path;
 }
 
 
 //
 //  Cleanup_Dir_Path: C
 //
-// !!! Temporary attempt to get leak-free behavior out of very old and creaky
-// R3-Alpha code, that had a very laissez-faire model of whose responsibility
-// it was to manage memory.
-//
 static void Cleanup_Dir_Path(struct devreq_file *dir)
 {
-    rebRelease(dir->path);
+    // !!! Currently nothing to do.
+    //
+    UNUSED(dir);
 }
 
 
@@ -276,7 +213,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         if (!IS_BLOCK(state)) {     // !!! ignores /SKIP and /PART, for now
-            Init_Dir_Path(&dir, path, 1, POL_READ);
+            Init_Dir_Path(&dir, path, POL_READ);
             Init_Block(D_OUT, Read_Dir_May_Fail(&dir));
             Cleanup_Dir_Path(&dir);
         }
@@ -302,9 +239,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         if (IS_BLOCK(state))
             fail (Error_Already_Open_Raw(path));
     create:
-        Init_Dir_Path(
-            &dir, path, 0, POL_WRITE | REMOVE_TAIL_SLASH
-        ); // Sets RFM_DIR too
+        Init_Dir_Path(&dir, path, POL_WRITE); // Sets RFM_DIR too
 
         REBINT result = OS_DO_DEVICE(&dir.devreq, RDC_CREATE);
 
@@ -324,9 +259,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         if (IS_BLOCK(state))
             fail (Error_Already_Open_Raw(path));
 
-        // Sets RFM_DIR too
-        //
-        Init_Dir_Path(&dir, path, 0, POL_WRITE | REMOVE_TAIL_SLASH);
+        Init_Dir_Path(&dir, path, POL_WRITE); // Sets RFM_DIR
 
         UNUSED(ARG(from)); // implicit
         dir.devreq.common.data = cast(REBYTE*, ARG(to)); // !!! hack!
@@ -353,10 +286,9 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         goto return_port; }
 
     case SYM_DELETE: {
-        //Trap_Security(flags[POL_WRITE], POL_WRITE, path);
-
         Init_Blank(state);
-        Init_Dir_Path(&dir, path, 0, POL_WRITE);
+
+        Init_Dir_Path(&dir, path, POL_WRITE);
 
         // !!! add *.r deletion
         // !!! add recursive delete (?)
@@ -391,7 +323,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         if (REF(new))
             goto create;
 
-        Init_Dir_Path(&dir, path, 1, POL_READ);
+        Init_Dir_Path(&dir, path, POL_READ);
         Init_Block(state, Read_Dir_May_Fail(&dir));
         Cleanup_Dir_Path(&dir);
         goto return_port; }
@@ -401,9 +333,9 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         goto return_port;
 
     case SYM_QUERY: {
-        //Trap_Security(flags[POL_READ], POL_READ, path);
         Init_Blank(state);
-        Init_Dir_Path(&dir, path, -1, REMOVE_TAIL_SLASH | POL_READ);
+
+        Init_Dir_Path(&dir, path, POL_READ);
         int query_result = OS_DO_DEVICE(&dir.devreq, RDC_QUERY);
 
         if (query_result < 0) {

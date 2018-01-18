@@ -195,8 +195,11 @@ REBNATIVE(request_file_p)
     WCHAR *lpstrInitialDir;
     if (REF(file)) {
         REBCNT path_len;
-        const REBOOL full = TRUE;
-        WCHAR *path = rebFileToLocalAllocW(&path_len, ARG(name), full);
+        WCHAR *path = rebFileToLocalAllocW(
+            &path_len,
+            ARG(name),
+            REB_FILETOLOCAL_FULL
+        );
 
         // If the last character doesn't indicate a directory, that means
         // we are trying to pre-select a file, which we do by copying the
@@ -305,8 +308,11 @@ REBNATIVE(request_file_p)
                 item += item_len + 1; // next
 
                 REBCNT dir_len;
-                const REBOOL full = TRUE;
-                WCHAR *dir_wide = rebFileToLocalAllocW(&dir_len, dir, full);
+                WCHAR *dir_wide = rebFileToLocalAllocW(
+                    &dir_len,
+                    dir,
+                    REB_FILETOLOCAL_FULL
+                );
 
                 while ((item_len = wcslen(item)) != 0) {
                     WCHAR *buffer = OS_ALLOC_N(

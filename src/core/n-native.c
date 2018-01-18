@@ -105,8 +105,11 @@ static int do_add_path(
 ){
     int ret;
     if (IS_FILE(path)) {
-        const REBOOL full = TRUE;
-        char *local_utf8 = rebFileToLocalAlloc(NULL, const_KNOWN(path), full);
+        char *local_utf8 = rebFileToLocalAlloc(
+            NULL,
+            const_KNOWN(path),
+            REB_FILETOLOCAL_FULL
+        );
         ret = add(state, local_utf8);
         rebFree(local_utf8);
     }
@@ -127,8 +130,11 @@ static void do_set_path(
     void (*set)(TCCState *, const char *)
 ){
     if (IS_FILE(path)) {
-        const REBOOL full = TRUE;
-        char *local_utf8 = rebFileToLocalAlloc(NULL, const_KNOWN(path), full);
+        char *local_utf8 = rebFileToLocalAlloc(
+            NULL,
+            const_KNOWN(path),
+            REB_FILETOLOCAL_FULL
+        );
         set(state, local_utf8);
         rebFree(local_utf8);
     }

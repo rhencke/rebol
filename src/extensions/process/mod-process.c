@@ -232,8 +232,11 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        REBOOL full = FALSE;
-        WCHAR *local_wide = rebFileToLocalAllocW(NULL, ARG(in), full);
+        WCHAR *local_wide = rebFileToLocalAllocW(
+            NULL,
+            ARG(in),
+            REB_FILETOLOCAL_0
+        );
 
         hInputRead = CreateFile(
             local_wide,
@@ -280,8 +283,11 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        const REBOOL full = FALSE;
-        WCHAR *local_wide = rebFileToLocalAllocW(NULL, ARG(out), full);
+        WCHAR *local_wide = rebFileToLocalAllocW(
+            NULL,
+            ARG(out),
+            REB_FILETOLOCAL_0
+        );
 
         si.hStdOutput = CreateFile(
             local_wide,
@@ -342,8 +348,11 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        const REBOOL full = FALSE;
-        WCHAR *local_wide = rebFileToLocalAllocW(NULL, ARG(out), full);
+        WCHAR *local_wide = rebFileToLocalAllocW(
+            NULL,
+            ARG(out),
+            REB_FILETOLOCAL_0
+        );
 
         si.hStdError = CreateFile(
             local_wide,
@@ -881,8 +890,11 @@ int OS_Create_Process(
             close(stdin_pipe[R]);
         }
         else if (IS_FILE(ARG(in))) {
-            const REBOOL full = FALSE;
-            char *local_utf8 = rebFileToLocalAlloc(NULL, ARG(in), full);
+            char *local_utf8 = rebFileToLocalAlloc(
+                NULL,
+                ARG(in),
+                REB_FILETOLOCAL_0
+            );
 
             int fd = open(local_utf8, O_RDONLY);
 
@@ -914,8 +926,11 @@ int OS_Create_Process(
             close(stdout_pipe[W]);
         }
         else if (IS_FILE(ARG(out))) {
-            const REBOOL full = FALSE;
-            char *local_utf8 = rebFileToLocalAlloc(NULL, ARG(out), full);
+            char *local_utf8 = rebFileToLocalAlloc(
+                NULL,
+                ARG(out),
+                REB_FILETOLOCAL_0
+            );
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -947,8 +962,11 @@ int OS_Create_Process(
             close(stderr_pipe[W]);
         }
         else if (IS_FILE(ARG(err))) {
-            const REBOOL full = FALSE;
-            char *local_utf8 = rebFileToLocalAlloc(NULL, ARG(err), full);
+            char *local_utf8 = rebFileToLocalAlloc(
+                NULL,
+                ARG(err),
+                REB_FILETOLOCAL_0
+            );
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -1486,9 +1504,12 @@ REBNATIVE(call)
         break; }
 
     case REB_FILE: {
-        REBOOL full = FALSE;
         size_t size;
-        os_input = rebFileToLocalAlloc(&size, ARG(in), full);
+        os_input = rebFileToLocalAlloc(
+            &size,
+            ARG(in),
+            REB_FILETOLOCAL_0
+        );
         input_len = size;
         break; }
 
@@ -1565,11 +1586,18 @@ REBNATIVE(call)
                 argv[i] = rebValSpellingAllocOS(NULL, KNOWN(param));
             }
             else if (IS_FILE(param)) {
-                REBOOL full = FALSE;
             #ifdef OS_WIDE_CHAR
-                argv[i] = rebFileToLocalAllocW(NULL, KNOWN(param), full);
+                argv[i] = rebFileToLocalAllocW(
+                    NULL,
+                    KNOWN(param),
+                    REB_FILETOLOCAL_0
+                );
             #else
-                argv[i] = rebFileToLocalAlloc(NULL, KNOWN(param), full);
+                argv[i] = rebFileToLocalAlloc(
+                    NULL,
+                    KNOWN(param),
+                    REB_FILETOLOCAL_0
+                );
             #endif
             }
             else
@@ -1587,12 +1615,18 @@ REBNATIVE(call)
             rebMalloc(sizeof(const OSCHR*) * (argc + 1))
         );
 
-        const REBOOL full = FALSE;
-
     #ifdef OS_WIDE_CHAR
-        argv[0] = rebFileToLocalAllocW(NULL, ARG(command), full);
+        argv[0] = rebFileToLocalAllocW(
+            NULL,
+            ARG(command),
+            REB_FILETOLOCAL_0
+        );
     #else
-        argv[0] = rebFileToLocalAlloc(NULL, ARG(command), full);
+        argv[0] = rebFileToLocalAlloc(
+            NULL,
+            ARG(command),
+            REB_FILETOLOCAL_0
+        );
     #endif
 
         argv[1] = NULL;

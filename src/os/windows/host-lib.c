@@ -174,8 +174,11 @@ REBVAL *OS_Get_Current_Dir(void)
 //
 REBOOL OS_Set_Current_Dir(const REBVAL *path)
 {
-    const REBOOL full = TRUE;
-    WCHAR *path_wide = rebFileToLocalAllocW(NULL, path, full);
+    WCHAR *path_wide = rebFileToLocalAllocW(
+        NULL,
+        path,
+        REB_FILETOLOCAL_FULL
+    );
 
     REBOOL success = DID(SetCurrentDirectory(path_wide));
 
@@ -217,19 +220,18 @@ void *OS_Open_Library(const REBVAL *path)
     // default.  So if %foo is passed in, you don't want to prepend the
     // current dir to make it absolute, because it will only look there.
     //
-    const REBOOL full = FALSE;
-    WCHAR *path_utf8 = rebFileToLocalAllocW(NULL, path, full);
+    WCHAR *path_utf8 = rebFileToLocalAllocW(
+        NULL,
+        path,
+        REB_FILETOLOCAL_0
+    );
 
     void *dll = LoadLibraryW(path_utf8);
 
     rebFree(path_utf8);
 
-    // The OS-specific code for building a Windows error by processing
-    // GetLastError() is currently in mod-process.c, but there's no way to
-    // call it from here.  Possibly it should be factored as a .inc file.
-    //
     if (dll == NULL)
-        rebFail ("{LoadLibrary() failed}", rebEnd()); // GetLastError()
+        rebFail_OS (GetLastError());
 
     return dll;
 }

@@ -294,6 +294,22 @@ typedef REBWCHAR REBUNI;
 #endif
 
 
+//
+// These flags are used by file to local conversion, and that is exposed from
+// the core in %a-lib.c
+//
+enum {
+    REB_FILETOLOCAL_0 = 0, // make it clearer when using no options
+    REB_FILETOLOCAL_FULL = 1 << 0, // expand path relative to current dir
+    REB_FILETOLOCAL_WILD = 1 << 1, // add on a `*` for wildcard listing
+
+    // !!! A comment in the R3-Alpha %p-dir.c said "Special policy: Win32 does
+    // not want tail slash for dir info".
+    //
+    REB_FILETOLOCAL_NO_TAIL_SLASH = 1 << 2 // don't include the terminal slash
+};
+
+
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // MISCELLANY

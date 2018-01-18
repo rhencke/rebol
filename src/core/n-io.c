@@ -620,7 +620,13 @@ REBNATIVE(file_to_local)
         return R_OUT;
     }
 
-    Init_String(D_OUT, To_Local_Path(path, REF(full)));
+    Init_String(
+        D_OUT,
+        To_Local_Path(
+            path,
+            REF(full) ? REB_FILETOLOCAL_FULL : REB_FILETOLOCAL_0
+        )
+    );
     return R_OUT;
 }
 

@@ -145,8 +145,11 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (h == NULL) {
         // Read first file entry:
 
-        REBOOL full = TRUE;
-        WCHAR *dir_wide = rebFileToLocalAllocW(NULL, dir->path, full);
+        WCHAR *dir_wide = rebFileToLocalAllocW(
+            NULL,
+            dir->path,
+            REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_WILD
+        );
         h = FindFirstFile(dir_wide, &info);
         rebFree(dir_wide);
 
@@ -249,8 +252,11 @@ DEVICE_CMD Open_File(REBREQ *req)
     if (access == 0)
         rebFail ("{No access modes provided to Open_File()}", rebEnd());
 
-    REBOOL full = TRUE;
-    WCHAR *path_wide = rebFileToLocalAllocW(NULL, file->path, full);
+    REBFLGS flags = REB_FILETOLOCAL_FULL;
+    if (req->modes & RFM_DIR)
+        flags |= REB_FILETOLOCAL_WILD;
+
+    WCHAR *path_wide = rebFileToLocalAllocW(NULL, file->path, flags);
 
     HANDLE h = CreateFile(
         path_wide,
@@ -461,8 +467,11 @@ DEVICE_CMD Query_File(REBREQ *req)
     WIN32_FILE_ATTRIBUTE_DATA info;
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    const REBOOL full = TRUE;
-    WCHAR *path_wide = rebFileToLocalAllocW(NULL, file->path, full);
+    WCHAR *path_wide = rebFileToLocalAllocW(
+        NULL,
+        file->path,
+        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+    );
 
     REBOOL success = GetFileAttributesEx(
         path_wide, GetFileExInfoStandard, &info
@@ -497,8 +506,11 @@ DEVICE_CMD Create_File(REBREQ *req)
     if (NOT(req->modes & RFM_DIR))
         return Open_File(req);
 
-    const REBOOL full = TRUE;
-    WCHAR *path_wide = rebFileToLocalAllocW(NULL, file->path, full);
+    WCHAR *path_wide = rebFileToLocalAllocW(
+        NULL,
+        file->path,
+        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+    );
 
     LPSECURITY_ATTRIBUTES lpSecurityAttributes = NULL;
     REBOOL success = CreateDirectory(path_wide, lpSecurityAttributes);
@@ -525,8 +537,11 @@ DEVICE_CMD Delete_File(REBREQ *req)
 {
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    const REBOOL full = TRUE;
-    WCHAR *path_wide = rebFileToLocalAllocW(NULL, file->path, full);
+    WCHAR *path_wide = rebFileToLocalAllocW(
+        NULL,
+        file->path,
+        REB_FILETOLOCAL_FULL // leave tail slash on for directory removal
+    );
 
     REBOOL success;
     if (req->modes & RFM_DIR)
@@ -553,9 +568,16 @@ DEVICE_CMD Rename_File(REBREQ *req)
 
     REBVAL *to = cast(REBVAL*, req->common.data); // !!! hack!
 
-    const REBOOL full = TRUE;
-    WCHAR *from_wide = rebFileToLocalAllocW(NULL, file->path, full);
-    WCHAR *to_wide = rebFileToLocalAllocW(NULL, to, full);
+    WCHAR *from_wide = rebFileToLocalAllocW(
+        NULL,
+        file->path,
+        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+    );
+    WCHAR *to_wide = rebFileToLocalAllocW(
+        NULL,
+        to,
+        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+    );
 
     REBOOL success = MoveFile(from_wide, to_wide);
 

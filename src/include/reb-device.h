@@ -236,7 +236,7 @@ typedef struct sInt64 {
 
 struct devreq_file {
     struct rebol_devreq devreq;
-    REBVAL *path;           // file string (in OS local format)
+    const REBVAL *path;     // file string (in OS local format)
     int64_t size;           // file size
     int64_t index;          // file index position
     FILETIME_DEVREQ time;   // file modification time (struct)
