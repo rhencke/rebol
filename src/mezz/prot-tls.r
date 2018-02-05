@@ -635,7 +635,7 @@ parse-messages: function [
 
         handshake [
             while-not [tail? data] [
-                msg-type: select message-types data/1
+                msg-type: to-value select message-types data/1
 
                 update-proto-state ctx (
                     ctx/encrypted? ?? 'encrypted-handshake !! msg-type

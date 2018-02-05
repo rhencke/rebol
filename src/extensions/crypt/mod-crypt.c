@@ -176,10 +176,6 @@ static REBNATIVE(rc4)
 //         "Decrypts the data (default is to encrypt)"
 //      /private
 //         "Uses an RSA private key (default is a public key)"
-//      /padding
-//          "Selects the type of padding to use"
-//      padding-type [word! blank!]
-//          "Type of padding. Available values: PKCS1 or NONE"
 //  ]
 //  new-words: [n e d p q dp dq qinv pkcs1]
 //  new-errors: [
@@ -193,12 +189,6 @@ static REBNATIVE(rc4)
 static REBNATIVE(rsa)
 {
     CRYPT_INCLUDE_PARAMS_OF_RSA;
-
-    REBOOL padding;
-    if (REF(padding))
-        padding = NOT(IS_BLANK(ARG(padding_type)));
-    else
-        padding = TRUE; // PKCS1 is on by default
 
     REBYTE *n = NULL;
     REBYTE *e = NULL;
@@ -304,8 +294,8 @@ static REBNATIVE(rsa)
             rsa_ctx,
             dataBuffer,
             BIN_HEAD(binary),
-            REF(private) ? 1 : 0,
-            padding ? 1 : 0
+            binary_len,
+            REF(private) ? 1 : 0
         );
 
         if (binary_len == -1) {
@@ -323,8 +313,7 @@ static REBNATIVE(rsa)
                 dataBuffer,
                 data_len,
                 BIN_HEAD(binary),
-                REF(private) ? 1 : 0,
-                padding ? 1 : 0
+                REF(private) ? 1 : 0
             )
         ){
             bi_free(rsa_ctx->bi_ctx, data_bi);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, Cameron Rich
+ * Copyright (c) 2007-2016, Cameron Rich
  *
  * All rights reserved.
  *
@@ -315,6 +315,7 @@ void AES_cbc_encrypt(AES_CTX *ctx, const uint8_t *msg, uint8_t *out, int length)
 void AES_cbc_decrypt(AES_CTX *ctx, const uint8_t *msg, uint8_t *out, int length)
 {
     int i;
+    // !!! was xor[4] but xor is a C++ keyword and C99 extension ISO 646
     uint32_t tin[4], xxor[4], tout[4], data[4], iv[4];
 
     memcpy(iv, ctx->iv, AES_IV_SIZE);

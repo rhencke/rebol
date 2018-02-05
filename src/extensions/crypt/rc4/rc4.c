@@ -29,6 +29,15 @@
  */
 
 #include "rc4.h"
+/**
+ * An implementation of the RC4/ARC4 algorithm.
+ * Originally written by Christophe Devine.
+ */
+
+#include <string.h>
+
+/* only used for PKCS12 now */
+#ifdef CONFIG_SSL_USE_PKCS12
 
 /**
  * Get ready for an encrypt/decrypt operation
@@ -64,7 +73,7 @@ void RC4_setup(RC4_CTX *ctx, const uint8_t *key, int length)
  */
 void RC4_crypt(RC4_CTX *ctx, const uint8_t *msg, uint8_t *out, int length)
 {
-    (void)msg; // not used since msg and out are the same
+    (void)msg; // !!! unused
 
     int i;
     uint8_t *m, x, y, a, b;
@@ -85,3 +94,5 @@ void RC4_crypt(RC4_CTX *ctx, const uint8_t *msg, uint8_t *out, int length)
     ctx->x = x;
     ctx->y = y;
 }
+
+#endif
