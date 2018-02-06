@@ -609,7 +609,7 @@ REBVAL *RL_rebLengthedTextWide(const REBWCHAR *wstr, unsigned int num_chars)
     Push_Mold(mo);
 
     for (; num_chars != 0; --num_chars, ++wstr)
-        Append_Utf8_Codepoint(mo->series, *wstr);
+        Append_Codepoint(mo->series, *wstr);
 
     return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
 }
@@ -624,7 +624,7 @@ REBVAL *RL_rebTextWide(const REBWCHAR *wstr)
     Push_Mold(mo);
 
     for (; *wstr != 0; ++wstr)
-        Append_Utf8_Codepoint(mo->series, *wstr);
+        Append_Codepoint(mo->series, *wstr);
 
     return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
 }

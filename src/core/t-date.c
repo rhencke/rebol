@@ -105,7 +105,7 @@ void MF_Date(REB_MOLD *mo, const REBCEL *v_orig, bool form)
         || VAL_DAY(v) == 0
         || VAL_DAY(v) > 31
     ) {
-        Append_Unencoded(mo->series, "?date?");
+        Append_Ascii(mo->series, "?date?");
         return;
     }
 
@@ -127,10 +127,10 @@ void MF_Date(REB_MOLD *mo, const REBCEL *v_orig, bool form)
     bp = Form_Int_Pad(bp, cast(REBINT, VAL_YEAR(v)), 6, -4, '0');
     *bp = '\0';
 
-    Append_Unencoded(mo->series, s_cast(buf));
+    Append_Ascii(mo->series, s_cast(buf));
 
     if (Does_Date_Have_Time(v)) {
-        Append_Utf8_Codepoint(mo->series, '/');
+        Append_Codepoint(mo->series, '/');
         MF_Time(mo, v, form);
 
         if (Does_Date_Have_Zone(v)) {
@@ -149,7 +149,7 @@ void MF_Date(REB_MOLD *mo, const REBCEL *v_orig, bool form)
             bp = Form_Int_Pad(bp, (tz & 3) * 15, 2, 2, '0');
             *bp = 0;
 
-            Append_Unencoded(mo->series, s_cast(buf));
+            Append_Ascii(mo->series, s_cast(buf));
         }
     }
 }

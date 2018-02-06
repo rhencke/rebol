@@ -23,8 +23,9 @@
 
 struct rebol_mold {
     REBSER *series;     // destination series (uni)
-    REBCNT start;       // index where this mold starts within series
-    REBFLGS opts;        // special option flags
+    REBCNT index;       // codepoint index where mold starts within series
+    REBSIZ offset;      // byte offset where mold starts within series
+    REBFLGS opts;       // special option flags
     REBCNT limit;       // how many characters before cutting off with "..."
     REBCNT reserve;     // how much capacity to reserve at the outset
     REBINT indent;      // indentation amount
@@ -39,12 +40,6 @@ struct rebol_mold {
 #define Drop_Mold(mo) \
     Drop_Mold_Core((mo), false)
 
-#define Pop_Molded_String(mo) \
-    Pop_Molded_String_Core((mo), UNKNOWN)
-
-#define Pop_Molded_String_Len(mo,len) \
-    Pop_Molded_String_Core((mo), (len))
-
 #define Mold_Value(mo,v) \
     Mold_Or_Form_Value((mo), (v), false)
 
@@ -56,6 +51,7 @@ struct rebol_mold {
 
 #define Copy_Form_Value(v,opts) \
     Copy_Mold_Or_Form_Value((v), (opts), true)
+
 
 // Modes allowed by FORM
 enum {

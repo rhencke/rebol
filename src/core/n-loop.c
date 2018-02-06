@@ -1166,7 +1166,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         //
         REBCNT orig_len = VAL_LEN_HEAD(res->data);
         assert(res->start <= orig_len);
-        Append_Unencoded_Len(
+        Append_Ascii_Len(
             res->mo->series,
             cs_cast(BIN_AT(res->series, res->start)),
             orig_len - res->start
@@ -1202,7 +1202,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         assert(res->start <= orig_len);
 
         for (; res->start != orig_len; ++res->start) {
-            Append_Utf8_Codepoint(
+            Append_Codepoint(
                 res->mo->series,
                 GET_ANY_CHAR(res->series, res->start)
             );
@@ -1314,15 +1314,16 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
             do {
                 assert(res->start <= len);
                 if (IS_BINARY(res->data)) {
-                    Append_Unencoded_Len(
+                    Append_Ascii_Len(
                         res->mo->series,
                         cs_cast(BIN_AT(res->series, res->start)),
                         1
                     );
                 }
                 else {
-                    Append_Utf8_Codepoint(
-                        res->mo->series, GET_ANY_CHAR(res->series, res->start)
+                    Append_Codepoint(
+                        res->mo->series,
+                        GET_ANY_CHAR(res->series, res->start)
                     );
                 }
                 ++res->start;

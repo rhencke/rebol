@@ -159,15 +159,11 @@ REBSER *Temp_UTF8_At_Managed(
 
     assert(length_limit <= VAL_LEN_AT(str));
 
-    REBSER *s = Make_UTF8_From_Any_String(str, length_limit);
-    assert(BYTE_SIZE(s));
+    REBSER *s = VAL_SERIES(str);
 
-    MANAGE_SERIES(s);
-    SET_SERIES_INFO(s, FROZEN);
-
-    *offset_out = 0;
+    *offset_out = VAL_OFFSET_FOR_INDEX(str, VAL_INDEX(str));
     if (opt_size_out != NULL)
-        *opt_size_out = SER_LEN(s);
+        *opt_size_out = BIN_LEN(s) - *offset_out;
     return s;
 }
 
@@ -336,10 +332,11 @@ void Change_Case(
 ){
     if (IS_CHAR(val)) {
         REBUNI c = VAL_CHAR(val);
-        if (c < UNICODE_CASES)
-            Init_Char(out, upper ? UP_CASE(c) : LO_CASE(c));
-        else
+        if (c >= UNICODE_CASES) {
             Init_Char(out, c);
+            return;
+        }
+        Init_Char(out, upper ? UP_CASE(c) : LO_CASE(c));
         return;
     }
 
@@ -414,74 +411,44 @@ REBARR *Split_Lines(const REBVAL *str)
 {
     REBDSP dsp_orig = DSP;
 
-    REBSER *s = VAL_SERIES(str);
     REBCNT len = VAL_LEN_AT(str);
     REBCNT i = VAL_INDEX(str);
-
-    REBCHR(const *) start = VAL_UNI_AT(str);
-    REBCHR(const *) up = start;
-
     if (i == len)
         return Make_Array(0);
 
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
+
+    REBCHR(const *) cp = VAL_UNI_AT(str);
+
     REBUNI c;
-    up = NEXT_CHR(&c, up);
-    ++i;
+    cp = NEXT_CHR(&c, cp);
 
-    // !!! Interim string copy routines are REBVAL-based.
-    //
-    DECLARE_LOCAL (temp);
-
-    while (i != len) {
-        if (c == LF || c == CR) {
-            Init_Any_Series_At(
-                temp, REB_TEXT, s, AS_REBUNI(start) - UNI_HEAD(s)
-            );
-
-            Init_Text(
-                DS_PUSH(),
-                Copy_String_At_Limit(
-                    temp,
-                    AS_REBUNI(up) - AS_REBUNI(start) - 1
-                )
-            );
-            SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
-            start = up;
-            if (c == CR) {
-                up = NEXT_CHR(&c, up);
-                ++i;
-                if (i == len)
-                    break; // if it was the last CR/LF don't fetch again
-
-                if (c != LF)
-                    continue; // already did next character fetch
-
-                start = up; // remark start, fall through and fetch again
-            }
+    for (; i < len; ++i, cp = NEXT_CHR(&c, cp)) {
+        if (c != LF && c != CR) {
+            Append_Codepoint(mo->series, c);
+            continue;
         }
 
-        ++i;
-        up = NEXT_CHR(&c, up);
+        Init_Text(DS_PUSH(), Pop_Molded_String(mo));
+        SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
+
+        if (c == CR) {
+            REBCHR(const *) tp = NEXT_CHR(&c, cp);
+            if (c == LF) {
+                ++i;
+                cp = tp; // treat CR LF as LF, lone CR as LF
+            }
+        }
     }
 
-    // `c` is now the last character in the string.  See remarks above about
-    // not requiring the last character to be a newline.
+    // If there's any remainder we pushed in the buffer, consider the end of
+    // string to be an implicit line-break
 
-    if (c == CR or c == LF)
-        up = BACK_CHR(NULL, up); // back up
-
-    if (AS_REBUNI(up) > AS_REBUNI(start)) {
-        Init_Any_Series_At(
-            temp, REB_TEXT, s, AS_REBUNI(start) - UNI_HEAD(s)
-        );
-
-        Init_Text(
-            DS_PUSH(),
-            Copy_String_At_Limit(
-                temp,
-                AS_REBUNI(up) - AS_REBUNI(start) // no -1, backed up if '\n'
-            )
-        );
+    if (SER_USED(mo->series) == mo->offset)
+        Drop_Mold(mo);
+    else {
+        Init_Text(DS_PUSH(), Pop_Molded_String(mo));
         SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
     }
 

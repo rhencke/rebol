@@ -308,8 +308,12 @@ REBVAL *Init_Any_Series_At_Core(
 
   #if !defined(NDEBUG)
     if (ANY_STRING_KIND(type)) {
-        if (SER_WIDE(s) != 1 or NOT_SERIES_FLAG(s, UCS2_STRING))
+        if (
+            SER_WIDE(s) != 1
+            or NOT_SERIES_FLAG(s, UTF8_NONWORD)
+        ){
             panic(s);
+        }
     } else if (type == REB_BINARY) {
         if (SER_WIDE(s) != 1)
             panic(s);

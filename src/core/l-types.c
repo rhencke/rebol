@@ -422,41 +422,36 @@ const REBYTE *Scan_Hex(
 //
 //  Scan_Hex2: C
 //
-// Decode a %xx hex encoded byte into a char.
+// Decode a %xx hex encoded sequence into a byte value.
 //
 // The % should already be removed before calling this.
 //
-// We don't allow a %00 in files, urls, email, etc... so
-// a return of 0 is used to indicate an error.
+// Returns new position after advancing or NULL.  On success, it always
+// consumes two bytes (which are two codepoints).
 //
-bool Scan_Hex2(REBUNI *out, const void *p, bool unicode)
+const REBYTE* Scan_Hex2(REBYTE *decoded_out, const REBYTE *bp)
 {
-    REBUNI c1;
-    REBUNI c2;
-    if (unicode) {
-        const REBUNI *up = cast(const REBUNI*, p);
-        c1 = up[0];
-        c2 = up[1];
-    }
-    else {
-        const REBYTE *bp = cast(const REBYTE*, p);
-        c1 = bp[0];
-        c2 = bp[1];
-    }
+    REBYTE c1 = bp[0];
+    if (c1 >= 0x80)
+        return NULL;
+
+    REBYTE c2 = bp[1];
+    if (c2 >= 0x80)
+        return NULL;
 
     REBYTE lex1 = Lex_Map[c1];
     REBYTE d1 = lex1 & LEX_VALUE;
     if (lex1 < LEX_WORD || (d1 == 0 && lex1 < LEX_NUMBER))
-        return false;
+        return NULL;
 
     REBYTE lex2 = Lex_Map[c2];
     REBYTE d2 = lex2 & LEX_VALUE;
     if (lex2 < LEX_WORD || (d2 == 0 && lex2 < LEX_NUMBER))
-        return false;
+        return NULL;
 
-    *out = cast(REBUNI, (d1 << 4) + d2);
+    *decoded_out = cast(REBUNI, (d1 << 4) + d2);
 
-    return true;
+    return bp + 2;
 }
 
 
@@ -1046,15 +1041,16 @@ const REBYTE *Scan_Email(
         }
 
         if (*cp == '%') {
-            const bool unicode = false;
-            REBUNI ch;
-            if (len <= 2 || !Scan_Hex2(&ch, cp + 1, unicode))
+            if (len <= 2)
                 return_NULL;
 
-            up = WRITE_CHR(up, ch);
-            ++num_chars;
+            REBYTE decoded;
+            cp = Scan_Hex2(&decoded, cp + 1);
+            if (cp == NULL)
+                return_NULL;
 
-            cp += 3;
+            up = WRITE_CHR(up, decoded);
+            ++num_chars;
             len -= 2;
         }
         else {
@@ -1066,7 +1062,7 @@ const REBYTE *Scan_Email(
     if (not found_at)
         return_NULL;
 
-    TERM_UNI_LEN(s, num_chars);
+    TERM_UNI_LEN_USED(s, num_chars, up - UNI_HEAD(s));
 
     Init_Email(out, s);
     return cp;
@@ -1424,7 +1420,7 @@ REBNATIVE(scan_net_header)
             while (!ANY_CR_LF_END(*cp))
                 str = WRITE_CHR(str, *cp++);
         }
-        TERM_UNI_LEN(string, len);
+        TERM_UNI_LEN_USED(string, len, cp - UNI_HEAD(string));
         Init_Text(val, string);
     }
 

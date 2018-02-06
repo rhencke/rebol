@@ -560,7 +560,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *quotable)
         assert(SER_WIDE(s) == sizeof(REBYTE));
         assert(
             kind == REB_BINARY
-            or GET_SERIES_FLAG(s, UCS2_STRING) // !!! temporary
+            or GET_SERIES_FLAG(s, UTF8_NONWORD) // !!! temporary
         );
 
         if (GET_SERIES_INFO(s, INACCESSIBLE)) {

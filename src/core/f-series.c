@@ -343,10 +343,20 @@ REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
       case REB_LOGIC:
         return VAL_LOGIC(s) - VAL_LOGIC(t);
 
-      case REB_CHAR:
-        if (is_case)
-            return THE_SIGN(VAL_CHAR(s) - VAL_CHAR(t));
-        return THE_SIGN((REBINT)(UP_CASE(VAL_CHAR(s)) - UP_CASE(VAL_CHAR(t))));
+      case REB_CHAR: { // REBUNI is unsigned, use compares vs. cast+THE_SIGN
+        if (is_case) {
+            if (VAL_CHAR(s) > VAL_CHAR(t))
+                return 1;
+            if (VAL_CHAR(s) < VAL_CHAR(t))
+                return -1;
+            return 0;
+        }
+
+        if (UP_CASE(VAL_CHAR(s)) > UP_CASE(VAL_CHAR(t)))
+            return 1;
+        if (UP_CASE(VAL_CHAR(s)) < UP_CASE(VAL_CHAR(t)))
+            return -1;
+        return 0; }
 
       case REB_PERCENT:
       case REB_DECIMAL:

@@ -854,7 +854,7 @@ void MF_Path(REB_MOLD *mo, const REBCEL *v, bool form)
 
     // Recursion check:
     if (Find_Pointer_In_Series(TG_Mold_Stack, a) != NOT_FOUND) {
-        Append_Unencoded(mo->series, ".../...");
+        Append_Ascii(mo->series, ".../...");
         return;
     }
     Push_Pointer_To_Series(TG_Mold_Stack, a);
@@ -867,7 +867,7 @@ void MF_Path(REB_MOLD *mo, const REBCEL *v, bool form)
     enum Reb_Kind kind = CELL_KIND(v);
 
     if (kind == REB_GET_PATH)
-        Append_Utf8_Codepoint(mo->series, ':');
+        Append_Codepoint(mo->series, ':');
 
     assert(VAL_INDEX(v) == 0); // the new rule, not an ANY-ARRAY!, always head
     assert(ARR_LEN(a) >= 2); // another new rule, even / is `make path! [_ _]`
@@ -899,11 +899,11 @@ void MF_Path(REB_MOLD *mo, const REBCEL *v, bool form)
         if (IS_END(item))
             break;
 
-        Append_Utf8_Codepoint(mo->series, '/');
+        Append_Codepoint(mo->series, '/');
     }
 
     if (kind == REB_SET_PATH)
-        Append_Utf8_Codepoint(mo->series, ':');
+        Append_Codepoint(mo->series, ':');
 
     Drop_Pointer_From_Series(TG_Mold_Stack, a);
 }

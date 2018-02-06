@@ -86,14 +86,14 @@ void MF_Bitset(REB_MOLD *mo, const REBCEL *v, bool form)
     REBBIN *s = VAL_BITSET(v);
 
     if (BITS_NOT(s))
-        Append_Unencoded(mo->series, "[not bits ");
+        Append_Ascii(mo->series, "[not bits ");
 
     DECLARE_LOCAL (binary);
     Init_Binary(binary, s);
     MF_Binary(mo, binary, false); // false = mold, don't form
 
     if (BITS_NOT(s))
-        Append_Utf8_Codepoint(mo->series, ']');
+        Append_Codepoint(mo->series, ']');
 
     End_Mold(mo);
 }
@@ -180,8 +180,8 @@ REBINT Find_Max_Bit(const RELVAL *val)
         for (; n < cast(REBINT, VAL_LEN_HEAD(val)); n++) {
             REBUNI c;
             up = NEXT_CHR(&c, up);
-            if (c > maxi)
-                maxi = c;
+            if (cast(REBINT, c) > maxi)
+                maxi = cast(REBINT, c);
         }
         maxi++;
         break; }

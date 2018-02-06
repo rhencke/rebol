@@ -136,7 +136,7 @@ static void reverse_string(REBVAL *v, REBCNT len)
         for (n = 0; n < len; ++n) {
             REBUNI c;
             up = BACK_CHR(&c, up);
-            Append_Utf8_Codepoint(mo->series, c);
+            Append_Codepoint(mo->series, c);
         }
 
         DECLARE_LOCAL (temp);
@@ -664,11 +664,11 @@ REB_R PD_String(
         //     >> (x)/("bar")
         //     == %foo/bar
         //
-        if (SER_USED(mo->series) - mo->start == 0)
-            Append_Utf8_Codepoint(mo->series, '/');
+        if (SER_USED(mo->series) - mo->offset == 0)
+            Append_Codepoint(mo->series, '/');
         else {
             if (*SER_SEEK(REBYTE, mo->series, SER_USED(mo->series) - 1) != '/')
-                Append_Utf8_Codepoint(mo->series, '/');
+                Append_Codepoint(mo->series, '/');
         }
 
         // !!! Code here previously would handle this case:
@@ -738,67 +738,6 @@ REB_R PD_String(
 }
 
 
-typedef struct REB_Str_Flags {
-    REBCNT escape;      // escaped chars
-    REBCNT brace_in;    // {
-    REBCNT brace_out;   // }
-    REBCNT newline;     // lf
-    REBCNT quote;       // "
-    REBCNT paren;       // (1234)
-    REBCNT chr1e;
-    REBCNT malign;
-} REB_STRF;
-
-
-static void Sniff_String(REBSER *ser, REBCNT idx, REB_STRF *sf)
-{
-    // Scan to find out what special chars the string contains?
-
-    REBCHR(const *) up = UNI_AT(ser, idx);
-
-    REBCNT n;
-    for (n = idx; n < UNI_LEN(ser); n++) {
-        REBUNI c;
-        up = NEXT_CHR(&c, up);
-
-        switch (c) {
-        case '{':
-            sf->brace_in++;
-            break;
-
-        case '}':
-            sf->brace_out++;
-            if (sf->brace_out > sf->brace_in)
-                sf->malign++;
-            break;
-
-        case '"':
-            sf->quote++;
-            break;
-
-        case '\n':
-            sf->newline++;
-            break;
-
-        default:
-            if (c == 0x1e)
-                sf->chr1e += 4; // special case of ^(1e)
-            else if (IS_CHR_ESC(c))
-                sf->escape++;
-            else if (c >= 0x1000)
-                sf->paren += 6; // ^(1234)
-            else if (c >= 0x100)
-                sf->paren += 5; // ^(123)
-            else if (c >= 0x80)
-                sf->paren += 4; // ^(12)
-        }
-    }
-
-    if (sf->brace_in != sf->brace_out)
-        sf->malign++;
-}
-
-
 //
 //  Form_Uni_Hex: C
 //
@@ -823,7 +762,7 @@ REBYTE *Form_Uni_Hex(REBYTE *out, REBCNT n)
 
 
 //
-//  Emit_Uni_Char: C
+//  Mold_Uni_Char: C
 //
 // !!! These heuristics were used in R3-Alpha to decide when to output
 // characters in strings as escape for molding.  It's not clear where to
@@ -832,7 +771,7 @@ REBYTE *Form_Uni_Hex(REBYTE *out, REBCNT n)
 //
 // For now just preserve what was there, but do it as UTF8 bytes.
 //
-REBYTE *Emit_Uni_Char(REBYTE *bp, REBUNI chr, bool parened)
+void Mold_Uni_Char(REB_MOLD *mo, REBUNI c, bool parened)
 {
     // !!! The UTF-8 "Byte Order Mark" is an insidious thing which is not
     // necessary for UTF-8, not recommended by the Unicode standard, and
@@ -851,30 +790,40 @@ REBYTE *Emit_Uni_Char(REBYTE *bp, REBUNI chr, bool parened)
     //      but Rebol uses ^ to indicate escaping so it has to do
     //      something else with that one."
 
-    if (chr >= 0x7F || chr == 0x1E || chr == 0xFEFF) {
+    if (c >= 0x7F || c == 0x1E || c == 0xFEFF) {
         //
         // non ASCII, "^" (RS), or byte-order-mark must be ^(00) escaped.
         //
         // !!! Comment here said "do not AND with the above"
         //
-        if (parened || chr == 0x1E || chr == 0xFEFF) {
-            *bp++ = '^';
-            *bp++ = '(';
-            bp = Form_Uni_Hex(bp, chr);
-            *bp++ = ')';
-            return bp;
+        if (parened || c == 0x1E || c == 0xFEFF) {
+            EXPAND_SERIES_TAIL(mo->series, 7); // worst case: ^(1234)
+
+            Append_Ascii(mo->series, "^\"");
+
+            REBCNT len_old = SER_LEN(mo->series);
+
+            REBYTE *bp = BIN_TAIL(mo->series);
+            REBYTE *ep = Form_Uni_Hex(bp, c); // !!! Make a mold...
+            TERM_UNI_LEN_USED(
+                mo->series,
+                len_old + (ep - bp),
+                SER_USED(mo->series) + (ep - bp)
+            );
+            Append_Codepoint(mo->series, ')');
+            return;
         }
 
-        // fallthrough...
+        Append_Codepoint(mo->series, c);
+        return;
     }
-    else if (IS_CHR_ESC(chr)) {
-        *bp++ = '^';
-        *bp++ = Char_Escapes[chr];
-        return bp;
+    else if (not IS_CHR_ESC(c)) { // Spectre mitigation in MSVC w/o `not`
+        Append_Codepoint(mo->series, c);
+        return;
     }
 
-    bp += Encode_UTF8_Char(bp, chr);
-    return bp;
+    Append_Codepoint(mo->series, '^');
+    Append_Codepoint(mo->series, Char_Escapes[c]);
 }
 
 
@@ -886,61 +835,97 @@ void Mold_Text_Series_At(
     REBSER *series,
     REBCNT index
 ){
-    if (index >= UNI_LEN(series)) {
-        Append_Unencoded(mo->series, "\"\"");
+    REBSER *out = mo->series;
+
+    if (index >= SER_LEN(series)) {
+        Append_Ascii(out, "\"\"");
         return;
     }
 
-    REBCNT len_at = UNI_LEN(series) - index;
+    REBCNT len = SER_LEN(series) - index;
 
-    REB_STRF sf;
-    CLEARS(&sf);
-    Sniff_String(series, index, &sf);
-    if (NOT_MOLD_FLAG(mo, MOLD_FLAG_NON_ANSI_PARENED))
-        sf.paren = 0;
+    bool parened = GET_MOLD_FLAG(mo, MOLD_FLAG_NON_ANSI_PARENED);
+
+    // Scan to find out what special chars the string contains?
+
+    REBCNT escape = 0;      // escaped chars
+    REBCNT brace_in = 0;    // {
+    REBCNT brace_out = 0;   // }
+    REBCNT newline = 0;     // lf
+    REBCNT quote = 0;       // "
+    REBCNT paren = 0;       // (1234)
+    REBCNT chr1e = 0;
+    REBCNT malign = 0;
 
     REBCHR(const *) up = UNI_AT(series, index);
 
+    REBCNT x;
+    for (x = index; x < len; x++) {
+        REBUNI c;
+        up = NEXT_CHR(&c, up);
+
+        switch (c) {
+        case '{':
+            brace_in++;
+            break;
+
+        case '}':
+            brace_out++;
+            if (brace_out > brace_in)
+                malign++;
+            break;
+
+        case '"':
+            quote++;
+            break;
+
+        case '\n':
+            newline++;
+            break;
+
+        default:
+            if (c == 0x1e)
+                chr1e += 4; // special case of ^(1e)
+            else if (IS_CHR_ESC(c))
+                escape++;
+            else if (c >= 0x1000)
+                paren += 6; // ^(1234)
+            else if (c >= 0x100)
+                paren += 5; // ^(123)
+            else if (c >= 0x80)
+                paren += 4; // ^(12)
+        }
+    }
+
+    if (brace_in != brace_out)
+        malign++;
+
+    if (NOT_MOLD_FLAG(mo, MOLD_FLAG_NON_ANSI_PARENED))
+        paren = 0;
+
+    up = UNI_AT(series, index);
+
     // If it is a short quoted string, emit it as "string"
     //
-    if (len_at <= MAX_QUOTED_STR && sf.quote == 0 && sf.newline < 3) {
-        REBYTE *dp = Prep_Mold_Overestimated( // not accurate, must terminate
-            mo,
-            (len_at * 4) // 4 character max for unicode encoding of 1 char
-                + sf.newline + sf.escape + sf.paren + sf.chr1e + 2
-        );
-
-        *dp++ = '"';
+    if (len <= MAX_QUOTED_STR && quote == 0 && newline < 3) {
+        Append_Codepoint(mo->series, '"');
 
         REBCNT n;
         for (n = index; n < UNI_LEN(series); n++) {
             REBUNI c;
             up = NEXT_CHR(&c, up);
-            dp = Emit_Uni_Char(
-                dp, c, GET_MOLD_FLAG(mo, MOLD_FLAG_NON_ANSI_PARENED)
-            );
+            Mold_Uni_Char(mo, c, parened);
         }
 
-        *dp++ = '"';
-        *dp = '\0';
-
-        TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
+        Append_Codepoint(mo->series, '"');
         return;
     }
 
     // It is a braced string, emit it as {string}:
-    if (!sf.malign)
-        sf.brace_in = sf.brace_out = 0;
+    if (malign == 0)
+        brace_in = brace_out = 0;
 
-    REBYTE *dp = Prep_Mold_Overestimated( // not accurate, must terminate
-        mo,
-        (len_at * 4) // 4 bytes maximum for UTF-8 encoding
-            + sf.brace_in + sf.brace_out
-            + sf.escape + sf.paren + sf.chr1e
-            + 2
-    );
-
-    *dp++ = '{';
+    Append_Codepoint(mo->series, '{');
 
     REBCNT n;
     for (n = index; n < UNI_LEN(series); n++) {
@@ -950,28 +935,22 @@ void Mold_Text_Series_At(
         switch (c) {
         case '{':
         case '}':
-            if (sf.malign) {
-                *dp++ = '^';
-                *dp++ = c;
+            if (malign) {
+                Append_Codepoint(mo->series, '^');
                 break;
             }
             // fall through
         case '\n':
         case '"':
-            *dp++ = c;
+            Append_Codepoint(mo->series, c);
             break;
 
         default:
-            dp = Emit_Uni_Char(
-                dp, c, GET_MOLD_FLAG(mo, MOLD_FLAG_NON_ANSI_PARENED)
-            );
+            Mold_Uni_Char(mo, c, parened);
         }
     }
 
-    *dp++ = '}';
-    *dp = '\0';
-
-    TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
+    Append_Codepoint(mo->series, '}');
 }
 
 
@@ -990,66 +969,36 @@ void Mold_Text_Series_At(
 //
 static void Mold_Url(REB_MOLD *mo, const REBCEL *v)
 {
-    REBSER *series = VAL_SERIES(v);
-    REBCNT len = VAL_LEN_AT(v);
-    REBYTE *dp = Prep_Mold_Overestimated(mo, len * 4); // 4 bytes max UTF-8
-
-    REBCNT n;
-    for (n = VAL_INDEX(v); n < VAL_LEN_HEAD(v); ++n)
-        *dp++ = GET_ANY_CHAR(series, n);
-
-    *dp = '\0';
-
-    SET_SERIES_LEN(mo->series, dp - BIN_HEAD(mo->series)); // correction
+    Append_String(mo->series, v, VAL_LEN_AT(v));
 }
 
 
 static void Mold_File(REB_MOLD *mo, const REBCEL *v)
 {
-    REBSER *series = VAL_SERIES(v);
     REBCNT len = VAL_LEN_AT(v);
 
-    REBCNT estimated_bytes = 4 * len; // UTF-8 characters are max 4 bytes
+    Append_Codepoint(mo->series, '%');
 
-    // Compute extra space needed for hex encoded characters:
-    //
+    REBCHR(const *) cp = VAL_UNI_AT(v);
+
     REBCNT n;
-    for (n = VAL_INDEX(v); n < VAL_LEN_HEAD(v); ++n) {
-        REBUNI c = GET_ANY_CHAR(series, n);
+    for (n = 0; n < len; ++n) {
+        REBUNI c;
+        cp = NEXT_CHR(&c, cp);
+
         if (IS_FILE_ESC(c))
-            estimated_bytes -= 1; // %xx is 3 characters instead of 4
-    }
-
-    ++estimated_bytes; // room for % at start
-
-    REBYTE *dp = Prep_Mold_Overestimated(mo, estimated_bytes);
-
-    *dp++ = '%';
-
-    for (n = VAL_INDEX(v); n < VAL_LEN_HEAD(v); ++n) {
-        REBUNI c = GET_ANY_CHAR(series, n);
-        if (IS_FILE_ESC(c))
-            dp = Form_Hex_Esc(dp, c); // c => %xx
+            Form_Hex_Esc(mo, c); // c => %xx
         else
-            *dp++ = c;
+            Append_Codepoint(mo->series, c);
     }
-
-    *dp = '\0';
-
-    SET_SERIES_LEN(mo->series, dp - BIN_HEAD(mo->series)); // correction
 }
 
 
 static void Mold_Tag(REB_MOLD *mo, const REBCEL *v)
 {
-    Append_Utf8_Codepoint(mo->series, '<');
-
-    REBSIZ offset;
-    REBSIZ size;
-    REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
-    Append_Utf8_Utf8(mo->series, cs_cast(BIN_AT(temp, offset)), size);
-
-    Append_Utf8_Codepoint(mo->series, '>');
+    Append_Codepoint(mo->series, '<');
+    Append_String(mo->series, v, VAL_LEN_AT(v));
+    Append_Codepoint(mo->series, '>');
 }
 
 
@@ -1075,20 +1024,20 @@ void MF_Binary(REB_MOLD *mo, const REBCEL *v, bool form)
 
     case 64: {
         const bool brk = (len > 64);
-        Append_Unencoded(mo->series, "64");
+        Append_Ascii(mo->series, "64");
         enbased = Encode_Base64(VAL_BIN_AT(v), len, brk);
         break; }
 
     case 2: {
         const bool brk = (len > 8);
-        Append_Utf8_Codepoint(mo->series, '2');
+        Append_Codepoint(mo->series, '2');
         enbased = Encode_Base2(VAL_BIN_AT(v), len, brk);
         break; }
     }
 
-    Append_Unencoded(mo->series, "#{");
-    Append_Utf8_Utf8(mo->series, cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased));
-    Append_Unencoded(mo->series, "}");
+    Append_Ascii(mo->series, "#{");
+    Append_Utf8(mo->series, cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased));
+    Append_Ascii(mo->series, "}");
 
     Free_Unmanaged_Series(enbased);
 
@@ -1120,11 +1069,7 @@ void MF_String(REB_MOLD *mo, const REBCEL *v, bool form)
     // would form with no delimiters, e.g. `form #foo` is just foo
     //
     if (form and kind != REB_TAG) {
-        REBSIZ offset;
-        REBSIZ size;
-        REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
-
-        Append_Utf8_Utf8(mo->series, cs_cast(BIN_AT(temp, offset)), size);
+        Append_String(mo->series, v, VAL_LEN_AT(v));
         return;
     }
 
@@ -1135,7 +1080,7 @@ void MF_String(REB_MOLD *mo, const REBCEL *v, bool form)
 
       case REB_FILE:
         if (VAL_LEN_AT(v) == 0) {
-            Append_Unencoded(s, "%\"\"");
+            Append_Ascii(s, "%\"\"");
             break;
         }
         Mold_File(mo, v);
@@ -1404,8 +1349,13 @@ REBTYPE(String)
         if (index == 0 and IS_SER_DYNAMIC(ser))
             Unbias_Series(ser, false);
 
-        TERM_SEQUENCE_LEN(ser, cast(REBCNT, index));
-        RETURN (v); }
+        if (IS_BINARY(v))
+            TERM_SEQUENCE_LEN(ser, cast(REBCNT, index));
+        else {
+            REBSIZ offset = VAL_OFFSET_FOR_INDEX(v, index);
+            TERM_UNI_LEN_USED(ser, cast(REBCNT, index), offset);
+        }
+        RETURN(v); }
 
     //-- Creation:
 
@@ -1601,7 +1551,7 @@ REBTYPE(String)
                 assert(ANY_STRING(v));
                 Set_Random(
                     Compute_CRC24(
-                        cast(REBYTE*, VAL_UNI_AT(v)),
+                        AS_REBYTE_PTR(VAL_UNI_AT(v)),
                         VAL_SIZE_AT(v)
                     )
                 );

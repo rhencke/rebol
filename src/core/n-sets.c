@@ -176,7 +176,7 @@ REBSER *Make_Set_Operation_Series(
     else if (ANY_STRING(val1)) {
         DECLARE_MOLD (mo);
 
-        // ask mo->series to have at least `i` capacity beyond mo->start
+        // ask mo->series to have at least `i` capacity beyond mo->offset
         //
         SET_MOLD_FLAG(mo, MOLD_FLAG_RESERVE);
         mo->reserve = i;
@@ -211,16 +211,17 @@ REBSER *Make_Set_Operation_Series(
                     NOT_FOUND == Find_Str_Char(
                         uc, // c2 (the character to find)
                         mo->series, // ser
-                        mo->start, // head
-                        mo->start, // index
+                        mo->index, // head - !!! was mo->start
+                        mo->index, // index - !!! was mo->start
                         SER_LEN(mo->series), // tail
                         skip, // skip
                         cased ? AM_FIND_CASE : 0 // flags
                     )
                 ){
-                    DECLARE_LOCAL (temp);
-                    Init_Any_Series_At(temp, REB_TEXT, ser, i);
-                    Append_Utf8_String(mo->series, temp, skip);
+                    assert(false); // !!! not sure what this should do, review
+                    /*DECLARE_LOCAL (temp);
+                    Init_Any_Series_At(temp, REB_STRING, ser, i);
+                    Append_Utf8(mo->series, temp, skip); */
                 }
             }
 
@@ -284,8 +285,8 @@ REBSER *Make_Set_Operation_Series(
                     NOT_FOUND == Find_Str_Char(
                         uc, // c2 (the character to find)
                         mo->series, // ser
-                        mo->start, // head
-                        mo->start, // index
+                        mo->index, // head - !!! was mo->start
+                        mo->index, // index - !!! was also mo->start
                         SER_LEN(mo->series), // tail
                         skip, // skip
                         cased ? AM_FIND_CASE : 0 // flags

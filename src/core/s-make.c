@@ -50,15 +50,19 @@ REBSER *Make_Binary(REBCNT capacity)
 // be made, but better to either know -or- go via the mold buffer to get
 // the exact right length.
 //
-REBSER *Make_String(REBSIZ encoded_capacity)
+REBSER *Make_String_Core(REBSIZ encoded_capacity, REBFLGS flags)
 {
     // !!! Even though this is a byte sized sequence, we add 2 bytes for the
     // terminator (and TERM_SEQUENCE() terminates with 2 bytes) because we're
     // in a stopgap position where the series contains REBUNIs, and sometimes
     // the null terminator is visited in enumerations.
     //
-    REBSER *s = Make_Series(encoded_capacity + 2, sizeof(REBYTE));
-    SET_SERIES_FLAG(s, UCS2_STRING);
+    REBSER *s = Make_Series_Core(
+        encoded_capacity + 1,
+        sizeof(REBYTE),
+        flags
+    );
+    SET_SERIES_FLAG(s, UTF8_NONWORD);
     MISC(s).length = 0;
     TERM_SERIES(s);
 
@@ -134,87 +138,43 @@ REBSER *Copy_String_At_Limit(const RELVAL *src, REBINT limit)
 {
     REBCNT length_limit;
     REBSIZ size = VAL_SIZE_LIMIT_AT(&length_limit, src, limit);
-    assert(length_limit * 2 == size); // !!! Temporary
+    assert(length_limit <= size);
 
-    REBSER *dst = Make_Unicode(size / 2);
-    memcpy(AS_REBUNI(UNI_AT(dst, 0)), VAL_UNI_AT(src), size);
-    TERM_SEQUENCE_LEN(dst, length_limit);
+    REBSER *dst = Make_String(size);
+    memcpy(UNI_AT(dst, 0), VAL_UNI_AT(src), size);
+    TERM_UNI_LEN_USED(dst, length_limit, size);
 
     return dst;
-}
-
-
-//
-//  Append_Unencoded_Len: C
-//
-// Append unencoded data to a byte string, using plain memcpy().  If dst is
-// NULL, a new byte-sized series will be created and returned.
-//
-REBSER *Append_Unencoded_Len(REBSER *dst, const char *src, REBCNT len)
-{
-    assert(BYTE_SIZE(dst));
-
-    REBCNT tail;
-    if (dst == NULL) {
-        dst = Make_Binary(len);
-        tail = 0;
-    }
-    else {
-        tail = SER_LEN(dst);
-        EXPAND_SERIES_TAIL(dst, len);
-    }
-
-    memcpy(BIN_AT(dst, tail), src, len);
-    TERM_SEQUENCE(dst);
-    return dst;
-}
-
-
-//
-//  Append_Unencoded: C
-//
-// Append_Unencoded_Len() variant that looks for a terminating 0 byte to
-// determine the length.
-//
-// !!! Should be in a header file so it can be inlined.
-//
-REBSER *Append_Unencoded(REBSER *dst, const char *src)
-{
-    return Append_Unencoded_Len(dst, src, strlen(src));
 }
 
 
 //
 //  Append_Codepoint: C
 //
-// Append a non-encoded character to a string.
+// Encode a codepoint onto the end of a UTF-8 string series.  This is used
+// frequently by molding.
+//
+// !!! Should the mold buffer avoid paying for termination?  Might one save on
+// resizing checks if an invalid UTF-8 byte were used to mark the end of the
+// capacity (the way END markers are used on the data stack?)
 //
 REBSER *Append_Codepoint(REBSER *dst, REBUNI codepoint)
 {
-    REBCNT tail = SER_LEN(dst);
-    EXPAND_SERIES_TAIL(dst, sizeof(REBUNI));
+    assert(codepoint <= MAX_UNI);
 
-    REBCHR(*) cp = UNI_AT(dst, tail);
-    cp = WRITE_CHR(cp, codepoint);
-    cp = WRITE_CHR(cp, '\0'); // should always be capacity for terminator
-
-    return dst;
-}
-
-
-//
-//  Append_Utf8_Codepoint: C
-//
-// Encode a codepoint onto a UTF-8 binary series.
-//
-REBSER *Append_Utf8_Codepoint(REBSER *dst, uint32_t codepoint)
-{
     assert(SER_WIDE(dst) == sizeof(REBYTE));
+    assert(GET_SERIES_FLAG(dst, UTF8_NONWORD));
 
-    REBCNT tail = SER_LEN(dst);
+    REBCNT old_len = UNI_LEN(dst);
+
+    REBSIZ tail = SER_USED(dst);
     EXPAND_SERIES_TAIL(dst, 4); // !!! Conservative, assume long codepoint
     tail += Encode_UTF8_Char(BIN_AT(dst, tail), codepoint); // 1 to 4 bytes
-    TERM_BIN_LEN(dst, tail);
+
+    // "length" grew by 1 codepoint, but "size" grew by 1 to 4 bytes
+    //
+    TERM_UNI_LEN_USED(dst, old_len + 1, tail);
+
     return dst;
 }
 
@@ -224,29 +184,73 @@ REBSER *Append_Utf8_Codepoint(REBSER *dst, uint32_t codepoint)
 //
 // Create a string that holds a single codepoint.
 //
-REBSER *Make_Ser_Codepoint(REBCNT codepoint)
+REBSER *Make_Ser_Codepoint(REBUNI codepoint)
 {
-    assert(codepoint < (1 << 16));
+    assert(codepoint <= MAX_UNI);
 
-    REBSER *out = Make_Unicode(1);
-    *UNI_HEAD(out) = codepoint;
-    TERM_UNI_LEN(out, 1);
-
-    return out;
+    REBSER *s = Make_Unicode(1);
+    TERM_UNI_LEN_USED(s, 1, Encode_UTF8_Char(BIN_HEAD(s), codepoint));
+    return s;
 }
 
 
 //
-//  Append_Utf8_Utf8: C
+//  Append_Ascii_Len: C
+//
+// Append unencoded data to a byte string, using plain memcpy().  If dst is
+// NULL, a new byte-sized series will be created and returned.
+//
+// !!! Should debug build assert it's ASCII?  Most of these are coming from
+// string literals in the source.
+//
+REBSER *Append_Ascii_Len(REBSER *dst, const char *ascii, REBCNT len)
+{
+    assert(BYTE_SIZE(dst));
+
+    REBCNT old_size;
+    REBCNT old_len;
+
+    if (dst == NULL) {
+        dst = Make_String(len);
+        old_size = 0;
+        old_len = 0;
+    }
+    else {
+        old_size = SER_USED(dst);
+        old_len = UNI_LEN(dst);
+        EXPAND_SERIES_TAIL(dst, len);
+    }
+
+    memcpy(BIN_AT(dst, old_size), ascii, len);
+
+    TERM_UNI_LEN_USED(dst, old_len + len, old_size + len);
+    return dst;
+}
+
+
+//
+//  Append_Ascii: C
+//
+// Append_Ascii_Len() variant that looks for a terminating 0 byte to
+// determine the length.  Assumes one byte per character.
+//
+// !!! Should be in a header file so it can be inlined.
+//
+REBSER *Append_Ascii(REBSER *dst, const char *src)
+{
+    return Append_Ascii_Len(dst, src, strlen(src));
+}
+
+
+//
+//  Append_Utf8: C
 //
 // Append a UTF8 byte series to a UTF8 binary.  Terminates.
 //
-// !!! Currently does the same thing as Append_Unencoded_Len.  Should it
-// check the bytes to make sure they're actually UTF8?
-//
-void Append_Utf8_Utf8(REBSER *dst, const char *utf8, size_t size)
+REBSER *Append_Utf8(REBSER *dst, const char *utf8, size_t size)
 {
-    Append_Unencoded_Len(dst, utf8, size);
+    const bool crlf_to_lf = false;
+    return Append_UTF8_May_Fail(dst, utf8, size, crlf_to_lf);
 }
 
 
@@ -257,33 +261,36 @@ void Append_Utf8_Utf8(REBSER *dst, const char *utf8, size_t size)
 //
 void Append_Spelling(REBSER *dst, REBSTR *spelling)
 {
-    Append_Utf8_Utf8(dst, STR_HEAD(spelling), STR_SIZE(spelling));
+    Append_Utf8(dst, STR_HEAD(spelling), STR_SIZE(spelling));
 }
 
 
 //
-//  Append_Utf8_String: C
+//  Append_String: C
 //
 // Append a partial string to a UTF-8 binary series.
 //
-// !!! Used only with mold series at the moment.
-//
-void Append_Utf8_String(REBSER *dst, const RELVAL *src, REBCNT length_limit)
+void Append_String(REBSER *dst, const REBCEL *src, REBCNT limit)
 {
     assert(
         SER_WIDE(dst) == sizeof(REBYTE)
         and SER_WIDE(VAL_SERIES(src)) == sizeof(REBYTE)
-        and GET_SERIES_FLAG(VAL_SERIES(src), UCS2_STRING)
+        and GET_SERIES_FLAG(VAL_SERIES(src), UTF8_NONWORD)
     );
 
-    REBSIZ offset;
-    REBSIZ size;
-    REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, src, length_limit);
+    REBSIZ offset = VAL_OFFSET_FOR_INDEX(src, VAL_INDEX(src));
 
-    REBCNT tail = SER_LEN(dst);
-    Expand_Series(dst, tail, size); // tail changed too
+    REBCNT old_len = SER_LEN(dst);
+    REBSIZ old_used = SER_USED(dst);
 
-    memcpy(BIN_AT(dst, tail), BIN_AT(temp, offset), size);
+    REBCNT len;
+    REBSIZ size = VAL_SIZE_LIMIT_AT(&len, src, limit);
+    
+    REBCNT tail = SER_USED(dst);
+    Expand_Series(dst, tail, size); // series USED changes too
+
+    memcpy(BIN_AT(dst, tail), BIN_AT(VAL_SERIES(src), offset), size);
+    TERM_UNI_LEN_USED(dst, old_len + len, old_used + size);
 }
 
 
@@ -297,7 +304,7 @@ void Append_Int(REBSER *dst, REBINT num)
     REBYTE buf[32];
 
     Form_Int(buf, num);
-    Append_Unencoded(dst, s_cast(buf));
+    Append_Ascii(dst, s_cast(buf));
 }
 
 
@@ -314,7 +321,7 @@ void Append_Int_Pad(REBSER *dst, REBINT num, REBINT digs)
     else
         Form_Int_Pad(buf, num, -digs, digs, '0');
 
-    Append_Unencoded(dst, s_cast(buf));
+    Append_Ascii(dst, s_cast(buf));
 }
 
 
@@ -329,75 +336,79 @@ void Append_Int_Pad(REBSER *dst, REBINT num, REBINT digs)
 REBSER *Append_UTF8_May_Fail(
     REBSER *dst,
     const char *utf8,
-    size_t size,
+    REBSIZ size,
     bool crlf_to_lf
 ){
     // This routine does not just append bytes blindly because:
     //
-    // * We want to check for invalid codepoints (this can be called with
-    //   arbitrary outside data from the API.
+    // * If crlf_to_lf is set, then some characters might need to be removed
+    // * We want to check for invalid byte sequences, as this can be called
+    //   with arbitrary outside data from the API.
     // * It's needed to know how many characters (length) are in the series,
     //   not just how many bytes.  The higher level concept of "length" gets
     //   stored in the series MISC() field.
     // * In the future, some operations will be accelerated by knowing that
     //   a string only contains ASCII codepoints.
 
-    assert(IS_SER_DYNAMIC(BUF_UTF8));
-    BUF_UTF8->content.dynamic.used = 0;
-    EXPAND_SERIES_TAIL(BUF_UTF8, size * 2); // at most this many unicode chars
-    SET_SERIES_LEN(BUF_UTF8, 0);
-    TERM_SERIES(BUF_UTF8);
+    const REBYTE *bp = cb_cast(utf8);
 
-    REBSER *temp = BUF_UTF8; // buffer is Unicode width
-
-    REBUNI *up = UNI_HEAD(temp);
-    const REBYTE *src = cb_cast(utf8);
+    DECLARE_MOLD (mo); // !!! REVIEW: don't need intermediate if no crlf_to_lf
+    Push_Mold(mo);
 
     bool all_ascii = true;
-
     REBCNT num_codepoints = 0;
 
     REBSIZ bytes_left = size; // see remarks on Back_Scan_UTF8_Char's 3rd arg
-    for (; bytes_left > 0; --bytes_left, ++src) {
-        REBUNI ch = *src;
-        if (ch >= 0x80) {
-            src = Back_Scan_UTF8_Char(&ch, src, &bytes_left);
-            if (src == NULL)
-                fail (Error_Bad_Utf8_Raw());
+    for (; bytes_left > 0; --bytes_left, ++bp) {
+        REBUNI c = *bp;
+        if (c >= 0x80) {
+            bp = Back_Scan_UTF8_Char(&c, bp, &bytes_left);
+            if (bp == NULL)
+                fail (Error_Bad_Utf8_Raw()); // !!! Should Back_Scan() fail?
 
             all_ascii = false;
         }
-        else if (ch == CR && crlf_to_lf) {
-            if (src[1] == LF)
+        else if (c == CR && crlf_to_lf) {
+            if (bp[1] == LF)
                 continue; // skip the CR, do the decrement and get the LF
-            ch = LF;
+            c = LF;
         }
 
         ++num_codepoints;
-        *up++ = ch;
+        Append_Codepoint(mo->series, c);
     }
 
     UNUSED(all_ascii);
 
-    up = UNI_HEAD(temp);
+    // !!! The implicit nature of this is probably not the best way of
+    // handling things, but... if the series we were supposed to be appending
+    // to was the mold buffer, that's what we just did.  Consider making this
+    // a specific call for Mold_Utf8() or similar.
+    //
+    if (dst == mo->series)
+        return dst;
 
-    REBCNT old_len;
-    if (dst == NULL) {
-        dst = Make_Unicode(num_codepoints);
-        old_len = 0;
-    }
-    else {
-        old_len = SER_LEN(dst);
-        EXPAND_SERIES_TAIL(dst, num_codepoints);
-    }
+    if (dst == NULL)
+        return Pop_Molded_String(mo);
 
-    REBUNI *dp = AS_REBUNI(UNI_AT(dst, old_len));
-    SET_SERIES_LEN(dst, old_len + num_codepoints); // counted down to 0 below
+    REBCNT old_len = SER_LEN(dst);
+    REBSIZ old_size = SER_USED(dst);
 
-    for (; num_codepoints > 0; --num_codepoints)
-        *dp++ = *up++;
+    EXPAND_SERIES_TAIL(dst, size);
+    memcpy(
+        SER_AT_RAW(SER_WIDE(dst), dst, old_size),
+        BIN_AT(mo->series, mo->offset),
+        SER_USED(mo->series) - mo->offset
+    );
 
-    TERM_SERIES(dst);
+    TERM_UNI_LEN_USED(
+        dst,
+        old_len + num_codepoints,
+        old_size + SER_USED(mo->series) - mo->offset
+    );
+
+    Drop_Mold(mo);
+
     return dst;
 }
 
@@ -444,19 +455,18 @@ REBSER *Join_Binary(const REBVAL *blk, REBINT limit)
         case REB_EMAIL:
         case REB_URL:
         case REB_TAG: {
-            REBCNT val_len = VAL_LEN_AT(val);
-            size_t val_size = Size_As_UTF8(VAL_UNI_AT(val), val_len);
+            REBCNT val_len;
+            REBSIZ utf8_size = VAL_SIZE_LIMIT_AT(&val_len, val, UNKNOWN);
 
-            EXPAND_SERIES_TAIL(series, val_size);
-            SET_SERIES_LEN(
-                series,
-                tail + Encode_UTF8(
-                    BIN_AT(series, tail),
-                    val_size,
-                    VAL_UNI_AT(val),
-                    &val_len
-                )
+            REBSIZ offset = VAL_OFFSET_FOR_INDEX(val, VAL_INDEX(val));
+
+            EXPAND_SERIES_TAIL(series, utf8_size);
+            memcpy(
+                BIN_AT(series, tail),
+                BIN_AT(VAL_SERIES(val), offset),
+                utf8_size
             );
+            SET_SERIES_LEN(series, tail + utf8_size);
             break; }
 
         case REB_CHAR: {

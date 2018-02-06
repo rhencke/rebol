@@ -564,30 +564,17 @@ REBNATIVE(enhex)
             "-._~:/?#[]@!$&'()*+,;=";
   #endif
 
-    REBCNT len = VAL_LEN_AT(ARG(string));
-
     DECLARE_MOLD (mo);
     Push_Mold (mo);
 
-    // !!! For now, we conservatively assume that the mold buffer might need
-    // 12x as many characters as the input.  This is based on the worst-case
-    // scenario, that each single codepoint might need 4 bytes of UTF-8 data
-    // that are turned into %XX%XX%XX%XX in the output stream.
-    //
-    // It's not that big a deal since the mold buffer sits around with a large
-    // capacity anyway, so it probably has enough for the short encodings this
-    // does already.  But after the UTF-8 everywhere conversion, molding logic
-    // is smarter and expands the buffer on-demand so routines like this don't
-    // need to preallocate it.
-    //
-    REBYTE *dp = Prep_Mold_Overestimated(mo, len * 12);
+    REBCNT len = VAL_LEN_AT(ARG(string));
+    REBCHR(const *) cp = VAL_UNI_AT(ARG(string));
 
-    REBSER *s = VAL_SERIES(ARG(string));
+    REBUNI c;
+    cp = NEXT_CHR(&c, cp);
 
-    REBCNT i = VAL_INDEX(ARG(string));
-    for (; i < len; ++i) {
-        REBUNI c = GET_ANY_CHAR(s, i);
-
+    REBCNT i;
+    for (i = 0; i < len; cp = NEXT_CHR(&c, cp), ++i) {
         REBYTE encoded[4];
         REBCNT encoded_size;
 
@@ -665,7 +652,7 @@ REBNATIVE(enhex)
           #if !defined(NDEBUG)
             assert(strchr(no_encode, c) != NULL);
           #endif
-            *dp++ = c;
+            Append_Codepoint(mo->series, c);
             continue;
         }
 
@@ -677,27 +664,20 @@ REBNATIVE(enhex)
 
         REBCNT n;
         for (n = 0; n != encoded_size; ++n) {
-            *dp++ = '%';
+            Append_Codepoint(mo->series, '%');
 
             // Use uppercase hex digits, per RFC 3896 2.1, which is also
             // consistent with JavaScript's encodeURIComponent()
             //
             // https://tools.ietf.org/html/rfc3986#section-2.1
             //
-            *dp++ = Hex_Digits[(encoded[n] & 0xf0) >> 4];
-            *dp++ = Hex_Digits[encoded[n] & 0xf];
+            Append_Codepoint(mo->series, Hex_Digits[(encoded[n] & 0xf0) >> 4]);
+            Append_Codepoint(mo->series, Hex_Digits[encoded[n] & 0xf]);
         }
     }
 
-    *dp = '\0';
-
-    SET_SERIES_LEN(mo->series, dp - BIN_HEAD(mo->series));
-
-    return Init_Any_Series(
-        D_OUT,
-        VAL_TYPE(ARG(string)),
-        Pop_Molded_String(mo)
-    );
+    Init_Any_Series(D_OUT, VAL_TYPE(ARG(string)), Pop_Molded_String(mo));
+    return D_OUT;
 }
 
 
@@ -716,15 +696,8 @@ REBNATIVE(dehex)
 {
     INCLUDE_PARAMS_OF_DEHEX;
 
-    REBCNT len = VAL_LEN_AT(ARG(string));
-
     DECLARE_MOLD (mo);
     Push_Mold(mo);
-
-    // Conservatively assume no %NNs, and output is same length as input, with
-    // all codepoints expanding to 4 bytes.
-    //
-    REBYTE *dp = Prep_Mold_Overestimated(mo, len * 4);
 
     // RFC 3986 says the encoding/decoding must use UTF-8.  This temporary
     // buffer is used to hold up to 4 bytes (and a terminator) that need
@@ -733,24 +706,31 @@ REBNATIVE(dehex)
     REBYTE scan[5];
     REBSIZ scan_size = 0;
 
-    REBSER *s = VAL_SERIES(ARG(string));
+    REBCNT len = VAL_LEN_AT(ARG(string));
+    REBCHR(const *) cp = VAL_UNI_AT(ARG(string));
 
-    REBCNT i = VAL_INDEX(ARG(string));
+    REBUNI c;
+    cp = NEXT_CHR(&c, cp);
 
-    REBUNI c = GET_ANY_CHAR(s, i);
-    while (i < len) {
-
-        if (c != '%') {
-            dp += Encode_UTF8_Char(dp, c);
-            ++i;
-        }
+    REBCNT i;
+    for (i = 0; i < len;) {
+        if (c != '%')
+            Append_Codepoint(mo->series, c);
         else {
             if (i + 2 >= len)
                fail ("Percent decode has less than two codepoints after %");
 
-            REBYTE lex1 = Lex_Map[GET_ANY_CHAR(s, i + 1)];
-            REBYTE lex2 = Lex_Map[GET_ANY_CHAR(s, i + 2)];
-            i += 3;
+            cp = NEXT_CHR(&c, cp);
+            ++i;
+            if (c > UINT8_MAX)
+                c = '\0'; // LEX_DELIMIT, will cause error below
+            REBYTE lex1 = Lex_Map[cast(REBYTE, c)];
+
+            cp = NEXT_CHR(&c, cp);
+            ++i;
+            if (c > UINT8_MAX)
+                c = '\0'; // LEX_DELIMIT, will cause error below
+            REBYTE lex2 = Lex_Map[cast(REBYTE, c)];
 
             // If class LEX_WORD or LEX_NUMBER, there is a value contained in
             // the mask which is the value of that "digit".  So A-F and
@@ -774,7 +754,8 @@ REBNATIVE(dehex)
             scan[scan_size++] = b;
         }
 
-        c = GET_ANY_CHAR(s, i); // may be '\0', guaranteed to be if `i == len`
+        cp = NEXT_CHR(&c, cp); // c may be '\0', guaranteed if `i == len`
+        ++i;
 
         // If our scanning buffer is full (and hence should contain at *least*
         // one full codepoint) or there are no more UTF-8 bytes coming (due
@@ -797,7 +778,7 @@ REBNATIVE(dehex)
                 if (next == NULL)
                     fail ("Bad UTF-8 sequence in %XX of dehex");
             }
-            dp += Encode_UTF8_Char(dp, decoded);
+            Append_Codepoint(mo->series, decoded);
             --scan_size; // one less (see why it's called "Back_Scan")
 
             // Slide any residual UTF-8 data to the head of the buffer
@@ -817,15 +798,8 @@ REBNATIVE(dehex)
         }
     }
 
-    *dp = '\0';
-
-    SET_SERIES_LEN(mo->series, dp - BIN_HEAD(mo->series));
-
-    return Init_Any_Series(
-        D_OUT,
-        VAL_TYPE(ARG(string)),
-        Pop_Molded_String(mo)
-    );
+    Init_Any_Series(D_OUT, VAL_TYPE(ARG(string)), Pop_Molded_String(mo));
+    return D_OUT;
 }
 
 
@@ -875,7 +849,7 @@ REBNATIVE(deline)
         dest = WRITE_CHR(dest, c);
     }
 
-    TERM_UNI_LEN(s, len_head);
+    TERM_UNI_LEN_USED(s, len_head, dest - VAL_UNI_AT(val));
 
     RETURN (ARG(string));
 }
@@ -898,7 +872,9 @@ REBNATIVE(enline)
 
     REBSER *ser = VAL_SERIES(val);
     REBCNT idx = VAL_INDEX(val);
-    REBCNT len = VAL_LEN_AT(val);
+    
+    REBCNT len;
+    REBSIZ size = VAL_SIZE_LIMIT_AT(&len, val, UNKNOWN);
 
     REBCNT delta = 0;
 
@@ -938,18 +914,18 @@ REBNATIVE(enline)
     // UCS-2 has the CR LF bytes in codepoint sequences that aren't CR LF.
     // So sliding is done in full character counts.
 
-    REBUNI *up = UNI_HEAD(ser); // expand may change the pointer
-    REBCNT tail = SER_LEN(ser); // length after expansion
+    REBYTE* bp = UNI_HEAD(ser); // expand may change the pointer
+    REBSIZ tail = SER_USED(ser); // size in bytes after expansion
 
     // Add missing CRs
 
     while (delta > 0) {
-        up[tail--] = up[len]; // Copy src to dst.
-        if (up[len] == LF and (len == 0 or up[len - 1] != CR)) {
-            up[tail--] = CR;
+        bp[tail--] = bp[size]; // Copy src to dst.
+        if (bp[size] == LF and (size == 0 or bp[size - 1] != CR)) {
+            bp[tail--] = CR;
             --delta;
         }
-        --len;
+        --size;
     }
 
     RETURN (ARG(string));
@@ -984,7 +960,6 @@ REBNATIVE(entab)
     Push_Mold(mo);
 
     REBCNT len = VAL_LEN_AT(val);
-    REBYTE *dp = Prep_Mold_Overestimated(mo, len * 4); // max UTF-8 charsize
 
     REBCHR(const *) up = VAL_UNI_AT(val);
     REBCNT index = VAL_INDEX(val);
@@ -997,7 +972,7 @@ REBNATIVE(entab)
         // Count leading spaces, insert TAB for each tabsize:
         if (c == ' ') {
             if (++n >= tabsize) {
-                *dp++ = '\t';
+                Append_Codepoint(mo->series, '\t');
                 n = 0;
             }
             continue;
@@ -1005,29 +980,33 @@ REBNATIVE(entab)
 
         // Hitting a leading TAB resets space counter:
         if (c == '\t') {
-            *dp++ = cast(REBYTE, c);
+            Append_Codepoint(mo->series, '\t');
             n = 0;
         }
         else {
             // Incomplete tab space, pad with spaces:
             for (; n > 0; n--)
-                *dp++ = ' ';
+                Append_Codepoint(mo->series, ' ');
 
             // Copy chars thru end-of-line (or end of buffer):
             for (; index < len; ++index) {
                 if (c == '\n') {
-                    *dp = '\n';
+                    //
+                    // !!! The original code didn't seem to actually move the
+                    // append pointer, it just changed the last character to
+                    // a newline.  Was this the intent?
+                    //
+                    Append_Codepoint(mo->series, '\n');
                     break;
                 }
-                dp += Encode_UTF8_Char(dp, c);
+                Append_Codepoint(mo->series, c);
                 up = NEXT_CHR(&c, up);
             }
         }
     }
 
-    TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
-
-    return Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
+    Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
+    return D_OUT;
 }
 
 
@@ -1064,35 +1043,17 @@ REBNATIVE(detab)
     REBCHR(const *) cp = VAL_UNI_AT(val);
     REBCNT index = VAL_INDEX(val);
 
-    REBCNT count = 0;
-    REBCNT n;
-    for (n = index; n < len; n++) {
-        REBUNI c;
-        cp = NEXT_CHR(&c, cp);
-        if (c == '\t') // tab character
-            ++count;
-    }
+    REBCNT n = 0;
 
-    Push_Mold(mo);
-
-    REBYTE *dp = Prep_Mold_Overestimated(
-        mo,
-        (len * 4) // assume worst case, all characters encode UTF-8 4 bytes
-            + (count * (tabsize - 1)) // expanded tabs add tabsize - 1 to len
-    );
-
-    cp = VAL_UNI_AT(val);
-
-    n = 0;
     for (; index < len; ++index) {
         REBUNI c;
         cp = NEXT_CHR(&c, cp);
 
         if (c == '\t') {
-            *dp++ = ' ';
+            Append_Codepoint(mo->series, ' ');
             n++;
             for (; n % tabsize != 0; n++)
-                *dp++ = ' ';
+                Append_Codepoint(mo->series, ' ');
             continue;
         }
 
@@ -1101,12 +1062,11 @@ REBNATIVE(detab)
         else
             ++n;
 
-        dp += Encode_UTF8_Char(dp, c);
+        Append_Codepoint(mo->series, c);
     }
 
-    TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
-
-    return Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
+    Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
+    return D_OUT;
 }
 
 
@@ -1201,9 +1161,9 @@ REBNATIVE(to_hex)
             len = 2 * VAL_TUPLE_LEN(arg);
         }
         for (n = 0; n != VAL_TUPLE_LEN(arg); n++)
-            buf = Form_Hex2_UTF8(buf, VAL_TUPLE(arg)[n]);
+            buf = Form_Hex2(buf, VAL_TUPLE(arg)[n]);
         for (; n < 3; n++)
-            buf = Form_Hex2_UTF8(buf, 0);
+            buf = Form_Hex2(buf, 0);
         *buf = 0;
     }
     else

@@ -1604,7 +1604,7 @@ static void Mold_Value_Limit(REB_MOLD *mo, RELVAL *v, REBCNT len)
 
     if (SER_LEN(mo->series) - start > len) {
         SET_SERIES_LEN(mo->series, start + len);
-        Append_Unencoded(mo->series, "...");
+        Append_Ascii(mo->series, "...");
     }
 }
 
@@ -1638,7 +1638,7 @@ void MF_Error(REB_MOLD *mo, const REBCEL *v, bool form)
     else if (IS_TEXT(&vars->message))
         Form_Value(mo, &vars->message);
     else
-        Append_Unencoded(mo->series, RM_BAD_ERROR_FORMAT);
+        Append_Ascii(mo->series, RM_BAD_ERROR_FORMAT);
 
     // Form: ** Where: function
     REBVAL *where = KNOWN(&vars->where);
@@ -1646,16 +1646,16 @@ void MF_Error(REB_MOLD *mo, const REBCEL *v, bool form)
         not IS_BLANK(where)
         and not (IS_BLOCK(where) and VAL_LEN_AT(where) == 0)
     ){
-        Append_Utf8_Codepoint(mo->series, '\n');
-        Append_Unencoded(mo->series, RM_ERROR_WHERE);
+        Append_Codepoint(mo->series, '\n');
+        Append_Ascii(mo->series, RM_ERROR_WHERE);
         Form_Value(mo, where);
     }
 
     // Form: ** Near: location
     REBVAL *nearest = KNOWN(&vars->nearest);
     if (not IS_BLANK(nearest)) {
-        Append_Utf8_Codepoint(mo->series, '\n');
-        Append_Unencoded(mo->series, RM_ERROR_NEAR);
+        Append_Codepoint(mo->series, '\n');
+        Append_Ascii(mo->series, RM_ERROR_NEAR);
 
         if (IS_TEXT(nearest)) {
             //
@@ -1665,12 +1665,12 @@ void MF_Error(REB_MOLD *mo, const REBCEL *v, bool form)
             // error, because otherwise it obscures the LOAD call where the
             // scanner was invoked.  Review.
             //
-            Append_Utf8_String(mo->series, nearest, VAL_LEN_HEAD(nearest));
+            Append_String(mo->series, nearest, VAL_LEN_HEAD(nearest));
         }
         else if (ANY_ARRAY(nearest) or ANY_PATH(nearest))
             Mold_Value_Limit(mo, nearest, 60);
         else
-            Append_Unencoded(mo->series, RM_BAD_ERROR_FORMAT);
+            Append_Ascii(mo->series, RM_BAD_ERROR_FORMAT);
     }
 
     // Form: ** File: filename
@@ -1682,22 +1682,22 @@ void MF_Error(REB_MOLD *mo, const REBCEL *v, bool form)
     //
     REBVAL *file = KNOWN(&vars->file);
     if (not IS_BLANK(file)) {
-        Append_Utf8_Codepoint(mo->series, '\n');
-        Append_Unencoded(mo->series, RM_ERROR_FILE);
+        Append_Codepoint(mo->series, '\n');
+        Append_Ascii(mo->series, RM_ERROR_FILE);
         if (IS_WORD(file))
             Form_Value(mo, file);
         else
-            Append_Unencoded(mo->series, RM_BAD_ERROR_FORMAT);
+            Append_Ascii(mo->series, RM_BAD_ERROR_FORMAT);
     }
 
     // Form: ** Line: line-number
     REBVAL *line = KNOWN(&vars->line);
     if (not IS_BLANK(line)) {
-        Append_Utf8_Codepoint(mo->series, '\n');
-        Append_Unencoded(mo->series, RM_ERROR_LINE);
+        Append_Codepoint(mo->series, '\n');
+        Append_Ascii(mo->series, RM_ERROR_LINE);
         if (IS_INTEGER(line))
             Form_Value(mo, line);
         else
-            Append_Unencoded(mo->series, RM_BAD_ERROR_FORMAT);
+            Append_Ascii(mo->series, RM_BAD_ERROR_FORMAT);
     }
 }

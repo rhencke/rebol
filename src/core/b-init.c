@@ -893,8 +893,14 @@ static void Init_Root_Vars(void)
     // Note: rebText() can't run yet, review.
     //
     REBSER *nulled_uni = Make_Unicode(1);
-    assert(CHR_CODE(UNI_AT(nulled_uni, 0)) == '\0');
+
+  #if !defined(NDEBUG)
+    REBUNI test_nul;
+    NEXT_CHR(&test_nul, UNI_AT(nulled_uni, 0));
+    assert(test_nul == '\0');
     assert(UNI_LEN(nulled_uni) == 0);
+  #endif
+
     Root_Empty_Text = Init_Text(Alloc_Value(), nulled_uni);
     Ensure_Value_Frozen(Root_Empty_Text, locker);
 
@@ -1357,7 +1363,7 @@ void Startup_Core(void)
 
     Startup_Task();
 
-    Init_Action_Spec_Tags(); // Note: uses BUF_UTF8, not available until here
+    Init_Action_Spec_Tags(); // Note: uses MOLD_BUF, not available until here
 
 //==//////////////////////////////////////////////////////////////////////==//
 //

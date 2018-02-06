@@ -2402,7 +2402,7 @@ REBNATIVE(subparse)
                         //
                         Init_Text(
                             sink,
-                            Copy_String_At_Len(begin_val, count)
+                            Copy_String_At_Limit(begin_val, count)
                         );
                     }
 
@@ -2451,6 +2451,22 @@ REBNATIVE(subparse)
                         REBVAL *var = Sink_Var_May_Fail(
                             set_or_copy_word, P_RULE_SPECIFIER
                         );
+
+                        // A Git merge of UTF-8 everywhere put this here,
+                        // with no corresponding use of "captured".  It's not
+                        // clear what happened--leaving it here to investigate
+                        // if a pertinent bug has a smoking gun here.
+
+                        /*
+                        DECLARE_LOCAL (begin_val);
+                        Init_Any_Series_At(begin_val, P_TYPE, P_INPUT, begin);
+                        Init_Any_Series(
+                            captured,
+                            P_TYPE,
+                            Copy_String_At_Limit(begin_val, count)
+                        );
+                        */
+
                         REBUNI ch = GET_ANY_CHAR(P_INPUT, begin);
                         if (P_TYPE == REB_BINARY)
                             Init_Integer(var, ch);
@@ -2461,7 +2477,8 @@ REBNATIVE(subparse)
 
                 if (flags & PF_REMOVE) {
                     FAIL_IF_READ_ONLY(P_INPUT_VALUE);
-                    if (count) Remove_Series(P_INPUT, begin, count);
+                    if (count)
+                        Remove_Series_Len(P_INPUT, begin, count);
                     P_POS = begin;
                 }
 

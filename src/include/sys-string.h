@@ -20,52 +20,205 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// !!! R3-Alpha and Red would work with strings in their decoded form, in
-// series of varying widths.  Ren-C's goal is to replace this with the idea
-// of "UTF-8 everywhere", working with the strings as UTF-8 and only
-// converting if the platform requires it for I/O (e.g. Windows):
+// R3-Alpha and Red worked with strings in their decoded form, in series with
+// fixed-size elements of varying width (Latin1, UTF-16).  Ren-C goes instead
+// with the idea of "UTF-8 everywhere", storing all words and strings as
+// UTF-8, and only converting at I/O points if the platform requires it
+// (e.g. Windows).  Rationale for this methodlogy is outlined here:
 //
 // http://utf8everywhere.org/
 //
-// As a first step toward this goal, one place where strings were kept in
-// UTF-8 form has been converted into series...the word table.  So for now,
-// all REBSTR instances are for ANY-WORD!.
+// UTF-8 strings are "byte-sized series", which is also true of BINARY!
+// datatypes.  However, the series used to store UTF-8 strings also store
+// information about their length in codepoints in their series nodes (the
+// main "number of bytes used" in the series conveys bytes, not codepoints.
+//
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// REBCHR(*) + REBCHR(const *): SAFER UTF-8 VERSIONS OF char* + const char*
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The *current* implementation of Rebol's ANY-STRING! type has two different
-// series widths that are used.  One is the BYTE_SIZED() series which encodes
-// ASCII in the low bits, and Latin-1 extensions in the range 0x80 - 0xFF.
-// So long as a codepoint can fit in this range, the string can be stored in
-// single bytes:
+// The C++ build uses a class that disables the ability to directly increment
+// or decrement pointers to char* without going through helper routines.  To
+// get this checking, raw pointers cannot be used...and using pointer classes
+// directly would rule out building casually as C.  So a technique described
+// here was used to create the REBCHR(*) macro to be used in place of REBUNI*:
 //
-// https://en.wikipedia.org/wiki/Latin-1_Supplement_(Unicode_block)
+// http://blog.hostilefork.com/kinda-smart-pointers-in-c/
 //
-// (Note: This is not to be confused with the other "byte-width" encoding,
-// which is UTF-8.  Rebol series routines are not set up to handle insertions
-// or manipulations of UTF-8 encoded data in a Reb_Any_String payload at
-// this time...it is a format used only in I/O.)
+// So for instance: instead of simply saying:
 //
-// The second format that is used puts codepoints into a 16-bit REBUNI-sized
-// element.  If an insertion of a string or character into a byte sized
-// string cannot be represented in 0xFF or lower, then the target string will
-// be "widened"--doubling the storage space taken and requiring updating of
-// the character data in memory.  At this time there are no "in-place"
-// cases where a string is reduced from REBUNI to byte sized, but operations
-// like Copy_String_At_Limit() will scan a source string to see if a byte-size
-// copy can be made from a REBUNI-sized one without loss of information.
+//     REBUNI *ptr = UNI_HEAD(string_series);
+//     REBUNI c = *ptr++;
 //
-// Byte-sized series are also used by the BINARY! datatype.  There is no
-// technical difference between such series used as strings or used as binary,
-// the difference comes from being marked REB_BINARY or REB_TEXT in the
-// header of the value carrying the series.
+// ...one must instead write:
 //
-// For easier type-correctness, the series macros are given with names BIN_XXX
-// and UNI_XXX.  There aren't distinct data types for the series themselves,
-// just REBSER* is used.  Hence BIN_LEN() and UNI_LEN() aren't needed as you
-// could just use SER_LEN(), but it helps a bit for readability...and an
-// assert is included to ensure the size matches up.
+//     REBCHR(*) ptr = UNI_HEAD(string_series);
+//     ptr = NEXT_CHR(&c, ptr); // ++ptr or ptr[n] will error in C++ build
 //
+// The code that runs behind the scenes is typical UTF-8 forward and backward
+// scanning code.
+//
+
+#ifdef CPLUSPLUS_11
+    template<typename T>
+    struct RebchrPtr;
+
+    template<>
+    struct RebchrPtr<const REBYTE*> {
+        REBYTE *bp;
+
+        RebchrPtr () {}
+        RebchrPtr (const REBYTE *bp) : bp (m_cast(REBYTE*, bp)) {}
+
+        RebchrPtr back(REBUNI *codepoint_out) {
+            while ((*bp & 0xC0) == 0x80)
+                --bp;
+            if (*bp < 0x80) {
+                if (codepoint_out != NULL)
+                    *codepoint_out = *bp;
+                return bp;
+            }
+            Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
+            return bp;
+        }
+
+        RebchrPtr next(REBUNI *codepoint_out) {
+            if (*bp < 0x80) {
+                if (codepoint_out != NULL)
+                    *codepoint_out = *bp;
+                return bp + 1;
+            }
+            return Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
+        }
+
+        operator const void * () { return bp; }
+
+        REBSIZ operator-(const REBYTE *rhs) {
+            return bp - rhs;
+        }
+
+        REBSIZ operator-(RebchrPtr rhs) {
+            return bp - rhs.bp;
+        }
+
+        bool operator==(const RebchrPtr<const REBYTE*> &other) {
+            return bp == other.bp;
+        }
+
+        bool operator==(const REBYTE *other) {
+            return bp == other;
+        }
+
+        bool operator!=(const RebchrPtr<const REBYTE*> &other) {
+            return bp != other.bp;
+        }
+
+        bool operator!=(const REBYTE *other) {
+            return bp != other;
+        }
+    };
+
+    template<>
+    struct RebchrPtr<REBYTE*> : public RebchrPtr<const REBYTE*> {
+        RebchrPtr () : RebchrPtr<const REBYTE*>() {}
+        RebchrPtr (REBYTE *bp) : RebchrPtr<const REBYTE*> (bp) {}
+
+        RebchrPtr back(REBUNI *codepoint_out) {
+            RebchrPtr<const REBYTE*> temp = bp;
+
+            return temp.back(codepoint_out).bp;
+        }
+
+        RebchrPtr next(REBUNI *codepoint_out) {
+            RebchrPtr<const REBYTE*> temp = bp;
+            return temp.next(codepoint_out).bp;
+        }
+
+        RebchrPtr write(REBUNI codepoint) {
+            return bp + Encode_UTF8_Char(bp, codepoint);
+        }
+
+        operator void * () { return bp; }
+
+        static const REBYTE *as_rebyte_ptr(RebchrPtr<const REBYTE*> cp) {
+            return cp.bp;
+        }
+
+        static REBYTE *as_rebyte_ptr(RebchrPtr<REBYTE *> cp) {
+            return cp.bp;
+        }
+
+        static RebchrPtr<const REBYTE*> as_rebchr(const REBYTE *bp) {
+            return bp;
+        }
+
+        static RebchrPtr<REBYTE *> as_rebchr(REBYTE *bp) {
+            return bp;
+        }
+    };
+
+    #define REBCHR(star_or_const_star) \
+        RebchrPtr<REBYTE star_or_const_star>
+
+    #define BACK_CHR(codepoint_out, cp) \
+        (cp).back(codepoint_out)
+
+    #define NEXT_CHR(codepoint_out, cp) \
+        (cp).next(codepoint_out)
+
+    #define WRITE_CHR(cp, codepoint) \
+        (cp).write(codepoint)
+
+    #define AS_REBYTE_PTR(cp) \
+        RebchrPtr<REBYTE *>::as_rebyte_ptr(cp)
+
+    #define AS_REBCHR(bp) \
+        RebchrPtr<REBYTE *>::as_rebchr(bp)
+#else
+    #define REBCHR(star_or_const_star) \
+        REBYTE star_or_const_star
+
+    inline static REBYTE* BACK_CHR(
+        REBUNI *codepoint_out,
+        const REBYTE *bp
+    ){
+        while ((*bp & 0xC0) == 0x80)
+            --bp;
+        if (*bp < 0x80) {
+            if (codepoint_out != NULL)
+                *codepoint_out = *bp;
+            return m_cast(REBYTE*, bp);
+        }
+        Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
+        return m_cast(REBYTE*, bp);
+    }
+
+    inline static REBYTE* NEXT_CHR(
+        REBUNI *codepoint_out,
+        const REBYTE *bp
+    ){
+        if (*bp < 0x80) {
+            if (codepoint_out != NULL)
+                *codepoint_out = *bp;
+            return m_cast(REBYTE*, bp + 1);
+        }
+        return m_cast(REBYTE*, Back_Scan_UTF8_Char(codepoint_out, bp, NULL));
+    }
+
+    inline static REBYTE* WRITE_CHR(REBYTE* bp, REBUNI codepoint) {
+        return bp + Encode_UTF8_Char(bp, codepoint);
+    }
+
+    #define AS_REBYTE_PTR(p) \
+        (p)
+
+    #define AS_REBCHR(p) \
+        (p)
+#endif
 
 
 // R3-Alpha's concept was that all words got persistent integer values, which
@@ -198,36 +351,53 @@ inline static bool SAME_STR(REBSTR *s1, REBSTR *s2) {
 
 
 //
-// !!! UNI_XXX: Unicode string series macros !!! - Becoming Deprecated
+// UNI_XXX: These are for dealing with the series behind an ANY-STRING!
+// Currently they are slightly different than the STR_XXX functions, because
+// the ANY-WORD! series don't store lengths or modification stamps.  (This
+// makes sense because an interned word is immutable, so it wouldn't need
+// a modification stamp.)
 //
 
 inline static REBCNT UNI_LEN(REBSER *s) {
     assert(SER_WIDE(s) == sizeof(REBYTE));
-    assert(GET_SERIES_FLAG(s, UCS2_STRING));
-    assert(SER_USED(s) == SER_LEN(s) * 2);
-    return SER_LEN(s);
+    assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
+
+  #if defined(DEBUG_UTF8_EVERYWHERE)
+    if (MISC(s).length > SER_USED(s)) // includes 0xDECAFBAD
+        panic(s);
+  #endif
+    return MISC(s).length;
 }
 
-inline static void SET_UNI_LEN(REBSER *s, REBCNT len) {
+inline static void SET_UNI_LEN_USED(REBSER *s, REBCNT len, REBSIZ used) {
     assert(SER_WIDE(s) == sizeof(REBYTE));
-    assert(GET_SERIES_FLAG(s, UCS2_STRING));
-    SET_SERIES_LEN(s, len);
+    assert(GET_SERIES_FLAG(s, UTF8_NONWORD));
+
+    SET_SERIES_USED(s, used);
+    MISC(s).length = len;
 }
 
-#define UNI_AT(s,n) \
-    AS_REBCHR(SER_AT(REBUNI, (s), (n)))
+inline static void TERM_UNI_LEN_USED(REBSER *s, REBCNT len, REBSIZ used) {
+    SET_UNI_LEN_USED(s, len, used);
+    TERM_SEQUENCE(s);
+}
 
 #define UNI_HEAD(s) \
-    SER_HEAD(REBUNI, (s))
+    SER_HEAD(REBYTE, (s))
 
 #define UNI_TAIL(s) \
-    SER_TAIL(REBUNI, (s))
+    SER_TAIL(REBYTE, (s))
 
 #define UNI_LAST(s) \
-    SER_LAST(REBUNI, (s))
+    SER_LAST(REBYTE, (s))
 
-#define TERM_UNI_LEN(s, len) \
-    TERM_SEQUENCE_LEN((s), (len))
+inline static REBCHR(*) UNI_AT(REBSER *s, REBCNT n) {
+    REBCHR(*) cp = UNI_HEAD(s);
+    REBCNT i = n;
+    for (; i != 0; --i)
+        cp = NEXT_CHR(NULL, cp); // !!! crazy slow
+    return cp;
+}
 
 #define VAL_UNI_HEAD(v) \
     UNI_HEAD(VAL_SERIES(v))
@@ -247,16 +417,17 @@ inline static void SET_UNI_LEN(REBSER *s, REBCNT len) {
 // One should thus always prefer to use VAL_UNI_AT() if possible, over trying
 // to calculate a position from scratch.
 //
-inline static REBUNI *VAL_UNI_AT(const REBCEL *v) {
-    return AS_REBUNI(UNI_AT(VAL_SERIES(v), VAL_INDEX(v)));
+inline static REBCHR(*) VAL_UNI_AT(const REBCEL *v) {
+    assert(ANY_STRING_KIND(CELL_KIND(v)));
+    return UNI_AT(VAL_SERIES(v), VAL_INDEX(v));
 }
 
 inline static REBSIZ VAL_SIZE_LIMIT_AT(
     REBCNT *length, // length in chars to end (including limit)
-    const RELVAL *v,
+    const REBCEL *v,
     REBINT limit // -1 for no limit
 ){
-    assert(ANY_STRING(v));
+    assert(ANY_STRING_KIND(CELL_KIND(v)));
 
     REBCHR(const *) at = VAL_UNI_AT(v); // !!! update cache if needed
     REBCHR(const *) tail;
@@ -274,24 +445,19 @@ inline static REBSIZ VAL_SIZE_LIMIT_AT(
             tail = NEXT_CHR(NULL, tail);
     }
 
-    return (
-        cast(const REBYTE*, AS_REBUNI(tail))
-        - cast(const REBYTE*, AS_REBUNI(at))
-    );
+    return tail - at;
 }
 
 #define VAL_SIZE_AT(v) \
     VAL_SIZE_LIMIT_AT(NULL, v, -1)
 
 inline static REBSIZ VAL_OFFSET(const RELVAL *v) {
-    REBCHR(const *) at = VAL_UNI_AT(v);
-    return (
-        cast(const REBYTE*, AS_REBUNI(at))
-        - SER_DATA_RAW(VAL_SERIES(v))
-    );
+    return VAL_UNI_AT(v) - VAL_UNI_HEAD(v);
 }
 
-inline static REBSIZ VAL_OFFSET_FOR_INDEX(const RELVAL *v, REBCNT index) {
+inline static REBSIZ VAL_OFFSET_FOR_INDEX(const REBCEL *v, REBCNT index) {
+    assert(ANY_STRING_KIND(CELL_KIND(v)));
+
     REBCHR(const *) at;
 
     if (index == VAL_INDEX(v))
@@ -305,10 +471,7 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const RELVAL *v, REBCNT index) {
         at = UNI_AT(VAL_SERIES(v), index);
     }
 
-    return (
-        cast(const REBYTE*, AS_REBUNI(at))
-        - cast(const REBYTE*, VAL_UNI_HEAD(v))
-    );
+    return at - VAL_UNI_HEAD(v);
 }
 
 
@@ -325,14 +488,22 @@ inline static REBSIZ VAL_OFFSET_FOR_INDEX(const RELVAL *v, REBCNT index) {
 //
 
 inline static REBUNI GET_ANY_CHAR(REBSER *s, REBCNT n) {
-    if (GET_SERIES_FLAG(s, UCS2_STRING))
-        return *SER_AT(REBUNI, s, n);
+    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
+        REBCHR(const *) up = UNI_AT(s, n);
+        REBUNI c;
+        NEXT_CHR(&c, up);
+        return c;
+    }
     return *BIN_AT(s, n);
 }
 
 inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
-    if (GET_SERIES_FLAG(s, UCS2_STRING))
-        *SER_AT(REBUNI, s, n) = c;
+    assert(n < SER_LEN(s));
+
+    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
+        REBCHR(*) up = UNI_AT(s, n);
+        WRITE_CHR(up, c);
+    }
     else {
         assert(c <= 255);
         *BIN_AT(s, n) = c;
@@ -363,33 +534,6 @@ inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
 
 #define Init_Url(v,s) \
     Init_Any_Series((v), REB_URL, (s))
-
-
-// R3-Alpha did not support unicode codepoints higher than 0xFFFF, because
-// strings were only 1 or 2 bytes per character.  Until support for "astral
-// plane" characters is added, this inline function traps large characters
-// when strings are being scanned.  If a client wishes to handle them
-// explicitly, use Back_Scan_UTF8_Char_Core().
-//
-// Though the machinery can decode a UTF32 32-bit codepoint, the interface
-// uses a 16-bit REBUNI (due to that being all that Rebol supports at this
-// time).  If a codepoint that won't fit in 16-bits is found, it will raise
-// an error vs. return NULL.  This makes it clear that the problem is not
-// with the data itself being malformed (the usual assumption of callers)
-// but rather a limit of the implementation.
-//
-inline static const REBYTE *Back_Scan_UTF8_Char(
-    REBUNI *out,
-    const REBYTE *bp,
-    REBSIZ *size
-){
-    unsigned long ch; // "UTF32" is defined as unsigned long
-    const REBYTE *bp_new = Back_Scan_UTF8_Char_Core(&ch, bp, size);
-    if (bp_new and ch > 0xFFFF)
-        fail (Error_Codepoint_Too_High_Raw(rebInteger(ch)));
-    *out = cast(REBUNI, ch);
-    return bp_new;
-}
 
 
 // Basic string initialization from UTF8.  (Most clients should be using the
@@ -451,3 +595,7 @@ inline static bool Is_String_ASCII(const RELVAL *str) {
     UNUSED(str);
     return false; // currently all strings are 16-bit REBUNI characters
 }
+
+
+#define Make_String(encoded_capacity) \
+    Make_String_Core((encoded_capacity), SERIES_FLAGS_NONE)

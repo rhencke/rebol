@@ -546,16 +546,17 @@ REBINT Hash_Bytes(const REBYTE *data, REBCNT len) {
 // !!! See redundant code in Hash_UTF8 which takes a size, not a length
 //
 REBINT Hash_UTF8_Caseless(const REBYTE *data, REBCNT len) {
-    uint32_t crc = 0x00000000;
+    REBCHR(const *) cp = data;
 
-    REBCHR(const *) up = cast(const REBUNI*, data);
+    uint32_t crc = 0x00000000;
 
     REBCNT n;
     for (n = 0; n < len; n++) {
-        REBUNI uni;
-        up = NEXT_CHR(&uni, up);
+        REBUNI c;
+        cp = NEXT_CHR(&c, cp);
 
-        unsigned long c = LO_CASE(uni); // !!! change when REBUNI is 4 bytes
+        if (c < UNICODE_CASES)
+            c = LO_CASE(c);
 
         // !!! This takes into account all 4 bytes of the lowercase codepoint
         // for the CRC calculation.  In ASCII strings this will involve a lot

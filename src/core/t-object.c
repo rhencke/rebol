@@ -592,12 +592,12 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
     if (Find_Pointer_In_Series(TG_Mold_Stack, c) != NOT_FOUND) {
         if (not form) {
             Pre_Mold(mo, v); // If molding, get #[object! etc.
-            Append_Utf8_Codepoint(s, '[');
+            Append_Codepoint(s, '[');
         }
-        Append_Unencoded(s, "...");
+        Append_Ascii(s, "...");
 
         if (not form) {
-            Append_Utf8_Codepoint(s, ']');
+            Append_Codepoint(s, ']');
             End_Mold(mo);
         }
         return;
@@ -633,7 +633,7 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
 
     Pre_Mold(mo, v);
 
-    Append_Utf8_Codepoint(s, '[');
+    Append_Codepoint(s, '[');
 
     mo->indent++;
 
@@ -647,22 +647,22 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
         New_Indented_Line(mo);
 
         REBSTR *spelling = VAL_KEY_SPELLING(key);
-        Append_Utf8_Utf8(s, STR_HEAD(spelling), STR_SIZE(spelling));
+        Append_Utf8(s, STR_HEAD(spelling), STR_SIZE(spelling));
 
-        Append_Unencoded(s, ": ");
+        Append_Ascii(s, ": ");
 
         if (IS_NULLED(var))
-            Append_Unencoded(s, "'");  // `field: '` would evaluate to null
+            Append_Ascii(s, "'");  // `field: '` would evaluate to null
         else {
             if (IS_VOID(var) or not ANY_INERT(var))  // needs quoting
-                Append_Unencoded(s, "'");
+                Append_Ascii(s, "'");
             Mold_Value(mo, var);
         }
     }
 
     mo->indent--;
     New_Indented_Line(mo);
-    Append_Utf8_Codepoint(s, ']');
+    Append_Codepoint(s, ']');
 
     End_Mold(mo);
 

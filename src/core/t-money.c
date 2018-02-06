@@ -149,7 +149,7 @@ void MF_Money(REB_MOLD *mo, const REBCEL *v, bool form)
 
     REBYTE buf[60];
     REBINT len = deci_to_string(buf, VAL_MONEY_AMOUNT(v), '$', '.');
-    Append_Unencoded_Len(mo->series, s_cast(buf), len);
+    Append_Ascii_Len(mo->series, s_cast(buf), len);
 }
 
 

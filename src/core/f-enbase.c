@@ -438,7 +438,7 @@ REBSER *Encode_Base16(const REBYTE *src, REBCNT len, bool brk)
 
     REBCNT count;
     for (count = 1; count <= len; count++) {
-        dest = Form_Hex2_UTF8(dest, *src++);
+        dest = Form_Hex2(dest, *src++);
         if (brk && ((count % 32) == 0))
             *dest++ = LF;
     }

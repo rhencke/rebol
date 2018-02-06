@@ -881,7 +881,7 @@ REB_R Call_Core(REBFRM *frame_) {
     }
     else if (IS_BINARY(ARG(out))) {
         if (outbuf_used > 0) {
-            Append_Unencoded_Len(VAL_SERIES(ARG(out)), outbuf, outbuf_used);
+            Append_Ascii_Len(VAL_SERIES(ARG(out)), outbuf, outbuf_used);
         }
     }
     else
@@ -896,7 +896,7 @@ REB_R Call_Core(REBFRM *frame_) {
         }
     } else if (IS_BINARY(ARG(err))) {
         if (errbuf_used > 0) {
-            Append_Unencoded_Len(VAL_SERIES(ARG(err)), errbuf, errbuf_used);
+            Append_Ascii_Len(VAL_SERIES(ARG(err)), errbuf, errbuf_used);
         }
     }
     rebFree(errbuf);  // legal if errbuf is nullptr

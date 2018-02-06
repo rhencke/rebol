@@ -119,12 +119,10 @@ REB_R MAKE_Tuple(
             fail (arg); // valid even for UTF-8
         VAL_TUPLE_LEN(out) = size;
         for (alen = 0; alen < size; alen++) {
-            const bool unicode = false;
-            REBUNI ch;
-            if (!Scan_Hex2(&ch, ap, unicode))
+            REBYTE decoded;
+            if ((ap = Scan_Hex2(&decoded, ap)) == NULL)
                 fail (arg);
-            *vp++ = cast(REBYTE, ch);
-            ap += 2;
+            *vp++ = decoded;
         }
     }
     else if (IS_BINARY(arg)) {
@@ -305,7 +303,7 @@ void MF_Tuple(REB_MOLD *mo, const REBCEL *v, bool form)
     }
     *--out = 0;
 
-    Append_Unencoded_Len(mo->series, s_cast(buf), out - buf);
+    Append_Ascii_Len(mo->series, s_cast(buf), out - buf);
 }
 
 

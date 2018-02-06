@@ -77,7 +77,7 @@ void Dump_Bytes(REBYTE *bp, REBCNT limit)
 
             REBYTE c = *bp++;
 
-            cp = Form_Hex2_UTF8(cp, c);
+            cp = Form_Hex2(cp, c);
             if ((n & 3) == 3)
                 *cp++ = ' ';
             if ((c < 32) || (c > 126))

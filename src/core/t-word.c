@@ -165,7 +165,7 @@ inline static void Mold_Word(REB_MOLD *mo, const REBCEL *v)
     REBSTR *spelling = VAL_WORD_SPELLING(v);
     const char *head = STR_HEAD(spelling); // UTF-8
     size_t size = STR_SIZE(spelling); // number of UTF-8 bytes
-    Append_Utf8_Utf8(mo->series, head, size);
+    Append_Utf8(mo->series, head, size);
 }
 
 
@@ -184,7 +184,7 @@ void MF_Word(REB_MOLD *mo, const REBCEL *v, bool form) {
 void MF_Set_word(REB_MOLD *mo, const REBCEL *v, bool form) {
     UNUSED(form);
     Mold_Word(mo, v);
-    Append_Utf8_Codepoint(mo->series, ':');
+    Append_Codepoint(mo->series, ':');
 }
 
 
@@ -193,7 +193,7 @@ void MF_Set_word(REB_MOLD *mo, const REBCEL *v, bool form) {
 //
 void MF_Get_word(REB_MOLD *mo, const REBCEL *v, bool form) {
     UNUSED(form);
-    Append_Utf8_Codepoint(mo->series, ':');
+    Append_Codepoint(mo->series, ':');
     Mold_Word(mo, v);
 }
 
@@ -205,7 +205,7 @@ void MF_Get_word(REB_MOLD *mo, const REBCEL *v, bool form) {
 //
 void MF_Lit_word(REB_MOLD *mo, const REBCEL *v, bool form) {
     UNUSED(form);
-    Append_Utf8_Codepoint(mo->series, '\'');
+    Append_Codepoint(mo->series, '\'');
     Mold_Word(mo, v);
 }
 
@@ -215,7 +215,7 @@ void MF_Lit_word(REB_MOLD *mo, const REBCEL *v, bool form) {
 //
 void MF_Refinement(REB_MOLD *mo, const REBCEL *v, bool form) {
     UNUSED(form);
-    Append_Utf8_Codepoint(mo->series, '/');
+    Append_Codepoint(mo->series, '/');
     Mold_Word(mo, v);
 }
 
@@ -225,7 +225,7 @@ void MF_Refinement(REB_MOLD *mo, const REBCEL *v, bool form) {
 //
 void MF_Issue(REB_MOLD *mo, const REBCEL *v, bool form) {
     UNUSED(form);
-    Append_Utf8_Codepoint(mo->series, '#');
+    Append_Codepoint(mo->series, '#');
     Mold_Word(mo, v);
 }
 

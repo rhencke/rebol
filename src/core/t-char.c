@@ -137,30 +137,17 @@ static REBINT Math_Arg_For_Char(REBVAL *arg, const REBVAL *verb)
 //
 void MF_Char(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    REBSER *out = mo->series;
+    REBUNI c = VAL_CHAR(v);
 
-    bool parened = GET_MOLD_FLAG(mo, MOLD_FLAG_ALL);
-    REBUNI chr = VAL_CHAR(v);
-
-    REBCNT tail = SER_LEN(out);
-
-    if (form) {
-        EXPAND_SERIES_TAIL(out, 4); // 4 is worst case scenario of bytes
-        tail += Encode_UTF8_Char(BIN_AT(out, tail), chr);
-        SET_SERIES_LEN(out, tail);
-    }
+    if (form)
+        Append_Codepoint(mo->series, c);
     else {
-        EXPAND_SERIES_TAIL(out, 10); // worst case: #"^(1234)"
+        bool parened = GET_MOLD_FLAG(mo, MOLD_FLAG_ALL);
 
-        REBYTE *bp = BIN_AT(out, tail);
-        *bp++ = '#';
-        *bp++ = '"';
-        bp = Emit_Uni_Char(bp, chr, parened);
-        *bp++ = '"';
-
-        SET_SERIES_LEN(out, bp - BIN_HEAD(out));
+        Append_Ascii(mo->series, "#\"");
+        Mold_Uni_Char(mo, c, parened);
+        Append_Codepoint(mo->series, '"');
     }
-    TERM_BIN(out);
 }
 
 

@@ -140,20 +140,19 @@ REBSER *Copy_Sequence_Core(REBSER *s, REBFLGS flags)
     // propagated.  This includes locks, etc.  But the string flag needs
     // to be copied, for sure.
     //
-    if (GET_SERIES_FLAG(s, UCS2_STRING)) {
-        // temp, REBUNI term
-        copy = Make_Series_Core(used + 2, SER_WIDE(s), flags);
-        SET_SERIES_FLAG(copy, UCS2_STRING);
+    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
+        copy = Make_String_Core(used, flags);
+        SET_SERIES_USED(copy, used);
+        TERM_SERIES(copy);
+        MISC(copy) = MISC(s); // !!! SET_SERIES_USED trashes in debug
+        LINK(copy) = LINK(s);
     }
-    else
+    else {
         copy = Make_Series_Core(used + 1, SER_WIDE(s), flags);
+        TERM_SEQUENCE_LEN(copy, SER_LEN(s));
+    }
 
-    memcpy(
-        SER_DATA_RAW(copy),
-        SER_DATA_RAW(s),
-        used * SER_WIDE(s)
-    );
-    TERM_SEQUENCE_LEN(copy, SER_LEN(s));
+    memcpy(SER_DATA_RAW(copy), SER_DATA_RAW(s), used * SER_WIDE(s));
     return copy;
 }
 
@@ -174,7 +173,7 @@ REBSER *Copy_Sequence_At_Len_Extra(
     REBCNT extra
 ){
     assert(not IS_SER_ARRAY(s));
-    assert(NOT_SERIES_FLAG(s, UCS2_STRING));
+    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD));
 
     REBSER *copy = Make_Series(len + 1 + extra, SER_WIDE(s));
     memcpy(
@@ -289,10 +288,17 @@ void Remove_Series_Units(REBSER *s, REBSIZ offset, REBINT quantity)
 //
 void Remove_Series_Len(REBSER *s, REBCNT index, REBINT len)
 {
-    if (GET_SERIES_FLAG(s, UCS2_STRING)) {
-        REBCNT old_len = SER_LEN(s);
-        Remove_Series_Units(s, index * 2, len * 2);
-        SET_SERIES_LEN(s, old_len - len);
+    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
+        REBCHR(*) cp = UNI_AT(s, index);
+        REBCHR(*) ep = UNI_AT(s, index + len);
+
+        REBINT len_old = UNI_LEN(s);
+        REBSIZ used_old = SER_USED(s);
+
+        assert(len < len_old);
+
+        Remove_Series_Units(s, cp - UNI_HEAD(s), ep - cp);
+        SET_UNI_LEN_USED(s, len_old - len, used_old - (ep - cp));
     }
     else
         Remove_Series_Units(s, index, len);
@@ -394,21 +400,15 @@ void Assert_Series_Term_Core(REBSER *s)
         if (NOT_END(tail))
             panic (tail);
     }
-    else if (GET_SERIES_FLAG(s, UCS2_STRING)) {
-        if (0 != SER_DATA_RAW(s)[SER_LEN(s) * 2])
-            panic(s);
-        if (0 != SER_DATA_RAW(s)[SER_LEN(s) * 2 + 1])
-            panic(s);
-    }
     else {
         // If they are terminated, then non-REBVAL-bearing series must have
         // their terminal element as all 0 bytes (to use this check)
         //
-        REBCNT len = SER_LEN(s);
-        REBCNT wide = SER_WIDE(s);
+        REBSIZ used = SER_USED(s); // counts bytes if UTF-8, not codepoints
+        REBYTE wide = SER_WIDE(s);
         REBCNT n;
         for (n = 0; n < wide; n++) {
-            if (0 != SER_DATA_RAW(s)[(len * wide) + n])
+            if (0 != SER_DATA_RAW(s)[(used * wide) + n])
                 panic (s);
         }
     }

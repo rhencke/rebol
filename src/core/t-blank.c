@@ -26,24 +26,13 @@
 
 
 //
-//  MF_Bar: C
-//
-void MF_Bar(REB_MOLD *mo, const REBCEL *v, bool form)
-{
-    UNUSED(form); // no distinction between MOLD and FORM
-    UNUSED(v);
-    Append_Unencoded(mo->series, "|");
-}
-
-
-//
 //  MF_Blank: C
 //
 void MF_Blank(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // no distinction between MOLD and FORM
     UNUSED(v);
-    Append_Unencoded(mo->series, "_");
+    Append_Ascii(mo->series, "_");
 }
 
 
@@ -56,7 +45,7 @@ void MF_Void(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // no distinction between MOLD and FORM
     UNUSED(v);
-    Append_Unencoded(mo->series, "#[void]");
+    Append_Ascii(mo->series, "#[void]");
 }
 
 

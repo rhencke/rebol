@@ -368,7 +368,7 @@ REBNATIVE(make_native)
         REBSER *ser = Make_Unicode(len);
         REBARR *paramlist = ACT_PARAMLIST(native); // unique for this action!
         const char *src = cast(const char*, &paramlist);
-        REBUNI *dest = UNI_HEAD(ser);
+        REBCHR(*) dest = UNI_HEAD(ser);
 
         *dest ='N';
         ++dest;
@@ -377,12 +377,11 @@ REBNATIVE(make_native)
 
         unsigned int n = 0;
         while (n < sizeof(REBACT*)) {
-            Form_Hex2_Uni(dest, *src); // terminates each time
+            dest = Form_Hex2(dest, *src); // terminates each time
             ++src;
-            dest += 2;
             ++n;
         }
-        TERM_UNI_LEN(ser, len);
+        TERM_UNI_LEN_USED(ser, len, len);
 
         Init_Text(ARR_AT(details, IDX_TCC_NATIVE_LINKNAME), ser);
     }
@@ -414,16 +413,15 @@ REBNATIVE(compile_p)
     REBVAL *compilables = ARG(compilables);
     REBVAL *config = ARG(config);
 
-    // Using the "hot" mold buffer allows us to build the combined source in
-    // memory that is generally preallocated.  This makes it not necessary
-    // to say in advance how large the buffer needs to be.  However, currently
-    // the mold buffer is REBUNI wide characters, while TCC expects ASCII.
-    // Hence it has to be "popped" as UTF8 into a fresh series.
+    // The TCC extension creates a new ACTION! type and dispatcher, so it has
+    // to use the "internal" API.  Since it does, it can take advantage of
+    // using the mold buffer.  The buffer is a "hot" memory region that is
+    // generally preallocated, and makes it unnecessary to say in advance how
+    // large the buffer needs to be.  It then can pass the pointer to TCC
+    // and discard the data without ever making a TEXT! (as it would need to
+    // if it were a client of the "external" libRebol API).
     //
-    // !!! Future plans are to use "UTF-8 Everywhere", which would mean the
-    // mold buffer's data could be used directly.
-    //
-    // !!! Investigate how much UTF-8 support there is in TCC for strings/etc
+    // !!! Uses UTF-8...look into how well TCC supports UTF-8.
     //
     DECLARE_MOLD (mo);
     Push_Mold(mo);
@@ -456,13 +454,13 @@ REBNATIVE(compile_p)
             //
             // https://forum.rebol.info/t/817
             //
-            Append_Unencoded(mo->series, "const REBVAL *");
-            Append_Utf8_String(mo->series, linkname, VAL_LEN_AT(linkname));
-            Append_Unencoded(mo->series, "(void *frame_)\n{");
+            Append_Ascii(mo->series, "const REBVAL *");
+            Append_String(mo->series, linkname, VAL_LEN_AT(linkname));
+            Append_Ascii(mo->series, "(void *frame_)\n{");
 
-            Append_Utf8_String(mo->series, source, VAL_LEN_AT(source));
+            Append_String(mo->series, source, VAL_LEN_AT(source));
 
-            Append_Unencoded(mo->series, "}\n\n");
+            Append_Ascii(mo->series, "}\n\n");
         }
         else if (IS_TEXT(item)) {
             //
@@ -473,8 +471,8 @@ REBNATIVE(compile_p)
             // constants.  The string will appear at the point in the compile
             // where it is given in the list.
             //
-            Append_Utf8_String(mo->series, item, VAL_LEN_AT(item));
-            Append_Unencoded(mo->series, "\n");
+            Append_String(mo->series, item, VAL_LEN_AT(item));
+            Append_Ascii(mo->series, "\n");
         }
         else {
             // COMPILE should have vetted the list to only TEXT! and ACTION!
@@ -491,7 +489,7 @@ REBNATIVE(compile_p)
         return Init_Text(D_OUT, Pop_Molded_String(mo));
     }
 
-    REBSER *combined_src = Pop_Molded_UTF8(mo);
+    // == Mold buffer now contains the combined source ==
 
     // The state is where the code for the TCC_OUTPUT_MEMORY natives will be
     // living.  It must be kept alive for as long as you expect the user
@@ -524,12 +522,12 @@ REBNATIVE(compile_p)
     if (tcc_set_output_type(state, TCC_OUTPUT_MEMORY) < 0)
         fail ("TCC failed to set output to memory");
 
-    if (tcc_compile_string(state, cs_cast(BIN_HEAD(combined_src))) < 0)
+    if (tcc_compile_string(state, cs_cast(BIN_AT(mo->series, mo->offset))) < 0)
         rebJumps ("fail [",
             "{TCC failed to compile the code}", compilables,
         "]", rebEND);
 
-    Free_Unmanaged_Series(combined_src);
+    Drop_Mold(mo);  // discard the combined source (no longer needed)
 
     // It is technically possible for ELF binaries to "--export-dynamic" (or
     // -rdynamic in CMake) and make executables embed symbols for functions

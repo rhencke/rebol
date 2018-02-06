@@ -590,7 +590,7 @@ void MF_Map(REB_MOLD *mo, const REBCEL *v, bool form)
 
     // Prevent endless mold loop:
     if (Find_Pointer_In_Series(TG_Mold_Stack, m) != NOT_FOUND) {
-        Append_Unencoded(mo->series, "...]");
+        Append_Ascii(mo->series, "...]");
         return;
     }
 
@@ -598,7 +598,7 @@ void MF_Map(REB_MOLD *mo, const REBCEL *v, bool form)
 
     if (not form) {
         Pre_Mold(mo, v);
-        Append_Utf8_Codepoint(mo->series, '[');
+        Append_Codepoint(mo->series, '[');
     }
 
     // Mold all entries that are set.  As with contexts, void values are not
@@ -615,13 +615,13 @@ void MF_Map(REB_MOLD *mo, const REBCEL *v, bool form)
             New_Indented_Line(mo);
         Emit(mo, "V V", key, key + 1);
         if (form)
-            Append_Utf8_Codepoint(mo->series, '\n');
+            Append_Codepoint(mo->series, '\n');
     }
     mo->indent--;
 
     if (not form) {
         New_Indented_Line(mo);
-        Append_Utf8_Codepoint(mo->series, ']');
+        Append_Codepoint(mo->series, ']');
     }
 
     End_Mold(mo);

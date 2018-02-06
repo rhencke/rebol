@@ -499,8 +499,9 @@ REBCNT Modify_String(
     REBSIZ size = dups * src_size; // total bytes to insert
 
     REBSIZ dst_used = SER_USED(dst_ser);
-    REBSIZ dst_size = VAL_SIZE_LIMIT_AT(NULL, dst, dst_len);
     REBSIZ dst_off = VAL_OFFSET_FOR_INDEX(dst, dst_idx); // !!! review perf
+
+    REBSIZ dst_size = 0xDECAFBAD; // !!! Only calculated for SYM_CHANGE (??)
 
     if (sym != SYM_CHANGE) {
         //
@@ -509,6 +510,8 @@ REBCNT Modify_String(
         Expand_Series(dst_ser, dst_off, size);
     }
     else {
+        dst_size = VAL_SIZE_LIMIT_AT(NULL, dst, dst_len);
+
         // Change operations only need expansion if more content is being
         // added than being overwritten.
         //
@@ -524,16 +527,25 @@ REBCNT Modify_String(
     REBYTE *dst_ptr = SER_SEEK(REBYTE, dst_ser, dst_off);
     REBYTE *src_ptr = SER_SEEK(REBYTE, src_ser, src_off);
 
-    for (; dups > 0; dups--) {
+    REBINT d;
+    for (d = 0; d < dups; ++d) {
         memcpy(dst_ptr, src_ptr, src_size);
         dst_ptr += src_size;
         dst_idx += src_len;
     }
 
     if (sym == SYM_CHANGE)
-        SET_SERIES_LEN(dst_ser, tail + src_len - dst_len);
+        TERM_UNI_LEN_USED(
+            dst_ser,
+            tail + (src_len * dups) - dst_len,
+            dst_used + size - dst_size
+        );
     else
-        SET_SERIES_LEN(dst_ser, tail + src_len);
+        TERM_UNI_LEN_USED(
+            dst_ser,
+            tail + src_len * dups,
+            dst_used + size
+        );
 
     if (needs_free) { // didn't use original data as-is
         //

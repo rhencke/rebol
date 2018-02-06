@@ -76,7 +76,6 @@ REBINT What_UTF(const REBYTE *bp, REBCNT len)
 //
 //  Decode_UTF16_Negative_If_ASCII: C
 //
-// dst: the desination array, must always be large enough!
 // src: source binary data
 // len: byte-length of source (not number of chars)
 // little_endian: little endian encoded
@@ -85,39 +84,46 @@ REBINT What_UTF(const REBYTE *bp, REBCNT len)
 // Returns length in chars (negative if all chars are ASCII).
 // No terminator is added.
 //
-int Decode_UTF16_Negative_If_ASCII(
-    REBUNI *dst,
+REBSER *Decode_UTF16(
     const REBYTE *src,
     REBCNT len,
     bool little_endian,
     bool crlf_to_lf
 ){
+    REBSER *s = Make_Unicode(len);
+
     bool expect_lf = false;
     bool ascii = true;
-    uint32_t ch;
-    REBUNI *start = dst;
+    REBUNI c;
+
+    REBCNT num_chars = 0;
+
+    REBCHR(*) dp = UNI_HEAD(s);
 
     for (; len > 0; len--, src++) {
         //
         // Combine bytes in big or little endian format
         //
-        ch = *src;
+        c = *src;
         if (not little_endian)
-            ch <<= 8;
+            c <<= 8;
         if (--len <= 0)
             break;
+
         src++;
-        ch |= little_endian ? (cast(uint32_t, *src) << 8) : *src;
+
+        c |= little_endian ? (cast(REBUNI, *src) << 8) : *src;
 
         if (crlf_to_lf) {
             //
             // Skip CR, but add LF (even if missing)
             //
-            if (expect_lf && ch != LF) {
+            if (expect_lf and c != LF) {
                 expect_lf = false;
-                *dst++ = LF;
+                dp = WRITE_CHR(dp, LF);
+                ++num_chars;
             }
-            if (ch == CR) {
+            if (c == CR) {
                 expect_lf = true;
                 continue;
             }
@@ -125,13 +131,20 @@ int Decode_UTF16_Negative_If_ASCII(
 
         // !!! "check for surrogate pair" ??
 
-        if (ch > 127)
+        if (c > 127)
             ascii = false;
 
-        *dst++ = cast(REBUNI, ch);
+        dp = WRITE_CHR(dp, c);
+        ++num_chars;
     }
 
-    return ascii ? -(dst - start) : (dst - start);
+    // !!! The ascii flag should be preserved in the series node for faster
+    // operations on UTF-8
+    //
+    UNUSED(ascii);
+
+    TERM_UNI_LEN_USED(s, num_chars, dp - UNI_HEAD(s));
+    return s;
 }
 
 
@@ -201,8 +214,7 @@ REBNATIVE(encode_text)
 }
 
 
-static void Encode_Utf16_Core(
-    REBVAL *out,
+static REBSER *Encode_Utf16(
     REBCHR(const *) data,
     REBCNT len,
     bool little_endian
@@ -238,26 +250,7 @@ static void Encode_Utf16_Core(
     up[i] = '\0'; // needs two bytes worth of NULL, not just one.
 
     SET_SERIES_LEN(bin, len * sizeof(uint16_t));
-    Init_Binary(out, bin);
-}
-
-
-static void Decode_Utf16_Core(
-    REBVAL *out,
-    const REBYTE *data,
-    REBCNT len,
-    bool little_endian
-){
-    REBSER *ser = Make_Unicode(len);
-
-    REBINT size = Decode_UTF16_Negative_If_ASCII(
-        UNI_HEAD(ser), data, len, little_endian, false
-    );
-    if (size < 0) // ASCII
-        size = -size;
-    TERM_UNI_LEN(ser, size);
-
-    Init_Text(out, ser);
+    return bin;
 }
 
 
@@ -302,8 +295,7 @@ REBNATIVE(decode_utf16le)
     REBCNT len = VAL_LEN_AT(ARG(data));
 
     const bool little_endian = true;
-
-    Decode_Utf16_Core(D_OUT, data, len, little_endian);
+    Init_Text(D_OUT, Decode_UTF16(data, len, little_endian, false));
 
     // Drop byte-order marker, if present
     //
@@ -331,16 +323,19 @@ REBNATIVE(encode_utf16le)
 {
     UTF_INCLUDE_PARAMS_OF_ENCODE_UTF16LE;
 
+    const bool little_endian = true;
+    Init_Binary(
+        D_OUT,
+        Encode_Utf16(
+            VAL_UNI_AT(ARG(text)),
+            VAL_LEN_AT(ARG(text)),
+            little_endian
+        )
+    );
+
     // !!! Should probably by default add a byte order mark, but given this
     // is weird "userspace" encoding it should be an option to the codec.
 
-    const bool little_endian = true;
-    Encode_Utf16_Core(
-        D_OUT,
-        VAL_UNI_AT(ARG(text)),
-        VAL_LEN_AT(ARG(text)),
-        little_endian
-    );
     return D_OUT;
 }
 
@@ -387,8 +382,7 @@ REBNATIVE(decode_utf16be)
     REBCNT len = VAL_LEN_AT(ARG(data));
 
     const bool little_endian = false;
-
-    Decode_Utf16_Core(D_OUT, data, len, little_endian);
+    Init_Text(D_OUT, Decode_UTF16(data, len, little_endian, false));
 
     // Drop byte-order marker, if present
     //
@@ -417,15 +411,17 @@ REBNATIVE(encode_utf16be)
     UTF_INCLUDE_PARAMS_OF_ENCODE_UTF16BE;
 
     const bool little_endian = false;
+    Init_Binary(
+        D_OUT,
+        Encode_Utf16(
+            VAL_UNI_AT(ARG(text)),
+            VAL_LEN_AT(ARG(text)),
+            little_endian
+        )
+    );
 
     // !!! Should probably by default add a byte order mark, but given this
     // is weird "userspace" encoding it should be an option to the codec.
 
-    Encode_Utf16_Core(
-        D_OUT,
-        VAL_UNI_AT(ARG(text)),
-        VAL_LEN_AT(ARG(text)),
-        little_endian
-    );
     return D_OUT;
 }

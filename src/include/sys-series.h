@@ -129,10 +129,13 @@ inline static REBCNT SER_USED(REBSER *s) {
 }
 
 inline static REBCNT SER_LEN(REBSER *s) {
-    if (NOT_SERIES_FLAG(s, UCS2_STRING))
+    if (NOT_SERIES_FLAG(s, UTF8_NONWORD))
         return SER_USED(s);
 
-    assert(MISC(s).length * 2 == SER_USED(s)); // !!! Temporary
+  #ifdef DEBUG_UTF8_EVERYWHERE
+    if (MISC(s).length > SER_USED(s)) // includes 0xDECAFBAD
+        panic(s);
+  #endif
     return MISC(s).length;
 }
 
@@ -146,24 +149,22 @@ inline static void SET_SERIES_USED(REBSER *s, REBCNT used) {
         mutable_LEN_BYTE_OR_255(s) = used;
     }
 
-  #if !defined(NDEBUG)
+  #if defined(DEBUG_UTF8_EVERYWHERE)
     //
     // Low-level series mechanics will manipulate the used field, but that's
     // at the byte level.  The higher level string mechanics must be used on
     // strings.
     //
-    if (GET_SERIES_FLAG(s, UCS2_STRING))
+    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
         MISC(s).length = 0xDECAFBAD;
+        TOUCH_SERIES_IF_DEBUG(s);
+    }
   #endif
 }
 
 inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
-    if (GET_SERIES_FLAG(s, UCS2_STRING)) {
-        SET_SERIES_USED(s, len * 2);
-        MISC(s).length = len;
-    }
-    else
-        SET_SERIES_USED(s, len);
+    assert(NOT_SERIES_FLAG(s, UTF8_NONWORD)); // use _LEN_SIZE
+    SET_SERIES_USED(s, len);
 }
 
 
@@ -185,9 +186,8 @@ inline static REBYTE *SER_DATA_RAW(REBSER *s) {
 }
 
 inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
-    if (GET_SERIES_FLAG(s, UCS2_STRING)) {
+    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
         assert(SER_WIDE(s) == 1);
-        assert(w == 2);
     }
     else {
       #if !defined(NDEBUG)
@@ -261,15 +261,15 @@ inline static REBYTE *SER_SEEK_RAW(REBYTE w, REBSER *s, REBSIZ n) {
     SER_AT(t, (s), 0)
 
 inline static REBYTE *SER_TAIL_RAW(size_t w, REBSER *s) {
-    return SER_AT_RAW(w, s, SER_LEN(s));
+    return SER_AT_RAW(w, s, SER_USED(s));
 }
 
 #define SER_TAIL(t,s) \
     ((t*)SER_TAIL_RAW(sizeof(t), (s)))
 
 inline static REBYTE *SER_LAST_RAW(size_t w, REBSER *s) {
-    assert(SER_LEN(s) != 0);
-    return SER_AT_RAW(w, s, SER_LEN(s) - 1);
+    assert(SER_USED(s) != 0);
+    return SER_AT_RAW(w, s, SER_USED(s) - 1);
 }
 
 #define SER_LAST(t,s) \
@@ -277,13 +277,13 @@ inline static REBYTE *SER_LAST_RAW(size_t w, REBSER *s) {
 
 
 #define SER_FULL(s) \
-    (SER_LEN(s) + 1 >= SER_REST(s))
+    (SER_USED(s) + 1 >= SER_REST(s))
 
 #define SER_AVAIL(s) \
-    (SER_REST(s) - (SER_LEN(s) + 1)) // space available (minus terminator)
+    (SER_REST(s) - (SER_USED(s) + 1)) // space available (minus terminator)
 
 #define SER_FITS(s,n) \
-    ((SER_LEN(s) + (n) + 1) <= SER_REST(s))
+    ((SER_USED(s) + (n) + 1) <= SER_REST(s))
 
 
 //
@@ -292,9 +292,9 @@ inline static REBYTE *SER_LAST_RAW(size_t w, REBSER *s) {
 
 inline static void EXPAND_SERIES_TAIL(REBSER *s, REBCNT delta) {
     if (SER_FITS(s, delta))
-        SET_SERIES_LEN(s, SER_LEN(s) + delta);
+        SET_SERIES_USED(s, SER_USED(s) + delta);
     else
-        Expand_Series(s, SER_LEN(s), delta);
+        Expand_Series(s, SER_USED(s), delta);
 }
 
 //
@@ -304,14 +304,7 @@ inline static void EXPAND_SERIES_TAIL(REBSER *s, REBCNT delta) {
 inline static void TERM_SEQUENCE(REBSER *s) {
     assert(not IS_SER_ARRAY(s));
 
-    // !!! As a stopgap measure, since REBUNI codepoints are being read out
-    // of a byte sized series (for now), go ahead and set *2* bytes of 0 so
-    // that the null terminator can be visited in string enumerations.
-    //
-    if (GET_SERIES_FLAG(s, UCS2_STRING))
-        memset(SER_SEEK_RAW(1, s, SER_USED(s)), 0, 2);
-    else
-        memset(SER_SEEK_RAW(SER_WIDE(s), s, SER_USED(s)), 0, SER_WIDE(s));
+    memset(SER_SEEK_RAW(SER_WIDE(s), s, SER_USED(s)), 0, SER_WIDE(s));
 }
 
 inline static void TERM_SEQUENCE_LEN(REBSER *s, REBCNT len) {

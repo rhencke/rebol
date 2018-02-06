@@ -22,6 +22,5 @@ stack-error     ; special stack overlow error object
 halt-error      ; special halt error object
 
 buf-collect     ; temporary cache for collecting object keys or words
-buf-utf8        ; UTF8 reused buffer
 byte-buf        ; temporary byte buffer - used mainly by raw print
 mold-buf        ; temporary byte buffer - used mainly by mold

@@ -46,15 +46,15 @@
 
 inline static REBCNT BIN_LEN(REBBIN *s) {
     assert(BYTE_SIZE(s));
-    return SER_LEN(s);
+    return SER_USED(s);
 }
 
-inline static void TERM_BIN(REBBIN *s) {
-    BIN_HEAD(s)[SER_LEN(s)] = 0;
+inline static void TERM_BIN(REBSER *s) {
+    BIN_HEAD(s)[SER_USED(s)] = 0;
 }
 
-inline static void TERM_BIN_LEN(REBBIN *s, REBCNT len) {
-    SET_SERIES_LEN(s, len);
+inline static void TERM_BIN_LEN(REBSER *s, REBCNT len) {
+    SET_SERIES_USED(s, len);
     BIN_HEAD(s)[len] = 0;
 }
 

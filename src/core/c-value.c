@@ -129,7 +129,7 @@ inline static void Probe_Molded_Value(const REBVAL *v)
     Push_Mold(mo);
     Mold_Value(mo, v);
 
-    printf("%s\n", s_cast(BIN_AT(mo->series, mo->start)));
+    printf("%s\n", s_cast(BIN_AT(mo->series, mo->offset)));
     fflush(stdout);
 
     Drop_Mold(mo);
@@ -172,35 +172,32 @@ void* Probe_Core_Debug(
         // types in terms of sizing, just to know what they are.
 
         if (SER_WIDE(s) == sizeof(REBYTE)) {
-            /*DECLARE_LOCAL (value);
-            if (GET_SERIES_FLAG(s, UCS2_STRING)) {
-                Probe_Print_Helper(p, "UCS2 'Byte' Series", file, line);
+            DECLARE_LOCAL (value);
+            if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
+                Probe_Print_Helper(p, "UTF-8 Nonword Series", file, line);
                 Mold_Text_Series_At(mo, s, 0); // or could be TAG!, etc.
-                RESET_VAL_HEADER(value, REB_TEXT);
-                INIT_VAL_SERIES(value, s);
-                VAL_INDEX(value) = 0;
-            }*/
-            
-            if (GET_SERIES_FLAG(s, IS_UTF8_STRING))
+            }
+            else if (GET_SERIES_FLAG(s, IS_UTF8_STRING)) {
                 Probe_Print_Helper(p, "UTF8 Byte Series", file, line);
-            else
+                goto probe_byte_series; // !!! for the moment, print bytes
+            }
+            else {
                 Probe_Print_Helper(p, "Byte-Size Series", file, line);
 
-            // !!! Duplication of code in MF_Binary
-            //
-            const bool brk = (BIN_LEN(s) > 32);
-            REBSER *enbased = Encode_Base16(BIN_HEAD(s), BIN_LEN(s), brk);
-            Append_Unencoded(mo->series, "#{");
-            Append_Utf8_Utf8(
-                mo->series,
-                cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased)
-            );
-            Append_Unencoded(mo->series, "}");
-            Free_Unmanaged_Series(enbased);
-        }
-        else if (SER_WIDE(s) == sizeof(REBUNI)) {
-            Probe_Print_Helper(p, "REBWCHAR-Size Series", file, line);
-            Mold_Text_Series_At(mo, s, 0); // not necessarily TEXT!
+              probe_byte_series:;
+                //
+                // !!! Duplication of code in MF_Binary
+                //
+                const bool brk = (BIN_LEN(s) > 32);
+                REBSER *enbased = Encode_Base16(BIN_HEAD(s), BIN_LEN(s), brk);
+                Append_Ascii(mo->series, "#{");
+                Append_Utf8(
+                    mo->series,
+                    cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased)
+                );
+                Append_Ascii(mo->series, "}");
+                Free_Unmanaged_Series(enbased);
+            }
         }
         else if (IS_SER_ARRAY(s)) {
             if (GET_ARRAY_FLAG(s, IS_VARLIST)) {
@@ -234,14 +231,14 @@ void* Probe_Core_Debug(
             Probe_Print_Helper(p, "Param Cell", file, line);
 
             REBSTR *spelling = VAL_KEY_SPELLING(v);
-            Append_Unencoded(mo->series, "(");
-            Append_Utf8_Utf8(
+            Append_Ascii(mo->series, "(");
+            Append_Utf8(
                 mo->series,
                 STR_HEAD(spelling),
                 STR_SIZE(spelling)
             );
-            Append_Unencoded(mo->series, ") ");
-            Append_Unencoded(mo->series, "..."); // probe types?
+            Append_Ascii(mo->series, ") ");
+            Append_Ascii(mo->series, "..."); // probe types?
         }
         else {
             Probe_Print_Helper(p, "Value", file, line);
@@ -258,8 +255,8 @@ void* Probe_Core_Debug(
         panic (p);
     }
 
-    if (mo->start != SER_LEN(mo->series))
-        printf("%s\n", s_cast(BIN_AT(mo->series, mo->start)));
+    if (mo->offset != SER_LEN(mo->series))
+        printf("%s\n", s_cast(BIN_AT(mo->series, mo->offset)));
     fflush(stdout);
 
     Drop_Mold(mo);

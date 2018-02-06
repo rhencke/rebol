@@ -307,7 +307,7 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
 
     if (not form) {
         Pre_Mold(mo, v);  // #[typeset! or make typeset!
-        Append_Utf8_Codepoint(mo->series, '[');
+        Append_Codepoint(mo->series, '[');
     }
 
     // Convert bits to type name strings.  Note that "endability" and
@@ -331,7 +331,7 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
     Trim_Tail(mo->series, ' ');
 
     if (not form) {
-        Append_Utf8_Codepoint(mo->series, ']');
+        Append_Codepoint(mo->series, ']');
         End_Mold(mo);
     }
 }

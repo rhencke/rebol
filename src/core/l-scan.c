@@ -476,7 +476,11 @@ static const REBYTE *Scan_Quote_Push_Mold(
             Extend_Series(mo->series, 4);
 
         REBCNT encoded_len = Encode_UTF8_Char(BIN_TAIL(mo->series), chr);
-        SET_SERIES_LEN(mo->series, SER_LEN(mo->series) + encoded_len);
+        SET_UNI_LEN_USED(
+            mo->series,
+            SER_LEN(mo->series) + 1,
+            SER_USED(mo->series) + encoded_len
+        );
     }
 
     src++; // Skip ending quote or brace.
@@ -536,11 +540,12 @@ const REBYTE *Scan_Item_Push_Mold(
         if (c == '\\') {
             c = '/';
         }
-        else if (c == '%') {  // Accept %xx encoded char:
-            const bool unicode = false;
-            if (not Scan_Hex2(&c, bp + 1, unicode))
+        else if (c == '%') { // Accept %xx encoded char:
+            REBYTE decoded;
+            bp = Scan_Hex2(&decoded, bp + 1);
+            if (bp == nullptr)
                 return nullptr;
-            bp += 2;
+            c = decoded;
         }
         else if (c == '^') {  // Accept ^X encoded char:
             if (bp + 1 == ep)
@@ -573,7 +578,11 @@ const REBYTE *Scan_Item_Push_Mold(
             Extend_Series(mo->series, 4);
 
         REBCNT encoded_len = Encode_UTF8_Char(BIN_TAIL(mo->series), c);
-        SET_SERIES_LEN(mo->series, SER_LEN(mo->series) + encoded_len);
+        SET_UNI_LEN_USED(
+            mo->series,
+            SER_LEN(mo->series) + 1,
+            SER_USED(mo->series) + encoded_len
+        );
     }
 
     if (*bp != '\0' and *bp == opt_term)
@@ -652,10 +661,10 @@ static void Update_Error_Near_For_Line(
     //
     DECLARE_MOLD (mo);
     Push_Mold(mo);
-    Append_Unencoded(mo->series, "(line ");
+    Append_Ascii(mo->series, "(line ");
     Append_Int(mo->series, line);
-    Append_Unencoded(mo->series, ") ");
-    Append_Utf8_Utf8(mo->series, cs_cast(bp), len);
+    Append_Ascii(mo->series, ") ");
+    Append_Utf8(mo->series, cs_cast(bp), len);
 
     ERROR_VARS *vars = ERR_VARS(error);
     Init_Text(&vars->nearest, Pop_Molded_String(mo));
@@ -2521,8 +2530,6 @@ void Startup_Scanner(void)
     while (Token_Names[n])
         ++n;
     assert(cast(enum Reb_Token, n) == TOKEN_MAX);
-
-    TG_Buf_Utf8 = Make_Unicode(1020);
 }
 
 
@@ -2531,8 +2538,6 @@ void Startup_Scanner(void)
 //
 void Shutdown_Scanner(void)
 {
-    Free_Unmanaged_Series(TG_Buf_Utf8);
-    TG_Buf_Utf8 = nullptr;
 }
 
 

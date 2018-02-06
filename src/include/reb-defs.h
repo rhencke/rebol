@@ -95,19 +95,13 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 
 //=//// UNICODE CODEPOINT /////////////////////////////////////////////////=//
 //
-// REBUNI is currently a two-byte representation of a Unicode codepoint.  It
-// is not UTF-16...it's simply limited to 16-bit codepoints (UCS-2).  R3-Alpha
-// did not have CHAR! values higher than that.
+// On some platforms, `int` is only 16-bit, and unicode codepoints require
+// more than that for storing their largest value.  `unsigned long` is what
+// was used in Unicode, Inc's ConvertUTF.h and ConvertUTF.c, so we use that.
 //
-// Ren-C is being adapted to where this will become a full 32-bit value.  The
-// goal is to retrofit the code to use "UTF-8 Everywhere".  In the meantime,
-// REBUNI is used internally to store Rebol ANY-STRING!s.  When all references
-// to it have been changed to use the REBCHR(*) interface for safe variable
-// sized encoding enumeration, a switch can be flipped and it can be upgraded.
-//
-typedef REBWCHAR REBUNI;
-#define MAX_UNI \
-    ((1 << (8 * sizeof(REBUNI))) - 1)
+
+typedef unsigned long REBUNI;
+#define MAX_UNI 0x10ffff // https://stackoverflow.com/a/20883643
 
 
 //=//// MEMORY POOLS //////////////////////////////////////////////////////=//

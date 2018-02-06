@@ -708,9 +708,9 @@ void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
         enum Reb_Kind kind = integral ? REB_INTEGER : REB_DECIMAL;
         Pre_Mold(mo, v);
         if (NOT_MOLD_FLAG(mo, MOLD_FLAG_ALL))
-            Append_Utf8_Codepoint(mo->series, '[');
+            Append_Codepoint(mo->series, '[');
         if (not sign)
-            Append_Unencoded(mo->series, "unsigned ");
+            Append_Ascii(mo->series, "unsigned ");
         Emit(
             mo,
             "N I I [",
@@ -735,14 +735,14 @@ void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
             l = Emit_Integer(buf, VAL_INT64(temp));
         else
             l = Emit_Decimal(buf, VAL_DECIMAL(temp), 0, '.', mo->digits);
-        Append_Unencoded_Len(mo->series, s_cast(buf), l);
+        Append_Ascii_Len(mo->series, s_cast(buf), l);
 
         if ((++c > 7) && (n + 1 < VAL_VECTOR_LEN_AT(v))) {
             New_Indented_Line(mo);
             c = 0;
         }
         else
-            Append_Utf8_Codepoint(mo->series, ' ');
+            Append_Codepoint(mo->series, ' ');
     }
 
     if (len) {
@@ -756,10 +756,10 @@ void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
         if (len)
             New_Indented_Line(mo);
 
-        Append_Utf8_Codepoint(mo->series, ']');
+        Append_Codepoint(mo->series, ']');
 
         if (NOT_MOLD_FLAG(mo, MOLD_FLAG_ALL))
-            Append_Utf8_Codepoint(mo->series, ']');
+            Append_Codepoint(mo->series, ']');
         else
             Post_Mold(mo, v);
     }

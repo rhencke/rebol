@@ -560,13 +560,13 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
 
     Pre_Mold(mo, v);  // #[varargs! or make varargs!
 
-    Append_Utf8_Codepoint(mo->series, '[');
+    Append_Codepoint(mo->series, '[');
 
     Reb_Param_Class pclass;
     const RELVAL *param = Param_For_Varargs_Maybe_Null(v);
     if (param == NULL) {
         pclass = REB_P_HARD_QUOTE;
-        Append_Unencoded(mo->series, "???"); // never bound to an argument
+        Append_Ascii(mo->series, "???"); // never bound to an argument
     }
     else {
         enum Reb_Kind kind;
@@ -596,40 +596,39 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
         Mold_Value(mo, param_word);
     }
 
-    Append_Unencoded(mo->series, " => ");
+    Append_Ascii(mo->series, " => ");
 
     REBFRM *f;
     REBVAL *shared;
     if (Is_Block_Style_Varargs(&shared, v)) {
         if (IS_END(shared))
-            Append_Unencoded(mo->series, "[]");
+            Append_Ascii(mo->series, "[]");
         else if (pclass == REB_P_HARD_QUOTE)
             Mold_Value(mo, shared); // full feed can be shown if hard quoted
         else
-            Append_Unencoded(mo->series, "[...]"); // can't look ahead
+            Append_Ascii(mo->series, "[...]"); // can't look ahead
     }
     else if (Is_Frame_Style_Varargs_Maybe_Null(&f, v)) {
-        if (f == NULL) {
-            Append_Unencoded(mo->series, "!!!");
-        }
+        if (f == NULL)
+            Append_Ascii(mo->series, "!!!");
         else if (
             IS_END(f->feed->value)
             or GET_FEED_FLAG(f->feed, BARRIER_HIT)
         ){
-            Append_Unencoded(mo->series, "[]");
+            Append_Ascii(mo->series, "[]");
         }
         else if (pclass == REB_P_HARD_QUOTE) {
-            Append_Unencoded(mo->series, "[");
+            Append_Ascii(mo->series, "[");
             Mold_Value(mo, f->feed->value); // one value shown if hard quoted
-            Append_Unencoded(mo->series, " ...]");
+            Append_Ascii(mo->series, " ...]");
         }
         else
-            Append_Unencoded(mo->series, "[...]");
+            Append_Ascii(mo->series, "[...]");
     }
     else
         assert(false);
 
-    Append_Utf8_Codepoint(mo->series, ']');
+    Append_Codepoint(mo->series, ']');
 
     End_Mold(mo);
 }

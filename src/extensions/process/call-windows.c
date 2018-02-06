@@ -649,9 +649,12 @@ REB_R Call_Core(REBFRM *frame_) {
             rebRelease(output_val);
         }
     }
-    else if (IS_BINARY(ARG(out))) {
-        if (outbuf_used > 0)
-            Append_Unencoded_Len(VAL_SERIES(ARG(out)), outbuf, outbuf_used);
+    else if (IS_BINARY(ARG(out))) {  // can text/binary both append binary?
+        if (outbuf_used > 0) {
+            REBVAL *output_val = rebSizedBinary(outbuf, outbuf_used);
+            rebElide("append", ARG(out), output_val, rebEND);
+            rebRelease(output_val);
+        }
     }
     else
         assert(outbuf == nullptr);
@@ -663,9 +666,12 @@ REB_R Call_Core(REBFRM *frame_) {
             rebElide("append", ARG(out), error_val, rebEND);
             rebRelease(error_val);
         }
-    } else if (IS_BINARY(ARG(err))) {
-        if (errbuf_used > 0)
-            Append_Unencoded_Len(VAL_SERIES(ARG(err)), errbuf, errbuf_used);
+    } else if (IS_BINARY(ARG(err))) {  // can text/binary both append binary?
+        if (errbuf_used > 0) {
+            REBVAL *output_val = rebSizedBinary(errbuf, errbuf_used);
+            rebElide("append", ARG(out), output_val, rebEND);
+            rebRelease(output_val);
+        }
     }
     else
         assert(errbuf == nullptr);

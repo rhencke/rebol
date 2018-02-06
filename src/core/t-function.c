@@ -135,7 +135,7 @@ void MF_Action(REB_MOLD *mo, const REBCEL *v, bool form)
 
     Pre_Mold(mo, v);
 
-    Append_Utf8_Codepoint(mo->series, '[');
+    Append_Codepoint(mo->series, '[');
 
     // !!! The system is no longer keeping the spec of functions, in order
     // to focus on a generalized "meta info object" service.  MOLD of
@@ -151,9 +151,9 @@ void MF_Action(REB_MOLD *mo, const REBCEL *v, bool form)
     // ordinary "bodies".  Review if Get_Maybe_Fake_Action_Body() should be
     // used for this case.
     //
-    Append_Unencoded(mo->series, " [...]");
+    Append_Ascii(mo->series, " [...]");
 
-    Append_Utf8_Codepoint(mo->series, ']');
+    Append_Codepoint(mo->series, ']');
     End_Mold(mo);
 }
 

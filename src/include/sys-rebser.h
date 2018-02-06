@@ -190,12 +190,12 @@
     FLAG_LEFT_BIT(11)
 
 
-//=//// SERIES_FLAG_UCS2_STRING ///////////////////////////////////////////=//
+//=//// SERIES_FLAG_UTF8_NONWORD //////////////////////////////////////////=//
 //
 // !!! Temporary flag to be used while a backing store for an ANY-STRING! is
 // separate from the SERIES_FLAG_UTF8_STRING.
 //
-#define SERIES_FLAG_UCS2_STRING \
+#define SERIES_FLAG_UTF8_NONWORD \
     FLAG_LEFT_BIT(12)
 
 

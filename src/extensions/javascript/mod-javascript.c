@@ -1037,17 +1037,17 @@ REBNATIVE(js_native_mainthread)
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    Append_Unencoded(mo->series, "reb.RegisterId_internal(");
+    Append_Ascii(mo->series, "reb.RegisterId_internal(");
 
     REBYTE buf[60];  // !!! Why 60?  Copied from MF_Integer()
     REBINT len = Emit_Integer(buf, native_id);
-    Append_Unencoded_Len(mo->series, s_cast(buf), len);
+    Append_Ascii_Len(mo->series, s_cast(buf), len);
 
     // By not using `new function` we avoid escaping of the string literal.
     // We also have the option of making it an async function in the future
     // if we wanted to...which would allow `await` in the body.
     //
-    Append_Unencoded(mo->series, ", ");
+    Append_Ascii(mo->series, ", ");
 
     // A JS-AWAITER can only be triggered from Rebol on the worker thread as
     // part of a rebPromise().  The function itself has no return value, as
@@ -1063,14 +1063,14 @@ REBNATIVE(js_native_mainthread)
     // pick up code on the line after that AWAIT.
     //
     if (REF(awaiter))
-        Append_Unencoded(mo->series, "async ");
+        Append_Ascii(mo->series, "async ");
 
     // We do not try to auto-translate the Rebol arguments into JS args.  It
     // would make calling it more complex, and introduce several issues of
     // mapping Rebol names to legal JavaScript identifiers.  reb.Arg() or
     // reb.ArgR() must be used to access the arguments out of the frame.
     //
-    Append_Unencoded(mo->series, "function () {");
+    Append_Ascii(mo->series, "function () {");
 
     REBSIZ offset;
     REBSIZ size;
@@ -1082,8 +1082,8 @@ REBNATIVE(js_native_mainthread)
     );
     Append_Utf8_Utf8(mo->series, cs_cast(BIN_AT(temp, offset)), size);
 
-    Append_Unencoded(mo->series, "}\n");  // end `function() {`
-    Append_Unencoded(mo->series, ");");  // end `reb.RegisterId_internal(`
+    Append_Ascii(mo->series, "}\n");  // end `function() {`
+    Append_Ascii(mo->series, ");");  // end `reb.RegisterId_internal(`
 
     TERM_SERIES(mo->series);
 

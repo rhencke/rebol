@@ -195,30 +195,17 @@ REBYTE *Form_Hex_Pad(REBYTE *buf, REBI64 val, REBINT len)
 
 
 //
-//  Form_Hex2_UTF8: C
+//  Form_Hex2: C
 //
-// Convert byte-sized int to xx format. Very fast.
+// Convert byte-sized int to xx format.
 //
-REBYTE *Form_Hex2_UTF8(REBYTE *bp, REBCNT val)
+REBYTE* Form_Hex2(REBYTE* bp, REBCNT val)
 {
-    bp[0] = Hex_Digits[(val & 0xf0) >> 4];
-    bp[1] = Hex_Digits[val & 0xf];
-    bp[2] = '\0';
-    return bp + 2;
-}
-
-
-//
-//  Form_Hex2_Uni: C
-//
-// Convert byte-sized int to xx format. Very fast.
-//
-REBUNI *Form_Hex2_Uni(REBUNI *up, REBCNT val)
-{
-    up[0] = Hex_Digits[(val & 0xf0) >> 4];
-    up[1] = Hex_Digits[val & 0xf];
-    up[2] = '\0';
-    return up + 2;
+    REBCHR(*) cp = bp;
+    cp = WRITE_CHR(cp, Hex_Digits[(val & 0xf0) >> 4]);
+    cp = WRITE_CHR(cp, Hex_Digits[val & 0xf]);
+    WRITE_CHR(cp, '\0'); // !!! necessary?
+    return AS_REBYTE_PTR(cp);
 }
 
 
@@ -227,13 +214,11 @@ REBUNI *Form_Hex2_Uni(REBUNI *up, REBCNT val)
 //
 // Convert byte to %xx format
 //
-REBYTE *Form_Hex_Esc(REBYTE *bp, REBYTE b)
+void Form_Hex_Esc(REB_MOLD *mo, REBYTE b)
 {
-    bp[0] = '%';
-    bp[1] = Hex_Digits[(b & 0xf0) >> 4];
-    bp[2] = Hex_Digits[b & 0xf];
-    bp[3] = '\0';
-    return bp + 3;
+    Append_Codepoint(mo->series, '%');
+    Append_Codepoint(mo->series, Hex_Digits[(b & 0xf0) >> 4]);
+    Append_Codepoint(mo->series, Hex_Digits[b & 0xf]);
 }
 
 

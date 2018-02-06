@@ -730,17 +730,17 @@ void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
         SET_MOLD_FLAG(mo, MOLD_FLAG_ALL);
         Pre_Mold(mo, v); // #[block! part
 
-        Append_Utf8_Codepoint(mo->series, '[');
+        Append_Codepoint(mo->series, '[');
         Mold_Array_At(mo, VAL_ARRAY(v), 0, "[]");
         Post_Mold(mo, v);
-        Append_Utf8_Codepoint(mo->series, ']');
+        Append_Codepoint(mo->series, ']');
     }
     else {
         const char *sep;
 
         switch (kind) {
           case REB_GET_BLOCK:
-            Append_Utf8_Codepoint(mo->series, ':');
+            Append_Codepoint(mo->series, ':');
             goto block;
 
           case REB_BLOCK:
@@ -755,7 +755,7 @@ void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
             break;
 
           case REB_GET_GROUP:
-            Append_Utf8_Codepoint(mo->series, ':');
+            Append_Codepoint(mo->series, ':');
             goto group;
 
           case REB_GROUP:
@@ -771,7 +771,7 @@ void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
         Mold_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), sep);
 
         if (kind == REB_SET_GROUP or kind == REB_SET_BLOCK)
-            Append_Utf8_Codepoint(mo->series, ':');
+            Append_Codepoint(mo->series, ':');
     }
 }
 
@@ -1002,6 +1002,8 @@ REBTYPE(Array)
 
         return Init_Any_Array(D_OUT, VAL_TYPE(array), copy);
     }
+
+    //-- Special actions:
 
     case SYM_SWAP: {
         if (not ANY_ARRAY(arg))

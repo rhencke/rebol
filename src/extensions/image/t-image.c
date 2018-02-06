@@ -537,12 +537,10 @@ void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
 
     Emit(mold, "IxI #{", VAL_IMAGE_WIDTH(value), VAL_IMAGE_HEIGHT(value));
 
-    // !!! Actually accurate?
-    //
-    REBYTE *bp = Prep_Mold_Overestimated(
-        mold,
-        (num_pixels * 8) + (num_pixels / 10) + 1
-    );
+    // !!! (Don't care at the moment)
+    REBYTE *bp = NULL;
+    // = Prep_Mold_Overestimated(mold, (size * 6) + (size / 10) + 1);
+    assert(false);
 
     REBCNT i;
     for (i = 0; i < num_pixels; ++i, rgba += 4) {
@@ -553,7 +551,7 @@ void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
 
     *bp = '\0'; // tail already set from Prep (so it thinks it guessed right)
 
-    Append_Unencoded(mold->series, "\n}");
+    Append_Ascii(mold->series, "\n}");
 }
 
 
@@ -942,9 +940,9 @@ void MF_Image(REB_MOLD *mo, const REBCEL *v, bool form)
         Post_Mold(mo, v);
     }
     else {
-        Append_Utf8_Codepoint(mo->series, '[');
+        Append_Codepoint(mo->series, '[');
         Mold_Image_Data(KNOWN(v), mo);
-        Append_Utf8_Codepoint(mo->series, ']');
+        Append_Codepoint(mo->series, ']');
         End_Mold(mo);
     }
 }

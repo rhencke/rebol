@@ -25,13 +25,13 @@
 #include "sys-core.h"
 
 
-static bool Check_Char_Range(const REBVAL *val, REBINT limit)
+static bool Check_Char_Range(const REBVAL *val, REBCNT limit)
 {
     if (IS_CHAR(val))
-        return not (VAL_CHAR(val) > limit);
+        return VAL_CHAR(val) <= limit;
 
     if (IS_INTEGER(val))
-        return not (VAL_INT64(val) > limit);
+        return VAL_INT64(val) <= cast(REBI64, limit);
 
     assert(ANY_STRING(val));
 

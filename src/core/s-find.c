@@ -153,11 +153,14 @@ bool Match_Sub_Path(REBSER *s1, REBSER *s2)
 // Uncase: compare is case-insensitive.
 //
 REBINT Compare_Uni_Str(
-    REBCHR(const *) u1,
-    REBCHR(const *) u2,
+    const REBYTE* bp1,
+    const REBYTE* bp2,
     REBCNT len,
     bool uncase
 ){
+    REBCHR(const *) u1 = bp1;
+    REBCHR(const *) u2 = bp2;
+
     for (; len > 0; len--) {
         REBUNI c1;
         REBUNI c2;
@@ -196,7 +199,12 @@ REBINT Compare_String_Vals(const REBCEL *v1, const REBCEL *v2, bool uncase)
     REBCNT l2  = VAL_LEN_AT(v2);
     REBCNT len = MIN(l1, l2);
 
-    REBINT n = Compare_Uni_Str(VAL_UNI_AT(v1), VAL_UNI_AT(v2), len, uncase);
+    REBINT n = Compare_Uni_Str(
+        AS_REBYTE_PTR(VAL_UNI_AT(v1)),
+        AS_REBYTE_PTR(VAL_UNI_AT(v2)),
+        len,
+        uncase
+    );
 
     if (n != 0)
         return n;
@@ -498,7 +506,11 @@ REBCNT Find_Str_Char(
     // If searching a potentially much longer string, take opportunities to
     // use optimized C library functions if possible.
     //
-    if (NOT_SERIES_FLAG(series, UCS2_STRING)) {
+    // !!! With UTF-8 everywhere, this should work for both case-sensitive
+    // searches or searches where strings are flagged as ASCII only.  But
+    // generically speaking, case-insensitive analysis needs to decode.
+    //
+    if (NOT_SERIES_FLAG(series, UTF8_NONWORD)) {
         REBYTE *bp = BIN_HEAD(series);
         REBYTE breakset[3];
 
@@ -595,14 +607,31 @@ REBCNT Find_Str_Char(
         }
     }
     else {
-        REBUNI *up = UNI_HEAD(series);
+        // !!! Previous algorithm would look at the value at series index, and
+        // then apply the skip with `index += skip`
+
+        REBCHR(const *) cp = UNI_AT(series, index);
+        REBUNI c;
+        cp = NEXT_CHR(&c, cp);
+
         while (true) {
-            if (up[index] == casings[0] || up[index] == casings[1])
+            if (c == casings[0] or c == casings[1])
                 goto return_index;
 
-            index += skip;
-            if (index < cast(REBINT, lowest)) break;
-            if (index >= cast(REBINT, highest)) break;
+            REBINT delta = skip;
+            if (delta > 0) {
+                for (; delta > 0; --delta, ++index)
+                    cp = NEXT_CHR(&c, cp);
+            }
+            else {
+                for (; delta < 0; ++delta, --index)
+                    cp = BACK_CHR(&c, cp);
+            }
+
+            if (index < cast(REBINT, lowest))
+                break;
+            if (index >= cast(REBINT, highest))
+                break;
         }
     }
 

@@ -112,7 +112,7 @@ REBNATIVE(write_stdout)
         // from UTF-8 to wide characters, or not having CR turned into CR LF
         // sequences).
         //
-        Prin_OS_String(VAL_BIN_HEAD(v), VAL_LEN_AT(v), OPT_ENC_RAW);
+        Prin_OS_String(VAL_BIN_AT(v), VAL_LEN_AT(v), OPT_ENC_RAW);
     }
     else if (IS_CHAR(v)) {
         //
@@ -138,14 +138,12 @@ REBNATIVE(write_stdout)
         //
         assert(IS_TEXT(v));
 
-        REBSIZ offset;
-        REBSIZ size;
-        REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
-        PUSH_GC_GUARD(temp);
+        // !!! Should be passing the STRING!, so the printing port gets the
+        // number of codepoints as well as the UTF-8 size.
+        //
+        REBSIZ size = VAL_SIZE_LIMIT_AT(NULL, v, UNKNOWN);
 
-        Prin_OS_String(BIN_AT(temp, offset), size, OPT_ENC_0);
-
-        DROP_GC_GUARD(temp);
+        Prin_OS_String(AS_REBYTE_PTR(VAL_UNI_AT(v)), size, OPT_ENC_0);
     }
 
     return Init_Void(D_OUT);
