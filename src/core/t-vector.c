@@ -651,15 +651,18 @@ REBTYPE(Vector)
     REBVAL *value = D_ARG(1);
     REBSER *ser;
 
-    // Common operations for any series type (length, head, etc.)
-    //
-    REB_R r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
-    if (r != R_UNHANDLED)
-        return r;
-
     REBSER *vect = VAL_SERIES(value);
 
     switch (VAL_WORD_SYM(verb)) {
+
+    case SYM_INTERSECT:
+    case SYM_UNION:
+    case SYM_DIFFERENCE:
+        //
+    case SYM_SKIP:
+    case SYM_AT:
+    case SYM_REMOVE:
+        return Series_Common_Action_Maybe_Unhandled(frame_, verb);
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

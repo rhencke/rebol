@@ -601,12 +601,12 @@ static void parse_attr (REBVAL *blk, REBINT *raw_size, uintptr_t *raw_addr)
                 fail (Error_Bad_Library_Raw());
 
             REBVAL *sym = KNOWN(VAL_ARRAY_AT_HEAD(attr, 1));
-            if (!ANY_BINSTR(sym))
+            if (not IS_BINARY(sym) and not ANY_STRING(sym))
                 fail (sym);
 
             CFUNC *addr = OS_FIND_FUNCTION(
                 VAL_LIBRARY_FD(lib),
-                s_cast(VAL_RAW_DATA_AT(sym))
+                s_cast(VAL_RAW_DATA_AT(sym)) // UTF-8 data of STRING!/BINARY!
             );
             if (addr == NULL)
                 fail (Error_Symbol_Not_Found_Raw(sym));

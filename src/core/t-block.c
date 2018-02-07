@@ -793,17 +793,21 @@ REBTYPE(Array)
     REBVAL *array = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
-    // Common operations for any series type (length, head, etc.)
-    //
-    REB_R r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
-    if (r != R_UNHANDLED)
-        return r;
-
     REBARR *arr = VAL_ARRAY(array);
     REBSPC *specifier = VAL_SPECIFIER(array);
 
     REBSYM sym = VAL_WORD_SYM(verb);
     switch (sym) {
+      case SYM_INTERSECT:
+      case SYM_UNION:
+      case SYM_DIFFERENCE:
+        //
+      case SYM_REFLECT:
+      case SYM_SKIP:
+      case SYM_AT:
+      case SYM_REMOVE:
+        return Series_Common_Action_Maybe_Unhandled(frame_, verb);
+
       case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
 

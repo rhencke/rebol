@@ -398,12 +398,6 @@ static const REBYTE *Scan_UTF8_Char_Escapable(REBUNI *out, const REBYTE *bp)
 // stream might have "a^(1234)b" and need to turn "^(1234)" into the right
 // UTF-8 bytes for that codepoint in the string.
 //
-// !!! In R3-Alpha the mold buffer held 16-bit codepoints.  Ren-C uses UTF-8
-// everywhere, and so molding is naturally done into a byte buffer.  This is
-// more compatible with the fact that the incoming stream is UTF-8 bytes, so
-// optimizations will be possible.  As a first try, just getting it working
-// is the goal.
-//
 static const REBYTE *Scan_Quote_Push_Mold(
     REB_MOLD *mo,
     const REBYTE *src,
@@ -411,25 +405,31 @@ static const REBYTE *Scan_Quote_Push_Mold(
 ){
     Push_Mold(mo);
 
-    REBUNI term = (*src == '{') ? '}' : '"'; // pick termination
+    REBUNI term; // pick termination
+    if (*src == '{')
+        term = '}';
+    else {
+        assert(*src == '"');
+        term = '"';
+    }
     ++src;
 
     REBINT nest = 0;
     REBCNT lines = 0;
     while (*src != term or nest > 0) {
-        REBUNI chr = *src;
+        REBUNI c = *src;
 
-        switch (chr) {
+        switch (c) {
           case '\0':
-            TERM_BIN(mo->series);
-            return nullptr;  // Scan_state shows error location.
+            // TEXT! literals can have embedded "NUL"s if escaped, but an
+            // actual `\0` codepoint in the scanned text is not legal.
+            //
+            return nullptr;
 
           case '^':
-            if (not (src = Scan_UTF8_Char_Escapable(&chr, src))) {
-                TERM_BIN(mo->series);
-                return nullptr;
-            }
-            --src;
+            if ((src = Scan_UTF8_Char_Escapable(&c, src)) == NULL)
+                return NULL;
+            --src;  // unlike Back_Scan_XXX, no compensation for ++src later
             break;
 
           case '{':
@@ -442,52 +442,34 @@ static const REBYTE *Scan_Quote_Push_Mold(
                 --nest;
             break;
 
-          case CR:
+          case CR:  // scan a CR LF as just a LF
             if (src[1] == LF)
-              ++src;
+                ++src;
+            c = LF;
             goto linefeed;
 
           case LF:
           linefeed:
-            if (term == '"') {
-                TERM_BIN(mo->series);
+            if (term == '"')
                 return nullptr;
-            }
-            lines++;
-            chr = LF;
+            ++lines;
             break;
 
           default:
-            if (chr >= 0x80) {
-                if (not (src = Back_Scan_UTF8_Char(&chr, src, nullptr))) {
-                    TERM_BIN(mo->series);
+            if (c >= 0x80) {
+                if ((src = Back_Scan_UTF8_Char(&c, src, nullptr)) == nullptr)
                     return nullptr;
-                }
             }
         }
 
-        src++;
+        ++src;
 
-        // 4 bytes maximum for UTF-8 encoded character (6 is a lie)
-        //
-        // https://stackoverflow.com/a/9533324/211160
-        //
-        if (SER_LEN(mo->series) + 4 >= SER_REST(mo->series)) // incl term
-            Extend_Series(mo->series, 4);
-
-        REBCNT encoded_len = Encode_UTF8_Char(BIN_TAIL(mo->series), chr);
-        SET_UNI_LEN_USED(
-            mo->series,
-            SER_LEN(mo->series) + 1,
-            SER_USED(mo->series) + encoded_len
-        );
+        Append_Codepoint(mo->series, c);
     }
-
-    src++; // Skip ending quote or brace.
 
     ss->line += lines;
 
-    TERM_BIN(mo->series);
+    ++src; // Skip ending quote or brace.
     return src;
 }
 
@@ -498,11 +480,8 @@ static const REBYTE *Scan_Quote_Push_Mold(
 // Scan as UTF8 an item like a file.  Handles *some* forms of escaping, which
 // may not be a great idea (see notes below on how URL! moved away from that)
 //
-// Returns continuation point or zero for error.  Puts result into the
+// Returns continuation point or NULL for error.  Puts result into the
 // temporary mold buffer as UTF-8.
-//
-// !!! See notes on Scan_Quote_Push_Mold about the inefficiency of this
-// interim time of changing the mold buffer from 16-bit codepoints to UTF-8
 //
 const REBYTE *Scan_Item_Push_Mold(
     REB_MOLD *mo,
@@ -546,6 +525,7 @@ const REBYTE *Scan_Item_Push_Mold(
             if (bp == nullptr)
                 return nullptr;
             c = decoded;
+            --bp;
         }
         else if (c == '^') {  // Accept ^X encoded char:
             if (bp + 1 == ep)
@@ -554,7 +534,7 @@ const REBYTE *Scan_Item_Push_Mold(
                 return nullptr;
             if (opt_term == '\0' and IS_WHITE(c))
                 break;
-            bp--;
+            --bp;
         }
         else if (c >= 0x80) { // Accept UTF8 encoded char:
             if (not (bp = Back_Scan_UTF8_Char(&c, bp, 0)))
@@ -567,28 +547,14 @@ const REBYTE *Scan_Item_Push_Mold(
             //
             return nullptr;
         }
-
+        
         ++bp;
 
-        // 4 bytes maximum for UTF-8 encoded character (6 is a lie)
-        //
-        // https://stackoverflow.com/a/9533324/211160
-        //
-        if (SER_LEN(mo->series) + 4 >= SER_REST(mo->series)) // incl term
-            Extend_Series(mo->series, 4);
-
-        REBCNT encoded_len = Encode_UTF8_Char(BIN_TAIL(mo->series), c);
-        SET_UNI_LEN_USED(
-            mo->series,
-            SER_LEN(mo->series) + 1,
-            SER_USED(mo->series) + encoded_len
-        );
+        Append_Codepoint(mo->series, c);
     }
 
     if (*bp != '\0' and *bp == opt_term)
         ++bp;
-
-    TERM_BIN(mo->series);
 
     return bp;
 }

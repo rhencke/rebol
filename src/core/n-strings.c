@@ -522,9 +522,9 @@ REBNATIVE(enbase)
         fail (PAR(base_value));
     }
 
-    // !!! Enbasing code is common with how a BINARY! molds out.  That needed
-    // the returned series to be UTF-8.  Once STRING! in Rebol is UTF-8 also,
-    // then this conversion won't be necessary.
+    // !!! Enbasing code is common with how a BINARY! molds out.  With UTF-8
+    // everywhere, this code should be modified to use the mold buffer and
+    // Pop_Molded_String(), so Mold_Base16(), etc.
 
     Init_Text(
         D_OUT,

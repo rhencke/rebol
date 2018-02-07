@@ -43,7 +43,7 @@ REBSER *Make_Binary(REBCNT capacity)
 
 
 //
-//  Make_String: C
+//  Make_String_Core: C
 //
 // Makes a series to hold a string with enough capacity for a certain amount
 // of encoded data.  Make_Unicode() is how more conservative guesses might
@@ -167,6 +167,10 @@ REBSER *Append_Codepoint(REBSER *dst, REBUNI codepoint)
 
     REBCNT old_len = UNI_LEN(dst);
 
+    // 4 bytes maximum for UTF-8 encoded character (6 is a lie)
+    //
+    // https://stackoverflow.com/a/9533324/211160
+    //
     REBSIZ tail = SER_USED(dst);
     EXPAND_SERIES_TAIL(dst, 4); // !!! Conservative, assume long codepoint
     tail += Encode_UTF8_Char(BIN_AT(dst, tail), codepoint); // 1 to 4 bytes

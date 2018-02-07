@@ -134,6 +134,7 @@ core: [
     s-unicode.c
 
     ; (T)ypes
+    t-binary.c
     t-bitset.c
     t-blank.c
     t-block.c

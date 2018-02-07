@@ -50,7 +50,8 @@ void Snap_State_Core(struct Reb_State *s)
     s->frame = FS_TOP;
 
     s->manuals_len = SER_LEN(GC_Manuals);
-    s->mold_buf_len = SER_LEN(MOLD_BUF);
+    s->mold_buf_len = UNI_LEN(MOLD_BUF);
+    s->mold_buf_used = SER_USED(MOLD_BUF);
     s->mold_loop_tail = ARR_LEN(TG_Mold_Stack);
 
     // !!! Is this initialization necessary?
@@ -125,7 +126,8 @@ void Assert_State_Balanced_Debug(
         panic_at (manual, file, line);
     }
 
-    assert(s->mold_buf_len == SER_LEN(MOLD_BUF));
+    assert(s->mold_buf_len == UNI_LEN(MOLD_BUF));
+    assert(s->mold_buf_used == SER_USED(MOLD_BUF));
     assert(s->mold_loop_tail == ARR_LEN(TG_Mold_Stack));
 
     assert(s->error == NULL); // !!! necessary?
@@ -182,7 +184,7 @@ void Trapped_Helper(struct Reb_State *s)
 
     SET_SERIES_LEN(GC_Guarded, s->guarded_len);
     TG_Top_Frame = s->frame;
-    TERM_SEQUENCE_LEN(MOLD_BUF, s->mold_buf_len);
+    TERM_UNI_LEN_USED(MOLD_BUF, s->mold_buf_len, s->mold_buf_used);
 
   #if !defined(NDEBUG)
     //

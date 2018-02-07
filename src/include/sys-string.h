@@ -69,30 +69,38 @@
 
     template<>
     struct RebchrPtr<const REBYTE*> {
-        REBYTE *bp;
+        const REBYTE *bp;
 
         RebchrPtr () {}
-        RebchrPtr (const REBYTE *bp) : bp (m_cast(REBYTE*, bp)) {}
+        RebchrPtr (const REBYTE *bp) : bp (bp) {}
+
+        RebchrPtr next(REBUNI *codepoint_out) {
+            if (*bp < 0x80)
+                *codepoint_out = *bp;
+            else
+                bp = Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
+            return bp + 1;
+        }
 
         RebchrPtr back(REBUNI *codepoint_out) {
+            --bp;
             while ((*bp & 0xC0) == 0x80)
                 --bp;
-            if (*bp < 0x80) {
-                if (codepoint_out != NULL)
-                    *codepoint_out = *bp;
-                return bp;
-            }
-            Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
+            next(codepoint_out);
             return bp;
         }
 
-        RebchrPtr next(REBUNI *codepoint_out) {
-            if (*bp < 0x80) {
-                if (codepoint_out != NULL)
-                    *codepoint_out = *bp;
-                return bp + 1;
-            }
-            return Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
+        RebchrPtr skip() {
+            do {
+                ++bp;
+            } while ((*bp & 0xC0) == 0x80);
+            return bp;
+        }
+
+        REBUNI code() {
+            REBUNI codepoint;
+            next(&codepoint);
+            return codepoint;
         }
 
         operator const void * () { return bp; }
@@ -130,26 +138,32 @@
         RebchrPtr back(REBUNI *codepoint_out) {
             RebchrPtr<const REBYTE*> temp = bp;
 
-            return temp.back(codepoint_out).bp;
+            return m_cast(REBYTE*, temp.back(codepoint_out).bp);
         }
 
         RebchrPtr next(REBUNI *codepoint_out) {
             RebchrPtr<const REBYTE*> temp = bp;
-            return temp.next(codepoint_out).bp;
+            return m_cast(REBYTE*, temp.next(codepoint_out).bp);
+        }
+
+        RebchrPtr skip() {
+            RebchrPtr<const REBYTE*> temp = bp;
+            return m_cast(REBYTE*, temp.skip().bp);
         }
 
         RebchrPtr write(REBUNI codepoint) {
-            return bp + Encode_UTF8_Char(bp, codepoint);
+            return m_cast(REBYTE*, bp)
+                + Encode_UTF8_Char(m_cast(REBYTE*, bp), codepoint);
         }
 
-        operator void * () { return bp; }
+        operator void * () { return m_cast(REBYTE*, bp); }
 
         static const REBYTE *as_rebyte_ptr(RebchrPtr<const REBYTE*> cp) {
             return cp.bp;
         }
 
         static REBYTE *as_rebyte_ptr(RebchrPtr<REBYTE *> cp) {
-            return cp.bp;
+            return m_cast(REBYTE*, cp.bp);
         }
 
         static RebchrPtr<const REBYTE*> as_rebchr(const REBYTE *bp) {
@@ -170,6 +184,12 @@
     #define NEXT_CHR(codepoint_out, cp) \
         (cp).next(codepoint_out)
 
+    #define SKIP_CHR(cp) \
+        (cp).skip()
+
+    #define CHR_CODE(cp) \
+        (cp).code()
+
     #define WRITE_CHR(cp, codepoint) \
         (cp).write(codepoint)
 
@@ -182,31 +202,39 @@
     #define REBCHR(star_or_const_star) \
         REBYTE star_or_const_star
 
-    inline static REBYTE* BACK_CHR(
-        REBUNI *codepoint_out,
-        const REBYTE *bp
-    ){
-        while ((*bp & 0xC0) == 0x80)
-            --bp;
-        if (*bp < 0x80) {
-            if (codepoint_out != NULL)
-                *codepoint_out = *bp;
-            return m_cast(REBYTE*, bp);
-        }
-        Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
-        return m_cast(REBYTE*, bp);
-    }
-
     inline static REBYTE* NEXT_CHR(
         REBUNI *codepoint_out,
         const REBYTE *bp
     ){
-        if (*bp < 0x80) {
-            if (codepoint_out != NULL)
-                *codepoint_out = *bp;
-            return m_cast(REBYTE*, bp + 1);
-        }
-        return m_cast(REBYTE*, Back_Scan_UTF8_Char(codepoint_out, bp, NULL));
+        if (*bp < 0x80)
+            *codepoint_out = *bp;
+        else
+            bp = Back_Scan_UTF8_Char(codepoint_out, bp, NULL);
+        return m_cast(REBYTE*, bp + 1);
+    }
+
+    inline static REBYTE* BACK_CHR(
+        REBUNI *codepoint_out,
+        const REBYTE *bp
+    ){
+        --bp;
+        while ((*bp & 0xC0) == 0x80)
+            --bp;
+        NEXT_CHR(codepoint_out, bp);
+        return m_cast(REBYTE*, bp);
+    }
+
+    inline static REBYTE* SKIP_CHR(const REBYTE *bp) {
+        do {
+            ++bp;
+        } while ((*bp & 0xC0) == 0x80);
+        return m_cast(REBYTE*, bp);
+    }
+
+    inline static REBUNI CHR_CODE(const REBYTE *bp) {
+        REBUNI codepoint;
+        NEXT_CHR(&codepoint, bp);
+        return codepoint;
     }
 
     inline static REBYTE* WRITE_CHR(REBYTE* bp, REBUNI codepoint) {
@@ -395,7 +423,7 @@ inline static REBCHR(*) UNI_AT(REBSER *s, REBCNT n) {
     REBCHR(*) cp = UNI_HEAD(s);
     REBCNT i = n;
     for (; i != 0; --i)
-        cp = NEXT_CHR(NULL, cp); // !!! crazy slow
+        cp = SKIP_CHR(cp); // !!! crazy slow
     return cp;
 }
 
@@ -442,7 +470,7 @@ inline static REBSIZ VAL_SIZE_LIMIT_AT(
             *length = limit;
         tail = at;
         for (; limit > 0; --limit)
-            tail = NEXT_CHR(NULL, tail);
+            tail = SKIP_CHR(tail);
     }
 
     return tail - at;

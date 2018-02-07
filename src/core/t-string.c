@@ -52,18 +52,10 @@ enum {
 //
 REBINT CT_String(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
-    REBINT num;
+    assert(ANY_STRING_KIND(CELL_KIND(a)));
+    assert(ANY_STRING_KIND(CELL_KIND(b)));
 
-    if (CELL_KIND(a) == REB_BINARY) {
-        if (CELL_KIND(b) != REB_BINARY)
-            fail ("Can't compare binary to string, use AS STRING/BINARY!");
-
-        num = Compare_Binary_Vals(a, b);
-    }
-    else if (CELL_KIND(b) == REB_BINARY)
-        fail ("Can't compare binary to string, use AS STRING!/BINARY!");
-    else
-        num = Compare_String_Vals(a, b, mode != 1);
+    REBINT num = Compare_String_Vals(a, b, mode != 1);
 
     if (mode >= 0) return (num == 0) ? 1 : 0;
     if (mode == -1) return (num >= 0) ? 1 : 0;
@@ -131,7 +123,7 @@ static void reverse_string(REBVAL *v, REBCNT len)
         REBCNT val_len_head = VAL_LEN_HEAD(v);
 
         REBSER *ser = VAL_SERIES(v);
-        REBCHR(const *) up = UNI_LAST(ser); // last exists due to len != 0
+        REBCHR(const *) up = UNI_TAIL(ser); // last exists due to len != 0
         REBCNT n;
         for (n = 0; n < len; ++n) {
             REBUNI c;
@@ -218,17 +210,6 @@ static REBCNT find_string(
             );
         }
     }
-    else if (IS_BINARY(target)) {
-        const bool uncase = false;
-        return Find_Byte_Str(
-            series,
-            start,
-            VAL_BIN_AT(target),
-            target_len,
-            uncase, // "don't treat case insensitively"
-            did (flags & AM_FIND_MATCH)
-        );
-    }
     else if (IS_CHAR(target)) {
         return Find_Str_Char(
             VAL_CHAR(target),
@@ -267,131 +248,36 @@ static REBCNT find_string(
 }
 
 
+// Common behaviors for:
+//
+//     MAKE STRING! ...
+//     TO STRING! ...
+//
+// !!! MAKE and TO were not historically very clearly differentiated in
+// Rebol, and so often they would "just do the same thing".  Ren-C ultimately
+// will seek to limit the synonyms/polymorphism, e.g. MAKE or TO STRING! of a
+// STRING! acting as COPY, in favor of having the user call COPY explicilty.
+//
+// Note also the existence of AS should be able to reduce copying, e.g.
+// `print ["spelling is" as string! word]` will be cheaper than TO or MAKE.
+//
 static REBSER *MAKE_TO_String_Common(const REBVAL *arg)
 {
-    REBSER *ser;
-
-    // MAKE/TO <type> <binary!>
-    if (IS_BINARY(arg)) {
-        ser = Make_Sized_String_UTF8(
+    if (IS_BINARY(arg))
+        return Make_Sized_String_UTF8(
             cs_cast(VAL_BIN_AT(arg)), VAL_LEN_AT(arg)
         );
-    }
-    // MAKE/TO <type> <any-string>
-    else if (ANY_STRING(arg)) {
-        ser = Copy_String_At(arg);
-    }
-    // MAKE/TO <type> <any-word>
-    else if (ANY_WORD(arg)) {
-        ser = Copy_Mold_Value(arg, MOLD_FLAG_0);
-    }
-    // MAKE/TO <type> #"A"
-    else if (IS_CHAR(arg)) {
-        ser = Make_Ser_Codepoint(VAL_CHAR(arg));
-    }
-    else
-        ser = Copy_Form_Value(arg, MOLD_FLAG_TIGHT);
 
-    return ser;
-}
+    if (ANY_STRING(arg))
+        return Copy_String_At(arg);
 
+    if (ANY_WORD(arg))
+        return Copy_Mold_Value(arg, MOLD_FLAG_0);
 
-static REBSER *Make_Binary_BE64(const REBVAL *arg)
-{
-    REBSER *ser = Make_Binary(8);
+    if (IS_CHAR(arg))
+        return Make_Ser_Codepoint(VAL_CHAR(arg));
 
-    REBYTE *bp = BIN_HEAD(ser);
-
-    REBI64 i;
-    REBDEC d;
-    const REBYTE *cp;
-    if (IS_INTEGER(arg)) {
-        assert(sizeof(REBI64) == 8);
-        i = VAL_INT64(arg);
-        cp = cast(const REBYTE*, &i);
-    }
-    else {
-        assert(sizeof(REBDEC) == 8);
-        d = VAL_DECIMAL(arg);
-        cp = cast(const REBYTE*, &d);
-    }
-
-#ifdef ENDIAN_LITTLE
-    REBCNT n;
-    for (n = 0; n < 8; ++n)
-        bp[n] = cp[7 - n];
-#elif defined(ENDIAN_BIG)
-    REBCNT n;
-    for (n = 0; n < 8; ++n)
-        bp[n] = cp[n];
-#else
-    #error "Unsupported CPU endian"
-#endif
-
-    TERM_BIN_LEN(ser, 8);
-    return ser;
-}
-
-
-static REBSER *make_binary(const REBVAL *arg, bool make)
-{
-    REBSER *ser;
-
-    // MAKE BINARY! 123
-    switch (VAL_TYPE(arg)) {
-    case REB_INTEGER:
-    case REB_DECIMAL:
-        if (make) ser = Make_Binary(Int32s(arg, 0));
-        else ser = Make_Binary_BE64(arg);
-        break;
-
-    // MAKE/TO BINARY! BINARY!
-    case REB_BINARY:
-        ser = Copy_Bytes(VAL_BIN_AT(arg), VAL_LEN_AT(arg));
-        break;
-
-    // MAKE/TO BINARY! <any-string>
-    case REB_TEXT:
-    case REB_FILE:
-    case REB_EMAIL:
-    case REB_URL:
-    case REB_TAG:
-//  case REB_ISSUE:
-        ser = Make_UTF8_From_Any_String(arg, VAL_LEN_AT(arg));
-        break;
-
-    case REB_BLOCK:
-        // Join_Binary returns a shared buffer, so produce a copy:
-        ser = Copy_Sequence_Core(Join_Binary(arg, -1), SERIES_FLAGS_NONE);
-        break;
-
-    // MAKE/TO BINARY! <tuple!>
-    case REB_TUPLE:
-        ser = Copy_Bytes(VAL_TUPLE(arg), VAL_TUPLE_LEN(arg));
-        break;
-
-    // MAKE/TO BINARY! <char!>
-    case REB_CHAR:
-        ser = Make_Binary(6);
-        TERM_SEQUENCE_LEN(ser, Encode_UTF8_Char(BIN_HEAD(ser), VAL_CHAR(arg)));
-        break;
-
-    // MAKE/TO BINARY! <bitset!>
-    case REB_BITSET:
-        ser = Copy_Bytes(VAL_BIN_HEAD(arg), VAL_LEN_HEAD(arg));
-        break;
-
-    case REB_MONEY:
-        ser = Make_Binary(12);
-        deci_to_binary(BIN_HEAD(ser), VAL_MONEY_AMOUNT(arg));
-        TERM_SEQUENCE_LEN(ser, 12);
-        break;
-
-    default:
-        ser = 0;
-    }
-
-    return ser;
+    return Copy_Form_Value(arg, MOLD_FLAG_TIGHT);
 }
 
 
@@ -407,57 +293,45 @@ REB_R MAKE_String(
     if (opt_parent)
         fail (Error_Bad_Make_Parent(kind, opt_parent));
 
-    REBSER *ser; // goto would cross initialization
-
     if (IS_INTEGER(def)) {
         //
         // !!! R3-Alpha tolerated decimal, e.g. `make text! 3.14`, which
         // is semantically nebulous (round up, down?) and generally bad.
+        // Red continues this behavior.
         //
-        if (kind == REB_BINARY)
-            return Init_Binary(out, Make_Binary(Int32s(def, 0)));
-        else
-            return Init_Any_Series(out, kind, Make_Unicode(Int32s(def, 0)));
+        return Init_Any_Series(out, kind, Make_Unicode(Int32s(def, 0)));
     }
-    else if (IS_BLOCK(def)) {
+
+    if (IS_BLOCK(def)) {
         //
-        // The construction syntax for making strings or binaries that are
-        // preloaded with an offset into the data is #[binary [#{0001} 2]].
-        // In R3-Alpha make definitions didn't have to be a single value
+        // The construction syntax for making strings that are preloaded with
+        // an offset into the data is #[string ["abcd" 2]].
+        //
+        // !!! In R3-Alpha make definitions didn't have to be a single value
         // (they are for compatibility between construction syntax and MAKE
-        // in Ren-C).  So the positional syntax was #[binary! #{0001} 2]...
-        // while #[binary [#{0001} 2]] would join the pieces together in order
-        // to produce #{000102}.  That behavior is not available in Ren-C.
+        // in Ren-C).  So the positional syntax was #[string! "abcd" 2]...
+        // while #[string ["abcd" 2]] would join the pieces together in order
+        // to produce #{abcd2}.  That behavior is not available in Ren-C.
 
         if (VAL_ARRAY_LEN_AT(def) != 2)
             goto bad_make;
 
-        RELVAL *any_binstr = VAL_ARRAY_AT(def);
-        if (!ANY_BINSTR(any_binstr))
-            goto bad_make;
-        if (IS_BINARY(any_binstr) != (kind == REB_BINARY))
+        RELVAL *first = VAL_ARRAY_AT(def);
+        if (not ANY_STRING(first))
             goto bad_make;
 
         RELVAL *index = VAL_ARRAY_AT(def) + 1;
         if (!IS_INTEGER(index))
             goto bad_make;
 
-        REBINT i = Int32(index) - 1 + VAL_INDEX(any_binstr);
-        if (i < 0 || i > cast(REBINT, VAL_LEN_AT(any_binstr)))
+        REBINT i = Int32(index) - 1 + VAL_INDEX(first);
+        if (i < 0 || i > cast(REBINT, VAL_LEN_AT(first)))
             goto bad_make;
 
-        return Init_Any_Series_At(out, kind, VAL_SERIES(any_binstr), i);
+        return Init_Any_Series_At(out, kind, VAL_SERIES(first), i);
     }
 
-    if (kind == REB_BINARY)
-        ser = make_binary(def, true);
-    else
-        ser = MAKE_TO_String_Common(def);
-
-    if (!ser)
-        goto bad_make;
-
-    return Init_Any_Series_At(out, kind, ser, 0);
+    return Init_Any_Series(out, kind, MAKE_TO_String_Common(def));
 
   bad_make:
     fail (Error_Bad_Make(kind, def));
@@ -469,16 +343,7 @@ REB_R MAKE_String(
 //
 REB_R TO_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    REBSER *ser;
-    if (kind == REB_BINARY)
-        ser = make_binary(arg, false);
-    else
-        ser = MAKE_TO_String_Common(arg);
-
-    if (ser == NULL)
-        fail (arg);
-
-    return Init_Any_Series(out, kind, ser);
+    return Init_Any_Series(out, kind, MAKE_TO_String_Common(arg));
 }
 
 
@@ -617,20 +482,12 @@ REB_R PD_String(
             if (n < 0 or cast(REBCNT, n) >= SER_LEN(ser))
                 return nullptr;
 
-            if (IS_BINARY(pvs->out))
-                Init_Integer(pvs->out, *BIN_AT(ser, n));
-            else
-                Init_Char(pvs->out, GET_ANY_CHAR(ser, n));
-
+            Init_Char(pvs->out, GET_ANY_CHAR(ser, n));
             return pvs->out;
         }
 
-        if (
-            IS_BINARY(pvs->out)
-            or not (IS_WORD(picker) or ANY_STRING(picker))
-        ){
+        if (not (IS_WORD(picker) or ANY_STRING(picker)))
             return R_UNHANDLED;
-        }
 
         // !!! This is a historical and questionable feature, where path
         // picking a string or word or otherwise out of a FILE! or URL! will
@@ -724,16 +581,7 @@ REB_R PD_String(
     else
         return R_UNHANDLED;
 
-    if (IS_BINARY(pvs->out)) {
-        if (c > 0xff)
-            fail (Error_Out_Of_Range(opt_setval));
-
-        BIN_HEAD(ser)[n] = cast(REBYTE, c);
-        return R_INVISIBLE;
-    }
-
     SET_ANY_CHAR(ser, n, c);
-
     return R_INVISIBLE;
 }
 
@@ -1003,50 +851,6 @@ static void Mold_Tag(REB_MOLD *mo, const REBCEL *v)
 
 
 //
-//  MF_Binary: C
-//
-void MF_Binary(REB_MOLD *mo, const REBCEL *v, bool form)
-{
-    UNUSED(form);
-
-    if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) && VAL_INDEX(v) != 0)
-        Pre_Mold(mo, v); // #[binary!
-
-    REBCNT len = VAL_LEN_AT(v);
-
-    REBSER *enbased;
-    switch (Get_System_Int(SYS_OPTIONS, OPTIONS_BINARY_BASE, 16)) {
-    default:
-    case 16: {
-        const bool brk = (len > 32);
-        enbased = Encode_Base16(VAL_BIN_AT(v), len, brk);
-        break; }
-
-    case 64: {
-        const bool brk = (len > 64);
-        Append_Ascii(mo->series, "64");
-        enbased = Encode_Base64(VAL_BIN_AT(v), len, brk);
-        break; }
-
-    case 2: {
-        const bool brk = (len > 8);
-        Append_Codepoint(mo->series, '2');
-        enbased = Encode_Base2(VAL_BIN_AT(v), len, brk);
-        break; }
-    }
-
-    Append_Ascii(mo->series, "#{");
-    Append_Utf8(mo->series, cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased));
-    Append_Ascii(mo->series, "}");
-
-    Free_Unmanaged_Series(enbased);
-
-    if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) && VAL_INDEX(v) != 0)
-        Post_Mold(mo, v);
-}
-
-
-//
 //  MF_String: C
 //
 void MF_String(REB_MOLD *mo, const REBCEL *v, bool form)
@@ -1104,30 +908,53 @@ void MF_String(REB_MOLD *mo, const REBCEL *v, bool form)
 //
 //  REBTYPE: C
 //
-// Common action handler for BINARY! and ANY-STRING!
-//
-// !!! BINARY! seems different enough to warrant its own handler.
+// Action handler for ANY-STRING!
 //
 REBTYPE(String)
 {
     REBVAL *v = D_ARG(1);
-    assert(IS_BINARY(v) || ANY_STRING(v));
+    assert(ANY_STRING(v));
 
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
-    // Common operations for any series type (length, head, etc.)
-    //
-    REB_R r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
-    if (r != R_UNHANDLED)
-        return r;
-
-    // Common setup code for all actions:
-    //
     REBINT index = cast(REBINT, VAL_INDEX(v));
     REBINT tail = cast(REBINT, VAL_LEN_HEAD(v));
 
     REBSYM sym = VAL_WORD_SYM(verb);
     switch (sym) {
+        //
+        // !!! INTERSECT, UNION, DIFFERENCE temporarily unavailable on STRING!
+        //
+      case SYM_REFLECT:
+      case SYM_SKIP:
+      case SYM_AT:
+        return Series_Common_Action_Maybe_Unhandled(frame_, verb);
+
+      case SYM_REMOVE: {
+        INCLUDE_PARAMS_OF_REMOVE;
+
+        UNUSED(PAR(series)); // already accounted for
+
+        REBSER *ser = VAL_SERIES(v);
+        FAIL_IF_READ_ONLY(v);
+
+        UNUSED(REF(part));
+        REBINT limit =  Part_Len_May_Modify_Index(v, ARG(limit));
+        if (index >= tail or limit == 0)
+            RETURN (v);
+
+        REBCNT len;
+        REBSIZ size = VAL_SIZE_LIMIT_AT(&len, v, limit);
+
+        REBSIZ offset = VAL_OFFSET_FOR_INDEX(v, index);
+        REBSIZ used_old = SER_USED(ser);
+
+        Remove_Series_Units(ser, offset, size); // should keep terminator
+        SET_UNI_LEN_USED(ser, tail - len, used_old - size); // no term needed
+
+        RETURN (v); }
+
+    //-- Modification:
       case SYM_APPEND:
       case SYM_INSERT:
       case SYM_CHANGE: {
@@ -1160,32 +987,14 @@ REBTYPE(String)
         if (REF(line))
             flags |= AM_LINE;
 
-        if (IS_BINARY(v)) {
-            if (REF(line))
-                fail ("APPEND+INSERT+CHANGE cannot use /LINE with BINARY!");
-
-            VAL_INDEX(v) = Modify_Binary(
-                v,
-                VAL_WORD_SPELLING(verb),
-                arg,
-                flags,
-                len,
-                REF(dup) ? Int32(ARG(count)) : 1
-            );
-        }
-        else {
-            if (REF(line))
-                flags |= AM_LINE;
-
-            VAL_INDEX(v) = Modify_String(
-                v,
-                VAL_WORD_SPELLING(verb),
-                arg,
-                flags,
-                len,
-                REF(dup) ? Int32(ARG(count)) : 1
-            );
-        }
+        VAL_INDEX(v) = Modify_String(
+            v,
+            VAL_WORD_SPELLING(verb),
+            arg,
+            flags,
+            len,
+            REF(dup) ? Int32(ARG(count)) : 1
+        );
         RETURN (v); }
 
     //-- Search:
@@ -1206,37 +1015,21 @@ REBTYPE(String)
         );
 
         REBINT len;
-        if (IS_BINARY(v)) {
-            flags |= AM_FIND_CASE;
-
-            if (!IS_BINARY(arg) && !IS_INTEGER(arg) && !IS_BITSET(arg))
-                fail (Error_Not_Same_Type_Raw());
-
-            if (IS_INTEGER(arg)) {
-                if (VAL_INT64(arg) < 0 || VAL_INT64(arg) > 255)
-                    fail (Error_Out_Of_Range(arg));
-                len = 1;
-            }
-            else
-                len = VAL_LEN_AT(arg);
-        }
+        if (IS_CHAR(arg) || IS_BITSET(arg))
+            len = 1;
         else {
-            if (IS_CHAR(arg) or IS_BITSET(arg))
-                len = 1;
-            else {
-                if (not IS_TEXT(arg)) {
-                    //
-                    // !! This FORM creates a temporary value that is handed
-                    // over to the GC.  Not only could the temporary value be
-                    // unmanaged (and freed), a more efficient matching could
-                    // be done of `FIND "<abc...z>" <abc...z>` without having
-                    // to create an entire series just for the delimiters.
-                    //
-                    REBSER *copy = Copy_Form_Value(arg, 0);
-                    Init_Text(arg, copy);
-                }
-                len = VAL_LEN_AT(arg);
+            if (not IS_TEXT(arg)) {
+                //
+                // !! This FORM creates a temporary value that is handed
+                // over to the GC.  Not only could the temporary value be
+                // unmanaged (and freed), a more efficient matching could
+                // be done of `FIND "<abc...z>" <abc...z>` without having
+                // to create an entire series just for the delimiters.
+                //
+                REBSER *copy = Copy_Form_Value(arg, 0);
+                Init_Text(arg, copy);
             }
+            len = VAL_LEN_AT(arg);
         }
 
         if (REF(part))
@@ -1267,12 +1060,7 @@ REBTYPE(String)
             ret++;
             if (ret >= cast(REBCNT, tail))
                 return nullptr;
-
-            if (IS_BINARY(v)) {
-                Init_Integer(v, *BIN_AT(VAL_SERIES(v), ret));
-            }
-            else
-                str_to_char(v, v, ret);
+            str_to_char(v, v, ret);
         }
         RETURN (Trust_Const(v)); }
 
@@ -1290,7 +1078,7 @@ REBTYPE(String)
         if (REF(part)) {
             len = Part_Len_May_Modify_Index(v, ARG(limit));
             if (len == 0)
-                return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
+                return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_String(0));
         } else
             len = 1;
 
@@ -1308,7 +1096,7 @@ REBTYPE(String)
         if (cast(REBINT, VAL_INDEX(v)) >= tail) {
             if (not REF(part))
                 return nullptr;
-            return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
+            return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_String(0));
         }
 
         REBSER *ser = VAL_SERIES(v);
@@ -1316,22 +1104,11 @@ REBTYPE(String)
 
         // if no /PART, just return value, else return string
         //
-        if (not REF(part)) {
-            if (IS_BINARY(v))
-                Init_Integer(D_OUT, *VAL_BIN_AT(v));
-            else
-                str_to_char(D_OUT, v, VAL_INDEX(v));
-        }
-        else {
-            enum Reb_Kind kind = VAL_TYPE(v);
-            if (IS_BINARY(v)) {
-                Init_Binary(
-                    D_OUT,
-                    Copy_Sequence_At_Len(VAL_SERIES(v), VAL_INDEX(v), len)
-                );
-            } else
-                Init_Any_Series(D_OUT, kind, Copy_String_At_Limit(v, len));
-        }
+        if (REF(part))
+            Init_Any_Series(D_OUT, VAL_TYPE(v), Copy_String_At_Limit(v, len));
+        else
+            Init_Char(D_OUT, CHR_CODE(VAL_UNI_AT(v)));
+
         Remove_Series_Units(ser, VAL_INDEX(v), len);
         return D_OUT; }
 
@@ -1349,13 +1126,9 @@ REBTYPE(String)
         if (index == 0 and IS_SER_DYNAMIC(ser))
             Unbias_Series(ser, false);
 
-        if (IS_BINARY(v))
-            TERM_SEQUENCE_LEN(ser, cast(REBCNT, index));
-        else {
-            REBSIZ offset = VAL_OFFSET_FOR_INDEX(v, index);
-            TERM_UNI_LEN_USED(ser, cast(REBCNT, index), offset);
-        }
-        RETURN(v); }
+        REBSIZ offset = VAL_OFFSET_FOR_INDEX(v, index);
+        TERM_UNI_LEN_USED(ser, cast(REBCNT, index), offset);
+        RETURN (v); }
 
     //-- Creation:
 
@@ -1374,118 +1147,18 @@ REBTYPE(String)
         REBINT len = Part_Len_May_Modify_Index(v, ARG(limit));
         UNUSED(REF(part)); // checked by if limit is nulled
 
-        REBSER *ser;
-        if (IS_BINARY(v))
-            ser = Copy_Sequence_At_Len(VAL_SERIES(v), VAL_INDEX(v), len);
-        else
-            ser = Copy_String_At_Limit(v, len);
-        return Init_Any_Series(D_OUT, VAL_TYPE(v), ser); }
+        return Init_Any_Series(
+            D_OUT,
+            VAL_TYPE(v),
+            Copy_String_At_Limit(v, len)
+        ); }
 
     //-- Bitwise:
 
     case SYM_INTERSECT:
     case SYM_UNION:
-    case SYM_DIFFERENCE: {
-        if (not IS_BINARY(arg))
-            fail (arg);
-
-        if (VAL_INDEX(v) > VAL_LEN_HEAD(v))
-            VAL_INDEX(v) = VAL_LEN_HEAD(v);
-
-        if (VAL_INDEX(arg) > VAL_LEN_HEAD(arg))
-            VAL_INDEX(arg) = VAL_LEN_HEAD(arg);
-
-        return Init_Any_Series(
-            D_OUT,
-            VAL_TYPE(v),
-            Xandor_Binary(verb, v, arg)); }
-
-    case SYM_COMPLEMENT: {
-        if (not IS_BINARY(v))
-            fail (v);
-
-        return Init_Any_Series(D_OUT, VAL_TYPE(v), Complement_Binary(v)); }
-
-    // Arithmetic operations are allowed on BINARY!, because it's too limiting
-    // to not allow `#{4B} + 1` => `#{4C}`.  Allowing the operations requires
-    // a default semantic of binaries as unsigned arithmetic, since one
-    // does not want `#{FF} + 1` to be #{FE}.  It uses a big endian
-    // interpretation, so `#{00FF} + 1` is #{0100}
-    //
-    // Since Rebol is a language with mutable semantics by default, `add x y`
-    // will mutate x by default (if X is not an immediate type).  `+` is an
-    // enfixing of `add-of` which copies the first argument before adding.
-    //
-    // To try and maximize usefulness, the semantic chosen is that any
-    // arithmetic that would go beyond the bounds of the length is considered
-    // an overflow.  Hence the size of the result binary will equal the size
-    // of the original binary.  This means that `#{0100} - 1` is #{00FF},
-    // not #{FF}.
-    //
-    // !!! The code below is extremely slow and crude--using an odometer-style
-    // loop to do the math.  What's being done here is effectively "bigint"
-    // math, and it might be that it would share code with whatever big
-    // integer implementation was used; e.g. integers which exceeded the size
-    // of the platform REBI64 would use BINARY! under the hood.
-
-    case SYM_SUBTRACT:
-    case SYM_ADD: {
-        if (not IS_BINARY(v))
-            fail (v);
-
-        FAIL_IF_READ_ONLY(v);
-
-        REBINT amount;
-        if (IS_INTEGER(arg))
-            amount = VAL_INT32(arg);
-        else if (IS_BINARY(arg))
-            fail (arg); // should work
-        else
-            fail (arg); // what about other types?
-
-        if (VAL_WORD_SYM(verb) == SYM_SUBTRACT)
-            amount = -amount;
-
-        if (amount == 0) { // adding or subtracting 0 works, even #{} + 0
-            Move_Value(D_OUT, v);
-            return D_OUT;
-        }
-        else if (VAL_LEN_AT(v) == 0) // add/subtract to #{} otherwise
-            fail (Error_Overflow_Raw());
-
-        while (amount != 0) {
-            REBCNT wheel = VAL_LEN_HEAD(v) - 1;
-            while (true) {
-                REBYTE *b = VAL_BIN_AT_HEAD(v, wheel);
-                if (amount > 0) {
-                    if (*b == 255) {
-                        if (wheel == VAL_INDEX(v))
-                            fail (Error_Overflow_Raw());
-
-                        *b = 0;
-                        --wheel;
-                        continue;
-                    }
-                    ++(*b);
-                    --amount;
-                    break;
-                }
-                else {
-                    if (*b == 0) {
-                        if (wheel == VAL_INDEX(v))
-                            fail (Error_Overflow_Raw());
-
-                        *b = 255;
-                        --wheel;
-                        continue;
-                    }
-                    --(*b);
-                    ++amount;
-                    break;
-                }
-            }
-        }
-        RETURN (v); }
+    case SYM_DIFFERENCE:
+        fail ("string set operations temporarily unavailable");
 
     //-- Special actions:
 
@@ -1505,12 +1178,8 @@ REBTYPE(String)
         FAIL_IF_READ_ONLY(v);
 
         REBINT len = Part_Len_May_Modify_Index(v, D_ARG(3));
-        if (len > 0) {
-            if (IS_BINARY(v))
-                reverse_binary(v, len);
-            else
-                reverse_string(v, len);
-        }
+        if (len > 0)
+            reverse_string(v, len);
         RETURN (v); }
 
     case SYM_SORT: {
@@ -1526,7 +1195,7 @@ REBTYPE(String)
         if (REF(all)) // Not Supported
             fail (Error_Bad_Refine_Raw(ARG(all)));
 
-        if (ANY_STRING(v) and not Is_String_ASCII(v))
+        if (not Is_String_ASCII(v))
             fail ("UTF-8 Everywhere: String sorting temporarily unavailable");
 
         Sort_String(
@@ -1545,17 +1214,13 @@ REBTYPE(String)
         UNUSED(PAR(value));
 
         if (REF(seed)) { // string/binary contents are the seed
-            if (IS_BINARY(v))
-                Set_Random(Compute_CRC24(VAL_BIN_AT(v), VAL_LEN_AT(v)));
-            else {
-                assert(ANY_STRING(v));
-                Set_Random(
-                    Compute_CRC24(
-                        AS_REBYTE_PTR(VAL_UNI_AT(v)),
-                        VAL_SIZE_AT(v)
-                    )
-                );
-            }
+            assert(ANY_STRING(v));
+            Set_Random(
+                Compute_CRC24(
+                    AS_REBYTE_PTR(VAL_UNI_AT(v)),
+                    VAL_SIZE_AT(v)
+                )
+            );
             return nullptr;
         }
 
@@ -1565,14 +1230,11 @@ REBTYPE(String)
             if (index >= tail)
                 return nullptr;
             index += (REBCNT)Random_Int(REF(secure)) % (tail - index);
-            if (IS_BINARY(v)) // same as PICK
-                return Init_Integer(D_OUT, *VAL_BIN_AT_HEAD(v, index));
-
             str_to_char(D_OUT, v, index);
             return D_OUT;
         }
 
-        if (ANY_STRING(v) and not Is_String_ASCII(v))
+        if (not Is_String_ASCII(v))
             fail ("UTF-8 Everywhere: String shuffle temporarily unavailable");
 
         FAIL_IF_READ_ONLY(v);

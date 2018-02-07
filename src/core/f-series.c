@@ -35,6 +35,9 @@
 // care of without knowing what specific kind of series it is.  So generally
 // index manipulation, and things like LENGTH/etc.
 //
+// It only works when the operation in question applies to an understanding of
+// a series as containing fixed-size units.
+//
 REB_R Series_Common_Action_Maybe_Unhandled(
     REBFRM *frame_,
     const REBVAL *verb

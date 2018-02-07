@@ -989,7 +989,7 @@ const REBYTE *Scan_File(
         len--;
     }
 
-    REBUNI term = 0;
+    REBUNI term;
     const REBYTE *invalid;
     if (*cp == '"') {
         cp++;
@@ -998,7 +998,7 @@ const REBYTE *Scan_File(
         invalid = cb_cast(":;\"");
     }
     else {
-        term = 0;
+        term = '\0';
         invalid = cb_cast(":;()[]\"");
     }
 

@@ -138,9 +138,13 @@ vector      "compact scalar array"  ; %src/extensions/vector/README.md
             ?           ?       ?       ?       []
 
 ; <BINARY>
+;
+;     (...we continue along in order with more ANY-SERIES! types...)
+;     (...BINARY! is alone, it's not an ANY-STRING!, just an ANY-SERIES!...)
 
-binary      "string series of bytes"
-            string      *       *       +       [series]
+binary      "series of bytes"
+            binary      *       *       +       [series]  ; not an ANY-STRING!
+
 
 ; </BINARY> (adjacent to ANY-STRING matters)
 ;
