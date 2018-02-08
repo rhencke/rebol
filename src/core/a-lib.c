@@ -968,28 +968,16 @@ uint32_t RL_rebUnboxChar(
 size_t RL_rebSpellInto(
     unsigned char quotes,  // `#define FooQ(...) Foo(1, __VA_LIST__, rebEND)`
     char *buf,
-    size_t buf_size, // number of bytes
+    size_t buf_size,  // number of bytes
     const void *p, va_list *vaptr
 ){
     DECLARE_LOCAL (v);
     Run_Va_May_Fail(v, quotes, p, vaptr);  // calls va_end()
 
-    const char *utf8;
-    REBSIZ utf8_size;
-    if (ANY_STRING(v)) {
-        REBSIZ offset;
-        REBSER *temp = Temp_UTF8_At_Managed(
-            &offset, &utf8_size, v, VAL_LEN_AT(v)
-        );
-        utf8 = cs_cast(BIN_AT(temp, offset));
-    }
-    else {
-        assert(ANY_WORD(v));
+    assert(ANY_STRING(v) or ANY_WORD(v));
 
-        REBSTR *spelling = VAL_WORD_SPELLING(v);
-        utf8 = STR_HEAD(spelling);
-        utf8_size = STR_SIZE(spelling);
-    }
+    REBSIZ utf8_size;
+    REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
 
     if (not buf) {
         assert(buf_size == 0);

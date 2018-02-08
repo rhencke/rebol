@@ -1182,15 +1182,12 @@ REBNATIVE(as)
             Freeze_Sequence(VAL_SERIES(v));
 
             REBSIZ utf8_size;
-            REBSIZ offset;
-            REBSER *temp = Temp_UTF8_At_Managed(
-                &offset, &utf8_size, v, VAL_LEN_AT(v)
-            );
+            const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
             return Inherit_Const(
                 Quotify(Init_Any_Word(
                     D_OUT,
                     new_kind,
-                    Intern_UTF8_Managed(BIN_AT(temp, offset), utf8_size)
+                    Intern_UTF8_Managed(utf8, utf8_size)
                 ), quotes),
                 v
             );

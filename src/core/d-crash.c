@@ -215,21 +215,15 @@ REBNATIVE(panic)
     // report the contained message.  PANIC-VALUE for the latter intent.
     //
     if (IS_TEXT(v)) {
-        REBSIZ offset;
-        REBSIZ size;
-        REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
-
-        p = BIN_AT(temp, offset); // UTF-8 data
+        p = VAL_UTF8_AT(nullptr, v);
     }
     else {
         assert(IS_ERROR(v));
         p = VAL_CONTEXT(v);
     }
 
-    // Note that by using the frame's tick instead of TG_Tick, we don't count
-    // the evaluation of the value argument.  Hence the tick count shown in
-    // the dump would be the one that would queue up right to the exact moment
-    // *before* the PANIC ACTION! was invoked.
+    // Uses frame_->tick instead of TG_Tick to identify the tick when PANIC
+    // began its frame, not including later ticks for fulfilling ARG(value).
     //
   #ifdef DEBUG_COUNT_TICKS
     Panic_Core(p, frame_->tick, FRM_FILE_UTF8(frame_), FRM_LINE(frame_));

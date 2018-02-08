@@ -80,22 +80,14 @@ REB_R MAKE_Array(
         //
         // `make block! "a <b> #c"` => `[a <b> #c]`, scans as code (unbound)
         //
-        // Until UTF-8 Everywhere, text must be converted to UTF-8 before
-        // using it with the scanner.
-        //
-        REBSIZ offset;
-        REBSIZ size;
-        REBSER *temp = Temp_UTF8_At_Managed(
-            &offset, &size, arg, VAL_LEN_AT(arg)
-        );
-        PUSH_GC_GUARD(temp);
+        REBSIZ size = VAL_SIZE_LIMIT_AT(nullptr, arg, -1);
+
         REBSTR * const filename = Canon(SYM___ANONYMOUS__);
         Init_Any_Array(
             out,
             kind,
-            Scan_UTF8_Managed(filename, BIN_AT(temp, offset), size)
+            Scan_UTF8_Managed(filename, AS_REBYTE_PTR(VAL_UNI_AT(arg)), size)
         );
-        DROP_GC_GUARD(temp);
         return out;
     }
     else if (ANY_ARRAY(arg)) {
@@ -165,6 +157,34 @@ REB_R MAKE_Array(
         // MAKE BLOCK! does?  Allow it for now.
         //
         return Init_Any_Array(out, kind, Typeset_To_Array(arg));
+    }
+    else if (ANY_ARRAY(arg)) {
+        //
+        // `to group! [1 2 3]` etc. -- copy the array data at the index
+        // position and change the type.  (Note: MAKE does not copy the
+        // data, but aliases it under a new kind.)
+        //
+        return Init_Any_Array(
+            out,
+            kind,
+            Copy_Values_Len_Shallow(
+                VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg), VAL_ARRAY_LEN_AT(arg)
+            )
+        );
+    }
+    else if (IS_TEXT(arg)) {
+        //
+        // `to block! "some string"` historically scans the source, so you
+        // get an unbound code array.
+        //
+        REBSIZ utf8_size;
+        REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, arg);
+        REBSTR * const filename = Canon(SYM___ANONYMOUS__);
+        return Init_Any_Array(
+            out,
+            kind,
+            Scan_UTF8_Managed(filename, utf8, utf8_size)
+        );
     }
     else if (IS_BINARY(arg)) {
         //

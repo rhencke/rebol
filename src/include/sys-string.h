@@ -624,6 +624,5 @@ inline static bool Is_String_ASCII(const RELVAL *str) {
     return false; // currently all strings are 16-bit REBUNI characters
 }
 
-
 #define Make_String(encoded_capacity) \
     Make_String_Core((encoded_capacity), SERIES_FLAGS_NONE)

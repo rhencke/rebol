@@ -184,16 +184,9 @@ REBNATIVE(make_routine)
     //
     // !!! Should it error if any bytes aren't ASCII?
     //
-    REBSIZ offset;
-    REBSIZ size;
-    REBSER *temp = Temp_UTF8_At_Managed(
-        &offset, &size, ARG(name), VAL_LEN_AT(ARG(name))
-    );
+    REBYTE *utf8 = VAL_UTF8_AT(NULL, ARG(name));
 
-    CFUNC *cfunc = OS_FIND_FUNCTION(
-        LIB_FD(lib),
-        SER_AT(char, temp, offset) // name may not be at head index
-    );
+    CFUNC *cfunc = OS_FIND_FUNCTION(LIB_FD(lib), cast(char*, utf8));
     if (cfunc == NULL)
         fail ("FFI: Couldn't find function in library");
 

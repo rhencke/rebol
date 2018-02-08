@@ -2433,7 +2433,7 @@ static REBARR *Scan_Full_Array(SCAN_STATE *ss, REBYTE mode_char)
 //
 // Scan source code. Scan state initialized. No header required.
 //
-REBARR *Scan_UTF8_Managed(REBSTR *filename, const REBYTE *utf8, REBCNT size)
+REBARR *Scan_UTF8_Managed(REBSTR *filename, const REBYTE *utf8, REBSIZ size)
 {
     SCAN_STATE ss;
     const REBLIN start_line = 1;

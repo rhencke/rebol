@@ -52,11 +52,6 @@ bool All_Bytes_ASCII(REBYTE *bp, REBCNT len)
 //     2. it does not contain other values ("123 456")
 //     3. it's not empty or only whitespace
 //
-// !!! Strings are in transition to becoming "UTF-8 Everywhere" but are not
-// there yet.  So this routine can't actually give back a pointer compatible
-// with the scan.  Leverages Temp_UTF8_At_Managed, so the pointer that is
-// returned could be GC'd if it's not guarded and evaluator logic runs.
-//
 REBYTE *Analyze_String_For_Scan(
     REBSIZ *opt_size_out,
     const REBVAL *any_string,
@@ -116,55 +111,7 @@ REBYTE *Analyze_String_For_Scan(
     Move_Value(reindexed, any_string);
     VAL_INDEX(reindexed) = index;
 
-    REBSIZ offset;
-    REBSER *temp = Temp_UTF8_At_Managed(
-        &offset, opt_size_out, reindexed, VAL_LEN_AT(reindexed)
-    );
-
-    return BIN_AT(temp, offset);
-}
-
-
-//
-//  Temp_UTF8_At_Managed: C
-//
-// !!! This is a routine that detected whether an R3-Alpha string was ASCII
-// and hence could be reused as-is for UTF-8 purposes.  If it could not, a
-// temporary string would be created for the string (which would either be
-// byte-sized and have codepoints > 128, or wide characters and thus be
-// UTF-8 incompatible).
-//
-// After the UTF-8 Everywhere conversion, this routine will not be necessary
-// because all strings will be usable as UTF-8.  But as an interim step for
-// "Latin1 Nowhere" where all strings are wide, this will *always* involve
-// an allocation.
-//
-// Mutation of the result is not allowed because those mutations will not
-// be reflected in the original string, due to generation.  Once the routine
-// is eliminated, use of the original string will mean getting whatever
-// mutability characteristics the original had.
-//
-REBSER *Temp_UTF8_At_Managed(
-    REBSIZ *offset_out,
-    REBSIZ *opt_size_out,
-    const REBCEL *str,
-    REBCNT length_limit
-){
-  #if !defined(NDEBUG)
-    if (not ANY_STRING_KIND(CELL_KIND(str))) {
-        printf("Temp_UTF8_At_Managed() called on non-ANY-STRING!");
-        panic (str);
-    }
-  #endif
-
-    assert(length_limit <= VAL_LEN_AT(str));
-
-    REBSER *s = VAL_SERIES(str);
-
-    *offset_out = VAL_OFFSET_FOR_INDEX(str, VAL_INDEX(str));
-    if (opt_size_out != NULL)
-        *opt_size_out = BIN_LEN(s) - *offset_out;
-    return s;
+    return VAL_UTF8_AT(opt_size_out, reindexed);
 }
 
 

@@ -219,36 +219,24 @@ REBNATIVE(checksum)
 
                 REBYTE tmpdigest[20]; // size must be max of all digest[].len
 
-                REBYTE *keycp;
-                REBSIZ keylen;
-                if (IS_BINARY(key)) {
-                    keycp = VAL_BIN_AT(key);
-                    keylen = VAL_LEN_AT(key);
-                }
-                else {
-                    assert(IS_TEXT(key));
+                assert(IS_BINARY(key) or IS_TEXT(key));
 
-                    REBSIZ offset;
-                    REBSER *temp = Temp_UTF8_At_Managed(
-                        &offset, &keylen, key, VAL_LEN_AT(key)
-                    );
-                    PUSH_GC_GUARD(temp);
-                    keycp = BIN_AT(temp, offset);
-                }
+                REBSIZ key_size;
+                REBYTE *key_bytes = VAL_BYTES_AT(&key_size, key);
 
-                if (keylen > blocklen) {
-                    digests[i].digest(keycp, keylen, tmpdigest);
-                    keycp = tmpdigest;
-                    keylen = digests[i].len;
+                if (key_size > blocklen) {
+                    digests[i].digest(key_bytes, key_size, tmpdigest);
+                    key_bytes = tmpdigest;
+                    key_size = digests[i].len;
                 }
 
                 REBYTE ipad[64]; // size must be max of all digest[].hmacblock
                 memset(ipad, 0, blocklen);
-                memcpy(ipad, keycp, keylen);
+                memcpy(ipad, key_bytes, key_size);
 
                 REBYTE opad[64]; // size must be max of all digest[].hmacblock
                 memset(opad, 0, blocklen);
-                memcpy(opad, keycp, keylen);
+                memcpy(opad, key_bytes, key_size);
 
                 REBCNT j;
                 for (j = 0; j < blocklen; j++) {
@@ -317,20 +305,11 @@ REBNATIVE(deflate)
 
     REBVAL *data = ARG(data);
 
-    REBCNT len = Part_Len_May_Modify_Index(data, ARG(limit));
+    REBCNT limit = Part_Len_May_Modify_Index(data, ARG(limit));
     UNUSED(PAR(part)); // checked by if limit is nulled
 
     REBSIZ size;
-    REBYTE *bp;
-    if (IS_BINARY(data)) {
-        bp = VAL_BIN_AT(data);
-        size = len; // width = sizeof(REBYTE), so limit = len
-    }
-    else {
-        REBSIZ offset;
-        REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, data, len);
-        bp = BIN_AT(temp, offset);
-    }
+    REBYTE *bp = VAL_BYTES_LIMIT_AT(&size, ARG(data), limit);
 
     REBSTR *envelope;
     if (not REF(envelope))
@@ -438,18 +417,15 @@ REBNATIVE(inflate)
 //      /base
 //          "Binary base to use"
 //      base-value [integer!]
-//          "The base to convert from: 64, 16, or 2"
+//          "The base to convert from: 64, 16, or 2 (defaults to 64)"
 //  ]
 //
 REBNATIVE(debase)
 {
     INCLUDE_PARAMS_OF_DEBASE;
 
-    REBSIZ offset;
     REBSIZ size;
-    REBSER *temp = Temp_UTF8_At_Managed(
-        &offset, &size, ARG(value), VAL_LEN_AT(ARG(value))
-    );
+    REBYTE *bp = VAL_BYTES_AT(&size, ARG(value));
 
     REBINT base = 64;
     if (REF(base))
@@ -457,7 +433,7 @@ REBNATIVE(debase)
     else
         base = 64;
 
-    if (!Decode_Binary(D_OUT, BIN_AT(temp, offset), size, base, 0))
+    if (!Decode_Binary(D_OUT, bp, size, base, 0))
         fail (Error_Invalid_Data_Raw(ARG(value)));
 
     return D_OUT;
@@ -488,20 +464,8 @@ REBNATIVE(enbase)
     else
         base = 64;
 
-    REBVAL *v = ARG(value);
-
     REBSIZ size;
-    REBYTE *bp;
-    if (IS_BINARY(v)) {
-        bp = VAL_BIN_AT(v);
-        size = VAL_LEN_AT(v);
-    }
-    else { // Convert the string to UTF-8
-        assert(ANY_STRING(v));
-        REBSIZ offset;
-        REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
-        bp = BIN_AT(temp, offset);
-    }
+    REBYTE *bp = VAL_BYTES_AT(&size, ARG(value));
 
     REBSER *enbased;
     const bool brk = false;

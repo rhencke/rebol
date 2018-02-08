@@ -142,21 +142,20 @@ static REB_R Transport_Actor(
 
             // Lookup host name (an extra TCP device step):
             if (IS_TEXT(arg)) {
-                REBSIZ offset;
-                REBSIZ size;
-                REBSER *temp = Temp_UTF8_At_Managed(
-                    &offset, &size, arg, VAL_LEN_AT(arg)
-                );
-                PUSH_GC_GUARD(temp);
+                //
+                // !!! This is storing a direct pointer into the given string
+                // data in the socket.  A better system is needed which would
+                // either pass the value itself with a temporary hold against
+                // mutation, or take ownership of a copy.
+                //
+                req->common.data = VAL_UTF8_AT(NULL, arg);
 
-                req->common.data = BIN_AT(temp, offset);
                 ReqNet(sock)->remote_port =
                     IS_INTEGER(port_id) ? VAL_INT32(port_id) : 80;
 
                 // Note: sets remote_ip field
                 //
                 REBVAL *l_result = OS_DO_DEVICE(sock, RDC_LOOKUP);
-                DROP_GC_GUARD(temp);
 
                 assert(l_result != NULL);
                 if (rebDid("error?", l_result, rebEND))
@@ -358,43 +357,28 @@ static REB_R Transport_Actor(
 
         // Setup the write:
 
-        REBSER *temp;
-        if (IS_BINARY(data)) {
-            temp = NULL;
-            req->common.data = VAL_BIN_AT(data);
-            req->length = len;
+        // !!! R3-Alpha did not lay out the invariants of the port model,
+        // or what datatypes it would accept at what levels.  TEXT! could be
+        // sent here--and it once could be wide characters or Latin1 without
+        // the user having knowledge of which.  UTF-8 everywhere has resolved
+        // that point (always UTF-8 bytes)...but the port model needs a top
+        // to bottom review of what types are accepted where and why.
 
-            Move_Value(CTX_VAR(ctx, STD_PORT_DATA), data); // keep it GC safe
-        }
-        else {
-            // !!! R3-Alpha did not lay out the invariants of the port model,
-            // or what datatypes it would accept at what levels.  STRING!
-            // could be sent here--and it could be wide characters or Latin1
-            // without the user having knowledge of which.  Yet it would write
-            // the string bytes raw either way, giving effectively random
-            // behavior.  Convert to UTF-8...but the port model needs a top
-            // to bottom review of what types are accepted where and why.
-            //
-            REBSIZ offset;
-            REBSIZ size;
-            temp = Temp_UTF8_At_Managed(
-                &offset,
-                &size,
-                data,
-                len
-            );
-            req->common.data = BIN_AT(temp, offset);
-            req->length = size;
+        assert(IS_BINARY(data) or IS_TEXT(data));
 
-            PUSH_GC_GUARD(temp);
-        }
+        REBSIZ size;
+        req->common.data = VAL_BYTES_AT(&size, data);
+        assert(len == size);
+        UNUSED(size);
+        req->length = len;
+
+        // keep it GC safe
+        //
+        Move_Value(CTX_VAR(VAL_CONTEXT(port), STD_PORT_DATA), data);
 
         req->actual = 0;
 
         REBVAL *result = OS_DO_DEVICE(sock, RDC_WRITE);
-
-        if (temp != NULL)
-            DROP_GC_GUARD(temp);
 
         if (result == NULL) {
             //

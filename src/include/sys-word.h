@@ -140,6 +140,80 @@ inline static REBVAL *Init_Any_Word_Bound(
 }
 
 
+
+// Historically, it was popular for routines that wanted BINARY! data to also
+// accept a STRING!, which would be automatically converted to UTF-8 binary
+// data.  This makes those more convenient to write.
+//
+// !!! With the existence of AS, this might not be as useful as leaving
+// STRING! open for a different meaning (or an error as a sanity check).
+//
+inline static REBYTE *VAL_BYTES_LIMIT_AT(
+    REBSIZ *size_out,
+    const RELVAL *v,
+    REBCNT limit
+){
+    if (limit == UNKNOWN || limit > VAL_LEN_AT(v))
+        limit = VAL_LEN_AT(v);
+
+    if (IS_BINARY(v)) {
+        *size_out = limit;
+        return VAL_BIN_AT(v);
+    }
+
+    if (ANY_STRING(v)) {    
+        *size_out = VAL_SIZE_LIMIT_AT(NULL, v, limit);
+        return AS_REBYTE_PTR(VAL_UNI_AT(v));
+    }
+
+    assert(ANY_WORD(v));
+    assert(limit == VAL_LEN_AT(v)); // !!! TBD: string unification
+
+    REBSTR *spelling = VAL_WORD_SPELLING(v);
+    *size_out = STR_SIZE(spelling);
+    return cast(REBYTE*, STR_HEAD(spelling)); 
+}
+
+#define VAL_BYTES_AT(size_out,v) \
+    VAL_BYTES_LIMIT_AT((size_out), (v), UNKNOWN)
+
+
+// Analogous to VAL_BYTES_AT, some routines were willing to accept either an
+// ANY-WORD! or an ANY-STRING! to get UTF-8 data.  This is a convenience
+// routine for handling that.
+//
+inline static REBYTE *VAL_UTF8_AT(REBSIZ *size_out, const RELVAL *v)
+{
+    REBYTE *utf8;
+    REBSIZ utf8_size;
+    if (ANY_STRING(v)) {
+        utf8_size = VAL_SIZE_LIMIT_AT(NULL, v, UNKNOWN);
+        utf8 = AS_REBYTE_PTR(VAL_UNI_AT(v));
+    }
+    else {
+        assert(ANY_WORD(v));
+
+        REBSTR *spelling = VAL_WORD_SPELLING(v);
+        utf8_size = STR_SIZE(spelling);
+        utf8 = cast(REBYTE*, STR_HEAD(spelling));
+    }
+
+    // A STRING! can contain embedded '\0', so it's not very safe for callers
+    // to not ask for a size and just go by the null terminator.  Check it in
+    // the debug build, though perhaps consider a fail() in the release build.
+    //
+  #if !defined(NDEBUG)
+    REBCNT n;
+    for (n = 0; n < utf8_size; ++n)
+        assert(utf8[n] != '\0');
+  #endif
+
+    if (size_out != NULL)
+        *size_out = utf8_size;
+    return utf8; 
+}
+
+
 // To make interfaces easier for some functions that take REBSTR* strings,
 // it can be useful to allow passing UTF-8 text, a REBVAL* with an ANY-WORD!
 // or ANY-STRING!, or just plain UTF-8 text.
@@ -177,25 +251,31 @@ inline static REBSTR* Intern(const void *p)
 
         assert(ANY_STRING(v));
 
-        // The string may be mutable, so we wouldn't want to store it
-        // persistently as-is.  Consider:
+        // You would not want the change of `file` to affect the filename
+        // references in x's loaded source.
         //
         //     file: copy %test
         //     x: transcode/file data1 file
         //     append file "-2"
         //     y: transcode/file data2 file
         //
-        // You would not want the change of `file` to affect the filename
-        // references in x's loaded source.  So the series shouldn't be used
-        // directly, and as long as another reference is needed, use an
-        // interned one (the same mechanic words use).
+        // So mutable series shouldn't be used directly.  Reuse the string
+        // interning mechanics to cut down on storage.
         //
-        REBSIZ offset;
-        REBSIZ size;
-        REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
-        return Intern_UTF8_Managed(BIN_AT(temp, offset), size); }
+        // !!! With UTF-8 Everywhere, could locked strings be used here?
+        // Should all locked strings become interned, and forward pointers
+        // to the old series in the background to the interned version?
+        //
+        // !!! We know the length in codepoints, should we pass it to the
+        // Intern_UTF8 function to store?  Does it usually have to scan to
+        // calculate this, or can it be done on demand?
+        //
+        REBSIZ utf8_size;
+        REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
+        return Intern_UTF8_Managed(utf8, utf8_size); }
 
       default:
         panic ("Bad pointer type passed to Intern()");
     }
 }
+

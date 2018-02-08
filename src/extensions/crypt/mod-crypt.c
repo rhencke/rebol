@@ -612,23 +612,8 @@ REBNATIVE(sha256)
 {
     CRYPT_INCLUDE_PARAMS_OF_SHA256;
 
-    REBVAL *data = ARG(data);
-
-    REBYTE *bp;
     REBSIZ size;
-    if (IS_TEXT(data)) {
-        REBSIZ offset;
-        REBSER *temp = Temp_UTF8_At_Managed(
-            &offset, &size, data, VAL_LEN_AT(data)
-        );
-        bp = BIN_AT(temp, offset);
-    }
-    else {
-        assert(IS_BINARY(data));
-
-        bp = VAL_BIN_AT(data);
-        size = VAL_LEN_AT(data);
-    }
+    REBYTE *bp = VAL_UTF8_AT(&size, ARG(data));
 
     SHA256_CTX ctx;
 

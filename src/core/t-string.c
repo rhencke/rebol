@@ -1215,13 +1215,11 @@ REBTYPE(String)
 
         if (REF(seed)) { // string/binary contents are the seed
             assert(ANY_STRING(v));
-            Set_Random(
-                Compute_CRC24(
-                    AS_REBYTE_PTR(VAL_UNI_AT(v)),
-                    VAL_SIZE_AT(v)
-                )
-            );
-            return nullptr;
+
+            REBSIZ utf8_size;
+            REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v); 
+            Set_Random(Compute_CRC24(utf8, utf8_size));
+            return Init_Void(D_OUT);
         }
 
         FAIL_IF_READ_ONLY(v);

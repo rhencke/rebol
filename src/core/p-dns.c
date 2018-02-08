@@ -95,19 +95,16 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
             memcpy(&(ReqNet(req)->remote_ip), VAL_TUPLE(arg), 4);
         }
         else if (IS_TEXT(arg)) {
-            REBSIZ offset;
-            REBSIZ size;
-            REBSER *temp = Temp_UTF8_At_Managed(
-                &offset, &size, arg, VAL_LEN_AT(arg)
-            );
+            REBSIZ utf8_size;
+            REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, arg);
 
-            DECLARE_LOCAL (tmp);
-            if (Scan_Tuple(tmp, BIN_AT(temp, offset), size) != NULL) {
+            DECLARE_LOCAL (tuple);
+            if (Scan_Tuple(tuple, utf8, utf8_size) != NULL) {
                 sock->modes |= RST_REVERSE;
-                memcpy(&(ReqNet(req)->remote_ip), VAL_TUPLE(tmp), 4);
+                memcpy(&(ReqNet(req)->remote_ip), VAL_TUPLE(tuple), 4);
             }
             else // lookup string's IP address
-                sock->common.data = BIN_AT(temp, offset);
+                sock->common.data = utf8;
         }
         else
             fail (Error_On_Port(SYM_INVALID_SPEC, port, -10));
