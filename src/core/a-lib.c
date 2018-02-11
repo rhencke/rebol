@@ -977,7 +977,7 @@ size_t RL_rebSpellInto(
     assert(ANY_STRING(v) or ANY_WORD(v));
 
     REBSIZ utf8_size;
-    REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
+    const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
 
     if (not buf) {
         assert(buf_size == 0);

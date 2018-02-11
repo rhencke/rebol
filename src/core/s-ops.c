@@ -52,7 +52,7 @@ bool All_Bytes_ASCII(REBYTE *bp, REBCNT len)
 //     2. it does not contain other values ("123 456")
 //     3. it's not empty or only whitespace
 //
-REBYTE *Analyze_String_For_Scan(
+const REBYTE *Analyze_String_For_Scan(
     REBSIZ *opt_size_out,
     const REBVAL *any_string,
     REBCNT max_len // maximum length in *codepoints*

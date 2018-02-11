@@ -455,7 +455,7 @@ REB_R MAKE_Date(
 
     if (IS_TEXT(arg)) {
         REBSIZ size;
-        REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_DATE);
+        const REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_DATE);
         if (NULL == Scan_Date(out, bp, size))
             goto bad_make;
         return out;

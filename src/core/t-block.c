@@ -178,7 +178,7 @@ REB_R MAKE_Array(
         // get an unbound code array.
         //
         REBSIZ utf8_size;
-        REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, arg);
+        const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, arg);
         REBSTR * const filename = Canon(SYM___ANONYMOUS__);
         return Init_Any_Array(
             out,

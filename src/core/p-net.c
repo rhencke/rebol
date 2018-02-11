@@ -148,7 +148,9 @@ static REB_R Transport_Actor(
                 // either pass the value itself with a temporary hold against
                 // mutation, or take ownership of a copy.
                 //
-                req->common.data = VAL_UTF8_AT(NULL, arg);
+                // !!! Should not modify!
+                //
+                req->common.data = m_cast(REBYTE*, VAL_UTF8_AT(NULL, arg));
 
                 ReqNet(sock)->remote_port =
                     IS_INTEGER(port_id) ? VAL_INT32(port_id) : 80;
@@ -363,11 +365,13 @@ static REB_R Transport_Actor(
         // the user having knowledge of which.  UTF-8 everywhere has resolved
         // that point (always UTF-8 bytes)...but the port model needs a top
         // to bottom review of what types are accepted where and why.
+        //
+        // !!! Uses m_cast, but should not modify!
 
         assert(IS_BINARY(data) or IS_TEXT(data));
 
         REBSIZ size;
-        req->common.data = VAL_BYTES_AT(&size, data);
+        req->common.data = m_cast(REBYTE*, VAL_BYTES_AT(&size, data));
         assert(len == size);
         UNUSED(size);
         req->length = len;

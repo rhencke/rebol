@@ -178,7 +178,8 @@ REB_R MAKE_Decimal(
 
     case REB_TEXT: {
         REBSIZ size;
-        REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_DECIMAL);
+        const REBYTE *bp
+            = Analyze_String_For_Scan(&size, arg, MAX_SCAN_DECIMAL);
 
         if (NULL == Scan_Decimal(out, bp, size, kind != REB_PERCENT))
             goto bad_make;

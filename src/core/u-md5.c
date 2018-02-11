@@ -22,7 +22,7 @@ typedef struct MD5state_st {
 } MD5_CTX;
 
 EXTERN_C void MD5_Init(MD5_CTX *c);
-EXTERN_C void MD5_Update(MD5_CTX *c, unsigned char *data, MD5_LONG len);
+EXTERN_C void MD5_Update(MD5_CTX *c, const unsigned char *data, MD5_LONG len);
 EXTERN_C void MD5_Final(unsigned char *md, MD5_CTX *c);
 EXTERN_C int MD5_CtxSize(void);
 
@@ -168,7 +168,7 @@ void MD5_Init(MD5_CTX *c) {
     c->num=0;
 }
 
-void MD5_Update(MD5_CTX *c, unsigned char *data, MD5_LONG len)
+void MD5_Update(MD5_CTX *c, const unsigned char *data, MD5_LONG len)
 {
     ULONG *p;
     int sw,sc;
@@ -394,16 +394,19 @@ int MD5_CtxSize(void) {
 //
 //  MD5: C
 //
-REBYTE *MD5(REBYTE *d, REBCNT n, REBYTE *md)
+REBYTE *MD5(const REBYTE *data, REBCNT data_len, REBYTE *md)
 {
-    MD5_CTX c;
     static unsigned char m[MD5_DIGEST_LENGTH];
+    if (md == NULL)
+        md = m;
 
-    if (!md) md=m;
+    MD5_CTX c;
     MD5_Init(&c);
-    MD5_Update(&c,d,n);
+    MD5_Update(&c, data, data_len);
     MD5_Final(md,&c);
-    memset(&c,0,sizeof(c)); /* security consideration */
+
+    memset(&c, 0, sizeof(c)); // !!! Comment said "security consideration"
+
     return(md);
 }
 

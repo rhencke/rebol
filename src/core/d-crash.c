@@ -208,7 +208,7 @@ REBNATIVE(panic)
     INCLUDE_PARAMS_OF_PANIC;
 
     REBVAL *v = ARG(reason);
-    void *p;
+    const void *p;
 
     // panic() on the string value itself would report information about the
     // string cell...but panic() on UTF-8 character data assumes you mean to

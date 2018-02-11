@@ -63,7 +63,8 @@ REB_R MAKE_Pair(
         // -1234567890x-1234567890
         //
         REBSIZ size;
-        REBYTE *bp = Analyze_String_For_Scan(&size, arg, VAL_LEN_AT(arg));
+        const REBYTE *bp
+            = Analyze_String_For_Scan(&size, arg, VAL_LEN_AT(arg));
 
         if (NULL == Scan_Pair(out, bp, size))
             goto bad_make;

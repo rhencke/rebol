@@ -417,14 +417,10 @@ static uintptr_t arg_to_ffi(
             // still broken w.r.t. relocations or modification, but better
             // in that the series data will always be UTF-8
             //
-        #if !defined(NDEBUG)
-            printf("Latin1-Nowhere has all wide strings, confuses FFI\n");
-            printf("UTF-8-Everywhere will relieve this problem somewhat.\n");
-            fflush(stdout);
-        #endif
-            REBYTE *raw_ptr = VAL_RAW_DATA_AT(arg);
-            memcpy(dest, &raw_ptr, sizeof(raw_ptr)); // copies a *pointer*!
-            break;}
+            panic (
+                "Latin1-Nowhere has all wide strings, confuses FFI.\n"
+                "UTF-8-Everywhere will relieve this problem somewhat."
+            ); }
 
         case REB_ACTION:{
             if (not IS_ACTION_RIN(arg))

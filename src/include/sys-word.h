@@ -148,7 +148,7 @@ inline static REBVAL *Init_Any_Word_Bound(
 // !!! With the existence of AS, this might not be as useful as leaving
 // STRING! open for a different meaning (or an error as a sanity check).
 //
-inline static REBYTE *VAL_BYTES_LIMIT_AT(
+inline static const REBYTE *VAL_BYTES_LIMIT_AT(
     REBSIZ *size_out,
     const RELVAL *v,
     REBCNT limit
@@ -171,7 +171,7 @@ inline static REBYTE *VAL_BYTES_LIMIT_AT(
 
     REBSTR *spelling = VAL_WORD_SPELLING(v);
     *size_out = STR_SIZE(spelling);
-    return cast(REBYTE*, STR_HEAD(spelling)); 
+    return cast(const REBYTE*, STR_HEAD(spelling)); 
 }
 
 #define VAL_BYTES_AT(size_out,v) \
@@ -182,9 +182,9 @@ inline static REBYTE *VAL_BYTES_LIMIT_AT(
 // ANY-WORD! or an ANY-STRING! to get UTF-8 data.  This is a convenience
 // routine for handling that.
 //
-inline static REBYTE *VAL_UTF8_AT(REBSIZ *size_out, const RELVAL *v)
+inline static const REBYTE *VAL_UTF8_AT(REBSIZ *size_out, const RELVAL *v)
 {
-    REBYTE *utf8;
+    const REBYTE *utf8;
     REBSIZ utf8_size;
     if (ANY_STRING(v)) {
         utf8_size = VAL_SIZE_LIMIT_AT(NULL, v, UNKNOWN);
@@ -195,7 +195,7 @@ inline static REBYTE *VAL_UTF8_AT(REBSIZ *size_out, const RELVAL *v)
 
         REBSTR *spelling = VAL_WORD_SPELLING(v);
         utf8_size = STR_SIZE(spelling);
-        utf8 = cast(REBYTE*, STR_HEAD(spelling));
+        utf8 = cast(const REBYTE*, STR_HEAD(spelling));
     }
 
     // A STRING! can contain embedded '\0', so it's not very safe for callers
@@ -271,7 +271,7 @@ inline static REBSTR* Intern(const void *p)
         // calculate this, or can it be done on demand?
         //
         REBSIZ utf8_size;
-        REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
+        const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v);
         return Intern_UTF8_Managed(utf8, utf8_size); }
 
       default:

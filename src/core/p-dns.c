@@ -96,7 +96,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
         }
         else if (IS_TEXT(arg)) {
             REBSIZ utf8_size;
-            REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, arg);
+            const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, arg);
 
             DECLARE_LOCAL (tuple);
             if (Scan_Tuple(tuple, utf8, utf8_size) != NULL) {

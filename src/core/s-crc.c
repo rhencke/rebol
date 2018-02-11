@@ -121,7 +121,7 @@ static void Make_CRC24_Table(REBCNT poly)
 // are necessary so long as compatibility with the historical results
 // of the CHECKSUM native is needed.
 //
-REBINT Compute_CRC24(REBYTE *str, REBCNT len)
+REBINT Compute_CRC24(const REBYTE *str, REBCNT len)
 {
     REBINT crc = cast(REBINT, len) + cast(REBINT, cast(REBYTE, *str));
 

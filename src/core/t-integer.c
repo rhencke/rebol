@@ -286,7 +286,7 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, bool no_sign)
     else if (ANY_STRING(value)) {
         REBSIZ size;
         const REBCNT max_len = VAL_LEN_AT(value); // e.g. "no maximum"
-        REBYTE *bp = Analyze_String_For_Scan(&size, value, max_len);
+        const REBYTE *bp = Analyze_String_For_Scan(&size, value, max_len);
         if (
             memchr(bp, '.', size)
             || memchr(bp, 'e', size)

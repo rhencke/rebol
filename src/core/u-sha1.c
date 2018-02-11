@@ -85,7 +85,7 @@ typedef struct SHAstate_st
     } SHA_CTX;
 
 EXTERN_C void SHA1_Init(void *c);
-EXTERN_C void SHA1_Update(void *c, unsigned char *data, size_t len);
+EXTERN_C void SHA1_Update(void *c, const REBYTE *data, REBCNT len);
 EXTERN_C void SHA1_Final(unsigned char *md, void *c);
 EXTERN_C int SHA1_CtxSize(void);
 
@@ -321,7 +321,7 @@ void SHA1_Init(void *c_opaque)
     c->num=0;
     }
 
-void SHA1_Update(void *c_opaque, unsigned char *data, size_t len)
+void SHA1_Update(void *c_opaque, const REBYTE *data, REBCNT len)
     {
     SHA_CTX *c = (SHA_CTX*)c_opaque;
     ULONG *p;
@@ -665,17 +665,19 @@ int SHA1_CtxSize(void) {
 //
 //  SHA1: C
 //
-REBYTE *SHA1(REBYTE *d, REBCNT n, REBYTE *md)
+REBYTE *SHA1(const REBYTE *data, REBCNT data_len, REBYTE *md)
 {
-    // d is data, n is length
-    SHA_CTX c;
-    static unsigned char m[SHA_DIGEST_LENGTH];
+    static REBYTE m[SHA_DIGEST_LENGTH];
+    if (md == NULL)
+        md = m;
 
-    if (md == NULL) md = (REBYTE*)m;
+    SHA_CTX c;
     SHA1_Init(&c);
-    SHA1_Update(&c,(unsigned char*)d,n);
-    SHA1_Final((unsigned char*)md,&c);
-    memset(&c,0,sizeof(c));
+    SHA1_Update(&c, data, data_len);
+    SHA1_Final(md, &c);
+
+    memset(&c, 0, sizeof(c)); // !!! Comment said "security consideration"
+
     return md;
 }
 

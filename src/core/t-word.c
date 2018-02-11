@@ -88,7 +88,7 @@ REB_R MAKE_Word(
 
     if (ANY_STRING(arg)) {
         REBSIZ size;
-        REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_WORD);
+        const REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_WORD);
 
         if (kind == REB_ISSUE) {
             if (NULL == Scan_Issue(out, bp, size))

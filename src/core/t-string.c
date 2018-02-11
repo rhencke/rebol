@@ -1245,7 +1245,7 @@ REBTYPE(String)
             assert(ANY_STRING(v));
 
             REBSIZ utf8_size;
-            REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v); 
+            const REBYTE *utf8 = VAL_UTF8_AT(&utf8_size, v); 
             Set_Random(Compute_CRC24(utf8, utf8_size));
             return Init_Void(D_OUT);
         }
@@ -1255,7 +1255,7 @@ REBTYPE(String)
         if (REF(only)) {
             if (index >= tail)
                 return nullptr;
-            index += (REBCNT)Random_Int(REF(secure)) % (tail - index);
+            index += cast(REBCNT, Random_Int(REF(secure))) % (tail - index);
             str_to_char(D_OUT, v, index);
             return D_OUT;
         }

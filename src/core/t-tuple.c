@@ -71,8 +71,10 @@ REB_R MAKE_Tuple(
     //
     if (IS_TEXT(arg) or IS_URL(arg)) {
         REBSIZ size;
-        REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_TUPLE);
-        if (Scan_Tuple(out, bp, size) == NULL)
+        const REBYTE *bp
+            = Analyze_String_For_Scan(&size, arg, MAX_SCAN_TUPLE);
+
+        if (Scan_Tuple(out, bp, size) == nullptr)
             fail (arg);
         return out;
     }

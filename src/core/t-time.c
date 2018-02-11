@@ -232,7 +232,7 @@ REB_R MAKE_Time(
 
     case REB_TEXT: { // scan using same decoding as LOAD would
         REBSIZ size;
-        REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_TIME);
+        const REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_TIME);
 
         if (Scan_Time(out, bp, size) == NULL)
             goto no_time;

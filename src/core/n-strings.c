@@ -41,14 +41,14 @@
     // REBYTE *SHA1(REBYTE *, REBCNT, REBYTE *);
 
     EXTERN_C void SHA1_Init(void *c);
-    EXTERN_C void SHA1_Update(void *c, REBYTE *data, REBCNT len);
+    EXTERN_C void SHA1_Update(void *c, const REBYTE *data, REBCNT len);
     EXTERN_C void SHA1_Final(REBYTE *md, void *c);
     EXTERN_C int SHA1_CtxSize(void);
 #endif
 
 #if !defined(MD5_DEFINED) && defined(HAS_MD5)
     EXTERN_C void MD5_Init(void *c);
-    EXTERN_C void MD5_Update(void *c, REBYTE *data, REBCNT len);
+    EXTERN_C void MD5_Update(void *c, const REBYTE *data, REBCNT len);
     EXTERN_C void MD5_Final(REBYTE *md, void *c);
     EXTERN_C int MD5_CtxSize(void);
 #endif
@@ -57,7 +57,7 @@
     REBYTE *MD4(REBYTE *, REBCNT, REBYTE *);
 
     EXTERN_C void MD4_Init(void *c);
-    EXTERN_C void MD4_Update(void *c, REBYTE *data, REBCNT len);
+    EXTERN_C void MD4_Update(void *c, const REBYTE *data, REBCNT len);
     EXTERN_ void MD4_Final(REBYTE *md, void *c);
     EXTERN_C int MD4_CtxSize(void);
 #endif
@@ -65,9 +65,9 @@
 
 // Table of has functions and parameters:
 static struct {
-    REBYTE *(*digest)(REBYTE *, REBCNT, REBYTE *);
+    REBYTE *(*digest)(const REBYTE *, REBCNT, REBYTE *);
     void (*init)(void *);
-    void (*update)(void *, REBYTE *, REBCNT);
+    void (*update)(void *, const REBYTE *, REBCNT);
     void (*final)(REBYTE *, void *);
     int (*ctxsize)(void);
     REBSYM sym;
@@ -222,7 +222,7 @@ REBNATIVE(checksum)
                 assert(IS_BINARY(key) or IS_TEXT(key));
 
                 REBSIZ key_size;
-                REBYTE *key_bytes = VAL_BYTES_AT(&key_size, key);
+                const REBYTE *key_bytes = VAL_BYTES_AT(&key_size, key);
 
                 if (key_size > blocklen) {
                     digests[i].digest(key_bytes, key_size, tmpdigest);
@@ -309,7 +309,7 @@ REBNATIVE(deflate)
     UNUSED(PAR(part)); // checked by if limit is nulled
 
     REBSIZ size;
-    REBYTE *bp = VAL_BYTES_LIMIT_AT(&size, ARG(data), limit);
+    const REBYTE *bp = VAL_BYTES_LIMIT_AT(&size, ARG(data), limit);
 
     REBSTR *envelope;
     if (not REF(envelope))
@@ -425,7 +425,7 @@ REBNATIVE(debase)
     INCLUDE_PARAMS_OF_DEBASE;
 
     REBSIZ size;
-    REBYTE *bp = VAL_BYTES_AT(&size, ARG(value));
+    const REBYTE *bp = VAL_BYTES_AT(&size, ARG(value));
 
     REBINT base = 64;
     if (REF(base))
@@ -465,7 +465,7 @@ REBNATIVE(enbase)
         base = 64;
 
     REBSIZ size;
-    REBYTE *bp = VAL_BYTES_AT(&size, ARG(value));
+    const REBYTE *bp = VAL_BYTES_AT(&size, ARG(value));
 
     DECLARE_MOLD (mo);
     Push_Mold(mo);
