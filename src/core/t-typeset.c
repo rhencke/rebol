@@ -328,7 +328,7 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
         if (TYPE_CHECK(v, cast(enum Reb_Kind, n)))
             Emit(mo, "+DN ", SYM_DATATYPE_X, Canon(cast(REBSYM, n)));
     }
-    Trim_Tail(mo->series, ' ');
+    Trim_Tail(mo, ' ');
 
     if (not form) {
         Append_Codepoint(mo->series, ']');

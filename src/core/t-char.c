@@ -92,9 +92,15 @@ REB_R MAKE_Char(
         return Init_Char(out, uni); }
 
       case REB_TEXT:
+        //
+        // !!! The R3-Alpha and Red behavior or `make char! next "abc"` is
+        // to give back #"b".  This is of questionable use, as it does the
+        // same thing as FIRST.  More useful would be if it translated
+        // escape sequence strings like "^(AEBD)" or HTML entity names.
+        //
         if (VAL_INDEX(arg) >= VAL_LEN_HEAD(arg))
             goto bad_make;
-        return Init_Char(out, GET_ANY_CHAR(VAL_SERIES(arg), VAL_INDEX(arg)));
+        return Init_Char(out, CHR_CODE(VAL_UNI_AT(arg)));
 
       default:
         break;

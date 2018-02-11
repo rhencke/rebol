@@ -512,7 +512,7 @@ REBNOD *Try_Find_Containing_Node_Debug(const void *p)
 
             if (p >= cast(void*,
                 s->content.dynamic.data
-                + (SER_WIDE(s) * SER_LEN(s))
+                + (SER_WIDE(s) * SER_USED(s))
             )) {
                 printf("Pointer found in freed tail capacity of series\n");
                 fflush(stdout);
@@ -812,7 +812,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     REBCNT n_found;
     for (n_found = 0; n_found < MAX_EXPAND_LIST; n_found++) {
         if (Prior_Expand[n_found] == s) {
-            x = SER_LEN(s) + delta + 1; // Double the size
+            x = SER_USED(s) + delta + 1; // Double the size
             break;
         }
         if (!Prior_Expand[n_found])
@@ -913,15 +913,11 @@ void Swap_Series_Content(REBSER* a, REBSER* b)
     // for mutating an array node into a non-array or vice versa.
     //
     assert(IS_SER_ARRAY(a) == IS_SER_ARRAY(b));
+    assert(SER_WIDE(a) == SER_WIDE(b));
 
     // There are bits in the ->info and ->header which pertain to the content,
     // which includes whether the series is dynamic or if the data lives in
-    // the node itself, the width (right 8 bits), etc.  Note that the length
-    // of non-dynamic series lives in the info.
-
-    REBYTE a_wide = WIDE_BYTE_OR_0(a); // indicates array if 0
-    mutable_WIDE_BYTE_OR_0(a) = WIDE_BYTE_OR_0(b);
-    mutable_WIDE_BYTE_OR_0(b) = a_wide;
+    // the node itself, the width (right 8 bits), etc.
 
     REBYTE a_len = LEN_BYTE_OR_255(a); // indicates dynamic if 255
     mutable_LEN_BYTE_OR_255(a) = LEN_BYTE_OR_255(b);
@@ -957,7 +953,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
 
     bool preserve = did (flags & NODE_FLAG_NODE);
 
-    REBCNT len_old = SER_LEN(s);
+    REBCNT used_old = SER_USED(s);
     REBYTE wide_old = SER_WIDE(s);
 
   #if !defined(NDEBUG)
@@ -1011,7 +1007,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         // operations may extract the data pointer ahead of time and do this
         // more selectively)
 
-        s->content.dynamic.used = MIN(len_old, units);
+        s->content.dynamic.used = MIN(used_old, units);
         memcpy(
             s->content.dynamic.data,
             data_old,
@@ -1024,6 +1020,13 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         TERM_ARRAY_LEN(ARR(s), SER_LEN(s));
     else
         TERM_SEQUENCE(s);
+
+  #ifdef DEBUG_UTF8_EVERYWHERE
+    if (GET_SERIES_FLAG(s, UTF8_NONWORD)) {
+        MISC(s).length = 0xDECAFBAD;
+        TOUCH_SERIES_IF_DEBUG(s);
+    }
+  #endif
 
     if (was_dynamic)
         Free_Unbiased_Series_Data(data_old - (wide_old * bias_old), size_old);
@@ -1414,7 +1417,7 @@ void Dump_All_Series_Of_Size(REBCNT size)
                 printf(
                     "%3d %4d %4d\n",
                     cast(int, count),
-                    cast(int, SER_LEN(s)),
+                    cast(int, SER_USED(s)),
                     cast(int, SER_REST(s))
                 );
             }

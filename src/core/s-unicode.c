@@ -822,8 +822,6 @@ const REBYTE *Back_Scan_UTF8_Char(
     // UTF-16 surrogate values are illegal in UTF-32, and anything
     // over Plane 17 (> 0x10FFFF) is illegal.
     //
-    // !!! Is this still relevant, in a system that is fully UTF8 based?
-    //
     if (*out > UNI_MAX_LEGAL_UTF32)
         return NULL;
     if (*out >= UNI_SUR_HIGH_START && *out <= UNI_SUR_LOW_END)

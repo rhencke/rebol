@@ -359,31 +359,15 @@ REBNATIVE(make_native)
     else {
         // Auto-generate a linker name based on the numeric value of the
         // paramlist pointer.  Just "N_" followed by the hexadecimal value.
-        // So 2 chars per byte, plus 2 for "N_", and account for the
-        // terminator (even though it's set implicitly).
-        //
-        // Note: This repeats some work in ENBASE.
 
-        unsigned int len = 2 + (sizeof(REBACT*) * 2);
-        REBSER *ser = Make_Unicode(len);
-        REBARR *paramlist = ACT_PARAMLIST(native); // unique for this action!
-        const char *src = cast(const char*, &paramlist);
-        REBCHR(*) dest = UNI_HEAD(ser);
+        REBARR *paramlist = ACT_PARAMLIST(native);  // unique for this action!
+        intptr_t heapaddr = cast(intptr_t, paramlist);
+        REBVAL *linkname = rebRun(
+            "unspaced [{N_} as text! to-hex", rebI(heapaddr), "]",
+        rebEND);
 
-        *dest ='N';
-        ++dest;
-        *dest = '_';
-        ++dest;
-
-        unsigned int n = 0;
-        while (n < sizeof(REBACT*)) {
-            dest = Form_Hex2(dest, *src); // terminates each time
-            ++src;
-            ++n;
-        }
-        TERM_UNI_LEN_USED(ser, len, len);
-
-        Init_Text(ARR_AT(details, IDX_TCC_NATIVE_LINKNAME), ser);
+        Move_Value(ARR_AT(details, IDX_TCC_NATIVE_LINKNAME), linkname);
+        rebRelease(linkname);
     }
 
     Init_Blank(ARR_AT(details, IDX_TCC_NATIVE_STATE)); // no TCC_State, yet...

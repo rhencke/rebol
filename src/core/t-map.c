@@ -676,7 +676,7 @@ REBTYPE(Map)
         INCLUDE_PARAMS_OF_FIND;
 
         UNUSED(PAR(series));
-        UNUSED(PAR(value)); // handled as `arg`
+        UNUSED(PAR(pattern)); // handled as `arg`
 
         if (REF(part)) {
             UNUSED(ARG(limit));

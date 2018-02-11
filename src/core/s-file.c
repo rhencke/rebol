@@ -243,7 +243,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                     //
                     REBCNT n = UNI_LEN(mo->series);
                     if (n > mo->index) {
-                        REBCHR(*) tp = UNI_TAIL(mo->series);
+                        REBCHR(*) tp = UNI_LAST(mo->series);
 
                         --n;
                         tp = BACK_CHR(&c, tp);
@@ -264,7 +264,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
                         TERM_UNI_LEN_USED(
                             mo->series,
                             n,
-                            tp - UNI_HEAD(mo->series)
+                            tp - UNI_HEAD(mo->series) + 1
                         );
                     }
 

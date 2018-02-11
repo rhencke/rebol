@@ -251,18 +251,20 @@ void Shuffle_String(REBVAL *value, bool secure)
 //
 // Used to trim off hanging spaces during FORM and MOLD.
 //
-void Trim_Tail(REBSER *src, REBYTE chr)
+void Trim_Tail(REB_MOLD *mo, REBYTE ascii)
 {
-    assert(BYTE_SIZE(src)); // mold buffer
+    assert(ascii < 0x80); // more work needed for multi-byte characters
 
-    REBCNT tail;
-    for (tail = SER_LEN(src); tail > 0; tail--) {
-        REBUNI c = *BIN_AT(src, tail - 1);
-        if (c != chr)
+    REBCNT len = SER_LEN(mo->series);
+    REBSIZ used = SER_USED(mo->series);
+
+    for (; used > 0; --used, --len) {
+        REBYTE b = *BIN_AT(mo->series, used - 1);
+        if (b != ascii)
             break;
     }
-    SET_SERIES_LEN(src, tail);
-    TERM_SEQUENCE(src);
+
+    TERM_UNI_LEN_USED(mo->series, len, used);
 }
 
 
@@ -279,10 +281,6 @@ void Change_Case(
 ){
     if (IS_CHAR(val)) {
         REBUNI c = VAL_CHAR(val);
-        if (c >= UNICODE_CASES) {
-            Init_Char(out, c);
-            return;
-        }
         Init_Char(out, upper ? UP_CASE(c) : LO_CASE(c));
         return;
     }
@@ -379,6 +377,8 @@ REBARR *Split_Lines(const REBVAL *str)
 
         Init_Text(DS_PUSH(), Pop_Molded_String(mo));
         SET_CELL_FLAG(DS_TOP, NEWLINE_BEFORE);
+
+        Push_Mold(mo);
 
         if (c == CR) {
             REBCHR(const *) tp = NEXT_CHR(&c, cp);

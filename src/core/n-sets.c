@@ -192,7 +192,7 @@ REBSER *Make_Set_Operation_Series(
             for (; i < SER_LEN(ser); i += skip) {
                 uc = GET_ANY_CHAR(ser, i);
                 if (flags & SOP_FLAG_CHECK) {
-                    h = (NOT_FOUND != Find_Str_Char(
+                    h = (NOT_FOUND != Find_Char_In_Str(
                         uc,
                         VAL_SERIES(val2),
                         0,
@@ -208,7 +208,7 @@ REBSER *Make_Set_Operation_Series(
                 if (!h) continue;
 
                 if (
-                    NOT_FOUND == Find_Str_Char(
+                    NOT_FOUND == Find_Char_In_Str(
                         uc, // c2 (the character to find)
                         mo->series, // ser
                         mo->index, // head - !!! was mo->start
@@ -266,7 +266,7 @@ REBSER *Make_Set_Operation_Series(
             for (; i < SER_LEN(ser); i += skip) {
                 uc = GET_ANY_CHAR(ser, i);
                 if (flags & SOP_FLAG_CHECK) {
-                    h = (NOT_FOUND != Find_Str_Char(
+                    h = (NOT_FOUND != Find_Char_In_Bin(
                         uc,
                         VAL_SERIES(val2),
                         0,
@@ -282,7 +282,7 @@ REBSER *Make_Set_Operation_Series(
                 if (!h) continue;
 
                 if (
-                    NOT_FOUND == Find_Str_Char(
+                    NOT_FOUND == Find_Char_In_Bin(
                         uc, // c2 (the character to find)
                         mo->series, // ser
                         mo->index, // head - !!! was mo->start

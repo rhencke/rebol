@@ -70,7 +70,7 @@ static REBARR *Read_Dir_May_Fail(REBREQ *dir)
     bool enabled = false;
     if (enabled
         and (
-            NOT_FOUND != Find_Str_Char(
+            NOT_FOUND != Find_Char_In_Str(
                 '*',
                 VAL_SERIES(ReqFile(dir)->path),
                 0, // !!! "lowest return index?"
@@ -79,8 +79,7 @@ static REBARR *Read_Dir_May_Fail(REBREQ *dir)
                 0, // skip
                 AM_FIND_CASE // not relevant
             )
-            or
-            NOT_FOUND != Find_Str_Char(
+            or NOT_FOUND != Find_Char_In_Str(
                 '?',
                 VAL_SERIES(ReqFile(dir)->path),
                 0, // !!! "lowest return index?"

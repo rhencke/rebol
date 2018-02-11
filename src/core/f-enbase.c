@@ -374,24 +374,22 @@ const REBYTE *Decode_Binary(
 
 
 //
-//  Encode_Base2: C
+//  Form_Base2: C
 //
 // Base2 encode a range of arbitrary bytes into a byte-sized ASCII series.
 //
-REBSER *Encode_Base2(const REBYTE *src, REBCNT len, bool brk)
+void Form_Base2(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
 {
-    // Account for binary digits, lines, and extra syntax ("slop factor")
-    //
-    REBSER *s = Make_Binary(8 * len + 2 * (len / 8) + 4);
-    REBYTE *dest = BIN_HEAD(s);
+    if (len == 0)
+        return;
 
-    if (len == 0) { // return empty series if input was zero length
-        TERM_SEQUENCE_LEN(s, 0);
-        return s;
-    }
+    // !!! This used to predict the length, accounting for hex digits, lines,
+    // and extra syntax ("slop factor"):
+    //
+    //     8 * len + 2 * (len / 8) + 4
 
     if (len > 8 && brk)
-        *dest++ = LF;
+        Append_Codepoint(mo->series, LF);
 
     REBCNT i;
     for (i = 0; i < len; i++) {
@@ -399,119 +397,100 @@ REBSER *Encode_Base2(const REBYTE *src, REBCNT len, bool brk)
 
         REBCNT n;
         for (n = 0x80; n > 0; n = n >> 1)
-            *dest++ = (b & n) ? '1' : '0';
+            Append_Codepoint(mo->series, (b & n) ? '1' : '0');
 
         if ((i + 1) % 8 == 0 && brk)
-            *dest++ = LF;
+            Append_Codepoint(mo->series, LF);
     }
 
-    if (*(dest - 1) != LF && len > 9 && brk)
-        *dest++ = LF;
-
-    *dest = '\0';
-
-    SET_SERIES_LEN(s, cast(REBCNT, dest - BIN_HEAD(s)));
-    ASSERT_SERIES_TERM(s);
-    return s;
+    if (*BIN_TAIL(mo->series) != LF && len > 9 && brk)
+        Append_Codepoint(mo->series, LF);
 }
 
 
 //
-//  Encode_Base16: C
+//  Form_Base16: C
 //
 // Base16 encode a range of arbitrary bytes into a byte-sized ASCII series.
 //
-REBSER *Encode_Base16(const REBYTE *src, REBCNT len, bool brk)
+void Form_Base16(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
 {
-    // Account for hex digits, lines, and extra syntax ("slop factor")
+    if (len == 0)
+        return;
+
+    // !!! This used to predict the length, accounting for hex digits, lines,
+    // and extra syntax ("slop factor"):
     //
-    REBSER *s = Make_Binary(len * 2 + len / 32 + 32);
-    REBYTE *dest = BIN_HEAD(s);
+    //     len * 2 + len / 32 + 32
 
-    if (len == 0) { // return empty series if input was zero length
-        TERM_SEQUENCE_LEN(s, 0);
-        return s;
-    }
-
-    if (len >= 32 && brk)
-        *dest++ = LF;
+    if (brk and len >= 32)
+        Append_Codepoint(mo->series, LF);
 
     REBCNT count;
     for (count = 1; count <= len; count++) {
-        dest = Form_Hex2(dest, *src++);
-        if (brk && ((count % 32) == 0))
-            *dest++ = LF;
+        Form_Hex2(mo, *src++);
+        if (brk and ((count % 32) == 0))
+            Append_Codepoint(mo->series, LF);
     }
 
-    if (*(dest - 1) != LF && (len >= 32) && brk)
-        *dest++ = LF;
-
-    *dest = '\0';
-
-    SET_SERIES_LEN(s, cast(REBCNT, dest - BIN_HEAD(s)));
-    ASSERT_SERIES_TERM(s);
-    return s;
+    if (brk and (len >= 32) and *BIN_LAST(mo->series) != LF)
+        Append_Codepoint(mo->series, LF);
 }
 
 
 //
-//  Encode_Base64: C
+//  Form_Base64: C
 //
 // Base64 encode a range of arbitrary bytes into a byte-sized ASCII series.
 //
-REBSER *Encode_Base64(const REBYTE *src, REBCNT len, bool brk)
+void Form_Base64(REB_MOLD *mo, const REBYTE *src, REBCNT len, bool brk)
 {
-    // Account for base64 digits, lines, and extra syntax ("slop factor")
-    //
-    REBSER *s = Make_Binary(4 * len / 3 + 2 * (len / 32) + 5);
-    REBYTE *dest = BIN_HEAD(s);
+    if (len == 0)
+        return;
 
-    if (len == 0) { // return empty series if input was zero length
-        TERM_SEQUENCE_LEN(s, 0);
-        return s;
-    }
+    // !!! This used to predict the length, accounting for hex digits, lines,
+    // and extra syntax ("slop factor"):
 
     REBINT loop = cast(int, len / 3) - 1;
     if (4 * loop > 64 && brk)
-        *dest++ = LF;
+        Append_Codepoint(mo->series, LF);
 
     REBINT x;
     for (x = 0; x <= 3 * loop; x += 3) {
-        *dest++ = Enbase64[src[x] >> 2];
-        *dest++ = Enbase64[((src[x] & 0x3) << 4) + (src[x + 1] >> 4)];
-        *dest++ = Enbase64[((src[x + 1] & 0xF) << 2) + (src[x + 2] >> 6)];
-        *dest++ = Enbase64[(src[x + 2] % 0x40)];
+        Append_Codepoint(mo->series, Enbase64[src[x] >> 2]);
+        Append_Codepoint(
+            mo->series,
+            Enbase64[((src[x] & 0x3) << 4) + (src[x + 1] >> 4)]
+        );
+        Append_Codepoint(
+            mo->series,
+            Enbase64[((src[x + 1] & 0xF) << 2) + (src[x + 2] >> 6)]
+        );
+        Append_Codepoint(mo->series, Enbase64[(src[x + 2] % 0x40)]);
         if ((x + 3) % 48 == 0 && brk)
-            *dest++ = LF;
+            Append_Codepoint(mo->series, LF);
     }
 
     if ((len % 3) != 0) {
-        dest[2] = dest[3] = '=';
-
-        *dest++ = Enbase64[src[x] >> 2];
-
-        if ((len - x) >= 1)
-            *dest++ = Enbase64[
-                ((src[x] & 0x3) << 4)
-                + ((len - x) == 1 ? 0 : src[x + 1] >> 4)
-            ];
-        else
-            dest++;
+        Append_Codepoint(mo->series, Enbase64[src[x] >> 2]);
+        
+        if ((len - x) >= 1) {
+            Append_Codepoint(
+                mo->series,
+                Enbase64[
+                    ((src[x] & 0x3) << 4)
+                    + ((len - x) == 1 ? 0 : src[x + 1] >> 4)
+                ]
+            );
+        } else
+            Append_Codepoint(mo->series, '=');
 
         if ((len - x) == 2)
-            *dest++ = Enbase64[(src[x + 1] & 0xF) << 2];
+            Append_Codepoint(mo->series, Enbase64[(src[x + 1] & 0xF) << 2]);
         else
-            dest++;
-
-        dest++;
+            Append_Codepoint(mo->series, '=');
     }
 
-    if (*(dest - 1) != LF && x > 49 && brk)
-        *dest++ = LF;
-
-    *dest = '\0';
-
-    SET_SERIES_LEN(s, cast(REBCNT, dest - BIN_HEAD(s)));
-    ASSERT_SERIES_TERM(s);
-    return s;
+    if (*BIN_LAST(mo->series) != LF && x > 49 && brk)
+        Append_Codepoint(mo->series, LF);
 }

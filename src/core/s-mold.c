@@ -116,7 +116,7 @@ void Emit(REB_MOLD *mo, const char *fmt, ...)
 
         case 'i':
             Append_Int_Pad(mo->series, va_arg(va, REBINT), -9);
-            Trim_Tail(mo->series, '0');
+            Trim_Tail(mo, '0');
             break;
 
         case '2': // 2 digit int (for time)
@@ -678,19 +678,21 @@ void Push_Mold(REB_MOLD *mo)
         Expand_Series(s, mo->offset, mo->reserve);
         SET_SERIES_USED(s, mo->offset);
     }
-    else if (SER_REST(s) - SER_LEN(s) > MAX_COMMON) {
+    else if (SER_REST(s) - SER_USED(s) > MAX_COMMON) {
         //
         // If the "extra" space in the series has gotten to be excessive (due
         // to some particularly large mold), back off the space.  But preserve
         // the contents, as there may be important mold data behind the
         // ->start index in the stack!
         //
+        REBCNT len = SER_LEN(s);
         Remake_Series(
             s,
-            SER_LEN(s) + MIN_COMMON,
+            SER_USED(s) + MIN_COMMON,
             SER_WIDE(s),
             NODE_FLAG_NODE // NODE_FLAG_NODE means preserve the data
         );
+        TERM_UNI_LEN_USED(s, len, SER_USED(s));
     }
 
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL))
@@ -800,10 +802,10 @@ REBSER *Pop_Molded_Binary(REB_MOLD *mo)
     ASSERT_SERIES_TERM(mo->series);
     Throttle_Mold(mo);
 
-    REBSER *bytes = Copy_Sequence_At_Len(
-        mo->series, mo->offset, SER_USED(mo->series) - mo->offset
-    );
-    assert(BYTE_SIZE(bytes));
+    REBSIZ size = SER_USED(mo->series) - mo->offset;
+    REBSER *bin = Make_Binary(size);
+    memcpy(BIN_HEAD(bin), BIN_AT(mo->series, mo->offset), size);
+    TERM_BIN_LEN(bin, size);
 
     // Though the protocol of Mold_Value does terminate, it only does so if
     // it adds content to the buffer.  If we did not terminate when we
@@ -814,7 +816,7 @@ REBSER *Pop_Molded_Binary(REB_MOLD *mo)
     TERM_UNI_LEN_USED(mo->series, mo->index, mo->offset);
 
     mo->series = NULL; // indicates mold is not currently pushed
-    return bytes;
+    return bin;
 }
 
 

@@ -612,7 +612,7 @@ REBTYPE(Bitset)
         INCLUDE_PARAMS_OF_FIND;
 
         UNUSED(PAR(series));
-        UNUSED(PAR(value));
+        UNUSED(PAR(pattern));
         if (REF(part)) {
             UNUSED(ARG(limit));
             fail (Error_Bad_Refines_Raw());

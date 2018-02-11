@@ -295,7 +295,7 @@ void Remove_Series_Len(REBSER *s, REBCNT index, REBINT len)
         REBINT len_old = UNI_LEN(s);
         REBSIZ used_old = SER_USED(s);
 
-        assert(len < len_old);
+        assert(len <= len_old);
 
         Remove_Series_Units(s, cp - UNI_HEAD(s), ep - cp);
         SET_UNI_LEN_USED(s, len_old - len, used_old - (ep - cp));

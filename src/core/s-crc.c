@@ -158,10 +158,7 @@ REBINT Hash_UTF8(const REBYTE *utf8, REBSIZ size)
         // Optimize `n = cast(REBYTE, LO_CASE(n))` (drop upper 8 bits)
         // !!! Is this actually faster?
         //
-        if (n < UNICODE_CASES)
-            n = cast(REBYTE, LO_CASE(n));
-        else
-            n = cast(REBYTE, n);
+        n = cast(REBYTE, LO_CASE(n));
 
         n = cast(REBYTE, (hash >> CRCSHIFTS) ^ n);
 
@@ -555,8 +552,7 @@ REBINT Hash_UTF8_Caseless(const REBYTE *data, REBCNT len) {
         REBUNI c;
         cp = NEXT_CHR(&c, cp);
 
-        if (c < UNICODE_CASES)
-            c = LO_CASE(c);
+        c = LO_CASE(c);
 
         // !!! This takes into account all 4 bytes of the lowercase codepoint
         // for the CRC calculation.  In ASCII strings this will involve a lot

@@ -1605,7 +1605,11 @@ static void Mold_Value_Limit(REB_MOLD *mo, RELVAL *v, REBCNT len)
     Mold_Value(mo, v);
 
     if (SER_LEN(mo->series) - start > len) {
-        SET_SERIES_LEN(mo->series, start + len);
+        Remove_Series_Len(
+            mo->series,
+            start + len,
+            SER_LEN(mo->series) - start - len
+        );
         Append_Ascii(mo->series, "...");
     }
 }

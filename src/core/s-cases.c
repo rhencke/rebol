@@ -906,9 +906,6 @@ static const REBUNI Char_Cases[] = {
 //
 void Init_Char_Cases(void)
 {
-    const REBUNI *up;
-    int n;
-
     // Init whitespace table:
     White_Chars = ALLOC_N(REBYTE, 34);
     memset(White_Chars, 1, 33); // All white chars: NL, CR, BS, etc...
@@ -920,16 +917,21 @@ void Init_Char_Cases(void)
     Upper_Cases = ALLOC_N(REBUNI, UNICODE_CASES);
     Lower_Cases = ALLOC_N(REBUNI, UNICODE_CASES);
 
+    int n;
     for (n = 0; n < UNICODE_CASES; n++) {
-        UP_CASE(n) = n;
-        LO_CASE(n) = n;
+        Upper_Cases[n] = n;
+        Lower_Cases[n] = n;
     }
 
+    const REBUNI *up;
     for (up = &Char_Cases[0]; *up; up += 2) {
-        //assert(UP_CASE(up[1]) == up[1], 910);
+        //
         // Only map if not already set (multiple mappings exist):
-        if (UP_CASE(up[1]) == up[1]) UP_CASE(up[1]) = up[0];
-        if (LO_CASE(up[1]) == up[1]) LO_CASE(up[0]) = up[1];
+        //
+        if (Upper_Cases[up[1]] == up[1])
+            Upper_Cases[up[1]] = up[0];
+        if (Lower_Cases[up[1]] == up[1])
+            Lower_Cases[up[0]] = up[1];
     }
 }
 

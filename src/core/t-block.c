@@ -875,7 +875,7 @@ REBTYPE(Array)
         INCLUDE_PARAMS_OF_FIND; // must be same as select
 
         UNUSED(PAR(series));
-        UNUSED(PAR(value)); // aliased as arg
+        UNUSED(PAR(pattern)); // aliased as arg
 
         REBINT len = ANY_ARRAY(arg) ? VAL_ARRAY_LEN_AT(arg) : 1;
 

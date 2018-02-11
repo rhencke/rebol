@@ -115,32 +115,31 @@ const REBYTE *Match_Bytes(const REBYTE *src, const REBYTE *pat)
 //
 bool Match_Sub_Path(REBSER *s1, REBSER *s2)
 {
-    REBCNT len = SER_LEN(s1);
-    REBCNT n;
+    REBCNT len1 = SER_LEN(s1);
+
+    if (len1 > SER_LEN(s2))
+        return false;
+
     REBUNI c1 = 0;
     REBUNI c2;
 
-    // s1 len must be <= s2 len
-    if (len > SER_LEN(s2))
-        return false;
-
-    for (n = 0; n < len; n++) { // includes terminator
-
+    REBCNT n;
+    for (n = 0; n < len1; n++) { // includes terminator
         c1 = GET_ANY_CHAR(s1, n);
         c2 = GET_ANY_CHAR(s2, n);
 
-        if (c1 < UNICODE_CASES) c1 = LO_CASE(c1);
-        if (c2 < UNICODE_CASES) c2 = LO_CASE(c2);
-
-        if (c1 != c2) break;
+        if (LO_CASE(c1) != LO_CASE(c2))
+            return false; // all chars must match
     }
 
     // a/b matches: a/b, a/b/, a/b/c
+    //
     c2 = GET_ANY_CHAR(s2, n);
     return did (
-        n >= len  // all chars matched
-        and  // Must be at end or at dir sep:
-        (c1 == '/' or c1 == '\\' or c2 == 0 or c2 == '/' or c2 == '\\')
+            n >= len1 // all chars matched
+            and  // Must be at end or at dir sep:
+            (c1 == '/' or c1 == '\\'
+            or c2 == 0 or c2 == '/' or c2 == '\\')
     );
 }
 
@@ -169,7 +168,7 @@ REBINT Compare_Uni_Str(
         u2 = NEXT_CHR(&c2, u2);
 
         REBINT d;
-        if (uncase && c1 < UNICODE_CASES && c2 < UNICODE_CASES)
+        if (uncase)
             d = LO_CASE(c1) - LO_CASE(c2);
         else
             d = c1 - c2;
@@ -251,75 +250,58 @@ REBINT Compare_UTF8(const REBYTE *s1, const REBYTE *s2, REBSIZ l2)
             assert(s2); // UTF8 should have already been verified good
         }
         if (c1 != c2) {
-            if (c1 >= UNICODE_CASES || c2 >= UNICODE_CASES ||
-                LO_CASE(c1) != LO_CASE(c2)) {
+            if (LO_CASE(c1) != LO_CASE(c2))
                 return (c1 > c2) ? -1 : -3;
-            }
-            if (!result) result = (c1 > c2) ? 3 : 1;
+
+            if (result == 0)
+                result = (c1 > c2) ? 3 : 1;
         }
     }
-    if (l1 != l2) result = (l1 > l2) ? -1 : -3;
+
+    if (l1 != l2)
+        result = (l1 > l2) ? -1 : -3;
 
     return result;
 }
 
 
 //
-//  Find_Byte_Str: C
+//  Find_Bin_In_Bin: C
 //
-// Find a byte string within a byte string. Optimized for speed.
-//
+// Find an exact byte string within a byte string.
 // Returns starting position or NOT_FOUND.
 //
-// Uncase: compare is case-insensitive.
-// Match: compare to first position only.
-//
-// NOTE: Series tail must be > index.
-//
-REBCNT Find_Byte_Str(REBSER *series, REBCNT index, REBYTE *b2, REBCNT l2, bool uncase, bool match)
-{
-    REBYTE *b1;
-    REBYTE *e1;
-    REBCNT l1;
-    REBYTE c;
-    REBCNT n;
+REBCNT Find_Bin_In_Bin(
+    REBSER *series,
+    REBCNT offset,
+    REBYTE *bp2,
+    REBSIZ size2,
+    REBFLGS flags // AM_FIND_MATCH
+){
+    assert(SER_LEN(series) > offset);
+    assert((flags & ~AM_FIND_MATCH) == 0);
 
-    // The pattern empty or is longer than the target:
-    if (l2 == 0 || (l2 + index) > SER_LEN(series)) return NOT_FOUND;
+    if (size2 == 0 || (size2 + offset) > SER_LEN(series))
+        return NOT_FOUND; // pattern empty or is longer than the target
 
-    b1 = BIN_AT(series, index);
-    l1 = SER_LEN(series) - index;
+    REBYTE *bp1 = BIN_AT(series, offset);
+    REBCNT size1 = BIN_LEN(series) - offset;
 
-    e1 = b1 + (match ? 1 : l1 - (l2 - 1));
+    REBYTE *end1 = bp1 + ((flags & AM_FIND_MATCH) ? 1 : size1 - (size2 - 1));
 
-    c = *b2; // first char
+    REBYTE b2 = *bp2; // first byte
 
-    if (!uncase) {
-
-        while (b1 != e1) {
-            if (*b1 == c) { // matched first char
-                for (n = 1; n < l2; n++) {
-                    if (b1[n] != b2[n]) break;
-                }
-                if (n == l2) return (b1 - BIN_HEAD(series));
+    while (bp1 != end1) {
+        if (*bp1 == b2) { // matched first byte
+            REBCNT n;
+            for (n = 1; n < size2; n++) {
+                if (bp1[n] != bp2[n])
+                    break;
             }
-            b1++;
+            if (n == size2)
+                return bp1 - BIN_HEAD(series);
         }
-
-    } else {
-
-        c = (REBYTE)LO_CASE(c); // OK! (never > 255)
-
-        while (b1 != e1) {
-            if (LO_CASE(*b1) == c) { // matched first char
-                for (n = 1; n != l2; n++) {
-                    if (LO_CASE(b1[n]) != LO_CASE(b2[n])) break;
-                }
-                if (n == l2) return (b1 - BIN_HEAD(series));
-            }
-            b1++;
-        }
-
+        ++bp1;
     }
 
     return NOT_FOUND;
@@ -327,106 +309,173 @@ REBCNT Find_Byte_Str(REBSER *series, REBCNT index, REBYTE *b2, REBCNT l2, bool u
 
 
 //
-//  Find_Str_Str: C
+//  Find_Str_In_Bin_Uncased: C
+//
+// Case-insensitive search for UTF-8 string within arbitrary BINARY! data.
+// Returns starting position (as a byte index in the binary) or NOT_FOUND.
+//
+// For a case-sensitive search on UTF-8 data inside a binary--that returns a
+// byte location of where that data was found--just use Find_Bin_In_Bin().
+//
+// Use caution with this function.  Not all byte patterns in a BINARY! are
+// legal UTF-8, so this has to just kind of skip over any non-UTF-8 and
+// consider it as "not a match".  But a match might be found in the middle of
+// otherwise invalid UTF-8, so this might come as a surprise to some clients.
+//
+// NOTE: Series used must be > offset.
+//
+REBCNT Find_Str_In_Bin_Uncased(
+    REBSER *series, // binary series to search in
+    REBCNT offset, // where to begin search at
+    const REBYTE *bp2, // pointer to UTF-8 data to search (guaranteed valid)
+    REBCNT len2, // codepoint count of the UTF-8 data of interest
+    REBSIZ size2, // encoded byte count of the UTF-8 data (not codepoints)
+    REBFLGS flags // AM_FIND_MATCH
+){
+    assert((flags & ~AM_FIND_MATCH) == 0);
+
+    if (size2 == 0 or (size2 + offset) > SER_LEN(series))
+        return NOT_FOUND; // pattern empty or is longer than the target
+
+    const REBYTE *bp1 = BIN_AT(series, offset);
+    REBSIZ size1 = BIN_LEN(series) - offset;
+
+    const REBYTE *end1
+        = bp1 + ((flags & AM_FIND_MATCH) ? 1 : size1 - (size2 - 1));
+
+    REBUNI c2_canon; // first codepoint, but only calculate lowercase once
+    REBCHR(const*) next2 = bp2;
+    next2 = NEXT_CHR(&c2_canon, next2);
+    c2_canon = LO_CASE(c2_canon);
+
+    while (bp1 < end1) {
+        const REBYTE *next1;
+        REBUNI c1;
+        if (*bp1 < 0x80) {
+            c1 = *bp1;
+            next1 = bp1;
+        }
+        else {
+            next1 = Back_Scan_UTF8_Char(&c1, bp1, NULL);
+            if (next1 == NULL) {
+                ++bp1;
+                continue; // treat bad scans just as this byte not matching
+            }
+        }
+        ++next1; // needed: see notes on why it's called "Back_Scan"
+
+        if (LO_CASE(c1) == c2_canon) { // matched first char
+            const REBYTE *temp1 = next1;
+            REBCHR(const*) temp2 = next2;
+
+            REBCNT n;
+            for (n = 1; n < len2; n++) {
+                if (*temp1 < 0x80)
+                    c1 = *temp1;
+                else {
+                    temp1 = Back_Scan_UTF8_Char(&c1, temp1, NULL);
+                    if (temp1 == NULL)
+                        break; // again, treat bad scans same as no match
+                }
+                ++temp1; // needed: see notes on why it's called "Back_Scan"
+
+                REBUNI c2;
+                temp2 = NEXT_CHR(&c2, temp2);
+
+                if (LO_CASE(c1) != LO_CASE(c2))
+                    break;
+            }
+            if (n == len2)
+                return bp1 - BIN_HEAD(series);
+        }
+
+        bp1 = next1;
+    }
+
+    return NOT_FOUND;
+}
+
+
+//
+//  Find_Str_In_Str: C
 //
 // General purpose find a substring.
 //
-// Supports: forward/reverse with skip, cased/uncase, Unicode/byte.
+// Supports: forward/reverse with skip, cased/uncase.
 //
 // Skip can be set positive or negative (for reverse).
 //
 // Flags are set according to ALL_FIND_REFS
 //
-REBCNT Find_Str_Str(REBSER *ser1, REBCNT head, REBCNT index, REBCNT tail, REBINT skip, REBSER *ser2, REBCNT index2, REBCNT len, REBCNT flags)
-{
-    REBUNI c1;
-    REBUNI c2;
-    REBUNI c3;
-    REBCNT n = 0;
-    bool uncase = not (flags & AM_FIND_CASE); // case insenstive
-
-    c2 = GET_ANY_CHAR(ser2, index2); // starting char
-    if (uncase && c2 < UNICODE_CASES) c2 = LO_CASE(c2);
-
-    for (; index >= head && index < tail; index += skip) {
-
-        c1 = GET_ANY_CHAR(ser1, index);
-        if (uncase && c1 < UNICODE_CASES) c1 = LO_CASE(c1);
-
-        if (c1 == c2) {
-            for (n = 1; n < len; n++) {
-                c1 = GET_ANY_CHAR(ser1, index+n);
-                c3 = GET_ANY_CHAR(ser2, index2+n);
-                if (uncase && c1 < UNICODE_CASES && c3 < UNICODE_CASES) {
-                    if (LO_CASE(c1) != LO_CASE(c3)) break;
-                } else {
-                    if (c1 != c3) break;
-                }
-            }
-            if (n == len) {
-                if (flags & AM_FIND_TAIL) return index + len;
-                return index;
-            }
-        }
-        if (flags & AM_FIND_MATCH) break;
-    }
-
-    return NOT_FOUND;
-}
-
-
-#if !defined(NDEBUG)
-
-//
-//  Find_Str_Char_Old: C
-//
-// The Find_Str_Char routine turned out to be kind of a bottleneck in code
-// that was heavily reliant on PARSE, so it became slightly interesting to
-// try and optimize it a bit.  The old routine is kept around for the
-// moment (and maybe indefinitely) as a debug check to make sure the
-// optimized routine gives back the same answer.
-//
-// Note: the old routine did not handle negative skips correctly, because
-// index is unsigned and it tries to use a comparison crossing zero.  This
-// is handled by the new version, and will be vetted separately.
-//
-static REBCNT Find_Str_Char_Old(
-    REBSER *ser,
+REBCNT Find_Str_In_Str(
+    REBSER *ser1,
     REBCNT head,
     REBCNT index,
     REBCNT tail,
     REBINT skip,
-    REBUNI c2,
-    REBCNT flags
-) {
-    bool uncase = not (flags & AM_FIND_CASE); // case insensitive
+    REBSER *ser2,
+    REBCNT index2,
+    REBCNT len,
+    REBFLGS flags
+){
+    assert((flags & ~(AM_FIND_CASE | AM_FIND_MATCH)) == 0);
 
-    if (uncase && c2 < UNICODE_CASES) c2 = LO_CASE(c2);
+    assert(GET_SERIES_FLAG(ser1, UTF8_NONWORD));
+    assert(GET_SERIES_FLAG(ser2, UTF8_NONWORD));
 
-    for (; index >= head && index < tail; index += skip) {
-        REBUNI c1 = GET_ANY_CHAR(ser, index);
-        if (uncase && c1 < UNICODE_CASES)
-            c1 = LO_CASE(c1);
+    bool uncase = not (flags & AM_FIND_CASE); // case insenstive
 
-        if (c1 == c2)
-            return index;
+    REBUNI c2_canon; // calculate first char lowercase once, vs. each step
+    REBCHR(const*) next2 = UNI_AT(ser2, index2);
+    next2 = NEXT_CHR(&c2_canon, next2);
+    if (uncase)
+        c2_canon = LO_CASE(c2_canon);
 
+    REBCHR(const*) cp1 = UNI_AT(ser1, index);
+    REBUNI c1;
+    if (skip > 0)
+        cp1 = NEXT_CHR(&c1, cp1);
+    else
+        cp1 = BACK_CHR(&c1, cp1);
+
+    while (index >= head && index < tail) {
+        if (c1 == c2_canon || (uncase && LO_CASE(c1) == c2_canon)) {
+            REBCHR(const*) tp1;
+            if (skip > 0)
+                tp1 = cp1;
+            else
+                tp1 = NEXT_STR(NEXT_STR(cp1)); // compensate from overstep
+
+            REBCHR(const*) tp2 = next2;
+            REBCNT n;
+            for (n = 1; n < len; n++) {
+                tp1 = NEXT_CHR(&c1, tp1);
+
+                REBUNI c2;
+                tp2 = NEXT_CHR(&c2, tp2);
+                if (c1 == c2 || (uncase && LO_CASE(c1) == LO_CASE(c2)))
+                    continue;
+
+                break;
+            }
+            if (n == len)
+                return index;
+        }
         if (flags & AM_FIND_MATCH)
             break;
+
+        cp1 = SKIP_CHR(&c1, cp1, skip);
+        index += skip;
     }
 
     return NOT_FOUND;
 }
 
-#endif
-
 
 //
-//  Find_Str_Char: C
+//  Find_Char_In_Str: C
 //
-// General purpose find a char in a string, which works with both unicode and
-// byte-sized strings.  Supports AM_FIND_CASE for case-sensitivity (as
-// opposed to the case-insensitive default) and AM_FIND_MATCH to check only
+// Supports AM_FIND_CASE for case-sensitivity and AM_FIND_MATCH to check only
 // the character at the current position and then stop.
 //
 // Skip can be set positive or negative (for reverse), and will be bounded
@@ -435,227 +484,89 @@ static REBCNT Find_Str_Char_Old(
 // Note that features like "/LAST" are handled at a higher level and
 // translated into SKIP=(-1) and starting at (highest - 1).
 //
-// *This routine is called a lot*, especially in PARSE.  So the seeming
-// micro-optimization of it was motivated by that.  It's not all that
-// complicated, in truth.  For the near-term, the old implementation of the
-// routine is run in parallel as a debug check to ensure the same result
-// is coming from the optimized code.
-//
-REBCNT Find_Str_Char(
+REBCNT Find_Char_In_Str(
     REBUNI uni,         // character to look for
-    REBSER *series,     // series with width sizeof(REBYTE) or sizeof(REBUNI)
+    REBSER *series,     // UTF-8 string series
     REBCNT lowest,      // lowest return index
     REBCNT index_orig,  // first index to examine (if out of range, NOT_FOUND)
     REBCNT highest,     // *one past* highest return result (e.g. SER_LEN)
     REBINT skip,        // step amount while searching, can be negative!
     REBFLGS flags       // AM_FIND_CASE, AM_FIND_MATCH
-) {
-    // Because the skip may be negative, and we don't check before we step
-    // and may "cross zero", it's necessary to use a signed index to be
-    // able to notice that crossing.
-    //
-    REBINT index;
+){
+    assert((flags & ~(AM_FIND_CASE | AM_FIND_MATCH)) == 0);
 
-    // We establish an array of two potential cases we are looking for.
-    // If there aren't actually two, this array sets both to be the same (vs.
-    // using something like a '\0' in one cell if they are) because FIND is
-    // able to seek NUL in strings.
-    //
-    REBUNI casings[2];
+    // !!! In UTF-8, finding a char in a string is really just like finding a
+    // string in a string.  Optimize as this all folds together.
 
-    if (flags & AM_FIND_CASE) { // case-*sensitive*
-        casings[0] = uni;
-        casings[1] = uni;
-    }
-    else {
-        casings[0] = uni < UNICODE_CASES ? LO_CASE(uni) : uni;
-        casings[1] = uni < UNICODE_CASES ? UP_CASE(uni) : uni;
-    }
+    REBSER *temp = Make_Ser_Codepoint(uni);
 
-    assert(lowest <= SER_LEN(series));
-    assert(index_orig <= SER_LEN(series));
-    assert(highest <= SER_LEN(series));
+    REBCNT i = Find_Str_In_Str(
+        series,
+        lowest,
+        index_orig,
+        highest,
+        skip,
+        temp,
+        0,
+        1,
+        flags
+    );
+    Free_Unmanaged_Series(temp);
 
-    // !!! Would skip = 0 be a clearer expression of /MATCH, as in "there
-    // is no skip count"?  Perhaps in the interface as /SKIP NONE and then
-    // translated to 0 for this internal call?
-    //
-    assert(skip != 0);
-
-    // Rest of routine assumes we are inside of the range to begin with.
-    //
-    if (index_orig < lowest || index_orig >= highest || lowest == highest)
-        goto return_not_found;
-
-    // Past this point we'll be using the signed index.
-    //
-    index = cast(REBINT, index_orig);
-
-    // /MATCH only does one check at the current position for the character
-    // and then returns.  It basically subverts any optimization we might
-    // try that uses memory range functions/etc, and if "/skip 0" were the
-    // replacement for match it would have to be handled separately anyway.
-    //
-    if (flags & AM_FIND_MATCH) {
-        REBUNI single = GET_ANY_CHAR(series, index_orig);
-        if (single == casings[0] || single == casings[1])
-            goto return_index;
-        goto return_not_found;
-    }
-
-    // If searching a potentially much longer string, take opportunities to
-    // use optimized C library functions if possible.
-    //
-    // !!! With UTF-8 everywhere, this should work for both case-sensitive
-    // searches or searches where strings are flagged as ASCII only.  But
-    // generically speaking, case-insensitive analysis needs to decode.
-    //
-    if (NOT_SERIES_FLAG(series, UTF8_NONWORD)) {
-        REBYTE *bp = BIN_HEAD(series);
-        REBYTE breakset[3];
-
-        // We need to cover when the lowercase or uppercase variant of a
-        // unicode character is <= 0xFF even though the character itself
-        // is not.  Build our breakset while we're doing the test.  Note
-        // that this handles the case-sensitive version fine because it
-        // will be noticed if breakset[0] and breakset[1] are the same.
-        //
-        if (casings[0] > 0xFF) {
-            if (casings[1] > 0xFF) goto return_not_found;
-
-            breakset[0] = cast(REBYTE, casings[1]);
-            breakset[1] = '\0';
-        }
-        else {
-            breakset[0] = cast(REBYTE, casings[0]);
-
-            if (casings[1] > 0xFF || casings[1] == casings[0]) {
-                breakset[1] = '\0';
-            }
-            else {
-                breakset[1] = cast(REBYTE, casings[1]);
-                breakset[2] = '\0';
-            }
-        }
-
-        // breakset[0] will be '\0' if we're literally searching for a '\0'.
-        // But it will also be '\0' if no candidate we were searching for
-        // would be byte-sized, and hence won't be found...so return NOT_FOUND
-        // if the latter is true.
-        //
-        if (breakset[0] == '\0' && uni != '\0')
-            goto return_not_found;
-
-        if (skip == 1 && breakset[1] == '\0') {
-            //
-            // For case-sensitive comparisons, or if the character has no
-            // distinction in upper and lower cases, or if only one of the
-            // two unicode casings is byte-sized...we can use use the
-            // optimized `memchr()` operation to find the single byte.
-            // This can only work if SKIP is 1.
-            //
-            void *v = memchr(bp + index, breakset[0], highest - index);
-            if (v) {
-                index = cast(REBYTE*, v) - bp;
-                goto return_index;
-            }
-        }
-        else {
-            // If the comparison is case-insensitive and the character has
-            // a distinct upper and lower case, there are two candidate
-            // characters we are looking for.
-            //
-            // We use a threshold to decide if it's worth it to use a library
-            // routine that can only search forward to null terminators vs.
-            // a for loop we can limit, run reverse, or skip by more than 1.
-            // (<string.h> routines also can't be used to hunt for a 0 byte.)
-            //
-            if (
-                skip == 1
-                && (SER_LEN(series) - highest) < ((highest - lowest) / 2)
-                && uni != '\0'
-            ) {
-                // The `strcspn()` optimized routine can be used to check for
-                // a set of characters, and returns the number of characters
-                // read before a match was found.  It will be the length of
-                // the string if no match.
-                //
-                while (true) {
-                    index += strcspn(
-                        cast(char*, bp + index), cast(char*, breakset)
-                    );
-                    if (index >= cast(REBINT, highest))
-                        goto return_not_found;
-
-                    goto return_index;
-                }
-            }
-            else {
-                // We're skipping by more than one, going in reverse, or
-                // looking for a NULL byte.  Can't use any fancy tricks
-                // (besides the trick of precalculating the casings)
-                //
-                while (true) {
-                    if (bp[index] == breakset[0] || bp[index] == breakset[1])
-                        goto return_index;
-
-                    index += skip;
-                    if (index < cast(REBINT, lowest)) break;
-                    if (index >= cast(REBINT, highest)) break;
-                }
-            }
-        }
-    }
-    else {
-        // !!! Previous algorithm would look at the value at series index, and
-        // then apply the skip with `index += skip`
-
-        REBCHR(const *) cp = UNI_AT(series, index);
-        REBUNI c;
-        cp = NEXT_CHR(&c, cp);
-
-        while (true) {
-            if (c == casings[0] or c == casings[1])
-                goto return_index;
-
-            REBINT delta = skip;
-            if (delta > 0) {
-                for (; delta > 0; --delta, ++index)
-                    cp = NEXT_CHR(&c, cp);
-            }
-            else {
-                for (; delta < 0; ++delta, --index)
-                    cp = BACK_CHR(&c, cp);
-            }
-
-            if (index < cast(REBINT, lowest))
-                break;
-            if (index >= cast(REBINT, highest))
-                break;
-        }
-    }
-
-return_not_found:
-
-#if !defined(NDEBUG)
-    assert(NOT_FOUND == Find_Str_Char_Old(
-        series, lowest, index_orig, highest, skip, uni, flags
-    ));
-#endif
-    return NOT_FOUND;
-
-return_index:
-
-#if !defined(NDEBUG)
-    assert(cast(REBCNT, index) == Find_Str_Char_Old(
-        series, lowest, index_orig, highest, skip, uni, flags
-    ));
-#endif
-
-    assert(index >= 0);
-    return cast(REBCNT, index);
+    return i;
 }
 
+
+//
+//  Find_Char_In_Bin: C
+//
+REBCNT Find_Char_In_Bin(
+    REBUNI uni,         // character to look for
+    REBSER *series,     // UTF-8 string series
+    REBCNT lowest,      // lowest return index
+    REBCNT index_orig,  // first index to examine (if out of range, NOT_FOUND)
+    REBCNT highest,     // *one past* highest return result (e.g. SER_LEN)
+    REBINT skip,        // step amount while searching, can be negative!
+    REBFLGS flags       // AM_FIND_CASE, AM_FIND_MATCH
+){
+    assert((flags & ~(AM_FIND_CASE | AM_FIND_MATCH)) == 0);
+
+    // !!! In UTF-8, finding a char in a string is really just like finding a
+    // string in a string.  Optimize as this all folds together.
+
+    if (skip != 1)
+        fail ("Find_Char_In_Bin() does not support SKIP <> 1 at the moment");
+
+    if (highest != BIN_LEN(series))
+        fail ("Find_Char_In_Bin() only searches the whole binary for now");
+
+    UNUSED(lowest);
+
+    REBSER *temp = Make_Ser_Codepoint(uni);
+
+    REBCNT i;
+    if (flags & AM_FIND_CASE)
+        i = Find_Bin_In_Bin(
+            series,
+            index_orig,
+            BIN_HEAD(temp),
+            BIN_LEN(temp),
+            flags & AM_FIND_MATCH
+        );
+    else
+        i = Find_Str_In_Bin_Uncased(
+            series,
+            index_orig,
+            BIN_HEAD(temp),
+            1, // 1 character
+            BIN_LEN(temp),
+            flags & AM_FIND_MATCH
+        );
+
+    Free_Unmanaged_Series(temp);
+
+    return i;
+}
 
 
 //
@@ -677,7 +588,9 @@ REBCNT Find_Str_Bitset(
     REBINT skip,
     REBSER *bset,
     REBCNT flags
-) {
+){
+    assert(GET_SERIES_FLAG(ser, UTF8_NONWORD));
+
     bool uncase = not (flags & AM_FIND_CASE); // case insensitive
 
     for (; index >= head && index < tail; index += skip) {
@@ -741,4 +654,37 @@ REBCNT Next_Line(REBYTE **bin)
 
     *bin = bp;
     return count;
+}
+
+
+//
+//  Find_In_Any_Sequence: C
+//
+// !!! In R3-Alpha, the code for PARSE shared some of the same subroutines in
+// %s-find.c as the FIND action.  However, there was still a lot of parallel
+// logic in their invocation.  This is an attempt to further factor the common
+// code, which hopefully will mean more consistency (as well as less code).
+//
+REBCNT Find_In_Any_Sequence(
+    REBCNT *len,  // length of match (e.g. if pattern is a TAG!, includes <>)
+    const RELVAL *any_series,
+    const RELVAL *pattern,
+    REBFLGS flags
+){
+    REBSER *series = VAL_SERIES(any_series);
+    REBCNT index = VAL_INDEX(any_series);
+    REBCNT end = VAL_LEN_HEAD(any_series);
+    REBINT skip = 1;
+
+    if (IS_BINARY(any_series))
+        return find_binary(
+            len, series, index, end, pattern, flags, skip
+        );
+    
+    if (ANY_STRING(any_series))
+        return find_string(
+            len, series, index, end, pattern, flags, skip
+        );
+
+    fail ("Unknown sequence type for Find_In_Any_Sequence()");
 }

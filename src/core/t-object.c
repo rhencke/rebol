@@ -620,10 +620,8 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
 
         // Remove the final newline...but only if WE added to the buffer
         //
-        if (had_output) {
-            SET_SERIES_LEN(s, SER_LEN(s) - 1);
-            TERM_SEQUENCE(s);
-        }
+        if (had_output)
+            Trim_Tail(mo, '\n');
 
         Drop_Pointer_From_Series(TG_Mold_Stack, c);
         return;

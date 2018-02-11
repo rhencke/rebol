@@ -677,73 +677,49 @@ static REBIXO Parse_One_Rule(
         return END_FLAG;
     }
     else {
-        REBCNT flags = P_FIND_FLAGS | AM_FIND_MATCH | AM_FIND_TAIL;
-
         switch (VAL_TYPE(rule)) {
           case REB_CHAR:
             //
             // Try matching character against current string parse position
             //
             if (P_HAS_CASE) {
-                if (VAL_CHAR(rule) == GET_ANY_CHAR(P_INPUT, pos))
-                    return pos + 1;
+                if (VAL_CHAR(rule) == GET_ANY_CHAR(P_INPUT, P_POS))
+                    return P_POS + 1;
             }
             else {
                 if (
                     UP_CASE(VAL_CHAR(rule))
-                    == UP_CASE(GET_ANY_CHAR(P_INPUT, pos))
-                ) {
-                    return pos + 1;
+                    == UP_CASE(GET_ANY_CHAR(P_INPUT, P_POS))
+                ){
+                    return P_POS + 1;
                 }
             }
             return END_FLAG;
 
+          case REB_TAG:
+          case REB_FILE:
           case REB_EMAIL:
           case REB_TEXT:
           case REB_BINARY: {
-            REBCNT index = Find_Str_Str(
-                P_INPUT,
-                0,
-                pos,
-                SER_LEN(P_INPUT),
-                1,
-                VAL_SERIES(rule),
-                VAL_INDEX(rule),
-                VAL_LEN_AT(rule),
-                flags
+            REBCNT len;
+            REBCNT index = Find_In_Any_Sequence(
+                &len,
+                P_INPUT_VALUE,
+                rule,
+                P_FIND_FLAGS | AM_FIND_MATCH
             );
             if (index == NOT_FOUND)
                 return END_FLAG;
-            return index; }
+            return index + len; }
 
-          case REB_TAG:
-          case REB_FILE: {
+          case REB_BITSET:
             //
-            // !!! The content to be matched does not have the delimiters in the
-            // actual series data.  This FORMs it, but could be more optimized.
+            // Check current char/byte against character set, advance matches
             //
-            REBSER *formed = Copy_Form_Value(rule, 0);
-            REBCNT index = Find_Str_Str(
-                P_INPUT,
-                0,
-                pos,
-                SER_LEN(P_INPUT),
-                1,
-                formed,
-                0,
-                SER_LEN(formed),
-                flags
-            );
-            Free_Unmanaged_Series(formed);
-            if (index == NOT_FOUND)
-                return END_FLAG;
-            return index; }
-
-          case REB_BITSET:  // check current character/byte against bitset
             if (Check_Bit(
-                VAL_BITSET(rule), GET_ANY_CHAR(P_INPUT, pos), not P_HAS_CASE
+                VAL_BITSET(rule), GET_ANY_CHAR(P_INPUT, P_POS), not P_HAS_CASE
             )){
-                return pos + 1;
+                return P_POS + 1;
             }
             return END_FLAG;
 
@@ -919,7 +895,7 @@ static REBIXO To_Thru_Block_Rule(
                         //
                         REBSER *formed = Copy_Form_Value(rule, 0);
                         REBCNT len = SER_LEN(formed);
-                        REBCNT i = Find_Str_Str(
+                        REBCNT i = Find_Str_In_Str(
                             P_INPUT,
                             0,
                             pos,
@@ -950,7 +926,7 @@ static REBIXO To_Thru_Block_Rule(
                             return pos;
                         }
 
-                        REBCNT i = Find_Str_Str(
+                        REBCNT i = Find_Str_In_Str(
                             P_INPUT,
                             0,
                             pos,
@@ -1005,16 +981,17 @@ static REBIXO To_Thru_Non_Block_Rule(
     REBFRM *f,
     const RELVAL *rule,
     bool is_thru
-) {
-    assert(not IS_BLOCK(rule));
+){
+    REBYTE kind = KIND_BYTE(rule);
+    assert(kind != REB_BLOCK);
 
-    if (IS_BLANK(rule))
+    if (kind == REB_BLANK)
         return P_POS; // make it a no-op
 
-    if (IS_LOGIC(rule)) // no-op if true, match failure if false
+    if (kind == REB_LOGIC) // no-op if true, match failure if false
         return VAL_LOGIC(rule) ? P_POS : END_FLAG;
 
-    if (IS_INTEGER(rule)) {
+    if (kind == REB_INTEGER) {
         //
         // `TO/THRU (INTEGER!)` JUMPS TO SPECIFIC INDEX POSITION
         //
@@ -1031,14 +1008,14 @@ static REBIXO To_Thru_Non_Block_Rule(
         return i;
     }
 
-    if (IS_WORD(rule) and VAL_WORD_SYM(rule) == SYM_END) {
+    if (kind == REB_WORD and VAL_WORD_SYM(rule) == SYM_END) {
         //
         // `TO/THRU END` JUMPS TO END INPUT SERIES (ANY SERIES TYPE)
         //
         return SER_LEN(P_INPUT);
     }
 
-    if (IS_SER_ARRAY(P_INPUT)) {
+    if (ANY_ARRAY_KIND(kind)) {
         //
         // FOR ARRAY INPUT WITH NON-BLOCK RULES, USE Find_In_Array()
         //
@@ -1074,103 +1051,21 @@ static REBIXO To_Thru_Non_Block_Rule(
 
     //=//// PARSE INPUT IS A STRING OR BINARY, USE A FIND ROUTINE /////////=//
 
-    if (ANY_BINSTR(rule)) {
-        if (not IS_TEXT(rule) and not IS_BINARY(rule)) {
-            // !!! Can this be optimized not to use COPY?
-            REBSER *formed = Copy_Form_Value(rule, 0);
-            REBCNT form_len = SER_LEN(formed);
-            REBCNT i = Find_Str_Str(
-                P_INPUT,
-                0,
-                P_POS,
-                SER_LEN(P_INPUT),
-                1,
-                formed,
-                0,
-                form_len,
-                (P_FIND_FLAGS & AM_FIND_CASE)
-                    ? AM_FIND_CASE
-                    : 0
-            );
-            Free_Unmanaged_Series(formed);
+    REBCNT len;  // e.g. if a TAG!, match length includes < and >
+    REBCNT i = Find_In_Any_Sequence(
+        &len,
+        P_INPUT_VALUE,
+        rule,
+        P_FIND_FLAGS
+    );
 
-            if (i == NOT_FOUND)
-                return END_FLAG;
+    if (i == NOT_FOUND)
+        return END_FLAG;
 
-            if (is_thru)
-                return i + form_len;
+    if (is_thru)
+        return i + len;
 
-            return i;
-        }
-
-        REBCNT i = Find_Str_Str(
-            P_INPUT,
-            0,
-            P_POS,
-            SER_LEN(P_INPUT),
-            1,
-            VAL_SERIES(rule),
-            VAL_INDEX(rule),
-            VAL_LEN_AT(rule),
-            (P_FIND_FLAGS & AM_FIND_CASE)
-                ? AM_FIND_CASE
-                : 0
-        );
-
-        if (i == NOT_FOUND)
-            return END_FLAG;
-
-        if (is_thru)
-            return i + VAL_LEN_AT(rule);
-
-        return i;
-    }
-
-    if (IS_CHAR(rule)) {
-        REBCNT i = Find_Str_Char(
-            VAL_CHAR(rule),
-            P_INPUT,
-            0,
-            P_POS,
-            SER_LEN(P_INPUT),
-            1,
-            (P_FIND_FLAGS & AM_FIND_CASE)
-                ? AM_FIND_CASE
-                : 0
-        );
-
-        if (i == NOT_FOUND)
-            return END_FLAG;
-
-        if (is_thru)
-            return i + 1;
-
-        return i;
-    }
-
-    if (IS_BITSET(rule)) {
-        REBCNT i = Find_Str_Bitset(
-            P_INPUT,
-            0,
-            P_POS,
-            SER_LEN(P_INPUT),
-            1,
-            VAL_BITSET(rule),
-            (P_FIND_FLAGS & AM_FIND_CASE)
-                ? AM_FIND_CASE
-                : 0
-        );
-
-        if (i == NOT_FOUND)
-            return END_FLAG;
-
-        if (is_thru)
-            return i + 1;
-
-        return i;
-    }
-
-    fail (Error_Parse_Rule());
+    return i;
 }
 
 
@@ -2678,7 +2573,7 @@ REBNATIVE(parse)
         ARG(input), SPECIFIED,
         rules_feed,
         nullptr,  // start out with no COLLECT in effect, so no P_COLLECTION
-        REF(case) or IS_BINARY(ARG(input)) ? AM_FIND_CASE : 0
+        REF(case) ? AM_FIND_CASE : 0
         //
         // We always want "case-sensitivity" on binary bytes, vs. treating
         // as case-insensitive bytes for ASCII characters.

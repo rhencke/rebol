@@ -189,14 +189,9 @@ void* Probe_Core_Debug(
                 // !!! Duplication of code in MF_Binary
                 //
                 const bool brk = (BIN_LEN(s) > 32);
-                REBSER *enbased = Encode_Base16(BIN_HEAD(s), BIN_LEN(s), brk);
                 Append_Ascii(mo->series, "#{");
-                Append_Utf8(
-                    mo->series,
-                    cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased)
-                );
+                Form_Base16(mo, BIN_HEAD(s), BIN_LEN(s), brk);
                 Append_Ascii(mo->series, "}");
-                Free_Unmanaged_Series(enbased);
             }
         }
         else if (IS_SER_ARRAY(s)) {

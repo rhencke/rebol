@@ -123,7 +123,7 @@ static void reverse_string(REBVAL *v, REBCNT len)
         REBCNT val_len_head = VAL_LEN_HEAD(v);
 
         REBSER *ser = VAL_SERIES(v);
-        REBCHR(const *) up = UNI_TAIL(ser); // last exists due to len != 0
+        REBCHR(const *) up = UNI_LAST(ser); // last exists due to len != 0
         REBCNT n;
         for (n = 0; n < len; ++n) {
             REBUNI c;
@@ -157,94 +157,144 @@ static void reverse_string(REBVAL *v, REBCNT len)
 }
 
 
-static REBCNT find_string(
-    REBSER *series,
+//
+//  find_string: C
+//
+REBCNT find_string(
+    REBCNT *len,
+    REBSER *str,
     REBCNT index,
     REBCNT end,
-    REBVAL *target,
-    REBCNT target_len,
+    const RELVAL *pattern,
     REBCNT flags,
     REBINT skip
 ) {
     assert(end >= index);
-
-    if (target_len > end - index) // series not long enough to have target
-        return NOT_FOUND;
 
     REBCNT start = index;
 
     if (flags & (AM_FIND_REVERSE | AM_FIND_LAST)) {
         skip = -1;
         start = 0;
-        if (flags & AM_FIND_LAST) index = end - target_len;
-        else index--;
     }
 
-    if (ANY_STRING(target)) {
-        // Do the optimal search or the general search?
-        bool optimal = false;
-        if (
-            optimal // !!! "Optimal" UTF-8 search temporarily disabled
-            && !(flags & ~(AM_FIND_CASE|AM_FIND_MATCH))
-        ) {
-            return Find_Byte_Str(
-                series,
-                start,
-                VAL_BIN_AT(target),
-                target_len,
-                not (flags & AM_FIND_CASE),
-                did (flags & AM_FIND_MATCH)
-            );
+    if (ANY_STRING(pattern)) {
+        bool str_is_all_ascii = false;
+        bool pattern_is_all_ascii = false;
+        if (str_is_all_ascii and not pattern_is_all_ascii)
+            return NOT_FOUND; // can't possibly find non-ascii in ascii
+
+        // !!! A TAG! does not have its delimiters in it.  The logic of the
+        // find would have to be rewritten to accomodate this, and it's a
+        // bit tricky as it is.  Let it settle down before trying that--and
+        // for now just form the tag into a temporary alternate series.
+
+        REBSER *formed = nullptr;
+        REBYTE *bp2;
+        REBSIZ size2;
+        if (not IS_TEXT(pattern)) { // !!! for TAG!, but what about FILE! etc?
+            formed = Copy_Form_Value(pattern, 0);
+            *len = UNI_LEN(formed);
+            bp2 = UNI_HEAD(formed);
+            size2 = SER_USED(formed);
         }
         else {
-            return Find_Str_Str(
-                series,
+            *len = VAL_LEN_AT(pattern);
+            bp2 = AS_REBYTE_PTR(VAL_UNI_AT(pattern));
+            size2 = VAL_SIZE_LIMIT_AT(NULL, pattern, *len);
+        }
+
+        if (flags & AM_FIND_LAST)
+            index = end - *len;
+        else if (flags & AM_FIND_REVERSE)
+            --index;
+
+        if (*len > end - index) // series not long enough for pattern
+            return NOT_FOUND;
+
+        REBCNT result;
+
+        if (str_is_all_ascii) {
+            assert(pattern_is_all_ascii);  // checked above
+
+            // If one knew that the series being searched in was all ASCII,
+            // then the same search code can be used as for binary...because
+            // the binary offset can be used as a character position.
+            
+            if (flags & AM_FIND_CASE)
+                result = Find_Bin_In_Bin(
+                    str,  // all_ascii can be treated same as binary
+                    start,
+                    bp2,
+                    size2,
+                    flags & AM_FIND_MATCH
+                );
+            else
+                result = Find_Str_In_Bin_Uncased(
+                    str,  // all_ascii can be treated same as binary
+                    start,
+                    bp2,
+                    *len,
+                    size2,
+                    flags & AM_FIND_MATCH
+                );
+        }
+        else
+            result = Find_Str_In_Str(
+                str,  // not all_ascii, has multibyte utf-8 sequences
                 start,
                 index,
                 end,
                 skip,
-                VAL_SERIES(target),
-                VAL_INDEX(target),
-                target_len,
-                flags & (AM_FIND_MATCH|AM_FIND_CASE)
+                formed ? formed : VAL_SERIES(pattern),
+                formed ? 0 : VAL_INDEX(pattern),
+                *len,
+                flags & (AM_FIND_MATCH | AM_FIND_CASE)
             );
-        }
-    }
-    else if (IS_CHAR(target)) {
-        return Find_Str_Char(
-            VAL_CHAR(target),
-            series,
-            start,
-            index,
-            end,
-            skip,
-            flags
-        );
-    }
-    else if (IS_INTEGER(target)) {
-        return Find_Str_Char(
-            cast(REBUNI, VAL_INT32(target)),
-            series,
-            start,
-            index,
-            end,
-            skip,
-            flags
-        );
-    }
-    else if (IS_BITSET(target)) {
-        return Find_Str_Bitset(
-            series,
-            start,
-            index,
-            end,
-            skip,
-            VAL_BITSET(target),
-            flags
-        );
-    }
 
-    return NOT_FOUND;
+        if (formed)
+            Free_Unmanaged_Series(formed);
+
+        return result;
+    }
+    else if (IS_CHAR(pattern)) {
+        *len = 1;
+
+        if (flags & AM_FIND_LAST)
+            index = end - *len;
+        else if (flags & AM_FIND_REVERSE)
+            --index;
+
+        return Find_Char_In_Str(
+            VAL_CHAR(pattern),
+            str,
+            start,
+            index,
+            end,
+            skip,
+            flags & (AM_FIND_MATCH | AM_FIND_CASE)
+        );
+    }
+    else if (IS_BITSET(pattern)) {
+        *len = 1;
+
+        if (flags & AM_FIND_LAST)
+            index = end - *len;
+        else if (flags & AM_FIND_REVERSE)
+            --index;
+
+        return Find_Str_Bitset(
+            str,
+            start,
+            index,
+            end,
+            skip,
+            VAL_BITSET(pattern),
+            flags & (AM_FIND_MATCH | AM_FIND_CASE)
+        );
+    }
+    else
+        fail ("find_string() received unknown pattern datatype");
 }
 
 
@@ -367,30 +417,22 @@ static int Compare_Chr(void *thunk, const void *v1, const void *v2)
 {
     REBCNT * const flags = cast(REBCNT*, thunk);
 
-    REBUNI c1 = cast(REBUNI, *cast(const REBYTE*, v1));
-    REBUNI c2 = cast(REBUNI, *cast(const REBYTE*, v2));
+    REBYTE b1 = *cast(const REBYTE*, v1);
+    REBYTE b2 = *cast(const REBYTE*, v2);
+
+    assert(b1 < 0x80 && b2 < 0x80);
 
     if (*flags & CC_FLAG_CASE) {
         if (*flags & CC_FLAG_REVERSE)
-            return *cast(const REBYTE*, v2) - *cast(const REBYTE*, v1);
+            return b2 - b1;
         else
-            return *cast(const REBYTE*, v1) - *cast(const REBYTE*, v2);
+            return b1 - b2;
     }
     else {
-        if (*flags & CC_FLAG_REVERSE) {
-            if (c1 < UNICODE_CASES)
-                c1 = UP_CASE(c1);
-            if (c2 < UNICODE_CASES)
-                c2 = UP_CASE(c2);
-            return c2 - c1;
-        }
-        else {
-            if (c1 < UNICODE_CASES)
-                c1 = UP_CASE(c1);
-            if (c2 < UNICODE_CASES)
-                c2 = UP_CASE(c2);
-            return c1 - c2;
-        }
+        if (*flags & CC_FLAG_REVERSE)
+            return LO_CASE(b2) - LO_CASE(b1);
+        else
+            return LO_CASE(b1) - LO_CASE(b2);
     }
 }
 
@@ -645,11 +687,12 @@ void Mold_Uni_Char(REB_MOLD *mo, REBUNI c, bool parened)
         // !!! Comment here said "do not AND with the above"
         //
         if (parened || c == 0x1E || c == 0xFEFF) {
+            REBCNT len_old = SER_LEN(mo->series);
+            REBSIZ used_old = SER_USED(mo->series);
             EXPAND_SERIES_TAIL(mo->series, 7); // worst case: ^(1234)
+            TERM_UNI_LEN_USED(mo->series, len_old, used_old);
 
             Append_Ascii(mo->series, "^\"");
-
-            REBCNT len_old = SER_LEN(mo->series);
 
             REBYTE *bp = BIN_TAIL(mo->series);
             REBYTE *ep = Form_Uni_Hex(bp, c); // !!! Make a mold...
@@ -917,8 +960,8 @@ REBTYPE(String)
 
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
-    REBINT index = cast(REBINT, VAL_INDEX(v));
-    REBINT tail = cast(REBINT, VAL_LEN_HEAD(v));
+    REBCNT index = VAL_INDEX(v);
+    REBCNT tail = VAL_LEN_HEAD(v);
 
     REBSYM sym = VAL_WORD_SYM(verb);
     switch (sym) {
@@ -1003,34 +1046,17 @@ REBTYPE(String)
         INCLUDE_PARAMS_OF_FIND;
 
         UNUSED(PAR(series));
-        UNUSED(PAR(value));
+        UNUSED(PAR(pattern));
 
+        // !!! R3-Alpha FIND/MATCH historically implied /TAIL.  Should it?
+        //
         REBFLGS flags = (
             (REF(only) ? AM_FIND_ONLY : 0)
             | (REF(match) ? AM_FIND_MATCH : 0)
             | (REF(reverse) ? AM_FIND_REVERSE : 0)
             | (REF(case) ? AM_FIND_CASE : 0)
             | (REF(last) ? AM_FIND_LAST : 0)
-            | (REF(tail) ? AM_FIND_TAIL : 0)
         );
-
-        REBINT len;
-        if (IS_CHAR(arg) || IS_BITSET(arg))
-            len = 1;
-        else {
-            if (not IS_TEXT(arg)) {
-                //
-                // !! This FORM creates a temporary value that is handed
-                // over to the GC.  Not only could the temporary value be
-                // unmanaged (and freed), a more efficient matching could
-                // be done of `FIND "<abc...z>" <abc...z>` without having
-                // to create an entire series just for the delimiters.
-                //
-                REBSER *copy = Copy_Form_Value(arg, 0);
-                Init_Text(arg, copy);
-            }
-            len = VAL_LEN_AT(arg);
-        }
 
         if (REF(part))
             tail = Part_Tail_May_Modify_Index(v, ARG(limit));
@@ -1041,28 +1067,29 @@ REBTYPE(String)
         else
             skip = 1;
 
+        REBCNT len;
         REBCNT ret = find_string(
-            VAL_SERIES(v), index, tail, arg, len, flags, skip
+            &len, VAL_SERIES(v), index, tail, arg, flags, skip
         );
 
-        if (ret >= cast(REBCNT, tail))
+        if (ret == NOT_FOUND)
             return nullptr;
 
-        if (REF(only))
-            len = 1;
+        assert(ret <= cast(REBCNT, tail));
 
-        if (VAL_WORD_SYM(verb) == SYM_FIND) {
-            if (REF(tail) || REF(match))
+        if (sym == SYM_FIND) {
+            if (REF(tail) or REF(match))
                 ret += len;
-            VAL_INDEX(v) = ret;
+            return Init_Any_Series_At(D_OUT, VAL_TYPE(v), VAL_SERIES(v), ret);
         }
-        else {
-            ret++;
-            if (ret >= cast(REBCNT, tail))
-                return nullptr;
-            str_to_char(v, v, ret);
-        }
-        RETURN (Trust_Const(v)); }
+
+        assert(sym == SYM_SELECT);
+
+        ++ret;
+        if (ret == tail)
+            return nullptr;
+
+        return Init_Char(D_OUT, CHR_CODE(UNI_AT(VAL_SERIES(v), ret))); }
 
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
@@ -1074,7 +1101,7 @@ REBTYPE(String)
         if (REF(deep))
             fail (Error_Bad_Refines_Raw());
 
-        REBINT len;
+        REBCNT len;
         if (REF(part)) {
             len = Part_Len_May_Modify_Index(v, ARG(limit));
             if (len == 0)
@@ -1085,7 +1112,7 @@ REBTYPE(String)
         // Note that /PART can change index
 
         if (REF(last)) {
-            if (tail - len < 0) {
+            if (len > tail) {
                 VAL_INDEX(v) = 0;
                 len = tail;
             }
@@ -1093,7 +1120,7 @@ REBTYPE(String)
                 VAL_INDEX(v) = cast(REBCNT, tail - len);
         }
 
-        if (cast(REBINT, VAL_INDEX(v)) >= tail) {
+        if (VAL_INDEX(v) >= tail) {
             if (not REF(part))
                 return nullptr;
             return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_String(0));
@@ -1109,7 +1136,8 @@ REBTYPE(String)
         else
             Init_Char(D_OUT, CHR_CODE(VAL_UNI_AT(v)));
 
-        Remove_Series_Units(ser, VAL_INDEX(v), len);
+
+        Remove_Series_Len(ser, VAL_INDEX(v), len);
         return D_OUT; }
 
     case SYM_CLEAR: {

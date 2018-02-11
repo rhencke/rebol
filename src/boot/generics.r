@@ -231,7 +231,7 @@ find: generic [
     series [
         <blank> <dequote> any-series! any-context! map! gob! bitset! typeset!
     ]
-    value [any-value!]
+    pattern [any-value!]
     /part {Limits the search to a given length or position}
     limit [any-number! any-series! pair!]
     /only {Treats a series value as only a single value}

@@ -365,8 +365,7 @@ enum act_find_mask {
     AM_FIND_CASE = 1 << 1,
     AM_FIND_LAST = 1 << 2,
     AM_FIND_REVERSE = 1 << 3,
-    AM_FIND_TAIL = 1 << 4,
-    AM_FIND_MATCH = 1 << 5
+    AM_FIND_MATCH = 1 << 4
 };
 enum act_open_mask {
     AM_OPEN_NEW = 1 << 0,
@@ -611,10 +610,25 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 **
 ***********************************************************************/
 
-#define UP_CASE(c) Upper_Cases[c]
-#define LO_CASE(c) Lower_Cases[c]
-#define IS_WHITE(c) ((c) <= 32 and (White_Chars[c] & 1) != 0)
-#define IS_SPACE(c) ((c) <= 32 and (White_Chars[c] & 2) != 0)
+inline static REBUNI UP_CASE(REBUNI c) {
+    if (c < UNICODE_CASES)
+        return Upper_Cases[c];
+    return c;
+}
+
+inline static REBUNI LO_CASE(REBUNI c) {
+    if (c < UNICODE_CASES)
+        return Lower_Cases[c];
+    return c;
+}
+
+inline static bool IS_WHITE(REBUNI c) {
+    return c <= 32 and ((White_Chars[c] & 1) != 0);
+}
+
+inline static bool IS_SPACE(REBUNI c) {
+    return c <= 32 and ((White_Chars[c] & 2) != 0);
+}
 
 #define GET_SIGNAL(f) \
     (did (Eval_Signals & (f)))

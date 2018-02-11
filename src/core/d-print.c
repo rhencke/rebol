@@ -160,19 +160,15 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
 //
 //  Form_Hex_Pad: C
 //
-// Form an integer hex string in the given buffer with a
-// width padded out with zeros.
-// If len = 0 and val = 0, a null string is formed.
-// Does not insert a #.
-// Make sure you have room in your buffer before calling this!
+// Form integer hex string and pad width with zeros.  Does not insert a #.
 //
-REBYTE *Form_Hex_Pad(REBYTE *buf, REBI64 val, REBINT len)
-{
+void Form_Hex_Pad(
+    REB_MOLD *mo,
+    REBI64 val, // !!! was REBU64 in R3-Alpha, but code did sign comparisons!
+    REBINT len
+){
     REBYTE buffer[MAX_HEX_LEN + 4];
     REBYTE *bp = buffer + MAX_HEX_LEN + 1;
-
-    // !!! val parameter was REBU64 at one point; changed to REBI64
-    // as this does signed comparisons (val < 0 was never true...)
 
     REBI64 sgn = (val < 0) ? -1 : 0;
 
@@ -187,10 +183,8 @@ REBYTE *Form_Hex_Pad(REBYTE *buf, REBI64 val, REBINT len)
     for (; len > 0; len--)
         *bp-- = (sgn != 0) ? 'F' : '0';
 
-    bp++;
-    while ((*buf++ = *bp++) != '\0')
-        NOOP;
-    return buf - 1;
+    for (++bp; *bp != '\0'; ++bp)
+        Append_Codepoint(mo->series, *bp);
 }
 
 
@@ -199,13 +193,10 @@ REBYTE *Form_Hex_Pad(REBYTE *buf, REBI64 val, REBINT len)
 //
 // Convert byte-sized int to xx format.
 //
-REBYTE* Form_Hex2(REBYTE* bp, REBCNT val)
+void Form_Hex2(REB_MOLD *mo, REBYTE b)
 {
-    REBCHR(*) cp = bp;
-    cp = WRITE_CHR(cp, Hex_Digits[(val & 0xf0) >> 4]);
-    cp = WRITE_CHR(cp, Hex_Digits[val & 0xf]);
-    WRITE_CHR(cp, '\0'); // !!! necessary?
-    return AS_REBYTE_PTR(cp);
+    Append_Codepoint(mo->series, Hex_Digits[(b & 0xf0) >> 4]);
+    Append_Codepoint(mo->series, Hex_Digits[b & 0xf]);
 }
 
 
@@ -223,23 +214,30 @@ void Form_Hex_Esc(REB_MOLD *mo, REBYTE b)
 
 
 //
-//  Form_RGBA_Utf8: C
+//  Form_RGBA: C
 //
 // Convert 32 bit RGBA to xxxxxx format.
 //
-REBYTE *Form_RGBA_Utf8(REBYTE *utf8, const REBYTE *dp)
+void Form_RGBA(REB_MOLD *mo, const REBYTE *dp)
 {
-    utf8[0] = Hex_Digits[(dp[0] >> 4) & 0xf];
-    utf8[1] = Hex_Digits[dp[0] & 0xf];
-    utf8[2] = Hex_Digits[(dp[1] >> 4) & 0xf];
-    utf8[3] = Hex_Digits[dp[1] & 0xf];
-    utf8[4] = Hex_Digits[(dp[2] >> 4) & 0xf];
-    utf8[5] = Hex_Digits[dp[2] & 0xf];
-    utf8[6] = Hex_Digits[(dp[3] >> 4) & 0xf];
-    utf8[7] = Hex_Digits[dp[3] & 0xf];
-    utf8[8] = '\0';
+    REBCNT len_old = UNI_LEN(mo->series);
+    REBSIZ used_old = SER_USED(mo->series);
 
-    return utf8 + 8;
+    EXPAND_SERIES_TAIL(mo->series, 8);  // grow by 8 bytes, may realloc buffer
+
+    REBYTE *bp = BIN_AT(mo->series, used_old);  // potentially new buffer
+
+    bp[0] = Hex_Digits[(dp[0] >> 4) & 0xf];
+    bp[1] = Hex_Digits[dp[0] & 0xf];
+    bp[2] = Hex_Digits[(dp[1] >> 4) & 0xf];
+    bp[3] = Hex_Digits[dp[1] & 0xf];
+    bp[4] = Hex_Digits[(dp[2] >> 4) & 0xf];
+    bp[5] = Hex_Digits[dp[2] & 0xf];
+    bp[6] = Hex_Digits[(dp[3] >> 4) & 0xf];
+    bp[7] = Hex_Digits[dp[3] & 0xf];
+    bp[8] = '\0';
+
+    TERM_UNI_LEN_USED(mo->series, len_old + 8, used_old + 8);
 }
 
 

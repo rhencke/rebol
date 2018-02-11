@@ -530,28 +530,21 @@ void Bin_To_Alpha(REBYTE *rgba, REBCNT size, REBYTE *bin, REBINT len)
 // to be consistent with the internal format, so the idea of "alpha-less"
 // images is removed from MAKE IMAGE! and related molding.
 //
-void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
+void Mold_Image_Data(REB_MOLD *mo, const REBCEL *value)
 {
     REBCNT num_pixels = VAL_IMAGE_LEN_AT(value); // # from index to tail
     const REBYTE *rgba = VAL_IMAGE_AT(value);
 
-    Emit(mold, "IxI #{", VAL_IMAGE_WIDTH(value), VAL_IMAGE_HEIGHT(value));
-
-    // !!! (Don't care at the moment)
-    REBYTE *bp = NULL;
-    // = Prep_Mold_Overestimated(mold, (size * 6) + (size / 10) + 1);
-    assert(false);
+    Emit(mo, "IxI #{", VAL_IMAGE_WIDTH(value), VAL_IMAGE_HEIGHT(value));
 
     REBCNT i;
     for (i = 0; i < num_pixels; ++i, rgba += 4) {
         if ((i % 10) == 0)
-            *bp++ = LF;
-        bp = Form_RGBA_Utf8(bp, rgba);
+            Append_Codepoint(mo->series, LF);
+        Form_RGBA(mo, rgba);
     }
 
-    *bp = '\0'; // tail already set from Prep (so it thinks it guessed right)
-
-    Append_Ascii(mold->series, "\n}");
+    Append_Ascii(mo->series, "\n}");
 }
 
 
@@ -801,10 +794,10 @@ void Find_Image(REBFRM *frame_)
     INCLUDE_PARAMS_OF_FIND;
 
     REBVAL *value = ARG(series);
-    REBVAL *arg = ARG(value);
-    REBCNT index = VAL_IMAGE_POS(value);
-    REBCNT tail = VAL_IMAGE_LEN_HEAD(value);
-    REBYTE *ip = VAL_IMAGE_AT(value);
+    REBVAL *arg = ARG(pattern);
+    REBCNT index = VAL_IMAGE_POS(arg);
+    REBCNT tail = VAL_IMAGE_LEN_HEAD(arg);
+    REBYTE *ip = VAL_IMAGE_AT(arg);
 
     REBCNT len = tail - index;
     if (len == 0) {
@@ -891,7 +884,7 @@ void Find_Image(REBFRM *frame_)
 //
 // !!! See code in R3-Alpha for VITT_ALPHA and the `save` flag.
 //
-bool Image_Has_Alpha(const REBVAL *v)
+bool Image_Has_Alpha(const REBCEL *v)
 {
     REBYTE *p = VAL_IMAGE_HEAD(v);
 
@@ -936,12 +929,12 @@ void MF_Image(REB_MOLD *mo, const REBCEL *v, bool form)
         DECLARE_LOCAL (head);
         Move_Value(head, KNOWN(v));
         VAL_IMAGE_POS(head) = 0; // mold all of it
-        Mold_Image_Data(head, mo);
+        Mold_Image_Data(mo, head);
         Post_Mold(mo, v);
     }
     else {
         Append_Codepoint(mo->series, '[');
-        Mold_Image_Data(KNOWN(v), mo);
+        Mold_Image_Data(mo, v);
         Append_Codepoint(mo->series, ']');
         End_Mold(mo);
     }

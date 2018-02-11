@@ -467,35 +467,28 @@ REBNATIVE(enbase)
     REBSIZ size;
     REBYTE *bp = VAL_BYTES_AT(&size, ARG(value));
 
-    REBSER *enbased;
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
+
     const bool brk = false;
     switch (base) {
     case 64:
-        enbased = Encode_Base64(bp, size, brk);
+        Form_Base64(mo, bp, size, brk);
         break;
 
     case 16:
-        enbased = Encode_Base16(bp, size, brk);
+        Form_Base16(mo, bp, size, brk);
         break;
 
     case 2:
-        enbased = Encode_Base2(bp, size, brk);
+        Form_Base2(mo, bp, size, brk);
         break;
 
     default:
         fail (PAR(base_value));
     }
 
-    // !!! Enbasing code is common with how a BINARY! molds out.  With UTF-8
-    // everywhere, this code should be modified to use the mold buffer and
-    // Pop_Molded_String(), so Mold_Base16(), etc.
-
-    Init_Text(
-        D_OUT,
-        Make_Sized_String_UTF8(cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased))
-    );
-    Free_Unmanaged_Series(enbased);
-
+    Init_Text(D_OUT, Pop_Molded_String(mo));
     return D_OUT;
 }
 
@@ -866,7 +859,9 @@ REBNATIVE(enline)
     if (delta == 0)
         RETURN (ARG(string)); // nothing to do
 
-    EXPAND_SERIES_TAIL(ser, delta);
+    REBCNT old_len = MISC(ser).length;
+    EXPAND_SERIES_TAIL(ser, delta); // corrupts MISC(ser).length
+    MISC(ser).length = old_len + delta; // just adding CR's
 
     // !!! After the UTF-8 Everywhere conversion, this will be able to stay
     // a byte-oriented process..because UTF-8 doesn't reuse ASCII chars in
@@ -1001,6 +996,7 @@ REBNATIVE(detab)
         tabsize = TAB_SIZE;
 
     DECLARE_MOLD (mo);
+    Push_Mold(mo);
 
     // Estimate new length based on tab expansion:
 
@@ -1096,46 +1092,46 @@ REBNATIVE(to_hex)
 
     REBVAL *arg = ARG(value);
 
-    REBYTE buffer[(MAX_TUPLE * 2) + 4];  // largest value possible
-
-    REBYTE *buf = &buffer[0];
-
-    REBINT len;
-    if (REF(size)) {
-        len = cast(REBINT, VAL_INT64(ARG(len)));
-        if (len < 0)
-            fail (PAR(len));
-    }
+    REBCNT len;
+    if (REF(size))
+        len = cast(REBCNT, VAL_INT64(ARG(len)));
     else
-        len = -1;
+        len = UNKNOWN;
+
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
 
     if (IS_INTEGER(arg)) {
-        if (len < 0 || len > MAX_HEX_LEN)
+        if (len == UNKNOWN || len > MAX_HEX_LEN)
             len = MAX_HEX_LEN;
 
-        Form_Hex_Pad(buf, VAL_INT64(arg), len);
+        Form_Hex_Pad(mo, VAL_INT64(arg), len);
     }
     else if (IS_TUPLE(arg)) {
         REBCNT n;
         if (
-            len < 0
-            || cast(REBCNT, len) > 2 * MAX_TUPLE
-            || cast(REBCNT, len) > 2 * VAL_TUPLE_LEN(arg)
+            len == UNKNOWN
+            || len > 2 * MAX_TUPLE
+            || len > cast(REBCNT, 2 * VAL_TUPLE_LEN(arg))
         ){
             len = 2 * VAL_TUPLE_LEN(arg);
         }
         for (n = 0; n != VAL_TUPLE_LEN(arg); n++)
-            buf = Form_Hex2(buf, VAL_TUPLE(arg)[n]);
+            Form_Hex2(mo, VAL_TUPLE(arg)[n]);
         for (; n < 3; n++)
-            buf = Form_Hex2(buf, 0);
-        *buf = 0;
+            Form_Hex2(mo, 0);
     }
     else
         fail (PAR(value));
 
-    if (NULL == Scan_Issue(D_OUT, &buffer[0], len))
+    // !!! Issue should be able to use string from mold buffer directly when
+    // UTF-8 Everywhere unification of ANY-WORD! and ANY-STRING! is done.
+    //
+    assert(len == BIN_LEN(mo->series) - mo->offset);
+    if (NULL == Scan_Issue(D_OUT, BIN_AT(mo->series, mo->offset), len))
         fail (PAR(value));
 
+    Drop_Mold(mo);
     return D_OUT;
 }
 

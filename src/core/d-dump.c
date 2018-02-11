@@ -48,70 +48,6 @@
 
 
 //
-//  Dump_Bytes: C
-//
-void Dump_Bytes(REBYTE *bp, REBCNT limit)
-{
-    const REBCNT max_lines = 120;
-
-    REBCNT total = 0;
-
-    REBYTE buf[2048];
-
-    REBCNT l = 0;
-    for (; l < max_lines; l++) {
-        REBYTE *cp = buf;
-
-        cp = Form_Hex_Pad(cp, cast(uintptr_t, bp), 8);
-
-        *cp++ = ':';
-        *cp++ = ' ';
-
-        REBYTE str[40];
-        REBYTE *tp = str;
-
-        REBCNT n = 0;
-        for (; n < 16; n++) {
-            if (total++ >= limit)
-                break;
-
-            REBYTE c = *bp++;
-
-            cp = Form_Hex2(cp, c);
-            if ((n & 3) == 3)
-                *cp++ = ' ';
-            if ((c < 32) || (c > 126))
-                c = '.';
-            *tp++ = c;
-        }
-
-        for (; n < 16; n++) {
-            REBYTE c = ' ';
-            *cp++ = c;
-            *cp++ = c;
-            if ((n & 3) == 3)
-                *cp++ = ' ';
-            if ((c < 32) || (c > 126))
-                c = '.';
-            *tp++ = c;
-        }
-
-        *tp++ = 0;
-
-        for (tp = str; *tp;)
-            *cp++ = *tp++;
-
-        *cp = 0;
-        printf("%s\n", s_cast(buf));
-        fflush(stdout);
-
-        if (total >= limit)
-            break;
-    }
-}
-
-
-//
 //  Dump_Series: C
 //
 void Dump_Series(REBSER *s, const char *memo)
@@ -136,68 +72,6 @@ void Dump_Series(REBSER *s, const char *memo)
     printf(" info: %lx\n", cast(unsigned long, s->info.bits));
 
     fflush(stdout);
-
-    if (IS_SER_ARRAY(s))
-        Dump_Values(ARR_HEAD(ARR(s)), SER_LEN(s));
-    else
-        Dump_Bytes(SER_DATA_RAW(s), (SER_LEN(s) + 1) * SER_WIDE(s));
-
-    fflush(stdout);
-}
-
-
-//
-//  Dump_Values: C
-//
-// Print values in raw hex; If memory is corrupted this still needs to work.
-//
-void Dump_Values(RELVAL *vp, REBCNT count)
-{
-    REBYTE buf[2048];
-    REBYTE *cp;
-    REBCNT l, n;
-    REBCNT *bp = (REBCNT*)vp;
-    const REBYTE *type;
-
-    cp = buf;
-    for (l = 0; l < count; l++) {
-        REBVAL *val = cast(REBVAL*, bp);
-        if (IS_END(val)) {
-            break;
-        }
-        if (IS_BLANK_RAW(val) or IS_NULLED(val)) {
-            bp = cast(REBCNT*, val + 1);
-            continue;
-        }
-
-        cp = Form_Hex_Pad(cp, l, 8);
-
-        *cp++ = ':';
-        *cp++ = ' ';
-
-        type = cb_cast(STR_HEAD(Get_Type_Name(val)));
-        for (n = 0; n < 11; n++) {
-            if (*type) *cp++ = *type++;
-            else *cp++ = ' ';
-        }
-        *cp++ = ' ';
-        for (n = 0; n < sizeof(REBVAL) / sizeof(REBCNT); n++) {
-            cp = Form_Hex_Pad(cp, *bp++, 8);
-            *cp++ = ' ';
-        }
-        n = 0;
-        if (IS_WORD(val) || IS_GET_WORD(val) || IS_SET_WORD(val)) {
-            const char *name_utf8 = STR_HEAD(VAL_WORD_SPELLING(val));
-            n = snprintf(
-                s_cast(cp), sizeof(buf) - (cp - buf), " (%s)", name_utf8
-            );
-        }
-
-        *(cp + n) = '\0';
-        printf("%s\n", s_cast(buf));
-        fflush(stdout);
-        cp = buf;
-    }
 }
 
 
@@ -288,7 +162,7 @@ void Dump_Stack(REBFRM *f, REBCNT level)
 //  "Temporary debug dump"
 //
 //      return: []
-//      :value [any-word!]
+//      :value [word!]
 //  ]
 //
 REBNATIVE(dump)

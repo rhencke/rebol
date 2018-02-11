@@ -1272,8 +1272,12 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
         }
 
         if (Do_Branch_Throws(res->out, res->body)) {
-            if (not Catching_Break_Or_Continue(res->out, &res->broke))
-                return R_THROWN;  // we bubble it up, but will also finalize
+            if (not Catching_Break_Or_Continue(res->out, &res->broke)) {
+                REBCNT removals = Finalize_Remove_Each(res);
+                UNUSED(removals);
+
+                return R_THROWN; // we'll bubble it up, but will also finalize
+            }
 
             if (res->broke) {
                 //
@@ -1281,7 +1285,11 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
                 // removals (we couldn't report how many if we did)
                 //
                 assert(res->start < len);
-                return NULL;
+                REBCNT removals = Finalize_Remove_Each(res);
+                UNUSED(removals);
+
+                Init_Nulled(res->out);
+                return nullptr;
             }
             else {
                 // CONTINUE - res->out may not be void if /WITH refinement used
@@ -1334,6 +1342,10 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
     // We get here on normal completion (THROW and BREAK will return above)
 
     assert(not res->broke and res->start == len);
+
+    REBCNT removals = Finalize_Remove_Each(res);
+    Init_Integer(res->out, removals);
+
     return nullptr;
 }
 
@@ -1440,23 +1452,30 @@ REBNATIVE(remove_each)
 
     REB_R r = rebRescue(cast(REBDNG*, &Remove_Each_Core), &res);
 
-    // Currently, if a fail() happens during the iteration, any removals
-    // which were indicated will be enacted before propagating failure.
-    //
-    REBCNT removals = Finalize_Remove_Each(&res);
-
     if (r == R_THROWN)
         return R_THROWN;
 
-    if (r) {
+    if (r) {  // Remove_Each_Core() couldn't finalize in this case due to fail
         assert(IS_ERROR(r));
+
+        // !!! Because we use the mold buffer to achieve removals from strings
+        // and the mold buffer has to equalize at the end of rebRescue(), we
+        // cannot mutate the string here to account for the removals.  So
+        // FAIL means no removals--but we need to get in and take out the
+        // marks on the array cells.
+        //
+        REBCNT removals = Finalize_Remove_Each(&res);
+        UNUSED(removals);
+
         rebJumps("FAIL", rebR(r), rebEND);
     }
 
     if (res.broke)
-        return nullptr;
+        assert(IS_NULLED(D_OUT));  // BREAK in loop
+    else
+        assert(IS_INTEGER(D_OUT));  // no break--plain removal count
 
-    return Init_Integer(D_OUT, removals);
+    return D_OUT;
 }
 
 
