@@ -614,7 +614,7 @@ require-commit: function [
             "by using the `do <dl-renc>` tool and look for"
             unspaced [
                 "r3-" copy/part id 7 "*"
-                if find/last form rebol/version "0.3.4" [%.exe]
+                if find-last form rebol/version "0.3.4" [%.exe]
             ]
         ]
     ]

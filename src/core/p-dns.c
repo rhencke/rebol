@@ -104,7 +104,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, const REBVAL *verb)
                 memcpy(&(ReqNet(req)->remote_ip), VAL_TUPLE(tuple), 4);
             }
             else // lookup string's IP address
-                sock->common.data = utf8;
+                sock->common.data = m_cast(REBYTE*, utf8);
         }
         else
             fail (Error_On_Port(SYM_INVALID_SPEC, port, -10));

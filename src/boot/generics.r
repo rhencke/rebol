@@ -238,10 +238,10 @@ find: generic [
     /case {Characters are case-sensitive}
     /skip {Treat the series as records of fixed size}
     size [integer!]
-    /last {Backwards from end of series}
-    /reverse {Backwards from the current position}
     /tail {Returns the end of the series}
     /match {Performs comparison and returns the tail of the match}
+    /reverse "Deprecated: https://forum.rebol.info/t/1126"
+    /last "Deprecated: https://forum.rebol.info/t/1126"
 ]
 
 select: generic [
@@ -255,11 +255,10 @@ select: generic [
     /case {Characters are case-sensitive}
     /skip {Treat the series as records of fixed size}
     size [integer!]
-    /last {Backwards from end of series}
-    /reverse {Backwards from the current position}
     /tail ;-- for frame compatibility with FIND
     /match ;-- for frame compatibility with FIND
-
+    /reverse "Deprecated: https://forum.rebol.info/t/1126"
+    /last "Deprecated: https://forum.rebol.info/t/1126"
 ]
 
 ; !!! PUT was added by Red as the complement to SELECT, which offers a /CASE

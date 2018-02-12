@@ -793,6 +793,9 @@ void Find_Image(REBFRM *frame_)
 {
     INCLUDE_PARAMS_OF_FIND;
 
+    UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
+    UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
+
     REBVAL *value = ARG(series);
     REBVAL *arg = ARG(pattern);
     REBCNT index = VAL_IMAGE_POS(arg);
@@ -812,10 +815,8 @@ void Find_Image(REBFRM *frame_)
     if (
         REF(case)
         || REF(skip)
-        || REF(last)
         || REF(match)
         || REF(part)
-        || REF(reverse)
     ){
         UNUSED(PAR(limit));
         UNUSED(PAR(size));

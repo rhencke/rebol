@@ -453,6 +453,6 @@ rebsource: context [
         return: [file!]
         file [file!]
     ][
-        find/last file "." else [copy %""]
+        find-last file "." else [copy %""]
     ]
 ]

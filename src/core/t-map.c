@@ -675,6 +675,9 @@ REBTYPE(Map)
     case SYM_SELECT: {
         INCLUDE_PARAMS_OF_FIND;
 
+        UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
+        UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
+
         UNUSED(PAR(series));
         UNUSED(PAR(pattern)); // handled as `arg`
 
@@ -688,10 +691,7 @@ REBTYPE(Map)
             UNUSED(ARG(size));
             fail (Error_Bad_Refines_Raw());
         }
-        if (REF(last))
-            fail (Error_Bad_Refines_Raw());
-        if (REF(reverse))
-            fail (Error_Bad_Refines_Raw());
+
         if (REF(tail))
             fail (Error_Bad_Refines_Raw());
         if (REF(match))

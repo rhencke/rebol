@@ -195,7 +195,6 @@ REBSER *Make_Set_Operation_Series(
                     h = (NOT_FOUND != Find_Char_In_Str(
                         uc,
                         VAL_SERIES(val2),
-                        0,
                         VAL_INDEX(val2),
                         VAL_LEN_HEAD(val2),
                         skip,
@@ -211,7 +210,6 @@ REBSER *Make_Set_Operation_Series(
                     NOT_FOUND == Find_Char_In_Str(
                         uc, // c2 (the character to find)
                         mo->series, // ser
-                        mo->index, // head - !!! was mo->start
                         mo->index, // index - !!! was mo->start
                         SER_LEN(mo->series), // tail
                         skip, // skip

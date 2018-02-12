@@ -97,12 +97,12 @@ REBCNT find_binary(
     REBINT skip
 ) {
     assert(end >= index);
-    REBCNT start = index;
 
-    if (flags & (AM_FIND_REVERSE | AM_FIND_LAST)) {
-        skip = -1;
+    REBCNT start;
+    if (skip < 0)
         start = 0;
-    }
+    else
+        start = index;
 
     if (ANY_STRING(pattern)) {
         if (skip != 1)
@@ -124,46 +124,26 @@ REBCNT find_binary(
             size2 = VAL_SIZE_LIMIT_AT(NULL, pattern, *len);
         }
 
-        if (flags & AM_FIND_LAST)
-            index = end - *len;
-        else if (flags & AM_FIND_REVERSE)
-            index--;
-
         if (*len > end - index) // series not long enough for pattern
             return NOT_FOUND;
 
-        REBCNT result;
-
-        if (flags & AM_FIND_CASE)
-            result = Find_Bin_In_Bin(
-                bin,
-                start,
-                bp2,
-                size2,
-                flags & AM_FIND_MATCH
-            );
-        else
-            result = Find_Str_In_Bin_Uncased(
-                bin,
-                start,
-                bp2,
-                *len,
-                size2,
-                flags & AM_FIND_MATCH
-            );
+        REBCNT result = Find_Str_In_Bin(
+            bin,
+            start,
+            bp2,
+            *len,
+            size2,
+            flags & AM_FIND_MATCH
+        );
 
         if (formed)
-           Free_Unmanaged_Series(formed);
+            Free_Unmanaged_Series(formed);
 
         return result;
     }
     else if (IS_BINARY(pattern)) {
-        *len = VAL_LEN_AT(pattern);
-
-        if (flags & AM_FIND_LAST)
-            index = end - *len;
-        else if (flags & AM_FIND_REVERSE)
-            index--;
+        if (skip != 1)
+            fail ("Search for BINARY! in BINARY! only supports /SKIP 1 ATM");
 
         return Find_Bin_In_Bin(
             bin,
@@ -174,11 +154,6 @@ REBCNT find_binary(
         );
     }
     else if (IS_CHAR(pattern)) {
-        if (flags & AM_FIND_LAST)
-            index = end - 1;
-        else if (flags & AM_FIND_REVERSE)
-            index--;
-
         return Find_Char_In_Bin(
             VAL_CHAR(pattern),
             bin,
@@ -189,43 +164,33 @@ REBCNT find_binary(
             flags & (AM_FIND_CASE | AM_FIND_MATCH)
         );
     }
-    else if (IS_INTEGER(pattern)) {
+    else if (IS_INTEGER(pattern)) {  // specific byte value, never apply case
         if (VAL_INT64(pattern) < 0 or VAL_INT64(pattern) > 255)
             fail (Error_Out_Of_Range(KNOWN(pattern)));
 
         *len = 1;
 
-        if (flags & AM_FIND_LAST)
-            index = end - *len;
-        else if (flags & AM_FIND_REVERSE)
-            index--;
+        REBYTE byte = cast(REBYTE, VAL_INT64(pattern));
 
-        return Find_Char_In_Bin(
-            cast(REBUNI, VAL_INT32(pattern)),
+        return Find_Bin_In_Bin(
             bin,
             start,
-            index,
-            end,
-            skip,
-            flags & (AM_FIND_CASE | AM_FIND_MATCH)
+            &byte,
+            *len,
+            flags & AM_FIND_MATCH
         );
     }
     else if (IS_BITSET(pattern)) {
         *len = 1;
 
-        if (flags & AM_FIND_LAST)
-            index = end - *len;
-        else if (flags & AM_FIND_REVERSE)
-            index--;
-
-        return Find_Str_Bitset(
+        return Find_Bin_Bitset(
             bin,
             start,
             index,
             end,
             skip,
-            VAL_SERIES(pattern),
-            flags & (AM_FIND_CASE | AM_FIND_MATCH)
+            VAL_BITSET(pattern),
+            flags & AM_FIND_MATCH  // no AM_FIND_CASE
         );
     }
     else
@@ -668,6 +633,9 @@ REBTYPE(Binary)
     case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
 
+        UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
+        UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
+
         UNUSED(PAR(series));
         REBVAL *pattern = ARG(pattern);
 
@@ -676,9 +644,7 @@ REBTYPE(Binary)
         REBFLGS flags = (
             (REF(only) ? AM_FIND_ONLY : 0)
             | (REF(match) ? AM_FIND_MATCH : 0)
-            | (REF(reverse) ? AM_FIND_REVERSE : 0)
             | (REF(case) ? AM_FIND_CASE : 0)
-            | (REF(last) ? AM_FIND_LAST : 0)
         );
 
         flags |= AM_FIND_CASE;

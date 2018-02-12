@@ -316,23 +316,23 @@ REB_R TO_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 //
 REBCNT Find_In_Array(
     REBARR *array,
-    REBCNT index, // index to start search
-    REBCNT end, // ending position
+    REBCNT index_unsigned, // index to start search
+    REBCNT end_unsigned, // ending position
     const RELVAL *target,
     REBCNT len, // length of target
     REBFLGS flags, // see AM_FIND_XXX
     REBINT skip // skip factor
 ){
-    REBCNT start = index;
+    REBINT index = index_unsigned;  // skip can be negative, tested >= 0
+    REBINT end = end_unsigned;
 
-    if (flags & (AM_FIND_REVERSE | AM_FIND_LAST)) {
-        skip = -1;
+    REBINT start;
+    if (skip < 0) {
         start = 0;
-        if (flags & AM_FIND_LAST)
-            index = end - len;
-        else
-            --index;
+        --index;  // `find/skip tail [1 2] 2 -1` should start at the *2*
     }
+    else
+        start = index;
 
     // Optimized find word in block
     //
@@ -874,6 +874,9 @@ REBTYPE(Array)
       case SYM_SELECT: {
         INCLUDE_PARAMS_OF_FIND; // must be same as select
 
+        UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
+        UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
+
         UNUSED(PAR(series));
         UNUSED(PAR(pattern)); // aliased as arg
 
@@ -887,19 +890,26 @@ REBTYPE(Array)
         REBFLGS flags = (
             (REF(only) ? AM_FIND_ONLY : 0)
             | (REF(match) ? AM_FIND_MATCH : 0)
-            | (REF(reverse) ? AM_FIND_REVERSE : 0)
             | (REF(case) ? AM_FIND_CASE : 0)
-            | (REF(last) ? AM_FIND_LAST : 0)
         );
 
-        REBCNT skip = REF(skip) ? Int32s(ARG(size), 1) : 1;
+        REBINT skip;
+        if (REF(skip)) {
+            skip = VAL_INT32(ARG(size));
+            if (skip == 0)
+                fail (PAR(size));
+        }
+        else
+            skip = 1;
 
         REBCNT ret = Find_In_Array(
             arr, index, limit, arg, len, flags, skip
         );
 
-        if (ret >= limit)
+        if (ret == NOT_FOUND)
             return nullptr;
+
+        assert(ret <= limit);
 
         if (REF(only))
             len = 1;

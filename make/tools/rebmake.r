@@ -1218,9 +1218,10 @@ generator-class: make object! [
 
                     fail ["Unexpected project class:" (project/class)]
                 ]
-                if output-ext: find/last project/output #"." [
+                if output-ext: find-last project/output #"." [
                     remove output-ext
                 ]
+
                 basename: project/output
                 project/output: join basename suffix
             ]

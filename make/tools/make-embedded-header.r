@@ -37,7 +37,7 @@ remove-macro: func [
 ][
     macro: to binary! macro
     if pos-m: find inp macro [
-        inc: find/reverse pos-m to binary! "#define"
+        inc: find-reverse pos-m to binary! "#define"
         eol: find pos-m to binary! newline
         remove/part inc (index? eol) - (index? inc)
     ]

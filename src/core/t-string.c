@@ -160,6 +160,8 @@ static void reverse_string(REBVAL *v, REBCNT len)
 //
 //  find_string: C
 //
+// Service routine for the FIND native on an ANY-STRING!
+//
 REBCNT find_string(
     REBCNT *len,
     REBSER *str,
@@ -168,15 +170,17 @@ REBCNT find_string(
     const RELVAL *pattern,
     REBCNT flags,
     REBINT skip
-) {
+){
+    // !!! `index` and `end` integrate the /PART.  If the /PART was negative,
+    // then index would have been swapped to be the lower value...making what
+    // was previously the index the limit.  However, that does not work with
+    // negative `skip` values, which by default considers 0 the limit of the
+    // backkwards search but otherwise presumably want a /PART to limit it.
+    // Passing in a real "limit" vs. an end which could be greater or less
+    // than the index would be one way of resolving this problem.  But it's
+    // a missing feature for now to do FIND/SKIP/PART with a negative skip.
+    //
     assert(end >= index);
-
-    REBCNT start = index;
-
-    if (flags & (AM_FIND_REVERSE | AM_FIND_LAST)) {
-        skip = -1;
-        start = 0;
-    }
 
     if (ANY_STRING(pattern)) {
         bool str_is_all_ascii = false;
@@ -204,35 +208,33 @@ REBCNT find_string(
             size2 = VAL_SIZE_LIMIT_AT(NULL, pattern, *len);
         }
 
-        if (flags & AM_FIND_LAST)
-            index = end - *len;
-        else if (flags & AM_FIND_REVERSE)
-            --index;
-
-        if (*len > end - index) // series not long enough for pattern
-            return NOT_FOUND;
-
         REBCNT result;
 
-        if (str_is_all_ascii) {
+        if (
+            str_is_all_ascii
+            and skip == 1  // optimizations not written for skips
+        ){
+            if (*len > end - index)  // series not long enough for pattern
+                return NOT_FOUND;
+
             assert(pattern_is_all_ascii);  // checked above
 
             // If one knew that the series being searched in was all ASCII,
             // then the same search code can be used as for binary...because
             // the binary offset can be used as a character position.
-            
+
             if (flags & AM_FIND_CASE)
                 result = Find_Bin_In_Bin(
                     str,  // all_ascii can be treated same as binary
-                    start,
+                    index,
                     bp2,
                     size2,
                     flags & AM_FIND_MATCH
                 );
             else
-                result = Find_Str_In_Bin_Uncased(
+                return Find_Str_In_Bin(
                     str,  // all_ascii can be treated same as binary
-                    start,
+                    index,
                     bp2,
                     *len,
                     size2,
@@ -242,7 +244,6 @@ REBCNT find_string(
         else
             result = Find_Str_In_Str(
                 str,  // not all_ascii, has multibyte utf-8 sequences
-                start,
                 index,
                 end,
                 skip,
@@ -260,15 +261,9 @@ REBCNT find_string(
     else if (IS_CHAR(pattern)) {
         *len = 1;
 
-        if (flags & AM_FIND_LAST)
-            index = end - *len;
-        else if (flags & AM_FIND_REVERSE)
-            --index;
-
         return Find_Char_In_Str(
             VAL_CHAR(pattern),
             str,
-            start,
             index,
             end,
             skip,
@@ -278,14 +273,8 @@ REBCNT find_string(
     else if (IS_BITSET(pattern)) {
         *len = 1;
 
-        if (flags & AM_FIND_LAST)
-            index = end - *len;
-        else if (flags & AM_FIND_REVERSE)
-            --index;
-
         return Find_Str_Bitset(
             str,
-            start,
             index,
             end,
             skip,
@@ -1045,6 +1034,9 @@ REBTYPE(String)
     case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
 
+        UNUSED(REF(reverse));  // Deprecated https://forum.rebol.info/t/1126
+        UNUSED(REF(last));  // ...a HIJACK in %mezz-legacy errors if used
+
         UNUSED(PAR(series));
         UNUSED(PAR(pattern));
 
@@ -1053,17 +1045,18 @@ REBTYPE(String)
         REBFLGS flags = (
             (REF(only) ? AM_FIND_ONLY : 0)
             | (REF(match) ? AM_FIND_MATCH : 0)
-            | (REF(reverse) ? AM_FIND_REVERSE : 0)
             | (REF(case) ? AM_FIND_CASE : 0)
-            | (REF(last) ? AM_FIND_LAST : 0)
         );
 
         if (REF(part))
             tail = Part_Tail_May_Modify_Index(v, ARG(limit));
 
-        REBCNT skip;
-        if (REF(skip))
-            skip = Part_Len_May_Modify_Index(v, ARG(size));
+        REBINT skip;
+        if (REF(skip)) {
+            skip = VAL_INT32(ARG(size));
+            if (skip == 0)
+                fail (PAR(size));
+        }
         else
             skip = 1;
 

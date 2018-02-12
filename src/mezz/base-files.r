@@ -82,7 +82,7 @@ suffix-of: function [
     path [file! url! text!]
 ][
     all [
-        pos: find/last path #"."
+        pos: find-last path #"."
         not find pos #"/"
         to file! pos
     ]
@@ -131,7 +131,10 @@ make-dir: func [
             remove back tail of path ; trailing slash
         ]
     ][
-        end: find/last/tail path slash else [path]
+        ; !!! Changing this to `path unless find/last/tail path slash` should
+        ; work, but seems to cause a problem.  Review why when time permits.
+        ;
+        end: find-last/tail path slash else [path]
         insert dirs copy end
         clear end
     ]

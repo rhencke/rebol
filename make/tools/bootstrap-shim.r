@@ -170,3 +170,20 @@ call: specialize 'call* [wait: true]
 redbol-apply: :applique
 applique: :apply
 apply: :redbol-apply
+
+find-reverse: specialize 'find [
+    reverse: true
+
+    ; !!! Specialize out /SKIP because it was not compatible--R3-Alpha
+    ; and Red both say `find/skip tail "abcd" "bc" -1` is none.
+    ;
+    skip: false
+]
+
+find-last: specialize 'find [
+    ;
+    ; !!! Old Ren-C committed for bootstrap had a bug of its own (a big reason
+    ; to kill these refinements): `find/reverse tail "abcd" "bc"` was blank.
+    ;
+    last: true
+]

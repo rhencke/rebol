@@ -96,22 +96,15 @@ emit-proto: func [
         trim proto
         not find proto "static"
 
+        ; Functions should start with OS_
+        ;
         pos.id: try find proto "OS_"
 
-        ;-- !!! All functions *should* start with OS_, not just
-        ;-- have OS_ somewhere in it!  At time of writing, Atronix
-        ;-- has added As_OS_Str and when that is addressed in a
-        ;-- later commit to OS_STR_FROM_SERIES (or otherwise) this
-        ;-- backwards search can be removed
-        pos.id: next find/reverse pos.id space
-        pos.id: either #"*" = first pos.id [next pos.id] [pos.id]
-
         find proto #"("
-    ] [
-
+    ][
         ; !!! We know 'the-file', but it's kind of noise to annotate
         append host-lib-externs reduce [
-            "extern " proto ";" newline
+            "extern" space proto ";" newline
         ]
 
         append checksum-source proto

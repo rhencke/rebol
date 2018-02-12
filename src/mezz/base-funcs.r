@@ -606,6 +606,31 @@ really: func [
 oneshot: specialize 'n-shot [n: 1]
 upshot: specialize 'n-shot [n: -1]
 
+;
+; !!! The /REVERSE and /LAST refinements of FIND and SELECT caused a lot of
+; bugs.  This recasts those refinements in userspace, in the hopes to reduce
+; the combinatorics in the C code.  If needed, they could be made for SELECT.
+;
+
+find-reverse: redescribe [
+    {Variant of FIND that uses a /SKIP of -1}
+](
+    specialize 'find/skip [size: -1]
+)
+
+find-last: redescribe [
+    {Variant of FIND that uses a /SKIP of -1 and seeks the TAIL of a series}
+](
+    adapt 'find-reverse [
+        if not any-series? series [
+            fail 'series "Can only use FIND-LAST on ANY-SERIES!"
+        ]
+
+        series: tail of series  ; can't use plain TAIL due to /TAIL refinement
+    ]
+)
+
+
 take: redescribe [
     {Variant of TAKE* that will give an error if it can't take, vs. null}
 ](

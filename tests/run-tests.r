@@ -22,13 +22,13 @@ run-tests: function [tests] [
         change-dir tests
         for-each file read tests [
             ; check if it is a test file
-            if %.tst = find/last file %. [run-tests file]
+            if %.tst = find-last file %. [run-tests file]
         ]
         return null
     ]
 
     ; having an individual file
-    suffix: find/last tests %.
+    suffix: find-last tests %.
     log-file-prefix: copy/part tests suffix
 
     print "Testing ..."

@@ -662,10 +662,7 @@ split: function [
             bitset! [did find dlm try last series]
             char! [dlm = last series]
             text! [
-                did all [
-                    find series dlm
-                    empty? find/last/tail series dlm
-                ]
+                (did find series dlm) and [empty? find-last/tail series dlm]
             ]
             block! [false]
         ]) and [

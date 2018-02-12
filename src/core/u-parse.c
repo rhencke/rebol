@@ -895,12 +895,12 @@ static REBIXO To_Thru_Block_Rule(
                         //
                         REBSER *formed = Copy_Form_Value(rule, 0);
                         REBCNT len = SER_LEN(formed);
+                        const REBINT skip = 1;
                         REBCNT i = Find_Str_In_Str(
                             P_INPUT,
-                            0,
                             pos,
                             SER_LEN(P_INPUT),
-                            1,
+                            skip,
                             formed,
                             0,
                             len,
@@ -926,12 +926,12 @@ static REBIXO To_Thru_Block_Rule(
                             return pos;
                         }
 
+                        const REBINT skip = 1;
                         REBCNT i = Find_Str_In_Str(
                             P_INPUT,
-                            0,
                             pos,
                             SER_LEN(P_INPUT),
-                            1,
+                            skip,
                             VAL_SERIES(rule),
                             VAL_INDEX(rule),
                             len,

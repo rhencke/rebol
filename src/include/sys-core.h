@@ -363,9 +363,7 @@ enum act_modify_mask {
 enum act_find_mask {
     AM_FIND_ONLY = 1 << 0,
     AM_FIND_CASE = 1 << 1,
-    AM_FIND_LAST = 1 << 2,
-    AM_FIND_REVERSE = 1 << 3,
-    AM_FIND_MATCH = 1 << 4
+    AM_FIND_MATCH = 1 << 2
 };
 enum act_open_mask {
     AM_OPEN_NEW = 1 << 0,
