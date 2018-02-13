@@ -104,26 +104,12 @@
 // DISABLE STDIO.H IN RELEASE BUILD
 //
 // The core build of Rebol published in R3-Alpha sought to not be dependent
-// on <stdio.h>.  The intent--ostensibly--was since Rebol had richer tools
-// like WORD!s and BLOCK! for dialecting, that including a brittle historic
-// string-based C "mini-language" of printf into the executable was a
-// wasteful dependency.  Also, many implementations are clunky:
+// on <stdio.h>.  Since Rebol has richer tools like WORD!s and BLOCK! for
+// dialecting, including a brittle historic string-based C "mini-language" of
+// printf into the executable was a wasteful dependency.  Also, many
+// implementations are clunky:
 //
 // http://blog.hostilefork.com/where-printf-rubber-meets-road/
-//
-// Hence formatted output was not presumed as a host service, which only
-// provided raw character string output.
-//
-// This "radical decoupling" idea was undermined by including a near-rewrite
-// of printf() called Debug_Fmt().  This was a part of release builds, and
-// added format specifiers for Rebol values ("%r") or series, as well as
-// handling a subset of basic C types.
-//
-// Ren-C's long-term goal is to not include any string-based dialect for
-// formatting output.  Low-level diagnostics in the debug build will rely on
-// printf, while all release build formatting will be done through Rebol
-// code...where the format specification is done with a Rebol BLOCK! dialect
-// that could be used by client code as well.
 //
 // To formalize this rule, these definitions will help catch uses of <stdio.h>
 // in the release build, and give a hopefully informative error.

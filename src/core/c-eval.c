@@ -165,7 +165,7 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
                 (TG_Break_At_Tick != 0 and tick >= TG_Break_At_Tick) \
                 or tick == TICK_BREAKPOINT \
             ){ \
-                Debug_Fmt("TICK_BREAKPOINT at %d", tick); \
+                printf("TICK_BREAKPOINT at %u\n", cast(unsigned int, tick)); \
                 Dump_Frame_Location((cur), f); \
                 debug_break(); /* see %debug_break.h */ \
                 TG_Break_At_Tick = 0; \

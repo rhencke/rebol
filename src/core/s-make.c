@@ -225,6 +225,17 @@ void Append_Utf8_Utf8(REBSER *dst, const char *utf8, size_t size)
 
 
 //
+//  Append_Spelling: C
+//
+// Append the spelling of a REBSTR to a UTF8 binary.  Terminates.
+//
+void Append_Spelling(REBSER *dst, REBSTR *spelling)
+{
+    Append_Utf8_Utf8(dst, STR_HEAD(spelling), STR_SIZE(spelling));
+}
+
+
+//
 //  Append_Utf8_String: C
 //
 // Append a partial string to a UTF-8 binary series.

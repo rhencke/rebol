@@ -83,44 +83,130 @@ REBFRM *Frame_At_Depth(REBCNT n)
 void Trace_Value(
     const char* label, // currently "match" or "input"
     const RELVAL *value
-) {
-    Debug_Fmt(RM_TRACE_PARSE_VALUE, label, value);
+){
+    // !!! The way the parse code is currently organized, the value passed
+    // in is a relative value.  It would take some changing to get a specific
+    // value, but that's needed by the API.  Molding can be done on just a
+    // relative value, however.
+
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
+    Mold_Value(mo, value);
+
+    DECLARE_LOCAL (molded);
+    Init_Text(molded, Pop_Molded_String(mo));
+    PUSH_GC_GUARD(molded);
+
+    rebElide("print [",
+        "{Parse}", rebT(label), "{:}", molded,
+    "]", rebEND);
+
+    DROP_GC_GUARD(molded);
 }
 
 
 //
-//  Trace_String: C
+//  Trace_Parse_Input: C
 //
-void Trace_String(const REBYTE *str, REBINT limit)
+void Trace_Parse_Input(const REBVAL *str)
 {
-    static char tracebuf[64];
-    int len = MIN(60, limit);
-    memcpy(tracebuf, str, len);
-    tracebuf[len] = '\0';
-    Debug_Fmt(RM_TRACE_PARSE_INPUT, tracebuf);
+    if (IS_END(str)) {
+        rebElide("print {Parse Input: ** END **}", rebEND);
+        return;
+    }
+
+    rebElide("print [",
+        "{Parse input:} mold/limit", str, "60"
+    "]", rebEND);
 }
 
 
-//
-//  Trace_Error: C
-//
-// !!! This does not appear to be used
-//
-void Trace_Error(const REBVAL *value)
+REBVAL *Trace_Eval_Dangerous(REBFRM *f)
 {
-    Debug_Fmt(
-        RM_TRACE_ERROR,
-        &VAL_ERR_VARS(value)->type,
-        &VAL_ERR_VARS(value)->id
-    );
+    int depth = Eval_Depth() - Trace_Depth;
+    if (depth > 10)
+        depth = 10; // don't indent so far it goes off the screen
+
+    DECLARE_LOCAL (v);
+    Derelativize(v, f->feed->value, f->feed->specifier);
+
+    rebElide("loop 4 *", rebI(depth), "[write-stdout space]", rebEND);
+
+    if (FRM_IS_VALIST(f)) {
+        //
+        // If you are doing a sequence of REBVAL* held in a C va_list,
+        // it doesn't have an "index".  It could manufacture one if
+        // you reified it (which will be necessary for any inspections
+        // beyond the current element), but TRACE does not currently
+        // output more than one unit of lookahead.
+        //
+        rebElide("write-stdout spaced [",
+            "{va:} mold/limit", v, "50"
+        "]", rebEND);
+    }
+    else {
+        rebElide("write-stdout spaced [",
+            rebI(FRM_INDEX(f)), "{:} mold/limit", v, "50",
+        "]", rebEND);
+    }
+
+    if (IS_WORD(v) or IS_GET_WORD(v)) {
+        //
+        // Note: \\ -> \ in C, because backslashes are escaped
+        //
+        const REBVAL *var = Try_Get_Opt_Var(v, SPECIFIED);
+        if (not var) {
+            rebElide("write-stdout { : \\\\end\\\\}", rebEND);
+        }
+        else if (IS_NULLED(var)) {
+            rebElide("write-stdout { : \\\\null\\\\}", rebEND);
+        }
+        else if (IS_ACTION(var)) {
+            rebElide("write-stdout spaced [",
+                "{ : ACTION!} mold/limit parameters of", var, "50",
+            "]", rebEND);
+        }
+        else if (
+            ANY_WORD(var)
+            or ANY_STRING(var)
+            or ANY_ARRAY(var)
+            or ANY_SCALAR(var)
+            or IS_DATE(var)
+            or IS_TIME(var)
+            or IS_BLANK(var)
+        ){
+            // These are things that are printed, abbreviated to 50
+            // characters of molding.
+            //
+            rebElide("write-stdout spaced [",
+                "{ :} mold/limit", var, "50",
+            "]", rebEND);
+        }
+        else {
+            // Just print the type if it's a context, GOB!, etc.
+            //
+            rebElide("write-stdout spaced [",
+                "{ :} type of", var,
+            "]", rebEND);
+        }
+    }
+    rebElide("write-stdout newline", rebEND);
+    return nullptr;
 }
 
 
 //
 //  Traced_Eval_Hook_Throws: C
 //
-// This is the function which is swapped in for Eval_Core when tracing is
-// enabled.
+// Ultimately there will be two trace codebases...one that will be low-level
+// and printf()-based, only available in debug builds, and it will be able to
+// trace all the way from the start.  Then there will be a trace that is in
+// usermode with many features--but that uses functions like PRINT and would
+// not be able to run during bootup.
+//
+// For the moment, this hook is neither.  It can't be run during boot, and
+// it doesn't use printf, but relies on features not exposed to usermode.  As
+// the debug and hooking API matures this should be split into the two forms.
 //
 bool Traced_Eval_Hook_Throws(REBFRM * const f)
 {
@@ -129,17 +215,23 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
         return Eval_Core_Throws(f); // don't trace (REPL uses this to hide)
 
     SHORTHAND (v, f->feed->value, NEVERNULL(const RELVAL*));
-    SHORTHAND (specifier, f->feed->specifier, REBSPC*);
 
     if (depth > 10)
         depth = 10; // don't indent so far it goes off the screen
 
-    // In order to trace single steps, we convert a EVAL_FLAG_TO_END request
+    // We're running, so while we're running we shouldn't hook again until
+    // a dispatch says we're running the traced dispatcher.
+    //
+    assert(PG_Eval_Throws == &Traced_Eval_Hook_Throws);
+    PG_Eval_Throws = &Eval_Core_Throws;
+
+    // In order to trace single steps, we convert an EVAL_FLAG_TO_END request
     // into a sequence of EVALUATE operations, and loop them.
     //
     uintptr_t saved_flags = f->flags.bits;
 
     while (true) {
+
         if (not (
             KIND_BYTE(*v) == REB_ACTION
             or (Trace_Flags & TRACE_FLAG_FUNCTION)
@@ -150,63 +242,25 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
             //
             f->flags.bits = saved_flags & (~EVAL_FLAG_TO_END);
 
-            Debug_Space(cast(REBCNT, 4 * depth));
+            REBVAL *err = rebRescue(cast(REBDNG*, &Trace_Eval_Dangerous), f);
 
-            if (FRM_IS_VALIST(f)) {
-                //
-                // If you are doing a sequence of REBVAL* held in a C va_list,
-                // it doesn't have an "index".  It could manufacture one if
-                // you reified it (which will be necessary for any inspections
-                // beyond the current element), but TRACE does not currently
-                // output more than one unit of lookahead.
-                //
-                Debug_Fmt_("va: %50r", *v);
-            }
-            else
-                Debug_Fmt_("%-02d: %50r", FRM_INDEX(f), *v);
-
-            if (IS_WORD(*v) || IS_GET_WORD(*v)) {
-                const RELVAL *var = Try_Get_Opt_Var(*v, *specifier);
-                if (not var) {
-                    Debug_Fmt_(" ; end");
-                }
-                else if (IS_NULLED(var)) {
-                    Debug_Fmt_(" ; null");
-                }
-                else if (IS_ACTION(var)) {
-                    const char *type_utf8 = STR_HEAD(Get_Type_Name(var));
-                    DECLARE_LOCAL (words);
-                    Init_Block(
-                        words,
-                        Make_Action_Parameters_Arr(VAL_ACTION(var))
-                    );
-                    Debug_Fmt_(" : %s %50r", type_utf8, words);
-                }
-                else if (
-                    ANY_WORD(var)
-                    || ANY_STRING(var)
-                    || ANY_ARRAY(var)
-                    || ANY_SCALAR(var)
-                    || IS_DATE(var)
-                    || IS_TIME(var)
-                    || IS_BLANK(var)
-                ){
-                    // These are things that are printed, abbreviated to 50
-                    // characters of molding.
-                    //
-                    Debug_Fmt_(" : %50r", var);
-                }
-                else {
-                    // Just print the type if it's a context, GOB!, etc.
-                    //
-                    const char *type_utf8 = STR_HEAD(Get_Type_Name(var));
-                    Debug_Fmt_(" : %s", type_utf8);
-                }
-            }
-            Debug_Line();
+          #if defined(DEBUG_HAS_PROBE)
+            if (err) { PROBE(err); }
+          #endif
+            assert(not err);  // should not raise error!
+            UNUSED(err);
         }
 
+        // We put the Traced_Dispatcher() into effect.  It knows to turn the
+        // eval hook back on when it dispatches, but it doesn't want to do
+        // it until then (otherwise it would trace its own PRINTs!).
+        //
+        REBNAT saved_dispatcher = PG_Dispatcher;
+        PG_Dispatcher = &Traced_Dispatcher_Hook;
+
         bool threw = Eval_Core_Throws(f);
+
+        PG_Dispatcher = saved_dispatcher;
 
         if (not (saved_flags & EVAL_FLAG_TO_END)) {
             //
@@ -232,6 +286,106 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
         // keep looping (it was originally EVAL_FLAG_TO_END, which we are
         // simulating step-by-step)
     }
+
+    PG_Eval_Throws = &Traced_Eval_Hook_Throws;
+}
+
+
+REBVAL *Trace_Action_Dangerous(REBFRM *f)
+{
+    int depth = Eval_Depth() - Trace_Depth;
+    if (depth > 10)
+        depth = 10; // don't indent so far it goes off the screen
+
+    rebElide("loop 4 *", rebI(depth), "[write-stdout space]", rebEND);
+    rebElide("write-stdout spaced [",
+        "{-->}", rebT(Frame_Label_Or_Anonymous_UTF8(f)),
+    "]", rebEND);
+
+    if (Trace_Flags & TRACE_FLAG_FUNCTION)
+        rebElide("TBD Dump FRM_ARG(FS_TOP, 1), FRM_NUM_ARGS(FS_TOP)", rebEND);
+    else
+        rebElide("write-stdout newline", rebEND);
+
+    return nullptr;
+}
+
+
+struct Reb_Return_Descriptor {
+    REBFRM *f;
+    const REBVAL *r;
+};
+
+REBVAL *Trace_Return_Dangerous(struct Reb_Return_Descriptor *d)
+{
+    REBFRM *f = d->f;
+    const REBVAL *r = d->r;
+
+    int depth = Eval_Depth() - Trace_Depth;
+    if (depth > 10)
+        depth = 10; // don't indent so far it goes off the screen
+
+    rebElide("loop 4 *", rebI(depth), "[write-stdout space]", rebEND);
+    rebElide("write-stdout spaced [",
+        "{<--}", rebT(Frame_Label_Or_Anonymous_UTF8(f)), "{==} space",
+    "]", rebEND);
+
+    if (r == f->out) {
+
+      process_out:;
+
+        if (r != R_THROWN) {
+            rebElide(
+                "write-stdout mold/limit", f->out, "50",
+                "write-stdout newline",
+            rebEND);
+            return nullptr;
+        }
+
+        // The system guards against the molding or forming of thrown
+        // values, which are actually a pairing of label + value.
+        // "Catch" it temporarily, long enough to output it, then
+        // re-throw it.
+        //
+        DECLARE_LOCAL (arg);
+        CATCH_THROWN(arg, f->out);
+
+        if (IS_NULLED(f->out)) {
+            rebElide("print ["
+                "{throw} mold/limit", arg, "50",
+            "]", rebEND);
+        }
+        else {
+            rebElide("print [",
+                "{throw} mold/limit", arg, "30 {,}",
+                "{label} mold/limit", f->out, "20"
+            "]", rebEND);
+        }
+
+        Init_Thrown_With_Label(f->out, arg, f->arg);
+    }
+    else if (not r) { // -> "\null\", backslash escaped
+        rebElide("print {\\null\\}", rebEND);
+    }
+    else if (GET_CELL_FLAG(r, ROOT)) {
+        Handle_Api_Dispatcher_Result(f, r);
+        goto process_out;
+    }
+    else switch (KIND_BYTE(r)) {
+      case REB_R_INVISIBLE:  // -> "\invisible\", backslash escaped
+        rebElide("print {\\invisible\\}", rebEND);
+        break;
+
+      case REB_R_REFERENCE:
+      case REB_R_IMMEDIATE:
+        assert(false); // internal use only, shouldn't be returned
+        break;
+
+      default:
+        assert(false);
+    }
+
+    return nullptr;
 }
 
 
@@ -247,8 +401,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
     if (depth < 0 || depth >= Trace_Level)
         return Dispatcher_Core(f);
 
-    if (depth > 10)
-        depth = 10; // don't indent so far it goes off the screen
+    PG_Dispatcher = &Dispatcher_Core; // don't trace the trace!
 
     REBACT *phase = FRM_PHASE(f);
 
@@ -256,12 +409,9 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         //
         // Only show the label if this phase is the first phase.
 
-        Debug_Space(cast(REBCNT, 4 * depth));
-        Debug_Fmt_(RM_TRACE_FUNCTION, Frame_Label_Or_Anonymous_UTF8(f));
-        if (Trace_Flags & TRACE_FLAG_FUNCTION)
-            Debug_Values(FRM_ARG(FS_TOP, 1), FRM_NUM_ARGS(FS_TOP), 20);
-        else
-            Debug_Line();
+        REBVAL *err = rebRescue(cast(REBDNG*, Trace_Action_Dangerous), f);
+        assert(not err);
+        UNUSED(err);
     }
 
     // We can only tell if it's the last phase *before* the apply, because if
@@ -269,7 +419,16 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
     //
     bool last_phase = (ACT_UNDERLYING(phase) == phase);
 
+    REBEVL saved_eval = PG_Eval_Throws;
+    PG_Eval_Throws = &Traced_Eval_Hook_Throws;
+
     REB_R r = Dispatcher_Core(f);
+
+    PG_Eval_Throws = saved_eval;
+
+/*    if (PG_Dispatcher != Traced_Dispatcher_Hook)
+        return r; // TRACE OFF during the traced code, don't print any more
+        */
 
     // When you HIJACK a function with an incompatible frame, it can REDO
     // even on what looks like the "last phase" because it is wiring in a new
@@ -287,59 +446,16 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         //
         // Only show the return result if this is the last phase.
 
-        Debug_Space(cast(REBCNT, 4 * depth));
-        Debug_Fmt_(RM_TRACE_RETURN, Frame_Label_Or_Anonymous_UTF8(f));
+        struct Reb_Return_Descriptor d;
+        d.f = f;
+        d.r = r;
 
-        if (r == f->out) {
-
-          process_out:;
-
-            Debug_Values(f->out, 1, 50);
-        }
-        else if (r == nullptr) {
-            Debug_Fmt("; null\n");
-        }
-        else if (GET_CELL_FLAG(r, ROOT)) { // API, from Alloc_Value()
-            Handle_Api_Dispatcher_Result(f, r);
-            r = f->out;
-            goto process_out;
-        }
-        else switch (KIND_BYTE(r)) {
-
-        case REB_0_END:
-            assert(false);
-            break;
-
-        case REB_R_THROWN: {
-            // The system guards against the molding or forming of thrown
-            // values, which are actually a pairing of label + value.
-            // "Catch" it temporarily, long enough to output it, then
-            // re-throw it.
-            //
-            DECLARE_LOCAL (arg);
-            CATCH_THROWN(arg, f->out); // clears bit
-
-            if (IS_NULLED(f->out))
-                Debug_Fmt_("throw %50r", arg);
-            else
-                Debug_Fmt_("throw %30r, label %20r", arg, f->out);
-
-            Init_Thrown_With_Label(f->out, arg, f->out); // sets bit
-            break; }
-
-        case REB_R_INVISIBLE:
-            Debug_Fmt("\\\\invisible\\\\\n"); // displays as "\\invisible\\"
-            break;
-
-        case REB_R_REFERENCE:
-        case REB_R_IMMEDIATE:
-            assert(false); // internal use only, shouldn't be returned
-            break;
-
-        default:
-            panic ("Unknown REB_R value received during trace hook");
-        }
+        REBVAL *err = rebRescue(cast(REBDNG*, Trace_Return_Dangerous), &d);
+        assert(not err);
+        UNUSED(err);
     }
+
+    PG_Dispatcher = &Traced_Dispatcher_Hook;
 
     return r;
 }
@@ -379,16 +495,13 @@ REBNATIVE(trace)
 
     if (Trace_Level) {
         PG_Eval_Throws = &Traced_Eval_Hook_Throws;
-        PG_Dispatcher = &Traced_Dispatcher_Hook;
 
         if (REF(function))
             Trace_Flags |= TRACE_FLAG_FUNCTION;
         Trace_Depth = Eval_Depth() - 1; // subtract current TRACE frame
     }
-    else {
+    else
         PG_Eval_Throws = &Eval_Core_Throws;
-        PG_Dispatcher = &Dispatcher_Core;
-    }
 
     return nullptr;
 }

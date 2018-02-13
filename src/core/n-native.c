@@ -630,8 +630,10 @@ REBNATIVE(compile)
 
     const struct rebol_sym_cfunc_t *sym_cfunc = &rebol_sym_cfuncs[0];
     for (; sym_cfunc->name != nullptr; ++sym_cfunc) {
+        //
         // ISO C++ forbids casting between pointer-to-function and
         // pointer-to-object, use memcpy to circumvent.
+        //
         void *ptr;
         assert(sizeof(ptr) == sizeof(sym_cfunc->cfunc));
         memcpy(&ptr, &sym_cfunc->cfunc, sizeof(ptr));
@@ -640,6 +642,7 @@ REBNATIVE(compile)
     }
 
     // Add symbols in libtcc1, to avoid bundling with libtcc1.a
+    //
     const void **sym = &r3_libtcc1_symbols[0];
     for (; *sym != nullptr; sym += 2) {
         if (tcc_add_symbol(state, cast(const char*, *sym), *(sym + 1)) < 0)

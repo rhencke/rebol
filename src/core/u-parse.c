@@ -340,15 +340,21 @@ static void Print_Parse_Index(REBFRM *f) {
     //
     if (IS_END(P_RULE)) {
         if (P_POS >= SER_LEN(P_INPUT))
-            Debug_Fmt("[]: ** END **");
+            rebElide("print {[]: ** END **}", rebEND);
         else
-            Debug_Fmt("[]: %r", input);
+            rebElide("print [{[]:} mold", input, "]", rebEND);
     }
     else {
+        DECLARE_LOCAL (rule);
+        Derelativize(rule, P_RULE, P_RULE_SPECIFIER);
+
         if (P_POS >= SER_LEN(P_INPUT))
-            Debug_Fmt("%r: ** END **", P_RULE);
-        else
-            Debug_Fmt("%r: %r", P_RULE, input);
+            rebElide("print [mold", rule, "{** END **}]", rebEND);
+        else {
+            rebElide("print ["
+                "mold", rule, "{:} mold", input,
+            "]", rebEND);
+        }
     }
 }
 
@@ -531,6 +537,11 @@ static REBIXO Parse_One_Rule(
         // was a GET-GROUP! :(...), use result as rule
     }
 
+    if (Trace_Level) {
+        Trace_Value("match", rule);
+        Trace_Parse_Input(P_INPUT_VALUE);
+    }
+
     if (P_POS == SER_LEN(P_INPUT)) { // at end of input
         if (IS_BLANK(rule) or IS_LOGIC(rule) or IS_BLOCK(rule)) {
             //
@@ -602,16 +613,6 @@ static REBIXO Parse_One_Rule(
         REBARR *arr = ARR(P_INPUT);
         RELVAL *item = ARR_AT(arr, pos);
 
-        if (Trace_Level) {
-            Trace_Value("input", rule);
-            if (IS_END(item)) {
-                const char *end_str = "** END **";
-                Trace_String(cb_cast(end_str), strlen(end_str));
-            }
-            else
-                Trace_Value("match", item);
-        }
-
         switch (VAL_TYPE(rule)) {
           case REB_QUOTED:
             Derelativize(P_CELL, rule, P_RULE_SPECIFIER);
@@ -660,16 +661,6 @@ static REBIXO Parse_One_Rule(
     }
     else {
         REBCNT flags = P_FIND_FLAGS | AM_FIND_MATCH | AM_FIND_TAIL;
-
-        if (Trace_Level) {
-            Trace_Value("match", rule);
-
-            // !!! This used STR_AT (obsolete) but it's not clear that this is
-            // necessarily a byte sized series.  Switched to BIN_AT, which
-            // will assert if it's not BYTE_SIZE()
-
-            Trace_String(BIN_AT(P_INPUT, pos), BIN_LEN(P_INPUT) - pos);
-        }
 
         switch (VAL_TYPE(rule)) {
           case REB_CHAR:

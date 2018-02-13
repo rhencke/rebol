@@ -259,11 +259,6 @@ void Dump_Stack(REBFRM *f, REBCNT level)
         return;
     }
 
-    // !!! This is supposed to be a low-level debug routine, but it is
-    // effectively molding arguments.  If the stack is known to be in "good
-    // shape" enough for that, it should be dumped by routines using the
-    // Rebol backtrace API.
-
     fflush(stdout);
 
     REBINT n = 1;
@@ -272,15 +267,15 @@ void Dump_Stack(REBFRM *f, REBCNT level)
 
     for (; NOT_END(param); ++param, ++arg, ++n) {
         if (IS_NULLED(arg))
-            Debug_Fmt(
-                "    %s:",
+            printf(
+                "    %s:\n",
                 STR_HEAD(VAL_PARAM_SPELLING(param))
             );
         else
-            Debug_Fmt(
-                "    %s: %72r",
+            printf(
+                "    %s: %p\n",
                 STR_HEAD(VAL_PARAM_SPELLING(param)),
-                arg
+                cast(void*, arg)
             );
     }
 

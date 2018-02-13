@@ -92,9 +92,6 @@
 //
 void Emit(REB_MOLD *mo, const char *fmt, ...)
 {
-    REBSER *s = mo->series;
-    assert(SER_WIDE(s) == 1);
-
     va_list va;
     va_start(va, fmt);
 
@@ -104,51 +101,47 @@ void Emit(REB_MOLD *mo, const char *fmt, ...)
         switch (*fmt) {
         case 'W': { // Word symbol
             const REBVAL *any_word = va_arg(va, const REBVAL*);
-            REBSTR *spelling = VAL_WORD_SPELLING(any_word);
-            Append_Utf8_Utf8(
-                s, STR_HEAD(spelling), STR_SIZE(spelling)
-            );
-            break;
-        }
+            Append_Spelling(mo->series, VAL_WORD_SPELLING(any_word));
+            break; }
 
         case 'V': // Value
             Mold_Value(mo, va_arg(va, const REBVAL*));
             break;
 
         case 'S': // String of bytes
-            Append_Unencoded(s, va_arg(va, const char *));
+            Append_Unencoded(mo->series, va_arg(va, const char *));
             break;
 
         case 'C': // Char
-            Append_Utf8_Codepoint(s, va_arg(va, uint32_t));
+            Append_Utf8_Codepoint(mo->series, va_arg(va, uint32_t));
             break;
 
         case 'I': // Integer
-            Append_Int(s, va_arg(va, REBINT));
+            Append_Int(mo->series, va_arg(va, REBINT));
             break;
 
         case 'i':
-            Append_Int_Pad(s, va_arg(va, REBINT), -9);
-            Trim_Tail(s, '0');
+            Append_Int_Pad(mo->series, va_arg(va, REBINT), -9);
+            Trim_Tail(mo->series, '0');
             break;
 
         case '2': // 2 digit int (for time)
-            Append_Int_Pad(s, va_arg(va, REBINT), 2);
+            Append_Int_Pad(mo->series, va_arg(va, REBINT), 2);
             break;
 
         case 'T': {  // Type name
             REBSTR *type_name = Get_Type_Name(va_arg(va, REBVAL*));
-            Append_Utf8_Utf8(s, STR_HEAD(type_name), STR_SIZE(type_name));
+            Append_Spelling(mo->series, type_name);
             break; }
 
         case 'N': {  // Symbol name
             REBSTR *spelling = va_arg(va, REBSTR*);
-            Append_Utf8_Utf8(s, STR_HEAD(spelling), STR_SIZE(spelling));
+            Append_Spelling(mo->series, spelling);
             break; }
 
         case '+': // Add #[ if mold/all
             if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL)) {
-                Append_Unencoded(s, "#[");
+                Append_Unencoded(mo->series, "#[");
                 ender = ']';
             }
             break;
@@ -156,22 +149,22 @@ void Emit(REB_MOLD *mo, const char *fmt, ...)
         case 'D': // Datatype symbol: #[type
             if (ender != '\0') {
                 REBSTR *canon = Canon(cast(REBSYM, va_arg(va, int)));
-                Append_Utf8_Utf8(s, STR_HEAD(canon), STR_SIZE(canon));
-                Append_Utf8_Codepoint(s, ' ');
+                Append_Spelling(mo->series, canon);
+                Append_Utf8_Codepoint(mo->series, ' ');
             }
             else
                 va_arg(va, REBCNT); // ignore it
             break;
 
         default:
-            Append_Utf8_Codepoint(s, *fmt);
+            Append_Utf8_Codepoint(mo->series, *fmt);
         }
     }
 
     va_end(va);
 
     if (ender != '\0')
-        Append_Utf8_Codepoint(s, ender);
+        Append_Utf8_Codepoint(mo->series, ender);
 }
 
 
@@ -654,15 +647,9 @@ void Push_Mold(REB_MOLD *mo)
 {
   #if !defined(NDEBUG)
     //
-    // If some kind of Debug_Fmt() happens while this Push_Mold is happening,
-    // it will lead to a recursion.  It's necessary to look at the stack in
-    // the debugger and figure it out manually.  (e.g. any failures in this
-    // function will break the very mechanism by which failure messages
-    // are reported.)
-    //
-    // !!! This isn't ideal.  So if all the routines below guaranteed to
-    // use some kind of assert reporting mechanism "lower than mold"
-    // (hence "lower than Debug_Fmt") that would be an improvement.
+    // If molding happens while this Push_Mold is happening, it will lead to
+    // a recursion.  This would likely be caused by a debug routine that is
+    // trying to dump out values.  Another debug method will need to be used.
     //
     assert(!TG_Pushing_Mold);
     TG_Pushing_Mold = true;

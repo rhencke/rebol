@@ -218,18 +218,12 @@ REBCTX *Get_Context_From_Stack(void)
         return VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER));
     }
 
-
-    // The topmost stack level must be a native if we call this function.
-    // (So don't call it from something like Returner_Dispatcher, where you
-    // know for a fact it's a user function and not a native on the stack.)
+    // This would happen if you call the API from something like a traced
+    // eval hook, or a Returner_Dispatcher().  For now, just assume that means
+    // you want the code to bind into the lib context.
     //
-  #if !defined(NDEBUG)
-    if (NOT_ACTION_FLAG(phase, IS_NATIVE)) {
-        printf("!!! WARNING: calling API code from unsafe location\n");
-        printf("(only do this in special debugging scenarios...)\n");
+    if (NOT_ACTION_FLAG(phase, IS_NATIVE))
         return Lib_Context;
-    }
-  #endif
 
     REBARR *details = ACT_DETAILS(phase);
     REBVAL *context = KNOWN(ARR_AT(details, 1));

@@ -1757,15 +1757,25 @@ REBCNT Recycle_Core(bool shutdown, REBSER *sweeplist)
         }*/
 
         GC_Ballast = TG_Ballast;
-
-        if (Reb_Opts->watch_recycle)
-            Debug_Fmt(RM_WATCH_RECYCLE, count);
     }
 
     ASSERT_NO_GC_MARKS_PENDING();
 
   #if !defined(NDEBUG)
     GC_Recycling = false;
+  #endif
+
+  #if !defined(NDEBUG)
+    //
+    // This might be an interesting feature for release builds, but using
+    // normal I/O here that runs evaluations could be problematic.  Even
+    // though we've finished the recycle, we're still in the signal handling
+    // stack, so calling into the evaluator e.g. for rebPrint() may be bad.
+    //
+    if (Reb_Opts->watch_recycle) {
+        printf("RECYCLE: %u nodes\n", cast(unsigned int, count));
+        fflush(stdout);
+    }
   #endif
 
     return count;
