@@ -218,7 +218,7 @@ void *OS_Open_Library(const REBVAL *path)
     // current dir to make it absolute, because it will only look there.
     //
     const REBOOL full = FALSE;
-    wchar_t *path_utf8 = rebFileToLocalAllocW(NULL, path, full);
+    WCHAR *path_utf8 = rebFileToLocalAllocW(NULL, path, full);
 
     void *dll = LoadLibraryW(path_utf8);
 
@@ -315,7 +315,7 @@ REBVAL *OS_GOB_To_Image(REBGOB *gob)
 //
 REBVAL *OS_Get_Current_Exec(void)
 {
-    wchar_t *path = OS_ALLOC_N(wchar_t, MAX_PATH);
+    WCHAR *path = OS_ALLOC_N(WCHAR, MAX_PATH);
     if (path == NULL)
         return rebBlank();
 

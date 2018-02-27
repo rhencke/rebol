@@ -1693,7 +1693,7 @@ REBVAL *RL_rebStringW(const REBWCHAR *wstr)
 //
 // !!! Currently needed by ODBC module to make column titles.
 //
-REBVAL *RL_rebSizedWordW(REBWCHAR *ucs2, REBCNT len)
+REBVAL *RL_rebSizedWordW(const REBWCHAR *ucs2, REBCNT len)
 {
     Enter_Api();
 
@@ -1990,7 +1990,7 @@ char *RL_rebFileToLocalAlloc(size_t *size_out, const REBVAL *file, REBOOL full)
 //  rebFileToLocalAllocW: RL_API
 //
 // This is the API exposure of TO-LOCAL-FILE.  It takes in a FILE! and
-// returns an allocated REBWCHAR buffer.
+// returns an allocated UCS2 buffer.
 //
 // !!! Should MAX_FILE_NAME be taken into account for the OS?
 //
@@ -2051,7 +2051,7 @@ REBVAL *RL_rebLocalToFile(const char *local, REBOOL is_dir)
 //
 //  rebLocalToFileW: RL_API
 //
-// This is the API exposure of TO-REBOL-FILE.  It takes in a REBWCHAR buffer and
+// This is the API exposure of TO-REBOL-FILE.  It takes in a UCS2 buffer and
 // returns a FILE!.
 //
 // !!! Should MAX_FILE_NAME be taken into account for the OS?

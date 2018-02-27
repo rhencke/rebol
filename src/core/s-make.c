@@ -93,27 +93,6 @@ REBSER *Copy_Bytes(const REBYTE *src, REBINT len)
 
 
 //
-//  Copy_Wide_Str: C
-//
-// Create a REBOL string series from a wide char string.
-// Minimize to bytes if possible
-//
-REBSER *Copy_Wide_Str(const REBWCHAR *ws, REBINT len)
-{
-    assert(sizeof(REBUNI) == sizeof(REBWCHAR));
-
-    REBSER *dst = Make_Unicode(len);
-    SET_SERIES_LEN(dst, len);
-
-    REBUNI *up = UNI_HEAD(dst);
-    while (len-- > 0)
-        *up++ = *ws++;
-    *up = 0;
-    return dst;
-}
-
-
-//
 //  Insert_Char: C
 //
 // Insert a unicode char into a string.
