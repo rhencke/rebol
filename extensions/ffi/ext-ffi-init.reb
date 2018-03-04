@@ -58,10 +58,8 @@ make-callback: function [
     return: [action!]
     args [block!]
     body [block!]
-    /fallback
-        {If untrapped failure occurs during callback, fallback return value}
-    fallback-value [any-value!]
-        {Value to return (must be compatible with FFI type of RETURN:)}
+    /fallback "If untrapped failure occurs during callback, return value"
+        [any-value!]
 ][
     r-args: copy []
 
@@ -100,12 +98,12 @@ make-callback: function [
     ; print ["args:" mold args]
 
     safe: function r-args
-        <- (if fallback [
+        (if fallback [
             compose/deep <$> [
                 trap [return ((<$> as group! body))] then (error => [
                     print "** TRAPPED CRITICAL ERROR DURING FFI CALLBACK:"
                     print mold error
-                    ((<$> fallback-value))
+                    ((<$> fallback))
                 ])
             ]
         ] else [

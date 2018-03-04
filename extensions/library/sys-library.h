@@ -32,24 +32,23 @@ typedef REBARR REBLIB;
 
 extern REBTYP *EG_Library_Type;
 
-inline static void *LIB_FD(REBLIB *l) {
-    return LINK(l).fd; // file descriptor
+inline static bool IS_LIBRARY(const RELVAL *v) {  // Note: QUOTED! doesn't count
+    return IS_CUSTOM(v) and CELL_CUSTOM_TYPE(v) == EG_Library_Type;
 }
 
-inline static bool IS_LIB_CLOSED(REBLIB *l) {
-    return LINK(l).fd == NULL;
-}
+inline static void *LIB_FD(REBLIB *l)
+  { return LINK(l).fd; }  // (F)ile (D)escriptor
 
-#define VAL_LIBRARY_SINGULAR_NODE(v) \
-    PAYLOAD(Any, (v)).first.node
+inline static bool IS_LIB_CLOSED(REBLIB *l)
+  { return LINK(l).fd == nullptr; }
 
 inline static REBLIB *VAL_LIBRARY(const REBCEL *v) {
     assert(CELL_CUSTOM_TYPE(v) == EG_Library_Type);
-    return ARR(VAL_LIBRARY_SINGULAR_NODE(v));
+    return ARR(VAL_NODE(v));
 }
 
 #define VAL_LIBRARY_META_NODE(v) \
-    MISC_META_NODE(VAL_LIBRARY_SINGULAR_NODE(v))
+    MISC_META_NODE(VAL_NODE(v))
 
 inline static REBCTX *VAL_LIBRARY_META(const REBCEL *v) {
     assert(CELL_CUSTOM_TYPE(v) == EG_Library_Type);
@@ -61,3 +60,14 @@ inline static void *VAL_LIBRARY_FD(const REBCEL *v) {
     assert(CELL_CUSTOM_TYPE(v) == EG_Library_Type);
     return LIB_FD(VAL_LIBRARY(v));
 }
+
+
+// !!! These functions are currently statically linked to by the FFI extension
+// which should probably be finding a way to do this through the libRebol API
+// instead.  That could avoid the static linking--but it would require the
+// library to give back HANDLE! or otherwise pointers that could be used to
+// call the C functions.
+//
+extern void *Open_Library(const REBVAL *path);
+extern void Close_Library(void *dll);
+extern CFUNC *Find_Function(void *dll, const char *funcname);

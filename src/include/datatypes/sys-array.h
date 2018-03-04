@@ -128,13 +128,13 @@ inline static void TERM_SERIES(REBSER *s) {
 }
 
 
-// Note: These variants do not cast the result to ARR() in order to chain
-// it, because `gcc (Ubuntu/Linaro 4.6.3-1ubuntu5) 4.6.3` complained about
-// "value computed but not used".  The chaining feature wasn't really being
-// used anyway, so it wasn't worth it to workaround.
+// !!! PLEASE NOTE: !!! These variants do not cast the result to ARR() in
+// order to chain it, because `gcc (Ubuntu/Linaro 4.6.3-1ubuntu5) 4.6.3`
+// complained about "value computed but not used".  The chaining feature
+// wasn't really being used anyway, so it wasn't worth it to workaround.
 //
-#define Manage_Array(a)             Manage_Series(SER(a))
-#define Ensure_Array_Managed(a)     Ensure_Series_Managed(SER(a))
+#define Manage_Array(a)             Manage_Series(SER(a))  // SEE NOTE
+#define Ensure_Array_Managed(a)     Ensure_Series_Managed(SER(a))  // SEE NOTE
 
 
 //

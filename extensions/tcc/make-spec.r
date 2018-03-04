@@ -10,18 +10,6 @@ includes: [
     %prep/extensions/tcc
 ]
 
-; !!! It's needed to use tcc_add_symbol() on Windows to get the libRebol API
-; entry points exposed.  But Linux exposes symbols automatically.  The
-; process for building the librebol table is a work in progress
-;
-comment [
-    hook: %prep-librebol-table.r
-
-    depends: [ ; !!! Directories appear to be relative to %extensions ?
-       ; %../build/prep/extensions/tcc/tmp-librebol-table.c
-    ]
-]
-
 
 ; If they installed libtcc with `sudo apt-get libtcc-dev`, then the switches
 ; for `-ltcc` and `#include "libtcc.h" should just work.  Otherwise, they

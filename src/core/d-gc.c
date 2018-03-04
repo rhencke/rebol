@@ -233,7 +233,7 @@ void Assert_Cell_Marked_Correctly(const RELVAL *v)
                 //
                 // The intent is that bookmarks are unmanaged REBSERs, which
                 // get freed when the string GCs.  This mechanic could be a by
-                // product of noticing that the SERIES_INFO_LINK_IS_NODE is
+                // product of noticing that the SERIES_FLAG_LINK_NODE_NEEDS_MARK is
                 // true but that the managed bit on the node is false.
 
                 assert(not Is_Marked(bookmark));

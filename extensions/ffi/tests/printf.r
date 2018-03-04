@@ -4,8 +4,8 @@ recycle/torture
 
 
 libc: make library! switch system/platform/1 [
-    Linux [%libc.so.6]
-    Windows [%msvcrt.dll]
+    'Linux [%libc.so.6]
+    'Windows [%msvcrt.dll]
 ] else [
     fail "don't know where the C library is"
 ]

@@ -32,10 +32,6 @@
 REBTYP *EG_Library_Type = nullptr;  // (E)xtension (G)lobal LIBRARY! type
 
 
-extern void *Open_Library(const REBVAL *path);
-extern void Close_Library(void *dll);
-extern CFUNC *Find_Function(void *dll, const char *funcname);
-
 //
 //  CT_Library: C
 //
@@ -62,7 +58,7 @@ REB_R MAKE_Library(
     if (opt_parent)
         fail (Error_Bad_Make_Parent(kind, opt_parent));
 
-    if (!IS_FILE(arg))
+    if (not IS_FILE(arg))
         fail (Error_Unexpected_Type(REB_FILE, VAL_TYPE(arg)));
 
     void *fd = Open_Library(arg);
@@ -70,14 +66,16 @@ REB_R MAKE_Library(
     if (fd == NULL)
         fail (arg);
 
-    REBARR *singular = Alloc_Singular(NODE_FLAG_MANAGED);
-    RESET_CUSTOM_CELL(ARR_SINGLE(singular), EG_Library_Type, CELL_MASK_NONE);
-    VAL_LIBRARY_SINGULAR_NODE(ARR_SINGLE(singular)) = NOD(singular);
+    REBLIB *lib = Alloc_Singular(NODE_FLAG_MANAGED);
+    Init_Unreadable_Blank(ARR_SINGLE(lib));  // !!! save name? other data?
 
-    LINK(singular).fd = fd;
-    MISC_META_NODE(singular) = nullptr;  // !!! build from spec, e.g. arg?
+    LINK(lib).fd = fd;  // seen as shared by all instances
+    MISC_META_NODE(lib) = nullptr;  // !!! build from spec, e.g. arg?
 
-    return Move_Value(out, KNOWN(ARR_HEAD(singular)));
+    RESET_CUSTOM_CELL(out, EG_Library_Type, CELL_FLAG_FIRST_IS_NODE);
+    INIT_VAL_NODE(out, lib);
+
+    return out;
 }
 
 

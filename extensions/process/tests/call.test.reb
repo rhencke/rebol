@@ -9,7 +9,7 @@
     (
         call/shell/output spaced [
             (file-to-local system/options/boot)
-            {--suppress "*" call/print.reb 100}  ; small
+            {--suppress "*" print.reb 100}  ; small
         ] data: {}
 
         100 = length of data
@@ -17,7 +17,7 @@
     (
         call/shell/output spaced [
             (file-to-local system/options/boot)
-            {--suppress "*" call/print.reb 9000}  ; medium
+            {--suppress "*" print.reb 9000}  ; medium
         ] data: {}
 
         9000 = length of data
@@ -25,7 +25,7 @@
     (
         call/shell/output spaced [
             (file-to-local system/options/boot)
-            {--suppress "*" call/print.reb 80000}  ; large
+            {--suppress "*" print.reb 80000}  ; large
         ] data: {}
 
         80'000 = length of data

@@ -1,4 +1,7 @@
-; datatypes/vector.r
+; %vector.test.reb
+
+(datatype? vector!)
+
 (vector? make vector! 0)
 (vector? make vector! [integer! 8])
 (vector? make vector! [integer! 16])

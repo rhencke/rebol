@@ -1,92 +1,83 @@
 REBOL []
 
 name: 'FFI
+
 source: %ffi/mod-ffi.c
 depends: [
     %ffi/t-struct.c
     %ffi/t-routine.c
 ]
-includes: [join [%prep/extensions/ffi] opt cfg-ffi/includes]
-definitions: [cfg-ffi/definitions]
-cflags: [cfg-ffi/cflags]
-searches: [cfg-ffi/searches]
-ldflags: [cfg-ffi/ldflags]
 
-; Currently the libraries are specified by the USER-CONFIG/WITH-FFI
-; until that logic is moved to something here.  So if you are going
-; to build the FFI module, you need to also set WITH-FFI (though
-; setting WITH-FFI alone will not get you the module)
-;
-libraries: [cfg-ffi/libraries]
-
-options: [
-    with-ffi [block! word! logic! blank!] (
-        cfg-ffi: make object! [
-            cflags: [
-                ; ffi_closure has an alignment specifier, which causes
-                ; padding, and MSVC warns about that.
-                ;
-                <msc:/wd4324>
-            ]
-            includes: _
-            definitions: _
-            ldflags: _
-            libraries: _
-            searches: _
-        ]
-        either block? user-config/with-ffi [
-            cfg-ffi: make cfg-ffi user-config/with-ffi
-            cfg-ffi/libraries: map-each lib cfg-ffi/libraries [
-                case [
-                    file? lib [
-                        make rebmake/ext-dynamic-class [
-                            output: lib
-                        ]
-                    ]
-                    all [
-                        object? lib
-                        find [#dynamic-extension #static-extension] lib/class
-                    ][
-                        lib
-                    ]
-
-                    fail ["Libraries can only be file! or static/dynamic library object, not" lib]
+comment [
+    switch user-config/with-ffi [
+        'static 'dynamic [
+            for-each var [includes cflags searches ldflags][
+                x: rebmake/pkg-config
+                    try any [user-config/pkg-config {pkg-config}]
+                    var
+                    %libffi
+                if not empty? x [
+                    set (in cfg-ffi var) x
                 ]
             ]
-        ][
-            switch user-config/with-ffi [
-                'static 'dynamic [
-                    for-each var [includes cflags searches ldflags][
-                        x: rebmake/pkg-config
-                            try any [user-config/pkg-config {pkg-config}]
-                            var
-                            %libffi
-                        if not empty? x [
-                            set (in cfg-ffi var) x
-                        ]
-                    ]
 
-                    libs: rebmake/pkg-config
-                        try any [user-config/pkg-config {pkg-config}]
-                        'libraries
-                        %libffi
+            libs: rebmake/pkg-config
+                try any [user-config/pkg-config {pkg-config}]
+                'libraries
+                %libffi
 
-                    cfg-ffi/libraries: map-each lib libs [
-                        make rebmake/ext-dynamic-class [
-                            output: lib
-                            flags: either user-config/with-ffi = 'static [[static]][_]
-                        ]
-                    ]
-                ]
-                _ 'no 'off 'false #[false] [
-                    ;pass
-                ]
-
-                fail [
-                    "WITH-FFI should be one of [dynamic static no]"
-                    "not" (user-config/with-ffi)
+            cfg-ffi/libraries: map-each lib libs [
+                make rebmake/ext-dynamic-class [
+                    output: lib
+                    flags: either user-config/with-ffi = 'static [[static]][_]
                 ]
             ]
         ]
-    )
+        _ 'no 'off 'false #[false] [
+            ;pass
+        ]
+
+        fail [
+            "WITH-FFI should be one of [dynamic static no]"
+            "not" (user-config/with-ffi)
+        ]
+    ]
 ]
+
+includes: [
+    %prep/extensions/ffi
+
+    ; For the FFI to be used, you pretty much require the ability to load a
+    ; DLL or shared library.  Currently the `Find_Function()` API is linked
+    ; statically (as opposed to making a libRebol call to the LIBRARY! and
+    ; giving it a text string, getting back a HANDLE! from which a C function
+    ; pointer can be extracted).  Hence headers must be directly included.
+    ; But that could be changed.
+    ;
+    %../extensions/library
+
+    ; Vectors are used to model C array structures, and thus for the moment
+    ; one must build the vector extension into the executable if you want
+    ; FFI support.  This could be decoupled as an option, but the base demos
+    ; (like %qsort.r) depend upon it.  Similarly to the issue of static link
+    ; of the LIBRARY! extension, it could be possible (if VECTOR! exported it)
+    ; to do this via libRebol, asking for a HANDLE! memory pointer for the
+    ; vector...but for now we go through the internal includes of the type.
+    ;
+    %../extensions/vector
+]
+
+definitions: []
+
+cflags: [
+    ; ffi_closure has an alignment specifier, which causes
+    ; padding, and MSVC warns about that.
+    ;
+    <msc:/wd4324>
+]
+
+searches: []
+
+ldflags: []
+
+libraries: [%ffi]

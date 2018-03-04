@@ -283,6 +283,15 @@ Special internal defines used by RT, not Host-Kit developers:
     //
     #define INCLUDE_TEST_LIBREBOL_NATIVE
 
+    // !!! This was a concept that may have merit, but doesn't actually work
+    // when something creates a frame for purposes of iteration where it *may*
+    // or may not evaluate.  The FFI struct analysis was an example.  Hence
+    // disabling it for now, but there may be value in it enough to have a
+    // frame flag for explicitly saying you don't necessarily plan to call
+    // the evaluator.
+    //
+    // ---
+    //
     // Note: We enforce going through the evaluator and not "skipping out" on
     // the frame generation in case it is hooked and something like a debug
     // step wanted to see it.  Or also, if you write `cycle []` there has to
@@ -296,7 +305,7 @@ Special internal defines used by RT, not Host-Kit developers:
     //
     // https://github.com/rebol/rebol-issues/issues/2229
     //
-    #define DEBUG_ENSURE_FRAME_EVALUATES
+    /* #define DEBUG_ENSURE_FRAME_EVALUATES */
 
     // !!! Checking the memory alignment is an important invariant but may be
     // overkill to run on all platforms at all times.  It requires the

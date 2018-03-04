@@ -269,14 +269,8 @@ inline static void SET_GOB_OWNER(REBGOB *g, REBGOB *owner) {
 extern REBGOB *Gob_Root;  // Top level GOB (the screen)
 extern REBTYP *EG_Gob_Type;
 
-inline static bool IS_GOB(const RELVAL *v) {
-    //
-    // Note that for this test, if there's a quote level it doesn't count...
-    // that would be QUOTED! (IS_QUOTED()).  To test for quoted images, you
-    // have to call CELL_CUSTOM_TYPE() on the VAL_UNESCAPED() cell.
-    //
-    return IS_CUSTOM(v) and CELL_CUSTOM_TYPE(v) == EG_Gob_Type;
-}
+inline static bool IS_GOB(const RELVAL *v)  // Note: QUOTED! does not count
+  { return IS_CUSTOM(v) and CELL_CUSTOM_TYPE(v) == EG_Gob_Type; }
 
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
     #define VAL_GOB(v) \

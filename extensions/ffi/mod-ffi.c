@@ -28,75 +28,82 @@
 
 #include "reb-struct.h"
 
+REBTYP *EG_Struct_Type = nullptr;  // (E)xtension (G)lobal
+
 // There is a platform-dependent list of legal ABIs which the MAKE-ROUTINE
 // and MAKE-CALLBACK natives take as an option via refinement
 //
 static ffi_abi Abi_From_Word(const REBVAL *word) {
     switch (VAL_WORD_SYM(word)) {
-    case SYM_DEFAULT:
+      case SYM_DEFAULT:
         return FFI_DEFAULT_ABI;
 
-#ifdef X86_WIN64
-    case SYM_WIN64:
+    #ifdef X86_WIN64
+      case SYM_WIN64:
         return FFI_WIN64;
 
-#elif defined(X86_WIN32) || defined(TO_LINUX_X86) || defined(TO_LINUX_X64)
-    case SYM_STDCALL:
-        return FFI_STDCALL;
-
-    case SYM_SYSV:
+    #elif defined(X86_WIN32) || defined(TO_LINUX_X86) || defined(TO_LINUX_X64)
+      case SYM_SYSV:
         return FFI_SYSV;
 
-    case SYM_THISCALL:
-        return FFI_THISCALL;
+      // !!! While these are defined on newer versions of LINUX X86 and X64 
+      // FFI, older versions (e.g. 3.0.13) only have STDCALL/THISCALL/FASTCALL
+      // on Windows.  We could detect the FFI version, but since basically
+      // no one uses anything but the default punt on it for now.
+      //
+      #ifdef X86_WIN32
+        case SYM_STDCALL:
+          return FFI_STDCALL;
 
-    case SYM_FASTCALL:
-        return FFI_FASTCALL;
+        case SYM_THISCALL:
+          return FFI_THISCALL;
 
-#ifdef X86_WIN32
-    case SYM_MS_CDECL:
-        return FFI_MS_CDECL;
-#else
-    case SYM_UNIX64:
-        return FFI_UNIX64;
-#endif //X86_WIN32
+        case SYM_FASTCALL:
+          return FFI_FASTCALL;
+      #endif
 
-#elif defined (TO_LINUX_ARM)
-    case SYM_VFP:
+      #ifdef X86_WIN32
+        case SYM_MS_CDECL:
+          return FFI_MS_CDECL;
+      #else
+        case SYM_UNIX64:
+          return FFI_UNIX64;
+      #endif //X86_WIN32
+
+    #elif defined (TO_LINUX_ARM)
+      case SYM_VFP:
         return FFI_VFP;
 
-    case SYM_SYSV:
+      case SYM_SYSV:
         return FFI_SYSV;
 
-#elif defined (TO_LINUX_MIPS)
-    case SYM_O32:
+    #elif defined (TO_LINUX_MIPS)
+      case SYM_O32:
         return FFI_O32;
 
-    case SYM_N32:
+      case SYM_N32:
         return FFI_N32;
 
-    case SYM_N64:
+      case SYM_N64:
         return FFI_N64;
 
-    case SYM_O32_SOFT_FLOAT:
+      case SYM_O32_SOFT_FLOAT:
         return FFI_O32_SOFT_FLOAT;
 
-    case SYM_N32_SOFT_FLOAT:
+      case SYM_N32_SOFT_FLOAT:
         return FFI_N32_SOFT_FLOAT;
 
-    case SYM_N64_SOFT_FLOAT:
+      case SYM_N64_SOFT_FLOAT:
         return FFI_N64_SOFT_FLOAT;
-#endif //X86_WIN64
+    #endif //X86_WIN64
 
-    default:
+      default:
         break;
     }
 
     fail (word);
 }
 
-
-REBTYP *EG_Struct_Type = nullptr;
 
 //
 //  register-struct-hooks: native [
@@ -117,7 +124,7 @@ REBNATIVE(register_struct_hooks)
     // !!! See notes on Hook_Datatype for this poor-man's substitute for a
     // coherent design of an extensible object system (as per Lisp's CLOS)
     //
-    EG_Vector_Type = Hook_Datatype(
+    EG_Struct_Type = Hook_Datatype(
         "http://datatypes.rebol.info/struct",
         "native structure definition",
         &T_Struct,
@@ -144,7 +151,7 @@ REBNATIVE(unregister_struct_hooks)
 {
     FFI_INCLUDE_PARAMS_OF_UNREGISTER_STRUCT_HOOKS;
 
-    Unhook_Datatype(EG_Vector_Type);
+    Unhook_Datatype(EG_Struct_Type);
 
     return Init_Void(D_OUT);
 }
@@ -162,10 +169,8 @@ REBNATIVE(unregister_struct_hooks)
 //          {Linker name of the C function in the DLL}
 //      ffi-spec [block!]
 //          {Description of what C argument types the C function takes}
-//      /abi
-//          {Specify the Application Binary Interface (vs. using default)}
-//      abi-type [word!]
-//          {'CDECL, 'FASTCALL, 'STDCALL, etc.}
+//      /abi [word!]
+//          {Application Binary Interface ('CDECL, 'FASTCALL, 'STDCALL, etc.)}
 //  ]
 //
 REBNATIVE(make_routine)
@@ -177,24 +182,24 @@ REBNATIVE(make_routine)
 
     ffi_abi abi;
     if (REF(abi))
-        abi = Abi_From_Word(ARG(abi_type));
+        abi = Abi_From_Word(ARG(abi));
     else
         abi = FFI_DEFAULT_ABI;
 
     // Make sure library wasn't closed with CLOSE
     //
     REBLIB *lib = VAL_LIBRARY(ARG(lib));
-    if (lib == NULL)
+    if (lib == nullptr)
         fail (PAR(lib));
 
-    // OS_FIND_FUNCTION takes a char* on both Windows and Posix.
+    // Find_Function takes a char* on both Windows and Posix.
     //
     // !!! Should it error if any bytes aren't ASCII?
     //
-    const REBYTE *utf8 = VAL_UTF8_AT(NULL, ARG(name));
+    const REBYTE *utf8 = VAL_UTF8_AT(nullptr, ARG(name));
 
-    CFUNC *cfunc = OS_FIND_FUNCTION(LIB_FD(lib), cast(char*, utf8));
-    if (cfunc == NULL)
+    CFUNC *cfunc = Find_Function(LIB_FD(lib), cast(char*, utf8));
+    if (cfunc == nullptr)
         fail ("FFI: Couldn't find function in library");
 
     // Process the parameter types into a function, then fill it in
@@ -202,7 +207,7 @@ REBNATIVE(make_routine)
     REBACT *routine = Alloc_Ffi_Action_For_Spec(ARG(ffi_spec), abi);
     REBRIN *r = ACT_DETAILS(routine);
 
-    Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc, 0);
+    Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc);
     Init_Blank(RIN_AT(r, IDX_ROUTINE_CLOSURE));
     Move_Value(RIN_AT(r, IDX_ROUTINE_ORIGIN), ARG(lib));
 
@@ -220,10 +225,8 @@ REBNATIVE(make_routine)
 //          {Raw address of C function in memory}
 //      ffi-spec [block!]
 //          {Description of what C argument types the C function takes}
-//      /abi
-//          {Specify the Application Binary Interface (vs. using default)}
-//      abi-type [word!]
-//          {'CDECL, 'FASTCALL, 'STDCALL, etc.}
+//      /abi [word!]
+//          {Application Binary Interface ('CDECL, 'FASTCALL, 'STDCALL, etc.)}
 //  ]
 //
 REBNATIVE(make_routine_raw)
@@ -235,7 +238,7 @@ REBNATIVE(make_routine_raw)
 
     ffi_abi abi;
     if (REF(abi))
-        abi = Abi_From_Word(ARG(abi_type));
+        abi = Abi_From_Word(ARG(abi));
     else
         abi = FFI_DEFAULT_ABI;
 
@@ -243,13 +246,13 @@ REBNATIVE(make_routine_raw)
     // on 32-bit systems.
     //
     CFUNC *cfunc = cast(CFUNC*, cast(uintptr_t, VAL_INT64(ARG(pointer))));
-    if (cfunc == NULL)
-        fail ("FFI: NULL pointer not allowed for raw MAKE-ROUTINE");
+    if (cfunc == nullptr)
+        fail ("FFI: nullptr pointer not allowed for raw MAKE-ROUTINE");
 
     REBACT *routine = Alloc_Ffi_Action_For_Spec(ARG(ffi_spec), abi);
     REBRIN *r = ACT_DETAILS(routine);
 
-    Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc, 0);
+    Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc);
     Init_Blank(RIN_AT(r, IDX_ROUTINE_CLOSURE));
     Init_Blank(RIN_AT(r, IDX_ROUTINE_ORIGIN)); // no LIBRARY! in this case.
 
@@ -267,10 +270,8 @@ REBNATIVE(make_routine_raw)
 //          {The existing Rebol action whose behavior is being wrapped}
 //      ffi-spec [block!]
 //          {Description of what C types each Rebol argument should map to}
-//      /abi
-//          {Specify the Application Binary Interface (vs. using default)}
-//      abi-type [word!]
-//          {'CDECL, 'FASTCALL, 'STDCALL, etc.}
+//      /abi [word!]
+//          {Application Binary Interface ('CDECL, 'FASTCALL, 'STDCALL, etc.)}
 //  ]
 //
 REBNATIVE(wrap_callback)
@@ -279,7 +280,7 @@ REBNATIVE(wrap_callback)
 
     ffi_abi abi;
     if (REF(abi))
-        abi = Abi_From_Word(ARG(abi_type));
+        abi = Abi_From_Word(ARG(abi));
     else
         abi = FFI_DEFAULT_ABI;
 
@@ -291,7 +292,7 @@ REBNATIVE(wrap_callback)
         sizeof(ffi_closure), &thunk
     ));
 
-    if (closure == NULL)
+    if (closure == nullptr)
         fail ("FFI: Couldn't allocate closure");
 
     ffi_status status = ffi_prep_closure_loc(
@@ -316,11 +317,11 @@ REBNATIVE(wrap_callback)
     CFUNC *cfunc_thunk;
     memcpy(&cfunc_thunk, &thunk, sizeof(cfunc_thunk));
 
-    Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc_thunk, 0);
+    Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc_thunk);
     Init_Handle_Cdata_Managed(
         RIN_AT(r, IDX_ROUTINE_CLOSURE),
         closure,
-        0,
+        sizeof(&closure),
         &cleanup_ffi_closure
     );
     Move_Value(RIN_AT(r, IDX_ROUTINE_ORIGIN), ARG(action));
@@ -398,12 +399,7 @@ REBNATIVE(make_similar_struct)
     REBVAL *spec = ARG(spec);
     REBVAL *body = ARG(body);
 
-    REBSTU *stu = Copy_Struct_Managed(VAL_STRUCT(spec));
-
-    Move_Value(D_OUT, STU_VALUE(stu));
-
-    // !!! Comment said "only accept value initialization"
-    //
+    Init_Struct(D_OUT, Copy_Struct_Managed(VAL_STRUCT(spec)));
     Init_Struct_Fields(D_OUT, body);
     return D_OUT;
 }
@@ -415,20 +411,18 @@ REBNATIVE(make_similar_struct)
 //  {Destroy the external memory associated the struct}
 //
 //      struct [struct!]
-//      /free
+//      /free [action!]
 //          {Specify the function to free the memory}
-//      free-func [action!]
 //  ]
 //
 REBNATIVE(destroy_struct_storage)
 {
     FFI_INCLUDE_PARAMS_OF_DESTROY_STRUCT_STORAGE;
 
-    REBSER *data = VAL_STRUCT_DATA(ARG(struct));
-    if (not IS_SER_ARRAY(data))
+    if (IS_BINARY(VAL_STRUCT_DATA(ARG(struct))))
         fail (Error_No_External_Storage_Raw());
 
-    RELVAL *handle = ARR_HEAD(ARR(data));
+    RELVAL *handle = VAL_STRUCT_DATA(ARG(struct));
 
     DECLARE_LOCAL (pointer);
     Init_Integer(pointer, cast(intptr_t, VAL_HANDLE_POINTER(void, handle)));
@@ -441,10 +435,10 @@ REBNATIVE(destroy_struct_storage)
     SET_HANDLE_LEN(handle, 0);
 
     if (REF(free)) {
-        if (!IS_ACTION_RIN(ARG(free_func)))
+        if (not IS_ACTION_RIN(ARG(free)))
             fail (Error_Free_Needs_Routine_Raw());
 
-        rebElideQ(rebU1(ARG(free_func)), pointer, rebEND);
+        rebElideQ(rebU1(ARG(free)), pointer, rebEND);
     }
 
     return nullptr;
@@ -540,7 +534,7 @@ REBNATIVE(get_at_pointer)
 //  {Set the contents of a cell, e.g. one returned by ALLOC-VALUE-POINTER}
 //
 //      return: [<opt> any-value!]
-//          {Will be the value set to, or NULL if the set value is NULL}
+//          {Will be the value set to, or nullptr if the set value is nullptr}
 //      target [integer!]
 //          {A pointer to a Rebol value}
 //      value [<opt> any-value!]

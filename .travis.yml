@@ -277,7 +277,7 @@ matrix:
         - STATIC=yes
         - TCC=i386-tcc
         - ARCH_CFLAGS=-m32
-        - WITH_FFI="dynamic"
+        - WITH_FFI=no
         - EXTENSIONS="Signal + TCC +"
         # 32-bit version does not have ODBC or ZeroMQ
       addons:
@@ -294,6 +294,14 @@ matrix:
     # !!! Note this distribution does not support c++11 completely, it's an
     # old gcc 4.6
     #
+    # !!! This is currently the only build that supports FFI, due to the
+    # convenience of `-lffi` on this platform for getting the library.  It
+    # would take some improvements to Rebmake to get the right build switches
+    # and libraries for the other platform...but the groundwork is still here
+    # in the Travis file for that.
+    #
+    # https://forum.rebol.info/t/ffi-updates-and-notes/1201
+    #
     - os: linux
       dist: trusty  # Note: released in 2013
       sudo: false  # force new container-based infrastructure.
@@ -308,9 +316,9 @@ matrix:
         - STATIC=yes
         - TCC=tcc
         - ARCH_CFLAGS=
-        - WITH_FFI=dynamic
+        - WITH_FFI=dynamic  # see note about being only build w/FFI for now
         - ODBC_REQUIRES_LTDL=no
-        - EXTENSIONS="ODBC + ZeroMQ + TCC + Signal +"
+        - EXTENSIONS="ODBC + ZeroMQ + TCC + Signal + FFI +"
         - ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-3.4
         - ASAN_OPTIONS=symbolize=1
       addons:
@@ -327,6 +335,7 @@ matrix:
             #
             #- libtcc-dev  # for being able to `-ltcc` for compilation API
             #- tcc  # tcc executable (unused), but gets libtcc1.a + tcc headers
+            - libffi
 
     # [8] Linux x64, release, gcc
     #
@@ -380,7 +389,7 @@ matrix:
         - TCC=i386-win32-tcc
         - HOST=i686-w64-mingw32
         - ARCH_CFLAGS=-m32
-        - WITH_FFI=dynamic
+        - WITH_FFI=no  # was "dynamic"
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + Clipboard + TCC +"
       addons:
@@ -408,7 +417,7 @@ matrix:
         - STATIC=yes
         - TCC=x86_64-win32-tcc
         - HOST=x86_64-w64-mingw32
-        - WITH_FFI=dynamic
+        - WITH_FFI=no  # was "dynamic"
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + Clipboard + TCC +"
       addons:
@@ -445,7 +454,7 @@ matrix:
         - STATIC=yes
         - TCC=x86_64-win32-tcc
         - HOST=x86_64-w64-mingw32
-        - WITH_FFI=dynamic
+        - WITH_FFI=no  # was `dynamic`
         - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + Clipboard + TCC +"
       addons:
@@ -895,7 +904,7 @@ script:
 
     # output the needed libraries
     - |
-      if [[($OS_ID = 0.4.40) || ($OS_ID = 0.4.4)]]; then
+      if [[ $OS_ID = 0.4.40 || $OS_ID = 0.4.4 ]]; then
           ldd ./r3
       elif [[ $OS_ID = 0.2.40 ]]; then
           otool -L ./r3
@@ -921,16 +930,19 @@ script:
       fi
     - echo "$R3_EXIT_STATUS"
 
-    # Run basic testing with FFI, this is a linux-only script
-    # !!! Temporarily disabled during build system renovation (12-6-2018)
-    #- |
-    #  if [[ $OS_ID = 0.4.40 || $OS_ID = 0.4.4 ]]; then
-    #      ./r3 ../tests/misc/qsort_r.r
-    #      R3_EXIT_STATUS=$?
-    #  else
-    #      R3_EXIT_STATUS=0
-    #  fi
-    #- echo "$R3_EXIT_STATUS"
+    # Run basic testing on FFI if it is included and this container can run it
+    - |
+      if [[ (-z $WITH_FFI) || ($WITH_FFI != no) ]]; then
+        if [[ $OS_ID = 0.4.40 || $OS_ID = 0.4.4 ]]; then
+          ./r3 ../tests/misc/qsort_r.r
+          R3_EXIT_STATUS=$?
+        else
+          R3_EXIT_STATUS=0
+        fi
+      else
+          R3_EXIT_STATUS=0
+      fi
+    - echo "$R3_EXIT_STATUS"
 
     # If the build is TCC-based and the host can run the produced executable,
     # do a simple test that does a TCC fibonnaci calculation.

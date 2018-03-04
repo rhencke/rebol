@@ -26,9 +26,15 @@
 
 #include "reb-struct.h"
 
+// Currently there is a static linkage dependency on the implementation
+// details of VECTOR!.  Trust the build system got the include directory in.
+//
+#include "sys-vector.h"
+
+
 static struct {
-    REBSYM sym,
-    uintptr_t bits
+    REBSYM sym;
+    uintptr_t bits;
 } syms_to_typesets[] = {
     {SYM_VOID, FLAGIT_KIND(REB_VOID)},
     {SYM_UINT8, FLAGIT_KIND(REB_INTEGER)},
@@ -38,29 +44,30 @@ static struct {
     {SYM_UINT32, FLAGIT_KIND(REB_INTEGER)},
     {SYM_INT32, FLAGIT_KIND(REB_INTEGER)},
     {SYM_UINT64, FLAGIT_KIND(REB_INTEGER)},
-    {SYM_INT64 FLAGIT_KIND(REB_INTEGER)},
+    {SYM_INT64, FLAGIT_KIND(REB_INTEGER)},
     {SYM_FLOAT, FLAGIT_KIND(REB_DECIMAL)},
     {SYM_DOUBLE, FLAGIT_KIND(REB_DECIMAL)},
     {
         SYM_POINTER,
         FLAGIT_KIND(REB_INTEGER)
+            | FLAGIT_KIND(REB_NULLED)   // Rebol's null as 0 seems sensible
             | FLAGIT_KIND(REB_TEXT)
             | FLAGIT_KIND(REB_BINARY)
-            | FLAGIT_KIND(REB_VECTOR)
-            | FLAGIT_KIND(REB_ACTION) // legal if routine or callback
+            | FLAGIT_KIND(REB_CUSTOM)  // !!! Was REB_VECTOR, must narrow (!)
+            | FLAGIT_KIND(REB_ACTION)  // legal if routine or callback
     },
-    {SYM_REBVAL, TS_VALUE}
+    {SYM_REBVAL, TS_VALUE},
     {SYM_0, 0}
 };
 
 
 //
-// Writes into `out` a Rebol value representing the "schema", which describes
-// either a basic FFI type or the layout of a STRUCT! (not including data).
+// Writes into `schema_out` a Rebol value which describes either a basic FFI
+// type or the layout of a STRUCT! (not including data).
 //
 static void Schema_From_Block_May_Fail(
-    REBVAL *schema_out, // => INTEGER! or HANDLE! for struct
-    REBVAL *opt_param_out, // => parameter for use in ACTION!s
+    RELVAL *schema_out,  // => INTEGER! or HANDLE! for struct
+    RELVAL *opt_param_out,  // => parameter for use in ACTION!s
     const REBVAL *blk,
     REBSTR *opt_spelling
 ){
@@ -69,7 +76,7 @@ static void Schema_From_Block_May_Fail(
         assert(not opt_param_out);
     else {
         assert(opt_param_out);
-        TRASH_CELL_IF_DEBUG(param_out);
+        TRASH_CELL_IF_DEBUG(opt_param_out);
     }
 
     assert(IS_BLOCK(blk));
@@ -81,12 +88,12 @@ static void Schema_From_Block_May_Fail(
     DECLARE_LOCAL (def);
     DECLARE_LOCAL (temp);
 
-    if (IS_WORD(item) && VAL_WORD_SYM(item) == SYM_STRUCT_X) {
+    if (IS_WORD(item) and VAL_WORD_SYM(item) == SYM_STRUCT_X) {
         //
         // [struct! [...struct definition...]]
 
         ++item;
-        if (IS_END(item) || !IS_BLOCK(item))
+        if (IS_END(item) or not IS_BLOCK(item))
             fail (blk);
 
         // Use the block spec to build a temporary structure through the same
@@ -94,7 +101,7 @@ static void Schema_From_Block_May_Fail(
 
         Derelativize(def, item, VAL_SPECIFIER(blk));
 
-        MAKE_Struct(temp, REB_STRUCT, def); // may fail()
+        MAKE_Struct(temp, REB_CUSTOM, nullptr, def);  // may fail()
         assert(IS_STRUCT(temp));
 
         // !!! It should be made possible to create a schema without going
@@ -114,7 +121,7 @@ static void Schema_From_Block_May_Fail(
                 opt_param_out,
                 REB_P_NORMAL,
                 opt_spelling,
-                FLAGIT_KIND(REB_STRUCT)
+                FLAGIT_KIND(REB_CUSTOM)  // !!! Was REB_STRUCT, must narrow!
             );
         return;
     }
@@ -126,7 +133,7 @@ static void Schema_From_Block_May_Fail(
                 opt_param_out,
                 REB_P_NORMAL,
                 opt_spelling,
-                FLAGIT_KIND(REB_STRUCT)
+                FLAGIT_KIND(REB_CUSTOM)  // !!! Was REB_STRUCT, must narrow!
             );
         return;
     }
@@ -145,7 +152,10 @@ static void Schema_From_Block_May_Fail(
 
     REBSYM sym = VAL_WORD_SYM(item);
     if (sym == SYM_VOID) {
-        assert(sym == SYM_RETURN); // can only do void for return types
+        assert(
+            not opt_param_out
+            or VAL_PARAM_SYM(opt_param_out) == SYM_RETURN
+        );  // can only do void for return types
         Init_Blank(schema_out);
     }
 
@@ -155,12 +165,12 @@ static void Schema_From_Block_May_Fail(
             if (syms_to_typesets[index].sym == REB_0)
                 fail ("Invalid FFI type indicator");
 
-            if (syms_to_typesets[index].sym == sym)
+            if (SAME_SYM_NONZERO(syms_to_typesets[index].sym, sym)) {
                 Init_Param(
                     opt_param_out,
                     REB_P_NORMAL,
-                    opt_spelling
-                    syms_to_tyepsets[index].bits
+                    opt_spelling,
+                    syms_to_typesets[index].bits
                 );
                 break;
             }
@@ -216,13 +226,13 @@ static uintptr_t arg_to_ffi(
     const REBVAL *schema,
     const REBVAL *param
 ){
-    // Only one of dest or store should be non-NULL.  This allows to write
+    // Only one of dest or store should be non-nullptr.  This allows to write
     // either to a known pointer of sufficient size (dest) or to a series
     // that will expand enough to accommodate the data (store).
     //
-    assert(store == NULL ? dest != NULL : dest == NULL);
+    assert(store == nullptr ? dest != nullptr : dest == nullptr);
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     //
     // If the value being converted has a "name"--e.g. the FFI Routine
     // interface named it in the spec--then `param` contains that name, for
@@ -232,39 +242,39 @@ static uintptr_t arg_to_ffi(
     // calling process?
     //
     if (param)
-        assert(arg != NULL && IS_TYPESET(param));
+        assert(arg != nullptr and IS_PARAM(param));
     else
-        assert(arg == NULL); // return value, so just make space (no arg data)
-#endif
+        assert(arg == nullptr);  // return value, just make space (no arg)
+  #endif
 
-    REBFRM *frame_ = FS_TOP; // So you can use the D_xxx macros
+    REBFRM *frame_ = FS_TOP;  // So you can use the D_xxx macros
 
     uintptr_t offset;
-    if (dest == NULL)
+    if (dest == nullptr)
         offset = 0;
     else
-        offset = 10200304; // shouldn't be used, but avoid warning
+        offset = 10200304;  // shouldn't be used, but avoid warning
 
     if (IS_BLOCK(schema)) {
         REBFLD *top = VAL_ARRAY(schema);
 
         assert(FLD_IS_STRUCT(top));
-        assert(!FLD_IS_ARRAY(top)); // !!! wasn't supported--should be?
+        assert(not FLD_IS_ARRAY(top));  // !!! wasn't supported--should be?
 
         // !!! In theory a struct has to be aligned to its maximal alignment
         // needed by a fundamental member.  We'll assume that the largest
         // is sizeof(void*) here...this may waste some space in the padding
         // between arguments, but that shouldn't have any semantic effect.
         //
-        if (dest == NULL)
+        if (dest == nullptr)
             dest = Expand_And_Align_Core(
                 &offset,
                 sizeof(void*),
                 store,
-                FLD_WIDE(top) // !!! What about FLD_LEN_BYTES_TOTAL ?
+                FLD_WIDE(top)  // !!! What about FLD_LEN_BYTES_TOTAL ?
             );
 
-        if (arg == NULL) {
+        if (arg == nullptr) {
             //
             // Return values don't have an incoming argument to fill into the
             // calling frame.
@@ -280,7 +290,7 @@ static uintptr_t arg_to_ffi(
         // (One reason it didn't use the size of the passed-struct is
         // because it couldn't do so in the return case where arg was null)
 
-        if (!IS_STRUCT(arg))
+        if (not IS_STRUCT(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         if (STU_SIZE(VAL_STRUCT(arg)) != FLD_WIDE(top))
@@ -294,197 +304,211 @@ static uintptr_t arg_to_ffi(
     assert(IS_WORD(schema));
 
     switch (VAL_WORD_SYM(schema)) {
-    case SYM_UINT8:{
+      case SYM_UINT8: {
         uint8_t u;
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(u));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        if (!IS_INTEGER(arg))
+        if (not IS_INTEGER(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         u = cast(uint8_t, VAL_INT64(arg));
         memcpy(dest, &u, sizeof(u));
-        break;}
+        break; }
 
-    case SYM_INT8:{
+      case SYM_INT8: {
         int8_t i;
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(i));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        if (!IS_INTEGER(arg))
+        if (not IS_INTEGER(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         i = cast(int8_t, VAL_INT64(arg));
         memcpy(dest, &i, sizeof(i));
-        break;}
+        break; }
 
-    case SYM_UINT16:{
+      case SYM_UINT16: {
         uint16_t u;
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(u));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        if (!IS_INTEGER(arg))
+        if (not IS_INTEGER(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         u = cast(uint16_t, VAL_INT64(arg));
         memcpy(dest, &u, sizeof(u));
-        break;}
+        break; }
 
-    case SYM_INT16:{
+      case SYM_INT16:{
         int16_t i;
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(i));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        if (!IS_INTEGER(arg))
+        if (not IS_INTEGER(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         i = cast(int16_t, VAL_INT64(arg));
         memcpy(dest, &i, sizeof(i));
-        break;}
+        break; }
 
-    case SYM_UINT32:{
+      case SYM_UINT32: {
         uint32_t u;
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(u));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        if (!IS_INTEGER(arg))
+        if (not IS_INTEGER(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         u = cast(uint32_t, VAL_INT64(arg));
         memcpy(dest, &u, sizeof(u));
-        break;}
+        break; }
 
-    case SYM_INT32:{
+      case SYM_INT32: {
         int32_t i;
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(i));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        if (!IS_INTEGER(arg))
+        if (not IS_INTEGER(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         i = cast(int32_t, VAL_INT64(arg));
         memcpy(dest, &i, sizeof(i));
-        break;}
+        break; }
 
-    case SYM_UINT64:
-    case SYM_INT64:{
+      case SYM_UINT64:
+      case SYM_INT64: {
         int64_t i;
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(i));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        if (!IS_INTEGER(arg))
+        if (not IS_INTEGER(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         i = VAL_INT64(arg);
         memcpy(dest, &i, sizeof(int64_t));
-        break;}
+        break; }
 
-    case SYM_POINTER:{
+      case SYM_POINTER: {
         //
         // Note: Function pointers and data pointers may not be same size.
         //
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(void*));
-        if (!arg) break;
+        if (not arg)
+            break;
 
         switch (VAL_TYPE(arg)) {
-        case REB_INTEGER:{
+          case REB_NULLED: {
+            intptr_t ipt = 0;
+            memcpy(dest, &ipt, sizeof(void*));
+            break; }
+
+          case REB_INTEGER: {
             intptr_t ipt = VAL_INT64(arg);
             memcpy(dest, &ipt, sizeof(void*));
-            break;}
+            break; }
 
-        case REB_TEXT:
-        case REB_BINARY:
-        case REB_VECTOR:{
-            // !!! This is a questionable idea, giving out pointers directly
-            // into Rebol series data.  One issue is that the recipient of
-            // the data doesn't know whether to interpret it as REBYTE[] or as
-            // REBUNI[]...because it's passing the raw data of strings which
-            // can be wide or not based on things that have happened in the
-            // lifetime of that string.  Another is that the data may be
-            // relocated in memory if any modifications happen during a
-            // callback...so the memory is not "stable".
-            //
-            // !!! With Latin1-Nowhere, this broke the GTK demo because it
-            // gets wide strings.  UTF8-Everywhere will put it back to being
-            // still broken w.r.t. relocations or modification, but better
-            // in that the series data will always be UTF-8
-            //
-            panic (
-                "Latin1-Nowhere has all wide strings, confuses FFI.\n"
-                "UTF-8-Everywhere will relieve this problem somewhat."
-            ); }
+        // !!! This is a questionable idea, giving out pointers directly into
+        // Rebol series data.  The data may be relocated in memory if any
+        // modifications happen during a callback (or in the future, just for
+        // GC compaction even if not changed)...so the memory is not "stable".
+        //
+          case REB_TEXT: {  // !!!
+            const REBYTE *utf8 = VAL_UTF8_AT(nullptr, arg);
+            memcpy(dest, &utf8, sizeof(REBYTE*));  // copies a *pointer*!
+            break; }
 
-        case REB_ACTION:{
+          case REB_BINARY: {  // !!!
+            const REBYTE *bytes = VAL_BYTES_AT(nullptr, arg);
+            memcpy(dest, &bytes, sizeof(REBYTE*));  // copies a *pointer*!
+            break; }
+
+          case REB_CUSTOM: {  // !!!
+            REBYTE *raw_ptr = VAL_VECTOR_HEAD(arg);
+            memcpy(dest, &raw_ptr, sizeof(raw_ptr));  // copies a *pointer*!
+            break; }
+
+          case REB_ACTION: {
             if (not IS_ACTION_RIN(arg))
-                fail (Error_Only_Callback_Ptr_Raw()); // actually routines too
+                fail (Error_Only_Callback_Ptr_Raw());  // but routines, too
 
             REBRIN *rin = VAL_ACT_DETAILS(arg);
             CFUNC* cfunc = RIN_CFUNC(rin);
-            size_t sizeof_cfunc = sizeof(cfunc); // avoid conditional const
-            if (sizeof_cfunc != sizeof(void*)) // not necessarily true
+            size_t sizeof_cfunc = sizeof(cfunc);  // avoid conditional const
+            if (sizeof_cfunc != sizeof(void*))  // not necessarily true
                 fail ("Void pointer size not equal to function pointer size");
             memcpy(dest, &cfunc, sizeof(void*));
-            break;}
+            break; }
 
-        default:
+          default:
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
         }
-        break;} // end case FFI_TYPE_POINTER
+        break; }  // end case FFI_TYPE_POINTER
 
-    case SYM_REBVAL: {
-        if (!dest)
+      case SYM_REBVAL: {
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(REBVAL*));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        memcpy(dest, &arg, sizeof(REBVAL*)); // copies a *pointer*!
+        memcpy(dest, &arg, sizeof(REBVAL*));  // copies a *pointer*!
         break; }
 
-    case SYM_FLOAT:{
+      case SYM_FLOAT: {
         float f;
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(f));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        if (!IS_DECIMAL(arg))
+        if (not IS_DECIMAL(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         f = cast(float, VAL_DECIMAL(arg));
         memcpy(dest, &f, sizeof(f));
-        break;}
+        break; }
 
-    case SYM_DOUBLE:{
+      case SYM_DOUBLE: {
         double d;
-        if (!dest)
+        if (not dest)
             dest = Expand_And_Align(&offset, store, sizeof(d));
-        if (!arg) break;
+        if (not arg)
+            break;
 
-        if (!IS_DECIMAL(arg))
+        if (not IS_DECIMAL(arg))
             fail (Error_Arg_Type(D_FRAME, param, VAL_TYPE(arg)));
 
         d = VAL_DECIMAL(arg);
         memcpy(dest, &d, sizeof(double));
         break;}
 
-    case SYM_STRUCT_X:
+      case SYM_STRUCT_X:
         //
         // structs should be processed above by the HANDLE! case, not WORD!
         //
         assert(false);
-    case SYM_VOID:
+      case SYM_VOID:
         //
         // can't return a meaningful offset for "void"--it's only valid for
         // return types, so caller should check and not try to pass it in.
         //
         assert(false);
-    default:
+      default:
         fail (arg);
     }
 
@@ -495,20 +519,23 @@ static uintptr_t arg_to_ffi(
 /* convert the return value to rebol
  */
 static void ffi_to_rebol(
-    REBVAL *out,
+    RELVAL *out,
     const REBVAL *schema,
     void *ffi_rvalue
-) {
+){
     if (IS_BLOCK(schema)) {
         REBFLD *top = VAL_ARRAY(schema);
 
         assert(FLD_IS_STRUCT(top));
-        assert(!FLD_IS_ARRAY(top)); // !!! wasn't supported, should be?
+        assert(not FLD_IS_ARRAY(top));  // !!! wasn't supported, should be?
 
-        REBSTU *stu = Alloc_Singular(NODE_FLAG_MANAGED);
+        REBSTU *stu = Alloc_Singular(
+            NODE_FLAG_MANAGED | SERIES_FLAG_LINK_NODE_NEEDS_MARK
+        );
+        LINK_SCHEMA_NODE(stu) = NOD(top);
 
         REBSER *data = Make_Series_Core(
-            FLD_WIDE(top), // !!! what about FLD_LEN_BYTES_TOTAL ?
+            FLD_WIDE(top),  // !!! what about FLD_LEN_BYTES_TOTAL ?
             sizeof(REBYTE),
             NODE_FLAG_MANAGED
         );
@@ -518,8 +545,7 @@ static void ffi_to_rebol(
         INIT_VAL_NODE(out, stu);
         VAL_STRUCT_OFFSET(out) = 0;
 
-        Move_Value(ARR_SINGLE(stu), out); // save canon value
-        LINK(stu).schema = top;
+        Init_Binary(ARR_SINGLE(stu), data);
 
         assert(STU_DATA_HEAD(stu) == BIN_HEAD(data));
         return;
@@ -528,57 +554,57 @@ static void ffi_to_rebol(
     assert(IS_WORD(schema));
 
     switch (VAL_WORD_SYM(schema)) {
-    case SYM_UINT8:
+      case SYM_UINT8:
         Init_Integer(out, *cast(uint8_t*, ffi_rvalue));
         break;
 
-    case SYM_INT8:
+      case SYM_INT8:
         Init_Integer(out, *cast(int8_t*, ffi_rvalue));
         break;
 
-    case SYM_UINT16:
+      case SYM_UINT16:
         Init_Integer(out, *cast(uint16_t*, ffi_rvalue));
         break;
 
-    case SYM_INT16:
+      case SYM_INT16:
         Init_Integer(out, *cast(int16_t*, ffi_rvalue));
         break;
 
-    case SYM_UINT32:
+      case SYM_UINT32:
         Init_Integer(out, *cast(uint32_t*, ffi_rvalue));
         break;
 
-    case SYM_INT32:
+      case SYM_INT32:
         Init_Integer(out, *cast(int32_t*, ffi_rvalue));
         break;
 
-    case SYM_UINT64:
+      case SYM_UINT64:
         Init_Integer(out, *cast(uint64_t*, ffi_rvalue));
         break;
 
-    case SYM_INT64:
+      case SYM_INT64:
         Init_Integer(out, *cast(int64_t*, ffi_rvalue));
         break;
 
-    case SYM_POINTER:
+      case SYM_POINTER:  // !!! Should 0 come back as a NULL to Rebol?
         Init_Integer(out, cast(uintptr_t, *cast(void**, ffi_rvalue)));
         break;
 
-    case SYM_FLOAT:
+      case SYM_FLOAT:
         Init_Decimal(out, *cast(float*, ffi_rvalue));
         break;
 
-    case SYM_DOUBLE:
+      case SYM_DOUBLE:
         Init_Decimal(out, *cast(double*, ffi_rvalue));
         break;
 
-    case SYM_REBVAL:
+      case SYM_REBVAL:
         Move_Value(out, *cast(const REBVAL**, ffi_rvalue));
         break;
 
-    case SYM_VOID:
+      case SYM_VOID:
         assert(false); // not covered by generic routine.
-    default:
+      default:
         assert(false);
         //
         // !!! Was reporting Error_Invalid_Arg on uninitialized `out`
@@ -591,13 +617,13 @@ static void ffi_to_rebol(
 //
 //  Routine_Dispatcher: C
 //
-const REBVAL *Routine_Dispatcher(REBFRM *f)
+REB_R Routine_Dispatcher(REBFRM *f)
 {
     REBRIN *rin = ACT_DETAILS(FRM_PHASE(f));
 
-    if (RIN_IS_CALLBACK(rin) || RIN_LIB(rin) == NULL) {
+    if (RIN_IS_CALLBACK(rin) or RIN_LIB(rin) == nullptr) {
         //
-        // lib is NULL when routine is constructed from address directly,
+        // lib is nullptr when routine is constructed from address directly,
         // so there's nothing to track whether that gets loaded or unloaded
     }
     else {
@@ -610,7 +636,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
     REBLEN num_variable;
     REBDSP dsp_orig = DSP; // variadic args pushed to stack, so save base ptr
 
-    if (!RIN_IS_VARIADIC(rin))
+    if (not RIN_IS_VARIADIC(rin))
         num_variable = 0;
     else {
         // The function specification should have one extra parameter for
@@ -619,7 +645,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
         assert(ACT_NUM_PARAMS(FRM_PHASE(f)) == num_fixed + 1);
 
         REBVAL *vararg = FRM_ARG(f, num_fixed + 1); // 1-based
-        assert(IS_VARARGS(vararg) && FRM_BINDING(f) == UNBOUND);
+        assert(IS_VARARGS(vararg) and FRM_BINDING(f) == UNBOUND);
 
         // Evaluate the VARARGS! feed of values to the data stack.  This way
         // they will be available to be counted, to know how big to make the
@@ -682,17 +708,17 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
     REBSER *store = Make_Series(1, sizeof(REBYTE));
 
     void *ret_offset;
-    if (!IS_BLANK(RIN_RET_SCHEMA(rin))) {
+    if (not IS_BLANK(RIN_RET_SCHEMA(rin))) {
         ret_offset = cast(void*, arg_to_ffi(
             store, // ffi-converted arg appended here
-            NULL, // dest pointer must be NULL if store is non-NULL
-            NULL, // arg: none (we're only making space--leave uninitialized)
+            nullptr, // dest pointer must be nullptr if store is non-nullptr
+            nullptr, // arg: none (we're only making space--leave uninitialized)
             RIN_RET_SCHEMA(rin),
-            NULL // param: none (it's a return value/output)
+            nullptr // param: none (it's a return value/output)
         ));
     }
     else {
-        // Shouldn't be used (assigned to NULL later) but avoid maybe
+        // Shouldn't be used (assigned to nullptr later) but avoid maybe
         // uninitialized warning.
         //
         ret_offset = cast(void*, cast(uintptr_t, 0xDECAFBAD));
@@ -700,7 +726,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
 
     REBSER *arg_offsets;
     if (num_args == 0)
-        arg_offsets = NULL; // don't waste time with the alloc + free
+        arg_offsets = nullptr;  // don't waste time with the alloc + free
     else
         arg_offsets = Make_Series(num_args, sizeof(void*));
 
@@ -710,15 +736,15 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
     // the parameter specification.  They might also be out of range, e.g.
     // a too-large or negative INTEGER! passed to a uint8.  Could fail() here.
     //
-    {
+    blockscope {
         REBLEN i = 0;
         for (; i < num_fixed; ++i) {
             uintptr_t offset = arg_to_ffi(
-                store, // ffi-converted arg appended here
-                NULL, // dest pointer must be NULL if store is non-NULL
-                FRM_ARG(f, i + 1), // 1-based
-                RIN_ARG_SCHEMA(rin, i), // 0-based
-                ACT_PARAM(FRM_PHASE(f), i + 1) // 1-based
+                store,  // ffi-converted arg appended here
+                nullptr,  // dest pointer must be nullptr if store is non-null
+                FRM_ARG(f, i + 1),  // 1-based
+                RIN_ARG_SCHEMA(rin, i),  // 0-based
+                ACT_PARAM(FRM_PHASE(f), i + 1)  // 1-based
             );
 
             // We will convert the offset to a pointer later
@@ -734,10 +760,10 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
     //
     // These pointers need to be freed by HANDLE! cleanup.
     //
-    ffi_cif *cif; // pre-made if not variadic, built for this call otherwise
-    ffi_type **args_fftypes = NULL; // ffi_type*[] if num_variable > 0
+    ffi_cif *cif;  // pre-made if not variadic, built for this call otherwise
+    ffi_type **args_fftypes = nullptr;  // ffi_type*[] if num_variable > 0
 
-    if (!RIN_IS_VARIADIC(rin)) {
+    if (not RIN_IS_VARIADIC(rin)) {
         cif = RIN_CIF(rin);
     }
     else {
@@ -775,32 +801,32 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
             args_fftypes[i] = SCHEMA_FFTYPE(schema);
 
             *SER_AT(void*, arg_offsets, i) = cast(void*, arg_to_ffi(
-                store, // data appended to store
-                NULL, // dest pointer must be NULL if store is non-NULL
-                DS_AT(dsp), // arg
+                store,  // data appended to store
+                nullptr,  // dest pointer must be null if store is non-null
+                DS_AT(dsp),  // arg
                 schema,
-                param // used for typecheck, VAL_TYPESET_SYM for error msgs
+                param  // used for typecheck, VAL_TYPESET_SYM for error msgs
             ));
         }
 
-        DS_DROP_TO(dsp_orig); // done w/args (converted to bytes in `store`)
+        DS_DROP_TO(dsp_orig);  // done w/args (converted to bytes in `store`)
 
         cif = rebAlloc(ffi_cif);
 
-        ffi_status status = ffi_prep_cif_var( // "_var"-iadic prep_cif version
+        ffi_status status = ffi_prep_cif_var(  // _var-iadic prep_cif version
             cif,
             RIN_ABI(rin),
-            num_fixed, // just fixed
-            num_args, // fixed plus variable
+            num_fixed,  // just fixed
+            num_args,  // fixed plus variable
             IS_BLANK(RIN_RET_SCHEMA(rin))
                 ? &ffi_type_void
-                : SCHEMA_FFTYPE(RIN_RET_SCHEMA(rin)), // return FFI type
-            args_fftypes // arguments FFI types
+                : SCHEMA_FFTYPE(RIN_RET_SCHEMA(rin)),  // return FFI type
+            args_fftypes  // arguments FFI types
         );
 
         if (status != FFI_OK) {
-            rebFree(cif); // would free automatically on fail
-            rebFree(args_fftypes); // would free automatically on fail
+            rebFree(cif);  // would free automatically on fail
+            rebFree(args_fftypes);  // would free automatically on fail
             fail ("FFI: Couldn't prep CIF_VAR");
         }
     }
@@ -808,16 +834,17 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
     // Now that all the additions to store have been made, we want to change
     // the offsets of each FFI argument into actual pointers (since the
     // data won't be relocated)
-    {
+    //
+    blockscope {
         if (IS_BLANK(RIN_RET_SCHEMA(rin)))
-            ret_offset = NULL;
+            ret_offset = nullptr;
         else
             ret_offset = SER_DATA_RAW(store) + cast(uintptr_t, ret_offset);
 
         REBLEN i;
         for (i = 0; i < num_args; ++i) {
             uintptr_t off = cast(uintptr_t, *SER_AT(void*, arg_offsets, i));
-            assert(off == 0 || off < SER_LEN(store));
+            assert(off == 0 or off < SER_LEN(store));
             *SER_AT(void*, arg_offsets, i) = SER_DATA_RAW(store) + off;
         }
     }
@@ -834,10 +861,10 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
     ffi_call(
         cif,
         RIN_CFUNC(rin),
-        ret_offset, // actually a real pointer now (no longer an offset)
+        ret_offset,  // actually a real pointer now (no longer an offset)
         (num_args == 0)
-            ? NULL
-            : SER_HEAD(void*, arg_offsets) // also real pointers now
+            ? nullptr
+            : SER_HEAD(void*, arg_offsets)  // also real pointers now
     );
 
     if (IS_BLANK(RIN_RET_SCHEMA(rin)))
@@ -850,7 +877,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
 
     Free_Unmanaged_Series(store);
 
-    if (num_variable != 0) {
+    if (RIN_IS_VARIADIC(rin)) {
         rebFree(cif);
         rebFree(args_fftypes);
     }
@@ -905,11 +932,11 @@ static void callback_dispatcher_core(struct Reb_Callback_Invocation *inv)
         ffi_to_rebol(elem, RIN_ARG_SCHEMA(inv->rin, i), inv->args[i]);
 
     TERM_ARRAY_LEN(code, 1 + inv->cif->nargs);
-    Manage_Array(code); // DO requires managed arrays (guarded while running)
+    Manage_Array(code);  // DO requires managed arrays (guarded while running)
 
     DECLARE_LOCAL (result);
     if (Do_At_Mutable_Throws(result, code, 0, SPECIFIED))
-        fail (Error_No_Catch_For_Throw(result)); // caller will panic()
+        fail (Error_No_Catch_For_Throw(result));  // caller will panic()
 
     if (inv->cif->rtype->type == FFI_TYPE_VOID)
         assert(IS_BLANK(RIN_RET_SCHEMA(inv->rin)));
@@ -917,11 +944,11 @@ static void callback_dispatcher_core(struct Reb_Callback_Invocation *inv)
         DECLARE_LOCAL (param);
         Init_Param(param, REB_P_NORMAL, Canon(SYM_RETURN), 0);
         arg_to_ffi(
-            NULL, // store must be NULL if dest is non-NULL,
-            inv->ret, // destination pointer
+            nullptr,  // store must be null if dest is non-null,
+            inv->ret,  // destination pointer
             result,
             RIN_RET_SCHEMA(inv->rin),
-            param // parameter used for symbol in error only
+            param  // parameter used for symbol in error only
         );
     }
 }
@@ -951,11 +978,11 @@ void callback_dispatcher(
     inv.args = args;
     inv.rin = cast(REBRIN*, user_data);
 
-    assert(!RIN_IS_VARIADIC(inv.rin));
+    assert(not RIN_IS_VARIADIC(inv.rin));
     assert(cif->nargs == RIN_NUM_FIXED_ARGS(inv.rin));
 
     REBVAL *error = rebRescue(cast(REBDNG*, callback_dispatcher_core), &inv);
-    if (error != NULL) {
+    if (error != nullptr) {
         //
         // If a callback encounters an un-trapped error in mid-run, there's
         // nothing we can do here to "guess" what its C contract return
@@ -1002,7 +1029,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     // ACT_ARCHETYPE (see comments on `struct Reb_Action`)
     //
     REBDSP dsp_orig = DSP;
-    Init_Unreadable_Blank(DS_PUSH()); // GC-safe form of "trash"
+    Init_Unreadable_Blank(DS_PUSH());  // GC-safe form of "trash"
 
     // arguments can be complex, defined as structures.  A "schema" is a
     // REBVAL that holds either an INTEGER! for simple types, or a HANDLE!
@@ -1016,28 +1043,28 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     //
     // !!! Should the spec analysis be allowed to do evaluation? (it does)
     //
-    const REBLEN capacity_guess = 8; // !!! Magic number...why 8? (can grow)
+    const REBLEN capacity_guess = 8;  // !!! Magic number...why 8? (can grow)
     REBARR *args_schemas = Make_Array(capacity_guess);
     Manage_Array(args_schemas);
     PUSH_GC_GUARD(args_schemas);
 
     DECLARE_LOCAL (ret_schema);
-    Init_Blank(ret_schema); // ret_schema defaults to blank (e.g. void C func)
+    Init_Blank(ret_schema);  // ret_schema defaults blank (e.g. void C func)
     PUSH_GC_GUARD(ret_schema);
 
-    REBLEN num_fixed = 0; // number of fixed (non-variadic) arguments
-    bool is_variadic = false; // default to not being variadic
+    REBLEN num_fixed = 0;  // number of fixed (non-variadic) arguments
+    bool is_variadic = false;  // default to not being variadic
 
     RELVAL *item = VAL_ARRAY_AT(ffi_spec);
     for (; NOT_END(item); ++item) {
         if (IS_TEXT(item))
-            continue; // !!! TBD: extract ACT_META information from spec notes
+            continue;  // !!! TBD: extract ACT_META info from spec notes
 
         switch (VAL_TYPE(item)) {
-        case REB_WORD:{
+          case REB_WORD: {
             REBSTR *name = VAL_WORD_SPELLING(item);
 
-            if (SAME_STR(name, Canon(SYM_ELLIPSIS))) { // variadic
+            if (SAME_STR(name, Canon(SYM_ELLIPSIS))) {  // variadic
                 if (is_variadic)
                     fail ("FFI: Duplicate ... indicating variadic");
 
@@ -1059,7 +1086,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 );
                 TYPE_SET(DS_TOP, REB_TS_VARIADIC);
             }
-            else { // ordinary argument
+            else {  // ordinary argument
                 if (is_variadic)
                     fail ("FFI: Variadic must be final parameter");
 
@@ -1069,9 +1096,9 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 Derelativize(block, item, VAL_SPECIFIER(ffi_spec));
 
                 Schema_From_Block_May_Fail(
-                    Alloc_Tail_Array(args_schemas), // schema (out)
-                    DS_PUSH(), // param (out)
-                    block, // block (in)
+                    Alloc_Tail_Array(args_schemas),  // schema (out)
+                    DS_PUSH(),  // param (out)
+                    block,  // block (in)
                     name
                 );
 
@@ -1079,9 +1106,9 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
             }
             break; }
 
-        case REB_SET_WORD:
+          case REB_SET_WORD:
             switch (VAL_WORD_SYM(item)) {
-            case SYM_RETURN:{
+              case SYM_RETURN:{
                 if (not IS_BLANK(ret_schema))
                     fail ("FFI: Return already specified");
 
@@ -1093,18 +1120,18 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 DECLARE_LOCAL (param);
                 Schema_From_Block_May_Fail(
                     ret_schema,
-                    nullptr, // dummy (a return/output has no arg to typecheck)
+                    nullptr,  // dummy (return/output has no arg to typecheck)
                     block,
-                    nullptr // no symbol name
+                    nullptr  // no symbol name
                 );
-                break;}
+                break; }
 
-            default:
+              default:
                 fail (KNOWN(item));
             }
             break;
 
-        default:
+          default:
             fail (KNOWN(item));
         }
     }
@@ -1124,14 +1151,14 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     VAL_ACT_PARAMLIST_NODE(rootparam) = NOD(paramlist);
     INIT_BINDING(rootparam, UNBOUND);
 
-    MISC(paramlist).meta = nullptr;
+    MISC_META_NODE(paramlist) = nullptr;
 
     REBACT *action = Make_Action(
         paramlist,
         &Routine_Dispatcher,
-        nullptr, // no underlying action (use paramlist)
-        nullptr, // no specialization exemplar (or inherited exemplar)
-        IDX_ROUTINE_MAX // details array len
+        nullptr,  // no underlying action (use paramlist)
+        nullptr,  // no specialization exemplar (or inherited exemplar)
+        IDX_ROUTINE_MAX  // details array len
     );
 
     REBRIN *r = ACT_DETAILS(action);
@@ -1142,7 +1169,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     //
     TRASH_CELL_IF_DEBUG(RIN_AT(r, IDX_ROUTINE_CFUNC));
     TRASH_CELL_IF_DEBUG(RIN_AT(r, IDX_ROUTINE_CLOSURE));
-    TRASH_CELL_IF_DEBUG(RIN_AT(r, IDX_ROUTINE_ORIGIN)); // LIBRARY!/ACTION!
+    TRASH_CELL_IF_DEBUG(RIN_AT(r, IDX_ROUTINE_ORIGIN));  // LIBRARY!/ACTION!
 
     Move_Value(RIN_AT(r, IDX_ROUTINE_RET_SCHEMA), ret_schema);
     DROP_GC_GUARD(ret_schema);
@@ -1170,7 +1197,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
 
         ffi_type **args_fftypes;
         if (num_fixed == 0)
-            args_fftypes = NULL;
+            args_fftypes = nullptr;
         else
             args_fftypes = ALLOC_N(ffi_type*, num_fixed);
 
@@ -1186,7 +1213,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 IS_BLANK(RIN_RET_SCHEMA(r))
                     ? &ffi_type_void
                     : SCHEMA_FFTYPE(RIN_RET_SCHEMA(r)),
-                args_fftypes // NULL if 0 fixed args
+                args_fftypes  // nullptr if 0 fixed args
             )
         ){
             fail ("FFI: Couldn't prep CIF");
@@ -1195,11 +1222,11 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
         Init_Handle_Cdata_Managed(
             RIN_AT(r, IDX_ROUTINE_CIF),
             cif,
-            0,
+            sizeof(&cif),
             &cleanup_cif
         );
 
-        if (args_fftypes == NULL)
+        if (args_fftypes == nullptr)
             Init_Blank(RIN_AT(r, IDX_ROUTINE_ARG_FFTYPES));
         else
             Init_Handle_Cdata_Managed(
@@ -1207,7 +1234,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 args_fftypes,
                 num_fixed,
                 &cleanup_args_fftypes
-            ); // lifetime must match cif lifetime
+            );  // lifetime must match cif lifetime
     }
 
     TERM_ARRAY_LEN(r, IDX_ROUTINE_MAX);

@@ -75,7 +75,6 @@
 %datatypes/unset.test.reb
 %datatypes/url.test.reb
 %datatypes/varargs.test.reb
-%datatypes/vector.test.reb
 %datatypes/word.test.reb
 
 %comparison/lesserq.test.reb
@@ -200,7 +199,6 @@
 %misc/assert.test.reb
 %misc/help.test.reb
 
-%network/dns.test.reb
 %network/http.test.reb
 
 %redbol/redbol-apply.test.reb
@@ -260,7 +258,17 @@
 %system/file.test.reb
 %system/gc.test.reb
 
-%call/call.test.reb
+
+; !!! These tests require the named extensions to be built in.  Whether the
+; test is run or not should depend on whether the extension is present.  TBD.
+
+%../extensions/vector/tests/vector.test.reb
+%../extensions/process/tests/call.test.reb
+%../extensions/dns/tests/dns.test.reb
+
+
+; SOURCE ANALYSIS: Check to make sure the Rebol files are "lint"-free, and
+; enforce any policies (no whitespace at end of line, etc.)
 
 %source/text-lines.test.reb
 %source/analysis.test.reb

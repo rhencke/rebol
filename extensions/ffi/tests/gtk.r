@@ -132,9 +132,9 @@ g-signal-connect: func [
     instance [integer!]
     detailed-signal [integer! text! binary!]
     c-handler [action!]
-    data [integer!]
+    data [<opt> integer!]
 ][
-    g-signal-connect-data instance detailed-signal :c-handler data 0 0
+    g-signal-connect-data instance detailed-signal :c-handler :data 0 0
 ]
 
 gtk-button-new-with-label:
@@ -208,7 +208,6 @@ app-quit-callback: make-callback [
     gtk-main-quit
 ]
 
-NULL: 0
 GTK_WINDOW_TOPLEVEL: 0
 GTK_WINDOW_POPUP: 1
 

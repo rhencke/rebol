@@ -11,25 +11,19 @@ libc: switch fourth system/version [
     ]
 ]
 
-printf: make routine! [
-    [
-        "An example of wrapping variadic functions"
-        fmt [pointer] "fixed"
-        ... "variadic"
-        return: [int32]
-    ]
-    libc "printf"
+printf: make-routine libc "printf" [
+    "An example of wrapping variadic functions"
+    fmt [pointer] "fixed"
+    ... "variadic"
+    return: [int32]
 ]
 
-sprintf: make routine! [
-    [
-        "An example of wrapping variadic functions"
-        buf [pointer] "destination buffer, must be big enough"
-        fmt [pointer] "fixed"
-        ... "variadic"
-        return: [int32]
-    ]
-    libc "sprintf"
+sprintf: make-routine libc "sprintf" [
+    "An example of wrapping variadic functions"
+    buf [pointer] "destination buffer, must be big enough"
+    fmt [pointer] "fixed"
+    ... "variadic"
+    return: [int32]
 ]
 
 i: 1000
@@ -68,4 +62,4 @@ len: (sprintf
     "world" [pointer]
 )
 
-prin ["5. h:" copy/part to text! values of h len]
+print ["5. h:" copy/part to text! values of h len]
