@@ -91,7 +91,11 @@ console!: make object! [
         ; We don't want to use PRINT here because it would put the cursor on
         ; a new line.
         ;
-        write-stdout block? prompt then [unspaced prompt] else [form prompt]
+        write-stdout identity block? prompt then [
+            unspaced prompt
+        ] else [
+            form prompt
+        ]
         write-stdout space
     ]
 
@@ -335,7 +339,7 @@ host-console: function [
     ] then [
         assert [unset? 'result]
 
-        return case [
+        return <- case [
             void? :status/arg1 [
                 ;
                 ; Plain QUIT (no /WITH), consider it success
@@ -434,7 +438,7 @@ host-console: function [
                 print-newline
                 print "** Hit Ctrl-C to break into the console in 5 seconds"
                 repeat n 25 [
-                    if 1 = remainder n 5 [
+                    if remainder n 5 = 1 [
                         write-stdout form 5 - to-integer divide n 5
                     ] else [
                         write-stdout "."
@@ -660,7 +664,7 @@ host-console: function [
         ;
         ; Shortcuts (defaults include `q => [quit]`, `d => [dump]`)
         ;
-        if all [bound? code/1 | set? code/1] [
+        if (bound? code/1) and (set? code/1) [
             ;
             ; Help confused user who might not know about the shortcut not
             ; panic by giving them a message.  Reduce noise for the casual
@@ -673,7 +677,7 @@ host-console: function [
                 ]
                     |
                 system/console/print-warning [
-                    "use" form to-get-word (code/1) "to get variable."
+                    "use" form to-get-word quote (code/1) "to get variable."
                 ]
             ]
         ]
