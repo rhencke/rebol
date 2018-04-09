@@ -1379,283 +1379,93 @@ REBFUN *Make_Interpreted_Function_May_Fail(
 // applications or specializations.  It reuses the keylist of the function
 // but makes a new varlist.
 //
-// Note: While it was once possible to execute a FRAME! value created with
-// `make frame! :some-func`, that had a number of problems.  One is that it
-// exposed the state of a function after its execution; since in Rebol
-// functions are allowed to mutate their arguments, it would mean you had no
-// promise you could reuse the frame after it had been used.  Another is that
-// it complicated the "all frames start with their values on the chunk stack".
-//
-REBCTX *Make_Frame_For_Function(const REBVAL *value) {
-    //
-    // Note that this cannot take just a REBFUN* directly, because definitional
-    // RETURN and LEAVE only have their unique `binding` bits in the REBVAL.
-    //
+void Make_Frame_For_Function(
+    REBVAL *out,
+    const REBVAL *value // need the binding, can't just be a REBFUN*
+){
     REBFUN *func = VAL_FUNC(value);
+    REBCTX *exemplar = FUNC_EXEMPLAR(func); // may be NULL
 
-    // In order to have the frame survive the call to MAKE and be returned to
-    // the user it can't be stack allocated, because it would immediately
-    // become useless.  Allocate dynamically.  It will be used as an
-    // "exemplar" when executed, so it must be the length of the *underlying*
-    // frame of the function call (same length as the "facade")
-    //
-    // A FRAME! defaults *new* args and locals to not being set.  If the frame
-    // is then used as the storage for a function specialization, unset
-    // vars indicate *unspecialized* arguments...not <opt> ones.  (This is
-    // a good argument for not making <opt> have meaning that is interesting
-    // to APPLY or SPECIALIZE cases, but to revoke the function's effects.)
-    //
-    // But since the frame's varlist is used as an exemplar when running,
-    // anything from the function chains in the exemplar needs to make it into
-    // the varlist.  These should be invisible to the user due to the
-    // paramlist for f->phase not mentioning them, but that is pending.
-    //
-    REBCTX *exemplar = FUNC_EXEMPLAR(func);
-    REBARR *varlist;
-    if (exemplar != NULL) {
-        //
-        // Existing exemplars already have void in the unspecialized slots.
-        //
-        varlist = Copy_Array_Shallow(CTX_VARLIST(exemplar), SPECIFIED);
-        SET_SER_FLAGS(varlist, ARRAY_FLAG_VARLIST | SERIES_FLAG_FIXED_SIZE);
-    }
-    else {
-        // A FRAME! defaults all args and locals to not being set.  Unset
-        // vars indicate *unspecialized* arguments...not <opt> ones.  (This is
-        // a good argument for not making <opt> have meaning that interesting
-        // to APPLY or SPECIALIZE cases, but to revoke the function's effects.
-        //
-        varlist = Make_Array_Core(
-            ARR_LEN(FUNC_PARAMLIST(func)),
-            ARRAY_FLAG_VARLIST | SERIES_FLAG_FIXED_SIZE
-        );
+    REBCNT facade_len = FUNC_FACADE_NUM_PARAMS(func) + 1;
+    REBARR *varlist = Make_Array_Core(
+        facade_len, // +1 for the CTX_VALUE() at [0]
+        ARRAY_FLAG_VARLIST | SERIES_FLAG_FIXED_SIZE
+    );
 
-        REBVAL *temp = SINK(ARR_HEAD(varlist)) + 1;
-        REBCNT n;
-        for (n = 1; n <= FUNC_NUM_PARAMS(func); ++n, ++temp)
-            Init_Void(temp);
-
-        TERM_ARRAY_LEN(varlist, ARR_LEN(FUNC_PARAMLIST(func)));
-    }
-
-    MISC(varlist).meta = NULL; // GC sees this, we must initialize
-
-    // Fill in the rootvar information for the context canon REBVAL
-    //
     REBVAL *rootvar = SINK(ARR_HEAD(varlist));
     VAL_RESET_HEADER(rootvar, REB_FRAME);
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = func;
     INIT_BINDING(rootvar, VAL_BINDING(value));
 
-    // We have to use the facade of the function as a keylist, because that
-    // is how many values the frame has to have.  So knowing the actual
-    // function the frame represents is done with the phase.  Also, for things
-    // like definitional RETURN and LEAVE we had to stow the `binding` field
-    // in the FRAME! REBVAL, since the single archetype paramlist does not
-    // hold enough information to know where to return *to*.
+    REBVAL *arg = rootvar + 1;
+    REBVAL *param = FUNC_FACADE_HEAD(func);
+
+    if (exemplar == NULL) {
+        //
+        // No prior specialization means all the slots should be void.
+        //
+        for (; NOT_END(param); ++param, ++arg)
+            Init_Void(arg);
+    }
+    else {
+        // Partially specialized refinements put INTEGER! in refinement slots
+        // (see notes on REB_0_PARTIAL for the mechanic).  But we don't want
+        // to leak that to the user.  Convert to TRUE or void as appropriate,
+        // so FRAME! won't show these refinements.
+        //
+        // !!! This loses the ordering, see Make_Frame_For_Specialization for
+        // a frame-making mechanic which preserves it.
+        //
+        // !!! Logic is duplicated in Apply_Def_Or_Exemplar with the slight
+        // change of needing to prep stack cells; review.
+        //
+        REBVAL *special = CTX_VARS_HEAD(exemplar);
+        for (; NOT_END(param); ++param, ++arg, ++special) {
+            if (VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT) {
+                Move_Value(arg, special);
+                continue;
+            }
+            if (IS_LOGIC(special)) { // fully specialized, or disabled
+                Init_Logic(arg, VAL_LOGIC(special));
+                continue;
+            }
+
+            // See %c-special.c for an overview of why a REFINEMENT! in an
+            // exemplar slot and void have a complex interpretation.
+            //
+            // Drive whether the refinement is present or not based on whether
+            // it's available for the user to pass in or not.
+            //
+            assert(IS_REFINEMENT(special) || IS_VOID(special));
+            if (IS_REFINEMENT_SPECIALIZED(param))
+                Init_Logic(arg, TRUE);
+            else
+                Init_Void(arg);
+        }
+    }
+
+    TERM_ARRAY_LEN(varlist, facade_len);
+
+    MISC(varlist).meta = NULL; // GC sees this, we must initialize
+
+    // The facade of the function is used as the keylist of the frame, as
+    // that is how many values the frame must ultimately have.  Since this
+    // is not a stack frame, there will be no ->phase to override it...the
+    // FRAME! will always be viewed with those keys.
+    //
+    // Also, for things like definitional RETURN and LEAVE we had to stow the
+    // `binding` field in the FRAME! REBVAL, since the single archetype
+    // paramlist does not hold enough information to know where to return to.
     //
     // Note that this precludes the LINK().keysource from holding a REBFRM*,
     // since it is holding a parameter list instead.
     //
-    INIT_CTX_KEYLIST_SHARED(
-        CTX(varlist),
-        FUNC_FACADE(FUNC_UNDERLYING(func))
-    );
+    INIT_CTX_KEYLIST_SHARED(CTX(varlist), FUNC_FACADE(func));
     ASSERT_ARRAY_MANAGED(CTX_KEYLIST(CTX(varlist)));
 
-    return CTX(varlist);
-}
-
-
-//
-//  Specialize_Function_Throws: C
-//
-// This produces a new REBVAL for a function that specializes another.  It
-// uses a FRAME! to do this, where the frame intrinsically stores the
-// reference to the function it is specializing.
-//
-REBOOL Specialize_Function_Throws(
-    REBVAL *out,
-    REBVAL *specializee,
-    REBSTR *opt_specializee_name,
-    REBVAL *block // !!! REVIEW: gets binding modified directly (not copied)
-){
-    assert(out != specializee);
-
-    REBCTX *exemplar = Make_Frame_For_Function(specializee);
-    MANAGE_ARRAY(CTX_VARLIST(exemplar));
-
-    // Bind all the SET-WORD! in the body that match params in the frame
-    // into the frame.  This means `value: value` can very likely have
-    // `value:` bound for assignments into the frame while `value` refers
-    // to whatever value was in the context the specialization is running
-    // in, but this is likely the more useful behavior.  Review.
-    //
-    // !!! This binds the actual arg data, not a copy of it--following
-    // OBJECT!'s lead.  However, ordinary functions make a copy of the body
-    // they are passed before rebinding.  Rethink.
-    //
-    Bind_Values_Core(
-        VAL_ARRAY_AT(block),
-        exemplar,
-        FLAGIT_KIND(REB_SET_WORD), // types to bind (just set-word!)
-        0, // types to "add midstream" to binding as we go (nothing)
-        BIND_DEEP
-    );
-
-    // Do the block into scratch space--we ignore the result (unless it is
-    // thrown, in which case it must be returned.)
-    //
-    PUSH_GUARD_ARRAY(CTX_VARLIST(exemplar));
-    if (Do_Any_Array_At_Throws(out, block)) {
-        DROP_GUARD_ARRAY(CTX_VARLIST(exemplar));
-        return TRUE;
-    }
-    DROP_GUARD_ARRAY(CTX_VARLIST(exemplar));
-
-    // Generate paramlist by way of the data stack.  Push inherited value (to
-    // become the function value afterward), then all the args that remain
-    // unspecialized (indicated by being void...<opt> is not supported)
-    //
-    REBDSP dsp_orig = DSP;
-    DS_PUSH(FUNC_VALUE(VAL_FUNC(specializee))); // !!! is inheriting good?
-
-    // If a refinement gets specialized out, we want to go ahead and make sure
-    // that it was a LOGIC!, and that if it was false that any refinement
-    // arguments are also void.
-    //
-    enum Reb_Param_Class mode = PARAM_CLASS_NORMAL;
-    REBOOL active = TRUE;
-
-    REBVAL *param = CTX_KEYS_HEAD(exemplar);
-    REBVAL *arg = CTX_VARS_HEAD(exemplar);
-    for (; NOT_END(param); ++param, ++arg) {
-        switch (VAL_PARAM_CLASS(param)) {
-        case PARAM_CLASS_REFINEMENT: {
-            mode = PARAM_CLASS_REFINEMENT;
-
-            if (IS_VOID(arg)) {
-                DS_PUSH(param);
-                active = FALSE; // indefinite refinements need void args
-                continue;
-            }
-
-            if (NOT(IS_LOGIC(arg)))
-                fail (Error_Non_Logic_Refinement(param, arg));
-
-            active = VAL_LOGIC(arg);
-            continue; }
-
-        case PARAM_CLASS_RETURN:
-        case PARAM_CLASS_LEAVE:
-        case PARAM_CLASS_LOCAL:
-            mode = PARAM_CLASS_LOCAL;
-            active = FALSE; // locals should not have values in exemplar
-            break;
-
-        default:
-            break;
-        }
-
-        if (active) {
-            if (mode == PARAM_CLASS_NORMAL) {
-                if (IS_VOID(arg))
-                    DS_PUSH(param); // not specialized out
-            }
-            else {
-                assert(mode == PARAM_CLASS_REFINEMENT); // active refinement
-                if (IS_VOID(arg))
-                    fail (Error_Bad_Refine_Revoke(param, arg));
-            }
-        }
-        else {
-            if (mode == PARAM_CLASS_REFINEMENT) {
-                if (NOT(IS_VOID(arg)))
-                    fail (Error_Bad_Refine_Revoke(param, arg));
-            }
-            else {
-                assert(mode == PARAM_CLASS_LOCAL);
-                if (NOT(IS_VOID(arg)))
-                    fail ("Local variable is non-void in exemplar frame");
-            }
-        }
-    }
-
-    REBARR *paramlist = Pop_Stack_Values_Core(
-        dsp_orig,
-        ARRAY_FLAG_PARAMLIST | SERIES_FLAG_FIXED_SIZE
-    );
-    MANAGE_ARRAY(paramlist);
-
-    RELVAL *rootparam = ARR_HEAD(paramlist);
-    rootparam->payload.function.paramlist = paramlist;
-
-    // Frames for specialized functions contain the number of parameters of
-    // the underlying function, while they should for practical purposes seem
-    // to have the number of parameters of the specialization.  It would
-    // be technically possible to complicate enumeration to look for symbol
-    // matches in the shortened paramlist and line them up with the full
-    // underlying function's paramlist, but it's easier to use the "facade"
-    // mechanic to create a compatible paramlist with items that are hidden
-    // from binding...and use that for enumerations like FOR-EACH etc.
-    //
-    // Note that facades are like paramlists, but distinct because the [0]
-    // element is not the function the paramlist is for, but the underlying
-    // function REBVAL.
-    //
-    DS_PUSH(FUNC_VALUE(FUNC_UNDERLYING(VAL_FUNC(specializee))));
-    param = CTX_KEYS_HEAD(exemplar);
-    arg = CTX_VARS_HEAD(exemplar);
-    for (; NOT_END(param); ++param, ++arg) {
-        DS_PUSH(param);
-        if (NOT(IS_VOID(arg)))
-            SET_VAL_FLAG(DS_TOP, TYPESET_FLAG_HIDDEN);
-    }
-
-    REBARR *facade = Pop_Stack_Values_Core(dsp_orig, SERIES_FLAG_FIXED_SIZE);
-    MANAGE_ARRAY(facade);
-
-    // See %sysobj.r for `specialized-meta:` object template
-
-    REBVAL *example = Get_System(SYS_STANDARD, STD_SPECIALIZED_META);
-
-    REBCTX *meta = Copy_Context_Shallow(VAL_CONTEXT(example));
-
-    Init_Void(CTX_VAR(meta, STD_SPECIALIZED_META_DESCRIPTION)); // default
-    Move_Value(
-        CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE),
-        specializee
-    );
-    if (opt_specializee_name == NULL)
-        Init_Void(CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE_NAME));
-    else
-        Init_Word(
-            CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE_NAME),
-            opt_specializee_name
-        );
-
-    MANAGE_ARRAY(CTX_VARLIST(meta));
-    MISC(paramlist).meta = meta;
-
-    REBFUN *fun = Make_Function(
-        paramlist,
-        &Specializer_Dispatcher,
-        facade, // use facade with specialized parameters flagged hidden
-        exemplar // also provide a context of specialization values
-    );
-
-    // The "body" is the FRAME! value of the specialization.  Though we may
-    // not be able to touch the keylist of that frame to update the "archetype"
-    // binding, we can patch this cell in the "body array" to hold it.
-    //
-    Move_Value(FUNC_BODY(fun), CTX_VALUE(exemplar));
-    assert(VAL_BINDING(FUNC_BODY(fun)) == VAL_BINDING(specializee));
-
-    Move_Value(out, FUNC_VALUE(fun));
-    assert(VAL_BINDING(out) == UNBOUND);
-
-    return FALSE;
+    Init_Any_Context(out, REB_FRAME, CTX(varlist));
+    out->payload.any_context.phase = func;
 }
 
 
@@ -1929,27 +1739,6 @@ REB_R Commenter_Dispatcher(REBFRM *f)
 
 
 //
-//  Specializer_Dispatcher: C
-//
-// The evaluator does not do any special "running" of a specialized frame.
-// All of the contribution that the specialization has to make was taken care
-// of at the time of generating the arguments to the underlying function.
-//
-// Though an attempt is made to use the work of "digging" past specialized
-// frames, some exist deep as chains of specializations etc.  These have
-// to just be peeled off when the chain runs.
-//
-REB_R Specializer_Dispatcher(REBFRM *f)
-{
-    REBVAL *exemplar = KNOWN(FUNC_BODY(f->phase));
-    f->phase = exemplar->payload.any_context.phase;
-    f->binding = VAL_BINDING(exemplar);
-
-    return R_REDO_UNCHECKED;
-}
-
-
-//
 //  Hijacker_Dispatcher: C
 //
 // A hijacker takes over another function's identity, replacing it with its
@@ -2192,69 +1981,65 @@ REB_R Apply_Def_Or_Exemplar(
     Push_Frame_Core(f);
 
     Push_Function(f, opt_label, fun, binding);
-    f->refine = NULL;
+    f->refine = ORDINARY_ARG;
 
     if (NOT_CELL(def_or_exemplar)) {
         //
         // When you DO a FRAME!, it feeds its varlist in to be copied into
         // the stack positions.
         //
-        assert(def_or_exemplar->header.bits & ARRAY_FLAG_VARLIST);
         REBCTX *exemplar = CTX(def_or_exemplar);
+
+        // Push_Function() defaults f->special to the exemplar of the function
+        // but we wish to override it (with a maybe more filled frame)
+        //
         f->special = CTX_VARS_HEAD(exemplar);
     }
     else {
-        // The APPLY native takes in a block of code that needs to be bound
-        // and run to fill the frame.
-        //
-        REBVAL *def = cast(REBVAL*, def_or_exemplar);
+        REBVAL *def = cast(REBVAL*, def_or_exemplar); // code that fills frame
 
-        // Ordinary function dispatch does not pre-fill the arguments; they
-        // are left as garbage until the parameter enumeration gets to them.
-        // If the function has an exemplar, or if a pre-built FRAME! is being
-        // used, those fields are copied one by one into the stack.
+        // For this one-off APPLY with a BLOCK!, we don't want to call
+        // Make_Frame_For_Function() to get a heap object just for one use.
+        // Better to DO the block directly into stack cells that will be used
+        // in the function application.  But the code that fills the frame
+        // can't see garbage, so go ahead and format the stack cells.
         //
-        // But when we are doing a one-off APPLY with a BLOCK!, we don't
-        // want to make an "exemplar" object for that one usage, and then
-        // go through and copy it into the frame.  It's better to go ahead
-        // and DO the block with the bindings into the frame variables.
-        // But to do this user code can't see garbage, go ahead and fill it.
-        // This means we have to take over the filling from the exemplar,
-        // and the only thing Do_Core() will do is type check.
-        //
-        f->param = FUNC_FACADE_HEAD(f->phase);
-        f->arg = f->args_head;
+        // !!! We will walk the parameters again to setup the binder; see
+        // Make_Context_For_Specialization() for how loops could be combined.
 
-        // Note we can't use f->arg enumeration to look for END, because
-        // the way the stack works the arg cells are not formatted.  We
-        // could use a counter if it were more efficient (we know the length
-        // of the frame) but for now, just walk f->param.
-        //
-        while (NOT_END(f->param)) {
-            Prep_Stack_Cell(f->arg);
-
-            // f->special was initialized to the applicable exemplar by
-            // Push_Function()
-            //
-            if (f->special == NULL)
+        if (f->special == f->param) { // signals "no exemplar"
+            for (; NOT_END(f->param); ++f->param, ++f->arg) {
+                Prep_Stack_Cell(f->arg);
                 Init_Void(f->arg);
-            else {
-                //
-                // !!! Specialized arguments *should* be invisible to the
-                // binding process of the apply.  They have been set, should
-                // not be reset.  Removing them from the binding process is
-                // TBD, so for now if you apply a specialization and change
-                // arguments you shouldn't that is a client error.
-                //
-                assert(!THROWN(f->special));
-                Move_Value(f->arg, f->special);
-                ++f->special;
             }
-
-            ++f->arg;
-            ++f->param;
         }
-        assert(IS_END(f->param));
+        else {
+            // !!! This needs more complex logic now with partial refinements;
+            // code needs to be unified with Make_Frame_For_Function().  The
+            // main difference is that this formats stack cells for direct use
+            // vs. creating a heap object, but the logic is the same.
+
+            for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
+                Prep_Stack_Cell(f->arg);
+                if (VAL_PARAM_CLASS(f->param) != PARAM_CLASS_REFINEMENT) {
+                    Move_Value(f->arg, f->special);
+                    continue;
+                }
+                if (IS_LOGIC(f->special)) { // fully specialized, or disabled
+                    Init_Logic(f->arg, VAL_LOGIC(f->special));
+                    continue;
+                }
+
+                assert(IS_REFINEMENT(f->special) || IS_VOID(f->special));
+                if (IS_REFINEMENT_SPECIALIZED(f->param))
+                    Init_Logic(f->arg, TRUE);
+                else
+                    Init_Void(f->arg);
+            }
+            assert(IS_END(f->special));
+        }
+
+        assert(IS_END(f->arg)); // all other chunk stack cells unformatted
 
         // In today's implementation, the body must be rebound to the frame.
         // Ideally if it were read-only (at least), then the opt_def value
@@ -2270,8 +2055,7 @@ REB_R Apply_Def_Or_Exemplar(
             BIND_DEEP
         );
 
-        // Do the block into scratch space--we ignore the result (unless it is
-        // thrown, in which case it must be returned.)
+        // Do the block into scratch cell, ignore the result (unless thrown)
         //
         if (Do_Any_Array_At_Throws(SINK(&f->cell), def)) {
             Drop_Frame_Core(f);
@@ -2279,10 +2063,10 @@ REB_R Apply_Def_Or_Exemplar(
             return R_OUT_IS_THROWN;
         }
 
-        // Do_Core() checks if f->special == f->arg, and if so it knows it
-        // is only type checking the existing data
-        //
-        f->special = f->args_head;
+        f->arg = f->args_head; // reset
+        f->param = FUNC_FACADE_HEAD(f->phase); // reset
+
+        f->special = f->arg; // now signal only type-check the existing data
     }
 
     (*PG_Do)(f);

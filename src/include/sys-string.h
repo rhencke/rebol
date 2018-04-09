@@ -90,7 +90,7 @@ inline static const REBYTE *STR_HEAD(REBSTR *str) {
 }
 
 inline static REBSTR *STR_CANON(REBSTR *str) {
-    while (NOT(GET_SER_INFO(str, STRING_INFO_CANON)))
+    while (NOT_SER_INFO(str, STRING_INFO_CANON))
         str = LINK(str).synonym; // circularly linked list
     return str;
 }

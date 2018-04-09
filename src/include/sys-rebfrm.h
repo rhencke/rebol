@@ -252,6 +252,22 @@
     FLAGIT_LEFT(15)
 
 
+//=//// DO_FLAG_PUSH_PATH_REFINEMENTS /////////////////////////////////////=//
+//
+// It is technically possible to produce a new specialized FUNCTION! each
+// time you used a PATH!.  This is needed for `apdo: :append/dup/only` as a
+// method of partial specialization, but would be costly if just invoking
+// a specialization once.  So path dispatch can be asked to push the path
+// refinements in the reverse order of their invocation.
+//
+// This mechanic is also used by SPECIALIZE, so that specializing refinements
+// in order via a path and values via a block of code can be done in one
+// step, vs needing to make an intermediate FUNCTION!.
+//
+#define DO_FLAG_PUSH_PATH_REFINEMENTS \
+    FLAGIT_LEFT(16)
+
+
 #if !defined(NDEBUG)
 
 //=//// DO_FLAG_FINAL_DEBUG ///////////////////////////////////////////////=//
@@ -264,7 +280,7 @@
 //
 
 #define DO_FLAG_FINAL_DEBUG \
-    FLAGIT_LEFT(16)
+    FLAGIT_LEFT(17)
 
 #endif
 
@@ -275,7 +291,7 @@
 // information in a platform aligned position of the frame.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(16 < 32, "DO_FLAG_XXX too high");
+    static_assert(17 < 32, "DO_FLAG_XXX too high");
 #endif
 
 
@@ -576,12 +592,13 @@ struct Reb_Frame {
     //
     // "arg" is the "actual argument"...which holds the pointer to the
     // REBVAL slot in the `arglist` for that corresponding `param`.  These
-    // are moved in sync during parameter fulfillment.
+    // are moved in sync.  This movement can be done for typechecking or
+    // fulfillment, see In_Typecheck_Mode()
     //
-    // While a function is running, `arg` is a cache to the data pointer for
-    // arglist.  It is used by the macros ARG() and PARAM()...which index
-    // by integer constants and may be used several times.  Avoiding the
-    // extra indirection can be beneficial.
+    // If arguments are actually being fulfilled into the slots, those
+    // slots start out as trash.  Yet the GC has access to the frame list,
+    // so it can examine f->arg and avoid trying to protect the random
+    // bits that haven't been fulfilled yet.
     //
     REBVAL *arg;
 
@@ -763,3 +780,73 @@ struct Reb_Frame {
 //
 typedef void (*REBDOF)(REBFRM * const);
 typedef REB_R (*REBAPF)(REBFRM * const);
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// SPECIAL VALUE MODES FOR (REBFRM*)->REFINE
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// f->refine is a bit tricky.  If it IS_LOGIC() and TRUE, then this means that
+// a refinement is active but revokable, having its arguments gathered.  So
+// it actually points to the f->arg of the active refinement slot.  If
+// evaluation of an argument in this state produces no value, the refinement
+// must be revoked, and its value mutated to be FALSE.
+//
+// But all the other values that f->refine can hold are read-only pointers
+// that signal something about the argument gathering state:
+//
+// * If NULL, then refinements are being skipped, and the following arguments
+//   should not be written to.
+//
+// * If BLANK_VALUE, this is an arg to a refinement that was not used in
+//   the invocation.  No consumption should be performed, arguments should
+//   be written as unset, and any non-unset specializations of arguments
+//   should trigger an error.
+//
+// * If FALSE_VALUE, this is an arg to a refinement that was used in the
+//   invocation but has been *revoked*.  It still consumes expressions
+//   from the callsite for each remaining argument, but those expressions
+//   must not evaluate to any value.
+//
+// * If EMPTY_BLOCK, it's an ordinary arg...and not a refinement.  It will
+//   be evaluated normally but is not involved with revocation.
+//
+// * If EMPTY_STRING, the evaluator's next argument fulfillment is the
+//   left-hand argument of a lookback operation.  After that fulfillment,
+//   it will be transitioned to EMPTY_BLOCK.
+//
+// Because of how this lays out, IS_TRUTHY() can be used to determine if an
+// argument should be type checked normally...while IS_FALSEY() means that the
+// arg's bits must be set to void.  Since the skipping-refinement-args case
+// doesn't write to arguments at all, it doesn't get to the point where the
+// decision of type checking needs to be made...so using NULL for that means
+// the comparison is a little bit faster.
+//
+// These special values are all pointers to read-only cells, but are cast to
+// mutable in order to be held in the same pointer that might write to a
+// refinement to revoke it.  Note that since literal pointers are used, tests
+// like `f->refine == BLANK_VALUE` are faster than `IS_BLANK(f->refine)`.
+//
+// !!! ^-- While that's presumably true, it would be worth testing if a
+// dereference of the single byte via VAL_TYPE() is ever faster.
+//
+
+#define SKIPPING_REFINEMENT_ARGS \
+    NULL // NULL comparison is generally faster than to arbitrary pointer
+
+#define ARG_TO_UNUSED_REFINEMENT \
+    m_cast(REBVAL*, BLANK_VALUE)
+
+#define ARG_TO_IRREVOCABLE_REFINEMENT \
+    m_cast(REBVAL*, TRUE_VALUE)
+
+#define ARG_TO_REVOKED_REFINEMENT \
+    m_cast(REBVAL*, FALSE_VALUE)
+
+#define ORDINARY_ARG \
+    m_cast(REBVAL*, EMPTY_BLOCK)
+
+#define LOOKBACK_ARG \
+    m_cast(REBVAL*, EMPTY_STRING)

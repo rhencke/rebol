@@ -548,17 +548,6 @@ struct Reb_Varargs {
 };
 
 
-// This is an internal type, used to memoize the location of a refinement
-// which was invoked by the path but out of order from the refinement order
-// in the function definition.  Because these can only exist on the stack
-// they are given a REB_0 type, as opposed to having their own REB_XXX type.
-//
-struct Reb_Pickup {
-    const REBVAL *param;
-    REBVAL *arg;
-};
-
-
 // Rebol doesn't have a REFERENCE! datatype, but this is used to let path
 // dispatch return information pointing at a cell that can be used to either
 // read it or write to it, depending on the need.  Because it contains an
@@ -566,9 +555,24 @@ struct Reb_Pickup {
 // in some array and could be relocated.  So it must be written to immediately
 // or converted into an extraction of the cell's value.
 //
+#define REB_0_REFERENCE REB_0
 struct Reb_Reference {
     RELVAL *cell;
     // specifier is kept in the extra->binding portion of the value
+};
+
+
+// SPECIALIZE attempts to be smart enough to do automatic partial specializing
+// when it can, and to allow you to augment the APPLY-style FRAME! with an
+// order of refinements that is woven into the single operation.  It links
+// all the partially specialized (or unspecified) refinements as it traverses
+// in order to revisit them and fill them in more efficiently.  This special
+// payload is used along with a singly linked list via extra.next_partial
+//
+#define REB_0_PARTIAL REB_0
+struct Reb_Partial {
+    REBDSP dsp; // the DSP of this partial slot (if ordered on the stack)
+    REBCNT index; // maps to the index of this parameter in the paramlist
 };
 
 
@@ -710,6 +714,10 @@ union Reb_Value_Extra {
     //
     REBNOD *binding;
 
+    // See REB_0_PARTIAL.
+    //
+    REBVAL *next_partial; // links to next potential partial refinement arg
+
     // The remaining properties are the "leftovers" of what won't fit in the
     // payload for other types.  If those types have a quanitity that requires
     // 64-bit alignment, then that gets the priority for being in the payload,
@@ -777,15 +785,10 @@ union Reb_Value_Payload {
     struct Reb_Any_Context any_context;
     struct Reb_Varargs varargs;
 
-    // This is only used on the data stack as an internal type by the
-    // evaluator, in order to find where not-yet-used refinements are, with
-    // REB_0 (REB_0_PICKUP) as the type.
+    // Internal-only payloads for cells that use 0 as the VAL_TYPE()
     //
-    struct Reb_Pickup pickup;
-
-    // Also an internal type, references are used by path dispatch
-    //
-    struct Reb_Reference reference;
+    struct Reb_Reference reference; // used with REB_0_REFERENCE
+    struct Reb_Partial partial; // used with REB_0_PARTIAL
 };
 
 struct Reb_Cell

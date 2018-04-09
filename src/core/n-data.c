@@ -409,8 +409,9 @@ REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
         }
 
         assert(
-            SER(FUNC_PARAMLIST(out->payload.any_context.phase))->header.bits
-            & ARRAY_FLAG_PARAMLIST
+            (out->payload.any_context.phase == NULL) ||
+            (SER(FUNC_PARAMLIST(out->payload.any_context.phase))->header.bits
+            & ARRAY_FLAG_PARAMLIST)
         );
     }
 

@@ -66,7 +66,7 @@ enum Reb_Param_Class {
     // `PARAM_CLASS_NORMAL` is cued by an ordinary WORD! in the function spec
     // to indicate that you would like that argument to be evaluated normally.
     //
-    //     >> foo: function [a] [print [{a is} a]
+    //     >> foo: procedure [a] [print [{a is} a]]
     //
     //     >> foo 1 + 2
     //     a is 3
@@ -83,7 +83,7 @@ enum Reb_Param_Class {
     // dialect.  It indicates that a single value of content at the callsite
     // should be passed through *literally*, without any evaluation:
     //
-    //     >> foo: function [:a] [print [{a is} a]
+    //     >> foo: procedure [:a] [print [{a is} a]]
     //
     //     >> foo 1 + 2
     //     a is 1
@@ -163,9 +163,6 @@ enum Reb_Param_Class {
         (FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_TYPESET))
 #endif
 
-// Option flags used with GET_VAL_FLAG().  These describe properties of
-// a value slot when it's constrained to the types in the typeset
-//
 
 // Can't be reflected (set with PROTECT/HIDE) or local in spec as `foo:`
 //
@@ -185,21 +182,16 @@ enum Reb_Param_Class {
 //
 #define TYPESET_FLAG_UNBINDABLE TYPESET_FLAG(1)
 
-// !!! This does not need to be on the typeset necessarily.  See the
-// VARARGS! type for what this is, which is a representation of the
-// capture of an evaluation position. The type will also be checked but
-// the value will not be consumed.
+// Indicates that when this parameter is fulfilled, it will do so with a
+// value of type VARARGS!, that actually just holds a pointer to the frame
+// state and allows more arguments to be gathered at the callsite *while the
+// function body is running*.
 //
 // Note the important distinction, that a variadic parameter and taking
 // a VARARGS! type are different things.  (A function may accept a
 // variadic number of VARARGS! values, for instance.)
 //
 #define TYPESET_FLAG_VARIADIC TYPESET_FLAG(2)
-
-// !!! In R3-Alpha, there were only 8 type-specific bits...with the
-// remaining bits "reserved for future use".  This goes over the line
-// with a 9th type-specific bit, which may or may not need review.
-// It could just be that more type-specific bits is the future use.
 
 // Endability is distinct from optional, and it means that a parameter is
 // willing to accept being at the end of the input.  This means either
@@ -208,6 +200,19 @@ enum Reb_Param_Class {
 // the arity is 1 usually as `>> help foo`)
 //
 #define TYPESET_FLAG_ENDABLE TYPESET_FLAG(3)
+
+
+// ^-- STOP AT TYPESET_FLAG(4) --^
+//
+// The "mid" byte uses 3 bits to store the parameter class, leaving only 5
+// bits for typeset values.
+//
+// !!! If an extra flag is needed, a trick could be used like rethinking the
+// TYPESET_FLAG_ENDABLE as using the bit for REB_0 in the typeset itself.
+//
+#ifdef CPLUSPLUS_11
+static_assert(3 < 8 - PCLASS_NUM_BITS, "TYPESET_FLAG_XXX too high");
+#endif
 
 // Operations when typeset is done with a bitset (currently all typesets)
 
@@ -258,6 +263,21 @@ inline static enum Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
 inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
     CLEAR_N_MID_BITS(v->header.bits, PCLASS_NUM_BITS);
     v->header.bits |= FLAGBYTE_MID(c);
+}
+
+
+// Specialized parameters are unbindable and hidden, but so are locals.  So
+// this test is used somewhat narrowly to ask if a parameter that is
+// a refinement has been specialized out.  (Helps for readability.)
+//
+inline static REBOOL IS_REFINEMENT_SPECIALIZED(const RELVAL *param)
+{
+    assert(VAL_PARAM_CLASS(param) == PARAM_CLASS_REFINEMENT);
+    if (GET_VAL_FLAG(param, TYPESET_FLAG_UNBINDABLE)) {
+        assert(GET_VAL_FLAG(param, TYPESET_FLAG_HIDDEN));
+        return TRUE;
+    }
+    return FALSE;
 }
 
 

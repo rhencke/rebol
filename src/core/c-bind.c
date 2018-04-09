@@ -41,7 +41,7 @@
 // Bind_Values_Core() sets up the binding table and then calls
 // this recursive routine to do the actual binding.
 //
-static void Bind_Values_Inner_Loop(
+void Bind_Values_Inner_Loop(
     struct Reb_Binder *binder,
     RELVAL head[],
     REBCTX *context,
@@ -114,9 +114,9 @@ void Bind_Values_Core(
     struct Reb_Binder binder;
     INIT_BINDER(&binder);
 
-    // Via the global hash table, each spelling of the word can find the
-    // canon form of the word.  Associate that with an index number to signal
-    // a binding should be created to this context (at that index.)
+    // Associate the canon of a word with an index number.  (This association
+    // is done by poking the index into the REBSER of the series behind the
+    // ANY-WORD!, so it must be cleaned up to not break future bindings.)
 
     REBCNT index = 1;
     REBVAL *key = CTX_KEYS_HEAD(context);
@@ -132,7 +132,8 @@ void Bind_Values_Core(
 
     key = CTX_KEYS_HEAD(context);
     for (; NOT_END(key); key++)
-        Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
+        if (NOT_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
+            Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
 
     SHUTDOWN_BINDER(&binder);
 }

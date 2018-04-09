@@ -274,7 +274,9 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 // If label_sym is passed in as being non-null, then the caller is implying
 // readiness to process a path which may be a function with refinements.
 // These refinements will be left in order on the data stack in the case
-// that `out` comes back as IS_FUNCTION().
+// that `out` comes back as IS_FUNCTION().  If it is NULL then a new FUNCTION!
+// will be allocated, in the style of the REFINE native, which will have the
+// behavior of refinement partial specialization.
 //
 // If `opt_setval` is given, the path operation will be done as a "SET-PATH!"
 // if the path evaluation did not throw or error.  HOWEVER the set value
@@ -398,34 +400,60 @@ REBOOL Do_Path_Throws_Core(
 
     assert(!THROWN(out));
 
-    // To make things easier for processing, reverse any refinements
-    // pushed to the data stack (we needed to evaluate them
-    // in forward order).  This way we can just pop them as we go,
-    // and know if they weren't all consumed if it doesn't get
-    // back to `dsp_orig` by the end.
-    //
     if (dsp_orig != DSP) {
-        assert(IS_FUNCTION(pvs->out));
-
-        // !!! It should be technically possible to do something like
-        // :append/dup and return a "refined" variant of a function.  That
-        // feature is not currently implemented.  So if a label wasn't
-        // requested, assume a function is not being run and deliver an
-        // error for that case.
         //
-        if (label_out == NULL)
-            fail (Error_Too_Long_Raw());
+        // To make things easier for processing, reverse any refinements
+        // pushed to the data stack (we needed to evaluate them in forward
+        // order).  This way we can just pop them as we go, and know if they
+        // weren't all consumed if not back to `dsp_orig` by the end.
 
         REBVAL *bottom = DS_AT(dsp_orig + 1);
         REBVAL *top = DS_TOP;
+
         while (top > bottom) {
-            DECLARE_LOCAL (temp);
-            Move_Value(temp, bottom);
-            Move_Value(bottom, top);
-            Move_Value(top, temp);
+            assert(IS_REFINEMENT(bottom) && NOT(IS_WORD_BOUND(bottom)));
+            assert(IS_REFINEMENT(top) && NOT(IS_WORD_BOUND(top)));
+
+            // It's faster to just swap the spellings.  (If binding
+            // mattered, we'd need to swap the whole cells).
+            //
+            REBSTR *temp = bottom->payload.any_word.spelling;
+            bottom->payload.any_word.spelling
+                = top->payload.any_word.spelling;
+            top->payload.any_word.spelling = temp;
 
             top--;
             bottom++;
+        }
+
+        assert(IS_FUNCTION(pvs->out));
+
+        if (pvs->flags.bits & DO_FLAG_PUSH_PATH_REFINEMENTS) {
+            //
+            // The caller knows how to handle the refinements-pushed-to-stack
+            // in-reverse-order protocol, and doesn't want to pay for making
+            // a new FUNCTION!.
+        }
+        else {
+            // The caller actually wants a FUNCTION! value to store or use
+            // for later, as opposed to just calling it once.  It costs a
+            // bit to do this, but unlike in R3-Alpha, it's possible to do!
+            //
+            // Code for specialization via refinement order works from the
+            // data stack.  (It can't use direct value pointers because it
+            // pushes to the stack itself, hence may move it on expansion.)
+            //
+            if (Specialize_Function_Throws(
+                pvs->refine, // set to pvs cell
+                pvs->out,
+                pvs->opt_label,
+                NULL, // opt_def
+                dsp_orig // first_refine_dsp
+            )){
+                panic ("REFINE-only specializations should not THROW");
+            }
+
+            Move_Value(pvs->out, pvs->refine);
         }
     }
 

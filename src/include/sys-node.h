@@ -131,7 +131,8 @@ inline static enum Reb_Pointer_Detect Detect_Rebol_Pointer(const void *p) {
     case 9: // 0xb1001
         if (bp & 0x8)
             return DETECTED_AS_END; // has to be an "endlike" header
-        panic (p); // would be "marked and unmanaged", not legal
+        assert(bp & 0x1); // marked and unmanaged, must be a cell
+        return DETECTED_AS_VALUE;
 
     case 10: // 0b1010
     case 11: // 0b1011

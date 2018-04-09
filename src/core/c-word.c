@@ -576,8 +576,7 @@ void Startup_Symbols(REBARR *words)
 
     RELVAL *word = ARR_HEAD(words);
     for (; NOT_END(word); ++word) {
-        REBSTR *canon = VAL_WORD_CANON(word);
-        assert(GET_SER_INFO(canon, STRING_INFO_CANON));
+        REBSTR *canon = VAL_STORED_CANON(word);
 
         sym = cast(REBSYM, cast(REBCNT, sym) + 1);
         *SER_AT(REBSTR*, PG_Symbol_Canons, cast(REBCNT, sym)) = canon;

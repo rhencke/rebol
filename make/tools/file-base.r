@@ -36,6 +36,7 @@ core: [
     c-path.c
     c-port.c
     c-signal.c
+    c-specialize.c
     c-value.c
     c-word.c
 

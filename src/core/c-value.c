@@ -304,7 +304,7 @@ void* Probe_Core_Debug(
 
     case DETECTED_AS_END:
         Probe_Print_Helper(p, "END", file, line);
-        panic (p); // !!! TBD: nicer handling, extract init location if avail?
+        break;
 
     case DETECTED_AS_TRASH_CELL:
         Probe_Print_Helper(p, "Trash Cell", file, line);

@@ -887,6 +887,7 @@ inline static REBVAL *KNOWN(RELVAL *value) {
     //
     assert(
         (value->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE)) != 0
+        || VAL_TYPE_RAW(value) == REB_0
         || IS_SPECIFIC(value)
     );
     return cast(REBVAL*, value); // we asserted it's actually specific
@@ -1469,9 +1470,6 @@ inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
 // use the internal REB_0_REFERENCE type and currently only appear in the
 // path dispatch code.
 //
-
-#define REB_0_REFERENCE \
-    REB_0
 
 inline static REBVAL *Init_Reference(
     RELVAL *out,

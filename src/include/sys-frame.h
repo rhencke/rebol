@@ -230,8 +230,6 @@ inline static REBFUN *FRM_UNDERLYING(REBFRM *f) {
 
 #define D_PROTECT_X(v)      PROTECT_FRM_X(frame_, (v))
 
-#define REB_0_PICKUP REB_0
-
 inline static REBOOL Is_Function_Frame(REBFRM *f) {
     if (f->eval_type == REB_FUNCTION) {
         //
@@ -475,9 +473,11 @@ inline static void Push_Function(
     // addresses of these values will be stable for the duration of the
     // function call, but the pointers will be invalid after that point.
     //
-    f->args_head = Push_Value_Chunk_Of_Length(num_args);
+    f->arg = f->args_head = Push_Value_Chunk_Of_Length(num_args);
     assert(CHUNK_LEN_FROM_VALUES(f->args_head) == num_args);
     assert(IS_END(f->args_head + num_args)); // guaranteed by chunk stack
+
+    f->param = FUNC_FACADE_HEAD(f->phase);
 
     // Each layer of specialization of a function can only add specializaitons
     // of arguments which have not been specialized already.  For efficiency,
@@ -486,10 +486,10 @@ inline static void Push_Function(
     // is needed to fill all the specialized slots contributed by later phases.
     //
     REBCTX *exemplar = FUNC_EXEMPLAR(fun);
-    if (exemplar)
+    if (exemplar != NULL)
         f->special = CTX_VARS_HEAD(exemplar);
     else
-        f->special = NULL;
+        f->special = const_KNOWN(f->param);
 
     // A REBFRM* for a function call may-or-may-not need an associated REBCTX*
     // dynamically allocated.  Whether it does or not depends on if bindings

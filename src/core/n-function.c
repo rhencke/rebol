@@ -350,37 +350,6 @@ REBNATIVE(typechecker)
 
 
 //
-//  specialize: native [
-//
-//  {Create a new function through partial or full specialization of another}
-//
-//      return: [function!]
-//      specializee [function! any-word! any-path!]
-//          {Function or specifying word (preserves word name for debug info)}
-//      def [block!]
-//          {Definition for FRAME! fields for args and refinements}
-//  ]
-//
-REBNATIVE(specialize)
-{
-    INCLUDE_PARAMS_OF_SPECIALIZE;
-
-    REBVAL *specializee = ARG(specializee);
-
-    REBSTR *opt_name;
-    Get_If_Word_Or_Path_Arg(D_OUT, &opt_name, specializee);
-    if (!IS_FUNCTION(D_OUT))
-        fail (Error_Invalid(specializee));
-    Move_Value(specializee, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
-
-    if (Specialize_Function_Throws(D_OUT, specializee, opt_name, ARG(def)))
-        return R_OUT_IS_THROWN;
-
-    return R_OUT;
-}
-
-
-//
 //  chain: native [
 //
 //  {Create a processing pipeline of functions that consume the last's result}
@@ -557,6 +526,10 @@ REBNATIVE(adapt)
     // dispatcher knows what to do when it gets called and inspects FUNC_BODY.
     //
     // [0] is the prelude BLOCK!, [1] is the FUNCTION! we've adapted.
+    //
+    // !!! We could avoid this array allocation by putting the FUNCTION! in
+    // the prelude as the first element, then index the prelude after that.
+    // It wouldn't be seen by the execution.  Worth doing, someday...
     //
     REBARR *adaptation = Make_Array(2);
 

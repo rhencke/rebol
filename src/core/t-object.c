@@ -258,19 +258,24 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     if (kind == REB_FRAME) {
         //
-        // !!! Current experiment for making frames lets you give it
-        // a FUNCTION! only.
+        // !!! It is imaginable that you could make a FRAME! out of a BLOCK!,
+        // which would chunk-stack allocate values that would expire after
+        // the creation.  So `f: make frame! [x: 10 print x]` where `f/x`
+        // was not valid after the block has been run.  This could offer
+        // more efficiency than an OBJECT! for some scenarios.
         //
-        if (!IS_FUNCTION(arg))
+        // But for now, just allow MAKE FRAME! for a specific FUNCTION!.
+        //
+        if (NOT(IS_FUNCTION(arg)))
             fail (Error_Bad_Make(kind, arg));
 
         // In order to have the frame survive the call to MAKE and be
         // returned to the user it can't be stack allocated, because it
         // would immediately become useless.  Allocate dynamically.
         //
-        Init_Any_Context(out, REB_FRAME, Make_Frame_For_Function(arg));
+        Make_Frame_For_Function(out, arg);
 
-        // The frame's keylist is the same as the function's paramlist, and
+        // The frame's keylist is the same as the function's facade, and
         // the [0] canon value of that array can be used to find the
         // archetype of the function.  But if the `arg` is a RETURN with a
         // binding in the REBVAL to where to return from, that unique

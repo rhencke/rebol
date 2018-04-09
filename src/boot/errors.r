@@ -140,6 +140,7 @@ Script: [
     bad-refine-revoke:  [:arg1 {refinement in use, can't be revoked by} :arg2]
     non-logic-refine:   [:arg1 {refinement must be LOGIC!, not} :arg2]
     refinement-arg-opt: [{refinement arguments cannot be <opt>}]
+    ambiguous-partial:  {Ambiguous partial (try SPECIALIZE-ing a PATH!)}
 
     bad-field-set:      [{cannot set} :arg1 {field to} :arg2 {datatype}]
     bad-path-pick:      [{cannot pick} :arg1 {in path}]

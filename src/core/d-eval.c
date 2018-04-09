@@ -256,6 +256,66 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
 
 
 //
+//  Do_Process_Function_Checks_Debug: C
+//
+void Do_Process_Function_Checks_Debug(REBFRM *f) {
+    assert(f->param == FUNC_FACADE_HEAD(f->phase));
+
+    if (f->refine == ORDINARY_ARG) {
+        if (NOT_END(f->out))
+            assert(GET_FUN_FLAG(f->phase, FUNC_FLAG_INVISIBLE));
+    }
+    else {
+        assert(f->refine == LOOKBACK_ARG);
+        ASSERT_NOT_TRASH_IF_DEBUG(f->out);
+    }
+
+    // DECLARE_FRAME() starts out f->cell as valid GC-visible bits, and as
+    // it's used for various temporary purposes it should remain valid.  But
+    // its contents could be anything, based on that temporary purpose.  Help
+    // hint functions not to try to read from it before they overwrite it with
+    // their own content.
+    //
+    // !!! Allowing the release build to "leak" temporary cell state to
+    // natives may be bad, and there are advantages to being able to count on
+    // this being an END.  However, unless one wants to get in the habit of
+    // zeroing out all temporary state for "security" reasons then clients who
+    // call Do_Next_In_Frame() would be able to see it anyway.  For now, do
+    // the more performant thing and leak whatever is in f->cell to the
+    // function in the release build, to avoid paying for the initialization.
+    //
+  #if !defined(NDEBUG)
+    Init_Unreadable_Blank(&f->cell); // DECLARE_FRAME() requires GC safe
+  #endif
+}
+
+
+//
+//  Do_After_Function_Checks_Debug: C
+//
+void Do_After_Function_Checks_Debug(REBFRM *f) {
+    assert(f->eval_type == REB_FUNCTION);
+    deny(IS_END(f->out));
+    deny(THROWN(f->out));
+    deny(Is_Bindable(f->out) && f->out->extra.binding == NULL);
+
+    // Usermode functions check the return type via Returner_Dispatcher(),
+    // with everything else assumed to return the correct type.  But this
+    // double checks any function marked with RETURN in the debug build,
+    // so native return types are checked instead of just trusting the C.
+    //
+    if (GET_FUN_FLAG(f->phase, FUNC_FLAG_RETURN)) {
+        REBVAL *typeset = FUNC_PARAM(f->phase, FUNC_NUM_PARAMS(f->phase));
+        assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
+        if (!TYPE_CHECK(typeset, VAL_TYPE(f->out))) {
+            printf("Native code violated return type contract!\n");
+            panic (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
+        }
+    }
+}
+
+
+//
 //  Do_Core_Exit_Checks_Debug: C
 //
 void Do_Core_Exit_Checks_Debug(REBFRM *f) {

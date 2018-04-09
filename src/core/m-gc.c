@@ -1025,20 +1025,8 @@ static void Mark_Data_Stack(void)
     ASSERT_UNREADABLE_IF_DEBUG(&DS_Movable_Base[0]);
 
     REBVAL *stackval = DS_TOP;
-    for (; stackval != &DS_Movable_Base[0]; --stackval) {
-        //
-        // During path evaluation, function refinements are pushed to the
-        // data stack as WORD!.  If the order of definition of refinements
-        // in the function spec doesn't match the order of usage, then the
-        // refinement will need to be revisited.  The WORD! is converted
-        // into a "pickup" which stores the parameter and argument position.
-        // These are only legal on the data stack, and are skipped by the GC.
-        //
-        if (VAL_TYPE(stackval) == REB_0_PICKUP)
-            continue;
-
+    for (; stackval != &DS_Movable_Base[0]; --stackval)
         Queue_Mark_Value_Deep(stackval);
-    }
 
     Propagate_All_GC_Marks();
 }

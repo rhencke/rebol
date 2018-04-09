@@ -428,15 +428,37 @@ REBNATIVE(func_class_of)
 //
 //  PD_Function: C
 //
+// We could generate a "refined" function variant at each step:
+//
+//     `append/dup/only` => `ad: :append/dup | ado: :ad/only | ado`
+//
+// Generating these intermediates would be quite costly.  So what is done
+// instead is that a canonized word is pushed to the data stack in the
+// function case.  The processing for GET-PATH! will--at the end--make a
+// partially refined FUNCTION! value (see WORD_FLAG_PARTIAL_REFINE).  But
+// the processing for REB_PATH in Do_Core() does not need to...it operates
+// off of the stack values directly.
+//
 REB_R PD_Function(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 {
-    UNUSED(pvs);
     UNUSED(opt_setval);
+
+    assert(IS_FUNCTION(pvs->out));
+    UNUSED(pvs);
 
     if (IS_BLANK(picker)) {
         //
         // Leave the function value as-is, and continue processing.  This
-        // enables things like `append/(all [foo 'dup])/only`...
+        // enables things like `append/(all [only 'only])/dup`...
+        //
+        // Note this feature doesn't have obvious applications to refinements
+        // that take arguments...only ones that don't.  Use "revoking" to
+        // pass void as arguments to a refinement that is always present
+        // in that case.
+        //
+        // Void might seem more convenient, e.g. `append/(only ?? 'only)/dup`,
+        // however it is disallowed to use voids at the higher level path
+        // protocol.  This is probably for the best.
         //
         return R_OUT;
     }
@@ -448,22 +470,8 @@ REB_R PD_Function(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (!IS_WORD(picker))
         fail (Error_Bad_Refine_Raw(picker));
 
-    // We could generate a "refined" function variant at each step:
-    //
-    //     `append/dup/only` => `ad: :append/dup | ado: :ad/only | ado`
-    //
-    // Generating these intermediates would be costly.  They'd have updated
-    // paramlists and tax the garbage collector.  So path dispatch is
-    // understood to push the canonized word to the data stack in the
-    // function case.
-    //
-    DS_PUSH(picker);
-
-    // Go ahead and canonize the word symbol so we don't have to do it each
-    // time in order to get a case-insensitive compare.  (Note that canons can
-    // be GC'd, but will not be so long as an instance is on the stack.)
-    //
-    Canonize_Any_Word(DS_TOP);
+    DS_PUSH_TRASH;
+    Init_Refinement(DS_TOP, VAL_WORD_CANON(picker)); // canonize just once
 
     // Leave the function value as is in pvs->out
     //

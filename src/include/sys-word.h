@@ -49,6 +49,7 @@
         (FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_WORD))
 #endif
 
+
 inline static REBOOL IS_WORD_UNBOUND(const RELVAL *v) {
     assert(ANY_WORD(v));
     return DID(v->extra.binding == UNBOUND);
@@ -65,6 +66,20 @@ inline static REBSTR *VAL_WORD_SPELLING(const RELVAL *v) {
 inline static REBSTR *VAL_WORD_CANON(const RELVAL *v) {
     assert(ANY_WORD(v));
     return STR_CANON(v->payload.any_word.spelling);
+}
+
+// Some scenarios deliberately store canon spellings in words, to avoid
+// needing to re-canonize them.  If you have one of those words, use this to
+// add a check that your assumption about them is correct.
+//
+// Note that canon spellings can get GC'd, effectively changing the canon.
+// But they won't if there are any words outstanding that hold that spelling,
+// so this is a safe technique as long as these words are GC-mark-visible.
+//
+inline static REBSTR *VAL_STORED_CANON(const RELVAL *v) {
+    assert(ANY_WORD(v));
+    assert(GET_SER_INFO(v->payload.any_word.spelling, STRING_INFO_CANON));
+    return v->payload.any_word.spelling;
 }
 
 inline static OPT_REBSYM VAL_WORD_SYM(const RELVAL *v) {
@@ -195,9 +210,6 @@ inline static REBVAL *Init_Any_Word_Bound(
     return KNOWN(out);
 }
 
-inline static void Canonize_Any_Word(REBVAL *any_word) {
-    any_word->payload.any_word.spelling = VAL_WORD_CANON(any_word);
-}
 
 // To make interfaces easier for some functions that take REBSTR* strings,
 // it can be useful to allow passing UTF-8 text, a REBVAL* with an ANY-WORD!
