@@ -149,6 +149,8 @@ void MF_Function(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     Mold_Array_At(mo, words_list, 0, 0);
     Free_Array(words_list);
 
+    Append_Codepoint(mo->series, ' ');
+
     if (IS_FUNCTION_INTERPRETED(v)) {
         //
         // MOLD is an example of user-facing code that needs to be complicit
@@ -170,7 +172,6 @@ void MF_Function(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         //
         //     >> source first
         //     first: make function! [[aggregate index] [
-        //         aggregate: $void
         //         index: 1
         //     ]]
         //
@@ -288,9 +289,7 @@ REBTYPE(Function)
                     D_OUT,
                     Copy_Array_Deep_Managed(
                         body,
-                        AS_SPECIFIER(
-                            Make_Expired_Frame_Ctx_Managed(VAL_FUNC(value))
-                        )
+                        SPC(Make_Expired_Frame_Ctx_Managed(VAL_FUNC(value)))
                     )
                 );
 

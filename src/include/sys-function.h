@@ -280,6 +280,7 @@ inline static REBOOL IS_FUNCTION_INTERPRETED(const RELVAL *v) {
         || VAL_FUNC_DISPATCHER(v) == &Unchecked_Dispatcher
         || VAL_FUNC_DISPATCHER(v) == &Voider_Dispatcher
         || VAL_FUNC_DISPATCHER(v) == &Returner_Dispatcher
+        || VAL_FUNC_DISPATCHER(v) == &Block_Dispatcher
     );
 }
 

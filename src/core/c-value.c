@@ -112,7 +112,7 @@ REBCTX *VAL_SPECIFIC_Debug(const REBVAL *v)
 
     REBCTX *specific = VAL_SPECIFIC_COMMON(v);
 
-    if (AS_SPECIFIER(specific) != SPECIFIED) {
+    if (SPC(specific) != SPECIFIED) {
         //
         // Basic sanity check: make sure it's a context at all
         //

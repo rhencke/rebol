@@ -17,7 +17,7 @@
 (error? if true [try [1 / 0]])
 ; RETURN stops the evaluation
 (
-    f1: does [
+    f1: func [] [
         if true [return 1 2]
         2
     ]

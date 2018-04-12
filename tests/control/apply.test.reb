@@ -35,22 +35,22 @@
 ;-- #1760 --
 
 (
-    1 == eval does [r3-alpha-apply does [] [return 1] 2]
+    1 == eval func [] [r3-alpha-apply does [] [return 1] 2]
 )
 (
-    1 == eval does [r3-alpha-apply func [a] [a] [return 1] 2]
+    1 == eval func [] [r3-alpha-apply func [a] [a] [return 1] 2]
 )
 (
-    1 == eval does [r3-alpha-apply does [] [return 1]]
+    1 == eval func [] [r3-alpha-apply does [] [return 1]]
 )
 (
-    1 == eval does [r3-alpha-apply func [a] [a] [return 1]]
+    1 == eval func [] [r3-alpha-apply func [a] [a] [return 1]]
 )
 (
-    1 == eval does [r3-alpha-apply func [a b] [a] [return 1 2]]
+    1 == eval func [] [r3-alpha-apply func [a b] [a] [return 1 2]]
 )
 (
-    1 == eval does [r3-alpha-apply func [a b] [a] [2 return 1]]
+    1 == eval func [] [r3-alpha-apply func [a b] [a] [2 return 1]]
 )
 
 ; EVAL/ONLY
@@ -152,7 +152,7 @@
 
 ; MAKE FRAME! :RETURN should preserve binding in the FUNCTION OF the frame
 ;
-(1 == eval does [r3-alpha-apply :return [1] 2])
+(1 == eval func [] [r3-alpha-apply :return [1] 2])
 
 (false == r3-alpha-apply/only func [/a] [a] [#[false]])
 (group! == r3-alpha-apply/only :type-of [()])

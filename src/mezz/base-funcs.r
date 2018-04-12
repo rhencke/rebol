@@ -289,7 +289,6 @@ make-action: func [
 ;
 function: specialize :make-action [generator: :func]
 procedure: specialize :make-action [generator: :proc]
-does: specialize 'func [spec: []]
 
 
 ; Functions can be chained, adapted, and specialized--repeatedly.  The meta
@@ -389,25 +388,21 @@ redescribe: function [
     ; only manipulate the description.
 
     on-demand-meta: does [
-        case/all [
-            not meta [
-                meta: copy system/standard/function-meta
-                set-meta :value meta
-            ]
+        if not meta [
+            meta: copy system/standard/function-meta
+            set-meta :value meta
+        ]
 
-            not find meta 'description [
-                fail [{archetype META-OF doesn't have DESCRIPTION slot} meta]
-            ]
+        if not find meta 'description [
+            fail [{archetype META-OF doesn't have DESCRIPTION slot} meta]
+        ]
 
-            not notes: get 'meta/parameter-notes [
-                return () ; specialized or adapted, HELP uses original notes
-            ]
-
-            not frame? notes [
+        if notes: get 'meta/parameter-notes [
+            if not frame? notes [
                 fail [{PARAMETER-NOTES in META-OF is not a FRAME!} notes]
             ]
 
-            :value != function-of notes [
+            if :value != function-of notes [
                 fail [{PARAMETER-NOTES in META-OF frame mismatch} notes]
             ]
         ]
@@ -504,10 +499,6 @@ redescribe [
 redescribe [
     {Define an action with set-words as locals, that doesn't return a value.}
 ] :procedure
-
-redescribe [
-    {A shortcut to define a function that has no arguments or locals.}
-] :does
 
 
 default*: enfix redescribe [

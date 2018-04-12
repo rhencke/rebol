@@ -6,7 +6,7 @@
 (void? attempt [])
 ; RETURN stops attempt evaluation
 (
-    f1: does [attempt [return 1 2] 2]
+    f1: func [] [attempt [return 1 2] 2]
     1 == f1
 )
 ; THROW stops attempt evaluation

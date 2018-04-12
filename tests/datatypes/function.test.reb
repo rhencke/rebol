@@ -301,7 +301,7 @@
 ]
 ; inline function test
 [#1659 (
-    f: does reduce [does [true]]
+    f: does (reduce [does [true]])
     f
 )]
 ; no-rebind test--succeeds in R3-Alpha but fails in Ren-C.  Second time f is

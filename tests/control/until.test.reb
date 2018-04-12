@@ -17,7 +17,7 @@
 )
 ; Test that return stops the loop
 (
-    f1: does [loop-until [return 1]]
+    f1: func [] [loop-until [return 1]]
     1 = f1
 )
 ; Test that errors do not stop the loop

@@ -393,7 +393,7 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Managed(
 #define EMPTY_STRING \
     Root_Empty_String
 
-inline static REBSPC* AS_SPECIFIER(void *p) {
+inline static REBSPC* SPC(void *p) {
     REBSPC *specifier = cast(REBSPC*, p);
 
 #if !defined(NDEBUG)
@@ -411,7 +411,7 @@ inline static REBSPC* AS_SPECIFIER(void *p) {
 
 inline static REBSPC *VAL_SPECIFIER(const REBVAL *v) {
     assert(VAL_TYPE(v) == REB_0_REFERENCE || ANY_ARRAY(v));
-    return AS_SPECIFIER(VAL_SPECIFIC(v));
+    return SPC(VAL_SPECIFIC(v));
 }
 
 inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {

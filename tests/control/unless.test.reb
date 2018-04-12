@@ -20,7 +20,7 @@
 
 ; RETURN stops the evaluation
 (
-    f1: does [
+    f1: func [] [
         unless false [return 1 2]
         2
     ]

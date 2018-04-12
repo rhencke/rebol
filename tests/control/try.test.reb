@@ -33,5 +33,5 @@
 ]
 
 [#1506 ((
-    10 = eval does [try [return 10] 20]
+    10 = eval func [] [try [return 10] 20]
 ))]

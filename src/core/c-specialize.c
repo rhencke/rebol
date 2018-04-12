@@ -880,3 +880,313 @@ REBNATIVE(specialize)
 
     return R_OUT;
 }
+
+
+//
+//  Block_Dispatcher: C
+//
+// There are no arguments or locals to worry about in a DOES, nor does it
+// heed any definitional RETURN.  This means that in many common cases we
+// don't need to do anything special to a BLOCK! passed to DO...no copying
+// or otherwise.  Just run it when the function gets called.
+//
+// Yet `does [...]` isn't *quite* like `specialize 'do [source: [...]]`.  The
+// difference is subtle, but important when interacting with bindings to
+// fields in derived objects.  That interaction cannot currently resolve such
+// bindings without a copy, so it is made on demand.
+//
+// (Luckily these copies are often not needed, such as when the DOES is not
+// used in a method... -AND- it only needs to be made once.)
+//
+REB_R Block_Dispatcher(REBFRM *f)
+{
+    RELVAL *block = FUNC_BODY(f->phase);
+    assert(IS_BLOCK(block));
+
+    if (IS_SPECIFIC(block)) {
+        if (f->binding == UNBOUND) {
+            if (Do_Any_Array_At_Throws(f->out, KNOWN(block)))
+                return R_OUT_IS_THROWN;
+            return R_OUT;
+        }
+
+        // Until "virtual binding" is implemented, we would lose f->binding's
+        // ability to influence any variable lookups in the block if we did
+        // not relativize it to this frame.  This is the only current way to
+        // "beam down" influence of the binding for cases like:
+        //
+        // What forces us to copy the block are cases like this:
+        //
+        //     o1: make object! [a: 10 b: does [if true [a]]]
+        //     o2: make o1 [a: 20]
+        //     o2/b = 20
+        //
+        // While o2/b's FUNCTION! has a ->binding to o2, the only way for the
+        // [a] block to get the memo is if it is relative to o2/b.  It won't
+        // be relative to o2/b if it didn't have its existing relativism
+        // Derelativize()'d out to make it specific, and then re-relativized
+        // through a copy on behalf of o2/b.
+
+        REBARR *body_array = Copy_And_Bind_Relative_Deep_Managed(
+            KNOWN(block),
+            FUNC_PARAMLIST(f->phase),
+            TS_ANY_WORD
+        );
+
+        // Preserve file and line information from the original, if present.
+        //
+        if (GET_SER_FLAG(VAL_ARRAY(block), ARRAY_FLAG_FILE_LINE)) {
+            LINK(body_array).file = LINK(VAL_ARRAY(block)).file;
+            MISC(body_array).line = MISC(VAL_ARRAY(block)).line;
+            SET_SER_FLAG(body_array, ARRAY_FLAG_FILE_LINE);
+        }
+
+        // Need to do a raw initialization of this block RELVAL because it is
+        // relative to a function.  (Init_Block assumes all specific values.)
+        //
+        INIT_VAL_ARRAY(block, body_array);
+        VAL_INDEX(block) = 0;
+        INIT_BINDING(block, f->phase); // relative binding
+
+        // Block is now a relativized copy; we won't do this again.
+    }
+
+    assert(IS_RELATIVE(block));
+
+    if (Do_At_Throws(f->out, VAL_ARRAY(block), VAL_INDEX(block), SPC(f)))
+        return R_OUT_IS_THROWN;
+
+    return R_OUT;
+}
+
+
+//
+//  does: native [
+//
+//  {Specializes DO for a value (or for args of another named function)}
+//
+//      return: [function!]
+//      'specializee [any-value!]
+//          {WORD! or PATH! names function to specialize, else arg to DO}
+//      :args [<opt> any-value! <...>]
+//          {arguments which will be consumed to fulfill a named function}
+//  ]
+//
+REBNATIVE(does)
+{
+    INCLUDE_PARAMS_OF_DOES;
+
+    REBVAL *specializee = ARG(specializee);
+    REBVAL *args = ARG(args);
+
+    // DOES always creates a function with no arguments.
+
+    REBARR *paramlist = Make_Array_Core(1, ARRAY_FLAG_PARAMLIST);
+
+    REBVAL *archetype = Alloc_Tail_Array(paramlist);
+    VAL_RESET_HEADER(archetype, REB_FUNCTION);
+    archetype->payload.function.paramlist = paramlist;
+    INIT_BINDING(archetype, UNBOUND);
+
+    LINK(paramlist).facade = paramlist;
+    MISC(paramlist).meta = NULL; // REDESCRIBE can be used to add help
+
+    if (IS_BLOCK(specializee)) {
+        //
+        // `does [...]` and `does do [...]` are not exactly the same.  The
+        // generated FUNCTION! of the first form uses Block_Dispatcher() and
+        // does on-demand relativization, so it's "kind of like" a `func []`
+        // in forwarding references to members of derived objects.  Also, it
+        // is optimized to not run the block with the DO native...hence a
+        // HIJACK of DO won't be triggered by invocations of the first form.
+        //
+        MANAGE_ARRAY(paramlist);
+        REBFUN *fun = Make_Function(
+            paramlist,
+            &Block_Dispatcher, // **SEE COMMENTS**, not quite like plain DO!
+            NULL, // no facade (use paramlist)
+            NULL // no specialization exemplar (or inherited exemplar)
+        );
+
+        RELVAL *body = FUNC_BODY(fun);
+        Ensure_Value_Immutable(specializee); // Block_Dispatcher() *may* copy
+        Move_Value(body, specializee);
+
+        Move_Value(D_OUT, FUNC_VALUE(fun));
+        return R_OUT;
+    }
+
+    REBCTX *exemplar;
+    REBARR *facade;
+
+    if (
+        GET_VAL_FLAG(specializee, VALUE_FLAG_UNEVALUATED)
+        && (IS_WORD(specializee) || IS_PATH(specializee))
+    ){
+        // We interpret phrasings like `x: does all [...]` to mean something
+        // like `x: specialize 'all [block: [...]]`.  While this originated
+        // from the Rebmu code golfing language to eliminate a pair of bracket
+        // characters from `x: does [all [...]]`, it actually has different
+        // semantics...which can be useful in their own right, plus the
+        // resulting function will run faster.
+
+        REBDSP lowest_ordered_dsp = DSP;
+
+        REBSTR *opt_name;
+        if (IS_PATH(specializee)) {
+            //
+            // See SPECIALIZE for why DO_FLAG_PUSH_PATH_REFINEMENTS is used.
+            //
+            if (Do_Path_Throws_Core(
+                D_OUT,
+                &opt_name, // requesting says we run functions (not GET-PATH!)
+                REB_PATH,
+                VAL_ARRAY(specializee),
+                VAL_INDEX(specializee),
+                SPECIFIED,
+                NULL, // `setval`: null means don't treat as SET-PATH!
+                DO_FLAG_PUSH_PATH_REFINEMENTS // pushed in reverse order
+            )){
+                return R_OUT_IS_THROWN;
+            }
+        }
+        else
+            Get_If_Word_Or_Path_Arg(D_OUT, &opt_name, specializee);
+
+        if (!IS_FUNCTION(D_OUT))
+            fail (Error_Invalid(specializee));
+        Move_Value(specializee, D_OUT); // Frees D_OUT, GC safe (in ARG slot)
+
+        // !!! This is a hack just to see the concept working; what really
+        // is needed is a way to share the frame-filling-logic used by the
+        // evaluator with heap-based frame structures.  One block to that is
+        // that cell preparation is different for stack vs. heap, and so
+        // the evaluator logic can't be used without walking the cells in
+        // advance--which it was designed to not need to do.
+        //
+        // Until the organizational issues are sorted out, fill the frame in
+        // a very limited and conservative way.
+
+        exemplar = Make_Context_For_Specialization(
+            specializee,
+            lowest_ordered_dsp,
+            NULL
+        );
+        MANAGE_ARRAY(CTX_VARLIST(exemplar));
+
+        REBINT last_partial = 0;
+
+        REBVAL *refine = NULL;
+        REBVAL *param = CTX_KEYS_HEAD(exemplar);
+        REBVAL *arg = CTX_VARS_HEAD(exemplar);
+        for (; NOT_END(param); ++param, ++arg) {
+            enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+            switch (pclass) {
+            case PARAM_CLASS_REFINEMENT: {
+                refine = arg;
+                if (IS_INTEGER(refine)) {
+                    if (NOT(IS_REFINEMENT_SPECIALIZED(param))) {
+                        Init_Logic(refine, FALSE);
+                        break;
+                    }
+                    if (VAL_INT32(refine) < last_partial)
+                        fail ("DOES hack can't handle this refinement order");
+                    last_partial = VAL_INT32(refine);
+                    Init_Logic(refine, TRUE);
+                }
+                break; }
+
+            case PARAM_CLASS_NORMAL:
+            case PARAM_CLASS_TIGHT:
+            case PARAM_CLASS_HARD_QUOTE:
+            case PARAM_CLASS_SOFT_QUOTE: {
+                if (refine != NULL) {
+                    if (IS_VOID(refine))
+                        break;
+
+                    if (IS_LOGIC(refine) && VAL_LOGIC(refine) == FALSE)
+                        break;
+                }
+
+                // !!! Corrupt the parameter class of ARGS to match.  This is
+                // a general problem, of wanting to be able to take from a
+                // variadic feed using multiple conventions...the interface
+                // hasn't been hammered out yet.
+
+                INIT_VAL_PARAM_CLASS(PAR(args), pclass);
+                REB_R r = Do_Vararg_Op_May_Throw(D_OUT, args, VARARG_OP_TAKE);
+                INIT_VAL_PARAM_CLASS(PAR(args), PARAM_CLASS_HARD_QUOTE);
+
+                if (r == R_OUT_IS_THROWN)
+                    return R_OUT_IS_THROWN;
+
+                if (r == R_VOID)
+                    fail ("DOES hack needs argument");
+
+                Move_Value(arg, D_OUT);
+                if (GET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED))
+                    SET_VAL_FLAG(arg, VALUE_FLAG_UNEVALUATED);
+                break; }
+
+            case PARAM_CLASS_LOCAL:
+            case PARAM_CLASS_RETURN:
+            case PARAM_CLASS_LEAVE:
+                break;
+
+            default:
+                panic ("Unknown PARAM_CLASS");
+            }
+        }
+
+        DS_DROP_TO(lowest_ordered_dsp);
+    }
+    else {
+        // On all other types, we just make it act like a specialized call to
+        // DO for that value.
+
+        Make_Frame_For_Function(D_OUT, NAT_VALUE(do));
+        assert(VAL_BINDING(D_OUT) == UNBOUND);
+        exemplar = VAL_CONTEXT(D_OUT);
+
+        Move_Value(CTX_VAR(exemplar, 1), specializee);
+        Move_Value(specializee, NAT_VALUE(do));
+    }
+
+    REBCNT num_slots = FUNC_FACADE_NUM_PARAMS(VAL_FUNC(specializee)) + 1;
+    facade = Make_Array_Core(num_slots, SERIES_FLAG_FIXED_SIZE);
+    REBVAL *rootkey = SINK(ARR_HEAD(facade));
+    Move_Value(rootkey, FUNC_VALUE(FUNC_UNDERLYING(VAL_FUNC(specializee))));
+
+    REBVAL *param = FUNC_FACADE_HEAD(VAL_FUNC(specializee));
+    RELVAL *alias = rootkey + 1;
+    for (; NOT_END(param); ++param, ++alias) {
+        Move_Value(alias, param);
+        SET_VAL_FLAGS(
+            alias, TYPESET_FLAG_HIDDEN | TYPESET_FLAG_UNBINDABLE
+        );
+    }
+
+    TERM_ARRAY_LEN(facade, num_slots);
+    MANAGE_ARRAY(facade);
+
+    MANAGE_ARRAY(paramlist);
+
+    // This code parallels Specialize_Function_Throws()
+
+    REBFUN *fun = Make_Function(
+        paramlist,
+        &Specializer_Dispatcher,
+        facade, // no facade, use paramlist
+        exemplar // also provide a context of specialization values
+    );
+
+    Move_Value(FUNC_BODY(fun), CTX_VALUE(exemplar));
+    assert(VAL_BINDING(FUNC_BODY(fun)) == VAL_BINDING(specializee));
+
+    FUNC_BODY(fun)->payload.any_context.phase = VAL_FUNC(specializee);
+
+    Move_Value(D_OUT, FUNC_VALUE(fun));
+    assert(VAL_BINDING(D_OUT) == UNBOUND);
+
+    return R_OUT;
+}

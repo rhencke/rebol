@@ -56,12 +56,12 @@
 ; RETURN should stop the loop
 (
     cycle?: true
-    f1: does [while [cycle?] [cycle?: false return 1] 2]
+    f1: func [] [while [cycle?] [cycle?: false return 1] 2]
     1 = f1
 )
 (  ; bug#1519
     cycle?: true
-    f1: does [while [if cycle? [return 1] cycle?] [cycle?: false 2]]
+    f1: func [] [while [if cycle? [return 1] cycle?] [cycle?: false 2]]
     1 = f1
 )
 ; UNWIND the IF should stop the loop

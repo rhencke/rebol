@@ -70,7 +70,7 @@
 
 ; RETURN, THROW, BREAK will stop case evaluation
 (
-    f1: does [case [return 1 2]]
+    f1: func [] [case [return 1 2]]
     1 = f1
 )
 (

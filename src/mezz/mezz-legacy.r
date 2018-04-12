@@ -1206,6 +1206,18 @@ set 'r3-legacy* func [<local>] [
         function: (:r3-alpha-function)
         apply: (:r3-alpha-apply)
 
+        does: (func [
+            return: [function!]
+            :code [group! block!]
+        ][
+            func [<local> return:] compose [
+                return: does [
+                    fail "Old RETURN semantics in DOES are deprecated"
+                ]
+                | (code)
+            ]
+        ])
+
         ; In Ren-C, HAS is the arity-1 parallel to OBJECT as arity-2 (similar
         ; to the relationship between DOES and FUNCTION).  In Rebol2 and
         ; R3-Alpha it just broke out locals into their own block when they

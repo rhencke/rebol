@@ -17,7 +17,7 @@
 )
 ; Test that return stops the loop
 (
-    f1: does [forever [return 1]]
+    f1: func [] [forever [return 1]]
     1 = f1
 )
 ; Test that leave stops the loop

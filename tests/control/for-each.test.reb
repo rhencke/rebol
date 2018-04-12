@@ -50,7 +50,7 @@
 ; Test that return stops the loop
 (
     blk: [1]
-    f1: does [for-each i blk [return 1 2]]
+    f1: func [] [for-each i blk [return 1 2]]
     1 = f1
 )
 ; Test that errors do not stop the loop and errors can be returned

@@ -21,14 +21,14 @@
 
 ; RETURN stops the evaluation
 (
-    f1: does [
+    f1: func [] [
         either true [return 1 2] [2]
         2
     ]
     1 = f1
 )
 (
-    f1: does [
+    f1: func [] [
         either false [2] [return 1 2]
         2
     ]

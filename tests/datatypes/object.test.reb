@@ -96,7 +96,7 @@
 
 
 (
-    o1: make object! [a: 10 b: does [f: does [a] f]]
+    o1: make object! [a: 10 b: func [] [f: func [] [a] f]]
     o2: make o1 [a: 20]
 
     o2/b = 20

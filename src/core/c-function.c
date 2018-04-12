@@ -1615,14 +1615,8 @@ REB_R Unchecked_Dispatcher(REBFRM *f)
     RELVAL *body = FUNC_BODY(f->phase);
     assert(IS_BLOCK(body) && IS_RELATIVE(body) && VAL_INDEX(body) == 0);
 
-    if (Do_At_Throws(
-        f->out,
-        VAL_ARRAY(body),
-        0, // VAL_INDEX(body) asserted 0 above
-        AS_SPECIFIER(f)
-    )){
+    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
         return R_OUT_IS_THROWN;
-    }
 
     return R_OUT;
 }
@@ -1640,14 +1634,8 @@ REB_R Voider_Dispatcher(REBFRM *f)
     RELVAL *body = FUNC_BODY(f->phase);
     assert(IS_BLOCK(body) && IS_RELATIVE(body) && VAL_INDEX(body) == 0);
 
-    if (Do_At_Throws(
-        f->out,
-        VAL_ARRAY(body),
-        0, // VAL_INDEX(body) asserted 0 above
-        AS_SPECIFIER(f)
-    )){
+    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
         return R_OUT_IS_THROWN;
-    }
 
     return R_VOID;
 }
@@ -1665,23 +1653,15 @@ REB_R Returner_Dispatcher(REBFRM *f)
     RELVAL *body = FUNC_BODY(f->phase);
     assert(IS_BLOCK(body) && IS_RELATIVE(body) && VAL_INDEX(body) == 0);
 
-    if (Do_At_Throws(
-        f->out,
-        VAL_ARRAY(body),
-        0, // VAL_INDEX(body) asserted 0 above
-        AS_SPECIFIER(f)
-    )){
+    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
         return R_OUT_IS_THROWN;
-    }
 
     REBVAL *typeset = FUNC_PARAM(f->phase, FUNC_NUM_PARAMS(f->phase));
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
-    // The type bits of the definitional return are not applicable
-    // to the `return` word being associated with a FUNCTION!
-    // vs. an INTEGER! (for instance).  It is where the type
-    // information for the non-existent return function specific
-    // to this call is hidden.
+    // Typeset bits for locals in frames are usually ignored, but the RETURN:
+    // local uses them for the return types of a "virtual" definitional return
+    // if the parameter is PARAM_CLASS_RETURN.
     //
     if (!TYPE_CHECK(typeset, VAL_TYPE(f->out)))
         fail (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
@@ -1704,19 +1684,13 @@ REB_R Elider_Dispatcher(REBFRM *f)
     assert(IS_BLOCK(body) && IS_RELATIVE(body) && VAL_INDEX(body) == 0);
 
     // !!! It would be nice to use the frame's spare "cell" for the thrownaway
-    // result, but Fetch_Next code expects to use the cell.  We can GC guard
-    // our own stack temporary, though, simply by pointing ->refine at it.
+    // result, but Fetch_Next code expects to use the cell.
     //
     DECLARE_LOCAL (dummy);
     SET_END(dummy);
-    f->refine = dummy;
 
-    if (Do_At_Throws(
-        dummy, // would usually write to f->out, instead throw away the result
-        VAL_ARRAY(body),
-        0, // VAL_INDEX(body) asserted 0 above
-        AS_SPECIFIER(f)
-    )){
+    if (Do_At_Throws(dummy, VAL_ARRAY(body), 0, SPC(f))) {
+        Move_Value(f->out, dummy);
         return R_OUT_IS_THROWN;
     }
 
@@ -1786,14 +1760,8 @@ REB_R Adapter_Dispatcher(REBFRM *f)
     // the paramlist of the *underlying* function--because that's what a
     // compatible frame gets pushed for.)
     //
-    if (Do_At_Throws(
-        f->out,
-        VAL_ARRAY(prelude),
-        VAL_INDEX(prelude),
-        AS_SPECIFIER(f)
-    )){
+    if (Do_At_Throws(f->out, VAL_ARRAY(prelude), VAL_INDEX(prelude), SPC(f)))
         return R_OUT_IS_THROWN;
-    }
 
     f->phase = VAL_FUNC(adaptee);
     f->binding = VAL_BINDING(adaptee);

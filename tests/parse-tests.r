@@ -161,7 +161,7 @@
 ]
 
 [#100
-    (1 == eval does [parse [] [(return 1)] 2])
+    (1 == eval func [] [parse [] [(return 1)] 2])
 ]
 
 ; TO/THRU + bitset!/charset!

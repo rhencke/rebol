@@ -205,7 +205,7 @@
 )
 ; RETURN stops the evaluation
 (
-    f1: does [do [return 1 2] 2]
+    f1: func [] [do [return 1 2] 2]
     1 = f1
 )
 ; THROW stops evaluation
@@ -243,7 +243,7 @@
 (void? do/next [] 'b)
 (error? do/next [try [1 / 0]] 'b)
 (
-    f1: does [do/next [return 1 2] 'b 2]
+    f1: func [] [do/next [return 1 2] 'b 2]
     1 = f1
 )
 ; recursive behaviour
