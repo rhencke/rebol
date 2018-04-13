@@ -2203,7 +2203,7 @@ reevaluate:;
 // produces void, and that's fine).  We choose to deliver an error in the void
 // case, which provides a consistency:
 //
-//     :foo/bar => pick* foo 'bar (void if not present)
+//     :foo/bar => pick foo 'bar (void if not present)
 //     foo/bar => eval :foo/bar (should be an error if not present)
 //
 //==//////////////////////////////////////////////////////////////////////==//

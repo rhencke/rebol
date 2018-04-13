@@ -26,5 +26,5 @@
 )
 
 [#2190
-    (error? try [catch/quit [attempt [quit]] 1 / 0])
+    (error? trap [catch/quit [attempt [quit]] 1 / 0])
 ]

@@ -466,7 +466,7 @@ encrypt-data: function [
         ; MAC code
         mac: checksum/method/key join-all [
             to-bin ctx/seq-num-w 8              ; sequence number (64-bit int)
-            any [:msg-type #{17}]               ; msg type
+            if type [msg-type] !! #{17}         ; msg type
             ctx/version                         ; version
             to-bin length of data 2             ; msg content length
             data                                ; msg content
@@ -484,14 +484,12 @@ encrypt-data: function [
 
     switch ctx/crypt-method [
         rc4 [
-            unless ctx/encrypt-stream [
-                ctx/encrypt-stream: rc4/key ctx/client-crypt-key
-            ]
+            ctx/encrypt-stream: default [rc4/key ctx/client-crypt-key]
             rc4/stream ctx/encrypt-stream data
         ]
         aes [
-            unless ctx/encrypt-stream [
-                ctx/encrypt-stream: aes/key ctx/client-crypt-key ctx/client-iv
+            ctx/encrypt-stream: default [
+                aes/key ctx/client-crypt-key ctx/client-iv
             ]
             data: aes/stream ctx/encrypt-stream data
         ]
@@ -507,14 +505,12 @@ decrypt-data: function [
 ][
     switch ctx/crypt-method [
         rc4 [
-            unless ctx/decrypt-stream [
-                ctx/decrypt-stream: rc4/key ctx/server-crypt-key
-            ]
+            ctx/decrypt-stream: default [rc4/key ctx/server-crypt-key]
             rc4/stream ctx/decrypt-stream data
         ]
         aes [
-            unless ctx/decrypt-stream [
-                ctx/decrypt-stream: aes/key/decrypt ctx/server-crypt-key ctx/server-iv
+            ctx/decrypt-stream: default [
+                aes/key/decrypt ctx/server-crypt-key ctx/server-iv
             ]
             data: aes/stream ctx/decrypt-stream data
         ]
@@ -536,7 +532,7 @@ parse-protocol: function [
         23 application
     ])
 ][
-    unless proto: select protocol-types data/1 [
+    proto: select protocol-types data/1 else [
         fail "unknown/invalid protocol type"
     ]
     return context [
@@ -621,7 +617,7 @@ parse-messages: function [
         if proto/type = 'alert [
             if proto/messages/1 > 1 [
                 ; fatal alert level
-                fail any [select alert-descriptions data/2 "unknown"]
+                fail [select alert-descriptions data/2 !! "unknown"]
             ]
         ]
         update-proto-state ctx proto/type
@@ -631,8 +627,8 @@ parse-messages: function [
         alert [
             append result reduce [
                 context [
-                    level: any [pick [warning fatal] data/1 'unknown]
-                    description: any [select alert-descriptions data/2 "unknown"]
+                    level: pick [warning fatal] data/1 !! 'unknown
+                    description: select alert-descriptions data/2 !! "unknown"
                 ]
             ]
         ]
@@ -641,7 +637,9 @@ parse-messages: function [
             until [tail? data] [
                 msg-type: select message-types data/1
 
-                update-proto-state ctx either ctx/encrypted? ['encrypted-handshake] [msg-type]
+                update-proto-state ctx (
+                    ctx/encrypted? ?? 'encrypted-handshake !! msg-type
+                )
 
                 len: to-integer/unsigned copy/part at data 2 3
                 append result switch msg-type [
@@ -664,6 +662,7 @@ parse-messages: function [
                                 ]
                         ]
                         ctx/cipher-suite: msg-obj/cipher-suite
+
 
                         switch ctx/cipher-suite (reduce in cipher-suites [
                             TLS_RSA_WITH_RC4_128_SHA [
@@ -1045,12 +1044,8 @@ tls-init: procedure [
 
     switch ctx/crypt-method [
         rc4 [
-            if ctx/encrypt-stream [
-                ctx/encrypt-stream: rc4/stream ctx/encrypt-stream blank
-            ]
-            if ctx/decrypt-stream [
-                ctx/decrypt-stream: rc4/stream ctx/decrypt-stream blank
-            ]
+            ctx/encrypt-stream: me and [rc4/stream ctx/encrypt-stream blank]
+            ctx/decrypt-stream: me and [rc4/stream ctx/decrypt-stream blank]
         ]
     ]
 ]
@@ -1116,10 +1111,10 @@ tls-awake: function [event [event!]] [
     tls-port: port/locals
     tls-awake: :tls-port/awake
 
-    if all [
+    all [
         tls-port/state/protocol-state = 'application
         not port/data
-    ][
+    ] then [
         ; reset the data field when interleaving port r/w states
         tls-port/data: _
     ]
@@ -1209,12 +1204,12 @@ tls-awake: function [event [event!]] [
 
             debug ["data complete?:" complete? "application?:" application?]
 
-            either application? [
+            if application? [
                 insert system/ports/system make event! [
                     type: 'read
                     port: tls-port
                 ]
-            ][
+            ] else [
                 read port
             ]
             return complete?

@@ -1,6 +1,7 @@
 ; functions/control/all.r
 ; zero values
-(void? all [])
+(bar? all [])
+(void? all* [])
 ; one value
 (:abs = all [:abs])
 (
@@ -26,7 +27,7 @@
     a-value: me@here.com
     same? a-value all [a-value]
 )
-(error? all [try [1 / 0]])
+(error? all [trap [1 / 0]])
 (
     a-value: %""
     same? a-value all [a-value]
@@ -97,7 +98,8 @@
 )
 (0:00 == all [0:00])
 (0.0.0 == all [0.0.0])
-(void? all [()])
+(error? trap [all [()]])
+(void? all* [()])
 ('a == all ['a])
 ; two values
 (:abs = all [true :abs])
@@ -124,7 +126,7 @@
     a-value: me@here.com
     same? a-value all [true a-value]
 )
-(error? all [true try [1 / 0]])
+(error? all [true trap [1 / 0]])
 (
     a-value: %""
     same? a-value all [true a-value]
@@ -193,7 +195,8 @@
 )
 (0:00 == all [true 0:00])
 (0.0.0 == all [true 0.0.0])
-(1020 == all [1020 ()])
+(error? trap [all [1020 ()]])
+(1020 == all* [1020 ()])
 ('a == all [true 'a])
 (true = all [:abs true])
 (
@@ -219,7 +222,7 @@
     a-value: me@here.com
     true = all [a-value true]
 )
-(true = all [try [1 / 0] true])
+(true = all [trap [1 / 0] true])
 (
     a-value: %""
     true = all [a-value true]
@@ -291,7 +294,7 @@
 )
 (true = all [0:00 true])
 (true = all [0.0.0 true])
-(true = all [() true])
+(true = all* [() true])
 (true = all ['a true])
 ; evaluation stops after encountering FALSE or NONE
 (
@@ -344,5 +347,5 @@
 ; infinite recursion
 (
     blk: [all blk]
-    error? try blk
+    error? trap blk
 )

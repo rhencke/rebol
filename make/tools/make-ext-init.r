@@ -31,7 +31,7 @@ output-dir: system/options/path/prep/:in-dir
 insert src %../../src/
 mkdir/deep output-dir
 
-dest: either select args 'DEST [
+dest: either did select args 'DEST [
     fix-win32-path to file! :args/DEST
 ][
     join-of output-dir either ext-name: any [

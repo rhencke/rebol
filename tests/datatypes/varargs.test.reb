@@ -45,7 +45,7 @@
 )
 
 (
-    f: func [:look [<...>]][first look]
+    f: func [:look [<...>]] [to-value first look]
     blank? apply 'f [look: make varargs! []]
 )
 

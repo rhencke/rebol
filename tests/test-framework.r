@@ -52,7 +52,7 @@ make object! compose [
             leave
         ]
 
-        if error? try [test-block: to block! load source] [
+        if error? trap [test-block: to block! load source] [
             set 'test-failures (test-failures + 1)
             log [{ "failed, cannot load test source"^/}]
             leave

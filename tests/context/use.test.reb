@@ -8,7 +8,7 @@
 )
 (
     a: 1
-    error? try [use 'a [a: 2]]
+    error? trap [use 'a [a: 2]]
     a = 1
 )
 
@@ -32,7 +32,7 @@
 )
 ; "error out" of USE
 (
-    error? try [
+    error? trap [
         use [a] [1 / 0]
         2
     ]

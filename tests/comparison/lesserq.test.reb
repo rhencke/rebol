@@ -198,8 +198,8 @@
 
 [#1151 (
     did all [
-        error? try [maximum-of [1 %]]
-        error? try [greater? [a] "a"]
-        error? try [lesser? [a] "a"]
+        error? trap [maximum-of [1 %]]
+        error? trap [greater? [a] "a"]
+        error? trap [lesser? [a] "a"]
     ]
 )]

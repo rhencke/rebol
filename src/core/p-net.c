@@ -376,8 +376,8 @@ static REB_R Transport_Actor(
 
         goto return_port; }
 
-    case SYM_PICK_P: {
-        INCLUDE_PARAMS_OF_PICK_P;
+    case SYM_PICK: {
+        INCLUDE_PARAMS_OF_PICK;
         UNUSED(PAR(location));
 
         // FIRST server-port returns new port connection.

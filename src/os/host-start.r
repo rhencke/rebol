@@ -702,7 +702,7 @@ comment [
     ;
     all [
         not find o/suppress %rebol.reb
-        (| loud-print ["Checking for rebol.reb file in" o/bin] |)
+        elide (loud-print ["Checking for rebol.reb file in" o/bin])
         exists? o/bin/rebol.reb
     ] then [
         trap/with [
@@ -720,7 +720,7 @@ comment [
     all [
         o/resources
         not find o/suppress %user.reb
-        (| loud-print ["Checking for user.reb file in" o/resources] |)
+        elide (loud-print ["Checking for user.reb file in" o/resources])
         exists? o/resources/user.reb
     ] then [
         trap/with [

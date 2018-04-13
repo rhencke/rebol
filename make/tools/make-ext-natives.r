@@ -37,7 +37,7 @@ do %native-emitters.r ; for emit-include-params-macro
 
 args: parse-args system/options/args
 
-config: config-system to-value :args/OS_ID
+config: config-system get 'args/OS_ID
 
 m-name: ensure string! args/MODULE
 l-m-name: lowercase copy m-name

@@ -49,8 +49,8 @@
 (((pi * 3) / 4) = arccosine/radians (square-root 2) / -2)
 (120 = arccosine -0.5)
 (((pi * 2) / 3) = arccosine/radians -0.5)
-(error? try [arccosine 1.1])
-(error? try [arccosine -1.1])
+(error? trap [arccosine 1.1])
+(error? trap [arccosine -1.1])
 
 
 ; If BLOCK! is used for the right clause, the result is forced to either a

@@ -169,7 +169,7 @@
     insert/only a-value a-value
     b-value: copy []
     insert/only b-value b-value
-    error? try [equal? a-value b-value]
+    error? trap [equal? a-value b-value]
     true
 )]
 (not equal? [] blank)
@@ -593,39 +593,39 @@
 ; unset! symmetry with =
 (equal? (blank = ()) (() = blank))
 ; error! reflexivity
-; Evaluates (try [1 / 0]) to get error! value.
+; Evaluates (trap [1 / 0]) to get error! value.
 (
     a-value: blank
-    set/only 'a-value (try [1 / 0])
+    set/only 'a-value (trap [1 / 0])
     equal? a-value a-value
 )
 ; error! structural equivalence
-; Evaluates (try [1 / 0]) to get error! value.
-(equal? (try [1 / 0]) (try [1 / 0]))
+; Evaluates (trap [1 / 0]) to get error! value.
+(equal? (trap [1 / 0]) (trap [1 / 0]))
 ; error! structural equivalence
 (equal? (make error! "hello") (make error! "hello"))
 ; error! difference in code
-(not equal? (try [1 / 0]) (make error! "hello"))
+(not equal? (trap [1 / 0]) (make error! "hello"))
 ; error! difference in data
 (not equal? (make error! "hello") (make error! "there"))
 ; error! basic comparison
-(not equal? (try [1 / 0]) blank)
+(not equal? (trap [1 / 0]) blank)
 ; error! basic comparison
-(not equal? blank (try [1 / 0]))
+(not equal? blank (trap [1 / 0]))
 ; error! basic comparison symmetry
-(equal? equal? (try [1 / 0]) blank equal? blank (try [1 / 0]))
+(equal? equal? (trap [1 / 0]) blank equal? blank (trap [1 / 0]))
 ; error! basic comparison with = op
-(not ((try [1 / 0]) = blank))
+(not ((trap [1 / 0]) = blank))
 ; error! basic comparison with != op
-((try [1 / 0]) != blank)
+((trap [1 / 0]) != blank)
 ; error! basic comparison with = op
-(not (blank = (try [1 / 0])))
+(not (blank = (trap [1 / 0])))
 ; error! basic comparison with != op
-(blank != (try [1 / 0]))
+(blank != (trap [1 / 0]))
 ; error! symmetry with = op
-(equal? not ((try [1 / 0]) = blank) not (blank = (try [1 / 0])))
+(equal? not ((trap [1 / 0]) = blank) not (blank = (trap [1 / 0])))
 ; error! symmetry with != op
-(equal? (try [1 / 0]) != blank blank != (try [1 / 0]))
+(equal? (trap [1 / 0]) != blank blank != (trap [1 / 0]))
 ; port! reflexivity
 ; Error in R2 (could be fixed).
 (equal? p: make port! http:// p)
@@ -635,5 +635,5 @@
 [#859 (
     a: copy quote ()
     insert/only a a
-    error? try [do a]
+    error? trap [do a]
 )]

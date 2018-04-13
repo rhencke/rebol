@@ -358,7 +358,7 @@ load: function [
         elide (data: default [source])
 
         ;-- Is it not source code? Then return it now:
-        any [block? data | not find [0 extension unbound] any [:ftype 0]] [
+        block? data or (not find [0 extension unbound] any [get 'ftype 0]) [
             ; !!! "due to make-boot issue with #[none]" <-- What?
             return data ; directory, image, txt, markup, etc.
         ]

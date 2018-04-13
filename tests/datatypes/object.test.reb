@@ -28,7 +28,7 @@
 )]
 ; "error out" of make object!
 (
-    error? try [
+    error? trap [
         make object! [1 / 0]
         2
     ]
@@ -90,7 +90,7 @@
 (
     o: make object! []
     ; currently disallowed..."would expose or modify hidden values"
-    error? try [append o [self: 1]]
+    error? trap [append o [self: 1]]
 )
 
 

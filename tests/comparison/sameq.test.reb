@@ -400,7 +400,7 @@
 (
     p: make port! http://
     any [
-        error? try [same? p p]
+        error? trap [same? p p]
         same? p p
     ]
 )

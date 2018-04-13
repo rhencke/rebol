@@ -207,7 +207,7 @@ find: action [
     /match {Performs comparison and returns the tail of the match}
 ]
 
-select*: action [
+select: action [
     {Searches for a value; returns the value that follows, else void.}
     return: [<opt> any-value!]
     series [any-series! any-context! map! blank!]

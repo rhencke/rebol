@@ -1,22 +1,22 @@
 ; datatypes/error.r
-(error? try [1 / 0])
+(error? trap [1 / 0])
 (not error? 1)
-(error! = type of try [1 / 0])
+(error! = type of trap [1 / 0])
 
 ; error evaluation
-(error? do head of insert copy [] try [1 / 0])
+(error? do head of insert copy [] trap [1 / 0])
 
 ; error that does not exist in the SCRIPT category--all of whose ids are
 ; reserved by the system and must be formed from mezzanine/user code in
 ; accordance with the structure the system would form.  Hence, illegal.
 ;
-(try/except [make error! [type: 'script id: 'nonexistent-id]] [true])
+(trap/with [make error! [type: 'script id: 'nonexistent-id]] [true])
 
 ; triggered errors should not be assignable
 ;
-(a: 1 error? try [a: 1 / 0] :a =? 1)
-(a: 1 error? try [set 'a 1 / 0] :a =? 1)
-(a: 1 error? try [set/only 'a 1 / 0] :a =? 1)
+(a: 1 error? trap [a: 1 / 0] :a =? 1)
+(a: 1 error? trap [set 'a 1 / 0] :a =? 1)
+(a: 1 error? trap [set/only 'a 1 / 0] :a =? 1)
 
 [#2190
     (127 = catch/quit [attempt [catch/quit [1 / 0]] quit/with 127])

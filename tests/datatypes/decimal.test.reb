@@ -145,7 +145,7 @@
 (1.1 = make decimal! "1.1")
 (1.1 = to decimal! 1.1)
 (1.1 = to decimal! "1.1")
-(error? try [to decimal! "t"])
+(error? trap [to decimal! "t"])
 
 ; decimal! to binary! and binary! to decimal!
 (equal? #{3ff0000000000000} to binary! 1.0)

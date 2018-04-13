@@ -68,7 +68,7 @@
 ; Test that errors do not stop the loop and errors can be returned
 (
     num: 0
-    e: for i 1 2 1 [num: i try [1 / 0]]
+    e: for i 1 2 1 [num: i trap [1 / 0]]
     all [error? e num = 2]
 )
 ; infinite loop tests
@@ -164,7 +164,7 @@
 ; infinite recursion
 (
     blk: [for i 1 1 1 blk]
-    error? try blk
+    error? trap blk
 )
 ; local variable changeability - this is how it works in R3
 (
@@ -180,7 +180,7 @@
 ; local variable type safety
 (
     test: false
-    error? try [
+    error? trap [
         for i 1 2 [
             either test [i == 2] [
                 test: true

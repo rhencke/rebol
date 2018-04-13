@@ -25,5 +25,5 @@
 [#1665 (
     fact: to group! []
     insert/only fact fact
-    error? try [do fact]
+    error? trap [do fact]
 )]

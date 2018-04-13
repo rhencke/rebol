@@ -874,7 +874,7 @@ REBTYPE(Context)
         Init_Any_Context(D_OUT, VAL_TYPE(value), Copy_Context_Core(c, types));
         return R_OUT; }
 
-    case SYM_SELECT_P:
+    case SYM_SELECT:
     case SYM_FIND: {
         if (!IS_WORD(arg))
             return R_BLANK;

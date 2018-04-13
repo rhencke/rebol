@@ -16,8 +16,8 @@
 (blank? either true [] [1])
 (blank? either false [1] [])
 
-(error? either true [try [1 / 0]] [])
-(error? either false [] [try [1 / 0]])
+(error? either true [trap [1 / 0]] [])
+(error? either false [] [trap [1 / 0]])
 
 ; RETURN stops the evaluation
 (
@@ -66,9 +66,9 @@
 ; infinite recursion
 (
     blk: [either true blk []]
-    error? try blk
+    error? trap blk
 )
 (
     blk: [either false [] blk]
-    error? try blk
+    error? trap blk
 )

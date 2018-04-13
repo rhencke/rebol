@@ -303,6 +303,14 @@ exit: func [dummy:] [
     ] 'dummy
 ]
 
+try: func [dummy:] [
+    fail/where [
+        {TRY/EXCEPT was replaced by TRAP/WITH, which matches CATCH/WITH}
+        {and is more coherent and less beholden to legacy.  This frees up}
+        {TRY for alternative future uses--possibly as a synonym for TO-VALUE}
+    ] 'dummy
+]
+
 
 ; The legacy PRIN construct is replaced by WRITE-STDOUT SPACED and similar
 ;
@@ -385,21 +393,6 @@ rejoin: function [
     ;
     result: either series? first values [copy first values] [form first values]
     append result next values
-]
-
-
-; TRAP makes more sense as parallel-to-CATCH, /WITH makes more sense too
-; https://trello.com/c/IbnfBaLI
-;
-try: func [
-    {Tries to DO a block and returns its value or an error.}
-    return: [<opt> any-value!]
-    block [block!]
-    /except
-        "On exception, evaluate code"
-    code [block! function!]
-][
-    either* except [trap/with block :code] [trap block]
 ]
 
 
@@ -946,6 +939,20 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
+        ; TRAP makes more sense as parallel-to-CATCH, /WITH makes more sense too
+        ; https://trello.com/c/IbnfBaLI
+        ;
+        try: (func [
+            {Tries to DO a block and returns its value or an error.}
+            return: [<opt> any-value!]
+            block [block!]
+            /except
+                "On exception, evaluate code"
+            code [block! function!]
+        ][
+            trap/(all [except 'with]) block :code
+        ])
+
         ; Ren-C's default is a "lookback" that can see the SET-WORD! to its
         ; left and examine it.  `x: default [10]` instead of `default 'x 10`,
         ; with the same effect.
@@ -1328,7 +1335,7 @@ set 'r3-legacy* func [<local>] [
     ; and if it doesn't it's likealy a bigger problem because you can't put
     ; "unset! literals" (voids) into blocks in the first place.
     ;
-    ; So make a lot of things like `first: (chain [:first :to-value])`
+    ; So make a lot of things like `first: (chain [:first :try])`
     ;
     for-each word [
         if unless either case
@@ -1336,7 +1343,7 @@ set 'r3-legacy* func [<local>] [
     ][
         append system/contexts/user compose [
             (to-set-word word)
-            (chain compose [(to-get-word word) :to-value])
+            (chain compose [(to-get-word word) :try])
         ]
     ]
 
@@ -1367,7 +1374,7 @@ set 'r3-legacy* func [<local>] [
                     ]
                 ]]
             |
-                :to-value
+                :try
             ]
         )
     ]

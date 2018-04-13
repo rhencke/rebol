@@ -124,7 +124,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         len = 1;
         goto return_port; }
 
-    case SYM_PICK_P:  // FIRST - return result
+    case SYM_PICK:  // FIRST - return result
         if (NOT(sock->flags & RRF_OPEN))
             fail (Error_On_Port(RE_NOT_OPEN, port, -12));
 

@@ -1,15 +1,15 @@
 ; functions/control/apply.r
 [#44 (
-    error? try [r3-alpha-apply 'append/only [copy [a b] 'c]]
+    error? trap [r3-alpha-apply 'append/only [copy [a b] 'c]]
 )]
 (1 == r3-alpha-apply :subtract [2 1])
 (1 = (r3-alpha-apply :- [2 1]))
-(error? try [r3-alpha-apply func [a] [a] []])
-(error? try [r3-alpha-apply/only func [a] [a] []])
+(error? trap [r3-alpha-apply func [a] [a] []])
+(error? trap [r3-alpha-apply/only func [a] [a] []])
 
 ; CC#2237
-(error? try [r3-alpha-apply func [a] [a] [1 2]])
-(error? try [r3-alpha-apply/only func [a] [a] [1 2]])
+(error? trap [r3-alpha-apply func [a] [a] [1 2]])
+(error? trap [r3-alpha-apply/only func [a] [a] [1 2]])
 
 (error? r3-alpha-apply :make [error! ""])
 

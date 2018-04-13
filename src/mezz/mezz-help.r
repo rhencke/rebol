@@ -194,13 +194,13 @@ spec-of: function [
     specializee: match function! select meta 'specializee
     adaptee: match function! select meta 'specializee
     original-meta: match object! any [
-        all [:specializee | meta-of :specializee]
-        all [:adaptee | meta-of :adaptee]
+        set? 'specializee then [meta-of :specializee]
+        set? 'adaptee then [meta-of :adaptee]
     ]
 
     spec: copy []
 
-    if description: match string! any [
+    if description: match string! any* [
         select meta 'description
         select original-meta 'description
     ][
@@ -208,11 +208,11 @@ spec-of: function [
         new-line spec true
     ]
 
-    return-type: match block! any [
+    return-type: match block! any* [
         select meta 'return-type
         select original-meta 'return-type
     ]
-    return-note: match string! any [
+    return-note: match string! any* [
         select meta 'return-note
         select original-meta 'return-note
     ]
@@ -222,19 +222,19 @@ spec-of: function [
         if return-note [append spec return-note]
     ]
 
-    types: match frame! any [
+    types: match frame! any* [
         select meta 'parameter-types
         select original-meta 'parameter-types
     ]
-    notes: match frame! any [
+    notes: match frame! any* [
         select meta 'parameter-notes
         select original-meta 'parameter-notes
     ]
 
     for-each param words of :value [
         append spec param
-        if any [type: select types param] [append/only spec type]
-        if any [note: select notes param] [append spec note]
+        if any [type: to-value select types | param] [append/only spec type]
+        if any [note: to-value select notes | param] [append spec note]
     ]
 
     return spec
@@ -246,7 +246,7 @@ title-of: function [
 
     value [any-value!]
 ][
-    switch type of :value [
+    to-value switch type of :value [
         (function!) [
             all [
                 object? meta: meta-of :value
@@ -260,8 +260,6 @@ title-of: function [
             assert [string? spec] ;-- !!! Consider simplifying "type specs"
             spec/title
         ]
-    ] else [
-        blank
     ]
 ]
 
@@ -542,12 +540,10 @@ help: procedure [
     ;
     meta: meta-of :value
     all [
-        original-name: match word! (
-            any [
-                select meta 'specializee-name
-                select meta 'adaptee-name
-            ]
-        )
+        original-name: match word! any* [
+            select meta 'specializee-name
+            select meta 'adaptee-name
+        ]
         original-name: uppercase mold original-name
     ]
 

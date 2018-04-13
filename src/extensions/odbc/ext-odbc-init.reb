@@ -91,7 +91,7 @@ sys/make-scheme [
             port
         ]
 
-        pick*: function [
+        pick: function [
             port [port!]
             index
                 {Index to pick from (only supports 1, for FIRST)}

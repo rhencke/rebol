@@ -21,16 +21,16 @@
 ([] = copy/part [] 0)
 ([] = copy/part [] 1)
 ([] = copy/part [] 2147483647)
-(ok? try [copy blank])
+(ok? trap [copy blank])
 [#877 (
     a: copy []
     insert/only a a
-    error? try [copy/deep a]
+    error? trap [copy/deep a]
     true
 )]
 [#2043 (
     f: func [] []
-    error? try [copy :f]
+    error? trap [copy :f]
     true
 )]
 [#648

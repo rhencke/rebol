@@ -56,6 +56,16 @@ if :file-to-local = () [
     local-to-file: :to-rebol-file
 ]
 
+; As 3-letter words go, it's more useful to turn words to blank, but R3-Alpha
+; and older Ren-C had this as a synonym for TRAP.
+
+if find words-of :try 'block [
+    try: func [block /except handler] [
+        fail "TRY is reserved for future use in Ren-C, use TRAP"
+    ]
+]
+
+
 ; OF is an action-like dispatcher which is used for property extraction.  It
 ; quotes its left argument, which R3-Alpha cannot do.  One might think it
 ; could be quoted by turning the properties being asked for by WORD! into
@@ -96,8 +106,8 @@ if true = attempt [void? :some-undefined-thing] [
     else: does [
         fail "Do not use ELSE in scripts which want compatibility w/R3-Alpha" 
     ]
-    then: does [
-        fail "Do not use THEN in scripts which want compatibility w/R3-Alpha"
+    then: func [dummy:] [
+        fail/where "Do not use THEN in scripts which want compatibility w/R3-Alpha" 'dummy
     ]
 
     ; WHILE-NOT can't be written correctly in usermode R3-Alpha (RETURN won't
@@ -114,11 +124,18 @@ if true = attempt [void? :some-undefined-thing] [
     ;
     either all [
         () <> :really
-        find spec-of :really 'test
+        find words-of :really 'test
     ][
         ensure: :really ;-- Ren-Cs up to around Jan 27, 2018
     ][
-        assert [find spec-of :ensure 'test]
+        assert [find words-of :ensure 'test]
+    ]
+
+    did: func [cell [<opt> any-value!]] [
+        either all [lib/not void? :cell | :cell] [true] [false]
+    ]
+    not: func [cell [<opt> any-value!]] [
+        either any [void? :cell | :cell] [false] [true]
     ]
 
     QUIT ;-- !!! stops running if Ren-C here.
@@ -524,11 +541,16 @@ opt: func [
     either* blank? :value [()] [:value]
 ]
 
-to-value: func [
-    {Turns voids to blank, with ANY-VALUE! passing through. (See: OPT)}
-    value [<opt> any-value!]
+trap: func [
+    code [block! function!]
+    /with
+    handler [block! function!]
 ][
-    get 'value
+    either with [
+        lib/try/except :code :handler
+    ][
+        lib/try :code
+    ]
 ]
 
 something?: func [value [<opt> any-value!]] [

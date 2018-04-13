@@ -4,108 +4,108 @@
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [insert value 4]
+    not error? trap [insert value 4]
 )]
 (
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [append value 4]
+    not error? trap [append value 4]
 )
 (
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [change value 4]
+    not error? trap [change value 4]
 )
 (
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [reduce/into [4 + 5] value]
+    not error? trap [reduce/into [4 + 5] value]
 )
 (
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [compose/into [(4 + 5)] value]
+    not error? trap [compose/into [(4 + 5)] value]
 )
 (
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [poke value 1 4]
+    not error? trap [poke value 1 4]
 )
 (
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [remove/part value 1]
+    not error? trap [remove/part value 1]
 )
 (
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [take value]
+    not error? trap [take value]
 )
 (
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [reverse value]
+    not error? trap [reverse value]
 )
 (
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? try [clear value]
+    not error? trap [clear value]
 )
 ; string
 (
     value: copy original: {1 + 2 + 3}
     protect value
     unprotect value
-    not error? try [insert value 4]
+    not error? trap [insert value 4]
 )
 (
     value: copy original: {1 + 2 + 3}
     protect value
     unprotect value
-    not error? try [append value 4]
+    not error? trap [append value 4]
 )
 (
     value: copy original: {1 + 2 + 3}
     protect value
     unprotect value
-    not error? try [change value 4]
+    not error? trap [change value 4]
 )
 (
     value: copy original: {1 + 2 + 3}
     protect value
     unprotect value
-    not error? try [poke value 1 4]
+    not error? trap [poke value 1 4]
 )
 (
     value: copy original: {1 + 2 + 3}
     protect value
     unprotect value
-    not error? try [remove/part value 1]
+    not error? trap [remove/part value 1]
 )
 (
     value: copy original: {1 + 2 + 3}
     protect value
     unprotect value
-    not error? try [take value]
+    not error? trap [take value]
 )
 (
     value: copy original: {1 + 2 + 3}
     protect value
     unprotect value
-    not error? try [reverse value]
+    not error? trap [reverse value]
 )
 (
     value: copy original: {1 + 2 + 3}
     protect value
     unprotect value
-    not error? try [clear value]
+    not error? trap [clear value]
 )

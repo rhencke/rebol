@@ -544,7 +544,7 @@ REBCTX *Resolve_Path(const REBVAL *path, REBCNT *index_out)
 
 
 //
-//  pick*: native [
+//  pick: native [
 //
 //  {Perform a path picking operation, same as `:(:location)/(:picker)`}
 //
@@ -555,7 +555,7 @@ REBCTX *Resolve_Path(const REBVAL *path, REBCNT *index_out)
 //          {Index offset, symbol, or other value to use as index}
 //  ]
 //
-REBNATIVE(pick_p)
+REBNATIVE(pick)
 //
 // In R3-Alpha, PICK was an "action", which dispatched on types through the
 // "action mechanic" for the following types:
@@ -565,7 +565,7 @@ REBNATIVE(pick_p)
 // In Ren-C, PICK is rethought to use the same dispatch mechanic as paths,
 // to cut down on the total number of operations the system has to define.
 {
-    INCLUDE_PARAMS_OF_PICK_P;
+    INCLUDE_PARAMS_OF_PICK;
 
     REBVAL *location = ARG(location);
 
@@ -575,7 +575,7 @@ REBNATIVE(pick_p)
     // be a compatible frame with the historical "action".
     //
     if (IS_PORT(location))
-        return Do_Port_Action(frame_, VAL_CONTEXT(location), SYM_PICK_P);
+        return Do_Port_Action(frame_, VAL_CONTEXT(location), SYM_PICK);
 
     DECLARE_FRAME (pvs);
 

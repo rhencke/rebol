@@ -13,23 +13,23 @@
 (
     x: $999999999999999
     did any [
-        error? try [x: x + $1]
-        not error? try [mold x]
+        error? trap [x: x + $1]
+        not error? trap [mold x]
     ]
 )
 (
     x: -$999999999999999
     did any [
-        error? try [x: x - $1]
-        not error? try [mold x]
+        error? trap [x: x - $1]
+        not error? trap [mold x]
     ]
 )
 ; alternative form
 ($1.1 == $1,1)
 (
     did any [
-        error? try [x: $1234567890123456]
-        not error? try [mold x]
+        error? trap [x: $1234567890123456]
+        not error? trap [mold x]
     ]
 )
 ($11 = make money! 11)

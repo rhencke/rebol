@@ -1941,7 +1941,10 @@ visual-studio: make generator-class [
                     ]
                 ]
 
-                stack-size: to-value if project/ldflags [find-stack-size project/ldflags]
+                stack-size: all [
+                    project/ldflags
+                    find-stack-size project/ldflags
+                ]
             ]
 
             compile-as: all [block? project/cflags find-compile-as project/cflags]

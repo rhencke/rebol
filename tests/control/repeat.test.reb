@@ -71,7 +71,7 @@
 ; Test that errors do not stop the loop and errors can be returned
 (
     num: 0
-    e: repeat i 2 [num: i try [1 / 0]]
+    e: repeat i 2 [num: i trap [1 / 0]]
     all [error? e num = 2]
 )
 ; "recursive safety", "locality" and "body constantness" test in one
@@ -87,7 +87,7 @@
 ; local variable type safety
 (
     test: false
-    error? try [
+    error? trap [
         repeat i 2 [
             either test [i == 2] [
                 test: true

@@ -50,14 +50,13 @@ save: function [
     all: :lib/all
     length: :lib/length
 
-    ; Default `method` and `header-data` to blank
-    method: to-value :method
-    header-data: to-value :header-data
+    method: default [_]
+    header-data: default [_]
 
     ;-- Special datatypes use codecs directly (e.g. PNG image file):
     if all [
         not header ; User wants to save value as script, not data file
-        any [file? where url? where]
+        match [file! url!] where
         type: file-type? where
     ][
         ; We have a codec.  Will check for valid type.
@@ -67,7 +66,7 @@ save: function [
     ;-- Compressed scripts and script lengths require a header:
     if any [length_SAVE method] [
         header: true
-        header-data: any [header-data []]
+        header-data: default [[]]
     ]
 
     ;-- Handle the header object:

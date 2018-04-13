@@ -1,6 +1,6 @@
 ; functions/math/square-root.r
 (0 = square-root 0)
-(error? try [square-root -1])
+(error? trap [square-root -1])
 (1 = square-root 1)
 (0.5 = square-root 0.25)
 (2 = square-root 4)

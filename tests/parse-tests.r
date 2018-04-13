@@ -106,7 +106,7 @@
 
 [#1672 (
     a: [a]
-    error? try [parse [] a]
+    error? trap [parse [] a]
 )]
 
 ; repetition
@@ -181,7 +181,7 @@
 
 ; self-modifying rule, not legal in Ren-C if it's during the parse
 
-(error? try [not parse "abcd" rule: ["ab" (remove back tail of rule) "cd"]])
+(error? trap [not parse "abcd" rule: ["ab" (remove back tail of rule) "cd"]])
 
 (
     https://github.com/metaeducation/ren-c/issues/377

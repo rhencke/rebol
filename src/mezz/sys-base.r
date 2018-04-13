@@ -196,9 +196,7 @@ do*: function [
             args: to-value :arg
         ]
 
-        all [
-            set? 'script-pre-load-hook
-        |
+        if set? 'script-pre-load-hook [
             script-pre-load-hook is-module hdr ;-- chance to print it out
         ]
 

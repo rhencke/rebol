@@ -53,7 +53,7 @@
     same? a-value f
 )
 (
-    f: does [try [1 / 0]]
+    f: does [trap [1 / 0]]
     error? f
 )
 (
@@ -213,7 +213,7 @@
 )
 ; "error out" of a function
 (
-    error? try [
+    error? trap [
         f: does [1 / 0 2]
         f
         2
@@ -247,7 +247,7 @@
 (
     f: func [x] [
         either x = 1 [
-            error? try [f 2]
+            error? trap [f 2]
             x = 1
         ] [1 / 0]
     ]
@@ -282,13 +282,13 @@
 (
     f: func [code value] [either blank? code ['value] [do code]]
     f-value: f blank blank
-    error? try [f compose [2 * (f-value)] 21]  ; re-entering same function
+    error? trap [f compose [2 * (f-value)] 21]  ; re-entering same function
 )
 (
     f: func [code value] [either blank? code ['value] [do code]]
     g: func [code value] [either blank? code ['value] [do code]]
     f-value: f blank blank
-    error? try [g compose [2 * (f-value)] 21]  ; re-entering different function
+    error? trap [g compose [2 * (f-value)] 21]  ; re-entering different function
 )
 [#19 ; but duplicate specializations currently not legal in Ren-C
     (
@@ -297,7 +297,7 @@
     )
 ]
 [#27
-    (error? try [(type of) 1])
+    (error? trap [(type of) 1])
 ]
 ; inline function test
 [#1659 (
@@ -312,7 +312,7 @@
     f: func [d] [a [d] do c]
     did all [
         1 = f 1
-        error? try [2 = f 2]
+        error? trap [2 = f 2]
     ]
 )
 [#1528
@@ -330,7 +330,7 @@
     body: [x + y]
     f: make function! reduce [[x] body]
     g: make function! reduce [[y] body]
-    error? try [f 1]
+    error? trap [f 1]
 )]
 [#2044 (
     o: make object! [f: func [x] ['x]]

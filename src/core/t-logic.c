@@ -110,6 +110,26 @@ REBNATIVE(did_q)
 
 
 //
+//  did: native/body [
+//
+//  "Variant of TO-LOGIC which considers void values to also be false"
+//
+//      return: [logic!]
+//          {true if value is NOT a LOGIC! false, BLANK!, or void}
+//      cell [<opt> any-value!]
+//  ][
+//      not not :cell
+//  ]
+//
+REBNATIVE(did)
+{
+    INCLUDE_PARAMS_OF_DID;
+
+    return R_FROM_BOOL(NOT(IS_VOID_OR_FALSEY(ARG(cell))));
+}
+
+
+//
 //  not?: native [
 //
 //  "Returns the logic complement."
@@ -124,6 +144,24 @@ REBNATIVE(not_q)
     INCLUDE_PARAMS_OF_NOT_Q;
 
     return R_FROM_BOOL(IS_FALSEY(ARG(value)));
+}
+
+
+//
+//  not: native [
+//
+//  "Returns the logic complement, considering voids to be false."
+//
+//      return: [logic!]
+//          "Only LOGIC!'s FALSE, BLANK!, and void for cell return TRUE"
+//      cell [<opt> any-value!]
+//  ]
+//
+REBNATIVE(not)
+{
+    INCLUDE_PARAMS_OF_NOT;
+
+    return R_FROM_BOOL(IS_VOID_OR_FALSEY(ARG(cell)));
 }
 
 

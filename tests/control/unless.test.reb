@@ -16,7 +16,7 @@
 (void? unless true [1])
 (blank? unless false [])
 
-(error? unless false [try [1 / 0]])
+(error? unless false [trap [1 / 0]])
 
 ; RETURN stops the evaluation
 (

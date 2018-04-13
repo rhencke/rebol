@@ -35,7 +35,7 @@ make object! [
         any [
             position: ["{" | {"}] (
                 ; handle string using TRANSCODE
-                success: either error? try [
+                success: either error? trap [
                     position: second transcode/next position
                 ] [
                     [end skip]
@@ -83,7 +83,7 @@ make object! [
             types: context [eol: wsp: cmt: tst: flg: fil: end: _]
 
             single-value: parsing-at x [
-                if not error? try [
+                if not error? trap [
                     set [value: next-position:] transcode/next x
                 ][
                     next-position
@@ -392,7 +392,7 @@ make object! [
         current-dir: what-dir
         print ["file:" mold test-file]
 
-        either error? err: try [
+        either error? err: trap [
             if file? test-file [
                 test-file: clean-path test-file
                 change-dir first split-path test-file
@@ -427,7 +427,7 @@ make object! [
         any-wsp: [any [wsp emit-token]]
 
         single-value: parsing-at x [
-            if not error? try [
+            if not error? trap [
                 set [value: next-position:] transcode/next x
             ][
                 type: in types 'val
@@ -502,7 +502,7 @@ make object! [
             {collect the logged results here (modified)}
         log-file [file!]
     ][
-        if error? try [log-contents: read log-file] [
+        if error? trap [log-contents: read log-file] [
             fail ["Unable to read " mold log-file]
         ]
 

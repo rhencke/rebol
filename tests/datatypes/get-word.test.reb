@@ -4,7 +4,7 @@
 (get-word! = type of first [:a])
 (
     ; context-less get-word
-    e: try [do to block! ":a"]
+    e: trap [do to block! ":a"]
     e/id = 'not-bound
 )
 (

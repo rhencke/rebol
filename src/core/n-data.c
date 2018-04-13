@@ -606,17 +606,19 @@ REBNATIVE(get)
 //  {Turns voids into blanks, with ANY-VALUE! passing through. (See: OPT)}
 //
 //      return: [any-value!]
-//      value [<opt> any-value!]
+//      cell [<opt> any-value!]
 //  ]
 //
 REBNATIVE(to_value)
+//
+// !!! Slated to perhaps become TRY (R3-Alpha TRY/EXCEPT is now TRAP/WITH)
 {
     INCLUDE_PARAMS_OF_TO_VALUE;
 
-    if (IS_VOID(ARG(value)))
+    if (IS_VOID(ARG(cell)))
         return R_BLANK;
 
-    Move_Value(D_OUT, ARG(value));
+    Move_Value(D_OUT, ARG(cell));
     return R_OUT;
 }
 
@@ -628,17 +630,17 @@ REBNATIVE(to_value)
 //
 //      return: [<opt> any-value!]
 //          {void if input was a BLANK!, or original value otherwise}
-//      value [<opt> any-value!]
+//      cell [<opt> any-value!]
 //  ]
 //
 REBNATIVE(opt)
 {
     INCLUDE_PARAMS_OF_OPT;
 
-    if (IS_BLANK(ARG(value)))
+    if (IS_BLANK(ARG(cell)))
         return R_VOID;
 
-    Move_Value(D_OUT, ARG(value));
+    Move_Value(D_OUT, ARG(cell));
     return R_OUT;
 }
 
@@ -1169,26 +1171,6 @@ REBNATIVE(unset_q)
     INCLUDE_PARAMS_OF_UNSET_Q;
 
     return R_FROM_BOOL(NOT(Is_Set(ARG(location))));
-}
-
-
-//
-//  to-logic: native/body [
-//
-//  "Returns true for all values that would cause IF to take the branch"
-//
-//      return: [logic!]
-//          {true if the supplied value is NOT a LOGIC! false or BLANK!}
-//      value [any-value!] ; Note: No [<opt> any-value!] - void must fail
-//  ][
-//      not not :val
-//  ]
-//
-REBNATIVE(to_logic)
-{
-    INCLUDE_PARAMS_OF_TO_LOGIC;
-
-    return R_FROM_BOOL(IS_TRUTHY(ARG(value)));
 }
 
 

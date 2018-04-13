@@ -28,8 +28,8 @@
     e: _
     forever [
         num: num + 1
-        if num = 10 [e: try [1 / 0] break]
-        try [1 / 0]
+        if num = 10 [e: trap [1 / 0] break]
+        trap [1 / 0]
     ]
     all [error? e | num = 10]
 )

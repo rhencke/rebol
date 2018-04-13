@@ -14,7 +14,7 @@
 (void? if* true [])
 (blank? if true [])
 
-(error? if true [try [1 / 0]])
+(error? if true [trap [1 / 0]])
 ; RETURN stops the evaluation
 (
     f1: func [] [
@@ -88,5 +88,5 @@
 ; infinite recursion
 (
     blk: [if true blk]
-    error? try blk
+    error? trap blk
 )

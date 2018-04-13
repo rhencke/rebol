@@ -20,21 +20,21 @@
 ; extreme behaviour
 (
     did any [
-        error? try [date-d: 1/Jan/0000 - 1]
+        error? trap [date-d: 1/Jan/0000 - 1]
         date-d = load mold date-d
     ]
 )
 (
     did any [
-        error? try [date-d: 31-Dec-16383 + 1]
+        error? trap [date-d: 31-Dec-16383 + 1]
         date-d = load mold date-d
     ]
 )
 
 [#1250 (
     did all [
-        error? try [load "1/11/-00"]
-        error? try [load "1/11/-0"]
+        error? trap [load "1/11/-00"]
+        error? trap [load "1/11/-0"]
         load "1/11/0" = load "1/11/00"
     ]
 )]

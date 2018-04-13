@@ -6,5 +6,5 @@
     ("foo" == to string! decompress/gzip #{1F8B0800EF46BE4C00034BCBCF07002165738C03000000})
 ]
 [#3
-    (error? try [decompress #{AAAAAAAAAAAAAAAAAAAA}])
+    (error? trap [decompress #{AAAAAAAAAAAAAAAAAAAA}])
 ]

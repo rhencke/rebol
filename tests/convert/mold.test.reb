@@ -21,7 +21,7 @@
     n: 1
     catch [forever [
         a: copy []
-        if error? try [
+        if error? trap [
             loop n [a: append/only copy [] a]
             mold a
         ] [throw true]

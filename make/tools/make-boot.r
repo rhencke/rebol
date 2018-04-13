@@ -31,7 +31,7 @@ do %systems.r
 change-dir %../../src/boot/
 
 args: parse-args system/options/args
-config: config-system to-value :args/OS_ID
+config: config-system get 'args/OS_ID
 
 first-rebol-commit: "19d4f969b4f5c1536f24b023991ec11ee6d5adfb"
 
@@ -103,22 +103,23 @@ sections: [
 ; as well as function either from the command line or the REPL.
 ;
 unless args: any [
-    if string? :system/script/args [
+    either string? :system/script/args [
         either block? load system/script/args [
             load system/script/args
         ][
             reduce [load system/script/args]
         ]
+    ][
+        get 'system/script/args
     ]
-    :system/script/args
 
     ; This is the only piece that should be necessary if not dealing w/legacy
     system/options/args
-] [
+][
     fail "No platform specified."
 ]
 
-product: to-word any [:args/PRODUCT | "core"]
+product: to-word any [get 'args/PRODUCT | "core"]
 
 platform-data: context [type: 'windows]
 build: context [features: [help-strings]]
@@ -385,7 +386,7 @@ typeset-sets: copy []
 for-each-record type boot-types [
     for-each ts compose [(type/typesets)] [
         spot: any [
-            select typeset-sets ts
+            to-value select typeset-sets ts
             first back insert tail-of typeset-sets reduce [ts copy []]
         ]
         append spot type/name

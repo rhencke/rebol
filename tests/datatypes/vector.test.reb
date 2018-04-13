@@ -13,7 +13,7 @@
     (10 = length of make vector! 10.5)
 ]
 [#1213
-    (error? try [make vector! -1])
+    (error? trap [make vector! -1])
 ]
 (0 = first make vector! [integer! 32])
 (all map-each x make vector! [integer! 32 16] [zero? x])

@@ -115,7 +115,7 @@ REBTYPE(Unit)
 
         break; }
 
-    case SYM_SELECT_P:
+    case SYM_SELECT:
     case SYM_FIND:
     case SYM_REMOVE:
     case SYM_CLEAR:

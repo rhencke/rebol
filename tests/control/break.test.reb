@@ -51,4 +51,4 @@
 ]
 
 ; the "result" of break should not be caught by try
-(a: 1 loop 1 [a: error? try [break]] :a =? 1)
+(a: 1 loop 1 [a: error? trap [break]] :a =? 1)

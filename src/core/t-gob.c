@@ -1057,14 +1057,14 @@ REBTYPE(Gob)
 
         break; }
 
-    // !!! Note: PICK* and POKE were unified with path dispatch.  The general
+    // !!! Note: PICK and POKE were unified with path dispatch.  The general
     // goal is to unify these mechanisms.  However, GOB! is tricky in terms
     // of what it tried to do with a synthesized PAIR!, calling back into
     // Next_Path_Throws().  A logical overhaul of path dispatch is needed.
     // This code is left in case there's something to glean from it when
     // a GOB!-based path dispatch breaks.
     /*
-    case SYM_PICK_P:
+    case SYM_PICK:
         if (NOT(ANY_NUMBER(arg) || IS_BLANK(arg)))
             fail (Error_Invalid(arg));
 

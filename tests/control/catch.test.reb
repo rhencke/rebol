@@ -10,18 +10,18 @@
 ; catch results
 (void? catch [])
 (void? catch [()])
-(error? catch [try [1 / 0]])
+(error? catch [trap [1 / 0]])
 (1 = catch [1])
 (void? catch [throw ()])
-(error? first catch [throw reduce [try [1 / 0]]])
+(error? first catch [throw reduce [trap [1 / 0]]])
 (1 = catch [throw 1])
 ; catch/name results
 (void? catch/name [] 'catch)
 (void? catch/name [()] 'catch)
-(error? catch/name [try [1 / 0]] 'catch)
+(error? catch/name [trap [1 / 0]] 'catch)
 (1 = catch/name [1] 'catch)
 (void? catch/name [throw/name () 'catch] 'catch)
-(error? first catch/name [throw/name reduce [try [1 / 0]] 'catch] 'catch)
+(error? first catch/name [throw/name reduce [trap [1 / 0]] 'catch] 'catch)
 (1 = catch/name [throw/name 1 'catch] 'catch)
 ; recursive cases
 (
@@ -78,7 +78,7 @@
     true
 )
 [#851
-    (error? try [catch/quit [] fail make error! ""])
+    (error? trap [catch/quit [] fail make error! ""])
 ]
 [#851
     (blank? attempt [catch/quit [] fail make error! ""])

@@ -6,9 +6,9 @@
     success
 )
 ([] = reduce [])
-(error? try [first reduce [()]])
+(error? trap [first reduce [()]])
 ("1 + 1" = reduce "1 + 1")
-(error? first reduce [try [1 / 0]])
+(error? first reduce [trap [1 / 0]])
 [#1760 ; unwind functions should stop evaluation
     (blank? loop 1 [reduce [break]])
 ]
@@ -22,7 +22,7 @@
 ; infinite recursion
 (
     blk: [reduce blk]
-    error? try blk
+    error? trap blk
 )
 
 ; Quick flatten test, here for now

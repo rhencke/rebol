@@ -51,7 +51,7 @@
     same? a-value f
 ]
 [
-    f: closure [] [try [1 / 0]]
+    f: closure [] [trap [1 / 0]]
     error? f
 ]
 [
@@ -223,7 +223,7 @@
 ]
 ; "error out" of a closure
 [
-    error? try [
+    error? trap [
         f: closure [] [1 / 0 2]
         f
         2
@@ -257,7 +257,7 @@
 [
     f: closure [x] [
         either x = 1 [
-            error? try [f 2]
+            error? trap [f 2]
             x = 1
         ] [1 / 0]
     ]

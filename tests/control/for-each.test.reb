@@ -57,7 +57,7 @@
 (
     num: 0
     blk: [1 2]
-    e: for-each i blk [num: i try [1 / 0]]
+    e: for-each i blk [num: i trap [1 / 0]]
     all [error? e num = 2]
 )
 ; "recursive safety", "locality" and "body constantness" test in one

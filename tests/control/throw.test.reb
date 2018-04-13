@@ -20,5 +20,5 @@
 ]
 (a: 1 catch/name [a: error? throw/name 2 'b] 'b :a =? 1)
 ; throw should not be caught by try
-(a: 1 catch [a: error? try [throw 2]] :a =? 1)
-(a: 1 catch/name [a: error? try [throw/name 2 'b]] 'b :a =? 1)
+(a: 1 catch [a: error? trap [throw 2]] :a =? 1)
+(a: 1 catch/name [a: error? trap [throw/name 2 'b]] 'b :a =? 1)

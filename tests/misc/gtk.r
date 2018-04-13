@@ -2,17 +2,17 @@ REBOL []
 
 recycle/torture
 
-libgtk: try/except [
+libgtk: trap/with [
     make library! %libgtk-3.so
 ][
     make library! %libgtk-3.so.0
 ]
-libglib: try/except [
+libglib: trap/with [
     make library! %libglib-2.0.so
 ][
     make library! %libglib-2.0.so.0
 ]
-libgob: try/except [
+libgob: trap/with [
     make library! %libgobject-2.0.so
 ][
     make library! %libgobject-2.0.so.0

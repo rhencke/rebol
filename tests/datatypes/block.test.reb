@@ -17,13 +17,10 @@
     did all [
         10 = data/a
         10 = select data 'a
-        10 = select* data 'a
         20 = data/b
         20 = select data 'b
-        20 = select* data 'b
         not set? 'data/c
-        blank? select data 'c
-        void? select* data 'c
+        void? select data 'c
     ]
 )
 

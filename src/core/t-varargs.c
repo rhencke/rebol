@@ -456,7 +456,7 @@ REBTYPE(Varargs)
     REBVAL *value = D_ARG(1);
 
     switch (action) {
-    // !!! SYM_PICK_P moved into PD_Varargs functionality, which PICK* uses
+    // !!! SYM_PICK moved into PD_Varargs functionality, which PICK* uses
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

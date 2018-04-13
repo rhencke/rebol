@@ -12,7 +12,7 @@
 )
 (m: make map! [a 1 b 2] m/c: 3 3 == m/c)
 ; Maps contain key/value pairs and must be created from blocks of even length.
-(error? try [make map! [1]])
+(error? trap [make map! [1]])
 (empty? clear make map! [a 1 b 2])
 [#1930 (
     m: make map! 8

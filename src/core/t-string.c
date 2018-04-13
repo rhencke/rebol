@@ -1201,7 +1201,7 @@ REBTYPE(String)
         break; }
 
     //-- Search:
-    case SYM_SELECT_P:
+    case SYM_SELECT:
     case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
 

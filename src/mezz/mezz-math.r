@@ -63,38 +63,36 @@ sign-of: func [
     ] else [0]
 ]
 
+extreme-of: func [
+    {Finds the value with a property in a series that is the most "extreme"}
 
-minimum-of: func [
+    return: [any-series!] {Position where the extreme value was found}
+    series [any-series!] {Series to search}
+    comparator [function!] {Comparator to use, e.g. LESSER? for MINIMUM-OF}
+    /skip {Treat the series as records of fixed size}
+    size [integer!]
+    <local> spot
+][
+    size: default [1]
+    if 1 > size [cause-error 'script 'out-of-range size]
+    spot: series
+    for-skip series size [
+        if (comparator first series first spot) [spot: series]
+    ]
+    spot
+]
+
+minimum-of: redescribe [
     {Finds the smallest value in a series}
-    series [any-series!] {Series to search}
-    /skip {Treat the series as records of fixed size}
-    size [integer!]
-    <local> spot
-][
-    size: any [size 1]
-    if 1 > size [cause-error 'script 'out-of-range size]
-    spot: series
-    for-skip series size [
-        if lesser? first series first spot [spot: series]
-    ]
-    spot
-]
+](
+    specialize 'extreme-of [comparator: :lesser?]
+)
 
-maximum-of: func [
+maximum-of: redescribe [
     {Finds the largest value in a series}
-    series [any-series!] {Series to search}
-    /skip {Treat the series as records of fixed size}
-    size [integer!]
-    <local> spot
-][
-    size: any [:size 1]
-    if 1 > size [cause-error 'script 'out-of-range size]
-    spot: series
-    for-skip series size [
-        if greater? first series first spot [spot: series]
-    ]
-    spot
-]
+](
+    specialize 'extreme-of [comparator: :greater?]
+)
 
 
 ; A simple iterative implementation; returns 1 for negative

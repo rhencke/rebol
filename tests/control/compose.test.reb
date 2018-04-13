@@ -6,7 +6,7 @@
 ([] = compose [])
 (
     blk: []
-    append blk [try [1 / 0]]
+    append blk [trap [1 / 0]]
     blk = compose blk
 )
 ; RETURN stops the evaluation
@@ -19,7 +19,7 @@
 ; BREAK stops the evaluation
 (blank? loop 1 [compose [(break 2)] 2])
 ; Test that errors do not stop the evaluation:
-(block? compose [(try [1 / 0])])
+(block? compose [(trap [1 / 0])])
 (
     blk: []
     not same? blk compose blk
@@ -44,7 +44,7 @@
 ; infinite recursion
 (
     blk: [(compose blk)]
-    error? try blk
+    error? trap blk
 )
 
 ; #1906

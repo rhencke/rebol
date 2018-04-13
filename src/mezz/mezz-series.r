@@ -500,9 +500,9 @@ collect-with: func [
     output [any-series!]
         "The buffer series (modified)"
 
-    keeper: ;-- local
+    <local> keeper
 ][
-    output: any [:output make block! 16]
+    output: default [make block! 16]
 
     keeper: func [
         return: [<opt> any-value!]
@@ -545,7 +545,7 @@ format: function [
     values
     /pad p
 ][
-    p: any [:p #" "]
+    p: default [#" "]
     unless block? :rules [rules: reduce [:rules]]
     unless block? :values [values: reduce [:values]]
 

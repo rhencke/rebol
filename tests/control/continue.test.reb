@@ -16,4 +16,4 @@
     (loop 1 [spec-of continue] true)
 ]
 ; continue should not be caught by try
-(a: 1 loop 1 [a: error? try [continue]] :a =? 1)
+(a: 1 loop 1 [a: error? trap [continue]] :a =? 1)

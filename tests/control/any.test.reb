@@ -1,6 +1,7 @@
 ; functions/control/any.r
 ; zero values
-(void? any [])
+(blank? any [])
+(void? any* [])
 ; one value
 (:abs = any [:abs])
 (
@@ -26,7 +27,7 @@
     a-value: me@here.com
     same? a-value any [a-value]
 )
-(error? any [try [1 / 0]])
+(error? any [trap [1 / 0]])
 (
     a-value: %""
     same? a-value any [a-value]
@@ -98,7 +99,8 @@
 )
 (0:00 == any [0:00])
 (0.0.0 == any [0.0.0])
-(void? any [()])
+(error? trap [any [()]])
+(void? any* [()])
 ('a == any ['a])
 ; two values
 (:abs = any [false :abs])
@@ -125,7 +127,7 @@
     a-value: me@here.com
     same? a-value any [false a-value]
 )
-(error? any [false try [1 / 0]])
+(error? any [false trap [1 / 0]])
 (
     a-value: %""
     same? a-value any [false a-value]
@@ -196,7 +198,8 @@
 )
 (0:00 == any [false 0:00])
 (0.0.0 == any [false 0.0.0])
-(blank? any [false ()])
+(error? trap [any [false ()]])
+(blank? any* [false ()])
 ('a == any [false 'a])
 (:abs = any [:abs false])
 (
@@ -222,7 +225,7 @@
     a-value: me@here.com
     same? a-value any [a-value false]
 )
-(error? any [try [1 / 0] false])
+(error? any [trap [1 / 0] false])
 (
     a-value: %""
     same? a-value any [a-value false]
@@ -292,7 +295,8 @@
 )
 (0:00 == any [0:00 false])
 (0.0.0 == any [0.0.0 false])
-(blank? any [() false])
+(error? trap [any [() false]])
+(blank? any* [() false])
 ('a == any ['a false])
 ; evaluation stops after encountering something else than FALSE or NONE
 (
@@ -345,5 +349,5 @@
 ; infinite recursion
 (
     blk: [any blk]
-    error? try blk
+    error? trap blk
 )

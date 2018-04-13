@@ -39,7 +39,7 @@
     same? :a-value a-value
 )
 (
-    error? a-value: try [1 / 0]
+    error? a-value: trap [1 / 0]
     same? :a-value a-value
 )
 (
@@ -150,7 +150,7 @@
 )
 (
     unset 'a-value
-    e: try [a-value]
+    e: trap [a-value]
     e/id = 'no-value
 )
 (

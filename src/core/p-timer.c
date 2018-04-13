@@ -96,7 +96,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBCNT action)
     //case SYM_PATH_SET:  // not allowed: above
         if (NOT(IS_EVENT(arg)))
             fail (Error_Invalid(arg));
-    case SYM_PICK_P: {
+    case SYM_PICK: {
     act_blk:
         DECLARE_LOCAL (save_port);
         Move_Value(&save_port, D_ARG(1)); // save for return

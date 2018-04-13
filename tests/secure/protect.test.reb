@@ -4,7 +4,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [insert value 4]
+        error? trap [insert value 4]
         equal? value original
     ]
 )]
@@ -12,7 +12,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [append value 4]
+        error? trap [append value 4]
         equal? value original
     ]
 )
@@ -20,7 +20,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [change value 4]
+        error? trap [change value 4]
         equal? value original
     ]
 )
@@ -28,7 +28,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [reduce/into [4 + 5] value]
+        error? trap [reduce/into [4 + 5] value]
         equal? value original
     ]
 )
@@ -36,7 +36,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [compose/into [(4 + 5)] value]
+        error? trap [compose/into [(4 + 5)] value]
         equal? value original
     ]
 )
@@ -44,7 +44,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [poke value 1 4]
+        error? trap [poke value 1 4]
         equal? value original
     ]
 )
@@ -52,7 +52,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [remove/part value 1]
+        error? trap [remove/part value 1]
         equal? value original
     ]
 )
@@ -60,7 +60,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [take value]
+        error? trap [take value]
         equal? value original
     ]
 )
@@ -68,7 +68,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [reverse value]
+        error? trap [reverse value]
         equal? value original
     ]
 )
@@ -76,7 +76,7 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? try [clear value]
+        error? trap [clear value]
         equal? value original
     ]
 )
@@ -85,7 +85,7 @@
     value: copy original: {1 + 2 + 3}
     protect value
     all [
-        error? try [insert value 4]
+        error? trap [insert value 4]
         equal? value original
     ]
 )
@@ -93,7 +93,7 @@
     value: copy original: {1 + 2 + 3}
     protect value
     all [
-        error? try [append value 4]
+        error? trap [append value 4]
         equal? value original
     ]
 )
@@ -101,7 +101,7 @@
     value: copy original: {1 + 2 + 3}
     protect value
     all [
-        error? try [change value 4]
+        error? trap [change value 4]
         equal? value original
     ]
 )
@@ -109,7 +109,7 @@
     value: copy original: {1 + 2 + 3}
     protect value
     all [
-        error? try [poke value 1 4]
+        error? trap [poke value 1 4]
         equal? value original
     ]
 )
@@ -117,7 +117,7 @@
     value: copy original: {1 + 2 + 3}
     protect value
     all [
-        error? try [remove/part value 1]
+        error? trap [remove/part value 1]
         equal? value original
     ]
 )
@@ -125,7 +125,7 @@
     value: copy original: {1 + 2 + 3}
     protect value
     all [
-        error? try [take value]
+        error? trap [take value]
         equal? value original
     ]
 )
@@ -133,7 +133,7 @@
     value: copy original: {1 + 2 + 3}
     protect value
     all [
-        error? try [reverse value]
+        error? trap [reverse value]
         equal? value original
     ]
 )
@@ -141,7 +141,7 @@
     value: copy original: {1 + 2 + 3}
     protect value
     all [
-        error? try [clear value]
+        error? trap [clear value]
         equal? value original
     ]
 )

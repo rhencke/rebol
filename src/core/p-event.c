@@ -184,7 +184,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         if (!IS_EVENT(arg))
             fail (Error_Invalid(arg));
         // falls through
-    case SYM_PICK_P: {
+    case SYM_PICK: {
     act_blk:;
         //
         // !!! For performance, this reuses the same frame built for the

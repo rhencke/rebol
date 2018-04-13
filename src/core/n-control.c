@@ -347,40 +347,67 @@ REBNATIVE(either_test_value)
 //          {Product of last evaluation if all TRUE?, else a BLANK! value.}
 //      block [block!]
 //          "Block of expressions.  Void evaluations are ignored."
+//      /only
+//          "Ignore void evaluations, and return void if any falsey values"
 //  ]
 //
 REBNATIVE(all)
 {
     INCLUDE_PARAMS_OF_ALL;
 
-    assert(IS_END(D_OUT)); // guaranteed by the evaluator
-
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(block));
 
-    while (FRM_HAS_MORE(f)) {
-        if (Do_Next_In_Frame_Throws(D_CELL, f)) {
-            Drop_Frame(f);
-            Move_Value(D_OUT, D_CELL);
-            return R_OUT_IS_THROWN;
+    if (REF(only)) {
+        //
+        // The variation which tolerates voids wants `all/only [10 ()] = 10`.
+        // This requires calculating into an intermediate cell and only moving
+        // it to the potential result if it's not void.
+
+        Init_Void(D_OUT);
+
+        while (FRM_HAS_MORE(f)) {
+            if (Do_Next_In_Frame_Throws(D_CELL, f)) {
+                Drop_Frame(f);
+                Move_Value(D_OUT, D_CELL);
+                return R_OUT_IS_THROWN;
+            }
+
+            if (IS_VOID(D_CELL)) // voids do not "vote" true or false
+                continue;
+
+            if (IS_FALSEY(D_CELL)) { // failure signified with BLANK!
+                Drop_Frame(f);
+                return R_BLANK;
+            }
+
+            Move_Value(D_OUT, D_CELL); // preserve (later voids won't erase)
         }
+    }
+    else {
+        // If not trying to preserve the last result in case of void, then
+        // less copying can be done, so a faster loop is used.
 
-        if (IS_VOID(D_CELL)) // voids do not "vote" true or false
-            continue;
+        Init_Bar(D_OUT);
 
-        if (IS_FALSEY(D_CELL)) { // a failed ALL returns BLANK!
-            Drop_Frame(f);
-            return R_BLANK;
+        while (FRM_HAS_MORE(f)) {
+            if (Do_Next_In_Frame_Throws(D_OUT, f)) {
+                Drop_Frame(f);
+                return R_OUT_IS_THROWN;
+            }
+
+            if (IS_VOID(D_OUT)) // illegal in plain ALL
+                fail (Error_No_Return_Raw());
+
+            if (IS_FALSEY(D_OUT)) { // failure signified with BLANK!
+                Drop_Frame(f);
+                return R_BLANK;
+            }
         }
-
-        Move_Value(D_OUT, D_CELL); // preserve (not overwritten by later voids)
     }
 
     Drop_Frame(f);
-
-    // If IS_END(out), no successes or failures found (all opt-outs)
-    //
-    return R_OUT_VOID_IF_UNWRITTEN;
+    return R_OUT;
 }
 
 
@@ -390,9 +417,11 @@ REBNATIVE(all)
 //  {Short-circuiting version of OR, using a block of expressions as input.}
 //
 //      return: [<opt> any-value!]
-//          {The first TRUE? evaluative result, or BLANK! value if all FALSE?}
+//          {First truthy evaluative result, or BLANK! value if all falsey}
 //      block [block!]
-//          "Block of expressions.  Void evaluations are ignored."
+//          "Block of expressions."
+//      /only
+//          "Ignore void evaluations, and return void if no truthy values"
 //  ]
 //
 REBNATIVE(any)
@@ -410,8 +439,13 @@ REBNATIVE(any)
             return R_OUT_IS_THROWN;
         }
 
-        if (IS_VOID(D_OUT)) // voids do not "vote" true or false
-            continue;
+        if (IS_VOID(D_OUT)) {
+            if (REF(only)) // voids do not "vote" true or false
+                continue;
+
+            fail (Error_No_Return_Raw());
+        }
+
 
         if (IS_TRUTHY(D_OUT)) { // successful ANY returns the value
             Drop_Frame(f);
@@ -423,10 +457,10 @@ REBNATIVE(any)
 
     Drop_Frame(f);
 
-    if (voted)
+    if (voted || NOT(REF(only)))
         return R_BLANK;
 
-    return R_VOID; // all opt-outs
+    return R_VOID; // all opt-outs return void if /ONLY
 }
 
 
@@ -438,7 +472,9 @@ REBNATIVE(any)
 //      return: [<opt> bar! blank!]
 //          {TRUE if all expressions are FALSE?, or BLANK if any are TRUE?}
 //      block [block!]
-//          "Block of expressions.  Void evaluations are ignored."
+//          "Block of expressions."
+//      /only
+//          "Ignore void evaluations, and return void if all void"
 //  ]
 //
 REBNATIVE(none)
@@ -459,8 +495,12 @@ REBNATIVE(none)
             return R_OUT_IS_THROWN;
         }
 
-        if (IS_VOID(D_OUT)) // voids do not "vote" true or false
-            continue;
+        if (IS_VOID(D_OUT)) {
+            if (REF(only)) // voids do not "vote" true or false
+                continue;
+
+            fail (Error_No_Return_Raw());
+        }
 
         if (IS_TRUTHY(D_OUT)) { // any true results mean failure
             Drop_Frame(f);
@@ -472,7 +512,7 @@ REBNATIVE(none)
 
     Drop_Frame(f);
 
-    if (voted)
+    if (voted || NOT(REF(only)))
         return R_BAR;
 
     return R_VOID; // all opt-outs

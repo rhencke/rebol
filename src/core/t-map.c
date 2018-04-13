@@ -728,7 +728,7 @@ REBTYPE(Map)
         fail (Error_Cannot_Reflect(REB_MAP, arg)); }
 
     case SYM_FIND:
-    case SYM_SELECT_P: {
+    case SYM_SELECT: {
         INCLUDE_PARAMS_OF_FIND;
 
         UNUSED(PAR(series));

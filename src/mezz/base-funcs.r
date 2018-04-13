@@ -300,9 +300,9 @@ dig-function-meta-fields: function [value [function!]] [
     ]
 
     underlying: match function! any [
-        :meta/specializee
-        :meta/adaptee
-        all [block? :meta/chainees | first meta/chainees]
+        get 'meta/specializee
+        get 'meta/adaptee
+        all [block? :meta/chainees | to-value first meta/chainees]
     ]
 
     fields: all [:underlying | dig-function-meta-fields :underlying]
@@ -319,7 +319,7 @@ dig-function-meta-fields: function [value [function!]] [
 
     return construct system/standard/function-meta [
         description: (
-            match string! any [
+            match string! any* [
                 select meta 'description
                 all [fields | copy fields/description]
             ]
@@ -339,19 +339,19 @@ dig-function-meta-fields: function [value [function!]] [
             :temp
         )
         return-note: (
-            match string! any [
+            match string! any* [
                 select meta 'return-note
                 all [fields | copy fields/return-note]
             ]
         )
         parameter-types: (
-            match frame! any [
+            match frame! any* [
                 select meta 'parameter-types
                 all [fields | inherit-frame :fields/parameter-types]
             ]
         )
         parameter-notes: (
-            match frame! any [
+            match frame! any* [
                 select meta 'parameter-notes
                 all [fields | inherit-frame :fields/parameter-notes]
             ]
@@ -406,14 +406,14 @@ redescribe: function [
     ; but to reuse archetypal ones.  Also to limit the total number of
     ; variations that clients like HELP have to reason about.)
     ;
-    on-demand-notes: does [
+    on-demand-notes: does catch [
         on-demand-meta
 
-        if find meta 'parameter-notes [return ()]
+        if find meta 'parameter-notes [throw ()]
 
         fields: dig-function-meta-fields :value
 
-        meta: blank ;-- need to get a parameter-notes field in the OBJECT!
+        meta: _ ;-- need to get a parameter-notes field in the OBJECT!
         on-demand-meta ;-- ...so this loses SPECIALIZEE, etc.
 
         description: meta/description: fields/description
@@ -515,20 +515,6 @@ get*: redescribe [
     specialize 'get [only: true]
 )
 
-get-value: redescribe [
-    {Variation of GET which fails if the value is not set (vs. void or blank)}
-](
-    chain [
-        :get*
-            |
-        specialize 'either-test-value [
-            branch: [
-                fail "GET-VALUE requires source variable to be set"
-            ]
-        ]
-    ]
-)
-
 set*: redescribe [
     {Variation of SET where voids are tolerated for unsetting variables.}
 ](
@@ -572,6 +558,18 @@ skip*: redescribe [
     specialize 'skip [only: true]
 )
 
+any*: redescribe [
+    {Variant of ANY that ignores voids, and returns void if all opt out}
+](
+    specialize 'any [only: true]
+)
+
+all*: redescribe [
+    {Variant of ALL that ignores voids, and returns void if all opt out}
+](
+    specialize 'all [only: true]
+)
+
 match: redescribe [
    {Check value using tests (match types, TRUE? or FALSE?, filter function)}
 ](
@@ -583,12 +581,8 @@ match: redescribe [
         branch: []
         only: false ;-- no /ONLY, hence void branch returns BLANK!
     ][
-        if void? :value [ ; !!! TBD: filter this via REDESCRIBE when possible
-            fail "Cannot use MATCH on void values (try using EITHER-TEST)"
-        ]
-
-        ; !!! Since a BLANK! result means test failure, an input of blank
-        ; can't discern a success or failure.  Yet prohibiting blanks as
+        ; !!! Since a BLANK! result means test failure, an input of blank or
+        ; void can't discern a success or failure.  Yet prohibiting blanks as
         ; input seems bad.  A previous iteration of MAYBE would get past this
         ; by returning blank on failure, but void on success...to help cue
         ; a problem to conditionals.  That is not easy to do with a
@@ -658,18 +652,6 @@ really*: redescribe [
     specialize 'really [only: true]
 )
 
-
-select: redescribe [
-    {Variant of SELECT* that returns BLANK when not found, instead of void}
-](
-    chain [:select* | :to-value]
-)
-
-pick: redescribe [
-    {Variant of PICK* that returns BLANK! when not found, instead of void}
-](
-    chain [:pick* | :to-value]
-)
 
 take: redescribe [
     {Variant of TAKE* that will give an error if it can't take, vs. void}
@@ -880,7 +862,7 @@ module: func [
 
     <local> hidden w mod
 ][
-    mixins: to-value :mixins
+    mixins: default [_]
 
     ; !!! Is it a good idea to mess with the given spec and body bindings?
     ; This was done by MODULE but not seemingly automatically by MAKE MODULE!

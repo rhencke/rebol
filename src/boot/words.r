@@ -38,16 +38,16 @@ datatypes
 ; !!! Kept for functionality of #[none] in the loader for <r3-legacy>
 none
 
-; The PICK* action was killed in favor of a native that uses the same logic
-; as path processing.  Code still remains for processing PICK*, and ports or
+; The PICK action was killed in favor of a native that uses the same logic
+; as path processing.  Code still remains for processing PICK, and ports or
 ; other mechanics may wind up using it...or path dispatch itself may be
 ; rewritten to use the PICK* action (but that would require significiant
 ; change for setting and getting paths)
 ;
-; Similar story for POKE, which uses the same logic as PICK* to find the
+; Similar story for POKE, which uses the same logic as PICK to find the
 ; location to write the value.
 ;
-pick*
+pick
 poke
 
 native

@@ -36,7 +36,7 @@
     a-value: me@here.com
     same? a-value do reduce [a-value]
 )
-(error? do [try [1 / 0]])
+(error? do [trap [1 / 0]])
 (
     a-value: %""
     same? a-value do reduce [a-value]
@@ -121,7 +121,7 @@
     a-value: me@here.com
     same? a-value eval a-value
 )
-(error? try [do try [1 / 0] 1])
+(error? trap [do trap [1 / 0] 1])
 (
     a-value: does [5]
     5 == eval :a-value
@@ -182,7 +182,7 @@
     a-value: first [a/b:]
     all [
         set-path? :a-value
-        error? try [eval :a-value] ;-- no value to assign after it...
+        error? trap [eval :a-value] ;-- no value to assign after it...
     ]
 )
 (
@@ -241,7 +241,7 @@
     ]
 )
 (void? do/next [] 'b)
-(error? do/next [try [1 / 0]] 'b)
+(error? do/next [trap [1 / 0]] 'b)
 (
     f1: func [] [do/next [return 1 2] 'b 2]
     1 = f1
@@ -254,20 +254,20 @@
 ; infinite recursion for block
 (
     blk: [do blk]
-    error? try blk
+    error? trap blk
 )
 ; infinite recursion for string
 [#1896 (
     str: "do str"
-    error? try [do str]
+    error? trap [do str]
 )]
 ; infinite recursion for do/next
 (
     blk: [do/next blk 'b]
-    error? try blk
+    error? trap blk
 )
 (
-    val1: try [do [1 / 0]]
-    val2: try [do/next [1 / 0] 'b]
+    val1: trap [do [1 / 0]]
+    val2: trap [do/next [1 / 0] 'b]
     val1/near = val2/near
 )

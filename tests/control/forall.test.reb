@@ -58,7 +58,7 @@
 (
     num: 0
     blk: [1 2]
-    e: for-next blk [num: first blk try [1 / 0]]
+    e: for-next blk [num: first blk trap [1 / 0]]
     all [error? e num = 2]
 )
 ; recursivity

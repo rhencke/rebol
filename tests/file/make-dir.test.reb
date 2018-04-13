@@ -4,7 +4,7 @@
 ; #1711
 (
     any [
-        not error? e: try [make-dir %/folder-to-save-test-files]
+        not error? e: trap [make-dir %/folder-to-save-test-files]
         e/type = 'access
     ]
 )
