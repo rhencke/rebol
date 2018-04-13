@@ -41,31 +41,32 @@
 )
 
 (
-    flag: false
-    did all [
-        3 = case [
-            true reduce [elide (flag: true) 'add 1 2]
-        ]
-        flag = true ;-- the REDUCE ran, and BLOCK! was then executed
-    ]
+    3 = case [true (reduce ['add 1 2])]
 )
 (
-    flag: false
-    did all [
-        void? case [
-            false reduce [elide (flag: true) 'add 1 2]
-        ]
-        flag = true ;-- the REDUCE ran, but BLOCK! was then ignored
-    ]
+    void? case [false (reduce ['add 1 2])]
 )
 
 (
     error? trap [
         case [
-            true add 1 2 ;-- "branch" is 3, but must be BLOCK! or FUNCTION!
+            true add 1 2 ;-- branch slots must be BLOCK!, FUNCTION!, softquote
         ]
     ]
 )
+
+; Invisibles should be legal to mix with CASE.
+
+(
+    flag: false
+    result: case [
+        1 < 2 [1020]
+        elide (flag: true)
+        true [fail "shouldn't get here"]
+    ]
+    (not flag) and (result = 1020)
+)
+
 
 
 ; RETURN, THROW, BREAK will stop case evaluation

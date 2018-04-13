@@ -510,7 +510,11 @@ static REB_R Case_Choose_Core(
             return R_OUT_IS_THROWN;
         }
 
-        if (IS_VOID(cell)) // no void conditions allowed (as with IF)
+        // No void conditions allowed--as with IF.  But "invisibles" such as
+        // COMMENT, ELIDE, DUMP, etc. may be used (in which case, we'd not
+        // even see them here, the evaluator "elides" them during operation.)
+        //
+        if (IS_VOID(cell))
             fail (Error_No_Return_Raw());
 
         if (FRM_AT_END(f)) // require conditions and branches in pairs
@@ -519,63 +523,60 @@ static REB_R Case_Choose_Core(
         if (IS_BAR(f->value)) // BAR! out of sync between condition and branch
             fail (Error_Bar_Hit_Mid_Case_Raw());
 
-        // Regardless of whether a "condition" was true or false, it's
-        // necessary to evaluate the next "branch" to know how far to skip:
-        //
-        //     condition: true
-        //     case [condition 10 + 20 true {hello}] ;-- returns 30
-        //
-        //     condition: false
-        //     case [condition 10 + 20 true {hello}] ;-- returns {hello}
-        //
-        // This uses the safe form, so you can't say `case [[x] [y]]` because
-        // the [x] condition is a literal block.  However you can say
-        // `foo: [x] | case [foo [y]]`, since it is evaluated, or use a
-        // GROUP! as in `case [([x]) [y]]`.
-        //
-        // We need to hang onto the condition in the cell slot, in case the
-        // branch is an arity-1 FUNCTION! and wants to be passed what that
-        // condition evaluated to.  Move it into the block rebval, which we no
-        // longer need (the frame captured it).  Note that we can't evaluate
-        // into arguments directly...
-        //
-        Move_Value(block, cell);
-        if (Do_Next_In_Frame_Throws(cell, f)) {
-            Move_Value(out, cell);
-            Drop_Frame(f);
-            return R_OUT_IS_THROWN;
+        if (IS_CONDITIONAL_FALSE(cell)) {
+            //
+            // The condition did not match.  If it's a CHOOSE operation, we
+            // willingly skip any kind of value in the next slot.  For a
+            // CASE be more picky--skip blocks and literal FUNCTION! values,
+            // and soft quoted things, but error otherwise.
+            //
+            // !!! We want to skip evaluating GROUP!s for false clauses, but
+            // should GET-PATH! and GET-WORD! be looked up to see if they are
+            // BLOCK! or FUNCTION!?
+            //
+            if (
+                choose
+                || IS_BLOCK(f->value) || IS_FUNCTION(f->value)
+                || IS_QUOTABLY_SOFT(f->value)
+            ){
+                Fetch_Next_In_Frame(f); // skip the soft-quoted slot
+                continue;
+            }
+            fail (Error_Invalid_Core(f->value, f->specifier));
         }
 
-        // CHOOSE simply sets the out slot to the matched value as-is.  But
-        // when the condition is TRUE?, CASE actually does a double evaluation
-        // if a block is yielded as the branch:
-        //
-        //     stuff: [print "This will be printed"]
-        //     case [true stuff]
-        //
-        // Similar to IF TRUE STUFF, so CASE can act like many IFs at once.
-        //
-        // !!! Optimization note: if the previous evaluation had gone into
-        // D_OUT directly it could just stay there in some cases; and even
-        // block evaluation doesn't need the copy.  Review how this shared
-        // code might get more efficient if the data were already in D_OUT.
+        // Condition matched.  We only look at one value for the "branch" or
+        // "choice".  However, this is soft-quoted, so if it's a GROUP! or a
+        // GET-WORD! or a GET-PATH!, we're willing to evaluate it.
         //
         if (choose) {
-            if (IS_CONDITIONAL_FALSE(block))
-                continue;
-
-            Move_Value(out, cell);
+            //
+            // CHOOSE can evaluate directly into the output slot.
+            //
+            if (IS_QUOTABLY_SOFT(f->value)) {
+                if (Eval_Value_Core_Throws(out, f->value, f->specifier)) {
+                    Drop_Frame(f);
+                    return R_OUT_IS_THROWN;
+                }
+            } else
+                Derelativize(out, f->value, f->specifier);
         }
         else {
-            // The check for IS_CONDITIONAL_FALSE is deferred until after we
-            // see if it's a CASE or a CHOOSE, so that when running CASE we
-            // ensure any evaluated but *non-taken* branches are type-checked
+            // We need to hang onto the condition, in case the branch is an
+            // arity-1 FUNCTION! and wants to be passed what that condition
+            // evaluated to.  Move it into the block cell, which we no longer
+            // need (the frame captured it).  Note that evaluating directly
+            // into frame slots is not allowed.
             //
+            Move_Value(block, cell); // only needed for CASE, not CHOOSE
+            if (Eval_Value_Core_Throws(cell, f->value, f->specifier)) {
+                Move_Value(out, cell);
+                Drop_Frame(f);
+                return R_OUT_IS_THROWN;
+            }
+
             if (NOT(IS_FUNCTION(cell)) && NOT(IS_BLOCK(cell)))
                 fail (Error_Invalid_Arg_Raw(cell));
-
-            if (IS_CONDITIONAL_FALSE(block))
-                continue;
 
             // Note that block now holds the cached evaluated condition
             //
@@ -591,6 +592,8 @@ static REB_R Case_Choose_Core(
         }
 
         // keep matching if /ALL
+        //
+        Fetch_Next_In_Frame(f);
     }
 
     // CASE/ALL can get here even if D_OUT not written

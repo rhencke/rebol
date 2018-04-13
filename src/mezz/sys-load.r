@@ -152,7 +152,7 @@ load-header: function [
             return either required ['no-header] [reduce [_ tmp tail of tmp]]
         ]
 
-        true [
+        elide (
             ; get 'rebol keyword
             ;
             set* [key: rest:] transcode/only data
@@ -160,7 +160,7 @@ load-header: function [
             ; get header block
             ;
             set* [hdr: rest:] transcode/next/relax rest
-        ]
+        )
 
         not block? :hdr [
             ; header block is incomplete
