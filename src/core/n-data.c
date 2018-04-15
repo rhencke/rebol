@@ -93,56 +93,6 @@ REBNATIVE(latin1_q)
 
 
 //
-//  verify: native [
-//
-//  {Ensure conditions are TRUE?, even when not debugging (see also: ASSERT)}
-//
-//      return: [<opt>]
-//      conditions [logic! block!]
-//          {Block of conditions to evaluate, void and FALSE? trigger alerts}
-//  ]
-//
-REBNATIVE(verify)
-{
-    INCLUDE_PARAMS_OF_VERIFY;
-
-    if (IS_LOGIC(ARG(conditions))) {
-        if (VAL_LOGIC(ARG(conditions)))
-            return R_VOID;
-
-        fail (Error_Verify_Failed_Raw(FALSE_VALUE));
-    }
-
-    DECLARE_FRAME (f);
-    Push_Frame(f, ARG(conditions));
-
-    while (FRM_HAS_MORE(f)) {
-        const RELVAL *start = f->value;
-        if (Do_Next_In_Frame_Throws(D_OUT, f)) {
-            Drop_Frame(f);
-            return R_OUT_IS_THROWN;
-        }
-
-        if (!IS_VOID(D_OUT) && IS_TRUTHY(D_OUT))
-            continue;
-
-        Init_Block(
-            D_CELL,
-            Copy_Values_Len_Shallow(start, f->specifier, f->value - start)
-        );
-
-        if (IS_VOID(D_OUT))
-            fail (Error_Verify_Void_Raw(D_CELL));
-
-        fail (Error_Verify_Failed_Raw(D_CELL));
-    }
-
-    Drop_Frame(f);
-    return R_VOID;
-}
-
-
-//
 //  as-pair: native [
 //
 //  "Combine X and Y values into a pair."

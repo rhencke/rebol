@@ -16,19 +16,17 @@ REBOL [
     }
 ]
 
-assert: func [
-    {Ensure conditions are TRUE? if hooked by debugging (see also: VERIFY)}
+assert: proc [
+    {Ensure conditions are conditionally true if hooked by debugging}
 
-    return: [<opt> logic! block!]
-        {Always returns void unless /QUIET is used to return failing blocks}
-    conditions [logic! block!]
-        {Single logic value or block of conditions to evaluate and test TRUE?}
-    /quiet
-        {Return failing condition as a BLOCK!, or BLANK! if success}
+    conditions [block!]
+        {Block of conditions to evaluate and test for logical truth}
 ][
     ; ASSERT has no default implementation, but can be HIJACKed by a debug
-    ; build with a custom validation or output routine.  (Currently there is
-    ; a default hijacking to set it to be equivalent to VERIFY, late in boot.)
+    ; mode with a custom validation or output routine.
+    ;
+    ; !!! R3-Alpha and Rebol2 did not distinguish ASSERT and VERIFY, since
+    ; there was no idea of a "debug mode"
 ]
 
 

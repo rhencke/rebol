@@ -601,7 +601,7 @@ blankify-refinement-args: procedure [f [frame!]] [
                 ]
             ]
             seen-refinement [ ;-- turn any voids into BLANK!s
-                f/(to-word w): to-value :f/(to-word w)
+                f/(to-word w): default [_]
             ]
         ]
     ]

@@ -154,9 +154,6 @@ Script: [
     invalid-chars:      {contains invalid characters}
     invalid-compare:    [{cannot compare} :arg1 {with} :arg2]
 
-    verify-void:        [{verification condition void at:} :arg1]
-    verify-failed:      [{verification failed for:} :arg1]
-
     invalid-part:       [{invalid /part count:} :arg1]
 
     no-return:          {block did not return a value}
