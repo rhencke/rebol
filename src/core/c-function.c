@@ -150,7 +150,7 @@ enum Reb_Spec_Mode {
 //
 //     func [return: [integer!] {returns an integer}]
 //
-// In Ren/C's case it just means you want a local called return, but the
+// In Ren-C's case it just means you want a local called return, but the
 // generator will be "initializing it with a definitional return" for you.
 // You don't have to use it if you don't want to...and may overwrite the
 // variable.  But it won't be a void at the start.
@@ -1219,12 +1219,12 @@ REBARR *Get_Maybe_Fake_Func_Body(REBOOL *is_fake, const REBVAL *func)
 //
 // This is the support routine behind `MAKE FUNCTION!`, FUNC, and PROC.
 //
-// Ren/C's schematic for the FUNC and PROC generators is *very* different
+// Ren-C's schematic for the FUNC and PROC generators is *very* different
 // from R3-Alpha, whose definition of FUNC was simply:
 //
 //     make function! copy/deep reduce [spec body]
 //
-// Ren/C's `make function!` doesn't need to copy the spec (it does not save
+// Ren-C's `make function!` doesn't need to copy the spec (it does not save
 // it--parameter descriptions are in a meta object).  It also copies the body
 // by virtue of the need to relativize it.  They also have "definitional
 // return" constructs so that the body introduces RETURN and LEAVE constructs

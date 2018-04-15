@@ -67,7 +67,7 @@ dump-obj: function [
             if any [
                 not match
                 all [
-                    not void? :val
+                    set? 'val
                     either string? :pat [
                         either wild [
                             tail? any [find/any/match str pat pat]
@@ -279,7 +279,7 @@ help: procedure [
     /doc
         "Open web browser to related documentation."
 ][
-    if not set? 'topic [
+    if unset? 'topic [
         ;
         ; Was just `>> help` or `do [help]` or similar.
         ; Print out generic help message.
@@ -359,12 +359,12 @@ help: procedure [
         leave
     ]
 
-    if all [word? :topic | blank? context of topic] [
+    if word? :topic and (blank? context of topic) [
         print [topic "is an unbound WORD!"]
         leave
     ]
 
-    if all [word? :topic | not set? topic] [
+    if word? :topic and (unset? topic) [
         print [topic "is a WORD! bound to a context, but has no value."]
         leave
     ]
@@ -456,7 +456,7 @@ help: procedure [
     type-name: func [value [any-value!]] [
         value: mold type of :value
         clear back tail of value
-        spaced [(either find "aeiou" first value ["an"]["a"]) value]
+        an value
     ]
 
     ; Print literal values:
@@ -474,7 +474,7 @@ help: procedure [
         enfixed: false
         if any [
             error? value: trap [get :topic] ;trap reduce [to-get-path topic]
-            not set? 'value
+            unset? 'value
         ][
             print ["No information on" topic "(path has no value)"]
             leave
@@ -618,7 +618,7 @@ help: procedure [
         either return-note [
             print unspaced [space4 return-note]
         ][
-            if not set? 'return-type [
+            if unset? 'return-type [
                 print unspaced [space4 "(undocumented)"]
             ]
         ]

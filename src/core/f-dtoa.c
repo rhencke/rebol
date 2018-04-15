@@ -562,7 +562,7 @@ Balloc
     int x;
     Bigint *rv;
 #ifndef Omit_Private_Memory
-    size_t len; // !!! Ren/C: (unsigned int => size_t) for -Wsign-compare
+    size_t len; // !!! Ren-C: (unsigned int => size_t) for -Wsign-compare
     // !!! REVIEW: isn't size_t unsigned?  Why did that fix it?
 #endif
 
@@ -1895,9 +1895,9 @@ gethex( CONST char **sp, U *rvp, int rounding, int sign)
             e1 = -e1;
         e += e1;
       }
-    *sp = (const char*)s; // Ren/C: fix cast away of const
+    *sp = (const char*)s; // Ren-C: fix cast away of const
     if (!havedig)
-        *sp = (const char*)s0 - 1; // Ren/C: fix cast away of const
+        *sp = (const char*)s0 - 1; // Ren-C: fix cast away of const
     if (zret)
         goto retz1;
     if (big) {
@@ -2498,9 +2498,9 @@ retlow1:
  double
 strtod
 #ifdef KR_headers
-    (s00, se) CONST char *s00; const char **se; // Ren/C: fix cast away of const
+    (s00, se) CONST char *s00; const char **se; // Ren-C: fix cast away of const
 #else
-    (const char *s00, const char **se) // Ren/C: fix cast away of const
+    (const char *s00, const char **se) // Ren-C: fix cast away of const
 #endif
 {
     int bb2, bb5, bbe, bd2, bd5, bbbits, bs2, c, e, e1;
@@ -3564,7 +3564,7 @@ strtod
 #endif
  ret:
     if (se)
-        *se = (const char *)s; // Ren/C: fix cast away of const
+        *se = (const char *)s; // Ren-C: fix cast away of const
     return sign ? -dval(&rv) : dval(&rv);
     }
 
@@ -3574,9 +3574,9 @@ strtod
 
  static char *
 #ifdef KR_headers
-rv_alloc(i) size_t i; // !!! Ren/C: (int => size_t) for -Wsign-compare
+rv_alloc(i) size_t i; // !!! Ren-C: (int => size_t) for -Wsign-compare
 #else
-rv_alloc(size_t i) // !!! Ren/C: (int => size_t) for -Wsign-compare
+rv_alloc(size_t i) // !!! Ren-C: (int => size_t) for -Wsign-compare
 #endif
 {
     int j, k, *r;

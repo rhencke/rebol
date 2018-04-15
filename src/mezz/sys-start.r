@@ -70,6 +70,24 @@ finish-init-core: procedure [
                 {If in <r3-legacy> mode, old UNTIL meaning is available.}
             ] 'dummy
         ])
+
+        'unset? (func [dummy:] [
+            fail/where [
+                {UNSET? is reserved in Ren-C for future use}
+                {(Will mean VOID? GET, like R3-Alpha VALUE? for WORDs/PATHs)}
+                {Use VOID? for a similar test, but there is no UNSET! type}
+                {If in <r3-legacy> mode, old UNSET? meaning is available}
+            ] 'dummy
+        ])
+
+        'value? func [dummy:] [
+            fail/where [
+                {VALUE? is reserved in Ren-C for future use}
+                {(It will be a shorthand for ANY-VALUE? a.k.a. NOT VOID?)}
+                {SET? is like R3-Alpha VALUE?, but only for WORDs/PATHs}
+                {If in <r3-legacy> mode, old VALUE? meaning is available.}
+            ] 'dummy
+        ]
     ]
     system/contexts/user: tmp
 

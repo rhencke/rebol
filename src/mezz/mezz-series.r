@@ -228,7 +228,7 @@ reword: function [
     prefix: _
     suffix: _
     case [
-        not set? 'delimiters [
+        unset? 'delimiters [
             prefix: "$"
         ]
 
@@ -425,8 +425,12 @@ extract: func [
     value "The value to use (will be called each time if a function)"
     /into "Insert into a buffer instead (returns position after insert)"
     output [any-series!] "The buffer series (modified)"
-    <local> len val
+    <local> len val default_EXTRACT
 ][  ; Default value is "" for any-string! output
+
+    default_EXTRACT: default
+    default: enfix :lib/default
+
     if zero? width [return any [output make series 0]]  ; To avoid an infinite loop
     len: either positive? width [  ; Length to preallocate
         divide (length of series) width  ; Forward loop, use length
@@ -434,19 +438,21 @@ extract: func [
         divide index of series negate width  ; Backward loop, use position
     ]
     unless index [pos: 1]
-    either block? pos [
-        unless parse pos [some [any-number! | logic!]] [cause-error 'Script 'invalid-arg reduce [pos]]
-        if void? :output [output: make series len * length of pos]
-        if all [not default any-string? output] [value: copy ""]
+    if block? pos [
+        parse pos [some [any-number! | logic!]] or [
+            cause-error 'Script 'invalid-arg reduce [pos]
+        ]
+        output: default [make series len * length of pos]
+        if not default_EXTRACT and (any-string? output) [value: copy ""]
         for-skip series width [for-next pos [
-            if void? val: pick series pos/1 [val: value]
+            val: pick series pos/1 else [value]
             output: insert/only output :val
         ]]
-    ][
-        if void? :output [output: make series len]
-        if all [not default any-string? output] [value: copy ""]
+    ] else [
+        output: default [make series len]
+        if not default_EXTRACT and (any-string? output) [value: copy ""]
         for-skip series width [
-            if void? val: pick series pos [val: value]
+            val: pick series pos else [value]
             output: insert/only output :val
         ]
     ]

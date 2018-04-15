@@ -19,7 +19,7 @@ launch: func [
 ][
     if file? script [script: file-to-local clean-path script]
     args: reduce [file-to-local system/options/boot script]
-    unless void? :arg [append args arg]
+    unless unset? 'arg [append args arg]
     either wait [call/wait args] [call args]
 ]
 

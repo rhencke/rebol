@@ -69,13 +69,6 @@ REBINT CT_Function(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //     [[spec] [body]]
 //
-// With REB_COMMAND, the code is implemented via a C DLL, under a system of
-// APIs that pre-date Rebol's open sourcing and hence Ren/C:
-//
-//     [[spec] extension command-num]
-//
-// See notes in Make_Command() regarding that mechanism and meaning.
-//
 void MAKE_Function(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_FUNCTION);

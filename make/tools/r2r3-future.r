@@ -216,7 +216,7 @@ bar?: func [x] [x = '|]
 ; ANY-VALUE! is anything that isn't void.
 ;
 any-value!: difference any-type! (make typeset! [unset!])
-any-value?: func [item [<opt> any-value!]] [not void? :item]
+value?: any-value?: func [cell [<opt> any-value!]] [not void? :cell]
 
 
 ; Used in function definitions before the mappings

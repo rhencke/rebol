@@ -22,46 +22,62 @@ REBOL [
     }
 ]
 
-; Easy to mistype, so alias it to avoid an even more painful debug session (!)
-;
-c-break-debug: :c-debug-break
+; Start with basic debugging
+
+c-break-debug: :c-debug-break ;-- easy to mix up
+
+probe: func [
+    {Debug print a molded value and returns that same value.}
+    return: [<opt> any-value!]
+        {Same as the input value.}
+    value [<opt> any-value!]
+        {Value to display.}
+][
+    either set? 'value [
+        write-stdout mold :value
+    ][
+        write-stdout "!!! PROBE of void !!!!" ;-- MOLD won't take voids
+    ]
+    write-stdout newline
+    :value
+]
 
 
-; Words for BLANK! and BAR!, for those who don't like symbols
+; Words for BLANK! and BAR! and void, for those who don't like symbols
 
 blank: _
 bar: '|
 
+void: func [
+    "Function returning no result (alternative for `()`)"
+    return: [<opt>]
+][
+] ;-- No body runs just as fast as a no-op native, see Noop_Dispatcher()
 
-; Some find UNLESS confusing, so IF-NOT is a synonym.  NOT binds with the IF.
-; So `if-not x and (y)` => `if not (x and (y))` vs `if (not x) and (y)`
-;
-if-not: :unless
-while-not: :until
+
+; Convenience helper for making enfixed functions
+
+set/enfix quote enfix: proc [ ;-- `x: y: enfix :z` wouldn't enfix x
+    "Convenience version of SET/ENFIX, e.g `+: enfix :add`"
+    :target [set-word! set-path!]
+    action [function!]
+][
+    set/enfix target :action
+]
 
 
-; COMMENT has a relatively complex-looking definition because it seeks to be
-; "truly invisible".  This means that it can't disrupt the flow of evaluation,
-; it must run eagerly--as if it were an enfix tight operation that pipes its
-; left argument directly to the output.  (Even if it's an <end>, which is not
-; technically possible for normal operations, but the `return []` plus being
-; enfix cues the evaluator to do this.)
-;
-; Internal optimizations make it so COMMENT doesn't need to be a native...the
-; empty body triggers an "eliding noop dispatcher".  You can only comment out
-; inert types (e.g. no `comment print "hi"`) to avoid looking deceptive.
-;
-set/enfix quote comment: func [
+; Common "Invisibles"
+
+comment: enfix func [
     {Ignores the argument value, but does no evaluation (see also ELIDE).}
 
     return: []
         {The evaluator will skip over the result (not seen, not even void)}
     #returned [<opt> <end> any-value!]
-        {By protocol of `return: []`, this is the return value when enfixed}
+        {The returned value.} ;-- by protocol of enfixed `return: []`
     :discarded [block! any-string! binary! any-scalar!]
-        "Literal value to be ignored."
+        "Literal value to be ignored." ;-- `comment print "hi"` disallowed
 ][
-    ; no body
 ]
 
 elide: func [
@@ -72,7 +88,6 @@ elide: func [
     discarded [<opt> any-value!]
         {Evaluated value to be ignored.}
 ][
-    ; no body
 ]
 
 end: func [
@@ -85,13 +100,20 @@ end: func [
 ]
 
 
+; Some find UNLESS confusing, so IF-NOT is a synonym.  NOT binds with the IF.
+; So `if-not x and (y)` => `if not (x and (y))` vs `if (not x) and (y)`
+;
+if-not: :unless
+while-not: :until
+
+
 ; Despite being very "noun-like", HEAD and TAIL have classically been "verbs"
 ; in Rebol.  Ren-C builds on the concept of REFLECT, so that REFLECT STR 'HEAD
 ; will get the head of a string.  An enfix left-soft-quoting operation is
 ; introduced called OF, so that you can write HEAD OF STR and get the same
 ; ultimate effect.
 ;
-set/enfix quote of: func [ ;-- NOTE can't be (quote of:), OF: top-level...
+of: enfix func [
     'property [word!]
     value [<opt> any-value!] ;-- TYPE OF () needs to be BLANK!, so <opt> okay
 ][
@@ -114,6 +136,13 @@ back: specialize 'skip [
 
 unspaced: specialize 'delimit [delimiter: blank]
 spaced: specialize 'delimit [delimiter: space]
+
+an: func [
+    {Prepends the correct "a" or "an" to a string, based on leading character}
+    value <local> s
+][
+    head of insert (s: form value) either (find "aeiou" s/1) ["an "] ["a "]
+]
 
 
 ; !!! REDESCRIBE not defined yet
@@ -141,34 +170,22 @@ open?: specialize 'reflect [property: 'open?]
 
 
 eval proc [
-    {Make type testing functions (variadic to quote "top-level" words)}
+    {Make fast type testing functions (variadic to quote "top-level" words)}
     'set-word... [set-word! <...>]
     <local>
         set-word type-name tester meta
 ][
-    while [any-value? set-word: take* set-word...] [
+    while [value? set-word: take* set-word...] [
         type-name: append (head of clear find (spelling-of set-word) {?}) "!"
         tester: typechecker (get bind (to word! type-name) set-word)
         set set-word :tester
 
-        ; The TYPECHECKER generator doesn't have make meta information by
-        ; default, so it leaves it up to the user code.  Note REDESCRIBE is
-        ; not defined yet, so this just makes the meta object directly.
-        ;
-        meta: copy system/standard/function-meta
-        meta/description: form reduce [
-            {Returns TRUE if the value is a} type-name
+        set-meta :tester construct system/standard/function-meta [
+            description: spaced [{Returns TRUE if the value is} an type-name]
+            return-type: [logic!]
         ]
-        meta/return-type: [logic!]
-        set-meta :tester meta
     ]
 ]
-    ; This list consumed by the variadic evaluation, up to the | barrier
-    ; Each makes a specialization, `XXX: TYPECHECKER XXX!`.  A special
-    ; generator is used vs. something like a specialization of a HAS-TYPE?
-    ; function...because the generated dispatcher can be more optimized...
-    ; and type checking is quite common.
-    ;
     blank?:
     bar?:
     lit-bar?:
@@ -219,18 +236,16 @@ eval proc [
     struct?:
     library?:
 
-    ; These typesets are predefined during bootstrap.  REDESCRIBE is not
-    ; defined yet, so decide if it's worth it to add descriptions later
-    ; e.g. [{Return TRUE if value is } summary {.}]
+    ; Typesets predefined during bootstrap.
 
-    any-string?: ;-- "any type of string"
-    any-word?: ;-- "any type of word"
-    any-path?: ;-- "any type of path"
-    any-context?: ;-- "any type of context"
-    any-number?: ;-- "a number (integer or decimal)"
-    any-series?: ;-- "any type of series"
-    any-scalar?: ;-- "any type of scalar"
-    any-array?: ;-- "a series of Rebol values"
+    any-string?:
+    any-word?:
+    any-path?:
+    any-context?:
+    any-number?:
+    any-series?:
+    any-scalar?:
+    any-array?:
 |
 
 
@@ -264,24 +279,6 @@ print: proc [
 ]
 
 print-newline: specialize 'write-stdout [value: newline]
-
-
-; PROBE is a good early function to have handy for debugging all the rest (!)
-;
-probe: func [
-    {Debug print a molded value and returns that same value.}
-    return: [<opt> any-value!]
-        {Same as the input value.}
-    value [<opt> any-value!]
-        {Value to display.}
-][
-    if set? 'value [
-        print mold :value
-    ] else [
-        print "!!! PROBE of void !!!!" ;-- MOLD won't take voids
-    ]
-    :value
-]
 
 
 decode-url: _ ; set in sys init

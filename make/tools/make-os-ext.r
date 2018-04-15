@@ -283,7 +283,7 @@ newline newline (rebol-lib-macros)
 **      habit of using the host allocator isn't a bad thing, and
 **      these macros make it convenient and type safe.
 **
-**      In the Ren/C codebase where the goal is to be able to
+**      In the Ren-C codebase where the goal is to be able to
 **      build with both ANSI C89 *and* C++ (all the way up to the
 **      latest standard, C++14 or C++17 etc.) then these macros
 **      are much better than doing the casting of malloc manually.

@@ -1,11 +1,11 @@
 REBOL [
-    System: "Ren/C Core Extraction of the Rebol System"
+    System: "Ren-C Core Extraction of the Rebol System"
     Title: "Common Parsers for Tools"
     Rights: {
         Rebol is Copyright 1997-2015 REBOL Technologies
         REBOL is a trademark of REBOL Technologies
 
-        Ren/C is Copyright 2015 MetaEducation
+        Ren-C is Copyright 2015-2018 MetaEducation
     }
     License: {
         Licensed under the Apache License, Version 2.0

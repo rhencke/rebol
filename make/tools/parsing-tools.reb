@@ -4,7 +4,7 @@ REBOL [
         Rebol is Copyright 1997-2015 REBOL Technologies
         REBOL is a trademark of REBOL Technologies
 
-        Ren/C is Copyright 2015 MetaEducation
+        Ren-C is Copyright 2015-2018 MetaEducation
     }
     License: {
         Licensed under the Apache License, Version 2.0

@@ -32,17 +32,7 @@ assert: func [
 ]
 
 
-set/enfix quote enfix: proc [
-    "Convenience version of SET/ENFIX, e.g `+: enfix :add`"
-    :target [set-word! set-path!]
-    action [function!]
-][
-    set/enfix target :action
 
-    ; return value can't currently be given back as enfix, since it is a
-    ; property of words and not values.  So it isn't given back at all (as
-    ; this is a PROC).  Is this sensible?
-]
 
 
 default: enfix func [
@@ -72,7 +62,7 @@ default: enfix func [
     ; should be a native, so it's not worth worrying about.
     ;
     set* target either-test/only
-        (only ?? :any-value? !! :something?) ;-- test function
+        (only ?? :value? !! :something?) ;-- test function
         get* target ;-- value to test, and to return if passes test
         :branch ;-- branch to use if test fails
 ]
@@ -100,7 +90,7 @@ maybe: enfix func [
     ]
 
     set* target either-test/only
-        (only ?? :any-value? !! :something?) ;-- test function
+        (only ?? :value? !! :something?) ;-- test function
         :value ;-- value being tested
         [get* target] ;-- branch to evaluate and return if test fails
 ]
@@ -343,7 +333,7 @@ dig-function-meta-fields: function [value [function!]] [
             ; sensitive to it here.
             ;
             temp: select meta 'return-type
-            if all [not set? 'temp | fields | select fields 'return-type] [
+            if all [unset? 'temp | fields | select fields 'return-type] [
                 temp: copy fields/return-type
             ]
             :temp
@@ -484,7 +474,7 @@ redescribe: function [
     ; If you kill all the notes then they will be cleaned up.  The meta
     ; object will be left behind, however.
     ;
-    if all [notes | every [param note] notes [not set? 'note]] [
+    if all [notes | every [param note] notes [unset? 'note]] [
         meta/parameter-notes: ()
     ]
 

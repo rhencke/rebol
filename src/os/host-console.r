@@ -98,7 +98,7 @@ console!: make object! [
     print-result: proc [v [<opt> any-value!]]  [
         last-result: :v
         case [
-            not set? 'v [] ;-- void evaluation, just don't print anything
+            unset? 'v [] ;-- void evaluation, just don't print anything
 
             function? :v [ ;-- fully molded function output is too much
                 print [result "#[function!" (mold words-of :v) "...]"]
@@ -253,7 +253,7 @@ start-console: procedure [
         boot-print make-banner boot-banner
     ] else [
         boot-print [
-            "Rebol 3 (Ren/C branch)"
+            "Rebol 3 (Ren-C branch)"
             mold compose [version: (system/version) build: (system/build)]
             newline
         ]
@@ -275,7 +275,7 @@ start-console: procedure [
             proto-skin/is-loaded ?? {Loaded skin} !! {Skin does not exist}
             "-" skin-file
             spaced [
-                "(CONSOLE" (proto-skin/was-updated !? {not}) "updated)"
+                "(CONSOLE" (proto-skin/was-updated ?! {not}) "updated)"
             ]
         ]
     ]
@@ -333,7 +333,7 @@ host-console: function [
         status/id = 'no-catch-named
         :status/arg2 = :QUIT
     ] then [
-        assert [not set? 'result]
+        assert [unset? 'result]
 
         return case [
             void? :status/arg1 [
@@ -371,7 +371,7 @@ host-console: function [
         status/id = 'no-catch-named
         :status/arg2 = :HALT
     ] then [
-        assert [not set? 'result]
+        assert [unset? 'result]
         if find directives #quit-if-halt [
             return 130 ; standard exit code for bash (128 + 2)
         ]
@@ -398,7 +398,7 @@ host-console: function [
     ]
 
     if error? status [
-        assert [not set? 'result]
+        assert [unset? 'result]
 
         instruction: compose/deep [
             ;
@@ -468,7 +468,7 @@ host-console: function [
     assert [blank? status] ;-- no failure or halts during last execution
 
     if group? prior [ ;-- plain execution of user code
-        if not set? 'result [
+        if unset? 'result [
             return [
                 system/console/print-result () ; can't COMPOSE voids in blocks
                     |
@@ -703,20 +703,17 @@ why: procedure [
     "Explain the last error in more detail."
     'err [<end> word! path! error! blank!] "Optional error value"
 ][
-    case [
-        not set? 'err [err: _]
-        word? err [err: get err]
-        path? err [err: get err]
+    err: default [system/state/last-error]
+
+    if match [word! path!] err [
+        err: get err
     ]
 
-    either all [
-        error? err: any [:err system/state/last-error]
-        err/type ; avoids lower level error types (like halt)
-    ][
+    if error? err [
         say-browser
         err: lowercase unspaced [err/type #"-" err/id]
         browse join-of http://www.rebol.com/r3/docs/errors/ [err ".html"]
-    ][
+    ] else [
         print "No information is available."
     ]
 ]

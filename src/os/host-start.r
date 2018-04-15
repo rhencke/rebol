@@ -630,14 +630,12 @@ host-start: function [
     ; things could affect this, e.g. a complex userspace TRACE which was
     ; run during boot.
     ;
-    ; We TRAP it because this will fail in a release build.
-    ;
-    trap [c-debug-break-at/compensate 1000]
+    trap [c-debug-break-at/compensate 1000] ;-- fails in release build
 
     ; As long as there was no `--script` pased on the command line explicitly,
     ; the first item after the options is implicitly the script.
     ;
-    if all [not o/script | not tail? argv] [
+    if not o/script and (not tail? argv) [
         o/script: local-to-file take argv
         quit-when-done: default [true]
     ]

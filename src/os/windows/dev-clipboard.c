@@ -36,7 +36,7 @@
 // dependency.  For this reason, the Rebol core build included the
 // clipboard device...which finds its way into a fixed-size table
 // when it should be registered in a more dynamic and conditional way.
-// Ren/C needs to improve the way that per-platform code can be
+// Ren-C needs to improve the way that per-platform code can be
 // included in a static build to not rely on this table the way
 // hostkit does.
 //

@@ -420,20 +420,18 @@ REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
 
 
 //
-//  any-value?: native [
+//  value?: native [
 //
-//  "Returns whether a data cell contains a value."
+//  "Tells you if the data cell contains a value (e.g. `value? ()` is FALSE)"
 //
 //      cell [<opt> any-value!]
 //  ]
 //
-REBNATIVE(any_value_q)
+REBNATIVE(value_q)
 {
-    INCLUDE_PARAMS_OF_ANY_VALUE_Q;
+    INCLUDE_PARAMS_OF_VALUE_Q;
 
-    if (IS_VOID(ARG(cell)))
-        return R_FALSE;
-    return R_TRUE;
+    return R_FROM_BOOL(NOT(IS_VOID(ARG(cell))));
 }
 
 
@@ -1145,7 +1143,7 @@ inline static REBOOL Is_Set(const REBVAL *location)
 //
 //      location [any-word! any-path!]
 //  ][
-//      any-value? get/only location
+//      value? get* location
 //  ]
 //
 REBNATIVE(set_q)
@@ -1163,7 +1161,7 @@ REBNATIVE(set_q)
 //
 //      location [any-word! any-path!]
 //  ][
-//      void? get/only location
+//      void? get* location
 //  ]
 //
 REBNATIVE(unset_q)
@@ -1263,32 +1261,16 @@ REBNATIVE(uneval)
 //
 //  "Tells you if the argument is not a value (e.g. `void? do []` is TRUE)"
 //
-//      value [<opt> any-value!]
+//      cell [<opt> any-value!]
 //  ][
-//      blank? type of :value
+//      blank? type of :cell
 //  ]
 //
 REBNATIVE(void_q)
 {
     INCLUDE_PARAMS_OF_VOID_Q;
 
-    return R_FROM_BOOL(IS_VOID(ARG(value)));
-}
-
-
-//
-//  void: native/body [
-//
-//  "Function returning no result (alternative for `()` or `do []`)"
-//
-//      return: [<opt>] ;-- how to say <opt> no-value! ?
-//  ][
-//  ]
-//
-REBNATIVE(void)
-{
-    UNUSED(frame_);
-    return R_VOID;
+    return R_FROM_BOOL(IS_VOID(ARG(cell)));
 }
 
 
@@ -1300,7 +1282,7 @@ REBNATIVE(void)
 //      value [<opt> any-value!]
 //  ][
 //      any [
-//          void? :value
+//          unset? 'value
 //          blank? :value
 //      ]
 //  ]
@@ -1323,7 +1305,7 @@ REBNATIVE(nothing_q)
 //      value [<opt> any-value!]
 //  ][
 //      all [
-//          any-value? :value
+//          set? 'value
 //          not blank? value
 //      ]
 //  ]

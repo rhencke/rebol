@@ -261,13 +261,14 @@ load-header: function [
 
     ]
 
-    ensure [binary! blank!] hdr/checksum
-    ensure [block! blank!] hdr/options
-
     ; Return a BLOCK! with 3 elements in it
     ;
     return reduce [
         ensure object! hdr
+        elide (
+            ensure [binary! blank!] hdr/checksum
+            ensure [block! blank!] hdr/options
+        )
         ensure [binary! block!] rest
         ensure binary! end
     ]
@@ -354,7 +355,7 @@ load: function [
             if sftype = 'extension [return data]
         ]
 
-        void? :data [data: source]
+        elide (data: default [source])
 
         ;-- Is it not source code? Then return it now:
         any [block? data | not find [0 extension unbound] any [:ftype 0]] [
@@ -371,8 +372,11 @@ load: function [
             ]
             if word? hdr [cause-error 'syntax hdr source]
         ]
-        not set? 'hdr [hdr: _]
-        ; data is binary or block now, hdr is object or blank
+
+        elide (
+            ensure [object! blank!] hdr: default [_]
+            ensure [binary! block! string!] data
+        )
 
         ;-- Convert code to block, insert header if requested:
         not block? data [
@@ -505,7 +509,7 @@ do-needs: function [
         ]
 
         ; Collect any mixins into the object (if we are doing that)
-        if all [any-value? :mixins | mixin? mod] [
+        if all [set? 'mixins | mixin? mod] [
             resolve/extend/only mixins mod select meta-of mod 'exports
         ]
         mod
@@ -740,9 +744,10 @@ load-module: function [
         ]
     ]
 
+    mod: default [_]
+
     case/all [
         ; Get info from preloaded or delayed modules
-        void? :mod [mod: _]
         module? mod [
             delay: no-share: _ hdr: meta-of mod
             ensure [block! blank!] hdr/options
@@ -752,7 +757,7 @@ load-module: function [
         ; module/block mod used later for override testing
 
         ; Get and process the header
-        void? :hdr [
+        unset? 'hdr [
             ; Only happens for string, binary or non-extension file/url source
             set [hdr: code:] load-header/required data
             case [
@@ -769,8 +774,9 @@ load-module: function [
         ]
 
         ; Unify hdr/name and /as name
-        any-value? :name [hdr/name: name] ; rename /as name
-        void? :name [name: :hdr/name]
+        set? 'name [hdr/name: name] ; rename /as name
+        unset? 'name [name: :hdr/name]
+
         all [not no-lib not word? :name] [ ; requires name for full import
             ; Unnamed module can't be imported to lib, so /no-lib here
             no-lib: true  ; Still not /no-lib in IMPORT
@@ -875,7 +881,7 @@ load-module: function [
         ]
 
         all [not no-lib override?] [
-            unless any-value? :modsum [modsum: _]
+            modsum: default [_]
             case/all [
                 pos [pos/2: mod pos/3: modsum] ; replace delayed module
 

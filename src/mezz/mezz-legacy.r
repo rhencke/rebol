@@ -217,24 +217,6 @@ unset!: func [dummy:] [
     ] 'dummy
 ]
 
-unset?: func [dummy:] [
-    fail/where [
-        {UNSET? is reserved in Ren-C for future use}
-        {(Will mean VOID? GET, like R3-Alpha VALUE?, only for WORDs/PATHs}
-        {Use VOID? for a similar test, but be aware there is no UNSET! type}
-        {If running in <r3-legacy> mode, old UNSET? meaning is available}
-    ] 'dummy
-]
-
-value?: func [dummy:] [
-    fail/where [
-        {VALUE? is reserved in Ren-C for future use}
-        {(It will be a shorthand for ANY-VALUE! a.k.a. NOT VOID?)}
-        {SET? is similar to R3-Alpha VALUE?--but SET? only takes words}
-        {If running in <r3-legacy> mode, old VALUE? meaning is available.}
-    ] 'dummy
-]
-
 true?: func [dummy:] [
     fail/where [
         {Historical TRUE? is ambiguous, use either TO-LOGIC or `= TRUE`} |
@@ -271,7 +253,7 @@ type?: func [dummy:] [
 
 found?: func [dummy:] [
     fail/where [
-        {FOUND? is deprecated in Ren-C, see chained function FIND?}
+        {FOUND? is deprecated in Ren-C, use DID (e.g. DID FIND)}
         {FOUND? is available if running in <r3-legacy> mode.}
     ] 'dummy
 ]
@@ -329,7 +311,7 @@ prin: procedure [
 
     value [<opt> any-value!]
 ][
-    if not set? 'value [leave]
+    if unset? 'value [leave]
 
     write-stdout case [
         string? :value [value]
@@ -798,7 +780,7 @@ set 'r3-legacy* func [<local>] [
         ][
             case [
                 not word [type of :value]
-                not set? 'value [quote unset!] ;-- https://trello.com/c/rmsTJueg
+                unset? 'value [quote unset!] ;-- https://trello.com/c/rmsTJueg
                 blank? :value [quote none!] ;-- https://trello.com/c/vJTaG3w5
                 group? :value [quote paren!] ;-- https://trello.com/c/ANlT44nH
             ] else [

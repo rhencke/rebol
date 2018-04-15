@@ -1,5 +1,5 @@
 REBOL [
-    System: "Ren/C Core Extraction of the Rebol System"
+    System: "Ren-C Core Extraction of the Rebol System"
     Title: "Common Routines for Tools"
     Rights: {
         Copyright 2012-2017 Rebol Open Source Contributors
