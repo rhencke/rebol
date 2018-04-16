@@ -140,8 +140,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     // reading and writing overlapping locations.  So unless a function is
     // in the argument fulfillment stage (before the variables or frame are
     // accessible by user code), it's not legal to write directly into an
-    // argument slot.  :-/  Note the availability of D_CELL for any functions
-    // that have more than one argument, during their run.
+    // argument slot.  :-/  Note the availability of a frame's D_CELL.
     //
   #if !defined(NDEBUG)
     REBFRM *ftemp = FS_TOP;
@@ -202,7 +201,26 @@ inline static void Push_Frame_Core(REBFRM *f)
 
   #if defined(DEBUG_BALANCE_STATE)
     SNAP_STATE(&f->state); // to make sure stack balances, etc.
+    f->state.dsp = f->dsp_orig;
   #endif
+}
+
+inline static void Push_Frame_For_Apply(REBFRM *f) {
+    //
+    // Common code for DO FRAME! and APPLY, pretend "input source" has ended.
+    //
+    f->source.index = 0;
+    f->source.vaptr = NULL;
+    f->source.array = EMPTY_ARRAY; // for setting HOLD flag in Push_Frame
+    TRASH_POINTER_IF_DEBUG(f->source.pending);
+    //
+    f->gotten = END;
+    SET_FRAME_VALUE(f, END);
+    f->specifier = SPECIFIED;
+
+    Init_Endlike_Header(&f->flags, DO_FLAG_APPLYING);
+
+    Push_Frame_Core(f);
 }
 
 inline static void UPDATE_EXPRESSION_START(REBFRM *f) {
@@ -598,6 +616,7 @@ inline static REBOOL Do_Next_In_Frame_Throws(
     REBUPT prior_flags = f->flags.bits;
 
     f->out = out;
+    f->dsp_orig = DSP;
     (*PG_Do)(f); // should already be pushed
 
     // Since Do_Core() currently makes no guarantees about the state of
@@ -633,8 +652,9 @@ inline static REBOOL Do_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
     REBFLGS prior_flags = f->flags.bits;
     Init_Endlike_Header(&f->flags, flags);
 
-    REBDSP prior_dsp_orig = f->dsp_orig; // Do_Core() overwrites on entry
+    REBDSP prior_dsp_orig = f->dsp_orig;
 
+    f->dsp_orig = DSP;
     (*PG_Do)(f); // should already be pushed
 
     // The & on the following line is purposeful.  See Init_Endlike_Header.
@@ -666,7 +686,8 @@ inline static REBOOL Do_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 inline static REBOOL Do_Next_In_Subframe_Throws(
     REBVAL *out,
     REBFRM *parent,
-    REBUPT flags
+    REBUPT flags,
+    REBFRM *child // passed w/dsp_orig preload, refinements can be on stack
 ){
     // It should not be necessary to use a subframe unless there is meaningful
     // state which would be overwritten in the parent frame.  For the moment,
@@ -675,8 +696,6 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
     // Do_Next_In_Mid_Frame_Throws() used by REB_SET_WORD and REB_SET_PATH.
     //
     assert(parent->eval_type == REB_FUNCTION);
-
-    DECLARE_FRAME (child);
 
     child->out = out;
 

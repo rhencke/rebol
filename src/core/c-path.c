@@ -92,7 +92,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     assert(pvs->refine == &pvs->cell);
 
     if (IS_GET_WORD(pvs->value)) { // e.g. object/:field
-        Copy_Opt_Var_May_Fail(
+        Move_Opt_Var_May_Fail(
             SINK(&pvs->cell), pvs->value, pvs->specifier
         );
     }
@@ -491,7 +491,7 @@ return_thrown:
 void Get_Simple_Value_Into(REBVAL *out, const RELVAL *val, REBSPC *specifier)
 {
     if (IS_WORD(val) || IS_GET_WORD(val))
-        Copy_Opt_Var_May_Fail(out, val, specifier);
+        Move_Opt_Var_May_Fail(out, val, specifier);
     else if (IS_PATH(val) || IS_GET_PATH(val))
         Get_Path_Core(out, val, specifier);
     else

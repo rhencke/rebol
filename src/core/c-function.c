@@ -1417,8 +1417,8 @@ void Make_Frame_For_Function(
         // !!! This loses the ordering, see Make_Frame_For_Specialization for
         // a frame-making mechanic which preserves it.
         //
-        // !!! Logic is duplicated in Apply_Def_Or_Exemplar with the slight
-        // change of needing to prep stack cells; review.
+        // !!! Logic is duplicated in APPLY with the slight change of needing
+        // to prep stack cells; review.
         //
         REBVAL *special = CTX_VARS_HEAD(exemplar);
         for (; NOT_END(param); ++param, ++arg, ++special) {
@@ -1858,7 +1858,7 @@ REB_R Chainer_Dispatcher(REBFRM *f)
 
 
 //
-//  Get_If_Word_Or_Path_Arg: C
+//  Get_If_Word_Or_Path_Throws: C
 //
 // Some routines like APPLY and SPECIALIZE are willing to take a WORD! or
 // PATH! instead of just the value type they are looking for, and perform
@@ -1868,183 +1868,41 @@ REB_R Chainer_Dispatcher(REBFRM *f)
 //     >> apply 'append [value: 'c]
 //     ** Script error: append is missing its series argument
 //
-void Get_If_Word_Or_Path_Arg(
+// If push_refinements is used, then it avoids intermediate specializations...
+// e.g. `specialize 'append/dup [part: true]` can be done with one FRAME!.
+//
+REBOOL Get_If_Word_Or_Path_Throws(
     REBVAL *out,
     REBSTR **opt_name_out,
-    const REBVAL *value
+    const RELVAL *v,
+    REBSPC *specifier,
+    REBOOL push_refinements
 ) {
-    DECLARE_LOCAL (adjusted);
-    Move_Value(adjusted, value);
-
-    if (ANY_WORD(value)) {
-        *opt_name_out = VAL_WORD_SPELLING(value);
-        VAL_SET_TYPE_BITS(adjusted, REB_GET_WORD);
+    if (IS_WORD(v)) {
+        *opt_name_out = VAL_WORD_SPELLING(v);
+        Move_Opt_Var_May_Fail(out, v, specifier);
     }
-    else if (ANY_PATH(value)) {
-        //
-        // In theory we could get a symbol here, assuming we only do non
-        // evaluated GETs.  Not implemented at the moment.
-        //
-        *opt_name_out = NULL;
-        VAL_SET_TYPE_BITS(adjusted, REB_GET_PATH);
+    else if (IS_PATH(v)) {
+        if (Do_Path_Throws_Core(
+            out,
+            opt_name_out, // requesting says we run functions (not GET-PATH!)
+            REB_PATH,
+            VAL_ARRAY(v),
+            VAL_INDEX(v),
+            specifier,
+            NULL, // `setval`: null means don't treat as SET-PATH!
+            push_refinements
+                ? DO_FLAG_PUSH_PATH_REFINEMENTS // pushed in reverse order
+                : DO_MASK_NONE
+        )){
+            return TRUE;
+        }
     }
     else {
         *opt_name_out = NULL;
-        Move_Value(out, value);
-        return;
+        Derelativize(out, v, specifier);
     }
 
-    if (Eval_Value_Throws(out, adjusted)) {
-        //
-        // !!! GET_PATH should not evaluate GROUP!, and hence shouldn't be
-        // able to throw.  TBD.
-        //
-        fail (Error_No_Catch_For_Throw(out));
-    }
+    return FALSE;
 }
 
-
-//
-//  Apply_Def_Or_Exemplar: C
-//
-// Factors out common code used by DO of a FRAME!, and APPLY.
-//
-// !!! Because APPLY is being written as a regular native (and not a
-// special exception case inside of Do_Core) it has to "re-enter" Do_Core
-// and jump to the argument processing.  This is the first example of
-// such a re-entry, and is not particularly streamlined yet.
-//
-// This could also be accomplished if function dispatch were a subroutine
-// that would be called both here and from the evaluator loop.  But if
-// the subroutine were parameterized with the frame state, it would be
-// basically equivalent to a re-entry.  And re-entry is interesting to
-// experiment with for other reasons (e.g. continuations), so that is what
-// is used here.
-//
-REB_R Apply_Def_Or_Exemplar(
-    REBVAL *out,
-    REBFUN *fun,
-    REBNOD *binding,
-    REBSTR *opt_label,
-    REBNOD *def_or_exemplar // REBVAL of a def block, or REBARR varlist
-){
-    DECLARE_FRAME (f);
-
-    f->out = out;
-    TRASH_POINTER_IF_DEBUG(f->gotten); // shouldn't be looked at (?)
-
-    // We pretend our "input source" has ended.
-    //
-    f->source.index = 0;
-    f->source.vaptr = NULL;
-    f->source.array = EMPTY_ARRAY; // for setting HOLD flag in Push_Frame
-    TRASH_POINTER_IF_DEBUG(f->source.pending);
-    //
-    f->gotten = END;
-    SET_FRAME_VALUE(f, END);
-    f->specifier = SPECIFIED;
-
-    Init_Endlike_Header(&f->flags, DO_FLAG_APPLYING);
-
-    Push_Frame_Core(f);
-
-    Push_Function(f, opt_label, fun, binding);
-    f->refine = ORDINARY_ARG;
-
-    if (NOT_CELL(def_or_exemplar)) {
-        //
-        // When you DO a FRAME!, it feeds its varlist in to be copied into
-        // the stack positions.
-        //
-        REBCTX *exemplar = CTX(def_or_exemplar);
-
-        // Push_Function() defaults f->special to the exemplar of the function
-        // but we wish to override it (with a maybe more filled frame)
-        //
-        f->special = CTX_VARS_HEAD(exemplar);
-    }
-    else {
-        REBVAL *def = cast(REBVAL*, def_or_exemplar); // code that fills frame
-
-        // For this one-off APPLY with a BLOCK!, we don't want to call
-        // Make_Frame_For_Function() to get a heap object just for one use.
-        // Better to DO the block directly into stack cells that will be used
-        // in the function application.  But the code that fills the frame
-        // can't see garbage, so go ahead and format the stack cells.
-        //
-        // !!! We will walk the parameters again to setup the binder; see
-        // Make_Context_For_Specialization() for how loops could be combined.
-
-        if (f->special == f->param) { // signals "no exemplar"
-            for (; NOT_END(f->param); ++f->param, ++f->arg) {
-                Prep_Stack_Cell(f->arg);
-                Init_Void(f->arg);
-            }
-        }
-        else {
-            // !!! This needs more complex logic now with partial refinements;
-            // code needs to be unified with Make_Frame_For_Function().  The
-            // main difference is that this formats stack cells for direct use
-            // vs. creating a heap object, but the logic is the same.
-
-            for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
-                Prep_Stack_Cell(f->arg);
-                if (VAL_PARAM_CLASS(f->param) != PARAM_CLASS_REFINEMENT) {
-                    Move_Value(f->arg, f->special);
-                    continue;
-                }
-                if (IS_LOGIC(f->special)) { // fully specialized, or disabled
-                    Init_Logic(f->arg, VAL_LOGIC(f->special));
-                    continue;
-                }
-
-                assert(IS_REFINEMENT(f->special) || IS_VOID(f->special));
-                if (IS_REFINEMENT_SPECIALIZED(f->param))
-                    Init_Logic(f->arg, TRUE);
-                else
-                    Init_Void(f->arg);
-            }
-            assert(IS_END(f->special));
-        }
-
-        assert(IS_END(f->arg)); // all other chunk stack cells unformatted
-
-        // In today's implementation, the body must be rebound to the frame.
-        // Ideally if it were read-only (at least), then the opt_def value
-        // should be able to carry a virtual binding into the new context.
-        // That feature is not currently implemented, so this mutates the
-        // bindings on the passed in block...as OBJECTs and other things do
-        //
-        Bind_Values_Core(
-            VAL_ARRAY_AT(def),
-            Context_For_Frame_May_Reify_Managed(f),
-            FLAGIT_KIND(REB_SET_WORD), // types to bind (just set-word!)
-            0, // types to "add midstream" to binding as we go (nothing)
-            BIND_DEEP
-        );
-
-        // Do the block into scratch cell, ignore the result (unless thrown)
-        //
-        if (Do_Any_Array_At_Throws(SINK(&f->cell), def)) {
-            Drop_Frame_Core(f);
-            Move_Value(f->out, KNOWN(&f->cell));
-            return R_OUT_IS_THROWN;
-        }
-
-        f->arg = f->args_head; // reset
-        f->param = FUNC_FACADE_HEAD(f->phase); // reset
-
-        f->special = f->arg; // now signal only type-check the existing data
-    }
-
-    (*PG_Do)(f);
-
-    Drop_Frame_Core(f);
-
-    if (THROWN(f->out))
-        return R_OUT_IS_THROWN; // prohibits recovery from exits
-
-    assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
-
-    return R_OUT;
-}

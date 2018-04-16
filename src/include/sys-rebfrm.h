@@ -772,7 +772,8 @@ struct Reb_Frame {
     REBFRM name##struct; \
     REBFRM * const name = &name##struct; \
     Prep_Stack_Cell(&name->cell); \
-    Init_Unreadable_Blank(&name->cell);
+    Init_Unreadable_Blank(&name->cell); \
+    name->dsp_orig = DSP;
 
 
 // Hookable "Rebol DO Function" and "Rebol APPLY Function".  See PG_Do and

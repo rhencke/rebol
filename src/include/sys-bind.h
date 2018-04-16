@@ -711,7 +711,7 @@ static inline const REBVAL *Get_Opt_Var_Else_End(
     );
 }
 
-inline static void Copy_Opt_Var_May_Fail(
+inline static void Move_Opt_Var_May_Fail(
     REBVAL *out,
     const RELVAL *any_word,
     REBSPC *specifier

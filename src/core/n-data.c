@@ -523,7 +523,7 @@ REBNATIVE(get)
             Init_Void(dest); // may be turned to blank after loop, or error
         }
         else if (ANY_WORD(source)) {
-            Copy_Opt_Var_May_Fail(dest, source, specifier);
+            Move_Opt_Var_May_Fail(dest, source, specifier);
         }
         else if (ANY_PATH(source)) {
             //

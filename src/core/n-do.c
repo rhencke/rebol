@@ -128,36 +128,49 @@ REBNATIVE(eval_enfix)
         fail ("EVAL-ENFIX is not made to support MAKE VARARGS! [...] rest");
     }
 
-    if (FRM_AT_END(f) || VAL_TYPE(f->value) != REB_WORD) // no PATH! yet...
-        fail ("ME and MY only work if right hand side starts with WORD!");
+    if (FRM_AT_END(f)) // no PATH! yet...
+        fail ("ME and MY hit end of input");
 
-    if (f->gotten == END)
-        f->gotten = Get_Opt_Var_Else_End(f->value, f->specifier);
-    else
-        assert(f->gotten == Get_Opt_Var_Else_End(f->value, f->specifier));
+    DECLARE_FRAME (child); // capture DSP *now*, before any refinements push
 
-    if (f->gotten == END || NOT(IS_FUNCTION(f->gotten)))
+    const REBOOL push_refinements = TRUE;
+    REBSTR *opt_label;
+    if (Get_If_Word_Or_Path_Throws(
+        D_CELL,
+        &opt_label,
+        f->value,
+        f->specifier,
+        push_refinements
+    )){
+        Move_Value(D_OUT, D_CELL);
+        return R_OUT_IS_THROWN;
+    }
+
+    // !!! If we were to give an error on using ME with non-enfix or MY with
+    // non-prefix, we'd need to know the fetched enfix state.  At the moment,
+    // Get_If_Word_Or_Path_Throws() does not pass back that information.  But
+    // if PATH! is going to do enfix dispatch, it should be addressed then.
+    //
+    f->gotten = D_CELL;
+
+    if (NOT(IS_FUNCTION(f->gotten)))
         fail ("ME and MY only work if right hand WORD! is a FUNCTION!");
 
-    if (GET_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED)) {
-        if (REF(prefix))
-            fail ("Use ME instead of MY with infix functions");
+    DECLARE_LOCAL (word);
 
-        // Already set up to work using our tricky technique.
-    }
-    else {
-        if (NOT(REF(prefix)))
-            fail ("Use MY instead of ME with prefix functions");
+    // Here we do something devious.  We subvert the system by setting
+    // f->gotten to an enfixed version of the function even if it is
+    // not enfixed.  This lets us slip in a first argument to a function
+    // *as if* it were enfixed, e.g. `series: my next`.
+    //
+    UNUSED(REF(prefix));
+    SET_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED);
 
-        // Here we do something devious.  We subvert the system by setting
-        // f->gotten to an enfixed version of the function even if it is
-        // not enfixed.  This lets us slip in a first argument to a function
-        // *as if* it were enfixed, e.g. `series: my next`.
-        //
-        Move_Value(D_CELL, f->gotten);
-        SET_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED);
-        f->gotten = D_CELL;
-    }
+    // Since enfix dispatch only works for words (for the moment), we lie
+    // and use the label found in path processing as a word.
+    //
+    Init_Word(word, opt_label);
+    f->value = word;
 
     // Simulate as if the passed-in value was calculated into the output slot,
     // which is where enfix functions usually find their left hand values.
@@ -176,7 +189,7 @@ REBNATIVE(eval_enfix)
     FS_TOP->deferred = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
 
     REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
-    if (Do_Next_In_Subframe_Throws(D_OUT, f, flags))
+    if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
         return R_OUT_IS_THROWN;
 
     FS_TOP->deferred = NULL;
@@ -303,11 +316,12 @@ REBNATIVE(do)
         // the varargs came from.  It's still on the stack, and we don't want
         // to disrupt its state.  Use a subframe.
         //
+        DECLARE_FRAME (child);
         REBFLGS flags = 0;
         if (REF(next)) {
             if (FRM_AT_END(f))
                 Init_Void(D_OUT);
-            else if (Do_Next_In_Subframe_Throws(D_OUT, f, flags))
+            else if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
                 return R_OUT_IS_THROWN;
 
             // The variable passed in /NEXT is just set to the vararg itself,
@@ -320,7 +334,7 @@ REBNATIVE(do)
         else {
             Init_Void(D_OUT);
             while (NOT(FRM_AT_END(f))) {
-                if (Do_Next_In_Subframe_Throws(D_OUT, f, flags))
+                if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
                     return R_OUT_IS_THROWN;
             }
         }
@@ -390,18 +404,42 @@ REBNATIVE(do)
 
         // See REBNATIVE(redo) for how tail-call recursion works.
         //
-        REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
-        if (f != NULL)
+        if (CTX_FRAME_IF_ON_STACK(c) != NULL)
             fail ("Use REDO to restart a running FRAME! (not DO)");
 
-        REBSTR *opt_label = NULL; // no label available
-        return Apply_Def_Or_Exemplar(
-            D_OUT,
+        DECLARE_FRAME (f);
+
+        f->out = D_OUT;
+
+        Push_Frame_For_Apply(f);
+
+        REBSTR *label = NULL;
+        Push_Function(
+            f,
+            label,
             source->payload.any_context.phase,
-            VAL_BINDING(source),
-            opt_label,
-            NOD(VAL_CONTEXT(source))
-        ); }
+            VAL_BINDING(source)
+        );
+        f->refine = ORDINARY_ARG;
+
+        // When you DO a FRAME!, it feeds its varlist in to be copied into
+        // the stack positions.
+        //
+        // Push_Function() defaults f->special to the exemplar of the function
+        // but we wish to override it (with a maybe more filled frame)
+        //
+        f->special = CTX_VARS_HEAD(VAL_CONTEXT(source));
+
+        (*PG_Do)(f);
+
+        Drop_Frame_Core(f);
+
+        if (THROWN(f->out))
+            return R_OUT_IS_THROWN; // prohibits recovery from exits
+
+        assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
+
+        return R_OUT; }
 
     default:
         break;
@@ -509,29 +547,132 @@ REBNATIVE(redo)
 //  {Invoke a function with all required arguments specified.}
 //
 //      return: [<opt> any-value!]
-//      applicand [function! any-word! any-path!]
+//      applicand [function! word! path!]
 //          {Function or specifying word (preserves word name for debug info)}
 //      def [block!]
 //          {Frame definition block (will be bound and evaluated)}
 //  ]
 //
 REBNATIVE(apply)
+//
+// !!! Because APPLY is being written as a regular native (and not a
+// special exception case inside of Do_Core) it has to "re-enter" Do_Core
+// and jump to the argument processing.
+//
+// This could also be accomplished if function dispatch were a subroutine
+// that would be called both here and from the evaluator loop.  But if
+// the subroutine were parameterized with the frame state, it would be
+// basically equivalent to a re-entry.  And re-entry is interesting to
+// experiment with for other reasons (e.g. continuations), so that is what
+// is used here.
 {
     INCLUDE_PARAMS_OF_APPLY;
 
     REBVAL *applicand = ARG(applicand);
 
+    DECLARE_FRAME (f);
+
+    f->out = D_OUT;
+    Push_Frame_For_Apply(f); // captures DSP here (we may push refinements)
+
     REBSTR *opt_label;
-    Get_If_Word_Or_Path_Arg(D_OUT, &opt_label, applicand);
+    const REBOOL push_refinements = TRUE;
+    if (Get_If_Word_Or_Path_Throws(
+        f->out,
+        &opt_label,
+        applicand,
+        SPECIFIED,
+        push_refinements
+    )){
+        Drop_Frame_Core(f);
+        return R_OUT_IS_THROWN;
+    }
+
     if (!IS_FUNCTION(D_OUT))
         fail (Error_Invalid(applicand));
     Move_Value(applicand, D_OUT);
 
-    return Apply_Def_Or_Exemplar(
-        D_OUT,
-        VAL_FUNC(applicand),
-        VAL_BINDING(applicand),
-        opt_label,
-        NOD(ARG(def))
+    Push_Function(f, opt_label, VAL_FUNC(applicand), VAL_BINDING(applicand));
+    f->refine = ORDINARY_ARG;
+
+    // For a one-off APPLY, we don't want Make_Frame_For_Function() to get a
+    // heap object just for one use.  Better to DO the block directly into
+    // stack cells that will be used in the function application.  But the
+    // code from the blcok that fills the frame can't see garbage, so go
+    // ahead and format the stack cells.
+    //
+    // !!! We will walk the parameters again to setup the binder; see
+    // Make_Context_For_Specialization() for how loops could be combined.
+
+    if (f->special == f->param) { // signals "no exemplar"
+        for (; NOT_END(f->param); ++f->param, ++f->arg) {
+            Prep_Stack_Cell(f->arg);
+            Init_Void(f->arg);
+        }
+    }
+    else {
+        // !!! This needs more complex logic now with partial refinements;
+        // code needs to be unified with Make_Frame_For_Function().  The
+        // main difference is that this formats stack cells for direct use
+        // vs. creating a heap object, but the logic is the same.
+
+        for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
+            Prep_Stack_Cell(f->arg);
+            if (VAL_PARAM_CLASS(f->param) != PARAM_CLASS_REFINEMENT) {
+                Move_Value(f->arg, f->special);
+                continue;
+            }
+            if (IS_LOGIC(f->special)) { // fully specialized, or disabled
+                Init_Logic(f->arg, VAL_LOGIC(f->special));
+                continue;
+            }
+
+            assert(IS_REFINEMENT(f->special) || IS_VOID(f->special));
+            if (IS_REFINEMENT_SPECIALIZED(f->param))
+                Init_Logic(f->arg, TRUE);
+            else
+                Init_Void(f->arg);
+        }
+        assert(IS_END(f->special));
+    }
+
+    assert(IS_END(f->arg)); // all other chunk stack cells unformatted
+
+    // In today's implementation, the body must be rebound to the frame.
+    // Ideally if it were read-only (at least), then the opt_def value
+    // should be able to carry a virtual binding into the new context.
+    // That feature is not currently implemented, so this mutates the
+    // bindings on the passed in block...as OBJECTs and other things do
+    //
+    Bind_Values_Core(
+        VAL_ARRAY_AT(ARG(def)),
+        Context_For_Frame_May_Reify_Managed(f),
+        FLAGIT_KIND(REB_SET_WORD), // types to bind (just set-word!)
+        0, // types to "add midstream" to binding as we go (nothing)
+        BIND_DEEP
     );
+
+    // Do the block into scratch cell, ignore the result (unless thrown)
+    //
+    if (Do_Any_Array_At_Throws(SINK(&f->cell), ARG(def))) {
+        Drop_Frame_Core(f);
+        Move_Value(f->out, KNOWN(&f->cell));
+        return R_OUT_IS_THROWN;
+    }
+
+    f->arg = f->args_head; // reset
+    f->param = FUNC_FACADE_HEAD(f->phase); // reset
+
+    f->special = f->arg; // now signal only type-check the existing data
+
+    (*PG_Do)(f);
+
+    Drop_Frame_Core(f);
+
+    if (THROWN(f->out))
+        return R_OUT_IS_THROWN; // prohibits recovery from exits
+
+    assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
+
+    return R_OUT;
 }

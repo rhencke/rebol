@@ -24,3 +24,8 @@
 
     block = [a 3 4 b c d]
 )
+(
+    block: copy [a b c]
+    block: my append/part/dup [d e f] 2 3
+    [a b c d e d e d e] = block
+)

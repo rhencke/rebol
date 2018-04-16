@@ -286,14 +286,15 @@ void Do_Core(REBFRM * const f)
     REBUPT tick = f->tick = TG_Tick; // snapshot start tick
   #endif
 
-    // Capture the data stack pointer on entry.  Refinements are pushed to
-    // the stack and need to be checked if any are not processed.  Also things
-    // like the CHAIN dispatcher uses it to queue pending functions.  This
-    // cannot be done in Push_Frame(), because some routines (like Reduce_XXX)
-    // reuse the frame across multiple calls and accrue stack state, and that
-    // stack state should be skipped when considering the usages in Do_Core()
+    // Some routines (like Reduce_XXX) reuse the frame across multiple calls
+    // and accrue stack state, and that stack state should be skipped when
+    // considering the usages in Do_Core().  Hence Do_Next_In_Frame_Throws()
+    // will set it on each call.  However, some routines want to slip the
+    // DSP in with refinements on the stack (e.g. APPLY or MY).  The
+    // compromise is that it is also done in DECLARE_FRAME(); that way it
+    // can be captured before a Push_Frame operation is done.
     //
-    f->dsp_orig = DSP;
+    assert(f->dsp_orig <= DSP);
 
     REBOOL evaluating; // set on every iteration (varargs do, EVAL/ONLY...)
 
@@ -674,20 +675,15 @@ reevaluate:;
                     goto unspecialized_refinement; // most common case
 
                 if (IS_VOID(f->special)) {
-                    if (NOT(In_Typecheck_Mode(f)))
-                        goto unspecialized_refinement;
-
-                    // !!! MAKE FRAME! fills frames with voids, so if we don't
-                    // tolerate them here then DO-ing that frame would error.
-                    // But function calls expect them to be LOGIC!.  So
-                    // though we're "just checking" we actually change it
-                    // here--review the implications.
                     //
-                    assert(f->special == f->arg);
-                    Prep_Stack_Cell(f->arg);
-                    Init_Logic(f->arg, FALSE);
-                    f->refine = ARG_TO_UNUSED_REFINEMENT;
-                    goto continue_arg_loop;
+                    // Even just In_Typecheck_Mode(), we still may either
+                    // APPLY a function with refinements (apply 'append/only)
+                    // or a MAKE FRAME! may have refinements filled with void.
+                    // So even if we are "just checking" we actually change
+                    // voids in refinement slots, to FALSE if not refined
+                    // or to TRUE if it is.
+                    //
+                    goto unspecialized_refinement;
                 }
 
                 if (IS_LOGIC(f->special)) { // similar for check vs. special
@@ -1054,10 +1050,12 @@ reevaluate:;
                 if (NOT(evaluating))
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
+                DECLARE_FRAME (child); // capture DSP *now*
                 if (Do_Next_In_Subframe_Throws(
                     f->deferred, // old f->arg preload for DO_FLAG_POST_SWITCH
                     f,
-                    flags
+                    flags,
+                    child
                 )){
                     Move_Value(f->out, f->deferred);
                     Abort_Function(f);
@@ -1127,7 +1125,9 @@ reevaluate:;
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 Prep_Stack_Cell(f->arg);
-                if (Do_Next_In_Subframe_Throws(f->arg, f, flags)) {
+
+                DECLARE_FRAME (child); // capture DSP *now*
+                if (Do_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
                     Abort_Function(f);
                     goto finished;
@@ -1147,7 +1147,9 @@ reevaluate:;
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 Prep_Stack_Cell(f->arg);
-                if (Do_Next_In_Subframe_Throws(f->arg, f, flags)) {
+
+                DECLARE_FRAME (child);
+                if (Do_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
                     Abort_Function(f);
                     goto finished;
@@ -1802,7 +1804,7 @@ reevaluate:;
         //
         // Note: copying values does not copy VALUE_FLAG_UNEVALUATED
         //
-        Copy_Opt_Var_May_Fail(f->out, current, f->specifier);
+        Move_Opt_Var_May_Fail(f->out, current, f->specifier);
         break;
 
 //==/////////////////////////////////////////////////////////////////////==//

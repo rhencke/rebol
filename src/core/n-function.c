@@ -447,7 +447,7 @@ REBNATIVE(chain)
 //  {Create a variant of a function that preprocesses its arguments}
 //
 //      return: [function!]
-//      adaptee [function! any-word! any-path!]
+//      adaptee [function! word! path!]
 //          {Function or specifying word (preserves word name for debug info)}
 //      prelude [block!]
 //          {Code to run in constructed frame before adapted function runs}
@@ -460,7 +460,17 @@ REBNATIVE(adapt)
     REBVAL *adaptee = ARG(adaptee);
 
     REBSTR *opt_adaptee_name;
-    Get_If_Word_Or_Path_Arg(D_OUT, &opt_adaptee_name, adaptee);
+    const REBOOL push_refinements = FALSE;
+    if (Get_If_Word_Or_Path_Throws(
+        D_OUT,
+        &opt_adaptee_name,
+        adaptee,
+        SPECIFIED,
+        push_refinements
+    )){
+        return R_OUT_IS_THROWN;
+    }
+
     if (NOT(IS_FUNCTION(D_OUT)))
         fail (Error_Invalid(adaptee));
     Move_Value(adaptee, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
@@ -561,9 +571,9 @@ REBNATIVE(adapt)
 //  {Wrap code around a FUNCTION! with access to its FRAME! and return value}
 //
 //      return: [function!]
-//      inner [function! any-word! any-path!]
+//      inner [function! word! path!]
 //          {Function that a FRAME! will be built for (and optionally called)}
-//      outer [function! any-word! any-path!]
+//      outer [function! word! path!]
 //          {Gets a FRAME! for INNER before invocation, can DO it (or not)}
 //  ]
 //
@@ -573,14 +583,33 @@ REBNATIVE(enclose)
 
     REBVAL *inner = ARG(inner);
     REBSTR *opt_inner_name;
-    Get_If_Word_Or_Path_Arg(D_OUT, &opt_inner_name, inner);
+    const REBOOL push_refinements = FALSE;
+    if (Get_If_Word_Or_Path_Throws(
+        D_OUT,
+        &opt_inner_name,
+        inner,
+        SPECIFIED,
+        push_refinements
+    )){
+        return R_OUT_IS_THROWN;
+    }
+
     if (NOT(IS_FUNCTION(D_OUT)))
         fail (Error_Invalid(inner));
     Move_Value(inner, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
     REBVAL *outer = ARG(outer);
     REBSTR *opt_outer_name;
-    Get_If_Word_Or_Path_Arg(D_OUT, &opt_outer_name, outer);
+    if (Get_If_Word_Or_Path_Throws(
+        D_OUT,
+        &opt_outer_name,
+        outer,
+        SPECIFIED,
+        push_refinements
+    )){
+        return R_OUT_IS_THROWN;
+    }
+
     if (NOT(IS_FUNCTION(D_OUT)))
         fail (Error_Invalid(outer));
     Move_Value(outer, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
@@ -654,9 +683,9 @@ REBNATIVE(enclose)
 //
 //      return: [function! blank!]
 //          {The hijacked function value, blank if self-hijack (no-op).}
-//      victim [function! any-word! any-path!]
+//      victim [function! word! path!]
 //          {Function value whose references are to be affected.}
-//      hijacker [function! any-word! any-path!]
+//      hijacker [function! word! path!]
 //          {The function to run in its place.}
 //  ]
 //
@@ -677,14 +706,33 @@ REBNATIVE(hijack)
 
     REBVAL *victim = ARG(victim);
     REBSTR *opt_victim_name;
-    Get_If_Word_Or_Path_Arg(D_OUT, &opt_victim_name, victim);
+    const REBOOL push_refinements = FALSE;
+    if (Get_If_Word_Or_Path_Throws(
+        D_OUT,
+        &opt_victim_name,
+        victim,
+        SPECIFIED,
+        push_refinements
+    )){
+        return R_OUT_IS_THROWN;
+    }
+
     if (!IS_FUNCTION(D_OUT))
         fail ("Victim of HIJACK must be a FUNCTION!");
     Move_Value(victim, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
     REBVAL *hijacker = ARG(hijacker);
     REBSTR *opt_hijacker_name;
-    Get_If_Word_Or_Path_Arg(D_OUT, &opt_hijacker_name, hijacker);
+    if (Get_If_Word_Or_Path_Throws(
+        D_OUT,
+        &opt_hijacker_name,
+        hijacker,
+        SPECIFIED,
+        push_refinements
+    )){
+        return R_OUT_IS_THROWN;
+    }
+
     if (!IS_FUNCTION(D_OUT))
         fail ("Hijacker in HIJACK must be a FUNCTION!");
     Move_Value(hijacker, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)

@@ -295,20 +295,29 @@ REB_R Do_Vararg_Op_May_Throw(
         // overwritten by an arbitrary evaluation.
         //
         switch (pclass) {
-        case PARAM_CLASS_NORMAL:
-            if (Do_Next_In_Subframe_Throws(out, f, DO_FLAG_FULFILLING_ARG))
-                return R_OUT_IS_THROWN;
-            break;
-
-        case PARAM_CLASS_TIGHT:
+        case PARAM_CLASS_NORMAL: {
+            DECLARE_FRAME (child);
             if (Do_Next_In_Subframe_Throws(
                 out,
                 f,
-                DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD
+                DO_FLAG_FULFILLING_ARG,
+                child
             )){
                 return R_OUT_IS_THROWN;
             }
-            break;
+            break; }
+
+        case PARAM_CLASS_TIGHT: {
+            DECLARE_FRAME (child);
+            if (Do_Next_In_Subframe_Throws(
+                out,
+                f,
+                DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD,
+                child
+            )){
+                return R_OUT_IS_THROWN;
+            }
+            break; }
 
         case PARAM_CLASS_HARD_QUOTE:
             Quote_Next_In_Frame(out, f);

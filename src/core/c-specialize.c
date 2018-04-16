@@ -818,7 +818,7 @@ REB_R Specializer_Dispatcher(REBFRM *f)
 //  {Create a new function through partial or full specialization of another}
 //
 //      return: [function!]
-//      specializee [function! any-word! any-path!]
+//      specializee [function! word! path!]
 //          {Function or specifying word (preserves word name for debug info)}
 //      def [block!]
 //          {Definition for FRAME! fields for args and refinements}
@@ -832,35 +832,25 @@ REBNATIVE(specialize)
 
     REBDSP lowest_ordered_dsp = DSP;
 
+    // Any partial refinement specializations are pushed to the stack, and
+    // gives ordering information that TRUE assigned in a code block can't.
+    //
     REBSTR *opt_name;
-    if (ANY_PATH(specializee)) {
+    const REBOOL push_refinements = TRUE;
+    if (Get_If_Word_Or_Path_Throws(
+        D_OUT,
+        &opt_name,
+        specializee,
+        SPECIFIED,
+        push_refinements // don't generate temp specialization, push refines
+    )){
+        // e.g. `specialize 'append/(throw 10 'dup) [value: 20]`
         //
-        // Use DO_FLAG_PUSH_PATH_REFINEMENTS here, so we don't generate an
-        // intermediate specialization (as Get_If_Word_Or_Path_Arg() might).
-        // Instead, we get any partial refinement specializations pushed to
-        // the stack and weave those in.  This gives ordering information that
-        // a BLOCK! of code alone cannot.
-        //
-        // Note: Even if there was a PATH! doesn't mean there were refinements
-        // used, e.g. `specialize 'lib/append [...]`.
-        //
-        if (Do_Path_Throws_Core(
-            D_OUT,
-            &opt_name, // requesting says we run functions (not GET-PATH!)
-            REB_PATH,
-            VAL_ARRAY(specializee),
-            VAL_INDEX(specializee),
-            SPECIFIED,
-            NULL, // `setval`: null means don't treat as SET-PATH!
-            DO_FLAG_PUSH_PATH_REFINEMENTS // pushed to stack in reverse order
-        )){
-            // e.g. `specialize 'append/(throw 10 'dup) [value: 20]`
-            //
-            return R_OUT_IS_THROWN;
-        }
+        return R_OUT_IS_THROWN;
     }
-    else
-        Get_If_Word_Or_Path_Arg(D_OUT, &opt_name, specializee);
+
+    // Note: Even if there was a PATH! doesn't mean there were refinements
+    // used, e.g. `specialize 'lib/append [...]`.
 
     if (!IS_FUNCTION(D_OUT))
         fail (Error_Invalid(specializee));
@@ -1031,27 +1021,17 @@ REBNATIVE(does)
         // resulting function will run faster.
 
         REBDSP lowest_ordered_dsp = DSP;
-
+        const REBOOL push_refinements = TRUE;
         REBSTR *opt_name;
-        if (IS_PATH(specializee)) {
-            //
-            // See SPECIALIZE for why DO_FLAG_PUSH_PATH_REFINEMENTS is used.
-            //
-            if (Do_Path_Throws_Core(
-                D_OUT,
-                &opt_name, // requesting says we run functions (not GET-PATH!)
-                REB_PATH,
-                VAL_ARRAY(specializee),
-                VAL_INDEX(specializee),
-                SPECIFIED,
-                NULL, // `setval`: null means don't treat as SET-PATH!
-                DO_FLAG_PUSH_PATH_REFINEMENTS // pushed in reverse order
-            )){
-                return R_OUT_IS_THROWN;
-            }
+        if (Get_If_Word_Or_Path_Throws(
+            D_OUT,
+            &opt_name,
+            specializee,
+            SPECIFIED,
+            push_refinements
+        )){
+            return R_OUT_IS_THROWN;
         }
-        else
-            Get_If_Word_Or_Path_Arg(D_OUT, &opt_name, specializee);
 
         if (!IS_FUNCTION(D_OUT))
             fail (Error_Invalid(specializee));

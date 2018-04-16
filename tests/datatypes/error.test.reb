@@ -66,7 +66,6 @@
 (error? make error! [type: 'script id: 'too-long])
 (error? make error! [type: 'script id: 'invalid-chars])
 (error? make error! [type: 'script id: 'invalid-compare])
-(error? make error! [type: 'script id: 'verify-void])
 (error? make error! [type: 'script id: 'invalid-part])
 (error? make error! [type: 'script id: 'no-return])
 (error? make error! [type: 'script id: 'block-lines])

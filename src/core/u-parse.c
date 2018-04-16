@@ -226,7 +226,7 @@ static REBOOL Subparse_Throws(
 
     // !!! By calling the subparse native here directly from its C function
     // vs. going through the evaluator, we don't get the opportunity to do
-    // things like HIJACK it.  Consider code in Apply_Def_Or_Exemplar().
+    // things like HIJACK it.  Consider APPLY-ing it.
     //
     REB_R r = N_subparse(f);
     assert(NOT_END(out));
@@ -375,7 +375,7 @@ static const RELVAL *Get_Parse_Value(
         if (VAL_CMD(rule))
             return rule;
 
-        Copy_Opt_Var_May_Fail(cell, rule, specifier);
+        Move_Opt_Var_May_Fail(cell, rule, specifier);
         if (IS_VOID(cell))
             fail (Error_No_Value_Core(rule, specifier));
 
@@ -769,7 +769,7 @@ static REBIXO To_Thru_Block_Rule(
                         fail (Error_Parse_Rule());
                 }
                 else {
-                    Copy_Opt_Var_May_Fail(cell, rule, P_RULE_SPECIFIER);
+                    Move_Opt_Var_May_Fail(cell, rule, P_RULE_SPECIFIER);
                     rule = cell;
                 }
             }
@@ -1647,7 +1647,7 @@ REBNATIVE(subparse)
                 // :word - change the index for the series to a new position
                 if (IS_GET_WORD(P_RULE)) {
                     DECLARE_LOCAL (temp);
-                    Copy_Opt_Var_May_Fail(temp, P_RULE, P_RULE_SPECIFIER);
+                    Move_Opt_Var_May_Fail(temp, P_RULE, P_RULE_SPECIFIER);
                     if (!ANY_SERIES(temp)) { // #1263
                         DECLARE_LOCAL (non_series);
                         Derelativize(non_series, P_RULE, P_RULE_SPECIFIER);
@@ -1676,7 +1676,7 @@ REBNATIVE(subparse)
 
                 // word - some other variable
                 if (IS_WORD(P_RULE)) {
-                    Copy_Opt_Var_May_Fail(save, P_RULE, P_RULE_SPECIFIER);
+                    Move_Opt_Var_May_Fail(save, P_RULE, P_RULE_SPECIFIER);
                     rule = save;
                     if (IS_VOID(rule))
                         fail (Error_No_Value_Core(P_RULE, P_RULE_SPECIFIER));
