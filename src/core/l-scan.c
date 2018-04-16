@@ -2403,19 +2403,24 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char)
         Scan_To_Stack(&child);
 
     REBARR *a = Pop_Stack_Values_Core(dsp_orig, NODE_FLAG_MANAGED);
+
+    // Tag array with line where the beginning bracket/group/etc. was found
+    //
     MISC(a).line = ss->line;
     LINK(a).file = ss->file;
     SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
 
     // The only variables that should actually be written back into the
     // parent ss are those reflecting an update in the "feed" of data.
+    //
+    // Don't update the start line for the parent, because that's still
+    // the line where that array scan started.
 
     ss->begin = child.begin;
     ss->end = child.end;
     ss->vaptr = child.vaptr;
-    ss->start_line = child.start_line;
-    ss->start_line_head = child.start_line_head;
-
+    ss->line = child.line;
+    ss->line_head = child.line_head;
 
     return a;
 }
@@ -2658,20 +2663,23 @@ REBNATIVE(transcode)
     else
         Scan_To_Stack(&ss);
 
+    // Add a value to the tail of the result, representing the input
+    // with position advanced past the content consumed by the scan.
+    // (Returning a length 2 block is how TRANSCODE does a "multiple
+    // return value, but #1916 discusses a possible "revamp" of this.)
+    //
+    DS_PUSH(ARG(source));
+    if (REF(next) || REF(only))
+        VAL_INDEX(DS_TOP) = ss.end - VAL_BIN(ARG(source));
+    else
+        VAL_INDEX(DS_TOP) = VAL_LEN_HEAD(ARG(source)); // ss.end is trash
+
     REBARR *a = Pop_Stack_Values_Core(dsp_orig, NODE_FLAG_MANAGED);
     MISC(a).line = ss.line;
     LINK(a).file = ss.file;
     SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
 
     Init_Block(D_OUT, a);
-
-    // Add a value to the tail of the result, representing the input
-    // with position advanced past the content consumed by the scan.
-    // (Returning a length 2 block is how TRANSCODE does a "multiple
-    // return value, but #1916 discusses a possible "revamp" of this.)
-
-    VAL_INDEX(ARG(source)) = ss.end - VAL_BIN(ARG(source));
-    Append_Value(VAL_ARRAY(D_OUT), ARG(source));
 
     return R_OUT;
 }

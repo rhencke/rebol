@@ -96,7 +96,7 @@ rebsource: context [
             file
         ][
             all [
-                filetype: select extensions extension-of file
+                did filetype: select extensions extension-of file
                 type: in source filetype
                 eval (ensure function! get type) file (read src-folder/:file)
             ]

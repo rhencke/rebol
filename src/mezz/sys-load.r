@@ -149,17 +149,33 @@ load-header: function [
         string? source [tmp: to binary! source]
 
         not data: script? tmp [ ; no script header found
-            return either required ['no-header] [reduce [_ tmp tail of tmp]]
+            return either required ['no-header] [
+                reduce [
+                    _ ;-- no header object
+                    tmp ;-- body text
+                    1 ;-- line number
+                    tail of tmp ;-- end of script
+                ]
+            ]
         ]
 
+        ; The TRANSCODE function returns a BLOCK! containing the transcoded
+        ; elements as well as a BINARY! indicating any remainder.  Convention
+        ; is also that block has a LINE OF with the line number of the *end*
+        ; of the transcoding so far, to sync line numbering across transcodes.
+        ;
         elide (
             ; get 'rebol keyword
             ;
-            set* [key: rest:] transcode/only data
+            keyrest: transcode/only data
+            line: line of keyrest
+            set* [key: rest:] keyrest
 
             ; get header block
             ;
-            set* [hdr: rest:] transcode/next/relax rest
+            hdrrest: transcode/next/relax/line rest line
+            line: line of hdrrest
+            set* [hdr: rest:] hdrrest
         )
 
         not block? :hdr [
@@ -184,7 +200,7 @@ load-header: function [
         ]
 
         13 = rest/1 [rest: next rest] ; skip CR
-        10 = rest/1 [rest: next rest] ; skip LF
+        10 = rest/1 [rest: next rest | line: me + 1] ; skip LF
 
         integer? tmp: select hdr 'length [
             end: skip rest tmp
@@ -261,7 +277,7 @@ load-header: function [
 
     ]
 
-    ; Return a BLOCK! with 3 elements in it
+    ; Return a BLOCK! with 4 elements in it
     ;
     return reduce [
         ensure object! hdr
@@ -270,6 +286,7 @@ load-header: function [
             ensure [block! blank!] hdr/options
         )
         ensure [binary! block!] rest
+        ensure integer! line
         ensure binary! end
     ]
 ]
@@ -365,7 +382,7 @@ load: function [
 
         ;-- Try to load the header, handle error:
         not all_LOAD [
-            set [hdr: data:] either object? data [
+            set [hdr: data: line:] either object? data [
                 load-ext-module data
             ][
                 load-header data
@@ -515,10 +532,10 @@ do-needs: function [
         mod
     ]
 
-    case [
+    to-value case [
         block [mods] ; /block refinement asks for block of modules
         not empty? to-value :mixins [mixins] ; else if any mixins, return them
-        true [blank] ; return blank otherwise
+        ; return blank otherwise
     ]
 ]
 
@@ -652,14 +669,14 @@ load-module: function [
                 ; Return blank if no module of that name found
                 not tmp: find/skip system/modules source 3 [return blank]
 
-                true [
+                elide (
                     ; get the module
                     ;
                     set [mod: modsum:] next tmp
 
                     ensure [module! block!] mod
                     ensure [binary! blank!] modsum
-                ]
+                )
 
                 ; If no further processing is needed, shortcut return
                 all [not version | not check | any [delay module? :mod]] [
@@ -759,7 +776,7 @@ load-module: function [
         ; Get and process the header
         unset? 'hdr [
             ; Only happens for string, binary or non-extension file/url source
-            set [hdr: code:] load-header/required data
+            set [hdr: code: line:] load-header/required data
             case [
                 word? hdr [cause-error 'syntax hdr source]
                 import [
@@ -801,11 +818,11 @@ load-module: function [
                 module? :mod0 [hdr0: meta-of mod0] ; final header
                 block? :mod0 [hdr0: first mod0] ; cached preparsed header
 
-                true [
+                elide (
                     ensure word! name0
                     ensure object! hdr0
                     ensure [binary! blank!] sum0
-                ]
+                )
 
                 not tuple? ver0: :hdr0/version [ver0: 0.0.0]
             ]
@@ -894,7 +911,11 @@ load-module: function [
         ]
     ]
 
-    reduce [name if module? mod [mod]]
+    reduce [
+        name
+        match module! mod
+        ensure integer! line
+    ]
 ]
 
 
