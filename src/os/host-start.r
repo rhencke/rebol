@@ -453,7 +453,7 @@ host-start: function [
             |
     ]
 
-    until [tail? argv] [
+    while-not [tail? argv] [
 
         is-option: parse/case argv/1 [
 

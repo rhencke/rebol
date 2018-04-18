@@ -446,7 +446,6 @@ REBNATIVE(any)
             fail (Error_No_Return_Raw());
         }
 
-
         if (IS_TRUTHY(D_OUT)) { // successful ANY returns the value
             Drop_Frame(f);
             return R_OUT;
@@ -735,29 +734,15 @@ REBNATIVE(switch)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(cases));
 
-    // The evaluator always initializes the out slot to an END marker.  That
-    // makes sure it gets overwritten with a value (or void) before returning.
-    // But here SWITCH also lets END indicate no matching cases ran yet.
-
-    assert(IS_END(D_OUT));
+    assert(IS_END(D_OUT)); // evaluator guarantees this on entry
 
     REBVAL *value = ARG(value);
 
-    // If /ONLY is not used, then do a safety check to see if someone wrote
-    // `switch [x] [...]` with a literal block, as that is likely a mistake.
-    //
-    if (
-        NOT(REF(only))
-        && IS_BLOCK(value)
-        && GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED)
-    ){
-        fail (Error_Block_Switch_Raw(value));
-    }
+    if (IS_BLOCK(value) && GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED))
+        fail (Error_Block_Switch_Raw(value)); // `switch [x] [...]` safeguard
 
-    // SWITCH's extra D_CELL is a temporary GC-safe location for holding
-    // evaluations.  Initialize it to void, as it holds the last test so that
-    // `switch 9 [1 ["a"] 2 ["b"] "c"]` is "c".  (Empirically this is about
-    // twice as fast as using `switch/default`, another reason to kill it.)
+    // D_CELL is a temporary GC-safe location.  Initialize void, as it holds
+    // the last test so that `switch 9 [1 ["a"] 2 ["b"] "c"]` is "c"
 
     Init_Void(D_CELL); // used for "fallout"
 
@@ -767,10 +752,10 @@ REBNATIVE(switch)
         // condition to match.  If no more tests are run, let it suppress the
         // feature of the last value "falling out" the bottom of the switch
         //
-        // (Note a FUNCTION! literal is likely only to be in the switch if
-        // it was composed into the block.  This is a speculative feature.)
-
-        if (IS_BLOCK(f->value) || IS_FUNCTION(f->value)) {
+        if (
+            IS_BLOCK(f->value)
+            || IS_FUNCTION(f->value) // literal FUNCTION!, likely COMPOSE'd in
+        ){
             Init_Void(D_CELL);
             Fetch_Next_In_Frame(f);
             continue;

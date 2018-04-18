@@ -634,7 +634,7 @@ parse-messages: function [
         ]
 
         handshake [
-            until [tail? data] [
+            while-not [tail? data] [
                 msg-type: select message-types data/1
 
                 update-proto-state ctx (
@@ -751,7 +751,7 @@ parse-messages: function [
                             length: len
                             certificates-length: to-integer/unsigned copy/part msg-content 3
                             certificate-list: make block! 4
-                            until [tail? msg-content] [
+                            while-not [tail? msg-content] [
                                 if 0 < clen: to-integer/unsigned copy/part skip msg-content 3 3 [
                                     append certificate-list copy/part at msg-content 7 clen
                                 ]

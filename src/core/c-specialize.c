@@ -733,12 +733,12 @@ REBOOL Specialize_Function_Throws(
     // that was completely fulfilled and hence blank.
     //
     assert(evoked == NULL);
-  #if !defined(NDEBUG)
     while (dsp != DSP) {
         ++dsp;
-        assert(IS_BLANK(DS_AT(dsp)));
+        REBVAL *ordered = DS_AT(dsp);
+        if (NOT(IS_BLANK(ordered)))
+            fail (Error_Bad_Refine_Raw(ordered)); // specialize 'print/asdf
     }
-  #endif
     DS_DROP_TO(lowest_ordered_dsp);
 
     // See %sysobj.r for `specialized-meta:` object template

@@ -96,7 +96,7 @@ end: func [
     return: []
     :omit [<opt> any-value! <...>]
 ][
-    until [tail? omit] [take omit]
+    while-not [tail? omit] [take omit]
 ]
 
 
@@ -104,7 +104,6 @@ end: func [
 ; So `if-not x and (y)` => `if not (x and (y))` vs `if (not x) and (y)`
 ;
 if-not: :unless
-while-not: :until
 
 
 ; Despite being very "noun-like", HEAD and TAIL have classically been "verbs"

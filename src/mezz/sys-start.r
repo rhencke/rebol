@@ -61,16 +61,6 @@ finish-init-core: procedure [
             ] 'dummy
         ])
 
-        'until (func [dummy] [
-            fail/where [
-                {UNTIL is reserved in Ren-C for future use}
-                {(It will be arity-2 and act like WHILE [NOT ...] [...])}
-                {Use LOOP-UNTIL for the single arity form, and see also}
-                {LOOP-WHILE for the arity-1 form of WHILE.}
-                {If in <r3-legacy> mode, old UNTIL meaning is available.}
-            ] 'dummy
-        ])
-
         'unset? (func [dummy:] [
             fail/where [
                 {UNSET? is reserved in Ren-C for future use}

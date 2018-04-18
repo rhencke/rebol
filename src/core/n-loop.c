@@ -1402,11 +1402,11 @@ REBNATIVE(repeat)
 }
 
 
-// Common code for LOOP-WHILE & LOOP-UNTIL (same frame param layout)
+// Common code for UNTIL & UNTIL-NOT (same frame param layout)
 //
-inline static REB_R Loop_While_Until_Core(REBFRM *frame_, REBOOL trigger)
+inline static REB_R Until_Core(REBFRM *frame_, REBOOL trigger)
 {
-    INCLUDE_PARAMS_OF_LOOP_WHILE;
+    INCLUDE_PARAMS_OF_UNTIL;
 
     do {
     skip_check:;
@@ -1418,15 +1418,15 @@ inline static REB_R Loop_While_Until_Core(REBFRM *frame_, REBOOL trigger)
                 if (stop)
                     return R_BLANK;
 
-                // LOOP-UNTIL and LOOP-WITH follow the precedent that the way
+                // UNTIL and UNTIL-NOT both follow the precedent that the way
                 // a CONTINUE/WITH works is to act as if the loop body
                 // returned the value passed to the WITH...and that a CONTINUE
                 // lacking a WITH acts as if the body returned a void.
                 //
                 // Since the condition and body are the same in this case,
                 // the implications are a little strange (though logical).
-                // CONTINUE/WITH FALSE will break a LOOP-WHILE, and
-                // CONTINUE/WITH TRUE breaks a LOOP-UNTIL.
+                // CONTINUE/WITH FALSE will break an UNTIL-NOT, and
+                // CONTINUE/WITH TRUE breaks an UNTIL.
                 //
                 if (IS_VOID(D_OUT))
                     goto skip_check;
@@ -1438,9 +1438,9 @@ inline static REB_R Loop_While_Until_Core(REBFRM *frame_, REBOOL trigger)
 
         // Since CONTINUE acts like reaching the end of the loop body with a
         // void, the logical consequence is that reaching the end of *either*
-        // a LOOP-WHILE or a LOOP-UNTIL with a void just keeps going.  This
-        // means that `loop-until [print "hi"]` and `loop-while [print "hi"]`
-        // are both infinite loops.
+        // an UNTIL or a UNTIL-NOT with a void just keeps going.  This means
+        // that `until [print "hi"]` and `loop-while [print "hi"]` are both
+        // infinite loops.
         //
         if (IS_VOID(D_OUT))
             goto skip_check;
@@ -1448,9 +1448,9 @@ inline static REB_R Loop_While_Until_Core(REBFRM *frame_, REBOOL trigger)
     perform_check:;
     } while (IS_TRUTHY(D_OUT) == trigger);
 
-    // Though LOOP-UNTIL will always have a truthy result, LOOP-WHILE never
-    // will, and needs to have the result overwritten with something TRUE?
-    // so BAR! is used.
+    // Though UNTIL will always have a truthy result, UNTIL-NOT never will,
+    // but needs to have the result overwritten with something conditionally
+    // true to suggest the loop did not fail.  So BAR! is used.
     //
     if (trigger == TRUE)
         return R_BAR;
@@ -1461,43 +1461,45 @@ inline static REB_R Loop_While_Until_Core(REBFRM *frame_, REBOOL trigger)
 
 
 //
-//  loop-while: native [
+//  until: native [
 //
-//  "Evaluates a block while it is TRUE?"
-//
-//      return: [<opt> any-value!]
-//          {Last body result or BREAK value.}
-//      body [block! function!]
-//  ]
-//
-REBNATIVE(loop_while)
-{
-    return Loop_While_Until_Core(frame_, TRUE);
-}
-
-
-//
-//  loop-until: native [
-//
-//  "Evaluates a block until it is TRUE?"
+//  "Evaluates a block until it is conditionally true"
 //
 //      return: [<opt> any-value!]
 //          {Last body result or BREAK value.}
 //      body [block! function!]
 //  ]
 //
-REBNATIVE(loop_until)
+REBNATIVE(until)
 //
-// !!! This function used to be called just UNTIL, but Ren-C retakes that for
-// the arity-2 complement to WHILE.
+// Note: There were wide-ranging debates on whether UNTIL should be arity-2 as
+// a parallel to WHILE.  In light of all the tradeoffs, it is kept this way.
 {
-    return Loop_While_Until_Core(frame_, FALSE);
+    return Until_Core(frame_, FALSE);
 }
 
 
-// Common code for WHILE & UNTIL (same frame param layout)
 //
-inline static REB_R While_Until_Core(REBFRM *frame_, REBOOL trigger)
+//  until-not: native [
+//
+//  "Evaluates a block until it is conditionally false"
+//
+//      return: [<opt> any-value!]
+//          {Last body result or BREAK value.}
+//      body [block! function!]
+//  ]
+//
+REBNATIVE(until_not)
+//
+// Faster than running NOT, and doesn't need groups for `until [...not (x =`
+{
+    return Until_Core(frame_, TRUE);
+}
+
+
+// Common code for WHILE & WHILE-NOT (same frame param layout)
+//
+inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
 {
     INCLUDE_PARAMS_OF_WHILE;
 
@@ -1549,7 +1551,7 @@ inline static REB_R While_Until_Core(REBFRM *frame_, REBOOL trigger)
 //
 //  while: native [
 //
-//  {While a condition block is TRUE?, evaluates another block.}
+//  {While a condition block is conditionally true, evaluates another block.}
 //
 //      return: [<opt> any-value!]
 //          {Last body result or BREAK value, will also be void if never run}
@@ -1559,14 +1561,14 @@ inline static REB_R While_Until_Core(REBFRM *frame_, REBOOL trigger)
 //
 REBNATIVE(while)
 {
-    return While_Until_Core(frame_, TRUE);
+    return While_Core(frame_, TRUE);
 }
 
 
 //
-//  until: native [
+//  while-not: native [
 //
-//  {Until a condition block is TRUE?, evaluates another block.}
+//  {While a condition block is conditionally false, evaluates another block.}
 //
 //      return: [<opt> any-value!]
 //          {Last body result or BREAK value, will also be void if never run}
@@ -1574,10 +1576,9 @@ REBNATIVE(while)
 //      body [block! function!]
 //  ]
 //
-REBNATIVE(until)
+REBNATIVE(while_not)
 //
-// !!! This arity-2 form of UNTIL is aliased to UNTIL-2 in the bootstrap, and
-// UNTIL is left undefined.
+// Faster than running NOT, and doesn't need groups for `while [not (x =`
 {
-    return While_Until_Core(frame_, FALSE);
+    return While_Core(frame_, FALSE);
 }

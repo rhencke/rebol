@@ -305,7 +305,7 @@ rewrite-if-directives: function [
     {Bottom up rewrite conditional directives to remove unnecessary sections.}
     position
 ][
-    loop-until [
+    until [
         parse position [
             (rewritten: false)
             some [

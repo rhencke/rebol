@@ -233,8 +233,8 @@ spec-of: function [
 
     for-each param words of :value [
         append spec param
-        if any [type: to-value select types | param] [append/only spec type]
-        if any [note: to-value select notes | param] [append spec note]
+        append/only spec select types param ;-- may be void
+        append spec select notes param ;-- may be void
     ]
 
     return spec

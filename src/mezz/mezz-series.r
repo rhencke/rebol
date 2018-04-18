@@ -44,11 +44,12 @@ last?: single?: func [
 
 extend: func [
     "Extend an object, map, or block type with word and value pair."
+    return: [<opt> any-value!]
     obj [object! map! block! group!] {object to extend (modified)}
     word [any-word!]
-    val
+    val [<opt> any-value!]
 ][
-    if :val [append obj reduce [to-set-word word :val]]
+    append obj reduce [to-set-word word :val]
     :val
 ]
 

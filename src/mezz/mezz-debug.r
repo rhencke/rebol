@@ -17,15 +17,13 @@ verify: procedure [
     conditions [block!]
         {Conditions to check}
 ][
-    until [tail? conditions] [
+    while-not [tail? conditions] [
         if not (result: do/next conditions quote pos:) [
             fail [
                 "Assertion condition returned"
                  choose [
                     (unset? 'result) "void"
-                        |
                     (blank? result) "blank"
-                        |
                     (result = false) "false"
                 ]
                 ":"

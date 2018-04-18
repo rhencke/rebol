@@ -116,6 +116,9 @@ if true = attempt [void? :some-undefined-thing] [
     while-not: does [
         fail "Don't use WHILE-NOT when you want R3-Alpha compatibility"
     ]
+    until-not: does [
+        fail "Don't use UNTIL-NOT when you want R3-Alpha compatibility"
+    ]
 
     ; The once-arity-2 primitive known as ENSURE was renamed to REALLY, to
     ; better parallel MAYBE and free up ENSURE to simply mean "make sure it's
@@ -508,16 +511,6 @@ join: does [
 ; existing JOIN usages have all been changed to JOIN-OF.
 ;
 adjoin: get 'repend
-
-
-; It's not possible to write loop wrappers that work correctly with RETURN,
-; and so a good forward-compatible version of UNTIL as WHILE-NOT isn't really
-; feasible.  So just don't use it.
-;
-loop-until: get 'until
-until: does [
-    fail "UNTIL in Ren-C will be arity 2 (WHILE-NOT), can't mimic in R3-Alpha"
-]
 
 
 ; Note: any-context! and any-context? supplied at top of file

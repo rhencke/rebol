@@ -441,7 +441,7 @@ r3-alpha-apply: function [
     params: words of :action
     using-args: true
 
-    until [tail? block] [
+    while-not [tail? block] [
         arg: either* only [
             block/1
             elide (block: next block)
@@ -1069,7 +1069,7 @@ set 'r3-legacy* func [<local>] [
             ;
             use :vars [
                 position: data
-                until [tail? position] compose [
+                while-not [tail? position] compose [
                     (collect [
                         every item vars [
                             case [
