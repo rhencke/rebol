@@ -1399,31 +1399,26 @@ reevaluate:;
         //
         switch ((*PG_Apply)(f)) {
         case R_FALSE:
-            Init_Logic(f->out, FALSE); // no VALUE_FLAG_UNEVALUATED
+            Init_Logic(f->out, FALSE);
             break;
 
         case R_TRUE:
-            Init_Logic(f->out, TRUE); // no VALUE_FLAG_UNEVALUATED
+            Init_Logic(f->out, TRUE);
             break;
 
         case R_VOID:
-            Init_Void(f->out); // no VALUE_FLAG_UNEVALUATED
+            Init_Void(f->out);
             break;
 
         case R_BLANK:
-            Init_Blank(f->out); // no VALUE_FLAG_UNEVALUATED
+            Init_Blank(f->out);
             break;
 
         case R_BAR:
-            Init_Bar(f->out); // no VALUE_FLAG_UNEVALUATED
+            Init_Bar(f->out);
             break;
 
         case R_OUT:
-            CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
-            break; // checked as NOT_END() after switch()
-
-        case R_OUT_UNEVALUATED: // returned by QUOTE and SEMIQUOTE
-            SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
             break;
 
         case R_OUT_IS_THROWN: {
@@ -1445,7 +1440,6 @@ reevaluate:;
                     // function away.
                     //
                     CATCH_THROWN(f->out, f->out);
-                    assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
                     goto apply_completed;
                 }
                 else if (
@@ -1513,16 +1507,14 @@ reevaluate:;
 
         case R_OUT_TRUE_IF_WRITTEN:
             if (IS_END(f->out))
-                Init_Logic(f->out, FALSE); // no VALUE_FLAG_UNEVALUATED
+                Init_Logic(f->out, FALSE);
             else
-                Init_Logic(f->out, TRUE); // no VALUE_FLAG_UNEVALUATED
+                Init_Logic(f->out, TRUE);
             break;
 
         case R_OUT_VOID_IF_UNWRITTEN:
             if (IS_END(f->out))
-                Init_Void(f->out); // no VALUE_FLAG_UNEVALUATED
-            else
-                CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+                Init_Void(f->out);
             break;
 
         case R_OUT_VOID_IF_UNWRITTEN_TRUTHIFY:
@@ -1530,8 +1522,6 @@ reevaluate:;
                 Init_Void(f->out);
             else if (IS_VOID(f->out) || IS_FALSEY(f->out))
                 Init_Bar(f->out);
-            else
-                CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
             break;
 
         case R_REDO_CHECKED:
@@ -1784,6 +1774,10 @@ reevaluate:;
                 DS_DROP;
                 goto finished;
             }
+
+            // if x: [1 < 2] [print "errors if set-word doesn't clear flag"]
+            //
+            CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
 
             Move_Value(Sink_Var_May_Fail(DS_TOP, SPECIFIED), f->out);
 
@@ -2136,7 +2130,7 @@ reevaluate:;
             goto do_next; // quickly process next item, no infix test needed
         }
 
-        Init_Void(f->out); // no VALUE_FLAG_UNEVALUATED
+        Init_Void(f->out);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2153,7 +2147,7 @@ reevaluate:;
     case REB_LIT_BAR:
         assert(IS_LIT_BAR(current));
 
-        Init_Bar(f->out); // no VALUE_FLAG_UNEVALUATED
+        Init_Bar(f->out);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//

@@ -290,9 +290,6 @@ REB_R Apply_Core_Traced(REBFRM * const f)
             Debug_Values(f->out, 1, 50);
             break;
 
-        case R_OUT_UNEVALUATED: // returned by QUOTE and SEMIQUOTE
-            goto r_out;
-
         case R_OUT_IS_THROWN: {
             //
             // The system guards against the molding or forming of thrown

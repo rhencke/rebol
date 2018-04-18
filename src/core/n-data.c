@@ -984,16 +984,10 @@ REBNATIVE(identity)
 
     Move_Value(D_OUT, ARG(value));
 
-    if (REF(quote)) {
-        //
-        // We can't set the VALUE_FLAG_UNEVALUATED bit here and make it stick,
-        // because the bit would just get cleared off by Do_Core when the
-        // function finished.  So ask the evaluator to set the bit for us.
-        //
-        return R_OUT_UNEVALUATED;
-    }
+    if (REF(quote))
+        SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
 
-    return R_OUT; // clears VALUE_FLAG_UNEVALUATED by default
+    return R_OUT;
 }
 
 
@@ -1162,7 +1156,8 @@ REBNATIVE(quote)
     }
 
     Move_Value(D_OUT, v);
-    return R_OUT_UNEVALUATED; // can't add VALUE_FLAG_UNEVALUATED directly
+    SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
+    return R_OUT;
 }
 
 
@@ -1184,7 +1179,8 @@ REBNATIVE(uneval)
     INCLUDE_PARAMS_OF_UNEVAL;
 
     Move_Value(D_OUT, ARG(value));
-    return R_OUT_UNEVALUATED; // can't add VALUE_FLAG_UNEVALUATED directly
+    SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
+    return R_OUT;
 }
 
 

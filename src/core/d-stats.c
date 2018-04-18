@@ -317,9 +317,6 @@ REB_R Apply_Core_Measured(REBFRM * const f)
         r_out:
             break;
 
-        case R_OUT_UNEVALUATED: // returned by QUOTE and SEMIQUOTE
-            goto r_out;
-
         case R_OUT_IS_THROWN: {
             break; }
 
