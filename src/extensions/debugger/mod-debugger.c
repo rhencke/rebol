@@ -879,7 +879,7 @@ return_temp:
     //
     // If the target is a function, then we're looking to simulate a return
     // from something up the stack.  This uses the same mechanic as
-    // definitional returns--a throw named by the function or closure frame.
+    // definitional returns--a throw named by the function frame.
     //
     // !!! There is a weak spot in definitional returns for FUNCTION! that
     // they can only return to the most recent invocation; which is a weak

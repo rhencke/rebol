@@ -6,7 +6,6 @@
 (datatype? bitset!)
 (datatype? block!)
 (datatype? char!)
-(datatype? closure!)  ; closure! =? function! in R2/Forward, R2 2.7.7+
 (datatype? datatype!)
 (datatype? date!)
 (datatype? decimal!)

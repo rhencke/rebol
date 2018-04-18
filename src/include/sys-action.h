@@ -256,9 +256,6 @@ typedef REB_R (*REBACT)(REBFRM *frame_, REBSYM a);
 // PORT!-action function
 typedef REB_R (*REBPAF)(REBFRM *frame_, REBCTX *p, REBSYM a);
 
-// COMMAND! function
-typedef REB_R (*CMD_FUNC)(REBCNT n, REBSER *args);
-
 // Path evaluator function
 //
 typedef REB_R (*REBPEF)(

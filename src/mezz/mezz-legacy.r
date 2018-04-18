@@ -484,9 +484,6 @@ apply: adapt 'apply [
     ]
 ]
 
-closure!: :function!
-closure?: :function?
-
 ; All other function classes are also folded into the one FUNCTION! type ATM.
 
 any-function!: :function!
@@ -513,14 +510,6 @@ action?: func [f [<opt> any-value!]] [
 ;
 ; Because of the commonality of the alternate interpretation of MAKE, this
 ; bridges until further notice.
-;
-; Note: This previously used a variadic lookahead to bridge MAKE ROUTINE!,
-; MAKE CALLBACK!, and MAKE COMMAND!.  Those invocations would all end up
-; passing the FUNCTION! datatype, so a hard quoting lookahead was a workaround
-; for dispatching to the necessary actions.  However, COMMAND! has been
-; deprecated, and MAKE-ROUTINE and MAKE-CALLBACK have been moved to an
-; extension which would not be bound here in LIB at an early enough time, so
-; those invocations should be changed for now.
 ;
 lib-make: :make
 make: function [
@@ -731,6 +720,15 @@ set 'r3-legacy* func [<local>] [
         none: (:blank)
         none!: (:blank!)
         none?: (:blank?)
+
+        ; Some of CLOSURE's functionality was subsumed into all FUNCTIONs, but
+        ; the indefinite lifetime of all locals and arguments was not.
+        ; https://forum.rebol.info/t/234
+        ;
+        closure: :function
+        clos: :func
+        closure!: :function!
+        closure?: :function?
 
         ; TRUE? and FALSE? were considered misleading, and DID and NOT should
         ; be used for testing for "truthiness" and "falsiness", while testing
