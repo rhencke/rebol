@@ -203,7 +203,11 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
                 }
             }
 
-            OS_DO_DEVICE(req, RDC_OPEN);
+            REBVAL *result = OS_DO_DEVICE(req, RDC_OPEN);
+            assert(result != NULL);
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+            rebRelease(result); // ignore result
 
             if (action == SYM_OPEN)
                 goto return_port;
@@ -262,9 +266,11 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         REBSER *ser = Make_Binary(len * sizeof(siginfo_t));
         req->common.data = BIN_HEAD(ser);
 
-        OS_DO_DEVICE(req, RDC_READ);
-        //
-        // !!! ^-- If failure, series needs to be freed, should be automatic.
+        REBVAL *result = OS_DO_DEVICE(req, RDC_READ);
+        assert(result != NULL);
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END); // frees ser implicitly
+        rebRelease(result); // ignore result
 
         arg = CTX_VAR(port, STD_PORT_DATA);
         if (!IS_BLOCK(arg))
@@ -281,9 +287,13 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         Free_Series(ser);
         goto return_port; }
 
-    case SYM_CLOSE:
-        OS_DO_DEVICE(req, RDC_CLOSE);
-        goto return_port;
+    case SYM_CLOSE: {
+        REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
+        assert(result != NULL); // should be synchronous
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
+        goto return_port; }
 
     case SYM_OPEN:
         fail (Error_Already_Open_Raw(D_ARG(1)));

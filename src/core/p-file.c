@@ -125,7 +125,11 @@ static void Open_File_Port(REBCTX *port, struct devreq_file *file, REBVAL *path)
     if (Is_Port_Open(port))
         fail (Error_Already_Open_Raw(path));
 
-    OS_DO_DEVICE(req, RDC_OPEN);
+    REBVAL *result = OS_DO_DEVICE(req, RDC_OPEN);
+    assert(result != NULL); // should be synchronous
+    if (rebTypeOf(result) == RXT_ERROR)
+        rebFail (result, END);
+    rebRelease(result); // ignore result
 
     Set_Port_Open(port, TRUE);
 }
@@ -174,7 +178,12 @@ static void Read_File_Port(
     // Do the read, check for errors:
     req->common.data = BIN_HEAD(ser);
     req->length = len;
-    OS_DO_DEVICE(req, RDC_READ);
+
+    REBVAL *result = OS_DO_DEVICE(req, RDC_READ);
+    assert(result != NULL); // !!! nothing here tested for async
+    if (rebTypeOf(result) == RXT_ERROR)
+        rebFail (result, END);
+    rebRelease(result); // ignore result
 
     SET_SERIES_LEN(ser, req->actual);
     TERM_SEQUENCE(ser);
@@ -214,7 +223,12 @@ static void Write_File_Port(struct devreq_file *file, REBVAL *data, REBCNT len, 
         req->modes &= ~RFM_TEXT; // don't do LF => CRLF, e.g. on Windows
     }
     req->length = len;
-    OS_DO_DEVICE(req, RDC_WRITE);
+
+    REBVAL *result = OS_DO_DEVICE(req, RDC_WRITE);
+    assert(result != NULL); // !!! nothing here suggested async handling
+    if (rebTypeOf(result) == RXT_ERROR)
+        rebFail (result, END);
+    rebRelease(result); // ignore result
 }
 
 
@@ -371,8 +385,13 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         Read_File_Port(D_OUT, port, file, path, flags, len);
 
         if (opened) {
-            OS_DO_DEVICE(req, RDC_CLOSE);
+            REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
             Cleanup_File(file);
+
+            assert(result != NULL); // should be synchronous
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+            rebRelease(result); // ignore result
         }
 
         return R_OUT; }
@@ -435,8 +454,13 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         Write_File_Port(file, data, len, REF(lines));
 
         if (opened) {
-            OS_DO_DEVICE(req, RDC_CLOSE);
+            REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
             Cleanup_File(file);
+
+            assert(result != NULL);
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+            rebRelease(result);
         }
 
         goto return_port; }
@@ -489,8 +513,13 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(port));
 
         if (req->flags & RRF_OPEN) {
-            OS_DO_DEVICE(req, RDC_CLOSE);
+            REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
             Cleanup_File(file);
+
+            assert(result != NULL); // should be synchronous
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+            rebRelease(result); // ignore error
         }
         goto return_port; }
 
@@ -501,7 +530,12 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         if (req->flags & RRF_OPEN)
             fail (Error_No_Delete_Raw(path));
         Setup_File(file, 0, path);
-        OS_DO_DEVICE(req, RDC_DELETE);
+
+        REBVAL *result = OS_DO_DEVICE(req, RDC_DELETE);
+        assert(result != NULL); // should be synchronous
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
 
         goto return_port; }
 
@@ -514,7 +548,12 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         Setup_File(file, 0, path);
 
         req->common.data = cast(REBYTE*, ARG(to)); // !!! hack!
-        OS_DO_DEVICE(req, RDC_RENAME);
+
+        REBVAL *result = OS_DO_DEVICE(req, RDC_RENAME);
+        assert(result != NULL); // should be synchronous
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
 
         Move_Value(D_OUT, ARG(from));
         return R_OUT; }
@@ -522,8 +561,18 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
     case SYM_CREATE: {
         if (NOT(req->flags & RRF_OPEN)) {
             Setup_File(file, AM_OPEN_WRITE | AM_OPEN_NEW, path);
-            OS_DO_DEVICE(req, RDC_CREATE);
-            OS_DO_DEVICE(req, RDC_CLOSE);
+
+            REBVAL *cr_result = OS_DO_DEVICE(req, RDC_CREATE);
+            assert(cr_result != NULL);
+            if (rebTypeOf(cr_result) == RXT_ERROR)
+                rebFail (cr_result, END);
+            rebRelease(cr_result);
+
+            REBVAL *cl_result = OS_DO_DEVICE(req, RDC_CLOSE);
+            assert(cl_result != NULL);
+            if (rebTypeOf(cl_result) == RXT_ERROR)
+                rebFail (cl_result, END);
+            rebRelease(cl_result);
         }
 
         // !!! should it leave file open???
@@ -541,9 +590,13 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         if (NOT(req->flags & RRF_OPEN)) {
             Setup_File(file, 0, path);
-            OS_DO_DEVICE(req, RDC_QUERY);
-            if (FALSE) // used to check for less than zero result for this
+            REBVAL *result = OS_DO_DEVICE(req, RDC_QUERY);
+            assert(result != NULL);
+            if (rebTypeOf(result) == RXT_ERROR) {
+                rebRelease(result); // !!! R3-Alpha returned blank on error
                 return R_BLANK;
+            }
+            rebRelease(result); // ignore result
         }
         Ret_Query_File(port, file, D_OUT);
 
@@ -561,9 +614,14 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         // !!! Set_Mode_Value() was called here, but a no-op in R3-Alpha
         if (NOT(req->flags & RRF_OPEN)) {
             Setup_File(file, 0, path);
-            OS_DO_DEVICE(req, RDC_MODIFY);
-            if (FALSE) // !!! used to check for less than zero result for this
+
+            REBVAL *result = OS_DO_DEVICE(req, RDC_MODIFY);
+            assert(result != NULL);
+            if (rebTypeOf(result) == RXT_ERROR) {
+                rebRelease(result); // !!! R3-Alpha returned blank on error
                 return R_BLANK;
+            }
+            rebRelease(result); // ignore result
         }
         return R_TRUE; }
 
@@ -577,13 +635,18 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         req->modes |= RFM_RESEEK;
         goto return_port;}
 
-    case SYM_CLEAR:
+    case SYM_CLEAR: {
         // !! check for write enabled?
         req->modes |= RFM_RESEEK;
         req->modes |= RFM_TRUNCATE;
         req->length = 0;
-        OS_DO_DEVICE(req, RDC_WRITE);
-        goto return_port;
+
+        REBVAL *result = OS_DO_DEVICE(req, RDC_WRITE);
+        assert(result != NULL);
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
+        goto return_port; }
 
     default:
         break;

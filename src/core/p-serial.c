@@ -148,7 +148,12 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
                 }
             }
 
-            OS_DO_DEVICE(req, RDC_OPEN);
+            REBVAL *result = OS_DO_DEVICE(req, RDC_OPEN);
+            assert(result != NULL); // should be synchronous
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+            rebRelease(result); // ignore result
+
             req->flags |= RRF_OPEN;
             goto return_port; }
 
@@ -214,7 +219,13 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         printf("(max read length %d)", req->length);
 #endif
 
-        OS_DO_DEVICE(req, RDC_READ); // recv can happen immediately
+        // "recv can happen immediately"
+        //
+        REBVAL *result = OS_DO_DEVICE(req, RDC_READ);
+        assert(result != NULL);
+        if (rebTypeOf(result) != RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result);
 
 #ifdef DEBUG_SERIAL
         for (len = 0; len < req->actual; len++) {
@@ -258,8 +269,14 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         req->common.data = VAL_BIN_AT(data);
         req->actual = 0;
 
-        //Print("(write length %d)", len);
-        OS_DO_DEVICE(req, RDC_WRITE); // send can happen immediately
+        // "send can happen immediately"
+        //
+        REBVAL *result = OS_DO_DEVICE(req, RDC_WRITE);
+        assert(result != NULL);
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
+
         goto return_port; }
 
     case SYM_ON_WAKE_UP: {
@@ -282,7 +299,12 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
     case SYM_CLOSE:
         if (req->flags & RRF_OPEN) {
-            OS_DO_DEVICE(req, RDC_CLOSE);
+            REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
+            assert(result != NULL);
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+            rebRelease(result); // ignore result
+
             req->flags &= ~RRF_OPEN;
         }
         goto return_port;

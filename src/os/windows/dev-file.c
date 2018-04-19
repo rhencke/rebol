@@ -385,7 +385,7 @@ DEVICE_CMD Write_File(REBREQ *req)
                 cast(LPDWORD, &req->actual),
                 0
             );
-            
+
             if (NOT(ok))
                 rebFail_OS (GetLastError());
         }

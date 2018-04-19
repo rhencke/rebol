@@ -142,7 +142,7 @@ void MF_Function(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     Mold_Array_At(mo, words_list, 0, 0);
     Free_Array(words_list);
 
-    Append_Codepoint(mo->series, ' ');
+    Append_Utf8_Codepoint(mo->series, ' ');
 
     if (IS_FUNCTION_INTERPRETED(v)) {
         //

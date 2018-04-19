@@ -52,7 +52,12 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
     REBDSP dsp_orig = DSP;
 
     while (TRUE) {
-        OS_DO_DEVICE(req, RDC_READ);
+        REBVAL *result = OS_DO_DEVICE(req, RDC_READ);
+        assert(result != NULL); // should be synchronous
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
+
         if (req->flags & RRF_DONE)
             break;
 
@@ -125,17 +130,6 @@ static void Init_Dir_Path(
     Secure_Port(SYM_FILE, req, path /* , dir->path */);
 
     dir->path = path;
-}
-
-
-//
-//  Cleanup_Dir_Path: C
-//
-static void Cleanup_Dir_Path(struct devreq_file *dir)
-{
-    // !!! Currently nothing to do.
-    //
-    UNUSED(dir);
 }
 
 
@@ -215,7 +209,6 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         if (!IS_BLOCK(state)) {     // !!! ignores /SKIP and /PART, for now
             Init_Dir_Path(&dir, path, POL_READ);
             Init_Block(D_OUT, Read_Dir_May_Fail(&dir));
-            Cleanup_Dir_Path(&dir);
         }
         else {
             // !!! This copies the strings in the block, shallowly.  What is
@@ -241,11 +234,16 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
     create:
         Init_Dir_Path(&dir, path, POL_WRITE); // Sets RFM_DIR too
 
-        REBINT result = OS_DO_DEVICE(&dir.devreq, RDC_CREATE);
+        REBVAL *result = OS_DO_DEVICE(&dir.devreq, RDC_CREATE);
+        assert(result != NULL); // should be synchronous
 
-        Cleanup_Dir_Path(&dir);
-        if (result < 0)
-            fail (Error_No_Create_Raw(path));
+        if (rebTypeOf(result) == RXT_ERROR) {
+            rebRelease(result); // !!! throws away details
+            fail (Error_No_Create_Raw(path)); // higher level error
+        }
+
+        rebRelease(result); // ignore result
+
         if (action == SYM_CREATE) {
             Move_Value(D_OUT, D_ARG(1));
             return R_OUT;
@@ -264,25 +262,15 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(ARG(from)); // implicit
         dir.devreq.common.data = cast(REBYTE*, ARG(to)); // !!! hack!
 
-        // !!! If this encounters an error, it will fail and thus not run
-        // the cleanup code.  Theory is that API handles can have lifetimes
-        // attached to frames, and so when this port action is done it would
-        // be GC'd, but that mechanic isn't there yet.  If there were a more
-        // serious amount of state there'd have to be a PUSH_UNHALTABLE_TRAP
-        // here to catch any errors and clean up.
-        //
-        // Another issue is that the error message may not be detailed enough
-        // if it's just giving a device IO error.  Looking at the stack is
-        // one way to tell what rename went wrong, but features to allow
-        // examining the stack at the moment of error haven't been implemented
-        // at time of writing.  The previous error delivered here would be:
-        //
-        //     fail (Error_No_Rename_Raw(path));
+        REBVAL *result = OS_DO_DEVICE(&dir.devreq, RDC_RENAME);
+        assert(result != NULL); // should be synchronous
 
-        OS_DO_DEVICE(&dir.devreq, RDC_RENAME);
+        if (rebTypeOf(result) == RXT_ERROR) {
+            rebRelease(result); // !!! throws away details
+            fail (Error_No_Rename_Raw(path)); // higher level error
+        }
 
-        Cleanup_Dir_Path(&dir); // !!! Not run if error, see notes above
-
+        rebRelease(result); // ignore result
         goto return_port; }
 
     case SYM_DELETE: {
@@ -292,13 +280,15 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         // !!! add *.r deletion
         // !!! add recursive delete (?)
-        REBINT result = OS_DO_DEVICE(&dir.devreq, RDC_DELETE);
+        REBVAL *result = OS_DO_DEVICE(&dir.devreq, RDC_DELETE);
+        assert(result != NULL); // should be synchronous
 
-        Cleanup_Dir_Path(&dir);
+        if (rebTypeOf(result) == RXT_ERROR) {
+            rebRelease(result); // !!! throws away details
+            fail (Error_No_Delete_Raw(path)); // higher level error
+        }
 
-        if (result < 0)
-            fail (Error_No_Delete_Raw(path));
-
+        rebRelease(result); // ignore result
         goto return_port; }
 
     case SYM_OPEN: {
@@ -325,7 +315,6 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         Init_Dir_Path(&dir, path, POL_READ);
         Init_Block(state, Read_Dir_May_Fail(&dir));
-        Cleanup_Dir_Path(&dir);
         goto return_port; }
 
     case SYM_CLOSE:
@@ -336,15 +325,17 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         Init_Blank(state);
 
         Init_Dir_Path(&dir, path, POL_READ);
-        int query_result = OS_DO_DEVICE(&dir.devreq, RDC_QUERY);
+        REBVAL *result = OS_DO_DEVICE(&dir.devreq, RDC_QUERY);
+        assert(result != NULL); // should be synchronous
 
-        if (query_result < 0) {
-            Cleanup_Dir_Path(&dir);
+        if (rebTypeOf(result) == RXT_ERROR) {
+            rebRelease(result); // !!! R3-Alpha threw out error, returns blank
             return R_BLANK;
         }
 
+        rebRelease(result); // ignore result
+
         Ret_Query_File(port, &dir, D_OUT);
-        Cleanup_Dir_Path(&dir);
         return R_OUT; }
 
     default:

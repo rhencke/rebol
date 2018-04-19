@@ -160,7 +160,12 @@ static REB_R Transport_Actor(
             REBVAL *arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
             REBVAL *val = Obj_Value(spec, STD_PORT_SPEC_NET_PORT_ID);
 
-            OS_DO_DEVICE(sock, RDC_OPEN);
+            REBVAL *o_result = OS_DO_DEVICE(sock, RDC_OPEN);
+            assert(o_result != NULL);
+            if (rebTypeOf(o_result) == RXT_ERROR)
+                rebFail (o_result, END);
+            rebRelease(o_result); // ignore result
+
             sock->flags |= RRF_OPEN;
 
             // Lookup host name (an extra TCP device step):
@@ -178,8 +183,14 @@ static REB_R Transport_Actor(
 
                 // Note: sets remote_ip field
                 //
-                OS_DO_DEVICE(sock, RDC_LOOKUP);
+                REBVAL *l_result = OS_DO_DEVICE(sock, RDC_LOOKUP);
                 DROP_GUARD_SERIES(temp);
+
+                assert(l_result != NULL);
+                if (rebTypeOf(l_result) == RXT_ERROR)
+                    rebFail (l_result, END);
+                rebRelease(l_result); // ignore result
+
                 goto return_port;
             }
             else if (IS_TUPLE(arg)) { // Host IP specified:
@@ -309,9 +320,20 @@ static REB_R Transport_Actor(
         sock->common.data = BIN_TAIL(buffer); // write at tail
         sock->actual = 0; // actual for THIS read (not for total)
 
-        // Note: recv can happen immediately
-        //
-        OS_DO_DEVICE(sock, RDC_READ);
+        REBVAL *result = OS_DO_DEVICE(sock, RDC_READ);
+        if (result == NULL) {
+            //
+            // Request pending
+        }
+        else {
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+
+            // a note said "recv CAN happen immediately"
+            //
+            rebRelease(result); // ignore result
+        }
+
         goto return_port; }
 
     case SYM_WRITE: {
@@ -359,13 +381,21 @@ static REB_R Transport_Actor(
         sock->common.data = VAL_BIN_AT(data);
         sock->actual = 0;
 
-        // Note: send can happen immediately
-        //
-        if (OS_DO_DEVICE(sock, RDC_WRITE) == DR_DONE)
-            Init_Blank(CTX_VAR(port, STD_PORT_DATA));
-        else
-            assert(FALSE); // !!! do we get here?
+        REBVAL *result = OS_DO_DEVICE(sock, RDC_WRITE);
+        if (result == NULL) {
+            //
+            // Write pending !!! old comment said "do we get here?"
+        }
+        else {
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
 
+            // Note here said "send CAN happen immediately"
+            //
+            rebRelease(result); // ignore result
+        }
+
+        Init_Blank(CTX_VAR(port, STD_PORT_DATA));
         goto return_port; }
 
     case SYM_PICK: {
@@ -397,13 +427,30 @@ static REB_R Transport_Actor(
 
     case SYM_CLOSE: {
         if (sock->flags & RRF_OPEN) {
-            OS_DO_DEVICE(sock, RDC_CLOSE);
+            REBVAL *result = OS_DO_DEVICE(sock, RDC_CLOSE);
+            assert(result != NULL); // should be synchronous
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+            rebRelease(result); // ignore result
+
             sock->flags &= ~RRF_OPEN;
         }
         goto return_port; }
 
     case SYM_OPEN: {
-        OS_DO_DEVICE(sock, RDC_CONNECT);
+        REBVAL *result = OS_DO_DEVICE(sock, RDC_CONNECT);
+        if (result == NULL) {
+            //
+            // Asynchronous connect, this happens in TCP_Actor
+        }
+        else {
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+            else {
+                assert(FALSE); // !!! can this happen?
+                rebRelease(result); // ignore result
+            }
+        }
         goto return_port; }
 
     default:
@@ -519,10 +566,12 @@ REBNATIVE(set_udp_multicast)
     UNUSED(ARG(member));
     UNUSED(REF(drop));
 
-    REBINT result = OS_DO_DEVICE(sock, RDC_MODIFY);
-    if (result < 0)
-        fail ("SET-UDP-MULTICAST failure"); // can device layer just fail()?
+    REBVAL *result = OS_DO_DEVICE(sock, RDC_MODIFY);
+    assert(result != NULL); // should be synchronous
+    if (rebTypeOf(result) == RXT_ERROR)
+        rebFail (result, END); // !!! chain as "SET-UDP-MULTICAST failure"?
 
+    rebRelease(result); // ignore result
     return R_VOID;
 }
 
@@ -556,9 +605,11 @@ REBNATIVE(set_udp_ttl)
 
     UNUSED(ARG(ttl));
 
-    REBINT result = OS_DO_DEVICE(sock, RDC_MODIFY);
-    if (result < 0)
-        fail ("SET-UDP-TTL failure"); // can device layer just fail()?
+    REBVAL *result = OS_DO_DEVICE(sock, RDC_MODIFY);
+    assert(result != NULL);
+    if (rebTypeOf(result) == RXT_ERROR)
+        rebFail (result, END); // !!! should chain as "SET-UDP-TTL failure"?
 
+    rebRelease(result); // ignore result
     return R_VOID;
 }

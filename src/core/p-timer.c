@@ -124,7 +124,12 @@ static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBCNT action)
         if (!req) { //!!!
             req = OS_MAKE_DEVREQ(RDI_EVENT);
             req->flags |= RRF_OPEN;
-            OS_DO_DEVICE(req, RDC_CONNECT);     // stays queued
+
+            REBVAL *result = OS_DO_DEVICE(req, RDC_CONNECT); // stays queued
+            assert(result != NULL); // !!! or stays queued means it's pending?
+            if (rebTypeOf(result) == RXT_ERROR)
+                rebFail (result, END);
+            rebRelease(result); // ignore result
         }
         goto return_port; }
 

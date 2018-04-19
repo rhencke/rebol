@@ -234,17 +234,35 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         if (req == NULL) { //!!!
             req = OS_MAKE_DEVREQ(RDI_EVENT);
             req->flags |= RRF_OPEN;
-            OS_DO_DEVICE(req, RDC_CONNECT); // stays queued
+            REBVAL *result = OS_DO_DEVICE(req, RDC_CONNECT);
+            if (result == NULL) {
+                //
+                // comment said "stays queued", hence seems pending happens
+            }
+            else {
+                if (rebTypeOf(result) == RXT_ERROR)
+                    rebFail (result, END);
+                else {
+                    assert(FALSE); // !!! can this happen?
+                    rebRelease(result); // ignore result
+                }
+            }
         }
         goto return_port; }
 
-    case SYM_CLOSE:
+    case SYM_CLOSE: {
         OS_ABORT_DEVICE(req);
-        OS_DO_DEVICE(req, RDC_CLOSE);
+
+        REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
+        assert(result != NULL); // should be synchronous
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result);
+
         // free req!!!
         req->flags &= ~RRF_OPEN;
         req = NULL;
-        goto return_port;
+        goto return_port; }
 
     case SYM_FIND:
         break; // !!! R3-Alpha said "add it" (e.g. unimplemented)

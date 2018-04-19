@@ -227,11 +227,11 @@ static REBVAL *Dangerous_Command(REBREQ *req) {
 // Tell a device to perform a command.  Non-blocking in many cases and will
 // attach the request for polling.
 //
-// Returns:
-//     0: for command success (DR_DONE)
-//     1: for command still pending (DR_PEND)
+// !!! R3-Alpha returned 0 for success (DR_DONE), 1 for command still pending
+// (DR_PEND) and negative numbers for errors.  As the device model is revamped
+// the concept is to return the actual result, NULL if pending, or an ERROR!.
 //
-int OS_Do_Device(REBREQ *req, REBCNT command)
+REBVAL *OS_Do_Device(REBREQ *req, REBCNT command)
 {
     req->command = command;
 
@@ -272,7 +272,7 @@ int OS_Do_Device(REBREQ *req, REBCNT command)
         int result = (dev->commands[req->command])(req);
         assert(result == DR_DONE);
         UNUSED(result);
-        return DR_DONE;
+        return NULL;
     }
 
     // !!! R3-Alpha had it so when an error was raised from a "device request"
@@ -297,7 +297,12 @@ int OS_Do_Device(REBREQ *req, REBCNT command)
     if (rebTypeOf(error_or_int) == RXT_ERROR) {
         if (dev->pending)
             Detach_Request(&dev->pending, req); // "often a no-op", it said
-        rebFail (error_or_int, rebEnd()); // propagate error up the stack
+
+        return error_or_int;
+
+        // !!! Should an auto-fail variation be offered, for callers who
+        // do not want to get involved?
+        /* rebFail (error_or_int, rebEnd()); // propagate error up the stack*/
     }
 
     assert(rebTypeOf(error_or_int) == RXT_INTEGER);
@@ -307,15 +312,16 @@ int OS_Do_Device(REBREQ *req, REBCNT command)
 
     // If request is pending, attach it to device for polling:
     //
-    if (result == DR_PEND)
+    if (result == DR_PEND) {
         Attach_Request(&dev->pending, req);
-    else {
-        assert(result == DR_DONE);
-        if (dev->pending)
-            Detach_Request(&dev->pending, req); // often a no-op
+        return NULL;
     }
 
-    return result;
+    assert(result == DR_DONE);
+    if (dev->pending)
+        Detach_Request(&dev->pending, req); // often a no-op
+
+    return rebLogic(TRUE);
 }
 
 
@@ -447,31 +453,41 @@ int OS_Quit_Devices(int flags)
 //
 REBINT OS_Wait(REBCNT millisec, REBCNT res)
 {
-    REBREQ req;     // OK: QUERY below does not store it
-    REBCNT delta;
-    int64_t base;
-
     // printf("OS_Wait %d\n", millisec);
 
-    base = OS_DELTA_TIME(0); // start timing
+    int64_t base = OS_DELTA_TIME(0); // start timing
 
-    // Setup for timing:
+    // Comment said "Setup for timing: OK: QUERY below does not store it"
+    //
+    REBREQ req;
     CLEARS(&req);
     req.device = RDI_EVENT;
 
     OS_REAP_PROCESS(-1, NULL, 0);
 
     // Let any pending device I/O have a chance to run:
-    if (OS_Poll_Devices()) return -1;
+    //
+    if (OS_Poll_Devices())
+        return -1;
 
     // Nothing, so wait for period of time
-    delta = cast(REBCNT, OS_DELTA_TIME(base)) / 1000 + res;
-    if (delta >= millisec) return 0;
-    millisec -= delta;  // account for time lost above
+
+    REBCNT delta = cast(REBCNT, OS_DELTA_TIME(base)) / 1000 + res;
+    if (delta >= millisec)
+        return 0;
+
+    millisec -= delta; // account for time lost above
     req.length = millisec;
 
     // printf("Wait: %d ms\n", millisec);
-    OS_Do_Device(&req, RDC_QUERY); // wait for timer or other event
+
+    // Comment said "wait for timer or other event"
+    //
+    REBVAL *result = OS_DO_DEVICE(&req, RDC_QUERY);
+    assert(result != NULL); // should be synchronous
+    if (rebTypeOf(result) == RXT_ERROR)
+        rebFail (result, rebEnd());
+    rebRelease(result); // ignore result
 
     return 1;  // layer above should check delta again
 }

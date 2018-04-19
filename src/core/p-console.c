@@ -76,8 +76,13 @@ static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         // If not open, open it:
-        if (NOT(req->flags & RRF_OPEN))
-            OS_DO_DEVICE(req, RDC_OPEN);
+        if (NOT(req->flags & RRF_OPEN)) {
+            REBVAL *o_result = OS_DO_DEVICE(req, RDC_OPEN);
+            assert(o_result != NULL);
+            if (rebTypeOf(o_result) == RXT_ERROR)
+                rebFail (o_result, END);
+            rebRelease(o_result); // ignore result
+        }
 
         // If no buffer, create a buffer:
         //
@@ -92,7 +97,11 @@ static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         req->common.data = BIN_HEAD(ser);
         req->length = SER_AVAIL(ser);
 
-        OS_DO_DEVICE(req, RDC_READ);
+        REBVAL *r_result = OS_DO_DEVICE(req, RDC_READ);
+        assert(r_result != NULL);
+        if (rebTypeOf(r_result) == RXT_ERROR)
+            rebFail (r_result, END);
+        rebRelease(r_result); // ignore result
 
         // !!! Among many confusions in this file, it said "Another copy???"
         //

@@ -96,10 +96,19 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         // This device is opened on the READ:
-        if (NOT(req->flags & RRF_OPEN))
-            OS_DO_DEVICE(req, RDC_OPEN);
+        if (NOT(req->flags & RRF_OPEN)) {
+            REBVAL *o_result = OS_DO_DEVICE(req, RDC_OPEN);
+            assert(o_result != NULL);
+            if (rebTypeOf(o_result) == RXT_ERROR)
+                rebFail (o_result, END);
+            rebRelease(o_result); // ignore result
+        }
 
-        OS_DO_DEVICE(req, RDC_READ);
+        REBVAL *r_result = OS_DO_DEVICE(req, RDC_READ);
+        assert(r_result != NULL);
+        if (rebTypeOf(r_result) == RXT_ERROR)
+            rebFail (r_result, END);
+        rebRelease(r_result); // ignore result
 
         // Copy and set the string result:
         arg = CTX_VAR(port, STD_PORT_DATA);
@@ -145,8 +154,12 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
             fail (Error_Invalid_Port_Arg_Raw(arg));
 
         // This device is opened on the WRITE:
-        if (NOT(req->flags & RRF_OPEN))
-            OS_DO_DEVICE(req, RDC_OPEN);
+        if (NOT(req->flags & RRF_OPEN)) {
+            REBVAL *o_result = OS_DO_DEVICE(req, RDC_OPEN);
+            assert(o_result != NULL);
+            if (rebTypeOf(o_result) == RXT_ERROR)
+                rebFail (o_result, END);
+        }
 
         // Handle /part refinement:
         REBINT len = VAL_LEN_AT(arg);
@@ -160,7 +173,11 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         Move_Value(CTX_VAR(port, STD_PORT_DATA), arg); // keep it GC safe
         req->actual = 0;
 
-        OS_DO_DEVICE(req, RDC_WRITE);
+        REBVAL *w_result = OS_DO_DEVICE(req, RDC_WRITE);
+        assert(w_result != NULL);
+        if (rebTypeOf(w_result) == RXT_ERROR)
+            rebFail (w_result, END);
+
         Init_Blank(CTX_VAR(port, STD_PORT_DATA)); // GC can collect it
 
         goto return_port; }
@@ -182,12 +199,20 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
             fail (Error_Bad_Refines_Raw());
         }
 
-        OS_DO_DEVICE(req, RDC_OPEN);
+        REBVAL *result = OS_DO_DEVICE(req, RDC_OPEN);
+        assert(result != NULL);
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
         goto return_port; }
 
-    case SYM_CLOSE:
-        OS_DO_DEVICE(req, RDC_CLOSE);
-        goto return_port;
+    case SYM_CLOSE: {
+        REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
+        assert(result != NULL);
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
+        goto return_port; }
 
     default:
         break;

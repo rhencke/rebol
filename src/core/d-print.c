@@ -58,7 +58,10 @@ void Startup_StdIO(void)
 
     // !!! "The device is already open, so this call will just setup the
     // request fields properly.
-    OS_DO_DEVICE(Req_SIO, RDC_OPEN);
+
+    REBVAL *result = OS_DO_DEVICE(Req_SIO, RDC_OPEN);
+    assert(result == NULL); // !!! API not initialized yet, "pending" is a lie
+    UNUSED(result);
 }
 
 
@@ -88,7 +91,10 @@ void Print_OS_Line(void)
     Req_SIO->length = 1;
     Req_SIO->actual = 0;
 
-    OS_DO_DEVICE(Req_SIO, RDC_WRITE);
+    REBVAL *result = OS_DO_DEVICE(Req_SIO, RDC_WRITE);
+    assert(result != NULL);
+    assert(rebTypeOf(result) != RXT_ERROR);
+    rebRelease(result);
 }
 
 
@@ -109,8 +115,8 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
 
     Req_SIO->actual = 0;
 
-    DECLARE_LOCAL (result);
-    SET_END(result);
+    DECLARE_LOCAL (temp);
+    SET_END(temp);
 
     // !!! The historical division of labor between the "core" and the "host"
     // is that the host doesn't know how to poll for cancellation.  So data
@@ -123,10 +129,10 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
     //
     Req_SIO->common.data = m_cast(REBYTE*, utf8); // !!! promises to not write
     while (size > 0) {
-        if (Do_Signals_Throws(result))
-            fail (Error_No_Catch_For_Throw(result));
+        if (Do_Signals_Throws(temp))
+            fail (Error_No_Catch_For_Throw(temp));
 
-        assert(IS_END(result));
+        assert(IS_END(temp));
 
         // !!! Req_SIO->length is actually the "size", e.g. number of bytes.
         //
@@ -146,7 +152,11 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
             assert(Req_SIO->length <= 1024);
         }
 
-        OS_DO_DEVICE(Req_SIO, RDC_WRITE);
+        REBVAL *result = OS_DO_DEVICE(Req_SIO, RDC_WRITE);
+        assert(result != NULL); // should be synchronous
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
 
         Req_SIO->common.data += Req_SIO->length;
         size -= Req_SIO->length;

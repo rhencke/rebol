@@ -84,8 +84,13 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
 
-        if (NOT(sock->flags & RRF_OPEN))
-            OS_DO_DEVICE(sock, RDC_OPEN);
+        if (NOT(sock->flags & RRF_OPEN)) {
+            REBVAL *o_result = OS_DO_DEVICE(sock, RDC_OPEN);
+            assert(o_result != NULL); // should be synchronous
+            if (rebTypeOf(o_result) == RXT_ERROR)
+                rebFail (o_result, END);
+            rebRelease(o_result); // ignore result
+        }
 
         arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
 
@@ -115,15 +120,16 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         else
             fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
 
-        int result = OS_DO_DEVICE(sock, RDC_READ);
-
-        assert(NOT(result == DR_PEND)); // async R3-Alpha DNS gone
-        UNUSED(result);
+        REBVAL *r_result = OS_DO_DEVICE(sock, RDC_READ);
+        assert(r_result != NULL); // async R3-Alpha DNS gone
+        if (rebTypeOf(r_result) == RXT_ERROR)
+            rebFail (r_result, END);
+        rebRelease(r_result); // ignore result
 
         len = 1;
         goto pick; }
 
-    case SYM_PICK:  // FIRST - return result
+    case SYM_PICK: { // FIRST - return result
         if (NOT(sock->flags & RRF_OPEN))
             fail (Error_On_Port(RE_NOT_OPEN, port, -12));
 
@@ -148,8 +154,13 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         else {
             Set_Tuple(D_OUT, cast(REBYTE*, &DEVREQ_NET(sock)->remote_ip), 4);
         }
-        OS_DO_DEVICE(sock, RDC_CLOSE);
-        goto return_port;
+
+        REBVAL *result = OS_DO_DEVICE(sock, RDC_CLOSE);
+        assert(result != NULL); // should be synchronous
+        if (rebTypeOf(result) == RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
+        goto return_port; }
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -168,12 +179,20 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
             fail (Error_Bad_Refines_Raw());
         }
 
-        OS_DO_DEVICE(sock, RDC_OPEN);
+        REBVAL *result = OS_DO_DEVICE(sock, RDC_OPEN);
+        assert(result != NULL); // should be synchronous
+        if (rebTypeOf(result) != RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
         goto return_port; }
 
-    case SYM_CLOSE:
-        OS_DO_DEVICE(sock, RDC_CLOSE);
-        goto return_port;
+    case SYM_CLOSE: {
+        REBVAL *result = OS_DO_DEVICE(sock, RDC_CLOSE);
+        assert(result != NULL); // should be synchronous
+        if (rebTypeOf(result) != RXT_ERROR)
+            rebFail (result, END);
+        rebRelease(result); // ignore result
+        goto return_port; }
 
     case SYM_ON_WAKE_UP:
         return R_BLANK;
