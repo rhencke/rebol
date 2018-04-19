@@ -590,7 +590,12 @@ blankify-refinement-args: procedure [f [frame!]] [
                 ]
             ]
             seen-refinement [ ;-- turn any voids into BLANK!s
-                f/(to-word w): default [_]
+                ;
+                ; !!! This is better expressed as `: default [_]`, but DEFAULT
+                ; is based on using SET, which disallows GROUP!s in PATH!s.
+                ; Review rationale and consequences.
+                ;
+                f/(to-word w): to-value :f/(to-word w)
             ]
         ]
     ]
@@ -1333,15 +1338,17 @@ set 'r3-legacy* func [<local>] [
     ; and if it doesn't it's likealy a bigger problem because you can't put
     ; "unset! literals" (voids) into blocks in the first place.
     ;
-    ; So make a lot of things like `first: (chain [:first :try])`
+    ; So make a lot of things like `first: (chain [:first :to-value])`
     ;
     for-each word [
         if unless either case
         while for-each loop repeat forall forskip
+        select pick
+        first second third fourth fifth sixth seventh eighth ninth tenth
     ][
         append system/contexts/user compose [
             (to-set-word word)
-            (chain compose [(to-get-word word) :try])
+            (chain compose [(to-get-word word) :to-value])
         ]
     ]
 
