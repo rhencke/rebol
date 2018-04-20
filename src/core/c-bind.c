@@ -646,3 +646,76 @@ void Virtual_Bind_Deep_To_New_Context(
     //
     ENSURE_ARRAY_MANAGED(CTX_VARLIST(c));
 }
+
+
+//
+//  Init_Interning_Binder: C
+//
+// The global "binding table" is actually now pieces of data that live on the
+// series nodes that store UTF-8 data for words.  This creates a mapping from
+// canon word spellings to signed integers.
+//
+// For the purposes of binding to the user and lib contexts relatively
+// quickly, this sets up that global binding table for all lib context words
+// at negative integers, and all user context words at positive ones.
+//
+void Init_Interning_Binder(struct Reb_Binder *binder)
+{
+    REBVAL *key;
+    REBINT index;
+
+    // Use positive numbers for all the keys in user context.
+    //
+    key = CTX_KEYS_HEAD(VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER)));
+    index = 1;
+    for (; NOT_END(key); ++key, ++index)
+        Add_Binder_Index(binder, VAL_KEY_CANON(key), index); // positives
+
+    // For all the keys that aren't in the user context but *are* in lib,
+    // use a negative index to locate its position in lib.  Its meaning can be
+    // "imported" from there to user, and adjusted in the binder to the new
+    // positive index.
+    //
+    key = CTX_KEYS_HEAD(Lib_Context);
+    index = 1;
+    for (; NOT_END(key); ++key, ++index) {
+        REBSTR *canon = VAL_KEY_CANON(key);
+        REBINT n = Get_Binder_Index_Else_0(binder, canon);
+        if (n == 0)
+            Add_Binder_Index(binder, canon, -index);
+    }
+}
+
+
+//
+//  Shutdown_Interning_Binder: C
+//
+// This will remove the bindings added in Init_Interning_Binder, along with
+// any other bindings which were incorporated along the way to positives.
+//
+void Shutdown_Interning_Binder(struct Reb_Binder *binder)
+{
+    REBVAL *key;
+    REBINT index;
+
+    // All of the user context keys should be positive, and removable
+    //
+    key = CTX_KEYS_HEAD(VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER)));
+    index = 1;
+    for (; NOT_END(key); ++key, ++index) {
+        REBINT n = Remove_Binder_Index_Else_0(binder, VAL_KEY_CANON(key));
+        assert(n == index);
+        UNUSED(n);
+    }
+
+    // The lib context keys may have been imported, so you won't necessarily
+    // find them in the list any more.
+    //
+    key = CTX_KEYS_HEAD(Lib_Context);
+    index = 1;
+    for (; NOT_END(key); ++key, ++index) {
+        REBINT n = Remove_Binder_Index_Else_0(binder, VAL_KEY_CANON(key));
+        assert(n == 0 || n == -index);
+        UNUSED(n);
+    }
+}

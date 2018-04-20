@@ -41,7 +41,7 @@
 //
 REBNATIVE(halt)
 {
-    UNUSED(frame_);
+    INCLUDE_PARAMS_OF_HALT;
 
     Move_Value(D_OUT, NAT_VALUE(halt));
     CONVERT_NAME_TO_THROWN(D_OUT, VOID_CELL);

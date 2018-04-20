@@ -253,6 +253,13 @@ typedef struct rebol_scan_state {
 
     REBFLGS opts;
     enum Reb_Token token;
+
+    // If the binder isn't NULL, then any words or arrays are bound into it
+    // during the loading process.
+    //
+    struct Reb_Binder *binder;
+    REBCTX *lib; // does not expand, has negative indices in binder
+    REBCTX *user; // expands, has positive indices in binder
 } SCAN_STATE;
 
 #define ANY_CR_LF_END(c) (!(c) || (c) == CR || (c) == LF)
@@ -261,7 +268,8 @@ enum {
     SCAN_FLAG_NEXT = 1 << 0, // load/next feature
     SCAN_FLAG_ONLY = 1 << 1, // only single value (no blocks)
     SCAN_FLAG_RELAX = 1 << 2, // no error throw
-    SCAN_FLAG_VOIDS_LEGAL = 1 << 3 // void splice ok in top level of rebRun()
+    SCAN_FLAG_VOIDS_LEGAL = 1 << 3, // void splice ok in top level of rebRun()
+    SCAN_FLAG_LOCK_SCANNED = 1 << 4  // lock series as they are loaded
 };
 
 

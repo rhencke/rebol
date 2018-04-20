@@ -410,24 +410,43 @@ int main(int argc, char *argv_ansi[])
 
     rebFree(startup);
 
-    // Bind the REPL and startup code into the lib context.
+    // Create a new context specifically for the console.  This way, changes
+    // to the user context should hopefully not affect it...e.g. if the user
+    // redefines PRINT in their script, the console should keep working.
     //
-    // !!! It's important not to load the REPL into user, because since it
-    // uses routines like PRINT to do it's I/O you (probably) don't want
-    // the REPL to get messed up if PRINT is redefined--for instance.  It
-    // should probably have its own context, which would entail a copy of
-    // every word in lib that it uses, but that mechanic hasn't been
-    // fully generalized--and might not be the right answer anyway.
+    // !!! In the API source here calling methods textually, the current way
+    // of insulating by using lib, e.g. `rebRun("lib/error?", ...)`, is still
+    // using *the user context's notion of `lib`*.  So if they said `lib: 10`
+    // then the console would die.  General API point to consider, as the
+    // design emerges.
     //
-    // Only add top-level words to the `lib' context
-    Bind_Values_Set_Midstream_Shallow(ARR_HEAD(array), Lib_Context);
+    REBCTX *console_ctx = Alloc_Context(REB_OBJECT, 80);
+    MANAGE_ARRAY(CTX_VARLIST(console_ctx)); // no guard needed, gets refs
 
-    // Bind all words to the `lib' context, but not adding any new words
+    // Bind words that can be found in lib context (don't add any new words)
+    //
+    // !!! Directly binding to lib means that the console *could* screw up and
+    // overwrite lib declarations.  It should probably import its own copy,
+    // just in case.  (Lib should also be protected by default)
+    //
     Bind_Values_Deep(ARR_HEAD(array), Lib_Context);
 
+    // Do two passes on the console context.  One to find SET-WORD!s at the
+    // top level and add them to the context, and another pass to deeply bind
+    // to those declarations.
+    //
+    Bind_Values_Set_Midstream_Shallow(ARR_HEAD(array), console_ctx);
+    Bind_Values_Deep(ARR_HEAD(array), console_ctx);
+
     // The new policy for source code in Ren-C is that it loads read only.
-    // This didn't go through the LOAD Rebol function (should it?  it
-    // never did before.)  For now, use simple binding but lock it.
+    // This didn't go through the LOAD Rebol function or anything like it, so
+    // go ahead and lock it manually.
+    //
+    // !!! This file is supposed to be based on libRebol APIs, and the method
+    // of creating a new context here is low level using the internal API.
+    // However the console context is created should ideally be done in a
+    // way that would work well for users, by leveraging modules or some other
+    // level of abstraction, where issues like this would be taken care of.
     //
     Deep_Freeze_Array(array);
 

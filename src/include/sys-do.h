@@ -380,24 +380,48 @@ detect_again:
             cast(const REBYTE*, p),
             f->source.vaptr
         );
-        ss.opts |= SCAN_FLAG_VOIDS_LEGAL; // only true for topmost level
 
-        // This scan may advance the va_list across several units,
-        // incorporating REBVALs into the scanned array as it goes.  It could
-        // stop when it completed just some tokens, e.g. it doesn't need to
-        // include `b` in the array here, it could stop at "]":
+        // !!! In the working definition, the "topmost level" of a variadic
+        // call is considered to be already evaluated...unless you ask to
+        // evaluate it further.  This is what allows `rebSpellingOf(v)` to
+        // work as well as `rebSpellingOf("first", v)`, the idea of "fetch" is
+        // the reading of the C variable V, and it would be a "double eval"
+        // if that v were a WORD! that then executed.
         //
-        //     rebRun("[", a, "]", b, END);
+        // Hence, voids are legal, because it's as if you said `first :v`
+        // with v being the C variable name.  However, this is not meaningful
+        // if the value winds up spliced into a block--so any voids in those
+        // cases are treated as errors.
         //
-        // But if scanning is to be done anyway to produce a REBARR*, it would
-        // be wasteful to create individual arrays for each string section,
-        // not to mention wasteful to repeat binding for each string.
+        // For the moment, this also cues automatic interning on the string
+        // runs...because if we did the binding here, all the strings would
+        // have become arrays, and be indistinguishable from the components
+        // that they were spliced in with.  So it would be too late to tell
+        // which elements came from strings and which were existing blocks
+        // from elsewhere.  This is not ideal, but it's just to start.
         //
-        // !!! There may be special "binding instructions" or otherwise, as
-        // well.  This is an area to be investigated, and tight integration
-        // between this code and the scanner may be needed.
+        ss.opts |= SCAN_FLAG_VOIDS_LEGAL | SCAN_FLAG_LOCK_SCANNED;
+
+        // !!! Current hack is to just allow one binder to be passed in for
+        // use binding any newly loaded portions (spliced ones are left with
+        // their bindings, though there may be special "binding instructions"
+        // or otherwise, that get added).
         //
-        Scan_To_Stack(&ss);
+        struct Reb_Binder binder;
+        Init_Interning_Binder(&binder);
+        ss.binder = &binder;
+        ss.user = VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER));
+        ss.lib = Lib_Context;
+
+        REBVAL *error = rebRescue(cast(REBDNG*, &Scan_To_Stack), &ss);
+        Shutdown_Interning_Binder(&binder);
+
+        if (error != NULL) {
+            REBCTX *error_ctx = VAL_CONTEXT(error);
+            rebRelease(error);
+            fail (error_ctx);
+        }
+
         f->source.vaptr = NULL; // !!! for now, assume scan went to the end
 
         if (DSP == dsp_orig) {
@@ -413,42 +437,6 @@ detect_again:
         }
 
         REBARR *a = Pop_Stack_Values_Keep_Eval_Flip(dsp_orig);
-
-        // !!! Binding for rebRun() is a very complex thing.  One question is
-        // how the string runs are bound.  Another is how to deal with values
-        // spliced into string runs...how do they signal to keep their
-        // binding?  With the scanner being a black box here as it is, there's
-        // no way to discern spliced in values from those created from
-        // string runs.  As proof of concept for the moment, run everything
-        // through a console-like binding...which is *not* a solution.
-        //
-        // https://forum.rebol.info/t/how-r3-alpha-console-binding-worked/534
-        //
-        REBCTX *user_context = VAL_CONTEXT(
-            Get_System(SYS_CONTEXTS, CTX_USER)
-        );
-        DECLARE_LOCAL (vali);
-        Init_Integer(vali, CTX_LEN(user_context) + 1);
-        Bind_Values_All_Deep(ARR_HEAD(a), user_context);
-        const REBOOL all = FALSE;
-        const REBOOL expand = FALSE;
-        Resolve_Context(user_context, Lib_Context, vali, all, expand);
-
-        // Lock any series which were source-level and came from text runs
-        //
-        // !!! We hackily determine this with VALUE_FLAG_EVAL_FLIP since we
-        // know all text runs had them, but it could also come from rebEval()
-        //
-        RELVAL *item = ARR_HEAD(a);
-        for (; NOT_END(item); ++item) {
-            if (NOT_VAL_FLAG(item, VALUE_FLAG_EVAL_FLIP))
-                continue;
-
-            if (ANY_ARRAY(item))
-                Deep_Freeze_Array(VAL_ARRAY(item));
-            else if (ANY_SERIES(item))
-                Freeze_Sequence(VAL_SERIES(item));
-        }
 
         // !!! We really should be able to free this array without managing it
         // when we're done with it, though that can get a bit complicated if

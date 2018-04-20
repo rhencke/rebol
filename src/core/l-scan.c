@@ -1698,6 +1698,8 @@ void Init_Va_Scan_State_Core(
 
     ss->opts = 0;
 
+    ss->binder = NULL;
+
 #if !defined(NDEBUG)
     ss->token = TOKEN_MAX;
 #endif
@@ -1737,6 +1739,8 @@ void Init_Scan_State(
 
     ss->file = file;
     ss->opts = 0;
+
+    ss->binder = NULL;
 
 #if !defined(NDEBUG)
     ss->token = TOKEN_MAX;
@@ -2211,6 +2215,47 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             panic ("Invalid TOKEN in Scanner.");
         }
 
+        // !!! If there is a binder in effect, we also bind the item while
+        // we have loaded it.  For now, assume any negative numbers are into
+        // the lib context (which we do not expand) and any positive numbers
+        // are into the user context (which we will expand).
+        //
+        if (ss->binder != NULL && ANY_WORD(DS_TOP)) {
+            REBSTR *canon = VAL_WORD_CANON(DS_TOP);
+            REBINT n = Get_Binder_Index_Else_0(ss->binder, canon);
+            if (n > 0) {
+                //
+                // Exists in user context at the given positive index.
+                //
+                INIT_WORD_CONTEXT(DS_TOP, ss->user);
+                INIT_WORD_INDEX(DS_TOP, n);
+            }
+            else if (n < 0) {
+                //
+                // Index is the negative of where the value exists in lib.
+                // A proxy needs to be imported from lib to user.
+                //
+                Expand_Context(ss->user, 1);
+                Move_Value(
+                    Append_Context(ss->user, DS_TOP, 0),
+                    CTX_VAR(ss->lib, -n) // -n is positive
+                );
+                REBINT check = Remove_Binder_Index_Else_0(ss->binder, canon);
+                assert(check == n); // n is negative
+                UNUSED(check);
+                Add_Binder_Index(ss->binder, canon, VAL_WORD_INDEX(DS_TOP));
+            }
+            else {
+                // Doesn't exist in either lib or user, create a new binding
+                // in user (this is not the preferred behavior for modules
+                // and isolation, but going with it for the API for now).
+                //
+                Expand_Context(ss->user, 1);
+                Append_Context(ss->user, DS_TOP, 0);
+                Add_Binder_Index(ss->binder, canon, VAL_WORD_INDEX(DS_TOP));
+            }
+        }
+
         // Check for end of path:
         if (ss->mode_char == '/') {
             if (*ep != '/')
@@ -2259,14 +2304,12 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             if (ss->token == TOKEN_LIT) {
                 VAL_RESET_HEADER(DS_TOP, REB_LIT_PATH);
                 VAL_SET_TYPE_BITS(ARR_HEAD(array), REB_WORD);
-                assert(IS_WORD_UNBOUND(ARR_HEAD(array)));
             }
             else if (IS_GET_WORD(ARR_HEAD(array))) {
                 if (*ss->end == ':')
                     fail (Error_Syntax(ss));
                 VAL_RESET_HEADER(DS_TOP, REB_GET_PATH);
                 VAL_SET_TYPE_BITS(ARR_HEAD(array), REB_WORD);
-                assert(IS_WORD_UNBOUND(ARR_HEAD(array)));
             }
             else {
                 if (*ss->end == ':') {
@@ -2281,16 +2324,6 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             ss->token = TOKEN_PATH;
         }
 
-        // Set the newline on the new value, indicating molding should put a
-        // line break *before* this value (needs to be done after recursion to
-        // process paths or other arrays...because the newline belongs on the
-        // whole array...not the first element of it).
-        //
-        if (ss->newline_pending) {
-            ss->newline_pending = FALSE;
-            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
-        }
-
         // If we get to this point, it means that the value came from UTF-8
         // source data--it was not "spliced" out of the variadic as a plain
         // value.  From the API's point of view, such runs of UTF-8 are
@@ -2302,6 +2335,25 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         // arrays which are internally held by the evaluator)
         //
         SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
+
+        // Lock any series which were source-level and came from text runs
+        //
+        if (ss->opts & SCAN_FLAG_LOCK_SCANNED) {
+            if (ANY_ARRAY(DS_TOP))
+                Deep_Freeze_Array(VAL_ARRAY(DS_TOP));
+            else if (ANY_SERIES(DS_TOP))
+                Freeze_Sequence(VAL_SERIES(DS_TOP));
+        }
+
+        // Set the newline on the new value, indicating molding should put a
+        // line break *before* this value (needs to be done after recursion to
+        // process paths or other arrays...because the newline belongs on the
+        // whole array...not the first element of it).
+        //
+        if (ss->newline_pending) {
+            ss->newline_pending = FALSE;
+            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+        }
 
         // Added for TRANSCODE/NEXT (LOAD/NEXT is deprecated, see #1703)
         //

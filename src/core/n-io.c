@@ -153,10 +153,11 @@ REBNATIVE(write_stdout)
         REBSIZ offset;
         REBSIZ size;
         REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
+        PUSH_GUARD_SERIES(temp);
 
         Prin_OS_String(BIN_AT(temp, offset), size, OPT_ENC_0);
 
-        // let temp string GC
+        DROP_GUARD_SERIES(temp);
     }
 
     return R_VOID;

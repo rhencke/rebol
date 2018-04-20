@@ -172,8 +172,12 @@ void Debug_String(const REBYTE *utf8, REBSIZ size)
     REBOOL disabled = GC_Disabled;
     GC_Disabled = TRUE;
 
+  #ifdef DEBUG_STDIO_OK
+    printf("%.*s\n", size, utf8); // https://stackoverflow.com/a/2239571
+  #else
     Prin_OS_String(utf8, size, OPT_ENC_0);
     Print_OS_Line();
+  #endif
 
     assert(GC_Disabled == TRUE);
     GC_Disabled = disabled;
