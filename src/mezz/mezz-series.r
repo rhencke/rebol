@@ -299,7 +299,7 @@ reword: function [
                 ; match necessarily happened, as the enclosing rule may have
                 ; a `suffix` left to take into account.
                 ;
-                as group! compose [keyword-match: quote (keyword)]
+                compose quote (keyword-match: quote (keyword))
             ]
 
             keep [

@@ -43,6 +43,11 @@ probe: func [
 ]
 
 
+; COMPOSE specializes CONCOCT; add help via REDESCRIBE later
+;
+compose: specialize 'concoct [pattern: quote ()]
+
+
 ; Words for BLANK! and BAR! and void, for those who don't like symbols
 
 blank: _

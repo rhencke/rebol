@@ -567,9 +567,9 @@ load-ext-module: function [
                 "Equivalent rebol code"
             <static>
             index (-1)
-        ] compose [
+        ] concoct (()) [
             index: index + 1
-            f: load-native/(all [body 'body])/(all [unloadable 'unloadable]) spec (impl) index :code
+            f: load-native/(all [body 'body])/(all [unloadable 'unloadable]) spec ((impl)) index :code
             :f
         ]
     ]

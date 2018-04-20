@@ -1116,6 +1116,43 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
+        ; R3-Alpha's COMPOSE would only compose BLOCK!s.  Other types would
+        ; evaluate to themselves.  That's limiting, compared to allowing
+        ; `compose quote (a (1 + 2) b)` to give back `(a 3 b)`, or
+        ; `compose quote a/(1 + 2)/b` to give back `a/3/b`
+        ;
+        ; Also: whether people knew it or not, a /DEEP walk would not recurse
+        ; into groups in PATH!s.  It isn't clear whether that was an oversight
+        ; from a time before groups were allowed in paths or intentional, but
+        ; Ren-C does recurse into paths.  CONCOCT can be used with more wily
+        ; patterns if a GROUP! in an ANY-PATH! is to be left untouched.
+        ;
+        compose: (function [
+            {Evaluates only GROUP!s in a block of expressions.}
+            value
+                "Block to compose, all other values return themselves"
+            /deep
+                "Compose nested BLOCK!s (ANY-PATH! not considered)"
+            /only
+                {Insert a block as a single value (not contents of the block)}
+            /into
+                {Output results into a series with no intermediate storage}
+            out [any-array! any-string! binary!]
+        ][
+            either* block? :value [
+                apply 'concoct [
+                    pattern: quote ()
+                    value: :value
+                    deep: deep
+                    only: only
+                    into: into
+                    out: :out
+                ]
+            ][
+                :value
+            ]
+        ])
+
         append: (adapt 'append [
             if map? series [
                 if block? :value [

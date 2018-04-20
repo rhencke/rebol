@@ -54,3 +54,20 @@
     for-each i b [sum: me + i]
     sum = 32768
 )
+
+
+; Beginning CONCOCT tests (Note: COMPOSE is a specialization of CONCOCT, so
+; it gets tested there too)
+
+(
+    [(1 + 2) 3] = concoct (()) [(1 + 2) ((1 + 2))]
+)
+(
+    quote ([1 + 2] 3) = concoct [[]] quote ([1 + 2] [[1 + 2]])
+)
+(
+    'a/(b)/3/c = concoct (()) 'a/(b)/((1 + 2))/c
+)
+(
+    [(a b c) [((d) 1 + 2)]] = concoct/deep (()) [(a (('b)) c) [((d) 1 + 2)]]
+)

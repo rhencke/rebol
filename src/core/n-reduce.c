@@ -179,6 +179,54 @@ REBNATIVE(reduce)
 }
 
 
+// R3-Alpha only COMPOSE'd GROUP!s.  This allows for more flexible choices,
+// by giving delimiter patterns for substitutions.
+//
+static inline const RELVAL *Match_For_Compose(
+    REBSPC **specifier_out,
+    const RELVAL *value,
+    const RELVAL *pattern,
+    REBSPC *specifier
+){
+    assert(IS_GROUP(pattern) || IS_BLOCK(pattern));
+
+    if (VAL_TYPE(value) != VAL_TYPE(pattern))
+        return NULL;
+
+    RELVAL *p = VAL_ARRAY_AT(pattern);
+    if (IS_END(p)) {
+        *specifier_out = Derive_Specifier(specifier, value);
+        return value; // e.g. () matching (a b c)
+    }
+
+    RELVAL *v = VAL_ARRAY_AT(value);
+    if (IS_END(v))
+        return NULL; // e.g. (()) can't match ()
+
+    if (NOT(ANY_ARRAY(p)) || NOT_END(p + 1)) {
+        //
+        // !!! Today's patterns are a bit limited, since there is no DO/PART
+        // the situation is: `[** you can't stop at a terminal sigil -> **]`
+        //
+        fail ("Bad CONCOCT Pattern, currently must be like (([()]))");
+    }
+
+    if (NOT(ANY_ARRAY(v)) || NOT_END(v + 1))
+        return NULL; // e.g. (()) can't match (() a b c)
+
+    // Due to the nature of the matching, cycles in this recursion *shouldn't*
+    // matter...if both the pattern and the value are cyclic, they'll still
+    // either match or not.
+    //
+    return Match_For_Compose(
+        specifier_out,
+        v,
+        p,
+        Derive_Specifier(specifier, v)
+    );
+}
+
+
 //
 //  Compose_Any_Array_Throws: C
 //
@@ -194,6 +242,7 @@ REBNATIVE(reduce)
 REBOOL Compose_Any_Array_Throws(
     REBVAL *out,
     const REBVAL *any_array,
+    const REBVAL *pattern,
     REBOOL deep,
     REBOOL only,
     REBOOL into
@@ -208,16 +257,24 @@ REBOOL Compose_Any_Array_Throws(
 
     while (FRM_HAS_MORE(f)) {
         REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_LINE);
-        if (IS_GROUP(f->value)) {
+
+        REBSPC *match_specifier;
+        const RELVAL *match = Match_For_Compose(
+            &match_specifier,
+            f->value,
+            pattern,
+            f->specifier
+        );
+
+        if (match != NULL) {
             //
             // Evaluate the GROUP! at current position into `composed` cell.
             //
-            REBSPC *derived = Derive_Specifier(f->specifier, f->value);
             if (Do_At_Throws(
                 composed,
-                VAL_ARRAY(f->value),
-                VAL_INDEX(f->value),
-                derived
+                VAL_ARRAY(match),
+                VAL_INDEX(match),
+                match_specifier
             )){
                 Move_Value(out, composed);
                 DS_DROP_TO(dsp_orig);
@@ -261,7 +318,14 @@ REBOOL Compose_Any_Array_Throws(
             }
         }
         else if (deep) {
-            if (IS_BLOCK(f->value)) {
+            //
+            // Historically, ANY-PATH! was not seen as a candidate for /DEEP
+            // traversal.  GROUP! was not a possibility (as it was always
+            // composed).  With generalized CONCOCT, it is possible for those
+            // who wish to leave GROUP! in PATH! untouched to do so--and more
+            // obvious to treat all ANY-ARRAY! types equal.
+            //
+            if (ANY_ARRAY(f->value)) {
                 //
                 // compose/deep [does [(1 + 2)] nested] => [does [3] nested]
 
@@ -270,6 +334,7 @@ REBOOL Compose_Any_Array_Throws(
                 if (Compose_Any_Array_Throws(
                     composed,
                     specific,
+                    pattern,
                     TRUE,
                     only,
                     into
@@ -335,33 +400,29 @@ REBOOL Compose_Any_Array_Throws(
 
 
 //
-//  compose: native [
+//  concoct: native [
 //
-//  {Evaluates only the GROUP!s in a block of expressions, returning a block.}
+//  {Evaluates only contents of pattern-delimited expressions in an array.}
 //
-//      value
-//          "Block to compose (or any other type evaluates to itself)"
-//                                          ; ^-- is this sensible?
+//      return: [any-array!]
+//      :pattern [group! block!]
+//          "Pattern like (([()])), to recognize and do evaluations for"
+//      value [any-array!]
+//          "Array to compose"
 //      /deep
-//          "Compose nested blocks"
+//          "Compose nested BLOCK!s and GROUP!s (ANY-PATH! not considered)"
 //      /only
-//          {Insert a block as a single value (not the contents of the block)}
+//          {Insert BLOCK!s as a single value (not the contents of the block)}
 //      /into
 //          {Output results into a series with no intermediate storage}
 //      out [any-array! any-string! binary!]
 //  ]
 //
-REBNATIVE(compose)
+REBNATIVE(concoct)
+//
+// Note: COMPOSE is a specialization of CONCOCT where the pattern is ()
 {
-    INCLUDE_PARAMS_OF_COMPOSE;
-
-    // !!! Should 'compose quote (a (1 + 2) b)' give back '(a 3 b)' ?
-    // What about 'compose quote a/(1 + 2)/b' ?
-    //
-    if (!IS_BLOCK(ARG(value))) {
-        Move_Value(D_OUT, ARG(value));
-        return R_OUT;
-    }
+    INCLUDE_PARAMS_OF_CONCOCT;
 
     // Compose_Values_Throws() expects `out` to contain the target if it is
     // passed TRUE as the `into` flag.
@@ -374,6 +435,7 @@ REBNATIVE(compose)
     if (Compose_Any_Array_Throws(
         D_OUT,
         ARG(value),
+        ARG(pattern),
         REF(deep),
         REF(only),
         REF(into)

@@ -9,25 +9,25 @@
 
 ;; encode-lines
 
-(quote {**^/} = encode-lines copy {} {**} {  })
-(quote {**  x^/} = encode-lines copy {x} {**} {  })
-(quote {**  x^/**^/} = encode-lines copy {x^/} {**} {  })
-(quote {**^/**  x^/} = encode-lines copy {^/x} {**} {  })
-(quote {**^/**  x^/**^/} = encode-lines copy {^/x^/} {**} {  })
-(quote {**  x^/**    y^/**      z^/} = encode-lines copy {x^/  y^/    z} {**} {  })
-(quote "**^/**^/**^/" = encode-lines copy {^/^/} {**} {  })
+({**^/} = encode-lines copy {} {**} {  })
+({**  x^/} = encode-lines copy {x} {**} {  })
+({**  x^/**^/} = encode-lines copy {x^/} {**} {  })
+({**^/**  x^/} = encode-lines copy {^/x} {**} {  })
+({**^/**  x^/**^/} = encode-lines copy {^/x^/} {**} {  })
+({**  x^/**    y^/**      z^/} = encode-lines copy {x^/  y^/    z} {**} {  })
+("**^/**^/**^/" = encode-lines copy {^/^/} {**} {  })
 
 ;; decode-lines
 
-(quote {} = decode-lines copy {} {**} {} )
-(quote {} = decode-lines copy {**^/} {**} {  } )
-(quote {x} = decode-lines copy {**  x^/} {**} {  } )
-(quote {x^/} = decode-lines copy {**  x^/**^/} {**} {  } )
-(quote {^/x} = decode-lines copy {**^/**  x^/} {**} {  } )
-(quote {^/x^/} = decode-lines copy {**^/**  x^/**^/} {**} {  } )
-(quote {x^/  y^/    z} = decode-lines copy {**  x^/**    y^/**      z^/} {**} {  } )
-(quote {^/^/} = decode-lines copy "**^/**  ^/**^/" {**} {  })
-(quote {^/^/} = decode-lines copy "**^/**^/**^/" {**} {  })
+({} = decode-lines copy {} {**} {} )
+({} = decode-lines copy {**^/} {**} {  } )
+({x} = decode-lines copy {**  x^/} {**} {  } )
+({x^/} = decode-lines copy {**  x^/**^/} {**} {  } )
+({^/x} = decode-lines copy {**^/**  x^/} {**} {  } )
+({^/x^/} = decode-lines copy {**^/**  x^/**^/} {**} {  } )
+({x^/  y^/    z} = decode-lines copy {**  x^/**    y^/**      z^/} {**} {  } )
+({^/^/} = decode-lines copy "**^/**  ^/**^/" {**} {  })
+({^/^/} = decode-lines copy "**^/**^/**^/" {**} {  })
 
 ;; lines-exceeding
 

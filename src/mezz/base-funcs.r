@@ -488,6 +488,10 @@ redescribe [
     {Define an action with set-words as locals, that doesn't return a value.}
 ] :procedure
 
+redescribe [
+    {Evaluates only the GROUP!s in an array of expressions.}
+] :compose
+
 
 default*: enfix redescribe [
     {Would be the same as DEFAULT/ONLY if paths could dispatch infix}
