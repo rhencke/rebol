@@ -109,7 +109,7 @@ REBARR *List_Func_Typesets(REBVAL *func)
         // bits.  This may not be desirable over the long run (what if
         // a typeset wishes to encode hiddenness, protectedness, etc?)
         //
-        VAL_RESET_HEADER(value, REB_TYPESET);
+        RESET_VAL_HEADER(value, REB_TYPESET);
     }
 
     return array;
@@ -625,7 +625,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     if (TRUE) {
         RELVAL *dest = ARR_HEAD(paramlist); // canon function value
-        VAL_RESET_HEADER(dest, REB_FUNCTION);
+        RESET_VAL_HEADER(dest, REB_FUNCTION);
         SET_VAL_FLAGS(dest, header_bits);
         dest->payload.function.paramlist = paramlist;
         INIT_BINDING(dest, UNBOUND);
@@ -746,7 +746,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         INIT_CTX_KEYLIST_SHARED(CTX(types_varlist), paramlist);
 
         REBVAL *dest = SINK(ARR_HEAD(types_varlist)); // "rootvar"
-        VAL_RESET_HEADER(dest, REB_FRAME);
+        RESET_VAL_HEADER(dest, REB_FRAME);
         dest->payload.any_context.varlist = types_varlist; // canon FRAME!
         dest->payload.any_context.phase = FUN(paramlist);
         INIT_BINDING(dest, UNBOUND);
@@ -817,7 +817,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         INIT_CTX_KEYLIST_SHARED(CTX(notes_varlist), paramlist);
 
         REBVAL *dest = SINK(ARR_HEAD(notes_varlist)); // "rootvar"
-        VAL_RESET_HEADER(dest, REB_FRAME);
+        RESET_VAL_HEADER(dest, REB_FRAME);
         dest->payload.any_context.varlist = notes_varlist; // canon FRAME!
         dest->payload.any_context.phase = FUN(paramlist);
         INIT_BINDING(dest, UNBOUND);
@@ -1124,7 +1124,7 @@ REBCTX *Make_Expired_Frame_Ctx_Managed(REBFUN *func)
     MANAGE_ARRAY(varlist);
 
     RELVAL *rootvar = ARR_SINGLE(varlist);
-    VAL_RESET_HEADER(rootvar, REB_FRAME);
+    RESET_VAL_HEADER(rootvar, REB_FRAME);
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = func;
     INIT_BINDING(rootvar, UNBOUND); // !!! is a binding relevant?
@@ -1195,7 +1195,7 @@ REBARR *Get_Maybe_Fake_Func_Body(REBOOL *is_fake, const REBVAL *func)
         RELVAL *slot = ARR_AT(fake_body, body_index); // #BODY
         assert(IS_ISSUE(slot));
 
-        VAL_RESET_HEADER_EXTRA(slot, REB_GROUP, 0); // clear VAL_FLAG_LINE
+        RESET_VAL_HEADER_EXTRA(slot, REB_GROUP, 0); // clear VAL_FLAG_LINE
         INIT_VAL_ARRAY(slot, VAL_ARRAY(VAL_FUNC_BODY(func)));
         VAL_INDEX(slot) = 0;
         INIT_BINDING(slot, VAL_FUNC(func)); // relative binding
@@ -1317,7 +1317,7 @@ REBFUN *Make_Interpreted_Function_May_Fail(
     // relative to a function.  (Init_Block assumes all specific values.)
     //
     RELVAL *body = FUNC_BODY(fun);
-    VAL_RESET_HEADER(body, REB_BLOCK);
+    RESET_VAL_HEADER(body, REB_BLOCK);
     INIT_VAL_ARRAY(body, body_array);
     VAL_INDEX(body) = 0;
     INIT_BINDING(body, fun); // relative binding
@@ -1384,7 +1384,7 @@ void Make_Frame_For_Function(
     );
 
     REBVAL *rootvar = SINK(ARR_HEAD(varlist));
-    VAL_RESET_HEADER(rootvar, REB_FRAME);
+    RESET_VAL_HEADER(rootvar, REB_FRAME);
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = func;
     INIT_BINDING(rootvar, VAL_BINDING(value));

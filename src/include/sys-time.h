@@ -123,7 +123,7 @@
     SEC_TIME(cast(REBI64, SECS_IN_DAY))
 
 inline static void Init_Time_Nanoseconds(RELVAL *v, REBI64 nanoseconds) {
-    VAL_RESET_HEADER(v, REB_TIME);
+    RESET_VAL_HEADER(v, REB_TIME);
     VAL_NANO(v) = nanoseconds;
 }
 

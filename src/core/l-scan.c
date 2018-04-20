@@ -2012,7 +2012,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 fail (Error_Syntax(ss));
 
             if (bp[len - 1] == '%') {
-                VAL_RESET_HEADER(DS_TOP, REB_PERCENT);
+                RESET_VAL_HEADER(DS_TOP, REB_PERCENT);
                 VAL_DECIMAL(DS_TOP) /= 100.0;
             }
             break;
@@ -2066,7 +2066,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             bp += 2; // skip #", and subtract 1 from ep for "
             if (ep - 1 != Scan_UTF8_Char_Escapable(&VAL_CHAR(DS_TOP), bp))
                 fail (Error_Syntax(ss));
-            VAL_RESET_HEADER(DS_TOP, REB_CHAR);
+            RESET_VAL_HEADER(DS_TOP, REB_CHAR);
             break;
 
         case TOKEN_STRING: {
@@ -2302,22 +2302,22 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             DS_PUSH_TRASH; // now push a path to take the stolen token's place
 
             if (ss->token == TOKEN_LIT) {
-                VAL_RESET_HEADER(DS_TOP, REB_LIT_PATH);
+                RESET_VAL_HEADER(DS_TOP, REB_LIT_PATH);
                 VAL_SET_TYPE_BITS(ARR_HEAD(array), REB_WORD);
             }
             else if (IS_GET_WORD(ARR_HEAD(array))) {
                 if (*ss->end == ':')
                     fail (Error_Syntax(ss));
-                VAL_RESET_HEADER(DS_TOP, REB_GET_PATH);
+                RESET_VAL_HEADER(DS_TOP, REB_GET_PATH);
                 VAL_SET_TYPE_BITS(ARR_HEAD(array), REB_WORD);
             }
             else {
                 if (*ss->end == ':') {
-                    VAL_RESET_HEADER(DS_TOP, REB_SET_PATH);
+                    RESET_VAL_HEADER(DS_TOP, REB_SET_PATH);
                     ss->begin = ++ss->end;
                 }
                 else
-                    VAL_RESET_HEADER(DS_TOP, REB_PATH);
+                    RESET_VAL_HEADER(DS_TOP, REB_PATH);
             }
             INIT_VAL_ARRAY(DS_TOP, array);
             VAL_INDEX(DS_TOP) = 0;

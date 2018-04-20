@@ -721,7 +721,7 @@ static void Return_Gob_Pair(REBVAL *out, REBGOB *gob, REBD32 x, REBD32 y)
     SET_GOB(Alloc_Tail_Array(blk), gob);
 
     REBVAL *val = Alloc_Tail_Array(blk);
-    VAL_RESET_HEADER(val, REB_PAIR);
+    RESET_VAL_HEADER(val, REB_PAIR);
     VAL_PAIR_X(val) = x;
     VAL_PAIR_Y(val) = y;
 }
@@ -975,7 +975,7 @@ REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         if (index >= tail) return R_BLANK;
 
         gob = *GOB_AT(gob, index);
-        VAL_RESET_HEADER(pvs->out, REB_GOB);
+        RESET_VAL_HEADER(pvs->out, REB_GOB);
         VAL_GOB(pvs->out) = gob;
         VAL_GOB_INDEX(pvs->out) = 0;
         return R_OUT;
@@ -1183,7 +1183,7 @@ REBTYPE(Gob)
             return R_BLANK;
 
         if (NOT(REF(part))) { // just one value
-            VAL_RESET_HEADER(D_OUT, REB_GOB);
+            RESET_VAL_HEADER(D_OUT, REB_GOB);
             VAL_GOB(D_OUT) = *GOB_AT(gob, index);
             VAL_GOB_INDEX(D_OUT) = 0;
             Remove_Gobs(gob, index, 1);
@@ -1227,7 +1227,7 @@ REBTYPE(Gob)
     fail (Error_Illegal_Action(REB_GOB, action));
 
 set_index:
-    VAL_RESET_HEADER(D_OUT, REB_GOB);
+    RESET_VAL_HEADER(D_OUT, REB_GOB);
     VAL_GOB(D_OUT) = gob;
     VAL_GOB_INDEX(D_OUT) = index;
     return R_OUT;

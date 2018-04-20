@@ -117,7 +117,7 @@ REBOOL almost_equal(REBDEC a, REBDEC b, REBCNT max_diff) {
 //
 REBVAL *Init_Decimal_Bits(RELVAL *out, const REBYTE *bp)
 {
-    VAL_RESET_HEADER(out, REB_DECIMAL);
+    RESET_VAL_HEADER(out, REB_DECIMAL);
 
     REBYTE *dp = cast(REBYTE*, &VAL_DECIMAL(out));
 
@@ -187,7 +187,7 @@ void MAKE_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             fail (Error_Invalid(arg));
 
         Init_Decimal_Bits(out, VAL_BIN_AT(arg));
-        VAL_RESET_HEADER(out, kind);
+        RESET_VAL_HEADER(out, kind);
         d = VAL_DECIMAL(out);
         break;
 
@@ -237,7 +237,7 @@ dont_divide_if_percent:
     if (!FINITE(d))
         fail (Error_Overflow_Raw());
 
-    VAL_RESET_HEADER(out, kind);
+    RESET_VAL_HEADER(out, kind);
     VAL_DECIMAL(out) = d;
     return;
 
@@ -498,7 +498,7 @@ REBTYPE(Decimal)
 
             d1 = Round_Dec(d1, flags, Dec64(arg));
             if (IS_INTEGER(arg)) {
-                VAL_RESET_HEADER(D_OUT, REB_INTEGER);
+                RESET_VAL_HEADER(D_OUT, REB_INTEGER);
                 VAL_INT64(D_OUT) = cast(REBI64, d1);
                 return R_OUT;
             }
@@ -541,7 +541,7 @@ REBTYPE(Decimal)
 setDec:
     if (!FINITE(d1)) fail (Error_Overflow_Raw());
 
-    VAL_RESET_HEADER(D_OUT, type);
+    RESET_VAL_HEADER(D_OUT, type);
     VAL_DECIMAL(D_OUT) = d1;
 
     return R_OUT;

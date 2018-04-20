@@ -316,7 +316,7 @@ REBNATIVE(typechecker)
     REBARR *paramlist = Make_Array_Core(2, ARRAY_FLAG_PARAMLIST);
 
     REBVAL *archetype = Alloc_Tail_Array(paramlist);
-    VAL_RESET_HEADER(archetype, REB_FUNCTION);
+    RESET_VAL_HEADER(archetype, REB_FUNCTION);
     archetype->payload.function.paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
 
@@ -544,7 +544,7 @@ REBNATIVE(adapt)
     REBARR *adaptation = Make_Array(2);
 
     REBVAL *block = Alloc_Tail_Array(adaptation);
-    VAL_RESET_HEADER(block, REB_BLOCK);
+    RESET_VAL_HEADER(block, REB_BLOCK);
     INIT_VAL_ARRAY(block, prelude);
     VAL_INDEX(block) = 0;
     INIT_BINDING(block, underlying); // relative binding
@@ -552,7 +552,7 @@ REBNATIVE(adapt)
     Append_Value(adaptation, adaptee);
 
     RELVAL *body = FUNC_BODY(fun);
-    VAL_RESET_HEADER(body, REB_BLOCK);
+    RESET_VAL_HEADER(body, REB_BLOCK);
     INIT_VAL_ARRAY(body, adaptation);
     VAL_INDEX(body) = 0;
     INIT_BINDING(body, underlying); // relative binding

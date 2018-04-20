@@ -83,7 +83,7 @@ static void get_scalar(
         //
         // Note: The original code allowed this for STU_INACCESSIBLE(stu).
         //
-        VAL_RESET_HEADER(single, REB_STRUCT);
+        RESET_VAL_HEADER(single, REB_STRUCT);
         MANAGE_ARRAY(sub_stu);
         single->payload.structure.stu = sub_stu;
 
@@ -1342,7 +1342,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     MANAGE_ARRAY(schema);
     LINK(stu).schema = schema;
 
-    VAL_RESET_HEADER(out, REB_STRUCT);
+    RESET_VAL_HEADER(out, REB_STRUCT);
     out->payload.structure.stu = stu;
     if (raw_addr) {
         out->payload.structure.data

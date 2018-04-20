@@ -145,7 +145,7 @@ const REBYTE *Scan_Time(REBVAL *out, const REBYTE *cp, REBCNT len)
     else
         merid = '\0';
 
-    VAL_RESET_HEADER(out, REB_TIME);
+    RESET_VAL_HEADER(out, REB_TIME);
 
     if (part3 >= 0 || part4 < 0) { // HH:MM mode
         if (merid != '\0') {
@@ -530,7 +530,7 @@ REBTYPE(Time)
             case SYM_DIVIDE:
                 if (secs2 == 0) fail (Error_Zero_Divide_Raw());
                 //secs /= secs2;
-                VAL_RESET_HEADER(D_OUT, REB_DECIMAL);
+                RESET_VAL_HEADER(D_OUT, REB_DECIMAL);
                 VAL_DECIMAL(D_OUT) = (REBDEC)secs / (REBDEC)secs2;
                 return R_OUT;
 
@@ -669,13 +669,13 @@ REBTYPE(Time)
                         Dec64(arg) * SEC_SEC
                     );
                     VAL_DECIMAL(arg) /= SEC_SEC;
-                    VAL_RESET_HEADER(arg, REB_DECIMAL);
+                    RESET_VAL_HEADER(arg, REB_DECIMAL);
                     Move_Value(D_OUT, ARG(scale));
                     return R_OUT;
                 }
                 else if (IS_INTEGER(arg)) {
                     VAL_INT64(arg) = Round_Int(secs, 1, Int32(arg) * SEC_SEC) / SEC_SEC;
-                    VAL_RESET_HEADER(arg, REB_INTEGER);
+                    RESET_VAL_HEADER(arg, REB_INTEGER);
                     Move_Value(D_OUT, ARG(scale));
                     return R_OUT;
                 }
@@ -710,7 +710,7 @@ REBTYPE(Time)
 
 fixTime:
 setTime:
-    VAL_RESET_HEADER(D_OUT, REB_TIME);
+    RESET_VAL_HEADER(D_OUT, REB_TIME);
     VAL_NANO(D_OUT) = secs;
     return R_OUT;
 }

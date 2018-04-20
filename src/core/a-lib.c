@@ -945,7 +945,7 @@ REBVAL *RL_rebTimeHMS(
     Enter_Api();
 
     REBVAL *result = Alloc_Value();
-    VAL_RESET_HEADER(result, REB_TIME);
+    RESET_VAL_HEADER(result, REB_TIME);
     VAL_NANO(result) = SECS_TO_NANO(hour * 3600 + minute * 60 + second);
     return result;
 }
@@ -958,7 +958,7 @@ REBVAL *RL_rebTimeNano(long nanoseconds) {
     Enter_Api();
 
     REBVAL *result = Alloc_Value();
-    VAL_RESET_HEADER(result, REB_TIME);
+    RESET_VAL_HEADER(result, REB_TIME);
     VAL_NANO(result) = nanoseconds;
     return result;
 }
@@ -975,7 +975,7 @@ REBVAL *RL_rebDateYMD(
     Enter_Api();
 
     REBVAL *result = Alloc_Value();
-    VAL_RESET_HEADER(result, REB_DATE); // no time or time zone flags
+    RESET_VAL_HEADER(result, REB_DATE); // no time or time zone flags
     VAL_YEAR(result) = year;
     VAL_MONTH(result) = month;
     VAL_DAY(result) = day;
@@ -1001,7 +1001,7 @@ REBVAL *RL_rebDateTime(const REBVAL *date, const REBVAL *time)
     // the timezone bitfield in the date is ignored.
 
     REBVAL *result = Alloc_Value();
-    VAL_RESET_HEADER(result, REB_DATE);
+    RESET_VAL_HEADER(result, REB_DATE);
     SET_VAL_FLAG(result, DATE_FLAG_HAS_TIME);
     VAL_YEAR(result) = VAL_YEAR(date);
     VAL_MONTH(result) = VAL_MONTH(date);
@@ -1059,7 +1059,7 @@ int RL_rebEvent(REBEVT *evt)
     REBVAL *event = Append_Event();     // sets signal
 
     if (event) {                        // null if no room left in series
-        VAL_RESET_HEADER(event, REB_EVENT); // has more space, if needed
+        RESET_VAL_HEADER(event, REB_EVENT); // has more space, if needed
         event->extra.eventee = evt->eventee;
         event->payload.event.type = evt->type;
         event->payload.event.flags = evt->flags;
@@ -1350,7 +1350,7 @@ REBVAL *RL_rebInitDate(
     Enter_Api();
 
     REBVAL *result = Alloc_Value();
-    VAL_RESET_HEADER(result, REB_DATE);
+    RESET_VAL_HEADER(result, REB_DATE);
     VAL_YEAR(result) = year;
     VAL_MONTH(result) = month;
     VAL_DAY(result) = day;
@@ -1616,7 +1616,7 @@ REBVAL *RL_rebString(const char *utf8)
 REBVAL *RL_rebFile(const char *utf8)
 {
     REBVAL *result = rebString(utf8); // Enter_Api() called
-    VAL_RESET_HEADER(result, REB_FILE);
+    RESET_VAL_HEADER(result, REB_FILE);
     return result;
 }
 
@@ -1627,7 +1627,7 @@ REBVAL *RL_rebFile(const char *utf8)
 REBVAL *RL_rebTag(const char *utf8)
 {
     REBVAL *result = rebString(utf8);
-    VAL_RESET_HEADER(result, REB_TAG);
+    RESET_VAL_HEADER(result, REB_TAG);
     return result;
 }
 
@@ -1712,7 +1712,7 @@ REBVAL *RL_rebSizedWordW(const REBWCHAR *ucs2, REBCNT len)
 REBVAL *RL_rebFileW(const REBWCHAR *wstr)
 {
     REBVAL *result = rebStringW(wstr); // Enter_Api() called
-    VAL_RESET_HEADER(result, REB_FILE);
+    RESET_VAL_HEADER(result, REB_FILE);
     return result;
 }
 

@@ -88,7 +88,7 @@ REBCTX *Alloc_Context(enum Reb_Kind kind, REBCNT capacity)
     // are building which contains this context.
 
     REBVAL *rootvar = Alloc_Tail_Array(varlist);
-    VAL_RESET_HEADER(rootvar, kind);
+    RESET_VAL_HEADER(rootvar, kind);
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = NULL;
     INIT_BINDING(rootvar, UNBOUND);
@@ -858,7 +858,7 @@ REBCTX *Make_Selfish_Context_Detect(
     // context[0] is an instance value of the OBJECT!/PORT!/ERROR!/MODULE!
     //
     REBVAL *var = SINK(ARR_HEAD(varlist));
-    VAL_RESET_HEADER(var, kind);
+    RESET_VAL_HEADER(var, kind);
     var->payload.any_context.varlist = varlist;
     var->payload.any_context.phase = NULL;
     INIT_BINDING(var, UNBOUND);
@@ -1114,7 +1114,7 @@ REBCTX *Merge_Contexts_Selfish(REBCTX *parent1, REBCTX *parent2)
     // so review consequences.
     //
     REBVAL *rootvar = SINK(ARR_HEAD(varlist));
-    VAL_RESET_HEADER(rootvar, CTX_TYPE(parent1));
+    RESET_VAL_HEADER(rootvar, CTX_TYPE(parent1));
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = NULL;
     INIT_BINDING(rootvar, UNBOUND);

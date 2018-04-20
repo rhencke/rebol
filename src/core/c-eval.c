@@ -202,7 +202,7 @@ static inline void Link_Vararg_Param_To_Frame(REBFRM *f, REBOOL make) {
     // an ordinary array.
     //
     if (make) {
-        VAL_RESET_HEADER(f->arg, REB_VARARGS);
+        RESET_VAL_HEADER(f->arg, REB_VARARGS);
 
         // !!! Doesn't use INIT_BINDING() because that conservatively reifies,
         // and not only do we know we don't have to here, it would assert

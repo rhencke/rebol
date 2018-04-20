@@ -520,7 +520,7 @@ static void ffi_to_rebol(
         memcpy(SER_HEAD(REBYTE, data), ffi_rvalue, FLD_WIDE(top));
         MANAGE_SERIES(data);
 
-        VAL_RESET_HEADER(out, REB_STRUCT);
+        RESET_VAL_HEADER(out, REB_STRUCT);
         out->payload.structure.stu = stu;
         out->payload.structure.data = data;
         out->extra.struct_offset = 0;
@@ -1200,7 +1200,7 @@ REBFUN *Alloc_Ffi_Function_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     // Note: address may have moved if the array was resized.
     //
     RELVAL *rootparam = ARR_HEAD(paramlist);
-    VAL_RESET_HEADER(rootparam, REB_FUNCTION);
+    RESET_VAL_HEADER(rootparam, REB_FUNCTION);
     rootparam->payload.function.paramlist = paramlist;
     INIT_BINDING(rootparam, UNBOUND);
 

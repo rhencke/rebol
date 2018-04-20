@@ -128,7 +128,7 @@ inline static REBVAL *Init_Handle_Simple(
     void *pointer,
     REBUPT length
 ){
-    VAL_RESET_HEADER(out, REB_HANDLE);
+    RESET_VAL_HEADER(out, REB_HANDLE);
     out->extra.singular = NULL;
     out->payload.handle.data.pointer = pointer;
     out->payload.handle.length = length;
@@ -140,7 +140,7 @@ inline static REBVAL *Init_Handle_Cfunc(
     CFUNC *cfunc,
     REBUPT length
 ){
-    VAL_RESET_HEADER_EXTRA(out, REB_HANDLE, HANDLE_FLAG_CFUNC);
+    RESET_VAL_HEADER_EXTRA(out, REB_HANDLE, HANDLE_FLAG_CFUNC);
     out->extra.singular = NULL;
     out->payload.handle.data.cfunc = cfunc;
     out->payload.handle.length = length;
@@ -174,7 +174,7 @@ inline static void Init_Handle_Managed_Common(
     // series component.
     //
     TRASH_CELL_IF_DEBUG(out);
-    VAL_RESET_HEADER(out, REB_HANDLE);
+    RESET_VAL_HEADER(out, REB_HANDLE);
     out->extra.singular = singular;
     TRASH_POINTER_IF_DEBUG(out->payload.handle.data.pointer);
 }
@@ -189,9 +189,9 @@ inline static REBVAL *Init_Handle_Managed(
 
     // Leave the non-singular cfunc as trash; clients should not be using
     //
-    VAL_RESET_HEADER(out, REB_HANDLE);
+    RESET_VAL_HEADER(out, REB_HANDLE);
 
-    VAL_RESET_HEADER(ARR_HEAD(out->extra.singular), REB_HANDLE);
+    RESET_VAL_HEADER(ARR_HEAD(out->extra.singular), REB_HANDLE);
     ARR_HEAD(out->extra.singular)->payload.handle.data.pointer = pointer;
     return KNOWN(out);
 }
@@ -206,9 +206,9 @@ inline static REBVAL *Init_Handle_Managed_Cfunc(
 
     // Leave the non-singular cfunc as trash; clients should not be using
     //
-    VAL_RESET_HEADER_EXTRA(out, REB_HANDLE, HANDLE_FLAG_CFUNC);
+    RESET_VAL_HEADER_EXTRA(out, REB_HANDLE, HANDLE_FLAG_CFUNC);
     
-    VAL_RESET_HEADER_EXTRA(
+    RESET_VAL_HEADER_EXTRA(
         ARR_HEAD(out->extra.singular),
         REB_HANDLE,
         HANDLE_FLAG_CFUNC

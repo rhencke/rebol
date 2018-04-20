@@ -335,11 +335,11 @@ REBNATIVE(now)
         CLEAR_VAL_FLAGS(D_OUT, DATE_FLAG_HAS_TIME | DATE_FLAG_HAS_ZONE);
     }
     else if (REF(time)) {
-        VAL_RESET_HEADER(D_OUT, REB_TIME); // reset clears date flags
+        RESET_VAL_HEADER(D_OUT, REB_TIME); // reset clears date flags
     }
     else if (REF(zone)) {
         VAL_NANO(D_OUT) = VAL_ZONE(D_OUT) * ZONE_MINS * MIN_SEC;
-        VAL_RESET_HEADER(D_OUT, REB_TIME); // reset clears date flags
+        RESET_VAL_HEADER(D_OUT, REB_TIME); // reset clears date flags
     }
     else if (REF(weekday))
         n = Week_Day(VAL_DATE(D_OUT));

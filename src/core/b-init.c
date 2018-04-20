@@ -270,7 +270,7 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
         assert(n < REB_MAX);
 
         REBVAL *value = Append_Context(Lib_Context, KNOWN(word), NULL);
-        VAL_RESET_HEADER(value, REB_DATATYPE);
+        RESET_VAL_HEADER(value, REB_DATATYPE);
         VAL_TYPE_KIND(value) = cast(enum Reb_Kind, n);
         VAL_TYPE_SPEC(value) = VAL_ARRAY(ARR_AT(boot_typespecs, n - 1));
 

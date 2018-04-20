@@ -456,7 +456,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// VAL_RESET_HEADER clears out the header of *most* bits, setting it to a
+// RESET_VAL_HEADER clears out the header of *most* bits, setting it to a
 // new type.  The type takes up the full "rightmost" byte of the header,
 // despite the fact it only needs 6 bits.  However, the performance advantage
 // of not needing to mask to do VAL_TYPE() is worth it...also there may be a
@@ -478,7 +478,7 @@
 #define HEADERIZE_KIND(kind) \
     FLAGBYTE_RIGHT(kind)
 
-inline static REBVAL *VAL_RESET_HEADER_EXTRA_Core(
+inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     RELVAL *v,
     enum Reb_Kind kind,
     REBUPT extra
@@ -503,24 +503,24 @@ inline static REBVAL *VAL_RESET_HEADER_EXTRA_Core(
 }
 
 #if defined(DEBUG_CELL_WRITABILITY)
-    #define VAL_RESET_HEADER_EXTRA(v,kind,extra) \
-        VAL_RESET_HEADER_EXTRA_Core((v), (kind), (extra), __FILE__, __LINE__)
+    #define RESET_VAL_HEADER_EXTRA(v,kind,extra) \
+        RESET_VAL_HEADER_EXTRA_Core((v), (kind), (extra), __FILE__, __LINE__)
 #else
-    #define VAL_RESET_HEADER_EXTRA(v,kind,extra) \
-        VAL_RESET_HEADER_EXTRA_Core((v), (kind), (extra))
+    #define RESET_VAL_HEADER_EXTRA(v,kind,extra) \
+        RESET_VAL_HEADER_EXTRA_Core((v), (kind), (extra))
 #endif
 
-#define VAL_RESET_HEADER(v,kind) \
-    VAL_RESET_HEADER_EXTRA((v), (kind), 0)
+#define RESET_VAL_HEADER(v,kind) \
+    RESET_VAL_HEADER_EXTRA((v), (kind), 0)
 
 #ifdef DEBUG_TRACK_CELLS
     //
-    // VAL_RESET is a variant of VAL_RESET_HEADER_EXTRA that actually
+    // VAL_RESET is a variant of RESET_VAL_HEADER_EXTRA that actually
     // overwrites the payload with tracking information.  It should not be
     // used if the intent is to preserve the payload and extra, and is
     // wasteful if you're just going to overwrite them immediately afterward.
     //
-    inline static REBVAL *VAL_RESET_Debug(
+    inline static REBVAL *RESET_VAL_CELL_Debug(
         RELVAL *out,
         enum Reb_Kind kind,
         REBUPT extra,
@@ -528,20 +528,20 @@ inline static REBVAL *VAL_RESET_HEADER_EXTRA_Core(
         int line
     ){
     #ifdef DEBUG_CELL_WRITABILITY
-        VAL_RESET_HEADER_EXTRA_Core(out, kind, extra, file, line);
+        RESET_VAL_HEADER_EXTRA_Core(out, kind, extra, file, line);
     #else
-        VAL_RESET_HEADER_EXTRA(out, kind, extra);
+        RESET_VAL_HEADER_EXTRA(out, kind, extra);
     #endif
 
         TRACK_CELL_IF_DEBUG(out, file, line);
         return cast(REBVAL*, out);
     }
 
-    #define VAL_RESET(out,kind,extra) \
-        VAL_RESET_Debug((out), (kind), (extra), __FILE__, __LINE__)
+    #define RESET_VAL_CELL(out,kind,extra) \
+        RESET_VAL_CELL_Debug((out), (kind), (extra), __FILE__, __LINE__)
 #else
-    #define VAL_RESET(out,kind,extra) \
-       VAL_RESET_HEADER_EXTRA((out), (kind), (extra))
+    #define RESET_VAL_CELL(out,kind,extra) \
+       RESET_VAL_HEADER_EXTRA((out), (kind), (extra))
 #endif
 
 
@@ -934,14 +934,14 @@ inline static RELVAL *REL(REBVAL *v) {
 
 #ifdef NDEBUG
     inline static REBVAL *Init_Void(RELVAL *out) {
-        VAL_RESET(out, REB_MAX_VOID, VALUE_FLAG_FALSEY); // see "falsey" note
+        RESET_VAL_CELL(out, REB_MAX_VOID, VALUE_FLAG_FALSEY); // see "falsey" note
         return KNOWN(out);
     }
 #else
     inline static REBVAL *Init_Void_Debug(
         RELVAL *out, const char *file, int line
     ){
-        VAL_RESET_Debug(
+        RESET_VAL_CELL_Debug(
             out,
             REB_MAX_VOID,
             VALUE_FLAG_FALSEY, // see "falsey" note above
@@ -961,7 +961,8 @@ inline static RELVAL *REL(REBVAL *v) {
 // here just to make a note of the concept, and tag it via the callsites.
 //
 #define Init_Endish_Void(v) \
-    VAL_RESET((v), REB_MAX_VOID, VALUE_FLAG_FALSEY | VALUE_FLAG_UNEVALUATED)
+    RESET_VAL_CELL((v), REB_MAX_VOID, \
+        VALUE_FLAG_FALSEY | VALUE_FLAG_UNEVALUATED)
 
 #define IS_VOID_OR_FALSEY(v) \
     GET_VAL_FLAG((v), VALUE_FLAG_FALSEY)
@@ -989,19 +990,19 @@ inline static RELVAL *REL(REBVAL *v) {
 
 #ifdef NDEBUG
     inline static REBVAL *Init_Bar(RELVAL *out) {
-        VAL_RESET(out, REB_BAR, 0);
+        RESET_VAL_CELL(out, REB_BAR, 0);
         return KNOWN(out);
     }
 
     inline static REBVAL *Init_Lit_Bar(RELVAL *out) {
-        VAL_RESET(out, REB_LIT_BAR, 0);
+        RESET_VAL_CELL(out, REB_LIT_BAR, 0);
         return KNOWN(out);
     }
 #else
     inline static REBVAL *Init_Bar_Debug(
         RELVAL *out, const char *file, int line
     ){
-        VAL_RESET_Debug(out, REB_BAR, 0, file, line);
+        RESET_VAL_CELL_Debug(out, REB_BAR, 0, file, line);
         return KNOWN(out);
     }
 
@@ -1011,7 +1012,7 @@ inline static RELVAL *REL(REBVAL *v) {
     inline static REBVAL *Init_Lit_Bar_Debug(
         RELVAL *out, const char *file, int line
     ){
-        VAL_RESET_Debug(out, REB_LIT_BAR, 0, file, line);
+        RESET_VAL_CELL_Debug(out, REB_LIT_BAR, 0, file, line);
         return KNOWN(out);
     }
 
@@ -1051,11 +1052,11 @@ inline static RELVAL *REL(REBVAL *v) {
     c_cast(const REBVAL*, &PG_Blank_Value[0])
 
 #define Init_Blank(v) \
-    VAL_RESET((v), REB_BLANK, VALUE_FLAG_FALSEY)
+    RESET_VAL_CELL((v), REB_BLANK, VALUE_FLAG_FALSEY)
 
 #ifdef DEBUG_UNREADABLE_BLANKS
     #define Init_Unreadable_Blank(v) \
-        VAL_RESET((v), REB_BLANK, \
+        RESET_VAL_CELL((v), REB_BLANK, \
             VALUE_FLAG_FALSEY | BLANK_FLAG_UNREADABLE_DEBUG)
 
     inline static REBOOL IS_BLANK_RAW(const RELVAL *v) {
@@ -1092,7 +1093,7 @@ inline static RELVAL *REL(REBVAL *v) {
 
         if (NOT(v->header.bits & NODE_FLAG_FREE)) {
         #ifdef DEBUG_CELL_WRITABILITY
-            VAL_RESET_HEADER_EXTRA_Core(
+            RESET_VAL_HEADER_EXTRA_Core(
                 v,
                 REB_BLANK,
                 VALUE_FLAG_FALSEY | BLANK_FLAG_UNREADABLE_DEBUG,
@@ -1100,7 +1101,7 @@ inline static RELVAL *REL(REBVAL *v) {
                 line
             );
         #else
-            VAL_RESET_HEADER_EXTRA(
+            RESET_VAL_HEADER_EXTRA(
                 v,
                 REB_BLANK,
                 VALUE_FLAG_FALSEY | BLANK_FLAG_UNREADABLE_DEBUG
@@ -1170,7 +1171,7 @@ inline static RELVAL *REL(REBVAL *v) {
 
 #ifdef NDEBUG
     inline static REBVAL *Init_Logic(RELVAL *out, REBOOL b) {
-        VAL_RESET(out, REB_LOGIC, b ? 0 : VALUE_FLAG_FALSEY);
+        RESET_VAL_CELL(out, REB_LOGIC, b ? 0 : VALUE_FLAG_FALSEY);
         return KNOWN(out);
     }
 
@@ -1180,7 +1181,7 @@ inline static RELVAL *REL(REBVAL *v) {
     inline static REBVAL *Init_Logic_Debug(
         RELVAL *out, REBOOL b, const char *file, int line
     ){
-        VAL_RESET_Debug(
+        RESET_VAL_CELL_Debug(
             out,
             REB_LOGIC,
             b ? 0 : VALUE_FLAG_FALSEY,
@@ -1297,7 +1298,7 @@ inline static enum Reb_Kind KIND_FROM_SYM(REBSYM s) {
     ((v)->payload.character)
 
 inline static REBVAL *Init_Char(RELVAL *out, REBUNI uni) {
-    VAL_RESET_HEADER(out, REB_CHAR);
+    RESET_VAL_HEADER(out, REB_CHAR);
     VAL_CHAR(out) = uni;
     return cast(REBVAL*, out);
 }
@@ -1346,7 +1347,7 @@ inline static REBVAL *Init_Char(RELVAL *out, REBUNI uni) {
 #endif
 
 inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
-    VAL_RESET_HEADER(out, REB_INTEGER);
+    RESET_VAL_HEADER(out, REB_INTEGER);
     out->payload.integer = i64;
     out->extra.binding = NULL; // !!! avoids compiler warnings, better way?
     return cast(REBVAL*, out);
@@ -1393,13 +1394,13 @@ inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
 #endif
 
 inline static REBVAL *Init_Decimal(RELVAL *out, REBDEC d) {
-    VAL_RESET_HEADER(out, REB_DECIMAL);
+    RESET_VAL_HEADER(out, REB_DECIMAL);
     out->payload.decimal = d;
     return cast(REBVAL*, out);
 }
 
 inline static REBVAL *Init_Percent(RELVAL *out, REBDEC d) {
-    VAL_RESET_HEADER(out, REB_PERCENT);
+    RESET_VAL_HEADER(out, REB_PERCENT);
     out->payload.decimal = d;
     return cast(REBVAL*, out);
 }
@@ -1450,7 +1451,7 @@ inline static deci VAL_MONEY_AMOUNT(const RELVAL *v) {
 }
 
 inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
-    VAL_RESET_HEADER(out, REB_MONEY);
+    RESET_VAL_HEADER(out, REB_MONEY);
     out->extra.m0 = amount.m0;
     out->payload.money.m1 = amount.m1;
     out->payload.money.m2 = amount.m2;
@@ -1477,7 +1478,7 @@ inline static REBVAL *Init_Reference(
     RELVAL *cell,
     REBSPC *specifier
 ){
-    VAL_RESET_HEADER(out, REB_0_REFERENCE);
+    RESET_VAL_HEADER(out, REB_0_REFERENCE);
     out->payload.reference.cell = cell;
     out->extra.binding = cast(REBNOD*, specifier);
     return cast(REBVAL*, out);
@@ -1521,7 +1522,7 @@ inline static RELVAL *VAL_REFERENCE(const RELVAL *v) {
     ((v)->payload.tuple.tuple)
 
 inline static REBVAL *SET_TUPLE(RELVAL *out, const void *data) {
-    VAL_RESET_HEADER(out, REB_TUPLE);
+    RESET_VAL_HEADER(out, REB_TUPLE);
     memcpy(VAL_TUPLE_DATA(out), data, sizeof(VAL_TUPLE_DATA(out)));
     return cast(REBVAL*, out);
 }
@@ -1732,7 +1733,7 @@ inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
 #endif
 
 inline static void SET_GOB(RELVAL *v, REBGOB *g) {
-    VAL_RESET_HEADER(v, REB_GOB);
+    RESET_VAL_HEADER(v, REB_GOB);
     VAL_GOB(v) = g;
     VAL_GOB_INDEX(v) = 0;
 }

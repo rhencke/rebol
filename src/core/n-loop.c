@@ -193,7 +193,7 @@ static REB_R Loop_Integer_Common(
     // if they change `var` during the loop, it affects the iteration.  Hence
     // it must be checked for changing to a non-integer form.
     //
-    VAL_RESET_HEADER(var, REB_INTEGER);
+    RESET_VAL_HEADER(var, REB_INTEGER);
     REBI64 *state = &VAL_INT64(var);
     *state = start;
 
@@ -280,7 +280,7 @@ static REB_R Loop_Number_Common(
     // As in Loop_Integer_Common(), the state is actually in a cell; so each
     // loop iteration it must be checked to ensure it's still a decimal...
     //
-    VAL_RESET_HEADER(var, REB_DECIMAL);
+    RESET_VAL_HEADER(var, REB_DECIMAL);
     REBDEC *state = &VAL_DECIMAL(var);
     *state = s;
 

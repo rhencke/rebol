@@ -98,7 +98,7 @@ void MAKE_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         fail (Error_Bad_Make(REB_MONEY, arg));
     }
 
-    VAL_RESET_HEADER(out, REB_MONEY);
+    RESET_VAL_HEADER(out, REB_MONEY);
 }
 
 
@@ -264,13 +264,13 @@ REBTYPE(Money)
         if (REF(to)) {
             if (IS_DECIMAL(scale) || IS_PERCENT(scale)) {
                 REBDEC dec = deci_to_decimal(VAL_MONEY_AMOUNT(D_OUT));
-                VAL_RESET_HEADER(D_OUT, VAL_TYPE(scale));
+                RESET_VAL_HEADER(D_OUT, VAL_TYPE(scale));
                 VAL_DECIMAL(D_OUT) = dec;
                 return R_OUT;
             }
             if (IS_INTEGER(scale)) {
                 REBI64 i64 = deci_to_int(VAL_MONEY_AMOUNT(D_OUT));
-                VAL_RESET_HEADER(D_OUT, REB_INTEGER);
+                RESET_VAL_HEADER(D_OUT, REB_INTEGER);
                 VAL_INT64(D_OUT) = i64;
                 return R_OUT;
             }
@@ -287,7 +287,7 @@ REBTYPE(Money)
         fail (Error_Illegal_Action(REB_MONEY, action));
     }
 
-    VAL_RESET_HEADER(D_OUT, REB_MONEY);
+    RESET_VAL_HEADER(D_OUT, REB_MONEY);
     return R_OUT;
 }
 

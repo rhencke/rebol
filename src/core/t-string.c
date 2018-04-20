@@ -1122,7 +1122,7 @@ void MF_String(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         Pre_Mold(mo, v); // e.g. #[file! part
 
         DECLARE_LOCAL (head);
-        VAL_RESET_HEADER(head, REB_STRING);
+        RESET_VAL_HEADER(head, REB_STRING);
         head->payload.any_series.series = VAL_SERIES(v);
         VAL_INDEX(head) = 0;
 

@@ -605,7 +605,7 @@ REBOOL Make_Error_Object_Throws(
 
         // !!! fix in Startup_Errors()?
         //
-        VAL_RESET_HEADER(CTX_VALUE(error), REB_ERROR);
+        RESET_VAL_HEADER(CTX_VALUE(error), REB_ERROR);
 
         vars = ERR_VARS(error);
         assert(IS_BLANK(&vars->code));
@@ -862,7 +862,7 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
         // !!! Should tweak root error during boot so it actually is an ERROR!
         // (or use literal error construction syntax, if it worked?)
         //
-        VAL_RESET_HEADER(CTX_VALUE(error), REB_ERROR);
+        RESET_VAL_HEADER(CTX_VALUE(error), REB_ERROR);
     }
     else {
         // !!! See remarks on how the modern way to handle this may be to
@@ -880,7 +880,7 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
         // !!! Should tweak root error during boot so it actually is an ERROR!
         // (or use literal error construction syntax, if it worked?)
         //
-        VAL_RESET_HEADER(CTX_VALUE(error), REB_ERROR);
+        RESET_VAL_HEADER(CTX_VALUE(error), REB_ERROR);
 
         // Fix up the tail first so CTX_KEY and CTX_VAR don't complain
         // in the debug build that they're accessing beyond the error length

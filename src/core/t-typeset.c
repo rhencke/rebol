@@ -127,7 +127,7 @@ void Shutdown_Typesets(void)
 //
 void Init_Typeset(RELVAL *value, REBU64 bits, REBSTR *opt_name)
 {
-    VAL_RESET_HEADER(value, REB_TYPESET);
+    RESET_VAL_HEADER(value, REB_TYPESET);
     INIT_TYPESET_NAME(value, opt_name);
     VAL_TYPESET_BITS(value) = bits;
 }

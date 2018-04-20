@@ -285,7 +285,7 @@ REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
     LINK(f->varlist).keysource = NOD(f); // see notes on LINK().keysource
 
     REBVAL *rootvar = SINK(ARR_SINGLE(f->varlist));
-    VAL_RESET_HEADER(rootvar, REB_FRAME);
+    RESET_VAL_HEADER(rootvar, REB_FRAME);
     rootvar->payload.any_context.varlist = f->varlist;
     rootvar->payload.any_context.phase = f->phase;
 

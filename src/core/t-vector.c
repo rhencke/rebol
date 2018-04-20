@@ -593,7 +593,7 @@ void Pick_Vector(REBVAL *out, const REBVAL *value, const REBVAL *picker) {
     REBCNT bits = MISC(vect).vect_info.bits;
 
     if (non_integer) {
-        VAL_RESET_HEADER(out, REB_DECIMAL);
+        RESET_VAL_HEADER(out, REB_DECIMAL);
         REBI64 i = get_vect(non_integer, sign, bits, vp, n - 1);
         Init_Decimal_Bits(out, cast(REBYTE*, &i));
     }

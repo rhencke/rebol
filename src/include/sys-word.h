@@ -149,7 +149,7 @@ inline static REBVAL *Init_Any_Word(
     enum Reb_Kind kind,
     REBSTR *spelling
 ){
-    VAL_RESET_HEADER(out, kind);
+    RESET_VAL_HEADER(out, kind);
 
     assert(spelling != NULL);
     out->payload.any_word.spelling = spelling;
@@ -192,7 +192,7 @@ inline static REBVAL *Init_Any_Word_Bound(
     REBCTX *context,
     REBCNT index
 ) {
-    VAL_RESET_HEADER(out, type);
+    RESET_VAL_HEADER(out, type);
 
     assert(spelling != NULL);
     out->payload.any_word.spelling = spelling;

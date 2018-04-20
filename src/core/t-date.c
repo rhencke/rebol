@@ -398,7 +398,7 @@ void Subtract_Date(REBVAL *d1, REBVAL *d2, REBVAL *result)
     else
         t2 = 0L;
 
-    VAL_RESET_HEADER(result, REB_TIME);
+    RESET_VAL_HEADER(result, REB_TIME);
     VAL_NANO(result) = (t1 - t2) + (cast(REBI64, diff) * TIME_IN_DAY);
 }
 
@@ -521,7 +521,7 @@ void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         Normalize_Time(&secs, &day);
 
-        VAL_RESET_HEADER(out, REB_DATE);
+        RESET_VAL_HEADER(out, REB_DATE);
         VAL_DATE(out) = Normalize_Date(day, month, year, tz);
         VAL_NANO(out) = secs;
 
@@ -611,7 +611,7 @@ void Pick_Or_Poke_Date(
             else {
                 Move_Value(opt_out, v); // want v's adjusted VAL_NANO()
                 Adjust_Date_Zone(opt_out, FALSE);
-                VAL_RESET_HEADER(opt_out, REB_TIME); // clears date flags
+                RESET_VAL_HEADER(opt_out, REB_TIME); // clears date flags
             }
             break;
 
@@ -884,7 +884,7 @@ REBTYPE(Date)
     REBVAL *val = D_ARG(1);
     assert(IS_DATE(val));
 
-    VAL_RESET_HEADER(D_OUT, REB_DATE); // so we can set flags on it
+    RESET_VAL_HEADER(D_OUT, REB_DATE); // so we can set flags on it
 
     REBDAT date = VAL_DATE(val);
     REBCNT day = VAL_DAY(val) - 1;

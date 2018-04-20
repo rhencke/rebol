@@ -535,7 +535,7 @@ const REBYTE *Scan_Decimal(
     if (cast(REBCNT, cp - bp) != len)
         return_NULL;
 
-    VAL_RESET_HEADER(out, REB_DECIMAL);
+    RESET_VAL_HEADER(out, REB_DECIMAL);
 
     const char *se;
     VAL_DECIMAL(out) = STRTOD(s_cast(buf), &se);
@@ -632,7 +632,7 @@ const REBYTE *Scan_Integer(
     // Convert, check, and return:
     errno = 0;
 
-    VAL_RESET_HEADER(out, REB_INTEGER);
+    RESET_VAL_HEADER(out, REB_INTEGER);
 
     VAL_INT64(out) = CHR_TO_INT(buf);
     if (errno != 0)
@@ -827,7 +827,7 @@ const REBYTE *Scan_Date(
     cp = ep;
 
     if (cp >= end) {
-        VAL_RESET_HEADER(out, REB_DATE);
+        RESET_VAL_HEADER(out, REB_DATE);
         goto end_date; // needs header set
     }
 
@@ -835,7 +835,7 @@ const REBYTE *Scan_Date(
         sep = *cp++;
 
         if (cp >= end) {
-            VAL_RESET_HEADER(out, REB_DATE);
+            RESET_VAL_HEADER(out, REB_DATE);
             goto end_date; // needs header set
         }
 
@@ -849,10 +849,10 @@ const REBYTE *Scan_Date(
             return_NULL;
         }
 
-        VAL_RESET_HEADER_EXTRA(out, REB_DATE, DATE_FLAG_HAS_TIME);
+        RESET_VAL_HEADER_EXTRA(out, REB_DATE, DATE_FLAG_HAS_TIME);
     }
     else
-        VAL_RESET_HEADER(out, REB_DATE); // no DATE_FLAG_HAS_TIME
+        RESET_VAL_HEADER(out, REB_DATE); // no DATE_FLAG_HAS_TIME
 
     // past this point, header is set, so `goto end_date` is legal.
 
@@ -1070,10 +1070,10 @@ const REBYTE *Scan_Pair(
     if (*ep != 'x' && *ep != 'X')
         return_NULL;
 
-    VAL_RESET_HEADER(out, REB_PAIR);
+    RESET_VAL_HEADER(out, REB_PAIR);
     out->payload.pair = Alloc_Pairing();
-    VAL_RESET_HEADER(out->payload.pair, REB_DECIMAL);
-    VAL_RESET_HEADER(PAIRING_KEY(out->payload.pair), REB_DECIMAL);
+    RESET_VAL_HEADER(out->payload.pair, REB_DECIMAL);
+    RESET_VAL_HEADER(PAIRING_KEY(out->payload.pair), REB_DECIMAL);
 
     VAL_PAIR_X(out) = cast(float, atof(cast(char*, &buf[0]))); //n;
     ep++;
@@ -1125,7 +1125,7 @@ const REBYTE *Scan_Tuple(
     if (size < 3)
         size = 3;
 
-    VAL_RESET_HEADER(out, REB_TUPLE);
+    RESET_VAL_HEADER(out, REB_TUPLE);
     VAL_TUPLE_LEN(out) = cast(REBYTE, size);
 
     REBYTE *tp = VAL_TUPLE(out);

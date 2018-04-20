@@ -252,7 +252,7 @@ void* Probe_Core_Debug(
                 Probe_Print_Helper(p, "Byte-Size Series", file, line);
 
                 DECLARE_LOCAL (value);
-                VAL_RESET_HEADER(value, REB_BINARY);
+                RESET_VAL_HEADER(value, REB_BINARY);
                 INIT_VAL_SERIES(value, s);
                 VAL_INDEX(value) = 0;
 
@@ -262,7 +262,7 @@ void* Probe_Core_Debug(
                 Probe_Print_Helper(p, "REBWCHAR-Size Series", file, line);
 
                 DECLARE_LOCAL (value);
-                VAL_RESET_HEADER(value, REB_STRING);
+                RESET_VAL_HEADER(value, REB_STRING);
                 INIT_VAL_SERIES(value, s);
                 VAL_INDEX(value) = 0;
 
@@ -277,7 +277,7 @@ void* Probe_Core_Debug(
                 // initialization instead of Init_Block.
                 //
                 DECLARE_LOCAL (block);
-                VAL_RESET_HEADER(block, REB_BLOCK);
+                RESET_VAL_HEADER(block, REB_BLOCK);
                 INIT_VAL_ARRAY(block, ARR(s));
                 VAL_INDEX(block) = 0;
 

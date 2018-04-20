@@ -571,11 +571,11 @@ pick:
             //
             REBSER* temp = va_arg(*vaptr, REBSER*);
             if (GET_SER_FLAG(temp, SERIES_FLAG_ARRAY)) {
-                VAL_RESET_HEADER(value, REB_BLOCK);
+                RESET_VAL_HEADER(value, REB_BLOCK);
                 INIT_VAL_ARRAY(value, ARR(temp));
             }
             else {
-                VAL_RESET_HEADER(value, REB_STRING);
+                RESET_VAL_HEADER(value, REB_STRING);
                 INIT_VAL_SERIES(value, temp);
             }
             VAL_INDEX(value) = 0;

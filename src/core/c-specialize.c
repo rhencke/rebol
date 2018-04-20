@@ -134,7 +134,7 @@ REBCTX *Make_Context_For_Specialization(
     );
 
     REBVAL *rootvar = SINK(ARR_HEAD(varlist));
-    VAL_RESET_HEADER(rootvar, REB_FRAME);
+    RESET_VAL_HEADER(rootvar, REB_FRAME);
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = NULL; // heap-based, not running
     INIT_BINDING(rootvar, VAL_BINDING(specializee));
@@ -482,7 +482,7 @@ REBOOL Specialize_Function_Throws(
                 else
                     last_partial->extra.next_partial = refine;
 
-                VAL_RESET(refine, REB_0_PARTIAL, 0);
+                RESET_VAL_CELL(refine, REB_0_PARTIAL, 0);
                 refine->payload.partial.dsp = partial_dsp;
                 refine->payload.partial.index = index;
                 TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
@@ -586,7 +586,7 @@ REBOOL Specialize_Function_Throws(
         else
             last_partial->extra.next_partial = refine;
 
-        VAL_RESET(refine, REB_0_PARTIAL, 0);
+        RESET_VAL_CELL(refine, REB_0_PARTIAL, 0);
         refine->payload.partial.dsp = 0; // no ordered position on stack
         refine->payload.partial.index = index - (arg - refine);
         TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
@@ -974,7 +974,7 @@ REBNATIVE(does)
     REBARR *paramlist = Make_Array_Core(1, ARRAY_FLAG_PARAMLIST);
 
     REBVAL *archetype = Alloc_Tail_Array(paramlist);
-    VAL_RESET_HEADER(archetype, REB_FUNCTION);
+    RESET_VAL_HEADER(archetype, REB_FUNCTION);
     archetype->payload.function.paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
 

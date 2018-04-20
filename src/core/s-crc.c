@@ -417,7 +417,7 @@ REBVAL *Init_Map(RELVAL *out, REBMAP *map)
 
     ENSURE_ARRAY_MANAGED(MAP_PAIRLIST(map));
 
-    VAL_RESET_HEADER(out, REB_MAP);
+    RESET_VAL_HEADER(out, REB_MAP);
     INIT_BINDING(out, UNBOUND);
     out->payload.any_series.series = SER(MAP_PAIRLIST(map));
     out->payload.any_series.index = 0;

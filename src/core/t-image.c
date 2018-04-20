@@ -284,7 +284,7 @@ void Set_Tuple_Pixel(REBYTE *dp, REBVAL *tuple)
     // Pixel to tuple.
     REBYTE *tup = VAL_TUPLE(tuple);
 
-    VAL_RESET_HEADER(tuple, REB_TUPLE);
+    RESET_VAL_HEADER(tuple, REB_TUPLE);
     VAL_TUPLE_LEN(tuple) = 4;
     tup[0] = dp[C_R];
     tup[1] = dp[C_G];

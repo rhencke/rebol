@@ -58,7 +58,7 @@ void MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         return;
     }
 
-    VAL_RESET_HEADER(out, REB_TUPLE);
+    RESET_VAL_HEADER(out, REB_TUPLE);
     REBYTE *vp = VAL_TUPLE(out);
 
     // !!! Net lookup parses IP addresses out of `tcp://93.184.216.34` or
