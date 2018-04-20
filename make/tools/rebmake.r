@@ -1999,13 +1999,16 @@ visual-studio: make generator-class [
                     ]
                 ]
 
-                stack-size: all [
+                stack-size: try all [
                     project/ldflags
                     find-stack-size project/ldflags
                 ]
             ]
 
-            compile-as: all [block? project/cflags find-compile-as project/cflags]
+            compile-as: try all [
+                block? project/cflags
+                find-compile-as project/cflags
+            ]
         ]
 
         xml: unspaced [

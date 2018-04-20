@@ -119,7 +119,6 @@ core: [
     n-textcodecs.c ; !!! should be moved to extensions
 
     ; (P)orts
-    p-clipboard.c
     p-console.c
     p-dir.c
     p-dns.c
@@ -228,7 +227,6 @@ os-windows: [
     windows/dev-stdio.c
     windows/dev-file.c
     windows/dev-event.c
-    windows/dev-clipboard.c
     windows/dev-serial.c
 ]
 

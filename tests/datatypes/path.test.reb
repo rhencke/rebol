@@ -186,3 +186,16 @@
     (("text")/3 = #"x")
     (t: "text" | t/3 = #"x")
 ]
+
+
+; https://gitter.im/red/red?at=5b23be5d1ee2d149ecc4c3fd
+(
+    bl: [a 1 q/w [e/r 42]]
+    all [
+        1 = bl/a
+        [e/r 42] = bl/('q/w)
+        [e/r 42] = reduce to-path [bl q/w]
+        42 = bl/('q/w)/('e/r)
+        42 = reduce to-path [bl q/w e/r]
+    ]
+)
