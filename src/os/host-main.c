@@ -393,9 +393,9 @@ int main(int argc, char *argv_ansi[])
     const REBOOL gzip = FALSE;
     const REBOOL raw = FALSE;
     const REBOOL only = FALSE;
-    REBCNT startup_size;
-    REBYTE *startup = rebInflateAlloc(
-        &startup_size,
+    REBCNT host_size;
+    REBYTE *host_bytes = rebInflateAlloc(
+        &host_size,
         &Reb_Init_Code[0],
         REB_INIT_SIZE,
         -1, // decompressed size should be stored in the payload
@@ -404,11 +404,18 @@ int main(int argc, char *argv_ansi[])
         only
     );
 
-    REBARR *array = Scan_UTF8_Managed(
-        Intern("host-start.r"), startup, startup_size
-    );
+    // The inflated data was allocated with rebMalloc, and hence can be
+    // repossessed as a BINARY!
+    //
+    REBVAL *host_bin = rebRepossess(host_bytes, host_size);
 
-    rebFree(startup);
+    // Use TRANSCODE to get a BLOCK! from the BINARY!, then release the binary
+    //
+    REBVAL *host_code = rebRun(
+        "lib/transcode/file", host_bin, "%tmp-host-start.inc", END
+    );
+    rebElide("lib/take/last", host_code, END); // empty binary at transcode tail
+    rebRelease(host_bin);
 
     // Create a new context specifically for the console.  This way, changes
     // to the user context should hopefully not affect it...e.g. if the user
@@ -429,14 +436,14 @@ int main(int argc, char *argv_ansi[])
     // overwrite lib declarations.  It should probably import its own copy,
     // just in case.  (Lib should also be protected by default)
     //
-    Bind_Values_Deep(ARR_HEAD(array), Lib_Context);
+    Bind_Values_Deep(VAL_ARRAY_HEAD(host_code), Lib_Context);
 
     // Do two passes on the console context.  One to find SET-WORD!s at the
     // top level and add them to the context, and another pass to deeply bind
     // to those declarations.
     //
-    Bind_Values_Set_Midstream_Shallow(ARR_HEAD(array), console_ctx);
-    Bind_Values_Deep(ARR_HEAD(array), console_ctx);
+    Bind_Values_Set_Midstream_Shallow(VAL_ARRAY_HEAD(host_code), console_ctx);
+    Bind_Values_Deep(VAL_ARRAY_HEAD(host_code), console_ctx);
 
     // The new policy for source code in Ren-C is that it loads read only.
     // This didn't go through the LOAD Rebol function or anything like it, so
@@ -448,24 +455,24 @@ int main(int argc, char *argv_ansi[])
     // way that would work well for users, by leveraging modules or some other
     // level of abstraction, where issues like this would be taken care of.
     //
-    Deep_Freeze_Array(array);
+    rebElide("lib/lock", host_code, END);
 
-    DECLARE_LOCAL (host_console);
-    if (Do_At_Throws(
-        host_console, // returned value must be a FUNCTION!
-        array,
-        0,
-        SPECIFIED
-    )){
-        panic (host_console); // just loads functions, shouldn't QUIT or error
-    }
+    REBVAL *host_console = rebRunInline(host_code); // console is a FUNCTION!
+    rebRelease(host_code);
 
-    if (!IS_FUNCTION(host_console))
+    if (rebNot("lib/function?", host_console, END))
         rebPanicValue (host_console, END);
 
-    DECLARE_LOCAL (ext_value);
-    Init_Blank(ext_value);
-    LOAD_BOOT_EXTENSIONS(ext_value);
+    // The config file used by %make.r marks extensions to be built into the
+    // executable (`+`), built as a dynamic library (`*`), or not built at
+    // all (`-`).  Each of the options marked with + has a C function for
+    // startup and shutdown, which we convert into HANDLE!s to be suitable
+    // to pass into the Rebol startup code.
+    //
+    REBVAL *extensions = Prepare_Boot_Extensions(
+        Boot_Extensions,
+        sizeof(Boot_Extensions) / sizeof(CFUNC*)
+    );
 
     // While some people may think that argv[0] in C contains the path to
     // the running executable, this is not necessarily the case.  The actual
@@ -498,9 +505,14 @@ int main(int argc, char *argv_ansi[])
     // Note that `code`, `result`, and `status` have to be freed each loop ATM.
     //
     REBVAL *code = rebBlank();
-    REBVAL *result = rebBlock(exec_path, argv_block, ext_value, END);
+    REBVAL *result = rebBlock(exec_path, argv_block, extensions, END);
     REBVAL *status = rebBlank();
-    rebRelease(exec_path); // ...value in BLOCK! keeps series alive now...
+
+    // References in the `result` BLOCK! keep the underlying series alive now
+    //
+    rebRelease(exec_path);
+    rebRelease(extensions);
+    rebRelease(argv_block);
 
     // The DO and APPLY hooks are used to implement things like tracing
     // or debugging.  If they were allowed to run during the host
@@ -617,12 +629,20 @@ int main(int argc, char *argv_ansi[])
             result = rebVoid();
     }
 
+    rebRelease(host_console);
+
     int exit_status = rebUnboxInteger(code);
     rebRelease(code);
 
-    rebRelease(argv_block);
-
-    SHUTDOWN_BOOT_EXTENSIONS();
+    // This calls the QUIT functions of the extensions loaded at boot, in the
+    // reverse order of initialization.  (It does not call unload-extension,
+    // because marking native stubs as "missing" for safe errors if they
+    // are called is not necessary, since the whole system is exiting.)
+    //
+    Shutdown_Boot_Extensions(
+        Boot_Extensions,
+        sizeof(Boot_Extensions) / sizeof(CFUNC*)
+    );
 
     OS_QUIT_DEVICES(0);
 

@@ -30,38 +30,18 @@ e-ext: (make-emitter
     "Boot Modules" output-dir/include/tmp-boot-extensions.h)
 
 remove-each ext extensions [empty? ext] ;SPLIT in r3-a111 gives an empty "" at the end
-either empty? extensions [
-    e-ext/emit-lines [
-        "#define LOAD_BOOT_EXTENSIONS(ext)"
-        "#define SHUTDOWN_BOOT_EXTENSIONS()"
-    ]
-] [
-    for-each ext extensions [
-        e-ext/emit-line ["DECLARE_EXT_INIT(" ext ");"]
-        e-ext/emit-line ["DECLARE_EXT_QUIT(" ext ");"]
-    ]
 
-    e-ext/emit-line []
-    e-ext/emit-line ["static CFUNC *Boot_Extensions [] = {"]
-    for-each ext extensions [
-        e-ext/emit-line/indent ["cast(CFUNC *, EXT_INIT(" ext ")),"]
-        e-ext/emit-line/indent ["cast(CFUNC *, EXT_QUIT(" ext ")),"]
-    ]
-    e-ext/emit-end
-
-    e-ext/emit-line []
-
-    e-ext/emit-lines [
-        "#define LOAD_BOOT_EXTENSIONS(ext) do {\"
-        "Prepare_Boot_Extensions(ext, Boot_Extensions, sizeof(Boot_Extensions)/sizeof(CFUNC *));\"
-        "} while (0)"
-    ]
-
-    e-ext/emit-lines [
-        "#define SHUTDOWN_BOOT_EXTENSIONS() do {\"
-        "Shutdown_Boot_Extensions(Boot_Extensions, sizeof(Boot_Extensions)/sizeof(CFUNC *));\"
-        "} while (0)"
-    ]
+for-each ext extensions [
+    e-ext/emit-line ["DECLARE_EXT_INIT(" ext ");"]
+    e-ext/emit-line ["DECLARE_EXT_QUIT(" ext ");"]
 ]
+
+e-ext/emit-line []
+e-ext/emit-line ["static CFUNC *Boot_Extensions [] = {"]
+for-each ext extensions [
+    e-ext/emit-line/indent ["cast(CFUNC *, EXT_INIT(" ext ")),"]
+    e-ext/emit-line/indent ["cast(CFUNC *, EXT_QUIT(" ext ")),"]
+]
+e-ext/emit-end
 
 e-ext/write-emitted

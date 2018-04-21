@@ -1270,10 +1270,37 @@ REBOOL RL_rebDid(const void *p, ...) {
 
     va_end(va);
 
-    if (IS_VOID(condition))
-        fail ("rebDid() received void");
+    return NOT(IS_VOID_OR_FALSEY(condition)); // DID treats voids as "falsey"
+}
 
-    return IS_TRUTHY(condition);
+
+//
+//  rebNot: RL_API
+//
+// !!! If this were going to be a macro like NOT(rebDid(...)), it would have
+// to be a variadic macro.  Just make a separate entry point for now.
+//
+REBOOL RL_rebNot(const void *p, ...) {
+    Enter_Api();
+
+    va_list va;
+    va_start(va, p);
+
+    DECLARE_LOCAL (condition);
+    REBIXO indexor = Do_Va_Core(
+        condition,
+        p, // opt_first (preloads value)
+        &va,
+        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
+    );
+    if (indexor == THROWN_FLAG) {
+        va_end(va);
+        fail (Error_No_Catch_For_Throw(condition));
+    }
+
+    va_end(va);
+
+    return IS_VOID_OR_FALSEY(condition); // NOT treats voids as "falsey"
 }
 
 

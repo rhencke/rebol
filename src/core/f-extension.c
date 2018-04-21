@@ -319,9 +319,9 @@ REBARR *Make_Extension_Module_Array(
 //
 //  Prepare_Boot_Extensions: C
 //
-// Convert an extension [Init Quit] array to [handle! handle!] array
+// Convert an {Init, Quit} C function array to a [handle! handle!] ARRAY!
 //
-void Prepare_Boot_Extensions(REBVAL *exts, CFUNC **funcs, REBCNT n)
+REBVAL *Prepare_Boot_Extensions(CFUNC **funcs, REBCNT n)
 {
     REBARR *arr = Make_Array(n);
     REBCNT i;
@@ -340,7 +340,7 @@ void Prepare_Boot_Extensions(REBVAL *exts, CFUNC **funcs, REBCNT n)
             &cleanup_extension_quit_handler
         );
     }
-    Init_Block(exts, arr);
+    return Init_Block(Alloc_Value(), arr);
 }
 
 
