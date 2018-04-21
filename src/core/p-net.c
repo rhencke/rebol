@@ -159,7 +159,7 @@ static REB_R Transport_Actor(
         case SYM_OPEN: {
             REBVAL *arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
             REBVAL *port_id = Obj_Value(spec, STD_PORT_SPEC_NET_PORT_ID);
-            
+
             // OPEN needs to know to bind() the socket to a local port before
             // the first sendto() is called, if the user is particular about
             // what the port ID of originating messages is.  So local_port
@@ -172,7 +172,7 @@ static REB_R Transport_Actor(
                 DEVREQ_NET(sock)->local_port = VAL_INT32(local_id);
             else
                 fail ("local-id field of PORT! spec must be BLANK!/INTEGER!");
-            
+
             REBVAL *o_result = OS_DO_DEVICE(sock, RDC_OPEN);
             assert(o_result != NULL);
             if (rebTypeOf(o_result) == RXT_ERROR)

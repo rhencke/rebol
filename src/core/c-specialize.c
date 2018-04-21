@@ -425,13 +425,13 @@ REBOOL Specialize_Function_Throws(
 
         // Run block and ignore result (unless it is thrown)
         //
-        PUSH_GUARD_ARRAY(CTX_VARLIST(exemplar));
+        PUSH_GUARD_CONTEXT(exemplar);
         if (Do_Any_Array_At_Throws(out, opt_def)) {
-            DROP_GUARD_ARRAY(CTX_VARLIST(exemplar));
+            DROP_GUARD_CONTEXT(exemplar);
             DS_DROP_TO(lowest_ordered_dsp);
             return TRUE;
         }
-        DROP_GUARD_ARRAY(CTX_VARLIST(exemplar));
+        DROP_GUARD_CONTEXT(exemplar);
     }
 
     REBVAL *rootkey = CTX_ROOTKEY(exemplar);
@@ -1053,6 +1053,7 @@ REBNATIVE(does)
             NULL
         );
         MANAGE_ARRAY(CTX_VARLIST(exemplar));
+        PUSH_GUARD_CONTEXT(exemplar);
 
         REBINT last_partial = 0;
 
@@ -1097,8 +1098,10 @@ REBNATIVE(does)
                 REB_R r = Do_Vararg_Op_May_Throw(D_OUT, args, VARARG_OP_TAKE);
                 INIT_VAL_PARAM_CLASS(PAR(args), PARAM_CLASS_HARD_QUOTE);
 
-                if (r == R_OUT_IS_THROWN)
+                if (r == R_OUT_IS_THROWN) {
+                    DROP_GUARD_CONTEXT(exemplar);
                     return R_OUT_IS_THROWN;
+                }
 
                 if (r == R_VOID)
                     fail ("DOES hack needs argument");
@@ -1119,6 +1122,7 @@ REBNATIVE(does)
         }
 
         DS_DROP_TO(lowest_ordered_dsp);
+        DROP_GUARD_CONTEXT(exemplar);
     }
     else {
         // On all other types, we just make it act like a specialized call to

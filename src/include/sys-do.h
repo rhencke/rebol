@@ -1238,6 +1238,7 @@ inline static REBOOL Run_Branch_Throws(
     if (NOT(only) && IS_VOID(out))
         Init_Blank(out); // "blankification", see comment above
 
+    CLEAR_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED);
     return FALSE;
 }
 

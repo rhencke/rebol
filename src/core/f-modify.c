@@ -216,7 +216,7 @@ REBCNT Modify_Binary(
         needs_free = FALSE;
     }
     else
-        fail (src_val);
+        fail (Error_Invalid(src_val));
 
     // Use either new src or the one that was passed:
     if (src_ser != NULL) {

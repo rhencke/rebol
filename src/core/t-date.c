@@ -521,7 +521,7 @@ void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         Normalize_Time(&secs, &day);
 
-        RESET_VAL_HEADER(out, REB_DATE);
+        RESET_VAL_HEADER_EXTRA(out, REB_DATE, DATE_FLAG_HAS_TIME);
         VAL_DATE(out) = Normalize_Date(day, month, year, tz);
         VAL_NANO(out) = secs;
 
