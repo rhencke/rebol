@@ -158,8 +158,21 @@ static REB_R Transport_Actor(
 
         case SYM_OPEN: {
             REBVAL *arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
-            REBVAL *val = Obj_Value(spec, STD_PORT_SPEC_NET_PORT_ID);
-
+            REBVAL *port_id = Obj_Value(spec, STD_PORT_SPEC_NET_PORT_ID);
+            
+            // OPEN needs to know to bind() the socket to a local port before
+            // the first sendto() is called, if the user is particular about
+            // what the port ID of originating messages is.  So local_port
+            // must be set before the OS_DO_DEVICE() call.
+            //
+            REBVAL *local_id = Obj_Value(spec, STD_PORT_SPEC_NET_LOCAL_ID);
+            if (IS_BLANK(local_id))
+                DEVREQ_NET(sock)->local_port = 0; // let the system pick
+            else if (IS_INTEGER(local_id))
+                DEVREQ_NET(sock)->local_port = VAL_INT32(local_id);
+            else
+                fail ("local-id field of PORT! spec must be BLANK!/INTEGER!");
+            
             REBVAL *o_result = OS_DO_DEVICE(sock, RDC_OPEN);
             assert(o_result != NULL);
             if (rebTypeOf(o_result) == RXT_ERROR)
@@ -179,7 +192,7 @@ static REB_R Transport_Actor(
 
                 sock->common.data = BIN_AT(temp, offset);
                 DEVREQ_NET(sock)->remote_port =
-                    IS_INTEGER(val) ? VAL_INT32(val) : 80;
+                    IS_INTEGER(port_id) ? VAL_INT32(port_id) : 80;
 
                 // Note: sets remote_ip field
                 //
@@ -195,7 +208,7 @@ static REB_R Transport_Actor(
             }
             else if (IS_TUPLE(arg)) { // Host IP specified:
                 DEVREQ_NET(sock)->remote_port =
-                    IS_INTEGER(val) ? VAL_INT32(val) : 80;
+                    IS_INTEGER(port_id) ? VAL_INT32(port_id) : 80;
                 memcpy(&(DEVREQ_NET(sock)->remote_ip), VAL_TUPLE(arg), 4);
                 break; // fall through to open case SYM_OPEN/CONNECT (?)
             }
@@ -203,7 +216,7 @@ static REB_R Transport_Actor(
                 sock->modes |= RST_LISTEN;
                 sock->common.sock = 0; // where ACCEPT requests are queued
                 DEVREQ_NET(sock)->local_port =
-                    IS_INTEGER(val) ? VAL_INT32(val) : 8000;
+                    IS_INTEGER(port_id) ? VAL_INT32(port_id) : 8000;
                 break; // fall through to open case SYM_OPEN/CONNECT (?)
             }
             else
@@ -376,12 +389,44 @@ static REB_R Transport_Actor(
 
         // Setup the write:
 
-        Move_Value(CTX_VAR(port, STD_PORT_DATA), data); // keep it GC safe
-        sock->length = len;
-        sock->common.data = VAL_BIN_AT(data);
+        REBSER *temp;
+        if (IS_BINARY(data)) {
+            temp = NULL;
+            sock->common.data = VAL_BIN_AT(data);
+            sock->length = len;
+
+            Move_Value(CTX_VAR(port, STD_PORT_DATA), data); // keep it GC safe
+        }
+        else {
+            // !!! R3-Alpha did not lay out the invariants of the port model,
+            // or what datatypes it would accept at what levels.  STRING!
+            // could be sent here--and it could be wide characters or Latin1
+            // without the user having knowledge of which.  Yet it would write
+            // the string bytes raw either way, giving effectively random
+            // behavior.  Convert to UTF-8...but the port model needs a top
+            // to bottom review of what types are accepted where and why.
+            //
+            REBSIZ offset;
+            REBSIZ size;
+            temp = Temp_UTF8_At_Managed(
+                &offset,
+                &size,
+                data,
+                len
+            );
+            sock->common.data = BIN_AT(temp, offset);
+            sock->length = size;
+
+            PUSH_GUARD_SERIES(temp);
+        }
+
         sock->actual = 0;
 
         REBVAL *result = OS_DO_DEVICE(sock, RDC_WRITE);
+
+        if (temp != NULL)
+            DROP_GUARD_SERIES(temp);
+
         if (result == NULL) {
             //
             // Write pending !!! old comment said "do we get here?"
@@ -447,7 +492,12 @@ static REB_R Transport_Actor(
             if (rebTypeOf(result) == RXT_ERROR)
                 rebFail (result, END);
             else {
-                assert(FALSE); // !!! can this happen?
+                // This can happen with UDP, which is connectionless so it
+                // returns DR_DONE.
+                //
+                // !!! Also can happen if it's already open (it checks for the
+                // connected flag).  R3-Alpha could OPEN OPEN a port.  :-/
+                //
                 rebRelease(result); // ignore result
             }
         }

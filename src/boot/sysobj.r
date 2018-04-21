@@ -342,6 +342,12 @@ standard: construct [] [
     port-spec-net: construct port-spec-head [
         host: _
         port-id: 80
+
+        ; Set this to make outgoing packets seem to originate from a specific
+        ; port (it's done by calling bind() before the first sendto(),
+        ; otherwise the OS will pick an available port and stick with it.)
+        ;
+        local-id: _
     ]
 
     port-spec-serial: construct port-spec-head [

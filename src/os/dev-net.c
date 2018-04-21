@@ -61,7 +61,7 @@ DEVICE_CMD Listen_Socket(REBREQ *sock);
 #endif
 
 // Prevent sendmsg/write raising SIGPIPE the TCP socket is closed:
-// https://stackoverflow.com/questions/108183/how-to-prevent-sigpipes-or-handle-them-properly
+// https://stackoverflow.com/q/108183/
 // Linux does not support SO_NOSIGPIPE
 //
 #ifndef MSG_NOSIGNAL
@@ -98,7 +98,7 @@ static void Get_Local_IP(struct devreq_net *sock)
 static REBOOL Set_Sock_Options(SOCKET sock)
 {
     // Prevent sendmsg/write raising SIGPIPE the TCP socket is closed:
-    // https://stackoverflow.com/questions/108183/how-to-prevent-sigpipes-or-handle-them-properly
+    // https://stackoverflow.com/q/108183/
 #if defined(SO_NOSIGPIPE)
     int on = 1;
     if (setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on)) < 0) {
@@ -208,6 +208,25 @@ DEVICE_CMD Open_Socket(REBREQ *sock)
     if (!Set_Sock_Options(sock->requestee.socket))
         rebFail_OS (GET_ERROR);
 
+    if (DEVREQ_NET(sock)->local_port != 0) {
+        //
+        // !!! This modification was made to support a UDP application which
+        // wanted to listen on a UDP port, as well as make packets appear to
+        // come from the same port it was listening on when writing to another
+        // UDP port.  But the only way to make packets appear to originate
+        // from a specific port is using bind:
+        //
+        // https://stackoverflow.com/q/9873061
+        //
+        // So a second socket can't use bind() to listen on that same port.
+        // Hence, a single socket has to be used for both writing and for
+        // listening.  This tries to accomplish that for UDP by going ahead
+        // and making a port that can both listen and send.  That processing
+        // is done during CONNECT.
+        //
+        sock->modes |= RST_LISTEN;
+    }
+
     return DR_DONE;
 }
 
@@ -295,19 +314,23 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
     struct sockaddr_in sa;
     struct devreq_net *sock = DEVREQ_NET(req);
 
-    if (req->modes & RST_LISTEN)
-        return Listen_Socket(req);
-
     if (req->state & RSM_CONNECT)
         return DR_DONE; // already connected
 
     if (req->modes & RST_UDP) {
         req->state &= ~RSM_ATTEMPT;
         req->state |= RSM_CONNECT;
-        Get_Local_IP(sock);
         OS_SIGNAL_DEVICE(req, EVT_CONNECT);
-        return DR_DONE; // done
+
+        if (req->modes & RST_LISTEN)
+            return Listen_Socket(req);
+
+        Get_Local_IP(sock); // would overwrite local_port for listen
+        return DR_DONE;
     }
+
+    if (req->modes & RST_LISTEN)
+        return Listen_Socket(req);
 
     Set_Addr(&sa, sock->remote_ip, sock->remote_port);
     result = connect(
@@ -596,6 +619,20 @@ extern void Attach_Request(REBREQ **prior, REBREQ *req);
 //
 DEVICE_CMD Accept_Socket(REBREQ *req)
 {
+    // !!! In order to make packets appear to originate from a specific UDP
+    // point, a "two-ended" connection-like socket is created for UDP.  But
+    // it cannot accept connections.  Without better knowledge of how to stay
+    // pending for UDP purposes but not TCP purposes, just return for now.
+    //
+    // This happens because of RDC_CREATE being posted in Listen_Socket; so
+    // it's not clear whether to not send that event or squash it here.  It
+    // must be accepted, however, to recvfrom() data in the future.
+    //
+    if (req->modes & RST_UDP) {
+        OS_SIGNAL_DEVICE(req, EVT_ACCEPT);
+        return DR_PEND;
+    }
+
     struct sockaddr_in sa;
     socklen_t len = sizeof(sa);
     int result;
