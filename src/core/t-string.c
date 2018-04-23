@@ -1606,7 +1606,7 @@ REBTYPE(String)
             // of bytes by the width and offsets by the size.
             //
             Set_Random(
-                Compute_CRC(
+                Compute_CRC24(
                     SER_AT_RAW(
                         SER_WIDE(VAL_SERIES(v)),
                         VAL_SERIES(v),

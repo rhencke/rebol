@@ -30,7 +30,8 @@
 
 #include "sys-core.h"
 
-#define CRC_DEFINED
+#include "sys-zlib.h" // re-use CRC code from zlib
+const z_crc_t *crc32_table; // pointer to the zlib CRC32 table
 
 #define CRCBITS 24 // may be 16, 24, or 32
 
@@ -45,7 +46,7 @@
 #define PRZCRC   0x864cfb   /* PRZ's 24-bit CRC generator polynomial */
 #define CRCINIT  0xB704CE   /* Init value for CRC accumulator */
 
-static REBCNT *CRC_Table;
+static REBCNT *crc24_table;
 
 //
 //  Generate_CRC: C
@@ -81,7 +82,7 @@ static REBCNT *CRC_Table;
 // message by initializing the CRC accumulator to some agreed-upon
 // nonzero "random-like" value, but this is a bit nonstandard.
 //
-static REBCNT Generate_CRC(REBYTE ch, REBCNT poly, REBCNT accum)
+static REBCNT Generate_CRC24(REBYTE ch, REBCNT poly, REBCNT accum)
 {
     REBINT i;
     REBCNT data;
@@ -99,23 +100,23 @@ static REBCNT Generate_CRC(REBYTE ch, REBCNT poly, REBCNT accum)
 
 
 //
-//  Make_CRC_Table: C
+//  Make_CRC24_Table: C
 //
 // Derives a CRC lookup table from the CRC polynomial.
 // The table is used later by crcupdate function given below.
 // Only needs to be called once at the dawn of time.
 //
-static void Make_CRC_Table(REBCNT poly)
+static void Make_CRC24_Table(REBCNT poly)
 {
     REBINT i;
 
     for (i = 0; i < 256; i++)
-        CRC_Table[i] = Generate_CRC(cast(REBYTE, i), poly, 0);
+        crc24_table[i] = Generate_CRC24(cast(REBYTE, i), poly, 0);
 }
 
 
 //
-//  Compute_CRC: C
+//  Compute_CRC24: C
 //
 // Rebol had canonized signed numbers for CRCs, and the signed logic
 // actually does turn high bytes into negative numbers so they
@@ -123,7 +124,7 @@ static void Make_CRC_Table(REBCNT poly)
 // are necessary so long as compatibility with the historical results
 // of the CHECKSUM native is needed.
 //
-REBINT Compute_CRC(REBYTE *str, REBCNT len)
+REBINT Compute_CRC24(REBYTE *str, REBCNT len)
 {
     REBINT crc = cast(REBINT, len) + cast(REBINT, cast(REBYTE, *str));
 
@@ -132,7 +133,7 @@ REBINT Compute_CRC(REBYTE *str, REBCNT len)
 
         // Left shift math must use unsigned to avoid undefined behavior
         // http://stackoverflow.com/q/3784996/211160
-        crc = cast(REBINT, MASK_CRC(cast(REBCNT, crc) << 8) ^ CRC_Table[n]);
+        crc = cast(REBINT, MASK_CRC(cast(REBCNT, crc) << 8) ^ crc24_table[n]);
     }
 
     return crc;
@@ -173,15 +174,11 @@ REBINT Hash_UTF8(const REBYTE *utf8, REBCNT size)
         // Left shift math must use unsigned to avoid undefined behavior
         // http://stackoverflow.com/q/3784996/211160
         //
-        hash = cast(REBINT, MASK_CRC(cast(REBCNT, hash) << 8) ^ CRC_Table[n]);
+        hash = cast(REBINT, MASK_CRC(cast(REBCNT, hash) << 8) ^ crc24_table[n]);
     }
 
     return hash;
 }
-
-static uint32_t *crc32_table = NULL;
-
-static void Make_CRC32_Table(void);
 
 
 //
@@ -519,44 +516,6 @@ REBINT Compute_IPC(REBYTE *data, REBCNT length)
 }
 
 
-static void Make_CRC32_Table(void) {
-    crc32_table = ALLOC_N(uint32_t, 256);
-
-    int n;
-    for (n = 0; n < 256; ++n) {
-        uint32_t c = cast(uint32_t, n);
-
-        int k;
-        for(k = 0; k < 8; ++k) {
-            if ((c & 1) != 0)
-                c = UINT32_C(0xedb88320) ^ (c >> 1);
-            else
-                c= c >> 1;
-        }
-        crc32_table[n] = c;
-    }
-}
-
-
-REBCNT Update_CRC32(uint32_t crc, REBYTE *buf, int len) {
-    uint32_t c = ~crc;
-
-    int n;
-    for(n = 0; n < len; n++)
-        c = crc32_table[(c^buf[n])&0xff]^(c>>8);
-
-    return ~c;
-}
-
-
-//
-//  CRC32: C
-//
-REBCNT CRC32(REBYTE *buf, REBCNT len)
-{
-    return Update_CRC32(UINT32_C(0x00000000), buf, len);
-}
-
 
 //
 //  Hash_Bytes_Or_Uni: C
@@ -574,8 +533,6 @@ REBINT Hash_Bytes_Or_Uni(
     REBCNT n;
     const REBYTE *b = cast(const REBYTE*, data);
     const REBUNI *u = cast(const REBUNI*, data);
-
-    if(!crc32_table) Make_CRC32_Table();
 
     if (wide == 1) {
         for(n = 0; n < len; n++) {
@@ -607,10 +564,14 @@ REBINT Hash_Bytes_Or_Uni(
 //
 void Startup_CRC(void)
 {
-    CRC_Table = ALLOC_N(REBCNT, 256);
-    Make_CRC_Table(PRZCRC);
+    crc24_table = ALLOC_N(REBCNT, 256);
+    Make_CRC24_Table(PRZCRC);
 
-    Make_CRC32_Table();
+    // If Zlib is built with DYNAMIC_CRC_TABLE, then the first call to
+    // get_crc_table() will initialize crc_table (for CRC32).  Otherwise the
+    // table is precompiled-in.
+    //
+    crc32_table = get_crc_table();
 }
 
 
@@ -619,7 +580,8 @@ void Startup_CRC(void)
 //
 void Shutdown_CRC(void)
 {
-    FREE_N(uint32_t, 256, crc32_table);
+    // Zlib's DYNAMIC_CRC_TABLE uses a global array, that is not malloc()'d,
+    // so nothing to free.
 
-    FREE_N(REBCNT, 256, CRC_Table);
+    FREE_N(REBCNT, 256, crc24_table);
 }

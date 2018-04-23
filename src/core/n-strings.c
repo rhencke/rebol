@@ -222,13 +222,12 @@ REBNATIVE(checksum)
             if (REF(secure) || REF(key))
                 fail (Error_Bad_Refines_Raw());
 
-            // The CRC32() routine returns an unsigned 32-bit number and uses
-            // the full range of values.  Yet Rebol chose to export this as
-            // a signed integer via checksum.  Perhaps (?) to generate a value
-            // that could also be used by Rebol2, as it only had 32-bit
-            // signed INTEGER! available.
+            // CRC32 is typically an unsigned 32-bit number and uses the full
+            // range of values.  Yet Rebol chose to export this as a signed
+            // integer via CHECKSUM.  Perhaps (?) to generate a value that
+            // could be used by Rebol2, as it only had 32-bit signed INTEGER!.
             //
-            REBINT crc32 = cast(REBINT, CRC32(data, len));
+            REBINT crc32 = cast(REBINT, crc32_z(0L, data, len));
             Init_Integer(D_OUT, crc32);
             return R_OUT;
         }
@@ -332,10 +331,8 @@ REBNATIVE(checksum)
         REBINT hash = Hash_Bytes_Or_Uni(data, len, wide) % sum;
         Init_Integer(D_OUT, hash);
     }
-    else {
-        REBINT crc = Compute_CRC(data, len);
-        Init_Integer(D_OUT, crc);
-    }
+    else
+        Init_Integer(D_OUT, Compute_CRC24(data, len));
 
     return R_OUT;
 }
