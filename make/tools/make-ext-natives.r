@@ -236,7 +236,7 @@ unless empty? error-list [
     ]
 ]
 append spec native-list
-comp-data: compress data: to-binary mold spec
+comp-data: gzip data: to-binary mold spec
 ;print ["buf:" to string! data]
 
 e-last/emit-lines [

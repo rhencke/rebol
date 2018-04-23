@@ -342,9 +342,9 @@ REBNATIVE(checksum)
 
 
 //
-//  compress: native [
+//  deflate: native [
 //
-//  "Compresses a string series and returns it."
+//  "Compress data using DEFLATE: https://en.wikipedia.org/wiki/DEFLATE"
 //
 //      return: [binary!]
 //      data [binary! string!]
@@ -352,21 +352,21 @@ REBNATIVE(checksum)
 //      /part
 //      limit
 //          "Length of data (elements)"
-//      /gzip
-//          "Use GZIP checksum"
-//      /only
-//          {Do not store header or envelope information ("raw")}
+//      /envelope
+//          {Add an envelope with header plus checksum/size information}
+//      format [word!]
+//          {ZLIB (adler32, no size) or GZIP (crc32, uncompressed size)}
 //  ]
 //
-REBNATIVE(compress)
+REBNATIVE(deflate)
 {
-    INCLUDE_PARAMS_OF_COMPRESS;
+    INCLUDE_PARAMS_OF_DEFLATE;
 
     REBVAL *data = ARG(data);
 
     REBCNT len;
-    UNUSED(PAR(part)); // checked by if limit is void
     Partial1(data, ARG(limit), &len);
+    UNUSED(PAR(part)); // checked by if limit is void
 
     REBSIZ size;
     REBYTE *bp;
@@ -380,19 +380,30 @@ REBNATIVE(compress)
         bp = BIN_AT(temp, offset);
     }
 
-    const REBOOL raw = REF(only); // use /ONLY to signal raw too?
+    REBSYM envelope;
+    if (REF(envelope)) {
+        envelope = VAL_WORD_SYM(ARG(format));
+        switch (envelope) {
+        case SYM_ZLIB:
+        case SYM_GZIP:
+            break;
 
-    REBCNT out_len;
-    void *compressed = rebDeflateAlloc(
-        &out_len,
+        default:
+            fail (Error_Invalid(ARG(format)));
+        }
+    }
+    else
+        envelope = SYM_0;
+
+    REBSIZ compressed_size;
+    void *compressed = Compress_Alloc_Core(
+        &compressed_size,
         bp,
-        len,
-        REF(gzip),
-        raw,
-        REF(only)
+        size,
+        envelope
     );
 
-    REBVAL *bin = rebRepossess(compressed, out_len);
+    REBVAL *bin = rebRepossess(compressed, compressed_size);
     Move_Value(D_OUT, bin);
     rebRelease(bin);
 
@@ -401,63 +412,69 @@ REBNATIVE(compress)
 
 
 //
-//  decompress: native [
+//  inflate: native [
 //
-//  "Decompresses data."
+//  "Decompresses DEFLATEd data: https://en.wikipedia.org/wiki/DEFLATE"
 //
 //      return: [binary!]
 //      data [binary!]
-//          "Data to decompress"
 //      /part
-//      lim ;-- /limit was a legacy name for a refinement
+//      limit
 //          "Length of compressed data (must match end marker)"
-//      /gzip
-//          "Use GZIP checksum"
-//      /limit
-//      max
+//      /max
+//      bound
 //          "Error out if result is larger than this"
-//      /only
-//          {Do not look for header or envelope information ("raw")}
+//      /envelope
+//          {Expect (and verify) envelope with header/CRC/size information}
+//      format [word!]
+//          {ZLIB, GZIP, or DETECT (for http://stackoverflow.com/a/9213826)}
 //  ]
 //
-REBNATIVE(decompress)
+REBNATIVE(inflate)
 {
-    INCLUDE_PARAMS_OF_DECOMPRESS;
+    INCLUDE_PARAMS_OF_INFLATE;
 
     REBVAL *data = ARG(data);
 
     REBINT max;
-    if (REF(limit)) {
-        max = Int32s(ARG(max), 1);
+    if (REF(max)) {
+        max = Int32s(ARG(bound), 1);
         if (max < 0)
-            return R_BLANK; // !!! Should negative limit be an error instead?
+            fail (Error_Invalid(ARG(bound)));
     }
     else
         max = -1;
 
-    REBCNT len;
-    UNUSED(REF(part)); // implied by non-void lim
-    Partial1(data, ARG(lim), &len);
+    REBCNT len; // measured in bytes (length of a BINARY!)
+    Partial1(data, ARG(limit), &len);
+    UNUSED(REF(part)); // checked by if limit is void
 
-    // This truncation rule used to be in Decompress, which passed len
-    // in as an extra parameter.  This was the only call that used it.
-    //
-    if (len > BIN_LEN(VAL_SERIES(data)))
-        len = BIN_LEN(VAL_SERIES(data));
+    REBSYM envelope;
+    if (REF(envelope)) {
+        envelope = VAL_WORD_SYM(ARG(format));
+        switch (envelope) {
+        case SYM_ZLIB:
+        case SYM_GZIP:
+        case SYM_DETECT:
+            break;
 
-    const REBOOL raw = REF(only); // use /ONLY to signal raw also?
-    REBCNT out_len;
-    void *decompressed = rebInflateAlloc(
-        &out_len,
-        BIN_HEAD(VAL_SERIES(data)) + VAL_INDEX(data),
+        default:
+            fail (Error_Invalid(ARG(format)));
+        }
+    }
+    else
+        envelope = SYM_0;
+
+    REBSIZ decompressed_size;
+    void *decompressed = Decompress_Alloc_Core(
+        &decompressed_size,
+        VAL_BIN_AT(data),
         len,
         max,
-        REF(gzip),
-        raw,
-        REF(only)
+        envelope
     );
 
-    REBVAL *bin = rebRepossess(decompressed, out_len);
+    REBVAL *bin = rebRepossess(decompressed, decompressed_size);
     Move_Value(D_OUT, bin);
     rebRelease(bin);
 

@@ -1261,7 +1261,7 @@ encap: function [
         embed: read spec
         print ["New embedded resource size is" length of embed "bytes long."]
 
-        compressed: compress embed
+        compressed: gzip embed
     ][
         compressed: copy #{}
         zip/deep/verbose compressed spec
@@ -1344,7 +1344,7 @@ get-encap: function [
 
     switch compressed-data/1 [
         0 [
-            return decompress next compressed-data
+            return gunzip next compressed-data
         ]
         1 [
             block: copy []

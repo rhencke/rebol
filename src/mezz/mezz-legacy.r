@@ -281,6 +281,18 @@ hijack 'also adapt copy :also [
     ;-- fall through to normal ALSO implementation
 ]
 
+compress: decompress: func [dummy:] [
+    fail/where [
+        {COMPRESS and DECOMPRESS are deprecated in Ren-C, in favor of the}
+        {DEFLATE/INFLATE natives and GZIP/GUNZIP natives.  These speak more}
+        {specifically about the method used, and eliminates the idea of}
+        {the "Rebol compression format"--which was really just DEFLATE with}
+        {zlib header and a 32-bit length in big endian at the tail.  To}
+        {decompress legacy "Rebol format" data, see <r3-legacy>:`}
+        {`zinflate/part data (skip tail of data -4)`}
+    ] 'dummy
+]
+
 clos: closure: func [dummy:] [
     fail/where [
         {One feature of R3-Alpha's CLOSURE! is now available in all FUNCTION!}
@@ -1353,6 +1365,48 @@ set 'r3-legacy* func [<local>] [
                 fail "-- only works on ANY-SERIES! or INTEGER!"
             ])
         ])
+
+        ; Rebol2/R3-Alpha's COMPRESS and DECOMPRESS encoded the length for
+        ; convenience, in a format different from the much more popular gzip.
+        ; Ren-C uses GZIP by default, this emulates "Rebol Compression".
+        ;
+        compress: (function [
+            return: [binary!]
+            data [binary! string!] /part lim /gzip /only
+        ][
+            if not any [gzip only] [ ; assume caller wants "Rebol compression"
+                data: to-binary copy/part data :lim
+                zlib: deflate data
+
+                length-32bit: modulo (length of data) (to-integer power 2 32)
+                loop 4 [
+                    append zlib modulo (to-integer length-32bit) 256
+                    length-32bit: me / 256
+                ]
+                return zlib ;; ^-- plus size mod 2^32 in big endian
+            ]
+
+            return deflate/part/envelope data :lim [
+                gzip [assert [not only] 'gzip]
+                not only ['zlib]
+            ]
+        ])
+
+        decompress: (function [
+            return: [binary!]
+            data [binary!] /part lim /gzip /limit max /only
+        ][
+            if not any [gzip only] [ ;; assume data is "Rebol compressed"
+                lim: default [tail of data]
+                return zinflate/part/max data (skip lim -4) :max
+            ]
+
+            return inflate/part/max/envelope data :lim :max case [
+                gzip [assert [not only] 'gzip]
+                not only ['zlib]
+            ]
+        ])
+
 
         ; The APPEND to the context expects `KEY: VALUE2 KEY2: VALUE2`, which
         ; is why COMPOSE is being used.  `and: (enfix tighten :intersect)`

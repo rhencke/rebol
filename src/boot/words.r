@@ -360,3 +360,9 @@ source
 library-path
 runtime-path
 options
+
+; envelopes used with INFLATE and DEFLATE
+;
+zlib
+gzip
+detect

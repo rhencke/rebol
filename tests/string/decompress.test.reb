@@ -1,10 +1,14 @@
 ; functions/string/decompress.r
 [#1679 ; "Native GZIP compress/decompress suport"
-    ("foo" == to string! decompress/gzip compress/gzip "foo")
+    ("foo" == to string! gunzip gzip "foo")
 ]
 [#1679
-    ("foo" == to string! decompress/gzip #{1F8B0800EF46BE4C00034BCBCF07002165738C03000000})
+    ("foo" == to string! gunzip #{1F8B0800EF46BE4C00034BCBCF07002165738C03000000})
 ]
 [#3
-    (error? trap [decompress #{AAAAAAAAAAAAAAAAAAAA}])
+    (error? trap [inflate #{AAAAAAAAAAAAAAAAAAAA}])
 ]
+
+(error? trap [inflate/adler #{AAAAAAAAAAAAAAAAAAAA}])
+
+(error? trap [gunzip #{AAAAAAAAAAAAAAAAAAAA}])

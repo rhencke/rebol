@@ -106,8 +106,8 @@ if true = attempt [void? :some-undefined-thing] [
     else: does [
         fail "Do not use ELSE in scripts which want compatibility w/R3-Alpha" 
     ]
-    then: func [dummy:] [
-        fail/where "Do not use THEN in scripts which want compatibility w/R3-Alpha" 'dummy
+    then: does [
+        fail "Do not use THEN in scripts which want compatibility w/R3-Alpha"
     ]
 
     ; WHILE-NOT can't be written correctly in usermode R3-Alpha (RETURN won't
@@ -139,6 +139,21 @@ if true = attempt [void? :some-undefined-thing] [
     ]
     not: func [cell [<opt> any-value!]] [
         either any [void? :cell | :cell] [false] [true]
+    ]
+
+    ; COMPRESS no longer supports "Rebol format compression" (which was
+    ; non-raw zlib envelope plus 32-bit length)
+    ;
+    if (set? 'compress) and (find words-of :compress /gzip) [
+        deflate: specialize 'compress [gzip: false | only: true] ;; "raw"
+        inflate: specialize 'decompress [gzip: false | only: true] ;; "raw"
+
+        gzip: specialize 'compress [gzip: true]
+        gunzip: specialize 'decompress [gzip: true]
+
+        compress: decompress: does [
+            fail "COMPRESS/DECOMPRESS replaced by gzip/gunzip/inflate/deflate"
+        ]
     ]
 
     QUIT ;-- !!! stops running if Ren-C here.
@@ -461,6 +476,34 @@ foreach: does [
 for-next: get 'forall
 forall: does [
     fail "In Ren-C code, please use FOR-NEXT and not FORALL"
+]
+
+
+decompress: compress: does [
+    fail [
+        "COMPRESS in R3-Alpha produced corrupt data using the /GZIP option."
+        "Ren-C uses gzip by default, and does not support 'Rebol compression'"
+        "(which was a non-raw zlib envelope plus 32-bit length, which can be"
+        "implemented using the new DEFLATE native and appending 4 bytes)."
+        "For forward compatibility, use DEFLATE, and store the size somewhere"
+        "to use with a Ren-C INFLATE call for more efficient decompression"
+    ]
+]
+
+gzip: gunzip: does [
+    fail [
+        "R3-Alpha's COMPRESS/GZIP was broken.  If bootstrap for Ren-C ever"
+        "is made to work with R3-Alpha again, either DEFLATE would need to be"
+        "used (storing the size elsewhere) or a usermode fake up of GZIP"
+        "would have to be implemented.  The latter is the better idea, and"
+        "isn't that difficult to do."
+     ]
+]
+
+deflate: func [data [binary! string!]] [
+    compressed: compress data
+    loop 4 [take/last compressed] ;-- 32-bit size at tail in "Rebol format"
+    compressed
 ]
 
 

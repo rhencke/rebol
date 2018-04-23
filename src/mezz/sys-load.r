@@ -235,11 +235,11 @@ load-header: function [
                     unless rest: any [
                         attempt [
                             ; binary compression
-                            decompress/part rest end
+                            gunzip/part rest end
                         ]
                         attempt [
                             ; script encoded
-                            decompress first transcode/next rest
+                            gunzip first transcode/next rest
                         ]
                     ][
                         return 'bad-compress
@@ -266,7 +266,7 @@ load-header: function [
 
             case [
                 find hdr/options 'compress [ ; script encoded only
-                    unless rest: attempt [decompress first rest] [
+                    unless rest: attempt [gunzip first rest] [
                         return 'bad-compress
                     ]
 
@@ -554,7 +554,7 @@ load-ext-module: function [
     /no-lib
     /no-user
 ][
-    code: load/header decompress spec
+    code: load/header gunzip spec
     hdr: take code
     tmp-ctx: make object! [
         native: function [
@@ -1074,7 +1074,7 @@ load-extension: function [
         ]
         binary? ext/script [
             comment [
-                script: load/header decompress ext/script
+                script: load/header gunzip ext/script
             ]
             script: load/header ext/script
         ]

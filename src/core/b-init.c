@@ -1169,21 +1169,14 @@ void Startup_Core(void)
     // includes the type list, word list, error message templates, system
     // object, mezzanines, etc.
 
-    const REBOOL gzip = FALSE;
-    const REBOOL raw = FALSE;
-    const REBOOL only = FALSE;
     REBCNT utf8_size;
-    REBYTE *utf8 = rebInflateAlloc(
+    const REBINT max = -1; // trust size in gzip data
+    REBYTE *utf8 = rebGunzipAlloc(
         &utf8_size,
         Native_Specs,
-        Nat_Compressed_Size, // use instead of NAT_COMPRESSED_SIZE macro etc..
-        Nat_Uncompressed_Size, // ...so that extern linkage gets picked up
-        gzip,
-        raw,
-        only
+        Nat_Compressed_Size,
+        max
     );
-    if (utf8_size != Nat_Uncompressed_Size)
-        panic ("decompressed native specs size mismatch (try `make clean`)");
 
     REBARR *boot_array = Scan_UTF8_Managed(
         Intern("tmp-boot.r"),

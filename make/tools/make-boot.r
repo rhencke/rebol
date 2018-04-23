@@ -891,17 +891,13 @@ boot-types: new-types
 
 write-if-changed boot/tmp-boot-block.r mold reduce sections
 data: mold/flat reduce sections
-insert data reduce ["; Copyright (C) REBOL Technologies " now newline]
 insert tail-of data make char! 0 ; scanner requires zero termination
 
-comp-data: compress data: to-binary data
+comp-data: gzip data: to-binary data
 
 ; Array sizes in C have to be constant expressions, which doesn't include
 ; constant values.  Have to use #defines.
 ;
-e-bootblock/emit-line [
-    "#define NAT_UNCOMPRESSED_SIZE" space (length-of data)
-]
 e-bootblock/emit-line [
     "#define NAT_COMPRESSED_SIZE" space (length-of comp-data)
 ]
@@ -912,20 +908,8 @@ e-bootblock/emit-line [
 ; are referred to as well.
 ;
 e-bootblock/emit-line [
-    "const REBCNT Nat_Uncompressed_Size = NAT_UNCOMPRESSED_SIZE;"
-]
-e-bootblock/emit-line [
     "const REBCNT Nat_Compressed_Size = NAT_COMPRESSED_SIZE;"
 ]
-
-e-bootblock/emit {
-// Native_Specs contains data which is the DEFLATE-algorithm-compressed
-// representation of the textual function specs for Rebol's native
-// routines.  Though DEFLATE includes the compressed size in the payload,
-// NAT_UNCOMPRESSED_SIZE is also defined to be used as a sanity check
-// on the decompression process.
-}
-e-bootblock/emit newline
 
 e-bootblock/emit-line ["const REBYTE Native_Specs[NAT_COMPRESSED_SIZE] = {"]
 
@@ -956,7 +940,6 @@ e-boot/emit newline
 e-boot/emit {
 
 EXTERN_C const REBCNT Num_Natives;
-EXTERN_C const REBCNT Nat_Uncompressed_Size;
 EXTERN_C const REBCNT Nat_Compressed_Size;
 
 // Compressed data of the native specifications.  This is uncompressed during

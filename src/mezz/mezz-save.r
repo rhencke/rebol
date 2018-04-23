@@ -135,7 +135,7 @@ save: function [
 
         compress [
             ; Compress the data if necessary
-            data: lib/compress data
+            data: gzip data
         ]
 
         method = 'script [

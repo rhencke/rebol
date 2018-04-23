@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -32,48 +32,26 @@
 // This wraps that functionality into functions that compress and decompress
 // BINARY! REBSERs.
 //
-// Classically, Rebol added a 32-bit size header onto compressed data,
-// indicating the uncompressed size.  This is the default BINARY! format
-// returned by COMPRESS.  However, it only used a 32-bit number...gzip also
-// includes the length modulo 32.  This means that if the data is < 4MB in
-// size you can use the length with gzip:
-//
-// http://stackoverflow.com/a/9213826/211160
-//
 // Options are offered for using zlib envelope, gzip envelope, or raw deflate.
 //
-// !!! Technically zlib is designed to do "streaming" compression.  Those
-// features are not exposed by this interface, although they are implemented
-// in the zlib code.
+// !!! zlib is designed to do streaming compression.  While that code is
+// part of the linked in library, it's not exposed by this interface.
+//
+// !!! Since the zlib code/API isn't actually modified, one could dynamically
+// link to a zlib on the platform instead of using the extracted version.
 //
 
 #include "sys-core.h"
 #include "sys-zlib.h"
 
 
-#include "mem-series.h" // !!! needed for BIAS adjustment, should we export?
-
-
 //
-//  U32_To_Bytes: C
+//  Bytes_To_U32_BE: C
 //
-// Get endian-independent encoding of a 32-bit unsigned integer to 4 bytes
+// Decode bytes in Big Endian format (least significant byte first) into a
+// uint32.  GZIP format uses this to store the decompressed-size-mod-2^32.
 //
-static void U32_To_Bytes(REBYTE *out, uint32_t in)
-{
-    out[0] = cast(REBYTE, in);
-    out[1] = cast(REBYTE, in >> 8);
-    out[2] = cast(REBYTE, in >> 16);
-    out[3] = cast(REBYTE, in >> 24);
-}
-
-
-//
-//  Bytes_To_U32: C
-//
-// Decode endian-independent sequence of 4 bytes back into a 32-bit unsigned
-//
-static uint32_t Bytes_To_U32(const REBYTE * const in)
+static uint32_t Bytes_To_U32_BE(const REBYTE * const in)
 {
     return cast(uint32_t, in[0])
         | cast(uint32_t, in[1] << 8)
@@ -101,7 +79,7 @@ static const int window_bits_zlib = MAX_WBITS;
 static const int window_bits_gzip = MAX_WBITS | 16; // "+ 16"
 static const int window_bits_detect_zlib_gzip = MAX_WBITS | 32; // "+ 32"
 static const int window_bits_zlib_raw = -(MAX_WBITS);
-static const int window_bits_gzip_raw = -(MAX_WBITS | 16); // "raw gzip" ?!
+// "raw gzip" would be nonsense, e.g. `-(MAX_WBITS | 16)`
 
 
 // Inflation and deflation tends to ultimately target series, so we want to
@@ -130,9 +108,6 @@ static void zfree(void *opaque, void *addr)
 }
 
 
-//
-//  Error_Compression: C
-//
 // Zlib gives back string error messages.  We use them or fall back on the
 // integer code if there is no message.
 //
@@ -154,61 +129,57 @@ static REBCTX *Error_Compression(const z_stream *strm, int ret)
 
 
 //
-//  rebDeflateAlloc: C
+//  Compress_Alloc_Core: C
 //
-// !!! Currently all RL_API functions are in %a-lib.c, so this isn't actually
-// in the external API so long as it lives in %u-compress.c. 
+// Common code for compressing raw deflate, zlib envelope, gzip envelope.
+// Exported as rebDeflateAlloc() and rebGunzipAlloc() for clarity.
 //
-// Exposure of the deflate() of the built-in zlib, so that extensions (such as
-// a PNG encoder) can reuse it.  Currently this does not take any options for
-// tuning the compression, and just uses the recommended defaults by zlib.
-//
-// See notes on rebMalloc() for how the result can be converted to a series.
-//
-// !!! Adds 32-bit size info to zlib non-raw compressions for compatibility
-// with Rebol2 and R3-Alpha, at the cost of inventing yet-another-format.
-// Consider removing.
-//
-REBYTE *rebDeflateAlloc(
+REBYTE *Compress_Alloc_Core(
     REBCNT *out_len,
     const unsigned char* input,
     REBCNT in_len,
-    REBOOL gzip,
-    REBOOL raw,
-    REBOOL only
+    REBSYM envelope // SYM_0, SYM_ZLIB, or SYM_GZIP
 ){
-    // compression level can be a value from 1 to 9, or Z_DEFAULT_COMPRESSION
-    // if you want it to pick what the library author considers the "worth it"
-    // tradeoff of time to generally suggest.
-    //
     z_stream strm;
     strm.zalloc = &zalloc; // fail() cleans up automatically, see notes
     strm.zfree = &zfree;
     strm.opaque = NULL; // passed to zalloc and zfree, not needed currently
 
-    // Should there be detection?  (This suppresses unused const warning.)
-    //
-    UNUSED(window_bits_detect_zlib_gzip);
+    int window_bits;
+    switch (envelope) {
+    default:
+        assert(FALSE);
+    case SYM_0:
+        window_bits = window_bits_zlib_raw;
+        break;
 
+    case SYM_ZLIB:
+        window_bits = window_bits_zlib;
+        break;
+
+    case SYM_GZIP:
+        window_bits = window_bits_gzip;
+        break;
+    }
+
+    // compression level can be a value from 1 to 9, or Z_DEFAULT_COMPRESSION
+    // if you want it to pick what the library author considers the "worth it"
+    // tradeoff of time to generally suggest.
+    //
     int ret_init = deflateInit2(
         &strm,
         Z_DEFAULT_COMPRESSION,
         Z_DEFLATED,
-        raw
-            ? (gzip ? window_bits_gzip_raw : window_bits_zlib_raw)
-            : (gzip ? window_bits_gzip : window_bits_zlib),
+        window_bits,
         8,
         Z_DEFAULT_STRATEGY
     );
-
     if (ret_init != Z_OK)
         fail (Error_Compression(&strm, ret_init));
 
     // http://stackoverflow.com/a/4938401
     //
     REBCNT buf_size = deflateBound(&strm, in_len);
-    if (NOT(gzip) && NOT(only))
-        buf_size += sizeof(uint32_t); // 32-bit length (gzip already added)
 
     strm.avail_in = in_len;
     strm.next_in = input;
@@ -218,80 +189,49 @@ REBYTE *rebDeflateAlloc(
     strm.next_out = output;
 
     int ret_deflate = deflate(&strm, Z_FINISH);
-    deflateEnd(&strm);
-
     if (ret_deflate != Z_STREAM_END)
         fail (Error_Compression(&strm, ret_deflate));
 
     assert(strm.total_out == buf_size - strm.avail_out);
-    REBCNT overall_size; // size after any extra envelope data is added
-
-    if (NOT(gzip) && NOT(only)) {
-        //
-        // Add 32-bit length to the end.
-        //
-        // !!! In ZLIB format the length can be found by decompressing, but
-        // not known a priori.  So this is for efficiency.  It would likely be
-        // better to not include this as it only confuses matters for those
-        // expecting the data to be in a known format...though it means that
-        // clients who wanted to decompress to a known allocation size would
-        // have to save the size somewhere.
-        //
-        assert(strm.avail_out >= sizeof(uint32_t));
-        U32_To_Bytes(output + strm.total_out, cast(uint32_t, in_len));
-        overall_size = strm.total_out + sizeof(uint32_t);
-    }
-    else {
-      #if !defined(NDEBUG)
-        //
-        // GZIP contains its own CRC.  It also has a 32-bit uncompressed
-        // length, conveniently (and perhaps confusingly) at the tail in the
-        // same format that R3-Alpha and Rebol2 used.  Double-check it.
-        //
-        if (gzip) {
-            uint32_t gzip_len = Bytes_To_U32(
-                output + strm.total_out - sizeof(uint32_t)
-            );
-            assert(in_len == gzip_len);
-        }
-      #endif
-
-        overall_size = strm.total_out;
-    }
-
     if (out_len != NULL)
-        *out_len = overall_size;
+        *out_len = strm.total_out;
+
+  #if !defined(NDEBUG)
+    //
+    // GZIP contains a 32-bit length of the uncompressed data (modulo 2^32),
+    // at the tail of the compressed data.  Sanity check that it's right.
+    //
+    if (envelope == SYM_GZIP) {
+        uint32_t gzip_len = Bytes_To_U32_BE(
+            output + strm.total_out - sizeof(uint32_t)
+        );
+        assert(in_len == gzip_len); // !!! 64-bit REBCNT would need modulo
+    }
+  #endif
 
     // !!! Trim if more than 1K extra capacity, review logic
     //
-    assert(buf_size >= overall_size);
-    if (buf_size - overall_size > 1024)
+    assert(buf_size >= strm.total_out);
+    if (buf_size - strm.total_out > 1024)
         output = cast(REBYTE*, rebRealloc(output, strm.avail_out));
 
-    return output;
+    deflateEnd(&strm);
+    return output; // done last (so strm variables can be read up to end)
 }
 
 
 //
-//  rebInflateAlloc: C
+//  Decompress_Alloc_Core: C
 //
-// !!! Currently all RL_API functions are in %a-lib.c, so this isn't actually
-// in the external API so long as it lives in %u-compress.c. 
+// Common code for decompressing: raw deflate, zlib envelope, gzip envelope.
+// Exported as rebInflateAlloc() and rebGunzipAlloc() for clarity.
 //
-// Exposure of the inflate() of the built-in zlib, so that extensions (such as
-// a PNG decoder) can reuse it.  Currently this does not take any options for
-// tuning the decompression, and just uses the recommended defaults by zlib.
-//
-// See notes on rebMalloc() for how the result can be converted to a series.
-//
-REBYTE *rebInflateAlloc(
+REBYTE *Decompress_Alloc_Core(
     REBCNT *len_out,
     const REBYTE *input,
     REBCNT len_in,
     REBINT max,
-    REBOOL gzip,
-    REBOOL raw,
-    REBOOL only // don't add 4-byte size to end
+    REBSYM envelope // SYM_0, SYM_ZLIB, SYM_GZIP, or SYM_DETECT
 ){
     z_stream strm;
     strm.zalloc = &zalloc; // fail() cleans up automatically, see notes
@@ -299,49 +239,63 @@ REBYTE *rebInflateAlloc(
     strm.opaque = NULL; // passed to zalloc and zfree, not needed currently
     strm.total_out = 0;
 
-    // We only subtract out the double-checking size if this came from a
-    // zlib compression without /ONLY.
-    //
-    strm.avail_in = only || gzip ? len_in : len_in - sizeof(REBCNT);
+    strm.avail_in = len_in;
     strm.next_in = input;
 
-    // !!! Zlib can detect decompression...use window_bits_detect_zlib_gzip?
-    //
-    int ret_init = inflateInit2(
-        &strm,
-        raw
-            ? (gzip ? window_bits_gzip_raw : window_bits_zlib_raw)
-            : (gzip ? window_bits_gzip : window_bits_zlib)
-    );
+    int window_bits;
+    switch (envelope) {
+    default:
+        assert(FALSE);
+    case SYM_0:
+        window_bits = window_bits_zlib_raw;
+        break;
+
+    case SYM_ZLIB:
+        window_bits = window_bits_zlib;
+        break;
+
+    case SYM_GZIP:
+        window_bits = window_bits_gzip;
+        break;
+
+    case SYM_DETECT:
+        window_bits = window_bits_detect_zlib_gzip;
+        break;
+    }
+
+    int ret_init = inflateInit2(&strm, window_bits);
     if (ret_init != Z_OK)
         fail (Error_Compression(&strm, ret_init));
 
     REBCNT buf_size;
-    if (gzip || NOT(only)) {
-        //
-        // Both gzip and Rebol's envelope have the uncompressed size living in
-        // the last 4 bytes of the payload.
-        //
-        if (len_in <= sizeof(uint32_t))
-            fail (Error_Past_End_Raw()); // !!! Better error?
+    if (
+        envelope == SYM_GZIP // embedded size trusted if not SYM_DETECT
+        && len_in < 4161808 // (2^32 / 1032 + 18) -> 1032 is max deflate ratio
+    ){ 
+        const REBSIZ gzip_min_overhead = 18; // at *least* 18 bytes
+        if (len_in < gzip_min_overhead)
+            fail ("GZIP compressed size less than minimum for gzip format");
 
-        buf_size = Bytes_To_U32(input + len_in - sizeof(uint32_t));
-
-        // If we know the size is too big go ahead and report an error
-        // before doing the buffer allocation
+        // Size (modulo 2^32) is in the last 4 bytes, *if* it's trusted:
         //
-        if (max >= 0 && buf_size > cast(uint32_t, max)) {
-            DECLARE_LOCAL (temp);
-            Init_Integer(temp, max);
-            fail (Error_Size_Limit_Raw(temp));
-        }
+        // see http://stackoverflow.com/a/9213826
+        //
+        // Note that since it's not known how much actual gzip header info
+        // there is, it's not possible to tell if a very small number here
+        // (compared to the input data) is actually wrong.
+        //
+        buf_size = Bytes_To_U32_BE(input + len_in - sizeof(uint32_t));
     }
     else {
-        // We need some logic for dealing with guessing the size of a zlib
-        // compression when there's no header.  There is no way a priori to
-        // know what that size will be:
+        // Zlib envelope does not store decompressed size, have to guess:
         //
-        //     http://stackoverflow.com/q/929757/211160
+        // http://stackoverflow.com/q/929757/211160
+        //
+        // Gzip envelope may *ALSO* need guessing if the data comes from a
+        // sketchy source (GNU gzip utilities are, unfortunately, sketchy).
+        // Use SYM_DETECT instead of SYM_GZIP with untrusted gzip sources:
+        //
+        // http://stackoverflow.com/a/9213826
         //
         // If the passed-in "max" seems in the ballpark of a compression ratio
         // then use it, because often that will be the exact size.
@@ -376,7 +330,9 @@ REBYTE *rebInflateAlloc(
         if (ret_inflate != Z_OK)
             fail (Error_Compression(&strm, ret_inflate));
 
-        assert(strm.avail_out == 0); // !!! is this guaranteed?
+        // Note: `strm.avail_out` isn't necessarily 0 here, first observed
+        // with `inflate #{AAAAAAAAAAAAAAAAAAAA}` (which is bad, but still)
+        //
         assert(strm.next_out == output + buf_size - strm.avail_out);
 
         if (max >= 0 && buf_size >= cast(REBCNT, max)) {

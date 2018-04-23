@@ -2093,6 +2093,131 @@ REBVAL *RL_rebLocalToFileW(const REBWCHAR *local, REBOOL is_dir)
 const REBVAL *RL_rebEnd(void) {return END;}
 
 
+//
+//  rebDeflateAlloc: RL_API
+//
+// Exposure of the deflate() of the built-in zlib.  Assumes no envelope.
+//
+// Uses zlib's recommended default for compression level.
+//
+// See rebRepossess() for the ability to mutate the result into a BINARY!
+//
+REBYTE *RL_rebDeflateAlloc(
+    REBCNT *out_len,
+    const unsigned char* input,
+    REBCNT in_len
+){
+    return Compress_Alloc_Core(out_len, input, in_len, SYM_0);
+}
+
+
+//
+//  rebZdeflateAlloc: RL_API
+//
+// Variant of rebDeflateAlloc() which adds a zlib envelope...which is a 2-byte
+// header and 32-bit ADLER32 CRC at the tail.
+//
+REBYTE *RL_rebZdeflateAlloc(
+    REBCNT *out_len,
+    const unsigned char* input,
+    REBCNT in_len
+){
+    return Compress_Alloc_Core(out_len, input, in_len, SYM_ZLIB);
+}
+
+
+//
+//  rebGzipAlloc: RL_API
+//
+// Slight variant of deflate() which stores the uncompressed data's size
+// implicitly in the returned data, and a CRC32 checksum.
+//
+REBYTE *RL_rebGzipAlloc(
+    REBCNT *out_len,
+    const unsigned char* input,
+    REBCNT in_len
+){
+    return Compress_Alloc_Core(out_len, input, in_len, SYM_GZIP);
+}
+
+
+//
+//  rebInflateAlloc: RL_API
+//
+// Exposure of the inflate() of the built-in zlib.  Assumes no envelope.
+//
+// Use max = -1 to guess decompressed size, or for best memory efficiency,
+// specify `max` as the precise size of the original data.
+//
+// See rebRepossess() for the ability to mutate the result into a BINARY!
+//
+REBYTE *RL_rebInflateAlloc(
+    REBCNT *len_out,
+    const REBYTE *input,
+    REBCNT len_in,
+    REBINT max
+){
+    return Decompress_Alloc_Core(len_out, input, len_in, max, SYM_0);
+}
+
+
+//
+//  rebZinflateAlloc: RL_API
+//
+// Variant of rebInflateAlloc() which assumes a zlib envelope...checking for
+// the 2-byte header and verifying the 32-bit ADLER32 CRC at the tail.
+//
+REBYTE *RL_rebZinflateAlloc(
+    REBCNT *len_out,
+    const REBYTE *input,
+    REBCNT len_in,
+    REBINT max
+){
+    return Decompress_Alloc_Core(len_out, input, len_in, max, SYM_ZLIB);
+}
+
+
+//
+//  rebGunzipAlloc: RL_API
+//
+// Slight variant of inflate() which is compatible with gzip, and checks its
+// CRC32.  For data whose original size was < 2^32 bytes, the gzip envelope
+// stored that size...so memory efficiency is achieved even if max = -1.
+//
+// Note: That size guarantee exists for data compressed with rebGzipAlloc() or
+// adhering to the gzip standard.  However, archives created with the GNU
+// gzip tool make streams with possible trailing zeros or concatenations:
+//
+// http://stackoverflow.com/a/9213826
+//
+REBYTE *RL_rebGunzipAlloc(
+    REBCNT *len_out,
+    const REBYTE *input,
+    REBCNT len_in,
+    REBINT max
+){
+    return Decompress_Alloc_Core(len_out, input, len_in, max, SYM_GZIP);
+}
+
+
+//
+//  rebDeflateDetectAlloc: RL_API
+//
+// Does DEFLATE with detection, and also ignores the size information in a
+// gzip file, due to the reasoning here:
+//
+// http://stackoverflow.com/a/9213826
+//
+REBYTE *RL_rebDeflateDetectAlloc(
+    REBCNT *len_out,
+    const REBYTE *input,
+    REBCNT len_in,
+    REBINT max
+){
+    return Decompress_Alloc_Core(len_out, input, len_in, max, SYM_DETECT);
+}
+
+
 // !!! Although it is very much the goal to get all OS-specific code out of
 // the core (including the API), this particular hook is extremely useful to
 // have available to all clients.  It might be done another way (e.g. by

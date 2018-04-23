@@ -55,7 +55,7 @@ write-c-file: function [
 
     data: read r-file
 
-    comp-data: compress data
+    comp-data: gzip data
     comp-size: length-of comp-data
 
     e/emit-line ["static const REBYTE script_bytes[" comp-size "] = {"]

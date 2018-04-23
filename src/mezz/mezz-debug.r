@@ -104,7 +104,7 @@ speed?: function [
             insert/dup tmp "abcdefghij" 50000
             loop 10 [
                 random tmp
-                decompress compress tmp
+                gunzip gzip tmp
             ]
             calc: [(length of tmp) * 10 / secs / 1900]
         ][

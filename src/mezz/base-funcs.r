@@ -493,6 +493,31 @@ redescribe [
 ] :compose
 
 
+zdeflate: redescribe [
+    {Deflates data with zlib envelope: https://en.wikipedia.org/wiki/ZLIB}
+](
+    specialize 'deflate/envelope [format: 'zlib]
+)
+
+zinflate: redescribe [
+    {Inflates data with zlib envelope: https://en.wikipedia.org/wiki/ZLIB}
+](
+    specialize 'inflate/envelope [format: 'zlib]
+)
+
+gzip: redescribe [
+    {Deflates data with gzip envelope: https://en.wikipedia.org/wiki/Gzip}
+](
+    specialize 'deflate/envelope [format: 'gzip]
+)
+
+gunzip: redescribe [
+    {Inflates data with gzip envelope: https://en.wikipedia.org/wiki/Gzip}
+](
+    specialize 'inflate/envelope [format: 'gzip] ;-- What about GZIP-BADSIZE?
+)
+
+
 default*: enfix redescribe [
     {Would be the same as DEFAULT/ONLY if paths could dispatch infix}
 ](

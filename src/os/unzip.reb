@@ -2,17 +2,52 @@ REBOL [
     System: "REBOL [R3] Language Interpreter and Run-time Environment"
     Title: "Zip and Unzip Services"
     Rights: {
-        Copyright 2009-2017 Rebol Open Source Contributors
+        Copyright 2009 Vincent Ecuyer
+        Copyright 2009-2018 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
 
         See README.md and CREDITS.md for more information.
     }
     License: {
+        Original code from %rebzip.r from www.rebol.org
         Public Domain License
     }
     Notes: {
-        Original code from rebzip.r from www.REBOL.org
         Only DEFLATE and STORE methods are supported.
+
+        == archiving: zip ==
+
+        you can zip a single file:
+            zip %new-zip.zip %my-file
+
+        a block of files:
+            zip %new-zip.zip [%file-1.txt %file-2.exe]
+
+        a block of data (binary!/string!) and files:
+            zip %new-zip.zip [%my-file "my data"]
+
+        a entire directory:
+            zip/deep %new-zip.zip %my-directory/
+
+        from a url:
+            zip %new-zip.zip ftp://192.168.1.10/my-file.txt
+
+        any combination of these:
+            zip/deep %new-zip.zip  [
+                %readme.txt "An example"
+                ftp://192.168.1.10/my-file.txt
+                %my-directory
+            ]
+
+        == unarchiving: unzip ==
+
+        you can uncompress to a directory (created if it does not exist):
+            unzip %my-new-dir %my-zip-file.zip
+
+        or a block:
+            unzip my-block %my-zip-file.zip
+
+            my-block == [%file-1.txt #{...} %file-2.exe #{...}]
     }
 ]
 
@@ -114,45 +149,36 @@ ctx-zip: context [
             "Name of file"
         date [date!]
             "Modification date of file"
-        data [any-string! binary!]
+        data [binary!]
             "Data to compress"
+        offset [integer!]
+            "Offset where the compressed entry will be stored in the file"
     ][
         ; info on data before compression
         crc: head of reverse crc-32 data
 
         uncompressed-size: to-ilong length of data
 
-        either empty? data [
-            method: 'store
-        ][
-            ; zlib stream
-            compressed-data: compress data
-            ; if compression inefficient, store the data instead
-            either (length of data) > (length of compressed-data) [
-                data: copy/part
-                    skip compressed-data 2
-                    skip tail of compressed-data -8
-                method: 'deflate
-            ][
-                method: 'store
-                clear compressed-data
-            ]
+        compressed-data: deflate data
+
+        if length of compressed-data < length of data [
+            method: 'deflate
+        ] else [
+            method: 'store ;-- deflating didn't help
+
+            clear compressed-data ;-- !!! doesn't reclaim memory (...FREE ?)
+            compressed-data: data
         ]
 
-        ; info on data after compression
-        compressed-size: to-ilong length of data
+        compressed-size: to-ilong length of compressed-data
 
-        reduce [
+        return reduce [
             ; local file entry
             join-all [
                 local-file-sig
                 #{0000} ; version
                 #{0000} ; flags
-                either method = 'store [
-                    #{0000} ; method = store
-                ][
-                    #{0800} ; method = deflate
-                ]
+                really switch method [store [#{0000}] deflate [#{0800}]]
                 to-msdos-time date/time
                 to-msdos-date date/date
                 crc     ; crc-32
@@ -162,19 +188,16 @@ ctx-zip: context [
                 #{0000} ; extrafield length
                 name    ; filename
                         ; no extrafield
-                data    ; compressed data
+                compressed-data
             ]
+
             ; central-dir file entry
             join-all [
                 central-file-sig
                 #{0000} ; version source
                 #{0000} ; version min
                 #{0000} ; flags
-                either method = 'store [
-                    #{0000} ; method = store
-                ][
-                    #{0800} ; method = deflate
-                ]
+                really switch method [store [#{0000}] deflate [#{0800}]]
                 to-msdos-time date/time
                 to-msdos-date date/date
                 crc     ; crc-32
@@ -186,18 +209,12 @@ ctx-zip: context [
                 #{0000} ; disknumber start
                 #{0000} ; internal attributes
                 #{00000000} ; external attributes
-                #{00000000} ; header offset
+                to-ilong offset ; header offset
                 name    ; filename
                         ; extrafield
                         ; comment
             ]
         ]
-    ]
-
-    any-file?: func [
-        "Returns TRUE for file and url values." value [<opt> any-value!]
-    ][
-        any [file? value url? value]
     ]
 
     to-path-file: func [
@@ -231,80 +248,80 @@ ctx-zip: context [
         /only
             "Include the root source directory"
     ][
-        out: func [value] either any-file? where [
-            [append where value]
-        ][
-            [where: append where value]
+        if match [file! url!] where [
+            where: open/write where
         ]
-        if any-file? where [where: open/write where]
 
-        files-size: nb-entries: 0
+        out: func [value] [append where value]
+
+        offset: num-entries: 0
         central-directory: copy #{}
 
-        either all [not only | file? source | dir? source][
-            root: source source: read source
-        ][
+        if not only and (all [file? source | dir? source]) [
+            root: source
+            source: read source
+        ] else [
             root: %./
         ]
 
         source: compose [(source)]
-        while-not [tail? source][
+        for-next source [
             name: source/1
-            no-modes: any [url? root/:name dir? root/:name]
-            files: any [
-                all [dir? name name: dirize name read root/:name][]
-            ]
-            ; is name a not empty directory?
-            either all [deep not empty? files] [
-                ; append content to file list
-                for-each file read root/:name [
+            no-modes: (url? root/:name) or (dir? root/:name)
+
+            if deep and (dir? name) [
+                name: dirize name
+                files: ensure block! read root/:name
+                for-each file files [
                     append source name/:file
                 ]
-            ][
-                nb-entries: nb-entries + 1
-                date: now
-
-                ; is next one data or+ filename?
-                data: either any [tail? next source any-file? source/2][
-                    either #"/" = last name [copy #{}][
-                        if not no-modes [
-                            date: modified? root/:name
-                        ]
-                        read root/:name
-                    ]
-                ][
-                    first source: next source
-                ]
-                all [not binary? data data: to binary! data]
-                name: to-path-file name
-                if verbose [print name]
-                ; get compressed file + directory entry
-                entry: zip-entry name date data
-                ; write file offset in archive
-                change skip entry/2 42 to-ilong files-size
-                ; directory entry
-                append central-directory entry/2
-                ; compressed file + header
-                out entry/1
-                files-size: files-size + length of entry/1
+                continue
             ]
-            ; next arg
-            source: next source
+
+            num-entries: num-entries + 1
+            date: now ;; !!! Each file gets a slightly later compression date?
+
+            ; is next one data or filename?
+            data: if match [file! url!] to-value :source/2 [
+                if #"/" = last name [ ;; why not `dir?` ?
+                    copy #{}
+                ] else [
+                    if not no-modes [
+                        date: modified? root/:name
+                    ]
+                    read root/:name
+                ]
+            ] else [
+                first (source: next source)
+            ]
+
+            if not binary? data [data: to binary! data]
+
+            name: to-path-file name
+            if verbose [print name]
+
+            set [file-entry: dir-entry:] zip-entry name date data offset
+
+            append central-directory dir-entry
+
+            append where file-entry
+            offset: me + length of file-entry
         ]
-        out join-all [
+
+        append where join-all [
             central-directory
             end-of-central-sig
             #{0000} ; disk num
             #{0000} ; disk central dir
-            to-ishort nb-entries ; nb entries disk
-            to-ishort nb-entries ; nb entries
+            to-ishort num-entries ; num entries disk
+            to-ishort num-entries ; num entries
             to-ilong length of central-directory
-            to-ilong files-size
+            to-ilong offset ; offset of the central directory
             #{0000} ; zip file comment length
                     ; zip file comment
         ]
         if port? where [close where]
-        nb-entries
+        return num-entries
     ]
 
     unzip: function [
@@ -318,23 +335,26 @@ ctx-zip: context [
         /quiet
             "Don't lists files while decompressing"
     ][
-        errors: 0
+        num-errors: 0
         info: either all [quiet | not verbose] [
             func [value] []
         ][
             func [value][prin join-of "" value]
         ]
-        if any-file? where [where: dirize where]
-        if all [any-file? where not exists? where][
-            make-dir/deep where
+        if not block? where [
+            where: my dirize
+            if not exists? where [make-dir/deep where]
         ]
-        if any-file? source [source: read source]
-        nb-entries: 0
+        if match [file! url!] source [
+            source: read source
+        ]
+
+        num-entries: 0
         parse source [
             to local-file-sig
             some [
                 to local-file-sig 4 skip
-                (nb-entries: nb-entries + 1)
+                (num-entries: me + 1)
                 2 skip ; version
                 copy flags: 2 skip
                     (if not zero? flags/1 and+ 1 [return false])
@@ -383,7 +403,7 @@ ctx-zip: context [
 
                         data: copy/part data compressed-size
                         if error? trap [
-                            data: decompress/only/limit data uncompressed-size
+                            data: inflate/limit data uncompressed-size
                         ][
                             info "^- -> failed [deflate]^/"
                             throw blank
@@ -409,7 +429,7 @@ ctx-zip: context [
                     either uncompressed-data [
                         info unspaced ["^- -> ok [" method "]^/"]
                     ][
-                        errors: errors + 1
+                        num-errors: me + 1
                     ]
 
                     either any-block? where [
@@ -444,12 +464,14 @@ ctx-zip: context [
             to end
         ]
         info ["^/"
-            "Files/Dirs unarchived: " nb-entries "^/"
-            "Decompression errors: " errors "^/"
+            "Files/Dirs unarchived: " num-entries "^/"
+            "Decompression errors: " num-errors "^/"
         ]
-        zero? errors
+        return zero? num-errors
     ]
 ]
 
-zip: :ctx-zip/zip
-unzip: :ctx-zip/unzip
+append lib compose [
+    zip: (:ctx-zip/zip)
+    unzip: (:ctx-zip/unzip)
+]

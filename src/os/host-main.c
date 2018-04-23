@@ -390,18 +390,13 @@ int main(int argc, char *argv_ansi[])
     }
   #endif
 
-    const REBOOL gzip = FALSE;
-    const REBOOL raw = FALSE;
-    const REBOOL only = FALSE;
     REBCNT host_size;
-    REBYTE *host_bytes = rebInflateAlloc(
+    const REBINT max = -1; // decompressed size is stored in gzip
+    REBYTE *host_bytes = rebGunzipAlloc(
         &host_size,
         &Reb_Init_Code[0],
         REB_INIT_SIZE,
-        -1, // decompressed size should be stored in the payload
-        gzip,
-        raw,
-        only
+        max
     );
 
     // The inflated data was allocated with rebMalloc, and hence can be

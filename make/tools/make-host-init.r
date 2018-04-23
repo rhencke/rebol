@@ -52,7 +52,7 @@ write-c-file: function [
     insert data reduce ["; Copyright REBOL Technologies " now newline]
     insert tail-of data make char! 0 ; zero termination required
 
-    comp-data: compress data
+    comp-data: gzip data
     comp-size: length-of comp-data
 
     e/emit-line ["#define REB_INIT_SIZE" space comp-size]

@@ -123,14 +123,11 @@ static unsigned rebol_zlib_decompress(
     assert(5 == *cast(const int*, settings->custom_context)); // just testing
     UNUSED(settings->custom_context);
 
-    const REBOOL gzip = FALSE;
-    const REBOOL raw = FALSE;
-    const REBOOL only = TRUE;
-    const REBINT max = -1;
+    // PNG uses "zlib envelope" w/ADLER32 checksum, hence "Zinflate"
+    //
+    const REBINT max = -1; // size unknown, inflation will need to guess
     REBCNT out_len;
-    *out = rebInflateAlloc(
-        &out_len, in, insize, max, gzip, raw, only
-    );
+    *out = rebZinflateAlloc(&out_len, in, insize, max);
     *outsize = out_len;
 
     return 0;
@@ -148,14 +145,10 @@ static unsigned rebol_zlib_compress(
     assert(5 == *cast(const int*, settings->custom_context)); // just testing
     UNUSED(settings->custom_context);
 
-    const REBOOL gzip = FALSE;
-    const REBOOL raw = FALSE;
-    const REBOOL only = TRUE;
+    // PNG uses "zlib envelope" w/ADLER32 checksum, hence "Zdeflate"
+    //
     REBCNT out_len;
-    *out = rebDeflateAlloc(
-        &out_len, in, insize, gzip, raw, only
-    );
-
+    *out = rebZdeflateAlloc(&out_len, in, insize);
     *outsize = out_len;
 
     return 0;

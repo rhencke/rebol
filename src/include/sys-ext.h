@@ -34,13 +34,11 @@ EXT_API int EXT_INIT(e) (REBVAL *script, REBVAL *out) \
 EXT_API int EXT_INIT(e) (REBVAL *script, REBVAL *out) \
 {\
     code \
-    REBOOL gzip = FALSE; \
-    REBOOL raw = FALSE; \
-    REBOOL only = FALSE; \
     /* binary does not have a \0 terminator */ \
     REBCNT utf8_size; \
-    REBYTE *utf8 = rebInflateAlloc( \
-        &utf8_size, script_bytes, sizeof(script_bytes), -1, gzip, raw, only \
+    const REBINT max = -1; \
+    REBYTE *utf8 = rebGunzipAlloc( \
+        &utf8_size, script_bytes, sizeof(script_bytes), max \
     ); \
     REBVAL *bin = rebRepossess(utf8, utf8_size); \
     Move_Value(script, bin); \
