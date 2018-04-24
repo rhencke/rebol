@@ -49,7 +49,7 @@ const z_crc_t *crc32_table; // pointer to the zlib CRC32 table
 static REBCNT *crc24_table;
 
 //
-//  Generate_CRC: C
+//  Generate_CRC24: C
 //
 // Simulates CRC hardware circuit.  Generates true CRC
 // directly, without requiring extra NULL bytes to be appended

@@ -136,27 +136,54 @@ static REB_R Loop_Series_Common(
     REBVAL *var,
     const REBVAL *body,
     REBVAL *start,
-    REBINT ei,
-    REBINT ii
+    REBINT end,
+    REBINT bump
 ) {
     assert(IS_END(out));
 
-    REBINT si = VAL_INDEX(start);
-    enum Reb_Kind type = VAL_TYPE(start);
+    // !!! This bounds incoming `end` inside the array.  Should it assert?
+    //
+    if (end >= cast(REBINT, VAL_LEN_HEAD(start)))
+        end = cast(REBINT, VAL_LEN_HEAD(start));
+    if (end < 0)
+        end = 0;
 
+    // A value cell exposed to the user is used to hold the state.  This means
+    // if they change `var` during the loop, it affects the iteration.  Hence
+    // it must be checked for changing to another series, or non-series.
+    //
     Move_Value(var, start);
+    REBCNT *state = &VAL_INDEX(var);
 
-    if (ei >= cast(REBINT, VAL_LEN_HEAD(start)))
-        ei = cast(REBINT, VAL_LEN_HEAD(start));
+    // Run only once if start is equal to end...edge case.
+    //
+    REBINT s = VAL_INDEX(start);
+    if (s == end) {
+        if (Do_Any_Array_At_Throws(out, body)) {
+            REBOOL stop;
+            if (Catching_Break_Or_Continue(out, &stop)) {
+                if (stop)
+                    return R_BLANK;
+                return R_OUT_VOID_IF_UNWRITTEN_TRUTHIFY;
+            }
+            return R_OUT_IS_THROWN;
+        }
+        return R_OUT_VOID_IF_UNWRITTEN_TRUTHIFY;
+    }
 
-    if (ei < 0) ei = 0;
+    // As per #1993, start relative to end determines the "direction" of the
+    // FOR loop.  (R3-Alpha used the sign of the bump, which meant it did not
+    // have a clear plan for what to do with 0.)
+    //
+    const REBOOL counting_up = DID(s < end); // equal checked above
+    if ((counting_up && bump <= 0) || (NOT(counting_up) && bump >= 0))
+        return R_VOID; // avoid infinite loops
 
-    for (; (ii > 0) ? si <= ei : si >= ei; si += ii) {
-        VAL_INDEX(var) = si;
-
-        // loop bodies are copies at the moment, so fully specified; there
-        // may be a point to making it more efficient by not always copying
-        //
+    while (
+        counting_up
+            ? cast(REBINT, *state) <= end
+            : cast(REBINT, *state) >= end
+    ){
         if (Do_Any_Array_At_Throws(out, body)) {
             REBOOL stop;
             if (Catching_Break_Or_Continue(out, &stop)) {
@@ -168,8 +195,21 @@ static REB_R Loop_Series_Common(
         }
 
     next_iteration:
-        if (VAL_TYPE(var) != type) fail (Error_Invalid_Type(VAL_TYPE(var)));
-        si = VAL_INDEX(var);
+        if (
+            VAL_TYPE(var) != VAL_TYPE(start)
+            || VAL_SERIES(var) != VAL_SERIES(start)
+        ){
+            fail ("Can only change series index, not series to iterate");
+        }
+
+        // Note that since the array is not locked with SERIES_INFO_HOLD, it
+        // can be mutated during the loop body, so the end has to be refreshed
+        // on each iteration.  Review ramifications of HOLD-ing it.
+        //
+        if (end >= cast(REBINT, VAL_LEN_HEAD(start)))
+            end = cast(REBINT, VAL_LEN_HEAD(start));
+
+        *state += bump;
     }
 
     return R_OUT_VOID_IF_UNWRITTEN_TRUTHIFY;
@@ -217,6 +257,9 @@ static REB_R Loop_Integer_Common(
     // have a clear plan for what to do with 0.)
     //
     const REBOOL counting_up = DID(start < end); // equal checked above
+    if ((counting_up && bump <= 0) || (NOT(counting_up) && bump >= 0))
+        return R_VOID; // avoid infinite loops
+
     while (counting_up ? *state <= end : *state >= end) {
         if (Do_Any_Array_At_Throws(out, body)) {
             REBOOL stop;
@@ -302,6 +345,9 @@ static REB_R Loop_Number_Common(
     // As per #1993, see notes in Loop_Integer_Common()
     //
     const REBOOL counting_up = DID(s < e); // equal checked above
+    if ((counting_up && b <= 0) || (NOT(counting_up) && b >= 0))
+        return R_VOID; // avoid infinite loops
+
     while (counting_up ? *state <= e : *state >= e) {
         if (Do_Any_Array_At_Throws(out, body)) {
             REBOOL stop;

@@ -1,4 +1,15 @@
 ; functions/control/for.r
+
+; One design aspect of FOR which was introduced in Ren-C is the idea that
+; it should not be possible to give a start/end/bump combination that in and
+; of itself will cause an infinite loop.  This is accomplished by determining
+; the direction of iteration based on comparing the start and end points...
+; not the sign of the bump value (as Rebol2 and R3-Alpha did).
+;
+; The proposal originated from @BrianH on CureCode:
+;
+; https://github.com/rebol/rebol-issues/issues/1993
+
 (
     success: true
     num: 0
@@ -43,17 +54,6 @@
     for i b: [1 2 3] back tail of b 1 [append out i]
     out = [1 2 3 2 3 3]
 )
-; zero as end target, infinite loop unless i is changed, or interrupted
-(
-    count: 0
-    for i 1 0 1 [
-        count: me + 1
-        if count > 1023 [
-            break ;-- close enough to infinite :-) assume infinite loop
-        ]
-    ]
-    count = 1024
-)
 ; zero repetition block test
 (
     success: true
@@ -71,15 +71,32 @@
     e: for i 1 2 1 [num: i trap [1 / 0]]
     all [error? e num = 2]
 )
-; infinite loop tests
-(
-    num: 0
-    for i b: [1] tail of b 1 [
-        num: num + 1
-        if num > 2 [break]
-    ]
-    num <= 2
-)
+
+[ ; infinite loop tests
+    (
+        num: 0
+        for i (b: next [1]) (back b) 1 [
+            num: num + 1
+            break
+        ]
+        num = 0
+    )(
+        num: 0
+        for i 1 0 1 [
+            num: num + 1
+            break
+        ]
+        num = 0
+    )(
+        num: 0
+        for i 0 1 -1 [
+            num: num + 1
+            break
+        ]
+        num = 0
+    )
+]
+
 (
     num: 0
     for i 2147483647 2147483647 1 [
