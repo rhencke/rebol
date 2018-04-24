@@ -207,6 +207,8 @@ Script: [
     void-object-block:  {Can't create block from object if it has void values}
 
     map-key-unlocked:   [{key must be LOCK-ed to add to MAP!} :arg1]
+    conflicting-key:    [:arg1 {key conflicts; use SELECT or PUT with /CASE}]
+
     tcc-not-supported-opt: [{Option} :arg1 {is not supported}]
     tcc-expect-word:     [{Option expecting a word:} :arg1]
     tcc-invalid-include: [{Include expects a block or a path:} :arg1]

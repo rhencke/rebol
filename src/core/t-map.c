@@ -58,6 +58,28 @@ REBMAP *Make_Map(REBCNT capacity)
 }
 
 
+static REBCTX *Error_Conflicting_Key(const RELVAL *key, REBSPC *specifier)
+{
+    DECLARE_LOCAL (specific);
+    Derelativize(specific, key, specifier);
+    return Error_Conflicting_Key_Raw(specific);
+}
+
+#define FOUND_SYNONYM \
+    do { \
+        if (synonym_slot != -1) /* another spelling already matched */ \
+            fail (Error_Conflicting_Key(key, specifier)); \
+        synonym_slot = slot; /* save and continue checking */ \
+    } while (0)
+
+#define FOUND_EXACT \
+    do { \
+        if (cased) \
+            return slot; /* don't need to check synonyms, stop looking */ \
+        FOUND_SYNONYM; /* need to confirm exact match is the only match */ \
+    } while (0)
+
+
 //
 //  Find_Key_Hashed: C
 //
@@ -79,122 +101,117 @@ REBINT Find_Key_Hashed(
     REBCNT wide,
     REBOOL cased,
     REBYTE mode
-) {
-    REBCNT len = SER_LEN(hashlist);
-    assert(len > 0);
-
-    REBCNT hash = Hash_Value(key);
-
-    // The REBCNT[] hash array size is chosen to try and make a large enough
-    // table relative to the data that collisions will be hopefully not
-    // frequent.  But they may still collide.  The method R3-Alpha chose to
-    // deal with collisions was to have a "skip" amount that will go try
-    // another hash bucket until the searched for key is found or a 0
-    // entry in the hashlist is found.
+){
+    // Hashlists store a indexes into the actual data array, of where the
+    // first key corresponding to that hash is.  There may be more keys
+    // indicated by that hash, vying for the same slot.  So the collisions
+    // add a skip amount and keep trying:
     //
-    // Note: if len and skip are co-primes is guaranteed that repeatedly
+    // https://en.wikipedia.org/wiki/Linear_probing
+    //
+    // Len and skip are co-primes, so is guaranteed that repeatedly
     // adding skip (and subtracting len when needed) all positions are
     // visited.  1 <= skip < len, and len is prime, so this is guaranteed.
-
-    REBCNT skip = hash % (len - 1) + 1;
-
-    hash = hash % len;
-
-    // a 'zombie' is a key with void value, that may be overwritten.  Set to
-    // len to indicate zombie not yet encountered.
     //
-    REBCNT zombie = len;
+    REBCNT len = SER_LEN(hashlist);
+    REBCNT *indexes = SER_HEAD(REBCNT, hashlist);
 
-    REBCNT uncased = len; // uncased match not yet encountered
+    uint32_t hash = Hash_Value(key);
+    REBCNT slot = hash % len; // first slot to try for this hash
+    REBCNT skip = hash % (len - 1) + 1; // how much to skip by each collision
 
-    // Scan hash table for match:
+    // Zombie slots are those which are left behind by removing items, with
+    // void values that are illegal in maps, and indicate they can be reused.
+    //
+    REBINT zombie_slot = -1; // no zombies seen yet...
 
-    REBCNT *hashes = SER_HEAD(REBCNT, hashlist);
-    REBCNT n;
-    RELVAL *val;
+    // You can store information case-insensitively in a MAP!, and it will
+    // overwrite the value for at most one other key.  Reading information
+    // case-insensitively out of a map can only be done if there aren't two
+    // keys with the same spelling.
+    //
+    REBINT synonym_slot = -1; // no synonyms seen yet...
 
     if (ANY_WORD(key)) {
-        while ((n = hashes[hash])) {
-            val = ARR_AT(array, (n - 1) * wide);
-            if (ANY_WORD(val)) {
-                if (VAL_WORD_SPELLING(key) == VAL_WORD_SPELLING(val))
-                    return hash; // exact match
+        REBCNT n;
+        while ((n = indexes[slot]) != 0) {
+            RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
+            if (ANY_WORD(k)) {
+                if (VAL_WORD_SPELLING(key) == VAL_WORD_SPELLING(k))
+                    FOUND_EXACT;
+                else if (NOT(cased))
+                    if (VAL_WORD_CANON(key) == VAL_WORD_CANON(k))
+                        FOUND_SYNONYM;
+            }
+            if (wide > 1 && IS_VOID(k + 1) && zombie_slot == -1)
+                zombie_slot = slot;
 
-                if (NOT(cased) && uncased == len) // not cased w/no match yet
-                    if (VAL_WORD_CANON(key) == VAL_WORD_CANON(val))
-                        uncased = hash; // indicate uncased match found
-            }
-            else if (wide > 1 && IS_VOID(++val) && zombie == len) {
-                zombie = hash;
-            }
-            hash += skip;
-            if (hash >= len) hash -= len;
+            slot += skip;
+            if (slot >= len)
+                slot -= len;
         }
     }
     else if (ANY_BINSTR(key)) {
-        while ((n = hashes[hash])) {
-            val = ARR_AT(array, (n - 1) * wide);
-            if (VAL_TYPE(val) == VAL_TYPE(key)) {
-                if (0 == Compare_String_Vals(val, key, FALSE)) return hash;
-                if (
-                    !cased && uncased == len
-                    && 0 == Compare_String_Vals(
-                        val, key, NOT(IS_BINARY(key))
-                    )
-                ) {
-                    uncased = hash;
-                }
+        REBCNT n;
+        while ((n = indexes[slot]) != 0) {
+            RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
+            if (VAL_TYPE(k) == VAL_TYPE(key)) {
+                if (0 == Compare_String_Vals(k, key, FALSE))
+                    FOUND_EXACT;
+                else if (NOT(cased) && NOT(IS_BINARY(key)))
+                    if (0 == Compare_String_Vals(k, key, TRUE))
+                        FOUND_SYNONYM;
             }
-            if (wide > 1 && IS_VOID(++val) && zombie == len)  {
-                zombie = hash;
-            }
-            hash += skip;
-            if (hash >= len) hash -= len;
+            if (wide > 1 && IS_VOID(k + 1) && zombie_slot == -1)
+                zombie_slot = slot;
+
+            slot += skip;
+            if (slot >= len)
+                slot -= len;
         }
-    } else {
-        while ((n = hashes[hash])) {
-            val = ARR_AT(array, (n - 1) * wide);
-            if (VAL_TYPE(val) == VAL_TYPE(key)) {
-                if (0 == Cmp_Value(key, val, TRUE)) {
-                    return hash;
-                }
-                if (
-                    !cased && uncased == len
-                    && REB_CHAR == VAL_TYPE(val)
-                    && 0 == Cmp_Value(key, val, FALSE)
-                ) {
-                    uncased = hash;
-                }
+    }
+    else {
+        REBCNT n;
+        while ((n = indexes[slot]) != 0) {
+            RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
+            if (VAL_TYPE(k) == VAL_TYPE(key)) {
+                if (0 == Cmp_Value(k, key, TRUE))
+                    FOUND_EXACT;
+                else if (NOT(cased))
+                    if (IS_CHAR(k) && 0 == Cmp_Value(k, key, FALSE))
+                        FOUND_SYNONYM; // CHAR! is only non-STRING!/WORD! case
             }
-            if (wide > 1 && IS_VOID(++val) && zombie == len) zombie = hash;
-            hash += skip;
-            if (hash >= len) hash -= len;
+            if (wide > 1 && IS_VOID(k + 1) && zombie_slot == -1)
+                zombie_slot = slot;
+
+            slot += skip;
+            if (slot >= len)
+                slot -= len;
         }
     }
 
-    //assert(n == 0);
-    if (!cased && uncased < len) hash = uncased; // uncased< match
-    else if (zombie < len) { // zombie encountered!
+    if (synonym_slot != -1) {
+        assert(NOT(cased));
+        return synonym_slot; // there weren't other spellings of the same key
+    }
+
+    if (zombie_slot != -1) { // zombie encountered; overwrite with new key
         assert(mode == 0);
-        hash = zombie;
-        n = hashes[hash];
-        // new key overwrite zombie
+        slot = zombie_slot;
+        REBCNT n = indexes[slot];
         Derelativize(ARR_AT(array, (n - 1) * wide), key, specifier);
     }
-    // Append new value the target series:
-    if (mode > 1) {
-        REBCNT index;
-        const RELVAL *src = key;
-        hashes[hash] = (ARR_LEN(array) / wide) + 1;
 
-        // This used to use Append_Values_Len, but that is a REBVAL* interface
-        // !!! Should there be an Append_Values_Core which takes RELVAL*?
-        //
+    if (mode > 1) { // append new value to the target series
+        const RELVAL *src = key;
+        indexes[slot] = (ARR_LEN(array) / wide) + 1;
+
+        REBCNT index;
         for (index = 0; index < wide; ++src, ++index)
             Append_Value_Core(array, src, specifier);
     }
 
-    return (mode > 0) ? NOT_FOUND : hash;
+    return (mode > 0) ? -1 : cast(REBINT, slot);
 }
 
 
@@ -301,17 +318,19 @@ REBCNT Find_Map_Entry(
         Rehash_Map(map);
     }
 
-    REBCNT hash = Find_Key_Hashed(
-        pairlist, hashlist, key, key_specifier, 2, cased, 0
+    const REBCNT wide = 2;
+    const REBYTE mode = 0; // just search for key, don't add it
+    REBCNT slot = Find_Key_Hashed(
+        pairlist, hashlist, key, key_specifier, wide, cased, mode
     );
 
-    REBCNT *hashes = SER_HEAD(REBCNT, hashlist);
-    REBCNT n = hashes[hash];
+    REBCNT *indexes = SER_HEAD(REBCNT, hashlist);
+    REBCNT n = indexes[slot];
 
     // n==0 or pairlist[(n-1)*]=~key
 
-    // Just a GET of value:
-    if (!val) return n;
+    if (val == NULL)
+        return n; // was just fetching the value
 
     // If not just a GET, it may try to set the value in the map.  Which means
     // the key may need to be stored.  Since copies of keys are never made,
@@ -342,7 +361,7 @@ REBCNT Find_Map_Entry(
     Append_Value_Core(pairlist, key, key_specifier);
     Append_Value_Core(pairlist, val, val_specifier);
 
-    return (hashes[hash] = (ARR_LEN(pairlist) / 2));
+    return (indexes[slot] = (ARR_LEN(pairlist) / 2));
 }
 
 
@@ -356,9 +375,14 @@ REB_R PD_Map(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (opt_setval != NULL)
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(pvs->out));
 
-    // Use case sensitivity when setting only
+    // Fetching and setting with path-based access is case-preserving for any
+    // initial insertions.  However, the case-insensitivity means that all
+    // writes after that to the same key will not be overriding the key,
+    // it will just change the data value for the existing key.  SELECT and
+    // the operation tentatively named PUT should be used if a map is to
+    // distinguish multiple casings of the same key.
     //
-    REBOOL cased = DID(opt_setval != NULL);
+    const REBOOL cased = FALSE;
 
     REBINT n = Find_Map_Entry(
         VAL_MAP(pvs->out),
@@ -773,6 +797,23 @@ REBTYPE(Map)
         if (action == SYM_FIND)
             return IS_VOID(D_OUT) ? R_FALSE : R_TRUE;
 
+        return R_OUT; }
+
+    case SYM_PUT: {
+        INCLUDE_PARAMS_OF_PUT;
+        UNUSED(ARG(series)); // extracted to `map`
+
+        REBINT n = Find_Map_Entry(
+            map,
+            ARG(key),
+            SPECIFIED,
+            ARG(value),
+            SPECIFIED,
+            REF(case)
+        );
+        UNUSED(n);
+
+        Move_Value(D_OUT, ARG(value));
         return R_OUT; }
 
     case SYM_INSERT:

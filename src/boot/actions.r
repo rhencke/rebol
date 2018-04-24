@@ -225,6 +225,19 @@ select: action [
 
 ]
 
+; !!! PUT was added by Red as the complement to SELECT, which offers a /CASE
+; refinement for adding keys to MAP!s case-sensitively.  The name may not
+; be ideal, but it's something you can't do with path access, so adopting it
+; for the time-being.  Only implemented for MAP!s at the moment
+;
+put: action [
+    {Replaces the value following a key, and returns the new value.}
+    return: [<opt> any-value!]
+    series [map!]
+    key [any-value!]
+    value [<opt> any-value!]
+    /case {Perform a case-sensitive search}
+]
 
 reflect: action [
     {Returns specific details about a datatype.}

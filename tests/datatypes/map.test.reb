@@ -32,3 +32,53 @@
         thing2 = [a [b] d]
     ]
 )]
+
+; Maps are able to hold multiple casings of the same keys, but a map in such
+; a state must be accessed in such a way that there isn't ambiguity.  Using
+; PATH! or plain SELECT will error if the key being asked about has more than
+; one case form.  The way to get past this is SELECT/CASE and PUT/CASE, which
+; use only the exact spelling of the key given.
+;
+; Creation through MAKE MAP! assumes case insensitivity.
+[
+    (
+        m: make map! lock [AA 10 aa 20 <BB> 30 <bb> 40 #"C" 50 #"c" 60]
+        true
+    )
+
+    (10 = select/case m 'AA)
+    (20 = select/case m 'aa)
+    (30 = select/case m <BB>)
+    (40 = select/case m <bb>)
+    (50 = select/case m #"C")
+    (60 = select/case m #"c")
+
+    ('conflicting-key = (trap [m/AA])/id)
+    ('conflicting-key = (trap [m/aa])/id)
+    ('conflicting-key = (trap [select m <BB>])/id)
+    ('conflicting-key = (trap [select m <bb>])/id)
+    ('conflicting-key = (trap [m/(#"C")])/id)
+    ('conflicting-key = (trap [m/(#"c")])/id)
+
+    ('conflicting-key = (trap [put m 'Aa 70])/id)
+    ('conflicting-key = (trap [m/(lock <Bb>): 80])/id)
+    ('conflicting-key = (trap [m/(#"C"): 90])/id)
+
+    (
+        put/case m 'Aa 100
+        put/case m lock <Bb> 110
+        put/case m #"C" 120
+        true
+    )
+
+    (100 = select/case m 'Aa)
+    (110 = select/case m <Bb>)
+    (120 = select/case m #"C")
+
+    (10 = select/case m 'AA)
+    (20 = select/case m 'aa)
+    (30 = select/case m <BB>)
+    (40 = select/case m <bb>)
+    (120 = select/case m #"C")
+    (60 = select/case m #"c")
+]

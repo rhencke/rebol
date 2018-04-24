@@ -189,9 +189,9 @@ REBINT Hash_UTF8(const REBYTE *utf8, REBCNT size)
 // Fails if datatype cannot be hashed.  Note that the specifier is not used
 // in hashing, because it is not used in comparisons either.
 //
-REBCNT Hash_Value(const RELVAL *v)
+uint32_t Hash_Value(const RELVAL *v)
 {
-    REBCNT ret;
+    uint32_t hash;
 
     switch(VAL_TYPE(v)) {
     case REB_MAX_VOID:
@@ -204,11 +204,11 @@ REBCNT Hash_Value(const RELVAL *v)
     case REB_BAR:
     case REB_LIT_BAR:
     case REB_BLANK:
-        ret = 0;
+        hash = 0;
         break;
 
     case REB_LOGIC:
-        ret = VAL_LOGIC(v) ? 1 : 0;
+        hash = VAL_LOGIC(v) ? 1 : 0;
         break;
 
     case REB_INTEGER:
@@ -217,38 +217,38 @@ REBCNT Hash_Value(const RELVAL *v)
         // bits collapses -1 with 0 etc.  (If your key k is |k| < 2^32 high
         // bits are 0-informative." -Giulio
         //
-        ret = cast(REBCNT, VAL_INT64(v));
+        hash = cast(uint32_t, VAL_INT64(v));
         break;
 
     case REB_DECIMAL:
     case REB_PERCENT:
         // depends on INT64 sharing the DEC64 bits
-        ret = (VAL_INT64(v) >> 32) ^ (VAL_INT64(v));
+        hash = (VAL_INT64(v) >> 32) ^ (VAL_INT64(v));
         break;
 
     case REB_MONEY:
-        ret = VAL_ALL_BITS(v)[0] ^ VAL_ALL_BITS(v)[1] ^ v->extra.m0;
+        hash = VAL_ALL_BITS(v)[0] ^ VAL_ALL_BITS(v)[1] ^ v->extra.m0;
         break;
 
     case REB_CHAR:
-        ret = LO_CASE(VAL_CHAR(v));
+        hash = LO_CASE(VAL_CHAR(v));
         break;
 
     case REB_PAIR:
-        ret = (VAL_ALL_BITS(v)[0] << 16)
+        hash = (VAL_ALL_BITS(v)[0] << 16)
             ^ (VAL_ALL_BITS(v)[0] >> 16)
             ^ (VAL_ALL_BITS(v)[1]);
         break;
 
     case REB_TUPLE:
-        ret = Hash_Bytes_Or_Uni(VAL_TUPLE(v), VAL_TUPLE_LEN(v), 1);
+        hash = Hash_Bytes_Or_Uni(VAL_TUPLE(v), VAL_TUPLE_LEN(v), 1);
         break;
 
     case REB_TIME:
     case REB_DATE:
-        ret = cast(REBCNT, VAL_NANO(v) ^ (VAL_NANO(v) / SEC_SEC));
+        hash = cast(REBCNT, VAL_NANO(v) ^ (VAL_NANO(v) / SEC_SEC));
         if (IS_DATE(v))
-            ret ^= VAL_DATE(v).bits;
+            hash ^= VAL_DATE(v).bits;
         break;
 
     case REB_BINARY:
@@ -257,7 +257,7 @@ REBCNT Hash_Value(const RELVAL *v)
     case REB_EMAIL:
     case REB_URL:
     case REB_TAG:
-        ret = Hash_Bytes_Or_Uni(
+        hash = Hash_Bytes_Or_Uni(
             VAL_RAW_DATA_AT(v),
             VAL_LEN_HEAD(v),
             SER_WIDE(VAL_SERIES(v))
@@ -283,11 +283,11 @@ REBCNT Hash_Value(const RELVAL *v)
         // problems.  Do not hash mutable arrays unless you are sure hashings
         // won't cross a mutation.
         //
-        ret = ARR_LEN(VAL_ARRAY(v));
+        hash = ARR_LEN(VAL_ARRAY(v));
         break;
 
     case REB_DATATYPE: {
-        ret = Hash_String(Canon(VAL_TYPE_SYM(v)));
+        hash = Hash_String(Canon(VAL_TYPE_SYM(v)));
         break; }
 
     case REB_BITSET:
@@ -316,7 +316,7 @@ REBCNT Hash_Value(const RELVAL *v)
         // !!! Should this hash be cached on the words somehow, e.g. in the
         // data payload before the actual string?
         //
-        ret = Hash_String(VAL_WORD_SPELLING(v));
+        hash = Hash_String(VAL_WORD_SPELLING(v));
         break; }
 
     case REB_FUNCTION:
@@ -325,7 +325,7 @@ REBCNT Hash_Value(const RELVAL *v)
         // immutable once created, it is legal to put them in hashes.  The
         // VAL_FUNC is the paramlist series, guaranteed unique per function
         //
-        ret = cast(REBCNT, cast(REBUPT, VAL_FUNC(v)) >> 4);
+        hash = cast(REBCNT, cast(REBUPT, VAL_FUNC(v)) >> 4);
         break;
 
     case REB_FRAME:
@@ -345,7 +345,7 @@ REBCNT Hash_Value(const RELVAL *v)
         // However, since it was historically allowed it is allowed for
         // all ANY-CONTEXT! types at the moment.
         //
-        ret = cast(REBCNT, cast(REBUPT, VAL_CONTEXT(v)) >> 4);
+        hash = cast(REBCNT, cast(REBUPT, VAL_CONTEXT(v)) >> 4);
         break;
 
     case REB_MAP:
@@ -355,7 +355,7 @@ REBCNT Hash_Value(const RELVAL *v)
         // (Again this will just find the map by identity, not by comparing
         // the values of one against the values of the other...)
         //
-        ret = cast(REBCNT, cast(REBUPT, VAL_MAP(v)) >> 4);
+        hash = cast(REBCNT, cast(REBUPT, VAL_MAP(v)) >> 4);
         break;
 
     case REB_GOB:
@@ -375,7 +375,7 @@ REBCNT Hash_Value(const RELVAL *v)
         panic (NULL);
     }
 
-    return ret ^ crc32_table[VAL_TYPE(v)];
+    return hash ^ crc32_table[VAL_TYPE(v)];
 }
 
 
