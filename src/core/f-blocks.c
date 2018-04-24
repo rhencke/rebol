@@ -288,7 +288,6 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
             ARR_HEAD(copy), SPECIFIED, ARR_LEN(copy), flags, types
         );
 
-    ASSERT_NO_RELATIVE(copy, types);
     return copy;
 }
 

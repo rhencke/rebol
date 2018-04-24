@@ -349,23 +349,15 @@ REBVAL *Init_Any_Series_At_Core(
     VAL_INDEX(out) = index;
     INIT_BINDING(out, binding);
 
-#if !defined(NDEBUG)
-    if (GET_SER_FLAG(series, SERIES_FLAG_ARRAY) && binding == UNBOUND) {
-        //
-        // If UNBOUND is used for an array, then that top level of the
-        // array cannot have any relative values in it.  Catch it here vs.
-        // waiting until a later assertion.
-        //
-        ASSERT_NO_RELATIVE(ARR(series), FALSE);
-    }
-    else if (ANY_STRING(out)) {
+  #if !defined(NDEBUG)
+    if (ANY_STRING(out)) {
         if (SER_WIDE(series) != 2)
             panic(series);
     } else if (IS_BINARY(out)) {
         if (SER_WIDE(series) != 1)
             panic(series);
     }
-#endif
+  #endif
 
     return KNOWN(out);
 }

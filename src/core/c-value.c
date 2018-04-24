@@ -152,34 +152,6 @@ Reb_Specific_Value::~Reb_Specific_Value ()
 }
 #endif
 
-//
-//  Assert_No_Relative: C
-//
-// Check to make sure there are no relative values in an array, maybe deeply.
-//
-// !!! What if you have an ANY-ARRAY! inside your array at a position N,
-// but there is a relative value in the VAL_ARRAY() of that value at an
-// index earlier than N?  This currently considers that an error since it
-// checks the whole array...which is more conservative (asserts on more
-// cases).  But should there be a flag to ask to honor the index?
-//
-void Assert_No_Relative(REBARR *array, REBU64 types)
-{
-    RELVAL *v;
-    for (v = ARR_HEAD(array); NOT_END(v); ++v) {
-        if (IS_RELATIVE(v)) {
-            printf("Array contained relative item and wasn't supposed to\n");
-            panic (v);
-        }
-      #if defined(DEBUG_UNREADABLE_BLANKS)
-        if (IS_UNREADABLE_DEBUG(v))
-            continue;
-      #endif
-        if (types & FLAGIT_KIND(VAL_TYPE(v)) & TS_ARRAYS_OBJ)
-             Assert_No_Relative(VAL_ARRAY(v), types);
-    }
-}
-
 #endif // !defined(NDEBUG)
 
 

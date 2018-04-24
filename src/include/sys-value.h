@@ -1772,13 +1772,6 @@ inline static void SET_GOB(RELVAL *v, REBGOB *g) {
 #define UNBOUND \
    NOD(PG_Empty_Array)
 
-#ifdef NDEBUG
-    #define ASSERT_NO_RELATIVE(array,deep) NOOP
-#else
-    #define ASSERT_NO_RELATIVE(array,deep) \
-        Assert_No_Relative((array),(deep))
-#endif
-
 inline static REBNOD *VAL_BINDING(const RELVAL *v) {
     assert(Is_Bindable(v));
     return v->extra.binding;
