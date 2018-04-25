@@ -1667,7 +1667,8 @@ REBVAL *RL_rebLock(REBVAL *p1, const REBVAL *p2)
     assert(IS_END(p2)); // Not yet variadic...
     UNUSED(p2);
 
-    Ensure_Value_Immutable(p1);
+    REBSER *locker = NULL;
+    Ensure_Value_Immutable(p1, locker);
     return p1;
 }
 

@@ -42,7 +42,7 @@
 ; Creation through MAKE MAP! assumes case insensitivity.
 [
     (
-        m: make map! lock [AA 10 aa 20 <BB> 30 <bb> 40 #"C" 50 #"c" 60]
+        m: make map! [AA 10 aa 20 <BB> 30 <bb> 40 #"C" 50 #"c" 60]
         true
     )
 
@@ -61,12 +61,12 @@
     ('conflicting-key = (trap [m/(#"c")])/id)
 
     ('conflicting-key = (trap [put m 'Aa 70])/id)
-    ('conflicting-key = (trap [m/(lock <Bb>): 80])/id)
+    ('conflicting-key = (trap [m/(<Bb>): 80])/id)
     ('conflicting-key = (trap [m/(#"C"): 90])/id)
 
     (
         put/case m 'Aa 100
-        put/case m lock <Bb> 110
+        put/case m <Bb> 110
         put/case m #"C" 120
         true
     )

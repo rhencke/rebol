@@ -11,7 +11,7 @@ unless 'Windows = first system/platform [
 
     ;DO NOT EDIT this table
     ;It's updated by iso3166.r
-    iso-3166-table: make map! lock [
+    iso-3166-table: make map! [
     "AF" "Afghanistan"
     "AX" "Åland Islands"
     "AL" "Albania"
@@ -265,7 +265,7 @@ unless 'Windows = first system/platform [
 
     ;DO NOT EDIT this table
     ;It's updated by iso639.r
-    iso-639-table: make map! lock [
+    iso-639-table: make map! [
     "aa" "Afar"
     "ab" "Abkhazian"
     "af" "Afrikaans"

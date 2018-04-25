@@ -614,11 +614,8 @@ REBOOL Make_Error_Object_Throws(
 
         Init_String(&vars->message, Copy_Sequence_At_Position(arg));
     }
-    else {
-        // No other argument types are handled by this routine at this time.
-
-        fail (Error_Invalid_Error_Raw(arg));
-    }
+    else
+        fail (Error_Invalid(arg));
 
     // Validate the error contents, and reconcile message template and ID
     // information with any data in the object.  Do this for the IS_STRING
@@ -737,7 +734,7 @@ REBOOL Make_Error_Object_Throws(
                 //
                 //     make error! [type: 'script id: 'set-self]
 
-                fail (Error_Invalid_Error_Raw(arg));
+                fail (Error_Invalid_Error_Raw(CTX_VALUE(error)));
             }
             assert(IS_INTEGER(&vars->code));
         }
@@ -759,7 +756,7 @@ REBOOL Make_Error_Object_Throws(
         // not already there.
 
         if (NOT(IS_BLANK(&vars->code)))
-            fail (Error_Invalid_Error_Raw(arg));
+            fail (Error_Invalid_Error_Raw(CTX_VALUE(error)));
 
         // !!! Because we will experience crashes in the molding logic,
         // we put some level of requirement besides "code # not 0".
@@ -774,7 +771,7 @@ REBOOL Make_Error_Object_Throws(
                 || IS_BLANK(&vars->message)
             )
         ) {
-            fail (Error_Invalid_Error_Raw(arg));
+            fail (Error_Invalid_Error_Raw(CTX_VALUE(error)));
         }
     }
 

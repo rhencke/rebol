@@ -337,11 +337,8 @@ REBCNT Find_Map_Entry(
     // a SET must always be done with an immutable key...because if it were
     // changed, there'd be no notification to rehash the map.
     //
-    if (!Is_Value_Immutable(key)) {
-        DECLARE_LOCAL (unlocked);
-        Derelativize(unlocked, key, key_specifier);
-        fail (Error_Map_Key_Unlocked_Raw(unlocked));
-    }
+    REBSER *locker = SER(MAP_PAIRLIST(map));
+    Ensure_Value_Immutable(key, locker);
 
     // Must set the value:
     if (n) {  // re-set it:

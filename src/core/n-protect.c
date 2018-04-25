@@ -397,17 +397,32 @@ REBNATIVE(locked_q)
 //
 //  Ensure_Value_Immutable: C
 //
-void Ensure_Value_Immutable(REBVAL *v) {
+// !!! The concept behind `opt_locker` is that it might be able to give the
+// user more information about why data would be automatically locked, e.g.
+// if locked for reason of using as a map key...for instance.  It could save
+// the map, or the file and line information for the interpreter at that
+// moment, etc.  Just put a flag at the top level for now, since that is
+// "better than nothing", and revisit later in the design.
+//
+void Ensure_Value_Immutable(const RELVAL *v, REBSER *opt_locker) {
     if (Is_Value_Immutable(v))
         return;
 
-    if (ANY_ARRAY(v))
+    if (ANY_ARRAY(v)) {
         Deep_Freeze_Array(VAL_ARRAY(v));
-    else if (ANY_CONTEXT(v))
+        if (opt_locker != NULL)
+            SET_SER_INFO(VAL_ARRAY(v), SERIES_INFO_AUTO_LOCKED);
+    }
+    else if (ANY_CONTEXT(v)) {
         Deep_Freeze_Context(VAL_CONTEXT(v));
-    else if (ANY_SERIES(v))
+        if (opt_locker != NULL)
+            SET_SER_INFO(CTX_VARLIST(VAL_CONTEXT(v)), SERIES_INFO_AUTO_LOCKED);
+    }
+    else if (ANY_SERIES(v)) {
         Freeze_Sequence(VAL_SERIES(v));
-    else
+        if (opt_locker != NULL)
+            SET_SER_INFO(VAL_SERIES(v), SERIES_INFO_AUTO_LOCKED);
+    } else
         fail (Error_Invalid_Type(VAL_TYPE(v))); // not yet implemented
 }
 
@@ -482,7 +497,8 @@ REBNATIVE(lock)
             fail (Error_Invalid_Type(VAL_TYPE(v))); // not yet implemented
     }
 
-    Ensure_Value_Immutable(D_OUT);
+    REBSER *locker = NULL;
+    Ensure_Value_Immutable(D_OUT, locker);
 
     return R_OUT;
 }

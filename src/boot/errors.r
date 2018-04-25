@@ -206,7 +206,6 @@ Script: [
     void-vararg-array:  {Can't MAKE ANY-ARRAY! from VARARGS! that allow <opt>}
     void-object-block:  {Can't create block from object if it has void values}
 
-    map-key-unlocked:   [{key must be LOCK-ed to add to MAP!} :arg1]
     conflicting-key:    [:arg1 {key conflicts; use SELECT or PUT with /CASE}]
 
     tcc-not-supported-opt: [{Option} :arg1 {is not supported}]
@@ -262,6 +261,7 @@ Access: [
     series-protected:   {series read-only due to PROTECT (see UNPROTECT)}
     series-frozen:      {series is source or permanently locked, can't modify}
     series-held:        {series has temporary read-only hold for iteration}
+    series-auto-locked: {series was implicitly locked (e.g. as key for MAP!)}
 
     hidden:             {not allowed - would expose or modify hidden values}
 

@@ -998,8 +998,12 @@ REBNATIVE(does)
             NULL // no specialization exemplar (or inherited exemplar)
         );
 
+        // Block_Dispatcher() *may* copy at an indeterminate time, so to keep
+        // things invariant we have to lock it.
+        //
         RELVAL *body = FUNC_BODY(fun);
-        Ensure_Value_Immutable(specializee); // Block_Dispatcher() *may* copy
+        REBSER *locker = NULL;
+        Ensure_Value_Immutable(specializee, locker);
         Move_Value(body, specializee);
 
         Move_Value(D_OUT, FUNC_VALUE(fun));

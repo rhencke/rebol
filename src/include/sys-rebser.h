@@ -137,30 +137,22 @@
 
 //=//// SERIES_FLAG_POWER_OF_2 ////////////////////////////////////////////=//
 //
-// This is set when an allocation size was rounded to a power of 2.  The bit
-// was introduced in Ren-C when accounting was added to make sure the system's
-// notion of how much memory allocation was outstanding would balance out to
-// zero by the time of exiting the interpreter.
-//
-// The problem was that the allocation size was measured in terms of the
-// number of elements in the series.  If the elements themselves were not the
-// size of a power of 2, then to get an even power-of-2 size of memory
-// allocated, the memory block would not be an even multiple of the element
-// size.  So rather than track the "actual" memory allocation size as a 32-bit
-// number, a single bit flag remembering that the allocation was a power of 2
-// was enough to recreate the number to balance accounting at free time.
-//
-// !!! The original code which created series with items which were not a
-// width of a power of 2 was in the FFI.  It has been rewritten to not use
-// such custom structures, but the support for this remains in case there
-// was a good reason to have a non-power-of-2 size in the future.
-//
-// !!! ...but rationale for why series were ever allocated to a power of 2
-// should be revisited.  Current conventional wisdom suggests that asking
-// for the amount of memory you need and not using powers of 2 is
-// generally a better idea:
+// R3-Alpha would round some memory allocation requests up to a power of 2.
+// This may well not be a good idea:
 //
 // http://stackoverflow.com/questions/3190146/
+//
+// But leaving it alone for the moment: there is a mechanical problem that the
+// specific number of bytes requested for allocating series data is not saved.
+// Only the series capacity measured in elements is known.
+//
+// Hence this flag is marked on the node, which is enough to recreate the
+// actual number of allocator bytes to release when the series is freed.  The
+// memory is accurately tracked for GC decisions, and balances back to 0 at
+// program end.
+//
+// Note: All R3-Alpha's series had elements that were powers of 2, so this bit
+// was not necessary there.
 //
 #define SERIES_FLAG_POWER_OF_2 \
     FLAGIT_LEFT(GENERAL_SERIES_BIT + 2)
@@ -170,13 +162,12 @@
 //
 // Indicates that this is a series of REBVAL value cells, and suitable for
 // using as the payload of an ANY-ARRAY! value.  When a series carries this
-// bit, then if it is also NODE_FLAG_MANAGED the garbage ollector will process
+// bit, then if it's also NODE_FLAG_MANAGED the garbage collector will process
 // its transitive closure to make sure all the values it contains (and the
 // values its references contain) do not have series GC'd out from under them.
 //
-// Note: R3-Alpha used `SER_WIDE(s) == sizeof(REBVAL)` as the test for if
-// something was an array.  But this allows creation of series that have
-// items which are incidentally the size of a REBVAL, but not actually arrays.
+// Note: R3-Alpha used `SER_WIDE(s) == sizeof(REBVAL)` for this, but the bit
+// allows series of items that aren't REBVAL, just incidentally the same size.
 //
 #define SERIES_FLAG_ARRAY \
     FLAGIT_LEFT(GENERAL_SERIES_BIT + 3)
@@ -395,7 +386,7 @@
 // means that if a read-only copy of it is required, no copy needs to be made.
 //
 // (Contrast this with the temporary condition like caused by something
-// like REBSER_FLAG_RUNNING or REBSER_FLAG_PROTECTED.)
+// like SERIES_INFO_HOLD or SERIES_INFO_PROTECTED.)
 //
 // Note: This and the other read-only series checks are honored by some layers
 // of abstraction, but if one manages to get a raw non-const pointer into a
@@ -403,6 +394,21 @@
 //
 #define SERIES_INFO_FROZEN \
     FLAGIT_LEFT(8)
+
+
+//=//// SERIES_INFO_AUTO_LOCKED ///////////////////////////////////////////=//
+//
+// Some operations lock series automatically, e.g. to use a piece of data as
+// map keys.  This approach was chosen after realizing that a lot of times,
+// users don't care if something they use as a key gets locked.  So instead
+// of erroring by telling them they can't use an unlocked series as a map key,
+// this locks it but changes the SERIES_FLAG_FILE_LINE to implicate the
+// point where the locking occurs.
+//
+// !!! The file-line feature is pending.
+//
+#define SERIES_INFO_AUTO_LOCKED \
+    FLAGIT_LEFT(9)
 
 
 //=//// SERIES_INFO_INACCESSIBLE //////////////////////////////////////////=//
@@ -420,7 +426,7 @@
 // stack and dynamic values+locals).  These are potential things to look at.
 //
 #define SERIES_INFO_INACCESSIBLE \
-    FLAGIT_LEFT(9)
+    FLAGIT_LEFT(10)
 
 
 //=//// FRAME_INFO_FAILED /////////////////////////////////////////////////=//
@@ -437,7 +443,7 @@
 // for granted that it will GC things.
 //
 #define FRAME_INFO_FAILED \
-    FLAGIT_LEFT(10)
+    FLAGIT_LEFT(11)
 
 
 //=//// STRING_INFO_CANON /////////////////////////////////////////////////=//
@@ -452,7 +458,7 @@
 // holding an index during binding.
 //
 #define STRING_INFO_CANON \
-    FLAGIT_LEFT(11)
+    FLAGIT_LEFT(12)
 
 
 //=//// SERIES_INFO_SHARED_KEYLIST ////////////////////////////////////////=//
@@ -468,7 +474,7 @@
 // the GC would have to clean up.
 //
 #define SERIES_INFO_SHARED_KEYLIST \
-    FLAGIT_LEFT(12)
+    FLAGIT_LEFT(13)
 
 
 // ^-- STOP AT FLAGIT_LEFT(15) --^
@@ -478,7 +484,7 @@
 // flags need to stop at FLAGIT_LEFT(15).
 //
 #ifdef CPLUSPLUS_11
-    static_assert(12 < 16, "SERIES_INFO_XXX too high");
+    static_assert(13 < 16, "SERIES_INFO_XXX too high");
 #endif
 
 

@@ -527,7 +527,7 @@ inline static REBOOL Is_Series_Read_Only(REBSER *s) { // may be temporary...
 }
 
 // Gives the appropriate kind of error message for the reason the series is
-// read only (frozen, running, protected).
+// read only (frozen, running, protected, locked to be a map key...)
 //
 // !!! Should probably report if more than one form of locking is in effect,
 // but if only one error is to be reported then this is probably the right
@@ -535,6 +535,9 @@ inline static REBOOL Is_Series_Read_Only(REBSER *s) { // may be temporary...
 //
 inline static void FAIL_IF_READ_ONLY_SERIES(REBSER *s) {
     if (Is_Series_Read_Only(s)) {
+        if (GET_SER_INFO(s, SERIES_INFO_AUTO_LOCKED))
+            fail (Error_Series_Auto_Locked_Raw());
+
         if (GET_SER_INFO(s, SERIES_INFO_HOLD))
             fail (Error_Series_Held_Raw());
 

@@ -38,8 +38,10 @@ iso-3166-table: make map! 512
 parse cnt [
     some [
         copy name to ";"
-        ";" copy code-2 to "^/"
-        (append iso-3166-table pair: reduce [lock to string! code-2 to string! capitalize name]
+        ";" copy code-2 to "^/" (
+            append iso-3166-table pair: compose [
+                (to string! code-2) (to string! capitalize name)
+            ]
         )
 
         "^/"

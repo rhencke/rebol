@@ -39,7 +39,9 @@ parse cnt [
         ;
         "|" copy name to "|" (
             if code-2 [
-                append iso-639-table reduce [lock to string! code-2 to string! name]
+                append iso-639-table compose [
+                    (to string! code-2) (to string! name)
+                ]
             ]
         )
 

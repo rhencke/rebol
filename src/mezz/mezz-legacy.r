@@ -1165,19 +1165,6 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        append: (adapt 'append [
-            if map? series [
-                if block? :value [
-                    ;
-                    ; MAP! in Ren-C must have locked keys, but R3-Alpha did
-                    ; not have a LOCK.  When they append blocks, lock the
-                    ; key elements for them.
-                    ;
-                    for-each [k v] value [lock k]
-                ]
-            ]
-        ])
-
         ; because reduce has been changed but lib/reduce is not in legacy
         ; mode, this means the repend and join function semantics are
         ; different.  This snapshots their implementation.
