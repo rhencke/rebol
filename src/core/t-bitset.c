@@ -131,7 +131,6 @@ void MAKE_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     }
 
     Set_Bits(ser, arg, TRUE);
-    INIT_BITS_NOT(VAL_SERIES(out), FALSE);
 }
 
 

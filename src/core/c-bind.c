@@ -661,6 +661,8 @@ void Virtual_Bind_Deep_To_New_Context(
 //
 void Init_Interning_Binder(struct Reb_Binder *binder)
 {
+    INIT_BINDER(binder);
+
     REBVAL *key;
     REBINT index;
 
@@ -718,4 +720,6 @@ void Shutdown_Interning_Binder(struct Reb_Binder *binder)
         assert(n == 0 || n == -index);
         UNUSED(n);
     }
+
+    SHUTDOWN_BINDER(binder);
 }

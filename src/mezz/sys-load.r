@@ -104,16 +104,16 @@ load-header: function [
     source [binary! string!]
         "Source code (string! will be UTF-8 encoded)"
     /only
-        "Only process header, don't decompress or checksum body"
+        "Only process header, don't decompress body"
     /required
         "Script header is required"
 
     <static>
     non-ws (make bitset! [not 1 - 32])
 ][
-    ; This function decodes the script header from the script body.
-    ; It checks the header 'checksum and 'compress and 'content options,
-    ; and supports length-specified or script-in-a-block embedding.
+    ; This function decodes the script header from the script body.  It checks
+    ; the header 'compress and 'content options, and supports length-specified
+    ; or script-in-a-block embedding.
     ;
     ; It will set the 'content field to the binary source if 'content is true.
     ; The 'content will be set to the source at the position of the beginning
@@ -122,8 +122,7 @@ load-header: function [
     ; script, or at all, so be careful with the source data you get.
     ;
     ; If the 'compress option is set then the body will be decompressed.
-    ; Binary vs. script encoded compression will be autodetected. The
-    ; header 'checksum is compared to the checksum of the decompressed binary.
+    ; Binary vs. script encoded compression will be autodetected.
     ;
     ; Normally, returns the header object, the body text (as binary), and the
     ; the end of the script or script-in-a-block. The end position can be used
@@ -138,7 +137,6 @@ load-header: function [
     ; Syntax errors are returned as words:
     ;    no-header
     ;    bad-header
-    ;    bad-checksum
     ;    bad-compress
     ;
     end: _ ;-- locals are now unset by default, added after that change
@@ -197,10 +195,6 @@ load-header: function [
             return 'bad-header
         ]
 
-        not any [binary? :hdr/checksum blank? :hdr/checksum] [
-            return 'bad-checksum
-        ]
-
         find hdr/options 'content [
             join hdr ['content data] ; as of start of header
         ]
@@ -215,51 +209,38 @@ load-header: function [
         not end [end: tail of data]
 
         only [
-            ; decompress and checksum not done
+            ; decompress not done
             return reduce [hdr rest end]
-        ]
-
-        sum: hdr/checksum [
-            ; !!! "blank saved to simplify later code" -- what?
-            blank ;[print sum]
         ]
 
         :key = 'rebol [
             ; regular script, binary or script encoded compression supported
             case [
                 find hdr/options 'compress [
-                    ; skip whitespace after header
-                    rest: any [find rest non-ws | rest]
-
-                    ; automatic detection of compression type
                     unless rest: any [
                         attempt [
-                            ; binary compression
+                            ; Raw bits.  whitespace *could* be tolerated; if
+                            ; you know the kind of compression and are looking
+                            ; for its signature (gzip is 0x1f8b)
+                            ;
                             gunzip/part rest end
                         ]
                         attempt [
-                            ; script encoded
+                            ; BINARY! literal ("'SCRIPT encoded").  Since it
+                            ; uses transcode, leading whitespace and comments
+                            ; are tolerated before the literal.
+                            ;
                             gunzip first transcode/next rest
                         ]
                     ][
                         return 'bad-compress
                     ]
-
-                    if sum and (sum != checksum/secure rest) [
-                        return 'bad-checksum
-                    ]
                 ] ; else assumed not compressed
-
-                sum and (sum <> checksum/secure/part rest end) [
-                    return 'bad-checksum
-                ]
             ]
         ]
 
         :key <> 'rebol [
             ; block-embedded script, only script compression, ignore hdr/length
-
-            tmp: ensure binary! rest ; saved for possible checksum calc later
 
             ; decode embedded script
             rest: skip first set [data: end:] transcode/next data 2
@@ -269,14 +250,6 @@ load-header: function [
                     unless rest: attempt [gunzip first rest] [
                         return 'bad-compress
                     ]
-
-                    if sum and (sum <> checksum/secure rest) [
-                        return 'bad-checksum
-                    ]
-                ]
-
-                sum and (sum <> checksum/secure/part tmp back end) [
-                    return 'bad-checksum
                 ]
             ]
         ]
@@ -288,7 +261,6 @@ load-header: function [
     return reduce [
         ensure object! hdr
         elide (
-            ensure [binary! blank!] hdr/checksum
             ensure [block! blank!] hdr/options
         )
         ensure [binary! block!] rest
@@ -490,7 +462,7 @@ do-needs: function [
         empty? needs [return blank]
     ]
 
-    ; Parse the needs dialect [source <version> <checksum-hash>]
+    ; Parse the needs dialect [source <version>]
     mods: make block! length of needs
     name: vers: hash: _
     unless parse needs [
@@ -522,9 +494,6 @@ do-needs: function [
 
             version: true
             ver: opt vers
-
-            check: true
-            sum: opt hash
 
             no-share: no-share
             no-lib: no-lib
@@ -590,9 +559,7 @@ load-ext-module: function [
     do code
 
     if hdr/name [
-        reduce/into [
-            hdr/name mod either hdr/checksum [copy hdr/checksum][blank]
-        ] system/modules
+        reduce/into [hdr/name mod] system/modules
     ]
 
     case [
@@ -627,8 +594,6 @@ load-module: function [
         {Source (file, URL, binary, etc.) or block of sources}
     /version ver [tuple!]
         "Module must be this version or greater"
-    /check sum [binary!]
-        "Match checksum (must be set in header)"
     /no-share
         "Force module to use its own non-shared global namespace"
     /no-lib
@@ -650,9 +615,6 @@ load-module: function [
     ; module init may be delayed. The module may be stored as binary or as an
     ; unbound block, then init'd later, as needed.
     ;
-    ; The checksum applies to the uncompressed binary source of the body, and
-    ; is calculated in LOAD-HEADER if the 'checksum header field is set.
-    ; A copy of the checksum is saved in the system modules list for security.
     ; /no-share and /delay are ignored for module! source because it's too late.
     ; A name is required for all imported modules, delayed or not; /as can be
     ; specified for unnamed modules. If you don't want to name it, don't import.
@@ -673,19 +635,18 @@ load-module: function [
                 ]
 
                 ; Return blank if no module of that name found
-                not tmp: find/skip system/modules source 3 [return blank]
+                not tmp: find/skip system/modules source 2 [return blank]
 
                 elide (
                     ; get the module
                     ;
-                    set [mod: modsum:] next tmp
+                    set [mod:] next tmp
 
                     ensure [module! block!] mod
-                    ensure [binary! blank!] modsum
                 )
 
                 ; If no further processing is needed, shortcut return
-                all [not version | not check | any [delay module? :mod]] [
+                all [not version any [delay module? :mod]] [
                     return reduce [source if module? :mod [mod]]
                 ]
             ]
@@ -710,27 +671,26 @@ load-module: function [
 
         module? source [
             ; see if the same module is already in the list
-            if tmp: find/skip next system/modules mod: source 3 [
+            if tmp: find/skip next system/modules mod: source 2 [
                 if as_LOAD_MODULE [
                     ; already imported
                     cause-error 'script 'bad-refine /as
                 ]
 
                 if all [
-                    ; not /version, not /check, same as top module of that name
+                    ; not /version, same as top module of that name
                     not version
-                    not check
                     same? mod select system/modules pick tmp 0
                 ][
                     return copy/part back tmp 2
                 ]
 
-                set [mod: modsum:] tmp
+                set [mod:] tmp
             ]
         ]
 
         block? source [
-            if any [version check as] [
+            if any [version as] [
                 cause-error 'script 'bad-refines blank
             ]
 
@@ -742,20 +702,17 @@ load-module: function [
                     set name opt set-word!
                     set mod [word! | module! | file! | url! | string! | binary!]
                     set ver opt tuple!
-                    set sum opt binary! ; ambiguous
-                    (join data [mod ver sum if name [to word! name]])
+                    (join data [mod ver if name [to word! name]])
                 ]
             ][
                 cause-error 'script 'invalid-arg tmp
             ]
 
-            return map-each [mod ver sum name] source [
+            return map-each [mod ver name] source [
                 apply 'load-module [
                     source: mod
                     version: version
                     ver: :ver
-                    check: :check
-                    sum: :sum
                     as: true
                     name: opt name
                     no-share: no-share
@@ -790,7 +747,6 @@ load-module: function [
                 ]
                 not delay [delay: did find hdr/options 'delay]
             ]
-            if hdr/checksum [modsum: copy hdr/checksum]
         ]
         no-share [
             hdr/options: append any [hdr/options make block! 1] 'isolate
@@ -817,7 +773,7 @@ load-module: function [
         all [
             ; set to false later if existing module is used
             | override?: not no-lib
-            | set [name0: mod0: sum0:] pos: find/skip system/modules name 3
+            | set [name0: mod0:] pos: find/skip system/modules name 2
         ] [
             ; Get existing module's info
             case/all [
@@ -827,7 +783,6 @@ load-module: function [
                 elide (
                     ensure word! name0
                     ensure object! hdr0
-                    ensure [binary! blank!] sum0
                 )
 
                 not tuple? ver0: :hdr0/version [ver0: 0.0.0]
@@ -845,7 +800,7 @@ load-module: function [
                     if ver0 >= modver [
                         ; it's at least as new, use it instead
                         mod: mod0 | hdr: hdr0 | code: _
-                        modver: ver0 | modsum: sum0
+                        modver: ver0
                         override?: false
                     ]
                 ]
@@ -853,7 +808,7 @@ load-module: function [
                 ; else is delayed module
                 ver0 > modver [ ; and it's newer, use it instead
                     mod: _ set [hdr code] mod0
-                    modver: ver0 | modsum: sum0
+                    modver: ver0
                     ext: all [(object? code) code] ; delayed extension
                     override?: not delay  ; stays delayed if /delay
                 ]
@@ -864,11 +819,7 @@ load-module: function [
             mod: _ ; don't need/want the block reference now
         ]
 
-        ; Verify /check and /version
-        all [check sum !== modsum] [
-            cause-error 'access 'invalid-check module
-        ]
-        all [version ver > modver] [
+        version and (ver > modver) [
             cause-error 'syntax 'needs reduce [name ver]
         ]
 
@@ -904,11 +855,10 @@ load-module: function [
         ]
 
         all [not no-lib override?] [
-            modsum: default [_]
             case/all [
-                pos [pos/2: mod pos/3: modsum] ; replace delayed module
+                pos [pos/2: mod] ; replace delayed module
 
-                not pos [reduce/into [name mod modsum] system/modules]
+                not pos [reduce/into [name mod] system/modules]
 
                 all [module? mod not mixin? hdr block? select hdr 'exports] [
                     resolve/extend/only lib mod hdr/exports ; no-op if empty
@@ -932,8 +882,6 @@ import: function [
      module [word! file! url! string! binary! module! block! tag!]
     /version ver [tuple!]
         "Module must be this version or greater"
-    /check sum [binary!]
-        "Match checksum (must be set in header)"
     /no-share
         "Force module to use its own non-shared global namespace"
     /no-lib
@@ -955,7 +903,7 @@ import: function [
     ]
     ; If it's a needs dialect block, call DO-NEEDS/block:
     if block? module [
-        assert [not version not check] ; these can only apply to one module
+        assert [not version] ; can only apply to one module
         return apply 'do-needs [
             needs: module
             no-share: :no-share
@@ -967,14 +915,12 @@ import: function [
 
     ; Note: IMPORT block! returns a block of all the modules imported.
 
-    ; Try to load and check the module.
+    ; Try to load the module.
     ; !!! the original code said /import, not conditional on refinement
     set [name: mod:] apply 'load-module [
         source: module
         version: version
         ver: :ver
-        check: check
-        sum: :sum
         no-share: no-share
         no-lib: no-lib
         import: true
@@ -995,8 +941,6 @@ import: function [
                         source: path/:file
                         version: version
                         ver: :ver
-                        check: check
-                        sum: :sum
                         no-share: :no-share
                         no-lib: :no-lib
                         import: true
@@ -1134,7 +1078,7 @@ unload-extension: procedure [
 
     remove find system/extensions ext
     for-each m ext/modules [
-        remove/part back find system/modules m 3
+        remove/part back find system/modules m 2
         ;print ["words of m:" words of m]
         for-each w words of m [
             v: get w

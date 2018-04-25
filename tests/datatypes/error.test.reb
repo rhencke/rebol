@@ -30,7 +30,6 @@
 (error? make error! [type: 'syntax id: 'scan-mismatch])
 (error? make error! [type: 'syntax id: 'no-header])
 (error? make error! [type: 'syntax id: 'bad-header])
-(error? make error! [type: 'syntax id: 'bad-checksum])
 (error? make error! [type: 'syntax id: 'malconstruct])
 (error? make error! [type: 'syntax id: 'bad-char])
 (error? make error! [type: 'syntax id: 'needs])
