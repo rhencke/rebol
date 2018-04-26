@@ -90,10 +90,9 @@ typedef uint64_t REBU64; // 64 bit unsigned integer
 typedef float REBD32; // 32 bit decimal
 typedef double REBDEC; // 64 bit decimal
 
-typedef intptr_t REBIPT; // integral counterpart of void*
-typedef uintptr_t REBUPT; // unsigned counterpart of void*
-
 typedef uintptr_t REBFLGS; // platform-pointer-size unsigned for bit flags
+typedef uintptr_t REBLIN; // type used to store line numbers in Rebol files
+typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 
 // !!! Review this choice from R3-Alpha:
 //

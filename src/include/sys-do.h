@@ -281,7 +281,7 @@ inline static void Push_Frame_At(
     REBARR *array,
     REBCNT index,
     REBSPC *specifier,
-    REBUPT flags
+    REBFLGS flags
 ){
     Init_Endlike_Header(&f->flags, flags);
 
@@ -374,7 +374,7 @@ detect_again:
         REBDSP dsp_orig = DSP;
 
         SCAN_STATE ss;
-        const REBUPT start_line = 1;
+        const REBLIN start_line = 1;
         Init_Va_Scan_State_Core(
             &ss,
             Intern("sys-do.h"),
@@ -603,7 +603,7 @@ inline static REBOOL Do_Next_In_Frame_Throws(
 ){
     assert(f->eval_type == REB_0); // see notes in Push_Frame_At()
     assert(NOT(f->flags.bits & (DO_FLAG_TO_END | DO_FLAG_NO_LOOKAHEAD)));
-    REBUPT prior_flags = f->flags.bits;
+    uintptr_t prior_flags = f->flags.bits;
 
     f->out = out;
     f->dsp_orig = DSP;
@@ -676,7 +676,7 @@ inline static REBOOL Do_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 inline static REBOOL Do_Next_In_Subframe_Throws(
     REBVAL *out,
     REBFRM *parent,
-    REBUPT flags,
+    REBFLGS flags,
     REBFRM *child // passed w/dsp_orig preload, refinements can be on stack
 ){
     // It should not be necessary to use a subframe unless there is meaningful

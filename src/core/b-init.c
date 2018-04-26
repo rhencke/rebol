@@ -94,7 +94,7 @@ static void Assert_Basics(void)
     //
     // Sanity check the platform byte-ordering sensitive flag macros
     //
-    REBUPT flags;
+    REBFLGS flags;
 
     flags = FLAGIT_LEFT(0);
     unsigned char *ch = (unsigned char*)&flags;
@@ -1016,21 +1016,21 @@ void Startup_Task(void)
 // (otherwise, the bounds would add and be useless).
 //
 void Set_Stack_Limit(void *base) {
-    REBUPT bounds;
-    bounds = cast(REBUPT, OS_CONFIG(1, 0));
+    uintptr_t bounds;
+    bounds = cast(uintptr_t, OS_CONFIG(1, 0));
     if (bounds == 0)
-        bounds = cast(REBUPT, STACK_BOUNDS);
+        bounds = cast(uintptr_t, STACK_BOUNDS);
 
   #if defined(OS_STACK_GROWS_UP)
-    TG_Stack_Limit = cast(REBUPT, base) + bounds;
+    TG_Stack_Limit = cast(uintptr_t, base) + bounds;
   #elif defined(OS_STACK_GROWS_DOWN)
-    TG_Stack_Limit = cast(REBUPT, base) - bounds;
+    TG_Stack_Limit = cast(uintptr_t, base) - bounds;
   #else
     TG_Stack_Grows_Up = Guess_If_Stack_Grows_Up(NULL);
     if (TG_Stack_Grows_Up)
-        TG_Stack_Limit = cast(REBUPT, base) + bounds;
+        TG_Stack_Limit = cast(uintptr_t, base) + bounds;
     else
-        TG_Stack_Limit = cast(REBUPT, base) - bounds;
+        TG_Stack_Limit = cast(uintptr_t, base) - bounds;
   #endif
 }
 

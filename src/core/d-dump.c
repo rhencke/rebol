@@ -69,7 +69,7 @@ void Dump_Bytes(REBYTE *bp, REBCNT limit)
     for (; l < max_lines; l++) {
         REBYTE *cp = buf;
 
-        cp = Form_Hex_Pad(cp, cast(REBUPT, bp), 8);
+        cp = Form_Hex_Pad(cp, cast(uintptr_t, bp), 8);
 
         *cp++ = ':';
         *cp++ = ' ';

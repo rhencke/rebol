@@ -100,7 +100,7 @@
 #if defined(DEBUG_SERIES_ORIGINS) || defined(DEBUG_COUNT_TICKS)
     inline static void Touch_Series(REBSER *s) {
       #if defined(DEBUG_SERIES_ORIGINS)
-        s->guard = cast(int*, malloc(sizeof(*s->guard)));
+        s->guard = cast(intptr_t*, malloc(sizeof(*s->guard)));
         free(s->guard);
       #endif
 
@@ -187,10 +187,10 @@
 //
 
 #define SET_SER_FLAG(s,f) \
-    cast(void, (SER(s)->header.bits |= cast(REBUPT, (f))))
+    cast(void, SER(s)->header.bits |= (f))
 
 #define CLEAR_SER_FLAG(s,f) \
-    cast(void, (SER(s)->header.bits &= ~cast(REBUPT, (f))))
+    cast(void, SER(s)->header.bits &= ~(f))
 
 #define GET_SER_FLAG(s,f) \
     DID(SER(s)->header.bits & (f)) // no single-flag check at present
@@ -216,10 +216,10 @@
 //
 
 #define SET_SER_INFO(s,f) \
-    cast(void, (SER(s)->info.bits |= cast(REBUPT, f)))
+    cast(void, SER(s)->info.bits |= (f))
 
 #define CLEAR_SER_INFO(s,f) \
-    cast(void, (SER(s)->info.bits &= ~cast(REBUPT, f)))
+    cast(void, SER(s)->info.bits &= ~(f))
 
 #define GET_SER_INFO(s,f) \
     DID(SER(s)->info.bits & (f)) // no single-flag check at present

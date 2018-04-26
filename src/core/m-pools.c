@@ -127,7 +127,7 @@ void *Alloc_Mem(size_t size)
   #endif
 
   #ifdef DEBUG_MEMORY_ALIGN
-    assert(cast(REBUPT, p) % sizeof(REBI64) == 0);
+    assert(cast(uintptr_t, p) % sizeof(REBI64) == 0);
   #endif
 
     return p;
@@ -511,7 +511,7 @@ void *Make_Node(REBCNT pool_id)
     pool->free--;
 
   #ifdef DEBUG_MEMORY_ALIGN
-    if (cast(REBUPT, node) % sizeof(REBI64) != 0) {
+    if (cast(uintptr_t, node) % sizeof(REBI64) != 0) {
         printf(
             "Node address %p not aligned to %d bytes\n",
             cast(void*, node),
@@ -861,7 +861,7 @@ REBCNT Series_Allocation_Unpooled(REBSER *series)
 // Large series will be allocated from system memory.
 // The series will be zero length to start with.
 //
-REBSER *Make_Series_Core(REBCNT capacity, REBYTE wide, REBUPT flags)
+REBSER *Make_Series_Core(REBCNT capacity, REBYTE wide, REBFLGS flags)
 {
     assert(wide != 0 && capacity != 0); // not allowed
 
@@ -1259,8 +1259,8 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     // Have we recently expanded the same series?
 
     REBCNT x = 1;
-    REBUPT n_available = 0;
-    REBUPT n_found;
+    REBCNT n_available = 0;
+    REBCNT n_found;
     for (n_found = 0; n_found < MAX_EXPAND_LIST; n_found++) {
         if (Prior_Expand[n_found] == s) {
             x = SER_LEN(s) + delta + 1; // Double the size
@@ -1397,7 +1397,7 @@ void Swap_Series_Content(REBSER* a, REBSER* b)
 // Reallocate a series as a given maximum size.  Content in the retained
 // portion of the length will be preserved if NODE_FLAG_NODE is passed in.
 //
-void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBUPT flags)
+void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
 {
     // !!! This routine is being scaled back in terms of what it's allowed to
     // do for the moment; so the method of passing in flags is a bit strange.
@@ -1731,9 +1731,9 @@ REBOOL Is_Value_Managed(const RELVAL *v)
 //
 void Assert_Pointer_Detection_Working(void)
 {
-    REBUPT cell_flag = NODE_FLAG_CELL;
+    uintptr_t cell_flag = NODE_FLAG_CELL;
     assert(LEFT_8_BITS(cell_flag) == 0x1);
-    REBUPT end_flag = NODE_FLAG_END;
+    uintptr_t end_flag = NODE_FLAG_END;
     assert(LEFT_8_BITS(end_flag) == 0x8);
 
     assert(
@@ -1852,10 +1852,10 @@ REBCNT Check_Memory_Debug(void)
             seg = Mem_Pools[pool_num].segs;
             for (; seg != NULL; seg = seg->next) {
                 if (
-                    cast(REBUPT, node) > cast(REBUPT, seg)
+                    cast(uintptr_t, node) > cast(uintptr_t, seg)
                     && (
-                        cast(REBUPT, node)
-                        < cast(REBUPT, seg) + cast(REBUPT, seg->size)
+                        cast(uintptr_t, node)
+                        < cast(uintptr_t, seg) + cast(uintptr_t, seg->size)
                     )
                 ){
                     if (found) {

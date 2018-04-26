@@ -364,7 +364,7 @@ REBNATIVE(c_debug_break_at)
         // https://math.stackexchange.com/q/2521219/
         //
         TG_Tick =
-            (cast(REBUPT, 1) << (ceil_log2(TG_Tick) + 1))
+            (cast(REBTCK, 1) << (ceil_log2(TG_Tick) + 1))
             + VAL_INT64(ARG(tick))
             - 1;
         return R_VOID;

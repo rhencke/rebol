@@ -34,7 +34,7 @@
 
 const struct {
     REBSYM sym;
-    REBUPT flags;
+    REBFLGS flags;
 } Gob_Flag_Words[] = {
     {SYM_RESIZE,      GOBF_RESIZE},
     {SYM_NO_TITLE,    GOBF_NO_TITLE},
@@ -470,7 +470,7 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
         }
         else if (IS_INTEGER(val)) {
             SET_GOB_DTYPE(gob, GOBD_INTEGER);
-            SET_GOB_DATA(gob, cast(REBSER*, cast(REBIPT, VAL_INT64(val))));
+            SET_GOB_DATA(gob, cast(REBSER*, cast(intptr_t, VAL_INT64(val))));
         }
         else if (IS_BLANK(val))
             SET_GOB_TYPE(gob, GOBT_NONE);
@@ -600,7 +600,7 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
             Init_Binary(val, GOB_DATA(gob));
         }
         else if (GOB_DTYPE(gob) == GOBD_INTEGER) {
-            Init_Integer(val, cast(REBIPT, GOB_DATA(gob)));
+            Init_Integer(val, cast(intptr_t, GOB_DATA(gob)));
         }
         else
             return FALSE;

@@ -161,7 +161,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 ) {
     assert(ANY_ARRAY(spec));
 
-    REBUPT header_bits = 0;
+    uintptr_t header_bits = 0;
 
 #if !defined(NDEBUG)
     //

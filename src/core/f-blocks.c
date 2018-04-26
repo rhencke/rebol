@@ -43,7 +43,7 @@ REBARR *Copy_Array_At_Extra_Shallow(
     REBCNT index,
     REBSPC *specifier,
     REBCNT extra,
-    REBUPT flags
+    REBFLGS flags
 ){
     REBCNT len = ARR_LEN(original);
 
@@ -111,7 +111,7 @@ REBARR *Copy_Values_Len_Extra_Shallow_Core(
     REBSPC *specifier,
     REBCNT len,
     REBCNT extra,
-    REBUPT flags
+    REBFLGS flags
 ){
     REBARR *array = Make_Array_Core(len + extra + 1, flags);
 

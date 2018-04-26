@@ -190,7 +190,7 @@ TVAR REBSER *GC_Manuals;    // Manually memory managed (not by GC)
 #if !defined(OS_STACK_GROWS_UP) && !defined(OS_STACK_GROWS_DOWN)
     TVAR REBOOL TG_Stack_Grows_Up; // Will be detected via questionable method
 #endif
-TVAR REBUPT TG_Stack_Limit;    // Limit address for CPU stack.
+TVAR uintptr_t TG_Stack_Limit;    // Limit address for CPU stack.
 
 #ifdef DEBUG_COUNT_TICKS
     //
@@ -198,12 +198,12 @@ TVAR REBUPT TG_Stack_Limit;    // Limit address for CPU stack.
     // used for many purposes...including setting breakpoints in routines
     // other than Do_Next that are contingent on a certain "tick" elapsing.
     //
-    TVAR REBUPT TG_Tick; // expressions, EVAL moments, PARSE steps bump this
-    TVAR REBUPT TG_Break_At_Tick; // runtime break tick set by C-DEBUG_BREAK
+    TVAR REBTCK TG_Tick; // expressions, EVAL moments, PARSE steps bump this
+    TVAR REBTCK TG_Break_At_Tick; // runtime break tick set by C-DEBUG_BREAK
 #endif
 
 #if !defined(NDEBUG)
-    TVAR REBIPT TG_Num_Black_Series;
+    TVAR intptr_t TG_Num_Black_Series;
 #endif
 
 // Each time Do_Core is called a Reb_Frame* is pushed to the "frame stack".

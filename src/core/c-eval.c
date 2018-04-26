@@ -383,7 +383,7 @@ inline static void Check_Arg(
 void Do_Core(REBFRM * const f)
 {
   #if defined(DEBUG_COUNT_TICKS)
-    REBUPT tick = f->tick = TG_Tick; // snapshot start tick
+    REBTCK tick = f->tick = TG_Tick; // snapshot start tick
   #endif
 
     // Some routines (like Reduce_XXX) reuse the frame across multiple calls

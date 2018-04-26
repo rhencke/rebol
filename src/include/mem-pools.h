@@ -39,7 +39,7 @@
 ***********************************************************************/
 {
     struct rebol_mem_segment *next;
-    REBUPT size;
+    uintptr_t size;
 } REBSEG;
 
 

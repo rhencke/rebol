@@ -604,7 +604,7 @@ struct Reb_Handle {
         CFUNC *cfunc;
     } data;
 
-    REBUPT length;
+    uintptr_t length;
 };
 
 
@@ -654,17 +654,6 @@ struct Reb_Gob {
 };
 
 
-// Reb_All is a structure type designed specifically for getting at
-// the underlying bits of whichever union member is in effect inside
-// the Reb_Value_Data.  This is not actually legal, although if types
-// line up in unions it could be possibly be made "more legal":
-//
-//     http://stackoverflow.com/questions/11639947/
-//
-struct Reb_All {
-    REBUPT bits[2];
-};
-
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -673,8 +662,8 @@ struct Reb_All {
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Each value cell has a header, "extra", and payload.  Having the header come
-// first is taken advantage of by the trick for allowing a single REBUPT-sized
-// value (32-bit on 32 bit builds, 64-bit on 64-bit builds) be examined to
+// first is taken advantage of by the trick for allowing a single uintptr_t
+// value (32-bit on 32 bit builds, 64-bit on 64-bit builds) to be examined to
 // determine if a value is an END marker or not.
 //
 // Conceptually speaking, one might think of the "extra" as being part of
@@ -761,12 +750,11 @@ union Reb_Value_Extra {
     REBARR *singular;
 
   #if defined(DEBUG_TRACK_CELLS) && defined(DEBUG_COUNT_TICKS)
-    REBUPT tick; // value initialization tick if the payload is Reb_Track
+    uintptr_t tick; // value initialization tick if the payload is Reb_Track
   #endif
 };
 
 union Reb_Value_Payload {
-    struct Reb_All all;
 
   #if defined(DEBUG_TRACK_CELLS)
     struct Reb_Track track; // only for void/trash, BLANK!, LOGIC!, BAR!

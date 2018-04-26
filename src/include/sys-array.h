@@ -234,7 +234,7 @@ inline static void Deep_Freeze_Array(REBARR *a) {
 // marked for the garbage collector to look into recursively).
 // Terminator included implicitly. Sets TAIL to zero.
 //
-inline static REBARR *Make_Array_Core(REBCNT capacity, REBUPT flags)
+inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags)
 {
     REBSER *s = Make_Series_Core(
         capacity + 1,
@@ -291,7 +291,7 @@ inline static REBARR *Make_Array_For_Copy(
 // bit and defaults the array to an uninitialized cell with length 1, vs.
 // going through a length 0 step.
 //
-inline static REBARR *Alloc_Singular_Array_Core(REBUPT flags) {
+inline static REBARR *Alloc_Singular_Array_Core(REBFLGS flags) {
     REBSER *s = Make_Series_Core(
         2, // Length 2 is requested, but there is no "real" second slot
         sizeof(REBVAL),

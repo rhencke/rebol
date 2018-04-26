@@ -393,7 +393,7 @@ REBNATIVE(load_native)
         fail ("HANDLE! passed to LOAD-NATIVE did not come from RX_Init");
 
     REBI64 index = VAL_INT64(ARG(index));
-    if (index < 0 || cast(REBUPT, index) >= VAL_HANDLE_LEN(ARG(impl)))
+    if (index < 0 || cast(uintptr_t, index) >= VAL_HANDLE_LEN(ARG(impl)))
         fail ("Index of native is outside range specified by RX_Init");
 
     REBNAT dispatcher = VAL_HANDLE_POINTER(REBNAT, ARG(impl))[index];

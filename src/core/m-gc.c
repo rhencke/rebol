@@ -144,7 +144,7 @@ static inline REBOOL Is_Rebser_Marked(REBSER *rebser) {
 }
 
 static inline void Unmark_Rebser(REBSER *rebser) {
-    rebser->header.bits &= ~cast(REBUPT, NODE_FLAG_MARKED);
+    rebser->header.bits &= ~NODE_FLAG_MARKED;
 }
 
 
@@ -524,7 +524,7 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         //
         // Ren-C's PAIR! uses a special kind of REBSER that does no additional
         // memory allocation, but embeds two REBVALs in the REBSER itself.
-        // A REBVAL has a REBUPT-sized header at the beginning of its struct,
+        // A REBVAL has a uintptr_t header at the beginning of its struct,
         // just like a REBSER, and the NODE_FLAG_MARKED bit is a 0
         // if unmarked...so it can stealthily participate in the marking
         // process, as long as the bit is cleared at the end.

@@ -363,7 +363,7 @@ struct Reb_Frame_Source {
     // This holds the index of the *next* item in the array to fetch as
     // f->value for processing.  It's invalid if the frame is for a C va_list.
     //
-    REBUPT index;
+    uintptr_t index;
 };
 
 
@@ -414,7 +414,7 @@ struct Reb_Frame {
     // sub-operation.  It's also used to measure how many refinements have
     // been pushed to the data stack by a path evaluation.
     //
-    REBUPT dsp_orig; // type is REBDSP, but enforce alignment here
+    uintptr_t dsp_orig; // type is REBDSP, but enforce alignment here
 
     // `out`
     //
@@ -474,7 +474,7 @@ struct Reb_Frame {
     // The error reporting machinery doesn't want where `index` is right now,
     // but where it was at the beginning of a single DO/NEXT step.
     //
-    REBUPT expr_index;
+    uintptr_t expr_index;
 
     // `eval_type`
     //
@@ -709,7 +709,7 @@ struct Reb_Frame {
     // processing.  This is helpful for setting breakpoints on certain ticks
     // in reproducible situations.
     //
-    REBUPT tick; // !!! Should this be in release builds, exposed to users?
+    uintptr_t tick; // !!! Should this be in release builds, exposed to users?
   #endif
 
   #if defined(DEBUG_FRAME_LABELS)

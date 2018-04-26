@@ -1671,7 +1671,7 @@ scanword:
 void Init_Va_Scan_State_Core(
     SCAN_STATE *ss,
     REBSTR *file,
-    REBUPT line,
+    REBLIN line,
     const REBYTE *opt_begin, // preload the scanner outside the va_list
     va_list *vaptr
 ){
@@ -1715,7 +1715,7 @@ void Init_Va_Scan_State_Core(
 void Init_Scan_State(
     SCAN_STATE *ss,
     REBSTR *file,
-    REBUPT line,
+    REBLIN line,
     const REBYTE *utf8,
     REBCNT limit
 ){
@@ -2561,7 +2561,7 @@ REBARR *Scan_Va_Managed(
 ){
     REBDSP dsp_orig = DSP;
 
-    const REBUPT start_line = 1;
+    const REBLIN start_line = 1;
 
     va_list va;
     va_start(va, filename);
@@ -2611,7 +2611,7 @@ REBARR *Scan_Va_Managed(
 REBARR *Scan_UTF8_Managed(REBSTR *filename, const REBYTE *utf8, REBCNT size)
 {
     SCAN_STATE ss;
-    const REBUPT start_line = 1;
+    const REBLIN start_line = 1;
     Init_Scan_State(&ss, filename, start_line, utf8, size);
 
     REBDSP dsp_orig = DSP;
@@ -2635,7 +2635,7 @@ REBINT Scan_Header(const REBYTE *utf8, REBCNT len)
 {
     SCAN_STATE ss;
     REBSTR * const filename = Canon(SYM___ANONYMOUS__);
-    const REBUPT start_line = 1;
+    const REBLIN start_line = 1;
     Init_Scan_State(&ss, filename, start_line, utf8, len);
 
     REBINT result = Scan_Head(&ss);
@@ -2709,7 +2709,7 @@ REBNATIVE(transcode)
         ? Intern(ARG(file_name))
         : Canon(SYM___ANONYMOUS__);
 
-    REBUPT start_line = 1;
+    REBLIN start_line = 1;
     if (REF(line)) {
         start_line = VAL_INT32(ARG(line_number));
         if (start_line <= 0)
@@ -2784,7 +2784,7 @@ const REBYTE *Scan_Any_Word(
 ) {
     SCAN_STATE ss;
     REBSTR * const filename = Canon(SYM___ANONYMOUS__);
-    const REBUPT start_line = 1;
+    const REBLIN start_line = 1;
     Init_Scan_State(&ss, filename, start_line, utf8, len);
 
     DECLARE_MOLD (mo);

@@ -62,7 +62,7 @@
 #define HANDLE_FLAG_CFUNC HANDLE_FLAG(0)
 
 
-inline static REBUPT VAL_HANDLE_LEN(const RELVAL *v) {
+inline static uintptr_t VAL_HANDLE_LEN(const RELVAL *v) {
     assert(IS_HANDLE(v));
     if (v->extra.singular)
         return ARR_HEAD(v->extra.singular)->payload.handle.length;
@@ -97,7 +97,7 @@ inline static CLEANUP_FUNC VAL_HANDLE_CLEANER(const RELVAL *v) {
     return singular != NULL ? MISC(singular).cleaner : NULL;
 }
 
-inline static void SET_HANDLE_LEN(RELVAL *v, REBUPT length) {
+inline static void SET_HANDLE_LEN(RELVAL *v, uintptr_t length) {
     assert(IS_HANDLE(v));
     if (v->extra.singular)
         ARR_HEAD(v->extra.singular)->payload.handle.length = length;
@@ -126,7 +126,7 @@ inline static void SET_HANDLE_CFUNC(RELVAL *v, CFUNC *cfunc) {
 inline static REBVAL *Init_Handle_Simple(
     RELVAL *out,
     void *pointer,
-    REBUPT length
+    uintptr_t length
 ){
     RESET_VAL_HEADER(out, REB_HANDLE);
     out->extra.singular = NULL;
@@ -138,7 +138,7 @@ inline static REBVAL *Init_Handle_Simple(
 inline static REBVAL *Init_Handle_Cfunc(
     RELVAL *out,
     CFUNC *cfunc,
-    REBUPT length
+    uintptr_t length
 ){
     RESET_VAL_HEADER_EXTRA(out, REB_HANDLE, HANDLE_FLAG_CFUNC);
     out->extra.singular = NULL;
@@ -149,7 +149,7 @@ inline static REBVAL *Init_Handle_Cfunc(
 
 inline static void Init_Handle_Managed_Common(
     RELVAL *out,
-    REBUPT length,
+    uintptr_t length,
     CLEANUP_FUNC cleaner
 ){
     REBARR *singular = Alloc_Singular_Array();
@@ -182,7 +182,7 @@ inline static void Init_Handle_Managed_Common(
 inline static REBVAL *Init_Handle_Managed(
     RELVAL *out,
     void *pointer,
-    REBUPT length,
+    uintptr_t length,
     CLEANUP_FUNC cleaner
 ){
     Init_Handle_Managed_Common(out, length, cleaner);
@@ -199,7 +199,7 @@ inline static REBVAL *Init_Handle_Managed(
 inline static REBVAL *Init_Handle_Managed_Cfunc(
     RELVAL *out,
     CFUNC *cfunc,
-    REBUPT length,
+    uintptr_t length,
     CLEANUP_FUNC cleaner
 ){
     Init_Handle_Managed_Common(out, length, cleaner);

@@ -226,19 +226,32 @@ uint32_t Hash_Value(const RELVAL *v)
         hash = (VAL_INT64(v) >> 32) ^ (VAL_INT64(v));
         break;
 
-    case REB_MONEY:
-        hash = VAL_ALL_BITS(v)[0] ^ VAL_ALL_BITS(v)[1] ^ v->extra.m0;
-        break;
+    case REB_MONEY: {
+        //
+        // !!! R3-Alpha used a sketchy "Reb_All" union for this, violating the
+        // rule of only reading from the union you last read from.  Access
+        // via unsigned char* to use the actual bytes of the money payload to
+        // accomplish the same thing (whether it was good or not, at least it
+        // isn't breaking the C standard)
+
+        REBYTE *payload = cast(REBYTE*, &v->payload.money);
+
+        uintptr_t bits0;
+        uintptr_t bits1;
+        memcpy(&bits0, payload, sizeof(uintptr_t));
+        memcpy(&bits1, payload + sizeof(uintptr_t), sizeof(uintptr_t));
+
+        hash = bits0 ^ bits1 ^ v->extra.m0;
+        break; }
 
     case REB_CHAR:
         hash = LO_CASE(VAL_CHAR(v));
         break;
 
-    case REB_PAIR:
-        hash = (VAL_ALL_BITS(v)[0] << 16)
-            ^ (VAL_ALL_BITS(v)[0] >> 16)
-            ^ (VAL_ALL_BITS(v)[1]);
-        break;
+    case REB_PAIR: {
+        hash = Hash_Value(VAL_PAIR(v));
+        hash ^= Hash_Value(PAIRING_KEY(VAL_PAIR(v)));
+        break; }
 
     case REB_TUPLE:
         hash = Hash_Bytes_Or_Uni(VAL_TUPLE(v), VAL_TUPLE_LEN(v), 1);
@@ -325,7 +338,7 @@ uint32_t Hash_Value(const RELVAL *v)
         // immutable once created, it is legal to put them in hashes.  The
         // VAL_FUNC is the paramlist series, guaranteed unique per function
         //
-        hash = cast(REBCNT, cast(REBUPT, VAL_FUNC(v)) >> 4);
+        hash = cast(REBCNT, cast(uintptr_t, VAL_FUNC(v)) >> 4);
         break;
 
     case REB_FRAME:
@@ -345,7 +358,7 @@ uint32_t Hash_Value(const RELVAL *v)
         // However, since it was historically allowed it is allowed for
         // all ANY-CONTEXT! types at the moment.
         //
-        hash = cast(REBCNT, cast(REBUPT, VAL_CONTEXT(v)) >> 4);
+        hash = cast(uint32_t, cast(uintptr_t, VAL_CONTEXT(v)) >> 4);
         break;
 
     case REB_MAP:
@@ -355,7 +368,7 @@ uint32_t Hash_Value(const RELVAL *v)
         // (Again this will just find the map by identity, not by comparing
         // the values of one against the values of the other...)
         //
-        hash = cast(REBCNT, cast(REBUPT, VAL_MAP(v)) >> 4);
+        hash = cast(uint32_t, cast(uintptr_t, VAL_MAP(v)) >> 4);
         break;
 
     case REB_GOB:

@@ -84,15 +84,15 @@
 
 struct Reb_Header {
     //
-    // Uses REBUPT (like C99's uintptr_t) which is 32-bits on 32 bit platforms
-    // and 64-bits on 64 bit machines.  See macros like FLAGIT_LEFT() for
-    // how these bits are laid out in special ways on varying architectures.
+    // unsigned integer that's the size of a platform pointer (e.g. 32-bits on
+    // 32 bit platforms and 64-bits on 64 bit machines).  See macros like
+    // FLAGIT_LEFT() for how these bits are laid out in a special way.
     //
     // !!! Future application of the 32 unused header bits on 64-bit machines
     // might add some kind of optimization or instrumentation, though the
     // unused bits are currently in weird byte positions.
     //
-    REBUPT bits;
+    uintptr_t bits;
 };
 
 
@@ -365,8 +365,10 @@ struct Reb_Node {
 // things down.  Desire to control this behavior is why the `restrict`
 // keyword exists in C99: https://en.wikipedia.org/wiki/Restrict )
 //
-inline static void Init_Endlike_Header(struct Reb_Header *alias, REBUPT bits)
-{
+inline static void Init_Endlike_Header(
+    struct Reb_Header *alias,
+    uintptr_t bits
+){
     // Endlike headers have the leading bits `10` so they don't look like a
     // UTF-8 string.  This makes them look like an "in use node", and they
     // of course have NODE_FLAG_END set.  They do not have NODE_FLAG_CELL

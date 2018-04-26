@@ -138,9 +138,6 @@
 #endif
 
 
-#define VAL_ALL_BITS(v) ((v)->payload.all.bits)
-
-
 //=////////////////////////////////////////////////////////////////////////=//
 //
 //  VALUE "KIND" (1 out of 64 different foundational types)
@@ -276,7 +273,7 @@
         // compile-time due to the weirdness of CLEAR_8_RIGHT_BITS.  This
         // pattern does not catch bad flag checks in asserts.  Review.
 
-        template <REBUPT f>
+        template <uintptr_t f>
         inline static void SET_VAL_FLAG_cplusplus(RELVAL *v) {
             static_assert(
                 f && (f & (f - 1)) == 0, // only one bit is set
@@ -287,7 +284,7 @@
         #define SET_VAL_FLAG(v,f) \
             SET_VAL_FLAG_cplusplus<f>(v)
         
-        template <REBUPT f>
+        template <uintptr_t f>
         inline static REBOOL GET_VAL_FLAG_cplusplus(const RELVAL *v) {
             static_assert(
                 f && (f & (f - 1)) == 0, // only one bit is set
@@ -344,43 +341,43 @@
             CLEAR_8_RIGHT_BITS(flags); \
         } \
 
-    inline static void SET_VAL_FLAGS(RELVAL *v, REBUPT f) {
+    inline static void SET_VAL_FLAGS(RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         v->header.bits |= f;
     }
 
-    inline static void SET_VAL_FLAG(RELVAL *v, REBUPT f) {
+    inline static void SET_VAL_FLAG(RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         v->header.bits |= f;
     }
 
-    inline static REBOOL GET_VAL_FLAG(const RELVAL *v, REBUPT f) {
+    inline static REBOOL GET_VAL_FLAG(const RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         return DID(v->header.bits & f);
     }
 
-    inline static REBOOL ANY_VAL_FLAGS(const RELVAL *v, REBUPT f) {
+    inline static REBOOL ANY_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         return DID((v->header.bits & f) != 0);
     }
 
-    inline static REBOOL ALL_VAL_FLAGS(const RELVAL *v, REBUPT f) {
+    inline static REBOOL ALL_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         return DID((v->header.bits & f) == f);
     }
 
-    inline static void CLEAR_VAL_FLAGS(RELVAL *v, REBUPT f) {
+    inline static void CLEAR_VAL_FLAGS(RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         v->header.bits &= ~f;
     }
 
-    inline static void CLEAR_VAL_FLAG(RELVAL *v, REBUPT f) {
+    inline static void CLEAR_VAL_FLAG(RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         assert(f && (f & (f - 1)) == 0); // checks that only one bit is set
@@ -413,7 +410,7 @@
         int line
     ){
       #ifdef DEBUG_MEMORY_ALIGN
-        if (cast(REBUPT, v) % sizeof(REBI64) != 0) {
+        if (cast(uintptr_t, v) % sizeof(REBI64) != 0) {
           
           #ifdef DEBUG_TRASH_MEMORY
             if (IS_POINTER_TRASH_DEBUG(v)) { // common case
@@ -481,7 +478,7 @@
 inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     RELVAL *v,
     enum Reb_Kind kind,
-    REBUPT extra
+    uintptr_t extra
 
   #if defined(DEBUG_CELL_WRITABILITY)
   , const char *file
@@ -523,15 +520,15 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     inline static REBVAL *RESET_VAL_CELL_Debug(
         RELVAL *out,
         enum Reb_Kind kind,
-        REBUPT extra,
+        uintptr_t extra,
         const char *file,
         int line
     ){
-    #ifdef DEBUG_CELL_WRITABILITY
+      #ifdef DEBUG_CELL_WRITABILITY
         RESET_VAL_HEADER_EXTRA_Core(out, kind, extra, file, line);
-    #else
+      #else
         RESET_VAL_HEADER_EXTRA(out, kind, extra);
-    #endif
+      #endif
 
         TRACK_CELL_IF_DEBUG(out, file, line);
         return cast(REBVAL*, out);

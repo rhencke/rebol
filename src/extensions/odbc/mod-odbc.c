@@ -1303,11 +1303,12 @@ REBNATIVE(update_odbc)
     rc = SQLSetConnectAttr(
         hdbc,
         SQL_ATTR_ACCESS_MODE,
-        cast(
-            SQLPOINTER*,
-            cast(REBUPT, IS_TRUTHY(ARG(access))
-                ? SQL_MODE_READ_WRITE
-                : SQL_MODE_READ_ONLY)
+        cast(SQLPOINTER*,
+            cast(uintptr_t,
+                rebDid(ARG(access), END)
+                    ? SQL_MODE_READ_WRITE
+                    : SQL_MODE_READ_ONLY
+            )
         ),
         SQL_IS_UINTEGER
     );
@@ -1318,11 +1319,12 @@ REBNATIVE(update_odbc)
     rc = SQLSetConnectAttr(
         hdbc,
         SQL_ATTR_AUTOCOMMIT,
-        cast(
-            SQLPOINTER*,
-            cast(REBUPT, IS_TRUTHY(ARG(commit))
-                ? SQL_AUTOCOMMIT_ON
-                : SQL_AUTOCOMMIT_OFF)
+        cast(SQLPOINTER*,
+            cast(uintptr_t,
+                rebDid(ARG(commit), END)
+                    ? SQL_AUTOCOMMIT_ON
+                    : SQL_AUTOCOMMIT_OFF
+            )
         ),
         SQL_IS_UINTEGER
     );

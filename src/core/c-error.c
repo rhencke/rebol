@@ -510,7 +510,7 @@ void Set_Location_Of_Error(
     }
     if (f != NULL) {
         REBSTR *file = LINK(f->source.array).file;
-        REBUPT line = MISC(f->source.array).line;
+        REBLIN line = MISC(f->source.array).line;
 
         REBSYM file_sym = STR_SYMBOL(file);
         if (file_sym != SYM___ANONYMOUS__)

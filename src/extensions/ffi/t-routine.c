@@ -184,7 +184,7 @@ static void Schema_From_Block_May_Fail(
 // This means sequential arguments in the store may have padding between them.
 //
 inline static void *Expand_And_Align_Core(
-    REBUPT *offset_out,
+    uintptr_t *offset_out,
     REBCNT align,
     REBSER *store,
     REBCNT size
@@ -199,7 +199,7 @@ inline static void *Expand_And_Align_Core(
 }
 
 inline static void *Expand_And_Align(
-    REBUPT *offset_out,
+    uintptr_t *offset_out,
     REBSER *store,
     REBCNT size // assumes align == size
 ){
@@ -212,7 +212,7 @@ inline static void *Expand_And_Align(
 // the FFI for how a C argument would be represented.  (e.g. turn an
 // INTEGER! into the appropriate representation of an `int` in memory.)
 //
-static REBUPT arg_to_ffi(
+static uintptr_t arg_to_ffi(
     REBSER *store,
     void *dest,
     const REBVAL *arg,
@@ -242,7 +242,7 @@ static REBUPT arg_to_ffi(
 
     REBFRM *frame_ = FS_TOP; // So you can use the D_xxx macros
 
-    REBUPT offset;
+    uintptr_t offset;
     if (dest == NULL)
         offset = 0;
     else
@@ -399,7 +399,7 @@ static REBUPT arg_to_ffi(
 
         switch (VAL_TYPE(arg)) {
         case REB_INTEGER:{
-            REBIPT ipt = VAL_INT64(arg); // REBIPT is like C99's intptr_t
+            intptr_t ipt = VAL_INT64(arg);
             memcpy(dest, &ipt, sizeof(void*));
             break;}
 
@@ -700,7 +700,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
         // Shouldn't be used (assigned to NULL later) but avoid maybe
         // uninitialized warning.
         //
-        ret_offset = cast(void*, cast(REBUPT, 0xDECAFBAD));
+        ret_offset = cast(void*, cast(uintptr_t, 0xDECAFBAD));
     }
 
     REBSER *arg_offsets;
@@ -718,7 +718,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
     {
         REBCNT i = 0;
         for (; i < num_fixed; ++i) {
-            REBUPT offset = arg_to_ffi(
+            uintptr_t offset = arg_to_ffi(
                 store, // ffi-converted arg appended here
                 NULL, // dest pointer must be NULL if store is non-NULL
                 FRM_ARG(f, i + 1), // 1-based
@@ -820,11 +820,11 @@ REB_R Routine_Dispatcher(REBFRM *f)
         if (IS_BLANK(RIN_RET_SCHEMA(rin)))
             ret_offset = NULL;
         else
-            ret_offset = SER_DATA_RAW(store) + cast(REBUPT, ret_offset);
+            ret_offset = SER_DATA_RAW(store) + cast(uintptr_t, ret_offset);
 
         REBCNT i;
         for (i = 0; i < num_args; ++i) {
-            REBUPT off = cast(REBUPT, *SER_AT(void*, arg_offsets, i));
+            uintptr_t off = cast(uintptr_t, *SER_AT(void*, arg_offsets, i));
             assert(off == 0 || off < SER_LEN(store));
             *SER_AT(void*, arg_offsets, i) = SER_DATA_RAW(store) + off;
         }

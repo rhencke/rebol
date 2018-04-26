@@ -61,7 +61,7 @@
 //
 ATTRIBUTE_NO_RETURN void Panic_Core(
     const void *p, // REBSER* (array, context, etc), REBVAL*, or UTF-8 char*
-    REBUPT tick,
+    REBTCK tick,
     const char *file, // UTF8
     int line
 ){
@@ -263,7 +263,7 @@ REBNATIVE(panic)
   #ifdef DEBUG_COUNT_TICKS
     Panic_Core(p, frame_->tick, FRM_FILE_UTF8(frame_), FRM_LINE(frame_));
   #else
-    const REBUPT tick = 0;
+    const REBTCK tick = 0;
     Panic_Core(p, tick, FRM_FILE_UTF8(frame_), FRM_LINE(frame_));
   #endif
 }
@@ -291,7 +291,7 @@ REBNATIVE(panic_value)
         ARG(value), frame_->tick, FRM_FILE_UTF8(frame_), FRM_LINE(frame_)
     );
   #else
-    const REBUPT tick = 0;
+    const REBTCK tick = 0;
     Panic_Core(ARG(value), tick, FRM_FILE_UTF8(frame_), FRM_LINE(frame_));
   #endif
 }

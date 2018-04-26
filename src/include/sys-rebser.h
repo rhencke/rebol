@@ -693,7 +693,7 @@ union Reb_Series_Link {
     //
     // !!! Work in progress.
     //
-    REBUPT stamp;
+    uintptr_t stamp;
 
     // On Reb_Function body_holders, this is the specialization frame for
     // a function--or NULL if none.
@@ -739,11 +739,11 @@ union Reb_Series_Misc {
     void *trash;
   #endif
 
-    // Ordinary source series store the line number here.  It probably
-    // could have some bits taken out of it, vs. being a full 32-bit
-    // integer on 32-bit platforms.
+    // Ordinary source series store the line number here.  It perhaps could
+    // have some bits taken out of it, vs. being a full 32-bit integer on
+    // 32-bit platforms or 64-bit integer on 64-bit platforms.
     //
-    REBUPT line;
+    REBLIN line;
 
     // Under UTF-8 everywhere, strings are byte-sized...so the series "size"
     // is actually counting *bytes*, not logical character codepoint units.
@@ -901,8 +901,8 @@ struct Reb_Series {
     union Reb_Series_Misc misc_private;
 
 #if defined(DEBUG_SERIES_ORIGINS) || defined(DEBUG_COUNT_TICKS)
-    int *guard; // intentionally alloc'd and freed for use by Panic_Series
-    REBUPT tick; // also maintains sizeof(REBSER) % sizeof(REBI64) == 0
+    intptr_t *guard; // intentionally alloc'd and freed for use by Panic_Series
+    uintptr_t tick; // also maintains sizeof(REBSER) % sizeof(REBI64) == 0
 #endif
 };
 

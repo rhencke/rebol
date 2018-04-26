@@ -595,7 +595,7 @@ pick:
             if (pad == 1) pad = 8;
             cp = Form_Hex_Pad(
                 buf,
-                cast(REBU64, cast(REBUPT, va_arg(*vaptr, REBYTE*))),
+                cast(REBU64, cast(uintptr_t, va_arg(*vaptr, REBYTE*))),
                 pad
             );
             Append_Unencoded_Len(ser, s_cast(buf), cp - buf);

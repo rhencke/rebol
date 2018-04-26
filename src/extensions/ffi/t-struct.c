@@ -50,7 +50,7 @@ static void fail_if_non_accessible(const REBVAL *val)
 {
     if (VAL_STRUCT_INACCESSIBLE(val)) {
         DECLARE_LOCAL (i);
-        Init_Integer(i, cast(REBUPT, VAL_STRUCT_DATA_HEAD(val)));
+        Init_Integer(i, cast(intptr_t, VAL_STRUCT_DATA_HEAD(val)));
         fail (Error_Bad_Memory_Raw(i, val));
     }
 }
@@ -155,7 +155,7 @@ static void get_scalar(
         break;
 
     case SYM_POINTER:
-        Init_Integer(out, cast(REBUPT, *cast(void**, p)));
+        Init_Integer(out, cast(intptr_t, *cast(void**, p)));
         break;
 
     case SYM_REBVAL:
@@ -472,7 +472,7 @@ static REBOOL assign_scalar_core(
         size_t sizeof_void_ptr = sizeof(void*); // avoid constant conditional
         if (sizeof_void_ptr == 4 && i > UINT32_MAX)
             fail (Error_Overflow_Raw());
-        *cast(void**, data) = cast(void*, cast(REBUPT, i));
+        *cast(void**, data) = cast(void*, cast(intptr_t, i));
         break; }
 
     case SYM_REBVAL:
@@ -559,7 +559,7 @@ static REBOOL Set_Struct_Var(
 
 
 /* parse struct attribute */
-static void parse_attr (REBVAL *blk, REBINT *raw_size, REBUPT *raw_addr)
+static void parse_attr (REBVAL *blk, REBINT *raw_size, uintptr_t *raw_addr)
 {
     REBVAL *attr = KNOWN(VAL_ARRAY_AT(blk));
 
@@ -619,7 +619,7 @@ static void parse_attr (REBVAL *blk, REBINT *raw_size, REBUPT *raw_addr)
             if (addr == NULL)
                 fail (Error_Symbol_Not_Found_Raw(sym));
 
-            *raw_addr = cast(REBUPT, addr);
+            *raw_addr = cast(uintptr_t, addr);
             break; }
 
         // !!! This alignment code was commented out for some reason.
@@ -667,7 +667,7 @@ static void cleanup_noop(const REBVAL *v) {
 static REBSER *make_ext_storage(
     REBCNT len,
     REBINT raw_size,
-    REBUPT raw_addr
+    uintptr_t raw_addr
 ) {
     if (raw_size >= 0 && raw_size != cast(REBINT, len)) {
         DECLARE_LOCAL (i);
@@ -985,7 +985,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
         REBVAL *word;
         if (IS_BLOCK(spec_item)) { // options: raw-memory, etc
             REBINT raw_size = -1;
-            REBUPT raw_addr = 0;
+            uintptr_t raw_addr = 0;
 
             // make sure no other field initialization
             if (VAL_LEN_HEAD(spec) != 1)
@@ -1037,7 +1037,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
                 }
                 else if (IS_INTEGER(fld_val)) { // interpret as a data pointer
                     void *ptr = cast(void *,
-                        cast(REBUPT, VAL_INT64(fld_val))
+                        cast(intptr_t, VAL_INT64(fld_val))
                     );
 
                     // assuming valid pointer to enough space
@@ -1111,7 +1111,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     uint64_t offset = 0; // offset in data
 
     REBINT raw_size = -1;
-    REBUPT raw_addr = 0;
+    uintptr_t raw_addr = 0;
 
     DECLARE_LOCAL (specified);
 
@@ -1232,7 +1232,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
             if (FLD_IS_ARRAY(field)) {
                 if (IS_INTEGER(init)) { // interpreted as a C pointer
-                    void *ptr = cast(void *, cast(REBUPT, VAL_INT64(init)));
+                    void *ptr = cast(void*, cast(intptr_t, VAL_INT64(init)));
 
                     // assume valid pointer to enough space
                     memcpy(

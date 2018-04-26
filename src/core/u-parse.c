@@ -1327,7 +1327,7 @@ REBNATIVE(subparse)
   #endif
 
   #if defined(DEBUG_COUNT_TICKS)
-    REBUPT tick = TG_Tick; // helpful to cache for visibility also
+    REBTCK tick = TG_Tick; // helpful to cache for visibility also
   #endif
 
     DECLARE_LOCAL (save);

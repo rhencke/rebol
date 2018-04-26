@@ -216,7 +216,7 @@ void Expand_Data_Stack_May_Fail(REBCNT amount)
 //
 // Pops computed values from the stack to make a new ARRAY.
 //
-REBARR *Pop_Stack_Values_Core(REBDSP dsp_start, REBUPT flags)
+REBARR *Pop_Stack_Values_Core(REBDSP dsp_start, REBFLGS flags)
 {
     REBARR *array = Copy_Values_Len_Shallow_Core(
         DS_AT(dsp_start + 1), // start somewhere in the stack, end at DS_TOP

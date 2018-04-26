@@ -200,9 +200,9 @@ REBNATIVE(make_routine_raw)
         abi = FFI_DEFAULT_ABI;
 
     // Cannot cast directly to a function pointer from a 64-bit value
-    // on 32-bit systems; first cast to (U)nsigned int that holds (P)oin(T)er
+    // on 32-bit systems.
     //
-    CFUNC *cfunc = cast(CFUNC*, cast(REBUPT, VAL_INT64(ARG(pointer))));
+    CFUNC *cfunc = cast(CFUNC*, cast(uintptr_t, VAL_INT64(ARG(pointer))));
     if (cfunc == NULL)
         fail ("FFI: NULL pointer not allowed for raw MAKE-ROUTINE");
 
@@ -314,7 +314,7 @@ REBNATIVE(addr_of) {
         // just the wrapped DLL function if it's an ordinary routine
         //
         Init_Integer(
-            D_OUT, cast(REBUPT, RIN_CFUNC(VAL_FUNC_ROUTINE(v)))
+            D_OUT, cast(intptr_t, RIN_CFUNC(VAL_FUNC_ROUTINE(v)))
         );
         return R_OUT;
     }
@@ -331,7 +331,7 @@ REBNATIVE(addr_of) {
     // "do not move in memory" bit would be needed for the BINARY! or a
     // HANDLE! to a non-moving malloc would need to be used instead.
     //
-    Init_Integer(D_OUT, cast(REBUPT, VAL_STRUCT_DATA_AT(v)));
+    Init_Integer(D_OUT, cast(intptr_t, VAL_STRUCT_DATA_AT(v)));
     return R_OUT;
 }
 
@@ -393,7 +393,7 @@ REBNATIVE(destroy_struct_storage)
     RELVAL *handle = ARR_HEAD(ARR(data));
 
     DECLARE_LOCAL (pointer);
-    Init_Integer(pointer, cast(REBUPT, VAL_HANDLE_POINTER(void, handle)));
+    Init_Integer(pointer, cast(intptr_t, VAL_HANDLE_POINTER(void, handle)));
 
     if (VAL_HANDLE_LEN(handle) == 0)
         fail (Error_Already_Destroyed_Raw(pointer));
@@ -446,7 +446,7 @@ REBNATIVE(alloc_value_pointer)
     Init_Blank(key);
     SET_VAL_FLAG(key, NODE_FLAG_ROOT);
 
-    Init_Integer(D_OUT, cast(REBUPT, paired));
+    Init_Integer(D_OUT, cast(intptr_t, paired));
     return R_OUT;
 }
 
@@ -464,7 +464,7 @@ REBNATIVE(free_value_pointer)
 {
     FFI_INCLUDE_PARAMS_OF_FREE_VALUE_POINTER;
 
-    REBVAL *paired = cast(REBVAL*, cast(REBUPT, VAL_INT64(ARG(pointer))));
+    REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(pointer))));
 
     // Check some invariants that should be true if this is the kind of
     // value pointer that can be freed.
@@ -518,7 +518,7 @@ REBNATIVE(get_at_pointer)
 {
     FFI_INCLUDE_PARAMS_OF_GET_AT_POINTER;
 
-    REBVAL *paired = cast(REBVAL*, cast(REBUPT, VAL_INT64(ARG(source))));
+    REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(source))));
     if (IS_VOID(paired) && NOT(REF(only)))
         Init_Blank(D_OUT);
     else
@@ -553,7 +553,7 @@ REBNATIVE(set_at_pointer)
     if (IS_VOID(ARG(value)) && NOT(REF(only)))
         fail (Error_No_Value(ARG(value)));
 
-    REBVAL *paired = cast(REBVAL*, cast(REBUPT, VAL_INT64(ARG(target))));
+    REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(target))));
     Move_Value(paired, ARG(value));
 
     Move_Value(D_OUT, ARG(value));

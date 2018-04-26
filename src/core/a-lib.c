@@ -552,7 +552,7 @@ static REBARR* Array_From_Vaptr_Maybe_Null(
         switch (detect) {
         case DETECTED_AS_UTF8: {
             const REBYTE *utf8 = cast(const REBYTE*, p);
-            const REBUPT start_line = 1;
+            const REBLIN start_line = 1;
             REBCNT size = LEN_BYTES(utf8);
 
             SCAN_STATE ss;

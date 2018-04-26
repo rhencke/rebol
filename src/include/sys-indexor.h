@@ -49,7 +49,7 @@
 //
 
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
-    typedef REBUPT REBIXO;
+    typedef uintptr_t REBIXO;
 
     #define END_FLAG 0x80000000  // end of block as index
     #define THROWN_FLAG (END_FLAG - 0x75) // throw as an index
@@ -86,7 +86,7 @@
         // done.  Coercion to a plain integer will not be allowed unless both
         // have been tested for.
         //
-        REBUPT bits;
+        uintptr_t bits;
 
     public:
         // Make sure you can't assign or compare from NOT_FOUND or UNKNOWN
@@ -196,7 +196,7 @@
     // to the C build, so their binary code works together.
     //
     static_assert(
-        sizeof(REBIXO) == sizeof(REBUPT), "REBIXO size must equal REBUPT"
+        sizeof(REBIXO) == sizeof(uintptr_t), "invalid REBIXO size"
     );
 #endif
 

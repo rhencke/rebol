@@ -178,20 +178,17 @@ static void Expand_Word_Table(void)
 //
 //  Intern_UTF8_Managed: C
 //
-// This will "intern" a UTF-8 string, which is to store only one copy of each
-// distinct string value:
+// Makes only one copy of each distinct character string:
 //
 // https://en.wikipedia.org/wiki/String_interning
 //
-// The interning is case-sensitive.  But a relationship is set up between
-// instances that are just differently upper-or-lower-"cased".  This allows
-// those instances to agree on a single "canon" interning that can be used for
-// fast comparison between them.
-//
 // Interned UTF8 strings are stored as series, and are implicitly managed
-// by the GC (because they are shared).  Individual synonyms can be GC'd,
-// including canon forms--in which case the agreed-upon canon for the
-// group will get bumped to one of the other synonyms.
+// by the GC (because they are shared).
+//
+// Interning is case-sensitive, but a "synonym" linkage is established between
+// instances that are just differently upper-or-lower-"cased".  They agree on
+// one "canon" interning to use for fast case-insensitive compares.  If that
+// canon form is GC'd, the agreed upon canon for the group will change.
 //
 REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
 {
@@ -371,11 +368,11 @@ new_interning: ; // semicolon needed for statement
         intern->header.bits |= FLAGUINT16_RIGHT(STR_SYMBOL(canon));
     }
 
-#if !defined(NDEBUG)
-    REBUPT sym_canon = cast(REBUPT, STR_SYMBOL(STR_CANON(intern)));
-    REBUPT sym = cast(REBUPT, STR_SYMBOL(intern));
-    assert(sym == sym_canon);
-#endif
+  #if !defined(NDEBUG)
+    uint16_t sym_canon = cast(uint16_t, STR_SYMBOL(STR_CANON(intern)));
+    uint16_t sym = cast(uint16_t, STR_SYMBOL(intern));
+    assert(sym == sym_canon); // C++ build disallows compare w/o cast
+  #endif
 
     // Created series must be managed, because if they were not there could
     // be no clear contract on the return result--as it wouldn't be possible

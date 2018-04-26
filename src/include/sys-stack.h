@@ -232,12 +232,13 @@ struct Reb_Chunker;
 
 struct Reb_Chunker {
     struct Reb_Chunker *next;
-    // use REBUPT for `size` so 'payload' is 64-bit aligned on 32-bit platforms
-    REBUPT size;
-    REBYTE payload[1];
+    uintptr_t size;
+    REBYTE payload[1]; // ...should be 64-bit aligned on 32-bit platforms
 };
 
-#define BASE_CHUNKER_SIZE (sizeof(struct Reb_Chunker*) + sizeof(REBUPT))
+#define BASE_CHUNKER_SIZE \
+    offsetof(Reb_Chunker, payload)
+
 #define CS_CHUNKER_PAYLOAD (4096 - BASE_CHUNKER_SIZE) // 12 bits for offset
 
 
@@ -245,28 +246,22 @@ struct Reb_Chunk;
 
 struct Reb_Chunk {
     //
-    // We start the chunk with a Reb_Header, which has as its `bits`
-    // field a REBUPT (unsigned integer size of a pointer).  We are relying
-    // on the fact that the high 2 bits of this value is always 0 in order
-    // for it to be an implicit END for the value array of the previous chunk.
+    // Chunk starts with a Reb_Header, whose `bits` field is an unsigned
+    // integer the size of a pointer.  See Init_Endlike_Header() for how this
+    // serves as an implicit END for the value array of the previous chunk.
     //
-    // !!! Previously this was used to store arbitrary numbers that ended
-    // with the low 2 bits 0, e.g. the size.  New endianness-dependent
-    // features restrict this somewhat, so it's really just a free set of
-    // flags and byte-sized quantities...currently not used except in this
-    // termination role.  But available if needed...
+    // !!! Besides those bits, the others are free at this time.
     //
     struct Reb_Header header;
 
-    REBUPT size;
+    uintptr_t size;
 
-    REBUPT offset;
+    uintptr_t offset;
 
-    // Pointer to the previous chunk.  As the second pointer in this chunk,
-    // with the chunk 64-bit aligned to start with, it means the values will
-    // be 64-bit aligned on 32-bit platforms.
-    //
     struct Reb_Chunk *prev;
+
+    // ^-- Note: above fields must produce a 64-bit aligned position here
+    // on 32-bit platforms.
 
     // The `values` is an array whose real size exceeds the struct.  (It is
     // set to a size of one because it cannot be [0] if built with C++.)
@@ -532,16 +527,21 @@ inline static void Drop_Chunk_Of_Values(REBVAL *opt_head)
 
 
 #if defined(OS_STACK_GROWS_UP)
+
     #define C_STACK_OVERFLOWING(address_of_local_var) \
-        (cast(REBUPT, (address_of_local_var)) >= TG_Stack_Limit)
+        (cast(uintptr_t, (address_of_local_var)) >= TG_Stack_Limit)
+
 #elif defined(OS_STACK_GROWS_DOWN)
+
     #define C_STACK_OVERFLOWING(address_of_local_var) \
-        (cast(REBUPT, (address_of_local_var)) <= TG_Stack_Limit)
+        (cast(uintptr_t, (address_of_local_var)) <= TG_Stack_Limit)
+
 #else
+
     #define C_STACK_OVERFLOWING(address_of_local_var) \
         (TG_Stack_Grows_Up \
-            ? cast(REBUPT, (address_of_local_var)) >= TG_Stack_Limit \
-            : cast(REBUPT, (address_of_local_var)) <= TG_Stack_Limit)
+            ? cast(uintptr_t, (address_of_local_var)) >= TG_Stack_Limit \
+            : cast(uintptr_t, (address_of_local_var)) <= TG_Stack_Limit)
 #endif
 
 #define STACK_BOUNDS (2*1024*1024) // note: need a better way to set it !!
