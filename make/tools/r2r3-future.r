@@ -110,6 +110,11 @@ if true = attempt [void? :some-undefined-thing] [
         fail "Do not use THEN in scripts which want compatibility w/R3-Alpha"
     ]
 
+    ; UNTIL was deprecated under its old meaning, but ultimately reverted
+    ; so put it back...
+    ;
+    until: :loop-until
+
     ; WHILE-NOT can't be written correctly in usermode R3-Alpha (RETURN won't
     ; work definitionally)
     ;
@@ -120,18 +125,25 @@ if true = attempt [void? :some-undefined-thing] [
         fail "Don't use UNTIL-NOT when you want R3-Alpha compatibility"
     ]
 
-    ; The once-arity-2 primitive known as ENSURE was renamed to REALLY, to
-    ; better parallel MAYBE and free up ENSURE to simply mean "make sure it's
-    ; a value".  Then it was changed back, when MAYBE and REALLY were moved
-    ; to be single arity and MATCH was introduced.  Try and smooth that over.
-    ;
-    either all [
-        () <> :really
-        find words-of :really 'test
-    ][
-        ensure: :really ;-- Ren-Cs up to around Jan 27, 2018
-    ][
-        assert [find words-of :ensure 'test]
+    case [
+        () = :really [
+            ;-- Ren-Cs up to around Jan 27, 2018
+
+            assert [find words-of :ensure 'test]
+            really: func [cell [<opt> any-value!]] [
+                if any [void? :cell blank? :cell] [
+                    fail/where [
+                        "REALLY expects argument to be SOMETHING?"
+                    ] 'cell
+                ]
+                :cell
+            ]
+        ]
+
+        true [
+            assert [find words-of :ensure 'test]
+            assert [1 = length-of words-of :really]
+        ]
     ]
 
     did: func [cell [<opt> any-value!]] [

@@ -136,21 +136,14 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 
 #ifdef DEBUG_COUNT_TICKS
     //
-    // Macro is used to mutate local `tick` variable in Do_Core (for easier
-    // browsing in the watchlist) as well as to not be in a deeper stack level
-    // than Do_Core when a TICK_BREAKPOINT is hit.
-    //
-    // We bound the count at the max unsigned 32-bit, since otherwise it would
-    // roll over to zero and print a message that wasn't asked for, which
-    // is annoying even in a debug build.  (It's actually a REBUPT, so this
-    // wastes possible bits in the 64-bit build, but there's no MAX_REBUPT.)
+    // Macro for same stack level as Do_Core when debugging at TICK_BREAKPOINT
     //
     #define UPDATE_TICK_DEBUG(cur) \
         do { \
-            if (TG_Tick < UINT32_MAX) \
+            if (TG_Tick < UINTPTR_MAX) /* avoid rollover (may be 32-bit!) */ \
                 tick = f->tick = ++TG_Tick; \
             else \
-                tick = f->tick = UINT32_MAX; \
+                tick = f->tick = UINTPTR_MAX; \
             if ( \
                 (TG_Break_At_Tick != 0 && tick >= TG_Break_At_Tick) \
                 || tick == TICK_BREAKPOINT \
@@ -179,12 +172,7 @@ static inline void Abort_Function(REBFRM *f) {
 
     const REBOOL drop_chunks = TRUE;
     Drop_Function_Core(f, drop_chunks);
-
-    // If a function call is aborted, there may be pending refinements (if
-    // in the gathering phase) or functions (if running a chainer) on the
-    // data stack.  They must be dropped to balance.
-    //
-    DS_DROP_TO(f->dsp_orig);
+    DS_DROP_TO(f->dsp_orig); // any unprocessed refinements or chains on stack
 }
 
 static inline void Link_Vararg_Param_To_Frame(REBFRM *f, REBOOL make) {
@@ -261,12 +249,18 @@ inline static REBOOL In_Unspecialized_Mode(REBFRM *f) {
 // These fields are required upon initialization:
 //
 //     f->out
-//     REBVAL pointer to which the evaluation's result should be written,
-//     should be to writable memory in a cell that lives above this call to
-//     Do_Core on the stack (e.g. not in an array).
+//     REBVAL pointer to which the evaluation's result should be written.
+//     Should be to writable memory in a cell that lives above this call to
+//     Do_Core in stable memory that is not user-visible (e.g. DECLARE_LOCAL
+//     or the frame's f->cell).  This can't point into an array whose memory
+//     may move during arbitrary evaluation, and that includes cells on the
+//     expandable data stack.  It also usually can't write a function argument
+//     cell, because that could expose an unfinished calculation during this
+//     Do_Core() through its FRAME!...though a Do_Core(f) must write f's *own*
+//     arg slots to fulfill them.
 //
 //     f->value
-//     Fetched first value to execute (cannot be an END marker)
+//     Pre-fetched first value to execute (cannot be an END marker)
 //
 //     f->source
 //     Contains the REBARR* or C va_list of subsequent values to fetch.
@@ -276,6 +270,11 @@ inline static REBOOL In_Unspecialized_Mode(REBFRM *f) {
 //
 //     f->gotten
 //     Must be either be the Get_Var() lookup of f->value, or END
+//
+//     f->dsp_orig
+//     Must be set to the base stack location of the operation (this may be
+//     a deeper stack level than current DSP if this is an apply, and
+//     refinements were preloaded onto the stack)
 //
 // More detailed assertions of the preconditions, postconditions, and state
 // at each evaluation step are contained in %d-eval.c

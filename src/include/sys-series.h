@@ -304,7 +304,11 @@ inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
         // caller passing in the wrong width (freeing sets width to 0).  But
         // give some debug tracking either way.
         //
-        printf("SER_AT_RAW asked %d on width=%d\n", w, SER_WIDE(s));
+        REBYTE wide = SER_WIDE(s);
+        if (wide == 0)
+            printf("SER_AT_RAW asked on freed series\n");
+        else
+            printf("SER_AT_RAW asked %d on width=%d\n", w, SER_WIDE(s));
         panic (s);
     }
 #endif

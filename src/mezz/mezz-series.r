@@ -234,10 +234,10 @@ reword: function [
         ]
 
         block? delimiters [
-            unless parse delimiters [
+            parse delimiters [
                 set prefix delimiter-types
                 set suffix opt delimiter-types
-            ][
+            ] or [
                 fail ["Invalid /ESCAPE delimiter block" delimiters]
             ]
         ]
@@ -246,9 +246,10 @@ reword: function [
     ]
 
     ; MAKE MAP! will create a map with no duplicates from the input if it
-    ; is a BLOCK!.  This might be better with stricter checking, in case
-    ; later keys overwrite earlier ones and obscure the invalidity of the
-    ; earlier keys (or perhaps MAKE MAP! itself should disallow duplicates)
+    ; is a BLOCK! (though differing cases of the same key will be preserved).
+    ; This might be better with stricter checking, in case later keys
+    ; overwrite earlier ones and obscure the invalidity of the earlier keys
+    ; (or perhaps MAKE MAP! itself should disallow duplicates)
     ;
     if block? values [
         values: make map! values
@@ -349,7 +350,7 @@ reword: function [
                         ;
                         output: insert/part output a b
 
-                        v: select values keyword-match
+                        v: select/(all [case_REWORD 'case]) values keyword-match
                         output: insert output case [
                             function? :v [v :keyword-match]
                             block? :v [do :v]
