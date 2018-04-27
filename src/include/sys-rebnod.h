@@ -311,7 +311,7 @@ struct Reb_Node {
 
 #ifdef NDEBUG
     #define IS_FREE_NODE(p) \
-        DID(cast(struct Reb_Node*, (p))->header.bits & NODE_FLAG_FREE)
+        (did (cast(struct Reb_Node*, (p))->header.bits & NODE_FLAG_FREE))
 #else
     // In the debug build, add in an extra check that the left 8 bits of any
     // freed nodes match FREED_SERIES_BYTE or TRASH_CELL_BYTE.  This is
@@ -321,11 +321,11 @@ struct Reb_Node {
     inline static REBOOL IS_FREE_NODE(void *p) {
         struct Reb_Node *n = cast(struct Reb_Node*, p);
 
-        if (NOT(n->header.bits & NODE_FLAG_FREE))
+        if (not (n->header.bits & NODE_FLAG_FREE))
             return FALSE;
 
         REBYTE left_8 = LEFT_8_BITS(n->header.bits);
-        assert(left_8 == FREED_SERIES_BYTE || left_8 == TRASH_CELL_BYTE);
+        assert(left_8 == FREED_SERIES_BYTE or left_8 == TRASH_CELL_BYTE);
         return TRUE;
     }
 #endif
@@ -375,7 +375,7 @@ inline static void Init_Endlike_Header(
     // set, however, which prevents value writes to them.
     //
     assert(
-        NOT(bits & (
+        0 == (bits & (
             NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_END | NODE_FLAG_CELL
         ))
     );

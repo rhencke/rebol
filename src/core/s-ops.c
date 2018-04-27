@@ -79,7 +79,7 @@ REBYTE *Analyze_String_For_Scan(
     //
     for (; index < len; ++index, --len) {
         up = NEXT_CHR(&c, up);
-        if (NOT(IS_SPACE(c)))
+        if (not IS_SPACE(c))
             break;
     }
 
@@ -156,7 +156,7 @@ REBSER *Temp_UTF8_At_Managed(
     REBCNT length_limit
 ){
 #if !defined(NDEBUG)
-    if (NOT(ANY_STRING(str))) {
+    if (not ANY_STRING(str)) {
         printf("Temp_UTF8_At_Managed() called on non-ANY-STRING!");
         panic (str);
     }

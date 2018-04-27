@@ -257,7 +257,7 @@ void Dump_Stack(REBFRM *f, REBCNT level)
         f->eval_type // note: this is now an ordinary Reb_Kind, stringify it
     );
 
-    if (NOT(Is_Function_Frame(f))) {
+    if (not Is_Function_Frame(f)) {
         printf("(no function call pending or in progress)\n");
         fflush(stdout);
         return;

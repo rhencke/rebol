@@ -47,8 +47,8 @@ REBOOL Reduce_Any_Array_Throws(
     REBFLGS flags
 ){
     assert(
-        NOT(flags & REDUCE_FLAG_KEEP_BARS)
-        == DID(flags & REDUCE_FLAG_DROP_BARS)
+        did (flags & REDUCE_FLAG_KEEP_BARS)
+        != did (flags & REDUCE_FLAG_DROP_BARS)
     ); // only one should be true, but caller should be explicit of which
 
     REBDSP dsp_orig = DSP;
@@ -157,7 +157,7 @@ REBNATIVE(reduce)
     if (Eval_Value_Throws(D_OUT, value))
         return R_OUT_IS_THROWN;
 
-    if (NOT(REF(into)))
+    if (not REF(into))
         return R_OUT; // just return the evaluated item if no /INTO target
 
     REBVAL *into = ARG(target);
@@ -203,7 +203,7 @@ static inline const RELVAL *Match_For_Compose(
     if (IS_END(v))
         return NULL; // e.g. (()) can't match ()
 
-    if (NOT(ANY_ARRAY(p)) || NOT_END(p + 1)) {
+    if (not ANY_ARRAY(p) or NOT_END(p + 1)) {
         //
         // !!! Today's patterns are a bit limited, since there is no DO/PART
         // the situation is: `[** you can't stop at a terminal sigil -> **]`
@@ -211,7 +211,7 @@ static inline const RELVAL *Match_For_Compose(
         fail ("Bad CONCOCT Pattern, currently must be like (([()]))");
     }
 
-    if (NOT(ANY_ARRAY(v)) || NOT_END(v + 1))
+    if (not ANY_ARRAY(v) or NOT_END(v + 1))
         return NULL; // e.g. (()) can't match (() a b c)
 
     // Due to the nature of the matching, cycles in this recursion *shouldn't*
@@ -284,7 +284,7 @@ REBOOL Compose_Any_Array_Throws(
 
             Fetch_Next_In_Frame(f);
 
-            if (IS_BLOCK(composed) && !only) {
+            if (IS_BLOCK(composed) and not only) {
                 //
                 // compose [blocks ([a b c]) merge] => [blocks a b c merge]
                 //
@@ -302,7 +302,7 @@ REBOOL Compose_Any_Array_Throws(
                     push++;
                 }
             }
-            else if (!IS_VOID(composed)) {
+            else if (not IS_VOID(composed)) {
                 //
                 // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
                 // compose/only [([a b c]) unmerged] => [[a b c] unmerged]
@@ -461,7 +461,7 @@ static void Flatten_Core(
 ) {
     RELVAL *item = head;
     for (; NOT_END(item); ++item) {
-        if (IS_BLOCK(item) && level != FLATTEN_NOT) {
+        if (IS_BLOCK(item) and level != FLATTEN_NOT) {
             REBSPC *derived = Derive_Specifier(specifier, item);
             Flatten_Core(
                 VAL_ARRAY_AT(item),

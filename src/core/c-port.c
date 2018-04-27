@@ -49,7 +49,7 @@ REBOOL Is_Port_Open(REBCTX *port)
         return FALSE;
 
     REBREQ *req = cast(REBREQ*, VAL_BIN_AT(state));
-    return DID(req->flags & RRF_OPEN);
+    return did (req->flags & RRF_OPEN);
 }
 
 
@@ -125,7 +125,7 @@ REBOOL Pending_Port(REBVAL *port)
         state = CTX_VAR(VAL_CONTEXT(port), STD_PORT_STATE);
         if (IS_BINARY(state)) {
             req = cast(REBREQ*, VAL_BIN_HEAD(state));
-            if (NOT(req->flags & RRF_PENDING))
+            if (not (req->flags & RRF_PENDING))
                 return FALSE;
         }
     }
@@ -159,7 +159,7 @@ REBINT Awake_System(REBARR *ports, REBOOL only)
         return -10;
 
     // If there is nothing new to do, return now:
-    if (VAL_LEN_HEAD(state) == 0 && VAL_LEN_HEAD(waked) == 0)
+    if (VAL_LEN_HEAD(state) == 0 and VAL_LEN_HEAD(waked) == 0)
         return -1;
 
     // Get the system port AWAKE function:
@@ -202,7 +202,7 @@ REBINT Awake_System(REBARR *ports, REBOOL only)
 
     // Awake function returns 1 for end of WAIT:
     //
-    return (IS_LOGIC(result) && VAL_LOGIC(result)) ? 1 : 0;
+    return (IS_LOGIC(result) and VAL_LOGIC(result)) ? 1 : 0;
 }
 
 
@@ -342,7 +342,7 @@ void Sieve_Ports(REBARR *ports)
     waked = VAL_CONTEXT_VAR(port, STD_PORT_DATA);
     if (!IS_BLOCK(waked)) return;
 
-    for (n = 0; ports && n < ARR_LEN(ports);) {
+    for (n = 0; ports and n < ARR_LEN(ports);) {
         RELVAL *val = ARR_AT(ports, n);
         if (IS_PORT(val)) {
             assert(VAL_LEN_HEAD(waked) != 0);
@@ -500,7 +500,7 @@ REBOOL Redo_Func_Throws(REBFRM *f, REBFUN *func_new)
         DO_FLAG_EXPLICIT_EVALUATE
     );
 
-    if (indexor != THROWN_FLAG && indexor != END_FLAG) {
+    if (indexor != THROWN_FLAG and indexor != END_FLAG) {
         //
         // We may not have stopped the invocation by virtue of the args
         // all not getting consumed, but we can raise an error now that it
@@ -509,7 +509,7 @@ REBOOL Redo_Func_Throws(REBFRM *f, REBFUN *func_new)
         fail ("Function frame proxying did not consume all arguments");
     }
 
-    return DID(indexor == THROWN_FLAG);
+    return indexor == THROWN_FLAG;
 }
 
 
@@ -582,8 +582,8 @@ post_process_output:
 
         assert(r == R_OUT);
 
-        if ((REF(string) || REF(lines)) && !IS_STRING(D_OUT)) {
-            if (NOT(IS_BINARY(D_OUT)))
+        if ((REF(string) or REF(lines)) and not IS_STRING(D_OUT)) {
+            if (not IS_BINARY(D_OUT))
                 fail ("/STRING or /LINES used on a non-BINARY!/STRING! read");
 
             REBSER *decoded = Make_Sized_String_UTF8(

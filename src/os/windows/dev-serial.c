@@ -114,7 +114,7 @@ DEVICE_CMD Open_Serial(REBREQ *req)
     memset(&dcbSerialParams, '\0', sizeof(dcbSerialParams));
     dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
 
-    if (NOT(GetCommState(h, &dcbSerialParams))) {
+    if (not GetCommState(h, &dcbSerialParams)) {
         CloseHandle(h);
         rebFail_OS (GetLastError());
     }
@@ -153,14 +153,14 @@ DEVICE_CMD Open_Serial(REBREQ *req)
         break;
     }
 
-    if (NOT(SetCommState(h, &dcbSerialParams))) {
+    if (not SetCommState(h, &dcbSerialParams)) {
         CloseHandle(h);
         rebFail_OS (GetLastError());
     }
 
     // Make sure buffers are clean
 
-    if (NOT(PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR))) {
+    if (not PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR)) {
         CloseHandle(h);
         rebFail_OS (GetLastError());
     }
@@ -180,7 +180,7 @@ DEVICE_CMD Open_Serial(REBREQ *req)
     timeouts.WriteTotalTimeoutMultiplier = 1; // !!! should this be 0?
     timeouts.WriteTotalTimeoutConstant = 1; // !!! should this be 0?
 
-    if (NOT(SetCommTimeouts(h, &timeouts))) {
+    if (not SetCommTimeouts(h, &timeouts)) {
         CloseHandle(h);
         rebFail_OS (GetLastError());
     }
@@ -216,9 +216,9 @@ DEVICE_CMD Read_Serial(REBREQ *req)
     //printf("reading %d bytes\n", req->length);
 
     DWORD result;
-    if (NOT(ReadFile(
+    if (not ReadFile(
         req->requestee.handle, req->common.data, req->length, &result, 0
-    ))){
+    )){
         rebFail_OS (GetLastError());
     }
 
@@ -249,9 +249,9 @@ DEVICE_CMD Write_Serial(REBREQ *req)
         return DR_DONE;
 
     DWORD result;
-    if (NOT(WriteFile(
+    if (not WriteFile(
         req->requestee.handle, req->common.data, len, &result, NULL
-    ))){
+    )){
         rebFail_OS (GetLastError());
     }
 

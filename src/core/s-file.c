@@ -80,7 +80,7 @@ restart:;
             if (saw_colon || saw_slash)
                 fail ("no prior : or / allowed for vol:dir/file format");
 
-            if (NOT(lead_slash)) {
+            if (not lead_slash) {
                 //
                 // Change C:/ to /C/ (and C:X to /C/X)
                 //
@@ -126,7 +126,7 @@ restart:;
     // If this is supposed to be a directory and the last character is not a
     // slash, make it one (this is Rebol's rule for FILE!s that are dirs)
     //
-    if ((flags & PATH_OPT_SRC_IS_DIR) && c != '/') // watch for %/c/ case
+    if ((flags & PATH_OPT_SRC_IS_DIR) and c != '/') // watch for %/c/ case
         Append_Utf8_Codepoint(mo->series, '/');
 
     return Pop_Molded_String(mo);
@@ -256,7 +256,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
 
                         while (
                             n > mo->start
-                            && *BIN_AT(mo->series, n) != OS_DIR_SEP
+                            and *BIN_AT(mo->series, n) != OS_DIR_SEP
                         ){
                             --n;
                         }
@@ -292,7 +292,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
             REBCNT n = SER_LEN(mo->series);
             if (
                 n > mo->start
-                && *BIN_AT(mo->series, n - 1) == OS_DIR_SEP
+                and *BIN_AT(mo->series, n - 1) == OS_DIR_SEP
             ){
                 // Collapse multiple sequential slashes into just one, by
                 // skipping to the next character without adding to mold.
@@ -328,7 +328,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
     //
     if (flags & REB_FILETOLOCAL_NO_TAIL_SLASH) {
         REBCNT n = SER_LEN(mo->series);
-        if (n > mo->start && *BIN_AT(mo->series, n - 1) == OS_DIR_SEP)
+        if (n > mo->start and *BIN_AT(mo->series, n - 1) == OS_DIR_SEP)
             TERM_SEQUENCE_LEN(mo->series, n - 1);
     }
 

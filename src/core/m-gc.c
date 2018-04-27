@@ -125,7 +125,7 @@ static void Mark_Devices_Deep(void);
 static inline void Mark_Rebser_Only(REBSER *s)
 {
   #if !defined(NDEBUG)
-    if (NOT(IS_SERIES_MANAGED(s))) {
+    if (not IS_SERIES_MANAGED(s)) {
         printf("Link to non-MANAGED item reached by GC\n");
         panic (s);
     }
@@ -135,12 +135,12 @@ static inline void Mark_Rebser_Only(REBSER *s)
 }
 
 static inline REBOOL Is_Rebser_Marked_Or_Pending(REBSER *rebser) {
-    return DID(rebser->header.bits & NODE_FLAG_MARKED);
+    return did (rebser->header.bits & NODE_FLAG_MARKED);
 }
 
 static inline REBOOL Is_Rebser_Marked(REBSER *rebser) {
     // ASSERT_NO_GC_MARKS_PENDING(); // overkill check, but must be true
-    return DID(rebser->header.bits & NODE_FLAG_MARKED);
+    return did (rebser->header.bits & NODE_FLAG_MARKED);
 }
 
 static inline void Unmark_Rebser(REBSER *rebser) {
@@ -175,7 +175,7 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
     if (NOT_SER_FLAG(a, SERIES_FLAG_ARRAY))
         panic (a);
 
-    if (!IS_ARRAY_MANAGED(a))
+    if (not IS_ARRAY_MANAGED(a))
         panic (a);
 #endif
 
@@ -332,13 +332,13 @@ inline static void Queue_Mark_Singular_Array(REBARR *a) {
 //
 static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
 {
-    assert(NOT(in_mark));
+    assert(not in_mark);
 
     // If this happens, it means somehow Recycle() got called between
     // when an `if (Do_XXX_Throws())` branch was taken and when the throw
     // should have been caught up the stack (before any more calls made).
     //
-    assert(NOT(v->header.bits & VALUE_FLAG_THROWN));
+    assert(not (v->header.bits & VALUE_FLAG_THROWN));
 
   #if defined(DEBUG_UNREADABLE_BLANKS)
     if (IS_UNREADABLE_DEBUG(v))
@@ -419,9 +419,9 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         //
         assert(
             NOT_SER_INFO(spelling, STRING_INFO_CANON)
-            || (
+            or (
                 MISC(spelling).bind_index.high == 0
-                && MISC(spelling).bind_index.low == 0
+                and MISC(spelling).bind_index.low == 0
             )
         );
 
@@ -755,7 +755,7 @@ static void Propagate_All_GC_Marks(void)
         // and that it hasn't been freed.
         //
         assert(GET_SER_FLAG(a, SERIES_FLAG_ARRAY));
-        assert(!IS_FREE_NODE(SER(a)));
+        assert(not IS_FREE_NODE(SER(a)));
     #endif
 
         RELVAL *v = ARR_HEAD(a);
@@ -789,7 +789,7 @@ static void Propagate_All_GC_Marks(void)
             // Currently only FRAME! uses binding
             //
             assert(ANY_CONTEXT(v));
-            assert(v->extra.binding == UNBOUND || VAL_TYPE(v) == REB_FRAME);
+            assert(v->extra.binding == UNBOUND or VAL_TYPE(v) == REB_FRAME);
 
             // These queueings cannot be done in Queue_Mark_Context_Deep
             // because of the potential for overflowing the C stack with calls
@@ -870,12 +870,13 @@ static void Propagate_All_GC_Marks(void)
             // uses void values to denote that the variable is not set.  Also
             // reified C va_lists as Do_Core() sources can have them.
             //
-            if (NOT(IS_BLANK_RAW(v)) && IS_VOID(v)) {
-                if(
-                    !GET_SER_FLAG(a, ARRAY_FLAG_VARLIST)
-                    && !GET_SER_FLAG(a, ARRAY_FLAG_VOIDS_LEGAL)
-                )
-                    panic(a);
+            if (
+                not IS_BLANK_RAW(v)
+                and IS_VOID(v)
+                and not GET_SER_FLAG(a, ARRAY_FLAG_VARLIST)
+                and not GET_SER_FLAG(a, ARRAY_FLAG_VOIDS_LEGAL)
+            ){
+                panic(a);
             }
         #endif
         }
@@ -947,16 +948,16 @@ static void Mark_Root_Series(void)
             //
             if (IS_FREE_NODE(s))
                 continue;
-            if (NOT(s->header.bits & NODE_FLAG_ROOT))
+            if (not (s->header.bits & NODE_FLAG_ROOT))
                 continue;
 
-            assert(NOT(s->info.bits & SERIES_INFO_HAS_DYNAMIC));
+            assert(not (s->info.bits & SERIES_INFO_HAS_DYNAMIC));
 
             // API nodes are referenced from C code, they should never wind
             // up referenced from values.  Marking another root should not
             // be able to mark these handles.
             //
-            assert(NOT(s->header.bits & NODE_FLAG_MARKED));
+            assert(not (s->header.bits & NODE_FLAG_MARKED));
 
             if (GET_SER_FLAG(s, NODE_FLAG_MANAGED)) {
                 if (GET_SER_INFO(LINK(s).owner, SERIES_INFO_INACCESSIBLE)) {
@@ -993,9 +994,9 @@ static void Mark_Root_Series(void)
             RELVAL *v = ARR_SINGLE(ARR(s));
             if (NOT_END(v)) {
               #ifdef DEBUG_UNREADABLE_BLANKS
-                if (NOT(IS_UNREADABLE_DEBUG(v)))
+                if (not IS_UNREADABLE_DEBUG(v))
               #endif
-                    if (NOT(IS_VOID(v)))
+                    if (not IS_VOID(v))
                         Queue_Mark_Value_Deep(v);
             }
 
@@ -1088,7 +1089,7 @@ static void Mark_Guarded_Nodes(void)
     for (; n > 0; --n, ++np) {
         REBNOD *node = *np;
         if (IS_CELL(node)) { // a value cell
-            if (NOT(node->header.bits & NODE_FLAG_END))
+            if (not (node->header.bits & NODE_FLAG_END))
                 Queue_Mark_Opt_Value_Deep(cast(REBVAL*, node));
         }
         else { // a series
@@ -1157,7 +1158,7 @@ static void Mark_Frame_Stack_Deep(void)
         if (NOT_CELL(f->specifier)) {
             assert(
                 f->specifier == SPECIFIED
-                || (f->specifier->header.bits & ARRAY_FLAG_VARLIST)
+                or (f->specifier->header.bits & ARRAY_FLAG_VARLIST)
             );
             Queue_Mark_Array_Subclass_Deep(ARR(f->specifier));
         }
@@ -1175,7 +1176,7 @@ static void Mark_Frame_Stack_Deep(void)
                 Queue_Mark_Opt_Value_Deep(&f->cell);
         }
 
-        if (NOT(Is_Function_Frame(f))) {
+        if (not Is_Function_Frame(f)) {
             //
             // Consider something like `eval copy quote (recycle)`, because
             // while evaluating the group it has no anchor anywhere in the
@@ -1197,16 +1198,16 @@ static void Mark_Frame_Stack_Deep(void)
 
             if (
                 f->refine != NULL
-                && NOT_END(f->refine)
-                && Is_Value_Managed(f->refine)
+                and NOT_END(f->refine)
+                and Is_Value_Managed(f->refine)
             ){
                 Queue_Mark_Opt_Value_Deep(f->refine);
             }
 
             if (
                 f->special != NULL
-                && NOT_END(f->special)
-                && Is_Value_Managed(f->special)
+                and NOT_END(f->special)
+                and Is_Value_Managed(f->special)
             ){
                 Queue_Mark_Opt_Value_Deep(f->special);
             }
@@ -1217,7 +1218,7 @@ static void Mark_Frame_Stack_Deep(void)
         // during argument fulfillment).  But if it is managed, then it needs
         // to be handed to normal GC.
         //
-        if (f->varlist != NULL && IS_ARRAY_MANAGED(f->varlist))
+        if (f->varlist != NULL and IS_ARRAY_MANAGED(f->varlist))
             Queue_Mark_Context_Deep(CTX(f->varlist));
 
         // (Although the above will mark the varlist, it may not mark the
@@ -1263,7 +1264,7 @@ static void Mark_Frame_Stack_Deep(void)
                 // (Unless the args are living in a varlist, in which case
                 // protecting them here is a duplicate anyway)
                 //
-                if (NOT(f->doing_pickups))
+                if (not f->doing_pickups)
                     break;
 
                 // But since we *are* doing pickups, we must have initialized
@@ -1306,9 +1307,9 @@ static REBCNT Sweep_Series(void)
     //
     static_assert_c(
         NODE_FLAG_MARKED == FLAGIT_LEFT(3) // 0x1 after right shift
-        && (NODE_FLAG_MANAGED == FLAGIT_LEFT(2)) // 0x2 after right shift
-        && (NODE_FLAG_FREE == FLAGIT_LEFT(1)) // 0x4 after right shift
-        && (NODE_FLAG_NODE == FLAGIT_LEFT(0)) // 0x8 after right shift
+        and (NODE_FLAG_MANAGED == FLAGIT_LEFT(2)) // 0x2 after right shift
+        and (NODE_FLAG_FREE == FLAGIT_LEFT(1)) // 0x4 after right shift
+        and (NODE_FLAG_NODE == FLAGIT_LEFT(0)) // 0x8 after right shift
     );
 
     REBSEG *seg;
@@ -1361,7 +1362,7 @@ static REBCNT Sweep_Series(void)
                 // is at position 8 from left and not an earlier bit.
                 //
                 if (s->header.bits & NODE_FLAG_CELL) {
-                    assert(NOT(s->header.bits & NODE_FLAG_ROOT));
+                    assert(not (s->header.bits & NODE_FLAG_ROOT));
                     Free_Node(SER_POOL, s); // Free_Pairing is for manuals
                 }
                 else
@@ -1479,7 +1480,7 @@ REBCNT Recycle_Core(REBOOL shutdown, REBSER *sweeplist)
     // If disabled by RECYCLE/OFF, exit now but set the pending flag.  (If
     // shutdown, ignore so recycling runs and can be checked for balance.)
     //
-    if (!shutdown && GC_Disabled) {
+    if (not shutdown and GC_Disabled) {
         SET_SIGNAL(SIG_RECYCLE);
         return 0;
     }
@@ -1648,8 +1649,8 @@ void Guard_Node_Core(const REBNOD *node)
         const REBVAL* value = cast(const REBVAL*, node);
         assert(
             IS_END(value)
-            || IS_BLANK_RAW(value)
-            || VAL_TYPE(value) <= REB_MAX_VOID
+            or IS_BLANK_RAW(value)
+            or VAL_TYPE(value) <= REB_MAX_VOID
         );
 
     #ifdef STRESS_CHECK_GUARD_VALUE_POINTER
@@ -1732,8 +1733,8 @@ REBARR *Snapshot_All_Functions(void)
 //
 void Startup_GC(void)
 {
-    assert(NOT(GC_Disabled));
-    assert(NOT(GC_Recycling));
+    assert(not GC_Disabled);
+    assert(not GC_Recycling);
 
     GC_Ballast = MEM_BALLAST;
 
@@ -1795,9 +1796,9 @@ static void Queue_Mark_Gob_Deep(REBGOB *gob)
     if (GOB_PARENT(gob)) Queue_Mark_Gob_Deep(GOB_PARENT(gob));
 
     if (GOB_CONTENT(gob)) {
-        if (GOB_TYPE(gob) >= GOBT_IMAGE && GOB_TYPE(gob) <= GOBT_STRING)
+        if (GOB_TYPE(gob) >= GOBT_IMAGE and GOB_TYPE(gob) <= GOBT_STRING)
             Mark_Rebser_Only(GOB_CONTENT(gob));
-        else if (GOB_TYPE(gob) >= GOBT_DRAW && GOB_TYPE(gob) <= GOBT_EFFECT)
+        else if (GOB_TYPE(gob) >= GOBT_DRAW and GOB_TYPE(gob) <= GOBT_EFFECT)
             Queue_Mark_Array_Deep(ARR(GOB_CONTENT(gob)));
     }
 
@@ -1880,8 +1881,8 @@ static void Queue_Mark_Event_Deep(const RELVAL *value)
 
     if (
         IS_EVENT_MODEL(value, EVM_PORT)
-        || IS_EVENT_MODEL(value, EVM_OBJECT)
-    ) {
+        or IS_EVENT_MODEL(value, EVM_OBJECT)
+    ){
         Queue_Mark_Context_Deep(CTX(VAL_EVENT_SER(m_cast(RELVAL*, value))));
     }
     else if (IS_EVENT_MODEL(value, EVM_GUI)) {
@@ -1891,7 +1892,7 @@ static void Queue_Mark_Event_Deep(const RELVAL *value)
     // FIXME: This test is not in parallel to others.
     if (
         VAL_EVENT_TYPE(value) == EVT_DROP_FILE
-        && DID(VAL_EVENT_FLAGS(value) & EVF_COPIED)
+        and (VAL_EVENT_FLAGS(value) & EVF_COPIED)
     ){
         assert(FALSE);
         Queue_Mark_Array_Deep(ARR(VAL_EVENT_SER(m_cast(RELVAL*, value))));

@@ -43,7 +43,7 @@ static REBOOL Same_Func(const RELVAL *val, const RELVAL *arg)
         // paramlist, but the binding is different in the REBVAL instances
         // in order to know where to "exit from".
 
-        return DID(VAL_BINDING(val) == VAL_BINDING(arg));
+        return VAL_BINDING(val) == VAL_BINDING(arg);
     }
 
     return FALSE;
@@ -336,7 +336,7 @@ REBTYPE(Function)
         // returns for FILE OF and LINE OF.
         //
         case SYM_FILE: {
-            if (NOT(ANY_SERIES(VAL_FUNC_BODY(value))))
+            if (not ANY_SERIES(VAL_FUNC_BODY(value)))
                 return R_BLANK;
 
             REBSER *s = VAL_SERIES(VAL_FUNC_BODY(value));
@@ -352,7 +352,7 @@ REBTYPE(Function)
             return R_OUT; }
 
         case SYM_LINE: {
-            if (NOT(ANY_SERIES(VAL_FUNC_BODY(value))))
+            if (not ANY_SERIES(VAL_FUNC_BODY(value)))
                 return R_BLANK;
 
             REBSER *s = VAL_SERIES(VAL_FUNC_BODY(value));

@@ -144,7 +144,7 @@ REBNATIVE(spelling_of)
     REBSER *series;
 
     if (ANY_STRING(value)) {
-        assert(!IS_BINARY(value)); // Shouldn't accept binary types...
+        assert(not IS_BINARY(value)); // Shouldn't accept binary types...
 
         // Grab the data out of all string types, which has no delimiters
         // included (they are added in the forming process)
@@ -252,7 +252,7 @@ REBNATIVE(checksum)
 
             REBSER *digest = Make_Series(digests[i].len + 1, sizeof(char));
 
-            if (NOT(REF(key)))
+            if (not REF(key))
                 digests[i].digest(data, len, BIN_HEAD(digest));
             else {
                 REBVAL *key = ARG(key_value);
@@ -702,9 +702,9 @@ REBNATIVE(enhex)
 
             case LEX_CLASS_WORD:
                 if (
-                    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                    c == '?' || c == '!' || c == '&'
-                    || c == '*' || c == '=' || c == '~'
+                    (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z')
+                    or c == '?' or c == '!' or c == '&'
+                    or c == '*' or c == '=' or c == '~'
                 ){
                     goto leave_as_is; // this is all that's leftover
                 }
@@ -815,8 +815,8 @@ REBNATIVE(dehex)
             REBYTE d2 = lex2 & LEX_VALUE;
 
             if (
-                lex1 < LEX_WORD || (d1 == 0 && lex1 < LEX_NUMBER)
-                || lex2 < LEX_WORD || (d2 == 0 && lex2 < LEX_NUMBER)
+                lex1 < LEX_WORD or (d1 == 0 and lex1 < LEX_NUMBER)
+                or lex2 < LEX_WORD or (d2 == 0 and lex2 < LEX_NUMBER)
             ){
                 fail ("Percent must be followed by 2 hex digits, e.g. %XX");
             }
@@ -836,8 +836,8 @@ REBNATIVE(dehex)
         // to end of string or the next input not a %XX pattern), then try
         // to decode what we've got.
         //
-        if (scan_size > 0 && (c != '%' || scan_size == 4)) {
-            assert(i == len ? DID(c == '\0') : TRUE);
+        if (scan_size > 0 and (c != '%' or scan_size == 4)) {
+            assert(i == len ? (c == '\0') : TRUE);
 
         decode_codepoint:
             scan[scan_size] = '\0';
@@ -867,7 +867,7 @@ REBNATIVE(dehex)
             // are coming, this is the last chance to decode those bytes,
             // keep going.
             //
-            if (scan_size != 0 && c != '%')
+            if (scan_size != 0 and c != '%')
                 goto decode_codepoint;
         }
     }
@@ -976,7 +976,7 @@ REBNATIVE(enline)
     for (n = 0; n < len; ++n) {
         REBUNI c;
         cp = NEXT_CHR(&c, cp);
-        if (c == LF && c_prev != CR)
+        if (c == LF and c_prev != CR)
             ++delta;
         c_prev = c;
     }
@@ -1005,7 +1005,7 @@ REBNATIVE(enline)
 
     while (delta > 0) {
         up[tail--] = up[len]; // Copy src to dst.
-        if (up[len] == LF && (len == 0 || up[len - 1] != CR)) {
+        if (up[len] == LF and (len == 0 or up[len - 1] != CR)) {
             up[tail--] = CR;
             --delta;
         }

@@ -216,7 +216,7 @@
             panic_at (v, file, line);
         }
 
-        if (NOT(v->header.bits & NODE_FLAG_CELL)) {
+        if (not (v->header.bits & NODE_FLAG_CELL)) {
             printf("VAL_TYPE() called on non-cell\n");
             panic_at (v, file, line);
         }
@@ -276,7 +276,7 @@
         template <uintptr_t f>
         inline static void SET_VAL_FLAG_cplusplus(RELVAL *v) {
             static_assert(
-                f && (f & (f - 1)) == 0, // only one bit is set
+                f and (f & (f - 1)) == 0, // only one bit is set
                 "use SET_VAL_FLAGS() to set multiple bits"
             );
             v->header.bits |= f;
@@ -287,10 +287,10 @@
         template <uintptr_t f>
         inline static REBOOL GET_VAL_FLAG_cplusplus(const RELVAL *v) {
             static_assert(
-                f && (f & (f - 1)) == 0, // only one bit is set
+                f and (f & (f - 1)) == 0, // only one bit is set
                 "use ANY_VAL_FLAGS() or ALL_VAL_FLAGS() to test multiple bits"
             );
-            return DID(v->header.bits & f);
+            return did (v->header.bits & f);
         }
         #define GET_VAL_FLAG(v,f) \
             GET_VAL_FLAG_cplusplus<f>(v)
@@ -299,14 +299,14 @@
             SET_VAL_FLAGS((v), (f))
 
         #define GET_VAL_FLAG(v, f) \
-            DID((v)->header.bits & (f))
+            (did ((v)->header.bits & (f)))
     #endif
 
     #define ANY_VAL_FLAGS(v,f) \
-        DID(((v)->header.bits & (f)) != 0)
+        (((v)->header.bits & (f)) != 0)
 
     #define ALL_VAL_FLAGS(v,f) \
-        DID(((v)->header.bits & (f)) == (f))
+        (((v)->header.bits & (f)) == (f))
 
     #define CLEAR_VAL_FLAGS(v,f) \
         ((v)->header.bits &= ~(f))
@@ -356,19 +356,19 @@
     inline static REBOOL GET_VAL_FLAG(const RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
-        return DID(v->header.bits & f);
+        return did (v->header.bits & f);
     }
 
     inline static REBOOL ANY_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
-        return DID((v->header.bits & f) != 0);
+        return (v->header.bits & f) != 0;
     }
 
     inline static REBOOL ALL_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
-        return DID((v->header.bits & f) == f);
+        return (v->header.bits & f) == f;
     }
 
     inline static void CLEAR_VAL_FLAGS(RELVAL *v, uintptr_t f) {
@@ -380,13 +380,13 @@
     inline static void CLEAR_VAL_FLAG(RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
-        assert(f && (f & (f - 1)) == 0); // checks that only one bit is set
+        assert(f and (f & (f - 1)) == 0); // checks that only one bit is set
         v->header.bits &= ~f;
     }
 #endif
 
 #define NOT_VAL_FLAG(v,f) \
-    NOT(GET_VAL_FLAG((v), (f)))
+    cast(REBOOL, not GET_VAL_FLAG((v), (f)))
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -428,7 +428,7 @@
         }
       #endif
 
-        if (NOT(v->header.bits & NODE_FLAG_CELL)) {
+        if (not (v->header.bits & NODE_FLAG_CELL)) {
             printf("Non-cell passed to writing routine\n");
             panic_at (v, file, line);
         }
@@ -643,7 +643,7 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 
     inline static REBOOL IS_TRASH_DEBUG(const RELVAL *v) {
         assert(v->header.bits & NODE_FLAG_CELL);
-        if (NOT(v->header.bits & NODE_FLAG_FREE))
+        if (not (v->header.bits & NODE_FLAG_FREE))
             return FALSE;
         assert(LEFT_8_BITS(v->header.bits) == TRASH_CELL_BYTE); // bad UTF-8
         assert(VAL_TYPE_RAW(v) == REB_MAX_PLUS_ONE_TRASH);
@@ -654,7 +654,7 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
         assert(IS_TRASH_DEBUG(v))
 
     #define ASSERT_NOT_TRASH_IF_DEBUG(v) \
-        assert(NOT(IS_TRASH_DEBUG(v)));
+        assert(not IS_TRASH_DEBUG(v));
 #else
     #define TRASH_CELL_IF_DEBUG(v) \
         NOOP
@@ -721,7 +721,7 @@ inline static void SET_END_Core(
 
 #ifdef NDEBUG
     #define IS_END(v) \
-        DID((v)->header.bits & NODE_FLAG_END)
+        (did ((v)->header.bits & NODE_FLAG_END))
 
     // Warning: Only use on valid non-END REBVAL -or- on global END value
     //
@@ -798,7 +798,7 @@ inline static void SET_END_Core(
 #endif
 
 #define NOT_END(v) \
-    NOT(IS_END(v))
+    cast(REBOOL, not IS_END(v))
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -828,7 +828,7 @@ inline static void SET_END_Core(
 inline static REBOOL IS_RELATIVE(const RELVAL *v) {
     if (Not_Bindable(v)) // uses VAL_TYPE_RAW(), don't check unreadable blank
         return FALSE;
-    return DID(v->extra.binding->header.bits & ARRAY_FLAG_PARAMLIST);
+    return did (v->extra.binding->header.bits & ARRAY_FLAG_PARAMLIST);
 }
 
 #if defined(__cplusplus) && __cplusplus >= 201103L
@@ -842,7 +842,7 @@ inline static REBOOL IS_RELATIVE(const RELVAL *v) {
 #endif
 
 #define IS_SPECIFIC(v) \
-    NOT(IS_RELATIVE(v))
+    cast(REBOOL, not IS_RELATIVE(v))
 
 inline static REBFUN *VAL_RELATIVE(const RELVAL *v) {
     assert(IS_RELATIVE(v));
@@ -868,7 +868,7 @@ inline static REBCTX *VAL_SPECIFIC_COMMON(const RELVAL *v) {
 // Use for: "invalid conversion from 'Reb_Value*' to 'Reb_Specific_Value*'"
 
 inline static const REBVAL *const_KNOWN(const RELVAL *value) {
-    assert(IS_END(value) || IS_SPECIFIC(value));
+    assert(IS_END(value) or IS_SPECIFIC(value));
     return cast(const REBVAL*, value); // we asserted it's actually specific
 }
 
@@ -884,8 +884,8 @@ inline static REBVAL *KNOWN(RELVAL *value) {
     //
     assert(
         (value->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE)) != 0
-        || VAL_TYPE_RAW(value) == REB_0
-        || IS_SPECIFIC(value)
+        or VAL_TYPE_RAW(value) == REB_0
+        or IS_SPECIFIC(value)
     );
     return cast(REBVAL*, value); // we asserted it's actually specific
 }
@@ -927,7 +927,7 @@ inline static RELVAL *REL(REBVAL *v) {
     c_cast(const REBVAL*, &PG_Void_Cell[0])
 
 #define IS_VOID(v) \
-    DID(VAL_TYPE(v) == REB_MAX_VOID)
+    (VAL_TYPE(v) == REB_MAX_VOID)
 
 #ifdef NDEBUG
     inline static REBVAL *Init_Void(RELVAL *out) {
@@ -1057,13 +1057,13 @@ inline static RELVAL *REL(REBVAL *v) {
             VALUE_FLAG_FALSEY | BLANK_FLAG_UNREADABLE_DEBUG)
 
     inline static REBOOL IS_BLANK_RAW(const RELVAL *v) {
-        return DID(VAL_TYPE_RAW(v) == REB_BLANK);
+        return VAL_TYPE_RAW(v) == REB_BLANK;
     }
 
     inline static REBOOL IS_UNREADABLE_DEBUG(const RELVAL *v) {
-        if (NOT(VAL_TYPE_RAW(v) == REB_BLANK))
+        if (VAL_TYPE_RAW(v) != REB_BLANK)
             return FALSE;
-        return DID(v->header.bits & BLANK_FLAG_UNREADABLE_DEBUG);
+        return did (v->header.bits & BLANK_FLAG_UNREADABLE_DEBUG);
     }
 
     // "Sinking" a value is like trashing it in the debug build at the moment
@@ -1088,7 +1088,7 @@ inline static RELVAL *REL(REBVAL *v) {
     ){
         ASSERT_CELL_WRITABLE(v, file, line);
 
-        if (NOT(v->header.bits & NODE_FLAG_FREE)) {
+        if (not (v->header.bits & NODE_FLAG_FREE)) {
         #ifdef DEBUG_CELL_WRITABILITY
             RESET_VAL_HEADER_EXTRA_Core(
                 v,
@@ -1126,7 +1126,7 @@ inline static RELVAL *REL(REBVAL *v) {
         assert(IS_UNREADABLE_DEBUG(v))
 
     #define ASSERT_READABLE_IF_DEBUG(v) \
-        assert(NOT(IS_UNREADABLE_DEBUG(v)))
+        assert(not IS_UNREADABLE_DEBUG(v))
 #else
     #define Init_Unreadable_Blank(v) \
         Init_Blank(v)
@@ -1206,7 +1206,7 @@ inline static RELVAL *REL(REBVAL *v) {
 #endif
 
 #define IS_TRUTHY(v) \
-    NOT(IS_FALSEY(v)) // macro gets file + line # in debug build
+    cast(REBOOL, not IS_FALSEY(v)) // macro gets file + line # in debug build
 
 // Although a BLOCK! value is true, some constructs are safer by not allowing
 // literal blocks.  e.g. `if [x] [print "this is not safe"]`.  The evaluated
@@ -1381,11 +1381,11 @@ inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
     // allows an assert, but also lvalue: `VAL_DECIMAL(v) = xxx`
     //
     inline static REBDEC & VAL_DECIMAL(RELVAL *v) { // C++ reference type
-        assert(IS_DECIMAL(v) || IS_PERCENT(v));
+        assert(IS_DECIMAL(v) or IS_PERCENT(v));
         return v->payload.decimal;
     }
     inline static REBDEC VAL_DECIMAL(const RELVAL *v) {
-        assert(IS_DECIMAL(v) || IS_PERCENT(v));
+        assert(IS_DECIMAL(v) or IS_PERCENT(v));
         return v->payload.decimal;
     }
 #endif
@@ -1400,19 +1400,6 @@ inline static REBVAL *Init_Percent(RELVAL *out, REBDEC d) {
     RESET_VAL_HEADER(out, REB_PERCENT);
     out->payload.decimal = d;
     return cast(REBVAL*, out);
-}
-
-
-// !!! There was an IS_NUMBER() macro defined in R3-Alpha which only covered
-// REB_INTEGER and REB_DECIMAL.  But ANY-NUMBER! the typeset included PERCENT!
-// so this adds that and gets rid of IS_NUMBER()
-//
-inline static REBOOL ANY_NUMBER(const RELVAL *v) {
-    return DID(
-        VAL_TYPE(v) == REB_INTEGER
-        || VAL_TYPE(v) == REB_DECIMAL
-        || VAL_TYPE(v) == REB_PERCENT
-    );
 }
 
 
@@ -1796,7 +1783,7 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
     }
     else {
       #if !defined(NDEBUG)
-        if (NOT(v->header.bits & CELL_FLAG_STACK))
+        if (not (v->header.bits & CELL_FLAG_STACK))
             assert(binding->header.bits & NODE_FLAG_MANAGED);
       #endif
 
@@ -1809,7 +1796,7 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
     assert(out != v); // usually a sign of a mistake; not worth supporting
     assert(
         (v->header.bits & (NODE_FLAG_CELL | NODE_FLAG_NODE))
-        && NOT(v->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE))
+        and not (v->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE))
     );
 
     ASSERT_CELL_WRITABLE(out, __FILE__, __LINE__);
@@ -1837,9 +1824,9 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
     out->payload = v->payload; // payloads cannot hold references to stackvars
 
     if (
-        NOT(v->header.bits & CELL_FLAG_STACK)
-        || NOT(Is_Bindable(v))
-        || (v->extra.binding->header.bits & NODE_FLAG_MANAGED)
+        not (v->header.bits & CELL_FLAG_STACK)
+        or not Is_Bindable(v)
+        or (v->extra.binding->header.bits & NODE_FLAG_MANAGED)
     ) {
         // If the source value isn't the kind of value that can have a
         // non-reified binding (e.g. an INTEGER! or STRING!), then it is
@@ -1855,7 +1842,7 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
         //    
       #if !defined(NDEBUG)
         if (Is_Bindable(v)) {
-            if (NOT(v->header.bits & CELL_FLAG_STACK))
+            if (not (v->header.bits & CELL_FLAG_STACK))
                 assert(NOT_CELL(v->extra.binding));
         }
       #endif
@@ -1872,13 +1859,13 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
 
     REBCNT bind_depth = 1; // !!! need to determine v's binding stack level
     REBCNT out_depth;
-    if (NOT(out->header.bits & CELL_FLAG_STACK))
+    if (not (out->header.bits & CELL_FLAG_STACK))
         out_depth = 0;
     else
         out_depth = 1; // !!! need to determine out's stack level
 
     REBOOL smarts_enabled = FALSE; 
-    if (smarts_enabled && out_depth >= bind_depth) {
+    if (smarts_enabled and out_depth >= bind_depth) {
         //
         // The non-reified binding will outlive the output slot, so there is
         // no reason to reify it.
@@ -1921,12 +1908,12 @@ inline static REBVAL *Move_Var(RELVAL *out, const REBVAL *v)
    assert(out != v); // usually a sign of a mistake; not worth supporting
    assert(
         (v->header.bits & (NODE_FLAG_CELL | NODE_FLAG_NODE))
-        && NOT(v->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE))
+        and not (v->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE))
     );
 
     ASSERT_CELL_WRITABLE(out, __FILE__, __LINE__);
 
-    assert(NOT(out->header.bits & CELL_FLAG_STACK));
+    assert(not (out->header.bits & CELL_FLAG_STACK));
 
     // !!! We preserve VALUE_FLAG_ENFIXED, but should we preserve protection
     // status as well?
@@ -1952,7 +1939,7 @@ inline static void Blit_Cell(RELVAL *out, const RELVAL *v)
     assert(out != v); // usually a sign of a mistake; not worth supporting
     assert(
         (v->header.bits & (NODE_FLAG_CELL | NODE_FLAG_NODE))
-        && NOT(v->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE))
+        and not (v->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE))
     );
 
     ASSERT_CELL_WRITABLE(out, __FILE__, __LINE__);

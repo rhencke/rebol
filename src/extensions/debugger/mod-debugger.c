@@ -127,7 +127,7 @@ static REBNATIVE(breakpoint)
     // return *either* a value or no-value...if breakpoint were variadic, it
     // could splice in a value in place of what comes after it.
     //
-    if (NOT(IS_VOID(D_OUT)))
+    if (not IS_VOID(D_OUT))
         fail ("BREAKPOINT is invisible, can't RESUME/WITH code (use PAUSE)");
 
     return R_INVISIBLE;
@@ -211,7 +211,7 @@ REBFRM *Frame_For_Stack_Level(
         frame = frame->prior;
 
     for (; frame != NULL; frame = frame->prior) {
-        if (NOT(Is_Function_Frame(frame))) {
+        if (not Is_Function_Frame(frame)) {
             //
             // Don't consider pending calls, or GROUP!, or any non-invoked
             // function as a candidate to target.
@@ -228,7 +228,7 @@ REBFRM *Frame_For_Stack_Level(
         }
 
         REBOOL pending = Is_Function_Frame_Fulfilling(frame);
-        if (NOT(pending)) {
+        if (not pending) {
             if (first) {
                 if (
                     FUNC_DISPATCHER(frame->phase) == &N_DEBUGGER_pause
@@ -390,7 +390,7 @@ static REBNATIVE(resume)
 
         frame = FS_TOP;
         for (; frame != NULL; frame = frame->prior) {
-            if (NOT(Is_Function_Frame(frame)))
+            if (not Is_Function_Frame(frame))
                 continue;
             if (Is_Function_Frame_Fulfilling(frame))
                 continue;
@@ -548,7 +548,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
         Trace_Level = Save_Trace_Level;
         Trace_Depth = Save_Trace_Depth;
 
-        if (NOT(IS_BLOCK(code)))
+        if (not IS_BLOCK(code))
             panic (code);
 
         struct Reb_State state;
@@ -772,7 +772,7 @@ REBOOL Do_Breakpoint_Throws(
         //
         REBFRM *frame;
         for (frame = FS_TOP; frame != NULL; frame = frame->prior) {
-            if (NOT(Is_Function_Frame(frame)))
+            if (not Is_Function_Frame(frame))
                 continue;
             if (Is_Function_Frame_Fulfilling(frame))
                 continue;

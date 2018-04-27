@@ -121,15 +121,15 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
     assert(f == FS_TOP);
     assert(DSP == f->dsp_orig);
 
-    assert(NOT(f->flags.bits & DO_FLAG_FINAL_DEBUG));
+    assert(not (f->flags.bits & DO_FLAG_FINAL_DEBUG));
 
     if (f->source.array != NULL) {
-        assert(NOT(IS_POINTER_TRASH_DEBUG(f->source.array)));
+        assert(not IS_POINTER_TRASH_DEBUG(f->source.array));
         assert(
             f->source.index != TRASHED_INDEX
-            && f->source.index != END_FLAG
-            && f->source.index != THROWN_FLAG
-            && f->source.index != VA_LIST_FLAG
+            and f->source.index != END_FLAG
+            and f->source.index != THROWN_FLAG
+            and f->source.index != VA_LIST_FLAG
         ); // END, THROWN, VA_LIST only used by wrappers
     }
     else {
@@ -160,7 +160,7 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
     if (FRM_AT_END(f))
         return;
 
-    if (NOT_END(f->out) && THROWN(f->out))
+    if (NOT_END(f->out) and THROWN(f->out))
         return;
 
     //=//// v-- BELOW CHECKS ONLY APPLY IN EXITS CASE WITH MORE CODE //////=//
@@ -169,17 +169,15 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
     // f->value, with special exemption for optimized lookback calls
     // coming from Do_Next_In_Subframe_Throws()
     //
-    assert(
-        (
+    if (f->eval_type != VAL_TYPE(f->value))
+        assert(
             f->eval_type == REB_FUNCTION
-            && (IS_WORD(f->value) || IS_FUNCTION(f->value))
-        )
-        || f->eval_type == VAL_TYPE(f->value)
-    );
+            and (IS_WORD(f->value) or IS_FUNCTION(f->value))
+        );
 
     assert(f->value);
     assert(FRM_HAS_MORE(f));
-    assert(NOT(THROWN(f->value)));
+    assert(not THROWN(f->value));
     ASSERT_VALUE_MANAGED(f->value);
     assert(f->value != f->out);
 
@@ -211,7 +209,7 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
     ASSERT_NOT_TRASH_IF_DEBUG(f->out);
 
   #if defined(DEBUG_UNREADABLE_BLANKS)
-    if (NOT(IS_UNREADABLE_DEBUG(f->out)) && NOT_END(f->out))
+    if (not IS_UNREADABLE_DEBUG(f->out) and NOT_END(f->out))
         Init_Unreadable_Blank(f->out);
 
     // Once a throw is started, no new expressions may be evaluated until
@@ -248,7 +246,7 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
     // Mutate va_list sources into arrays at fairly random moments in the
     // debug build.  It should be able to handle it at any time.
     //
-    if (FRM_IS_VALIST(f) && SPORADICALLY(50)) {
+    if (FRM_IS_VALIST(f) and SPORADICALLY(50)) {
         const REBOOL truncated = TRUE;
         Reify_Va_To_Array_In_Frame(f, truncated);
     }
@@ -300,9 +298,9 @@ void Do_Process_Function_Checks_Debug(REBFRM *f) {
 //
 void Do_After_Function_Checks_Debug(REBFRM *f) {
     assert(f->eval_type == REB_FUNCTION);
-    deny(IS_END(f->out));
-    deny(THROWN(f->out));
-    deny(Is_Bindable(f->out) && f->out->extra.binding == NULL);
+    assert(NOT_END(f->out));
+    assert(not THROWN(f->out));
+    assert(not Is_Bindable(f->out) or f->out->extra.binding != NULL);
 
     // Usermode functions check the return type via Returner_Dispatcher(),
     // with everything else assumed to return the correct type.  But this
@@ -326,21 +324,18 @@ void Do_After_Function_Checks_Debug(REBFRM *f) {
 void Do_Core_Exit_Checks_Debug(REBFRM *f) {
     Do_Core_Shared_Checks_Debug(f);
 
-    if (NOT(FRM_AT_END(f)) && NOT(FRM_IS_VALIST(f))) {
-        assert(
-            (f->source.index <= ARR_LEN(f->source.array))
-            || (
-                (
-                    (f->source.pending && IS_END(f->source.pending))
-                    || THROWN(f->out)
-                )
-                && f->source.index == ARR_LEN(f->source.array) + 1
-            )
-        );
+    if (not FRM_AT_END(f) and not FRM_IS_VALIST(f)) {
+        if (f->source.index > ARR_LEN(f->source.array)) {
+            assert(
+                (f->source.pending != NULL and IS_END(f->source.pending))
+                or THROWN(f->out)
+            );
+            assert(f->source.index == ARR_LEN(f->source.array) + 1);
+        }
     }
 
     if (f->flags.bits & DO_FLAG_TO_END)
-        assert(THROWN(f->out) || FRM_AT_END(f));
+        assert(THROWN(f->out) or FRM_AT_END(f));
 
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`
     // (as opposed to `do [1 + ()]`).  Hence Do_Core() offers the distinction
@@ -350,7 +345,7 @@ void Do_Core_Exit_Checks_Debug(REBFRM *f) {
     if (NOT_END(f->out)) {
         assert(VAL_TYPE(f->out) <= REB_MAX_VOID);
 
-        if (NOT(THROWN(f->out)))
+        if (not THROWN(f->out))
             ASSERT_VALUE_MANAGED(f->out);
     }
 

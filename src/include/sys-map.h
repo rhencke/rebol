@@ -81,7 +81,7 @@ inline static REBCNT Length_Map(REBMAP *map)
 
     REBCNT count = 0;
     for (; NOT_END(v); v += 2) {
-        if (!IS_VOID(v + 1))
+        if (not IS_VOID(v + 1))
             ++count;
     }
 

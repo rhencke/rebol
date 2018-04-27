@@ -265,7 +265,7 @@ void MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
             goto no_time;
 
         RELVAL *item = VAL_ARRAY_AT(arg);
-        if (NOT(IS_INTEGER(item)))
+        if (not IS_INTEGER(item))
             goto no_time;
 
         REBOOL neg;
@@ -282,7 +282,7 @@ void MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
             goto no_time;
 
         if (NOT_END(++item)) {
-            if (NOT(IS_INTEGER(item)))
+            if (not IS_INTEGER(item))
                 goto no_time;
 
             if ((i = Int32(item)) < 0)

@@ -105,8 +105,8 @@
 inline static REBVAL *DS_AT(REBDSP d) {
     REBVAL *v = DS_Movable_Base + d;
     assert(
-        ((v->header.bits & NODE_FLAG_CELL) && (d <= DSP + 1))
-        || ((v->header.bits & NODE_FLAG_END) && (d == DSP + 1))
+        ((v->header.bits & NODE_FLAG_CELL) and d <= (DSP + 1))
+        or ((v->header.bits & NODE_FLAG_END) and d == (DSP + 1))
     );
     return v;
 }
@@ -237,7 +237,7 @@ struct Reb_Chunker {
 };
 
 #define BASE_CHUNKER_SIZE \
-    offsetof(Reb_Chunker, payload)
+    offsetof(struct Reb_Chunker, payload)
 
 #define CS_CHUNKER_PAYLOAD (4096 - BASE_CHUNKER_SIZE) // 12 bits for offset
 
@@ -440,11 +440,11 @@ inline static void Drop_Chunk_Of_Values(REBVAL *opt_head)
     // when dropping chunks to try and restore the top chunk to a previous
     // state, this information isn't available.)
     //
-#if defined(NDEBUG)
+  #if defined(NDEBUG)
     UNUSED(opt_head);
-#else
-    assert(!opt_head || CHUNK_FROM_VALUES(opt_head) == chunk);
-#endif
+  #else
+    assert(not opt_head or chunk == CHUNK_FROM_VALUES(opt_head));
+  #endif
 
     // Drop to the prior top chunk
     TG_Top_Chunk = chunk->prev;

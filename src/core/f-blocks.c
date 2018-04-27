@@ -174,7 +174,7 @@ void Clonify_Values_Len_Managed(
             //
             REBSER *series;
             if (ANY_CONTEXT(v)) {
-                assert(!IS_FRAME(v)); // !!! Don't exist yet...
+                assert(not IS_FRAME(v)); // !!! Don't exist yet...
                 v->payload.any_context.varlist =
                     CTX_VARLIST(Copy_Context_Shallow(VAL_CONTEXT(v)));
                 series = SER(CTX_VARLIST(VAL_CONTEXT(v)));
@@ -247,7 +247,7 @@ void Clonify_Values_Len_Managed(
 
         // Value shouldn't be relative after the above processing.
         //
-        assert(!IS_RELATIVE(v));
+        assert(not IS_RELATIVE(v));
     }
 }
 
@@ -265,7 +265,7 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
     REBFLGS flags,
     REBU64 types
 ){
-    assert(index <= tail && tail <= ARR_LEN(original));
+    assert(index <= tail and tail <= ARR_LEN(original));
 
     REBCNT len = tail - index;
 
@@ -362,7 +362,7 @@ REBARR *Copy_Rerelativized_Array_Deep_Managed(
     RELVAL *dest = ARR_HEAD(copy);
 
     for (; NOT_END(src); ++src, ++dest) {
-        if (NOT(IS_RELATIVE(src))) {
+        if (not IS_RELATIVE(src)) {
             Move_Value(dest, KNOWN(src));
             continue;
         }
@@ -428,7 +428,7 @@ void Uncolor_Array(REBARR *a)
 
     RELVAL *val;
     for (val = ARR_HEAD(a); NOT_END(val); ++val)
-        if (ANY_ARRAY(val) || ANY_CONTEXT(val))
+        if (ANY_ARRAY(val) or ANY_CONTEXT(val))
             Uncolor(val);
 }
 
@@ -450,8 +450,8 @@ void Uncolor(RELVAL *val)
         // Shouldn't have marked recursively any non-array series (no need)
         //
         assert(
-            !ANY_SERIES(val)
-            || Is_Series_White(VAL_SERIES(val))
+            not ANY_SERIES(val)
+            or Is_Series_White(VAL_SERIES(val))
         );
         return;
     }

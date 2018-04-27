@@ -102,5 +102,5 @@ REBOOL OS_Set_Current_Dir(const REBVAL *path)
 
     rebFree(path_utf8);
 
-    return DID(chdir_result == 0);
+    return chdir_result == 0;
 }

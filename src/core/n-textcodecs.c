@@ -202,7 +202,7 @@ REBNATIVE(encode_text)
 {
     INCLUDE_PARAMS_OF_ENCODE_TEXT;
 
-    if (NOT(VAL_BYTE_SIZE(ARG(string)))) {
+    if (not VAL_BYTE_SIZE(ARG(string))) {
         //
         // For the moment, only write out strings to .txt if they are Latin1.
         // (Other support was unimplemented in R3-Alpha, and would just wind

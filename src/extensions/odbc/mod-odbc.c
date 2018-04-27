@@ -153,7 +153,7 @@ REBCTX *Error_ODBC(SQLSMALLINT handleType, SQLHANDLE handle) {
 
     DECLARE_LOCAL (string);
 
-    if (rc == SQL_SUCCESS || rc == SQL_SUCCESS_WITH_INFO) {
+    if (rc == SQL_SUCCESS or rc == SQL_SUCCESS_WITH_INFO) {
         REBVAL *temp = rebSizedStringW(message, message_len);
         Move_Value(string, temp);
         rebRelease(temp);
@@ -242,7 +242,7 @@ REBNATIVE(open_connection)
     //
     SQLHENV henv;
     rc = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &henv);
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Env(SQL_NULL_HENV));
 
     rc = SQLSetEnvAttr(
@@ -251,7 +251,7 @@ REBNATIVE(open_connection)
         cast(SQLPOINTER, SQL_OV_ODBC3),
         0 // StringLength (ignored for this attribute)
     );
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO) {
         REBCTX *error = Error_ODBC_Env(henv);
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
         fail (error);
@@ -261,14 +261,14 @@ REBNATIVE(open_connection)
     //
     SQLHDBC hdbc;
     rc = SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO) {
         REBCTX *error = Error_ODBC_Env(henv);
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
         fail (error);
     }
 
     rc = SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, cast(SQLPOINTER, 5), 0);
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO) {
         REBCTX *error = Error_ODBC_Env(henv);
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
@@ -293,7 +293,7 @@ REBNATIVE(open_connection)
     );
     OS_FREE(connect);
 
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO) {
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO) {
         REBCTX *error = Error_ODBC_Env(henv);
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
@@ -343,7 +343,7 @@ REBNATIVE(open_statement)
 
     SQLHSTMT hstmt;
     rc = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Dbc(hdbc));
 
     REBCTX *statement = VAL_CONTEXT(ARG(statement));
@@ -603,20 +603,20 @@ int ODBC_UnCamelCase(SQLWCHAR *source, SQLWCHAR *target) {
     int s;
     for (s = 0; s < length; s++) {
         target[t++] =
-            (source[s] == *underscore || source[s] == *space)
+            (source[s] == *underscore or source[s] == *space)
                 ? *hyphen
                 : towlower(source[s]);
 
         if (
             (
                 s < length - 2
-                && iswupper(source[s])
-                && iswupper(source[s + 1])
-                && iswlower(source[s + 2])
-            ) || (
+                and iswupper(source[s])
+                and iswupper(source[s + 1])
+                and iswlower(source[s + 2])
+            ) or (
                 s < length - 1
-                && iswlower(source[s])
-                && iswupper(source[s + 1])
+                and iswlower(source[s])
+                and iswupper(source[s + 1])
             )
         ){
             target[t++] = *hyphen;
@@ -657,7 +657,7 @@ SQLRETURN ODBC_DescribeResults(
             &column->precision,
             &column->nullable
         );
-        if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+        if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
             fail (Error_ODBC_Stmt(hstmt));
 
         // Numeric types may be signed or unsigned, which informs how to
@@ -675,7 +675,7 @@ SQLRETURN ODBC_DescribeResults(
             NULL, // StringLengthPtr
             &numeric_attribute // only parameter needed for SQL_DESC_UNSIGNED
         );
-        if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+        if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
             fail (Error_ODBC_Stmt(hstmt));
 
         if (numeric_attribute == SQL_TRUE)
@@ -839,7 +839,7 @@ SQLRETURN ODBC_BindColumns(
             &c->length // StrLen_Or_Ind (SQLFetch will write here)
         );
 
-        if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+        if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
             fail (Error_ODBC_Stmt(hstmt));
     }
 
@@ -880,7 +880,7 @@ REBNATIVE(insert_odbc)
     //
     // SQLULEN max_rows = 0;
     // rc = SQLSetStmtAttr(hstmt, SQL_ATTR_MAX_ROWS, &max_rows, SQL_IS_POINTER);
-    // if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+    // if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
     //     fail (Error_ODBC_Stmt(hstmt));
 
 
@@ -929,12 +929,12 @@ REBNATIVE(insert_odbc)
         else
             assert(IS_BLANK(previous));
 
-        if (NOT(use_cache)) {
+        if (not use_cache) {
             REBCNT length;
             SQLWCHAR *sql_string = rebSpellingOfAllocW(&length, value);
 
             rc = SQLPrepareW(hstmt, sql_string, cast(SQLSMALLINT, length));
-            if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+            if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
                 fail (Error_ODBC_Stmt(hstmt));
 
             OS_FREE(sql_string);
@@ -974,7 +974,7 @@ REBNATIVE(insert_odbc)
                     value
                 );
                 rebRelease(value);
-                if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+                if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
                     fail (Error_ODBC_Stmt(hstmt));
 
                 ++n;
@@ -998,7 +998,7 @@ REBNATIVE(insert_odbc)
             OS_FREE(params);
         }
 
-        if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+        if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
             fail (Error_ODBC_Stmt(hstmt));
 
         break; }
@@ -1014,13 +1014,13 @@ REBNATIVE(insert_odbc)
 
     SQLSMALLINT num_columns;
     rc = SQLNumResultCols(hstmt, &num_columns);
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Stmt(hstmt));
 
     if (num_columns == 0) {
         SQLLEN num_rows;
         rc = SQLRowCount(hstmt, &num_rows);
-        if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+        if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
             fail (Error_ODBC_Stmt(hstmt));
 
         Init_Integer(D_OUT, num_rows);
@@ -1068,11 +1068,11 @@ REBNATIVE(insert_odbc)
     );
 
     rc = ODBC_DescribeResults(hstmt, num_columns, columns);
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Stmt(hstmt));
 
     rc = ODBC_BindColumns(hstmt, num_columns, columns);
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Stmt(hstmt));
 
     REBARR *titles = Make_Array(num_columns);
@@ -1182,7 +1182,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
         if (col->column_size != 1)
             fail ("BIT(n) fields are only supported for n = 1");
 
-        return rebLogic(DID(*cast(unsigned char*, col->buffer)));
+        return rebLogic(did (*cast(unsigned char*, col->buffer)));
 
     case SQL_BINARY:
     case SQL_VARBINARY:
@@ -1235,14 +1235,14 @@ REBNATIVE(copy_odbc)
         Get_Typed_Field(statement, ODBC_WORD_COLUMNS, REB_HANDLE)
     );
 
-    if (hstmt == SQL_NULL_HANDLE || columns == NULL)
+    if (hstmt == SQL_NULL_HANDLE or columns == NULL)
         fail ("Invalid statement object!");
 
     SQLRETURN rc;
 
     SQLSMALLINT num_columns;
     rc = SQLNumResultCols(hstmt, &num_columns);
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Stmt(hstmt));
 
     SQLULEN num_rows;
@@ -1258,7 +1258,7 @@ REBNATIVE(copy_odbc)
     // Fetch columns
     //
     SQLULEN row = 0;
-    while ((row != num_rows) && (SQLFetch(hstmt) != SQL_NO_DATA)) {
+    while (row != num_rows and SQLFetch(hstmt) != SQL_NO_DATA) {
         REBARR *record = Make_Array(num_columns);
 
         SQLSMALLINT col;
@@ -1313,7 +1313,7 @@ REBNATIVE(update_odbc)
         SQL_IS_UINTEGER
     );
 
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Dbc(hdbc));
 
     rc = SQLSetConnectAttr(
@@ -1329,7 +1329,7 @@ REBNATIVE(update_odbc)
         SQL_IS_UINTEGER
     );
 
-    if (rc != SQL_SUCCESS && rc != SQL_SUCCESS_WITH_INFO)
+    if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Dbc(hdbc));
 
     return R_TRUE;

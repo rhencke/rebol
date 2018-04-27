@@ -133,7 +133,7 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
         return;
     }
 
-    if (NOT(IS_BLOCK(arg)))
+    if (not IS_BLOCK(arg))
         fail (Error_Invalid(arg));
 
     // Process word/value argument block:
@@ -266,7 +266,7 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         //
         // But for now, just allow MAKE FRAME! for a specific FUNCTION!.
         //
-        if (NOT(IS_FUNCTION(arg)))
+        if (not IS_FUNCTION(arg))
             fail (Error_Bad_Make(kind, arg));
 
         // In order to have the frame survive the call to MAKE and be
@@ -429,7 +429,7 @@ REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 {
     REBCTX *c = VAL_CONTEXT(pvs->out);
 
-    if (NOT(IS_WORD(picker)))
+    if (not IS_WORD(picker))
         return R_UNHANDLED;
 
     const REBOOL always = FALSE;
@@ -621,13 +621,13 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     // Prevent endless mold loop:
     //
     if (Find_Pointer_In_Series(TG_Mold_Stack, c) != NOT_FOUND) {
-        if (NOT(form)) {
+        if (not form) {
             Pre_Mold(mo, v); // If molding, get #[object! etc.
             Append_Utf8_Codepoint(out, '[');
         }
         Append_Unencoded(out, "...");
 
-        if (NOT(form)) {
+        if (not form) {
             Append_Utf8_Codepoint(out, ']');
             End_Mold(mo);
         }
@@ -788,7 +788,7 @@ REB_R Context_Common_Action_Maybe_Unhandled(
             return R_OUT;
 
         case SYM_TAIL_Q: // !!! Should this be legal?
-            Init_Logic(D_OUT, DID(CTX_LEN(c) == 0));
+            Init_Logic(D_OUT, CTX_LEN(c) == 0);
             return R_OUT;
 
         case SYM_WORDS:

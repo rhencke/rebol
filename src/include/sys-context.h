@@ -169,14 +169,14 @@ inline static REBFRM *CTX_FRAME_IF_ON_STACK(REBCTX *c) {
     assert(IS_FRAME(CTX_VALUE(c)));
 
     REBNOD *keysource = LINK(CTX_VARLIST(c)).keysource;
-    if (NOT(keysource->header.bits & NODE_FLAG_CELL))
+    if (not (keysource->header.bits & NODE_FLAG_CELL))
         return NULL; // not on stack...has been downgraded to paramlist/facade
 
     REBFRM *f = cast(REBFRM*, keysource);
 
     // Note: inlining of Is_Function_Frame() to break dependency
     //
-    assert(f->eval_type == REB_FUNCTION && f->phase != NULL);
+    assert(f->eval_type == REB_FUNCTION and f->phase != NULL);
 
     return f;
 }
@@ -198,17 +198,17 @@ inline static REBVAL *CTX_VARS_HEAD(REBCTX *c) {
 }
 
 inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
-    assert(n != 0 && n <= CTX_LEN(c));
+    assert(n != 0 and n <= CTX_LEN(c));
     REBVAL *key = CTX_KEYS_HEAD(c) + (n) - 1;
     assert(key->extra.key_spelling != NULL);
     return key;
 }
 
 inline static REBVAL *CTX_VAR(REBCTX *c, REBCNT n) {
-    assert(n != 0 && n <= CTX_LEN(c));
+    assert(n != 0 and n <= CTX_LEN(c));
     assert(GET_SER_FLAG(CTX_VARLIST(c), ARRAY_FLAG_VARLIST));
     REBVAL *var = CTX_VARS_HEAD(c) + (n) - 1;
-    assert(NOT(IS_RELATIVE(cast(RELVAL*, var))));
+    assert(not IS_RELATIVE(cast(RELVAL*, var)));
     return var;
 }
 
@@ -274,7 +274,7 @@ inline static REBOOL CTX_VARS_UNAVAILABLE(REBCTX *c) {
 
 inline static REBCTX *VAL_CONTEXT(const RELVAL *v) {
     assert(ANY_CONTEXT(v));
-    assert(v->payload.any_context.phase == NULL || VAL_TYPE(v) == REB_FRAME);
+    assert(v->payload.any_context.phase == NULL or VAL_TYPE(v) == REB_FRAME);
     return CTX(v->payload.any_context.varlist);
 }
 
@@ -436,9 +436,9 @@ inline static void FAIL_IF_BAD_PORT(REBCTX *port) {
     assert(GET_SER_FLAG(CTX_VARLIST(port), ARRAY_FLAG_VARLIST));
 
     if (
-        (CTX_LEN(port) < STD_PORT_MAX - 1) ||
-        !IS_OBJECT(CTX_VAR(port, STD_PORT_SPEC))
-    ) {
+        CTX_LEN(port) < (STD_PORT_MAX - 1)
+        or not IS_OBJECT(CTX_VAR(port, STD_PORT_SPEC))
+    ){
         fail (Error_Invalid_Port_Raw());
     }
 }

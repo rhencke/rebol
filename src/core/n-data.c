@@ -34,10 +34,10 @@
 static REBOOL Check_Char_Range(const REBVAL *val, REBINT limit)
 {
     if (IS_CHAR(val))
-        return NOT(VAL_CHAR(val) > limit);
+        return not (VAL_CHAR(val) > limit);
 
     if (IS_INTEGER(val))
-        return NOT(VAL_INT64(val) > limit);
+        return not (VAL_INT64(val) > limit);
 
     assert(ANY_STRING(val));
 
@@ -183,7 +183,7 @@ REBNATIVE(bind)
 
         // not in context, bind/new means add it if it's not.
         //
-        if (REF(new) || (IS_SET_WORD(v) && REF(set))) {
+        if (REF(new) or (IS_SET_WORD(v) and REF(set))) {
             Append_Context(context, v, NULL);
             Move_Value(D_OUT, v);
             return R_OUT;
@@ -756,7 +756,7 @@ REBNATIVE(set)
         // differently, which can bite you if you `set [a b] value` for some
         // generic value.
         //
-        if (IS_BLOCK(ARG(value)) && NOT(REF(single))) {
+        if (IS_BLOCK(ARG(value)) and not REF(single)) {
             //
             // There is no need to check values for voidness in this case,
             // since arrays cannot contain voids.
@@ -766,7 +766,7 @@ REBNATIVE(set)
             single = FALSE;
         }
         else {
-            if (IS_VOID(ARG(value)) && NOT(REF(only)))
+            if (IS_VOID(ARG(value)) and not REF(only))
                 fail (Error_No_Value(ARG(value)));
 
             value = ARG(value);
@@ -791,7 +791,7 @@ REBNATIVE(set)
         target = D_CELL;
         target_specifier = SPECIFIED;
 
-        if (IS_VOID(ARG(value)) && NOT(REF(only)))
+        if (IS_VOID(ARG(value)) and not REF(only))
             fail (Error_No_Value(ARG(value)));
 
         value = ARG(value);
@@ -813,7 +813,7 @@ REBNATIVE(set)
                 continue;
         }
 
-        if (REF(enfix) && NOT(IS_FUNCTION(ARG(value))))
+        if (REF(enfix) and not IS_FUNCTION(ARG(value)))
             fail ("Attempt to SET/ENFIX on a non-function");
 
         if (IS_BAR(target)) {
@@ -915,7 +915,7 @@ REBNATIVE(enfixed_q)
             source, SPECIFIED, GETVAR_READ_ONLY // may fail()
         );
 
-        if (!IS_FUNCTION(var))
+        if (not IS_FUNCTION(var))
             return R_FALSE;
 
         return R_FROM_BOOL(GET_VAL_FLAG(var, VALUE_FLAG_ENFIXED));
@@ -1058,9 +1058,7 @@ REBNATIVE(aliases_q)
 {
     INCLUDE_PARAMS_OF_ALIASES_Q;
 
-    return R_FROM_BOOL(
-        DID(VAL_SERIES(ARG(value1)) == VAL_SERIES(ARG(value2)))
-    );
+    return R_FROM_BOOL(VAL_SERIES(ARG(value1)) == VAL_SERIES(ARG(value2)));
 }
 
 
@@ -1114,7 +1112,7 @@ REBNATIVE(unset_q)
 {
     INCLUDE_PARAMS_OF_UNSET_Q;
 
-    return R_FROM_BOOL(NOT(Is_Set(ARG(location))));
+    return R_FROM_BOOL(not Is_Set(ARG(location)));
 }
 
 
@@ -1150,7 +1148,7 @@ REBNATIVE(quote)
     if (IS_BAR(v))
         fail (Error_Expression_Barrier_Raw()); // use UNEVAL instead of QUOTE
 
-    if (REF(soft) && IS_QUOTABLY_SOFT(v)) {
+    if (REF(soft) and IS_QUOTABLY_SOFT(v)) {
         Move_Value(D_CELL, v);
         return R_REEVALUATE_CELL; // EVAL's mechanic lets us reuse this frame
     }
@@ -1219,9 +1217,7 @@ REBNATIVE(nothing_q)
 {
     INCLUDE_PARAMS_OF_NOTHING_Q;
 
-    return R_FROM_BOOL(
-        DID(IS_BLANK(ARG(value)) || IS_VOID(ARG(value)))
-    );
+    return R_FROM_BOOL(IS_BLANK(ARG(value)) or IS_VOID(ARG(value)));
 }
 
 
@@ -1242,7 +1238,5 @@ REBNATIVE(something_q)
 {
     INCLUDE_PARAMS_OF_SOMETHING_Q;
 
-    return R_FROM_BOOL(
-        NOT(IS_BLANK(ARG(value)) || IS_VOID(ARG(value)))
-    );
+    return R_FROM_BOOL(not (IS_BLANK(ARG(value)) or IS_VOID(ARG(value))));
 }

@@ -62,8 +62,8 @@ struct Reb_Array {
     inline REBARR *ARR(T *p) {
         static_assert(
             std::is_same<T, void>::value
-            || std::is_same<T, REBNOD>::value
-            || std::is_same<T, REBSER>::value,
+            or std::is_same<T, REBNOD>::value
+            or std::is_same<T, REBSER>::value,
             "ARR works on: void*, REBNOD*, REBSER*"
         );
 
@@ -186,7 +186,7 @@ inline static void TERM_SERIES(REBSER *s) {
     DROP_GUARD_SERIES(SER(a))
 
 inline static void PUSH_GUARD_ARRAY_CONTENTS(REBARR *a) {
-    assert(!IS_ARRAY_MANAGED(a)); // if managed, just use PUSH_GUARD_ARRAY
+    assert(not IS_ARRAY_MANAGED(a)); // if managed, just use PUSH_GUARD_ARRAY
     Guard_Node_Core(NOD(a));
 }
 
@@ -270,8 +270,8 @@ inline static REBARR *Make_Array_For_Copy(
 ){
     if (
         (flags & ARRAY_FLAG_FILE_LINE)
-        && original != NULL
-        && GET_SER_FLAG(original, ARRAY_FLAG_FILE_LINE)
+        and original != NULL
+        and GET_SER_FLAG(original, ARRAY_FLAG_FILE_LINE)
     ){
         REBARR *a = Make_Array_Core(capacity, 0);
         LINK(a).file = LINK(original).file;
@@ -401,7 +401,7 @@ inline static REBSPC* SPC(void *p) {
         REBFRM *f = cast(REBFRM*, specifier);
         assert(f->eval_type == REB_FUNCTION);
     }
-    else if (NOT(specifier->header.bits & ARRAY_FLAG_VARLIST)) {
+    else if (not (specifier->header.bits & ARRAY_FLAG_VARLIST)) {
         assert(specifier == SPECIFIED);
     }
 #endif
@@ -410,7 +410,7 @@ inline static REBSPC* SPC(void *p) {
 }
 
 inline static REBSPC *VAL_SPECIFIER(const REBVAL *v) {
-    assert(VAL_TYPE(v) == REB_0_REFERENCE || ANY_ARRAY(v));
+    assert(VAL_TYPE(v) == REB_0_REFERENCE or ANY_ARRAY(v));
     return SPC(VAL_SPECIFIC(v));
 }
 
@@ -500,5 +500,5 @@ inline static RELVAL *VAL_ARRAY_TAIL(const RELVAL *v) {
     }
 
     #define IS_VALUE_IN_ARRAY_DEBUG(a,v) \
-        (ARR_LEN(a) != 0 && (v) >= ARR_HEAD(a) && (v) < ARR_TAIL(a))
+        (ARR_LEN(a) != 0 and (v) >= ARR_HEAD(a) and (v) < ARR_TAIL(a))
 #endif

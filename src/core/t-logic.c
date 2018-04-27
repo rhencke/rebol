@@ -85,9 +85,7 @@ REBNATIVE(nand_q)
 {
     INCLUDE_PARAMS_OF_NAND_Q;
 
-    return R_FROM_BOOL(
-        DID(IS_TRUTHY(ARG(value1)) && IS_TRUTHY(ARG(value2)))
-    );
+    return R_FROM_BOOL(IS_TRUTHY(ARG(value1)) and IS_TRUTHY(ARG(value2)));
 }
 
 
@@ -125,7 +123,7 @@ REBNATIVE(did)
 {
     INCLUDE_PARAMS_OF_DID;
 
-    return R_FROM_BOOL(NOT(IS_VOID_OR_FALSEY(ARG(cell))));
+    return R_FROM_BOOL(not IS_VOID_OR_FALSEY(ARG(cell)));
 }
 
 
@@ -178,9 +176,7 @@ REBNATIVE(or_q)
 {
     INCLUDE_PARAMS_OF_OR_Q;
 
-    return R_FROM_BOOL(
-        DID(IS_TRUTHY(ARG(value1)) || IS_TRUTHY(ARG(value2)))
-    );
+    return R_FROM_BOOL(IS_TRUTHY(ARG(value1)) or IS_TRUTHY(ARG(value2)));
 }
 
 
@@ -197,11 +193,9 @@ REBNATIVE(xor_q)
 {
     INCLUDE_PARAMS_OF_XOR_Q;
 
-    // Note: no boolean ^^ in C; normalize to booleans and check unequal
+    // Note: no boolean ^^ in C; check unequal
     //
-    return R_FROM_BOOL(
-        DID(!IS_TRUTHY(ARG(value1)) != !IS_TRUTHY(ARG(value2)))
-    );
+    return R_FROM_BOOL(IS_TRUTHY(ARG(value1)) != IS_TRUTHY(ARG(value2)));
 }
 
 
@@ -294,21 +288,21 @@ REBTYPE(Logic)
 
     case SYM_INTERSECT:
         val2 = Math_Arg_For_Logic(D_ARG(2));
-        val1 = DID(val1 && val2);
+        val1 = (val1 and val2);
         break;
 
     case SYM_UNION:
         val2 = Math_Arg_For_Logic(D_ARG(2));
-        val1 = DID(val1 || val2);
+        val1 = (val1 or val2);
         break;
 
     case SYM_DIFFERENCE:
         val2 = Math_Arg_For_Logic(D_ARG(2));
-        val1 = DID(!val1 != !val2);
+        val1 = (val1 != val2);
         break;
 
     case SYM_COMPLEMENT:
-        val1 = NOT(val1);
+        val1 = not val1;
         break;
 
     case SYM_RANDOM: {

@@ -315,7 +315,7 @@ void MF_Typeset(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 {
     REBINT n;
 
-    if (NOT(form)) {
+    if (not form) {
         Pre_Mold(mo, v);  // #[typeset! or make typeset!
         Append_Utf8_Codepoint(mo->series, '[');
     }
@@ -330,7 +330,7 @@ void MF_Typeset(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         // generally legal in user typesets.  Only legal "key" typesets
         // (that have symbols).
         //
-        assert(NOT(TYPE_CHECK(v, REB_MAX_VOID)));
+        assert(not TYPE_CHECK(v, REB_MAX_VOID));
     }
     else {
         //
@@ -352,7 +352,7 @@ void MF_Typeset(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     }
 #endif
 
-    assert(NOT(TYPE_CHECK(v, REB_0))); // REB_0 is used for internal purposes
+    assert(not TYPE_CHECK(v, REB_0)); // REB_0 is used for internal purposes
 
     // Convert bits to types.
     //
@@ -367,7 +367,7 @@ void MF_Typeset(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 skip_types:
 #endif
 
-    if (NOT(form)) {
+    if (not form) {
         Append_Utf8_Codepoint(mo->series, ']');
         End_Mold(mo);
     }
@@ -396,7 +396,7 @@ REBTYPE(Typeset)
         if (IS_DATATYPE(arg)) {
             VAL_TYPESET_BITS(arg) = FLAGIT_KIND(VAL_TYPE(arg));
         }
-        else if (NOT(IS_TYPESET(arg)))
+        else if (not IS_TYPESET(arg))
             fail (Error_Invalid(arg));
 
         if (action == SYM_UNION)

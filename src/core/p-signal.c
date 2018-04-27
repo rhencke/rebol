@@ -153,7 +153,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
     REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
 
-    if (NOT(req->flags & RRF_OPEN)) {
+    if (not (req->flags & RRF_OPEN)) {
         switch (action) {
         case SYM_REFLECT: {
             INCLUDE_PARAMS_OF_REFLECT;
@@ -184,7 +184,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
                 DECLARE_LOCAL (sig);
                 Derelativize(sig, item, VAL_SPECIFIER(val));
 
-                if (NOT(IS_WORD(sig)))
+                if (not IS_WORD(sig))
                     fail (Error_Invalid_Spec_Raw(sig));
 
                 if (VAL_WORD_SYM(sig) == SYM_ALL) {
@@ -212,7 +212,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
             if (action == SYM_OPEN)
                 goto return_port;
 
-            assert((req->flags & RRF_OPEN) && (action == SYM_READ));
+            assert((req->flags & RRF_OPEN) and action == SYM_READ);
             break; } // fallthrough
 
         case SYM_CLOSE:

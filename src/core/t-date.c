@@ -448,19 +448,19 @@ void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
     if (ANY_ARRAY(arg) && VAL_ARRAY_LEN_AT(arg) >= 3) {
         const RELVAL *item = VAL_ARRAY_AT(arg);
-        if (NOT(IS_INTEGER(item)))
+        if (not IS_INTEGER(item))
             goto bad_make;
 
         REBCNT day = Int32s(item, 1);
 
         ++item;
-        if (NOT(IS_INTEGER(item)))
+        if (not IS_INTEGER(item))
             goto bad_make;
 
         REBCNT month = Int32s(item, 1);
 
         ++item;
-        if (NOT(IS_INTEGER(item)))
+        if (not IS_INTEGER(item))
             goto bad_make;
 
         REBCNT year;
@@ -497,7 +497,7 @@ void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             tz = 0;
         }
         else {
-            if (NOT(IS_TIME(item)))
+            if (not IS_TIME(item))
                 goto bad_make;
 
             secs = VAL_NANO(item);
@@ -506,7 +506,7 @@ void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             if (IS_END(item))
                 tz = 0;
             else {
-                if (NOT(IS_TIME(item)))
+                if (not IS_TIME(item))
                     goto bad_make;
 
                 tz = cast(REBINT, VAL_NANO(item) / (ZONE_MINS * MIN_SEC));
@@ -1005,7 +1005,7 @@ REBTYPE(Date)
             //
             // https://forum.rebol.info/t/486
             //
-            if (NOT(IS_DATE(val2)))
+            if (not IS_DATE(val2))
                 fail (Error_Unexpected_Type(VAL_TYPE(val1), VAL_TYPE(val2)));
 
             Subtract_Date(val1, val2, D_OUT);

@@ -51,7 +51,7 @@ static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return R_FROM_BOOL(DID(req->flags & RRF_OPEN));
+            return R_FROM_BOOL(did (req->flags & RRF_OPEN));
 
         default:
             break;
@@ -76,7 +76,7 @@ static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         // If not open, open it:
-        if (NOT(req->flags & RRF_OPEN)) {
+        if (not (req->flags & RRF_OPEN)) {
             REBVAL *o_result = OS_DO_DEVICE(req, RDC_OPEN);
             assert(o_result != NULL);
             if (rebTypeOf(o_result) == RXT_ERROR)
@@ -87,7 +87,7 @@ static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         // If no buffer, create a buffer:
         //
         REBVAL *data = CTX_VAR(port, STD_PORT_DATA);
-        if (NOT(IS_BINARY(data)))
+        if (not IS_BINARY(data))
             Init_Binary(data, Make_Binary(OUT_BUF_SIZE));
 
         REBSER *ser = VAL_SERIES(data);

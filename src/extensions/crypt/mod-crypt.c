@@ -214,12 +214,10 @@ static REBNATIVE(rsa)
     REBVAL *var = CTX_VARS_HEAD(obj);
 
     for (; NOT_END(key); ++key, ++var) {
-        if (VAL_KEY_SYM(key) == SYM_SELF //object may have a 'self key that referring to itself
-            || IS_BLANK(var) //some fields are initialized to blank
-           )
+        if (VAL_KEY_SYM(key) == SYM_SELF or IS_BLANK(var))
             continue;
 
-        if (!IS_BINARY(var))
+        if (not IS_BINARY(var))
             fail (Error(RE_EXT_CRYPT_INVALID_KEY_DATA, var, key, END));
 
         REBSTR* word = VAL_KEY_CANON(key);
@@ -363,7 +361,7 @@ static REBNATIVE(dh_generate_key)
            )
             continue;
 
-        if (!IS_BINARY(var))
+        if (not IS_BINARY(var))
             fail (Error(RE_EXT_CRYPT_INVALID_KEY_DATA, var, key, END));
 
         REBSTR* word = VAL_KEY_CANON(key);
@@ -448,14 +446,14 @@ static REBNATIVE(dh_compute_key)
             NOOP;
         }
         else if (canon == CRYPT_WORD_P) {
-            if (NOT(IS_BINARY(var)))
+            if (not IS_BINARY(var))
                 fail (Error(RE_EXT_CRYPT_INVALID_KEY, var, END));
 
             dh_ctx.p = VAL_BIN_AT(var);
             dh_ctx.len = VAL_LEN_AT(var);
         }
         else if (canon == CRYPT_WORD_PRIV_KEY) {
-            if (NOT(IS_BINARY(var)))
+            if (not IS_BINARY(var))
                 fail (Error(RE_EXT_CRYPT_INVALID_KEY, var, END));
 
             dh_ctx.x = VAL_BIN_AT(var);
@@ -595,7 +593,7 @@ static REBNATIVE(aes)
         //key defined - setup new context
 
         REBINT len = VAL_LEN_AT(ARG(crypt_key)) << 3;
-        if (len != 128 && len != 256) {
+        if (len != 128 and len != 256) {
             DECLARE_LOCAL (i);
             Init_Integer(i, len);
             fail (Error(RE_EXT_CRYPT_INVALID_AES_KEY_LENGTH, i, END));

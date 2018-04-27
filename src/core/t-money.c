@@ -37,18 +37,18 @@
 //
 REBINT CT_Money(const RELVAL *a, const RELVAL *b, REBINT mode)
 {
-    REBOOL e, g;
+    REBOOL e = deci_is_equal(VAL_MONEY_AMOUNT(a), VAL_MONEY_AMOUNT(b));
 
-    e = deci_is_equal(VAL_MONEY_AMOUNT(a), VAL_MONEY_AMOUNT(b));
     if (mode < 0) {
-        g = deci_is_lesser_or_equal(
+        REBOOL g = deci_is_lesser_or_equal(
             VAL_MONEY_AMOUNT(b), VAL_MONEY_AMOUNT(a)
         );
         if (mode == -1)
-            e = DID(e || g);
+            e = (e or g);
         else
-            e = DID(g && !e);
+            e = (g and not e);
     }
+
     return e ? 1 : 0;
 }
 
@@ -136,7 +136,7 @@ void MF_Money(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 //
 void Bin_To_Money_May_Fail(REBVAL *result, const REBVAL *val)
 {
-    if (NOT(IS_BINARY(val)))
+    if (not IS_BINARY(val))
         fail (Error_Invalid(val));
 
     REBCNT len = VAL_LEN_AT(val);

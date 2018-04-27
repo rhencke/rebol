@@ -79,7 +79,7 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
     //
     REBOOL enabled = FALSE;
     if (enabled
-        && (
+        and (
             NOT_FOUND != Find_Str_Char(
                 '*',
                 VAL_SERIES(dir->path),
@@ -89,7 +89,7 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
                 0, // skip
                 AM_FIND_CASE // not relevant
             )
-            ||
+            or
             NOT_FOUND != Find_Str_Char(
                 '?',
                 VAL_SERIES(dir->path),
@@ -141,7 +141,7 @@ static void Init_Dir_Path(
 static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 {
     REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
-    if (NOT(IS_OBJECT(spec)))
+    if (not IS_OBJECT(spec))
         fail (Error_Invalid_Spec_Raw(spec));
 
     REBVAL *path = Obj_Value(spec, STD_PORT_SPEC_HEAD_REF);
@@ -150,7 +150,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
     if (IS_URL(path))
         path = Obj_Value(spec, STD_PORT_SPEC_HEAD_PATH);
-    else if (NOT(IS_FILE(path)))
+    else if (not IS_FILE(path))
         fail (Error_Invalid_Spec_Raw(path));
 
     REBVAL *state = CTX_VAR(port, STD_PORT_STATE); // BLOCK! means port open
@@ -206,7 +206,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
 
-        if (!IS_BLOCK(state)) {     // !!! ignores /SKIP and /PART, for now
+        if (not IS_BLOCK(state)) {     // !!! ignores /SKIP and /PART, for now
             Init_Dir_Path(&dir, path, POL_READ);
             Init_Block(D_OUT, Read_Dir_May_Fail(&dir));
         }

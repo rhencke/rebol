@@ -42,9 +42,9 @@ struct Reb_Func {
     inline REBFUN *FUN(T *p) {
         static_assert(
             std::is_same<T, void>::value
-            || std::is_same<T, REBNOD>::value
-            || std::is_same<T, REBSER>::value
-            || std::is_same<T, REBARR>::value,
+            or std::is_same<T, REBNOD>::value
+            or std::is_same<T, REBSER>::value
+            or std::is_same<T, REBARR>::value,
             "FUN() works on: void*, REBNOD*, REBSER*, REBARR*"
         );
         assert(
@@ -88,7 +88,7 @@ inline static REBVAL *FUNC_VALUE(REBFUN *f) {
     ARR_SINGLE(FUNC_VALUE(f)->payload.function.body_holder)
 
 inline static REBVAL *FUNC_PARAM(REBFUN *f, REBCNT n) {
-    assert(n != 0 && n < ARR_LEN(FUNC_PARAMLIST(f)));
+    assert(n != 0 and n < ARR_LEN(FUNC_PARAMLIST(f)));
     return SER_AT(REBVAL, SER(FUNC_PARAMLIST(f)), n);
 }
 
@@ -275,29 +275,29 @@ inline static REBOOL IS_FUNCTION_INTERPRETED(const RELVAL *v) {
     // be able to treat functions as "black boxes" and not know which of
     // the dispatchers they run on...with only the dispatch itself caring.
     //
-    return DID(
+    return (
         VAL_FUNC_DISPATCHER(v) == &Noop_Dispatcher
-        || VAL_FUNC_DISPATCHER(v) == &Unchecked_Dispatcher
-        || VAL_FUNC_DISPATCHER(v) == &Voider_Dispatcher
-        || VAL_FUNC_DISPATCHER(v) == &Returner_Dispatcher
-        || VAL_FUNC_DISPATCHER(v) == &Block_Dispatcher
+        or VAL_FUNC_DISPATCHER(v) == &Unchecked_Dispatcher
+        or VAL_FUNC_DISPATCHER(v) == &Voider_Dispatcher
+        or VAL_FUNC_DISPATCHER(v) == &Returner_Dispatcher
+        or VAL_FUNC_DISPATCHER(v) == &Block_Dispatcher
     );
 }
 
 inline static REBOOL IS_FUNCTION_ACTION(const RELVAL *v)
-    { return DID(VAL_FUNC_DISPATCHER(v) == &Action_Dispatcher); }
+    { return VAL_FUNC_DISPATCHER(v) == &Action_Dispatcher; }
 
 inline static REBOOL IS_FUNCTION_SPECIALIZER(const RELVAL *v)
-    { return DID(VAL_FUNC_DISPATCHER(v) == &Specializer_Dispatcher); }
+    { return VAL_FUNC_DISPATCHER(v) == &Specializer_Dispatcher; }
 
 inline static REBOOL IS_FUNCTION_CHAINER(const RELVAL *v)
-    { return DID(VAL_FUNC_DISPATCHER(v) == &Chainer_Dispatcher); }
+    { return VAL_FUNC_DISPATCHER(v) == &Chainer_Dispatcher; }
 
 inline static REBOOL IS_FUNCTION_ADAPTER(const RELVAL *v)
-    { return DID(VAL_FUNC_DISPATCHER(v) == &Adapter_Dispatcher); }
+    { return VAL_FUNC_DISPATCHER(v) == &Adapter_Dispatcher; }
 
 inline static REBOOL IS_FUNCTION_HIJACKER(const RELVAL *v)
-    { return DID(VAL_FUNC_DISPATCHER(v) == &Hijacker_Dispatcher); }
+    { return VAL_FUNC_DISPATCHER(v) == &Hijacker_Dispatcher; }
 
 
 // Native values are stored in an array at boot time.  This is a convenience
@@ -320,7 +320,7 @@ inline static REBVAL *Sys_Func(REBCNT inum)
 {
     REBVAL *value = CTX_VAR(Sys_Context, inum);
 
-    if (!IS_FUNCTION(value))
+    if (not IS_FUNCTION(value))
         fail (Error_Bad_Sys_Func_Raw(value));
 
     return value;

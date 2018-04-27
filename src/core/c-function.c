@@ -173,7 +173,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     if (flags & MKF_FAKE_RETURN) {
         header_bits |= FUNC_FLAG_RETURN_DEBUG;
         flags &= ~MKF_FAKE_RETURN;
-        assert(NOT(flags & MKF_RETURN));
+        assert(not (flags & MKF_RETURN));
         flags |= MKF_RETURN;
     }
 #endif
@@ -244,7 +244,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     //=//// TOP-LEVEL SPEC TAGS LIKE <local>, <with> etc. /////////////////=//
 
-        if (IS_TAG(item) && (flags & MKF_KEYWORDS)) {
+        if (IS_TAG(item) and (flags & MKF_KEYWORDS)) {
             if (0 == Compare_String_Vals(item, Root_With_Tag, TRUE)) {
                 mode = SPEC_MODE_WITH;
             }
@@ -362,7 +362,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             if (IS_REFINEMENT(item)) {
                 mode = SPEC_MODE_NORMAL;
             }
-            else if (!IS_WORD(item) && !IS_SET_WORD(item))
+            else if (not IS_WORD(item) and not IS_SET_WORD(item))
                 fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
         }
 
@@ -405,7 +405,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // ...although `return:` is explicitly tolerated ATM for compatibility
         // (despite violating the "pure locals are NULL" premise)
         //
-        if (STR_SYMBOL(canon) == SYM_RETURN && NOT(flags & MKF_LEAVE)) {
+        if (STR_SYMBOL(canon) == SYM_RETURN and not (flags & MKF_LEAVE)) {
             assert(definitional_return_dsp == 0);
             if (IS_SET_WORD(item))
                 definitional_return_dsp = DSP; // RETURN: explicitly tolerated
@@ -414,8 +414,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
         else if (
             STR_SYMBOL(canon) == SYM_LEAVE
-            && NOT(flags & (MKF_RETURN | MKF_FAKE_RETURN))
-        ) {
+            and not (flags & (MKF_RETURN | MKF_FAKE_RETURN))
+        ){
             assert(definitional_leave_dsp == 0);
             if (IS_SET_WORD(item))
                 definitional_leave_dsp = DSP; // LEAVE: explicitly tolerated
@@ -423,7 +423,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 flags &= ~MKF_LEAVE;
         }
 
-        if (mode == SPEC_MODE_WITH && !IS_SET_WORD(item)) {
+        if (mode == SPEC_MODE_WITH and not IS_SET_WORD(item)) {
             //
             // Because FUNC does not do any locals gathering by default, the
             // main purpose of <with> is for instructing it not to do the
@@ -559,7 +559,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             Init_Typeset(
                 DS_TOP,
                 (flags & MKF_ANY_VALUE)
-                || NOT(has_description || has_types || has_notes)
+                or not (has_description or has_types or has_notes)
                     ? ALL_64
                     : ALL_64 & ~(
                         FLAGIT_KIND(REB_MAX_VOID) | FLAGIT_KIND(REB_FUNCTION)
@@ -592,7 +592,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // doesn't want a RETURN: key in the frame in release builds.  We'll omit
     // from the copy.
     //
-    if (definitional_return_dsp != 0 && (flags & MKF_FAKE_RETURN))
+    if (definitional_return_dsp != 0 and (flags & MKF_FAKE_RETURN))
         --num_slots;
 
     // There should be no more pushes past this point, so a stable pointer
@@ -651,7 +651,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             if (!Try_Add_Binder_Index(&binder, VAL_PARAM_CANON(src), 1020))
                 duplicate = VAL_PARAM_SPELLING(src);
 
-            if (definitional_return && src == definitional_return)
+            if (definitional_return and src == definitional_return)
                 continue;
 
             Move_Value(dest, src);
@@ -710,7 +710,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     REBCTX *meta = NULL;
 
-    if (has_description || has_types || has_notes) {
+    if (has_description or has_types or has_notes) {
         meta = Copy_Context_Shallow(VAL_CONTEXT(Root_Function_Meta));
         MANAGE_ARRAY(CTX_VARLIST(meta));
     }
@@ -732,7 +732,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Only make `parameter-types` if there were blocks in the spec
     //
-    if (NOT(has_types)) {
+    if (not has_types) {
         if (meta) {
             Init_Void(CTX_VAR(meta, STD_FUNCTION_META_PARAMETER_TYPES));
             Init_Void(CTX_VAR(meta, STD_FUNCTION_META_RETURN_TYPE));
@@ -757,7 +757,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         src += 3;
         for (; src <= DS_TOP; src += 3) {
             assert(IS_BLOCK(src));
-            if (definitional_return && src == definitional_return + 1)
+            if (definitional_return and src == definitional_return + 1)
                 continue;
 
             if (VAL_ARRAY_LEN_AT(src) == 0)
@@ -785,7 +785,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 );
             }
 
-            if (NOT(flags & MKF_FAKE_RETURN)) {
+            if (not (flags & MKF_FAKE_RETURN)) {
                 Init_Void(dest); // clear the local RETURN: var's description
                 ++dest;
             }
@@ -803,7 +803,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Only make `parameter-notes` if there were strings (besides description)
     //
-    if (NOT(has_notes)) {
+    if (not has_notes) {
         if (meta) {
             Init_Void(CTX_VAR(meta, STD_FUNCTION_META_PARAMETER_NOTES));
             Init_Void(CTX_VAR(meta, STD_FUNCTION_META_RETURN_NOTE));
@@ -828,7 +828,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         src += 3;
         for (; src <= DS_TOP; src += 3) {
             assert(IS_STRING(src));
-            if (definitional_return && src == definitional_return + 2)
+            if (definitional_return and src == definitional_return + 2)
                 continue;
 
             if (SER_LEN(VAL_SERIES(src)) == 0)
@@ -853,7 +853,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 );
             }
 
-            if (NOT(flags & MKF_FAKE_RETURN)) {
+            if (not (flags & MKF_FAKE_RETURN)) {
                 Init_Void(dest);
                 ++dest;
             }
@@ -897,8 +897,8 @@ REBCNT Find_Param_Index(REBARR *paramlist, REBSTR *spelling)
     for (n = 1; n < len; ++n, ++param) {
         if (
             spelling == VAL_PARAM_SPELLING(param)
-            || canon == VAL_PARAM_CANON(param)
-        ) {
+            or canon == VAL_PARAM_CANON(param)
+        ){
             return n;
         }
     }
@@ -980,7 +980,7 @@ REBFUN *Make_Function(
             // First argument is not tight, and not specialized, so cache flag
             // to report that fact.
             //
-            if (first_arg && NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN)) {
+            if (first_arg and NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN)) {
                 SET_VAL_FLAG(rootparam, FUNC_FLAG_DEFERS_LOOKBACK);
                 first_arg = FALSE;
             }
@@ -993,13 +993,13 @@ REBFUN *Make_Function(
             //
             // If first argument is tight, and not specialized, no flag needed
             //
-            if (first_arg && NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN))
+            if (first_arg and NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN))
                 first_arg = FALSE;
             break;
 
         case PARAM_CLASS_HARD_QUOTE:
         case PARAM_CLASS_SOFT_QUOTE:
-            if (first_arg && NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN)) {
+            if (first_arg and NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN)) {
                 SET_VAL_FLAG(rootparam, FUNC_FLAG_QUOTES_FIRST_ARG);
                 first_arg = FALSE;
             }
@@ -1080,7 +1080,7 @@ REBFUN *Make_Function(
     //
     assert(
         MISC(paramlist).meta == NULL
-        || GET_SER_FLAG(CTX_VARLIST(MISC(paramlist).meta), ARRAY_FLAG_VARLIST)
+        or GET_SER_FLAG(CTX_VARLIST(MISC(paramlist).meta), ARRAY_FLAG_VARLIST)
     );
 
     // Note: used to set the keys of natives as read-only so that the debugger
@@ -1158,7 +1158,7 @@ REBARR *Get_Maybe_Fake_Func_Body(REBOOL *is_fake, const REBVAL *func)
     REBARR *fake_body;
     REBVAL *example = NULL;
 
-    assert(IS_FUNCTION(func) && IS_FUNCTION_INTERPRETED(func));
+    assert(IS_FUNCTION(func) and IS_FUNCTION_INTERPRETED(func));
 
     REBCNT body_index;
     if (GET_VAL_FLAG(func, FUNC_FLAG_RETURN)) {
@@ -1428,7 +1428,7 @@ void Make_Frame_For_Function(
             // Drive whether the refinement is present or not based on whether
             // it's available for the user to pass in or not.
             //
-            assert(IS_REFINEMENT(special) || IS_VOID(special));
+            assert(IS_REFINEMENT(special) or IS_VOID(special));
             if (IS_REFINEMENT_SPECIALIZED(param))
                 Init_Logic(arg, TRUE);
             else
@@ -1604,7 +1604,7 @@ REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 REB_R Unchecked_Dispatcher(REBFRM *f)
 {
     RELVAL *body = FUNC_BODY(f->phase);
-    assert(IS_BLOCK(body) && IS_RELATIVE(body) && VAL_INDEX(body) == 0);
+    assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
         return R_OUT_IS_THROWN;
@@ -1623,7 +1623,7 @@ REB_R Unchecked_Dispatcher(REBFRM *f)
 REB_R Voider_Dispatcher(REBFRM *f)
 {
     RELVAL *body = FUNC_BODY(f->phase);
-    assert(IS_BLOCK(body) && IS_RELATIVE(body) && VAL_INDEX(body) == 0);
+    assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
         return R_OUT_IS_THROWN;
@@ -1642,7 +1642,7 @@ REB_R Voider_Dispatcher(REBFRM *f)
 REB_R Returner_Dispatcher(REBFRM *f)
 {
     RELVAL *body = FUNC_BODY(f->phase);
-    assert(IS_BLOCK(body) && IS_RELATIVE(body) && VAL_INDEX(body) == 0);
+    assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
         return R_OUT_IS_THROWN;
@@ -1654,7 +1654,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
     // local uses them for the return types of a "virtual" definitional return
     // if the parameter is PARAM_CLASS_RETURN.
     //
-    if (!TYPE_CHECK(typeset, VAL_TYPE(f->out)))
+    if (not TYPE_CHECK(typeset, VAL_TYPE(f->out)))
         fail (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
 
     return R_OUT;
@@ -1672,7 +1672,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
 REB_R Elider_Dispatcher(REBFRM *f)
 {
     RELVAL *body = FUNC_BODY(f->phase);
-    assert(IS_BLOCK(body) && IS_RELATIVE(body) && VAL_INDEX(body) == 0);
+    assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     // !!! It would be nice to use the frame's spare "cell" for the thrownaway
     // result, but Fetch_Next code expects to use the cell.

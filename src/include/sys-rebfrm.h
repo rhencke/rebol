@@ -335,7 +335,7 @@
 
 
 #define IS_KIND_INERT(k) \
-    DID((k) >= REB_BLOCK)
+    ((k) >= REB_BLOCK)
 
 
 struct Reb_Frame_Source {

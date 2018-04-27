@@ -168,7 +168,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         || (cp[0] == '.' && (cp[1] == 0 || (cp[1] == '.' && cp[2] == '\0')))
     ){
         // Read next file_req entry, or error:
-        if (NOT(FindNextFile(h, &info))) {
+        if (not FindNextFile(h, &info)) {
             DWORD last_error_cache = GetLastError();
             FindClose(h);
             dir_req->requestee.handle = NULL;
@@ -183,7 +183,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         cp = info.cFileName;
     }
 
-    if (NOT(got_info)) {
+    if (not got_info) {
         assert(FALSE); // see above for why this R3-Alpha code had a "hole"
         rebFail ("{%dev-clipboard: NOT(got_info), please report}", rebEnd());
     }
@@ -192,7 +192,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         file_req->modes |= RFM_DIR;
 
-    const REBOOL is_dir = DID(file_req->modes & RFM_DIR);
+    const REBOOL is_dir = did (file_req->modes & RFM_DIR);
     file->path = rebLocalToFileW(info.cFileName, is_dir);
     file->size =
         (cast(int64_t, info.nFileSizeHigh) << 32) + info.nFileSizeLow;
@@ -233,8 +233,8 @@ DEVICE_CMD Open_File(REBREQ *req)
     if ((req->modes & (RFM_WRITE | RFM_APPEND)) != 0) {
         access |= GENERIC_WRITE;
         if (
-            DID(req->modes & RFM_NEW) ||
-            (req->modes & (RFM_READ | RFM_APPEND | RFM_SEEK)) == 0
+            (req->modes & RFM_NEW)
+            or (req->modes & (RFM_READ | RFM_APPEND | RFM_SEEK)) == 0
         ){
             create = CREATE_ALWAYS;
         }
@@ -242,7 +242,7 @@ DEVICE_CMD Open_File(REBREQ *req)
             create = OPEN_ALWAYS;
     }
 
-    attrib |= DID(req->modes & RFM_SEEK)
+    attrib |= (req->modes & RFM_SEEK)
         ? FILE_FLAG_RANDOM_ACCESS
         : FILE_FLAG_SEQUENTIAL_SCAN;
 
@@ -331,19 +331,19 @@ DEVICE_CMD Read_File(REBREQ *req)
 
     if ((req->modes & (RFM_SEEK | RFM_RESEEK)) != 0) {
         req->modes &= ~RFM_RESEEK;
-        if (NOT(Seek_File_64(file)))
+        if (not Seek_File_64(file))
             rebFail_OS (GetLastError());
     }
 
     assert(sizeof(DWORD) == sizeof(req->actual));
 
-    if (NOT(ReadFile(
+    if (not ReadFile(
         req->requestee.handle,
         req->common.data,
         req->length,
         cast(DWORD*, &req->actual),
         0
-    ))){
+    )){
         rebFail_OS (GetLastError());
     }
 
@@ -370,13 +370,13 @@ DEVICE_CMD Write_File(REBREQ *req)
 
     if ((req->modes & (RFM_SEEK | RFM_RESEEK | RFM_TRUNCATE)) != 0) {
         req->modes &= ~RFM_RESEEK;
-        if (NOT(Seek_File_64(file)))
+        if (not Seek_File_64(file))
             rebFail_OS (GetLastError());
         if (req->modes & RFM_TRUNCATE)
             SetEndOfFile(req->requestee.handle);
     }
 
-    if (NOT(req->modes & RFM_TEXT)) { // e.g. no LF => CRLF translation needed
+    if (not (req->modes & RFM_TEXT)) { // e.g. no LF => CRLF translation needed
         if (req->length != 0) {
             BOOL ok = WriteFile(
                 req->requestee.handle,
@@ -386,7 +386,7 @@ DEVICE_CMD Write_File(REBREQ *req)
                 0
             );
 
-            if (NOT(ok))
+            if (not ok)
                 rebFail_OS (GetLastError());
         }
     }
@@ -412,7 +412,7 @@ DEVICE_CMD Write_File(REBREQ *req)
                     &total_bytes,
                     0
                 );
-                if (NOT(ok))
+                if (not ok)
                     rebFail_OS (GetLastError());
                 req->actual += total_bytes;
             }
@@ -428,7 +428,7 @@ DEVICE_CMD Write_File(REBREQ *req)
                 &total_bytes,
                 0
             );
-            if (NOT(ok))
+            if (not ok)
                 rebFail_OS (GetLastError());
             req->actual += total_bytes;
 
@@ -479,7 +479,7 @@ DEVICE_CMD Query_File(REBREQ *req)
 
     rebFree(path_wide);
 
-    if (NOT(success))
+    if (not success)
         rebFail_OS (GetLastError());
 
     if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
@@ -503,7 +503,7 @@ DEVICE_CMD Create_File(REBREQ *req)
 {
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    if (NOT(req->modes & RFM_DIR))
+    if (not (req->modes & RFM_DIR))
         return Open_File(req);
 
     WCHAR *path_wide = rebFileToLocalAllocW(
@@ -517,7 +517,7 @@ DEVICE_CMD Create_File(REBREQ *req)
 
     rebFree(path_wide);
 
-    if (NOT(success))
+    if (not success)
         rebFail_OS (GetLastError());
 
     return DR_DONE;
@@ -549,7 +549,7 @@ DEVICE_CMD Delete_File(REBREQ *req)
     else
         success = DeleteFile(path_wide);
 
-    if (NOT(success))
+    if (not success)
         rebFail_OS (GetLastError());
 
     return DR_DONE;
@@ -584,7 +584,7 @@ DEVICE_CMD Rename_File(REBREQ *req)
     rebFree(to_wide);
     rebFree(from_wide);
 
-    if (NOT(success))
+    if (not success)
         rebFail_OS (GetLastError());
 
     return DR_DONE;

@@ -104,7 +104,7 @@ DEVICE_CMD Open_IO(REBREQ *req)
         return DR_DONE; // Do not do it again
     }
 
-    if (NOT(req->modes & RDM_NULL)) {
+    if (not (req->modes & RDM_NULL)) {
 
 #ifndef HAS_SMART_CONSOLE
         if (isatty(Std_Inp))

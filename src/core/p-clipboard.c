@@ -51,7 +51,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return R_FROM_BOOL(DID(req->flags & RRF_OPEN));
+            return R_FROM_BOOL(did (req->flags & RRF_OPEN));
 
         default:
             break;
@@ -96,7 +96,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         // This device is opened on the READ:
-        if (NOT(req->flags & RRF_OPEN)) {
+        if (not (req->flags & RRF_OPEN)) {
             REBVAL *o_result = OS_DO_DEVICE(req, RDC_OPEN);
             assert(o_result != NULL);
             if (rebTypeOf(o_result) == RXT_ERROR)
@@ -150,11 +150,11 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         if (REF(lines))
             fail (Error_Bad_Refines_Raw());
 
-        if (!IS_STRING(arg) && !IS_BINARY(arg))
+        if (not IS_STRING(arg) and not IS_BINARY(arg))
             fail (Error_Invalid_Port_Arg_Raw(arg));
 
         // This device is opened on the WRITE:
-        if (NOT(req->flags & RRF_OPEN)) {
+        if (not (req->flags & RRF_OPEN)) {
             REBVAL *o_result = OS_DO_DEVICE(req, RDC_OPEN);
             assert(o_result != NULL);
             if (rebTypeOf(o_result) == RXT_ERROR)
@@ -163,7 +163,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         // Handle /part refinement:
         REBINT len = VAL_LEN_AT(arg);
-        if (REF(part) && VAL_INT32(ARG(limit)) < len)
+        if (REF(part) and VAL_INT32(ARG(limit)) < len)
             len = VAL_INT32(ARG(limit));
 
         req->common.data = cast(REBYTE*, arg);

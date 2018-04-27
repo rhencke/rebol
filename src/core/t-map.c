@@ -139,7 +139,7 @@ REBINT Find_Key_Hashed(
             if (ANY_WORD(k)) {
                 if (VAL_WORD_SPELLING(key) == VAL_WORD_SPELLING(k))
                     FOUND_EXACT;
-                else if (NOT(cased))
+                else if (not cased)
                     if (VAL_WORD_CANON(key) == VAL_WORD_CANON(k))
                         FOUND_SYNONYM;
             }
@@ -158,7 +158,7 @@ REBINT Find_Key_Hashed(
             if (VAL_TYPE(k) == VAL_TYPE(key)) {
                 if (0 == Compare_String_Vals(k, key, FALSE))
                     FOUND_EXACT;
-                else if (NOT(cased) && NOT(IS_BINARY(key)))
+                else if (not cased and not IS_BINARY(key))
                     if (0 == Compare_String_Vals(k, key, TRUE))
                         FOUND_SYNONYM;
             }
@@ -177,7 +177,7 @@ REBINT Find_Key_Hashed(
             if (VAL_TYPE(k) == VAL_TYPE(key)) {
                 if (0 == Cmp_Value(k, key, TRUE))
                     FOUND_EXACT;
-                else if (NOT(cased))
+                else if (not cased)
                     if (IS_CHAR(k) && 0 == Cmp_Value(k, key, FALSE))
                         FOUND_SYNONYM; // CHAR! is only non-STRING!/WORD! case
             }
@@ -191,7 +191,7 @@ REBINT Find_Key_Hashed(
     }
 
     if (synonym_slot != -1) {
-        assert(NOT(cased));
+        assert(not cased);
         return synonym_slot; // there weren't other spellings of the same key
     }
 
@@ -281,7 +281,7 @@ void Expand_Hash(REBSER *ser)
         ser,
         pnum + 1,
         SER_WIDE(ser),
-        SERIES_FLAG_POWER_OF_2 // NOT(NODE_FLAG_NODE) => don't keep data
+        SERIES_FLAG_POWER_OF_2 // not(NODE_FLAG_NODE) => don't keep data
     );
 
     Clear_Series(ser);
@@ -585,7 +585,7 @@ REBMAP *Mutate_Array_Into_Map(REBARR *a)
 
     // See note above--can't have this array be accessible via some ANY-BLOCK!
     //
-    assert(NOT(IS_ARRAY_MANAGED(a)));
+    assert(not IS_ARRAY_MANAGED(a));
 
     SET_SER_FLAG(a, ARRAY_FLAG_PAIRLIST);
 
@@ -667,7 +667,7 @@ void MF_Map(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
     Push_Pointer_To_Series(TG_Mold_Stack, m);
 
-    if (NOT(form)) {
+    if (not form) {
         Pre_Mold(mo, v);
         Append_Utf8_Codepoint(mo->series, '[');
     }
@@ -683,7 +683,7 @@ void MF_Map(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         if (IS_VOID(key + 1))
             continue; // if value for this key is void, key has been removed
 
-        if (NOT(form))
+        if (not form)
             New_Indented_Line(mo);
         Emit(mo, "V V", key, key + 1);
         if (form)
@@ -691,7 +691,7 @@ void MF_Map(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     }
     mo->indent--;
 
-    if (NOT(form)) {
+    if (not form) {
         New_Indented_Line(mo);
         Append_Utf8_Codepoint(mo->series, ']');
     }
@@ -740,7 +740,7 @@ REBTYPE(Map)
             return R_OUT;
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(DID(Length_Map(map) == 0));
+            return R_FROM_BOOL(Length_Map(map) == 0);
 
         default:
             break;
@@ -854,7 +854,7 @@ REBTYPE(Map)
             UNUSED(ARG(limit));
             fail (Error_Bad_Refines_Raw());
         }
-        if (NOT(REF(map)))
+        if (not REF(map))
             fail (Error_Illegal_Action(REB_MAP, action));
 
         Move_Value(D_OUT, val);

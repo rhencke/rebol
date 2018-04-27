@@ -104,7 +104,7 @@ void *Alloc_Mem(size_t size)
     // Trap memory usage limit *before* the allocation is performed
 
     PG_Mem_Usage += size;
-    if ((PG_Mem_Limit != 0) && (PG_Mem_Usage > PG_Mem_Limit))
+    if (PG_Mem_Limit != 0 and PG_Mem_Usage > PG_Mem_Limit)
         Check_Security(Canon(SYM_MEMORY), POL_EXEC, 0);
 
     // malloc() internally remembers the size of the allocation, and is hence
@@ -177,7 +177,7 @@ void Free_Mem(void *mem, size_t size)
                 : cast(REBCNT, SYSTEM_POOL))
     #else
         #define FIND_POOL(n) \
-            ((!PG_Always_Malloc && (n <= 4 * MEM_BIG_SIZE)) \
+            ((not PG_Always_Malloc and (n <= 4 * MEM_BIG_SIZE)) \
                 ? cast(REBCNT, PG_Pool_Map[n]) \
                 : cast(REBCNT, SYSTEM_POOL))
     #endif
@@ -253,7 +253,7 @@ void Startup_Pools(REBINT scale)
   #ifndef NDEBUG
     const char *env_always_malloc = NULL;
     env_always_malloc = getenv("R3_ALWAYS_MALLOC");
-    if (env_always_malloc != NULL && atoi(env_always_malloc) != 0) {
+    if (env_always_malloc != NULL and atoi(env_always_malloc) != 0) {
         printf(
             "**\n"
             "** R3_ALWAYS_MALLOC is TRUE in environment variable!\n"
@@ -757,7 +757,7 @@ REBNOD *Try_Find_Containing_Node_Debug(const void *p)
                 continue;
 
             if (s->header.bits & NODE_FLAG_CELL) { // a "pairing"
-                if ((p >= cast(void*, s)) && (p < cast(void*, s + 1)))
+                if (p >= cast(void*, s) and p < cast(void*, s + 1))
                     return NOD(s); // REBSER is REBVAL[2]
                 continue;
             }
@@ -863,7 +863,7 @@ REBCNT Series_Allocation_Unpooled(REBSER *series)
 //
 REBSER *Make_Series_Core(REBCNT capacity, REBYTE wide, REBFLGS flags)
 {
-    assert(wide != 0 && capacity != 0); // not allowed
+    assert(wide != 0 and capacity != 0); // not allowed
 
     if (cast(REBU64, capacity) * wide > INT32_MAX)
         fail (Error_No_Memory(cast(REBU64, capacity) * wide));
@@ -900,7 +900,7 @@ REBSER *Make_Series_Core(REBCNT capacity, REBYTE wide, REBFLGS flags)
     assert(wide != 0);
     SER_SET_WIDE(s, wide);
 
-    if ((flags & SERIES_FLAG_ARRAY) && capacity <= 2) {
+    if ((flags & SERIES_FLAG_ARRAY) and capacity <= 2) {
         //
         // An array requested of capacity 2 actually means one cell of data
         // and one cell that can serve as an END marker.  The invariant that
@@ -941,7 +941,7 @@ REBSER *Make_Series_Core(REBCNT capacity, REBYTE wide, REBFLGS flags)
     // just for the moment of set up, so it doesn't try to add itself to the
     // manuals list!  It removes the managed flag after the create.
     //
-    if (NOT(flags & NODE_FLAG_MANAGED)) {
+    if (not (flags & NODE_FLAG_MANAGED)) {
         assert(GET_SER_INFO(GC_Manuals, SERIES_INFO_HAS_DYNAMIC));
 
         if (SER_FULL(GC_Manuals))
@@ -968,7 +968,7 @@ REBSER *Make_Series_Core(REBCNT capacity, REBYTE wide, REBFLGS flags)
     }
 
     assert(s->info.bits & NODE_FLAG_END);
-    assert(NOT(s->info.bits & NODE_FLAG_CELL));
+    assert(not (s->info.bits & NODE_FLAG_CELL));
     assert(SER_LEN(s) == 0);
     return s;
 }
@@ -1079,7 +1079,7 @@ static void Free_Unbiased_Series_Data(char *unbiased, REBCNT size_unpooled)
         // The series data does not honor "node protocol" when it is in use
         // The pools are not swept the way the REBSER pool is, so only the
         // free nodes have significance to their headers.  Use a cast and not
-        // NOD() because that assumes NOT(NODE_FLAG_FREE)
+        // NOD() because that assumes not (NODE_FLAG_FREE)
         //
         REBNOD *node = cast(REBNOD*, unbiased);
 
@@ -1158,7 +1158,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 
     const REBOOL was_dynamic = GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC);
 
-    if (was_dynamic && index == 0 && SER_BIAS(s) >= delta) {
+    if (was_dynamic and index == 0 and SER_BIAS(s) >= delta) {
 
     //=//// HEAD INSERTION OPTIMIZATION ///////////////////////////////////=//
 
@@ -1207,10 +1207,8 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 
         SET_SERIES_LEN(s, len_old + delta);
         assert(
-            !was_dynamic ||
-            (
-                (SER_LEN(s) + SER_BIAS(s)) * wide
-                < SER_TOTAL(s)
+            not was_dynamic or (
+                SER_TOTAL(s) > ((SER_LEN(s) + SER_BIAS(s)) * wide)
             )
         );
 
@@ -1404,7 +1402,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
     //
     assert((flags & ~(NODE_FLAG_NODE | SERIES_FLAG_POWER_OF_2)) == 0);
 
-    REBOOL preserve = DID(flags & NODE_FLAG_NODE);
+    REBOOL preserve = did (flags & NODE_FLAG_NODE);
 
     REBCNT len_old = SER_LEN(s);
     REBYTE wide_old = SER_WIDE(s);
@@ -1498,7 +1496,7 @@ void GC_Kill_Series(REBSER *s)
     }
   #endif
 
-    assert(NOT(s->header.bits & NODE_FLAG_CELL)); // use Free_Paired
+    assert(not (s->header.bits & NODE_FLAG_CELL)); // use Free_Paired
 
     if (GET_SER_FLAG(s, SERIES_FLAG_UTF8_STRING))
         GC_Kill_Interning(s); // needs special handling to adjust canons
@@ -1544,7 +1542,7 @@ void GC_Kill_Series(REBSER *s)
 
         if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
             RELVAL *v = ARR_HEAD(ARR(s));
-            if (NOT_END(v) && VAL_TYPE_RAW(v) == REB_HANDLE) {
+            if (NOT_END(v) and VAL_TYPE_RAW(v) == REB_HANDLE) {
                 if (v->extra.singular == ARR(s)) {
                     (MISC(s).cleaner)(KNOWN(v));
                 }
@@ -1709,7 +1707,7 @@ REBOOL Is_Value_Managed(const RELVAL *v)
             ASSERT_ARRAY_MANAGED(CTX_KEYLIST(c));
             return TRUE;
         }
-        assert(NOT(IS_ARRAY_MANAGED(CTX_KEYLIST(c)))); // !!! untrue?
+        assert(not IS_ARRAY_MANAGED(CTX_KEYLIST(c))); // !!! untrue?
         return FALSE;
     }
 
@@ -1738,15 +1736,15 @@ void Assert_Pointer_Detection_Working(void)
 
     assert(
         SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE
-        && SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE
-        && SERIES_INFO_4_IS_TRUE == NODE_FLAG_END
-        && SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL
+        and SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE
+        and SERIES_INFO_4_IS_TRUE == NODE_FLAG_END
+        and SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL
     );
     assert(
         DO_FLAG_0_IS_TRUE == NODE_FLAG_NODE
-        && DO_FLAG_1_IS_FALSE == NODE_FLAG_FREE
-        && DO_FLAG_4_IS_TRUE == NODE_FLAG_END
-        && DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL
+        and DO_FLAG_1_IS_FALSE == NODE_FLAG_FREE
+        and DO_FLAG_4_IS_TRUE == NODE_FLAG_END
+        and DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL
     );
 
     assert(Detect_Rebol_Pointer("") == DETECTED_AS_UTF8);
@@ -1770,8 +1768,8 @@ void Assert_Pointer_Detection_Working(void)
     // not be managed.  But the canon END is not managed, and end cells can
     // be either managed or unmanaged...but by default, not.
     //
-    assert(NOT(end_cell->header.bits & NODE_FLAG_MANAGED));
-    assert(NOT(END->header.bits & NODE_FLAG_MANAGED));
+    assert(not (end_cell->header.bits & NODE_FLAG_MANAGED));
+    assert(not (END->header.bits & NODE_FLAG_MANAGED));
 
     REBSER *series = Make_Series(1, sizeof(char));
     assert(Detect_Rebol_Pointer(series) == DETECTED_AS_SERIES);
@@ -1853,7 +1851,7 @@ REBCNT Check_Memory_Debug(void)
             for (; seg != NULL; seg = seg->next) {
                 if (
                     cast(uintptr_t, node) > cast(uintptr_t, seg)
-                    && (
+                    and (
                         cast(uintptr_t, node)
                         < cast(uintptr_t, seg) + cast(uintptr_t, seg->size)
                     )
@@ -1867,9 +1865,9 @@ REBCNT Check_Memory_Debug(void)
                 }
             }
 
-            if (NOT(found)) {
+            if (not found) {
                 printf("node does not belong to one of the pool's segments\n");
-                panic(node);
+                panic (node);
             }
         }
 
@@ -1933,11 +1931,11 @@ void Dump_Series_In_Pool(REBCNT pool_id)
 
             if (
                 pool_id == UNKNOWN
-                || (
+                or (
                     GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC)
-                    && FIND_POOL(SER_TOTAL(s)) == pool_id
+                    and pool_id == FIND_POOL(SER_TOTAL(s))
                 )
-            ) {
+            ){
                 Dump_Series(s, "Dump_Series_In_Pool");
             }
 

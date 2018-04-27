@@ -135,7 +135,7 @@ static REB_R Transport_Actor(
 
     // Actions for an unopened socket:
 
-    if (NOT(sock->flags & RRF_OPEN)) {
+    if (not (sock->flags & RRF_OPEN)) {
 
         switch (action) { // Ordered by frequency
 
@@ -260,7 +260,7 @@ static REB_R Transport_Actor(
             // Connect for clients, bind for servers:
             //
             return R_FROM_BOOL (
-                DID((sock->state & (RSM_CONNECT | RSM_BIND)) != 0)
+                (sock->state & (RSM_CONNECT | RSM_BIND)) != 0
             );
 
         default:
@@ -307,8 +307,8 @@ static REB_R Transport_Actor(
         // Read data into a buffer, expanding the buffer if needed.
         // If no length is given, program must stop it at some point.
         if (
-            NOT(sock->modes & RST_UDP)
-            && NOT(sock->state & RSM_CONNECT)
+            not (sock->modes & RST_UDP)
+            and not (sock->state & RSM_CONNECT)
         ){
             fail (Error_On_Port(RE_NOT_CONNECTED, port, -15));
         }
@@ -317,7 +317,7 @@ static REB_R Transport_Actor(
         //
         REBVAL *port_data = CTX_VAR(port, STD_PORT_DATA);
         REBSER *buffer;
-        if (!IS_STRING(port_data) && !IS_BINARY(port_data)) {
+        if (not IS_STRING(port_data) and not IS_BINARY(port_data)) {
             buffer = Make_Binary(NET_BUF_SIZE);
             Init_Binary(port_data, buffer);
         }
@@ -371,8 +371,8 @@ static REB_R Transport_Actor(
         // The lower level write code continues until done.
 
         if (
-            NOT(sock->modes & RST_UDP)
-            && NOT(sock->state & RSM_CONNECT)
+            not (sock->modes & RST_UDP)
+            and not (sock->state & RSM_CONNECT)
         ){
             fail (Error_On_Port(RE_NOT_CONNECTED, port, -15));
         }
@@ -452,9 +452,9 @@ static REB_R Transport_Actor(
         REBCNT len = Get_Num_From_Arg(ARG(picker));
         if (
             len == 1
-            && NOT(sock->modes & RST_UDP)
-            && DID(sock->modes & RST_LISTEN)
-            && sock->common.data != NULL
+            and not (sock->modes & RST_UDP)
+            and (sock->modes & RST_LISTEN)
+            and sock->common.data != NULL
         ){
             Accept_New_Port(SINK(D_OUT), port, DEVREQ_NET(sock));
         }

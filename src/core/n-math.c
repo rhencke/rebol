@@ -58,11 +58,11 @@ enum {SINE, COSINE, TANGENT};
 // Convert integer arg, if present, to decimal and convert to radians
 // if necessary.  Clip ranges for correct REBOL behavior.
 //
-static REBDEC Trig_Value(const REBVAL *value, REBOOL degrees, REBCNT which)
+static REBDEC Trig_Value(const REBVAL *value, REBOOL radians, REBCNT which)
 {
     REBDEC dval = AS_DECIMAL(value);
 
-    if (degrees) {
+    if (not radians) {
         /* get dval between -360.0 and 360.0 */
         dval = fmod (dval, 360.0);
 
@@ -85,16 +85,17 @@ static REBDEC Trig_Value(const REBVAL *value, REBOOL degrees, REBCNT which)
 //
 //  Arc_Trans: C
 //
-static void Arc_Trans(REBVAL *out, const REBVAL *value, REBOOL degrees, REBCNT kind)
+static void Arc_Trans(REBVAL *out, const REBVAL *value, REBOOL radians, REBCNT kind)
 {
     REBDEC dval = AS_DECIMAL(value);
-    if (kind != TANGENT && (dval < -1 || dval > 1)) fail (Error_Overflow_Raw());
+    if (kind != TANGENT and (dval < -1 || dval > 1))
+        fail (Error_Overflow_Raw());
 
     if (kind == SINE) dval = asin(dval);
     else if (kind == COSINE) dval = acos(dval);
     else dval = atan(dval);
 
-    if (degrees)
+    if (not radians)
         dval = dval * 180.0 / PI; // to degrees
 
     Init_Decimal(out, dval);
@@ -116,7 +117,7 @@ REBNATIVE(cosine)
 {
     INCLUDE_PARAMS_OF_COSINE;
 
-    REBDEC dval = cos(Trig_Value(ARG(angle), NOT(REF(radians)), COSINE));
+    REBDEC dval = cos(Trig_Value(ARG(angle), REF(radians), COSINE));
     if (fabs(dval) < DBL_EPSILON) dval = 0.0;
     Init_Decimal(D_OUT, dval);
     return R_OUT;
@@ -138,7 +139,7 @@ REBNATIVE(sine)
 {
     INCLUDE_PARAMS_OF_SINE;
 
-    REBDEC dval = sin(Trig_Value(ARG(angle), NOT(REF(radians)), SINE));
+    REBDEC dval = sin(Trig_Value(ARG(angle), REF(radians), SINE));
     if (fabs(dval) < DBL_EPSILON) dval = 0.0;
     Init_Decimal(D_OUT, dval);
     return R_OUT;
@@ -160,7 +161,7 @@ REBNATIVE(tangent)
 {
     INCLUDE_PARAMS_OF_TANGENT;
 
-    REBDEC dval = Trig_Value(ARG(angle), NOT(REF(radians)), TANGENT);
+    REBDEC dval = Trig_Value(ARG(angle), REF(radians), TANGENT);
     if (Eq_Decimal(fabs(dval), PI / 2.0))
         fail (Error_Overflow_Raw());
 
@@ -184,7 +185,7 @@ REBNATIVE(arccosine)
 {
     INCLUDE_PARAMS_OF_ARCCOSINE;
 
-    Arc_Trans(D_OUT, ARG(cosine), NOT(REF(radians)), COSINE);
+    Arc_Trans(D_OUT, ARG(cosine), REF(radians), COSINE);
     return R_OUT;
 }
 
@@ -204,7 +205,7 @@ REBNATIVE(arcsine)
 {
     INCLUDE_PARAMS_OF_ARCSINE;
 
-    Arc_Trans(D_OUT, ARG(sine), NOT(REF(radians)), SINE);
+    Arc_Trans(D_OUT, ARG(sine), REF(radians), SINE);
     return R_OUT;
 }
 
@@ -224,7 +225,7 @@ REBNATIVE(arctangent)
 {
     INCLUDE_PARAMS_OF_ARCTANGENT;
 
-    Arc_Trans(D_OUT, ARG(tangent), NOT(REF(radians)), TANGENT);
+    Arc_Trans(D_OUT, ARG(tangent), REF(radians), TANGENT);
     return R_OUT;
 }
 
@@ -699,7 +700,7 @@ REBNATIVE(same_q)
         //
         if (VAL_WORD_SPELLING(value1) != VAL_WORD_SPELLING(value2))
             return R_FALSE;
-        if (NOT(Same_Binding(VAL_BINDING(value1), VAL_BINDING(value2))))
+        if (not Same_Binding(VAL_BINDING(value1), VAL_BINDING(value2)))
             return R_FALSE;
         return R_TRUE;
     }
@@ -947,7 +948,7 @@ REBNATIVE(zero_q)
 
     enum Reb_Kind type = VAL_TYPE(ARG(value));
 
-    if (type >= REB_INTEGER && type <= REB_TIME) {
+    if (type >= REB_INTEGER and type <= REB_TIME) {
         DECLARE_LOCAL (zero);
         SET_ZEROED(zero, type);
 

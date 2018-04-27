@@ -89,7 +89,7 @@ REBNATIVE(mold)
 
     Push_Mold(mo);
 
-    if (REF(only) && IS_BLOCK(ARG(value)))
+    if (REF(only) and IS_BLOCK(ARG(value)))
         SET_MOLD_FLAG(mo, MOLD_FLAG_ONLY);
 
     Mold_Value(mo, ARG(value));
@@ -210,7 +210,7 @@ REBNATIVE(new_line)
 
     REBCNT n;
     for (n = 0; NOT_END(v); ++n, ++v) {
-        if ((skip != 0) && (n % skip != 0))
+        if (skip != 0 and (n % skip != 0))
             continue;
 
         if (mark)
@@ -291,7 +291,7 @@ REBNATIVE(now)
     Move_Value(D_OUT, timestamp);
     rebRelease(timestamp);
 
-    if (NOT(REF(precise))) {
+    if (not REF(precise)) {
         //
         // The "time" field is measured in nanoseconds, and the historical
         // meaning of not using precise measurement was to use only the
@@ -487,7 +487,7 @@ REBNATIVE(wait)
     // Determine what port(s) waked us:
     Sieve_Ports(ports);
 
-    if (NOT(REF(all))) {
+    if (not REF(all)) {
         val = ARR_HEAD(ports);
         if (IS_PORT(val))
             Move_Value(D_OUT, KNOWN(val));
@@ -536,7 +536,7 @@ REBNATIVE(wake_up)
         if (Apply_Only_Throws(D_OUT, fully, awake, ARG(event), END))
             fail (Error_No_Catch_For_Throw(D_OUT));
 
-        if (NOT(IS_LOGIC(D_OUT) && VAL_LOGIC(D_OUT)))
+        if (not (IS_LOGIC(D_OUT) and VAL_LOGIC(D_OUT)))
             woke_up = FALSE;
     }
 
@@ -563,7 +563,7 @@ REBNATIVE(local_to_file)
 
     REBVAL *path = ARG(path);
     if (IS_FILE(path)) {
-        if (NOT(REF(only)))
+        if (not REF(only))
             fail ("LOCAL-TO-FILE only passes through FILE! if /ONLY used");
 
         Init_File(
@@ -607,7 +607,7 @@ REBNATIVE(file_to_local)
 
     REBVAL *path = ARG(path);
     if (IS_STRING(path)) {
-        if (NOT(REF(only)))
+        if (not REF(only))
             fail ("FILE-TO-LOCAL only passes through STRING! if /ONLY used");
 
         Init_String(
@@ -656,7 +656,7 @@ REBNATIVE(what_dir)
         Move_Value(current_path, refresh);
         rebRelease(refresh);
     }
-    else if (NOT(IS_URL(current_path))) {
+    else if (not IS_URL(current_path)) {
         //
         // Lousy error, but ATM the user can directly edit system/options.
         // They shouldn't be able to (or if they can, it should be validated)
@@ -708,7 +708,7 @@ REBNATIVE(change_dir)
 
         REBOOL success = OS_SET_CURRENT_DIR(arg);
 
-        if (NOT(success))
+        if (not success)
             fail (Error_Invalid(arg));
     }
 

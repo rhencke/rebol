@@ -109,13 +109,13 @@ static REBOOL Set_Sock_Options(SOCKET sock)
     // Set non-blocking mode. Return TRUE if no error.
 #ifdef FIONBIO
     unsigned long mode = 1;
-    return NOT(IOCTL(sock, FIONBIO, &mode));
+    return not IOCTL(sock, FIONBIO, &mode);
 #else
     int flags;
     flags = fcntl(sock, F_GETFL, 0);
     flags |= O_NONBLOCK;
     //else flags &= ~O_NONBLOCK;
-    return DID(fcntl(sock, F_SETFL, flags) >= 0);
+    return fcntl(sock, F_SETFL, flags) >= 0;
 #endif
 }
 
@@ -395,7 +395,7 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
 //
 DEVICE_CMD Transfer_Socket(REBREQ *req)
 {
-    if (NOT(req->state & RSM_CONNECT) && NOT(req->modes & RST_UDP))
+    if (not (req->state & RSM_CONNECT) and not (req->modes & RST_UDP))
         rebFail (
             "{RSM_CONNECT must be true in Transfer_Socket() unless UDP}", END
         );
@@ -517,7 +517,7 @@ DEVICE_CMD Listen_Socket(REBREQ *req)
     req->state |= RSM_BIND;
 
     // For TCP connections, setup listen queue:
-    if (NOT(req->modes & RST_UDP)) {
+    if (not (req->modes & RST_UDP)) {
         result = listen(req->requestee.socket, SOMAXCONN);
         if (result != 0)
             rebFail_OS (GET_ERROR);
@@ -554,7 +554,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
 
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
-        if (NOT(sock->modes & RST_UDP)) // !!! other checks?
+        if (not (sock->modes & RST_UDP)) // !!! other checks?
             rebFail ("{SET-UDP-MULTICAST used on non-UDP port}", END);
 
         struct ip_mreq mreq;
@@ -576,7 +576,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
 
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
-        if (NOT(sock->modes & RST_UDP)) // !!! other checks?
+        if (not (sock->modes & RST_UDP)) // !!! other checks?
             rebFail ("{SET-UDP-TTL used on non-UDP port}", END);
 
         int ttl = VAL_INT32(ARG(ttl));

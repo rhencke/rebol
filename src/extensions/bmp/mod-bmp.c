@@ -328,7 +328,7 @@ REBNATIVE(decode_bmp)
     const REBYTE *data = VAL_BIN_AT(ARG(data));
     REBCNT len = VAL_LEN_AT(ARG(data));
 
-    if (NOT(Has_Valid_BITMAPFILEHEADER(data, len)))
+    if (not Has_Valid_BITMAPFILEHEADER(data, len))
         fail (Error_Bad_Media_Raw());
 
     REBINT              i, j, x, y, c;

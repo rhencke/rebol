@@ -59,7 +59,7 @@ REBINT CT_String(const RELVAL *a, const RELVAL *b, REBINT mode)
     REBINT num;
 
     if (IS_BINARY(a)) {
-        if (NOT(IS_BINARY(b)))
+        if (not IS_BINARY(b))
             fail ("Can't compare binary to string, use AS STRING/BINARY!");
 
         num = Compare_Binary_Vals(a, b);
@@ -67,7 +67,7 @@ REBINT CT_String(const RELVAL *a, const RELVAL *b, REBINT mode)
     else if (IS_BINARY(b))
         fail ("Can't compare binary to string, use AS STRING!/BINARY!");
     else
-        num = Compare_String_Vals(a, b, NOT(mode == 1));
+        num = Compare_String_Vals(a, b, mode != 1);
 
     if (mode >= 0) return (num == 0) ? 1 : 0;
     if (mode == -1) return (num >= 0) ? 1 : 0;
@@ -202,8 +202,8 @@ static REBCNT find_string(
                 start,
                 VAL_BIN_AT(target),
                 target_len,
-                NOT(flags & AM_FIND_CASE),
-                DID(flags & AM_FIND_MATCH)
+                not (flags & AM_FIND_CASE),
+                did (flags & AM_FIND_MATCH)
             );
         }
         else {
@@ -228,7 +228,7 @@ static REBCNT find_string(
             VAL_BIN_AT(target),
             target_len,
             uncase, // "don't treat case insensitively"
-            DID(flags & AM_FIND_MATCH)
+            did (flags & AM_FIND_MATCH)
         );
     }
     else if (IS_CHAR(target)) {
@@ -435,7 +435,7 @@ void MAKE_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *def) {
         RELVAL *any_binstr = VAL_ARRAY_AT(def);
         if (!ANY_BINSTR(any_binstr))
             goto bad_make;
-        if (IS_BINARY(any_binstr) != DID(kind == REB_BINARY))
+        if (IS_BINARY(any_binstr) != (kind == REB_BINARY))
             goto bad_make;
 
         RELVAL *index = VAL_ARRAY_AT(def) + 1;
@@ -624,7 +624,7 @@ REB_R PD_String(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 
         if (
             IS_BINARY(pvs->out)
-            || NOT(IS_WORD(picker) || ANY_STRING(picker))
+            or not (IS_WORD(picker) or ANY_STRING(picker))
         ){
             return R_UNHANDLED;
         }
@@ -708,7 +708,7 @@ REB_R PD_String(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 
     FAIL_IF_READ_ONLY_SERIES(ser);
 
-    if (NOT(IS_INTEGER(picker)))
+    if (not IS_INTEGER(picker))
         return R_UNHANDLED;
 
     REBINT n = Int32(picker) + VAL_INDEX(pvs->out) - 1;
@@ -1079,18 +1079,18 @@ void MF_Binary(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     switch (Get_System_Int(SYS_OPTIONS, OPTIONS_BINARY_BASE, 16)) {
     default:
     case 16: {
-        const REBOOL brk = DID(len > 32);
+        const REBOOL brk = (len > 32);
         enbased = Encode_Base16(VAL_BIN_AT(v), len, brk);
         break; }
 
     case 64: {
-        const REBOOL brk = DID(len > 64);
+        const REBOOL brk = (len > 64);
         Append_Unencoded(mo->series, "64");
         enbased = Encode_Base64(VAL_BIN_AT(v), len, brk);
         break; }
 
     case 2: {
-        const REBOOL brk = DID(len > 8);
+        const REBOOL brk = (len > 8);
         Append_Utf8_Codepoint(mo->series, '2');
         enbased = Encode_Base2(VAL_BIN_AT(v), len, brk);
         break; }
@@ -1135,7 +1135,7 @@ void MF_String(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     // The R3-Alpha forming logic was that every string type besides TAG!
     // would form with no delimiters, e.g. `form #foo` is just foo
     //
-    if (form && NOT(IS_TAG(v))) {
+    if (form and not IS_TAG(v)) {
         REBSIZ offset;
         REBSIZ size;
         REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
@@ -1369,7 +1369,7 @@ REBTYPE(String)
         }
 
         if (cast(REBINT, VAL_INDEX(v)) >= tail) {
-            if (NOT(REF(part)))
+            if (not REF(part))
                 return R_BLANK;
             Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
             return R_OUT;
@@ -1380,7 +1380,7 @@ REBTYPE(String)
 
         // if no /PART, just return value, else return string
         //
-        if (NOT(REF(part))) {
+        if (not REF(part)) {
             if (IS_BINARY(v))
                 Init_Integer(D_OUT, *VAL_BIN_AT(v));
             else
@@ -1438,7 +1438,7 @@ REBTYPE(String)
     case SYM_INTERSECT:
     case SYM_UNION:
     case SYM_DIFFERENCE: {
-        if (NOT(IS_BINARY(arg)))
+        if (not IS_BINARY(arg))
             fail (Error_Invalid(arg));
 
         if (VAL_INDEX(v) > VAL_LEN_HEAD(v))
@@ -1451,7 +1451,7 @@ REBTYPE(String)
         goto return_ser; }
 
     case SYM_COMPLEMENT: {
-        if (NOT(IS_BINARY(v)))
+        if (not IS_BINARY(v))
             fail (Error_Invalid(v));
 
         ser = Complement_Binary(v);
@@ -1481,7 +1481,7 @@ REBTYPE(String)
 
     case SYM_SUBTRACT:
     case SYM_ADD: {
-        if (NOT(IS_BINARY(v)))
+        if (not IS_BINARY(v))
             fail (Error_Invalid(v));
 
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(v));
@@ -1578,7 +1578,7 @@ REBTYPE(String)
         if (REF(all)) // Not Supported
             fail (Error_Bad_Refine_Raw(ARG(all)));
 
-        if (ANY_STRING(v) && NOT(Is_String_ASCII(v)))
+        if (ANY_STRING(v) and not Is_String_ASCII(v))
             fail ("UTF-8 Everywhere: String sorting temporarily unavailable");
 
         Sort_String(
@@ -1630,7 +1630,7 @@ REBTYPE(String)
             return R_OUT;
         }
 
-        if (ANY_STRING(v) && NOT(Is_String_ASCII(v)))
+        if (ANY_STRING(v) and not Is_String_ASCII(v))
             fail ("UTF-8 Everywhere: String shuffle temporarily unavailable");
 
         Shuffle_String(v, REF(secure));

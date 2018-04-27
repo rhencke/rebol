@@ -107,7 +107,7 @@ static void Assert_Basics(void)
 
     unsigned int left = LEFT_N_BITS(flags, 3); // == 6 (binary `110`)
     unsigned int right = RIGHT_N_BITS(flags, 3); // == 5 (binary `101`)
-    if (left != 6 || right != 5) {
+    if (left != 6 or right != 5) {
         printf("Expected 6 and 5, got %u and %u\n", left, right);
         panic ("Bad composed integer assignment for byte-ordering macro.");
     }
@@ -201,7 +201,7 @@ static void Startup_Base(REBARR *boot_base)
     if (Do_At_Throws(result, boot_base, 0, SPECIFIED))
         panic (result);
 
-    if (!IS_VOID(result))
+    if (not IS_VOID(result))
         panic (result);
 }
 
@@ -236,7 +236,7 @@ static void Startup_Sys(REBARR *boot_sys) {
     if (Do_At_Throws(result, boot_sys, 0, SPECIFIED))
         panic (result);
 
-    if (!IS_VOID(result))
+    if (not IS_VOID(result))
         panic (result);
 }
 
@@ -569,7 +569,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
 
         // Get the name the native will be started at with in Lib_Context
         //
-        if (!IS_SET_WORD(item))
+        if (not IS_SET_WORD(item))
             panic (item);
 
         REBVAL *name = KNOWN(item);
@@ -585,13 +585,13 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         }
         else {
             if (
-                !IS_PATH(item)
-                || VAL_LEN_HEAD(item) != 2
-                || !IS_WORD(ARR_HEAD(VAL_ARRAY(item)))
-                || VAL_WORD_SYM(ARR_HEAD(VAL_ARRAY(item))) != SYM_NATIVE
-                || !IS_WORD(ARR_AT(VAL_ARRAY(item), 1))
-                || VAL_WORD_SYM(ARR_AT(VAL_ARRAY(item), 1)) != SYM_BODY
-            ) {
+                not IS_PATH(item)
+                or VAL_LEN_HEAD(item) != 2
+                or not IS_WORD(ARR_HEAD(VAL_ARRAY(item)))
+                or VAL_WORD_SYM(ARR_HEAD(VAL_ARRAY(item))) != SYM_NATIVE
+                or not IS_WORD(ARR_AT(VAL_ARRAY(item), 1))
+                or VAL_WORD_SYM(ARR_AT(VAL_ARRAY(item), 1)) != SYM_BODY
+            ){
                 panic (item);
             }
             has_body = TRUE;
@@ -600,7 +600,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
 
         REBVAL *spec = KNOWN(item);
         ++item;
-        if (!IS_BLOCK(spec))
+        if (not IS_BLOCK(spec))
             panic (spec);
 
         // With the components extracted, generate the native and add it to
@@ -627,7 +627,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         if (has_body) {
             REBVAL *body = KNOWN(item); // !!! handle relative?
             ++item;
-            if (!IS_BLOCK(body))
+            if (not IS_BLOCK(body))
                 panic (body);
             Move_Value(FUNC_BODY(fun), body);
         }
@@ -692,7 +692,7 @@ static REBARR *Startup_Actions(REBARR *boot_actions)
     if (Do_At_Throws(result, boot_actions, 0, SPECIFIED))
         panic (result);
 
-    if (!IS_VOID(result))
+    if (not IS_VOID(result))
         panic (result);
 
     // Sanity check the symbol transformation
@@ -860,7 +860,7 @@ static void Init_System_Object(
     DECLARE_LOCAL (result);
     if (Do_At_Throws(result, boot_sysobj_spec, 0, SPECIFIED))
         panic (result);
-    if (!IS_VOID(result))
+    if (not IS_VOID(result))
         panic (result);
 
     // Create a global value for it.  (This is why we are able to say `system`
@@ -1302,7 +1302,7 @@ void Startup_Core(void)
 
     PG_Boot_Phase = BOOT_MEZZ;
 
-    assert(DSP == 0 && FS_TOP == NULL);
+    assert(DSP == 0 and FS_TOP == NULL);
 
     REBVAL *error = rebRescue(cast(REBDNG*, &Startup_Mezzanine), boot);
     if (error != NULL) {
@@ -1331,7 +1331,7 @@ void Startup_Core(void)
         panic (error);
     }
 
-    assert(DSP == 0 && FS_TOP == NULL);
+    assert(DSP == 0 and FS_TOP == NULL);
 
     DROP_GUARD_ARRAY(boot_array);
 
@@ -1373,7 +1373,7 @@ static REBVAL *Startup_Mezzanine(BOOT_BLK *boot)
         fail (Error_No_Catch_For_Throw(result));
     }
 
-    if (NOT(IS_VOID(result)))
+    if (not IS_VOID(result))
         panic (result); // FINISH-INIT-CORE returns void by convention
 
     return NULL;

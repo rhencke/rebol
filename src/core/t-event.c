@@ -156,14 +156,14 @@ static REBOOL Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val
         break;
 
     case SYM_FLAGS: {
-        if (NOT(IS_BLOCK(val)))
+        if (not IS_BLOCK(val))
             return FALSE;
 
         VAL_EVENT_FLAGS(event) &= ~(EVF_DOUBLE | EVF_CONTROL | EVF_SHIFT);
 
         RELVAL *item;
         for (item = VAL_ARRAY_HEAD(val); NOT_END(item); ++item) {
-            if (NOT(IS_WORD(item)))
+            if (not IS_WORD(item))
                 continue;
 
             switch (VAL_WORD_SYM(item)) {
@@ -334,7 +334,7 @@ static REBOOL Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
         if (VAL_EVENT_TYPE(v) != EVT_DROP_FILE)
             goto is_blank;
 
-        if (NOT(VAL_EVENT_FLAGS(v) & EVF_COPIED)) {
+        if (not (VAL_EVENT_FLAGS(v) & EVF_COPIED)) {
             void *str = VAL_EVENT_SER(v);
 
             // !!! This modifies a const-marked values's bits, which

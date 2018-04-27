@@ -84,5 +84,5 @@
     ; complement to the above, need to type check the final product
     ;
     infix-voider: enfix func [return: [<opt>] x y] []
-    'no-value = (trap [either 1 infix-voider 2 [false] [false]])/id
+    'arg-required = (trap [either 1 infix-voider 2 [false] [false]])/id
 )

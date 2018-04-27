@@ -270,7 +270,7 @@ REBYTE *Decompress_Alloc_Core(
     REBCNT buf_size;
     if (
         envelope == SYM_GZIP // embedded size trusted if not SYM_DETECT
-        && len_in < 4161808 // (2^32 / 1032 + 18) -> 1032 is max deflate ratio
+        and len_in < 4161808 // (2^32 / 1032 + 18) -> 1032 is max deflate ratio
     ){ 
         const REBSIZ gzip_min_overhead = 18; // at *least* 18 bytes
         if (len_in < gzip_min_overhead)
@@ -305,7 +305,7 @@ REBYTE *Decompress_Alloc_Core(
 
         // "Typical zlib compression ratios are from 1:2 to 1:5"
 
-        if (max >= 0 && (cast(REBCNT, max) < len_in * 6))
+        if (max >= 0 and (cast(REBCNT, max) < len_in * 6))
             buf_size = max;
         else
             buf_size = len_in * 3;
@@ -335,7 +335,7 @@ REBYTE *Decompress_Alloc_Core(
         //
         assert(strm.next_out == output + buf_size - strm.avail_out);
 
-        if (max >= 0 && buf_size >= cast(REBCNT, max)) {
+        if (max >= 0 and buf_size >= cast(REBCNT, max)) {
             DECLARE_LOCAL (temp);
             Init_Integer(temp, max);
             fail (Error_Size_Limit_Raw(temp));
@@ -346,7 +346,7 @@ REBYTE *Decompress_Alloc_Core(
         //
         REBCNT old_size = buf_size;
         buf_size = buf_size + strm.avail_in * 3;
-        if (max >= 0 && buf_size > cast(REBCNT, max))
+        if (max >= 0 and buf_size > cast(REBCNT, max))
             buf_size = max;
 
         output = cast(REBYTE*, rebRealloc(output, buf_size));

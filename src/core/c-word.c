@@ -88,7 +88,7 @@ REBINT Get_Hash_Prime(REBCNT size)
 {
     REBINT n;
 
-    for (n = 0; Primes[n] && size > Primes[n]; n++);
+    for (n = 0; Primes[n] and size > Primes[n]; n++);
 
     if (!Primes[n]) return 0;
 

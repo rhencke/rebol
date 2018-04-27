@@ -226,7 +226,7 @@ REBOOL Check_Bit(REBSER *bset, REBCNT c, REBOOL uncased)
 retry:
     i = n >> 3;
     if (i < tail)
-        flag = DID(BIN_HEAD(bset)[i] & (1 << (7 - ((n) & 7))));
+        flag = did (BIN_HEAD(bset)[i] & (1 << (7 - (n & 7))));
 
     // Check uppercase if needed:
     if (uncased && !flag) {
@@ -235,7 +235,10 @@ retry:
         goto retry;
     }
 
-    return BITS_NOT(bset) ? NOT(flag) : flag;
+    if (BITS_NOT(bset))
+        return not flag;
+
+    return flag;
 }
 
 
@@ -594,7 +597,7 @@ REBTYPE(Bitset)
 
         case SYM_TAIL_Q:
             // Necessary to make EMPTY? work:
-            return R_FROM_BOOL(DID(VAL_LEN_HEAD(value) == 0));
+            return R_FROM_BOOL(VAL_LEN_HEAD(value) == 0);
 
         default:
             break;
@@ -636,7 +639,7 @@ REBTYPE(Bitset)
     case SYM_COMPLEMENT:
     case SYM_NEGATE:
         ser = Copy_Sequence(VAL_SERIES(value));
-        INIT_BITS_NOT(ser, NOT(BITS_NOT(VAL_SERIES(value))));
+        INIT_BITS_NOT(ser, not BITS_NOT(VAL_SERIES(value)));
         Init_Bitset(value, ser);
         goto return_bitset;
 
@@ -648,7 +651,7 @@ REBTYPE(Bitset)
         else
             diff = TRUE;
 
-        if (NOT(Set_Bits(VAL_SERIES(value), arg, diff)))
+        if (not Set_Bits(VAL_SERIES(value), arg, diff))
             fail (Error_Invalid(arg));
         goto return_bitset; }
 
@@ -661,10 +664,10 @@ REBTYPE(Bitset)
             fail (Error_Bad_Refines_Raw());
         }
 
-        if (NOT(REF(part)))
+        if (not REF(part))
             fail (Error_Missing_Arg_Raw());
 
-        if (NOT(Set_Bits(VAL_SERIES(value), ARG(limit), FALSE)))
+        if (not Set_Bits(VAL_SERIES(value), ARG(limit), FALSE))
             fail (ARG(limit));
 
         goto return_bitset; }

@@ -262,7 +262,7 @@ typedef struct rebol_scan_state {
     REBCTX *user; // expands, has positive indices in binder
 } SCAN_STATE;
 
-#define ANY_CR_LF_END(c) (!(c) || (c) == CR || (c) == LF)
+#define ANY_CR_LF_END(c) ((c) == '\0' or (c) == CR or (c) == LF)
 
 enum {
     SCAN_FLAG_NEXT = 1 << 0, // load/next feature

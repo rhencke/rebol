@@ -446,10 +446,10 @@ enum REB_Mold_Opts {
     ((mo)->opts |= (f))
 
 #define GET_MOLD_FLAG(mo,f) \
-    DID((mo)->opts & (f))
+    (did ((mo)->opts & (f)))
 
 #define NOT_MOLD_FLAG(mo,f) \
-    NOT((mo)->opts & (f))
+    (not ((mo)->opts & (f)))
 
 #define CLEAR_MOLD_FLAG(mo,f) \
     ((mo)->opts &= ~(f))
@@ -710,8 +710,8 @@ enum Reb_Vararg_Op {
 
 #define UP_CASE(c) Upper_Cases[c]
 #define LO_CASE(c) Lower_Cases[c]
-#define IS_WHITE(c) ((c) <= 32 && (White_Chars[c]&1) != 0)
-#define IS_SPACE(c) ((c) <= 32 && (White_Chars[c]&2) != 0)
+#define IS_WHITE(c) ((c) <= 32 and (White_Chars[c] & 1) != 0)
+#define IS_SPACE(c) ((c) <= 32 and (White_Chars[c] & 2) != 0)
 
 inline static void SET_SIGNAL(REBFLGS f) {
     Eval_Signals |= f;
@@ -719,7 +719,7 @@ inline static void SET_SIGNAL(REBFLGS f) {
 }
 
 #define GET_SIGNAL(f) \
-    DID(Eval_Signals & (f))
+    (did (Eval_Signals & (f)))
 
 #define CLR_SIGNAL(f) \
     cast(void, Eval_Signals &= ~(f))
@@ -754,7 +754,7 @@ enum {
 #if !defined(NDEBUG)
     #define LEGACY(option) ( \
         (PG_Boot_Phase >= BOOT_ERRORS) \
-        && IS_TRUTHY(Get_System(SYS_OPTIONS, (option))) \
+        and IS_TRUTHY(Get_System(SYS_OPTIONS, (option))) \
     )
 #endif
 

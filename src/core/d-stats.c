@@ -145,13 +145,13 @@ void Do_Core_Measured(REBFRM * const f)
     // In order to measure single steps, we convert a DO_FLAG_TO_END request
     // into a sequence of DO/NEXT operations, and loop them.
     //
-    REBOOL was_do_to_end = DID(f->flags.bits & DO_FLAG_TO_END);
+    REBOOL was_do_to_end = did (f->flags.bits & DO_FLAG_TO_END);
     f->flags.bits &= ~DO_FLAG_TO_END;
 
     while (TRUE) {
         Do_Core(f);
 
-        if (NOT(was_do_to_end) || THROWN(f->out) || FRM_AT_END(f))
+        if (not was_do_to_end or THROWN(f->out) or FRM_AT_END(f))
             break;
     }
 
@@ -192,12 +192,12 @@ REB_R Apply_Core_Measured(REBFRM * const f)
 {
     REBMAP *m = VAL_MAP(Root_Stats_Map);
 
-    REBOOL is_first_phase = DID(f->phase == f->original);
+    REBOOL is_first_phase = (f->phase == f->original);
 
     // We can only tell if it's the last phase *before* the apply; because if
     // we check *after* it may change to become the last and need R_REDO_XXX.
     //
-    REBOOL is_last_phase = DID(FUNC_UNDERLYING(f->phase) == f->phase);
+    REBOOL is_last_phase = (FUNC_UNDERLYING(f->phase) == f->phase);
 
     if (is_first_phase) {
         //
@@ -280,7 +280,7 @@ REB_R Apply_Core_Measured(REBFRM * const f)
                     VAL_INT64(ARR_AT(a, IDX_STATS_NUMCALLS)) + 1
                 );
             }
-            else if (NOT(IS_ERROR(stats))) {
+            else if (not IS_ERROR(stats)) {
                 //
                 // The user might muck with the MAP! so we put an ERROR! in
                 // to signal something went wrong, parameterized with the

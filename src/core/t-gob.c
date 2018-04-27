@@ -702,7 +702,7 @@ REBARR *Gob_To_Array(REBGOB *gob)
             fail ("Unknown GOB! type");
         }
         Init_Set_Word(val1, Canon(sym));
-        if (NOT(Get_GOB_Var(gob, val1, val)))
+        if (!Get_GOB_Var(gob, val1, val))
             Init_Blank(val);
     }
 
@@ -786,7 +786,7 @@ REBNATIVE(map_event)
     REBGOB *gob = cast(REBGOB*, VAL_EVENT_SER(val));
     REBXYF xy;
 
-    if (gob != NULL && DID(VAL_EVENT_FLAGS(val) & EVF_HAS_XY)) {
+    if (gob != NULL && (VAL_EVENT_FLAGS(val) & EVF_HAS_XY)) {
         xy.x = (REBD32)VAL_EVENT_X(val);
         xy.y = (REBD32)VAL_EVENT_Y(val);
         VAL_EVENT_SER(val) = cast(REBSER*, Map_Gob_Inner(gob, &xy));
@@ -1034,13 +1034,13 @@ REBTYPE(Gob)
             goto set_index;
 
         case SYM_HEAD_Q:
-            return R_FROM_BOOL(DID(index == 0));
+            return R_FROM_BOOL(index == 0);
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(DID(index >= tail));
+            return R_FROM_BOOL(index >= tail);
 
         case SYM_PAST_Q:
-            return R_FROM_BOOL(DID(index > tail));
+            return R_FROM_BOOL(index > tail);
 
         case SYM_INDEX:
             Init_Integer(D_OUT, index + 1);
@@ -1065,7 +1065,7 @@ REBTYPE(Gob)
     // a GOB!-based path dispatch breaks.
     /*
     case SYM_PICK:
-        if (NOT(ANY_NUMBER(arg) || IS_BLANK(arg)))
+        if (!(ANY_NUMBER(arg) || IS_BLANK(arg)))
             fail (Error_Invalid(arg));
 
         if (!GOB_PANE(gob))
@@ -1182,7 +1182,7 @@ REBTYPE(Gob)
         if (index >= tail)
             return R_BLANK;
 
-        if (NOT(REF(part))) { // just one value
+        if (!REF(part)) { // just one value
             RESET_VAL_HEADER(D_OUT, REB_GOB);
             VAL_GOB(D_OUT) = *GOB_AT(gob, index);
             VAL_GOB_INDEX(D_OUT) = 0;

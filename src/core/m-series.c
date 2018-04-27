@@ -199,7 +199,7 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
     // Optimized case of head removal.  For a dynamic series this may just
     // add "bias" to the head...rather than move any bytes.
 
-    if (is_dynamic && index == 0) {
+    if (is_dynamic and index == 0) {
         if (cast(REBCNT, len) > len_old)
             len = len_old;
 
@@ -240,7 +240,7 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
                 s->content.dynamic.data += SER_WIDE(s) * len;
                 if ((start = SER_BIAS(s)) != 0) {
                     // If more than half biased:
-                    if (start >= MAX_SERIES_BIAS || start > SER_REST(s))
+                    if (start >= MAX_SERIES_BIAS or start > SER_REST(s))
                         Unbias_Series(s, TRUE);
                 }
             }
@@ -432,9 +432,9 @@ void Assert_Series_Core(REBSER *s)
 
     assert(
         GET_SER_INFO(s, SERIES_INFO_0_IS_TRUE) // @ NODE_FLAG_NODE
-        && NOT_SER_INFO(s, SERIES_INFO_1_IS_FALSE) // @ NOT(NODE_FLAG_FREE)
-        && GET_SER_INFO(s, SERIES_INFO_4_IS_TRUE) // @ NODE_FLAG_END
-        && NOT_SER_INFO(s, SERIES_INFO_7_IS_FALSE) // @ NODE_FLAG_CELL
+        and NOT_SER_INFO(s, SERIES_INFO_1_IS_FALSE) // @ NOT(NODE_FLAG_FREE)
+        and GET_SER_INFO(s, SERIES_INFO_4_IS_TRUE) // @ NODE_FLAG_END
+        and NOT_SER_INFO(s, SERIES_INFO_7_IS_FALSE) // @ NODE_FLAG_CELL
     );
 
     assert(SER_LEN(s) < SER_REST(s));

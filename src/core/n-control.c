@@ -326,7 +326,7 @@ REBNATIVE(either_test_value)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST_VALUE;
 
-    if (!IS_VOID(ARG(value))) {
+    if (not IS_VOID(ARG(value))) {
         Move_Value(D_OUT, ARG(value));
         return R_OUT;
     }
@@ -456,7 +456,7 @@ REBNATIVE(any)
 
     Drop_Frame(f);
 
-    if (voted || NOT(REF(only)))
+    if (voted or not REF(only))
         return R_BLANK;
 
     return R_VOID; // all opt-outs return void if /ONLY
@@ -511,7 +511,7 @@ REBNATIVE(none)
 
     Drop_Frame(f);
 
-    if (voted || NOT(REF(only)))
+    if (voted or not REF(only))
         return R_BAR;
 
     return R_VOID; // all opt-outs
@@ -575,8 +575,8 @@ static REB_R Case_Choose_Core(
             //
             if (
                 choose
-                || IS_BLOCK(f->value) || IS_FUNCTION(f->value)
-                || IS_QUOTABLY_SOFT(f->value)
+                or IS_BLOCK(f->value) or IS_FUNCTION(f->value)
+                or IS_QUOTABLY_SOFT(f->value)
             ){
                 Fetch_Next_In_Frame(f); // skip the soft-quoted slot
                 continue;
@@ -614,7 +614,7 @@ static REB_R Case_Choose_Core(
                 return R_OUT_IS_THROWN;
             }
 
-            if (NOT(IS_FUNCTION(cell)) && NOT(IS_BLOCK(cell)))
+            if (not IS_FUNCTION(cell) and not IS_BLOCK(cell))
                 fail (Error_Invalid_Arg_Raw(cell));
 
             // Note that block now holds the cached evaluated condition
@@ -625,7 +625,7 @@ static REB_R Case_Choose_Core(
             }
         }
 
-        if (NOT(all)) {
+        if (not all) {
             Drop_Frame(f);
             return R_OUT;
         }
@@ -738,7 +738,7 @@ REBNATIVE(switch)
 
     REBVAL *value = ARG(value);
 
-    if (IS_BLOCK(value) && GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED))
+    if (IS_BLOCK(value) and GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED))
         fail (Error_Block_Switch_Raw(value)); // `switch [x] [...]` safeguard
 
     // D_CELL is a temporary GC-safe location.  Initialize void, as it holds
@@ -799,7 +799,7 @@ REBNATIVE(switch)
             Fetch_Next_In_Frame(f);
             if (FRM_AT_END(f))
                 goto return_defaulted;
-        } while (!IS_BLOCK(f->value) && !IS_FUNCTION(f->value));
+        } while (not IS_BLOCK(f->value) and not IS_FUNCTION(f->value));
 
         // Run the code if it was found.  Because it writes D_OUT with a value
         // (or void), it won't be END--we'll know at least one case has run.
@@ -819,7 +819,7 @@ REBNATIVE(switch)
 
         // Only keep processing if the /ALL refinement was specified
 
-        if (NOT(REF(all))) {
+        if (not REF(all)) {
             Drop_Frame(f);
             return R_OUT;
         }
@@ -835,7 +835,7 @@ return_defaulted:
 
     Drop_Frame(f);
 
-    if (NOT(REF(default))) {
+    if (not REF(default)) {
         Move_Value(D_OUT, D_CELL); // last test "falls out", might be void
         return R_OUT;
     }
@@ -884,20 +884,21 @@ REBNATIVE(catch)
 
     // /ANY would override /NAME, so point out the potential confusion
     //
-    if (REF(any) && REF(name))
+    if (REF(any) and REF(name))
         fail (Error_Bad_Refines_Raw());
 
     if (Do_Any_Array_At_Throws(D_OUT, ARG(block))) {
-        if (
-            (
-                REF(any)
-                && (!IS_FUNCTION(D_OUT) || VAL_FUNC_DISPATCHER(D_OUT) != &N_quit)
-            )
-            || (
-                REF(quit)
-                && (IS_FUNCTION(D_OUT) && VAL_FUNC_DISPATCHER(D_OUT) == &N_quit)
-            )
-        ) {
+        if (REF(any) and not (
+            IS_FUNCTION(D_OUT)
+            and VAL_FUNC_DISPATCHER(D_OUT) == &N_quit
+        )){
+            goto was_caught;
+        }
+
+        if (REF(quit) and (
+            IS_FUNCTION(D_OUT)
+            and VAL_FUNC_DISPATCHER(D_OUT) == &N_quit
+        )){
             goto was_caught;
         }
 

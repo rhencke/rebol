@@ -307,7 +307,7 @@ REBNATIVE(addr_of) {
     REBVAL *v = ARG(value);
 
     if (IS_FUNCTION(v)) {
-        if (NOT(IS_FUNCTION_RIN(v)))
+        if (!IS_FUNCTION_RIN(v))
             fail ("Can only take address of FUNCTION!s created though FFI");
 
         // The CFUNC is fabricated by the FFI if it's a callback, or
@@ -403,7 +403,7 @@ REBNATIVE(destroy_struct_storage)
     SET_HANDLE_LEN(handle, 0);
 
     if (REF(free)) {
-        if (NOT(IS_FUNCTION_RIN(ARG(free_func))))
+        if (!IS_FUNCTION_RIN(ARG(free_func)))
             fail (Error_Free_Needs_Routine_Raw());
 
         if (Do_Va_Throws(D_OUT, ARG(free_func), pointer, END))
@@ -519,7 +519,7 @@ REBNATIVE(get_at_pointer)
     FFI_INCLUDE_PARAMS_OF_GET_AT_POINTER;
 
     REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(source))));
-    if (IS_VOID(paired) && NOT(REF(only)))
+    if (IS_VOID(paired) && !REF(only))
         Init_Blank(D_OUT);
     else
         Move_Value(D_OUT, paired);
@@ -550,7 +550,7 @@ REBNATIVE(set_at_pointer)
 {
     FFI_INCLUDE_PARAMS_OF_SET_AT_POINTER;
 
-    if (IS_VOID(ARG(value)) && NOT(REF(only)))
+    if (IS_VOID(ARG(value)) && !REF(only))
         fail (Error_No_Value(ARG(value)));
 
     REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(target))));

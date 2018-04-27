@@ -64,7 +64,7 @@
 // !!! Find a better place for this!
 //
 inline static REBOOL IS_QUOTABLY_SOFT(const RELVAL *v) {
-    return DID(IS_GROUP(v) || IS_GET_WORD(v) || IS_GET_PATH(v));
+    return IS_GROUP(v) or IS_GET_WORD(v) or IS_GET_PATH(v);
 }
 
 
@@ -105,7 +105,7 @@ inline static void Push_Frame_Core(REBFRM *f)
         Fail_Stack_Overflow();
 
     assert(f->flags.bits & NODE_FLAG_END);
-    assert(NOT(f->flags.bits & NODE_FLAG_CELL));
+    assert(not (f->flags.bits & NODE_FLAG_CELL));
 
     // Though we can protect the value written into the target pointer 'out'
     // from GC during the course of evaluation, we can't protect the
@@ -118,14 +118,16 @@ inline static void Push_Frame_Core(REBFRM *f)
     //
   #ifdef STRESS_CHECK_DO_OUT_POINTER
     REBNOD *containing = Try_Find_Containing_Node_Debug(f->out);
-    if (containing != NULL && NOT(containing->header.bits & NODE_FLAG_CELL)) {
-        if (NOT_SER_FLAG(containing, SERIES_FLAG_DONT_RELOCATE)) {
-            printf("Request for ->out location in movable series memory\n");
-            panic (containing);
-        }
+    if (
+        containing != NULL)
+        and not (containing->header.bits & NODE_FLAG_CELL)
+        and NOT_SER_FLAG(containing, SERIES_FLAG_DONT_RELOCATE)
+    ){
+        printf("Request for ->out location in movable series memory\n");
+        panic (containing);
     }
   #else
-    assert(!IN_DATA_STACK_DEBUG(f->out));
+    assert(not IN_DATA_STACK_DEBUG(f->out));
   #endif
 
   #ifdef STRESS_EXPIRED_FETCH
@@ -145,13 +147,13 @@ inline static void Push_Frame_Core(REBFRM *f)
   #if !defined(NDEBUG)
     REBFRM *ftemp = FS_TOP;
     for (; ftemp != NULL; ftemp = ftemp->prior) {
-        if (NOT(Is_Function_Frame(ftemp)))
+        if (not Is_Function_Frame(ftemp))
             continue;
         if (Is_Function_Frame_Fulfilling(ftemp))
             continue;
         assert(
-            f->out < ftemp->args_head ||
-            f->out >= ftemp->args_head + FRM_NUM_ARGS(ftemp)
+            f->out < ftemp->args_head
+            or f->out >= ftemp->args_head + FRM_NUM_ARGS(ftemp)
         );
     }
   #endif
@@ -235,7 +237,7 @@ inline static void Abort_Frame_Core(REBFRM *f) {
         // The frame was either never variadic, or it was but got spooled into
         // an array by Reify_Va_To_Array_In_Frame()
         //
-        assert(NOT(FRM_IS_VALIST(f)));
+        assert(not FRM_IS_VALIST(f));
 
         assert(GET_SER_INFO(f->source.array, SERIES_INFO_HOLD));
         CLEAR_SER_INFO(f->source.array, SERIES_INFO_HOLD);
@@ -493,10 +495,10 @@ detect_again:
         f->source.array = NULL;
         f->value = cast(const RELVAL*, p); // not END, detected separately
         assert(
-            (
+            not IS_RELATIVE(f->value) or (
                 IS_VOID(f->value)
-                && (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-            ) || NOT(IS_RELATIVE(f->value))
+                and (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
+            )
         );
         break;
         
@@ -550,7 +552,7 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
         //
         assert(
             f->source.array == NULL // incrementing plain array of REBVAL[]
-            || f->source.pending == ARR_AT(f->source.array, f->source.index)
+            or f->source.pending == ARR_AT(f->source.array, f->source.index)
         );
 
         lookback = f->value;
@@ -602,7 +604,7 @@ inline static REBOOL Do_Next_In_Frame_Throws(
     REBFRM *f
 ){
     assert(f->eval_type == REB_0); // see notes in Push_Frame_At()
-    assert(NOT(f->flags.bits & (DO_FLAG_TO_END | DO_FLAG_NO_LOOKAHEAD)));
+    assert(not (f->flags.bits & (DO_FLAG_TO_END | DO_FLAG_NO_LOOKAHEAD)));
     uintptr_t prior_flags = f->flags.bits;
 
     f->out = out;
@@ -637,7 +639,7 @@ inline static REBOOL Do_Next_In_Frame_Throws(
 // !!! Review how much cheaper this actually is than making a new frame.
 //
 inline static REBOOL Do_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
-    assert(f->eval_type == REB_SET_WORD || f->eval_type == REB_SET_PATH);
+    assert(f->eval_type == REB_SET_WORD or f->eval_type == REB_SET_PATH);
 
     REBFLGS prior_flags = f->flags.bits;
     Init_Endlike_Header(&f->flags, flags);
@@ -704,9 +706,9 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
 
     assert(
         FRM_IS_VALIST(child)
-        || FRM_AT_END(child)
-        || parent->source.index != child->source.index
-        || THROWN(out)
+        or FRM_AT_END(child)
+        or parent->source.index != child->source.index
+        or THROWN(out)
     );
 
     // !!! Should they share a source instead of updating?
@@ -969,7 +971,7 @@ inline static void Reify_Va_To_Array_In_Frame(
 
     f->source.pending = f->value + 1;
 
-    assert(NOT(FRM_IS_VALIST(f))); // no longer a va_list fed frame
+    assert(not FRM_IS_VALIST(f)); // no longer a va_list fed frame
 }
 
 
@@ -1067,8 +1069,8 @@ inline static REBOOL Do_Va_Throws(
 
     // Note: va_end() is handled by Do_Va_Core (one way or another)
 
-    assert(indexor == THROWN_FLAG || indexor == END_FLAG);
-    return DID(indexor == THROWN_FLAG);
+    assert(indexor == THROWN_FLAG or indexor == END_FLAG);
+    return indexor == THROWN_FLAG;
 }
 
 
@@ -1103,7 +1105,7 @@ inline static REBOOL Apply_Only_Throws(
         DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_NO_LOOKAHEAD
     );
 
-    if (fully && indexor == VA_LIST_FLAG) {
+    if (fully and indexor == VA_LIST_FLAG) {
         //
         // Not consuming all the arguments given suggests a problem if `fully`
         // is passed in as TRUE.
@@ -1115,10 +1117,10 @@ inline static REBOOL Apply_Only_Throws(
 
     assert(
         indexor == THROWN_FLAG
-        || indexor == END_FLAG
-        || (NOT(fully) && indexor == VA_LIST_FLAG)
+        or indexor == END_FLAG
+        or (not fully and indexor == VA_LIST_FLAG)
     );
-    return DID(indexor == THROWN_FLAG);
+    return indexor == THROWN_FLAG;
 }
 
 
@@ -1128,15 +1130,13 @@ inline static REBOOL Do_At_Throws(
     REBCNT index,
     REBSPC *specifier
 ){
-    return DID(
-        THROWN_FLAG == Do_Array_At_Core(
-            out,
-            NULL,
-            array,
-            index,
-            specifier,
-            DO_FLAG_TO_END
-        )
+    return THROWN_FLAG == Do_Array_At_Core(
+        out,
+        NULL,
+        array,
+        index,
+        specifier,
+        DO_FLAG_TO_END
     );
 }
 
@@ -1166,15 +1166,13 @@ inline static REBOOL Eval_Value_Core_Throws(
     const RELVAL *value,
     REBSPC *specifier
 ){
-    return DID(
-        THROWN_FLAG == Do_Array_At_Core(
-            out,
-            value,
-            EMPTY_ARRAY,
-            0,
-            specifier,
-            DO_FLAG_TO_END
-        )
+    return THROWN_FLAG == Do_Array_At_Core(
+        out,
+        value,
+        EMPTY_ARRAY,
+        0,
+        specifier,
+        DO_FLAG_TO_END
     );
 }
 
@@ -1237,7 +1235,7 @@ inline static REBOOL Run_Branch_Throws(
             return TRUE;
     }
 
-    if (NOT(only) && IS_VOID(out))
+    if (not only and IS_VOID(out))
         Init_Blank(out); // "blankification", see comment above
 
     CLEAR_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED);

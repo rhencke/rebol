@@ -331,7 +331,7 @@ for-each-record t type-table [
     if n != 0 [
         e-types/emit 't {
             #define IS_${T/NAME}(v) \
-                DID(VAL_TYPE(v) == REB_${T/NAME}) /* $(n) */
+                (VAL_TYPE(v) == REB_${T/NAME}) /* $(n) */
         }
         e-types/emit newline
 

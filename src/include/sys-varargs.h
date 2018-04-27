@@ -62,7 +62,7 @@ inline static REBOOL Is_Block_Style_Varargs(
 
     if (
         IS_CELL(vararg->extra.binding)
-        || (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
+        or (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
     ){
         TRASH_POINTER_IF_DEBUG(*shared_out);
         return FALSE; // it's an ordinary vararg, representing a FRAME!
@@ -76,7 +76,7 @@ inline static REBOOL Is_Block_Style_Varargs(
     *shared_out = KNOWN(ARR_HEAD(array1));
     assert(
         IS_END(*shared_out)
-        || (IS_BLOCK(*shared_out) && ARR_LEN(array1) == 1)
+        or (IS_BLOCK(*shared_out) and ARR_LEN(array1) == 1)
     );
 
     return TRUE;
@@ -91,7 +91,7 @@ inline static REBOOL Is_Frame_Style_Varargs_May_Fail(
 
     if (
         NOT_CELL(vararg->extra.binding)
-        && NOT(vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
+        and not (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
     ){
         TRASH_POINTER_IF_DEBUG(*f);
         return FALSE; // it's a block varargs, made via MAKE VARARGS!

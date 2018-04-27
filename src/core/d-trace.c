@@ -141,14 +141,14 @@ void Do_Core_Traced(REBFRM * const f)
     // In order to trace single steps, we convert a DO_FLAG_TO_END request
     // into a sequence of DO/NEXT operations, and loop them.
     //
-    REBOOL was_do_to_end = DID(f->flags.bits & DO_FLAG_TO_END);
+    REBOOL was_do_to_end = did (f->flags.bits & DO_FLAG_TO_END);
     f->flags.bits &= ~DO_FLAG_TO_END;
 
     while (TRUE) {
-        if (NOT(
+        if (not (
             (f->flags.bits & DO_FLAG_APPLYING) // only value is END
-            || IS_FUNCTION(f->value)
-            || DID(Trace_Flags & TRACE_FLAG_FUNCTION)
+            or IS_FUNCTION(f->value)
+            or (Trace_Flags & TRACE_FLAG_FUNCTION)
         )){
             Debug_Space(cast(REBCNT, 4 * depth));
 
@@ -208,7 +208,7 @@ void Do_Core_Traced(REBFRM * const f)
 
         Do_Core(f);
 
-        if (NOT(was_do_to_end) || THROWN(f->out) || FRM_AT_END(f))
+        if (not was_do_to_end or THROWN(f->out) or FRM_AT_END(f))
             break;
     }
 
@@ -247,7 +247,7 @@ REB_R Apply_Core_Traced(REBFRM * const f)
     // We can only tell if it's the last phase *before* the apply, because if
     // we check *after* it may change to become the last and need R_REDO_XXX.
     //
-    REBOOL last_phase = DID(FUNC_UNDERLYING(f->phase) == f->phase);
+    REBOOL last_phase = (FUNC_UNDERLYING(f->phase) == f->phase);
 
     REB_R r = Apply_Core(f);
 

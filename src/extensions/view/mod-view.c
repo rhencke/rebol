@@ -261,7 +261,7 @@ REBNATIVE(request_file_p)
     else
         ret = GetOpenFileName(&ofn);
 
-    if (NOT(ret)) {
+    if (not ret) {
         DWORD cderr = CommDlgExtendedError();
         if (cderr == 0) {
             //
@@ -274,7 +274,7 @@ REBNATIVE(request_file_p)
             error = Error_User("common dialog failure CDERR_XXX");
     }
     else {
-        if (NOT(REF(multi))) {
+        if (not REF(multi)) {
             const REBOOL is_dir = FALSE;
             REBVAL *solo = rebLocalToFileW(ofn.lpstrFile, is_dir);
             DS_PUSH_TRASH;
@@ -356,7 +356,7 @@ REBNATIVE(request_file_p)
     // for the first time or if it's already initialized.
     //
     int argc = 0;
-    if (NOT(gtk_init_check(&argc, NULL)))
+    if (not gtk_init_check(&argc, NULL))
         fail ("gtk_init_check() failed");
 
     if (REF(filter)) {
@@ -628,7 +628,7 @@ REBNATIVE(request_dir_p)
     WCHAR folder[MAX_PATH];
     if (pFolder == NULL)
         Init_Blank(D_OUT);
-    else if (NOT(SHGetPathFromIDList(pFolder, folder)))
+    else if (not SHGetPathFromIDList(pFolder, folder))
         error = Error_User("SHGetPathFromIDList failed");
     else {
         REBVAL *file = rebFile(folder);

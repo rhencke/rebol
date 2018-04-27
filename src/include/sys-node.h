@@ -42,7 +42,7 @@
         REBNOD *node = cast(REBNOD*, p);
         assert(
             (node->header.bits & NODE_FLAG_NODE)
-            && NOT(node->header.bits & NODE_FLAG_FREE)
+            and not (node->header.bits & NODE_FLAG_FREE)
         );
         return node;
     }
@@ -54,11 +54,11 @@
 
 #ifdef NDEBUG
     inline static REBOOL IS_CELL(REBNOD *node) {
-        return DID(node->header.bits & NODE_FLAG_CELL);
+        return did (node->header.bits & NODE_FLAG_CELL);
     }
 
     inline static REBOOL NOT_CELL(REBNOD *node) {
-        return NOT(node->header.bits & NODE_FLAG_CELL);
+        return not (node->header.bits & NODE_FLAG_CELL);
     }
 #else
     // We want to get a compile-time check on whether the argument is a
@@ -66,10 +66,10 @@
     // for the function call in debug builds, so only check in release builds.
     //
     #define IS_CELL(node) \
-        DID((node)->header.bits & NODE_FLAG_CELL)
+        cast(REBOOL, did ((node)->header.bits & NODE_FLAG_CELL))
 
     #define NOT_CELL(node) \
-        NOT((node)->header.bits & NODE_FLAG_CELL)
+        cast(REBOOL, not ((node)->header.bits & NODE_FLAG_CELL))
 #endif
 
 

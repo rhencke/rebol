@@ -86,13 +86,13 @@ static inline void CATCH_THROWN(REBVAL *arg_out, REBVAL *thrown) {
 #define FS_TOP (TG_Frame_Stack + 0) // avoid assignment to FS_TOP via + 0
 
 #define FRM_IS_VALIST(f) \
-    DID((f)->source.vaptr != NULL)
+    ((f)->source.vaptr != NULL)
 
 #define FRM_AT_END(f) \
-    DID((f)->value == NULL)
+    ((f)->value == NULL)
 
 #define FRM_HAS_MORE(f) \
-    DID((f)->value != NULL)
+    ((f)->value != NULL)
 
 inline static REBARR *FRM_ARRAY(REBFRM *f) {
     assert(!FRM_IS_VALIST(f));
@@ -208,12 +208,12 @@ inline static REBFUN *FRM_UNDERLYING(REBFRM *f) {
         ((f)->args_head + (n) - 1)
 #else
     inline static REBVAL *FRM_ARG(REBFRM *f, REBCNT n) {
-        assert(n != 0 && n <= FRM_NUM_ARGS(f));
+        assert(n != 0 and n <= FRM_NUM_ARGS(f));
 
         REBVAL *var = &f->args_head[n - 1];
 
         assert(!THROWN(var));
-        assert(NOT(IS_RELATIVE(cast(RELVAL*, var))));
+        assert(not IS_RELATIVE(cast(RELVAL*, var)));
         return var;
     }
 #endif
@@ -236,7 +236,7 @@ inline static REBOOL Is_Function_Frame(REBFRM *f) {
         // Do not count as a function frame unless its gotten to the point
         // of pushing arguments.
         //
-        return DID(f->phase != NULL);
+        return f->phase != NULL;
     }
     return FALSE;
 }
@@ -296,7 +296,7 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
 //     PARAM(1, foo);
 //     REFINE(2, bar);
 //
-//     if (IS_INTEGER(ARG(foo)) && REF(bar)) { ... }
+//     if (IS_INTEGER(ARG(foo)) and REF(bar)) { ... }
 //
 // Though REF can only be used with a REFINE() declaration, ARG can be used
 // with either.  By contract, Rebol functions are allowed to mutate their
@@ -434,7 +434,7 @@ inline static void Push_Function(
 
     assert(
         opt_label == NULL
-        || GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING)
+        or GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING)
     );
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_FUNCTION
     f->opt_label = opt_label;
@@ -528,7 +528,7 @@ inline static void Drop_Function_Core(
 ){
     assert(
         f->opt_label == NULL
-        || GET_SER_FLAG(f->opt_label, SERIES_FLAG_UTF8_STRING)
+        or GET_SER_FLAG(f->opt_label, SERIES_FLAG_UTF8_STRING)
     );
     TRASH_POINTER_IF_DEBUG(f->opt_label);
   #if defined(DEBUG_FRAME_LABELS)

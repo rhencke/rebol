@@ -491,7 +491,7 @@ REBTYPE(Tuple)
             return R_OUT;
         }
         // Poke:
-        if (NOT(IS_INTEGER(D_ARG(3))))
+        if (not IS_INTEGER(D_ARG(3)))
             fail (Error_Invalid(D_ARG(3)));
         v = VAL_INT32(D_ARG(3));
         if (v < 0)

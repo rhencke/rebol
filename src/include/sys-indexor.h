@@ -93,8 +93,8 @@
         //
         REBIXO (NOT_FOUND_t const &) = delete;
         void operator=(NOT_FOUND_t const &) = delete;
-        int operator==(NOT_FOUND_t const &rhs) const = delete;
-        int operator!=(NOT_FOUND_t const &rhs) const = delete;
+        bool operator==(NOT_FOUND_t const &rhs) const = delete;
+        bool operator!=(NOT_FOUND_t const &rhs) const = delete;
 
     public:
         REBIXO () {} // simulate C uninitialization
@@ -106,8 +106,8 @@
             assert(rhs != ((REBCNT)-1)); // not with REBIXO!
             bits = rhs;
         }
-        int operator==(REBIXO const &rhs) const { return bits == rhs.bits; }
-        int operator!=(REBIXO const &rhs) const { return !((*this) == rhs); }
+        bool operator==(REBIXO const &rhs) const { return bits == rhs.bits; }
+        bool operator!=(REBIXO const &rhs) const { return !((*this) == rhs); }
 
         // Basic check: whenever one tries to get an actual REBCNT out of
         // an indexor, it is asserted not to be a magic value.  Called by
@@ -133,29 +133,29 @@
         // to do a lot of math on an indexor it is not a special value...so it
         // should be extracted by casting to a REBCNT.
         //
-        friend int operator==(REBCNT lhs, const REBIXO &rhs) {
+        friend bool operator==(REBCNT lhs, const REBIXO &rhs) {
             assert(lhs != UNKNOWN && lhs != NOT_FOUND);
             return lhs == rhs.bits;
         }
-        friend int operator!=(REBCNT lhs, const REBIXO &rhs) {
+        friend bool operator!=(REBCNT lhs, const REBIXO &rhs) {
             return !(lhs == rhs);
         }
-        int operator<(REBCNT rhs) const {
+        bool operator<(REBCNT rhs) const {
             return cast(REBCNT, *this) < rhs;
         }
-        friend int operator<(REBCNT lhs, const REBIXO &rhs) {
+        friend bool operator<(REBCNT lhs, const REBIXO &rhs) {
             return lhs < rhs.bits;
         }
-        int operator>(REBCNT rhs) const {
+        bool operator>(REBCNT rhs) const {
             return cast(REBCNT, *this) > rhs;
         }
-        friend int operator>(REBCNT lhs, const REBIXO &rhs) {
+        friend bool operator>(REBCNT lhs, const REBIXO &rhs) {
             return lhs > rhs.bits;
         }
-        int operator<=(REBCNT rhs) const {
+        bool operator<=(REBCNT rhs) const {
             return cast(REBCNT, *this) <= rhs;
         }
-        friend int operator<=(REBCNT lhs, const REBIXO &rhs) {
+        friend bool operator<=(REBCNT lhs, const REBIXO &rhs) {
             return lhs <= rhs.bits;
         }
         REBCNT operator+(REBCNT rhs) const {

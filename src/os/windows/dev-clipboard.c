@@ -76,7 +76,7 @@ DEVICE_CMD Read_Clipboard(REBREQ *req)
     req->actual = 0;
 
     SetLastError(NO_ERROR);
-    if (NOT(IsClipboardFormatAvailable(CF_UNICODETEXT))) {
+    if (not IsClipboardFormatAvailable(CF_UNICODETEXT)) {
         //
         // This is not necessarily an "error", it just may be the clipboard
         // doesn't have text on it (an image, or maybe nothing at all);
@@ -90,7 +90,7 @@ DEVICE_CMD Read_Clipboard(REBREQ *req)
         return DR_DONE;
     }
 
-    if (NOT(OpenClipboard(NULL)))
+    if (not OpenClipboard(NULL))
         rebFail ("{OpenClipboard() failed while reading}", rebEnd());
 
     HANDLE h = GetClipboardData(CF_UNICODETEXT);
@@ -156,10 +156,10 @@ DEVICE_CMD Write_Clipboard(REBREQ *req)
 
     req->actual = 0;
 
-    if (NOT(OpenClipboard(NULL)))
+    if (not OpenClipboard(NULL))
         rebFail ("{OpenClipboard() failed on clipboard write}", rebEnd());
 
-    if (NOT(EmptyClipboard())) // !!! is this superfluous?
+    if (not EmptyClipboard()) // !!! is this superfluous?
         rebFail ("{EmptyClipboard() failed on clipboard write}", rebEnd());
 
     // Clipboard wants a Windows memory handle with UCS2 data.  Allocate a

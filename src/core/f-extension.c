@@ -127,7 +127,7 @@ REBNATIVE(load_extension_helper)
                 // do some sanity checking, just to avoid crashing if
                 // system/extensions was messed up
 
-                if (!IS_OBJECT(item)) {
+                if (not IS_OBJECT(item)) {
                     DECLARE_LOCAL (bad);
                     Derelativize(bad, item, VAL_SPECIFIER(loaded_exts));
                     fail(Error_Bad_Extension_Raw(bad));
@@ -136,8 +136,10 @@ REBNATIVE(load_extension_helper)
                 REBCTX *item_ctx = VAL_CONTEXT(item);
                 if (
                     CTX_LEN(item_ctx) <= STD_EXTENSION_LIB_BASE
-                    || CTX_KEY_SPELLING(item_ctx, STD_EXTENSION_LIB_BASE)
-                    != CTX_KEY_SPELLING(std_ext_ctx, STD_EXTENSION_LIB_BASE)
+                    or (
+                        CTX_KEY_SPELLING(std_ext_ctx, STD_EXTENSION_LIB_BASE)
+                        != CTX_KEY_SPELLING(item_ctx, STD_EXTENSION_LIB_BASE)
+                    )
                 ){
                     DECLARE_LOCAL (bad);
                     Derelativize(bad, item, VAL_SPECIFIER(loaded_exts));
@@ -225,7 +227,7 @@ REBNATIVE(unload_extension_helper)
 
     if (
         (CTX_LEN(context) <= STD_EXTENSION_LIB_BASE)
-        || (
+        or (
             CTX_KEY_CANON(context, STD_EXTENSION_LIB_BASE)
             != CTX_KEY_CANON(std, STD_EXTENSION_LIB_BASE)
         )
@@ -236,7 +238,7 @@ REBNATIVE(unload_extension_helper)
     int ret;
     if (!REF(cleanup)) {
         REBVAL *lib = CTX_VAR(context, STD_EXTENSION_LIB_BASE);
-        if (!IS_LIBRARY(lib))
+        if (not IS_LIBRARY(lib))
             fail (Error_Invalid(ARG(ext)));
 
         if (IS_LIB_CLOSED(VAL_LIBRARY(lib)))
@@ -393,7 +395,7 @@ REBNATIVE(load_native)
         fail ("HANDLE! passed to LOAD-NATIVE did not come from RX_Init");
 
     REBI64 index = VAL_INT64(ARG(index));
-    if (index < 0 || cast(uintptr_t, index) >= VAL_HANDLE_LEN(ARG(impl)))
+    if (index < 0 or cast(uintptr_t, index) >= VAL_HANDLE_LEN(ARG(impl)))
         fail ("Index of native is outside range specified by RX_Init");
 
     REBNAT dispatcher = VAL_HANDLE_POINTER(REBNAT, ARG(impl))[index];

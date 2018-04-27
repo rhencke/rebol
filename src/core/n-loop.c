@@ -54,7 +54,7 @@ REBOOL Catching_Break_Or_Continue(REBVAL *val, REBOOL *stop)
 
     // Throw /NAME-s used by CONTINUE and BREAK are the actual native
     // function values of the routines themselves.
-    if (!IS_FUNCTION(val))
+    if (not IS_FUNCTION(val))
         return FALSE;
 
     if (VAL_FUNC_DISPATCHER(val) == &N_break) {
@@ -175,8 +175,8 @@ static REB_R Loop_Series_Common(
     // FOR loop.  (R3-Alpha used the sign of the bump, which meant it did not
     // have a clear plan for what to do with 0.)
     //
-    const REBOOL counting_up = DID(s < end); // equal checked above
-    if ((counting_up && bump <= 0) || (NOT(counting_up) && bump >= 0))
+    const REBOOL counting_up = (s < end); // equal checked above
+    if ((counting_up and bump <= 0) or (not counting_up and bump >= 0))
         return R_VOID; // avoid infinite loops
 
     while (
@@ -197,7 +197,7 @@ static REB_R Loop_Series_Common(
     next_iteration:
         if (
             VAL_TYPE(var) != VAL_TYPE(start)
-            || VAL_SERIES(var) != VAL_SERIES(start)
+            or VAL_SERIES(var) != VAL_SERIES(start)
         ){
             fail ("Can only change series index, not series to iterate");
         }
@@ -256,8 +256,8 @@ static REB_R Loop_Integer_Common(
     // FOR loop.  (R3-Alpha used the sign of the bump, which meant it did not
     // have a clear plan for what to do with 0.)
     //
-    const REBOOL counting_up = DID(start < end); // equal checked above
-    if ((counting_up && bump <= 0) || (NOT(counting_up) && bump >= 0))
+    const REBOOL counting_up = (start < end); // equal checked above
+    if ((counting_up and bump <= 0) or (not counting_up and bump >= 0))
         return R_VOID; // avoid infinite loops
 
     while (counting_up ? *state <= end : *state >= end) {
@@ -272,7 +272,7 @@ static REB_R Loop_Integer_Common(
         }
 
     next_iteration:
-        if (NOT(IS_INTEGER(var)))
+        if (not IS_INTEGER(var))
             fail (Error_Invalid_Type(VAL_TYPE(var)));
 
         if (REB_I64_ADD_OF(*state, bump, state))
@@ -299,7 +299,7 @@ static REB_R Loop_Number_Common(
     REBDEC s;
     if (IS_INTEGER(start))
         s = cast(REBDEC, VAL_INT64(start));
-    else if (IS_DECIMAL(start) || IS_PERCENT(start))
+    else if (IS_DECIMAL(start) or IS_PERCENT(start))
         s = VAL_DECIMAL(start);
     else
         fail (Error_Invalid(start));
@@ -307,7 +307,7 @@ static REB_R Loop_Number_Common(
     REBDEC e;
     if (IS_INTEGER(end))
         e = cast(REBDEC, VAL_INT64(end));
-    else if (IS_DECIMAL(end) || IS_PERCENT(end))
+    else if (IS_DECIMAL(end) or IS_PERCENT(end))
         e = VAL_DECIMAL(end);
     else
         fail (Error_Invalid(end));
@@ -315,7 +315,7 @@ static REB_R Loop_Number_Common(
     REBDEC b;
     if (IS_INTEGER(bump))
         b = cast(REBDEC, VAL_INT64(bump));
-    else if (IS_DECIMAL(bump) || IS_PERCENT(bump))
+    else if (IS_DECIMAL(bump) or IS_PERCENT(bump))
         b = VAL_DECIMAL(bump);
     else
         fail (Error_Invalid(bump));
@@ -344,8 +344,8 @@ static REB_R Loop_Number_Common(
 
     // As per #1993, see notes in Loop_Integer_Common()
     //
-    const REBOOL counting_up = DID(s < e); // equal checked above
-    if ((counting_up && b <= 0) || (NOT(counting_up) && b >= 0))
+    const REBOOL counting_up = (s < e); // equal checked above
+    if ((counting_up and b <= 0) or (not counting_up and b >= 0))
         return R_VOID; // avoid infinite loops
 
     while (counting_up ? *state <= e : *state >= e) {
@@ -360,7 +360,7 @@ static REB_R Loop_Number_Common(
         }
 
     next_iteration:
-        if (NOT(IS_DECIMAL(var)))
+        if (not IS_DECIMAL(var))
             fail (Error_Invalid_Type(VAL_TYPE(var)));
 
         *state += b;
@@ -384,7 +384,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     INCLUDE_PARAMS_OF_FOR_EACH;
 
     REBVAL *data = ARG(data);
-    assert(!IS_VOID(data));
+    assert(not IS_VOID(data));
 
     if (IS_BLANK(data))
         return R_VOID;
@@ -546,7 +546,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 // MAP! does not store RELVALs
                 //
                 REBVAL *val = KNOWN(ARR_AT(ARR(series), index | 1));
-                if (!IS_VOID(val)) {
+                if (not IS_VOID(val)) {
                     if (j == 0) {
                         Derelativize(
                             var,
@@ -590,7 +590,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
             index++;
         }
 
-        assert(IS_END(key) && IS_END(pseudo_var));
+        assert(IS_END(key) and IS_END(pseudo_var));
 
         if (Do_Any_Array_At_Throws(D_OUT, ARG(body))) { // may be a copy
             if (!Catching_Break_Or_Continue(D_OUT, &stop)) {
@@ -610,7 +610,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
         case LOOP_MAP_EACH:
             // anything that's not void will be added to the result
-            if (!IS_VOID(D_OUT))
+            if (not IS_VOID(D_OUT))
                 DS_PUSH(D_OUT);
             break;
 
@@ -620,7 +620,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
             }
             else if (IS_FALSEY(D_OUT))
                 Init_Blank(D_CELL); // at least one false means blank result
-            else if (IS_END(D_CELL) || !IS_BLANK(D_CELL))
+            else if (IS_END(D_CELL) or not IS_BLANK(D_CELL))
                 Move_Value(D_CELL, D_OUT);
             break;
         }
@@ -668,7 +668,7 @@ skip_hidden: ;
     if (LEGACY(OPTIONS_BREAK_WITH_OVERRIDES)) {
         // In legacy R3-ALPHA, BREAK without a provided value did *not*
         // override the result.  It returned the partial results.
-        if (stop && NOT_END(D_OUT))
+        if (stop and NOT_END(D_OUT))
             return R_OUT;
     }
 #endif
@@ -733,21 +733,22 @@ REBNATIVE(for)
 
     if (
         IS_INTEGER(ARG(start))
-        && IS_INTEGER(ARG(end))
-        && IS_INTEGER(ARG(bump))
-    ) {
+        and IS_INTEGER(ARG(end))
+        and IS_INTEGER(ARG(bump))
+    ){
         return Loop_Integer_Common(
             D_OUT,
             var,
             ARG(body),
             VAL_INT64(ARG(start)),
             IS_DECIMAL(ARG(end))
-                ? (REBI64)VAL_DECIMAL(ARG(end))
+                ? cast(REBI64, VAL_DECIMAL(ARG(end)))
                 : VAL_INT64(ARG(end)),
             VAL_INT64(ARG(bump))
         );
     }
-    else if (ANY_SERIES(ARG(start))) {
+
+    if (ANY_SERIES(ARG(start))) {
         if (ANY_SERIES(ARG(end))) {
             return Loop_Series_Common(
                 D_OUT,
@@ -813,7 +814,7 @@ REBNATIVE(for_skip)
     if (IS_VOID(var))
         fail (Error_No_Value(word));
 
-    if (NOT(ANY_SERIES(var)))
+    if (not ANY_SERIES(var))
         fail (Error_Invalid(var));
 
     REBINT skip = Int32(ARG(skip));
@@ -824,7 +825,7 @@ REBNATIVE(for_skip)
 
     // Starting location when past end with negative skip:
     //
-    if (skip < 0 && VAL_INDEX(var) >= VAL_LEN_HEAD(var))
+    if (skip < 0 and VAL_INDEX(var) >= VAL_LEN_HEAD(var))
         VAL_INDEX(var) = VAL_LEN_HEAD(var) + skip;
 
     while (TRUE) {
@@ -861,7 +862,7 @@ REBNATIVE(for_skip)
         if (IS_BLANK(var))
             return R_OUT;
 
-        if (NOT(ANY_SERIES(var)))
+        if (not ANY_SERIES(var))
             fail (Error_Invalid(var));
 
         VAL_INDEX(var) += skip;
@@ -969,7 +970,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         // avoid blitting cells onto themselves by making the first thing we
         // do is to pass up all the unmarked (kept) cells.
         //
-        while (NOT_END(src) && NOT(src->header.bits & NODE_FLAG_MARKED)) {
+        while (NOT_END(src) and not (src->header.bits & NODE_FLAG_MARKED)) {
             ++src;
             ++dest;
         }
@@ -978,7 +979,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         // on are going to be moving to somewhere besides the original spot
         //
         for (; NOT_END(dest); ++dest, ++src) {
-            while (NOT_END(src) && (src->header.bits & NODE_FLAG_MARKED)) {
+            while (NOT_END(src) and (src->header.bits & NODE_FLAG_MARKED)) {
                 ++src;
                 --len;
                 ++count;
@@ -1072,7 +1073,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
     REBCNT index = res->start; // declare here, avoid longjmp clobber warnings
 
     REBCNT len = SER_LEN(res->series); // temp read-only, this won't change
-    while (index < len && NOT(stop)) {
+    while (index < len and not stop) {
         assert(res->start == index);
 
         REBVAL *var = CTX_VAR(res->context, 1);
@@ -1123,7 +1124,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
         }
 
         if (ANY_ARRAY(res->data)) {
-            if (IS_VOID(res->out) || IS_FALSEY(res->out)) {
+            if (IS_VOID(res->out) or IS_FALSEY(res->out)) {
                 res->start = index;
                 continue; // keep requested, don't mark for culling
             }
@@ -1136,7 +1137,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
             } while (res->start != index);
         }
         else {
-            if (NOT(IS_VOID(res->out)) && IS_TRUTHY(res->out)) {
+            if (not IS_VOID(res->out) and IS_TRUTHY(res->out)) {
                 res->start = index;
                 continue; // remove requested, don't save to buffer
             }
@@ -1166,7 +1167,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
     // Finalize may need to process residual data in the case of BREAK
     // It knows this based on res.start < len
     //
-    assert((stop && res->start <= len) || (!stop && res->start == len));
+    assert((stop and res->start <= len) or (not stop and res->start == len));
 
     if (stop) {
         //
@@ -1203,8 +1204,8 @@ REBNATIVE(remove_each)
     // !!! Currently there is no support for VECTOR!, or IMAGE! (what would
     // that even *mean*?) yet these are in the ANY-SERIES! typeset.
     //
-    if (NOT(
-        ANY_ARRAY(res.data) || ANY_STRING(res.data) || IS_BINARY(res.data)
+    if (not (
+        ANY_ARRAY(res.data) or ANY_STRING(res.data) or IS_BINARY(res.data)
     )){
         fail (Error_Invalid(res.data));
     }
@@ -1425,7 +1426,7 @@ REBNATIVE(repeat)
     if (IS_BLANK(value))
         return R_VOID;
 
-    if (IS_DECIMAL(value) || IS_PERCENT(value))
+    if (IS_DECIMAL(value) or IS_PERCENT(value))
         Init_Integer(value, Int64(value));
 
     REBCTX *context;

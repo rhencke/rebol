@@ -81,7 +81,7 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
     printf("Kind=%d\n", cast(int, VAL_TYPE_RAW(v)));
     fflush(stdout);
 
-    if (containing != NULL && NOT_CELL(containing)) {
+    if (containing != NULL and NOT_CELL(containing)) {
         printf("Containing series for value pointer found, panicking it:\n");
         Panic_Series_Debug(SER(containing));
     }
@@ -103,11 +103,11 @@ REBCTX *VAL_SPECIFIC_Debug(const REBVAL *v)
 {
     assert(
         VAL_TYPE(v) == REB_0_REFERENCE
-        || ANY_WORD(v)
-        || ANY_ARRAY(v)
-        || IS_VARARGS(v)
-        || IS_FUNCTION(v)
-        || ANY_CONTEXT(v)
+        or ANY_WORD(v)
+        or ANY_ARRAY(v)
+        or IS_VARARGS(v)
+        or IS_FUNCTION(v)
+        or ANY_CONTEXT(v)
     );
 
     REBCTX *specific = VAL_SPECIFIC_COMMON(v);

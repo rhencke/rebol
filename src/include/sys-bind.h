@@ -59,13 +59,13 @@ inline static REBOOL Same_Binding(void *a_ptr, void *b_ptr) {
         if (IS_CELL(b))
             return FALSE;
         REBFRM *f_a = cast(REBFRM*, a);
-        if (f_a->varlist != NULL && NOD(f_a->varlist) == b)
+        if (f_a->varlist != NULL and NOD(f_a->varlist) == b)
             return TRUE;
         return FALSE;
     }
     if (IS_CELL(b)) {
         REBFRM *f_b = cast(REBFRM*, b);
-        if (f_b->varlist != NULL && NOD(f_b->varlist) == a)
+        if (f_b->varlist != NULL and NOD(f_b->varlist) == a)
             return TRUE;
         return FALSE;
     }
@@ -93,7 +93,7 @@ inline static REBOOL Same_Binding(void *a_ptr, void *b_ptr) {
 //
 inline static REBOOL Is_Overriding_Context(REBCTX *stored, REBCTX *override)
 {
-    REBNOD *stored_keysource = LINK(CTX_VARLIST(stored)).keysource;
+    REBNOD *stored_source = LINK(CTX_VARLIST(stored)).keysource;
     REBNOD *temp = LINK(CTX_VARLIST(override)).keysource;
 
     // In a FRAME! the "keylist" is actually a paramlist, and the LINK.facade
@@ -104,20 +104,13 @@ inline static REBOOL Is_Overriding_Context(REBCTX *stored, REBCTX *override)
     // Use a faster check for REB_FRAME than CTX_TYPE() == REB_FRAME, since
     // we were extracting keysources anyway. 
     //
-    if (
-        (
-            stored_keysource->header.bits
-            & (ARRAY_FLAG_PARAMLIST | NODE_FLAG_CELL)
-        ) || (
-            temp->header.bits
-            & (ARRAY_FLAG_PARAMLIST | NODE_FLAG_CELL)
-        )
-    ){
-        return FALSE; // one or the other are actually FRAME!s
-    }
+    if (stored_source->header.bits & (ARRAY_FLAG_PARAMLIST | NODE_FLAG_CELL))
+        return FALSE;
+    if (temp->header.bits & (ARRAY_FLAG_PARAMLIST | NODE_FLAG_CELL))
+        return FALSE;
 
     while (TRUE) {
-        if (temp == stored_keysource)
+        if (temp == stored_source)
             return TRUE;
 
         if (NOD(LINK(temp).ancestor) == temp)
@@ -157,7 +150,7 @@ struct Reb_Binder {
 
 
 inline static void INIT_BINDER(struct Reb_Binder *binder) {
-    binder->high = TRUE; // !!! what about `DID(SPORADICALLY(2))` for testing?
+    binder->high = TRUE; // !!! what about `did (SPORADICALLY(2))` to test?
 
 #if !defined(NDEBUG)
     binder->count = 0;
@@ -348,7 +341,7 @@ inline static REBVAL *Derelativize(
         // The stored binding is relative to a function, and so the specifier
         // needs to be a frame to have a precise invocation to lookup in.
 
-        assert(ANY_WORD(v) || ANY_ARRAY(v));
+        assert(ANY_WORD(v) or ANY_ARRAY(v));
 
     #if !defined(NDEBUG)
         if (specifier == SPECIFIED) {
@@ -409,8 +402,8 @@ inline static REBVAL *Derelativize(
 
         if (
             f_binding != UNBOUND
-            && NOT_CELL(f_binding)
-            && Is_Overriding_Context(CTX(v->extra.binding), CTX(f_binding))
+            and NOT_CELL(f_binding)
+            and Is_Overriding_Context(CTX(v->extra.binding), CTX(f_binding))
         ){
             // !!! Repeats code in Get_Var_Core, see explanation there
             //
@@ -608,8 +601,8 @@ inline static REBVAL *Get_Var_Core(
 
             if (
                 f_binding != UNBOUND
-                && NOT_CELL(f_binding)
-                && Is_Overriding_Context(CTX(binding), CTX(f_binding))
+                and NOT_CELL(f_binding)
+                and Is_Overriding_Context(CTX(binding), CTX(f_binding))
             ){
                 // The frame's binding overrides--because what's happening is
                 // that this cell came from a function's body, where the

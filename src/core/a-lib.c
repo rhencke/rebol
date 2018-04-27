@@ -261,7 +261,7 @@ REBVAL *RL_rebRepossess(void *ptr, REBCNT size)
     UNPOISON_MEMORY(ps, sizeof(REBSER*)); // need to underrun to fetch `s`
 
     REBSER *s = *ps;
-    assert(NOT(IS_SERIES_MANAGED(s)));
+    assert(not IS_SERIES_MANAGED(s));
 
     if (size > BIN_LEN(s) - ALIGN_SIZE)
         fail ("Attempt to rebRepossess() more than rebMalloc() capacity");
@@ -415,7 +415,7 @@ void Shutdown_Api(void)
 //      vers[0] = 5; // len
 //      RL_Version(&vers[0]);
 //
-//      if (vers[1] != RL_VER || vers[2] != RL_REV)
+//      if (vers[1] != RL_VER or vers[2] != RL_REV)
 //          rebPanic ("Incompatible reb-lib DLL");
 //
 void RL_rebVersion(REBYTE vers[])
@@ -504,7 +504,7 @@ void RL_rebShutdown(REBOOL clean)
     // nothing to do in the case of an "unclean" shutdown...yet.
 
   #if !defined(NDEBUG)
-    if (NOT(clean))
+    if (not clean)
         return; // Only do the work above this line in an unclean shutdown
   #else
     UNUSED(clean);
@@ -767,7 +767,7 @@ REBVAL *RL_rebRunInline(const REBVAL *array)
 {
     Enter_Api();
 
-    if (NOT(IS_BLOCK(array)) && NOT(IS_GROUP(array)))
+    if (not IS_BLOCK(array) and not IS_GROUP(array))
         fail ("rebRunInline() only supports BLOCK! and GROUP!");
 
     DECLARE_LOCAL (group);
@@ -897,7 +897,7 @@ REBVAL *RL_rebBlank(void)
 REBVAL *RL_rebLogic(long logic)
 {
     Enter_Api();
-    return Init_Logic(Alloc_Value(), DID(logic));
+    return Init_Logic(Alloc_Value(), did logic);
 }
 
 
@@ -990,10 +990,10 @@ REBVAL *RL_rebDateTime(const REBVAL *date, const REBVAL *time)
 {
     Enter_Api();
 
-    if (NOT(IS_DATE(date)))
+    if (not IS_DATE(date))
         fail ("rebDateTime() date parameter must be DATE!");
 
-    if (NOT(IS_TIME(time)))
+    if (not IS_TIME(time))
         fail ("rebDateTime() time parameter must be TIME!");
 
     // if we had a timezone, we'd need to set DATE_FLAG_HAS_ZONE and
@@ -1201,12 +1201,12 @@ REBVAL *RL_rebRescueWith(
 
 
 inline static REBFRM *Extract_Live_Rebfrm_May_Fail(const REBVAL *frame) {
-    if (NOT(IS_FRAME(frame)))
+    if (not IS_FRAME(frame))
         fail ("Not a FRAME!");
 
     REBFRM *f = CTX_FRAME_MAY_FAIL(VAL_CONTEXT(frame));
 
-    assert(Is_Function_Frame(f) && NOT(Is_Function_Frame_Fulfilling(f)));
+    assert(Is_Function_Frame(f) and not Is_Function_Frame_Fulfilling(f));
     return f;
 }
 
@@ -1270,14 +1270,14 @@ REBOOL RL_rebDid(const void *p, ...) {
 
     va_end(va);
 
-    return NOT(IS_VOID_OR_FALSEY(condition)); // DID treats voids as "falsey"
+    return not IS_VOID_OR_FALSEY(condition); // DID treats voids as "falsey"
 }
 
 
 //
 //  rebNot: RL_API
 //
-// !!! If this were going to be a macro like NOT(rebDid(...)), it would have
+// !!! If this were going to be a macro like (not (rebDid(...))) it would have
 // to be a variadic macro.  Just make a separate entry point for now.
 //
 REBOOL RL_rebNot(const void *p, ...) {
@@ -1567,7 +1567,7 @@ REBCNT RL_rebBytesOfBinary(
 ){
     Enter_Api();
 
-    if (NOT(IS_BINARY(binary)))
+    if (not IS_BINARY(binary))
         fail ("rebValBin() only works on BINARY!");
 
     REBCNT len = VAL_LEN_AT(binary);
@@ -1793,7 +1793,7 @@ REBVAL *RL_rebUnmanage(REBVAL *v)
     REBARR *a = Singular_From_Cell(v);
     assert(GET_SER_FLAG(a, NODE_FLAG_ROOT));
 
-    if (NOT(IS_ARRAY_MANAGED(a)))
+    if (not IS_ARRAY_MANAGED(a))
         fail ("Attempt to rebUnmanage() a handle with indefinite lifetime.");
 
     // It's not safe to convert the average series that might be referred to
@@ -1805,7 +1805,7 @@ REBVAL *RL_rebUnmanage(REBVAL *v)
     CLEAR_SER_FLAG(a, NODE_FLAG_MANAGED);
     assert(
         LINK(a).owner == EMPTY_ARRAY // freed when program exits
-        || GET_SER_FLAG(LINK(a).owner, ARRAY_FLAG_VARLIST)
+        or GET_SER_FLAG(LINK(a).owner, ARRAY_FLAG_VARLIST)
     );
     LINK(a).owner = EMPTY_ARRAY;
 
@@ -1825,7 +1825,7 @@ REBVAL *RL_rebCopyExtra(const REBVAL *v, REBCNT extra)
     // evaluator, because it is an "action".  Review a good efficient method
     // for doing it, but for the moment it's just needed for FILE! so do that.
     //
-    if (NOT(ANY_STRING(v)))
+    if (not ANY_STRING(v))
         fail ("rebCopy() only supports ANY-STRING! for now");
 
     return Init_Any_Series(
@@ -1848,7 +1848,7 @@ long RL_rebLengthOf(const REBVAL *series)
 {
     Enter_Api();
 
-    if (NOT(ANY_SERIES(series)))
+    if (not ANY_SERIES(series))
         fail ("rebLengthOf() can only be used on ANY-SERIES!");
 
     return VAL_LEN_AT(series);
@@ -1871,7 +1871,7 @@ void RL_rebRelease(REBVAL *v)
 {
     Enter_Api();
 
-    if (NOT(Is_Api_Value(v)))
+    if (not Is_Api_Value(v))
         panic ("Attempt to rebRelease() a non-API handle");
 
     Free_Value(v);
@@ -1994,7 +1994,7 @@ char *RL_rebFileToLocalAlloc(
 ){
     Enter_Api();
 
-    if (NOT(IS_FILE(file)))
+    if (not IS_FILE(file))
         fail ("rebFileToLocalAlloc() only works on FILE!");
 
     DECLARE_LOCAL (local);
@@ -2020,7 +2020,7 @@ REBWCHAR *RL_rebFileToLocalAllocW(
 ){
     Enter_Api();
 
-    if (NOT(IS_FILE(file)))
+    if (not IS_FILE(file))
         fail ("rebFileToLocalAllocW() only works on FILE!");
 
     DECLARE_LOCAL (local);

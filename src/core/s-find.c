@@ -85,7 +85,7 @@ REBINT Compare_Bytes(const REBYTE *b1, const REBYTE *b2, REBCNT len, REBOOL unca
             // all bytes are ASCII.  It is not meant to do "case-insensitive"
             // processing of binaries, however.
             //
-            assert(*b1 < 0x80 && *b2 < 0x80);
+            assert(*b1 < 0x80 and *b2 < 0x80);
 
             d = LO_CASE(*b1) - LO_CASE(*b2);
         }
@@ -107,11 +107,13 @@ REBINT Compare_Bytes(const REBYTE *b1, const REBYTE *b2, REBCNT len, REBOOL unca
 //
 const REBYTE *Match_Bytes(const REBYTE *src, const REBYTE *pat)
 {
-    while (*src && *pat) {
-        if (LO_CASE(*src++) != LO_CASE(*pat++)) return 0;
+    while (*src != '\0' and *pat != '\0') {
+        if (LO_CASE(*src++) != LO_CASE(*pat++))
+            return 0;
     }
 
-    if (*pat) return 0; // if not at end of pat, then error
+    if (*pat != '\0')
+        return 0; // if not at end of pat, then error
 
     return src;
 }
@@ -147,11 +149,10 @@ REBOOL Match_Sub_Path(REBSER *s1, REBSER *s2)
 
     // a/b matches: a/b, a/b/, a/b/c
     c2 = GET_ANY_CHAR(s2, n);
-    return DID(
-            n >= len  // all chars matched
-            &&  // Must be at end or at dir sep:
-            (c1 == '/' || c1 == '\\'
-            || c2 == 0 || c2 == '/' || c2 == '\\')
+    return did (
+        n >= len  // all chars matched
+        and  // Must be at end or at dir sep:
+        (c1 == '/' or c1 == '\\' or c2 == 0 or c2 == '/' or c2 == '\\')
     );
 }
 
@@ -201,7 +202,7 @@ REBINT Compare_Uni_Str(
 //
 REBINT Compare_String_Vals(const RELVAL *v1, const RELVAL *v2, REBOOL uncase)
 {
-    assert(NOT(IS_BINARY(v1)) && NOT(IS_BINARY(v2)));
+    assert(not IS_BINARY(v1) and not IS_BINARY(v2));
 
     REBCNT l1  = VAL_LEN_AT(v1);
     REBCNT l2  = VAL_LEN_AT(v2);
@@ -346,7 +347,7 @@ REBCNT Find_Str_Str(REBSER *ser1, REBCNT head, REBCNT index, REBCNT tail, REBINT
     REBUNI c2;
     REBUNI c3;
     REBCNT n = 0;
-    REBOOL uncase = NOT(flags & AM_FIND_CASE); // case insenstive
+    REBOOL uncase = not (flags & AM_FIND_CASE); // case insenstive
 
     c2 = GET_ANY_CHAR(ser2, index2); // starting char
     if (uncase && c2 < UNICODE_CASES) c2 = LO_CASE(c2);
@@ -402,7 +403,7 @@ static REBCNT Find_Str_Char_Old(
     REBUNI c2,
     REBCNT flags
 ) {
-    REBOOL uncase = NOT(flags & AM_FIND_CASE); // case insensitive
+    REBOOL uncase = not (flags & AM_FIND_CASE); // case insensitive
 
     if (uncase && c2 < UNICODE_CASES) c2 = LO_CASE(c2);
 
@@ -466,7 +467,7 @@ REBCNT Find_Str_Char(
     //
     REBUNI casings[2];
 
-    if (DID(flags & AM_FIND_CASE)) { // case-*sensitive*
+    if (flags & AM_FIND_CASE) { // case-*sensitive*
         casings[0] = uni;
         casings[1] = uni;
     }
@@ -499,7 +500,7 @@ REBCNT Find_Str_Char(
     // try that uses memory range functions/etc, and if "/skip 0" were the
     // replacement for match it would have to be handled separately anyway.
     //
-    if (DID(flags & AM_FIND_MATCH)) {
+    if (flags & AM_FIND_MATCH) {
         REBUNI single = GET_ANY_CHAR(series, index_orig);
         if (single == casings[0] || single == casings[1])
             goto return_index;
@@ -660,7 +661,7 @@ REBCNT Find_Str_Bitset(
     REBSER *bset,
     REBCNT flags
 ) {
-    REBOOL uncase = NOT(flags & AM_FIND_CASE); // case insensitive
+    REBOOL uncase = not (flags & AM_FIND_CASE); // case insensitive
 
     for (; index >= head && index < tail; index += skip) {
         REBUNI c1 = GET_ANY_CHAR(ser, index);

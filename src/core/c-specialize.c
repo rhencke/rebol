@@ -257,7 +257,7 @@ REBCTX *Make_Context_For_Specialization(
         //
         //     specialize 'append/only [only: false] ; won't disable only
 
-        deny(IS_REFINEMENT_SPECIALIZED(param));
+        assert(not IS_REFINEMENT_SPECIALIZED(param));
 
         REBSTR *param_canon; // goto would cross initialization
         param_canon = VAL_PARAM_CANON(param);
@@ -266,7 +266,7 @@ REBCTX *Make_Context_For_Specialization(
         for (dsp = highest_ordered_dsp; dsp != lowest_ordered_dsp; --dsp) {
             REBVAL *ordered = DS_AT(dsp);
             if (VAL_STORED_CANON(ordered) == param_canon) {
-                assert(NOT(IS_WORD_BOUND(ordered))); // we bind only one
+                assert(not IS_WORD_BOUND(ordered)); // we bind only one
                 ordered->extra.binding = NOD(varlist);
                 ordered->payload.any_word.index = index;
 
@@ -329,9 +329,9 @@ inline static REBOOL Saw_Void_Arg_Of(const REBVAL *p) {
 // the partials.  Better to do it with a macro than repeat the code.  :-/
 //
 #define FINALIZE_REFINE_IF_FULFILLED \
-    assert(evoked != refine || evoked->payload.partial.dsp == 0); \
+    assert(evoked != refine or evoked->payload.partial.dsp == 0); \
     if (VAL_TYPE(refine) == REB_0_PARTIAL) { \
-        if (NOT(Saw_Void_Arg_Of(refine))) { /* no voids, no order needed! */ \
+        if (not Saw_Void_Arg_Of(refine)) { /* no voids, no order needed! */ \
             if (refine->payload.partial.dsp != 0) \
                 Init_Blank(DS_AT(refine->payload.partial.dsp)); /* full! */ \
             else if (refine == evoked) \
@@ -414,8 +414,8 @@ REBOOL Specialize_Function_Throws(
                 continue;
 
             if (VAL_PARAM_CLASS(key) == PARAM_CLASS_REFINEMENT)
-                if (NOT(IS_VOID(var))) {
-                    assert(IS_INTEGER(var) || IS_LOGIC(var));
+                if (not IS_VOID(var)) {
+                    assert(IS_INTEGER(var) or IS_LOGIC(var));
                     continue; // specialized and partials not added
                 }
 
@@ -461,8 +461,8 @@ REBOOL Specialize_Function_Throws(
             refine = arg;
 
             if (
-                IS_VOID(refine) ||
-                (IS_INTEGER(refine) && IS_REFINEMENT_SPECIALIZED(param))
+                IS_VOID(refine)
+                or (IS_INTEGER(refine) and IS_REFINEMENT_SPECIALIZED(param))
             ){
                 //
                 // /DUP is implicitly "evoked" to be true in the following
@@ -561,12 +561,12 @@ REBOOL Specialize_Function_Throws(
             // `specialize 'append [dup: false count: 10]` is not legal.
             //
             assert(VAL_LOGIC(refine) == FALSE);
-            if (NOT(IS_VOID(arg)))
+            if (not IS_VOID(arg))
                 fail (Error_Bad_Refine_Revoke(param, arg));
             goto specialized_no_typecheck;
         }
 
-        if (NOT(IS_VOID(arg)))
+        if (not IS_VOID(arg))
             goto unspecialized;
 
         // A previously fully-specialized TRUE should not have any void args.
@@ -600,7 +600,7 @@ REBOOL Specialize_Function_Throws(
     unspecialized_but_may_evoke:;
 
         assert(refine->payload.partial.dsp == 0);
-        deny(IS_REFINEMENT_SPECIALIZED(param));
+        assert(not IS_REFINEMENT_SPECIALIZED(param));
 
     unspecialized:;
 
@@ -621,7 +621,7 @@ REBOOL Specialize_Function_Throws(
             if (GET_VAL_FLAG(param, TYPESET_FLAG_VARIADIC))
                 fail ("Cannot currently SPECIALIZE variadic arguments.");
 
-            if (NOT(TYPE_CHECK(param, VAL_TYPE(arg))))
+            if (not TYPE_CHECK(param, VAL_TYPE(arg)))
                 fail (Error_Invalid(arg)); // !!! merge w/Error_Invalid_Arg()
         }
 
@@ -666,7 +666,7 @@ REBOOL Specialize_Function_Throws(
         assert(VAL_TYPE(partial) == REB_0_PARTIAL);
         REBVAL *next_partial = partial->extra.next_partial; // overwritten
 
-        if (NOT(Saw_Void_Arg_Of(partial))) {
+        if (not Saw_Void_Arg_Of(partial)) {
             REBCNT partial_index = partial->payload.partial.index;
             if (IS_REFINEMENT_SPECIALIZED(rootkey + partial_index)) {
                 //
@@ -736,7 +736,7 @@ REBOOL Specialize_Function_Throws(
     while (dsp != DSP) {
         ++dsp;
         REBVAL *ordered = DS_AT(dsp);
-        if (NOT(IS_BLANK(ordered)))
+        if (not IS_BLANK(ordered))
             fail (Error_Bad_Refine_Raw(ordered)); // specialize 'print/asdf
     }
     DS_DROP_TO(lowest_ordered_dsp);
@@ -852,7 +852,7 @@ REBNATIVE(specialize)
     // Note: Even if there was a PATH! doesn't mean there were refinements
     // used, e.g. `specialize 'lib/append [...]`.
 
-    if (!IS_FUNCTION(D_OUT))
+    if (not IS_FUNCTION(D_OUT))
         fail (Error_Invalid(specializee));
     Move_Value(specializee, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
@@ -1015,7 +1015,7 @@ REBNATIVE(does)
 
     if (
         GET_VAL_FLAG(specializee, VALUE_FLAG_UNEVALUATED)
-        && (IS_WORD(specializee) || IS_PATH(specializee))
+        and (IS_WORD(specializee) or IS_PATH(specializee))
     ){
         // We interpret phrasings like `x: does all [...]` to mean something
         // like `x: specialize 'all [block: [...]]`.  While this originated
@@ -1037,7 +1037,7 @@ REBNATIVE(does)
             return R_OUT_IS_THROWN;
         }
 
-        if (!IS_FUNCTION(D_OUT))
+        if (not IS_FUNCTION(D_OUT))
             fail (Error_Invalid(specializee));
         Move_Value(specializee, D_OUT); // Frees D_OUT, GC safe (in ARG slot)
 
@@ -1070,7 +1070,7 @@ REBNATIVE(does)
             case PARAM_CLASS_REFINEMENT: {
                 refine = arg;
                 if (IS_INTEGER(refine)) {
-                    if (NOT(IS_REFINEMENT_SPECIALIZED(param))) {
+                    if (not IS_REFINEMENT_SPECIALIZED(param)) {
                         Init_Logic(refine, FALSE);
                         break;
                     }
@@ -1089,7 +1089,7 @@ REBNATIVE(does)
                     if (IS_VOID(refine))
                         break;
 
-                    if (IS_LOGIC(refine) && VAL_LOGIC(refine) == FALSE)
+                    if (IS_LOGIC(refine) and VAL_LOGIC(refine) == FALSE)
                         break;
                 }
 

@@ -259,7 +259,7 @@ REBNATIVE(decode_gif)
     REBYTE *data = VAL_BIN_AT(ARG(data));
     REBCNT len = VAL_LEN_AT(ARG(data));
 
-    if (NOT(Has_Valid_GIF_Header(data, len)))
+    if (not Has_Valid_GIF_Header(data, len))
         fail (Error_Bad_Media_Raw());
 
     REBINT  w, h;
@@ -315,7 +315,7 @@ REBNATIVE(decode_gif)
 
         if (c != ',') continue;
 
-        interlaced = DID(cp[8] & 0x40);
+        interlaced = did (cp[8] & 0x40);
         local_colormap = cp[8] & 0x80;
 
         w = LSBFirstOrder(cp[4],cp[5]);

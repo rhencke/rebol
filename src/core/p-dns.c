@@ -59,7 +59,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return R_FROM_BOOL(DID(sock->flags & RRF_OPEN));
+            return R_FROM_BOOL(did (sock->flags & RRF_OPEN));
 
         default:
             break;
@@ -84,7 +84,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
 
-        if (NOT(sock->flags & RRF_OPEN)) {
+        if (not (sock->flags & RRF_OPEN)) {
             REBVAL *o_result = OS_DO_DEVICE(sock, RDC_OPEN);
             assert(o_result != NULL); // should be synchronous
             if (rebTypeOf(o_result) == RXT_ERROR)
@@ -130,7 +130,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         goto pick; }
 
     case SYM_PICK: { // FIRST - return result
-        if (NOT(sock->flags & RRF_OPEN))
+        if (not (sock->flags & RRF_OPEN))
             fail (Error_On_Port(RE_NOT_OPEN, port, -12));
 
      pick:

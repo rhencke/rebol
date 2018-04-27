@@ -105,11 +105,11 @@ void Protect_Series(REBSER *s, REBCNT index, REBFLGS flags)
             SET_SER_INFO(s, SERIES_INFO_PROTECTED);
     }
     else {
-        assert(NOT(flags & PROT_FREEZE));
+        assert(not (flags & PROT_FREEZE));
         CLEAR_SER_INFO(s, SERIES_INFO_PROTECTED);
     }
 
-    if (NOT_SER_FLAG(s, SERIES_FLAG_ARRAY) || NOT(flags & PROT_DEEP))
+    if (NOT_SER_FLAG(s, SERIES_FLAG_ARRAY) or not (flags & PROT_DEEP))
         return;
 
     Flip_Series_To_Black(s); // recursion protection
@@ -139,11 +139,11 @@ void Protect_Context(REBCTX *c, REBFLGS flags)
             SET_SER_INFO(CTX_VARLIST(c), SERIES_INFO_PROTECTED);
     }
     else {
-        assert(NOT(flags & PROT_FREEZE));
+        assert(not (flags & PROT_FREEZE));
         CLEAR_SER_INFO(CTX_VARLIST(c), SERIES_INFO_PROTECTED);
     }
 
-    if (NOT(flags & PROT_DEEP))
+    if (not (flags & PROT_DEEP))
         return;
 
     Flip_Series_To_Black(SER(CTX_VARLIST(c))); // for recursion
@@ -159,7 +159,7 @@ void Protect_Context(REBCTX *c, REBFLGS flags)
 //
 static void Protect_Word_Value(REBVAL *word, REBFLGS flags)
 {
-    if (ANY_WORD(word) && IS_WORD_BOUND(word)) {
+    if (ANY_WORD(word) and IS_WORD_BOUND(word)) {
         Protect_Key(VAL_WORD_CONTEXT(word), VAL_WORD_INDEX(word), flags);
         if (flags & PROT_DEEP) {
             //

@@ -96,7 +96,7 @@ REB_R Apply_Core(REBFRM * const f) {
 
 static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
   #if defined(DEBUG_UNREADABLE_BLANKS)
-    assert(IS_UNREADABLE_DEBUG(f->out) || IS_END(f->out));
+    assert(IS_UNREADABLE_DEBUG(f->out) or IS_END(f->out));
   #endif
 
     assert(Eval_Count >= 0);
@@ -113,7 +113,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
     UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
 
   #if defined(DEBUG_UNREADABLE_BLANKS)
-    assert(IS_UNREADABLE_DEBUG(f->out) || IS_END(f->out));
+    assert(IS_UNREADABLE_DEBUG(f->out) or IS_END(f->out));
   #endif
 
     return FALSE;
@@ -125,12 +125,12 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
         Do_Core_Expression_Checks_Debug(f); \
         if (Start_New_Expression_Throws(f)) \
             g; \
-        evaluating = NOT((f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        evaluating = not ((f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 #else
     #define START_NEW_EXPRESSION_MAY_THROW(f,g) \
         if (Start_New_Expression_Throws(f)) \
             g; \
-        evaluating = NOT((f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        evaluating = not ((f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 #endif
 
 
@@ -145,8 +145,8 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
             else \
                 tick = f->tick = UINTPTR_MAX; \
             if ( \
-                (TG_Break_At_Tick != 0 && tick >= TG_Break_At_Tick) \
-                || tick == TICK_BREAKPOINT \
+                (TG_Break_At_Tick != 0 and tick >= TG_Break_At_Tick) \
+                or tick == TICK_BREAKPOINT \
             ){ \
                 Debug_Fmt("TICK_BREAKPOINT at %d", tick); \
                 Dump_Frame_Location((cur), f); \
@@ -161,7 +161,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 
 
 static inline void Drop_Function(REBFRM *f) {
-    assert(NOT(THROWN(f->out)));
+    assert(not THROWN(f->out));
 
     const REBOOL drop_chunks = TRUE;
     Drop_Function_Core(f, drop_chunks);
@@ -235,11 +235,11 @@ static inline void Link_Vararg_Param_To_Frame(
 //
 
 inline static REBOOL In_Typecheck_Mode(REBFRM *f) {
-    return DID(f->special == f->arg);
+    return f->special == f->arg;
 }
 
 inline static REBOOL In_Unspecialized_Mode(REBFRM *f) {
-    return DID(f->special == f->param);
+    return f->special == f->param;
 }
 
 
@@ -273,11 +273,11 @@ inline static void Check_Arg(
     // the mode (see comments on `Reb_Frame.refine`)
     //
     assert(
-        refine == ORDINARY_ARG ||
-        refine == LOOKBACK_ARG ||
-        refine == ARG_TO_UNUSED_REFINEMENT ||
-        refine == ARG_TO_REVOKED_REFINEMENT ||
-        (IS_LOGIC(refine) && IS_TRUTHY(refine)) // used
+        refine == ORDINARY_ARG
+        or refine == LOOKBACK_ARG
+        or refine == ARG_TO_UNUSED_REFINEMENT
+        or refine == ARG_TO_REVOKED_REFINEMENT
+        or (IS_LOGIC(refine) and IS_TRUTHY(refine)) // used
     );
 
     if (IS_VOID(arg)) {
@@ -305,7 +305,7 @@ inline static void Check_Arg(
 
         // fall through to check arg for if <opt> is ok
         //
-        assert(refine == ORDINARY_ARG || refine == LOOKBACK_ARG);
+        assert(refine == ORDINARY_ARG or refine == LOOKBACK_ARG);
     }
     else {
         // If the argument is set, then the refinement shouldn't be
@@ -316,7 +316,7 @@ inline static void Check_Arg(
     }
 
     if (NOT_VAL_FLAG(param, TYPESET_FLAG_VARIADIC)) {
-        if (NOT(TYPE_CHECK(param, VAL_TYPE(arg))))
+        if (not TYPE_CHECK(param, VAL_TYPE(arg)))
             fail (Error_Arg_Type(f_state, param, VAL_TYPE(arg)));
 
         return;
@@ -325,7 +325,7 @@ inline static void Check_Arg(
     // Varargs are odd, because the type checking doesn't actually check the
     // types inside the parameter--it always has to be a VARARGS!.
     //
-    if (!IS_VARARGS(arg))
+    if (not IS_VARARGS(arg))
         fail (Error_Not_Varargs(f_state, param, VAL_TYPE(arg)));
 
     // While "checking" the variadic argument we actually re-stamp it with
@@ -402,7 +402,7 @@ void Do_Core(REBFRM * const f)
     // back to the processing it had put off.
     //
     if (f->flags.bits & DO_FLAG_POST_SWITCH) {
-        evaluating = NOT(f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        evaluating = not (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
         // !!! Note EVAL-ENFIX does a crude workaround to preserve this check.
         //
@@ -424,7 +424,7 @@ void Do_Core(REBFRM * const f)
     // APPLY and a DO of a FRAME! both use process_function.
     //
     if (f->flags.bits & DO_FLAG_APPLYING) {
-        evaluating = NOT(f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        evaluating = not (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
         assert(f->refine == ORDINARY_ARG); // APPLY infix not (yet?) supported
         goto process_function;
@@ -475,7 +475,7 @@ reevaluate:;
     UPDATE_TICK_DEBUG(current);
     // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
 
-    if (NOT(evaluating) == NOT_VAL_FLAG(current, VALUE_FLAG_EVAL_FLIP)) {
+    if (evaluating == GET_VAL_FLAG(current, VALUE_FLAG_EVAL_FLIP)) {
         //
         // Either we're NOT evaluating and there's NO special exemption, or we
         // ARE evaluating and there IS A special exemption.  Treat this as
@@ -508,7 +508,7 @@ reevaluate:;
     // sets), which really controls the after lookahead step.  Consider this
     // edge case.
     //
-    if (FRM_HAS_MORE(f) && IS_WORD(f->value) && evaluating) {
+    if (FRM_HAS_MORE(f) and IS_WORD(f->value) and evaluating) {
         //
         // While the next item may be a WORD! that looks up to an enfixed
         // function, and it may want to quote what's on its left...there
@@ -527,8 +527,8 @@ reevaluate:;
 
             if (
                 VAL_TYPE_OR_0(current_gotten) == REB_FUNCTION // END is REB_0
-                && NOT_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
-                && GET_VAL_FLAG(current_gotten, FUNC_FLAG_QUOTES_FIRST_ARG)
+                and NOT_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
+                and GET_VAL_FLAG(current_gotten, FUNC_FLAG_QUOTES_FIRST_ARG)
             ){
                 // Yup, it quotes.  We could look for a conflict and call
                 // it an error, but instead give the left hand side precedence
@@ -557,7 +557,7 @@ reevaluate:;
                 f->refine = ORDINARY_ARG;
                 if (NOT_VAL_FLAG(current_gotten, FUNC_FLAG_INVISIBLE)) {
                   #if defined(DEBUG_UNREADABLE_BLANKS)
-                    assert(IS_UNREADABLE_DEBUG(f->out) || IS_END(f->out));
+                    assert(IS_UNREADABLE_DEBUG(f->out) or IS_END(f->out));
                   #endif
                     SET_END(f->out);
                 }
@@ -566,8 +566,8 @@ reevaluate:;
         }
         else if (
             f->eval_type == REB_PATH
-            && VAL_LEN_AT(current) > 0
-            && IS_WORD(VAL_ARRAY_AT(current))
+            and VAL_LEN_AT(current) > 0
+            and IS_WORD(VAL_ARRAY_AT(current))
         ){
             // !!! Words aren't the only way that functions can be dispatched,
             // one can also use paths.  It gets tricky here, because path
@@ -596,8 +596,8 @@ reevaluate:;
 
             if (
                 VAL_TYPE_OR_0(var_at) == REB_FUNCTION // END is REB_0
-                && NOT_VAL_FLAG(var_at, VALUE_FLAG_ENFIXED)
-                && GET_VAL_FLAG(var_at, FUNC_FLAG_QUOTES_FIRST_ARG)
+                and NOT_VAL_FLAG(var_at, VALUE_FLAG_ENFIXED)
+                and GET_VAL_FLAG(var_at, FUNC_FLAG_QUOTES_FIRST_ARG)
             ){
                 goto do_path_in_current;
             }
@@ -607,8 +607,9 @@ reevaluate:;
 
         if (
             VAL_TYPE_OR_0(f->gotten) == REB_FUNCTION // END is REB_0
-            && ALL_VAL_FLAGS(
-                f->gotten, VALUE_FLAG_ENFIXED | FUNC_FLAG_QUOTES_FIRST_ARG
+            and ALL_VAL_FLAGS(
+                f->gotten,
+                VALUE_FLAG_ENFIXED | FUNC_FLAG_QUOTES_FIRST_ARG
             )
         ){
             Push_Function(
@@ -720,7 +721,7 @@ reevaluate:;
       #endif
 
         assert(DSP >= f->dsp_orig); // REFINEMENT!s pushed by path processing
-        assert(f->refine == LOOKBACK_ARG || f->refine == ORDINARY_ARG);
+        assert(f->refine == LOOKBACK_ARG or f->refine == ORDINARY_ARG);
 
         f->doing_pickups = FALSE;
 
@@ -782,7 +783,7 @@ reevaluate:;
                 }
 
                 if (IS_LOGIC(f->special)) { // similar for check vs. special
-                    if (NOT(In_Typecheck_Mode(f))) {
+                    if (not In_Typecheck_Mode(f)) {
                         Prep_Stack_Cell(f->arg);
                         Init_Logic(f->arg, VAL_LOGIC(f->special));
                     }
@@ -795,7 +796,7 @@ reevaluate:;
                     goto continue_arg_loop;
                 }
 
-                if (IS_REFINEMENT(f->special) && NOT(In_Typecheck_Mode(f))) {
+                if (IS_REFINEMENT(f->special) and not In_Typecheck_Mode(f)) {
                     //
                     // See REB_0_PARTIAL for explanations of how storing a
                     // REFINEMENT! with a binding in it indicates a partial
@@ -814,8 +815,8 @@ reevaluate:;
                     DS_TOP->extra.binding = NOD(f); // need unmanaged
                     DS_TOP->payload.any_word.index = partial_index;
 
-                    if (NOT(IS_REFINEMENT_SPECIALIZED(f->param))) {
-                        deny(partial_canon == VAL_PARAM_CANON(f->param));
+                    if (not IS_REFINEMENT_SPECIALIZED(f->param)) {
+                        assert(partial_canon != VAL_PARAM_CANON(f->param));
                         goto unspecialized_refinement; // !!! not top
                     }
 
@@ -951,11 +952,11 @@ reevaluate:;
                 goto continue_arg_loop;
             }
 
-            if (NOT(In_Unspecialized_Mode(f))) {
+            if (not In_Unspecialized_Mode(f)) {
                 if (In_Typecheck_Mode(f))
                     goto check_arg; // just looping to verify args/refines
 
-                if (DID(f->flags.bits & DO_FLAG_APPLYING)) {
+                if (f->flags.bits & DO_FLAG_APPLYING) {
                     Prep_Stack_Cell(f->arg);
                     Move_Value(f->arg, f->special);
                     goto check_arg; // in APPLY, a void arg is literally void
@@ -963,7 +964,7 @@ reevaluate:;
 
     //=//// SPECIALIZED ARG ///////////////////////////////////////////////=//
 
-                if (NOT(IS_VOID(f->special))) {
+                if (not IS_VOID(f->special)) {
                     Prep_Stack_Cell(f->arg);
                     Move_Value(f->arg, f->special);
 
@@ -1079,7 +1080,7 @@ reevaluate:;
                     assert(FALSE);
                 }
 
-                if (NOT(GET_FUN_FLAG(f->phase, FUNC_FLAG_INVISIBLE)))
+                if (not GET_FUN_FLAG(f->phase, FUNC_FLAG_INVISIBLE))
                     SET_END(f->out);
                 goto check_arg;
             }
@@ -1102,7 +1103,7 @@ reevaluate:;
 
             assert(
                 f->refine == ORDINARY_ARG
-                || (IS_LOGIC(f->refine) && IS_TRUTHY(f->refine))
+                or (IS_LOGIC(f->refine) and IS_TRUTHY(f->refine))
             );
 
     //=//// START BY HANDLING ANY DEFERRED ENFIX PROCESSING //////////////=//
@@ -1135,7 +1136,7 @@ reevaluate:;
                 --f->special;
 
                 REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
-                if (NOT(evaluating))
+                if (not evaluating)
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 DECLARE_FRAME (child); // capture DSP *now*
@@ -1186,8 +1187,8 @@ reevaluate:;
     //=//// IF EVAL/ONLY SEMANTICS, TAKE NEXT ARG WITHOUT EVALUATION //////=//
 
             if (
-                NOT(evaluating)
-                == NOT_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)
+                evaluating
+                == GET_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)
             ){
                 // Either we're NOT evaluating and there's NO special
                 // exemption, or we ARE evaluating and there IS A special
@@ -1200,7 +1201,7 @@ reevaluate:;
 
     //=//// IF EVAL SEMANTICS, DISALLOW LITERAL EXPRESSION BARRIERS ///////=//
 
-            if (IS_BAR(f->value) && pclass != PARAM_CLASS_HARD_QUOTE) {
+            if (IS_BAR(f->value) and pclass != PARAM_CLASS_HARD_QUOTE) {
                 //
                 // Only legal if arg is *hard quoted*.  Else, it must come via
                 // other means (e.g. literal as `'|` or `first [|]`)
@@ -1219,7 +1220,7 @@ reevaluate:;
 
             case PARAM_CLASS_NORMAL: {
                 REBFLGS flags = DO_FLAG_FULFILLING_ARG;
-                if (NOT(evaluating))
+                if (not evaluating)
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 Prep_Stack_Cell(f->arg);
@@ -1241,7 +1242,7 @@ reevaluate:;
                 // the `+` during the argument evaluation.
                 //
                 REBFLGS flags = DO_FLAG_NO_LOOKAHEAD | DO_FLAG_FULFILLING_ARG;
-                if (NOT(evaluating))
+                if (not evaluating)
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 Prep_Stack_Cell(f->arg);
@@ -1264,7 +1265,7 @@ reevaluate:;
     //=//// SOFT QUOTED ARG-OR-REFINEMENT-ARG  ////////////////////////////=//
 
             case PARAM_CLASS_SOFT_QUOTE:
-                if (NOT(IS_QUOTABLY_SOFT(f->value))) {
+                if (not IS_QUOTABLY_SOFT(f->value)) {
                     Prep_Stack_Cell(f->arg);
                     Quote_Next_In_Frame(f->arg, f); // VALUE_FLAG_UNEVALUATED
                     goto check_arg;
@@ -1315,13 +1316,13 @@ reevaluate:;
         // second time through, and we were just jumping up to check the
         // parameters in response to a R_REDO_CHECKED; if so, skip this.
         //
-        if (NOT(In_Typecheck_Mode(f)) && DSP != f->dsp_orig) {
+        if (not In_Typecheck_Mode(f) and DSP != f->dsp_orig) {
 
         next_pickup:;
 
             assert(IS_REFINEMENT(DS_TOP));
 
-            if (NOT(IS_WORD_BOUND(DS_TOP))) // the loop didn't index it
+            if (not IS_WORD_BOUND(DS_TOP)) // the loop didn't index it
                 fail (Error_Bad_Refine_Raw(DS_TOP)); // so duplicate or junk
 
             // f->args_head offsets are 0-based, while index is 1-based.
@@ -1333,7 +1334,7 @@ reevaluate:;
             f->special += offset;
 
             f->refine = f->arg - 1; // this refinement may still be revoked
-            assert(IS_LOGIC(f->refine) && VAL_LOGIC(f->refine));
+            assert(IS_LOGIC(f->refine) and VAL_LOGIC(f->refine));
 
             assert(VAL_STORED_CANON(DS_TOP) == VAL_PARAM_CANON(f->param - 1));
             assert(VAL_PARAM_CLASS(f->param - 1) == PARAM_CLASS_REFINEMENT);
@@ -1389,8 +1390,8 @@ reevaluate:;
         // refine can be anything.
         assert(
             FRM_AT_END(f)
-            || FRM_IS_VALIST(f)
-            || IS_VALUE_IN_ARRAY_DEBUG(f->source.array, f->value)
+            or FRM_IS_VALIST(f)
+            or IS_VALUE_IN_ARRAY_DEBUG(f->source.array, f->value)
         );
 
         // The out slot needs initialization for GC safety during the function
@@ -1402,7 +1403,7 @@ reevaluate:;
         // has written the out slot yet or not.
         //
         assert(
-            IS_END(f->out) || GET_FUN_FLAG(f->phase, FUNC_FLAG_INVISIBLE)
+            IS_END(f->out) or GET_FUN_FLAG(f->phase, FUNC_FLAG_INVISIBLE)
         );
 
         // While you can't evaluate into an array cell (because it may move)
@@ -1461,7 +1462,7 @@ reevaluate:;
             if (IS_FUNCTION(f->out)) {
                 if (
                     VAL_FUNC(f->out) == NAT_FUNC(unwind)
-                    && Same_Binding(VAL_BINDING(f->out), f)
+                    and Same_Binding(VAL_BINDING(f->out), f)
                 ){
                     // Do_Core catches unwinds to the current frame, so throws
                     // where the "/name" is the JUMP native with a binding to
@@ -1478,7 +1479,7 @@ reevaluate:;
                 }
                 else if (
                     VAL_FUNC(f->out) == NAT_FUNC(redo)
-                    && Same_Binding(VAL_BINDING(f->out), f)
+                    and Same_Binding(VAL_BINDING(f->out), f)
                 ){
                     // This was issued by REDO, and should be a FRAME! with
                     // the phase and binding we are to resume with.
@@ -1515,7 +1516,7 @@ reevaluate:;
                     REBCTX *exemplar;
                     if (
                         f->phase != f->out->payload.any_context.phase
-                        && NULL != (exemplar = FUNC_EXEMPLAR(
+                        and NULL != (exemplar = FUNC_EXEMPLAR(
                             f->out->payload.any_context.phase
                         ))
                     ){
@@ -1554,7 +1555,7 @@ reevaluate:;
         case R_OUT_VOID_IF_UNWRITTEN_TRUTHIFY:
             if (IS_END(f->out))
                 Init_Void(f->out);
-            else if (IS_VOID(f->out) || IS_FALSEY(f->out))
+            else if (IS_VOID(f->out) or IS_FALSEY(f->out))
                 Init_Bar(f->out);
             break;
 
@@ -1566,7 +1567,7 @@ reevaluate:;
             f->arg = f->args_head;
             f->special = f->arg;
             f->refine = ORDINARY_ARG; // no gathering, but need for assert
-            deny(GET_FUN_FLAG(f->phase, FUNC_FLAG_INVISIBLE));
+            assert(not GET_FUN_FLAG(f->phase, FUNC_FLAG_INVISIBLE));
             SET_END(f->out);
             goto process_function;
 
@@ -1576,7 +1577,7 @@ reevaluate:;
             // run the f->phase again.  The dispatcher may have changed the
             // value of what f->phase is, for instance.
             //
-            deny(GET_FUN_FLAG(f->phase, FUNC_FLAG_INVISIBLE));
+            assert(not GET_FUN_FLAG(f->phase, FUNC_FLAG_INVISIBLE));
             SET_END(f->out);
             goto redo_unchecked;
 
@@ -1599,7 +1600,7 @@ reevaluate:;
             // that would require saving the old value somewhere...
             //
           #if defined(DEBUG_UNREADABLE_BLANKS)
-            assert(IS_END(f->out) || NOT(IS_UNREADABLE_DEBUG(f->out)));
+            assert(IS_END(f->out) or not IS_UNREADABLE_DEBUG(f->out));
           #endif
 
             // If an invisible is at the start of a frame and there's nothing
@@ -1610,7 +1611,7 @@ reevaluate:;
             //
             // Use same mechanic as EVAL by loading next item.
             //
-            if (IS_END(f->out) && NOT(FRM_AT_END(f))) {
+            if (IS_END(f->out) and not FRM_AT_END(f)) {
                 Derelativize(&f->cell, f->value, f->specifier);
                 Fetch_Next_In_Frame(f);
 
@@ -1731,7 +1732,7 @@ reevaluate:;
                 f->refine = LOOKBACK_ARG;
 
               #if defined(DEBUG_UNREADABLE_BLANKS)
-                assert(IS_END(f->out) || NOT(IS_UNREADABLE_DEBUG(f->out)));
+                assert(IS_END(f->out) or not IS_UNREADABLE_DEBUG(f->out));
               #endif
             }
             else {
@@ -1783,7 +1784,7 @@ reevaluate:;
         // set the path *to* can have its own twist coming from the evaluator
         // flip bit and evaluator state.
         //
-        if (NOT(evaluating) == NOT_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)) {
+        if (evaluating == GET_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)) {
             //
             // Either we're NOT evaluating and there's NO special exemption,
             // or we ARE evaluating and there IS A special exemption.  Treat
@@ -1931,7 +1932,8 @@ reevaluate:;
             // and Push_Function() trashes that.
             //
             if (ANY_VAL_FLAGS(
-                f->out, FUNC_FLAG_INVISIBLE | VALUE_FLAG_ENFIXED
+                f->out,
+                FUNC_FLAG_INVISIBLE | VALUE_FLAG_ENFIXED
             )){
                 fail ("ENFIX/INVISIBLE dispatch w/PATH! not yet supported");
             }
@@ -1989,7 +1991,7 @@ reevaluate:;
         // set the path *to* can have its own twist coming from the evaluator
         // flip bit and evaluator state.
         //
-        if (NOT(evaluating) == NOT_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)) {
+        if (evaluating == GET_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)) {
             //
             // Either we're NOT evaluating and there's NO special exemption,
             // or we ARE evaluating and there IS A special exemption.  Treat
@@ -2184,7 +2186,7 @@ reevaluate:;
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// Treat all the other NOT(Is_Bindable()) types as inert
+// Treat all the other not Is_Bindable() types as inert
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
@@ -2237,7 +2239,7 @@ reevaluate:;
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_MAX_VOID:
-        if (NOT(evaluating) == NOT_VAL_FLAG(current, VALUE_FLAG_EVAL_FLIP)) {
+        if (evaluating == GET_VAL_FLAG(current, VALUE_FLAG_EVAL_FLIP)) {
             Init_Void(f->out); // it's inert, treat as okay
         }
         else {
@@ -2315,7 +2317,7 @@ post_switch:;
     // function, that's an error (or should be).
 
     if (f->eval_type != REB_WORD) {
-        if (NOT(f->flags.bits & DO_FLAG_TO_END))
+        if (not (f->flags.bits & DO_FLAG_TO_END))
             goto finished; // only want DO/NEXT of work, so stop evaluating
 
         START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
@@ -2343,7 +2345,7 @@ post_switch:;
         //
         assert(
             f->gotten == Get_Opt_Var_Else_End(f->value, f->specifier)
-            || (f->prior && f->prior->deferred == BLANK_VALUE) // !!! for hack
+            or (f->prior != NULL and f->prior->deferred == BLANK_VALUE) // !!!
         );
     }
 
@@ -2351,22 +2353,22 @@ post_switch:;
 
     // These cases represent finding the start of a new expression, which
     // continues the evaluator loop if DO_FLAG_TO_END, but will stop with
-    // `goto finished` if NOT(DO_FLAG_TO_END).
+    // `goto finished` if not (DO_FLAG_TO_END).
     //
     // We fall back on word-like "dispatch" even if f->gotten == END (unset or
     // unbound word).  It'll be an error, but that code path raises it for us.
 
     if (
         VAL_TYPE_OR_0(f->gotten) != REB_FUNCTION // END is REB_0 (UNBOUND)
-        || NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED)
+        or NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED)
     ){
-        if (NOT(f->flags.bits & DO_FLAG_TO_END)) {
+        if (not (f->flags.bits & DO_FLAG_TO_END)) {
             //
             // Since it's a new expression, a DO/NEXT doesn't want to run it
             // *unless* it's "invisible"
             if (
                 VAL_TYPE_OR_0(f->gotten) != REB_FUNCTION
-                || NOT_VAL_FLAG(f->gotten, FUNC_FLAG_INVISIBLE)
+                or NOT_VAL_FLAG(f->gotten, FUNC_FLAG_INVISIBLE)
             ){
                 goto finished;
             }
@@ -2396,7 +2398,7 @@ post_switch:;
         }
         else if (
             VAL_TYPE_OR_0(f->gotten) == REB_FUNCTION
-            && GET_VAL_FLAG(f->gotten, FUNC_FLAG_INVISIBLE)
+            and GET_VAL_FLAG(f->gotten, FUNC_FLAG_INVISIBLE)
         ){
             // Even if not a DO/NEXT, we do not want START_NEW_EXPRESSION on
             // "invisible" functions.  e.g. `do [1 + 2 comment "hi"]` should
@@ -2435,7 +2437,7 @@ post_switch:;
 
     if (
         (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
-        && NOT_VAL_FLAG(f->gotten, FUNC_FLAG_INVISIBLE)
+        and NOT_VAL_FLAG(f->gotten, FUNC_FLAG_INVISIBLE)
     ){
         // Don't do enfix lookahead if asked *not* to look.  See the
         // PARAM_CLASS_TIGHT parameter convention for the use of this, as
@@ -2473,11 +2475,11 @@ post_switch:;
     //
     if (
         GET_VAL_FLAG(f->gotten, FUNC_FLAG_DEFERS_LOOKBACK)
-        && (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-        && f->prior->deferred == NULL
-        && NOT_VAL_FLAG(f->prior->param, TYPESET_FLAG_ENDABLE)
+        and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+        and f->prior->deferred == NULL
+        and NOT_VAL_FLAG(f->prior->param, TYPESET_FLAG_ENDABLE)
     ){
-        assert(NOT(f->flags.bits & DO_FLAG_TO_END));
+        assert(not (f->flags.bits & DO_FLAG_TO_END));
         assert(Is_Function_Frame_Fulfilling(f->prior));
 
         // Must be true if fulfilling an argument that is *not* a deferral

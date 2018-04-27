@@ -489,7 +489,7 @@ static const REBYTE *Insert_Char_Null_If_Interrupted(
 //
 static void Delete_Char(STD_TERM *term, REBOOL back)
 {
-    if (term->pos == term->end && NOT(back))
+    if (term->pos == term->end and not back)
         return; //Ctrl-D at EOL
 
     if (back)

@@ -126,10 +126,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
     REB_R r;
 
-    if (
-        FRM_AT_END(pvs)
-        && pvs->eval_type == REB_SET_PATH
-    ){
+    if (FRM_AT_END(pvs) and pvs->eval_type == REB_SET_PATH) {
         const REBVAL *opt_setval = pvs->special;
         assert(opt_setval != NULL);
 
@@ -198,7 +195,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             assert(pvs->eval_type == REB_SET_PATH);
             if (
                 dispatcher != Path_Dispatch[REB_STRUCT]
-                && dispatcher != Path_Dispatch[REB_GOB]
+                and dispatcher != Path_Dispatch[REB_GOB]
             ){
                 panic("SET-PATH! evaluation ran assignment before path end");
             }
@@ -251,7 +248,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     // be captured the first time the function is seen, otherwise it would
     // capture the last refinement's name, so check label for non-NULL.
     //
-    if (IS_FUNCTION(pvs->out) && IS_WORD(pvs->refine)) {
+    if (IS_FUNCTION(pvs->out) and IS_WORD(pvs->refine)) {
         if (pvs->opt_label == NULL)
             pvs->opt_label = VAL_WORD_SPELLING(pvs->refine);
     }
@@ -297,7 +294,7 @@ REBOOL Do_Path_Throws_Core(
     const REBVAL *opt_setval,
     REBFLGS flags
 ){
-    assert(kind == REB_PATH || kind == REB_SET_PATH || kind == REB_GET_PATH);
+    assert(kind == REB_PATH or kind == REB_SET_PATH or kind == REB_GET_PATH);
 
     DECLARE_FRAME (pvs);
 
@@ -327,7 +324,7 @@ REBOOL Do_Path_Throws_Core(
     // None of the values passed in can live on the data stack, because
     // they might be relocated during the path evaluation process.
     //
-    assert(opt_setval == NULL || !IN_DATA_STACK_DEBUG(opt_setval));
+    assert(opt_setval == NULL or not IN_DATA_STACK_DEBUG(opt_setval));
 
     // Not robust for reusing passed in value as the output
     assert(out != opt_setval);
@@ -410,8 +407,8 @@ REBOOL Do_Path_Throws_Core(
         REBVAL *top = DS_TOP;
 
         while (top > bottom) {
-            assert(IS_REFINEMENT(bottom) && NOT(IS_WORD_BOUND(bottom)));
-            assert(IS_REFINEMENT(top) && NOT(IS_WORD_BOUND(top)));
+            assert(IS_REFINEMENT(bottom) and not IS_WORD_BOUND(bottom));
+            assert(IS_REFINEMENT(top) and not IS_WORD_BOUND(top));
 
             // It's faster to just swap the spellings.  (If binding
             // mattered, we'd need to swap the whole cells).
@@ -466,7 +463,7 @@ return_not_thrown:
     if (kind == REB_SET_PATH)
         TRASH_CELL_IF_DEBUG(out);
     else
-        assert(NOT(THROWN(out)));
+        assert(not THROWN(out));
 #endif
     return FALSE;
 
@@ -489,9 +486,9 @@ return_thrown:
 //
 void Get_Simple_Value_Into(REBVAL *out, const RELVAL *val, REBSPC *specifier)
 {
-    if (IS_WORD(val) || IS_GET_WORD(val))
+    if (IS_WORD(val) or IS_GET_WORD(val))
         Move_Opt_Var_May_Fail(out, val, specifier);
-    else if (IS_PATH(val) || IS_GET_PATH(val))
+    else if (IS_PATH(val) or IS_GET_PATH(val))
         Get_Path_Core(out, val, specifier);
     else
         Derelativize(out, val, specifier);
@@ -516,7 +513,7 @@ REBCTX *Resolve_Path(const REBVAL *path, REBCNT *index_out)
     REBARR *array = VAL_ARRAY(path);
     RELVAL *picker = ARR_HEAD(array);
 
-    if (IS_END(picker) || !ANY_WORD(picker))
+    if (IS_END(picker) or not ANY_WORD(picker))
         return NULL; // !!! only handles heads of paths that are ANY-WORD!
 
     const RELVAL *var = Get_Opt_Var_May_Fail(picker, VAL_SPECIFIER(path));
@@ -525,7 +522,7 @@ REBCTX *Resolve_Path(const REBVAL *path, REBCNT *index_out)
     if (IS_END(picker))
         return NULL; // !!! does not handle single-element paths
 
-    while (ANY_CONTEXT(var) && IS_WORD(picker)) {
+    while (ANY_CONTEXT(var) and IS_WORD(picker)) {
         REBCNT i = Find_Canon_In_Context(
             VAL_CONTEXT(var), VAL_WORD_CANON(picker), FALSE
         );

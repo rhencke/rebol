@@ -48,63 +48,74 @@ REBOL [
            associated baggage that VAL_TYPE() carries over VAL_TYPE_RAW() */
 
         #define ANY_VALUE(v) \
-            DID(VAL_TYPE(v) != REB_MAX_VOID)
+            (VAL_TYPE(v) != REB_MAX_VOID)
 
         inline static REBOOL ANY_SCALAR_KIND(enum Reb_Kind k) {
-            return DID(k >= REB_LOGIC && k <= REB_DATE);
+            return k >= REB_LOGIC and k <= REB_DATE;
         }
 
         #define ANY_SCALAR(v) \
             ANY_SCALAR_KIND(VAL_TYPE(v))
 
         inline static REBOOL ANY_SERIES_KIND(enum Reb_Kind k) {
-            return DID(k >= REB_PATH && k <= REB_VECTOR);
+            return k >= REB_PATH and k <= REB_VECTOR;
         }
 
         #define ANY_SERIES(v) \
             ANY_SERIES_KIND(VAL_TYPE(v))
 
         inline static REBOOL ANY_STRING_KIND(enum Reb_Kind k) {
-            return DID(k >= REB_STRING && k <= REB_TAG);
+            return k >= REB_STRING and k <= REB_TAG;
         }
 
         #define ANY_STRING(v) \
             ANY_STRING_KIND(VAL_TYPE(v))
 
         inline static REBOOL ANY_BINSTR_KIND(enum Reb_Kind k) {
-            return DID(k >= REB_BINARY && k <= REB_TAG);
+            return k >= REB_BINARY and k <= REB_TAG;
         }
 
         #define ANY_BINSTR(v) \
             ANY_BINSTR_KIND(VAL_TYPE(v))
 
         inline static REBOOL ANY_ARRAY_KIND(enum Reb_Kind k) {
-            return DID(k >= REB_PATH && k <= REB_BLOCK);
+            return k >= REB_PATH and k <= REB_BLOCK;
         }
 
         #define ANY_ARRAY(v) \
             ANY_ARRAY_KIND(VAL_TYPE(v))
 
         inline static REBOOL ANY_WORD_KIND(enum Reb_Kind k) {
-            return DID(k >= REB_WORD && k <= REB_ISSUE);
+            return k >= REB_WORD and k <= REB_ISSUE;
         }
 
         #define ANY_WORD(v) \
             ANY_WORD_KIND(VAL_TYPE(v))
 
         inline static REBOOL ANY_PATH_KIND(enum Reb_Kind k) {
-            return DID(k >= REB_PATH && k <= REB_LIT_PATH);
+            return k >= REB_PATH and k <= REB_LIT_PATH;
         }
 
         #define ANY_PATH(v) \
             ANY_PATH_KIND(VAL_TYPE(v))
 
         inline static REBOOL ANY_CONTEXT_KIND(enum Reb_Kind k) {
-            return DID(k >= REB_OBJECT && k <= REB_PORT);
+            return k >= REB_OBJECT and k <= REB_PORT;
         }
 
         #define ANY_CONTEXT(v) \
             ANY_CONTEXT_KIND(VAL_TYPE(v))
+
+        /* !!! There was an IS_NUMBER() macro defined in R3-Alpha which was
+           REB_INTEGER and REB_DECIMAL.  But ANY-NUMBER! the typeset included
+           PERCENT! so this adds that and gets rid of IS_NUMBER() */
+
+        inline static REBOOL ANY_NUMBER_KIND(enum Reb_Kind k) {
+            return k == REB_INTEGER or k == REB_DECIMAL or k == REB_PERCENT;
+        }
+
+        #define ANY_NUMBER(v) \
+            ANY_NUMBER_KIND(VAL_TYPE(v))
     }
 ]
 

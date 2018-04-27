@@ -31,13 +31,6 @@
 
 #include "reb-config.h"
 
-// %reb-host.h is often used in third party code that was not written to
-// use REBOOL.  Hence the definitions of TRUE and FALSE used in the "fake"
-// build will trip it up.  We substitute in normal definitions for this
-// file.  See explanations of this test in %reb-c.h for more information.
-//
-#undef DEBUG_STRICT_BOOL
-
 #include "reb-c.h"
 #include "reb-ext.h"        // includes reb-defs.h
 

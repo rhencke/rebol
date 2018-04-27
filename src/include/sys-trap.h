@@ -164,7 +164,7 @@
 //
 #define PUSH_TRAP(e,s) \
     do { \
-        assert(Saved_State != NULL || (DSP == 0 && FS_TOP == NULL)); \
+        assert(Saved_State != NULL or (DSP == 0 and FS_TOP == NULL)); \
         if (Saved_State == NULL) \
             Set_Stack_Limit(s); \
         Snap_State_Core(s); \
@@ -256,9 +256,9 @@ inline static void DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(struct Reb_State *s) {
         inline static ATTRIBUTE_NO_RETURN void Fail_Core_Cpp(T *p) {
             static_assert(
                 std::is_same<T, REBCTX>::value
-                || std::is_same<T, const char>::value
-                || std::is_same<T, const REBVAL>::value
-                || std::is_same<T, REBVAL>::value,
+                or std::is_same<T, const char>::value
+                or std::is_same<T, const REBVAL>::value
+                or std::is_same<T, REBVAL>::value,
                 "fail() works on: REBCTX*, REBVAL*, const char*"
             );
             Fail_Core(p);

@@ -114,7 +114,7 @@ inline static REBSTR *Canon(REBSYM sym) {
 inline static REBOOL SAME_STR(REBSTR *s1, REBSTR *s2) {
     if (s1 == s2)
         return TRUE; // !!! does this check speed things up or not?
-    return DID(STR_CANON(s1) == STR_CANON(s2)); // canon check, quite fast
+    return STR_CANON(s1) == STR_CANON(s2); // canon check, quite fast
 }
 
 

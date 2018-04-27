@@ -2074,7 +2074,7 @@ static REBNATIVE(set_env)
 
     rebFree(key_wide);
 
-    if (NOT(success)) // make better error with GetLastError + variable name
+    if (not success) // make better error with GetLastError + variable name
         error = Error_User("environment variable couldn't be modified");
   #else
 
@@ -2160,7 +2160,7 @@ static REBNATIVE(set_env)
 
     rebFree(key_utf8);
 
-    if (NOT(success)) // make better error if more information is known
+    if (not success) // make better error if more information is known
         error = Error_User("environment variable couldn't be modified");
   #endif
 

@@ -76,13 +76,13 @@ REB_R Series_Common_Action_Maybe_Unhandled(
             return R_OUT;
 
         case SYM_HEAD_Q:
-            return R_FROM_BOOL(DID(index == 0));
+            return R_FROM_BOOL(index == 0);
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(DID(index >= tail));
+            return R_FROM_BOOL(index >= tail);
 
         case SYM_PAST_Q:
-            return R_FROM_BOOL(DID(index > tail));
+            return R_FROM_BOOL(index > tail);
 
         case SYM_FILE: {
             REBSER *s = VAL_SERIES(value);
@@ -182,7 +182,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         REBINT len = REF(part) ? Partial(value, 0, ARG(limit)) : 1;
         index = cast(REBINT, VAL_INDEX(value));
-        if (index < tail && len != 0)
+        if (index < tail and len != 0)
             Remove_Series(VAL_SERIES(value), VAL_INDEX(value), len);
 
         Move_Value(D_OUT, value);
@@ -269,28 +269,33 @@ REBINT Cmp_Array(const RELVAL *sval, const RELVAL *tval, REBOOL is_case)
 {
     RELVAL *s = VAL_ARRAY_AT(sval);
     RELVAL *t = VAL_ARRAY_AT(tval);
-    REBINT diff;
 
     if (C_STACK_OVERFLOWING(&s))
         Fail_Stack_Overflow();
 
-    if ((VAL_SERIES(sval)==VAL_SERIES(tval))&&
-     (VAL_INDEX(sval)==VAL_INDEX(tval)))
+    if (
+        VAL_SERIES(sval) == VAL_SERIES(tval)
+        and VAL_INDEX(sval) == VAL_INDEX(tval)
+    ){
          return 0;
+    }
 
-    if (IS_END(s) || IS_END(t)) goto diff_of_ends;
+    if (IS_END(s) or IS_END(t))
+        goto diff_of_ends;
 
     while (
-        (VAL_TYPE(s) == VAL_TYPE(t) ||
-        (ANY_NUMBER(s) && ANY_NUMBER(t)))
-    ) {
+        VAL_TYPE(s) == VAL_TYPE(t)
+        or (ANY_NUMBER(s) and ANY_NUMBER(t))
+    ){
+        REBINT diff;
         if ((diff = Cmp_Value(s, t, is_case)) != 0)
             return diff;
 
         s++;
         t++;
 
-        if (IS_END(s) || IS_END(t)) goto diff_of_ends;
+        if (IS_END(s) or IS_END(t))
+            goto diff_of_ends;
     }
 
     return VAL_TYPE(s) - VAL_TYPE(t);
@@ -300,7 +305,8 @@ diff_of_ends:
     // compare larger than it.
     //
     if (IS_END(s)) {
-        if (IS_END(t)) return 0;
+        if (IS_END(t))
+            return 0;
         return -1;
     }
     return 1;
@@ -318,16 +324,15 @@ REBINT Cmp_Value(const RELVAL *s, const RELVAL *t, REBOOL is_case)
 {
     REBDEC  d1, d2;
 
-    if (VAL_TYPE(t) != VAL_TYPE(s) && !(ANY_NUMBER(s) && ANY_NUMBER(t)))
+    if (VAL_TYPE(t) != VAL_TYPE(s) and not (ANY_NUMBER(s) and ANY_NUMBER(t)))
         return VAL_TYPE(s) - VAL_TYPE(t);
 
-    assert(NOT_END(s) && NOT_END(t));
+    assert(NOT_END(s) and NOT_END(t));
 
     switch(VAL_TYPE(s)) {
-
     case REB_INTEGER:
         if (IS_DECIMAL(t)) {
-            d1 = (REBDEC)VAL_INT64(s);
+            d1 = cast(REBDEC, VAL_INT64(s));
             d2 = VAL_DECIMAL(t);
             goto chkDecimal;
         }
@@ -337,7 +342,8 @@ REBINT Cmp_Value(const RELVAL *s, const RELVAL *t, REBOOL is_case)
         return VAL_LOGIC(s) - VAL_LOGIC(t);
 
     case REB_CHAR:
-        if (is_case) return THE_SIGN(VAL_CHAR(s) - VAL_CHAR(t));
+        if (is_case)
+            return THE_SIGN(VAL_CHAR(s) - VAL_CHAR(t));
         return THE_SIGN((REBINT)(UP_CASE(VAL_CHAR(s)) - UP_CASE(VAL_CHAR(t))));
 
     case REB_PERCENT:
@@ -392,7 +398,7 @@ chkDecimal:
     case REB_EMAIL:
     case REB_URL:
     case REB_TAG:
-        return Compare_String_Vals(s, t, NOT(is_case));
+        return Compare_String_Vals(s, t, not is_case);
 
     case REB_BITSET:
     case REB_BINARY:

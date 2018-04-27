@@ -242,7 +242,7 @@ REBVAL *OS_Do_Device(REBREQ *req, REBCNT command)
     if (dev == NULL)
         rebFail ("{Rebol Device Not Found}", rebEnd());
 
-    if (NOT(dev->flags & RDF_INIT)) {
+    if (not (dev->flags & RDF_INIT)) {
         if (dev->flags & RDO_MUST_INIT)
             rebFail ("{Rebol Device Uninitialized}", rebEnd());
 
@@ -385,7 +385,7 @@ int OS_Poll_Devices(void)
         dev = Devices[d];
         if (
             dev != NULL
-            && (dev->pending || DID(dev->flags & RDO_AUTO_POLL))
+            and (dev->pending or (dev->flags & RDO_AUTO_POLL))
         ){
             // If there is a custom polling function, use it:
             if (dev->commands[RDC_POLL]) {
@@ -423,8 +423,8 @@ int OS_Quit_Devices(int flags)
         REBDEV *dev = Devices[d];
         if (
             dev != NULL
-            && DID(dev->flags & RDF_INIT)
-            && dev->commands[RDC_QUIT] != NULL
+            and (dev->flags & RDF_INIT)
+            and dev->commands[RDC_QUIT] != NULL
         ){
             dev->commands[RDC_QUIT](cast(REBREQ*, dev));
         }

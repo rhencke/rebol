@@ -46,7 +46,7 @@
 //
 REBINT CT_Array(const RELVAL *a, const RELVAL *b, REBINT mode)
 {
-    REBINT num = Cmp_Array(a, b, DID(mode == 1));
+    REBINT num = Cmp_Array(a, b, mode == 1);
     if (mode >= 0)
         return (num == 0);
     if (mode == -1)
@@ -286,8 +286,8 @@ REBCNT Find_In_Array(
 
     // Match a block against a block
     //
-    if (ANY_ARRAY(target) && NOT(flags & AM_FIND_ONLY)) {
-        for (; index >= start && index < end; index += skip) {
+    if (ANY_ARRAY(target) and not (flags & AM_FIND_ONLY)) {
+        for (; index >= start and index < end; index += skip) {
             RELVAL *item = ARR_AT(array, index);
 
             REBCNT count = 0;
@@ -295,7 +295,7 @@ REBCNT Find_In_Array(
             for (; NOT_END(other); ++other, ++item) {
                 if (
                     IS_END(item) ||
-                    0 != Cmp_Value(item, other, DID(flags & AM_FIND_CASE))
+                    0 != Cmp_Value(item, other, did (flags & AM_FIND_CASE))
                 ){
                     break;
                 }
@@ -346,7 +346,7 @@ REBCNT Find_In_Array(
 
     for (; index >= start && index < end; index += skip) {
         RELVAL *item = ARR_AT(array, index);
-        if (0 == Cmp_Value(item, target, DID(flags & AM_FIND_CASE)))
+        if (0 == Cmp_Value(item, target, did (flags & AM_FIND_CASE)))
             return index;
 
         if (flags & AM_FIND_MATCH)
@@ -781,7 +781,7 @@ REBTYPE(Array)
             index = VAL_LEN_HEAD(value) - len;
 
         if (index >= VAL_LEN_HEAD(value)) {
-            if (NOT(REF(part)))
+            if (not REF(part))
                 return R_VOID;
 
             goto return_empty_block;
@@ -952,7 +952,7 @@ REBTYPE(Array)
     //-- Special actions:
 
     case SYM_SWAP: {
-        if (NOT(ANY_ARRAY(arg)))
+        if (not ANY_ARRAY(arg))
             fail (Error_Invalid(arg));
 
         FAIL_IF_READ_ONLY_ARRAY(array);
@@ -1109,7 +1109,7 @@ void Assert_Array_Core(REBARR *a)
 
         assert(rest > 0 && rest > i);
         for (; i < rest - 1; ++i, ++item) {
-            if (NOT(item->header.bits & NODE_FLAG_CELL)) {
+            if (not (item->header.bits & NODE_FLAG_CELL)) {
                 printf("Unwritable cell found in array rest capacity\n");
                 panic (a);
             }

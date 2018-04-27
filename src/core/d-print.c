@@ -138,7 +138,7 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
         //
         if (size <= 1024)
             Req_SIO->length = size;
-        else if (NOT(opts & OPT_ENC_RAW))
+        else if (not (opts & OPT_ENC_RAW))
             Req_SIO->length = 1024;
         else {
             // Correct for UTF-8 batching so we don't span an encoded
@@ -551,7 +551,7 @@ pick:
             Mold_Or_Form_Value(
                 mo,
                 va_arg(*vaptr, const REBVAL*),
-                DID(desc == 'v')
+                desc == 'v'
             );
 
             // !!! This used to "filter out ctrl chars", which isn't a bad

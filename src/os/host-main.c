@@ -243,7 +243,7 @@ void Disable_Ctrl_C(void)
 
 void Enable_Ctrl_C(void)
 {
-    assert(NOT(ctrl_c_enabled));
+    assert(not ctrl_c_enabled);
 
     SetConsoleCtrlHandler(Handle_Break, TRUE);
     SetConsoleCtrlHandler(Handle_Nothing, FALSE);
@@ -298,7 +298,7 @@ void Disable_Ctrl_C(void)
 
 void Enable_Ctrl_C(void)
 {
-    assert(NOT(ctrl_c_enabled));
+    assert(not ctrl_c_enabled);
 
     if (old_action.sa_handler != SIG_IGN) {
         struct sigaction new_action;
@@ -480,7 +480,7 @@ int main(int argc, char *argv_ansi[])
     // The console code can then decide if it wants to fall back on argv[0].
     //
     REBVAL *exec_path = OS_GET_CURRENT_EXEC();
-    assert(IS_FILE(exec_path) || IS_BLANK(exec_path));
+    assert(IS_FILE(exec_path) or IS_BLANK(exec_path));
 
     // !!! Previously the C code would call a separate startup function
     // explicitly.  This created another difficult case to bulletproof
@@ -530,7 +530,7 @@ int main(int argc, char *argv_ansi[])
     REBOOL no_recover = FALSE; // allow one try at HOST-CONSOLE internal error
 
     while (TRUE) {
-        assert(NOT(ctrl_c_enabled)); // not while HOST-CONSOLE is on the stack
+        assert(not ctrl_c_enabled); // not while HOST-CONSOLE is on the stack
 
     recover:;
         REBVAL *trapped = rebTrap(
@@ -578,7 +578,7 @@ int main(int argc, char *argv_ansi[])
         // console is using to implement *itself*, which it does with BLOCK!)
         // Same for Trace_Level seen by PARSE.
         //
-        if (NOT(is_console_instruction)) {
+        if (not is_console_instruction) {
             //
             // If they made it to a user mode instruction, re-enable recovery.
             //
@@ -607,7 +607,7 @@ int main(int argc, char *argv_ansi[])
         // then save them...but restore the unhooked versions for the next
         // iteration of HOST-CONSOLE.  Same for Trace_Level seen by PARSE.
         //
-        if (NOT(is_console_instruction)) {
+        if (not is_console_instruction) {
             saved_do_hook = PG_Do;
             saved_apply_hook = PG_Apply;
             PG_Do = &Do_Core;

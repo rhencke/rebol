@@ -152,7 +152,7 @@ REBI64 Random_Range(REBI64 r, REBOOL secure)
         return 0;
 
     REBU64 s = (r < 0) ? -r : r;
-    if (NOT(secure) && s > MM)
+    if (not secure and s > MM)
         fail (Error_Overflow_Raw());
 
     REBU64 m; // rejection limit

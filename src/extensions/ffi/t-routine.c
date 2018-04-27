@@ -252,7 +252,7 @@ static uintptr_t arg_to_ffi(
         REBFLD *top = VAL_ARRAY(schema);
 
         assert(FLD_IS_STRUCT(top));
-        assert(NOT(FLD_IS_ARRAY(top))); // !!! wasn't supported--should be?
+        assert(!FLD_IS_ARRAY(top)); // !!! wasn't supported--should be?
 
         // !!! In theory a struct has to be aligned to its maximal alignment
         // needed by a fundamental member.  We'll assume that the largest
@@ -509,7 +509,7 @@ static void ffi_to_rebol(
         REBFLD *top = VAL_ARRAY(schema);
 
         assert(FLD_IS_STRUCT(top));
-        assert(NOT(FLD_IS_ARRAY(top))); // !!! wasn't supported, should be?
+        assert(!FLD_IS_ARRAY(top)); // !!! wasn't supported, should be?
 
         REBSTU *stu = Alloc_Singular_Array();
 
@@ -618,7 +618,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
     REBCNT num_variable;
     REBDSP dsp_orig = DSP; // variadic args pushed to stack, so save base ptr
 
-    if (NOT(RIN_IS_VARIADIC(rin)))
+    if (!RIN_IS_VARIADIC(rin))
         num_variable = 0;
     else {
         // The function specification should have one extra parameter for
@@ -744,7 +744,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
     ffi_cif *cif; // pre-made if not variadic, built for this call otherwise
     ffi_type **args_fftypes = NULL; // ffi_type*[] if num_variable > 0
 
-    if (NOT(RIN_IS_VARIADIC(rin))) {
+    if (!RIN_IS_VARIADIC(rin)) {
         cif = RIN_CIF(rin);
     }
     else {

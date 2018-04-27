@@ -52,11 +52,11 @@
 
 inline static REBOOL IS_WORD_UNBOUND(const RELVAL *v) {
     assert(ANY_WORD(v));
-    return DID(v->extra.binding == UNBOUND);
+    return v->extra.binding == UNBOUND;
 }
 
 #define IS_WORD_BOUND(v) \
-    NOT(IS_WORD_UNBOUND(v))
+    cast(REBOOL, not IS_WORD_UNBOUND(v))
 
 inline static REBSTR *VAL_WORD_SPELLING(const RELVAL *v) {
     assert(ANY_WORD(v));
@@ -219,8 +219,8 @@ inline static REBSTR* Intern(const T *p)
 {
     static_assert(
         std::is_same<T, REBVAL>::value
-        || std::is_same<T, char>::value
-        || std::is_same<T, REBSTR>::value,
+        or std::is_same<T, char>::value
+        or std::is_same<T, REBSTR>::value,
         "STR works on: char*, REBVAL*, REBSTR*"
     );
 #else

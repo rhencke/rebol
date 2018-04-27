@@ -44,12 +44,12 @@ REBINT Get_Num_From_Arg(const REBVAL *val)
     REBINT n;
 
     if (IS_INTEGER(val)) {
-        if (VAL_INT64(val) > INT32_MAX || VAL_INT64(val) < INT32_MIN)
+        if (VAL_INT64(val) > INT32_MAX or VAL_INT64(val) < INT32_MIN)
             fail (Error_Out_Of_Range(val));
         n = VAL_INT32(val);
     }
-    else if (IS_DECIMAL(val) || IS_PERCENT(val)) {
-        if (VAL_DECIMAL(val) > INT32_MAX || VAL_DECIMAL(val) < INT32_MIN)
+    else if (IS_DECIMAL(val) or IS_PERCENT(val)) {
+        if (VAL_DECIMAL(val) > INT32_MAX or VAL_DECIMAL(val) < INT32_MIN)
             fail (Error_Out_Of_Range(val));
         n = cast(REBINT, VAL_DECIMAL(val));
     }
@@ -83,7 +83,7 @@ REBINT Float_Int16(REBD32 f)
 REBINT Int32(const RELVAL *val)
 {
     if (IS_DECIMAL(val)) {
-        if (VAL_DECIMAL(val) > INT32_MAX || VAL_DECIMAL(val) < INT32_MIN)
+        if (VAL_DECIMAL(val) > INT32_MAX or VAL_DECIMAL(val) < INT32_MIN)
             goto out_of_range;
 
         return cast(REBINT, VAL_DECIMAL(val));
@@ -91,7 +91,7 @@ REBINT Int32(const RELVAL *val)
 
     assert(IS_INTEGER(val));
 
-    if (VAL_INT64(val) > INT32_MAX || VAL_INT64(val) < INT32_MIN)
+    if (VAL_INT64(val) > INT32_MAX or VAL_INT64(val) < INT32_MIN)
         goto out_of_range;
 
     return VAL_INT32(val);
@@ -115,11 +115,12 @@ REBINT Int32s(const RELVAL *val, REBINT sign)
     REBINT n;
 
     if (IS_DECIMAL(val)) {
-        if (VAL_DECIMAL(val) > INT32_MAX || VAL_DECIMAL(val) < INT32_MIN)
+        if (VAL_DECIMAL(val) > INT32_MAX or VAL_DECIMAL(val) < INT32_MIN)
             goto out_of_range;
 
         n = cast(REBINT, VAL_DECIMAL(val));
-    } else {
+    }
+    else {
         assert(IS_INTEGER(val));
 
         if (VAL_INT64(val) > INT32_MAX)
@@ -130,11 +131,12 @@ REBINT Int32s(const RELVAL *val, REBINT sign)
 
     // More efficient to use positive sense:
     if (
-        (sign == 0 && n >= 0) ||
-        (sign > 0 && n > 0) ||
-        (sign < 0 && n < 0)
-    )
+        (sign == 0 and n >= 0)
+        or (sign > 0 and n > 0)
+        or (sign < 0 and n < 0)
+    ){
         return n;
+    }
 
 out_of_range:
     fail (Error_Out_Of_Range(const_KNOWN(val)));
@@ -148,7 +150,7 @@ REBI64 Int64(const REBVAL *val)
 {
     if (IS_INTEGER(val))
         return VAL_INT64(val);
-    if (IS_DECIMAL(val) || IS_PERCENT(val))
+    if (IS_DECIMAL(val) or IS_PERCENT(val))
         return cast(REBI64, VAL_DECIMAL(val));
     if (IS_MONEY(val))
         return deci_to_int(VAL_MONEY_AMOUNT(val));
@@ -162,7 +164,7 @@ REBI64 Int64(const REBVAL *val)
 //
 REBDEC Dec64(const REBVAL *val)
 {
-    if (IS_DECIMAL(val) || IS_PERCENT(val))
+    if (IS_DECIMAL(val) or IS_PERCENT(val))
         return VAL_DECIMAL(val);
     if (IS_INTEGER(val))
         return cast(REBDEC, VAL_INT64(val));
@@ -185,22 +187,23 @@ REBDEC Dec64(const REBVAL *val)
 REBI64 Int64s(const REBVAL *val, REBINT sign)
 {
     REBI64 n;
-
     if (IS_DECIMAL(val)) {
-        if (VAL_DECIMAL(val) > INT64_MAX || VAL_DECIMAL(val) < INT64_MIN)
+        if (VAL_DECIMAL(val) > INT64_MAX or VAL_DECIMAL(val) < INT64_MIN)
             fail (Error_Out_Of_Range(val));
-        n = (REBI64)VAL_DECIMAL(val);
-    } else {
-        n = VAL_INT64(val);
+
+        n = cast(REBI64, VAL_DECIMAL(val));
     }
+    else
+        n = VAL_INT64(val);
 
     // More efficient to use positive sense:
     if (
-        (sign == 0 && n >= 0) ||
-        (sign >  0 && n >  0) ||
-        (sign <  0 && n <  0)
-    )
+        (sign == 0 and n >= 0)
+        or (sign > 0 and n > 0)
+        or (sign < 0 and n < 0)
+    ){
         return n;
+    }
 
     fail (Error_Out_Of_Range(val));
 }
@@ -211,7 +214,7 @@ REBI64 Int64s(const REBVAL *val, REBINT sign)
 //
 REBINT Int8u(const REBVAL *val)
 {
-    if (VAL_INT64(val) > 255 || VAL_INT64(val) < 0)
+    if (VAL_INT64(val) > 255 or VAL_INT64(val) < 0)
         fail (Error_Out_Of_Range(val));
 
     return VAL_INT32(val);
@@ -223,7 +226,7 @@ REBINT Int8u(const REBVAL *val)
 //
 void Val_Init_Datatype(REBVAL *out, enum Reb_Kind kind)
 {
-    assert(kind > REB_0 && kind < REB_MAX);
+    assert(kind > REB_0 and kind < REB_MAX);
     Move_Value(out, CTX_VAR(Lib_Context, SYM_FROM_KIND(kind)));
 }
 
@@ -236,7 +239,7 @@ void Val_Init_Datatype(REBVAL *out, enum Reb_Kind kind)
 //
 REBVAL *Get_Type(enum Reb_Kind kind)
 {
-    assert(kind > REB_0 && kind < REB_MAX);
+    assert(kind > REB_0 and kind < REB_MAX);
     return CTX_VAR(Lib_Context, SYM_FROM_KIND(kind));
 }
 
@@ -327,7 +330,7 @@ REBVAL *Init_Any_Series_At_Core(
 ) {
     ENSURE_SERIES_MANAGED(series);
 
-    if (type != REB_IMAGE && type != REB_VECTOR) {
+    if (type != REB_IMAGE and type != REB_VECTOR) {
         // Code in various places seemed to have different opinions of
         // whether a BINARY needed to be zero terminated.  It doesn't
         // make a lot of sense to zero terminate a binary unless it
@@ -422,7 +425,7 @@ REBVAL *Init_Any_Context_Core(
     //
     assert(
         MISC(varlist).meta == NULL
-        || ANY_CONTEXT(CTX_VALUE(MISC(varlist).meta))
+        or ANY_CONTEXT(CTX_VALUE(MISC(varlist).meta))
     );
   #endif
 
@@ -451,7 +454,7 @@ REBVAL *Init_Any_Context_Core(
     // Currently only FRAME! uses the ->binding field, in order to capture the
     // ->binding of the function value it links to (which is in ->phase)
     //
-    assert(VAL_BINDING(out) == UNBOUND || CTX_TYPE(c) == REB_FRAME);
+    assert(VAL_BINDING(out) == UNBOUND or CTX_TYPE(c) == REB_FRAME);
 
     // FRAME!s must always fill in the phase slot, but that piece of the
     // REBVAL is reserved for future use in other context types...so make
@@ -499,13 +502,13 @@ void Partial1(
     }
 
     REBI64 len;
-    if (IS_INTEGER(limit) || IS_DECIMAL(limit))
+    if (IS_INTEGER(limit) or IS_DECIMAL(limit))
         len = Int32(limit); // will error if out of range; see #853
     else {
         if (
-            !is_series
-            || VAL_TYPE(value) != VAL_TYPE(limit)
-            || VAL_SERIES(value) != VAL_SERIES(limit)
+            not is_series
+            or VAL_TYPE(value) != VAL_TYPE(limit)
+            or VAL_SERIES(value) != VAL_SERIES(limit)
         ){
             fail (Error_Invalid_Part_Raw(limit));
         }
@@ -559,12 +562,13 @@ REBINT Partial(REBVAL *aval, REBVAL *bval, REBVAL *lval)
 
     // If lval is unset, use the current len of the target value:
     if (IS_VOID(lval)) {
-        val = (bval && ANY_SERIES(bval)) ? bval : aval;
-        if (VAL_INDEX(val) >= VAL_LEN_HEAD(val)) return 0;
+        val = (bval and ANY_SERIES(bval)) ? bval : aval;
+        if (VAL_INDEX(val) >= VAL_LEN_HEAD(val))
+            return 0;
         return (VAL_LEN_HEAD(val) - VAL_INDEX(val));
     }
 
-    if (IS_INTEGER(lval) || IS_DECIMAL(lval)) {
+    if (IS_INTEGER(lval) or IS_DECIMAL(lval)) {
         len = Int32(lval);
         val = bval;
     }
@@ -572,15 +576,15 @@ REBINT Partial(REBVAL *aval, REBVAL *bval, REBVAL *lval)
         // So, lval must be relative to aval or bval series:
         if (
             VAL_TYPE(aval) == VAL_TYPE(lval)
-            && VAL_SERIES(aval) == VAL_SERIES(lval)
-        ) {
+            and VAL_SERIES(aval) == VAL_SERIES(lval)
+        ){
             val = aval;
         }
         else if (
             bval
-            && VAL_TYPE(bval) == VAL_TYPE(lval)
-            && VAL_SERIES(bval) == VAL_SERIES(lval)
-        ) {
+            and VAL_TYPE(bval) == VAL_TYPE(lval)
+            and VAL_SERIES(bval) == VAL_SERIES(lval)
+        ){
             val = bval;
         }
         else
@@ -589,19 +593,21 @@ REBINT Partial(REBVAL *aval, REBVAL *bval, REBVAL *lval)
         len = cast(REBINT, VAL_INDEX(lval)) - cast(REBINT, VAL_INDEX(val));
     }
 
-    if (!val) val = aval;
+    if (val == NULL)
+        val = aval;
 
     // Restrict length to the size available
     //
     if (len >= 0) {
-        maxlen = (REBINT)VAL_LEN_AT(val);
-        if (len > maxlen) len = maxlen;
+        maxlen = cast(REBINT, VAL_LEN_AT(val));
+        if (len > maxlen)
+            len = maxlen;
     }
     else {
         len = -len;
         if (len > cast(REBINT, VAL_INDEX(val)))
             len = cast(REBINT, VAL_INDEX(val));
-        VAL_INDEX(val) -= (REBCNT)len;
+        VAL_INDEX(val) -= cast(REBCNT, len);
     }
 
     return len;
@@ -625,7 +631,7 @@ int Clip_Int(int val, int mini, int maxi)
 int64_t Add_Max(enum Reb_Kind type, int64_t n, int64_t m, int64_t maxi)
 {
     int64_t r = n + m;
-    if (r < -maxi || r > maxi) {
+    if (r < -maxi or r > maxi) {
         if (type != REB_0)
             fail (Error_Type_Limit_Raw(Get_Type(type)));
         r = r > 0 ? maxi : -maxi;
@@ -640,8 +646,8 @@ int64_t Add_Max(enum Reb_Kind type, int64_t n, int64_t m, int64_t maxi)
 int64_t Mul_Max(enum Reb_Kind type, int64_t n, int64_t m, int64_t maxi)
 {
     int64_t r = n * m;
-    if (r < -maxi || r > maxi)
+    if (r < -maxi or r > maxi)
         fail (Error_Type_Limit_Raw(Get_Type(type)));
-    return (int)r; // !!! (?) review this cast
+    return cast(int, r); // !!! (?) review this cast
 }
 

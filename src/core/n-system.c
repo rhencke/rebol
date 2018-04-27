@@ -194,8 +194,8 @@ REBNATIVE(recycle)
         // There might should be some kind of generic way to set these kinds
         // of flags individually, perhaps having them live in SYSTEM/...
         //
-        Reb_Opts->watch_recycle = NOT(Reb_Opts->watch_recycle);
-        Reb_Opts->watch_expand = NOT(Reb_Opts->watch_expand);
+        Reb_Opts->watch_recycle = not Reb_Opts->watch_recycle;
+        Reb_Opts->watch_expand = not Reb_Opts->watch_expand;
       #endif
     }
 

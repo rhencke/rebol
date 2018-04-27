@@ -384,7 +384,7 @@ void Mold_Array_At(
         // desired in a MOLD/ONLY (nor is a newline desired after the last)
         //
         if (GET_VAL_FLAG(item, VALUE_FLAG_LINE) && had_output) {
-           if (NOT(had_lines) && sep[1])
+           if (not had_lines and sep[1])
                 mo->indent++;
 
             New_Indented_Line(mo);
@@ -440,7 +440,7 @@ void Form_Array_At(
             if (wval)
                 item = wval;
         }
-        Mold_Or_Form_Value(mo, item, DID(wval == NULL));
+        Mold_Or_Form_Value(mo, item, wval == NULL);
         n++;
         if (GET_MOLD_FLAG(mo, MOLD_FLAG_LINES)) {
             Append_Utf8_Codepoint(mo->series, LF);

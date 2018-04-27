@@ -113,10 +113,10 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
     //
     assert(IS_PORT(ARG(series))); // !!! poorly named
     UNUSED(ARG(series));
-    if (NOT(
+    if (not (
         IS_BINARY(ARG(value))
-        || IS_STRING(ARG(value))
-        || IS_BLOCK(ARG(value)))
+        or IS_STRING(ARG(value))
+        or IS_BLOCK(ARG(value)))
     ){
         fail (Error_Invalid(ARG(value)));
     }
@@ -200,7 +200,7 @@ REBTYPE(Port)
     //
     // This prevents a crash but doesn't address the design issue.
     //
-    if (NOT(IS_PORT(D_ARG(1))))
+    if (not IS_PORT(D_ARG(1)))
         fail (Error_Illegal_Action(VAL_TYPE(D_ARG(1)), action));
 
     REB_R r = Context_Common_Action_Maybe_Unhandled(frame_, action);

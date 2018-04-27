@@ -424,7 +424,7 @@ const REBYTE *Scan_Dec_Buf(
             ++cp;
     }
 
-    if (NOT(digit_present))
+    if (not digit_present)
         return NULL;
 
     if (*cp == 'E' || *cp == 'e') {
@@ -447,7 +447,7 @@ const REBYTE *Scan_Dec_Buf(
             digit_present = TRUE;
         }
 
-        if (NOT(digit_present))
+        if (not digit_present)
             return NULL;
     }
 
@@ -504,7 +504,7 @@ const REBYTE *Scan_Decimal(
             ++cp;
     }
 
-    if (NOT(digit_present))
+    if (not digit_present)
         return_NULL;
 
     if (*cp == 'E' || *cp == 'e') {
@@ -519,7 +519,7 @@ const REBYTE *Scan_Decimal(
             digit_present = TRUE;
         }
 
-        if (NOT(digit_present))
+        if (not digit_present)
             return_NULL;
     }
 
@@ -842,9 +842,9 @@ const REBYTE *Scan_Date(
         cp = Scan_Time(out, cp, 0);
         if (
             cp == NULL
-            || !IS_TIME(out)
-            || (VAL_NANO(out) < 0)
-            || (VAL_NANO(out) >= SECS_TO_NANO(24 * 60 * 60))
+            or not IS_TIME(out)
+            or VAL_NANO(out) < 0
+            or VAL_NANO(out) >= SECS_TO_NANO(24 * 60 * 60)
         ){
             return_NULL;
         }
@@ -1008,7 +1008,7 @@ const REBYTE *Scan_Email(
         }
     }
 
-    if (NOT(found_at))
+    if (not found_at)
         return_NULL;
 
     TERM_UNI_LEN(s, num_chars);
@@ -1324,7 +1324,7 @@ REBNATIVE(scan_net_header)
                 ++cp;
             if (*cp == LF)
                 ++cp;
-            if (!IS_LEX_SPACE(*cp))
+            if (not IS_LEX_SPACE(*cp))
                 break;
             while (IS_LEX_SPACE(*cp))
                 ++cp;
@@ -1354,7 +1354,7 @@ REBNATIVE(scan_net_header)
                 ++cp;
             if (*cp == LF)
                 ++cp;
-            if (!IS_LEX_SPACE(*cp))
+            if (not IS_LEX_SPACE(*cp))
                 break;
             while (IS_LEX_SPACE(*cp))
                 ++cp;

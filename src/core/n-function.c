@@ -126,7 +126,7 @@ void Make_Thrown_Unwind_Value(
             if (f == NULL)
                 fail (Error_Invalid_Exit_Raw());
 
-            if (NOT(Is_Function_Frame(f)))
+            if (not Is_Function_Frame(f))
                 continue; // only exit functions
 
             if (Is_Function_Frame_Fulfilling(f))
@@ -147,7 +147,7 @@ void Make_Thrown_Unwind_Value(
             if (f == NULL)
                 fail (Error_Invalid_Exit_Raw());
 
-            if (NOT(Is_Function_Frame(f)))
+            if (not Is_Function_Frame(f))
                 continue; // only exit functions
 
             if (Is_Function_Frame_Fulfilling(f))
@@ -388,7 +388,7 @@ REBNATIVE(chain)
     //
     REBVAL *check = first;
     while (NOT_END(check)) {
-        if (NOT(IS_FUNCTION(check)))
+        if (not IS_FUNCTION(check))
             fail (Error_Invalid(check));
         ++check;
     }
@@ -471,7 +471,7 @@ REBNATIVE(adapt)
         return R_OUT_IS_THROWN;
     }
 
-    if (NOT(IS_FUNCTION(D_OUT)))
+    if (not IS_FUNCTION(D_OUT))
         fail (Error_Invalid(adaptee));
     Move_Value(adaptee, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
@@ -594,7 +594,7 @@ REBNATIVE(enclose)
         return R_OUT_IS_THROWN;
     }
 
-    if (NOT(IS_FUNCTION(D_OUT)))
+    if (not IS_FUNCTION(D_OUT))
         fail (Error_Invalid(inner));
     Move_Value(inner, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
@@ -610,7 +610,7 @@ REBNATIVE(enclose)
         return R_OUT_IS_THROWN;
     }
 
-    if (NOT(IS_FUNCTION(D_OUT)))
+    if (not IS_FUNCTION(D_OUT))
         fail (Error_Invalid(outer));
     Move_Value(outer, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
@@ -717,7 +717,7 @@ REBNATIVE(hijack)
         return R_OUT_IS_THROWN;
     }
 
-    if (!IS_FUNCTION(D_OUT))
+    if (not IS_FUNCTION(D_OUT))
         fail ("Victim of HIJACK must be a FUNCTION!");
     Move_Value(victim, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
@@ -733,7 +733,7 @@ REBNATIVE(hijack)
         return R_OUT_IS_THROWN;
     }
 
-    if (!IS_FUNCTION(D_OUT))
+    if (not IS_FUNCTION(D_OUT))
         fail ("Hijacker in HIJACK must be a FUNCTION!");
     Move_Value(hijacker, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 

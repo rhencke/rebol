@@ -49,7 +49,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
     struct devreq_serial *serial = DEVREQ_SERIAL(req);
 
     // Actions for an unopened serial port:
-    if (NOT(req->flags & RRF_OPEN)) {
+    if (not (req->flags & RRF_OPEN)) {
         switch (action) {
 
         case SYM_REFLECT: {
@@ -70,10 +70,10 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         case SYM_OPEN: {
             REBVAL *serial_path = Obj_Value(spec, STD_PORT_SPEC_SERIAL_PATH);
-            if (NOT(
+            if (not (
                 IS_FILE(serial_path)
-                || IS_STRING(serial_path)
-                || IS_BINARY(serial_path)
+                or IS_STRING(serial_path)
+                or IS_BINARY(serial_path)
             )){
                 fail (Error_Invalid_Port_Arg_Raw(serial_path));
             }
@@ -81,24 +81,24 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
             serial->path = serial_path;
 
             REBVAL *speed = Obj_Value(spec, STD_PORT_SPEC_SERIAL_SPEED);
-            if (NOT(IS_INTEGER(speed)))
+            if (not IS_INTEGER(speed))
                 fail (Error_Invalid_Port_Arg_Raw(speed));
 
             serial->baud = VAL_INT32(speed);
 
             REBVAL *size = Obj_Value(spec, STD_PORT_SPEC_SERIAL_DATA_SIZE);
-            if (!IS_INTEGER(size)
-                || VAL_INT64(size) < 5
-                || VAL_INT64(size) > 8
+            if (not IS_INTEGER(size)
+                or VAL_INT64(size) < 5
+                or VAL_INT64(size) > 8
             ){
                 fail (Error_Invalid_Port_Arg_Raw(size));
             }
             serial->data_bits = VAL_INT32(size);
 
             REBVAL *stop = Obj_Value(spec, STD_PORT_SPEC_SERIAL_STOP_BITS);
-            if (!IS_INTEGER(stop)
-                || VAL_INT64(stop) < 1
-                || VAL_INT64(stop) > 2
+            if (not IS_INTEGER(stop)
+                or VAL_INT64(stop) < 1
+                or VAL_INT64(stop) > 2
             ){
                 fail (Error_Invalid_Port_Arg_Raw(stop));
             }

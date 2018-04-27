@@ -447,7 +447,7 @@ inline static ffi_closure* RIN_CLOSURE(REBRIN *r) {
 }
 
 inline static REBLIB *RIN_LIB(REBRIN *r) {
-    assert(NOT(RIN_IS_CALLBACK(r)));
+    assert(!RIN_IS_CALLBACK(r));
     if (IS_BLANK(RIN_AT(r, IDX_ROUTINE_ORIGIN)))
         return NULL;
     return VAL_LIBRARY(RIN_AT(r, IDX_ROUTINE_ORIGIN));
@@ -507,5 +507,5 @@ extern void MF_Struct(REB_MOLD *mo, const RELVAL *v, REBOOL form);
 extern REB_R Routine_Dispatcher(REBFRM *f);
 
 inline static REBOOL IS_FUNCTION_RIN(const RELVAL *v)
-    { return DID(VAL_FUNC_DISPATCHER(v) == &Routine_Dispatcher); }
+    { return VAL_FUNC_DISPATCHER(v) == &Routine_Dispatcher; }
 

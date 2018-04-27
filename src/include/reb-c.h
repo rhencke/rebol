@@ -436,36 +436,54 @@
 // This code takes advantage of the custom definition with DEBUG_STRICT_BOOL
 // that makes assignments to REBOOL reject integers entirely.  It still
 // allows testing via if() and the logic operations, but merely disables
-// direct assignments or passing integers as parameters to bools:
+// direct assignments or passing integers as parameters to bools.
 //
-//     REBOOL b = 1 > 2;        // illegal: 1 > 2 is 0 (integer) in C
-//     REBOOL b = DID(1 > 2);   // Ren-C legal form of assignment
-//
-// The macro DID() lets you convert any truthy C value to a REBOOL, and NOT()
-// lets you do the inverse.  This is better than what was previously used
-// often, a (REBOOL)cast_of_expression.  And it makes it much safer to use
-// ordinary `&` operations to test for flags, more succinctly even:
+// This is better than what was previously used, a (REBOOL)cast_of_expression.
+// And it makes it much safer to use ordinary `&` operations to test for
+// flags, more succinctly even:
 //
 //     REBOOL b = GET_FLAG(flags, SOME_FLAG_ORDINAL);
 //     REBOOL b = !GET_FLAG(flags, SOME_FLAG_ORDINAL);
 //
 // vs.
 //
-//     REBOOL b = DID(flags & SOME_FLAG_BITWISE); // 4 fewer chars
-//     REBOOL b = NOT(flags & SOME_FLAG_BITWISE); // 5 fewer chars
+//     REBOOL b = did (flags & SOME_FLAG_BITWISE); // 3 fewer chars
+//     REBOOL b = not (flags & SOME_FLAG_BITWISE); // 4 fewer chars
 //
 // (Bitwise vs. ordinal also permits initializing options by just |'ing them.)
 //
 
-#ifndef HAS_BOOL
+#ifdef __cplusplus
+    #if defined(_MSC_VER)
+        #include <iso646.h> // MSVC doesn't have `and`, `not`, etc. w/o this
+    #else
+        // otherwise, C++ compilers define them, as they are in the standard
+    #endif
+#else
+    // Since the C90 standard of C, iso646.h has been defined:
     //
-    // Some systems define a cpu-optimal BOOL already.  (Of course, all of
-    // this should have been built into C in 1970.)  But if they don't, go
-    // with whatever the compiler decides `int` is, as it is the default
-    // "speedy choice" for modern CPUs
+    // https://en.wikipedia.org/wiki/C_alternative_tokens
     //
-    typedef int BOOL;
+    // But TCC didn't include it, and maybe others don't either.  The issue
+    // isn't so much the file, as it is agreeing on the 11 macros, so just
+    // define them here.
+    //
+    #define and &&
+    #define and_eq &=
+    #define bitand &
+    #define bitor |
+    #define compl ~
+    #define not !
+    #define not_eq !=
+    #define or ||
+    #define or_eq |=
+    #define xor ^
+    #define xor_eq ^=
 #endif
+
+// A 12th macro: http://blog.hostilefork.com/did-programming-opposite-of-not/
+//
+#define did !!
 
 #ifdef DEBUG_STRICT_BOOL
   #ifndef CPLUSPLUS_11
@@ -475,37 +493,26 @@
     // To do this test in MSVC, you need /wd4190, /wd4647, /wd4805
 
     class REBOOL {
-        int one_or_zero;
+        bool b;
+
     public:
         REBOOL () = default;
-    private:
-        REBOOL (int i) : one_or_zero (i) {}
-    public:
-        operator bool() const { return one_or_zero; }
-        static REBOOL make_false() { return REBOOL{0}; }
-        static REBOOL make_true() { return REBOOL{1}; }
+
+        template<typename T>
+        REBOOL (T x) : b (x) {
+            static_assert(
+                std::is_same<T, bool>::value,
+                "can only initalize REBOOL from booleans, otherwise use `did`"
+            );
+        }
+
+        operator bool() const { return b; }
+        explicit operator int() const { return b; }
     };
     #undef FALSE
     #undef TRUE
-    #define FALSE REBOOL::make_false()
-    #define TRUE REBOOL::make_true()
-
-    template <typename T>
-    inline static REBOOL DID(T x) {
-        static_assert(
-            std::is_same<T, REBOOL>::value || std::is_integral<T>::value,
-            "DID(x) can only be used on integral types"
-        );
-        return x ? TRUE : FALSE;
-    }
-    template <typename T>
-    inline static REBOOL NOT(T x) {
-        static_assert(
-            std::is_same<T, REBOOL>::value || std::is_integral<T>::value,
-            "NOT(x) can only be used on integral types"
-        );
-        return x ? FALSE : TRUE;
-    }
+    #define FALSE false
+    #define TRUE true
 #else
     #if (defined(FALSE) && (!FALSE)) && (defined(TRUE) && TRUE)
 
@@ -525,40 +532,18 @@
         // There's a FALSE and TRUE defined and they are logically false and
         // true respectively, so just use those definitions but make REBOOL
         //
-        typedef BOOL REBOOL;
+        typedef int_fast8_t REBOOL; // fastest type that can represent 8-bits
 
     #elif !defined(FALSE) && !defined(TRUE)
-        //
-        // An enum-based definition would prohibit the usage of TRUE and FALSE
-        // in preprocessor macros, but offer some amount of type safety.
-        //
-        // http://stackoverflow.com/a/23666263/211160
-        //
-        // The tradeoff is worth it, but interferes with the hardcoded Windows
-        // definitions of TRUE as 1 and FALSE as 0.  So only use it outside
-        // of Windows, but still use #define so they can be overridden.
-        //
-        #ifdef TO_WINDOWS
-            #define FALSE 0
-            #define TRUE 1
+        #define FALSE 0
+        #define TRUE 1
 
-            typedef BOOL REBOOL;
-        #else
-            typedef enum {REBOOL_FALSE = 0, REBOOL_TRUE = 1} REBOOL;
-            #define FALSE REBOOL_FALSE
-            #define TRUE REBOOL_TRUE
-        #endif
-
+        typedef int_fast8_t REBOOL;
     #else
         // TRUE and FALSE are defined but are not their logic meanings.
         //
         #error "Bad TRUE and FALSE definitions in compiler environment"
     #endif
-
-    #define DID(x) \
-        ((x) ? TRUE : FALSE)
-    #define NOT(x) \
-        ((x) ? FALSE : TRUE)
 #endif
 
 
@@ -752,14 +737,14 @@
 
         template<class T>
         inline static REBOOL IS_POINTER_TRASH_DEBUG(T* p) {
-            return DID(
+            return (
                 p == reinterpret_cast<T*>(static_cast<uintptr_t>(0xDECAFBAD))
             );
         }
 
         template<class T>
         inline static REBOOL IS_CFUNC_TRASH_DEBUG(T* p) {
-            return DID(
+            return (
                 p == reinterpret_cast<T*>(static_cast<uintptr_t>(0xDECAFBAD))
             );
         }
@@ -771,28 +756,12 @@
             ((p) = cast(CFUNC*, cast(uintptr_t, 0xDECAFBAD)))
             
         #define IS_POINTER_TRASH_DEBUG(p) \
-            DID((p) == cast(void*, cast(uintptr_t, 0xDECAFBAD)))
+            ((p) == cast(void*, cast(uintptr_t, 0xDECAFBAD)))
 
         #define IS_CFUNC_TRASH_DEBUG(p) \
-            DID((p) == cast(CFUNC*, cast(uintptr_t, 0xDECAFBAD)))
+            ((p) == cast(CFUNC*, cast(uintptr_t, 0xDECAFBAD)))
     #endif
 #endif
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// NEGATIVE FORM OF ASSERT: "DENY"
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//
-// Having an inverted form of assert is useful, especially since one of the
-// goals is to keep the code readable in 80 columns.  Using NOT instead of !
-// means `assert(NOT(x))` is quite long compared to `deny(x)`.
-//
-
-#define deny(condition) \
-    assert(!(condition))
 
 
 //=////////////////////////////////////////////////////////////////////////=//

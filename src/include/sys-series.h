@@ -127,8 +127,8 @@
         static_assert(
             // see specializations for void* and REBNOD*, which do more checks
             std::is_same<T, REBSTR>::value
-            || std::is_same<T, REBARR>::value
-            || std::is_same<T, REBNOD>::value,
+            or std::is_same<T, REBARR>::value
+            or std::is_same<T, REBNOD>::value,
             "SER works on: void*, REBNOD*, REBSTR*, REBARR*"
         );
 
@@ -193,16 +193,16 @@
     cast(void, SER(s)->header.bits &= ~(f))
 
 #define GET_SER_FLAG(s,f) \
-    DID(SER(s)->header.bits & (f)) // no single-flag check at present
+    cast(REBOOL, did (SER(s)->header.bits & (f))) // !!! single-flag check?
 
 #define ANY_SER_FLAGS(s,f) \
-    DID(SER(s)->header.bits & (f))
+    cast(REBOOL, did (SER(s)->header.bits & (f)))
 
 #define ALL_SER_FLAGS(s,f) \
-    DID((SER(s)->header.bits & (f)) == (f))
+    cast(REBOOL, (SER(s)->header.bits & (f)) == (f))
 
 #define NOT_SER_FLAG(s,f) \
-    NOT(SER(s)->header.bits & (f))
+    cast(REBOOL, not (SER(s)->header.bits & (f)))
 
 #define SET_SER_FLAGS(s,f) \
     SET_SER_FLAG((s), (f))
@@ -222,16 +222,16 @@
     cast(void, SER(s)->info.bits &= ~(f))
 
 #define GET_SER_INFO(s,f) \
-    DID(SER(s)->info.bits & (f)) // no single-flag check at present
+    cast(REBOOL, did (SER(s)->info.bits & (f))) // !!! single-flag check?
 
 #define ANY_SER_INFOS(s,f) \
-    DID(SER(s)->info.bits & (f))
+    cast(REBOOL, did (SER(s)->info.bits & (f)))
 
 #define ALL_SER_INFOS(s,f) \
-    DID((SER(s)->info.bits & (f)) == (f))
+    cast(REBOOL, (SER(s)->info.bits & (f)) == (f))
 
 #define NOT_SER_INFO(s,f) \
-    NOT(SER(s)->info.bits & (f))
+    cast(REBOOL, not (SER(s)->info.bits & (f)))
 
 #define SET_SER_INFOS(s,f) \
     SET_SER_INFO((s), (f))
@@ -431,14 +431,14 @@ inline static void TERM_SEQUENCE_LEN(REBSER *s, REBCNT len) {
 //
 
 inline static REBOOL IS_SERIES_MANAGED(REBSER *s) {
-    return DID(s->header.bits & NODE_FLAG_MANAGED);
+    return did (s->header.bits & NODE_FLAG_MANAGED);
 }
 
 #define MANAGE_SERIES(s) \
     Manage_Series(s)
 
 inline static void ENSURE_SERIES_MANAGED(REBSER *s) {
-    if (NOT(IS_SERIES_MANAGED(s)))
+    if (not IS_SERIES_MANAGED(s))
         MANAGE_SERIES(s);
 }
 
@@ -450,7 +450,7 @@ inline static void ENSURE_SERIES_MANAGED(REBSER *s) {
         NOOP
 #else
     inline static void ASSERT_SERIES_MANAGED(REBSER *s) {
-        if (NOT(IS_SERIES_MANAGED(s)))
+        if (not IS_SERIES_MANAGED(s))
             panic (s);
     }
 
@@ -649,7 +649,7 @@ inline static REBSER *VAL_SERIES(const RELVAL *v) {
     //
     // !!! In gcc 5.4, with a debug build, writing this expression as simply:
     //
-    //     assert(ANY_SERIES(v) || IS_MAP(v) || IS_IMAGE(v));
+    //     assert(ANY_SERIES(v) or IS_MAP(v) or IS_IMAGE(v));
     //
     // Appears to omit the ANY_SERIES() test entirely in -O2.  Hence when a
     // STRING! is passed in, it just fails the map and image test in the
@@ -657,9 +657,9 @@ inline static REBSER *VAL_SERIES(const RELVAL *v) {
     // missing, or that rewriting it as these ifs should fix it.  But it does,
     // so this is presumed to be an optimizer bug in that version.  Review.
     //
-    if (NOT(ANY_SERIES(v)))
-        if (NOT(IS_MAP(v)))
-            if (NOT(IS_IMAGE(v)))
+    if (not ANY_SERIES(v))
+        if (not IS_MAP(v))
+            if (not IS_IMAGE(v))
                 panic (v);
 #endif
     return v->payload.any_series.series;

@@ -63,14 +63,14 @@
 #else
     inline static REBI64 VAL_NANO(const RELVAL *v) {
         assert(
-            IS_TIME(v) || (IS_DATE(v) && GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
+            IS_TIME(v) or (IS_DATE(v) and GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
         );
         return v->payload.time.nanoseconds;
     }
 
     inline static REBI64 &VAL_NANO(RELVAL *v) {
         assert(
-            IS_TIME(v) || (IS_DATE(v) && GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
+            IS_TIME(v) or (IS_DATE(v) and GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
         );
         return v->payload.time.nanoseconds;
     }

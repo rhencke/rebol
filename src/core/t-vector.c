@@ -187,8 +187,8 @@ void Set_Vector_Row(REBSER *ser, const REBVAL *blk)
     REBI64 i = 0;
     REBDEC f = 0;
 
-    REBOOL non_integer = DID(MISC(ser).vect_info.non_integer);
-    REBOOL sign = DID(MISC(ser).vect_info.sign);
+    REBOOL non_integer = (MISC(ser).vect_info.non_integer == 1);
+    REBOOL sign = (MISC(ser).vect_info.sign == 1);
     REBCNT bits = MISC(ser).vect_info.bits;
 
     if (IS_BLOCK(blk)) {
@@ -202,7 +202,7 @@ void Set_Vector_Row(REBSER *ser, const REBVAL *blk)
             }
             else if (IS_DECIMAL(val)) {
                 f = VAL_DECIMAL(val);
-                if (NOT(non_integer))
+                if (not non_integer)
                     i = (REBINT)(f);
             }
             else
@@ -242,8 +242,8 @@ REBARR *Vector_To_Array(const REBVAL *vect)
 
     REBYTE *data = SER_DATA_RAW(ser);
 
-    REBOOL non_integer = DID(MISC(ser).vect_info.non_integer == 1);
-    REBOOL sign = DID(MISC(ser).vect_info.sign == 1);
+    REBOOL non_integer = (MISC(ser).vect_info.non_integer == 1);
+    REBOOL sign = (MISC(ser).vect_info.sign == 1);
     REBCNT bits = MISC(ser).vect_info.bits;
 
     RELVAL *val = ARR_HEAD(array);
@@ -270,13 +270,13 @@ REBARR *Vector_To_Array(const REBVAL *vect)
 REBINT Compare_Vector(const RELVAL *v1, const RELVAL *v2)
 {
     REBSER *ser1 = VAL_SERIES(v1);
-    REBOOL non_integer1 = DID(MISC(ser1).vect_info.non_integer == 1);
-    REBOOL sign1 = DID(MISC(ser1).vect_info.sign == 1);
+    REBOOL non_integer1 = (MISC(ser1).vect_info.non_integer == 1);
+    REBOOL sign1 = (MISC(ser1).vect_info.sign == 1);
     REBCNT bits1 = MISC(ser1).vect_info.bits;
 
     REBSER *ser2 = VAL_SERIES(v2);
-    REBOOL non_integer2 = DID(MISC(ser2).vect_info.non_integer == 1);
-    REBOOL sign2 = DID(MISC(ser2).vect_info.sign == 1);
+    REBOOL non_integer2 = (MISC(ser2).vect_info.non_integer == 1);
+    REBOOL sign2 = (MISC(ser2).vect_info.sign == 1);
     REBCNT bits2 = MISC(ser2).vect_info.bits;
 
     if (non_integer1 != non_integer2)
@@ -325,7 +325,7 @@ void Shuffle_Vector(REBVAL *vect, REBOOL secure)
     // We can do it as INTS, because we just deal with the bits:
 
     const REBOOL non_integer = FALSE;
-    REBOOL sign = DID(MISC(ser).vect_info.sign == 1);
+    REBOOL sign = (MISC(ser).vect_info.sign == 1);
     REBCNT bits = MISC(ser).vect_info.bits;
 
     REBCNT n;
@@ -352,8 +352,8 @@ void Set_Vector_Value(REBVAL *var, REBSER *series, REBCNT index)
 {
     REBYTE *data = SER_DATA_RAW(series);
 
-    REBOOL non_integer = DID(MISC(series).vect_info.non_integer == 1);
-    REBOOL sign = DID(MISC(series).vect_info.sign == 1);
+    REBOOL non_integer = (MISC(series).vect_info.non_integer == 1);
+    REBOOL sign = (MISC(series).vect_info.sign == 1);
     REBCNT bits = MISC(series).vect_info.bits;
 
     if (non_integer) {
@@ -436,7 +436,7 @@ REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL head[], REBSPC *specifier)
             SAME_SYM_NONZERO(VAL_WORD_SYM(item), SYM_FROM_KIND(REB_DECIMAL))
         ){
             non_integer = TRUE;
-            if (NOT(sign))
+            if (not sign)
                 return FALSE; // C doesn't have unsigned floating points
         }
         else
@@ -447,7 +447,7 @@ REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL head[], REBSPC *specifier)
         non_integer = FALSE; // default to integer, not floating point
 
     REBCNT bits;
-    if (NOT(IS_INTEGER(item)))
+    if (not IS_INTEGER(item))
         return FALSE; // bit size required, no defaulting
 
     bits = Int32(item);
@@ -456,7 +456,7 @@ REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL head[], REBSPC *specifier)
     if (non_integer && (bits == 8 || bits == 16))
         return FALSE; // C doesn't have 8 or 16 bit floating points
 
-    if (NOT(bits == 8 || bits == 16 || bits == 32 || bits == 64))
+    if (not (bits == 8 or bits == 16 or bits == 32 or bits == 64))
         return FALSE;
 
     REBCNT size;
@@ -472,9 +472,9 @@ REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL head[], REBSPC *specifier)
     // Initial data:
 
     const REBVAL *iblk;
-    if (NOT_END(item) && (IS_BLOCK(item) || IS_BINARY(item))) {
+    if (NOT_END(item) and (IS_BLOCK(item) or IS_BINARY(item))) {
         REBCNT len = VAL_LEN_AT(item);
-        if (IS_BINARY(item) && NOT(non_integer))
+        if (IS_BINARY(item) and not non_integer)
             return FALSE;
         if (len > size)
             size = len;
@@ -588,8 +588,8 @@ void Pick_Vector(REBVAL *out, const REBVAL *value, const REBVAL *picker) {
 
     REBYTE *vp = SER_DATA_RAW(vect);
 
-    REBOOL non_integer = DID(MISC(vect).vect_info.non_integer == 1);
-    REBOOL sign = DID(MISC(vect).vect_info.sign == 1);
+    REBOOL non_integer = (MISC(vect).vect_info.non_integer == 1);
+    REBOOL sign = (MISC(vect).vect_info.sign == 1);
     REBCNT bits = MISC(vect).vect_info.bits;
 
     if (non_integer) {
@@ -626,8 +626,8 @@ void Poke_Vector_Fail_If_Read_Only(
 
     REBYTE *vp = SER_DATA_RAW(vect);
 
-    REBOOL non_integer = DID(MISC(vect).vect_info.non_integer == 1);
-    REBOOL sign = DID(MISC(vect).vect_info.sign == 1);
+    REBOOL non_integer = (MISC(vect).vect_info.non_integer == 1);
+    REBOOL sign = (MISC(vect).vect_info.sign == 1);
     REBCNT bits = MISC(vect).vect_info.bits;
 
     REBI64 i;
@@ -775,16 +775,16 @@ void MF_Vector(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         n = VAL_INDEX(v);
     }
 
-    REBOOL non_integer = DID(MISC(vect).vect_info.non_integer == 1);
-    REBOOL sign = DID(MISC(vect).vect_info.sign == 1);
+    REBOOL non_integer = (MISC(vect).vect_info.non_integer == 1);
+    REBOOL sign = (MISC(vect).vect_info.sign == 1);
     REBCNT bits = MISC(vect).vect_info.bits;
 
-    if (NOT(form)) {
+    if (not form) {
         enum Reb_Kind kind = non_integer ? REB_DECIMAL : REB_INTEGER;
         Pre_Mold(mo, v);
         if (NOT_MOLD_FLAG(mo, MOLD_FLAG_ALL))
             Append_Utf8_Codepoint(mo->series, '[');
-        if (NOT(sign))
+        if (not sign)
             Append_Unencoded(mo->series, "unsigned ");
         Emit(
             mo,
@@ -826,7 +826,7 @@ void MF_Vector(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         TERM_UNI_LEN(mo->series, UNI_LEN(mo->series) - 1);
     }
 
-    if (NOT(form)) {
+    if (not form) {
         if (len)
             New_Indented_Line(mo);
 

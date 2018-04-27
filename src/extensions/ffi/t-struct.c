@@ -320,17 +320,17 @@ static REBOOL same_fields(REBARR *tgt_fieldlist, REBARR *src_fieldlist)
         REBFLD *src_field = VAL_ARRAY(src_item);
         REBFLD *tgt_field = VAL_ARRAY(tgt_item);
 
-        if (
-            FLD_IS_STRUCT(tgt_field) &&
-            !same_fields(FLD_FIELDLIST(tgt_field), FLD_FIELDLIST(src_field))
-        ){
-            return FALSE;
-        }
+        if (FLD_IS_STRUCT(tgt_field))
+            if (!same_fields(
+                FLD_FIELDLIST(tgt_field),
+                FLD_FIELDLIST(src_field)
+            )){
+                return FALSE;
+            }
 
-        if (NOT(
-            SAME_SYM_NONZERO(
-                FLD_TYPE_SYM(tgt_field), FLD_TYPE_SYM(src_field)
-            )
+        if (!SAME_SYM_NONZERO(
+            FLD_TYPE_SYM(tgt_field),
+            FLD_TYPE_SYM(src_field)
         )){
             return FALSE;
         }
@@ -567,13 +567,13 @@ static void parse_attr (REBVAL *blk, REBINT *raw_size, uintptr_t *raw_addr)
     *raw_addr = 0;
 
     while (NOT_END(attr)) {
-        if (NOT(IS_SET_WORD(attr)))
+        if (!IS_SET_WORD(attr))
             fail (Error_Invalid(attr));
 
         switch (VAL_WORD_SYM(attr)) {
         case SYM_RAW_SIZE:
             ++ attr;
-            if (IS_END(attr) || NOT(IS_INTEGER(attr)))
+            if (IS_END(attr) || !IS_INTEGER(attr))
                 fail (Error_Invalid(attr));
             if (*raw_size > 0)
                 fail ("FFI: duplicate raw size");
@@ -584,7 +584,7 @@ static void parse_attr (REBVAL *blk, REBINT *raw_size, uintptr_t *raw_addr)
 
         case SYM_RAW_MEMORY:
             ++ attr;
-            if (IS_END(attr) || NOT(IS_INTEGER(attr)))
+            if (IS_END(attr) || !IS_INTEGER(attr))
                 fail (Error_Invalid(attr));
             if (*raw_addr != 0)
                 fail ("FFI: duplicate raw memory");
@@ -599,17 +599,17 @@ static void parse_attr (REBVAL *blk, REBINT *raw_size, uintptr_t *raw_addr)
             if (*raw_addr != 0)
                 fail ("FFI: raw memory is exclusive with extern");
 
-            if (IS_END(attr) || NOT(IS_BLOCK(attr)) || VAL_LEN_AT(attr) != 2)
+            if (IS_END(attr) || !IS_BLOCK(attr) || VAL_LEN_AT(attr) != 2)
                 fail (Error_Invalid(attr));
 
             REBVAL *lib = KNOWN(VAL_ARRAY_AT_HEAD(attr, 0));
-            if (NOT(IS_LIBRARY(lib)))
+            if (!IS_LIBRARY(lib))
                 fail (Error_Invalid(attr));
             if (IS_LIB_CLOSED(VAL_LIBRARY(lib)))
                 fail (Error_Bad_Library_Raw());
 
             REBVAL *sym = KNOWN(VAL_ARRAY_AT_HEAD(attr, 1));
-            if (NOT(ANY_BINSTR(sym)))
+            if (!ANY_BINSTR(sym))
                 fail (Error_Invalid(sym));
 
             CFUNC *addr = OS_FIND_FUNCTION(
@@ -999,7 +999,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
         }
         else {
             word = spec_item;
-            if (NOT(IS_SET_WORD(word)))
+            if (!IS_SET_WORD(word))
                 fail (Error_Invalid(word));
         }
 
@@ -1025,12 +1025,12 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
 
                     REBCNT n = 0;
                     for (n = 0; n < dimension; ++n) {
-                        if (NOT(assign_scalar(
+                        if (!assign_scalar(
                             VAL_STRUCT(ret),
                             field,
                             n,
                             KNOWN(VAL_ARRAY_AT_HEAD(fld_val, n))
-                        ))){
+                        )){
                             fail (Error_Invalid(fld_val));
                         }
                     }
@@ -1051,7 +1051,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
                     fail (Error_Invalid(fld_val));
             }
             else {
-                if (NOT(assign_scalar(VAL_STRUCT(ret), field, 0, fld_val)))
+                if (!assign_scalar(VAL_STRUCT(ret), field, 0, fld_val))
                     fail (Error_Invalid(fld_val));
             }
             goto next_spec_pair;
@@ -1081,7 +1081,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     assert(kind == REB_STRUCT);
     UNUSED(kind);
 
-    if (NOT(IS_BLOCK(arg)))
+    if (IS_BLOCK(arg))
         fail (Error_Invalid(arg));
 
     REBINT max_fields = 16;
@@ -1382,7 +1382,7 @@ REB_R PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     fail_if_non_accessible(pvs->out);
 
     if (opt_setval == NULL) {
-        if (NOT(Get_Struct_Var(pvs->out, stu, picker)))
+        if (!Get_Struct_Var(pvs->out, stu, picker))
             return R_UNHANDLED;
 
         // !!! Comment here said "Setting element to an array in the struct"

@@ -349,7 +349,7 @@ REBCNT Stack_Depth(void)
     REBFRM *f = FS_TOP;
     while (f) {
         if (Is_Function_Frame(f))
-            if (NOT(Is_Function_Frame_Fulfilling(f))) {
+            if (not Is_Function_Frame_Fulfilling(f)) {
                 //
                 // We only count invoked functions (not group or path
                 // evaluations or "pending" functions that are building their
@@ -393,7 +393,7 @@ const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
         return NULL;
 
     // Get context of object representing the elements of the category itself
-    if (!IS_OBJECT(CTX_VAR(categories, SELFISH(n + 1)))) {
+    if (not IS_OBJECT(CTX_VAR(categories, SELFISH(n + 1)))) {
         assert(FALSE);
         return NULL;
     }
@@ -407,7 +407,7 @@ const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
         return NULL;
 
     // Sanity check CODE: field of category object
-    if (!IS_INTEGER(CTX_VAR(category, SELFISH(1)))) {
+    if (not IS_INTEGER(CTX_VAR(category, SELFISH(1)))) {
         assert(FALSE);
         return NULL;
     }
@@ -418,7 +418,7 @@ const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
 
     // Sanity check TYPE: field of category object
     // !!! Same spelling as what we set in VAL_WORD_SYM(type_out))?
-    if (!IS_STRING(CTX_VAR(category, SELFISH(2)))) {
+    if (not IS_STRING(CTX_VAR(category, SELFISH(2)))) {
         assert(FALSE);
         return NULL;
     }
@@ -426,7 +426,7 @@ const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
     REBVAL *message = CTX_VAR(category, SELFISH(n + 3));
 
     // Error message template must be string or block
-    assert(IS_BLOCK(message) || IS_STRING(message));
+    assert(IS_BLOCK(message) or IS_STRING(message));
 
     // Success! Write category word from the category list context key sym,
     // and specific error ID word from the context key sym within category
@@ -475,7 +475,7 @@ void Set_Location_Of_Error(
         //
         // Only invoked functions (not pending functions, groups, etc.)
         //
-        if (NOT(Is_Function_Frame(f)))
+        if (not Is_Function_Frame(f))
             continue;
         if (Is_Function_Frame_Fulfilling(f))
             continue;
@@ -551,7 +551,7 @@ REBOOL Make_Error_Object_Throws(
     REBCTX *error;
     ERROR_VARS *vars; // C struct mirroring fixed portion of error fields
 
-    if (IS_ERROR(arg) || IS_OBJECT(arg)) {
+    if (IS_ERROR(arg) or IS_OBJECT(arg)) {
         // Create a new error object from another object, including any
         // non-standard fields.  WHERE: and NEAR: will be overridden if
         // used.  If ID:, TYPE:, or CODE: were used in a way that would
@@ -634,7 +634,7 @@ REBOOL Make_Error_Object_Throws(
         // than RE_USER.  If a code is used in the sub-RE_USER range then
         // make sure any id or type provided do not conflict.
 
-        if (!IS_BLANK(&vars->message)) // assume a MESSAGE: is wrong
+        if (not IS_BLANK(&vars->message)) // assume a MESSAGE: is wrong
             fail (Error_Invalid_Error_Raw(arg));
 
         DECLARE_LOCAL (id);
@@ -652,18 +652,18 @@ REBOOL Make_Error_Object_Throws(
 
         if (!IS_BLANK(&vars->id)) {
             if (
-                !IS_WORD(&vars->id)
-                || VAL_WORD_CANON(&vars->id) != VAL_WORD_CANON(id)
+                not IS_WORD(&vars->id)
+                or VAL_WORD_CANON(&vars->id) != VAL_WORD_CANON(id)
             ){
                 fail (Error_Invalid_Error_Raw(arg));
             }
         }
         Move_Value(&vars->id, id); // binding and case normalized
 
-        if (!IS_BLANK(&vars->type)) {
+        if (not IS_BLANK(&vars->type)) {
             if (
-                !IS_WORD(&vars->id)
-                || VAL_WORD_CANON(&vars->type) != VAL_WORD_CANON(type)
+                not IS_WORD(&vars->id)
+                or VAL_WORD_CANON(&vars->type) != VAL_WORD_CANON(type)
             ){
                 fail (Error_Invalid_Error_Raw(arg));
             }
@@ -672,7 +672,7 @@ REBOOL Make_Error_Object_Throws(
 
         // !!! TBD: Check that all arguments were provided!
     }
-    else if (IS_WORD(&vars->type) && IS_WORD(&vars->id)) {
+    else if (IS_WORD(&vars->type) and IS_WORD(&vars->id)) {
         // If there was no CODE: supplied but there was a TYPE: and ID: then
         // this may overlap a combination used by Rebol where we wish to
         // fill in the code.  (No fast lookup for this, must search.)
@@ -705,9 +705,9 @@ REBOOL Make_Error_Object_Throws(
             );
 
             if (message) {
-                assert(IS_STRING(message) || IS_BLOCK(message));
+                assert(IS_STRING(message) or IS_BLOCK(message));
 
-                if (!IS_BLANK(&vars->message))
+                if (not IS_BLANK(&vars->message))
                     fail (Error_Invalid_Error_Raw(arg));
 
                 Move_Value(&vars->message, message);
@@ -755,22 +755,22 @@ REBOOL Make_Error_Object_Throws(
         // For now we just write blank into the error code field, if that was
         // not already there.
 
-        if (NOT(IS_BLANK(&vars->code)))
+        if (not IS_BLANK(&vars->code))
             fail (Error_Invalid_Error_Raw(CTX_VALUE(error)));
 
         // !!! Because we will experience crashes in the molding logic,
         // we put some level of requirement besides "code # not 0".
         // This is conservative logic and not good for general purposes.
 
-        if (
-            !(IS_WORD(&vars->id) || IS_BLANK(&vars->id))
-            || !(IS_WORD(&vars->type) || IS_BLANK(&vars->type))
-            || !(
+        if (not (
+            (IS_WORD(&vars->id) or IS_BLANK(&vars->id))
+            and (IS_WORD(&vars->type) or IS_BLANK(&vars->type))
+            and (
                 IS_BLOCK(&vars->message)
-                || IS_STRING(&vars->message)
-                || IS_BLANK(&vars->message)
+                or IS_STRING(&vars->message)
+                or IS_BLANK(&vars->message)
             )
-        ) {
+        )){
             fail (Error_Invalid_Error_Raw(CTX_VALUE(error)));
         }
     }
@@ -1468,7 +1468,7 @@ REBCTX *Startup_Errors(REBARR *boot_errors)
 {
   #ifdef DEBUG_HAS_PROBE
     const char *env_probe_failures = getenv("R3_PROBE_FAILURES");
-    if (env_probe_failures != NULL && atoi(env_probe_failures) != 0) {
+    if (env_probe_failures != NULL and atoi(env_probe_failures) != 0) {
         printf(
             "**\n"
             "** R3_PROBE_FAILURES is TRUE in environment variable!\n"
@@ -1598,7 +1598,7 @@ const REBYTE *Security_Policy(REBSTR *spelling, const REBVAL *name)
         }
 
         // Is it a string (file or URL):
-        else if (ANY_BINSTR(policy) && name) {
+        else if (ANY_BINSTR(policy) and name != NULL) {
             if (Match_Sub_Path(VAL_SERIES(policy), VAL_SERIES(name))) {
                 // Is the match adequate?
                 if (VAL_LEN_HEAD(name) >= len) {
@@ -1697,7 +1697,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 {
     // Protect against recursion. !!!!
     //
-    if (NOT(form)) {
+    if (not form) {
         MF_Context(mo, v, FALSE);
         return;
     }
@@ -1723,7 +1723,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
     // Form: ** Where: function
     REBVAL *where = KNOWN(&vars->where);
-    if (NOT(IS_BLANK(where))) {
+    if (not IS_BLANK(where)) {
         Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_WHERE);
         Form_Value(mo, where);
@@ -1731,7 +1731,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
     // Form: ** Near: location
     REBVAL *nearest = KNOWN(&vars->nearest);
-    if (NOT(IS_BLANK(nearest))) {
+    if (not IS_BLANK(nearest)) {
         Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_NEAR);
 
@@ -1759,7 +1759,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     // not a FILE!.
     //
     REBVAL *file = KNOWN(&vars->file);
-    if (NOT(IS_BLANK(file))) {
+    if (not IS_BLANK(file)) {
         Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_FILE);
         if (IS_WORD(file))
@@ -1770,7 +1770,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
     // Form: ** Line: line-number
     REBVAL *line = KNOWN(&vars->line);
-    if (NOT(IS_BLANK(line))) {
+    if (not IS_BLANK(line)) {
         Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_LINE);
         if (IS_INTEGER(line))

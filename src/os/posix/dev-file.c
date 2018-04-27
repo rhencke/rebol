@@ -302,7 +302,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (Is_Dir(dir_utf8, file_utf8))
         file_req->modes |= RFM_DIR;
 
-    const REBOOL is_dir = DID(file_req->modes & RFM_DIR);
+    const REBOOL is_dir = did (file_req->modes & RFM_DIR);
     file->path = rebLocalToFile(file_utf8, is_dir);
 
     rebFree(dir_utf8);
@@ -340,14 +340,14 @@ DEVICE_CMD Open_File(REBREQ *req)
     if ((req->modes & (RFM_WRITE | RFM_APPEND)) != 0) {
         modes = O_BINARY | O_RDWR | O_CREAT;
         if (
-            DID(req->modes & RFM_NEW) ||
-            (req->modes & (RFM_READ | RFM_APPEND | RFM_SEEK)) == 0
+            did (req->modes & RFM_NEW)
+            or (req->modes & (RFM_READ | RFM_APPEND | RFM_SEEK)) == 0
         ){
             modes |= O_TRUNC;
         }
     }
 
-    //modes |= DID(req->modes & RFM_SEEK) ? O_RANDOM : O_SEQUENTIAL;
+    //modes |= (req->modes & RFM_SEEK) ? O_RANDOM : O_SEQUENTIAL;
 
     int access = 0;
     if (req->modes & RFM_READONLY)
@@ -426,7 +426,7 @@ DEVICE_CMD Read_File(REBREQ *req)
 
     if ((req->modes & (RFM_SEEK | RFM_RESEEK)) != 0) {
         req->modes &= ~RFM_RESEEK;
-        if (NOT(Seek_File_64(file)))
+        if (not Seek_File_64(file))
             rebFail_OS (errno);
     }
 
@@ -463,7 +463,7 @@ DEVICE_CMD Write_File(REBREQ *req)
 
     if ((req->modes & (RFM_SEEK | RFM_RESEEK | RFM_TRUNCATE)) != 0) {
         req->modes &= ~RFM_RESEEK;
-        if (NOT(Seek_File_64(file)))
+        if (not Seek_File_64(file))
             rebFail_OS (errno);
 
         if (req->modes & RFM_TRUNCATE)
@@ -502,7 +502,7 @@ DEVICE_CMD Query_File(REBREQ *req)
 DEVICE_CMD Create_File(REBREQ *req)
 {
     struct devreq_file *file = DEVREQ_FILE(req);
-    if (NOT(req->modes & RFM_DIR))
+    if (not (req->modes & RFM_DIR))
         return Open_File(req);
 
     char *path_utf8 = rebFileToLocalAlloc(

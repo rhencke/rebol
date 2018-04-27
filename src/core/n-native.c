@@ -164,7 +164,7 @@ static REBCTX* add_path(
 
             RELVAL *item;
             for (item = VAL_ARRAY_AT(path); NOT_END(item); ++item) {
-                if (!IS_FILE(item) && !IS_STRING(item))
+                if (not IS_FILE(item) and not IS_STRING(item))
                     return Error(err_code, item);
 
                 if (do_add_path(state, item, add) < 0)
@@ -389,7 +389,7 @@ REBNATIVE(compile)
         RELVAL *val = VAL_ARRAY_AT(ARG(flags));
 
         for (; NOT_END(val); ++val) {
-            if (!IS_WORD(val)) {
+            if (not IS_WORD(val)) {
                 DECLARE_LOCAL (non_word);
                 Derelativize(non_word, val, specifier);
                 fail (Error_Tcc_Expect_Word_Raw(non_word));
@@ -398,7 +398,7 @@ REBNATIVE(compile)
             switch (VAL_WORD_SYM(val)) {
             case SYM_INCLUDE:
                 ++val;
-                if (!(IS_BLOCK(val) || IS_FILE(val) || ANY_STRING(val))) {
+                if (not (IS_BLOCK(val) or IS_FILE(val) or ANY_STRING(val))) {
                     DECLARE_LOCAL (include);
                     Derelativize(include, val, specifier);
                     fail (Error_Tcc_Invalid_Include_Raw(include));
@@ -412,7 +412,7 @@ REBNATIVE(compile)
 
             case SYM_OPTIONS:
                 ++val;
-                if (NOT(IS_STRING(val))) {
+                if (not IS_STRING(val)) {
                     DECLARE_LOCAL (option);
                     Derelativize(option, val, specifier);
                     fail (Error_Tcc_Invalid_Options_Raw(option));
@@ -422,7 +422,7 @@ REBNATIVE(compile)
 
             case SYM_RUNTIME_PATH:
                 ++val;
-                if (!(IS_FILE(val) || IS_STRING(val))) {
+                if (not (IS_FILE(val) or IS_STRING(val))) {
                     DECLARE_LOCAL (path);
                     Derelativize(path, val, specifier);
                     fail (Error_Tcc_Invalid_Library_Path_Raw(path));
@@ -432,7 +432,7 @@ REBNATIVE(compile)
 
             case SYM_LIBRARY_PATH:
                 ++val;
-                if (!(IS_BLOCK(val) || IS_FILE(val) || ANY_STRING(val))) {
+                if (not (IS_BLOCK(val) or IS_FILE(val) or ANY_STRING(val))) {
                     DECLARE_LOCAL (path);
                     Derelativize(path, val, specifier);
                     fail (Error_Tcc_Invalid_Library_Path_Raw(path));
@@ -442,7 +442,7 @@ REBNATIVE(compile)
 
             case SYM_LIBRARY:
                 ++val;
-                if (!(IS_BLOCK(val) || IS_FILE(val) || ANY_STRING(val))) {
+                if (not (IS_BLOCK(val) or IS_FILE(val) or ANY_STRING(val))) {
                     DECLARE_LOCAL (library);
                     Derelativize(library, val, specifier);
                     fail (Error_Tcc_Invalid_Library_Raw(library));

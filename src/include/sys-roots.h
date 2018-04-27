@@ -52,7 +52,7 @@
 //
 inline static REBOOL Is_Api_Value(const RELVAL *v) {
     assert(v->header.bits & NODE_FLAG_CELL);
-    return DID(v->header.bits & NODE_FLAG_ROOT);
+    return did (v->header.bits & NODE_FLAG_ROOT);
 }
 
 // !!! The return cell from this allocation is a trash cell which has had some

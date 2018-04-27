@@ -924,7 +924,7 @@ struct Reb_Cell
             // The static checking only affects IS_END(), there's no
             // compile-time check that can determine if an END is assigned.
             //
-            assert(rhs == NULL || NOT(rhs->header.bits & NODE_FLAG_END));
+            assert(rhs == NULL or not (rhs->header.bits & NODE_FLAG_END));
 
             p = rhs;
             return rhs;

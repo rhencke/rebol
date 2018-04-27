@@ -49,7 +49,7 @@ void Collapsify_Array(REBARR *array, REBSPC *specifier, REBCNT limit)
 {
     RELVAL *item = ARR_HEAD(array);
     for (; NOT_END(item); ++item) {
-        if (ANY_ARRAY(item) && VAL_LEN_AT(item) > limit) {
+        if (ANY_ARRAY(item) and VAL_LEN_AT(item) > limit) {
             REBSPC *derived = Derive_Specifier(specifier, item);
             REBARR *copy = Copy_Array_At_Max_Shallow(
                 VAL_ARRAY(item),
@@ -133,7 +133,7 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
 
     REBCNT count = 0;
     RELVAL *item = ARR_AT(FRM_ARRAY(f), start);
-    for (; NOT_END(item) && count < 6; ++item, ++count) {
+    for (; NOT_END(item) and count < 6; ++item, ++count) {
         DS_PUSH_TRASH;
         if (IS_VOID(item)) {
             //
@@ -184,7 +184,7 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
     // yet.  This needs some way of differentiation, consider it.
     //
     /*
-    if (Is_Function_Frame(f) && Is_Function_Frame_Fulfilling(f)) {
+    if (Is_Function_Frame(f) and Is_Function_Frame_Fulfilling(f)) {
         ???
     }
     */

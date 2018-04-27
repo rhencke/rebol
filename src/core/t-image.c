@@ -55,7 +55,7 @@ REBINT CT_Image(const RELVAL *a, const RELVAL *b, REBINT mode)
         VAL_IMAGE_WIDE(a) == VAL_IMAGE_WIDE(a)
         && VAL_IMAGE_HIGH(b) == VAL_IMAGE_HIGH(b)
     ) {
-        return (0 == Cmp_Value(a, b, DID(mode == 1))) ? 1 : 0;
+        return (0 == Cmp_Value(a, b, mode == 1)) ? 1 : 0;
     }
 
     return 0;
@@ -851,7 +851,7 @@ void Find_Image(REBFRM *frame_)
     REBOOL only; // initialization would be crossed by goto
     only = FALSE;
     if (IS_TUPLE(arg)) {
-        only = DID(VAL_TUPLE_LEN(arg) < 4);
+        only = (VAL_TUPLE_LEN(arg) < 4);
         if (REF(only)) only = TRUE;
         p = Find_Color(ip, TO_PIXEL_TUPLE(arg), len, only);
     }
@@ -1024,10 +1024,10 @@ REBTYPE(Image)
             break;
 
         case SYM_HEAD_Q:
-            return R_FROM_BOOL(DID(index == 0));
+            return R_FROM_BOOL(index == 0);
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(DID(index >= tail));
+            return R_FROM_BOOL(index >= tail);
 
         case SYM_XY:
             SET_PAIR(
@@ -1149,7 +1149,7 @@ REBTYPE(Image)
             fail (Error_Bad_Refines_Raw());
         }
 
-        if (NOT(REF(part))) {
+        if (not REF(part)) {
             arg = value;
             goto makeCopy;
         }

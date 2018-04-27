@@ -180,7 +180,7 @@ REBOOL OS_Set_Current_Dir(const REBVAL *path)
         REB_FILETOLOCAL_FULL
     );
 
-    REBOOL success = DID(SetCurrentDirectory(path_wide));
+    REBOOL success = did SetCurrentDirectory(path_wide);
 
     rebFree(path_wide);
 

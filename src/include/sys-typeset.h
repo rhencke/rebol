@@ -219,7 +219,7 @@ static_assert(3 < 8 - PCLASS_NUM_BITS, "TYPESET_FLAG_XXX too high");
 #define VAL_TYPESET_BITS(v) ((v)->payload.typeset.bits)
 
 #define TYPE_CHECK(v,n) \
-    DID(VAL_TYPESET_BITS(v) & FLAGIT_KIND(n))
+    (did (VAL_TYPESET_BITS(v) & FLAGIT_KIND(n)))
 
 #define TYPE_SET(v,n) \
     ((VAL_TYPESET_BITS(v) |= FLAGIT_KIND(n)), NOOP)

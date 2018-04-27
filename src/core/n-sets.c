@@ -67,13 +67,13 @@ REBSER *Make_Set_Operation_Series(
             //      >> union <abc> "bde"
             //      <abcde>
 
-            if (NOT(ANY_STRING((val2))))
+            if (not ANY_STRING((val2)))
                 fail (Error_Unexpected_Type(VAL_TYPE(val1), VAL_TYPE(val2)));
         }
         else {
             // Binaries only operate with other binaries
             assert(IS_BINARY(val1));
-            if (!IS_BINARY(val2))
+            if (not IS_BINARY(val2))
                 fail (Error_Unexpected_Type(VAL_TYPE(val1), VAL_TYPE(val2)));
         }
     }
@@ -244,7 +244,7 @@ REBSER *Make_Set_Operation_Series(
         out_ser = Pop_Molded_String(mo);
     }
     else {
-        assert(IS_BINARY(val1) && IS_BINARY(val2));
+        assert(IS_BINARY(val1) and IS_BINARY(val2));
 
         DECLARE_MOLD (mo);
 

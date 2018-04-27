@@ -381,12 +381,12 @@ void Collect_End(struct Reb_Collector *cl)
     // Reset binding table (note BUF_COLLECT may have expanded)
     //
     RELVAL *v =
-        (cl == NULL || cl->flags & COLLECT_AS_TYPESET)
+        (cl == NULL or (cl->flags & COLLECT_AS_TYPESET))
             ? ARR_HEAD(BUF_COLLECT) + 1
             : ARR_HEAD(BUF_COLLECT);
     for (; NOT_END(v); ++v) {
         REBSTR *canon =
-            (cl == NULL || cl->flags & COLLECT_AS_TYPESET)
+            (cl == NULL or (cl->flags & COLLECT_AS_TYPESET))
                 ? VAL_KEY_CANON(v)
                 : VAL_WORD_CANON(v);
 
@@ -403,7 +403,7 @@ void Collect_End(struct Reb_Collector *cl)
         //
         assert(
             MISC(canon).bind_index.high != 0
-            || MISC(canon).bind_index.low != 0
+            or MISC(canon).bind_index.low != 0
         );
         MISC(canon).bind_index.high = 0;
         MISC(canon).bind_index.low = 0;
@@ -460,7 +460,7 @@ void Collect_Context_Keys(
         //
         for (; NOT_END(key); key++) {
             REBSTR *canon = VAL_KEY_CANON(key);
-            if (NOT(Try_Add_Binder_Index(&cl->binder, canon, cl->index))) {
+            if (not Try_Add_Binder_Index(&cl->binder, canon, cl->index)) {
                 //
                 // If we found the typeset's symbol in the bind table already
                 // then don't collect it in the buffer again.
@@ -520,11 +520,11 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL head[])
     for (; NOT_END(v); ++v) {
         enum Reb_Kind kind = VAL_TYPE(v);
         if (ANY_WORD_KIND(kind)) {
-            if (kind != REB_SET_WORD && NOT(cl->flags & COLLECT_ANY_WORD))
+            if (kind != REB_SET_WORD and not (cl->flags & COLLECT_ANY_WORD))
                 continue; // kind of word we're not interested in collecting
 
             REBSTR *canon = VAL_WORD_CANON(v);
-            if (NOT(Try_Add_Binder_Index(&cl->binder, canon, cl->index))) {
+            if (not Try_Add_Binder_Index(&cl->binder, canon, cl->index)) {
                 if (cl->flags & COLLECT_NO_DUP) {
                     DECLARE_LOCAL (duplicate);
                     Init_Word(duplicate, VAL_WORD_SPELLING(v));
@@ -548,7 +548,7 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL head[])
             continue;
         }
 
-        if (NOT(cl->flags & COLLECT_DEEP))
+        if (not (cl->flags & COLLECT_DEEP))
             continue;
 
         // Recurse into BLOCK! and GROUP!
@@ -557,7 +557,7 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL head[])
         // them which could need to be collected.  This is historical R3-Alpha
         // behavior which is probably wrong.
         //
-        if (kind == REB_BLOCK || kind == REB_GROUP)
+        if (kind == REB_BLOCK or kind == REB_GROUP)
             Collect_Inner_Loop(cl, VAL_ARRAY_AT(v));
     }
 }
@@ -593,7 +593,7 @@ REBARR *Collect_Keylist_Managed(
     struct Reb_Collector collector;
     struct Reb_Collector *cl = &collector;
 
-    assert(NOT(flags & COLLECT_AS_TYPESET)); // not optional, we add it
+    assert(not (flags & COLLECT_AS_TYPESET)); // not optional, we add it
     Collect_Start(cl, flags | COLLECT_AS_TYPESET);
 
     // Leave the [0] slot blank while collecting (ROOTKEY/ROOTPARAM), but
@@ -604,12 +604,12 @@ REBARR *Collect_Keylist_Managed(
 
     if (flags & COLLECT_ENSURE_SELF) {
         if (
-            !prior
-            || (
-                (*self_index_out = Find_Canon_In_Context(
-                    prior, Canon(SYM_SELF), TRUE)
-                )
-                == 0
+            not prior or (
+                0 == (*self_index_out = Find_Canon_In_Context(
+                    prior,
+                    Canon(SYM_SELF),
+                    TRUE
+                ))
             )
         ) {
             // No prior or no SELF in prior, so we'll add it as the first key
@@ -650,7 +650,7 @@ REBARR *Collect_Keylist_Managed(
     // array, otherwise reuse the original
     //
     REBARR *keylist;
-    if (prior != NULL && ARR_LEN(CTX_KEYLIST(prior)) == ARR_LEN(BUF_COLLECT))
+    if (prior != NULL and ARR_LEN(CTX_KEYLIST(prior)) == ARR_LEN(BUF_COLLECT))
         keylist = CTX_KEYLIST(prior);
     else
         keylist = Grab_Collected_Array_Managed(cl);
@@ -683,14 +683,14 @@ REBARR *Collect_Unique_Words_Managed(
 
     RELVAL *check = VAL_ARRAY_AT(ignore);
     for (; NOT_END(check); ++check) {
-        if (NOT(ANY_WORD(check)))
+        if (not ANY_WORD(check))
             fail (Error_Invalid_Core(check, VAL_SPECIFIER(ignore)));
     }
 
     struct Reb_Collector collector;
     struct Reb_Collector *cl = &collector;
 
-    assert(NOT(flags & COLLECT_AS_TYPESET)); // only used for making keylists
+    assert(not (flags & COLLECT_AS_TYPESET)); // only used for making keylists
     Collect_Start(cl, flags);
 
     assert(ARR_LEN(BUF_COLLECT) == 0); // should be empty
@@ -711,7 +711,7 @@ REBARR *Collect_Unique_Words_Managed(
             // and tries to ignore both tests.  Have debug build count the
             // number (overkill, but helps test binders).
             //
-            if (NOT(Try_Add_Binder_Index(&cl->binder, canon, -1))) {
+            if (not Try_Add_Binder_Index(&cl->binder, canon, -1)) {
             #if !defined(NDEBUG)
                 REBINT i = Get_Binder_Index_Else_0(&cl->binder, canon);
                 assert(i < 0);
@@ -971,7 +971,7 @@ REBCTX *Construct_Context(
 
     const RELVAL *value = head;
     for (; NOT_END(value); value += 2) {
-        if (!IS_SET_WORD(value))
+        if (not IS_SET_WORD(value))
             fail (Error_Invalid_Type(VAL_TYPE(value)));
 
         if (IS_END(value + 1))
@@ -1223,7 +1223,7 @@ void Resolve_Context(
         // Limit exports to only these words:
         RELVAL *word = VAL_ARRAY_AT(only_words);
         for (; NOT_END(word); word++) {
-            if (IS_WORD(word) || IS_SET_WORD(word)) {
+            if (IS_WORD(word) or IS_SET_WORD(word)) {
                 Add_Binder_Index(&binder, VAL_WORD_CANON(word), -1);
                 n++;
             }
@@ -1234,7 +1234,7 @@ void Resolve_Context(
     }
 
     // Expand target as needed:
-    if (expand && n > 0) {
+    if (expand and n > 0) {
         // Determine how many new words to add:
         for (key = CTX_KEYS_HEAD(target); NOT_END(key); key++)
             if (Get_Binder_Index_Else_0(&binder, VAL_KEY_CANON(key)) != 0)
@@ -1272,8 +1272,8 @@ void Resolve_Context(
             // "the remove succeeded, so it's marked as set now" (old comment)
             if (
                 NOT_VAL_FLAG(var, CELL_FLAG_PROTECTED)
-                && (all || IS_VOID(var))
-            ) {
+                and (all or IS_VOID(var))
+            ){
                 if (m < 0)
                     Init_Void(var); // no value in source context
                 else
@@ -1310,7 +1310,7 @@ void Resolve_Context(
         else if (IS_BLOCK(only_words)) {
             RELVAL *word = VAL_ARRAY_AT(only_words);
             for (; NOT_END(word); word++) {
-                if (IS_WORD(word) || IS_SET_WORD(word))
+                if (IS_WORD(word) or IS_SET_WORD(word))
                     Remove_Binder_Index_Else_0(&binder, VAL_WORD_CANON(word));
             }
         }
@@ -1341,7 +1341,7 @@ REBCNT Find_Canon_In_Context(REBCTX *context, REBSTR *canon, REBOOL always)
     for (n = 1; n <= len; n++, key++) {
         if (canon == VAL_KEY_CANON(key)) {
             if (GET_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE)) {
-                if (NOT(always))
+                if (not always)
                     return 0;
             }
             return n;
@@ -1505,7 +1505,7 @@ void Assert_Context_Core(REBCTX *c)
         // There may be reason to relax this, if you wanted to make an
         // ordinary object that was a copy of a FRAME! but not a FRAME!.
         //
-        if (!IS_FRAME(rootvar))
+        if (not IS_FRAME(rootvar))
             panic (rootvar);
 
         // In a FRAME!, the keylist is for the underlying function.  So to
@@ -1546,7 +1546,7 @@ void Assert_Context_Core(REBCTX *c)
             panic (c);
         }
 
-        if (!IS_TYPESET(key))
+        if (not IS_TYPESET(key))
             panic (key);
 
         if (IS_END(var)) {

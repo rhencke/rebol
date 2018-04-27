@@ -42,7 +42,7 @@
 // Is it a byte-sized series?
 //
 #define BYTE_SIZE(s) \
-    DID(SER_WIDE(s) == 1)
+    (SER_WIDE(s) == 1)
 
 
 //

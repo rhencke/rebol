@@ -55,7 +55,7 @@ static void Setup_File(struct devreq_file *file, REBFLGS flags, REBVAL *path)
 
     if (flags & AM_OPEN_NEW) {
         req->modes |= RFM_NEW;
-        if (NOT(flags & AM_OPEN_WRITE))
+        if (not (flags & AM_OPEN_WRITE))
             fail (Error_Bad_File_Mode_Raw(path));
     }
 
@@ -98,7 +98,7 @@ void Ret_Query_File(REBCTX *port, struct devreq_file *file, REBVAL *ret)
     Init_Object(ret, context);
     Init_Word(
         CTX_VAR(context, STD_FILE_INFO_TYPE),
-        DID(req->modes & RFM_DIR) ? Canon(SYM_DIR) : Canon(SYM_FILE)
+        (req->modes & RFM_DIR) ? Canon(SYM_DIR) : Canon(SYM_FILE)
     );
     Init_Integer(
         CTX_VAR(context, STD_FILE_INFO_SIZE), file->size
@@ -337,16 +337,16 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
             return R_OUT;
 
         case SYM_HEAD_Q:
-            return R_FROM_BOOL(DID(file->index == 0));
+            return R_FROM_BOOL(file->index == 0);
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(DID(file->index >= file->size));
+            return R_FROM_BOOL(file->index >= file->size);
 
         case SYM_PAST_Q:
-            return R_FROM_BOOL(DID(file->index > file->size));
+            return R_FROM_BOOL(file->index > file->size);
 
         case SYM_OPEN_Q:
-            return R_FROM_BOOL(DID(req->flags & RRF_OPEN));
+            return R_FROM_BOOL(did (req->flags & RRF_OPEN));
 
         default:
             break;
@@ -421,7 +421,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         REBOOL opened;
         if (req->flags & RRF_OPEN) {
-            if (NOT(req->modes & RFM_WRITE))
+            if (not (req->modes & RFM_WRITE))
                 fail (Error_Read_Only_Raw(path));
 
             opened = FALSE; // already open
@@ -476,8 +476,8 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
         REBFLGS flags = (
             (REF(new) ? AM_OPEN_NEW : 0)
-            | (REF(read) || NOT(REF(write)) ? AM_OPEN_READ : 0)
-            | (REF(write) || NOT(REF(read)) ? AM_OPEN_WRITE : 0)
+            | (REF(read) or not REF(write) ? AM_OPEN_READ : 0)
+            | (REF(write) or not REF(read) ? AM_OPEN_WRITE : 0)
             | (REF(seek) ? AM_OPEN_SEEK : 0)
             | (REF(allow) ? AM_OPEN_ALLOW : 0)
         );
@@ -500,7 +500,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
             fail (Error_Bad_Refines_Raw());
         }
 
-        if (NOT(req->flags & RRF_OPEN))
+        if (not (req->flags & RRF_OPEN))
             fail (Error_Not_Open_Raw(path)); // !!! wrong msg
 
         REBCNT len = Set_Length(file, REF(part) ? VAL_INT64(ARG(limit)) : -1);
@@ -559,7 +559,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         return R_OUT; }
 
     case SYM_CREATE: {
-        if (NOT(req->flags & RRF_OPEN)) {
+        if (not (req->flags & RRF_OPEN)) {
             Setup_File(file, AM_OPEN_WRITE | AM_OPEN_NEW, path);
 
             REBVAL *cr_result = OS_DO_DEVICE(req, RDC_CREATE);
@@ -588,7 +588,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
             fail (Error_Bad_Refines_Raw());
         }
 
-        if (NOT(req->flags & RRF_OPEN)) {
+        if (not (req->flags & RRF_OPEN)) {
             Setup_File(file, 0, path);
             REBVAL *result = OS_DO_DEVICE(req, RDC_QUERY);
             assert(result != NULL);
@@ -612,7 +612,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         UNUSED(PAR(value));
 
         // !!! Set_Mode_Value() was called here, but a no-op in R3-Alpha
-        if (NOT(req->flags & RRF_OPEN)) {
+        if (not (req->flags & RRF_OPEN)) {
             Setup_File(file, 0, path);
 
             REBVAL *result = OS_DO_DEVICE(req, RDC_MODIFY);

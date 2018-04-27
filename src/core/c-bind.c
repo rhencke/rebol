@@ -80,7 +80,7 @@ void Bind_Values_Inner_Loop(
                 Add_Binder_Index(binder, canon, VAL_WORD_INDEX(v));
             }
         }
-        else if (ANY_ARRAY(v) && (flags & BIND_DEEP)) {
+        else if (ANY_ARRAY(v) and (flags & BIND_DEEP)) {
             Bind_Values_Inner_Loop(
                 binder,
                 VAL_ARRAY_AT(v),
@@ -152,11 +152,11 @@ void Unbind_Values_Core(RELVAL head[], REBCTX *context, REBOOL deep)
     for (; NOT_END(v); ++v) {
         if (
             ANY_WORD(v)
-            && (context == NULL || Same_Binding(VAL_BINDING(v), context))
+            and (context == NULL or Same_Binding(VAL_BINDING(v), context))
         ){
             Unbind_Any_Word(v);
         }
-        else if (ANY_ARRAY(v) && deep)
+        else if (ANY_ARRAY(v) and deep)
             Unbind_Values_Core(VAL_ARRAY_AT(v), context, TRUE);
     }
 }
@@ -205,7 +205,7 @@ static void Bind_Relative_Inner_Loop(
         // with relative values and run them through the specification
         // process if they were not just getting overwritten.
         //
-        assert(!IS_RELATIVE(v));
+        assert(not IS_RELATIVE(v));
 
         if (type_bit & bind_types) {
             REBINT n = Get_Binder_Index_Else_0(binder, VAL_WORD_CANON(v));
@@ -307,7 +307,7 @@ void Rebind_Values_Deep(
         if (ANY_ARRAY(v)) {
             Rebind_Values_Deep(src, dst, VAL_ARRAY_AT(v), opt_binder);
         }
-        else if (ANY_WORD(v) && Same_Binding(VAL_BINDING(v), src)) {
+        else if (ANY_WORD(v) and Same_Binding(VAL_BINDING(v), src)) {
             INIT_BINDING(v, dst);
 
             if (opt_binder != NULL) {
@@ -350,8 +350,8 @@ void Rebind_Values_Deep(
             else {
                 REBCTX *stored = CTX(binding);
                 if (
-                    NOT(REB_FRAME == CTX_TYPE(stored))
-                    && Is_Overriding_Context(stored, dst)
+                    REB_FRAME != CTX_TYPE(stored)
+                    and Is_Overriding_Context(stored, dst)
                 ){
                     INIT_BINDING(v, dst);
                 }
@@ -430,7 +430,7 @@ void Virtual_Bind_Deep_To_New_Context(
         for (; NOT_END(item); ++item) {
             if (IS_WORD(item))
                 rebinding = TRUE;
-            else if (NOT(IS_LIT_WORD(item))) {
+            else if (not IS_LIT_WORD(item)) {
                 //
                 // Better to fail here, because if we wait until we're in
                 // the middle of building the context, the managed portion
@@ -514,9 +514,9 @@ void Virtual_Bind_Deep_To_New_Context(
 
             assert(rebinding); // shouldn't get here unless we're rebinding
 
-            if (NOT(Try_Add_Binder_Index(
+            if (not Try_Add_Binder_Index(
                 &binder, VAL_PARAM_CANON(key), index
-            ))){
+            )){
                 // We just remember the first duplicate, but we go ahead
                 // and fill in all the keylist slots to make a valid array
                 // even though we plan on failing.  Duplicates count as a
@@ -595,7 +595,7 @@ void Virtual_Bind_Deep_To_New_Context(
     //
     SET_SER_FLAG(CTX_VARLIST(c), SERIES_FLAG_DONT_RELOCATE);
 
-    if (NOT(rebinding)) {
+    if (not rebinding) {
         ENSURE_ARRAY_MANAGED(CTX_VARLIST(c));
         return; // nothing else needed to do
     }
@@ -717,7 +717,7 @@ void Shutdown_Interning_Binder(struct Reb_Binder *binder)
     index = 1;
     for (; NOT_END(key); ++key, ++index) {
         REBINT n = Remove_Binder_Index_Else_0(binder, VAL_KEY_CANON(key));
-        assert(n == 0 || n == -index);
+        assert(n == 0 or n == -index);
         UNUSED(n);
     }
 

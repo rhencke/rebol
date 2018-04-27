@@ -716,7 +716,7 @@ ConversionResult ConvertUTF8toUTF32 (
 //
 REBOOL Legal_UTF8_Char(const REBYTE *str, REBCNT len)
 {
-    return DID(isLegalUTF8Sequence(str, str + len));
+    return did isLegalUTF8Sequence(str, str + len); // different Boolean
 }
 
 

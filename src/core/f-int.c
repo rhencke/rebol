@@ -111,7 +111,7 @@ REBOOL reb_i64_mul_overflow(int64_t x, int64_t y, int64_t *prod)
         return FALSE;
     }
 
-    sgn = DID(x < 0);
+    sgn = x < 0;
     if (sgn) {
         if (x == INT64_MIN) {
             switch (y) {
@@ -128,7 +128,7 @@ REBOOL reb_i64_mul_overflow(int64_t x, int64_t y, int64_t *prod)
         x = -x; // undefined when x == INT64_MIN
     }
     if (y < 0) {
-        sgn = NOT(sgn);
+        sgn = not sgn;
         if (y == INT64_MIN) {
             switch (x) {
             case 0:
@@ -187,5 +187,5 @@ REBOOL reb_u64_mul_overflow(uint64_t x, uint64_t y, uint64_t *prod)
     if (tmp >= b)
         return TRUE; // (x0 * y1 + x1 * y0) * b overflows
 
-    return DID(REB_U64_ADD_OF(tmp << 32, x0 * y0, prod));
+    return did (REB_U64_ADD_OF(tmp << 32, x0 * y0, prod));
 }

@@ -94,7 +94,7 @@ DEVICE_CMD Open_IO(REBREQ *req)
         return DR_DONE; // Do not do it again
     }
 
-    if (NOT(req->modes & RDM_NULL)) {
+    if (not (req->modes & RDM_NULL)) {
         // Get the raw stdio handles:
         Std_Out = GetStdHandle(STD_OUTPUT_HANDLE);
         Std_Inp = GetStdHandle(STD_INPUT_HANDLE);
@@ -213,7 +213,7 @@ DEVICE_CMD Write_IO(REBREQ *req)
                         &total_bytes,
                         0
                     );
-                    if (NOT(ok))
+                    if (not ok)
                         rebFail_OS (GetLastError());
                     UNUSED(total_bytes);
                 }
@@ -229,7 +229,7 @@ DEVICE_CMD Write_IO(REBREQ *req)
                     &total_bytes,
                     0
                 );
-                if (NOT(ok))
+                if (not ok)
                     rebFail_OS (GetLastError());
                 UNUSED(total_bytes);
 
@@ -250,7 +250,7 @@ DEVICE_CMD Write_IO(REBREQ *req)
                 &total_bytes,
                 0
             );
-            if (NOT(ok))
+            if (not ok)
                 rebFail_OS (GetLastError());
             UNUSED(total_bytes);
         }
@@ -279,7 +279,7 @@ DEVICE_CMD Write_IO(REBREQ *req)
                     &total_wide_chars,
                     0
                 );
-                if (NOT(ok))
+                if (not ok)
                     rebFail_OS (GetLastError());
                 UNUSED(total_wide_chars);
             }
@@ -327,7 +327,7 @@ DEVICE_CMD Write_IO(REBREQ *req)
             );
             SetConsoleTextAttribute(Std_Out, csbi.wAttributes); // restore
 
-            if (NOT(ok))
+            if (not ok)
                 rebFail_OS (GetLastError());
             UNUSED(total_wide_chars);
         }
@@ -370,7 +370,7 @@ DEVICE_CMD Read_IO(REBREQ *req)
 
         DWORD total;
         BOOL ok = ReadFile(Std_Inp, req->common.data, len, &total, 0);
-        if (NOT(ok))
+        if (not ok)
             rebFail_OS (GetLastError());
 
         req->actual = total;
@@ -440,7 +440,7 @@ DEVICE_CMD Read_IO(REBREQ *req)
         &total,
         pInputControl
     );
-    if (NOT(ok))
+    if (not ok)
         rebFail_OS (GetLastError());
 
     // Ctrl-C and Ctrl-D will terminate input without the newline that is

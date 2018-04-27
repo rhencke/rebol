@@ -119,7 +119,7 @@ REBNATIVE(eval_enfix)
     INCLUDE_PARAMS_OF_EVAL_ENFIX;
 
     REBFRM *f;
-    if (NOT(Is_Frame_Style_Varargs_May_Fail(&f, ARG(rest)))) {
+    if (not Is_Frame_Style_Varargs_May_Fail(&f, ARG(rest))) {
         //
         // It wouldn't be *that* hard to support block-style varargs, but as
         // this routine is a hack to implement ME, don't make it any longer
@@ -153,7 +153,7 @@ REBNATIVE(eval_enfix)
     //
     f->gotten = D_CELL;
 
-    if (NOT(IS_FUNCTION(f->gotten)))
+    if (not IS_FUNCTION(f->gotten))
         fail ("ME and MY only work if right hand WORD! is a FUNCTION!");
 
     DECLARE_LOCAL (word);
@@ -258,7 +258,7 @@ REBNATIVE(do)
         if (indexor == THROWN_FLAG)
             return R_OUT_IS_THROWN;
 
-        if (REF(next) && NOT(IS_BLANK(ARG(var)))) {
+        if (REF(next) and not IS_BLANK(ARG(var))) {
             if (indexor == END_FLAG)
                 VAL_INDEX(source) = VAL_LEN_HEAD(source); // e.g. TAIL?
             else
@@ -304,14 +304,14 @@ REBNATIVE(do)
             if (indexor == END_FLAG)
                 SET_END(position); // convention for shared data at end point
 
-            if (REF(next) && NOT(IS_BLANK(var)))
+            if (REF(next) and not IS_BLANK(var))
                 Move_Value(Sink_Var_May_Fail(var, SPECIFIED), source);
 
             return R_OUT;
         }
 
         REBFRM *f;
-        if (NOT(Is_Frame_Style_Varargs_May_Fail(&f, source)))
+        if (not Is_Frame_Style_Varargs_May_Fail(&f, source))
             panic (source); // Frame is the only other type
 
         // By definition, we are in the middle of a function call in the frame
@@ -330,12 +330,12 @@ REBNATIVE(do)
             // which has its positioning updated automatically by virtue of
             // the evaluation performing a "consumption" of VARARGS! content.
             //
-            if (NOT(IS_BLANK(var)))
+            if (not IS_BLANK(var))
                 Move_Value(Sink_Var_May_Fail(var, SPECIFIED), source);
         }
         else {
             Init_Void(D_OUT);
-            while (NOT(FRM_AT_END(f))) {
+            while (not FRM_AT_END(f)) {
                 if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
                     return R_OUT_IS_THROWN;
             }
@@ -387,7 +387,7 @@ REBNATIVE(do)
         REBVAL *param = FUNC_PARAMS_HEAD(VAL_FUNC(source));
         while (
             NOT_END(param)
-            && (VAL_PARAM_CLASS(param) == PARAM_CLASS_LOCAL)
+            and (VAL_PARAM_CLASS(param) == PARAM_CLASS_LOCAL)
         ){
             ++param;
         }
@@ -481,11 +481,11 @@ REBNATIVE(redo)
     INCLUDE_PARAMS_OF_REDO;
 
     REBVAL *restartee = ARG(restartee);
-    if (NOT(IS_FRAME(restartee))) {
-        if (NOT(Get_Context_Of(D_OUT, restartee)))
+    if (not IS_FRAME(restartee)) {
+        if (not Get_Context_Of(D_OUT, restartee))
             fail ("No context found from restartee in REDO");
 
-        if (NOT(IS_FRAME(D_OUT)))
+        if (not IS_FRAME(D_OUT))
             fail ("Context of restartee in REDO is not a FRAME!");
 
         Move_Value(restartee, D_OUT);
@@ -590,7 +590,7 @@ REBNATIVE(apply)
         return R_OUT_IS_THROWN;
     }
 
-    if (!IS_FUNCTION(D_OUT))
+    if (not IS_FUNCTION(D_OUT))
         fail (Error_Invalid(applicand));
     Move_Value(applicand, D_OUT);
 

@@ -174,7 +174,7 @@ REB_R Do_Vararg_Op_May_Throw(
         //
         assert(
             NOT_CELL(vararg->extra.binding)
-            && NOT(vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
+            and not (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
         );
         pclass = PARAM_CLASS_NORMAL;
         param = NULL; // doesn't correspond to a real varargs parameter
@@ -351,9 +351,9 @@ type_check_and_return:
         return r;
     }
 
-    assert(NOT(THROWN(out))); // should have returned above
+    assert(not THROWN(out)); // should have returned above
 
-    if (param && NOT(TYPE_CHECK(param, VAL_TYPE(out)))) {
+    if (param and not TYPE_CHECK(param, VAL_TYPE(out))) {
         assert(opt_vararg_frame != NULL); // !!! is this true?
         fail (Error_Arg_Type(opt_vararg_frame, param, VAL_TYPE(out)));
     }
@@ -433,7 +433,7 @@ REB_R PD_Varargs(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 {
     UNUSED(opt_setval);
 
-    if (NOT(IS_INTEGER(picker)))
+    if (not IS_INTEGER(picker))
         fail (Error_Invalid(picker));
 
     if (VAL_INT32(picker) != 1)
@@ -496,7 +496,7 @@ REBTYPE(Varargs)
         if (REF(last))
             fail (Error_Varargs_Take_Last_Raw());
 
-        if (NOT(REF(part)))
+        if (not REF(part))
             return Do_Vararg_Op_May_Throw(D_OUT, value, VARARG_OP_TAKE);
 
         REBDSP dsp_orig = DSP;
@@ -633,7 +633,7 @@ void MF_Varargs(REB_MOLD *mo, const RELVAL *v, REBOOL form) {
         f = cast(REBFRM*, VAL_BINDING(v));
         goto have_f;
     }
-    else if (NOT(VAL_BINDING(v)->header.bits & ARRAY_FLAG_VARLIST)) {
+    else if (not (VAL_BINDING(v)->header.bits & ARRAY_FLAG_VARLIST)) {
 
         { // Just [...] for now
             Append_Unencoded(mo->series, "[...]");

@@ -83,7 +83,7 @@ REBNATIVE(trap)
         if (THROWN(D_OUT)) // though code didn't fail(), it may have thrown
             return R_OUT_IS_THROWN;
 
-        if (NOT(REF(with)) && IS_ERROR(D_OUT)) // code may evaluate to ERROR!
+        if (not REF(with) and IS_ERROR(D_OUT)) // code may evaluate to ERROR!
             return R_VOID; // ...but void it so ERROR! *always* means raised
 
         return R_OUT;

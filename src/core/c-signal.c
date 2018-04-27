@@ -87,7 +87,7 @@ REBOOL Do_Signals_Throws(REBVAL *out)
     // the Eval_Count to 1 for a specific signal.  Review.
     //
     Eval_Cycles += Eval_Dose - Eval_Count;
-    if (Eval_Limit != 0 && Eval_Cycles > Eval_Limit)
+    if (Eval_Limit != 0 and Eval_Cycles > Eval_Limit)
         Check_Security(Canon(SYM_EVAL), POL_EXEC, 0);
 
     Eval_Count = Eval_Dose;
@@ -167,7 +167,7 @@ REBOOL Do_Signals_Throws(REBVAL *out)
         // user that something is off, but perhaps the failure should be
         // contained in a sandbox and restart the break?
         //
-        if (NOT(IS_VOID(out)))
+        if (not IS_VOID(out))
             fail ("Interrupt-based debug session used RESUME/WITH");
 
         SET_END(out);

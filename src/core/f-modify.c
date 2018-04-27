@@ -63,7 +63,7 @@ REBCNT Modify_Array(
     if (action == SYM_APPEND || dst_idx > tail) dst_idx = tail;
 
     // Check /PART, compute LEN:
-    if (NOT(flags & AM_ONLY) && ANY_ARRAY(src_val)) {
+    if (not (flags & AM_ONLY) and ANY_ARRAY(src_val)) {
         // Adjust length of insertion if changing /PART:
         if (action != SYM_CHANGE && (flags & AM_PART))
             ilen = dst_len;
@@ -326,7 +326,7 @@ REBCNT Modify_String(
 
         needs_free = TRUE;
     }
-    else if (ANY_STRING(src_val) && NOT(IS_TAG(src_val))) {
+    else if (ANY_STRING(src_val) and not IS_TAG(src_val)) {
         src_ser = VAL_SERIES(src_val);
         src_idx = VAL_INDEX(src_val);
         src_len = VAL_LEN_AT(src_val);

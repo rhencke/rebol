@@ -88,7 +88,7 @@
 #define P_POS               VAL_INDEX(P_INPUT_VALUE)
 
 #define P_FIND_FLAGS        VAL_INT64(&f->args_head[1])
-#define P_HAS_CASE          DID(P_FIND_FLAGS & AM_FIND_CASE)
+#define P_HAS_CASE          (did (P_FIND_FLAGS & AM_FIND_CASE))
 
 #define P_OUT (f->out)
 
@@ -98,7 +98,7 @@
     Fetch_Next_In_Frame(f)
 
 #define FETCH_TO_BAR_MAYBE_END(f) \
-    while (FRM_HAS_MORE(f) && !IS_BAR(P_RULE)) \
+    while (FRM_HAS_MORE(f) and not IS_BAR(P_RULE)) \
         { FETCH_NEXT_RULE_MAYBE_END(f); }
 
 
@@ -129,7 +129,7 @@ enum parse_flags {
 //
 inline static REBSYM VAL_CMD(const RELVAL *v) {
     REBSYM sym = VAL_WORD_SYM(v);
-    if (sym >= SYM_SET && sym <= SYM_END)
+    if (sym >= SYM_SET and sym <= SYM_END)
         return sym;
     return SYM_0;
 }
@@ -497,7 +497,7 @@ static REBIXO Parse_String_One_Rule(REBFRM *f, const RELVAL *rule) {
         // Check the current character against a character set, advance matches
         //
         if (Check_Bit(
-            VAL_SERIES(rule), GET_ANY_CHAR(P_INPUT, P_POS), NOT(P_HAS_CASE)
+            VAL_SERIES(rule), GET_ANY_CHAR(P_INPUT, P_POS), not P_HAS_CASE
         )) {
             return P_POS + 1;
         }
@@ -596,7 +596,7 @@ static REBIXO Parse_Array_One_Rule_Core(
         // For instance, `parse [] [[[_ _ _]]]` should be able to match.
         // The other cases would assert if fed an END marker as item.
         //
-        if (!IS_BLANK(rule) && !IS_BLOCK(rule))
+        if (not IS_BLANK(rule) and not IS_BLOCK(rule))
             return END_FLAG;
     }
 
@@ -615,12 +615,12 @@ static REBIXO Parse_Array_One_Rule_Core(
         return END_FLAG;
 
     case REB_LIT_WORD:
-        if (IS_WORD(item) && (VAL_WORD_CANON(item) == VAL_WORD_CANON(rule)))
+        if (IS_WORD(item) and VAL_WORD_CANON(item) == VAL_WORD_CANON(rule))
             return pos + 1;
         return END_FLAG;
 
     case REB_LIT_PATH:
-        if (IS_PATH(item) && Cmp_Array(item, rule, FALSE) == 0)
+        if (IS_PATH(item) and Cmp_Array(item, rule, FALSE) == 0)
             return pos + 1;
         return END_FLAG;
 
@@ -857,7 +857,7 @@ static REBIXO To_Thru_Block_Rule(
                 }
                 // bitset
                 else if (IS_BITSET(rule)) {
-                    if (Check_Bit(VAL_SERIES(rule), ch, NOT(P_HAS_CASE))) {
+                    if (Check_Bit(VAL_SERIES(rule), ch, not P_HAS_CASE)) {
                         if (is_thru) ++pos;
                         goto found;
                     }
@@ -940,14 +940,14 @@ static REBIXO To_Thru_Block_Rule(
             if (IS_END(blk))
                 break;
 
-            if (!IS_BAR(blk))
+            if (not IS_BAR(blk))
                 fail (Error_Parse_Rule());
         }
     }
     return END_FLAG;
 
 found:
-    if (NOT_END(blk + 1) && IS_GROUP(blk + 1)) {
+    if (NOT_END(blk + 1) and IS_GROUP(blk + 1)) {
         DECLARE_LOCAL (dummy);
         REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, rule_block);
         if (Do_At_Throws(
@@ -972,7 +972,7 @@ static REBIXO To_Thru_Non_Block_Rule(
     const RELVAL *rule,
     REBOOL is_thru
 ) {
-    assert(!IS_BLOCK(rule));
+    assert(not IS_BLOCK(rule));
 
     if (IS_BLANK(rule))
         return P_POS; // make it a no-op
@@ -994,7 +994,7 @@ static REBIXO To_Thru_Non_Block_Rule(
         return i;
     }
 
-    if (IS_WORD(rule) && VAL_WORD_SYM(rule) == SYM_END) {
+    if (IS_WORD(rule) and VAL_WORD_SYM(rule) == SYM_END) {
         //
         // `TO/THRU END` JUMPS TO END INPUT SERIES (ANY SERIES TYPE)
         //
@@ -1037,7 +1037,7 @@ static REBIXO To_Thru_Non_Block_Rule(
     //=//// PARSE INPUT IS A STRING OR BINARY, USE A FIND ROUTINE /////////=//
 
     if (ANY_BINSTR(rule)) {
-        if (!IS_STRING(rule) && !IS_BINARY(rule)) {
+        if (not IS_STRING(rule) and not IS_BINARY(rule)) {
             // !!! Can this be optimized not to use COPY?
             REBSER *formed = Copy_Form_Value(rule, 0);
             REBCNT form_len = SER_LEN(formed);
@@ -1421,11 +1421,11 @@ REBNATIVE(subparse)
         }
 
         // If word, set-word, or get-word, process it:
-        if (VAL_TYPE(P_RULE) >= REB_WORD && VAL_TYPE(P_RULE) <= REB_GET_WORD) {
+        if (VAL_TYPE(P_RULE) >= REB_WORD and VAL_TYPE(P_RULE) <= REB_GET_WORD) {
 
             REBSYM cmd = VAL_CMD(P_RULE);
             if (cmd != SYM_0) {
-                if (NOT(IS_WORD(P_RULE))) { // COPY: :THRU ...
+                if (not IS_WORD(P_RULE)) { // COPY: :THRU ...
                     DECLARE_LOCAL (non_word);
                     Derelativize(non_word, P_RULE, P_RULE_SPECIFIER);
                     fail (Error_Parse_Command_Raw(non_word));
@@ -1460,7 +1460,7 @@ REBNATIVE(subparse)
                     set_or_copy_pre_rule:
                         FETCH_NEXT_RULE_MAYBE_END(f);
 
-                        if (NOT(IS_WORD(P_RULE) || IS_SET_WORD(P_RULE))) {
+                        if (not (IS_WORD(P_RULE) or IS_SET_WORD(P_RULE))) {
                             DECLARE_LOCAL (bad_var);
                             Derelativize(bad_var, P_RULE, P_RULE_SPECIFIER);
                             fail (Error_Parse_Variable_Raw(bad_var));
@@ -1584,7 +1584,7 @@ REBNATIVE(subparse)
                         if (FRM_AT_END(f))
                             fail (Error_Parse_End());
 
-                        if (!IS_GROUP(P_RULE))
+                        if (not IS_GROUP(P_RULE))
                             fail (Error_Parse_Rule());
 
                         // might GC
@@ -1724,7 +1724,7 @@ REBNATIVE(subparse)
                 // but note the positions being returned and checked aren't
                 // prepared for this, they only exchange numbers ATM (!!!)
                 //
-                if (NOT(ANY_SERIES(save)))
+                if (not ANY_SERIES(save))
                     fail (Error_Parse_Series_Raw(save));
 
                 Set_Parse_Series(f, save);
@@ -1745,7 +1745,7 @@ REBNATIVE(subparse)
 
         // All cases should have either set `rule` by this point or continued
         //
-        assert(rule != NULL && !IS_VOID(rule));
+        assert(rule != NULL and not IS_VOID(rule));
 
         if (IS_GROUP(rule)) {
             DECLARE_LOCAL (evaluated);
@@ -1842,7 +1842,7 @@ REBNATIVE(subparse)
                         FETCH_NEXT_RULE_MAYBE_END(f);
                     }
 
-                    REBOOL is_thru = DID(cmd == SYM_THRU);
+                    REBOOL is_thru = (cmd == SYM_THRU);
 
                     if (IS_BLOCK(subrule))
                         i = To_Thru_Block_Rule(f, subrule, is_thru);
@@ -1884,7 +1884,7 @@ REBNATIVE(subparse)
                         FETCH_NEXT_RULE_MAYBE_END(f);
                     }
 
-                    if (!IS_BLOCK(subrule))
+                    if (not IS_BLOCK(subrule))
                         fail (Error_Parse_Rule());
 
                     // parse ["aa"] [into ["a" "a"]] ; is legal
@@ -1897,7 +1897,7 @@ REBNATIVE(subparse)
 
                     if (
                         IS_END(into)
-                        || (!ANY_BINSTR(into) && !ANY_ARRAY(into))
+                        or (not ANY_BINSTR(into) and not ANY_ARRAY(into))
                     ){
                         i = END_FLAG;
                         break;
@@ -2013,7 +2013,7 @@ REBNATIVE(subparse)
                 if (count < 0)
                     count = INT32_MAX; // the forever case
 
-                if (i == P_POS && NOT(flags & PF_WHILE)) {
+                if (i == P_POS and not (flags & PF_WHILE)) {
                     //
                     // input did not advance
 
@@ -2056,7 +2056,7 @@ REBNATIVE(subparse)
     post_match_processing:
         if (flags) {
             if (flags & PF_NOT) {
-                if ((flags & PF_NOT2) && P_POS != NOT_FOUND)
+                if ((flags & PF_NOT2) and P_POS != NOT_FOUND)
                     P_POS = NOT_FOUND;
                 else
                     P_POS = begin;
@@ -2354,8 +2354,8 @@ REBNATIVE(parse)
     )) {
         if (
             IS_FUNCTION(D_OUT)
-            && NAT_FUNC(parse) == VAL_FUNC(D_OUT)
-        ) {
+            and NAT_FUNC(parse) == VAL_FUNC(D_OUT)
+        ){
             // Note the difference:
             //
             //     parse "1020" [(return true) not-seen]
