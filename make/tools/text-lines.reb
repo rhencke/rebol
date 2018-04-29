@@ -15,7 +15,7 @@ REBOL [
 ]
 
 decode-lines: function [
-    {Decode text previously encoded using a line prefix e.g. comments (modifies).}
+    {Decode text encoded using a line prefix e.g. comments (modifies).}
     text [string!]
     line-prefix [string! block!] {Usually "**" or "//". Matched using parse.}
     indent [string! block!] {Usually "  ". Matched using parse.}
@@ -30,7 +30,7 @@ decode-lines: function [
             {and end with newline.}
         ]
     ]
-    remove back tail-of text
+    if pos: back tail-of text [remove pos]
     text
 ]
 

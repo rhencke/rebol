@@ -2,9 +2,6 @@
 ([] = remove [])
 ([] = head of remove [1])
 
-; blank
-(blank = remove blank)
-
 ; bitset
 (
     a-bitset: charset "a"

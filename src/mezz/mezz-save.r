@@ -37,7 +37,7 @@ save: function [
         {Header block, object, or TRUE (header is in value)}
     /all ;-- renamed to `all_SAVE` to avoid ambiguity with native
         {Save in serialized format}
-    /length ;-- renamed to `length_SAVE` to avoid ambiguity with native
+    /length
         {Save the length of the script content in the header}
     /compress
         {Save in a compressed format or not}
@@ -46,25 +46,23 @@ save: function [
 ][
     ; Recover common natives for words used as refinements.
     all_SAVE: all
-    length_SAVE: length
     all: :lib/all
-    length: :lib/length
 
     method: default [_]
     header-data: default [_]
 
     ;-- Special datatypes use codecs directly (e.g. PNG image file):
-    if all [
+    all [
         not header ; User wants to save value as script, not data file
         match [file! url!] where
         type: file-type? where
-    ][
+    ] then [
         ; We have a codec.  Will check for valid type.
         return write where encode type :value
     ]
 
     ;-- Compressed scripts and script lengths require a header:
-    if any [length_SAVE method] [
+    any [length method] then [
         header: true
         header-data: default [[]]
     ]
@@ -82,19 +80,18 @@ save: function [
             ]
         ]
 
-        ; Make it an object if it's not already (ok to ignore overhead):
-        header-data: either object? :header-data [
-            ; clean out the words set to blank
-            trim :header-data
-        ][
-            ; standard/header intentionally not used
-            has/only :header-data
+        ;; Make it an object if it's not already
+        ;;
+        header-data: if object? :header-data [
+            trim :header-data ;; clean out words set to blank
+        ] else [
+            has/only :header-data ;; does not use STANDARD/HEADER
         ]
 
         if compress [ ; Make the header option match
             case [
                 not method [
-                    remove find select header-data 'options 'compress
+                    remove find to-value select header-data 'options 'compress
                 ]
                 not block? select header-data 'options [
                     join header-data ['options copy [compress]]
@@ -105,17 +102,18 @@ save: function [
             ]
         ]
 
-        if length_SAVE [
-            ; any truthy value will work, but this uses #[true].  (Notation
-            ; is to help realize this is a *mention*, not *usage* of length.)
-            append header-data reduce [(quote length:) (true)]
+        if length [
+            ; any truthy value will work, but this uses #[true].
+            ;
+            append header-data compose [length: (true)]
         ]
 
-        unless compress: did find (select header-data 'options) 'compress [
+        compress: did find (to-value select header-data 'options) 'compress
+        unless compress [
             method: _
         ]
 
-        length_SAVE: match integer! select header-data 'length
+        length: match integer! select header-data 'length
         header-data: body-of header-data
     ]
 
@@ -146,7 +144,7 @@ save: function [
             data: to-binary data
         ]
 
-        length_SAVE [
+        length [
             change find/tail header-data 'length (length of data)
         ]
 

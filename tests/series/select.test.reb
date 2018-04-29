@@ -1,7 +1,7 @@
 ; functions/series/select.r
 
 [#473 (
-    blank? select blank 1
+    void? select blank 1
 )]
 
 [#1936 (

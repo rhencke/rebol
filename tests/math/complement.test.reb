@@ -14,7 +14,7 @@
 (#{ffffffffff} = complement #{0000000000})
 (#{0000000000} = complement #{ffffffffff})
 (not find complement charset "b" #"b")
-(find complement charset "a" #"b")
+(did find complement charset "a" #"b")
 (
     a: make bitset! #{0000000000000000000000000000000000000000000000000000000000000000}
     a == complement complement a

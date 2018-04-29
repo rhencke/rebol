@@ -6,5 +6,3 @@
     clear block
     [1 2] == head of clear block
 )
-; blank
-(blank == clear blank)
