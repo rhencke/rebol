@@ -1919,13 +1919,14 @@ REBOOL Get_If_Word_Or_Path_Throws(
         Move_Opt_Var_May_Fail(out, v, specifier);
     }
     else if (IS_PATH(v)) {
+        REBSPC *derived = Derive_Specifier(specifier, v);
         if (Do_Path_Throws_Core(
             out,
             opt_name_out, // requesting says we run functions (not GET-PATH!)
             REB_PATH,
             VAL_ARRAY(v),
             VAL_INDEX(v),
-            specifier,
+            derived,
             NULL, // `setval`: null means don't treat as SET-PATH!
             push_refinements
                 ? DO_FLAG_PUSH_PATH_REFINEMENTS // pushed in reverse order

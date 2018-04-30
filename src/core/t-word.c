@@ -199,13 +199,17 @@ REBTYPE(Word)
         case SYM_LENGTH: {
             REBSTR *spelling = VAL_WORD_SPELLING(val);
             const REBYTE *bp = cb_cast(STR_HEAD(spelling));
+            REBSIZ size = STR_SIZE(spelling);
             REBCNT len = 0;
-            while (TRUE) {
-                REBUNI ch;
-                if ((bp = Back_Scan_UTF8_Char(&ch, bp, &len)) == NULL)
-                    fail (Error_Bad_Utf8_Raw());
-                if (ch == 0)
-                    break;
+            for (; size > 0; ++bp, --size) {
+                if (*bp < 0x80)
+                    ++len;
+                else {
+                    REBUNI uni;
+                    if ((bp = Back_Scan_UTF8_Char(&uni, bp, &len)) == NULL)
+                        fail (Error_Bad_Utf8_Raw());
+                    ++len;
+               }
             }
             Init_Integer(D_OUT, len);
             return R_OUT; }
