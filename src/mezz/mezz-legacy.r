@@ -220,7 +220,7 @@ unset!: func [dummy:] [
 
 true?: func [dummy:] [
     fail/where [
-        {Historical TRUE? is ambiguous, use either TO-LOGIC or `= TRUE`} |
+        {Historical TRUE? is ambiguous, use either TO-LOGIC or `= TRUE`} LF
         {(experimental alternative of DID as "anti-NOT" is also offered)}
     ] 'dummy
 ]
@@ -346,16 +346,16 @@ prin: procedure [
 
 to-rebol-file: func [dummy:] [
     fail/where [
-        {TO-REBOL-FILE is now LOCAL-TO-FILE} |
-        {Take note it only accepts STRING! input and returns FILE!} |
+        {TO-REBOL-FILE is now LOCAL-TO-FILE} LF
+        {Take note it only accepts STRING! input and returns FILE!} LF
         {(unless you use LOCAL-TO-FILE*, which is a no-op on FILE!)}
     ] 'dummy
 ]
 
 to-local-file: func [dummy:] [
     fail/where [
-        {TO-LOCAL-FILE is now FILE-TO-LOCAL} |
-        {Take note it only accepts FILE! input and returns STRING!} |
+        {TO-LOCAL-FILE is now FILE-TO-LOCAL} LF
+        {Take note it only accepts FILE! input and returns STRING!} LF
         {(unless you use FILE-TO-LOCAL*, which is a no-op on STRING!)}
     ] 'dummy
 ]
@@ -527,8 +527,7 @@ make: function [
     case [
         all [
             :type = object!
-            block? :def
-            not block? first def
+            block? :def and (not block? first def)
         ][
             ;
             ; MAKE OBJECT! [x: ...] vs. MAKE OBJECT! [[spec][body]]
@@ -538,9 +537,7 @@ make: function [
             return has :def
         ]
 
-        any [
-            object? :type | struct? :type | gob? :type
-        ][
+        match [object! struct! gob!] :type [
             ;
             ; For most types in Rebol2 and R3-Alpha, MAKE VALUE [...]
             ; was equivalent to MAKE TYPE-OF VALUE [...].  But with
@@ -562,7 +559,7 @@ make: function [
         type: type of :type
     ]
 
-    if all [find any-array! :type | any-array? :def] [
+    if find any-array! :type and (any-array? :def) [
         ;
         ; MAKE BLOCK! of a BLOCK! was changed in Ren-C to be
         ; compatible with the construction syntax, so that it lets
@@ -979,8 +976,11 @@ set 'r3-legacy* func [<local>] [
                 "The word (use :var for word! values)"
             value "The value" ; void not allowed on purpose
         ][
-            unless all [set? word | not blank? get word] [set word :value]
-            :value
+            if unset? word or (blank? get word) [
+                set word :value
+            ] else [
+                :value
+            ]
         ])
 
         ; This old form of ALSO has been supplanted by ELIDE, which is more
@@ -1070,15 +1070,11 @@ set 'r3-legacy* func [<local>] [
             body [block!]
                 "Block to evaluate each time"
         ][
-            if any [
+            any [
                 not block? vars
-                for-each item vars [
-                    if set-word? item [break/with false]
-                    true
-                ]
-            ][
-                ; a normal FOREACH
-                return for-each :vars data body
+                for-each item vars [if set-word? item [break]] else [true]
+            ] then [
+                return for-each :vars data body ;; normal FOREACH
             ]
 
             ; Otherwise it's a weird FOREACH.  So handle a block containing at
@@ -1123,9 +1119,9 @@ set 'r3-legacy* func [<local>] [
         ][
             unless block? :value [return :value]
 
-            apply 'reduce [
-                | value: :value
-                | if into: into [target: :target]
+            apply 'reduce/into [
+                value: :value
+                target: :target
             ]
         ])
 
@@ -1187,12 +1183,12 @@ set 'r3-legacy* func [<local>] [
         ][
             ;-- R3-alpha REPEND with block behavior called out
             ;
-            apply :append [
-                | series: series
-                | value: either block? :value [reduce :value] [value]
-                | if part: part [limit: limit]
-                | only: only
-                | if dup: dup [count: count]
+            apply 'append/part/dup [
+                series: series
+                value: block? :value then [reduce :value] !! :value
+                limit: limit
+                only: only
+                count: count
             ]
         ])
 
@@ -1203,9 +1199,9 @@ set 'r3-legacy* func [<local>] [
         ][
             ;-- double-inline of R3-alpha `repend value :rest`
             ;
-            apply :append [
-                | series: either series? :value [copy value] [form :value]
-                | value: either block? :rest [reduce :rest] [rest]
+            apply 'append [
+                series: if series? :value [copy value] else [form :value]
+                value: if block? :rest [reduce :rest] else [rest]
             ]
         ])
 
@@ -1239,11 +1235,11 @@ set 'r3-legacy* func [<local>] [
             return: [action!]
             :code [group! block!]
         ][
-            func [<local> return:] compose [
+            func [<local> return:] compose/only [
                 return: does [
                     fail "Old RETURN semantics in DOES are deprecated"
                 ]
-                | (code)
+                | (as group! code)
             ]
         ])
 
@@ -1283,14 +1279,14 @@ set 'r3-legacy* func [<local>] [
                 "Values are kept as-is"
         ][
             apply 'construct [
-                | spec: either with [object] [[]]
-                | body: spec
+                spec: either with [object] [[]]
+                body: spec
 
                 ; It may be necessary to do *some* evaluation here, because
                 ; things like loading module headers would tolerate [x: 'foo]
                 ; as well as [x: foo] for some fields.
                 ;
-                | only: true
+                only: true
             ]
         ])
 

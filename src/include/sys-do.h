@@ -621,7 +621,10 @@ inline static REBOOL Do_Next_In_Frame_Throws(
     // The & on the following line is purposeful.  See Init_Endlike_Header.
     // DO_FLAG_NO_LOOKAHEAD may be set by an operation like ELIDE.
     //
-    (&f->flags)->bits = prior_flags;
+    // Since this routine is used by BLOCK!-style varargs, it must retain
+    // knowledge of if BAR! was hit.
+    //
+    (&f->flags)->bits = prior_flags | (f->flags.bits & DO_FLAG_BARRIER_HIT);
 
     return THROWN(out);
 }
@@ -717,6 +720,9 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
     parent->value = child->value;
     parent->gotten = child->gotten;
     assert(parent->specifier == child->specifier); // !!! can't change?
+
+    if (child->flags.bits & DO_FLAG_BARRIER_HIT)
+        parent->flags.bits |= DO_FLAG_BARRIER_HIT;
 
     return THROWN(out);
 }

@@ -1112,7 +1112,7 @@ REBNATIVE(does)
                     return R_OUT_IS_THROWN;
                 }
 
-                if (r == R_VOID)
+                if (r == R_END)
                     fail ("DOES hack needs argument");
 
                 Move_Value(arg, D_OUT);

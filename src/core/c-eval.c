@@ -95,10 +95,6 @@ REB_R Apply_Core(REBFRM * const f) {
 
 
 static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
-  #if defined(DEBUG_UNREADABLE_BLANKS)
-    assert(IS_UNREADABLE_DEBUG(f->out) or IS_END(f->out));
-  #endif
-
     assert(Eval_Count >= 0);
     if (--Eval_Count == 0) {
         //
@@ -113,7 +109,9 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
     UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
 
   #if defined(DEBUG_UNREADABLE_BLANKS)
-    assert(IS_UNREADABLE_DEBUG(f->out) or IS_END(f->out));
+    assert(
+        IS_UNREADABLE_DEBUG(f->out) or IS_END(f->out) or IS_BAR(f->value)
+    );
   #endif
 
     return FALSE;
@@ -160,40 +158,6 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 #endif
 
 
-static inline void Link_Vararg_Param_To_Frame(
-    REBFRM *f_state,
-    const RELVAL *param,
-    REBVAL *arg,
-    REBOOL make
-){
-    assert(GET_VAL_FLAG(param, TYPESET_FLAG_VARIADIC));
-    UNUSED(param);
-
-    // Store the offset so that both the arg and param locations can
-    // be quickly recovered, while using only a single slot in the REBVAL.
-    //
-    arg->payload.varargs.param_offset = arg - f_state->args_head;
-    arg->payload.varargs.facade = ACT_FACADE(f_state->phase);
-
-    // The data feed doesn't necessarily come from the frame
-    // that has the parameter and the argument.  A varlist may be
-    // chained such that its data came from another frame, or just
-    // an ordinary array.
-    //
-    if (make) {
-        RESET_VAL_HEADER(arg, REB_VARARGS);
-
-        // !!! Doesn't use INIT_BINDING() because that conservatively reifies,
-        // and not only do we know we don't have to here, it would assert
-        // trying to reify a fulfilling frame.
-        //
-        arg->extra.binding = NOD(f_state);
-    }
-    else
-        assert(VAL_TYPE(arg) == REB_VARARGS);
-}
-
-
 // ARGUMENT LOOP MODES
 //
 // The settings of f->special are chosen purposefully.  It is kept in sync
@@ -232,7 +196,12 @@ inline static REBOOL In_Unspecialized_Mode(REBFRM *f) {
 // always the case that one is typechecking the current argument.  See the
 // documentation on REB_0_DEFERRED for why.
 //
-inline static void Check_Arg(
+// It's called "Finalize" because in addition to checking, any other handling
+// that an argument needs once being put into a frame is handled.  VARARGS!,
+// for instance, that may come from an APPLY need to have their linkage
+// updated to the parameter they are now being used in.
+//
+inline static void Finalize_Arg(
     REBFRM *f_state, // name helps avoid accidental references to f->arg, etc.
     const RELVAL *param,
     REBVAL *arg,
@@ -311,8 +280,15 @@ inline static void Check_Arg(
     // data feed was (this frame, another frame, or just an array from MAKE
     // VARARGS!)
     //
-    const REBOOL make = FALSE; // reuse feed in arg
-    Link_Vararg_Param_To_Frame(f_state, param, arg, make);
+    // Store the offset so that both the arg and param locations can
+    // be quickly recovered, while using only a single slot in the REBVAL.
+    //
+    arg->payload.varargs.param_offset = arg - f_state->args_head;
+    arg->payload.varargs.facade = ACT_FACADE(f_state->phase);
+}
+
+inline static void Finalize_Current_Arg(REBFRM *f) {
+    Finalize_Arg(f, f->param, f->arg, f->refine);
 }
 
 
@@ -931,13 +907,16 @@ reevaluate:;
             }
 
             if (not In_Unspecialized_Mode(f)) {
-                if (In_Typecheck_Mode(f))
-                    goto check_arg; // just looping to verify args/refines
+               if (In_Typecheck_Mode(f)) {
+                    Finalize_Current_Arg(f);
+                    goto continue_arg_loop; // looping to verify args/refines
+                }
 
                 if (f->flags.bits & DO_FLAG_APPLYING) {
                     Prep_Stack_Cell(f->arg);
-                    Move_Value(f->arg, f->special);
-                    goto check_arg; // in APPLY, a void arg is literally void
+                    Move_Value(f->arg, f->special); // voids are literal
+                    Finalize_Current_Arg(f);
+                    goto continue_arg_loop;
                 }
 
     //=//// SPECIALIZED ARG ///////////////////////////////////////////////=//
@@ -978,15 +957,17 @@ reevaluate:;
 
                 Prep_Stack_Cell(f->arg);
 
-                if (IS_END(f->out)) {
-                    //
+                if (
+                    (f->out->header.bits & NODE_FLAG_END)
+                    or (f->flags.bits & DO_FLAG_BARRIER_HIT)
+                ){
                     // Seeing an END in the output slot could mean that there
                     // was really "nothing" to the left, or it could be a
                     // consequence of a frame being in an argument gathering
                     // mode, e.g. the `+` here will perceive "nothing":
                     //
                     //     if + 2 [...]
-
+                    //
                     // If an enfixed function finds it has a variadic in its
                     // first slot, then nothing available on the left is o.k.
                     // It means we have to put a VARARGS! in that argument
@@ -1001,11 +982,15 @@ reevaluate:;
                         );
                         INIT_BINDING(f->arg, EMPTY_ARRAY); // feed finished
 
-                        const REBOOL make = FALSE; // use existing array
-                        Link_Vararg_Param_To_Frame(f, f->param, f->arg, make);
+                        Finalize_Current_Arg(f);
                         goto continue_arg_loop;
                     }
 
+                    // The NODE_FLAG_MARKED flag is also used by BAR! to keep
+                    // a result in f->out, so that the barrier doesn't destroy
+                    // data in cases like `(1 + 2 | comment "hi")` => 3, but
+                    // left enfix should treat that just like an end.
+                    //
                     if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
                         fail (Error_No_Arg(f, f->param));
 
@@ -1064,6 +1049,12 @@ reevaluate:;
                         Move_Value(f->arg, f->out);
                         SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
                     }
+
+                    // Hard quotes can take BAR!s but they should look like an
+                    // <end> to a soft quote.
+                    //
+                    if (IS_BAR(f->arg))
+                        SET_END(f->arg);
                     break;
 
                 default:
@@ -1081,13 +1072,18 @@ reevaluate:;
                 // TAKE on the VARARGS.  Experimental feature.
                 //
                 if (GET_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC)) {
-                    REBARR *feed = Alloc_Singular_Array();
-                    Move_Value(ARR_HEAD(feed), f->arg);
-                    MANAGE_ARRAY(feed);
+                    REBARR *array1;
+                    if (IS_END(f->arg))
+                        array1 = EMPTY_ARRAY;
+                    else {
+                        REBARR *feed = Alloc_Singular_Array();
+                        Move_Value(ARR_SINGLE(feed), f->arg);
+                        MANAGE_ARRAY(feed);
 
-                    REBARR *array1 = Alloc_Singular_Array();
-                    Init_Block(ARR_HEAD(array1), feed); // index 0 for feeding
-                    MANAGE_ARRAY(array1);
+                        array1 = Alloc_Singular_Array();
+                        Init_Block(ARR_SINGLE(array1), feed); // index 0
+                        MANAGE_ARRAY(array1);
+                    }
 
                     RESET_VAL_HEADER_EXTRA(
                         f->arg,
@@ -1095,18 +1091,10 @@ reevaluate:;
                         VARARGS_FLAG_ENFIXED // don't evaluate *again* on TAKE
                     );
                     INIT_BINDING(f->arg, array1);
-
-                    const REBOOL make = FALSE; // use existing array
-                    Link_Vararg_Param_To_Frame(f, f->param, f->arg, make);
-
-                    // As written, the type will be checked when (and if) a
-                    // TAKE happens.  Whether that's good or bad depends on
-                    // the bigger issue of whether this feature is misguided.
-                    //
-                    goto continue_arg_loop;
                 }
 
-                goto check_arg;
+                Finalize_Current_Arg(f);
+                goto continue_arg_loop;
             }
 
     //=//// VARIADIC ARG (doesn't consume anything *yet*) /////////////////=//
@@ -1117,10 +1105,17 @@ reevaluate:;
             // consume additional arguments during the function run.
             //
             if (GET_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC)) {
-                const REBOOL make = TRUE;
                 Prep_Stack_Cell(f->arg);
-                Link_Vararg_Param_To_Frame(f, f->param, f->arg, make);
-                goto continue_arg_loop; // new value, type guaranteed correct
+                RESET_VAL_HEADER(f->arg, REB_VARARGS);
+
+                // !!! Doesn't use INIT_BINDING() because that conservatively
+                // reifies, and not only do we know we don't have to here, it
+                // would assert trying to reify a fulfilling frame.
+                //
+                f->arg->extra.binding = NOD(f);
+
+                Finalize_Current_Arg(f); // sets VARARGS! offset and facade
+                goto continue_arg_loop;
             }
 
     //=//// AFTER THIS, PARAMS CONSUME FROM CALLSITE IF NOT APPLY ////////=//
@@ -1179,7 +1174,7 @@ reevaluate:;
                 // typechecking the argument (it wasn't previously checked).
                 //
                 assert(VAL_TYPE(&f->cell) == REB_0_DEFERRED);
-                Check_Arg(
+                Finalize_Arg(
                     f,
                     f->cell.payload.deferred.param,
                     f->deferred,
@@ -1219,7 +1214,8 @@ reevaluate:;
                 //
                 Prep_Stack_Cell(f->arg);
                 Quote_Next_In_Frame(f->arg, f); // has VALUE_FLAG_UNEVALUATED
-                goto check_arg;
+                Finalize_Current_Arg(f);
+                goto continue_arg_loop;
             }
 
     //=//// IF EVAL SEMANTICS, DISALLOW LITERAL EXPRESSION BARRIERS ///////=//
@@ -1230,7 +1226,7 @@ reevaluate:;
                 // other means (e.g. literal as `'|` or `first [|]`)
 
                 if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
-                    fail (Error_Expression_Barrier_Raw());
+                    fail (Error_No_Arg(f, f->param));
 
                 Prep_Stack_Cell(f->arg);
                 Init_Endish_Void(f->arg);
@@ -1289,7 +1285,8 @@ reevaluate:;
                 if (not IS_QUOTABLY_SOFT(f->value)) {
                     Prep_Stack_Cell(f->arg);
                     Quote_Next_In_Frame(f->arg, f); // VALUE_FLAG_UNEVALUATED
-                    goto check_arg;
+                    Finalize_Current_Arg(f);
+                    goto continue_arg_loop;
                 }
 
                 Prep_Stack_Cell(f->arg);
@@ -1312,13 +1309,12 @@ reevaluate:;
             // this code which checks the typeset and also handles it when
             // a void arg signals the revocation of a refinement usage.
 
-        check_arg:;
-
             assert(pclass != PARAM_CLASS_REFINEMENT);
             assert(pclass != PARAM_CLASS_LOCAL);
+            assert(not In_Typecheck_Mode(f)); // already handled
 
             if (f->deferred == NULL)
-                Check_Arg(f, f->param, f->arg, f->refine);
+                Finalize_Arg(f, f->param, f->arg, f->refine);
 
         continue_arg_loop:;
 
@@ -1386,7 +1382,7 @@ reevaluate:;
                 // f->cell holds the necessary context for typechecking
                 //
                 assert(VAL_TYPE(&f->cell) == REB_0_DEFERRED);
-                Check_Arg(
+                Finalize_Arg(
                     f,
                     f->cell.payload.deferred.param,
                     f->deferred,
@@ -2150,38 +2146,28 @@ reevaluate:;
 //
 // [BAR!]
 //
-// If an expression barrier is seen in-between expressions (as it will always
-// be if hit in this switch), it evaluates to void.  It only errors in
-// argument fulfillment during the switch case for ANY-ACTION!.
+// Expression barriers are "invisibles", and hence as many of them have to
+// be processed at the end of the loop as there are--they can't be left in
+// the source feed, else `do/next [1 + 2 | | | |] 'pos` would not be able
+// to reconstitute 3 from `[| | | |]` for the next operation.
 //
-// Note that `DO/NEXT [| | | | 1 + 2]` will skip the bars and yield 3.  This
-// helps give BAR!s their lightweight character.  It also means that code
-// doing DO/NEXTs will not see them as generating voids, which might have
-// a specific meaning to the caller.  (They can check for BAR!s explicitly
-// if they want to give BAR!s a meaning.)
-//
-// Note also that natives and dialects frequently do their own interpretation
-// of BAR!--rather than just evaluate it and let it mean something equivalent
-// to an unset.  For instance:
-//
-//     case [false [print "F"] | true [print ["T"]]
-//
-// If CASE did not specially recognize BAR!, it would complain that the
-// "second condition" had no value.  So if you are looking for a BAR! behavior
-// and it's not passing through here, check the construct you are using.
+// Though they have to be processed at the end of the loop, they could also
+// be at the beginning of an evaluation.  This handles that case.
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_BAR:
-        assert(IS_BAR(current));
-
         if (FRM_HAS_MORE(f)) {
-            SET_END(f->out); // skipping the post loop where this is done
+            //
+            // May be fulfilling a variadic argument (or an argument to an
+            // argument of a variadic, etc.)  Make a note that a barrier was
+            // hit so it can stop gathering evaluative arguments.
+            //
+            if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+                f->flags.bits |= DO_FLAG_BARRIER_HIT;
             f->eval_type = VAL_TYPE(f->value);
             goto do_next; // quickly process next item, no infix test needed
         }
-
-        Init_Void(f->out);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2196,8 +2182,6 @@ reevaluate:;
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_LIT_BAR:
-        assert(IS_LIT_BAR(current));
-
         Init_Bar(f->out);
         break;
 
@@ -2324,6 +2308,21 @@ post_switch:;
     assert(IS_POINTER_TRASH_DEBUG(f->deferred));
 
     f->eval_type = VAL_TYPE(f->value);
+
+    // Because BAR! is effectively an "invisible", it must follow the same
+    // rule of being consumed in the same step as its left hand side, as a
+    // DO/NEXT of the BAR! alone can't bring back the lost value.
+    //
+    if (f->eval_type == REB_BAR) {
+        if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+            f->flags.bits |= DO_FLAG_BARRIER_HIT;
+        do {
+            Fetch_Next_In_Frame(f);
+            if (FRM_AT_END(f))
+                goto finished;
+            f->eval_type = VAL_TYPE(f->value);
+        } while (f->eval_type == REB_BAR);
+    }
 
 //=//// IF NOT A WORD!, IT DEFINITELY STARTS A NEW EXPRESSION /////////////=//
 

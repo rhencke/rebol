@@ -121,7 +121,7 @@
     FLAGIT_LEFT(5)
 
 
-//=//// DO_FLAG_APPLYING ///.......////////////////////////////////////////=//
+//=//// DO_FLAG_APPLYING //////////////////////////////////////////////////=//
 //
 // Used to indicate that the Do_Core code is entering a situation where the
 // frame was already set up.
@@ -268,6 +268,20 @@
     FLAGIT_LEFT(16)
 
 
+//=//// DO_FLAG_BARRIER_HIT ///////////////////////////////////////////////=//
+//
+// If a variadic operation is not hard-quoting, all instances of a variadic
+// tied to the same frame need to see a BAR! as an end of the variadic input.
+// But evaluation cannot leave BAR!s in the input stream, because they are
+// "invisibles".  So a `do/next [1 + 2 | | |]` must run through all the bars
+// otherwise the next evaluation would be `[| | |]` and there'd be no way
+// to synthesize 3 from it.  This means after a variadic TAKE the signal
+// will be gone, so this flag is used.
+//
+#define DO_FLAG_BARRIER_HIT \
+    FLAGIT_LEFT(17)
+
+
 #if !defined(NDEBUG)
 
 //=//// DO_FLAG_FINAL_DEBUG ///////////////////////////////////////////////=//
@@ -280,7 +294,7 @@
 //
 
 #define DO_FLAG_FINAL_DEBUG \
-    FLAGIT_LEFT(17)
+    FLAGIT_LEFT(18)
 
 #endif
 
@@ -291,7 +305,7 @@
 // information in a platform aligned position of the frame.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(17 < 32, "DO_FLAG_XXX too high");
+    static_assert(18 < 32, "DO_FLAG_XXX too high");
 #endif
 
 

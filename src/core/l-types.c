@@ -70,8 +70,8 @@ void MAKE_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     UNUSED(out);
     UNUSED(arg);
 
-    REBVAL *type = Get_Type(kind);
-    UNUSED(type); // put in error message?
+    const REBVAL *type = Datatype_From_Kind(kind);
+    UNUSED(type); // !!! put in error message?
 
     fail ("Datatype is provided by an extension that's not currently loaded");
 }
@@ -192,7 +192,7 @@ REBNATIVE(make)
                 DS_DROP_TO(dsp_orig);
                 return R_OUT_IS_THROWN;
             }
-            if (r == R_VOID)
+            if (r == R_END)
                 break;
             assert(r == R_OUT);
 
@@ -229,8 +229,8 @@ void TO_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     UNUSED(out);
     UNUSED(arg);
 
-    REBVAL *type = Get_Type(kind);
-    UNUSED(type); // use in error message?
+    const REBVAL *type = Datatype_From_Kind(kind);
+    UNUSED(type); // !!! put in error message?
 
     fail ("Datatype does not have extension with a TO handler registered");
 }

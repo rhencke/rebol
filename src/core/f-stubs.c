@@ -222,25 +222,28 @@ REBINT Int8u(const REBVAL *val)
 
 
 //
-//  Val_Init_Datatype: C
-//
-void Val_Init_Datatype(REBVAL *out, enum Reb_Kind kind)
-{
-    assert(kind > REB_0 and kind < REB_MAX);
-    Move_Value(out, CTX_VAR(Lib_Context, SYM_FROM_KIND(kind)));
-}
-
-
-//
-//  Get_Type: C
+//  Datatype_From_Kind: C
 //
 // Returns the specified datatype value from the system context.
 // The datatypes are all at the head of the context.
 //
-REBVAL *Get_Type(enum Reb_Kind kind)
+const REBVAL *Datatype_From_Kind(enum Reb_Kind kind)
 {
     assert(kind > REB_0 and kind < REB_MAX);
-    return CTX_VAR(Lib_Context, SYM_FROM_KIND(kind));
+    REBVAL *type = CTX_VAR(Lib_Context, SYM_FROM_KIND(kind));
+    assert(IS_DATATYPE(type));
+    return type;
+}
+
+
+//
+//  Init_Datatype: C
+//
+REBVAL *Init_Datatype(RELVAL *out, enum Reb_Kind kind)
+{
+    assert(kind > REB_0 and kind < REB_MAX);
+    Move_Value(out, Datatype_From_Kind(kind));
+    return KNOWN(out);
 }
 
 
@@ -629,12 +632,12 @@ int Clip_Int(int val, int mini, int maxi)
 //
 //  Add_Max: C
 //
-int64_t Add_Max(enum Reb_Kind type, int64_t n, int64_t m, int64_t maxi)
+int64_t Add_Max(enum Reb_Kind kind_or_0, int64_t n, int64_t m, int64_t maxi)
 {
     int64_t r = n + m;
     if (r < -maxi or r > maxi) {
-        if (type != REB_0)
-            fail (Error_Type_Limit_Raw(Get_Type(type)));
+        if (kind_or_0 != REB_0)
+            fail (Error_Type_Limit_Raw(Datatype_From_Kind(kind_or_0)));
         r = r > 0 ? maxi : -maxi;
     }
     return r;
@@ -648,7 +651,7 @@ int64_t Mul_Max(enum Reb_Kind type, int64_t n, int64_t m, int64_t maxi)
 {
     int64_t r = n * m;
     if (r < -maxi or r > maxi)
-        fail (Error_Type_Limit_Raw(Get_Type(type)));
+        fail (Error_Type_Limit_Raw(Datatype_From_Kind(type)));
     return cast(int, r); // !!! (?) review this cast
 }
 

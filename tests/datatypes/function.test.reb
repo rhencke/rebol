@@ -243,6 +243,7 @@
         f 1
     ]
 )
+
 ; "error out" leaves a "running" function in a "clean" state
 (
     f: func [x] [
@@ -253,22 +254,45 @@
     ]
     f 1
 )
+
 ; Argument passing of "get arguments" ("get-args")
-(gf: func [:x] [:x] 10 == gf 10)
-(gf: func [:x] [:x] 'a == gf a)
-(gf: func [:x] [:x] (quote 'a) == gf 'a)
-(gf: func [:x] [:x] (quote :a) == gf :a)
-(gf: func [:x] [:x] (quote a:) == gf a:)
-(gf: func [:x] [:x] (quote (10 + 20)) == gf (10 + 20))
-(gf: func [:x] [:x] o: context [f: 10] (quote :o/f) == gf :o/f)
+[
+    (
+        getf: func [:x] [:x]
+        true
+    )
+
+    (10 == getf 10)
+    ('a == getf a)
+    (quote 'a == getf 'a)
+    (quote :a == getf :a)
+    (quote a: == getf a:)
+    (quote (10 + 20) == getf (10 + 20))
+    (
+        o: context [f: 10]
+        quote :o/f == getf :o/f
+    )
+]
+
 ; Argument passing of "literal arguments" ("lit-args")
-(lf: func ['x] [:x] 10 == lf 10)
-(lf: func ['x] [:x] 'a == lf a)
-(lf: func ['x] [:x] (quote 'a) == lf 'a)
-(lf: func ['x] [:x] a: 10 10 == lf :a)
-(lf: func ['x] [:x] (quote a:) == lf a:)
-(lf: func ['x] [:x] 30 == lf (10 + 20))
-(lf: func ['x] [:x] o: context [f: 10] 10 == lf :o/f)
+[
+    (
+        litf: func ['x] [:x]
+        true
+    )
+
+    (10 == litf 10)
+    ('a == litf a)
+    (quote 'a == litf 'a)
+    (a: 10 | 10 == litf :a)
+    (quote a: == litf a:)
+    (30 == litf (10 + 20))
+    (
+        o: context [f: 10]
+        10 == litf :o/f
+    )
+]
+
 ; basic test for recursive action! invocation
 (
     i: 0

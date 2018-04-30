@@ -1282,7 +1282,7 @@ REBCTX *Error_No_Catch_For_Throw(REBVAL *thrown)
 //
 REBCTX *Error_Invalid_Type(enum Reb_Kind kind)
 {
-    return Error_Invalid_Type_Raw(Get_Type(kind));
+    return Error_Invalid_Type_Raw(Datatype_From_Kind(kind));
 }
 
 
@@ -1319,7 +1319,7 @@ REBCTX *Error_Illegal_Action(enum Reb_Kind type, REBSYM action)
     DECLARE_LOCAL (action_word);
     Init_Word(action_word, Canon(action));
 
-    return Error_Cannot_Use_Raw(action_word, Get_Type(type));
+    return Error_Cannot_Use_Raw(action_word, Datatype_From_Kind(type));
 }
 
 
@@ -1331,7 +1331,7 @@ REBCTX *Error_Math_Args(enum Reb_Kind type, REBSYM action)
     DECLARE_LOCAL (action_word);
     Init_Word(action_word, Canon(action));
 
-    return Error_Not_Related_Raw(action_word, Get_Type(type));
+    return Error_Not_Related_Raw(action_word, Datatype_From_Kind(type));
 }
 
 
@@ -1344,8 +1344,8 @@ REBCTX *Error_Unexpected_Type(enum Reb_Kind expected, enum Reb_Kind actual)
     assert(actual < REB_MAX);
 
     return Error_Expect_Val_Raw(
-        Get_Type(expected),
-        Get_Type(actual)
+        Datatype_From_Kind(expected),
+        Datatype_From_Kind(actual)
     );
 }
 
@@ -1359,7 +1359,7 @@ REBCTX *Error_Unexpected_Type(enum Reb_Kind expected, enum Reb_Kind actual)
 REBCTX *Error_Arg_Type(
     REBFRM *f,
     const RELVAL *param,
-    enum Reb_Kind kind
+    enum Reb_Kind actual
 ) {
     assert(IS_TYPESET(param));
 
@@ -1369,25 +1369,17 @@ REBCTX *Error_Arg_Type(
     DECLARE_LOCAL (label);
     Get_Frame_Label_Or_Blank(label, f);
 
-    if (kind != REB_MAX_VOID) {
-        assert(kind != REB_0);
-        REBVAL *datatype = Get_Type(kind);
-        assert(IS_DATATYPE(datatype));
-
+    if (actual != REB_MAX_VOID)
         return Error_Expect_Arg_Raw(
             label,
-            datatype,
+            Datatype_From_Kind(actual),
             param_word
         );
-    }
 
     // Although REB_MAX_VOID is not a type, the typeset bits are used
-    // to check it.  Since Get_Type() will fail, use another error.
+    // to check it.  Since Datatype_From_Kind() will fail, use another error.
     //
-    return Error_Arg_Required_Raw(
-        label,
-        param_word
-    );
+    return Error_Arg_Required_Raw(label, param_word);
 }
 
 
@@ -1401,9 +1393,7 @@ REBCTX *Error_Bad_Return_Type(REBFRM *f, enum Reb_Kind kind) {
     if (kind == REB_MAX_VOID)
         return Error_Needs_Return_Value_Raw(label);
 
-    REBVAL *datatype = Get_Type(kind);
-    assert(IS_DATATYPE(datatype));
-    return Error_Bad_Return_Type_Raw(label, datatype);
+    return Error_Bad_Return_Type_Raw(label, Datatype_From_Kind(kind));
 }
 
 
@@ -1412,7 +1402,7 @@ REBCTX *Error_Bad_Return_Type(REBFRM *f, enum Reb_Kind kind) {
 //
 REBCTX *Error_Bad_Make(enum Reb_Kind type, const REBVAL *spec)
 {
-    return Error_Bad_Make_Arg_Raw(Get_Type(type), spec);
+    return Error_Bad_Make_Arg_Raw(Datatype_From_Kind(type), spec);
 }
 
 
@@ -1421,7 +1411,7 @@ REBCTX *Error_Bad_Make(enum Reb_Kind type, const REBVAL *spec)
 //
 REBCTX *Error_Cannot_Reflect(enum Reb_Kind type, const REBVAL *arg)
 {
-    return Error_Cannot_Use_Raw(arg, Get_Type(type));
+    return Error_Cannot_Use_Raw(arg, Datatype_From_Kind(type));
 }
 
 

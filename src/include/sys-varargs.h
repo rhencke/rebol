@@ -105,7 +105,7 @@ inline static REBOOL Is_Block_Style_Varargs(
 }
 
 
-inline static REBOOL Is_Frame_Style_Varargs_May_Fail(
+inline static REBOOL Is_Frame_Style_Varargs_Maybe_Null(
     REBFRM **f,
     const RELVAL *vararg
 ){
@@ -125,7 +125,45 @@ inline static REBOOL Is_Frame_Style_Varargs_May_Fail(
     if (IS_CELL(vararg->extra.binding))
         *f = cast(REBFRM*, vararg->extra.binding);
     else
-        *f = CTX_FRAME_MAY_FAIL(CTX(vararg->extra.binding));
+        *f = CTX_FRAME_IF_ON_STACK(CTX(vararg->extra.binding));
 
     return TRUE;
+}
+
+
+inline static REBOOL Is_Frame_Style_Varargs_May_Fail(
+    REBFRM **f,
+    const RELVAL *vararg
+){
+    if (not Is_Frame_Style_Varargs_Maybe_Null(f, vararg))
+        return FALSE;
+
+    if (*f == NULL)
+        fail (Error_Frame_Not_On_Stack_Raw());
+
+    return TRUE;
+}
+
+
+inline static const REBVAL *Param_For_Varargs_Maybe_Null(const RELVAL *v) {
+    assert(IS_VARARGS(v));
+
+    REBVAL *param;
+    REBARR *facade = v->payload.varargs.facade;
+    if (facade == NULL) {
+        //
+        // A vararg created from a block AND never passed as an argument
+        // so no typeset or quoting settings available.  Treat as "normal"
+        // parameter.
+        //
+        assert(
+            NOT_CELL(v->extra.binding)
+            and not (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
+        );
+        param = NULL; // doesn't correspond to a real varargs parameter
+    }
+    else
+        param = KNOWN(ARR_AT(facade, v->payload.varargs.param_offset + 1));
+
+    return param;
 }

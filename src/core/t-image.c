@@ -586,7 +586,7 @@ REBSER *Make_Image(REBCNT w, REBCNT h, REBOOL error)
 {
     if (w > 0xFFFF || h > 0xFFFF) {
         if (error)
-            fail (Error_Size_Limit_Raw(Get_Type(REB_IMAGE)));
+            fail (Error_Size_Limit_Raw(Datatype_From_Kind(REB_IMAGE)));
         return NULL;
     }
 

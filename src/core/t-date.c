@@ -323,7 +323,7 @@ static REBDAT Normalize_Date(REBINT day, REBINT month, REBINT year, REBINT tz)
     }
 
     if (year < 0 || year > MAX_YEAR)
-        fail (Error_Type_Limit_Raw(Get_Type(REB_DATE)));
+        fail (Error_Type_Limit_Raw(Datatype_From_Kind(REB_DATE)));
 
     dr.date.year = year;
     dr.date.month = month+1;

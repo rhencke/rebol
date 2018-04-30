@@ -294,14 +294,14 @@ REBARR *Typeset_To_Array(const REBVAL *tset)
             value = Alloc_Tail_Array(block);
             if (n == 0) {
                 //
-                // !!! A NONE! value is currently supported in typesets to
+                // !!! A BLANK! value is currently supported in typesets to
                 // indicate that they take optional values.  This may wind up
                 // as a feature of MAKE ACTION! only.
                 //
                 Init_Blank(value);
             }
             else
-                Val_Init_Datatype(value, cast(enum Reb_Kind, n));
+                Init_Datatype(value, cast(enum Reb_Kind, n));
         }
     }
     return block;

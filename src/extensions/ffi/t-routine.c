@@ -638,7 +638,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
 
             if (r == R_OUT_IS_THROWN)
                 return R_OUT_IS_THROWN;
-            if (r == R_VOID)
+            if (r == R_END)
                 break;
             assert(r == R_OUT);
 

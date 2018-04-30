@@ -1148,7 +1148,7 @@ REBNATIVE(quote)
     REBVAL *v = ARG(value);
 
     if (IS_BAR(v))
-        fail (Error_Expression_Barrier_Raw()); // use UNEVAL instead of QUOTE
+        fail (Error_No_Quote_Bar_Raw());
 
     if (REF(soft) and IS_QUOTABLY_SOFT(v)) {
         Move_Value(D_CELL, v);

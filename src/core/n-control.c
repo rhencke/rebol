@@ -525,10 +525,6 @@ static REB_R Case_Choose_Core(
     // available for scratch space in the rest of the routine.
 
     while (FRM_HAS_MORE(f)) {
-        if (IS_BAR(f->value)) { // interstitial BAR! legal, `case [1 2 | 3 4]`
-            Fetch_Next_In_Frame(f);
-            continue;
-        }
 
         // Perform a DO/NEXT's worth of evaluation on a "condition" to test
 
@@ -547,9 +543,6 @@ static REB_R Case_Choose_Core(
 
         if (FRM_AT_END(f)) // require conditions and branches in pairs
             fail (Error_Past_End_Raw());
-
-        if (IS_BAR(f->value)) // BAR! out of sync between condition and branch
-            fail (Error_Bar_Hit_Mid_Case_Raw());
 
         if (IS_CONDITIONAL_FALSE(cell)) {
             //

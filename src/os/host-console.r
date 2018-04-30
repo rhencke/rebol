@@ -210,17 +210,17 @@ start-console: procedure [
             new-skin: do load skin-file
 
             ;; if loaded skin returns console! object then use as prototype
-            if all [
+            all [
                 object? new-skin
-                select new-skin 'repl ;; quacks like REPL, say it's a console!
-            ][
+                did select new-skin 'repl ;; quacks like REPL, it's a console!
+            ] then [
                 proto-skin: new-skin
                 proto-skin/was-updated: true
-                proto-skin/name: any [proto-skin/name "updated"]
+                proto-skin/name: default ["updated"]
             ]
 
             proto-skin/is-loaded: true
-            proto-skin/name: any [proto-skin/name "loaded"]
+            proto-skin/name: default ["loaded"]
             append o/loaded skin-file
 
         ] func [error] [
@@ -229,7 +229,7 @@ start-console: procedure [
         ]
     ]
 
-    proto-skin/name: any [proto-skin/name | "default"]
+    proto-skin/name: default ["default"]
 
     system/console: proto-skin
 
@@ -265,8 +265,8 @@ start-console: procedure [
     loud-print [newline {Console skinning:} newline]
     if skin-error [
         loud-print [
-            {  Error loading console skin  -} skin-file | |
-            skin-error | |
+            {  Error loading console skin  -} skin-file LF LF
+            skin-error LF LF
             {  Fix error and restart CONSOLE}
         ]
     ] else [

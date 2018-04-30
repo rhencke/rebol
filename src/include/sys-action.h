@@ -141,7 +141,11 @@ enum Reb_Result {
     // so it can be used by common routines that return REB_R values and need
     // an "escape" code.
     //
-    R_UNHANDLED
+    R_UNHANDLED,
+
+    // Used as a signal from Do_Vararg_Op_May_Throw
+    //
+    R_END
 };
 typedef enum Reb_Result REB_R;
 

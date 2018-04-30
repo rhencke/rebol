@@ -217,31 +217,21 @@ make object! compose [
             ]
         ] also [
             summary: spaced [
-                    |
-                "system/version:" system/version
-                    |
-                "code-checksum:" code-checksum
-                    |
-                "test-checksum:" test-checksum
-                    |
+                "system/version:" system/version LF
+                "code-checksum:" code-checksum LF
+                "test-checksum:" test-checksum LF
                 "Total:" (
                     successes
                     + test-failures
                     + crashes
                     + dialect-failures
                     + skipped
-                )
-                    |
-                "Succeeded:" successes
-                    |
-                "Test-failures:" test-failures
-                    |
-                "Crashes:" crashes
-                    |
-                "Dialect-failures:" dialect-failures
-                    |
-                "Skipped:" skipped
-                    |
+                ) LF
+                "Succeeded:" successes LF
+                "Test-failures:" test-failures LF
+                "Crashes:" crashes LF
+                "Dialect-failures:" dialect-failures LF
+                "Skipped:" skipped LF
             ]
 
             log [summary]

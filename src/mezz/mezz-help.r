@@ -575,10 +575,8 @@ help: procedure [
     print-newline
 
     print [
-        "DESCRIPTION:"
-            |
-        space4 (any [description | "(undocumented)"])
-            |
+        "DESCRIPTION:" LF
+        space4 (any [description | "(undocumented)"]) LF
         space4 (uppercase mold topic) {is} classification
     ]
 
@@ -724,8 +722,7 @@ what: procedure [
     for-each [word arg] sort/skip list 2 [
         append/dup clear vals #" " size
         print [
-            head of change vals word
-                |
+            head of change vals word LF
             :arg
         ]
     ]
@@ -771,10 +768,7 @@ require-commit: procedure [
     ; can look at the date of the running Rebol and know that a build that is
     ; older than that won't work.
     ;
-    if all [
-        date: select c 'date
-        rebol/build < date
-    ][
+    if did date: select c 'date and (rebol/build < date) [
         fail [
             "This script needs a build newer or equal to" date
             "so run `upgrade`"
@@ -784,16 +778,13 @@ require-commit: procedure [
     ; If there's a specific ID then assume that if the current build does not
     ; have that ID then there *could* be a problem.
     ;
-    if all [
-        id: select c 'id
-        id <> commit
-    ][
+    if did id: select c 'id and (id <> commit) [
         print [
-            "This script has only been tested again commit" id
-                |
+            "This script has only been tested again commit" id LF
+
             "If it doesn't run as expected"
-            "you can try seeing if this commit is still available"
-                |
+            "you can try seeing if this commit is still available" LF
+
             "by using the `do <dl-renc>` tool and look for"
             unspaced [
                 "r3-" copy/part id 7 "*"

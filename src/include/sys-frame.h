@@ -545,6 +545,8 @@ inline static void Drop_Action_Core(
     // the native code is no longer running?
     //
     f->flags.bits &= ~DO_FLAG_NATIVE_HOLD;
+    if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
+        f->flags.bits &= ~DO_FLAG_BARRIER_HIT;
 
     if (drop_chunks) {
         if (f->varlist == NULL) {

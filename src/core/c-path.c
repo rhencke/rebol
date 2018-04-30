@@ -61,8 +61,8 @@ REB_R PD_Unhooked(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     UNUSED(picker);
     UNUSED(opt_setval);
 
-    REBVAL *type = Get_Type(VAL_TYPE(pvs->out)); // put in error message?
-    UNUSED(type);
+    const REBVAL *type = Datatype_From_Kind(VAL_TYPE(pvs->out));
+    UNUSED(type); // !!! put in error message?
 
     fail ("Datatype is provided by an extension which is not loaded.");
 }

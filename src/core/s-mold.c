@@ -492,8 +492,8 @@ void MF_Unhooked(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     UNUSED(mo);
     UNUSED(form);
 
-    REBVAL *type = Get_Type(VAL_TYPE(v));
-    UNUSED(type); // use in error message?
+    const REBVAL *type = Datatype_From_Kind(VAL_TYPE(v));
+    UNUSED(type); // !!! put in error message?
 
     fail ("Datatype does not have extension with a MOLD handler registered");
 }
@@ -625,18 +625,6 @@ REBOOL Form_Reduce_Throws(
     REBOOL pending = FALSE;
 
     while (FRM_HAS_MORE(f)) {
-        if (IS_BLANK(f->value)) { // opt-out
-            Fetch_Next_In_Frame(f);
-            continue;
-        }
-
-        if (IS_BAR(f->value)) { // newline
-            Append_Utf8_Codepoint(mo->series, '\n');
-            pending = FALSE;
-            Fetch_Next_In_Frame(f);
-            continue;
-        }
-
         if (Do_Next_In_Frame_Throws(out, f)) {
             Drop_Frame(f);
             return TRUE;
@@ -644,12 +632,6 @@ REBOOL Form_Reduce_Throws(
 
         if (IS_VOID(out) || IS_BLANK(out)) // opt-out
             continue;
-
-        if (IS_BAR(out)) { // newline
-            Append_Utf8_Codepoint(mo->series, '\n');
-            pending = FALSE;
-            continue;
-        }
 
         if (IS_CHAR(out)) {
             Append_Utf8_Codepoint(mo->series, VAL_CHAR(out));

@@ -379,13 +379,10 @@ inline static REBVAL *Derelativize(
             INIT_BINDING(out, specifier);
         }
     }
-    else if (specifier == SPECIFIED) { // no potential override
-        assert(v->extra.binding->header.bits & ARRAY_FLAG_VARLIST);
-        out->extra.binding = v->extra.binding;
-    }
-    else {
-        assert(v->extra.binding->header.bits & ARRAY_FLAG_VARLIST);
-
+    else if (
+        specifier != SPECIFIED
+        and (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
+    ){
         REBNOD *f_binding;
         if (IS_CELL(specifier))
             f_binding = cast(REBFRM*, specifier)->binding;
@@ -408,6 +405,13 @@ inline static REBVAL *Derelativize(
         }
         else
             out->extra.binding = v->extra.binding;
+    }
+    else { // no potential override
+        assert(
+            (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
+            or IS_VARARGS(v) // BLOCK! style varargs use binding to hold array
+        );
+        out->extra.binding = v->extra.binding;
     }
 
     out->payload = v->payload;

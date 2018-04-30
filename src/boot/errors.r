@@ -101,8 +101,7 @@ Script: [
 
     hijack-blank:       {Hijacked function was captured but no body given yet}
 
-    expression-barrier: {Expression barrier hit while processing arguments}
-    bar-hit-mid-case:   {Expression barrier hit in middle of CASE pairing}
+    no-quote-bar:       {Expression barrier BAR! can't be QUOTEd (use UNEVAL)}
     enfix-quote-late:   [:arg1 {can't left quote a forward quoted value}]
     evaluate-void:      {voids cannot be evaluated}
 
