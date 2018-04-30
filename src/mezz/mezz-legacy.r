@@ -12,7 +12,11 @@ REBOL [
     }
     Description: {
         These definitions attempt to create a compatibility mode for Ren-C,
-        so that it operates more like R3-Alpha.
+        so that it operates more like R3-Alpha.  It was used for efforts in
+        porting, as well as to test the flexiblity of the system to "bend"
+        back to old semantics, using usermode constructs.  The R3-Alpha
+        porting purpose is mostly done, and so this code would ultimately be
+        targeting compatibility with Rebol2/Red.
 
         Some "legacy" definitions (like `foreach` as synonym of `for-each`)
         are enabled by default, and may remain indefinitely.  Other changes
@@ -178,19 +182,7 @@ scalar?: :any-scalar?
 series!: :any-series!
 series?: :any-series?
 
-
-; ANY-TYPE! is ambiguous with ANY-DATATYPE!
-; https://trello.com/c/1jTJXB0d
-;
-; It is not legal for user-facing typesets to include the idea of containing
-; a void type or optionality.  Hence, ANY-TYPE! cannot include void.  The
-; notion of tolerating optionality must be encoded outside a typeset (Note
-; that `find any-type! ()` didn't work in R3-Alpha, either.)
-;
-; The r3-legacy mode FUNC and FUNCTION explicitly look for ANY-TYPE! and
-; replaces it with <opt> any-value! in the function spec.
-;
-any-type!: any-value!
+any-type!: any-value! ;-- vs. ANY-DATATYPE! https://trello.com/c/1jTJXB0d
 
 
 ; BIND? and BOUND? didn't fit the naming convention of returning LOGIC! if
@@ -246,16 +238,16 @@ type?: func [dummy:] [
     fail/where [
         {TYPE? is reserved in Ren-C for future use}
         {(Though not fixed in stone, it may replace DATATYPE?)}
-        {TYPE-OF is the current replacement, with no TYPE-OF/WORD}
-        {Use soft quotes, e.g. SWITCH TYPE-OF 1 [:INTEGER! [...]]}
+        {TYPE OF is the current replacement, with no TYPE-OF/WORD}
+        {Use soft quotes, e.g. SWITCH TYPE OF 1 [:INTEGER! [...]]}
         {If running in <r3-legacy> mode, old TYPE? meaning is available.}
     ] 'dummy
 ]
 
 found?: func [dummy:] [
     fail/where [
-        {FOUND? is deprecated in Ren-C, use DID (e.g. DID FIND)}
-        {FOUND? is available if running in <r3-legacy> mode.}
+        {FOUND? is deprecated, use DID (e.g. DID FIND)}
+        {See: https://trello.com/c/Cz0qs5d7}
     ] 'dummy
 ]
 
@@ -263,64 +255,51 @@ op?: func [dummy:] [
     fail/where [
         {OP? can't work in Ren-C because there are no "infix ACTION!s"}
         {"infixness" is a property of a word binding, made via SET/ENFIX}
-        {See: ENFIXED? (which takes a WORD! parameter)}
+        {See: https://trello.com/c/mfqTGmcv}
     ] 'dummy
 ]
 
 hijack 'also adapt copy :also [
     if (block? :branch) and (not semiquoted? 'branch) [
         fail/where [
-            {ALSO serves a different and important purpose in Ren-C, it is a}
-            {complement to the ELSE function.  If you wish to do additional}
-            {evaluations and "comment out" their results, see ELIDE and <|.}
-            {If you mean to use a block expression, use ALSO [do make-block]}
-            {just for now, during the compatibility period.}
+            {ALSO serves a different and important purpose in Ren-C as a}
+            {complement to ELSE, so use ELIDE for old-ALSO-like tasks.}
             {See: https://trello.com/c/Y03HJTY4}
         ] 'branch
     ]
-
     ;-- fall through to normal ALSO implementation
 ]
 
 compress: decompress: func [dummy:] [
     fail/where [
         {COMPRESS and DECOMPRESS are deprecated in Ren-C, in favor of the}
-        {DEFLATE/INFLATE natives and GZIP/GUNZIP natives.  These speak more}
-        {specifically about the method used, and eliminates the idea of}
-        {the "Rebol compression format"--which was really just DEFLATE with}
-        {zlib header and a 32-bit length in big endian at the tail.  To}
-        {decompress legacy "Rebol format" data, see <r3-legacy>:`}
-        {`zinflate/part data (skip tail of data -4)`}
+        {DEFLATE/INFLATE natives and GZIP/GUNZIP natives.}
+        {See: https://trello.com/c/Bl6Znz0T}
     ] 'dummy
 ]
 
 clos: closure: func [dummy:] [
     fail/where [
-        {One feature of R3-Alpha's CLOSURE! is now available in all ACTION!}
-        {which is to specifically distinguish variables in recursions.  The}
-        {other feature of indefinite lifetime of "leaked" args and locals is}
-        {under review.  If one wishes to create an OBJECT! on each function}
-        {call and bind the body into that object, that is still possible--but}
-        {specialized support for the feature is not implemented at present.}
+        {All ACTION!s (such as made with FUNC, FUNCTION, PROC, PROCEDURE)}
+        {have "specific binding", so closure is not needed for that.  The}
+        {indefinite survival of args is on the back burner for Ren-C.}
+        {See: https://forum.rebol.info/t/234}
     ] 'dummy
 ]
 
 exit: func [dummy:] [
     fail/where [
         {EXIT as an arity-1 form of RETURN was replaced in *definitional*}
-        {returns by LEAVE, and is only available in PROC and PROCEDURE.  The}
-        {goal for EXIT long term is to take a process exit code, and access}
-        {the same function as C's exit()...namely a way to terminate the}
-        {process without being catchable the way that QUIT is.  For now,}
-        {that functionality is accessed with EXIT-REBOL.}
+        {returns by LEAVE, and is only available in PROC and PROCEDURE.}
+        {See: https://trello.com/c/TXqLos1q}
     ] 'dummy
 ]
 
 try: func [dummy:] [
     fail/where [
         {TRY/EXCEPT was replaced by TRAP/WITH, which matches CATCH/WITH}
-        {and is more coherent and less beholden to legacy.  This frees up}
-        {TRY for alternative future uses--possibly as a synonym for TO-VALUE}
+        {and is more coherent.  TRY may become a synonym for TO-VALUE.}
+        {See: https://trello.com/c/IbnfBaLI}
     ] 'dummy
 ]
 
@@ -409,46 +388,19 @@ rejoin: function [
 ]
 
 
-; R3-Alpha's APPLY had a historically brittle way of handling refinements,
-; based on their order in the function definition.  e.g. the following would
-; be how to say saying `APPEND/ONLY/DUP A B 2`:
-;
-;     apply :append [a b none none true true 2]
-;
-; Ren-C's default APPLY construct is based on evaluating a block of code in
-; the frame of a function before running it.  This allows refinements to be
-; specified as TRUE or FALSE and the arguments to be assigned by name.  It
-; also accepts a WORD! or PATH! as the function argument which it fetches,
-; which helps it deliver a better error message labeling the applied function
-; (instead of the stack frame appearing "anonymous"):
-;
-;     apply 'append [
-;         series: a
-;         value: b
-;         only: true
-;         dup: true
-;         count: 2
-;     ]
-;
-; For most usages this is better, though it has the downside of becoming tied
-; to the names of parameters at the callsite.  One might not want to remember
-; those, or perhaps just not want to fail if the names are changed.
+; `APPEND/ONLY/DUP A B 2` => `apply :append [a b none none true true 2]` :-/
 ;
 ; This implementation of R3-ALPHA-APPLY is a stopgap compatibility measure for
 ; the positional version.  It shows that such a construct could be written in
 ; userspace--even implementing the /ONLY refinement.  This is hoped to be a
-; "design lab" for figuring out what a better positional apply might look like.
+; "design lab" for figuring out what a better apply might look like.
 ;
 r3-alpha-apply: function [
-    "Apply a function to a reduced block of arguments."
-
+    {APPLY interface is still evolving, see https://trello.com/c/P2HCcu0V}
     return: [<opt> any-value!]
     action [action!]
-        "Action to apply"
     block [block!]
-        "Block of args, reduced first (unless /only)"
     /only
-        "Use arg values as-is, do not reduce the block"
 ][
     frame: make frame! :action
     params: words of :action
@@ -604,7 +556,6 @@ blankify-refinement-args: procedure [f [frame!]] [
 
 
 r3-alpha-func: function [
-    {FUNC <r3-legacy>}
     return: [action!]
     spec [block!]
     body [block!]
@@ -637,18 +588,11 @@ r3-alpha-func: function [
 ]
 
 r3-alpha-function: function [
-    {FUNCTION <r3-legacy>}
     return: [action!]
     spec [block!]
     body [block!]
-    /with
-        {Define or use a persistent object (self)}
-    object [object! block! map!]
-        {The object or spec}
-    /extern
-        {Provide explicit list of external words}
-    words [block!]
-        {These words are not local.}
+    /with object [object! block! map!]
+    /extern words [block!]
 ][
     if block? first spec [spec: next spec] ;-- See comments in R3-ALPHA-FUNC
 
@@ -700,16 +644,11 @@ set 'r3-legacy* func [<local>] [
 
     append system/contexts/user compose [
 
-        ; UNSET! as a reified type does not exist in Ren-C.  There is still
-        ; a "void" state as the result of `do []` or just `()`, and it can be
-        ; passed around transitionally.  Yet this "meta" result cannot be
-        ; stored in blocks.
-        ;
-        ; Over the longer term, UNSET? should be something that takes a word
-        ; or path to tell whether a variable is unset... but that is reserved
-        ; for NOT SET? until legacy is adapted.
-        ;
-        unset?: (:void?)
+        ?: (:help)
+
+        ??: (:dump)
+
+        unset?: (:void?) ; https://trello.com/c/shR4v8tS
 
         ; Result from TYPE OF () is a BLANK!, so this should allow writing
         ; `unset! = type of ()`.  Also, a BLANK! value in a typeset spec is
@@ -721,69 +660,50 @@ set 'r3-legacy* func [<local>] [
         ;
         unset!: _
 
-        ; NONE is reserved for NONE-OF in the future
+        ; NONE is reserved for `if none [x = 1 | y = 2] [...]`
         ;
         none: (:blank)
         none!: (:blank!)
         none?: (:blank?)
 
-        any-function!: action!
-        any-function?: :action?
+        any-function!: (:action!)
+        any-function?: (:action?)
 
-        native!: action!
-        native?: :action?
+        native!: (:action!)
+        native?: (:action?)
 
-        function!: action!
-        function?: :action?
+        function!: (:action!)
+        function?: (:action?)
 
         ; Some of CLOSURE's functionality was subsumed into all FUNCTIONs, but
         ; the indefinite lifetime of all locals and arguments was not.
         ; https://forum.rebol.info/t/234
         ;
-        closure: :function
-        clos: :func
+        closure: (:function)
+        clos: (:func)
 
-        closure!: action!
-        closure?: :action?
+        closure!: (:action!)
+        closure?: (:action?)
 
-        ; TRUE? and FALSE? were considered misleading, and DID and NOT should
-        ; be used for testing for "truthiness" and "falsiness", while testing
-        ; equality directly to TRUE and FALSE should be used if that's what
-        ; is actually meant.  TO-LOGIC is also available.
-        ;
-        true?: (:did)
-        false?: (:not)
+        true?: (:did?) ;-- better name https://trello.com/c/Cz0qs5d7
+        false?: (:not?) ;-- better name https://trello.com/c/Cz0qs5d7
 
-        ; R3-Alpha's comment wasn't "invisible", it always returned void.
-        ; Ren-C's is more clever: https://trello.com/c/dWQnsspG
-        ;
         comment: (func [
-            {Ignores the argument value, but does no evaluation.}
-            return: [<opt>]
+            return: [<opt>] {Not invisible: https://trello.com/c/dWQnsspG}
             :discarded [block! any-string! binary! any-scalar!]
-                "Literal value to be ignored."
         ][
-            ; no body
         ])
 
-        ; The bizarre VALUE? function would look up words, return TRUE if they
-        ; were set and FALSE if not.  All other values it returned TRUE.  The
-        ; parameter was not optional, so you couldn't say `value? ()`.
-        ;
         value?: (func [
-            {If a word, return whether word is set...otherwise TRUE}
+            {See SET? in Ren-C: https://trello.com/c/BlktEl2M}
             value
         ][
-            either any-word? :value [set? value] [true]
+            either any-word? :value [set? value] [true] ;; bizarre.  :-/
         ])
 
-        ; Note that TYPE?/WORD is less necessary since SWITCH can soft quote
-        ; https://trello.com/c/fjJb3eR2
-        ;
         type?: (function [
-            "Returns the datatype of a value <r3-legacy>."
             value [<opt> any-value!]
-            /word
+            /word {Note: SWITCH soft quotes https://trello.com/c/fjJb3eR2}
         ][
             case [
                 not word [type of :value]
@@ -796,7 +716,7 @@ set 'r3-legacy* func [<local>] [
         ])
 
         found?: (func [
-            "Returns TRUE if value is not NONE."
+            {See DID and NOT: https://trello.com/c/Cz0qs5d7}
             value
         ][
             not blank? :value
@@ -811,20 +731,12 @@ set 'r3-legacy* func [<local>] [
         ; If someone needs it, they can adapt this routine as needed.
         ;
         set: (function [
-            {Sets word, path, words block, or context to specified value(s).}
-
             return: [<opt> any-value!]
-                {Just chains the input value (unmodified)}
             target [blank! any-word! any-path! block! any-context!]
-                {Word, block of words, path, or object to be set (modified)}
             value [<opt> any-value!]
-                "Value or block of values"
             /any
-                "Deprecated legacy synonym for /only"
             /some
-                {Blank values (or values past end of block) are not set.}
             /enfix
-                {If value is a function, make the bound word dispatch infix}
         ][
             set_ANY: any
             any: :lib/any
@@ -848,12 +760,9 @@ set 'r3-legacy* func [<local>] [
         ; Hence it is not carried forward in legacy at this time.
         ;
         get: (function [
-            {Gets the value of a word or path, or values of a context.}
             return: [<opt> any-value!]
             source [blank! any-word! any-path! any-context! block!]
-                "Word, path, context to get"
             /any
-                "Deprecated legacy synonym for /ONLY"
         ][
             any_GET: any
             any: :lib/any
@@ -881,12 +790,9 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        ; Adapt the TO ANY-WORD! case for GROUP! to give back the
-        ; word PAREN! (not the word GROUP!)
-        ;
         to: (adapt 'to [
             if :value = group! and (find any-word! type) [
-                value: "paren!" ;-- twist it into a string conversion
+                value: "paren!" ;-- make TO WORD! GROUP! give back "paren!"
             ]
         ])
 
@@ -900,26 +806,17 @@ set 'r3-legacy* func [<local>] [
         ; This legacy bridge is variadic to achieve the result.
         ;
         do: (function [
-            {Evaluates a block of source code (variadic <r3-legacy> bridge)}
-
             return: [<opt> any-value!]
             source [<opt> blank! block! group! string! binary! url! file! tag!
                 error! action!
             ]
             normals [any-value! <...>]
-                {Normal variadic parameters if function (<r3-legacy> only)}
             'softs [any-value! <...>]
-                {Soft-quote variadic parameters if function (<r3-legacy> only)}
             :hards [any-value! <...>]
-                {Hard-quote variadic parameters if function (<r3-legacy> only)}
             /args
-                {If value is a script, this will set its system/script/args}
             arg
-                "Args passed to a script (normally a string)"
             /next
-                {Do next expression only, return it, update block variable}
             var [word! blank!]
-                "Variable updated with new block position"
         ][
             next_DO: next
             next: :lib/next
@@ -952,29 +849,19 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        ; TRAP makes more sense as parallel-to-CATCH, /WITH makes more sense too
-        ; https://trello.com/c/IbnfBaLI
-        ;
         try: (func [
-            {Tries to DO a block and returns its value or an error.}
             return: [<opt> any-value!]
             block [block!]
-            /except
-                "On exception, evaluate code"
+            /except {TRAP/WITH is better: https://trello.com/c/IbnfBaLI}
             code [block! action!]
         ][
             trap/(all [except 'with]) block :code
         ])
 
-        ; Ren-C's default is a "lookback" that can see the SET-WORD! to its
-        ; left and examine it.  `x: default [10]` instead of `default 'x 10`,
-        ; with the same effect.
-        ;
         default: (func [
-            "Set a word to a default value if it hasn't been set yet."
+            {See the new enfixed DEFAULT: https://trello.com/c/cTCwc5vX}
             'word [word! set-word! lit-word!]
-                "The word (use :var for word! values)"
-            value "The value" ; void not allowed on purpose
+            value
         ][
             if unset? word or (blank? get word) [
                 set word :value
@@ -983,10 +870,8 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        ; This old form of ALSO has been supplanted by ELIDE, which is more
-        ; generically useful and is more clear.
-        ;
         also: (func [
+            {Supplanted by ELIDE: https://trello.com/c/pGhk9EbV}
             return: [<opt> any-value!]
             returned [<opt> any-value!]
             discarded [<opt> any-value!]
@@ -994,25 +879,12 @@ set 'r3-legacy* func [<local>] [
             :returned
         ])
 
-        ; Ren-C removed the "simple parse" functionality, which has been
-        ; superseded by SPLIT.  For the legacy parse implementation, add
-        ; it back in (more or less) by delegating to split.
-        ;
-        ; Also, as an experiment Ren-C has been changed so that a successful
-        ; parse returns the input, while an unsuccessful one returns blank.
-        ; Historically PARSE returned LOGIC!, this restores that behavior.
-        ;
         parse: (function [
-            "Parses a string or block series according to grammar rules."
-
+            {Non-block rules replaced by SPLIT: https://trello.com/c/EiA56IMR}
             input [any-series!]
-                "Input series to parse"
             rules [block! string! blank!]
-                "Rules (string! is <r3-legacy>, use SPLIT)"
             /case
-                "Uses case-sensitive comparison"
-            /all
-                "Ignored refinement for <r3-legacy>"
+            /all {Ignored refinement in <r3-legacy>}
         ][
             case_PARSE: case
             case: :lib/case
@@ -1033,53 +905,21 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        ; There is a feature in R3-Alpha, used by R3-GUI, which allows an
-        ; unusual syntax for capturing series positions (like a REPEAT or
-        ; FORALL) with a SET-WORD! in the loop words block:
-        ;
-        ;     >> a: [1 2 3]
-        ;     >> foreach [s: i] a [print ["s:" mold s "i:" i]]
-        ;
-        ;     s: [1 2 3] i: 1
-        ;     s: [2 3] i: 2
-        ;     s: [3] i: 3
-        ;
-        ; This feature was removed from Ren-C due to it not deemed to be
-        ; "Quality", adding semantic questions and complexity to the C loop
-        ; implementation.  (e.g. `foreach [a:] [...] [print "infinite loop"]`)
-        ; That interferes with the goal of "modify with confidence" and
-        ; simplicity.
-        ;
-        ; This shim function implements the behavior in userspace.  Should it
-        ; arise that MAP-EACH is used similarly in a legacy scenario then the
-        ; code could be factored and shared, but it is not likely that the
-        ; core construct will be supporting this in FOR-EACH or EVERY.
-        ;
-        ; Longer-term, a rich LOOP dialect like Lisp's is planned:
-        ;
-        ;    http://www.gigamonkeys.com/book/loop-for-black-belts.html
-        ;
         foreach: (function [
-            "Evaluates a block for value(s) in a series w/<r3-legacy> 'extra'."
-
+            {No SET-WORD! capture, see https://trello.com/c/AXkiWE5Z}
             return: [<opt> any-value!]
             'vars [word! block!]
-                "Word or block of words to set each time (local)"
             data [any-series! any-context! map! blank!]
-                "The series to traverse"
             body [block!]
-                "Block to evaluate each time"
         ][
             any [
                 not block? vars
-                for-each item vars [if set-word? item [break]] else [true]
+                not for-each item vars [if set-word? item [break]]
             ] then [
                 return for-each :vars data body ;; normal FOREACH
             ]
 
-            ; Otherwise it's a weird FOREACH.  So handle a block containing at
-            ; least one set-word by doing a transformation of the code into
-            ; a while loop.
+            ; Weird FOREACH, transform to WHILE: https://trello.com/c/AXkiWE5Z
             ;
             use :vars [
                 position: data
@@ -1106,16 +946,9 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        ; REDUCE has been changed to evaluate single-elements if those
-        ; elements do not require arguments (so effectively a more limited
-        ; form of EVAL).  The old behavior was to just pass through non-blocks
-        ;
         reduce: (function [
-            {Evaluates expressions and returns multiple results.}
-            value
-            /into
-                {Output results into a series with no intermediate storage}
-            target [any-block!]
+            value {Not just BLOCK!s evaluated: https://trello.com/c/evTPswH3}
+            /into target [any-block!]
         ][
             unless block? :value [return :value]
 
@@ -1125,30 +958,13 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        ; R3-Alpha's COMPOSE would only compose BLOCK!s.  Other types would
-        ; evaluate to themselves.  That's limiting, compared to allowing
-        ; `compose quote (a (1 + 2) b)` to give back `(a 3 b)`, or
-        ; `compose quote a/(1 + 2)/b` to give back `a/3/b`
-        ;
-        ; Also: whether people knew it or not, a /DEEP walk would not recurse
-        ; into groups in PATH!s.  It isn't clear whether that was an oversight
-        ; from a time before groups were allowed in paths or intentional, but
-        ; Ren-C does recurse into paths.  CONCOCT can be used with more wily
-        ; patterns if a GROUP! in an ANY-PATH! is to be left untouched.
-        ;
         compose: (function [
-            {Evaluates only GROUP!s in a block of expressions.}
-            value
-                "Block to compose, all other values return themselves"
-            /deep
-                "Compose nested BLOCK!s (ANY-PATH! not considered)"
+            value {Ren-C composes ANY-ARRAY!: https://trello.com/c/8WMgdtMp}
+            /deep {Ren-C recurses into PATH!s: https://trello.com/c/8WMgdtMp}
             /only
-                {Insert a block as a single value (not contents of the block)}
-            /into
-                {Output results into a series with no intermediate storage}
-            out [any-array! any-string! binary!]
+            /into out [any-array! any-string! binary!]
         ][
-            either* block? :value [
+            either block? :value [
                 apply 'concoct [
                     pattern: quote ()
                     value: :value
@@ -1167,35 +983,26 @@ set 'r3-legacy* func [<local>] [
         ; different.  This snapshots their implementation.
 
         repend: (function [
-            "Appends a reduced value to a series and returns the series head."
             series [series! port! map! gob! object! bitset!]
-                {Series at point to insert (modified)}
             value
-                {The value to insert}
-            /part
-                {Limits to a given length or position}
-            limit [number! series! pair!]
+            /part limit [number! series! pair!]
             /only
-                {Inserts a series as a series}
-            /dup
-                {Duplicates the insert a specified number of times}
-            count [number! pair!]
+            /dup count [number! pair!]
         ][
             ;-- R3-alpha REPEND with block behavior called out
             ;
             apply 'append/part/dup [
                 series: series
                 value: block? :value then [reduce :value] !! :value
-                limit: limit
+                limit: :limit
                 only: only
-                count: count
+                count: :count
             ]
         ])
 
         join: (function [
-            "Concatenates values."
-            value "Base value"
-            rest "Value or block of values"
+            value
+            rest
         ][
             ;-- double-inline of R3-alpha `repend value :rest`
             ;
@@ -1205,20 +1012,13 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        ??: (:dump)
-
         ; To be on the safe side, the PRINT in the box won't do evaluations on
         ; blocks unless the literal argument itself is a block
         ;
         print: (specialize 'print [eval: true])
 
-        ; QUIT now takes /WITH instead of /RETURN
-        ;
         quit: (function [
-            {Stop evaluating and return control to command shell or calling script.}
-
-            /return
-                "(deprecated synonym for /WITH)"
+            /return {use /WITH in Ren-C: https://trello.com/c/3hCNux3z}
             value
         ][
             apply 'quit [
@@ -1237,7 +1037,7 @@ set 'r3-legacy* func [<local>] [
         ][
             func [<local> return:] compose/only [
                 return: does [
-                    fail "Old RETURN semantics in DOES are deprecated"
+                    fail "No RETURN from DOES: https://trello.com/c/KgwJRlyj"
                 ]
                 | (as group! code)
             ]
@@ -1249,10 +1049,9 @@ set 'r3-legacy* func [<local>] [
         ; had no arguments.
         ;
         has: (func [
-            {Shortcut for function with local variables but no arguments.}
             return: [action!]
-            vars [block!] {List of words that are local to the function}
-            body [block!] {The body block of the function}
+            vars [block!]
+            body [block!]
         ][
             r3-alpha-func (head of insert copy vars /local) body
         ])
@@ -1260,23 +1059,11 @@ set 'r3-legacy* func [<local>] [
         ; CONSTRUCT is now the generalized arity-2 object constructor.  What
         ; was previously known as CONSTRUCT can be achieved with the /ONLY
         ; parameter to CONSTRUCT or to HAS.
-        ;
-        ; !!! There's was code inside of Rebol which called "Scan_Net_Header()"
-        ; in order to produce a block out of a STRING! or a BINARY! here.
-        ; That has been moved to scan-net-header, and there was not presumably
-        ; other code that used the feature.
-        ;
-        construct: (func [
-            "Creates an object with scant (safe) evaluation."
 
+        construct: (func [
             spec [block!]
-                "Specification (modified)"
-            /with
-                "Create from a default object"
-            object [object!]
-                "Default object"
+            /with object [object!]
             /only
-                "Values are kept as-is"
         ][
             apply 'construct [
                 spec: either with [object] [[]]
@@ -1290,44 +1077,22 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        ; BREAK/RETURN had a lousy name to start with (return from what?), but
-        ; was axed to give loops a better interface contract:
-        ;
-        ; https://trello.com/c/uPiz2jLL/
-        ;
-        ; New features of WITH: https://trello.com/c/cOgdiOAD
-        ;
         break: (func [
-            {Exit the current iteration of a loop and stop iterating further.}
-
-            /return ;-- Overrides RETURN!
-                {(deprecated: use THROW+CATCH)}
+            /return {/RETURN is deprecated: https://trello.com/c/cOgdiOAD}
             value [any-value!]
         ][
             if return [
                 fail [
-                    "BREAK/RETURN temporarily not implemented in <r3-legacy>"
-                    "see https://trello.com/c/uPiz2jLL/ for why it was"
-                    "removed.  It could be accomplished in the compatibility"
-                    "layer by climbing the stack via the DEBUG API and"
-                    "looking for loops to EXIT, but this will all change with"
-                    "the definitional BREAK and CONTINUE so it seems not"
-                    "worth it.  Use THROW and CATCH instead (available in"
-                    "R3-Alpha) to subvert the loop return value."
+                    "BREAK/RETURN not implemented in <r3-legacy>, see /WITH"
+                    "or use THROW+CATCH.  See https://trello.com/c/uPiz2jLL/"
                 ]
             ]
-
             break
         ])
 
-        ; ++ and -- were labeled "new, hackish stuff" in R3-Alpha, and were
-        ; replaced by the more general ME and MY:
-        ;
-        ; https://trello.com/c/8Bmwvwya
-        ;
         ++: (function [
-            {Increment an integer or series index. Return its prior value.}
-            'word [word!] "Integer or series variable"
+            {Deprecated, use ME and MY: https://trello.com/c/8Bmwvwya}
+            'word [word!]
         ][
             value: get word ;-- returned value
             elide (set word case [
@@ -1337,9 +1102,10 @@ set 'r3-legacy* func [<local>] [
                 fail "++ only works on ANY-SERIES! or INTEGER!"
             ])
         ])
+
         --: (function [
-            {Decrement an integer or series index. Return its prior value.}
-            'word [word!] "Integer or series variable"
+            {Deprecated, use ME and MY: https://trello.com/c/8Bmwvwya}
+            'word [word!]
         ][
             value: get word ;-- returned value
             elide (set word case [
@@ -1350,13 +1116,13 @@ set 'r3-legacy* func [<local>] [
             ])
         ])
 
-        ; Rebol2/R3-Alpha's COMPRESS and DECOMPRESS encoded the length for
-        ; convenience, in a format different from the much more popular gzip.
-        ; Ren-C uses GZIP by default, this emulates "Rebol Compression".
-        ;
         compress: (function [
+            {Deprecated, use DEFLATE or GZIP: https://trello.com/c/Bl6Znz0T}
             return: [binary!]
-            data [binary! string!] /part lim /gzip /only
+            data [binary! string!]
+            /part lim
+            /gzip
+            /only
         ][
             if not any [gzip only] [ ; assume caller wants "Rebol compression"
                 data: to-binary copy/part data :lim
@@ -1377,8 +1143,13 @@ set 'r3-legacy* func [<local>] [
         ])
 
         decompress: (function [
+            {Deprecated, use DEFLATE or GUNZIP: https://trello.com/c/Bl6Znz0T}
             return: [binary!]
-            data [binary!] /part lim /gzip /limit max /only
+            data [binary!]
+            /part lim
+            /gzip
+            /limit max
+            /only
         ][
             if not any [gzip only] [ ;; assume data is "Rebol compressed"
                 lim: default [tail of data]
@@ -1454,7 +1225,7 @@ set 'r3-legacy* func [<local>] [
                     ]
                 ]]
             |
-                :try
+                :to-value
             ]
         )
     ]
