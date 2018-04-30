@@ -611,7 +611,7 @@ REBOOL Form_Reduce_Throws(
     REBSPC *specifier,
     const REBVAL *delimiter
 ) {
-    assert(!IS_VOID(delimiter)); // use BLANK! to indicate no delimiting
+    assert(not IS_VOID(delimiter)); // use BLANK! to indicate no delimiting
     if (IS_BAR(delimiter))
         delimiter = NEWLINE_VALUE; // BAR! is synonymous to newline here
 
@@ -626,11 +626,12 @@ REBOOL Form_Reduce_Throws(
 
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(out, f)) {
+            Drop_Mold(mo);
             Drop_Frame(f);
             return TRUE;
         }
 
-        if (IS_VOID(out) || IS_BLANK(out)) // opt-out
+        if (IS_VOID(out) or IS_BLANK(out)) // opt-out
             continue;
 
         if (IS_CHAR(out)) {

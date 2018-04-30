@@ -24,9 +24,9 @@ low-level concerns of the interpreter and just run snippets of code mixed with v
 easily as:
 
     int x = 1020;
-    REBVAL *negate_function = rebDo("get 'negate", END);
+    REBVAL *negate_function = rebRun("get 'negate", END);
 
-    rebDo("print [", rebInteger(x), "+ (2 *", rebEval(negate_function), "3)]", END);
+    rebRun("print [", rebInteger(x), "+ (2 *", rebEval(negate_function), "3)]", END);
 
 The other API (libRebolCore) would offer nearly the full range of power that is internally
 offered to the core.  It would allow one to pick apart value cells and write extensions
@@ -93,10 +93,10 @@ building solution (`%rebmake.r`) which requires no other tool, and can spawn com
 processes itself.  Yet it still can generate GNU makefiles or a Visual Studio Solution
 if desired.
 
-While this process *works*, it introduced considerable complexity...and currently it needs
-to use a somewhat modern Ren-C build to bootstrap--as opposed to a historical R3-Alpha.
-For the moment, some usable binaries are committed into the `%make/` directory for 32/64-bit
-platforms on Linux/Mac/Windows.
+While this process *works*, it introduced considerable complexity...and needs a relatively
+modern Ren-C build to bootstrap--as opposed to a historical R3-Alpha.  For the moment,
+some usable binaries are committed into the `%make/` directory for 32/64-bit platforms
+on Linux/Mac/Windows.
 
 Building is a matter of picking a config out of the `%make/configs/` directory, or just
 taking the defaults.  Options may be overridden on the command line of %make.r (which

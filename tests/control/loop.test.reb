@@ -78,3 +78,10 @@
     ]
     sum = 1
 )
+
+; test that a continue which interrupts code using the mold buffer does not
+; leave the gathered material in the mold buffer
+;
+(
+    '| = loop 2 [unspaced ["abc" continue]]
+)
