@@ -1,5 +1,32 @@
 REBOL [
-    type: 'module
+    File: %rebmake.r
+    Title: {Rebol-Based C/C++ Makefile and Project File Generator}
+    Type: 'module
+    Rights: {
+        Copyright 2017 Atronix Engineering
+        Copyright 2017-2018 Rebol Open Source Developers
+    }
+    License: {
+        Licensed under the Apache License, Version 2.0
+        See: http://www.apache.org/licenses/LICENSE-2.0
+    }
+    Description: {
+        R3-Alpha's bootstrap process depended on the GNU Make Tool, with a
+        makefile generated from minor adjustments to a boilerplate copy of
+        the makefile text.  As needs grew, a second build process arose
+        which used CMake...which was also capable of creating files for
+        various IDEs, such as Visual Studio.
+
+        %rebmake.r arose to try and reconcile these two build processes, and
+        eliminate dependency on an external make tool completely.  It can
+        generate project files for Microsoft Visual Studio, makefiles for
+        GNU Make or Microsoft's Nmake, or just carry out a full build by
+        invoking compiler processes and command lines itself.
+
+        In theory this code is abstracted such that it could be used by other
+        projects.  In practice, it is tailored to the specific needs and
+        settings of the Rebol project.
+    }
 ]
 
 default-compiler: _
@@ -37,33 +64,22 @@ ends-with?: func [
 ]
 
 filter-flag: function [
-    flag [any-string!]
-    prefix [any-string!]
-    /leading-char lc
+    return: [blank! string! file!]
+    flag [tag! string! file!]
+        {If TAG! then must be <prefix:flag>, e.g. <gnu:-Wno-unknown-warning>}
+    prefix [string!]
+        {gnu -> GCC-compatible compilers, msc -> Microsoft C}
 ][
-    unless leading-char [lc: #"-"]
-    either tag? flag [
-        ; if a flag is a <tag>, then it's supposed to be in the form of <prefix:flag> form
-        ; the prefix is used to for the compiler to detect if the flag should be applied
-        ; e.g. <gnu:Wno-unknown-warning> should only be applied to "GCC" compatible compilers
-        unless parse to string! flag [
-            copy header: to ":"
-            ":" copy option: to end
-        ][
-            fail ["Malformated flag:" (flag)]
-        ]
-        either prefix = header [
-            unspaced [
-                if lc != first option [lc]
-                option
-            ]
-        ][
-            ;not for us
-            _
-        ]
+    if not tag? flag [return flag] ;-- no filtering
+
+    unless parse to string! flag [
+        copy header: to ":"
+        ":" copy option: to end
     ][
-        flag
+        fail ["Tag must be <prefix:flag> ->" (flag)]
     ]
+
+    return all [prefix = header | to-string option]
 ]
 
 run-command: function [
@@ -450,16 +466,18 @@ gcc: make compiler-class [
             either E ["-E"]["-c"]
 
             if PIC ["-fPIC"]
-            if all [I not empty? includes] [
-                unspaced ["-I" delimit map-files-to-local includes " -I"]
-            ]
-            if all [D not empty? definitions] [
-                unspaced [
-                    "-D"
-                    delimit map-each flg definitions [
-                        opt filter-flag/leading-char flg id ""
+            if I [
+                spaced [
+                    map-each inc (map-files-to-local includes) [
+                        unspaced ["-I" inc]
                     ]
-                    " -D"
+                ]
+            ]
+            if D [
+                spaced [
+                    map-each flg definitions [
+                        if flg: filter-flag flg id [unspaced ["-D" flg]]
+                    ]
                 ]
             ]
             if O [
@@ -521,16 +539,18 @@ tcc: make compiler-class [
             either E ["-E"]["-c"]
 
             if PIC ["-fPIC"]
-            if all [I not empty? includes] [
-                unspaced ["-I" delimit map-files-to-local includes " -I"]
-            ]
-            if all [D not empty? definitions] [
-                unspaced [
-                    "-D"
-                    delimit map-each flg definitions [
-                        opt filter-flag/leading-char flg id ""
+            if I [
+                spaced [
+                    map-each inc (map-files-to-local includes) [
+                        unspaced ["-I" inc]
                     ]
-                    " -D"
+                ]
+            ]
+            if D [
+                spaced [
+                    map-each flg definitions [
+                        if flg: filter-flag flg id [unspaced ["-D" flg]]
+                    ]
                 ]
             ]
             if O [
@@ -596,45 +616,47 @@ cl: make compiler-class [
                 exec-file [exec-file]
                 true [{cl}]
             ]
-            "/nologo" ;suppress display of logo
+            "/nologo" ; don't show startup banner
             either E ["/P"]["/c"]
 
-            if all [I not empty? includes] [
-                unspaced ["/I" delimit map-files-to-local includes " /I"]
+            if I [
+                spaced map-each inc (map-files-to-local includes) [
+                    unspaced ["/I" inc]
+                ]
             ]
-            if all [D not empty? definitions][
-                unspaced [
-                    "/D"
-                    delimit map-each flg definitions [
-                        opt filter-flag/leading-char flg id ""
-                    ]
-                    " /D"
+            if D [
+                spaced map-each flg definitions [
+                    if flg: filter-flag flg id [unspaced ["/D" flg]]
                 ]
             ]
             if O [
                 case [
                     opt-level = true ["/O2"]
-                    not any [
-                        not opt-level
-                        zero? opt-level
-                    ][unspaced ["/O" opt-level]]
+                    all [
+                        opt-level
+                        not zero? opt-level
+                    ][
+                        unspaced ["/O" opt-level]
+                    ]
                 ]
             ]
             if g [
                 ;print mold debug
                 case [
-                    blank? debug [] ;FIXME: _ should be passed in at all
+                    blank? debug [] ;FIXME: _ shouldn't be passed in at all
                     any [
-                        all [logic? debug debug]
-                        integer? debug ;no such option for CL, just turn on Debugging
-                    ]["/Od /Zi"]
-                    all [logic? debug not debug][]
-                    true [fail spaced ["unrecognized debug option:" debug]]
+                        debug = true
+                        integer? debug ;-- doesn't map to a CL option
+                    ][
+                        "/Od /Zi"
+                    ]
+                    debug = false []
+                    true [fail ["unrecognized debug option:" debug]]
                 ]
             ]
             if all [F block? cflags][
                 spaced map-each flg cflags [
-                    filter-flag/leading-char flg id #"/"
+                    filter-flag flg id
                 ]
             ]
 
@@ -697,15 +719,21 @@ ld: make linker-class [
                 exec-file [exec-file]
                 true [{gcc}]
             ]
+            
             if dynamic ["-shared"]
+            
             "-o" file-to-local either ends-with? output suffix [
                 output
             ][
                 unspaced [output suffix]
             ]
 
-            unless any [blank? searches empty? searches] [
-                unspaced ["-L" delimit map-files-to-local searches " -L"]
+            if block? searches [
+                spaced [
+                    map-each search (map-files-to-local searches) [
+                        unspaced ["-L" search]
+                    ]
+                ]
             ]
 
             if block? ldflags [
@@ -737,7 +765,7 @@ ld: make linker-class [
             ]
             ext-dynamic-class [
                 either tag? dep/output [
-                    if lib: filter-flag/leading-char dep/output id "" [
+                    if lib: filter-flag dep/output id [
                         unspaced ["-l" lib]
                     ]
                 ][
@@ -816,9 +844,15 @@ llvm-link: make linker-class [
             ]
 
             ; llvm-link doesn't seem to deal with libraries
-            ;unless any [blank? searches empty? searches] [
-            ;    unspaced ["-L" delimit map-files-to-local searches " -L"]
-            ;]
+            comment [
+                if block? searches [
+                    spaced [
+                        map-each search (map-files-to-local searches) [
+                            unspaced ["-L" search]
+                        ]
+                    ]
+                ]
+            ]
 
             if block? ldflags [
                 spaced map-each flg ldflags [
@@ -904,20 +938,25 @@ link: make linker-class [
             ]
             "/NOLOGO"
             if dynamic ["/DLL"]
-            unspaced ["/OUT:" file-to-local either ends-with? output suffix [
+            unspaced [
+                "/OUT:" file-to-local either ends-with? output suffix [
                     output
                 ][
                     unspaced [output suffix]
                 ]
             ]
 
-            unless any [blank? searches empty? searches] [
-                unspaced ["/LIBPATH:" delimit map-files-to-local searches " /LIBPATH:"]
+            if block? searches [
+                spaced [
+                    map-each search (map-files-to-local searches) [
+                        unspaced ["/LIBPATH:" search]
+                    ]
+                ]
             ]
 
             if block? ldflags [
                 spaced map-each flg ldflags [
-                    filter-flag/leading-char flg id #"/"
+                    filter-flag flg id
                 ]
             ]
 
@@ -945,7 +984,7 @@ link: make linker-class [
                 ;static property is ignored
                 ;import file
                 either tag? dep/output [
-                    filter-flag/leading-char dep/output id ""
+                    filter-flag dep/output id
                 ][
                     ;dump dep/output
                     either ends-with? dep/output ".lib" [
@@ -1401,7 +1440,7 @@ makefile: make generator-class [
                         blank? entry/depends [
                         ]
                         true [
-                            fail unspaced ["unrecognized depends for" entry space entry/depends]
+                            fail ["unrecognized depends for" entry entry/depends]
                         ]
                     ]
                     newline
@@ -1779,7 +1818,7 @@ visual-studio: make generator-class [
         cflags [block!]
     ][
         for-next cflags [
-            if i: filter-flag/leading-char cflags/1 "msc" #"/" [
+            if i: filter-flag cflags/1 "msc" [
                 case [
                     parse i ["/TP" to end] [
                         comment [remove cflags] ; extensions wouldn't get it
@@ -1803,7 +1842,7 @@ visual-studio: make generator-class [
         size: _
         while [not tail? ldflags] [
             ;dump ldflags/1
-            if i: filter-flag/leading-char ldflags/1 "msc" #"/" [
+            if i: filter-flag ldflags/1 "msc" [
                 if parse i [
                     "/stack:"
                     copy size: some digit
@@ -1823,7 +1862,7 @@ visual-studio: make generator-class [
         subsystem: _
         while [not tail? ldflags] [
             ;dump ldflags/1
-            if i: filter-flag/leading-char ldflags/1 "msc" #"/" [
+            if i: filter-flag ldflags/1 "msc" [
                 if parse i [
                     "/subsystem:"
                     copy subsystem: to end
@@ -1898,7 +1937,7 @@ visual-studio: make generator-class [
         unless project/class-name = 'entry-class [
             inc: make string! 1024
             for-each i project/includes [
-                if i: filter-flag/leading-char i "msc" "" [
+                if i: filter-flag i "msc" [
                     append inc unspaced [file-to-local i ";"]
                 ]
             ]
@@ -1906,7 +1945,7 @@ visual-studio: make generator-class [
 
             def: make string! 1024
             for-each i project/definitions [
-                if i: filter-flag/leading-char i "msc" "" [
+                if i: filter-flag i "msc" [
                     append def unspaced [file-to-local i ";"]
                 ]
             ]
@@ -1917,7 +1956,7 @@ visual-studio: make generator-class [
             for-each i project/depends [
                 switch i/class-name [
                     ext-dynamic-class ext-static-class static-library-class [
-                        if ext: filter-flag/leading-char i/output "msc" "" [
+                        if ext: filter-flag i/output "msc" [
                             append lib unspaced [
                                 ext
                                 unless ends-with? ext ".lib" [".lib"]
@@ -1937,7 +1976,7 @@ visual-studio: make generator-class [
 
             if find [dynamic-library-class application-class] project/class-name [
                 for-each i project/searches [
-                    if i: filter-flag/leading-char i "msc" "" [
+                    if i: filter-flag i "msc" [
                         append searches unspaced [file-to-local i ";"]
                     ]
                 ]
@@ -2035,7 +2074,7 @@ visual-studio: make generator-class [
       <AdditionalOptions>}
       if project/cflags [
           spaced map-each i project/cflags [
-              opt filter-flag/leading-char i "msc" #"/"
+              opt filter-flag i "msc"
           ]
       ] {</AdditionalOptions>}
         ]
@@ -2118,7 +2157,7 @@ visual-studio: make generator-class [
                     use [i o-inc][
                         o-inc: make string! 1024
                         for-each i o/includes [
-                            if i: filter-flag/leading-char i "msc" "" [
+                            if i: filter-flag i "msc" [
                                 append o-inc unspaced [file-to-local i ";"]
                             ]
                         ]
@@ -2132,7 +2171,7 @@ visual-studio: make generator-class [
                     use [i o-def][
                         o-def: make string! 1024
                         for-each i o/definitions [
-                            if i: filter-flag/leading-char i "msc" "" [
+                            if i: filter-flag i "msc" [
                                 append o-def unspaced [file-to-local i ";"]
                             ]
                         ]
@@ -2154,7 +2193,7 @@ visual-studio: make generator-class [
 
                     if o/cflags [
                         collected: map-each i o/cflags [
-                            opt filter-flag/leading-char i "msc" #"/"
+                            opt filter-flag i "msc"
                         ]
                         unless empty? collected [
                             unspaced [
