@@ -496,6 +496,18 @@ DEVICE_CMD Read_IO(REBREQ *req)
         }
     }
 
+    // The format given back is expected to be UTF-8 with no carriage returns.
+    // Convert terminal CR LF to plain LF.
+    //
+    if (
+        total >= 2
+        and Std_Buf[total - 2] == '\r' and Std_Buf[total - 1] == '\n'
+    ){
+        Std_Buf[total - 2] = '\n';
+        Std_Buf[total - 1] = '\0';
+        --total;
+    }
+
     DWORD encoded_len = WideCharToMultiByte(
         CP_UTF8,
         0,

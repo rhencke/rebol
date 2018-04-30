@@ -291,7 +291,7 @@ REBNATIVE(open_connection)
         &out_connect_len, // StringLength2Ptr (gets returned anyway)
         SQL_DRIVER_NOPROMPT // DriverCompletion
     );
-    OS_FREE(connect);
+    rebFree(connect);
 
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO) {
         REBCTX *error = Error_ODBC_Env(henv);
@@ -585,7 +585,7 @@ SQLRETURN ODBC_GetCatalog(
 
     for (arg = 0; arg < 4; arg++) {
         if (pattern[arg] != NULL)
-            OS_FREE(pattern[arg]);
+            rebFree(pattern[arg]);
     }
 
     return rc;
@@ -937,7 +937,7 @@ REBNATIVE(insert_odbc)
             if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
                 fail (Error_ODBC_Stmt(hstmt));
 
-            OS_FREE(sql_string);
+            rebFree(sql_string);
 
             // Remember statement string handle, but keep a copy since it
             // may be mutated by the user.
