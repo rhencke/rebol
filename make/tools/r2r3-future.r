@@ -60,9 +60,7 @@ if :file-to-local = () [
 ; and older Ren-C had this as a synonym for TRAP.
 
 if find words-of :try 'block [
-    try: func [block /except handler] [
-        fail "TRY is reserved for future use in Ren-C, use TRAP"
-    ]
+    try: :to-value
 ]
 
 

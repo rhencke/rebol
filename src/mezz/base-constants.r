@@ -48,11 +48,10 @@ lf:        newline
 crlf:      "^M^J"
 
 ;-- Function synonyms:
-not: :not?
 to-logic: :did?
+to-value: :try
 min: :minimum
 max: :maximum
 abs: :absolute
-empty?: :tail?
 
 rebol.com: http://www.rebol.com

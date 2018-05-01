@@ -990,11 +990,20 @@ acquisition_loop:
 
         case DETECTED_AS_VALUE: {
             const REBVAL *splice = cast(const REBVAL*, p);
-            if (IS_VOID(splice) and not (ss->opts & SCAN_FLAG_VOIDS_LEGAL))
-                fail ("voids cannot be directly spliced into ANY-ARRAY!s");
+            if (splice == NULL) { // libRebol's notion of "void"
+                if (not (ss->opts & SCAN_FLAG_VOIDS_LEGAL))
+                    fail ("voids can't be directly spliced into ANY-ARRAY!s");
 
-            DS_PUSH_TRASH;
-            Move_Value(DS_TOP, splice);
+                DS_PUSH_TRASH;
+                Init_Void(DS_TOP);
+            }
+            else if (IS_VOID(splice)) {
+                fail ("VOID cell leaked to API, see DEVOID() in C sources");
+            }
+            else {
+                DS_PUSH_TRASH;
+                Move_Value(DS_TOP, splice);
+            }
 
             // !!! The needs of rebRun() are such that it wants to preserve
             // the non-user-visible EVAL_FLIP bit, which is usually not copied

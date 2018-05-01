@@ -44,32 +44,19 @@ do*: function [
     return: [<opt> any-value!]
     source [file! url! string! binary! tag!]
         {Files, urls and modules evaluate as scripts, other strings don't.}
-    args [logic!]
-        "Positional workaround of /ARGS"
-    arg [any-value!]
+    arg [<opt> any-value!]
         "Args passed as system/script/args to a script (normally a string)"
-    next [logic!]
-        "Positional workaround of /NEXT"
-    var [blank! word!]
+    var [<opt> blank! word!]
         "If do next expression only, variable updated with new block position"
     only [logic!]
         "Do not catch quits...propagate them."
 ][
-    next_DO*: next
-    next: :lib/next
+    ; Refinements on the original DO, re-derive for helper
 
-    ; !!! These were refinements on the original DO* which were called from
-    ; the system using positional order.  Under the Ren-C model you cannot
-    ; select refinements positionally, nor can you pass "void" cells in
-    ; a variadic invocation (because variadics may be reified to blocks which
-    ; are user-exposed, and arrays with voids in them are only allowed for
-    ; cases like the internal varlist of objects).
-    ;
-    ; It would be *possible* to keep these going as refinements and have the
-    ; system build a path to make a call, but this is easier.
-    ;
-    if not args [unset 'args]
-    if not next_DO* [unset 'var]
+    args: value? :arg
+    next_DO*: value? :var
+
+    next: :lib/next
 
     ; !!! DEMONSTRATION OF CONCEPT... this translates a tag into a URL!, but
     ; it should be using a more "official" URL instead of on individuals
@@ -193,7 +180,7 @@ do*: function [
             header: hdr
             parent: :original-script
             path: what-dir
-            args: to-value :arg
+            args: try :arg
         ]
 
         if set? 'script-pre-load-hook [

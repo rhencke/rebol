@@ -184,7 +184,7 @@ file-type?: func [
     file [file! url!]
 ][
     all [
-        file: find (find system/options/file-types suffix-of file) word!
+        file: try find (find system/options/file-types suffix-of file) word!
         first file
     ]
 ]

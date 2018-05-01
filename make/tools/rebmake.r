@@ -39,6 +39,7 @@ target-platform: _
 ;
 file-to-local: :lib/file-to-local-hack
 local-to-file: :lib/local-to-file-hack
+did: :lib/did-hack
 
 map-files-to-local: func [
     return: [block!]
@@ -770,7 +771,7 @@ ld: make linker-class [
                     ]
                 ][
                     unspaced [
-                        if find dep/flags 'static ["-static "]
+                        if did find dep/flags 'static ["-static "]
                         "-l" dep/output
                     ]
                 ]

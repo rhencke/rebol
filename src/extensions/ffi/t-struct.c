@@ -1081,7 +1081,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     assert(kind == REB_STRUCT);
     UNUSED(kind);
 
-    if (IS_BLOCK(arg))
+    if (not IS_BLOCK(arg))
         fail (Error_Invalid(arg));
 
     REBINT max_fields = 16;

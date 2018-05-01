@@ -940,7 +940,7 @@ module: func [
 
     mod: make module! 7 ; arbitrary starting size
 
-    if find spec/options 'extension [
+    if did find spec/options 'extension [
         append mod 'lib-base ; specific runtime values MUST BE FIRST
     ]
 
@@ -999,7 +999,7 @@ module: func [
     ; Add exported words at top of context (performance):
     if block? select spec 'exports [bind/new spec/exports mod]
 
-    either find spec/options 'isolate [
+    either did find spec/options 'isolate [
         ;
         ; All words of the module body are module variables:
         ;

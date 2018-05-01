@@ -364,12 +364,13 @@ inline static const RELVAL *Set_Frame_Detected_Fetch(REBFRM *f, const void *p)
     else
         lookback = f->value;
 
-detect_again:
+detect_again:;
 
-  #if !defined(NDEBUG)
-    if (p == NULL)
-        panic ("NULL should not be used to terminate C va_lists, use END");
-  #endif
+    if (p == NULL) { // libRebol's notion of a void (IS_VOID prohibited below)
+        f->source.array = NULL;
+        f->value = VOID_CELL;
+        return lookback;
+    }
 
     switch (Detect_Rebol_Pointer(p)) {
     case DETECTED_AS_UTF8: {
@@ -491,16 +492,20 @@ detect_again:
     case DETECTED_AS_FREED_SERIES:
         panic (p);
 
-    case DETECTED_AS_VALUE:
+    case DETECTED_AS_VALUE: {
+        const RELVAL *cell = cast(const RELVAL*, p);
+        if (IS_VOID(cell))
+            fail ("VOID cell leaked to API, see DEVOID() in C sources");
+
         f->source.array = NULL;
-        f->value = cast(const RELVAL*, p); // not END, detected separately
+        f->value = cell; // note that END is detected separately
         assert(
             not IS_RELATIVE(f->value) or (
                 IS_VOID(f->value)
                 and (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
             )
         );
-        break;
+        break; }
         
     case DETECTED_AS_END: {
         //

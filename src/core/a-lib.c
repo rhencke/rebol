@@ -87,7 +87,6 @@ inline static void Enter_Api(void) {
 }
 
 
-
 //=//// SERIES-BACKED ALLOCATORS //////////////////////////////////////////=//
 //
 // These are replacements for malloc(), realloc(), and free() which use a
@@ -568,19 +567,32 @@ REBVAL *RL_rebRun(const void *p, ...)
     va_list va;
     va_start(va, p);
 
-    DECLARE_LOCAL (temp); // so a fail() won't leak a handle...
+    REBVAL *result = Alloc_Value();
     REBIXO indexor = Do_Va_Core(
-        temp,
+        result,
         p, // opt_first (preloads value)
         &va,
         DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
     );
     va_end(va);
 
-    if (indexor == THROWN_FLAG)
-        fail (Error_No_Catch_For_Throw(temp));
+    if (indexor == THROWN_FLAG) {
+        DECLARE_LOCAL (uncaught);
+        Move_Value(uncaught, result);
+        rebRelease(uncaught); // ...or could GC after fail at some point
 
-    return Move_Value(Alloc_Value(), temp);
+        fail (Error_No_Catch_For_Throw(uncaught));
+    }
+
+    if (not IS_VOID(result))
+        return result;
+
+    // To API clients, NULL means void.  This provides convenience for testing
+    // a result (`if (val)`), doesn't require a rebRelease(), and interacts
+    // well with the TRY/OPT mechanic from inside of Rebol statements.
+
+    rebRelease(result);
+    return NULL;
 }
 
 
@@ -621,7 +633,7 @@ REBVAL *RL_rebTrap(const void * const p, ...) {
 
     if (indexor == THROWN_FLAG) {
         REBCTX *error = Error_No_Catch_For_Throw(result);
-        Free_Value(result);
+        rebRelease(result);
 
         fail (error); // throws to above
     }
@@ -632,14 +644,9 @@ REBVAL *RL_rebTrap(const void * const p, ...) {
     // error case then you can't return an ERROR!, since all errors indicate
     // a failure.
     //
-    // !!! Is returning rebVoid() too "quiet" a response?  Should it fail?
-    // Returning NULL seems like it would be prone to creating surprise
-    // crashes if the caller didn't expect NULLs, or used them to signal
-    // some other purpose.
-    //
     if (IS_ERROR(result)) {
         rebRelease(result);
-        return rebVoid();
+        return NULL; // a.k.a. void
     }
 
     if (IS_VOID(result)) {
@@ -796,10 +803,15 @@ void *RL_rebEval(const REBVAL *v)
 //
 //  rebVoid: RL_API
 //
+// Though NULL is contractually what void is in the libRebol C API, it is
+// important that variadic routines are passed a REBVAL*, as using NULL is
+// just the integer constant "0" and will not have the right type.  This
+// could be a lighter macro in the API, `(REBVAL*)0`, if it wanted to be.
+//
 REBVAL *RL_rebVoid(void)
 {
     Enter_Api();
-    return Init_Void(Alloc_Value());
+    return NULL;
 }
 
 
@@ -1120,6 +1132,7 @@ REBVAL *RL_rebRescueWith(
     }
 
     REBVAL *result = (*dangerous)(opaque); // guarded by trap
+    assert(not IS_VOID(result)); // void cells not exposed by API
 
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 
@@ -1213,6 +1226,32 @@ REBOOL RL_rebNot(const void *p, ...) {
     va_end(va);
 
     return IS_VOID_OR_FALSEY(condition); // NOT treats voids as "falsey"
+}
+
+
+//
+// C++, JavaScript, and other languages can do some amount of intelligence
+// with a generic `rebUnbox()` operation...either picking the type to return
+// based on the target in static typing, or returning a dynamically typed
+// value.  For convenience in C, make the generic unbox operation return
+// an integer for INTEGER!, LOGIC!, CHAR!...assume it's most common so the
+// short name is worth it.
+//
+long RL_rebUnbox(const REBVAL *v) {
+    Enter_Api();
+    switch (VAL_TYPE(v)) {
+    case REB_INTEGER:
+        return VAL_INT64(v);
+
+    case REB_CHAR:
+        return VAL_CHAR(v);
+
+    case REB_LOGIC:
+        return VAL_LOGIC(v) ? 1 : 0;
+
+    default:
+        fail ("Only REB_INTEGER, REB_CHAR, REB_LOGIC for rebUnbox() in C");
+    }
 }
 
 
@@ -1782,6 +1821,9 @@ long RL_rebLengthOf(const REBVAL *series)
 void RL_rebRelease(REBVAL *v)
 {
     Enter_Api();
+
+    if (v == NULL)
+        return; // less rigorous, but makes life easier for C programmers
 
     if (not Is_Api_Value(v))
         panic ("Attempt to rebRelease() a non-API handle");

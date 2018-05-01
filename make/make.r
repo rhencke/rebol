@@ -15,6 +15,7 @@ file-base: make object! load %tools/file-base.r
 append lib compose [
     file-to-local-hack: (:file-to-local)
     local-to-file-hack: (:local-to-file)
+    did-hack: (:did)
 ]
 rebmake: import %tools/rebmake.r
 

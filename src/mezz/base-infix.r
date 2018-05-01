@@ -320,7 +320,7 @@ and: enfix func [
     either group? right [
         did all [:left | really* do right]
     ][
-        all [:left | to-value do right]
+        all [:left | try do right]
     ]
 ]
 
@@ -340,7 +340,7 @@ or: enfix func [
     either group? right [
         did any [:left | really* do right]
     ][
-        any [:left | to-value do right]
+        any [:left | try do right]
     ]
 ]
 

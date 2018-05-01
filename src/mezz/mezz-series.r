@@ -11,13 +11,6 @@ REBOL [
     }
 ]
 
-empty?: func [
-    {Returns TRUE if empty or NONE, or for series if index is at or beyond its tail.}
-    series [any-series! object! gob! port! bitset! map! blank!]
-][
-    tail? series
-]
-
 
 ; !!! Although this follows the -OF naming convention, it doesn't fit the
 ; pattern of a reflector as it takes two arguments.  Moreover, it is a bit

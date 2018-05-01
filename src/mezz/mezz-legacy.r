@@ -295,12 +295,19 @@ exit: func [dummy:] [
     ] 'dummy
 ]
 
-try: func [dummy:] [
-    fail/where [
-        {TRY/EXCEPT was replaced by TRAP/WITH, which matches CATCH/WITH}
-        {and is more coherent.  TRY may become a synonym for TO-VALUE.}
-        {See: https://trello.com/c/IbnfBaLI}
-    ] 'dummy
+hijack 'try adapt copy :try [
+    ;
+    ; Most historical usages of TRY took literal blocks as arguments.  This
+    ; is a good way of catching them, while allowing new usages.
+    ;
+    if block? :cell and (semiquoted? 'cell) [
+        fail/where [
+            {TRY/EXCEPT was replaced by TRAP/WITH, which matches CATCH/WITH}
+            {and is more coherent.  See: https://trello.com/c/IbnfBaLI}
+            {TRY now converts voids to blanks, passing through ANY-VALUE!}
+        ] 'cell
+    ]
+    ;-- fall through to native TRY implementation
 ]
 
 
@@ -1184,7 +1191,7 @@ set 'r3-legacy* func [<local>] [
     ; and if it doesn't it's likealy a bigger problem because you can't put
     ; "unset! literals" (voids) into blocks in the first place.
     ;
-    ; So make a lot of things like `first: (chain [:first :to-value])`
+    ; So make a lot of things like `first: (chain [:first :try])`
     ;
     for-each word [
         if unless either case
@@ -1194,7 +1201,7 @@ set 'r3-legacy* func [<local>] [
     ][
         append system/contexts/user compose [
             (to-set-word word)
-            (chain compose [(to-get-word word) :to-value])
+            (chain compose [(to-get-word word) :try])
         ]
     ]
 
@@ -1225,7 +1232,7 @@ set 'r3-legacy* func [<local>] [
                     ]
                 ]]
             |
-                :to-value
+                :try
             ]
         )
     ]

@@ -180,7 +180,7 @@ port        port        context +       context context
 
 bar         unit        -       +       +       -
 lit-bar     unit        -       +       +       -
-blank       unit        -       +       +       -
+blank       unit        blank   +       +       -
 
 ; scalars
 

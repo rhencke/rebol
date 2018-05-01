@@ -113,7 +113,7 @@ save: function [
             method: _
         ]
 
-        length: match integer! select header-data 'length
+        length: ensure [integer! blank!] try select header-data 'length
         header-data: body-of header-data
     ]
 
@@ -126,7 +126,7 @@ save: function [
     append data newline
 
     case/all [
-        tmp: find header-data 'checksum [
+        tmp: try find header-data 'checksum [
             ; Checksum uncompressed data, if requested
             change next tmp checksum/secure data: to-binary data
         ]

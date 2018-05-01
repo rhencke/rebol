@@ -109,7 +109,7 @@ enum {
     // here was confusing.  Given the need to essentially replace the whole
     // device model, it's clearer to keep it here.
     //
-    SF_DEV_NULL = 1 << 31
+    SF_DEV_NULL = 1 << 16
 };
 
 

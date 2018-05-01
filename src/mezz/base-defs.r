@@ -118,6 +118,7 @@ if-not: :unless
 ; ultimate effect.
 ;
 of: enfix func [
+    return: [<opt> any-value!]
     'property [word!]
     value [<opt> any-value!] ;-- TYPE OF () needs to be BLANK!, so <opt> okay
 ][
@@ -171,6 +172,15 @@ head?: specialize 'reflect [property: 'head?]
 tail?: specialize 'reflect [property: 'tail?]
 past?: specialize 'reflect [property: 'past?]
 open?: specialize 'reflect [property: 'open?]
+
+
+empty?: func [
+    {TRUE if empty or BLANK!, or if series is at or beyond its tail.}
+    return: [logic!]
+    series [any-series! object! gob! port! bitset! map! blank!]
+][
+    did any [blank? series | tail? series]
+]
 
 
 eval proc [

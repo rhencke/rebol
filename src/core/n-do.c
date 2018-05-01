@@ -354,16 +354,16 @@ REBNATIVE(do)
         REBVAL *sys_do_helper = CTX_VAR(Sys_Context, SYS_CTX_DO_P);
         assert(IS_ACTION(sys_do_helper));
 
+        UNUSED(REF(args)); // detected via `value? :arg`
+        
         const REBOOL fully = TRUE; // error if not all arguments consumed
         if (Apply_Only_Throws(
             D_OUT,
             fully,
             sys_do_helper,
             source,
-            REF(args) ? TRUE_VALUE : FALSE_VALUE,
-            REF(args) ? ARG(arg) : BLANK_VALUE, // can't put void in block
-            REF(next) ? TRUE_VALUE : FALSE_VALUE,
-            REF(next) ? ARG(var) : BLANK_VALUE, // can't put void in block
+            DEVOID(ARG(arg)), // convert void cells to NULL for API
+            DEVOID(ARG(var)), // convert void cells to NULL for API
             REF(only) ? TRUE_VALUE : FALSE_VALUE,
             END
         )){

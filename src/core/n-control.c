@@ -214,8 +214,15 @@ REBNATIVE(either_test)
         }
         else if (IS_ACTION(var)) {
             const REBOOL fully = TRUE;
-            if (Apply_Only_Throws(D_OUT, fully, const_KNOWN(var), value, END))
+            if (Apply_Only_Throws(
+                D_OUT,
+                fully,
+                const_KNOWN(var),
+                DEVOID(value), // convert void cells to NULL for API
+                END
+            )){
                 return R_OUT_IS_THROWN;
+            }
 
             if (IS_VOID(D_OUT))
                 fail (Error_No_Return_Raw());
@@ -967,8 +974,8 @@ was_caught:
                 D_OUT,
                 FALSE, // do not alert if handler doesn't consume all args
                 handler,
-                thrown_arg,
-                thrown_name,
+                DEVOID(thrown_arg), // convert void cells to NULL for API
+                DEVOID(thrown_name), // convert void cells to NULL for API
                 END
             )){
                 return R_OUT_IS_THROWN;

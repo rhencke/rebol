@@ -195,7 +195,7 @@ load-header: function [
             return 'bad-header
         ]
 
-        find hdr/options 'content [
+        did find hdr/options 'content [
             join hdr ['content data] ; as of start of header
         ]
 
@@ -216,7 +216,7 @@ load-header: function [
         :key = 'rebol [
             ; regular script, binary or script encoded compression supported
             case [
-                find hdr/options 'compress [
+                did find hdr/options 'compress [
                     unless rest: any [
                         attempt [
                             ; Raw bits.  whitespace *could* be tolerated; if
@@ -246,7 +246,7 @@ load-header: function [
             rest: skip first set [data: end:] transcode/next data 2
 
             case [
-                find hdr/options 'compress [ ; script encoded only
+                did find hdr/options 'compress [ ; script encoded only
                     unless rest: attempt [gunzip first rest] [
                         return 'bad-compress
                     ]
@@ -389,7 +389,7 @@ load: function [
         not any [
             'unbound = :ftype ;-- may be void
             'module = select hdr 'type
-            find to-value select hdr 'options 'unbound
+            did find get 'hdr/options 'unbound
         ][
             data: intern data
         ]
@@ -569,7 +569,7 @@ load-ext-module: function [
 
         empty? hdr/exports [blank]
 
-        find hdr/options 'private [
+        did find hdr/options 'private [
             ; full export to user
             unless no-user [
                 resolve/extend/only system/contexts/user mod hdr/exports
@@ -761,7 +761,7 @@ load-module: function [
             no-lib: true  ; Still not /no-lib in IMPORT
 
             ; But make it a mixin and it will be imported directly later
-            unless find hdr/options 'private [
+            unless did find hdr/options 'private [
                 hdr/options: append any [hdr/options make block! 1] 'private
             ]
         ]

@@ -549,19 +549,18 @@ REBNATIVE(get)
 
 
 //
-//  to-value: native [
+//  try: native [
 //
-//  {Turns voids into blanks, with ANY-VALUE! passing through. (See: OPT)}
+//  {Turns voids into blanks, ANY-VALUE! passes through. (See Also: OPT)}
 //
 //      return: [any-value!]
+//          {blank if input was void, or original value otherwise}
 //      cell [<opt> any-value!]
 //  ]
 //
-REBNATIVE(to_value)
-//
-// !!! Slated to perhaps become TRY (R3-Alpha TRY/EXCEPT is now TRAP/WITH)
+REBNATIVE(try)
 {
-    INCLUDE_PARAMS_OF_TO_VALUE;
+    INCLUDE_PARAMS_OF_TRY;
 
     if (IS_VOID(ARG(cell)))
         return R_BLANK;
@@ -574,7 +573,7 @@ REBNATIVE(to_value)
 //
 //  opt: native [
 //
-//  {Convert blanks to optionals. (See Also: TO-VALUE)}
+//  {Convert blanks to optionals. (See Also: TRY)}
 //
 //      return: [<opt> any-value!]
 //          {void if input was a BLANK!, or original value otherwise}

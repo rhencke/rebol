@@ -282,7 +282,7 @@ ctx-zip: context [
             date: now ;; !!! Each file gets a slightly later compression date?
 
             ; is next one data or filename?
-            data: if match [file! url!] to-value :source/2 [
+            data: if match [file! url!] try :source/2 [
                 if #"/" = last name [ ;; why not `dir?` ?
                     copy #{}
                 ] else [

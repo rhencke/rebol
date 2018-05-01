@@ -191,8 +191,9 @@ at: action [
 ;-- Series Search
 
 find: action [
-    {Searches for a value; for series returns where found, else blank.}
-    return: [any-series! blank! bar!]
+    {Searches for the position where a matching value is found}
+    return: {position found, else blank (void if series is itself blank)}
+        [<opt> any-series! blank! bar!]
     series [any-series! any-context! map! gob! bitset! typeset! blank!]
     value [<opt> any-value!]
     /part {Limits the search to a given length or position}
@@ -242,7 +243,8 @@ put: action [
 reflect: action [
     {Returns specific details about a datatype.}
 
-    return: [any-value!]
+    return: {Only returns void for some cases where value is BLANK!}
+        [<opt> any-value!]
     value [<opt> any-value!] ; accepts void for REFLECT () 'TYPE to be BLANK!
     property [word!]
         "Such as: type, length, spec, body, words, values, title"
@@ -253,17 +255,14 @@ reflect: action [
 copy: action [
     {Copies a series, object, or other value.}
 
-    return: [any-value!]
-        {Return type will match the input type.}
-    value [any-value!]
-        {If an ANY-SERIES!, it is only copied from its current position}
-    /part
-        {Limits to a given length or position}
+    return: {Return type will match the input type, or void if blank}
+        [<opt> any-value!]
+    value {If an ANY-SERIES!, it is only copied from its current position}
+        [any-value!]
+    /part {Limits to a given length or position}
     limit [any-number! any-series! pair!]
-    /deep
-        {Also copies series values within the block}
-    /types
-        {What datatypes to copy}
+    /deep {Also copies series values within the block}
+    /types {What datatypes to copy}
     kinds [typeset! datatype!]
 ]
 

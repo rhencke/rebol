@@ -1698,8 +1698,15 @@ reevaluate:;
             Move_Value(fun, DS_TOP);
 
             const REBOOL fully = TRUE;
-            if (Apply_Only_Throws(f->out, fully, fun, &f->cell, END))
+            if (Apply_Only_Throws(
+                f->out,
+                fully,
+                fun,
+                DEVOID(KNOWN(&f->cell)), // convert void cell to NULL for API
+                END
+            )){
                 goto abort_action;
+            }
 
             DS_DROP;
         }

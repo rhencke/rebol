@@ -85,7 +85,43 @@ void MF_Unit(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
 
 //
+//  PD_Blank: C
+//
+// It is not possible to "poke" into a blank (and as an attempt at modifying
+// operation, it is not swept under the rug).  But if picking with GET-PATH!
+// or GET, we indicate no result with void.  (Ordinary path selection will
+// treat this as an error.)
+//
+REB_R PD_Blank(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
+{
+    UNUSED(picker);
+    UNUSED(pvs);
+
+    if (opt_setval != NULL)
+        return R_UNHANDLED;
+
+    return R_VOID;
+}
+
+
+//
 //  REBTYPE: C
+//
+// Asking to read a property of a BLANK! value is handled as a "light"
+// failure, in the sense that it just returns void.  Returning void instead
+// of blank helps establish error locality in chains of operations:
+//
+//     if not find select next first x [
+//        ;
+//        ; If blanks propagated too far, what actually went wrong, here?
+//        ; (reader might just assume it was the last FIND, but it could
+//        ; have been anything)
+//     ]
+//
+// Giving back void instead of an error means the situation can be handled
+// precisely with operations like ELSE or ALSO, or just converted to a BLANK!
+// to continue the chain.  Historically this conversion was done with TO-VALUE
+// but is proposed to use TRY.
 //
 REBTYPE(Unit)
 {
@@ -94,37 +130,33 @@ REBTYPE(Unit)
 
     switch (verb) {
 
+    // !!! The category of "non-mutating type actions" should be knowable via
+    // some meta information.  Any new such actions should get the behavior
+    // of returning void, while any mutating actions return errors.
+
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
+        UNUSED(ARG(value)); // covered by val above
 
-        UNUSED(ARG(value)); // covered by `val` above
-        REBSYM property = VAL_WORD_SYM(ARG(property));
-        assert(property != SYM_0);
+        // !!! If reflectors had specs the way actions do, it might be that
+        // the return type could be searched to see if void was an option,
+        // and that would mean it would be legal.  For now, carry over ad
+        // hoc things that R3-Alpha returned BLANK! for.
 
-        switch (property) {
-        case SYM_TAIL_Q:
-            return R_TRUE;
-
+        switch (VAL_WORD_SYM(ARG(property))) {
         case SYM_INDEX:
         case SYM_LENGTH:
-            return R_BLANK;
+            return R_VOID;
 
         default:
             break;
         }
-
         break; }
 
     case SYM_SELECT:
-        return R_VOID;
-
     case SYM_FIND:
-        return R_BLANK;
-
-    case SYM_COPY: {
-        if (IS_BLANK(val))
-            return R_BLANK; // perhaps allow COPY on any type, as well.
-        break; }
+    case SYM_COPY:
+        return R_VOID;
 
     default:
         break;

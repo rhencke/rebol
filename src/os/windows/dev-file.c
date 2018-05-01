@@ -552,6 +552,8 @@ DEVICE_CMD Delete_File(REBREQ *req)
     if (not success)
         rebFail_OS (GetLastError());
 
+    rebFree(path_wide);
+
     return DR_DONE;
 }
 

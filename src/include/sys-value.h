@@ -974,6 +974,15 @@ inline static RELVAL *REL(REBVAL *v) {
 #define IS_VOID_OR_FALSEY(v) \
     GET_VAL_FLAG((v), VALUE_FLAG_FALSEY)
 
+// The API uses NULL to signify void, and to help ensure full void cells don't
+// leak to the API the variadic interface will only handle void.  Any internal
+// code that passes a value which may be null through the variadic interface
+// needs to make sure any voids get converted to NULL first.
+//
+inline static REBVAL *DEVOID(REBVAL *cell) {
+    return IS_VOID(cell) ? NULL : cell;
+}
+
 
 //=////////////////////////////////////////////////////////////////////////=//
 //

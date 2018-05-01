@@ -11,7 +11,7 @@ modules: [
             src-dir/extensions/uuid/libuuid
             %prep/extensions/uuid ;for %tmp-extensions-uuid-init.inc
         ]
-        depends: to-value switch system-config/os-base [
+        depends: try switch system-config/os-base [
             linux [
                 [
                     %uuid/libuuid/gen_uuid.c
@@ -22,12 +22,12 @@ modules: [
             ]
         ]
 
-        libraries: to-value switch system-config/os-base [
+        libraries: try switch system-config/os-base [
             Windows [
                 [%rpcrt4]
             ]
         ]
-        ldflags: to-value switch system-config/os-base [
+        ldflags: try switch system-config/os-base [
             OSX [
                 ["-framework CoreFoundation"]
             ]

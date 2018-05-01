@@ -656,7 +656,7 @@ host-console: function [
             |
     ]
 
-    if did shortcut: select system/console/shortcuts to-value first code [
+    if did shortcut: select system/console/shortcuts try first code [
         ;
         ; Shortcuts (defaults include `q => [quit]`, `d => [dump]`)
         ;

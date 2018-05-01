@@ -359,7 +359,7 @@ typeset-sets: copy []
 for-each-record t type-table [
     for-each ts compose [(t/typesets)] [
         spot: any [
-            to-value select typeset-sets ts
+            try select typeset-sets ts
             first back insert tail-of typeset-sets reduce [ts copy []]
         ]
         append spot t/name

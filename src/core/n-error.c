@@ -119,11 +119,18 @@ REBNATIVE(set_location_of_error)
 {
     INCLUDE_PARAMS_OF_SET_LOCATION_OF_ERROR;
 
+    REBVAL *location = ARG(location);
+
     REBCTX *context;
-    if (IS_WORD(ARG(location)))
-        context = VAL_WORD_CONTEXT(ARG(location));
-    else
-        context = VAL_CONTEXT(ARG(location));
+    if (IS_WORD(location)) {
+        if (not IS_WORD_BOUND(location))
+            fail ("SET-LOCATION-OF-ERROR requires bound WORD!");
+        context = VAL_WORD_CONTEXT(location);
+    }
+    else {
+        assert(IS_FRAME(location));
+        context = VAL_CONTEXT(location);
+    }
 
     REBFRM *where = CTX_FRAME_MAY_FAIL(context);
 
