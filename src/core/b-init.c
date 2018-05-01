@@ -124,14 +124,25 @@ static void Assert_Basics(void)
     // intended function of the system that it refuses to run if not true.
     //
     // But if someone is in an odd situation and understands why the size did
-    // not work out as designed, it *should* be possible to comment this out
-    // and keep running.
+    // not work out as designed, defining UNUSUAL_REBVAL_SIZE should still
+    // work, so long as that size is an even multiple of ALIGN_SIZE.
     //
-    size_t sizeof_REBVAL = sizeof(REBVAL); // avoid constant conditional expr
+    size_t sizeof_REBVAL = sizeof(REBVAL);
+  #if defined(UNUSUAL_REBVAL_SIZE)
+    if (sizeof_REBVAL % ALIGN_SIZE != 0)
+        panic ("size of REBVAL does not evenly divide by ALIGN_SIZE");
+  #else
     if (sizeof_REBVAL != sizeof(void*) * 4)
         panic ("size of REBVAL is not sizeof(void*) * 4");
 
+    #if defined(DEBUG_SERIES_ORIGINS) || defined(DEBUG_COUNT_TICKS)
+        assert(sizeof(REBSER) == sizeof(REBVAL) * 2 + sizeof(void*) * 2);
+    #else
+        assert(sizeof(REBSER) == sizeof(REBVAL) * 2);
+    #endif
+
     assert(sizeof(REBEVT) == sizeof(REBVAL));
+  #endif
 
     // The REBSER is designed to place the `info` bits exactly after a REBVAL
     // so they can do double-duty as also a terminator for that REBVAL when

@@ -416,6 +416,12 @@ inline static REBVAL *Derelativize(
 
     out->payload = v->payload;
 
+  #ifdef DEBUG_TRACK_EXTEND_CELLS
+    out->track = v->track;
+    out->tick = v->tick;
+    out->move_tick = TG_Tick;
+  #endif
+
     // in case the caller had a relative value slot and wants to use its
     // known non-relative form... this is inline, so no cost if not used.
     //

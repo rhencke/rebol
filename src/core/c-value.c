@@ -63,11 +63,21 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
       #if defined(DEBUG_TRACK_CELLS)
         printf("REBVAL init ");
 
-        #if defined(DEBUG_TRACK_CELLS) && defined(DEBUG_COUNT_TICKS)
-            printf("on tick #%d", cast(unsigned int, v->extra.tick));
-        #endif
+        #if defined(DEBUG_TRACK_EXTEND_CELLS)
+            #if defined(DEBUG_COUNT_TICKS)
+                printf("@ tick #%d", cast(unsigned int, v->tick));
+                if (v->move_tick != 0)
+                    printf("moved @ #%d", cast(unsigned int, v->move_tick));
+            #endif
 
-        printf("at %s:%d\n", v->payload.track.file, v->payload.track.line);
+            printf("@ %s:%d\n", v->track.file, v->track.line);
+        #else
+            #if defined(DEBUG_COUNT_TICKS)
+                printf("@ tick #%d", cast(unsigned int, v->extra.tick));
+            #endif
+
+            printf("@ %s:%d\n", v->payload.track.file, v->payload.track.line);
+        #endif
       #else
         printf("No track info (see DEBUG_TRACK_CELLS/DEBUG_COUNT_TICKS)\n");
       #endif

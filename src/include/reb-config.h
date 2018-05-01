@@ -286,8 +286,13 @@ Special internal defines used by RT, not Host-Kit developers:
     #define DEBUG_FRAME_LABELS
     #define DEBUG_UNREADABLE_BLANKS
     #define DEBUG_TRASH_MEMORY
-    #define DEBUG_TRACK_CELLS
     #define DEBUG_BALANCE_STATE
+
+    // There is a mode where the track payload exists in all cells, making
+    // them grow by 2 * sizeof(void*): DEBUG_TRACK_EXTEND_CELLS.  This can
+    // tell you about a cell's initialization even if it carries a payload.
+    //
+    #define DEBUG_TRACK_CELLS
 
     // !!! Checking the memory alignment is an important invariant but may be
     // overkill to run on all platforms at all times.  It requires the
@@ -337,4 +342,10 @@ Special internal defines used by RT, not Host-Kit developers:
     #if !defined(DEBUG_STDIO_OK)
         #error "DEBUG_MEMORY_ALIGN requires DEBUG_STDIO_OK"
     #endif
+#endif
+
+
+#ifdef DEBUG_TRACK_EXTEND_CELLS
+    #define DEBUG_TRACK_CELLS
+    #define UNUSUAL_REBVAL_SIZE // sizeof(REBVAL)*2 may be > sizeof(REBSER)
 #endif

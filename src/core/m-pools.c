@@ -238,6 +238,11 @@ const REBPOOLSPEC Mem_Pool_Spec[MAX_POOLS] =
     DEF_POOL(MEM_BIG_SIZE*4, 4),    // 4K
 
     DEF_POOL(sizeof(REBSER), 4096), // Series headers
+
+  #ifdef UNUSUAL_REBVAL_SIZE // sizeof(REBVAL)*2 not sizeof(REBSER)
+    DEF_POOL(sizeof(REBVAL) * 2, 16), // Pairings, PAR_POOL
+  #endif
+
     DEF_POOL(sizeof(REBGOB), 128),  // Gobs
     DEF_POOL(sizeof(REBI64), 1), // Just used for tracking main memory
 };
@@ -992,9 +997,7 @@ REBSER *Make_Series_Core(REBCNT capacity, REBYTE wide, REBFLGS flags)
 // handlers based on PUSH_TRAP().
 //
 REBVAL *Alloc_Pairing(void) {
-    REBSER *s = cast(REBSER*, Make_Node(SER_POOL)); // 2x REBVAL size
-
-    REBVAL *paired = cast(REBVAL*, s);
+    REBVAL *paired = cast(REBVAL*, Make_Node(PAR_POOL)); // 2x REBVAL size
     REBVAL *key = PAIRING_KEY(paired);
 
     Prep_Non_Stack_Cell(paired);
@@ -1009,9 +1012,6 @@ REBVAL *Alloc_Pairing(void) {
     //
     Prep_Non_Stack_Cell(key);
     TRASH_CELL_IF_DEBUG(key);
-
-
-    TOUCH_SERIES_IF_DEBUG(s); // pinpoints parent call stack on `panic (s);`
 
     return paired;
 }

@@ -122,12 +122,22 @@
         const char *file,
         int line
     ){
+      #ifdef DEBUG_TRACK_EXTEND_CELLS // cell is made bigger to hold it
+        v->track.file = file;
+        v->track.line = line;
+
+        #ifdef DEBUG_COUNT_TICKS
+            v->tick = TG_Tick;
+            v->move_tick = 0;
+        #endif
+      #else // in space that is overwritten for cells that fill in payloads 
         v->payload.track.file = file;
         v->payload.track.line = line;
-
-    #ifdef DEBUG_COUNT_TICKS
-        v->extra.tick = TG_Tick;
-    #endif
+          
+        #ifdef DEBUG_COUNT_TICKS
+            v->extra.tick = TG_Tick;
+        #endif
+      #endif
     }
 
     #define TRACK_CELL_IF_DEBUG(v,file,line) \
@@ -1823,6 +1833,12 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
 
     out->payload = v->payload; // payloads cannot hold references to stackvars
 
+  #ifdef DEBUG_TRACK_EXTEND_CELLS
+    out->track = v->track;
+    out->tick = v->tick;
+    out->move_tick = TG_Tick;
+  #endif
+
     if (
         not (v->header.bits & CELL_FLAG_STACK)
         or not Is_Bindable(v)
@@ -1974,7 +1990,7 @@ inline static void Blit_Cell(RELVAL *out, const RELVAL *v)
 // Note: It sets NODE_FLAG_FREE, so this is a "trash" cell by default.
 //
 #define DECLARE_LOCAL(name) \
-    REBSER name##_pair; \
+    REBVAL name##_pair[2]; \
     Prep_Stack_Cell(cast(REBVAL*, &name##_pair)); /* tbd: FS_TOP FRAME! */ \
     REBVAL * const name = cast(REBVAL*, &name##_pair) + 1; \
     Prep_Stack_Cell(name)

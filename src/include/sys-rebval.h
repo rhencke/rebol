@@ -749,14 +749,16 @@ union Reb_Value_Extra {
     //
     REBARR *singular;
 
-  #if defined(DEBUG_TRACK_CELLS) && defined(DEBUG_COUNT_TICKS)
-    uintptr_t tick; // value initialization tick if the payload is Reb_Track
+  #if defined(DEBUG_TRACK_CELLS) && !defined(DEBUG_TRACK_EXTEND_CELLS)
+    #ifdef DEBUG_COUNT_TICKS
+        uintptr_t tick; // Reb_Track_Payload not big enough for a tick too
+    #endif
   #endif
 };
 
 union Reb_Value_Payload {
 
-  #if defined(DEBUG_TRACK_CELLS)
+  #if defined(DEBUG_TRACK_CELLS) && !defined(DEBUG_TRACK_EXTEND_CELLS)
     struct Reb_Track_Payload track; // in void/trash, BLANK!, LOGIC!, BAR!
   #endif
 
@@ -798,6 +800,18 @@ struct Reb_Cell
     struct Reb_Header header;
     union Reb_Value_Extra extra;
     union Reb_Value_Payload payload;
+
+  #if defined(DEBUG_TRACK_CELLS) && defined(DEBUG_TRACK_EXTEND_CELLS)
+    //
+    // Lets you preserve the tracking info even if the cell has a payload,
+    // which doubles the cell size, but helps in extreme debugging cases.
+    // Since the cell must be an even multiple of 4 * sizeof(void*), add in
+    // an additional piece of information on the last move/derelativize.
+    //
+    struct Reb_Track_Payload track;
+    uintptr_t tick; // stored in the Reb_Value_Extra for basic tracking
+    uintptr_t move_tick; // bonus to pad out to 4 * sizeof(void*)
+  #endif
 };
 
 

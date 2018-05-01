@@ -88,6 +88,11 @@
     MEM_MID_POOLS   = MEM_SMALL_POOLS +  4,
     MEM_BIG_POOLS   = MEM_MID_POOLS   +  4, // larger pools
     SER_POOL     = MEM_BIG_POOLS,
+  #ifdef UNUSUAL_REBVAL_SIZE
+    PAR_POOL,
+  #else
+    PAR_POOL = SER_POOL,
+  #endif
     GOB_POOL,
     SYSTEM_POOL,
     MAX_POOLS

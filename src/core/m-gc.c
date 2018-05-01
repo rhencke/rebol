@@ -1396,6 +1396,33 @@ static REBCNT Sweep_Series(void)
         }
     }
 
+    // For efficiency of memory use, REBSER is nominally defined as
+    // 2*sizeof(REBVAL), and so pairs can use the same nodes.  But features
+    // that might make the cells a size greater than REBSER size require
+    // doing pairings in a different pool.
+    //
+  #ifdef UNUSUAL_REBVAL_SIZE
+    for (seg = Mem_Pools[PAR_POOL].segs; seg != NULL; seg = seg->next) {
+        REBVAL *v = cast(REBVAL*, seg + 1);
+        if (v->header.bits & NODE_FLAG_FREE) {
+            assert(LEFT_8_BITS(v->header.bits) == FREED_SERIES_BYTE);
+            continue;
+        }
+
+        assert(v->header.bits & NODE_FLAG_CELL);
+
+        if (v->header.bits & NODE_FLAG_MANAGED) {
+            assert(not (v->header.bits & NODE_FLAG_ROOT));
+            if (v->header.bits & NODE_FLAG_MARKED)
+                v->header.bits &= ~NODE_FLAG_MARKED;
+            else {
+                Free_Node(PAR_POOL, v); // Free_Pairing is for manuals
+                ++count;
+            }
+        }
+    }
+  #endif
+
     return count;
 }
 
