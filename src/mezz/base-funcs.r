@@ -586,22 +586,33 @@ all*: redescribe [
 match: redescribe [
    {Check value using tests (match types, TRUE or FALSE, or filter action)}
 ](
-    adapt specialize 'either-test [
-        ;
-        ; return blank on test failure (can't be plain _ due to "evaluative
-        ; bit" rules...should this be changed so exemplars clear the bit?)
-        ;
-        branch: []
-        only: false ;-- no /ONLY, hence void branch returns BLANK!
+    enclose specialize 'either-test [
+        branch: [] ;-- runs on test failure
+        only: true ;-- failure branch returns void, signals the enclosure
+    ] function [
+        return: [<opt> any-value!]
+        f [frame!]
     ][
-        ; !!! Since a BLANK! result means test failure, an input of blank or
-        ; void can't discern a success or failure.  Yet prohibiting blanks as
-        ; input seems bad.  A previous iteration of MAYBE would get past this
-        ; by returning blank on failure, but void on success...to help cue
-        ; a problem to conditionals.  That is not easy to do with a
-        ; specialization in this style, so just let people deal with it for
-        ; now...e.g. `match [action! block!] blank` will be blank, but so
-        ; will be `match [blank!] blank`.
+        if void? value: :f/value [
+            fail "MATCH cannot take void as input" ;-- EITHER-TEST allows it
+        ]
+
+        ; Ideally we'd pass through all input results on a "match" and give
+        ; blank to indicate a non-match.  But what about:
+        ;
+        ;     if match [logic!] 1 > 2 [...]
+        ;     if match [blank!] find "abc" "d" [...]
+        ;
+        ; Rather than have MATCH return a falsey result in these cases, pass
+        ; back a BAR!.  But on failure, pass back a void.  That will cue
+        ; attention to the distorted success result, and lead those writing
+        ; expressions like the above to use DID MATCH.
+
+        result: do f ;-- can't access f/value after the DO
+        if all [not :value | not void? :result] [
+            return '| ;-- BAR! if matched a falsey type
+        ]
+        to-value :result ;-- blank if failed, or other truthy result
     ]
 )
 

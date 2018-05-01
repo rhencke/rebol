@@ -30,10 +30,11 @@ REBOL [
     }
 ]
 
-finish-init-core: procedure [
+finish-init-core: proc [
     "Completes the boot sequence for Ren-C core."
     boot-mezz [block!]
         {Mezzanine code loaded as part of the boot block in Startup_Core()}
+    <local> tmp ;-- need to get JOIN, SYSTEM, and other bits for COMPOSE
 ][
     ; Remove the reference through which this function we are running is
     ; found, so it's invisible to the user and can't run again (but leave
@@ -47,11 +48,11 @@ finish-init-core: procedure [
     ; definitions are required by SYS and LIB code itself.
     ;
     tmp: make object! 320
-    append tmp reduce [
-        'system :system
+    append tmp compose [
+        system: (ensure object! system)
 
-        'adjoin (get 'join)
-        'join (func [dummy] [
+        adjoin: (ensure action! get 'join)
+        join: (func [dummy] [
             fail/where [
                 {JOIN is reserved in Ren-C for future use}
                 {(It will act like R3's REPEND, which has a slight difference}
@@ -61,7 +62,7 @@ finish-init-core: procedure [
             ] 'dummy
         ])
 
-        'unset? (func [dummy:] [
+        unset?: (func [dummy:] [
             fail/where [
                 {UNSET? is reserved in Ren-C for future use}
                 {(Will mean VOID? GET, like R3-Alpha VALUE? for WORDs/PATHs)}
@@ -70,14 +71,14 @@ finish-init-core: procedure [
             ] 'dummy
         ])
 
-        'value? func [dummy:] [
+        value?: (func [dummy:] [
             fail/where [
                 {VALUE? is reserved in Ren-C for future use}
                 {(It will be a shorthand for ANY-VALUE? a.k.a. NOT VOID?)}
                 {SET? is like R3-Alpha VALUE?, but only for WORDs/PATHs}
                 {If in <r3-legacy> mode, old VALUE? meaning is available.}
             ] 'dummy
-        ]
+        ])
     ]
     system/contexts/user: tmp
 
