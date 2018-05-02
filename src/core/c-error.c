@@ -1266,12 +1266,9 @@ REBCTX *Error_No_Catch_For_Throw(REBVAL *thrown)
     DECLARE_LOCAL (arg);
 
     assert(THROWN(thrown));
-    CATCH_THROWN(arg, thrown); // clears bit
+    CATCH_THROWN(arg, thrown); // clears bit, thrown is now the /NAME
 
-    if (IS_BLANK(thrown))
-        return Error_No_Catch_Raw(arg);
-
-    return Error_No_Catch_Named_Raw(arg, thrown);
+    return Error_No_Catch_Raw(arg, thrown);
 }
 
 

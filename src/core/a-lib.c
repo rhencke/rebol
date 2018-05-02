@@ -579,7 +579,7 @@ REBVAL *RL_rebRun(const void *p, ...)
     if (indexor == THROWN_FLAG) {
         DECLARE_LOCAL (uncaught);
         Move_Value(uncaught, result);
-        rebRelease(uncaught); // ...or could GC after fail at some point
+        rebRelease(result); // ...or could GC after fail at some point
 
         fail (Error_No_Catch_For_Throw(uncaught));
     }
@@ -593,68 +593,6 @@ REBVAL *RL_rebRun(const void *p, ...)
 
     rebRelease(result);
     return NULL;
-}
-
-
-//
-//  rebTrap: RL_API
-//
-// Behaves like rebRun() except traps errors.  Any throws/halts/quits will
-// also be converted to an ERROR! and returned as a value.  As with the TRAP
-// native when used without a /WITH clause, any non-raised errors that are
-// evaluated to will return void...and voids turned into blanks.
-//
-REBVAL *RL_rebTrap(const void * const p, ...) {
-
-    Enter_Api();
-
-    struct Reb_State state;
-    REBCTX *error_ctx;
-
-    PUSH_TRAP(&error_ctx, &state);
-
-    // The first time through the following code 'error' will be NULL, but...
-    // `fail` can longjmp here, so 'error' won't be NULL *if* that happens!
-    //
-    if (error_ctx != NULL)
-        return Init_Error(Alloc_Value(), error_ctx);
-
-    va_list va;
-    va_start(va, p);
-
-    REBVAL *result = Alloc_Value();
-    REBIXO indexor = Do_Va_Core(
-        result,
-        p, // opt_first (preloads value)
-        &va,
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-    va_end(va);
-
-    if (indexor == THROWN_FLAG) {
-        REBCTX *error = Error_No_Catch_For_Throw(result);
-        rebRelease(result);
-
-        fail (error); // throws to above
-    }
-
-    DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
-
-    // Analogous to how TRAP works, if you don't have a handler for the
-    // error case then you can't return an ERROR!, since all errors indicate
-    // a failure.
-    //
-    if (IS_ERROR(result)) {
-        rebRelease(result);
-        return NULL; // a.k.a. void
-    }
-
-    if (IS_VOID(result)) {
-        rebRelease(result);
-        return rebBlank();
-    }
-
-    return result;
 }
 
 
@@ -772,7 +710,7 @@ REBOOL RL_rebPrint(const void *p, ...)
 // evaluated.  So `rebRun(rebEval(some_word), ...)` will execute that word
 // if it's bound to an ACTION! and dereference if it's a variable.
 //
-void *RL_rebEval(const REBVAL *v)
+const void *RL_rebEval(const REBVAL *v)
 {
     Enter_Api();
 
@@ -785,9 +723,10 @@ void *RL_rebEval(const REBVAL *v)
     // instructions like this, there'd probably need to be a misc->opcode or
     // something to distinguish them.
     //
-    REBARR *result = Alloc_Singular_Array();
-    Move_Value(KNOWN(ARR_SINGLE(result)), v);
-    SET_VAL_FLAG(ARR_SINGLE(result), VALUE_FLAG_EVAL_FLIP);
+    REBARR *instruction = Alloc_Singular_Array();
+    RELVAL *single = ARR_SINGLE(instruction);
+    Move_Value(single, v);
+    SET_VAL_FLAG(single, VALUE_FLAG_EVAL_FLIP);
 
     // !!! The intent for the long term is that these rebEval() instructions
     // not tax the garbage collector and be freed as they are encountered
@@ -795,8 +734,51 @@ void *RL_rebEval(const REBVAL *v)
     // tried that.  It's a good assert in general, so rather than subvert it
     // the instructions are just GC managed for now.
     //
-    MANAGE_ARRAY(result);
-    return result;
+    MANAGE_ARRAY(instruction);
+    return instruction;
+}
+
+
+//
+//  rebUneval: RL_API
+//
+// voids are represented as NULL, and they are not legal to splice into
+// blocks.  So the rebUneval() expression works around it by splicing in a
+// GROUP!, and if it's not void then it puts an QUOTE and the value inside.
+//
+//    void => `()`
+//    non-void => `(quote ...)`
+//
+// There's a parallel Rebol action! that does this called UNEVAL, which is
+// for use with REDUCE and COMPOSE/ONLY.  However, rather than return REBVAL*
+// directly, this acts as an "instruction" that can be passed to the rebRun()
+// variadic stream.  This leaves the implementation method more open, and
+// has the benefit of not requiring a rebRelease().
+//
+const void *RL_rebUneval(const REBVAL *v)
+{
+    Enter_Api();
+
+    // !!! See notes in rebEval() about adding opcodes.  No particular need
+    // for one right now, just put in the value.
+
+    REBARR *instruction = Alloc_Singular_Array();
+    RELVAL *single = ARR_SINGLE(instruction);
+    if (v == NULL)
+        Init_Group(single, EMPTY_ARRAY);
+    else {
+        REBARR *a = Make_Array(2);
+        SET_SER_INFO(a, SERIES_INFO_HOLD);
+        Move_Value(Alloc_Tail_Array(a), NAT_VALUE(quote));
+        Move_Value(Alloc_Tail_Array(a), v);
+
+        Init_Group(single, a);
+    }
+
+    // !!! See notes in rebEval() about why these are currently GC'd
+    //
+    MANAGE_ARRAY(instruction);
+    return instruction;
 }
 
 

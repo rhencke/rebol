@@ -533,11 +533,27 @@ int main(int argc, char *argv_ansi[])
         assert(not ctrl_c_enabled); // not while HOST-CONSOLE is on the stack
 
     recover:;
-        REBVAL *trapped = rebTrap(
-            rebEval(host_console), // HOST-CONSOLE function (run it)
-            code, // GROUP! or BLOCK! executed prior (blank if first run)
-            result, // result of evaluating previous code (or void if error)
-            status, // blank or the ERROR! (maybe uncaught throw/halt/quit)
+
+        // This runs the HOST-CONSOLE, which returns *requests* to execute
+        // arbitrary code by way of its return results.  The TRAP and CATCH
+        // are thus here to intercept bugs *in HOST-CONSOLE itself*.  Any
+        // evaluations for the user (or on behalf of the console skin) are
+        // done in Run_Sandboxed_Code().
+        //
+        REBVAL *trapped = rebRun(
+            "lib/trap [ lib/catch/quit/with [",
+                host_console, // action! that takes 3 args, run it
+                rebUneval(code), // group!/block! executed prior (or blank!)
+                rebUneval(result), // previous `code` result, may be void
+                rebUneval(status), // blank! or error! (incl. uncaught throw)
+            "] lib/func [val [<opt> any-value!] name [<opt> any-value!]] [",
+                "do lib/make error! [",
+                    "type: 'Script",
+                    "id: 'no-catch",
+                    "arg1: :val",
+                    "arg2: :name",
+                "]",
+            "] ]",
             END
         );
 

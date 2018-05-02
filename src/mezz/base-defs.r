@@ -95,13 +95,28 @@ elide: func [
 ][
 ]
 
+nihil: enfix func [
+    {Arity-0 form of COMMENT}
+    return: [] {Evaluator will skip result}
+][
+]
+
 end: func [
     {Inertly consumes all subsequent data, evaluating to previous result.}
 
     return: []
-    :omit [<opt> any-value! <...>]
+    :omit [any-value! <...>]
 ][
     while-not [tail? omit] [take omit]
+]
+
+uneval: func [
+    {Make expression that when evaluated, will produce the input cell}
+    return: {`()` if void cell, or `(quote ...)` where ... is passed-in cell}
+        [group!]
+    cell [<opt> any-value!]
+][
+    either void? :cell [quote ()] [reduce quote ('quote :cell)]
 ]
 
 

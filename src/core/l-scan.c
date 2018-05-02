@@ -992,7 +992,7 @@ acquisition_loop:
             const REBVAL *splice = cast(const REBVAL*, p);
             if (splice == NULL) { // libRebol's notion of "void"
                 if (not (ss->opts & SCAN_FLAG_VOIDS_LEGAL))
-                    fail ("voids can't be directly spliced into ANY-ARRAY!s");
+                    fail ("can't splice void in ANY-ARRAY! w/o rebUneval()");
 
                 DS_PUSH_TRASH;
                 Init_Void(DS_TOP);
@@ -1018,7 +1018,56 @@ acquisition_loop:
                 ss->newline_pending = FALSE;
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
             }
+
+            if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
+                REBSER *locker = NULL;
+                Ensure_Value_Immutable(DS_TOP, locker);
+            }
+
             break; } // push values to emit stack until UTF-8 or END
+
+        case DETECTED_AS_SERIES: {
+            //
+            // An "instruction", currently just rebEval() and rebUneval().
+
+            REBARR *instruction = cast(REBARR*, cast(void*, p));
+            REBVAL *single = KNOWN(ARR_SINGLE(instruction));
+
+            if (GET_VAL_FLAG(single, VALUE_FLAG_EVAL_FLIP)) { // rebEval()
+                if (not (ss->opts & SCAN_FLAG_VOIDS_LEGAL))
+                    fail ("can only use rebEval() at top level of run");
+
+                DS_PUSH_TRASH;
+                Move_Value(DS_TOP, single);
+                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
+            }
+            else { // rebUneval()
+                assert(
+                    IS_GROUP(single)
+                    and (ANY_SER_INFOS(
+                        VAL_ARRAY(single),
+                        SERIES_INFO_HOLD | SERIES_INFO_FROZEN
+                    ))
+                );
+
+                DS_PUSH_TRASH;
+                Move_Value(DS_TOP, single);
+            }
+
+            if (ss->newline_pending) {
+                ss->newline_pending = FALSE;
+                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+            }
+
+            if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
+                REBSER *locker = NULL;
+                Ensure_Value_Immutable(DS_TOP, locker);
+            }
+
+            // See notes on why we do not free `a` here, but let the GC
+            // take care of it...(for now)
+
+            break; }
 
         case DETECTED_AS_UTF8: {
             ss->begin = cast(const REBYTE*, p);
@@ -2354,13 +2403,9 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         //
         SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
 
-        // Lock any series which were source-level and came from text runs
-        //
-        if (ss->opts & SCAN_FLAG_LOCK_SCANNED) {
-            if (ANY_ARRAY(DS_TOP))
-                Deep_Freeze_Array(VAL_ARRAY(DS_TOP));
-            else if (ANY_SERIES(DS_TOP))
-                Freeze_Sequence(VAL_SERIES(DS_TOP));
+        if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
+            REBSER *locker = NULL;
+            Ensure_Value_Immutable(DS_TOP, locker);
         }
 
         // Set the newline on the new value, indicating molding should put a

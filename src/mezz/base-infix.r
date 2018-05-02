@@ -385,7 +385,7 @@ me: enfix func [
     return: [<opt> any-value!]
     :var [set-word! set-path!]
         {Variable to assign (and use as the left hand enfix argument)}
-    :rest [<opt> any-value! <...>]
+    :rest [any-value! <...>]
         {Code to run with var as left (first element should be enfixed)}
 ][
     set* var eval-enfix (get* var) rest
@@ -397,7 +397,7 @@ my: enfix func [
     return: [<opt> any-value!]
     :var [set-word! set-path!]
         {Variable to assign (and use as the first prefix argument)}
-    :rest [<opt> any-value! <...>]
+    :rest [any-value! <...>]
         {Code to run with var as left (first element should be prefix)}
 ][
     set* var eval-enfix/prefix (get* var) rest

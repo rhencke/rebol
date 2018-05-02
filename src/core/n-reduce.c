@@ -119,7 +119,7 @@ REBOOL Reduce_Any_Array_Throws(
 //
 //      return: [<opt> any-value!]
 //      value [any-value!] ;-- !!! Red allows void, should it be legal?
-//          {If BLOCK!, expressions are reduced, otherwise single value.}
+//          {GROUP! and BLOCK! reduce expressions, otherwise single value.}
 //      /into
 //          {Output results into a series with no intermediate storage}
 //      target [any-array!]
@@ -131,7 +131,7 @@ REBNATIVE(reduce)
 
     REBVAL *value = ARG(value);
 
-    if (IS_BLOCK(value)) {
+    if (IS_BLOCK(value) or IS_GROUP(value)) {
         if (REF(into))
             Move_Value(D_OUT, ARG(target));
 
@@ -150,7 +150,7 @@ REBNATIVE(reduce)
 
     // A single element should do what is effectively an evaluation but with
     // no arguments.  This is a change in behavior from R3-Alpha, which would
-    // just return the input as is, e.g. `reduce quote (1 + 2)` => (1 + 2).
+    // just return the input as is, e.g. `reduce :foo` => :foo
     //
     // !!! Should the error be more "reduce-specific" if args were required?
     //

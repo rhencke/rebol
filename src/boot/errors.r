@@ -101,7 +101,6 @@ Script: [
 
     hijack-blank:       {Hijacked function was captured but no body given yet}
 
-    no-quote-bar:       {Expression barrier BAR! can't be QUOTEd (use UNEVAL)}
     enfix-quote-late:   [:arg1 {can't left quote a forward quoted value}]
     evaluate-void:      {voids cannot be evaluated}
 
@@ -157,12 +156,10 @@ Script: [
     no-return:          {block did not return a value}
     block-lines:        {expected block of lines}
 
-    ; !!! It's a bit unfortunate to have these as two separate errors.  If
-    ; the display could be an ACTION! it might render smarter and put the name
-    ; into a field that was detected as being blank or not.
+    ; !!! Consider enhancements which would allow suppressing the /NAME in the
+    ; rendering if not present.
     ;
-    no-catch:           [{Missing CATCH for THROW of} :arg1]
-    no-catch-named:     [{Missing CATCH for THROW of} :arg1 {with /NAME:} :arg2]
+    no-catch:           [{Missing CATCH for THROW of} :arg1 {with /NAME:} :arg2]
 
     bad-bad:            [:arg1 {error:} :arg2]
 

@@ -340,9 +340,11 @@ host-start: function [
             {Blank if not found}
         dir [string!]
     ][
-        if empty? dir [return _]
-        dir: clean-path/dir local-to-file dir
-        all [exists? dir | dir]
+        return all [
+            not empty? dir
+            exists? dir: clean-path/dir local-to-file dir
+            dir
+        ]
     ]
 
     get-home-path: function [
@@ -352,8 +354,7 @@ host-start: function [
     ][
         unless get-env: attempt [:system/modules/Process/get-env] [
             loud-print [
-                "Interpreter not built with GET-ENV, can't detect HOME dir"
-                    |
+                "Interpreter not built with GET-ENV, can't detect HOME dir" LF
                 "(Build with Process extension enabled to address this)"
             ]
             return blank
@@ -412,16 +413,17 @@ host-start: function [
     ; the intended arguments.  TAKEs each option string as it goes so the
     ; array remainder can act as the args.
 
-    either tail? argv [
+    if tail? argv [
         if file? exec-path [
             o/boot: exec-path
             o/bin: first split-path o/boot
         ]
-    ][
-        either file? exec-path [
+    ] else [
+        if file? exec-path [
             o/boot: exec-path
             take argv ;consume argv[0] anyway
-        ][ ;-- on most systems, argv[0] is the exe path
+        ] else [
+            ;-- on most systems, argv[0] is the exe path
             o/boot: clean-path local-to-file take argv
         ]
         o/bin: first split-path o/boot
@@ -541,16 +543,14 @@ host-start: function [
             )
         |
             "--resources" end (
-                if resource-dir: to-dir param-or-die "RESOURCES" [
-                    ;; dir exists so will override earlier automated settings
-                    o/resources: resource-dir
+                o/resources: to-dir param-or-die "RESOURCES" or [
+                    die "RESOURCES directory not found"
                 ]
-                else [die "RESOURCES directory not found"]
             )
         |
             "--suppress" end (
                 param: param-or-die "SUPPRESS"
-                o/suppress: if param == "*" [
+                o/suppress: if param = "*" [
                     ;; suppress all known start-up files
                     [%rebol.reb %user.reb %console-skin.reb]
                 ] else [
@@ -560,7 +560,7 @@ host-start: function [
         |
             "--secure" end (
                 o/secure: to word! param-or-die "SECURE"
-                if o/secure != 'allow [
+                if o/secure <> 'allow [
                     die "SECURE is disabled (never finished for R3-Alpha)"
                 ]
             )
@@ -598,8 +598,7 @@ host-start: function [
         |
             [copy cli-option: [["--" | "-" | "+"] to end ]] (
                 die [
-                    "Unknown command line option:" cli-option
-                        |
+                    "Unknown command line option:" cli-option LF
                     {!! For a full list of command-line options use: --help}
                 ]
             )

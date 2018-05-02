@@ -670,7 +670,7 @@ source: procedure [
     ;; from combining the the META-OF information.
 
     write-stdout unspaced [
-        mold name ":" space "make action!" space mold spec-of :f
+        mold name ":" space "make action! [" space mold spec-of :f
     ]
 
     ; While all interfaces as far as invocation is concerned has been unified
@@ -680,11 +680,11 @@ source: procedure [
     ;
     switch type of body: body of :f [
         (block!) [ ;-- FUNC, FUNCTION, PROC, PROCEDURE or (DOES of a BLOCK!)
-            print mold body
+            print [mold body "]"]
         ]
 
         (frame!) [ ;-- SPECIALIZE (or DOES of an ACTION!)
-            print mold body
+            print [mold body "]"]
         ]
     ] else [
         print "...native code, no source available..."

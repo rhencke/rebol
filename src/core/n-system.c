@@ -392,7 +392,7 @@ REBNATIVE(c_debug_break_at)
 //
 //      return: [<opt> any-value!]
 //          {Invisibly returns what the expression to the right would have}
-//      :value [<opt> <end> any-value!]
+//      :value [<end> any-value!]
 //          {The head cell of the code to evaluate after the break happens}
 //  ]
 //
@@ -438,7 +438,7 @@ REBNATIVE(c_debug_break)
 //
 //      return: [<opt> any-value!]
 //          {For maximum freedom, can be anything}
-//      :value [<opt> <end> any-value!]
+//      :value [<end> any-value!]
 //          {An argument (which test code may or may not use)}
 //  ]
 //

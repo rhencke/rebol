@@ -405,7 +405,7 @@ detect_again:;
         // which elements came from strings and which were existing blocks
         // from elsewhere.  This is not ideal, but it's just to start.
         //
-        ss.opts |= SCAN_FLAG_VOIDS_LEGAL | SCAN_FLAG_LOCK_SCANNED;
+        ss.opts |= SCAN_FLAG_VOIDS_LEGAL;
 
         // !!! Current hack is to just allow one binder to be passed in for
         // use binding any newly loaded portions (spliced ones are left with
@@ -485,7 +485,6 @@ detect_again:;
         // (That all is done at the top of this routine.)
         //
         f->value = ARR_SINGLE(eval);
-        assert(GET_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP));
         f->flags.bits |= DO_FLAG_VALUE_IS_INSTRUCTION;
         break; }
 

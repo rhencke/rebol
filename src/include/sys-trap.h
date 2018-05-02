@@ -164,7 +164,7 @@
 //
 #define PUSH_TRAP(e,s) \
     do { \
-        assert(Saved_State != NULL or (DSP == 0 and FS_TOP == NULL)); \
+        /* assert(Saved_State != NULL or (DSP == 0 and FS_TOP == NULL)); */ \
         if (Saved_State == NULL) \
             Set_Stack_Limit(s); \
         Snap_State_Core(s); \

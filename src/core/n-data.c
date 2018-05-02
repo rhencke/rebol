@@ -1122,19 +1122,14 @@ REBNATIVE(unset_q)
 //
 //  "Returns value passed in without evaluation."
 //
-//      return: [<opt> any-value!]
-//          {The input value, verbatim--unless /SOFT and soft quoted type}
-//      :value [any-value!]
-//          {Value to quote, with BAR! or <opt> not allowed (use UNEVAL)}
-//      /soft
-//          {Evaluate if a GROUP!, GET-WORD!, or GET-PATH!}
+//      return: {The input value, verbatim--unless /SOFT and soft quoted type}
+//          [<opt> any-value!]
+//      :value {Value to quote, <opt> is impossible (see UNEVAL)}
+//          [any-value!]
+//      /soft {Evaluate if a GROUP!, GET-WORD!, or GET-PATH!}
 //  ][
-//      case [
-//          bar? :value [fail "Cannot quote expression barrier"]
-//
-//          soft and (match [group! get-word! get-path!] :value) [
-//              reduce value
-//          ]
+//      if* soft and (match [group! get-word! get-path!] :value) [
+//          eval value
 //      ] else [
 //          :value ;-- also sets unevaluated bit, how could a user do so?
 //      ]
@@ -1146,38 +1141,12 @@ REBNATIVE(quote)
 
     REBVAL *v = ARG(value);
 
-    if (IS_BAR(v))
-        fail (Error_No_Quote_Bar_Raw());
-
     if (REF(soft) and IS_QUOTABLY_SOFT(v)) {
         Move_Value(D_CELL, v);
         return R_REEVALUATE_CELL; // EVAL's mechanic lets us reuse this frame
     }
 
     Move_Value(D_OUT, v);
-    SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
-    return R_OUT;
-}
-
-
-//
-//  uneval: native/body [
-//
-//  "Returns value passed in without evaluation (including BAR! and void)"
-//
-//      return: [<opt> any-value!]
-//          {The input value, verbatim.}
-//      :value [<opt> any-value!]
-//          {Void quoting is only possible with APPLY or API (e.g. rebRun())}
-//  ][
-//      :value ;-- also sets unevaluated bit, how could a user do so?
-//  ]
-//
-REBNATIVE(uneval)
-{
-    INCLUDE_PARAMS_OF_UNEVAL;
-
-    Move_Value(D_OUT, ARG(value));
     SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
     return R_OUT;
 }

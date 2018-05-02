@@ -330,8 +330,8 @@ host-console: function [
     ;
     all [
         error? status
-        status/id = 'no-catch-named
-        :status/arg2 = :QUIT
+        status/id = 'no-catch
+        :status/arg2 = :QUIT ;; name
     ] then [
         assert [unset? 'result]
 
@@ -368,8 +368,8 @@ host-console: function [
     ;
     all [
         error? status
-        status/id = 'no-catch-named
-        :status/arg2 = :HALT
+        status/id = 'no-catch
+        :status/arg2 = :HALT ;; name
     ] then [
         assert [unset? 'result]
         if find directives #quit-if-halt [
@@ -468,21 +468,8 @@ host-console: function [
     assert [blank? status] ;-- no failure or halts during last execution
 
     if group? prior [ ;-- plain execution of user code
-        if unset? 'result [
-            return [
-                system/console/print-result () ; can't COMPOSE voids in blocks
-                    |
-                <needs-prompt>
-            ]
-        ]
         return compose/deep/only [
-            ;
-            ; Can't pass `result` in directly, because it might be an ACTION!
-            ; (which when composed in will execute instead of be passed as a
-            ; parameter).  Can't use QUOTE because it would not allow BAR!.
-            ; Use UNEVAL, which is a stronger QUOTE created for this purpose.
-            ;
-            system/console/print-result uneval (:result)
+            system/console/print-result (uneval :result)
                 |
             <needs-prompt>
         ]
@@ -521,9 +508,9 @@ host-console: function [
             return compose/deep/only [
                 #no-unskin-if-error
                     |
-                print mold uneval (prior)
+                print mold (uneval prior)
                     |
-                fail ["Bad REPL continuation:" uneval (result)]
+                fail ["Bad REPL continuation:" (uneval result)]
             ]
         ]
     ]

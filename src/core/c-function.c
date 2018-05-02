@@ -994,7 +994,15 @@ REBACT *Make_Action(
             break;
 
         case PARAM_CLASS_HARD_QUOTE:
+            if (TYPE_CHECK(param, REB_MAX_VOID))
+                fail ("Hard quoted function parameters cannot receive voids");
+
+            goto quote_check; // avoid implicit fallthrough warning
+
         case PARAM_CLASS_SOFT_QUOTE:
+
+        quote_check:;
+
             if (first_arg and NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN)) {
                 SET_VAL_FLAG(rootparam, ACTION_FLAG_QUOTES_FIRST_ARG);
                 first_arg = FALSE;

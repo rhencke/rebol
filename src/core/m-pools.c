@@ -1300,7 +1300,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 
     s->content.dynamic.data = NULL;
     SET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
-    if (!Series_Data_Alloc(s, len_old + delta + x))
+    if (not Series_Data_Alloc(s, len_old + delta + x))
         fail (Error_No_Memory((len_old + delta + x) * wide));
 
     assert(s->content.dynamic.data != NULL);

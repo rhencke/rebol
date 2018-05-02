@@ -355,7 +355,7 @@ REBNATIVE(do)
         assert(IS_ACTION(sys_do_helper));
 
         UNUSED(REF(args)); // detected via `value? :arg`
-        
+
         const REBOOL fully = TRUE; // error if not all arguments consumed
         if (Apply_Only_Throws(
             D_OUT,
