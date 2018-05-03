@@ -44,7 +44,7 @@ boot-print: procedure [
     eval_BOOT_PRINT: eval
     eval: :lib/eval
 
-    unless system/options/quiet [
+    if not system/options/quiet [
         print/(all [any [eval_BOOT_PRINT | semiquoted? 'data] 'eval]) :data
     ]
 ]
@@ -352,7 +352,7 @@ host-start: function [
         return: [blank! file!]
             {Blank if not found}
     ][
-        unless get-env: attempt [:system/modules/Process/get-env] [
+        get-env: attempt [:system/modules/Process/get-env] or [
             loud-print [
                 "Interpreter not built with GET-ENV, can't detect HOME dir" LF
                 "(Build with Process extension enabled to address this)"
@@ -731,7 +731,7 @@ comment [
         ]
     ]
 
-    unless blank? boot-embedded [
+    if not blank? boot-embedded [
         case [
             binary? boot-embedded [ ; single script
                 code: load/header/type boot-embedded 'unbound
@@ -747,7 +747,7 @@ comment [
                 o/encap: boot-embedded
 
                 main: select boot-embedded %main.reb
-                unless binary? main [
+                if not binary? main [
                     die "Could not find %main.reb in encapped zip file"
                 ]
                 code: load/header/type main 'unbound

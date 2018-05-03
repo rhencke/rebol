@@ -57,7 +57,7 @@ join-all: function [
 ][
     forever [
         if tail? block [return ()]
-        unless null? base: do/next block 'block [break]
+        if not null? base: do/next block 'block [break]
     ]
 
     ; !!! It isn't especially compelling that  `join-of 3 "hello"` gives you
@@ -93,7 +93,7 @@ array: func [
 ][
     if block? size [
         if tail? rest: next size [rest: _]
-        unless integer? size: first size [
+        if not integer? size: first size [
             cause-error 'script 'expect-arg reduce ['array 'size type of :size]
         ]
     ]
@@ -150,23 +150,23 @@ replace: function [
     ; Note that if a FORM actually happens inside of FIND, it could wind up
     ; happening repeatedly in the /ALL case if that happens.
 
-    len: case [
+    len: 1 unless case [
         ; leave bitset patterns as-is regardless of target type, len = 1
         bitset? :pattern [1]
 
         any-string? target [
-            unless string? :pattern [pattern: form :pattern]
+            if not string? :pattern [pattern: form :pattern]
             length of :pattern
         ]
 
         binary? target [
             ; Target is binary, pattern is not, make pattern a binary
-            unless binary? :pattern [pattern: to-binary :pattern]
+            if not binary? :pattern [pattern: to-binary :pattern]
             length of :pattern
         ]
 
         any-block? :pattern [length of :pattern]
-    ] else [1]
+    ]
 
     while [pos: find/(all [case_REPLACE 'case]) target :pattern] [
         ; apply replacement if function, or drops pos if not
@@ -175,7 +175,7 @@ replace: function [
 
         target: change/part pos :value len
 
-        unless all_REPLACE [break]
+        if not all_REPLACE [break]
     ]
 
     either tail_REPLACE [target] [save-target]
@@ -262,7 +262,7 @@ reword: function [
     ;
     any-keyword-rule: collect [
         for-each [keyword value] values [
-            unless match keyword-types keyword [
+            if not match keyword-types keyword [
                 fail ["Invalid keyword type:" keyword]
             ]
 
@@ -372,7 +372,7 @@ reword: function [
         (output: insert output a)
     ]
 
-    unless parse/(all [case_REWORD 'case]) source rule [
+    parse/(all [case_REWORD 'case]) source rule or [
         fail "Unexpected error in REWORD's parse rule, should not happen."
     ]
 
@@ -392,7 +392,7 @@ move: func [
     size [integer!] "Size of each record"
     /to "Move to an index relative to the head of the series" ;; TO redefined
 ][
-    unless limit [limit: 1]
+    limit: default [1]
     if skip [
         if 1 > size [cause-error 'script 'out-of-range size]
         offset: either to [offset - 1 * size + 1] [offset * size]
@@ -427,7 +427,7 @@ extract: func [
     ][
         divide index of series negate width  ; Backward loop, use position
     ]
-    unless index [pos: 1]
+    if not index [pos: 1]
     if block? pos [
         parse pos [some [any-number! | logic!]] or [
             cause-error 'Script 'invalid-arg reduce [pos]
@@ -535,9 +535,9 @@ format: function [
     values
     /pad p
 ][
-    p: default [#" "]
-    unless block? :rules [rules: reduce [:rules]]
-    unless block? :values [values: reduce [:values]]
+    p: default [space]
+    if not block? :rules [rules: reduce [:rules]]
+    if not block? :values [values: reduce [:values]]
 
     ; Compute size of output (for better mem usage):
     val: 0

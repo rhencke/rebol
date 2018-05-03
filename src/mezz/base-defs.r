@@ -109,12 +109,6 @@ uneval: func [
 ]
 
 
-; Some find UNLESS confusing, so IF-NOT is a synonym.  NOT binds with the IF.
-; So `if-not x and (y)` => `if not (x and (y))` vs `if (not x) and (y)`
-;
-if-not: :unless
-
-
 ; Despite being very "noun-like", HEAD and TAIL have classically been "verbs"
 ; in Rebol.  Ren-C builds on the concept of REFLECT, so that REFLECT STR 'HEAD
 ; will get the head of a string.  An enfix left-soft-quoting operation is

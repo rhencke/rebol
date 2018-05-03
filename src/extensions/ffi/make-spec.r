@@ -65,7 +65,7 @@ options: [
                             any [user-config/pkg-config {pkg-config}]
                             var
                             %libffi
-                        unless empty? x [
+                        if not empty? x [
                             set (in cfg-ffi var) x
                         ]
                     ]

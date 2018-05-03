@@ -65,7 +65,7 @@ awake-client: function [event] [
                 read port
             ]
         ]
-        wrote [unless send-chunk port [close port]]
+        wrote [if not send-chunk port [close port]]
         close [close port]
     ]
 ]

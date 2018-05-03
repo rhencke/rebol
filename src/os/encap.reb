@@ -587,10 +587,10 @@ pe-format: context [
         find-a-word: proc [
             word [any-word!]
         ][
-            unless any [
+            any [
                 find words to word! word
                 find def to set-word! word
-            ][
+            ] or [
                 append def reduce [to set-word! word]
             ]
         ]
@@ -888,14 +888,16 @@ pe-format: context [
 
         ;print ["Section headers end at:" index of end-of-section-header]
         sort/compare sections func [a b][a/physical-offset < b/physical-offset]
+
         secs: sections
-        first-section-by-phy-offset: secs/1
-        for-next secs [
-            unless zero? secs/1/physical-offset [
-                first-section-by-phy-offset: secs/1
-                break
+        first-section-by-phy-offset: secs/1 or [ catch [
+            for-next secs [
+                if not zero? secs/1/physical-offset [
+                    throw secs/1
+                ]
             ]
-        ]
+        ] ]
+
         ;dump first-section-by-phy-offset
         gap: (
             first-section-by-phy-offset/physical-offset
@@ -1004,14 +1006,14 @@ pe-format: context [
         ]
 
         ;check if there's section name conflicts
-        target-sec: _
-        for-each sec sections [
-            if section-name = to string! trim/with sec/name #{00} [
-                target-sec: sec
-                break
+
+        target-sec: try catch [
+            for-each sec sections [
+                if section-name = to string! trim/with sec/name #{00} [
+                    throw sec
+                ]
             ]
-        ]
-        unless target-sec [
+
             ;fail ["Couldn't find the section" section-name]
             return _
         ]
@@ -1047,7 +1049,7 @@ pe-format: context [
             PE-optional-header/file-alignment
 
         section-size-diff: new-section-size - target-sec/physical-size
-        unless zero? section-size-diff [
+        if not zero? section-size-diff [
             new-image-size: to-u32-le align-to
                 (PE-optional-header/image-size + section-size-diff)
                 PE-optional-header/section-alignment
@@ -1093,7 +1095,7 @@ pe-format: context [
             to-u16-le (COFF-header/number-of-sections - 1)
 
         image-size-diff: align-to target-sec/physical-size PE-optional-header/section-alignment
-        unless zero? image-size-diff [
+        if not zero? image-size-diff [
             change skip exe-data PE-optional-header/image-size-offset
                 to-u32-le (PE-optional-header/image-size - image-size-diff)
         ]
@@ -1123,7 +1125,7 @@ pe-format: context [
             ]
         ]
 
-        unless target-sec/physical-offset + 1 = index of pos [
+        if not (target-sec/physical-offset + 1 = index of pos) [
             ;if the section to remove is not the last section, the last section
             ;must have moved forward, so erase the old section
             change pos head of (
@@ -1329,13 +1331,13 @@ get-encap: function [
         return blank
     ]
 
-    unless compressed-data: any [
+    compressed-data: any [
         elf-format/get-embedding rebol-path
             |
         pe-format/get-embedding rebol-path
             |
         generic-format/get-embedding rebol-path
-    ][
+    ] or [
         return blank
     ]
 

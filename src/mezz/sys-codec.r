@@ -33,7 +33,7 @@ register-codec*: func [
     encode [action! blank!]
     <local> codec
 ][
-    unless block? suffixes [suffixes: reduce [suffixes]]
+    if not block? suffixes [suffixes: reduce [suffixes]]
 
     codec: construct [] compose/only [
         name: quote (name)
@@ -84,11 +84,11 @@ decode: function [
     data [binary!]
         {The data to decode}
 ][
-    unless all [
-        cod: select system/codecs type
+    all [
+        cod: try select system/codecs type
         f: :cod/decode
         (data: f data)
-    ][
+    ] or [
         cause-error 'access 'no-codec type
     ]
     data
@@ -107,11 +107,11 @@ encode: function [
         {Special encoding options}
     opts [block!]
 ][
-    unless all [
-        cod: select system/codecs type
+    all [
+        cod: try select system/codecs type
         f: :cod/encode
         (data: f data)
-    ][
+    ] or [
         cause-error 'access 'no-codec type
     ]
     data

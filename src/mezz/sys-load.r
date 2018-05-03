@@ -217,7 +217,7 @@ load-header: function [
             ; regular script, binary or script encoded compression supported
             case [
                 did find hdr/options 'compress [
-                    unless rest: any [
+                    rest: any [
                         attempt [
                             ; Raw bits.  whitespace *could* be tolerated; if
                             ; you know the kind of compression and are looking
@@ -232,7 +232,7 @@ load-header: function [
                             ;
                             gunzip first transcode/next rest
                         ]
-                    ][
+                    ] or [
                         return 'bad-compress
                     ]
                 ] ; else assumed not compressed
@@ -247,7 +247,7 @@ load-header: function [
 
             case [
                 did find hdr/options 'compress [ ; script encoded only
-                    unless rest: attempt [gunzip first rest] [
+                    rest: attempt [gunzip first rest] or [
                         return 'bad-compress
                     ]
                 ]
@@ -465,7 +465,7 @@ do-needs: function [
     ; Parse the needs dialect [source <version>]
     mods: make block! length of needs
     name: vers: hash: _
-    unless parse needs [
+    parse needs [
         here:
         opt [opt 'core set vers tuple! (do-needs vers)]
         any [
@@ -475,7 +475,7 @@ do-needs: function [
             set hash opt binary!
             (join mods [name vers hash])
         ]
-    ][
+    ] or [
         cause-error 'script 'invalid-arg here
     ]
 
@@ -571,15 +571,15 @@ load-ext-module: function [
 
         did find hdr/options 'private [
             ; full export to user
-            unless no-user [
+            if not no-user [
                 resolve/extend/only system/contexts/user mod hdr/exports
             ]
         ]
     ] else [
-        unless no-lib [
+        if not no-lib [
             resolve/extend/only system/contexts/lib mod hdr/exports
         ]
-        unless no-user [
+        if not no-user [
             resolve/extend/only system/contexts/user mod hdr/exports
         ]
     ]
@@ -658,7 +658,7 @@ load-module: function [
             tmp: file-type? source
             case [ ; Return blank if read or load-extension fails
                 not tmp [
-                    unless attempt [data: read source] [return blank]
+                    attempt [data: read source] or [return blank]
                 ]
 
                 tmp = 'extension [
@@ -696,7 +696,7 @@ load-module: function [
 
             data: make block! length of source
 
-            unless parse source [
+            parse source [
                 any [
                     tmp:
                     set name opt set-word!
@@ -704,7 +704,7 @@ load-module: function [
                     set ver opt tuple!
                     (join data [mod ver if name [to word! name]])
                 ]
-            ][
+            ] or [
                 cause-error 'script 'invalid-arg tmp
             ]
 
@@ -761,7 +761,7 @@ load-module: function [
             no-lib: true  ; Still not /no-lib in IMPORT
 
             ; But make it a mixin and it will be imported directly later
-            unless did find hdr/options 'private [
+            if not find hdr/options 'private [
                 hdr/options: append any [hdr/options make block! 1] 'private
             ]
         ]
@@ -956,7 +956,7 @@ import: function [
         ]
     ]
 
-    unless mod [
+    if not mod [
         cause-error 'access 'cannot-open reduce [module "module not found"]
     ]
 
@@ -1064,15 +1064,14 @@ load-extension: function [
 unload-extension: procedure [
     ext [object!] "extension object"
 ][
-
-    ;sanity checking
-    unless locked? ext [
+    if not locked? ext [
         fail "Extension is not locked"
     ]
-    unless all [
+
+    all [
         library? ext/lib-base
         file? ext/lib-file
-    ][
+    ] or [
         fail "Can't unload a builtin extension"
     ]
 

@@ -47,7 +47,7 @@ idate-to-date: function [date [string!]] [
 ]
 
 sync-op: function [port body] [
-    unless port/state [
+    if not port/state [
         open port
         port/state/close?: yes
     ]
@@ -64,7 +64,7 @@ sync-op: function [port body] [
     ; the other side exceeds the timeout value.
     ;
     while-not [find [ready close] state/state] [
-        unless port? wait [state/connection port/spec/timeout] [
+        if not port? wait [state/connection port/spec/timeout] [
             fail make-http-error "Timeout"
         ]
         if state/state = 'reading-data [
@@ -84,7 +84,7 @@ sync-op: function [port body] [
 ]
 
 read-sync-awake: function [event [event!]] [
-    switch event/type [
+    false unless switch event/type [
         connect
         ready [
             do-request event/port
@@ -101,7 +101,7 @@ read-sync-awake: function [event [event!]] [
             event/port/state/error: _
             fail error
         ]
-    ] else [false]
+    ]
 ]
 
 http-awake: function [event] [
@@ -110,7 +110,8 @@ http-awake: function [event] [
     state: http-port/state
     if action? :http-port/awake [state/awake: :http-port/awake]
     awake: :state/awake
-    switch event/type [
+
+    true unless switch event/type [
         read [
             awake make event! [type: 'read port: http-port]
             check-response http-port
@@ -155,7 +156,7 @@ http-awake: function [event] [
             close http-port
             res
         ]
-    ] else [true]
+    ]
 ]
 
 make-http-error: func [
@@ -283,12 +284,13 @@ check-response: function [port] [
     line: info/response-line
     awake: :state/awake
     spec: port/spec
+
     ; dump spec
-    if all [
+    all [
         not headers
         d1: find conn/data crlfbin
         d2: find/tail d1 crlf2bin
-    ] [
+    ] then [
         info/response-line: line: to string! copy/part conn/data d1
 
         ; !!! In R3-Alpha, CONSTRUCT/WITH allowed passing in data that could
@@ -304,8 +306,8 @@ check-response: function [port] [
         info/name: to file! any [spec/path %/]
         if headers/content-length [
             info/size:
-            headers/content-length:
-                to-integer/unsigned headers/content-length
+                <- headers/content-length:
+                <- to-integer/unsigned headers/content-length
         ]
         if headers/last-modified [
             info/date: attempt [idate-to-date headers/last-modified]
@@ -315,7 +317,7 @@ check-response: function [port] [
         if quote (txt) <> last body-of :net-log [ ; net-log is in active state
             print "Dumping Webserver headers and body"
             net-log/S info
-            if error? trap [
+            trap/with [
                 body: to string! conn/data
                 dump body
             ][
@@ -325,95 +327,113 @@ check-response: function [port] [
             ]
         ]
     ]
-    unless headers [
+
+    if not headers [
         read conn
         return false
     ]
+
     res: false
-    unless info/response-parsed [
-        ;?? line
-        parse line [
-            "HTTP/1." [#"0" | #"1"] some #" " [
-                #"1" (info/response-parsed: 'info)
-                |
-                #"2" [["04" | "05"] (info/response-parsed: 'no-content)
-                    | (info/response-parsed: 'ok)
+
+    info/response-parsed: default [
+        catch [
+            parse line [
+                "HTTP/1." [#"0" | #"1"] some #" " [
+                    #"1" (throw 'info)
+                    |
+                    #"2" [["04" | "05"] (throw 'no-content)
+                        | (throw 'ok)
+                    ]
+                    |
+                    #"3" [
+                        "02" (throw spec/follow)
+                        |
+                        "03" (throw either spec/follow = 'ok ['ok] [see-other])
+                        |
+                        "04" (throw 'not-modified)
+                        |
+                        "05" (throw 'use-proxy)
+                        | (throw 'redirect)
+                    ]
+                    |
+                    #"4" [
+                        "01" (throw 'unauthorized)
+                        |
+                        "07" (throw 'proxy-auth)
+                        | (throw 'client-error)
+                    ]
+                    |
+                    #"5" (throw 'server-error)
                 ]
-                |
-                #"3" [
-                    "02" (info/response-parsed: spec/follow)
-                    |
-                    "03" (info/response-parsed: either spec/follow = 'ok ['ok][see-other])
-                    |
-                    "04" (info/response-parsed: 'not-modified)
-                    |
-                    "05" (info/response-parsed: 'use-proxy)
-                    | (info/response-parsed: 'redirect)
-                ]
-                |
-                #"4" [
-                    "01" (info/response-parsed: 'unauthorized)
-                    |
-                    "07" (info/response-parsed: 'proxy-auth)
-                    | (info/response-parsed: 'client-error)
-                ]
-                |
-                #"5" (info/response-parsed: 'server-error)
+                | (throw 'version-not-supported)
             ]
-            | (info/response-parsed: 'version-not-supported)
         ]
     ]
+
     if spec/debug = true [
         spec/debug: info
     ]
+
     switch/all info/response-parsed [
         ok [
-            either spec/method = 'HEAD [
+            if spec/method = 'HEAD [
                 state/state: 'ready
-                res: awake make event! [type: 'done port: port]
-                unless res [res: awake make event! [type: 'ready port: port]]
-            ] [
+                res: any [
+                    awake make event! [type: 'done port: port]
+                    awake make event! [type: 'ready port: port]
+                ]
+            ] else [
                 res: check-data port
-                if all [not res state/state = 'ready] [
-                    res: awake make event! [type: 'done port: port]
-                    unless res [res: awake make event! [type: 'ready port: port]]
+                if not res and (state/state = 'ready) [
+                    res: any [
+                        awake make event! [type: 'done port: port]
+                        awake make event! [type: 'ready port: port]
+                    ]
                 ]
             ]
         ]
-        redirect see-other [
-            either spec/method = 'HEAD [
+        redirect
+        see-other [
+            if spec/method = 'HEAD [
                 state/state: 'ready
                 res: awake make event! [type: 'custom port: port code: 0]
-            ] [
+            ] else [
                 res: check-data port
-                unless open? port [
-                    ;NOTE some servers(e.g. yahoo.com) don't supply content-data in the redirect header so the state/state can be left in 'reading-data after check-data call
-                    ;I think it is better to check if port has been closed here and set the state so redirect sequence can happen. --Richard
+                if not open? port [
+                    ;
+                    ; !!! comment said: "some servers(e.g. yahoo.com) don't
+                    ; supply content-data in the redirect header so the
+                    ; state/state can be left in 'reading-data after
+                    ; check-data call.  I think it is better to check if port
+                    ; has been closed here and set the state so redirect
+                    ; sequence can happen."
+                    ;
                     state/state: 'ready
                 ]
             ]
-            if all [not res state/state = 'ready] [
-                either all [
-                    any [
-                        find [get head] spec/method
-                        all [
-                            info/response-parsed = 'see-other
-                            spec/method: 'get
-                        ]
+            if not res and (state/state = 'ready) [
+                all [
+                    find [get head] spec/method or all [
+                        info/response-parsed = 'see-other
+                        spec/method: 'get
                     ]
                     in headers 'Location
-                ] [
+                ] then [
                     res: do-redirect port headers/location headers
-                ] [
-                    state/error: make-http-error/inf "Redirect requires manual intervention" info
+                ] else [
+                    state/error: make-http-error/inf
+                        <- "Redirect requires manual intervention" info
                     res: awake make event! [type: 'error port: port]
                 ]
             ]
         ]
-        unauthorized client-error server-error proxy-auth [
-            either spec/method = 'HEAD [
+        unauthorized
+        client-error
+        server-error
+        proxy-auth [
+            if spec/method = 'HEAD [
                 state/state: 'ready
-            ] [
+            ] else [
                 check-data port
             ]
         ]
@@ -421,13 +441,17 @@ check-response: function [port] [
             state/error: make-http-error "Authentication not supported yet"
             res: awake make event! [type: 'error port: port]
         ]
-        client-error server-error [
+        client-error
+        server-error [
             state/error: make-http-error ["Server error: " line]
             res: awake make event! [type: 'error port: port]
         ]
-        not-modified [state/state: 'ready
-            res: awake make event! [type: 'done port: port]
-            unless res [res: awake make event! [type: 'ready port: port]]
+        not-modified [
+            state/state: 'ready
+            res: any [
+                awake make event! [type: 'done port: port]
+                awake make event! [type: 'ready port: port]
+            ]
         ]
         use-proxy [
             state/state: 'ready
@@ -435,13 +459,16 @@ check-response: function [port] [
             res: awake make event! [type: 'error port: port]
         ]
         proxy-auth [
-            state/error: make-http-error "Authentication and proxies not supported yet"
+            state/error: make-http-error
+                <- "Authentication and proxies not supported yet"
             res: awake make event! [type: 'error port: port]
         ]
         no-content [
             state/state: 'ready
-            res: awake make event! [type: 'done port: port]
-            unless res [res: awake make event! [type: 'ready port: port]]
+            res: any [
+                awake make event! [type: 'done port: port]
+                awake make event! [type: 'ready port: port]
+            ]
         ]
         info [
             info/headers: _
@@ -480,14 +507,14 @@ do-redirect: func [
         new-uri: as url! unspaced [spec/scheme "://" spec/host new-uri]
     ]
     new-uri: decode-url new-uri
-    unless find new-uri 'port-id [
+    if not find new-uri 'port-id [
         switch new-uri/scheme [
             'https [append new-uri [port-id: 443]]
             'http [append new-uri [port-id: 80]]
         ]
     ]
     new-uri: construct/only port/scheme/spec new-uri
-    unless find [http https] new-uri/scheme [
+    if not find [http https] new-uri/scheme [
         state/error: make-http-error {Redirect to a protocol different from HTTP or HTTPS not supported}
         return state/awake make event! [type: 'error port: port]
     ]
@@ -518,7 +545,7 @@ check-data: function [port] [
         headers/transfer-encoding = "chunked" [
             data: conn/data
             ;clear the port data only at the beginning of the request --Richard
-            unless port/data [port/data: make binary! length of data]
+            port/data: default [make binary! length of data]
             out: port/data
             until [
                 either parse data [
@@ -556,7 +583,7 @@ check-data: function [port] [
                     true
                 ]
             ]
-            unless state/state = 'ready [
+            if state/state <> 'ready [
                 ;
                 ; Awaken WAIT loop to prevent timeout when reading big data.
                 ;
@@ -626,10 +653,10 @@ sys/make-scheme [
             <local> foo
         ][
             foo: if action? :port/awake [
-                unless open? port [
+                if not open? port [
                     cause-error 'Access 'not-open port/spec/ref
                 ]
-                unless port/state/state = 'ready [
+                if port/state/state <> 'ready [
                     fail make-http-error "Port not ready"
                 ]
                 port/state/awake: :port/awake
@@ -653,10 +680,10 @@ sys/make-scheme [
             port [port!]
             value
         ][
-            unless any [block? :value binary? :value any-string? :value] [
+            if not match [block! binary! string!] :value [
                 value: form :value
             ]
-            unless block? value [
+            if not block? value [
                 value: reduce [
                     [Content-Type:
                         "application/x-www-form-urlencoded; charset=utf-8"
@@ -668,7 +695,7 @@ sys/make-scheme [
                 unless open? port [
                     cause-error 'Access 'not-open port/spec/ref
                 ]
-                unless port/state/state = 'ready [
+                if port/state/state <> 'ready [
                     fail make-http-error "Port not ready"
                 ]
                 port/state/awake: :port/awake
@@ -685,7 +712,7 @@ sys/make-scheme [
             <local> conn
         ][
             if port/state [return port]
-            unless port/spec/host [
+            if not port/spec/host [
                 fail make-http-error "Missing host address"
             ]
             port/state: has [

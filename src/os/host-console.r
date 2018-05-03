@@ -245,7 +245,7 @@ start-console: procedure [
     ; the WHY function on the first error delivery.
     ;
     proto-skin/print-error: adapt :proto-skin/print-error [
-        unless system/state/last-error [
+        if not system/state/last-error [
             system/console/print-info "Note: use WHY for error information"
         ]
 

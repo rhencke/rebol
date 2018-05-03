@@ -541,7 +541,7 @@
     equal?
         test a-value b-value
         to-logic for-each [w v] a-value [
-            unless test :v select b-value w [break]
+            if not test :v select b-value w [break]
         ]
 )]
 ; object! structural equivalence verified
@@ -563,7 +563,7 @@
     equal?
         test a-value b-value
         to-logic for-each [w v] a-value [
-            unless test :v select b-value w [break]
+            if not test :v select b-value w [break]
         ]
 )
 ; unset! comparison fails

@@ -83,9 +83,9 @@ rebsource: context [
         ][
             collect [
                 for-each source list/source-files [
-                    unless find whitelisted source [
-                        keep opt analyse/file source
-                    ]
+                    if find whitelisted source [continue]
+
+                    keep opt analyse/file source
                 ]
             ]
         ]
@@ -188,15 +188,14 @@ rebsource: context [
                             ;
                             ; ... ? (not a native)
                             ;
-                            unless (
-                                any [
-                                    equal? proto-parser/proto.id (
-                                        form to word! proto-parser/data/1)
-                                    equal? proto-parser/proto.id (
-                                        join-of "RL_"
-                                        form to word! proto-parser/data/1)
-                                ]
-                            ) [
+                            not any [
+                                proto-parser/proto.id =
+                                    <- (form to word! proto-parser/data/1)
+                                proto-parser/proto.id =
+                                    <- unspaced [
+                                        "RL_" to word! proto-parser/data/1
+                                    ]
+                            ] then [
                                 line: text-line-of proto-parser/parse.position
                                 emit analysis [
                                     id-mismatch

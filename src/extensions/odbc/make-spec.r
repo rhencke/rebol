@@ -35,7 +35,7 @@ modules: [
             ]
         ][
             ; On some systems (32-bit Ubuntu 12.04), odbc requires ltdl
-            append-of [%odbc] unless find [no false off _ #[false]] user-config/odbc-requires-ltdl [%ltdl]
+            append-of [%odbc] if not find [no false off _ #[false]] user-config/odbc-requires-ltdl [%ltdl]
         ]
     ]
 ]

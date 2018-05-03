@@ -169,25 +169,23 @@ for-each [comparison-op function-name] [
 ; hence these are not meant as a generic substitute for IF and ELSE.
 ;
 ??: enfix func [
-    {If left is conditionally true, return value on the right (as-is)}
+    {If TO-LOGIC of the left is true, return right value, otherwise null}
 
     return: [<opt> any-value!]
-        {Void if the condition is FALSEY?, else value}
-    condition [any-value!]
-    value [any-value!]
+    left [any-value!]
+    right [any-value!]
 ][
-    if/only :condition [:value]
+    if/opt :left [:right]
 ]
 
 !!: enfix func [
-    {If left isn't void, return it, else return value on the right (as-is)}
+    {If left isn't null, return it, else return value on the right}
 
     return: [<opt> any-value!]
-        {Left if it isn't void, else right}
     left [<opt> any-value!]
     right [any-value!]
 ][
-    either-test-value/only :left [:right]
+    either-test-value/opt :left [:right]
 ]
 
 ; !!! By naming this ?! it somewhat suggests `?? () !!`, e.g. a shortening and
@@ -196,14 +194,13 @@ for-each [comparison-op function-name] [
 ; favoring one over the other enough to make it canon.
 ;
 !?: ?!: enfix func [
-    {If left is conditionally false, return value on the right (as-is)}
+    {If TO LOGIC! of the left is false, return right value, otherwise null}
 
     return: [<opt> any-value!]
-        {Void if the condition is FALSEY?, else value}
-    condition [any-value!]
-    value [any-value!]
+    left [any-value!]
+    right [any-value!]
 ][
-    unless/only :condition [:value]
+    if-not/opt :left [:right]
 ]
 
 
@@ -220,19 +217,19 @@ for-each [comparison-op function-name] [
 ; flexible when you wish to run a block of code from a variable.  (It also
 ; looks like less an odd name when paired with ELSE.)
 ;
-; NAY is the somewhat weird name for enfixed UNLESS, until someone thinks of
-; a better name for it.  (ELSE is not an option)
+; NAY is the somewhat weird name for enfixed IF-NOT, until someone thinks of
+; a better name for it.  (ELSE is not an option)  It may be unnecessary.
 
 then: enfix :if
 
-then*: enfix specialize :if [ ;-- THEN/ONLY is a path, can't run infix
-    only: true
+then*: enfix specialize :if [ ;-- THEN/OPT is a path, can't run infix
+    opt: true
 ]
 
-nay: enfix :unless
+nay: enfix :if-not
 
-nay*: enfix specialize :unless [ ;-- UNLESS/ONLY is a path, can't run infix
-    only: true
+nay*: enfix specialize :if-not [ ;-- NAY/OPT is a path, can't run infix
+    opt: true
 ]
 
 
@@ -241,35 +238,31 @@ nay*: enfix specialize :unless [ ;-- UNLESS/ONLY is a path, can't run infix
 ; advantage of the pattern of conditionals such as `if condition [...]` to
 ; only return null if the branch does not run, and never return null if it
 ; does run (null branch evaluations are forced to a BLANK!)
-;
-; These could be implemented as specializations of the generic EITHER-TEST
-; native.  But due to their common use they are optimized into their own
-; natives: EITHER-TEST-NULL and EITHER-TEST-VALUE.
 
 also: enfix redescribe [
     "Evaluate the branch if the left hand side expression is not null"
 ](
     comment [specialize 'either-test [test: :null?]]
-    :either-test-null
+    :either-test-null ;-- So common as to warrant hand-specialized native
 )
 
 also*: enfix redescribe [
-    "Would be the same as ALSO/ONLY, if infix functions dispatched from paths"
+    "Would be the same as ALSO/OPT, if infix functions dispatched from paths"
 ](
-    specialize 'also [only: true]
+    specialize 'also [opt: true]
 )
 
 else: enfix redescribe [
     "Evaluate the branch if the left hand side expression is void"
 ](
     comment [specialize 'either-test [test: :value?]]
-    :either-test-value
+    :either-test-value ;-- So common as to warrant hand-specialized native
 )
 
 else*: enfix redescribe [
-    "Would be the same as ELSE/ONLY, if infix functions dispatched from paths"
+    "Would be the same as ELSE/OPT, if infix functions dispatched from paths"
 ](
-    specialize 'else [only: true]
+    specialize 'else [opt: true]
 )
 
 

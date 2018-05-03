@@ -29,14 +29,14 @@
 //
 // Control constructs in Ren-C differ from R3-Alpha in some ways:
 //
-// * If they do not run any branches, they evaluate to void ("unset!") and not
-//   BLANK! ("none!").  But if a branch does run, and evaluates to void, then
-//   the result is altered to be BLANK!.  Hence void can cue other functions
+// * If they do not run any branches, they evaluate to null ("unset!") and not
+//   a BLANK! ("none!").  If a branch *does* run, and evaluates to null, then
+//   the result is altered to be BLANK!.  Hence null can cue other functions
 //   (like THEN and ELSE) to be sure no branch ran, and respond appropriately.
 //
-// * It is possible to ask the return result to not be "blankified", but
-//   give back the possibly-void value, with the /ONLY refinement.  This is
-//   specialized as functions ending in *.  (IF*, EITHER*, CASE*, SWITCH*...)
+// * It is possible to ask the branch return result to not be "blankified",
+//   but give back nulls as-is, with the /OPT refinement.  This is specialized
+//   as functions ending in *.  (IF*, EITHER*, CASE*, SWITCH*...)
 //
 // * Zero-arity function values used as branches will be executed, and
 //   single-arity functions used as branches will also be executed--but passed
@@ -54,12 +54,12 @@
 //
 //  {When TO-LOGIC CONDITION is true, execute branch}
 //
-//      return: "void if branch not run, else branch result"
+//      return: "null if branch not run, otherwise branch result"
 //          [<opt> any-value!]
 //      condition [any-value!]
-//      branch "If arity-1 action, receives the evaluated condition"
+//      branch "If arity-1 ACTION!, receives the evaluated condition"
 //          [block! action!]
-//      /only "If branch runs and returns void, do not convert it to BLANK!"
+//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
 REBNATIVE(if)
@@ -69,7 +69,7 @@ REBNATIVE(if)
     if (IS_CONDITIONAL_FALSE(ARG(condition)))
         return R_VOID;
 
-    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch), REF(only)))
+    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
 
     return R_OUT;
@@ -77,25 +77,25 @@ REBNATIVE(if)
 
 
 //
-//  unless: native [
+//  if-not: native [
 //
 //  {When TO-LOGIC CONDITION is false, execute branch}
 //
-//      return: "void if branch not run, else branch result"
+//      return: "null if branch not run, otherwise branch result"
 //          [<opt> any-value!]
 //      condition [any-value!]
 //      branch [block! action!]
-//      /only "If branch runs and returns void, do not convert it to BLANK!"
+//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
-REBNATIVE(unless)
+REBNATIVE(if_not)
 {
-    INCLUDE_PARAMS_OF_UNLESS;
+    INCLUDE_PARAMS_OF_IF_NOT;
 
     if (IS_CONDITIONAL_TRUE(ARG(condition)))
         return R_VOID;
 
-    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch), REF(only)))
+    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
 
     return R_OUT;
@@ -105,14 +105,14 @@ REBNATIVE(unless)
 //
 //  either: native [
 //
-//  {Choose a branch to execute, based on TO-LOGIC of the condition value}
+//  {Choose a branch to execute, based on TO-LOGIC of the CONDITION value}
 //
 //      return: [<opt> any-value!]
 //      condition [any-value!]
-//      true-branch "If arity-1 action, receives the evaluated condition"
+//      true-branch "If arity-1 ACTION!, receives the evaluated condition"
 //          [block! action!]
 //      false-branch [block! action!]
-//      /only "If branch runs and returns void, do not convert it to BLANK!"
+//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
 REBNATIVE(either)
@@ -125,7 +125,7 @@ REBNATIVE(either)
         IS_CONDITIONAL_TRUE(ARG(condition))
             ? ARG(true_branch)
             : ARG(false_branch),
-        REF(only)
+        REF(opt)
     )){
         return R_OUT_IS_THROWN;
     }
@@ -137,15 +137,16 @@ REBNATIVE(either)
 //
 //  either-test: native [
 //
-//  {If value passes test, return that value, otherwise take the branch.}
+//  {If argument passes test, return it as-is, otherwise take the branch}
 //
-//      return: "Input value if it matched, or branch result (BLANK! if void)"
+//      return: "Input argument if it matched, or branch result"
 //          [<opt> any-value!]
-//      test "Typeset membership, LOGIC! to test TRUTHY?, filter function"
+//      test "Typeset membership, LOGIC! to test for truth, filter function"
 //          [action! datatype! typeset! block! logic!]
-//      value [<opt> any-value!]
-//      branch [block! action!]
-//      /only "If branch runs and returns void, do not convert it to BLANK!"
+//      arg [<opt> any-value!]
+//      branch "If arity-1 ACTION!, receives the non-matching argument"
+//          [block! action!]
+//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
 REBNATIVE(either_test)
@@ -153,10 +154,10 @@ REBNATIVE(either_test)
     INCLUDE_PARAMS_OF_EITHER_TEST;
 
     REBVAL *test = ARG(test);
-    REBVAL *value = ARG(value);
+    REBVAL *arg = ARG(arg);
 
     if (IS_LOGIC(test)) { // test for "truthy" or "falsey"
-        if (IS_VOID(value)) { // void is neither true nor false
+        if (IS_VOID(arg)) { // null is neither true nor false
             DECLARE_LOCAL (word);
             Init_Word(word, VAL_PARAM_SPELLING(PAR(test)));
             fail (Error_No_Value(word));
@@ -167,7 +168,7 @@ REBNATIVE(either_test)
         // "testing the test" on a fixed value.  Allow literal blocks (e.g.
         // use IS_TRUTHY() instead of IS_CONDITIONAL_TRUE())
         //
-        if (VAL_LOGIC(test) != IS_TRUTHY(value))
+        if (VAL_LOGIC(test) != IS_TRUTHY(arg))
             goto test_failed;
         return R_FROM_BOOL(VAL_LOGIC(test));
     }
@@ -201,13 +202,13 @@ REBNATIVE(either_test)
             : item;
 
         if (IS_DATATYPE(var)) {
-            if (VAL_TYPE_KIND(var) == VAL_TYPE(value))
+            if (VAL_TYPE_KIND(var) == VAL_TYPE(arg))
                 r = R_TRUE; // any type matching counts
             else if (r == R_UNHANDLED)
                 r = R_FALSE; // at least one type has to speak up now
         }
         else if (IS_TYPESET(var)) {
-            if (TYPE_CHECK(var, VAL_TYPE(value)))
+            if (TYPE_CHECK(var, VAL_TYPE(arg)))
                 r = R_TRUE; // any typeset matching counts
             else if (r == R_UNHANDLED)
                 r = R_FALSE; // at least one type has to speak up now
@@ -218,7 +219,7 @@ REBNATIVE(either_test)
                 D_OUT,
                 fully,
                 const_KNOWN(var),
-                DEVOID(value), // convert void cells to NULL for API
+                DEVOID(arg), // convert void cells to C nullptr for API
                 END
             )){
                 return R_OUT_IS_THROWN;
@@ -261,11 +262,11 @@ REBNATIVE(either_test)
     // Someone spoke up for test success and was not overridden.
     //
     assert(r == R_TRUE);
-    Move_Value(D_OUT, ARG(value));
+    Move_Value(D_OUT, ARG(arg));
     return R_OUT;
 
 test_failed:
-    if (Run_Branch_Throws(D_OUT, ARG(value), ARG(branch), REF(only)))
+    if (Run_Branch_Throws(D_OUT, arg, ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
 
     return R_OUT;
@@ -275,14 +276,14 @@ test_failed:
 //
 //  either-test-null: native [
 //
-//  {If value is null, return null, otherwise take the branch.}
+//  {If argument is null, return null, otherwise take the branch}
 //
-//      return: [<opt> any-value!]
-//          {null if input is null, or branch result (blank if null)}
-//      value [<opt> any-value!]
-//      branch [block! action!]
-//      /only
-//          "If branch runs and returns null, do not convert it to a BLANK!"
+//      return: {null if input is null, or branch result}
+//          [<opt> any-value!]
+//      arg [<opt> any-value!]
+//      branch "If arity-1 ACTION!, receives value that triggered branch"
+//          [block! action!]
+//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
 REBNATIVE(either_test_null)
@@ -292,10 +293,10 @@ REBNATIVE(either_test_null)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST_NULL;
 
-    if (IS_VOID(ARG(value)))
+    if (IS_VOID(ARG(arg)))
         return R_VOID;
 
-    if (Run_Branch_Throws(D_OUT, ARG(value), ARG(branch), REF(only)))
+    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
 
     return R_OUT;
@@ -305,14 +306,13 @@ REBNATIVE(either_test_null)
 //
 //  either-test-value: native [
 //
-//  {If value is not void, return the value, otherwise take the branch.}
+//  {If argument is not null, return the value, otherwise take the branch}
 //
-//      return: [<opt> any-value!]
-//          {Input value if not void, or branch result (BLANK! if void)}
-//      value [<opt> any-value!]
+//      return: {Input value if not null, or branch result}
+//          [<opt> any-value!]
+//      arg [<opt> any-value!]
 //      branch [block! action!]
-//      /only
-//          "If branch runs and returns void, do not convert it to BLANK!"
+//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
 REBNATIVE(either_test_value)
@@ -322,12 +322,12 @@ REBNATIVE(either_test_value)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST_VALUE;
 
-    if (not IS_VOID(ARG(value))) {
-        Move_Value(D_OUT, ARG(value));
+    if (not IS_VOID(ARG(arg))) {
+        Move_Value(D_OUT, ARG(arg));
         return R_OUT;
     }
 
-    if (Run_Branch_Throws(D_OUT, ARG(value), ARG(branch), REF(only)))
+    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
 
     return R_OUT;

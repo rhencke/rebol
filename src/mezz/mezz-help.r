@@ -475,7 +475,7 @@ help: procedure [
         value: get :topic
     ]
 
-    unless action? :value [
+    if not action? :value [
         print spaced collect [
             keep [
                 (uppercase mold topic) "is" (type-name :value) "of value:"
@@ -544,7 +544,7 @@ help: procedure [
     adaptee: match action! try select meta 'adaptee
     chainees: match block! try select meta 'chainees
 
-    classification: case [
+    classification: {a function} unless case [
         :specializee [
             either original-name [
                 spaced [{a specialization of} original-name]
@@ -564,8 +564,6 @@ help: procedure [
         :chainees [
             {a chained function}
         ]
-    ] else [
-        {a function}
     ]
 
     print-newline
@@ -611,13 +609,13 @@ help: procedure [
         ]
     ]
 
-    unless empty? args [
+    if not empty? args [
         print-newline
         print "ARGUMENTS:"
         print-args args
     ]
 
-    unless empty? refinements [
+    if not empty? refinements [
         print-newline
         print "REFINEMENTS:"
         print-args/indent-words refinements

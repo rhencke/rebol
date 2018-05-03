@@ -68,10 +68,10 @@ sign-of: func [
     "Returns sign of number as 1, 0, or -1 (to use as multiplier)."
     number [any-number! money! time!]
 ][
-    case [
+    0 unless case [
         positive? number [1]
         negative? number [-1]
-    ] else [0]
+    ]
 ]
 
 extreme-of: func [
@@ -237,12 +237,14 @@ math: function [
     clear nested-expr-val
     res: either parse expr expression [expr-val] [blank]
 
-    either only [res] [
+    either only [
+        res
+    ][
         ret: reduce res
-        unless all [
+        all [
             1 = length of ret
             any-number? ret/1
-        ][
+        ] or [
             fail [
                 unspaced ["Cannot be REDUCED to a number(" mold ret ")"]
                 ":" mold res

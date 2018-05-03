@@ -183,7 +183,7 @@ make-emitter: function [
 
 
         emit-line: proc [data /indent] [
-            unless any [tail? buf-emit | newline = last buf-emit] [
+            if not any [tail? buf-emit | newline = last buf-emit] [
                 probe skip (tail-of buf-emit) -100
                 fail "EMIT-LINE should always start a new line"
             ]

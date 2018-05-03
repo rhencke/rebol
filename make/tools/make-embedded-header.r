@@ -34,7 +34,7 @@ remove-macro: proc [
     macro [any-string!]
     <local> pos-m inc eol
 ][
-    unless binary? macro [macro: to binary! macro]
+    if not binary? macro [macro: to binary! macro]
     pos-m: find inp macro
     if pos-m [
         inc: find/reverse pos-m to binary! "#define"

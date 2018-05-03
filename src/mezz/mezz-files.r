@@ -58,10 +58,12 @@ clean-path: function [
                 if any [not file? file | #"/" <> last out] [append out #"/"]
             )
             | copy f [to #"/" | to end] (
-                either count > 0 [
+                if count > 0 [
                     count: me - 1
-                ][
-                    unless find ["" "." ".."] as string! f [append out f]
+                ] else [
+                    if not find ["" "." ".."] as string! f [
+                        append out f
+                    ]
                 ]
             )
         ]
@@ -131,28 +133,29 @@ ask: function [
 
 confirm: function [
     "Confirms a user choice."
-    return: [logic! blank!]
+    return: [logic!]
     question [any-series!]
         "Prompt to user"
     /with
     choices [string! block!]
 ][
-    if all [block? :choices | 2 < length of choices] [
-        cause-error 'script 'invalid-arg join-of "maximum 2 arguments allowed for choices [true false] got: " mold choices
+    choices: default [["y" "yes"] ["n" "no"]]
+
+    if block? choices and (length of choices > 2) [
+        fail/where [
+            "maximum 2 arguments allowed for choices [true false]"
+            "got:" mold choices
+        ] 'choices
     ]
 
     response: ask question
 
-    unless with [choices: [["y" "yes"] ["n" "no"]]]
-
-    to-logic case [
+    return did case [
         empty? choices [true]
         string? choices [find/match response choices]
-        2 > length of choices [find/match response first choices]
+        length of choices < 2 [find/match response first choices]
         find first choices response [true]
         find second choices response [false]
-    ] else [
-         false
     ]
 ]
 
@@ -173,7 +176,7 @@ list-dir: procedure [
 
     save-dir: what-dir
 
-    unless file? save-dir [
+    if not file? save-dir [
         fail ["No directory listing protocol registered for" save-dir]
     ]
 
@@ -185,7 +188,7 @@ list-dir: procedure [
     ]
 
     if r [l: true]
-    unless l [l: make string! 62] ; approx width
+    if not l [l: make string! 62] ; approx width
 
     if not (files: attempt [read %./]) [
         print ["Not found:" :path]
@@ -204,7 +207,7 @@ list-dir: procedure [
             append/dup l #" " 15 - remainder length of l 15
             if greater? length of l 60 [print l clear l]
         ][
-            info: get query file
+            info: get (words of query file)
             change info second split-path info/1
             printf [indent 16 -8 #" " 24 #" " 6] info
             if all [r | dir? file] [
@@ -261,25 +264,25 @@ to-relative-file: function [
     /as-local
         "Convert to local-style filename if not"
 ][
-    either string? file [ ; Local file
-        ; Note: file-to-local drops trailing / in R2, not in R3
-        ; if tmp: find/match file file-to-local what-dir [file: next tmp]
-        file: any [find/match file file-to-local what-dir | file]
+    if string? file [ ; Local file
+        comment [
+            ; file-to-local drops trailing / in R2, not in R3
+            if tmp: find/match file file-to-local what-dir [file: next tmp]
+        ]
+        file: maybe find/match file file-to-local what-dir
         if as-rebol [
             file: local-to-file file
             no-copy: true
         ]
-    ][
-        file: any [find/match file what-dir | file]
+    ] else [
+        file: maybe find/match file what-dir
         if as-local [
             file: file-to-local file
             no-copy: true
         ]
     ]
 
-    unless no-copy [file: copy file]
-
-    file
+    return either no-copy [file] [copy file]
 ]
 
 

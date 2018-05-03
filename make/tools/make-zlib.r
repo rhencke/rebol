@@ -100,7 +100,7 @@ disable-user-includes: procedure [
 
     if inline [
         ; If we inline a header, it should happen once and only once for each
-        unless empty? headers [
+        if not empty? headers [
             fail [{Not all headers inlined by make-zlib:} (mold headers)]
         ]
     ]

@@ -360,8 +360,9 @@ ctx-zip: context [
                     (if not zero? flags/1 and+ 1 [return false])
                 copy method-number: 2 skip (
                     method-number: get-ishort method-number
-                    method: select [0 store 8 deflate] method-number
-                    unless method [method: method-number]
+                    method: select [0 store 8 deflate] method-number else [
+                        method-number
+                    ]
                 )
                 copy time: 2 skip (time: get-msdos-time time)
                 copy date: 2 skip (
@@ -396,7 +397,7 @@ ctx-zip: context [
                             throw copy/part data compressed-size
                         ]
 
-                        unless method = 'deflate [
+                        if method <> 'deflate [
                             info ["^- -> failed [method " method "]^/"]
                             throw blank
                         ]

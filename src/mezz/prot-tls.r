@@ -140,7 +140,7 @@ parse-asn: function [
 
             size [
                 size: d and+ 127
-                unless zero? (d and+ 128) [
+                if not zero? (d and+ 128) [
                     ; long form
                     ln: size
                     size: to-integer/unsigned copy/part next data size
@@ -613,7 +613,7 @@ parse-messages: function [
     ]
     debug [ctx/seq-num-r ctx/seq-num-w "READ <--" proto/type]
 
-    unless proto/type = 'handshake [
+    if proto/type <> 'handshake [
         if proto/type = 'alert [
             if proto/messages/1 > 1 [
                 ; fatal alert level
@@ -929,7 +929,7 @@ parse-response: function [
         "messages:" length of proto/messages
     ]
 
-    unless tail? skip msg proto/size + 5 [
+    if not tail? skip msg proto/size + 5 [
         fail "invalid length of response fragment"
     ]
 
@@ -1022,9 +1022,13 @@ do-commands: function [
     ctx/resp: copy []
     write ctx/connection ctx/msg
 
-    unless no-wait [
-        unless port? wait [ctx/connection 30] [fail "port timeout"]
+    any [
+        no-wait
+        port? wait [ctx/connection 30]
+    ] or [
+        fail "port timeout"
     ]
+
     ctx/resp
 ]
 
@@ -1178,8 +1182,8 @@ tls-awake: function [event [event!]] [
                     application [
                         for-each msg proto/messages [
                             if msg/type = 'app-data [
-                                unless tls-port/data [
-                                    tls-port/data: clear tls-port/state/port-data
+                                tls-port/data: default [
+                                    clear tls-port/state/port-data
                                 ]
                                 append tls-port/data msg/content
                                 application?: true
@@ -1257,7 +1261,7 @@ sys/make-scheme [
         open: func [port [port!] <local> conn] [
             if port/state [return port]
 
-            unless port/spec/host [
+            if not port/spec/host [
                 fail make-tls-error "Missing host address"
             ]
 
@@ -1343,7 +1347,7 @@ sys/make-scheme [
         ]
 
         close: func [port [port!] <local> ctx] [
-            unless port/state [return port]
+            if not port/state [return port]
 
             close port/state/connection
 

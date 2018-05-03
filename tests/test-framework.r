@@ -46,7 +46,7 @@ make object! compose [
     ][
         log [source]
 
-        unless empty? exclude flags allowed-flags [
+        if not empty? exclude flags allowed-flags [
             set 'skipped (skipped + 1)
             log [{ "skipped"^/}]
             leave
@@ -58,24 +58,25 @@ make object! compose [
             leave
         ]
 
-        error? set* 'test-block catch-any test-block 'exception
-
-        test-block: case [
-            exception [spaced ["failed," exceptions/:exception]]
-            not logic? :test-block ["failed, not a logic value"]
-            test-block ["succeeded"]
-        ] else [
-            "failed"
-        ]
-
+        set* 'test-block catch-any test-block 'exception
         recycle
 
-        either test-block = "succeeded" [
-            set 'successes (successes + 1)
-            log [{ "} test-block {"^/}]
-        ][
+        case [
+            exception [
+                spaced ["failed," exceptions/:exception]
+            ]
+            not logic? :test-block [
+                "failed, not a logic value"
+            ]
+            not test-block [
+                "failed"
+            ]
+        ] also message -> [
             set 'test-failures (test-failures + 1)
-            log reduce [{ "} test-block {"^/}]
+            log reduce [space {"} message {"} newline]
+        ] else [
+            set 'successes (successes + 1)
+            log reduce [space {"succeeded"} newline]
         ]
     ]
 

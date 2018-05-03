@@ -32,7 +32,7 @@
     first-time: true
     was-continued: false
     while [true] [
-        unless first-time [
+        if not first-time [
             was-continued: true
             break
         ]
@@ -74,8 +74,8 @@
 (  ; bug#1519
     cycle?: true
     f1: does [
-        unless 1 > 2 [
-            while [if cycle? [unwind :unless] cycle?] [cycle?: false 2]
+        if-not 1 > 2 [
+            while [if cycle? [unwind :if-not] cycle?] [cycle?: false 2]
         ]
     ]
     null? f1

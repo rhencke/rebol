@@ -10,12 +10,12 @@
 )
 (
     success: <bad>
-    unless 1 > 2 [success: true] else [success: false]
+    if-not 1 > 2 [success: true] else [success: false]
     success
 )
 (
     success: <bad>
-    unless 1 < 2 [success: false] else [success: true]
+    if-not 1 < 2 [success: false] else [success: true]
     success
 )
 (

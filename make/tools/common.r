@@ -144,12 +144,12 @@ to-c-name: function [
             break
         ]
 
-        unless find c-chars char [
+        if not find c-chars char [
             fail ["Non-alphanumeric or hyphen in" string "in to-c-name"]
         ]
     ]
 
-    unless scope [word: 'global] ; default to assuming global need
+    if not scope [word: 'global] ; default to assuming global need
 
     ; Easiest rule is just "never start a global identifier with underscore",
     ; but we check the C rules.  Since currently this routine is sometimes
@@ -235,12 +235,12 @@ for-each-record: procedure [
     body [block!]
         {Block to evaluate each time}
 ][
-    unless block? first table [
+    if not block? first table [
         fail {Table of records does not start with a header block}
     ]
 
     headings: map-each word first table [
-        unless word? word [
+        if not word? word [
             fail [{Heading} word {is not a word}]
         ]
         to-set-word word
@@ -294,13 +294,13 @@ find-record-unique: function [
     value
         {Value that the looked up key must be uniquely equal to}
 ][
-    unless find first table key [
+    if not find first table key [
         fail [key {not found in table headers:} (first table)]
     ]
 
     result: _
     for-each-record rec table [
-        unless value = select rec key [continue]
+        if value <> select rec key [continue]
 
         if result [
             fail [{More than one table record matches} key {=} value]
@@ -322,7 +322,7 @@ parse-args: function [
     ret: make block! 4
     standalone: make block! 4
     args: any [args copy []]
-    unless block? args [args: split args [some " "]]
+    if not block? args [args: split args [some " "]]
     forall args [
         name: _
         value: args/1
@@ -409,11 +409,11 @@ write-if-changed: procedure [
         content: spaced content
     ]
 
-    unless binary? content [
+    if not binary? content [
         content: to binary! content
     ]
 
-    unless all [
+    if not all [
         exists? dest
         content = read dest
     ][

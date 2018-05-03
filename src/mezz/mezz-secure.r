@@ -25,7 +25,7 @@ secure: function [
 
     assert-policy (
         func [tst kind arg] [
-            unless tst [cause-error 'access 'security-error reduce [kind arg]]
+            if not tst [cause-error 'access 'security-error reduce [kind arg]]
         ]
     )
 
@@ -181,7 +181,7 @@ secure: function [
 ]
 
 
-unless system/options/secure == 'allow [
+if system/options/secure <> 'allow [
     ; Remove all other access to the policies:
     protect/hide in system/state 'policies
 ]

@@ -56,7 +56,7 @@ for-each [name value] options [
                     exists? ext-file: to file! tools-dir/(value)
                 ][
                     user-ext: make object! load ext-file
-                    unless all [
+                    if not all [
                         find words-of user-ext 'extensions
                         block? user-ext/extensions
                     ][
@@ -65,7 +65,7 @@ for-each [name value] options [
                     user-config/extensions: user-ext/extensions
                 ][
                     user-ext: load value
-                    unless block? user-ext [
+                    if not block? user-ext [
                         fail [
                             "Selected extensions must be a block, not"
                             (type-of user-ext)
@@ -232,7 +232,7 @@ parse-ext-build-spec: function [
     spec [block!]
 ][
     ext-body: copy []
-    unless parse spec [
+    if not parse spec [
         any [
             quote options: into [
                 any [
@@ -464,7 +464,7 @@ set-exec-path: proc [
     path
 ][
     if path [
-        unless file? path [
+        if not file? path [
             fail "Tool path has to be a file!"
         ]
         tool/exec-file: path
@@ -498,7 +498,9 @@ parse user-config/toolset [
                 set-exec-path rebmake/default-strip strip-exec
             ]
         )
-        | pos: (unless tail? pos [fail ["failed to parset toolset at:" mold pos]])
+        | pos: (
+            if not tail? pos [fail ["failed to parset toolset at:" mold pos]]
+        )
     ]
 ]
 
@@ -517,7 +519,7 @@ switch/default rebmake/default-compiler/name [
         ]
     ]
     clang [
-        unless find [ld llvm-link] rebmake/default-linker/name [
+        if not find [ld llvm-link] rebmake/default-linker/name [
             fail ["Incompatible compiler (CLANG) and linker: " rebmake/default-linker/name]
         ]
     ]
@@ -1172,7 +1174,7 @@ for-each [action name modules] user-config/extensions [
                     ]
                 ]
             ]
-            unless item [
+            if not item [
                 fail [{Unrecognized extension name:} name]
             ]
 
@@ -1306,7 +1308,8 @@ process-module: func [
                 ]
             ]
         ]
-        libraries: to-value if mod/libraries [
+        libraries: all [
+            mod/libraries
             map-each lib mod/libraries [
                 case [
                     file? lib [
@@ -1323,7 +1326,10 @@ process-module: func [
                         lib
                     ]
                     true [
-                        dump lib
+                        dump [
+                            "unrecognized module library" lib
+                            "in module" mod
+                        ]
                         fail "unrecognized module library"
                     ]
                 ]
@@ -1543,7 +1549,7 @@ add-new-obj-folders: procedure [
 
         for-each obj lib [
             dir: first split-path obj/output
-            unless find folders dir [
+            if not find folders dir [
                 append folders dir
             ]
         ]

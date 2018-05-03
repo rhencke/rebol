@@ -280,7 +280,7 @@ set?: func [
     "Returns whether a bound word has a value (fails if unbound)"
     any-word [any-word!]
 ][
-    unless bound? any-word [
+    if not bound? any-word [
         fail [any-word "is not bound in set?"]
     ]
     value? any-word ;-- the "old" meaning of value...
@@ -452,7 +452,7 @@ fail: func [
         string? reason [do make error! reason]
         block? reason [
             for-each item reason [
-                unless any [
+                if not any [
                     any-scalar? :item
                     string? :item
                     group? :item
@@ -744,7 +744,7 @@ make-action: func [
                     "Default value not paired with argument:" (mold other/1)
                 ]
             ]
-            unless defaulters [
+            if not defaulters [
                 defaulters: copy []
             ]
             append defaulters compose/deep [
@@ -760,7 +760,7 @@ make-action: func [
             append locals var
             append exclusions var
             if other [
-                unless defaulters [
+                if not defaulters [
                     defaulters: copy []
                 ]
                 append defaulters compose/deep [
@@ -771,7 +771,7 @@ make-action: func [
         (unset 'var) ;-- don't consider further GROUP!s or variables
     |
         <in> (
-            unless new-body [
+            if not new-body [
                 append exclusions 'self
                 new-body: copy/deep body
             ]
@@ -793,10 +793,10 @@ make-action: func [
         ]
     |
         <static> (
-            unless statics [
+            if not statics [
                 statics: copy []
             ]
-            unless new-body [
+            if not new-body [
                 append exclusions 'self
                 new-body: copy/deep body
             ]

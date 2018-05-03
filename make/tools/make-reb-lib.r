@@ -76,7 +76,7 @@ emit-proto: proc [proto] [
     ; use Rebol syntax...the new idea is to always use Rebol syntax.)
 
     api-name: spelling-of header/1
-    unless proto-parser/proto.id = unspaced ["RL_" api-name] [
+    if not proto-parser/proto.id = unspaced ["RL_" api-name] [
         fail [
             "Name in comment header (" api-name ") isn't function name"
             "minus RL_ prefix for" proto-parser/proto.id

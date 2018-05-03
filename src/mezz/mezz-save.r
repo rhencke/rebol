@@ -108,8 +108,8 @@ save: function [
             append header-data compose [length: (true)]
         ]
 
-        compress: did find (to-value select header-data 'options) 'compress
-        unless compress [
+        compress: did find try (select header-data 'options) 'compress
+        if not compress [
             method: _
         ]
 

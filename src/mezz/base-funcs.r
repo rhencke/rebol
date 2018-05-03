@@ -73,7 +73,7 @@ maybe: enfix func [
         ] 'value
     ]
 
-    set* target either-test/only
+    set* target either-test/opt
         (only ?? :value? !! :something?) ;-- test function
         :value ;-- value being tested
         [get* target] ;-- branch to evaluate and return if test fails
@@ -154,9 +154,7 @@ make-action: func [
                     "Default value not paired with argument:" (mold other/1)
                 ]
             ]
-            unless defaulters [
-                defaulters: copy []
-            ]
+            defaulters: default [copy []]
             append defaulters compose/deep [
                 (to set-word! var) default [(reduce other/1)]
             ]
@@ -170,9 +168,7 @@ make-action: func [
             append new-spec to set-word! var
             append exclusions var
             if other [
-                unless defaulters [
-                    defaulters: copy []
-                ]
+                defaulters: default [copy []]
                 append defaulters compose/deep [
                     (to set-word! var) default [(reduce other)]
                 ]
@@ -181,9 +177,9 @@ make-action: func [
         (var: null) ;-- don't consider further GROUP!s or variables
     |
         <in> (
-            unless new-body [
+            new-body: default [
                 append exclusions 'self
-                new-body: copy/deep body
+                copy/deep body
             ]
         )
         any [
@@ -203,12 +199,10 @@ make-action: func [
         ]
     |
         <static> (
-            unless statics [
-                statics: copy []
-            ]
-            unless new-body [
+            statics: default [copy []]
+            new-body: default [
                 append exclusions 'self
-                new-body: copy/deep body
+                copy/deep body
             ]
         )
         any [
@@ -273,7 +267,7 @@ procedure: specialize :make-action [generator: :proc]
 dig-action-meta-fields: function [value [action!]] [
     meta: meta-of :value
 
-    unless meta [
+    if not meta [
         return construct system/standard/action-meta [
             description: _
             return_type: _
@@ -405,7 +399,7 @@ redescribe: function [
         types: meta/parameter-types: fields/parameter-types
     ]
 
-    unless parse spec [
+    if not parse spec [
         opt [
             set description: string! (
                 either all [equal? description {} | not meta] [
@@ -437,12 +431,12 @@ redescribe: function [
                     if any [notes | not equal? note {}] [
                         on-demand-notes
 
-                        unless find notes to word! param [
+                        if not find notes to word! param [
                             fail [param "not found in frame to describe"]
                         ]
 
                         actual: first find words of :value param
-                        unless strict-equal? param actual [
+                        if not strict-equal? param actual [
                             fail [param {doesn't match word type of} actual]
                         ]
 
@@ -451,7 +445,7 @@ redescribe: function [
                 ]
             )]
         ]
-    ][
+    ][ ;-- note: OR not defined yet!
         fail [{REDESCRIBE specs should be STRING! and ANY-WORD! only:} spec]
     ]
 
@@ -536,22 +530,41 @@ set*: redescribe [
 
 
 if*: redescribe [
-    {Same as IF/ONLY (void, not blank, if branch evaluates to void)}
+    {Same as IF/OPT (null, not blank, if branch evaluates to null)}
 ](
-    specialize 'if [only: true]
+    specialize 'if [opt: true]
 )
 
-unless*: redescribe [
-    {Same as UNLESS/ONLY (void, not blank, if branch evaluates to void)}
+if-not*: redescribe [
+    {Same as IF-NOT/OPT (null, not blank, if branch evaluates to null)}
 ](
-    specialize 'unless [only: true]
+    specialize 'if-not [opt: true]
 )
 
 either*: redescribe [
-    {Same as EITHER/ONLY (void, not blank, if branch evaluates to void)}
+    {Same as EITHER/OPT (null, not blank, if branch evaluates to null)}
 ](
-    specialize 'either [only: true]
+    specialize 'either [opt: true]
 )
+
+
+unless: enfix func [
+    {Returns the left hand side, unless the right hand side is something}
+
+    return: [any-value!]
+    left [any-value!]
+    right [<opt> any-value!]
+    /try {Consider right hand side being BLANK! a value to override the left}
+][
+    either-test (try ?? :value? !! :something?) :right [:left]
+]
+
+unless*: enfix redescribe [
+    {Same as UNLESS/TRY (right hand side being BLANK! overrides the left)}
+](
+    specialize 'unless [try: true]
+)
+
 
 case*: redescribe [
     {Same as CASE/ONLY (void, not blank, if branch evaluates to void)}
@@ -588,12 +601,12 @@ match: redescribe [
 ](
     enclose specialize 'either-test [
         branch: [] ;-- runs on test failure
-        only: true ;-- failure branch returns void, signals the enclosure
+        opt: true ;-- failure branch returns void, signals the enclosure
     ] function [
         return: [<opt> any-value!]
         f [frame!]
     ][
-        if null? value: :f/value [
+        if null? arg: :f/arg [
             fail "MATCH cannot take null as input" ;-- EITHER-TEST allows it
         ]
 
@@ -608,8 +621,9 @@ match: redescribe [
         ; attention to the distorted success result, and lead those writing
         ; expressions like the above to use DID MATCH.
 
-        result: do f ;-- can't access f/value after the DO
-        if all [not :value | not null? :result] [
+        result: do f ;-- can't access f/arg after the DO
+
+        if all [not :arg | not null? :result] [
             return '| ;-- BAR! if matched a falsey type
         ]
         to-value :result ;-- blank if failed, or other truthy result
@@ -641,7 +655,7 @@ ensure: redescribe [
                 "ENSURE did not expect argument of type" type of :value
             ]
         ]
-        only: false ;-- Doesn't matter (it fails) just hide the refinement
+        opt: false ;-- Doesn't matter (it fails) just hide the refinement
     ]
 )
 
@@ -650,7 +664,7 @@ really: func [
 
     return: [any-value!]
     value [any-value!] ;-- always checked for void, since no <opt>
-    /only
+    /opt
         {Just make sure value isn't void, pass through BLANK! (see REALLY*)}
 ][
     ; While DEFAULT requires a BLOCK!, REALLY does not.  Catch mistakes such
@@ -662,10 +676,10 @@ really: func [
         ] 'value
     ]
 
-    only ?? :value else [
+    opt ?? :value else [
         either-test :something? :value [
             fail/where
-                ["REALLY received BLANK! (use /ONLY or REALLY* if intended)"]
+                ["REALLY received BLANK! (use /OPT or REALLY* if intended)"]
                 'value
         ]
     ]
@@ -674,7 +688,7 @@ really: func [
 really*: redescribe [
     {FAIL if value is void, otherwise pass it through}
 ](
-    specialize 'really [only: true]
+    specialize 'really [opt: true]
 )
 
 
@@ -729,9 +743,9 @@ arity-of: function [
 ][
     if path? :value [fail "arity-of for paths is not yet implemented."]
 
-    unless action? :value [
+    if not action? :value [
         value: get value
-        unless action? :value [return 0]
+        if not action? :value [return 0]
     ]
 
     if variadic? :value [
@@ -848,11 +862,11 @@ once-bar: func [
 ][
     take* right ;-- returned value
 
-    elide unless any [
+    elide any [
         tail? right
             |
         '|| = look: take lookahead ;-- hack...recognize selfs
-    ][
+    ] or [
         fail/where [
             "|| expected single expression, found residual of" :look
         ] 'right
@@ -945,11 +959,11 @@ module: func [
         append mod 'lib-base ; specific runtime values MUST BE FIRST
     ]
 
-    unless spec/type [spec/type: 'module] ; in case not set earlier
+    if not spec/type [spec/type: 'module] ; in case not set earlier
 
     ; Collect 'export keyword exports, removing the keywords
     if find body 'export [
-        unless block? select spec 'exports [
+        if not block? select spec 'exports [
             join spec ['exports make block! 10]
         ]
 
@@ -958,7 +972,7 @@ module: func [
             to 'export remove skip opt remove 'hidden opt
             [
                 set w any-word! (
-                    unless find spec/exports w: to word! w [
+                    if not find spec/exports w: to word! w [
                         append spec/exports w
                     ]
                 )
@@ -979,8 +993,9 @@ module: func [
             to 'hidden remove skip opt
             [
                 set w any-word! (
-                    unless find select spec 'exports w: to word! w [
-                        append hidden w]
+                    if not find select spec 'exports w: to word! w [
+                        append hidden w
+                    ]
                 )
             |
                 set w block! (
@@ -1089,12 +1104,15 @@ fail: function [
         block? reason [make error! spaced reason]
     ]
 
-    if not all [error? reason | pick reason 'where] [
+    all [
+        error? reason
+        try pick reason 'where
+    ] then [
         ;
         ; If no specific location specified, and error doesn't already have a
         ; location, make it appear to originate from the frame calling FAIL.
         ;
-        unless where [location: context of 'reason]
+        location: default [context of 'reason]
 
         ; !!! Does SET-LOCATION-OF-ERROR need to be a native?
         ;

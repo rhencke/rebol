@@ -52,10 +52,10 @@ make-port*: function [
     ]
 
     ; Get the scheme definition:
-    unless all [
-        any [word? name lit-word? name]
-        scheme: get in system/schemes to word! name
-    ][cause-error 'access 'no-scheme name]
+    all [
+        match [word! lit-word!] name
+        scheme: try get in system/schemes to word! name
+    ] or [cause-error 'access 'no-scheme name]
 
     ; Create the port with the correct scheme spec:
     port: construct system/standard/port []
@@ -66,8 +66,8 @@ make-port*: function [
     ; Defaults:
     port/actor: get in scheme 'actor ; avoid evaluation
     port/awake: any [get in port/spec 'awake | :scheme/awake]
-    unless port/spec/ref [port/spec/ref: spec]
-    unless port/spec/title [port/spec/title: scheme/title]
+    port/spec/ref: default [spec]
+    port/spec/title: default [scheme/title]
     port: to port! port
 
     ; Call the scheme-specific port init. Note that if the
@@ -136,7 +136,7 @@ make-port*: function [
                     ; a STRING!, and so the attempt to convert `s1` to TUPLE!
                     ; would always fail.  Ren-C permits this conversion.
 
-                    unless empty? trim s1 [
+                    if not empty? trim s1 [
                         attempt [s1: to tuple! s1]
                         emit host s1
                     ]
@@ -172,10 +172,10 @@ make-scheme: function [
         "Scheme name to use as base"
 ][
     with: either with [get in system/schemes base-name][system/standard/scheme]
-    unless with [cause-error 'access 'no-scheme base-name]
+    if not with [cause-error 'access 'no-scheme base-name]
 
     scheme: construct with def
-    unless scheme/name [cause-error 'access 'no-scheme-name scheme]
+    if not scheme/name [cause-error 'access 'no-scheme-name scheme]
 
     ; If actor is block build a non-contextual actor object:
     if block? :scheme/actor [
@@ -197,7 +197,7 @@ make-scheme: function [
         scheme/actor: actor
     ]
 
-    unless match [object! handle!] :scheme/actor [
+    match [object! handle!] :scheme/actor or [
         fail ["Scheme actor" :scheme/name "can't be" type of :scheme/actor]
     ]
 
@@ -223,8 +223,8 @@ init-schemes: func [
         ][
             waked: sport/data ; The wake list (pending awakes)
 
-            if only [
-                unless block? ports [return blank] ;short cut for a pause
+            if only and (not block? ports) [
+                return blank ; short cut for a pause
             ]
 
             ; Process all events (even if no awake ports).
@@ -242,7 +242,7 @@ init-schemes: func [
                     if wake-up port event [
                         ; Add port to wake list:
                         ;print ["==System-waked:" port/spec/ref]
-                        unless find waked port [append waked port]
+                        if not find waked port [append waked port]
                     ]
                     n-event: n-event + 1
                 ][
@@ -251,7 +251,7 @@ init-schemes: func [
             ]
 
             ; No wake ports (just a timer), return now.
-            unless block? ports [return blank]
+            if not block? ports [return blank]
 
             ; Are any of the requested ports awake?
             for-next ports [

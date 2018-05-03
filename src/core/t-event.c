@@ -205,6 +205,9 @@ void Set_Event_Vars(REBVAL *evt, RELVAL *blk, REBSPC *specifier)
         Derelativize(var, blk, specifier);
         ++blk;
 
+        if (not IS_SET_WORD(var))
+            fail (Error_Invalid(var));
+
         if (IS_END(blk))
             Init_Blank(val);
         else

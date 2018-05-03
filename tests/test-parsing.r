@@ -485,7 +485,7 @@ make object! [
 
         rule: [any token]
 
-        unless parse test-sources rule [
+        parse test-sources rule or [
             append collected-tests reduce [
                 'dialect
                 spaced [

@@ -127,7 +127,7 @@ native-list-rule: [
                 'native/body/export 2 block!
             ]
         ](
-            unless blank? n-name [
+            if not blank? n-name [
                 ;dump n-name
                 append native-specs make native-spec compose/only [
                     name: (to lit-word! n-name)
@@ -160,14 +160,14 @@ native-list-rule: [
     ]
 ]
 
-unless parse native-list native-list-rule [
+if not parse native-list native-list-rule [
     fail [
         "failed to parse" mold native-list ":"
         "current word-list:" mold word-list
     ]
 ]
 
-unless blank? n-name [
+if not blank? n-name [
     ;dump n-name
     append native-specs make native-spec compose/only [
         name: (to lit-word! n-name)
@@ -185,7 +185,7 @@ error-list: copy []
 num-native: 0
 for-each native native-specs [
     ;dump native
-    unless blank? native/platforms [
+    if not blank? native/platforms [
         supported?: false
         for-each plat native/platforms [
             case [
@@ -206,7 +206,7 @@ for-each native native-specs [
                 ]
             ]
         ]
-        unless supported? [continue]
+        if not supported? [continue]
     ]
 
     num-native: num-native + 1
@@ -214,8 +214,8 @@ for-each native native-specs [
     if find to block! first native/spec 'export [
         append export-list to word! native/name
     ]
-    unless blank? native/errors [append error-list native/errors]
-    unless blank? native/words [append word-list native/words]
+    if not blank? native/errors [append error-list native/errors]
+    if not blank? native/words [append word-list native/words]
     append native-list reduce [to set-word! native/name]
     append native-list native/spec
 ]
@@ -228,12 +228,12 @@ spec: compose/deep/only [
         exports: (export-list)
     ]
 ]
-unless empty? word-list [
+if not empty? word-list [
     append spec compose/only [
         words: (word-list)
     ]
 ]
-unless empty? error-list [
+if not empty? error-list [
     append spec compose/only [
         errors: (error-list)
     ]
@@ -396,7 +396,7 @@ if not empty? error-list [
     e1/emit ["enum Ext_${Mod}_Errors {"]
     error-collected: copy []
     for-each [key val] error-list [
-        unless set-word? key [
+        if not set-word? key [
             fail ["key (" mold key ") must be a set-word!"]
         ]
         if find error-collected key [

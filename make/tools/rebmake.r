@@ -47,7 +47,7 @@ map-files-to-local: func [
     <local>
     f
 ][
-    unless block? files [files: reduce [files]]
+    if not block? files [files: reduce [files]]
     map-each f files [
         file-to-local f
     ]
@@ -73,7 +73,7 @@ filter-flag: function [
 ][
     if not tag? flag [return flag] ;-- no filtering
 
-    unless parse to string! flag [
+    if not parse to string! flag [
         copy header: to ":"
         ":" copy option: to end
     ][
@@ -1229,12 +1229,12 @@ generator-class: make object! [
             ]
             cmd: gen-cmd cmd
         ]
-        unless cmd [return _]
+        if not cmd [return _]
 
         stop: false
         while [not stop][
             stop: true
-            unless parse cmd [
+            if not parse cmd [
                 while [
                     change [
                         [
@@ -1298,7 +1298,7 @@ generator-class: make object! [
     setup-output: procedure [
         project [object!]
     ][
-        unless suffix: find reduce [
+        if not suffix: find reduce [
             'application-class target-platform/exe-suffix
             'dynamic-library-class target-platform/dll-suffix
             'static-library-class target-platform/archive-suffix
@@ -1458,7 +1458,7 @@ makefile: make generator-class [
                                     ][
                                         gen-cmd cmd
                                     ]
-                                ]) [unless empty? cmd [cmd]] "^/^-"
+                                ]) [if not empty? cmd [cmd]] "^/^-"
                             ][
                                 either string? entry/commands [
                                     entry/commands
@@ -1493,9 +1493,9 @@ makefile: make generator-class [
         ;project/generated?: true
 
         for-each dep project/depends [
-            unless object? dep [continue]
+            if not object? dep [continue]
             ;dump dep
-            unless find [ext-dynamic-class ext-static-class] dep/class-name [
+            if not find [ext-dynamic-class ext-static-class] dep/class-name [
                 either dep/generated? [
                     continue
                 ][
@@ -1517,7 +1517,9 @@ makefile: make generator-class [
                     ]
                     append buf gen-rule make entry-class [
                         target: dep/output
-                        depends: join-of objs map-each ddep dep/depends [unless ddep/class-name = 'object-library-class [ddep]]
+                        depends: join-of objs map-each ddep dep/depends [
+                            if ddep/class-name <> 'object-library-class [ddep]
+                        ]
                         commands: append reduce [dep/command] opt dep/post-build-commands
                     ]
                     emit buf dep
@@ -1526,7 +1528,7 @@ makefile: make generator-class [
                     ;assert [dep/class-name != 'object-library-class] ;No nested object-library-class allowed
                     for-each obj dep/depends [
                         assert [obj/class-name = 'object-file-class]
-                        unless obj/generated? [
+                        if not obj/generated? [
                             obj/generated?: true
                             append buf gen-rule obj/gen-entries/(all [project/class-name = 'dynamic-library-class 'PIC]) dep
                         ]
@@ -1643,11 +1645,11 @@ Execution: make generator-class [
         suffix
     ][
         ;dump project
-        unless object? project [leave]
+        if not object? project [leave]
 
         prepare project
 
-        unless find [ext-dynamic-class ext-static-class] project/class-name [
+        if not find [ext-dynamic-class ext-static-class] project/class-name [
             either project/generated? [
                 leave
             ][
@@ -1679,7 +1681,7 @@ Execution: make generator-class [
             object-library-class [
                 for-each obj project/depends [
                     assert [obj/class-name = 'object-file-class]
-                    unless obj/generated? [
+                    if not obj/generated? [
                         obj/generated?: true
                         run-target obj/gen-entries/(all [p-project/class-name = 'dynamic-library-class 'PIC]) project
                     ]
@@ -1797,10 +1799,10 @@ visual-studio: make generator-class [
             ]
         ]
 
-        unless empty? depends [
+        if not empty? depends [
             append buf {^-ProjectSection(ProjectDependencies) = postProject^/}
             for-each dep depends [
-                unless dep/id [dep/id: take uuid-pool]
+                if not dep/id [dep/id: take uuid-pool]
                 append buf unspaced [
                     tab tab dep/id " = " dep/id newline
                 ]
@@ -1935,7 +1937,7 @@ visual-studio: make generator-class [
         project-dir: unspaced [project-name ".dir\" build-type "\"]
 
         searches: make string! 1024
-        unless project/class-name = 'entry-class [
+        if project/class-name <> 'entry-class [
             inc: make string! 1024
             for-each i project/includes [
                 if i: filter-flag i "msc" [
@@ -1960,7 +1962,7 @@ visual-studio: make generator-class [
                         if ext: filter-flag i/output "msc" [
                             append lib unspaced [
                                 ext
-                                unless ends-with? ext ".lib" [".lib"]
+                                if not ends-with? ext ".lib" [".lib"]
                                 ";"
                             ]
                         ]
@@ -2048,12 +2050,12 @@ visual-studio: make generator-class [
     </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>}
-    unless project/class-name = 'entry-class [
+    if project/class-name <> 'entry-class [
         unspaced [ {
       <AdditionalIncludeDirectories>} inc {</AdditionalIncludeDirectories>
       <AssemblerListingLocation>} build-type {/</AssemblerListingLocation>}
       ;RuntimeCheck is not compatible with optimization
-      unless find-optimization? project/optimization [ {
+      if not find-optimization? project/optimization [ {
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>}
       ]
       if compile-as [
@@ -2162,7 +2164,7 @@ visual-studio: make generator-class [
                                 append o-inc unspaced [file-to-local i ";"]
                             ]
                         ]
-                        unless empty? o-inc [
+                        if not empty? o-inc [
                             unspaced [
                                 {        <AdditionalIncludeDirectories>} o-inc "%(AdditionalIncludeDirectories)"
                                 {</AdditionalIncludeDirectories>^/}
@@ -2176,7 +2178,7 @@ visual-studio: make generator-class [
                                 append o-def unspaced [file-to-local i ";"]
                             ]
                         ]
-                        unless empty? o-def [
+                        if not empty? o-def [
                             unspaced [
                                 {        <PreprocessorDefinitions>}
                                 o-def "%(PreprocessorDefinitions)"
@@ -2196,7 +2198,7 @@ visual-studio: make generator-class [
                         collected: map-each i o/cflags [
                             opt filter-flag i "msc"
                         ]
-                        unless empty? collected [
+                        if not empty? collected [
                             unspaced [
                                 {        <AdditionalOptions>}
                                 spaced compose [
@@ -2226,14 +2228,14 @@ visual-studio: make generator-class [
     refs: make string! 1024
     for-each o project/depends [
         if find words-of o 'id [
-            unless o/id [o/id: take uuid-pool]
+            if not o/id [o/id: take uuid-pool]
             append refs unspaced [ {    <ProjectReference Include="} o/name {.vcxproj" >
       <Project>} o/id {</Project>
     </ProjectReference>^/}
             ]
         ]
     ]
-    unless empty? refs [
+    if not empty? refs [
         unspaced [ {
   <ItemGroup>
 } refs

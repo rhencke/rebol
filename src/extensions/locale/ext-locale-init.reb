@@ -6,7 +6,7 @@ REBOL [
     license: {Apache 2.0}
 ]
 
-unless 'Windows = first system/platform [
+if 'Windows <> first system/platform [
     ; Windows has locale implemented as a native
 
     ;DO NOT EDIT this table
@@ -458,19 +458,16 @@ unless 'Windows = first system/platform [
         iso-639 (iso-639-table)
         iso-3166 (iso-3166-table)
     ][
-        env-lang: get-env "LANG"
-        unless env-lang [
-            return _
-        ]
+        env-lang: get-env "LANG" or [return _]
         territory: _
 
         letter: charset [#"a" - #"z" #"A" - #"Z"]
-        unless parse env-lang [
+        parse env-lang [
             copy lang: [some letter]
             opt [#"_" copy territory: [some letter]]
             to end
-        ][
-            print ["Malformated env LANG:" env-lang]
+        ] or [
+            print ["Malformatted LANG environment variable:" env-lang]
             return _
         ]
 

@@ -51,14 +51,14 @@ parse cnt [
 init-code: to string! read init
 space: charset " ^-^M^/"
 iso-3166-table-cnt: find mold iso-3166-table #"["
-unless parse init-code [
+parse init-code [
     thru "iso-3166-table:"
     to #"["
     change [
          #"[" thru #"]"
     ] iso-3166-table-cnt
     to end
-][
+] or [
     fail "Failed to update iso-3166-table"
 ]
 

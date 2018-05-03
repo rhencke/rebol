@@ -102,7 +102,7 @@ sections: [
 ; be able to bootstrap under the conditions of the A111 rebol.com R3-Alpha
 ; as well as function either from the command line or the REPL.
 ;
-unless args: any [
+if not args: any [
     either string? :system/script/args [
         either block? load system/script/args [
             load system/script/args
@@ -638,7 +638,7 @@ boot-errors: load %errors.r
 id-list: make block! 200
 
 for-each [category info] boot-errors [
-    unless all [
+    if not all [
         (quote code:) == info/1
         integer? info/2
         (quote type:) == info/3
@@ -651,7 +651,7 @@ for-each [category info] boot-errors [
 
     new-section: true
     for-each [key val] skip info 4 [
-        unless set-word? key [
+        if not set-word? key [
             fail ["Non SET-WORD! key in %errors.r:" key]
         ]
 

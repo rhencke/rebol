@@ -113,7 +113,7 @@ speed?: function [
             ]
             calc: [(length of tmp) * 40 / secs / 1024 / 1024]
         ][
-            unless no-io [
+            if not no-io [
                 write file: %tmp-junk.txt "" ; force security request before timer
                 tmp: make string! 32000 * 5
                 insert/dup tmp "test^/" 32000

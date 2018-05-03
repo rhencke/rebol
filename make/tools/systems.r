@@ -521,7 +521,7 @@ use [
                     unknown_flags: copy any [build-flags: get in s word []]
                 )
                 words-of context
-            unless empty? unknown-flags [
+            if not empty? unknown-flags [
                 print mold unknown-flags
                 fail ["Unknown" word "used in %systems.r specification"]
             ]
@@ -563,7 +563,7 @@ config-system: function [
         ]
     ]
 
-    unless tuple? version [
+    if not tuple? version [
         fail [
             "Expected OS_ID tuple like 0.3.1, not:" version
         ]

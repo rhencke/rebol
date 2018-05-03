@@ -311,6 +311,44 @@ hijack 'try adapt copy :try [
 ]
 
 
+unless: enfix function [ ;-- error-checking shim, overrides real UNLESS
+    {Returns left hand side, unless the right hand side is something}
+
+    return: [any-value!]
+    left [<end> any-value!]
+    right [<opt> any-value! <...>]
+    :look [any-value! <...>]
+    /try {Consider right being BLANK! a value to override the left}
+][
+    any [
+        unset? 'left
+        elide (right: take* right)
+        block? first look
+    ] then [
+        fail/where [
+            "UNLESS has been repurposed in Ren-C as an enfix operator"
+            "which defaults to the left hand side, unless the right"
+            "side has a value which overrides it.  You may use IF-NOT"
+            "as a replacement, or even define UNLESS: :LIB/IF-NOT,"
+            "though actions like OR, DEFAULT, etc. are usually better"
+            "replacements for the intents that UNLESS was used for."
+            "!!! NOTE: `if not` as two words isn't the same in Ren-C,"
+            "as `if not x = y` is read as `if (not x) = y` since `=`"
+            "completes its left hand side.  Be careful rewriting."
+        ] 'look
+    ]
+
+    either-test (try ?? :value? !! :something?) :right [:left]
+]
+
+
+unless*: enfix redescribe [ ;-- error-checking shim, overrides real UNLESS*
+    {Same as UNLESS/TRY (right hand side being BLANK! overrides the left)}
+](
+    specialize 'unless [try: true]
+)
+
+
 ; The legacy PRIN construct is replaced by WRITE-STDOUT SPACED and similar
 ;
 prin: procedure [
@@ -438,7 +476,7 @@ r3-alpha-apply: function [
         ; evaluate them all even if not used by the function.  It may or
         ; may not be better to have it be an error.
         ;
-        unless tail? block [
+        if not tail? block [
             fail "Too many arguments passed in R3-ALPHA-APPLY block."
         ]
     ]
@@ -514,7 +552,7 @@ make: function [
     ; R3-Alpha would accept an example value of the type in the first slot.
     ; This is of questionable utility.
     ;
-    unless datatype? :type [
+    if not datatype? :type [
         type: type of :type
     ]
 
@@ -959,7 +997,7 @@ set 'r3-legacy* func [<local>] [
             value {Not just BLOCK!s evaluated: https://trello.com/c/evTPswH3}
             /into target [any-block!]
         ][
-            unless block? :value [return :value]
+            if not block? :value [return :value]
 
             apply 'reduce/into [
                 value: :value
@@ -1196,7 +1234,7 @@ set 'r3-legacy* func [<local>] [
     ; So make a lot of things like `first: (chain [:first :try])`
     ;
     for-each word [
-        if unless either case
+        if either case
         while for-each loop repeat forall forskip
         select pick
         first second third fourth fifth sixth seventh eighth ninth tenth
@@ -1229,7 +1267,7 @@ set 'r3-legacy* func [<local>] [
                             last-was-block: true
                         ]
                     ]
-                    unless last-was-block [
+                    if not last-was-block [
                         fail [{SWITCH non-<r3-legacy>} last cases {"fallout"}]
                     ]
                 ]]

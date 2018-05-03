@@ -58,7 +58,7 @@ read-deep: function [
         append result :path ; Possible void.
     ]
 
-    unless full [
+    if not full [
         remove result ; No need for root in result.
         len: length of root
         for i 1 length of result 1 [

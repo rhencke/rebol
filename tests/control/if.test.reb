@@ -90,3 +90,38 @@
     blk: [if true blk]
     error? trap blk
 )
+
+; IF-NOT is for performance minded cases, or cases where one doesn't want to
+; deal with the fact that equality completes left, e.g.:
+;
+;     if not x > 10 [...] => if (not x) > 10 [...]
+;     if-not x > 10 [...] => if not (x > 10) [...]
+;
+
+(
+    success: false
+    if-not false [success: true]
+    success
+)
+(
+    success: true
+    if-not true [success: false]
+    success
+)
+(1 = if-not false [1])
+
+(null? if-not* true [1])
+(null? if-not* false [])
+(null? if-not true [1])
+(blank? if-not false [])
+
+(error? if-not false [trap [1 / 0]])
+
+; RETURN stops the evaluation
+(
+    f1: func [] [
+        if-not false [return 1 2]
+        2
+    ]
+    1 = f1
+)

@@ -36,7 +36,7 @@ mkdir/deep output-dir/include
 file-base: has load %../../make/tools/file-base.r
 
 ; Collect OS-specific host files:
-unless (
+if not (
     os-specific-objs: select file-base to word! unspaced ["os-" config/os-base]
 )[
     fail [
