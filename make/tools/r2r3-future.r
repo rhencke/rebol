@@ -98,6 +98,14 @@ if :of = () [
 
 if true = attempt [void? :some-undefined-thing] [
     ;
+    ; With libRebol parity of Rebol's NULL being committed to as C's NULL,
+    ; sharing names makes more sense than the "illusion of void"
+
+    null: :void
+    null?: :void?
+    unset 'void
+    unset 'void?
+
     ; THEN and ELSE use a mechanic (non-tight infix evaluation) that is simply
     ; impossible in R3-Alpha or Rebol2.
     ;
@@ -127,23 +135,23 @@ if true = attempt [void? :some-undefined-thing] [
         ;-- Ren-Cs up to around Jan 27, 2018
 
         assert [find words-of :ensure 'test]
-        really: func [cell [<opt> any-value!]] [
-            if any [void? :cell blank? :cell] [
+        really: func [optional [<opt> any-value!]] [
+            if any [null? :optional blank? :optional] [
                 fail/where [
                     "REALLY expects argument to be SOMETHING?"
-                ] 'cell
+                ] 'optional
             ]
-            :cell
+            :optional
         ]
     ][
         assert [find words-of :ensure 'test]
     ]
 
-    did: func [cell [<opt> any-value!]] [
-        either all [lib/not void? :cell | :cell] [true] [false]
+    did: func [optional [<opt> any-value!]] [
+        either all [lib/not null? :optional | :optional] [true] [false]
     ]
-    not: func [cell [<opt> any-value!]] [
-        either any [void? :cell | :cell] [false] [true]
+    not: func [optional [<opt> any-value!]] [
+        either any [null? :optional | :optional] [false] [true]
     ]
 
     ; COMPRESS no longer supports "Rebol format compression" (which was
@@ -164,14 +172,18 @@ if true = attempt [void? :some-undefined-thing] [
     QUIT ;-- !!! stops running if Ren-C here.
 ]
 
+if true == attempt [null? :some-undefined-thing] [
+    QUIT ;-- !!! a Ren-C post VOID? => NULL? conversion, circa 2-May-2018
+]
+
 write-stdout: func [value] [prin :value]
 print-newline: does [prin newline]
 
 
 ; Running R3-Alpha/Rebol2, bootstrap VOID? into existence and continue
 ;
-void?: :unset?
-void: does []
+null?: :unset?
+null: does []
 
 
 unset 'function ;-- we'll define it later, use FUNC until then
@@ -256,7 +268,7 @@ bar?: func [x] [x = '|]
 ; ANY-VALUE! is anything that isn't void.
 ;
 any-value!: difference any-type! (make typeset! [unset!])
-value?: any-value?: func [cell [<opt> any-value!]] [not void? :cell]
+value?: any-value?: func [optional [<opt> any-value!]] [not null? :optional]
 
 
 ; Used in function definitions before the mappings
@@ -386,7 +398,7 @@ get: func [
     either only [
         :temp ;-- voids okay
     ][
-        either void? :temp [blank] [:temp]
+        either null? :temp [blank] [:temp]
     ]
 ]
 
@@ -596,7 +608,7 @@ trap: func [
 
 something?: func [value [<opt> any-value!]] [
     not any [
-        void? :value
+        null? :value
         blank? :value
     ]
 ]
@@ -641,7 +653,7 @@ delimit: func [x delimiter] [
             ]
             set/only 'item do/next x 'x
             case [
-                any [blank? :item | void? :item] [
+                any [blank? :item | null? :item] [
                     ;-- append nothing
                 ]
 

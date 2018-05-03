@@ -211,6 +211,11 @@ void* Probe_Core_Debug(
     GC_Disabled = TRUE;
 
     switch (Detect_Rebol_Pointer(p)) {
+    case DETECTED_AS_NULL:
+        Probe_Print_Helper(p, "C nullptr", file, line);
+        fflush(stdout);
+        break;
+
     case DETECTED_AS_UTF8:
         Probe_Print_Helper(p, "C String", file, line);
         printf("\"%s\"\n", cast(const char*, p));

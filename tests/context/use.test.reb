@@ -13,7 +13,7 @@
 )
 
 ; initialization (lack of)
-(a: 10 all [use [a] [void? :a] a = 10])
+(a: 10 all [use [a] [null? :a] a = 10])
 (use [a] [not set? 'a])
 
 ; BREAK out of USE

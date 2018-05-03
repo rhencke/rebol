@@ -65,9 +65,6 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     const char *file, // UTF8
     int line
 ){
-    if (p == NULL)
-        p = "panic (...) was passed NULL"; // avoid later NULL tests
-
     // We are crashing, so a legitimate time to be disabling the garbage
     // collector.  (It won't be turned back on.)
     //
@@ -137,6 +134,14 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     strncat(buf, "\n", PANIC_BUF_SIZE - strlen(buf));
 
     switch (Detect_Rebol_Pointer(p)) {
+    case DETECTED_AS_NULL:
+        strncat(
+            buf,
+            "Panic was passed C nullptr",
+            PANIC_BUF_SIZE - strlen(buf)
+        );
+        break;
+
     case DETECTED_AS_UTF8: // string might be empty...handle specially?
         strncat(
             buf,

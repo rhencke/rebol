@@ -8,5 +8,5 @@
     2 == index? a
 )
 [#1611 ; Allow INDEX? to take blank as an argument, return void
-    (void? index of blank)
+    (null? index of blank)
 ]

@@ -420,33 +420,20 @@ REBNATIVE(destroy_struct_storage)
 //  {Persistently allocate a cell that can be referenced from FFI routines}
 //
 //      return: [integer!]
-//      value [<opt> any-value!]
+//      value [any-value!]
 //          {Initial value for the cell}
 //  ]
 //
 REBNATIVE(alloc_value_pointer)
 //
 // !!! Would it be better to not bother with the initial value parameter and
-// just start the cell out void?
+// just start the cell out blank?
 {
     FFI_INCLUDE_PARAMS_OF_ALLOC_VALUE_POINTER;
 
-    REBVAL *paired = Alloc_Pairing(); // no owning frame
-    Move_Value(paired, ARG(value));
+    REBVAL *allocated = rebUnmanage(Move_Value(Alloc_Value(), ARG(value)));
 
-    // We didn't put a FRAME! in the pairing's key, so instead put a blank.
-    // Also, it is not managed...but we want the GC to mark the pairing,
-    // so add NODE_FLAG_ROOT.
-    //
-    // (If it were managed, then any non-END, non-expired-FRAME! value here
-    // would prevent GC.  For now, go with unmanaged in order to make any
-    // leaks be "noisy".)
-    //
-    REBVAL *key = PAIRING_KEY(paired);
-    Init_Blank(key);
-    SET_VAL_FLAG(key, NODE_FLAG_ROOT);
-
-    Init_Integer(D_OUT, cast(intptr_t, paired));
+    Init_Integer(D_OUT, cast(intptr_t, allocated));
     return R_OUT;
 }
 
@@ -464,34 +451,18 @@ REBNATIVE(free_value_pointer)
 {
     FFI_INCLUDE_PARAMS_OF_FREE_VALUE_POINTER;
 
-    REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(pointer))));
+    REBVAL *v = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(pointer))));
 
-    // Check some invariants that should be true if this is the kind of
-    // value pointer that can be freed.
-    //
-    // !!! Should these be included in the release build and trigger an error
-    // in order to make the system a bit more crashproof?  It wouldn't be
-    // 100%, but it might save some headaches.
-    //
-#if !defined(NDEBUG)
-    REBVAL *key = PAIRING_KEY(paired);
-    assert(ALL_VAL_FLAGS(paired, NODE_FLAG_NODE | NODE_FLAG_CELL));
-    assert(ALL_VAL_FLAGS(key, NODE_FLAG_NODE | NODE_FLAG_CELL));
-    assert(IS_BLANK(key));
-    assert(GET_VAL_FLAG(key, NODE_FLAG_ROOT));
-#endif
-
-    // Although currently unmanaged pairings are used, it would also be
-    // possible to use a managed pairing.  Instead of calling Free_Pairing()
-    // then the PAIRING_KEY() would need to be set to void, and the GC would
-    // free it if there were no outstanding references.
+    // Although currently unmanaged API handles are used, it would also be
+    // possible to use a managed ones.
     //
     // Currently there's no way to make GC-visible references to the returned
     // pointer.  So the only value of using a managed strategy would be to
     // have the GC clean up leaks on exit instead of complaining in the
     // debug build.  For now, assume complaining is better.
     //
-    Free_Pairing(paired);
+    rebFree(v);
+
     return R_VOID;
 }
 

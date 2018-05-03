@@ -365,11 +365,7 @@ help: procedure [
     ]
 
     ; Open the web page for it?
-    if all [
-        doc
-        word? :topic
-        match [action! datatype!] get :topic
-    ][
+    if doc and (word? topic) and (match [action! datatype!] get :topic) [
         item: form :topic
         if action? get :topic [
             ;
@@ -392,14 +388,14 @@ help: procedure [
                 replace/all item a b
             ]
 
-            browse join-of [
+            browse join-all [
                 https://github.com/gchiu/reboldocs/blob/master/
                 item
                 %.MD
             ]
         ] else [
             remove back tail of item ;-- it's a DATATYPE!, so remove the !
-            browse join-of [
+            browse join-all [
                 http://www.rebol.com/r3/docs/datatypes/
                 item
                 tmp: %.html
@@ -537,16 +533,16 @@ help: procedure [
     ;
     meta: meta-of :value
     all [
-        original-name: match word! any* [
-            select meta 'specializee-name
-            select meta 'adaptee-name
+        original-name: match word! any [
+            try select meta 'specializee-name
+            try select meta 'adaptee-name
         ]
         original-name: uppercase mold original-name
     ]
 
-    specializee: match action! select meta 'specializee
-    adaptee: match action! select meta 'adaptee
-    chainees: match block! select meta 'chainees
+    specializee: match action! try select meta 'specializee
+    adaptee: match action! try select meta 'adaptee
+    chainees: match block! try select meta 'chainees
 
     classification: case [
         :specializee [
@@ -582,8 +578,8 @@ help: procedure [
 
     print-args: procedure [list /indent-words] [
         for-each param list [
-            note: match string! select notes to-word param
-            type: match [block! any-word!] select types to-word param
+            note: match string! try select notes to-word param
+            type: match [block! any-word!] try select types to-word param
 
             ;-- parameter name and type line
             if type and (not refinement? param) [
@@ -599,9 +595,9 @@ help: procedure [
     ]
 
     either blank? :return-type [
-        ; If it's a PROCEDURE, saying "RETURNS: void" would waste space
+        ; If it's a PROCEDURE, saying "RETURNS: null" would waste space
     ][
-        ; For any return besides "always void", always say something about
+        ; For any return besides "always null", try to say something about
         ; the return value...even if just to say it's undocumented.
         ;
         print-newline

@@ -65,7 +65,7 @@
 )
 
 (
-    void? r3-alpha-apply func [
+    null? r3-alpha-apply func [
         return: [<opt> any-value!]
         x [<opt> any-value!]
     ][
@@ -75,7 +75,7 @@
     ]
 )
 (
-    void? r3-alpha-apply func [
+    null? r3-alpha-apply func [
         return: [<opt> any-value!]
         'x [<opt> any-value!]
     ][
@@ -85,7 +85,7 @@
     ]
 )
 (
-    void? r3-alpha-apply func [
+    null? r3-alpha-apply func [
         return: [<opt> any-value!]
         x [<opt> any-value!]
     ][
@@ -95,7 +95,7 @@
     ]
 )
 (
-    void? r3-alpha-apply func [
+    null? r3-alpha-apply func [
         return: [<opt> any-value!]
         'x [<opt> any-value!]
     ][

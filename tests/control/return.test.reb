@@ -12,7 +12,7 @@
 ; return value tests
 (
     f1: func [] [return ()]
-    void? f1
+    null? f1
 )
 (
     f1: func [] [return trap [1 / 0]]

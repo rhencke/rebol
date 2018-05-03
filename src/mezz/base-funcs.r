@@ -162,7 +162,7 @@ make-action: func [
             ]
         )
     |
-        (var: void) ;-- everything below this line clears var
+        (var: null) ;-- everything below this line clears var
         fail ;-- failing here means rolling over to next rule
     |
         <local>
@@ -178,7 +178,7 @@ make-action: func [
                 ]
             ]
         )]
-        (var: void) ;-- don't consider further GROUP!s or variables
+        (var: null) ;-- don't consider further GROUP!s or variables
     |
         <in> (
             unless new-body [
@@ -219,7 +219,7 @@ make-action: func [
                 ]
             )
         ]
-        (var: void)
+        (var: null)
     |
         end accept
     |
@@ -593,8 +593,8 @@ match: redescribe [
         return: [<opt> any-value!]
         f [frame!]
     ][
-        if void? value: :f/value [
-            fail "MATCH cannot take void as input" ;-- EITHER-TEST allows it
+        if null? value: :f/value [
+            fail "MATCH cannot take null as input" ;-- EITHER-TEST allows it
         ]
 
         ; Ideally we'd pass through all input results on a "match" and give
@@ -604,12 +604,12 @@ match: redescribe [
         ;     if match [blank!] find "abc" "d" [...]
         ;
         ; Rather than have MATCH return a falsey result in these cases, pass
-        ; back a BAR!.  But on failure, pass back a void.  That will cue
+        ; back a BAR!.  But on failure, pass back a null.  That will cue
         ; attention to the distorted success result, and lead those writing
         ; expressions like the above to use DID MATCH.
 
         result: do f ;-- can't access f/value after the DO
-        if all [not :value | not void? :result] [
+        if all [not :value | not null? :result] [
             return '| ;-- BAR! if matched a falsey type
         ]
         to-value :result ;-- blank if failed, or other truthy result
@@ -648,6 +648,7 @@ ensure: redescribe [
 really: func [
     {FAIL if value is void or blank, otherwise pass it through}
 
+    return: [any-value!]
     value [any-value!] ;-- always checked for void, since no <opt>
     /only
         {Just make sure value isn't void, pass through BLANK! (see REALLY*)}

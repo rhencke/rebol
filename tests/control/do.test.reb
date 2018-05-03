@@ -14,7 +14,7 @@
     same? a-value eval a-value
 )
 ; do block start
-(void? do [])
+(null? do [])
 (:abs = do [:abs])
 (
     a-value: #{}
@@ -107,7 +107,7 @@
 )
 (0:00 == do [0:00])
 (0.0.0 == do [0.0.0])
-(void? do [()])
+(null? do [()])
 ('a == do ['a])
 ; do block end
 (
@@ -189,7 +189,7 @@
     a-value: "1"
     1 == do :a-value
 )
-(void? do "")
+(null? do "")
 (1 = do "1")
 (3 = do "1 2 3")
 (
@@ -240,7 +240,7 @@
         [2] = b
     ]
 )
-(void? do/next [] 'b)
+(null? do/next [] 'b)
 (error? do/next [trap [1 / 0]] 'b)
 (
     f1: func [] [do/next [return 1 2] 'b 2]

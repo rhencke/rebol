@@ -1,7 +1,7 @@
 ; functions/control/any.r
 ; zero values
 (blank? any [])
-(void? any* [])
+(null? any* [])
 ; one value
 (:abs = any [:abs])
 (
@@ -100,7 +100,7 @@
 (0:00 == any [0:00])
 (0.0.0 == any [0.0.0])
 (error? trap [any [()]])
-(void? any* [()])
+(null? any* [()])
 ('a == any ['a])
 ; two values
 (:abs = any [false :abs])

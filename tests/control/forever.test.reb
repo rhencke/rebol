@@ -21,7 +21,7 @@
     1 = f1
 )
 ; Test that leave stops the loop
-(void? eval proc [] [forever [leave]])
+(null? eval proc [] [forever [leave]])
 ; Test that errors do not stop the loop and errors can be returned
 (
     num: 0

@@ -1222,7 +1222,7 @@ REBNATIVE(remove_each)
         // If index is past the series end, then there's nothing removable.
         //
         // !!! Should REMOVE-EACH follow the "loop conventions" where if the
-        // body never gets a chance to run, the return value is void?
+        // body never gets a chance to run, the return value is null?
         //
         Init_Integer(D_OUT, 0);
         return R_OUT;

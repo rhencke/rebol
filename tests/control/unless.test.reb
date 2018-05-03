@@ -11,9 +11,9 @@
 )
 (1 = unless false [1])
 
-(void? unless* true [1])
-(void? unless* false [])
-(void? unless true [1])
+(null? unless* true [1])
+(null? unless* false [])
+(null? unless true [1])
 (blank? unless false [])
 
 (error? unless false [trap [1 / 0]])

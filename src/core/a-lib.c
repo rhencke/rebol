@@ -71,7 +71,7 @@
 // in order to use the OS_* macro functions."
 //
 #ifdef REB_API  // Included by C command line
-    const REBOL_HOST_LIB *Host_Lib = NULL;
+    const REBOL_HOST_LIB *Host_Lib = nullptr;
     EXTERN_C REBOL_HOST_LIB Host_Lib_Init;
 #endif
 
@@ -82,7 +82,7 @@
 // proper moment in the boot.
 //
 inline static void Enter_Api(void) {
-    if (Host_Lib == NULL)
+    if (not Host_Lib)
         panic ("rebStartup() not called before API call");
 }
 
@@ -107,15 +107,15 @@ inline static void Enter_Api(void) {
 //
 //  rebMalloc: RL_API
 //
-// * Unlike plain malloc(), this will fail() instead of return NULL if an
+// * Unlike plain malloc(), this will fail() instead of return null if an
 //   allocation cannot be fulfilled.
 //
 // * Like plain malloc(), if size is zero, the implementation just has to
 //   return something that free() will take.  A backing series is added in
-//   this case vs. returning NULL, in order to avoid NULL handling in other
+//   this case vs. returning null, in order to avoid null handling in other
 //   routines (e.g. rebRepossess() or handle lifetime control functions).
 //
-// * Because of the above points, NULL is *never* returned.
+// * Because of the above points, null is *never* returned.
 //
 // * It tries to be like malloc() by giving back a pointer "suitably aligned
 //   for the size of any fundamental type".  See notes on ALIGN_SIZE.
@@ -163,8 +163,8 @@ void *RL_rebMalloc(size_t size)
 //
 //  rebRealloc: RL_API
 //
-// * Like plain realloc(), NULL is legal for ptr (despite the fact that
-//   rebMalloc() never returns NULL, this can still be useful)
+// * Like plain realloc(), null is legal for ptr (despite the fact that
+//   rebMalloc() never returns null, this can still be useful)
 //
 // * Like plain realloc(), it preserves the lesser of the old data range or
 //   the new data range, and memory usage drops if new_size is smaller:
@@ -172,7 +172,7 @@ void *RL_rebMalloc(size_t size)
 // https://stackoverflow.com/a/9575348
 //
 // * Unlike plain realloc() (but like rebMalloc()), this fails instead of
-//   returning NULL, hence it is safe to say `ptr = rebRealloc(ptr, new_size)`
+//   returning null, hence it is safe to say `ptr = rebRealloc(ptr, new_size)`
 //
 // * A 0 size is considered illegal.  This is consistent with the C11 standard
 //   for realloc(), but not with malloc() or rebMalloc()...which allow it.
@@ -183,7 +183,7 @@ void *RL_rebRealloc(void *ptr, size_t new_size)
 
     assert(new_size > 0); // realloc() deprecated this as of C11 DR 400
 
-    if (ptr == NULL) // C realloc() accepts NULL
+    if (not ptr) // C realloc() accepts null
         return rebMalloc(new_size);
 
     REBSER **ps = cast(REBSER**, ptr) - 1;
@@ -208,13 +208,13 @@ void *RL_rebRealloc(void *ptr, size_t new_size)
 //
 //  rebFree: RL_API
 //
-// * As with free(), NULL is accepted as a no-op.
+// * As with free(), null is accepted as a no-op.
 //
 void RL_rebFree(void *ptr)
 {
     Enter_Api();
 
-    if (ptr == NULL)
+    if (not ptr)
         return;
 
     REBSER **ps = cast(REBSER**, ptr) - 1;
@@ -312,8 +312,8 @@ void Startup_Api(void)
 //
 void Shutdown_Api(void)
 {
-    assert(Host_Lib != NULL);
-    Host_Lib = NULL;
+    assert(Host_Lib);
+    Host_Lib = nullptr;
 }
 
 
@@ -382,7 +382,7 @@ void RL_rebVersion(REBYTE vers[])
 //
 void RL_rebStartup(const void *lib)
 {
-    if (Host_Lib != NULL)
+    if (Host_Lib)
         panic ("rebStartup() called when it's already started");
 
     Host_Lib = cast(const REBOL_HOST_LIB*, lib);
@@ -472,10 +472,13 @@ static REBARR* Array_From_Vaptr_Maybe_Null(
     enum Reb_Pointer_Detect detect;
 
     while ((detect = Detect_Rebol_Pointer(p)) != DETECTED_AS_END) {
-        if (p == NULL)
-            fail ("use END to terminate rebPrint(), not NULL");
-
         switch (detect) {
+        case DETECTED_AS_NULL: {
+            //
+            // print [() "hi" ()] just skips voids for now (should it?)
+            //
+            break; }
+
         case DETECTED_AS_UTF8: {
             const REBYTE *utf8 = cast(const REBYTE*, p);
             const REBLIN start_line = 1;
@@ -542,8 +545,8 @@ REBVAL *RL_rebBlock(const void *p, ...) {
 
     va_end(va);
 
-    if (a == NULL)
-        return NULL;
+    if (not a)
+        return nullptr;
 
     return Init_Block(Alloc_Value(), a);
 }
@@ -587,12 +590,12 @@ REBVAL *RL_rebRun(const void *p, ...)
     if (not IS_VOID(result))
         return result;
 
-    // To API clients, NULL means void.  This provides convenience for testing
+    // To API clients, null means void.  This provides convenience for testing
     // a result (`if (val)`), doesn't require a rebRelease(), and interacts
     // well with the TRY/OPT mechanic from inside of Rebol statements.
 
     rebRelease(result);
-    return NULL;
+    return nullptr;
 }
 
 
@@ -671,7 +674,7 @@ REBOOL RL_rebPrint(const void *p, ...)
     REBARR *a = Array_From_Vaptr_Maybe_Null(p, &va, uneval_hack);
     va_end(va);
 
-    if (a == NULL)
+    if (not a)
         return FALSE;
 
     Deep_Freeze_Array(a);
@@ -690,7 +693,7 @@ REBOOL RL_rebPrint(const void *p, ...)
     Init_Block(block, a);
 
     REBVAL *result = rebRun(rebEval(print), block, END);
-    if (result == NULL)
+    if (not result)
         return FALSE;
 
     rebRelease(result);
@@ -742,7 +745,7 @@ const void *RL_rebEval(const REBVAL *v)
 //
 //  rebUneval: RL_API
 //
-// voids are represented as NULL, and they are not legal to splice into
+// voids are represented as null, and they are not legal to splice into
 // blocks.  So the rebUneval() expression works around it by splicing in a
 // GROUP!, and if it's not void then it puts an QUOTE and the value inside.
 //
@@ -764,7 +767,7 @@ const void *RL_rebUneval(const REBVAL *v)
 
     REBARR *instruction = Alloc_Singular_Array();
     RELVAL *single = ARR_SINGLE(instruction);
-    if (v == NULL)
+    if (not v)
         Init_Group(single, EMPTY_ARRAY);
     else {
         REBARR *a = Make_Array(2);
@@ -779,21 +782,6 @@ const void *RL_rebUneval(const REBVAL *v)
     //
     MANAGE_ARRAY(instruction);
     return instruction;
-}
-
-
-//
-//  rebVoid: RL_API
-//
-// Though NULL is contractually what void is in the libRebol C API, it is
-// important that variadic routines are passed a REBVAL*, as using NULL is
-// just the integer constant "0" and will not have the right type.  This
-// could be a lighter macro in the API, `(REBVAL*)0`, if it wanted to be.
-//
-REBVAL *RL_rebVoid(void)
-{
-    Enter_Api();
-    return NULL;
 }
 
 
@@ -1046,36 +1034,31 @@ REBVAL *RL_rebRescue(
 
     PUSH_TRAP(&error_ctx, &state);
 
-    // The first time through the following code 'error' will be NULL, but...
-    // `fail` can longjmp here, so 'error' won't be NULL *if* that happens!
+    // The first time through the following code 'error' will be null, but...
+    // `fail` can longjmp here, so 'error' won't be null *if* that happens!
     //
-    if (error_ctx != NULL)
+    if (error_ctx)
         return Init_Error(Alloc_Value(), error_ctx);
 
     REBVAL *result = (*dangerous)(opaque);
 
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 
-    if (result == NULL)
-        return NULL; // NULL is considered a legal result
+    if (not result)
+        return nullptr; // null is considered a legal result
 
     // Analogous to how TRAP works, if you don't have a handler for the
     // error case then you can't return an ERROR!, since all errors indicate
     // a failure.
     //
-    // !!! Is returning rebVoid() too "quiet" a response?  Should it fail?
-    // Returning NULL seems like it would be prone to creating surprise
-    // crashes if the caller didn't expect NULLs, or used them to signal
-    // some other purpose.
-    //
     if (IS_ERROR(result)) {
         rebRelease(result);
-        return rebVoid();
+        return nullptr;
     }
 
     if (IS_VOID(result)) {
         rebRelease(result);
-        return rebBlank();
+        return nullptr;
     }
 
     return result;
@@ -1101,16 +1084,16 @@ REBVAL *RL_rebRescueWith(
 
     PUSH_TRAP(&error_ctx, &state);
 
-    // The first time through the following code 'error' will be NULL, but...
-    // `fail` can longjmp here, so 'error' won't be NULL *if* that happens!
+    // The first time through the following code 'error' will be null, but...
+    // `fail` can longjmp here, so 'error' won't be null *if* that happens!
     //
-    if (error_ctx != NULL) {
+    if (error_ctx) {
         REBVAL *error = Init_Error(Alloc_Value(), error_ctx);
 
         REBVAL *result = (*rescuer)(error, opaque); // *not* guarded by trap!
 
         rebRelease(error);
-        return result; // no special handling, may be NULL
+        return result; // no special handling, may be null
     }
 
     REBVAL *result = (*dangerous)(opaque); // guarded by trap
@@ -1388,7 +1371,7 @@ size_t RL_rebSpellingOf(
         utf8_size = STR_SIZE(spelling);
     }
 
-    if (buf == NULL) {
+    if (not buf) {
         assert(buf_size == 0);
         return utf8_size; // caller must allocate a buffer of size + 1
     }
@@ -1407,10 +1390,10 @@ char *RL_rebSpellingOfAlloc(size_t *size_out, const REBVAL *v)
 {
     Enter_Api();
 
-    size_t size = rebSpellingOf(NULL, 0, v);
+    size_t size = rebSpellingOf(nullptr, 0, v);
     char *result = cast(char*, rebMalloc(size + 1)); // add space for term
     rebSpellingOf(result, size, v);
-    if (size_out != NULL)
+    if (size_out != nullptr)
         *size_out = size;
     return result;
 }
@@ -1450,7 +1433,7 @@ REBCNT RL_rebSpellingOfW(
         len = SER_LEN(s);
     }
 
-    if (buf == NULL) { // querying for size
+    if (not buf) { // querying for size
         assert(buf_chars == 0);
         if (ANY_WORD(v))
             Free_Series(s);
@@ -1477,12 +1460,12 @@ REBWCHAR *RL_rebSpellingOfAllocW(REBCNT *len_out, const REBVAL *v)
 {
     Enter_Api();
 
-    REBCNT len = rebSpellingOfW(NULL, 0, v);
+    REBCNT len = rebSpellingOfW(nullptr, 0, v);
     REBWCHAR *result = cast(
         REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
     );
     rebSpellingOfW(result, len, v);
-    if (len_out != NULL)
+    if (len_out)
         *len_out = len;
     return result;
 }
@@ -1505,7 +1488,7 @@ REBCNT RL_rebBytesOfBinary(
 
     REBCNT len = VAL_LEN_AT(binary);
 
-    if (buf == NULL) {
+    if (not buf) {
         assert(buf_chars == 0);
         return len; // caller must allocate a buffer of size len + 1
     }
@@ -1524,10 +1507,10 @@ REBYTE *RL_rebBytesOfBinaryAlloc(REBCNT *len_out, const REBVAL *binary)
 {
     Enter_Api();
 
-    REBCNT len = rebBytesOfBinary(NULL, 0, binary);
+    REBCNT len = rebBytesOfBinary(nullptr, 0, binary);
     REBYTE *result = cast(REBYTE*, rebMalloc(len + 1));
     rebBytesOfBinary(result, len, binary);
-    if (len_out != NULL)
+    if (len_out)
         *len_out = len;
     return result;
 }
@@ -1600,7 +1583,7 @@ REBVAL *RL_rebLock(REBVAL *p1, const REBVAL *p2)
     assert(IS_END(p2)); // Not yet variadic...
     UNUSED(p2);
 
-    REBSER *locker = NULL;
+    REBSER *locker = nullptr;
     Ensure_Value_Immutable(p1, locker);
     return p1;
 }
@@ -1701,7 +1684,7 @@ REBVAL *RL_rebManage(REBVAL *v)
 
     SET_SER_FLAG(a, NODE_FLAG_MANAGED);
     assert(LINK(a).owner == EMPTY_ARRAY);
-    if (FS_TOP == NULL)
+    if (not FS_TOP)
         LINK(a).owner = EMPTY_ARRAY;
     else
         LINK(a).owner = CTX_VARLIST(
@@ -1804,7 +1787,7 @@ void RL_rebRelease(REBVAL *v)
 {
     Enter_Api();
 
-    if (v == NULL)
+    if (not v)
         return; // less rigorous, but makes life easier for C programmers
 
     if (not Is_Api_Value(v))
@@ -2203,12 +2186,12 @@ void RL_rebFail_OS(int errnum)
     // those in.  But since this is a generic error, we have no more
     // parameterization (hence FORMAT_MESSAGE_IGNORE_INSERTS)
     //
-    va_list *Arguments = NULL;
+    va_list *Arguments = nullptr;
 
     // Apparently FormatMessage can find its error strings in a variety of
     // DLLs, but we don't have any context here so just use the default.
     //
-    LPCVOID lpSource = NULL;
+    LPCVOID lpSource = nullptr;
 
     DWORD ok = FormatMessage(
         FORMAT_MESSAGE_ALLOCATE_BUFFER // see lpMsgBuf

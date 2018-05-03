@@ -102,7 +102,14 @@ console!: make object! [
     print-result: proc [v [<opt> any-value!]]  [
         last-result: :v
         case [
-            unset? 'v [] ;-- void evaluation, just don't print anything
+            null? :v [
+                ; Historically Rebol wouldn't print any eval result in the
+                ; case of things that "didn't return a value".  As a test to
+                ; see the impacts, this prints out a comment to direct people
+                ; to realize there was a "result"...it's just not a value.
+                ;
+                print [";-- null"]
+            ]
         ]
         else [
             print [result (mold :v)]
@@ -336,7 +343,7 @@ host-console: function [
         assert [unset? 'result]
 
         return <- case [
-            void? :status/arg1 [
+            null? :status/arg1 [
                 ;
                 ; Plain QUIT (no /WITH), consider it success
                 ;
@@ -491,7 +498,10 @@ host-console: function [
     ;
     case [
         block? result [
-            return as group! result
+            if empty? result [
+                return [<needs-gap>] ;-- cycle prompt, don't run PRINT-RESULT
+            ]
+            return as group! result ;-- GROUP! indicates user-requested code
         ]
         string? result [ ;-- dialect-hook
             source: result

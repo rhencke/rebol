@@ -9,7 +9,7 @@
 ; return-less return value tests
 (
     f: does []
-    void? f
+    null? f
 )
 (
     f: does [:abs]
@@ -184,7 +184,7 @@
 )
 (
     f: does [()]
-    void? f
+    null? f
 )
 (
     f: does ['a]
@@ -415,5 +415,5 @@
         use [x] [leave] ;-- https://github.com/metaeducation/ren-c/issues/755
         42
     ]
-    void? f
+    null? f
 )]

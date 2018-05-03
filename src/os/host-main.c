@@ -122,7 +122,7 @@ EXTERN_C REBOL_HOST_LIB Host_Lib_Init;
             // No console to attach to, we must be the DETACHED_PROCESS which
             // was spawned in the below branch.
             //
-            App_Instance = GetModuleHandle(NULL);
+            App_Instance = GetModuleHandle(nullptr);
         }
         else {
           #ifdef REB_CORE
@@ -139,7 +139,7 @@ EXTERN_C REBOL_HOST_LIB Host_Lib_Init;
             // In the "GUI app" mode, stdio redirection doesn't work properly,
             // but no blinking console window during start.
             //
-            if (this_exe_path == NULL) { // argc was > 1
+            if (not this_exe_path) { // argc was > 1
                 App_Instance = cast(HINSTANCE,
                     GetWindowLongPtr(GetConsoleWindow(), GWLP_HINSTANCE)
                 );
@@ -153,20 +153,20 @@ EXTERN_C REBOL_HOST_LIB Host_Lib_Init;
                 startinfo.cb = sizeof(startinfo);
 
                 PROCESS_INFORMATION procinfo;
-                if (!CreateProcess(
-                    NULL, // lpApplicationName
+                if (not CreateProcess(
+                    nullptr, // lpApplicationName
                     this_exe_path, // lpCommandLine
-                    NULL, // lpProcessAttributes
-                    NULL, // lpThreadAttributes
+                    nullptr, // lpProcessAttributes
+                    nullptr, // lpThreadAttributes
                     FALSE, // bInheritHandles
                     CREATE_DEFAULT_ERROR_MODE | DETACHED_PROCESS,
-                    NULL, // lpEnvironment
-                    NULL, // lpCurrentDirectory
+                    nullptr, // lpEnvironment
+                    nullptr, // lpCurrentDirectory
                     &startinfo,
                     &procinfo
                 )){
                     MessageBox(
-                        NULL, // owner window
+                        nullptr, // owner window
                         L"CreateProcess() failed in %host-main.c",
                         this_exe_path, // title
                         MB_ICONEXCLAMATION | MB_OK
@@ -284,13 +284,13 @@ void Disable_Ctrl_C(void)
 {
     assert(ctrl_c_enabled);
 
-    sigaction(SIGINT, NULL, &old_action); // fetch current handler
+    sigaction(SIGINT, nullptr, &old_action); // fetch current handler
     if (old_action.sa_handler != SIG_IGN) {
         struct sigaction new_action;
         new_action.sa_handler = SIG_IGN;
         sigemptyset(&new_action.sa_mask);
         new_action.sa_flags = 0;
-        sigaction(SIGINT, &new_action, NULL);
+        sigaction(SIGINT, &new_action, nullptr);
     }
 
     ctrl_c_enabled = FALSE;
@@ -365,11 +365,11 @@ int main(int argc, char *argv_ansi[])
     WCHAR **argv_ucs2 = CommandLineToArgvW(GetCommandLineW(), &argc);
     UNUSED(argv_ansi);
 
-    Determine_Hinstance_May_Respawn(argc > 1 ? NULL : argv_ucs2[0]);
+    Determine_Hinstance_May_Respawn(argc > 1 ? nullptr : argv_ucs2[0]);
 
     int i;
     for (i = 0; i < argc; ++i) {
-        if (argv_ucs2[i] == NULL)
+        if (argv_ucs2[i] == nullptr)
             continue; // !!! Comment here said "shell bug" (?)
 
         REBVAL *arg = rebStringW(argv_ucs2[i]);
@@ -381,7 +381,7 @@ int main(int argc, char *argv_ansi[])
     //
     int i = 0;
     for (; i < argc; ++i) {
-        if (argv_ansi[i] == NULL)
+        if (argv_ansi[i] == nullptr)
             continue; // !!! Comment here said "shell bug" (?)
 
         REBVAL *arg = rebString(argv_ansi[i]);
@@ -577,7 +577,7 @@ int main(int argc, char *argv_ansi[])
 
             code = rebRun("[#host-console-error]", END);
             status = trapped;
-            result = rebVoid();
+            result = nullptr;
             no_recover = TRUE; // no second chances until user code runs
             goto recover;
         }
@@ -613,7 +613,7 @@ int main(int argc, char *argv_ansi[])
         //
         struct sandbox_info info;
         info.group_or_block = code;
-        info.result = NULL;
+        info.result = nullptr;
 
         Enable_Ctrl_C();
         status = rebRescue(cast(REBDNG*, &Run_Sandboxed_Code), &info);
@@ -637,7 +637,7 @@ int main(int argc, char *argv_ansi[])
         if (rebDid("lib/blank?", status, END))
             result = info.result;
         else
-            result = rebVoid();
+            result = nullptr;
     }
 
     rebRelease(host_console);

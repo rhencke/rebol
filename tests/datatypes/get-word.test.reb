@@ -9,7 +9,7 @@
 )
 (
     unset 'a
-    void? :a
+    null? :a
 )
 
 [#1477 (

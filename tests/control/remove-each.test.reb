@@ -56,7 +56,7 @@
     block: copy [1 2 3 4 5]
     remove-each [a b] block [
         if a = 5 [
-            b-was-void: void? :b
+            b-was-void: null? :b
         ]
     ]
     b-was-void
@@ -94,7 +94,7 @@
     string: copy "12345"
     remove-each [a b] string [
         if a = #"5" [
-            b-was-void: void? :b
+            b-was-void: null? :b
         ]
     ]
     b-was-void
@@ -132,7 +132,7 @@
     binary: copy #{0102030405}
     remove-each [a b] binary [
         if a = 5 [
-            b-was-void: void? :b
+            b-was-void: null? :b
         ]
     ]
     b-was-void

@@ -110,20 +110,20 @@ REBNATIVE(did_q)
 //
 //  did: native/body [
 //
-//  "Variant of TO-LOGIC which considers void values to also be false"
+//  "Variant of TO-LOGIC which considers null values to also be false"
 //
 //      return: [logic!]
 //          {true if value is NOT a LOGIC! false, BLANK!, or void}
-//      cell [<opt> any-value!]
+//      optional [<opt> any-value!]
 //  ][
-//      not not :cell
+//      not not :optional
 //  ]
 //
 REBNATIVE(did)
 {
     INCLUDE_PARAMS_OF_DID;
 
-    return R_FROM_BOOL(not IS_VOID_OR_FALSEY(ARG(cell)));
+    return R_FROM_BOOL(not IS_VOID_OR_FALSEY(ARG(optional)));
 }
 
 
@@ -152,14 +152,14 @@ REBNATIVE(not_q)
 //
 //      return: [logic!]
 //          "Only LOGIC!'s FALSE, BLANK!, and void for cell return TRUE"
-//      cell [<opt> any-value!]
+//      optional [<opt> any-value!]
 //  ]
 //
 REBNATIVE(not)
 {
     INCLUDE_PARAMS_OF_NOT;
 
-    return R_FROM_BOOL(IS_VOID_OR_FALSEY(ARG(cell)));
+    return R_FROM_BOOL(IS_VOID_OR_FALSEY(ARG(optional)));
 }
 
 

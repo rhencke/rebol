@@ -48,18 +48,6 @@ probe: func [
 compose: specialize 'concoct [pattern: quote ()]
 
 
-; Words for BLANK! and BAR! and void, for those who don't like symbols
-
-blank: _
-bar: '|
-
-void: func [
-    "Function returning no result (alternative for `()`)"
-    return: [<opt>]
-][
-] ;-- No body runs just as fast as a no-op native, see Noop_Dispatcher()
-
-
 ; Convenience helper for making enfixed functions
 
 set/enfix quote enfix: proc [ ;-- `x: y: enfix :z` wouldn't enfix x
@@ -111,12 +99,13 @@ end: func [
 ]
 
 uneval: func [
-    {Make expression that when evaluated, will produce the input cell}
-    return: {`()` if void cell, or `(quote ...)` where ... is passed-in cell}
+    {Make expression that when evaluated, will produce the input}
+
+    return: {`()` if null, or `(quote ...)` where ... is passed-in cell}
         [group!]
-    cell [<opt> any-value!]
+    optional [<opt> any-value!]
 ][
-    either void? :cell [quote ()] [reduce quote ('quote :cell)]
+    either null? :optional [quote ()] [reduce quote ('quote :optional)]
 ]
 
 

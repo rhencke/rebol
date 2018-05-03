@@ -182,6 +182,25 @@ typedef REBWCHAR REBUNI;
     // anything else about it (including size).
     //
     typedef void REBVAL;
+
+    // By contract, C's NULL is the same bit pattern in a REBVAL* that is used
+    // for Rebol's representation of null in the API.  This means that if a
+    // REBVAL* is returned from an operation, it can be checked for "nullness"
+    // with just `if (!v)`.
+    //
+    // Hence library users should feel comfortable saying `REBVAL *v = NULL;`
+    // and know it will be interpreted as "an <opt>".  However, there is a
+    // danger in passing NULL to variadics, see %reb-c.h for the explanation
+    // of why `nullptr` was "shimmed" into C, and should be preferred.
+    //
+    // Passing `nullptr` to a variadic in slots where a REBVAL* is intended is
+    // a perfectly clear and safe expression of intent to pass the absence of
+    // a Rebol value.  But it may not be clear in routines that take pointers
+    // to other types also.  This macro exists for that case, but in variable
+    // initialization cases just `REBVAL *v = nullptr;` should be used.
+    //
+    #define rebNull \
+        cast(REBVAL*, 0)
 #else
     struct Reb_Cell;
 

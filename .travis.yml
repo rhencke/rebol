@@ -296,7 +296,7 @@ matrix:
         - OS_ID=0.3.40
         - DEBUG=asserts
         - TOOLS=x86_64-w64-mingw32- # trailing hyphen is intentional
-        - STANDARD=c++
+        - STANDARD=c++98
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=x86_64-win32-tcc

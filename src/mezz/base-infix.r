@@ -237,20 +237,20 @@ nay*: enfix specialize :unless [ ;-- UNLESS/ONLY is a path, can't run infix
 
 
 ; ALSO and ELSE are "non-TIGHTened" enfix functions which either pass through
-; an argument or run a branch, based on void-ness of the argument.  They take
+; an argument or run a branch, based on nullity of the argument.  They take
 ; advantage of the pattern of conditionals such as `if condition [...]` to
-; only return void if the branch does not run, and never return void if it
-; does run (void branch evaluations are forced to BLANK!)
+; only return null if the branch does not run, and never return null if it
+; does run (null branch evaluations are forced to a BLANK!)
 ;
 ; These could be implemented as specializations of the generic EITHER-TEST
-; native.  But due to their common use they are hand-optimized into their own
-; specialized natives: EITHER-TEST-VOID and EITHER-TEST-VALUE.
+; native.  But due to their common use they are optimized into their own
+; natives: EITHER-TEST-NULL and EITHER-TEST-VALUE.
 
 also: enfix redescribe [
-    "Evaluate the branch if the left hand side expression is not void"
+    "Evaluate the branch if the left hand side expression is not null"
 ](
-    comment [specialize 'either-test [test: :void?]]
-    :either-test-void
+    comment [specialize 'either-test [test: :null?]]
+    :either-test-null
 )
 
 also*: enfix redescribe [
@@ -262,7 +262,7 @@ also*: enfix redescribe [
 else: enfix redescribe [
     "Evaluate the branch if the left hand side expression is void"
 ](
-    comment [specialize 'either-test [test: :any-value?]]
+    comment [specialize 'either-test [test: :value?]]
     :either-test-value
 )
 

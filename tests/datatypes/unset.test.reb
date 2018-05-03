@@ -1,10 +1,10 @@
 ; datatypes/unset.r
-(void? ())
+(null? ())
 (blank? type of ())
-(not void? 1)
+(not null? 1)
 
 [#68
-    (void? trap/with [a: ()] [_])
+    (null? trap/with [a: ()] [_])
 ]
 
 (error? trap [a: () a])

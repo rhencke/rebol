@@ -1,7 +1,7 @@
 ; functions/control/all.r
 ; zero values
 (bar? all [])
-(void? all* [])
+(null? all* [])
 ; one value
 (:abs = all [:abs])
 (
@@ -99,7 +99,7 @@
 (0:00 == all [0:00])
 (0.0.0 == all [0.0.0])
 (error? trap [all [()]])
-(void? all* [()])
+(null? all* [()])
 ('a == all ['a])
 ; two values
 (:abs = all [true :abs])

@@ -32,7 +32,7 @@ sys: system/contexts/sys
 lib: system/contexts/lib
 
 ;-- Char constants:
-null:      #"^(NULL)"
+nul:       #"^(NULL)"
 space:     #" "
 sp:        space
 backspace: #"^(BACK)"
@@ -55,3 +55,14 @@ max: :maximum
 abs: :absolute
 
 rebol.com: http://www.rebol.com
+
+; Words for BLANK! and BAR! and null, for those who don't like symbols
+
+blank: _
+bar: '|
+
+null: func [
+    "Function returning no result (alternative for `()`)"
+    return: [<opt>]
+][
+]

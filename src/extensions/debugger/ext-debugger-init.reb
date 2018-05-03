@@ -30,7 +30,7 @@ backtrace*: function [
     /brief
         "Do not list depths, just function labels on one line"
 ][
-    get-frame: not any [void? :level | blank? :level]
+    get-frame: not blank? :level
 
     if get-frame [
         if any [limit brief] [

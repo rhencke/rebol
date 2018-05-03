@@ -697,7 +697,7 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 // VAL_TYPE() and many other operations will panic if they are used on an END
 // cell.  Yet the special unwritable system value END is the size of a REBVAL,
 // but does not carry NODE_FLAG_CELL.  Since it is a node, it can be more
-// useful to return from routines that return REBVAL* than a NULL, because it
+// useful to return from routines that return REBVAL* than a null, because it
 // can have its header dereferenced to check its type in a single test...
 // as VAL_TYPE_OR_0() will return REB_0 for the system END marker.  (It's
 // actually possible if you're certain you have a NODE_FLAG_CELL to know that
@@ -911,23 +911,39 @@ inline static RELVAL *REL(REBVAL *v) {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  VOID CELLS
+//  VOID CELLS (*internal* form of Rebol NULL)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Voids are a transient product of evaluation (e.g. the result of `do []`).
-// They cannot be stored in BLOCK!s that are seen by the user, and if a
-// variable is assigned a void cell then that variable is "unset".
+// Rebol's null is a transient evaluation product (e.g. result of `do []`).
+// These cannot be stored in BLOCK!s that are seen by the user, and if null
+// is used in an assignment then the variable doesn't "hold a null value".
+// Rather, that was a way of asking to unset it, e.g.
 //
-// Void is thus not considered to be a "value type", but a bit pattern used to
-// mark cells as not containing any value at all.  It uses REB_MAX, because
-// that is one past the range of valid REB_XXX values in the enumeration
-// created for the actual types.
+//    >> null: does []
 //
-// Note: For some narrow purposes, it may be useful to quickly test a value
-// which is potentially void as "falsey" like BLANK! and LOGIC! false, so
-// it is given VALUE_FLAG_FALSEY to facilitate a fast test for that.  But
-// usual tests for truth in conditionals specifically prohibit voids.
+//    >> x: null
+//
+//    >> if x = null [print "x doesn't 'hold null', you can't do this"]
+//    ** Script Error: x has no value
+//
+// The libRebol API takes advantage of this by actually using C's concept of
+// a null pointer to directly represent the optional state.  By promising this
+// is the case, clients of the API can write `if (value)` or `if (!value)`
+// and be sure that there's not some nonzero address of a "null-valued cell"
+// they have to make an `isRebolNull()` API call on.
+//
+// But that's the API.  Internal to Rebol, cells are the currency used, and
+// if they are to represent an "optional" value, there must be a special
+// bit pattern used to mark them as not containing any value at all.  These
+// are called "void cells" are marked by means of their VAL_TYPE(), but they
+// use REB_MAX--because that is one past the range of valid REB_XXX values
+// in the enumeration created for the actual types.
+//
+// !!! Not using REB_0 for this has a historical reason, in trying to find
+// bugs and pin down invariants in R3-Alpha, a zero bit pattern could happen
+// more commonly on accident.  So 0 was "reserved" for uses that wouldn't
+// come up in common practice.  This could now be changed if needed.
 //
 
 #define REB_MAX_VOID \
@@ -941,7 +957,13 @@ inline static RELVAL *REL(REBVAL *v) {
 
 #ifdef NDEBUG
     inline static REBVAL *Init_Void(RELVAL *out) {
-        RESET_VAL_CELL(out, REB_MAX_VOID, VALUE_FLAG_FALSEY); // see "falsey" note
+        //
+        // For some narrow purposes, it may be useful to quickly test a value
+        // which is potentially null as "falsey" like BLANK! and LOGIC! false,
+        // so void cells are given VALUE_FLAG_FALSEY.  But usual tests for
+        // truth in conditionals specifically prohibit nulls.
+        //
+        RESET_VAL_CELL(out, REB_MAX_VOID, VALUE_FLAG_FALSEY);
         return KNOWN(out);
     }
 #else
@@ -974,13 +996,13 @@ inline static RELVAL *REL(REBVAL *v) {
 #define IS_VOID_OR_FALSEY(v) \
     GET_VAL_FLAG((v), VALUE_FLAG_FALSEY)
 
-// The API uses NULL to signify void, and to help ensure full void cells don't
-// leak to the API the variadic interface will only handle void.  Any internal
+// The API uses nullptr to signify void.  To help ensure full void cells don't
+// leak to the API, the variadic interface only handles void.  Any internal
 // code that passes a value which may be null through the variadic interface
-// needs to make sure any voids get converted to NULL first.
+// needs to make sure any voids get converted to null first.
 //
 inline static REBVAL *DEVOID(REBVAL *cell) {
-    return IS_VOID(cell) ? NULL : cell;
+    return IS_VOID(cell) ? nullptr : cell;
 }
 
 
@@ -1760,10 +1782,10 @@ inline static void SET_GOB(RELVAL *v, REBGOB *g) {
 // are at lower values than the unbindable types.
 //
 
-// Originally a NULL pointer was used to indicate when a value was specified
+// Originally a null pointer was used to indicate when a value was specified
 // by its nature.  However, by using something that is a valid REBNOD there
 // is an advantage of being able to merely test it for NODE_FLAG_MANAGED
-// in Move_Value() without special-casing the NULL handling.
+// in Move_Value() without special-casing the null handling.
 //
 #define SPECIFIED \
     cast(REBSPC*, PG_Empty_Array)

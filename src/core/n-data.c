@@ -370,16 +370,16 @@ REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
 //
 //  value?: native [
 //
-//  "Tells you if the data cell contains a value (e.g. `value? ()` is FALSE)"
+//  "Test if an optional cell contains a value (e.g. `value? ()` is FALSE)"
 //
-//      cell [<opt> any-value!]
+//      optional [<opt> any-value!]
 //  ]
 //
 REBNATIVE(value_q)
 {
     INCLUDE_PARAMS_OF_VALUE_Q;
 
-    return R_FROM_BOOL(ANY_VALUE(ARG(cell)));
+    return R_FROM_BOOL(ANY_VALUE(ARG(optional)));
 }
 
 
@@ -551,21 +551,21 @@ REBNATIVE(get)
 //
 //  try: native [
 //
-//  {Turns voids into blanks, ANY-VALUE! passes through. (See Also: OPT)}
+//  {Turns nulls into blanks, ANY-VALUE! passes through. (See Also: OPT)}
 //
 //      return: [any-value!]
 //          {blank if input was void, or original value otherwise}
-//      cell [<opt> any-value!]
+//      optional [<opt> any-value!]
 //  ]
 //
 REBNATIVE(try)
 {
     INCLUDE_PARAMS_OF_TRY;
 
-    if (IS_VOID(ARG(cell)))
+    if (IS_VOID(ARG(optional)))
         return R_BLANK;
 
-    Move_Value(D_OUT, ARG(cell));
+    Move_Value(D_OUT, ARG(optional));
     return R_OUT;
 }
 
@@ -573,21 +573,21 @@ REBNATIVE(try)
 //
 //  opt: native [
 //
-//  {Convert blanks to optionals. (See Also: TRY)}
+//  {Convert blanks to optionals, other values pass through (See Also: TRY)}
 //
 //      return: [<opt> any-value!]
 //          {void if input was a BLANK!, or original value otherwise}
-//      cell [<opt> any-value!]
+//      value [<opt> any-value!]
 //  ]
 //
 REBNATIVE(opt)
 {
     INCLUDE_PARAMS_OF_OPT;
 
-    if (IS_BLANK(ARG(cell)))
+    if (IS_BLANK(ARG(value)))
         return R_VOID;
 
-    Move_Value(D_OUT, ARG(cell));
+    Move_Value(D_OUT, ARG(value));
     return R_OUT;
 }
 
@@ -1106,7 +1106,7 @@ REBNATIVE(set_q)
 //
 //      location [any-word! any-path!]
 //  ][
-//      void? get* location
+//      null? get* location
 //  ]
 //
 REBNATIVE(unset_q)
@@ -1153,20 +1153,20 @@ REBNATIVE(quote)
 
 
 //
-//  void?: native/body [
+//  null?: native/body [
 //
-//  "Tells you if the argument is not a value (e.g. `void? do []` is TRUE)"
+//  "Tells you if the argument is not a value (e.g. `null? do []` is TRUE)"
 //
-//      cell [<opt> any-value!]
+//      optional [<opt> any-value!]
 //  ][
-//      blank? type of :cell
+//      blank? type of :optional
 //  ]
 //
-REBNATIVE(void_q)
+REBNATIVE(null_q)
 {
-    INCLUDE_PARAMS_OF_VOID_Q;
+    INCLUDE_PARAMS_OF_NULL_Q;
 
-    return R_FROM_BOOL(IS_VOID(ARG(cell)));
+    return R_FROM_BOOL(IS_VOID(ARG(optional)));
 }
 
 

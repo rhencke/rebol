@@ -273,24 +273,24 @@ test_failed:
 
 
 //
-//  either-test-void: native [
+//  either-test-null: native [
 //
-//  {If value is void, return void, otherwise take the branch.}
+//  {If value is null, return null, otherwise take the branch.}
 //
 //      return: [<opt> any-value!]
-//          {Void if input is void, or branch result (BLANK! if void)}
+//          {null if input is null, or branch result (blank if null)}
 //      value [<opt> any-value!]
 //      branch [block! action!]
 //      /only
-//          "If branch runs and returns void, do not convert it to BLANK!"
+//          "If branch runs and returns null, do not convert it to a BLANK!"
 //  ]
 //
-REBNATIVE(either_test_void)
+REBNATIVE(either_test_null)
 //
-// Native optimization of `specialize 'either-test-value [test: :void?]`
+// Native optimization of `specialize 'either-test-value [test: :null?]`
 // Worth it to write because this is the functionality enfixed as ALSO.
 {
-    INCLUDE_PARAMS_OF_EITHER_TEST_VOID;
+    INCLUDE_PARAMS_OF_EITHER_TEST_NULL;
 
     if (IS_VOID(ARG(value)))
         return R_VOID;

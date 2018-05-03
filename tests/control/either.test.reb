@@ -10,8 +10,8 @@
 (1 = either true [1] [2])
 (2 = either false [1] [2])
 
-(void? either* true [] [1])
-(void? either* false [1] [])
+(null? either* true [] [1])
+(null? either* false [1] [])
 
 (blank? either true [] [1])
 (blank? either false [1] [])

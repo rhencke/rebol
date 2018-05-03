@@ -176,7 +176,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 //
 // By having all the states able to be incremented and hold the invariant, one
 // can blindly do `++f->special` without doing something like checking for a
-// NULL value first.
+// null value first.
 //
 // Additionally, in the f->param state, f->special will never register as
 // anything other than a typeset.  This increases performance of some checks,
@@ -360,7 +360,7 @@ void Do_Core(REBFRM * const f)
 
         // !!! Note EVAL-ENFIX does a crude workaround to preserve this check.
         //
-        assert(f->prior->deferred != NULL);
+        assert(f->prior->deferred);
 
         assert(NOT_END(f->out));
         f->flags.bits &= ~DO_FLAG_POST_SWITCH; // !!! unnecessary?
@@ -634,7 +634,7 @@ reevaluate:;
     case REB_ACTION: // literal action in a block
         Push_Action(
             f,
-            NULL, // no label, nameless literal action direct in source
+            nullptr, // no label, nameless literal action direct in source
             VAL_ACTION(current),
             VAL_BINDING(current)
         );
@@ -1138,7 +1138,7 @@ reevaluate:;
             // second chance to run the enfix processing it put off before,
             // this time using the 10 as the AND's left-hand argument.
             //
-            if (f->deferred != NULL) {
+            if (f->deferred) {
                 assert(VAL_TYPE(&f->cell) == REB_0_DEFERRED);
 
                 // The GC's understanding of how far to protect parameters is
@@ -1182,7 +1182,7 @@ reevaluate:;
                 );
 
                 Init_Unreadable_Blank(&f->cell);
-                f->deferred = NULL;
+                f->deferred = nullptr;
 
                 // Compensate for the param and arg change earlier.
                 //
@@ -1313,7 +1313,7 @@ reevaluate:;
             assert(pclass != PARAM_CLASS_LOCAL);
             assert(not In_Typecheck_Mode(f)); // already handled
 
-            if (f->deferred == NULL)
+            if (not f->deferred)
                 Finalize_Arg(f, f->param, f->arg, f->refine);
 
         continue_arg_loop:;
@@ -1365,18 +1365,18 @@ reevaluate:;
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
         if (In_Typecheck_Mode(f)) {
-            if (f->varlist != NULL)
+            if (f->varlist)
                 assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
 
             assert(IS_POINTER_TRASH_DEBUG(f->deferred));
         }
         else { // was fulfilling...
-            if (f->varlist != NULL) {
+            if (f->varlist) {
                 assert(GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
                 CLEAR_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE);
             }
 
-            if (f->deferred != NULL) {
+            if (f->deferred) {
                 //
                 // We deferred typechecking, but still need to do it...
                 // f->cell holds the necessary context for typechecking
@@ -1532,7 +1532,7 @@ reevaluate:;
                     REBCTX *exemplar;
                     if (
                         f->phase != f->out->payload.any_context.phase
-                        and NULL != (exemplar = ACT_EXEMPLAR(
+                        and did (exemplar = ACT_EXEMPLAR(
                             f->out->payload.any_context.phase
                         ))
                     ){
@@ -1702,7 +1702,7 @@ reevaluate:;
                 f->out,
                 fully,
                 fun,
-                DEVOID(KNOWN(&f->cell)), // convert void cell to NULL for API
+                DEVOID(KNOWN(&f->cell)), // void cell => nullptr for API
                 END
             )){
                 goto abort_action;
@@ -1930,7 +1930,7 @@ reevaluate:;
             VAL_ARRAY(current),
             VAL_INDEX(current),
             Derive_Specifier(f->specifier, current),
-            NULL, // `setval`: null means don't treat as SET-PATH!
+            nullptr, // `setval`: null means don't treat as SET-PATH!
             DO_FLAG_PUSH_PATH_REFINEMENTS
         )){
             goto finished;
@@ -1960,7 +1960,7 @@ reevaluate:;
 
             Push_Action(
                 f,
-                opt_label, // NULL label means anonymous
+                opt_label, // null label means anonymous
                 VAL_ACTION(f->out),
                 VAL_BINDING(f->out)
             );
@@ -2346,7 +2346,7 @@ post_switch:;
         START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
         // ^-- resets evaluating + tick, corrupts f->out, Ctrl-C may abort
 
-        UPDATE_TICK_DEBUG(NULL);
+        UPDATE_TICK_DEBUG(nullptr);
         // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
 
         goto do_next;
@@ -2368,7 +2368,7 @@ post_switch:;
         //
         assert(
             f->gotten == Get_Opt_Var_Else_End(f->value, f->specifier)
-            or (f->prior != NULL and f->prior->deferred == BLANK_VALUE) // !!!
+            or (f->prior and f->prior->deferred == BLANK_VALUE) // !!! hack
         );
     }
 
@@ -2434,7 +2434,7 @@ post_switch:;
             START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
             // ^-- resets evaluating + tick, corrupts f->out, Ctrl-C may abort
 
-            UPDATE_TICK_DEBUG(NULL);
+            UPDATE_TICK_DEBUG(nullptr);
             // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
         }
 
@@ -2483,23 +2483,24 @@ post_switch:;
         fail (Error_Lookback_Quote_Too_Late(f->value, f->specifier));
     }
 
-    // !!! This once checked `f->deferred == NULL` because it was only
-    // willing to defer any given lookback once: "If we get there and there's
-    // a deferral, it doesn't matter if it was this frame or the parent frame
-    // who deferred it...it's the same enfix function in the same spot, and
-    // it's only willing to give up *one* of its chances to run."  That was
-    // changed, and it now defers indefinitely so long as it is fulfilling
-    // arguments, until it finds an <end>able one...which <- (identity) is.
-    // Having endability control this may not be the best idea, but it keeps
-    // from introducing a new parameter convention or recognizing the
-    // specific function.  It's a rare enough property that one might imagine
-    // it to be unlikely such functions would want to run before deferred
-    // enfix clauses.
+    // !!! Once checked `not f->deferred` because it only deferred once:
+    //
+    //    "If we get there and there's a deferral, it doesn't matter if it
+    //     was this frame or the parent frame who deferred it...it's the
+    //     same enfix function in the same spot, and it's only willing to
+    //     give up *one* of its chances to run."
+    //
+    // But it now defers indefinitely so long as it is fulfilling arguments,
+    // until it finds an <end>able one...which <- (identity) is.  Having
+    // endability control this may not be the best idea, but it keeps from
+    // introducing a new parameter convention or recognizing the specific
+    // function.  It's a rare enough property that one might imagine it to be
+    // unlikely such functions would want to run before deferred enfix.
     //
     if (
         GET_VAL_FLAG(f->gotten, ACTION_FLAG_DEFERS_LOOKBACK)
         and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-        and f->prior->deferred == NULL
+        and not f->prior->deferred
         and NOT_VAL_FLAG(f->prior->param, TYPESET_FLAG_ENDABLE)
     ){
         assert(not (f->flags.bits & DO_FLAG_TO_END));
@@ -2518,7 +2519,7 @@ post_switch:;
         // Leave the enfix operator pending in the frame, and it's up to the
         // parent frame to decide whether to use DO_FLAG_POST_SWITCH to jump
         // back in and finish fulfilling this arg or not.  If it does resume
-        // and we get to this check again, f->prior->deferred can't be NULL,
+        // and we get to this check again, f->prior->deferred can't be null,
         // otherwise it would be an infinite loop.
         //
         goto finished;

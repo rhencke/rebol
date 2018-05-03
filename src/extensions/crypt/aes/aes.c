@@ -35,7 +35,7 @@
  */
 
 #include <string.h>
-#ifdef WIN32
+#if defined(WIN32) || defined(TO_WINDOWS) // !!! WIN32 not always def'd on win
 #include <winsock.h>
 #else
 #include <arpa/inet.h>

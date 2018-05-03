@@ -11,7 +11,7 @@
 )
 (1 = if true [1])
 
-(void? if* true [])
+(null? if* true [])
 (blank? if true [])
 
 (error? if true [trap [1 / 0]])
@@ -59,10 +59,10 @@
 (if first ['a/b] [true])
 (if first ['a] [true])
 (if true [true])
-(void? if false [true])
+(null? if false [true])
 (if $1 [true])
 (if (specialize 'of [property: 'type]) [true])
-(void? if blank [true])
+(null? if blank [true])
 (if make object! [] [true])
 (if get '+ [true])
 (if 0x0 [true])
@@ -82,7 +82,7 @@
 ; recursive behaviour
 
 (blank? if true [if false [1]])
-(void? if* true [if* false [1]])
+(null? if* true [if* false [1]])
 (1 = if true [if true [1]])
 
 ; infinite recursion

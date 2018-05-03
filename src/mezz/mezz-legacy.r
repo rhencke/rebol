@@ -300,12 +300,12 @@ hijack 'try adapt copy :try [
     ; Most historical usages of TRY took literal blocks as arguments.  This
     ; is a good way of catching them, while allowing new usages.
     ;
-    if block? :cell and (semiquoted? 'cell) [
+    if block? :optional and (semiquoted? 'optional) [
         fail/where [
             {TRY/EXCEPT was replaced by TRAP/WITH, which matches CATCH/WITH}
             {and is more coherent.  See: https://trello.com/c/IbnfBaLI}
             {TRY now converts voids to blanks, passing through ANY-VALUE!}
-        ] 'cell
+        ] 'optional
     ]
     ;-- fall through to native TRY implementation
 ]
@@ -655,7 +655,9 @@ set 'r3-legacy* func [<local>] [
 
         ??: (:dump)
 
-        unset?: (:void?) ; https://trello.com/c/shR4v8tS
+        null: (#"^@") ; -> NUL https://en.wikipedia.org/wiki/Null_character
+
+        unset?: (:null?) ; https://trello.com/c/shR4v8tS
 
         ; Result from TYPE OF () is a BLANK!, so this should allow writing
         ; `unset! = type of ()`.  Also, a BLANK! value in a typeset spec is

@@ -117,9 +117,9 @@ inline static void Push_Frame_Core(REBFRM *f)
     // !!! A non-contiguous data stack which is not a series is a possibility.
     //
   #ifdef STRESS_CHECK_DO_OUT_POINTER
-    REBNOD *containing = Try_Find_Containing_Node_Debug(f->out);
+    REBNOD *containing;
     if (
-        containing != NULL)
+        did (containing = Try_Find_Containing_Node_Debug(f->out))
         and not (containing->header.bits & NODE_FLAG_CELL)
         and NOT_SER_FLAG(containing, SERIES_FLAG_DONT_RELOCATE)
     ){
@@ -146,7 +146,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     //
   #if !defined(NDEBUG)
     REBFRM *ftemp = FS_TOP;
-    for (; ftemp != NULL; ftemp = ftemp->prior) {
+    for (; ftemp != nullptr; ftemp = ftemp->prior) {
         if (not Is_Action_Frame(ftemp))
             continue;
         if (Is_Action_Frame_Fulfilling(ftemp))
@@ -164,7 +164,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     // good choice because it is only affected by the function call case,
     // see Is_Action_Frame_Fulfilling().
     //
-    f->phase = NULL;
+    f->phase = nullptr;
 
     TRASH_POINTER_IF_DEBUG(f->deferred);
 
@@ -214,7 +214,7 @@ inline static void Push_Frame_For_Apply(REBFRM *f) {
     // Common code for DO FRAME! and APPLY, pretend "input source" has ended.
     //
     f->source.index = 0;
-    f->source.vaptr = NULL;
+    f->source.vaptr = nullptr;
     f->source.array = EMPTY_ARRAY; // for setting HOLD flag in Push_Frame
     TRASH_POINTER_IF_DEBUG(f->source.pending);
     //
@@ -290,7 +290,7 @@ inline static void Push_Frame_At(
     f->gotten = END; // tells ET_WORD and ET_GET_WORD they must do a get
     SET_FRAME_VALUE(f, ARR_AT(array, index));
 
-    f->source.vaptr = NULL;
+    f->source.vaptr = nullptr;
     f->source.array = array;
     f->source.index = index + 1;
     f->source.pending = f->value + 1;
@@ -366,13 +366,13 @@ inline static const RELVAL *Set_Frame_Detected_Fetch(REBFRM *f, const void *p)
 
 detect_again:;
 
-    if (p == NULL) { // libRebol's notion of a void (IS_VOID prohibited below)
-        f->source.array = NULL;
-        f->value = VOID_CELL;
-        return lookback;
-    }
-
     switch (Detect_Rebol_Pointer(p)) {
+
+    case DETECTED_AS_NULL: { // libRebol's null/<opt> (IS_VOID prohibited below)
+        f->source.array = nullptr;
+        f->value = VOID_CELL;
+        break; }
+
     case DETECTED_AS_UTF8: {
         REBDSP dsp_orig = DSP;
 
@@ -421,20 +421,20 @@ detect_again:;
         REBVAL *error = rebRescue(cast(REBDNG*, &Scan_To_Stack), &ss);
         Shutdown_Interning_Binder(&binder);
 
-        if (error != NULL) {
+        if (error) {
             REBCTX *error_ctx = VAL_CONTEXT(error);
             rebRelease(error);
             fail (error_ctx);
         }
 
-        f->source.vaptr = NULL; // !!! for now, assume scan went to the end
+        f->source.vaptr = nullptr; // !!! for now, assume scan went to the end
 
         if (DSP == dsp_orig) {
             //
             // This happens when somone says rebRun(..., "", ...) or similar,
             // and gets an empty array from a string scan.  It's not legal
             // to put an END in f->value, and it's unknown if the variadic
-            // feed is actually over so as to put NULL... so get another
+            // feed is actually over so as to put null... so get another
             // value out of the va_list and keep going.
             //
             p = va_arg(*f->source.vaptr, const void*);
@@ -496,7 +496,7 @@ detect_again:;
         if (IS_VOID(cell))
             fail ("VOID cell leaked to API, see DEVOID() in C sources");
 
-        f->source.array = NULL;
+        f->source.array = nullptr;
         f->value = cell; // note that END is detected separately
         assert(
             not IS_RELATIVE(f->value) or (
@@ -511,7 +511,7 @@ detect_again:;
         // We're at the end of the variadic input, so this is the end of
         // the line.  va_end() is taken care of by Drop_Frame_Core()
         //
-        f->value = NULL;
+        f->value = nullptr;
         TRASH_POINTER_IF_DEBUG(f->source.pending);
         break; }
 
@@ -555,7 +555,7 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
         // means the release build doesn't need to call ARR_AT().
         //
         assert(
-            f->source.array == NULL // incrementing plain array of REBVAL[]
+            f->source.array // incrementing plain array of REBVAL[]
             or f->source.pending == ARR_AT(f->source.array, f->source.index)
         );
 
@@ -565,13 +565,13 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
         ++f->source.pending; // might be becoming an END marker, here
         ++f->source.index;
     }
-    else if (f->source.vaptr == NULL) {
+    else if (not f->source.vaptr) {
         //
         // We're not processing a C variadic at all, so the first END we hit
         // is the full stop end.
         //
         lookback = f->value;
-        f->value = NULL;
+        f->value = nullptr;
         TRASH_POINTER_IF_DEBUG(f->source.pending);
     }
     else {
@@ -786,7 +786,7 @@ inline static REBIXO DO_NEXT_MAY_THROW(
 
     Init_Endlike_Header(&f->flags, DO_MASK_NONE);
 
-    f->source.vaptr = NULL;
+    f->source.vaptr = nullptr;
     f->source.array = array;
     f->source.index = index + 1;
     f->source.pending = f->value + 1;
@@ -831,9 +831,9 @@ inline static REBIXO Do_Array_At_Core(
 
     f->gotten = END;
 
-    f->source.vaptr = NULL;
+    f->source.vaptr = nullptr;
     f->source.array = array;
-    if (opt_first != NULL) {
+    if (opt_first) {
         SET_FRAME_VALUE(f, opt_first);
         f->source.index = index;
         f->source.pending = ARR_AT(array, index);
@@ -959,7 +959,7 @@ inline static void Reify_Va_To_Array_In_Frame(
     // the Do_Core() call in Do_Va_Core() never returns.
     //
     va_end(*f->source.vaptr);
-    f->source.vaptr = NULL;
+    f->source.vaptr = nullptr;
 
     // special array...may contain voids and eval flip is kept
     f->source.array = Pop_Stack_Values_Keep_Eval_Flip(dsp_orig);
@@ -1019,10 +1019,10 @@ inline static REBIXO Do_Va_Core(
   #if !defined(NDEBUG)
     f->source.index = TRASHED_INDEX;
   #endif
-    f->source.array = NULL;
+    f->source.array = nullptr;
     f->source.vaptr = vaptr;
     f->source.pending = END; // signal next fetch should come from va_list
-    if (opt_first != NULL)
+    if (opt_first)
         Set_Frame_Detected_Fetch(f, opt_first);
     else {
       #if !defined(NDEBUG)
@@ -1070,12 +1070,8 @@ inline static REBOOL Do_Va_Throws(
     va_list va;
     va_start(va, out);
 
-    REBIXO indexor = Do_Va_Core(
-        out,
-        NULL, // opt_first
-        &va,
-        DO_FLAG_TO_END
-    );
+    const void *opt_first = nullptr;
+    REBIXO indexor = Do_Va_Core(out, opt_first, &va, DO_FLAG_TO_END);
 
     // Note: va_end() is handled by Do_Va_Core (one way or another)
 
@@ -1140,9 +1136,10 @@ inline static REBOOL Do_At_Throws(
     REBCNT index,
     REBSPC *specifier
 ){
+    const REBVAL *opt_first = nullptr;
     return THROWN_FLAG == Do_Array_At_Core(
         out,
-        NULL,
+        opt_first,
         array,
         index,
         specifier,

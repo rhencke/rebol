@@ -159,36 +159,36 @@
     )
 
     ('no-arg = (trap [right-normal |])/id)
-    (void? do [right-normal* |])
-    (void? do [right-normal*])
+    (null? do [right-normal* |])
+    (null? do [right-normal*])
 
     ('no-arg = (trap [| left-normal])/id)
-    (void? do [| left-normal*])
-    (void? do [left-normal*])
+    (null? do [| left-normal*])
+    (null? do [left-normal*])
 
     ('no-arg = (trap [right-tight |])/id)
-    (void? do [right-tight* |])
-    (void? do [right-tight*])
+    (null? do [right-tight* |])
+    (null? do [right-tight*])
 
     ('no-arg = (trap [| left-tight])/id)
-    (void? do [| left-tight*])
-    (void? do [left-tight*])
+    (null? do [| left-tight*])
+    (null? do [left-tight*])
 
     ('no-arg = (trap [right-soft |])/id)
-    (void? do [right-soft* |])
-    (void? do [right-soft*])
+    (null? do [right-soft* |])
+    (null? do [right-soft*])
 
     ('no-arg = (trap [| left-soft])/id)
-    (void? do [| left-soft*])
-    (void? do [left-soft*])
+    (null? do [| left-soft*])
+    (null? do [left-soft*])
 
     ('| = do [right-hard |])
     ('| = do [right-hard* |])
-    (void? do [right-hard*])
+    (null? do [right-hard*])
 
     ('| = do [| left-hard])
     ('| = do [| left-hard*])
-    (void? do [left-hard*])
+    (null? do [left-hard*])
 ]
 
 
@@ -219,34 +219,34 @@
     )
 
     (error? trap [right-normal |])
-    (void? do [right-normal* |])
-    (void? do [right-normal*])
+    (null? do [right-normal* |])
+    (null? do [right-normal*])
 
     (error? trap [| left-normal])
-    (void? do [| left-normal*])
-    (void? do [left-normal*])
+    (null? do [| left-normal*])
+    (null? do [left-normal*])
 
     (error? trap [right-tight |])
-    (void? do [right-tight* |])
-    (void? do [right-tight*])
+    (null? do [right-tight* |])
+    (null? do [right-tight*])
 
     (error? trap [| left-tight])
-    (void? do [| left-tight*])
-    (void? do [left-tight*])
+    (null? do [| left-tight*])
+    (null? do [left-tight*])
 
     (error? trap [right-soft |])
-    (void? do [right-soft* |])
-    (void? do [right-soft*])
+    (null? do [right-soft* |])
+    (null? do [right-soft*])
 
     (error? trap [| left-soft])
-    (void? do [| left-soft*])
-    (void? do [left-soft*])
+    (null? do [| left-soft*])
+    (null? do [left-soft*])
 
     ('| = do [right-hard |])
     ('| = do [right-hard* |])
-    (void? do [right-hard*])
+    (null? do [right-hard*])
 
     ('| = do [| left-hard])
     ('| = do [| left-hard*])
-    (void? do [left-hard*])
+    (null? do [left-hard*])
 ]

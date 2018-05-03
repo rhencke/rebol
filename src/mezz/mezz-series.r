@@ -57,7 +57,7 @@ join-all: function [
 ][
     forever [
         if tail? block [return ()]
-        unless void? base: do/next block 'block [break]
+        unless null? base: do/next block 'block [break]
     ]
 
     ; !!! It isn't especially compelling that  `join-of 3 "hello"` gives you

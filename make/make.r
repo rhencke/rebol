@@ -635,7 +635,7 @@ append app-config/cflags opt switch/default user-config/standard [
     c++98 c++0x c++11 c++14 c++17 c++latest [
 
         cfg-cplusplus: true
-        reduce [
+        compose [
             ; Compile C files as C++.
             ;
             ; !!! The original code appeared to make it so that if a Visual
@@ -652,12 +652,18 @@ append app-config/cflags opt switch/default user-config/standard [
             <msc:/TP>
             <gnu:-x c++>
 
-            ; C++ standard (MSVC only supports "c++14/17/latest")
+            ; C++ standard, MSVC only supports "c++14/17/latest"
             ;
-            to tag! unspaced ["gnu:--std=" user-config/standard]
-            to tag! unspaced [
+            (to tag! unspaced ["gnu:--std=" user-config/standard])
+            (to tag! unspaced [
                 "msc:/std:" lowercase to string! user-config/standard
-            ]
+            ])
+
+            ; There is a shim for `nullptr` used, which is warned about even
+            ; when building as pre-C++11 where it was introduced, unless you
+            ; disable that warning.
+            ;
+            (if user-config/standard = 'c++98 [<gnu:-Wno-c++0x-compat>])
 
             ; Note: The C and C++ user-config/standards do not dictate if
             ; `char` is signed or unsigned.  Lest anyone think environments

@@ -1747,6 +1747,8 @@ void Assert_Pointer_Detection_Working(void)
         and DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL
     );
 
+    assert(Detect_Rebol_Pointer(nullptr) == DETECTED_AS_NULL);
+
     assert(Detect_Rebol_Pointer("") == DETECTED_AS_UTF8);
     assert(Detect_Rebol_Pointer("asdf") == DETECTED_AS_UTF8);
 

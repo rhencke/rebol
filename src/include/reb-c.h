@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -288,6 +288,72 @@
     #define m_cast(t, v)    m_cast_helper<t>(v)
     #define cast(t, v)      cast_helper<t>(v)
     #define c_cast(t, v)    c_cast_helper<t>(v)
+#endif
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// nullptr SHIM FOR C, C++98
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// The C language definition allows compilers to simply define NULL as 0.
+// This creates ambiguity in C++ when one overloading of a function takes an
+// integer, and another a pointer...since 0 can be coerced to either.  So
+// a specific `nullptr` was defined to work around this.
+//
+// But the problem isn't just with C++.  There is a common issue in variadics
+// where NULL is used to terminate a sequence of values that are interpreted
+// as pointers:
+//
+//     variadic_print("print me", "and me", "stop @ NULL", NULL);
+//
+// Yet there is no way to do this in standards-compliant C.  On a platform
+// where integers and pointers aren't compatible sizes or bit patterns, then
+// the `0` which NULL evaluates to in that last slot can't be interpreted
+// as a null pointer.  You'd have to write:
+//
+//     variadic_print("print me", "and me", "stop @ NULL", (char*)NULL);
+//
+// Because libRebol hinges on a premise of making the internal NULL signifier
+// interface as a C NULL pointer, and hinges on variadics, this is a problem.
+// Rather than introduce a "new" abstraction or macro, this adds a shim of
+// C++11's `nullptr` to C++98, and a simple macro to C.
+//
+
+#if defined(CPLUSPLUS_11) //...or above
+    //
+    // nullptr included: http://en.cppreference.com/w/cpp/language/nullptr
+    //
+#elif defined(__cplusplus)
+    //
+    // C++98 shim from "Effective C++": https://stackoverflow.com/a/44517878
+    //
+    // Note: Some "newer old" C++ compilers had awareness that nullptr would
+    // be added to the standard, and raise warnings by default if one tries
+    // to make this definition, even when building as C++98.  To disable such
+    // warnings, you would need something like `-Wno-c++0x-compat`
+    //
+    const                         /* this is a const object...     */
+    class nullptr_t
+    {
+    public:
+       template<class T>          /* convertible to any type       */
+       operator T*() const        /* of null non-member            */
+          { return 0; }           /* pointer...                    */
+
+       template<class C, class T> /* or any type of null           */
+          operator T C::*() const /* member pointer...             */
+          { return 0; }   
+
+    private:
+       void operator&() const;    /* Can't take address of nullptr */
+
+    } nullptr = {};               /* and whose name is nullptr     */
+#else
+    // Plain C, nullptr is not a keyword.
+    //
+    #define nullptr cast(void*, 0)
 #endif
 
 
@@ -650,19 +716,17 @@
 // the old versions still being there.  Yet the old versions don't have
 // isfinite(), so those have to be worked around here as well.
 //
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-    // C99 or later
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L // C99 or later
     #define FINITE isfinite
-#elif defined(CPLUSPLUS_11)
-    // C++11 or later
+#elif defined(CPLUSPLUS_11) // C++11 or later
     #define FINITE isfinite
+#elif defined(__MINGW32__) || defined(__MINGW64__)
+    #define FINITE isfinite // With --std==c++98 MinGW still has isfinite
+#elif defined(TO_WINDOWS)
+    #define FINITE _finite // The usual answer for Windows
 #else
-    // Other fallbacks...
-    #ifdef TO_WINDOWS
-        #define FINITE _finite // The usual answer for Windows
-    #else
-        #define FINITE finite // The usual answer for POSIX
-    #endif
+    #define FINITE finite // The usual answer for POSIX
 #endif
 
 

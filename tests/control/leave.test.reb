@@ -7,7 +7,7 @@
 )
 (
     f1: proc [] [leave]
-    void? f1
+    null? f1
 )
 [#1515 ; the "result" of leave should not be assignable
     (a: 1 eval proc [] [a: leave] :a =? 1)

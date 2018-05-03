@@ -20,7 +20,7 @@
         20 = data/b
         20 = select data 'b
         not set? 'data/c
-        void? select data 'c
+        null? select data 'c
     ]
 )
 

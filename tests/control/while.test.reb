@@ -9,7 +9,7 @@
     num: 0
     1 = while [num < 1] [num: num + 1]
 )]
-(void? while [false] [])
+(null? while [false] [])
 ; zero repetition
 (
     success: true
@@ -68,7 +68,7 @@
 (
     cycle?: true
     f1: does [if 1 < 2 [while [cycle?] [cycle?: false unwind :if] 2]]
-    void? f1
+    null? f1
 )
 
 (  ; bug#1519
@@ -78,7 +78,7 @@
             while [if cycle? [unwind :unless] cycle?] [cycle?: false 2]
         ]
     ]
-    void? f1
+    null? f1
 )
 
 ; CONTINUE out of a condition continues any enclosing loop (it does not mean

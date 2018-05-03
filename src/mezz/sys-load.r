@@ -309,7 +309,7 @@ load: function [
     all_LOAD: all
     all: :lib/all
 
-    file: line: void
+    file: line: null
 
     ; NOTES:
     ; Note that code/data can be embedded in other datatypes, including

@@ -970,40 +970,27 @@ acquisition_loop:
 
         const void *p = va_arg(*ss->vaptr, const void*);
 
-        if (p == NULL) {
-        #if defined(NDEBUG)
-            ss->token = TOKEN_END;
-            return;
-        #else
-            // NULL is just the integer 0, so it's bad to use to terminate C
-            // va_lists, as integers may not be the same size as pointers and
-            // it's easy to forget to cast.
-            //
-            panic ("NULL used to terminate va_list, use END instead");
-        #endif
-        }
-
         switch (Detect_Rebol_Pointer(p)) {
+
+        case DETECTED_AS_NULL: { // libRebol representation of <opt>/NULL
+            if (not (ss->opts & SCAN_FLAG_VOIDS_LEGAL))
+                fail ("can't splice null in ANY-ARRAY!...use rebUneval()");
+
+            DS_PUSH_TRASH;
+            Init_Void(DS_TOP); // convert to cell void for evaluator
+            break; }
+
         case DETECTED_AS_END: {
             ss->token = TOKEN_END;
             return; }
 
         case DETECTED_AS_VALUE: {
             const REBVAL *splice = cast(const REBVAL*, p);
-            if (splice == NULL) { // libRebol's notion of "void"
-                if (not (ss->opts & SCAN_FLAG_VOIDS_LEGAL))
-                    fail ("can't splice void in ANY-ARRAY! w/o rebUneval()");
-
-                DS_PUSH_TRASH;
-                Init_Void(DS_TOP);
-            }
-            else if (IS_VOID(splice)) {
+            if (IS_VOID(splice))
                 fail ("VOID cell leaked to API, see DEVOID() in C sources");
-            }
-            else {
-                DS_PUSH_TRASH;
-                Move_Value(DS_TOP, splice);
-            }
+
+            DS_PUSH_TRASH;
+            Move_Value(DS_TOP, splice);
 
             // !!! The needs of rebRun() are such that it wants to preserve
             // the non-user-visible EVAL_FLIP bit, which is usually not copied

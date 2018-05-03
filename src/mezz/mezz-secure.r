@@ -110,7 +110,7 @@ secure: function [
 
 ] system/state [
 
-    if void? :policy [policy: 'help]
+    policy: default ['help]
 
     if policy = 'none [policy: 'allow] ; note: NONE is a word here (like R2)
 

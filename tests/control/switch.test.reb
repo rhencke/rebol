@@ -12,7 +12,7 @@
     ]
 )
 
-(void? switch* 1 [1 []])
+(null? switch* 1 [1 []])
 (blank? switch 1 [1 []])
 
 (

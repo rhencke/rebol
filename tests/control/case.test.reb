@@ -14,10 +14,10 @@
 )
 
 (
-    void? case [false []] ;-- void indicates no branch was taken
+    null? case [false []] ;-- void indicates no branch was taken
 )
 (
-    void? case [] ;-- empty case block is legal (e.g. as COMPOSE product)
+    null? case [] ;-- empty case block is legal (e.g. as COMPOSE product)
 )
 (
     blank? case [true []] ;-- blank vs. void, indicates branch was taken
@@ -29,7 +29,7 @@
     ]
 )
 [#2246 (
-    void? case* [true []] ;-- overrides the "blankification"
+    null? case* [true []] ;-- overrides the "blankification"
 )]
 
 (
@@ -44,7 +44,7 @@
     3 = case [true (reduce ['add 1 2])]
 )
 (
-    void? case [false (reduce ['add 1 2])]
+    null? case [false (reduce ['add 1 2])]
 )
 
 (
