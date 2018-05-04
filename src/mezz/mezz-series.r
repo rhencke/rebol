@@ -562,7 +562,8 @@ format: function [
         switch type of :rule [
             :integer! [
                 pad: rule
-                val: form first+ values
+                val: form first values
+                values: my next
                 clear at val 1 + abs rule
                 if negative? rule [
                     pad: rule + length of val

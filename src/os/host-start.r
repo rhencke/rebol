@@ -764,13 +764,13 @@ comment [
             path: what-dir
             args: script-args
         ]
-        either 'module = select first code 'type [
-            code: reduce [first+ code code]
+        if 'module = select first code 'type [
+            code: reduce [first code | next code]
             if object? tmp: sys/do-needs/no-user first code [append code tmp]
             import do compose [module (code)]
-        ][
-            sys/do-needs first+ code
-            do intern code
+        ] else [
+            sys/do-needs first code
+            do intern next code
         ]
         quit ;ignore user script and "--do" argument
     ]

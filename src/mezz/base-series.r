@@ -22,17 +22,6 @@ first: redescribe [
     specialize 'pick [picker: 1]
 )
 
-first+: func [
-    {Return the FIRST of a series then increment the series index.}
-    return: [<opt> any-value!]
-    'word [word!] "Word must refer to a series"
-    <local> prior
-][
-    first prior: get word ;-- returned value
-
-    elide (set word next prior)
-]
-
 second: redescribe [
     {Returns the second value of a series.}
 ](

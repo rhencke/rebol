@@ -102,11 +102,11 @@ Script: [
     hijack-blank:       {Hijacked function was captured but no body given yet}
 
     enfix-quote-late:   [:arg1 {can't left quote a forward quoted value}]
-    evaluate-void:      {voids cannot be evaluated}
+    evaluate-null:      {null cannot be evaluated (see UNEVAL)}
 
     enfix-path-group:   [:arg1 {GROUP! can't be in a lookback quoted PATH!}]
 
-    reduce-made-void:   {Expression in REDUCE evaluated to void}
+    reduce-made-null:   {Expression in REDUCE was null, see REDUCE/OPT, /TRY}
     break-not-continue: {Use BREAK/WITH when body is the breaking condition}
 
     ; !!! Temporary errors while faulty constructs are still outstanding

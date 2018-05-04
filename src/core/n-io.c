@@ -418,7 +418,7 @@ REBNATIVE(wait)
         DECLARE_LOCAL (unsafe); // temporary not safe from GC
 
         if (Reduce_Any_Array_Throws(
-            unsafe, ARG(value), REDUCE_FLAG_DROP_BARS
+            unsafe, ARG(value), REDUCE_MASK_NONE
         )){
             Move_Value(D_OUT, unsafe);
             return R_OUT_IS_THROWN;

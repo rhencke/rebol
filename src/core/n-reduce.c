@@ -46,10 +46,9 @@ REBOOL Reduce_Any_Array_Throws(
     REBVAL *any_array,
     REBFLGS flags
 ){
-    assert(
-        did (flags & REDUCE_FLAG_KEEP_BARS)
-        != did (flags & REDUCE_FLAG_DROP_BARS)
-    ); // only one should be true, but caller should be explicit of which
+    // Can't have more than one policy on null conversion in effect.
+    //
+    assert(not ((flags & REDUCE_FLAG_TRY) and (flags & REDUCE_FLAG_OPT)));
 
     REBDSP dsp_orig = DSP;
 
@@ -59,17 +58,6 @@ REBOOL Reduce_Any_Array_Throws(
     DECLARE_LOCAL (reduced);
 
     while (FRM_HAS_MORE(f)) {
-        if (IS_BAR(f->value)) {
-            if (flags & REDUCE_FLAG_KEEP_BARS) {
-                DS_PUSH_TRASH;
-                Quote_Next_In_Frame(DS_TOP, f);
-            }
-            else
-                Fetch_Next_In_Frame(f);
-
-            continue;
-        }
-
         REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_LINE);
 
         if (Do_Next_In_Frame_Throws(reduced, f)) {
@@ -80,20 +68,20 @@ REBOOL Reduce_Any_Array_Throws(
         }
 
         if (IS_VOID(reduced)) {
-            //
-            // !!! Review if there should be a form of reduce which allows
-            // void expressions.  The general feeling is that it shouldn't
-            // be allowed by default, since N expressions would not make N
-            // results...and reduce is often used for positional purposes.
-            // Substituting anything (like a NONE!, or anything else) would
-            // perhaps be disingenuous.
-            //
-            fail (Error_Reduce_Made_Void_Raw());
+            if (flags & REDUCE_FLAG_TRY) {
+                DS_PUSH_TRASH;
+                Init_Blank(DS_TOP);
+                if (line)
+                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+            }
+            else if (not (flags & REDUCE_FLAG_OPT))
+                fail (Error_Reduce_Made_Null_Raw());
         }
-
-        DS_PUSH(reduced);
-        if (line)
-            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+        else {
+            DS_PUSH(reduced);
+            if (line)
+                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+        }
     }
 
     if (flags & REDUCE_FLAG_INTO)
@@ -115,14 +103,16 @@ REBOOL Reduce_Any_Array_Throws(
 //
 //  reduce: native [
 //
-//  {Evaluates expressions and returns multiple results.}
+//  {Evaluates expressions, keeping each result (DO only gives last result)}
 //
-//      return: [<opt> any-value!]
-//      value [any-value!] ;-- !!! Red allows void, should it be legal?
-//          {GROUP! and BLOCK! reduce expressions, otherwise single value.}
-//      /into
-//          {Output results into a series with no intermediate storage}
+//      return: "New array or value"
+//          [<opt> any-value!]
+//      value "GROUP! and BLOCK! evaluate each item, single values evaluate"
+//          [any-value!]
+//      /into "Output results into a series with no intermediate storage"
 //      target [any-array!]
+//      /try "If an evaluation returns null, convert to blank vs. failing"
+//      /opt "If an evaluation returns null, omit the result" ; !!! EXPERIMENT
 //  ]
 //
 REBNATIVE(reduce)
@@ -131,6 +121,9 @@ REBNATIVE(reduce)
 
     REBVAL *value = ARG(value);
 
+    if (REF(opt) and REF(try))
+        fail (Error_Bad_Refines_Raw());
+
     if (IS_BLOCK(value) or IS_GROUP(value)) {
         if (REF(into))
             Move_Value(D_OUT, ARG(target));
@@ -138,9 +131,10 @@ REBNATIVE(reduce)
         if (Reduce_Any_Array_Throws(
             D_OUT,
             value,
-            REF(into)
-                ? REDUCE_FLAG_INTO | REDUCE_FLAG_KEEP_BARS
-                : REDUCE_FLAG_KEEP_BARS
+            REDUCE_MASK_NONE
+                | (REF(into) ? REDUCE_FLAG_INTO : 0)
+                | (REF(try) ? REDUCE_FLAG_TRY : 0)
+                | (REF(opt) ? REDUCE_FLAG_OPT : 0)
         )){
             return R_OUT_IS_THROWN;
         }
@@ -148,33 +142,53 @@ REBNATIVE(reduce)
         return R_OUT;
     }
 
-    // A single element should do what is effectively an evaluation but with
-    // no arguments.  This is a change in behavior from R3-Alpha, which would
-    // just return the input as is, e.g. `reduce :foo` => :foo
+    // Single element REDUCE does an EVAL, but doesn't allow arguments.
+    // (R3-Alpha, would just return the input, e.g. `reduce :foo` => :foo)
+    // If there are arguments required, Eval_Value_Throws() will error.
     //
     // !!! Should the error be more "reduce-specific" if args were required?
     //
     if (Eval_Value_Throws(D_OUT, value))
         return R_OUT_IS_THROWN;
 
-    if (not REF(into))
-        return R_OUT; // just return the evaluated item if no /INTO target
+    if (not REF(into)) { // just return the evaluated item if no /INTO target
+        if (IS_VOID(D_OUT)) {
+            if (REF(try))
+                return R_BLANK;
+
+            // Don't bother erroring if not REF(opt).  Since we *can* return a
+            // void result for a non-BLOCK!/GROUP!, the caller will have to
+            // worry about whether to error on that themselves.
+            //
+            return R_VOID;
+        }
+        return R_OUT;
+    }
 
     REBVAL *into = ARG(target);
     assert(ANY_ARRAY(into));
-    FAIL_IF_READ_ONLY_ARRAY(VAL_ARRAY(into));
+    FAIL_IF_READ_ONLY_ARRAY(VAL_ARRAY(into)); // should fail even if no-op
+
+    if (IS_VOID(D_OUT)) { // null insertions are no-op if /OPT, else fail
+        if (not REF(opt))
+            fail ("null cannot be inserted /INTO target...use REDUCE/OPT");
+
+        Move_Value(D_OUT, into);
+        return R_OUT;
+    }
+
 
     // Insert the single item into the target array at its current position,
     // and return the position after the insertion (the /INTO convention)
 
-    VAL_INDEX(into) = Insert_Series(
+    Move_Value(D_OUT, into);
+    VAL_INDEX(D_OUT) = Insert_Series(
         SER(VAL_ARRAY(into)),
         VAL_INDEX(into),
         cast(REBYTE*, D_OUT),
         1 // multiplied by width (sizeof(REBVAL)) in Insert_Series
     );
 
-    Move_Value(D_OUT, into);
     return R_OUT;
 }
 

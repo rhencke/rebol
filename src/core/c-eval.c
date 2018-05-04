@@ -2253,7 +2253,7 @@ reevaluate:;
         else {
             // must be EVAL, so the value must be living in the frame cell
             //
-            fail (Error_Evaluate_Void_Raw());
+            fail (Error_Evaluate_Null_Raw());
         }
         break;
 
