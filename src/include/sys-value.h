@@ -1001,7 +1001,7 @@ inline static RELVAL *REL(REBVAL *v) {
 // code that passes a value which may be null through the variadic interface
 // needs to make sure any voids get converted to null first.
 //
-inline static REBVAL *DEVOID(REBVAL *cell) {
+inline static const REBVAL *DEVOID(const REBVAL *cell) {
     return IS_VOID(cell) ? nullptr : cell;
 }
 

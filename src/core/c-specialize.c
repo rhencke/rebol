@@ -956,6 +956,128 @@ REB_R Block_Dispatcher(REBFRM *f)
 
 
 //
+//  Make_Invocation_Frame_Throws: C
+//
+// Logic shared currently by DOES and MATCH to build a single executable
+// frame from feeding forward a VARARGS! parameter, which is a bit like being
+// able to call DO/NEXT via Do_Core() yet introspect the evaluator step.
+//
+// !!! This is an inefficient and sloppy hack just to get the ball rolling.
+// What's actually needed is to wire this to Do_Core() and share the logic.
+// One mechanical impediment to that is that cell preparation is different
+// for stack vs. heap, and so the evaluator logic can't be used without
+// walking the cells in advance--which it was painstakingly designed to not
+// need to do...so giving that up would be a step backwards for potential
+// future performance work.
+//
+// Until the organizational issues are sorted out, fill the frame in a very
+// limited and conservative way that is usually "good enough".
+//
+REBOOL Make_Invocation_Frame_Throws(
+    REBVAL *out,
+    REBCTX **exemplar_out,
+    REBVAL **first_arg_ptr, // returned so that MATCH can steal it
+    const REBVAL *action,
+    REBVAL *varpar,
+    REBVAL *varargs,
+    REBDSP lowest_ordered_dsp
+){
+    assert(IS_ACTION(action));
+    assert(IS_TYPESET(varpar));
+    assert(IS_VARARGS(varargs));
+
+    REBCTX *exemplar = Make_Context_For_Specialization(
+        action,
+        lowest_ordered_dsp,
+        NULL
+    );
+    MANAGE_ARRAY(CTX_VARLIST(exemplar));
+    PUSH_GUARD_CONTEXT(exemplar);
+
+    REBINT last_partial = 0;
+
+    *first_arg_ptr = NULL;
+
+    REBVAL *refine = NULL;
+    REBVAL *param = CTX_KEYS_HEAD(exemplar);
+    REBVAL *arg = CTX_VARS_HEAD(exemplar);
+    for (; NOT_END(param); ++param, ++arg) {
+        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        switch (pclass) {
+        case PARAM_CLASS_REFINEMENT: {
+            refine = arg;
+            if (IS_INTEGER(refine)) {
+                if (not IS_REFINEMENT_SPECIALIZED(param)) {
+                    Init_Logic(refine, FALSE);
+                    break;
+                }
+
+                // !!! Just one of the examples of why this code shouldn't be
+                // trying to repeat all the nuances of Do_Core...
+                //
+                if (VAL_INT32(refine) < last_partial)
+                    fail ("Frame hack can't handle this refinement order :(");
+                last_partial = VAL_INT32(refine);
+                Init_Logic(refine, TRUE);
+            }
+            break; }
+
+        case PARAM_CLASS_NORMAL:
+        case PARAM_CLASS_TIGHT:
+        case PARAM_CLASS_HARD_QUOTE:
+        case PARAM_CLASS_SOFT_QUOTE: {
+            if (refine != NULL) {
+                if (IS_VOID(refine))
+                    break;
+
+                if (IS_LOGIC(refine) and VAL_LOGIC(refine) == FALSE)
+                    break;
+            }
+
+            // !!! Corrupt the parameter class of ARGS to match.  This is
+            // a general problem, of wanting to be able to take from a
+            // variadic feed using multiple conventions...the interface
+            // hasn't been hammered out yet.
+
+            INIT_VAL_PARAM_CLASS(varpar, pclass);
+            REB_R r = Do_Vararg_Op_May_Throw(out, varargs, VARARG_OP_TAKE);
+            INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_HARD_QUOTE);
+
+            if (r == R_OUT_IS_THROWN) {
+                DROP_GUARD_CONTEXT(exemplar);
+                return R_OUT_IS_THROWN;
+            }
+
+            if (r == R_END)
+                fail ("Frame hack is written to need argument!");
+
+            Move_Value(arg, out);
+            if (GET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED))
+                SET_VAL_FLAG(arg, VALUE_FLAG_UNEVALUATED);
+
+            if (not *first_arg_ptr)
+                *first_arg_ptr = arg;
+            break; }
+
+        case PARAM_CLASS_LOCAL:
+        case PARAM_CLASS_RETURN:
+        case PARAM_CLASS_LEAVE:
+            break;
+
+        default:
+            panic ("Unknown PARAM_CLASS");
+        }
+    }
+
+    DS_DROP_TO(lowest_ordered_dsp);
+    DROP_GUARD_CONTEXT(exemplar);
+
+    *exemplar_out = exemplar;
+    return FALSE;
+}
+
+
+//
 //  does: native [
 //
 //  {Specializes DO for a value (or for args of another named function)}
@@ -972,7 +1094,6 @@ REBNATIVE(does)
     INCLUDE_PARAMS_OF_DOES;
 
     REBVAL *specializee = ARG(specializee);
-    REBVAL *args = ARG(args);
 
     // DOES always creates a function with no arguments.
 
@@ -1016,25 +1137,16 @@ REBNATIVE(does)
     }
 
     REBCTX *exemplar;
-    REBARR *facade;
-
     if (
         GET_VAL_FLAG(specializee, VALUE_FLAG_UNEVALUATED)
         and (IS_WORD(specializee) or IS_PATH(specializee))
     ){
-        // We interpret phrasings like `x: does all [...]` to mean something
-        // like `x: specialize 'all [block: [...]]`.  While this originated
-        // from the Rebmu code golfing language to eliminate a pair of bracket
-        // characters from `x: does [all [...]]`, it actually has different
-        // semantics...which can be useful in their own right, plus the
-        // resulting function will run faster.
-
+        REBSTR *opt_label;
         REBDSP lowest_ordered_dsp = DSP;
         const REBOOL push_refinements = TRUE;
-        REBSTR *opt_name;
         if (Get_If_Word_Or_Path_Throws(
             D_OUT,
-            &opt_name,
+            &opt_label,
             specializee,
             SPECIFIED,
             push_refinements
@@ -1044,94 +1156,30 @@ REBNATIVE(does)
 
         if (not IS_ACTION(D_OUT))
             fail (Error_Invalid(specializee));
-        Move_Value(specializee, D_OUT); // Frees D_OUT, GC safe (in ARG slot)
 
-        // !!! This is a hack just to see the concept working; what really
-        // is needed is a way to share the frame-filling-logic used by the
-        // evaluator with heap-based frame structures.  One block to that is
-        // that cell preparation is different for stack vs. heap, and so
-        // the evaluator logic can't be used without walking the cells in
-        // advance--which it was designed to not need to do.
-        //
-        // Until the organizational issues are sorted out, fill the frame in
-        // a very limited and conservative way.
+        Move_Value(specializee, D_OUT);
 
-        exemplar = Make_Context_For_Specialization(
+        // We interpret phrasings like `x: does all [...]` to mean something
+        // like `x: specialize 'all [block: [...]]`.  While this originated
+        // from the Rebmu code golfing language to eliminate a pair of bracket
+        // characters from `x: does [all [...]]`, it actually has different
+        // semantics...which can be useful in their own right, plus the
+        // resulting function will run faster.
+
+        REBVAL *first_arg;
+        if (Make_Invocation_Frame_Throws(
+            D_OUT,
+            &exemplar,
+            &first_arg,
             specializee,
-            lowest_ordered_dsp,
-            NULL
-        );
-        MANAGE_ARRAY(CTX_VARLIST(exemplar));
-        PUSH_GUARD_CONTEXT(exemplar);
-
-        REBINT last_partial = 0;
-
-        REBVAL *refine = NULL;
-        REBVAL *param = CTX_KEYS_HEAD(exemplar);
-        REBVAL *arg = CTX_VARS_HEAD(exemplar);
-        for (; NOT_END(param); ++param, ++arg) {
-            enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-            switch (pclass) {
-            case PARAM_CLASS_REFINEMENT: {
-                refine = arg;
-                if (IS_INTEGER(refine)) {
-                    if (not IS_REFINEMENT_SPECIALIZED(param)) {
-                        Init_Logic(refine, FALSE);
-                        break;
-                    }
-                    if (VAL_INT32(refine) < last_partial)
-                        fail ("DOES hack can't handle this refinement order");
-                    last_partial = VAL_INT32(refine);
-                    Init_Logic(refine, TRUE);
-                }
-                break; }
-
-            case PARAM_CLASS_NORMAL:
-            case PARAM_CLASS_TIGHT:
-            case PARAM_CLASS_HARD_QUOTE:
-            case PARAM_CLASS_SOFT_QUOTE: {
-                if (refine != NULL) {
-                    if (IS_VOID(refine))
-                        break;
-
-                    if (IS_LOGIC(refine) and VAL_LOGIC(refine) == FALSE)
-                        break;
-                }
-
-                // !!! Corrupt the parameter class of ARGS to match.  This is
-                // a general problem, of wanting to be able to take from a
-                // variadic feed using multiple conventions...the interface
-                // hasn't been hammered out yet.
-
-                INIT_VAL_PARAM_CLASS(PAR(args), pclass);
-                REB_R r = Do_Vararg_Op_May_Throw(D_OUT, args, VARARG_OP_TAKE);
-                INIT_VAL_PARAM_CLASS(PAR(args), PARAM_CLASS_HARD_QUOTE);
-
-                if (r == R_OUT_IS_THROWN) {
-                    DROP_GUARD_CONTEXT(exemplar);
-                    return R_OUT_IS_THROWN;
-                }
-
-                if (r == R_END)
-                    fail ("DOES hack needs argument");
-
-                Move_Value(arg, D_OUT);
-                if (GET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED))
-                    SET_VAL_FLAG(arg, VALUE_FLAG_UNEVALUATED);
-                break; }
-
-            case PARAM_CLASS_LOCAL:
-            case PARAM_CLASS_RETURN:
-            case PARAM_CLASS_LEAVE:
-                break;
-
-            default:
-                panic ("Unknown PARAM_CLASS");
-            }
+            PAR(args),
+            ARG(args),
+            lowest_ordered_dsp
+        )){
+            return R_OUT_IS_THROWN;
         }
-
-        DS_DROP_TO(lowest_ordered_dsp);
-        DROP_GUARD_CONTEXT(exemplar);
+        UNUSED(first_arg);
+        UNUSED(opt_label);
     }
     else {
         // On all other types, we just make it act like a specialized call to
@@ -1148,7 +1196,7 @@ REBNATIVE(does)
     REBACT *unspecialized = VAL_ACTION(specializee);
 
     REBCNT num_slots = ACT_FACADE_NUM_PARAMS(unspecialized) + 1;
-    facade = Make_Array_Core(num_slots, SERIES_FLAG_FIXED_SIZE);
+    REBARR *facade = Make_Array_Core(num_slots, SERIES_FLAG_FIXED_SIZE);
     REBVAL *rootkey = SINK(ARR_HEAD(facade));
     Move_Value(rootkey, ACT_ARCHETYPE(ACT_UNDERLYING(unspecialized)));
 

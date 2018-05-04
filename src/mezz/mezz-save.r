@@ -54,7 +54,7 @@ save: function [
     ;-- Special datatypes use codecs directly (e.g. PNG image file):
     all [
         not header ; User wants to save value as script, not data file
-        match [file! url!] where
+        did match [file! url!] where
         type: file-type? where
     ] then [
         ; We have a codec.  Will check for valid type.
@@ -69,15 +69,11 @@ save: function [
 
     ;-- Handle the header object:
     if header-data [
-        ; TRUE indicates the header is the first value in the block:
+
+        ;-- #[true] indicates the header is the first value in the block
         if header-data = true [
-            header-data: any [
-                all [
-                    block? :value
-                    first+ value ; the header (do not use TAKE)
-                ]
-                [] ; empty header
-            ]
+            header-data: first ensure block! value
+            value: my next ;-- do not use TAKE (leave header in position)
         ]
 
         ;; Make it an object if it's not already

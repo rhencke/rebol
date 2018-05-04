@@ -108,6 +108,7 @@
 %control/leave.test.reb
 %control/loop.test.reb
 %control/map-each.test.reb
+%control/match.test.reb
 %control/reduce.test.reb
 %control/remove-each.test.reb
 %control/repeat.test.reb

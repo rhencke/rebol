@@ -134,6 +134,132 @@ REBNATIVE(either)
 }
 
 
+//  Either_Test_Core: C
+//
+// Note: There was an idea of turning the `test` BLOCK! into some kind of
+// dialect.  That was later supplanted by idea of MATCH...which bridges with
+// a natural interface to functions like PARSE for providing such dialects.
+// This routine is just for basic efficiency behind constructs like ELSE
+// that want to avoid frame creation overhead.  So BLOCK! just means typeset.
+//
+inline static REBOOL Either_Test_Core(
+    REBVAL *cell, // GC-safe temp cell
+    REBVAL *test, // modified
+    const REBVAL *par,
+    const REBVAL *arg
+){
+    assert(IS_TYPESET(par));
+
+    switch (VAL_TYPE(test)) {
+
+    case REB_LOGIC: { // test for "truthy" or "falsey"
+        if (IS_VOID(arg)) { // null is neither true nor false
+            DECLARE_LOCAL (word);
+            Init_Word(word, VAL_PARAM_SPELLING(par));
+            fail (Error_No_Value(word));
+        }
+
+        // If this is the result of composing together a test with a literal,
+        // it may be the *test* that changes...so in effect, we could be
+        // "testing the test" on a fixed value.  Allow literal blocks (e.g.
+        // use IS_TRUTHY() instead of IS_CONDITIONAL_TRUE())
+        //
+        return VAL_LOGIC(test) == IS_TRUTHY(arg); }
+
+    case REB_WORD:
+    case REB_PATH: {
+        //
+        // !!! Because we do not push refinements here, this means that a
+        // specialized action will be generated if the user says something
+        // like `either-test 'foo?/bar x [...]`.  It's possible to avoid
+        // this by pushing a frame before the Get_If_Word_Or_Path_Throws()
+        // and gathering the refinements on the stack, but a bit more work
+        // for an uncommon case...revisit later.
+        //
+        const REBOOL push_refinements = FALSE;
+
+        REBSTR *opt_label = NULL;
+        REBDSP lowest_ordered_dsp = DSP;
+        if (Get_If_Word_Or_Path_Throws(
+            cell,
+            &opt_label,
+            test,
+            SPECIFIED,
+            push_refinements
+        )){
+            return R_OUT_IS_THROWN;
+        }
+
+        assert(lowest_ordered_dsp == DSP); // would have made specialization
+        UNUSED(lowest_ordered_dsp);
+
+        Move_Value(test, cell);
+
+        if (not IS_ACTION(test))
+            fail ("EITHER-TEST only takes WORD! and PATH! for ACTION! vars");
+        goto handle_action; }
+
+    case REB_ACTION: {
+
+    handle_action:;
+
+        if (Apply_Only_Throws(
+            cell,
+            TRUE, // `fully` (ensure argument consumed)
+            test,
+            DEVOID(arg), // convert void cells to C nullptr for API
+            END
+        )){
+            return R_OUT_IS_THROWN;
+        }
+
+        if (IS_VOID(cell))
+            fail (Error_No_Return_Raw());
+
+        return IS_TRUTHY(cell); }
+
+    case REB_DATATYPE: {
+        return VAL_TYPE_KIND(test) == VAL_TYPE(arg); }
+
+    case REB_TYPESET: {
+        return TYPE_CHECK(test, VAL_TYPE(arg)); }
+
+    case REB_BLOCK: {
+        RELVAL *item = VAL_ARRAY_AT(test);
+        if (IS_END(item)) {
+            //
+            // !!! If the test is just [], what's that?  People aren't likely
+            // to write it literally, but COMPOSE/etc. might make it.
+            //
+            fail ("No tests found BLOCK! passed to EITHER-TEST.");
+        }
+
+        REBSPC *specifier = VAL_SPECIFIER(test);
+        for (; NOT_END(item); ++item) {
+            const RELVAL *var
+                = IS_WORD(item)
+                    ? Get_Opt_Var_May_Fail(item, specifier)
+                    : item;
+
+            if (IS_DATATYPE(var)) {
+                if (VAL_TYPE_KIND(var) == VAL_TYPE(arg))
+                    return TRUE;
+            }
+            else if (IS_TYPESET(var)) {
+                if (TYPE_CHECK(var, VAL_TYPE(arg)))
+                    return TRUE;
+            }
+            else
+                fail (Error_Invalid_Type(VAL_TYPE(var)));
+        }
+        return FALSE; }
+
+    default:
+        fail (Error_Invalid_Type(VAL_TYPE(arg)));
+    }
+}
+
+
 //
 //  either-test: native [
 //
@@ -142,7 +268,11 @@ REBNATIVE(either)
 //      return: "Input argument if it matched, or branch result"
 //          [<opt> any-value!]
 //      test "Typeset membership, LOGIC! to test for truth, filter function"
-//          [action! datatype! typeset! block! logic!]
+//          [
+//              word! path! action! ;-- arity-1 filter function, opt named
+//              datatype! typeset! block! ;-- typeset specification forms
+//              logic! ;-- tests TO-LOGIC compatibility
+//          ]
 //      arg [<opt> any-value!]
 //      branch "If arity-1 ACTION!, receives the non-matching argument"
 //          [block! action!]
@@ -153,120 +283,12 @@ REBNATIVE(either_test)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST;
 
-    REBVAL *test = ARG(test);
-    REBVAL *arg = ARG(arg);
-
-    if (IS_LOGIC(test)) { // test for "truthy" or "falsey"
-        if (IS_VOID(arg)) { // null is neither true nor false
-            DECLARE_LOCAL (word);
-            Init_Word(word, VAL_PARAM_SPELLING(PAR(test)));
-            fail (Error_No_Value(word));
-        }
-
-        // If this is the result of composing together a test with a literal,
-        // it may be the *test* that changes...so in effect, we could be
-        // "testing the test" on a fixed value.  Allow literal blocks (e.g.
-        // use IS_TRUTHY() instead of IS_CONDITIONAL_TRUE())
-        //
-        if (VAL_LOGIC(test) != IS_TRUTHY(arg))
-            goto test_failed;
-        return R_FROM_BOOL(VAL_LOGIC(test));
+    if (Either_Test_Core(D_OUT, ARG(test), PAR(arg), ARG(arg))) {
+        Move_Value(D_OUT, ARG(arg));
+        return R_OUT;
     }
 
-    // Force single items into array style access so only one version of the
-    // code needs to be written.
-    //
-    RELVAL *item;
-    REBSPC *specifier;
-    if (IS_BLOCK(test)) {
-        item = VAL_ARRAY_AT(test);
-        specifier = VAL_SPECIFIER(test);
-    }
-    else {
-        Move_Value(D_CELL, test);
-        item = D_CELL; // implicitly terminated
-        specifier = SPECIFIED;
-    }
-
-    REB_R r; // goto crosses initialization
-    r = R_UNHANDLED;
-
-    for (; NOT_END(item); ++item) {
-        //
-        // If we're dealing with a single item for the test, provided e.g.
-        // as :even?, then it's already fetched.  But if it was a block like
-        // [:even? integer!] we enumerate it in word form and have to get it.
-        //
-        const RELVAL *var = IS_WORD(item)
-            ? Get_Opt_Var_May_Fail(item, specifier)
-            : item;
-
-        if (IS_DATATYPE(var)) {
-            if (VAL_TYPE_KIND(var) == VAL_TYPE(arg))
-                r = R_TRUE; // any type matching counts
-            else if (r == R_UNHANDLED)
-                r = R_FALSE; // at least one type has to speak up now
-        }
-        else if (IS_TYPESET(var)) {
-            if (TYPE_CHECK(var, VAL_TYPE(arg)))
-                r = R_TRUE; // any typeset matching counts
-            else if (r == R_UNHANDLED)
-                r = R_FALSE; // at least one type has to speak up now
-        }
-        else if (IS_ACTION(var)) {
-            const REBOOL fully = TRUE;
-            if (Apply_Only_Throws(
-                D_OUT,
-                fully,
-                const_KNOWN(var),
-                DEVOID(arg), // convert void cells to C nullptr for API
-                END
-            )){
-                return R_OUT_IS_THROWN;
-            }
-
-            if (IS_VOID(D_OUT))
-                fail (Error_No_Return_Raw());
-
-            if (IS_FALSEY(D_OUT))
-                goto test_failed; // any function failing breaks it
-
-            // At least one function matching tips the balance, but
-            // can't alone outmatch no types matching, if any types
-            // were matched at all.
-            //
-            if (r == R_UNHANDLED)
-                r = R_TRUE;
-            continue;
-        }
-        else
-            fail (Error_Invalid_Type(VAL_TYPE(var)));
-    }
-
-    if (r == R_UNHANDLED) {
-        //
-        // !!! When the test is just [], what's that?  People aren't likely to
-        // write it literally, but it could happen from a COMPOSE or similar.
-        //
-        fail ("No tests found in EITHER-TEST.");
-    }
-
-    if (r == R_FALSE) {
-        //
-        // This means that some types didn't match and were not later
-        // redeemed by a type that did match.  Consider it failure.
-        //
-        goto test_failed;
-    }
-
-    // Someone spoke up for test success and was not overridden.
-    //
-    assert(r == R_TRUE);
-    Move_Value(D_OUT, ARG(arg));
-    return R_OUT;
-
-test_failed:
-    if (Run_Branch_Throws(D_OUT, arg, ARG(branch), REF(opt)))
+    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
 
     return R_OUT;
@@ -293,7 +315,7 @@ REBNATIVE(either_test_null)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST_NULL;
 
-    if (IS_VOID(ARG(arg)))
+    if (IS_VOID(ARG(arg))) // Either_Test_Core() would call Apply()
         return R_VOID;
 
     if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
@@ -322,7 +344,7 @@ REBNATIVE(either_test_value)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST_VALUE;
 
-    if (not IS_VOID(ARG(arg))) {
+    if (not IS_VOID(ARG(arg))) { // Either_Test_Core() would call Apply()
         Move_Value(D_OUT, ARG(arg));
         return R_OUT;
     }
@@ -331,6 +353,186 @@ REBNATIVE(either_test_value)
         return R_OUT_IS_THROWN;
 
     return R_OUT;
+}
+
+
+//
+//  match: native [
+//
+//  {Check value using tests (match types, TRUE or FALSE, or filter action)}
+//
+//      return: "Input argument if it matched, otherwise blank"
+//          [<opt> any-value!]
+//      'test "Typeset membership, LOGIC! to test for truth, filter function"
+//          [
+//              word! path! ;- special "first-arg-stealing" magic
+//              lit-word! lit-path! ;-- like EITHER-TEST's WORD! and PATH!
+//              datatype! typeset! block! logic! action! ;-- like EITHER-TEST
+//          ]
+//      :args [any-value! <...>]
+//  ]
+//
+REBNATIVE(match)
+//
+// This routine soft quotes its `test` argument, and has to be variadic, in
+// order to get the special `MATCH PARSE "AAA" [SOME "A"]` -> "AAA" behavior.
+// But despite quoting its first argument, it processes it in a way to try
+// and mimic EITHER-TEST for compatibility for other cases.
+{
+    INCLUDE_PARAMS_OF_MATCH;
+
+    REBVAL *test = ARG(test);
+
+    switch (VAL_TYPE(test)) {
+
+    case REB_LIT_WORD:
+    case REB_LIT_PATH: {
+        if (NOT_VAL_FLAG(test, VALUE_FLAG_UNEVALUATED)) // soft quote eval'd
+            fail (Error_Invalid(test)); // disallow `MATCH (QUOTE 'VOID?) ...`
+
+        if (IS_LIT_WORD(test))
+            VAL_SET_TYPE_BITS(test, REB_WORD);
+        else
+            VAL_SET_TYPE_BITS(test, REB_PATH);
+        goto either_test; }
+
+    case REB_WORD:
+    case REB_PATH: {
+        if (NOT_VAL_FLAG(test, VALUE_FLAG_UNEVALUATED)) // soft quote eval'd
+            goto either_test; // allow `MATCH ('VOID?) ...`
+
+        REBSTR *opt_label = NULL;
+        REBDSP lowest_ordered_dsp = DSP;
+        if (Get_If_Word_Or_Path_Throws(
+            D_OUT,
+            &opt_label,
+            test,
+            SPECIFIED,
+            TRUE // push_refinements
+        )){
+            return R_OUT_IS_THROWN;
+        }
+
+        Move_Value(test, D_OUT);
+
+        if (not IS_ACTION(test)) {
+            if (ANY_WORD(test) or ANY_PATH(test))
+                fail (Error_Invalid(test)); // disallow `X: 'Y | MATCH X ...`
+            goto either_test; // will typecheck the result
+        }
+
+        // It was a non-soft quote eval'd word, the kind we want to give the
+        // "magical" functionality to.
+        //
+        // We run the testing function in place in a way that appears "normal"
+        // but actually captures its first argument.  That will be MATCH's
+        // return value if the filter function returns a truthy result.
+
+        REBVAL *first_arg;
+        REBCTX *exemplar;
+        if (Make_Invocation_Frame_Throws( // !!! currently hacky/inefficient
+            D_OUT,
+            &exemplar,
+            &first_arg,
+            test,
+            PAR(args),
+            ARG(args),
+            lowest_ordered_dsp
+        )){
+            return R_OUT_IS_THROWN;
+        }
+
+        if (not first_arg)
+            fail ("MATCH with a function pattern must take at least 1 arg");
+
+        Move_Value(D_OUT, first_arg); // steal first argument before call
+
+        DECLARE_FRAME (f);
+
+        f->out = D_CELL;
+
+        Push_Frame_For_Apply(f);
+
+        Push_Action(
+            f,
+            opt_label,
+            VAL_ACTION(test),
+            VAL_BINDING(test)
+        );
+        f->refine = ORDINARY_ARG;
+        f->special = CTX_VARS_HEAD(exemplar); // override action's exemplar
+
+        (*PG_Do)(f);
+
+        Drop_Frame_Core(f);
+
+        if (THROWN(D_CELL)) {
+            Move_Value(D_OUT, D_CELL);
+            return R_OUT_IS_THROWN;
+        }
+
+        assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
+
+        if (IS_VOID(D_CELL)) // neither true nor false
+            fail (Error_No_Return_Raw());
+
+        // We still have the first argument from the filter call in D_OUT.
+
+        // MATCH *wants* to pass through the argument on a match, but
+        // won't do so if the argument was falsey, as that is misleading.
+        // Instead it passes a BAR! back.
+
+        if (IS_TRUTHY(D_CELL)) {
+            if (IS_VOID_OR_FALSEY(D_OUT))
+                return R_BAR;
+            return R_OUT;
+        }
+
+        // Again... MATCH *wants* to return a BLANK! on a non-match.  But it
+        // wants to help cue attention to the strange BAR! result and make
+        // sure the caller knows to do some additional DID-ing or NOT-ing to
+        // coerce the result if the value is falsey.  NULL will do that.
+
+        if (IS_VOID_OR_FALSEY(D_OUT))
+            return R_VOID;
+        return R_BLANK; }
+
+    default:
+        break;
+    }
+
+either_test:;
+
+    // For the "non-magic" cases that are handled by plain EITHER-TEST, call
+    // through with the transformed test.  Just take one normal arg via
+    // variadic.
+
+    REBVAL *varpar = PAR(args);
+
+    INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_NORMAL); // !!! hack
+    REB_R r = Do_Vararg_Op_May_Throw(D_OUT, ARG(args), VARARG_OP_TAKE);
+    INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_HARD_QUOTE);
+
+    if (r == R_OUT_IS_THROWN)
+        return R_OUT_IS_THROWN;
+
+    if (r == R_END)
+        fail ("Frame hack is written to need argument!");
+
+    assert(r == R_OUT);
+
+    // See notes above about why the arg is not simply passed through or
+    // blanked in the void or falsey arg case.
+
+    if (Either_Test_Core(D_CELL, test, varpar, D_OUT)) {
+        if (IS_VOID_OR_FALSEY(D_OUT))
+            return R_BAR;
+        return R_OUT;
+    }
+
+    if (IS_VOID_OR_FALSEY(D_OUT))
+        return R_VOID;
+    return R_BLANK;
 }
 
 

@@ -89,6 +89,7 @@ array: func [
     size [integer! block!] "Size or block of sizes for each dimension"
     /initial "Specify an initial value for all elements"
     value "Initial value (will be called each time if a function)"
+        [any-value!]
     <local> block rest
 ][
     if block? size [
@@ -109,7 +110,7 @@ array: func [
             loop size [block: insert/only block value] ; Called every time
         ]
     ] else [
-        insert/dup block either initial [value][_] size
+        insert/dup/only try get 'value size
     ]
     head of block
 ]
@@ -238,6 +239,16 @@ reword: function [
         prefix: ensure delimiter-types delimiters
     ]
 
+    ; To be used in a parse rule, words must be turned into strings, though
+    ; it would be nice if they didn't have to be, e.g.
+    ;
+    ;     parse "abc" [quote abc] => true
+    ;
+    ; Integers have to be converted also.
+    ;
+    if did match [integer! word!] prefix [prefix: to-string prefix]
+    if did match [integer! word!] suffix [suffix: to-string suffix]
+
     ; MAKE MAP! will create a map with no duplicates from the input if it
     ; is a BLOCK! (though differing cases of the same key will be preserved).
     ; This might be better with stricter checking, in case later keys
@@ -305,16 +316,6 @@ reword: function [
     ;     | "keyword2" (keyword-match: quote keyword2)
     ;     | fail
     ; ]
-
-    ; To be used in a parse rule, words must be turned into strings, though
-    ; it would be nice if they didn't have to be, e.g.
-    ;
-    ;     parse "abc" [quote abc] => true
-    ;
-    ; Integers have to be converted also.
-    ;
-    if match [integer! word!] prefix [prefix: to-string prefix]
-    if match [integer! word!] suffix [suffix: to-string suffix]
 
     rule: [
         ; Begin marking text to copy verbatim to output

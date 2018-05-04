@@ -70,11 +70,11 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     //
     GC_Disabled = TRUE;
 
-#if defined(NDEBUG)
+  #if defined(NDEBUG)
     UNUSED(tick);
     UNUSED(file);
     UNUSED(line);
-#else
+  #else
     //
     // First thing's first in the debug build, make sure the file and the
     // line are printed out, as well as the current evaluator tick.
@@ -90,7 +90,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     //
     fflush(stdout);
     fflush(stderr);
-#endif
+  #endif
 
     // Because the release build of Rebol does not link to printf or its
     // support functions, the crash buf is assembled into a buffer for
@@ -102,16 +102,16 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     title[0] = '\0';
     buf[0] = '\0';
 
-#if !defined(NDEBUG) && 0
+  #if !defined(NDEBUG) && 0
     //
     // These are currently disabled, because they generate too much junk.
     // Address Sanitizer gives a reasonable idea of the stack.
     //
     Dump_Info();
     Dump_Stack(NULL, 0);
-#endif
+  #endif
 
-#if !defined(NDEBUG) && defined(HAVE_EXECINFO_AVAILABLE)
+  #if !defined(NDEBUG) && defined(HAVE_EXECINFO_AVAILABLE)
     //
     // Backtrace is a GNU extension.  There should be a way to turn this on
     // or off, as it will be redundant with a valgrind or address sanitizer
@@ -125,7 +125,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     fputs("Backtrace:\n", stderr);
     backtrace_symbols_fd(backtrace_buf, n_backtrace, STDERR_FILENO);
     fflush(stdout);
-#endif
+  #endif
 
     strncat(title, "PANIC()", PANIC_TITLE_BUF_SIZE - 0);
 
@@ -152,7 +152,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
 
     case DETECTED_AS_SERIES: {
         REBSER *s = m_cast(REBSER*, cast(const REBSER*, p)); // don't mutate
-    #if !defined(NDEBUG)
+      #if !defined(NDEBUG)
         #if 0
             //
             // It can sometimes be useful to probe here if the series is
@@ -171,45 +171,45 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
             }
         }
         Panic_Series_Debug(cast(REBSER*, s));
-    #else
+      #else
         UNUSED(s);
         strncat(buf, "valid series", PANIC_BUF_SIZE - strlen(buf));
-    #endif
+      #endif
         break; }
 
     case DETECTED_AS_FREED_SERIES:
-    #if defined(NDEBUG)
+      #if defined(NDEBUG)
         strncat(buf, "freed series", PANIC_BUF_SIZE - strlen(buf));
-    #else
+      #else
         Panic_Series_Debug(m_cast(REBSER*, cast(const REBSER*, p)));
-    #endif
+      #endif
         break;
 
     case DETECTED_AS_VALUE:
     case DETECTED_AS_END: {
         const REBVAL *v = cast(const REBVAL*, p);
-    #if defined(NDEBUG)
+      #if defined(NDEBUG)
         UNUSED(v);
         strncat(buf, "value", PANIC_BUF_SIZE - strlen(buf));
-    #else
+      #else
         if (NOT_END(v) and IS_ERROR(v)) {
             printf("...panicking on an ERROR! value...");
             PROBE(v);
         }
         Panic_Value_Debug(v);
-    #endif
+      #endif
         break; }
 
     case DETECTED_AS_TRASH_CELL:
-    #if defined(NDEBUG)
+      #if defined(NDEBUG)
         strncat(buf, "trash cell", PANIC_BUF_SIZE - strlen(buf));
-    #else
+      #else
         Panic_Value_Debug(cast(const RELVAL*, p));
-    #endif
+      #endif
         break;
     }
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     //
     // In a debug build, we'd like to try and cause a break so as not to lose
     // the state of the panic, which would happen if we called out to the
@@ -219,7 +219,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     printf("%s\n", buf);
     fflush(stdout);
     debug_break(); // see %debug_break.h
-#endif
+  #endif
 
     // 255 is standardized as "exit code out of range", but it seems like the
     // best choice for an anomalous exit.

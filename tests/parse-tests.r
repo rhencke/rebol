@@ -237,11 +237,10 @@
     i == 2
 )
 
-; Variant which returns the input instead of a LOGIC! on success, may need
-; a better name, see #2165
+; Use MATCH to get input on success, see #2165
 (
-    "abc" = parse-match "abc" ["a" "b" "c"]
+    "abc" = match parse "abc" ["a" "b" "c"]
 )
 (
-    blank? parse-match "abc" ["a" "b" "d"]
+    blank? match parse "abc" ["a" "b" "d"]
 )

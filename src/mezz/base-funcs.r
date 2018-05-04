@@ -596,50 +596,6 @@ all*: redescribe [
     specialize 'all [only: true]
 )
 
-match: redescribe [
-   {Check value using tests (match types, TRUE or FALSE, or filter action)}
-](
-    enclose specialize 'either-test [
-        branch: [] ;-- runs on test failure
-        opt: true ;-- failure branch returns void, signals the enclosure
-    ] function [
-        return: [<opt> any-value!]
-        f [frame!]
-    ][
-        if null? arg: :f/arg [
-            fail "MATCH cannot take null as input" ;-- EITHER-TEST allows it
-        ]
-
-        ; Ideally we'd pass through all input results on a "match" and give
-        ; blank to indicate a non-match.  But what about:
-        ;
-        ;     if match [logic!] 1 > 2 [...]
-        ;     if match [blank!] find "abc" "d" [...]
-        ;
-        ; Rather than have MATCH return a falsey result in these cases, pass
-        ; back a BAR!.  But on failure, pass back a null.  That will cue
-        ; attention to the distorted success result, and lead those writing
-        ; expressions like the above to use DID MATCH.
-
-        result: do f ;-- can't access f/arg after the DO
-
-        if all [not :arg | not null? :result] [
-            return '| ;-- BAR! if matched a falsey type
-        ]
-        to-value :result ;-- blank if failed, or other truthy result
-    ]
-)
-
-; Variant of PARSE which returns the input on success or a BLANK!.  May need
-; a better name.  Also may have some overlap with MATCH.  See #2165
-;
-parse-match: enclose 'parse func [f [frame!]] [
-    all [
-        ensure logic! do f
-        f/input
-     ]
-]
-
 ensure: redescribe [
     {Pass through value if it matches test, otherwise trigger a FAIL}
 ](
