@@ -276,6 +276,9 @@ take*: action [
     /last {Take it from the tail end}
 ]
 
+; !!! INSERT, APPEND, CHANGE expect to have compatible frames...same params
+; at the same position, with same types!
+;
 insert: action [
     {Inserts element(s); for series, returns just past the insert.}
     series [any-series! port! map! gob! object! bitset! port!] {At position (modified)}
@@ -285,8 +288,12 @@ insert: action [
     /only {Only insert a block as a single value (not the contents of the block)}
     /dup {Duplicates the insert a specified number of times}
     count [any-number! pair!]
+    /line {Data should be its own line (use as formatting cue if ANY-ARRAY!)}
 ]
 
+; !!! INSERT, APPEND, CHANGE expect to have compatible frames...same params
+; at the same position, with same types!
+;
 append: action [
     {Inserts element(s) at tail; for series, returns head.}
     series [any-series! port! map! gob! object! module! bitset!]
@@ -297,17 +304,12 @@ append: action [
     /only {Only insert a block as a single value (not the contents of the block)}
     /dup {Duplicates the insert a specified number of times}
     count [any-number! pair!]
+    /line {Data should be its own line (use as formatting cue if ANY-ARRAY!)}
 ]
 
-remove: action [
-    {Removes element(s); returns same position.}
-    series [any-series! map! gob! port! bitset! blank!] {At position (modified)}
-    /part {Removes multiple elements or to a given position}
-    limit [any-number! any-series! pair! char!]
-    /map {Remove key from map}
-    key
-]
-
+; !!! INSERT, APPEND, CHANGE expect to have compatible frames...same params
+; at the same position, with same types!
+;
 change: action [
     {Replaces element(s); returns just past the change.}
     series [any-series! gob! port! struct!]{At position (modified)}
@@ -317,6 +319,16 @@ change: action [
     /only {Only change a block as a single value (not the contents of the block)}
     /dup {Duplicates the change a specified number of times}
     count [any-number! pair!]
+    /line {Data should be its own line (use as formatting cue if ANY-ARRAY!)}
+]
+
+remove: action [
+    {Removes element(s); returns same position.}
+    series [any-series! map! gob! port! bitset! blank!] {At position (modified)}
+    /part {Removes multiple elements or to a given position}
+    limit [any-number! any-series! pair! char!]
+    /map {Remove key from map}
+    key
 ]
 
 clear: action [

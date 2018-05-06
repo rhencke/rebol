@@ -69,7 +69,9 @@ void Collapsify_Array(REBARR *array, REBSPC *specifier, REBCNT limit)
             enum Reb_Kind kind = VAL_TYPE(item);
             Init_Any_Array_At(item, kind, copy, 0); // at 0 now
             assert(IS_SPECIFIC(item));
-            assert(NOT_VAL_FLAG(item, VALUE_FLAG_LINE)); // should be cleared
+            assert(
+                NOT_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE) // gets cleared
+            );
         }
     }
 }
@@ -150,14 +152,6 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
         }
         else
             Derelativize(DS_TOP, item, f->specifier);
-
-        if (count == 0) {
-            //
-            // Get rid of any newline marker on the first element,
-            // that would visually disrupt a backtrace for no reason.
-            //
-            CLEAR_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
-        }
 
         if (count == FRM_INDEX(f) - start - 1) {
             //

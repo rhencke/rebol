@@ -131,6 +131,8 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
         UNUSED(ARG(count));
         fail (Error_Bad_Refines_Raw());
     }
+    if (REF(line))
+        fail (Error_Bad_Refines_Raw());
 
     REBARR *a = Make_Array(2);
     Move_Value(Alloc_Tail_Array(a), &PG_Write_Action);

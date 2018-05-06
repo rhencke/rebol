@@ -1090,6 +1090,9 @@ REBTYPE(Gob)
         if (!IS_GOB(arg))
             fail (Error_Unexpected_Type(REB_GOB, VAL_TYPE(arg)));
 
+        if (REF(line))
+            fail (Error_Bad_Refines_Raw());
+
         if (!GOB_PANE(gob) || index >= tail)
             fail (Error_Past_End_Raw());
         if (
@@ -1117,6 +1120,9 @@ REBTYPE(Gob)
 
         UNUSED(PAR(series));
         UNUSED(PAR(value));
+
+        if (REF(line))
+            fail (Error_Bad_Refines_Raw());
 
         if (REF(part) || REF(only) || REF(dup)) {
             UNUSED(PAR(limit));

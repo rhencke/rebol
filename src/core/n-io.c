@@ -184,18 +184,23 @@ REBNATIVE(new_line)
 {
     INCLUDE_PARAMS_OF_NEW_LINE;
 
-    RELVAL *v = VAL_ARRAY_AT(ARG(position));
     REBOOL mark = VAL_LOGIC(ARG(mark));
+    REBVAL *pos = ARG(position);
+    REBARR *a = VAL_ARRAY(pos);
 
-    // Are we at the tail?
-    // Given that VALUE_FLAG_LINE means "put a newline *before* this value is
-    // output", there's no value cell on which to put an end-of-line marker
-    // at the tail of an array.  Red and R3-Alpha ignore this.  It would be
-    // mechanically possible to add an ARRAY_FLAG_XXX for this case.
-    // Previously an alternate strategy was tried where an error was raised
-    // for this case but it meant that client code had to test for tail? in
-    // order to avoid the error.
-    //
+    FAIL_IF_READ_ONLY_ARRAY(a);
+
+    Move_Value(D_OUT, pos); // always returns the input position
+
+    RELVAL *item = VAL_ARRAY_AT(pos);
+
+    if (IS_END(item)) { // no value at tail to mark; use bit in array
+        if (mark)
+            SET_SER_FLAG(a, ARRAY_FLAG_TAIL_NEWLINE);
+        else
+            CLEAR_SER_FLAG(a, ARRAY_FLAG_TAIL_NEWLINE);
+        return R_OUT;
+    }
 
     REBINT skip;
     if (REF(all))
@@ -209,20 +214,19 @@ REBNATIVE(new_line)
         skip = 0;
 
     REBCNT n;
-    for (n = 0; NOT_END(v); ++n, ++v) {
+    for (n = 0; NOT_END(item); ++n, ++item) {
         if (skip != 0 and (n % skip != 0))
             continue;
 
         if (mark)
-            SET_VAL_FLAG(v, VALUE_FLAG_LINE);
+            SET_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE);
         else
-            CLEAR_VAL_FLAG(v, VALUE_FLAG_LINE);
+            CLEAR_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE);
 
         if (skip == 0)
             break;
     }
 
-    Move_Value(D_OUT, ARG(position));
     return R_OUT;
 }
 
@@ -239,10 +243,13 @@ REBNATIVE(new_line_q)
 {
     INCLUDE_PARAMS_OF_NEW_LINE_Q;
 
-    if (GET_VAL_FLAG(VAL_ARRAY_AT(ARG(position)), VALUE_FLAG_LINE))
-        return R_TRUE;
+    REBVAL *pos = ARG(position);
+    RELVAL *item = VAL_ARRAY_AT(pos);
 
-    return R_FALSE;
+    if (NOT_END(item))
+        return R_FROM_BOOL(GET_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE));
+
+    return R_FROM_BOOL(GET_SER_FLAG(VAL_ARRAY(pos), ARRAY_FLAG_TAIL_NEWLINE));
 }
 
 

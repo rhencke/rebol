@@ -417,7 +417,7 @@ REBARR *Split_Lines(const REBVAL *str)
                     AS_REBUNI(up) - AS_REBUNI(start) - 1
                 )
             );
-            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             ++i;
             start = up;
             if (c == CR) {
@@ -446,8 +446,8 @@ REBARR *Split_Lines(const REBVAL *str)
                 AS_REBUNI(up) - AS_REBUNI(start) // no -1, wasn't terminated
             )
         );
-        SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+        SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
     }
 
-    return Pop_Stack_Values(dsp_orig);
+    return Pop_Stack_Values_Core(dsp_orig, ARRAY_FLAG_TAIL_NEWLINE);
 }

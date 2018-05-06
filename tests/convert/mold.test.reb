@@ -45,3 +45,71 @@
 [#84
     (equal? mold/all make bitset! "^(00)" "#[bitset! #{80}]")
 ]
+
+
+;-- NEW-LINE markers
+
+[
+    (did block: copy [a b c])
+
+    (
+        mold block = {[a b c]}
+    )(
+        new-line block true
+        mold block = {[^/    a b c]}
+    )(
+        new-line tail block true
+        mold block = {[^/    a b c^/]}
+    )(
+        mold tail block = {[^/]}
+    )
+]
+
+(
+    block: [
+        a b c]
+    mold block = {[^/    a b c]}
+)
+
+(
+    block: [a b c
+    ]
+    mold block = {[a b c^/]}
+)
+
+(
+    block: [a b
+        c
+    ]
+    mold block = {[a b^/    c^/]}
+)
+
+(
+    block: copy [a b c]
+    new-line block true
+    new-line tail block true
+    append block [d e f]
+    mold block = {[^/    a b c^/    d e f]}
+)
+
+(
+    block: copy [a b c]
+    new-line block true
+    new-line tail block true
+    append/line block [d e f]
+    mold block = {[^/    a b c^/    d e f^/]}
+)
+
+(
+    block: copy []
+    append/line block [d e f]
+    mold block = {[^/    d e f^/]}
+)
+
+(
+    block: copy [a b c]
+    new-line block true
+    new-line tail block true
+    append/line block [d e f]
+    mold block = {[^/    a b c^/    d e f^/]}
+)

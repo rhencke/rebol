@@ -658,17 +658,9 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     else
         all = GET_MOLD_FLAG(mo, MOLD_FLAG_ALL);
 
-    REBOOL over;
-    if (VAL_INDEX(v) >= VAL_LEN_HEAD(v)) {
-        //
-        // If out of range, do not cause error to avoid error looping.
-        //
-        over = TRUE; // Force it into []
-    }
-    else
-        over = FALSE;
+    assert(VAL_INDEX(v) <= VAL_LEN_HEAD(v));
 
-    if (all || (over && !IS_BLOCK(v) && !IS_GROUP(v))) {
+    if (all) {
         SET_MOLD_FLAG(mo, MOLD_FLAG_ALL);
         Pre_Mold(mo, v); // #[block! part
 
@@ -711,10 +703,7 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, REBOOL form)
             sep = NULL;
         }
 
-        if (over)
-            Append_Unencoded(mo->series, sep ? sep : "[]");
-        else
-            Mold_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), sep);
+        Mold_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), sep);
 
         if (VAL_TYPE(v) == REB_SET_PATH)
             Append_Utf8_Codepoint(mo->series, ':');
@@ -881,6 +870,8 @@ REBTYPE(Array)
             flags |= AM_ONLY;
         if (REF(part))
             flags |= AM_PART;
+        if (REF(line))
+            flags |= AM_LINE;
 
         index = Modify_Array(
             verb,

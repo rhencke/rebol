@@ -825,7 +825,10 @@ REBTYPE(Map)
         if (REF(only))
             fail (Error_Bad_Refines_Raw());
 
-        if (!IS_BLOCK(arg))
+        if (REF(line))
+            fail (Error_Bad_Refines_Raw());
+
+        if (not IS_BLOCK(arg))
             fail (Error_Invalid(val));
         Move_Value(D_OUT, val);
         if (REF(dup)) {

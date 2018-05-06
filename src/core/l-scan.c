@@ -886,7 +886,7 @@ static REBCNT Prescan_Token(SCAN_STATE *ss)
 // Newlines that should be internal to a non-ANY-ARRAY! type are included in
 // the scanned range between the `begin` and `end`.  But newlines that are
 // found outside of a string are returned as TOKEN_NEWLINE.  (These are used
-// to set the VALUE_FLAG_LINE formatting bit on the subsequent value.)
+// to set the VALUE_FLAG_NEWLINE_BEFORE bits on the next value.)
 //
 // Determining the end point of token types that need escaping requires
 // processing (for instance `{a^}b}` can't see the first close brace as ending
@@ -1003,7 +1003,7 @@ acquisition_loop:
 
             if (ss->newline_pending) {
                 ss->newline_pending = FALSE;
-                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
 
             if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
@@ -1043,7 +1043,7 @@ acquisition_loop:
 
             if (ss->newline_pending) {
                 ss->newline_pending = FALSE;
-                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
 
             if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
@@ -2402,7 +2402,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         //
         if (ss->newline_pending) {
             ss->newline_pending = FALSE;
-            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+            SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
         }
 
         // Added for TRANSCODE/NEXT (LOAD/NEXT is deprecated, see #1703)
@@ -2420,22 +2420,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 array_done:
     Drop_Mold_If_Pushed(mo);
 
-    // The way that newline markers work is they sit on values inside the
-    // array.  So if you wanted to preserve the newline on something like:
-    //
-    //     x: [
-    //     ]
-    //
-    // That would require the ability to put a newline marker on END.  Rebol2
-    // apparently let "END! values" carry the bit, so it would preserve the
-    // above...but neither Red nor R3-Alpha preserve it and just get `[]`.
-    // Preserving it in Ren-C would be hard due to Init_Endlike_Header().
-    //
-    // Since newline markers signify a newline *before* the element in
-    // question, just discard it if there was one.
-    //
-    if (ss->newline_pending)
-        ss->newline_pending = FALSE;
+    // Note: ss->newline_pending may be true; used for ARRAY_FLAG_TAIL_NEWLINE
 
     return NULL; // used with rebRescue(), so protocol requires a return
 }
@@ -2536,7 +2521,11 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char)
     else
         Scan_To_Stack(&child);
 
-    REBARR *a = Pop_Stack_Values_Core(dsp_orig, NODE_FLAG_MANAGED);
+    REBARR *a = Pop_Stack_Values_Core(
+        dsp_orig,
+        NODE_FLAG_MANAGED
+            | (child.newline_pending ? ARRAY_FLAG_TAIL_NEWLINE : 0)
+    );
 
     // Tag array with line where the beginning bracket/group/etc. was found
     //
@@ -2631,6 +2620,7 @@ REBARR *Scan_Va_Managed(
     REBARR *a = Pop_Stack_Values_Core(
         dsp_orig,
         ARRAY_FLAG_VOIDS_LEGAL | NODE_FLAG_MANAGED
+            | (ss.newline_pending ? ARRAY_FLAG_TAIL_NEWLINE : 0)
     );
 
     MISC(a).line = ss.line;
@@ -2667,7 +2657,12 @@ REBARR *Scan_UTF8_Managed(REBSTR *filename, const REBYTE *utf8, REBCNT size)
     REBDSP dsp_orig = DSP;
     Scan_To_Stack(&ss);
 
-    REBARR *a = Pop_Stack_Values_Core(dsp_orig, NODE_FLAG_MANAGED);
+    REBARR *a = Pop_Stack_Values_Core(
+        dsp_orig,
+        NODE_FLAG_MANAGED
+            | (ss.newline_pending ? ARRAY_FLAG_TAIL_NEWLINE : 0)
+    );
+
     MISC(a).line = ss.line;
     LINK(a).file = ss.file;
     SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
@@ -2808,7 +2803,11 @@ REBNATIVE(transcode)
     else
         VAL_INDEX(DS_TOP) = VAL_LEN_HEAD(ARG(source)); // ss.end is trash
 
-    REBARR *a = Pop_Stack_Values_Core(dsp_orig, NODE_FLAG_MANAGED);
+    REBARR *a = Pop_Stack_Values_Core(
+        dsp_orig,
+        NODE_FLAG_MANAGED
+            | (ss.newline_pending ? ARRAY_FLAG_TAIL_NEWLINE : 0)
+    );
     MISC(a).line = ss.line;
     LINK(a).file = ss.file;
     SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);

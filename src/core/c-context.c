@@ -1002,27 +1002,28 @@ REBCTX *Construct_Context(
 //
 REBARR *Context_To_Array(REBCTX *context, REBINT mode)
 {
+    REBDSP dsp_orig = DSP;
+
     REBVAL *key = CTX_KEYS_HEAD(context);
     REBVAL *var = CTX_VARS_HEAD(context);
 
     assert(!(mode & 4));
 
-    REBARR *block = Make_Array(CTX_LEN(context) * (mode == 3 ? 2 : 1));
-
     REBCNT n = 1;
     for (; NOT_END(key); n++, key++, var++) {
         if (NOT_VAL_FLAG(key, TYPESET_FLAG_HIDDEN)) {
             if (mode & 1) {
-                REBVAL *value = Alloc_Tail_Array(block);
+                DS_PUSH_TRASH;
                 Init_Any_Word_Bound(
-                    value,
+                    DS_TOP,
                     (mode & 2) ? REB_SET_WORD : REB_WORD,
                     VAL_KEY_SPELLING(key),
                     context,
                     n
                 );
+
                 if (mode & 2)
-                    SET_VAL_FLAG(value, VALUE_FLAG_LINE);
+                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
             if (mode & 2) {
                 //
@@ -1033,12 +1034,15 @@ REBARR *Context_To_Array(REBCTX *context, REBINT mode)
                 if (IS_VOID(var))
                     fail (Error_Void_Object_Block_Raw());
 
-                Append_Value(block, var);
+                DS_PUSH(var);
             }
         }
     }
 
-    return block;
+    return Pop_Stack_Values_Core(
+        dsp_orig,
+        did (mode & 2) ? ARRAY_FLAG_TAIL_NEWLINE : 0
+    );
 }
 
 

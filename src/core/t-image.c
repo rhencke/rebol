@@ -622,6 +622,9 @@ REBVAL *Modify_Image(REBFRM *frame_, REBCNT action)
 {
     INCLUDE_PARAMS_OF_INSERT; // currently must have same frame as CHANGE
 
+    if (REF(line))
+        fail (Error_Bad_Refines_Raw());
+
     REBVAL  *value = ARG(series); // !!! confusing, very old (unused?) code!
     REBVAL  *arg   = ARG(value);
     REBVAL  *len   = ARG(limit); // void if no /PART

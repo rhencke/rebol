@@ -268,12 +268,21 @@ inline static REBARR *Make_Array_For_Copy(
     REBFLGS flags,
     REBARR *original
 ){
+    if (original and GET_SER_FLAG(original, ARRAY_FLAG_TAIL_NEWLINE)) {
+        //
+        // All of the newline bits for cells get copied, so it only makes
+        // sense that the bit for newline on the tail would be copied too.
+        //
+        flags |= ARRAY_FLAG_TAIL_NEWLINE;
+    }
+
     if (
         (flags & ARRAY_FLAG_FILE_LINE)
-        and original != NULL
-        and GET_SER_FLAG(original, ARRAY_FLAG_FILE_LINE)
+        and (original and GET_SER_FLAG(original, ARRAY_FLAG_FILE_LINE))
     ){
-        REBARR *a = Make_Array_Core(capacity, 0);
+        flags &= ~ARRAY_FLAG_FILE_LINE;
+
+        REBARR *a = Make_Array_Core(capacity, flags);
         LINK(a).file = LINK(original).file;
         MISC(a).line = MISC(original).line;
         SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
@@ -316,7 +325,7 @@ inline static REBARR *Alloc_Singular_Array_Core(REBFLGS flags) {
 
 
 #define Append_Value(a,v) \
-    (Move_Value(Alloc_Tail_Array(a), (v)), NOOP)
+    Move_Value(Alloc_Tail_Array(a), (v))
 
 #define Append_Value_Core(a,v,s) \
     Derelativize(Alloc_Tail_Array(a), (v), (s))

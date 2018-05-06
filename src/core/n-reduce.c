@@ -58,7 +58,7 @@ REBOOL Reduce_Any_Array_Throws(
     DECLARE_LOCAL (reduced);
 
     while (FRM_HAS_MORE(f)) {
-        REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_LINE);
+        REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
 
         if (Do_Next_In_Frame_Throws(reduced, f)) {
             Move_Value(out, reduced);
@@ -72,7 +72,7 @@ REBOOL Reduce_Any_Array_Throws(
                 DS_PUSH_TRASH;
                 Init_Blank(DS_TOP);
                 if (line)
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
             else if (not (flags & REDUCE_FLAG_OPT))
                 fail (Error_Reduce_Made_Null_Raw());
@@ -80,20 +80,23 @@ REBOOL Reduce_Any_Array_Throws(
         else {
             DS_PUSH(reduced);
             if (line)
-                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
         }
     }
 
     if (flags & REDUCE_FLAG_INTO)
         Pop_Stack_Values_Into(out, dsp_orig);
-    else
+    else {
+        REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
+        if (GET_SER_FLAG(VAL_ARRAY(any_array), ARRAY_FLAG_TAIL_NEWLINE))
+            pop_flags |= ARRAY_FLAG_TAIL_NEWLINE;
+
         Init_Any_Array(
             out,
             VAL_TYPE(any_array),
-            Pop_Stack_Values_Core(
-                dsp_orig, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE
-            )
+            Pop_Stack_Values_Core(dsp_orig, pop_flags)
         );
+    }
 
     Drop_Frame(f);
     return FALSE;
@@ -270,7 +273,7 @@ REBOOL Compose_Any_Array_Throws(
     DECLARE_LOCAL (specific);
 
     while (FRM_HAS_MORE(f)) {
-        REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_LINE);
+        REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
 
         REBSPC *match_specifier;
         const RELVAL *match = Match_For_Compose(
@@ -310,7 +313,7 @@ REBOOL Compose_Any_Array_Throws(
                     //
                     DS_PUSH_RELVAL(push, VAL_SPECIFIER(composed));
                     if (line) {
-                        SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+                        SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
                         line = FALSE;
                     }
                     push++;
@@ -323,7 +326,7 @@ REBOOL Compose_Any_Array_Throws(
                 //
                 DS_PUSH(composed);
                 if (line)
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
             else {
                 //
@@ -361,7 +364,7 @@ REBOOL Compose_Any_Array_Throws(
 
                 DS_PUSH(composed);
                 if (line)
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
             else {
                 if (ANY_ARRAY(f->value)) {
@@ -383,7 +386,7 @@ REBOOL Compose_Any_Array_Throws(
                     DS_PUSH_RELVAL(f->value, f->specifier);
 
                 if (line)
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE);
+                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
             Fetch_Next_In_Frame(f);
         }
@@ -392,21 +395,24 @@ REBOOL Compose_Any_Array_Throws(
             // compose [[(1 + 2)] (reverse "wollahs")] => [[(1 + 2)] "shallow"]
             //
             DS_PUSH_RELVAL(f->value, f->specifier);
-            assert(line == GET_VAL_FLAG(DS_TOP, VALUE_FLAG_LINE));
+            assert(line == GET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE));
             Fetch_Next_In_Frame(f);
         }
     }
 
     if (into)
         Pop_Stack_Values_Into(out, dsp_orig);
-    else
+    else {
+        REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
+        if (GET_SER_FLAG(VAL_ARRAY(any_array), ARRAY_FLAG_TAIL_NEWLINE))
+            flags |= ARRAY_FLAG_TAIL_NEWLINE;
+
         Init_Any_Array(
             out,
             VAL_TYPE(any_array),
-            Pop_Stack_Values_Core(
-                dsp_orig, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE
-            )
+            Pop_Stack_Values_Core(dsp_orig, flags)
         );
+    }
 
     Drop_Frame(f);
     return FALSE;

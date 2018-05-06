@@ -47,12 +47,10 @@ REBCNT Modify_Array(
 ) {
     REBCNT tail = ARR_LEN(dst_arr);
 
-    REBINT ilen = 1; // length to be inserted
-
     const RELVAL *src_rel;
     REBSPC *specifier;
 
-    if (IS_VOID(src_val) || dups < 0) {
+    if (IS_VOID(src_val) or dups <= 0) {
         // If they are effectively asking for "no action" then all we have
         // to do is return the natural index result for the operation.
         // (APPEND will return 0, insert the tail of the insertion...so index)
@@ -60,15 +58,45 @@ REBCNT Modify_Array(
         return (action == SYM_APPEND) ? 0 : dst_idx;
     }
 
-    if (action == SYM_APPEND || dst_idx > tail) dst_idx = tail;
+    if (action == SYM_APPEND or dst_idx > tail)
+        dst_idx = tail;
+
+    // Each dup being inserted need a newline signal after it if:
+    //
+    // * The user explicitly invokes the /LINE refinement (AM_LINE flag)
+    // * It's a spliced insertion and there's a NEWLINE_BEFORE flag on the
+    //   element *after* the last item in the dup
+    // * It's a spliced insertion and there dup goes to the end of the array
+    //   so there's no element after the last item, but TAIL_NEWLINE is set
+    //   on the inserted array.
+    //
+    REBOOL tail_newline = did (flags & AM_LINE);
+    REBINT ilen;
 
     // Check /PART, compute LEN:
     if (not (flags & AM_ONLY) and ANY_ARRAY(src_val)) {
         // Adjust length of insertion if changing /PART:
-        if (action != SYM_CHANGE && (flags & AM_PART))
+        if (action != SYM_CHANGE and (flags & AM_PART))
             ilen = dst_len;
         else
             ilen = VAL_LEN_AT(src_val);
+
+        if (not tail_newline) {
+            RELVAL *tail_cell = VAL_ARRAY_AT(src_val) + ilen;
+            if (IS_END(tail_cell)) {
+                tail_newline = GET_SER_FLAG(
+                    VAL_ARRAY(src_val),
+                    ARRAY_FLAG_TAIL_NEWLINE
+                );
+            }
+            else if (ilen == 0)
+                tail_newline = FALSE;
+            else
+                tail_newline = GET_VAL_FLAG(
+                    tail_cell,
+                    VALUE_FLAG_NEWLINE_BEFORE
+                );
+        }
 
         // Are we modifying ourselves? If so, copy src_val block first:
         if (dst_arr == VAL_ARRAY(src_val)) {
@@ -86,11 +114,20 @@ REBCNT Modify_Array(
     }
     else {
         // use passed in RELVAL and specifier
+        ilen = 1;
         src_rel = src_val;
         specifier = SPECIFIED; // it's a REBVAL, not a RELVAL, so specified
     }
 
     REBINT size = dups * ilen; // total to insert
+
+    // If data is being tacked onto an array, beyond the newlines on the values
+    // in that array there is also the chance that there's a newline tail flag
+    // on the target, and the insertion is at the end.
+    //
+    REBOOL head_newline =
+        (dst_idx == ARR_LEN(dst_arr))
+        and GET_SER_FLAG(dst_arr, ARRAY_FLAG_TAIL_NEWLINE);
 
     if (action != SYM_CHANGE) {
         // Always expand dst_arr for INSERT and APPEND actions:
@@ -98,9 +135,9 @@ REBCNT Modify_Array(
     }
     else {
         if (size > dst_len)
-            Expand_Series(SER(dst_arr), dst_idx, size-dst_len);
-        else if (size < dst_len && (flags & AM_PART))
-            Remove_Series(SER(dst_arr), dst_idx, dst_len-size);
+            Expand_Series(SER(dst_arr), dst_idx, size - dst_len);
+        else if (size < dst_len and (flags & AM_PART))
+            Remove_Series(SER(dst_arr), dst_idx, dst_len - size);
         else if (size + dst_idx > tail) {
             EXPAND_SERIES_TAIL(SER(dst_arr), size - (tail - dst_idx));
         }
@@ -108,15 +145,16 @@ REBCNT Modify_Array(
 
     tail = (action == SYM_APPEND) ? 0 : size + dst_idx;
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     if (IS_ARRAY_MANAGED(dst_arr)) {
         REBINT i;
         for (i = 0; i < ilen; ++i)
             ASSERT_VALUE_MANAGED(&src_rel[i]);
     }
-#endif
+  #endif
 
-    for (; dups > 0; dups--) {
+    REBINT dup_index = 0;
+    for (; dup_index < dups; ++dup_index) {
         REBINT index = 0;
         for (; index < ilen; ++index, ++dst_idx) {
             Derelativize(
@@ -124,9 +162,48 @@ REBCNT Modify_Array(
                 src_rel + index,
                 specifier
             );
+
+            if (dup_index == 0 and index == 0 and head_newline) {
+                SET_VAL_FLAG(
+                    ARR_HEAD(dst_arr) + dst_idx,
+                    VALUE_FLAG_NEWLINE_BEFORE
+                );
+
+                // The array flag is not cleared until the loop actually
+                // makes a value that will carry on the bit.
+                //
+                CLEAR_SER_FLAG(dst_arr, ARRAY_FLAG_TAIL_NEWLINE);
+                continue;
+            }
+
+            if (dup_index > 0 and index == 0 and tail_newline) {
+                SET_VAL_FLAG(
+                    ARR_HEAD(dst_arr) + dst_idx,
+                    VALUE_FLAG_NEWLINE_BEFORE
+                );
+            }
         }
     }
-    TERM_ARRAY_LEN(dst_arr, ARR_LEN(dst_arr));
+
+    // The above loop only puts on (dups - 1) NEWLINE_BEFORE flags.  The
+    // last one might have to be the array flag if at tail.
+    //
+    if (tail_newline) {
+        if (dst_idx == ARR_LEN(dst_arr))
+            SET_SER_FLAG(dst_arr, ARRAY_FLAG_TAIL_NEWLINE);
+        else
+            SET_VAL_FLAG(ARR_AT(dst_arr, dst_idx), VALUE_FLAG_NEWLINE_BEFORE);
+    }
+
+    if (flags & AM_LINE) {
+        //
+        // !!! Testing this heuristic: if someone adds a line to an array
+        // with the /LINE flag explicitly, force the head element to have a
+        // newline.  This allows `x: copy [] | append/line x [a b c]` to give
+        // a more common result.  The head line can be removed easily.
+        //
+        SET_VAL_FLAG(ARR_HEAD(dst_arr), VALUE_FLAG_NEWLINE_BEFORE);
+    }
 
     ASSERT_ARRAY(dst_arr);
 
@@ -326,7 +403,10 @@ REBCNT Modify_String(
 
         needs_free = TRUE;
     }
-    else if (ANY_STRING(src_val) and not IS_TAG(src_val)) {
+    else if (
+        ANY_STRING(src_val)
+        and not (IS_TAG(src_val) or (flags & AM_LINE))
+    ){
         src_ser = VAL_SERIES(src_val);
         src_idx = VAL_INDEX(src_val);
         src_len = VAL_LEN_AT(src_val);
@@ -352,6 +432,12 @@ REBCNT Modify_String(
         src_ser = Copy_Sequence_At_Len(src_ser, src_idx, src_len);
         needs_free = TRUE;
         src_idx = 0;
+    }
+
+    if (flags & AM_LINE) {
+        assert(needs_free); // don't want to modify input series
+        Append_Codepoint(src_ser, '\n');
+        ++src_len;
     }
 
     // Total to insert:

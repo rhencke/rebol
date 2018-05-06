@@ -272,6 +272,19 @@
     FLAGIT_LEFT(GENERAL_ARRAY_BIT + 5)
 
 
+//=//// ARRAY_FLAG_TAIL_NEWLINE ///////////////////////////////////////////=//
+//
+// The mechanics of how Rebol tracks newlines is that there is only one bit
+// per value to track the property.  Yet since newlines are conceptually
+// "between" values, that's one bit too few to represent all possibilities.
+//
+// Ren-C carries a bit for indicating when there's a newline intended at the
+// tail of an array.
+//
+#define ARRAY_FLAG_TAIL_NEWLINE \
+    FLAGIT_LEFT(GENERAL_ARRAY_BIT + 6)
+
+
 // ^-- STOP ARRAY FLAGS AT FLAGIT_LEFT(31) --^
 //
 // Arrays can use all the way up to the 32-bit limit on the flags (since

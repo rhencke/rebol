@@ -356,62 +356,42 @@ void Mold_Array_At(
 
     Push_Pointer_To_Series(TG_Mold_Stack, a);
 
-    REBOOL had_output = FALSE;
+    REBOOL indented = FALSE;
 
-    if (sep[1]) {
+    if (sep[1])
         Append_Utf8_Codepoint(mo->series, sep[0]);
-        had_output = TRUE;
-    }
-
-    REBOOL had_lines = FALSE;
 
     RELVAL *item = ARR_AT(a, index);
     while (NOT_END(item)) {
-        //
-        // Consider:
-        //
-        //     [
-        //         [a b c] d e f
-        //         [g h i] j k l
-        //     ]
-        //
-        // There are newline markers on both the embedded blocks.  We
-        // indent a maximum of one time per block level in a normal mold.
-        // If there were no delimiters then this is a MOLD/ONLY, and hence
-        // it should not indent at all, but still honor the newlines.
-        //
-        // Additionally, the newline marker on the first element is not
-        // desired in a MOLD/ONLY (nor is a newline desired after the last)
-        //
-        if (GET_VAL_FLAG(item, VALUE_FLAG_LINE) && had_output) {
-           if (not had_lines and sep[1])
-                mo->indent++;
+        if (GET_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE)) {
+           if (not indented and (sep[1] != '\0')) {
+                ++mo->indent;
+                indented = TRUE;
+            }
 
             New_Indented_Line(mo);
-            had_lines = TRUE;
         }
 
         Mold_Value(mo, item);
-        had_output = TRUE;
 
-        item++;
-        if (NOT_END(item))
-            Append_Utf8_Codepoint(mo->series, (sep[0] == '/') ? '/' : ' ');
+        ++item;
+        if (IS_END(item))
+            break;
+
+        if (sep[0] == '/')
+            Append_Utf8_Codepoint(mo->series, '/'); // !!! ignores newline
+        else if (NOT_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE))
+            Append_Utf8_Codepoint(mo->series, ' ');
     }
 
-    // The newline markers in arrays are on values, and indicate a newline
-    // should be output *before* that value.  Hence there is no way to put
-    // a newline marker on the tail.  Use a heuristic that if any newlines
-    // were output on behalf of any values in the array, it is assumed there
-    // should be a final newline at the end (if it's not a MOLD/ONLY)
-    //
-    if (had_lines && sep[1]) {
-        mo->indent--;
-        New_Indented_Line(mo);
-    }
+    if (indented)
+        --mo->indent;
 
-    if (sep[1])
+    if (sep[1] != '\0') {
+        if (GET_SER_FLAG(a, ARRAY_FLAG_TAIL_NEWLINE))
+            New_Indented_Line(mo); // but not any indentation from *this* mold
         Append_Utf8_Codepoint(mo->series, sep[1]);
+    }
 
     Drop_Pointer_From_Series(TG_Mold_Stack, a);
 }

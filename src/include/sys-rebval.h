@@ -129,13 +129,14 @@
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  VALUE_FLAG_LINE
+//  VALUE_FLAG_NEWLINE_BEFORE
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This is a line marker bit, such that when the value is molded it will put a
-// newline before the value.  (The details are a little more subtle than that,
-// because an ANY-PATH! could not be LOADed back if this were allowed.)
+// When the array containing a value with this flag set is molding, that will
+// output a new line *before* molding the value.  This flag works in tandem
+// with a flag on the array itself which manages whether there should be a
+// newline output before the closing array delimiter: ARRAY_FLAG_TAIL_NEWLINE.
 //
 // The bit is set initially by what the scanner detects, and then left to the
 // user's control after that.
@@ -143,7 +144,10 @@
 // !!! The native `new-line` is used set this, which has a somewhat poor
 // name considering its similarity to `newline` the line feed char.
 //
-#define VALUE_FLAG_LINE \
+// !!! Currently, ANY-PATH! rendering just ignores this bit.  Some way of
+// representing paths with newlines in them may be needed.
+//
+#define VALUE_FLAG_NEWLINE_BEFORE \
     FLAGIT_LEFT(GENERAL_CELL_BIT + 2)
 
 

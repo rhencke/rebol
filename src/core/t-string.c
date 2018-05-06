@@ -1228,8 +1228,13 @@ REBTYPE(String)
         REBFLGS flags = 0;
         if (REF(part))
             flags |= AM_PART;
+        if (REF(line))
+            flags |= AM_LINE;
 
-        if (IS_BINARY(v))
+        if (IS_BINARY(v)) {
+            if (REF(line))
+                fail ("APPEND+INSERT+CHANGE cannot use /LINE with BINARY!");
+
             VAL_INDEX(v) = Modify_Binary(
                 v,
                 verb,
@@ -1238,7 +1243,11 @@ REBTYPE(String)
                 len,
                 REF(dup) ? Int32(ARG(count)) : 1
             );
-        else
+        }
+        else {
+            if (REF(line))
+                flags |= AM_LINE;
+
             VAL_INDEX(v) = Modify_String(
                 v,
                 verb,
@@ -1247,7 +1256,7 @@ REBTYPE(String)
                 len,
                 REF(dup) ? Int32(ARG(count)) : 1
             );
-
+        }
         break; }
 
     //-- Search:

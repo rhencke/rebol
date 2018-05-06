@@ -410,8 +410,7 @@ rebsource: context [
     ] proto-parser c.lexical/grammar
 
     emit: function [log body] [
-        insert position: tail of log new-line/all compose/only body false
-        new-line position true
+        append/line log (new-line/all compose/only body false)
     ]
 
     extension-of: function [
