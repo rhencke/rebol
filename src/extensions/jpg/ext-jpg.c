@@ -31,8 +31,8 @@
 #include "sys-ext.h"
 
 static const REBYTE script_bytes[] =
-"REBOL ["
-    "Title: \"JPG Codec Extension\"\n"
+"REBOL [\n"
+    "Title: {JPG Codec Extension}\n"
     "name: 'JPG\n"
     "type: 'Extension\n"
     "version: 1.0.0\n"
@@ -41,7 +41,7 @@ static const REBYTE script_bytes[] =
 "sys/register-codec* 'jpeg [%.jpg %jpeg]\n"
     "get in import 'jpg 'identify-jpeg?\n"
     "get in import 'jpg 'decode-jpeg\n"
-    "_" // currently no JPG encoder
+    "_\n" // currently no JPG encoder
 ;
 
 #define MODULE_INCLUDE_DECLARATION_ONLY

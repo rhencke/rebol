@@ -118,14 +118,16 @@ dump: func [
        ]
     ]
 
-    dump-val: function [val][
-        either object? val [
-           unspaced [
-              "make object! [" |
-              dump-obj val | "]"
-           ]
-        ][
-           clip-string mold val system/options/dump-size
+    dump-val: function [val [<opt> any-value!]] [
+        case [
+            not set? 'val [
+                "\\ null \\"
+            ]
+            object? :val [
+                unspaced ["make object! [" | dump-obj val | "]"]
+            ]
+        ] else [
+           clip-string mold :val system/options/dump-size
         ]
     ]
 

@@ -178,6 +178,8 @@ static void Protect_Word_Value(REBVAL *word, REBFLGS flags)
     else if (ANY_PATH(word)) {
         REBCNT index;
         REBCTX *context = Resolve_Path(word, &index);
+        if (index == 0)
+            fail ("Couldn't resolve PATH! in Protect_Word_Value");
 
         if (context != NULL) {
             Protect_Key(context, index, flags);

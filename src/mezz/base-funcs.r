@@ -156,7 +156,7 @@ make-action: func [
             ]
             defaulters: default [copy []]
             append defaulters compose/deep [
-                (to set-word! var) default [(reduce other/1)]
+                (to set-word! var) default [(uneval do other/1)]
             ]
         )
     |
@@ -169,8 +169,8 @@ make-action: func [
             append exclusions var
             if other [
                 defaulters: default [copy []]
-                append defaulters compose/deep [
-                    (to set-word! var) default [(reduce other)]
+                append defaulters compose/deep [ ;-- always sets
+                    (to set-word! var) (uneval do other)
                 ]
             ]
         )]

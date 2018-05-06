@@ -25,6 +25,14 @@
     error? trap blk
 )
 
+[
+    (did blk: [1 + 2 if false [10 + 20] 100 + 200])
+
+    ('reduce-made-null = (trap [reduce blk])/id)
+    ([3 _ 300] = reduce/try blk)
+    ([3 300] = reduce/opt blk)
+]
+
 ; Quick flatten test, here for now
 (
     [a b c d e f] = flatten [[a] [b] c d [e f]]
