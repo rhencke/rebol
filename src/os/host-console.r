@@ -131,10 +131,9 @@ console!: make object! [
 
     input-hook: func [
         {Receives line input, parse/transform, send back to CONSOLE eval}
-        
+
         return: "BLANK! if canceled, otherwise processed string input"
             [blank! string!]
-       
     ][
         input
     ]
@@ -334,9 +333,9 @@ host-console: function [
     return: function [
         {Hooked RETURN function which finalizes any gathered EMIT lines}
 
-        state "Describes the RESULT that the next call to HOST-CONSOLE gets" 
+        state "Describes the RESULT that the next call to HOST-CONSOLE gets"
             [integer! tag! group! datatype!]
-        <with> instruction
+        <with> instruction prior
         <local> return-to-c (:return) ;-- capture HOST-CONSOLE's RETURN
     ][
         switch state [
@@ -347,8 +346,18 @@ host-console: function [
                     system/console/input-hook
                 ]] ;-- gather first line (or BLANK!), put in BLOCK!
             ]
-            <unreachable> [
-                emit [fail {Expected console instruction to THROW/FAIL}]
+            <halt> [
+                emit [halt]
+                emit [fail {^-- Shouldn't get here, due to HALT}]
+            ]
+            <die> [
+                emit [quit/with 1] ;-- catch-all bash code for general errors
+                emit [fail {^-- Shouldn't get here, due to QUIT}]
+            ]
+            <bad> [
+                emit #no-unskin-if-error
+                emit [fail ["Bad REPL continuation:" ((uneval result))]]
+                emit [print ((mold uneval prior))]
             ]
         ] also [
             return-to-c instruction
@@ -456,23 +465,21 @@ host-console: function [
         ] else [
             emit [print ((status))]
         ]
-        if find directives #quit-if-error [
-            emit [quit/with 1] ;-- catch-all bash code for general errors
-            return <unreachable> ;-- won't be seen, QUIT exits
+        if find directives #die-if-error [
+            return <die>
         ]
         if find directives #halt-if-error [
-            emit [halt]
-            return <unreachable> ;-- won't be seen, HALT jumps the stack
+            return <halt>
         ]
         if find directives #countdown-if-error [
             emit #console-if-halt
             emit [
                 print-newline
                 print "** Hit Ctrl-C to break into the console in 5 seconds"
-      
+
                 repeat n 25 [
                     if remainder n 5 = 1 [
-                        write-stdout form 5 - to-integer divide n 5
+                        write-stdout form (5 - to-integer (n / 5))
                     ] else [
                         write-stdout "."
                     ]
@@ -480,8 +487,8 @@ host-console: function [
                 ]
                 print-newline
             ]
-            emit [quit/with 1]
-            return <unreachable> ;-- won't be seen, QUIT exits
+            emit {Only gets here if user did not hit Ctrl-C}
+            return <die>
         ]
         if block? prior [
             case [
@@ -523,10 +530,7 @@ host-console: function [
     ]
 
     if not block? result [
-        emit #no-unskin-if-error
-        emit [print ((mold uneval prior))]
-        emit [fail ["Bad REPL continuation:" ((uneval result))]]
-        return <unreachable> ;-- shouldn't be seen, FAIL interrupts
+        return <bad>
     ]
 
     ;-- INPUT-HOOK ran, block of strings ready
@@ -592,8 +596,6 @@ host-console: function [
         return <prompt>
     ]
 
-    emit #unskin-if-halt ;-- Ctrl-C during dialect hook is a problem
-
     if did shortcut: select system/console/shortcuts try first code [
         ;
         ; Shortcuts like `q => [quit]`, `d => [dump]`
@@ -627,6 +629,7 @@ host-console: function [
 
     ; Run the "dialect hook", which can transform the completed code block
     ;
+    emit #unskin-if-halt ;-- Ctrl-C during dialect hook is a problem
     emit [as group! system/console/dialect-hook ((code))]
     return group! ;-- a group RESULT should come back to HOST-CONSOLE
 ]
