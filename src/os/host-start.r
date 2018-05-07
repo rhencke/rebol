@@ -27,13 +27,13 @@ REBOL [
 
 ; These used to be loaded by the core, but prot-tls depends on crypt, thus it
 ; needs to be loaded after crypt. It was not an issue when crypt was builtin.
-; But when it's converted to a module, and loaded by load-boot-exts, it breaks
-; the dependency of prot-tls.
+; But when it's converted to a module, it breaks the dependency of prot-tls.
 ;
 ; Moving protocol loading from core to host fixes the problem.
 ;
 ; This should be initialized by make-host-init.r, but set a default just in
 ; case
+;
 host-prot: default [_]
 
 boot-print: procedure [
@@ -197,21 +197,6 @@ license: procedure [
     print system/license
 ]
 
-load-boot-exts: function [
-    "INIT: Load boot-based extensions."
-    boot-exts [block! blank!]
-][
-    loud-print "Loading boot extensions..."
-
-    ;loud-print ["boot-exts:" mold boot-exts]
-    for-each [init quit] boot-exts [
-        load-extension init
-    ]
-
-    boot-exts: 'done
-    set 'load-boot-exts 'done ; only once
-]
-
 host-script-pre-load: procedure [
     {Code registered as a hook when a module or script are loaded}
     is-module [logic!]
@@ -230,15 +215,18 @@ host-script-pre-load: procedure [
 host-start: function [
     "Called by HOST-CONSOLE.  Loads extras, handles args, security, scripts."
 
-    return: [block! group!]
-        {Instruction for C code to run in a sandbox (FAILs ok if GROUP!)}
-    exec-path [file! blank!]
-        {Path to the executable file}
-    argv [block!]
-        {Raw command line argument block received by main() as STRING!s}
-    boot-exts [block! blank!]
-        {Extensions (modules) loaded at boot}
-    <with> host-prot
+    exec-path {Path to the executable file}
+        [file! blank!]
+    argv {Raw command line argument block received by main() as STRING!s}
+        [block!]
+    boot-exts {Extensions (modules) loaded at boot}
+        [block! blank!]
+    emit {HOST-CONSOLE emit function}
+        [function!]
+    return {HOST-CONSOLE hooked return function, use for returning}
+        [function!]
+    <with>
+    host-start host-prot boot-exts ;-- unset when finished with them
     <static>
         o (system/options) ;-- shorthand since options are often read/written
 ][
@@ -304,7 +292,11 @@ host-start: function [
     ; scripts.  This should be rethought because it may be that extensions
     ; can be influenced by command line parameters as well.
     ;
-    load-boot-exts boot-exts
+    loud-print "Loading boot extensions..."
+    for-each [init quit] boot-exts [
+        load-extension ensure handle! init
+    ]
+    set 'boot-exts 'done ; only once
 
     ; !!! The debugger is a work in progress.  But the design attempts to make
     ; it an optional extension which doesn't need to be built into the EXE,
@@ -450,10 +442,9 @@ host-start: function [
     ; during the startup instruction will exit with code 130, and any errors
     ; that arise will be reported and result in exit code 1.
     ;
-    instruction: copy [
-        [#quit-if-halt #countdown-if-error]
-            |
-    ]
+
+    emit #quit-if-halt
+    emit #countdown-if-error
 
     while-not [tail? argv] [
 
@@ -496,15 +487,9 @@ host-start: function [
                 ;
                 o/quiet: true ;-- don't print banner, just run code string
                 quit-when-done: default [true] ;-- override blank, not false
-                append instruction compose/only [
-                    ;
-                    ; Use /ONLY so that QUIT/WITH quits, vs. return DO value
-                    ;
-                    do/only (param-or-die "DO")
-                        |
-                    ; Use expression barrier for insulation
-                ]
 
+                emit {Use /ONLY so that QUIT/WITH quits, vs. return DO value}
+                emit [do/only ((param-or-die "DO"))]
             )
         |
             ["--halt" | "-h"] end (
@@ -787,25 +772,18 @@ comment [
     ;     r3 --do "do %script1.reb" --do "do %script2.reb"
     ;
     if file? o/script [
-        append instruction compose/deep/only [
-            ;
-            ; Use DO/ONLY so QUIT/WITH exits vs. being DO's return value
-            ;
-            do/only/args (o/script) (script-args)
-        ]
+        emit {Use DO/ONLY so QUIT/WITH exits vs. being DO's return value}
+        emit [do/only/args ((o/script)) ((script-args))]
     ]
 
     host-start: 'done
 
-    either quit-when-done [
-        append instruction [quit/with 0]
-    ][
-        append instruction [
-            start-console
-                |
-            <needs-prompt>
-        ]
+    if quit-when-done [
+        emit [quit/with 0]
+        return <unreachable>
     ]
 
-    return instruction
+    emit [start-console]
+
+    return <prompt>
 ]

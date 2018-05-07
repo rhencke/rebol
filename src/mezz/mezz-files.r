@@ -92,12 +92,12 @@ input: function [
     data: read system/ports/input
     if 0 = length of data [
         ;
-        ; !!! While zero-length data is the protocol being used to signal a
-        ; halt in the (deprecated) Host OS layer, even in more ideal
-        ; circumstances it is probably bad to try to get INPUT to be emitting
-        ; that HALT.
+        ; !!! Zero-length data is the protocol being used to signal a halt in
+        ; the (deprecated) Host OS layer.  All those who READ from the
+        ; INPUT port shouldn't have to know this and retransmit the halt, so
+        ; it should probably be something the READ itself does.
         ;
-        fail "Signal for Ctrl-C got to INPUT function somehow."
+        halt
     ]
 
     if all [

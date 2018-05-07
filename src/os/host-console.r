@@ -104,11 +104,11 @@ console!: make object! [
         case [
             null? :v [
                 ; Historically Rebol wouldn't print any eval result in the
-                ; case of things that "didn't return a value".  As a test to
-                ; see the impacts, this prints out a comment to direct people
-                ; to realize there was a "result"...it's just not a value.
+                ; case of things that "didn't return a value".  Trying to
+                ; do otherwise e.g. by printing `;-- null` is annoying.
                 ;
-                print [";-- null"]
+                ; (It might be useful feedback for commands which have none of
+                ; their own output, however.)
             ]
         ]
         else [
@@ -131,9 +131,12 @@ console!: make object! [
 
     input-hook: func [
         {Receives line input, parse/transform, send back to CONSOLE eval}
-        s [string!]
+        
+        return: "BLANK! if canceled, otherwise processed string input"
+            [blank! string!]
+       
     ][
-        s
+        input
     ]
 
     dialect-hook: func [
@@ -286,46 +289,108 @@ start-console: procedure [
             ]
         ]
     ]
-
-    system/console/print-greeting
 ]
 
 
 host-console: function [
-    {Rebol function called from C in a loop to implement the console.}
+    {Rebol ACTION! that is called from C in a loop to implement the console}
 
-    return: [integer! block! group!]
-        {Exit code, or Rebol to request that the C caller run in a sandbox}
-
-    prior [blank! block! group!]
-        {Whatever BLOCK! or GROUP! that HOST-CONSOLE previously ran}
-
-    result [<opt> any-value!]
-        {The result from evaluating LAST-CODE (if not errored or halted)}
-
-    status [blank! error!]
-        {BLANK! if no error, or ERROR! if a problem (includes HALT, QUIT...)}
+    return: "Code submission for C caller to run in a sandbox, or exit status"
+        [block! group! integer!] ;-- Note: RETURN is hooked/overridden!!!
+    prior "BLOCK! or GROUP! that last invocation of HOST-CONSOLE requested"
+        [blank! block! group!]
+    result "The result from evaluating PRIOR, unless error (then use STATUS)"
+        [<opt> any-value!]
+    status "BLANK! if no error, or ERROR! if problem (includes HALT, QUIT...)"
+        [blank! error!]
 ][
-    if not prior [
+    ; We hook the RETURN function so that it actually returns an instruction
+    ; that the code can build up from multiple EMIT statements.
+
+    instruction: copy []
+
+    emit: function [
+        {Builds up sandboxed code to submit to C, hooked RETURN will finalize}
+
+        item "ISSUE! directive, STRING! comment, ((composed)) code BLOCK!"
+            [block! issue! string!]
+        <with> instruction
+    ][
+        really* case [
+            issue? item [
+                if not empty? instruction [append/line instruction '|]
+                insert instruction item
+            ]
+            string? item [
+                append/line instruction compose [comment (item)]
+            ]
+            block? item [
+                if not empty? instruction [append/line instruction '|]
+                append/line instruction composeII/deep/only item
+            ]
+        ]
+    ]
+
+    return: function [
+        {Hooked RETURN function which finalizes any gathered EMIT lines}
+
+        state "Describes the RESULT that the next call to HOST-CONSOLE gets" 
+            [integer! tag! group! datatype!]
+        <with> instruction
+        <local> return-to-c (:return) ;-- capture HOST-CONSOLE's RETURN
+    ][
+        switch state [
+            <prompt> [
+                emit [system/console/print-gap]
+                emit [system/console/print-prompt]
+                emit [reduce [
+                    system/console/input-hook
+                ]] ;-- gather first line (or BLANK!), put in BLOCK!
+            ]
+            <unreachable> [
+                emit [fail {Expected console instruction to THROW/FAIL}]
+            ]
+        ] also [
+            return-to-c instruction
+        ]
+
+        return-to-c <- switch type of state [
+            (integer!) [ ;-- just tells the calling C loop to exit() process
+                assert [empty? instruction]
+                state
+            ]
+            (datatype!) [ ;-- type assertion, how to enforce this?
+                emit spaced ["^-- Result should be" an state]
+                instruction
+            ]
+            (group!) [ ;-- means "submit user code"
+                assert [empty? instruction]
+                state
+            ]
+        ] else [
+            emit [fail [{Bad console instruction:} ((mold state))]]
+        ]
+    ]
+
+    if not prior [ ;-- First call, do startup and command-line processing
         ;
-        ; First time running, so do startup.  As a temporary hack we get some
-        ; properties passed from the C main() as a BLOCK! in result.  (These
-        ; should probably be injected into the environment somehow instead.)
+        ; !!! We get some properties passed from the C main() as a BLOCK! in
+        ; result.  These should probably be injected into the environment
+        ; somehow instead.
         ;
-        assert [not status | block? result and (length of result = 3)]
+        assert [not status | block? result | length of result = 3]
         set [exec-path: argv: boot-exts:] result
-        return (host-start exec-path argv boot-exts)
+        return (host-start exec-path argv boot-exts :emit :return)
     ]
 
     ; BLOCK! code execution represents an instruction sent by the console to
-    ; itself.  This "dialect" allows placing an ISSUE! or a block of issues as
-    ; the first inert item as directives.  Canonize as block for easy search.
+    ; itself.  Some #directives may be at the head of these blocks.
     ;
-    directives: case [
-        group? prior [[]]
-        issue? first prior [reduce [first prior]]
-        block? first prior [first prior]
-    ] !! []
+    directives: [] unless if block? prior [
+        collect [
+            parse prior [some [set i: issue! (keep i)]]
+        ]
+    ]
 
     ; QUIT handling (uncaught THROW/NAME with the name as the QUIT ACTION!)
     ;
@@ -342,33 +407,15 @@ host-console: function [
     ] then [
         assert [unset? 'result]
 
-        return <- case [
-            null? :status/arg1 [
-                ;
-                ; Plain QUIT (no /WITH), consider it success
-                ;
-                0
-            ]
+        return <- 1 unless case [
+            null? :status/arg1 [0] ;-- plain QUIT, no /WITH, call that success
 
-            blank? :status/arg1 [0]
+            blank? :status/arg1 [0] ;-- consider blank also to be success
 
-            integer? :status/arg1 [
-                ;
-                ; Fairly obviously, an integer should return an integer
-                ; result.  But Rebol integers are 64 bit and signed, while
-                ; exit statuses are small and unsigned.
-                ;
-                return :status/arg1
-            ]
+            integer? :status/arg1 [status/arg1] ;-- may be out of status range
 
-            error? :status/arg1 [
-                ;
-                ; Rebol errors have numbers, but they're out of range on
-                ; platforms with byte-sized error codes.  Use generic 1.
-                ;
-                return 1
-            ]
-        ] !! 1
+            error? :status/arg1 [1] ;-- !!! integer error mapping deprecated
+        ]
     ]
 
     ; HALT handling (uncaught THROW/NAME with the name as the HALT ACTION!)
@@ -380,14 +427,11 @@ host-console: function [
     ] then [
         assert [unset? 'result]
         if find directives #quit-if-halt [
-            return 130 ; standard exit code for bash (128 + 2)
+            return 128 + 2 ; standard cancellation exit status for bash
         ]
         if find directives #console-if-halt [
-            return [
-                start-console
-                    |
-                <needs-prompt>
-            ]
+            emit [start-console]
+            return <prompt>
         ]
         if find directives #unskin-if-halt [
             print "** UNSAFE HALT ENCOUNTERED IN CONSOLE SKIN"
@@ -395,51 +439,37 @@ host-console: function [
             system/console: make console! []
             print mold prior ;-- Might help debug to see what was running
         ]
-        return compose/deep [
-            #unskin-if-halt
-                |
-            system/console/print-halted
-                |
-            <needs-prompt>
-        ]
+        emit #unskin-if-halt
+        emit [system/console/print-halted]
+        return <prompt>
     ]
 
     if error? status [
         assert [unset? 'result]
 
-        instruction: compose/deep [
-            ;
-            ; Errors can occur during HOST-START, before the SYSTEM/CONSOLE
-            ; has a chance to be initialized.
-            ;
-            all [
-                action? :system/console ;-- starts as BLANK!
-                action? :system/console/print-error ;-- may not be set
-            ] then [
-                system/console/print-error (status)
-            ] else [
-                print (status)
-            ]
-                |
+        ; Errors can occur during HOST-START, before the SYSTEM/CONSOLE has
+        ; a chance to be initialized (it may *never* be initialized if the
+        ; interpreter is being called non-interactively from the shell).
+        ;
+        if object? system/console [
+            emit [system/console/print-error ((status))]
+        ] else [
+            emit [print ((status))]
         ]
         if find directives #quit-if-error [
-            append instruction [
-                quit/with 1 ;-- catch-all bash code for general errors
-            ]
-            return instruction
+            emit [quit/with 1] ;-- catch-all bash code for general errors
+            return <unreachable> ;-- won't be seen, QUIT exits
         ]
         if find directives #halt-if-error [
-            append instruction [halt]
-            return instruction
+            emit [halt]
+            return <unreachable> ;-- won't be seen, HALT jumps the stack
         ]
         if find directives #countdown-if-error [
-            insert instruction [
-                #console-if-halt
-                    |
-            ]
-            append instruction compose/deep [
+            emit #console-if-halt
+            emit [
                 print-newline
                 print "** Hit Ctrl-C to break into the console in 5 seconds"
+      
                 repeat n 25 [
                     if remainder n 5 = 1 [
                         write-stdout form 5 - to-integer divide n 5
@@ -449,9 +479,9 @@ host-console: function [
                     wait 0.25
                 ]
                 print-newline
-                quit/with 1
             ]
-            return instruction
+            emit [quit/with 1]
+            return <unreachable> ;-- won't be seen, QUIT exits
         ]
         if block? prior [
             case [
@@ -462,200 +492,111 @@ host-console: function [
                 not find directives #no-unskin-if-error [
                     print "** UNSAFE ERROR ENCOUNTERED IN CONSOLE SKIN"
                 ]
+                print mold status
             ] also [
                 print "** REVERTING TO DEFAULT SKIN"
                 system/console: make console! []
                 print mold prior ;-- Might help debug to see what was running
             ]
         ]
-        append instruction [<needs-prompt>]
-        return instruction
+        return <prompt>
     ]
 
     assert [blank? status] ;-- no failure or halts during last execution
 
     if group? prior [ ;-- plain execution of user code
-        return compose/deep/only [
-            system/console/print-result (uneval :result)
-                |
-            <needs-prompt>
-        ]
+        emit [system/console/print-result ((uneval :result))]
+        return <prompt>
     ]
 
-    assert [block? prior] ;-- continuation sent by console to itself
-
-    needs-prompt: true
-    needs-gap: true
-    needs-input: true
-    source: copy {}
-
-    ; TAG!s are used to make the needs of the continuations more
-    ; clear at the `return [...]` points in this function.  But the
-    ; special case of returning a BLOCK! is the self-trigger that
-    ; indicates a need for the actual execution on the user's behalf.
-    ; And the case of a STRING! is used to feed back the source after
-    ; allowing a processing hook to run on it.
+    ; If PRIOR is BLOCK!, this is a continuation the console sent to itself.
+    ; RESULT can be:
     ;
-    case [
-        block? result [
-            if empty? result [
-                return [<needs-gap>] ;-- cycle prompt, don't run PRINT-RESULT
-            ]
-            return as group! result ;-- GROUP! indicates user-requested code
-        ]
-        string? result [ ;-- dialect-hook
-            source: result
-            needs-prompt: needs-gap: needs-input: false
-        ]
-    ] else [
-        switch result [
-            <no-op> []
-            <needs-prompt> [needs-prompt: true]
-            <needs-gap> [needs-gap: true | needs-prompt: false]
-            <no-prompt> [needs-prompt: needs-gap: false]
-            <no-gap> [needs-gap: false]
-        ] else [
-            return compose/deep/only [
-                #no-unskin-if-error
-                    |
-                print mold (uneval prior)
-                    |
-                fail ["Bad REPL continuation:" (uneval result)]
-            ]
-        ]
-    ]
-
-    if needs-gap [
-        return [
-            system/console/print-gap
-                |
-            <no-gap>
-        ]
-    ]
-
-    if needs-prompt [
-        return [
-            system/console/print-prompt
-                |
-            <no-prompt>
-        ]
-    ]
-
-    ; The LOADed and bound code.  It's initialized to empty block so that if
-    ; there is no input text (just newline at a prompt) , it will be treated
-    ; as DO [].
+    ; GROUP! - code to be run in a sandbox on behalf of the user
+    ; BLOCK! - block of gathered input lines so far, need another one
     ;
-    code: copy []
+    assert [block? prior]
 
-    forever [ ;-- gather potentially multi-line input
+    if group? result [
+        if empty? result [return <prompt>] ;-- user just hit enter, don't run
+        return result ;-- GROUP! signals we're running user-requested code
+    ]
 
-        if needs-input [
+    if not block? result [
+        emit #no-unskin-if-error
+        emit [print ((mold uneval prior))]
+        emit [fail ["Bad REPL continuation:" ((uneval result))]]
+        return <unreachable> ;-- shouldn't be seen, FAIL interrupts
+    ]
+
+    ;-- INPUT-HOOK ran, block of strings ready
+
+    assert [not empty? result] ;-- should have at least one item
+
+    if blank? last result [
+        ;
+        ; It was aborted.  This comes from ESC on POSIX (which is the ideal
+        ; behavior), Ctrl-D on Windows (because ReadConsole() can't trap ESC),
+        ; Ctrl-D on POSIX (just to be compatible with Windows).
+        ;
+        return <prompt>
+    ]
+
+    trap/with [
+        ;
+        ; Note that LOAD/ALL makes BLOCK! even for a single item,
+        ; e.g. `load/all "word"` => `[word]`
+        ;
+        code: load/all delimit result newline
+        assert [block? code]
+
+    ] error -> [
+        ;
+        ; If loading the string gave back an error, check to see if it
+        ; was the kind of error that comes from having partial input
+        ; (scan-missing).  If so, CONTINUE and read more data until
+        ; it's complete (or until an empty line signals to just report
+        ; the error as-is)
+        ;
+        if error/id = 'scan-missing [
             ;
-            ; !!! Unfortunately Windows ReadConsole() has no way of being set
-            ; to ignore Ctrl-C.  In usermode code, this is okay as Ctrl-C
-            ; stops the Rebol code from running...but HOST-CONSOLE disables
-            ; the halting behavior assigned to Ctrl-C.  To avoid glossing over
-            ; that problem, INPUT doesn't just return blank or void...it
-            ; FAILs.  We make a special effort to TRAP it here, but it would
-            ; be a bug if seen by any other function.
+            ; Error message tells you what's missing, not what's open and
+            ; needs to be closed.  Invert the symbol.
             ;
-            ; Upshot is that on Windows, Ctrl-C during HOST-CONSOLE winds up
-            ; acting like if you had hit Ctrl-D (or on POSIX, escape).  Ctrl-C
-            ; does nothing on POSIX--as we can "SIG_IGN"ore the Ctrl-C handler
-            ; so it won't interrupt the read() loop.)
-            ;
-            user-input: trap/with [input] [blank]
+            switch error/arg1 [
+                "}" ["{"]
+                ")" ["("]
+                "]" ["["]
+            ] also unclosed -> [
+                ;
+                ; Backslash is used in the second column to help make a
+                ; pattern that isn't legal in Rebol code, which is also
+                ; uncommon in program output.  This enables detection of
+                ; transcripts, potentially to replay them without running
+                ; program output or evaluation results.
+                ;
+                write-stdout unspaced [unclosed #"\" space space]
+                emit compose/deep [reduce [
+                    (result)
+                    system/console/input-hook
+                ]]
 
-            if blank? user-input [
-                ;
-                ; It was aborted.  This comes from ESC on POSIX (which is the
-                ; ideal behavior), Ctrl-D on Windows (because ReadConsole()
-                ; can't trap ESC), Ctrl-D on POSIX (just to be compatible with
-                ; Windows), and the case of Ctrl-C on Windows just on calls
-                ; to INPUT here in HOST-CONSOLE (usually it HALTs).
-                ;
-                ; Do a no-op execution that just cycles the prompt.
-                ;
-                return [<needs-gap>]
-            ]
-
-            return compose/deep [
-                use [line] [
-                    #unskin-if-halt ;-- Ctrl-C during input hook is a problem
-                        |
-                    line: system/console/input-hook (user-input)
-                        |
-                    append (source) line
-                ]
-                (source) ;-- STRING! signals feedback to BLANK? LAST-RESULT
+                return block!
             ]
         ]
 
-        needs-input: true
-
-        trap/with [
-            ;
-            ; Note that LOAD/ALL makes BLOCK! even for a single item,
-            ; e.g. `load/all "word"` => `[word]`
-            ;
-            code: load/all source
-            assert [block? code]
-
-        ] func [error <with> return] [
-            ;
-            ; If loading the string gave back an error, check to see if it
-            ; was the kind of error that comes from having partial input
-            ; (scan-missing).  If so, CONTINUE and read more data until
-            ; it's complete (or until an empty line signals to just report
-            ; the error as-is)
-            ;
-            code: error
-
-            if error/id = 'scan-missing [
-                ;
-                ; Error message tells you what's missing, not what's open and
-                ; needs to be closed.  Invert the symbol.
-                ;
-                switch error/arg1 [
-                    "}" ["{"]
-                    ")" ["("]
-                    "]" ["["]
-                ] also unclosed -> [
-                    ;
-                    ; Backslash is used in the second column to help make a
-                    ; pattern that isn't legal in Rebol code, which is also
-                    ; uncommon in program output.  This enables detection of
-                    ; transcripts, potentially to replay them without running
-                    ; program output or evaluation results.
-                    ;
-                    write-stdout unspaced [unclosed #"\" space space]
-                    append source newline
-                    continue
-                ] else [
-                    ;
-                    ; Could be an unclosed double quote (unclosed tag?) which
-                    ; more input on a new line cannot legally close ATM
-                ]
-            ]
-
-            return compose/deep [
-                system/console/print-error (error)
-                    |
-                <needs-prompt>
-            ]
-        ]
-
-        break ;-- Exit FOREVER if no additional input to be gathered
+        ; Could be an unclosed double quote (unclosed tag?) which more input
+        ; on a new line cannot legally close ATM
+        ;
+        emit [system/console/print-error ((error))]
+        return <prompt>
     ]
 
-    instruction: copy [
-        #unskin-if-halt ;-- Ctrl-C during dialect hook is a problem
-            |
-    ]
+    emit #unskin-if-halt ;-- Ctrl-C during dialect hook is a problem
 
     if did shortcut: select system/console/shortcuts try first code [
         ;
-        ; Shortcuts (defaults include `q => [quit]`, `d => [dump]`)
+        ; Shortcuts like `q => [quit]`, `d => [dump]`
         ;
         if (bound? code/1) and (set? code/1) [
             ;
@@ -663,16 +604,15 @@ host-console: function [
             ; panic by giving them a message.  Reduce noise for the casual
             ; shortcut by only doing so when a bound variable exists.
             ;
-            append instruction compose/deep [
-                system/console/print-warning [
-                    (uppercase to-string code/1)
-                        "interpreted by console as:" form [(:shortcut)]
+            emit [system/console/print-warning ((
+                spaced [
+                    uppercase to string! code/1
+                        "interpreted by console as:" mold :shortcut
                 ]
-                    |
-                system/console/print-warning [
-                    "use" form to-get-word quote (code/1) "to get variable."
-                ]
-            ]
+            ))]
+            emit [system/console/print-warning ((
+                spaced ["use" to get-word! code/1 "to get variable."]
+            ))]
         ]
         take code
         insert code shortcut
@@ -685,14 +625,10 @@ host-console: function [
     ;
     lock code
 
-    ; Sandbox the dialect hook, which should return a BLOCK!.  When the block
-    ; makes it back to HOST-CONSOLE it will be turned into a GROUP! and run.
+    ; Run the "dialect hook", which can transform the completed code block
     ;
-    append instruction compose/only [
-            |
-        system/console/dialect-hook (code)
-    ]
-    return instruction
+    emit [as group! system/console/dialect-hook ((code))]
+    return group! ;-- a group RESULT should come back to HOST-CONSOLE
 ]
 
 

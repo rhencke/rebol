@@ -759,27 +759,24 @@ infix?: redescribe [
 
 
 lambda: function [
-    {Convenience variadic wrapper for FUNC and FUNCTION constructors}
+    {Convenience variadic wrapper for MAKE ACTION!}
 
     return: [action!]
     :args [<end> word! path! block!]
         {Block of argument words, or a single word (passed via LIT-WORD!)}
     :body [any-value! <...>]
         {Block that serves as the body or variadic elements for the body}
-    /only
-        {Use FUNC and do not run locals-gathering on the body}
 ][
-    f: either only [:func] [:function]
-
-    f (
-        :args also [to block! args] !! []
-    )(
-        if block? first body [
-            take body
-        ] else [
-            make block! body
-        ]
-    )
+    make action! compose/deep [
+        [(:args also [to block! args])]
+        [(
+            if block? first body [
+                take body
+            ] else [
+                make block! body
+            ]
+        )]
+    ]
 ]
 
 
