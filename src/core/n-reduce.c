@@ -151,7 +151,10 @@ REBNATIVE(reduce)
     //
     // !!! Should the error be more "reduce-specific" if args were required?
     //
-    if (Eval_Value_Throws(D_OUT, value))
+    if (ANY_INERT(value)) {
+        Move_Value(D_OUT, value);
+    }
+    else if (Eval_Value_Throws(D_OUT, value))
         return R_OUT_IS_THROWN;
 
     if (not REF(into)) { // just return the evaluated item if no /INTO target

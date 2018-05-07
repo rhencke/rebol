@@ -39,10 +39,10 @@ REBOL [
            flag, while these tests are very fast. */
 
         #define Is_Bindable(v) \
-            (VAL_TYPE_RAW(v) < REB_BAR)
+            (VAL_TYPE_RAW(v) < REB_LOGIC)
 
         #define Not_Bindable(v) \
-            (VAL_TYPE_RAW(v) >= REB_BAR)
+            (VAL_TYPE_RAW(v) >= REB_LOGIC)
 
         /* For other checks, we pay the cost in the debug build of all the
            associated baggage that VAL_TYPE() carries over VAL_TYPE_RAW() */
@@ -116,6 +116,20 @@ REBOL [
 
         #define ANY_NUMBER(v) \
             ANY_NUMBER_KIND(VAL_TYPE(v))
+
+        /* !!! Being able to locate inert types based on range *almost* works,
+           but REB_ISSUE and REB_REFINEMENT want to be picked up as ANY-WORD!.
+           This trick will have to be rethought, esp if words and strings
+           get unified, but it's here to show how choosing these values
+           carefully can help with speeding up tests. */
+
+        inline static REBOOL ANY_INERT_KIND(enum Reb_Kind k) {
+            return (k >= REB_BLOCK and k <= REB_BLANK)
+                or k == REB_ISSUE or k == REB_REFINEMENT;
+        }
+
+        #define ANY_INERT(v) \
+            ANY_INERT_KIND(VAL_TYPE(v))
     }
 ]
 
@@ -147,6 +161,7 @@ set-path    array       +       +       +       [series path array]
 get-path    array       +       +       +       [series path array]
 lit-path    array       +       +       +       [series path array]
 group       array       +       +       +       [series array]
+; -- start of inert bindable types (that aren't refinement! and issue!)
 block       array       +       +       +       [series array]
 
 ; ANY-SERIES!, order matters (and contiguous with ANY-ARRAY above matters!)
@@ -176,12 +191,6 @@ port        port        context +       context context
 
 ; v------- Everything below is an "unbindable" type, see Is_Bindable() ------v
 
-; "unit types" https://en.wikipedia.org/wiki/Unit_type
-
-bar         unit        -       +       +       -
-lit-bar     unit        -       +       +       -
-blank       unit        blank   +       +       -
-
 ; scalars
 
 logic       logic       -       +       +       -
@@ -207,6 +216,13 @@ event       event       +       +       +       -
 handle      handle      -       -       +       -
 struct      *           *       *       *       -
 library     library     -       +       +       -
+
+; "unit types" https://en.wikipedia.org/wiki/Unit_type
+
+blank       unit        blank   +       +       -
+; end of inert unbindable types
+bar         unit        -       +       +       -
+lit-bar     unit        -       +       +       -
 
 ; Note that the "null?" state has no associated NULL! datatype.  Internally
 ; it uses REB_MAX, but like the REB_0 it stays off the type map.

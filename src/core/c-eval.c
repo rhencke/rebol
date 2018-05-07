@@ -1888,6 +1888,24 @@ reevaluate:;
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_GROUP: {
+        REBCNT len = VAL_LEN_AT(current);
+        if (len == 0) {
+            Init_Void(f->out);
+            break; // no VALUE_FLAG_UNEVALUATED
+        }
+
+        if (len == 1 and ANY_INERT(current)) {
+            //
+            // (1) does not need to make a new frame to tell you that's 1,
+            // ([a b c]) does not need a new frame to get [a b c], etc.
+            //
+            // Not worth it to optimize any evaluated types (GET-WORD!, etc.)
+            // as if they fail, the frame should be there to tie errors to.
+            //
+            Move_Value(f->out, const_KNOWN(current));
+            break; // VALUE_FLAG_UNEVALUATED does not get moved
+        }
+
         REBSPC *derived = Derive_Specifier(f->specifier, current);
         if (Do_At_Throws(
             f->out,
@@ -2151,6 +2169,41 @@ reevaluate:;
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
+// Treat all the other not Is_Bindable() types as inert
+//
+//==//////////////////////////////////////////////////////////////////////==//
+
+    case REB_BLANK:
+        //
+    case REB_LOGIC:
+    case REB_INTEGER:
+    case REB_DECIMAL:
+    case REB_PERCENT:
+    case REB_MONEY:
+    case REB_CHAR:
+    case REB_PAIR:
+    case REB_TUPLE:
+    case REB_TIME:
+    case REB_DATE:
+        //
+    case REB_DATATYPE:
+    case REB_TYPESET:
+        //
+    case REB_GOB:
+    case REB_EVENT:
+    case REB_HANDLE:
+    case REB_STRUCT:
+    case REB_LIBRARY:
+
+    inert:;
+
+        Derelativize(f->out, current, f->specifier);
+        SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+        break;
+
+
+//==//////////////////////////////////////////////////////////////////////==//
+//
 // [BAR!]
 //
 // Expression barriers are "invisibles", and hence as many of them have to
@@ -2190,40 +2243,6 @@ reevaluate:;
 
     case REB_LIT_BAR:
         Init_Bar(f->out);
-        break;
-
-//==//////////////////////////////////////////////////////////////////////==//
-//
-// Treat all the other not Is_Bindable() types as inert
-//
-//==//////////////////////////////////////////////////////////////////////==//
-
-    case REB_BLANK:
-        //
-    case REB_LOGIC:
-    case REB_INTEGER:
-    case REB_DECIMAL:
-    case REB_PERCENT:
-    case REB_MONEY:
-    case REB_CHAR:
-    case REB_PAIR:
-    case REB_TUPLE:
-    case REB_TIME:
-    case REB_DATE:
-        //
-    case REB_DATATYPE:
-    case REB_TYPESET:
-        //
-    case REB_GOB:
-    case REB_EVENT:
-    case REB_HANDLE:
-    case REB_STRUCT:
-    case REB_LIBRARY:
-
-    inert:;
-
-        Derelativize(f->out, current, f->specifier);
-        SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
