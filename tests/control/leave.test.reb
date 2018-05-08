@@ -13,7 +13,7 @@
     (a: 1 eval proc [] [a: leave] :a =? 1)
 ]
 (a: 1 eval proc [] [set 'a leave] :a =? 1)
-(a: 1 eval proc [] [set/only 'a leave] :a =? 1)
+(a: 1 eval proc [] [set/opt 'a leave] :a =? 1)
 [#1509 ; the "result" of exit should not be passable to functions
     (a: 1 eval proc [] [a: error? leave] :a =? 1)
 ]

@@ -270,46 +270,22 @@ load-header: function [
 ]
 
 
-read-decode: function [
-    "Reads code/data from source or DLL, decodes it, returns result."
-    source [file! url!]
-        "Source (binary, block, image,...) or block of sources?"
-    type [word! blank!]
-        "File type, or NONE for binary raw data"
-][
-    either type = 'extension [
-        ; DLL-based extension, try to load it (will fail if source is a url)
-        ; `load-extension` returns an object or throws an error
-        data: load-extension source
-    ][
-        data: read source ; can be string, binary, block
-        if find system/options/file-types type [
-            ; e.g. not 'unbound
-            data: decode type :data
-        ]
-    ]
-    data
-]
-
+no-all: construct [all] [all: ()]
+protect 'no-all/all
 
 load: function [
     {Loads code or data from a file, URL, string, or binary.}
-    source [file! url! string! binary! block!]
-        {Source or block of sources}
-    /header
-        {Result includes REBOL header object (preempts /all)}
-    /all ;-- renamed to all_LOAD to avoid conflict with ALL native
-        {Load all values (does not evaluate REBOL header)}
-    /type
-        {Override default file-type; use NONE to always load as code}
-        ftype [word! blank!]
-            "E.g. text, markup, jpeg, unbound, etc."
-] [
-    ; Rename the /all refinement out of the way and put back lib/all (safer!)
-    all_LOAD: all
-    all: :lib/all
 
-    file: line: null
+    source "Source or block of sources"
+        [file! url! string! binary! block!]
+    /header "Result includes REBOL header object "
+    /all "Load all values (cannot be used with /HEADER)"
+    /type "Override default file-type"
+    ftype "E.g. rebol, text, markup, jpeg... (by default, auto-detected)"
+        [word!]
+    <in> no-all ;-- temporary fake of <unbind> option
+][
+    self: context of 'return ;-- so you can say SELF/ALL
 
     ; NOTES:
     ; Note that code/data can be embedded in other datatypes, including
@@ -323,89 +299,126 @@ load: function [
     ; Note that IMPORT has its own loader, and does not use LOAD directly.
     ; /type with anything other than 'extension disables extension loading.
 
-    case/all [
-        header [all_LOAD: _]
+    if header and (self/all) [
+        fail "Cannot use /ALL and /HEADER refinements together"
+    ]
 
-        ;-- Load multiple sources?
-        block? source [
-            return map-each item source [
-                load/type/(all [header 'header])/(all [all_LOAD 'all])
-                    item :ftype
+    ;-- A BLOCK! means load multiple sources, calls LOAD recursively for each
+    if block? source [
+        a: self/all ;-- !!! Some bad interaction requires this, review
+        return map-each s source [
+            apply 'load [
+                source: s
+                header: header
+                all: a
+                ftype: :ftype
             ]
-        ]
-
-        ;-- What type of file? Decode it too:
-        match [file! url!] source [
-            file: source
-            line: 1
-
-            sftype: file-type? source
-            ftype: case [
-                all [:ftype = 'unbound | :sftype = 'extension] [sftype]
-                type [ftype]
-            ] else [
-                sftype
-            ]
-            data: read-decode source ftype
-            if sftype = 'extension [return data]
-        ]
-
-        elide (data: default [source])
-
-        ;-- Is it not source code? Then return it now:
-        block? data or (not find [0 extension unbound] any [get 'ftype 0]) [
-            ; !!! "due to make-boot issue with #[none]" <-- What?
-            return data ; directory, image, txt, markup, etc.
-        ]
-
-        ;-- Try to load the header, handle error:
-        not all_LOAD [
-            set [hdr: data: line:] either object? data [
-                load-ext-module data
-            ][
-                load-header data
-            ]
-            if word? hdr [cause-error 'syntax hdr source]
-        ]
-
-        elide (
-            ensure [object! blank!] hdr: default [_]
-            ensure [binary! block! string!] data
-        )
-
-        ;-- Convert code to block, insert header if requested:
-        not block? data [
-            if string? data [
-                data: to binary! data ;-- !!! inefficient, might be UTF8
-            ]
-            assert [binary? data]
-            data: transcode/file/line data :file :line
-            take/last data ;-- !!! always the residual, a #{}... why?
-        ]
-
-        header [insert data hdr]
-
-        ;-- Bind code to user context:
-        not any [
-            'unbound = :ftype ;-- may be void
-            'module = select hdr 'type
-            did find get 'hdr/options 'unbound
-        ][
-            data: intern data
-        ]
-
-        ;-- If appropriate and possible, return singular data value:
-        not any [
-            all_LOAD
-            header
-            empty? data
-            1 < length of data
-        ][
-            data: first data
         ]
     ]
 
-    :data
+    ;-- What type of file? Decode it too:
+    if match [file! url!] source [
+        file: source
+        line: 1
+        ftype: default [file-type? source]
+
+        if ftype = 'extension [
+            if not file? source [
+                fail ["Can only load extensions from FILE!, not" source]
+            ]
+            return ensure module! load-extension source ;-- DO embedded script
+        ]
+
+        data: read source
+
+        if block? data [
+            ;
+            ; !!! R3-Alpha's READ is nebulous, comment said "can be string,
+            ; binary, block".  Current leaning is that READ always be a
+            ; binary protocol, and that LOAD would be higher level--and be
+            ; based on decoding BINARY! or some higher level method that
+            ; never goes through a binary.  In any case, `read %./` would
+            ; return a BLOCK! of directory contents, and LOAD was expected
+            ; to return that block...do that for now, for compatibility with
+            ; the tests until more work is done.
+            ;
+            return data
+        ]
+
+    ]
+    else [
+        file: line: null
+        data: source
+        ftype: default ['rebol]
+
+        if ftype = 'extension [
+            fail "Extensions can only be loaded from a FILE! (.DLL, .so)"
+        ]
+    ]
+
+    if not find [unbound rebol] ftype [
+        if find system/options/file-types ftype [
+            return decode ftype :data
+        ]
+
+        fail ["No" ftype "LOADer found for" type of source]
+    ]
+
+    assert [match [string! binary!] data]
+
+    if block? data [
+        return data ;-- !!! Things break if you don't pass through; review
+    ]
+
+    ;-- Try to load the header, handle error:
+    if not self/all [
+        set [hdr: data: line:] either object? data [
+            fail "Code has not been updated for LOAD-EXT-MODULE"
+            load-ext-module data
+        ][
+            load-header data
+        ]
+
+        if word? hdr [cause-error 'syntax hdr source]
+    ]
+
+    ensure [object! blank!] hdr: default [_]
+    ensure [binary! block! string!] data
+
+    ;-- Convert code to block, insert header if requested:
+    if not block? data [
+        if string? data [
+            data: to binary! data ;-- !!! inefficient, might be UTF8
+        ]
+        assert [binary? data]
+        data: transcode/file/line data :file :line
+        take/last data ;-- !!! always the residual, a #{}... why?
+    ]
+
+    if header [
+        insert data hdr
+    ]
+
+    ;-- Bind code to user context:
+    if not any [
+        'unbound = ftype ;-- may be void
+        'module = select hdr 'type
+        did find try get 'hdr/options 'unbound
+    ][
+        data: intern data
+    ]
+
+    ;-- If appropriate and possible, return singular data value:
+    any [
+        self/all
+        header
+        empty? data
+        1 < length of data
+    ] or [
+        data: first data
+    ]
+
+    return :data
 ]
 
 
@@ -507,41 +520,27 @@ do-needs: function [
         mod
     ]
 
-    to-value case [
+    return try case [
         block [mods] ; /block refinement asks for block of modules
         not empty? to-value :mixins [mixins] ; else if any mixins, return them
-        ; return blank otherwise
     ]
 ]
 
 
 load-ext-module: function [
-    spec    [binary!]  "Spec for the module"
-    impl    [handle!] "Native function implementation array"
-    error-base [integer! blank!] "error base for the module"
+    source "UTF-8 source for the Rebol portion ({Rebol [Type: 'extension...})"
+        [binary!]
+    cfuncs "Native function implementation array"
+        [handle!]
+    error-base "error base for the module" ;; !!! Deprecated, will be deleted
+        [integer! blank!]
     /unloadable
     /no-lib
     /no-user
 ][
-    code: load/header gunzip spec
-    hdr: take code
-    tmp-ctx: make object! [
-        native: function [
-            return: [action!]
-            spec
-            /export
-                "this refinement is ignored here"
-            /body
-            code [block!]
-                "Equivalent rebol code"
-            <static>
-            index (-1)
-        ] concoct (()) [
-            index: index + 1
-            f: load-native/(all [body 'body])/(all [unloadable 'unloadable]) spec ((impl)) index :code
-            :f
-        ]
-    ]
+    code: load/header source
+    hdr: ensure [object! blank!] take code
+
     mod: make module! (length of code) / 2
     set-meta mod hdr
     if errors: find code to set-word! 'errors [
@@ -552,9 +551,35 @@ load-ext-module: function [
         append system/catalog/errors reduce [to set-word! hdr/name eo]
         remove/part errors 2
     ]
+
     bind/only/set code mod
     bind hdr/exports mod
-    bind code tmp-ctx
+
+    ; The module code contains invocations of NATIVE, which we bind to a
+    ; an action just for this module, as a specialization of LOAD-NATIVE.
+    ;
+    bind code construct [native] composeII/deep [
+        native: function [
+            return: [action!]
+            spec [block!]
+            /export "this refinement is ignored here"
+            /body
+            code "Equivalent rebol code"
+                [block!]
+            <static>
+            index (-1)
+        ][
+            index: index + 1
+            return apply 'load-native [
+                spec: spec
+                cfuncs: ((cfuncs))
+                index: index
+                code: get 'code
+                unloadable: ((unloadable))
+            ]
+        ]
+    ]
+
     if w: in mod 'words [protect/hide w]
     do code
 
@@ -629,26 +654,24 @@ load-module: function [
     ; Process the source, based on its type
     case [
         word? source [ ; loading the preloaded
-            case/all [
-                as_LOAD_MODULE [
-                    cause-error 'script 'bad-refine /as ; no renaming
-                ]
+            if as_LOAD_MODULE [
+                cause-error 'script 'bad-refine /as ; no renaming
+            ]
 
-                ; Return blank if no module of that name found
-                not tmp: find/skip system/modules source 2 [return blank]
+            ; Return blank if no module of that name found
 
-                elide (
-                    ; get the module
-                    ;
-                    set [mod:] next tmp
+            if not tmp: find/skip system/modules source 2 [
+                return blank
+            ]
 
-                    ensure [module! block!] mod
-                )
+            set [mod:] next tmp
 
-                ; If no further processing is needed, shortcut return
-                all [not version any [delay module? :mod]] [
-                    return reduce [source if module? :mod [mod]]
-                ]
+            ensure [module! block!] mod
+
+            ; If no further processing is needed, shortcut return
+
+            if not version and (any [delay module? :mod]) [
+                return reduce [source if module? :mod [mod]]
             ]
         ]
         binary? source [data: source]
@@ -657,8 +680,10 @@ load-module: function [
         match [file! url!] source [
             tmp: file-type? source
             case [ ; Return blank if read or load-extension fails
-                not tmp [
-                    attempt [data: read source] or [return blank]
+                tmp = 'rebol [
+                    data: read source or [
+                        return blank
+                    ]
                 ]
 
                 tmp = 'extension [
@@ -836,6 +861,8 @@ load-module: function [
                 find hdr/options 'isolate [no-share: true] ; in case of delay
 
                 object? code [ ; delayed extension
+                    fail "Code has not been updated for LOAD-EXT-MODULE"
+
                     set [hdr: code:] load-ext-module code
                     hdr/name: name ; in case of delayed rename
                     if all [no-share not find hdr/options 'isolate] [
@@ -889,19 +916,28 @@ import: function [
     /no-user
         "Don't export to the user context"
 ][
+    ; `import <name>` will look in the module library for the "actual"
+    ; module to load up, and drop through.
+    ;
     if tag? module [
-        if error? trap [
-            module: first tmp: select load rebol/locale/library/modules module
-        ][
-            cause-error 'access 'cannot-open reduce
-            either blank? tmp [
-                [module "module not found in system/locale/library/modules"]
-            ][
-                [module "error occurred in loading module from system/locale/library/modules"]
+        tmp: (select load rebol/locale/library/modules module) else [
+            cause-error 'access 'cannot-open reduce [
+                module "module not found in system/locale/library/modules"
+            ]
+        ]
+
+        module: (first tmp) else [
+            cause-error 'access 'cannot-open reduce [
+                module "error occurred in loading module"
+                    "from system/locale/library/modules"
             ]
         ]
     ]
+
     ; If it's a needs dialect block, call DO-NEEDS/block:
+    ;
+    ; Note: IMPORT block! returns a block of all the modules imported.
+    ;
     if block? module [
         assert [not version] ; can only apply to one module
         return apply 'do-needs [
@@ -913,17 +949,13 @@ import: function [
         ]
     ]
 
-    ; Note: IMPORT block! returns a block of all the modules imported.
-
-    ; Try to load the module.
-    ; !!! the original code said /import, not conditional on refinement
     set [name: mod:] apply 'load-module [
         source: module
         version: version
         ver: :ver
         no-share: no-share
         no-lib: no-lib
-        import: true
+        import: true ;-- !!! original code always passed /IMPORT, should it?
     ]
 
     case [
@@ -991,52 +1023,42 @@ import: function [
 
 
 load-extension: function [
-    file [file! handle!]
-        "library file or handle to init function in the builtin extension"
-    /no-user
-        "Do not export to the user context"
-    /no-lib
-        "Do not export to the lib context"
+    file "DLL file, or handle to C init function (for builtin extensions)"
+        [file! handle!]
+    /no-user "Do not export to the user context"
+    /no-lib "Do not export to the lib context"
 ][
-    ext: load-extension-helper file
-
-    if locked? ext [; already loaded
-        return ext
+    if locked? ext: load-extension-helper file [
+        return ext ;-- already loaded
     ]
-    case [
-        ; !!! This used to treat BINARY! scripts as compressed and STRING!
-        ; as uncompressed, but it used byte-oriented data to back the STRING!
-        ; which temporarily requires UTF-8 to wide string expansion.  Hence
-        ; decompression is done in the C, and all are assumed to be UTF8
-        ; binary for the moment.  This can do a usermode decompress after
-        ; UTF-8 everywhere is implemented, because byte-oriented UTF-8 will
-        ; be a legal string series.
-        ;
+
+    code: case [
         string? ext/script [
-            fail "STRING! ext/script shouldn't happen right now (temporary)"
-            script: load/header ext/script
+            comment [load/header ext/script]
+            fail [
+                "Previously the STRING!/BINARY! distinction for EXT/SCRIPT"
+                "cued LOAD-EXTENSION whether to decompress or not.  But that"
+                "presumed you could take UTF-8 source code and put it in a"
+                "STRING! series.  Until UTF-8 everywhere, STRING!s are all"
+                "wide series.  So decompression is done in the C code, and"
+                "we presume EXT/SCRIPT is BINARY! decompressed UTF-8 source."
+            ]
         ]
         binary? ext/script [
-            comment [
-                script: load/header gunzip ext/script
-            ]
-            script: load/header ext/script
+            load/header comment [gunzip] ext/script
         ]
-    ] else [
-        ; ext/script should ALWAYS be set by the extension but if it's not,
-        ; do not fail, because failing to load a builtin extension could
-        ; cause the interpreter to fail to boot
-        ;
-        script: reduce [construct system/standard/header []]
+    ]
+    else [
+        fail "EXT/SCRIPT not set by extension (should not be possible!)"
     ]
 
-    ext/script: _ ;clear the startup script to save memory
-    ext/header: take script
-    modules: make block! 1
-    for-each [spec impl error-base] ext/modules [
-        append modules apply 'load-ext-module [
-            spec: spec
-            impl: impl
+    ext/script: 'done ;-- clear the startup script to save memory
+    ext/header: take code
+
+    ext/modules: map-each [spec cfuncs error-base] ext/modules [
+        apply 'load-ext-module [
+            source: gunzip spec
+            cfuncs: cfuncs
             error-base: error-base
             unloadable: true
             no-user: no-user
@@ -1044,20 +1066,17 @@ load-extension: function [
         ]
     ]
 
-    ext/modules: modules
-    if blank? ext/header/type [
-        ext/header/type: 'extension
-    ]
+    ext/header/type: default ['extension]
 
     append system/extensions ext
 
     ;run the startup script
-    do script
+    do code
 
     lock ext/header
     lock ext
 
-    ext
+    return ext
 ]
 
 
@@ -1068,10 +1087,7 @@ unload-extension: procedure [
         fail "Extension is not locked"
     ]
 
-    all [
-        library? ext/lib-base
-        file? ext/lib-file
-    ] or [
+    if not match [library! file!] ext/lib-base [
         fail "Can't unload a builtin extension"
     ]
 

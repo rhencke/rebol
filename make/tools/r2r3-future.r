@@ -372,12 +372,12 @@ set: func [
 
     value [<opt> any-value!]
         "Value or block of values"
-    /only
+    /opt
         "Value is optional, and if no value is provided then unset the word"
     /pad
         {For objects, set remaining words to NONE if block is too short}
 ][
-    apply :lib-set [target :value only pad]
+    apply :lib-set [target :value opt pad]
 ]
 
 
@@ -651,7 +651,7 @@ delimit: func [x delimiter] [
                 x: next x
                 continue
             ]
-            set/only 'item do/next x 'x
+            set/opt 'item do/next x 'x
             case [
                 any [blank? :item | null? :item] [
                     ;-- append nothing

@@ -376,7 +376,7 @@ void Shutdown_Boot_Extensions(CFUNC **funcs, REBCNT n)
 //          [action!]
 //      spec "spec of the native"
 //          [block!]
-//      impl "a handle returned from RX_Init_ of the extension"
+//      cfuncs "a handle returned from RX_Init_ of the extension"
 //          [handle!]
 //      index "Index of the native"
 //          [integer!]
@@ -389,14 +389,14 @@ REBNATIVE(load_native)
 {
     INCLUDE_PARAMS_OF_LOAD_NATIVE;
 
-    if (VAL_HANDLE_CLEANER(ARG(impl)) != cleanup_module_handler)
+    if (VAL_HANDLE_CLEANER(ARG(cfuncs)) != cleanup_module_handler)
         fail ("HANDLE! passed to LOAD-NATIVE did not come from RX_Init");
 
     REBI64 index = VAL_INT64(ARG(index));
-    if (index < 0 or cast(uintptr_t, index) >= VAL_HANDLE_LEN(ARG(impl)))
+    if (index < 0 or cast(uintptr_t, index) >= VAL_HANDLE_LEN(ARG(cfuncs)))
         fail ("Index of native is outside range specified by RX_Init");
 
-    REBNAT dispatcher = VAL_HANDLE_POINTER(REBNAT, ARG(impl))[index];
+    REBNAT dispatcher = VAL_HANDLE_POINTER(REBNAT, ARG(cfuncs))[index];
     REBACT *native = Make_Action(
         Make_Paramlist_Managed_May_Fail(
             ARG(spec),

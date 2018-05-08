@@ -594,7 +594,7 @@
 ; Evaluates (trap [1 / 0]) to get error! value.
 (
     a-value: blank
-    set/only 'a-value (trap [1 / 0])
+    set 'a-value (trap [1 / 0])
     equal? a-value a-value
 )
 ; error! structural equivalence

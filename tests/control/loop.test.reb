@@ -58,7 +58,7 @@
                 use [break] [
                     break: 1
                     f 2
-                    1 = get/only 'break
+                    1 = get 'break
                 ]
             ][
                 false

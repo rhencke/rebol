@@ -37,7 +37,7 @@ do %native-emitters.r ; for emit-include-params-macro
 
 args: parse-args system/options/args
 
-config: config-system get 'args/OS_ID
+config: config-system try get 'args/OS_ID
 
 mod: ensure string! args/MODULE
 m-name: mod

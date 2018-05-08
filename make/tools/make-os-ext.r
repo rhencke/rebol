@@ -29,7 +29,7 @@ do %systems.r
 change-dir %../../src/os/
 
 args: parse-args system/options/args
-config: config-system get 'args/OS_ID
+config: config-system try get 'args/OS_ID
 output-dir: system/options/path/prep
 mkdir/deep output-dir/include
 

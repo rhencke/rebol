@@ -381,7 +381,7 @@ me: enfix func [
     :rest [any-value! <...>]
         {Code to run with var as left (first element should be enfixed)}
 ][
-    set* var eval-enfix (get* var) rest
+    set* var eval-enfix (get var) rest
 ]
 
 my: enfix func [
@@ -393,7 +393,7 @@ my: enfix func [
     :rest [any-value! <...>]
         {Code to run with var as left (first element should be prefix)}
 ][
-    set* var eval-enfix/prefix (get* var) rest
+    set* var eval-enfix/prefix (get var) rest
 ]
 
 

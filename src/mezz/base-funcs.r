@@ -42,7 +42,7 @@ default: enfix func [
     <local> gotten
 ][
     either all [
-        value? gotten: get* target
+        value? gotten: get target
         any [only | not blank? :gotten]
     ][
         :gotten ;; so that `x: y: default z` leads to `x = y`
@@ -76,7 +76,7 @@ maybe: enfix func [
     set* target either-test/opt
         (only ?? :value? !! :something?) ;-- test function
         :value ;-- value being tested
-        [get* target] ;-- branch to evaluate and return if test fails
+        [get target] ;-- branch to evaluate and return if test fails
 ]
 
 
@@ -89,7 +89,7 @@ was: func [
         {Used to take the assigned value}
     :look [set-word! set-path! <...>]
 ][
-    get* first look ;-- returned value
+    get first look ;-- returned value
 
     elide take evaluation
 ]
@@ -265,22 +265,20 @@ procedure: specialize :make-action [generator: :proc]
 ; the purposes of distinguishing a derived action, it must be copied.
 ;
 dig-action-meta-fields: function [value [action!]] [
-    meta: meta-of :value
-
-    if not meta [
+    meta: meta-of :value or [
         return construct system/standard/action-meta [
             description: _
-            return_type: _
-            return_note: _
+            return-type: _
+            return-note: _
             parameter-types: make frame! :value
             parameter-notes: make frame! :value
         ]
     ]
 
-    underlying: match action! any [
-        get 'meta/specializee
-        get 'meta/adaptee
-        all [block? :meta/chainees | to-value first meta/chainees]
+    underlying: ensure [action! blank!] any [
+        try get 'meta/specializee
+        try get 'meta/adaptee
+        all [block? :meta/chainees | try first meta/chainees]
     ]
 
     fields: all [:underlying | dig-action-meta-fields :underlying]
@@ -290,18 +288,20 @@ dig-action-meta-fields: function [value [action!]] [
 
         child: make frame! :value
         for-each param child [
+            ;
+            ; !!! GROUP! cannot be used with MAYBE because it left quotes and
+            ; might-or-might-not run the GROUP!.  Review.
+            ;
             child/:param: maybe select parent param
         ]
         return child
     ]
 
     return construct system/standard/action-meta [
-        description: (
-            match string! any* [
-                select meta 'description
-                all [fields | copy fields/description]
-            ]
-        )
+        description: opt ensure [string! blank!] any [
+            try select meta 'description
+            all [fields | copy fields/description]
+        ]
         return-type: (
             ;
             ; !!! The optimized native signals the difference between
@@ -311,29 +311,29 @@ dig-action-meta-fields: function [value [action!]] [
             ; sensitive to it here.
             ;
             temp: select meta 'return-type
-            if all [unset? 'temp | fields | select fields 'return-type] [
+            if all [unset? 'temp | fields | did select fields 'return-type] [
                 temp: copy fields/return-type
             ]
             :temp
         )
-        return-note: (
-            match string! any* [
-                select meta 'return-note
-                all [fields | copy fields/return-note]
+        return-note: opt ensure [string! blank!] any [
+            try select meta 'return-note
+            all [try get 'fields/return-note | copy fields/return-note]
+        ]
+        parameter-types: opt ensure [frame! blank!] any [
+            try select meta 'parameter-types
+            all [
+                try get 'fields/parameter-types
+                inherit-frame :fields/parameter-types
             ]
-        )
-        parameter-types: (
-            match frame! any* [
-                select meta 'parameter-types
-                all [fields | inherit-frame :fields/parameter-types]
+        ]
+        parameter-notes: opt ensure [frame! blank!] any [
+            try select meta 'parameter-notes
+            all [
+                try get 'fields/parameter-notes
+                inherit-frame :fields/parameter-notes
             ]
-        )
-        parameter-notes: (
-            match frame! any* [
-                select meta 'parameter-notes
-                all [fields | inherit-frame :fields/parameter-notes]
-            ]
-        )
+        ]
     ]
 ]
 
@@ -356,21 +356,18 @@ redescribe: function [
     ; only manipulate the description.
 
     on-demand-meta: does [
-        if not meta [
-            meta: copy system/standard/action-meta
-            set-meta :value meta
-        ]
+        meta: default [set-meta :value copy system/standard/action-meta]
 
         if not find meta 'description [
             fail [{archetype META-OF doesn't have DESCRIPTION slot} meta]
         ]
 
-        if notes: get 'meta/parameter-notes [
+        if notes: try get 'meta/parameter-notes [
             if not frame? notes [
                 fail [{PARAMETER-NOTES in META-OF is not a FRAME!} notes]
             ]
 
-            if :value != action-of notes [
+            if :value <> action-of notes [
                 fail [{PARAMETER-NOTES in META-OF frame mismatch} notes]
             ]
         ]
@@ -516,16 +513,10 @@ maybe*: enfix redescribe [
 semiquote: specialize 'identity [quote: true]
 
 
-get*: redescribe [
-    {Variation of GET which returns void if the source is not set}
-](
-    specialize 'get [only: true]
-)
-
 set*: redescribe [
     {Variation of SET where voids are tolerated for unsetting variables.}
 ](
-    specialize 'set [only: true]
+    specialize 'set [opt: true]
 )
 
 

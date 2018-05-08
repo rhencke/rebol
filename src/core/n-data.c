@@ -451,23 +451,18 @@ REBNATIVE(collect_words)
 //
 //  get: native [
 //
-//  {Gets the value of a word or path, or values of a context.}
+//  {Gets the value of a word or path, or block of words/paths.}
 //
 //      return: [<opt> any-value!]
-//          {If the source looks up to a value, that value--else blank}
 //      source [blank! any-word! any-path! block!]
 //          {Word or path to get, or block of words or paths (blank is no-op)}
-//      /only
-//          {Return void if no value instead of blank}
+//      /try
+//          {Return blank for variables that are unset}
 //  ]
 //
 REBNATIVE(get)
 //
-// Note: GET* cannot be the fundamental operation, because GET could not be
-// written for blocks (since voids can't be put in blocks, so they couldn't
-// be "blankified").  Well, technically it *could* be fundamental, but GET
-// would have to make multiple calls to GET* in order to process a block and
-// deal with any voids.
+// Note: `get [x y] [some-var :some-unset-var]` would fail without /TRY
 {
     INCLUDE_PARAMS_OF_GET;
 
@@ -478,14 +473,6 @@ REBNATIVE(get)
     REBARR *results;
 
     if (IS_BLOCK(ARG(source))) {
-        //
-        // If a BLOCK! of gets are performed, voids cannot be put into the
-        // resulting BLOCK!.  Hence for /ONLY to be legal, it would have to
-        // give back a BLANK! or other placeholder.  However, since GET-VALUE
-        // is built on GET/ONLY, we defer the error an unset variable is
-        // actually encountered, which produces that error case that could not
-        // be done by "checking the block for voids"
-
         source = VAL_ARRAY_AT(ARG(source));
         specifier = VAL_SPECIFIER(ARG(source));
 
@@ -532,12 +519,12 @@ REBNATIVE(get)
         }
 
         if (IS_VOID(dest)) {
-            if (REF(only)) {
+            if (REF(try))
+                Init_Blank(dest);
+            else {
                 if (IS_BLOCK(ARG(source))) // can't put voids in blocks
                     fail (Error_No_Value_Core(source, specifier));
             }
-            else
-                Init_Blank(dest);
         }
     }
 
@@ -719,7 +706,7 @@ REBNATIVE(resolve)
 //          {Word or path, or block of words and paths}
 //      value [<opt> any-value!]
 //          "Value or block of values"
-//      /only
+//      /opt
 //          {Treat void values as unsetting the target instead of an error}
 //      /single
 //          {If target and value are blocks, set each item to the same value}
@@ -767,7 +754,7 @@ REBNATIVE(set)
             single = FALSE;
         }
         else {
-            if (IS_VOID(ARG(value)) and not REF(only))
+            if (IS_VOID(ARG(value)) and not REF(opt))
                 fail (Error_No_Value(ARG(value)));
 
             value = ARG(value);
@@ -779,20 +766,17 @@ REBNATIVE(set)
         target_specifier = VAL_SPECIFIER(ARG(target));
     }
     else {
-        // Use the fact that D_CELL is implicitly terminated so that the
-        // loop below can share code between `set [a b] x` and `set a x`, by
-        // incrementing the target pointer and hitting an END marker
-        //
-        assert(
-            ANY_WORD(ARG(target))
-            || ANY_PATH(ARG(target))
-        );
-
         Move_Value(D_CELL, ARG(target));
         target = D_CELL;
         target_specifier = SPECIFIED;
 
-        if (IS_VOID(ARG(value)) and not REF(only))
+        // Use the fact that D_CELL is implicitly terminated so that the
+        // loop below can share code between `set [a b] x` and `set a x`, by
+        // incrementing the target pointer and hitting an END marker
+        //
+        assert(ANY_WORD(target) or ANY_PATH(target) or IS_BAR(target));
+
+        if (IS_VOID(ARG(value)) and not REF(opt))
             fail (Error_No_Value(ARG(value)));
 
         value = ARG(value);
@@ -1088,7 +1072,7 @@ inline static REBOOL Is_Set(const REBVAL *location)
 //
 //      location [any-word! any-path!]
 //  ][
-//      value? get* location
+//      value? get location
 //  ]
 //
 REBNATIVE(set_q)
@@ -1106,7 +1090,7 @@ REBNATIVE(set_q)
 //
 //      location [any-word! any-path!]
 //  ][
-//      null? get* location
+//      null? get location
 //  ]
 //
 REBNATIVE(unset_q)

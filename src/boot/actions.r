@@ -195,7 +195,7 @@ find: action [
     return: {position found, else blank (void if series is itself blank)}
         [<opt> any-series! blank! bar!]
     series [any-series! any-context! map! gob! bitset! typeset! blank!]
-    value [<opt> any-value!]
+    value [any-value!]
     /part {Limits the search to a given length or position}
     limit [any-number! any-series! pair!]
     /only {Treats a series value as only a single value}

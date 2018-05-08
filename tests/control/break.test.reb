@@ -13,7 +13,7 @@
     (a: 1 | loop 1 [set 'a break] :a = 1)
 ]
 [#1515
-    (a: 1 | loop 1 [set/only 'a break] | :a = 1)
+    (a: 1 | loop 1 [set/opt 'a break] | :a = 1)
 ]
 
 ; the "result" of break should not be passable to functions

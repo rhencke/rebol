@@ -8,7 +8,7 @@
 ]
 
 (error? trap [a: () a])
-(not error? trap [set/only 'a ()])
+(not error? trap [set/opt 'a ()])
 
 (
     a-value: 10

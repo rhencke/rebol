@@ -141,7 +141,9 @@ options: construct [] [  ; Options supplied to REBOL during startup
     decimal-digits: 15 ; Max number of decimal digits to print.
     module-paths: [%./]
     default-suffix: %.reb ; Used by IMPORT if no suffix is provided
-    file-types: []
+    file-types: copy [
+        %.reb %.r3 %.r rebol
+    ]
 
     ; Legacy Behaviors Options (paid attention to only by debug builds)
 

@@ -31,7 +31,7 @@ do %systems.r
 change-dir %../../src/boot/
 
 args: parse-args system/options/args
-config: config-system get 'args/OS_ID
+config: config-system try get 'args/OS_ID
 
 first-rebol-commit: "19d4f969b4f5c1536f24b023991ec11ee6d5adfb"
 
@@ -119,7 +119,7 @@ if not args: any [
     fail "No platform specified."
 ]
 
-product: to-word any [get 'args/PRODUCT | "core"]
+product: to-word any [try get 'args/PRODUCT | "core"]
 
 platform-data: context [type: 'windows]
 build: context [features: [help-strings]]

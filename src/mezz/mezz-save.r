@@ -56,6 +56,7 @@ save: function [
         not header ; User wants to save value as script, not data file
         did match [file! url!] where
         type: file-type? where
+        type <> 'rebol ;-- handled by this routine, not by WRITE+ENCODE
     ] then [
         ; We have a codec.  Will check for valid type.
         return write where encode type :value

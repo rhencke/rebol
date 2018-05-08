@@ -182,8 +182,8 @@ gen-obj: func [
                 join-of %main/ (last ensure path! s)
             ] [s]
         cflags: either empty? flags [_] [flags]
-        definitions: (get 'definitions)
-        includes: (get 'includes)
+        definitions: (try get 'definitions)
+        includes: (try get 'includes)
     ]
 ]
 

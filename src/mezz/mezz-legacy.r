@@ -799,41 +799,23 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
-        ; This version of get supports the legacy /ANY switch.
-        ;
-        ; R3-Alpha's GET allowed any type, so GET 3 would fall through to
-        ; just returning 3.  This behavior is not in Rebol2, nor is it
-        ; in Red...which only support ANY-WORD!, OBJECT!, or NONE!
-        ; Hence it is not carried forward in legacy at this time.
-        ;
         get: (function [
+            {GET no longer supports OBJECT!, getting unset vars gives null}
             return: [<opt> any-value!]
-            source [blank! any-word! any-path! any-context! block!]
-            /any
+            source {Legacy handles Rebol2 types, not *any* type like R3-Alpha}
+                [blank! any-word! any-path! any-context! block!]
+            /any {Name for /ANY in Ren-C is /OPT}
         ][
             any_GET: any
             any: :lib/any
 
-            either* any-context? source [
-                ;
-                ; In R3-Alpha, this was vars of the context put into a BLOCK!:
-                ;
-                ;     >> get make object! [[a b][a: 10 b: 20]]
-                ;     == [10 20]
-                ;
-                ; Presumes order, has strange semantics.  Written as native
-                ; code but is expressible more flexibily in usermode getting
-                ; the WORDS-OF block, covering things like hidden fields etc.
+            if blank? source [return _] ;-- Rebol2 allows blank, returns blank
 
-                apply 'get [
-                    source: words of source
-                    only: any_GET
+            return apply 'get [
+                source: source unless any-context? source [
+                    words of source
                 ]
-            ][
-                apply 'get [
-                    source: source
-                    only: any_GET
-                ]
+                only: any_GET
             ]
         ])
 

@@ -201,20 +201,18 @@ spec-of: function [
     ]
 
     return collect [
-        keep compose [
-            (opt match string! any [
-                to-value select meta 'description
-                to-value select original-meta 'description
-            ])
+        keep/line match string! any [
+            try select meta 'description
+            try select original-meta 'description
         ]
 
-        return-type: match block! any [
-            to-value select meta 'return-type
-            to-value select original-meta 'return-type
+        return-type: try match block! any [
+            try select meta 'return-type
+            try select original-meta 'return-type
         ]
-        return-note: match string! any [
-            to-value select meta 'return-note
-            to-value select original-meta 'return-note
+        return-note: try match string! any [
+            try select meta 'return-note
+            try select original-meta 'return-note
         ]
         if return-type or (return-note) [
             keep compose/only [
@@ -524,18 +522,18 @@ help: procedure [
     ;
     fields: dig-action-meta-fields :value
 
-    description: fields/description
+    description: :fields/description
     return-type: :fields/return-type
-    return-note: fields/return-note
-    types: fields/parameter-types
-    notes: fields/parameter-notes
+    return-note: :fields/return-note
+    types: :fields/parameter-types
+    notes: :fields/parameter-notes
 
     ; For reporting what kind of function this is, don't dig at all--just
     ; look at the meta information of the function being asked about
     ;
     meta: meta-of :value
     all [
-        original-name: match word! any [
+        original-name: try match word! any [
             try select meta 'specializee-name
             try select meta 'adaptee-name
         ]
@@ -547,7 +545,7 @@ help: procedure [
     chainees: match block! try select meta 'chainees
 
     classification: {a function} unless case [
-        :specializee [
+        set? 'specializee [
             either original-name [
                 spaced [{a specialization of} original-name]
             ][
@@ -555,7 +553,7 @@ help: procedure [
             ]
         ]
 
-        :adaptee [
+        set? 'adaptee [
             either original-name [
                 spaced [{an adaptation of} original-name]
             ][
@@ -563,7 +561,7 @@ help: procedure [
             ]
         ]
 
-        :chainees [
+        set? 'chainees [
             {a chained function}
         ]
     ]
@@ -582,13 +580,13 @@ help: procedure [
             type: match [block! any-word!] try select types to-word param
 
             ;-- parameter name and type line
-            if type and (not refinement? param) [
+            if set? 'type and (not refinement? param) [
                 print unspaced [space4 param space "[" type "]"]
             ] else [
                 print unspaced [space4 param]
             ]
 
-            if note [
+            if set? 'note [
                 print unspaced [space4 space4 note]
             ]
         ]
@@ -602,7 +600,7 @@ help: procedure [
         ;
         print-newline
         print ["RETURNS:" (if set? 'return-type [mold return-type])]
-        either return-note [
+        either set? 'return-note [
             print unspaced [space4 return-note]
         ][
             if unset? 'return-type [
