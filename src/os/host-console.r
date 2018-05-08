@@ -99,7 +99,7 @@ console!: make object! [
         write-stdout space
     ]
 
-    print-result: proc [v [<opt> any-value!]]  [
+    print-result: procedure [v [<opt> any-value!]]  [
         last-result: :v
         case [
             null? :v [
@@ -110,9 +110,26 @@ console!: make object! [
                 ; (It might be useful feedback for commands which have none of
                 ; their own output, however.)
             ]
+
+            port? :v [
+                ; PORT!s are returned by many operations on files, to
+                ; permit chaining.  They contain many fields so their
+                ; molding is excessive, and there's not a ton to learn
+                ; about them.  Cut down the output more than the mold/limit.
+                ;
+                print [result "#[port! [...] [...]]"]
+            ]
         ]
         else [
-            print [result (mold :v)]
+            ; print the first 20 lines of the first 2048 characters of mold
+            ;
+            pos: molded: mold/limit :v 2048
+            loop 20 [
+                pos: (next find pos newline) else [break]
+            ] then [
+                insert clear pos "..."
+            ]
+            print [result (molded)]
         ]
     ]
 
