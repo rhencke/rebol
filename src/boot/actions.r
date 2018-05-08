@@ -281,6 +281,8 @@ take*: action [
 ;
 insert: action [
     {Inserts element(s); for series, returns just past the insert.}
+    return: {Just past the insert (<opt> needed for COLLECT/KEEP, see notes)}
+        [<opt> any-value!]
     series [any-series! port! map! gob! object! bitset! port!] {At position (modified)}
     value [<opt> any-value!] {The value to insert}
     /part {Limits to a given length or position}

@@ -495,13 +495,28 @@ collect-with: func [
 ][
     output: default [make block! 16]
 
-    keeper: func [
-        return: [<opt> any-value!]
-        value [<opt> any-value!]
-        /only
-    ][
-        output: insert/(all [only 'only]) output :value
-        :value
+    ; Make a KEEP action! to give the caller, that is a specialization of
+    ; INSERT which targets `output`.  By using a specialization, it will
+    ; inherit all of INSERT's arguments (e.g. /ONLY, /LINE, /DUP).
+    ;
+    ; Though specialization is used to remove the series parameter, the actual
+    ; series position to INSERT must be updated on each call.  KEEP also wants
+    ; a different RETURN: result than what INSERT would give...it passes
+    ; thru the argument it got.  So it actually specializes an *ENCLOSE* of
+    ; INSERT, which adjusts the input series and tweaks the return result.
+    ;
+    keeper: specialize (
+        enclose 'insert function [
+            return: [<opt> any-value!]
+            f [frame!]
+            <static> o (:output)
+        ][
+            f/series: o
+            o: do f ;-- update static's position on each insertion
+            return :f/value
+        ]
+    )[
+        series: <remove-unused-series-parameter>
     ]
 
     if word? name [
