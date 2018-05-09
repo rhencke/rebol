@@ -1195,6 +1195,8 @@ REBOOL RL_rebNot(const void *p, ...) {
 
 
 //
+//  rebUnbox: RL_API
+//
 // C++, JavaScript, and other languages can do some amount of intelligence
 // with a generic `rebUnbox()` operation...either picking the type to return
 // based on the target in static typing, or returning a dynamically typed
@@ -1202,17 +1204,35 @@ REBOOL RL_rebNot(const void *p, ...) {
 // an integer for INTEGER!, LOGIC!, CHAR!...assume it's most common so the
 // short name is worth it.
 //
-long RL_rebUnbox(const REBVAL *v) {
+long RL_rebUnbox(const void *p, ...) {
     Enter_Api();
-    switch (VAL_TYPE(v)) {
+
+    va_list va;
+    va_start(va, p);
+
+    DECLARE_LOCAL (result);
+    REBIXO indexor = Do_Va_Core(
+        result,
+        p, // opt_first (preloads value)
+        &va,
+        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
+    );
+    if (indexor == THROWN_FLAG) {
+        va_end(va);
+        fail (Error_No_Catch_For_Throw(result));
+    }
+
+    va_end(va);
+
+    switch (VAL_TYPE(result)) {
     case REB_INTEGER:
-        return VAL_INT64(v);
+        return VAL_INT64(result);
 
     case REB_CHAR:
-        return VAL_CHAR(v);
+        return VAL_CHAR(result);
 
     case REB_LOGIC:
-        return VAL_LOGIC(v) ? 1 : 0;
+        return VAL_LOGIC(result) ? 1 : 0;
 
     default:
         fail ("Only REB_INTEGER, REB_CHAR, REB_LOGIC for rebUnbox() in C");

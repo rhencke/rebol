@@ -156,6 +156,8 @@ REBTYPE(Unit)
     case SYM_SELECT:
     case SYM_FIND:
     case SYM_COPY:
+    case SYM_SKIP:
+    case SYM_AT:
         return R_VOID;
 
     default:

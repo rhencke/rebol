@@ -169,9 +169,9 @@ even?: action [
 
 skip: action [
     {Returns the series forward or backward from the current position.}
-    return: [blank! any-series! gob! port!]
+    return: [<opt> blank! any-series! gob! port!]
         {Input skipped by the given offset, clipped to head/tail if not /ONLY}
-    series [any-series! gob! port!]
+    series [blank! any-series! gob! port!]
     offset [any-number! logic! pair!]
     /only
         {Don't clip to the boundaries of the series (return blank if beyond)}
@@ -179,9 +179,9 @@ skip: action [
 
 at: action [
     {Returns the series at the specified index.}
-    return: [blank! any-series! gob! port!]
+    return: [<opt> blank! any-series! gob! port!]
         {Input at the given index, clipped to head/tail if not /ONLY}
-    series [any-series! gob! port!]
+    series [blank! any-series! gob! port!]
     index [any-number! logic! pair!]
     /only
         {Don't clip to the boundaries of the series (return blank if beyond)}
