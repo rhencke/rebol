@@ -260,8 +260,7 @@ if 'Windows <> first system/platform [
     "EH" "Western Sahara"
     "YE" "Yemen"
     "ZM" "Zambia"
-    "ZW" "Zimbabwe"
-]
+    "ZW" "Zimbabwe" ]
 
     ;DO NOT EDIT this table
     ;It's updated by iso639.r
@@ -449,8 +448,7 @@ if 'Windows <> first system/platform [
     "yi" "Yiddish"
     "yo" "Yoruba"
     "za" "Zhuang; Chuang"
-    "zu" "Zulu"
-]
+    "zu" "Zulu" ]
 
     hijack 'locale function [
         type [word!]

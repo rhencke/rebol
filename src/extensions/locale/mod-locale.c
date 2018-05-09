@@ -52,7 +52,6 @@
 //          Language*: Full localized primary name of the language
 //          Territory*: Full localized name of the country/region}
 //  ]
-//  new-words: [Language Language* Territory Territory*]
 //  new-errors: [
 //      invalid-category: [{Invalid locale category:} :arg1]
 //  ]
@@ -63,36 +62,43 @@ REBNATIVE(locale)
   #ifdef TO_WINDOWS
     LOCALE_INCLUDE_PARAMS_OF_LOCALE;
 
-    REBSTR *cat = VAL_WORD_CANON(ARG(category));
+    REBVAL *cat = ARG(category);
 
-    LCTYPE type;
-    if (cat == LOCALE_WORD_LANGUAGE)
-        type = LOCALE_SENGLANGUAGE;
-    else if (cat == LOCALE_WORD_LANGUAGE_P)
-        type = LOCALE_SNATIVELANGNAME;
-    else if (cat == LOCALE_WORD_TERRITORY)
-        type = LOCALE_SENGCOUNTRY;
-    else if (cat == LOCALE_WORD_TERRITORY_P)
-        type = LOCALE_SCOUNTRY;
-    else
-        fail (Error(RE_EXT_LOCALE_INVALID_CATEGORY, ARG(category), END));
+    LCTYPE type = rebUnbox(
+        "select [",
+            "language", rebI(LOCALE_SENGLANGUAGE),
+            "language*", rebI(LOCALE_SNATIVELANGNAME),
+            "territory", rebI(LOCALE_SENGCOUNTRY),
+            "territory*", rebI(LOCALE_SCOUNTRY),
+        "]", cat, "else [",
+            "fail [{Invalid locale category:}", rebUneval(cat), "]",
+        "]", END // !!! review using fail with ID-based errors
+    );
 
+    // !!! MS docs say: "For interoperability reasons, the application should
+    // prefer the GetLocaleInfoEx function to GetLocaleInfo because Microsoft
+    // is migrating toward the use of locale names instead of locale
+    // identifiers for new locales. Any application that runs only on Windows
+    // Vista and later should use GetLocaleInfoEx."
+    //
     int len_plus_term = GetLocaleInfo(0, type, 0, 0); // fetch needed length
 
     WCHAR *buffer = OS_ALLOC_N(WCHAR, len_plus_term);
 
-    int len_check = GetLocaleInfo(0, type, buffer, len_plus_term);
+    int len_check = GetLocaleInfo(0, type, buffer, len_plus_term); // now get
     assert(len_check == len_plus_term);
     UNUSED(len_check);
 
     REBVAL *str = rebSizedStringW(buffer, len_plus_term - 1);
+    OS_FREE(buffer);
+
     Move_Value(D_OUT, str);
     rebRelease(str);
 
     return R_OUT;
   #else
     UNUSED(frame_);
-    fail ("Locale not implemented for non-windows");
+    fail ("LOCALE not implemented natively for non-Windows");
   #endif
 }
 
@@ -104,21 +110,6 @@ REBNATIVE(locale)
 //      category [word!]
 //      value [string!]
 //  ]
-//  new-words: [
-//      all
-//      address
-//      collate
-//      ctype
-//      identification
-//      measurement
-//      messages
-//      monetary
-//      name
-//      numeric
-//      paper
-//      telephone
-//      time
-//  ]
 //  new-errors: [
 //  ]
 //
@@ -126,62 +117,69 @@ REBNATIVE(setlocale)
 {
     LOCALE_INCLUDE_PARAMS_OF_SETLOCALE;
 
-    struct cat_pair {
-        REBSTR *word;
-        int cat;
-    } ctypes [] = {
-        {LOCALE_WORD_ALL, LC_ALL},
-#if defined(LC_ADDRESS) // GNU extension
-        {LOCALE_WORD_ADDRESS, LC_ADDRESS},
-#endif
-        {LOCALE_WORD_COLLATE, LC_COLLATE},
-        {LOCALE_WORD_CTYPE, LC_CTYPE},
-#if defined(LC_IDENTIFICATION) // GNU extension
-        {LOCALE_WORD_IDENTIFICATION, LC_IDENTIFICATION},
-#endif
-#if defined(LC_MEASUREMENT) // GNU extension
-        {LOCALE_WORD_MEASUREMENT, LC_MEASUREMENT},
-#endif
-#if defined(LC_MESSAGES) // GNU extension
-        {LOCALE_WORD_MESSAGES, LC_MESSAGES},
-#endif
-        {LOCALE_WORD_MONETARY, LC_MONETARY},
-#if defined(LC_NAME) // GNU extension
-        {LOCALE_WORD_NAME, LC_NAME},
-#endif
-        {LOCALE_WORD_NUMERIC, LC_NUMERIC},
-#if defined(LC_TELEPHONE) // GNU extension
-        {LOCALE_WORD_TELEPHONE, LC_TELEPHONE},
-#endif
-#if defined(LC_PAPER) // GNU extension
-        {LOCALE_WORD_PAPER, LC_PAPER},
-#endif
-        {LOCALE_WORD_TIME, LC_TIME}
-    };
+    // Some locales are GNU extensions, and only included via #ifdef
+    //
+    // http://man7.org/linux/man-pages/man7/locale.7.html
+    //
+    REBVAL *map = rebRun(
+        "make map! [",
+            "all", rebI(LC_ALL),
 
-    REBSTR *w_cat = VAL_WORD_CANON(ARG(category));
+          #if defined(LC_ADDRESS)
+            "address", rebI(LC_ADDRESS),
+          #endif
 
-    int cat = -1; // avoid possibly uninitialized warning
-    REBCNT i = 0;
-    for (; i < sizeof (ctypes) / sizeof (ctypes[0]); ++i) {
-        if (ctypes[i].word == w_cat) {
-            cat = ctypes[i].cat;
-            break;
-        }
-    }
-    if (i == sizeof (ctypes) / sizeof (ctypes[0]))
+            "collate", rebI(LC_COLLATE),
+            "ctype", rebI(LC_CTYPE),
+
+          #ifdef LC_IDENTIFICATION
+            "identification", rebI(LC_IDENTIFICATION),
+          #endif
+
+          #ifdef LC_MEASUREMENT
+            "measurement", rebI(LC_MEASUREMENT),
+          #endif
+
+          #ifdef LC_MESSAGES
+            "messages", rebI(LC_MESSAGES),
+          #endif
+
+            "monetary", rebI(LC_MONETARY),
+
+          #ifdef LC_NAME
+            "name", rebI(LC_NAME),
+          #endif
+
+            "numeric", rebI(LC_NUMERIC),
+
+          #ifdef LC_PAPER
+            "paper", rebI(LC_PAPER),
+          #endif
+
+          #ifdef LC_TELEPHONE
+            "telephone", rebI(LC_TELEPHONE),
+          #endif
+
+            "time", rebI(LC_TIME),
+        "]", END
+    );
+
+    int cat = rebUnbox("select", map, ARG(category), "else [-1]", END);
+    rebRelease(map);
+
+    if (cat == -1)
         fail (Error(RE_EXT_LOCALE_INVALID_CATEGORY, ARG(category), END));
 
-    const char *ret = setlocale(cat, cs_cast(VAL_BIN_AT(ARG(value))));
-    if (ret == NULL) {
-        Init_Blank(D_OUT);
-    } else {
-        REBCNT len = strlen(ret);
-        REBSER *ser = Make_Binary(len);
-        Append_Series(ser, cb_cast(ret), len);
-        Init_String(D_OUT, ser);
-    }
+    char *value_utf8 = rebSpellingOfAlloc(NULL, ARG(value));
+    const char *result = setlocale(cat, value_utf8);
+    rebFree(value_utf8);
 
+    if (not result)
+        return R_BLANK;
+
+    REBVAL *str = rebString(result);
+    Move_Value(D_OUT, str);
+    rebRelease(str);
     return R_OUT;
 }
 
