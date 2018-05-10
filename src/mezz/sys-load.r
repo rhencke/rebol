@@ -83,12 +83,13 @@ export-words: func [
 
 mixin?: func [
     "Returns TRUE if module is a mixin with exports."
+    return: [logic!]
     mod [module! object!] "Module or spec header"
 ][
     ; Note: Unnamed modules DO NOT default to being mixins.
     if module? mod [mod: meta-of mod]  ; Get the header object
     did all [
-        find select mod 'options 'private
+        did find select mod 'options 'private
         ; If there are no exports, there's no difference
         block? select mod 'exports
         not empty? select mod 'exports
@@ -652,8 +653,9 @@ load-module: function [
     if import [delay: _] ; /import overrides /delay
 
     ; Process the source, based on its type
-    case [
-        word? source [ ; loading the preloaded
+
+    switch type of source [
+        (word!) [ ; loading the preloaded
             if as_LOAD_MODULE [
                 cause-error 'script 'bad-refine /as ; no renaming
             ]
@@ -671,15 +673,22 @@ load-module: function [
             ; If no further processing is needed, shortcut return
 
             if not version and (any [delay module? :mod]) [
-                return reduce [source if module? :mod [mod]]
+                return reduce/try [source | if module? :mod [mod]]
             ]
         ]
-        binary? source [data: source]
-        string? source [data: to binary! source]
 
-        match [file! url!] source [
+        ; !!! Transcoding is currently based on UTF-8.  "UTF-8 Everywhere"
+        ; will use that as the internal representation of STRING!, but until
+        ; then any strings passed in to loading have to be UTF-8 converted,
+        ; which means making them into BINARY!.
+        ;
+        (binary!) [data: source]
+        (string!) [data: to binary! source]
+
+        (file!)
+        (url!) [
             tmp: file-type? source
-            case [ ; Return blank if read or load-extension fails
+            case [
                 tmp = 'rebol [
                     data: read source or [
                         return blank
@@ -694,7 +703,7 @@ load-module: function [
             ]
         ]
 
-        module? source [
+        (module!) [
             ; see if the same module is already in the list
             if tmp: find/skip next system/modules mod: source 2 [
                 if as_LOAD_MODULE [
@@ -702,11 +711,11 @@ load-module: function [
                     cause-error 'script 'bad-refine /as
                 ]
 
-                if all [
+                all [
                     ; not /version, same as top module of that name
                     not version
                     same? mod select system/modules pick tmp 0
-                ][
+                ] then [
                     return copy/part back tmp 2
                 ]
 
@@ -714,7 +723,7 @@ load-module: function [
             ]
         ]
 
-        block? source [
+        (block!) [
             if any [version as] [
                 cause-error 'script 'bad-refines blank
             ]
@@ -751,146 +760,159 @@ load-module: function [
 
     mod: default [_]
 
-    case/all [
-        ; Get info from preloaded or delayed modules
-        module? mod [
-            delay: no-share: _ hdr: meta-of mod
-            ensure [block! blank!] hdr/options
-        ]
-        block? mod [set* [hdr: code:] mod]
+    ; Get info from preloaded or delayed modules
+    if module? mod [
+        delay: no-share: _ hdr: meta-of mod
+        ensure [block! blank!] hdr/options
+    ]
+    if block? mod [
+        set* [hdr: code:] mod
+    ]
 
-        ; module/block mod used later for override testing
+    ; module/block mod used later for override testing
 
-        ; Get and process the header
-        unset? 'hdr [
-            ; Only happens for string, binary or non-extension file/url source
-            set [hdr: code: line:] load-header/required data
-            case [
-                word? hdr [cause-error 'syntax hdr source]
-                import [
-                    ; /import overrides 'delay option
-                ]
-                not delay [delay: did find hdr/options 'delay]
+    ; Get and process the header
+    if unset? 'hdr [
+        ; Only happens for string, binary or non-extension file/url source
+        set [hdr: code: line:] load-header/required data
+        case [
+            word? hdr [cause-error 'syntax hdr source]
+            import [
+                ; /import overrides 'delay option
             ]
+            not delay [delay: did find hdr/options 'delay]
         ]
-        no-share [
-            hdr/options: append any [hdr/options make block! 1] 'isolate
+    ] else [
+        ; !!! Some circumstances, e.g. `do <json>`, will wind up not passing
+        ; a URL! to this routine, but a MODULE!.  If so, it has already been
+        ; transcoded...so line numbers in the text are already accounted for.
+        ; These mechanics need to be better understood, but until it's known
+        ; exactly why it's working that way fake a line number so that the
+        ; rest of the code does not complain.
+        ;
+        line: 1
+    ]
+    if no-share [
+        hdr/options: append any [hdr/options make block! 1] 'isolate
+    ]
+
+    ; Unify hdr/name and /as name
+    if set? 'name [hdr/name: name] ; rename /as name
+    if unset? 'name [name: :hdr/name]
+
+    if not no-lib and (not word? :name) [ ; requires name for full import
+        ; Unnamed module can't be imported to lib, so /no-lib here
+        no-lib: true  ; Still not /no-lib in IMPORT
+
+        ; But make it a mixin and it will be imported directly later
+        if not find hdr/options 'private [
+            hdr/options: append any [hdr/options make block! 1] 'private
+        ]
+    ]
+    if not tuple? set* 'modver :hdr/version [
+        modver: 0.0.0 ; get version
+    ]
+
+    ; See if it's there already, or there is something more recent
+    all [
+        ; set to false later if existing module is used
+        | override?: not no-lib
+        | set [name0: mod0:] pos: find/skip system/modules name 2
+    ] then [
+        ; Get existing module's info
+
+        if module? :mod0 [hdr0: meta-of mod0] ; final header
+        if block? :mod0 [hdr0: first mod0] ; cached preparsed header
+
+        ensure word! name0
+        ensure object! hdr0
+
+        if not tuple? ver0: :hdr0/version [
+            ver0: 0.0.0
         ]
 
-        ; Unify hdr/name and /as name
-        set? 'name [hdr/name: name] ; rename /as name
-        unset? 'name [name: :hdr/name]
-
-        all [not no-lib not word? :name] [ ; requires name for full import
-            ; Unnamed module can't be imported to lib, so /no-lib here
-            no-lib: true  ; Still not /no-lib in IMPORT
-
-            ; But make it a mixin and it will be imported directly later
-            if not find hdr/options 'private [
-                hdr/options: append any [hdr/options make block! 1] 'private
+        ; Compare it to the module we want to load
+        case [
+            same? mod mod0 [
+                override?: not any [delay module? mod] ; here already
             ]
-        ]
-        not tuple? set* 'modver :hdr/version [
-            modver: 0.0.0 ; get version
-        ]
 
-        ; See if it's there already, or there is something more recent
-        all [
-            ; set to false later if existing module is used
-            | override?: not no-lib
-            | set [name0: mod0:] pos: find/skip system/modules name 2
-        ] [
-            ; Get existing module's info
-            case/all [
-                module? :mod0 [hdr0: meta-of mod0] ; final header
-                block? :mod0 [hdr0: first mod0] ; cached preparsed header
-
-                elide (
-                    ensure word! name0
-                    ensure object! hdr0
-                )
-
-                not tuple? ver0: :hdr0/version [ver0: 0.0.0]
-            ]
-
-            ; Compare it to the module we want to load
-            case [
-                same? mod mod0 [
-                    override?: not any [delay module? mod] ; here already
-                ]
-
-                module? mod0 [
-                    ; premade module
-                    pos: _  ; just override, don't replace
-                    if ver0 >= modver [
-                        ; it's at least as new, use it instead
-                        mod: mod0 | hdr: hdr0 | code: _
-                        modver: ver0
-                        override?: false
-                    ]
-                ]
-
-                ; else is delayed module
-                ver0 > modver [ ; and it's newer, use it instead
-                    mod: _ set [hdr code] mod0
+            module? mod0 [
+                ; premade module
+                pos: _  ; just override, don't replace
+                if ver0 >= modver [
+                    ; it's at least as new, use it instead
+                    mod: mod0 | hdr: hdr0 | code: _
                     modver: ver0
-                    ext: all [(object? code) code] ; delayed extension
-                    override?: not delay  ; stays delayed if /delay
+                    override?: false
                 ]
             ]
-        ]
 
-        not module? mod [
-            mod: _ ; don't need/want the block reference now
-        ]
-
-        version and (ver > modver) [
-            cause-error 'syntax 'needs reduce [name ver]
-        ]
-
-        ; If no further processing is needed, shortcut return
-        all [not override? any [mod delay]] [return reduce [name mod]]
-
-        ; If /delay, save the intermediate form
-        delay [mod: reduce [hdr either object? ext [ext] [code]]]
-
-        ; Else not /delay, make the module if needed
-        not mod [
-            ; not prebuilt or delayed, make a module
-            case/all [
-                find hdr/options 'isolate [no-share: true] ; in case of delay
-
-                object? code [ ; delayed extension
-                    fail "Code has not been updated for LOAD-EXT-MODULE"
-
-                    set [hdr: code:] load-ext-module code
-                    hdr/name: name ; in case of delayed rename
-                    if all [no-share not find hdr/options 'isolate] [
-                        hdr/options: append any [hdr/options make block! 1] 'isolate
-                    ]
-                ]
-
-                binary? code [code: to block! code]
-            ]
-
-            ensure object! hdr
-            ensure block! code
-
-            mod: catch/quit [
-                module/mixin hdr code (opt do-needs/no-user hdr)
+            ; else is delayed module
+            ver0 > modver [ ; and it's newer, use it instead
+                mod: _ set [hdr code] mod0
+                modver: ver0
+                ext: all [(object? code) code] ; delayed extension
+                override?: not delay  ; stays delayed if /delay
             ]
         ]
+    ]
 
-        all [not no-lib override?] [
-            case/all [
-                pos [pos/2: mod] ; replace delayed module
+    if not module? mod [
+        mod: _ ; don't need/want the block reference now
+    ]
 
-                not pos [reduce/into [name mod] system/modules]
+    if version and (ver > modver) [
+        cause-error 'syntax 'needs reduce [name ver]
+    ]
 
-                all [module? mod not mixin? hdr block? select hdr 'exports] [
-                    resolve/extend/only lib mod hdr/exports ; no-op if empty
-                ]
+    ; If no further processing is needed, shortcut return
+    if (not override?) and (any [mod delay]) [return reduce [name mod]]
+
+    ; If /delay, save the intermediate form
+    if delay [
+        mod: reduce [hdr either object? ext [ext] [code]]
+    ]
+
+    ; Else not /delay, make the module if needed
+    if not mod [
+        ; not prebuilt or delayed, make a module
+
+        if find hdr/options 'isolate [no-share: true] ; in case of delay
+
+        if object? code [ ; delayed extension
+            fail "Code has not been updated for LOAD-EXT-MODULE"
+
+            set [hdr: code:] load-ext-module code
+            hdr/name: name ; in case of delayed rename
+            if all [no-share not find hdr/options 'isolate] [
+                hdr/options: append any [hdr/options make block! 1] 'isolate
             ]
+        ]
+
+        if binary? code [code: to block! code]
+
+        ensure object! hdr
+        ensure block! code
+
+        mod: catch/quit [
+            module/mixin hdr code (opt do-needs/no-user hdr)
+        ]
+    ]
+
+    if not no-lib and (override?) [
+        if pos [
+            pos/2: mod ; replace delayed module
+        ] else [
+            reduce/into [name mod] system/modules
+        ]
+
+        all [
+            module? mod
+            not mixin? hdr
+            block? select hdr 'exports
+        ] then [
+            resolve/extend/only lib mod hdr/exports ; no-op if empty
         ]
     ]
 
@@ -1005,7 +1027,7 @@ import: function [
 
         any [
             no-lib
-            find select hdr 'options 'private ; /no-lib causes private
+            did find select hdr 'options 'private ; /no-lib causes private
         ][
             ; It's a private module (mixin)
             ; we must add *all* of its exports to user
