@@ -607,7 +607,7 @@ REBOOL Form_Reduce_Throws(
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(out, f)) {
             Drop_Mold(mo);
-            Drop_Frame(f);
+            Abort_Frame(f);
             return TRUE;
         }
 

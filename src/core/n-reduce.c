@@ -63,7 +63,7 @@ REBOOL Reduce_Any_Array_Throws(
         if (Do_Next_In_Frame_Throws(reduced, f)) {
             Move_Value(out, reduced);
             DS_DROP_TO(dsp_orig);
-            Drop_Frame(f);
+            Abort_Frame(f);
             return TRUE;
         }
 
@@ -298,7 +298,7 @@ REBOOL Compose_Any_Array_Throws(
             )){
                 Move_Value(out, composed);
                 DS_DROP_TO(dsp_orig);
-                Drop_Frame(f);
+                Abort_Frame(f);
                 return TRUE;
             }
 
@@ -361,7 +361,7 @@ REBOOL Compose_Any_Array_Throws(
                 )) {
                     Move_Value(out, composed);
                     DS_DROP_TO(dsp_orig);
-                    Drop_Frame(f);
+                    Abort_Frame(f);
                     return TRUE;
                 }
 

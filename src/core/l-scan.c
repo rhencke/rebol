@@ -1011,6 +1011,12 @@ acquisition_loop:
                 Ensure_Value_Immutable(DS_TOP, locker);
             }
 
+            if (Is_Api_Value(splice)) { // moved to DS_TOP, can release *now*
+                REBARR *a = Singular_From_Cell(splice);
+                if (GET_SER_INFO(a, SERIES_INFO_API_RELEASE))
+                    rebRelease(m_cast(REBVAL*, splice)); // !!! m_cast
+            }
+
             break; } // push values to emit stack until UTF-8 or END
 
         case DETECTED_AS_SERIES: {

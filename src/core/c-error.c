@@ -312,16 +312,8 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
             Drop_Action_Core(f, drop_chunks);
         }
 
-        // See notes in Do_Va_Core() about how it is required by C standard
-        // to call va_end() after va_start().  If we longjmp past the point
-        // that called va_start(), we have to clean up the va_list else there
-        // could be undefined behavior.
-        //
-        if (FRM_IS_VALIST(f))
-            va_end(*f->source.vaptr);
-
         REBFRM *prior = f->prior;
-        Abort_Frame_Core(f); // will call va_end() if variadic frame
+        Abort_Frame(f); // will call va_end() if variadic frame
         f = prior;
     }
 
@@ -495,7 +487,7 @@ void Set_Location_Of_Error(
     //
     f = where;
     for (; f != NULL; f = f->prior) {
-        if (FRM_IS_VALIST(f)) {
+        if (not f->source.array) {
             //
             // !!! We currently skip any calls from C (e.g. rebRun()) and look
             // for calls from Rebol files for the file and line.  However,

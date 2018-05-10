@@ -231,53 +231,6 @@ inline static void UPDATE_EXPRESSION_START(REBFRM *f) {
     f->expr_index = f->source.index; // this is garbage if DO_FLAG_VA_LIST
 }
 
-inline static void Abort_Frame_Core(REBFRM *f) {
-    if (f->flags.bits & DO_FLAG_TOOK_FRAME_HOLD) {
-        //
-        // The frame was either never variadic, or it was but got spooled into
-        // an array by Reify_Va_To_Array_In_Frame()
-        //
-        assert(not FRM_IS_VALIST(f));
-
-        assert(GET_SER_INFO(f->source.array, SERIES_INFO_HOLD));
-        CLEAR_SER_INFO(f->source.array, SERIES_INFO_HOLD);
-    }
-    else if (FRM_IS_VALIST(f)) {
-        //
-        // Note: While on many platforms va_end() is a no-op, the C standard
-        // is clear it must be called...it's undefined behavior to skip it:
-        //
-        // http://stackoverflow.com/a/32259710/211160
-        //
-        // !!! If rebRun() allows transient elements to be put in the va_list
-        // with the expectation that they will be cleaned up by the end of
-        // the call, any remaining entries in the list would have to be
-        // fetched and processed here.
-        //
-        va_end(*f->source.vaptr);
-    }
-
-    assert(TG_Frame_Stack == f);
-    TG_Frame_Stack = f->prior;
-}
-
-inline static void Drop_Frame_Core(REBFRM *f) {
-  #if defined(STRESS_EXPIRED_FETCH)
-    free(f->stress);
-  #endif
-
-  #if defined(DEBUG_BALANCE_STATE)
-    //
-    // To keep from slowing down the debug build too much, Do_Core() doesn't
-    // check this every cycle, just on drop.  But if it's hard to find which
-    // exact cycle caused the problem, see BALANCE_CHECK_EVERY_EVALUATION_STEP
-    //
-    ASSERT_STATE_BALANCED(&f->state);
-  #endif
-    Abort_Frame_Core(f);
-}
-
-
 inline static void Push_Frame_At(
     REBFRM *f,
     REBARR *array,
@@ -321,12 +274,6 @@ inline static void Push_Frame(REBFRM *f, const REBVAL *v)
     Push_Frame_At(
         f, VAL_ARRAY(v), VAL_INDEX(v), VAL_SPECIFIER(v), DO_MASK_NONE
     );
-}
-
-inline static void Drop_Frame(REBFRM *f)
-{
-    assert(f->eval_type == REB_0);
-    Drop_Frame_Core(f);
 }
 
 
@@ -427,7 +374,10 @@ detect_again:;
             fail (error_ctx);
         }
 
-        f->source.vaptr = nullptr; // !!! for now, assume scan went to the end
+        // !!! for now, assume scan went to the end; ultimately it would need
+        // to pass the "source".
+        //
+        f->source.vaptr = NULL;
 
         if (DSP == dsp_orig) {
             //
@@ -492,9 +442,20 @@ detect_again:;
         panic (p);
 
     case DETECTED_AS_VALUE: {
-        const RELVAL *cell = cast(const RELVAL*, p);
+        const REBVAL *cell = cast(const REBVAL*, p);
         if (IS_VOID(cell))
             fail ("VOID cell leaked to API, see DEVOID() in C sources");
+
+        if (Is_Api_Value(cell)) {
+            //
+            // f->value will be protected from GC, but we can release the
+            // API handle, because special handling of f->value protects not
+            // just the cell's contents but the *API handle itself*
+            //
+            REBARR *a = Singular_From_Cell(cell);
+            if (GET_SER_INFO(a, SERIES_INFO_API_RELEASE))
+                rebRelease(m_cast(REBVAL*, cell)); // !!! m_cast
+        }
 
         f->source.array = nullptr;
         f->value = cell; // note that END is detected separately
@@ -508,11 +469,25 @@ detect_again:;
         
     case DETECTED_AS_END: {
         //
-        // We're at the end of the variadic input, so this is the end of
-        // the line.  va_end() is taken care of by Drop_Frame_Core()
+        // We're at the end of the variadic input, so end of the line.
         //
         f->value = nullptr;
         TRASH_POINTER_IF_DEBUG(f->source.pending);
+
+        // The va_end() is taken care of here, or if there is a throw/fail it
+        // is taken care of by Abort_Frame_Core()
+        //
+        va_end(*f->source.vaptr);
+        TRASH_POINTER_IF_DEBUG(f->source.vaptr);
+
+        // !!! Error reporting expects there to be an array.  The whole story
+        // of errors when there's a va_list is not told very well, and what
+        // will have to likely happen is that in debug modes, all valists
+        // are reified from the beginning, else there's not going to be
+        // a way to present errors in context.  Fake an empty array for now.
+        //
+        f->source.array = EMPTY_ARRAY;
+        f->source.index = 0;
         break; }
 
     case DETECTED_AS_TRASH_CELL:
@@ -567,12 +542,26 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
     }
     else if (not f->source.vaptr) {
         //
-        // We're not processing a C variadic at all, so the first END we hit
+        // The frame was either never variadic, or it was but got spooled into
+        // an array by Reify_Va_To_Array_In_Frame().  The first END we hit
         // is the full stop end.
         //
+        assert(not FRM_IS_VALIST(f));
+        TRASH_POINTER_IF_DEBUG(f->source.vaptr); // shouldn't look at again
+
         lookback = f->value;
         f->value = nullptr;
         TRASH_POINTER_IF_DEBUG(f->source.pending);
+
+        if (f->flags.bits & DO_FLAG_TOOK_FRAME_HOLD) {
+            assert(GET_SER_INFO(f->source.array, SERIES_INFO_HOLD));
+            CLEAR_SER_INFO(f->source.array, SERIES_INFO_HOLD);
+
+            // !!! Future features may allow you to move on to another array.
+            // If so, the "hold" bit would need to be reset like this.
+            //
+            f->flags.bits &= ~DO_FLAG_TOOK_FRAME_HOLD;
+        }
     }
     else {
         // A variadic can source arbitrary pointers, which can be detected
@@ -595,6 +584,94 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
   #endif
 
     return lookback;
+}
+
+
+inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
+    Derelativize(dest, f->value, f->specifier);
+    SET_VAL_FLAG(dest, VALUE_FLAG_UNEVALUATED);
+    f->gotten = END;
+    Fetch_Next_In_Frame(f);
+}
+
+
+inline static void Abort_Frame(REBFRM *f) {
+    //
+    // Abort_Frame() handles any work that wouldn't be done done naturally by
+    // feeding a frame to its natural end.
+    // 
+    if (FRM_AT_END(f))
+        goto pop;
+
+    if (FRM_IS_VALIST(f)) {
+        assert(not (f->flags.bits & DO_FLAG_TOOK_FRAME_HOLD));
+
+        // Aborting valist frames is done by just feeding all the values
+        // through until the end.  This is assumed to do any work, such
+        // as SERIES_INFO_API_RELEASE, which might be needed on an item.  It
+        // also ensures that va_end() is called, which happens when the frame
+        // manages to feed to the end.
+        //
+        // Note: While on many platforms va_end() is a no-op, the C standard
+        // is clear it must be called...it's undefined behavior to skip it:
+        //
+        // http://stackoverflow.com/a/32259710/211160
+
+        // !!! Since we're not actually fetching things to run them, this is
+        // overkill.  A lighter sweep of the va_list pointers that did just
+        // enough work to handle rebR() releases, and va_end()ing the list
+        // would be enough.  But for the moment, it's more important to keep
+        // all the logic in one place than to make variadic interrupts
+        // any faster...they're usually reified into an array anyway, so
+        // the frame processing the array will take the other branch.
+
+        while (not FRM_AT_END(f)) {
+            const RELVAL *dummy = Fetch_Next_In_Frame(f);
+            UNUSED(dummy);
+        }
+    }
+    else {
+        if (f->flags.bits & DO_FLAG_TOOK_FRAME_HOLD) {
+            //
+            // The frame was either never variadic, or it was but got spooled
+            // into an array by Reify_Va_To_Array_In_Frame()
+            //
+            assert(GET_SER_INFO(f->source.array, SERIES_INFO_HOLD));
+            CLEAR_SER_INFO(f->source.array, SERIES_INFO_HOLD);
+        }
+    }
+
+pop:;
+
+    assert(TG_Frame_Stack == f);
+    TG_Frame_Stack = f->prior;
+}
+
+
+inline static void Drop_Frame_Core(REBFRM *f) {
+  #if defined(STRESS_EXPIRED_FETCH)
+    free(f->stress);
+  #endif
+
+    assert(TG_Frame_Stack == f);
+    TG_Frame_Stack = f->prior;
+}
+
+inline static void Drop_Frame(REBFRM *f)
+{
+    assert(FRM_AT_END(f));
+
+  #if defined(DEBUG_BALANCE_STATE)
+    //
+    // To keep from slowing down the debug build too much, Do_Core() doesn't
+    // check this every cycle, just on drop.  But if it's hard to find which
+    // exact cycle caused the problem, see BALANCE_CHECK_EVERY_EVALUATION_STEP
+    //
+    ASSERT_STATE_BALANCED(&f->state);
+  #endif
+
+    assert(f->eval_type == REB_0);
+    Drop_Frame_Core(f);
 }
 
 
@@ -712,8 +789,8 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
     Drop_Frame_Core(child);
 
     assert(
-        FRM_IS_VALIST(child)
-        or FRM_AT_END(child)
+        FRM_AT_END(child)
+        or FRM_IS_VALIST(child)
         or parent->source.index != child->source.index
         or THROWN(out)
     );
@@ -731,13 +808,6 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
     return THROWN(out);
 }
 
-
-inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
-    Derelativize(dest, f->value, f->specifier);
-    SET_VAL_FLAG(dest, VALUE_FLAG_UNEVALUATED);
-    f->gotten = END;
-    Fetch_Next_In_Frame(f);
-}
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -950,16 +1020,12 @@ inline static void Reify_Va_To_Array_In_Frame(
         f->source.index = 0;
     }
 
-    // We're about to overwrite the va_list pointer in the f->source union,
-    // which means there'd be no way to call va_end() on it if we don't do it
-    // now.  The Do_Va_Core() routine is aware of this, and doesn't try to do
-    // a second va_end() if the conversion has happened here.
+    // Feeding the frame forward should have called va_end().  However, we
+    // are going to re-seed the source feed from the array we made, so we
+    // need to switch back to a null vaptr.
     //
-    // Note: Fail_Core() also has to do this tie-up of the va_list, since
-    // the Do_Core() call in Do_Va_Core() never returns.
-    //
-    va_end(*f->source.vaptr);
-    f->source.vaptr = nullptr;
+    assert(IS_POINTER_TRASH_DEBUG(f->source.vaptr));
+    f->source.vaptr = NULL;
 
     // special array...may contain voids and eval flip is kept
     f->source.array = Pop_Stack_Values_Keep_Eval_Flip(dsp_orig);
@@ -980,8 +1046,6 @@ inline static void Reify_Va_To_Array_In_Frame(
         SET_FRAME_VALUE(f, ARR_HEAD(f->source.array));
 
     f->source.pending = f->value + 1;
-
-    assert(not FRM_IS_VALIST(f)); // no longer a va_list fed frame
 }
 
 

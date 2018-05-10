@@ -447,11 +447,7 @@ REBNATIVE(test)
     INCLUDE_PARAMS_OF_TEST;
     UNUSED(ARG(value));
 
-    REBVAL *temp = rebRun("print mold trap [foo: does [foo] foo]", END);
+    rebElide("print", rebI(10), "if false [print", rebInteger(30), "]", END);
 
-    Move_Value(D_OUT, temp);
-    rebUnmanage(temp);
-    rebRelease(temp);
-
-    return R_OUT;
+    return R_VOID;
 }

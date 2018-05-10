@@ -317,19 +317,21 @@ void Enable_Ctrl_C(void)
 // Can't just use a TRAP when running user code, because it might legitimately
 // evaluate to an ERROR! value, as well as FAIL.  Uses rebRescue().
 
-struct sandbox_info {
-    REBVAL *group_or_block;
-    REBVAL *result;
-};
-
-REBVAL *Run_Sandboxed_Code(struct sandbox_info *info) {
+REBVAL *Run_Sandboxed_Code(REBVAL *group_or_block) {
     //
     // Don't want to use DO here, because that would add an extra stack
     // level of Rebol ACTION! in the backtrace.  See notes on rebRunInline()
     // for its possible future.
     //
-    info->result = rebRunInline(info->group_or_block);
-    return rebBlank(); // distinct type from rebRescue() ERROR! trapping
+    REBVAL *result = rebRunInline(group_or_block);
+    if (not result)
+        return result; // ownership will be proxied
+
+    DECLARE_LOCAL (temp);
+    Move_Value(temp, result);
+    rebRelease(result); // rebBlock does not honor rebR, why not?
+
+    return rebBlock(result, END); // ownership will be proxied
 }
 
 
@@ -497,11 +499,10 @@ int main(int argc, char *argv_ansi[])
     // find them...but for the moment we pass them as a BLOCK! in the
     // RESULT argument when the PRIOR code is blank, and let it unpack them.
     //
-    // Note that `code`, `result`, and `status` have to be freed each loop ATM.
+    // Note that `code`, and `result` have to be released each loop ATM.
     //
     REBVAL *code = rebBlank();
     REBVAL *result = rebBlock(exec_path, argv_block, extensions, END);
-    REBVAL *status = rebBlank();
 
     // References in the `result` BLOCK! keep the underlying series alive now
     //
@@ -544,8 +545,7 @@ int main(int argc, char *argv_ansi[])
             "lib/trap [ lib/catch/quit/with [",
                 host_console, // action! that takes 3 args, run it
                 rebUneval(code), // group!/block! executed prior (or blank!)
-                rebUneval(result), // previous `code` result, may be void
-                rebUneval(status), // blank! or error! (incl. uncaught throw)
+                rebUneval(result), // prior result in a block, or error/null
             "] lib/func [val [<opt> any-value!] name [<opt> any-value!]] [",
                 "do lib/make error! [",
                     "type: 'Script",
@@ -559,7 +559,6 @@ int main(int argc, char *argv_ansi[])
 
         rebRelease(code);
         rebRelease(result);
-        rebRelease(status);
 
         if (rebDid("lib/error?", trapped, END)) {
             //
@@ -576,8 +575,7 @@ int main(int argc, char *argv_ansi[])
                 rebPanic(trapped, END);
 
             code = rebRun("[#host-console-error]", END);
-            status = trapped;
-            result = nullptr;
+            result = trapped;
             no_recover = TRUE; // no second chances until user code runs
             goto recover;
         }
@@ -611,12 +609,8 @@ int main(int argc, char *argv_ansi[])
         // accept the cancellation or consider it an error condition or a
         // reason to fall back to the default skin).
         //
-        struct sandbox_info info;
-        info.group_or_block = code;
-        info.result = nullptr;
-
         Enable_Ctrl_C();
-        status = rebRescue(cast(REBDNG*, &Run_Sandboxed_Code), &info);
+        result = rebRescue(cast(REBDNG*, &Run_Sandboxed_Code), code);
         Disable_Ctrl_C();
 
         // If the custom DO and APPLY hooks were changed by the user code,
@@ -633,11 +627,6 @@ int main(int argc, char *argv_ansi[])
             Trace_Level = 0;
             Trace_Depth = 0;
         }
-
-        if (rebDid("lib/blank?", status, END))
-            result = info.result;
-        else
-            result = nullptr;
     }
 
     rebRelease(host_console);

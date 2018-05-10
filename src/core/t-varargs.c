@@ -226,7 +226,7 @@ REB_R Do_Vararg_Op_May_Throw(
             // this is a single use frame, whose state can be overwritten.
             //
             if (Do_Next_In_Frame_Throws(out, f_temp)) {
-                Drop_Frame(f_temp);
+                Abort_Frame(f_temp);
                 return R_OUT_IS_THROWN;
             }
 

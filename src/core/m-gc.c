@@ -915,7 +915,7 @@ static void Reify_Any_C_Valist_Frames(void)
 
     REBFRM *f = FS_TOP;
     for (; f != NULL; f = f->prior) {
-        if (FRM_IS_VALIST(f)) {
+        if (not FRM_AT_END(f) and FRM_IS_VALIST(f)) {
             const REBOOL truncated = TRUE;
             Reify_Va_To_Array_In_Frame(f, truncated);
         }
@@ -1140,8 +1140,8 @@ static void Mark_Frame_Stack_Deep(void)
             assert(f->source.pending != NULL); // lives in f->source.array
     #endif
 
-        ASSERT_ARRAY_MANAGED(f->source.array);
-        Queue_Mark_Array_Deep(f->source.array);
+        if (f->source.array)
+            Queue_Mark_Array_Deep(f->source.array);
 
         // END is possible, because the frame could be sitting at the end of
         // a block when a function runs, e.g. `do [zero-arity]`.  That frame
@@ -1149,7 +1149,17 @@ static void Mark_Frame_Stack_Deep(void)
         // The array still might be used in an error, so can't GC it.
         //
         if (FRM_HAS_MORE(f)) {
-            if (f->flags.bits & DO_FLAG_VALUE_IS_INSTRUCTION)
+            if (Is_Api_Value(f->value)) {
+                //
+                // An API value cell may have been rebRelease'd(), via the
+                // SERIES_INFO_API_RELEASE mechanic.  But the cell must be
+                // kept alive so long as the frame holds onto it.  There may
+                // be a way to do this by rebRelease-ing the previous value
+                // on each advancement, but for now this is easier to see.
+                //
+                Queue_Mark_Singular_Array(Singular_From_Cell(f->value));
+            }
+            else if (f->flags.bits & DO_FLAG_VALUE_IS_INSTRUCTION)
                 Queue_Mark_Singular_Array(Singular_From_Cell(f->value));
             else
                 Queue_Mark_Value_Deep(f->value);
@@ -1542,7 +1552,7 @@ REBCNT Recycle_Core(REBOOL shutdown, REBSER *sweeplist)
     //
     Mark_Root_Series();
 
-    if (!shutdown) {
+    if (not shutdown) {
         Mark_Natives();
         Mark_Symbol_Series();
 
@@ -1555,7 +1565,6 @@ REBCNT Recycle_Core(REBOOL shutdown, REBSER *sweeplist)
         Propagate_All_GC_Marks();
 
         Mark_Devices_Deep();
-
     }
 
     // SWEEPING PHASE

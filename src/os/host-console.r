@@ -315,10 +315,8 @@ host-console: function [
         [block! group! integer!] ;-- Note: RETURN is hooked/overridden!!!
     prior "BLOCK! or GROUP! that last invocation of HOST-CONSOLE requested"
         [blank! block! group!]
-    result "The result from evaluating PRIOR, unless error (then use STATUS)"
+    result "Result from evaluating PRIOR in a 1-element BLOCK!, or error/null"
         [<opt> any-value!]
-    status "BLANK! if no error, or ERROR! if problem (includes HALT, QUIT...)"
-        [blank! error!]
 ][
     ; We hook the RETURN function so that it actually returns an instruction
     ; that the code can build up from multiple EMIT statements.
@@ -404,7 +402,7 @@ host-console: function [
         ; result.  These should probably be injected into the environment
         ; somehow instead.
         ;
-        assert [not status | block? result | length of result = 3]
+        assert [block? result | length of result = 3]
         set [exec-path: argv: boot-exts:] result
         return (host-start exec-path argv boot-exts :emit :return)
     ]
@@ -427,31 +425,28 @@ host-console: function [
     ; https://en.wikipedia.org/wiki/Exit_status
     ;
     all [
-        error? status
-        status/id = 'no-catch
-        :status/arg2 = :QUIT ;; name
+        error? :result
+        result/id = 'no-catch
+        :result/arg2 = :QUIT ;; name
     ] then [
-        assert [unset? 'result]
-
         return <- 1 unless case [
-            null? :status/arg1 [0] ;-- plain QUIT, no /WITH, call that success
+            null? :result/arg1 [0] ;-- plain QUIT, no /WITH, call that success
 
-            blank? :status/arg1 [0] ;-- consider blank also to be success
+            blank? :result/arg1 [0] ;-- consider blank also to be success
 
-            integer? :status/arg1 [status/arg1] ;-- may be out of status range
+            integer? :result/arg1 [result/arg1] ;-- may be out of status range
 
-            error? :status/arg1 [1] ;-- !!! integer error mapping deprecated
+            error? :result/arg1 [1] ;-- !!! integer error mapping deprecated
         ]
     ]
 
     ; HALT handling (uncaught THROW/NAME with the name as the HALT ACTION!)
     ;
     all [
-        error? status
-        status/id = 'no-catch
-        :status/arg2 = :HALT ;; name
+        error? :result
+        result/id = 'no-catch
+        :result/arg2 = :HALT ;; name
     ] then [
-        assert [unset? 'result]
         if find directives #quit-if-halt [
             return 128 + 2 ; standard cancellation exit status for bash
         ]
@@ -470,17 +465,16 @@ host-console: function [
         return <prompt>
     ]
 
-    if error? status [
-        assert [unset? 'result]
-
+    if error? :result [ ;-- all other errors
+        ;
         ; Errors can occur during HOST-START, before the SYSTEM/CONSOLE has
         ; a chance to be initialized (it may *never* be initialized if the
         ; interpreter is being called non-interactively from the shell).
         ;
         if object? system/console [
-            emit [system/console/print-error ((status))]
+            emit [system/console/print-error ((:result))]
         ] else [
-            emit [print ((status))]
+            emit [print ((:result))]
         ]
         if find directives #die-if-error [
             return <die>
@@ -516,7 +510,7 @@ host-console: function [
                 not find directives #no-unskin-if-error [
                     print "** UNSAFE ERROR ENCOUNTERED IN CONSOLE SKIN"
                 ]
-                print mold status
+                print mold result
             ] also [
                 print "** REVERTING TO DEFAULT SKIN"
                 system/console: make console! []
@@ -526,7 +520,12 @@ host-console: function [
         return <prompt>
     ]
 
-    assert [blank? status] ;-- no failure or halts during last execution
+    if block? :result [
+        assert [length of result = 1]
+        result: :result/1
+    ] else [
+        assert [unset? 'result]
+    ]
 
     if group? prior [ ;-- plain execution of user code
         emit [system/console/print-result ((uneval :result))]

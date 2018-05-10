@@ -457,7 +457,7 @@ return_not_thrown:
     if (label_out != NULL)
         *label_out = pvs->opt_label;
 
-    Abort_Frame_Core(pvs);
+    Abort_Frame(pvs);
 
 #if !defined(NDEBUG)
     if (kind == REB_SET_PATH)
@@ -468,7 +468,7 @@ return_not_thrown:
     return FALSE;
 
 return_thrown:
-    Abort_Frame_Core(pvs);
+    Abort_Frame(pvs);
 
     assert(THROWN(out));
     return TRUE;

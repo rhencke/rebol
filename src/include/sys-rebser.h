@@ -293,7 +293,7 @@
 // be used for anything but optimizations.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(GENERAL_ARRAY_BIT + 5 < 32, "ARRAY_FLAG_XXX too high");
+    static_assert(GENERAL_ARRAY_BIT + 6 < 32, "ARRAY_FLAG_XXX too high");
 #endif
 
 
@@ -490,6 +490,20 @@
     FLAGIT_LEFT(13)
 
 
+//=//// SERIES_INFO_API_RELEASE ///////////////////////////////////////////=//
+//
+// The rebT() function can be used with an API handle to tell a variadic
+// function to release that handle after encountering it.
+//
+// !!! API handles are singular arrays, because there is already a stake in
+// making them efficient.  However it means they have to share header and
+// info bits, when most are not applicable to them.  This is a tradeoff, and
+// contention for bits may become an issue in the future.
+//
+#define SERIES_INFO_API_RELEASE \
+    FLAGIT_LEFT(14)
+
+
 // ^-- STOP AT FLAGIT_LEFT(15) --^
 //
 // The rightmost 16 bits of the series info is used to store an 8 bit length
@@ -497,7 +511,7 @@
 // flags need to stop at FLAGIT_LEFT(15).
 //
 #ifdef CPLUSPLUS_11
-    static_assert(13 < 16, "SERIES_INFO_XXX too high");
+    static_assert(14 < 16, "SERIES_INFO_XXX too high");
 #endif
 
 

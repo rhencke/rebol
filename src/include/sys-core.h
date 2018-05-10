@@ -783,8 +783,8 @@ extern MAKE_CFUNC Make_Dispatch[REB_MAX];
 extern TO_CFUNC To_Dispatch[REB_MAX];
 extern MOLD_CFUNC Mold_Or_Form_Dispatch[REB_MAX];
 
+#include "sys-roots.h"
 
 #include "sys-do.h"
 #include "sys-path.h"
 
-#include "sys-roots.h"

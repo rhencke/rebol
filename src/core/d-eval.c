@@ -56,17 +56,6 @@
 //
 void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
 {
-    if (FRM_IS_VALIST(f)) {
-        //
-        // NOTE: This reifies the va_list in the frame, and hence has side
-        // effects.  It may need to be commented out if the problem you are
-        // trapping with TICK_BREAKPOINT or C-DEBUG-BREAK was specifically
-        // related to va_list frame processing.
-        //
-        const REBOOL truncated = TRUE;
-        Reify_Va_To_Array_In_Frame(f, truncated);
-    }
-
     DECLARE_LOCAL (dump);
 
     if (current != NULL) {
@@ -86,6 +75,17 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
     }
     else {
         printf("Dump_Frame_Location() rest\n");
+
+        if (FRM_IS_VALIST(f)) {
+            //
+            // NOTE: This reifies the va_list in the frame, and hence has side
+            // effects.  It may need to be commented out if the problem you
+            // are trapping with TICK_BREAKPOINT or C-DEBUG-BREAK was
+            // specifically related to va_list frame processing.
+            //
+            const REBOOL truncated = TRUE;
+            Reify_Va_To_Array_In_Frame(f, truncated);
+        }
 
         Init_Any_Series_At_Core(
             dump,

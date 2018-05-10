@@ -85,8 +85,10 @@ static inline void CATCH_THROWN(REBVAL *arg_out, REBVAL *thrown) {
 
 #define FS_TOP (TG_Frame_Stack + 0) // avoid assignment to FS_TOP via + 0
 
-#define FRM_IS_VALIST(f) \
-    ((f)->source.vaptr != NULL)
+inline static REBOOL FRM_IS_VALIST(REBFRM *f) {
+    assert(not IS_POINTER_TRASH_DEBUG(f->source.vaptr));
+    return f->source.vaptr != NULL;
+}
 
 #define FRM_AT_END(f) \
     ((f)->value == NULL)
@@ -95,7 +97,7 @@ static inline void CATCH_THROWN(REBVAL *arg_out, REBVAL *thrown) {
     ((f)->value != NULL)
 
 inline static REBARR *FRM_ARRAY(REBFRM *f) {
-    assert(!FRM_IS_VALIST(f));
+    assert(FRM_AT_END(f) or not FRM_IS_VALIST(f));
     return f->source.array;
 }
 
@@ -106,14 +108,15 @@ inline static REBARR *FRM_ARRAY(REBFRM *f) {
 // to accurately present any errors.
 //
 inline static REBCNT FRM_INDEX(REBFRM *f) {
-    assert(!FRM_IS_VALIST(f));
-    return FRM_AT_END(f)
-        ? ARR_LEN(f->source.array)
-        : f->source.index - 1;
+    if (FRM_AT_END(f))
+        return ARR_LEN(f->source.array);
+
+    assert(not FRM_IS_VALIST(f));
+    return f->source.index - 1;
 }
 
 inline static REBCNT FRM_EXPR_INDEX(REBFRM *f) {
-    assert(!FRM_IS_VALIST(f));
+    assert(not FRM_IS_VALIST(f));
     return f->expr_index == END_FLAG
         ? ARR_LEN((f)->source.array)
         : f->expr_index - 1;

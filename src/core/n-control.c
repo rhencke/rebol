@@ -464,7 +464,7 @@ REBNATIVE(match)
 
         (*PG_Do)(f);
 
-        Drop_Frame_Core(f);
+        Drop_Frame_Core(f); // !!! Drop_Frame() asserts f->eval_type as REB_0
 
         if (THROWN(D_CELL)) {
             Move_Value(D_OUT, D_CELL);
@@ -566,7 +566,7 @@ REBNATIVE(all)
 
         while (FRM_HAS_MORE(f)) {
             if (Do_Next_In_Frame_Throws(D_CELL, f)) {
-                Drop_Frame(f);
+                Abort_Frame(f);
                 Move_Value(D_OUT, D_CELL);
                 return R_OUT_IS_THROWN;
             }
@@ -575,7 +575,7 @@ REBNATIVE(all)
                 continue;
 
             if (IS_FALSEY(D_CELL)) { // failure signified with BLANK!
-                Drop_Frame(f);
+                Abort_Frame(f);
                 return R_BLANK;
             }
 
@@ -590,7 +590,7 @@ REBNATIVE(all)
 
         while (FRM_HAS_MORE(f)) {
             if (Do_Next_In_Frame_Throws(D_OUT, f)) {
-                Drop_Frame(f);
+                Abort_Frame(f);
                 return R_OUT_IS_THROWN;
             }
 
@@ -598,7 +598,7 @@ REBNATIVE(all)
                 fail (Error_No_Return_Raw());
 
             if (IS_FALSEY(D_OUT)) { // failure signified with BLANK!
-                Drop_Frame(f);
+                Abort_Frame(f);
                 return R_BLANK;
             }
         }
@@ -633,7 +633,7 @@ REBNATIVE(any)
 
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(D_OUT, f)) {
-            Drop_Frame(f);
+            Abort_Frame(f);
             return R_OUT_IS_THROWN;
         }
 
@@ -645,7 +645,7 @@ REBNATIVE(any)
         }
 
         if (IS_TRUTHY(D_OUT)) { // successful ANY returns the value
-            Drop_Frame(f);
+            Abort_Frame(f);
             return R_OUT;
         }
 
@@ -688,7 +688,7 @@ REBNATIVE(none)
 
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(D_OUT, f)) {
-            Drop_Frame(f);
+            Abort_Frame(f);
             return R_OUT_IS_THROWN;
         }
 
@@ -700,7 +700,7 @@ REBNATIVE(none)
         }
 
         if (IS_TRUTHY(D_OUT)) { // any true results mean failure
-            Drop_Frame(f);
+            Abort_Frame(f);
             return R_BLANK;
         }
 
@@ -739,7 +739,7 @@ static REB_R Case_Choose_Core(
 
         if (Do_Next_In_Frame_Throws(cell, f)) {
             Move_Value(out, cell);
-            Drop_Frame(f);
+            Abort_Frame(f);
             return R_OUT_IS_THROWN;
         }
 
@@ -785,7 +785,7 @@ static REB_R Case_Choose_Core(
             //
             if (IS_QUOTABLY_SOFT(f->value)) {
                 if (Eval_Value_Core_Throws(out, f->value, f->specifier)) {
-                    Drop_Frame(f);
+                    Abort_Frame(f);
                     return R_OUT_IS_THROWN;
                 }
             } else
@@ -801,7 +801,7 @@ static REB_R Case_Choose_Core(
             Move_Value(block, cell); // only needed for CASE, not CHOOSE
             if (Eval_Value_Core_Throws(cell, f->value, f->specifier)) {
                 Move_Value(out, cell);
-                Drop_Frame(f);
+                Abort_Frame(f);
                 return R_OUT_IS_THROWN;
             }
 
@@ -811,13 +811,13 @@ static REB_R Case_Choose_Core(
             // Note that block now holds the cached evaluated condition
             //
             if (Run_Branch_Throws(out, block, cell, only)) {
-                Drop_Frame(f);
+                Abort_Frame(f);
                 return R_OUT_IS_THROWN;
             }
         }
 
         if (not all) {
-            Drop_Frame(f);
+            Abort_Frame(f);
             return R_OUT;
         }
 
@@ -954,7 +954,7 @@ REBNATIVE(switch)
         if (IS_QUOTABLY_SOFT(f->value)) {
             if (Eval_Value_Core_Throws(D_CELL, f->value, f->specifier)) {
                 Move_Value(D_OUT, D_CELL);
-                Drop_Frame(f);
+                Abort_Frame(f);
                 return R_OUT_IS_THROWN;
             }
         }
@@ -1000,14 +1000,14 @@ REBNATIVE(switch)
         //
         Derelativize(ARG(cases), f->value, f->specifier);
         if (Run_Branch_Throws(D_OUT, D_CELL, ARG(cases), REF(only))) {
-            Drop_Frame(f);
+            Abort_Frame(f);
             return R_OUT_IS_THROWN;
         }
 
         // Only keep processing if the /ALL refinement was specified
 
         if (not REF(all)) {
-            Drop_Frame(f);
+            Abort_Frame(f);
             return R_OUT;
         }
     }

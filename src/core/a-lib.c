@@ -429,7 +429,7 @@ void RL_rebShutdown(REBOOL clean)
     // committing unfinished data to disk.  So really there is
     // nothing to do in the case of an "unclean" shutdown...yet.
 
-  #if !defined(NDEBUG)
+  #if defined(NDEBUG)
     if (not clean)
         return; // Only do the work above this line in an unclean shutdown
   #else
@@ -786,6 +786,32 @@ const void *RL_rebUneval(const REBVAL *v)
 
 
 //
+//  rebR: RL_API
+//
+// Convenience tool for making "auto-release" form of values.  They will only
+// exist for one API call.  They will be automatically rebRelease()'d when
+// they are seen (or even if they are not seen, if there is a failure on that
+// call it will still process the va_list in order to release these handles)
+//
+// Though what is returned is a REBVAL*, it is returned as a const void*,
+// in order to discourage using these anywhere than as an argument to a
+// variadic API like rebRun().
+//
+const void *RL_rebR(REBVAL *v)
+{
+    if (not Is_Api_Value(v))
+        fail ("Cannot apply rebR() to non-API value");
+
+    REBARR *a = Singular_From_Cell(v);
+    if (GET_SER_INFO(a, SERIES_INFO_API_RELEASE))
+        fail ("Cannot apply rebR() more than once to the same API value");
+
+    SET_SER_INFO(a, SERIES_INFO_API_RELEASE);
+    return v;
+}
+
+
+//
 //  rebBlank: RL_API
 //
 REBVAL *RL_rebBlank(void)
@@ -830,6 +856,19 @@ REBVAL *RL_rebInteger(REBI64 i)
 {
     Enter_Api();
     return Init_Integer(Alloc_Value(), i);
+}
+
+
+//
+//  rebI: RL_API
+//
+// Convenience form of `rebR(rebInteger(i))`.
+//
+const void *RL_rebI(REBI64 i)
+{
+    Enter_Api();
+
+    return rebR(rebInteger(i));
 }
 
 
@@ -983,6 +1022,24 @@ int RL_rebEvent(REBEVT *evt)
 
 
 //
+//  rescue: native [
+//
+//  {Dummy ACTION! for rebRescue() API to hinge stray allocations to}
+//
+//  ]
+//
+REBNATIVE(rescue)
+//
+// !!! *VERY* temporary hack, because API handles must be owned by frames
+// that can be reified.  The system currently does not allow the reification
+// of non-ACTION! frames.
+{
+    UNUSED(frame_);
+    return R_UNHANDLED;
+}
+
+
+//
 //  rebRescue: RL_API
 //
 // This API abstracts the mechanics by which exception-handling is done.
@@ -1029,6 +1086,35 @@ REBVAL *RL_rebRescue(
 ){
     Enter_Api();
 
+    // We want allocations that occur in the body of the C function for the
+    // rebRescue() to be automatically cleaned up in the case of an error.
+    //
+    // !!! This is currently done by knowing what frame an error occurred in
+    // and marking any allocations while that frame was in effect as being
+    // okay to "leak" (in the sense of leaking to be GC'd).  So we have to
+    // make a dummy frame here, and unfortunately the frame must be reified
+    // so it has to be an "action frame".  Improve mechanic later, but for
+    // now pretend to be applying a dummy native.
+    //
+    DECLARE_FRAME (f);
+    f->out = m_cast(REBVAL*, END); // should not be written
+
+    Push_Frame_For_Apply(f);
+    Push_Action(
+        f,
+        NULL, // opt_label
+        NAT_ACTION(rescue),
+        UNBOUND
+    );
+  #if !defined(NDEBUG)
+    Prep_Stack_Cell(f->arg);
+    Init_Unreadable_Blank(f->arg);
+  #endif
+    f->param = END; // signal all arguments gathered
+    f->refine = NULL;
+    f->arg = NULL;
+    f->special = NULL;
+
     struct Reb_State state;
     REBCTX *error_ctx;
 
@@ -1037,15 +1123,25 @@ REBVAL *RL_rebRescue(
     // The first time through the following code 'error' will be null, but...
     // `fail` can longjmp here, so 'error' won't be null *if* that happens!
     //
-    if (error_ctx)
+    if (error_ctx) {
+        if (f->varlist) // was reified
+            SET_SER_INFO(f->varlist, FRAME_INFO_FAILED);
+        Drop_Action_Core(f, TRUE);
+        Abort_Frame(f);
         return Init_Error(Alloc_Value(), error_ctx);
+    }
 
     REBVAL *result = (*dangerous)(opaque);
 
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 
+    Drop_Action_Core(f, TRUE); // drop_chunks = TRUE
+    Drop_Frame_Core(f); // stack may not balance
+
     if (not result)
         return nullptr; // null is considered a legal result
+
+    assert(not IS_VOID(result)); // leaked non-API null
 
     // Analogous to how TRAP works, if you don't have a handler for the
     // error case then you can't return an ERROR!, since all errors indicate
@@ -1056,12 +1152,15 @@ REBVAL *RL_rebRescue(
         return nullptr;
     }
 
-    if (IS_VOID(result)) {
-        rebRelease(result);
-        return nullptr;
-    }
+    // !!! We automatically proxy the ownership of any managed handles to the
+    // caller.  Any other handles that leak out (e.g. via state) will not be
+    // covered by this, and would have to be unmanaged.  Do another allocation
+    // just for the sake of it.
 
-    return result;
+    assert(Is_Api_Value(result)); // !!! this could be relaxed if need be
+    REBVAL *proxy = Move_Value(Alloc_Value(), result); // parent is not f
+    rebRelease(result);
+    return proxy;
 }
 
 
