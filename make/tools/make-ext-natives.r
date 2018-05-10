@@ -87,10 +87,7 @@ proto-parser/process source.text
 
 
 ;
-; At this point the natives will all be in the UNSORTED-BUFFER.  Extensions
-; have added a concept of adding words (as from %words.r) for use as symbols,
-; as well as errors--both possible to specify in the C comments just like
-; the native headers have.
+; At this point the natives will all be in the UNSORTED-BUFFER.
 ;
 
 native-list: load unsorted-buffer
@@ -98,7 +95,6 @@ native-list: load unsorted-buffer
 
 native-spec: make object! [
     spec: _
-    words: _
     errors: _
     platforms: _
     name: _
@@ -107,7 +103,6 @@ native-spec: make object! [
 native-specs: copy []
 
 spec: _
-words: _
 errors: _
 platforms: _
 n-name: _
@@ -119,7 +114,7 @@ native-list-rule: [
                 |
             'native/body 2 block!
                 |
-                [
+            [
                 'native/export block!
                     |
                 'native/export/body 2 block!
@@ -133,7 +128,6 @@ native-list-rule: [
                     name: (to lit-word! n-name)
                     spec: (copy n-spec)
                     errors: (try copy errors)
-                    words: (try copy words)
                     platforms: (try copy platforms)
                 ]
             ]
@@ -141,14 +135,9 @@ native-list-rule: [
             n-name: w
             n-spec: spec
             spec: _
-            words: _
             errors: _
             platforms: _
         )
-            |
-        remove [
-            quote new-words: set words block!
-        ]
             |
         remove [
             quote new-errors: set errors block!
@@ -162,8 +151,7 @@ native-list-rule: [
 
 parse native-list native-list-rule or [
     fail [
-        "failed to parse" mold native-list ":"
-        "current word-list:" mold word-list
+        "failed to parse" mold native-list
     ]
 ]
 
@@ -173,13 +161,11 @@ if not blank? n-name [
         name: (to lit-word! n-name)
         spec: (copy n-spec)
         errors: (try copy errors)
-        words: (try copy words)
         platforms: (try copy platforms)
     ]
 ]
 
 clear native-list
-word-list: copy []
 export-list: copy []
 error-list: copy []
 num-native: 0
@@ -214,22 +200,15 @@ for-each native native-specs [
         append export-list to word! native/name
     ]
     if not blank? native/errors [append error-list native/errors]
-    if not blank? native/words [append word-list native/words]
     append native-list reduce [to set-word! native/name]
     append native-list native/spec
 ]
 
 ;print ["specs:" mold native-list]
-word-list: unique word-list
 spec: compose/deep/only [
     REBOL [
         name: (to word! m-name)
         exports: (export-list)
-    ]
-]
-if not empty? word-list [
-    append spec compose/only [
-        words: (word-list)
     ]
 ]
 if not empty? error-list [
@@ -279,8 +258,6 @@ either num-native = 0 [ ;-- C++ doesn't support 0-length arrays
 
 e2/emit {
     int Module_Init_${Mod}(RELVAL *out) {
-        INIT_${MOD}_WORDS;
-
         Ext_${Mod}_Error_Base = Find_Next_Error_Base_Code();
         assert(Ext_${Mod}_Error_Base > 0);
         REBARR *arr = Make_Extension_Module_Array(
@@ -346,59 +323,6 @@ e1/emit {
         const REBVAL *N_${MOD}_##n(REBFRM *frame_)
 }
 e1/emit newline
-
-
-e1/emit {
-    /*
-    ** DEFINE WORDS TO BE USED BY THE EXTENSION FROM ITS C CODE
-    **
-    ** !!! These use REBSTR* pointers, which are not protected from garbage
-    ** collection.  They should be Alloc_Value()'d WORD!s, or WORD!s living
-    ** in an array that was Alloc_Value()'d...and rebRelease()'d on unload.
-    */
-
-    #define NUM_EXT_${MOD}_WORDS $<length of word-list>
-}
-e1/emit newline
-
-either empty? word-list [
-    e1/emit {
-        #define INIT_${MOD}_WORDS
-    }
-][
-    words1: collect [
-        for-next word-list [
-            keep unspaced [{"} to text! word-list/1 {"}]
-        ]
-    ]
-
-    e1/emit {
-        static const char* Ext_Words_${Mod}[NUM_EXT_${MOD}_WORDS] = {
-            $(Words1),
-        };
-    }
-
-    e1/emit {
-        static REBSTR* Ext_Canons_${Mod}[NUM_EXT_${MOD}_WORDS];
-    }
-
-    seq: 0
-    for-next word-list [
-        e1/emit {
-            #define ${MOD}_WORD_${WORD-LIST/1} Ext_Canons_${Mod}[$<seq>]
-        }
-        seq: seq + 1
-    ]
-
-    e1/emit {
-        #define INIT_${MOD}_WORDS \
-            Init_Extension_Words( \
-                cast(const REBYTE**, Ext_Words_${Mod}), \
-                Ext_Canons_${Mod}, \
-                NUM_EXT_${MOD}_WORDS \
-            )
-    }
-]
 
 
 e1/emit {
