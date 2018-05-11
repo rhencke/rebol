@@ -324,27 +324,6 @@ inline static void INIT_VAL_CONTEXT(REBVAL *v, REBCTX *c) {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// FIELD SELECTION
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// For performance reasons, most code within the core does not use lookups
-// by symbol in objects.  The specific objects the core deals with (e.g. in
-// %sysobj.r) have the indexes hardcoded for the fields it wants to access,
-// so it can just use CTX_VAR() to get the pointer directly, without needing
-// to canonize symbols or walk the keylist.  These routines are provided as
-// a convenience.
-//
-
-#define Get_Field(c, spelling) \
-    Get_Typed_Field((c), (spelling), REB_0) // will canonize
-
-#define Sink_Field(c, spelling) \
-    SINK(Get_Typed_Field(c, (spelling), REB_0)) // will canonize
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
 // LOCKING
 //
 //=////////////////////////////////////////////////////////////////////////=//

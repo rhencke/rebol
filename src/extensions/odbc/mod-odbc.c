@@ -54,18 +54,6 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-// !!! This helper shouldn't be necessary, when creating temporary indices
-// which are released by the evaluator is working.
-//
-inline static REBVAL *rebPickIndexed(const REBVAL *location, long index)
-{
-    REBVAL *picker = rebInteger(index);
-    REBVAL *result = rebRun("pick", location, picker, END);
-    rebRelease(picker);
-    return result;
-}
-
-
 #include "tmp-mod-odbc-first.h"
 
 
@@ -91,12 +79,6 @@ inline static REBVAL *rebPickIndexed(const REBVAL *location, long index)
     );
 #endif
 
-
-enum GET_CATALOG {
-    GET_CATALOG_TABLES,
-    GET_CATALOG_COLUMNS,
-    GET_CATALOG_TYPES
-}; // Used with ODBC_GetCatalog
 
 typedef struct {
     SQLULEN column_size;
@@ -214,7 +196,6 @@ static void cleanup_henv(const REBVAL *v) {
 //      spec [string!]
 //          {ODBC connection string, e.g. commonly "Dsn=DatabaseName"}
 //  ]
-//  new-words: [henv hdbc]
 //
 REBNATIVE(open_connection)
 //
@@ -300,19 +281,24 @@ REBNATIVE(open_connection)
         fail (error);
     }
 
-    REBCTX *connection = VAL_CONTEXT(ARG(connection));
+    DECLARE_LOCAL (henv_value);
     Init_Handle_Managed(
-        Sink_Field(connection, ODBC_WORD_HENV),
+        henv_value,
         henv, // pointer
         0, // size
         &cleanup_henv
     );
+
+    DECLARE_LOCAL (hdbc_value);
     Init_Handle_Managed(
-        Sink_Field(connection, ODBC_WORD_HDBC),
+        hdbc_value,
         hdbc, // pointer
         0, // size
         &cleanup_hdbc
     );
+
+    rebElide("poke", ARG(connection), "'henv", henv_value, END);
+    rebElide("poke", ARG(connection), "'hdbc", hdbc_value, END);
 
     return R_TRUE;
 }
@@ -325,7 +311,6 @@ REBNATIVE(open_connection)
 //      connection [object!]
 //      statement [object!]
 //  ]
-//  new-words: [hstmt]
 //
 REBNATIVE(open_statement)
 //
@@ -334,10 +319,12 @@ REBNATIVE(open_statement)
 {
     ODBC_INCLUDE_PARAMS_OF_OPEN_STATEMENT;
 
-    REBCTX *connection = VAL_CONTEXT(ARG(connection));
-    SQLHDBC hdbc = cast(SQLHDBC, VAL_HANDLE_VOID_POINTER(
-        Get_Typed_Field(connection, ODBC_WORD_HDBC, REB_HANDLE)
-    ));
+    REBVAL *connection = ARG(connection);
+    REBVAL *hdbc_value = rebRun(
+        "ensure handle! pick", connection, "'hdbc", END
+    );
+    SQLHDBC hdbc = VAL_HANDLE_POINTER(SQLHDBC, hdbc_value);
+    rebRelease(hdbc_value);
 
     SQLRETURN rc;
 
@@ -346,12 +333,14 @@ REBNATIVE(open_statement)
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Dbc(hdbc));
 
-    REBCTX *statement = VAL_CONTEXT(ARG(statement));
+    DECLARE_LOCAL (hstmt_value);
     Init_Handle_Simple(
-        Sink_Field(statement, ODBC_WORD_HSTMT),
+        hstmt_value,
         hstmt, // pointer
         0 // len
     );
+
+    rebElide("poke", ARG(statement), "'hstmt", hstmt_value, END);
 
     return R_TRUE;
 }
@@ -376,15 +365,14 @@ SQLRETURN ODBC_BindParameter(
     SQLSMALLINT c_type;
     SQLSMALLINT sql_type;
 
-    p->length = 0;
-    p->column_size = 0;
-    TRASH_POINTER_IF_DEBUG(p->buffer); // must be set
+    p->length = 0; // ignored for most types
+    p->column_size = 0; // also ignored for most types
+    TRASH_POINTER_IF_DEBUG(p->buffer); // required to be set by switch()
 
     switch (VAL_TYPE(v)) {
     case REB_BLANK: {
-        p->buffer = NULL;
         p->buffer_size = 0;
-        p->length = 0;
+        p->buffer = NULL;
 
         c_type = SQL_C_DEFAULT;
         sql_type = SQL_NULL_DATA;
@@ -433,8 +421,6 @@ SQLRETURN ODBC_BindParameter(
         time->minute = tf.m;
         time->second = tf.s; // cast(REBDEC, tf.s) + (tf.n * NANO) for precise
 
-        p->length = p->column_size = sizeof(TIME_STRUCT);
-
         c_type = SQL_C_TYPE_TIME;
         sql_type = SQL_TYPE_TIME;
         break; }
@@ -449,8 +435,6 @@ SQLRETURN ODBC_BindParameter(
             date->year = VAL_YEAR(v);
             date->month = VAL_MONTH(v);
             date->day = VAL_DAY(v);
-
-            p->length = p->column_size = sizeof(DATE_STRUCT);
 
             c_type = SQL_C_TYPE_DATE;
             sql_type = SQL_TYPE_DATE;
@@ -475,12 +459,16 @@ SQLRETURN ODBC_BindParameter(
         break; }
 
     case REB_STRING: {
-        REBCNT length;
-        SQLWCHAR *chars = rebSpellingOfAllocW(&length, v);
+        REBCNT len_no_term = rebSpellingOfW(NULL, 0, v); // first, get length 
+        SQLWCHAR *chars = OS_ALLOC_N(SQLWCHAR, len_no_term + 1);
+        
+        REBCNT len_check = rebSpellingOfW(chars, len_no_term, v); // now, get
+        assert(len_check == len_no_term);
+        UNUSED(len_check);
 
-        p->buffer_size = sizeof(SQLWCHAR) * length;
+        p->buffer_size = sizeof(SQLWCHAR) * len_no_term;
 
-        p->length = p->column_size = cast(SQLSMALLINT, 2 * length);
+        p->length = p->column_size = cast(SQLSMALLINT, 2 * len_no_term);
 
         c_type = SQL_C_WCHAR;
         sql_type = SQL_VARCHAR;
@@ -489,7 +477,7 @@ SQLRETURN ODBC_BindParameter(
 
     case REB_BINARY: {
         p->buffer_size = VAL_LEN_AT(v); // sizeof(char) guaranteed to be 1
-        p->buffer = ALLOC_N(char, p->buffer_size);
+        p->buffer = OS_ALLOC_N(char, p->buffer_size);
 
         if (p->buffer == NULL)
             fail ("Couldn't allocate parameter buffer!");
@@ -525,7 +513,7 @@ SQLRETURN ODBC_BindParameter(
 
 SQLRETURN ODBC_GetCatalog(
     SQLHSTMT hstmt,
-    enum GET_CATALOG which,
+    const REBVAL *which,
     REBVAL *block
 ){
     assert(IS_BLOCK(block)); // !!! Should it ensure exactly 4 items?
@@ -539,23 +527,35 @@ SQLRETURN ODBC_GetCatalog(
         // !!! What if not at head?  Original code seems incorrect, because
         // it passed the array at the catalog word, which is not a string.
         //
-        REBVAL *value = rebPickIndexed(block, arg + 1);
-        if (IS_STRING(value)) {
+        REBVAL *value = rebRun(
+            "opt ensure [string! blank!] try pick", block, rebI(arg + 1), END
+        );
+        if (value) {
             REBCNT len;
             pattern[arg] = rebSpellingOfAllocW(&len, KNOWN(value));
             length[arg] = len;
+            rebRelease(value);
         }
         else {
             length[arg] = 0;
             pattern[arg] = NULL;
         }
-        rebRelease(value);
     }
 
     SQLRETURN rc;
 
-    switch (which) {
-    case GET_CATALOG_TABLES:
+    int w = rebUnbox(
+        "switch ensure word!", which, "[",
+            "tables [1]",
+            "columns [2]",
+            "types [3]",
+        "] else [",
+            "fail {Catalog must be TABLES, COLUMNS, or TYPES}",
+        "]", END
+    );
+
+    switch (w) {
+    case 1:
         rc = SQLTablesW(
             hstmt,
             pattern[2], length[2], // catalog
@@ -565,7 +565,7 @@ SQLRETURN ODBC_GetCatalog(
         );
         break;
 
-    case GET_CATALOG_COLUMNS:
+    case 2:
         rc = SQLColumnsW(
             hstmt,
             pattern[3], length[3], // catalog
@@ -575,7 +575,7 @@ SQLRETURN ODBC_GetCatalog(
         );
         break;
 
-    case GET_CATALOG_TYPES:
+    case 3:
         rc = SQLGetTypeInfoW(hstmt, SQL_ALL_TYPES);
         break;
 
@@ -693,7 +693,7 @@ SQLRETURN ODBC_DescribeResults(
         //
         // int length = ODBC_UnCamelCase(column->title, title);
 
-        column->title_word = rebSizedWordW(title, title_length);
+        column->title_word = rebUnmanage(rebSizedWordW(title, title_length));
     }
 
     return SQL_SUCCESS;
@@ -858,17 +858,17 @@ SQLRETURN ODBC_BindColumns(
 //      sql [block!]
 //          {Dialect beginning with TABLES, COLUMNS, TYPES, or a SQL STRING!}
 //  ]
-//  new-words: [tables columns types titles string]
 //
 REBNATIVE(insert_odbc)
 {
     ODBC_INCLUDE_PARAMS_OF_INSERT_ODBC;
 
-    REBCTX *statement = VAL_CONTEXT(ARG(statement));
-    SQLHSTMT hstmt = VAL_HANDLE_POINTER(
-        SQLHSTMT,
-        Get_Typed_Field(statement, ODBC_WORD_HSTMT, REB_HANDLE)
+    REBVAL *statement = ARG(statement);
+    REBVAL *hstmt_value = rebRun(
+        "ensure handle! pick", statement, "'hstmt", END
     );
+    SQLHSTMT hstmt = VAL_HANDLE_POINTER(SQLHSTMT, hstmt_value);
+    rebRelease(hstmt_value);
 
     SQLRETURN rc;
 
@@ -889,45 +889,33 @@ REBNATIVE(insert_odbc)
     // The block passed in is used to form a query.
 
     REBCNT sql_index = 1;
-    REBVAL *value = rebPickIndexed(ARG(sql), sql_index);
-
-    if (IS_VOID(value)) {
-        rebRelease(value);
-        fail ("Empty array passed for SQL dialect");
-    }
+    REBVAL *value = rebRun(
+        "pick", ARG(sql), rebI(sql_index),
+        "else [fail {Empty array passed for SQL dialect}]", END
+    );
 
     REBOOL use_cache = FALSE;
 
-    switch (VAL_TYPE(value)) {
-    case REB_WORD: {
-        // Execute catalog function, when first element in the argument block
-        // is a (catalog) word
+    REBOOL get_catalog = rebDid(
+        "word? <- try match [word! string!]", value, "or [",
+            "fail {SQL dialect must start with WORD! or STRING! value}"
+        "]", END
+    );
 
-        if (SAME_STR(VAL_WORD_SPELLING(value), ODBC_WORD_TABLES))
-            rc = ODBC_GetCatalog(hstmt, GET_CATALOG_TABLES, ARG(sql));
-        else if (SAME_STR(VAL_WORD_SPELLING(value), ODBC_WORD_COLUMNS))
-            rc = ODBC_GetCatalog(hstmt, GET_CATALOG_COLUMNS, ARG(sql));
-        else if (SAME_STR(VAL_WORD_SPELLING(value), ODBC_WORD_TYPES))
-            rc = ODBC_GetCatalog(hstmt, GET_CATALOG_TYPES, ARG(sql));
-        else
-            fail ("Catalog must be TABLES, COLUMNS, or TYPES");
-        break; }
-
-    case REB_STRING: {
+    if (get_catalog) {
+        rc = ODBC_GetCatalog(hstmt, value, ARG(sql));
+    }
+    else {
         // Prepare/Execute statement, when first element in the block is a
         // (statement) string
 
         // Compare with previously prepared statement, and if not the same,
         // then prepare a new statement.
         //
-        REBVAL *previous = Get_Field(statement, ODBC_WORD_STRING);
-
-        if (IS_STRING(previous)) {
-            if (0 == Compare_String_Vals(value, previous, TRUE))
-                use_cache = TRUE;
-        }
-        else
-            assert(IS_BLANK(previous));
+        use_cache = rebDid(
+            value, "==",
+            "ensure [string! blank!] pick", statement, "'string", END
+        );
 
         if (not use_cache) {
             REBCNT length;
@@ -944,20 +932,17 @@ REBNATIVE(insert_odbc)
             //
             // !!! Could re-use value with existing series if read only
             //
-            Move_Value(
-                Sink_Field(statement, ODBC_WORD_STRING),
-                rebCopyExtra(value, 0)
-            );
+            rebElide("poke", statement, "'string", "(copy", value, ")", END);
         }
+        rebRelease(value);
 
         // The SQL string may contain ? characters, which indicates that it is
         // a parameterized query.  The separation of the parameters into a
         // different quarantined part of the query is to protect against SQL
         // injection.
 
-        REBCNT num_params = rebLengthOf(ARG(sql)) - 1; // don't count the sql
-        rebRelease(value);
-        value = rebPickIndexed(ARG(sql), ++sql_index);
+        REBCNT num_params = rebLengthOf(ARG(sql)) - sql_index; // after SQL
+        ++sql_index;
 
         PARAMETER *params = NULL;
         if (num_params != 0) {
@@ -965,8 +950,9 @@ REBNATIVE(insert_odbc)
             if (params == NULL)
                 fail ("Couldn't allocate parameter buffer!");
 
-            REBCNT n = 0;
-            while (n < num_params) {
+            REBCNT n;
+            for (n = 0; n < num_params; ++n, ++sql_index) {
+                value = rebRun("pick", ARG(sql), rebI(sql_index), END);
                 rc = ODBC_BindParameter(
                     hstmt,
                     &params[n],
@@ -976,12 +962,7 @@ REBNATIVE(insert_odbc)
                 rebRelease(value);
                 if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
                     fail (Error_ODBC_Stmt(hstmt));
-
-                ++n;
-                value = rebPickIndexed(ARG(sql), ++sql_index);
             }
-
-            assert(IS_END(value));
         }
 
         // Execute statement, but don't check result code until after the
@@ -1000,11 +981,6 @@ REBNATIVE(insert_odbc)
 
         if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
             fail (Error_ODBC_Stmt(hstmt));
-
-        break; }
-
-    default:
-        fail ("SQL dialect currently must start with WORD! or STRING! value");
     }
 
     //=//// RETURN RECORD COUNT IF NO RESULT ROWS /////////////////////////=//
@@ -1041,31 +1017,35 @@ REBNATIVE(insert_odbc)
     // routine does this.
 
     if (use_cache) {
-        Move_Value(
-            D_OUT,
-            Get_Typed_Field(statement, ODBC_WORD_TITLES, REB_BLOCK)
+        REBVAL *cache = rebRun(
+            "ensure block! pick", statement, "'titles", END
         );
+        Move_Value(D_OUT, cache);
+        rebRelease(cache);
         return R_OUT;
     }
 
-    COLUMN *columns;
-    REBVAL *field = Get_Field(statement, ODBC_WORD_COLUMNS);
-    if (IS_HANDLE(field)) {
-        columns = VAL_HANDLE_POINTER(COLUMN, field);
-        OS_FREE(columns);
+    REBVAL *old_columns_value = rebRun(
+        "opt ensure [handle! blank!] pick", statement, "'columns", END
+    );
+    if (old_columns_value) {
+        COLUMN *old_columns = VAL_HANDLE_POINTER(COLUMN, old_columns_value);
+        OS_FREE(old_columns);
+        rebRelease(old_columns_value);
     }
-    else
-        assert(IS_BLANK(field));
 
-    columns = OS_ALLOC_N(COLUMN, num_columns);
+    COLUMN *columns = OS_ALLOC_N(COLUMN, num_columns);
     if (columns == NULL)
         fail ("Couldn't allocate column buffers!");
 
+    DECLARE_LOCAL(columns_value);
     Init_Handle_Simple(
-        Sink_Field(statement, ODBC_WORD_COLUMNS),
+        columns_value,
         columns,
         num_columns
     );
+
+    rebElide("poke", statement, "'columns", columns_value, END);
 
     rc = ODBC_DescribeResults(hstmt, num_columns, columns);
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
@@ -1075,16 +1055,17 @@ REBNATIVE(insert_odbc)
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Stmt(hstmt));
 
-    REBARR *titles = Make_Array(num_columns);
+    REBVAL *titles = rebRun("make block!", rebI(num_columns), END);
     int col;
     for (col = 0; col < num_columns; ++col)
-        Move_Value(ARR_AT(titles, col), columns[col].title_word);
-    TERM_ARRAY_LEN(titles, num_columns);
+        rebElide("append", titles, columns[col].title_word, END);
 
     // remember column titles if next call matches, return them as the result
     //
-    Init_Block(Sink_Field(statement, ODBC_WORD_TITLES), titles);
-    Init_Block(D_OUT, titles);
+    rebElide("poke", statement, "'titles", titles, END);
+
+    Move_Value(D_OUT, titles);
+    rebRelease(titles);
     return R_OUT;
 }
 
@@ -1192,11 +1173,16 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
     case SQL_CHAR:
     case SQL_VARCHAR:
     case SQL_LONGVARCHAR:
+        fail ("Non-WCHAR data not supported by ODBC (currently)");
+
     case SQL_WCHAR:
     case SQL_WVARCHAR:
     case SQL_WLONGVARCHAR:
+        assert(col->length % 2 == 0);
+        return rebSizedStringW(cast(SQLWCHAR*, col->buffer), col->length / 2);
+
     case SQL_GUID:
-        return rebSizedStringW(cast(SQLWCHAR*, col->buffer), col->length);
+        fail ("SQL_GUID not supported by ODBC (currently)");
 
     default:
         break;
@@ -1222,18 +1208,17 @@ REBNATIVE(copy_odbc)
 {
     ODBC_INCLUDE_PARAMS_OF_COPY_ODBC;
 
-    REBCTX *statement = VAL_CONTEXT(ARG(statement));
-
-    SQLHSTMT hstmt = cast(SQLHSTMT,
-        VAL_HANDLE_VOID_POINTER(
-            Get_Typed_Field(statement, ODBC_WORD_HSTMT, REB_HANDLE)
-        )
+    REBVAL *hstmt_value = rebRun(
+        "ensure handle! pick", ARG(statement), "'hstmt", END
     );
+    SQLHSTMT hstmt = cast(SQLHSTMT, VAL_HANDLE_VOID_POINTER(hstmt_value));
+    rebRelease(hstmt_value);
 
-    COLUMN *columns = VAL_HANDLE_POINTER(
-        COLUMN,
-        Get_Typed_Field(statement, ODBC_WORD_COLUMNS, REB_HANDLE)
+    REBVAL *columns_value = rebRun(
+        "ensure handle! pick", ARG(statement), "'columns", END
     );
+    COLUMN *columns = VAL_HANDLE_POINTER(COLUMN, columns_value);
+    rebRelease(columns_value);
 
     if (hstmt == SQL_NULL_HANDLE or columns == NULL)
         fail ("Invalid statement object!");
@@ -1245,13 +1230,10 @@ REBNATIVE(copy_odbc)
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Stmt(hstmt));
 
-    SQLULEN num_rows;
-    if (IS_BLANK(ARG(length)))
-        num_rows = -1; // compares 0 based row against, so this never matches
-    else {
-        assert(IS_INTEGER(ARG(length)));
-        num_rows = VAL_INT32(ARG(length));
-    }
+    // compares-0 based row against num_rows, so -1 is chosen to never match
+    // and hence mean "as many rows as available"
+    //
+    SQLULEN num_rows = rebUnbox(ARG(length), "or [-1]", END);
 
     REBDSP dsp_orig = DSP;
 
@@ -1291,24 +1273,24 @@ REBNATIVE(update_odbc)
 {
     ODBC_INCLUDE_PARAMS_OF_UPDATE_ODBC;
 
-    REBCTX *connection = VAL_CONTEXT(ARG(connection));
+    REBVAL *connection = ARG(connection);
 
     // Get connection handle
     //
-    SQLHDBC hdbc = cast(SQLHDBC, VAL_HANDLE_VOID_POINTER(
-        Get_Typed_Field(connection, ODBC_WORD_HDBC, REB_HANDLE)
-    ));
+    REBVAL *hdbc_value = rebRun(
+        "ensure handle! pick", connection, "'hdbc", END
+    );
+    SQLHDBC hdbc = cast(SQLHDBC, VAL_HANDLE_VOID_POINTER(hdbc_value));
+    rebRelease(hdbc_value);
+
     SQLRETURN rc;
 
+    REBOOL access = rebDid(ARG(access), END);
     rc = SQLSetConnectAttr(
         hdbc,
         SQL_ATTR_ACCESS_MODE,
         cast(SQLPOINTER*,
-            cast(uintptr_t,
-                rebDid(ARG(access), END)
-                    ? SQL_MODE_READ_WRITE
-                    : SQL_MODE_READ_ONLY
-            )
+            cast(uintptr_t, access ? SQL_MODE_READ_WRITE : SQL_MODE_READ_ONLY)
         ),
         SQL_IS_UINTEGER
     );
@@ -1316,15 +1298,12 @@ REBNATIVE(update_odbc)
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Dbc(hdbc));
 
+    REBOOL commit = rebDid(ARG(commit), END);
     rc = SQLSetConnectAttr(
         hdbc,
         SQL_ATTR_AUTOCOMMIT,
         cast(SQLPOINTER*,
-            cast(uintptr_t,
-                rebDid(ARG(commit), END)
-                    ? SQL_AUTOCOMMIT_ON
-                    : SQL_AUTOCOMMIT_OFF
-            )
+            cast(uintptr_t, commit ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF)
         ),
         SQL_IS_UINTEGER
     );
@@ -1347,37 +1326,40 @@ REBNATIVE(close_statement)
 {
     ODBC_INCLUDE_PARAMS_OF_CLOSE_STATEMENT;
 
-    REBCTX *statement = VAL_CONTEXT(ARG(statement));
+    REBVAL *statement = ARG(statement);
 
-    REBVAL *field;
-
-    field = Get_Field(statement, ODBC_WORD_HSTMT);
-    if (IS_HANDLE(field)) {
-        SQLHSTMT hstmt = cast(SQLHSTMT, VAL_HANDLE_VOID_POINTER(field));
-        assert(hstmt != NULL);
-        SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
-        SET_HANDLE_POINTER(field, SQL_NULL_HANDLE); // avoid GC cleanup free
-        Init_Blank(field);
-    }
-    else
-        assert(IS_BLANK(field));
-
-    field = Get_Field(statement, ODBC_WORD_COLUMNS);
-    if (IS_HANDLE(field)) {
-        COLUMN *columns = VAL_HANDLE_POINTER(COLUMN, field);
+    REBVAL *columns_value = rebRun(
+        "opt ensure [handle! blank!] pick", statement, "'columns", END
+    );
+    if (columns_value) {
+        COLUMN *columns = VAL_HANDLE_POINTER(COLUMN, columns_value);
         assert(columns != NULL);
-        REBCNT num_columns = VAL_HANDLE_LEN(field);
 
+        REBCNT num_columns = VAL_HANDLE_LEN(columns_value);
         REBCNT col;
         for (col = 0; col < num_columns; ++col)
             rebRelease(columns[col].title_word);
 
         OS_FREE(columns);
-        SET_HANDLE_POINTER(field, NULL);
-        Init_Blank(field);
+        SET_HANDLE_POINTER(columns_value, NULL); // avoid GC cleanup
+        rebElide("poke", statement, "'columns", "blank", END);
+
+        rebRelease(columns_value);
     }
-    else
-        assert(IS_BLANK(field));
+
+    REBVAL *hstmt_value = rebRun(
+        "opt ensure [handle! blank!] pick", statement, "'hstmt", END
+    );
+    if (hstmt_value) {
+        SQLHSTMT hstmt = cast(SQLHSTMT, VAL_HANDLE_VOID_POINTER(hstmt_value));
+        assert(hstmt != NULL);
+
+        SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
+        SET_HANDLE_POINTER(hstmt_value, SQL_NULL_HANDLE); // avoid GC cleanup
+        rebElide("poke", statement, "'hstmt blank", END);
+
+        rebRelease(hstmt_value);
+    }
 
     return R_TRUE;
 }
@@ -1394,37 +1376,41 @@ REBNATIVE(close_connection)
 {
     ODBC_INCLUDE_PARAMS_OF_CLOSE_CONNECTION;
 
-    REBCTX *connection = VAL_CONTEXT(ARG(connection));
-
-    REBVAL *field;
+    REBVAL *connection = ARG(connection);
 
     // Close the database connection before the environment, since the
     // connection was opened from the environment.
-    //
-    field = Get_Field(connection, ODBC_WORD_HDBC);
-    if (IS_HANDLE(field)) {
-        SQLHDBC hdbc = cast(SQLHDBC, VAL_HANDLE_VOID_POINTER(field));
+
+    REBVAL *hdbc_value = rebRun(
+        "opt ensure [handle! blank!] pick", connection, "'hdbc", END
+    );
+    if (hdbc_value) {
+        SQLHDBC hdbc = cast(SQLHDBC, VAL_HANDLE_VOID_POINTER(hdbc_value));
         assert(hdbc != NULL);
+
         SQLDisconnect(hdbc);
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
-        SET_HANDLE_POINTER(field, SQL_NULL_HANDLE); // avoid GC cleanup free
-        Init_Blank(field);
+        SET_HANDLE_POINTER(hdbc_value, SQL_NULL_HANDLE); // avoid GC cleanup
+
+        rebElide("poke", connection, "'hdbc", "blank", END);
+        rebRelease(hdbc_value);
     }
-    else
-        assert(IS_BLANK(field));
 
     // Close the environment
     //
-    field = Get_Field(connection, ODBC_WORD_HENV);
-    if (IS_HANDLE(field)) {
-        SQLHENV henv = cast(SQLHENV, VAL_HANDLE_VOID_POINTER(field));
+    REBVAL *henv_value = rebRun(
+        "opt ensure [handle! blank!] pick", connection, "'henv", END
+    );
+    if (henv_value) {
+        SQLHENV henv = cast(SQLHENV, VAL_HANDLE_VOID_POINTER(henv_value));
         assert(henv != NULL);
+
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
-        SET_HANDLE_POINTER(field, SQL_NULL_HANDLE); // avoid GC cleanup free
-        Init_Blank(field);
+        SET_HANDLE_POINTER(henv_value, SQL_NULL_HANDLE); // avoid GC cleanup
+
+        rebElide("poke", connection, "'henv", "blank", END);
+        rebRelease(henv_value);
     }
-    else
-        assert(IS_BLANK(field));
 
     return R_TRUE;
 }

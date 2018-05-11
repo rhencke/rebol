@@ -111,7 +111,7 @@ sys/make-scheme [
         ]
 
         update: function [port [port!]] [
-            if get in connection: port/locals 'hdbc [
+            if did get in connection: port/locals 'hdbc [
                 (update-odbc
                     connection
                     port/state/access = 'write
@@ -125,13 +125,13 @@ sys/make-scheme [
             {Closes a statement port only or a database port w/all statements}
             port [port!]
         ][
-            if get in (statement: port/locals) 'hstmt [
+            if did get in (statement: port/locals) 'hstmt [
                 remove find head statement/database/statements port
                 close-statement statement
                 leave
             ]
 
-            if get in (connection: port/locals) 'hdbc [
+            if did get in (connection: port/locals) 'hdbc [
                 for-each stmt-port connection/statements [close stmt-port]
                 clear connection/statements
                 close-connection connection

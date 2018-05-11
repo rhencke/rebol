@@ -1394,34 +1394,6 @@ REBVAL *Obj_Value(REBVAL *value, REBCNT index)
 
 
 //
-//  Get_Typed_Field: C
-//
-// Convenience routine, see also Get_Field() and Sink_Field().  Could not be
-// made inline in %sys-context.h because of Init_Word() usage.
-//
-REBVAL *Get_Typed_Field(
-    REBCTX *c,
-    REBSTR *spelling, // will be canonized
-    enum Reb_Kind kind // REB_0 to not check the kind
-) {
-    REBCNT n = Find_Canon_In_Context(c, STR_CANON(spelling), FALSE);
-    if (n == 0) {
-        DECLARE_LOCAL (missing);
-        Init_Word(missing, spelling);
-        fail (Error_Not_In_Context_Raw(missing));
-    }
-
-    REBVAL *var = CTX_VAR(c, n);
-    if (kind == REB_0)
-        return var;
-
-    if (kind != VAL_TYPE(var))
-        fail ("Invalid type of field"); // improve error
-    return var;
-}
-
-
-//
 //  Startup_Collector: C
 //
 void Startup_Collector(void)
