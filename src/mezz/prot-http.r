@@ -413,10 +413,10 @@ check-response: function [port] [
             ]
             if not res and (state/state = 'ready) [
                 all [
-                    find [get head] spec/method or all [
+                    find [get head] spec/method or (all [
                         info/response-parsed = 'see-other
                         spec/method: 'get
-                    ]
+                    ])
                     in headers 'Location
                 ] then [
                     res: do-redirect port headers/location headers

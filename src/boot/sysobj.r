@@ -461,6 +461,11 @@ view: construct [] [
         scroll-page
 
         drop-file
+
+        ; !!! Instances of `make event! [type: 'error ...]` were in R3-Alpha's
+        ; prot-http.r, but error was not in this list.
+        ;
+        error
     ]
     event-keys: [
         ; Event types. Order dependent for C and REBOL.
