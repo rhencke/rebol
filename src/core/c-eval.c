@@ -462,7 +462,11 @@ reevaluate:;
     // sets), which really controls the after lookahead step.  Consider this
     // edge case.
     //
-    if (FRM_HAS_MORE(f) and IS_WORD(f->value) and evaluating) {
+    if (
+        FRM_HAS_MORE(f)
+        and IS_WORD(f->value)
+        and evaluating == NOT_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)
+    ){
         //
         // While the next item may be a WORD! that looks up to an enfixed
         // function, and it may want to quote what's on its left...there
@@ -1822,6 +1826,8 @@ reevaluate:;
             DS_PUSH_RELVAL(current, f->specifier);
 
             REBFLGS flags = DO_FLAG_FULFILLING_SET; // not DO_FLAG_TO_END
+            if (not evaluating)
+                flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
             if (Do_Next_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
                 DS_DROP;
@@ -2061,6 +2067,8 @@ reevaluate:;
             DS_PUSH_RELVAL(current, f->specifier);
 
             REBFLGS flags = DO_FLAG_FULFILLING_SET; // not DO_FLAG_TO_END
+            if (not evaluating)
+                flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
             if (Do_Next_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
                 DS_DROP;

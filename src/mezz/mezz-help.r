@@ -110,14 +110,6 @@ dump: func [
         leave
     ] ;-- treat this DUMP as disabled, `dump | x`
 
-    clip-string: function [str len] [
-       either len < length of str [
-          unspaced [copy/part str len - 3 "..."]
-       ][
-          str
-       ]
-    ]
-
     dump-val: function [val [<opt> any-value!]] [
         case [
             not set? 'val [
@@ -127,14 +119,14 @@ dump: func [
                 unspaced ["make object! [" | dump-obj val | "]"]
             ]
         ] else [
-           clip-string mold :val system/options/dump-size
+           mold/limit :val system/options/dump-size
         ]
     ]
 
     dump-one: proc [item][
         case [
             string? item [ ;-- allow customized labels
-                print ["---" clip-string item system/options/dump-size "---"]
+                print ["---" mold/limit item system/options/dump-size "---"]
             ]
 
             word? item [
@@ -147,9 +139,9 @@ dump: func [
 
             group? item [
                 trap/with [
-                    print [item "=>" mold eval item]
+                    print [mold item "=>" mold eval item]
                 ] func [error] [
-                    print [item "=!!!=>" mold error]
+                    print [mold item "=!!!=>" mold error]
                 ]
             ]
         ] else [

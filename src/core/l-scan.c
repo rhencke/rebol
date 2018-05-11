@@ -2296,7 +2296,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 // A proxy needs to be imported from lib to user.
                 //
                 Expand_Context(ss->user, 1);
-                Move_Value(
+                Move_Var( // preserve enfix state
                     Append_Context(ss->user, DS_TOP, 0),
                     CTX_VAR(ss->lib, -n) // -n is positive
                 );
