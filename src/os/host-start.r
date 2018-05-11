@@ -227,9 +227,31 @@ host-start: function [
         [function!]
     <with>
     host-start host-prot boot-exts ;-- unset when finished with them
+    about usage why license echo ;-- exported to lib, see notes
     <static>
         o (system/options) ;-- shorthand since options are often read/written
 ][
+    ; !!! The whole host startup/console is currently very manually loaded
+    ; into its own isolated context by the C startup code.  This way, changes
+    ; to functions the console loop depends on (like PRINT or INPUT) that the
+    ; user makes will not break the console's functionality.  It would be
+    ; better if it used the module system, but since it doesn't, it does not
+    ; have a place to put "exports" to lib or user.  We'd like people to be
+    ; able to access the ABOUT, WHY, and USAGE functions... so export them
+    ; here to LIB.  Again--this should be done by making this a module!
+    ;
+    append lib compose [
+        ;
+        ;-- These must be <with>'d to be exported, otherwise the ABOUT: in
+        ;-- the object key would be gathered as a local.
+        ;
+        about: (ensure action! :about)
+        usage: (ensure action! :usage)
+        why: (ensure action! :why)
+        license: (ensure action! :license)
+        echo: (ensure action! :echo)
+    ]
+
     ; The core presumes no built-in I/O ability in the release build, hence
     ; during boot PANIC and PANIC-VALUE can only do printf() in the debug
     ; build.  While there's no way to hook the core panic() or panic_at()

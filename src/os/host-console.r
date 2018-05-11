@@ -657,7 +657,7 @@ why: procedure [
 ][
     err: default [system/state/last-error]
 
-    if match [word! path!] err [
+    if did match [word! path!] err [
         err: get err
     ]
 

@@ -138,7 +138,6 @@ comment [
     encoding?: _
     file-type?: _
     speed?: _
-    why?: _
     info?: _
     exists?: _
 ]
@@ -690,6 +689,8 @@ set 'r3-legacy* func [<local>] [
     append system/contexts/user compose [
 
         ?: (:help)
+
+        why?: (:why)
 
         ??: (:dump)
 

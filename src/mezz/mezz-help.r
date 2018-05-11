@@ -309,7 +309,7 @@ help: procedure [
                 source func - show source code of func
                 trace - trace evaluation steps
                 what - show a list of known functions
-                why? - explain more about last error (via web)
+                why - explain more about last error (via web)
 
             Other information:
 
