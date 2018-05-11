@@ -177,7 +177,6 @@ static REBNATIVE(rc4)
 //      /private
 //         "Uses an RSA private key (default is a public key)"
 //  ]
-//  new-words: [n e d p q dp dq qinv pkcs1]
 //  new-errors: [
 //      invalid-key-field: [{Unrecognized field in the key object:} :arg1]
 //      invalid-key-data: [{Invalid data in the key object:} :arg1 {for} :arg2]
@@ -190,144 +189,144 @@ static REBNATIVE(rsa)
 {
     CRYPT_INCLUDE_PARAMS_OF_RSA;
 
-    REBYTE *n = NULL;
-    REBYTE *e = NULL;
-    REBYTE *d = NULL;
-    REBYTE *p = NULL;
-    REBYTE *q = NULL;
-    REBYTE *dp = NULL;
-    REBYTE *dq = NULL;
-    REBYTE *qinv = NULL;
+    REBVAL *obj = ARG(key_object);
 
-    REBINT n_len = 0;
-    REBINT e_len = 0;
-    REBINT d_len = 0;
-    REBINT p_len = 0;
-    REBINT q_len = 0;
-    REBINT dp_len = 0;
-    REBINT dq_len = 0;
-    REBINT qinv_len = 0;
-
-    REBCTX *obj = VAL_CONTEXT(ARG(key_object));
-
-    REBVAL *key = CTX_KEYS_HEAD(obj);
-    REBVAL *var = CTX_VARS_HEAD(obj);
-
-    for (; NOT_END(key); ++key, ++var) {
-        if (VAL_KEY_SYM(key) == SYM_SELF or IS_BLANK(var))
-            continue;
-
-        if (not IS_BINARY(var))
-            fail (Error(RE_EXT_CRYPT_INVALID_KEY_DATA, var, key, END));
-
-        REBSTR* word = VAL_KEY_CANON(key);
-        if (word == CRYPT_WORD_N) {
-            n = VAL_BIN_AT(var);
-            n_len = VAL_LEN_AT(var);
-        }
-        else if (word == CRYPT_WORD_E) {
-            e = VAL_BIN_AT(var);
-            e_len = VAL_LEN_AT(var);
-        }
-        else if (word == CRYPT_WORD_D) {
-            d = VAL_BIN_AT(var);
-            d_len = VAL_LEN_AT(var);
-        }
-        else if (word == CRYPT_WORD_P) {
-            p = VAL_BIN_AT(var);
-            p_len = VAL_LEN_AT(var);
-        }
-        else if (word == CRYPT_WORD_Q) {
-            q = VAL_BIN_AT(var);
-            q_len = VAL_LEN_AT(var);
-           break;
-        }
-        else if (word == CRYPT_WORD_DP) {
-            dp = VAL_BIN_AT(var);
-            dp_len = VAL_LEN_AT(var);
-        }
-        else if (word == CRYPT_WORD_DQ) {
-            dq = VAL_BIN_AT(var);
-            dq_len = VAL_LEN_AT(var);
-        }
-        else if (word == CRYPT_WORD_QINV) {
-            qinv = VAL_BIN_AT(var);
-            qinv_len = VAL_LEN_AT(var);
-        }
-        else
-            fail (Error(RE_EXT_CRYPT_INVALID_KEY_FIELD, key, END));
-    }
-
-    if (!n || !e)
-        fail (Error(RE_EXT_CRYPT_INVALID_KEY, ARG(key_object), END));
+    // N and E are required
+    //
+    REBVAL *n = rebRun("ensure binary! pick", obj, "'n", END);
+    REBVAL *e = rebRun("ensure binary! pick", obj, "'e", END);
 
     RSA_CTX *rsa_ctx = NULL;
 
     REBINT binary_len;
     if (REF(private)) {
-        if (!d)
-            return R_BLANK;
+        REBVAL *d = rebRun("ensure binary! pick", obj, "'d", END);
 
+        if (not d)
+            fail ("No d returned BLANK, can we assume error for cleanup?");
+
+        REBVAL *p = rebRun("ensure binary! pick", obj, "'p", END);
+        REBVAL *q = rebRun("ensure binary! pick", obj, "'q", END);
+        REBVAL *dp = rebRun("ensure binary! pick", obj, "'dp", END);
+        REBVAL *dq = rebRun("ensure binary! pick", obj, "'dq", END);
+        REBVAL *qinv = rebRun("ensure binary! pick", obj, "'qinv", END);
+
+        // !!! Because BINARY! is not locked in memory or safe from GC, the
+        // libRebol API doesn't allow direct pointer access.  Use the
+        // internal VAL_BIN_AT for now, but consider if a temporary locking
+        // should be possible...locked until released.
+        //
+        binary_len = rebUnbox("length of", d, END);
         RSA_priv_key_new(
-            &rsa_ctx, n, n_len, e, e_len, d, d_len,
-            p, p_len, q, q_len, dp, dp_len, dq, dq_len, qinv, qinv_len
+            &rsa_ctx
+            ,
+            VAL_BIN_AT(n)
+            , rebUnbox("length of", n, END)
+            ,
+            VAL_BIN_AT(e)
+            , rebUnbox("length of", e, END)
+            ,
+            VAL_BIN_AT(d)
+            , binary_len // taken as `length of d` above
+            ,
+            p ? VAL_BIN_AT(p) : NULL
+            , p ? rebUnbox("length of", p, END) : 0
+            ,
+            q ? VAL_BIN_AT(q) : NULL
+            , q ? rebUnbox("length of", q, END) : 0
+            ,
+            dp ? VAL_BIN_AT(dp) : NULL
+            , dp ? rebUnbox("length of", dp, END) : 0
+            ,
+            dq ? VAL_BIN_AT(dq) : NULL
+            , dp ? rebUnbox("length of", dq, END) : 0
+            ,
+            qinv ? VAL_BIN_AT(qinv) : NULL
+            , qinv ? rebUnbox("length of", qinv, END) : 0
         );
-        binary_len = d_len;
+
+        rebRelease(d);
+        rebRelease(p);
+        rebRelease(q);
+        rebRelease(dp);
+        rebRelease(dq);
+        rebRelease(qinv);
     }
     else {
-        RSA_pub_key_new(&rsa_ctx, n, n_len, e, e_len);
-        binary_len = n_len;
+        binary_len = rebUnbox("length of", n, END);
+        RSA_pub_key_new(
+            &rsa_ctx
+            ,
+            VAL_BIN_AT(n)
+            , binary_len // taken as `length of n` above
+            ,
+            VAL_BIN_AT(e)
+            , rebUnbox("length of", e, END)
+        );
     }
 
+    rebRelease(n);
+    rebRelease(e);
+
+    // !!! See notes above about direct binary access via libRebol
+    //
     REBYTE *dataBuffer = VAL_BIN_AT(ARG(data));
-    REBINT data_len = VAL_LEN_AT(ARG(data));
+    REBINT data_len = rebUnbox("length of", ARG(data), END);
 
     BI_CTX *bi_ctx = rsa_ctx->bi_ctx;
     bigint *data_bi = bi_import(bi_ctx, dataBuffer, data_len);
 
-    REBSER *binary = Make_Binary(binary_len);
+    // Buffer suitable for recapturing as a BINARY! for either the encrypted
+    // or decrypted data
+    //
+    REBYTE *crypted = cast(REBYTE*, rebMalloc(binary_len));
 
     if (REF(decrypt)) {
-        binary_len = RSA_decrypt(
+        int result = RSA_decrypt(
             rsa_ctx,
             dataBuffer,
-            BIN_HEAD(binary),
+            crypted,
             binary_len,
             REF(private) ? 1 : 0
         );
 
-        if (binary_len == -1) {
+        if (result == -1) {
             bi_free(rsa_ctx->bi_ctx, data_bi);
             RSA_free(rsa_ctx);
 
-            Free_Series(binary);
+            rebFree(crypted);
             fail (Error(RE_EXT_CRYPT_DECRYPTION_FAILURE, ARG(data), END));
         }
+
+        assert(result == binary_len); // was this true?
     }
     else {
-        if (
-            -1 == RSA_encrypt(
-                rsa_ctx,
-                dataBuffer,
-                data_len,
-                BIN_HEAD(binary),
-                REF(private) ? 1 : 0
-            )
-        ){
+        int result = RSA_encrypt(
+            rsa_ctx,
+            dataBuffer,
+            data_len,
+            crypted,
+            REF(private) ? 1 : 0
+        );
+
+        if (result == -1) {
             bi_free(rsa_ctx->bi_ctx, data_bi);
             RSA_free(rsa_ctx);
 
-            Free_Series(binary);
+            rebFree(crypted);
             fail (Error(RE_EXT_CRYPT_ENCRYPTION_FAILURE, ARG(data), END));
         }
-    }
 
-    SET_SERIES_LEN(binary, binary_len);
+        // !!! any invariant here?
+    }
 
     bi_free(rsa_ctx->bi_ctx, data_bi);
     RSA_free(rsa_ctx);
 
-    Init_Binary(D_OUT, binary);
+    REBVAL *binary = rebRepossess(crypted, binary_len);
+    Move_Value(D_OUT, binary);
+    rebRelease(binary);
+
     return R_OUT;
 }
 
@@ -335,13 +334,13 @@ static REBNATIVE(rsa)
 //
 //  dh-generate-key: native/export [
 //
-//  "Generates a new DH private/public key pair."
+//  "Update DH object with new DH private/public key pair."
 //
-//      return: [<opt>]
+//      return: "No result, object's PRIV-KEY and PUB-KEY members updated"
+//          [<opt>]
 //      obj [object!]
-//         "The Diffie-Hellman key object, with generator(g) and modulus(p)"
+//         "(modified) Diffie-Hellman object, with generator(g) / modulus(p)"
 //  ]
-//  new-words: [priv-key pub-key p g]
 //
 static REBNATIVE(dh_generate_key)
 {
@@ -350,67 +349,42 @@ static REBNATIVE(dh_generate_key)
     DH_CTX dh_ctx;
     memset(&dh_ctx, 0, sizeof(dh_ctx));
 
-    REBCTX *obj = VAL_CONTEXT(ARG(obj));
+    REBVAL *obj = ARG(obj);
 
-    REBVAL *key = CTX_KEYS_HEAD(obj);
-    REBVAL *var = CTX_VARS_HEAD(obj);
-
-    for (; NOT_END(key); ++key, ++var) {
-        if (VAL_KEY_SYM(key) == SYM_SELF //object may have a 'self key that referring to itself
-            || IS_BLANK(var) //some fields are initialized to blank
-           )
-            continue;
-
-        if (not IS_BINARY(var))
-            fail (Error(RE_EXT_CRYPT_INVALID_KEY_DATA, var, key, END));
-
-        REBSTR* word = VAL_KEY_CANON(key);
-        if (word == CRYPT_WORD_P) {
-            dh_ctx.p = VAL_BIN_AT(var);
-            dh_ctx.len = VAL_LEN_AT(var);
-            break;
-        }
-        else if (word == CRYPT_WORD_G) {
-            dh_ctx.g = VAL_BIN_AT(var);
-            dh_ctx.glen = VAL_LEN_AT(var);
-        }
-        else {
-            fail (Error(RE_EXT_CRYPT_INVALID_KEY_FIELD, key, END));
-        }
-    }
-
-    if (!dh_ctx.p || !dh_ctx.g)
-        fail (Error(RE_EXT_CRYPT_INVALID_KEY, ARG(obj)));
-
-    // allocate new BINARY! for private key
+    // !!! This used to ensure that all other fields, besides SELF, were blank
     //
-    REBSER *priv_bin = Make_Binary(dh_ctx.len);
-    dh_ctx.x = BIN_HEAD(priv_bin);
+    REBVAL *g = rebRun("ensure binary! pick", obj, "'g", END); // generator
+    REBVAL *p = rebRun("ensure binary! pick", obj, "'p", END); // modulus
+
+    dh_ctx.g = VAL_BIN_AT(g);
+    dh_ctx.glen = rebUnbox("length of", g, END);
+
+    dh_ctx.p = VAL_BIN_AT(p);
+    dh_ctx.len = rebUnbox("length of", p, END);
+
+    // Generate the private and public keys into memory that can be
+    // rebRepossess()'d as the memory backing a BINARY! series
+    //
+    dh_ctx.x = cast(REBYTE*, rebMalloc(dh_ctx.len)); // x => private key
     memset(dh_ctx.x, 0, dh_ctx.len);
-    SET_SERIES_LEN(priv_bin, dh_ctx.len);
-
-    // allocate new BINARY! for public key
-    //
-    REBSER *pub_bin = Make_Binary(dh_ctx.len);
-    dh_ctx.gx = BIN_HEAD(pub_bin);
+    dh_ctx.gx = cast(REBYTE*, rebMalloc(dh_ctx.len)); // gx => public key
     memset(dh_ctx.gx, 0, dh_ctx.len);
-    SET_SERIES_LEN(pub_bin, dh_ctx.len);
 
     DH_generate_key(&dh_ctx);
 
-    // set the object fields
+    rebRelease(g);
+    rebRelease(p);
 
-    REBCNT priv_index = Find_Canon_In_Context(obj, CRYPT_WORD_PRIV_KEY, FALSE);
-    if (priv_index == 0)
-        fail ("Cannot find PRIV-KEY in crypto object");
-    Init_Binary(CTX_VAR(obj, priv_index), priv_bin);
+    REBVAL *priv = rebRepossess(dh_ctx.x, dh_ctx.len);
+    REBVAL *pub = rebRepossess(dh_ctx.gx, dh_ctx.len);
 
-    REBCNT pub_index = Find_Canon_In_Context(obj, CRYPT_WORD_PUB_KEY, FALSE);
-    if (pub_index == 0)
-        fail ("Cannot find PUB-KEY in crypto object");
-    Init_Binary(CTX_VAR(obj, pub_index), pub_bin);
+    rebElide("poke", obj, "'priv-key", priv, END);
+    rebElide("poke", obj, "'pub-key", pub, END);
 
-    return R_VOID;
+    rebRelease(priv);
+    rebRelease(pub);
+
+    return R_OUT;
 }
 
 
@@ -434,54 +408,32 @@ static REBNATIVE(dh_compute_key)
     DH_CTX dh_ctx;
     memset(&dh_ctx, 0, sizeof(dh_ctx));
 
-    REBCTX *obj = VAL_CONTEXT(ARG(obj));
+    REBVAL *obj = ARG(obj);
 
-    REBVAL *key = CTX_KEYS_HEAD(obj);
-    REBVAL *var = CTX_VARS_HEAD(obj);
+    // !!! used to ensure object only had other fields SELF, PUB-KEY, G
+    // otherwise gave Error(RE_EXT_CRYPT_INVALID_KEY_FIELD)
 
-    for (; NOT_END(key); ++key, ++var) {
-        REBSTR* canon = VAL_KEY_CANON(key);
+    REBVAL *p = rebRun("ensure binary! pick", obj, "'p", END);
+    REBVAL *priv_key = rebRun("ensure binary! pick", obj, "'priv-key", END);
 
-        if (canon == Canon(SYM_SELF)) {
-            NOOP;
-        }
-        else if (canon == CRYPT_WORD_P) {
-            if (not IS_BINARY(var))
-                fail (Error(RE_EXT_CRYPT_INVALID_KEY, var, END));
+    dh_ctx.p = VAL_BIN_AT(p);
+    dh_ctx.len = rebUnbox("length of", p, END);
 
-            dh_ctx.p = VAL_BIN_AT(var);
-            dh_ctx.len = VAL_LEN_AT(var);
-        }
-        else if (canon == CRYPT_WORD_PRIV_KEY) {
-            if (not IS_BINARY(var))
-                fail (Error(RE_EXT_CRYPT_INVALID_KEY, var, END));
-
-            dh_ctx.x = VAL_BIN_AT(var);
-        }
-        else if (canon == CRYPT_WORD_PUB_KEY) {
-            NOOP;
-        }
-        else if (canon == CRYPT_WORD_G) {
-            NOOP;
-        }
-        else
-            fail (Error(RE_EXT_CRYPT_INVALID_KEY_FIELD, key, END));
-    }
+    dh_ctx.x = VAL_BIN_AT(priv_key);
+    // !!! No length check here, should there be?
 
     dh_ctx.gy = VAL_BIN_AT(ARG(public_key));
+    // !!! No length check here, should there be?
 
-    if (!dh_ctx.p || !dh_ctx.x || !dh_ctx.gy)
-        fail (Error(RE_EXT_CRYPT_INVALID_KEY, ARG(obj), END));
-
-    REBSER *binary = Make_Binary(dh_ctx.len);
-    memset(BIN_HEAD(binary), 0, dh_ctx.len);
-    SET_SERIES_LEN(binary, dh_ctx.len);
-
-    dh_ctx.k = BIN_HEAD(binary);
+    dh_ctx.k = cast(REBYTE*, rebMalloc(dh_ctx.len));
+    memset(dh_ctx.k, 0, dh_ctx.len);
 
     DH_compute_key(&dh_ctx);
 
-    Init_Binary(D_OUT, binary);
+    REBVAL *binary = rebRepossess(dh_ctx.k, dh_ctx.len);
+    Move_Value(D_OUT, binary);
+    rebRelease(binary);
+
     return R_OUT;
 }
 
