@@ -418,8 +418,8 @@ ctx-zip: context [
                         if crc != checksum/method data 'crc32 [
                             info "^- -> failed [bad crc32]^/"
                             print [
-                                "expected crc:" crc
-                                | "actual crc:" checksum/method data 'crc32
+                                "expected crc:" crc LF
+                                "actual crc:" checksum/method data 'crc32
                             ]
                             throw data
                         ]

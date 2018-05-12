@@ -20,7 +20,7 @@
     error? trap [f1]
     success
 )
-; testing TRY/EXCEPT
+; testing TRAP/WITH
 [#822
     (error? trap/with [make error! ""] [0])
 ]
@@ -35,3 +35,10 @@
 [#1506 ((
     10 = eval func [] [trap [return 10] 20]
 ))]
+
+; ENTRAP (similar to TRAP, but puts normal result in a block)
+
+(null? entrap [])
+([3] = entrap [1 + 2])
+([[b c]] = entrap [skip [a b c] 1])
+('no-arg = (entrap [quote])/id)

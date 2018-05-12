@@ -14,7 +14,6 @@ Rebol [
 ]
 
 do %test-parsing.r
-do %catch-any.r
 
 make object! compose [
     log-file: _
@@ -29,14 +28,6 @@ make object! compose [
     crashes: _
     dialect-failures: _
     successes: _
-
-    exceptions: make object! [
-        return: "return/exit out of the test code"
-        error: "error was caused in the test code"
-        break: "break or continue out of the test code"
-        throw: "throw out of the test code"
-        quit: "quit out of the test code"
-    ]
 
     allowed-flags: _
 
@@ -58,17 +49,25 @@ make object! compose [
             leave
         ]
 
-        set* 'test-block catch-any test-block 'exception
+        print mold test-block ;-- !!! make this an option
+
+        result: entrap test-block
         recycle
 
         case [
-            exception [
-                spaced ["failed," exceptions/:exception]
+            null? :result [
+                "failed, test returned null"
             ]
-            not logic? :test-block [
-                "failed, not a logic value"
+            error? :result [
+                spaced ["failed," result/id]
             ]
-            not test-block [
+            
+            elide (result: first result)
+
+            not logic? :result [
+                "failed, result was" (an type of :result) ", not logic!"
+            ]
+            not :result [
                 "failed"
             ]
         ] also message -> [

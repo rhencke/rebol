@@ -222,12 +222,9 @@ reword: function [
 
     prefix: _
     suffix: _
-    case [
-        unset? 'delimiters [
-            prefix: "$"
-        ]
-
-        block? delimiters [
+    switch type of :delimiters [
+        null [prefix: "$"]
+        block! [
             parse delimiters [
                 set prefix delimiter-types
                 set suffix opt delimiter-types
