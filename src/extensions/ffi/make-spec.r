@@ -59,7 +59,7 @@ options: [
             ]
         ][
             switch/default user-config/with-ffi [
-                static dynamic [
+                'static 'dynamic [
                     for-each var [includes cflags searches ldflags][
                         x: rebmake/pkg-config
                             any [user-config/pkg-config {pkg-config}]
@@ -82,7 +82,7 @@ options: [
                         ]
                     ]
                 ]
-                _ no off false #[false] [
+                _ 'no 'off 'false #[false] [
                     ;pass
                 ]
             ][

@@ -690,7 +690,7 @@ set 'r3-legacy* func [<local>] [
 
         ?: (:help)
 
-        why?: (:why)
+        why?: (does [lib/why]) ;-- not exported yet, :why not bound
 
         ??: (:dump)
 
@@ -856,11 +856,11 @@ set 'r3-legacy* func [<local>] [
                 params: words of :source
                 for-next params [
                     append code switch type of params/1 [
-                        (word!) [take normals]
-                        (lit-word!) [take softs]
-                        (get-word!) [take hards]
-                        (set-word!) [[]] ;-- empty block appends nothing
-                        (refinement!) [break]
+                        word! [take normals]
+                        lit-word! [take softs]
+                        get-word! [take hards]
+                        set-word! [[]] ;-- empty block appends nothing
+                        refinement! [break]
                     ] else [
                         fail ["bad param type" params/1]
                     ]
@@ -1192,6 +1192,21 @@ set 'r3-legacy* func [<local>] [
             ]
         ])
 
+        switch: (redescribe [
+            {Ren-C SWITCH evaluates its branches: }
+        ](
+            chain [
+                adapt 'switch [
+                    cases: collect [
+                        for-each c cases [
+                            keep/only either block? :c [:c] [uneval :c]
+                        ]
+                    ]
+                ]
+                    |
+                :try ;-- wants blank on failed select, not null
+            ]
+        ))
 
         ; The APPEND to the context expects `KEY: VALUE2 KEY2: VALUE2`, which
         ; is why COMPOSE is being used.  `and: (enfix tighten :intersect)`
@@ -1226,38 +1241,6 @@ set 'r3-legacy* func [<local>] [
             (to-set-word word)
             (chain compose [(to-get-word word) :try])
         ]
-    ]
-
-    ; SWITCH had several behavior changes--it evaluates GROUP! and GET-WORD!
-    ; and GET-PATH!--and values "fall out" the bottom if there isn't a match
-    ; (and the last item isn't a block).
-    ;
-    ; We'll assume these cases are rare in <r3-legacy> porting, but swap in
-    ; SWITCH for a routine that will FAIL if the cases come up.  A sufficiently
-    ; motivated individual could then make a compatibility construct, but
-    ; probably would rather just change it so their code runs faster.  :-/
-    ;
-    append system/contexts/user compose [
-        switch: (
-            chain [
-                adapt 'switch [use [last-was-block] [
-                    last-was-block: false
-                    for-next cases [
-                        if match [get-word! get-path! group!] cases/1 [
-                            fail [{SWITCH non-<r3-legacy> evaluates} (cases/1)]
-                        ]
-                        if block? cases/1 [
-                            last-was-block: true
-                        ]
-                    ]
-                    if not last-was-block [
-                        fail [{SWITCH non-<r3-legacy>} last cases {"fallout"}]
-                    ]
-                ]]
-            |
-                :try
-            ]
-        )
     ]
 
     r3-legacy-mode: on

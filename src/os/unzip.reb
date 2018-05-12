@@ -178,7 +178,7 @@ ctx-zip: context [
                 local-file-sig
                 #{0000} ; version
                 #{0000} ; flags
-                really switch method [store [#{0000}] deflate [#{0800}]]
+                really switch method ['store [#{0000}] 'deflate [#{0800}]]
                 to-msdos-time date/time
                 to-msdos-date date/date
                 crc     ; crc-32
@@ -197,7 +197,7 @@ ctx-zip: context [
                 #{0000} ; version source
                 #{0000} ; version min
                 #{0000} ; flags
-                really switch method [store [#{0000}] deflate [#{0800}]]
+                really switch method ['store [#{0000}] 'deflate [#{0800}]]
                 to-msdos-time date/time
                 to-msdos-date date/date
                 crc     ; crc-32

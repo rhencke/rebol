@@ -560,10 +560,10 @@ format: function [
     for-each rule rules [
         if word? :rule [rule: get rule]
 
-        val: val + switch type of :rule [
-            :integer! [abs rule]
-            :string! [length of rule]
-            :char! [1]
+        val: me + switch type of :rule [
+            integer! [abs rule]
+            string! [length of rule]
+            char! [1]
         ] else [0]
     ]
 
@@ -575,7 +575,7 @@ format: function [
         if word? :rule [rule: get rule]
 
         switch type of :rule [
-            :integer! [
+            integer! [
                 pad: rule
                 val: form first values
                 values: my next
@@ -588,8 +588,8 @@ format: function [
                 change out :val
                 out: skip out pad ; spacing (remainder)
             ]
-            :string!  [out: change out rule]
-            :char!    [out: change out rule]
+            string!  [out: change out rule]
+            char!    [out: change out rule]
         ]
     ]
 

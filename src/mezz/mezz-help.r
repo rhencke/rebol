@@ -235,8 +235,8 @@ title-of: function [
 
     value [any-value!]
 ][
-    to-value switch type of :value [
-        (action!) [
+    try switch type of :value [
+        action! [
             all [
                 object? meta: meta-of :value
                 string? description: select meta 'description
@@ -244,7 +244,7 @@ title-of: function [
             ]
         ]
 
-        (datatype!) [
+        datatype! [
             spec: spec-of value
             assert [string? spec] ;-- !!! Consider simplifying "type specs"
             spec/title
@@ -664,12 +664,12 @@ source: procedure [
     ; some kind of displayable "source" would have to depend on the dispatcher
     ; used.  For the moment, BODY OF hands back limited information.  Review.
     ;
-    switch type of body: body of :f [
-        (block!) [ ;-- FUNC, FUNCTION, PROC, PROCEDURE or (DOES of a BLOCK!)
+    switch type of (body: body of :f) [
+        block! [ ;-- FUNC, FUNCTION, PROC, PROCEDURE or (DOES of a BLOCK!)
             print [mold body "]"]
         ]
 
-        (frame!) [ ;-- SPECIALIZE (or DOES of an ACTION!)
+        frame! [ ;-- SPECIALIZE (or DOES of an ACTION!)
             print [mold body "]"]
         ]
     ] else [

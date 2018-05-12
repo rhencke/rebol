@@ -12,7 +12,7 @@ modules: [
             %prep/extensions/uuid ;for %tmp-extensions-uuid-init.inc
         ]
         depends: try switch system-config/os-base [
-            linux [
+            'linux [
                 [
                     %uuid/libuuid/gen_uuid.c
                     %uuid/libuuid/unpack.c
@@ -23,12 +23,12 @@ modules: [
         ]
 
         libraries: try switch system-config/os-base [
-            Windows [
+            'Windows [
                 [%rpcrt4]
             ]
         ]
         ldflags: try switch system-config/os-base [
-            OSX [
+            'OSX [
                 ["-framework CoreFoundation"]
             ]
         ]

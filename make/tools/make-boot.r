@@ -150,7 +150,7 @@ e-dispatch/emit {
 for-each-record t type-table [
     switch/default t/class [
         0 [e-dispatch/emit-item "NULL"] ;-- never dispatch on REB_0
-        * [e-dispatch/emit-item "T_Unhooked"] ;-- extensions replace this
+        '* [e-dispatch/emit-item "T_Unhooked"] ;-- extensions replace this
     ][
         e-dispatch/emit-item ["T_" propercase-of ensure word! t/class]
     ]
@@ -168,9 +168,9 @@ e-dispatch/emit {
 }
 for-each-record t type-table [
     switch/default t/path [
-        - [e-dispatch/emit-item "PD_Fail"]
-        + [e-dispatch/emit-item ["PD_" propercase-of ensure word! t/class]]
-        * [e-dispatch/emit-item "PD_Unhooked"]
+        '- [e-dispatch/emit-item "PD_Fail"]
+        '+ [e-dispatch/emit-item ["PD_" propercase-of ensure word! t/class]]
+        '* [e-dispatch/emit-item "PD_Unhooked"]
     ][
         ; !!! Today's PORT! path dispatches through context even though
         ; that isn't its technical "class" for responding to actions.
@@ -191,9 +191,9 @@ e-dispatch/emit {
 }
 for-each-record t type-table [
     switch/default t/make [
-        - [e-dispatch/emit-item "MAKE_Fail"]
-        + [e-dispatch/emit-item ["MAKE_" propercase-of ensure word! t/class]]
-        * [e-dispatch/emit-item "MAKE_Unhooked"]
+        '- [e-dispatch/emit-item "MAKE_Fail"]
+        '+ [e-dispatch/emit-item ["MAKE_" propercase-of ensure word! t/class]]
+        '* [e-dispatch/emit-item "MAKE_Unhooked"]
     ][
         fail "MAKE in %types.r should be, -, +, or *"
     ]
@@ -211,9 +211,9 @@ e-dispatch/emit {
 }
 for-each-record t type-table [
     switch/default t/make [
-        - [e-dispatch/emit-item "TO_Fail"]
-        + [e-dispatch/emit-item ["TO_" propercase-of ensure word! t/class]]
-        * [e-dispatch/emit-item "TO_Unhooked"]
+        '- [e-dispatch/emit-item "TO_Fail"]
+        '+ [e-dispatch/emit-item ["TO_" propercase-of ensure word! t/class]]
+        '* [e-dispatch/emit-item "TO_Unhooked"]
     ][
         fail "TO in %types.r should be -, +, or *"
     ]
@@ -231,9 +231,9 @@ e-dispatch/emit {
 }
 for-each-record t type-table [
     switch/default t/mold [
-        - [e-dispatch/emit-item "MF_Fail"]
-        + [e-dispatch/emit-item ["MF_" propercase-of ensure word! t/class]]
-        * [e-dispatch/emit-item "MF_Unhooked"]
+        '- [e-dispatch/emit-item "MF_Fail"]
+        '+ [e-dispatch/emit-item ["MF_" propercase-of ensure word! t/class]]
+        '* [e-dispatch/emit-item "MF_Unhooked"]
     ][
         ; ERROR! may be a context, but it has its own special forming
         ; beyond the class (falls through to ANY-CONTEXT! for mold), and
@@ -256,7 +256,7 @@ e-dispatch/emit {
 for-each-record t type-table [
     switch/default t/class [
         0 [e-dispatch/emit-item "NULL"]
-        * [e-dispatch/emit-item "CT_Unhooked"]
+        '* [e-dispatch/emit-item "CT_Unhooked"]
     ][
         e-dispatch/emit-item ["CT_" propercase-of ensure word! t/class]
     ]

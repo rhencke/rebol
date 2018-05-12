@@ -30,7 +30,7 @@ modules: [
             %prep/extensions/odbc ;for %tmp-ext-odbc-init.inc
         ]
         libraries: switch/default system-config/os-base [
-            Windows [
+            'Windows [
                 [%odbc32]
             ]
         ][

@@ -21,7 +21,7 @@ modules: [
         ;
         libraries: to-value (comment [
             switch system-config/os-base [
-                Windows [
+                'Windows [
                     ; You would currently have to define USE_WINDOWS_DIRCHOOSER
                     ; to try out the REQUEST-DIR code.
                     ;

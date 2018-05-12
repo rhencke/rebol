@@ -655,7 +655,7 @@ load-module: function [
     ; Process the source, based on its type
 
     switch type of source [
-        (word!) [ ; loading the preloaded
+        word! [ ; loading the preloaded
             if as_LOAD_MODULE [
                 cause-error 'script 'bad-refine /as ; no renaming
             ]
@@ -682,11 +682,11 @@ load-module: function [
         ; then any strings passed in to loading have to be UTF-8 converted,
         ; which means making them into BINARY!.
         ;
-        (binary!) [data: source]
-        (string!) [data: to binary! source]
+        binary! [data: source]
+        string! [data: to binary! source]
 
-        (file!)
-        (url!) [
+        file!
+        url! [
             tmp: file-type? source
             case [
                 tmp = 'rebol [
@@ -703,7 +703,7 @@ load-module: function [
             ]
         ]
 
-        (module!) [
+        module! [
             ; see if the same module is already in the list
             if tmp: find/skip next system/modules mod: source 2 [
                 if as_LOAD_MODULE [
@@ -723,7 +723,7 @@ load-module: function [
             ]
         ]
 
-        (block!) [
+        block! [
             if any [version as] [
                 cause-error 'script 'bad-refines blank
             ]

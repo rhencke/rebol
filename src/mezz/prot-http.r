@@ -85,18 +85,18 @@ sync-op: function [port body] [
 
 read-sync-awake: function [event [event!]] [
     false unless switch event/type [
-        connect
-        ready [
+        'connect
+        'ready [
             do-request event/port
             false
         ]
-        done [
+        'done [
             true
         ]
-        close [
+        'close [
             true
         ]
-        error [
+        'error [
             error: event/port/state/error
             event/port/state/error: _
             fail error
@@ -112,31 +112,31 @@ http-awake: function [event] [
     awake: :state/awake
 
     true unless switch event/type [
-        read [
+        'read [
             awake make event! [type: 'read port: http-port]
             check-response http-port
         ]
-        wrote [
+        'wrote [
             awake make event! [type: 'wrote port: http-port]
             state/state: 'reading-headers
             read port
             false
         ]
-        lookup [open port false]
-        connect [
+        'lookup [open port false]
+        'connect [
             state/state: 'ready
             awake make event! [type: 'connect port: http-port]
         ]
-        close [
+        'close [
             res: switch state/state [
-                ready [
+                'ready [
                     awake make event! [type: 'close port: http-port]
                 ]
-                doing-request reading-headers [
+                'doing-request 'reading-headers [
                     state/error: make-http-error "Server closed connection"
                     awake make event! [type: 'error port: http-port]
                 ]
-                reading-data [
+                'reading-data [
                     either any [
                         integer? state/info/headers/content-length
                         state/info/headers/transfer-encoding = "chunked"
@@ -375,7 +375,7 @@ check-response: function [port] [
     ]
 
     switch/all info/response-parsed [
-        ok [
+        'ok [
             if spec/method = 'HEAD [
                 state/state: 'ready
                 res: any [
@@ -392,8 +392,8 @@ check-response: function [port] [
                 ]
             ]
         ]
-        redirect
-        see-other [
+        'redirect
+        'see-other [
             if spec/method = 'HEAD [
                 state/state: 'ready
                 res: awake make event! [type: 'custom port: port code: 0]
@@ -427,50 +427,50 @@ check-response: function [port] [
                 ]
             ]
         ]
-        unauthorized
-        client-error
-        server-error
-        proxy-auth [
+        'unauthorized
+        'client-error
+        'server-error
+        'proxy-auth [
             if spec/method = 'HEAD [
                 state/state: 'ready
             ] else [
                 check-data port
             ]
         ]
-        unauthorized [
+        'unauthorized [
             state/error: make-http-error "Authentication not supported yet"
             res: awake make event! [type: 'error port: port]
         ]
-        client-error
-        server-error [
+        'client-error
+        'server-error [
             state/error: make-http-error ["Server error: " line]
             res: awake make event! [type: 'error port: port]
         ]
-        not-modified [
+        'not-modified [
             state/state: 'ready
             res: any [
                 awake make event! [type: 'done port: port]
                 awake make event! [type: 'ready port: port]
             ]
         ]
-        use-proxy [
+        'use-proxy [
             state/state: 'ready
             state/error: make-http-error "Proxies not supported yet"
             res: awake make event! [type: 'error port: port]
         ]
-        proxy-auth [
+        'proxy-auth [
             state/error: make-http-error
                 <- "Authentication and proxies not supported yet"
             res: awake make event! [type: 'error port: port]
         ]
-        no-content [
+        'no-content [
             state/state: 'ready
             res: any [
                 awake make event! [type: 'done port: port]
                 awake make event! [type: 'ready port: port]
             ]
         ]
-        info [
+        'info [
             info/headers: _
             info/response-line: _
             info/response-parsed: _
@@ -478,7 +478,7 @@ check-response: function [port] [
             state/state: 'reading-headers
             read conn
         ]
-        version-not-supported [
+        'version-not-supported [
             state/error: make-http-error "HTTP response version not supported"
             res: awake make event! [type: 'error port: port]
             close port
@@ -511,6 +511,8 @@ do-redirect: func [
         switch new-uri/scheme [
             'https [append new-uri [port-id: 443]]
             'http [append new-uri [port-id: 80]]
+        ] else [
+            fail ["Unknown scheme:" new-uri/scheme]
         ]
     ]
     new-uri: construct/only port/scheme/spec new-uri
@@ -739,18 +741,13 @@ sys/make-scheme [
 
         reflect: func [port [port!] property [word!]] [
             switch property [
-                open? [
+                'open? [
                     port/state and (open? port/state/connection)
                 ]
 
-                length: func [
-                    port [port!]
-                ][
-                    ; actor is not an object!, so this isn't a recursive call
-                    ;
+                'length [
                     if port/data [length of port/data] else [0]
                 ]
-
             ]
         ]
 

@@ -566,7 +566,7 @@ case*: redescribe [
 switch*: redescribe [
     {Same as SWITCH/ONLY (void, not blank, if branch evaluates to void)}
 ](
-    specialize 'switch [only: true]
+    specialize 'switch [opt: true]
 )
 
 skip*: redescribe [

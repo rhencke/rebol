@@ -165,11 +165,11 @@ script?: func [
     source [file! url! binary! string!]
 ][
     switch type of source [
-        (file!)
-        (url!) [
+        file!
+        url! [
             source: read source
         ]
-        (string!) [
+        string! [
             ; Remove this line if FIND-SCRIPT changed to accept string!
             ;
             source: to binary! source

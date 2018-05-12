@@ -46,10 +46,10 @@ either commands: find args '| [
 
 for-each [name value] options [
     switch/default name [
-        CONFIG LOAD DO [
+        'CONFIG 'LOAD 'DO [
             user-config: make user-config load to-file value
         ]
-        EXTENSIONS [
+        'EXTENSIONS [
             use [ext-file user-ext][
                 either any [
                     exists? ext-file: to file! value
@@ -277,14 +277,14 @@ extension-names: map-each x available-extensions [to-lit-word x/name]
 ; I need targets here, for gathering names
 ; and use they with --help targets ...
 targets: [
-    clean [
+    'clean [
         rebmake/execution/run make rebmake/solution-class [
             depends: reduce [
                 clean
             ]
         ]
     ]
-    prep [
+    'prep [
         rebmake/execution/run make rebmake/solution-class [
             depends: flatten reduce [
                 vars
@@ -294,7 +294,7 @@ targets: [
             ]
         ]
     ]
-    app executable r3 [
+    'app 'executable 'r3 [
         rebmake/execution/run make rebmake/solution-class [
             depends: flatten reduce [
                 vars
@@ -304,7 +304,7 @@ targets: [
             ]
         ]
     ]
-    library [
+    'library [
         rebmake/execution/run make rebmake/solution-class [
             depends: flatten reduce [
                 vars
@@ -314,7 +314,7 @@ targets: [
             ]
         ]
     ]
-    all execution [
+    'all 'execution [
         rebmake/execution/run make rebmake/solution-class [
             depends: flatten reduce [
                 clean
@@ -326,29 +326,28 @@ targets: [
             ]
         ]
     ]
-    makefile [
+    'makefile [
         rebmake/makefile/generate %makefile solution
     ]
-    nmake [
+    'nmake [
         rebmake/nmake/generate %makefile solution
     ]
-    vs2017
-    visual-studio [
+    'vs2017
+    'visual-studio [
         rebmake/visual-studio/generate/(all [system-config/os-name = 'Windows-x86 'x86]) %. solution
     ]
-    vs2015 [
+    'vs2015 [
         rebmake/vs2015/generate/(all [system-config/os-name = 'Windows-x86 'x86]) %. solution
     ]
 ]
 target-names: make block! 16
 for-each x targets [
-    either word? x [
-        append target-names x
+    either lit-word? x [
+        append target-names to word! x
         append target-names '|
     ][
         take/last target-names
-        append target-names
-        newline
+        append target-names newline
     ]
 ]
 
@@ -513,17 +512,17 @@ if blank? rebmake/default-linker [
 ]
 
 switch/default rebmake/default-compiler/name [
-    gcc [
+    'gcc [
         if rebmake/default-linker/name != 'ld [
             fail ["Incompatible compiler (GCC) and linker: " rebmake/default-linker/name]
         ]
     ]
-    clang [
+    'clang [
         if not find [ld llvm-link] rebmake/default-linker/name [
             fail ["Incompatible compiler (CLANG) and linker: " rebmake/default-linker/name]
         ]
     ]
-    cl [
+    'cl [
         if rebmake/default-linker/name != 'link [
             fail ["Incompatible compiler (CL) and linker: " rebmake/default-linker/name]
         ]
@@ -552,25 +551,25 @@ app-config: make object! [
 cfg-sanitize: false
 cfg-symbols: false
 switch/default user-config/debug [
-    #[false] no false off none [
+    #[false] 'no 'false 'off 'none [
         append app-config/definitions ["NDEBUG"]
         app-config/debug: off
     ]
-    #[true] yes true on [
+    #[true] 'yes 'true 'on [
         app-config/debug: on
     ]
-    asserts [
+    'asserts [
         ; /debug should only affect the "-g -g3" symbol inclusions in rebmake.
         ; To actually turn off asserts or other checking features, NDEBUG must
         ; be defined.
         ;
         app-config/debug: off
     ]
-    symbols [
+    'symbols [
         cfg-symbols: true
         app-config/debug: on
     ]
-    sanitize [
+    'sanitize [
         app-config/debug: on
         cfg-symbols: true
         cfg-sanitize: true
@@ -582,7 +581,7 @@ switch/default user-config/debug [
     ; be used when trying to find bugs that only appear in release builds or
     ; higher optimization levels.
     ;
-    callgrind [
+    'callgrind [
         cfg-symbols: true
         append app-config/definitions ["NDEBUG"]
         append app-config/cflags "-g" ;; for symbols
@@ -610,7 +609,7 @@ switch/default user-config/debug [
 ]
 
 switch user-config/optimize [
-    #[false] false no off 0 [
+    #[false] 'false 'no 'off 0 [
         app-config/optimization: false
     ]
     1 2 3 4 "s" "z" 's 'z [
@@ -621,20 +620,20 @@ switch user-config/optimize [
 cfg-cplusplus: false
 ;standard
 append app-config/cflags opt switch/default user-config/standard [
-    c [
+    'c [
         _
     ]
-    gnu89 c99 gnu99 c11 [
+    'gnu89 'c99 'gnu99 'c11 [
         to tag! unspaced ["gnu:--std=" user-config/standard]
     ]
-    c++ [
+    'c++ [
         cfg-cplusplus: true
         [
             <gnu:-x c++>
             <msc:/TP>
         ]
     ]
-    c++98 c++0x c++11 c++14 c++17 c++latest [
+    'c++98 'c++0x 'c++11 'c++14 'c++17 'c++latest [
 
         cfg-cplusplus: true
         compose [
@@ -700,13 +699,13 @@ append app-config/cflags opt switch/default user-config/standard [
 ;
 cfg-pre-vista: false
 append app-config/definitions opt switch/default user-config/pre-vista [
-    #[true] yes on true [
+    #[true] 'yes 'on 'true [
         cfg-pre-vista: true
         compose [
             "PRE_VISTA"
         ]
     ]
-    _ #[false] no off false [
+    _ #[false] 'no 'off 'false [
         cfg-pre-vista: false
         _
     ]
@@ -716,7 +715,7 @@ append app-config/definitions opt switch/default user-config/pre-vista [
 
 cfg-rigorous: false
 append app-config/cflags opt switch/default user-config/rigorous [
-    #[true] yes on true [
+    #[true] 'yes 'on 'true [
         cfg-rigorous: true
         compose [
             <gnu:-Werror> <msc:/WX>;-- convert warnings to errors
@@ -927,7 +926,7 @@ append app-config/cflags opt switch/default user-config/rigorous [
             <msc:/wd5039>
         ]
     ]
-    _ #[false] no off false [
+    _ #[false] 'no 'off 'false [
         cfg-rigorous: false
         _
     ]
@@ -936,11 +935,11 @@ append app-config/cflags opt switch/default user-config/rigorous [
 ]
 
 append app-config/ldflags opt switch/default user-config/static [
-    _ no off false #[false] [
+    _ 'no 'off 'false #[false] [
         ;pass
         _
     ]
-    yes on #[true] [
+    'yes 'on #[true] [
         compose [
             <gnu:-static-libgcc>
             (if cfg-cplusplus [<gnu:-static-libstdc++>])
@@ -1158,10 +1157,10 @@ builtin-extensions: copy available-extensions
 dynamic-extensions: make block! 8
 for-each [action name modules] user-config/extensions [
     switch/default action [
-        + [; builtin
+        '+ [; builtin
             ;pass, default action
         ]
-        * - [
+        '* '- [
             item: _
             for-next builtin-extensions [
                 if builtin-extensions/1/name = name [
@@ -1536,10 +1535,10 @@ add-new-obj-folders: procedure [
 ][
     for-each lib objs [
         switch/default lib/class-name [
-            object-file-class [
+            'object-file-class [
                 lib: reduce [lib]
             ]
-            object-library-class [
+            'object-library-class [
                 lib: lib/depends
             ]
         ][

@@ -122,6 +122,24 @@ finish-init-core: proc [
         ](
             specialize 'unless [try: true]
         ))])
+
+        switch: (adapt 'switch [
+            for-each c cases [
+                if (did match [word! path!] c) and (not datatype? get c) [
+                    fail/where [
+                        {Temporarily disabled word/path SWITCH clause:} :c LF
+
+                        {You likely meant to use a LIT-WORD! / LIT-PATH!} LF
+
+                        {SWITCH in Ren-C evaluates its match clauses, and}
+                        {will even allow 0-arity ACTION!s (larger arities are}
+                        {put in a GROUP! to facilitate skipping after a match}
+                        {is found.  But to help catch old uses, only datatype}
+                        {lookups are enabled.  SWITCH: :LIB/SWITCH overrides.}
+                    ] 'cases
+                ]
+            ]
+        ])
     ]
 
     comment [

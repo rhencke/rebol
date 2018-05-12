@@ -894,18 +894,20 @@ REBNATIVE(choose)
 //
 //  {Selects a choice and evaluates the block that follows it.}
 //
-//      return: "Last case evaluation, or void if no cases matched"
+//      return: "Last case evaluation, or null if no cases matched"
 //          [<opt> any-value!]
 //      value "Target value"
 //          [any-value!]
 //      cases "Block of cases (comparison lists followed by block branches)"
 //          [block!]
-//      /default "Default case if no others found"
-//      default-case "Block to execute or function to run if no cases match"
-//          [action! block!]
 //      /all "Evaluate all matches (not just first one)"
 //      /strict "Use STRICT-EQUAL? when comparing cases instead of EQUAL?"
-//      /only "If branch runs and returns void, do not convert it to BLANK!"
+//      /opt "If branch runs and returns null, do not convert it to BLANK!"
+//      /quote "Do not evaluate comparison values"
+//
+//      /default "Default case if no others found (deprecated, see ELSE)"
+//      default-case "Block to execute or function to run if no cases match"
+//          [action! block!]
 //  ]
 //
 REBNATIVE(switch)
@@ -941,25 +943,24 @@ REBNATIVE(switch)
         //
         if (
             IS_BLOCK(f->value)
-            || IS_ACTION(f->value) // literal ACTION!, likely COMPOSE'd in
+            or IS_ACTION(f->value) // literal ACTION!, likely COMPOSE'd in
         ){
             Init_Void(D_CELL);
             Fetch_Next_In_Frame(f);
             continue;
         }
 
-        // GROUP!, GET-WORD! and GET-PATH! are evaluated in Ren-C's SWITCH
-        // All other types are seen as-is (hence words act "quoted")
-        //
-        if (IS_QUOTABLY_SOFT(f->value)) {
+        if (REF(quote))
+            Quote_Next_In_Frame(D_CELL, f);
+        else {
             if (Eval_Value_Core_Throws(D_CELL, f->value, f->specifier)) {
                 Move_Value(D_OUT, D_CELL);
                 Abort_Frame(f);
                 return R_OUT_IS_THROWN;
             }
+
+            Fetch_Next_In_Frame(f);
         }
-        else
-            Derelativize(D_CELL, f->value, f->specifier);
 
         // It's okay that we are letting the comparison change `value`
         // here, because equality is supposed to be transitive.  So if it
@@ -975,18 +976,18 @@ REBNATIVE(switch)
         // the un-mutated condition value, in which case this should not
         // be changing D_CELL
 
-        if (!Compare_Modify_Values(ARG(value), D_CELL, REF(strict) ? 1 : 0)) {
-            Fetch_Next_In_Frame(f);
+        if (!Compare_Modify_Values(ARG(value), D_CELL, REF(strict) ? 1 : 0))
             continue;
-        }
 
         // Skip ahead to try and find a block, to treat as code for the match
 
-        do {
-            Fetch_Next_In_Frame(f);
+        while (TRUE) {
             if (FRM_AT_END(f))
                 goto return_defaulted;
-        } while (not IS_BLOCK(f->value) and not IS_ACTION(f->value));
+            if (IS_BLOCK(f->value) or IS_ACTION(f->value))
+                break;
+            Fetch_Next_In_Frame(f);
+        }
 
         // Run the code if it was found.  Because it writes D_OUT with a value
         // (or void), it won't be END--we'll know at least one case has run.
@@ -999,7 +1000,7 @@ REBNATIVE(switch)
         // in the cases feature turns out to be superfluous, use that instead.
         //
         Derelativize(ARG(cases), f->value, f->specifier);
-        if (Run_Branch_Throws(D_OUT, D_CELL, ARG(cases), REF(only))) {
+        if (Run_Branch_Throws(D_OUT, D_CELL, ARG(cases), REF(opt))) {
             Abort_Frame(f);
             return R_OUT_IS_THROWN;
         }
@@ -1033,7 +1034,7 @@ return_defaulted:
     // END, so only single-arity functions can be used, but by using void
     // here it allows a common function to take the default.)
     //
-    if (Run_Branch_Throws(D_OUT, VOID_CELL, ARG(default_case), REF(only)))
+    if (Run_Branch_Throws(D_OUT, VOID_CELL, ARG(default_case), REF(opt)))
         return R_OUT_IS_THROWN;
 
     return R_OUT;

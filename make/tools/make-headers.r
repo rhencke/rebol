@@ -66,7 +66,7 @@ emit-proto: proc [proto] [
     ]
 
     switch/default header/2 [
-        RL_API [
+        'RL_API [
             ; Currently the RL_API entries should only occur in %a-lib.c, and
             ; are processed by %make-reb-lib.r.  Their RL_XxxYyy() forms don't
             ; appear in the %tmp-funcs.h file, but core includes %reb-lib.h
@@ -75,7 +75,7 @@ emit-proto: proc [proto] [
             ;
             leave
         ]
-        C [
+        'C [
             ; The only accepted type for now
         ]
         ; Natives handled by searching for REBNATIVE() currently.  If it

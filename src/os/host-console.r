@@ -379,15 +379,15 @@ host-console: function [
         ]
 
         return-to-c <- switch type of state [
-            (integer!) [ ;-- just tells the calling C loop to exit() process
+            integer! [ ;-- just tells the calling C loop to exit() process
                 assert [empty? instruction]
                 state
             ]
-            (datatype!) [ ;-- type assertion, how to enforce this?
+            datatype! [ ;-- type assertion, how to enforce this?
                 emit spaced ["^-- Result should be" an state]
                 instruction
             ]
-            (group!) [ ;-- means "submit user code"
+            group! [ ;-- means "submit user code"
                 assert [empty? instruction]
                 state
             ]
@@ -778,9 +778,9 @@ echo: procedure [
     case [
         word? instruction [
             switch instruction [
-                on [ensure-echo-on]
-                off [ensure-echo-off]
-                reset [
+                'on [ensure-echo-on]
+                'off [ensure-echo-off]
+                'reset [
                     delete form-target
                     write/append form-target "" ;-- or just have it not exist?
                 ]

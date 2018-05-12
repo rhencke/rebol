@@ -1274,7 +1274,7 @@ inline static REBOOL Eval_Value_Core_Throws(
 //     >> case [false "a" false "b"] then func [x] [print x] else [print "*"]
 //     *
 //
-// Also, Ren-C does something called "blankification", unless the /ONLY
+// Also, Ren-C does something called "blankification", unless the /OPT
 // refinement is used.  This is the process by which a void-producing branch
 // is forced to be a BLANK! instead, allowing void to be reserved for the
 // result when no branch ran.  This gives a uniform way of determining
@@ -1289,7 +1289,7 @@ inline static REBOOL Run_Branch_Throws(
     REBVAL *out,
     const REBVAL *condition,
     const REBVAL *branch,
-    REBOOL only
+    REBOOL opt
 ){
     assert(branch != out); // !!! review, CASE can perhaps do better...
     assert(condition != out); // direct pointer in va_list, also destination
@@ -1306,7 +1306,7 @@ inline static REBOOL Run_Branch_Throws(
             return TRUE;
     }
 
-    if (not only and IS_VOID(out))
+    if (not opt and IS_VOID(out))
         Init_Blank(out); // "blankification", see comment above
 
     CLEAR_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED);

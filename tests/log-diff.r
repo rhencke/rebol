@@ -66,15 +66,15 @@ make-diff: function [
                 write/append diff-file spaced [
                     new-test
                     switch new-result [
-                        succeeded [
+                        'succeeded [
                             new-successes: new-successes + 1
                             "succeeded"
                         ]
-                        failed [
+                        'failed [
                             new-failures: new-failures + 1
                             "failed"
                         ]
-                        crashed [
+                        'crashed [
                             new-crashes: new-crashes + 1
                             "crashed"
                         ]

@@ -267,9 +267,9 @@ make object! [
             parse tokens [thru 'eol set eol [string! | char!]]
             for-each [type val] tokens [
                 switch/default type [
-                    eol wsp [emit val]
-                    cmt [emit #";" emit val emit eol]
-                    tst [
+                    'eol 'wsp [emit val]
+                    'cmt [emit #";" emit val emit eol]
+                    'tst [
                         replace/all val newline eol
                         if empty? issues [
                             if eol <> last-emit [emit eol]
@@ -330,10 +330,10 @@ make object! [
                             emit #"]"
                         ]
                     ]
-                    fil [emit val]
-                    flg [emit #"<" emit val emit #">"]
-                    isu [append/only issues val]
-                    end []
+                    'fil [emit val]
+                    'flg [emit #"<" emit val emit #">"]
+                    'isu [append/only issues val]
+                    'end []
                 ] [
                     fail [{Cannot render type } (type)]
                 ]

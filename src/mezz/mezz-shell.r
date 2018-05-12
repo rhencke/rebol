@@ -30,9 +30,9 @@ cd: func [
 ][
     switch type of :path [
         _ []
-        (file!) [change-dir path]
-        (string!) [change-dir local-to-file path]
-        (word!) (path!) [change-dir to-file path]
+        file! [change-dir path]
+        string! [change-dir local-to-file path]
+        word! path! [change-dir to-file path]
     ]
 
     return what-dir
@@ -44,8 +44,8 @@ more: func [
         "Accepts %file and also just words (as file names)"
 ][
     print deline to-string read switch type of :file [
-        (file!) [file]
-        (string!) [local-to-file file]
-        (word!) (path!) [to-file file]
+        file! [file]
+        string! [local-to-file file]
+        word! path! [to-file file]
     ]
 ]

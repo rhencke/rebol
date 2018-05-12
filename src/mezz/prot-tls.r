@@ -122,15 +122,15 @@ parse-asn: function [
 
     while [d: first data] [
         switch mode [
-            type [
+            'type [
                 constructed?: not zero? (d and+ 32)
                 class: pick class-types 1 + shift d -6
 
                 switch class [
-                    universal [
+                    'universal [
                         tag: pick universal-tags 1 + (d and+ 31)
                     ]
-                    context-specific [
+                    'context-specific [
                         tag: class
                         val: d and+ 31
                     ]
@@ -138,7 +138,7 @@ parse-asn: function [
                 mode: 'size
             ]
 
-            size [
+            'size [
                 size: d and+ 127
                 if not zero? (d and+ 128) [
                     ; long form
@@ -161,9 +161,9 @@ parse-asn: function [
                 ]
             ]
 
-            value [
+            'value [
                 switch class [
-                    universal [
+                    'universal [
                         val: copy/part data size
                         append/only result compose/deep [
                             (tag) [
@@ -179,7 +179,7 @@ parse-asn: function [
                         ]
                     ]
 
-                    context-specific [
+                    'context-specific [
                         append/only result compose/deep [(tag) [(val) (size)]]
                         parse-asn copy/part data size
                     ]
@@ -313,7 +313,7 @@ client-key-exchange: function [
     ctx [object!]
 ][
     switch ctx/key-method [
-        rsa [
+        'rsa [
             ; generate pre-master-secret
             ctx/pre-master-secret: copy ctx/version
             random/seed now/time/precise
@@ -328,8 +328,8 @@ client-key-exchange: function [
             key-data: rsa ctx/pre-master-secret rsa-key
         ]
 
-        dhe-dss
-        dhe-rsa [
+        'dhe-dss
+        'dhe-rsa [
             ; generate public/private keypair
             dh-generate-key ctx/dh-key
 
@@ -483,11 +483,11 @@ encrypt-data: function [
     ]
 
     switch ctx/crypt-method [
-        rc4 [
+        'rc4 [
             ctx/encrypt-stream: default [rc4/key ctx/client-crypt-key]
             rc4/stream ctx/encrypt-stream data
         ]
-        aes [
+        'aes [
             ctx/encrypt-stream: default [
                 aes/key ctx/client-crypt-key ctx/client-iv
             ]
@@ -504,11 +504,11 @@ decrypt-data: function [
     data [binary!]
 ][
     switch ctx/crypt-method [
-        rc4 [
+        'rc4 [
             ctx/decrypt-stream: default [rc4/key ctx/server-crypt-key]
             rc4/stream ctx/decrypt-stream data
         ]
-        aes [
+        'aes [
             ctx/decrypt-stream: default [
                 aes/key/decrypt ctx/server-crypt-key ctx/server-iv
             ]
@@ -624,7 +624,7 @@ parse-messages: function [
     ]
 
     switch proto/type [
-        alert [
+        'alert [
             append result reduce [
                 context [
                     level: pick [warning fatal] data/1 !! 'unknown
@@ -633,9 +633,9 @@ parse-messages: function [
             ]
         ]
 
-        handshake [
+        'handshake [
             while-not [tail? data] [
-                msg-type: to-value select message-types data/1
+                msg-type: try select message-types data/1
 
                 update-proto-state ctx (
                     ctx/encrypted? ?? 'encrypted-handshake !! msg-type
@@ -643,7 +643,7 @@ parse-messages: function [
 
                 len: to-integer/unsigned copy/part at data 2 3
                 append result switch msg-type [
-                    server-hello [
+                    'server-hello [
                         msg-content: copy/part at data 7 len
 
                         msg-obj: context [
@@ -744,7 +744,7 @@ parse-messages: function [
                         msg-obj
                     ]
 
-                    certificate [
+                    'certificate [
                         msg-content: copy/part at data 5 len
                         msg-obj: context [
                             type: msg-type
@@ -762,7 +762,7 @@ parse-messages: function [
                         ctx/certificate: parse-asn msg-obj/certificate-list/1
 
                         switch ctx/key-method [
-                            rsa [
+                            'rsa [
                                 ; get the public key and exponent (hardcoded for now)
                                 ctx/pub-key: parse-asn next
 ;                               ctx/certificate/1/sequence/4/1/sequence/4/6/sequence/4/2/bit-string/4
@@ -777,9 +777,9 @@ parse-messages: function [
                         msg-obj
                     ]
 
-                    server-key-exchange [
+                    'server-key-exchange [
                         switch ctx/key-method [
-                            dhe-dss dhe-rsa [
+                            'dhe-dss 'dhe-rsa [
                                 msg-content: copy/part at data 5 len
                                 msg-obj: context [
                                     type: msg-type
@@ -807,14 +807,14 @@ parse-messages: function [
                         ]
                     ]
 
-                    server-hello-done [
+                    'server-hello-done [
                         context [
                             type: msg-type
                             length: len
                         ]
                     ]
 
-                    client-hello [
+                    'client-hello [
                         msg-content: copy/part at data 7 len
                         context [
                             type: msg-type
@@ -824,7 +824,7 @@ parse-messages: function [
                         ]
                     ]
 
-                    finished [
+                    'finished [
                         ctx/seq-num-r: 0
                         msg-content: copy/part at data 5 len
                         who-finished: either ctx/server? [
@@ -878,14 +878,14 @@ parse-messages: function [
             ]
         ]
 
-        change-cipher-spec [
+        'change-cipher-spec [
             ctx/encrypted?: true
             append result context [
                 type: 'ccs-message-type
             ]
         ]
 
-        application [
+        'application [
             append result msg-obj: context [
                 type: 'app-data
                 content: copy/part data (length of data) - ctx/hash-size
@@ -1047,9 +1047,9 @@ tls-init: procedure [
     ctx/encrypted?: false
 
     switch ctx/crypt-method [
-        rc4 [
-            ctx/encrypt-stream: me and [rc4/stream ctx/encrypt-stream blank]
-            ctx/decrypt-stream: me and [rc4/stream ctx/decrypt-stream blank]
+        'rc4 [
+            ctx/encrypt-stream: default [rc4/stream ctx/encrypt-stream blank]
+            ctx/decrypt-stream: default [rc4/stream ctx/decrypt-stream blank]
         ]
     ]
 ]
@@ -1124,7 +1124,7 @@ tls-awake: function [event [event!]] [
     ]
 
     switch event/type [
-        lookup [
+        'lookup [
             open port
             tls-init tls-port/state
             insert system/ports/system make event! [
@@ -1134,7 +1134,7 @@ tls-awake: function [event [event!]] [
             return false
         ]
 
-        connect [
+        'connect [
             do-commands tls-port/state [client-hello]
 
             if tls-port/state/resp/1/type = 'handshake [
@@ -1151,12 +1151,12 @@ tls-awake: function [event [event!]] [
             return false
         ]
 
-        wrote [
+        'wrote [
             switch tls-port/state/protocol-state [
-                close-notify [
+                'close-notify [
                     return true
                 ]
-                application [
+                'application [
                     insert system/ports/system make event! [
                         type: 'wrote
                         port: tls-port
@@ -1168,7 +1168,7 @@ tls-awake: function [event [event!]] [
             return false
         ]
 
-        read [
+        'read [
             debug [
                 "Read" length of port/data
                 "bytes proto-state:" tls-port/state/protocol-state
@@ -1179,7 +1179,7 @@ tls-awake: function [event [event!]] [
 
             for-each proto tls-port/state/resp [
                 switch proto/type [
-                    application [
+                    'application [
                         for-each msg proto/messages [
                             if msg/type = 'app-data [
                                 tls-port/data: default [
@@ -1191,7 +1191,7 @@ tls-awake: function [event [event!]] [
                             ]
                         ]
                     ]
-                    alert [
+                    'alert [
                         for-each msg proto/messages [
                             if msg/description = "Close notify" [
                                 do-commands tls-port/state [close-notify]
@@ -1219,7 +1219,7 @@ tls-awake: function [event [event!]] [
             return complete?
         ]
 
-        close [
+        'close [
             insert system/ports/system make event! [
                 type: 'close
                 port: tls-port
@@ -1334,11 +1334,11 @@ sys/make-scheme [
 
         reflect: func [port [port!] property [word!]] [
             switch property [
-                open? [
+                'open? [
                     port/state and (open? port/state/connection)
                 ]
 
-                length [
+                'length [
                     ; actor is not an object!, so this isn't a recursive call
                     ;
                     either port/data [length of port/data] [0]
@@ -1363,7 +1363,7 @@ sys/make-scheme [
             ; OBJECT! containing a BINARY! ?
             ;
             switch port/state/crypt-method [
-                rc4 [
+                'rc4 [
                     if port/state/encrypt-stream [
                         port/state/encrypt-stream: _ ;-- will be GC'd
                     ]
@@ -1371,7 +1371,7 @@ sys/make-scheme [
                         port/state/decrypt-stream: _ ;-- will be GC'd
                     ]
                 ]
-                aes [
+                'aes [
                     if port/state/encrypt-stream [
                         port/state/encrypt-stream: _ ;-- will be GC'd
                     ]

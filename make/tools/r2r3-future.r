@@ -169,6 +169,26 @@ if true = attempt [void? :some-undefined-thing] [
         ]
     ]
 
+    if not error? trap [switch 3 [1 + 2 [3]]] [ ;-- no error is non-evaluative
+        switch: adapt 'switch [
+            cases: map-each c cases [
+                case [
+                    lit-word? :c [to word! c]
+                    lit-path? :c [to path! c]
+
+                    path? :c [
+                        fail/where ["Switch now evaluative" c] 'cases
+                    ]
+                    word? :c [
+                        fail/where ["Switch now evaluative" c] 'cases
+                    ]
+
+                    true [:c]
+                ]
+            ]
+        ]
+    ]
+                    
     QUIT ;-- !!! stops running if Ren-C here.
 ]
 
