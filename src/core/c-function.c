@@ -1575,7 +1575,7 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
 
         case SYM_TYPE:
             if (kind == REB_MAX_VOID)
-                return R_BLANK;
+                return R_VOID; // `() = type of ()`, `null = type of ()`
             Init_Datatype(f->out, kind);
             return R_OUT;
 

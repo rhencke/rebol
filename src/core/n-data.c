@@ -1143,7 +1143,7 @@ REBNATIVE(quote)
 //
 //      optional [<opt> any-value!]
 //  ][
-//      blank? type of :optional
+//      () = type of :optional
 //  ]
 //
 REBNATIVE(null_q)

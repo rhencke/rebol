@@ -159,7 +159,7 @@
 (true = eval true)
 (false = eval false)
 ($1 == eval $1)
-(_ = eval (specialize 'of [property: 'type]) ())
+(null? eval (specialize 'of [property: 'type]) ())
 (blank? do _)
 (
     a-value: make object! []

@@ -29,7 +29,7 @@ cd: func [
         "Accepts %file, :variables and just words (as dirs)"
 ][
     switch type of :path [
-        _ []
+        null []
         file! [change-dir path]
         string! [change-dir local-to-file path]
         word! path! [change-dir to-file path]

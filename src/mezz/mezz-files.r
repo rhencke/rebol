@@ -181,7 +181,7 @@ list-dir: procedure [
     ]
 
     switch type of :path [
-        _ [] ; Stay here
+        null [] ; Stay here
         file! [change-dir path]
         string! [change-dir local-to-file path]
         word! path! [change-dir to-file path]

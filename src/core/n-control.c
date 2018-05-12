@@ -897,7 +897,7 @@ REBNATIVE(choose)
 //      return: "Last case evaluation, or null if no cases matched"
 //          [<opt> any-value!]
 //      value "Target value"
-//          [any-value!]
+//          [<opt> any-value!]
 //      cases "Block of cases (comparison lists followed by block branches)"
 //          [block!]
 //      /all "Evaluate all matches (not just first one)"

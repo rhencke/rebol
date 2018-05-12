@@ -125,7 +125,11 @@ finish-init-core: proc [
 
         switch: (adapt 'switch [
             for-each c cases [
-                if (did match [word! path!] c) and (not datatype? get c) [
+                lib/all [ ;-- SWITCH/ALL would override
+                    did match [word! path!] c
+                    'null <> c
+                    not datatype? get c
+                ] then [
                     fail/where [
                         {Temporarily disabled word/path SWITCH clause:} :c LF
 

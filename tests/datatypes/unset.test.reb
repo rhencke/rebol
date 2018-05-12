@@ -1,6 +1,6 @@
 ; datatypes/unset.r
 (null? ())
-(blank? type of ())
+(null? type of ())
 (not null? 1)
 
 [#68
