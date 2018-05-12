@@ -183,10 +183,10 @@ spec-of: function [
 
     action [action!]
 ][
-    meta: match object! meta-of :action
+    meta: try match object! meta-of :action
 
-    specializee: match action! try select meta 'specializee
-    adaptee: match action! try select meta 'adaptee
+    specializee: try match action! try select meta 'specializee
+    adaptee: try match action! try select meta 'adaptee
     original-meta: match object! any [
         :specializee and [meta-of :specializee]
         :adaptee and [meta-of :adaptee]
