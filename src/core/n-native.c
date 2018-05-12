@@ -341,7 +341,8 @@ REBNATIVE(make_native)
 //
 //  {Compiles one or more native functions at the same time, with options.}
 //
-//      return: [<opt>]
+//      return: [<opt> string!]
+//          {No return value, unless /INSPECT is used to get the processed C}
 //      natives [block!]
 //          {Functions from MAKE-NATIVE or STRING!s of code.}
 //      /options
@@ -356,8 +357,8 @@ REBNATIVE(make_native)
 //          runtime-path [file! string!]
 //          library-path [block! file! any-string!]
 //          library [block! file! any-string!]
-//
 //      }
+//      /inspect {Return the C source code as a strnig, but don't compile it}
 //  ]
 //
 REBNATIVE(compile)
@@ -368,6 +369,7 @@ REBNATIVE(compile)
     UNUSED(ARG(natives));
     UNUSED(REF(options));
     UNUSED(ARG(flags));
+    UNUSED(ARG(inspect));
 
     fail (Error_Not_Tcc_Build_Raw());
 #else
@@ -566,6 +568,13 @@ REBNATIVE(compile)
         else {
             assert(FALSE);
         }
+    }
+
+    // To help in debugging, it can be useful to see what is being passed in
+    //
+    if (REF(inspect)) {
+        Init_String(D_OUT, Pop_Molded_String(mo));
+        return R_OUT;
     }
 
     REBSER *combined_src = Pop_Molded_UTF8(mo);
