@@ -388,6 +388,17 @@ void Change_Case(REBVAL *out, REBVAL *val, REBVAL *part, REBOOL upper)
 //
 // Given a string series, split lines on CR-LF.  Give back array of strings.
 //
+// Note: The definition of "line" in POSIX is a sequence of characters that
+// end with a newline.  Hence, the last line of a file should have a newline
+// marker, or it's not a "line")
+//
+// https://stackoverflow.com/a/729795
+//
+// This routine does not require it.
+//
+// !!! CR support is likely to be removed...and CR will be handled as a normal
+// character, with special code needed to process it.
+//
 REBARR *Split_Lines(const REBVAL *str)
 {
     REBDSP dsp_orig = DSP;
@@ -406,8 +417,8 @@ REBARR *Split_Lines(const REBVAL *str)
     up = NEXT_CHR(&c, up);
     ++i;
 
-    while (i < len) {
-        if (c == LF || c == CR) {
+    while (i != len) {
+        if (c == LF or c == CR) {
             DS_PUSH_TRASH;
             Init_String(
                 DS_TOP,
@@ -418,7 +429,6 @@ REBARR *Split_Lines(const REBVAL *str)
                 )
             );
             SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
-            ++i;
             start = up;
             if (c == CR) {
                 up = NEXT_CHR(&c, up);
@@ -434,7 +444,11 @@ REBARR *Split_Lines(const REBVAL *str)
         up = NEXT_CHR(&c, up);
     }
 
-    // Possible remainder (no terminator)
+    // `c` is now the last character in the string.  See remarks above about
+    // not requiring the last character to be a newline.
+
+    if (c == CR or c == LF)
+        up = BACK_CHR(NULL, up); // back up
 
     if (AS_REBUNI(up) > AS_REBUNI(start)) {
         DS_PUSH_TRASH;
@@ -443,7 +457,7 @@ REBARR *Split_Lines(const REBVAL *str)
             Copy_Sequence_At_Len(
                 s,
                 AS_REBUNI(start) - UNI_HEAD(s),
-                AS_REBUNI(up) - AS_REBUNI(start) // no -1, wasn't terminated
+                AS_REBUNI(up) - AS_REBUNI(start) // no -1, backed up if '\n'
             )
         );
         SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
