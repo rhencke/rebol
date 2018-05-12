@@ -302,7 +302,8 @@ void Dump_Stack(REBFRM *f, REBCNT level)
 //
 //  "Temporary debug dump"
 //
-//      value [<opt> any-value!]
+//      return: []
+//      :value [any-word!]
 //  ]
 //
 REBNATIVE(dump)
@@ -313,16 +314,22 @@ REBNATIVE(dump)
     UNUSED(ARG(value));
     fail (Error_Debug_Only_Raw());
 #else
-    REBVAL *value = ARG(value);
+    REBVAL *v = ARG(value);
 
-    Dump_Stack(frame_, 0);
+    PROBE(v);
+    printf("=> ");
+    if (IS_WORD(v)) {
+        const REBVAL *var = Get_Opt_Var_Else_End(v, SPECIFIED);
+        if (VAL_TYPE_OR_0(var) == REB_0) {
+            PROBE("\\unbound\\");
+        }
+        else if (IS_VOID(var)) {
+            PROBE("\\null\\");
+        }
+        else
+            PROBE(var);
+    }
 
-    if (ANY_SERIES(value))
-        Dump_Series(VAL_SERIES(value), "=>");
-    else
-        Dump_Values(value, 1);
-
-    Move_Value(D_OUT, value);
-    return R_OUT;
+    return R_INVISIBLE;
 #endif
 }

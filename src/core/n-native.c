@@ -85,11 +85,11 @@ const void *r3_libtcc1_symbols[];
 static void tcc_error_report(void *opaque, const char *msg_utf8)
 {
     // When `tcc_set_error_func()` is called, you can pass it a value that
-    // it will pass back.  We pass EMPTY_ARRAY to test it (and explain it).
+    // it will pass back.  We pass EMPTY_BLOCK to test it (and explain it).
     // Note that since the compilation can be delayed after MAKE-NATIVE exits,
     // pointers to local variables should not be used here.
     //
-    assert(cast(REBARR*, opaque) == EMPTY_ARRAY);
+    assert(cast(REBVAL*, opaque) == EMPTY_BLOCK);
     UNUSED(opaque);
 
     DECLARE_LOCAL (msg);
