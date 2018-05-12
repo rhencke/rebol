@@ -433,10 +433,13 @@ REBARR *Split_Lines(const REBVAL *str)
             if (c == CR) {
                 up = NEXT_CHR(&c, up);
                 ++i;
-                if (c == LF)
-                    start = up; // remark start, fall through and fetch again
-                else
+                if (i == len)
+                    break; // if it was the last CR/LF don't fetch again
+
+                if (c != LF)
                     continue; // already did next character fetch
+
+                start = up; // remark start, fall through and fetch again
             }
         }
 
