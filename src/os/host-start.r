@@ -215,8 +215,6 @@ host-script-pre-load: procedure [
 host-start: function [
     "Called by HOST-CONSOLE.  Loads extras, handles args, security, scripts."
 
-    exec-path {Path to the executable file}
-        [file! blank!]
     argv {Raw command line argument block received by main() as STRING!s}
         [block!]
     boot-exts {Extensions (modules) loaded at boot}
@@ -227,7 +225,7 @@ host-start: function [
         [function!]
     <with>
     host-start host-prot boot-exts ;-- unset when finished with them
-    about usage why license echo ;-- exported to lib, see notes
+    about usage why license echo upgrade ;-- exported to lib, see notes
     <static>
         o (system/options) ;-- shorthand since options are often read/written
 ][
@@ -250,6 +248,7 @@ host-start: function [
         why: (ensure action! :why)
         license: (ensure action! :license)
         echo: (ensure action! :echo)
+        upgrade: (ensure action! :echo)
     ]
 
     ; The core presumes no built-in I/O ability in the release build, hence
@@ -427,19 +426,19 @@ host-start: function [
     ; the intended arguments.  TAKEs each option string as it goes so the
     ; array remainder can act as the args.
 
-    if tail? argv [
-        if file? exec-path [
-            o/boot: exec-path
-            o/bin: first split-path o/boot
-        ]
-    ] else [
-        if file? exec-path [
-            o/boot: exec-path
-            take argv ;consume argv[0] anyway
-        ] else [
-            ;-- on most systems, argv[0] is the exe path
-            o/boot: clean-path local-to-file take argv
-        ]
+    ; The host executable may have initialized system/options/boot, using
+    ; a platform-specific method, since argv[0] is *not* always exe path:
+    ;
+    ; https://stackoverflow.com/q/1023306/
+    ; http://stackoverflow.com/a/933996/211160
+    ;
+    ; If it did not initialize it, fall back on argv[0], if available.
+    ;
+    if not tail? argv [
+        o/boot: default [clean-path local-to-file first argv]
+        take argv
+    ]
+    if o/boot [
         o/bin: first split-path o/boot
     ]
 

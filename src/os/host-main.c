@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -419,7 +419,10 @@ int main(int argc, char *argv_ansi[])
     REBVAL *host_code = rebRun(
         "lib/transcode/file", host_bin, "%tmp-host-start.inc", END
     );
-    rebElide("lib/take/last", host_code, END); // empty binary at transcode tail
+    rebElide(
+        "ensure :empty? lib/take/last", host_code, // empty binary at tail
+        END
+    );
     rebRelease(host_bin);
 
     // Create a new context specifically for the console.  This way, changes
@@ -486,11 +489,14 @@ int main(int argc, char *argv_ansi[])
     // https://stackoverflow.com/q/1023306/
     // http://stackoverflow.com/a/933996/211160
     //
-    // It's not foolproof, so BLANK! is passed in if nothing could be found.
-    // The console code can then decide if it wants to fall back on argv[0].
+    // It's not foolproof, so it might come back blank.  The console code can
+    // then decide if it wants to fall back on argv[0]
     //
     REBVAL *exec_path = OS_GET_CURRENT_EXEC();
-    assert(IS_FILE(exec_path) or IS_BLANK(exec_path));
+    if (IS_FILE(exec_path))
+        rebElide("system/options/boot:", rebR(exec_path), END);
+    else
+        assert(IS_BLANK(exec_path));
 
     // !!! Previously the C code would call a separate startup function
     // explicitly.  This created another difficult case to bulletproof
@@ -510,11 +516,10 @@ int main(int argc, char *argv_ansi[])
     // Note that `code`, and `result` have to be released each loop ATM.
     //
     REBVAL *code = rebBlank();
-    REBVAL *result = rebBlock(exec_path, argv_block, extensions, END);
+    REBVAL *result = rebBlock(argv_block, extensions, END);
 
     // References in the `result` BLOCK! keep the underlying series alive now
     //
-    rebRelease(exec_path);
     rebRelease(extensions);
     rebRelease(argv_block);
 
@@ -550,19 +555,11 @@ int main(int argc, char *argv_ansi[])
         // done in Run_Sandboxed_Code().
         //
         REBVAL *trapped = rebRun(
-            "lib/trap [ lib/catch/quit/with [",
+            "lib/entrap [",
                 host_console, // action! that takes 3 args, run it
                 rebUneval(code), // group!/block! executed prior (or blank!)
                 rebUneval(result), // prior result in a block, or error/null
-            "] lib/func [val [<opt> any-value!] name [<opt> any-value!]] [",
-                "do lib/make error! [",
-                    "type: 'Script",
-                    "id: 'no-catch",
-                    "arg1: :val",
-                    "arg2: :name",
-                "]",
-            "] ]",
-            END
+            "]", END
         );
 
         rebRelease(code);
@@ -588,7 +585,8 @@ int main(int argc, char *argv_ansi[])
             goto recover;
         }
 
-        code = trapped;
+        code = rebRun("first", trapped, END); // entrap []'s the output
+        rebRelease(trapped); // don't need the outer block any more
 
         if (rebDid("lib/integer?", code, END))
             break; // when HOST-CONSOLE returns INTEGER! it means an exit code
