@@ -173,11 +173,7 @@ static REB_R Transport_Actor(
             else
                 fail ("local-id field of PORT! spec must be BLANK!/INTEGER!");
 
-            REBVAL *o_result = OS_DO_DEVICE(sock, RDC_OPEN);
-            assert(o_result != NULL);
-            if (rebDid("lib/error?", o_result, END))
-                rebFail (o_result, END);
-            rebRelease(o_result); // ignore result
+            OS_DO_DEVICE_SYNC(sock, RDC_OPEN);
 
             sock->flags |= RRF_OPEN;
 
@@ -201,7 +197,7 @@ static REB_R Transport_Actor(
 
                 assert(l_result != NULL);
                 if (rebDid("lib/error?", l_result, END))
-                    rebFail (l_result, END);
+                    rebJUMPS ("lib/fail", l_result, END);
                 rebRelease(l_result); // ignore result
 
                 goto return_port;
@@ -340,7 +336,7 @@ static REB_R Transport_Actor(
         }
         else {
             if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
+                rebJUMPS ("lib/fail", result, END);
 
             // a note said "recv CAN happen immediately"
             //
@@ -433,7 +429,7 @@ static REB_R Transport_Actor(
         }
         else {
             if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
+                rebJUMPS ("lib/fail", result, END);
 
             // Note here said "send CAN happen immediately"
             //
@@ -472,11 +468,7 @@ static REB_R Transport_Actor(
 
     case SYM_CLOSE: {
         if (sock->flags & RRF_OPEN) {
-            REBVAL *result = OS_DO_DEVICE(sock, RDC_CLOSE);
-            assert(result != NULL); // should be synchronous
-            if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
-            rebRelease(result); // ignore result
+            OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
 
             sock->flags &= ~RRF_OPEN;
         }
@@ -490,7 +482,7 @@ static REB_R Transport_Actor(
         }
         else {
             if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
+                rebJUMPS ("lib/fail", result, END);
             else {
                 // This can happen with UDP, which is connectionless so it
                 // returns DR_DONE.
@@ -616,12 +608,7 @@ REBNATIVE(set_udp_multicast)
     UNUSED(ARG(member));
     UNUSED(REF(drop));
 
-    REBVAL *result = OS_DO_DEVICE(sock, RDC_MODIFY);
-    assert(result != NULL); // should be synchronous
-    if (rebDid("lib/error?", result, END))
-        rebFail (result, END); // !!! chain as "SET-UDP-MULTICAST failure"?
-
-    rebRelease(result); // ignore result
+    OS_DO_DEVICE_SYNC(sock, RDC_MODIFY);
     return R_VOID;
 }
 
@@ -655,11 +642,6 @@ REBNATIVE(set_udp_ttl)
 
     UNUSED(ARG(ttl));
 
-    REBVAL *result = OS_DO_DEVICE(sock, RDC_MODIFY);
-    assert(result != NULL);
-    if (rebDid("lib/error?", result, END))
-        rebFail (result, END); // !!! should chain as "SET-UDP-TTL failure"?
-
-    rebRelease(result); // ignore result
+    OS_DO_DEVICE_SYNC(sock, RDC_MODIFY);
     return R_VOID;
 }

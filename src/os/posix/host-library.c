@@ -79,9 +79,9 @@ void *OS_Open_Library(const REBVAL *path)
 
     rebFree(path_utf8);
 
-    if (dll == NULL) {
+    if (not dll) {
         REBVAL *message = rebString(dlerror()); // dlerror() gives const char*
-        rebFail (message, rebEnd());
+        rebJUMPS ("fail", message, rebEnd());
     }
 
     return dll;

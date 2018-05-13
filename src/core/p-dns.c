@@ -84,13 +84,8 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         UNUSED(PAR(string)); // handled in dispatcher
         UNUSED(PAR(lines)); // handled in dispatcher
 
-        if (not (sock->flags & RRF_OPEN)) {
-            REBVAL *o_result = OS_DO_DEVICE(sock, RDC_OPEN);
-            assert(o_result != NULL); // should be synchronous
-            if (rebDid("lib/error?", o_result, END))
-                rebFail (o_result, END);
-            rebRelease(o_result); // ignore result
-        }
+        if (not (sock->flags & RRF_OPEN))
+            OS_DO_DEVICE_SYNC(sock, RDC_OPEN);
 
         arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
 
@@ -120,11 +115,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         else
             fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
 
-        REBVAL *r_result = OS_DO_DEVICE(sock, RDC_READ);
-        assert(r_result != NULL); // async R3-Alpha DNS gone
-        if (rebDid("lib/error?", r_result, END))
-            rebFail (r_result, END);
-        rebRelease(r_result); // ignore result
+        OS_DO_DEVICE_SYNC(sock, RDC_READ);
 
         len = 1;
         goto pick; }
@@ -155,11 +146,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             Set_Tuple(D_OUT, cast(REBYTE*, &DEVREQ_NET(sock)->remote_ip), 4);
         }
 
-        REBVAL *result = OS_DO_DEVICE(sock, RDC_CLOSE);
-        assert(result != NULL); // should be synchronous
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
         goto return_port; }
 
     case SYM_OPEN: {
@@ -179,19 +166,11 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             fail (Error_Bad_Refines_Raw());
         }
 
-        REBVAL *result = OS_DO_DEVICE(sock, RDC_OPEN);
-        assert(result != NULL); // should be synchronous
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(sock, RDC_OPEN);
         goto return_port; }
 
     case SYM_CLOSE: {
-        REBVAL *result = OS_DO_DEVICE(sock, RDC_CLOSE);
-        assert(result != NULL); // should be synchronous
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
         goto return_port; }
 
     case SYM_ON_WAKE_UP:

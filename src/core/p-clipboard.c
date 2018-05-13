@@ -96,19 +96,10 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         // This device is opened on the READ:
-        if (not (req->flags & RRF_OPEN)) {
-            REBVAL *o_result = OS_DO_DEVICE(req, RDC_OPEN);
-            assert(o_result != NULL);
-            if (rebDid("lib/error?", o_result, END))
-                rebFail (o_result, END);
-            rebRelease(o_result); // ignore result
-        }
+        if (not (req->flags & RRF_OPEN))
+            OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
-        REBVAL *r_result = OS_DO_DEVICE(req, RDC_READ);
-        assert(r_result != NULL);
-        if (rebDid("lib/error?", r_result, END))
-            rebFail (r_result, END);
-        rebRelease(r_result); // ignore result
+        OS_DO_DEVICE_SYNC(req, RDC_READ);
 
         // Copy and set the string result:
         arg = CTX_VAR(port, STD_PORT_DATA);
@@ -154,12 +145,8 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             fail (Error_Invalid_Port_Arg_Raw(arg));
 
         // This device is opened on the WRITE:
-        if (not (req->flags & RRF_OPEN)) {
-            REBVAL *o_result = OS_DO_DEVICE(req, RDC_OPEN);
-            assert(o_result != NULL);
-            if (rebDid("lib/error?", o_result, END))
-                rebFail (o_result, END);
-        }
+        if (not (req->flags & RRF_OPEN))
+            OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
         // Handle /part refinement:
         REBINT len = VAL_LEN_AT(arg);
@@ -173,10 +160,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         Move_Value(CTX_VAR(port, STD_PORT_DATA), arg); // keep it GC safe
         req->actual = 0;
 
-        REBVAL *w_result = OS_DO_DEVICE(req, RDC_WRITE);
-        assert(w_result != NULL);
-        if (rebDid("lib/error?", w_result, END))
-            rebFail (w_result, END);
+        OS_DO_DEVICE_SYNC(req, RDC_WRITE);
 
         Init_Blank(CTX_VAR(port, STD_PORT_DATA)); // GC can collect it
 
@@ -199,19 +183,11 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             fail (Error_Bad_Refines_Raw());
         }
 
-        REBVAL *result = OS_DO_DEVICE(req, RDC_OPEN);
-        assert(result != NULL);
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(req, RDC_OPEN);
         goto return_port; }
 
     case SYM_CLOSE: {
-        REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
-        assert(result != NULL);
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
         goto return_port; }
 
     default:

@@ -339,7 +339,7 @@ REBVAL *Run_Sandboxed_Code(REBVAL *group_or_block) {
     Move_Value(temp, result);
     rebRelease(result); // rebBlock does not honor rebR, why not?
 
-    return rebBlock(result, END); // ownership will be proxied
+    return rebRun("[", result, "]", END); // ownership will be proxied
 }
 
 
@@ -364,7 +364,7 @@ int main(int argc, char *argv_ansi[])
     // That way the command line argument processing can be taken care of by
     // PARSE in the HOST-STARTUP user function, instead of C code!
     //
-    REBVAL *argv_block = rebBlock(END);
+    REBVAL *argv_block = rebRun("lib/copy []", END);
 
   #ifdef TO_WINDOWS
     //
@@ -420,7 +420,7 @@ int main(int argc, char *argv_ansi[])
         "lib/transcode/file", host_bin, "%tmp-host-start.inc", END
     );
     rebElide(
-        "ensure :empty? lib/take/last", host_code, // empty binary at tail
+        "lib/ensure :lib/empty? lib/take/last", host_code, // empty bin @ tail
         END
     );
     rebRelease(host_bin);
@@ -469,7 +469,7 @@ int main(int argc, char *argv_ansi[])
     rebRelease(host_code);
 
     if (rebNot("lib/action?", host_console, END))
-        rebPanicValue (host_console, END);
+        rebJUMPS ("panic-value", host_console, END);
 
     // The config file used by %make.r marks extensions to be built into the
     // executable (`+`), built as a dynamic library (`*`), or not built at
@@ -516,7 +516,7 @@ int main(int argc, char *argv_ansi[])
     // Note that `code`, and `result` have to be released each loop ATM.
     //
     REBVAL *code = rebBlank();
-    REBVAL *result = rebBlock(argv_block, extensions, END);
+    REBVAL *result = rebRun("[", argv_block, extensions, "]", END);
 
     // References in the `result` BLOCK! keep the underlying series alive now
     //
@@ -577,7 +577,7 @@ int main(int argc, char *argv_ansi[])
             // it might have generated (a BLOCK!) asking itself to crash.
 
             if (no_recover)
-                rebPanic(trapped, END);
+                rebJUMPS("lib/panic", trapped, END);
 
             code = rebRun("[#host-console-error]", END);
             result = trapped;
@@ -585,7 +585,7 @@ int main(int argc, char *argv_ansi[])
             goto recover;
         }
 
-        code = rebRun("first", trapped, END); // entrap []'s the output
+        code = rebRun("lib/first", trapped, END); // entrap []'s the output
         rebRelease(trapped); // don't need the outer block any more
 
         if (rebDid("lib/integer?", code, END))

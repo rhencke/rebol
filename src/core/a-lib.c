@@ -375,10 +375,10 @@ void RL_rebVersion(REBYTE vers[])
 // in the core, but be supplied by a "Timer Extension" which is considered to
 // be sandboxed and non-core enough that having platform-specific code in it
 // is not a problem.  Also, hooks can be supplied in the form of natives that
-// are later HIJACK'd by some hosts (see rebPanic() and rebFail()), as a
-// way of injecting richer platform-or-scenario-specific code into a more
-// limited default host operation.  It is expected that the OS_XXX functions
-// will eventually disappear completely.
+// are later HIJACK'd by some hosts (see PANIC and FAIL), as a way of
+// injecting richer platform-or-scenario-specific code into a more limited
+// default host operation.  It is expected that the OS_XXX functions will
+// eventually disappear completely.
 //
 void RL_rebStartup(const void *lib)
 {
@@ -440,115 +440,6 @@ void RL_rebShutdown(REBOOL clean)
     // caller didn't need it--to see if it triggers any alerts.
     //
     Shutdown_Core();
-}
-
-
-// !!! This is a helper routine for producing arrays from a va_list.  It has
-// a test of putting "UNEVAL" instructions before each spliced item, in order
-// to prevent automatic evaluation.  This can be used by routines like print
-// so that this would not try to run LABEL:
-//
-//     REBVAL *label = rebWord("label");
-//     rebPrint("{The label is}", label, END);
-//
-// Inserting extra words is not how this would be done long term.  But the
-// concept being reviewed is that top-level entities to some functions passed
-// to va_list be "inert" by default.  It's difficult to implement in a
-// consistent fashion because the moment one crosses into a nested BLOCK!,
-// there is nowhere to store the "unevaluated" bit--since it is not a generic
-// value flag that should be leaked.  For now, it's a test of the question of
-// if some routines...like rebRun() and rebPrint()...would not handle splices
-// as evaluative:
-//
-// https://forum.rebol.info/t/371
-//
-static REBARR* Array_From_Vaptr_Maybe_Null(
-    const void *p,
-    va_list* vaptr,
-    REBOOL uneval_hack
-){
-    REBDSP dsp_orig = DSP;
-
-    enum Reb_Pointer_Detect detect;
-
-    while ((detect = Detect_Rebol_Pointer(p)) != DETECTED_AS_END) {
-        switch (detect) {
-        case DETECTED_AS_NULL: {
-            //
-            // print [() "hi" ()] just skips voids for now (should it?)
-            //
-            break; }
-
-        case DETECTED_AS_UTF8: {
-            const REBYTE *utf8 = cast(const REBYTE*, p);
-            const REBLIN start_line = 1;
-            REBCNT size = LEN_BYTES(utf8);
-
-            SCAN_STATE ss;
-            Init_Scan_State(&ss, Intern("rebPrint()"), start_line, utf8, size);
-            Scan_To_Stack(&ss);
-            break; }
-
-        case DETECTED_AS_SERIES:
-            fail ("no complex instructions in rebPrint() yet");
-
-        case DETECTED_AS_FREED_SERIES:
-            panic (p);
-
-        case DETECTED_AS_VALUE: {
-            if (uneval_hack) {
-                //
-                // !!! By convention, these are supposed to be "spliced", and
-                // not evaluated.  Unfortunately, we aren't really using the
-                // variadic machinery here yet, and it's illegal to put
-                // VALUE_FLAG_EVAL_FLIP in blocks.  Cheat by inserting UNEVAL.
-                //
-                DS_PUSH_TRASH;
-                Init_Word(DS_TOP, Intern("uneval"));
-            }
-
-            DS_PUSH(cast(const REBVAL*, p));
-
-            break; }
-
-        case DETECTED_AS_END:
-            assert(FALSE); // checked by while loop
-            break;
-
-        case DETECTED_AS_TRASH_CELL:
-            panic (p);
-        }
-
-        p = va_arg(*vaptr, const void*);
-    }
-
-    REBARR *a = Pop_Stack_Values_Core(dsp_orig, NODE_FLAG_MANAGED);
-    return a;
-}
-
-
-//
-//  rebBlock: RL_API
-//
-// This constructs a block variadically from its arguments, which can be runs
-// of UTF-8 data or REBVAL*.
-//
-// !!! Currently this does no binding of the data; hence any UTF-8 parts will
-// be completely unbound, and any spliced values will keep their bindings.
-//
-REBVAL *RL_rebBlock(const void *p, ...) {
-    va_list va;
-    va_start(va, p);
-
-    const REBOOL uneval_hack = FALSE;
-    REBARR *a = Array_From_Vaptr_Maybe_Null(p, &va, uneval_hack);
-
-    va_end(va);
-
-    if (not a)
-        return nullptr;
-
-    return Init_Block(Alloc_Value(), a);
 }
 
 
@@ -616,13 +507,49 @@ void RL_rebElide(const void *p, ...)
     REBIXO indexor = Do_Va_Core(
         elided,
         p, // opt_first (preloads value)
-        &va,
+        &va,  // va_end called by evaluator (has to, e.g. for fail())
         DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
     );
-    va_end(va);
 
     if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(elided));
+}
+
+
+//
+//  rebJUMPS: RL_API [
+//      #noreturn
+//  ]
+//
+// rebJUMPS() is like rebElide, but has the noreturn attribute, so that
+// compiler warnings can be enabled and checked.  You can thus use it with
+// things like `rebJUMPS ("fail", ...)` or `rebJUMPS ("throw", ...)`.
+//
+// Capitalizing it helps draw attention, and it is suggested that a space be
+// used between it and the arguments to draw further attention.
+//
+// !!! The name is not ideal, but other possibilites aren't great:
+//
+//    rebDeadEnd(...) -- doesn't sound like it should take arguments
+//    rebNoReturn(...) -- whose return?
+//    rebStop(...) -- STOP is rather final sounding, the code keeps going
+//
+void RL_rebJUMPS(const void *p, va_list *vaptr)
+{
+    Enter_Api();
+
+    DECLARE_LOCAL (elided);
+    REBIXO indexor = Do_Va_Core(
+        elided,
+        p, // opt_first (preloads value)
+        vaptr, // va_end called by evaluator (has to, e.g. for fail())
+        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
+    );
+
+    if (indexor == THROWN_FLAG)
+        fail (Error_No_Catch_For_Throw(elided));
+
+    panic ("rebJUMPS() was used to run code, but it didn't FAIL/QUIT/THROW!");
 }
 
 
@@ -650,54 +577,6 @@ REBVAL *RL_rebRunInline(const REBVAL *array)
     VAL_SET_TYPE_BITS(group, REB_GROUP);
 
     return rebRun(rebEval(NAT_VALUE(eval)), group, END);
-}
-
-
-//
-//  rebPrint: RL_API
-//
-// Call through to the Rebol PRINT logic.
-//
-REBOOL RL_rebPrint(const void *p, ...)
-{
-    Enter_Api();
-
-    REBVAL *print = CTX_VAR(
-        Lib_Context,
-        Find_Canon_In_Context(Lib_Context, STR_CANON(Intern("print")), TRUE)
-    );
-
-    va_list va;
-    va_start(va, p);
-
-    const REBOOL uneval_hack = TRUE; // !!! see notes in Array_From_Vaptr
-    REBARR *a = Array_From_Vaptr_Maybe_Null(p, &va, uneval_hack);
-    va_end(va);
-
-    if (not a)
-        return FALSE;
-
-    Deep_Freeze_Array(a);
-
-    // !!! See notes in rebRun() on this particular choice of binding.  For
-    // internal usage of PRINT (e.g. calls from PARSE) it really should not
-    // be binding into user!
-    //
-    REBCTX *user_context = VAL_CONTEXT(
-        Get_System(SYS_CONTEXTS, CTX_USER)
-    );
-    Bind_Values_Set_Midstream_Shallow(ARR_HEAD(a), user_context);
-    Bind_Values_Deep(ARR_HEAD(a), Lib_Context);
-
-    DECLARE_LOCAL (block);
-    Init_Block(block, a);
-
-    REBVAL *result = rebRun(rebEval(print), block, END);
-    if (not result)
-        return FALSE;
-
-    rebRelease(result);
-    return TRUE;
 }
 
 
@@ -1249,15 +1128,11 @@ REBOOL RL_rebDid(const void *p, ...) {
     REBIXO indexor = Do_Va_Core(
         condition,
         p, // opt_first (preloads value)
-        &va,
+        &va, // va_end called by evaluator (has to, e.g. for fail())
         DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
     );
-    if (indexor == THROWN_FLAG) {
-        va_end(va);
+    if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(condition));
-    }
-
-    va_end(va);
 
     return not IS_VOID_OR_FALSEY(condition); // DID treats voids as "falsey"
 }
@@ -1279,15 +1154,11 @@ REBOOL RL_rebNot(const void *p, ...) {
     REBIXO indexor = Do_Va_Core(
         condition,
         p, // opt_first (preloads value)
-        &va,
+        &va, // va_end called by evaluator (has to, e.g. for fail())
         DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
     );
-    if (indexor == THROWN_FLAG) {
-        va_end(va);
+    if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(condition));
-    }
-
-    va_end(va);
 
     return IS_VOID_OR_FALSEY(condition); // NOT treats voids as "falsey"
 }
@@ -1313,15 +1184,11 @@ long RL_rebUnbox(const void *p, ...) {
     REBIXO indexor = Do_Va_Core(
         result,
         p, // opt_first (preloads value)
-        &va,
+        &va, // va_end called by evaluator (has to, e.g. for fail())
         DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
     );
-    if (indexor == THROWN_FLAG) {
-        va_end(va);
+    if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(result));
-    }
-
-    va_end(va);
 
     switch (VAL_TYPE(result)) {
     case REB_INTEGER:
@@ -1849,35 +1716,12 @@ REBVAL *RL_rebUnmanage(REBVAL *v)
 
 
 //
-//  rebCopyExtra: RL_API
-//
-REBVAL *RL_rebCopyExtra(const REBVAL *v, REBCNT extra)
-{
-    Enter_Api();
-
-    // !!! It's actually a little bit harder than one might think to hook
-    // into the COPY code without actually calling the function via the
-    // evaluator, because it is an "action".  Review a good efficient method
-    // for doing it, but for the moment it's just needed for FILE! so do that.
-    //
-    if (not ANY_STRING(v))
-        fail ("rebCopy() only supports ANY-STRING! for now");
-
-    return Init_Any_Series(
-        Alloc_Value(),
-        VAL_TYPE(v),
-        Copy_Sequence_At_Len_Extra(
-            VAL_SERIES(v),
-            VAL_INDEX(v),
-            VAL_LEN_AT(v),
-            extra
-        )
-    );
-}
-
-
-//
 //  rebLengthOf: RL_API
+//
+// !!! Should this be an entry point, vs `rebUnbox("length of", x, END)`?
+// It may be one of the cases that is called often enough to warrant it for
+// performance, but a question of the libRebol API is whether such hard-coded
+// behaviors that subvert hooks on OF (for instance) are a solid plan.
 //
 long RL_rebLengthOf(const REBVAL *series)
 {
@@ -1920,24 +1764,6 @@ void RL_rebRelease(REBVAL *v)
 //
 //  rebError: RL_API
 //
-REBVAL *RL_rebError(const char *msg)
-{
-    Enter_Api();
-    return Init_Error(Alloc_Value(), Error_User(msg));
-}
-
-
-//
-//  rebFail: RL_API [
-//      #noreturn
-//  ]
-//
-// rebFail() is a distinct entry point (vs. just using rebElide("fail"))
-// because it needs to have the noreturn attribute, so that compiler warnings
-// can be enabled and checked.
-//
-// !!! Would calling it rebFAIL (...) make it stand out more?
-//
 // Note: Over the long term, one does not want to hard-code error strings in
 // the executable.  That makes them more difficult to hook with translations,
 // or to identify systemically with some kind of "error code".  However,
@@ -1948,72 +1774,10 @@ REBVAL *RL_rebError(const char *msg)
 // !!! Should there be a way for the caller to slip their C file and line
 // information through as the source of the FAIL?
 //
-void RL_rebFail(const void *p, const void *p2)
+REBVAL *RL_rebError(const char *msg)
 {
     Enter_Api();
-
-    assert(Detect_Rebol_Pointer(p2) == DETECTED_AS_END);
-
-    rebElide("fail", p, p2); // should not return...should DO an ERROR!
-
-    // !!! Should there be a special bit or dispatcher used on the FAIL to
-    // ensure it does not continue running?  `return: []` is already taken
-    // for the "invisible" meaning, but it could be an optimized dispatcher
-    // used in wrapping, e.g.:
-    //
-    //     fail: noreturn func [...] [...]
-    //
-    // Though HIJACK would have to be aware of it and preserve the rule.
-    //
-    panic ("FAIL was called, but continued running!");
-}
-
-
-//
-//  rebPanic: RL_API [
-//      #noreturn
-//  ]
-//
-// Calls PANIC via rebElide(), but is a separate entry point in order to have
-// an attribute saying it doesn't return.
-//
-void RL_rebPanic(const void *p, const void *end)
-{
-    Enter_Api();
-    assert(Detect_Rebol_Pointer(end) == DETECTED_AS_END); // !!! TBD: variadic
-    UNUSED(end);
-
-    rebElide(rebEval(NAT_VALUE(panic)), p, END);
-
-    // !!! Should there be a special bit or dispatcher used on the PANIC and
-    // PANIC-VALUE functions that ensures they exit?  If it were a dispatcher
-    // then HIJACK would have to be aware of it and preserve it.
-    //
-    panic ("HIJACK'd PANIC function did not exit Rebol");
-}
-
-
-//
-//  rebPanicValue: RL_API [
-//      #noreturn
-//  ]
-//
-// Calls PANIC-VALUE via rebElide(), but is a separate entry point in order to
-// have an attribute saying it doesn't return.
-//
-void RL_rebPanicValue(const void *p, const void *end)
-{
-    Enter_Api();
-    assert(Detect_Rebol_Pointer(end) == DETECTED_AS_END); // !!! TBD: variadic
-    UNUSED(end);
-
-    rebElide(rebEval(NAT_VALUE(panic_value)), p, END);
-
-    // !!! Should there be a special bit or dispatcher used on the PANIC and
-    // PANIC-VALUE functions that ensures they exit?  If it were a dispatcher
-    // then HIJACK would have to be aware of it and preserve it.
-    //
-    panic ("HIJACK'd PANIC-VALUE function did not exit Rebol");
+    return Init_Error(Alloc_Value(), Error_User(msg));
 }
 
 
@@ -2401,7 +2165,7 @@ void RL_rebFail_OS(int errnum)
 
     DECLARE_LOCAL (temp);
     Init_Error(temp, error);
-    rebFail(temp, END);
+    rebJUMPS ("lib/fail", temp, END);
 }
 
 

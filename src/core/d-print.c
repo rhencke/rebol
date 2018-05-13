@@ -152,11 +152,7 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
             assert(Req_SIO->length <= 1024);
         }
 
-        REBVAL *result = OS_DO_DEVICE(Req_SIO, RDC_WRITE);
-        assert(result != NULL); // should be synchronous
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(Req_SIO, RDC_WRITE);
 
         Req_SIO->common.data += Req_SIO->length;
         size -= Req_SIO->length;

@@ -53,9 +53,8 @@
 //
 // This can be triggered via the macros panic() and panic_at(), which are
 // unsalvageable situations in the core code.  It can also be triggered by
-// the PANIC and PANIC-VALUE natives, which in turn can be triggered by the
-// rebPanic() API.  (Since PANIC and PANIC-VALUE may be hijacked, this offers
-// hookability for "recoverable" forms of PANIC.)
+// the PANIC and PANIC-VALUE natives.  (Since PANIC and PANIC-VALUE may be
+// hijacked, this offers hookability for "recoverable" forms of PANIC.)
 //
 // coverity[+kill]
 //

@@ -185,7 +185,10 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
 
     if (not got_info) {
         assert(FALSE); // see above for why this R3-Alpha code had a "hole"
-        rebFail ("{%dev-clipboard: NOT(got_info), please report}", rebEnd());
+        rebJUMPS (
+            "fail {%dev-clipboard: NOT(got_info), please report}",
+            rebEnd()
+        );
     }
 
     file_req->modes = 0;
@@ -250,7 +253,7 @@ DEVICE_CMD Open_File(REBREQ *req)
         attrib |= FILE_ATTRIBUTE_READONLY;
 
     if (access == 0)
-        rebFail ("{No access modes provided to Open_File()}", rebEnd());
+        rebJUMPS ("fail {No access modes provided to Open_File()}", rebEnd());
 
     REBFLGS flags = REB_FILETOLOCAL_FULL;
     if (req->modes & RFM_DIR)

@@ -396,8 +396,9 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
 DEVICE_CMD Transfer_Socket(REBREQ *req)
 {
     if (not (req->state & RSM_CONNECT) and not (req->modes & RST_UDP))
-        rebFail (
-            "{RSM_CONNECT must be true in Transfer_Socket() unless UDP}", END
+        rebJUMPS (
+            "fail {RSM_CONNECT must be true in Transfer_Socket() unless UDP}",
+            END
         );
 
     struct sockaddr_in remote_addr;
@@ -555,7 +556,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
         if (not (sock->modes & RST_UDP)) // !!! other checks?
-            rebFail ("{SET-UDP-MULTICAST used on non-UDP port}", END);
+            rebJUMPS ("fail {SET-UDP-MULTICAST used on non-UDP port}", END);
 
         struct ip_mreq mreq;
         memcpy(&mreq.imr_multiaddr.s_addr, VAL_TUPLE(ARG(group)), 4);
@@ -577,7 +578,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
         if (not (sock->modes & RST_UDP)) // !!! other checks?
-            rebFail ("{SET-UDP-TTL used on non-UDP port}", END);
+            rebJUMPS ("fail {SET-UDP-TTL used on non-UDP port}", END);
 
         int ttl = VAL_INT32(ARG(ttl));
         result = setsockopt(
@@ -591,7 +592,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         break; }
 
     default:
-        rebFail ("{Unknown socket MODIFY operation}", END);
+        rebJUMPS ("fail {Unknown socket MODIFY operation}", END);
     }
 
     if (result < 0)

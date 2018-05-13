@@ -1020,6 +1020,15 @@ cause-error: func [
 ]
 
 
+; !!! Should there be a special bit or dispatcher used on the FAIL to ensure
+; it does not continue running?  `return: []` is already taken for the
+; "invisible" meaning, but it could be an optimized dispatcher used in
+; wrapping, e.g.:
+;
+;     fail: noreturn func [...] [...]
+;
+; Though HIJACK would have to be aware of it and preserve the rule.
+;
 fail: function [
     {Interrupts execution by reporting an error (a TRAP can intercept it).}
 

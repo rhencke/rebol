@@ -52,11 +52,7 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
     REBDSP dsp_orig = DSP;
 
     while (TRUE) {
-        REBVAL *result = OS_DO_DEVICE(req, RDC_READ);
-        assert(result != NULL); // should be synchronous
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(req, RDC_READ);
 
         if (req->flags & RRF_DONE)
             break;

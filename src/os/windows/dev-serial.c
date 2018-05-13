@@ -96,7 +96,10 @@ DEVICE_CMD Open_Serial(REBREQ *req)
         serial->path
     );
     if (chars_appended > buf_left)
-        rebFail ("{Serial path too long for MAX_SERIAL_DEV_PATH}", rebEnd());
+        rebJUMPS (
+            "fail {Serial path too long for MAX_SERIAL_DEV_PATH}",
+            rebEnd()
+        );
 
     HANDLE h = CreateFile(
         fullpath,

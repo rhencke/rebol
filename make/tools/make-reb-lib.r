@@ -109,9 +109,9 @@ emit-proto: proc [proto] [
 
         inline-args: unspaced collect [
             if not parse inline-proto [
-                thru "(" (keep "(")
+                thru "("
                 any [
-                    [copy param thru "," | copy param thru ")" to end] (
+                    [copy param thru "," | copy param to ")" to end] (
                         ;
                         ; We have the type and pointer decorations, basically
                         ; just step backwards until we find something that's
@@ -119,6 +119,7 @@ emit-proto: proc [proto] [
                         ;
                         identifier-chars: charset [
                             #"A" - #"Z" #"a" - #"z" #"0" - #"9" #"_"
+                            #"." ;-- for variadics
                         ]
                         pos: back back tail param
                         while [find identifier-chars pos/1] [
@@ -132,39 +133,55 @@ emit-proto: proc [proto] [
             ]
         ]
 
-        append direct-call-macros unspaced [
-            "ATTRIBUTE_NO_RETURN inline static" space inline-proto space "{"
-        ]
-        append direct-call-macros unspaced [
-            "    " proto-parser/proto.id inline-args ";"
-        ]
-        append direct-call-macros unspaced [
-            "    DEAD_END;" ;-- suppress "function does return" warning
-        ]
-        append direct-call-macros unspaced [
-            "}"
-        ]
+        either find inline-proto "va_list *vaptr" [
+            replace inline-proto "va_list *vaptr" "..."
+            parse inline-args [
+                some [copy next-to-last-arg: to "," skip]
+                to end
+            ]
+            replace inline-args "vaptr" "&va"
 
-        append struct-call-macros unspaced [
-            "ATTRIBUTE_NO_RETURN inline static" space inline-proto space "{"
-        ]
-        append struct-call-macros unspaced [
-            "    " "RL->" fn.name.lower inline-args ";"
-        ]
-        append struct-call-macros unspaced [
-            "    DEAD_END;" ;-- suppress "function does return" warning
-        ]
-        append struct-call-macros unspaced [
-            "}"
+            append direct-call-macros cscape {
+                ATTRIBUTE_NO_RETURN inline static $(Inline-Proto) {
+                    va_list va;
+                    va_start(va, ${Next-To-Last-Arg});
+                    $(Proto-Parser/Proto.Id)($(Inline-Args));
+                    DEAD_END;
+                }
+            }
+
+            append struct-call-macros cscape {
+                ATTRIBUTE_NO_RETURN inline static $(Inline-Proto) {
+                    va_list va;
+                    va_start(va, ${Next-To-Last-Arg});
+                    RL->${fn.name.lower}($(Inline-Args));
+                    DEAD_END;
+                }
+            }
+        ][
+            append direct-call-macros cscape {
+                ATTRIBUTE_NO_RETURN inline static $(Inline-Proto) {
+                    $(Proto-Parser/Proto.Id)($(Inline-Args));
+                    DEAD_END;
+                }
+            }
+
+            append struct-call-macros cscape {
+                ATTRIBUTE_NO_RETURN inline static $(Inline-Proto) {
+                    RL->${fn.name.lower}($(Inline-Args));
+                    DEAD_END;
+                }
+            }
         ]
     ][
-        append direct-call-macros unspaced [
-            "#define" space api-name space proto-parser/proto.id
-        ]
+        ;-- alias version without the RL_ on it to just call the RL_ version
+        append direct-call-macros cscape {
+            #define $(Api-Name) $(Proto-Parser/Proto.Id)
+        }
 
-        append struct-call-macros unspaced [
-            "#define" space api-name space "RL->" fn.name.lower
-        ]
+        append struct-call-macros cscape {
+            #define $(Api-Name) RL->${fn.name.lower}
+        }
     ]
 
     append table-init-items unspaced [
@@ -191,35 +208,31 @@ process: func [file] [
 e-lib: (make-emitter
     "Lightweight Rebol Interface Library" output-dir/reb-lib.h)
 
-e-lib/emit-lines [
-    {// EMSCRIPTEN_KEEPALIVE is used in Emscripten}
-    {// to export a function}
-    {#ifdef TO_EMSCRIPTEN}
-    {    #define EMSCRIPTEN_KEEPALIVE __attribute__((used)) }
-    {    // from emscripten.h}
-    {    // NOTE: can't include emscripten.h}
-    {    // (incompatible with dont_include_stdio_h)}
-    {#else}
-    {    #define EMSCRIPTEN_KEEPALIVE}
-    {#endif}
-    {#ifdef __cplusplus}
-    {extern "C" ^{}
-    {#endif}
-    []
-]
+e-lib/emit {
+    #include <stdarg.h> // needed for va_start() in inline functions
 
-; !!! It is probably the case that the interface itself should contain the
-; versioning (in early fields), so it can be checked by anyone it's passed to.
-;
-e-lib/emit-lines [
-    {// These constants are created by the release system and can be used}
-    {// to check for compatiblity with the reb-lib DLL (using RL_Version.)}
-    {//}
-    [{#define RL_VER } ver/1]
-    [{#define RL_REV } ver/2]
-    [{#define RL_UPD } ver/3]
-    {}
-]
+    #ifdef TO_EMSCRIPTEN
+        /*
+         * EMSCRIPTEN_KEEPALIVE is a macro in emscripten.h used to export
+         * a function.  We can't include emscripten.h here (it is incompatible
+         * with DONT_INCLUDE_STDIO_H)
+         */
+        #define EMSCRIPTEN_KEEPALIVE __attribute__((used))
+    #else
+        #define EMSCRIPTEN_KEEPALIVE
+    #endif
+
+    #ifdef __cplusplus
+    extern "C" ^{
+    #endif
+
+    /* !!! These constants are part of an old R3-Alpha versioning system
+     * that hasn't been paid much attention to.  Keeping as a placeholder.
+     */
+    #define RL_VER $(ver/1)
+    #define RL_REV $(ver/2)
+    #define RL_UPD $(ver/3)
+}
 
 ;-----------------------------------------------------------------------------
 ;
@@ -230,11 +243,13 @@ e-lib/emit-lines [
 
 src-dir: %../../src/core/
 
-e-lib/emit-line [
-    {// Function entry points for reb-lib (used for MACROS below):}
-]
+e-lib/emit {
 
-e-lib/emit-line "typedef struct rebol_ext_api {"
+    /*
+     * Function entry points for reb-lib (used for MACROS below):
+     */
+    typedef struct rebol_ext_api ^{
+}
 
 process src-dir/a-lib.c
 process src-dir/f-extension.c ; !!! is there a reason to process this file?
@@ -242,59 +257,57 @@ process src-dir/f-extension.c ; !!! is there a reason to process this file?
 for-each field lib-struct-fields [
     e-lib/emit-line/indent field
 ]
-e-lib/emit-line "} RL_LIB;"
-e-lib/emit newline
+
+e-lib/emit {
+    ^} RL_LIB;
+}
 
 ;-----------------------------------------------------------------------------
 
-e-lib/emit-line [
-    {#ifdef REB_EXT // can't direct call into EXE, must go through interface}
-]
+e-lib/emit {
+    #ifdef REB_EXT // can't direct call into EXE, must go through interface
+        /*
+         * The macros below will require this base pointer:
+         */
+        extern RL_LIB *RL;  // is passed to the RX_Init() function
 
-e-lib/emit-lines/indent [
-    {// The macros below will require this base pointer:}
-    {extern RL_LIB *RL;  // is passed to the RX_Init() function}
-    []
-]
+        /*
+         * Macros to access reb-lib functions (from non-linked extensions):
+         */
+}
 
-e-lib/emit-line/indent [
-    {// Macros to access reb-lib functions (from non-linked extensions):}
-]
-
-e-lib/emit newline
 for-each macro struct-call-macros [
-    e-lib/emit-line/indent macro
-]
-e-lib/emit newline
-
-e-lib/emit-line [
-    {#else // ...calling Rebol built as DLL or code built into the EXE itself}
+    e-lib/emit macro
 ]
 
-e-lib/emit-line/indent [
-    {// Undecorated prototypes, don't call with this name directly}
-]
+e-lib/emit {
+
+    #else /* ...calling Rebol as DLL, or code built into the EXE itself */
+        /*
+         * Undecorated prototypes, don't call with this name directly
+         */
+}
 for-each proto undecorated-prototypes [
     e-lib/emit-line/indent spaced ["EMSCRIPTEN_KEEPALIVE" proto]
 ]
-e-lib/emit newline
 
-e-lib/emit-line/indent [
-    {// Use these macros for consistency with extension code naming}
-]
+e-lib/emit {
+    /*
+     * Use these macros for consistency with extension code naming
+     */
+}
+
 for-each macro direct-call-macros [
-    e-lib/emit-line/indent macro
-]
-e-lib/emit-lines [
-    {#endif // REB_EXT}
-    {}
+    e-lib/emit macro
 ]
 
-e-lib/emit-lines [
-    {#ifdef __cplusplus}
-    "}"
-    {#endif}
-]
+e-lib/emit {
+    #endif // REB_EXT
+
+    #ifdef __cplusplus
+    ^}
+    #endif
+}
 
 e-lib/write-emitted
 

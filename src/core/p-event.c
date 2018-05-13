@@ -241,7 +241,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             }
             else {
                 if (rebDid("lib/error?", result, END))
-                    rebFail (result, END);
+                    rebJUMPS ("lib/fail", result, END);
                 else {
                     assert(FALSE); // !!! can this happen?
                     rebRelease(result); // ignore result
@@ -253,11 +253,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
     case SYM_CLOSE: {
         OS_ABORT_DEVICE(req);
 
-        REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
-        assert(result != NULL); // should be synchronous
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result);
+        OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
 
         // free req!!!
         req->flags &= ~RRF_OPEN;

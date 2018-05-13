@@ -91,13 +91,13 @@ DEVICE_CMD Read_Clipboard(REBREQ *req)
     }
 
     if (not OpenClipboard(NULL))
-        rebFail ("{OpenClipboard() failed while reading}", rebEnd());
+        rebJUMPS ("fail {OpenClipboard() failed while reading}", rebEnd());
 
     HANDLE h = GetClipboardData(CF_UNICODETEXT);
     if (h == NULL) {
         CloseClipboard();
-        rebFail (
-            "{IsClipboardFormatAvailable()/GetClipboardData() mismatch}",
+        rebJUMPS (
+            "fail {IsClipboardFormatAvailable()/GetClipboardData() mismatch}",
             rebEnd()
         );
     }
@@ -105,7 +105,10 @@ DEVICE_CMD Read_Clipboard(REBREQ *req)
     WCHAR *wide = cast(WCHAR*, GlobalLock(h));
     if (wide == NULL) {
         CloseClipboard();
-        rebFail ("{Couldn't GlobalLock() UCS2 clipboard data}", rebEnd());
+        rebJUMPS (
+            "fail {Couldn't GlobalLock() UCS2 clipboard data}",
+            rebEnd()
+        );
     }
 
     REBVAL *str = rebStringW(wide);
@@ -157,10 +160,16 @@ DEVICE_CMD Write_Clipboard(REBREQ *req)
     req->actual = 0;
 
     if (not OpenClipboard(NULL))
-        rebFail ("{OpenClipboard() failed on clipboard write}", rebEnd());
+        rebJUMPS (
+            "fail {OpenClipboard() failed on clipboard write}",
+            rebEnd()
+        );
 
     if (not EmptyClipboard()) // !!! is this superfluous?
-        rebFail ("{EmptyClipboard() failed on clipboard write}", rebEnd());
+        rebJUMPS (
+            "fail {EmptyClipboard() failed on clipboard write}",
+            rebEnd()
+        );
 
     // Clipboard wants a Windows memory handle with UCS2 data.  Allocate a
     // sufficienctly sized handle, decode Rebol STRING! into it, and transfer
@@ -168,11 +177,17 @@ DEVICE_CMD Write_Clipboard(REBREQ *req)
 
     HANDLE h = GlobalAlloc(GHND, sizeof(WCHAR) * (len + 1));
     if (h == NULL) // per documentation, not INVALID_HANDLE_VALUE
-        rebFail ("{GlobalAlloc() failed on clipboard write}", rebEnd());
+        rebJUMPS (
+            "fail {GlobalAlloc() failed on clipboard write}",
+            rebEnd()
+        );
 
     WCHAR *wide = cast(WCHAR*, GlobalLock(h));
     if (wide == NULL)
-        rebFail ("{GlobalLock() failed on clipboard write}", rebEnd());
+        rebJUMPS (
+            "fail {GlobalLock() failed on clipboard write}",
+            rebEnd()
+        );
 
     REBCNT len_check = rebSpellingOfW(wide, len, str); // UTF-16 extraction
     assert(len <= len_check); // may only be writing /PART of the string
@@ -184,7 +199,10 @@ DEVICE_CMD Write_Clipboard(REBREQ *req)
     CloseClipboard();
 
     if (h_check == NULL)
-        rebFail ("{SetClipboardData() failed.}", rebEnd());
+        rebJUMPS (
+            "fail {SetClipboardData() failed.}",
+            rebEnd()
+        );
 
     assert(h_check == h);
 

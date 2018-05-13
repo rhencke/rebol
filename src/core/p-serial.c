@@ -148,11 +148,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
                 }
             }
 
-            REBVAL *result = OS_DO_DEVICE(req, RDC_OPEN);
-            assert(result != NULL); // should be synchronous
-            if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
-            rebRelease(result); // ignore result
+            OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
             req->flags |= RRF_OPEN;
             goto return_port; }
@@ -221,11 +217,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
         // "recv can happen immediately"
         //
-        REBVAL *result = OS_DO_DEVICE(req, RDC_READ);
-        assert(result != NULL);
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result);
+        OS_DO_DEVICE_SYNC(req, RDC_READ);
 
 #ifdef DEBUG_SERIAL
         for (len = 0; len < req->actual; len++) {
@@ -271,11 +263,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
         // "send can happen immediately"
         //
-        REBVAL *result = OS_DO_DEVICE(req, RDC_WRITE);
-        assert(result != NULL);
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(req, RDC_WRITE);
 
         goto return_port; }
 
@@ -299,11 +287,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
     case SYM_CLOSE:
         if (req->flags & RRF_OPEN) {
-            REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
-            assert(result != NULL);
-            if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
-            rebRelease(result); // ignore result
+            OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
 
             req->flags &= ~RRF_OPEN;
         }

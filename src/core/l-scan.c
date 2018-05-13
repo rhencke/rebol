@@ -994,9 +994,7 @@ acquisition_loop:
 
             // !!! The needs of rebRun() are such that it wants to preserve
             // the non-user-visible EVAL_FLIP bit, which is usually not copied
-            // by Move_Value.  This should not be allowed by rebBlock(),
-            // however...so find a way to disable that in case someone puts
-            // a rebEval() inside a rebBlock().
+            // by Move_Value.
             //
             if (GET_VAL_FLAG(splice, VALUE_FLAG_EVAL_FLIP))
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
@@ -2616,9 +2614,8 @@ REBARR *Scan_Va_Managed(
     Scan_To_Stack(&ss);
 
     // Because a variadic rebRun() can have rebEval() entries, when it
-    // delegates to the scanner that may mean it sees those entries.  This
-    // should not be legal in constructors like rebBlock() since rebEval()
-    // is not exposed there.
+    // delegates to the scanner that may mean it sees those entries.  They
+    // should only be accepted in the shallowest level of the rebRun().
     //
     // (See also Pop_Stack_Values_Keep_Eval_Flip(), which we don't want to use
     // since we're setting the file and line information from scan state.)

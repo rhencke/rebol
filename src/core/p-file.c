@@ -125,11 +125,7 @@ static void Open_File_Port(REBCTX *port, struct devreq_file *file, REBVAL *path)
     if (Is_Port_Open(port))
         fail (Error_Already_Open_Raw(path));
 
-    REBVAL *result = OS_DO_DEVICE(req, RDC_OPEN);
-    assert(result != NULL); // should be synchronous
-    if (rebDid("lib/error?", result, END))
-        rebFail (result, END);
-    rebRelease(result); // ignore result
+    OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
     Set_Port_Open(port, TRUE);
 }
@@ -179,11 +175,7 @@ static void Read_File_Port(
     req->common.data = BIN_HEAD(ser);
     req->length = len;
 
-    REBVAL *result = OS_DO_DEVICE(req, RDC_READ);
-    assert(result != NULL); // !!! nothing here tested for async
-    if (rebDid("lib/error?", result, END))
-        rebFail (result, END);
-    rebRelease(result); // ignore result
+    OS_DO_DEVICE_SYNC(req, RDC_READ);
 
     SET_SERIES_LEN(ser, req->actual);
     TERM_SEQUENCE(ser);
@@ -224,11 +216,7 @@ static void Write_File_Port(struct devreq_file *file, REBVAL *data, REBCNT len, 
     }
     req->length = len;
 
-    REBVAL *result = OS_DO_DEVICE(req, RDC_WRITE);
-    assert(result != NULL); // !!! nothing here suggested async handling
-    if (rebDid("lib/error?", result, END))
-        rebFail (result, END);
-    rebRelease(result); // ignore result
+    OS_DO_DEVICE_SYNC(req, RDC_WRITE);
 }
 
 
@@ -390,7 +378,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
             assert(result != NULL); // should be synchronous
             if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
+                rebJUMPS ("lib/fail", result, END);
             rebRelease(result); // ignore result
         }
 
@@ -459,7 +447,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
             assert(result != NULL);
             if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
+                rebJUMPS ("lib/fail", result, END);
             rebRelease(result);
         }
 
@@ -518,7 +506,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
             assert(result != NULL); // should be synchronous
             if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
+                rebJUMPS ("lib/fail", result, END);
             rebRelease(result); // ignore error
         }
         goto return_port; }
@@ -534,7 +522,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         REBVAL *result = OS_DO_DEVICE(req, RDC_DELETE);
         assert(result != NULL); // should be synchronous
         if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
+            rebJUMPS ("lib/fail", result, END);
         rebRelease(result); // ignore result
 
         goto return_port; }
@@ -552,7 +540,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         REBVAL *result = OS_DO_DEVICE(req, RDC_RENAME);
         assert(result != NULL); // should be synchronous
         if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
+            rebJUMPS ("lib/fail", result, END);
         rebRelease(result); // ignore result
 
         Move_Value(D_OUT, ARG(from));
@@ -565,13 +553,13 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             REBVAL *cr_result = OS_DO_DEVICE(req, RDC_CREATE);
             assert(cr_result != NULL);
             if (rebDid("lib/error?", cr_result, END))
-                rebFail (cr_result, END);
+                rebJUMPS ("lib/fail", cr_result, END);
             rebRelease(cr_result);
 
             REBVAL *cl_result = OS_DO_DEVICE(req, RDC_CLOSE);
             assert(cl_result != NULL);
             if (rebDid("lib/error?", cl_result, END))
-                rebFail (cl_result, END);
+                rebJUMPS ("lib/fail", cl_result, END);
             rebRelease(cl_result);
         }
 
@@ -641,11 +629,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         req->modes |= RFM_TRUNCATE;
         req->length = 0;
 
-        REBVAL *result = OS_DO_DEVICE(req, RDC_WRITE);
-        assert(result != NULL);
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(req, RDC_WRITE);
         goto return_port; }
 
     default:

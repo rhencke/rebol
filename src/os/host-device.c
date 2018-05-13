@@ -236,15 +236,15 @@ REBVAL *OS_Do_Device(REBREQ *req, REBCNT command)
     req->command = command;
 
     if (req->device >= RDI_MAX)
-        rebFail ("{Rebol Device Number Too Large}", rebEnd());
+        rebJUMPS ("fail {Rebol Device Number Too Large}", rebEnd());
 
     REBDEV *dev = Devices[req->device];
     if (dev == NULL)
-        rebFail ("{Rebol Device Not Found}", rebEnd());
+        rebJUMPS ("fail {Rebol Device Not Found}", rebEnd());
 
     if (not (dev->flags & RDF_INIT)) {
         if (dev->flags & RDO_MUST_INIT)
-            rebFail ("{Rebol Device Uninitialized}", rebEnd());
+            rebJUMPS ("fail {Rebol Device Uninitialized}", rebEnd());
 
         if (
             !dev->commands[RDC_INIT]
@@ -258,7 +258,7 @@ REBVAL *OS_Do_Device(REBREQ *req, REBCNT command)
         req->command > dev->max_command
         || dev->commands[req->command] == NULL
     ){
-        rebFail ("{Invalid Command for Rebol Device}", rebEnd());
+        rebJUMPS ("fail {Invalid Command for Rebol Device}", rebEnd());
     }
 
     // !!! Currently the StdIO port is initialized before Rebol's startup
@@ -302,7 +302,6 @@ REBVAL *OS_Do_Device(REBREQ *req, REBCNT command)
 
         // !!! Should an auto-fail variation be offered, for callers who
         // do not want to get involved?
-        /* rebFail (error_or_int, rebEnd()); // propagate error up the stack*/
     }
 
     assert(rebDid("lib/integer?", error_or_int, rebEnd()));
@@ -322,6 +321,25 @@ REBVAL *OS_Do_Device(REBREQ *req, REBCNT command)
         Detach_Request(&dev->pending, req); // often a no-op
 
     return rebLogic(TRUE);
+}
+
+
+//
+//  OS_Do_Device_Sync: C
+//
+// Convenience routine that wraps OS_DO_DEVICE for simple requests.
+//
+// !!! Because the device layer is deprecated, the relevant inelegance of
+// this is not particularly important...more important is that the API
+// handles and error mechanism works.
+//
+void OS_Do_Device_Sync(REBREQ *req, REBCNT command)
+{
+    REBVAL *result = OS_DO_DEVICE(req, command);
+    assert(result != NULL); // should be synchronous
+    if (rebDid("lib/error?", result, rebEnd()))
+        rebJUMPS ("lib/fail", result, rebEnd());
+    rebRelease(result); // ignore result
 }
 
 
@@ -483,11 +501,7 @@ REBINT OS_Wait(REBCNT millisec, REBCNT res)
 
     // Comment said "wait for timer or other event"
     //
-    REBVAL *result = OS_DO_DEVICE(&req, RDC_QUERY);
-    assert(result != NULL); // should be synchronous
-    if (rebDid("lib/error?", result, rebEnd()))
-        rebFail (result, rebEnd());
-    rebRelease(result); // ignore result
+    OS_DO_DEVICE_SYNC(&req, RDC_QUERY);
 
     return 1;  // layer above should check delta again
 }

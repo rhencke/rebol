@@ -135,8 +135,8 @@ REBVAL *OS_Get_Time(void)
 int64_t OS_Delta_Time(int64_t base)
 {
     LARGE_INTEGER time;
-    if (!QueryPerformanceCounter(&time))
-        rebPanic ("{Missing high performance timer}", rebEnd());
+    if (not QueryPerformanceCounter(&time))
+        rebJUMPS ("panic {Missing high performance timer}", rebEnd());
 
     if (base == 0) return time.QuadPart; // counter (may not be time)
 

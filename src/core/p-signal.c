@@ -203,11 +203,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
                 }
             }
 
-            REBVAL *result = OS_DO_DEVICE(req, RDC_OPEN);
-            assert(result != NULL);
-            if (rebDid("lib/error?", result, END))
-                rebFail (result, END);
-            rebRelease(result); // ignore result
+            OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
             if (verb == SYM_OPEN)
                 goto return_port;
@@ -266,11 +262,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         REBSER *ser = Make_Binary(len * sizeof(siginfo_t));
         req->common.data = BIN_HEAD(ser);
 
-        REBVAL *result = OS_DO_DEVICE(req, RDC_READ);
-        assert(result != NULL);
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END); // frees ser implicitly
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(req, RDC_READ);
 
         arg = CTX_VAR(port, STD_PORT_DATA);
         if (!IS_BLOCK(arg))
@@ -288,11 +280,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         goto return_port; }
 
     case SYM_CLOSE: {
-        REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
-        assert(result != NULL); // should be synchronous
-        if (rebDid("lib/error?", result, END))
-            rebFail (result, END);
-        rebRelease(result); // ignore result
+        OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
         goto return_port; }
 
     case SYM_OPEN:
