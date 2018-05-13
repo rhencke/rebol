@@ -106,7 +106,15 @@ EXTERN_C REBOL_HOST_LIB Host_Lib_Init;
     // act as a console app -or- a GUI app some tricks are needed to capture
     // it, and then export it for other code to use.
     //
-    EXTERN_C HINSTANCE App_Instance;
+    // !!! This is not currently exported via EXTERN_C, because the core was
+    // building in a dependency on the host.  This created problems for the
+    // libRebol, which needs to be independent of %host-main.c, and may be
+    // used with clients that do not have the HINSTANCE easily available.
+    // The best idea for exporting it is probably to have those clients who
+    // provide it to inject it into the system object as a HANDLE!, so that
+    // those extensions which need it have access to it, while not creating
+    // problems for those that do not.
+    //
     HINSTANCE App_Instance = 0;
 
     // For why this is done this way with a potential respawning, see the

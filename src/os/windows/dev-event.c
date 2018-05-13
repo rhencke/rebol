@@ -43,7 +43,6 @@ extern void Done_Device(uintptr_t handle, int error);
 HWND Event_Handle = 0;          // Used for async DNS
 static int Timer_Id = 0;        // The timer we are using
 
-EXTERN_C HINSTANCE App_Instance;  // From Main module.
 
 
 //
@@ -78,7 +77,30 @@ LRESULT CALLBACK REBOL_Event_Proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpa
 //
 DEVICE_CMD Init_Events(REBREQ *dr)
 {
-    REBDEV *dev = (REBDEV*)dr; // just to keep compiler happy
+    REBDEV *dev = cast(REBDEV*, dr);
+
+    // !!! The Windows build of R3-Alpha used a hidden window for message
+    // processing.  The only use case was asynchronous DNS, which was a
+    // deprecated feature (not being carried forward to IPv6):
+    //
+    // https://msdn.microsoft.com/en-us/library/windows/desktop/ms741522(v=vs.85).aspx
+    //
+    // One aspect of making this window is that it requires the HINSTANCE of
+    // the application.  That was being passed via a global App_Instance
+    // variable:
+    //
+    // EXTERN_C HINSTANCE App_Instance;  // From Main module.
+    //
+    // This complicated linking of libRebol, and since the event strategy is
+    // being rethought this is #ifdef'd out for now.
+    //
+    // Long-term, the better way to tunnel such parameters from the host to
+    // extensions would likely be to put a HANDLE! in the environment, and
+    // then those extensions that require the Windows HINSTANCE could
+    // complain if it wasn't there...vs. creating a linker dependency for
+    // all clients.
+    //
+  #if 0
     WNDCLASSEX wc;
 
     memset(&wc, '\0', sizeof(wc));
@@ -93,18 +115,19 @@ DEVICE_CMD Init_Events(REBREQ *dr)
     if (atom == 0)
         rebFail_OS (GetLastError());
 
-    // Create the hidden window:
     Event_Handle = CreateWindowEx(
         0,
         wc.lpszClassName,
         wc.lpszClassName,
         0,0,0,0,0,
-        HWND_MESSAGE,                   //used for message-only windows
+        HWND_MESSAGE, // used for message-only windows
         NULL, App_Instance, NULL
     );
-
     if (Event_Handle == NULL)
         rebFail_OS (GetLastError());
+  #else
+    Event_Handle = NULL;
+  #endif
 
     dev->flags |= RDF_INIT;
     return DR_DONE;

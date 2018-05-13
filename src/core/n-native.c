@@ -494,7 +494,7 @@ REBNATIVE(compile)
     RELVAL *item;
     for (item = VAL_ARRAY_AT(natives); NOT_END(item); ++item) {
         const RELVAL *var = item;
-        if (IS_WORD(item) || IS_GET_WORD(item)) {
+        if (IS_WORD(item) or IS_GET_WORD(item)) {
             var = Get_Opt_Var_May_Fail(item, VAL_SPECIFIER(natives));
             if (IS_VOID(var))
                 fail (Error_No_Value_Core(item, VAL_SPECIFIER(natives)));
@@ -573,6 +573,7 @@ REBNATIVE(compile)
     // To help in debugging, it can be useful to see what is being passed in
     //
     if (REF(inspect)) {
+        DS_DROP_TO(dsp_orig); // don't modify the collected user natives
         Init_String(D_OUT, Pop_Molded_String(mo));
         return R_OUT;
     }
@@ -580,7 +581,7 @@ REBNATIVE(compile)
     REBSER *combined_src = Pop_Molded_UTF8(mo);
 
     TCCState *state = tcc_new();
-    if (!state)
+    if (not state)
         fail (Error_Tcc_Construction_Raw());
 
     void* opaque = cast(void*, EMPTY_BLOCK); // can pass data through...
