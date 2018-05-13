@@ -335,11 +335,7 @@ REBVAL *Run_Sandboxed_Code(REBVAL *group_or_block) {
     if (not result)
         return result; // ownership will be proxied
 
-    DECLARE_LOCAL (temp);
-    Move_Value(temp, result);
-    rebRelease(result); // rebBlock does not honor rebR, why not?
-
-    return rebRun("[", result, "]", END); // ownership will be proxied
+    return rebRun("[", rebR(result), "]", END); // ownership will be proxied
 }
 
 
