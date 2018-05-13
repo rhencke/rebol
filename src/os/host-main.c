@@ -493,10 +493,9 @@ int main(int argc, char *argv_ansi[])
     // then decide if it wants to fall back on argv[0]
     //
     REBVAL *exec_path = OS_GET_CURRENT_EXEC();
-    if (IS_FILE(exec_path))
-        rebElide("system/options/boot:", rebR(exec_path), END);
-    else
-        assert(IS_BLANK(exec_path));
+    rebElide(
+        "system/options/boot: lib/ensure [blank! file!]", rebR(exec_path), END
+    );
 
     // !!! Previously the C code would call a separate startup function
     // explicitly.  This created another difficult case to bulletproof
