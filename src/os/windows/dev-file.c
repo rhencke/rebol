@@ -195,8 +195,12 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         file_req->modes |= RFM_DIR;
 
+    // !!! We currently unmanage this, because code using the API may
+    // trigger a GC and there is nothing proxying the RebReq's data.
+    // Long term, this file should have *been* the return result.
+    //
     const REBOOL is_dir = did (file_req->modes & RFM_DIR);
-    file->path = rebLocalToFileW(info.cFileName, is_dir);
+    file->path = rebUnmanage(rebLocalToFileW(info.cFileName, is_dir));
     file->size =
         (cast(int64_t, info.nFileSizeHigh) << 32) + info.nFileSizeLow;
 

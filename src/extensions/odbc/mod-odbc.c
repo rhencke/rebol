@@ -459,9 +459,9 @@ SQLRETURN ODBC_BindParameter(
         break; }
 
     case REB_STRING: {
-        REBCNT len_no_term = rebSpellingOfW(NULL, 0, v); // first, get length 
+        REBCNT len_no_term = rebSpellingOfW(NULL, 0, v); // first, get length
         SQLWCHAR *chars = OS_ALLOC_N(SQLWCHAR, len_no_term + 1);
-        
+
         REBCNT len_check = rebSpellingOfW(chars, len_no_term, v); // now, get
         assert(len_check == len_no_term);
         UNUSED(len_check);

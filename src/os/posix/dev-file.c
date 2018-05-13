@@ -302,8 +302,12 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (Is_Dir(dir_utf8, file_utf8))
         file_req->modes |= RFM_DIR;
 
+    // !!! We currently unmanage this, because code using the API may
+    // trigger a GC and there is nothing proxying the RebReq's data.
+    // Long term, this file should have *been* the return result.
+    //
     const REBOOL is_dir = did (file_req->modes & RFM_DIR);
-    file->path = rebLocalToFile(file_utf8, is_dir);
+    file->path = rebUnmanage(rebLocalToFile(file_utf8, is_dir));
 
     rebFree(dir_utf8);
 

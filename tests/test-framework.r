@@ -61,7 +61,7 @@ make object! compose [
             error? :result [
                 spaced ["failed," result/id]
             ]
-            
+
             elide (result: first result)
 
             not logic? :result [
