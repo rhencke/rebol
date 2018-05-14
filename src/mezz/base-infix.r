@@ -300,9 +300,9 @@ else*: enfix redescribe [
 and: enfix func [
     {Short-circuit boolean AND, which can also pass thru non-LOGIC! values}
 
-    return: [any-value!]
-        {LOGIC! if right arg is GROUP!, else right arg or blank}
-    left [any-value!]
+    return: [<opt> any-value!]
+        {LOGIC! if right arg is GROUP!, else falsey left arg or right arg}
+    left [<opt> any-value!]
         {Expression which will always be evaluated}
     :right [group! block!]
         {Quoted expression, evaluated unless left is blank or FALSE}
@@ -310,19 +310,19 @@ and: enfix func [
     if all [block? :left semiquoted? 'left] [
         fail/where "left hand side of AND should not be literal block" 'left
     ]
-    either group? right [
-        did all [:left | really* do right]
+    either* group? right [
+        did all [really* :left | really* do right]
     ][
-        all [:left | try do right]
+        either* not :left [:left] [do right] ;-- preserve exact falsey value
     ]
 ]
 
 or: enfix func [
     {Short-circuit boolean OR, which can also pass thru non-LOGIC! values}
 
-    return: [any-value!]
-        {LOGIC! if right arg is GROUP!, else left or right value or blank}
-    left [any-value!]
+    return: [<opt> any-value!]
+        {LOGIC! if right arg is GROUP!, else truthy left arg or right arg}
+    left [<opt> any-value!]
         {Expression which will always be evaluated}
     :right [group! block!]
         {Quoted expression, evaluated only if left is blank or FALSE}
@@ -330,10 +330,10 @@ or: enfix func [
     if all [block? :left semiquoted? 'left] [
         fail/where "left hand side of OR should not be literal block" 'left
     ]
-    either group? right [
-        did any [:left | really* do right]
+    either* group? right [
+        did any [really* :left | really* do right]
     ][
-        any [:left | try do right]
+        either* did :left [:left] [do right] ;-- preserve exact falsey value
     ]
 ]
 
@@ -342,7 +342,7 @@ xor: enfix func [
 
     return: [any-value!]
         {LOGIC! if right arg is GROUP!, else left or right value or blank}
-    left [any-value!]
+    left [<opt> any-value!]
         {Expression which will always be evaluated, guides result value}
     :right [group! block!]
         {Quoted expression, must be always evaluated as well}
@@ -350,17 +350,20 @@ xor: enfix func [
     if all [block? :left semiquoted? 'left] [
         fail/where "left hand side of XOR should not be literal block" 'left
     ]
-    either group? right [
-        did either not :left [
-            really do right
+
+    right: do right ;-- gets evaluated regardless
+
+    either* group? right [
+        either not really* :left [
+            did really* :right
         ][
-            all [not really* do right | :left]
+            did all [not really* :right | :left]
         ]
     ][
-        either not :left [
-            do right
+        either* not :left [
+            either did :right [:right] [_]
         ][
-            all [not really* do right | :left]
+            either* did :right [_] [:right]
         ]
     ]
 ]

@@ -208,7 +208,7 @@ spec-of: function [
         ]
         if return-type or (return-note) [
             keep compose/only [
-                return: (opt return-type) (opt return_note)
+                return: (opt return-type) (opt return-note)
             ]
         ]
 
