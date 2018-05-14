@@ -492,7 +492,10 @@ static const REBYTE *Insert_Char_Null_If_Interrupted(
 static void Delete_Char(STD_TERM *term, REBOOL back)
 {
     if (term->pos == term->end and not back)
-        return; //Ctrl-D at EOL
+        return; // Ctrl-D at end of line
+
+    if (term->pos == 0 and back)
+        return; // backspace at beginning of line
 
     if (back)
         STEP_BACKWARD(term);

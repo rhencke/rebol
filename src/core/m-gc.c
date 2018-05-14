@@ -319,8 +319,12 @@ inline static void Queue_Mark_Singular_Array(REBARR *a) {
 
     assert(NOT_SER_INFO(a, SERIES_INFO_HAS_DYNAMIC));
 
-    SER(a)->header.bits |= NODE_FLAG_MARKED;
-    Queue_Mark_Opt_Value_Deep(ARR_SINGLE(a));
+    // While it would be tempting to just go ahead and try to queue the
+    // ARR_SINGLE() value here, that could keep recursing if that value had
+    // further singular array values to mark.  It's really no different for
+    // an array with one value than with many.
+    //
+    Queue_Mark_Array_Subclass_Deep(a);
 }
 
 
@@ -668,7 +672,10 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         //
         // Note this may be a singular array handle, or it could be a BINARY!
         //
-        Mark_Rebser_Only(v->payload.structure.data);
+        if (GET_SER_FLAG(v->payload.structure.data, SERIES_FLAG_ARRAY))
+            Queue_Mark_Singular_Array(ARR(v->payload.structure.data));
+        else
+            Mark_Rebser_Only(v->payload.structure.data);
         break; }
 
     case REB_LIBRARY: {
