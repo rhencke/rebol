@@ -281,24 +281,11 @@ REBNATIVE(open_connection)
         fail (error);
     }
 
-    DECLARE_LOCAL (henv_value);
-    Init_Handle_Managed(
-        henv_value,
-        henv, // pointer
-        0, // size
-        &cleanup_henv
-    );
+    REBVAL *henv_value = rebHandle(henv, 0, &cleanup_henv);
+    REBVAL *hdbc_value = rebHandle(hdbc, 0, &cleanup_hdbc);
 
-    DECLARE_LOCAL (hdbc_value);
-    Init_Handle_Managed(
-        hdbc_value,
-        hdbc, // pointer
-        0, // size
-        &cleanup_hdbc
-    );
-
-    rebElide("poke", ARG(connection), "'henv", henv_value, END);
-    rebElide("poke", ARG(connection), "'hdbc", hdbc_value, END);
+    rebElide("poke", ARG(connection), "'henv", rebR(henv_value), END);
+    rebElide("poke", ARG(connection), "'hdbc", rebR(hdbc_value), END);
 
     return R_TRUE;
 }
@@ -333,14 +320,9 @@ REBNATIVE(open_statement)
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Dbc(hdbc));
 
-    DECLARE_LOCAL (hstmt_value);
-    Init_Handle_Simple(
-        hstmt_value,
-        hstmt, // pointer
-        0 // len
-    );
+    REBVAL *hstmt_value = rebHandle(hstmt, 0, nullptr);
 
-    rebElide("poke", ARG(statement), "'hstmt", hstmt_value, END);
+    rebElide("poke", ARG(statement), "'hstmt", rebR(hstmt_value), END);
 
     return R_TRUE;
 }
@@ -1030,17 +1012,12 @@ REBNATIVE(insert_odbc)
     }
 
     COLUMN *columns = cast(COLUMN*, malloc(sizeof(COLUMN) * num_columns));
-    if (columns == NULL)
+    if (not columns)
         fail ("Couldn't allocate column buffers!");
 
-    DECLARE_LOCAL(columns_value);
-    Init_Handle_Simple(
-        columns_value,
-        columns,
-        num_columns
-    );
+    REBVAL *columns_value = rebHandle(columns, num_columns, NULL);
 
-    rebElide("poke", statement, "'columns", columns_value, END);
+    rebElide("poke", statement, "'columns", rebR(columns_value), END);
 
     rc = ODBC_DescribeResults(hstmt, num_columns, columns);
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)

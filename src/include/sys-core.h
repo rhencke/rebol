@@ -241,8 +241,6 @@
 #include "sys-rebval.h" // REBVAL structure definition
 #include "sys-action.h"
 
-typedef void (*CLEANUP_CFUNC)(const REBVAL*); // for some HANDLE!s GC callback
-
 #include "sys-rebser.h" // REBSER series definition (embeds REBVAL definition)
 
 typedef void (*MAKE_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);

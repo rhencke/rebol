@@ -1304,6 +1304,20 @@ REBVAL *RL_rebInitDate(
 
 
 //
+//  rebHandle: RL_API
+//
+// !!! The HANDLE! type has some complexity to it, because function pointers
+// in C and C++ are not actually guaranteed to be the same size as data
+// pointers.  Also, there is an optional size stored in the handle, and a
+// cleanup function the GC may call when references to the handle are gone.
+//
+REBVAL *RL_rebHandle(void *data, uintptr_t length, CLEANUP_CFUNC* cleaner)
+{
+    return Init_Handle_Managed(Alloc_Value(), data, length, cleaner);
+}
+
+
+//
 //  rebMoldAlloc: RL_API
 //
 // Mold any value and produce a UTF-8 string from it.

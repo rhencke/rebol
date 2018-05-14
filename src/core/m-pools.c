@@ -1541,7 +1541,15 @@ void GC_Kill_Series(REBSER *s)
             RELVAL *v = ARR_HEAD(ARR(s));
             if (NOT_END(v) and VAL_TYPE_RAW(v) == REB_HANDLE) {
                 if (v->extra.singular == ARR(s)) {
-                    (MISC(s).cleaner)(KNOWN(v));
+                    //
+                    // Some handles use the managed form just because they
+                    // want changes to the pointer in one instance to be seen
+                    // by other instances...there may be no cleaner function.
+                    //
+                    // !!! Would a no-op cleaner be more efficient for those?
+                    //
+                    if (MISC(s).cleaner)
+                        (MISC(s).cleaner)(const_KNOWN(v));
                 }
             }
         }

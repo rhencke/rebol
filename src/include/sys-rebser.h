@@ -827,7 +827,7 @@ union Reb_Series_Misc {
 
     // some HANDLE!s use this for GC finalization
     //
-    CLEANUP_CFUNC cleaner;
+    CLEANUP_CFUNC *cleaner;
 
     // Because a bitset can get very large, the negation state is stored
     // as a boolean in the series.  Since negating a bitset is intended

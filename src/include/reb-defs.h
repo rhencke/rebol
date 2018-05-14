@@ -330,6 +330,9 @@ typedef REBVAL* (REBDNG)(void *opaque);
 typedef REBVAL* (REBRSC)(REBVAL *error, void *opaque);
 
 
+typedef void (CLEANUP_CFUNC)(const REBVAL*); // for some HANDLE!s GC callback
+
+
 //
 // These flags are used by file to local conversion, and that is exposed from
 // the core in %a-lib.c
