@@ -623,6 +623,30 @@ void Shutdown_Symbols(void)
 //
 void Shutdown_Interning(void)
 {
-    assert(PG_Num_Canon_Slots_In_Use - PG_Num_Canon_Deleteds == 0);
+  #if !defined(NDEBUG)
+    if (PG_Num_Canon_Slots_In_Use - PG_Num_Canon_Deleteds != 0) {
+        //
+        // !!! There needs to be a more user-friendly output for this,
+        // and to detect if it really was an API problem or something else
+        // that needs to be paid attention to in the core.  Right now the
+        // two scenarios are conflated into this one panic.
+        //
+        printf(
+            "!!! %d leaked canons found in shutdown\n",
+            PG_Num_Canon_Slots_In_Use - PG_Num_Canon_Deleteds
+        );
+        printf("!!! LIKELY rebUnmanage() without a rebRelease() in API\n");
+
+        fflush(stdout);
+
+        REBCNT slot;
+        for (slot = 0; slot < SER_LEN(PG_Canons_By_Hash); ++slot) {
+            REBSTR *canon = *SER_AT(REBSTR*, PG_Canons_By_Hash, slot);
+            if (canon and canon != DELETED_CANON)
+                panic (canon);
+        }
+    }
+  #endif
+
     Free_Series(PG_Canons_By_Hash);
 }

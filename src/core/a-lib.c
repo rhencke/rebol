@@ -1693,13 +1693,13 @@ REBVAL *RL_rebManage(REBVAL *v)
         fail ("Attempt to rebManage() a handle that's already managed.");
 
     SET_SER_FLAG(a, NODE_FLAG_MANAGED);
-    assert(LINK(a).owner == EMPTY_ARRAY);
+    assert(LINK(a).owner == UNBOUND);
     if (not FS_TOP)
-        LINK(a).owner = EMPTY_ARRAY;
+        LINK(a).owner = UNBOUND;
     else
-        LINK(a).owner = CTX_VARLIST(
+        LINK(a).owner = NOD(CTX_VARLIST(
             Context_For_Frame_May_Reify_Managed(FS_TOP)
-        );
+        ));
 
     return v;
 }
@@ -1730,10 +1730,10 @@ REBVAL *RL_rebUnmanage(REBVAL *v)
     //
     CLEAR_SER_FLAG(a, NODE_FLAG_MANAGED);
     assert(
-        LINK(a).owner == EMPTY_ARRAY // freed when program exits
+        LINK(a).owner == UNBOUND // freed when program exits
         or GET_SER_FLAG(LINK(a).owner, ARRAY_FLAG_VARLIST)
     );
-    LINK(a).owner = EMPTY_ARRAY;
+    LINK(a).owner = UNBOUND;
 
     return v;
 }

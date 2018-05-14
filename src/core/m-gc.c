@@ -293,7 +293,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
         assert(binding->header.bits & SERIES_FLAG_ARRAY);
         if (IS_VARARGS(v)) {
             assert(binding != UNBOUND);
-            assert(ARR_LEN(ARR(binding)) == 1); // singular
+            assert(NOT_SER_INFO(binding, SERIES_INFO_HAS_DYNAMIC)); // single
         } else
             assert(binding == UNBOUND);
     }

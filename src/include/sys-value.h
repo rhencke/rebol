@@ -1788,14 +1788,14 @@ inline static void SET_GOB(RELVAL *v, REBGOB *g) {
 // in Move_Value() without special-casing the null handling.
 //
 #define SPECIFIED \
-    cast(REBSPC*, PG_Empty_Array)
+    cast(REBSPC*, PG_Unbound_Singular)
 
 // A WORD! cannot be merely "specified" as its binding, because that is not
 // meaningful.  But in order to avoid having a separate flag, the same idea
-// is used with an EMPTY_ARRAY.
+// is used with a unique singular array.
 //
 #define UNBOUND \
-   NOD(PG_Empty_Array)
+   NOD(PG_Unbound_Singular)
 
 inline static REBNOD *VAL_BINDING(const RELVAL *v) {
     assert(Is_Bindable(v));

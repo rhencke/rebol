@@ -644,7 +644,7 @@ union Reb_Series_Link {
     // it is.  If it's an array-type series, it is either the varlist of
     // the owning frame *or* the EMPTY_ARRAY (to avoid a NULL check)
     //
-    REBARR *owner;
+    REBNOD *owner;
 
     // Ordinary source series use their ->link field to point to an
     // interned file name string from which the code was loaded.  If a

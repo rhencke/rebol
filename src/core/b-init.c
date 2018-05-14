@@ -785,9 +785,23 @@ static void Init_Root_Vars(void)
     assert(VAL_TYPE_RAW(END) == REB_0); // this implicit END marker has this
 
     // Note: Not only can rebBlock() not be used yet (because there is no
-    // data stack), PG_Empty_Array must exist before calling Init_Block()
+    // data stack), PG_Unbound_Singular must exist before calling Init_Block()
     //
-    PG_Empty_Array = Make_Array(0); // used by Init_Block() in INIT_BINDING
+    // !!! Users should never see this, and if you panic() on this series it
+    // will point to this line of code to identify it.  Still, review putting
+    // something in the block to make it stand out in a debug dump, like a
+    // `#PG_Unbound_Singular` ISSUE! (mold buffer not initialized yet)
+    //
+    PG_Unbound_Singular = Alloc_Singular_Array();
+    SET_SER_INFO(PG_Unbound_Singular, SERIES_INFO_FROZEN);
+    SET_END(ARR_SINGLE(PG_Unbound_Singular));
+    Root_Unbound = Init_Block(Alloc_Value(), PG_Unbound_Singular);
+    rebLock(Root_Unbound, END);
+
+    // Generic read-only empty array, and locked block containing it.
+    //
+    PG_Empty_Array = Make_Array_Core(0, SERIES_FLAG_FIXED_SIZE);
+    SET_SER_INFO(PG_Empty_Array, SERIES_INFO_FROZEN);
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);
     rebLock(Root_Empty_Block, END);
 
@@ -825,6 +839,8 @@ static void Shutdown_Root_Vars(void)
     rebRelease(Root_Newline_Char);
     Root_Newline_Char = NULL;
 
+    rebRelease(Root_Unbound);
+    Root_Unbound = NULL;
     rebRelease(Root_Empty_String);
     Root_Empty_String = NULL;
     rebRelease(Root_Empty_Block);
