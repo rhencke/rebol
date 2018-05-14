@@ -165,7 +165,11 @@ REBNATIVE(request_file_p)
         //
         DECLARE_LOCAL (hack);
         Init_String(hack, ser);
-        lpstrFilter = rebSpellingOfAllocW(NULL, hack);
+        lpstrFilter = rebSpellingOfAllocW(
+            NULL,
+            hack,
+            END
+        );
     }
     else {
         // Currently the implementation of default filters is in usermode,
@@ -195,10 +199,10 @@ REBNATIVE(request_file_p)
     WCHAR *lpstrInitialDir;
     if (REF(file)) {
         REBCNT path_len;
-        WCHAR *path = rebFileToLocalAllocW(
+        WCHAR *path = rebSpellingOfAllocW(
             &path_len,
-            ARG(name),
-            REB_FILETOLOCAL_FULL
+            "file-to-local/full", ARG(name),
+            END
         );
 
         // If the last character doesn't indicate a directory, that means
@@ -230,8 +234,13 @@ REBNATIVE(request_file_p)
     ofn.lpstrInitialDir = lpstrInitialDir;
 
     WCHAR *lpstrTitle;
-    if (REF(title))
-        lpstrTitle = rebSpellingOfAllocW(NULL, ARG(text));
+    if (REF(title)) {
+        lpstrTitle = rebSpellingOfAllocW(
+            NULL,
+            ARG(text),
+            END
+        );
+    }
     else
         lpstrTitle = NULL; // Will use "Save As" or "Open" defaults
     ofn.lpstrTitle = lpstrTitle;
@@ -275,8 +284,10 @@ REBNATIVE(request_file_p)
     }
     else {
         if (not REF(multi)) {
-            const REBOOL is_dir = FALSE;
-            REBVAL *solo = rebLocalToFileW(ofn.lpstrFile, is_dir);
+            REBVAL *solo = rebRun(
+                "local-to-file", rebR(rebStringW(ofn.lpstrFile)),
+                END
+            );
             DS_PUSH_TRASH;
             Move_Value(DS_TOP, solo);
             rebRelease(solo);
@@ -291,8 +302,10 @@ REBNATIVE(request_file_p)
                 // When there's only one item in a multi-selection scenario,
                 // that item is the filename including path...the lone result.
                 //
-                const REBOOL is_dir = FALSE;
-                REBVAL *solo = rebLocalToFileW(item, is_dir);
+                REBVAL *solo = rebRun(
+                    "local-to-file", rebR(rebStringW(item)),
+                    END
+                );
                 DS_PUSH_TRASH;
                 Move_Value(DS_TOP, solo);
                 rebRelease(solo);
@@ -302,16 +315,23 @@ REBNATIVE(request_file_p)
                 // rest are files in that directory.  We want to merge them
                 // together to make fully specified paths.
                 //
-                const REBOOL is_dir_true = TRUE;
-                REBVAL *dir = rebLocalToFileW(item, is_dir_true);
+                // !!! Note: This was written pre-libRebol, so it is doing
+                // file string appends with wchar when it could be doing it
+                // in embedded Rebol code.  Rewrite if and when this becomes
+                // a priority to update.
+                //
+                REBVAL *dir = rebRun(
+                    "local-to-file/dir", rebR(rebStringW(item)),
+                    END
+                );
 
                 item += item_len + 1; // next
 
                 REBCNT dir_len;
-                WCHAR *dir_wide = rebFileToLocalAllocW(
+                WCHAR *dir_wide = rebSpellingOfAllocW(
                     &dir_len,
-                    dir,
-                    REB_FILETOLOCAL_FULL
+                    "file-to-local/full", dir,
+                    END
                 );
 
                 while ((item_len = wcslen(item)) != 0) {
@@ -322,8 +342,10 @@ REBNATIVE(request_file_p)
                     wcscpy(buffer, dir_wide);
                     wcscat(buffer, item);
 
-                    const REBOOL is_dir_false = FALSE;
-                    REBVAL *file = rebLocalToFileW(buffer, is_dir_false);
+                    REBVAL *file = rebRun(
+                        "local-to-file", rebR(rebStringW(buffer)),
+                        END
+                    );
                     rebFree(buffer);
 
                     DS_PUSH_TRASH;
@@ -366,9 +388,13 @@ REBNATIVE(request_file_p)
     }
 
     char *title;
-    if (REF(title))
-        title = rebSpellingOfAlloc(NULL, ARG(text));
-    else
+    if (REF(title)) {
+        title = rebSpellingOfAlloc(
+            NULL,
+            ARG(text),
+            END
+        );
+    } else
         title = NULL;
 
     // !!! Using a NULL parent causes console to output:
@@ -402,7 +428,11 @@ REBNATIVE(request_file_p)
 
     REBYTE *name;
     if (REF(file)) {
-        name = rebSpellingOfAlloc(NULL, ARG(name));
+        name = rebSpellingOfAlloc(
+            NULL,
+            ARG(name),
+            END
+        );
         gtk_file_chooser_set_current_folder(chooser, cast(gchar*, name));
     }
     else
@@ -596,9 +626,13 @@ REBNATIVE(request_dir_p)
     display[0] = '\0';
     bi.pszDisplayName = display; // assumed length is MAX_PATH
 
-    if (REF(title))
-        bi.lpszTitle = rebSpellingOfAllocW(NULL, ARG(text));
-    else
+    if (REF(title)) {
+        bi.lpszTitle = rebSpellingOfAllocW(
+            NULL,
+            ARG(text),
+            END
+        );
+    } else
         bi.lpszTitle = L"Please, select a directory...";
 
     // !!! Using BIF_NEWDIALOGSTYLE is a much nicer dialog, but it appears to
@@ -616,8 +650,15 @@ REBNATIVE(request_dir_p)
     // field is called `bi.lParam`, it gets passed as the `lpData`)
     //
     bi.lpfn = ReqDirCallbackProc;
-    if (REF(path))
-        bi.lParam = cast(LPARAM, rebSpellingOfAllocW(NULL, ARG(dir)));
+    if (REF(path)) {
+        bi.lParam = cast(LPARAM,
+            rebSpellingOfAllocW(
+                NULL,
+                ARG(dir)
+                END
+            )
+        );
+    }
     else
         bi.lParam = cast(LPARAM, NULL);
 

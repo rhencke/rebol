@@ -87,8 +87,11 @@ REBVAL *OS_Get_Current_Dir(void)
         return rebBlank();
     }
 
-    const REBOOL is_dir = TRUE;
-    REBVAL *result = rebLocalToFile(path, is_dir);
+    REBVAL *result = rebRun(
+        "local-to-file/dir", rebT(path),
+        rebEnd()
+    );
+
     rebFree(path);
     return result;
 }
@@ -102,10 +105,10 @@ REBVAL *OS_Get_Current_Dir(void)
 //
 REBOOL OS_Set_Current_Dir(const REBVAL *path)
 {
-    char *path_utf8 = rebFileToLocalAlloc(
+    char *path_utf8 = rebSpellingOfAlloc(
         NULL,
-        path,
-        REB_FILETOLOCAL_FULL
+        "file-to-local/full", path,
+        rebEnd()
     );
 
     int chdir_result = chdir(path_utf8);

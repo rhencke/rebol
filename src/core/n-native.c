@@ -103,23 +103,15 @@ static int do_add_path(
     const RELVAL *path,
     int (*add)(TCCState *, const char *)
 ){
-    int ret;
-    if (IS_FILE(path)) {
-        char *local_utf8 = rebFileToLocalAlloc(
-            NULL,
-            const_KNOWN(path),
-            REB_FILETOLOCAL_FULL
-        );
-        ret = add(state, local_utf8);
-        rebFree(local_utf8);
-    }
-    else {
-        assert(IS_STRING(path));
-
-        char *path_utf8 = rebSpellingOfAlloc(NULL, const_KNOWN(path));
-        ret = add(state, path_utf8);
-        rebFree(path_utf8);
-    }
+    // Converts FILE! to a local path, or assumes STRING! is already local
+    //
+    char *local_utf8 = rebSpellingOfAlloc(
+        NULL,
+        "file-to-local/pass/full ensure [file! string!]", const_KNOWN(path),
+        rebEnd()
+    );
+    int ret = add(state, local_utf8);
+    rebFree(local_utf8);
     return ret;
 }
 
@@ -129,22 +121,15 @@ static void do_set_path(
     const RELVAL *path,
     void (*set)(TCCState *, const char *)
 ){
-    if (IS_FILE(path)) {
-        char *local_utf8 = rebFileToLocalAlloc(
-            NULL,
-            const_KNOWN(path),
-            REB_FILETOLOCAL_FULL
-        );
-        set(state, local_utf8);
-        rebFree(local_utf8);
-    }
-    else {
-        assert(IS_STRING(path));
-
-        char *path_utf8 = rebSpellingOfAlloc(NULL, const_KNOWN(path));
-        set(state, path_utf8);
-        rebFree(path_utf8);
-    }
+    // Converts FILE! to a local path, or assumes STRING! is already local
+    //
+    char *local_utf8 = rebSpellingOfAlloc(
+        NULL,
+        "file-to-local/pass/full ensure [file! string!]", const_KNOWN(path),
+        rebEnd()
+    );
+    set(state, local_utf8);
+    rebFree(local_utf8);
 }
 
 
@@ -587,8 +572,12 @@ REBNATIVE(compile)
     void* opaque = cast(void*, EMPTY_BLOCK); // can pass data through...
     tcc_set_error_func(state, opaque, tcc_error_report);
 
-    if (options != NULL) {
-        char *options_utf8 = rebSpellingOfAlloc(NULL, const_KNOWN(options));
+    if (options) {
+        char *options_utf8 = rebSpellingOfAlloc(
+            NULL,
+            const_KNOWN(options),
+            rebEnd()
+        );
         tcc_set_options(state, options_utf8);
         rebFree(options_utf8);
     }
@@ -670,10 +659,13 @@ REBNATIVE(compile)
 
         REBVAL *info = KNOWN(VAL_ACT_BODY(var));
         REBVAL *name = KNOWN(VAL_ARRAY_AT_HEAD(info, 1));
-        assert(IS_STRING(name));
         REBVAL *stored_state = KNOWN(VAL_ARRAY_AT_HEAD(info, 2));
 
-        char *name_utf8 = rebSpellingOfAlloc(NULL, name);
+        char *name_utf8 = rebSpellingOfAlloc(
+            NULL,
+            "ensure string!", name,
+            rebEnd()
+        );
         void *sym = tcc_get_symbol(state, name_utf8);
         rebFree(name_utf8);
 

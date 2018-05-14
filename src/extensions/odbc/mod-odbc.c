@@ -259,7 +259,11 @@ REBNATIVE(open_connection)
     // Connect to the Driver, using the converted connection string
     //
     REBCNT connect_len;
-    SQLWCHAR *connect = rebSpellingOfAllocW(&connect_len, ARG(spec));
+    SQLWCHAR *connect = rebSpellingOfAllocW(
+        &connect_len,
+        ARG(spec),
+        END
+    );
 
     SQLSMALLINT out_connect_len;
     rc = SQLDriverConnectW(
@@ -511,7 +515,11 @@ SQLRETURN ODBC_GetCatalog(
         );
         if (value) {
             REBCNT len;
-            pattern[arg] = rebSpellingOfAllocW(&len, KNOWN(value));
+            pattern[arg] = rebSpellingOfAllocW(
+                &len,
+                KNOWN(value),
+                END
+            );
             length[arg] = len;
             rebRelease(value);
         }
@@ -898,7 +906,11 @@ REBNATIVE(insert_odbc)
 
         if (not use_cache) {
             REBCNT length;
-            SQLWCHAR *sql_string = rebSpellingOfAllocW(&length, value);
+            SQLWCHAR *sql_string = rebSpellingOfAllocW(
+                &length,
+                value,
+                END
+            );
 
             rc = SQLPrepareW(hstmt, sql_string, cast(SQLSMALLINT, length));
             if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)

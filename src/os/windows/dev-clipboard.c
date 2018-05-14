@@ -122,7 +122,11 @@ DEVICE_CMD Read_Clipboard(REBREQ *req)
     // as a UTF-8 binary series.  But a conversion is needed for the moment.
 
     size_t size;
-    char *utf8 = rebSpellingOfAlloc(&size, str);
+    char *utf8 = rebSpellingOfAlloc(
+        &size,
+        str,
+        rebEnd()
+    );
     rebRelease(str);
 
     REBVAL *binary = rebBinary(utf8, size);

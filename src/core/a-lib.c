@@ -1318,37 +1318,6 @@ REBVAL *RL_rebHandle(void *data, uintptr_t length, CLEANUP_CFUNC* cleaner)
 
 
 //
-//  rebMoldAlloc: RL_API
-//
-// Mold any value and produce a UTF-8 string from it.
-//
-// !!! Ideally the UTF-8 string returned could use an allocation strategy that
-// would make it attach GC to the current FRAME!, while also allowing it to be
-// rebRelease()'d.  It might also return a `const char*` to the internal UTF8
-// data with a hold on it.
-//
-char *RL_rebMoldAlloc(REBSIZ *size_out, const REBVAL *v)
-{
-    Enter_Api();
-
-    DECLARE_MOLD (mo);
-    Push_Mold(mo);
-    Mold_Value(mo, v);
-
-    REBSIZ size = BIN_LEN(mo->series) - mo->start;
-
-    char *result = cast(char*, rebMalloc(size + 1));
-    memcpy(result, BIN_AT(mo->series, mo->start), size + 1); // \0 terminated
-
-    if (size_out != NULL)
-        *size_out = size;
-
-    Drop_Mold(mo);
-    return result;
-}
-
-
-//
 //  rebSpellingOf: RL_API
 //
 // Extract UTF-8 data from an ANY-STRING! or ANY-WORD!.
@@ -1396,13 +1365,27 @@ size_t RL_rebSpellingOf(
 //
 //  rebSpellingOfAlloc: RL_API
 //
-char *RL_rebSpellingOfAlloc(size_t *size_out, const REBVAL *v)
+char *RL_rebSpellingOfAlloc(size_t *size_out, const void *p, ...)
 {
     Enter_Api();
 
-    size_t size = rebSpellingOf(nullptr, 0, v);
+    va_list va;
+    va_start(va, p);
+
+    DECLARE_LOCAL (string);
+    REBIXO indexor = Do_Va_Core(
+        string,
+        p, // opt_first (preloads value)
+        &va,  // va_end called by evaluator (has to, e.g. for fail())
+        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
+    );
+
+    if (indexor == THROWN_FLAG)
+        fail (Error_No_Catch_For_Throw(string));
+
+    size_t size = rebSpellingOf(nullptr, 0, string);
     char *result = cast(char*, rebMalloc(size + 1)); // add space for term
-    rebSpellingOf(result, size, v);
+    rebSpellingOf(result, size, string);
     if (size_out != nullptr)
         *size_out = size;
     return result;
@@ -1466,15 +1449,29 @@ REBCNT RL_rebSpellingOfW(
 //
 //  rebSpellingOfAllocW: RL_API
 //
-REBWCHAR *RL_rebSpellingOfAllocW(REBCNT *len_out, const REBVAL *v)
+REBWCHAR *RL_rebSpellingOfAllocW(REBCNT *len_out, const void *p, ...)
 {
     Enter_Api();
 
-    REBCNT len = rebSpellingOfW(nullptr, 0, v);
+    va_list va;
+    va_start(va, p);
+
+    DECLARE_LOCAL (string);
+    REBIXO indexor = Do_Va_Core(
+        string,
+        p, // opt_first (preloads value)
+        &va,  // va_end called by evaluator (has to, e.g. for fail())
+        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
+    );
+
+    if (indexor == THROWN_FLAG)
+        fail (Error_No_Catch_For_Throw(string));
+
+    REBCNT len = rebSpellingOfW(nullptr, 0, string);
     REBWCHAR *result = cast(
         REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
     );
-    rebSpellingOfW(result, len, v);
+    rebSpellingOfW(result, len, string);
     if (len_out)
         *len_out = len;
     return result;
@@ -1560,6 +1557,21 @@ REBVAL *RL_rebString(const char *utf8)
 {
     // Handles Enter_Api
     return rebSizedString(utf8, strsize(utf8));
+}
+
+
+//
+//  rebT: RL_API
+//
+// !!! rebT is exported as the shorthand for STRING! based on the idea that
+// ANY-STRING! will be a category to which WORD! and TEXT! belong, and that
+// it is valuable to not have a member of the category have the same name
+// as the category.  It is being introduced as the first step in potentially
+// making the change STRING!=>TEXT!
+//
+const void *RL_rebT(const char *utf8)
+{
+    return rebR(rebString(utf8));
 }
 
 
@@ -1802,115 +1814,6 @@ REBVAL *RL_rebError(const char *msg)
 {
     Enter_Api();
     return Init_Error(Alloc_Value(), Error_User(msg));
-}
-
-
-//
-//  rebFileToLocalAlloc: RL_API
-//
-// This is the API exposure of TO-LOCAL-FILE.  It takes in a FILE! and
-// returns an allocated UTF-8 buffer.
-//
-// !!! Should MAX_FILE_NAME be taken into account for the OS?
-//
-char *RL_rebFileToLocalAlloc(
-    size_t *size_out,
-    const REBVAL *file,
-    REBFLGS flags // REB_FILETOLOCAL_XXX (FULL, WILD, NO_SLASH)
-){
-    Enter_Api();
-
-    if (not IS_FILE(file))
-        fail ("rebFileToLocalAlloc() only works on FILE!");
-
-    DECLARE_LOCAL (local);
-    return rebSpellingOfAlloc(
-        size_out,
-        Init_String(local, To_Local_Path(file, flags))
-    );
-}
-
-
-//
-//  rebFileToLocalAllocW: RL_API
-//
-// This is the API exposure of TO-LOCAL-FILE.  It takes in a FILE! and
-// returns an allocated UCS2 buffer.
-//
-// !!! Should MAX_FILE_NAME be taken into account for the OS?
-//
-REBWCHAR *RL_rebFileToLocalAllocW(
-    REBCNT *len_out,
-    const REBVAL *file,
-    REBFLGS flags // REB_FILETOLOCAL_XXX (FULL, WILD, NO_SLASH)
-){
-    Enter_Api();
-
-    if (not IS_FILE(file))
-        fail ("rebFileToLocalAllocW() only works on FILE!");
-
-    DECLARE_LOCAL (local);
-    return rebSpellingOfAllocW(
-        len_out,
-        Init_String(local, To_Local_Path(file, flags))
-    );
-}
-
-
-//
-//  rebLocalToFile: RL_API
-//
-// This is the API exposure of TO-REBOL-FILE.  It takes in a UTF-8 buffer and
-// returns a FILE!.
-//
-// !!! Should MAX_FILE_NAME be taken into account for the OS?
-//
-REBVAL *RL_rebLocalToFile(const char *local, REBOOL is_dir)
-{
-    Enter_Api();
-
-    // !!! Current inefficiency is that the platform-specific code isn't
-    // taking responsibility for doing this...Rebol core is going to be
-    // agnostic on how files are translated within the hosts.  So the version
-    // of the code on non-wide-char systems will be written just for it, and
-    // no intermediate string will need be made.
-    //
-    REBVAL *string = rebString(local);
-
-    REBVAL *file = Init_File(
-        Alloc_Value(),
-        To_REBOL_Path(string, is_dir ? PATH_OPT_SRC_IS_DIR : 0)
-    );
-
-    rebRelease(string);
-    return file;
-}
-
-
-//
-//  rebLocalToFileW: RL_API
-//
-// This is the API exposure of TO-REBOL-FILE.  It takes in a UCS2 buffer and
-// returns a FILE!.
-//
-// !!! Should MAX_FILE_NAME be taken into account for the OS?
-//
-REBVAL *RL_rebLocalToFileW(const REBWCHAR *local, REBOOL is_dir)
-{
-    Enter_Api();
-
-    REBVAL *string = rebStringW(local);
-
-    REBVAL *result = Init_File(
-        Alloc_Value(),
-        To_REBOL_Path(
-            string,
-            is_dir ? PATH_OPT_SRC_IS_DIR : 0
-        )
-    );
-
-    rebRelease(string);
-    return result;
 }
 
 

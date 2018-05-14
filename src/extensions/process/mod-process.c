@@ -96,10 +96,18 @@
 OSCHR *rebValSpellingAllocOS(REBCNT *len_out, REBVAL *any_string)
 {
 #ifdef OS_WIDE_CHAR
-    return rebSpellingOfAllocW(len_out, any_string);
+    return rebSpellingOfAllocW(
+        len_out,
+        any_string,
+        END
+    );
 #else
     size_t size;
-    char *utf8 = rebSpellingOfAlloc(&size, any_string);
+    char *utf8 = rebSpellingOfAlloc(
+        &size,
+        any_string,
+        END
+    );
     if (len_out != NULL)
         *len_out = size;
     return utf8;
@@ -232,10 +240,10 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebFileToLocalAllocW(
+        WCHAR *local_wide = rebSpellingOfAllocW(
             NULL,
-            ARG(in),
-            REB_FILETOLOCAL_0
+            "lib/file-to-local", ARG(in),
+            END
         );
 
         hInputRead = CreateFile(
@@ -283,10 +291,10 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebFileToLocalAllocW(
+        WCHAR *local_wide = rebSpellingOfAllocW(
             NULL,
-            ARG(out),
-            REB_FILETOLOCAL_0
+            "file-to-local", ARG(out),
+            END
         );
 
         si.hStdOutput = CreateFile(
@@ -348,10 +356,10 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebFileToLocalAllocW(
+        WCHAR *local_wide = rebSpellingOfAllocW(
             NULL,
-            ARG(out),
-            REB_FILETOLOCAL_0
+            "file-to-local", ARG(out),
+            END
         );
 
         si.hStdError = CreateFile(
@@ -890,10 +898,10 @@ int OS_Create_Process(
             close(stdin_pipe[R]);
         }
         else if (IS_FILE(ARG(in))) {
-            char *local_utf8 = rebFileToLocalAlloc(
+            char *local_utf8 = rebSpellingOfAlloc(
                 NULL,
-                ARG(in),
-                REB_FILETOLOCAL_0
+                "file-to-local", ARG(in),
+                END
             );
 
             int fd = open(local_utf8, O_RDONLY);
@@ -926,10 +934,10 @@ int OS_Create_Process(
             close(stdout_pipe[W]);
         }
         else if (IS_FILE(ARG(out))) {
-            char *local_utf8 = rebFileToLocalAlloc(
+            char *local_utf8 = rebSpellingOfAlloc(
                 NULL,
-                ARG(out),
-                REB_FILETOLOCAL_0
+                "file-to-local", ARG(out),
+                END
             );
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
@@ -962,10 +970,10 @@ int OS_Create_Process(
             close(stderr_pipe[W]);
         }
         else if (IS_FILE(ARG(err))) {
-            char *local_utf8 = rebFileToLocalAlloc(
+            char *local_utf8 = rebSpellingOfAlloc(
                 NULL,
-                ARG(err),
-                REB_FILETOLOCAL_0
+                "file-to-local", ARG(err),
+                END
             );
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
@@ -1499,16 +1507,20 @@ REBNATIVE(call)
 
     case REB_STRING: {
         size_t size;
-        os_input = rebSpellingOfAlloc(&size, ARG(in));
+        os_input = rebSpellingOfAlloc(
+            &size,
+            ARG(in),
+            END
+        );
         input_len = size;
         break; }
 
     case REB_FILE: {
         size_t size;
-        os_input = rebFileToLocalAlloc(
+        os_input = rebSpellingOfAlloc(
             &size,
-            ARG(in),
-            REB_FILETOLOCAL_0
+            "file-to-local", ARG(in),
+            END
         );
         input_len = size;
         break; }
@@ -1582,19 +1594,19 @@ REBNATIVE(call)
                 argv[i] = rebValSpellingAllocOS(NULL, KNOWN(param));
             }
             else if (IS_FILE(param)) {
-            #ifdef OS_WIDE_CHAR
-                argv[i] = rebFileToLocalAllocW(
+              #ifdef OS_WIDE_CHAR
+                argv[i] = rebSpellingOfAllocW(
                     NULL,
-                    KNOWN(param),
-                    REB_FILETOLOCAL_0
+                    "file-to-local", KNOWN(param),
+                    END
                 );
-            #else
-                argv[i] = rebFileToLocalAlloc(
+              #else
+                argv[i] = rebSpellingOfAlloc(
                     NULL,
-                    KNOWN(param),
-                    REB_FILETOLOCAL_0
+                    "file-to-local", KNOWN(param),
+                    END
                 );
-            #endif
+              #endif
             }
             else
                 fail (Error_Invalid_Core(param, VAL_SPECIFIER(block)));
@@ -1609,19 +1621,19 @@ REBNATIVE(call)
         argc = 1;
         argv = rebAllocN(const OSCHR*, (argc + 1));
 
-    #ifdef OS_WIDE_CHAR
-        argv[0] = rebFileToLocalAllocW(
+      #ifdef OS_WIDE_CHAR
+        argv[0] = rebSpellingOfAllocW(
             NULL,
-            ARG(command),
-            REB_FILETOLOCAL_0
+            "file-to-local", ARG(command),
+            END
         );
-    #else
-        argv[0] = rebFileToLocalAlloc(
+      #else
+        argv[0] = rebSpellingOfAlloc(
             NULL,
-            ARG(command),
-            REB_FILETOLOCAL_0
+            "file-to-local", ARG(command),
+            END
         );
-    #endif
+      #endif
 
         argv[1] = NULL;
     }
@@ -1976,7 +1988,11 @@ static REBNATIVE(get_env)
   #ifdef TO_WINDOWS
     // Note: The Windows variant of this API is NOT case-sensitive
 
-    WCHAR *key = rebSpellingOfAllocW(NULL, variable);
+    WCHAR *key = rebSpellingOfAllocW(
+        NULL,
+        variable,
+        END
+    );
 
     DWORD val_len_plus_one = GetEnvironmentVariable(key, NULL, 0);
     if (val_len_plus_one == 0) { // some failure...
@@ -2002,7 +2018,11 @@ static REBNATIVE(get_env)
   #else
     // Note: The Posix variant of this API is case-sensitive
 
-    char *key = rebSpellingOfAlloc(NULL, variable);
+    char *key = rebSpellingOfAlloc(
+        NULL,
+        variable,
+        END
+    );
 
     const char* val = getenv(key);
     if (val == NULL) // key not present in environment
@@ -2052,16 +2072,22 @@ static REBNATIVE(set_env)
     REBCTX *error = NULL;
 
   #ifdef TO_WINDOWS
-    WCHAR *key_wide = rebSpellingOfAllocW(NULL, variable);
+    WCHAR *key_wide = rebSpellingOfAllocW(
+        NULL,
+        variable,
+        END
+    );
 
     BOOL success;
 
     if (IS_BLANK(value))
         success = SetEnvironmentVariable(key_wide, NULL);
     else {
-        assert(IS_STRING(value) || IS_WORD(value));
-
-        WCHAR *val_wide = rebSpellingOfAllocW(NULL, value);
+        WCHAR *val_wide = rebSpellingOfAllocW(
+            NULL,
+            "ensure [string! word!]", value,
+            END
+        );
         success = SetEnvironmentVariable(key_wide, val_wide);
         rebFree(val_wide);
     }
@@ -2073,7 +2099,11 @@ static REBNATIVE(set_env)
   #else
 
     size_t key_size;
-    char *key_utf8 = rebSpellingOfAlloc(&key_size, variable);
+    char *key_utf8 = rebSpellingOfAlloc(
+        &key_size,
+        variable,
+        END
+    );
 
     REBOOL success;
 
@@ -2099,12 +2129,14 @@ static REBNATIVE(set_env)
       #endif
     }
     else {
-        assert(IS_STRING(value) || IS_WORD(value));
-
       #ifdef setenv
         UNUSED(key_size);
 
-        char *val_utf8 = rebSpellingOfAlloc(NULL, value);
+        char *val_utf8 = rebSpellingOfAlloc(
+            NULL,
+            "ensure [string! word!]", value
+            END
+        );
 
         // we pass 1 for overwrite (make call to OS_Get_Env if you
         // want to check if already exists)

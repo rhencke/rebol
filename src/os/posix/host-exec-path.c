@@ -102,8 +102,10 @@ REBVAL *OS_Get_Current_Exec(void)
 
     path_utf8[r] = '\0';
 
-    REBOOL is_dir = FALSE;
-    REBVAL *result = rebLocalToFile(path_utf8, is_dir);
+    REBVAL *result = rebRun(
+        "local-to-file", rebT(path_utf8),
+        rebEnd()
+    );
     rebFree(path_utf8);
     return result;
   #endif

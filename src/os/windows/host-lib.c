@@ -139,8 +139,10 @@ REBVAL *OS_Get_Current_Dir(void)
     WCHAR *path = rebAllocN(WCHAR, len);
     GetCurrentDirectory(len, path);
 
-    const REBOOL is_dir = TRUE;
-    REBVAL *result = rebLocalToFileW(path, is_dir);
+    REBVAL *result = rebRun(
+        "local-to-file/dir", rebR(rebStringW(path)),
+        rebEnd()
+    );
     rebFree(path);
     return result;
 }
@@ -154,10 +156,10 @@ REBVAL *OS_Get_Current_Dir(void)
 //
 REBOOL OS_Set_Current_Dir(const REBVAL *path)
 {
-    WCHAR *path_wide = rebFileToLocalAllocW(
+    WCHAR *path_wide = rebSpellingOfAllocW(
         NULL,
-        path,
-        REB_FILETOLOCAL_FULL
+        "file-to-local/full", path,
+        rebEnd()
     );
 
     REBOOL success = did SetCurrentDirectory(path_wide);
@@ -198,19 +200,19 @@ void *OS_Open_Library(const REBVAL *path)
     // While often when communicating with the OS, the local path should be
     // fully resolved, the LoadLibraryW() function searches DLL directories by
     // default.  So if %foo is passed in, you don't want to prepend the
-    // current dir to make it absolute, because it will only look there.
+    // current dir to make it absolute, because it will *only* look there.
     //
-    WCHAR *path_utf8 = rebFileToLocalAllocW(
+    WCHAR *path_utf8 = rebSpellingOfAllocW(
         NULL,
-        path,
-        REB_FILETOLOCAL_0
+        "file-to-local", path,
+        rebEnd()
     );
 
     void *dll = LoadLibraryW(path_utf8);
 
     rebFree(path_utf8);
 
-    if (dll == NULL)
+    if (not dll)
         rebFail_OS (GetLastError());
 
     return dll;
@@ -306,8 +308,10 @@ REBVAL *OS_Get_Current_Exec(void)
     }
     path[r] = '\0'; // May not be NULL-terminated if buffer is not big enough
 
-    REBOOL is_dir = FALSE;
-    REBVAL *result = rebLocalToFileW(path, is_dir);
+    REBVAL *result = rebRun(
+        "local-to-file", rebR(rebStringW(path)),
+        rebEnd()
+    );
     rebFree(path);
 
     return result;

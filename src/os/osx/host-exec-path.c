@@ -55,9 +55,8 @@ REBVAL *OS_Get_Current_Exec(void)
     char *path_utf8 = rebAllocN(char, path_size);
 
     int r = _NSGetExecutablePath(path_utf8, &path_size);
-    if (r == -1) {
-        // buffer is too small, length is set to the required size
-        assert(path_size > 1024);
+    if (r == -1) { // buffer is too small
+        assert(path_size > 1024); // path_size should now hold needed size
 
         rebFree(path_utf8);
         path_utf8 = rebAllocN(char, path_size);
@@ -69,22 +68,24 @@ REBVAL *OS_Get_Current_Exec(void)
         }
     }
 
-    // _NSGetExecutablePath returns "a path" not a "real path", and it could
-    // be a symbolic link.
-    //
-    const REBOOL is_dir = FALSE;
+    // Note: _NSGetExecutablePath returns "a path" not a "real path", and it
+    // could be a symbolic link.
+
     char *resolved_path_utf8 = realpath(path_utf8, NULL);
-    if (resolved_path_utf8 != NULL) {
-        REBVAL *result = rebLocalToFile(resolved_path_utf8, is_dir);
+    if (resolved_path_utf8) {
+        REBVAL *result = rebRun(
+            "local-to-file", rebT(resolved_path_utf8),
+            rebEnd()
+        );
         rebFree(path_utf8);
-        free(resolved_path_utf8); // realpath() uses malloc()
+        free(resolved_path_utf8); // NOTE: realpath() uses malloc()
         return result;
     }
-    else {
-        // Failed to resolve, just return the unresolved path.
-        //
-        REBVAL *result = rebLocalToFile(path_utf8, is_dir);
-        rebFree(path_utf8);
-        return result;
-    }
+
+    REBVAL *result = rebRun(
+        "local-to-file", rebT(path_utf8), // just return unresolved path
+        rebEnd()
+    );
+    rebFree(path_utf8);
+    return result;
 }

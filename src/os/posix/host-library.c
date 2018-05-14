@@ -66,14 +66,19 @@
 //
 void *OS_Open_Library(const REBVAL *path)
 {
-#ifndef NO_DL_LIB
-    //
+  #ifdef NO_DL_LIB
+    return nullptr;
+  #else
     // While often when communicating with the OS, the local path should be
     // fully resolved, the dlopen() function searches library directories by
     // default.  So if %foo is passed in, you don't want to prepend the
-    // current dir to make it absolute, because it will only look there.
+    // current dir to make it absolute, because it will *only* look there.
     //
-    char *path_utf8 = rebFileToLocalAlloc(NULL, path, REB_FILETOLOCAL_0);
+    char *path_utf8 = rebSpellingOfAlloc(
+        NULL,
+        "file-to-local", path, // ^-- don't use /full, see above
+        rebEnd()
+    );
 
     void *dll = dlopen(path_utf8, RTLD_LAZY/*|RTLD_GLOBAL*/);
 
@@ -85,9 +90,7 @@ void *OS_Open_Library(const REBVAL *path)
     }
 
     return dll;
-#else
-    return 0;
-#endif
+  #endif
 }
 
 

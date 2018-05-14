@@ -560,8 +560,10 @@ REBNATIVE(wake_up)
 //          {The returned value should be a valid natural FILE! literal}
 //      path [string! file!]
 //          {Path to convert (by default, only STRING! for type safety)}
-//      /only
-//          {Convert STRING!s, but copy FILE!s to pass through unmodified}
+//      /pass
+//          {Convert STRING!s, but pass thru FILE!s, assuming they're correct}
+//      /dir
+//          {Ensure input path is treated as a directory}
 //  ]
 //
 REBNATIVE(local_to_file)
@@ -570,8 +572,8 @@ REBNATIVE(local_to_file)
 
     REBVAL *path = ARG(path);
     if (IS_FILE(path)) {
-        if (not REF(only))
-            fail ("LOCAL-TO-FILE only passes through FILE! if /ONLY used");
+        if (not REF(pass))
+            fail ("LOCAL-TO-FILE only passes through FILE! if /PASS used");
 
         Init_File(
             D_OUT,
@@ -584,10 +586,9 @@ REBNATIVE(local_to_file)
         return R_OUT;
     }
 
-    const REBOOL is_dir = FALSE;
     Init_File(
         D_OUT,
-        To_REBOL_Path(path, is_dir ? PATH_OPT_SRC_IS_DIR : 0)
+        To_REBOL_Path(path, REF(dir) ? PATH_OPT_SRC_IS_DIR : 0)
     );
     return R_OUT;
 }
@@ -602,10 +603,14 @@ REBNATIVE(local_to_file)
 //          {A STRING! like "\foo\bar" is not a "natural" FILE! %\foo\bar}
 //      path [file! string!]
 //          {Path to convert (by default, only FILE! for type safety)}
-//      /only
-//          {Convert FILE!s, but copy STRING!s to pass through unmodified}
+//      /pass
+//          {Convert FILE!s, but pass thru STRING!, assuming it's local}
 //      /full
 //          {For relative paths, prepends current dir for full path}
+//      /no-tail-slash
+//          {For directories, do not add a slash or backslash to the tail}
+//      /wild
+//          {For directories, add a * to the end}
 //  ]
 //
 REBNATIVE(file_to_local)
@@ -614,8 +619,8 @@ REBNATIVE(file_to_local)
 
     REBVAL *path = ARG(path);
     if (IS_STRING(path)) {
-        if (not REF(only))
-            fail ("FILE-TO-LOCAL only passes through STRING! if /ONLY used");
+        if (not REF(pass))
+            fail ("FILE-TO-LOCAL only passes through STRING! if /PASS used");
 
         Init_String(
             D_OUT,
@@ -632,7 +637,10 @@ REBNATIVE(file_to_local)
         D_OUT,
         To_Local_Path(
             path,
-            REF(full) ? REB_FILETOLOCAL_FULL : REB_FILETOLOCAL_0
+            REB_FILETOLOCAL_0
+                | (REF(full) ? REB_FILETOLOCAL_FULL : 0)
+                | (REF(no_tail_slash) ? REB_FILETOLOCAL_NO_TAIL_SLASH : 0)
+                | (REF(wild) ? REB_FILETOLOCAL_WILD : 0)
         )
     );
     return R_OUT;

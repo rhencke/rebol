@@ -335,14 +335,14 @@ detect_again:;
 
         // !!! In the working definition, the "topmost level" of a variadic
         // call is considered to be already evaluated...unless you ask to
-        // evaluate it further.  This is what allows `rebSpellingOf(v)` to
-        // work as well as `rebSpellingOf("first", v)`, the idea of "fetch" is
-        // the reading of the C variable V, and it would be a "double eval"
-        // if that v were a WORD! that then executed.
+        // evaluate it further.  This is what allows `rebSpellingOf(v, END)`
+        // to work as well as `rebSpellingOf("first", v, END)`, the idea of
+        // "fetch" is the reading of the C variable V, and it would be a
+        // "double eval" if that v were a WORD! that then executed.
         //
-        // Hence, voids are legal, because it's as if you said `first :v`
+        // Hence, nulls are legal, because it's as if you said `first :v`
         // with v being the C variable name.  However, this is not meaningful
-        // if the value winds up spliced into a block--so any voids in those
+        // if the value winds up spliced into a block--so any null in those
         // cases are treated as errors.
         //
         // For the moment, this also cues automatic interning on the string

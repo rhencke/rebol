@@ -12,9 +12,6 @@ REBOL [
 ]
 
 
-file-to-local*: specialize 'file-to-local [only: true]
-local-to-file*: specialize 'local-to-file [only: true]
-
 clean-path: function [
     "Returns new directory path with `//` `.` and `..` processed."
     file [file! url! string!]

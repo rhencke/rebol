@@ -145,10 +145,10 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (h == NULL) {
         // Read first file entry:
 
-        WCHAR *dir_wide = rebFileToLocalAllocW(
+        WCHAR *dir_wide = rebSpellingOfAllocW(
             NULL,
-            dir->path,
-            REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_WILD
+            "file-to-local/full/wild", dir->path,
+            rebEnd()
         );
         h = FindFirstFile(dir_wide, &info);
         rebFree(dir_wide);
@@ -199,8 +199,12 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     // trigger a GC and there is nothing proxying the RebReq's data.
     // Long term, this file should have *been* the return result.
     //
-    const REBOOL is_dir = did (file_req->modes & RFM_DIR);
-    file->path = rebUnmanage(rebLocalToFileW(info.cFileName, is_dir));
+    file->path = rebUnmanage(rebRun(
+        "apply 'local-to-file [",
+            "path:", rebR(rebStringW(info.cFileName)),
+            "dir:", rebR(rebLogic(file_req->modes & RFM_DIR)),
+        "]", rebEnd()
+    ));
     file->size =
         (cast(int64_t, info.nFileSizeHigh) << 32) + info.nFileSizeLow;
 
@@ -259,11 +263,14 @@ DEVICE_CMD Open_File(REBREQ *req)
     if (access == 0)
         rebJUMPS ("fail {No access modes provided to Open_File()}", rebEnd());
 
-    REBFLGS flags = REB_FILETOLOCAL_FULL;
-    if (req->modes & RFM_DIR)
-        flags |= REB_FILETOLOCAL_WILD;
-
-    WCHAR *path_wide = rebFileToLocalAllocW(NULL, file->path, flags);
+    WCHAR *path_wide = rebSpellingOfAllocW(
+        NULL,
+        "apply 'file-to-local [",
+            "path:", file->path,
+            "wild:", rebR(rebLogic(req->modes & RFM_DIR)),
+            "full: true",
+        "]", rebEnd()
+    );
 
     HANDLE h = CreateFile(
         path_wide,
@@ -474,10 +481,10 @@ DEVICE_CMD Query_File(REBREQ *req)
     WIN32_FILE_ATTRIBUTE_DATA info;
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    WCHAR *path_wide = rebFileToLocalAllocW(
+    WCHAR *path_wide = rebSpellingOfAllocW(
         NULL,
-        file->path,
-        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+        "file-to-local/full/no-tail-slash", file->path,
+        rebEnd()
     );
 
     REBOOL success = GetFileAttributesEx(
@@ -513,10 +520,10 @@ DEVICE_CMD Create_File(REBREQ *req)
     if (not (req->modes & RFM_DIR))
         return Open_File(req);
 
-    WCHAR *path_wide = rebFileToLocalAllocW(
+    WCHAR *path_wide = rebSpellingOfAllocW(
         NULL,
-        file->path,
-        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+        "file-to-local/full/no-tail-slash", file->path,
+        rebEnd()
     );
 
     LPSECURITY_ATTRIBUTES lpSecurityAttributes = NULL;
@@ -544,10 +551,10 @@ DEVICE_CMD Delete_File(REBREQ *req)
 {
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    WCHAR *path_wide = rebFileToLocalAllocW(
+    WCHAR *path_wide = rebSpellingOfAllocW(
         NULL,
-        file->path,
-        REB_FILETOLOCAL_FULL // leave tail slash on for directory removal
+        "file-to-local/full", file->path,
+        rebEnd() // leave tail slash on for directory removal
     );
 
     REBOOL success;
@@ -577,15 +584,15 @@ DEVICE_CMD Rename_File(REBREQ *req)
 
     REBVAL *to = cast(REBVAL*, req->common.data); // !!! hack!
 
-    WCHAR *from_wide = rebFileToLocalAllocW(
+    WCHAR *from_wide = rebSpellingOfAllocW(
         NULL,
-        file->path,
-        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+        "file-to-local/full/no-tail-slash", file->path,
+        rebEnd()
     );
-    WCHAR *to_wide = rebFileToLocalAllocW(
+    WCHAR *to_wide = rebSpellingOfAllocW(
         NULL,
-        to,
-        REB_FILETOLOCAL_FULL | REB_FILETOLOCAL_NO_TAIL_SLASH
+        "file-to-local/full/no-tail-slash", to,
+        rebEnd()
     );
 
     REBOOL success = MoveFile(from_wide, to_wide);
