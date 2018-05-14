@@ -156,9 +156,6 @@ void Free_Mem(void *mem, size_t size)
   #else
     assert(mem != NULL);
     char *ptr = cast(char *, mem) - sizeof(REBI64);
-    if (*cast(REBI64 *, ptr) == cast(REBI64, -1020))
-        panic ("** FREE() used on OS_ALLOC() memory instead of OS_FREE()");
-
     assert(*cast(REBI64*, ptr) == cast(REBI64, size));
     free(ptr);
   #endif

@@ -304,6 +304,47 @@ for-each macro direct-call-macros [
 e-lib/emit {
     #endif // REB_EXT
 
+    /***********************************************************************
+     *
+     *  TYPE-SAFE rebMalloc() MACRO VARIANTS FOR C++ COMPATIBILITY
+     *
+     * Originally R3-Alpha's hostkit had special OS_ALLOC and OS_FREE hooks,
+     * to facilitate the core to free memory blocks allocated by the host
+     * (or vice-versa).  So they agreed on an allocator.  In Ren-C, all
+     * layers use REBVAL* for the purpose of exchanging such information--so
+     * this purpose is obsolete.
+     *
+     * Yet a new API construct called rebMalloc() offers some advantages over
+     * hosts just using malloc():
+     *
+     *     Memory can be retaken to act as a BINARY! series without another
+     *     allocation, via rebRepossess().
+     *
+     *     Memory is freed automatically in the case of a failure in the
+     *     frame where the rebMalloc() occured.  This is especially useful
+     *     when mixing C code involving allocations with rebRun(), etc.
+     *
+     *     Memory gets counted in Rebol's knowledge of how much memory the
+     *     system is using, for the purposes of triggering GC.
+     *
+     *     Out-of-memory errors on allocation automatically trigger
+     *     failure vs. needing special handling by returning NULL (which may
+     *     or may not be desirable, depending on what you're doing)
+     *
+     * Additionally, the rebAlloc(type) and rebAllocN(type, num) macros
+     * automatically cast to the correct type for C++ compatibility.
+     *
+     * Note: There currently is no rebUnmanage() equivalent for rebMalloc()
+     * data, so it must either be rebRepossess()'d or rebFree()'d before its
+     * frame ends.  This limitation will be addressed in the future.
+     *
+     **********************************************************************/
+
+    #define rebAlloc(t) \
+        cast(t *, rebMalloc(sizeof(t)))
+    #define rebAllocN(t,n) \
+        cast(t *, rebMalloc(sizeof(t) * (n)))
+
     #ifdef __cplusplus
     ^}
     #endif

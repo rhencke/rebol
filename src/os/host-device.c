@@ -45,6 +45,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "reb-host.h"
 
@@ -353,7 +354,7 @@ REBREQ *OS_Make_Devreq(int device)
     REBDEV *dev = Devices[device];
     assert(dev != NULL);
 
-    REBREQ *req = cast(REBREQ *, OS_ALLOC_MEM(dev->req_size));
+    REBREQ *req = cast(REBREQ*, malloc(dev->req_size));
     memset(req, 0, dev->req_size);
     req->device = device;
 

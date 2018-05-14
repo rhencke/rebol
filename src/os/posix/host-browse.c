@@ -68,18 +68,16 @@ void OS_Destroy_Graphics(void);
 //
 REBVAL *OS_Get_Current_Dir(void)
 {
-    char *path = OS_ALLOC_N(char, PATH_MAX);
-    if (path == NULL)
-        return rebBlank();
+    char *path = rebAllocN(char, PATH_MAX);
 
     if (getcwd(path, PATH_MAX - 1) == 0) {
-        OS_FREE(path);
+        rebFree(path);
         return rebBlank();
     }
 
     const REBOOL is_dir = TRUE;
     REBVAL *result = rebLocalToFile(path, is_dir);
-    OS_FREE(path);
+    rebFree(path);
     return result;
 }
 

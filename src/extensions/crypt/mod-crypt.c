@@ -279,7 +279,7 @@ static REBNATIVE(rsa)
     // Buffer suitable for recapturing as a BINARY! for either the encrypted
     // or decrypted data
     //
-    REBYTE *crypted = cast(REBYTE*, rebMalloc(binary_len));
+    REBYTE *crypted = rebAllocN(REBYTE, binary_len);
 
     if (REF(decrypt)) {
         int result = RSA_decrypt(
@@ -365,9 +365,9 @@ static REBNATIVE(dh_generate_key)
     // Generate the private and public keys into memory that can be
     // rebRepossess()'d as the memory backing a BINARY! series
     //
-    dh_ctx.x = cast(REBYTE*, rebMalloc(dh_ctx.len)); // x => private key
+    dh_ctx.x = rebAllocN(REBYTE, dh_ctx.len); // x => private key
     memset(dh_ctx.x, 0, dh_ctx.len);
-    dh_ctx.gx = cast(REBYTE*, rebMalloc(dh_ctx.len)); // gx => public key
+    dh_ctx.gx = rebAllocN(REBYTE, dh_ctx.len); // gx => public key
     memset(dh_ctx.gx, 0, dh_ctx.len);
 
     DH_generate_key(&dh_ctx);
@@ -425,7 +425,7 @@ static REBNATIVE(dh_compute_key)
     dh_ctx.gy = VAL_BIN_AT(ARG(public_key));
     // !!! No length check here, should there be?
 
-    dh_ctx.k = cast(REBYTE*, rebMalloc(dh_ctx.len));
+    dh_ctx.k = rebAllocN(REBYTE, dh_ctx.len);
     memset(dh_ctx.k, 0, dh_ctx.len);
 
     DH_compute_key(&dh_ctx);

@@ -41,8 +41,8 @@
 static void cleanup_ffi_type(const REBVAL *v) {
     ffi_type *fftype = VAL_HANDLE_POINTER(ffi_type, v);
     if (fftype->type == FFI_TYPE_STRUCT)
-        OS_FREE(fftype->elements);
-    OS_FREE(fftype);
+        free(fftype->elements);
+    free(fftype);
 }
 
 
@@ -738,7 +738,7 @@ static void Prepare_Field_For_FFI(REBFLD *schema)
     // For struct fields--on the other hand--it's necessary to do a custom
     // allocation for a new type registered with the FFI.
     //
-    fftype = OS_ALLOC(ffi_type);
+    fftype = cast(ffi_type*, malloc(sizeof(ffi_type)));
     fftype->type = FFI_TYPE_STRUCT;
 
     // "This is set by libffi; you should initialize it to zero."
@@ -750,7 +750,9 @@ static void Prepare_Field_For_FFI(REBFLD *schema)
     REBARR *fieldlist = FLD_FIELDLIST(schema);
 
     REBCNT dimensionality = Total_Struct_Dimensionality(fieldlist);
-    fftype->elements = OS_ALLOC_N(ffi_type*, dimensionality + 1); // NULL term
+    fftype->elements = cast(ffi_type**,
+        malloc(sizeof(ffi_type*) * (dimensionality + 1)) // NULL term
+    );
 
     RELVAL *item = ARR_HEAD(fieldlist);
 

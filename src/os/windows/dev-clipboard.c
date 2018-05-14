@@ -126,7 +126,7 @@ DEVICE_CMD Read_Clipboard(REBREQ *req)
     rebRelease(str);
 
     REBVAL *binary = rebBinary(utf8, size);
-    OS_FREE(utf8);
+    rebFree(utf8);
 
     // !!! The REBREQ and Device model is being gutted and replaced.  Formerly
     // this would return OS_ALLOC()'d wide character data and set a RRF_WIDE

@@ -191,8 +191,6 @@ os: [
 ]
 
 os-windows: [
-    + generic/host-memory.c
-
     + windows/host-lib.c
     windows/dev-stdio.c
     windows/dev-file.c
@@ -202,7 +200,6 @@ os-windows: [
 ]
 
 os-posix: [
-    + generic/host-memory.c
     + generic/host-gob.c
 
     posix/host-readline.c
@@ -211,7 +208,6 @@ os-posix: [
     posix/dev-file.c
 
     + posix/host-browse.c
-    + posix/host-config.c
     + posix/host-library.c
     + posix/host-process.c
     + posix/host-time.c
@@ -219,7 +215,6 @@ os-posix: [
 ]
 
 os-osx: [
-    + generic/host-memory.c
     + generic/host-gob.c
 
     ; OSX uses the POSIX file I/O for now
@@ -230,7 +225,6 @@ os-osx: [
     posix/dev-serial.c
 
     + posix/host-browse.c
-    + posix/host-config.c
     + posix/host-library.c
     + posix/host-process.c
     + posix/host-time.c
@@ -242,7 +236,6 @@ os-osx: [
 ; make.r requires an `os-(os-base)` entry here for each named target.
 ;
 os-linux: [
-    + generic/host-memory.c
     + generic/host-gob.c
 
     ; Linux uses the POSIX file I/O for now
@@ -251,7 +244,6 @@ os-linux: [
     posix/dev-file.c
 
     ; It also uses POSIX for most host functions
-    + posix/host-config.c
     + posix/host-library.c
     + posix/host-process.c
     + posix/host-time.c
@@ -273,7 +265,6 @@ os-linux: [
 
 ; cloned from os-linux TODO: check'n'fix !!
 os-android: [ 
-    + generic/host-memory.c
     + generic/host-gob.c
 
     ; Android uses the POSIX file I/O for now
@@ -282,7 +273,6 @@ os-android: [
     posix/dev-file.c
 
     ; It also uses POSIX for most host functions
-    + posix/host-config.c
     + posix/host-library.c
     + posix/host-process.c
     + posix/host-time.c
@@ -303,7 +293,6 @@ os-android: [
 ]
 
 os-emscripten: [
-    + generic/host-memory.c
     + generic/host-gob.c
 
     posix/host-readline.c
@@ -312,7 +301,6 @@ os-emscripten: [
     posix/dev-file.c
 
     + posix/host-browse.c
-    + posix/host-config.c
     + posix/host-library.c
     + posix/host-process.c
     + posix/host-time.c

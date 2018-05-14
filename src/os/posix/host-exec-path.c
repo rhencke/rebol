@@ -65,44 +65,38 @@
 //
 REBVAL *OS_Get_Current_Exec(void)
 {
-#if !defined(PROC_EXEC_PATH) && !defined(HAVE_PROC_PATHNAME)
+  #if !defined(PROC_EXEC_PATH) && !defined(HAVE_PROC_PATHNAME)
     return rebBlank();
-#else
+  #else
     char *buffer;
     const char *self;
-    #if defined(PROC_EXEC_PATH)
+      #if defined(PROC_EXEC_PATH)
         buffer = NULL;
         self = PROC_EXEC_PATH;
-    #else //HAVE_PROC_PATHNAME
+      #else //HAVE_PROC_PATHNAME
         int mib[4] = {
             CTL_KERN,
             KERN_PROC,
             KERN_PROC_PATHNAME,
             -1 //current process
         };
-        buffer = OS_ALLOC_N(char, PATH_MAX + 1);
+        buffer = rebAllocN(char, PATH_MAX + 1);
         size_t len = PATH_MAX + 1;
         if (sysctl(mib, sizeof(mib), buffer, &len, NULL, 0) != 0) {
-            OS_FREE(buffer);
+            rebFree(buffer);
             return rebBlank();
         }
         self = buffer;
     #endif
 
-    char *path_utf8 = OS_ALLOC_N(char, PATH_MAX);
-    if (path_utf8 == NULL) {
-        if (buffer != NULL)
-            OS_FREE(buffer);
-        return rebBlank();
-    }
-
+    char *path_utf8 = rebAllocN(char, PATH_MAX);
     int r = readlink(self, path_utf8, PATH_MAX);
 
-    if (buffer != NULL)
-        OS_FREE(buffer);
+    if (buffer)
+        rebFree(buffer);
 
     if (r < 0) {
-        OS_FREE(path_utf8);
+        rebFree(path_utf8);
         return rebBlank();
     }
 
@@ -110,7 +104,7 @@ REBVAL *OS_Get_Current_Exec(void)
 
     REBOOL is_dir = FALSE;
     REBVAL *result = rebLocalToFile(path_utf8, is_dir);
-    OS_FREE(path_utf8);
+    rebFree(path_utf8);
     return result;
-#endif
+  #endif
 }

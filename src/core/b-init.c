@@ -1034,10 +1034,12 @@ void Startup_Task(void)
 // (otherwise, the bounds would add and be useless).
 //
 void Set_Stack_Limit(void *base) {
-    uintptr_t bounds;
-    bounds = cast(uintptr_t, OS_CONFIG(1, 0));
-    if (bounds == 0)
-        bounds = cast(uintptr_t, STACK_BOUNDS);
+    //
+    // !!! This could be made configurable.  However, it needs to be
+    // initialized early in the boot process.  It may be that some small limit
+    // is used enough for boot, that can be expanded by native calls later.
+    //
+    uintptr_t bounds = cast(uintptr_t, STACK_BOUNDS);
 
   #if defined(OS_STACK_GROWS_UP)
     TG_Stack_Limit = cast(uintptr_t, base) + bounds;

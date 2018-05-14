@@ -1523,7 +1523,7 @@ prep: make rebmake/entry-class [
 ]
 
 ; Analyze what directories were used in this build's entry from %file-base.r
-; to add those obj folders.  So if the `%generic/host-memory.c` is listed,
+; to add those obj folders.  So if the `%generic/host-xxx.c` is listed,
 ; this will make sure `%objs/generic/` is in there.
 
 add-new-obj-folders: procedure [

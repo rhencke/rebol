@@ -342,7 +342,7 @@ static REBOOL Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
 
             // !!! This modifies a const-marked values's bits, which
             // is generally a bad thing.  The reason it appears to be doing
-            // this is to let clients can put ordinary OS_ALLOC'd arrays of
+            // this is to let clients can put ordinary malloc'd arrays of
             // bytes into a field which are then on-demand turned into
             // string series when seen here.  This flips a bit to say the
             // conversion has been done.  Review this implementation.
@@ -352,7 +352,7 @@ static REBOOL Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
             VAL_EVENT_SER(writable) = Copy_Bytes(cast(REBYTE*, str), -1);
             VAL_EVENT_FLAGS(writable) |= EVF_COPIED;
 
-            OS_FREE(str);
+            free(str);
         }
         Init_File(out, VAL_EVENT_SER(v));
         break; }

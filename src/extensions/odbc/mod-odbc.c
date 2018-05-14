@@ -380,7 +380,7 @@ SQLRETURN ODBC_BindParameter(
 
     case REB_LOGIC: {
         p->buffer_size = sizeof(unsigned char);
-        p->buffer = OS_ALLOC_N(char, p->buffer_size);
+        p->buffer = rebAllocN(char, p->buffer_size);
 
         *cast(unsigned char*, p->buffer) = VAL_LOGIC(v);
 
@@ -390,7 +390,7 @@ SQLRETURN ODBC_BindParameter(
 
     case REB_INTEGER: {
         p->buffer_size = sizeof(REBI64);
-        p->buffer = OS_ALLOC_N(char, p->buffer_size);
+        p->buffer = rebAllocN(char, p->buffer_size);
 
         *cast(REBI64*, p->buffer) = VAL_INT64(v);
 
@@ -400,7 +400,7 @@ SQLRETURN ODBC_BindParameter(
 
     case REB_DECIMAL: {
         p->buffer_size = sizeof(double);
-        p->buffer = OS_ALLOC_N(char, p->buffer_size);
+        p->buffer = rebAllocN(char, p->buffer_size);
 
         *cast(double*, p->buffer) = VAL_DECIMAL(v);
 
@@ -410,7 +410,7 @@ SQLRETURN ODBC_BindParameter(
 
     case REB_TIME: {
         p->buffer_size = sizeof(TIME_STRUCT);
-        p->buffer = OS_ALLOC_N(char, p->buffer_size);
+        p->buffer = rebAllocN(char, p->buffer_size);
 
         TIME_STRUCT *time = cast(TIME_STRUCT*, p->buffer);
 
@@ -428,7 +428,7 @@ SQLRETURN ODBC_BindParameter(
     case REB_DATE: {
         if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME)) {
             p->buffer_size = sizeof(DATE_STRUCT);
-            p->buffer = OS_ALLOC_N(char, p->buffer_size);
+            p->buffer = rebAllocN(char, p->buffer_size);
 
             DATE_STRUCT *date = cast(DATE_STRUCT*, p->buffer);
 
@@ -441,7 +441,7 @@ SQLRETURN ODBC_BindParameter(
         }
         else {
             p->buffer_size = sizeof(TIMESTAMP_STRUCT);
-            p->buffer = OS_ALLOC_N(char, p->buffer_size);
+            p->buffer = rebAllocN(char, p->buffer_size);
 
             TIMESTAMP_STRUCT *stamp = cast(TIMESTAMP_STRUCT*, p->buffer);
 
@@ -460,7 +460,7 @@ SQLRETURN ODBC_BindParameter(
 
     case REB_STRING: {
         REBCNT len_no_term = rebSpellingOfW(NULL, 0, v); // first, get length
-        SQLWCHAR *chars = OS_ALLOC_N(SQLWCHAR, len_no_term + 1);
+        SQLWCHAR *chars = rebAllocN(SQLWCHAR, len_no_term + 1);
 
         REBCNT len_check = rebSpellingOfW(chars, len_no_term, v); // now, get
         assert(len_check == len_no_term);
@@ -477,10 +477,7 @@ SQLRETURN ODBC_BindParameter(
 
     case REB_BINARY: {
         p->buffer_size = VAL_LEN_AT(v); // sizeof(char) guaranteed to be 1
-        p->buffer = OS_ALLOC_N(char, p->buffer_size);
-
-        if (p->buffer == NULL)
-            fail ("Couldn't allocate parameter buffer!");
+        p->buffer = rebAllocN(char, p->buffer_size);
 
         memcpy(p->buffer, VAL_BIN_AT(v), p->buffer_size);
 
@@ -946,9 +943,7 @@ REBNATIVE(insert_odbc)
 
         PARAMETER *params = NULL;
         if (num_params != 0) {
-            params = OS_ALLOC_N(PARAMETER, num_params);
-            if (params == NULL)
-                fail ("Couldn't allocate parameter buffer!");
+            params = rebAllocN(PARAMETER, num_params);
 
             REBCNT n;
             for (n = 0; n < num_params; ++n, ++sql_index) {
@@ -974,9 +969,9 @@ REBNATIVE(insert_odbc)
             REBCNT n;
             for (n = 0; n < num_params; ++n) {
                 if (params[n].buffer != NULL)
-                    OS_FREE(params[n].buffer);
+                    rebFree(params[n].buffer);
             }
-            OS_FREE(params);
+            rebFree(params);
         }
 
         if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
@@ -1030,11 +1025,11 @@ REBNATIVE(insert_odbc)
     );
     if (old_columns_value) {
         COLUMN *old_columns = VAL_HANDLE_POINTER(COLUMN, old_columns_value);
-        OS_FREE(old_columns);
+        free(old_columns);
         rebRelease(old_columns_value);
     }
 
-    COLUMN *columns = OS_ALLOC_N(COLUMN, num_columns);
+    COLUMN *columns = cast(COLUMN*, malloc(sizeof(COLUMN) * num_columns));
     if (columns == NULL)
         fail ("Couldn't allocate column buffers!");
 
@@ -1340,7 +1335,7 @@ REBNATIVE(close_statement)
         for (col = 0; col < num_columns; ++col)
             rebRelease(columns[col].title_word);
 
-        OS_FREE(columns);
+        free(columns);
         SET_HANDLE_POINTER(columns_value, NULL); // avoid GC cleanup
         rebElide("poke", statement, "'columns", "blank", END);
 

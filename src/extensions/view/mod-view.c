@@ -184,7 +184,7 @@ REBNATIVE(request_file_p)
     //
     ofn.nFilterIndex = 0;
 
-    WCHAR* lpstrFile = OS_ALLOC_N(WCHAR, MAX_FILE_REQ_BUF);
+    WCHAR* lpstrFile = rebAllocN(WCHAR, MAX_FILE_REQ_BUF);
     ofn.lpstrFile = lpstrFile;
     ofn.lpstrFile[0] = '\0'; // may be filled with ARG(name) below
     ofn.nMaxFile = MAX_FILE_REQ_BUF - 1; // size in characters, space for NULL
@@ -315,7 +315,7 @@ REBNATIVE(request_file_p)
                 );
 
                 while ((item_len = wcslen(item)) != 0) {
-                    WCHAR *buffer = OS_ALLOC_N(
+                    WCHAR *buffer = rebAllocN(
                         WCHAR, dir_len + item_len + 1 // null terminator
                     );
 
@@ -324,7 +324,7 @@ REBNATIVE(request_file_p)
 
                     const REBOOL is_dir_false = FALSE;
                     REBVAL *file = rebLocalToFileW(buffer, is_dir_false);
-                    OS_FREE(buffer);
+                    rebFree(buffer);
 
                     DS_PUSH_TRASH;
                     Move_Value(DS_TOP, file);
@@ -343,7 +343,7 @@ REBNATIVE(request_file_p)
     //
     if (REF(filter))
         rebFree(lpstrFilter);
-    OS_FREE(lpstrFile);
+    rebFree(lpstrFile);
     if (REF(file) && lpstrInitialDir != NULL)
         rebFree(lpstrInitialDir);
     if (REF(title))

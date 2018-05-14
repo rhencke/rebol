@@ -74,11 +74,11 @@ const int speeds[] = {
 
 static struct termios *Get_Serial_Settings(int ttyfd)
 {
-    struct termios *attr = NULL;
-    attr = OS_ALLOC(struct termios);
-    if (attr != NULL) {
+    struct termios *attr
+        = cast(struct termios*, malloc(sizeof(struct termios)));
+    if (attr) {
         if (tcgetattr(ttyfd, attr) == -1) {
-            OS_FREE(attr);
+            free(attr);
             attr = NULL;
         }
     }

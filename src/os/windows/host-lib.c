@@ -85,26 +85,6 @@ REBVAL *Convert_Date(long zone, const SYSTEMTIME *stime)
 
 
 //
-//  OS_Config: C
-//
-// Return a specific runtime configuration parameter.
-//
-REBINT OS_Config(int id, REBYTE *result)
-{
-    UNUSED(result);
-
-#define OCID_STACK_SIZE 1  // needs to move to .h file
-
-    switch (id) {
-    case OCID_STACK_SIZE:
-        return 0;  // (size in bytes should be returned here)
-    }
-
-    return 0;
-}
-
-
-//
 //  OS_Get_Time: C
 //
 // Get the current system date/time in UTC plus zone offset (mins).
@@ -156,12 +136,12 @@ int64_t OS_Delta_Time(int64_t base)
 REBVAL *OS_Get_Current_Dir(void)
 {
     DWORD len = GetCurrentDirectory(0, NULL); // length, incl terminator.
-    WCHAR *path = OS_ALLOC_N(WCHAR, len);
+    WCHAR *path = rebAllocN(WCHAR, len);
     GetCurrentDirectory(len, path);
 
     const REBOOL is_dir = TRUE;
     REBVAL *result = rebLocalToFileW(path, is_dir);
-    OS_FREE(path);
+    rebFree(path);
     return result;
 }
 
@@ -317,20 +297,18 @@ REBVAL *OS_GOB_To_Image(REBGOB *gob)
 //
 REBVAL *OS_Get_Current_Exec(void)
 {
-    WCHAR *path = OS_ALLOC_N(WCHAR, MAX_PATH);
-    if (path == NULL)
-        return rebBlank();
+    WCHAR *path = rebAllocN(WCHAR, MAX_PATH);
 
     DWORD r = GetModuleFileName(NULL, path, MAX_PATH);
     if (r == 0) {
-        OS_FREE(path);
+        rebFree(path);
         return rebBlank();
     }
     path[r] = '\0'; // May not be NULL-terminated if buffer is not big enough
 
     REBOOL is_dir = FALSE;
     REBVAL *result = rebLocalToFileW(path, is_dir);
-    OS_FREE(path);
+    rebFree(path);
 
     return result;
 }

@@ -400,7 +400,7 @@ int OS_Create_Process(
 
         REBCNT len = wcslen(sh) + wcslen(call) + 3;
 
-        cmd = OS_ALLOC_N(WCHAR, len);
+        cmd = rebAllocN(WCHAR, len);
         cmd[0] = L'\0';
         wcscat(cmd, sh);
         wcscat(cmd, call);
@@ -427,7 +427,7 @@ int OS_Create_Process(
         &pi // process information
     );
 
-    OS_FREE(cmd);
+    rebFree(cmd);
 
     *pid = pi.dwProcessId;
 
@@ -1556,9 +1556,7 @@ REBNATIVE(call)
         cmd = rebValSpellingAllocOS(NULL, ARG(command));
 
         argc = 1;
-        argv = cast(const OSCHR**,
-            rebMalloc(sizeof(const OSCHR*) * (argc + 1))
-        );
+        argv = rebAllocN(const OSCHR*, (argc + 1));
 
         // !!! Make two copies because it frees cmd and all the argv.  Review.
         //
@@ -1575,9 +1573,7 @@ REBNATIVE(call)
         if (argc == 0)
             fail (Error_Too_Short_Raw());
 
-        argv = cast(const OSCHR**,
-            rebMalloc(sizeof(const OSCHR*) * (argc + 1))
-        );
+        argv = rebAllocN(const OSCHR*, (argc + 1));
 
         int i;
         for (i = 0; i < argc; i ++) {
@@ -1611,9 +1607,7 @@ REBNATIVE(call)
         cmd = NULL;
 
         argc = 1;
-        argv = cast(const OSCHR**,
-            rebMalloc(sizeof(const OSCHR*) * (argc + 1))
-        );
+        argv = rebAllocN(const OSCHR*, (argc + 1));
 
     #ifdef OS_WIDE_CHAR
         argv[0] = rebFileToLocalAllocW(
@@ -1791,7 +1785,7 @@ REBNATIVE(get_os_browsers)
 
     REBCNT len = num_bytes / 2;
 
-    WCHAR *buffer = OS_ALLOC_N(WCHAR, len + 1); // include terminator
+    WCHAR *buffer = rebAllocN(WCHAR, len + 1); // include terminator
 
     flag = RegQueryValueEx(
         key, L"", 0, &type, cast(LPBYTE, buffer), &num_bytes
@@ -1815,7 +1809,7 @@ REBNATIVE(get_os_browsers)
     Move_Value(DS_TOP, str);
     rebRelease(str);
 
-    OS_FREE(buffer);
+    rebFree(buffer);
 
   #elif defined(TO_LINUX)
 
@@ -1992,7 +1986,7 @@ static REBNATIVE(get_env)
             error = Error_User("Unknown error when requesting variable size");
     }
     else {
-        WCHAR *val = OS_ALLOC_N(WCHAR, val_len_plus_one);
+        WCHAR *val = rebAllocN(WCHAR, val_len_plus_one);
         DWORD result = GetEnvironmentVariable(key, val, val_len_plus_one);
         if (result == 0)
             error = Error_User("Unknown error fetching variable to buffer");
@@ -2001,7 +1995,7 @@ static REBNATIVE(get_env)
             Move_Value(D_OUT, temp);
             rebRelease(temp);
         }
-        OS_FREE(val);
+        rebFree(val);
     }
 
     rebFree(key);
@@ -2139,8 +2133,8 @@ static REBNATIVE(set_env)
 
         REBCNT val_size = rebSpellingOf(NULL, 0, value);
 
-        char *key_equals_val_utf8 = OS_ALLOC_N(char,
-            key_size + 1 + val_size + 1
+        char *key_equals_val_utf8 = cast(char*,
+            malloc(sizeof(char) * (key_size + 1 + val_size + 1)) // not freed
         );
 
         rebSpellingOf(key_equals_val_utf8, key_size, variable);
@@ -2154,7 +2148,7 @@ static REBNATIVE(set_env)
         if (putenv(key_equals_val_utf8) == -1) // !!! why mutable?  :-/
             success = FALSE;
 
-        /* OS_FREE(key_equals_val); */ // !!! Can't do this, crashes getenv()
+        /* free(key_equals_val); */ // !!! Can't do this, crashes getenv()
       #endif
     }
 

@@ -106,7 +106,7 @@ static void Accept_New_Port(REBVAL *out, REBCTX *port, struct devreq_net *sock)
     sock = cast(struct devreq_net*, Ensure_Port_State(port, RDI_NET));
     *sock = *nsock;
     AS_REBREQ(sock)->port = port;
-    OS_FREE(nsock); // allocated by dev_net.c (MT issues?)
+    free(nsock); // allocated by dev_net.c
 }
 
 //

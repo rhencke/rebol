@@ -737,9 +737,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
     // However a variadic routine requires a CIF that matches the number
     // and types of arguments for that specific call.
     //
-    // Note that because these pointers need to be freed by HANDLE! cleanup,
-    // they need to remember the size.  OS_ALLOC() is used, at least until
-    // HANDLE! is changed to support sizes.
+    // These pointers need to be freed by HANDLE! cleanup.
     //
     ffi_cif *cif; // pre-made if not variadic, built for this call otherwise
     ffi_type **args_fftypes = NULL; // ffi_type*[] if num_variable > 0
@@ -754,7 +752,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
         // contiguous across both the fixed and variadic parts.  Start by
         // filling in the ffi_type*s for all the fixed args.
         //
-        args_fftypes = OS_ALLOC_N(ffi_type*, num_fixed + num_variable);
+        args_fftypes = rebAllocN(ffi_type*, num_fixed + num_variable);
 
         REBCNT i;
         for (i = 0; i < num_fixed; ++i)
@@ -793,7 +791,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
 
         DS_DROP_TO(dsp_orig); // done w/args (converted to bytes in `store`)
 
-        cif = OS_ALLOC(ffi_cif);
+        cif = rebAlloc(ffi_cif);
 
         ffi_status status = ffi_prep_cif_var( // "_var"-iadic prep_cif version
             cif,
@@ -807,8 +805,8 @@ REB_R Routine_Dispatcher(REBFRM *f)
         );
 
         if (status != FFI_OK) {
-            OS_FREE(cif);
-            OS_FREE(args_fftypes);
+            rebFree(cif); // would free automatically on fail
+            rebFree(args_fftypes); // would free automatically on fail
             fail ("FFI: Couldn't prep CIF_VAR");
         }
     }
@@ -859,8 +857,8 @@ REB_R Routine_Dispatcher(REBFRM *f)
     Free_Series(store);
 
     if (num_variable != 0) {
-        OS_FREE(cif);
-        OS_FREE(args_fftypes);
+        rebFree(cif);
+        rebFree(args_fftypes);
     }
 
     // Note: cannot "throw" a Rebol value across an FFI boundary.

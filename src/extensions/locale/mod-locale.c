@@ -83,14 +83,14 @@ REBNATIVE(locale)
     //
     int len_plus_term = GetLocaleInfo(0, type, 0, 0); // fetch needed length
 
-    WCHAR *buffer = OS_ALLOC_N(WCHAR, len_plus_term);
+    WCHAR *buffer = rebAllocN(WCHAR, len_plus_term);
 
     int len_check = GetLocaleInfo(0, type, buffer, len_plus_term); // now get
     assert(len_check == len_plus_term);
     UNUSED(len_check);
 
     REBVAL *str = rebSizedStringW(buffer, len_plus_term - 1);
-    OS_FREE(buffer);
+    rebFree(buffer);
 
     Move_Value(D_OUT, str);
     rebRelease(str);

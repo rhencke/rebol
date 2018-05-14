@@ -249,7 +249,7 @@ DEVICE_CMD Close_Socket(REBREQ *req)
 
         // If DNS pending, abort it:
         if (sock->host_info) {  // indicates DNS phase active
-            OS_FREE(sock->host_info);
+            rebFree(sock->host_info);
             req->requestee.socket = req->length; // Restore TCP socket (see Lookup)
         }
 
@@ -658,7 +658,8 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
     // the new values for IP and ports and links this request to the
     // original via the sock->common.data.
 
-    struct devreq_net *news = OS_ALLOC_ZEROFILL(struct devreq_net);
+    struct devreq_net *news = rebAlloc(struct devreq_net);
+    memset(news, '\0', sizeof(struct devreq_net));
     news->devreq.device = req->device;
 
     cast(REBREQ*, news)->flags |= RRF_OPEN;

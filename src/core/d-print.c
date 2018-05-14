@@ -72,7 +72,8 @@ void Shutdown_StdIO(void)
 {
     // !!! There is no OS_FREE_DEVREQ.  Should there be?  Should this
     // include an OS_ABORT_DEVICE?
-    OS_FREE(Req_SIO);
+    //
+    free(Req_SIO);
 }
 
 

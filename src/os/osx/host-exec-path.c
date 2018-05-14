@@ -52,23 +52,19 @@ REBVAL *OS_Get_Current_Exec(void)
 {
     uint32_t path_size = 1024;
 
-    char *path_utf8 = OS_ALLOC_N(char, path_size);
-    if (path_utf8 == NULL)
-        return rebBlank();
+    char *path_utf8 = rebAllocN(char, path_size);
 
     int r = _NSGetExecutablePath(path_utf8, &path_size);
     if (r == -1) {
         // buffer is too small, length is set to the required size
         assert(path_size > 1024);
 
-        OS_FREE(path_utf8);
-        path_utf8 = OS_ALLOC_N(char, path_size);
-        if (path_utf8 == NULL)
-            return rebBlank();
+        rebFree(path_utf8);
+        path_utf8 = rebAllocN(char, path_size);
 
         int r = _NSGetExecutablePath(path_utf8, &path_size);
         if (r != 0) {
-            OS_FREE(path_utf8);
+            rebFree(path_utf8);
             return rebBlank();
         }
     }
@@ -79,20 +75,16 @@ REBVAL *OS_Get_Current_Exec(void)
     const REBOOL is_dir = FALSE;
     char *resolved_path_utf8 = realpath(path_utf8, NULL);
     if (resolved_path_utf8 != NULL) {
-        //
-        // resolved_path needs to be free'd by free, which might be different
-        // from OS_FREE.
-        //
         REBVAL *result = rebLocalToFile(resolved_path_utf8, is_dir);
-        OS_FREE(path_utf8);
-        free(resolved_path_utf8);
+        rebFree(path_utf8);
+        free(resolved_path_utf8); // realpath() uses malloc()
         return result;
     }
     else {
         // Failed to resolve, just return the unresolved path.
         //
         REBVAL *result = rebLocalToFile(path_utf8, is_dir);
-        OS_FREE(path_utf8);
+        rebFree(path_utf8);
         return result;
     }
 }

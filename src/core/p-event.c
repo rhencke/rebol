@@ -290,7 +290,7 @@ void Startup_Event_Scheme(void)
 void Shutdown_Event_Scheme(void)
 {
     if (req) {
-        OS_FREE(req);
+        free(req);
         req = NULL;
     }
 }

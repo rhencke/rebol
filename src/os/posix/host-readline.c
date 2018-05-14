@@ -144,17 +144,18 @@ STD_TERM *Init_Terminal(void)
 #endif
 
     // Setup variables:
-    Line_History = OS_ALLOC_N(REBYTE*, MAX_HISTORY + 2);
+    Line_History = cast(REBYTE**, malloc(sizeof(REBYTE*) * (MAX_HISTORY + 2)));
 
     // Make first line as an empty string
-    Line_History[0] = OS_ALLOC_N(REBYTE, 1);
+    Line_History[0] = cast(REBYTE*, malloc(sizeof(REBYTE) * 1));
     Line_History[0][0] = '\0';
     Line_Count = 1;
 
-    STD_TERM *term = OS_ALLOC_ZEROFILL(STD_TERM);
-    term->buffer = OS_ALLOC_N(REBYTE, TERM_BUF_LEN);
+    STD_TERM *term = cast(STD_TERM*, malloc(sizeof(STD_TERM)));
+    memset(term, '\0', sizeof(STD_TERM));
+    term->buffer = cast(REBYTE*, malloc(sizeof(REBYTE) * TERM_BUF_LEN));
     term->buffer[0] = 0;
-    term->residue = OS_ALLOC_N(REBYTE, TERM_BUF_LEN);
+    term->residue = cast(REBYTE*, malloc(sizeof(REBYTE) * TERM_BUF_LEN));
     term->residue[0] = 0;
 
     Term_Initialized = TRUE;
@@ -176,14 +177,15 @@ void Quit_Terminal(STD_TERM *term)
     int n;
 
     if (Term_Initialized) {
-#ifndef NO_TTY_ATTRIBUTES
+      #ifndef NO_TTY_ATTRIBUTES
         tcsetattr(0, TCSADRAIN, &Term_Attrs);
-#endif
-        OS_FREE(term->residue);
-        OS_FREE(term->buffer);
-        OS_FREE(term);
-        for (n = 0; n < Line_Count; n++) OS_FREE(Line_History[n]);
-        OS_FREE(Line_History);
+      #endif
+        free(term->residue);
+        free(term->buffer);
+        free(term);
+        for (n = 0; n < Line_Count; n++)
+            free(Line_History[n]);
+        free(Line_History);
     }
 
     Term_Initialized = FALSE;
@@ -262,12 +264,12 @@ static void Write_Char(REBYTE c, int n)
 static void Store_Line(STD_TERM *term)
 {
     term->buffer[term->end] = 0;
-    term->out = OS_ALLOC_N(REBYTE, term->end + 1);
+    term->out = cast(REBYTE*, malloc(sizeof(REBYTE) * (term->end + 1)));
     strcpy(s_cast(term->out), s_cast(term->buffer));
 
     // If max history, drop older lines (but not [0] empty line):
     if (Line_Count >= MAX_HISTORY) {
-        OS_FREE(Line_History[1]);
+        free(Line_History[1]);
         memmove(
             Line_History + 1,
             Line_History + 2,

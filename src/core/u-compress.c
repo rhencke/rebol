@@ -184,7 +184,7 @@ REBYTE *Compress_Alloc_Core(
     strm.avail_in = in_len;
     strm.next_in = input;
 
-    REBYTE *output = cast(REBYTE*, rebMalloc(buf_size));
+    REBYTE *output = rebAllocN(REBYTE, buf_size);
     strm.avail_out = buf_size;
     strm.next_out = output;
 
@@ -314,7 +314,7 @@ REBYTE *Decompress_Alloc_Core(
     // Use memory backed by a managed series (can be converted to a series
     // later if desired, via Rebserize)
     //
-    REBYTE *output = cast(REBYTE*, rebMalloc(buf_size));
+    REBYTE *output = rebAllocN(REBYTE, buf_size);
     strm.avail_out = buf_size;
     strm.next_out = cast(REBYTE*, output);
 

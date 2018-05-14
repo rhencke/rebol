@@ -55,7 +55,7 @@ static BOOL Redir_Inp = 0;
 static void Close_Stdio(void)
 {
     if (Std_Buf) {
-        OS_FREE(Std_Buf);
+        free(Std_Buf);
         Std_Buf = 0;
         //FreeConsole();  // problem: causes a delay
     }
@@ -106,7 +106,7 @@ DEVICE_CMD Open_IO(REBREQ *req)
         if (!Redir_Inp || !Redir_Out) {
             // If either input or output is not redirected, preallocate
             // a buffer for conversion from/to UTF-8.
-            Std_Buf = OS_ALLOC_N(WCHAR, BUF_SIZE);
+            Std_Buf = cast(WCHAR*, malloc(sizeof(WCHAR) * BUF_SIZE));
         }
 
         if (!Redir_Inp) {

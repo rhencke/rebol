@@ -100,7 +100,7 @@ static int Is_Dir(const char *path_utf8, const char *name_utf8)
     // !!! No clue why + 13 is needed, and not sure I want to know.
     // It was in the original code, not second-guessing ATM.  --@HF
     //
-    char *full_utf8 = OS_ALLOC_N(char, size_path + 1 + size_name + 1 + 13);
+    char *full_utf8 = rebAllocN(char, size_path + 1 + size_name + 1 + 13);
 
     strncpy(full_utf8, path_utf8, size_path + 1); // include terminator
 
@@ -114,7 +114,7 @@ static int Is_Dir(const char *path_utf8, const char *name_utf8)
     struct stat st;
     int stat_result = stat(full_utf8, &st);
 
-    OS_FREE(full_utf8);
+    rebFree(full_utf8);
 
     if (stat_result != 0)
         return 0; // !!! What's the proper result?

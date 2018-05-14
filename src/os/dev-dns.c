@@ -64,7 +64,8 @@ DEVICE_CMD Close_DNS(REBREQ *req)
     // Terminate a pending request:
     struct devreq_net *sock = DEVREQ_NET(req);
 
-    if (sock->host_info) OS_FREE(sock->host_info);
+    if (sock->host_info)
+        rebFree(sock->host_info);
     sock->host_info = 0;
     req->requestee.handle = 0;
     req->flags &= ~RRF_OPEN;
@@ -89,7 +90,7 @@ DEVICE_CMD Close_DNS(REBREQ *req)
 DEVICE_CMD Read_DNS(REBREQ *req)
 {
     struct devreq_net *sock = DEVREQ_NET(req);
-    char *host = OS_ALLOC_N(char, MAXGETHOSTSTRUCT);
+    char *host = rebAllocN(char, MAXGETHOSTSTRUCT);
 
     HOSTENT *he;
     if (req->modes & RST_REVERSE) {
@@ -115,7 +116,7 @@ DEVICE_CMD Read_DNS(REBREQ *req)
         }
     }
 
-    OS_FREE(host);
+    rebFree(host);
     sock->host_info = NULL;
 
     switch (h_errno) {

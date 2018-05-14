@@ -370,7 +370,7 @@ REBNATIVE(encode_png)
     if (check && C_R == 0 && C_G == 1 && C_B == 2 && C_A == 3)
         reordered = NULL;
     else {
-        reordered = cast(REBYTE*, rebMalloc(width * height * 4));
+        reordered = rebAllocN(REBYTE, width * height * 4);
 
         REBYTE *src = image_bytes;
         REBYTE *dest = reordered;

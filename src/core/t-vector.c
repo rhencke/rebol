@@ -823,7 +823,7 @@ void MF_Vector(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         //
         // remove final space (overwritten with terminator)
         //
-        TERM_UNI_LEN(mo->series, UNI_LEN(mo->series) - 1);
+        TERM_BIN_LEN(mo->series, BIN_LEN(mo->series) - 1);
     }
 
     if (not form) {

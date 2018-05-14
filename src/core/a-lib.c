@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -221,6 +221,16 @@ void RL_rebFree(void *ptr)
     UNPOISON_MEMORY(ps, sizeof(REBSER*)); // need to underrun to fetch `s`
 
     REBSER *s = *ps;
+    if (s->header.bits & NODE_FLAG_CELL) {
+        rebJUMPS (
+            "panic [",
+                "{rebFree() mismatched with allocator!}"
+                "{Did you mean to use free() instead of rebFree()?}",
+            "]",
+            rebEnd()
+        );
+    }
+
     assert(BYTE_SIZE(s));
 
     Free_Series(s); // asserts that `s` is unmanaged
