@@ -393,7 +393,7 @@ chkDecimal:
     case REB_LIT_PATH:
         return Cmp_Array(s, t, is_case);
 
-    case REB_STRING:
+    case REB_TEXT:
     case REB_FILE:
     case REB_EMAIL:
     case REB_URL:

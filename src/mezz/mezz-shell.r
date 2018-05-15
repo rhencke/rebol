@@ -25,13 +25,13 @@ cd: func [
 
     return: [file!]
         {The directory after the change}
-    'path [<end> file! word! path! string!]
+    'path [<end> file! word! path! text!]
         "Accepts %file, :variables and just words (as dirs)"
 ][
     switch type of :path [
         null []
         file! [change-dir path]
-        string! [change-dir local-to-file path]
+        text! [change-dir local-to-file path]
         word! path! [change-dir to-file path]
     ]
 
@@ -39,13 +39,14 @@ cd: func [
 ]
 
 more: func [
-    "Print file (shell shortcut function)."
-    'file [file! word! path! string!]
-        "Accepts %file and also just words (as file names)"
+    {Print file (shell shortcut function).}
+
+    'file "Accepts %file and also just words (as file names)"
+        [file! word! path! text!]
 ][
-    print deline to-string read switch type of :file [
+    print deline to-text read switch type of :file [
         file! [file]
-        string! [local-to-file file]
+        text! [local-to-file file]
         word! path! [to-file file]
     ]
 ]

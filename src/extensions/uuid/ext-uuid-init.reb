@@ -8,8 +8,8 @@ REBOL [
 
 uuid: import 'uuid
 append uuid reduce [
-    quote to-string: function [
-        "Convert the UUID to the string form ({8-4-4-4-12})"
+    quote to-text: function [
+        "Convert the UUID to the text string form ({8-4-4-4-12})"
         uuid [binary!]
     ][
         delimit map-each w reduce [

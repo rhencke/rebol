@@ -99,11 +99,11 @@ static struct {
 //
 //  delimit: native [
 //
-//  {Joins a block of values into a new string with delimiters.}
+//  {Joins a block of values into TEXT! with delimiters.}
 //
-//      return: [string!]
+//      return: [text!]
 //      block [block!]
-//      delimiter [blank! char! string!]
+//      delimiter [blank! char! text!]
 //  ]
 //
 REBNATIVE(delimit)
@@ -162,7 +162,7 @@ REBNATIVE(spelling_of)
         series = Copy_Mold_Value(value, MOLD_FLAG_0);
     }
 
-    Init_String(D_OUT, series);
+    Init_Text(D_OUT, series);
     return R_OUT;
 }
 
@@ -191,7 +191,7 @@ REBNATIVE(spelling_of)
 //          "Methods: SHA1 MD5 CRC32"
 //      /key
 //          "Returns keyed HMAC value"
-//      key-value [binary! string!]
+//      key-value [binary! text!]
 //          "Key to use"
 //  ]
 //
@@ -268,7 +268,7 @@ REBNATIVE(checksum)
                     keylen = VAL_LEN_AT(key);
                 }
                 else {
-                    assert(IS_STRING(key));
+                    assert(IS_TEXT(key));
 
                     REBSIZ offset;
                     REBSER *temp = Temp_UTF8_At_Managed(
@@ -344,8 +344,8 @@ REBNATIVE(checksum)
 //  "Compress data using DEFLATE: https://en.wikipedia.org/wiki/DEFLATE"
 //
 //      return: [binary!]
-//      data [binary! string!]
-//          "If string, it will be UTF8 encoded"
+//      data [binary! text!]
+//          "If text, it will be UTF-8 encoded"
 //      /part
 //      limit
 //          "Length of data (elements)"
@@ -486,7 +486,7 @@ REBNATIVE(inflate)
 //
 //      return: [binary!]
 //          ;-- Comment said "we don't know the encoding" of the return binary
-//      value [binary! string!]
+//      value [binary! text!]
 //          "The string to decode"
 //      /base
 //          "Binary base to use"
@@ -522,9 +522,9 @@ REBNATIVE(debase)
 //
 //  {Encodes data into a binary, hexadecimal, or base-64 ASCII string.}
 //
-//      return: [string!]
-//      value [binary! string!]
-//          "If string, will be UTF8 encoded"
+//      return: [text!]
+//      value [binary! text!]
+//          "If text, will be UTF-8 encoded"
 //      /base
 //          "Binary base to use (BASE-64 default)"
 //      base-value [integer!]
@@ -579,7 +579,7 @@ REBNATIVE(enbase)
     // the returned series to be UTF-8.  Once STRING! in Rebol is UTF-8 also,
     // then this conversion won't be necessary.
 
-    Init_String(
+    Init_Text(
         D_OUT,
         Make_Sized_String_UTF8(cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased))
     );

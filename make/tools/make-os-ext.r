@@ -59,20 +59,20 @@ parse os-specific-objs [some rule]
 
 proto-count: 0
 
-host-lib-externs: make string! 20000
+host-lib-externs: make text! 20000
 
-host-lib-struct: make string! 1000
+host-lib-struct: make text! 1000
 
-host-lib-instance: make string! 1000
+host-lib-instance: make text! 1000
 
-rebol-lib-macros: make string! 1000
-host-lib-macros: make string! 1000
+rebol-lib-macros: make text! 1000
+host-lib-macros: make text! 1000
 
 ;
 ; A checksum value is made to see if anything about the hostkit API changed.
 ; This collects the function specs for the purposes of calculating that value.
 ;
-checksum-source: make string! 1000
+checksum-source: make text! 1000
 
 count: func [s c /local n] [
     if find ["()" "(void)"] s [return "()"]
@@ -143,7 +143,7 @@ emit-proto: proc [
 process: func [file] [
     if verbose [probe [file]]
     data: read the-file: file
-    data: to-string data
+    data: to-text data
     proto-parser/emit-proto: :emit-proto
     proto-parser/process data
 ]

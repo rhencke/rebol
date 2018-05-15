@@ -163,8 +163,9 @@ append-of: redescribe [
 ; in "Base" - see TRIM.
 ;
 charset: function [
-    "Makes a bitset of chars for the parse function."
-    chars [string! block! binary! char! integer!]
+    {Makes a bitset of chars for the parse function.}
+
+    chars [text! block! binary! char! integer!]
     /length "Preallocate this many bits"
     len [integer!] "Must be > 0"
 ][
@@ -187,21 +188,15 @@ charset: function [
 trim: function [
     {Removes spaces from strings or blanks from blocks or objects.}
 
-    series [any-string! any-array! binary! any-context!]
-        {Series (modified) or object (made)}
-    /head
-        {Removes only from the head}
-    /tail
-        {Removes only from the tail}
-    /auto
-        {Auto indents lines relative to first line}
-    /lines
-        {Removes all line breaks and extra spaces}
-    /all
-        {Removes all whitespace}
-    /with
-        {Same as /all, but removes characters in 'str'}
-    str [char! string! binary! integer! block! bitset!]
+    series "Series (modified) or object (made)"
+        [any-string! any-array! binary! any-context!]
+    /head "Removes only from the head"
+    /tail "Removes only from the tail"
+    /auto "Auto indents lines relative to first line"
+    /lines "Removes all line breaks and extra spaces"
+    /all "Removes all whitespace"
+    /with "Same as /all, but removes characters in 'str'"
+    str [char! text! binary! integer! block! bitset!]
 ][
     tail_TRIM: :tail
     tail: :lib/tail

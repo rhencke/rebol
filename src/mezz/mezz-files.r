@@ -13,12 +13,11 @@ REBOL [
 
 
 clean-path: function [
-    "Returns new directory path with `//` `.` and `..` processed."
-    file [file! url! string!]
-    /only
-        "Do not prepend current directory"
-    /dir
-        "Add a trailing / if missing"
+    {Returns new directory path with `//` `.` and `..` processed.}
+
+    file [file! url! text!]
+    /only "Do not prepend current directory"
+    /dir "Add a trailing / if missing"
 ][
     file: case [
         any [only | not file? file] [
@@ -58,7 +57,7 @@ clean-path: function [
                 if count > 0 [
                     count: me - 1
                 ] else [
-                    if not find ["" "." ".."] as string! f [
+                    if not find ["" "." ".."] as text! f [
                         append out f
                     ]
                 ]
@@ -72,12 +71,11 @@ clean-path: function [
 
 
 input: function [
-    {Inputs a string from the console. New-line character is removed.}
+    {Inputs a line of text from the console. New-line character is removed.}
 
-    return: [string! blank!]
-        {Blank if the input was aborted via ESC}
-;   /hide
-;       "Mask input with a * character"
+    return: "Blank if the input was aborted via ESC"
+        [text! blank!]
+;   /hide "Mask input with a * character"
 ][
     if any [
         not port? system/ports/input
@@ -109,19 +107,19 @@ input: function [
         return blank;
     ]
 
-    line: to-string data
+    line: to-text data
     trim/with line newline
     line
 ]
 
 
 ask: function [
-    "Ask the user for input."
-    return: [string!]
-    question [any-series!]
-        "Prompt to user"
-    /hide
-        "mask input with *"
+    {Ask the user for input.}
+
+    return: [text!]
+    question "Prompt to user"
+        [any-series!]
+    /hide "mask input with *"
 ][
     write-stdout either block? question [spaced question] [question]
     trim either hide [input/hide] [input]
@@ -129,12 +127,13 @@ ask: function [
 
 
 confirm: function [
-    "Confirms a user choice."
+    {Confirms a user choice.}
+
     return: [logic!]
     question [any-series!]
         "Prompt to user"
     /with
-    choices [string! block!]
+    choices [text! block!]
 ][
     choices: default [["y" "yes"] ["n" "no"]]
 
@@ -149,7 +148,7 @@ confirm: function [
 
     return did case [
         empty? choices [true]
-        string? choices [find/match response choices]
+        text? choices [find/match response choices]
         length of choices < 2 [find/match response first choices]
         find first choices response [true]
         find second choices response [false]
@@ -159,7 +158,7 @@ confirm: function [
 
 list-dir: procedure [
     "Print contents of a directory (ls)."
-    'path [<end> file! word! path! string!]
+    'path [<end> file! word! path! text!]
         "Accepts %file, :variables, and just words (as dirs)"
     /l "Line of info format"
     /f "Files only"
@@ -180,12 +179,12 @@ list-dir: procedure [
     switch type of :path [
         null [] ; Stay here
         file! [change-dir path]
-        string! [change-dir local-to-file path]
+        text! [change-dir local-to-file path]
         word! path! [change-dir to-file path]
     ]
 
     if r [l: true]
-    if not l [l: make string! 62] ; approx width
+    if not l [l: make text! 62] ; approx width
 
     if not (files: attempt [read %./]) [
         print ["Not found:" :path]
@@ -199,7 +198,7 @@ list-dir: procedure [
             all [d | not dir? file]
         ][continue]
 
-        either string? l [
+        either text? l [
             append l file
             append/dup l #" " 15 - remainder length of l 15
             if greater? length of l 60 [print l clear l]
@@ -213,7 +212,7 @@ list-dir: procedure [
         ]
     ]
 
-    if all [string? l | not empty? l] [print l]
+    if all [text? l | not empty? l] [print l]
 
     change-dir save-dir
 ]
@@ -221,8 +220,9 @@ list-dir: procedure [
 
 undirize: function [
     {Returns a copy of the path with any trailing "/" removed.}
-    return: [file! string! url!]
-    path [file! string! url!]
+
+    return: [file! text! url!]
+    path [file! text! url!]
 ][
     path: copy path
     if #"/" = last path [clear back tail of path]
@@ -250,18 +250,16 @@ in-dir: function [
 
 
 to-relative-file: function [
-    "Returns relative portion of a file if in subdirectory, original if not."
-    return: [file! string!]
-    file [file! string!]
-        "File to check (local if string!)"
-    /no-copy
-        "Don't copy, just reference"
-    /as-rebol
-        "Convert to REBOL-style filename if not"
-    /as-local
-        "Convert to local-style filename if not"
+    {Returns relative portion of a file if in subdirectory, original if not.}
+
+    return: [file! text!]
+    file "File to check (local if text!)"
+        [file! text!]
+    /no-copy "Don't copy, just reference"
+    /as-rebol "Convert to Rebol-style filename if not"
+    /as-local "Convert to local-style filename if not"
 ][
-    if string? file [ ; Local file
+    if text? file [ ; Local file
         comment [
             ; file-to-local drops trailing / in R2, not in R3
             if tmp: find/match file file-to-local what-dir [file: next tmp]
@@ -293,7 +291,7 @@ detab-file: procedure [
     "detabs a disk file"
     filename [file!]
 ][
-    write filename detab to string! read filename
+    write filename detab to text! read filename
 ]
 
 ; temporary location

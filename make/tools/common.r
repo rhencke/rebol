@@ -51,8 +51,8 @@ spaced-tab: unspaced [space space space space]
 to-c-name: function [
     {Take a Rebol value and transliterate it as a (likely) valid C identifier.}
 
-    value [string! block! word!]
-        {Will be converted to a string (via UNSPACED if BLOCK!)}
+    value [text! block! word!]
+        {Will be converted to text (via UNSPACED if BLOCK!)}
     /scope
         {See scope rules: http://stackoverflow.com/questions/228783/}
     word [word!]
@@ -193,9 +193,10 @@ binary-to-c: function [
     4095 characters in C99).  Instead we produce an array formatted as
     '{0xYY, ...}' with 8 bytes per line}
 
+    return: [text!]
     data [binary!]
 ][
-    out: make string! 6 * (length-of data)
+    out: make text! 6 * (length-of data)
     while [not tail? data] [
         append out spaced-tab
 
@@ -380,30 +381,30 @@ fix-win32-path: func [
 
 uppercase-of: func [
     {Copying variant of UPPERCASE, also FORMs words}
-    value [string! word!]
+    string [text! word!]
 ][
-    uppercase form value
+    uppercase form string
 ]
 
 lowercase-of: func [
     {Copying variant of LOWERCASE, also FORMs words}
-    value [string! word!]
+    string [text! word!]
 ][
-    lowercase form value
+    lowercase form string
 ]
 
 propercase: func [value] [uppercase/part (copy value) 1]
 
 propercase-of: func [
     {Make a copy of a string with just the first character uppercase}
-    value [string! word!]
+    string [text! word!]
 ][
-    propercase form value
+    propercase form string
 ]
 
 write-if-changed: procedure [
     dest [file!]
-    content [any-string! block!]
+    content [text! block!]
 ][
     if block? content [
         content: spaced content

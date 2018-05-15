@@ -212,7 +212,7 @@ int OS_Create_Process(
 
     UNUSED(REF(input)); // implicitly covered by void ARG(in)
     switch (VAL_TYPE(ARG(in))) {
-    case REB_STRING:
+    case REB_TEXT:
     case REB_BINARY:
         if (!CreatePipe(&hInputRead, &hInputWrite, NULL, 0)) {
             goto input_error;
@@ -258,7 +258,7 @@ int OS_Create_Process(
 
     UNUSED(REF(output)); // implicitly covered by void ARG(out)
     switch (VAL_TYPE(ARG(out))) {
-    case REB_STRING:
+    case REB_TEXT:
     case REB_BINARY:
         if (!CreatePipe(&hOutputRead, &hOutputWrite, NULL, 0)) {
             goto output_error;
@@ -319,7 +319,7 @@ int OS_Create_Process(
 
     UNUSED(REF(error)); // implicitly covered by void ARG(err)
     switch (VAL_TYPE(ARG(err))) {
-    case REB_STRING:
+    case REB_TEXT:
     case REB_BINARY:
         if (!CreatePipe(&hErrorRead, &hErrorWrite, NULL, 0)) {
             goto error_error;
@@ -432,7 +432,7 @@ int OS_Create_Process(
         DWORD err_size = 0;
 
         if (hInputWrite != NULL && input_len > 0) {
-            if (IS_STRING(ARG(in))) {
+            if (IS_TEXT(ARG(in))) {
                 DWORD dest_len = 0;
                 /* convert input encoding from UNICODE to OEM */
                 // !!! Is cast to WCHAR here legal?
@@ -615,7 +615,7 @@ int OS_Create_Process(
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);
 
-        if (IS_STRING(ARG(out)) && *output != NULL && *output_len > 0) {
+        if (IS_TEXT(ARG(out)) and *output and *output_len > 0) {
             /* convert to wide char string */
             int dest_len = 0;
             WCHAR *dest = NULL;
@@ -638,7 +638,7 @@ int OS_Create_Process(
             *output_len = dest_len;
         }
 
-        if (IS_STRING(ARG(err)) && *err != NULL && *err_len > 0) {
+        if (IS_TEXT(ARG(err)) && *err != NULL && *err_len > 0) {
             /* convert to wide char string */
             int dest_len = 0;
             WCHAR *dest = NULL;
@@ -691,11 +691,11 @@ cleanup:
         free(oem_input);
     }
 
-    if (output != NULL && *output != NULL && *output_len == 0) {
+    if (output and *output and *output_len == 0) {
         free(*output);
     }
 
-    if (err != NULL && *err != NULL && *err_len == 0) {
+    if (err and *err != NULL and *err_len == 0) {
         free(*err);
     }
 
@@ -840,17 +840,17 @@ int OS_Create_Process(
     int stderr_pipe[] = {-1, -1};
     int info_pipe[] = {-1, -1};
 
-    if (IS_STRING(ARG(in)) || IS_BINARY(ARG(in))) {
+    if (IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))) {
         if (Open_Pipe_Fails(stdin_pipe))
             goto stdin_pipe_err;
     }
 
-    if (IS_STRING(ARG(out)) || IS_BINARY(ARG(out))) {
+    if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))) {
         if (Open_Pipe_Fails(stdout_pipe))
             goto stdout_pipe_err;
     }
 
-    if (IS_STRING(ARG(err)) || IS_BINARY(ARG(err))) {
+    if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))) {
         if (Open_Pipe_Fails(stderr_pipe))
             goto stdout_pipe_err;
     }
@@ -867,7 +867,7 @@ int OS_Create_Process(
         //
         // http://stackoverflow.com/questions/15126925/
 
-        if (IS_STRING(ARG(in)) || IS_BINARY(ARG(in))) {
+        if (IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))) {
             close(stdin_pipe[W]);
             if (dup2(stdin_pipe[R], STDIN_FILENO) < 0)
                 goto child_error;
@@ -899,7 +899,7 @@ int OS_Create_Process(
             // inherit stdin from the parent
         }
 
-        if (IS_STRING(ARG(out)) || IS_BINARY(ARG(out))) {
+        if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))) {
             close(stdout_pipe[R]);
             if (dup2(stdout_pipe[W], STDOUT_FILENO) < 0)
                 goto child_error;
@@ -931,7 +931,7 @@ int OS_Create_Process(
             // inherit stdout from the parent
         }
 
-        if (IS_STRING(ARG(err)) || IS_BINARY(ARG(err))) {
+        if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))) {
             close(stderr_pipe[R]);
             if (dup2(stderr_pipe[W], STDERR_FILENO) < 0)
                 goto child_error;
@@ -1310,13 +1310,13 @@ cleanup:
     // !!! This won't be done this way when this routine actually appends to
     // the BINARY! or STRING! itself.
     //
-    if (output != NULL && *output != NULL)
+    if (output and *output)
         if (*output_len == 0) { // buffer allocated but never used
             free(*output);
             *output = NULL;
         }
 
-    if (err != NULL && *err != NULL)
+    if (err and *err)
         if (*err_len == 0) { // buffer allocated but never used
             free(*err);
             *err = NULL;
@@ -1410,7 +1410,7 @@ stdin_pipe_err:
 //
 //  "Run another program; return immediately (unless /WAIT)."
 //
-//      command [string! block! file!]
+//      command [text! block! file!]
 //          {An OS-local command line (quoted as necessary), a block with
 //          arguments, or an executable file}
 //      /wait
@@ -1423,13 +1423,13 @@ stdin_pipe_err:
 //          "Returns process information object"
 //      /input
 //          "Redirects stdin to in"
-//      in [string! binary! file! blank!]
+//      in [text! binary! file! blank!]
 //      /output
 //          "Redirects stdout to out"
-//      out [string! binary! file! blank!]
+//      out [text! binary! file! blank!]
 //      /error
 //          "Redirects stderr to err"
-//      err [string! binary! file! blank!]
+//      err [text! binary! file! blank!]
 //  ]
 //  new-errors: [
 //      child-terminated-by-signal: ["Child process is terminated by signal:" :arg1]
@@ -1453,9 +1453,9 @@ REBNATIVE(call)
     // Make sure that if the output or error series are STRING! or BINARY!,
     // they are not read-only, before we try appending to them.
     //
-    if (IS_STRING(ARG(out)) || IS_BINARY(ARG(out)))
+    if (IS_TEXT(ARG(out)) or IS_BINARY(ARG(out)))
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(ARG(out)));
-    if (IS_STRING(ARG(err)) || IS_BINARY(ARG(err)))
+    if (IS_TEXT(ARG(err)) or IS_BINARY(ARG(err)))
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(ARG(err)));
 
     char *os_input;
@@ -1469,7 +1469,7 @@ REBNATIVE(call)
         input_len = 0;
         break;
 
-    case REB_STRING: {
+    case REB_TEXT: {
         REBSIZ size;
         os_input = s_cast(rebBytesAlloc(
             &size,
@@ -1504,9 +1504,9 @@ REBNATIVE(call)
     if (
         REF(wait)
         or (
-            IS_STRING(ARG(in)) or IS_BINARY(ARG(in))
-            or IS_STRING(ARG(out)) or IS_BINARY(ARG(out))
-            or IS_STRING(ARG(err)) or IS_BINARY(ARG(err))
+            IS_TEXT(ARG(in)) or IS_BINARY(ARG(in))
+            or IS_TEXT(ARG(out)) or IS_BINARY(ARG(out))
+            or IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))
         ) // I/O redirection implies /WAIT
     ){
         flag_wait = TRUE;
@@ -1522,7 +1522,7 @@ REBNATIVE(call)
     int argc;
     const OSCHR **argv;
 
-    if (IS_STRING(ARG(command))) {
+    if (IS_TEXT(ARG(command))) {
         // `call {foo bar}` => execute %"foo bar"
 
         // !!! Interpreting string case as an invocation of %foo with argument
@@ -1554,7 +1554,7 @@ REBNATIVE(call)
         int i;
         for (i = 0; i < argc; i ++) {
             RELVAL *param = VAL_ARRAY_AT_HEAD(block, i);
-            if (IS_STRING(param)) {
+            if (IS_TEXT(param)) {
                 argv[i] = rebValSpellingAllocOS(KNOWN(param));
             }
             else if (IS_FILE(param)) {
@@ -1621,10 +1621,10 @@ REBNATIVE(call)
         &exit_code,
         os_input,
         input_len,
-        IS_STRING(ARG(out)) || IS_BINARY(ARG(out)) ? &os_output : NULL,
-        IS_STRING(ARG(out)) || IS_BINARY(ARG(out)) ? &output_len : NULL,
-        IS_STRING(ARG(err)) || IS_BINARY(ARG(err)) ? &os_err : NULL,
-        IS_STRING(ARG(err)) || IS_BINARY(ARG(err)) ? &err_len : NULL
+        IS_TEXT(ARG(out)) or IS_BINARY(ARG(out)) ? &os_output : nullptr,
+        IS_TEXT(ARG(out)) or IS_BINARY(ARG(out)) ? &output_len : nullptr,
+        IS_TEXT(ARG(err)) or IS_BINARY(ARG(err)) ? &os_err : nullptr,
+        IS_TEXT(ARG(err)) or IS_BINARY(ARG(err)) ? &err_len : nullptr
     );
 
     // Call may not succeed if r != 0, but we still have to run cleanup
@@ -1641,7 +1641,7 @@ REBNATIVE(call)
 
     rebFree(argv);
 
-    if (IS_STRING(ARG(out))) {
+    if (IS_TEXT(ARG(out))) {
         if (output_len > 0) {
             Append_OS_Str(ARG(out), os_output, output_len);
             free(os_output);
@@ -1654,7 +1654,7 @@ REBNATIVE(call)
         }
     }
 
-    if (IS_STRING(ARG(err))) {
+    if (IS_TEXT(ARG(err))) {
         if (err_len > 0) {
             Append_OS_Str(ARG(err), os_err, err_len);
             free(os_err);
@@ -1912,9 +1912,9 @@ static REBNATIVE(terminate)
 //
 //  {Returns the value of an OS environment variable (for current process).}
 //
-//      return: [string! blank!]
-//          {The string of the environment variable, or blank if not set}
-//      variable [string! word!]
+//      return: [text! blank!]
+//          {String the environment variable was set to, or blank if not set}
+//      variable [text! word!]
 //          {Name of variable to get (case-insensitive in Windows)}
 //  ]
 //
@@ -1967,7 +1967,7 @@ static REBNATIVE(get_env)
 
         /* assert(size != 0); */ // True?  Should it return BLANK!?
 
-        Init_String(D_OUT, Make_Sized_String_UTF8(val, size));
+        Init_Text(D_OUT, Make_Sized_String_UTF8(val, size));
     }
 
     rebFree(key);
@@ -1989,9 +1989,9 @@ static REBNATIVE(get_env)
 //  {Sets value of operating system environment variable for current process.}
 //
 //      return: [<opt>]
-//      variable [string! word!]
+//      variable [text! word!]
 //          "Variable to set (case-insensitive in Windows)"
-//      value [string! blank!]
+//      value [text! blank!]
 //          "Value to set the variable to, or a BLANK! to unset it"
 //  ]
 //
@@ -2007,7 +2007,7 @@ static REBNATIVE(set_env)
   #ifdef TO_WINDOWS
     WCHAR *key_wide = rebSpellAllocW(variable, END);
     WCHAR *val_wide = rebSpellAllocW(
-        "opt ensure [string! blank!]", value, END
+        "opt ensure [text! blank!]", value, END
     ); // may be NULL if blank! input, which will unset the envionment var
 
     if (not SetEnvironmentVariable(key_wide, val_wide))

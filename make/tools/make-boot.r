@@ -103,7 +103,7 @@ sections: [
 ; as well as function either from the command line or the REPL.
 ;
 if not args: any [
-    either string? :system/script/args [
+    either text? :system/script/args [
         either block? load system/script/args [
             load system/script/args
         ][
@@ -341,7 +341,7 @@ for-each-record t type-table [
 ]
 
 types-header: first load/header %types.r
-e-types/emit trim/auto copy ensure string! types-header/macros
+e-types/emit trim/auto copy ensure text! types-header/macros
 
 
 e-types/emit {
@@ -642,9 +642,9 @@ for-each [category info] boot-errors [
         (quote code:) == info/1
         integer? info/2
         (quote type:) == info/3
-        string? info/4
+        text? info/4
     ][
-        fail ["%errors.r" category "not [code: INTEGER! type: STRING! ...]"]
+        fail ["%errors.r" category "not [code: INTEGER! type: TEXT! ...]"]
     ]
 
     code: info/2
@@ -820,7 +820,7 @@ e-bootblock: make-emitter "Natives and Bootstrap" core/tmp-boot-block.c
 e-bootblock/emit-line {#include "sys-core.h"}
 e-bootblock/emit newline
 
-externs: make string! 2000
+externs: make text! 2000
 boot-natives: load boot/tmp-natives.r
 num-natives: 0
 

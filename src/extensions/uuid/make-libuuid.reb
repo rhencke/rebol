@@ -109,7 +109,7 @@ fix-gen_uuid.c: function [
                 copy definition: [
                     {void uuid_generate_md5(} thru "^}"
                   ]
-                  (target: unspaced [{#if 0^/} to string! definition {^/#endif^/}])
+                  (target: unspaced [{#if 0^/} to text! definition {^/#endif^/}])
                 ]
                 target
 
@@ -118,7 +118,7 @@ fix-gen_uuid.c: function [
                 copy definition: [
                     {void uuid_generate_sha1(} thru "^}"
                   ]
-                  (target: unspaced [{#if 0^/} to string! definition {^/#endif^/}])
+                  (target: unspaced [{#if 0^/} to text! definition {^/#endif^/}])
                 ]
                 target
 
@@ -127,7 +127,7 @@ fix-gen_uuid.c: function [
                 copy unused: [
                     {static unsigned char variant_bits[]}
                   ]
-                  (target: unspaced [{// } to string! unused])
+                  (target: unspaced [{// } to text! unused])
                 ] target
 
             | skip
@@ -149,7 +149,7 @@ files: compose [
 ]
 
 for-each [file fix] files [
-    data: to-string read url: join-of ROOT file
+    data: to-text read url: join-of ROOT file
     target: join-of %libuuid/ (last split-path file)
 
     print url

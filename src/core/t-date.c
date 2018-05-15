@@ -438,7 +438,7 @@ void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         return;
     }
 
-    if (IS_STRING(arg)) {
+    if (IS_TEXT(arg)) {
         REBSIZ size;
         REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_DATE);
         if (NULL == Scan_Date(out, bp, size))

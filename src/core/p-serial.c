@@ -72,7 +72,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             REBVAL *serial_path = Obj_Value(spec, STD_PORT_SPEC_SERIAL_PATH);
             if (not (
                 IS_FILE(serial_path)
-                or IS_STRING(serial_path)
+                or IS_TEXT(serial_path)
                 or IS_BINARY(serial_path)
             )){
                 fail (Error_Invalid_Port_Arg_Raw(serial_path));

@@ -2154,7 +2154,7 @@ reevaluate:;
     case REB_BLOCK:
         //
     case REB_BINARY:
-    case REB_STRING:
+    case REB_TEXT:
     case REB_FILE:
     case REB_EMAIL:
     case REB_URL:

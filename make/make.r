@@ -76,7 +76,7 @@ for-each [name value] options [
             ]
         ]
     ][
-        set in user-config (to-word replace/all to string! name #"_" #"-")
+        set in user-config (to-word replace/all to text! name #"_" #"-")
             load value
     ]
 ]
@@ -163,7 +163,7 @@ gen-obj: func [
                     <msc:/wd4127>
                 ]
             ][
-                ensure [string! tag!] flag
+                ensure [text! tag!] flag
             ]
         ]
         s: s/1
@@ -177,7 +177,7 @@ gen-obj: func [
             main [s]
             /else [join-of src-dir s]
         ]
-        output: to-obj-path to string! ;\
+        output: to-obj-path to text! ;\
             either main [
                 join-of %main/ (last ensure path! s)
             ] [s]
@@ -236,7 +236,7 @@ parse-ext-build-spec: function [
         any [
             quote options: into [
                 any [
-                    word! block! opt string! set config: group!
+                    word! block! opt text! set config: group!
                     | end
                     | (print "wrong format for options") return false
                 ]
@@ -353,7 +353,7 @@ for-each x targets [
 
 ;;;; HELP ;;;;
 indent: func [
-    text [string!]
+    text [text!]
     /space
 ][
     replace/all text ;\
@@ -386,7 +386,7 @@ FILES IN %make/configs/ SUBFOLDER:^/
     }
     indent/space form sort map-each x ;\
         load make-dir/configs/%
-        [to-string x]
+        [to-text x]
     newline ]
 
 'options unspaced [ {=== OPTIONS ===^/
@@ -434,9 +434,9 @@ CURRENT VALUE:
 ]
 ; dynamically fill help topics list ;-)
 replace help-topics/usage "HELP-TOPICS" ;\
-    form append map-each x help-topics [either string? x ['|] [x]] 'all
+    form append map-each x help-topics [either text? x ['|] [x]] 'all
 
-help: function [topic [string! blank!]] [
+help: function [topic [text! blank!]] [
     topic: attempt [to-word topic]
     print ""
     case [
@@ -657,7 +657,7 @@ append app-config/cflags opt switch/default user-config/standard [
             ;
             (to tag! unspaced ["gnu:--std=" user-config/standard])
             (to tag! unspaced [
-                "msc:/std:" lowercase to string! user-config/standard
+                "msc:/std:" lowercase to text! user-config/standard
             ])
 
             ; There is a shim for `nullptr` used, which is warned about even
@@ -1099,8 +1099,8 @@ print ["debug:" mold app-config/debug]
 print ["optimization:" mold app-config/optimization]
 
 append app-config/definitions reduce [
-    unspaced ["TO_" uppercase to-string system-config/os-base]
-    unspaced ["TO_" uppercase replace/all to-string system-config/os-name "-" "_"]
+    unspaced ["TO_" uppercase to-text system-config/os-base]
+    unspaced ["TO_" uppercase replace/all to-text system-config/os-name "-" "_"]
 ]
 
 libr3-core: make rebmake/object-library-class [
@@ -1213,7 +1213,7 @@ for-each [label list] reduce [
         print/eval collect [ ;-- CHAR! values don't auto-space in Ren-C PRINT
             keep ["ext:" ext/name #":" space #"["]
             for-each mod ext/modules [
-                keep to-string mod/name
+                keep to-text mod/name
             ]
             keep #"]"
         ]
@@ -1494,7 +1494,7 @@ prep: make rebmake/entry-class [
             unspaced [
                 {$(REBOL) } tools-dir/make-boot-ext-header.r { EXTENSIONS=}
                 delimit map-each ext builtin-extensions [
-                    to string! ext/name
+                    to text! ext/name
                 ] #":"
             ]
         )
@@ -1662,7 +1662,7 @@ for-each ext dynamic-extensions [
     ]
     append dynamic-libs ext-proj: make rebmake/dynamic-library-class [
         name: join-of either system-config/os-base = 'windows ["r3-"]["libr3-"]
-            lowercase to string! ext/name
+            lowercase to text! ext/name
         output: to file! name
         depends: append compose [
             (mod-objs)

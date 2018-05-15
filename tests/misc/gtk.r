@@ -130,7 +130,7 @@ g-signal-connect-data:
 
 g-signal-connect: func [
     instance [integer!]
-    detailed-signal [integer! string! binary!]
+    detailed-signal [integer! text! binary!]
     c-handler [action!]
     data [integer!]
 ][

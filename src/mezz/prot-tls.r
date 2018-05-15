@@ -53,8 +53,7 @@ to-bin: func [
 ]
 
 make-tls-error: func [
-    "Make an error for the TLS protocol"
-    message [string! block!]
+    message [text! block!]
 ][
     if block? message [message: unspaced message]
     make error! [
@@ -410,7 +409,7 @@ encrypted-handshake-msg: function [
 
 application-data: function [
     ctx [object!]
-    message [binary! string!]
+    message [binary! text!]
 ][
     message: encrypt-data ctx to binary! message
     emit ctx [
@@ -939,7 +938,7 @@ parse-response: function [
 
 prf: function [
     secret [binary!]
-    label [string! binary!]
+    label [text! binary!]
     seed [binary!]
     output-length [integer!]
 ][
@@ -1008,7 +1007,7 @@ do-commands: function [
                 | 'client-key-exchange (client-key-exchange ctx)
                 | 'change-cipher-spec (change-cipher-spec ctx)
                 | 'finished (encrypted-handshake-msg ctx finished ctx)
-                | 'application set arg: [string! | binary!]
+                | 'application set arg: [text! | binary!]
                     (application-data ctx arg)
                 | 'close-notify (alert-close-notify ctx)
             ] (

@@ -39,12 +39,12 @@ args: parse-args system/options/args
 
 config: config-system try get 'args/OS_ID
 
-mod: ensure string! args/MODULE
+mod: ensure text! args/MODULE
 m-name: mod
 l-m-name: lowercase copy m-name
 u-m-name: uppercase copy m-name
 
-c-src: join-of %../../src/ fix-win32-path to file! ensure string! args/SRC
+c-src: join-of %../../src/ fix-win32-path to file! ensure text! args/SRC
 
 print ["building" m-name "from" c-src]
 
@@ -65,7 +65,7 @@ module-header: _
 
 source.text: read c-src
 if system/version > 2.100.0 [ ;-- !!! Why is this necessary?
-    source.text: deline to-string source.text
+    source.text: deline to-text source.text
 ] 
 
 ; When the header information in the comments at the top of the file is
@@ -78,7 +78,7 @@ proto-parser/emit-fileheader: func [header] [module-header: header]
 ; It will add the information to UNSORTED-BUFFER
 ;
 c-natives: make block! 128
-unsorted-buffer: make string! 20000
+unsorted-buffer: make text! 20000
 proto-parser/emit-proto: :emit-native-proto
 
 the-file: c-src ;-- global used for comments in the native emitter
@@ -240,7 +240,7 @@ if not empty? error-list [
 ]
 append spec native-list
 comp-data: gzip data: to-binary mold spec
-;print ["buf:" to string! data]
+;print ["buf:" to text! data]
 
 e2/emit {
     int Module_Init_${Mod}(RELVAL *out);
@@ -359,7 +359,7 @@ either empty? word-list [
 ][
     e1/emit ["static const char* Ext_Words_${Mod}[NUM_EXT_${MOD}_WORDS] = {"]
     for-next word-list [
-        e1/emit-line/indent [ {"} to string! word-list/1 {",} ]
+        e1/emit-line/indent [ {"} to text! word-list/1 {",} ]
     ]
     e1/emit-end
 

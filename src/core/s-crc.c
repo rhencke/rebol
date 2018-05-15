@@ -265,7 +265,7 @@ uint32_t Hash_Value(const RELVAL *v)
         break;
 
     case REB_BINARY:
-    case REB_STRING:
+    case REB_TEXT:
     case REB_FILE:
     case REB_EMAIL:
     case REB_URL:

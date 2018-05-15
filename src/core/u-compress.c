@@ -120,7 +120,7 @@ static REBCTX *Error_Compression(const z_stream *strm, int ret)
 
     DECLARE_LOCAL (arg);
     if (strm->msg != NULL)
-        Init_String(arg, Make_String_UTF8(strm->msg));
+        Init_Text(arg, Make_String_UTF8(strm->msg));
     else
         Init_Integer(arg, ret);
 

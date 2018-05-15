@@ -16,9 +16,9 @@ REBOL [
 
 decode-lines: function [
     {Decode text encoded using a line prefix e.g. comments (modifies).}
-    text [string!]
-    line-prefix [string! block!] {Usually "**" or "//". Matched using parse.}
-    indent [string! block!] {Usually "  ". Matched using parse.}
+    text [text!]
+    line-prefix [text! block!] {Usually "**" or "//". Matched using parse.}
+    indent [text! block!] {Usually "  ". Matched using parse.}
 ] [
     pattern: compose/only [(line-prefix)]
     if not empty? indent [append pattern compose/only [opt (indent)]]
@@ -36,9 +36,9 @@ decode-lines: function [
 
 encode-lines: func [
     {Encode text using a line prefix (e.g. comments).}
-    text [string!]
-    line-prefix [string!] {Usually "**" or "//".}
-    indent [string!] {Usually "  ".}
+    text [text!]
+    line-prefix [text!] {Usually "**" or "//".}
+    indent [text!] {Usually "  ".}
     <local> bol pos
 ][
     ; Note: Preserves newline formatting of the block.
@@ -68,7 +68,7 @@ for-each-line: function [
 
     'record [word!]
         {Word set to metadata for each line.}
-    text [string!]
+    text [text!]
         {Text with lines.}
     body [block!]
         {Block to evaluate each time.}
@@ -91,7 +91,7 @@ for-each-line: function [
 lines-exceeding: function [
     {Return the line numbers of lines exceeding line-length.}
     line-length [integer!]
-    text [string!]
+    text [text!]
 ] [
 
     line-list: line: _
@@ -115,7 +115,7 @@ lines-exceeding: function [
 
 text-line-of: function [
     {Returns line number of position within text.}
-    position [string! binary!]
+    position [text! binary!]
 ] [
 
     ; Here newline is considered last character of a line.
@@ -144,7 +144,7 @@ text-line-of: function [
 
 text-location-of: function [
     {Returns line and column of position within text.}
-    position [string! binary!]
+    position [text! binary!]
 ] [
 
     ; Here newline is considered last character of a line.

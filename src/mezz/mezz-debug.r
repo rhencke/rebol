@@ -115,7 +115,7 @@ speed?: function [
         ][
             if not no-io [
                 write file: %tmp-junk.txt "" ; force security request before timer
-                tmp: make string! 32000 * 5
+                tmp: make text! 32000 * 5
                 insert/dup tmp "test^/" 32000
                 loop 100 [
                     write file tmp

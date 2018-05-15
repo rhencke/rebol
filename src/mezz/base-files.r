@@ -72,7 +72,7 @@ modified?: func [
 
 suffix-of: func [
     "Return the file suffix of a filename or url. Else, NONE."
-    path [file! url! string!]
+    path [file! url! text!]
 ][
     all [
         path: find/last path #"."
@@ -91,7 +91,7 @@ dir?: func [
 
 dirize: func [
     {Returns a copy (always) of the path as a directory (ending slash).}
-    path [file! string! url!]
+    path [file! text! url!]
 ][
     path: copy path
     if slash <> last path [append path slash]
@@ -159,18 +159,18 @@ delete-dir: func [
 ]
 
 script?: func [
-    {Checks file, url, or string for a valid script header.}
+    {Checks file, url, or text string for a valid script header.}
 
     return: [binary! blank!]
-    source [file! url! binary! string!]
+    source [file! url! binary! text!]
 ][
     switch type of source [
         file!
         url! [
             source: read source
         ]
-        string! [
-            ; Remove this line if FIND-SCRIPT changed to accept string!
+        text! [
+            ; Remove this line if FIND-SCRIPT changed to accept text!
             ;
             source: to binary! source
         ]
@@ -191,7 +191,7 @@ file-type?: func [
 
 split-path: func [
     "Splits and returns directory path and file as a block."
-    target [file! url! string!]
+    target [file! url! text!]
     <local> dir pos
 ][
     pos: _

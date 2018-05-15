@@ -232,7 +232,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
 //
 //  "Cause abnormal termination of Rebol (dumps debug info in debug builds)"
 //
-//      reason [string! error!]
+//      reason [text! error!]
 //          "Message to report (evaluation not counted in ticks)"
 //  ]
 //
@@ -247,7 +247,7 @@ REBNATIVE(panic)
     // string cell...but panic() on UTF-8 character data assumes you mean to
     // report the contained message.  PANIC-VALUE for the latter intent.
     //
-    if (IS_STRING(v)) {
+    if (IS_TEXT(v)) {
         REBSIZ offset;
         REBSIZ size;
         REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));

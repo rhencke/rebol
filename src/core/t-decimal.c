@@ -172,7 +172,7 @@ void MAKE_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         d = VAL_NANO(arg) * NANO;
         break;
 
-    case REB_STRING: {
+    case REB_TEXT: {
         REBSIZ size;
         REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_DECIMAL);
 

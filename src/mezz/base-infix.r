@@ -39,7 +39,7 @@ REBOL [
 ; R3-ALPHA-QUOTE annotates to warn not to try and assign SET-WORD! forms, and
 ; to bind interned strings.
 ;
-r3-alpha-quote: func [:spelling [word! string!]] [
+r3-alpha-quote: func [:spelling [word! text!]] [
     either word? spelling [
         spelling
     ][

@@ -14,7 +14,7 @@
 
 ; #1986
 ("aβc" = dehex "a%ce%b2c")
-((to-string #{61CEB263}) = dehex "a%CE%b2c")
+((to-text #{61CEB263}) = dehex "a%CE%b2c")
 (#{61CEB263} = to-binary dehex "a%CE%B2c")
 
 ; Per RFC 3896 2.1, all percent encodings should normalize to uppercase

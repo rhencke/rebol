@@ -141,7 +141,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         if (REF(lines))
             fail (Error_Bad_Refines_Raw());
 
-        if (not IS_STRING(arg) and not IS_BINARY(arg))
+        if (not IS_TEXT(arg) and not IS_BINARY(arg))
             fail (Error_Invalid_Port_Arg_Raw(arg));
 
         // This device is opened on the WRITE:

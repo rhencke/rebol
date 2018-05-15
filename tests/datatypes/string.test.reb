@@ -1,12 +1,12 @@
 ; datatypes/string.r
-(string? "ahoj")
-(not string? 1)
-(string! = type of "ahoj")
+(text? "ahoj")
+(not text? 1)
+(text! = type of "ahoj")
 ; minimum
-(string? "")
+(text? "")
 ; alternative literal form
-("" == #[string! ""])
-("" == make string! 0)
+("" == #[text! ""])
+("" == make text! 0)
 ("^@" = "^(00)")
 ("^A" = "^(01)")
 ("^B" = "^(02)")
@@ -144,8 +144,8 @@
 ("^(esc)" = "^(1B)")
 ("^(back)" = "^(08)")
 ("^(del)" = "^(7f)")
-("ahoj" = #[string! "ahoj"])
-("1" = to string! 1)
+("ahoj" = #[text! "ahoj"])
+("1" = to text! 1)
 ({""} = mold "")
 
 

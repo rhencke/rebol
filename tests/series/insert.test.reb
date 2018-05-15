@@ -88,21 +88,21 @@
     insert :b :a
     :a == :b
 )
-; string
+; text
 (
-    a: make string! 0
+    a: make text! 0
     insert a #"0"
     a == "0"
 )
 (
     a: "0"
-    b: make string! 0
+    b: make text! 0
     insert b first a
     a == b
 )
 (
     a: "0"
-    b: make string! 0
+    b: make text! 0
     insert b a
     a == b
 )

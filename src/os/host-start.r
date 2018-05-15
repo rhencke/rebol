@@ -66,19 +66,19 @@ make-banner: function [
     "Build startup banner."
     fmt [block!]
 ][
-    str: make string! 200
-    star: append/dup make string! 74 #"*" 74
+    str: make text! 200
+    star: append/dup make text! 74 #"*" 74
     spc: format ["**" 70 "**"] ""
     parse fmt [
         some [
             [
-                set a: string! (s: format ["**  " 68 "**"] a)
-              | '= set a: [string! | word! | set-word!] [
+                set a: text! (s: format ["**  " 68 "**"] a)
+              | '= set a: [text! | word! | set-word!] [
                         b:
                           path! (b: get b/1)
                         | word! (b: get b/1)
                         | block! (b: spaced b/1)
-                        | string! (b: b/1)
+                        | text! (b: b/1)
                     ]
                     (s: format ["**    " 11 55 "**"] reduce [a b])
               | '* (s: star)
@@ -220,9 +220,9 @@ host-start: function [
     boot-exts {Extensions (modules) loaded at boot}
         [block! blank!]
     emit {HOST-CONSOLE emit function}
-        [function!]
+        [action!]
     return {HOST-CONSOLE hooked return function, use for returning}
-        [function!]
+        [action!]
     <with>
     host-start host-prot boot-exts ;-- unset when finished with them
     about usage why license echo upgrade ;-- exported to lib, see notes
@@ -333,7 +333,7 @@ host-start: function [
     ;
     die: func [
         {A graceful way to "FAIL" during startup}
-        reason [string! block!]
+        reason [text! block!]
             {Error message}
         /error e [error!]
             {Error object, shown if --verbose option used}
@@ -349,9 +349,10 @@ host-start: function [
 
     to-dir: function [
         {Convert string path to absolute dir! path}
-        return: [blank! file!]
-            {Blank if not found}
-        dir [string!]
+
+        return: "Blank if not found"
+            [blank! file!]
+        dir [text!]
     ][
         return all [
             not empty? dir
@@ -362,6 +363,7 @@ host-start: function [
 
     get-home-path: function [
         {Return HOME path (e.g. $HOME on *nix)}
+
         return: [blank! file!]
             {Blank if not found}
     ][
@@ -444,7 +446,7 @@ host-start: function [
 
     param-or-die: func [
         {Take --option argv and then check if param arg is present, else die}
-        option [string!] {Command-line option (switch) used}
+        option [text!] {Command-line option (switch) used}
     ][
         take argv
         return first argv or [die [option {parameter missing}]]

@@ -193,7 +193,7 @@ static void cleanup_henv(const REBVAL *v) {
 //          {Always true if success}
 //      connection [object!]
 //          {Template object for HENV and HDBC handle fields to set}
-//      spec [string!]
+//      spec [text!]
 //          {ODBC connection string, e.g. commonly "Dsn=DatabaseName"}
 //  ]
 //
@@ -440,7 +440,7 @@ SQLRETURN ODBC_BindParameter(
         }
         break; }
 
-    case REB_STRING: {
+    case REB_TEXT: {
         REBCNT len_no_term = rebSpellingOfW(NULL, 0, v); // first, get length
         SQLWCHAR *chars = rebAllocN(SQLWCHAR, len_no_term + 1);
 
@@ -504,10 +504,10 @@ SQLRETURN ODBC_GetCatalog(
     for (arg = 0; arg < 4; arg++) {
         //
         // !!! What if not at head?  Original code seems incorrect, because
-        // it passed the array at the catalog word, which is not a string.
+        // it passed the array at the catalog word, vs TEXT!.
         //
         REBVAL *value = rebRun(
-            "ensure* string! pick", block, rebI(arg + 1), END
+            "ensure* text! pick", block, rebI(arg + 1), END
         );
         if (value) {
             REBCNT len = rebUnbox("length of", value, END);
@@ -877,7 +877,7 @@ REBNATIVE(insert_odbc)
     REBOOL use_cache = FALSE;
 
     REBOOL get_catalog = rebDid(
-        "word? <- try match [word! string!]", value, "or [",
+        "word? <- try match [word! text!]", value, "or [",
             "fail {SQL dialect must start with WORD! or STRING! value}"
         "]", END
     );
@@ -894,7 +894,7 @@ REBNATIVE(insert_odbc)
         //
         use_cache = rebDid(
             value, "==",
-            "ensure [string! blank!] pick", statement, "'string", END
+            "ensure [text! blank!] pick", statement, "'string", END
         );
 
         if (not use_cache) {

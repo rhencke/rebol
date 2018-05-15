@@ -572,7 +572,7 @@ pick:
                 INIT_VAL_ARRAY(value, ARR(temp));
             }
             else {
-                RESET_VAL_HEADER(value, REB_STRING);
+                RESET_VAL_HEADER(value, REB_TEXT);
                 INIT_VAL_SERIES(value, temp);
             }
             VAL_INDEX(value) = 0;

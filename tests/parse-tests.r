@@ -200,8 +200,8 @@
 
 ; AHEAD and AND are synonyms
 ;
-(parse ["aa"] [ahead string! into ["a" "a"]])
-(parse ["aa"] [and string! into ["a" "a"]])
+(parse ["aa"] [ahead text! into ["a" "a"]])
+(parse ["aa"] [and text! into ["a" "a"]])
 
 ; INTO is not legal if a string parse is already running
 ;

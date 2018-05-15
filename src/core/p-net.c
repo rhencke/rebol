@@ -178,7 +178,7 @@ static REB_R Transport_Actor(
             sock->flags |= RRF_OPEN;
 
             // Lookup host name (an extra TCP device step):
-            if (IS_STRING(arg)) {
+            if (IS_TEXT(arg)) {
                 REBSIZ offset;
                 REBSIZ size;
                 REBSER *temp = Temp_UTF8_At_Managed(
@@ -313,7 +313,7 @@ static REB_R Transport_Actor(
         //
         REBVAL *port_data = CTX_VAR(port, STD_PORT_DATA);
         REBSER *buffer;
-        if (not IS_STRING(port_data) and not IS_BINARY(port_data)) {
+        if (not IS_TEXT(port_data) and not IS_BINARY(port_data)) {
             buffer = Make_Binary(NET_BUF_SIZE);
             Init_Binary(port_data, buffer);
         }

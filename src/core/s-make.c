@@ -409,7 +409,7 @@ REBSER *Join_Binary(const REBVAL *blk, REBINT limit)
             memcpy(BIN_AT(series, tail), VAL_BIN_AT(val), len);
             break; }
 
-        case REB_STRING:
+        case REB_TEXT:
         case REB_FILE:
         case REB_EMAIL:
         case REB_URL:

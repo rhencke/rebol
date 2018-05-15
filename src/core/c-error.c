@@ -410,7 +410,7 @@ const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
 
     // Sanity check TYPE: field of category object
     // !!! Same spelling as what we set in VAL_WORD_SYM(type_out))?
-    if (not IS_STRING(CTX_VAR(category, SELFISH(2)))) {
+    if (not IS_TEXT(CTX_VAR(category, SELFISH(2)))) {
         assert(FALSE);
         return NULL;
     }
@@ -418,7 +418,7 @@ const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
     REBVAL *message = CTX_VAR(category, SELFISH(n + 3));
 
     // Error message template must be string or block
-    assert(IS_BLOCK(message) or IS_STRING(message));
+    assert(IS_BLOCK(message) or IS_TEXT(message));
 
     // Success! Write category word from the category list context key sym,
     // and specific error ID word from the context key sym within category
@@ -582,7 +582,7 @@ REBOOL Make_Error_Object_Throws(
 
         vars = ERR_VARS(error);
     }
-    else if (IS_STRING(arg)) {
+    else if (IS_TEXT(arg)) {
         //
         // String argument to MAKE ERROR! makes a custom error from user:
         //
@@ -600,7 +600,7 @@ REBOOL Make_Error_Object_Throws(
         assert(IS_BLANK(&vars->type));
         assert(IS_BLANK(&vars->id));
 
-        Init_String(&vars->message, Copy_Sequence_At_Position(arg));
+        Init_Text(&vars->message, Copy_Sequence_At_Position(arg));
     }
     else
         fail (Error_Invalid(arg));
@@ -684,7 +684,7 @@ REBOOL Make_Error_Object_Throws(
             );
 
             assert(CTX_KEY_SYM(VAL_CONTEXT(category), SELFISH(2)) == SYM_TYPE);
-            assert(IS_STRING(VAL_CONTEXT_VAR(category, SELFISH(2))));
+            assert(IS_TEXT(VAL_CONTEXT_VAR(category, SELFISH(2))));
 
             // Find correct message for ID: (if any)
 
@@ -693,7 +693,7 @@ REBOOL Make_Error_Object_Throws(
             );
 
             if (message) {
-                assert(IS_STRING(message) or IS_BLOCK(message));
+                assert(IS_TEXT(message) or IS_BLOCK(message));
 
                 if (not IS_BLANK(&vars->message))
                     fail (Error_Invalid_Error_Raw(arg));
@@ -755,7 +755,7 @@ REBOOL Make_Error_Object_Throws(
             and (IS_WORD(&vars->type) or IS_BLANK(&vars->type))
             and (
                 IS_BLOCK(&vars->message)
-                or IS_STRING(&vars->message)
+                or IS_TEXT(&vars->message)
                 or IS_BLANK(&vars->message)
             )
         )){
@@ -830,11 +830,11 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
             if (IS_GET_WORD(temp))
                 ++expected_args;
             else
-                assert(IS_STRING(temp));
+                assert(IS_TEXT(temp));
         }
     }
     else // Just a string, no arguments expected.
-        assert(IS_STRING(message));
+        assert(IS_TEXT(message));
 
     REBCTX *error;
     if (expected_args == 0) {
@@ -873,7 +873,7 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
         // the extra "arguments" of the __FILE__ and __LINE__
         //
         const RELVAL *temp =
-            IS_STRING(message)
+            IS_TEXT(message)
                 ? cast(const RELVAL*, END) // needed by gcc/g++ 2.95 (bug)
                 : VAL_ARRAY_HEAD(message);
     #endif
@@ -1022,7 +1022,7 @@ REBCTX *Error(REBCNT num, ... /* REBVAL *arg1, REBVAL *arg2, ... */)
 //
 REBCTX *Error_User(const char *utf8) {
     DECLARE_LOCAL (message);
-    Init_String(message, Make_String_UTF8(utf8));
+    Init_Text(message, Make_String_UTF8(utf8));
     return Error(RE_USER, message, END);
 }
 
@@ -1681,7 +1681,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     // Append: error message ARG1, ARG2, etc.
     if (IS_BLOCK(&vars->message))
         Form_Array_At(mo, VAL_ARRAY(&vars->message), 0, error);
-    else if (IS_STRING(&vars->message))
+    else if (IS_TEXT(&vars->message))
         Form_Value(mo, &vars->message);
     else
         Append_Unencoded(mo->series, RM_BAD_ERROR_FORMAT);
@@ -1700,7 +1700,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_NEAR);
 
-        if (IS_STRING(nearest)) {
+        if (IS_TEXT(nearest)) {
             //
             // !!! The scanner puts strings into the near information in order
             // to say where the file and line of the scan problem was.  This

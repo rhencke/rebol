@@ -135,7 +135,7 @@ process: function [
     <with> the-file ;-- global we set
 ][
     ; !!! is DELINE necessary?
-    data: deline to-string read the-file: file
+    data: deline to-text read the-file: file
 
     proto-parser/emit-proto: :emit-proto
     proto-parser/emit-directive: :emit-directive
@@ -355,7 +355,7 @@ e-params/write-emitted
 e-strings: (make-emitter
     "REBOL Constants Strings" output-dir/include/tmp-strings.h)
 
-parse to string! read %a-constants.c [
+parse to text! read %a-constants.c [
     some [
         to "^/const"
         copy constd to "="

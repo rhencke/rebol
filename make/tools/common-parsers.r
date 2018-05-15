@@ -26,7 +26,7 @@ do %parsing-tools.reb
 
 decode-key-value-text: function [
     {Decode key value formatted text.}
-    text [string!]
+    text [text!]
 ][
     
     data-fields: [
@@ -73,17 +73,17 @@ decode-key-value-text: function [
 
 load-next: function [
     {Load the next value. Return block with value and new position.}
-    string [string!]
+    text [text!]
 ][
-    out: transcode/next to binary! string
-    out/2: skip string subtract length-of string length-of to string! out/2
+    out: transcode/next to binary! text
+    out/2: skip text subtract length-of text length-of to text! out/2
     out
 ] ; by @rgchris.
 
 
 load-until-blank: function [
     {Load rebol values from text until double newline.}
-    text [string!]
+    text [text!]
     /next {Return values and next position.}
 ] [
 

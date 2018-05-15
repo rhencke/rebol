@@ -1,5 +1,5 @@
 ; functions/control/quit.r
-; In R3, DO of a script provided as a string! code catches QUIT, just as it
+; In R3, DO of a script provided as a text! code catches QUIT, just as it
 ; would do for scripts in files.
 
 (42 = do "quit/with 42")

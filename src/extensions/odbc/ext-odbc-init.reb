@@ -41,7 +41,7 @@ REBOL [
 ; C in order to interface with ODBC.  The scheme code is the usermode support
 ; to provide a higher level interface.
 ;
-; open-connection: native [connection [object!] spec [string!]]
+; open-connection: native [connection [object!] spec [text!]]
 ; open-statement: native [connection [object!] statement [object!]]
 ; insert-odbc: native [statement [object!] sql [block!]]
 ; copy-odbc: native [statement [object!] length [integer!]]
@@ -82,8 +82,8 @@ sys/make-scheme [
             port/locals: make database-prototype []
 
             result: open-connection port/locals case [
-                string? spec: select port/spec 'target [spec]
-                string? spec: select port/spec 'host [unspaced ["dsn=" spec]]
+                text? spec: select port/spec 'target [spec]
+                text? spec: select port/spec 'host [unspaced ["dsn=" spec]]
 
                 cause-error 'access 'invalid-spec port/spec
             ]
@@ -141,7 +141,7 @@ sys/make-scheme [
 
         insert: function [
             port [port!]
-            sql [string! word! block!]
+            sql [text! word! block!]
                 {SQL statement or catalog, parameter blocks are reduced first}
         ][
             insert-odbc port/locals reduce compose [(sql)]

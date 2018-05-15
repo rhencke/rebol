@@ -2,7 +2,7 @@ REBOL [
     System: "REBOL [R3] Language Interpreter and Run-time Environment"
     Title: "Make sys-zlib.h and u-zlib.c"
     Rights: {
-        Copyright 2012 REBOL Technologies
+        Copyright 2012-2018 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -45,12 +45,6 @@ path-source: %../../src/core/
 file-source: %u-zlib.c
 
 
-;
-; In theory this should be able to run against the network to get the
-; source data from the Git raw format of the latest version.  But until
-; https is in Rebol core, github is not an option; you have to clone
-; locally and reset this path to wherever you put it.
-; 
 path-zlib: https://raw.githubusercontent.com/madler/zlib/master/
 
 
@@ -64,32 +58,24 @@ disable-user-includes: procedure [
     /stdio {Disable stdio.h}
     <local> name line-iter line pos
     <static>
-    open-include (charset {"<"})
-    close-include (charset {">"})
+    open-include (charset {"<})
+    close-include (charset {">})
 ] [
-    include-rule: copy [
+    include-rule: composeII [
+        ((stdio ?? [open-include copy name "stdio.h" close-include |]))
         {"} copy name to {"}
     ]
 
-    if stdio [
-        insert include-rule [
-            open-include copy name "stdio.h" close-include |
-        ]
-    ]
-
     for-each line lines [
-        if parse line [
+        parse line [
             any space {#}
             any space {include}
             some space include-rule to end
-        ][
-            either all [
-                inline
-                pos: find headers to file! name
-            ][
+        ] then [
+            if inline and (pos: find headers to file! name) [
                 change/part line-iter (read/lines join-all [path-zlib name]) 1 
                 take pos
-            ][
+            ] else [
                 insert line unspaced [{//} space]
                 append line unspaced [
                     space {/* REBOL: see make-zlib.r */}
@@ -98,10 +84,10 @@ disable-user-includes: procedure [
         ] 
     ]
 
-    if inline [
-        ; If we inline a header, it should happen once and only once for each
-        if not empty? headers [
-            fail [{Not all headers inlined by make-zlib:} (mold headers)]
+    if inline and (not empty? headers) [
+        fail [
+            {Not all headers inlined by make-zlib:} (mold headers) LF
+            {If we inline a header, should happen once and only once for each}
         ]
     ]
 ]
@@ -111,7 +97,7 @@ disable-user-includes: procedure [
 ; Stern warning not to edit the files
 ;
 
-make-warning-lines: func [name [file!] title [string!]] [
+make-warning-lines: func [name [file!] title [text!]] [
     reduce [
         {//}
         {// Extraction of ZLIB compression and decompression routines} 
@@ -149,7 +135,7 @@ make-warning-lines: func [name [file!] title [string!]] [
         unspaced [{// Title: } title]
         {// Build: A0}
         unspaced [{// Date:  } now/date]
-        unspaced [{// File:  } to string! name]
+        unspaced [{// File:  } to text! name]
         {//}
         {// AUTO-GENERATED FILE - Do not modify. (From: make-zlib.r)}
         {//}
@@ -157,7 +143,7 @@ make-warning-lines: func [name [file!] title [string!]] [
 ]
 
 fix-kr: function [
-    "Fix K&R style C function defition"
+    "Fix K&R style C function definition"
     source
 ][
     single-param: bind [
@@ -165,7 +151,11 @@ fix-kr: function [
         some [
             any white-space
             any [#"*" any white-space]
-            tmp-start: copy name: ;it could get here even after last identifier, so this tmp-start is not the begining of the name, but the last one is
+
+            ; It could get here even after last identifier, so this tmp-start
+            ; is not the begining of the name, but the last one is...
+            ;
+            tmp-start: copy name:
             identifier (
                 name-start: tmp-start
             )
@@ -189,7 +179,7 @@ fix-kr: function [
                 any white-space
             ]
             #"^{" check-point: (
-                ;print ["func:" to string! fn]
+                ;print ["func:" to text! fn]
                 remove/part param-ser length of param-spec
                 insert param-ser "^/"
                 length-diff: 1 - (length of param-spec)
@@ -203,12 +193,16 @@ fix-kr: function [
                 param-block: make block! 8
                 parse params [
                     any white-space
-                    copy name: identifier (append param-block reduce [name _])
+                    copy name: identifier (
+                        append param-block reduce [name _]
+                    )
                     any [
                         any white-space
                         #","
                         any white-space
-                        copy name: identifier (append param-block reduce [name _])
+                        copy name: identifier (
+                            append param-block reduce [name _]
+                        )
                     ]
                 ]
 
@@ -234,7 +228,8 @@ fix-kr: function [
                            any white-space
                            param-end: #"," (
                                 ; case 2)
-                                ; spec-type should be "int ", and name should be "i"
+                                ; spec-type should be "int "
+                                ; name should be "i"
                                 poke (find/skip param-block name 2) 2
                                     either typed? [
                                         (copy/part single-param-start
@@ -284,7 +279,9 @@ fix-kr: function [
 
                 ;dump param-block
 
-                insert open-paren new-param: delimit (extract/index param-block 2 2) ",^/    "
+                insert open-paren new-param: delimit (
+                    extract/index param-block 2 2
+                ) ",^/    "
                 insert open-paren "^/    "
 
                 length-diff: length-diff + length of new-param

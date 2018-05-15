@@ -97,7 +97,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             sock->modes |= RST_REVERSE;
             memcpy(&(DEVREQ_NET(sock)->remote_ip), VAL_TUPLE(arg), 4);
         }
-        else if (IS_STRING(arg)) {
+        else if (IS_TEXT(arg)) {
             REBSIZ offset;
             REBSIZ size;
             REBSER *temp = Temp_UTF8_At_Managed(
@@ -137,7 +137,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         }
 
         if (sock->modes & RST_REVERSE) {
-            Init_String(
+            Init_Text(
                 D_OUT,
                 Copy_Bytes(sock->common.data, LEN_BYTES(sock->common.data))
             );

@@ -26,17 +26,6 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Byte-sized series are also used by the STRING! datatype.  There is no
-// technical difference between such series used as strings or used as binary,
-// the difference comes from being marked REB_BINARY or REB_STRING in the
-// header of the value carrying the series.
-//
-// For easier type-correctness, the series macros are given with names BIN_XXX
-// and UNI_XXX.  There aren't distinct data types for the series themselves,
-// just REBSER* is used.  Hence BIN_LEN() and UNI_LEN() aren't needed as you
-// could just use SER_LEN(), but it helps a bit for readability...and an
-// assert is included to ensure the size matches up.
-//
 
 
 // Is it a byte-sized series?

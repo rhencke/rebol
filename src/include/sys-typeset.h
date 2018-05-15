@@ -47,7 +47,7 @@
 // internal symbol.  Nor can it set the extended flags, though that might
 // someday be allowed with a syntax like:
 //
-//      make typeset! [<hide> <quote> <protect> string! integer!]
+//      make typeset! [<hide> <quote> <protect> text! integer!]
 //
 
 enum Reb_Param_Class {

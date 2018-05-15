@@ -199,11 +199,11 @@ static void Write_File_Port(struct devreq_file *file, REBVAL *data, REBCNT len, 
         if (lines)
             SET_MOLD_FLAG(mo, MOLD_FLAG_LINES);
         Form_Value(mo, data);
-        Init_String(data, Pop_Molded_String(mo)); // fall to next section
+        Init_Text(data, Pop_Molded_String(mo)); // fall to next section
         len = VAL_LEN_HEAD(data);
     }
 
-    if (IS_STRING(data)) {
+    if (IS_TEXT(data)) {
         ser = Make_UTF8_From_Any_String(data, len);
         MANAGE_SERIES(ser);
         req->common.data = BIN_HEAD(ser);

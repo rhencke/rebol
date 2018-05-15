@@ -21,7 +21,7 @@ fwrite cnt length of cnt 1 fp
 buf: make struct! [s [uint8 [128]]]
 fseek fp 0 0
 fread (reflect buf 'addr) length of buf 1 fp
-print ["read:" to string! values of buf "(" values of buf ")"]
+print ["read:" to text! values of buf "(" values of buf ")"]
 
 a: "XXXXXXXXXXXXXX"
 fseek fp 0 0

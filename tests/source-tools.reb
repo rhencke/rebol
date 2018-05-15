@@ -115,7 +115,7 @@ rebsource: context [
 
                 analysis: analyse/text file data
 
-                data: to string! data
+                data: to text! data
 
                 identifier: c.lexical/grammar/identifier
                 c-pp-token: c.lexical/grammar/c-pp-token
@@ -334,7 +334,7 @@ rebsource: context [
             ][
                 emit analysis [
                     eof-eol-missing (file) (
-                        reduce [text-line-of tail of to string! data]
+                        reduce [text-line-of tail of to text! data]
                     )
                 ]
             ]

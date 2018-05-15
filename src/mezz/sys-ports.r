@@ -88,10 +88,10 @@ make-port*: function [
     path-char:   insert copy alpha-num "!/=+-_.;:&$@%*',~?| []()^"" ; !!! note: space allowed
     user-char:   insert copy alpha-num "=+-_.;&$@%*,'#|"
     pass-char:   complement make bitset! "^/ ^-@"
-    s1: s2: _ ; in R3, input datatype is preserved - these are now URL strings!
+    s1: s2: _ ; in R3, input datatype is preserved - these are now URL strings
     out: []
     emit: func ['w v] [
-        reduce/into [to set-word! w if :v [to string! :v]] tail of out
+        reduce/into [to set-word! w if :v [to text! :v]] tail of out
     ]
 
     rules: [
@@ -99,7 +99,10 @@ make-port*: function [
         [
             ; scheme name: [//]
             copy s1 some scheme-char ":" opt "//" ; we allow it
-            (reduce/into [to set-word! 'scheme to lit-word! to string! s1] tail of out)
+            (reduce/into [
+                to set-word! 'scheme
+                to lit-word! to text! s1
+            ] tail of out)
 
             ; optional user [:pass]
             opt [

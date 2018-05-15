@@ -49,7 +49,7 @@ REBNATIVE(form)
 
     REBVAL *value = ARG(value);
 
-    Init_String(D_OUT, Copy_Form_Value(value, 0));
+    Init_Text(D_OUT, Copy_Form_Value(value, 0));
 
     return R_OUT;
 }
@@ -94,7 +94,7 @@ REBNATIVE(mold)
 
     Mold_Value(mo, ARG(value));
 
-    Init_String(D_OUT, Pop_Molded_String(mo));
+    Init_Text(D_OUT, Pop_Molded_String(mo));
 
     return R_OUT;
 }
@@ -106,7 +106,7 @@ REBNATIVE(mold)
 //  "Write text to standard output, or raw BINARY! (for control codes / CGI)"
 //
 //      return: [<opt>]
-//      value [string! char! binary!]
+//      value [text! char! binary!]
 //          "Text to write, if a STRING! or CHAR! is converted to OS format"
 //  ]
 //
@@ -148,7 +148,7 @@ REBNATIVE(write_stdout)
         // it may be that the print layer runs arbitrary Rebol code that
         // might move that buffer.
         //
-        assert(IS_STRING(v));
+        assert(IS_TEXT(v));
 
         REBSIZ offset;
         REBSIZ size;
@@ -554,14 +554,14 @@ REBNATIVE(wake_up)
 //
 //  local-to-file: native [
 //
-//  {Converts a local system file path STRING! to a Rebol FILE! path.}
+//  {Converts a local system file path TEXT! to a Rebol FILE! path.}
 //
 //      return: [file!]
 //          {The returned value should be a valid natural FILE! literal}
-//      path [string! file!]
-//          {Path to convert (by default, only STRING! for type safety)}
+//      path [text! file!]
+//          {Path to convert (by default, only TEXT! for type safety)}
 //      /pass
-//          {Convert STRING!s, but pass thru FILE!s, assuming they're correct}
+//          {Convert TEXT!, but pass thru FILE!, assuming it's canonized}
 //      /dir
 //          {Ensure input path is treated as a directory}
 //  ]
@@ -597,14 +597,14 @@ REBNATIVE(local_to_file)
 //
 //  file-to-local: native [
 //
-//  {Converts a Rebol FILE! path to a STRING! of the local system file path.}
+//  {Converts a Rebol FILE! path to TEXT! of the local system file path}
 //
-//      return: [string!]
-//          {A STRING! like "\foo\bar" is not a "natural" FILE! %\foo\bar}
-//      path [file! string!]
+//      return: [text!]
+//          {A TEXT! like "\foo\bar" is not a "natural" FILE! %\foo\bar}
+//      path [file! text!]
 //          {Path to convert (by default, only FILE! for type safety)}
 //      /pass
-//          {Convert FILE!s, but pass thru STRING!, assuming it's local}
+//          {Convert FILE!s, but pass thru TEXT!, assuming it's local}
 //      /full
 //          {For relative paths, prepends current dir for full path}
 //      /no-tail-slash
@@ -618,11 +618,11 @@ REBNATIVE(file_to_local)
     INCLUDE_PARAMS_OF_FILE_TO_LOCAL;
 
     REBVAL *path = ARG(path);
-    if (IS_STRING(path)) {
+    if (IS_TEXT(path)) {
         if (not REF(pass))
             fail ("FILE-TO-LOCAL only passes through STRING! if /PASS used");
 
-        Init_String(
+        Init_Text(
             D_OUT,
             Copy_Sequence_At_Len( // Copy (callers frequently modify result)
                 VAL_SERIES(path),
@@ -633,7 +633,7 @@ REBNATIVE(file_to_local)
         return R_OUT;
     }
 
-    Init_String(
+    Init_Text(
         D_OUT,
         To_Local_Path(
             path,

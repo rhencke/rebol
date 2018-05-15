@@ -53,7 +53,7 @@ dump-obj: function [
 
     ; Search for matching strings:
     collect [
-        wild: all [set? 'pat | string? pat | find pat "*"]
+        wild: all [set? 'pat | text? pat | find pat "*"]
 
         for-each [word val] obj [
             type: type of :val
@@ -68,7 +68,7 @@ dump-obj: function [
                 not match
                 all [
                     set? 'val
-                    either string? :pat [
+                    either text? :pat [
                         either wild [
                             tail? any [find/any/match str pat pat]
                         ][
@@ -124,20 +124,20 @@ dump: func [
     ]
 
     dump-one: proc [item][
-        case [
-            string? item [ ;-- allow customized labels
+        switch type of item [
+            text! [ ;-- allow customized labels
                 print ["---" mold/limit item system/options/dump-size "---"]
             ]
 
-            word? item [
+            word! [
                 print [to set-word! item "=>" dump-val get item]
             ]
 
-            path? item [
+            path! [
                 print [to set-path! item "=>" dump-val get item]
             ]
 
-            group? item [
+            group! [
                 trap/with [
                     print [mold item "=>" mold eval item]
                 ] func [error] [
@@ -146,7 +146,7 @@ dump: func [
             ]
         ] else [
             fail [
-                "Item not WORD!, PATH!, or GROUP! in DUMP." item
+                "Item not TEXT!, WORD!, PATH!, or GROUP! in DUMP." item
             ]
         ]
     ]
@@ -193,7 +193,7 @@ spec-of: function [
     ]
 
     return collect [
-        keep/line match string! any [
+        keep/line match text! any [
             try select meta 'description
             try select original-meta 'description
         ]
@@ -202,7 +202,7 @@ spec-of: function [
             try select meta 'return-type
             try select original-meta 'return-type
         ]
-        return-note: try match string! any [
+        return-note: try match text! any [
             try select meta 'return-note
             try select original-meta 'return-note
         ]
@@ -239,14 +239,14 @@ title-of: function [
         action! [
             all [
                 object? meta: meta-of :value
-                string? description: select meta 'description
+                text? description: select meta 'description
                 copy description
             ]
         ]
 
         datatype! [
             spec: spec-of value
-            assert [string? spec] ;-- !!! Consider simplifying "type specs"
+            assert [text? spec] ;-- !!! Consider simplifying "type specs"
             spec/title
         ]
     ]
@@ -342,7 +342,7 @@ help: procedure [
     ;; help #topic (browse r3n for topic)
     if issue? :topic [
         say-browser
-        browse join-all [r3n "topics/" next to-string :topic]
+        browse join-all [r3n "topics/" next to-text :topic]
         leave
     ]
 
@@ -423,8 +423,8 @@ help: procedure [
         leave
     ]
 
-    ; If arg is a string, search the system:
-    if string? :topic [
+    ; If arg is a text string, search the system:
+    if text? :topic [
         types: dump-obj/match make-libuser :topic
         sort types
         if not empty? types [
@@ -568,7 +568,7 @@ help: procedure [
 
     print-args: procedure [list /indent-words] [
         for-each param list [
-            note: match string! try select notes to-word param
+            note: match text! try select notes to-word param
             type: match [block! any-word!] try select types to-word param
 
             ;-- parameter name and type line
@@ -640,7 +640,7 @@ source: procedure [
     ]
 
     case [
-        match [string! url!] :f [
+        match [text! url!] :f [
             print f
         ]
         not action? :f [
@@ -700,11 +700,11 @@ what: procedure [
                 title-of :val
             ]
             append list reduce [word arg]
-            size: max size length of to-string word
+            size: max size length of to-text word
         ]
     ]
 
-    vals: make string! size
+    vals: make text! size
     for-each [word arg] sort/skip list 2 [
         append/dup clear vals #" " size
         print [
@@ -746,7 +746,7 @@ chat: proc [
 ;
 require-commit: procedure [
     "checks current commit against required commit"
-    commit [string!]
+    commit [text!]
 ][
     if not c: select system/script/header 'commit [leave]
 

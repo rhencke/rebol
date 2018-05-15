@@ -6,14 +6,14 @@
 ; empty clipboard
 (
     write clipboard:// ""
-    c: to-string read clipboard://
-    string? c and (empty? c)
+    c: to-text read clipboard://
+    text? c and (empty? c)
 )
 
 ; ASCII string
 (
     write clipboard:// c: "This is a test."
-    d: to-string read clipboard://
+    d: to-text read clipboard://
     strict-equal? c d
 )
 
@@ -21,15 +21,15 @@
 (
     p: open clipboard://
     write p c: "Clipboard port test"
-    strict-equal? c to-string read p
+    strict-equal? c to-text read p
 )
 
 ; Unicode string
 (
     write clipboard:// c: "Příliš žluťoučký kůň úpěl ďábelské ódy."
-    strict-equal? to-string read clipboard:// c
+    strict-equal? to-text read clipboard:// c
 )
 
 ; WRITE returns a PORT! in R3
 ;
-(equal? to-string read write clipboard:// c: "test" c)
+(equal? to-text read write clipboard:// c: "test" c)

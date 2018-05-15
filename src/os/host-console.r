@@ -54,11 +54,11 @@ console!: make object! [
 
     ;; APPEARANCE (can be overridden)
 
-    prompt:   {>>}
-    result:   {==}
-    warning:  {!!}
-    error:    {**}                 ;; not used yet
-    info:     to-string #{e29398}  ;; info sign!
+    prompt: {>>}
+    result: {==}
+    warning: {!!}
+    error: {**} ;-- not used yet
+    info: to-text #{e29398} ;-- info "(i)" symbol
     greeting: _
 
     print-prompt: proc [] [
@@ -149,8 +149,8 @@ console!: make object! [
     input-hook: func [
         {Receives line input, parse/transform, send back to CONSOLE eval}
 
-        return: "BLANK! if canceled, otherwise processed string input"
-            [blank! string!]
+        return: "BLANK! if canceled, otherwise processed text line input"
+            [blank! text!]
     ][
         input
     ]
@@ -326,19 +326,19 @@ host-console: function [
     emit: function [
         {Builds up sandboxed code to submit to C, hooked RETURN will finalize}
 
-        item "ISSUE! directive, STRING! comment, ((composed)) code BLOCK!"
-            [block! issue! string!]
+        item "ISSUE! directive, TEXT! comment, ((composed)) code BLOCK!"
+            [block! issue! text!]
         <with> instruction
     ][
-        really* case [
-            issue? item [
+        really* switch type of item [
+            issue! [
                 if not empty? instruction [append/line instruction '|]
                 insert instruction item
             ]
-            string? item [
+            text! [
                 append/line instruction compose [comment (item)]
             ]
-            block? item [
+            block! [
                 if not empty? instruction [append/line instruction '|]
                 append/line instruction composeII/deep/only item
             ]
@@ -624,7 +624,7 @@ host-console: function [
             ;
             emit [system/console/print-warning ((
                 spaced [
-                    uppercase to string! code/1
+                    uppercase to text! code/1
                         "interpreted by console as:" mold :shortcut
                 ]
             ))]
@@ -696,7 +696,7 @@ upgrade: procedure [
 echo: procedure [
     {Copies console I/O to a file.}
 
-    'instruction [file! string! block! word!]
+    'instruction [file! text! block! word!]
         {File or template with * substitution, or command: [ON OFF RESET].}
 
     <static>
@@ -725,7 +725,7 @@ echo: procedure [
     ]]
 
     logger: default [func [value][
-        write/append form-target either char? value [to-string value][value]
+        write/append form-target either char? value [to-text value][value]
         value
     ]]
 
@@ -734,7 +734,7 @@ echo: procedure [
     ; STDOUT or falling through.  Note WRITE doesn't take CHAR! right now.
     ;
     hook-out: default [proc [
-        value [string! char! binary!]
+        value [text! char! binary!]
             {Text to write, if a STRING! or CHAR! is converted to OS format}
     ][
         old-write-stdout value
@@ -794,7 +794,7 @@ echo: procedure [
             ]
         ]
 
-        string? instruction [
+        text? instruction [
             sub: instruction
             ensure-echo-on
         ]

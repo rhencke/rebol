@@ -33,7 +33,7 @@ ffi-type-mappings: [
     ; Note: ACTION! is only legal to pass to pointer arguments if it is was
     ; created with MAKE-ROUTINE or WRAP-CALLBACK
     ;
-    pointer [integer! string! binary! vector! action!]
+    pointer [integer! text! binary! vector! action!]
 
     rebval [any-value!]
 
@@ -60,7 +60,7 @@ make-callback: function [
     arg-rule: [
         copy a word! (append r-args a)
         block!
-        opt string!
+        opt text!
     ]
 
     ; !!! TBD: Should check fallback value for compatibility here, e.g.
@@ -79,7 +79,7 @@ make-callback: function [
     ]
 
     parse args [
-        opt string!
+        opt text!
         any [arg-rule | attr-rule]
     ] or [
         fail ["Unrecognized pattern in MAKE-CALLBACK function spec" args]

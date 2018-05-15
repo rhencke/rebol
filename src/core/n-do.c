@@ -208,7 +208,7 @@ REBNATIVE(eval_enfix)
 //          blank! ;-- useful for `do any [...]` scenarios when no match
 //          block! ;-- source code in block form
 //          group! ;-- same as block (or should it have some other nuance?)
-//          string! ;-- source code in text form
+//          text! ;-- source code in text form
 //          binary! ;-- treated as UTF-8
 //          url! ;-- load code from URL via protocol
 //          file! ;-- load code from file on local disk
@@ -344,7 +344,7 @@ REBNATIVE(do)
         return R_OUT; }
 
     case REB_BINARY:
-    case REB_STRING:
+    case REB_TEXT:
     case REB_URL:
     case REB_FILE:
     case REB_TAG: {

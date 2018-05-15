@@ -37,7 +37,7 @@
 (datatype? refinement!)
 (datatype? set-path!)
 (datatype? set-word!)
-(datatype? string!)
+(datatype? text!)
 (datatype? struct!)
 (datatype? tag!)
 (datatype? time!)

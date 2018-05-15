@@ -1002,7 +1002,7 @@ REBNATIVE(as)
             fail (Error_Bad_Cast_Raw(value, ARG(type)));
         break;
 
-    case REB_STRING:
+    case REB_TEXT:
     case REB_TAG:
     case REB_FILE:
     case REB_URL:

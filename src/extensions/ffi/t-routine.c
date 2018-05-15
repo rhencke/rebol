@@ -150,7 +150,7 @@ static void Schema_From_Block_May_Fail(
             Init_Typeset(
                 param_out,
                 FLAGIT_KIND(REB_INTEGER)
-                    | FLAGIT_KIND(REB_STRING)
+                    | FLAGIT_KIND(REB_TEXT)
                     | FLAGIT_KIND(REB_BINARY)
                     | FLAGIT_KIND(REB_VECTOR)
                     | FLAGIT_KIND(REB_ACTION), // legal if routine or callback
@@ -403,7 +403,7 @@ static uintptr_t arg_to_ffi(
             memcpy(dest, &ipt, sizeof(void*));
             break;}
 
-        case REB_STRING:
+        case REB_TEXT:
         case REB_BINARY:
         case REB_VECTOR:{
             // !!! This is a questionable idea, giving out pointers directly
@@ -1049,7 +1049,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
 
     RELVAL *item = VAL_ARRAY_AT(ffi_spec);
     for (; NOT_END(item); ++item) {
-        if (IS_STRING(item))
+        if (IS_TEXT(item))
             continue; // !!! TBD: extract ACT_META information from spec notes
 
         switch (VAL_TYPE(item)) {

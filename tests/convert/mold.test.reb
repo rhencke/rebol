@@ -3,18 +3,18 @@
 [#860 #6 (
     a: copy []
     insert/only a a
-    string? mold a
+    text? mold a
 )]
 ; cyclic paren
 (
     a: first [()]
     insert/only a a
-    string? mold a
+    text? mold a
 )
 ; cyclic object
 [#69 (
     a: make object! [a: self]
-    string? mold a
+    text? mold a
 )]
 ; deep nested block mold
 [#876 (

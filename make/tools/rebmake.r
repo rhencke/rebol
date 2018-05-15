@@ -65,26 +65,26 @@ ends-with?: func [
 ]
 
 filter-flag: function [
-    return: [blank! string! file!]
-    flag [tag! string! file!]
+    return: [blank! text! file!]
+    flag [tag! text! file!]
         {If TAG! then must be <prefix:flag>, e.g. <gnu:-Wno-unknown-warning>}
-    prefix [string!]
+    prefix [text!]
         {gnu -> GCC-compatible compilers, msc -> Microsoft C}
 ][
     if not tag? flag [return flag] ;-- no filtering
 
-    if not parse to string! flag [
+    if not parse to text! flag [
         copy header: to ":"
         ":" copy option: to end
     ][
         fail ["Tag must be <prefix:flag> ->" (flag)]
     ]
 
-    return all [prefix = header | to-string option]
+    return all [prefix = header | to-text option]
 ]
 
 run-command: function [
-    cmd [block! string!]
+    cmd [block! text!]
 ][
     x: copy ""
     call/wait/shell/output cmd x
@@ -92,7 +92,7 @@ run-command: function [
 ]
 
 pkg-config: function [
-    return: [string! block!]
+    return: [text! block!]
     pkg [any-string!]
     var [word!]
     lib [any-string!]
@@ -462,7 +462,7 @@ gcc: make compiler-class [
             case [
                 file? exec-file [file-to-local exec-file]
                 exec-file [exec-file]
-                true [to string! name]
+                true [to text! name]
             ]
             either E ["-E"]["-c"]
 
@@ -1042,13 +1042,13 @@ strip-class: make object! [
                 all [params flags]
                 options
             ][
-                case [
-                    block? flags [
+                switch type-of flags [
+                    block! [
                         spaced map-each flag flags [
                             filter-flag flag id
                         ]
                     ]
-                    string? flags [
+                    text! [
                         flags
                     ]
                 ]
@@ -1315,7 +1315,7 @@ generator-class: make object! [
                         project/output: copy project/source
                     ]
                     'object-library-class [
-                        project/output: to string! project/name
+                        project/output: to text! project/name
                     ]
                 ][
                     fail ["Unexpected project class:" (project/class-name)]
@@ -1453,14 +1453,14 @@ makefile: make generator-class [
                             "^-"
                             either block? entry/commands [
                                 delimit map-each cmd (map-each cmd entry/commands [
-                                    either string? cmd [
+                                    either text? cmd [
                                         cmd
                                     ][
                                         gen-cmd cmd
                                     ]
                                 ]) [if not empty? cmd [cmd]] "^/^-"
                             ][
-                                either string? entry/commands [
+                                either text? entry/commands [
                                     entry/commands
                                 ][
                                     gen-cmd entry/commands
@@ -1787,7 +1787,7 @@ visual-studio: make generator-class [
     ][
         project-name: either project/class-name = 'entry-class [project/target][project/name]
         append buf unspaced [
-            {Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "} to string! project-name {",}
+            {Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "} to text! project-name {",}
             {"} project-name {.vcxproj", "} project/id {"} newline
         ]
 
@@ -1945,9 +1945,9 @@ visual-studio: make generator-class [
         config: unspaced [build-type {|} platform]
         project-dir: unspaced [project-name ".dir\" build-type "\"]
 
-        searches: make string! 1024
+        searches: make text! 1024
         if project/class-name <> 'entry-class [
-            inc: make string! 1024
+            inc: make text! 1024
             for-each i project/includes [
                 if i: filter-flag i "msc" [
                     append inc unspaced [file-to-local i ";"]
@@ -1955,7 +1955,7 @@ visual-studio: make generator-class [
             ]
             append inc "%(AdditionalIncludeDirectories)"
 
-            def: make string! 1024
+            def: make text! 1024
             for-each i project/definitions [
                 if i: filter-flag i "msc" [
                     append def unspaced [file-to-local i ";"]
@@ -1964,7 +1964,7 @@ visual-studio: make generator-class [
             append def "%(PreprocessorDefinitions)"
             def
 
-            lib: make string! 1024
+            lib: make text! 1024
             for-each i project/depends [
                 switch i/class-name [
                     'ext-dynamic-class
@@ -2148,7 +2148,7 @@ visual-studio: make generator-class [
   </ItemDefinitionGroup>
   <ItemGroup>
 } use [o sources collected][
-    sources: make string! 1024
+    sources: make text! 1024
     for-each o project/depends [
         case [
             o/class-name = 'object-file-class [
@@ -2169,7 +2169,7 @@ visual-studio: make generator-class [
                         ]
                     ]
                     use [i o-inc][
-                        o-inc: make string! 1024
+                        o-inc: make text! 1024
                         for-each i o/includes [
                             if i: filter-flag i "msc" [
                                 append o-inc unspaced [file-to-local i ";"]
@@ -2183,7 +2183,7 @@ visual-studio: make generator-class [
                         ]
                     ]
                     use [i o-def][
-                        o-def: make string! 1024
+                        o-def: make text! 1024
                         for-each i o/definitions [
                             if i: filter-flag i "msc" [
                                 append o-def unspaced [file-to-local i ";"]
@@ -2236,7 +2236,7 @@ visual-studio: make generator-class [
   ] {
   </ItemGroup>}
   use [o refs][
-    refs: make string! 1024
+    refs: make text! 1024
     for-each o project/depends [
         if find words-of o 'id [
             if not o/id [o/id: take uuid-pool]

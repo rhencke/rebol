@@ -52,7 +52,7 @@
 //
 REBSER *To_REBOL_Path(const RELVAL *string, REBFLGS flags)
 {
-    assert(IS_STRING(string));
+    assert(IS_TEXT(string));
 
     DECLARE_MOLD (mo);
     Push_Mold(mo);

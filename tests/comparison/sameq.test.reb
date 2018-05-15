@@ -18,24 +18,24 @@
 (not same? #{00} #[bitset! #{00}])
 ; symmetry
 (equal? same? #[bitset! #{00}] #{00} same? #{00} #[bitset! #{00}])
-; email versus string
+; email versus text
 (
     a-value: to email! ""
-    not same? a-value to string! a-value
+    not same? a-value to text! a-value
 )
 ; symmetry
 (
     a-value: to email! ""
-    equal? same? to string! a-value a-value same? a-value to string! a-value
+    equal? same? to text! a-value a-value same? a-value to text! a-value
 )
 (
     a-value: %""
-    not same? a-value to string! a-value
+    not same? a-value to text! a-value
 )
 ; symmetry
 (
     a-value: %""
-    equal? same? a-value to string! a-value same? to string! a-value a-value
+    equal? same? a-value to text! a-value same? to text! a-value a-value
 )
 (not same? #{00} #[image! [1x1 #{00}]])
 ; symmetry
@@ -45,12 +45,12 @@
 (equal? same? #{00} to integer! #{00} same? to integer! #{00} #{00})
 (
     a-value: #a
-    not same? a-value to string! a-value
+    not same? a-value to text! a-value
 )
 ; symmetry
 (
     a-value: #a
-    equal? same? a-value to string! a-value same? to string! a-value a-value
+    equal? same? a-value to text! a-value same? to text! a-value a-value
 )
 (not same? #{} blank)
 ; symmetry
@@ -66,12 +66,12 @@
 )
 (
     a-value: to tag! ""
-    not same? a-value to string! a-value
+    not same? a-value to text! a-value
 )
 ; symmetry
 (
     a-value: to tag! ""
-    equal? same? a-value to string! a-value same? to string! a-value a-value
+    equal? same? a-value to text! a-value same? to text! a-value a-value
 )
 (
     a-value: 0.0.0.0

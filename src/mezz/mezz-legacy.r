@@ -64,14 +64,6 @@ REBOL [
 r3-legacy-mode: off
 
 
-; Ren-C *prefers* the use of GROUP! to PAREN!, both likely to remain legal.
-; https://trello.com/c/ANlT44nH
-;
-paren?: :group?
-paren!: :group!
-to-paren: :to-group
-
-
 ; CONSTRUCT (arity 2) and HAS (arity 1) have arisen as the OBJECT!-making
 ; routines, parallel to FUNCTION (arity 2) and DOES (arity 1).  By not being
 ; nouns like CONTEXT and OBJECT, they free up those words for other usages.
@@ -154,34 +146,6 @@ foreach: :for-each
 ;
 forall: :for-next
 forskip: :for-skip
-
-
-; Both in user code and in the C code, good to avoid BLOCK! vs. ANY-BLOCK!
-; https://trello.com/c/lCSdxtux
-;
-any-block!: :any-array!
-any-block?: :any-array?
-
-
-; Similarly to the BLOCK! and ANY-BLOCK! problem for understanding the inside
-; and outside of the system, ANY-CONTEXT! is a better name for the superclass
-; of OBJECT!, ERROR!, PORT! and (likely to be killed) MODULE!
-
-any-object!: :any-context!
-any-object?: :any-context?
-
-
-; Typesets containing ANY- helps signal they are not concrete types
-; https://trello.com/c/d0Nw87kp
-;
-number!: :any-number!
-number?: :any-number?
-scalar!: :any-scalar!
-scalar?: :any-scalar?
-series!: :any-series!
-series?: :any-series?
-
-any-type!: any-value! ;-- vs. ANY-DATATYPE! https://trello.com/c/1jTJXB0d
 
 
 ; BIND? and BOUND? didn't fit the naming convention of returning LOGIC! if
@@ -355,12 +319,11 @@ prin: procedure [
 
     value [<opt> any-value!]
 ][
-    if unset? 'value [leave]
-
-    write-stdout case [
-        string? :value [value]
-        char? :value [value]
-        block? :value [spaced value]
+    write-stdout <- switch type of :value [
+        null [leave] ;-- !!! outputs nothing, should it be an error?
+        text! [value]
+        char! [value]
+        block! [spaced value]
     ] else [
         form :value
     ]
@@ -427,7 +390,11 @@ rejoin: function [
 
     ; Take type of the first element for the result, or default to string.
     ;
-    result: either series? first values [copy first values] [form first values]
+    result: either any-series? first values [
+        copy first values
+    ][
+        form first values
+    ]
     append result next values
 ]
 
@@ -492,15 +459,6 @@ apply: adapt 'apply [
         fail {APPLY takes frame def block (or see r3-alpha-apply)}
     ]
 ]
-
-; Ren-C has standardized on one type of "invokable", which is ACTION!.  For
-; the rationale, see: https://forum.rebol.info/t/596
-;
-; These FUNCTION! synonyms are kept working since they aren't needed for other
-; purposes, but new code should not use them.
-;
-any-function!: function!: :action!
-any-function?: function?: :action?
 
 
 ; In Ren-C, MAKE for OBJECT! does not use the "type" slot for parent
@@ -837,7 +795,7 @@ set 'r3-legacy* func [<local>] [
         ;
         do: (function [
             return: [<opt> any-value!]
-            source [<opt> blank! block! group! string! binary! url! file! tag!
+            source [<opt> blank! block! group! text! binary! url! file! tag!
                 error! action!
             ]
             normals [any-value! <...>]
@@ -912,7 +870,7 @@ set 'r3-legacy* func [<local>] [
         parse: (function [
             {Non-block rules replaced by SPLIT: https://trello.com/c/EiA56IMR}
             input [any-series!]
-            rules [block! string! blank!]
+            rules [block! text! blank!]
             /case
             /all {Ignored refinement in <r3-legacy>}
         ][
@@ -922,14 +880,9 @@ set 'r3-legacy* func [<local>] [
             comment [all_PARSE: all] ;-- Not used
             all: :lib/all
 
-            case [
-                blank? rules [
-                    split input charset reduce [tab space cr lf]
-                ]
-
-                string? rules [
-                    split input to-bitset rules
-                ]
+            switch type of rules [
+                blank! [split input charset reduce [tab space cr lf]]
+                text! [split input to-bitset rules]
             ] else [
                 parse/(all [case_PARSE 'case]) input rules
             ]
@@ -978,7 +931,7 @@ set 'r3-legacy* func [<local>] [
 
         reduce: (function [
             value {Not just BLOCK!s evaluated: https://trello.com/c/evTPswH3}
-            /into target [any-block!]
+            /into target [any-array!]
         ][
             if not block? :value [return :value]
 
@@ -1149,7 +1102,7 @@ set 'r3-legacy* func [<local>] [
         compress: (function [
             {Deprecated, use DEFLATE or GZIP: https://trello.com/c/Bl6Znz0T}
             return: [binary!]
-            data [binary! string!]
+            data [binary! text!]
             /part lim
             /gzip
             /only

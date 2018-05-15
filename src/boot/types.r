@@ -65,7 +65,7 @@ REBOL [
             ANY_SERIES_KIND(VAL_TYPE(v))
 
         inline static REBOOL ANY_STRING_KIND(enum Reb_Kind k) {
-            return k >= REB_STRING and k <= REB_TAG;
+            return k >= REB_TEXT and k <= REB_TAG;
         }
 
         #define ANY_STRING(v) \
@@ -167,7 +167,7 @@ block       array       +       +       +       [series array]
 ; ANY-SERIES!, order matters (and contiguous with ANY-ARRAY above matters!)
 ;
 binary      string      +       +       binary  [series]
-string      string      +       +       +       [series string]
+text        string      +       +       +       [series string]
 file        string      +       +       +       [series string]
 email       string      +       +       +       [series string]
 url         string      +       +       +       [series string]

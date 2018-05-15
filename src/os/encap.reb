@@ -232,7 +232,7 @@ elf-format: context [
     find-section: function [
         return: [blank! integer!]
             {The index of the section header with encap (sh_xxx vars set)}
-        name [string!]
+        name [text!]
         section-headers [binary!]
         string-section [binary!]
 
@@ -246,7 +246,7 @@ elf-format: context [
                 (
                     name-start: skip string-section sh_name
                     name-end: ensure binary! find name-start #{00}
-                    section-name: to-string copy/part name-start name-end
+                    section-name: to-text copy/part name-start name-end
                     if name = section-name [
                         return index ;-- sh_offset, sh_size, etc. are set
                     ]
@@ -868,7 +868,7 @@ pe-format: context [
     add-section: function [
         "Add a new section to the exe, modify in place"
         exe-data [binary!]
-        section-name [string!]
+        section-name [text!]
         section-data [binary!]
     ][
         parse-exe exe-data
@@ -878,7 +878,7 @@ pe-format: context [
 
         ;check if there's section name conflicts
         for-each sec sections [
-            if section-name = to string! trim/with sec/name #{00} [
+            if section-name = to text! trim/with sec/name #{00} [
                 fail [
                     "There is already a section named" section-name |
                     mold sec
@@ -994,7 +994,7 @@ pe-format: context [
     find-section: function [
         "Find a section to the exe"
         exe-data [binary!]
-        section-name [string!]
+        section-name [text!]
         /header "Return only the section header"
         /data "Return only the section data"
     ][
@@ -1009,7 +1009,7 @@ pe-format: context [
 
         target-sec: try catch [
             for-each sec sections [
-                if section-name = to string! trim/with sec/name #{00} [
+                if section-name = to text! trim/with sec/name #{00} [
                     throw sec
                 ]
             ]
@@ -1035,7 +1035,7 @@ pe-format: context [
 
     update-section: function [
         exe-data [binary!]
-        section-name [string!]
+        section-name [text!]
         section-data [binary!]
     ][
         target-sec: find-section/header exe-data section-name; this will parse exe-data
@@ -1083,7 +1083,7 @@ pe-format: context [
 
     remove-section: function [
         exe-data [binary!]
-        section-name [string!]
+        section-name [text!]
     ][
         target-sec: find-section/header exe-data section-name; this will parse exe-data
         ;dump target-sec
@@ -1102,7 +1102,7 @@ pe-format: context [
 
         pos: start-of-section-header
         for-each sec sections [
-            print to string! sec/name
+            print to text! sec/name
             ;dump sec
             case [
                 sec/physical-offset = target-sec/physical-offset [

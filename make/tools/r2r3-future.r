@@ -106,6 +106,15 @@ if true = attempt [void? :some-undefined-thing] [
     unset 'void
     unset 'void?
 
+    append lib compose [
+        text!: (string!)
+        text?: (:string?)
+        to-text: (:to-string)
+    ]
+    text!: lib/text!
+    text?: :lib/text?
+    to-text: :lib/to-text
+
     ; THEN and ELSE use a mechanic (non-tight infix evaluation) that is simply
     ; impossible in R3-Alpha or Rebol2.
     ;
@@ -180,7 +189,10 @@ if true = attempt [void? :some-undefined-thing] [
                         fail/where ["Switch now evaluative" c] 'cases
                     ]
                     word? :c [
-                        fail/where ["Switch now evaluative" c] 'cases
+                        if not datatype? get c [
+                            fail/where ["Switch now evaluative" c] 'cases
+                        ]
+                        get c
                     ]
 
                     true [:c]
@@ -250,7 +262,7 @@ func: old-func [
         |
             ; Just get rid of any RETURN: specifications (purely commentary)
             ;
-            remove [quote return: opt block! opt string!]
+            remove [quote return: opt block! opt text!]
         |
             ; We could conceivably gather the SET-WORD!s and put them into
             ; the /local list, but that's annoying work.
@@ -440,7 +452,7 @@ reduce: func [
         "Optional words that are not evaluated (keywords)"
     /into
         {Output results into a series with no intermediate storage}
-    target [any-block!]
+    target [any-array!]
 ][
     either block? :value [
         apply :lib-reduce [value no-set only words into target]
@@ -464,21 +476,21 @@ reduce: func [
 ;
 fail: func [
     {Interrupts execution by reporting an error (TRAP can intercept it).}
-    reason [error! string! block!]
+    reason [error! text! block!]
         "ERROR! value, message string, or failure spec"
 ][
-    case [
-        error? reason [do error]
-        string? reason [do make error! reason]
-        block? reason [
+    switch type-of reason [
+        error! [do error]
+        string! [do make error! reason]
+        block! [
             for-each item reason [
                 if not any [
                     any-scalar? :item
-                    string? :item
+                    text? :item
                     group? :item
                     all [
                         word? :item
-                        not any-function? get :item
+                        not action? get :item
                     ]
                 ][
                     probe reason
@@ -537,7 +549,7 @@ gzip: gunzip: does [
      ]
 ]
 
-deflate: func [data [binary! string!]] [
+deflate: func [data [binary! text!]] [
     compressed: compress data
     loop 4 [take/last compressed] ;-- 32-bit size at tail in "Rebol format"
     compressed
@@ -663,7 +675,7 @@ xor?: func [a b] [to-logic any [all [:a (not :b)] all [(not :a) :b]]]
 delimit: func [x delimiter] [
     either block? x [
         pending: false
-        out: make string! 10
+        out: make text! 10
         while [not tail? x] [
             if bar? first x [
                 pending: false
@@ -750,7 +762,7 @@ make-action: func [
                 append new-spec :var ;-- need GET-WORD! for R3-Alpha lit decay
             )
         |
-            set other: [block! | string!] (
+            set other: [block! | text!] (
                 append/only new-spec other ;-- spec notes or data type blocks
             )
         ]
@@ -809,7 +821,7 @@ make-action: func [
         <with> any [
             set other: [word! | path!] (append exclusions other)
         |
-            string! ;-- skip over as commentary
+            text! ;-- skip over as commentary
         ]
     |
         <static> (

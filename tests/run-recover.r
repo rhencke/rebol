@@ -31,7 +31,7 @@ do-core-tests: procedure [] [
             interpreter-checksum: checksum/method read-binary
                 system/options/boot 'sha1
         ]
-        string? system/script/args [
+        text? system/script/args [
             interpreter-checksum: checksum/method read-binary
                 local-to-file system/script/args 'sha1
         ]

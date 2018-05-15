@@ -150,7 +150,7 @@ DEVICE_CMD Write_Clipboard(REBREQ *req)
     // is kept as is.
     //
     REBVAL *str = cast(REBVAL*, req->common.data);
-    assert(rebDid("lib/string?", str, rebEnd()));
+    assert(rebDid("lib/text?", str, rebEnd()));
 
     REBCNT len = req->length; // may only want /PART of the string to write
 

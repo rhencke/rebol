@@ -578,8 +578,8 @@ static REBNATIVE(aes)
 //
 //      return: [binary!]
 //          {32-byte binary hash}
-//      data [binary! string!]
-//          {Data to hash, STRING! will be converted to UTF-8}
+//      data [binary! text!]
+//          {Data to hash, TEXT! will be converted to UTF-8}
 //  ]
 //
 REBNATIVE(sha256)
@@ -590,7 +590,7 @@ REBNATIVE(sha256)
 
     REBYTE *bp;
     REBSIZ size;
-    if (IS_STRING(data)) {
+    if (IS_TEXT(data)) {
         REBSIZ offset;
         REBSER *temp = Temp_UTF8_At_Managed(
             &offset, &size, data, VAL_LEN_AT(data)
@@ -657,7 +657,7 @@ static void Cloak(
         klen = VAL_LEN_AT(key);
         break;
 
-    case REB_STRING: {
+    case REB_TEXT: {
         REBSIZ offset;
         REBSER *temp = Temp_UTF8_At_Managed(
             &offset, &klen, key, VAL_LEN_AT(key)
@@ -717,10 +717,10 @@ static void Cloak(
 //
 //      data [binary!]
 //          "Binary series to descramble (modified)"
-//      key [string! binary! integer!]
+//      key [text! binary! integer!]
 //          "Encryption key or pass phrase"
 //      /with
-//          "Use a string! key as-is (do not generate hash)"
+//          "Use a text! key as-is (do not generate hash)"
 //  ]
 //
 static REBNATIVE(decloak)
@@ -747,10 +747,10 @@ static REBNATIVE(decloak)
 //
 //      data [binary!]
 //          "Binary series to scramble (modified)"
-//      key [string! binary! integer!]
+//      key [text! binary! integer!]
 //          "Encryption key or pass phrase"
 //      /with
-//          "Use a string! key as-is (do not generate hash)"
+//          "Use a text! key as-is (do not generate hash)"
 //  ]
 //
 static REBNATIVE(encloak)

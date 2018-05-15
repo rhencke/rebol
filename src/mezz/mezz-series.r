@@ -156,7 +156,7 @@ replace: function [
         bitset? :pattern [1]
 
         any-string? target [
-            if not string? :pattern [pattern: form :pattern]
+            if not text? :pattern [pattern: form :pattern]
             length of :pattern
         ]
 
@@ -166,7 +166,7 @@ replace: function [
             length of :pattern
         ]
 
-        any-block? :pattern [length of :pattern]
+        any-array? :pattern [length of :pattern]
     ]
 
     while [pos: find/(all [case_REPLACE 'case]) target :pattern] [
@@ -243,8 +243,8 @@ reword: function [
     ;
     ; Integers have to be converted also.
     ;
-    if did match [integer! word!] prefix [prefix: to-string prefix]
-    if did match [integer! word!] suffix [suffix: to-string suffix]
+    if did match [integer! word!] prefix [prefix: to-text prefix]
+    if did match [integer! word!] suffix [suffix: to-text suffix]
 
     ; MAKE MAP! will create a map with no duplicates from the input if it
     ; is a BLOCK! (though differing cases of the same key will be preserved).
@@ -283,7 +283,7 @@ reword: function [
                 ; the purposes of this rule.
                 ;
                 if match [integer! word!] keyword [
-                    to-string keyword
+                    to-text keyword
                 ] else [
                     keyword
                 ]
@@ -559,12 +559,13 @@ format: function [
 
         val: me + switch type of :rule [
             integer! [abs rule]
-            string! [length of rule]
+            text! [length of rule]
             char! [1]
-        ] else [0]
+            (0)
+        ]
     ]
 
-    out: make string! val
+    out: make text! val
     insert/dup out p val
 
     ; Process each rule:
@@ -585,8 +586,8 @@ format: function [
                 change out :val
                 out: skip out pad ; spacing (remainder)
             ]
-            string!  [out: change out rule]
-            char!    [out: change out rule]
+            text! [out: change out rule]
+            char! [out: change out rule]
         ]
     ]
 
@@ -612,7 +613,7 @@ split: function [
     series "The series to split"
         [any-series!]
     dlm "Split size, delimiter(s) (if all integer block), or block rule(s)"
-        [block! integer! char! bitset! string! tag!]
+        [block! integer! char! bitset! text! tag!]
     /into "If dlm is integer, split in n pieces (vs. pieces of length n)"
 ][
     if block? dlm and (parse dlm [some integer!]) [
@@ -648,7 +649,7 @@ split: function [
             ; A block that is not all integers, e.g. not `[1 1 1]`, acts as a
             ; PARSE rule (see %split.test.reb)
             ;
-            ensure [bitset! string! char! block!] dlm
+            ensure [bitset! text! char! block!] dlm
 
             [
                 any [mk1: some [mk2: dlm break | skip] (
@@ -682,7 +683,7 @@ split: function [
         switch type of dlm [
             bitset! [find dlm try last series]
             char! [dlm = last series]
-            string! [(find series dlm) and (empty? find/last/tail series dlm)]
+            text! [(find series dlm) and (empty? find/last/tail series dlm)]
             block! [false]
         ] then [
             add-fill-val

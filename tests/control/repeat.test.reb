@@ -39,7 +39,7 @@
 ([1 2 3] == collect [repeat i 3.1 [keep i]])
 ([1 2 3] == collect [repeat i 3.5 [keep i]])
 ([1 2 3] == collect [repeat i 3.9 [keep i]])
-; string! test
+; text! test
 (
     out: copy ""
     repeat i "abc" [append out i]

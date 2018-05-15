@@ -105,10 +105,12 @@ REBNATIVE(locale)
 
 //
 //  setlocale: native/export [
-//      {Set/Get current locale, just a simple wrapper around C version}
-//      return: [string! blank!]
+//
+//  {Set/Get current locale, just a simple wrapper around C version}
+//
+//      return: [text! blank!]
 //      category [word!]
-//      value [string!]
+//      value [text!]
 //  ]
 //  new-errors: [
 //  ]

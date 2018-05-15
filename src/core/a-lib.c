@@ -1599,7 +1599,7 @@ REBVAL *RL_rebBinary(const void *bytes, size_t size)
 REBVAL *RL_rebSizedText(const char *utf8, size_t size)
 {
     Enter_Api();
-    return Init_String(Alloc_Value(), Make_Sized_String_UTF8(utf8, size));
+    return Init_Text(Alloc_Value(), Make_Sized_String_UTF8(utf8, size));
 }
 
 
@@ -1683,7 +1683,7 @@ REBVAL *RL_rebLengthedTextW(const REBWCHAR *wstr, REBCNT len)
             Append_Utf8_Codepoint(mo->series, *wstr);
     }
 
-    return Init_String(Alloc_Value(), Pop_Molded_String(mo));
+    return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
 }
 
 

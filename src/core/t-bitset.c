@@ -163,7 +163,7 @@ REBINT Find_Max_Bit(const RELVAL *val)
         maxi = Int32s(val, 0);
         break;
 
-    case REB_STRING:
+    case REB_TEXT:
     case REB_FILE:
     case REB_EMAIL:
     case REB_URL:
@@ -379,7 +379,7 @@ REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
             break; }
 
         case REB_BINARY:
-        case REB_STRING:
+        case REB_TEXT:
         case REB_FILE:
         case REB_EMAIL:
         case REB_URL:
@@ -501,7 +501,7 @@ REBOOL Check_Bits(REBSER *bset, const REBVAL *val, REBOOL uncased)
             break; }
 
         case REB_BINARY:
-        case REB_STRING:
+        case REB_TEXT:
         case REB_FILE:
         case REB_EMAIL:
         case REB_URL:

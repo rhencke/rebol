@@ -665,7 +665,7 @@ static void Update_Error_Near_For_Line(
     Append_Utf8_Utf8(mo->series, cs_cast(bp), len);
 
     ERROR_VARS *vars = ERR_VARS(error);
-    Init_String(&vars->nearest, Pop_Molded_String(mo));
+    Init_Text(&vars->nearest, Pop_Molded_String(mo));
 }
 
 
@@ -693,13 +693,13 @@ static REBCTX *Error_Syntax(SCAN_STATE *ss) {
     assert(ss->end >= ss->begin);
 
     DECLARE_LOCAL (token_name);
-    Init_String(
+    Init_Text(
         token_name,
         Make_String_UTF8(Token_Names[ss->token])
     );
 
     DECLARE_LOCAL (token_text);
-    Init_String(
+    Init_Text(
         token_text,
         Make_Sized_String_UTF8(
             cs_cast(ss->begin), cast(REBCNT, ss->end - ss->begin)
@@ -724,7 +724,7 @@ static REBCTX *Error_Syntax(SCAN_STATE *ss) {
 //
 static REBCTX *Error_Missing(SCAN_STATE *ss, char wanted) {
     DECLARE_LOCAL (expected);
-    Init_String(expected, Make_Series_Codepoint(wanted));
+    Init_Text(expected, Make_Series_Codepoint(wanted));
 
     REBCTX *error = Error(RE_SCAN_MISSING, expected, END);
     Update_Error_Near_For_Line(error, ss->start_line, ss->start_line_head);
@@ -739,7 +739,7 @@ static REBCTX *Error_Missing(SCAN_STATE *ss, char wanted) {
 //
 static REBCTX *Error_Extra(SCAN_STATE *ss, char seen) {
     DECLARE_LOCAL (unexpected);
-    Init_String(unexpected, Make_Series_Codepoint(seen));
+    Init_Text(unexpected, Make_Series_Codepoint(seen));
 
     REBCTX *error = Error(RE_SCAN_EXTRA, unexpected, END);
     Update_Error_Near_For_Line(error, ss->line, ss->line_head);
@@ -761,8 +761,8 @@ static REBCTX *Error_Mismatch(SCAN_STATE *ss, char wanted, char seen) {
     DECLARE_LOCAL (unexpected);
     REBCTX *error = Error(
         RE_SCAN_MISMATCH,
-        Init_String(expected, Make_Series_Codepoint(wanted)),
-        Init_String(unexpected, Make_Series_Codepoint(seen)),
+        Init_Text(expected, Make_Series_Codepoint(wanted)),
+        Init_Text(unexpected, Make_Series_Codepoint(seen)),
         END
     );
     Update_Error_Near_For_Line(error, ss->start_line, ss->start_line_head);
@@ -2132,7 +2132,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             //
             REBSER *s = Pop_Molded_String(mo);
             DS_PUSH_TRASH;
-            Init_String(DS_TOP, s);
+            Init_Text(DS_TOP, s);
             break; }
 
         case TOKEN_BINARY:

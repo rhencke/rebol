@@ -116,7 +116,7 @@ REBOOL osDialogOpen = FALSE;
 //      name [file!]
 //          "Default file name or directory"
 //      /title
-//      text [string!]
+//      text [text!]
 //          "Window title"
 //      /filter
 //      list [block!]
@@ -161,10 +161,10 @@ REBNATIVE(request_file_p)
         // interface code.  In trying to coax it toward REBVAL-oriented APIs
         // pretend we built the string as a value (perhaps best as a BINARY!
         // produced by helper Rebol code).  Note that the series is managed
-        // once it goes through the Init_String, so it can't be freed.
+        // once it goes through the Init_Text, so it can't be freed.
         //
         DECLARE_LOCAL (hack);
-        Init_String(hack, ser);
+        Init_Text(hack, ser);
         lpstrFilter = rebSpellAllocW(hack, END);
     }
     else {
@@ -562,7 +562,7 @@ int CALLBACK ReqDirCallbackProc(
 //
 //      /title
 //          "Custom dialog title text"
-//      text [string!]
+//      text [text!]
 //      /path
 //          "Default directory path"
 //      dir [file!]

@@ -28,7 +28,7 @@ mkdir/deep output-dir/boot
 
 verbose: false
 
-unsorted-buffer: make string! 20000
+unsorted-buffer: make text! 20000
 
 process: func [
     file
@@ -38,14 +38,14 @@ process: func [
     if verbose [probe [file]]
 
     source.text: read join-of src-dir/core/% file
-    if r3 [source.text: deline to-string source.text]
+    if r3 [source.text: deline to-text source.text]
     proto-parser/emit-proto: :emit-native-proto
     proto-parser/process source.text
 ]
 
 ;-------------------------------------------------------------------------
 
-output-buffer: make string! 20000
+output-buffer: make text! 20000
 
 
 proto-count: 0

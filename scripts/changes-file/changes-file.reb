@@ -56,7 +56,7 @@ url: [
 get-git-log: function [
     {Return Rebolised block of Ren/C `git log`}
 ][
-    git-log: make string! 0
+    git-log: make text! 0
     call/shell/wait/output "git log --pretty=format:'[commit: {%h} author: {%an} email: {%ae} date-string: {%ai} summary: {%s}]'" git-log
     split git-log newline
 
@@ -109,7 +109,7 @@ parse-credits-for-authors: function [
     collect [
         keep [{Carl Sassenrath} [{@carls}]]
 
-        parse to-string read credits-file [
+        parse to-text read credits-file [
             thru {Code Contributors}
             any [
                 {**} copy author: to {**} {**} newline
@@ -215,13 +215,13 @@ make-changes-file: procedure [
     credits-file  [file!]  {CREDITS file to lookup github usernames}
     changes-block [block!] {Changes-block of release/category objects}
 ][
-    template: split to-string read %template-CHANGES.md "!!!CHANGES!!!"
+    template: split to-text read %template-CHANGES.md "!!!CHANGES!!!"
     changes: open/new changes-file
     authors: parse-credits-for-authors credits-file
 
     github-user-name: function [
         {Match Author in commit-log with github username in CREDITS.md. If not found return author}
-        author [string!] {Author name in commit log}
+        author [text!] {Author name in commit log}
     ][
         any [
             switch author authors
@@ -232,7 +232,7 @@ make-changes-file: procedure [
 
     write-line: proc [s] [
         write changes join-all s
-        write changes to-string newline
+        write changes to-text newline
     ]
 
     md-link: func [s link] [

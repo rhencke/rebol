@@ -63,7 +63,7 @@
 //
 // Byte-sized series are also used by the BINARY! datatype.  There is no
 // technical difference between such series used as strings or used as binary,
-// the difference comes from being marked REB_BINARY or REB_STRING in the
+// the difference comes from being marked REB_BINARY or REB_TEXT in the
 // header of the value carrying the series.
 //
 // For easier type-correctness, the series macros are given with names BIN_XXX
@@ -237,8 +237,8 @@ inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 
-#define Init_String(v,s) \
-    Init_Any_Series((v), REB_STRING, (s))
+#define Init_Text(v,s) \
+    Init_Any_Series((v), REB_TEXT, (s))
 
 #define Init_File(v,s) \
     Init_Any_Series((v), REB_FILE, (s))

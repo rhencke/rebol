@@ -213,7 +213,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     //=//// STRING! FOR FUNCTION DESCRIPTION OR PARAMETER NOTE ////////////=//
 
-        if (IS_STRING(item)) {
+        if (IS_TEXT(item)) {
             //
             // Consider `[<with> some-extern "description of that extern"]` to
             // be purely commentary for the implementation, and don't include
@@ -227,11 +227,11 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
             if (IS_BLOCK(DS_TOP)) { // we're in right spot to push notes/title
                 DS_PUSH_TRASH;
-                Init_String(DS_TOP, Copy_String_At_Len(item, -1));
+                Init_Text(DS_TOP, Copy_String_At_Len(item, -1));
             }
             else { // !!! A string was already pushed.  Should we append?
-                assert(IS_STRING(DS_TOP));
-                Init_String(DS_TOP, Copy_String_At_Len(item, -1));
+                assert(IS_TEXT(DS_TOP));
+                Init_Text(DS_TOP, Copy_String_At_Len(item, -1));
             }
 
             if (DS_TOP == DS_AT(dsp_orig + 3))
@@ -294,7 +294,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 typeset = DS_TOP - 1; // volatile if you DS_PUSH!
             }
             else {
-                assert(IS_STRING(DS_TOP)); // !!! are blocks after notes good?
+                assert(IS_TEXT(DS_TOP)); // !!! are blocks after notes good?
 
                 if (IS_BLANK_RAW(DS_TOP - 2)) {
                     //
@@ -371,7 +371,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             DS_PUSH(EMPTY_BLOCK);
         if (IS_BLOCK(DS_TOP))
             DS_PUSH(EMPTY_STRING);
-        assert(IS_STRING(DS_TOP));
+        assert(IS_TEXT(DS_TOP));
 
         // By default allow "all datatypes but function and void".  Note that
         // since void isn't a "datatype" the use of the REB_MAX_VOID bit is for
@@ -717,7 +717,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // slot, the third cell we pushed onto the stack.  Extract it if so.
     //
     if (has_description) {
-        assert(IS_STRING(DS_AT(dsp_orig + 3)));
+        assert(IS_TEXT(DS_AT(dsp_orig + 3)));
         Move_Value(
             CTX_VAR(meta, STD_ACTION_META_DESCRIPTION),
             DS_AT(dsp_orig + 3)
@@ -823,7 +823,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         REBVAL *src = DS_AT(dsp_orig + 3);
         src += 3;
         for (; src <= DS_TOP; src += 3) {
-            assert(IS_STRING(src));
+            assert(IS_TEXT(src));
             if (definitional_return and src == definitional_return + 2)
                 continue;
 

@@ -93,7 +93,7 @@ static void tcc_error_report(void *opaque, const char *msg_utf8)
     UNUSED(opaque);
 
     DECLARE_LOCAL (msg);
-    Init_String(msg, Make_String_UTF8(msg_utf8));
+    Init_Text(msg, Make_String_UTF8(msg_utf8));
     fail (Error_Tcc_Error_Warn_Raw(msg));
 }
 
@@ -103,10 +103,10 @@ static int do_add_path(
     const RELVAL *path,
     int (*add)(TCCState *, const char *)
 ){
-    // Converts FILE! to a local path, or assumes STRING! is already local
+    // Converts FILE! to a local path, or assumes TEXT! is already local
     //
     char *local_utf8 = rebSpellAlloc(
-        "file-to-local/pass/full ensure [file! string!]", const_KNOWN(path),
+        "file-to-local/pass/full ensure [file! text!]", const_KNOWN(path),
         rebEnd()
     );
     int ret = add(state, local_utf8);
@@ -120,10 +120,10 @@ static void do_set_path(
     const RELVAL *path,
     void (*set)(TCCState *, const char *)
 ){
-    // Converts FILE! to a local path, or assumes STRING! is already local
+    // Converts FILE! to a local path, or assumes TEXT! is already local
     //
     char *local_utf8 = rebSpellAlloc(
-        "file-to-local/pass/full ensure [file! string!]", const_KNOWN(path),
+        "file-to-local/pass/full ensure [file! text!]", const_KNOWN(path),
         rebEnd()
     );
     set(state, local_utf8);
@@ -138,7 +138,7 @@ static REBCTX* add_path(
     enum REBOL_Errors err_code
 ) {
     if (path) {
-        if (IS_FILE(path) || IS_STRING(path)) {
+        if (IS_FILE(path) || IS_TEXT(path)) {
             if (do_add_path(state, path, add) < 0)
                 return Error(err_code, path);
         }
@@ -147,7 +147,7 @@ static REBCTX* add_path(
 
             RELVAL *item;
             for (item = VAL_ARRAY_AT(path); NOT_END(item); ++item) {
-                if (not IS_FILE(item) and not IS_STRING(item))
+                if (not IS_FILE(item) and not IS_TEXT(item))
                     return Error(err_code, item);
 
                 if (do_add_path(state, item, add) < 0)
@@ -215,11 +215,11 @@ REB_R Pending_Native_Dispatcher(REBFRM *f) {
 //          "Function value, will be compiled on demand or by COMPILE"
 //      spec [block!]
 //          "The spec of the native"
-//      source [string!]
+//      source [text!]
 //          "C source of the native implementation"
 //      /linkname
 //          "Provide a specific linker name"
-//      name [string!]
+//      name [text!]
 //          "Legal C identifier (default will be auto-generated)"
 //  ]
 //
@@ -254,7 +254,7 @@ REBNATIVE(make_native)
     else {
         // have to copy it (might change before COMPILE is called)
         //
-        Init_String(
+        Init_Text(
             Alloc_Tail_Array(info),
             Copy_String_At_Len(source, -1)
         );
@@ -266,7 +266,7 @@ REBNATIVE(make_native)
         if (Is_Series_Frozen(VAL_SERIES(name)))
             Append_Value(info, name);
         else {
-            Init_String(
+            Init_Text(
                 Alloc_Tail_Array(info),
                 Copy_String_At_Len(name, -1)
             );
@@ -300,7 +300,7 @@ REBNATIVE(make_native)
         }
         TERM_UNI_LEN(ser, len);
 
-        Init_String(Alloc_Tail_Array(info), ser);
+        Init_Text(Alloc_Tail_Array(info), ser);
     }
 
     Init_Blank(Alloc_Tail_Array(info)); // no TCC_State, yet...
@@ -324,7 +324,7 @@ REBNATIVE(make_native)
 //
 //  {Compiles one or more native functions at the same time, with options.}
 //
-//      return: [<opt> string!]
+//      return: [<opt> text!]
 //          {No return value, unless /INSPECT is used to get the processed C}
 //      natives [block!]
 //          {Functions from MAKE-NATIVE or STRING!s of code.}
@@ -337,11 +337,11 @@ REBNATIVE(make_native)
 //          debug
 //              "Add debugging information to the generated code?"
 //          options [any-string!]
-//          runtime-path [file! string!]
-//          library-path [block! file! any-string!]
-//          library [block! file! any-string!]
+//          runtime-path [file! text!]
+//          library-path [block! file! text!]
+//          library [block! file! text!]
 //      }
-//      /inspect {Return the C source code as a strnig, but don't compile it}
+//      /inspect {Return the C source code as text, but don't compile it}
 //  ]
 //
 REBNATIVE(compile)
@@ -398,7 +398,7 @@ REBNATIVE(compile)
 
             case SYM_OPTIONS:
                 ++val;
-                if (not IS_STRING(val)) {
+                if (not IS_TEXT(val)) {
                     DECLARE_LOCAL (option);
                     Derelativize(option, val, specifier);
                     fail (Error_Tcc_Invalid_Options_Raw(option));
@@ -408,7 +408,7 @@ REBNATIVE(compile)
 
             case SYM_RUNTIME_PATH:
                 ++val;
-                if (not (IS_FILE(val) or IS_STRING(val))) {
+                if (not (IS_FILE(val) or IS_TEXT(val))) {
                     DECLARE_LOCAL (path);
                     Derelativize(path, val, specifier);
                     fail (Error_Tcc_Invalid_Library_Path_Raw(path));
@@ -539,7 +539,7 @@ REBNATIVE(compile)
             Append_Utf8_String(mo->series, source, VAL_LEN_AT(source));
             Append_Unencoded(mo->series, "\n}\n\n");
         }
-        else if (IS_STRING(var)) {
+        else if (IS_TEXT(var)) {
             //
             // A string is treated as just a fragment of code.  This allows
             // for writing things like C functions or macros that are shared
@@ -557,7 +557,7 @@ REBNATIVE(compile)
     //
     if (REF(inspect)) {
         DS_DROP_TO(dsp_orig); // don't modify the collected user natives
-        Init_String(D_OUT, Pop_Molded_String(mo));
+        Init_Text(D_OUT, Pop_Molded_String(mo));
         return R_OUT;
     }
 
@@ -659,7 +659,7 @@ REBNATIVE(compile)
         REBVAL *stored_state = KNOWN(VAL_ARRAY_AT_HEAD(info, 2));
 
         char *name_utf8 = rebSpellAlloc(
-            "ensure string!", name,
+            "ensure text!", name,
             rebEnd()
         );
         void *sym = tcc_get_symbol(state, name_utf8);

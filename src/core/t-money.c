@@ -75,7 +75,7 @@ void MAKE_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         Move_Value(out, arg);
         return;
 
-    case REB_STRING: {
+    case REB_TEXT: {
         REBYTE *bp = Analyze_String_For_Scan(NULL, arg, MAX_SCAN_MONEY);
 
         const REBYTE *end;

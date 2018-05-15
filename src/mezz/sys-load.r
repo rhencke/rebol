@@ -104,8 +104,8 @@ load-header: function [
 
     return: "[header OBJECT!, body BINARY!, end] or error WORD!"
         [block! word!]
-    source "Source code (string! will be UTF-8 encoded)"
-        [binary! string!]
+    source "Source code (text! will be UTF-8 encoded)"
+        [binary! text!]
     /only "Only process header, don't decompress body"
     /required "Script header is required"
 
@@ -150,7 +150,7 @@ load-header: function [
         tmp: source
     ]
 
-    if string? source [tmp: to binary! source]
+    if text? source [tmp: to binary! source]
 
     if not data: script? tmp [ ; no script header found
         return either required ['no-header] [
@@ -268,10 +268,10 @@ no-all: construct [all] [all: ()]
 protect 'no-all/all
 
 load: function [
-    {Loads code or data from a file, URL, string, or binary.}
+    {Loads code or data from a file, URL, text string, or binary.}
 
     source "Source or block of sources"
-        [file! url! string! binary! block!]
+        [file! url! text! binary! block!]
     /header "Result includes REBOL header object "
     /all "Load all values (cannot be used with /HEADER)"
     /type "Override default file-type"
@@ -357,7 +357,7 @@ load: function [
         fail ["No" ftype "LOADer found for" type of source]
     ]
 
-    ensure [string! binary!] data
+    ensure [text! binary!] data
 
     if block? data [
         return data ;-- !!! Things break if you don't pass through; review
@@ -376,11 +376,11 @@ load: function [
     ]
 
     ensure [object! blank!] hdr: default [_]
-    ensure [binary! block! string!] data
+    ensure [binary! block! text!] data
 
     ;-- Convert code to block, insert header if requested:
     if not block? data [
-        if string? data [
+        if text? data [
             data: to binary! data ;-- !!! inefficient, might be UTF8
         ]
         assert [binary? data]
@@ -608,7 +608,7 @@ load-module: function [
     {Loads a module and inserts it into the system module list.}
 
     source {Source (file, URL, binary, etc.) or block of sources}
-        [word! file! url! string! binary! module! block!]
+        [word! file! url! text! binary! module! block!]
     /version "Module must be this version or greater"
     ver [tuple!]
     /no-share "Force module to use its own non-shared global namespace"
@@ -669,7 +669,7 @@ load-module: function [
         ; which means making them into BINARY!.
         ;
         binary! [data: source]
-        string! [data: to binary! source]
+        text! [data: to binary! source]
 
         file!
         url! [
@@ -721,7 +721,7 @@ load-module: function [
                     tmp:
                     set name opt set-word!
                     set mod [
-                        word! | module! | file! | url! | string! | binary!
+                        word! | module! | file! | url! | text! | binary!
                     ]
                     set ver opt tuple! (
                         join data [mod ver if name [to word! name]]
@@ -921,7 +921,7 @@ load-module: function [
 import: function [
     {Imports a module; locate, load, make, and setup its bindings.}
 
-    module [word! file! url! string! binary! module! block! tag!]
+    module [word! file! url! text! binary! module! block! tag!]
     /version "Module must be this version or greater"
     ver [tuple!]
     /no-share "Force module to use its own non-shared global namespace"
@@ -1052,10 +1052,10 @@ load-extension: function [
     ]
 
     code: case [
-        string? ext/script [
+        text? ext/script [
             comment [load/header ext/script]
             fail [
-                "Previously the STRING!/BINARY! distinction for EXT/SCRIPT"
+                "Previously the TEXT!/BINARY! distinction for EXT/SCRIPT"
                 "cued LOAD-EXTENSION whether to decompress or not.  But that"
                 "presumed you could take UTF-8 source code and put it in a"
                 "STRING! series.  Until UTF-8 everywhere, STRING!s are all"

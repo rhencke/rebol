@@ -71,7 +71,7 @@ void MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     // All attempts to convert a URL!-flavored IP address failed.  Taking
     // URL! here fixes it, though there are still open questions.
     //
-    if (IS_STRING(arg) || IS_URL(arg)) {
+    if (IS_TEXT(arg) or IS_URL(arg)) {
         REBSIZ size;
         REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_TUPLE);
         if (Scan_Tuple(out, bp, size) != NULL)

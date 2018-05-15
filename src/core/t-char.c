@@ -94,7 +94,7 @@ void MAKE_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         }
         break; }
 
-    case REB_STRING:
+    case REB_TEXT:
         if (VAL_INDEX(arg) >= VAL_LEN_HEAD(arg))
             goto bad_make;
         uni = GET_ANY_CHAR(VAL_SERIES(arg), VAL_INDEX(arg));

@@ -1283,7 +1283,7 @@ REBNATIVE(scan_net_header)
         cp++;
         // Search if word already present:
         for (item = ARR_HEAD(result); NOT_END(item); item += 2) {
-            assert(IS_STRING(item + 1) || IS_BLOCK(item + 1));
+            assert(IS_TEXT(item + 1) || IS_BLOCK(item + 1));
             if (SAME_STR(VAL_WORD_SPELLING(item), name)) {
                 // Does it already use a block?
                 if (IS_BLOCK(item + 1)) {
@@ -1362,7 +1362,7 @@ REBNATIVE(scan_net_header)
                 str = WRITE_CHR(str, *cp++);
         }
         TERM_UNI_LEN(string, len);
-        Init_String(val, string);
+        Init_Text(val, string);
     }
 
     Init_Block(D_OUT, result);

@@ -249,7 +249,7 @@ void* Probe_Core_Debug(
                 Probe_Print_Helper(p, "REBWCHAR-Size Series", file, line);
 
                 DECLARE_LOCAL (value);
-                RESET_VAL_HEADER(value, REB_STRING);
+                RESET_VAL_HEADER(value, REB_TEXT);
                 INIT_VAL_SERIES(value, s);
                 VAL_INDEX(value) = 0;
 

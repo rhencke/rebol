@@ -32,27 +32,27 @@
 [#1459
     (not-equal? #{0141} #{0161})
 ]
-; email! vs. string!
+; email! vs. text!
 ; RAMBO #3518
 (
     a-value: to email! ""
-    equal? a-value to string! a-value
+    equal? a-value to text! a-value
 )
-; email! vs. string! symmetry
+; email! vs. text! symmetry
 (
     a-value: to email! ""
-    equal? equal? to string! a-value a-value equal? a-value to string! a-value
+    equal? equal? to text! a-value a-value equal? a-value to text! a-value
 )
-; file! vs. string!
+; file! vs. text!
 ; RAMBO #3518
 (
     a-value: %""
-    equal? a-value to string! a-value
+    equal? a-value to text! a-value
 )
-; file! vs. string! symmetry
+; file! vs. text! symmetry
 (
     a-value: %""
-    equal? equal? a-value to string! a-value equal? to string! a-value a-value
+    equal? equal? a-value to text! a-value equal? to text! a-value a-value
 )
 ; image! same contents
 (equal? a-value: #[image! [1x1 #{000000}]] a-value)
@@ -101,25 +101,25 @@
 ; No implicit to binary! from integer!
 (not equal? #{00} to integer! #{00})
 (equal? equal? #{00} to integer! #{00} equal? to integer! #{00} #{00})
-; issue! vs. string!
+; issue! vs. text!
 ; RAMBO #3518
-(not-equal? a-value: #a to string! a-value)
+(not-equal? a-value: #a to text! a-value)
 (
     a-value: #a
-    equal? equal? a-value to string! a-value equal? to string! a-value a-value
+    equal? equal? a-value to text! a-value equal? to text! a-value a-value
 )
-; No implicit to binary! from string!
+; No implicit to binary! from text!
 (not equal? a-value: "" to binary! a-value)
 (
     a-value: ""
     equal? equal? a-value to binary! a-value equal? to binary! a-value a-value
 )
-; tag! vs. string!
+; tag! vs. text!
 ; RAMBO #3518
-(equal? a-value: to tag! "" to string! a-value)
+(equal? a-value: to tag! "" to text! a-value)
 (
     a-value: to tag! ""
-    equal? equal? a-value to string! a-value equal? to string! a-value a-value
+    equal? equal? a-value to text! a-value equal? to text! a-value a-value
 )
 (equal? 0.0.0 0.0.0)
 (not equal? 0.0.1 0.0.0)
@@ -426,7 +426,7 @@
 (equal? equal? #"a" 97.0 equal? 97.0 #"a")
 ; char! case
 (equal? #"a" #"A")
-; string! case
+; text! case
 (equal? "a" "A")
 ; issue! case
 (equal? #a #A)

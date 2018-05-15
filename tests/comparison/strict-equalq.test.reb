@@ -17,24 +17,24 @@
 (not strict-equal? #{00} #[bitset! #{00}])
 ; symmetry
 (equal? strict-equal? #[bitset! #{00}] #{00} strict-equal? #{00} #[bitset! #{00}])
-; email versus string
+; email versus text
 (
     a-value: to email! ""
-    not strict-equal? a-value to string! a-value
+    not strict-equal? a-value to text! a-value
 )
 ; symmetry
 (
     a-value: to email! ""
-    equal? strict-equal? to string! a-value a-value strict-equal? a-value to string! a-value
+    equal? strict-equal? to text! a-value a-value strict-equal? a-value to text! a-value
 )
 (
     a-value: %""
-    not strict-equal? a-value to string! a-value
+    not strict-equal? a-value to text! a-value
 )
 ; symmetry
 (
     a-value: %""
-    equal? strict-equal? a-value to string! a-value strict-equal? to string! a-value a-value
+    equal? strict-equal? a-value to text! a-value strict-equal? to text! a-value a-value
 )
 (not strict-equal? #{00} #[image! [1x1 #{00}]])
 ; symmetry
@@ -44,12 +44,12 @@
 (equal? strict-equal? #{00} to integer! #{00} strict-equal? to integer! #{00} #{00})
 (
     a-value: #a
-    not strict-equal? a-value to string! a-value
+    not strict-equal? a-value to text! a-value
 )
 ; symmetry
 (
     a-value: #a
-    equal? strict-equal? a-value to string! a-value strict-equal? to string! a-value a-value
+    equal? strict-equal? a-value to text! a-value strict-equal? to text! a-value a-value
 )
 (not strict-equal? #{} blank)
 ; symmetry
@@ -65,12 +65,12 @@
 )
 (
     a-value: to tag! ""
-    not strict-equal? a-value to string! a-value
+    not strict-equal? a-value to text! a-value
 )
 ; symmetry
 (
     a-value: to tag! ""
-    equal? strict-equal? a-value to string! a-value strict-equal? to string! a-value a-value
+    equal? strict-equal? a-value to text! a-value strict-equal? to text! a-value a-value
 )
 (
     a-value: 0.0.0.0

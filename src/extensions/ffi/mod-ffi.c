@@ -111,7 +111,7 @@ static ffi_abi Abi_From_Word(const REBVAL *word) {
 //      return: [action!]
 //      lib [library!]
 //          {Library DLL that C function lives in (get with MAKE LIBRARY!)}
-//      name [string!]
+//      name [text!]
 //          {Linker name of the C function in the DLL}
 //      ffi-spec [block!]
 //          {Description of what C argument types the C function takes}

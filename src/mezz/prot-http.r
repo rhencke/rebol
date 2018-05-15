@@ -26,7 +26,7 @@ REBOL [
 
 digit: charset [#"0" - #"9"]
 alpha: charset [#"a" - #"z" #"A" - #"Z"]
-idate-to-date: function [date [string!]] [
+idate-to-date: function [date [text!]] [
     either parse date [
         5 skip
         copy day: 2 digit
@@ -160,8 +160,9 @@ http-awake: function [event] [
 ]
 
 make-http-error: func [
-    "Make an error for the HTTP protocol"
-    msg [string! block!]
+    {Make an error for the HTTP protocol}
+
+    msg [text! block!]
     /inf obj
     /otherhost new-url [url!] headers
 ] [
@@ -206,12 +207,12 @@ make-http-error: func [
 ]
 
 make-http-request: func [
-    "Create an HTTP request (returns string!)"
-    method [word! string!] "E.g. GET, HEAD, POST etc."
-    target [file! string!]
-        {In case of string!, no escaping is performed.}
+    return: [binary!]
+    method [word! text!] "E.g. GET, HEAD, POST etc."
+    target [file! text!]
+        {In case of text!, no escaping is performed.}
         {(eg. useful to override escaping etc.). Careful!}
-    headers [block!] "Request headers (set-word! string! pairs)"
+    headers [block!] "Request headers (set-word! text! pairs)"
     content [any-string! binary! blank!]
         {Request contents (Content-Length is created automatically).}
         {Empty string not exactly like blank.}
@@ -257,7 +258,7 @@ do-request: func [
     write port/state/connection
     req: make-http-request spec/method any [spec/path %/]
     spec/headers spec/content
-    net-log/C to string! req
+    net-log/C to text! req
 ]
 
 ; if a no-redirect keyword is found in the write dialect after 'headers then 302 redirects will not be followed
@@ -291,7 +292,7 @@ check-response: function [port] [
         d1: find conn/data crlfbin
         d2: find/tail d1 crlf2bin
     ] then [
-        info/response-line: line: to string! copy/part conn/data d1
+        info/response-line: line: to text! copy/part conn/data d1
 
         ; !!! In R3-Alpha, CONSTRUCT/WITH allowed passing in data that could
         ; be a STRING! or a BINARY! which would be interpreted as an HTTP/SMTP
@@ -318,7 +319,7 @@ check-response: function [port] [
             print "Dumping Webserver headers and body"
             net-log/S info
             trap/with [
-                body: to string! conn/data
+                body: to text! conn/data
                 dump body
             ][
                 print unspaced [
@@ -490,7 +491,7 @@ check-response: function [port] [
 ]
 crlfbin: #{0D0A}
 crlf2bin: #{0D0A0D0A}
-crlf2: to string! crlf2bin
+crlf2: to text! crlf2bin
 http-response-headers: context [
     Content-Length: _
     Transfer-Encoding: _
@@ -499,7 +500,7 @@ http-response-headers: context [
 
 do-redirect: func [
     port [port!]
-    new-uri [url! string! file!]
+    new-uri [url! text! file!]
     headers
     <local> spec state
 ][
@@ -558,7 +559,7 @@ check-data: function [port] [
                     ; The chunk size is in the byte stream as ASCII chars
                     ; forming a hex string.  ISSUE! can decode that.
                     chunk-size: (
-                        to-integer/unsigned to issue! to string! chunk-size
+                        to-integer/unsigned to issue! to text! chunk-size
                     )
 
                     either chunk-size = 0 [
@@ -684,7 +685,7 @@ sys/make-scheme [
             port [port!]
             value
         ][
-            if not match [block! binary! string!] :value [
+            if not match [block! binary! text!] :value [
                 value: form :value
             ]
             if not block? value [

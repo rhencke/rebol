@@ -179,7 +179,7 @@ void TO_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             )
         );
     }
-    else if (IS_STRING(arg)) {
+    else if (IS_TEXT(arg)) {
         //
         // `to block! "some string"` historically scans the source, so you
         // get an unbound code array.  Because the string may contain REBUNI

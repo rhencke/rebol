@@ -197,7 +197,7 @@ emit-proto: proc [proto] [
 
 process: func [file] [
     data: read the-file: file
-    data: to-string data
+    data: to-text data
 
     proto-parser/emit-proto: :emit-proto
     proto-parser/process data
@@ -363,7 +363,7 @@ e-table/emit-line "};"
 
 e-table/write-emitted
 
-arg-to-js: func [s [string!]][
+arg-to-js: func [s [text!]][
     return case [
         parse s [thru "char" some space "*" to end] ["'string'"]
         find s "*" ["'number'"]

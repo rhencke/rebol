@@ -144,7 +144,7 @@ static void reverse_string(REBVAL *v, REBCNT len)
         }
 
         DECLARE_LOCAL (temp);
-        Init_String(temp, Pop_Molded_String(mo));
+        Init_Text(temp, Pop_Molded_String(mo));
 
         // Effectively do a CHANGE/PART to overwrite the reversed portion of
         // the string (from the input value's index to the tail).
@@ -353,7 +353,7 @@ static REBSER *make_binary(const REBVAL *arg, REBOOL make)
         break;
 
     // MAKE/TO BINARY! <any-string>
-    case REB_STRING:
+    case REB_TEXT:
     case REB_FILE:
     case REB_EMAIL:
     case REB_URL:
@@ -410,7 +410,7 @@ void MAKE_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *def) {
 
     if (IS_INTEGER(def)) {
         //
-        // !!! R3-Alpha tolerated decimal, e.g. `make string! 3.14`, which
+        // !!! R3-Alpha tolerated decimal, e.g. `make text! 3.14`, which
         // is semantically nebulous (round up, down?) and generally bad.
         //
         if (kind == REB_BINARY)
@@ -1122,7 +1122,7 @@ void MF_String(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         Pre_Mold(mo, v); // e.g. #[file! part
 
         DECLARE_LOCAL (head);
-        RESET_VAL_HEADER(head, REB_STRING);
+        RESET_VAL_HEADER(head, REB_TEXT);
         head->payload.any_series.series = VAL_SERIES(v);
         VAL_INDEX(head) = 0;
 
@@ -1144,8 +1144,8 @@ void MF_String(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         return;
     }
 
-    switch(VAL_TYPE(v)) {
-    case REB_STRING:
+    switch (VAL_TYPE(v)) {
+    case REB_TEXT:
         Mold_String_Series(mo, v);
         break;
 
@@ -1294,10 +1294,10 @@ REBTYPE(String)
                 len = VAL_LEN_AT(arg);
         }
         else {
-            if (IS_CHAR(arg) || IS_BITSET(arg))
+            if (IS_CHAR(arg) or IS_BITSET(arg))
                 len = 1;
             else {
-                if (!IS_STRING(arg)) {
+                if (not IS_TEXT(arg)) {
                     //
                     // !! This FORM creates a temporary value that is handed
                     // over to the GC.  Not only could the temporary value be
@@ -1306,7 +1306,7 @@ REBTYPE(String)
                     // to create an entire series just for the delimiters.
                     //
                     REBSER *copy = Copy_Form_Value(arg, 0);
-                    Init_String(arg, copy);
+                    Init_Text(arg, copy);
                 }
                 len = VAL_LEN_AT(arg);
             }

@@ -59,7 +59,7 @@ void MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         return;
     }
 
-    if (IS_STRING(arg)) {
+    if (IS_TEXT(arg)) {
         //
         // -1234567890x-1234567890
         //

@@ -118,7 +118,7 @@ finish-init-core: proc [
         ])
 
         unless*: (redescribe [ ;-- enfixed below
-            {Same as UNLESS/TRY (right hand side being BLANK! overrides the left)}
+            {Same as UNLESS/TRY (right side being BLANK! overrides the left)}
         ](
             specialize 'unless [try: true]
         ))])
@@ -144,6 +144,60 @@ finish-init-core: proc [
                 ]
             ]
         ])
+
+        ; Ren-C has standardized on one type of "invokable", which is ACTION!.
+        ; For the rationale, see: https://forum.rebol.info/t/596
+        ;
+        ; These FUNCTION! synonyms are kept working since they aren't needed
+        ; for other purposes, but new code should not use them.
+        ;
+        any-function!: (ensure datatype! action!)
+        function!: (ensure datatype! action!)
+        any-function?: (ensure action! :action?)
+        function?: (ensure action! :action?)
+
+        ; Ren-C is also unifying the various ANY-WORD! types with ANY-STRING!
+        ; types.  String is a great name for the abstract category, so it's
+        ; not a good name for a concrete type member.  TEXT! is the new name.
+        ; See: https://forum.rebol.info/t/text-vs-string/612
+        ;
+        string!: (ensure datatype! text!)
+        string?: (ensure action! :text?)
+        to-string: (specialize 'to [type: text!]) ;-- mezz hasn't run yet
+
+        ; Ren-C *prefers* the use of GROUP! to PAREN!, both legal for now.
+        ; https://trello.com/c/ANlT44nH
+        ;
+        paren!: (ensure datatype! group!)
+        paren?: (ensure action! :group?)
+        to-paren: (specialize 'to [type: group!]) ;-- mezz hasn't run yet
+
+        ; Typesets containing ANY- helps signal they are not concrete types
+        ; https://trello.com/c/d0Nw87kp
+        ;
+        number!: (ensure typeset! any-number!)
+        number?: (ensure action! :any-number?)
+        scalar!: (ensure typeset! any-scalar!)
+        scalar?: (ensure action! :any-scalar?)
+        series!: (ensure typeset! any-series!)
+        series?: (ensure action! :any-series?)
+
+        ; ANY-VALUE!, vs e.g. "ANY-DATATYPE!" https://trello.com/c/1jTJXB0d
+        ;
+        any-type!: (ensure typeset! any-value!)
+
+        ; In user code and in the C code, good to avoid BLOCK! vs. ANY-BLOCK!
+        ; https://trello.com/c/lCSdxtux
+        ;
+        any-block!: (ensure typeset! any-array!)
+        any-block?: (ensure action! :any-array?)
+
+        ; Similar to the BLOCK!/ANY-BLOCK! problem in understanding the inside
+        ; and outside of the system, ANY-CONTEXT! is better for the superclass
+        ; of OBJECT!, ERROR!, PORT!, FRAME!, MODULE!...
+        ;
+        any-object!: (ensure typeset! any-context!)
+        any-object?: (ensure action! :any-context?)
     ]
 
     comment [

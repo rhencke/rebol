@@ -7,7 +7,7 @@ if #{EFBBBF} = to binary! copy/part cnt 3 [ ;UTF8 BOM
     cnt: skip cnt 3
 ]
 
-;cnt: to string! cnt
+;cnt: to text! cnt
 ;print ["string cnt BOM:" mold copy/part cnt 3]
 
 iso-639-table: make map! 1024
@@ -40,7 +40,7 @@ parse cnt [
         "|" copy name to "|" (
             if code-2 [
                 append iso-639-table compose [
-                    (to string! code-2) (to string! name)
+                    (to text! code-2) (to text! name)
                 ]
             ]
         )
@@ -53,7 +53,7 @@ parse cnt [
     ]
 ]
 
-init-code: to string! read init
+init-code: to text! read init
 space: charset " ^-^M^/"
 iso-639-table-cnt: find mold iso-639-table #"["
 parse init-code [

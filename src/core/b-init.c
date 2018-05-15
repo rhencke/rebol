@@ -810,7 +810,7 @@ static void Init_Root_Vars(void)
     REBSER *nulled_uni = Make_Unicode(1);
     assert(CHR_CODE(UNI_AT(nulled_uni, 0)) == '\0');
     assert(UNI_LEN(nulled_uni) == 0);
-    Root_Empty_String = Init_String(Alloc_Value(), nulled_uni);
+    Root_Empty_String = Init_Text(Alloc_Value(), nulled_uni);
     rebLock(Root_Empty_String, END);
 
     Root_Space_Char = rebChar(' ');

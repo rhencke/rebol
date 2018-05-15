@@ -143,8 +143,8 @@ secure: function [
                 ; file [allow read quit write]
                 block? pol [
                     for-each [item pol] pol [
-                        if binary? item [item: to-string item] ; utf-8 decode
-                        if string? item [item: local-to-file item]
+                        if binary? item [item: to-text item] ; utf-8 decode
+                        if text? item [item: local-to-file item]
                         join out [item word-policy pol]
                     ]
                 ]

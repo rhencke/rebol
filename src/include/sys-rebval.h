@@ -35,7 +35,7 @@
 //
 // Of the four 32-or-64-bit slots that each value has, the first is used for
 // the value's "Header".  This includes the data type, such as REB_INTEGER,
-// REB_BLOCK, REB_STRING, etc.  Then there are flags which are for general
+// REB_BLOCK, REB_TEXT, etc.  Then there are flags which are for general
 // purposes that could apply equally well to any type of value (including
 // whether the value should have a new-line after it when molded out inside
 // of a block).  Followed by that are bits which are custom to each type (for

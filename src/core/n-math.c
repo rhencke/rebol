@@ -524,7 +524,7 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
             if (ANY_WORD(b)) goto compare;
             break;
 
-        case REB_STRING:
+        case REB_TEXT:
         case REB_FILE:
         case REB_EMAIL:
         case REB_URL:

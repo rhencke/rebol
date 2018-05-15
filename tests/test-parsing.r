@@ -120,7 +120,7 @@ make object! [
                         if blank? type [
                             fail [
                                 {Scanning failed at line/col} text-location-of t1
-                                {near} mold copy/part to string! t1 80
+                                {near} mold copy/part to text! t1 80
                             ]
                         ]
                         do-scanned
@@ -192,7 +192,7 @@ make object! [
                 types/cmt: [
 
                     ; Extract issues encoded within comments.
-                    txt: trim/head/tail to string! copy/part d1 d2
+                    txt: trim/head/tail to text! copy/part d1 d2
                     if find txt "#" [
                         ids: copy []
                         if parse txt [
@@ -264,7 +264,7 @@ make object! [
 
         render: function [tokens][
             clear output
-            parse tokens [thru 'eol set eol [string! | char!]]
+            parse tokens [thru 'eol set eol [text! | char!]]
             for-each [type val] tokens [
                 switch/default type [
                     'eol 'wsp [emit val]
@@ -352,7 +352,7 @@ make object! [
         tokens: tokenise-original-tests test-source
         for i 2 length of tokens 2 [
             if not block? tk: pick tokens i [
-                poke tokens i to string! pick tokens i
+                poke tokens i to text! pick tokens i
             ]
         ]
 
@@ -445,8 +445,16 @@ make object! [
 
         grouped-tests: [
             "[" (type: in types 'grpb) emit-token
-            any [any-wsp single-value if (issue? value) (type: in types 'isu) emit-token]
-            opt [any-wsp single-value if (string? value) (type: in types 'str) emit-token]
+            any [
+                any-wsp single-value
+                if (issue? value) (type: in types 'isu)
+                emit-token
+            ]
+            opt [
+                any-wsp single-value
+                if (text? value) (type: in types 'str)
+                emit-token
+            ]
             any [any-wsp single-test emit-token]
             any-wsp "]" (type: in types 'grpe) emit-token
         ]
@@ -478,8 +486,13 @@ make object! [
         ]
 
         emit-token: [
-            token-end:
-;;            (prin "emit: " probe compose [(type) (to string! copy/part position token-end)])
+            token-end: (
+                comment [
+                    prin "emit: " probe compose [
+                        (type) (to text! copy/part position token-end)
+                    ]
+                ]
+            )
             position: (type: value: _)
         ]
 

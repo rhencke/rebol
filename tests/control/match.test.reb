@@ -17,9 +17,9 @@
 (10 = match integer! 10)
 (_ = match integer! "ten")
 
-("ten" = match [integer! string!] "ten")
-(20 = match [integer! string!] 20)
-(_ = match [integer! string!] <tag>)
+("ten" = match [integer! text!] "ten")
+(20 = match [integer! text!] 20)
+(_ = match [integer! text!] <tag>)
 
 (10 = match :even? 10)
 (_ = match :even? 3)

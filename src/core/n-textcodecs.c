@@ -166,7 +166,7 @@ REBNATIVE(identify_text_q)
 //
 //  {Codec for decoding BINARY! data for a .TXT file}
 //
-//      return: [string!]
+//      return: [text!]
 //      data [binary!]
 //  ]
 //
@@ -184,7 +184,7 @@ REBNATIVE(decode_text)
     // is to UTF-8 for source code, a .TXT file is a different beast, so
     // having wider format support might be a good thing.
 
-    Init_String(D_OUT, Make_String_UTF8(cs_cast(VAL_BIN_AT(ARG(data)))));
+    Init_Text(D_OUT, Make_String_UTF8(cs_cast(VAL_BIN_AT(ARG(data)))));
     return R_OUT;
 }
 
@@ -195,7 +195,7 @@ REBNATIVE(decode_text)
 //  {Codec for encoding a .TXT file}
 //
 //      return: [binary!]
-//      string [string!]
+//      string [text!]
 //  ]
 //
 REBNATIVE(encode_text)
@@ -272,7 +272,7 @@ static void Decode_Utf16_Core(
         size = -size;
     TERM_UNI_LEN(ser, size);
 
-    Init_String(out, ser);
+    Init_Text(out, ser);
 }
 
 
@@ -305,7 +305,7 @@ REBNATIVE(identify_utf16le_q)
 //
 //  {Codec for decoding BINARY! data for a little-endian UTF16 file}
 //
-//      return: [string!]
+//      return: [text!]
 //      data [binary!]
 //  ]
 //
@@ -339,7 +339,7 @@ REBNATIVE(decode_utf16le)
 //  {Codec for encoding a little-endian UTF16 file}
 //
 //      return: [binary!]
-//      string [string!]
+//      text [text!]
 //  ]
 //
 REBNATIVE(encode_utf16le)
@@ -352,8 +352,8 @@ REBNATIVE(encode_utf16le)
     const REBOOL little_endian = TRUE;
     Encode_Utf16_Core(
         D_OUT,
-        VAL_UNI_AT(ARG(string)),
-        VAL_LEN_AT(ARG(string)),
+        VAL_UNI_AT(ARG(text)),
+        VAL_LEN_AT(ARG(text)),
         little_endian
     );
     return R_OUT;
@@ -390,7 +390,7 @@ REBNATIVE(identify_utf16be_q)
 //
 //  {Codec for decoding BINARY! data for a big-endian UTF16 file}
 //
-//      return: [string!]
+//      return: [text!]
 //      data [binary!]
 //  ]
 //
@@ -424,7 +424,7 @@ REBNATIVE(decode_utf16be)
 //  {Codec for encoding a big-endian UTF16 file}
 //
 //      return: [binary!]
-//      string [string!]
+//      text [text!]
 //  ]
 //
 REBNATIVE(encode_utf16be)
@@ -438,8 +438,8 @@ REBNATIVE(encode_utf16be)
 
     Encode_Utf16_Core(
         D_OUT,
-        VAL_UNI_AT(ARG(string)),
-        VAL_LEN_AT(ARG(string)),
+        VAL_UNI_AT(ARG(text)),
+        VAL_LEN_AT(ARG(text)),
         little_endian
     );
     return R_OUT;

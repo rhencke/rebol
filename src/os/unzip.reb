@@ -23,7 +23,7 @@ REBOL [
         a block of files:
             zip %new-zip.zip [%file-1.txt %file-2.exe]
 
-        a block of data (binary!/string!) and files:
+        a block of data (binary!/text!) and files:
             zip %new-zip.zip [%my-file "my data"]
 
         a entire directory:
@@ -54,7 +54,7 @@ REBOL [
 ctx-zip: context [
     crc-32: func [
         "Returns a CRC32 checksum."
-        data [any-string! binary!] "Data to checksum"
+        data [text! binary!] "Data to checksum"
     ][
         copy skip to binary! checksum/method data 'crc32 4
     ]
@@ -88,14 +88,14 @@ ctx-zip: context [
 
     get-ishort: func [
         "Converts a little-endian short to an integer."
-        value [any-string! binary! port!] "AnyValue to convert"
+        value [binary! port!] "AnyValue to convert"
     ][
         to integer! reverse copy/part value 2
     ]
 
     get-ilong: func [
         "Converts a little-endian long to an integer."
-        value [any-string! binary! port!] "AnyValue to convert"
+        value [binary! port!] "AnyValue to convert"
     ][
         to integer! reverse copy/part value 4
     ]
@@ -119,7 +119,7 @@ ctx-zip: context [
 
     get-msdos-time: func [
         "Converts from a msdos time."
-        value [any-string! binary! port!]
+        value [binary! port!]
     ][
         value: get-ishort value
         to time! reduce [
@@ -131,7 +131,7 @@ ctx-zip: context [
 
     get-msdos-date: func [
         "Converts from a msdos date."
-        value [any-string! binary! port!]
+        value [binary! port!]
     ][
         value: get-ishort value
         to date! reduce [
@@ -237,7 +237,7 @@ ctx-zip: context [
         {Builds a zip archive from a file or block of files.}
         return: [integer!]
             {Number of entries in archive.}
-        where [file! url! binary! string!]
+        where [file! url! binary! text!]
             "Where to build it"
         source [file! url! block!]
             "Files to include in archive"
@@ -326,9 +326,9 @@ ctx-zip: context [
 
     unzip: function [
         {Decompresses a zip archive with to a directory or a block.}
-        where  [file! url! any-block!]
+        where  [file! url! any-array!]
             "Where to decompress it"
-        source [file! url! any-string! binary!]
+        source [file! url! binary!]
             "Archive to decompress (only STORE and DEFLATE methods supported)"
         /verbose
             "Lists files while decompressing (default)"
@@ -433,7 +433,7 @@ ctx-zip: context [
                         num-errors: me + 1
                     ]
 
-                    either any-block? where [
+                    either any-array? where [
                         where: insert where name
                         where: insert where either all [
                             #"/" = last name

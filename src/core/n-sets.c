@@ -224,7 +224,7 @@ REBSER *Make_Set_Operation_Series(
                     )
                 ){
                     DECLARE_LOCAL (temp);
-                    Init_Any_Series_At(temp, REB_STRING, ser, i);
+                    Init_Any_Series_At(temp, REB_TEXT, ser, i);
                     Append_Utf8_String(mo->series, temp, skip);
                 }
             }

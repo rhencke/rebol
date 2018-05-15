@@ -14,7 +14,7 @@ capitalize: func [
     n
 ][
     ret: copy ""
-    words: split to string! n " "
+    words: split to text! n " "
     spaced [
         map-each w words [
             case [
@@ -40,7 +40,7 @@ parse cnt [
         copy name to ";"
         ";" copy code-2 to "^/" (
             append iso-3166-table pair: compose [
-                (to string! code-2) (to string! capitalize name)
+                (to text! code-2) (to text! capitalize name)
             ]
         )
 
@@ -48,7 +48,7 @@ parse cnt [
     ]
 ]
 
-init-code: to string! read init
+init-code: to text! read init
 space: charset " ^-^M^/"
 iso-3166-table-cnt: find mold iso-3166-table #"["
 parse init-code [

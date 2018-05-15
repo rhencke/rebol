@@ -42,7 +42,7 @@
     for i x tail of x 1 [continue success: false]
     success
 )
-; string! test
+; text! test
 (
     out: copy ""
     for i s: "abc" back tail of s 1 [append out i]

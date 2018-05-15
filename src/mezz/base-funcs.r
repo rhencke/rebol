@@ -140,7 +140,7 @@ make-action: func [
                 append new-spec var
             )
         |
-            set other: [block! | string!] (
+            set other: [block! | text!] (
                 append/only new-spec other ;-- spec notes or data type blocks
             )
         ]
@@ -195,7 +195,7 @@ make-action: func [
         <with> any [
             set other: [word! | path!] (append exclusions other)
         |
-            string! ;-- skip over as commentary
+            text! ;-- skip over as commentary
         ]
     |
         <static> (
@@ -298,7 +298,7 @@ dig-action-meta-fields: function [value [action!]] [
     ]
 
     return construct system/standard/action-meta [
-        description: opt ensure [string! blank!] any [
+        description: ensure* text! opt any [
             try select meta 'description
             all [fields | copy fields/description]
         ]
@@ -316,18 +316,18 @@ dig-action-meta-fields: function [value [action!]] [
             ]
             :temp
         )
-        return-note: opt ensure [string! blank!] any [
+        return-note: ensure* text! opt any [
             try select meta 'return-note
             all [try get 'fields/return-note | copy fields/return-note]
         ]
-        parameter-types: opt ensure [frame! blank!] any [
+        parameter-types: ensure* frame! opt any [
             try select meta 'parameter-types
             all [
                 try get 'fields/parameter-types
                 inherit-frame :fields/parameter-types
             ]
         ]
-        parameter-notes: opt ensure [frame! blank!] any [
+        parameter-notes: ensure* frame! opt any [
             try select meta 'parameter-notes
             all [
                 try get 'fields/parameter-notes
@@ -398,7 +398,7 @@ redescribe: function [
 
     if not parse spec [
         opt [
-            set description: string! (
+            set description: text! (
                 either all [equal? description {} | not meta] [
                     ; No action needed (no meta to delete old description in)
                 ][
@@ -417,7 +417,7 @@ redescribe: function [
             ; But if {} is given as the notes, that's seen as a request
             ; to delete a note.
             ;
-            opt [[set note: string!] (
+            opt [[set note: text!] (
                 on-demand-meta
                 either equal? param (quote return:) [
                     meta/return-note: all [
@@ -736,7 +736,7 @@ arity-of: function [
 
 nfix?: function [
     n [integer!]
-    name [string!]
+    name [text!]
     source [any-word! any-path!]
 ][
     case [
@@ -1053,12 +1053,11 @@ cause-error: func [
 fail: function [
     {Interrupts execution by reporting an error (a TRAP can intercept it).}
 
-    reason [error! string! block!]
-        "ERROR! value, message string, or failure spec"
-    /where
-        "Specify an originating location other than the FAIL itself"
-    location [frame! any-word!]
-        "Frame or parameter at which to indicate the error originated"
+    reason "ERROR! value, message text, or failure spec"
+        [error! text! block!]
+    /where "Specify an originating location other than the FAIL itself"
+    location "Frame or parameter at which to indicate the error originated"
+        [frame! any-word!]
 ][
     ; Ultimately we might like FAIL to use some clever error-creating dialect
     ; when passed a block, maybe something like:
@@ -1072,10 +1071,10 @@ fail: function [
     ;
     ;     fail/with [{The key} :key-name {is invalid}] [key-name: key]
     ;
-    error: case [
-        error? reason [reason]
-        string? reason [make error! reason]
-        block? reason [make error! spaced reason]
+    error: switch type of reason [
+        error! [reason]
+        text! [make error! reason]
+        block! [make error! spaced reason]
     ]
 
     all [

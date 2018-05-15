@@ -452,7 +452,7 @@ static REBIXO Parse_String_One_Rule(REBFRM *f, const RELVAL *rule) {
         return END_FLAG;
 
     case REB_EMAIL:
-    case REB_STRING:
+    case REB_TEXT:
     case REB_BINARY: {
         REBCNT index = Find_Str_Str(
             P_INPUT,
@@ -1037,7 +1037,7 @@ static REBIXO To_Thru_Non_Block_Rule(
     //=//// PARSE INPUT IS A STRING OR BINARY, USE A FIND ROUTINE /////////=//
 
     if (ANY_BINSTR(rule)) {
-        if (not IS_STRING(rule) and not IS_BINARY(rule)) {
+        if (not IS_TEXT(rule) and not IS_BINARY(rule)) {
             // !!! Can this be optimized not to use COPY?
             REBSER *formed = Copy_Form_Value(rule, 0);
             REBCNT form_len = SER_LEN(formed);
@@ -2316,8 +2316,8 @@ REBNATIVE(subparse)
 //
 //      input [any-series!]
 //          "Input series to parse (default result for successful match)"
-//      rules [block! string! blank!]
-//          "Rules to parse by (STRING! and BLANK!/none! are deprecated)"
+//      rules [block! text! blank!]
+//          "Rules to parse by (TEXT! and BLANK!/none! are deprecated)"
 //      /case
 //          "Uses case-sensitive comparison"
 //  ]
@@ -2328,7 +2328,7 @@ REBNATIVE(parse)
 
     REBVAL *rules = ARG(rules);
 
-    if (IS_BLANK(rules) || IS_STRING(rules)) {
+    if (IS_BLANK(rules) or IS_TEXT(rules)) {
         //
         // !!! R3-Alpha supported "simple parse", which was cued by the rules
         // being either NONE! or a STRING!.  Though this functionality does

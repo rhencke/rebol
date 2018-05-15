@@ -456,7 +456,7 @@ for-each-system: function [
             [
                 quote _ (build-label: _)
                     |
-                set build-label string! (
+                set build-label text! (
                     build-label: to-word build-label
                 )
             ]
@@ -464,13 +464,13 @@ for-each-system: function [
                 definitions: map-each x definitions [to-word x]
             )
             copy cflags [any tag!] (
-                cflags: map-each x cflags [to-word to-string x]
+                cflags: map-each x cflags [to-word to-text x]
             )
             copy ldflags [any refinement!] (
                 ldflags: map-each x ldflags [to-word x]
             )
             copy libraries [any file!] (
-                libraries: map-each x libraries [to-word to-string x]
+                libraries: map-each x libraries [to-word to-text x]
             )
 
             (
@@ -496,9 +496,9 @@ use [
             | any [word? build-label | blank? build-label]
             | tuple? id
             | id/1 = 0 | id/2 = platform-number
-            | (to-string os-name) == (lowercase to-string os-name)
-            | (to-string os-base) == (lowercase to-string os-base)
-            | not find (to-string os-base) charset [#"-" #"_"]
+            | (to-text os-name) == (lowercase to-text os-name)
+            | (to-text os-base) == (lowercase to-text os-base)
+            | not find (to-text os-base) charset [#"-" #"_"]
             | block? definitions
             | block? cflags
             | block? libraries
@@ -545,28 +545,19 @@ use [
 
 config-system: function [
     {Return build configuration information}
-    hint [blank! string! tuple!]
+    hint [blank! text! tuple!]
         {Version ID (blank means guess)}
 ][
-    version: case [
-        blank? hint [
-            ;
-            ; Try same version as this r3-make was built with
-            ;
+    version: switch type-of hint [
+        blank! [ ;-- Try same version as this r3-make was built with
             to tuple! reduce [0 system/version/4 system/version/5]
         ]
-        string? hint [
-            load hint
-        ]
-        tuple? hint [
-            hint
-        ]
+        text! [load hint]
+        tuple! [hint]
     ]
 
     if not tuple? version [
-        fail [
-            "Expected OS_ID tuple like 0.3.1, not:" version
-        ]
+        fail ["Expected OS_ID tuple like 0.3.1, not:" version]
     ]
 
     result: _

@@ -403,7 +403,7 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
             SET_GOB_TYPE(gob, GOBT_TEXT);
             GOB_CONTENT(gob) = VAL_SERIES(val);
         }
-        else if (IS_STRING(val)) {
+        else if (IS_TEXT(val)) {
             SET_GOB_TYPE(gob, GOBT_STRING);
             GOB_CONTENT(gob) = VAL_SERIES(val);
         }
@@ -460,7 +460,7 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
             SET_GOB_DTYPE(gob, GOBD_BLOCK);
             SET_GOB_DATA(gob, VAL_SERIES(val));
         }
-        else if (IS_STRING(val)) {
+        else if (IS_TEXT(val)) {
             SET_GOB_DTYPE(gob, GOBD_STRING);
             SET_GOB_DATA(gob, VAL_SERIES(val));
         }
@@ -545,7 +545,7 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
             Init_Block(val, ARR(GOB_CONTENT(gob)));
         }
         else if (GOB_TYPE(gob) == GOBT_STRING) {
-            Init_String(val, GOB_CONTENT(gob));
+            Init_Text(val, GOB_CONTENT(gob));
         }
         else
             return FALSE;
@@ -594,7 +594,7 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
             Init_Block(val, ARR(GOB_DATA(gob)));
         }
         else if (GOB_DTYPE(gob) == GOBD_STRING) {
-            Init_String(val, GOB_DATA(gob));
+            Init_Text(val, GOB_DATA(gob));
         }
         else if (GOB_DTYPE(gob) == GOBD_BINARY) {
             Init_Binary(val, GOB_DATA(gob));

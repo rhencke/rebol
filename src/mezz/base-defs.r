@@ -218,7 +218,7 @@ eval proc [
     refinement?:
     issue?:
     binary?:
-    string?:
+    text?:
     file?:
     email?:
     url?:

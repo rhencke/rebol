@@ -42,7 +42,7 @@ script-pre-load-hook: _
 do*: function [
     {SYS: Called by system for DO on datatypes that require special handling.}
     return: [<opt> any-value!]
-    source [file! url! string! binary! tag!]
+    source [file! url! text! binary! tag!]
         {Files, urls and modules evaluate as scripts, other strings don't.}
     arg [<opt> any-value!]
         "Args passed as system/script/args to a script (normally a string)"
@@ -132,7 +132,7 @@ do*: function [
     hdr: ensure [object! blank!] take code
     is-module: 'module = select hdr 'type
 
-    either all [string? source | not is-module] [
+    if text? source and (not is-module) [
         ;
         ; Return result without "script overhead" (e.g. don't change the
         ; working directory to the base of the file path supplied)
@@ -148,7 +148,7 @@ do*: function [
             ;
             do/next code :var ;-- If var is void, /NEXT is revoked
         ] :finalizer
-    ][
+    ] else [
         ; Otherwise we are in script mode.  When we run a script, the
         ; "current" directory is changed to the directory of that script.
         ; This way, relative path lookups to find dependent files will look

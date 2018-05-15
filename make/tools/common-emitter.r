@@ -35,9 +35,9 @@ REBOL [
 cscape: function [
     "Escape Rebol expressions in templated C source, optionally changing case"
 
-    return: [string!]
+    return: [text!]
         "New string, ${...} TO-C-NAME, $(...) UNSPACED"
-    template [string!]
+    template [text!]
         "${Expr} result left alone, ${expr} lowercased, ${EXPR} is uppercased"
     /with
         "Lookup var words in additional context (besides user context)"
@@ -101,7 +101,7 @@ boot-version: load %../../src/boot/version.r
 make-emitter: function [
     {Create a buffered output text file emitter}
 
-    title [string!]
+    title [text!]
         {Title to be placed in the comment header (header matches file type)}
     file [file!]
         {Filename to be emitted... .r/.reb/.c/.h/.inc files supported}
@@ -134,7 +134,7 @@ make-emitter: function [
         ;
         ; !!! Should the allocation size be configurable?
         ;
-        buf-emit: make string! 32000
+        buf-emit: make text! 32000
 
         file: (file)
         title: (title)
@@ -143,7 +143,7 @@ make-emitter: function [
             {Write data to the emitter using CSCAPE templating (see HELP)}
 
             :look [any-value! <...>]
-            data [string! char! block! <...>]
+            data [text! char! block! <...>]
                 {If a BLOCK!, then it's output as a line, otherwise as-is}
         ][
             context: ()
@@ -152,18 +152,18 @@ make-emitter: function [
             ]
 
             data: take data
-            case [
-                block? data [
+            switch type-of data [
+                block! [
                     if 1 <> length-of data [
                         dump data
                         fail "1-item BLOCK! to emit means newline, only"
                     ]
                     emit-line cscape/with first data :context
                 ]
-                string? data [
+                text! [
                     adjoin buf-emit cscape/with data :context
                 ]
-                char? data [
+                char! [
                     adjoin buf-emit data
                 ]
             ]
@@ -238,7 +238,7 @@ make-emitter: function [
 
         emit-annotation: procedure [
             {Comment using "/**/" (chosen over "//" to cue code is generated)}
-            note [word! string! integer!]
+            note [word! text! integer!]
                 {Note to add to the end of the last line emitted.}
         ][
             unemit newline

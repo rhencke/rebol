@@ -33,7 +33,7 @@ make object! compose [
 
     process-vector: procedure [
         flags [block!]
-        source [string!]
+        source [text!]
     ][
         log [source]
 
@@ -88,12 +88,12 @@ make object! compose [
         parse test-sources [
             any [
                 set flags: block! set value: skip (
-                    emit-test flags to string! value
+                    emit-test flags to text! value
                 )
                     |
                 set value: file! (log ["^/" mold value "^/^/"])
                     |
-                'dialect set value: string! (
+                'dialect set value: text! (
                     log [value]
                     set 'dialect-failures (dialect-failures + 1)
                 )

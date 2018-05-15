@@ -234,7 +234,7 @@ void MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         Move_Value(out, arg);
         return;
 
-    case REB_STRING: { // scan using same decoding as LOAD would
+    case REB_TEXT: { // scan using same decoding as LOAD would
         REBSIZ size;
         REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_TIME);
 

@@ -420,7 +420,7 @@ REBARR *Split_Lines(const REBVAL *str)
     while (i != len) {
         if (c == LF or c == CR) {
             DS_PUSH_TRASH;
-            Init_String(
+            Init_Text(
                 DS_TOP,
                 Copy_Sequence_At_Len(
                     s,
@@ -455,7 +455,7 @@ REBARR *Split_Lines(const REBVAL *str)
 
     if (AS_REBUNI(up) > AS_REBUNI(start)) {
         DS_PUSH_TRASH;
-        Init_String(
+        Init_Text(
             DS_TOP,
             Copy_Sequence_At_Len(
                 s,

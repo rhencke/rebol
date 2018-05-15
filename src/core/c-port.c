@@ -556,7 +556,7 @@ post_process_output:
 
         assert(r == R_OUT);
 
-        if ((REF(string) or REF(lines)) and not IS_STRING(D_OUT)) {
+        if ((REF(string) or REF(lines)) and not IS_TEXT(D_OUT)) {
             if (not IS_BINARY(D_OUT))
                 fail ("/STRING or /LINES used on a non-BINARY!/STRING! read");
 
@@ -564,11 +564,11 @@ post_process_output:
                 cs_cast(VAL_BIN_AT(D_OUT)),
                 VAL_LEN_AT(D_OUT)
             );
-            Init_String(D_OUT, decoded);
+            Init_Text(D_OUT, decoded);
         }
 
         if (REF(lines)) { // caller wants a BLOCK! of STRING!s, not one string
-            assert(IS_STRING(D_OUT));
+            assert(IS_TEXT(D_OUT));
 
             DECLARE_LOCAL (temp);
             Move_Value(temp, D_OUT);
