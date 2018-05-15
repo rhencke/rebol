@@ -89,7 +89,7 @@ REBNATIVE(locale)
     assert(len_check == len_plus_term);
     UNUSED(len_check);
 
-    REBVAL *str = rebSizedStringW(buffer, len_plus_term - 1);
+    REBVAL *str = rebLengthedTextW(buffer, len_plus_term - 1);
     rebFree(buffer);
 
     Move_Value(D_OUT, str);
@@ -170,18 +170,14 @@ REBNATIVE(setlocale)
     if (cat == -1)
         fail (Error(RE_EXT_LOCALE_INVALID_CATEGORY, ARG(category), END));
 
-    char *value_utf8 = rebSpellingOfAlloc(
-        NULL,
-        ARG(value),
-        END
-    );
+    char *value_utf8 = rebSpellAlloc(ARG(value), END);
     const char *result = setlocale(cat, value_utf8);
     rebFree(value_utf8);
 
     if (not result)
         return R_BLANK;
 
-    REBVAL *str = rebString(result);
+    REBVAL *str = rebText(result);
     Move_Value(D_OUT, str);
     rebRelease(str);
     return R_OUT;

@@ -105,8 +105,7 @@ static int do_add_path(
 ){
     // Converts FILE! to a local path, or assumes STRING! is already local
     //
-    char *local_utf8 = rebSpellingOfAlloc(
-        NULL,
+    char *local_utf8 = rebSpellAlloc(
         "file-to-local/pass/full ensure [file! string!]", const_KNOWN(path),
         rebEnd()
     );
@@ -123,8 +122,7 @@ static void do_set_path(
 ){
     // Converts FILE! to a local path, or assumes STRING! is already local
     //
-    char *local_utf8 = rebSpellingOfAlloc(
-        NULL,
+    char *local_utf8 = rebSpellAlloc(
         "file-to-local/pass/full ensure [file! string!]", const_KNOWN(path),
         rebEnd()
     );
@@ -573,8 +571,7 @@ REBNATIVE(compile)
     tcc_set_error_func(state, opaque, tcc_error_report);
 
     if (options) {
-        char *options_utf8 = rebSpellingOfAlloc(
-            NULL,
+        char *options_utf8 = rebSpellAlloc(
             const_KNOWN(options),
             rebEnd()
         );
@@ -661,8 +658,7 @@ REBNATIVE(compile)
         REBVAL *name = KNOWN(VAL_ARRAY_AT_HEAD(info, 1));
         REBVAL *stored_state = KNOWN(VAL_ARRAY_AT_HEAD(info, 2));
 
-        char *name_utf8 = rebSpellingOfAlloc(
-            NULL,
+        char *name_utf8 = rebSpellAlloc(
             "ensure string!", name,
             rebEnd()
         );

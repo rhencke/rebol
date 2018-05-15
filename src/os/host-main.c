@@ -378,9 +378,7 @@ int main(int argc, char *argv_ansi[])
         if (argv_ucs2[i] == nullptr)
             continue; // !!! Comment here said "shell bug" (?)
 
-        REBVAL *arg = rebStringW(argv_ucs2[i]);
-        rebElide("append", argv_block, arg, END);
-        rebRelease(arg);
+        rebElide("append", argv_block, rebR(rebTextW(argv_ucs2[i])), END);
     }
   #else
     // Just take the ANSI C "char*" args...which should ideally be in UTF8.
@@ -390,9 +388,7 @@ int main(int argc, char *argv_ansi[])
         if (argv_ansi[i] == nullptr)
             continue; // !!! Comment here said "shell bug" (?)
 
-        REBVAL *arg = rebString(argv_ansi[i]);
-        rebElide("append", argv_block, arg, END);
-        rebRelease(arg);
+        rebElide("append", argv_block, rebT(argv_ansi[i]), END);
     }
   #endif
 

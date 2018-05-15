@@ -74,8 +74,7 @@ void *OS_Open_Library(const REBVAL *path)
     // default.  So if %foo is passed in, you don't want to prepend the
     // current dir to make it absolute, because it will *only* look there.
     //
-    char *path_utf8 = rebSpellingOfAlloc(
-        NULL,
+    char *path_utf8 = rebSpellAlloc(
         "file-to-local", path, // ^-- don't use /full, see above
         rebEnd()
     );
@@ -84,10 +83,8 @@ void *OS_Open_Library(const REBVAL *path)
 
     rebFree(path_utf8);
 
-    if (not dll) {
-        REBVAL *message = rebString(dlerror()); // dlerror() gives const char*
-        rebJUMPS ("fail", message, rebEnd());
-    }
+    if (not dll) // dlerror() gives const char*
+        rebJUMPS ("fail", rebT(dlerror()), rebEnd());
 
     return dll;
   #endif

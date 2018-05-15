@@ -111,7 +111,7 @@ DEVICE_CMD Read_Clipboard(REBREQ *req)
         );
     }
 
-    REBVAL *str = rebStringW(wide);
+    REBVAL *str = rebTextW(wide);
 
     GlobalUnlock(h);
     CloseClipboard();
@@ -121,16 +121,9 @@ DEVICE_CMD Read_Clipboard(REBREQ *req)
     // underlying byte representation of the string could be locked + aliased
     // as a UTF-8 binary series.  But a conversion is needed for the moment.
 
-    size_t size;
-    char *utf8 = rebSpellingOfAlloc(
-        &size,
-        str,
-        rebEnd()
-    );
-    rebRelease(str);
-
-    REBVAL *binary = rebBinary(utf8, size);
-    rebFree(utf8);
+    REBSIZ size;
+    REBYTE *utf8 = rebBytesAlloc(&size, str, rebEnd());
+    REBVAL *binary = rebRepossess(utf8, size);
 
     // !!! The REBREQ and Device model is being gutted and replaced.  Formerly
     // this would return OS_ALLOC()'d wide character data and set a RRF_WIDE

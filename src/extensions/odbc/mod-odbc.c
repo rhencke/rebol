@@ -136,12 +136,12 @@ REBCTX *Error_ODBC(SQLSMALLINT handleType, SQLHANDLE handle) {
     DECLARE_LOCAL (string);
 
     if (rc == SQL_SUCCESS or rc == SQL_SUCCESS_WITH_INFO) {
-        REBVAL *temp = rebSizedStringW(message, message_len);
+        REBVAL *temp = rebLengthedTextW(message, message_len);
         Move_Value(string, temp);
         rebRelease(temp);
     }
     else {
-        REBVAL *temp = rebString("unknown ODBC error");
+        REBVAL *temp = rebText("unknown ODBC error");
         Move_Value(string, temp);
         rebRelease(temp);
     }
@@ -258,12 +258,8 @@ REBNATIVE(open_connection)
 
     // Connect to the Driver, using the converted connection string
     //
-    REBCNT connect_len;
-    SQLWCHAR *connect = rebSpellingOfAllocW(
-        &connect_len,
-        ARG(spec),
-        END
-    );
+    REBCNT connect_len = rebUnbox("length of", ARG(spec), END);
+    SQLWCHAR *connect = rebSpellAllocW(ARG(spec), END);
 
     SQLSMALLINT out_connect_len;
     rc = SQLDriverConnectW(
@@ -511,15 +507,11 @@ SQLRETURN ODBC_GetCatalog(
         // it passed the array at the catalog word, which is not a string.
         //
         REBVAL *value = rebRun(
-            "opt ensure [string! blank!] try pick", block, rebI(arg + 1), END
+            "ensure* string! pick", block, rebI(arg + 1), END
         );
         if (value) {
-            REBCNT len;
-            pattern[arg] = rebSpellingOfAllocW(
-                &len,
-                KNOWN(value),
-                END
-            );
+            REBCNT len = rebUnbox("length of", value, END);
+            pattern[arg] = rebSpellAllocW(value, END);
             length[arg] = len;
             rebRelease(value);
         }
@@ -533,9 +525,9 @@ SQLRETURN ODBC_GetCatalog(
 
     int w = rebUnbox(
         "switch ensure word!", which, "[",
-            "tables [1]",
-            "columns [2]",
-            "types [3]",
+            "'tables [1]",
+            "'columns [2]",
+            "'types [3]",
         "] else [",
             "fail {Catalog must be TABLES, COLUMNS, or TYPES}",
         "]", END
@@ -680,7 +672,8 @@ SQLRETURN ODBC_DescribeResults(
         //
         // int length = ODBC_UnCamelCase(column->title, title);
 
-        column->title_word = rebUnmanage(rebSizedWordW(title, title_length));
+        column->title_word = rebSizedWordW(title, title_length);
+        rebUnmanage(column->title_word);
     }
 
     return SQL_SUCCESS;
@@ -905,12 +898,8 @@ REBNATIVE(insert_odbc)
         );
 
         if (not use_cache) {
-            REBCNT length;
-            SQLWCHAR *sql_string = rebSpellingOfAllocW(
-                &length,
-                value,
-                END
-            );
+            REBCNT length = rebUnbox("length of", value, END);
+            SQLWCHAR *sql_string = rebSpellAllocW(value, END);
 
             rc = SQLPrepareW(hstmt, sql_string, cast(SQLSMALLINT, length));
             if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
@@ -1163,7 +1152,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
     case SQL_WVARCHAR:
     case SQL_WLONGVARCHAR:
         assert(col->length % 2 == 0);
-        return rebSizedStringW(cast(SQLWCHAR*, col->buffer), col->length / 2);
+        return rebLengthedTextW(cast(SQLWCHAR*, col->buffer), col->length / 2);
 
     case SQL_GUID:
         fail ("SQL_GUID not supported by ODBC (currently)");

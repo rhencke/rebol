@@ -151,8 +151,7 @@ static REBOOL Seek_File_64(struct devreq_file *file)
 
 static int Get_File_Info(struct devreq_file *file)
 {
-    char *path_utf8 = rebSpellingOfAlloc(
-        NULL,
+    char *path_utf8 = rebSpellAlloc(
         "file-to-local/full/no-tail-slash", file->path,
         rebEnd()
     );
@@ -230,9 +229,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     REBREQ *dir_req = AS_REBREQ(dir);
     REBREQ *file_req = AS_REBREQ(file);
 
-    size_t size_dir;
-    char *dir_utf8 = rebSpellingOfAlloc(
-        &size_dir,
+    char *dir_utf8 = rebSpellAlloc(
         "file-to-local", dir->path,
         rebEnd() // "wild" append of * not necessary on POSIX
     );
@@ -302,16 +299,18 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (Is_Dir(dir_utf8, file_utf8))
         file_req->modes |= RFM_DIR;
 
-    // !!! We currently unmanage this, because code using the API may
-    // trigger a GC and there is nothing proxying the RebReq's data.
-    // Long term, this file should have *been* the return result.
-    //
-    file->path = rebUnmanage(rebRun(
+    file->path = rebRun(
         "apply 'local-to-file [",
             "path:", rebT(file_utf8),
             "dir:", rebR(rebLogic(file_req->modes & RFM_DIR)),
         "]", rebEnd()
-    ));
+    );
+
+    // !!! We currently unmanage this, because code using the API may
+    // trigger a GC and there is nothing proxying the RebReq's data.
+    // Long term, this file should have *been* the return result.
+    //
+    rebUnmanage(m_cast(REBVAL*, file->path));
 
     rebFree(dir_utf8);
 
@@ -366,8 +365,7 @@ DEVICE_CMD Open_File(REBREQ *req)
     // Open the file:
     // printf("Open: %s %d %d\n", path, modes, access);
 
-    char *path_utf8 = rebSpellingOfAlloc(
-        NULL,
+    char *path_utf8 = rebSpellAlloc(
         "apply 'file-to-local [",
             "path:", file->path,
             "wild:", rebR(rebLogic(req->modes & RFM_DIR)), // !!! necessary?
@@ -516,8 +514,7 @@ DEVICE_CMD Create_File(REBREQ *req)
     if (not (req->modes & RFM_DIR))
         return Open_File(req);
 
-    char *path_utf8 = rebSpellingOfAlloc(
-        NULL,
+    char *path_utf8 = rebSpellAlloc(
         "file-to-local/full/no-tail-slash", file->path,
         rebEnd()
     );
@@ -545,8 +542,7 @@ DEVICE_CMD Delete_File(REBREQ *req)
 {
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    char *path_utf8 = rebSpellingOfAlloc(
-        NULL,
+    char *path_utf8 = rebSpellAlloc(
         "file-to-local/full", file->path,
         rebEnd() // leave tail slash on for directory removal
     );
@@ -578,13 +574,11 @@ DEVICE_CMD Rename_File(REBREQ *req)
 
     REBVAL *to = cast(REBVAL*, req->common.data); // !!! hack!
 
-    char *from_utf8 = rebSpellingOfAlloc(
-        NULL,
+    char *from_utf8 = rebSpellAlloc(
         "file-to-local/full/no-tail-slash", file->path,
         rebEnd()
     );
-    char *to_utf8 = rebSpellingOfAlloc(
-        NULL,
+    char *to_utf8 = rebSpellAlloc(
         "file-to-local/full/no-tail-slash", to,
         rebEnd()
     );

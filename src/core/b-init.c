@@ -805,7 +805,7 @@ static void Init_Root_Vars(void)
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);
     rebLock(Root_Empty_Block, END);
 
-    // Note: rebString() can't run yet, review.
+    // Note: rebText() can't run yet, review.
     //
     REBSER *nulled_uni = Make_Unicode(1);
     assert(CHR_CODE(UNI_AT(nulled_uni, 0)) == '\0');

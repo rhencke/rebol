@@ -1363,9 +1363,13 @@ size_t RL_rebSpellingOf(
 
 
 //
-//  rebSpellingOfAlloc: RL_API
+//  rebSpellAlloc: RL_API
 //
-char *RL_rebSpellingOfAlloc(size_t *size_out, const void *p, ...)
+// This gives the spelling as UTF-8 bytes.  Length in codepoints should be
+// extracted with LENGTH OF.  If size in bytes of the encoded UTF-8 is needed,
+// use the binary extraction API (works on ANY-STRING! to get UTF-8)
+//
+char *RL_rebSpellAlloc(const void *p, ...)
 {
     Enter_Api();
 
@@ -1383,11 +1387,12 @@ char *RL_rebSpellingOfAlloc(size_t *size_out, const void *p, ...)
     if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(string));
 
+    if (IS_VOID(string))
+        return NULL; // NULL is passed through, for opting out
+
     size_t size = rebSpellingOf(nullptr, 0, string);
     char *result = cast(char*, rebMalloc(size + 1)); // add space for term
     rebSpellingOf(result, size, string);
-    if (size_out != nullptr)
-        *size_out = size;
     return result;
 }
 
@@ -1447,9 +1452,17 @@ REBCNT RL_rebSpellingOfW(
 
 
 //
-//  rebSpellingOfAllocW: RL_API
+//  rebSpellAllocW: RL_API
 //
-REBWCHAR *RL_rebSpellingOfAllocW(REBCNT *len_out, const void *p, ...)
+// Gives the spelling as WCHARs.  If length in codepoints is needed, use
+// a separate LENGTH OF call.
+//
+// !!! Unlike with rebSpellAlloc(), there is not an alternative for getting
+// the size in UCS2-encoded characters, just the LENGTH OF result.  This may
+// be permanent, as UTF-8 is the focus of Ren-C.  Possible solutions could
+// include usermode UCS-2 conversion to binary and extraction of that.
+//
+REBWCHAR *RL_rebSpellAllocW(const void *p, ...)
 {
     Enter_Api();
 
@@ -1467,13 +1480,14 @@ REBWCHAR *RL_rebSpellingOfAllocW(REBCNT *len_out, const void *p, ...)
     if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(string));
 
+    if (IS_VOID(string))
+        return NULL; // NULL is passed through, for opting out
+
     REBCNT len = rebSpellingOfW(nullptr, 0, string);
     REBWCHAR *result = cast(
         REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
     );
     rebSpellingOfW(result, len, string);
-    if (len_out)
-        *len_out = len;
     return result;
 }
 
@@ -1483,9 +1497,13 @@ REBWCHAR *RL_rebSpellingOfAllocW(REBCNT *len_out, const void *p, ...)
 //
 // Extract binary data from a BINARY!
 //
-REBCNT RL_rebBytesOfBinary(
+// !!! Caller must allocate a buffer of the returned size + 1.  It's not clear
+// if this is a good idea; but this is based on a longstanding convention of
+// zero termination of Rebol series, including binaries.  Review.
+//
+REBSIZ RL_rebBytesOfBinary(
     REBYTE *buf,
-    REBCNT buf_chars,
+    REBSIZ buf_size,
     const REBVAL *binary
 ){
     Enter_Api();
@@ -1493,33 +1511,68 @@ REBCNT RL_rebBytesOfBinary(
     if (not IS_BINARY(binary))
         fail ("rebValBin() only works on BINARY!");
 
-    REBCNT len = VAL_LEN_AT(binary);
+    REBCNT size = VAL_LEN_AT(binary);
 
     if (not buf) {
-        assert(buf_chars == 0);
-        return len; // caller must allocate a buffer of size len + 1
+        assert(buf_size == 0);
+        return size; // currently, caller must allocate a buffer of size + 1
     }
 
-    REBCNT limit = MIN(buf_chars, len);
+    REBCNT limit = MIN(buf_size, size);
     memcpy(s_cast(buf), cs_cast(VAL_BIN_AT(binary)), limit);
     buf[limit] = '\0';
-    return len;
+    return size;
 }
 
 
 //
-//  rebBytesOfBinaryAlloc: RL_API
+//  rebBytesAlloc: RL_API
 //
-REBYTE *RL_rebBytesOfBinaryAlloc(REBCNT *len_out, const REBVAL *binary)
+// Can be used to get the bytes of a BINARY! and its size, or the UTF-8
+// encoding of an ANY-STRING! or ANY-WORD! and that size in bytes.  (Hence,
+// for strings it is like rebSpellAlloc() except telling you how many bytes.)
+//
+// !!! This may wind up being a generic TO BINARY! converter, so you might
+// be able to get the byte conversion for any type.
+//
+REBYTE *RL_rebBytesAlloc(REBSIZ *size_out, const void *p, ...)
 {
     Enter_Api();
 
-    REBCNT len = rebBytesOfBinary(nullptr, 0, binary);
-    REBYTE *result = cast(REBYTE*, rebMalloc(len + 1));
-    rebBytesOfBinary(result, len, binary);
-    if (len_out)
-        *len_out = len;
-    return result;
+    va_list va;
+    va_start(va, p);
+
+    DECLARE_LOCAL (series);
+    REBIXO indexor = Do_Va_Core(
+        series,
+        p, // opt_first (preloads value)
+        &va,  // va_end called by evaluator (has to, e.g. for fail())
+        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
+    );
+
+    if (indexor == THROWN_FLAG)
+        fail (Error_No_Catch_For_Throw(series));
+
+    if (IS_VOID(series)) {
+        *size_out = 0;
+        return NULL; // NULL is passed through, for opting out
+    }
+
+    if (ANY_WORD(series) or ANY_STRING(series)) {
+        *size_out = rebSpellingOf(nullptr, 0, series);
+        REBYTE *result = rebAllocN(REBYTE, (*size_out + 1));
+        rebSpellAlloc(result, *size_out, series);
+        return result;
+    }
+
+    if (IS_BINARY(series)) {
+        *size_out = rebBytesOfBinary(nullptr, 0, series);
+        REBYTE *result = rebAllocN(REBYTE, (*size_out + 1));
+        rebBytesOfBinary(result, *size_out, series);
+        return result;
+    }
+
+    fail ("rebBytesAlloc() only works with ANY-STRING!/ANY-WORD!/BINARY!");
 }
 
 
@@ -1539,11 +1592,11 @@ REBVAL *RL_rebBinary(const void *bytes, size_t size)
 
 
 //
-//  rebSizedString: RL_API
+//  rebSizedText: RL_API
 //
 // If utf8 does not contain valid UTF-8 data, this may fail().
 //
-REBVAL *RL_rebSizedString(const char *utf8, size_t size)
+REBVAL *RL_rebSizedText(const char *utf8, size_t size)
 {
     Enter_Api();
     return Init_String(Alloc_Value(), Make_Sized_String_UTF8(utf8, size));
@@ -1551,27 +1604,27 @@ REBVAL *RL_rebSizedString(const char *utf8, size_t size)
 
 
 //
-//  rebString: RL_API
+//  rebText: RL_API
 //
-REBVAL *RL_rebString(const char *utf8)
+REBVAL *RL_rebText(const char *utf8)
 {
     // Handles Enter_Api
-    return rebSizedString(utf8, strsize(utf8));
+    return rebSizedText(utf8, strsize(utf8));
 }
 
 
 //
 //  rebT: RL_API
 //
-// !!! rebT is exported as the shorthand for STRING! based on the idea that
-// ANY-STRING! will be a category to which WORD! and TEXT! belong, and that
-// it is valuable to not have a member of the category have the same name
-// as the category.  It is being introduced as the first step in potentially
-// making the change STRING!=>TEXT!
+// Shorthand for `rebR(rebText(...))` to more easily create text parameters.
+//
+// !!! Since the data is UTF-8, it may be possible to make this a "delayed"
+// text argument...that saves the pointer it is given and uses it directly,
+// then only proxies it into a series at Move_Value() time.
 //
 const void *RL_rebT(const char *utf8)
 {
-    return rebR(rebString(utf8));
+    return rebR(rebText(utf8));
 }
 
 
@@ -1580,7 +1633,7 @@ const void *RL_rebT(const char *utf8)
 //
 REBVAL *RL_rebFile(const char *utf8)
 {
-    REBVAL *result = rebString(utf8); // Enter_Api() called
+    REBVAL *result = rebText(utf8); // Enter_Api() called
     RESET_VAL_HEADER(result, REB_FILE);
     return result;
 }
@@ -1591,7 +1644,7 @@ REBVAL *RL_rebFile(const char *utf8)
 //
 REBVAL *RL_rebTag(const char *utf8)
 {
-    REBVAL *result = rebString(utf8);
+    REBVAL *result = rebText(utf8);
     RESET_VAL_HEADER(result, REB_TAG);
     return result;
 }
@@ -1612,9 +1665,9 @@ REBVAL *RL_rebLock(REBVAL *p1, const REBVAL *p2)
 
 
 //
-//  rebSizedStringW: RL_API
+//  rebLengthedTextW: RL_API
 //
-REBVAL *RL_rebSizedStringW(const REBWCHAR *wstr, REBCNT len)
+REBVAL *RL_rebLengthedTextW(const REBWCHAR *wstr, REBCNT len)
 {
     Enter_Api();
 
@@ -1635,12 +1688,12 @@ REBVAL *RL_rebSizedStringW(const REBWCHAR *wstr, REBCNT len)
 
 
 //
-//  rebStringW: RL_API
+//  rebTextW: RL_API
 //
-REBVAL *RL_rebStringW(const REBWCHAR *wstr)
+REBVAL *RL_rebTextW(const REBWCHAR *wstr)
 {
     Enter_Api();
-    return rebSizedStringW(wstr, UNKNOWN);
+    return rebLengthedTextW(wstr, UNKNOWN);
 }
 
 
@@ -1677,7 +1730,7 @@ REBVAL *RL_rebSizedWordW(const REBWCHAR *ucs2, REBCNT len)
 //
 REBVAL *RL_rebFileW(const REBWCHAR *wstr)
 {
-    REBVAL *result = rebStringW(wstr); // Enter_Api() called
+    REBVAL *result = rebTextW(wstr); // Enter_Api() called
     RESET_VAL_HEADER(result, REB_FILE);
     return result;
 }
@@ -1722,10 +1775,15 @@ REBVAL *RL_rebManage(REBVAL *v)
 //
 // This converts an API handle value to indefinite lifetime.
 //
-REBVAL *RL_rebUnmanage(REBVAL *v)
+void RL_rebUnmanage(void *p)
 {
     Enter_Api();
 
+    REBNOD *nod = NOD(p);
+    if (not (nod->header.bits & NODE_FLAG_CELL))
+        fail ("rebUnmanage() not yet implemented for rebMalloc() data");
+
+    REBVAL *v = cast(REBVAL*, nod);
     assert(Is_Api_Value(v));
 
     REBARR *a = Singular_From_Cell(v);
@@ -1746,8 +1804,6 @@ REBVAL *RL_rebUnmanage(REBVAL *v)
         or GET_SER_FLAG(LINK(a).owner, ARRAY_FLAG_VARLIST)
     );
     LINK(a).owner = UNBOUND;
-
-    return v;
 }
 
 
@@ -1794,7 +1850,6 @@ void RL_rebRelease(REBVAL *v)
 
     Free_Value(v);
 }
-
 
 
 //
@@ -2023,7 +2078,7 @@ void RL_rebFail_OS(int errnum)
         error = Error_User("FormatMessage() gave no error description");
     }
     else {
-        REBVAL *temp = rebStringW(lpMsgBuf);
+        REBVAL *temp = rebTextW(lpMsgBuf);
         LocalFree(lpMsgBuf);
 
         DECLARE_LOCAL (message);

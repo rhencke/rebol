@@ -93,25 +93,13 @@
 // On Windows, the result is a wide-char pointer, but on Linux, its UTF-8.
 // The returned pointer must be freed with OS_FREE.
 //
-OSCHR *rebValSpellingAllocOS(REBCNT *len_out, REBVAL *any_string)
+OSCHR *rebValSpellingAllocOS(const REBVAL *any_string)
 {
-#ifdef OS_WIDE_CHAR
-    return rebSpellingOfAllocW(
-        len_out,
-        any_string,
-        END
-    );
-#else
-    size_t size;
-    char *utf8 = rebSpellingOfAlloc(
-        &size,
-        any_string,
-        END
-    );
-    if (len_out != NULL)
-        *len_out = size;
-    return utf8;
-#endif
+  #ifdef OS_WIDE_CHAR
+    return rebSpellAllocW(any_string, END);
+  #else
+    return rebSpellAlloc(any_string, END);
+  #endif
 }
 
 
@@ -130,9 +118,9 @@ OSCHR *rebValSpellingAllocOS(REBCNT *len_out, REBVAL *any_string)
 void Append_OS_Str(REBVAL *dest, const void *src, REBINT len)
 {
   #ifdef TO_WINDOWS
-    REBVAL *src_str = rebSizedStringW(cast(const REBWCHAR*, src), len);
+    REBVAL *src_str = rebLengthedTextW(cast(const REBWCHAR*, src), len);
   #else
-    REBVAL *src_str = rebSizedString(cast(const char*, src), len);
+    REBVAL *src_str = rebSizedText(cast(const char*, src), len);
   #endif
 
     rebElide("append", dest, src_str, END);
@@ -240,11 +228,7 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebSpellingOfAllocW(
-            NULL,
-            "lib/file-to-local", ARG(in),
-            END
-        );
+        WCHAR *local_wide = rebSpellAllocW("lib/file-to-local", ARG(in), END);
 
         hInputRead = CreateFile(
             local_wide,
@@ -291,11 +275,7 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebSpellingOfAllocW(
-            NULL,
-            "file-to-local", ARG(out),
-            END
-        );
+        WCHAR *local_wide = rebSpellAllocW("file-to-local", ARG(out), END);
 
         si.hStdOutput = CreateFile(
             local_wide,
@@ -356,11 +336,7 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebSpellingOfAllocW(
-            NULL,
-            "file-to-local", ARG(out),
-            END
-        );
+        WCHAR *local_wide = rebSpellAllocW("file-to-local", ARG(out), END);
 
         si.hStdError = CreateFile(
             local_wide,
@@ -898,11 +874,7 @@ int OS_Create_Process(
             close(stdin_pipe[R]);
         }
         else if (IS_FILE(ARG(in))) {
-            char *local_utf8 = rebSpellingOfAlloc(
-                NULL,
-                "file-to-local", ARG(in),
-                END
-            );
+            char *local_utf8 = rebSpellAlloc("file-to-local", ARG(in), END);
 
             int fd = open(local_utf8, O_RDONLY);
 
@@ -934,11 +906,7 @@ int OS_Create_Process(
             close(stdout_pipe[W]);
         }
         else if (IS_FILE(ARG(out))) {
-            char *local_utf8 = rebSpellingOfAlloc(
-                NULL,
-                "file-to-local", ARG(out),
-                END
-            );
+            char *local_utf8 = rebSpellAlloc("file-to-local", ARG(out), END);
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -970,11 +938,7 @@ int OS_Create_Process(
             close(stderr_pipe[W]);
         }
         else if (IS_FILE(ARG(err))) {
-            char *local_utf8 = rebSpellingOfAlloc(
-                NULL,
-                "file-to-local", ARG(err),
-                END
-            );
+            char *local_utf8 = rebSpellAlloc("file-to-local", ARG(err), END);
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -1506,27 +1470,27 @@ REBNATIVE(call)
         break;
 
     case REB_STRING: {
-        size_t size;
-        os_input = rebSpellingOfAlloc(
+        REBSIZ size;
+        os_input = s_cast(rebBytesAlloc(
             &size,
             ARG(in),
             END
-        );
+        ));
         input_len = size;
         break; }
 
     case REB_FILE: {
-        size_t size;
-        os_input = rebSpellingOfAlloc(
+        REBSIZ size;
+        os_input = s_cast(rebBytesAlloc( // !!! why fileNAME size passed in???
             &size,
             "file-to-local", ARG(in),
             END
-        );
+        ));
         input_len = size;
         break; }
 
     case REB_BINARY: {
-        os_input = s_cast(rebBytesOfBinaryAlloc(&input_len, ARG(in)));
+        os_input = s_cast(rebBytesAlloc(&input_len, ARG(in)));
         break; }
 
     default:
@@ -1538,11 +1502,11 @@ REBNATIVE(call)
 
     REBOOL flag_wait;
     if (
-        REF(wait) ||
-        (
-            IS_STRING(ARG(in)) || IS_BINARY(ARG(in))
-            || IS_STRING(ARG(out)) || IS_BINARY(ARG(out))
-            || IS_STRING(ARG(err)) || IS_BINARY(ARG(err))
+        REF(wait)
+        or (
+            IS_STRING(ARG(in)) or IS_BINARY(ARG(in))
+            or IS_STRING(ARG(out)) or IS_BINARY(ARG(out))
+            or IS_STRING(ARG(err)) or IS_BINARY(ARG(err))
         ) // I/O redirection implies /WAIT
     ){
         flag_wait = TRUE;
@@ -1565,14 +1529,14 @@ REBNATIVE(call)
         // "bar" has been requested and seems more suitable.  Question is
         // whether it should go through the shell parsing to do so.
 
-        cmd = rebValSpellingAllocOS(NULL, ARG(command));
+        cmd = rebValSpellingAllocOS(ARG(command));
 
         argc = 1;
         argv = rebAllocN(const OSCHR*, (argc + 1));
 
         // !!! Make two copies because it frees cmd and all the argv.  Review.
         //
-        argv[0] = rebValSpellingAllocOS(NULL, ARG(command));
+        argv[0] = rebValSpellingAllocOS(ARG(command));
         argv[1] = NULL;
     }
     else if (IS_BLOCK(ARG(command))) {
@@ -1591,20 +1555,16 @@ REBNATIVE(call)
         for (i = 0; i < argc; i ++) {
             RELVAL *param = VAL_ARRAY_AT_HEAD(block, i);
             if (IS_STRING(param)) {
-                argv[i] = rebValSpellingAllocOS(NULL, KNOWN(param));
+                argv[i] = rebValSpellingAllocOS(KNOWN(param));
             }
             else if (IS_FILE(param)) {
               #ifdef OS_WIDE_CHAR
-                argv[i] = rebSpellingOfAllocW(
-                    NULL,
-                    "file-to-local", KNOWN(param),
-                    END
+                argv[i] = rebSpellAllocW(
+                    "file-to-local", KNOWN(param), END
                 );
               #else
-                argv[i] = rebSpellingOfAlloc(
-                    NULL,
-                    "file-to-local", KNOWN(param),
-                    END
+                argv[i] = rebSpellAlloc(
+                    "file-to-local", KNOWN(param), END
                 );
               #endif
             }
@@ -1622,17 +1582,9 @@ REBNATIVE(call)
         argv = rebAllocN(const OSCHR*, (argc + 1));
 
       #ifdef OS_WIDE_CHAR
-        argv[0] = rebSpellingOfAllocW(
-            NULL,
-            "file-to-local", ARG(command),
-            END
-        );
+        argv[0] = rebSpellAllocW("file-to-local", ARG(command), END);
       #else
-        argv[0] = rebSpellingOfAlloc(
-            NULL,
-            "file-to-local", ARG(command),
-            END
-        );
+        argv[0] = rebSpellAlloc("file-to-local", ARG(command), END);
       #endif
 
         argv[1] = NULL;
@@ -1763,7 +1715,7 @@ REBNATIVE(get_os_browsers)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_OS_BROWSERS;
 
-    REBDSP dsp_orig = DSP;
+    REBVAL *list = rebRun("copy []", END);
 
   #if defined(TO_WINDOWS)
 
@@ -1786,11 +1738,11 @@ REBNATIVE(get_os_browsers)
     DWORD flag = RegQueryValueExW(key, L"", 0, &type, NULL, &num_bytes);
 
     if (
-        (flag != ERROR_MORE_DATA && flag != ERROR_SUCCESS)
-        || num_bytes == 0
-        || type != REG_SZ // RegQueryValueExW returns unicode
-        || num_bytes % 2 != 0 // byte count should be even for unicode
-    ) {
+        (flag != ERROR_MORE_DATA and flag != ERROR_SUCCESS)
+        or num_bytes == 0
+        or type != REG_SZ // RegQueryValueExW returns unicode
+        or num_bytes % 2 != 0 // byte count should be even for unicode
+    ){
         RegCloseKey(key);
         fail ("Could not read registry key for http\\shell\\open\\command");
     }
@@ -1816,10 +1768,7 @@ REBNATIVE(get_os_browsers)
         --len;
     }
 
-    DS_PUSH_TRASH;
-    REBVAL *str = rebSizedStringW(buffer, len);
-    Move_Value(DS_TOP, str);
-    rebRelease(str);
+    rebElide("append", list, rebR(rebLengthedTextW(buffer, len)), END);
 
     rebFree(buffer);
 
@@ -1827,28 +1776,22 @@ REBNATIVE(get_os_browsers)
 
     // Caller should try xdg-open first, then try x-www-browser otherwise
     //
-    DS_PUSH_TRASH;
-    REBVAL *xdg_open = rebString("xdg-open %1");
-    Move_Value(DS_TOP, xdg_open);
-    rebRelease(xdg_open);
-
-    DS_PUSH_TRASH;
-    REBVAL *www_browser = rebString("x-www-browser %1");
-    Move_Value(DS_TOP, www_browser);
-    rebRelease(www_browser);
+    rebElide(
+        "append", list, "[",
+            rebT("xdg-open %1"),
+            rebT("x-www-browser %1"),
+        "]", END
+    );
 
   #else // Just try /usr/bin/open on POSIX, OS X, Haiku, etc.
 
-    // Just use /usr/bin/open
-    //
-    DS_PUSH_TRASH;
-    REBVAL *usr_bin_open = rebString("/usr/bin/open %1");
-    Move_Value(DS_TOP, usr_bin_open);
-    rebRelease(usr_bin_open);
+    rebElide("append", list, rebT("/usr/bin/open %1"), END);
 
   #endif
 
-    Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
+    Move_Value(D_OUT, list);
+    rebRelease(list);
+
     return R_OUT;
 }
 
@@ -1988,11 +1931,7 @@ static REBNATIVE(get_env)
   #ifdef TO_WINDOWS
     // Note: The Windows variant of this API is NOT case-sensitive
 
-    WCHAR *key = rebSpellingOfAllocW(
-        NULL,
-        variable,
-        END
-    );
+    WCHAR *key = rebSpellAllocW(variable, END);
 
     DWORD val_len_plus_one = GetEnvironmentVariable(key, NULL, 0);
     if (val_len_plus_one == 0) { // some failure...
@@ -2007,7 +1946,7 @@ static REBNATIVE(get_env)
         if (result == 0)
             error = Error_User("Unknown error fetching variable to buffer");
         else {
-            REBVAL *temp = rebSizedStringW(val, val_len_plus_one - 1);
+            REBVAL *temp = rebLengthedTextW(val, val_len_plus_one - 1);
             Move_Value(D_OUT, temp);
             rebRelease(temp);
         }
@@ -2018,11 +1957,7 @@ static REBNATIVE(get_env)
   #else
     // Note: The Posix variant of this API is case-sensitive
 
-    char *key = rebSpellingOfAlloc(
-        NULL,
-        variable,
-        END
-    );
+    char *key = rebSpellAlloc(variable, END);
 
     const char* val = getenv(key);
     if (val == NULL) // key not present in environment
@@ -2069,50 +2004,24 @@ static REBNATIVE(set_env)
 
     Check_Security(Canon(SYM_ENVR), POL_WRITE, variable);
 
-    REBCTX *error = NULL;
-
   #ifdef TO_WINDOWS
-    WCHAR *key_wide = rebSpellingOfAllocW(
-        NULL,
-        variable,
-        END
-    );
+    WCHAR *key_wide = rebSpellAllocW(variable, END);
+    WCHAR *val_wide = rebSpellAllocW(
+        "opt ensure [string! blank!]", value, END
+    ); // may be NULL if blank! input, which will unset the envionment var
 
-    BOOL success;
+    if (not SetEnvironmentVariable(key_wide, val_wide))
+        fail ("environment variable couldn't be modified");
 
-    if (IS_BLANK(value))
-        success = SetEnvironmentVariable(key_wide, NULL);
-    else {
-        WCHAR *val_wide = rebSpellingOfAllocW(
-            NULL,
-            "ensure [string! word!]", value,
-            END
-        );
-        success = SetEnvironmentVariable(key_wide, val_wide);
-        rebFree(val_wide);
-    }
-
+    rebFree(val_wide);
     rebFree(key_wide);
-
-    if (not success) // make better error with GetLastError + variable name
-        error = Error_User("environment variable couldn't be modified");
   #else
-
-    size_t key_size;
-    char *key_utf8 = rebSpellingOfAlloc(
-        &key_size,
-        variable,
-        END
-    );
-
-    REBOOL success;
+    char *key_utf8 = rebSpellAlloc(variable, END);
 
     if (IS_BLANK(value)) {
-        UNUSED(key_size);
-
       #ifdef unsetenv
         if (unsetenv(key_utf8) == -1)
-            success = FALSE;
+            fail ("unsetenv() couldn't unset environment variable");
       #else
         // WARNING: KNOWN PORTABILITY ISSUE
         //
@@ -2125,24 +2034,15 @@ static REBNATIVE(set_env)
         // going to hope this case doesn't hold onto the string...
         //
         if (putenv(key_utf8) == -1) // !!! Why mutable?
-            success = FALSE;
+            fail ("putenv() couldn't unset environment variable");
       #endif
     }
     else {
       #ifdef setenv
-        UNUSED(key_size);
+        char *val_utf8 = rebSpellAlloc(value, END);
 
-        char *val_utf8 = rebSpellingOfAlloc(
-            NULL,
-            "ensure [string! word!]", value
-            END
-        );
-
-        // we pass 1 for overwrite (make call to OS_Get_Env if you
-        // want to check if already exists)
-
-        if (setenv(key_utf8, val_utf8, 1) == -1)
-            success = FALSE;
+        if (setenv(key_utf8, val_utf8, 1) == -1) // the 1 means "overwrite"
+            fail ("setenv() coudln't set environment variable");
 
         rebFree(val_utf8);
       #else
@@ -2163,39 +2063,20 @@ static REBNATIVE(set_env)
         // each string added in some sort of a map...which is currently deemed
         // not worth the work.
 
-        REBCNT val_size = rebSpellingOf(NULL, 0, value);
-
-        char *key_equals_val_utf8 = cast(char*,
-            malloc(sizeof(char) * (key_size + 1 + val_size + 1)) // not freed
-        );
-
-        rebSpellingOf(key_equals_val_utf8, key_size, variable);
-        key_equals_val_utf8[key_size] = '=';
-        rebSpellingOf(
-            key_equals_val_utf8 + key_size + 1,
-            val_size,
-            value
+        char *key_equals_val_utf8 = rebSpellAlloc(
+            "unspaced [", variable, "{=}", value, "]", END
         );
 
         if (putenv(key_equals_val_utf8) == -1) // !!! why mutable?  :-/
-            success = FALSE;
+            fail ("putenv() couldn't set environment variable");
 
-        /* free(key_equals_val); */ // !!! Can't do this, crashes getenv()
+        /* rebFree(key_equals_val_utf8); */ // !!! Can't!  Crashes getenv()
+        rebUnmanage(key_equals_val_utf8); // oh well, have to leak it
       #endif
     }
 
     rebFree(key_utf8);
-
-    if (not success) // make better error if more information is known
-        error = Error_User("environment variable couldn't be modified");
   #endif
-
-    // Don't do the fail() in mid-environment work, as it will leak memory
-    // if the OS strings aren't freed up.  Done like this so that the error
-    // messages could be OS-specific.
-    //
-    if (error != NULL)
-        fail (error);
 
     return R_VOID;
 }
@@ -2236,11 +2117,11 @@ static REBNATIVE(list_env)
     while ((len = wcslen(key_equals_val)) != 0) {
         const WCHAR *eq_pos = wcschr(key_equals_val, '=');
 
-        REBVAL *key = rebSizedStringW(
+        REBVAL *key = rebLengthedTextW(
             key_equals_val,
             eq_pos - key_equals_val
         );
-        REBVAL *val = rebSizedStringW(
+        REBVAL *val = rebLengthedTextW(
             eq_pos + 1,
             len - (eq_pos - key_equals_val) - 1
         );
@@ -2282,11 +2163,11 @@ static REBNATIVE(list_env)
 
         REBCNT size = strlen(key_equals_val);
 
-        REBVAL *key = rebSizedString(
+        REBVAL *key = rebSizedText(
             key_equals_val,
             eq_pos - key_equals_val
         );
-        REBVAL *val = rebSizedString(
+        REBVAL *val = rebSizedText(
             eq_pos + 1,
             size - (eq_pos - key_equals_val) - 1
         );

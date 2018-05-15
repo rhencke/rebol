@@ -145,8 +145,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (h == NULL) {
         // Read first file entry:
 
-        WCHAR *dir_wide = rebSpellingOfAllocW(
-            NULL,
+        WCHAR *dir_wide = rebSpellAllocW(
             "file-to-local/full/wild", dir->path,
             rebEnd()
         );
@@ -195,16 +194,19 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         file_req->modes |= RFM_DIR;
 
+    file->path = rebRun(
+        "apply 'local-to-file [",
+            "path:", rebR(rebTextW(info.cFileName)),
+            "dir:", rebR(rebLogic(file_req->modes & RFM_DIR)),
+        "]", rebEnd()
+    );
+
     // !!! We currently unmanage this, because code using the API may
     // trigger a GC and there is nothing proxying the RebReq's data.
     // Long term, this file should have *been* the return result.
     //
-    file->path = rebUnmanage(rebRun(
-        "apply 'local-to-file [",
-            "path:", rebR(rebStringW(info.cFileName)),
-            "dir:", rebR(rebLogic(file_req->modes & RFM_DIR)),
-        "]", rebEnd()
-    ));
+    rebUnmanage(m_cast(REBVAL*, file->path));
+
     file->size =
         (cast(int64_t, info.nFileSizeHigh) << 32) + info.nFileSizeLow;
 
@@ -263,8 +265,7 @@ DEVICE_CMD Open_File(REBREQ *req)
     if (access == 0)
         rebJUMPS ("fail {No access modes provided to Open_File()}", rebEnd());
 
-    WCHAR *path_wide = rebSpellingOfAllocW(
-        NULL,
+    WCHAR *path_wide = rebSpellAllocW(
         "apply 'file-to-local [",
             "path:", file->path,
             "wild:", rebR(rebLogic(req->modes & RFM_DIR)),
@@ -481,8 +482,7 @@ DEVICE_CMD Query_File(REBREQ *req)
     WIN32_FILE_ATTRIBUTE_DATA info;
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    WCHAR *path_wide = rebSpellingOfAllocW(
-        NULL,
+    WCHAR *path_wide = rebSpellAllocW(
         "file-to-local/full/no-tail-slash", file->path,
         rebEnd()
     );
@@ -520,8 +520,7 @@ DEVICE_CMD Create_File(REBREQ *req)
     if (not (req->modes & RFM_DIR))
         return Open_File(req);
 
-    WCHAR *path_wide = rebSpellingOfAllocW(
-        NULL,
+    WCHAR *path_wide = rebSpellAllocW(
         "file-to-local/full/no-tail-slash", file->path,
         rebEnd()
     );
@@ -551,8 +550,7 @@ DEVICE_CMD Delete_File(REBREQ *req)
 {
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    WCHAR *path_wide = rebSpellingOfAllocW(
-        NULL,
+    WCHAR *path_wide = rebSpellAllocW(
         "file-to-local/full", file->path,
         rebEnd() // leave tail slash on for directory removal
     );
@@ -584,13 +582,11 @@ DEVICE_CMD Rename_File(REBREQ *req)
 
     REBVAL *to = cast(REBVAL*, req->common.data); // !!! hack!
 
-    WCHAR *from_wide = rebSpellingOfAllocW(
-        NULL,
+    WCHAR *from_wide = rebSpellAllocW(
         "file-to-local/full/no-tail-slash", file->path,
         rebEnd()
     );
-    WCHAR *to_wide = rebSpellingOfAllocW(
-        NULL,
+    WCHAR *to_wide = rebSpellAllocW(
         "file-to-local/full/no-tail-slash", to,
         rebEnd()
     );

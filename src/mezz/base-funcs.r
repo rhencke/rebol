@@ -606,6 +606,27 @@ ensure: redescribe [
     ]
 )
 
+ensure*: redescribe [
+    {Pass through value if it matches test -or- if it is null}
+](
+    specialize 'either-test [
+        branch: func [optional [<opt> any-value!]] [
+            ;
+            ; !!! Can't use FAIL/WHERE until there is a good way to SPECIALIZE
+            ; a conditional with a branch referring to invocation parameters:
+            ;
+            ; https://github.com/metaeducation/ren-c/issues/587
+            ;
+            if value? :optional [
+                fail [
+                    "ENSURE* did not expect argument of type" type of :value
+                ]
+            ]
+        ]
+        opt: false ;-- Doesn't matter (it fails) just hide the refinement
+    ]
+)
+
 really: func [
     {FAIL if value is void or blank, otherwise pass it through}
 

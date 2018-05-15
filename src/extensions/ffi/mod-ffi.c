@@ -431,7 +431,8 @@ REBNATIVE(alloc_value_pointer)
 {
     FFI_INCLUDE_PARAMS_OF_ALLOC_VALUE_POINTER;
 
-    REBVAL *allocated = rebUnmanage(Move_Value(Alloc_Value(), ARG(value)));
+    REBVAL *allocated = Move_Value(Alloc_Value(), ARG(value));
+    rebUnmanage(allocated);
 
     Init_Integer(D_OUT, cast(intptr_t, allocated));
     return R_OUT;
