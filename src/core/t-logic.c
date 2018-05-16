@@ -200,6 +200,172 @@ REBNATIVE(xor_q)
 
 
 //
+//  and: enfix native [
+//
+//  {Short-circuit boolean AND, with mode to pass thru non-LOGIC! values}
+//
+//      return: "LOGIC! if right is GROUP!, else falsey left, or right value"
+//          [<opt> any-value!]
+//      left "Expression which will always be evaluated"
+//          [<opt> any-value!]
+//      :right "Quoted expression, evaluated unless left is blank or FALSE"
+//          [group! block!]
+//  ]
+//
+REBNATIVE(and)
+{
+    INCLUDE_PARAMS_OF_AND;
+
+    REBVAL *left = ARG(left);
+    REBVAL *right = ARG(right);
+
+    if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
+        fail ("left hand side of AND should not be literal block");
+
+    if (IS_GROUP(right)) { // result should be LOGIC!, voids not tolerated
+        if (IS_VOID_OR_FALSEY(left)) {
+            if (IS_VOID(left))
+                fail (Error_Arg_Type(frame_, PAR(left), REB_MAX_VOID));
+            return R_FALSE; // no need to evaluate right
+        }
+
+        if (Do_Any_Array_At_Throws(D_OUT, right))
+            return R_OUT_IS_THROWN;
+
+        if (not IS_VOID_OR_FALSEY(D_OUT))
+            return R_TRUE;
+
+        if (IS_VOID(D_OUT))
+            fail (Error_No_Return_Raw());
+
+        return R_FALSE;
+    }
+
+    assert(IS_BLOCK(right)); // result is <opt> any-value!, voids tolerated
+
+    if (IS_VOID_OR_FALSEY(left)) {
+        Move_Value(D_OUT, left);
+        return R_OUT; // no need to evaluate right, preserve exact falsey type
+    }
+
+    if (Do_Any_Array_At_Throws(D_OUT, right))
+        return R_OUT_IS_THROWN;
+
+    return R_OUT; // preserve the exact truthy or falsey value
+}
+
+
+//  or: enfix native [
+//
+//  {Short-circuit boolean OR, with mode to pass thru non-LOGIC! values}
+//
+//      return: "LOGIC! if right is GROUP!, else truthy left, or right value"
+//          [<opt> any-value!]
+//      left "Expression which will always be evaluated"
+//          [<opt> any-value!]
+//      :right "Quoted expression, evaluated only if left is blank or FALSE"
+//          [group! block!]
+//
+//  ]
+REBNATIVE(or)
+{
+    INCLUDE_PARAMS_OF_OR;
+
+    REBVAL *left = ARG(left);
+    REBVAL *right = ARG(right);
+
+    if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
+        fail ("left hand side of OR should not be literal block");
+
+    if (IS_GROUP(right)) { // result should be LOGIC!, voids not tolerated
+        if (not IS_VOID_OR_FALSEY(left))
+            return R_TRUE; // no need to evaluate right
+            
+        if (IS_VOID(left))
+            fail (Error_Arg_Type(frame_, PAR(left), REB_MAX_VOID));
+
+        if (Do_Any_Array_At_Throws(D_OUT, right))
+            return R_OUT_IS_THROWN;
+
+        if (not IS_VOID_OR_FALSEY(D_OUT))
+            return R_TRUE;
+
+        if (IS_VOID(D_OUT))
+            fail (Error_No_Return_Raw());
+
+        return R_FALSE;
+    }
+
+    assert(IS_BLOCK(right)); // result is <opt> any-value!, voids tolerated
+
+    if (not IS_VOID_OR_FALSEY(left)) {
+        Move_Value(D_OUT, left);
+        return R_OUT; // no need to evaluate right
+    }
+
+    if (Do_Any_Array_At_Throws(D_OUT, right))
+        return R_OUT_IS_THROWN;
+
+    return R_OUT; // preserve the exact truthy or falsey value
+}
+
+
+//
+//  xor: enfix native [
+//
+//  {Boolean XOR, with mode to pass thru non-LOGIC! values}
+//
+//      return: "LOGIC! if right is GROUP!, else left or right or blank"
+//          [any-value!]
+//      left "Expression which will always be evaluated"
+//          [<opt> any-value!]
+//      :right "Quoted expression, must be always evaluated as well"
+//          [group! block!]
+//  ]
+//
+REBNATIVE(xor)
+{
+    INCLUDE_PARAMS_OF_XOR;
+
+    REBVAL *left = ARG(left);
+
+    if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
+        fail ("left hand side of OR should not be literal block");
+
+    if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated
+        return R_OUT_IS_THROWN;
+ 
+    REBVAL *right = D_OUT;
+
+    if (IS_GROUP(left)) { // result should be LOGIC!, voids not tolerated
+        if (IS_VOID(left))
+            fail (Error_Arg_Type(frame_, PAR(left), REB_MAX_VOID));
+        
+        if (IS_VOID(right))
+            fail (Error_No_Return_Raw());
+
+        return R_FROM_BOOL(IS_TRUTHY(left) != IS_TRUTHY(right));
+    }
+
+    assert(IS_BLOCK(right)); // any-value! result, voids allowed but blanked
+
+    if (IS_VOID_OR_FALSEY(left)) {
+        if (IS_VOID_OR_FALSEY(right))
+            return R_BLANK;
+
+        assert(right == D_OUT);
+        return R_OUT;
+    }
+
+    if (not IS_VOID_OR_FALSEY(right))
+        return R_BLANK;
+
+    Move_Value(D_OUT, left);
+    return R_OUT;
+}
+
+
+//
 //  CT_Logic: C
 //
 REBINT CT_Logic(const RELVAL *a, const RELVAL *b, REBINT mode)

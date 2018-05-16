@@ -333,19 +333,20 @@ for-next action-list [
 ]
 
 native-list: load output-dir/boot/tmp-natives.r
-for-next native-list [
-    if tail? next native-list [break]
-
-    if any [
-        'native = native-list/2
-        all [path? native-list/2 | 'native = first native-list/2]
-    ][
-        assert [set-word? native-list/1]
-        (emit-include-params-macro
-            e-params (to-word native-list/1) (native-list/3)
+if not parse native-list [
+    some [
+        set name: set-word! (name: to-word name)
+        opt 'enfix
+        ['native | and path! into ['native to end]]
+        set spec: block!
+        opt block! ;-- optional body if native/body
+        (
+            emit-include-params-macro e-params name spec
+            e-params/emit newline
         )
-        e-params/emit newline
     ]
+][
+    fail "Error processing native-list"
 ]
 
 e-params/write-emitted

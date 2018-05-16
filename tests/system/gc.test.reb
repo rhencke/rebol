@@ -23,42 +23,42 @@
 ;; "Mold Stack" tests
 ;;
 
-; Nested ajoin
+; Nested unspaced
 (
-    nested-ajoin: func [n] [
-        either n <= 1 [n] [ajoin [n space nested-ajoin n - 1]]
+    nested-unspaced: func [n] [
+        either n <= 1 [n] [unspaced [n space nested-unspaced n - 1]]
     ]
-    "9 8 7 6 5 4 3 2 1" = nested-ajoin 9
+    "9 8 7 6 5 4 3 2 1" = nested-unspaced 9
 )
 ; Form recursive object...
 (
     o: object [a: 1 r: _] o/r: o
-    (ajoin ["<" form o  ">"]) = "<a: 1^/r: make object! [...]>"
+    (unspaced ["<" form o  ">"]) = "<a: 1^/r: make object! [...]>"
 )
 ; detab...
 (
-    (ajoin ["<" detab "aa^-b^-c" ">"]) = "<aa  b   c>"
+    (unspaced ["<" detab "aa^-b^-c" ">"]) = "<aa  b   c>"
 )
 ; entab...
 (
-    (ajoin ["<" entab "     a    b" ">"]) = "<^- a    b>"
+    (unspaced ["<" entab "     a    b" ">"]) = "<^- a    b>"
 )
 ; dehex...
 (
-    (ajoin ["<" dehex "a%20b" ">"]) = "<a b>"
+    (unspaced ["<" dehex "a%20b" ">"]) = "<a b>"
 )
 ; form...
 (
-    (ajoin ["<" form [1 <a> [2 3] "^""] ">"]) = {<1 <a> 2 3 ">}
+    (unspaced ["<" form [1 <a> [2 3] "^""] ">"]) = {<1 <a> 2 3 ">}
 )
 ; transcode...
 (
-    (ajoin ["<" mold transcode to binary! "a [b c]"  ">"])
+    (unspaced ["<" mold transcode to binary! "a [b c]"  ">"])
         = "<[a [b c] #{}]>"
 )
 ; ...
 (
-    (ajoin ["<" intersect [a b c] [d e f]  ">"]) = "<>"
+    (unspaced ["<" intersect [a b c] [d e f]  ">"]) = "<>"
 )
 ; reword
 (equal? reword "$1 is $2." [1 "This" 2 "that"] "This is that.")

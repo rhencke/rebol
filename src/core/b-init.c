@@ -319,19 +319,19 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
 static void Startup_True_And_False(void)
 {
     REBVAL *true_value = Append_Context(Lib_Context, 0, Canon(SYM_TRUE));
-    Init_Logic(true_value, TRUE);
-    assert(VAL_LOGIC(true_value) == TRUE);
+    Init_Logic(true_value, true);
+    assert(VAL_LOGIC(true_value) == true);
     assert(IS_TRUTHY(true_value));
 
     REBVAL *false_value = Append_Context(Lib_Context, 0, Canon(SYM_FALSE));
-    Init_Logic(false_value, FALSE);
-    assert(VAL_LOGIC(false_value) == FALSE);
+    Init_Logic(false_value, false);
+    assert(VAL_LOGIC(false_value) == false);
     assert(IS_FALSEY(false_value));
 }
 
 
 //
-//  action: native [
+//  action: enfix native [
 //
 //  {Creates datatype action (for internal usage only).}
 //
@@ -554,7 +554,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
     REBARR *catalog = Make_Array(Num_Natives);
 
     REBCNT n = 0;
-    REBVAL *action_word = NULL;
+    REBVAL *action_word = NULL; // for giving clear error if ACTION not found
 
     while (NOT_END(item)) {
         if (n >= Num_Natives)
@@ -582,13 +582,21 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         REBVAL *name = KNOWN(item);
         ++item;
 
+        REBOOL enfix;
+        if (IS_WORD(item) and VAL_WORD_SYM(item) == SYM_ENFIX) {
+            enfix = true;
+            ++item;
+        }
+        else
+            enfix = false;
+
         // See if it's being invoked with NATIVE or NATIVE/BODY
         //
         REBOOL has_body;
         if (IS_WORD(item)) {
             if (VAL_WORD_SYM(item) != SYM_NATIVE)
                 panic (item);
-            has_body = FALSE;
+            has_body = false;
         }
         else {
             if (
@@ -601,7 +609,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
             ){
                 panic (item);
             }
-            has_body = TRUE;
+            has_body = true;
         }
         ++item;
 
@@ -646,18 +654,15 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         //
         REBVAL *var = Append_Context(Lib_Context, name, 0);
         Move_Value(var, &Natives[n]);
-
-        // Do special case SET/ENFIX so that SOME-ACTION: ACTION [...]
-        // allows ACTION to see the SOME-ACTION symbol, and know to use it.
-        //
-        if (VAL_WORD_SYM(name) == SYM_ACTION) {
+        if (enfix)
             SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
-            action_word = name;
-        }
 
         REBVAL *catalog_item = Alloc_Tail_Array(catalog);
         Move_Value(catalog_item, name);
         VAL_SET_TYPE_BITS(catalog_item, REB_WORD);
+
+        if (VAL_WORD_SYM(name) == SYM_ACTION)
+            action_word = name;
 
         ++n;
     }
@@ -665,7 +670,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
     if (n != Num_Natives)
         panic ("Incorrect number of natives found during processing");
 
-    if (action_word == NULL)
+    if (not action_word)
         panic ("ACTION native not found during boot block processing");
 
     return catalog;
@@ -765,12 +770,12 @@ static void Init_Root_Vars(void)
 
     Prep_Non_Stack_Cell(&PG_False_Value[0]);
     Prep_Non_Stack_Cell(&PG_False_Value[1]);
-    Init_Logic(&PG_False_Value[0], FALSE);
+    Init_Logic(&PG_False_Value[0], false);
     TRASH_CELL_IF_DEBUG(&PG_False_Value[1]);
 
     Prep_Non_Stack_Cell(&PG_True_Value[0]);
     Prep_Non_Stack_Cell(&PG_True_Value[1]);
-    Init_Logic(&PG_True_Value[0], TRUE);
+    Init_Logic(&PG_True_Value[0], true);
     TRASH_CELL_IF_DEBUG(&PG_True_Value[1]);
 
     // We can't actually put an end value in the middle of a block, so we poke
@@ -1028,12 +1033,11 @@ void Startup_Task(void)
     //
     REBOOL Guess_If_Stack_Grows_Up(int *p) {
         int i;
-        if (p == NULL)
+        if (not p)
             return Guess_If_Stack_Grows_Up(&i); // RECURSION: avoids inlining
-        else if (p < &i) // !!! this comparison is undefined behavior
-            return TRUE; // upward
-        else
-            return FALSE; // downward
+        if (p < &i) // !!! this comparison is undefined behavior
+            return true; // upward
+        return false; // downward
     }
 #endif
 
@@ -1127,11 +1131,11 @@ void Startup_Core(void)
   #endif
 
   #ifndef NDEBUG
-    PG_Always_Malloc = FALSE;
+    PG_Always_Malloc = false;
   #endif
 
   #ifdef DEBUG_HAS_PROBE
-    PG_Probe_Failures = FALSE;
+    PG_Probe_Failures = false;
   #endif
 
     // Globals
@@ -1400,11 +1404,10 @@ static REBVAL *Startup_Mezzanine(BOOT_BLK *boot)
     // copy with some omissions), and where the mezzanine definitions are
     // bound to the lib context and DO'd.
     //
-    const REBOOL fully = TRUE; // error if all arguments aren't consumed
     DECLARE_LOCAL (result);
     if (Apply_Only_Throws(
         result,
-        fully,
+        true, // fully = true (error if all arguments aren't consumed)
         finish_init, // %sys-start.r function to call
         KNOWN(&boot->mezz), // boot-mezz argument
         END
@@ -1454,7 +1457,7 @@ void Shutdown_Core(void)
     Shutdown_Action_Spec_Tags();
     Shutdown_Root_Vars();
 
-    const REBOOL shutdown = TRUE; // go ahead and free all managed series
+    const REBOOL shutdown = true; // go ahead and free all managed series
     Recycle_Core(shutdown, NULL);
 
     Shutdown_Mold();

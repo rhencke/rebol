@@ -286,7 +286,7 @@ REBNATIVE(either_test)
     REB_R r = Either_Test_Core(D_OUT, ARG(test), PAR(arg), ARG(arg));
     if (r == R_OUT_IS_THROWN)
         return R_OUT_IS_THROWN;
-        
+
     if (r == R_TRUE) {
         Move_Value(D_OUT, ARG(arg));
         return R_OUT;

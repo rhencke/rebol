@@ -14,30 +14,39 @@ REBOL [
     Needs: 2.100.100
 ]
 
-emit-native-proto: proc [
+emit-native-proto: procedure [
     "Emit native prototypes to @unsorted-buffer"
     proto
+    <with> proto-count
 ][
+    line: text-line-of proto-parser/parse.position
+
     if all [
         block? proto-parser/data
-        any [
-            'native = proto-parser/data/2
-            all [
-                path? proto-parser/data/2
-                'native = proto-parser/data/2/1
+        parse proto-parser/data [
+            set name: set-word!
+            opt 'enfix
+            ['native | and path! into ['native to end]]
+            [
+                set spec: block!
+            | (
+                fail [
+                    "Native" (uppercase form to word! name)
+                    "needs loadable specification block."
+                    (mold the-file) (line)
+                ]
+            )]
+            opt block! ;-- optional body
+            [
+                end
+            |
+                ; currently extensions add NEW-ERRORS, etc.
+                ; Ideally this should be checked here for being valid
+                ;
+                to end
             ]
         ]
-    ] [
-        line: text-line-of proto-parser/parse.position
-
-        if not block? proto-parser/data/3 [
-            fail [
-                "Native" (uppercase form to word! proto-parser/data/1)
-                "needs loadable specification block."
-                (mold the-file) (line)
-            ]
-        ]
-
+    ][
         append case [
             ; could do tests here to create special buffer categories to
             ; put certain natives first or last, etc. (not currently needed)
