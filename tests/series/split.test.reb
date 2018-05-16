@@ -30,5 +30,5 @@
 (["-" "-"] == split "-a-a" ["a"])
 (["-" "-" "'"] == split "-a-a'" ["a"])
 (["abc" "de" "fghi" "jk"] == split "abc|de/fghi:jk" charset "|/:")
-(["abc" "de" "fghi" "jk"] == split "abc^M^Jde^Mfghi^Jjk" [crlf | #"^M" | newline])
+(["abc" "de" "fghi" "jk"] == split "abc^M^Jde^Mfghi^Jjk" [CR LF | #"^M" | newline])
 (["abc" "de" "fghi" "jk"] == split "abc     de fghi  jk" [some #" "])

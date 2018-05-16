@@ -366,7 +366,7 @@ int main(int argc, char *argv_ansi[])
     //
     // Were we using WinMain we'd be getting our arguments in Unicode, but
     // since we're using an ordinary main() we do not.  However, this call
-    // lets us slip out and pick up the arguments in Unicode form (UCS2).
+    // lets us slip out and pick up the arguments in Unicode form (UTF-16).
     //
     WCHAR **argv_ucs2 = CommandLineToArgvW(GetCommandLineW(), &argc);
     UNUSED(argv_ansi);
@@ -378,6 +378,9 @@ int main(int argc, char *argv_ansi[])
         if (argv_ucs2[i] == nullptr)
             continue; // !!! Comment here said "shell bug" (?)
 
+        // Note: rebTextW() currently only supports UCS-2, so codepoints that
+        // need more than two bytes to be represented will cause a failure.
+        //
         rebElide("append", argv_block, rebR(rebTextW(argv_ucs2[i])), END);
     }
   #else

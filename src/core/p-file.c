@@ -208,11 +208,11 @@ static void Write_File_Port(struct devreq_file *file, REBVAL *data, REBCNT len, 
         MANAGE_SERIES(ser);
         req->common.data = BIN_HEAD(ser);
         len = SER_LEN(ser);
-        req->modes |= RFM_TEXT; // do LF => CRLF, e.g. on Windows
+        req->modes |= RFM_TEXT; // do LF => CR LF, e.g. on Windows
     }
     else {
         req->common.data = VAL_BIN_AT(data);
-        req->modes &= ~RFM_TEXT; // don't do LF => CRLF, e.g. on Windows
+        req->modes &= ~RFM_TEXT; // don't do LF => CR LF, e.g. on Windows
     }
     req->length = len;
 

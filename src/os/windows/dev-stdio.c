@@ -187,7 +187,7 @@ DEVICE_CMD Write_IO(REBREQ *req)
             // but this could be changed.
             //
             // !!! Historically, Rebol on Windows would "enline" strings
-            // as UTF-8 in order to turn LF to CRLF.  This was done in the
+            // as UTF-8 in order to turn LF to CR LF.  This was done in the
             // Prin_OS_String function.  However, the current idea is to
             // make the core more agnostic and just pass UTF-8 data here.
             //

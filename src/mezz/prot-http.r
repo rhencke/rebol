@@ -221,16 +221,16 @@ make-http-request: func [
     result: unspaced [
         uppercase form method space
         either file? target [next mold target] [target]
-        space "HTTP/1.0" CRLF
+        space "HTTP/1.0" CR LF
     ]
     for-each [word string] headers [
-        join result [mold word space string CRLF]
+        join result [mold word space string CR LF]
     ]
     if content [
         content: to binary! content
-        join result ["Content-Length:" space (length of content) CRLF]
+        join result ["Content-Length:" space (length of content) CR LF]
     ]
-    append result CRLF
+    append result unspaced [CR LF]
     result: to binary! result
     if content [append result content]
     result

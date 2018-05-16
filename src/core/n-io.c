@@ -139,9 +139,9 @@ REBNATIVE(write_stdout)
     }
     else {
         // !!! Temporary until UTF-8 Everywhere: translate string into UTF-8.
-        // We don't put CRLF in, as this is a proxy for the string that won't
+        // We don't put CR LF in, as this is a proxy for the string that won't
         // have CR in it.  (And even if it did, that's only really needed on
-        // Windows, which will need to do a UCS2 transformation anyway...so
+        // Windows, which will need to do a UTF-16 transformation anyway...so
         // might as well put the CR codepoints in then.)
         //
         // !!! Don't use mold buffer, because we're passing a raw pointer, and

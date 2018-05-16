@@ -391,7 +391,7 @@ DEVICE_CMD Write_File(REBREQ *req)
             SetEndOfFile(req->requestee.handle);
     }
 
-    if (not (req->modes & RFM_TEXT)) { // e.g. no LF => CRLF translation needed
+    if (not (req->modes & RFM_TEXT)) { // no LF => CR LF translation needed
         if (req->length != 0) {
             BOOL ok = WriteFile(
                 req->requestee.handle,

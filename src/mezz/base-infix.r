@@ -99,7 +99,7 @@ for-each [set-op function-name] [
 =: !=: ==: !==: =?: _
 
 ; <= looks a lot like a left arrow.  In the interest of "new thought", core
-; defines the operation in terms of =< 
+; defines the operation in terms of =<
 ;
 lesser-or-equal?: :equal-or-lesser?
 
@@ -115,7 +115,7 @@ for-each [comparison-op function-name] compose [
 
     !=      not-equal? ;-- !!! http://www.rebol.net/r3blogs/0017.html
 
-    ==      strict-equal? ;-- !!! https://forum.rebol.info/t/349 
+    ==      strict-equal? ;-- !!! https://forum.rebol.info/t/349
     !==     strict-not-equal? ;-- !!! bad pairing, most would think !=
 
     =?      same?

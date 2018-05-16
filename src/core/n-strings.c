@@ -889,7 +889,7 @@ REBNATIVE(dehex)
 //
 //  deline: native [
 //
-//  {Converts string terminators to standard format, e.g. CRLF to LF.}
+//  {Converts string terminators to standard format, e.g. CR LF to LF.}
 //
 //      return: [any-string! block!]
 //      string [any-string!]
@@ -995,7 +995,7 @@ REBNATIVE(enline)
     // it should be all right.
     //
     // Prior to UTF-8 Everywhere, sliding can't be done bytewise, because
-    // UCS2 has the CR/LF bytes in codepoint sequences that aren't CR/LF.
+    // UCS-2 has the CR LF bytes in codepoint sequences that aren't CR LF.
     // So sliding is done in full character counts.
 
     REBUNI *up = UNI_HEAD(ser); // expand may change the pointer

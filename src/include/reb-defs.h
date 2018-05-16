@@ -104,7 +104,7 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// "WIDE" CHARACTER DEFINITION (UCS2)
+// "WIDE" CHARACTER DEFINITION (UCS-2)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -113,7 +113,7 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 // varies in size by platform...though it is standardized to 2 bytes in size
 // on Windows, where there is `#define WCHAR wchar_t`
 //
-// Some APIs (such as unixodbc) use UCS2 for wide character handling in order
+// Some APIs (such as unixodbc) use UCS-2 for wide character handling in order
 // to be compatible with Windows, vs. using the native wchar_t type.  It thus
 // defines SQLWCHAR as an unsigned short integer (itself not *guaranteed* to
 // be 16-bits in size).  However, such a definition cannot be used if
@@ -122,13 +122,16 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 // https://stackoverflow.com/q/1238609
 //
 // The primary focus of Ren-C is on UTF-8, but it does grudgingly provide
-// some UCS2 APIs.  To avoid duplicating a u16-based "UCS2" API and a wchar_t
+// some UCS-2 APIs.  To avoid duplicating u16-based "UCS-2" API and a wchar_t
 // API, the API is exposed as being REBWCHAR based, which does a #define
 // based on the platform.
 //
 // *** However, don't use REBWCHAR in client code.  If the client code is
 // on Windows, use WCHAR.  If it's in a unixodbc client use SQLWCHAR.  In
 // general, try and use UTF8 if you possibly can. ***
+//
+// It may be that the API never supports higher codepoints via UTF-16
+// encoding, and only does higher codepoints on input/output to get UTF-8.
 //
 
 #ifdef TO_WINDOWS
@@ -145,8 +148,8 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // REBUNI is currently a two-byte representation of a Unicode codepoint.  It
-// is not UCS2...it's simply limited to 16-bit codepoints.  R3-Alpha did not
-// have CHAR! values higher than that.
+// is not UTF-16...it's simply limited to 16-bit codepoints (UCS-2).  R3-Alpha
+// did not have CHAR! values higher than that.
 //
 // Ren-C is being adapted to where this will become a full 32-bit value.  The
 // goal is to retrofit the code to use "UTF-8 Everywhere".  In the meantime,

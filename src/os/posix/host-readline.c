@@ -134,7 +134,7 @@ STD_TERM *Init_Terminal(void)
     attrs.c_iflag &= ~(ICRNL | INLCR); // leave CR an LF as is
 
     // Output modes:
-    attrs.c_oflag |= ONLCR; // On output, emit CRLF
+    attrs.c_oflag |= ONLCR; // On output, emit CR LF
 
     // Special modes:
     attrs.c_cc[VMIN] = 1;   // min num of bytes for READ to return

@@ -212,7 +212,7 @@ REBNATIVE(open_connection)
     // https://stackoverflow.com/a/7552533/211160
     //
     // "unixODBC follows MS ODBC Driver manager and has SQLWCHARs as 2 bytes
-    //  UCS2 encoded. iODBC I believe uses wchar_t (this is based on
+    //  UCS-2 encoded. iODBC I believe uses wchar_t (this is based on
     //  attempting to support iODBC in DBD::ODBC)"
     //
     assert(sizeof(SQLWCHAR) == sizeof(REBWCHAR));

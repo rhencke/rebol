@@ -106,12 +106,12 @@ DEVICE_CMD Read_Clipboard(REBREQ *req)
     if (wide == NULL) {
         CloseClipboard();
         rebJUMPS (
-            "fail {Couldn't GlobalLock() UCS2 clipboard data}",
+            "fail {Couldn't GlobalLock() UTF-16 clipboard data}",
             rebEnd()
         );
     }
 
-    REBVAL *str = rebTextW(wide);
+    REBVAL *str = rebTextW(wide); // Currently only supports UCS-2, or fails
 
     GlobalUnlock(h);
     CloseClipboard();
@@ -168,7 +168,7 @@ DEVICE_CMD Write_Clipboard(REBREQ *req)
             rebEnd()
         );
 
-    // Clipboard wants a Windows memory handle with UCS2 data.  Allocate a
+    // Clipboard wants a Windows memory handle with UTF-16 data.  Allocate a
     // sufficienctly sized handle, decode Rebol STRING! into it, and transfer
     // ownership of that handle to the clipboard.
 
@@ -186,7 +186,7 @@ DEVICE_CMD Write_Clipboard(REBREQ *req)
             rebEnd()
         );
 
-    REBCNT len_check = rebSpellingOfW(wide, len, str); // UTF-16 extraction
+    REBCNT len_check = rebSpellingOfW(wide, len, str); // UCS-2 extraction
     assert(len <= len_check); // may only be writing /PART of the string
     UNUSED(len_check);
 

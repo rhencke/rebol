@@ -258,9 +258,11 @@ rebsource: context [
                 1 < index of position
                 13 = first back position
             ] then [
-                line-ending: crlf | alt-ending: newline
+                line-ending: unspaced [CR LF]
+                alt-ending: LF
             ] else [
-                line-ending: newline | alt-ending: crlf
+                line-ending: LF
+                alt-ending: unspaced [CR LF]
             ]
 
             count-line: [

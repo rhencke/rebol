@@ -32,20 +32,19 @@ sys: system/contexts/sys
 lib: system/contexts/lib
 
 ;-- Char constants:
-nul:       #"^(NULL)"
+NUL:       #"^(NULL)"
 space:     #" "
-sp:        space
+SP:        space
 backspace: #"^(BACK)"
-bs:        backspace
+BS:        backspace
 tab:       #"^-"
 newline:   #"^/"
 newpage:   #"^l"
 slash:     #"/"
 backslash: #"\"
 escape:    #"^(ESC)"
-cr:        #"^M"
-lf:        newline
-crlf:      "^M^J"
+CR:        #"^M"
+LF:        newline
 
 ;-- Function synonyms:
 to-logic: :did?

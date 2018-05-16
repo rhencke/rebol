@@ -20,10 +20,10 @@ error-response: func [code uri <local> values] [
 start-response: func [port res <local> code text type body] [
     set [code type body] res
     write port unspaced [
-        "HTTP/1.0" space code space code-map/:code crlf
-        "Content-type:" space type crlf
-        "Content-length:" space length of body crlf
-        crlf
+        "HTTP/1.0" space code space code-map/:code CR LF
+        "Content-type:" space type CR LF
+        "Content-length:" space (length of body) CR LF
+        CR LF
     ]
     ;; Manual chunking is only necessary because of several bugs in R3's
     ;; networking stack (mainly cc#2098 & cc#2160; in some constellations also
@@ -57,16 +57,16 @@ handle-request: function [config req] [
 awake-client: function [event] [
     port: event/port
     switch event/type [
-        read [
-            either find port/data to-binary join-of crlf crlf [
+        'read [
+            either find port/data to-binary unspaced [CR LF CR LF] [
                 res: handle-request port/locals/config port/data
                 start-response port res
             ] [
                 read port
             ]
         ]
-        wrote [if not send-chunk port [close port]]
-        close [close port]
+        'wrote [if not send-chunk port [close port]]
+        'close [close port]
     ]
 ]
 

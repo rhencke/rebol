@@ -94,7 +94,12 @@ make object! [
                 ; EOL convention.
                 position:
                 any not-eolc
-                [crlf (set 'eol crlf) | newline (set eol 'newline)]
+                [CR LF (
+                    eol: unspaced [CR LF]
+                )
+                | LF (
+                    eol: LF
+                )]
                 :position
 
                 any [
@@ -129,7 +134,7 @@ make object! [
                 ]
             ]
 
-            not-eolc: complement charset crlf
+            not-eolc: complement charset reduce [CR LF]
 
             scan: procedure [
                 {Scan the contents for basic tokens.}

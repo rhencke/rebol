@@ -1400,10 +1400,12 @@ char *RL_rebSpellAlloc(const void *p, ...)
 //
 //  rebSpellingOfW: RL_API
 //
-// Extract UCS2 data from an ANY-STRING! or ANY-WORD!.
+// Extract UCS-2 data from an ANY-STRING! or ANY-WORD!.  Note this is *not*
+// UTF-16, so codepoints that require more than two bytes to represent will
+// cause errors.
 //
 // !!! Although the rebSpellingOf API deals in bytes, this deals in count of
-// characters.  (The use of REBCNT instead of size_t indicates this.)  It may
+// characters.  (The use of REBCNT instead of REBSIZ indicates this.)  It may
 // be more useful for the wide string APIs to do this so leaving it that way
 // for now.
 //
@@ -1458,9 +1460,11 @@ REBCNT RL_rebSpellingOfW(
 // a separate LENGTH OF call.
 //
 // !!! Unlike with rebSpellAlloc(), there is not an alternative for getting
-// the size in UCS2-encoded characters, just the LENGTH OF result.  This may
-// be permanent, as UTF-8 is the focus of Ren-C.  Possible solutions could
-// include usermode UCS-2 conversion to binary and extraction of that.
+// the size in UTF-16-encoded characters, just the LENGTH OF result.  While
+// that works for UCS-2 (where all codepoints are two bytes), it would not
+// work if Rebol supported UTF-16.  Which it may never do in the core or
+// API (possible solutions could include usermode UTF-16 conversion to binary,
+// and extraction of that with rebBytes(), then dividing the size by 2).
 //
 REBWCHAR *RL_rebSpellAllocW(const void *p, ...)
 {

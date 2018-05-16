@@ -737,43 +737,50 @@ set 'r3-legacy* func [<local>] [
         ; If someone needs it, they can adapt this routine as needed.
         ;
         set: (function [
+            {SET does not need /ANY to unset a variable, use <- to check null}
             return: [<opt> any-value!]
             target [blank! any-word! any-path! block! any-context!]
             value [<opt> any-value!]
             /any
             /some
-            /enfix
         ][
             set_ANY: any
             any: :lib/any
             set_SOME: some
             some: :lib/some
 
+            if not set_ANY and (null? :value) [
+                fail "Legacy SET won't unset a variable without /ANY"
+            ]
             apply 'set [
                 target: either any-context? target [words of target] [target]
                 value: :value
                 some: set_SOME
-                enfix: enfix
             ]
         ])
 
         get: (function [
-            {GET no longer supports OBJECT!, getting unset vars gives null}
+            {Now no OBJECT! support, unset vars always null, use <- to check}
             return: [<opt> any-value!]
             source {Legacy handles Rebol2 types, not *any* type like R3-Alpha}
                 [blank! any-word! any-path! any-context! block!]
-            /any {Name for /ANY in Ren-C is /OPT}
+            /any {/ANY in Ren-C is covered by TRY, only used with BLOCK!}
         ][
             any_GET: any
             any: :lib/any
 
-            if blank? source [return _] ;-- Rebol2 allows blank, returns blank
-
-            return apply 'get [
-                source: source unless any-context? source [
-                    words of source
-                ]
+            if block? :source [
+                return source ;-- this is what it did :-/
             ]
+            result: either* any-context? source [
+                get words of source
+            ][
+                get source
+            ]
+            if not any_GET and (null? :result) [
+                fail "Legacy GET won't get an unset variable without /ANY"
+            ]
+            return :result
         ])
 
         to: (adapt 'to [
@@ -879,7 +886,7 @@ set 'r3-legacy* func [<local>] [
             all: :lib/all
 
             switch type of rules [
-                blank! [split input charset reduce [tab space cr lf]]
+                blank! [split input charset reduce [tab space CR LF]]
                 text! [split input to-bitset rules]
             ] else [
                 parse/(all [case_PARSE 'case]) input rules
@@ -964,11 +971,11 @@ set 'r3-legacy* func [<local>] [
         ; different.  This snapshots their implementation.
 
         repend: (function [
-            series [series! port! map! gob! object! bitset!]
+            series [any-series! port! map! gob! object! bitset!]
             value
-            /part limit [number! series! pair!]
+            /part limit [any-number! any-series! pair!]
             /only
-            /dup count [number! pair!]
+            /dup count [any-number! pair!]
         ][
             ;-- R3-alpha REPEND with block behavior called out
             ;
