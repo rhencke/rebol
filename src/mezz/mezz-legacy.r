@@ -346,12 +346,17 @@ to-local-file: func [dummy:] [
     ] 'dummy
 ]
 
-; AJOIN is a kind of ugly name for making an unspaced string from a block.
-; REFORM is nonsensical looking.  Ren-C has UNSPACED and SPACED.
-;
-ajoin: :unspaced
-reform: :spaced
+ajoin: func [dummy:] [
+    fail/where [
+        {AJOIN's functionality is replaced by UNSPACED}
+    ] 'dummy
+]
 
+reform: func [dummy:] [
+    fail/where [
+        {REFORM's functionality is replaced by SPACED}
+    ] 'dummy
+]
 
 
 ; REJOIN in R3-Alpha meant "reduce and join"; the idea of JOIN in Ren-C
@@ -999,6 +1004,10 @@ set 'r3-legacy* func [<local>] [
                 value: if block? :rest [reduce :rest] else [rest]
             ]
         ])
+
+        ajoin: (:unspaced)
+
+        reform: (:spaced)
 
         ; To be on the safe side, the PRINT in the box won't do evaluations on
         ; blocks unless the literal argument itself is a block

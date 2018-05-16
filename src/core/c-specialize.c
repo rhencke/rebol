@@ -433,7 +433,7 @@ REBOOL Specialize_Action_Throws(
         if (Do_Any_Array_At_Throws(out, opt_def)) {
             DROP_GUARD_CONTEXT(exemplar);
             DS_DROP_TO(lowest_ordered_dsp);
-            return TRUE;
+            return true;
         }
         DROP_GUARD_CONTEXT(exemplar);
     }
@@ -560,11 +560,10 @@ REBOOL Specialize_Action_Throws(
 
         assert(IS_LOGIC(refine));
 
-        if (VAL_LOGIC(refine) == FALSE) {
+        if (VAL_LOGIC(refine) == false) {
             //
             // `specialize 'append [dup: false count: 10]` is not legal.
             //
-            assert(VAL_LOGIC(refine) == FALSE);
             if (not IS_VOID(arg))
                 fail (Error_Bad_Refine_Revoke(param, arg));
             goto specialized_arg_no_typecheck;
@@ -678,7 +677,7 @@ REBOOL Specialize_Action_Throws(
                 // (even if it was "evoked" to be so, from void).  If all the
                 // args were non-void, it's not actually a partial.
                 //
-                Init_Logic(partial, TRUE);
+                Init_Logic(partial, true);
                 goto continue_loop;
             }
         }
@@ -794,7 +793,7 @@ REBOOL Specialize_Action_Throws(
     body->payload.any_context.phase = unspecialized;
 
     Move_Value(out, ACT_ARCHETYPE(specialized));
-    return FALSE; // code block did not throw
+    return false; // code block did not throw
 }
 
 
@@ -841,13 +840,12 @@ REBNATIVE(specialize)
     // gives ordering information that TRUE assigned in a code block can't.
     //
     REBSTR *opt_name;
-    const REBOOL push_refinements = TRUE;
     if (Get_If_Word_Or_Path_Throws(
         D_OUT,
         &opt_name,
         specializee,
         SPECIFIED,
-        push_refinements // don't generate temp specialization, push refines
+        true // push_refines = true (don't generate temp specialization)
     )){
         // e.g. `specialize 'append/(throw 10 'dup) [value: 20]`
         //
@@ -1008,7 +1006,7 @@ REBOOL Make_Invocation_Frame_Throws(
             refine = arg;
             if (IS_INTEGER(refine)) {
                 if (not IS_REFINEMENT_SPECIALIZED(param)) {
-                    Init_Logic(refine, FALSE);
+                    Init_Logic(refine, false);
                     break;
                 }
 
@@ -1018,7 +1016,7 @@ REBOOL Make_Invocation_Frame_Throws(
                 if (VAL_INT32(refine) < last_partial)
                     fail ("Frame hack can't handle this refinement order :(");
                 last_partial = VAL_INT32(refine);
-                Init_Logic(refine, TRUE);
+                Init_Logic(refine, true);
             }
             break; }
 
@@ -1030,7 +1028,7 @@ REBOOL Make_Invocation_Frame_Throws(
                 if (IS_VOID(refine))
                     break;
 
-                if (IS_LOGIC(refine) and VAL_LOGIC(refine) == FALSE)
+                if (IS_LOGIC(refine) and VAL_LOGIC(refine) == false)
                     break;
             }
 
@@ -1045,7 +1043,7 @@ REBOOL Make_Invocation_Frame_Throws(
 
             if (r == R_OUT_IS_THROWN) {
                 DROP_GUARD_CONTEXT(exemplar);
-                return R_OUT_IS_THROWN;
+                return true;
             }
 
             if (r == R_END)
@@ -1073,7 +1071,7 @@ REBOOL Make_Invocation_Frame_Throws(
     DROP_GUARD_CONTEXT(exemplar);
 
     *exemplar_out = exemplar;
-    return FALSE;
+    return false;
 }
 
 
@@ -1143,13 +1141,12 @@ REBNATIVE(does)
     ){
         REBSTR *opt_label;
         REBDSP lowest_ordered_dsp = DSP;
-        const REBOOL push_refinements = TRUE;
         if (Get_If_Word_Or_Path_Throws(
             D_OUT,
             &opt_label,
             specializee,
             SPECIFIED,
-            push_refinements
+            true // push_refinements = true
         )){
             return R_OUT_IS_THROWN;
         }

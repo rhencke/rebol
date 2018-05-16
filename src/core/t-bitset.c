@@ -33,7 +33,6 @@
 #define MAX_BITSET 0x7fffffff
 
 static inline REBOOL BITS_NOT(REBSER *s) {
-    assert(MISC(s).negated == TRUE || MISC(s).negated == FALSE);
     return MISC(s).negated;
 }
 

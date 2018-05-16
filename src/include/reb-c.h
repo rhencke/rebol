@@ -344,7 +344,7 @@
 
        template<class C, class T> /* or any type of null           */
           operator T C::*() const /* member pointer...             */
-          { return 0; }   
+          { return 0; }
 
     private:
        void operator&() const;    /* Can't take address of nullptr */
@@ -475,8 +475,8 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The C language defines the value 0 as false, while all non-zero things are
-// considered logically true.  Yet the language standard mandates that the
+// 0 is defined in C as "conditionally false", while all non-zero things are
+// considered "conditionally true".  Yet the language standard mandates that
 // comparison operators (==, !=, >, <, etc) will return either 0 or 1, and
 // the C++ language standard defines conversion of its built-in boolean type
 // to an integral value as either 0 or 1.
@@ -492,18 +492,8 @@
 //     }
 //     int zero_or_sixteen = My_Optimized_Function(flags & SOME_BIT_FLAG);
 //
-// The caller may feel they are passing something that is validly "truthy" or
-// "falsey", yet if the bit flag is shifted at all then the optimization won't
-// be able to work.  The type system will not catch the mistake, and hence
-// anyone who needs logics to be 0 or 1 must inject code to enforce that
-// translation, which the optimizer cannot leave out.
-// 
-// This code takes advantage of the custom definition with DEBUG_STRICT_BOOL
-// that makes assignments to REBOOL reject integers entirely.  It still
-// allows testing via if() and the logic operations, but merely disables
-// direct assignments or passing integers as parameters to bools.
-//
-// This is better than what was previously used, a (REBOOL)cast_of_expression.
+// This code shims in a definition of bool as 0 or 1 for older compilers.
+// It's better than what was previously used, a (REBOOL)cast_of_expression.
 // And it makes it much safer to use ordinary `&` operations to test for
 // flags, more succinctly even:
 //
@@ -516,22 +506,35 @@
 //     REBOOL b = not (flags & SOME_FLAG_BITWISE); // 4 fewer chars
 //
 // (Bitwise vs. ordinal also permits initializing options by just |'ing them.)
-//
 
 #ifdef __cplusplus
-    #if defined(_MSC_VER)
-        #include <iso646.h> // MSVC doesn't have `and`, `not`, etc. w/o this
-    #else
-        // otherwise, C++ compilers define them, as they are in the standard
-    #endif
+    // bool, true, and false defined in the language since the beginning
+
+  #if defined(_MSC_VER)
+    #include <iso646.h> // MSVC doesn't have `and`, `not`, etc. w/o this
+  #else
+    // legitimate compilers define them, they're even in the C++98 standard!
+  #endif
 #else
+  #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L // C99 or later
+    #include <stdbool.h>
+  #else
+    #if !defined(true)
+        #define true 1
+    #endif
+    #if !defined(false)
+        #define false 0
+    #endif
+    typedef int_fast8_t bool; // fastest type that can represent 8-bits
+  #endif
+
     // Since the C90 standard of C, iso646.h has been defined:
     //
     // https://en.wikipedia.org/wiki/C_alternative_tokens
     //
-    // But TCC didn't include it, and maybe others don't either.  The issue
-    // isn't so much the file, as it is agreeing on the 11 macros, so just
-    // define them here.
+    // ...but TCC doesn't ship with it, and maybe other C's don't either.  The
+    // issue isn't so much the file, as it is agreeing on the 11 macros, so
+    // just define them here.
     //
     #define and &&
     #define and_eq &=
@@ -550,65 +553,33 @@
 //
 #define did !!
 
-#ifdef DEBUG_STRICT_BOOL
-  #ifndef CPLUSPLUS_11
-    #error "DEBUG_STRICT_BOOL only written for C++11"
-  #endif
+typedef bool REBOOL;
 
-    // To do this test in MSVC, you need /wd4190, /wd4647, /wd4805
+// !!! Historically Rebol used TRUE and FALSE uppercase macros, but so long
+// as C99 has added bool to the language, there's not much point in being
+// compatible with codebases that have `char* true = "Spandau";` or similar
+// in them.  So Rebol can use `true` and `false`, but there are still a lot
+// of instances of TRUE and FALSE, which will be removed when convenient (a
+// time that won't cause many merge conflicts).
 
-    class REBOOL {
-        bool b;
-
-    public:
-        REBOOL () = default;
-
-        template<typename T>
-        REBOOL (T x) : b (x) {
-            static_assert(
-                std::is_same<T, bool>::value,
-                "can only initalize REBOOL from booleans, otherwise use `did`"
-            );
-        }
-
-        operator bool() const { return b; }
-        explicit operator int() const { return b; }
-    };
-    #undef FALSE
-    #undef TRUE
+#if (defined(FALSE) && (!FALSE)) && (defined(TRUE) && TRUE)
+    #if defined(TO_WINDOWS) && !((FALSE == 0) && (TRUE == 1))
+        //
+        // The Windows API specifically mandates the value of TRUE as 1.
+        // If you are compiling on Windows with something that has
+        // predefined the constant as some other value, it will be
+        // inconsistent...and won't work out.
+        //
+        #error "Compiler's FALSE != 0 or TRUE != 1, invalid for Win32"
+    #else
+        // Outside of Win32, assume any C truthy/falsey definition that
+        // the compiler favors is all right.
+    #endif
+#elif !defined(FALSE) && !defined(TRUE)
     #define FALSE false
     #define TRUE true
 #else
-    #if (defined(FALSE) && (!FALSE)) && (defined(TRUE) && TRUE)
-
-        #if defined(TO_WINDOWS) && !((FALSE == 0) && (TRUE == 1))
-            //
-            // The Windows API specifically mandates the value of TRUE as 1.
-            // If you are compiling on Windows with something that has
-            // predefined the constant as some other value, it will be
-            // inconsistent...and won't work out.
-            //
-            #error "Compiler's FALSE != 0 or TRUE != 1, invalid for Win32"
-        #else
-            // Outside of Win32, assume any C truthy/falsey definition that
-            // the compiler favors is all right.
-        #endif
-
-        // There's a FALSE and TRUE defined and they are logically false and
-        // true respectively, so just use those definitions but make REBOOL
-        //
-        typedef int_fast8_t REBOOL; // fastest type that can represent 8-bits
-
-    #elif !defined(FALSE) && !defined(TRUE)
-        #define FALSE 0
-        #define TRUE 1
-
-        typedef int_fast8_t REBOOL;
-    #else
-        // TRUE and FALSE are defined but are not their logic meanings.
-        //
-        #error "Bad TRUE and FALSE definitions in compiler environment"
-    #endif
+    #error "TRUE and FALSE are defined but are not their logic meanings"
 #endif
 
 
@@ -887,12 +858,15 @@
         >::type* = nullptr
     >
     void UNUSED(T && v) {
-        TRASH_POINTER_IF_DEBUG(v);
+        static bool zero = false;
+        if (zero)
+            v = nullptr; // do null half the time, deterministic
+        else
+            TRASH_POINTER_IF_DEBUG(v); // trash the other half of the time
+        zero = not zero;
     }
 
-    // Any integral or floating type, set to a spam number.  Use 123 just to
-    // avoid having to write separate handlers for all arithmetic types, as
-    // it fits in a signed char (but not 127), and looks a bit unnatural.
+    // Any integral or floating type, set to a spam number.
     //
     template<
         typename T,
@@ -901,10 +875,16 @@
             std::is_lvalue_reference<T &&>::value
             && !std::is_const<TRR>::value
             && std::is_arithmetic<TRR>::value
+            && !std::is_pointer<TRR>::value
         >::type* = nullptr
     >
     void UNUSED(T && v) {
-        v = 123;
+        static bool zero = false;
+        if (zero)
+            v = false; // false/0 half the time, deterministic
+        else
+            v = true; // true/1 other half the time
+        zero = not zero;
     }
 
     // It's unsafe to memory fill an arbitrary C++ class by value with

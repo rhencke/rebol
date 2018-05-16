@@ -142,7 +142,7 @@ REBNATIVE(either)
 // This routine is just for basic efficiency behind constructs like ELSE
 // that want to avoid frame creation overhead.  So BLOCK! just means typeset.
 //
-inline static REBOOL Either_Test_Core(
+inline static REB_R Either_Test_Core(
     REBVAL *cell, // GC-safe temp cell
     REBVAL *test, // modified
     const REBVAL *par,
@@ -164,7 +164,7 @@ inline static REBOOL Either_Test_Core(
         // "testing the test" on a fixed value.  Allow literal blocks (e.g.
         // use IS_TRUTHY() instead of IS_CONDITIONAL_TRUE())
         //
-        return VAL_LOGIC(test) == IS_TRUTHY(arg); }
+        return R_FROM_BOOL(VAL_LOGIC(test) == IS_TRUTHY(arg)); }
 
     case REB_WORD:
     case REB_PATH: {
@@ -216,13 +216,13 @@ inline static REBOOL Either_Test_Core(
         if (IS_VOID(cell))
             fail (Error_No_Return_Raw());
 
-        return IS_TRUTHY(cell); }
+        return R_FROM_BOOL(IS_TRUTHY(cell)); }
 
     case REB_DATATYPE: {
-        return VAL_TYPE_KIND(test) == VAL_TYPE(arg); }
+        return R_FROM_BOOL(VAL_TYPE_KIND(test) == VAL_TYPE(arg)); }
 
     case REB_TYPESET: {
-        return TYPE_CHECK(test, VAL_TYPE(arg)); }
+        return R_FROM_BOOL(TYPE_CHECK(test, VAL_TYPE(arg))); }
 
     case REB_BLOCK: {
         RELVAL *item = VAL_ARRAY_AT(test);
@@ -243,16 +243,16 @@ inline static REBOOL Either_Test_Core(
 
             if (IS_DATATYPE(var)) {
                 if (VAL_TYPE_KIND(var) == VAL_TYPE(arg))
-                    return TRUE;
+                    return R_TRUE;
             }
             else if (IS_TYPESET(var)) {
                 if (TYPE_CHECK(var, VAL_TYPE(arg)))
-                    return TRUE;
+                    return R_TRUE;
             }
             else
                 fail (Error_Invalid_Type(VAL_TYPE(var)));
         }
-        return FALSE; }
+        return R_FALSE; }
 
     default:
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
@@ -283,10 +283,16 @@ REBNATIVE(either_test)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST;
 
-    if (Either_Test_Core(D_OUT, ARG(test), PAR(arg), ARG(arg))) {
+    REB_R r = Either_Test_Core(D_OUT, ARG(test), PAR(arg), ARG(arg));
+    if (r == R_OUT_IS_THROWN)
+        return R_OUT_IS_THROWN;
+        
+    if (r == R_TRUE) {
         Move_Value(D_OUT, ARG(arg));
         return R_OUT;
     }
+
+    assert(r == R_FALSE);
 
     if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
@@ -524,11 +530,17 @@ either_test:;
     // See notes above about why the arg is not simply passed through or
     // blanked in the void or falsey arg case.
 
-    if (Either_Test_Core(D_CELL, test, varpar, D_OUT)) {
+    r = Either_Test_Core(D_CELL, test, varpar, D_OUT);
+    if (r == R_OUT_IS_THROWN)
+        return R_OUT_IS_THROWN;
+
+    if (r == R_TRUE) {
         if (IS_VOID_OR_FALSEY(D_OUT))
             return R_BAR;
         return R_OUT;
     }
+
+    assert(r == R_FALSE);
 
     if (IS_VOID_OR_FALSEY(D_OUT))
         return R_VOID;

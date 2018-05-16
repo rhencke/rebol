@@ -103,7 +103,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
         // breakpoint before it returns.  It may also FAIL and longjmp out.
         //
         if (Do_Signals_Throws(f->out))
-            return TRUE;
+            return true;
     }
 
     UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
@@ -114,7 +114,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
     );
   #endif
 
-    return FALSE;
+    return false;
 }
 
 
@@ -151,7 +151,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
                 debug_break(); /* see %debug_break.h */ \
                 TG_Break_At_Tick = 0; \
             } \
-        } while (FALSE)
+        } while (false)
 #else
     #define UPDATE_TICK_DEBUG(cur) \
         NOOP
@@ -237,7 +237,7 @@ inline static void Finalize_Arg(
             if (refine + 1 != arg)
                 fail (Error_Bad_Refine_Revoke(param, arg));
 
-            Init_Logic(refine, FALSE); // can't re-enable...
+            Init_Logic(refine, false); // can't re-enable...
             refine = ARG_TO_REVOKED_REFINEMENT;
             return; // don't type check for optionality
         }
@@ -681,7 +681,7 @@ reevaluate:;
         assert(DSP >= f->dsp_orig); // REFINEMENT!s pushed by path processing
         assert(f->refine == LOOKBACK_ARG or f->refine == ORDINARY_ARG);
 
-        f->doing_pickups = FALSE;
+        f->doing_pickups = false;
 
     process_args_for_pickup_or_to_end:;
 
@@ -746,7 +746,7 @@ reevaluate:;
                         Init_Logic(f->arg, VAL_LOGIC(f->special));
                     }
 
-                    if (VAL_LOGIC(f->special) == TRUE)
+                    if (VAL_LOGIC(f->special) == true)
                         f->refine = f->arg; // remember so we can revoke!
                     else
                         f->refine = ARG_TO_UNUSED_REFINEMENT; // (read-only)
@@ -779,7 +779,7 @@ reevaluate:;
                     }
 
                     Prep_Stack_Cell(f->arg);
-                    Init_Logic(f->arg, TRUE);
+                    Init_Logic(f->arg, true);
                     f->refine = SKIPPING_REFINEMENT_ARGS;
                     goto continue_arg_loop;
                 }
@@ -793,7 +793,7 @@ reevaluate:;
 
                 if (f->dsp_orig == DSP) { // no refinements left on stack
                     Prep_Stack_Cell(f->arg);
-                    Init_Logic(f->arg, FALSE);
+                    Init_Logic(f->arg, false);
                     f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
                     goto continue_arg_loop;
                 }
@@ -806,7 +806,7 @@ reevaluate:;
                     DS_DROP; // we're lucky: this was next refinement used
 
                     Prep_Stack_Cell(f->arg);
-                    Init_Logic(f->arg, TRUE); // marks refinement used
+                    Init_Logic(f->arg, true); // marks refinement used
                     f->refine = f->arg; // "consume args (can be revoked)"
                     goto continue_arg_loop;
                 }
@@ -818,7 +818,7 @@ reevaluate:;
                         continue;
 
                     Prep_Stack_Cell(f->arg);
-                    Init_Logic(f->arg, TRUE); // marks refinement used
+                    Init_Logic(f->arg, true); // marks refinement used
 
                     // The call uses this refinement but we'll have to
                     // come back to it when the expression index to
@@ -840,7 +840,7 @@ reevaluate:;
                 // Wasn't in the path and not specialized, so not present
                 //
                 Prep_Stack_Cell(f->arg);
-                Init_Logic(f->arg, FALSE);
+                Init_Logic(f->arg, false);
                 f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
                 goto continue_arg_loop;
             }
@@ -1062,7 +1062,7 @@ reevaluate:;
                     break;
 
                 default:
-                    assert(FALSE);
+                    assert(false);
                 }
 
                 if (not GET_ACT_FLAG(f->phase, ACTION_FLAG_INVISIBLE))
@@ -1303,7 +1303,7 @@ reevaluate:;
                 break;
 
             default:
-                assert(FALSE);
+                assert(false);
             }
 
     //=//// TYPE CHECKING FOR (MOST) ARGS AT END OF ARG LOOP //////////////=//
@@ -1360,7 +1360,7 @@ reevaluate:;
             assert(VAL_PARAM_CLASS(f->param - 1) == PARAM_CLASS_REFINEMENT);
 
             DS_DROP;
-            f->doing_pickups = TRUE;
+            f->doing_pickups = true;
             goto process_args_for_pickup_or_to_end;
         }
 
@@ -1454,11 +1454,11 @@ reevaluate:;
         //
         switch ((*PG_Apply)(f)) {
         case R_FALSE:
-            Init_Logic(f->out, FALSE);
+            Init_Logic(f->out, false);
             break;
 
         case R_TRUE:
-            Init_Logic(f->out, TRUE);
+            Init_Logic(f->out, true);
             break;
 
         case R_VOID:
@@ -1560,10 +1560,7 @@ reevaluate:;
             goto abort_action; }
 
         case R_OUT_TRUE_IF_WRITTEN:
-            if (IS_END(f->out))
-                Init_Logic(f->out, FALSE);
-            else
-                Init_Logic(f->out, TRUE);
+            Init_Logic(f->out, NOT_END(f->out));
             break;
 
         case R_OUT_VOID_IF_UNWRITTEN:
@@ -1601,11 +1598,11 @@ reevaluate:;
             goto redo_unchecked;
 
         case R_REEVALUATE_CELL:
-            evaluating = TRUE; // unnecessary?
+            evaluating = true; // unnecessary?
             goto prep_for_reevaluate;
 
         case R_REEVALUATE_CELL_ONLY:
-            evaluating = FALSE;
+            evaluating = false;
             goto prep_for_reevaluate;
 
         case R_INVISIBLE: {
@@ -1634,7 +1631,7 @@ reevaluate:;
                 Derelativize(&f->cell, f->value, f->specifier);
                 Fetch_Next_In_Frame(f);
 
-                evaluating = TRUE; // unnecessary?
+                evaluating = true; // unnecessary?
                 goto prep_for_reevaluate;
             }
 
@@ -1656,15 +1653,15 @@ reevaluate:;
             //
             f->gotten = END;
 
-            Drop_Action_Core(f, TRUE); // drop_chunks = TRUE
+            Drop_Action_Core(f, true); // drop_chunks = true
             goto reevaluate; // we don't move index!
 
         case R_UNHANDLED: // internal use only, shouldn't be returned
-            assert(FALSE);
+            assert(false);
             break;
 
         default:
-            assert(FALSE);
+            assert(false);
         }
 
     apply_completed:;
@@ -1701,10 +1698,9 @@ reevaluate:;
             DECLARE_LOCAL (fun);
             Move_Value(fun, DS_TOP);
 
-            const REBOOL fully = TRUE;
             if (Apply_Only_Throws(
                 f->out,
-                fully,
+                true, // fully = true
                 fun,
                 DEVOID(KNOWN(&f->cell)), // void cell => nullptr for API
                 END
@@ -1720,7 +1716,7 @@ reevaluate:;
         // this frame that could be even more optimal.  However, having the
         // original function still on the stack helps make errors clearer.
         //
-        Drop_Action_Core(f, TRUE); // drop_chunks = TRUE
+        Drop_Action_Core(f, true); // drop_chunks = true
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2573,7 +2569,7 @@ abort_action:;
 
     assert(THROWN(f->out));
 
-    Drop_Action_Core(f, TRUE); // drop_chunks = TRUE
+    Drop_Action_Core(f, true); // drop_chunks = true
     DS_DROP_TO(f->dsp_orig); // any unprocessed refinements or chains on stack
 
 finished:;
