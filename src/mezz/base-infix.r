@@ -98,18 +98,25 @@ for-each [set-op function-name] [
 ;
 =: !=: ==: !==: =?: _
 
-for-each [comparison-op function-name] [
+; <= looks a lot like a left arrow.  In the interest of "new thought", core
+; defines the operation in terms of =< 
+;
+lesser-or-equal?: :equal-or-lesser?
+
+for-each [comparison-op function-name] compose [
     =       equal?
     <>      not-equal?
     <       lesser?
-    <=      lesser-or-equal? ;-- !!! or left arrow?  Consider `=<`
+    (r3-alpha-quote "=<") equal-or-lesser?
     >       greater?
     >=      greater-or-equal?
 
+    <=      lesser-or-equal? ;-- !!! https://forum.rebol.info/t/349/11
+
     !=      not-equal? ;-- !!! http://www.rebol.net/r3blogs/0017.html
 
-    ==      strict-equal?
-    !==     strict-not-equal?
+    ==      strict-equal? ;-- !!! https://forum.rebol.info/t/349 
+    !==     strict-not-equal? ;-- !!! bad pairing, most would think !=
 
     =?      same?
 ][
@@ -124,31 +131,6 @@ for-each [comparison-op function-name] [
     ; languages)...and a small price to pay.  Hence no TIGHTEN call here.
     ;
     set/enfix comparison-op (get function-name)
-]
-
-
-; !!! Originally in Rebol2 and R3-Alpha, ? was a synonym for HELP.  This seems
-; wasteful for the language as a whole, when it's easy enough to type HELP,
-; or add it to the console-specific abbreviations as H (as with Q for QUIT).
-;
-; This experiments with making `? var` equivalent to `set? 'var`.  Some are
-; made uncomfortable by ? being prefix and not infix, but this is a very
-; useful feature to have a shorthand for.  (Note: might `! var` being a
-; shorthand for `not set? 'var` make more sense than meaning NOT, because
-; there the tradeoff of literacy for symbology actually makes something a
-; bit clearer instead of less clear?)
-;
-?: func [
-    {Determine whether a word represents a variable that is SET?}
-
-    'var [any-word! any-path!]
-        {Variable name to test}
-][
-    ; Note: since this just changes the parameter convention, it could use a
-    ; facade (the way TIGHTEN does) and run the native code for SET?.  Revisit
-    ; when REDESCRIBE has this ability.
-    ;
-    set? var
 ]
 
 
@@ -188,12 +170,10 @@ for-each [comparison-op function-name] [
     either-test-value/opt :left [:right]
 ]
 
-; !!! By naming this ?! it somewhat suggests `?? () !!`, e.g. a shortening and
-; skipping over of a truthy clause.  If it were !? it might suggest a "not"
-; of the test.  For now we'll enable both and just see if people wind up
-; favoring one over the other enough to make it canon.
+; By naming this ?! it somewhat suggests `?? () !!`, e.g. a shortening and
+; skipping over of a truthy clause.
 ;
-!?: ?!: enfix func [
+?!: enfix func [
     {If TO LOGIC! of the left is false, return right value, otherwise null}
 
     return: [<opt> any-value!]
@@ -384,7 +364,7 @@ me: enfix func [
     :rest [any-value! <...>]
         {Code to run with var as left (first element should be enfixed)}
 ][
-    set* var eval-enfix (get var) rest
+    set var eval-enfix (get var) rest
 ]
 
 my: enfix func [
@@ -396,14 +376,14 @@ my: enfix func [
     :rest [any-value! <...>]
         {Code to run with var as left (first element should be prefix)}
 ][
-    set* var eval-enfix/prefix (get var) rest
+    set var eval-enfix/prefix (get var) rest
 ]
 
 
 ; Lambdas are experimental quick function generators via a symbol.  The
 ; identity is used to shake up enfix ordering.
 ;
-set/enfix (r3-alpha-quote "->") :lambda
+set/enfix (r3-alpha-quote "=>") :lambda
 set (r3-alpha-quote "<-") :identity ;-- not enfix, just affects enfix
 
 

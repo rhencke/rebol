@@ -375,18 +375,14 @@ host-start: function [
             return blank
         ]
 
-        any [
-            get-env 'HOME
-
+        return try <- get-env 'HOME or [
             all [
                 homedrive: get-env 'HOMEDRIVE
                 homepath: get-env 'HOMEPATH
                 join-of homedrive homepath
             ]
-        ] then home -> [
+        ] then lambda home [
             to-dir home
-        ] else [
-            blank
         ]
     ]
 

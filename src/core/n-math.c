@@ -554,8 +554,9 @@ compare:
 //
 //  equal?: native [
 //
-//  "Returns TRUE if the values are equal."
+//  {TRUE if the values are equal}
 //
+//      return: [logic!]
 //      value1 [<opt> any-value!]
 //      value2 [<opt> any-value!]
 //  ]
@@ -574,8 +575,9 @@ REBNATIVE(equal_q)
 //
 //  not-equal?: native [
 //
-//  "Returns TRUE if the values are not equal."
+//  {TRUE if the values are not equal}
 //
+//      return: [logic!]
 //      value1 [<opt> any-value!]
 //      value2 [<opt> any-value!]
 //  ]
@@ -594,8 +596,9 @@ REBNATIVE(not_equal_q)
 //
 //  strict-equal?: native [
 //
-//  "Returns TRUE if the values are strictly equal."
+//  {TRUE if the values are strictly equal}
 //
+//      return: [logic!]
 //      value1 [<opt> any-value!]
 //      value2 [<opt> any-value!]
 //  ]
@@ -614,8 +617,9 @@ REBNATIVE(strict_equal_q)
 //
 //  strict-not-equal?: native [
 //
-//  "Returns TRUE if the values are not strictly equal."
+//  {TRUE if the values are not strictly equal}
 //
+//      return: [logic!]
 //      value1 [<opt> any-value!]
 //      value2 [<opt> any-value!]
 //  ]
@@ -634,8 +638,9 @@ REBNATIVE(strict_not_equal_q)
 //
 //  same?: native [
 //
-//  "Returns TRUE if the values are identical."
+//  {TRUE if the values are identical}
 //
+//      return: [logic!]
 //      value1 [<opt> any-value!]
 //      value2 [<opt> any-value!]
 //  ]
@@ -749,8 +754,9 @@ REBNATIVE(same_q)
 //
 //  lesser?: native [
 //
-//  {Returns TRUE if the first value is less than the second value.}
+//  {TRUE if the first value is less than the second value}
 //
+//      return: [logic!]
 //      value1 value2
 //  ]
 //
@@ -766,16 +772,17 @@ REBNATIVE(lesser_q)
 
 
 //
-//  lesser-or-equal?: native [
+//  equal-or-lesser?: native [
 //
-//  {Returns TRUE if the first value is less than or equal to the second value.}
+//  {TRUE if the first value is equal to or less than the second value}
 //
+//      return: [logic!]
 //      value1 value2
 //  ]
 //
-REBNATIVE(lesser_or_equal_q)
+REBNATIVE(equal_or_lesser_q)
 {
-    INCLUDE_PARAMS_OF_LESSER_OR_EQUAL_Q;
+    INCLUDE_PARAMS_OF_EQUAL_OR_LESSER_Q;
 
     if (Compare_Modify_Values(ARG(value1), ARG(value2), -2))
         return R_FALSE;
@@ -787,8 +794,9 @@ REBNATIVE(lesser_or_equal_q)
 //
 //  greater?: native [
 //
-//  {Returns TRUE if the first value is greater than the second value.}
+//  {TRUE if the first value is greater than the second value}
 //
+//      return: [logic!]
 //      value1 value2
 //  ]
 //
@@ -806,8 +814,9 @@ REBNATIVE(greater_q)
 //
 //  greater-or-equal?: native [
 //
-//  {Returns TRUE if the first value is greater than or equal to the second value.}
+//  {TRUE if the first value is greater than or equal to the second value}
 //
+//      return: [logic!]
 //      value1 value2
 //  ]
 //

@@ -70,7 +70,7 @@ make object! compose [
             not :result [
                 "failed"
             ]
-        ] also message -> [
+        ] also message => [
             set 'test-failures (test-failures + 1)
             log reduce [space {"} message {"} newline]
         ] else [

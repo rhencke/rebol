@@ -73,7 +73,7 @@ maybe: enfix func [
         ] 'value
     ]
 
-    set* target either-test/opt
+    set target either-test/opt
         (only ?? :value? !! :something?) ;-- test function
         :value ;-- value being tested
         [get target] ;-- branch to evaluate and return if test fails
@@ -513,13 +513,6 @@ maybe*: enfix redescribe [
 semiquote: specialize 'identity [quote: true]
 
 
-set*: redescribe [
-    {Variation of SET where voids are tolerated for unsetting variables.}
-](
-    specialize 'set [opt: true]
-)
-
-
 if*: redescribe [
     {Same as IF/OPT (null, not blank, if branch evaluates to null)}
 ](
@@ -770,6 +763,8 @@ infix?: redescribe [
 )
 
 
+;-- => cannot be loaded by R3-Alpha, or even earlier Ren-C
+;
 lambda: function [
     {Convenience variadic wrapper for MAKE ACTION!}
 

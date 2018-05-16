@@ -244,8 +244,8 @@ inline static void Finalize_Arg(
 
         if (IS_FALSEY(refine)) {
             //
-            // FALSE -> refinement already revoked, void is okay
-            // BLANK! -> refinement was never in use, so also okay
+            // FALSE means refinement already revoked, void is okay
+            // BLANK! means refinement was never in use, so also okay
             //
             return;
         }
@@ -492,18 +492,18 @@ reevaluate:;
                 // it an error, but instead give the left hand side precedence
                 // over the right.  This means something like:
                 //
-                //     foo: quote -> [print quote]
+                //     foo: quote => [print quote]
                 //
                 // Would be interpreted as:
                 //
-                //     foo: (quote ->) [print quote]
+                //     foo: (quote =>) [print quote]
                 //
                 // This is a good argument for not making enfixed operations
                 // that hard-quote things that can dispatch functions.  A
                 // soft-quote would give more flexibility to override the
                 // left hand side's precedence, e.g. the user writes:
                 //
-                //     foo: ('quote) -> [print quote]
+                //     foo: ('quote) => [print quote]
                 //
                 Push_Action(
                     f,

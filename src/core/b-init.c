@@ -422,16 +422,16 @@ static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
         "<",
         ">",
 
-        "<=", // less than or equal to
-        "=>", // no current system meaning
+        "<=", // less than or equal !!! https://forum.rebol.info/t/349/11
+        "=>", // Lambda function, quotes optional left argument
 
         ">=", // greater than or equal to
-        "=<",
+        "=<", // equal to or less than
 
         "<>", // not equal (the chosen meaning, as opposed to "empty tag")
 
-        "->", // FUNCTION-style lambda ("reaches in")
-        "<-", // FUNC-style lambda ("reaches out"),
+        "->", // no current meaning
+        "<-", // Non-null implicit GROUP! begin, e.g. `7 = 1 + <- 2 * 3`
 
         "|>", // Evaluate to next single expression, but do ones afterward
         "<|", // Evaluate to previous expression, but do rest (like ALSO)

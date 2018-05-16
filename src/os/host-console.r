@@ -371,8 +371,8 @@ host-console: function [
             ]
             <bad> [
                 emit #no-unskin-if-error
-                emit [fail ["Bad REPL continuation:" ((uneval result))]]
                 emit [print ((mold uneval prior))]
+                emit [fail ["Bad REPL continuation:" ((uneval result))]]
             ]
         ] also [
             return-to-c instruction
@@ -429,14 +429,16 @@ host-console: function [
         result/id = 'no-catch
         :result/arg2 = :QUIT ;; name
     ] then [
-        return <- 1 unless case [
-            null? :result/arg1 [0] ;-- plain QUIT, no /WITH, call that success
+        return <- switch type of :result/arg1 [
+            null [0] ;-- plain QUIT, no /WITH, call that success
 
-            blank? :result/arg1 [0] ;-- consider blank also to be success
+            blank! [0] ;-- consider blank also to be success
 
-            integer? :result/arg1 [result/arg1] ;-- may be out of status range
+            integer! [result/arg1] ;-- Note: may be too big for status range
 
-            error? :result/arg1 [1] ;-- !!! integer error mapping deprecated
+            error! [1] ;-- !!! integer error mapping deprecated
+        ] else [
+            1 ;-- generic error code
         ]
     ]
 
@@ -570,7 +572,7 @@ host-console: function [
         code: load/all delimit result newline
         assert [block? code]
 
-    ] error -> [
+    ] lambda error [
         ;
         ; If loading the string gave back an error, check to see if it
         ; was the kind of error that comes from having partial input
@@ -587,7 +589,7 @@ host-console: function [
                 "}" ["{"]
                 ")" ["("]
                 "]" ["["]
-            ] also unclosed -> [
+            ] also lambda unclosed [
                 ;
                 ; Backslash is used in the second column to help make a
                 ; pattern that isn't legal in Rebol code, which is also

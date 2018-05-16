@@ -801,7 +801,7 @@ load-module: function [
             hdr/options: append any [hdr/options make block! 1] 'private
         ]
     ]
-    if not tuple? set* 'modver :hdr/version [
+    if not tuple? set 'modver :hdr/version [
         modver: 0.0.0 ; get version
     ]
 

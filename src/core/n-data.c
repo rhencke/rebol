@@ -706,8 +706,6 @@ REBNATIVE(resolve)
 //          {Word or path, or block of words and paths}
 //      value [<opt> any-value!]
 //          "Value or block of values"
-//      /opt
-//          {Treat void values as unsetting the target instead of an error}
 //      /single
 //          {If target and value are blocks, set each item to the same value}
 //      /some
@@ -754,9 +752,6 @@ REBNATIVE(set)
             single = FALSE;
         }
         else {
-            if (IS_VOID(ARG(value)) and not REF(opt))
-                fail (Error_No_Value(ARG(value)));
-
             value = ARG(value);
             value_specifier = SPECIFIED;
             single = TRUE;
@@ -776,9 +771,6 @@ REBNATIVE(set)
         //
         assert(ANY_WORD(target) or ANY_PATH(target) or IS_BAR(target));
 
-        if (IS_VOID(ARG(value)) and not REF(opt))
-            fail (Error_No_Value(ARG(value)));
-
         value = ARG(value);
         value_specifier = SPECIFIED;
         single = TRUE;
@@ -789,7 +781,7 @@ REBNATIVE(set)
     for (
         ;
         NOT_END(target);
-        ++target, single || IS_END(value) ? NOOP : (++value, NOOP)
+        ++target, (single or IS_END(value)) ? NOOP : (++value, NOOP)
      ){
         if (REF(some)) {
             if (IS_END(value))
@@ -948,8 +940,8 @@ REBNATIVE(semiquoted_q)
 //
 //  {Function for returning the same value that it got in (identity function)}
 //
-//      return: [<opt> any-value!]
-//      value [<opt> <end> any-value!]
+//      return: [any-value!]
+//      value [<end> any-value!]
 //          {Accepting <end> means it also limits enfix reach to the left}
 //      /quote
 //          {Make it seem that the return result was quoted}
@@ -963,7 +955,7 @@ REBNATIVE(identity)
 // !!! Quoting version is currently specialized as SEMIQUOTE, for convenience.
 //
 // This is assigned to <- for convenience, but cannot be used under that name
-// in bootstrap.  It uses the <end>-ability to stop left reach.
+// in bootstrap with R3-Alpha.  It uses the <end>-ability to stop left reach.
 {
     INCLUDE_PARAMS_OF_IDENTITY;
 

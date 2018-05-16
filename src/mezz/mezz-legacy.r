@@ -429,7 +429,7 @@ r3-alpha-apply: function [
             using-args: set (in frame params/1) to-logic :arg
         ][
             if using-args [
-                set* (in frame params/1) :arg
+                set (in frame params/1) :arg
             ]
         ]
 
@@ -652,7 +652,7 @@ set 'r3-legacy* func [<local>] [
 
         ??: (:dump)
 
-        null: (#"^@") ; -> NUL https://en.wikipedia.org/wiki/Null_character
+        null: (#"^@") ; now NUL https://en.wikipedia.org/wiki/Null_character
 
         unset?: (:null?) ; https://trello.com/c/shR4v8tS
 
@@ -752,7 +752,6 @@ set 'r3-legacy* func [<local>] [
             apply 'set [
                 target: either any-context? target [words of target] [target]
                 value: :value
-                only: set_ANY
                 some: set_SOME
                 enfix: enfix
             ]
@@ -774,7 +773,6 @@ set 'r3-legacy* func [<local>] [
                 source: source unless any-context? source [
                     words of source
                 ]
-                only: any_GET
             ]
         ])
 

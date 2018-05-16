@@ -1702,8 +1702,15 @@ scanword:
         // has chars not allowed in word (eg % \ )
         fail (Error_Syntax(ss));
     }
+
     if (HAS_LEX_FLAG(flags, LEX_SPECIAL_LESSER)) {
         // Allow word<tag> and word</tag> but not word< word<= word<> etc.
+
+        if (*cp == '=' and cp[1] == '<' and IS_LEX_DELIMIT(cp[2])) {
+            ss->token = TOKEN_WORD; // enable `=<`
+            return;
+        }
+
         cp = Skip_To_Byte(cp, ss->end, '<');
         if (
             cp[1] == '<' or cp[1] == '>' or cp[1] == '='
@@ -1714,8 +1721,13 @@ scanword:
         }
         ss->end = cp;
     }
-    else if (HAS_LEX_FLAG(flags, LEX_SPECIAL_GREATER))
+    else if (HAS_LEX_FLAG(flags, LEX_SPECIAL_GREATER)) {
+        if (*cp == '=' and cp[1] == '>' and IS_LEX_DELIMIT(cp[2])) {
+            ss->token = TOKEN_WORD; // enable `=>`
+            return;
+        }
         fail (Error_Syntax(ss));
+    }
 
     return;
 }

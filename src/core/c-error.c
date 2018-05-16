@@ -251,11 +251,11 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
         static REBOOL probing = FALSE;
 
         if (p == cast(void*, VAL_CONTEXT(Root_Stackoverflow_Error))) {
-            printf("PROBE(Stack Overflow) -> mold in PROBE would recurse\n");
+            printf("PROBE(Stack Overflow): mold in PROBE would recurse\n");
             fflush(stdout);
         }
         else if (probing) {
-            printf("PROBE(Recursing) -> recursing for unknown reason\n");
+            printf("PROBE(Recursing): recursing for unknown reason\n");
             panic (p);
         }
         else {

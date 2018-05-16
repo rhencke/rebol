@@ -12,6 +12,11 @@ REBOL [
         Licensed under the Apache License, Version 2.0
         See: http://www.apache.org/licenses/LICENSE-2.0
     }
+    Note: {
+        !!! This file currenly only works in older/bootstrap Ren-C.  It
+        needs attention to make it work in R3-Alpha or Rebol2 again, which
+        probably wouldn't take much work, but is not currently a priority.
+    }
     Purpose: {
         These routines can be run from R3-Alpha or Rebol2 to make them act
         more like the vision of Rebol3-Beta and beyond (as conceived by the
@@ -38,7 +43,7 @@ REBOL [
 ; very useful form of CASE
 ;
 if :choose = () [
-    choose: function [choices [block!]] [
+    choose: function [choices [block!] /local result] [
         while [not tail? choices] [
             set 'result do/next choices 'choices
             if :result [
@@ -49,16 +54,16 @@ if :choose = () [
     ]
 ]
 
-; Renamed, tightened, and extended with new features (add /ONLY feature?)
+; Renamed, tightened, and extended with new features (add /PASS feature?)
 ;
 if :file-to-local = () [
     file-to-local: :to-local-file
     local-to-file: :to-rebol-file
 ]
 
-; As 3-letter words go, it's more useful to turn words to blank, but R3-Alpha
-; and older Ren-C had this as a synonym for TRAP.
-
+; As 3-letter words go, TRY is more useful to turn words to blank, but
+; R3-Alpha and older Ren-C had this as a synonym for TRAP.
+;
 if find words-of :try 'block [
     try: :to-value
 ]
@@ -354,13 +359,9 @@ has: :context
 construct-legacy: :construct
 
 construct: func [
-    "Creates an ANY-CONTEXT! instance"
     spec [datatype! block! any-context!]
-        "Datatype to create, specification, or parent/prototype context"
     body [block! any-context! none!]
-        "keys and values defining instance contents (bindings modified)"
     /only
-        "Values are kept as-is"
 ][
     either only [
         if block? spec [spec: make object! spec]
@@ -386,52 +387,33 @@ construct: func [
 
 ; Lone vertical bar is an "expression barrier" in Ren-C, but a word character
 ; in other situations.  Having a word behave as a function that returns an
-; UNSET! in older Rebols is not quite the same, but can have a similar effect
-; in terms of creating errors if picked up by most function args.
+; UNSET! in older Rebols is not the same, e.g. `do [1 + 2 |]` will be UNSET!
+; as opposed to 3.  But since UNSET!s do not vote in many ANY/ALL situations
+; it can act similarly.
 ;
 |: does []
 
 
-; SET/ONLY is the Ren-C replacement for SET/ANY.  Plain SET will not accept
-; a void assignment, while SET/ONLY will unset the variable if it gets void.
+; Ren-C's SET acts like SET/ANY, always accept null assignments.
 ;
 lib-set: get 'set ; overwriting lib/set for now
-set: func [
-    {Sets a word, path, block of words, or context to specified value(s).}
-
-    target [any-word! any-path! block! any-context!]
-        {Word, block of words, path, or object to be set (modified)}
-
+set: function [
+    target [any-word! any-path! block!]
     value [<opt> any-value!]
-        "Value or block of values"
-    /opt
-        "Value is optional, and if no value is provided then unset the word"
     /pad
-        {For objects, set remaining words to NONE if block is too short}
 ][
-    apply :lib-set [target :value opt pad]
+    set_ANY: true
+    apply :lib-set [target :value set_ANY pad]
 ]
 
 
-; GET/ONLY is the Ren-C replacement for GET/ANY.  Plain GET will return a
-; blank for an unset variable, instead of the void returned by GET/ONLY.
+; Ren-C's GET acts like GET/ANY, always getting null for unset variables.
 ;
 lib-get: get 'get
-get: func [
-    {Gets the value of a word or path, or values of a context.}
-    source
-        "Word, path, context to get"
-    /only
-        "The source may optionally have no value (allows returning void)"
-
-    /local temp
+get: function [
+    source [any-word! any-path! block!]
 ][
-    lib-set/any 'temp lib-get/any source
-    either only [
-        :temp ;-- voids okay
-    ][
-        either null? :temp [blank] [:temp]
-    ]
+    lib-get/any source
 ]
 
 
@@ -442,16 +424,11 @@ get: func [
 ;
 lib-reduce: get 'reduce
 reduce: func [
-    {Evaluates expressions and returns multiple results.}
     value
     /no-set
-        "Keep set-words as-is. Do not set them."
     /only
-        "Only evaluate words and paths, not functions"
     words [block! blank!]
-        "Optional words that are not evaluated (keywords)"
     /into
-        {Output results into a series with no intermediate storage}
     target [any-array!]
 ][
     either block? :value [
@@ -475,9 +452,7 @@ reduce: func [
 ; for `do make error! form [...]`.
 ;
 fail: func [
-    {Interrupts execution by reporting an error (TRAP can intercept it).}
     reason [error! text! block!]
-        "ERROR! value, message string, or failure spec"
 ][
     switch type-of reason [
         error! [do error]
@@ -620,7 +595,6 @@ any-number!: number!
 
 ; "optional" (a.k.a. void) handling
 opt: func [
-    {Turns blanks to voids, all other value types pass through.}
     value [<opt> any-value!]
 ][
     either* blank? :value [()] [:value]
