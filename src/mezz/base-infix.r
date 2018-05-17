@@ -282,7 +282,7 @@ my: enfix func [
 ;
 set/enfix (r3-alpha-quote "=>") :lambda
 set (r3-alpha-quote "<-") :identity ;-- not enfix, just affects enfix
-
+set/enfix (r3-alpha-quote "->") :identity
 
 
 ; These constructs used to be enfix to complete their left hand side.  Yet

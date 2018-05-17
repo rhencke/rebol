@@ -69,11 +69,24 @@ cipher-suites: [
 
 debug: (comment [:print] blank)
 
-emit: func [
+emit: function [
+    {Emits binary data, optionally marking positions with SET-WORD!}
+
     ctx [object!]
     code [block! binary!]
 ][
-    join ctx/msg code
+    if block? code [
+        while-not [tail? code] [
+            if set-word? code/1 [
+                set code/1 tail ctx/msg ;-- save position
+                code: my next
+            ] else [
+                append ctx/msg ensure binary! do/next code 'code
+            ]
+        ]
+    ] else [
+        join ctx/msg code
+    ]
 ]
 
 to-bin: func [
@@ -293,6 +306,8 @@ update-write-state: specialize 'update-state [
 client-hello: procedure [
     ctx [object!]
 ][
+    clear ctx/handshake-messages
+
     ; generate client random struct
     ;
     ctx/client-random: to-bin to-integer difference now/precise 1-Jan-1970 4
@@ -303,13 +318,20 @@ client-hello: procedure [
         if binary? item [item]
     ]
 
-    beg: length of ctx/msg
     emit ctx [
         #{16}                       ; protocol type (22=Handshake)
         ctx/version                 ; protocol version (3|1 = TLS1.0)
+
+        ssl-record-length:
         #{00 00}                    ; length of SSL record data
+
+        ssl-record:
         #{01}                       ; protocol message type (1=ClientHello)
-        #{00 00 00}                 ; protocol message length
+
+        message-length:
+        #{00 00 00}                 ; protocol message length (updated after)
+
+        message:
         ctx/version                 ; max supported version by client (TLS1.0)
         ctx/client-random           ; 4 bytes gmt unix time + 28 random bytes
         #{00}                       ; session ID length
@@ -319,12 +341,12 @@ client-hello: procedure [
         #{00}                       ; no compression
     ]
 
-    ; set the correct msg lengths
+    ; update the embedded lengths to correct values
     ;
-    change at ctx/msg beg + 7 to-bin len: length of at ctx/msg beg + 10 3
-    change at ctx/msg beg + 4 to-bin len + 4 2
-
-    append clear ctx/handshake-messages copy at ctx/msg beg + 6
+    change ssl-record-length (to-bin (length of ssl-record) 2)
+    change message-length (to-bin (length of message) 3)
+    
+    append ctx/handshake-messages ssl-record
 ]
 
 
@@ -360,22 +382,31 @@ client-key-exchange: procedure [
         ]
     ]
 
-    beg: length of ctx/msg
     emit ctx [
         #{16}                       ; protocol type (22=Handshake)
         ctx/version                 ; protocol version (3|1 = TLS1.0)
+
+        ssl-record-length:
         #{00 00}                    ; length of SSL record data
+
+        ssl-record:
         #{10}                       ; message type (16=ClientKeyExchange)
+
+        message-length:
         #{00 00 00}                 ; protocol message length
+
+        message:
         to-bin length of key-data 2 ; length of the key (2 bytes)
         key-data
     ]
 
-    ; set the correct msg lengths
-    change at ctx/msg beg + 7 to-bin len: length of at ctx/msg beg + 10 3
-    change at ctx/msg beg + 4 to-bin len + 4 2
+    ; update the embedded lengths to correct values
+    ;
+    change ssl-record-length (to-bin (length of ssl-record) 2)
+    change message-length (to-bin (length of message) 3)
 
     ; make all secure data
+    ;
     make-master-secret ctx ctx/pre-master-secret
 
     make-key-block ctx
@@ -391,7 +422,7 @@ client-key-exchange: procedure [
         ctx/server-iv: copy/part skip ctx/key-block (2 * (ctx/hash-size + ctx/crypt-size)) + ctx/block-size ctx/block-size
     ]
 
-    append ctx/handshake-messages copy at ctx/msg beg + 6
+    append ctx/handshake-messages ssl-record
 ]
 
 
@@ -557,7 +588,7 @@ parse-protocol: function [
         type: select protocol-types data/1 else [
             fail ["unknown/invalid protocol type:" data/1]
         ]
-        version: pick [ssl-v3 tls-v1.0 tls-v1.1] data/3 + 1
+        version: pick [ssl-v3 tls-v1.0 tls-v1.1 tls-v1.2 tls-v1.3] data/3 + 1
         size: to-integer/unsigned copy/part at data 4 2
         messages: copy/part at data 6 size
     ]
@@ -893,6 +924,8 @@ parse-response: function [
 
 
 prf: function [
+    {(P)suedo-(R)andom (F)unction, generates arbitrarily long random binaries}
+
     return: [binary!]
     secret [binary!]
     label [text! binary!]
@@ -1364,25 +1397,27 @@ sys/make-scheme [
             ; !!! Is there a good reason for not doing this with an ordinary
             ; OBJECT! containing a BINARY! ?
             ;
-            switch port/state/crypt-method [
-                rc4@ [
-                    if port/state/encrypt-stream [
-                        port/state/encrypt-stream: _ ;-- will be GC'd
+            if port/state/suite [
+                switch port/state/crypt-method [
+                    rc4@ [
+                        if port/state/encrypt-stream [
+                            port/state/encrypt-stream: _ ;-- will be GC'd
+                        ]
+                        if port/state/decrypt-stream [
+                            port/state/decrypt-stream: _ ;-- will be GC'd
+                        ]
                     ]
-                    if port/state/decrypt-stream [
-                        port/state/decrypt-stream: _ ;-- will be GC'd
+                    aes@ [
+                        if port/state/encrypt-stream [
+                            port/state/encrypt-stream: _ ;-- will be GC'd
+                        ]
+                        if port/state/decrypt-stream [
+                            port/state/decrypt-stream: _ ;-- will be GC'd
+                        ]
                     ]
+                ] else [
+                    fail ["Unknown TLS crypt-method" port/state/crypt-method]
                 ]
-                aes@ [
-                    if port/state/encrypt-stream [
-                        port/state/encrypt-stream: _ ;-- will be GC'd
-                    ]
-                    if port/state/decrypt-stream [
-                        port/state/decrypt-stream: _ ;-- will be GC'd
-                    ]
-                ]
-            ] else [
-                fail ["Unknown TLS crypt-method" port/state/crypt-method]
             ]
 
             debug "TLS/TCP port closed"
