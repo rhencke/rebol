@@ -374,7 +374,7 @@ int main(int argc, char *argv_ansi[])
     Determine_Hinstance_May_Respawn(argc > 1 ? nullptr : argv_ucs2[0]);
 
     int i;
-    for (i = 0; i < argc; ++i) {
+    for (i = 0; i != argc; ++i) {
         if (argv_ucs2[i] == nullptr)
             continue; // !!! Comment here said "shell bug" (?)
 
@@ -387,7 +387,7 @@ int main(int argc, char *argv_ansi[])
     // Just take the ANSI C "char*" args...which should ideally be in UTF8.
     //
     int i = 0;
-    for (; i < argc; ++i) {
+    for (; i != argc; ++i) {
         if (argv_ansi[i] == nullptr)
             continue; // !!! Comment here said "shell bug" (?)
 
