@@ -280,7 +280,7 @@ REBNATIVE(or)
     if (IS_GROUP(right)) { // result should be LOGIC!, voids not tolerated
         if (not IS_VOID_OR_FALSEY(left))
             return R_TRUE; // no need to evaluate right
-            
+
         if (IS_VOID(left))
             fail (Error_Arg_Type(frame_, PAR(left), REB_MAX_VOID));
 
@@ -334,13 +334,13 @@ REBNATIVE(xor)
 
     if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated
         return R_OUT_IS_THROWN;
- 
+
     REBVAL *right = D_OUT;
 
     if (IS_GROUP(left)) { // result should be LOGIC!, voids not tolerated
         if (IS_VOID(left))
             fail (Error_Arg_Type(frame_, PAR(left), REB_MAX_VOID));
-        
+
         if (IS_VOID(right))
             fail (Error_No_Return_Raw());
 

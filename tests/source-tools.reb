@@ -168,16 +168,17 @@ rebsource: context [
                             ]
                         ]
 
-                        if find/match mold proto-parser/data/2 {native} [
+                        parse proto-parser/data [
+                            set name: set-word! (name: to-word name)
+                            opt 'enfix
+                            ['native | ahead path! into ['native to end]]
+                        ] then [
                             ;
                             ; It's a `some-name?: native [...]`, so we expect
                             ; `REBNATIVE(some_name_q)` to be correctly lined up
                             ; as the "to-c-name" of the Rebol set-word
                             ;
-                            if (
-                                proto-parser/proto.arg.1
-                                <> (to-c-name to word! proto-parser/data/1)
-                            )[
+                            if proto-parser/proto.arg.1 <> to-c-name name [
                                 line: text-line-of proto-parser/parse.position
                                 emit analysis [
                                     id-mismatch

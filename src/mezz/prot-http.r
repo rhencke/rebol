@@ -128,7 +128,7 @@ http-awake: function [event] [
             awake make event! [type: 'connect port: http-port]
         ]
         'close [
-            res: switch state/state [
+            res: try switch state/state [
                 'ready [
                     awake make event! [type: 'close port: http-port]
                 ]

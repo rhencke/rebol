@@ -14,21 +14,52 @@ REBOL [
     }
 ]
 
-;
 ; These are the currently supported cipher suites.  (Additional possibilities
 ; would be DSA, 3DES, ECDH, ECDHE, ECDSA, SHA256, SHA384...)
 ;
 ; https://testssl.sh/openssl-rfc.mapping.html
 ;
-cipher-suites: has [
-    TLS_RSA_WITH_RC4_128_MD5:               #{00 04}
-    TLS_RSA_WITH_RC4_128_SHA:               #{00 05}
-    TLS_RSA_WITH_AES_128_CBC_SHA:           #{00 2F}
-    TLS_RSA_WITH_AES_256_CBC_SHA:           #{00 35}
-    TLS_DHE_DSS_WITH_AES_128_CBC_SHA:       #{00 32}
-    TLS_DHE_DSS_WITH_AES_256_CBC_SHA:       #{00 38}
-    TLS_DHE_RSA_WITH_AES_128_CBC_SHA:       #{00 33}
-    TLS_DHE_RSA_WITH_AES_256_CBC_SHA:       #{00 39}
+; If you want to get a report on what suites a particular site has:
+;
+; https://www.ssllabs.com/ssltest/analyze.html
+;
+
+cipher-suites: [
+    ; <key> crypt@ #hash
+    ; !!! Using terminal-@ because bootstrap older Rebols can't have leading @
+
+    #{00 04} [
+        TLS_RSA_WITH_RC4_128_MD5
+        <rsa> rc4@ [size 16] #md5 [size 16]
+    ]
+    #{00 05} [
+        TLS_RSA_WITH_RC4_128_SHA
+        <rsa> rc4@ [size 16] #sha1 [size 20]
+    ]
+    #{00 2F} [
+        TLS_RSA_WITH_AES_128_CBC_SHA
+        <rsa> aes@ [size 16 block 16 iv 16] #sha1 [size 20]
+    ]
+    #{00 35} [
+        TLS_RSA_WITH_AES_256_CBC_SHA
+        <rsa> aes@ [size 32 block 16 iv 16] #sha1 [size 20]
+    ]
+    #{00 32} [
+        TLS_DHE_DSS_WITH_AES_128_CBC_SHA
+        <dhe-dss> aes@ [size 16 block 16 iv 16] #sha1 [size 20]
+    ]
+    #{00 38} [
+        TLS_DHE_DSS_WITH_AES_256_CBC_SHA
+        <dhe-dss> aes@ [size 32 block 16 iv 16] #sha1 [size 20]
+    ]
+    #{00 33} [
+        TLS_DHE_RSA_WITH_AES_128_CBC_SHA
+        <dhe-rsa> aes@ [size 16 block 16 iv 16] #sha1 [size 20]
+    ]
+    #{00 39} [
+        TLS_DHE_RSA_WITH_AES_256_CBC_SHA
+        <dhe-rsa> aes@ [size 32 block 16 iv 16] #sha1 [size 20]
+    ]
 ]
 
 
@@ -209,78 +240,57 @@ parse-asn: function [
 ; PROTOCOL STATE HANDLING
 ;
 
-get-next-read-state: function [
+update-state: procedure [
     ctx [object!]
-
-    <static>
-
-    read-proto-states ([
-        client-hello [server-hello]
-        server-hello [certificate]
-        certificate [server-hello-done server-key-exchange]
-        server-key-exchange [server-hello-done]
-        server-hello-done [#complete]
-        finished [change-cipher-spec alert]
-        change-cipher-spec [encrypted-handshake]
-        encrypted-handshake [application #complete]
-        application [application alert #complete]
-        alert [#complete]
-        close-notify [alert]
-    ])
+    new [tag! issue!] "new state, ISSUE! is a (potentially) terminal state"
+    direction [word!] "READ or WRITE"
+    transitions [block!] "maps from state to a BLOCK! of legal next states"
 ][
-    select/only/skip read-proto-states ctx/protocol-state 2
+    old: ensure [blank! issue! tag!] ctx/mode
+    debug [old unspaced ["=" direction "=>"] new]
+
+    if old and (not find (legal: select transitions old) new) [
+        fail ["Invalid write state transition, expected one of:" mold legal]
+    ]
+
+    ctx/mode: new
 ]
 
-
-get-next-write-state: function [
-    ctx [object!]
-
-    <static>
-
-    write-proto-states ([
-        server-hello-done [client-key-exchange]
-        client-key-exchange [change-cipher-spec]
-        change-cipher-spec [finished]
-        encrypted-handshake [application]
-        application [application alert]
-        alert [close-notify]
-        close-notify _
-    ])
-][
-    select/only/skip write-proto-states ctx/protocol-state 2
-]
-
-
-update-proto-state: function [
-    ctx [object!]
-    new-state [word!]
-    /write-state
-][
-    debug [ctx/protocol-state "->" new-state write-state]
-    either any [
-        blank? ctx/protocol-state
-        all [
-            next-state: either write-state [
-                get-next-write-state ctx
-            ][
-                get-next-read-state ctx
-            ]
-
-            find next-state new-state
-        ]
-    ][
-        debug ["new-state:" new-state]
-        ctx/protocol-state: new-state
-    ][
-        fail "invalid protocol state"
+update-read-state: specialize 'update-state [
+    direction: 'read
+    transitions: [
+        <client-hello> [<server-hello>]
+        <server-hello> [<certificate>]
+        <certificate> [#server-hello-done <server-key-exchange>]
+        <server-key-exchange> [#server-hello-done]
+        <finished> [<change-cipher-spec> #alert]
+        <change-cipher-spec> [#encrypted-handshake]
+        #encrypted-handshake [#application]
+        #application [#application #alert]
+        #alert []
+        <close-notify> [#alert]
     ]
 ]
+
+update-write-state: specialize 'update-state [
+    direction: 'write
+    transitions: [
+        #server-hello-done [<client-key-exchange>]
+        <client-key-exchange> [<change-cipher-spec>]
+        <change-cipher-spec> [<finished>]
+        #encrypted-handshake [#application]
+        #application [#application #alert]
+        #alert [<close-notify>]
+        <close-notify> []
+    ]
+]
+
 
 ;
 ; TLS PROTOCOL CODE
 ;
 
-client-hello: function [
+client-hello: procedure [
     ctx [object!]
 ][
     ; generate client random struct
@@ -289,7 +299,9 @@ client-hello: function [
     random/seed now/time/precise
     loop 28 [append ctx/client-random (random/secure 256) - 1]
 
-    cs-data: join-all values of cipher-suites
+    cs-data: join-all map-each item cipher-suites [
+        if binary? item [item]
+    ]
 
     beg: length of ctx/msg
     emit ctx [
@@ -313,16 +325,14 @@ client-hello: function [
     change at ctx/msg beg + 4 to-bin len + 4 2
 
     append clear ctx/handshake-messages copy at ctx/msg beg + 6
-
-    return ctx/msg
 ]
 
 
-client-key-exchange: function [
+client-key-exchange: procedure [
     ctx [object!]
 ][
     switch ctx/key-method [
-        'rsa [
+        <rsa> [
             ; generate pre-master-secret
             ctx/pre-master-secret: copy ctx/version
             random/seed now/time/precise
@@ -337,8 +347,8 @@ client-key-exchange: function [
             key-data: rsa ctx/pre-master-secret rsa-key
         ]
 
-        'dhe-dss
-        'dhe-rsa [
+        <dhe-dss>
+        <dhe-rsa> [
             ; generate public/private keypair
             dh-generate-key ctx/dh-key
 
@@ -382,12 +392,10 @@ client-key-exchange: function [
     ]
 
     append ctx/handshake-messages copy at ctx/msg beg + 6
-
-    return ctx/msg
 ]
 
 
-change-cipher-spec: function [
+change-cipher-spec: procedure [
     ctx [object!]
 ][
     emit ctx [
@@ -396,11 +404,10 @@ change-cipher-spec: function [
         #{00 01}        ; length of SSL record data
         #{01}           ; CCS protocol type
     ]
-    return ctx/msg
 ]
 
 
-encrypted-handshake-msg: function [
+encrypted-handshake-msg: procedure [
     ctx [object!]
     message [binary!]
 ][
@@ -413,11 +420,10 @@ encrypted-handshake-msg: function [
         message
     ]
     append ctx/handshake-messages plain-msg
-    return ctx/msg
 ]
 
 
-application-data: function [
+application-data: procedure [
     ctx [object!]
     message [binary! text!]
 ][
@@ -428,7 +434,6 @@ application-data: function [
         to-bin length of message 2  ; length of SSL record data
         message
     ]
-    return ctx/msg
 ]
 
 
@@ -442,11 +447,11 @@ alert-close-notify: function [
         to-bin length of message 2  ; length of SSL record data
         message
     ]
-    return ctx/msg
 ]
 
 
 finished: function [
+    return: [binary!]
     ctx [object!]
 ][
     ctx/seq-num-w: 0
@@ -465,10 +470,11 @@ finished: function [
 
 
 encrypt-data: function [
+    return: [binary!]
     ctx [object!]
     data [binary!]
     /type
-        msg-type [binary!] "application data is default"
+    msg-type [binary!] "application data is default"
 ][
     data: join-all [
         data
@@ -479,7 +485,7 @@ encrypt-data: function [
             ctx/version                         ; version
             to-bin length of data 2             ; msg content length
             data                                ; msg content
-        ] ctx/hash-method ctx/client-mac-key
+        ] (to word! ctx/hash-method) ctx/client-mac-key
     ]
 
     if ctx/block-size [
@@ -492,16 +498,18 @@ encrypt-data: function [
     ]
 
     switch ctx/crypt-method [
-        'rc4 [
+        rc4@ [
             ctx/encrypt-stream: default [rc4/key ctx/client-crypt-key]
             rc4/stream ctx/encrypt-stream data
         ]
-        'aes [
+        aes@ [
             ctx/encrypt-stream: default [
                 aes/key ctx/client-crypt-key ctx/client-iv
             ]
             data: aes/stream ctx/encrypt-stream data
         ]
+    ] else [
+        fail ["Unsupported TLS crypt-method:" ctx/crypt-method]
     ]
 
     return data
@@ -509,20 +517,23 @@ encrypt-data: function [
 
 
 decrypt-data: function [
+    return: [binary!]
     ctx [object!]
     data [binary!]
 ][
     switch ctx/crypt-method [
-        'rc4 [
+        rc4@ [
             ctx/decrypt-stream: default [rc4/key ctx/server-crypt-key]
             rc4/stream ctx/decrypt-stream data
         ]
-        'aes [
+        aes@ [
             ctx/decrypt-stream: default [
                 aes/key/decrypt ctx/server-crypt-key ctx/server-iv
             ]
             data: aes/stream ctx/decrypt-stream data
         ]
+    ] else [
+        fail ["Unsupported TLS crypt-method:" ctx/crypt-method]
     ]
 
     return data
@@ -530,22 +541,22 @@ decrypt-data: function [
 
 
 parse-protocol: function [
+    return: [object!]
     data [binary!]
 
     <static>
 
     protocol-types ([
-        20 change-cipher-spec
-        21 alert
-        22 handshake
-        23 application
+        20 <change-cipher-spec>
+        21 #alert
+        22 #handshake
+        23 #application
     ])
 ][
-    proto: select protocol-types data/1 else [
-        fail "unknown/invalid protocol type"
-    ]
-    return context [
-        type: proto
+    return make object! [
+        type: select protocol-types data/1 else [
+            fail ["unknown/invalid protocol type:" data/1]
+        ]
         version: pick [ssl-v3 tls-v1.0 tls-v1.1] data/3 + 1
         size: to-integer/unsigned copy/part at data 4 2
         messages: copy/part at data 6 size
@@ -560,16 +571,16 @@ parse-messages: function [
     <static>
 
     message-types ([
-        0 hello-request
-        1 client-hello
-        2 server-hello
-        11 certificate
-        12 server-key-exchange
-        13 certificate-request
-        14 server-hello-done
-        15 certificate-verify
-        16 client-key-exchange
-        20 finished
+        0 #hello-request
+        1 <client-hello>
+        2 <server-hello>
+        11 <certificate>
+        12 <server-key-exchange>
+        13 certificate-request@ ;-- not yet implemented
+        14 #server-hello-done
+        15 certificate-verify@ ;-- note yet implemented
+        16 <client-key-exchange>
+        20 <finished>
     ])
 
     alert-descriptions ([
@@ -622,18 +633,18 @@ parse-messages: function [
     ]
     debug [ctx/seq-num-r ctx/seq-num-w "READ <--" proto/type]
 
-    if proto/type <> 'handshake [
-        if proto/type = 'alert [
+    if proto/type <> #handshake [
+        if proto/type = #alert [
             if proto/messages/1 > 1 [
                 ; fatal alert level
                 fail [select alert-descriptions data/2 !! "unknown"]
             ]
         ]
-        update-proto-state ctx proto/type
+        update-read-state ctx proto/type
     ]
 
     switch proto/type [
-        'alert [
+        #alert [
             append result reduce [
                 context [
                     level: pick [warning fatal] data/1 !! 'unknown
@@ -642,17 +653,17 @@ parse-messages: function [
             ]
         ]
 
-        'handshake [
+        #handshake [
             while-not [tail? data] [
                 msg-type: try select message-types data/1
 
-                update-proto-state ctx (
-                    ctx/encrypted? ?? 'encrypted-handshake !! msg-type
+                update-read-state ctx (
+                    ctx/encrypted? ?? #encrypted-handshake !! msg-type
                 )
 
                 len: to-integer/unsigned copy/part at data 2 3
                 append result switch msg-type [
-                    'server-hello [
+                    <server-hello> [
                         msg-content: copy/part at data 7 len
 
                         msg-obj: context [
@@ -661,7 +672,7 @@ parse-messages: function [
                             length: len
                             server-random: copy/part msg-content 32
                             session-id: copy/part at msg-content 34 msg-content/33
-                            cipher-suite: copy/part at msg-content 34 + msg-content/33 2
+                            suite-id: copy/part at msg-content 34 + msg-content/33 2
                             compression-method-length: first at msg-content 36 + msg-content/33
                             compression-method:
                                 either compression-method-length = 0 [blank] [
@@ -670,82 +681,11 @@ parse-messages: function [
                                         compression-method-length
                                 ]
                         ]
-                        ctx/cipher-suite: msg-obj/cipher-suite
 
-
-                        switch ctx/cipher-suite (reduce in cipher-suites [
-                            TLS_RSA_WITH_RC4_128_SHA [
-                                ctx/key-method: 'rsa
-                                ctx/crypt-method: 'rc4
-                                ctx/crypt-size: 16
-                                ctx/hash-method: 'sha1
-                                ctx/hash-size: 20
-                            ]
-                            TLS_RSA_WITH_RC4_128_MD5 [
-                                ctx/key-method: 'rsa
-                                ctx/crypt-method: 'rc4
-                                ctx/crypt-size: 16
-                                ctx/hash-method: 'md5
-                                ctx/hash-size: 16
-                            ]
-                            TLS_RSA_WITH_AES_128_CBC_SHA [
-                                ctx/key-method: 'rsa
-                                ctx/crypt-method: 'aes
-                                ctx/crypt-size: 16
-                                ctx/block-size: 16
-                                ctx/iv-size: 16
-                                ctx/hash-method: 'sha1
-                                ctx/hash-size: 20
-                            ]
-                            TLS_RSA_WITH_AES_256_CBC_SHA [
-                                ctx/key-method: 'rsa
-                                ctx/crypt-method: 'aes
-                                ctx/crypt-size: 32
-                                ctx/block-size: 16
-                                ctx/iv-size: 16
-                                ctx/hash-method: 'sha1
-                                ctx/hash-size: 20
-                            ]
-                            TLS_DHE_DSS_WITH_AES_128_CBC_SHA [
-                                ctx/key-method: 'dhe-dss
-                                ctx/crypt-method: 'aes
-                                ctx/crypt-size: 16
-                                ctx/block-size: 16
-                                ctx/iv-size: 16
-                                ctx/hash-method: 'sha1
-                                ctx/hash-size: 20
-                            ]
-                            TLS_DHE_DSS_WITH_AES_256_CBC_SHA [
-                                ctx/key-method: 'dhe-dss
-                                ctx/crypt-method: 'aes
-                                ctx/crypt-size: 32
-                                ctx/block-size: 16
-                                ctx/iv-size: 16
-                                ctx/hash-method: 'sha1
-                                ctx/hash-size: 20
-                            ]
-                            TLS_DHE_RSA_WITH_AES_128_CBC_SHA [
-                                ctx/key-method: 'dhe-rsa
-                                ctx/crypt-method: 'aes
-                                ctx/crypt-size: 16
-                                ctx/block-size: 16
-                                ctx/iv-size: 16
-                                ctx/hash-method: 'sha1
-                                ctx/hash-size: 20
-                            ]
-                            TLS_DHE_RSA_WITH_AES_256_CBC_SHA [
-                                ctx/key-method: 'dhe-rsa
-                                ctx/crypt-method: 'aes
-                                ctx/crypt-size: 32
-                                ctx/block-size: 16
-                                ctx/iv-size: 16
-                                ctx/hash-method: 'sha1
-                                ctx/hash-size: 20
-                            ]
-                        ]) else [
+                        ctx/suite: select cipher-suites msg-obj/suite-id else [
                             fail [
                                 "This TLS scheme doesn't support ciphersuite:"
-                                (mold ctx/cipher-suite)
+                                (mold suite)
                             ]
                         ]
 
@@ -753,7 +693,7 @@ parse-messages: function [
                         msg-obj
                     ]
 
-                    'certificate [
+                    <certificate> [
                         msg-content: copy/part at data 5 len
                         msg-obj: context [
                             type: msg-type
@@ -771,7 +711,7 @@ parse-messages: function [
                         ctx/certificate: parse-asn msg-obj/certificate-list/1
 
                         switch ctx/key-method [
-                            'rsa [
+                            <rsa> [
                                 ; get the public key and exponent (hardcoded for now)
                                 ctx/pub-key: parse-asn (next
                                     comment [ctx/certificate/1/<sequence>/4/1/<sequence>/4/6/<sequence>/4/2/<bit-string>/4]
@@ -780,14 +720,18 @@ parse-messages: function [
                                 ctx/pub-exp: ctx/pub-key/1/<sequence>/4/2/<integer>/4
                                 ctx/pub-key: next ctx/pub-key/1/<sequence>/4/1/<integer>/4
                             ]
+                            <dhe-dss>
+                            <dhe-rsa> [
+                                ; for DH cipher suites the certificate is used
+                                ; just for signing the key exchange data
+                            ]
                         ] else [
-                            ; for DH cipher suites the certificate is used
-                            ; just for signing the key exchange data
+                            fail "Unsupported TLS key-method"
                         ]
                         msg-obj
                     ]
 
-                    'server-key-exchange [
+                    <server-key-exchange> [
                         switch ctx/key-method [
                             'dhe-dss 'dhe-rsa [
                                 msg-content: copy/part at data 5 len
@@ -817,14 +761,14 @@ parse-messages: function [
                         ]
                     ]
 
-                    'server-hello-done [
+                    #server-hello-done [
                         context [
                             type: msg-type
                             length: len
                         ]
                     ]
 
-                    'client-hello [
+                    <client-hello> [
                         msg-content: copy/part at data 7 len
                         context [
                             type: msg-type
@@ -834,7 +778,7 @@ parse-messages: function [
                         ]
                     ]
 
-                    'finished [
+                    <finished> [
                         ctx/seq-num-r: 0
                         msg-content: copy/part at data 5 len
                         who-finished: either ctx/server? [
@@ -873,7 +817,7 @@ parse-messages: function [
                         ctx/version             ; version
                         to-bin len + 4 2        ; msg content length
                         copy/part data len + 4
-                    ] ctx/hash-method ctx/server-mac-key
+                    ] (to word! ctx/hash-method) ctx/server-mac-key
 
                     if mac <> mac-check [
                         fail "Bad handshake record MAC"
@@ -888,14 +832,14 @@ parse-messages: function [
             ]
         ]
 
-        'change-cipher-spec [
+        <change-cipher-spec> [
             ctx/encrypted?: true
             append result context [
                 type: 'ccs-message-type
             ]
         ]
 
-        'application [
+        #application [
             append result msg-obj: context [
                 type: 'app-data
                 content: copy/part data (length of data) - ctx/hash-size
@@ -908,7 +852,7 @@ parse-messages: function [
                 ctx/version             ; version
                 to-bin len 2            ; msg content length
                 msg-obj/content         ; content
-            ] ctx/hash-method ctx/server-mac-key
+            ] (to word! ctx/hash-method) ctx/server-mac-key
 
             if mac <> mac-check [
                 fail "Bad application record MAC"
@@ -922,6 +866,7 @@ parse-messages: function [
 
 
 parse-response: function [
+    return: [object!]
     ctx [object!]
     msg [binary!]
 ][
@@ -948,6 +893,7 @@ parse-response: function [
 
 
 prf: function [
+    return: [binary!]
     secret [binary!]
     label [text! binary!]
     seed [binary!]
@@ -980,6 +926,7 @@ prf: function [
 
 
 make-key-block: function [
+    return: [binary!]
     ctx [object!]
 ][
     ctx/key-block: prf
@@ -994,6 +941,7 @@ make-key-block: function [
 
 
 make-master-secret: function [
+    return: [binary!]
     ctx [object!]
     pre-master-secret [binary!]
 ][
@@ -1005,7 +953,7 @@ make-master-secret: function [
 ]
 
 
-do-commands: function [
+do-commands: procedure [
     ctx [object!]
     commands [block!]
     /no-wait
@@ -1014,17 +962,28 @@ do-commands: function [
     parse commands [
         some [
             set cmd: [
-                'client-hello (client-hello ctx)
-                | 'client-key-exchange (client-key-exchange ctx)
-                | 'change-cipher-spec (change-cipher-spec ctx)
-                | 'finished (encrypted-handshake-msg ctx finished ctx)
-                | 'application set arg: [text! | binary!]
-                    (application-data ctx arg)
-                | 'close-notify (alert-close-notify ctx)
+                <client-hello> (
+                    client-hello ctx
+                )
+                | <client-key-exchange> (
+                    client-key-exchange ctx
+                )
+                | <change-cipher-spec> (
+                    change-cipher-spec ctx
+                )
+                | <finished> (
+                    encrypted-handshake-msg ctx finished ctx
+                )
+                | #application set arg: [text! | binary!] (
+                    application-data ctx arg
+                )
+                | <close-notify> (
+                    alert-close-notify ctx
+                )
             ] (
                 debug [ctx/seq-num-r ctx/seq-num-w "WRITE -->" cmd]
                 ctx/seq-num-w: ctx/seq-num-w + 1
-                update-proto-state/write-state ctx cmd
+                update-write-state ctx cmd
             )
         ]
     ]
@@ -1038,8 +997,6 @@ do-commands: function [
     ] or [
         fail "port timeout"
     ]
-
-    ctx/resp
 ]
 
 
@@ -1053,19 +1010,36 @@ tls-init: procedure [
 ][
     ctx/seq-num-r: 0
     ctx/seq-num-w: 0
-    ctx/protocol-state: _
+    ctx/mode: _
     ctx/encrypted?: false
 
-    switch ctx/crypt-method [
-        'rc4 [
-            ctx/encrypt-stream: default [rc4/stream ctx/encrypt-stream blank]
-            ctx/decrypt-stream: default [rc4/stream ctx/decrypt-stream blank]
+    if not ctx/suite [
+        ;-- Seems to always be blank?
+    ] else [
+        print "** Tell @HostileFork if you see this, ever **"
+        wait 5
+        switch ctx/crypt-method [
+            rc4@ [
+                ctx/encrypt-stream: default [
+                    rc4/stream ctx/encrypt-stream blank
+                ]
+                ctx/decrypt-stream: default [
+                    rc4/stream ctx/decrypt-stream blank
+                ]
+            ]
+
+            aes@ [
+                ;-- nothing was here
+            ]
+        ] else [
+            fail ["Unsupported TLS crypt-method" ctx/crypt-method]
         ]
     ]
 ]
 
 
 tls-read-data: function [
+    return: [logic!]
     ctx [object!]
     port-data [binary!]
 ][
@@ -1095,13 +1069,9 @@ tls-read-data: function [
 
         append ctx/resp parse-response ctx fragment
 
-        next-state: get-next-read-state ctx
-
-        debug ["State:" ctx/protocol-state "-->" next-state]
-
         data: skip data len
 
-        if all [tail? data | find next-state #complete] [
+        if tail? data and (issue? ctx/mode) [
             debug [
                 "READING FINISHED"
                 length of head of ctx/data-buffer
@@ -1119,14 +1089,17 @@ tls-read-data: function [
 ]
 
 
-tls-awake: function [event [event!]] [
+tls-awake: function [
+    return: [logic!]
+    event [event!]
+][
     debug ["TLS Awake-event:" event/type]
     port: event/port
     tls-port: port/locals
     tls-awake: :tls-port/awake
 
     all [
-        tls-port/state/protocol-state = 'application
+        tls-port/state/mode = #application
         not port/data
     ] then [
         ; reset the data field when interleaving port r/w states
@@ -1145,13 +1118,13 @@ tls-awake: function [event [event!]] [
         ]
 
         'connect [
-            do-commands tls-port/state [client-hello]
+            do-commands tls-port/state [<client-hello>]
 
-            if tls-port/state/resp/1/type = 'handshake [
+            if tls-port/state/resp/1/type = #handshake [
                 do-commands tls-port/state [
-                    client-key-exchange
-                    change-cipher-spec
-                    finished
+                    <client-key-exchange>
+                    <change-cipher-spec>
+                    <finished>
                 ]
             ]
             insert system/ports/system make event! [
@@ -1162,11 +1135,11 @@ tls-awake: function [event [event!]] [
         ]
 
         'wrote [
-            switch tls-port/state/protocol-state [
-                'close-notify [
+            switch tls-port/state/mode [
+                <close-notify> [
                     return true
                 ]
-                'application [
+                #application [
                     insert system/ports/system make event! [
                         type: 'wrote
                         port: tls-port
@@ -1181,7 +1154,7 @@ tls-awake: function [event [event!]] [
         'read [
             debug [
                 "Read" length of port/data
-                "bytes proto-state:" tls-port/state/protocol-state
+                "bytes in mode:" tls-port/state/mode
             ]
 
             complete?: tls-read-data tls-port/state port/data
@@ -1189,7 +1162,7 @@ tls-awake: function [event [event!]] [
 
             for-each proto tls-port/state/resp [
                 switch proto/type [
-                    'application [
+                    #application [
                         for-each msg proto/messages [
                             if msg/type = 'app-data [
                                 tls-port/data: default [
@@ -1201,10 +1174,10 @@ tls-awake: function [event [event!]] [
                             ]
                         ]
                     ]
-                    'alert [
+                    #alert [
                         for-each msg proto/messages [
                             if msg/description = "Close notify" [
-                                do-commands tls-port/state [close-notify]
+                                do-commands tls-port/state [<close-notify>]
                                 insert system/ports/system make event! [
                                     type: 'read
                                     port: tls-port
@@ -1259,9 +1232,9 @@ sys/make-scheme [
         ]
 
         write: func [port [port!] value [<opt> any-value!]] [
-            if find [encrypted-handshake application] port/state/protocol-state [
+            if find [#encrypted-handshake #application] port/state/mode [
                 do-commands/no-wait port/state compose [
-                    application (value)
+                    #application (value)
                 ]
                 return port
             ]
@@ -1284,27 +1257,36 @@ sys/make-scheme [
 
                 server?: false
 
-                protocol-state: _
+                mode: _
 
-                key-method:
+                suite: _
 
-                hash-method:
-                hash-size:
+                cipher-suite: does [first find suite word!]
 
-                crypt-method:
-                crypt-size:
-                block-size:
-                iv-size:
+                key-method: does [first find suite tag!]
 
-                cipher-suite: blank
+                hash-method: does [first find suite issue!]
+                hash-size: does [
+                    select (ensure block! second find suite issue!) 'size
+                ]
 
+                crypt-method: does [first find suite email!]
+                crypt-size: does [
+                    select (ensure block! second find suite email!) 'size
+                ]
+                block-size: does [
+                    try select (ensure block! second find suite email!) 'block
+                ]
+                iv-size: does [
+                    try select (ensure block! second find suite email!) 'iv
+                ]
 
-                client-crypt-key:
-                client-mac-key:
-                client-iv:
-                server-crypt-key:
-                server-mac-key:
-                server-iv: blank
+                client-crypt-key: _
+                client-mac-key: _
+                client-iv: _
+                server-crypt-key: _
+                server-mac-key: _
+                server-iv: _
 
                 seq-num-r: 0
                 seq-num-w: 0
@@ -1317,12 +1299,22 @@ sys/make-scheme [
 
                 encrypted?: false
 
-                client-random: server-random: pre-master-secret: master-secret:
-                key-block:
-                certificate: pub-key: pub-exp:
-                dh-key: dh-pub: blank
+                client-random: _
+                server-random: _
+                pre-master-secret: _
+                master-secret: _
 
-                encrypt-stream: decrypt-stream: blank
+                key-block: _
+
+                certificate: _
+                pub-key: _
+                pub-exp: _
+
+                dh-key: _
+                dh-pub: _
+
+                encrypt-stream: _
+                decrypt-stream: _
 
                 connection: _
             ]
@@ -1373,7 +1365,7 @@ sys/make-scheme [
             ; OBJECT! containing a BINARY! ?
             ;
             switch port/state/crypt-method [
-                'rc4 [
+                rc4@ [
                     if port/state/encrypt-stream [
                         port/state/encrypt-stream: _ ;-- will be GC'd
                     ]
@@ -1381,7 +1373,7 @@ sys/make-scheme [
                         port/state/decrypt-stream: _ ;-- will be GC'd
                     ]
                 ]
-                'aes [
+                aes@ [
                     if port/state/encrypt-stream [
                         port/state/encrypt-stream: _ ;-- will be GC'd
                     ]
@@ -1389,6 +1381,8 @@ sys/make-scheme [
                         port/state/decrypt-stream: _ ;-- will be GC'd
                     ]
                 ]
+            ] else [
+                fail ["Unknown TLS crypt-method" port/state/crypt-method]
             ]
 
             debug "TLS/TCP port closed"
