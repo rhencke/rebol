@@ -74,124 +74,134 @@ make-tls-error: func [
 ;
 ; https://en.wikipedia.org/wiki/Abstract_Syntax_Notation_One
 ;
+; The only use of it here is to extract certificates, so it's rather heavy
+; handed to do a complete ASN parse:
+;
+; https://security.stackexchange.com/a/31057
+;
+; Yet it's a good, short, real-world case to look at through a Rebol lens.
 
 parse-asn: function [
+    {Create a legible Rebol-structured BLOCK! from an ASN.1 BINARY! encoding}
+
+    return: [block!]
     data [binary!]
 
     <static>
 
     universal-tags ([
-        eoc
-        boolean
-        integer
-        bit-string
-        octet-string
-        null
-        object-identifier
-        object-descriptor
-        external
-        real
-        enumerated
-        embedded-pdv
-        utf8string
-        relative-oid
-        undefined
-        undefined
-        sequence
-        set
-        numeric-string
-        printable-string
-        t61-string
-        videotex-string
-        ia5-string
-        utc-time
-        generalized-time
-        graphic-string
-        visible-string
-        general-string
-        universal-string
-        character-string
-        bmp-string
+        <eoc>
+        <boolean>
+        <integer>
+        <bit-string>
+        <octet-string>
+        <null>
+        <object-identifier>
+        <object-descriptor>
+        <external>
+        <real>
+        <enumerated>
+        <embedded-pdv>
+        <utf8string>
+        <relative-oid>
+        <undefined>
+        <undefined>
+        <sequence>
+        <set>
+        <numeric-string>
+        <printable-string>
+        <t61-string>
+        <videotex-string>
+        <ia5-string>
+        <utc-time>
+        <generalized-time>
+        <graphic-string>
+        <visible-string>
+        <general-string>
+        <universal-string>
+        <character-string>
+        <bmp-string>
     ])
 
-    class-types ([universal application context-specific private])
+    ; !!! Older Rebols (used for bootstrap) dont' support leading @, but
+    ; that is what these should be.  Trailing @ in the meantime.
+    ;
+    class-types ([universal@ application@ context-specific@ private@])
 ][
-    result: make block! 16
-    mode: 'type
+    data-start: data ;-- may not be at head
+    index: does [1 + offset-of data-start data] ;-- calculates effective index
 
-    while [d: first data] [
+    mode: #type
+    class: _
+    tag: _
+
+    return collect [ for-next data [
+        byte: data/1
+
         switch mode [
-            'type [
-                constructed?: not zero? (d and+ 32)
-                class: pick class-types 1 + shift d -6
+            #type [
+                constructed: not zero? (byte and+ 32)
+                class: pick class-types 1 + shift byte -6
 
                 switch class [
-                    'universal [
-                        tag: pick universal-tags 1 + (d and+ 31)
+                    universal@ [
+                        tag: pick universal-tags 1 + (byte and+ 31)
                     ]
-                    'context-specific [
-                        tag: class
-                        val: d and+ 31
+                    context-specific@ [
+                        tag: <context-specific>
+                        val: byte and+ 31
                     ]
                 ]
-                mode: 'size
+                mode: #size
             ]
 
-            'size [
-                size: d and+ 127
-                if not zero? (d and+ 128) [
-                    ; long form
-                    ln: size
-                    size: to-integer/unsigned copy/part next data size
-                    data: skip data ln
+            #size [
+                size: byte and+ 127
+                if not zero? (byte and+ 128) [ ;-- long form
+                    old-size: size
+                    size: to-integer/unsigned copy/part next data old-size
+                    data: skip data old-size
                 ]
-                either zero? size [
-                    append/only result compose/deep [
+                if zero? size [
+                    keep/only/line compose/deep [
                         (tag) [
-                            (constructed? ?? "constructed" !! "primitive")
-                            (index of data)
+                            (constructed ?? "constructed" !! "primitive")
+                            (index)
                             (size)
                             _
                         ]
                     ]
-                    mode: 'type
-                ][
-                    mode: 'value
+                    mode: #type
+                ] else [
+                    mode: #value
                 ]
             ]
 
-            'value [
+            #value [
                 switch class [
-                    'universal [
+                    universal@ [
                         val: copy/part data size
-                        append/only result compose/deep [
+                        keep/only/line compose/deep/only [
                             (tag) [
-                                (constructed? ?? "constructed" !! "primitive")
-                                (index of data)
+                                (constructed ?? "constructed" !! "primitive")
+                                (index)
                                 (size)
-                                (either constructed? [blank] [val])
+                                (either constructed [parse-asn val] [val])
                             ]
-                        ]
-                        if constructed? [
-                            poke second last result 4
-                            parse-asn val
                         ]
                     ]
 
-                    'context-specific [
-                        append/only result compose/deep [(tag) [(val) (size)]]
-                        parse-asn copy/part data size
+                    context-specific@ [
+                        keep/only/line compose/deep [(tag) [(val) (size)]]
+                        parse-asn copy/part data size ;-- !!! ensures valid?
                     ]
                 ]
 
                 data: skip data size - 1
-                mode: 'type
+                mode: #type
             ]
         ]
-
-        data: next data
-    ]
-    result
+    ] ]
 ]
 
 
@@ -763,11 +773,12 @@ parse-messages: function [
                         switch ctx/key-method [
                             'rsa [
                                 ; get the public key and exponent (hardcoded for now)
-                                ctx/pub-key: parse-asn next
-;                               ctx/certificate/1/sequence/4/1/sequence/4/6/sequence/4/2/bit-string/4
-                                ctx/certificate/1/sequence/4/1/sequence/4/7/sequence/4/2/bit-string/4
-                                ctx/pub-exp: ctx/pub-key/1/sequence/4/2/integer/4
-                                ctx/pub-key: next ctx/pub-key/1/sequence/4/1/integer/4
+                                ctx/pub-key: parse-asn (next
+                                    comment [ctx/certificate/1/<sequence>/4/1/<sequence>/4/6/<sequence>/4/2/<bit-string>/4]
+                                    ctx/certificate/1/<sequence>/4/1/<sequence>/4/7/<sequence>/4/2/<bit-string>/4
+                                )
+                                ctx/pub-exp: ctx/pub-key/1/<sequence>/4/2/<integer>/4
+                                ctx/pub-key: next ctx/pub-key/1/<sequence>/4/1/<integer>/4
                             ]
                         ] else [
                             ; for DH cipher suites the certificate is used

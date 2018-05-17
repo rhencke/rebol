@@ -83,7 +83,7 @@ void MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         return;
     }
 
-    if (IS_TEXT(arg)) {
+    if (ANY_STRING(arg)) {
         REBSIZ size;
         REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_WORD);
 
