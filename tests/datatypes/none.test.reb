@@ -9,7 +9,7 @@
 ]
 (blank = #) ;-- Deprecated!
 (blank = make blank! blank)
-(blank = to blank! blank) ;-- only thing you can convert a blank to
+(null? to blank! blank) ;-- conflicting needs; blank in void out general rule
 (blank = to blank! 1)
 ("_" = mold blank)
 [#1666 #1650 (

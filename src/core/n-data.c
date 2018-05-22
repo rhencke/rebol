@@ -1031,51 +1031,172 @@ REBNATIVE(free_q)
 //
 //  {Aliases the underlying data of one series to act as another of same class}
 //
+//      return: [<opt> any-series! any-word!]
 //      type [datatype!]
-//      value [any-series! any-word!]
+//      value [blank! any-series! any-word!]
 //  ]
 //
 REBNATIVE(as)
 {
     INCLUDE_PARAMS_OF_AS;
 
-    enum Reb_Kind kind = VAL_TYPE_KIND(ARG(type));
-    REBVAL *value = ARG(value);
+    REBVAL *v = ARG(value);
+    if (IS_BLANK(v))
+        return R_VOID; // "blank in, null out" convention for non-modifiers
 
-    switch (kind) {
+    enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
+
+    switch (new_kind) {
     case REB_BLOCK:
     case REB_GROUP:
     case REB_PATH:
     case REB_LIT_PATH:
     case REB_GET_PATH:
-        if (!ANY_ARRAY(value))
-            fail (Error_Bad_Cast_Raw(value, ARG(type)));
+        if (not ANY_ARRAY(v))
+            goto bad_cast;
         break;
 
     case REB_TEXT:
     case REB_TAG:
     case REB_FILE:
     case REB_URL:
-        if (!ANY_BINSTR(value) || IS_BINARY(value))
-            fail (Error_Bad_Cast_Raw(value, ARG(type)));
-        break;
+    case REB_EMAIL: {
+        //
+        // !!! Until UTF-8 Everywhere, turning ANY-WORD! into an ANY-STRING!
+        // means it has to be UTF-8 decoded into REBUNI (UCS-2).  We do that
+        // but make sure it is locked, so that when it does give access to
+        // WORD! you won't think you can mutate the data.  (Though mutable
+        // WORD! should become a thing, if they're not bound or locked.)
+        //
+        if (ANY_WORD(v)) {
+            REBSTR *spelling = VAL_WORD_SPELLING(v);
+            REBSER *string = Make_Sized_String_UTF8(
+                STR_HEAD(spelling),
+                STR_SIZE(spelling)
+            );
+            SET_SER_INFO(string, SERIES_INFO_FROZEN);
+            Init_Any_Series(D_OUT, new_kind, string);
+            return R_OUT;
+        }
+
+        // !!! Similarly, until UTF-8 Everywhere, we can't actually alias
+        // the UTF-8 bytes in a binary as a WCHAR string.
+        //
+        if (IS_BINARY(v)) {
+            REBSER *string = Make_Sized_String_UTF8(
+                cs_cast(VAL_BIN_AT(v)),
+                VAL_LEN_AT(v)
+            );
+            if (Is_Value_Immutable(v))
+                SET_SER_INFO(string, SERIES_INFO_FROZEN);
+            else {
+                // !!! Catch any cases of people who were trying to alias the
+                // binary, make mutations via the string, and see those
+                // changes show up in the binary.  That can't work until UTF-8
+                // everywhere.  Most callsites don't need the binary after
+                // conversion...if so, tthey should AS a COPY of it for now.
+                //
+                Decay_Series(VAL_SERIES(v));
+            }
+            Init_Any_Series(D_OUT, new_kind, string);
+            return R_OUT;
+        }
+
+        if (not ANY_STRING(v))
+            goto bad_cast;
+        break; }
 
     case REB_WORD:
     case REB_GET_WORD:
     case REB_SET_WORD:
     case REB_LIT_WORD:
     case REB_ISSUE:
-    case REB_REFINEMENT:
-        if (!ANY_WORD(value))
-            fail (value);
-        break;
+    case REB_REFINEMENT: {
+        //
+        // !!! Until UTF-8 Everywhere, turning ANY-STRING! into an ANY-WORD!
+        // means you have to have an interning of it.
+        //
+        if (ANY_STRING(v)) {
+            //
+            // Don't give misleading impression that mutations of the input
+            // string will change the output word, by freezing the input.
+            // This will be relaxed when mutable words exist.
+            //
+            Freeze_Sequence(VAL_SERIES(v));
+
+            REBSIZ utf8_size;
+            REBSIZ offset;
+            REBSER *temp = Temp_UTF8_At_Managed(
+                &offset, &utf8_size, v, VAL_LEN_AT(v)
+            );
+            Init_Any_Word(
+                D_OUT,
+                new_kind,
+                Intern_UTF8_Managed(BIN_AT(temp, offset), utf8_size)
+            );
+            return R_OUT;
+        }
+
+        // !!! Since pre-UTF8-everywhere ANY-WORD! was saved in UTF-8 it would
+        // be sort of possible to alias a binary as a WORD!.  But modification
+        // wouldn't be allowed (as there are no mutable words), and also the
+        // interning logic would have to take ownership of the binary if it
+        // was read-only.  No one is converting binaries to words yet, so
+        // wait to implement the logic until the appropriate time...just lock
+        // the binary for now.
+        //
+        if (IS_BINARY(v)) {
+            Freeze_Sequence(VAL_SERIES(v));
+            Init_Any_Word(
+                D_OUT,
+                new_kind,
+                Intern_UTF8_Managed(VAL_BIN_AT(v), VAL_LEN_AT(v))
+            );
+            return R_OUT;
+        }
+
+        if (not ANY_WORD(v))
+            goto bad_cast;
+        break; }
+
+    case REB_BINARY: {
+        //
+        // !!! A locked BINARY! shouldn't (?) complain if it exposes a
+        // REBSTR holding UTF-8 data, even prior to the UTF-8 conversion.
+        //
+        if (ANY_WORD(v)) {
+            assert(Is_Value_Immutable(v));
+            Init_Binary(D_OUT, VAL_WORD_SPELLING(v));
+            return R_OUT;
+        }
+
+        if (ANY_STRING(v)) {
+            REBSER *bin = Make_UTF8_From_Any_String(v, VAL_LEN_AT(v));
+
+            // !!! Making a binary out of a UCS-2 encoded string currently
+            // frees the string data if it's mutable, and if that's not
+            // satisfactory you can make a copy before the AS.
+            //
+            if (Is_Value_Immutable(v))
+                Freeze_Sequence(bin);
+            else
+                Decay_Series(VAL_SERIES(v));
+
+            Init_Binary(D_OUT, bin);
+            return R_OUT;
+        }
+
+        fail (v); }
+
+    bad_cast:;
 
     default:
-        fail (Error_Bad_Cast_Raw(value, ARG(type))); // all applicable types should be handled above
+        // all applicable types should be handled above
+        fail (Error_Bad_Cast_Raw(v, ARG(type)));
     }
 
-    VAL_SET_TYPE_BITS(value, kind);
-    Move_Value(D_OUT, value);
+    VAL_SET_TYPE_BITS(v, new_kind);
+    Move_Value(D_OUT, v);
     return R_OUT;
 }
 

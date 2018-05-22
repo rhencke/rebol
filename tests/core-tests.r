@@ -183,6 +183,7 @@
 %secure/protect.test.reb
 %secure/unprotect.test.reb
 %series/append.test.reb
+%series/as.test.reb
 %series/at.test.reb
 %series/back.test.reb
 %series/change.test.reb

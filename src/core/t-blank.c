@@ -52,6 +52,10 @@ void MAKE_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 //
 //  TO_Unit: C
 //
+// While `to blank! "abc"` producing `_` is not particularly useful when
+// written out literally, it may be helpful if the type you're converting to
+// is stored in a variable, as a way of opting out of the conversion.
+//
 void TO_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *data) {
     UNUSED(data);
     RESET_VAL_HEADER(out, kind);

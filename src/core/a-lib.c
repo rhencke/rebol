@@ -247,6 +247,9 @@ void RL_rebFree(void *ptr)
 // If the passed in size is less than the size with which the series was
 // allocated, the overage will be treated as unused series capacity.
 //
+// Note that all rebRepossess()'d data will be terminated by an 0x00 byte
+// after the end of its capacity.
+//
 // !!! All bytes in the allocation are expected to be initialized by this
 // point, as failure to do so will mean reads crash the interpreter.  See
 // remarks in rebMalloc() about the issue, and possibly doing zero fills.

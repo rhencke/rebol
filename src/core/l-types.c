@@ -239,32 +239,29 @@ void TO_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  to: native [
 //
-//  {Converts to a specified datatype.}
+//  {Converts to a specified datatype, copying any underying data}
 //
-//      type [any-value!]
-//          {The datatype -or- an exemplar value of the target type}
+//      return: "VALUE converted to TYPE (or null if input value is blank)"
+//          [<opt> any-value!]
+//      type [datatype!]
 //      value [any-value!]
-//          {The source value to convert}
 //  ]
 //
 REBNATIVE(to)
 {
     INCLUDE_PARAMS_OF_TO;
 
-    REBVAL *type = ARG(type);
-    REBVAL *arg = ARG(value);
+    REBVAL *v = ARG(value);
+    if (IS_BLANK(v))
+        return R_VOID;
 
-    enum Reb_Kind kind;
-    if (IS_DATATYPE(type))
-        kind = VAL_TYPE_KIND(type);
-    else
-        kind = VAL_TYPE(type);
+    enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
 
-    TO_CFUNC dispatcher = To_Dispatch[kind];
-    if (dispatcher == NULL)
-        fail (Error_Invalid(arg));
+    TO_CFUNC dispatcher = To_Dispatch[new_kind];
+    if (not dispatcher)
+        fail (Error_Invalid(v));
 
-    dispatcher(D_OUT, kind, arg); // may fail();
+    dispatcher(D_OUT, new_kind, v); // may fail();
     return R_OUT;
 }
 
