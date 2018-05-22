@@ -128,11 +128,6 @@ gen-obj: func [
     ;
     append flags <msc:/wd4754>
 
-    ; The May 2018 update also added a warning for when Spectre mitigation
-    ; code might be inserted by the compiler, if-and-when you enable Spectre
-    ; mitigation in the compilation.  This can be tripped by pretty much any
-    ; C-style loop over indice
-
     if block? s [
         for-each flag next s [
             append flags opt switch/default flag [

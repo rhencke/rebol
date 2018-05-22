@@ -239,8 +239,9 @@ if not empty? error-list [
     ]
 ]
 append spec native-list
-comp-data: gzip data: to-binary mold spec
-;print ["buf:" to text! data]
+
+data: to-binary mold spec
+compressed: gzip data
 
 e2/emit {
     int Module_Init_${Mod}(RELVAL *out);
@@ -249,14 +250,12 @@ e2/emit {
     #if !defined(MODULE_INCLUDE_DECLARATION_ONLY)
     
     #define EXT_NUM_NATIVES_${MOD} $(num-native)
-    #define EXT_NAT_COMPRESSED_SIZE_${MOD} $(length-of comp-data)
+    #define EXT_NAT_COMPRESSED_SIZE_${MOD} $(length-of data)
     
-    const REBYTE Ext_Native_Specs_${Mod}[EXT_NAT_COMPRESSED_SIZE_${MOD}] = ^{
+    const REBYTE Ext_Native_Specs_${Mod}[EXT_NAT_COMPRESSED_SIZE_${MOD}] = {
+        $(Binary-To-C Compressed)
+    };
 }
-
-;-- Convert UTF-8 binary to C-encoded string:
-e2/emit binary-to-c comp-data
-e2/emit-line "};" ;-- EMIT-END erases last comma, but there's no extra
 
 either num-native > 0 [
     e2/emit ["REBNAT Ext_Native_C_Funcs_${Mod}[EXT_NUM_NATIVES_${MOD}] = {"]

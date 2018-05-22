@@ -198,8 +198,6 @@ binary-to-c: function [
 ][
     out: make text! 6 * (length-of data)
     while [not tail? data] [
-        append out spaced-tab
-
         ;-- grab hexes in groups of 8 bytes
         hexed: enbase/base (copy/part data 8) 16
         data: skip data 8

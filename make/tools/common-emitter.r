@@ -33,35 +33,36 @@ REBOL [
 ]
 
 cscape: function [
-    "Escape Rebol expressions in templated C source, optionally changing case"
+    {Escape Rebol expressions in templated C source, optionally changing case}
 
-    return: [text!]
-        "New string, ${...} TO-C-NAME, $(...) UNSPACED"
-    template [text!]
-        "${Expr} result left alone, ${expr} lowercased, ${EXPR} is uppercased"
-    /with
-        "Lookup var words in additional context (besides user context)"
+    return: "New TRIM-med string, ${...} TO-C-NAME, $(...) UNSPACED"
+        [text!]
+    template "${Expr} case as-is, ${expr} lowercased, ${EXPR} is uppercased"
+        [text!]
+    /with "Lookup var words in additional context (besides user context)"
     context [blank! any-word! any-context!]
 ][
+    string: trim/auto copy template
+
     list: unique/case collect [
-        parse template [any [
-            "${" copy expr: to "}" (keep/only compose [#cname (expr)])
+        parse string [(col: 0) any [
+            "${" copy expr: to "}" (keep/only compose [(col) #cname (expr)])
                 |
-            "$(" copy expr: to ")" (keep/only compose [#unspaced (expr)])
+            "$(" copy expr: to ")" (keep/only compose [(col) #unspaced (expr)])
                 |
             "$[" copy expr: to "]" (fail "$[...] not defined yet")
                 |
-            skip
+            newline (col: 0)
+                |
+            skip (col: col + 1)
         ]]
     ]
 
-    if empty? list [
-        return trim/auto copy template ;-- caller expects new string, trimmed
-    ]
+    if empty? list [return string]
 
     substitutions: collect [
         for-each item list [
-            set [mode: expr:] item
+            set [col: mode: expr:] item
 
             any-upper: did find/case expr charset [#"A" - #"Z"]
             any-lower: did find/case expr charset [#"a" - #"z"]
@@ -71,13 +72,9 @@ cscape: function [
             if with [bind code context]
             sub: do code
 
-            switch/default mode [
-                #cname [
-                    sub: to-c-name sub
-                ]
-                #unspaced [
-                    sub: either block? sub [unspaced sub] [form sub]
-                ]
+            sub: switch/default mode [
+                #cname [to-c-name sub]
+                #unspaced [either block? sub [unspaced sub] [form sub]]
             ][
                 fail ["Invalid CSCAPE mode:" mode]
             ]
@@ -85,11 +82,17 @@ cscape: function [
                 any-upper and (not any-lower) [uppercase sub]
                 any-lower and (not any-upper) [lowercase sub]
             ]
+
+            ; If the substitution started at a certain column, make any line
+            ; breaks continue at the same column.
+            ;
+            indent: unspaced collect [keep newline | loop col [keep space]]
+            replace/all sub newline indent
+
             keep sub
         ]
     ]
 
-    string: trim/auto copy template
     string: reword/case/escape string substitutions ["${" "}"]
     string: reword/case/escape string substitutions ["$(" ")"]
     return string

@@ -867,41 +867,25 @@ for-each-record t type-table [
 ;-- Create main code section (compressed):
 
 write-if-changed boot/tmp-boot-block.r mold reduce sections
-data: mold/flat reduce sections
-insert tail-of data make char! 0 ; scanner requires zero termination
+data: to-binary mold/flat reduce sections
 
-comp-data: gzip data: to-binary data
+compressed: gzip data
 
-; Array sizes in C have to be constant expressions, which doesn't include
-; constant values.  Have to use #defines.
-;
-e-bootblock/emit-line [
-    "#define NAT_COMPRESSED_SIZE" space (length-of comp-data)
-]
-
-; Though #defines must be used for the array declarations, using values with
-; external linkage at other sites makes it so that the file containing the
-; natives can be recompiled and not require recompiling places where they
-; are referred to as well.
-;
-e-bootblock/emit-line [
-    "const REBCNT Nat_Compressed_Size = NAT_COMPRESSED_SIZE;"
-]
-
-e-bootblock/emit-line ["const REBYTE Native_Specs[NAT_COMPRESSED_SIZE] = {"]
-
-;-- Convert UTF-8 binary to C-encoded string:
-e-bootblock/emit binary-to-c comp-data
-e-bootblock/emit-line "};" ;-- EMIT-END erases last comma but there's no extra
+e-bootblock/emit {
+    /*
+     * Gzip compression of boot block
+     * Originally $(length-of data) bytes
+     *
+     * Size is a constant with storage vs. using a #define, so that relinking
+     * is enough to sync up the referencing sites.
+     */
+    const REBCNT Nat_Compressed_Size = $(length-of compressed);
+    const REBYTE Native_Specs[$(length-of compressed)] = {
+        $(Binary-To-C Compressed)
+    };
+}
 
 e-bootblock/write-emitted
-
-;-- Output stats:
-print [
-    "Compressed" length-of data "to" length-of comp-data "bytes:"
-    to-integer ((length-of comp-data) / (length-of data) * 100)
-    "percent of original"
-]
 
 
 ;----------------------------------------------------------------------------

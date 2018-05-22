@@ -47,33 +47,26 @@ dest: either did select args 'DEST [
 
 print unspaced ["--- Make Extension Init Code from " src " ---"]
 
-write-c-file: function [
+write-c-file: procedure [
     c-file
     r-file
 ][
     e: make-emitter "Ext custom init code" c-file
 
     data: read r-file
+    compressed: gzip data
 
-    comp-data: gzip data
-    comp-size: length-of comp-data
-
-    e/emit-line ["static const REBYTE script_bytes[" comp-size "] = {"]
-
-    e/emit binary-to-c comp-data
-    e/emit-line "};"
+    e/emit 'r-file {
+        /*
+         * Gzip compression of $(R-File)
+         * Originally $(length-of data) bytes
+         */
+        static const REBYTE script_bytes[$(length-of compressed)] = {
+            $(Binary-To-C Compressed)
+        };
+    }
 
     e/write-emitted
-
-    ;-- Output stats:
-    print [
-        newline
-        "Compressed" length-of data "to" comp-size "bytes:"
-        to-integer (comp-size / (length-of data) * 100)
-        "percent of original"
-    ]
-
-    return comp-size
 ]
 
 write-c-file dest src

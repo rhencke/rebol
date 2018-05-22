@@ -51,16 +51,24 @@ remove/part inp -1 + index? find inp to binary! "#define DEBUG_STDIO_OK"
 
 ;write %/tmp/sys-core.i inp
 
-e-embed: (make-emitter
+e: (make-emitter
     "Embedded sys-core.h" output-dir/core/tmp-embedded-header.c)
 
-e-embed/emit-lines [
-    {#include "sys-core.h"}
-    "extern const REBYTE core_header_source[];"
-    "const REBYTE core_header_source[] = {"
-    [binary-to-c join-of inp #{00}]
-    "};"
-]
+e/emit {
+    #include "sys-core.h"
+
+    /*
+     * !!! Typically embedded source in Rebol is compressed, and uses the
+     * internal decompression to rebRepossess() a BINARY! from it.  This gives
+     * an implicit 0x00 byte past the length, if any usages of that binary
+     * ever need it (e.g. for a C string conversion).  But since this is not
+     * compressed it doesn't get it for free.  Add manually, but review.
+     */
+    extern const REBYTE core_header_source[];
+    const REBYTE core_header_source[] = {
+        $(Binary-To-C Join-Of Inp #{00})
+    };
+}
 
 print "------ Writing embedded header file"
-e-embed/write-emitted
+e/write-emitted

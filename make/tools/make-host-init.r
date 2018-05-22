@@ -36,7 +36,7 @@ mkdir/deep output-dir/os
 
 print "--- Make Host Init Code ---"
 
-write-c-file: function [
+write-c-file: procedure [
     c-file
     code
 ][
@@ -49,30 +49,20 @@ write-c-file: function [
     ]
     append data newline ; BUG? why does MOLD not provide it?
 
-    insert data reduce ["; Copyright REBOL Technologies " now newline]
-    insert tail-of data make char! 0 ; zero termination required
+    compressed: gzip data
 
-    comp-data: gzip data
-    comp-size: length-of comp-data
-
-    e/emit-line ["#define REB_INIT_SIZE" space comp-size]
-
-    e/emit-line "const unsigned char Reb_Init_Code[REB_INIT_SIZE] = {"
-
-    e/emit binary-to-c comp-data
-    e/emit-line "};"
+    e/emit 'compressed {
+        /*
+         * Gzip compression of host initialization code
+         * Originally $(length-of data) bytes
+         */
+        #define REB_INIT_SIZE $(length-of compressed)
+        const unsigned char Reb_Init_Code[REB_INIT_SIZE] = {
+            $(Binary-To-C Compressed)
+        };
+    }
 
     e/write-emitted
-
-    ;-- Output stats:
-    print [
-        newline
-        "Compressed" length-of data "to" comp-size "bytes:"
-        to-integer (comp-size / (length-of data) * 100)
-        "percent of original"
-    ]
-
-    return comp-size
 ]
 
 
