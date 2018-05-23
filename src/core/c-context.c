@@ -1413,7 +1413,7 @@ void Startup_Collector(void)
 //
 void Shutdown_Collector(void)
 {
-    Free_Array(TG_Buf_Collect);
+    Free_Unmanaged_Array(TG_Buf_Collect);
     TG_Buf_Collect = NULL;
 }
 

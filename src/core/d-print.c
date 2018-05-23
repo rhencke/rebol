@@ -636,6 +636,6 @@ void Startup_Raw_Print(void)
 //
 void Shutdown_Raw_Print(void)
 {
-    Free_Series(TG_Byte_Buf);
+    Free_Unmanaged_Series(TG_Byte_Buf);
     TG_Byte_Buf = NULL;
 }

@@ -590,7 +590,7 @@ REBNATIVE(compile)
     if (tcc_compile_string(state, cs_cast(BIN_HEAD(combined_src))) < 0)
         fail (Error_Tcc_Compile_Raw(natives));
 
-    Free_Series(combined_src);
+    Free_Unmanaged_Series(combined_src);
 
     // It is technically possible for ELF binaries to "--export-dynamic" (or
     // -rdynamic in CMake) and make executables embed symbols for functions

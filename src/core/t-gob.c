@@ -996,7 +996,7 @@ void MF_Gob(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
     REBARR *array = Gob_To_Array(VAL_GOB(v));
     Mold_Array_At(mo, array, 0, 0);
-    Free_Array(array);
+    Free_Unmanaged_Array(array);
 
     End_Mold(mo);
 }

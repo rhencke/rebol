@@ -299,7 +299,7 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
 //
 // To avoid having to do a second deep walk to add managed bits on all series,
 // the resulting array will already be deeply under GC management, and hence
-// cannot be freed with Free_Series().
+// cannot be freed with Free_Unmanaged_Series().
 //
 REBARR *Copy_Array_Core_Managed(
     REBARR *original,

@@ -114,14 +114,14 @@ void Assert_State_Balanced_Debug(
         //
         // Note: Should this ever actually happen, panic() on the series won't
         // do any real good in helping debug it.  You'll probably need to
-        // add additional checking in the Manage_Series and Free_Series
-        // routines that checks against the caller's manuals_len.
+        // add additional checks in Manage_Series and Free_Unmanaged_Series
+        // that check against the caller's manuals_len.
         //
         panic_at ("manual series freed outside checkpoint", file, line);
     }
     else if (s->manuals_len < SER_LEN(GC_Manuals)) {
         printf(
-            "Make_Series()x%d without Free_Series or MANAGE_SERIES\n",
+            "Make_Series()x%d w/o Free_Unmanaged_Series or MANAGE_SERIES\n",
             cast(int, SER_LEN(GC_Manuals) - s->manuals_len)
         );
         REBSER *manual = *(SER_AT(
@@ -187,7 +187,7 @@ void Trapped_Helper(struct Reb_State *s)
     assert(SER_LEN(GC_Manuals) >= s->manuals_len);
     while (SER_LEN(GC_Manuals) != s->manuals_len) {
         // Freeing the series will update the tail...
-        Free_Series(
+        Free_Unmanaged_Series(
             *SER_AT(REBSER*, GC_Manuals, SER_LEN(GC_Manuals) - 1)
         );
     }

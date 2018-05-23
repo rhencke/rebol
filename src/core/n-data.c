@@ -969,6 +969,64 @@ REBNATIVE(identity)
 
 
 //
+//  free: native [
+//
+//  {Releases the underlying data of a value so it can no longer be accessed}
+//
+//      return: [<opt>]
+//      memory [any-series! any-context! handle!]
+//  ]
+//
+REBNATIVE(free)
+{
+    INCLUDE_PARAMS_OF_FREE;
+
+    REBVAL *v = ARG(memory);
+
+    if (ANY_CONTEXT(v) or IS_HANDLE(v))
+        fail ("FREE only implemented for ANY-SERIES! at the moment");
+
+    REBSER *s = VAL_SERIES(v);
+    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+        fail ("Cannot FREE already freed series");
+    FAIL_IF_READ_ONLY_SERIES(s);
+
+    Decay_Series(s);
+    return R_VOID;
+}
+
+
+//
+//  free?: native [
+//
+//  {Tells if data has been released with FREE}
+//
+//      return: "Returns false if value wouldn't be FREEable (e.g. LOGIC!)"
+//          [logic!]
+//      value [any-value!]
+//  ]
+//
+REBNATIVE(free_q)
+{
+    INCLUDE_PARAMS_OF_FREE_Q;
+
+    REBVAL *v = ARG(value);
+
+    REBSER *s;
+    if (ANY_CONTEXT(v))
+        s = SER(CTX_VARLIST(VAL_CONTEXT(v)));
+    else if (IS_HANDLE(v))
+        s = SER(v->extra.singular);
+    else if (ANY_SERIES(v))
+        s = VAL_SERIES(v);
+    else
+        return R_FALSE;
+
+    return R_FROM_BOOL(GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE));
+}
+
+
+//
 //  as: native [
 //
 //  {Aliases the underlying data of one series to act as another of same class}

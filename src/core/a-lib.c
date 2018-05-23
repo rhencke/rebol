@@ -199,7 +199,7 @@ void *RL_rebRealloc(void *ptr, size_t new_size)
     //
     void *reallocated = rebMalloc(new_size);
     memcpy(reallocated, ptr, old_size < new_size ? old_size : new_size);
-    Free_Series(s); // asserts that `s` is unmanaged
+    Free_Unmanaged_Series(s);
 
     return reallocated;
 }
@@ -233,7 +233,7 @@ void RL_rebFree(void *ptr)
 
     assert(BYTE_SIZE(s));
 
-    Free_Series(s); // asserts that `s` is unmanaged
+    Free_Unmanaged_Series(s);
 }
 
 
@@ -1436,7 +1436,7 @@ REBCNT RL_rebSpellingOfW(
     if (not buf) { // querying for size
         assert(buf_chars == 0);
         if (ANY_WORD(v))
-            Free_Series(s);
+            Free_Unmanaged_Series(s);
         return len; // caller must now allocate buffer of len + 1
     }
 
@@ -1448,7 +1448,7 @@ REBCNT RL_rebSpellingOfW(
     buf[limit] = 0;
 
     if (ANY_WORD(v))
-        Free_Series(s);
+        Free_Unmanaged_Series(s);
     return len;
 }
 

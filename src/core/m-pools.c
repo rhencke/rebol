@@ -333,7 +333,7 @@ void Startup_Pools(REBINT scale)
 //
 void Shutdown_Pools(void)
 {
-    // Can't use Free_Series() because GC_Manuals couldn't be put in
+    // Can't use Free_Unmanaged_Series() because GC_Manuals couldn't be put in
     // the manuals list...
     //
     GC_Kill_Series(GC_Manuals);
@@ -1469,22 +1469,11 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
 
 
 //
-//  GC_Kill_Series: C
+//  Decay_Series: C
 //
-// Only the garbage collector should be calling this routine.
-// It frees a series even though it is under GC management,
-// because the GC has figured out no references exist.
-//
-void GC_Kill_Series(REBSER *s)
+void Decay_Series(REBSER *s)
 {
-  #if !defined(NDEBUG)
-    if (IS_FREE_NODE(s)) {
-        printf("Freeing already freed node.\n");
-        panic (s);
-    }
-  #endif
-
-    assert(not (s->header.bits & NODE_FLAG_CELL)); // use Free_Paired
+    assert(NOT_SER_INFO(s, SERIES_INFO_INACCESSIBLE));
 
     if (GET_SER_FLAG(s, SERIES_FLAG_UTF8_STRING))
         GC_Kill_Interning(s); // needs special handling to adjust canons
@@ -1546,6 +1535,29 @@ void GC_Kill_Series(REBSER *s)
         }
     }
 
+    SET_SER_INFO(s, SERIES_INFO_INACCESSIBLE);
+}
+
+
+//
+//  GC_Kill_Series: C
+//
+// Only the garbage collector should be calling this routine.
+// It frees a series even though it is under GC management,
+// because the GC has figured out no references exist.
+//
+void GC_Kill_Series(REBSER *s)
+{
+  #if !defined(NDEBUG)
+    if (IS_FREE_NODE(s)) {
+        printf("Freeing already freed node.\n");
+        panic (s);
+    }
+  #endif
+
+    if (NOT_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+        Decay_Series(s);
+
   #if !defined(NDEBUG)
     s->info.bits = 0; // makes it look like width is 0
   #endif
@@ -1568,7 +1580,7 @@ void GC_Kill_Series(REBSER *s)
 }
 
 
-inline static void Drop_Manual_Series(REBSER *s)
+inline static void Untrack_Manual_Series(REBSER *s)
 {
     REBSER ** const last_ptr
         = &cast(REBSER**, GC_Manuals->content.dynamic.data)[
@@ -1606,55 +1618,45 @@ inline static void Drop_Manual_Series(REBSER *s)
 
 
 //
-//  Free_Series: C
+//  Free_Unmanaged_Series: C
 //
-// Free a series, returning its memory for reuse.  You can only
-// call this on series that are not managed by the GC.
+// Returns series node and data to memory pools for reuse.
 //
-void Free_Series(REBSER *s)
+void Free_Unmanaged_Series(REBSER *s)
 {
   #if !defined(NDEBUG)
-    //
-    // If a series has already been freed, we'll find out about that
-    // below indirectly, so better in the debug build to get a clearer
-    // error that won't be conflated with a possible tracking problem
-    //
     if (IS_FREE_NODE(s)) {
-        printf("Trying to Free_Series() on an already freed series\n");
-        panic (s);
+        printf("Trying to Free_Umanaged_Series() on already freed series\n");
+        panic (s); // erroring here helps not conflate with tracking problems
     }
 
-    // We can only free a series that is not under management by the
-    // garbage collector
-    //
     if (IS_SERIES_MANAGED(s)) {
-        printf("Trying to Free_Series() on a series managed by GC.\n");
+        printf("Trying to Free_Unmanaged_Series() on a GC-managed series\n");
         panic (s);
     }
   #endif
 
-    Drop_Manual_Series(s);
-
-    // With bookkeeping done, use the same routine the GC uses to free
-    //
-    GC_Kill_Series(s);
+    Untrack_Manual_Series(s);
+    GC_Kill_Series(s); // with bookkeeping done, use same routine as GC
 }
 
 
 //
 //  Manage_Series: C
 //
-// When a series is first created, it is in a state of being
-// manually memory managed.  Thus, you can call Free_Series on
-// it if you are sure you do not need it.  This will transition
-// a manually managed series to be one managed by the GC.  There
-// is no way to transition it back--once a series has become
-// managed, only the GC can free it.
+// If NODE_FLAG_MANAGED is not explicitly passed to Make_Series_Core, a
+// series will be manually memory-managed by default.  Thus, you don't need
+// to worry about the series being freed out from under you while building it,
+// and can call Free_Unmanaged_Series() on it if you are done with it.
 //
-// All series that wind up in user-visible values *must* be
-// managed, because the user can make copies of values
-// containing that series.  When these copies are made, it's
-// no longer safe to assume it's okay to free the original.
+// Rather than free a series, this function can be used--which will transition
+// a manually managed series to be one managed by the GC.  There is no way to
+// transition back--once a series has become managed, only the GC can free it.
+//
+// Putting series into a value cell (by using Init_String(), etc.) will
+// implicitly ensure it is managed, as it is generally the case that all
+// series in user-visible cells should be managed.  Doing otherwise requires
+// careful hooks into Move_Value() and Derelativize().
 //
 void Manage_Series(REBSER *s)
 {
@@ -1667,7 +1669,7 @@ void Manage_Series(REBSER *s)
 
     s->header.bits |= NODE_FLAG_MANAGED;
 
-    Drop_Manual_Series(s);
+    Untrack_Manual_Series(s);
 }
 
 
@@ -1771,7 +1773,7 @@ void Assert_Pointer_Detection_Working(void)
 
     REBSER *series = Make_Series(1, sizeof(char));
     assert(Detect_Rebol_Pointer(series) == DETECTED_AS_SERIES);
-    Free_Series(series);
+    Free_Unmanaged_Series(series);
     assert(Detect_Rebol_Pointer(series) == DETECTED_AS_FREED_SERIES);
 }
 

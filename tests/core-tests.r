@@ -194,6 +194,7 @@
 %series/emptyq.test.reb
 %series/exclude.test.reb
 %series/find.test.reb
+%series/free.test.reb
 %series/indexq.test.reb
 %series/insert.test.reb
 %series/intersect.test.reb

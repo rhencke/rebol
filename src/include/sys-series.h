@@ -63,8 +63,8 @@
 // about accomodating 256-byte elements.)
 //
 // REBSERs may be either manually memory managed or delegated to the garbage
-// collector.  Free_Series() may only be called on manual series.  See
-// MANAGE_SERIES() and PUSH_GUARD_SERIES() for remarks on how to work safely
+// collector.  Free_Unmanaged_Series() may only be called on manual series.
+// See MANAGE_SERIES()/PUSH_GUARD_SERIES() for remarks on how to work safely
 // with pointers to garbage-collected series, to avoid having them be GC'd
 // out from under the code while working with them.
 //
@@ -291,6 +291,9 @@ inline static REBCNT SER_REST(REBSER *s) {
 //
 inline static REBYTE *SER_DATA_RAW(REBSER *s) {
     // if updating, also update manual inlining in SER_AT_RAW
+    if (s->info.bits & SERIES_INFO_INACCESSIBLE)
+        fail (Error_Series_Data_Freed_Raw());
+
     return (s->info.bits & SERIES_INFO_HAS_DYNAMIC)
         ? cast(REBYTE*, s->content.dynamic.data)
         : cast(REBYTE*, &s->content);
@@ -312,6 +315,8 @@ inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
         panic (s);
     }
 #endif
+    if (s->info.bits & SERIES_INFO_INACCESSIBLE)
+        fail (Error_Series_Data_Freed_Raw());
 
     return ((w) * (i)) + ( // v-- inlining of SER_DATA_RAW
         (s->info.bits & SERIES_INFO_HAS_DYNAMIC)
@@ -410,8 +415,8 @@ inline static void TERM_SEQUENCE_LEN(REBSER *s, REBCNT len) {
 //
 // When a series is allocated by the Make_Series routine, it is not initially
 // visible to the garbage collector.  To keep from leaking it, then it must
-// be either freed with Free_Series or delegated to the GC to manage with
-// MANAGE_SERIES.
+// be either freed with Free_Unmanaged_Series or delegated to the GC to manage
+// with MANAGE_SERIES.
 //
 // (In debug builds, there is a test at the end of every Rebol function
 // dispatch that checks to make sure one of those two things happened for any

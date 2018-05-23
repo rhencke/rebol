@@ -177,7 +177,7 @@ REBNATIVE(recycle)
             UNUSED(node);
         }
 
-        Free_Series(sweeplist);
+        Free_Unmanaged_Series(sweeplist);
 
         REBCNT recount = Recycle_Core(FALSE, NULL);
         assert(recount == count);

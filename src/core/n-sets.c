@@ -155,7 +155,7 @@ REBSER *Make_Set_Operation_Series(
             }
 
             if (flags & SOP_FLAG_CHECK)
-                Free_Series(hser);
+                Free_Unmanaged_Series(hser);
 
             if (!first_pass) break;
             first_pass = FALSE;
@@ -170,13 +170,13 @@ REBSER *Make_Set_Operation_Series(
         } while (i);
 
         if (hret)
-            Free_Series(hret);
+            Free_Unmanaged_Series(hret);
 
         // The buffer may have been allocated too large, so copy it at the
         // used capacity size
         //
         out_ser = SER(Copy_Array_Shallow(ARR(buffer), SPECIFIED));
-        Free_Array(ARR(buffer));
+        Free_Unmanaged_Array(ARR(buffer));
     }
     else if (ANY_STRING(val1)) {
         DECLARE_MOLD (mo);

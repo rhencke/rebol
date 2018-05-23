@@ -188,6 +188,9 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
 
     SER(a)->header.bits |= NODE_FLAG_MARKED; // the up-front marking
 
+    if (GET_SER_INFO(a, SERIES_INFO_INACCESSIBLE))
+        return;
+
     // Add series to the end of the mark stack series.  The length must be
     // maintained accurately to know when the stack needs to grow.
     //
@@ -616,11 +619,13 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
     #endif
 
         REBACT *phase = v->payload.any_context.phase;
-        if (phase != NULL) {
-            if (CTX_TYPE(context) != REB_FRAME)
-                panic (context);
+        if (phase) {
+            assert(CTX_TYPE(context) == REB_FRAME);
             Queue_Mark_Action_Deep(phase);
         }
+
+        if (GET_SER_INFO(CTX_VARLIST(context), SERIES_INFO_INACCESSIBLE))
+            break;
 
       #if !defined(NDEBUG)
         REBVAL *archetype = CTX_ARCHETYPE(context);
@@ -727,7 +732,7 @@ inline static void Queue_Mark_Value_Deep(const RELVAL *v)
 //
 static void Propagate_All_GC_Marks(void)
 {
-    assert(!in_mark);
+    assert(not in_mark);
 
     while (SER_LEN(GC_Mark_Stack) != 0) {
         SET_SERIES_LEN(GC_Mark_Stack, SER_LEN(GC_Mark_Stack) - 1); // still ok
@@ -1798,8 +1803,8 @@ void Startup_GC(void)
 //
 void Shutdown_GC(void)
 {
-    Free_Series(GC_Guarded);
-    Free_Series(GC_Mark_Stack);
+    Free_Unmanaged_Series(GC_Guarded);
+    Free_Unmanaged_Series(GC_Mark_Stack);
 }
 
 

@@ -90,8 +90,19 @@ struct Reb_Context {
 // allocated context, and in that case it will have to come out of the
 // REBSER node data itself.
 //
-#define CTX_ARCHETYPE(c) \
-    cast(REBVAL*, ARR_HEAD(CTX_VARLIST(c))) // binding should be UNBOUND
+inline static REBVAL *CTX_ARCHETYPE(REBCTX *c) {
+    REBSER *varlist = SER(CTX_VARLIST(c));
+    if (NOT_SER_INFO(varlist, SERIES_INFO_HAS_DYNAMIC))
+        return cast(REBVAL*, &varlist->content);
+
+    // If a context has its data freed, it must be converted into non-dynamic
+    // form if it wasn't already (e.g. if it wasn't a FRAME!)
+    //
+    if (GET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE))
+        panic (varlist);
+    assert(NOT_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE));
+    return cast(REBVAL*, varlist->content.dynamic.data);
+}
 
 // CTX_KEYLIST is called often, and it's worth it to make it as fast as
 // possible--even in an unoptimized build.  Use VAL_TYPE_RAW, plain C cast.
@@ -151,18 +162,17 @@ static inline void INIT_CTX_KEYLIST_UNIQUE(REBCTX *c, REBARR *keylist) {
     SER_AT(REBVAL, SER(CTX_KEYLIST(c)), 1) // a CTX_KEY can't hold a RELVAL
 
 inline static REBFRM *CTX_FRAME_IF_ON_STACK(REBCTX *c) {
-    assert(IS_FRAME(CTX_ARCHETYPE(c)));
-
     REBNOD *keysource = LINK(CTX_VARLIST(c)).keysource;
     if (not (keysource->header.bits & NODE_FLAG_CELL))
-        return NULL; // not on stack...has been downgraded to paramlist/facade
+        return nullptr; // e.g. came from MAKE FRAME! or Encloser_Dispatcher
 
-    REBFRM *f = cast(REBFRM*, keysource);
+    assert(NOT_SER_INFO(CTX_VARLIST(c), SERIES_INFO_INACCESSIBLE));
+    assert(IS_FRAME(CTX_ARCHETYPE(c)));
 
     // Note: inlining of Is_Action_Frame() to break dependency
     //
+    REBFRM *f = cast(REBFRM*, keysource);
     assert(f->eval_type == REB_ACTION and f->phase != NULL);
-
     return f;
 }
 
@@ -213,8 +223,8 @@ inline static REBSYM CTX_KEY_SYM(REBCTX *c, REBCNT n) {
     FAIL_IF_READ_ONLY_ARRAY(CTX_VARLIST(c))
 
 inline static void FREE_CONTEXT(REBCTX *c) {
-    Free_Array(CTX_KEYLIST(c));
-    Free_Array(CTX_VARLIST(c));
+    Free_Unmanaged_Array(CTX_KEYLIST(c));
+    Free_Unmanaged_Array(CTX_VARLIST(c));
 }
 
 #define PUSH_GUARD_CONTEXT(c) \

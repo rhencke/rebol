@@ -216,7 +216,7 @@ static REBSER *Decode_Base2(const REBYTE **src, REBCNT len, REBYTE delim)
     return ser;
 
 err:
-    Free_Series(ser);
+    Free_Unmanaged_Series(ser);
     *src = cp;
     return 0;
 }
@@ -261,7 +261,7 @@ static REBSER *Decode_Base16(const REBYTE **src, REBCNT len, REBYTE delim)
     return ser;
 
 err:
-    Free_Series(ser);
+    Free_Unmanaged_Series(ser);
     *src = cp;
     return 0;
 }
@@ -339,7 +339,7 @@ static REBSER *Decode_Base64(const REBYTE **src, REBCNT len, REBYTE delim)
     return ser;
 
 err:
-    Free_Series(ser);
+    Free_Unmanaged_Series(ser);
     *src = cp;
     return 0;
 }

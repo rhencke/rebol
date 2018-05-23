@@ -639,7 +639,7 @@ skip_hidden: ;
         // of all instances of that datatype.  It has to be freed.
         //
         DROP_GUARD_ARRAY_CONTENTS(ARR(series));
-        Free_Array(ARR(series));
+        Free_Unmanaged_Array(ARR(series));
     }
 
     if (threw) {
@@ -1023,7 +1023,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         //
         Swap_Series_Content(popped, VAL_SERIES(res->data));
 
-        Free_Series(popped); // now frees the incoming series underlying data
+        Free_Unmanaged_Series(popped); // now frees incoming series's data
     }
     else {
         assert(ANY_STRING(res->data));
@@ -1051,7 +1051,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         //
         Swap_Series_Content(popped, VAL_SERIES(res->data));
 
-        Free_Series(popped); // now frees the incoming series underlying data
+        Free_Unmanaged_Series(popped); // now frees incoming series's data
     }
 
     return count;

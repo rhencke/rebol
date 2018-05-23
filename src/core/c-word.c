@@ -170,7 +170,7 @@ static void Expand_Word_Table(void)
         new_canons_by_hash[hash] = canon;
     }
 
-    Free_Series(PG_Canons_By_Hash);
+    Free_Unmanaged_Series(PG_Canons_By_Hash);
     PG_Canons_By_Hash = ser;
 }
 
@@ -614,7 +614,7 @@ void Startup_Symbols(REBARR *words)
 //
 void Shutdown_Symbols(void)
 {
-    Free_Series(PG_Symbol_Canons);
+    Free_Unmanaged_Series(PG_Symbol_Canons);
 }
 
 
@@ -648,5 +648,5 @@ void Shutdown_Interning(void)
     }
   #endif
 
-    Free_Series(PG_Canons_By_Hash);
+    Free_Unmanaged_Series(PG_Canons_By_Hash);
 }

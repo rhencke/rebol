@@ -142,7 +142,7 @@ void MF_Action(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     //
     REBARR *words_list = List_Func_Words(v, TRUE); // show pure locals
     Mold_Array_At(mo, words_list, 0, 0);
-    Free_Array(words_list);
+    Free_Unmanaged_Array(words_list);
 
     // !!! Previously, ACTION! would mold the body out.  This created a large
     // amount of output, and also many function variations do not have

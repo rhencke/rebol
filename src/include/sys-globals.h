@@ -173,19 +173,10 @@ TVAR REBSER **Prior_Expand; // Track prior series expansions (acceleration)
 
 TVAR REBSER *TG_Mold_Stack; // Used to prevent infinite loop in cyclical molds
 
-// These variables used to be described in %task.r and were resident in an
-// array which kept them alive.  However, they were used as series, so really
-// could just be allocated manually...which also saves a dereference to get
-// them out of their respective REBVAL.
-
 TVAR REBARR *TG_Buf_Collect; // for collecting object keys or words
 TVAR REBSER *TG_Buf_Utf8; // UTF8 reused buffer
 TVAR REBSER *TG_Byte_Buf; // temporary byte buffer used mainly by raw print
 TVAR REBSER *TG_Mold_Buf; // temporary UTF8 buffer - used mainly by mold
-
-// These manually-managed series must either be freed with Free_Series()
-// or handed over to the GC at certain synchronized points, else they
-// would represent a memory leak in the release build.
 
 TVAR REBSER *GC_Manuals;    // Manually memory managed (not by GC)
 

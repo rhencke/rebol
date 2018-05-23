@@ -344,11 +344,8 @@ REBCNT Modify_Binary(
 
     TERM_SEQUENCE(dst_ser);
 
-    if (needs_free) {
-        // If we did not use the series that was passed in, but rather
-        // created an internal temporary one, we need to free it.
-        Free_Series(src_ser);
-    }
+    if (needs_free) // didn't use original data as-is
+        Free_Unmanaged_Series(src_ser);
 
     return (verb == SYM_APPEND) ? 0 : dst_idx;
 }
@@ -471,11 +468,8 @@ REBCNT Modify_String(
 
     TERM_SEQUENCE(dst_ser);
 
-    if (needs_free) {
-        // If we did not use the series that was passed in, but rather
-        // created an internal temporary one, we need to free it.
-        Free_Series(src_ser);
-    }
+    if (needs_free) // didn't use original data as-is
+        Free_Unmanaged_Series(src_ser);
 
     return (verb == SYM_APPEND) ? 0 : dst_idx;
 }

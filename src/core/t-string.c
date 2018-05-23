@@ -1100,7 +1100,7 @@ void MF_Binary(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     Append_Utf8_Utf8(mo->series, cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased));
     Append_Unencoded(mo->series, "}");
 
-    Free_Series(enbased);
+    Free_Unmanaged_Series(enbased);
 
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) && VAL_INDEX(v) != 0)
         Post_Mold(mo, v);

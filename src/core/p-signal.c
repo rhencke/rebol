@@ -271,12 +271,12 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         len = req->actual;
 
         if (len <= 0) {
-            Free_Series(ser);
+            Free_Unmanaged_Series(ser);
             return R_BLANK;
         }
 
         update(signal, len, arg);
-        Free_Series(ser);
+        Free_Unmanaged_Series(ser);
         goto return_port; }
 
     case SYM_CLOSE: {

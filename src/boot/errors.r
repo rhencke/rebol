@@ -259,6 +259,8 @@ Access: [
     series-held:        {series has temporary read-only hold for iteration}
     series-auto-locked: {series was implicitly locked (e.g. as key for MAP!)}
 
+    series-data-freed:  {series contents no longer available due to FREE}
+
     hidden:             {not allowed - would expose or modify hidden values}
 
     cannot-open:        [{cannot open:} :arg1 {reason:} :arg2]

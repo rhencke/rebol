@@ -24,8 +24,14 @@
 ; spew a large amount of output, in the interests of making HELP stay working.
 ;
 (not error? trap [
-    for-each w words of lib [if action? get w [help w] else [help (get w)]]
+    for-each w words of lib [
+        dump w
+        if action? get w [help w] else [help (get w)]
+    ]
 ])
 (not error? trap [
-    for-each w words of lib [if action? get w [source (w)]]
+    for-each w words of lib [
+        dump w
+        if action? get w [source (w)]
+    ]
 ])

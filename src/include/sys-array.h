@@ -379,8 +379,8 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Managed(
     );
 }
 
-#define Free_Array(a) \
-    Free_Series(SER(a))
+#define Free_Unmanaged_Array(a) \
+    Free_Unmanaged_Series(SER(a))
 
 
 

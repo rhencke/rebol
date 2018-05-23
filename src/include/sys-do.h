@@ -305,7 +305,7 @@ inline static const RELVAL *Set_Frame_Detected_Fetch(REBFRM *f, const void *p)
         // are managed for now...but the intention is to free them as
         // they are encountered.  For now, just unreadable-blank it.
         //
-        /* Free_Array(Singular_From_Cell(f->value)); */
+        /* Free_Unmanaged_Array(Singular_From_Cell(f->value)); */
         Init_Unreadable_Blank(m_cast(RELVAL*, cast(const RELVAL*, f->value)));
     }
     else

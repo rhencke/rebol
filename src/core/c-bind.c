@@ -620,7 +620,7 @@ void Virtual_Bind_Deep_To_New_Context(
             &binder, VAL_PARAM_CANON(key)
         );
         if (stored == 0)
-            assert(duplicate != NULL);
+            assert(duplicate);
         else if (stored > 0)
             assert(NOT_VAL_FLAG(var, NODE_FLAG_MARKED));
         else
@@ -629,8 +629,8 @@ void Virtual_Bind_Deep_To_New_Context(
 
     SHUTDOWN_BINDER(&binder);
 
-    if (duplicate != NULL) {
-        Free_Array(CTX_VARLIST(c));
+    if (duplicate) {
+        Free_Unmanaged_Array(CTX_VARLIST(c));
 
         DECLARE_LOCAL (word);
         Init_Word(word, duplicate);

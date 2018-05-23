@@ -583,7 +583,7 @@ REBNATIVE(enbase)
         D_OUT,
         Make_Sized_String_UTF8(cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased))
     );
-    Free_Series(enbased);
+    Free_Unmanaged_Series(enbased);
 
     return R_OUT;
 }

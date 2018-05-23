@@ -916,9 +916,9 @@ void Startup_Mold(REBCNT size)
 //
 void Shutdown_Mold(void)
 {
-    Free_Series(TG_Mold_Buf);
+    Free_Unmanaged_Series(TG_Mold_Buf);
     TG_Mold_Buf = NULL;
 
-    Free_Series(TG_Mold_Stack);
+    Free_Unmanaged_Series(TG_Mold_Stack);
     TG_Mold_Stack = NULL;
 }

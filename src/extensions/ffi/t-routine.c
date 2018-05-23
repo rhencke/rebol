@@ -852,9 +852,9 @@ REB_R Routine_Dispatcher(REBFRM *f)
         ffi_to_rebol(f->out, RIN_RET_SCHEMA(rin), ret_offset);
 
     if (num_args != 0)
-        Free_Series(arg_offsets);
+        Free_Unmanaged_Series(arg_offsets);
 
-    Free_Series(store);
+    Free_Unmanaged_Series(store);
 
     if (num_variable != 0) {
         rebFree(cif);

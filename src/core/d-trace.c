@@ -178,7 +178,7 @@ void Do_Core_Traced(REBFRM * const f)
                     const char *type_utf8 = STR_HEAD(Get_Type_Name(var));
                     REBARR *words = List_Func_Words(var, locals);
                     Debug_Fmt_(" : %s %50m", type_utf8, words);
-                    Free_Array(words);
+                    Free_Unmanaged_Array(words);
                 }
                 else if (
                     ANY_WORD(var)

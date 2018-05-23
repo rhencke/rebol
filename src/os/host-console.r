@@ -111,6 +111,15 @@ console!: make object! [
                 ; their own output, however.)
             ]
 
+            free? :v [
+                ; Molding a freed value would cause an error...which is
+                ; usually okay (you shouldn't be working with freed series)
+                ; but if we didn't special case it here, the error would seem
+                ; to be in the console code itself.
+                ;
+                print-error make error! "Series data unavailable due to FREE"
+            ]
+
             port? :v [
                 ; PORT!s are returned by many operations on files, to
                 ; permit chaining.  They contain many fields so their

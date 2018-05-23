@@ -302,7 +302,7 @@ void MF_Struct(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
     REBARR *array = Struct_To_Array(VAL_STRUCT(v));
     Mold_Array_At(mo, array, 0, 0);
-    Free_Array(array);
+    Free_Unmanaged_Array(array);
 
     End_Mold(mo);
 }

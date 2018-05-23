@@ -487,7 +487,7 @@ static REBIXO Parse_String_One_Rule(REBFRM *f, const RELVAL *rule) {
             SER_LEN(formed),
             flags
         );
-        Free_Series(formed);
+        Free_Unmanaged_Series(formed);
         if (index == NOT_FOUND)
             return END_FLAG;
         return index; }
@@ -881,7 +881,7 @@ static REBIXO To_Thru_Block_Rule(
                             len,
                             AM_FIND_MATCH | P_FIND_FLAGS
                         );
-                        Free_Series(formed);
+                        Free_Unmanaged_Series(formed);
                         if (i != NOT_FOUND) {
                             pos = i;
                             if (is_thru) pos += len;
@@ -1054,7 +1054,7 @@ static REBIXO To_Thru_Non_Block_Rule(
                     ? AM_FIND_CASE
                     : 0
             );
-            Free_Series(formed);
+            Free_Unmanaged_Series(formed);
 
             if (i == NOT_FOUND)
                 return END_FLAG;

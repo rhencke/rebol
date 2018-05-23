@@ -345,7 +345,7 @@ client-hello: procedure [
     ;
     change ssl-record-length (to-bin (length of ssl-record) 2)
     change message-length (to-bin (length of message) 3)
-    
+
     append ctx/handshake-messages ssl-record
 ]
 

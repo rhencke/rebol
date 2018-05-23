@@ -116,7 +116,7 @@ void Shutdown_Stacks(void)
     assert(DSP == 0);
     ASSERT_UNREADABLE_IF_DEBUG(ARR_HEAD(DS_Array));
 
-    Free_Array(DS_Array);
+    Free_Unmanaged_Array(DS_Array);
 
     assert(TG_Top_Chunk == cast(struct Reb_Chunk*, &TG_Root_Chunker->payload));
 

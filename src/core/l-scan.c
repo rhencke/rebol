@@ -2483,7 +2483,7 @@ void Scan_To_Stack_Relaxed(SCAN_STATE *ss) {
 
         Scan_To_Stack(&ss_before); // !!! Shouldn't error...check that?
 
-        Free_Series(bin);
+        Free_Unmanaged_Series(bin);
     }
 
     ss->begin = ss->end; // skip malformed token
@@ -2735,7 +2735,7 @@ void Startup_Scanner(void)
 //
 void Shutdown_Scanner(void)
 {
-    Free_Series(TG_Buf_Utf8);
+    Free_Unmanaged_Series(TG_Buf_Utf8);
     TG_Buf_Utf8 = NULL;
 }
 
