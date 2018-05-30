@@ -280,7 +280,6 @@ void* Probe_Core_Debug(
             }
             else
                 panic (s);
-
         }
         break; }
 

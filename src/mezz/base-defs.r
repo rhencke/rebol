@@ -188,8 +188,9 @@ eval proc [
         set-word type-name tester meta
 ][
     while [value? set-word: take* set-word...] [
-        type-name: append (head of clear find (spelling-of set-word) {?}) "!"
-        tester: typechecker (get bind (to word! type-name) set-word)
+        type-name: copy as text! set-word
+        change back tail of type-name "!" ;-- change ? at tail to !
+        tester: typechecker (get bind (as word! type-name) set-word)
         set set-word :tester
 
         set-meta :tester construct system/standard/action-meta [

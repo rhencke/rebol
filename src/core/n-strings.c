@@ -128,46 +128,6 @@ REBNATIVE(delimit)
 
 
 //
-//  spelling-of: native [
-//
-//  {Gives the delimiter-less spelling of words or strings}
-//
-//      value [any-word! any-string!]
-//  ]
-//
-REBNATIVE(spelling_of)
-{
-    INCLUDE_PARAMS_OF_SPELLING_OF;
-
-    REBVAL *value = ARG(value);
-
-    REBSER *series;
-
-    if (ANY_STRING(value)) {
-        assert(not IS_BINARY(value)); // Shouldn't accept binary types...
-
-        // Grab the data out of all string types, which has no delimiters
-        // included (they are added in the forming process)
-        //
-        series = Copy_String_At_Len(value, -1);
-    }
-    else {
-        assert(ANY_WORD(value));
-
-        // turn all words into regular words so they'll have no delimiters
-        // during the FORMing process.  Use SET_TYPE and not reset header
-        // because the binding bits need to stay consistent
-        //
-        VAL_SET_TYPE_BITS(value, REB_WORD);
-        series = Copy_Mold_Value(value, MOLD_FLAG_0);
-    }
-
-    Init_Text(D_OUT, series);
-    return R_OUT;
-}
-
-
-//
 //  checksum: native [
 //
 //  "Computes a checksum, CRC, or hash."
