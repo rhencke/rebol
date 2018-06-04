@@ -299,7 +299,20 @@ Special internal defines used by RT, not Host-Kit developers:
     // DEBUG_CELL_WRITABILITY flag to be enabled, since it's the moment of
     // writing that is when the check has an opportunity to run.
     //
+    // !!! People using MLton to compile found that GCC 4.4.3 does not always
+    // align doubles to 64-bit boundaries on Windows, even when -malign-double
+    // is used.  It's a very old compiler, and may be a bug.  Disable align
+    // checking for GCC 4 on Windows, hope it just means slower loads/stores.
+    //
+    // https://stackoverflow.com/a/11110283/211160
+    //
+  #ifdef __GNUC__
+    #if !defined(TO_WINDOWS) || (__GNUC__ >= 5) // only  least version 5
+       #define DEBUG_MEMORY_ALIGN
+    #endif
+  #else
     #define DEBUG_MEMORY_ALIGN
+  #endif
     #define DEBUG_CELL_WRITABILITY
 
     // Natives can be decorated with a RETURN: annotation, but this is not
