@@ -75,7 +75,7 @@ emit-proto: proc [proto] [
     ; though they parsed a specialized documentation format that did not
     ; use Rebol syntax...the new idea is to always use Rebol syntax.)
 
-    api-name: spelling-of header/1
+    api-name: copy-as-text header/1
     if not proto-parser/proto.id = unspaced ["RL_" api-name] [
         fail [
             "Name in comment header (" api-name ") isn't function name"

@@ -205,11 +205,19 @@ if true = attempt [void? :some-undefined-thing] [
             ]
         ]
     ]
-                    
+
+    copy-as-text: :spelling-of
+
     QUIT ;-- !!! stops running if Ren-C here.
 ]
 
 if true == attempt [null? :some-undefined-thing] [
+    copy-as-text: chain [
+        specialize 'as [type: text!]
+            |
+        :copy
+    ]
+
     QUIT ;-- !!! a Ren-C post VOID? => NULL? conversion, circa 2-May-2018
 ]
 

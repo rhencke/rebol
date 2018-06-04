@@ -78,7 +78,7 @@ emit-include-params-macro: procedure [
         for-each item paramlist [
             if any [not any-word? item | set-word? item] [continue]
 
-            param-name: spelling-of item
+            param-name: copy-as-text item
             either refinement? item [
                 keep cscape/with {REFINE($<n>, ${param-name})} [n param-name]
             ][

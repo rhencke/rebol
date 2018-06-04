@@ -172,6 +172,7 @@ rebsource: context [
                             set name: set-word! (name: to-word name)
                             opt 'enfix
                             ['native | ahead path! into ['native to end]]
+                            to end
                         ] then [
                             ;
                             ; It's a `some-name?: native [...]`, so we expect
