@@ -187,14 +187,14 @@ REBNATIVE(reduce)
     // Insert the single item into the target array at its current position,
     // and return the position after the insertion (the /INTO convention)
 
-    Move_Value(D_OUT, into);
-    VAL_INDEX(D_OUT) = Insert_Series(
+    REBCNT after = Insert_Series(
         SER(VAL_ARRAY(into)),
         VAL_INDEX(into),
         cast(REBYTE*, D_OUT),
         1 // multiplied by width (sizeof(REBVAL)) in Insert_Series
     );
-
+    Move_Value(D_OUT, into);
+    VAL_INDEX(D_OUT) = after;
     return R_OUT;
 }
 

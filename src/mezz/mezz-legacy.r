@@ -953,20 +953,20 @@ set 'r3-legacy* func [<local>] [
 
         compose: (function [
             value {Ren-C composes ANY-ARRAY!: https://trello.com/c/8WMgdtMp}
+                [any-value!]
             /deep {Ren-C recurses into PATH!s: https://trello.com/c/8WMgdtMp}
             /only
             /into out [any-array! any-string! binary!]
         ][
-            either block? :value [
-                apply 'concoct [
-                    pattern: quote ()
+            if block? :value [
+                apply 'compose [
                     value: :value
                     deep: deep
                     only: only
                     into: into
                     out: :out
                 ]
-            ][
+            ] else [
                 :value
             ]
         ])

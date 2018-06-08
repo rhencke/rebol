@@ -33,6 +33,12 @@
     ([3 300] = reduce/opt blk)
 ]
 
+[#2061 (
+    x: copy [a b c]
+    reduce/into 1 next x
+    x = [a 1 b c]
+)]
+
 ; Quick flatten test, here for now
 (
     [a b c d e f] = flatten [[a] [b] c d [e f]]
