@@ -441,7 +441,7 @@ REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         // lookup that fails here is hacked in, but desirable for parity
         // with the behavior of GET-WORD!
         //
-        if (pvs->eval_type == REB_GET_PATH && FRM_AT_END(pvs)) {
+        if (pvs->eval_type == REB_GET_PATH and FRM_AT_END(pvs)) {
             Init_Void(pvs->out);
             return R_OUT;
         }
@@ -451,7 +451,7 @@ REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (CTX_VARS_UNAVAILABLE(c))
         fail (Error_No_Relative_Raw(picker));
 
-    if (opt_setval != NULL) {
+    if (opt_setval) {
         FAIL_IF_READ_ONLY_CONTEXT(c);
 
         if (GET_VAL_FLAG(CTX_VAR(c, n), CELL_FLAG_PROTECTED))

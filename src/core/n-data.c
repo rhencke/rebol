@@ -892,17 +892,15 @@ REBNATIVE(enfixed_q)
             source, SPECIFIED, GETVAR_READ_ONLY // may fail()
         );
 
-        if (not IS_ACTION(var))
-            return R_FALSE;
-
+        assert(NOT_VAL_FLAG(var, VALUE_FLAG_ENFIXED) or IS_ACTION(var));
         return R_FROM_BOOL(GET_VAL_FLAG(var, VALUE_FLAG_ENFIXED));
     }
     else {
         assert(ANY_PATH(source));
 
-        // Not implemented yet...
-
-        fail ("ENFIXED? testing is not currently implemented on PATH!");
+        Get_Path_Core(D_CELL, source, SPECIFIED);
+        assert(NOT_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED) or IS_ACTION(D_CELL));
+        return R_FROM_BOOL(GET_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED));
     }
 }
 

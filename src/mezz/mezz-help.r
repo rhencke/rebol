@@ -347,18 +347,31 @@ help: procedure [
         leave
     ]
 
-    if word? :topic and (blank? context of topic) [
-        print [topic "is an unbound WORD!"]
-        leave
-    ]
-
-    if word? :topic and (unset? topic) [
-        print [topic "is a WORD! bound to a context, but has no value."]
+    switch type of :topic [
+        text! [
+            types: dump-obj/match make-libuser :topic
+            sort types
+            if not empty? types [
+                print ["Found these related words:" newline types]
+                leave
+            ]
+            print ["No information on" topic]
+            leave
+        ]
+        path! word! [
+            if null? value: get topic [
+                print ["No information on" topic "(has no value)"]
+                leave
+            ]
+            enfixed: enfixed? topic
+        ]
+    ] else [
+        print [mold :topic "is" an mold type of :topic]
         leave
     ]
 
     ; Open the web page for it?
-    if doc and (word? topic) and (match [action! datatype!] get :topic) [
+    if doc and (match [action! datatype!] :value) [
         item: form :topic
         if action? get :topic [
             ;
@@ -414,7 +427,7 @@ help: procedure [
         libuser
     ]
 
-    if all [word? :topic | set? :topic | datatype? get :topic] [
+    if datatype? :value [
         types: dump-obj/match make-libuser :topic
         if not empty? types [
             print ["Found these" (uppercase form topic) "words:" newline types]
@@ -424,55 +437,10 @@ help: procedure [
         leave
     ]
 
-    ; If arg is a text string, search the system:
-    if text? :topic [
-        types: dump-obj/match make-libuser :topic
-        sort types
-        if not empty? types [
-            print ["Found these related words:" newline types]
-            leave
-        ]
-        print ["No information on" topic]
-        leave
-    ]
-
-    ; Print type name with proper singular article:
-    type-name: func [value [any-value!]] [
-        value: mold type of :value
-        clear back tail of value
-        an value
-    ]
-
-    ; Print literal values:
-    if not any [word? :topic | path? :topic][
-        print [mold :topic "is" type-name :topic]
-        leave
-    ]
-
-    ; Functions are not infix in Ren-C, only bindings of words to infix, so
-    ; we have to read the infixness off of the word before GETting it.
-
-    ; Get value (may be a function, so handle with ":")
-    either path? :topic [
-        print ["!!! NOTE: Enfix testing not currently supported for paths"]
-        enfixed: false
-        if any [
-            error? value: trap [get :topic] ;trap reduce [to-get-path topic]
-            unset? 'value
-        ][
-            print ["No information on" topic "(path has no value)"]
-            leave
-        ]
-    ][
-        enfixed: enfixed? :topic
-        value: get :topic
-    ]
-
     if not action? :value [
         print spaced collect [
-            keep [
-                (uppercase mold topic) "is" (type-name :value) "of value:"
-            ]
+            keep [(uppercase mold topic) "is" an (mold type of :value)]
+            keep "of value:"
             if match [object! port!] value [
                 keep newline
                 keep unspaced dump-obj value
@@ -539,18 +507,14 @@ help: procedure [
 
     classification: {a function} unless case [
         set? 'specializee [
-            either set? 'original-name [
+            {a specialized function} unless if set? 'original-name [
                 spaced [{a specialization of} original-name]
-            ][
-                {a specialized function}
             ]
         ]
 
         set? 'adaptee [
-            either set? 'original-name [
+            {an adapted function} unless if set? 'original-name [
                 spaced [{an adaptation of} original-name]
-            ][
-                {an adapted function}
             ]
         ]
 
@@ -620,8 +584,8 @@ source: procedure [
     "Prints the source code for an ACTION! (if available)"
     'arg [word! path! action! tag!]
 ][
-    case [
-        tag? :arg [
+    switch type of :arg [
+        tag! [
             f: copy "unknown tag"
             for-each location words of system/locale/library [
                 if location: select load get location arg [
@@ -631,7 +595,7 @@ source: procedure [
             ]
         ]
 
-        match [word! path!] :arg [
+        word! path! [
             name: arg
             f: get :arg
         ]

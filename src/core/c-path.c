@@ -221,6 +221,8 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             Derelativize(
                 pvs->out, VAL_REFERENCE(pvs->out), VAL_SPECIFIER(pvs->out)
             );
+            if (GET_VAL_FLAG(pvs->deferred, VALUE_FLAG_ENFIXED))
+                SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
             break;
 
         case R_VOID:
@@ -346,8 +348,12 @@ REBOOL Do_Path_Throws_Core(
 
         Move_Value(pvs->out, pvs->deferred);
 
-        if (IS_ACTION(pvs->out))
+        if (IS_ACTION(pvs->out)) {
+            if (GET_VAL_FLAG(pvs->deferred, VALUE_FLAG_ENFIXED))
+                SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
+
             pvs->opt_label = VAL_WORD_SPELLING(pvs->value);
+        }
     }
     else if (IS_GROUP(pvs->value)) {
         pvs->deferred = NULL; // nowhere to R_IMMEDIATE write back to
