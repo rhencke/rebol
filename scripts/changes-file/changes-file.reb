@@ -123,7 +123,7 @@ parse-credits-for-authors: function [
                     keep compose/deep [(next github-name) [(github-name)]]
                 )
                 | skip
-            ]            
+            ]
         ]
     ]
 ]

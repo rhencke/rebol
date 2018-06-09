@@ -59,7 +59,7 @@ dump-obj: function [
             type: type of :val
 
             str: if lib/match [action! object!] :type [
-                spaced [word _ mold spec-of :val _ words of :val]
+                spaced [word | mold spec-of :val | words of :val]
             ] else [
                 form word
             ]
@@ -338,16 +338,31 @@ help: procedure [
         topic: eval topic
     ]
 
-    r3n: https://r3n.github.io/
-
-    ;; help #topic (browse r3n for topic)
-    if issue? :topic [
-        say-browser
-        browse join-all [r3n "topics/" next to-text :topic]
-        leave
+    ; !!! R3-Alpha permitted "multiple inheritance" in objects, in the sense
+    ; that it would blindly overwrite fields of one object with another, which
+    ; wreaked havoc on the semantics of functions in unrelated objects.  It
+    ; doesn't work easily with derived binding, and doesn't make a lot of
+    ; sense.  But it was used here to unify the lib and user contexts to
+    ; remove potential duplicates (even if not actually identical).  This
+    ; does that manually, review.
+    ;
+    make-libuser: does [
+        libuser: copy system/contexts/lib
+        for-each [key val] system/contexts/user [
+            if set? 'val [
+               append libuser reduce [key :val]
+            ]
+        ]
+        libuser
     ]
 
     switch type of :topic [
+        issue! [ ;; HELP #TOPIC will browse r3n for the topic
+            say-browser
+            browse join-all [https://r3n.github.io/topics/ as text! topic]
+            leave
+        ]
+
         text! [
             types: dump-obj/match make-libuser :topic
             sort types
@@ -358,6 +373,7 @@ help: procedure [
             print ["No information on" topic]
             leave
         ]
+
         path! word! [
             if null? value: get topic [
                 print ["No information on" topic "(has no value)"]
@@ -407,24 +423,6 @@ help: procedure [
                 tmp: %.html
             ]
         ]
-    ]
-
-    ; !!! R3-Alpha permitted "multiple inheritance" in objects, in the sense
-    ; that it would blindly overwrite fields of one object with another, which
-    ; wreaked havoc on the semantics of functions in unrelated objects.  It
-    ; doesn't work easily with derived binding, and doesn't make a lot of
-    ; sense.  But it was used here to unify the lib and user contexts to
-    ; remove potential duplicates (even if not actually identical).  This
-    ; does that manually, review.
-    ;
-    make-libuser: does [
-        libuser: copy system/contexts/lib
-        for-each [key val] system/contexts/user [
-            if set? 'val [
-               append libuser reduce [key :val]
-            ]
-        ]
-        libuser
     ]
 
     if datatype? :value [

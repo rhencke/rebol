@@ -6,10 +6,11 @@
 
 (99 = do {do {quit/with 42} 99})
 
-; Returning of Rebol values from called to calling script via QUIT/return.
+; Returning of Rebol values from called to calling script via QUIT/WITH.
 (
     do-script-returning: func [value /local script] [
-        save/header script: %tmp-inner.reb compose ['quit/return (value)] []
+        script: %tmp-inner.reb
+        save/header script compose/only [quit/with (value)] []
         do script
     ]
     all map-each value reduce [
@@ -19,8 +20,8 @@
         blank
         http://somewhere
         1900-01-30
-        context [x: 42]
-    ] [
+        make object! [x: 42]
+    ][
         value = do-script-returning value
     ]
 )

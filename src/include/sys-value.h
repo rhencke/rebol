@@ -997,8 +997,8 @@ inline static RELVAL *REL(REBVAL *v) {
     GET_VAL_FLAG((v), VALUE_FLAG_FALSEY)
 
 // The API uses nullptr to signify void.  To help ensure full void cells don't
-// leak to the API, the variadic interface only handles void.  Any internal
-// code that passes a value which may be null through the variadic interface
+// leak to the API, the variadic interface only handles nulls.  Any internal
+// code that passes a value which may be void through the variadic interface
 // needs to make sure any voids get converted to null first.
 //
 inline static const REBVAL *DEVOID(const REBVAL *cell) {

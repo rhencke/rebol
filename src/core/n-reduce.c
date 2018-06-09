@@ -286,7 +286,7 @@ REBOOL Compose_Any_Array_Throws(
             f->specifier
         );
 
-        if (match != NULL) {
+        if (match) {
             //
             // Evaluate the GROUP! at current position into `composed` cell.
             //

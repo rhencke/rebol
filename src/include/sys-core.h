@@ -210,10 +210,12 @@
 //
 
 #define BREAK_NOW() /* macro means no stack frame, breaks at callsite */ \
-    printf("BREAK_ON_TICK() from C @ tick %ld\n", cast(long int, TG_Tick)); \
-    fflush(stdout); \
-    Dump_Frame_Location(NULL, FS_TOP); \
-    debug_break(); /* see %debug_break.h */ \
+    do { \
+        printf("BREAK_ON_TICK() @ tick %ld\n", cast(long int, TG_Tick)); \
+        fflush(stdout); \
+        Dump_Frame_Location(NULL, FS_TOP); \
+        debug_break(); /* see %debug_break.h */ \
+    } while (true)
 
 #define BREAK_ON_TICK(tick) \
     if (tick == TG_Tick) BREAK_NOW()
