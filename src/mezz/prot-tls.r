@@ -18,6 +18,7 @@ REBOL [
 ; would be DSA, 3DES, ECDH, ECDHE, ECDSA, SHA256, SHA384...)
 ;
 ; https://testssl.sh/openssl-rfc.mapping.html
+; https://fly.io/articles/how-ciphersuites-work/
 ;
 ; If you want to get a report on what suites a particular site has:
 ;

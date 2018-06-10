@@ -175,6 +175,50 @@ void MF_Word(REB_MOLD *mo, const RELVAL *v, REBOOL form) {
 
 
 //
+//  PD_Word: C
+//
+// !!! The eventual intention is that words will become ANY-STRING!s, and
+// support the same operations.  As a small step in that direction, this
+// adds support for picking characters out of the UTF-8 data of a word
+// (eventually all strings will be "UTF-8 Everywhere")
+//
+REB_R PD_Word(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
+{
+    REBSTR *str = VAL_WORD_SPELLING(pvs->out);
+
+    if (not opt_setval) { // PICK-ing
+        if (IS_INTEGER(picker)) {
+            REBINT n = Int32(picker) - 1;
+            if (n < 0)
+                return R_VOID;
+
+            REBCNT len = SER_LEN(str);
+            const REBYTE *bp = cb_cast(STR_HEAD(str));
+            REBUNI c;
+            do {
+                if (len == 0)
+                    return R_VOID; // character asked for is past end
+
+                if (*bp < 0x80)
+                    c = *bp;
+                else
+                    bp = Back_Scan_UTF8_Char(&c, bp, &len);
+                --len;
+                ++bp;
+            } while (n-- != 0);
+
+            Init_Char(pvs->out, c);
+            return R_OUT;
+        }
+
+        return R_UNHANDLED;
+    }
+
+    return R_UNHANDLED;
+}
+
+
+//
 //  REBTYPE: C
 //
 // The future plan for WORD! types is that they will be unified somewhat with

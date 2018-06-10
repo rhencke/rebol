@@ -145,12 +145,12 @@ action      action      +       +       +       -
 
 ; ANY-WORD!, order matters (tests like ANY_WORD use >= REB_WORD, <= REB_ISSUE)
 ;
-word        word        -       +       +       word
-set-word    word        -       +       +       word
-get-word    word        -       +       +       word
-lit-word    word        -       +       +       word
-refinement  word        -       +       +       word
-issue       word        -       +       +       word
+word        word        +       +       +       word
+set-word    word        +       +       +       word
+get-word    word        +       +       +       word
+lit-word    word        +       +       +       word
+refinement  word        +       +       +       word
+issue       word        +       +       +       word
 
 ; ANY-ARRAY!, order matters (and contiguous with ANY-SERIES below matters!)
 ;

@@ -298,6 +298,19 @@ REBOOL Do_Path_Throws_Core(
 ){
     assert(kind == REB_PATH or kind == REB_SET_PATH or kind == REB_GET_PATH);
 
+    // Paths that start with inert values do not evaluate.  So `/foo/bar` has
+    // a REFINEMENT! at its head, and it will just be inert.  This also
+    // means that `/foo/1` is inert, as opposed to #"o".  Note that this
+    // is different from `(/foo)/1` or `ref: /foo | ref/1`, both of which
+    // would be #"o".
+    //
+    if (ANY_INERT(ARR_AT(array, index))) {
+        if (kind != REB_PATH)
+            fail ("Can't evaluate GET-PATH! or SET_PATH! with inert head");
+        Init_Any_Array_At(out, REB_PATH, array, index);
+        return FALSE;
+    }
+
     DECLARE_FRAME (pvs);
 
     pvs->refine = KNOWN(&pvs->cell);
