@@ -936,7 +936,7 @@ inline static RELVAL *REL(REBVAL *v) {
 // But that's the API.  Internal to Rebol, cells are the currency used, and
 // if they are to represent an "optional" value, there must be a special
 // bit pattern used to mark them as not containing any value at all.  These
-// are called "void cells" are marked by means of their VAL_TYPE(), but they
+// are called "void cells" and marked by means of their VAL_TYPE(), but they
 // use REB_MAX--because that is one past the range of valid REB_XXX values
 // in the enumeration created for the actual types.
 //
@@ -1002,7 +1002,9 @@ inline static RELVAL *REL(REBVAL *v) {
 // needs to make sure any voids get converted to null first.
 //
 inline static const REBVAL *DEVOID(const REBVAL *cell) {
-    return IS_VOID(cell) ? nullptr : cell;
+    return VAL_TYPE_OR_0(cell) == REB_MAX_VOID // tolerate END as REB_0
+        ? nullptr
+        : cell;
 }
 
 

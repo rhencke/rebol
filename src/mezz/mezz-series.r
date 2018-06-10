@@ -69,20 +69,13 @@ join-all: function [
 ]
 
 
-remold: func [
+remold: redescribe [
     {Reduces and converts a value to a REBOL-readable string.}
-    value {The value to reduce and mold}
-    /only {For a block value, mold only its contents, no outer []}
-    /all  {Mold in serialized format}
-    /flat {No indentation}
-][
-    all_REMOLD: all
-    all: :lib/all
-
-    mold/(all [only 'only])/(all [all_REMOLD 'all])/(all [flat 'flat])
-        reduce :value
-]
-
+](
+    adapt 'mold [
+        value: reduce :value
+    ]
+)
 
 array: func [
     "Makes and initializes a series of a given size."
