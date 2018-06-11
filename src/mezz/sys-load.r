@@ -871,7 +871,7 @@ load-module: function [
     if not mod [
         ; not prebuilt or delayed, make a module
 
-        if find hdr/options 'isolate [no-share: true] ; in case of delay
+        if did find hdr/options 'isolate [no-share: true] ; in case of delay
 
         if object? code [ ; delayed extension
             fail "Code has not been updated for LOAD-EXT-MODULE"

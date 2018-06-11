@@ -940,7 +940,7 @@ REBNATIVE(semiquoted_q)
 //
 //      return: [any-value!]
 //      value [<end> any-value!]
-//          {Accepting <end> means it also limits enfix reach to the left}
+//          {!!! <end> flag is hack to limit enfix reach to the left}
 //      /quote
 //          {Make it seem that the return result was quoted}
 //  ]
@@ -953,9 +953,17 @@ REBNATIVE(identity)
 // !!! Quoting version is currently specialized as SEMIQUOTE, for convenience.
 //
 // This is assigned to <- for convenience, but cannot be used under that name
-// in bootstrap with R3-Alpha.  It uses the <end>-ability to stop left reach.
+// in bootstrap with R3-Alpha.  It uses the <end>-ability to stop left reach,
+// since there is no specific flag for that...but in actuality, it is designed
+// to not accept nulls.
 {
     INCLUDE_PARAMS_OF_IDENTITY;
+
+    if (IS_VOID(ARG(value))) { // <end>
+        DECLARE_LOCAL (word);
+        Init_Word(word, VAL_PARAM_SPELLING(PAR(value)));
+        fail (Error_No_Value(word));
+    }
 
     Move_Value(D_OUT, ARG(value));
 

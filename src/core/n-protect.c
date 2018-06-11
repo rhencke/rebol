@@ -77,12 +77,14 @@ static void Protect_Key(REBCTX *context, REBCNT index, REBFLGS flags)
 //
 // Anything that calls this must call Uncolor() when done.
 //
-void Protect_Value(RELVAL *value, REBFLGS flags)
+void Protect_Value(RELVAL *v, REBFLGS flags)
 {
-    if (ANY_SERIES(value) || IS_MAP(value))
-        Protect_Series(VAL_SERIES(value), VAL_INDEX(value), flags);
-    else if (ANY_CONTEXT(value))
-        Protect_Context(VAL_CONTEXT(value), flags);
+    if (ANY_SERIES(v))
+        Protect_Series(VAL_SERIES(v), VAL_INDEX(v), flags);
+    else if (IS_MAP(v))
+        Protect_Series(SER(MAP_PAIRLIST(VAL_MAP(v))), 0, flags);
+    else if (ANY_CONTEXT(v))
+        Protect_Context(VAL_CONTEXT(v), flags);
 }
 
 

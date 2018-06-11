@@ -428,7 +428,7 @@ void Uncolor_Array(REBARR *a)
 
     RELVAL *val;
     for (val = ARR_HEAD(a); NOT_END(val); ++val)
-        if (ANY_ARRAY(val) or ANY_CONTEXT(val))
+        if (ANY_ARRAY(val) or IS_MAP(val) or ANY_CONTEXT(val))
             Uncolor(val);
 }
 
@@ -438,20 +438,22 @@ void Uncolor_Array(REBARR *a)
 //
 // Clear the recusion markers for series and object trees.
 //
-void Uncolor(RELVAL *val)
+void Uncolor(RELVAL *v)
 {
     REBARR *array;
 
-    if (ANY_ARRAY(val))
-        array = VAL_ARRAY(val);
-    else if (ANY_CONTEXT(val))
-        array = CTX_VARLIST(VAL_CONTEXT(val));
+    if (ANY_ARRAY(v))
+        array = VAL_ARRAY(v);
+    else if (IS_MAP(v))
+        array = MAP_PAIRLIST(VAL_MAP(v));
+    else if (ANY_CONTEXT(v))
+        array = CTX_VARLIST(VAL_CONTEXT(v));
     else {
         // Shouldn't have marked recursively any non-array series (no need)
         //
         assert(
-            not ANY_SERIES(val)
-            or Is_Series_White(VAL_SERIES(val))
+            not ANY_SERIES(v)
+            or Is_Series_White(VAL_SERIES(v))
         );
         return;
     }
