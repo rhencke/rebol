@@ -396,13 +396,13 @@ REB_R PD_Map(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     }
 
     if (n == 0)
-        return R_VOID;
+        return R_NULL;
 
     REBVAL *val = KNOWN(
         ARR_AT(MAP_PAIRLIST(VAL_MAP(pvs->out)), ((n - 1) * 2) + 1)
     );
     if (IS_VOID(val)) // zombie entry, means unused
-        return R_VOID;
+        return R_NULL;
 
     Move_Value(pvs->out, val);
     return R_OUT;
@@ -784,7 +784,7 @@ REBTYPE(Map)
         );
 
         if (n == 0)
-            return verb == SYM_FIND ? R_BLANK : R_VOID;
+            return verb == SYM_FIND ? R_BLANK : R_NULL;
 
         Move_Value(
             D_OUT,

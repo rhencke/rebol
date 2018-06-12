@@ -165,7 +165,7 @@ static REB_R Loop_Series_Common(
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
             if (not opt and IS_VOID(out))
                 return R_BLANK; // blankify continue if needed
         }
@@ -190,7 +190,7 @@ static REB_R Loop_Series_Common(
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
             if (not opt and IS_VOID(out))
                 Init_Blank(out); // blankify continues if needed
         }
@@ -249,7 +249,7 @@ static REB_R Loop_Integer_Common(
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
             if (not opt and IS_VOID(out))
                 return R_BLANK; // blankify CONTINUE if needed
         }
@@ -262,7 +262,7 @@ static REB_R Loop_Integer_Common(
     //
     const REBOOL counting_up = (start < end); // equal checked above
     if ((counting_up and bump <= 0) or (not counting_up and bump >= 0))
-        return R_VOID; // avoid infinite loops
+        return R_NULL; // avoid infinite loops
 
     while (counting_up ? *state <= end : *state >= end) {
         if (Run_Branch_Throws(out, END, body, opt)) {
@@ -270,7 +270,7 @@ static REB_R Loop_Integer_Common(
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
             if (not opt and IS_VOID(out))
                 Init_Blank(out); // blankify continues if needed
         }
@@ -342,7 +342,7 @@ static REB_R Loop_Number_Common(
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
             if (not opt and IS_VOID(out))
                 return R_BLANK; // blankify continue if needed
         }
@@ -353,7 +353,7 @@ static REB_R Loop_Number_Common(
     //
     const REBOOL counting_up = (s < e); // equal checked above
     if ((counting_up and b <= 0) or (not counting_up and b >= 0))
-        return opt ? R_VOID : R_BLANK; // avoid infinite loops
+        return opt ? R_NULL : R_BLANK; // avoid infinite loops
 
     while (counting_up ? *state <= e : *state >= e) {
         if (Run_Branch_Throws(out, END, body, opt)) {
@@ -361,7 +361,7 @@ static REB_R Loop_Number_Common(
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
             if (not opt and IS_VOID(out))
                 Init_Blank(out); // blankify continue if needed
         }
@@ -397,7 +397,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     assert(not IS_VOID(data));
 
     if (IS_BLANK(data))
-        return R_VOID; // blank in, void out (same result as BREAK)
+        return R_NULL; // blank in, void out (same result as BREAK)
 
     REBOOL stop = FALSE;
     REBOOL threw = FALSE; // did a non-BREAK or non-CONTINUE throw occur
@@ -693,7 +693,7 @@ skip_hidden: ;
     switch (mode) {
     case LOOP_FOR_EACH:
         if (stop)
-            return R_VOID;
+            return R_NULL;
         return R_OUT;
 
     case LOOP_MAP_EACH:
@@ -706,7 +706,7 @@ skip_hidden: ;
             return R_OUT_IS_THROWN;
 
         if (stop)
-            return R_VOID;
+            return R_NULL;
 
         if (IS_END(D_CELL))
             return R_BAR; // all evaluations opted out
@@ -828,7 +828,7 @@ REBNATIVE(for_skip)
     REBVAL *word = ARG(word);
 
     if (IS_BLANK(word))
-        return R_VOID; // blank in, void out (same result as BREAK)
+        return R_NULL; // blank in, void out (same result as BREAK)
 
     if (REF(opt))
         Init_Void(D_OUT); // default result for FOR-SKIP*
@@ -878,7 +878,7 @@ REBNATIVE(for_skip)
                 return R_OUT_IS_THROWN;
             if (stop) {
                 Move_Value(var, D_CELL); // restore initial variable value
-                return R_VOID;
+                return R_NULL;
             }
 
             if (REF(opt) and IS_VOID(D_OUT))
@@ -925,7 +925,7 @@ REBNATIVE(forever)
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
         }
     } while (true);
 
@@ -1383,7 +1383,7 @@ REBNATIVE(loop)
     INCLUDE_PARAMS_OF_LOOP;
 
     if (IS_BLANK(ARG(count)))
-        return R_VOID; // blank in, void out (same output as BREAK)
+        return R_NULL; // blank in, void out (same output as BREAK)
 
     if (IS_FALSEY(ARG(count)))
         return R_BLANK; // must be false...opposite of infinite loop
@@ -1413,7 +1413,7 @@ REBNATIVE(loop)
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
 
             if (not REF(opt) and IS_VOID(D_OUT))
                 Init_Blank(D_OUT); // blankify voids if needed
@@ -1450,7 +1450,7 @@ REBNATIVE(repeat)
     REBVAL *value = ARG(value);
 
     if (IS_BLANK(value))
-        return R_VOID; // blank in, void out (same result as BREAK)
+        return R_NULL; // blank in, void out (same result as BREAK)
 
     if (IS_DECIMAL(value) or IS_PERCENT(value))
         Init_Integer(value, Int64(value));
@@ -1473,7 +1473,7 @@ REBNATIVE(repeat)
 
     REBI64 n = VAL_INT64(value);
     if (n < 1) // Loop_Integer from 1 to 0 with bump of 1 is infinite
-        return REF(opt) ? R_VOID : R_BLANK;
+        return REF(opt) ? R_NULL : R_BLANK;
 
     return Loop_Integer_Common(
         D_OUT, var, ARG(body), 1, VAL_INT64(value), 1, REF(opt)
@@ -1498,7 +1498,7 @@ inline static REB_R Until_Core(REBFRM *frame_, REBOOL trigger)
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
 
             // UNTIL and UNTIL-NOT both follow the precedent that the way
             // a CONTINUE/WITH works is to act as if the loop body returned
@@ -1598,7 +1598,7 @@ inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
-                return R_VOID;
+                return R_NULL;
             if (not REF(opt) and IS_VOID(D_OUT))
                 Init_Blank(D_OUT); // blankify voids
         }

@@ -160,7 +160,7 @@ REBNATIVE(write_stdout)
         DROP_GUARD_SERIES(temp);
     }
 
-    return R_VOID;
+    return R_NULL;
 }
 
 

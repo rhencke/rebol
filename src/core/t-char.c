@@ -257,7 +257,7 @@ REBTYPE(Char)
 
         if (REF(seed)) {
             Set_Random(chr);
-            return R_VOID;
+            return R_NULL;
         }
         if (chr == 0) break;
         chr = cast(REBUNI, 1 + cast(REBCNT, Random_Int(REF(secure)) % chr));

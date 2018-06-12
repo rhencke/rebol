@@ -139,7 +139,7 @@ REBNATIVE(recycle)
 
     if (REF(off)) {
         GC_Disabled = TRUE;
-        return R_VOID;
+        return R_NULL;
     }
 
     if (REF(on)) {
@@ -158,7 +158,7 @@ REBNATIVE(recycle)
     }
 
     if (GC_Disabled)
-        return R_VOID; // don't give back misleading "0", since no recycle ran
+        return R_NULL; // don't give back misleading "0", since no recycle ran
 
     REBCNT count;
 
@@ -233,7 +233,7 @@ REBNATIVE(limit_usage)
     else
         fail (Error_Invalid(ARG(field)));
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -368,14 +368,14 @@ REBNATIVE(c_debug_break_at)
             (one << (ceil_log2(TG_Tick) + 1))
             + VAL_INT64(ARG(tick))
             - 1;
-        return R_VOID;
+        return R_NULL;
     }
 
     if (REF(relative))
         TG_Break_At_Tick = frame_->tick + 1 + VAL_INT64(ARG(tick));
     else
         TG_Break_At_Tick = VAL_INT64(ARG(tick));
-    return R_VOID;
+    return R_NULL;
   #else
     UNUSED(ARG(tick));
     UNUSED(ARG(relative));
@@ -450,5 +450,5 @@ REBNATIVE(test)
 
     rebElide("print", rebI(10), "if false [print", rebInteger(30), "]", END);
 
-    return R_VOID;
+    return R_NULL;
 }

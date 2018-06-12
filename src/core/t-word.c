@@ -190,14 +190,14 @@ REB_R PD_Word(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         if (IS_INTEGER(picker)) {
             REBINT n = Int32(picker) - 1;
             if (n < 0)
-                return R_VOID;
+                return R_NULL;
 
             REBCNT len = SER_LEN(str);
             const REBYTE *bp = cb_cast(STR_HEAD(str));
             REBUNI c;
             do {
                 if (len == 0)
-                    return R_VOID; // character asked for is past end
+                    return R_NULL; // character asked for is past end
 
                 if (*bp < 0x80)
                     c = *bp;

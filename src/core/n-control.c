@@ -67,7 +67,7 @@ REBNATIVE(if)
     INCLUDE_PARAMS_OF_IF;
 
     if (IS_CONDITIONAL_FALSE(ARG(condition)))
-        return R_VOID;
+        return R_NULL;
 
     if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
@@ -93,7 +93,7 @@ REBNATIVE(if_not)
     INCLUDE_PARAMS_OF_IF_NOT;
 
     if (IS_CONDITIONAL_TRUE(ARG(condition)))
-        return R_VOID;
+        return R_NULL;
 
     if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
@@ -322,7 +322,7 @@ REBNATIVE(either_test_null)
     INCLUDE_PARAMS_OF_EITHER_TEST_NULL;
 
     if (IS_VOID(ARG(arg))) // Either_Test_Core() would call Apply()
-        return R_VOID;
+        return R_NULL;
 
     if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
         return R_OUT_IS_THROWN;
@@ -500,7 +500,7 @@ REBNATIVE(match)
         // coerce the result if the value is falsey.  NULL will do that.
 
         if (IS_VOID_OR_FALSEY(D_OUT))
-            return R_VOID;
+            return R_NULL;
         return R_BLANK; }
 
     default:
@@ -543,7 +543,7 @@ either_test:;
     assert(r == R_FALSE);
 
     if (IS_VOID_OR_FALSEY(D_OUT))
-        return R_VOID;
+        return R_NULL;
     return R_BLANK;
 }
 
@@ -669,7 +669,7 @@ REBNATIVE(any)
     if (voted or not REF(only))
         return R_BLANK;
 
-    return R_VOID; // all opt-outs return void if /ONLY
+    return R_NULL; // all opt-outs return void if /ONLY
 }
 
 
@@ -724,7 +724,7 @@ REBNATIVE(none)
     if (voted or not REF(only))
         return R_BAR;
 
-    return R_VOID; // all opt-outs
+    return R_NULL; // all opt-outs
 }
 
 
@@ -842,7 +842,7 @@ static REB_R Case_Choose_Core(
 
     Drop_Frame(f);
     if (IS_END(out))
-        return R_VOID; // never written to, no branches ran
+        return R_NULL; // never written to, no branches ran
     return R_OUT;
 }
 

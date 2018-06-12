@@ -680,6 +680,6 @@ REBNATIVE(compile)
         DS_DROP;
     }
 
-    return R_VOID;
+    return R_NULL;
 #endif
 }

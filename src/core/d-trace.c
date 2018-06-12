@@ -267,7 +267,7 @@ REB_R Apply_Core_Traced(REBFRM * const f)
             Debug_Values(TRUE_VALUE, 1, 50);
             break;
 
-        case R_VOID:
+        case R_NULL:
             //
             // It's not legal to mold or form a void, it's not ANY-VALUE!
             // In this case, just don't print anything, like the console does
@@ -384,5 +384,5 @@ REBNATIVE(trace)
         PG_Apply = &Apply_Core;
     }
 
-    return R_VOID;
+    return R_NULL;
 }

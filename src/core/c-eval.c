@@ -1461,7 +1461,7 @@ reevaluate:;
             Init_Logic(f->out, true);
             break;
 
-        case R_VOID:
+        case R_NULL:
             Init_Void(f->out);
             break;
 

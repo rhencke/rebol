@@ -1560,7 +1560,7 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
 
         case SYM_TYPE:
             if (kind == REB_MAX_VOID)
-                return R_VOID; // `() = type of ()`, `null = type of ()`
+                return R_NULL; // `() = type of ()`, `null = type of ()`
             Init_Datatype(f->out, kind);
             return R_OUT;
 
@@ -1598,7 +1598,7 @@ REB_R Noop_Dispatcher(REBFRM *f)
 {
     assert(VAL_LEN_AT(ACT_BODY(f->phase)) == 0);
     UNUSED(f);
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -1666,7 +1666,7 @@ REB_R Voider_Dispatcher(REBFRM *f)
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
         return R_OUT_IS_THROWN;
 
-    return R_VOID;
+    return R_NULL;
 }
 
 

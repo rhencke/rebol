@@ -104,7 +104,7 @@ REB_R PD_Blank(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (opt_setval != NULL)
         return R_UNHANDLED;
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -150,7 +150,7 @@ REBTYPE(Unit)
         switch (VAL_WORD_SYM(ARG(property))) {
         case SYM_INDEX:
         case SYM_LENGTH:
-            return R_VOID;
+            return R_NULL;
 
         default:
             break;
@@ -162,7 +162,7 @@ REBTYPE(Unit)
     case SYM_COPY:
     case SYM_SKIP:
     case SYM_AT:
-        return R_VOID;
+        return R_NULL;
 
     default:
         break;

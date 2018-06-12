@@ -42,16 +42,16 @@ enum Reb_Result {
     // Returning boolean results is specially chosen as the 0 and 1 values,
     // so that a logic result can just be cast, as with R_FROM_BOOL().
     // See remarks on REBOOL about how it is ensured that TRUE is 1, and
-    // that this is the standard for C++ bool conversion:
+    // that this is the standard for C/C++ bool conversion:
     //
     // http://stackoverflow.com/questions/2725044/
     //
     R_FALSE = 0, // => Init_Logic(D_OUT, FALSE); return R_OUT;
     R_TRUE = 1, // => Init_Logic(D_OUT, TRUE); return R_OUT;
 
-    // Void and blank are also common results.
+    // NULL and blank are also common results.
     //
-    R_VOID, // => Init_Void(D_OUT); return R_OUT;
+    R_NULL, // => Init_Void(D_OUT); return R_OUT;
     R_BLANK, // => Init_Blank(D_OUT); return R_OUT;
     R_BAR, // Init_Bar(D_OUT); return R_OUT;
 

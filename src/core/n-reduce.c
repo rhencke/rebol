@@ -166,7 +166,7 @@ REBNATIVE(reduce)
             // void result for a non-BLOCK!/GROUP!, the caller will have to
             // worry about whether to error on that themselves.
             //
-            return R_VOID;
+            return R_NULL;
         }
         return R_OUT;
     }

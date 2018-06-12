@@ -300,7 +300,7 @@ REB_R Apply_Core_Measured(REBFRM * const f)
         case R_TRUE:
             break;
 
-        case R_VOID:
+        case R_NULL:
             break;
 
         case R_BLANK:
@@ -416,7 +416,7 @@ REBNATIVE(callgrind)
     default:
         fail ("Currently CALLGRIND only supports ON and OFF");
     }
-    return R_VOID;
+    return R_NULL;
 
 #else
     UNUSED(ARG(instruction));

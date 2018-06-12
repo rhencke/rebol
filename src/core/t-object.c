@@ -530,7 +530,7 @@ REBNATIVE(set_meta)
         MISC(CTX_VARLIST(VAL_CONTEXT(v))).meta = meta;
     }
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -879,7 +879,7 @@ REBTYPE(Context)
 
     case SYM_SELECT:
     case SYM_FIND: {
-        const REB_R r_not_found = (verb == SYM_FIND) ? R_BLANK : R_VOID;
+        const REB_R r_not_found = (verb == SYM_FIND) ? R_BLANK : R_NULL;
 
         if (not IS_WORD(arg))
             return r_not_found;

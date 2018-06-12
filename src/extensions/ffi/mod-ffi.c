@@ -410,7 +410,7 @@ REBNATIVE(destroy_struct_storage)
             return R_OUT_IS_THROWN;
     }
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -464,7 +464,7 @@ REBNATIVE(free_value_pointer)
     //
     rebFree(v);
 
-    return R_VOID;
+    return R_NULL;
 }
 
 

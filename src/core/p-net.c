@@ -609,7 +609,7 @@ REBNATIVE(set_udp_multicast)
     UNUSED(REF(drop));
 
     OS_DO_DEVICE_SYNC(sock, RDC_MODIFY);
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -643,5 +643,5 @@ REBNATIVE(set_udp_ttl)
     UNUSED(ARG(ttl));
 
     OS_DO_DEVICE_SYNC(sock, RDC_MODIFY);
-    return R_VOID;
+    return R_NULL;
 }

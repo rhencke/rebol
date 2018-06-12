@@ -115,7 +115,7 @@ REBTYPE(Library)
             OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
             LINK(VAL_LIBRARY(lib)).fd = NULL;
         }
-        return R_VOID; }
+        return R_NULL; }
 
     default:
         break;

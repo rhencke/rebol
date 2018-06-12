@@ -253,7 +253,7 @@ REBNATIVE(to)
 
     REBVAL *v = ARG(value);
     if (IS_BLANK(v))
-        return R_VOID;
+        return R_NULL;
 
     enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
 

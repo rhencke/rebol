@@ -580,7 +580,7 @@ REBTYPE(Integer)
 
         if (REF(seed)) {
             Set_Random(num);
-            return R_VOID;
+            return R_NULL;
         }
         if (num == 0)
             break;

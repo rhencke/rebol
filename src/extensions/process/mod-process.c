@@ -1829,7 +1829,7 @@ REBNATIVE(sleep)
     usleep(msec * 1000);
 #endif
 
-    return R_VOID;
+    return R_NULL;
 }
 
 #if defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
@@ -1878,7 +1878,7 @@ static REBNATIVE(terminate)
 
     if (TerminateProcess(ph, 0)) {
         CloseHandle(ph);
-        return R_VOID;
+        return R_NULL;
     }
 
     err = GetLastError();
@@ -1899,7 +1899,7 @@ static REBNATIVE(terminate)
         fail ("Use QUIT or EXIT-REBOL to terminate current process, instead");
     }
     kill_process(VAL_INT32(ARG(pid)), SIGTERM);
-    return R_VOID;
+    return R_NULL;
 #else
     UNUSED(frame_);
     fail ("terminate is not implemented for this platform");
@@ -2078,7 +2078,7 @@ static REBNATIVE(set_env)
     rebFree(key_utf8);
   #endif
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -2323,7 +2323,7 @@ static REBNATIVE(set_uid)
         }
     }
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -2362,7 +2362,7 @@ static REBNATIVE(set_euid)
         }
     }
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -2401,7 +2401,7 @@ static REBNATIVE(set_gid)
         }
     }
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -2440,7 +2440,7 @@ static REBNATIVE(set_egid)
         }
     }
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -2493,7 +2493,7 @@ static REBNATIVE(send_signal)
 
     kill_process(VAL_INT32(ARG(pid)), VAL_INT32(ARG(signal)));
 
-    return R_VOID;
+    return R_NULL;
 }
 #endif // defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
 

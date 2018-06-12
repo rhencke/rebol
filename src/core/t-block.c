@@ -771,7 +771,7 @@ REBTYPE(Array)
 
         if (index >= VAL_LEN_HEAD(value)) {
             if (not REF(part))
-                return R_VOID;
+                return R_NULL;
 
             goto return_empty_block;
         }
@@ -793,7 +793,7 @@ REBTYPE(Array)
     case SYM_SELECT: {
         INCLUDE_PARAMS_OF_FIND; // must be same as select
 
-        const REB_R r_not_found = (verb == SYM_FIND) ? R_BLANK : R_VOID;
+        const REB_R r_not_found = (verb == SYM_FIND) ? R_BLANK : R_NULL;
 
         UNUSED(PAR(series));
         UNUSED(PAR(value)); // aliased as arg
@@ -1033,7 +1033,7 @@ REBTYPE(Array)
             if (IS_VOID(D_OUT)) {
                 assert(slot == NULL);
                 UNUSED(slot);
-                return R_VOID;
+                return R_NULL;
             }
             return R_OUT;
 

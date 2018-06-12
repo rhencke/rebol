@@ -271,7 +271,7 @@ REBNATIVE(unload_extension_helper)
         fail (Error_Fail_To_Quit_Extension_Raw(i));
     }
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -468,14 +468,14 @@ REBNATIVE(unload_native)
             // For minimal invasiveness right now, the /RELAX refinement just
             // documents the issue in the unloading process.
             //
-            return R_VOID;
+            return R_NULL;
         }
 
         fail (Error_Non_Unloadable_Native_Raw(ARG(native)));
     }
 
     ACT_DISPATCHER(action) = &Unloaded_Dispatcher;
-    return R_VOID;
+    return R_NULL;
 }
 
 

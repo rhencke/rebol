@@ -482,7 +482,7 @@ REBTYPE(Logic)
         if (REF(seed)) {
             // random/seed false restarts; true randomizes
             Set_Random(val1 ? cast(REBINT, OS_DELTA_TIME(0)) : 1);
-            return R_VOID;
+            return R_NULL;
         }
         if (Random_Int(REF(secure)) & 1)
             return R_TRUE;

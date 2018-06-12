@@ -176,7 +176,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
         default:
             //
-            // Something like an R_VOID or generic R_OUT.  We could in theory
+            // Something like an R_NULL or generic R_OUT.  We could in theory
             // take those to just be variations of R_IMMEDIATE, but it's safer
             // to break that out as a separate class.
             //
@@ -225,7 +225,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
                 SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
             break;
 
-        case R_VOID:
+        case R_NULL:
             Init_Void(pvs->out);
             break;
 

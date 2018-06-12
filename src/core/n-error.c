@@ -83,7 +83,7 @@ REBNATIVE(trap)
             return R_OUT_IS_THROWN;
 
         if (not REF(with) and IS_ERROR(D_OUT)) // code may evaluate to ERROR!
-            return R_VOID; // ...but void it so ERROR! *always* means raised
+            return R_NULL; // ...but void it so ERROR! *always* means raised
 
         return R_OUT;
     }
@@ -188,5 +188,5 @@ REBNATIVE(set_location_of_error)
     REBCTX *error = VAL_CONTEXT(ARG(error));
     Set_Location_Of_Error(error, where);
 
-    return R_VOID;
+    return R_NULL;
 }

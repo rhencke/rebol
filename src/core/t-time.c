@@ -701,7 +701,7 @@ REBTYPE(Time)
 
             if (REF(seed)) {
                 Set_Random(secs);
-                return R_VOID;
+                return R_NULL;
             }
             secs = Random_Range(secs / SEC_SEC, REF(secure)) * SEC_SEC;
             goto fixTime; }

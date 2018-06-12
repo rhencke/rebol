@@ -572,7 +572,7 @@ REBNATIVE(opt)
     INCLUDE_PARAMS_OF_OPT;
 
     if (IS_BLANK(ARG(value)))
-        return R_VOID;
+        return R_NULL;
 
     Move_Value(D_OUT, ARG(value));
     return R_OUT;
@@ -855,7 +855,7 @@ REBNATIVE(unset)
     if (ANY_WORD(target)) {
         REBVAL *var = Sink_Var_May_Fail(target, SPECIFIED);
         Init_Void(var);
-        return R_VOID;
+        return R_NULL;
     }
 
     assert(IS_BLOCK(target));
@@ -869,7 +869,7 @@ REBNATIVE(unset)
         Init_Void(var);
     }
 
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -998,7 +998,7 @@ REBNATIVE(free)
     FAIL_IF_READ_ONLY_SERIES(s);
 
     Decay_Series(s);
-    return R_VOID;
+    return R_NULL;
 }
 
 
@@ -1048,7 +1048,7 @@ REBNATIVE(as)
 
     REBVAL *v = ARG(value);
     if (IS_BLANK(v))
-        return R_VOID; // "blank in, null out" convention for non-modifiers
+        return R_NULL; // "blank in, null out" convention for non-modifiers
 
     enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
 

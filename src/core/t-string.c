@@ -1264,7 +1264,7 @@ REBTYPE(String)
     case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
 
-        const REB_R r_not_found = (verb == SYM_FIND) ? R_BLANK : R_VOID;
+        const REB_R r_not_found = (verb == SYM_FIND) ? R_BLANK : R_NULL;
 
         UNUSED(PAR(series));
         UNUSED(PAR(value));
@@ -1627,7 +1627,7 @@ REBTYPE(String)
                     VAL_LEN_AT(v) * SER_WIDE(VAL_SERIES(v))
                 )
             );
-            return R_VOID;
+            return R_NULL;
         }
 
         if (REF(only)) {

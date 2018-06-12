@@ -86,7 +86,7 @@ static REBNATIVE(init_debugger)
     DEBUGGER_INCLUDE_PARAMS_OF_INIT_DEBUGGER;
 
     HG_Host_Repl = ACT_ARCHETYPE(VAL_ACTION(ARG(console)));
-    return R_VOID;
+    return R_NULL;
 }
 
 
