@@ -163,7 +163,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     uintptr_t header_bits = 0;
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     //
     // Debug builds go ahead and include a RETURN field and hang onto the
     // typeset for fake returns (e.g. natives).  But they make a note that
@@ -176,7 +176,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         assert(not (flags & MKF_RETURN));
         flags |= MKF_RETURN;
     }
-#endif
+  #endif
 
     REBDSP dsp_orig = DSP;
     assert(DS_TOP == DS_AT(dsp_orig));
@@ -533,35 +533,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         if (definitional_return_dsp == 0) { // no RETURN: pure local explicit
             REBSTR *canon_return = Canon(SYM_RETURN);
 
-            // !!! The current experiment for dealing with default type
-            // checking on definitional returns is to be somewhat restrictive
-            // if there are *any* documentation notes or typesets on the
-            // function.  Hence:
-            //
-            //     >> foo: func [x] [] ;-- no error, void return allowed
-            //     >> foo: func [{a} x] [] ;-- will error, can't return void
-            //
-            // The idea is that if any effort has been expended on documenting
-            // the interface at all, it has some "public" component...so
-            // problems like leaking arbitrary values (vs. using PROC) are
-            // more likely to be relevant.  Whereas no effort indicates a
-            // likely more ad-hoc experimentation.
-            //
-            // (A "strict" mode, selectable per module, could control this and
-            // other settings.  But the goal is to attempt to define something
-            // that is as broadly usable as possible.)
+            // All types are allowed as return types by default.  (Previously
+            // it was limited to not include null or ACTION!, but as null
+            // became "destigmatized" it really wasn't adding value.)
             //
             DS_PUSH_TRASH;
-            Init_Typeset(
-                DS_TOP,
-                (flags & MKF_ANY_VALUE)
-                or not (has_description or has_types or has_notes)
-                    ? ALL_64
-                    : ALL_64 & ~(
-                        FLAGIT_KIND(REB_MAX_VOID) | FLAGIT_KIND(REB_ACTION)
-                    ),
-                canon_return
-            );
+            Init_Typeset(DS_TOP, ALL_64, canon_return);
             INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN);
             definitional_return_dsp = DSP;
 
