@@ -12,28 +12,24 @@
 ; This makes it a bit strange, but allows it to alert people used to the
 ; old habits about the new behavior.
 
-(comment [
-    (
-        20 = (10 unless 20)
-    )(
-        10 = (10 unless _)
-    )(
-        10 = (10 unless ())
-    )(
-        _ = (10 unless* _) ;-- /TRY option considers blank a purposeful value
-    )(
-        x: 10 + 20 unless case [
-            false [<no>]
-            false [<nope>]
-            false [<nada>]
-        ]
-        x = 30
-    )(
-        x: 10 + 20 unless case [
-            false [<no>]
-            true [<yip!>]
-            false [<nada>]
-        ]
-        x = <yip!>
-    )
-] true)
+(
+    20 = (10 unless 20)
+)(
+    _ = (10 unless _)
+)(
+    10 = (10 unless ())
+)(
+    x: 10 + 20 unless case [
+        false [<no>]
+        false [<nope>]
+        false [<nada>]
+    ]
+    x = 30
+)(
+    x: 10 + 20 unless case [
+        false [<no>]
+        true [<yip!>]
+        false [<nada>]
+    ]
+    x = <yip!>
+)

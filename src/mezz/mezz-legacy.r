@@ -273,45 +273,6 @@ hijack 'try adapt copy :try [
     ;-- fall through to native TRY implementation
 ]
 
-
-unless: enfix function [ ;-- error-checking shim, overrides real UNLESS
-    {Returns left hand side, unless the right hand side is something}
-
-    return: [any-value!]
-    left [<end> any-value!]
-    right [<opt> any-value! <...>]
-    :look [any-value! <...>]
-    /try {Consider right being BLANK! a value to override the left}
-][
-    any [
-        unset? 'left
-        elide (right: take* right)
-        block? first look
-    ] then [
-        fail/where [
-            "UNLESS has been repurposed in Ren-C as an enfix operator"
-            "which defaults to the left hand side, unless the right"
-            "side has a value which overrides it.  You may use IF-NOT"
-            "as a replacement, or even define UNLESS: :LIB/IF-NOT,"
-            "though actions like OR, DEFAULT, etc. are usually better"
-            "replacements for the intents that UNLESS was used for."
-            "!!! NOTE: `if not` as two words isn't the same in Ren-C,"
-            "as `if not x = y` is read as `if (not x) = y` since `=`"
-            "completes its left hand side.  Be careful rewriting."
-        ] 'look
-    ]
-
-    either-test (try ?? :value? !! :something?) :right [:left]
-]
-
-
-unless*: enfix redescribe [ ;-- error-checking shim, overrides real UNLESS*
-    {Same as UNLESS/TRY (right hand side being BLANK! overrides the left)}
-](
-    specialize 'unless [try: true]
-)
-
-
 ; The legacy PRIN construct is replaced by WRITE-STDOUT SPACED and similar
 ;
 prin: procedure [

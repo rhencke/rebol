@@ -707,7 +707,7 @@ sys/make-scheme [
                 ]
             ]
             if action? :port/awake [
-                unless open? port [
+                if not open? port [
                     cause-error 'Access 'not-open port/spec/ref
                 ]
                 if port/state/state <> 'ready [

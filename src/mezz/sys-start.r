@@ -80,29 +80,18 @@ finish-init-core: proc [
             ] 'dummy
         ])
 
-        ; !!! See UNLESS for the plan of it being retaken.  For the moment
-        ; this compatibility shim is active in %mezz-legacy.r, but not
-        ; exposed to the user context.
-
-        unless: (ensure action! get 'if-not)
-
-        (comment [
         unless: (function [ ;-- enfixed below
-            {Returns left hand side, unless the right hand side is something}
+            {Returns left hand side, unless the right hand side is a value}
 
             return: [any-value!]
             left [<end> any-value!]
             right [<opt> any-value! <...>]
             :look [any-value! <...>]
-            /try {Consider right being BLANK! a value to override the left}
         ][
-            any [
-                unset? 'left
-                elide (right: take* right)
-                block? first look
-            ] then [
+            right: take* right
+            if unset? 'left or (block? first look) [
                 fail/where [
-                    "UNLESS has been repurposed in Ren-C as an enfix operator"
+                    "UNLESS has been repurposed in Ren-C as an infix operator"
                     "which defaults to the left hand side, unless the right"
                     "side has a value which overrides it.  You may use IF-NOT"
                     "as a replacement, or even define UNLESS: :LIB/IF-NOT,"
@@ -114,14 +103,8 @@ finish-init-core: proc [
                 ] 'look
             ]
 
-            either-test (try ?? :value? !! :something?) :right [:left]
+            either-test-value :right [:left]
         ])
-
-        unless*: (redescribe [ ;-- enfixed below
-            {Same as UNLESS/TRY (right side being BLANK! overrides the left)}
-        ](
-            specialize 'unless [try: true]
-        ))])
 
         switch: (adapt 'switch [
             for-each c cases [
@@ -200,10 +183,7 @@ finish-init-core: proc [
         any-object?: (ensure action! :any-context?)
     ]
 
-    comment [
-        tmp/unless: enfix :tmp/unless
-        tmp/unless*: enfix :tmp/unless*
-    ]
+    tmp/unless: enfix :tmp/unless
 
     system/contexts/user: tmp
 

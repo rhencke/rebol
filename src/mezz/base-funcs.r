@@ -52,31 +52,41 @@ default: enfix func [
 ]
 
 maybe: enfix func [
-    "Set word or path to a default value if that value is set and not blank."
+    "Set word or path to a default value if that value is a value"
 
     return: [<opt> any-value!]
     'target [set-word! set-path!]
         "The word to which might be set"
-    value [<opt> any-value!]
-        "Value to assign only if it is nothing not nothing"
-    /only
-        "Consider value being BLANK! to be 'something' to use for overwriting"
+    optional [<opt> any-value!]
+        "Value to assign only if it is not null"
 
     <local> gotten
 ][
-    ; While DEFAULT requires a BLOCK!, MAYBE does not.  Catch mistakes such
-    ; as `x: maybe [...]`
-    ;
-    if semiquoted? 'value [
+    if semiquoted? 'optional [
+        ;
+        ; While DEFAULT requires a BLOCK!, MAYBE does not.  Catch mistakes
+        ; such as `x: maybe [...]`
+        ;
         fail/where [
-            "Literal" type of :value "used w/MAYBE, use () if intentional"
-        ] 'value
+            "Literal" type of :optional "used w/MAYBE, use () if intentional"
+        ] 'optional
     ]
 
-    set target either-test/opt
-        (only ?? :value? !! :something?) ;-- test function
-        :value ;-- value being tested
-        [get target] ;-- branch to evaluate and return if test fails
+    case [
+        null? :optional []
+
+        set-word? target [set target :optional]
+
+        set-path? target [
+            ;
+            ; If a SET-PATH!, it may contain a GROUP!.  SET does not accept
+            ; that due to potential side-effects, so use a REDUCE.  See also:
+            ;
+            ; https://github.com/rebol/rebol-issues/issues/2275
+            ;
+            do compose/only [(target) quote (:optional)]
+        ]
+    ]
 ]
 
 
@@ -288,11 +298,7 @@ dig-action-meta-fields: function [value [action!]] [
 
         child: make frame! :value
         for-each param child [
-            ;
-            ; !!! GROUP! cannot be used with MAYBE because it left quotes and
-            ; might-or-might-not run the GROUP!.  Review.
-            ;
-            child/:param: maybe select parent param
+            child/(param): maybe select parent param
         ]
         return child
     ]
@@ -491,12 +497,6 @@ default*: enfix redescribe [
     specialize 'default [only: true]
 )
 
-maybe*: enfix redescribe [
-    {Would be the same as MAYBE/ONLY if paths could dispatch infix}
-](
-    specialize 'maybe [only: true]
-)
-
 
 ; Though this name is questionable, it's nice to be easier to call
 ;
@@ -528,16 +528,9 @@ unless: enfix func [
     return: [any-value!]
     left [any-value!]
     right [<opt> any-value!]
-    /try {Consider right hand side being BLANK! a value to override the left}
 ][
-    either-test (try ?? :value? !! :something?) :right [:left]
+    either-test-value :right [:left]
 ]
-
-unless*: enfix redescribe [
-    {Same as UNLESS/TRY (right hand side being BLANK! overrides the left)}
-](
-    specialize 'unless [try: true]
-)
 
 
 case*: redescribe [
@@ -568,6 +561,15 @@ all*: redescribe [
     {Variant of ALL that ignores voids, and returns void if all opt out}
 ](
     specialize 'all [only: true]
+)
+
+match*: redescribe [
+    {Variant of MATCH that passes through a NULL vs. error (variadic TBD}
+](
+    specialize 'either-test [
+        opt: true
+        branch: []
+    ]
 )
 
 ensure: redescribe [
