@@ -26,12 +26,17 @@
 (not error? trap [
     for-each w words of lib [
         dump w
-        if action? get w [help w] else [help (get w)]
+        if action? get w
+            compose [help (w)]
+        else [
+            help (get w)
+        ]
     ]
 ])
 (not error? trap [
     for-each w words of lib [
         dump w
-        if action? get w [source (w)]
+        if action? get w
+            compose [source (w)]
     ]
 ])

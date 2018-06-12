@@ -179,6 +179,8 @@ standard: construct [] [
         ] #BODY
     ]
 
+    proc-return-type: [<opt>]
+
     proc-body: [
         leave: make action! [
             [{Leaves a procedure, giving no result to the caller.}]
@@ -209,7 +211,7 @@ standard: construct [] [
         return-note:
         parameter-types:
         parameter-notes:
-            _ ;-- changed to null below
+            _
     ]
 
     ; The common case is that derived actions will not need to be
@@ -222,14 +224,14 @@ standard: construct [] [
         description:
         specializee:
         specializee-name:
-            _ ;-- changed to null below
+            _
     ]
 
     adapted-meta: construct [] [
         description:
         adaptee:
         adaptee-name:
-            _ ;-- changed to null below
+            _
     ]
 
     enclosed-meta: construct [] [
@@ -238,30 +240,15 @@ standard: construct [] [
         inner-name:
         outer:
         outer-name:
-            _ ;-- changed to null below
+            _
     ]
 
     chained-meta: construct [] [
         description:
         chainees:
         chainee-names:
-            _ ;-- changed to null below
+            _
     ]
-
-    (
-        ; !!! Due to wanting R3-Alpha to be able to run the bootstrap build,
-        ; objects can't unset these fields, `make object! [x: ()]` fails).
-        ; Hence the code has to overwrite the missing fields with nulls.
-        ;
-        for-each m reduce [
-            action-meta specialized-meta adapted-meta
-            enclosed-meta chained-meta
-        ][
-            for-each [key val] m [
-                m/(key): opt m/(key)
-            ]
-        ]
-    )
 
     ; !!! This is the template used for all errors, to which extra fields are
     ; added if the error has parameters.  It likely makes sense to put this

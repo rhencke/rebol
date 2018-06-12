@@ -300,25 +300,15 @@ dig-action-meta-fields: function [value [action!]] [
     return construct system/standard/action-meta [
         description: ensure* text! opt any [
             try select meta 'description
-            all [fields | copy fields/description]
+            try copy try select fields 'description
         ]
-        return-type: (
-            ;
-            ; !!! The optimized native signals the difference between
-            ; "undocumented argument" and "no argument at all" with the
-            ; void vs BLANK! distinction.  This routine needs an overhaul and
-            ; wasn't really written to anticipate the subtlety.  But be
-            ; sensitive to it here.
-            ;
-            temp: select meta 'return-type
-            if all [unset? 'temp | fields | did select fields 'return-type] [
-                temp: copy fields/return-type
-            ]
-            :temp
-        )
+        return-type: ensure* block! opt any [
+            try select meta 'return-type
+            try copy try select fields 'return-type
+        ]
         return-note: ensure* text! opt any [
             try select meta 'return-note
-            all [try get 'fields/return-note | copy fields/return-note]
+            try copy try select fields 'return-note
         ]
         parameter-types: ensure* frame! opt any [
             try select meta 'parameter-types

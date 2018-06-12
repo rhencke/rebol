@@ -193,17 +193,16 @@ spec-of: function [
     ]
 
     return collect [
-        keep/line ensure* text! any* [
+        keep/line ensure* text! opt any* [
             select meta 'description
             select original-meta 'description
         ]
 
-        ; BLANK! return type (procedure) is distinct from null (undocumented)
-        return-type: ensure* [block! blank!] any* [
+        return-type: ensure* block! opt any* [
             select meta 'return-type
             select original-meta 'return-type
         ]
-        return-note: ensure* text! any* [
+        return-note: ensure* text! opt any* [
             select meta 'return-note
             select original-meta 'return-note
         ]
@@ -213,11 +212,11 @@ spec-of: function [
             ]
         ]
 
-        types: ensure* frame! any* [
+        types: ensure* frame! opt any* [
             select meta 'parameter-types
             select original-meta 'parameter-types
         ]
-        notes: ensure* frame! any* [
+        notes: ensure* frame! opt any* [
             select meta 'parameter-notes
             select original-meta 'parameter-notes
         ]

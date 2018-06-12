@@ -683,7 +683,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     REBCTX *meta = NULL;
 
-    if (has_description or has_types or has_notes) {
+    if (has_description or has_types or has_notes or (flags & MKF_LEAVE)) {
         meta = Copy_Context_Shallow(VAL_CONTEXT(Root_Action_Meta));
         MANAGE_ARRAY(CTX_VARLIST(meta));
     }
@@ -698,6 +698,18 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         Move_Value(
             CTX_VAR(meta, STD_ACTION_META_DESCRIPTION),
             DS_AT(dsp_orig + 3)
+        );
+    }
+
+    // PROC and PROCEDURE need to set their [<opt>] return, otherwise HELP
+    // will say "(undocumented)" (assumption if it's left BLANK!).  Note that
+    // this applies whether definitional_leave was overridden by an ordinary
+    // LEAVE parameter or not... PROC use still implies no result.
+    //
+    if (flags & MKF_LEAVE) {
+        Move_Value(
+            CTX_VAR(meta, STD_ACTION_META_RETURN_TYPE),
+            Get_System(SYS_STANDARD, STD_PROC_RETURN_TYPE)
         );
     }
 

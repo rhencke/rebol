@@ -495,13 +495,8 @@ static void Init_Action_Meta_Shim(void) {
     };
     REBCTX *meta = Alloc_Context(REB_OBJECT, 6);
     REBCNT i = 1;
-    for (; i != 7; ++i) {
-        //
-        // void is used as the default for fields (R3-Alpha makes them as
-        // BLANK! on initialization, e.g. `make object! [x: ()]` is illegal).
-        //
-        Init_Void(Append_Context(meta, NULL, Canon(field_syms[i - 1])));
-    }
+    for (; i != 7; ++i) // BLANK!, as `make object! [x: ()]` is illegal
+        Init_Blank(Append_Context(meta, nullptr, Canon(field_syms[i - 1])));
 
     Init_Object(CTX_VAR(meta, 1), meta); // it's "selfish"
 
