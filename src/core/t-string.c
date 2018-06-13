@@ -1264,8 +1264,6 @@ REBTYPE(String)
     case SYM_FIND: {
         INCLUDE_PARAMS_OF_FIND;
 
-        const REB_R r_not_found = (verb == SYM_FIND) ? R_BLANK : R_NULL;
-
         UNUSED(PAR(series));
         UNUSED(PAR(value));
 
@@ -1326,7 +1324,7 @@ REBTYPE(String)
         );
 
         if (ret >= cast(REBCNT, tail))
-            return r_not_found;
+            return R_NULL;
 
         if (REF(only))
             len = 1;
@@ -1339,7 +1337,7 @@ REBTYPE(String)
         else {
             ret++;
             if (ret >= cast(REBCNT, tail))
-                return r_not_found;
+                return R_NULL;
 
             if (IS_BINARY(v)) {
                 Init_Integer(v, *BIN_AT(VAL_SERIES(v), ret));
@@ -1382,7 +1380,7 @@ REBTYPE(String)
 
         if (cast(REBINT, VAL_INDEX(v)) >= tail) {
             if (not REF(part))
-                return R_BLANK;
+                return R_NULL;
             Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
             return R_OUT;
         }
@@ -1632,7 +1630,7 @@ REBTYPE(String)
 
         if (REF(only)) {
             if (index >= tail)
-                return R_BLANK;
+                return R_NULL;
             index += (REBCNT)Random_Int(REF(secure)) % (tail - index);
             if (IS_BINARY(v)) { // same as PICK
                 Init_Integer(D_OUT, *VAL_BIN_AT_HEAD(v, index));

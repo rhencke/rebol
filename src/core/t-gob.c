@@ -1069,10 +1069,10 @@ REBTYPE(Gob)
             fail (Error_Invalid(arg));
 
         if (!GOB_PANE(gob))
-            return R_BLANK;
+            return R_NULL;
         index += Get_Num_From_Arg(arg) - 1;
         if (index >= tail)
-            return R_BLANK;
+            return R_NULL;
         gob = *GOB_AT(gob, index);
         index = 0;
         goto set_index;
@@ -1186,7 +1186,7 @@ REBTYPE(Gob)
         if (index + len > tail)
             len = tail - index;
         if (index >= tail)
-            return R_BLANK;
+            return R_NULL;
 
         if (!REF(part)) { // just one value
             RESET_VAL_HEADER(D_OUT, REB_GOB);
@@ -1212,10 +1212,10 @@ REBTYPE(Gob)
         if (IS_GOB(arg)) {
             index = Find_Gob(gob, VAL_GOB(arg));
             if (index == NOT_FOUND)
-                return R_BLANK;
+                return R_NULL;
             goto set_index;
         }
-        return R_BLANK;
+        return R_NULL;
 
     case SYM_REVERSE:
         for (index = 0; index < tail/2; index++) {

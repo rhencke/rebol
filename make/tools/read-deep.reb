@@ -44,18 +44,18 @@ read-deep: function [
         {Include root path, retains full paths vs. returning relative paths.}
     /strategy
         {Allows Queue building to be overridden.}
-    take [action!]
+    taker [action!]
         {TAKE next item from queue, building the queue as necessary.}
 ][
-    take: default [:read-deep-seq]
+    taker: default [:read-deep-seq]
 
     result: make block! []
 
     queue: compose [(root)]
 
     while-not [tail? queue][
-        path: take queue
-        append result :path ; Possible void.
+        path: try taker queue ;-- Possible null
+        append result opt path
     ]
 
     if not full [

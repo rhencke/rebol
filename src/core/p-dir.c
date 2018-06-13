@@ -325,8 +325,8 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         assert(result != NULL); // should be synchronous
 
         if (rebDid("lib/error?", result, END)) {
-            rebRelease(result); // !!! R3-Alpha threw out error, returns blank
-            return R_BLANK;
+            rebRelease(result); // !!! R3-Alpha threw out error, returns null
+            return R_NULL;
         }
 
         rebRelease(result); // ignore result

@@ -72,7 +72,7 @@ disable-user-includes: procedure [
             any space {include}
             some space include-rule to end
         ] then [
-            if inline and (pos: find headers to file! name) [
+            if inline and (pos: try find headers to file! name) [
                 change/part line-iter (read/lines join-all [path-zlib name]) 1 
                 take pos
             ] else [

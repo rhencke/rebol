@@ -20,16 +20,17 @@ clean-path: function [
     /dir "Add a trailing / if missing"
 ][
     file: case [
-        any [only | not file? file] [
+        only or (not file? file) [
             copy file
         ]
+
         #"/" = first file [
             file: next file
             out: next what-dir
             while [
                 all [
                     #"/" = first file
-                    f: find/tail out #"/"
+                    f: try find/tail out #"/"
                 ]
             ][
                 file: next file
@@ -41,7 +42,7 @@ clean-path: function [
         append what-dir file
     ]
 
-    if all [dir | not dir? file] [append file #"/"]
+    if dir and (not dir? file) [append file #"/"]
 
     out: make type of file length of file ; same datatype
     count: 0 ; back dir counter
@@ -51,7 +52,9 @@ clean-path: function [
             "../" (count: me + 1)
             | "./"
             | #"/" (
-                if any [not file? file | #"/" <> last out] [append out #"/"]
+                if (not file? file) or (#"/" <> last out) [
+                    append out #"/"
+                ]
             )
             | copy f [to #"/" | to end] (
                 if count > 0 [
@@ -65,7 +68,10 @@ clean-path: function [
         ]
     ]
 
-    if all [#"/" = last out | #"/" <> last file] [remove back tail of out]
+    if (#"/" = last out) and (#"/" <> last file) [
+        remove back tail of out
+    ]
+
     reverse out
 ]
 
@@ -193,16 +199,18 @@ list-dir: procedure [
     ]
 
     for-each file files [
-        if any [
-            all [f | dir? file]
-            all [d | not dir? file]
-        ][continue]
+        any [
+            f and (dir? file)
+            d and (not dir? file)
+        ] then [
+            continue
+        ]
 
-        either text? l [
+        if text? l [
             append l file
             append/dup l #" " 15 - remainder length of l 15
             if greater? length of l 60 [print l clear l]
-        ][
+        ] else [
             info: get (words of query file)
             change info second split-path info/1
             printf [indent 16 -8 #" " 24 #" " 6] info
@@ -212,7 +220,7 @@ list-dir: procedure [
         ]
     ]
 
-    if all [text? l | not empty? l] [print l]
+    if (text? l) and (not empty? l) [print l]
 
     change-dir save-dir
 ]
@@ -262,15 +270,17 @@ to-relative-file: function [
     if text? file [ ; Local file
         comment [
             ; file-to-local drops trailing / in R2, not in R3
-            if tmp: find/match file file-to-local what-dir [file: next tmp]
+            if tmp: try find/match file file-to-local what-dir [
+                file: next tmp
+            ]
         ]
-        file: maybe opt find/match file file-to-local what-dir
+        file: maybe find/match file file-to-local what-dir
         if as-rebol [
             file: local-to-file file
             no-copy: true
         ]
     ] else [
-        file: maybe opt find/match file what-dir
+        file: maybe find/match file what-dir
         if as-local [
             file: file-to-local file
             no-copy: true

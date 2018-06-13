@@ -92,7 +92,7 @@ mixin?: func [
     ; Note: Unnamed modules DO NOT default to being mixins.
     if module? mod [mod: meta-of mod]  ; Get the header object
     did all [
-        did find select mod 'options 'private
+        find select mod 'options 'private
         ; If there are no exports, there's no difference
         block? select mod 'exports
         not empty? select mod 'exports
@@ -153,7 +153,7 @@ load-header: function [
 
     if text? source [tmp: to binary! source]
 
-    if not data: script? tmp [ ; no script header found
+    data: script? tmp else [ ; no script header found
         return either required ['no-header] [
             reduce [
                 _ ;-- no header object
@@ -194,14 +194,14 @@ load-header: function [
         return 'bad-header
     ]
 
-    if did find hdr/options 'content [
+    if find hdr/options 'content [
         join hdr ['content data] ; as of start of header
     ]
 
     if 13 = rest/1 [rest: next rest] ; skip CR
     if 10 = rest/1 [rest: next rest | line: me + 1] ; skip LF
 
-    if integer? tmp: select hdr 'length [
+    if integer? tmp: try select hdr 'length [
         end: skip rest tmp
     ]
 
@@ -215,7 +215,7 @@ load-header: function [
     if :key = 'rebol [
         ; regular script, binary or script encoded compression supported
         case [
-            did find hdr/options 'compress [
+            find hdr/options 'compress [
                 rest: any [
                     attempt [
                         ; Raw bits.  whitespace *could* be tolerated; if
@@ -243,7 +243,7 @@ load-header: function [
         rest: skip first set [data: end:] transcode/next data 2
 
         case [
-            did find hdr/options 'compress [ ; script encoded only
+            find hdr/options 'compress [ ; script encoded only
                 rest: attempt [gunzip first rest] or [
                     return 'bad-compress
                 ]
@@ -265,7 +265,7 @@ load-header: function [
 ]
 
 
-no-all: construct [all] [all: ()]
+no-all: construct [all] [all: _]
 protect 'no-all/all
 
 load: function [
@@ -306,7 +306,7 @@ load: function [
                 source: s
                 header: header
                 all: a
-                ftype: :ftype
+                set* quote ftype: :ftype
             ]
         ]
     ]
@@ -315,7 +315,7 @@ load: function [
     if match [file! url!] source [
         file: source
         line: 1
-        ftype: default [file-type? source]
+        ftype: default [try file-type? source]
 
         if ftype = 'extension [
             if not file? source [
@@ -341,7 +341,7 @@ load: function [
         ]
     ]
     else [
-        file: line: null
+        file: line: _
         data: source
         ftype: default ['rebol]
 
@@ -385,7 +385,7 @@ load: function [
             data: to binary! data ;-- !!! inefficient, might be UTF8
         ]
         assert [binary? data]
-        data: transcode/file/line data :file :line
+        data: transcode/file/line data (opt file) (opt line)
         take/last data ;-- !!! always the residual, a #{}... why?
     ]
 
@@ -397,7 +397,7 @@ load: function [
     if not any [
         'unbound = ftype ;-- may be void
         'module = select hdr 'type
-        did find try get 'hdr/options 'unbound
+        find try get 'hdr/options 'unbound
     ][
         data: intern data
     ]
@@ -498,11 +498,11 @@ do-needs: function [
             module: name
 
             version: true
-            ver: opt vers
+            set* quote ver: opt vers
 
-            no-share: no-share
-            no-lib: no-lib
-            no-user: no-user
+            set* quote no-share: no-share
+            set* quote no-lib: no-lib
+            set* quote no-user: no-user
         ]
 
         ; Collect any mixins into the object (if we are doing that)
@@ -535,7 +535,7 @@ load-ext-module: function [
 
     mod: make module! (length of code) / 2
     set-meta mod hdr
-    if errors: find code to set-word! 'errors [
+    if errors: try find code to set-word! 'errors [
         eo: construct make object! [
             code: error-base
             type: lowercase spaced [hdr/name "error"]
@@ -566,13 +566,13 @@ load-ext-module: function [
                 spec: spec
                 cfuncs: ((cfuncs))
                 index: index
-                code: get 'code
+                set* quote code: get 'code ;-- !!! review RE:null changes
                 unloadable: ((unloadable))
             ]
         ]
     ]
 
-    if w: in mod 'words [protect/hide w]
+    if w: try in mod 'words [protect/hide w]
     do code
 
     if hdr/name [
@@ -584,7 +584,7 @@ load-ext-module: function [
         not block? select hdr 'exports
         empty? hdr/exports
     ] or [
-        if did find hdr/options 'private [
+        if find hdr/options 'private [
             ;
             ; Private, so the EXPORTS must be added to user context to be seen
             ;
@@ -649,7 +649,7 @@ load-module: function [
 
             ; Return blank if no module of that name found
 
-            if not tmp: find/skip system/modules source 2 [
+            tmp: find/skip system/modules source 2 else [
                 return blank
             ]
 
@@ -692,7 +692,7 @@ load-module: function [
 
         module! [
             ; see if the same module is already in the list
-            if tmp: find/skip next system/modules mod: source 2 [
+            if tmp: try find/skip next system/modules mod: source 2 [
                 if as_LOAD_MODULE [
                     ; already imported
                     cause-error 'script 'bad-refine /as
@@ -736,9 +736,9 @@ load-module: function [
                 apply 'load-module [
                     source: mod
                     version: version
-                    ver: :ver
+                    set* quote ver: :ver
                     as: true
-                    name: opt name
+                    set* quote name: opt name
                     no-share: no-share
                     no-lib: no-lib
                     import: import
@@ -810,7 +810,7 @@ load-module: function [
     all [
         ; set to false later if existing module is used
         override?: not no-lib
-        set [name0: mod0:] pos: find/skip system/modules name 2
+        set [name0: mod0:] pos: try find/skip system/modules name 2
     ] then [
         ; Get existing module's info
 
@@ -871,7 +871,7 @@ load-module: function [
     if not mod [
         ; not prebuilt or delayed, make a module
 
-        if did find hdr/options 'isolate [no-share: true] ; in case of delay
+        if find hdr/options 'isolate [no-share: true] ; in case of delay
 
         if object? code [ ; delayed extension
             fail "Code has not been updated for LOAD-EXT-MODULE"
@@ -965,7 +965,7 @@ import: function [
     set [name: mod:] apply 'load-module [
         source: module
         version: version
-        ver: :ver
+        set* quote ver: :ver
         no-share: no-share
         no-lib: no-lib
         import: true ;-- !!! original code always passed /IMPORT, should it?
@@ -987,7 +987,7 @@ import: function [
                     apply 'load-module [
                         source: path/:file
                         version: version
-                        ver: :ver
+                        set* quote ver: :ver
                         no-share: :no-share
                         no-lib: :no-lib
                         import: true
@@ -1014,7 +1014,7 @@ import: function [
     case [
         any [
             no-user
-            not block? exports: select hdr: meta-of mod 'exports
+            not block? exports: try select hdr: meta-of mod 'exports
             empty? exports
         ][
             ; Do nothing if /no-user or no exports.
@@ -1022,7 +1022,7 @@ import: function [
 
         any [
             no-lib
-            did find select hdr 'options 'private ; /no-lib causes private
+            find select hdr 'options 'private ; /no-lib causes private
         ][
             ; It's a private module (mixin)
             ; we must add *all* of its exports to user

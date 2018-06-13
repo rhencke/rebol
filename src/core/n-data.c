@@ -541,7 +541,7 @@ REBNATIVE(get)
 //  {Turns nulls into blanks, ANY-VALUE! passes through. (See Also: OPT)}
 //
 //      return: [any-value!]
-//          {blank if input was void, or original value otherwise}
+//          {blank if input was null, or original value otherwise}
 //      optional [<opt> any-value!]
 //  ]
 //
@@ -584,6 +584,7 @@ REBNATIVE(opt)
 //
 //  "Returns the word or block bound into the given context."
 //
+//      return: [<opt> any-word! block! group!]
 //      context [any-context! block!]
 //      word [any-word! block! group!] "(modified if series)"
 //  ]
@@ -625,7 +626,7 @@ REBNATIVE(in)
                     }
                 }
             }
-            return R_BLANK;
+            return R_NULL;
         }
 
         fail (Error_Invalid(word));
@@ -642,7 +643,7 @@ REBNATIVE(in)
 
     REBCNT index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), FALSE);
     if (index == 0)
-        return R_BLANK;
+        return R_NULL;
 
     Init_Any_Word_Bound(
         D_OUT,
@@ -706,12 +707,10 @@ REBNATIVE(resolve)
 //          {Word or path, or block of words and paths}
 //      value [<opt> any-value!]
 //          "Value or block of values"
-//      /single
-//          {If target and value are blocks, set each item to the same value}
-//      /some
-//          {Blank values (or values past end of block) are not set.}
-//      /enfix
-//          {Function calls through this word should get first arg from left}
+//      /single "If target and value are blocks, set each to the same value"
+//      /some "blank values (or values past end of block) are not set."
+//      /enfix "ACTION! calls through this word get first arg from left"
+//      /opt "If value is null, then consider this to be an UNSET operation"
 //  ]
 //
 REBNATIVE(set)
@@ -792,6 +791,9 @@ REBNATIVE(set)
 
         if (REF(enfix) and not IS_ACTION(ARG(value)))
             fail ("Attempt to SET/ENFIX on a non-function");
+
+        if (IS_VOID(ARG(value)) and not REF(opt))
+            fail (Error_Need_Value_Core(target, target_specifier));
 
         if (IS_BAR(target)) {
             //
@@ -938,8 +940,8 @@ REBNATIVE(semiquoted_q)
 //
 //  {Function for returning the same value that it got in (identity function)}
 //
-//      return: [any-value!]
-//      value [<end> any-value!]
+//      return: [<opt> any-value!]
+//      value [<end> <opt> any-value!]
 //          {!!! <end> flag is hack to limit enfix reach to the left}
 //      /quote
 //          {Make it seem that the return result was quoted}
@@ -954,16 +956,9 @@ REBNATIVE(identity)
 //
 // This is assigned to <- for convenience, but cannot be used under that name
 // in bootstrap with R3-Alpha.  It uses the <end>-ability to stop left reach,
-// since there is no specific flag for that...but in actuality, it is designed
-// to not accept nulls.
+// since there is no specific flag for that.
 {
     INCLUDE_PARAMS_OF_IDENTITY;
-
-    if (IS_VOID(ARG(value))) { // <end>
-        DECLARE_LOCAL (word);
-        Init_Word(word, VAL_PARAM_SPELLING(PAR(value)));
-        fail (Error_No_Value(word));
-    }
 
     Move_Value(D_OUT, ARG(value));
 
@@ -1338,7 +1333,7 @@ REBNATIVE(null_q)
 //
 //      value [<opt> any-value!]
 //  ][
-//      any [
+//      did any [
 //          unset? 'value
 //          blank? :value
 //      ]

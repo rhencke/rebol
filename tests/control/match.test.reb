@@ -12,23 +12,23 @@
 ;
 
 ("aaa" = match parse "aaa" [some "a"])
-(_ = match parse "aaa" [some "b"])
+(null = match parse "aaa" [some "b"])
 
 (10 = match integer! 10)
-(_ = match integer! "ten")
+(null = match integer! "ten")
 
 ("ten" = match [integer! text!] "ten")
 (20 = match [integer! text!] 20)
-(_ = match [integer! text!] <tag>)
+(null = match [integer! text!] <tag>)
 
 (10 = match :even? 10)
-(_ = match :even? 3)
-(_ = match 'odd? 20)
+(null = match :even? 3)
+(null = match 'odd? 20)
 (7 = match 'odd? 7)
 
 (bar? match blank! _)
-(_ = match blank! 10)
-(null? match blank! false)
+(null = match blank! 10)
+(null = match blank! false)
 
 ; Since its other features were implemented with a fairly complex enclosed
 ; specialization, it's good to keep that usermode implementation around,
@@ -54,12 +54,11 @@
         ;
         ; Rather than have MATCH return a falsey result in these cases, pass
         ; back a BAR!.  But on failure, pass back a null.  That will cue
-        ; attention to the distorted success result, and lead those writing
-        ; expressions like the above to use DID MATCH.
+        ; attention to the distorted success result.
 
-        result: do f ;-- can't access f/arg after the DO
+        set* quote result: do f ;-- can't access f/arg after the DO
 
-        if all [not :arg | not null? :result] [
+        if not :arg and (not null? :result) [
             return '| ;-- BAR! if matched a falsey type
         ]
         to-value :result ;-- return blank if no match, else truthy result

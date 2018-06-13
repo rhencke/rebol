@@ -62,15 +62,15 @@
 )
 (
     blk: []
-    blank? skip* blk 2147483647
+    null? skip* blk 2147483647
 )
 (
     blk: []
-    blank? skip* blk -1
+    null? skip* blk -1
 )
 (
     blk: []
-    blank? skip* blk -2147483648
+    null? skip* blk -2147483648
 )
 (
     blk: next [1 2 3]
@@ -86,25 +86,25 @@
 )
 (
     blk: next [1 2 3]
-    blank? skip* blk 2147483647
+    null? skip* blk 2147483647
 )
 (
     blk: at [1 2 3] 3
-    blank? skip* blk 2147483646
+    null? skip* blk 2147483646
 )
 (
     blk: at [1 2 3] 4
-    blank? skip* blk 2147483645
+    null? skip* blk 2147483645
 )
 (
     blk: [1 2 3]
-    blank? skip* blk -1
+    null? skip* blk -1
 )
 (
     blk: [1 2 3]
-    blank? skip* blk -2147483647
+    null? skip* blk -2147483647
 )
 (
     blk: next [1 2 3]
-    blank? skip* blk -2147483648
+    null? skip* blk -2147483648
 )

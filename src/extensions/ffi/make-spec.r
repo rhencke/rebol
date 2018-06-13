@@ -67,7 +67,7 @@ options: [
                 'static 'dynamic [
                     for-each var [includes cflags searches ldflags][
                         x: rebmake/pkg-config
-                            any [user-config/pkg-config {pkg-config}]
+                            try any [user-config/pkg-config {pkg-config}]
                             var
                             %libffi
                         if not empty? x [
@@ -76,7 +76,7 @@ options: [
                     ]
 
                     libs: rebmake/pkg-config
-                        any [user-config/pkg-config {pkg-config}]
+                        try any [user-config/pkg-config {pkg-config}]
                         'libraries
                         %libffi
 

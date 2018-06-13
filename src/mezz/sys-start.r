@@ -88,7 +88,7 @@ finish-init-core: proc [
             right [<opt> any-value! <...>]
             :look [any-value! <...>]
         ][
-            right: take* right
+            set* quote right: take* right
             if unset? 'left or (block? first look) [
                 fail/where [
                     "UNLESS has been repurposed in Ren-C as an infix operator"
@@ -108,8 +108,8 @@ finish-init-core: proc [
 
         switch: (adapt 'switch [
             for-each c cases [
-                lib/all [ ;-- SWITCH/ALL would override
-                    did match [word! path!] c
+                lib/all [ ;-- SWITCH's /ALL would override
+                    match [word! path!] c
                     'null <> c
                     not datatype? get c
                 ] then [

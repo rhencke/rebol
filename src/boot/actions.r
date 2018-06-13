@@ -396,6 +396,8 @@ close: action [
 
 read: action [
     {Read from a file, URL, or other port.}
+    return: [<opt> binary! text! block! port!]
+        "null on (some) failures !!! REVIEW as part of port model review"
     source [port! file! url! block!]
     /part {Partial read a given number of units (source relative)}
         limit [any-number!]
@@ -403,8 +405,6 @@ read: action [
         index [any-number!]
     /string {Convert UTF and line terminators to standard text string}
     /lines {Convert to block of strings (implies /string)}
-;   /as {Convert to string using a specified encoding}
-;       encoding [blank! any-number!] {UTF number (0 8 16 -16)}
 ]
 
 write: action [
@@ -426,6 +426,7 @@ write: action [
 
 query: action [
     {Returns information about a port, file, or URL.}
+    return: [<opt> object!]
     target [port! file! url! block!]
     /mode "Get mode information"
     field [word! blank!] "NONE will return valid modes for port type"
@@ -433,6 +434,8 @@ query: action [
 
 modify: action [
     {Change mode or control for port or file.}
+    return: [logic!]
+        "TRUE if successful, FALSE if unsuccessful (!!! REVIEW)"
     target [port! file!]
     field [word! blank!]
     value
@@ -447,6 +450,7 @@ modify: action [
 ;
 on-wake-up: action [
     {Updates external and internal states (normally after read/write).}
+    return: [<opt>]
     port [port!]
 ]
 

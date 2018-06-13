@@ -1,7 +1,15 @@
 REBOL [
     File: %rebmake.r
     Title: {Rebol-Based C/C++ Makefile and Project File Generator}
-    Type: 'module
+
+    ; !!! Making %rebmake.r a module means it gets its own copy of lib, which
+    ; creates difficulties for the bootstrap shim technique.  Changing the
+    ; semantics of lib (e.g. how something fundamental like IF or CASE would
+    ; work) could break the mezzanine.  For the time being, just use DO to
+    ; run it in user, as with other pieces of bootstrap.
+    ;
+    ;-- Type: 'module --
+
     Rights: {
         Copyright 2017 Atronix Engineering
         Copyright 2017-2018 Rebol Open Source Developers
@@ -29,17 +37,12 @@ REBOL [
     }
 ]
 
+rebmake: make object! [ ;-- hack to workaround lack of Type: 'module
+
 default-compiler: _
 default-linker: _
 default-strip: _
 target-platform: _
-
-; !!! Slipping definitions into the module is difficult, as top-level names
-; will be cleared by the module logic itself.  Try this workaround for now.
-;
-file-to-local: :lib/file-to-local-hack
-local-to-file: :lib/local-to-file-hack
-did: :lib/did-hack
 
 map-files-to-local: func [
     return: [block!]
@@ -54,10 +57,11 @@ map-files-to-local: func [
 ]
 
 ends-with?: func [
+    return: [logic!]
     s [any-string!]
     suffix [blank! any-string!]
 ][
-    any [
+    did any [
         blank? suffix
         empty? suffix
         suffix = (skip tail-of s negate length-of suffix)
@@ -65,7 +69,7 @@ ends-with?: func [
 ]
 
 filter-flag: function [
-    return: [blank! text! file!]
+    return: [<opt> text! file!]
     flag [tag! text! file!]
         {If TAG! then must be <prefix:flag>, e.g. <gnu:-Wno-unknown-warning>}
     prefix [text!]
@@ -182,7 +186,7 @@ posix: make platform-class [
     gen-cmd-strip: function [
         cmd [object!]
     ][
-        tool: any [:cmd/strip :default-strip]
+        tool: try any [:cmd/strip :default-strip]
         either :tool [
             tool/commands/params cmd/file opt cmd/options
         ][
@@ -477,7 +481,7 @@ gcc: make compiler-class [
             if D [
                 spaced [
                     map-each flg definitions [
-                        if flg: filter-flag flg id [unspaced ["-D" flg]]
+                        if flg: try filter-flag flg id [unspaced ["-D" flg]]
                     ]
                 ]
             ]
@@ -550,7 +554,7 @@ tcc: make compiler-class [
             if D [
                 spaced [
                     map-each flg definitions [
-                        if flg: filter-flag flg id [unspaced ["-D" flg]]
+                        if flg: try filter-flag flg id [unspaced ["-D" flg]]
                     ]
                 ]
             ]
@@ -627,7 +631,7 @@ cl: make compiler-class [
             ]
             if D [
                 spaced map-each flg definitions [
-                    if flg: filter-flag flg id [unspaced ["/D" flg]]
+                    if flg: try filter-flag flg id [unspaced ["/D" flg]]
                 ]
             ]
             if O [
@@ -766,12 +770,12 @@ ld: make linker-class [
             ]
             'ext-dynamic-class [
                 either tag? dep/output [
-                    if lib: filter-flag dep/output id [
+                    if lib: try filter-flag dep/output id [
                         unspaced ["-l" lib]
                     ]
                 ][
                     unspaced [
-                        if did find dep/flags 'static ["-static "]
+                        if find dep/flags 'static ["-static "]
                         "-l" dep/output
                     ]
                 ]
@@ -1042,7 +1046,7 @@ strip-class: make object! [
                 all [params flags]
                 options
             ][
-                switch type-of flags [
+                switch type of flags [
                     block! [
                         spaced map-each flag flags [
                             filter-flag flag id
@@ -1092,7 +1096,7 @@ object-file-class: make object! [
         <local> cc
     ][
         cc: any [compiler default-compiler]
-        cc/command/I/D/F/O/g/(all [PIC 'PIC])/(all [E 'E]) output source
+        cc/command/I/D/F/O/g/(try all [PIC 'PIC])/(try all [E 'E]) output source
             case [
                 all [I includes][join-of includes ex-includes]
                 I [ex-includes]
@@ -1134,7 +1138,7 @@ object-file-class: make object! [
         make entry-class [
             target: output
             depends: append-of either depends [depends][[]] source
-            commands: command/I/D/F/O/g/(all [
+            commands: command/I/D/F/O/g/(try all [
                 any [
                     PIC
                     parent/class-name = 'dynamic-library-class
@@ -1298,7 +1302,7 @@ generator-class: make object! [
     setup-output: procedure [
         project [object!]
     ][
-        if not suffix: find reduce [
+        if not suffix: try find reduce [
             'application-class target-platform/exe-suffix
             'dynamic-library-class target-platform/dll-suffix
             'static-library-class target-platform/archive-suffix
@@ -1320,7 +1324,7 @@ generator-class: make object! [
                 ][
                     fail ["Unexpected project class:" (project/class-name)]
                 ]
-                if output-ext: find/last project/output #"." [
+                if output-ext: try find/last project/output #"." [
                     remove output-ext
                 ]
                 basename: project/output
@@ -1530,7 +1534,7 @@ makefile: make generator-class [
                         assert [obj/class-name = 'object-file-class]
                         if not obj/generated? [
                             obj/generated?: true
-                            append buf gen-rule obj/gen-entries/(all [project/class-name = 'dynamic-library-class 'PIC]) dep
+                            append buf gen-rule obj/gen-entries/(try all [project/class-name = 'dynamic-library-class 'PIC]) dep
                         ]
                     ]
                 ]
@@ -1686,7 +1690,7 @@ Execution: make generator-class [
                     assert [obj/class-name = 'object-file-class]
                     if not obj/generated? [
                         obj/generated?: true
-                        run-target obj/gen-entries/(all [p-project/class-name = 'dynamic-library-class 'PIC]) project
+                        run-target obj/gen-entries/(try all [p-project/class-name = 'dynamic-library-class 'PIC]) project
                     ]
                 ]
             ]
@@ -1828,7 +1832,7 @@ visual-studio: make generator-class [
         cflags [block!]
     ][
         for-next cflags [
-            if i: filter-flag cflags/1 "msc" [
+            if i: try filter-flag cflags/1 "msc" [
                 case [
                     parse i ["/TP" to end] [
                         comment [remove cflags] ; extensions wouldn't get it
@@ -1852,7 +1856,7 @@ visual-studio: make generator-class [
         size: _
         while [not tail? ldflags] [
             ;dump ldflags/1
-            if i: filter-flag ldflags/1 "msc" [
+            if i: try filter-flag ldflags/1 "msc" [
                 if parse i [
                     "/stack:"
                     copy size: some digit
@@ -1872,7 +1876,7 @@ visual-studio: make generator-class [
         subsystem: _
         while [not tail? ldflags] [
             ;dump ldflags/1
-            if i: filter-flag ldflags/1 "msc" [
+            if i: try filter-flag ldflags/1 "msc" [
                 if parse i [
                     "/subsystem:"
                     copy subsystem: to end
@@ -1949,7 +1953,7 @@ visual-studio: make generator-class [
         if project/class-name <> 'entry-class [
             inc: make text! 1024
             for-each i project/includes [
-                if i: filter-flag i "msc" [
+                if i: try filter-flag i "msc" [
                     append inc unspaced [file-to-local i ";"]
                 ]
             ]
@@ -1957,7 +1961,7 @@ visual-studio: make generator-class [
 
             def: make text! 1024
             for-each i project/definitions [
-                if i: filter-flag i "msc" [
+                if i: try filter-flag i "msc" [
                     append def unspaced [file-to-local i ";"]
                 ]
             ]
@@ -1970,7 +1974,7 @@ visual-studio: make generator-class [
                     'ext-dynamic-class
                     'ext-static-class
                     'static-library-class [
-                        if ext: filter-flag i/output "msc" [
+                        if ext: try filter-flag i/output "msc" [
                             append lib unspaced [
                                 ext
                                 if not ends-with? ext ".lib" [".lib"]
@@ -1990,7 +1994,7 @@ visual-studio: make generator-class [
 
             if find [dynamic-library-class application-class] project/class-name [
                 for-each i project/searches [
-                    if i: filter-flag i "msc" [
+                    if i: try filter-flag i "msc" [
                         append searches unspaced [file-to-local i ";"]
                     ]
                 ]
@@ -2088,7 +2092,7 @@ visual-studio: make generator-class [
       <AdditionalOptions>}
       if project/cflags [
           spaced map-each i project/cflags [
-              opt filter-flag i "msc"
+              filter-flag i "msc"
           ]
       ] {</AdditionalOptions>}
         ]
@@ -2155,9 +2159,9 @@ visual-studio: make generator-class [
                 append sources unspaced [
                     {    <ClCompile Include="} o/source {" >^/}
                     use [compile-as][
-                        opt all [
+                        all [
                             block? o/cflags
-                            compile-as: find-compile-as o/cflags
+                            compile-as: try find-compile-as o/cflags
                             unspaced [
                                 {        <CompileAs>} compile-as {</CompileAs>^/}
                             ]
@@ -2171,7 +2175,7 @@ visual-studio: make generator-class [
                     use [i o-inc][
                         o-inc: make text! 1024
                         for-each i o/includes [
-                            if i: filter-flag i "msc" [
+                            if i: try filter-flag i "msc" [
                                 append o-inc unspaced [file-to-local i ";"]
                             ]
                         ]
@@ -2185,7 +2189,7 @@ visual-studio: make generator-class [
                     use [i o-def][
                         o-def: make text! 1024
                         for-each i o/definitions [
-                            if i: filter-flag i "msc" [
+                            if i: try filter-flag i "msc" [
                                 append o-def unspaced [file-to-local i ";"]
                             ]
                         ]
@@ -2207,7 +2211,7 @@ visual-studio: make generator-class [
 
                     if o/cflags [
                         collected: map-each i o/cflags [
-                            opt filter-flag i "msc"
+                            filter-flag i "msc"
                         ]
                         if not empty? collected [
                             unspaced [
@@ -2342,3 +2346,5 @@ visual-studio: make generator-class [
 vs2015: make visual-studio [
     platform-tool-set: "v140"
 ]
+
+] ;-- end of `rebmake: make object!` workaround for lack of `Type: 'module`

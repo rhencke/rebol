@@ -35,7 +35,7 @@ dump-obj: function [
         if image? :val [return spaced ["size:" val/size]]
         if datatype? :val [return form val]
         if action? :val [
-            return clip-str any [title-of :val mold spec-of :val]
+            return clip-str any [title-of :val | mold spec-of :val]
         ]
         if object? :val [val: words of val]
         if typeset? :val [val: to-block val]
@@ -53,7 +53,7 @@ dump-obj: function [
 
     ; Search for matching strings:
     collect [
-        wild: all [set? 'pat | text? pat | find pat "*"]
+        wild: did all [set? 'pat | text? pat | find pat "*"]
 
         for-each [word val] obj [
             type: type of :val
@@ -70,7 +70,7 @@ dump-obj: function [
                     set? 'val
                     either text? :pat [
                         either wild [
-                            tail? any [find/any/match str pat pat]
+                            tail? (pat unless find/any/match str pat)
                         ][
                             find str pat
                         ]
@@ -183,47 +183,47 @@ spec-of: function [
 
     action [action!]
 ][
-    meta: try match object! meta-of :action
+    meta: try match* object! meta-of :action
 
-    specializee: try match action! try select meta 'specializee
-    adaptee: try match action! try select meta 'adaptee
-    original-meta: try match object! any [
-        :specializee and [meta-of :specializee]
-        :adaptee and [meta-of :adaptee]
+    specializee: try match* action! select meta 'specializee
+    adaptee: try match* action! select meta 'adaptee
+    original-meta: try match* object! any [
+        meta-of :specializee
+        meta-of :adaptee
     ]
 
     return collect [
-        keep/line ensure* text! opt any* [
+        keep/line ensure* text! any [
             select meta 'description
             select original-meta 'description
         ]
 
-        return-type: ensure* block! opt any* [
+        return-type: try ensure* block! any [
             select meta 'return-type
             select original-meta 'return-type
         ]
-        return-note: ensure* text! opt any* [
+        return-note: try ensure* text! any [
             select meta 'return-note
             select original-meta 'return-note
         ]
-        if set? 'return-type or (set? 'return-note) [
+        if any [return-type return-note] [
             keep compose/only [
-                return: (:return-type) (:return-note)
+                return: (opt return-type) (opt return-note)
             ]
         ]
 
-        types: ensure* frame! opt any* [
+        types: try ensure* frame! any [
             select meta 'parameter-types
             select original-meta 'parameter-types
         ]
-        notes: ensure* frame! opt any* [
+        notes: try ensure* frame! any [
             select meta 'parameter-notes
             select original-meta 'parameter-notes
         ]
 
         for-each param words of :action [
             keep compose/only [
-                (param) (select try :types param) (select try :notes param)
+                (param) (select types param) (select notes param)
             ]
         ]
     ]
@@ -235,12 +235,11 @@ title-of: function [
 
     value [any-value!]
 ][
-    try switch type of :value [
+    switch type of :value [
         action! [
             all [
-                object? meta: meta-of :value
-                text? description: select meta 'description
-                copy description
+                meta: try match* object! meta-of :value
+                copy try match* text! select meta 'description
             ]
         ]
 
@@ -374,7 +373,7 @@ help: procedure [
         ]
 
         path! word! [
-            if null? value: get topic [
+            value: get topic else [
                 print ["No information on" topic "(has no value)"]
                 leave
             ]
@@ -448,13 +447,18 @@ help: procedure [
         leave
     ]
 
-    ; Must be a function...
-    ; If it has refinements, strip them:
-    ;if path? :topic [topic: first :topic]
+    ; The HELP mechanics for ACTION! are more complex in Ren-C due to the
+    ; existence of function composition tools like SPECIALIZE, CHAIN, ADAPT,
+    ; HIJACK, etc.  Rather than keep multiple copies of the help strings,
+    ; the relationships are maintained in META-OF information on the ACTION!
+    ; and are "dug through" in order to dynamically inherit the information.
+    ;
+    ; Code to do this evolved rather organically, as automatically generating
+    ; help for complex function derivations is a research project in its
+    ; own right.  So it tends to break--test it as much as possible.
 
     space4: unspaced [space space space space] ;-- use instead of tab
 
-    ;-- Print info about function:
     print "USAGE:"
 
     args: _ ;-- plain arguments
@@ -471,96 +475,93 @@ help: procedure [
     ; !!! Should refinement args be shown for enfixed case??
     ;
     if enfixed and (not empty? args) [
-        print [space4 args/1 (uppercase mold topic) next args]
+        print unspaced [
+            space4 spaced [args/1 (uppercase mold topic) next args]
+        ]
     ] else [
-        print [space4 (uppercase mold topic) args refinements]
+        print unspaced [
+            space4 spaced [(uppercase mold topic) args refinements]
+        ]
     ]
 
     ; Dig deeply, but try to inherit the most specific meta fields available
     ;
     fields: dig-action-meta-fields :value
 
-    description: :fields/description
-    return-type: :fields/return-type
-    return-note: :fields/return-note
-    types: :fields/parameter-types
-    notes: :fields/parameter-notes
-
-    ; For reporting what kind of function this is, don't dig at all--just
-    ; look at the meta information of the function being asked about
+    ; For reporting what *kind* of action this is, don't dig at all--just
+    ; look at the meta information of the action being asked about.  Note that
+    ; not all actions have META-OF (e.g. those from MAKE ACTION!, or FUNC
+    ; when there was no type annotations or description information.)
     ;
-    meta: meta-of :value
+    meta: try meta-of :value
 
-    original-name: ensure* word! any* [
+    original-name: try <- ensure* word! any [
         select meta 'specializee-name
         select meta 'adaptee-name
     ] also lambda name [
         uppercase mold name
     ]
 
-    specializee: ensure* action! select meta 'specializee
-    adaptee: ensure* action! select meta 'adaptee
-    chainees: ensure* block! select meta 'chainees
+    specializee: try ensure* action! select meta 'specializee
+    adaptee: try ensure* action! select meta 'adaptee
+    chainees: try ensure* block! select meta 'chainees
 
-    classification: {a function} unless case [
-        set? 'specializee [
-            {a specialized function} unless if set? 'original-name [
+    classification: {an action!} unless case [
+        :specializee [
+            {a specialized action!} unless if original-name [
                 spaced [{a specialization of} original-name]
             ]
         ]
 
-        set? 'adaptee [
-            {an adapted function} unless if set? 'original-name [
+        :adaptee [
+            {an adapted action!} unless if original-name [
                 spaced [{an adaptation of} original-name]
             ]
         ]
 
-        set? 'chainees [
-            {a chained function}
+        :chainees [
+            {a chained action!}
         ]
     ]
 
     print-newline
 
-    print [
-        "DESCRIPTION:" LF
-        space4 ("(undocumented)" unless get 'description) LF
-        space4 (uppercase mold topic) {is} classification
+    print "DESCRIPTION:"
+    print unspaced [space4 "(undocumented)" unless opt fields/description]
+    print unspaced [
+        space4 spaced [(uppercase mold topic) {is} classification]
     ]
 
     print-args: procedure [list /indent-words] [
         for-each param list [
-            note: ensure* text! select try :notes to-word param
-            type: ensure* [block! any-word!] select try :types to-word param
+            type: try ensure* block! (
+                opt select fields/parameter-types to-word param
+            )
+            note: try ensure* text! (
+                opt select fields/parameter-notes to-word param
+            )
 
             ;-- parameter name and type line
-            if set? 'type and (not refinement? param) [
+            if type and (not refinement? param) [
                 print unspaced [space4 param space "[" type "]"]
             ] else [
                 print unspaced [space4 param]
             ]
 
-            if set? 'note [
+            if note [
                 print unspaced [space4 space4 note]
             ]
         ]
     ]
 
-    either blank? :return-type [
-        ; If it's a PROCEDURE, saying "RETURNS: null" would waste space
-    ][
-        ; For any return besides "always null", try to say something about
-        ; the return value...even if just to say it's undocumented.
-        ;
-        print-newline
-        print ["RETURNS:" (if set? 'return-type [mold return-type])]
-        either set? 'return-note [
-            print unspaced [space4 return-note]
-        ][
-            if unset? 'return-type [
-                print unspaced [space4 "(undocumented)"]
-            ]
+    print-newline
+    if any [fields/return-type fields/return-note] [
+        print ["RETURNS:" if fields/return-type [mold fields/return-type]]
+        if fields/return-note [
+            print unspaced [space4 fields/return-note]
         ]
+    ] else [
+        print ["RETURNS: (undocumented)"]
     ]
 
     if not empty? args [
@@ -594,7 +595,10 @@ source: procedure [
 
         word! path! [
             name: arg
-            f: get :arg
+            f: get arg else [
+                print [name "is not set to a value"]
+                leave
+            ]
         ]
     ] else [
         name: "anonymous"

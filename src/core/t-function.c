@@ -224,7 +224,7 @@ REBTYPE(Action)
         case SYM_CONTEXT: {
             if (Get_Context_Of(D_OUT, value))
                 return R_OUT;
-            return R_BLANK; }
+            return R_NULL; }
 
         case SYM_WORDS:
             Init_Block(D_OUT, List_Func_Words(value, FALSE)); // no locals
@@ -262,12 +262,12 @@ REBTYPE(Action)
         //
         case SYM_FILE: {
             if (not ANY_SERIES(VAL_ACT_BODY(value)))
-                return R_BLANK;
+                return R_NULL;
 
             REBSER *s = VAL_SERIES(VAL_ACT_BODY(value));
 
             if (NOT_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
-                return R_BLANK;
+                return R_NULL;
 
             // !!! How to tell whether it's a URL! or a FILE! ?
             //
@@ -278,12 +278,12 @@ REBTYPE(Action)
 
         case SYM_LINE: {
             if (not ANY_SERIES(VAL_ACT_BODY(value)))
-                return R_BLANK;
+                return R_NULL;
 
             REBSER *s = VAL_SERIES(VAL_ACT_BODY(value));
 
             if (NOT_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
-                return R_BLANK;
+                return R_NULL;
 
             Init_Integer(D_OUT, MISC(s).line);
             return R_OUT; }
@@ -324,15 +324,15 @@ REB_R PD_Action(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (IS_BLANK(picker)) {
         //
         // Leave the function value as-is, and continue processing.  This
-        // enables things like `append/(all [only 'only])/dup`...
+        // enables things like `append/(only ?? 'only !! _)/dup`...
         //
         // Note this feature doesn't have obvious applications to refinements
         // that take arguments...only ones that don't.  Use "revoking" to
         // pass void as arguments to a refinement that is always present
         // in that case.
         //
-        // Void might seem more convenient, e.g. `append/(only ?? 'only)/dup`,
-        // however it is disallowed to use voids at the higher level path
+        // Null might seem more convenient, e.g. `append/(only ?? 'only)/dup`,
+        // however it is disallowed to use nulls at the higher level path
         // protocol.  This is probably for the best.
         //
         return R_OUT;

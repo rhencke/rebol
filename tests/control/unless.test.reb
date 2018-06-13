@@ -15,7 +15,7 @@
 (
     20 = (10 unless 20)
 )(
-    _ = (10 unless _)
+    _ = (10 unless _) ;-- BLANK! is considered a value (use OPT if not)
 )(
     10 = (10 unless ())
 )(

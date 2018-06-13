@@ -6,7 +6,7 @@
 )
 
 [#50
-    (blank? context of to word! "zzz")
+    (null? context of to word! "zzz")
 ]
 ; BIND works 'as expected' in object spec
 [#1549 (

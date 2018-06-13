@@ -223,7 +223,7 @@ REBNATIVE(near_of)
 //
 //  "Get word label used to invoke a function call (if still on stack)"
 //
-//      return: [word! blank!]
+//      return: [<opt> word!]
 //      frame [frame!]
 //  ]
 //
@@ -233,8 +233,8 @@ REBNATIVE(label_of)
 
     REBFRM *f = CTX_FRAME_MAY_FAIL(VAL_CONTEXT(ARG(frame)));
 
-    if (f->opt_label == NULL)
-        return R_BLANK;
+    if (not f->opt_label)
+        return R_NULL;
 
     Init_Word(D_OUT, f->opt_label);
     return R_OUT;
@@ -275,7 +275,7 @@ REBNATIVE(action_of)
 //
 //  "Get the parent of a FRAME!"
 //
-//      return: [blank! frame!]
+//      return: [<opt> frame!]
 //      frame [frame!]
 //  ]
 //
@@ -299,7 +299,7 @@ REBNATIVE(parent_of)
         }
     }
 
-    return R_BLANK;
+    return R_NULL;
 }
 
 

@@ -77,7 +77,7 @@ Script: [
     type: "script error"
 
     no-value:           [:arg1 {has no value}]
-    need-value:         [:arg1 {needs a value}]
+    need-value:         [:arg1 {needs a value (use TRY, DID, ELSE, or SET*)}]
     not-bound:          [:arg1 {word is not bound to a context}]
     no-relative:        [:arg1 {word is bound relative to context not on stack}]
     not-in-context:     [:arg1 {is not in the specified context}]

@@ -100,7 +100,7 @@ console!: make object! [
     ]
 
     print-result: procedure [v [<opt> any-value!]]  [
-        last-result: :v
+        set* (quote last-result:) :v
         case [
             null? :v [
                 ; Historically Rebol wouldn't print any eval result in the
@@ -134,7 +134,7 @@ console!: make object! [
             ;
             pos: molded: mold/limit :v 2048
             loop 20 [
-                pos: (next find pos newline) else [break]
+                pos: next (find pos newline else [break])
             ] also [ ; e.g. didn't break
                 insert clear pos "..."
             ]
@@ -339,7 +339,7 @@ host-console: function [
             [block! issue! text!]
         <with> instruction
     ][
-        really* switch type of item [
+        really switch type of item [
             issue! [
                 if not empty? instruction [append/line instruction '|]
                 insert instruction item
@@ -623,7 +623,7 @@ host-console: function [
         return <prompt>
     ]
 
-    if did shortcut: select system/console/shortcuts try first code [
+    if shortcut: try select system/console/shortcuts try first code [
         ;
         ; Shortcuts like `q => [quit]`, `d => [dump]`
         ;
@@ -668,7 +668,7 @@ why: procedure [
 ][
     err: default [system/state/last-error]
 
-    if did match [word! path!] err [
+    if match [word! path!] err [
         err: get err
     ]
 

@@ -109,16 +109,16 @@
 ; <| and |> were originally enfix, so the following tests would have meant x
 ; would be unset
 (
-    value: ()
-    x: ()
+    unset 'value
+    unset 'x
 
     3 = (value: 1 + 2 <| 30 + 40 x: value  () ())
 
     did all [value = 3 | x = 3]
 )
 (
-    value: ()
-    x: ()
+    unset 'value
+    unset 'x
 
     70 = (value: 1 + 2 |> 30 + 40 x: value () () ())
 

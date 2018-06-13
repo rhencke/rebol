@@ -1028,6 +1028,18 @@ REBCTX *Error_User(const char *utf8) {
 
 
 //
+//  Error_Need_Value_Core: C
+//
+REBCTX *Error_Need_Value_Core(const RELVAL *target, REBSPC *specifier) {
+    assert(IS_SET_WORD(target) or IS_SET_PATH(target));
+
+    DECLARE_LOCAL (specific);
+    Derelativize(specific, target, specifier);
+    return Error_Need_Value_Raw(specific);
+}
+
+
+//
 //  Error_Lookback_Quote_Too_Late: C
 //
 REBCTX *Error_Lookback_Quote_Too_Late(const RELVAL *word, REBSPC *specifier) {

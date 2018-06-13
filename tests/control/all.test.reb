@@ -1,7 +1,6 @@
 ; functions/control/all.r
 ; zero values
 (bar? all [])
-(null? all* [])
 ; one value
 (:abs = all [:abs])
 (
@@ -57,10 +56,10 @@
     :a-value == all [:a-value]
 )
 (true = all [true])
-(blank? all [false])
+(null? all [false])
 ($1 == all [$1])
 (same? :append all [:append])
-(blank? all [_])
+(null? all [_])
 (
     a-value: make object! []
     same? :a-value all [:a-value]
@@ -98,8 +97,7 @@
 )
 (0:00 == all [0:00])
 (0.0.0 == all [0.0.0])
-(error? trap [all [()]])
-(null? all* [()])
+(null? all [()])
 ('a == all ['a])
 ; two values
 (:abs = all [true :abs])
@@ -157,7 +155,7 @@
 )
 ($1 == all [true $1])
 (same? :append all [true :append])
-(blank? all [true _])
+(null? all [true _])
 (
     a-value: make object! []
     same? :a-value all [true :a-value]
@@ -195,8 +193,7 @@
 )
 (0:00 == all [true 0:00])
 (0.0.0 == all [true 0.0.0])
-(error? trap [all [1020 ()]])
-(1020 == all* [1020 ()])
+(null? all [1020 ()])
 ('a == all [true 'a])
 (true = all [:abs true])
 (
@@ -252,11 +249,11 @@
     true = all [:a-value true]
 )
 (true = all [true true])
-(blank? all [false true])
-(blank? all [true false])
+(null? all [false true])
+(null? all [true false])
 (true = all [$1 true])
 (true = all [:append true])
-(blank? all [_ true])
+(null? all [_ true])
 (
     a-value: make object! []
     true = all [:a-value true]
@@ -294,7 +291,6 @@
 )
 (true = all [0:00 true])
 (true = all [0.0.0 true])
-(true = all* [() true])
 (true = all ['a true])
 ; evaluation stops after encountering FALSE or NONE
 (

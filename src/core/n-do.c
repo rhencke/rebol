@@ -205,7 +205,7 @@ REBNATIVE(eval_enfix)
 //
 //      return: [<opt> any-value!]
 //      source [
-//          blank! ;-- useful for `do any [...]` scenarios when no match
+//          blank! ;-- useful for `do try ...` scenarios when no match
 //          block! ;-- source code in block form
 //          group! ;-- same as block (or should it have some other nuance?)
 //          text! ;-- source code in text form
@@ -239,7 +239,7 @@ REBNATIVE(do)
 
     switch (VAL_TYPE(source)) {
     case REB_BLANK:
-        return R_BLANK;
+        return R_NULL;
 
     case REB_BLOCK:
     case REB_GROUP: {

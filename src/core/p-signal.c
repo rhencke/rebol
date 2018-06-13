@@ -251,7 +251,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
                 update(signal, len, arg);
             }
         }
-        return R_BLANK; }
+        return R_BAR; }
 
     case SYM_READ: {
         // This device is opened on the READ:
@@ -272,7 +272,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
         if (len <= 0) {
             Free_Unmanaged_Series(ser);
-            return R_BLANK;
+            return R_NULL;
         }
 
         update(signal, len, arg);

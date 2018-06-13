@@ -45,7 +45,7 @@ boot-print: procedure [
     eval: :lib/eval
 
     if not system/options/quiet [
-        print/(all [any [eval_BOOT_PRINT | semiquoted? 'data] 'eval]) :data
+        print/(try all [any [eval_BOOT_PRINT | semiquoted? 'data] 'eval]) :data
     ]
 ]
 
@@ -58,7 +58,7 @@ loud-print: procedure [
     eval: :lib/eval
 
     if system/options/verbose [
-        print/(all [any [eval_BOOT_PRINT | semiquoted? 'data] 'eval]) :data
+        print/(try all [any [eval_BOOT_PRINT | semiquoted? 'data] 'eval]) :data
     ]
 ]
 
@@ -393,13 +393,13 @@ host-start: function [
     ][
         ;; lives under systems/options/home
 
-        path: join-of o/home switch/default system/platform/1 [
+        path: join-of o/home <- switch system/platform/1 [
             'Windows [%REBOL/]
-        ][
+        ] else [
             %.rebol/     ;; default *nix (covers Linux, MacOS (OS X) and Unix)
         ]
 
-        all [exists? path | path]
+        try all [exists? path | path]
     ]
 
     ; Set system/users/home (users HOME directory)

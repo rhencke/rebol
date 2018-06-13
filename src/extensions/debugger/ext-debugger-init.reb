@@ -33,7 +33,7 @@ backtrace*: function [
     get-frame: not blank? :level
 
     if get-frame [
-        if any [limit brief] [
+        any [limit brief] then [
             fail "Can't use /LIMIT or /BRIEF unless getting a list of frames"
         ]
 

@@ -209,7 +209,8 @@ type?: func [dummy:] [
 
 found?: func [dummy:] [
     fail/where [
-        {FOUND? is deprecated, use DID (e.g. DID FIND)}
+        {FOUND? is deprecated, use DID (e.g. DID FIND)} LF
+        {But it's not needed for IFs, just write IF FIND, it's shorter!} LF
         {See: https://trello.com/c/Cz0qs5d7}
     ] 'dummy
 ]
@@ -341,13 +342,12 @@ rejoin: function [
     ;
     if empty? block [return copy []]
 
-    ; Act like REDUCE of expression, but where void does not cause an error.
+    ; Act like REDUCE of expression, but where null does not cause an error.
     ;
     values: copy []
     position: block
     while-not [tail? position][
-        value: do/next position 'position
-        append/only values :value
+        append/only values do/next position 'position
     ]
 
     ; An empty block of values should result in an empty string.
@@ -356,9 +356,9 @@ rejoin: function [
 
     ; Take type of the first element for the result, or default to string.
     ;
-    result: either any-series? first values [
+    result: if any-series? first values [
         copy first values
-    ][
+    ] else [
         form first values
     ]
     append result next values
@@ -384,9 +384,9 @@ r3-alpha-apply: function [
     using-args: true
 
     while-not [tail? block] [
-        arg: either* only [
+        set* quote arg: either* only [
             block/1
-            elide (block: next block)
+            elide (block: try next block)
         ][
             do/next block 'block
         ]
@@ -395,11 +395,11 @@ r3-alpha-apply: function [
             using-args: set (in frame params/1) to-logic :arg
         ][
             if using-args [
-                set (in frame params/1) :arg
+                set* (in frame params/1) :arg
             ]
         ]
 
-        params: next params
+        params: try next params
     ]
 
     comment [
@@ -703,11 +703,10 @@ set 'r3-legacy* func [<local>] [
         ; If someone needs it, they can adapt this routine as needed.
         ;
         set: (function [
-            {SET does not need /ANY to unset a variable, use <- to check null}
             return: [<opt> any-value!]
             target [blank! any-word! any-path! block! any-context!]
             value [<opt> any-value!]
-            /any
+            /any "Renamed to /OPT, with SET/OPT specialized as SET*"
             /some
         ][
             set_ANY: any
@@ -715,13 +714,11 @@ set 'r3-legacy* func [<local>] [
             set_SOME: some
             some: :lib/some
 
-            if not set_ANY and (null? :value) [
-                fail "Legacy SET won't unset a variable without /ANY"
-            ]
             apply 'set [
                 target: either any-context? target [words of target] [target]
                 value: :value
                 some: set_SOME
+                opt: set_ANY
             ]
         ])
 
@@ -738,7 +735,7 @@ set 'r3-legacy* func [<local>] [
             if block? :source [
                 return source ;-- this is what it did :-/
             ]
-            result: either* any-context? source [
+            set* quote result: either* any-context? source [
                 get words of source
             ][
                 get source
@@ -814,7 +811,7 @@ set 'r3-legacy* func [<local>] [
             /except {TRAP/WITH is better: https://trello.com/c/IbnfBaLI}
             code [block! action!]
         ][
-            trap/(all [except 'with]) block :code
+            trap/(except ?? 'with !! _) block :code
         ])
 
         default: (func [
@@ -855,7 +852,7 @@ set 'r3-legacy* func [<local>] [
                 blank! [split input charset reduce [tab space CR LF]]
                 text! [split input to-bitset rules]
             ] else [
-                parse/(all [case_PARSE 'case]) input rules
+                parse/(case_PARSE ?? 'case !! _) input rules
             ]
         ])
 
@@ -1152,22 +1149,24 @@ set 'r3-legacy* func [<local>] [
     system/contexts/user/xor: enfix tighten :difference
 
     ; The Ren-C invariant for control constructs that don't run their cases
-    ; is to return VOID, not a "NONE!" (BLANK!) as in R3-Alpha.  We assume
-    ; that converting void results from these operations gives compatibility,
+    ; is to return NULL, not a "NONE!" (BLANK!) as in R3-Alpha.  We assume
+    ; that converting null results from these operations gives compatibility,
     ; and if it doesn't it's likealy a bigger problem because you can't put
-    ; "unset! literals" (voids) into blocks in the first place.
+    ; "unset! literals" (nulls) into blocks in the first place.
     ;
-    ; So make a lot of things like `first: (chain [:first :try])`
+    ; So make a lot of things like `first: (chain [:first :to-value])`
     ;
     for-each word [
         if either case
         while for-each loop repeat forall forskip
-        select pick
+        select pick find
+        query wait
+        bound? bind?
         first second third fourth fifth sixth seventh eighth ninth tenth
     ][
         append system/contexts/user compose [
             (to-set-word word)
-            (chain compose [(to-get-word word) :try])
+            (chain compose [(to-get-word word) :to-value])
         ]
     ]
 

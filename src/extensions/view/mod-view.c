@@ -106,8 +106,8 @@ REBOOL osDialogOpen = FALSE;
 //
 //  {Asks user to select file(s) and returns full file path(s)}
 //
-//      return: [file! block! blank!]
-//          {Blank if canceled, otherwise a path or block of paths}
+//      return: [<opt> file! block!]
+//          {Null if canceled, otherwise a path or block of paths}
 //      /save
 //          "File save mode"
 //      /multi
@@ -501,13 +501,13 @@ REBNATIVE(request_file_p)
         fail (error);
 
     if (DSP == dsp_orig)
-        return R_BLANK;
+        return R_NULL;
 
     if (REF(multi)) {
         //
         // For the caller's convenience, return a BLOCK! if they requested
         // /MULTI and there's even just one file.  (An empty block might even
-        // be better than BLANK! for that case?)
+        // be better than null for that case?)
         //
         Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
         return R_OUT;

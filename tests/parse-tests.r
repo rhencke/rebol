@@ -242,5 +242,5 @@
     "abc" = match parse "abc" ["a" "b" "c"]
 )
 (
-    blank? match parse "abc" ["a" "b" "d"]
+    null? match parse "abc" ["a" "b" "d"]
 )

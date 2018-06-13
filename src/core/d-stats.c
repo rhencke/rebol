@@ -40,6 +40,7 @@
 //
 //  {Provides status and statistics information about the interpreter.}
 //
+//      return: [<opt> time! integer!]
 //      /show
 //          "Print formatted results to console"
 //      /profile
@@ -116,7 +117,7 @@ REBNATIVE(stats)
     if (REF(dump_series)) {
         REBVAL *pool_id = ARG(pool_id);
         Dump_Series_In_Pool(VAL_INT32(pool_id));
-        return R_BLANK;
+        return R_NULL;
     }
 
     Init_Integer(D_OUT, Inspect_Series(REF(show)));

@@ -108,7 +108,7 @@ REBNATIVE(locale)
 //
 //  {Set/Get current locale, just a simple wrapper around C version}
 //
-//      return: [text! blank!]
+//      return: [<opt> text!]
 //      category [word!]
 //      value [text!]
 //  ]
@@ -177,7 +177,7 @@ REBNATIVE(setlocale)
     rebFree(value_utf8);
 
     if (not result)
-        return R_BLANK;
+        return R_NULL;
 
     REBVAL *str = rebText(result);
     Move_Value(D_OUT, str);

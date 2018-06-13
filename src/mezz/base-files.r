@@ -18,36 +18,38 @@ REBOL [
 
 info?: function [
     {Returns an info object about a file or url.}
+    return: [<opt> object! word!]
     target [file! url!]
     /only {for urls, returns 'file or blank}
 ][
-    either file? target [
-        query target
-    ][
-        if error? trap [
-            t: write target [HEAD]
-            if only [return 'file]
-            return make object! [
-                name: target
-                size: t/2
-                date: t/3
-                type: 'url
-            ]
-        ][
-            return _
+    if file? target [
+        return query target
+    ]
+    if error? trap [
+        t: write target [HEAD]
+        if only [return 'file]
+        return make object! [
+            name: target
+            size: t/2
+            date: t/3
+            type: 'url
         ]
+    ][
+        return null
     ]
 ]
 
 exists?: func [
     {Returns the type of a file or URL if it exists, otherwise blank.}
+    return: [<opt> word!]
+        "FILE, DIR, or null"
     target [file! url!]
-][ ; Returns 'file or 'dir, or blank
-    either url? target [
-        info?/only target
-    ][
-        select attempt [query target] 'type
+][
+    if url? target [
+        return info?/only target
     ]
+
+    select try attempt [query target] 'type
 ]
 
 size-of: size?: func [
@@ -71,11 +73,12 @@ modified?: func [
 ]
 
 suffix-of: func [
-    "Return the file suffix of a filename or url. Else, NONE."
+    "Return the file suffix of a filename or url. Else, null."
+    return: [<opt> file!]
     path [file! url! text!]
 ][
     all [
-        path: find/last path #"."
+        path: try find/last path #"."
         not find path #"/"
         to file! path
     ]
@@ -109,7 +112,7 @@ make-dir: func [
 
     if exists? path [return path]
 
-    if any [not deep url? path] [
+    if not deep or (url? path) [
         create path
         return path
     ]
@@ -124,7 +127,11 @@ make-dir: func [
             remove back tail of path ; trailing slash
         ]
     ][
+        ; !!! Changing this to `path unless find/last/tail path slash` should
+        ; work, but seems to cause a problem.  Review why when time permits.
+        ;
         end: any [find/last/tail path slash path]
+
         insert dirs copy end
         clear end
     ]
@@ -134,9 +141,9 @@ make-dir: func [
     for-each dir dirs [
         path: either empty? path [dir][path/:dir]
         append path slash
-        if error? trap [make-dir path] [
+        trap/with [make-dir path] func [e] [
             for-each dir created [attempt [delete dir]]
-            cause-error 'access 'cannot-open path
+            fail e
         ]
         insert created path
     ]
@@ -161,7 +168,7 @@ delete-dir: func [
 script?: func [
     {Checks file, url, or text string for a valid script header.}
 
-    return: [binary! blank!]
+    return: [<opt> binary!]
     source [file! url! binary! text!]
 ][
     switch type of source [
@@ -179,13 +186,13 @@ script?: func [
 ]
 
 file-type?: func [
-    "Return the identifying word for a specific file type (or BLANK!)"
-    return: [word! blank!]
+    "Return the identifying word for a specific file type (or null)"
+    return: [<opt> word!]
     file [file! url!]
 ][
     all [
-        file: try find (find system/options/file-types suffix-of file) word!
-        first file
+        file: try find system/options/file-types try suffix-of file
+        first try find file word!
     ]
 ]
 

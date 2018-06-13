@@ -897,8 +897,8 @@ return_temp:
 //
 //  "Get the index of a given frame or function as BACKTRACE shows it"
 //
-//      return: [integer! blank!]
-//          {BLANK! if no match}
+//      return: [<opt> integer!]
+//          {null if no match}
 //      level [action! frame!]
 //          {The action or frame to get an index for}
 //  ]
@@ -914,7 +914,7 @@ static REBNATIVE(backtrace_index)
         return R_OUT;
     }
 
-    return R_BLANK;
+    return R_NULL;
 }
 
 
@@ -999,7 +999,7 @@ modify_with_confidence:
         "feature you want isn't implemented doesn't mean you can't add it!)\n"
     );
 
-    return R_BLANK;
+    return R_NULL;
 }
 
 #include "tmp-mod-debugger-last.h"

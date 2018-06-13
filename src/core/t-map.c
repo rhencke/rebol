@@ -784,7 +784,7 @@ REBTYPE(Map)
         );
 
         if (n == 0)
-            return verb == SYM_FIND ? R_BLANK : R_NULL;
+            return R_NULL;
 
         Move_Value(
             D_OUT,
@@ -792,7 +792,7 @@ REBTYPE(Map)
         );
 
         if (verb == SYM_FIND)
-            return IS_VOID(D_OUT) ? R_BLANK : R_BAR;
+            return IS_VOID(D_OUT) ? R_NULL : R_BAR;
 
         return R_OUT; }
 

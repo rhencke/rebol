@@ -113,7 +113,7 @@ REBNATIVE(did_q)
 //  "Variant of TO-LOGIC which considers null values to also be false"
 //
 //      return: [logic!]
-//          {true if value is NOT a LOGIC! false, BLANK!, or void}
+//          {true if value is NOT a LOGIC! false, BLANK!, or null}
 //      optional [<opt> any-value!]
 //  ][
 //      not not :optional
@@ -123,7 +123,7 @@ REBNATIVE(did)
 {
     INCLUDE_PARAMS_OF_DID;
 
-    return R_FROM_BOOL(not IS_VOID_OR_FALSEY(ARG(optional)));
+    return R_FROM_BOOL(IS_TRUTHY(ARG(optional)));
 }
 
 
@@ -159,7 +159,7 @@ REBNATIVE(not)
 {
     INCLUDE_PARAMS_OF_NOT;
 
-    return R_FROM_BOOL(IS_VOID_OR_FALSEY(ARG(optional)));
+    return R_FROM_BOOL(IS_FALSEY(ARG(optional)));
 }
 
 
@@ -210,6 +210,7 @@ REBNATIVE(xor_q)
 //          [<opt> any-value!]
 //      :right "Quoted expression, evaluated unless left is blank or FALSE"
 //          [group! block!]
+//      /opt "If right is a BLOCK!, don't convert null results to blank"
 //  ]
 //
 REBNATIVE(and)
@@ -222,35 +223,33 @@ REBNATIVE(and)
     if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
         fail ("left hand side of AND should not be literal block");
 
-    if (IS_GROUP(right)) { // result should be LOGIC!, voids not tolerated
-        if (IS_VOID_OR_FALSEY(left)) {
-            if (IS_VOID(left))
-                fail (Error_Arg_Type(frame_, PAR(left), REB_MAX_VOID));
+    if (IS_GROUP(right)) { // result should be LOGIC!
+        if (REF(opt))
+            fail ("Can't use /OPT with AND when right hand side is a GROUP!");
+
+        if (IS_FALSEY(left))
             return R_FALSE; // no need to evaluate right
-        }
 
         if (Do_Any_Array_At_Throws(D_OUT, right))
             return R_OUT_IS_THROWN;
 
-        if (not IS_VOID_OR_FALSEY(D_OUT))
-            return R_TRUE;
-
-        if (IS_VOID(D_OUT))
-            fail (Error_No_Return_Raw());
-
-        return R_FALSE;
+        return R_FROM_BOOL(IS_TRUTHY(D_OUT));
     }
 
-    assert(IS_BLOCK(right)); // result is <opt> any-value!, voids tolerated
+    assert(IS_BLOCK(right)); // any-value! result, nulls may be blankified
 
-    if (IS_VOID_OR_FALSEY(left)) {
-        Move_Value(D_OUT, left);
-        return R_OUT; // no need to evaluate right, preserve exact falsey type
-    }
+    // no need to evaluate right if left is falsey
+    //
+    if (IS_BLANK(left))
+        return R_BLANK;
+    if (IS_VOID(left))
+        return REF(opt) ? R_NULL : R_BLANK;
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
         return R_OUT_IS_THROWN;
 
+    if (not REF(opt) and IS_VOID(D_OUT))
+        return R_BLANK;
     return R_OUT; // preserve the exact truthy or falsey value
 }
 
@@ -265,7 +264,7 @@ REBNATIVE(and)
 //          [<opt> any-value!]
 //      :right "Quoted expression, evaluated only if left is blank or FALSE"
 //          [group! block!]
-//
+//      /opt "If right is a BLOCK!, don't convert null results to blank"
 //  ]
 REBNATIVE(or)
 {
@@ -277,28 +276,22 @@ REBNATIVE(or)
     if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
         fail ("left hand side of OR should not be literal block");
 
-    if (IS_GROUP(right)) { // result should be LOGIC!, voids not tolerated
-        if (not IS_VOID_OR_FALSEY(left))
-            return R_TRUE; // no need to evaluate right
+    if (IS_GROUP(right)) { // result should be LOGIC!
+        if (REF(opt))
+            fail ("Can't use /OPT with OR when right hand side is a GROUP!");
 
-        if (IS_VOID(left))
-            fail (Error_Arg_Type(frame_, PAR(left), REB_MAX_VOID));
+        if (IS_TRUTHY(left))
+            return R_TRUE; // no need to evaluate right
 
         if (Do_Any_Array_At_Throws(D_OUT, right))
             return R_OUT_IS_THROWN;
 
-        if (not IS_VOID_OR_FALSEY(D_OUT))
-            return R_TRUE;
-
-        if (IS_VOID(D_OUT))
-            fail (Error_No_Return_Raw());
-
-        return R_FALSE;
+        return R_FROM_BOOL(IS_TRUTHY(D_OUT));
     }
 
-    assert(IS_BLOCK(right)); // result is <opt> any-value!, voids tolerated
+    assert(IS_BLOCK(right)); // any-value! result, nulls may be blankified
 
-    if (not IS_VOID_OR_FALSEY(left)) {
+    if (IS_TRUTHY(left)) {
         Move_Value(D_OUT, left);
         return R_OUT; // no need to evaluate right
     }
@@ -306,6 +299,8 @@ REBNATIVE(or)
     if (Do_Any_Array_At_Throws(D_OUT, right))
         return R_OUT_IS_THROWN;
 
+    if (not REF(opt) and IS_VOID(D_OUT))
+        return R_BLANK;
     return R_OUT; // preserve the exact truthy or falsey value
 }
 
@@ -316,11 +311,12 @@ REBNATIVE(or)
 //  {Boolean XOR, with mode to pass thru non-LOGIC! values}
 //
 //      return: "LOGIC! if right is GROUP!, else left or right or blank"
-//          [any-value!]
+//          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "Quoted expression, must be always evaluated as well"
 //          [group! block!]
+//      /opt "If right is a BLOCK!, don't convert null results to blank"
 //  ]
 //
 REBNATIVE(xor)
@@ -330,35 +326,32 @@ REBNATIVE(xor)
     REBVAL *left = ARG(left);
 
     if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
-        fail ("left hand side of OR should not be literal block");
+        fail ("left hand side of XOR should not be literal block");
 
     if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated
         return R_OUT_IS_THROWN;
 
     REBVAL *right = D_OUT;
 
-    if (IS_GROUP(left)) { // result should be LOGIC!, voids not tolerated
-        if (IS_VOID(left))
-            fail (Error_Arg_Type(frame_, PAR(left), REB_MAX_VOID));
-
-        if (IS_VOID(right))
-            fail (Error_No_Return_Raw());
+    if (IS_GROUP(right)) { // result should be LOGIC!
+        if (REF(opt))
+            fail ("Can't use /OPT with XOR when right hand side is a GROUP!");
 
         return R_FROM_BOOL(IS_TRUTHY(left) != IS_TRUTHY(right));
     }
 
-    assert(IS_BLOCK(right)); // any-value! result, voids allowed but blanked
+    assert(IS_BLOCK(right)); // any-value! result, nulls may be blankified
 
-    if (IS_VOID_OR_FALSEY(left)) {
-        if (IS_VOID_OR_FALSEY(right))
-            return R_BLANK;
+    if (IS_FALSEY(left)) {
+        if (IS_FALSEY(right))
+            return REF(opt) ? R_NULL : R_BLANK;
 
         assert(right == D_OUT);
         return R_OUT;
     }
 
-    if (not IS_VOID_OR_FALSEY(right))
-        return R_BLANK;
+    if (IS_TRUTHY(right))
+        return REF(opt) ? R_NULL : R_BLANK;
 
     Move_Value(D_OUT, left);
     return R_OUT;

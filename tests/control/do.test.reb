@@ -160,7 +160,7 @@
 (false = eval false)
 ($1 == eval $1)
 (null? eval (specialize 'of [property: 'type]) ())
-(blank? do _)
+(null? do _)
 (
     a-value: make object! []
     same? :a-value eval :a-value

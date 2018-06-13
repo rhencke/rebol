@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2010-2011 Christian Ensel
-// Copyright 2017 Rebol Open Source Contributors
+// Copyright 2017-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -877,7 +877,7 @@ REBNATIVE(insert_odbc)
     REBOOL use_cache = FALSE;
 
     REBOOL get_catalog = rebDid(
-        "word? <- try match [word! text!]", value, "or [",
+        "word? <- match [word! text!]", value, "else [",
             "fail {SQL dialect must start with WORD! or STRING! value}"
         "]", END
     );

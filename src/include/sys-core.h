@@ -215,7 +215,7 @@
         fflush(stdout); \
         Dump_Frame_Location(NULL, FS_TOP); \
         debug_break(); /* see %debug_break.h */ \
-    } while (true)
+    } while (false)
 
 #define BREAK_ON_TICK(tick) \
     if (tick == TG_Tick) BREAK_NOW()

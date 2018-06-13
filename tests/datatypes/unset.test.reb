@@ -4,11 +4,11 @@
 (not null? 1)
 
 [#68
-    (null? trap/with [a: ()] [_])
+    ('need-value = (trap [a: ()])/id)
 ]
 
-(error? trap [a: () a])
-(not error? trap [set 'a ()])
+(error? trap [set* quote a: () a])
+(not error? trap [set* 'a ()])
 
 (
     a-value: 10

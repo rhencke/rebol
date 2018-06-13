@@ -1147,7 +1147,7 @@ REBOOL RL_rebDid(const void *p, ...) {
     if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(condition));
 
-    return not IS_VOID_OR_FALSEY(condition); // DID treats voids as "falsey"
+    return IS_TRUTHY(condition);
 }
 
 
@@ -1173,7 +1173,7 @@ REBOOL RL_rebNot(const void *p, ...) {
     if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(condition));
 
-    return IS_VOID_OR_FALSEY(condition); // NOT treats voids as "falsey"
+    return IS_FALSEY(condition);
 }
 
 

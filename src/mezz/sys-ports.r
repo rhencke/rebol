@@ -65,9 +65,9 @@ make-port*: function [
 
     ; Defaults:
     port/actor: try get in scheme 'actor ; avoid evaluation
-    port/awake: any [
-        try get in port/spec 'awake
-        try get 'scheme/awake
+    port/awake: try any [
+        get try in port/spec 'awake
+        get 'scheme/awake
     ]
     port/spec/ref: default [spec]
     port/spec/title: default [scheme/title]
@@ -261,7 +261,7 @@ init-schemes: func [
 
             ; Are any of the requested ports awake?
             for-next ports [
-                if port: find waked first ports [return true]
+                if port: try find waked first ports [return true]
             ]
 
             false ; keep waiting

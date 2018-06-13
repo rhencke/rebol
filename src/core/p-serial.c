@@ -283,7 +283,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         else if (req->command == RDC_WRITE) {
             Init_Blank(data);  // Write is done.
         }
-        return R_BLANK; }
+        return R_BAR; }
 
     case SYM_CLOSE:
         if (req->flags & RRF_OPEN) {

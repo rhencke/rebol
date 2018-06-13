@@ -139,7 +139,7 @@ do*: function [
         ;
         do-needs hdr  ; Load the script requirements
         intern code   ; Bind the user script
-        result: catch/quit/with [
+        set* quote result: catch/quit/with [
             ;
             ; The source string may have been mutable or immutable, but the
             ; loaded code is not locked for this case.  So this works:
@@ -160,10 +160,10 @@ do*: function [
         ; to whether a directory listing would be possible (HTTP does not
         ; define a standard for that)
         ;
-        if all [
+        all [
             match [file! url!] source
-            file: find/last/tail source slash
-        ][
+            file: try find/last/tail source slash
+        ] then [
             change-dir copy/part source file
         ]
 
@@ -177,7 +177,7 @@ do*: function [
         ; Make the new script object
         original-script: system/script  ; and save old one
         system/script: construct system/standard/script [
-            title: select hdr 'title
+            title: try select hdr 'title
             header: hdr
             parent: :original-script
             path: what-dir
@@ -197,7 +197,7 @@ do*: function [
         ][
             do-needs hdr  ; Load the script requirements
             intern code   ; Bind the user script
-            result: catch/quit/with [
+            set* quote result: catch/quit/with [
                 do/next code :var ;-- If var is void, /NEXT is revoked
             ] :finalizer
         ]

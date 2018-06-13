@@ -55,12 +55,14 @@ modulo: function [
 ] [
     ; Coerce B to a type compatible with A
     any [any-number? a  b: make a b]
+
     ; Get the "accurate" MOD value
     r: mod a abs b
-    ; If the MOD result is "near zero", w.r.t. A and B,
-    ; return 0--the "expected" result, in human terms.
-    ; Otherwise, return the result we got from MOD.
-    either any [(a - r) = a | (r + b) = b] [make r 0] [r]
+
+    ; If the MOD result is "near zero", w.r.t. A and B, return 0--the
+    ; "expected" result.  Otherwise, return the result we got from MOD.
+    ;
+    any [(a - r) = a | (r + b) = b] then [make r 0] else [r]
 ]
 
 

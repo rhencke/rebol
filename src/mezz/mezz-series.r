@@ -162,7 +162,7 @@ replace: function [
         any-array? :pattern [length of :pattern]
     ]
 
-    while [pos: find/(all [case_REPLACE 'case]) target :pattern] [
+    while [pos: try find/(case_REPLACE ?? 'case !! _) target :pattern] [
         ; apply replacement if function, or drops pos if not
         ; the parens quarantine function invocation to maximum arity of 1
         (value: replacement pos)
@@ -236,8 +236,8 @@ reword: function [
     ;
     ; Integers have to be converted also.
     ;
-    if did match [integer! word!] prefix [prefix: to-text prefix]
-    if did match [integer! word!] suffix [suffix: to-text suffix]
+    if match [integer! word!] prefix [prefix: to-text prefix]
+    if match [integer! word!] suffix [suffix: to-text suffix]
 
     ; MAKE MAP! will create a map with no duplicates from the input if it
     ; is a BLOCK! (though differing cases of the same key will be preserved).
@@ -334,7 +334,7 @@ reword: function [
                         ;
                         output: insert/part output a b
 
-                        v: select/(all [case_REWORD 'case]) values keyword-match
+                        v: select/(case_REWORD ?? 'case !! _) values keyword-match
                         output: insert output case [
                             action? :v [v :keyword-match]
                             block? :v [do :v]
@@ -363,7 +363,7 @@ reword: function [
         (output: insert output a)
     ]
 
-    parse/(all [case_REWORD 'case]) source rule or [
+    parse/(case_REWORD ?? 'case !! _) source rule or [
         fail "Unexpected error in REWORD's parse rule, should not happen."
     ]
 
@@ -453,18 +453,18 @@ alter: func [
     case: :lib/case
 
     if bitset? series [
-        return either find series :value [
-            remove/part series :value false
-        ][
-            append series :value true
+        if find series :value [
+            remove/part series :value
+            return false
         ]
-    ]
-    either remove (find/(all [case_ALTER ['case]]) series :value) [
         append series :value
-        true
-    ][
-        false
+        return true
     ]
+    if remove (find/(case_ALTER ?? 'case !! _) series :value) [
+        append series :value
+        return true
+    ]
+    return false
 ]
 
 

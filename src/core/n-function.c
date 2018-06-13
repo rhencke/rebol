@@ -665,8 +665,8 @@ REBNATIVE(enclose)
 //
 //  {Cause all existing references to an ACTION! to invoke another ACTION!}
 //
-//      return: [action! blank!]
-//          {The hijacked action value, blank if self-hijack (no-op)}
+//      return: [<opt> action!]
+//          {The hijacked action value, null if self-hijack (no-op)}
 //      victim [action! word! path!]
 //          {Action value whose references are to be affected.}
 //      hijacker [action! word! path!]
@@ -723,7 +723,7 @@ REBNATIVE(hijack)
         // Permitting a no-op hijack has some applications...but offer a
         // distinguished result for those who want to detect the condition.
         //
-        return R_BLANK;
+        return R_NULL;
     }
 
     REBARR *victim_paramlist = VAL_ACT_PARAMLIST(victim);

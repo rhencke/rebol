@@ -62,7 +62,7 @@ static REBVAL *Trap_Dangerous(REBFRM *frame_) {
 //
 //  {Tries to DO a block, trapping raised errors}
 //
-//      return: "ERROR! if raised, else result (void if non-raised ERROR!)"
+//      return: "ERROR! if raised, else result (null if non-raised ERROR!)"
 //          [<opt> any-value!]
 //      code "Code to execute and monitor"
 //          [block! action!]
@@ -78,13 +78,15 @@ REBNATIVE(trap)
     REBVAL *error = rebRescue(cast(REBDNG*, &Trap_Dangerous), frame_);
     UNUSED(ARG(code)); // gets used by the above call, via the frame_ pointer
 
-    if (error == NULL) {
+    if (not error) {
         if (THROWN(D_OUT)) // though code didn't fail(), it may have thrown
             return R_OUT_IS_THROWN;
 
         if (not REF(with) and IS_ERROR(D_OUT)) // code may evaluate to ERROR!
             return R_NULL; // ...but void it so ERROR! *always* means raised
 
+        if (IS_VOID(D_OUT))
+            return R_BLANK; // blankify output (should there be an /OPT ?)
         return R_OUT;
     }
 

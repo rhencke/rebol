@@ -548,7 +548,7 @@ config-system: function [
     hint [blank! text! tuple!]
         {Version ID (blank means guess)}
 ][
-    version: switch type-of hint [
+    version: switch type of hint [
         blank! [ ;-- Try same version as this r3-make was built with
             to tuple! reduce [0 system/version/4 system/version/5]
         ]
@@ -557,6 +557,8 @@ config-system: function [
     ]
 
     if not tuple? version [
+        print mold type of version
+        wait 5
         fail ["Expected OS_ID tuple like 0.3.1, not:" version]
     ]
 

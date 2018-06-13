@@ -391,7 +391,7 @@ REBTYPE(Typeset)
         if (TYPE_CHECK(val, VAL_TYPE_KIND(arg)))
             return R_BAR;
 
-        return R_BLANK;
+        return R_NULL;
 
     case SYM_INTERSECT:
     case SYM_UNION:

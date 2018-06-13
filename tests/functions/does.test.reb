@@ -51,7 +51,7 @@
     did all [
         z = <finish> | x = 11 | y = 22
         elide (flag: false)
-        z = _ | x = 12 | y = 22
+        z = null | x = 12 | y = 22
     ]
 )
 

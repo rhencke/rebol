@@ -172,7 +172,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         break; }
 
     case SYM_ON_WAKE_UP:
-        return R_BLANK;
+        return R_BAR;
 
     // Normal block actions done on events:
     case SYM_POKE:

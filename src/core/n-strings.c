@@ -1244,6 +1244,7 @@ REBNATIVE(to_hex)
 //
 //  {Find a script header within a binary string. Returns starting position.}
 //
+//      return: [<opt> binary!]
 //      script [binary!]
 //  ]
 //
@@ -1255,7 +1256,7 @@ REBNATIVE(find_script)
 
     REBINT offset = Scan_Header(VAL_BIN_AT(arg), VAL_LEN_AT(arg));
     if (offset == -1)
-        return R_BLANK;
+        return R_NULL;
 
     VAL_INDEX(arg) += offset;
 
@@ -1267,7 +1268,7 @@ REBNATIVE(find_script)
 //
 //  invalid-utf8?: native [
 //
-//  {Checks UTF-8 encoding; if correct, returns blank else position of error.}
+//  {Checks UTF-8 encoding; if correct, returns null else position of error.}
 //
 //      data [binary!]
 //  ]
@@ -1279,8 +1280,8 @@ REBNATIVE(invalid_utf8_q)
     REBVAL *arg = ARG(data);
 
     REBYTE *bp = Check_UTF8(VAL_BIN_AT(arg), VAL_LEN_AT(arg));
-    if (bp == NULL)
-        return R_BLANK;
+    if (not bp)
+        return R_NULL;
 
     VAL_INDEX(arg) = bp - VAL_BIN_HEAD(arg);
 

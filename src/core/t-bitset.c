@@ -631,7 +631,7 @@ REBTYPE(Bitset)
             fail (Error_Bad_Refines_Raw());
 
         if (not Check_Bits(VAL_SERIES(value), arg, REF(case)))
-            return R_BLANK;
+            return R_NULL;
         return R_BAR;
     }
 

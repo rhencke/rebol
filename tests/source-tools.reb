@@ -256,7 +256,7 @@ rebsource: context [
             ; Identify line termination.
 
             all [
-                position: find data #{0a}
+                position: try find data #{0a}
                 1 < index of position
                 13 = first back position
             ] then [

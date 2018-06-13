@@ -467,9 +467,10 @@ REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 //
 //  meta-of: native [
 //
-//  {Get a reference to the "meta" object associated with a value.}
+//  {Get a reference to the "meta" context associated with a value.}
 //
-//      value [action! any-context!]
+//      return: [<opt> any-context!]
+//      value [blank! action! any-context!]
 //  ]
 //
 REBNATIVE(meta_of)
@@ -479,6 +480,8 @@ REBNATIVE(meta_of)
     INCLUDE_PARAMS_OF_META_OF;
 
     REBVAL *v = ARG(value);
+    if (IS_BLANK(v))
+        return R_NULL;
 
     REBCTX *meta;
     if (IS_ACTION(v))
@@ -488,10 +491,10 @@ REBNATIVE(meta_of)
         meta = MISC(CTX_VARLIST(VAL_CONTEXT(v))).meta;
     }
 
-    if (meta == NULL)
-        return R_BLANK;
+    if (not meta)
+        return R_NULL;
 
-    Init_Object(D_OUT, meta);
+    Move_Value(D_OUT, CTX_ARCHETYPE(meta));
     return R_OUT;
 }
 
@@ -501,9 +504,9 @@ REBNATIVE(meta_of)
 //
 //  {Set "meta" object associated with all references to a value.}
 //
-//      return: [<opt>]
+//      return: [<opt> any-context!]
 //      value [action! any-context!]
-//      meta [object! blank!]
+//      meta [<opt> any-context!]
 //  ]
 //
 REBNATIVE(set_meta)
@@ -514,11 +517,14 @@ REBNATIVE(set_meta)
 
     REBCTX *meta;
     if (ANY_CONTEXT(ARG(meta))) {
+        if (VAL_BINDING(ARG(meta)) != UNBOUND)
+            fail ("SET-META can't store context bindings, must be unbound");
+
         meta = VAL_CONTEXT(ARG(meta));
     }
     else {
-        assert(IS_BLANK(ARG(meta)));
-        meta = NULL;
+        assert(IS_VOID(ARG(meta)));
+        meta = nullptr;
     }
 
     REBVAL *v = ARG(value);
@@ -530,7 +536,11 @@ REBNATIVE(set_meta)
         MISC(CTX_VARLIST(VAL_CONTEXT(v))).meta = meta;
     }
 
-    return R_NULL;
+    if (not meta)
+        return R_NULL;
+
+    Move_Value(D_OUT, CTX_ARCHETYPE(meta));
+    return R_OUT;
 }
 
 
@@ -879,18 +889,16 @@ REBTYPE(Context)
 
     case SYM_SELECT:
     case SYM_FIND: {
-        const REB_R r_not_found = (verb == SYM_FIND) ? R_BLANK : R_NULL;
-
         if (not IS_WORD(arg))
-            return r_not_found;
+            return R_NULL;
 
         REBCNT n = Find_Canon_In_Context(c, VAL_WORD_CANON(arg), FALSE);
 
         if (n == 0)
-            return r_not_found;
+            return R_NULL;
 
         if (cast(REBCNT, n) > CTX_LEN(c))
-            return r_not_found;
+            return R_NULL;
 
         if (verb == SYM_FIND)
             return R_BAR; // synthesizing TRUE would obscure non-LOGIC! result

@@ -582,7 +582,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             assert(result != NULL);
             if (rebDid("lib/error?", result, END)) {
                 rebRelease(result); // !!! R3-Alpha returned blank on error
-                return R_BLANK;
+                return R_NULL;
             }
             rebRelease(result); // ignore result
         }
@@ -607,7 +607,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
             assert(result != NULL);
             if (rebDid("lib/error?", result, END)) {
                 rebRelease(result); // !!! R3-Alpha returned blank on error
-                return R_BLANK;
+                return R_FALSE;
             }
             rebRelease(result); // ignore result
         }

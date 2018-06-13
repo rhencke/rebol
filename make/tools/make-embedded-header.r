@@ -35,7 +35,7 @@ remove-macro: proc [
     <local> pos-m inc eol
 ][
     if not binary? macro [macro: to binary! macro]
-    pos-m: find inp macro
+    pos-m: try find inp macro
     if pos-m [
         inc: find/reverse pos-m to binary! "#define"
         eol: find pos-m to binary! newline

@@ -42,12 +42,14 @@ default: enfix func [
     <local> gotten
 ][
     either all [
-        value? gotten: get target
-        any [only | not blank? :gotten]
+        value? set/opt quote gotten: get target ;-- SET* not defined yet
+        only or (not blank? :gotten)
     ][
         :gotten ;; so that `x: y: default z` leads to `x = y`
     ][
-        set target do branch
+        set target <- do branch else [
+            fail ["DEFAULT for" target "came back NULL"]
+        ]
     ]
 ]
 
@@ -133,7 +135,7 @@ make-action: func [
     new-body: _
     statics: _
     defaulters: _
-    var: _
+    var: <dummy> ;-- want to enter PARSE with truthy state (gets overwritten)
 
     ;; dump [spec]
 
@@ -144,7 +146,7 @@ make-action: func [
     ; !!! REVIEW: ignore self too if binding object?
     ;
     parse spec [any [
-        if (set? 'var) [
+        if (var) [
             set var: any-word! (
                 append exclusions var ;-- exclude args/refines
                 append new-spec var
@@ -166,25 +168,25 @@ make-action: func [
             ]
             defaulters: default [copy []]
             append defaulters compose/deep [
-                (to set-word! var) default [(uneval do other/1)]
+                (as set-word! var) default [(uneval do other/1)]
             ]
         )
     |
-        (var: null) ;-- everything below this line clears var
+        (var: _) ;-- everything below this line resets var
         fail ;-- failing here means rolling over to next rule
     |
         <local>
         any [set var: word! (other: _) opt set other: group! (
-            append new-spec to set-word! var
+            append new-spec as set-word! var
             append exclusions var
             if other [
                 defaulters: default [copy []]
                 append defaulters compose/deep [ ;-- always sets
-                    (to set-word! var) (uneval do other)
+                    (as set-word! var) (uneval do other)
                 ]
             ]
         )]
-        (var: null) ;-- don't consider further GROUP!s or variables
+        (var: _) ;-- don't consider further GROUP!s or variables
     |
         <in> (
             new-body: default [
@@ -216,14 +218,14 @@ make-action: func [
             ]
         )
         any [
-            set var: word! (other: quote ()) opt set other: group! (
+            set var: word! (other: _) opt set other: group! (
                 append exclusions var
                 append statics compose/only [
-                    (to set-word! var) (other)
+                    (as set-word! var) (other)
                 ]
             )
         ]
-        (var: null)
+        (var: _)
     |
         end accept
     |
@@ -285,50 +287,44 @@ dig-action-meta-fields: function [value [action!]] [
         ]
     ]
 
-    underlying: ensure [action! blank!] any [
-        try get 'meta/specializee
-        try get 'meta/adaptee
-        all [block? :meta/chainees | try first meta/chainees]
+    underlying: try ensure* action! any [
+        get 'meta/specializee
+        get 'meta/adaptee
+        try all [block? :meta/chainees | first meta/chainees]
     ]
 
-    fields: all [:underlying | dig-action-meta-fields :underlying]
+    fields: try all [:underlying | dig-action-meta-fields :underlying]
 
     inherit-frame: function [parent [blank! frame!]] [
-        if blank? parent [return blank]
+        if blank? parent [return null]
 
         child: make frame! :value
         for-each param child [
-            child/(param): maybe select parent param
+            child/(param): maybe opt select parent param
         ]
         return child
     ]
 
     return construct system/standard/action-meta [
-        description: ensure* text! opt any [
-            try select meta 'description
-            try copy try select fields 'description
+        description: try ensure* text! any [
+            select meta 'description
+            copy try select fields 'description
         ]
-        return-type: ensure* block! opt any [
-            try select meta 'return-type
-            try copy try select fields 'return-type
+        return-type: try ensure* block! any [
+            select meta 'return-type
+            copy try select fields 'return-type
         ]
-        return-note: ensure* text! opt any [
-            try select meta 'return-note
-            try copy try select fields 'return-note
+        return-note: try ensure* text! any [
+            select meta 'return-note
+            copy try select fields 'return-note
         ]
-        parameter-types: ensure* frame! opt any [
-            try select meta 'parameter-types
-            all [
-                try get 'fields/parameter-types
-                inherit-frame :fields/parameter-types
-            ]
+        parameter-types: try ensure* frame! any [
+            select meta 'parameter-types
+            inherit-frame try get 'fields/parameter-types
         ]
-        parameter-notes: ensure* frame! opt any [
-            try select meta 'parameter-notes
-            all [
-                try get 'fields/parameter-notes
-                inherit-frame :fields/parameter-notes
-            ]
+        parameter-notes: try ensure* frame! any [
+            select meta 'parameter-notes
+            inherit-frame try get 'fields/parameter-notes
         ]
     ]
 ]
@@ -392,7 +388,7 @@ redescribe: function [
         types: meta/parameter-types: fields/parameter-types
     ]
 
-    if not parse spec [
+    parse spec [
         opt [
             set description: text! (
                 either all [equal? description {} | not meta] [
@@ -421,10 +417,10 @@ redescribe: function [
                         copy note
                     ]
                 ][
-                    if any [notes | not equal? note {}] [
+                    if notes or (not equal? note {}) [
                         on-demand-notes
 
-                        if not find notes to word! param [
+                        if not find notes as word! param [
                             fail [param "not found in frame to describe"]
                         ]
 
@@ -433,19 +429,19 @@ redescribe: function [
                             fail [param {doesn't match word type of} actual]
                         ]
 
-                        notes/(to word! param): if not equal? note {} [note]
+                        notes/(as word! param): if not equal? note {} [note]
                     ]
                 ]
             )]
         ]
-    ][ ;-- note: OR not defined yet!
+    ] or [
         fail [{REDESCRIBE specs should be STRING! and ANY-WORD! only:} spec]
     ]
 
     ; If you kill all the notes then they will be cleaned up.  The meta
     ; object will be left behind, however.
     ;
-    if all [notes | every [param note] notes [unset? 'note]] [
+    if notes and (every [param note] notes [unset? 'note]) [
         meta/parameter-notes: ()
     ]
 
@@ -563,6 +559,12 @@ all*: redescribe [
     specialize 'all [only: true]
 )
 
+set*: redescribe [
+    {Variant of SET that allows a null to actually unset the variable}
+](
+    specialize 'set [opt: true]
+)
+
 match*: redescribe [
     {Variant of MATCH that passes through a NULL vs. error (variadic TBD}
 ](
@@ -619,12 +621,10 @@ ensure*: redescribe [
 )
 
 really: func [
-    {FAIL if value is void or blank, otherwise pass it through}
+    {FAIL if value is null, otherwise pass it through}
 
     return: [any-value!]
-    value [any-value!] ;-- always checked for void, since no <opt>
-    /opt
-        {Just make sure value isn't void, pass through BLANK! (see REALLY*)}
+    value [any-value!] ;-- always checked for null, since no <opt>
 ][
     ; While DEFAULT requires a BLOCK!, REALLY does not.  Catch mistakes such
     ; as `x: really [...]`
@@ -635,20 +635,8 @@ really: func [
         ] 'value
     ]
 
-    opt ?? :value else [
-        either-test :something? :value [
-            fail/where
-                ["REALLY received BLANK! (use /OPT or REALLY* if intended)"]
-                'value
-        ]
-    ]
+    :value
 ]
-
-really*: redescribe [
-    {FAIL if value is void, otherwise pass it through}
-](
-    specialize 'really [opt: true]
-)
 
 
 take: redescribe [
@@ -666,7 +654,7 @@ take: redescribe [
 )
 
 attempt: redescribe [
-    {Tries to evaluate a block and returns result or NONE on error.}
+    {Tries to evaluate a block and returns result or BLANK! on error.}
 ](
     specialize 'trap [with: true | handler: [_]]
 )
@@ -824,7 +812,7 @@ once-bar: func [
         tail? right
             |
         '|| = look: take lookahead ;-- hack...recognize selfs
-    ] or [
+    ] else [
         fail/where [
             "|| expected single expression, found residual of" :look
         ] 'right
@@ -841,7 +829,7 @@ has: func [
     /only
         "Values are kept as-is"
 ][
-    construct/(all [only 'only]) [] body
+    construct/(only ?? 'only !! _) [] body
 ]
 
 
@@ -913,7 +901,7 @@ module: func [
 
     mod: make module! 7 ; arbitrary starting size
 
-    if did find spec/options 'extension [
+    if find spec/options 'extension [
         append mod 'lib-base ; specific runtime values MUST BE FIRST
     ]
 
@@ -973,7 +961,7 @@ module: func [
     ; Add exported words at top of context (performance):
     if block? select spec 'exports [bind/new spec/exports mod]
 
-    either did find spec/options 'isolate [
+    either find spec/options 'isolate [
         ;
         ; All words of the module body are module variables:
         ;
@@ -1027,9 +1015,9 @@ cause-error: func [
     fail make error! [
         type: err-type
         id: err-id
-        arg1: first args
-        arg2: second args
-        arg3: third args
+        arg1: try first args
+        arg2: try second args
+        arg3: try third args
     ]
 ]
 

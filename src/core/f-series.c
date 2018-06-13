@@ -97,7 +97,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 );
                 return R_OUT;
             }
-            return R_BLANK; }
+            return R_NULL; }
 
         case SYM_LINE: {
             REBSER *s = VAL_SERIES(value);
@@ -105,7 +105,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 Init_Integer(D_OUT, MISC(s).line);
                 return R_OUT;
             }
-            return R_BLANK; }
+            return R_NULL; }
 
         default:
             break;
@@ -155,12 +155,12 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         if (i > cast(REBI64, tail)) {
             if (REF(only))
-                return R_BLANK;
+                return R_NULL;
             i = cast(REBI64, tail); // past tail clips to tail if not /ONLY
         }
         else if (i < 0) {
             if (REF(only))
-                return R_BLANK;
+                return R_NULL;
             i = 0; // past head clips to head if not /ONLY
         }
 

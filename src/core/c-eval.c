@@ -1794,6 +1794,9 @@ reevaluate:;
             // or we ARE evaluating and there IS A special exemption.  Treat
             // the f->value as inert.
             //
+            if (IS_VOID(f->value))
+                fail (Error_Need_Value_Core(current, f->specifier));
+
             Derelativize(f->out, f->value, f->specifier);
             Move_Value(Sink_Var_May_Fail(current, f->specifier), f->out);
         }
@@ -1813,6 +1816,9 @@ reevaluate:;
                 DS_DROP;
                 goto finished;
             }
+
+            if (IS_VOID(f->out))
+                fail (Error_Need_Value_Raw(DS_TOP));
 
             // if x: [1 < 2] [print "errors if set-word doesn't clear flag"]
             //
@@ -2021,6 +2027,9 @@ reevaluate:;
             // or we ARE evaluating and there IS A special exemption.  Treat
             // the f->value as inert.
 
+            if (IS_VOID(f->value))
+                fail (Error_Need_Value_Core(current, f->specifier));
+
             Derelativize(f->out, f->value, f->specifier);
 
             // !!! Due to the way this is currently designed, throws need to
@@ -2054,6 +2063,9 @@ reevaluate:;
                 DS_DROP;
                 goto finished;
             }
+
+            if (IS_VOID(f->out))
+                fail (Error_Need_Value_Raw(DS_TOP));
 
             // The path cannot be executed directly from the data stack, so
             // it has to be popped.  This could be changed by making the core

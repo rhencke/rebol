@@ -95,8 +95,8 @@ cscape: function [
                 fail ["Invalid CSCAPE mode:" mode]
             ]
             case [
-                any-upper and (not any-lower) [uppercase sub]
-                any-lower and (not any-upper) [lowercase sub]
+                all [any-upper | not any-lower] [uppercase sub]
+                all [any-lower | not any-upper] [lowercase sub]
             ]
 
             ; If the substitution started at a certain column, make any line
@@ -142,7 +142,7 @@ make-emitter: function [
 
     stem: second split-path file
 
-    temporary: any [temporary | parse stem ["tmp-" to end]]
+    temporary: did any [temporary | parse stem ["tmp-" to end]]
 
     is-c: parse stem [[thru ".c" | thru ".h" | thru ".inc"] end]
 
@@ -166,7 +166,7 @@ make-emitter: function [
             :look [any-value! <...>]
             data [text! char! <...>]
         ][
-            context: ()
+            context: _
             firstlook: first look
             if any [
                 lit-word? :firstlook
@@ -177,9 +177,9 @@ make-emitter: function [
             ]
 
             data: take data
-            switch type-of data [
+            switch type of data [
                 text! [
-                    adjoin buf-emit cscape/with data :context
+                    adjoin buf-emit cscape/with data opt context
                 ]
                 char! [
                     adjoin buf-emit data
@@ -196,7 +196,7 @@ make-emitter: function [
                 fail "WRITE-EMITTED needs NEWLINE as last character in buffer"
             ]
 
-            if tab-pos: find buf-emit tab [
+            if tab-pos: try find buf-emit tab [
                 probe skip tab-pos -100
                 fail "tab character passed to emit"
             ]
@@ -271,6 +271,5 @@ make-emitter: function [
         ]
         e/emit newline
     ]
-
     return e
 ]

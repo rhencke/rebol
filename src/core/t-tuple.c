@@ -495,7 +495,7 @@ REBTYPE(Tuple)
   poke_it:
         a = Get_Num_From_Arg(arg);
         if (a <= 0 || a > len) {
-            if (action == A_PICK) return R_BLANK;
+            if (action == A_PICK) return R_NULL;
             fail (Error_Out_Of_Range(arg));
         }
         if (action == A_PICK) {

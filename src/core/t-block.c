@@ -793,8 +793,6 @@ REBTYPE(Array)
     case SYM_SELECT: {
         INCLUDE_PARAMS_OF_FIND; // must be same as select
 
-        const REB_R r_not_found = (verb == SYM_FIND) ? R_BLANK : R_NULL;
-
         UNUSED(PAR(series));
         UNUSED(PAR(value)); // aliased as arg
 
@@ -821,7 +819,7 @@ REBTYPE(Array)
         );
 
         if (ret >= limit)
-            return r_not_found;
+            return R_NULL;
 
         if (REF(only))
             len = 1;
@@ -835,7 +833,7 @@ REBTYPE(Array)
         else {
             ret += len;
             if (ret >= limit)
-                return r_not_found;
+                return R_NULL;
 
             Derelativize(D_OUT, ARR_AT(array, ret), specifier);
         }
@@ -1022,7 +1020,7 @@ REBTYPE(Array)
 
         if (REF(only)) { // pick an element out of the array
             if (index >= VAL_LEN_HEAD(value))
-                return R_BLANK;
+                return R_NULL;
 
             Init_Integer(
                 ARG(seed),

@@ -403,7 +403,7 @@ REBCNT Milliseconds_From_Value(const RELVAL *v) {
 //
 //  "Waits for a duration, port, or both."
 //
-//      value [any-number! time! port! block! blank!]
+//      value [<opt> any-number! time! port! block!]
 //      /all
 //          "Returns all in a block"
 //      /only
@@ -433,17 +433,16 @@ REBNATIVE(wait)
 
         ports = VAL_ARRAY(unsafe);
         for (val = ARR_HEAD(ports); NOT_END(val); val++) { // find timeout
-            if (Pending_Port(KNOWN(val))) n++;
-            if (IS_INTEGER(val)
-                || IS_DECIMAL(val)
-                || IS_TIME(val)
-                )
+            if (Pending_Port(KNOWN(val)))
+                ++n;
+
+            if (IS_INTEGER(val) or IS_DECIMAL(val) or IS_TIME(val))
                 break;
         }
         if (IS_END(val)) {
-            if (n == 0) return R_BLANK; // has no pending ports!
-            else timeout = ALL_BITS; // no timeout provided
-            // Init_Blank(val); // no timeout -- BUG: unterminated block in GC
+            if (n == 0)
+                return R_NULL; // has no pending ports!
+            timeout = ALL_BITS; // no timeout provided
         }
     }
     else
@@ -458,10 +457,13 @@ REBNATIVE(wait)
             break;
 
         case REB_PORT:
-            if (!Pending_Port(KNOWN(val))) return R_BLANK;
+            if (not Pending_Port(KNOWN(val)))
+                return R_NULL;
             ports = Make_Array(1);
             Append_Value(ports, KNOWN(val));
-            // fall thru...
+            timeout = ALL_BITS;
+            break;
+
         case REB_BLANK:
             timeout = ALL_BITS; // wait for all windows
             break;
@@ -474,7 +476,7 @@ REBNATIVE(wait)
     // Prevent GC on temp port block:
     // Note: Port block is always a copy of the block.
     //
-    if (ports != NULL)
+    if (ports)
         Init_Block(D_OUT, ports);
 
     // Process port events [stack-move]:
@@ -485,11 +487,11 @@ REBNATIVE(wait)
 
     if (IS_FALSEY(D_OUT)) { // timeout
         Sieve_Ports(NULL); // just reset the waked list
-        return R_BLANK;
+        return R_NULL;
     }
 
-    if (ports == NULL)
-        return R_BLANK;
+    if (not ports)
+        return R_NULL;
 
     // Determine what port(s) waked us:
     Sieve_Ports(ports);
@@ -511,6 +513,7 @@ REBNATIVE(wait)
 //
 //  "Awake and update a port with event."
 //
+//      return: [logic!]
 //      port [port!]
 //      event [event!]
 //  ]
@@ -531,7 +534,13 @@ REBNATIVE(wake_up)
         // We don't pass `actor` or `event` in, because we just pass the
         // current call info.  The port action can re-read the arguments.
         //
-        Do_Port_Action(frame_, port, SYM_ON_WAKE_UP);
+        // !!! Most of the R3-Alpha event model is around just as "life
+        // support".  Added assertion and convention here that this call
+        // doesn't throw or return meaningful data... (?)
+        //
+        REB_R r = Do_Port_Action(frame_, port, SYM_ON_WAKE_UP);
+        assert(r == R_BAR);
+        UNUSED(r);
     }
 
     REBOOL woke_up = TRUE; // start by assuming success

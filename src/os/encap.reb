@@ -1038,9 +1038,9 @@ pe-format: context [
         section-name [text!]
         section-data [binary!]
     ][
-        target-sec: find-section/header exe-data section-name; this will parse exe-data
-        ;dump target-sec
-        if blank? target-sec [
+        ; FIND-SECTION will parse exe-data
+        ;
+        target-sec: find-section/header exe-data section-name else [
             return add-section exe-data section-name section-data
         ]
 
@@ -1085,7 +1085,9 @@ pe-format: context [
         exe-data [binary!]
         section-name [text!]
     ][
-        target-sec: find-section/header exe-data section-name; this will parse exe-data
+        ; FIND-SECTION will parse exe-data
+        ;
+        target-sec: find-section/header exe-data section-name
         ;dump target-sec
 
         ;dump COFF-header

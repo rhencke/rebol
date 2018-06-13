@@ -66,8 +66,8 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         if (req->command == RDC_READ) {
             // this could be executed twice:
             // once for an event READ, once for the CLOSE following the READ
-            if (req->common.data == NULL)
-                return R_BLANK;
+            if (not req->common.data)
+                return R_BAR;
 
             REBVAL *data = cast(REBVAL*, req->common.data); // Hack!
             Move_Value(arg, data);
@@ -78,7 +78,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         else if (req->command == RDC_WRITE) {
             Init_Blank(arg);  // Write is done.
         }
-        return R_BLANK;
+        return R_BAR;
 
     case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;

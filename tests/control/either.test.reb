@@ -72,17 +72,20 @@
     blk: [either false [] blk]
     error? trap blk
 )
-(
+
+[
     ; This exercises "deferred typechecking"; even though it passes through a
     ; step where there is a void in the condition slot, that's not the final
     ; situation since the equality operation will be run later, so the test
     ; has to wait.
-    ;
-    either () = () [true] [false]
-)
-(
-    ; complement to the above, need to type check the final product
-    ;
-    infix-voider: enfix func [return: [<opt>] x y] []
-    'arg-required = (trap [either 1 infix-voider 2 [false] [false]])/id
-)
+
+    (
+        takes-2-logics: func [x [logic!] y [logic!]] [x]
+        infix-voider: enfix func [return: [<opt>] x y] []
+        true
+    )
+
+    (takes-2-logics () = () false)
+
+    ('arg-required = (trap [takes-2-logics true infix-voider true false])/id)
+]

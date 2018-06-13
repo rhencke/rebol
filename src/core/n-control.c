@@ -29,10 +29,11 @@
 //
 // Control constructs in Ren-C differ from R3-Alpha in some ways:
 //
-// * If they do not run any branches, they evaluate to null ("unset!") and not
-//   a BLANK! ("none!").  If a branch *does* run, and evaluates to null, then
-//   the result is altered to be BLANK!.  Hence null can cue other functions
-//   (like THEN and ELSE) to be sure no branch ran, and respond appropriately.
+// * If they do not run any branches, they evaluate to null (which is similar
+//   to "unset!", but with important differences).  If a branch *does* run,
+//   and evaluates to null, then the result is altered to be BLANK!.  Hence
+//   null can cue other functions (like ELSE and ALSO) to be sure no branch
+//   ran, and respond appropriately.
 //
 // * It is possible to ask the branch return result to not be "blankified",
 //   but give back nulls as-is, with the /OPT refinement.  This is specialized
@@ -56,7 +57,7 @@
 //
 //      return: "null if branch not run, otherwise branch result"
 //          [<opt> any-value!]
-//      condition [any-value!]
+//      condition [<opt> any-value!]
 //      branch "If arity-1 ACTION!, receives the evaluated condition"
 //          [block! action!]
 //      /opt "If branch runs and produces null, don't convert it to a BLANK!"
@@ -83,7 +84,7 @@ REBNATIVE(if)
 //
 //      return: "null if branch not run, otherwise branch result"
 //          [<opt> any-value!]
-//      condition [any-value!]
+//      condition [<opt> any-value!]
 //      branch [block! action!]
 //      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
@@ -108,7 +109,7 @@ REBNATIVE(if_not)
 //  {Choose a branch to execute, based on TO-LOGIC of the CONDITION value}
 //
 //      return: [<opt> any-value!]
-//      condition [any-value!]
+//      condition [<opt> any-value!]
 //      true-branch "If arity-1 ACTION!, receives the evaluated condition"
 //          [block! action!]
 //      false-branch [block! action!]
@@ -145,20 +146,12 @@ REBNATIVE(either)
 inline static REB_R Either_Test_Core(
     REBVAL *cell, // GC-safe temp cell
     REBVAL *test, // modified
-    const REBVAL *par,
     const REBVAL *arg
 ){
-    assert(IS_TYPESET(par));
-
     switch (VAL_TYPE(test)) {
 
     case REB_LOGIC: { // test for "truthy" or "falsey"
-        if (IS_VOID(arg)) { // null is neither true nor false
-            DECLARE_LOCAL (word);
-            Init_Word(word, VAL_PARAM_SPELLING(par));
-            fail (Error_No_Value(word));
-        }
-
+        //
         // If this is the result of composing together a test with a literal,
         // it may be the *test* that changes...so in effect, we could be
         // "testing the test" on a fixed value.  Allow literal blocks (e.g.
@@ -283,7 +276,7 @@ REBNATIVE(either_test)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST;
 
-    REB_R r = Either_Test_Core(D_OUT, ARG(test), PAR(arg), ARG(arg));
+    REB_R r = Either_Test_Core(D_OUT, ARG(test), ARG(arg));
     if (r == R_OUT_IS_THROWN)
         return R_OUT_IS_THROWN;
 
@@ -316,7 +309,7 @@ REBNATIVE(either_test)
 //
 REBNATIVE(either_test_null)
 //
-// Native optimization of `specialize 'either-test-value [test: :null?]`
+// Native optimization of `specialize 'either-test [test: :null?]`
 // Worth it to write because this is the functionality enfixed as ALSO.
 {
     INCLUDE_PARAMS_OF_EITHER_TEST_NULL;
@@ -345,7 +338,7 @@ REBNATIVE(either_test_null)
 //
 REBNATIVE(either_test_value)
 //
-// Native optimization of `specialize 'either-test-value [test: :any-value?]`
+// Native optimization of `specialize 'either-test [test: :any-value?]`
 // Worth it to write because this is the functionality enfixed as ELSE.
 {
     INCLUDE_PARAMS_OF_EITHER_TEST_VALUE;
@@ -367,7 +360,7 @@ REBNATIVE(either_test_value)
 //
 //  {Check value using tests (match types, TRUE or FALSE, or filter action)}
 //
-//      return: "Input argument if it matched, otherwise blank"
+//      return: "Input argument if it matched, otherwise null"
 //          [<opt> any-value!]
 //      'test "Typeset membership, LOGIC! to test for truth, filter function"
 //          [
@@ -489,19 +482,12 @@ REBNATIVE(match)
         // Instead it passes a BAR! back.
 
         if (IS_TRUTHY(D_CELL)) {
-            if (IS_VOID_OR_FALSEY(D_OUT))
+            if (IS_FALSEY(D_OUT))
                 return R_BAR;
             return R_OUT;
         }
 
-        // Again... MATCH *wants* to return a BLANK! on a non-match.  But it
-        // wants to help cue attention to the strange BAR! result and make
-        // sure the caller knows to do some additional DID-ing or NOT-ing to
-        // coerce the result if the value is falsey.  NULL will do that.
-
-        if (IS_VOID_OR_FALSEY(D_OUT))
-            return R_NULL;
-        return R_BLANK; }
+        return R_NULL; }
 
     default:
         break;
@@ -527,24 +513,18 @@ either_test:;
 
     assert(r == R_OUT);
 
-    // See notes above about why the arg is not simply passed through or
-    // blanked in the void or falsey arg case.
-
-    r = Either_Test_Core(D_CELL, test, varpar, D_OUT);
+    r = Either_Test_Core(D_CELL, test, D_OUT);
     if (r == R_OUT_IS_THROWN)
         return R_OUT_IS_THROWN;
 
     if (r == R_TRUE) {
-        if (IS_VOID_OR_FALSEY(D_OUT))
+        if (IS_FALSEY(D_OUT)) // see above for why false match not passed thru
             return R_BAR;
         return R_OUT;
     }
 
     assert(r == R_FALSE);
-
-    if (IS_VOID_OR_FALSEY(D_OUT))
-        return R_NULL;
-    return R_BLANK;
+    return R_NULL;
 }
 
 
@@ -553,12 +533,11 @@ either_test:;
 //
 //  {Short-circuiting variant of AND, using a block of expressions as input.}
 //
-//      return: [<opt> any-value!]
-//          {Product of last evaluation if all TRUE?, else a BLANK! value.}
-//      block [block!]
-//          "Block of expressions.  Void evaluations are ignored."
-//      /only
-//          "Ignore void evaluations, and return void if any falsey values"
+//      return: "Product of last evaluation if all truthy, else null"
+//          [<opt> any-value!]
+//      block "Block of expressions"
+//          [block!]
+//      /only "Ignore void evaluations, and return void if any falsey values"
 //  ]
 //
 REBNATIVE(all)
@@ -586,9 +565,9 @@ REBNATIVE(all)
             if (IS_VOID(D_CELL)) // voids do not "vote" true or false
                 continue;
 
-            if (IS_FALSEY(D_CELL)) { // failure signified with BLANK!
+            if (IS_FALSEY(D_CELL)) { // failure signified with null
                 Abort_Frame(f);
-                return R_BLANK;
+                return R_NULL;
             }
 
             Move_Value(D_OUT, D_CELL); // preserve (later voids won't erase)
@@ -606,12 +585,9 @@ REBNATIVE(all)
                 return R_OUT_IS_THROWN;
             }
 
-            if (IS_VOID(D_OUT)) // illegal in plain ALL
-                fail (Error_No_Return_Raw());
-
-            if (IS_FALSEY(D_OUT)) { // failure signified with BLANK!
+            if (IS_FALSEY(D_OUT)) { // failure signified with null
                 Abort_Frame(f);
-                return R_BLANK;
+                return R_NULL;
             }
         }
     }
@@ -626,12 +602,11 @@ REBNATIVE(all)
 //
 //  {Short-circuiting version of OR, using a block of expressions as input.}
 //
-//      return: [<opt> any-value!]
-//          {First truthy evaluative result, or BLANK! value if all falsey}
-//      block [block!]
-//          "Block of expressions."
-//      /only
-//          "Ignore void evaluations, and return void if no truthy values"
+//      return: "First truthy evaluative result, or null if all falsey"
+//          [<opt> any-value!]
+//      block "Block of expressions"
+//          [block!]
+//      /only "Ignore void evaluations, and return void if no truthy values"
 //  ]
 //
 REBNATIVE(any)
@@ -652,11 +627,8 @@ REBNATIVE(any)
         if (IS_VOID(D_OUT)) {
             if (REF(only)) // voids do not "vote" true or false
                 continue;
-
-            fail (Error_No_Return_Raw());
         }
-
-        if (IS_TRUTHY(D_OUT)) { // successful ANY returns the value
+        else if (IS_TRUTHY(D_OUT)) { // successful ANY returns the value
             Abort_Frame(f);
             return R_OUT;
         }
@@ -667,7 +639,7 @@ REBNATIVE(any)
     Drop_Frame(f);
 
     if (voted or not REF(only))
-        return R_BLANK;
+        return R_NULL;
 
     return R_NULL; // all opt-outs return void if /ONLY
 }
@@ -678,12 +650,11 @@ REBNATIVE(any)
 //
 //  {Short circuiting version of NOR, using a block of expressions as input.}
 //
-//      return: [<opt> bar! blank!]
-//          {TRUE if all expressions are FALSE?, or BLANK if any are TRUE?}
-//      block [block!]
-//          "Block of expressions."
-//      /only
-//          "Ignore void evaluations, and return void if all void"
+//      return: "BAR! if all expressions are falsey, null if any are truthy"
+//          [<opt> bar!]
+//      block "Block of expressions."
+//          [block!]
+//      /only "Ignore void evaluations, and return void if all void"
 //  ]
 //
 REBNATIVE(none)
@@ -707,13 +678,10 @@ REBNATIVE(none)
         if (IS_VOID(D_OUT)) {
             if (REF(only)) // voids do not "vote" true or false
                 continue;
-
-            fail (Error_No_Return_Raw());
         }
-
-        if (IS_TRUTHY(D_OUT)) { // any true results mean failure
+        else if (IS_TRUTHY(D_OUT)) { // any true results mean failure
             Abort_Frame(f);
-            return R_BLANK;
+            return R_NULL;
         }
 
         voted = TRUE; // signal that at least one non-void result was seen
@@ -748,19 +716,13 @@ static REB_R Case_Choose_Core(
     while (FRM_HAS_MORE(f)) {
 
         // Perform a DO/NEXT's worth of evaluation on a "condition" to test
+        // Will consume any pending "invisibles" (COMMENT, ELIDE, DUMP...)
 
         if (Do_Next_In_Frame_Throws(cell, f)) {
             Move_Value(out, cell);
             Abort_Frame(f);
             return R_OUT_IS_THROWN;
         }
-
-        // No void conditions allowed--as with IF.  But "invisibles" such as
-        // COMMENT, ELIDE, DUMP, etc. may be used (in which case, we'd not
-        // even see them here, the evaluator "elides" them during operation.)
-        //
-        if (IS_VOID(cell))
-            fail (Error_No_Return_Raw());
 
         if (FRM_AT_END(f)) // require conditions and branches in pairs
             fail (Error_Past_End_Raw());
@@ -857,7 +819,7 @@ static REB_R Case_Choose_Core(
 //      cases [block!]
 //          "Block of cases (conditions followed by branches)"
 //      /all
-//          {Evaluate all cases (do not stop at first TRUTHY? case)}
+//          {Evaluate all cases (do not stop at first logically true case)}
 //      /only
 //          "If branch runs and returns void, do not convert it to BLANK!"
 //  ]

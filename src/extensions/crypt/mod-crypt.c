@@ -485,7 +485,7 @@ static REBNATIVE(aes)
         REBINT len = VAL_LEN_AT(ARG(data));
 
         if (len == 0)
-            return R_BLANK;
+            return R_NULL; // !!! Is NULL a good result for 0 data?
 
         REBINT pad_len = (((len - 1) >> 4) << 4) + AES_BLOCKSIZE;
 
@@ -533,7 +533,7 @@ static REBNATIVE(aes)
 
         if (IS_BINARY(ARG(iv))) {
             if (VAL_LEN_AT(ARG(iv)) < AES_IV_SIZE)
-                return R_BLANK;
+                fail ("Length of initialization vector less than AES size");
 
             memcpy(iv, VAL_BIN_AT(ARG(iv)), AES_IV_SIZE);
         }

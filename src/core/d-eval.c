@@ -58,13 +58,13 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
 {
     DECLARE_LOCAL (dump);
 
-    if (current != NULL) {
+    if (current) {
         Derelativize(dump, current, f->specifier);
         printf("Dump_Frame_Location() current\n");
         PROBE(dump);
     }
 
-    if (f->value != NULL) {
+    if (f->value) {
         Derelativize(dump, f->value, f->specifier);
         printf("Dump_Frame_Location() next\n");
         PROBE(dump);
@@ -72,6 +72,14 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
 
     if (FRM_AT_END(f)) {
         printf("...then Dump_Frame_Location() is at end of array\n");
+        if (not current and not f->value) { // well, that wasn't informative
+            if (not f->prior)
+                printf("...and no parent frame, so you're out of luck\n");
+            else {
+                printf("...dumping parent in case that's more useful?\n");
+                Dump_Frame_Location(NULL, f->prior);
+            }
+        }
     }
     else {
         printf("Dump_Frame_Location() rest\n");

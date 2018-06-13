@@ -957,12 +957,6 @@ inline static RELVAL *REL(REBVAL *v) {
 
 #ifdef NDEBUG
     inline static REBVAL *Init_Void(RELVAL *out) {
-        //
-        // For some narrow purposes, it may be useful to quickly test a value
-        // which is potentially null as "falsey" like BLANK! and LOGIC! false,
-        // so void cells are given VALUE_FLAG_FALSEY.  But usual tests for
-        // truth in conditionals specifically prohibit nulls.
-        //
         RESET_VAL_CELL(out, REB_MAX_VOID, VALUE_FLAG_FALSEY);
         return KNOWN(out);
     }
@@ -973,7 +967,7 @@ inline static RELVAL *REL(REBVAL *v) {
         RESET_VAL_CELL_Debug(
             out,
             REB_MAX_VOID,
-            VALUE_FLAG_FALSEY, // see "falsey" note above
+            VALUE_FLAG_FALSEY,
             file,
             line
         );
@@ -992,9 +986,6 @@ inline static RELVAL *REL(REBVAL *v) {
 #define Init_Endish_Void(v) \
     RESET_VAL_CELL((v), REB_MAX_VOID, \
         VALUE_FLAG_FALSEY | VALUE_FLAG_UNEVALUATED)
-
-#define IS_VOID_OR_FALSEY(v) \
-    GET_VAL_FLAG((v), VALUE_FLAG_FALSEY)
 
 // The API uses nullptr to signify void.  To help ensure full void cells don't
 // leak to the API, the variadic interface only handles nulls.  Any internal
@@ -1209,14 +1200,17 @@ inline static const REBVAL *DEVOID(const REBVAL *cell) {
 #define TRUE_VALUE \
     c_cast(const REBVAL*, &PG_True_Value[0])
 
+#define IS_FALSEY(v) \
+    GET_VAL_FLAG((v), VALUE_FLAG_FALSEY)
+
+#define IS_TRUTHY(v) \
+    NOT_VAL_FLAG((v), VALUE_FLAG_FALSEY)
+
 #ifdef NDEBUG
     inline static REBVAL *Init_Logic(RELVAL *out, REBOOL b) {
         RESET_VAL_CELL(out, REB_LOGIC, b ? 0 : VALUE_FLAG_FALSEY);
         return KNOWN(out);
     }
-
-    #define IS_FALSEY(v) \
-        GET_VAL_FLAG((v), VALUE_FLAG_FALSEY)
 #else
     inline static REBVAL *Init_Logic_Debug(
         RELVAL *out, REBOOL b, const char *file, int line
@@ -1233,23 +1227,8 @@ inline static const REBVAL *DEVOID(const REBVAL *cell) {
 
     #define Init_Logic(out,b) \
         Init_Logic_Debug((out), (b), __FILE__, __LINE__)
-
-    inline static REBOOL IS_FALSEY_Debug(
-        const RELVAL *v, const char *file, int line
-    ){
-        if (IS_VOID(v)) {
-            printf("Conditional true/false test on void\n");
-            panic_at (v, file, line);
-        }
-        return GET_VAL_FLAG(v, VALUE_FLAG_FALSEY);
-    }
-
-    #define IS_FALSEY(v) \
-        IS_FALSEY_Debug((v), __FILE__, __LINE__)
 #endif
 
-#define IS_TRUTHY(v) \
-    cast(REBOOL, not IS_FALSEY(v)) // macro gets file + line # in debug build
 
 // Although a BLOCK! value is true, some constructs are safer by not allowing
 // literal blocks.  e.g. `if [x] [print "this is not safe"]`.  The evaluated

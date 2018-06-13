@@ -261,7 +261,7 @@ REBTYPE(Word)
         case SYM_CONTEXT: {
             if (Get_Context_Of(D_OUT, val))
                 return R_OUT;
-            return R_BLANK; }
+            return R_NULL; }
 
         default:
             break;

@@ -6,18 +6,11 @@ do %tools/common.r
 do %tools/systems.r
 file-base: make object! load %tools/file-base.r
 
-; !!! Since %rebmake.r is a module,
-    ; it presents a challenge for the "shim" code
-    ; when it depends on a change.
-    ; This needs to be addressed in a generic way,
-    ; but that requires foundational work on modules.
-
-append lib compose [
-    file-to-local-hack: (:file-to-local)
-    local-to-file-hack: (:local-to-file)
-    did-hack: (:did)
-]
-rebmake: import %tools/rebmake.r
+; See notes on %rebmake.r for why it is not a module at this time, due to the
+; need to have it inherit the shim behaviors of IF, CASE, FILE-TO-LOCAL, etc.
+;
+; rebmake: import %tools/rebmake.r
+do %tools/rebmake.r
 
 ;;;; GLOBALS
 
@@ -38,7 +31,7 @@ user-config: make object! load make-dir/default-config.r
 args: parse-args system/options/args
 ; now args are ordered and separated by bar:
 ; [NAME VALUE ... '| COMMAND ...]
-either commands: find args '| [
+either commands: try find args '| [
     options: copy/part args commands
     commands: next commands
 ] [options: args]
@@ -68,7 +61,7 @@ for-each [name value] options [
                     if not block? user-ext [
                         fail [
                             "Selected extensions must be a block, not"
-                            (type-of user-ext)
+                            (type of user-ext)
                         ]
                     ]
                     user-config/extensions: user-ext
@@ -341,10 +334,10 @@ targets: [
     ]
     'vs2017
     'visual-studio [
-        rebmake/visual-studio/generate/(all [system-config/os-name = 'Windows-x86 'x86]) %. solution
+        rebmake/visual-studio/generate/(try all [system-config/os-name = 'Windows-x86 'x86]) %. solution
     ]
     'vs2015 [
-        rebmake/vs2015/generate/(all [system-config/os-name = 'Windows-x86 'x86]) %. solution
+        rebmake/vs2015/generate/(try all [system-config/os-name = 'Windows-x86 'x86]) %. solution
     ]
 ]
 target-names: make block! 16
@@ -1310,11 +1303,11 @@ process-module: func [
                 ]
                 true [
                     dump s
-                    fail [type-of s "can't be a dependency of a module"]
+                    fail [type of s "can't be a dependency of a module"]
                 ]
             ]
         ]
-        libraries: all [
+        libraries: try all [
             mod/libraries
             map-each lib mod/libraries [
                 case [

@@ -1,7 +1,6 @@
 ; functions/control/any.r
 ; zero values
-(blank? any [])
-(null? any* [])
+(null? any [])
 ; one value
 (:abs = any [:abs])
 (
@@ -57,10 +56,10 @@
     :a-value == any [:a-value]
 )
 (true = any [true])
-(blank? any [false])
+(null? any [false])
 ($1 == any [$1])
 (same? :append any [:append])
-(blank? any [_])
+(null? any [_])
 (
     a-value: make object! []
     same? :a-value any [:a-value]
@@ -99,8 +98,7 @@
 )
 (0:00 == any [0:00])
 (0.0.0 == any [0.0.0])
-(error? trap [any [()]])
-(null? any* [()])
+(null? any [()])
 ('a == any ['a])
 ; two values
 (:abs = any [false :abs])
@@ -157,10 +155,10 @@
     :a-value == any [false :a-value]
 )
 (true = any [false true])
-(blank? any [false false])
+(null? any [false false])
 ($1 == any [false $1])
 (same? :append any [false :append])
-(blank? any [false _])
+(null? any [false _])
 (
     a-value: make object! []
     same? :a-value any [false :a-value]
@@ -198,8 +196,7 @@
 )
 (0:00 == any [false 0:00])
 (0.0.0 == any [false 0.0.0])
-(error? trap [any [false ()]])
-(blank? any* [false ()])
+(null? any [false ()])
 ('a == any [false 'a])
 (:abs = any [:abs false])
 (
@@ -257,7 +254,7 @@
 (true = any [true false])
 ($1 == any [$1 false])
 (same? :append any [:append false])
-(blank? any [_ false])
+(null? any [_ false])
 (
     a-value: make object! []
     same? :a-value any [:a-value false]
@@ -295,8 +292,7 @@
 )
 (0:00 == any [0:00 false])
 (0.0.0 == any [0.0.0 false])
-(error? trap [any [() false]])
-(blank? any* [() false])
+(null? any [() false])
 ('a == any ['a false])
 ; evaluation stops after encountering something else than FALSE or NONE
 (
@@ -345,7 +341,7 @@
 )
 ; recursivity
 (any [false any [true]])
-(blank? any [false any [false]])
+(null? any [false any [false]])
 ; infinite recursion
 (
     blk: [any blk]

@@ -6,12 +6,12 @@
 (
     a-bitset: charset "a"
     remove/part a-bitset "a"
-    blank? find a-bitset #"a"
+    null? find a-bitset #"a"
 )
 (
     a-bitset: charset "a"
     remove/part a-bitset to integer! #"a"
-    blank? find a-bitset #"a"
+    null? find a-bitset #"a"
 )
 
 (

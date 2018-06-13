@@ -121,7 +121,7 @@ to-c-name: function [
     if empty? string [
         fail [
             "empty identifier produced by to-c-name for"
-            (mold value) "of type" (mold type-of value)
+            (mold value) "of type" (mold type of value)
         ]
     ]
 
@@ -326,7 +326,7 @@ parse-args: function [
         name: _
         value: args/1
         case [
-            idx: find value #"=" [; name=value
+            idx: try find value #"=" [; name=value
                 name: to word! copy/part value (index-of idx) - 1
                 value: copy next idx
             ]

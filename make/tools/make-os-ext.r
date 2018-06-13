@@ -80,7 +80,7 @@ count: func [s c /local n] [
     if find ["()" "(void)"] s [return "()"]
     output-buffer: copy "(a"
     n: 1
-    while [s: find/tail s c][
+    while [s: try find/tail s c][
         adjoin output-buffer [#"," #"a" + n]
         n: n + 1
     ]
@@ -95,7 +95,7 @@ emit-proto: proc [
         trim proto
         not find proto "static"
 
-        pos.id: find proto "OS_"
+        pos.id: try find proto "OS_"
 
         ;-- !!! All functions *should* start with OS_, not just
         ;-- have OS_ somewhere in it!  At time of writing, Atronix
