@@ -4,7 +4,7 @@
 (null? pick at [1 2 3 4 5] 3 -2147483648)
 (null? pick at [1 2 3 4 5] 3 -2147483647)
 (null? pick at [1 2 3 4 5] 3 -3)
-(1 pick at [1 2 3 4 5] 3 -2)
+(1 = pick at [1 2 3 4 5] 3 -2)
 (2 = pick at [1 2 3 4 5] 3 -1)
 (null = pick at [1 2 3 4 5] 3 0)
 (3 = pick at [1 2 3 4 5] 3 1)
@@ -20,7 +20,7 @@
 (null? pick at "12345" 3 -2147483648)
 (null? pick at "12345" 3 -2147483647)
 (null? pick at "12345" 3 -3)
-(#"1" pick at "12345" 3 -2)
+(#"1" = pick at "12345" 3 -2)
 (#"2" = pick at "12345" 3 -1)
 [#857
     (null = pick at "12345" 3 0)

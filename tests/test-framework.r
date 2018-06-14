@@ -34,47 +34,48 @@ make object! compose [
     process-vector: procedure [
         flags [block!]
         source [text!]
+        <with> test-failures successes skipped
     ][
         log [source]
 
         if not empty? exclude flags allowed-flags [
-            set 'skipped (skipped + 1)
-            log [{ "skipped"^/}]
+            skipped: me + 1
+            log [space "skipped" newline]
             leave
         ]
-
-        if error? trap [test-block: to block! load source] [
-            set 'test-failures (test-failures + 1)
-            log [{ "failed, cannot load test source"^/}]
-            leave
-        ]
-
-        print mold test-block ;-- !!! make this an option
-
-        result: entrap test-block
-        recycle
 
         case [
+            error? trap [test-block: to block! load source] [
+                "cannot load test source"
+            ]
+
+            elide (
+                print mold test-block ;-- !!! make this an option
+
+                set* quote result: entrap test-block
+                recycle
+            )
+
             null? :result [
-                "failed, test returned null"
+                "test returned null"
             ]
             error? :result [
-                spaced ["failed," result/id]
+                to string! result/id
             ]
 
             elide (result: first result)
 
             not logic? :result [
-                "failed, result was" (an type of :result) ", not logic!"
+                spaced ["was" (an type of :result) ", not logic!"]
             ]
             not :result [
-                "failed"
+                "test returned #[false]"
             ]
         ] also message => [
-            set 'test-failures (test-failures + 1)
-            log reduce [space {"} message {"} newline]
+            test-failures: me + 1
+            log reduce [space {"failed, } message {"} newline]
         ] else [
-            set 'successes (successes + 1)
+            successes: me + 1
             log reduce [space {"succeeded"} newline]
         ]
     ]
