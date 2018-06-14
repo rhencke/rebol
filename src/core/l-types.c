@@ -1245,8 +1245,6 @@ REBNATIVE(scan_net_header)
     REBCNT index = VAL_INDEX(header);
     REBSER *utf8 = VAL_SERIES(header);
 
-    INIT_VAL_SERIES(header, utf8); // GC protect, unnecessary?
-
     REBYTE *cp = BIN_HEAD(utf8) + index;
 
     while (IS_LEX_ANY_SPACE(*cp)) cp++; // skip white space

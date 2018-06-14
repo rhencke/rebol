@@ -1021,7 +1021,7 @@ acquisition_loop:
             //
             // An "instruction", currently just rebEval() and rebUneval().
 
-            REBARR *instruction = cast(REBARR*, cast(void*, p));
+            REBARR *instruction = cast(REBARR*, c_cast(void*, p));
             REBVAL *single = KNOWN(ARR_SINGLE(instruction));
 
             if (GET_VAL_FLAG(single, VALUE_FLAG_EVAL_FLIP)) { // rebEval()

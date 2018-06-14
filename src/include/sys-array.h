@@ -191,15 +191,6 @@ inline static void PUSH_GUARD_ARRAY_CONTENTS(REBARR *a) {
 }
 
 inline static void DROP_GUARD_ARRAY_CONTENTS(REBARR *a) {
-#if !defined(NDEBUG)
-    //
-    // Make sure no unmanaged values were put in the array, because they
-    // would have caused errors if the GC had seen them!
-    //
-    RELVAL *test = ARR_HEAD(a);
-    for (; NOT_END(test); ++test)
-        ASSERT_VALUE_MANAGED(test);
-#endif
     DROP_GUARD_SERIES(SER(a));
 }
 
@@ -425,6 +416,7 @@ inline static REBSPC *VAL_SPECIFIER(const REBVAL *v) {
 
 inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {
     INIT_BINDING(v, UNBOUND);
+    assert(IS_ARRAY_MANAGED(a));
     v->payload.any_series.series = SER(a);
 }
 

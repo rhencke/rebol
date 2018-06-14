@@ -450,17 +450,11 @@ inline static void ENSURE_SERIES_MANAGED(REBSER *s) {
 #ifdef NDEBUG
     #define ASSERT_SERIES_MANAGED(s) \
         NOOP
-
-    #define ASSERT_VALUE_MANAGED(v) \
-        NOOP
 #else
     inline static void ASSERT_SERIES_MANAGED(REBSER *s) {
         if (not IS_SERIES_MANAGED(s))
             panic (s);
     }
-
-    #define ASSERT_VALUE_MANAGED(v) \
-        assert(Is_Value_Managed(v))
 #endif
 
 
@@ -672,6 +666,7 @@ inline static REBSER *VAL_SERIES(const RELVAL *v) {
 
 inline static void INIT_VAL_SERIES(RELVAL *v, REBSER *s) {
     assert(NOT_SER_FLAG(s, SERIES_FLAG_ARRAY));
+    assert(IS_SERIES_MANAGED(s));
     v->payload.any_series.series = s;
 }
 

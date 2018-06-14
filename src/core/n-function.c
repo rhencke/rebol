@@ -537,10 +537,10 @@ REBNATIVE(adapt)
 
     RELVAL *body = ACT_BODY(adaptation);
     RESET_VAL_HEADER(body, REB_BLOCK);
+    MANAGE_ARRAY(info);
     INIT_VAL_ARRAY(body, info);
     VAL_INDEX(body) = 0;
     INIT_BINDING(body, underlying); // relative binding
-    MANAGE_ARRAY(info);
 
     Move_Value(D_OUT, ACT_ARCHETYPE(adaptation));
     assert(VAL_BINDING(D_OUT) == UNBOUND);

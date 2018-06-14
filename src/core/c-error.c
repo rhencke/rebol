@@ -928,8 +928,6 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
                 }
             #endif
 
-                ASSERT_VALUE_MANAGED(arg);
-
                 Init_Typeset(key, ALL_64, VAL_WORD_SPELLING(temp));
                 Move_Value(value, arg);
 

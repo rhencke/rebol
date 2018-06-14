@@ -560,26 +560,6 @@ pick:
             /* for (; l > 0; l--, bp++) if (*bp < ' ') *bp = ' '; */
             break;
 
-        case 'm': { // Mold a series
-            // Init_Block would Ensure_Series_Managed, we use a raw
-            // VAL_SET instead.
-            //
-            // !!! Better approach?  Can the series be passed directly?
-            //
-            REBSER* temp = va_arg(*vaptr, REBSER*);
-            if (GET_SER_FLAG(temp, SERIES_FLAG_ARRAY)) {
-                RESET_VAL_HEADER(value, REB_BLOCK);
-                INIT_VAL_ARRAY(value, ARR(temp));
-            }
-            else {
-                RESET_VAL_HEADER(value, REB_TEXT);
-                INIT_VAL_SERIES(value, temp);
-            }
-            VAL_INDEX(value) = 0;
-            Mold_Value(mo, value);
-            break;
-        }
-
         case 'c':
             Append_Utf8_Codepoint(
                 ser,

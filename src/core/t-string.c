@@ -898,18 +898,20 @@ REBYTE *Emit_Uni_Char(REBYTE *bp, REBUNI chr, REBOOL parened)
 }
 
 
-static void Mold_String_Series(REB_MOLD *mo, const RELVAL *v)
-{
-    REBSER *out = mo->series;
-
-    REBCNT len = VAL_LEN_AT(v);
-    REBSER *series = VAL_SERIES(v);
-    REBCNT index = VAL_INDEX(v);
-
-    if (index >= VAL_LEN_HEAD(v)) {
-        Append_Unencoded(out, "\"\"");
+//
+//  Mold_Text_Series_At: C
+//
+void Mold_Text_Series_At(
+    REB_MOLD *mo,
+    REBSER *series,
+    REBCNT index
+){
+    if (index >= UNI_LEN(series)) {
+        Append_Unencoded(mo->series, "\"\"");
         return;
     }
+
+    REBCNT len_at = UNI_LEN(series) - index;
 
     REB_STRF sf;
     CLEARS(&sf);
@@ -921,17 +923,17 @@ static void Mold_String_Series(REB_MOLD *mo, const RELVAL *v)
 
     // If it is a short quoted string, emit it as "string"
     //
-    if (len <= MAX_QUOTED_STR && sf.quote == 0 && sf.newline < 3) {
+    if (len_at <= MAX_QUOTED_STR && sf.quote == 0 && sf.newline < 3) {
         REBYTE *dp = Prep_Mold_Overestimated( // not accurate, must terminate
             mo,
-            (len * 4) // 4 character max for unicode encoding of 1 char
+            (len_at * 4) // 4 character max for unicode encoding of 1 char
                 + sf.newline + sf.escape + sf.paren + sf.chr1e + 2
         );
 
         *dp++ = '"';
 
         REBCNT n;
-        for (n = index; n < VAL_LEN_HEAD(v); n++) {
+        for (n = index; n < UNI_LEN(series); n++) {
             REBUNI c;
             up = NEXT_CHR(&c, up);
             dp = Emit_Uni_Char(
@@ -942,7 +944,7 @@ static void Mold_String_Series(REB_MOLD *mo, const RELVAL *v)
         *dp++ = '"';
         *dp = '\0';
 
-        TERM_BIN_LEN(out, dp - BIN_HEAD(out));
+        TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
         return;
     }
 
@@ -952,7 +954,7 @@ static void Mold_String_Series(REB_MOLD *mo, const RELVAL *v)
 
     REBYTE *dp = Prep_Mold_Overestimated( // not accurate, must terminate
         mo,
-        (len * 4) // 4 bytes maximum for UTF-8 encoding
+        (len_at * 4) // 4 bytes maximum for UTF-8 encoding
             + sf.brace_in + sf.brace_out
             + sf.escape + sf.paren + sf.chr1e
             + 2
@@ -961,7 +963,7 @@ static void Mold_String_Series(REB_MOLD *mo, const RELVAL *v)
     *dp++ = '{';
 
     REBCNT n;
-    for (n = index; n < VAL_LEN_HEAD(v); n++) {
+    for (n = index; n < UNI_LEN(series); n++) {
         REBUNI c;
         up = NEXT_CHR(&c, up);
 
@@ -989,7 +991,7 @@ static void Mold_String_Series(REB_MOLD *mo, const RELVAL *v)
     *dp++ = '}';
     *dp = '\0';
 
-    TERM_BIN_LEN(out, dp - BIN_HEAD(out));
+    TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
 }
 
 
@@ -1128,14 +1130,7 @@ void MF_String(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     //
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) && VAL_INDEX(v) != 0) {
         Pre_Mold(mo, v); // e.g. #[file! part
-
-        DECLARE_LOCAL (head);
-        RESET_VAL_HEADER(head, REB_TEXT);
-        head->payload.any_series.series = VAL_SERIES(v);
-        VAL_INDEX(head) = 0;
-
-        Mold_String_Series(mo, head);
-
+        Mold_Text_Series_At(mo, VAL_SERIES(v), 0);
         Post_Mold(mo, v);
         return;
     }
@@ -1154,7 +1149,7 @@ void MF_String(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
     switch (VAL_TYPE(v)) {
     case REB_TEXT:
-        Mold_String_Series(mo, v);
+        Mold_Text_Series_At(mo, VAL_SERIES(v), VAL_INDEX(v));
         break;
 
     case REB_FILE:

@@ -439,7 +439,6 @@ inline static REBVAL *Derelativize(
 
 
 inline static void DS_PUSH_RELVAL(const RELVAL *v, REBSPC *specifier) {
-    ASSERT_VALUE_MANAGED(v); // would fail on END marker
     DS_PUSH_TRASH;
     Derelativize(DS_TOP, v, specifier);
 }
@@ -448,7 +447,6 @@ inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
     const RELVAL *v,
     REBSPC *specifier
 ){
-    ASSERT_VALUE_MANAGED(v); // would fail on END marker
     DS_PUSH_TRASH;
     REBOOL flip = GET_VAL_FLAG(v, VALUE_FLAG_EVAL_FLIP);
     Derelativize(DS_TOP, v, specifier);
@@ -668,7 +666,9 @@ have_context:;
     REBCNT i = VAL_WORD_INDEX(any_word);
     REBVAL *var = CTX_VAR(context, i);
 
+  #ifdef DEBUG_BINDING_NAME_MATCH // this is expensive, and hasn't happened
     assert(VAL_WORD_CANON(any_word) == VAL_KEY_CANON(CTX_KEY(context, i)));
+  #endif
 
     if (flags & GETVAR_MUTABLE) {
         //
@@ -691,7 +691,6 @@ have_context:;
         }
     }
 
-    assert(!THROWN(var));
     return var;
 }
 

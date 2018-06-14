@@ -378,7 +378,7 @@ REBNATIVE(metrics)
 }
 
 
-#ifdef INCLUDE_CALLGRIND_NATIVE
+#if defined(INCLUDE_CALLGRIND_NATIVE)
     #include <valgrind/callgrind.h>
 #endif
 
@@ -402,7 +402,7 @@ REBNATIVE(callgrind)
 {
     INCLUDE_PARAMS_OF_CALLGRIND;
 
-#ifdef INCLUDE_CALLGRIND_NATIVE
+  #if defined(INCLUDE_CALLGRIND_NATIVE)
     switch (VAL_WORD_SYM(ARG(instruction))) {
     case SYM_ON:
         CALLGRIND_START_INSTRUMENTATION;
@@ -418,9 +418,8 @@ REBNATIVE(callgrind)
         fail ("Currently CALLGRIND only supports ON and OFF");
     }
     return R_NULL;
-
-#else
+  #else
     UNUSED(ARG(instruction));
-    fail ("This exeuctable wasn't compiled with INCLUDE_CALLGRIND_NATIVE");
-#endif
+    fail ("This executable wasn't compiled with INCLUDE_CALLGRIND_NATIVE");
+  #endif
 }

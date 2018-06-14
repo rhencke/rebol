@@ -321,6 +321,14 @@ Special internal defines used by RT, not Host-Kit developers:
     //
     #define DEBUG_NATIVE_RETURNS
 
+    // This check is for making sure that an ANY-WORD! that has a binding has
+    // a spelling that matches the key it is bound to.  It was checked in
+    // Get_Var_Core() but is a slow check that hasn't really ever had a
+    // problem.  Disabling it for now, to improve debug build performance.
+  #if 0
+    #define DEBUG_BINDING_NAME_MATCH
+  #endif
+
     // Cast checks in SER(), NOD(), ARR() are expensive--they make sure that
     // when you have a void pointer and cast it to a REBSER, that the header
     // actually is for a REBSER (etc.)  Disable this by default unless you are

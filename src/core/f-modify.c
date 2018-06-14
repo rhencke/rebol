@@ -145,14 +145,6 @@ REBCNT Modify_Array(
 
     tail = (action == SYM_APPEND) ? 0 : size + dst_idx;
 
-  #if !defined(NDEBUG)
-    if (IS_ARRAY_MANAGED(dst_arr)) {
-        REBINT i;
-        for (i = 0; i < ilen; ++i)
-            ASSERT_VALUE_MANAGED(&src_rel[i]);
-    }
-  #endif
-
     REBINT dup_index = 0;
     for (; dup_index < dups; ++dup_index) {
         REBINT index = 0;

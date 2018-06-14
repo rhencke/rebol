@@ -1673,49 +1673,6 @@ void Manage_Series(REBSER *s)
 }
 
 
-//
-//  Is_Value_Managed: C
-//
-// Determines if a value would be visible to the garbage collector or not.
-// Defaults to the answer of TRUE if the value has nothing the GC cares if
-// it sees or not.
-//
-// Note: Avoid causing conditional behavior on this casually.  It's really
-// for GC internal use and ASSERT_VALUE_MANAGED.  Most code should work
-// with either managed or unmanaged value states for variables w/o needing
-// this test to know which it has.)
-//
-REBOOL Is_Value_Managed(const RELVAL *v)
-{
-    assert(!THROWN(v));
-
-    // Generally this is called by GC code, and that code is supposed to be
-    // tolerant of unreadable blanks in the debug build.  If a non-GC client
-    // happens to not catch the alarm in this routine, they'll catch it as
-    // soon as they try to do pretty much anything else with the value.
-    //
-  #if defined(DEBUG_UNREADABLE_BLANKS)
-    if (IS_UNREADABLE_DEBUG(v))
-        return TRUE;
-  #endif
-
-    if (ANY_CONTEXT(v)) {
-        REBCTX *c = VAL_CONTEXT(v);
-        if (IS_ARRAY_MANAGED(CTX_VARLIST(c))) {
-            ASSERT_ARRAY_MANAGED(CTX_KEYLIST(c));
-            return TRUE;
-        }
-        assert(not IS_ARRAY_MANAGED(CTX_KEYLIST(c))); // !!! untrue?
-        return FALSE;
-    }
-
-    if (ANY_SERIES(v))
-        return IS_SERIES_MANAGED(VAL_SERIES(v));
-
-    return TRUE;
-}
-
-
 #if !defined(NDEBUG)
 
 //

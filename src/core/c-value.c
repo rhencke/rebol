@@ -207,19 +207,20 @@ void* Probe_Core_Debug(
     const char *file,
     int line
 ){
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
+
     REBOOL was_disabled = GC_Disabled;
     GC_Disabled = TRUE;
 
     switch (Detect_Rebol_Pointer(p)) {
     case DETECTED_AS_NULL:
         Probe_Print_Helper(p, "C nullptr", file, line);
-        fflush(stdout);
         break;
 
     case DETECTED_AS_UTF8:
         Probe_Print_Helper(p, "C String", file, line);
         printf("\"%s\"\n", cast(const char*, p));
-        fflush(stdout);
         break;
 
     case DETECTED_AS_SERIES: {
@@ -238,48 +239,37 @@ void* Probe_Core_Debug(
             if (SER_WIDE(s) == sizeof(REBYTE)) {
                 Probe_Print_Helper(p, "Byte-Size Series", file, line);
 
-                DECLARE_LOCAL (value);
-                RESET_VAL_HEADER(value, REB_BINARY);
-                INIT_VAL_SERIES(value, s);
-                VAL_INDEX(value) = 0;
-
-                Probe_Molded_Value(value);
+                // !!! Duplication of code in MF_Binary
+                //
+                const REBOOL brk = (BIN_LEN(s) > 32);
+                REBSER *enbased = Encode_Base16(BIN_HEAD(s), BIN_LEN(s), brk);
+                Append_Unencoded(mo->series, "#{");
+                Append_Utf8_Utf8(
+                    mo->series,
+                    cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased)
+                );
+                Append_Unencoded(mo->series, "}");
+                Free_Unmanaged_Series(enbased);
             }
             else if (SER_WIDE(s) == sizeof(REBUNI)) {
                 Probe_Print_Helper(p, "REBWCHAR-Size Series", file, line);
-
-                DECLARE_LOCAL (value);
-                RESET_VAL_HEADER(value, REB_TEXT);
-                INIT_VAL_SERIES(value, s);
-                VAL_INDEX(value) = 0;
-
-                Probe_Molded_Value(value);
+                Mold_Text_Series_At(mo, s, 0); // not necessarily TEXT!
             }
             else if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
                 Probe_Print_Helper(p, "Array", file, line);
-
-                // May not actually be a REB_BLOCK, but we put it in a value
-                // container for now saying it is so we can output it.  May
-                // not want to Manage_Series here, so we use a raw
-                // initialization instead of Init_Block.
-                //
-                DECLARE_LOCAL (block);
-                RESET_VAL_HEADER(block, REB_BLOCK);
-                INIT_VAL_ARRAY(block, ARR(s));
-                VAL_INDEX(block) = 0;
-
-                Probe_Molded_Value(block);
+                Mold_Array_At(mo, ARR(s), 0, "[]"); // not necessarily BLOCK!
             }
             else if (s == PG_Canons_By_Hash) {
-                printf("can't probe PG_Canons_By_Hash\n");
+                printf("can't probe PG_Canons_By_Hash (TBD: add probing)\n");
                 panic (s);
             }
             else if (s == GC_Guarded) {
-                printf("can't probe GC_Guarded\n");
+                printf("can't probe GC_Guarded (TBD: add probing)\n");
                 panic (s);
             }
             else
                 panic (s);
+
         }
         break; }
 
@@ -289,7 +279,7 @@ void* Probe_Core_Debug(
 
     case DETECTED_AS_VALUE: {
         Probe_Print_Helper(p, "Value", file, line);
-        Probe_Molded_Value(cast(const REBVAL*, p));
+        Mold_Value(mo, cast(const REBVAL*, p));
         break; }
 
     case DETECTED_AS_END:
@@ -300,6 +290,12 @@ void* Probe_Core_Debug(
         Probe_Print_Helper(p, "Trash Cell", file, line);
         panic (p);
     }
+
+    if (mo->start != SER_LEN(mo->series))
+        printf("%s\n", s_cast(BIN_AT(mo->series, mo->start)));
+    fflush(stdout);
+
+    Drop_Mold(mo);
 
     assert(GC_Disabled == TRUE);
     GC_Disabled = was_disabled;

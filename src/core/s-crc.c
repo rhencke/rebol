@@ -234,7 +234,7 @@ uint32_t Hash_Value(const RELVAL *v)
         // accomplish the same thing (whether it was good or not, at least it
         // isn't breaking the C standard)
 
-        REBYTE *payload = cast(REBYTE*, &v->payload.money);
+        const REBYTE *payload = cast(const REBYTE*, &v->payload.money);
 
         uintptr_t bits0;
         uintptr_t bits1;

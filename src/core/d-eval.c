@@ -186,7 +186,6 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
     assert(f->value);
     assert(FRM_HAS_MORE(f));
     assert(not THROWN(f->value));
-    ASSERT_VALUE_MANAGED(f->value);
     assert(f->value != f->out);
 
     //=//// ^-- ADD CHECKS EARLIER THAN HERE IF THEY SHOULD ALWAYS RUN ////=//
@@ -356,12 +355,8 @@ void Do_Core_Exit_Checks_Debug(REBFRM *f) {
     // of END for a fully "invisible" evaluation, as opposed to void.  This
     // distinction is only offered internally, at the moment.
     //
-    if (NOT_END(f->out)) {
+    if (NOT_END(f->out))
         assert(VAL_TYPE(f->out) <= REB_MAX_VOID);
-
-        if (not THROWN(f->out))
-            ASSERT_VALUE_MANAGED(f->out);
-    }
 
     f->flags.bits |= DO_FLAG_FINAL_DEBUG;
 }

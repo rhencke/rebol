@@ -1208,31 +1208,21 @@ static void Mark_Frame_Stack_Deep(void)
         }
 
         Queue_Mark_Action_Deep(f->phase); // never NULL
-        if (f->opt_label != NULL) // will be NULL if no symbol
+        if (f->opt_label) // will be null if no symbol
             Mark_Rebser_Only(f->opt_label);
 
-        if (!Is_Action_Frame_Fulfilling(f)) {
+        if (not Is_Action_Frame_Fulfilling(f)) {
             assert(IS_END(f->param)); // indicates function is running
 
             // refine and special can be used to GC protect an arbitrary
             // value while a function is running, currently.  (A more
             // important purpose may come up...)
 
-            if (
-                f->refine != NULL
-                and NOT_END(f->refine)
-                and Is_Value_Managed(f->refine)
-            ){
+            if (f->refine and NOT_END(f->refine))
                 Queue_Mark_Opt_Value_Deep(f->refine);
-            }
 
-            if (
-                f->special != NULL
-                and NOT_END(f->special)
-                and Is_Value_Managed(f->special)
-            ){
+            if (f->special and NOT_END(f->special))
                 Queue_Mark_Opt_Value_Deep(f->special);
-            }
         }
 
         // We need to GC protect the values in the args no matter what,

@@ -569,11 +569,7 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
         // differentiated and loaded.
         //
         const void *p = va_arg(*f->source.vaptr, const void*);
-
-      #if !defined(NDEBUG)
-        f->source.index = TRASHED_INDEX;
-      #endif
-
+        f->source.index = TRASHED_INDEX; // avoids warning in release build
         lookback = Set_Frame_Detected_Fetch(f, p);
     }
 
@@ -1080,9 +1076,7 @@ inline static REBIXO Do_Va_Core(
 
     f->gotten = END; // so REB_WORD and REB_GET_WORD do their own Get_Var
 
-  #if !defined(NDEBUG)
-    f->source.index = TRASHED_INDEX;
-  #endif
+    f->source.index = TRASHED_INDEX; // avoids warning in release build
     f->source.array = nullptr;
     f->source.vaptr = vaptr;
     f->source.pending = END; // signal next fetch should come from va_list

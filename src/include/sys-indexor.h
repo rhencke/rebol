@@ -120,9 +120,9 @@
             assert(bits != 0x80000000); // END_FLAG
             assert(bits != 0x80000000 - 0x75); // THROWN_FLAG 
             assert(bits != 0x80000000 - 0xBD); // VA_LIST_FLAG
-        #if !defined(NDEBUG)
+          #if !defined(NDEBUG)
             assert(bits != 0x80000000 - 0xAE); // TRASHED_INDEX
-        #endif
+          #endif
             return bits;
         }
 
@@ -134,11 +134,12 @@
         // should be extracted by casting to a REBCNT.
         //
         friend bool operator==(REBCNT lhs, const REBIXO &rhs) {
-            assert(lhs != UNKNOWN && lhs != NOT_FOUND);
+            assert(lhs != UNKNOWN and lhs != NOT_FOUND);
             return lhs == rhs.bits;
         }
         friend bool operator!=(REBCNT lhs, const REBIXO &rhs) {
-            return !(lhs == rhs);
+            assert(lhs != UNKNOWN and lhs != NOT_FOUND);
+            return lhs != rhs.bits;
         }
         bool operator<(REBCNT rhs) const {
             return cast(REBCNT, *this) < rhs;
@@ -200,9 +201,9 @@
     );
 #endif
 
-// This is used internally in frames in the debug build when the index
-// does not apply (e.g. END, THROWN, VA_LIST)
+// This is used when the index does not apply (e.g. END, THROWN, VA_LIST).
+// It was once just a debug build flag, but conservative optimized builds
+// noticed the field being accessed and complained that not all code paths
+// assigned it in the release build...so it's always assigned.
 //
-#if !defined(NDEBUG)
-    #define TRASHED_INDEX (0x80000000 - 0xAE)
-#endif
+#define TRASHED_INDEX (0x80000000 - 0xAE)

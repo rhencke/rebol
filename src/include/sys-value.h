@@ -739,20 +739,12 @@ inline static void SET_END_Core(
         VAL_TYPE_RAW(v)
 #else
     inline static REBOOL IS_END_Debug(
-        const RELVAL *v,
+        const RELVAL *v, // Note: not all end markers have NODE_FLAG_CELL
         const char *file,
         int line
     ){
-        if (v->header.bits & NODE_FLAG_FREE) {
-            printf("IS_END() called on garbage\n");
-            panic_at(v, file, line);
-        }
-
-        // Do a fast common case.  We check for freeness but not cellness, as
-        // not all END markers are full cells.
-        //
         if ((v->header.bits & (NODE_FLAG_FREE | NODE_FLAG_END)) == 0)
-            return FALSE;
+            return FALSE; // quick return for common case
 
         if (v->header.bits & NODE_FLAG_END) {
             if (v->header.bits & NODE_FLAG_CELL)
@@ -765,10 +757,13 @@ inline static void SET_END_Core(
             return TRUE;
         }
 
-        // Anything that's not an END called by this routine *must* be a cell
-        //
-        assert(v->header.bits & NODE_FLAG_CELL);
-        return FALSE;
+        if (not (v->header.bits & NODE_FLAG_CELL))
+            printf ("IS_END() called on non-cell, but not endlike header\n");
+        else {
+            assert(v->header.bits & NODE_FLAG_FREE);
+            printf("IS_END() called on garbage\n");
+        }
+        panic_at(v, file, line);
     }
 
 #ifdef CPLUSPLUS_11

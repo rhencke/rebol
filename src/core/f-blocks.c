@@ -161,13 +161,6 @@ void Clonify_Values_Len_Managed(
 
     REBCNT index;
     for (index = 0; index < len; ++index, ++v) {
-        //
-        // By the rules, if we need to do a deep copy on the source
-        // series then the values inside it must have already been
-        // marked managed (because they *might* delve another level deep)
-        //
-        ASSERT_VALUE_MANAGED(v);
-
         if (types & FLAGIT_KIND(VAL_TYPE(v)) & TS_SERIES_OBJ) {
             //
             // Objects and series get shallow copied at minimum
@@ -192,6 +185,7 @@ void Clonify_Values_Len_Managed(
                         )
                     );
 
+                    MANAGE_SERIES(series);
                     INIT_VAL_ARRAY(v, ARR(series)); // copies args
 
                     // If it was relative, then copying with a specifier
@@ -201,11 +195,10 @@ void Clonify_Values_Len_Managed(
                 }
                 else {
                     series = Copy_Sequence(VAL_SERIES(v));
+                    MANAGE_SERIES(series);
                     INIT_VAL_SERIES(v, series);
                 }
             }
-
-            MANAGE_SERIES(series);
 
             // If we're going to copy deeply, we go back over the shallow
             // copied series and "clonify" the values in it.

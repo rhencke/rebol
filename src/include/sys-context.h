@@ -178,17 +178,17 @@ inline static REBFRM *CTX_FRAME_IF_ON_STACK(REBCTX *c) {
 
 inline static REBFRM *CTX_FRAME_MAY_FAIL(REBCTX *c) {
     REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
-    if (f == NULL)
+    if (not f)
         fail (Error_Frame_Not_On_Stack_Raw());
     return f;
 }
 
 inline static REBVAL *CTX_VARS_HEAD(REBCTX *c) {
     if (NOT_SER_FLAG(CTX_VARLIST(c), CONTEXT_FLAG_STACK))
-        return KNOWN(ARR_AT(CTX_VARLIST(c), 1));
+        return SER_AT(REBVAL, SER(CTX_VARLIST(c)), 1);
 
     REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
-    assert(f != NULL);
+    assert(f);
     return f->args_head;
 }
 
