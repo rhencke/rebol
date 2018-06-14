@@ -607,12 +607,15 @@ REB_R PD_String(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     */
 
     if (opt_setval == NULL) { // PICK-ing
-        if (IS_INTEGER(picker)) {
-            REBINT n = Int32(picker) + VAL_INDEX(pvs->out) - 1;
-            if (n < 0 || cast(REBCNT, n) >= SER_LEN(ser)) {
-                Init_Void(pvs->out);
-                return R_OUT;
-            }
+        if (IS_INTEGER(picker) or IS_DECIMAL(picker)) { // #2312
+            REBINT n = Int32(picker);
+            if (n == 0)
+                return R_NULL; // Rebol2/Red convention, 0 is bad pick
+            if (n < 0)
+                ++n; // Rebol2/Red convention, `pick tail "abc" -1` is #"c"
+            n += VAL_INDEX(pvs->out) - 1;
+            if (n < 0 or cast(REBCNT, n) >= SER_LEN(ser))
+                return R_NULL;
 
             if (IS_BINARY(pvs->out))
                 Init_Integer(pvs->out, *BIN_AT(ser, n));
@@ -711,8 +714,13 @@ REB_R PD_String(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (not IS_INTEGER(picker))
         return R_UNHANDLED;
 
-    REBINT n = Int32(picker) + VAL_INDEX(pvs->out) - 1;
-    if (n < 0 || cast(REBCNT, n) >= SER_LEN(ser))
+    REBINT n = Int32(picker);
+    if (n == 0)
+        fail (Error_Out_Of_Range(picker)); // Rebol2/Red convention for 0
+    if (n < 0)
+        ++n;
+    n += VAL_INDEX(pvs->out) - 1;
+    if (n < 0 or cast(REBCNT, n) >= SER_LEN(ser))
         fail (Error_Out_Of_Range(picker));
 
     REBINT c;

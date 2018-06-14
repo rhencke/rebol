@@ -551,20 +551,22 @@ void Shuffle_Block(REBVAL *value, REBOOL secure)
 //
 REB_R PD_Array(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 {
-    REBCNT n = NOT_FOUND; // -1
+    REBINT n;
 
-    /* Issues!!!
-        a/1.3
-        a/not-found: 10 error or append?
-        a/not-followed: 10 error or append?
-    */
-
-    if (IS_INTEGER(picker)) {
-        n = Int32(picker) + VAL_INDEX(pvs->out) - 1;
+    if (IS_INTEGER(picker) or IS_DECIMAL(picker)) { // #2312
+        n = Int32(picker);
+        if (n == 0)
+            return R_NULL; // Rebol2/Red convention: 0 is not a pick
+        if (n < 0)
+            ++n; // Rebol2/Red convention: `pick tail [a b c] -1` is `c`
+        n += VAL_INDEX(pvs->out) - 1;
     }
     else if (IS_WORD(picker)) {
         //
-        // Linear search to find ANY-WORD! matching the canon.
+        // Linear search to case-insensitive find ANY-WORD! matching the canon
+        // and return the item after it.  Default to out of range.
+        //
+        n = -1;
 
         REBSTR *canon = VAL_WORD_CANON(picker);
         RELVAL *item = VAL_ARRAY_AT(pvs->out);
@@ -589,7 +591,10 @@ REB_R PD_Array(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             n = VAL_INDEX(pvs->out) + 1;
     }
     else {
-        // other values:
+        // For other values, act like a SELECT and give the following item.
+        // (Note Find_In_Array_Simple returns the array length if missed,
+        // so adding one will be out of bounds.)
+
         n = 1 + Find_In_Array_Simple(
             VAL_ARRAY(pvs->out),
             VAL_INDEX(pvs->out),
@@ -597,15 +602,15 @@ REB_R PD_Array(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         );
     }
 
-    if (n == NOT_FOUND || n >= VAL_LEN_HEAD(pvs->out)) {
-        if (opt_setval != NULL)
+    if (n < 0 or n >= cast(REBINT, VAL_LEN_HEAD(pvs->out))) {
+        if (opt_setval)
             return R_UNHANDLED;
 
         Init_Void(pvs->out);
         return R_OUT;
     }
 
-    if (opt_setval != NULL)
+    if (opt_setval)
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(pvs->out));
 
     Init_Reference(

@@ -574,16 +574,24 @@ void Pick_Vector(REBVAL *out, const REBVAL *value, const REBVAL *picker) {
     REBSER *vect = VAL_SERIES(value);
 
     REBINT n;
-    if (IS_INTEGER(picker) || IS_DECIMAL(picker))
+    if (IS_INTEGER(picker) or IS_DECIMAL(picker)) // #2312
         n = Int32(picker);
     else
         fail (Error_Invalid(picker));
 
+    if (n == 0) {
+        Init_Void(out);
+        return; // Rebol2/Red convention, 0 is bad pick
+    }
+
+    if (n < 0)
+        ++n; // Rebol/Red convention, picking -1 from tail gives last item
+
     n += VAL_INDEX(value);
 
-    if (n <= 0 || cast(REBCNT, n) > SER_LEN(vect)) {
-        Init_Void(out); // out of range of vector data
-        return;
+    if (n <= 0 or cast(REBCNT, n) > SER_LEN(vect)) {
+        Init_Void(out);
+        return; // out of range of vector data
     }
 
     REBYTE *vp = SER_DATA_RAW(vect);
@@ -614,14 +622,19 @@ void Poke_Vector_Fail_If_Read_Only(
     FAIL_IF_READ_ONLY_SERIES(vect);
 
     REBINT n;
-    if (IS_INTEGER(picker) || IS_DECIMAL(picker))
+    if (IS_INTEGER(picker) or IS_DECIMAL(picker)) // #2312
         n = Int32(picker);
     else
         fail (Error_Invalid(picker));
 
+    if (n == 0)
+        fail (Error_Out_Of_Range(picker)); // Rebol2/Red convention
+    if (n < 0)
+        ++n; // Rebol2/Red convention, poking -1 from tail sets last item
+
     n += VAL_INDEX(value);
 
-    if (n <= 0 || cast(REBCNT, n) > SER_LEN(vect))
+    if (n <= 0 or cast(REBCNT, n) > SER_LEN(vect))
         fail (Error_Out_Of_Range(picker));
 
     REBYTE *vp = SER_DATA_RAW(vect);
