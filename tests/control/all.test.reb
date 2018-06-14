@@ -1,6 +1,6 @@
 ; functions/control/all.r
 ; zero values
-(bar? all [])
+(null? all [])
 ; one value
 (:abs = all [:abs])
 (

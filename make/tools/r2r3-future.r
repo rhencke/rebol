@@ -163,7 +163,7 @@ all: function [
     return: [<opt> any-value!]
     block [block!]
 ] compose/deep [
-    value: '|
+    value: null
     (:lib/loop-until) [
         ;-- NOTE: uses the old-style UNLESS, as its faster than IF NOT
         (:lib/unless) value: (:lib/to-value) do/next block 'block [

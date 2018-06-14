@@ -547,18 +547,6 @@ skip*: redescribe [
     specialize 'skip [only: true]
 )
 
-any*: redescribe [
-    {Variant of ANY that ignores voids, and returns void if all opt out}
-](
-    specialize 'any [only: true]
-)
-
-all*: redescribe [
-    {Variant of ALL that ignores voids, and returns void if all opt out}
-](
-    specialize 'all [only: true]
-)
-
 set*: redescribe [
     {Variant of SET that allows a null to actually unset the variable}
 ](

@@ -531,13 +531,12 @@ either_test:;
 //
 //  all: native [
 //
-//  {Short-circuiting variant of AND, using a block of expressions as input.}
+//  {Short-circuiting variant of AND, using a block of expressions as input}
 //
 //      return: "Product of last evaluation if all truthy, else null"
 //          [<opt> any-value!]
 //      block "Block of expressions"
 //          [block!]
-//      /only "Ignore void evaluations, and return void if any falsey values"
 //  ]
 //
 REBNATIVE(all)
@@ -547,66 +546,34 @@ REBNATIVE(all)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(block));
 
-    if (REF(only)) {
-        //
-        // The variation which tolerates voids wants `all/only [10 ()] = 10`.
-        // This requires calculating into an intermediate cell and only moving
-        // it to the potential result if it's not void.
+    Init_Void(D_OUT); // default return result
 
-        Init_Void(D_OUT);
-
-        while (FRM_HAS_MORE(f)) {
-            if (Do_Next_In_Frame_Throws(D_CELL, f)) {
-                Abort_Frame(f);
-                Move_Value(D_OUT, D_CELL);
-                return R_OUT_IS_THROWN;
-            }
-
-            if (IS_VOID(D_CELL)) // voids do not "vote" true or false
-                continue;
-
-            if (IS_FALSEY(D_CELL)) { // failure signified with null
-                Abort_Frame(f);
-                return R_NULL;
-            }
-
-            Move_Value(D_OUT, D_CELL); // preserve (later voids won't erase)
+    while (FRM_HAS_MORE(f)) {
+        if (Do_Next_In_Frame_Throws(D_OUT, f)) {
+            Abort_Frame(f);
+            return R_OUT_IS_THROWN;
         }
-    }
-    else {
-        // If not trying to preserve the last result in case of void, then
-        // less copying can be done, so a faster loop is used.
 
-        Init_Bar(D_OUT);
-
-        while (FRM_HAS_MORE(f)) {
-            if (Do_Next_In_Frame_Throws(D_OUT, f)) {
-                Abort_Frame(f);
-                return R_OUT_IS_THROWN;
-            }
-
-            if (IS_FALSEY(D_OUT)) { // failure signified with null
-                Abort_Frame(f);
-                return R_NULL;
-            }
+        if (IS_FALSEY(D_OUT)) { // any false/blank/null will trigger failure
+            Abort_Frame(f);
+            return R_NULL;
         }
     }
 
     Drop_Frame(f);
-    return R_OUT;
+    return R_OUT; // successful all when the last D_OUT assignment is truthy
 }
 
 
 //
 //  any: native [
 //
-//  {Short-circuiting version of OR, using a block of expressions as input.}
+//  {Short-circuiting version of OR, using a block of expressions as input}
 //
 //      return: "First truthy evaluative result, or null if all falsey"
 //          [<opt> any-value!]
 //      block "Block of expressions"
 //          [block!]
-//      /only "Ignore void evaluations, and return void if no truthy values"
 //  ]
 //
 REBNATIVE(any)
@@ -616,45 +583,32 @@ REBNATIVE(any)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(block));
 
-    REBOOL voted = FALSE;
-
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return R_OUT_IS_THROWN;
         }
 
-        if (IS_VOID(D_OUT)) {
-            if (REF(only)) // voids do not "vote" true or false
-                continue;
-        }
-        else if (IS_TRUTHY(D_OUT)) { // successful ANY returns the value
+        if (IS_TRUTHY(D_OUT)) { // successful ANY returns the value
             Abort_Frame(f);
             return R_OUT;
         }
-
-        voted = TRUE; // signal at least one non-void result was seen
     }
 
     Drop_Frame(f);
-
-    if (voted or not REF(only))
-        return R_NULL;
-
-    return R_NULL; // all opt-outs return void if /ONLY
+    return R_NULL;
 }
 
 
 //
 //  none: native [
 //
-//  {Short circuiting version of NOR, using a block of expressions as input.}
+//  {Short circuiting version of NOR, using a block of expressions as input}
 //
 //      return: "BAR! if all expressions are falsey, null if any are truthy"
 //          [<opt> bar!]
 //      block "Block of expressions."
 //          [block!]
-//      /only "Ignore void evaluations, and return void if all void"
 //  ]
 //
 REBNATIVE(none)
@@ -667,32 +621,20 @@ REBNATIVE(none)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(block));
 
-    REBOOL voted = FALSE;
-
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return R_OUT_IS_THROWN;
         }
 
-        if (IS_VOID(D_OUT)) {
-            if (REF(only)) // voids do not "vote" true or false
-                continue;
-        }
-        else if (IS_TRUTHY(D_OUT)) { // any true results mean failure
+        if (IS_TRUTHY(D_OUT)) { // any true results mean failure
             Abort_Frame(f);
             return R_NULL;
         }
-
-        voted = TRUE; // signal that at least one non-void result was seen
     }
 
     Drop_Frame(f);
-
-    if (voted or not REF(only))
-        return R_BAR;
-
-    return R_NULL; // all opt-outs
+    return R_BAR; // "synthetic" truthy that doesn't suggest LOGIC! on failure
 }
 
 
