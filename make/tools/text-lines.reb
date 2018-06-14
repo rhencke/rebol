@@ -25,7 +25,7 @@ decode-lines: function [
     line: [pos: pattern rest: (rest: remove/part pos rest) :rest thru newline]
     if not parse text [any line] [
         fail [
-            {Expected line} (text-line-of text pos)
+            {Expected line} (try text-line-of text pos)
             {to begin with} (mold line-prefix)
             {and end with newline.}
         ]
@@ -88,18 +88,20 @@ for-each-line: function [
     ]
 ]
 
-lines-exceeding: function [
+lines-exceeding: function [ ;-- !!! Doesn't appear used, except in tests (?)
     {Return the line numbers of lines exceeding line-length.}
+
+    return: [<opt> block!]
+        "Returns null if no lines (is this better than returning []?)"
     line-length [integer!]
     text [text!]
-] [
-
+][
     line-list: line: _
 
     count-line: [
         (
             line: 1 + any [line 0]
-            if line-length < subtract index-of eol index-of bol [
+            if line-length < subtract index-of eol index of bol [
                 append line-list: any [line-list copy []] line
             ]
         )
@@ -110,20 +112,19 @@ lines-exceeding: function [
         bol: skip to end eol: count-line
     ]
 
-    line-list
+    opt line-list
 ]
 
 text-line-of: function [
-    {Returns line number of position within text.}
+    {Returns line number of position within text}
+
+    return: [<opt> integer!]
+        "Line 0 does not exist, and no counting is performed for empty text"
     position [text! binary!]
-] [
-
-    ; Here newline is considered last character of a line.
-    ; No counting performed for empty text.
-    ; Line 0 does not exist.
-
-    text: head-of position
-    idx: index-of position
+        "Position, where newline is considered the last character of a line"
+][
+    text: head of position
+    idx: index of position
     line: 0
 
     advance: [skip (line: line + 1)]
@@ -131,14 +132,13 @@ text-line-of: function [
     parse text [
         any [
             to newline cursor:
-            if (lesser? index-of cursor idx)
+            if (lesser? index of cursor idx)
             advance
         ]
         advance
     ]
 
-    if zero? line [line: _]
-   
+    if zero? line [return null]
     line
 ]
 
@@ -151,8 +151,8 @@ text-location-of: function [
     ; No counting performed for empty text.
     ; Line 0 does not exist.
 
-    text: head-of position
-    idx: index-of position
+    text: head of position
+    idx: index of position
     line: 0
 
     advance: [eol: skip (line: line + 1)]
@@ -160,7 +160,7 @@ text-location-of: function [
     parse text [
         any [
             to newline cursor:
-            if (lesser? index-of cursor idx)
+            if (lesser? index of cursor idx)
             advance
         ]
         advance

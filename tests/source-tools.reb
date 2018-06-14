@@ -1,14 +1,36 @@
 REBOL [
-    Title: "Rebol C Source Tools"
+    Title: "Rebol 'Lint'-style Checking Tool for source code invariants"
     Rights: {
         Copyright 2015 Brett Handley
+        Copyright 2015-2018 Rebol Open Source Contributors
     }
     License: {
         Licensed under the Apache License, Version 2.0
         See: http://www.apache.org/licenses/LICENSE-2.0
     }
-    Author: "Brett Handley"
-    Purpose: {Process the source of Rebol.}
+    Purpose: {
+        This tool arose from wanting to use Rebol for a pre-commit hook:
+
+        https://codeinthehole.com/tips/tips-for-using-a-git-pre-commit-hook/
+
+        It can scan for simple things like inconsistent CR LF line endings, or
+        more complex policies for the codebase.  Since a C tokenizer using
+        PARSE rules had already been created for auomatically generating
+        header files for the API, that tokenizer is used here to give some
+        level of "C syntax awareness".
+
+        (Note: Since that C parser is used in bootstrap, not all cutting edge
+        features can be used in it...since it must build with older Rebols.)
+
+        Some of the checks are fully enforced, such as that lines not end in
+        stray whitespace...or that the names in comment blocks are actually in
+        sync with the corresponding C identifiers.  Other rule violations are
+        just given as warnings, but not formally registered as failures yet
+        (such as when lines of code are longer than 80 columns long).
+
+        It is a baseline for implementing more experiments, and by using
+        Rebol code for the checks it also exercises more code paths.
+    }
 ]
 
 ; Root folder of the repository.
@@ -75,6 +97,17 @@ rebsource: context [
     ] ; Not analysed ...
 
 
+    log-emit: procedure [
+        {Append a COMPOSE'd block to a log block, clearing any new-line flags}
+
+        log [block!]
+        label [tag!]
+        body [block!]
+    ][
+        body: new-line/all compose/only body false
+        append/line log (head insert body label)
+    ]
+
     analyse: context [
 
         files: function [
@@ -85,19 +118,19 @@ rebsource: context [
                 for-each source list/source-files [
                     if find whitelisted source [continue]
 
-                    keep opt analyse/file source
+                    keep analyse/file source
                 ]
             ]
         ]
 
         file: function [
             {Analyse a file returning facts.}
-            return: [block! blank!]
+            return: [<opt> block!]
             file
         ][
             all [
-                did filetype: select extensions extension-of file
-                type: in source filetype
+                filetype: try select extensions extension-of file
+                type: try in source filetype
                 eval (ensure action! get type) file (read src-folder/:file)
             ]
         ]
@@ -105,17 +138,17 @@ rebsource: context [
         source: context [
 
             c: function [
-                {Analyse a C file returning facts.}
-                file
-                data
-            ] [
+                {Analyse a C file at the C preprocessing token level}
 
-                ;
-                ; This analysis is at a token level (c preprocessing token).
-
+                return: [block!]
+                    "Facts about the file (lines that are too long, etc.)"
+                file [file!]
+                data [binary!]
+            ][
                 analysis: analyse/text file data
+                emit: specialize 'log-emit [log: analysis]
 
-                data: to text! data
+                data: as text! data
 
                 identifier: c.lexical/grammar/identifier
                 c-pp-token: c.lexical/grammar/c-pp-token
@@ -124,7 +157,7 @@ rebsource: context [
 
                 malloc-check: [
                     and identifier "malloc" (
-                        append malloc-found text-line-of position
+                        append malloc-found try text-line-of position
                     )
                 ]
 
@@ -137,76 +170,74 @@ rebsource: context [
                 ]
 
                 if not empty? malloc-found [
-                    emit analysis [malloc (file) (malloc-found)]
+                    emit <malloc> [(file) (malloc-found)]
                 ]
 
-                if all [
+                all [
                     not tail? data
                     not equal? newline last data
-                ][
-                    emit analysis [eof-eol-missing (file)]
+                ] then [
+                    emit <eof-eol-missing> [(file)]
                 ]
 
                 emit-proto: procedure [proto] [
-                    if block? proto-parser/data [
-                        do in c-parser-extension [
-                            if last-func-end [
-                                if not all [
-                                    parse last-func-end [
-                                        function-spacing-rule
-                                        position:
-                                        to end
-                                    ]
-                                    same? position proto-parser/parse.position
-                                ][
-                                    line: text-line-of proto-parser/parse.position
-                                    append any [
-                                        non-std-func-space
-                                        set 'non-std-func-space copy []
-                                    ] text-line-of proto-parser/parse.position
-                                ]
-                            ]
-                        ]
+                    if not block? proto-parser/data [leave]
 
-                        parse proto-parser/data [
-                            set name: set-word! (name: to-word name)
-                            opt 'enfix
-                            ['native | ahead path! into ['native to end]]
-                            to end
-                        ] then [
-                            ;
-                            ; It's a `some-name?: native [...]`, so we expect
-                            ; `REBNATIVE(some_name_q)` to be correctly lined up
-                            ; as the "to-c-name" of the Rebol set-word
-                            ;
-                            if proto-parser/proto.arg.1 <> to-c-name name [
-                                line: text-line-of proto-parser/parse.position
-                                emit analysis [
-                                    id-mismatch
-                                    (mold proto-parser/data/1) (file) (line)
+                    do in c-parser-extension [
+                        if last-func-end [
+                            all [
+                                parse last-func-end [
+                                    function-spacing-rule
+                                    position:
+                                    to end
                                 ]
-                            ]
-                        ] else [
-                            ;
-                            ; ... ? (not a native)
-                            ;
-                            not any [
-                                proto-parser/proto.id =
-                                    <- (form to word! proto-parser/data/1)
-                                proto-parser/proto.id =
-                                    <- unspaced [
-                                        "RL_" to word! proto-parser/data/1
-                                    ]
-                            ] then [
-                                line: text-line-of proto-parser/parse.position
-                                emit analysis [
-                                    id-mismatch
-                                    (mold proto-parser/data/1) (file) (line)
-                                ]
+                                same? position proto-parser/parse.position
+                            ] else [
+                                line: try (
+                                    text-line-of proto-parser/parse.position
+                                )
+                                append
+                                    non-std-func-space: default [copy []]
+                                    line ;-- should it be appending BLANK! ?
                             ]
                         ]
                     ]
 
+                    parse proto-parser/data [
+                        set name: set-word! (name: to-word name)
+                        opt 'enfix
+                        ['native | ahead path! into ['native to end]]
+                        to end
+                    ] then [
+                        ;
+                        ; It's a `some-name?: native [...]`, so we expect
+                        ; `REBNATIVE(some_name_q)` to be correctly lined up
+                        ; as the "to-c-name" of the Rebol set-word
+                        ;
+                        if proto-parser/proto.arg.1 <> to-c-name name [
+                            line: try text-line-of proto-parser/parse.position
+                            emit <id-mismatch> [
+                                (mold proto-parser/data/1) (file) (line)
+                            ]
+                        ]
+                    ] else [
+                        ;
+                        ; ... ? (not a native)
+                        ;
+                        any [
+                            proto-parser/proto.id =
+                                <- (form to word! proto-parser/data/1)
+                            proto-parser/proto.id =
+                                <- unspaced [
+                                    "RL_" to word! proto-parser/data/1
+                                ]
+                        ] else [
+                            line: try text-line-of proto-parser/parse.position
+                            emit <id-mismatch> [
+                                (mold proto-parser/data/1) (file) (line)
+                            ]
+                        ]
+                    ]
                 ]
 
                 non-std-func-space: _
@@ -214,15 +245,18 @@ rebsource: context [
                 proto-parser/process data
 
                 if non-std-func-space [
-                    emit analysis [non-std-func-space (file) (non-std-func-space)]
+                    emit <non-std-func-space> [(file) (non-std-func-space)]
                 ]
 
                 analysis
             ]
 
             rebol: function [
-                {Analyse a Rebol file returning facts.}
-                file
+                {Analyse a Rebol file (no checks beyond those for text yet)}
+
+                return: [block!]
+                    "Facts about the file (end of line whitespace, etc.)"
+                file [file!]
                 data
             ][
                 analysis: analyse/text file data
@@ -231,14 +265,15 @@ rebsource: context [
         ]
 
         text: function [
-            {Analyse a source file returning facts.}
-            file
+            {Analyse textual formatting irrespective of language}
+
+            return: [block!]
+                "Facts about the text file (inconsistent line endings, etc)"
+            file [file!]
             data
         ][
-            ; In this analysis we are interested in textual formatting
-            ; (irrespective of language).
-
             analysis: make block! []
+            emit: specialize 'log-emit [log: analysis]
 
             data: read src-folder/:file
 
@@ -282,7 +317,7 @@ rebsource: context [
             ]
 
             tabbed: make block! []
-            eol-wsp: make block! []
+            whitespace-at-eol: make block! []
             over-std-len: make block! []
             over-max-len: make block! []
             inconsistent-eol: make block! []
@@ -299,7 +334,9 @@ rebsource: context [
                     [
                         eol count-line
                         | #"^-" (append tabbed line)
-                        | wsp and [line-ending | alt-ending] (append eol-wsp line)
+                        | wsp and [line-ending | alt-ending] (
+                            append whitespace-at-eol line
+                        )
                         | skip
                     ]
                 ]
@@ -309,37 +346,33 @@ rebsource: context [
             ]
 
             if not empty? over-std-len [
-                emit analysis [
-                    line-exceeds
+                emit <line-exceeds> [
                     (standard/std-line-length) (file) (over-std-len)
                 ]
             ]
 
             if not empty? over-max-len [
-                emit analysis [
-                    line-exceeds
+                emit <line-exceeds> [
                     (standard/max-line-length) (file) (over-max-len)
                 ]
             ]
 
-            for-each list [tabbed eol-wsp] [
+            for-each list [tabbed whitespace-at-eol] [
                 if not empty? get list [
-                    emit analysis [(list) (file) (get list)]
+                    emit as tag! list [(file) (get list)]
                 ]
             ]
 
             if not empty? inconsistent-eol [
-                emit analysis [inconsistent-eol (file) (inconsistent-eol)]
+                emit <inconsistent-eol> [(file) (inconsistent-eol)]
             ]
 
-            if all [
+            all [
                 not tail? data
                 not equal? 10 last data ; Check for newline.
-            ][
-                emit analysis [
-                    eof-eol-missing (file) (
-                        reduce [text-line-of tail of to text! data]
-                    )
+            ] then [
+                emit <eof-eol-missing> [
+                     (file) (reduce [try text-line-of tail of to text! data])
                 ]
             ]
 
@@ -367,22 +400,22 @@ rebsource: context [
             return: [<opt> file!]
             queue [block!]
         ][
-            item: take queue
+            item: ensure file! take queue
 
             if equal? #"/" last item [
                 contents: read join-of src-folder item
                 insert queue map-each x contents [join-of item x]
-                unset 'item
+                item: _
             ] else [
                 any [
                     parse second split-path item ["tmp-" to end]
                     not find extensions extension-of item
                 ] then [
-                    unset 'item
+                    item: _
                 ]
             ]
 
-            :item ; Voided items are to be filtered out.
+            opt item ;-- blanked items are to be filtered out
         ]
     ]
 
@@ -392,8 +425,8 @@ rebsource: context [
 
         last-func-end: _
 
-        lbrace: [and punctuator #"{"]
-        rbrace: [and punctuator #"}"]
+        lbrace: [and punctuator "{"]
+        rbrace: [and punctuator "}"]
         braced: [lbrace any [braced | not rbrace skip] rbrace]
 
         function-spacing-rule: (
@@ -413,14 +446,11 @@ rebsource: context [
 
     ] proto-parser c.lexical/grammar
 
-    emit: function [log body] [
-        append/line log (new-line/all compose/only body false)
-    ]
-
     extension-of: function [
         {Return file extension for file.}
-        file
+        return: [file!]
+        file [file!]
     ][
-        copy any [find/last file #"." {}]
+        copy %"" unless find/last file "."
     ]
 ]

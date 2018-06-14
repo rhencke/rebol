@@ -19,7 +19,7 @@ emit-native-proto: procedure [
     proto
     <with> proto-count
 ][
-    line: text-line-of proto-parser/parse.position
+    line: try text-line-of proto-parser/parse.position
 
     if all [
         block? proto-parser/data

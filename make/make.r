@@ -86,7 +86,7 @@ to-obj-path: func [
     ext:
 ][
     ext: find/last file #"."
-    remove/part ext (length-of ext)
+    remove/part ext (length of ext)
     join-of %objs/ head-of append ext rebmake/target-platform/obj-suffix
 ]
 

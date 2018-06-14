@@ -395,7 +395,7 @@ for-each [result RL_name args] cwrap-items [
     if not (find/skip map-names rebName 2) [continue] 
     ;; emit JS variant
     js-name: map-names/:rebName
-    for-next args [args/1: unspaced ["x" index-of args]]
+    for-next args [args/1: unspaced ["x" index of args]]
     args: delimit args ","
     line: unspaced [
         js-name " = function(" args

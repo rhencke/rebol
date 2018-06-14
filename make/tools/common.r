@@ -196,7 +196,7 @@ binary-to-c: function [
     return: [text!]
     data [binary!]
 ][
-    out: make text! 6 * (length-of data)
+    out: make text! 6 * (length of data)
     while [not tail? data] [
         ;-- grab hexes in groups of 8 bytes
         hexed: enbase/base (copy/part data 8) 16
@@ -218,7 +218,7 @@ binary-to-c: function [
         some [thru "," (comma-count: comma-count + 1)]
         to end
     ]
-    assert [(comma-count + 1) = (length-of head-of data)]
+    assert [(comma-count + 1) = (length of head of data)]
 
     out
 ]
@@ -227,12 +227,13 @@ binary-to-c: function [
 for-each-record: procedure [
     {Iterate a table with a header by creating an object for each row}
 
-    'var [word!]
-        {Word to set each time to the row made into an object record}
-    table [block!]
-        {Table of values with header block as first element}
-    body [block!]
-        {Block to evaluate each time}
+    return: [<opt> any-value!]
+    'var "Word to set each time to the row made into an object record"
+        [word!]
+    table "Table of values with header block as first element"
+        [block!]
+    body "Block to evaluate each time"
+        [block!]
 ][
     if not block? first table [
         fail {Table of records does not start with a header block}
@@ -242,13 +243,13 @@ for-each-record: procedure [
         if not word? word [
             fail [{Heading} word {is not a word}]
         ]
-        to-set-word word
+        as set-word! word
     ]
 
     table: next table
 
-    while [not tail? table] [
-        if (length-of headings) > (length-of table) [
+    while-not [tail? table] [
+        if (length of headings) > (length of table) [
             fail {Element count isn't even multiple of header count}
         ]
 
@@ -260,32 +261,16 @@ for-each-record: procedure [
             ]
         ]
 
-
-        eval func compose [(var) <local> return] compose [
-            ;
-            ; Instead of just DO body, deliberately override RETURN to avoid
-            ; mistakes using it in R3-Alpha.
-            ;
-            return: does [
-                fail [
-                    "RETURN can't work in R3-Alpha in FOR-EACH-RECORD"
-                    "(it is non-definitional, and returns from the wrapper)"
-                ]
-            ]
-            (body)
-        ] has spec
+        set var has spec
+        do body
     ]
-
-    ; In Ren-C, to return a result this would have to be marked as returning
-    ; an optional value...but that syntax would confuse R3-Alpha, which this
-    ; has to run under.  So we just don't bother returning a result.
 ]
 
 
 find-record-unique: function [
     {Get a record in a table as an object, error if duplicate, blank if absent}
     
-    ;; return: [object! blank!]
+    return: [<opt> object!]
     table [block!]
         {Table of values with header block as first element}
     key [word!]
@@ -307,11 +292,9 @@ find-record-unique: function [
 
         result: rec
 
-        ; RETURN won't work when running under R3-Alpha.  We could break, but
-        ; walk whole table to verify that it is well-formed.  (Correctness is
-        ; more important.)
+        ; Could break, but walk whole table to verify that it is well-formed.
     ]
-    result
+    opt result
 ]
 
 
@@ -327,7 +310,7 @@ parse-args: function [
         value: args/1
         case [
             idx: try find value #"=" [; name=value
-                name: to word! copy/part value (index-of idx) - 1
+                name: to word! copy/part value (index of idx) - 1
                 value: copy next idx
             ]
             #":" = last value [; name=value

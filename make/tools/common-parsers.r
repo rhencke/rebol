@@ -76,7 +76,7 @@ load-next: function [
     text [text!]
 ][
     out: transcode/next to binary! text
-    out/2: skip text subtract length-of text length-of to text! out/2
+    out/2: skip text subtract (length of text) (length of to text! out/2)
     out
 ] ; by @rgchris.
 

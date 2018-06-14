@@ -114,6 +114,8 @@ of: enfix function [
         length [length-of :value]
         type [type-of :value] ;-- type of null is null
         words [words-of :value]
+        head [head-of :value]
+        tail [tail-of :value]
     ][
         fail/where ["Unknown reflector:" property] 'property
     ]
@@ -172,7 +174,7 @@ all: function [
     :value
 ]
 find: chain [:lib/find | :opt]
-select: chain [:lib/select | :opt]
+select: :lib/select* ;-- old variation that returned null when not found
 case: function [
     return: [<opt> any-value!]
     cases [block!]

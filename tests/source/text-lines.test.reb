@@ -31,14 +31,14 @@
 
 ;; lines-exceeding
 
-(blank? lines-exceeding 0 {})
-(blank? lines-exceeding 1 {})
+(null? lines-exceeding 0 {})
+(null? lines-exceeding 1 {})
 ([1] = lines-exceeding 0 {x})
 ([2] = lines-exceeding 0 {^/x})
 
 ;; text-line-of
 
-(blank? text-line-of {})
+(null? text-line-of {})
 (1 = text-line-of {x})
 (1 = text-line-of next {x^/})
 (2 = text-line-of next next {x^/y})
