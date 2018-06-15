@@ -768,7 +768,7 @@ inline static void SET_END_Core(
 
 #ifdef CPLUSPLUS_11
     //
-    // Disable teseting a RELVAL marked that it can't be END for endness-in
+    // Disable testing a RELVAL marked that it can't be END for endness-in
     // the C++ build.  (ordinary version takes a RELVAL.)
     //
     // !!! This could probably be tweaked to give a better message with
@@ -911,16 +911,10 @@ inline static RELVAL *REL(REBVAL *v) {
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Rebol's null is a transient evaluation product (e.g. result of `do []`).
-// These cannot be stored in BLOCK!s that are seen by the user, and if null
-// is used in an assignment then the variable doesn't "hold a null value".
-// Rather, that was a way of asking to unset it, e.g.
-//
-//    >> null: does []
-//
-//    >> x: null
-//
-//    >> if x = null [print "x doesn't 'hold null', you can't do this"]
-//    ** Script Error: x has no value
+// It is also a signal for "soft failure", e.g. `find [a b] 'c` is null,
+// hence they are conditionally false.  But null isn't an "ANY-VALUE!", and
+// can't be stored in BLOCK!s that are seen by the user--nor can it be
+// assigned to variables.
 //
 // The libRebol API takes advantage of this by actually using C's concept of
 // a null pointer to directly represent the optional state.  By promising this
@@ -938,7 +932,7 @@ inline static RELVAL *REL(REBVAL *v) {
 // !!! Not using REB_0 for this has a historical reason, in trying to find
 // bugs and pin down invariants in R3-Alpha, a zero bit pattern could happen
 // more commonly on accident.  So 0 was "reserved" for uses that wouldn't
-// come up in common practice.  This could now be changed if needed.
+// come up in common practice.
 //
 
 #define REB_MAX_VOID \
@@ -1053,12 +1047,17 @@ inline static const REBVAL *DEVOID(const REBVAL *cell) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Unlike a void cell, blank values are inactive.  They do not cause errors
-// when they are used in situations like the condition of an IF statement.
-// Instead they are considered to be false--like the LOGIC! #[false] value.
-// So blank is considered to be the other "conditionally false" value.
+// Blank values are a kind of "reified" null/void, and you can convert
+// between them using TRY and OPT:
 //
-// Only those two values are conditionally false in Rebol, and testing for
+//     >> try ()
+//     == _
+//
+//     >> opt _
+//     ;-- no result
+//
+// Like null, they are considered to be false--like the LOGIC! #[false] value.
+// Only these three things are conditionally false in Rebol, and testing for
 // conditional truth and falsehood is frequent.  Hence in addition to its
 // type, BLANK! also carries a header bit that can be checked for conditional
 // falsehood, to save on needing to separately test the type.
@@ -1118,7 +1117,7 @@ inline static const REBVAL *DEVOID(const REBVAL *cell) {
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
         if (not (v->header.bits & NODE_FLAG_FREE)) {
-        #ifdef DEBUG_CELL_WRITABILITY
+          #ifdef DEBUG_CELL_WRITABILITY
             RESET_VAL_HEADER_EXTRA_Core(
                 v,
                 REB_BLANK,
@@ -1126,13 +1125,13 @@ inline static const REBVAL *DEVOID(const REBVAL *cell) {
                 file,
                 line
             );
-        #else
+          #else
             RESET_VAL_HEADER_EXTRA(
                 v,
                 REB_BLANK,
                 VALUE_FLAG_FALSEY | BLANK_FLAG_UNREADABLE_DEBUG
             );
-        #endif
+          #endif
         }
         else {
             // already trash, don't need to mess with the header

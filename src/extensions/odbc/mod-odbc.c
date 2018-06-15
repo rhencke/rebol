@@ -1091,7 +1091,11 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
 
     case SQL_TYPE_DATE: {
         DATE_STRUCT *date = cast(DATE_STRUCT*, col->buffer);
-        return rebDateYMD(date->year, date->month, date->day); }
+        return rebRun(
+            "make date! [",
+                rebI(date->year), rebI(date->month), rebI(date->day),
+            "]", END
+        ); }
 
     case SQL_TYPE_TIME: {
         //
@@ -1100,7 +1104,11 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
         // but when it is retrieved it will just be 17:32:19
         //
         TIME_STRUCT *time = cast(TIME_STRUCT*, col->buffer);
-        return rebTimeHMS(time->hour, time->minute, time->second); }
+        return rebRun(
+            "make time! [",
+                rebI(time->hour), rebI(time->minute), rebI(time->second),
+            "]", END
+        ); }
 
     // Note: It's not entirely clear how to work with timezones in ODBC, there
     // is a datatype called SQL_SS_TIMESTAMPOFFSET_STRUCT which extends
@@ -1110,9 +1118,12 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
     case SQL_TYPE_TIMESTAMP: {
         TIMESTAMP_STRUCT *stamp = cast(TIMESTAMP_STRUCT*, col->buffer);
 
-        REBVAL *date = rebDateYMD(stamp->year, stamp->month, stamp->day);
-
         // stamp->fraction is billionths of a second, e.g. nanoseconds
+        //
+        // !!! Unfortunately there's no way to make times with nanoseconds
+        // from integers in plain Rebol, so rebTimeNano is around for now.
+        // (It is technically possible to MAKE TIME! with a decimal seconds
+        // component, however this introduces some questions on precision.)
         //
         REBVAL *time = rebTimeNano(
             stamp->fraction + SECS_TO_NANO(
@@ -1122,10 +1133,21 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
             )
         );
 
-        REBVAL *datetime = rebDateTime(date, time);
-        rebRelease(date);
-        rebRelease(time);
-        return datetime; }
+        // !!! This isn't a very elegant way of combining a date and time
+        // component, but the point is that however it is done...it should
+        // be done with Rebol code vs. some special C date API.  See
+        // GitHub issue #2313 regarding improving the Rebol side.  This
+        // somewhat odd way of doing it changes d's value from one immediate
+        // to another...it's not currently possible to "mutate a DATE!"
+        //
+        return rebRun(
+            "use [d] [",
+                "d: make date! [",
+                    rebI(stamp->day), rebI(stamp->month), rebI(stamp->year),
+                "]",
+                "d/time:", rebR(time),
+            "]", END
+        ); }
 
     case SQL_BIT:
         //

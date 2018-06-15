@@ -775,24 +775,14 @@ REBVAL *RL_rebDecimal(REBDEC dec)
 
 
 //
-//  rebTimeHMS: RL_API
-//
-REBVAL *RL_rebTimeHMS(
-    unsigned int hour,
-    unsigned int minute,
-    unsigned int second
-){
-    Enter_Api();
-
-    REBVAL *result = Alloc_Value();
-    RESET_VAL_HEADER(result, REB_TIME);
-    VAL_NANO(result) = SECS_TO_NANO(hour * 3600 + minute * 60 + second);
-    return result;
-}
-
-
-//
 //  rebTimeNano: RL_API
+//
+// !!! Unfortunately there's no way to make times with nanoseconds from
+// integers in plain Rebol, so rebTimeNano is around for now.
+// 
+// (It is technically possible to MAKE TIME! with a decimal seconds component,
+// e.g. `make time! [10 20 30.0040]`, but since you have to calculate that it
+// introduces some questions on precision.)
 //
 REBVAL *RL_rebTimeNano(long nanoseconds) {
     Enter_Api();
@@ -800,53 +790,6 @@ REBVAL *RL_rebTimeNano(long nanoseconds) {
     REBVAL *result = Alloc_Value();
     RESET_VAL_HEADER(result, REB_TIME);
     VAL_NANO(result) = nanoseconds;
-    return result;
-}
-
-
-//
-//  rebDateYMD: RL_API
-//
-REBVAL *RL_rebDateYMD(
-    unsigned int year,
-    unsigned int month,
-    unsigned int day
-){
-    Enter_Api();
-
-    REBVAL *result = Alloc_Value();
-    RESET_VAL_HEADER(result, REB_DATE); // no time or time zone flags
-    VAL_YEAR(result) = year;
-    VAL_MONTH(result) = month;
-    VAL_DAY(result) = day;
-    return result;
-}
-
-
-//
-//  rebDateTime: RL_API
-//
-REBVAL *RL_rebDateTime(const REBVAL *date, const REBVAL *time)
-{
-    Enter_Api();
-
-    if (not IS_DATE(date))
-        fail ("rebDateTime() date parameter must be DATE!");
-
-    if (not IS_TIME(time))
-        fail ("rebDateTime() time parameter must be TIME!");
-
-    // if we had a timezone, we'd need to set DATE_FLAG_HAS_ZONE and
-    // then INIT_VAL_ZONE().  But since DATE_FLAG_HAS_ZONE is not set,
-    // the timezone bitfield in the date is ignored.
-
-    REBVAL *result = Alloc_Value();
-    RESET_VAL_HEADER(result, REB_DATE);
-    SET_VAL_FLAG(result, DATE_FLAG_HAS_TIME);
-    VAL_YEAR(result) = VAL_YEAR(date);
-    VAL_MONTH(result) = VAL_MONTH(date);
-    VAL_DAY(result) = VAL_DAY(date);
-    VAL_NANO(result) = VAL_NANO(time);
     return result;
 }
 
