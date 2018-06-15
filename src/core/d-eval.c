@@ -131,18 +131,17 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
 
     assert(not (f->flags.bits & DO_FLAG_FINAL_DEBUG));
 
-    if (f->source.array != NULL) {
+    if (f->source.array) {
         assert(not IS_POINTER_TRASH_DEBUG(f->source.array));
         assert(
             f->source.index != TRASHED_INDEX
-            and f->source.index != END_FLAG
-            and f->source.index != THROWN_FLAG
-            and f->source.index != VA_LIST_FLAG
+            and f->source.index != END_FLAG_PRIVATE // ...special case use!
+            and f->source.index != THROWN_FLAG_PRIVATE // ...don't use these
+            and f->source.index != VA_LIST_FLAG_PRIVATE // ...usually...
         ); // END, THROWN, VA_LIST only used by wrappers
     }
-    else {
+    else
         assert(f->source.index == TRASHED_INDEX);
-    }
 
     // If this fires, it means that Flip_Series_To_White was not called an
     // equal number of times after Flip_Series_To_Black, which means that
@@ -160,8 +159,6 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
     //
     assert(f->phase == NULL);
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label));
-
-    ASSERT_NOT_TRASH_IF_DEBUG(&f->cell);
 
     //=//// ^-- ABOVE CHECKS *ALWAYS* APPLY ///////////////////////////////=//
 
@@ -213,8 +210,6 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
     // but only if it wasn't an END marker (that's how we can tell no
     // evaluations have been done yet, consider `(comment [...] + 2)`) or
     // have NODE_FLAG_MARKED by BAR! for (1 + 2 | comment "hi") to be 3.
-
-    ASSERT_NOT_TRASH_IF_DEBUG(f->out);
 
   #if defined(DEBUG_UNREADABLE_BLANKS)
     if (
@@ -276,10 +271,8 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
         if (NOT_END(f->out))
             assert(GET_ACT_FLAG(f->phase, ACTION_FLAG_INVISIBLE));
     }
-    else {
+    else
         assert(f->refine == LOOKBACK_ARG);
-        ASSERT_NOT_TRASH_IF_DEBUG(f->out);
-    }
 
     if (f->special == f->arg)
         assert(IS_POINTER_TRASH_DEBUG(f->deferred));

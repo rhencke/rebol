@@ -48,20 +48,36 @@
 // https://github.com/metaeducation/ren-c/wiki/
 //
 
+// These values can be assigned directly to a REBCNT, but shouldn't be!
+// use END_FLAG, THROWN_FLAG, and VA_LIST_FLAG so the C++ build can make sure
+// the values only end up in REBIXOs, that can be "index or a flag"
+//
+#define END_FLAG_PRIVATE 0x80000000 // end of block as index
+#define THROWN_FLAG_PRIVATE (0x80000000 - 0x75) // throw as an index
+
+// The VA_LIST_FLAG is the index used when a C va_list pointer is input.
+// Because access to a `va_list` is strictly increasing through va_arg(),
+// there is no way to track an index; fetches are indexed automatically and
+// sequentially without possibility for mutation of the list.  Should this
+// index be used it will always be the index of a DO_NEXT until either an
+// END_FLAG or a THROWN_FLAG is reached.
+//
+#define VA_LIST_FLAG_PRIVATE (0x80000000 - 0xBD)
+
+// This is used when the index does not apply (e.g. END, THROWN, VA_LIST).
+// It was once just a debug build flag, but conservative optimized builds
+// noticed the field being accessed and complained that not all code paths
+// assigned it in the release build...so it's always assigned.
+//
+#define TRASHED_INDEX (0x80000000 - 0xAE)
+
+
 #if defined(NDEBUG) || !defined(CPLUSPLUS_11)
     typedef uintptr_t REBIXO;
 
-    #define END_FLAG 0x80000000  // end of block as index
-    #define THROWN_FLAG (END_FLAG - 0x75) // throw as an index
-
-    // The VA_LIST_FLAG is the index used when a C va_list pointer is input.
-    // Because access to a `va_list` is strictly increasing through va_arg(),
-    // there is no way to track an index; fetches are indexed automatically
-    // and sequentially without possibility for mutation of the list.  Should
-    // this index be used it will always be the index of a DO_NEXT until
-    // either an END_FLAG or a THROWN_FLAG is reached.
-    //
-    #define VA_LIST_FLAG (END_FLAG - 0xBD)
+    #define END_FLAG END_FLAG_PRIVATE
+    #define THROWN_FLAG THROWN_FLAG_PRIVATE
+    #define VA_LIST_FLAG VA_LIST_FLAG_PRIVATE
 
     // These are not actually used with REBIXO, but have a similar purpose...
     // fold a flag into an integer (like a std::optional<REBCNT>).
@@ -189,9 +205,10 @@
         }
     };
 
-    const REBIXO END_FLAG (0x80000000);
-    const REBIXO THROWN_FLAG (0x80000000 - 0x75);
-    const REBIXO VA_LIST_FLAG (0x80000000 - 0xBD);
+    // None of these are REBCNTs
+    const REBIXO END_FLAG (END_FLAG_PRIVATE);
+    const REBIXO THROWN_FLAG (THROWN_FLAG_PRIVATE);
+    const REBIXO VA_LIST_FLAG (VA_LIST_FLAG_PRIVATE);
 
     // We want the C++ class to be the same size and compatible bit patterns
     // to the C build, so their binary code works together.
@@ -200,10 +217,3 @@
         sizeof(REBIXO) == sizeof(uintptr_t), "invalid REBIXO size"
     );
 #endif
-
-// This is used when the index does not apply (e.g. END, THROWN, VA_LIST).
-// It was once just a debug build flag, but conservative optimized builds
-// noticed the field being accessed and complained that not all code paths
-// assigned it in the release build...so it's always assigned.
-//
-#define TRASHED_INDEX (0x80000000 - 0xAE)

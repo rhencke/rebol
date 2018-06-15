@@ -414,45 +414,22 @@
 //
 
 #if defined(DEBUG_CELL_WRITABILITY)
-    inline static void Assert_Cell_Writable(
-        const RELVAL *v,
-        const char *file,
-        int line
-    ){
-      #ifdef DEBUG_MEMORY_ALIGN
-        if (cast(uintptr_t, v) % sizeof(REBI64) != 0) {
-          
-          #ifdef DEBUG_TRASH_MEMORY
-            if (IS_POINTER_TRASH_DEBUG(v)) { // common case
-                printf("Trash pointer passed to Assert_Cell_Writable()\n");
-                panic_at(v, file, line);
-            }
-          #endif
-
-            printf(
-                "Cell address %p not aligned to %d bytes\n",
-                cast(const void*, v),
-                cast(int, sizeof(REBI64))
-            );
-            panic_at (v, file, line);
+    //
+    // In the debug build, functions aren't inlined, and the overhead actually
+    // adds up very quickly of getting the 3 parameters passed in.  Run the
+    // risk of repeating macro arguments to speed up this critical test.
+    //
+    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
+        if (not ((c)->header.bits & NODE_FLAG_CELL)) { \
+            printf("Non-cell passed to writing routine\n"); \
+            panic_at ((c), (file), (line)); \
+        } \
+        if ((c)->header.bits & CELL_FLAG_PROTECTED) { \
+            printf("Protected cell passed to writing routine\n"); \
+            panic_at ((c), (file), (line)); \
         }
-      #endif
-
-        if (not (v->header.bits & NODE_FLAG_CELL)) {
-            printf("Non-cell passed to writing routine\n");
-            panic_at (v, file, line);
-        }
-
-        if (v->header.bits & CELL_FLAG_PROTECTED) {
-            printf("Protected cell passed to writing routine\n");
-            panic_at (v, file, line);
-        }
-    }
-
-    #define ASSERT_CELL_WRITABLE(v,file,line) \
-        Assert_Cell_Writable((v), (file), (line))
 #else
-    #define ASSERT_CELL_WRITABLE(c,file,line) \
+    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
         NOOP
 #endif
 
@@ -495,12 +472,12 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
   , int line
   #endif
 ){
-    ASSERT_CELL_WRITABLE(v, file, line);
+    ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
     // The debug build puts some extra type information onto flags
     // which needs to be cleared out.  (e.g. ACTION_FLAG_XXX has the bit
     // pattern for REB_ACTION inside of it, to help make sure that flag
-    // doesn't get used with things that aren't words).
+    // doesn't get used with things that aren't actions.)
     //
     CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(extra);
 
@@ -552,6 +529,21 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
 #endif
 
 
+// This is another case where the debug build doesn't inline functions, and
+// for such central routines the overhead of passing 3 args is on the radar.
+// Run the risk of repeating macro args to speed up this critical check.
+//
+#define ALIGN_CHECK_CELL_EVIL_MACRO(c,file,line) \
+    if (cast(uintptr_t, (c)) % sizeof(REBI64) != 0) { \
+        printf( \
+            "Cell address %p not aligned to %d bytes\n", \
+            cast(const void*, (c)), \
+            cast(int, sizeof(REBI64)) \
+        ); \
+        panic_at ((c), file, line); \
+    }
+
+
 inline static void Prep_Non_Stack_Cell_Core(
     struct Reb_Cell *c
 
@@ -560,6 +552,10 @@ inline static void Prep_Non_Stack_Cell_Core(
   , int line
   #endif
 ){
+  #ifdef DEBUG_MEMORY_ALIGN
+    ALIGN_CHECK_CELL_EVIL_MACRO(c, file, line);
+  #endif
+
     c->header.bits =
         NODE_FLAG_NODE
         | NODE_FLAG_FREE
@@ -586,6 +582,10 @@ inline static void Prep_Stack_Cell_Core(
   , int line
   #endif
 ){
+  #ifdef DEBUG_MEMORY_ALIGN
+    ALIGN_CHECK_CELL_EVIL_MACRO(c, file, line);
+  #endif
+
     c->header.bits =
         NODE_FLAG_NODE
         | NODE_FLAG_FREE
@@ -611,7 +611,7 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     // the type and bits (e.g. changing ANY-WORD! to another ANY-WORD!).
     // Otherwise the value-specific flags might be misinterpreted.
     //
-    ASSERT_CELL_WRITABLE(v, __FILE__, __LINE__);
+    ASSERT_CELL_WRITABLE_EVIL_MACRO(v, __FILE__, __LINE__);
     CLEAR_8_RIGHT_BITS(v->header.bits);
     v->header.bits |= HEADERIZE_KIND(kind);
 }
@@ -639,11 +639,11 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
       , int line
       #endif
     ){
-        ASSERT_CELL_WRITABLE(v, file, line);
+        ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
         v->header.bits &= CELL_MASK_RESET;
-        v->header.bits |= NODE_FLAG_FREE
-          | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
+        v->header.bits |=
+            NODE_FLAG_FREE | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
 
         TRACK_CELL_IF_DEBUG(v, file, line);
     }
@@ -712,7 +712,7 @@ inline static void SET_END_Core(
   , int line
   #endif
 ){
-    ASSERT_CELL_WRITABLE(v, file, line);
+    ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
  
     v->header.bits &= CELL_MASK_RESET; // leaves flags _CELL, _NODE, etc.
     v->header.bits |= NODE_FLAG_END | HEADERIZE_KIND(REB_0);
@@ -1115,7 +1115,7 @@ inline static const REBVAL *DEVOID(const REBVAL *cell) {
       , int line
       #endif
     ){
-        ASSERT_CELL_WRITABLE(v, file, line);
+        ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
         if (not (v->header.bits & NODE_FLAG_FREE)) {
         #ifdef DEBUG_CELL_WRITABILITY
@@ -1816,7 +1816,7 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
         and not (v->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE))
     );
 
-    ASSERT_CELL_WRITABLE(out, __FILE__, __LINE__);
+    ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);
 
     out->header.bits &= CELL_MASK_RESET;
     out->header.bits |= v->header.bits & CELL_MASK_COPY;
@@ -1934,7 +1934,7 @@ inline static REBVAL *Move_Var(RELVAL *out, const REBVAL *v)
         and not (v->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE))
     );
 
-    ASSERT_CELL_WRITABLE(out, __FILE__, __LINE__);
+    ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);
 
     assert(not (out->header.bits & CELL_FLAG_STACK));
 
@@ -1965,7 +1965,7 @@ inline static void Blit_Cell(RELVAL *out, const RELVAL *v)
         and not (v->header.bits & (NODE_FLAG_END | NODE_FLAG_FREE))
     );
 
-    ASSERT_CELL_WRITABLE(out, __FILE__, __LINE__);
+    ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);
 
     // Examine just the cell's preparation bits.  Are they identical?  If so,
     // we are not losing any information by blindly copying the header in
