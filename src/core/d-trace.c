@@ -141,8 +141,7 @@ void Do_Core_Traced(REBFRM * const f)
     // In order to trace single steps, we convert a DO_FLAG_TO_END request
     // into a sequence of DO/NEXT operations, and loop them.
     //
-    REBOOL was_do_to_end = did (f->flags.bits & DO_FLAG_TO_END);
-    f->flags.bits &= ~DO_FLAG_TO_END;
+    uintptr_t saved_flags = f->flags.bits;
 
     while (TRUE) {
         if (not (
@@ -150,6 +149,12 @@ void Do_Core_Traced(REBFRM * const f)
             or IS_ACTION(f->value)
             or (Trace_Flags & TRACE_FLAG_FUNCTION)
         )){
+            // If a caller reuses a frame (as we are doing by single-stepping),
+            // they are responsible for setting the flags each time.  This is
+            // verified in the debug build via DO_FLAG_FINAL_DEBUG.
+            //
+            f->flags.bits = saved_flags & (~DO_FLAG_TO_END);
+
             Debug_Space(cast(REBCNT, 4 * depth));
 
             if (FRM_IS_VALIST(f)) {
@@ -170,15 +175,18 @@ void Do_Core_Traced(REBFRM * const f)
                     f->value,
                     f->specifier
                 );
-                if (IS_END(var) || IS_VOID(var)) {
-                    Debug_Fmt_(" :"); // just show nothing
+                if (IS_END(var)) {
+                    Debug_Fmt_(" : \\\\end\\\\"); // displays as "\\end\\"
+                }
+                else if (IS_VOID(var)) {
+                    Debug_Fmt_(" : \\\\null\\\\"); // displays as "\\null\\"
                 }
                 else if (IS_ACTION(var)) {
                     const REBOOL locals = FALSE;
                     const char *type_utf8 = STR_HEAD(Get_Type_Name(var));
-                    REBARR *words = List_Func_Words(var, locals);
-                    Debug_Fmt_(" : %s %50m", type_utf8, words);
-                    Free_Unmanaged_Array(words);
+                    DECLARE_LOCAL (words);
+                    Init_Block(words, List_Func_Words(var, locals));
+                    Debug_Fmt_(" : %s %50r", type_utf8, words);
                 }
                 else if (
                     ANY_WORD(var)
@@ -208,12 +216,30 @@ void Do_Core_Traced(REBFRM * const f)
 
         Do_Core(f);
 
-        if (not was_do_to_end or THROWN(f->out) or FRM_AT_END(f))
-            break;
-    }
+        if (not (saved_flags & DO_FLAG_TO_END)) {
+            //
+            // If we didn't morph the flag bits from wanting a full DO to
+            // wanting only a DO/NEXT, then the original intent was actually
+            // just a DO/NEXT.  Return the frame state as-is.
+            //
+            return;
+        }
 
-    if (was_do_to_end)
-        f->flags.bits |= DO_FLAG_TO_END;
+        if (THROWN(f->out) or FRM_AT_END(f)) {
+            //
+            // If we get here, that means the initial request was for a DO
+            // to END but we distorted it into stepwise.  We don't restore
+            // the flags fully in a "spent frame" whether it was THROWN or
+            // not (that's the caller's job).  But to be "invisible" we do
+            // put back the DO_FLAG_TO_END.
+            //
+            f->flags.bits |= DO_FLAG_TO_END;
+            return;
+        }
+
+        // keep looping (it was originally DO_FLAG_TO_END, which we are
+        // simulating step-by-step)
+    }
 }
 
 
@@ -251,6 +277,15 @@ REB_R Apply_Core_Traced(REBFRM * const f)
 
     REB_R r = Apply_Core(f);
 
+    // When you HIJACK a function with an incompatible frame, it can REDO
+    // even on what looks like the "last phase" because it is wiring in a new
+    // function.  Review ramifications of this, and whether it should be
+    // exposed vs. skipped as "not the last phase" (e.g. the function with
+    // this frame's label will still be running, not running under a new name)
+    //
+    if (r == R_REDO_CHECKED)
+        last_phase = false;
+
     if (last_phase) {
         //
         // Only show the return result if this is the last phase.
@@ -268,12 +303,7 @@ REB_R Apply_Core_Traced(REBFRM * const f)
             break;
 
         case R_NULL:
-            //
-            // It's not legal to mold or form a void, it's not ANY-VALUE!
-            // In this case, just don't print anything, like the console does
-            // when an evaluation gives a void result.
-            //
-            Debug_Fmt("\n");
+            Debug_Fmt("\\\\null\\\\\n"); // displays as "\\null\\"
             break;
 
         case R_BLANK:
@@ -306,7 +336,7 @@ REB_R Apply_Core_Traced(REBFRM * const f)
             break; }
 
         case R_REDO_CHECKED:
-            assert(FALSE); // shouldn't be possible for final phase
+            assert(FALSE); // accounted for as not being final phase above
             break;
 
         case R_REDO_UNCHECKED:
@@ -314,16 +344,21 @@ REB_R Apply_Core_Traced(REBFRM * const f)
             break;
 
         case R_REEVALUATE_CELL:
-            Debug_Fmt("..."); // it's EVAL, should we print f->out ?
+            //
+            // !!! It's EVAL, should we print f->out ?
+            //
+            Debug_Fmt("\\\\reevaluate\\\\\n"); // displays as "\\reevalaute\\"
             break;
 
         case R_REEVALUATE_CELL_ONLY:
-            Debug_Fmt("..."); // it's EVAL/ONLY, should we print f->out ?
+            //
+            // !!! It's EVAL/ONLY, should we print f->out ?
+            //
+            Debug_Fmt("\\\\reevaluate\\\\\n"); // displays as "\\reevaluate\\"
             break;
 
         case R_INVISIBLE:
-            // !!! It's really absolutely nothing, so print nothing?
-            Debug_Fmt("\n");
+            Debug_Fmt("\\\\invisible\\\\\n"); // displays as "\\invisible\\"
             break;
 
         case R_UNHANDLED: // internal use only, shouldn't be returned

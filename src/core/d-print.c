@@ -162,18 +162,18 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
 
 
 //
-//  Debug_String: C
+//  Debug_String_No_Newline: C
 //
-void Debug_String(const REBYTE *utf8, REBSIZ size)
+void Debug_String_No_Newline(const REBYTE *utf8, REBSIZ size)
 {
     REBOOL disabled = GC_Disabled;
     GC_Disabled = TRUE;
 
   #ifdef DEBUG_STDIO_OK
-    printf("%.*s\n", size, utf8); // https://stackoverflow.com/a/2239571
+    printf("%.*s", size, utf8); // https://stackoverflow.com/a/2239571
+    fflush(stdout);
   #else
     Prin_OS_String(utf8, size, OPT_ENC_0);
-    Print_OS_Line();
   #endif
 
     assert(GC_Disabled == TRUE);
@@ -186,7 +186,7 @@ void Debug_String(const REBYTE *utf8, REBSIZ size)
 //
 void Debug_Line(void)
 {
-    Debug_String(cb_cast("\n"), 1);
+    Debug_String_No_Newline(cb_cast("\n"), 1);
 }
 
 
@@ -204,7 +204,7 @@ void Debug_Chars(REBYTE chr, REBCNT num)
     for (i = 0; i < num; ++i)
         buffer[i] = chr;
     buffer[num] = '\0';
-    Debug_String(buffer, num);
+    Debug_String_No_Newline(buffer, num);
 }
 
 
@@ -230,7 +230,6 @@ void Debug_Values(const RELVAL *value, REBCNT count, REBCNT limit)
     REBCNT n;
 
     for (n = 0; n < count; n++, value++) {
-        Debug_Space(1);
         if (n > 0 && VAL_TYPE(value) <= REB_BLANK) Debug_Chars('.', 1);
         else {
             DECLARE_MOLD (mo);
@@ -252,10 +251,15 @@ void Debug_Values(const RELVAL *value, REBCNT count, REBCNT limit)
             }
             SET_ANY_CHAR(mo->series, i2, '\0');
 
-            Debug_String(BIN_AT(mo->series, mo->start), i2 - mo->start);
+            Debug_String_No_Newline(
+                BIN_AT(mo->series, mo->start), i2 - mo->start
+            );
 
             Drop_Mold(mo);
         }
+
+        if (n != count - 1)
+            Debug_Space(1);
     }
     Debug_Line();
 }
@@ -280,7 +284,7 @@ void Debug_Values(const RELVAL *value, REBCNT count, REBCNT limit)
 // will not exceed its max size.  No line termination
 // is supplied after the print.
 //
-void Debug_Buf(const char *fmt, va_list *vaptr)
+void Debug_Buf_No_Newline(const char *fmt, va_list *vaptr)
 {
     REBOOL disabled = GC_Disabled;
     GC_Disabled = TRUE;
@@ -290,13 +294,11 @@ void Debug_Buf(const char *fmt, va_list *vaptr)
 
     Form_Args_Core(mo, fmt, vaptr);
 
-    Debug_String(
+    Debug_String_No_Newline(
         BIN_AT(mo->series, mo->start), SER_LEN(mo->series) - mo->start
     );
 
     Drop_Mold(mo);
-
-    Debug_Line();
 
     assert(GC_Disabled == TRUE);
     GC_Disabled = disabled;
@@ -317,7 +319,7 @@ void Debug_Fmt_(const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    Debug_Buf(fmt, &va);
+    Debug_Buf_No_Newline(fmt, &va);
     va_end(va);
 }
 
@@ -336,7 +338,7 @@ void Debug_Fmt(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    Debug_Buf(fmt, &args);
+    Debug_Buf_No_Newline(fmt, &args);
     Debug_Line();
     va_end(args);
 }
