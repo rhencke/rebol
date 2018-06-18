@@ -316,6 +316,15 @@ standard: construct [] [
         state:      ; internal state values (private)
         data:       ; data buffer (usually binary or block)
         locals:     ; user-defined storage of local data
+
+        ; !!! The `connections` field is a BLOCK! used only by TCP listen
+        ; ports.  Since it is a Rebol series value, the GC needs to be aware
+        ; of it, so it can't be in the port-subtype-specific REBREQ data.
+        ; As REBREQ migrates to being Rebol-valued per-port data, this should
+        ; be a field only in those TCP listening ports...
+        ;
+        connections:
+
 ;       stats:      ; stats on operation (optional)
             _
     ]

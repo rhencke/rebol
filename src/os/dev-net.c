@@ -198,7 +198,7 @@ DEVICE_CMD Open_Socket(REBREQ *sock)
 
     long result = cast(int, socket(AF_INET, type, protocol));
 
-    if (result == BAD_SOCKET)
+    if (result == -1)
         rebFail_OS (GET_ERROR);
 
     sock->requestee.socket = result;
@@ -487,24 +487,22 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
 //
 DEVICE_CMD Listen_Socket(REBREQ *req)
 {
-    int result;
-    int len = 1;
-    struct sockaddr_in sa;
     struct devreq_net *sock = DEVREQ_NET(req);
 
-    // make sure ACCEPT queue is empty
-    // initialized in p-net.c
-    assert(req->common.sock == NULL);
+    int result;
 
     // Setup socket address range and port:
+    //
+    struct sockaddr_in sa;
     Set_Addr(&sa, INADDR_ANY, sock->local_port);
 
     // Allow listen socket reuse:
+    //
+    int len = 1;
     result = setsockopt(
         req->requestee.socket, SOL_SOCKET, SO_REUSEADDR,
         cast(char*, &len), sizeof(len)
     );
-
     if (result != 0)
         rebFail_OS (GET_ERROR);
 
@@ -601,7 +599,6 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
     return DR_DONE;
 }
 
-extern void Attach_Request(REBREQ **prior, REBREQ *req);
 
 //
 //  Accept_Socket: C
@@ -634,52 +631,60 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
         return DR_PEND;
     }
 
+    // Accept a new socket, if there is one:
+
     struct sockaddr_in sa;
     socklen_t len = sizeof(sa);
-    int result;
-    struct devreq_net *sock = DEVREQ_NET(req);
+    int fd = accept(req->requestee.socket, cast(struct sockaddr *, &sa), &len);
 
-    // Accept a new socket, if there is one:
-    result = accept(req->requestee.socket, cast(struct sockaddr *, &sa), &len);
-
-    if (result == BAD_SOCKET) {
-        result = GET_ERROR;
-        if (result == NE_WOULDBLOCK)
+    if (fd == -1) {
+        int errnum = GET_ERROR;
+        if (errnum == NE_WOULDBLOCK)
             return DR_PEND;
 
-        rebFail_OS (result);
+        rebFail_OS (errnum);
     }
 
-    if (!Set_Sock_Options(result))
+    if (not Set_Sock_Options(fd))
         rebFail_OS (GET_ERROR);
 
-    // To report the new socket, the code here creates a temporary
-    // request and copies the listen request to it. Then, it stores
-    // the new values for IP and ports and links this request to the
-    // original via the sock->common.data.
+    // Create a new port using ACCEPT
 
-    struct devreq_net *news = rebAlloc(struct devreq_net);
-    memset(news, '\0', sizeof(struct devreq_net));
-    news->devreq.device = req->device;
+    REBCTX *listener = CTX(req->port);
+    REBCTX *connection = Copy_Context_Shallow(listener);
+    MANAGE_ARRAY(CTX_VARLIST(connection));
 
-    cast(REBREQ*, news)->flags |= RRF_OPEN;
-    news->devreq.state |= (RSM_OPEN | RSM_CONNECT);
+    Init_Blank(CTX_VAR(connection, STD_PORT_DATA)); // just to be sure.
+    Init_Blank(CTX_VAR(connection, STD_PORT_STATE)); // just to be sure.
+
+    struct devreq_net *sock
+        = cast(struct devreq_net*, Ensure_Port_State(connection, RDI_NET));
+
+    memset(sock, '\0', sizeof(struct devreq_net));
+    sock->devreq.device = req->device;
+    AS_REBREQ(sock)->common.data = nullptr;
+
+    AS_REBREQ(sock)->flags |= RRF_OPEN;
+    sock->devreq.state |= (RSM_OPEN | RSM_CONNECT);
 
     // NOTE: REBOL stays in network byte order, no htonl(ip) needed
     //
-    news->devreq.requestee.socket = result;
-    news->remote_ip   = sa.sin_addr.s_addr;
-    news->remote_port = ntohs(sa.sin_port);
-    Get_Local_IP(news);
+    sock->devreq.requestee.socket = fd;
+    sock->remote_ip = sa.sin_addr.s_addr;
+    sock->remote_port = ntohs(sa.sin_port);
+    Get_Local_IP(sock);
 
-    // There could be mulitple connections to be accepted.
-    // Queue them at common.sock
-    //
-    Attach_Request(
-        cast(REBREQ**, &AS_REBREQ(sock)->common.sock),
-        AS_REBREQ(news)
+    AS_REBREQ(sock)->port = connection;
+
+    rebElide(
+        "lib/append ensure block!", CTX_VAR(listener, STD_PORT_CONNECTIONS),
+        CTX_ARCHETYPE(connection), // will GC protect during run
+        END
     );
 
+    // We've added the new PORT! for the connection, but the client has to
+    // find out about it and get an `accept` event.  Signal that.
+    //
     OS_SIGNAL_DEVICE(req, EVT_ACCEPT);
 
     // Even though we signalled, we keep the listen pending to

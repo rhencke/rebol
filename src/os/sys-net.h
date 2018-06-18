@@ -96,6 +96,5 @@
     #endif
 #endif
 
-#define BAD_SOCKET (~0)
 #define MAX_TRANSFER 32000      // Max send/recv buffer size
 #define MAX_HOST_NAME 256       // Max length of host name

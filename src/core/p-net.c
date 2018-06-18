@@ -78,38 +78,6 @@ static void Ret_Query_Net(REBCTX *port, struct devreq_net *sock, REBVAL *out)
 
 
 //
-//  Accept_New_Port: C
-//
-// Clone a listening port as a new accept port.
-//
-static void Accept_New_Port(REBVAL *out, REBCTX *port, struct devreq_net *sock)
-{
-    struct devreq_net *nsock;
-    REBREQ *req = AS_REBREQ(sock);
-
-    // Get temp sock struct created by the device:
-    nsock = cast(struct devreq_net*, req->common.sock);
-    if (!nsock) return;  // false alarm
-    req->common.sock = AS_REBREQ(nsock)->next;
-    REBREQ *nreq = AS_REBREQ(nsock);
-    nreq->common.data = 0;
-    nreq->next = 0;
-
-    // Create a new port using ACCEPT request passed by sock->common.sock:
-    port = Copy_Context_Shallow(port);
-    Init_Port(out, port); // Also for GC protect
-
-    Init_Blank(CTX_VAR(port, STD_PORT_DATA)); // just to be sure.
-    Init_Blank(CTX_VAR(port, STD_PORT_STATE)); // just to be sure.
-
-    // Copy over the new sock data:
-    sock = cast(struct devreq_net*, Ensure_Port_State(port, RDI_NET));
-    *sock = *nsock;
-    AS_REBREQ(sock)->port = port;
-    free(nsock); // allocated by dev_net.c
-}
-
-//
 //  Transport_Actor: C
 //
 static REB_R Transport_Actor(
@@ -210,9 +178,16 @@ static REB_R Transport_Actor(
             }
             else if (IS_BLANK(arg)) { // No host, must be a LISTEN socket:
                 sock->modes |= RST_LISTEN;
-                sock->common.sock = 0; // where ACCEPT requests are queued
                 DEVREQ_NET(sock)->local_port =
                     IS_INTEGER(port_id) ? VAL_INT32(port_id) : 8000;
+
+                // When a client connection gets accepted, a port gets added
+                // to a BLOCK! of connections.
+                //
+                Init_Block(
+                    CTX_VAR(port, STD_PORT_CONNECTIONS),
+                    Make_Array(2)
+                );
                 break; // fall through to open case SYM_OPEN/CONNECT (?)
             }
             else
@@ -439,24 +414,37 @@ static REB_R Transport_Actor(
         Init_Blank(CTX_VAR(port, STD_PORT_DATA));
         goto return_port; }
 
-    case SYM_PICK: {
-        INCLUDE_PARAMS_OF_PICK;
-        UNUSED(PAR(location));
 
-        // FIRST server-port returns new port connection.
+    case SYM_TAKE_P: {
+        INCLUDE_PARAMS_OF_TAKE_P;
+        UNUSED(PAR(series));
+
+        if (not (sock->modes & RST_LISTEN) or (sock->modes & RST_UDP))
+            fail ("TAKE is only available on TCP LISTEN ports");
+
+        UNUSED(REF(part)); // non-null limit accounts for
+
+        // !!! Better chaining mechanics needed, an APPLY here would be
+        // awkward...just do /PART for now since it has a refinement argument.
         //
-        REBCNT len = Get_Num_From_Arg(ARG(picker));
-        if (
-            len == 1
-            and not (sock->modes & RST_UDP)
-            and (sock->modes & RST_LISTEN)
-            and sock->common.data != NULL
-        ){
-            Accept_New_Port(SINK(D_OUT), port, DEVREQ_NET(sock));
-        }
-        else
-            fail (Error_Out_Of_Range(ARG(picker)));
-        return D_OUT; }
+        if (REF(deep) or REF(last))
+            fail ("/DEEP and /LAST not implemented for TCP LISTEN TAKE, atm");
+
+        return rebRun(
+            "lib/take*/part",
+                CTX_VAR(port, STD_PORT_CONNECTIONS),
+                NULLIZE(ARG(limit)),
+                END
+        ); }
+
+    case SYM_PICK: {
+        fail (
+            "Listening network PORT!s no longer support FIRST (or PICK) to"
+            " extract the connection PORT! in an accept event.  It was"
+            " actually TAKE-ing the port, since it couldn't be done again."
+            " Use TAKE for now--PICK may be brought back eventually as a"
+            " read-only way of looking at the accept list."
+        ); }
 
     case SYM_QUERY: {
         //

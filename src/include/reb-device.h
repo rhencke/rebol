@@ -201,7 +201,6 @@ struct rebol_devreq {
     // Common fields:
     union {
         REBYTE *data;       // data to transfer
-        REBREQ *sock;       // temp link to related socket
     } common;
     uint32_t length;        // length to transfer
     uint32_t actual;        // length actually transferred
