@@ -241,8 +241,8 @@ void TO_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  {Converts to a specified datatype, copying any underying data}
 //
-//      return: "VALUE converted to TYPE (or null if input value is blank)"
-//          [<opt> any-value!]
+//      return: "VALUE converted to TYPE"
+//          [any-value!]
 //      type [datatype!]
 //      value [any-value!]
 //  ]
@@ -252,9 +252,6 @@ REBNATIVE(to)
     INCLUDE_PARAMS_OF_TO;
 
     REBVAL *v = ARG(value);
-    if (IS_BLANK(v))
-        return R_NULL;
-
     enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
 
     TO_CFUNC dispatcher = To_Dispatch[new_kind];

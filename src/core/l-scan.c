@@ -415,9 +415,7 @@ static const REBYTE *Scan_Quote_Push_Mold(
     REB_MOLD *mo,
     const REBYTE *src,
     SCAN_STATE *ss
-) {
-    assert(ss != NULL);
-
+){
     Push_Mold(mo);
 
     REBUNI term = (*src == '{') ? '}' : '"'; // pick termination
@@ -1992,19 +1990,9 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             break; }
 
         case TOKEN_ISSUE:
-            if (len == 1) {
-                if (bp[1] == '(') {
-                    ss->token = TOKEN_CONSTRUCT;
-                    fail (Error_Syntax(ss));
-                }
-                DS_PUSH_TRASH;
-                Init_Blank(DS_TOP);  // A single # means NONE
-            }
-            else {
-                DS_PUSH_TRASH;
-                if (ep != Scan_Issue(DS_TOP, bp + 1, len - 1))
-                    fail (Error_Syntax(ss));
-            }
+            DS_PUSH_TRASH;
+            if (ep != Scan_Issue(DS_TOP, bp + 1, len - 1))
+                fail (Error_Syntax(ss));
             break;
 
         case TOKEN_BLOCK_BEGIN:

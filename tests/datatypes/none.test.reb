@@ -7,12 +7,11 @@
 [#845
     (blank = _)
 ]
-(blank = #) ;-- Deprecated!
 (blank = make blank! blank)
-(null? to blank! blank) ;-- conflicting needs; blank in void out general rule
+(blank? to blank! blank) ;-- can't follow "blank in, null out" rule
 (blank = to blank! 1)
 ("_" = mold blank)
 [#1666 #1650 (
-    f: does [#]
-    # == f
+    f: does [_]
+    _ == f
 )]
