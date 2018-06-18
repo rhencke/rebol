@@ -266,7 +266,7 @@ void Debug_Values(const RELVAL *value, REBCNT count, REBCNT limit)
 
 
 //
-//  Debug_Buf: C
+//  Debug_Buf_No_Newline: C
 //
 // (va_list by pointer: http://stackoverflow.com/a/3369762/211160)
 //

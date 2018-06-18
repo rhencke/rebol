@@ -134,22 +134,8 @@ for-each [comparison-op function-name] compose [
 ]
 
 
-; !!! Originally in Rebol2 and R3-Alpha, ?? was used to dump variables.  In
-; the spirit of not wanting to take ? for something like HELP, that function
-; has been defined as DUMP (and extended with significant new features).  The
-; console makes D at the start of input a shortcut for this.
-;
-; Instead, ?? is used to make an infix operator, that takes a condition on the
-; left and a value on the right--like a THEN that won't run blocks/functions.
-; As a complement, !! is then taken as a parallel to ELSE, which will also not
-; run blocks or functions.  This is a similar to these operators from Perl6:
-;
-; https://docs.perl6.org/language/operators#infix_??_!!
-;
-; However, note that if you say `1 < 2 ?? 3 + 3 !! 4 + 4`, both additions
-; will be run.  To "block" evaluation, there has to be a BLOCK! somewhere,
-; hence these are not meant as a generic substitute for IF and ELSE.
-;
+; https://trello.com/c/J7jLQPY5
+
 ??: enfix func [
     {If TO-LOGIC of the left is true, return right value, otherwise null}
 
@@ -170,10 +156,7 @@ for-each [comparison-op function-name] compose [
     either-test-value/opt :left [:right]
 ]
 
-; By naming this ?! it somewhat suggests `?? () !!`, e.g. a shortening and
-; skipping over of a truthy clause.
-;
-?!: enfix func [
+?!: enfix func [ ;-- name suggests shorthand of `left ?? () !! right`
     {If TO LOGIC! of the left is false, return right value, otherwise null}
 
     return: [<opt> any-value!]
@@ -184,31 +167,15 @@ for-each [comparison-op function-name] compose [
 ]
 
 
-; THEN is an enfixed form of IF, which gives a branch running parallel for ??.
-; Since it has a longer name it may not seem useful--but it can occasionally
-; be useful in balancing the look of an expression, e.g. compare:
-;
-;    if (some long) and (complicated expression) [a + b] else [c + d]
-;
-;    (some long) and (complicated expression) then [a + b] else [c + d]
-;
-; It's also rather similar to when AND is used with a BLOCK! on its right
-; hand side, but it doesn't quote its right argument...which makes it more
-; flexible when you wish to run a block of code from a variable.  (It also
-; looks like less an odd name when paired with ELSE.)
-;
-; NAY is the somewhat weird name for enfixed IF-NOT, until someone thinks of
-; a better name for it.  (ELSE is not an option)  It may be unnecessary.
+; https://trello.com/c/8NF3DFBM
 
 then: enfix :if
-
-then*: enfix specialize :if [ ;-- THEN/OPT is a path, can't run infix
+then*: enfix specialize :if [ ;-- THEN/OPT is path, can't be infix
     opt: true
 ]
 
-nay: enfix :if-not
-
-nay*: enfix specialize :if-not [ ;-- NAY/OPT is a path, can't run infix
+not-then: enfix :if-not
+not-then*: enfix specialize :if-not [ ;-- NOT-THEN/OPT is path, can't be infix
     opt: true
 ]
 

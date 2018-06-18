@@ -779,7 +779,7 @@ REBVAL *RL_rebDecimal(REBDEC dec)
 //
 // !!! Unfortunately there's no way to make times with nanoseconds from
 // integers in plain Rebol, so rebTimeNano is around for now.
-// 
+//
 // (It is technically possible to MAKE TIME! with a decimal seconds component,
 // e.g. `make time! [10 20 30.0040]`, but since you have to calculate that it
 // introduces some questions on precision.)

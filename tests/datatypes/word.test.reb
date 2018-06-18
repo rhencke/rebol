@@ -72,7 +72,7 @@
     :a-value == a-value
 )
 (
-    a-value: #
+    a-value: _
     same? :a-value a-value
 )
 ; lit-paths aren't word-active

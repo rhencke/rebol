@@ -85,7 +85,7 @@
 (
     x: 1020
     did all [
-        <truthy> and [x: _] = _
+        <truthy> and [x: _] = null
         x = _
     ]
 )
@@ -102,7 +102,7 @@
 (
     x: 1020
     did all [
-        false or [x: _] = _
+        false or [x: _] = null
         x = _
     ]
 )

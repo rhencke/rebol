@@ -204,13 +204,12 @@ REBNATIVE(xor_q)
 //
 //  {Short-circuit boolean AND, with mode to pass thru non-LOGIC! values}
 //
-//      return: "LOGIC! if right is GROUP!, else falsey left, or right value"
+//      return: "LOGIC! if right is GROUP!, else right value or null"
 //          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "Quoted expression, evaluated unless left is blank or FALSE"
 //          [group! block!]
-//      /opt "If right is a BLOCK!, don't convert null results to blank"
 //  ]
 //
 REBNATIVE(and)
@@ -224,9 +223,6 @@ REBNATIVE(and)
         fail ("left hand side of AND should not be literal block");
 
     if (IS_GROUP(right)) { // result should be LOGIC!
-        if (REF(opt))
-            fail ("Can't use /OPT with AND when right hand side is a GROUP!");
-
         if (IS_FALSEY(left))
             return R_FALSE; // no need to evaluate right
 
@@ -236,21 +232,18 @@ REBNATIVE(and)
         return R_FROM_BOOL(IS_TRUTHY(D_OUT));
     }
 
-    assert(IS_BLOCK(right)); // any-value! result, nulls may be blankified
+    assert(IS_BLOCK(right)); // any-value! result, or null
 
-    // no need to evaluate right if left is falsey
-    //
-    if (IS_BLANK(left))
-        return R_BLANK;
-    if (IS_VOID(left))
-        return REF(opt) ? R_NULL : R_BLANK;
+    if (IS_FALSEY(left))
+        return R_NULL; // no need to evaluate right
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
         return R_OUT_IS_THROWN;
 
-    if (not REF(opt) and IS_VOID(D_OUT))
-        return R_BLANK;
-    return R_OUT; // preserve the exact truthy or falsey value
+    if (IS_FALSEY(D_OUT))
+        return R_NULL;
+
+    return R_OUT; // preserve the exact truthy value
 }
 
 
@@ -258,13 +251,12 @@ REBNATIVE(and)
 //
 //  {Short-circuit boolean OR, with mode to pass thru non-LOGIC! values}
 //
-//      return: "LOGIC! if right is GROUP!, else truthy left, or right value"
+//      return: "LOGIC! if right is GROUP!, truthy left/right value, or null"
 //          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "Quoted expression, evaluated only if left is blank or FALSE"
 //          [group! block!]
-//      /opt "If right is a BLOCK!, don't convert null results to blank"
 //  ]
 REBNATIVE(or)
 {
@@ -277,9 +269,6 @@ REBNATIVE(or)
         fail ("left hand side of OR should not be literal block");
 
     if (IS_GROUP(right)) { // result should be LOGIC!
-        if (REF(opt))
-            fail ("Can't use /OPT with OR when right hand side is a GROUP!");
-
         if (IS_TRUTHY(left))
             return R_TRUE; // no need to evaluate right
 
@@ -289,7 +278,7 @@ REBNATIVE(or)
         return R_FROM_BOOL(IS_TRUTHY(D_OUT));
     }
 
-    assert(IS_BLOCK(right)); // any-value! result, nulls may be blankified
+    assert(IS_BLOCK(right)); // any-value! result, or null
 
     if (IS_TRUTHY(left)) {
         Move_Value(D_OUT, left);
@@ -299,9 +288,10 @@ REBNATIVE(or)
     if (Do_Any_Array_At_Throws(D_OUT, right))
         return R_OUT_IS_THROWN;
 
-    if (not REF(opt) and IS_VOID(D_OUT))
-        return R_BLANK;
-    return R_OUT; // preserve the exact truthy or falsey value
+    if (IS_TRUTHY(D_OUT))
+        return R_OUT; // preserve the exact truthy value
+
+    return R_NULL;
 }
 
 
@@ -310,13 +300,12 @@ REBNATIVE(or)
 //
 //  {Boolean XOR, with mode to pass thru non-LOGIC! values}
 //
-//      return: "LOGIC! if right is GROUP!, else left or right or blank"
+//      return: "LOGIC! if right is GROUP!, else left or right or null"
 //          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "Quoted expression, must be always evaluated as well"
 //          [group! block!]
-//      /opt "If right is a BLOCK!, don't convert null results to blank"
 //  ]
 //
 REBNATIVE(xor)
@@ -333,25 +322,21 @@ REBNATIVE(xor)
 
     REBVAL *right = D_OUT;
 
-    if (IS_GROUP(right)) { // result should be LOGIC!
-        if (REF(opt))
-            fail ("Can't use /OPT with XOR when right hand side is a GROUP!");
-
+    if (IS_GROUP(right)) // result should be LOGIC!
         return R_FROM_BOOL(IS_TRUTHY(left) != IS_TRUTHY(right));
-    }
 
-    assert(IS_BLOCK(right)); // any-value! result, nulls may be blankified
+    assert(IS_BLOCK(right)); // any-value! result, or null
 
     if (IS_FALSEY(left)) {
         if (IS_FALSEY(right))
-            return REF(opt) ? R_NULL : R_BLANK;
+            return R_NULL;
 
         assert(right == D_OUT);
         return R_OUT;
     }
 
     if (IS_TRUTHY(right))
-        return REF(opt) ? R_NULL : R_BLANK;
+        return R_NULL;
 
     Move_Value(D_OUT, left);
     return R_OUT;
