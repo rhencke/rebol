@@ -59,21 +59,6 @@ DEVICE_CMD Init_Events(REBREQ *dr)
 
 
 //
-//  Poll_Events: C
-//
-// Poll for events and process them.
-// Returns 1 if event found, else 0.
-//
-DEVICE_CMD Poll_Events(REBREQ *req)
-{
-    UNUSED(req);
-
-    int flag = DR_DONE;
-    return flag;    // different meaning compared to most commands
-}
-
-
-//
 //  Query_Events: C
 //
 // Wait for an event, or a timeout (in milliseconds) specified by
@@ -133,7 +118,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     0,  // RDC_CLOSE,       // close device unit
     0,  // RDC_READ,        // read from unit
     0,  // RDC_WRITE,       // write to unit
-    Poll_Events,
     Connect_Events,
     Query_Events,
 };

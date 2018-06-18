@@ -149,45 +149,6 @@ DEVICE_CMD Read_DNS(REBREQ *req)
 }
 
 
-//
-//  Poll_DNS: C
-//
-// Check for completed DNS requests. These are marked with
-// RRF_DONE by the windows message event handler (dev-event.c).
-// Completed requests are removed from the pending queue and
-// event is signalled (for awake dispatch).
-//
-DEVICE_CMD Poll_DNS(REBREQ *dr)
-{
-    REBDEV *dev = (REBDEV*)dr;  // to keep compiler happy
-    REBREQ **prior = &dev->pending;
-    REBREQ *req;
-    REBOOL change = FALSE;
-    HOSTENT *host;
-
-    // Scan the pending request list:
-    for (req = *prior; req; req = *prior) {
-
-        // If done or error, remove command from list:
-        if (req->flags & RRF_DONE) {
-            *prior = req->next;
-            req->next = 0;
-            req->flags &= ~RRF_PENDING;
-
-            host = cast(HOSTENT*, DEVREQ_NET(req)->host_info);
-            if (req->modes & RST_REVERSE)
-                req->common.data = b_cast(host->h_name);
-            else
-                memcpy(&(DEVREQ_NET(req)->remote_ip), *host->h_addr_list, 4); //he->h_length);
-            OS_SIGNAL_DEVICE(req, EVT_READ);
-            change = TRUE;
-        }
-        else prior = &req->next;
-    }
-
-    return change ? 1 : 0; // DEVICE_CMD implicitly returns i32
-}
-
 
 /***********************************************************************
 **
@@ -202,8 +163,7 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] =
     Open_DNS,
     Close_DNS,
     Read_DNS,
-    0,  // write
-    Poll_DNS
+    0  // write
 };
 
 DEFINE_DEV(Dev_DNS, "DNS", 1, Dev_Cmds, RDC_MAX, sizeof(struct devreq_net));

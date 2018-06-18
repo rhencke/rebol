@@ -135,38 +135,6 @@ DEVICE_CMD Init_Events(REBREQ *dr)
 
 
 //
-//  Poll_Events: C
-//
-// Poll for events and process them.
-// Returns 1 if event found, else 0.
-//
-// MS Notes:
-//
-// "The PeekMessage function normally does not remove WM_PAINT
-// messages from the queue. WM_PAINT messages remain in the queue
-// until they are processed."
-//
-DEVICE_CMD Poll_Events(REBREQ *req)
-{
-    UNUSED(req);
-
-    MSG msg;
-    int flag = DR_DONE;
-
-    // Are there messages to process?
-    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-    {
-        flag = DR_PEND;
-        if (msg.message == WM_TIMER)
-            break;
-        DispatchMessage(&msg);
-    }
-
-    return flag;    // different meaning compared to most commands
-}
-
-
-//
 //  Query_Events: C
 //
 // Wait for an event, or a timeout (in milliseconds) specified by
@@ -185,7 +153,16 @@ DEVICE_CMD Query_Events(REBREQ *req)
         DispatchMessage(&msg);
 
     // Quickly check for other events:
-    Poll_Events(0);
+    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+    {
+        // !!! A flag was set here to return DR_PEND, when this was
+        // Poll_Events...which seemingly only affected the GUI.
+        //
+        if (msg.message == WM_TIMER)
+            break;
+        DispatchMessage(&msg);
+    }
+
 
     //if (Timer_Id) KillTimer(0, Timer_Id);
     return DR_DONE;
@@ -219,7 +196,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     0,  // RDC_CLOSE,       // close device unit
     0,  // RDC_READ,        // read from unit
     0,  // RDC_WRITE,       // write to unit
-    Poll_Events,
     Connect_Events,
     Query_Events,
 };

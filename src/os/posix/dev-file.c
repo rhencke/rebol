@@ -595,16 +595,6 @@ DEVICE_CMD Rename_File(REBREQ *req)
 }
 
 
-//
-//  Poll_File: C
-//
-DEVICE_CMD Poll_File(REBREQ *req)
-{
-    UNUSED(req);
-    return DR_DONE;     // files are synchronous (currently)
-}
-
-
 /***********************************************************************
 **
 **  Command Dispatch Table (RDC_ enum order)
@@ -618,7 +608,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     Close_File,
     Read_File,
     Write_File,
-    Poll_File,
     0,  // connect
     Query_File,
     0,  // modify

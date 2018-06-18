@@ -209,15 +209,6 @@ DEVICE_CMD Write_Clipboard(REBREQ *req)
 }
 
 
-//
-//  Poll_Clipboard: C
-//
-DEVICE_CMD Poll_Clipboard(REBREQ *req)
-{
-    UNUSED(req);
-    return DR_DONE;
-}
-
 /***********************************************************************
 **
 **  Command Dispatch Table (RDC_ enum order)
@@ -231,8 +222,7 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] =
     Open_Clipboard,
     Close_Clipboard,
     Read_Clipboard,
-    Write_Clipboard,
-    Poll_Clipboard,
+    Write_Clipboard
 };
 
 DEFINE_DEV(Dev_Clipboard, "Clipboard", 1, Dev_Cmds, RDC_MAX, sizeof(REBREQ));

@@ -702,7 +702,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] = {
     Close_Socket,
     Transfer_Socket,        // Read
     Transfer_Socket,        // Write
-    0,  // poll
     Connect_Socket,
     0,  // query
     Modify_Socket,          // modify

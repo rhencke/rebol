@@ -66,7 +66,6 @@ enum {
     RDC_READ,       // read from unit
     RDC_WRITE,      // write to unit
 
-    RDC_POLL,       // check for activity
     RDC_CONNECT,    // connect (in or out)
 
     RDC_QUERY,      // query unit info
@@ -91,8 +90,13 @@ enum {
     RDF_INIT = 1 << 0, // Device is initialized
     RDF_OPEN = 1 << 1, // Global open (for devs that cannot multi-open)
     // Options:
-    RDO_MUST_INIT = 1 << 2, // Do not allow auto init (manual init required)
-    RDO_AUTO_POLL = 1 << 3 // Poll device, even if no requests (e.g. interrupts)
+    RDO_MUST_INIT = 1 << 2 // Do not allow auto init (manual init required)
+
+    // !!! There used to be something here called "RDO_AUTO_POLL" which said
+    // "Poll device, even if no requests (e.g. interrupts)".  There were no
+    // instances.  If someone needed to accomplish this, they could just put
+    // in a request that never says it's done, but keeps asking to be left
+    // in the pending queue.
 };
 
 // REBOL Request Flags (bitnums):

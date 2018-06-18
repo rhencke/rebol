@@ -546,7 +546,6 @@ static DEVICE_CMD_CFUNC Dev_Cmds[RDC_MAX] =
     Close_IO,
     Read_IO,
     Write_IO,
-    0,  // poll
     0,  // connect
     0,  // query
     0,  // modify

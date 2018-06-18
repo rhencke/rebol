@@ -383,29 +383,13 @@ int OS_Abort_Device(REBREQ *req)
 //
 int OS_Poll_Devices(void)
 {
-    int d;
     int cnt = 0;
-    REBDEV *dev;
-    //int cc = 0;
 
-    //printf("Polling Devices\n");
-
-    // Check each device:
+    int d;
     for (d = 0; d != RDI_MAX; d++) {
-        dev = Devices[d];
-        if (
-            dev != NULL
-            and (dev->pending or (dev->flags & RDO_AUTO_POLL))
-        ){
-            // If there is a custom polling function, use it:
-            if (dev->commands[RDC_POLL]) {
-                if (dev->commands[RDC_POLL]((REBREQ*)dev)) cnt++;
-            }
-            else {
-                if (Poll_Default(dev)) cnt++;
-            }
-        }
-        //if (cc != cnt) {printf("dev=%s ", dev->title); cc = cnt;}
+        REBDEV *dev = Devices[d];
+        if (dev and Poll_Default(dev))
+            ++cnt;
     }
 
     return cnt;
