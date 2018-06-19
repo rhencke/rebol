@@ -846,7 +846,7 @@ inline static REBIXO DO_NEXT_MAY_THROW(
     SET_FRAME_VALUE(f, ARR_AT(array, index));
 
     if (FRM_AT_END(f)) {
-        Init_Endish_Void(out);
+        Init_Void(out); // shouldn't set VALUE_FLAG_UNEVALUATED
         return END_FLAG;
     }
 
@@ -870,7 +870,7 @@ inline static REBIXO DO_NEXT_MAY_THROW(
 
     if (FRM_AT_END(f)) {
         if (IS_END(out))
-            Init_Endish_Void(out);
+            Init_Void(out); // shouldn't set VALUE_FLAG_UNEVALUATED
 
         return END_FLAG;
     }
@@ -911,7 +911,10 @@ inline static REBIXO Do_Array_At_Core(
     }
 
     if (FRM_AT_END(f)) {
-        Init_Endish_Void(out);
+        if (flags & DO_FLAG_FULFILLING_ARG)
+            Init_Endish_Void(out);
+        else
+            Init_Void(out); // shouldn't set VALUE_FLAG_UNEVALUATED
         return END_FLAG;
     }
 
@@ -929,8 +932,12 @@ inline static REBIXO Do_Array_At_Core(
         return THROWN_FLAG;
 
     if (FRM_AT_END(f)) {
-        if (IS_END(f->out))
-            Init_Endish_Void(f->out);
+        if (IS_END(f->out)) {
+            if (flags & DO_FLAG_FULFILLING_ARG)
+                Init_Endish_Void(out);
+            else
+                Init_Void(out); // shouldn't set VALUE_FLAG_UNEVALUATED
+        }
 
         return END_FLAG;
     }
@@ -1285,26 +1292,25 @@ inline static REBOOL Run_Branch_Throws(
     const REBVAL *branch,
     REBOOL opt
 ){
-    assert(branch != out); // !!! review, CASE can perhaps do better...
-    assert(condition != out); // direct pointer in va_list, also destination
+    assert(branch != out);
+    assert(condition != out);
 
     if (IS_BLOCK(branch)) {
         if (Do_Any_Array_At_Throws(out, branch))
-            return TRUE;
+            return true;
     }
     else {
         assert(IS_ACTION(branch));
 
-        const REBOOL fully = FALSE; // arity-0 functions can ignore condition
+        const REBOOL fully = false; // arity-0 functions can ignore condition
         if (Apply_Only_Throws(out, fully, branch, DEVOID(condition), END))
-            return TRUE;
+            return true;
     }
 
     if (not opt and IS_VOID(out))
         Init_Blank(out); // "blankification", see comment above
 
-    CLEAR_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED);
-    return FALSE;
+    return false;
 }
 
 

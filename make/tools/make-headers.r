@@ -65,7 +65,7 @@ emit-proto: proc [proto] [
         ]
     ]
 
-    switch/default header/2 [
+    if null? switch header/2 [
         'RL_API [
             ; Currently the RL_API entries should only occur in %a-lib.c, and
             ; are processed by %make-reb-lib.r.  Their RL_XxxYyy() forms don't

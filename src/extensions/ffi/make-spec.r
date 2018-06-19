@@ -63,7 +63,7 @@ options: [
                 ]
             ]
         ][
-            switch/default user-config/with-ffi [
+            if null? switch user-config/with-ffi [
                 'static 'dynamic [
                     for-each var [includes cflags searches ldflags][
                         x: rebmake/pkg-config

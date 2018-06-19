@@ -253,7 +253,7 @@ REBNATIVE(do)
             REF(next) ? DO_MASK_NONE : DO_FLAG_TO_END
         );
 
-        CLEAR_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
+        assert(NOT_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED));
 
         if (indexor == THROWN_FLAG)
             return R_OUT_IS_THROWN;

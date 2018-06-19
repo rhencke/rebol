@@ -184,7 +184,9 @@ case: function [
     result: null
 
     (:lib/loop-until) [
-        (:lib/if) (:lib/to-value) condition: do/next cases 'cases [
+        condition: do/next cases 'cases
+        lib/if lib/tail? cases [return :condition] ;-- "fallout"
+        (:lib/if) (:lib/to-value) :condition [
             result: (:lib/to-value) do ensure block! cases/1
 
             ;-- NOTE: uses the old-style UNLESS, as its faster than IF NOT

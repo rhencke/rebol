@@ -978,7 +978,7 @@ set 'r3-legacy* func [<local>] [
         ][
             apply 'quit [
                 with: ensure logic! return
-                value: :value
+                if return [value: :value]
             ]
         ])
 
@@ -1118,7 +1118,7 @@ set 'r3-legacy* func [<local>] [
         ])
 
         switch: (redescribe [
-            {Ren-C SWITCH evaluates its branches: }
+            {Ren-C SWITCH evaluates matches: https://trello.com/c/9ChhSWC4/}
         ](
             chain [
                 adapt 'switch [
@@ -1126,10 +1126,15 @@ set 'r3-legacy* func [<local>] [
                         for-each c cases [
                             keep/only either block? :c [:c] [uneval :c]
                         ]
+                        if default [ ;-- convert to fallout
+                            keep/only as group! default-branch
+                            default: false
+                            unset 'default-branch
+                        ]
                     ]
                 ]
                     |
-                :try ;-- wants blank on failed select, not null
+                :to-value ;-- wants blank on failed SWITCH, not null
             ]
         ))
 

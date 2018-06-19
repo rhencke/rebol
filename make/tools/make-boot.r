@@ -136,7 +136,7 @@ e-dispatch: make-emitter "Dispatchers" core/tmp-dispatchers.c
 
 tafs: collect [
     for-each-record t type-table [
-        switch/default t/class [
+        if null? switch t/class [
             '* [
                 keep cscape/with {/* $<T/Name> */ T_Unhooked} [t]
             ]
@@ -148,7 +148,7 @@ tafs: collect [
 
 pds: collect [
     for-each-record t type-table [
-        switch/default t/path [
+        if null? switch t/path [
             '- [keep cscape/with {/* $<T/Name> */ PD_Fail} [t]]
             '+ [
                 proper: propercase-of t/class
@@ -167,7 +167,7 @@ pds: collect [
 
 makes: collect [
     for-each-record t type-table [
-        switch/default t/make [
+        if null? switch t/make [
             '- [keep cscape/with {/* $<T/Name> */ MAKE_Fail} [t]]
             '+ [
                 proper: propercase-of t/class
@@ -182,7 +182,7 @@ makes: collect [
 
 tos: collect [
     for-each-record t type-table [
-        switch/default t/make [
+        if null? switch t/make [
             '- [keep cscape/with {/* $<T/Name> */ TO_Fail} [t]]
             '+ [
                 proper: propercase-of T/Class
@@ -197,7 +197,7 @@ tos: collect [
 
 mfs: collect [
     for-each-record t type-table [
-        switch/default t/mold [
+        if null? switch t/mold [
             '- [keep cscape/with {/* $<T/Name> */ MF_Fail"} [t]]
             '+ [
                 proper: propercase-of t/class

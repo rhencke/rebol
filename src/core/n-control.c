@@ -643,14 +643,16 @@ REBNATIVE(none)
 //
 static REB_R Case_Choose_Core(
     REBVAL *out,
-    REBVAL *cell, // scratch "D_CELL", GC safe (and implicitly terminated)
-    REBVAL *block, // "choices" or "cases", GC safe
+    REBVAL *cell, // scratch "D_CELL", must be GC safe
+    REBVAL *block, // "choices" or "cases", must be GC safe
     REBOOL all,
-    REBOOL only,
-    REBOOL choose // do not evaluate blocks, just "choose" them
+    REBOOL opt,
+    REBOOL choose // do not evaluate branches, just "choose" them
 ){
     DECLARE_FRAME (f);
     Push_Frame(f, block);
+
+    Init_Void(out); // default return result
 
     // With the block argument pushed in the enumerator, that frame slot is
     // available for scratch space in the rest of the routine.
@@ -666,70 +668,57 @@ static REB_R Case_Choose_Core(
             return R_OUT_IS_THROWN;
         }
 
-        if (FRM_AT_END(f)) // require conditions and branches in pairs
-            fail (Error_Past_End_Raw());
+        // The last condition will "fall out" if there is no branch/choice:
+        //
+        //     case [1 > 2 [...] 3 > 4 [...] 10 + 20] = 30
+        //     choose [1 > 2 (literal group) 3 > 4 <tag> 10 + 20] = 30
+        //
+        if (FRM_AT_END(f)) {
+            Drop_Frame(f);
+            Move_Value(out, cell);
+            return R_OUT;
+        }
 
-        if (IS_CONDITIONAL_FALSE(cell)) {
-            //
-            // The condition did not match.  If it's a CHOOSE operation, we
-            // willingly skip any kind of value in the next slot.  For a
-            // CASE be more picky--skip blocks and literal ACTION! values,
-            // and soft quoted things, but error otherwise.
-            //
-            // !!! We want to skip evaluating GROUP!s for false clauses, but
-            // should GET-PATH! and GET-WORD! be looked up to see if they are
-            // BLOCK! or ACTION!?
-            //
-            if (
-                choose
-                or IS_BLOCK(f->value) or IS_ACTION(f->value)
-                or IS_QUOTABLY_SOFT(f->value)
-            ){
-                Fetch_Next_In_Frame(f); // skip the soft-quoted slot
-                continue;
-            }
+        // Regardless of if the condition matches or not, the next value must
+        // be valid for the construct.  If it's a CHOOSE operation, it can
+        // be any value.  For a CASE be more picky--BLOCK!s only.
+        //
+        if (not choose and not IS_BLOCK(f->value)) {
+            if (IS_ACTION(f->value))
+                fail (
+                    "ACTION! branches currently not supported in CASE --"
+                    " none existed after having the feature for 2 years."
+                    " It costs extra to shuffle cells to support passing in"
+                    " the condition.  Complain if you have a good reason."
+                );
             fail (Error_Invalid_Core(f->value, f->specifier));
         }
 
-        // Condition matched.  We only look at one value for the "branch" or
-        // "choice".  However, this is soft-quoted, so if it's a GROUP! or a
-        // GET-WORD! or a GET-PATH!, we're willing to evaluate it.
-        //
-        if (choose) {
-            //
-            // CHOOSE can evaluate directly into the output slot.
-            //
-            if (IS_QUOTABLY_SOFT(f->value)) {
-                if (Eval_Value_Core_Throws(out, f->value, f->specifier)) {
-                    Abort_Frame(f);
-                    return R_OUT_IS_THROWN;
-                }
-            } else
-                Derelativize(out, f->value, f->specifier);
+        if (IS_CONDITIONAL_FALSE(cell)) { // condition didn't match, skip
+            Fetch_Next_In_Frame(f);
+            continue;
         }
+
+        // When the condition matches, we must only use the next value
+        // literally.  If something like Do_Next_In_Frame_Throws() were
+        // called to evaluate the thing-that-became-a-branch, it would also
+        // evaluate any ELIDEs after it...which would not be good if /ALL
+        // is not set, as it would run code *after* the taken branch.
+        //
+        if (choose)
+            Derelativize(out, f->value, f->specifier);
         else {
-            // We need to hang onto the condition, in case the branch is an
-            // arity-1 ACTION! and wants to be passed what that condition
-            // evaluated to.  Move it into the block cell, which we no longer
-            // need (the frame captured it).  Note that evaluating directly
-            // into frame slots is not allowed.
-            //
-            Move_Value(block, cell); // only needed for CASE, not CHOOSE
-            if (Eval_Value_Core_Throws(cell, f->value, f->specifier)) {
-                Move_Value(out, cell);
+            if (Do_At_Throws(
+                out,
+                VAL_ARRAY(f->value),
+                VAL_INDEX(f->value),
+                f->specifier
+            )){
                 Abort_Frame(f);
                 return R_OUT_IS_THROWN;
             }
-
-            if (not IS_ACTION(cell) and not IS_BLOCK(cell))
-                fail (Error_Invalid_Arg_Raw(cell));
-
-            // Note that block now holds the cached evaluated condition
-            //
-            if (Run_Branch_Throws(out, block, cell, only)) {
-                Abort_Frame(f);
-                return R_OUT_IS_THROWN;
-            }
+            if (not opt and IS_VOID(out))
+                Init_Blank(out);
         }
 
         if (not all) {
@@ -737,16 +726,10 @@ static REB_R Case_Choose_Core(
             return R_OUT;
         }
 
-        // keep matching if /ALL
-        //
-        Fetch_Next_In_Frame(f);
+        Fetch_Next_In_Frame(f); // keep matching if /ALL
     }
 
-    // CASE/ALL can get here even if D_OUT not written
-
     Drop_Frame(f);
-    if (IS_END(out))
-        return R_NULL; // never written to, no branches ran
     return R_OUT;
 }
 
@@ -754,16 +737,16 @@ static REB_R Case_Choose_Core(
 //
 //  case: native [
 //
-//  {Evaluates each condition, and when true, evaluates what follows it.}
+//  {Evaluates each condition, and when true, evaluates what follows it}
 //
 //      return: [<opt> any-value!]
-//          {Last matched case evaluation, or void if no cases matched}
+//          "Last matched case evaluation, or null if no cases matched"
 //      cases [block!]
 //          "Block of cases (conditions followed by branches)"
 //      /all
-//          {Evaluate all cases (do not stop at first logically true case)}
-//      /only
-//          "If branch runs and returns void, do not convert it to BLANK!"
+//          "Evaluate all cases (do not stop at first logically true case)"
+//      /opt
+//          "If branch runs and returns null, do not convert it to BLANK!"
 //  ]
 //
 REBNATIVE(case)
@@ -772,7 +755,7 @@ REBNATIVE(case)
 
     const REBOOL choose = FALSE;
     return Case_Choose_Core(
-        D_OUT, D_CELL, ARG(cases), REF(all), REF(only), choose
+        D_OUT, D_CELL, ARG(cases), REF(all), REF(opt), choose
     );
 }
 
@@ -783,26 +766,34 @@ REBNATIVE(case)
 //  {Evaluates each condition, and gives back the value that follows it}
 //
 //      return: [<opt> any-value!]
-//          {Last matched choice value, or void if no choices matched}
+//          "Last matched choice value, or void if no choices matched"
 //      choices [block!]
-//          {Evaluate all choices (do not stop at first TRUTHY? choice)}
+//          "Evaluate all choices (do not stop at first TRUTHY? choice)"
 //      /all
-//          {Return the value for the last matched choice (instead of first)}
+//          "Return the value for the last matched choice (instead of first)"
 //  ]
 //
 REBNATIVE(choose)
 {
     INCLUDE_PARAMS_OF_CHOOSE;
 
-    // There's no need to worry about "blankification" here, though the value
-    // might be void.  For now assume that means it's not a valid choice,
-    // and give an error.  Review.
+    // There's no need to worry about "blankification" here, as it's picking
+    // values out of a block that cannot be null.  (It would be different if
+    // the branches were soft quoted, then they might evaluate to null.)
     //
-    const REBOOL only = FALSE;
+    const REBOOL opt = false;
 
-    const REBOOL choose = TRUE;
+    // The choose can't be run backwards, only forwards.  So implementation
+    // means that "/LAST" really can only be done as an /ALL, there's no way
+    // to go backwards in the block and get a Rebol-coherent answer.  Calling
+    // it /ALL instead of /LAST helps reinforce that *all the conditions*
+    // will be evaluated.
+    //
+    const REBOOL all = REF(all);
+
+    const REBOOL choose = true;
     return Case_Choose_Core(
-        D_OUT, D_CELL, ARG(choices), REF(all), only, choose
+        D_OUT, D_CELL, ARG(choices), all, opt, choose
     );
 }
 
@@ -819,39 +810,38 @@ REBNATIVE(choose)
 //      cases "Block of cases (comparison lists followed by block branches)"
 //          [block!]
 //      /all "Evaluate all matches (not just first one)"
-//      /strict "Use STRICT-EQUAL? when comparing cases instead of EQUAL?"
 //      /opt "If branch runs and returns null, do not convert it to BLANK!"
+//      ; !!! /STRICT may have a different name
+//      ; https://forum.rebol.info/t/349
+//      /strict "Use STRICT-EQUAL? when comparing cases instead of EQUAL?"
+//      ; !!! Is /QUOTE truly needed?
 //      /quote "Do not evaluate comparison values"
-//
-//      /default "Default case if no others found (deprecated, see ELSE)"
-//      default-case "Block to execute or function to run if no cases match"
-//          [action! block!]
+//      ; !!! Needed in spec for ADAPT to override in shim
+//      /default "Deprecated: use fallout feature or ELSE, UNLESS, etc."
+//      default-branch [block!]
 //  ]
 //
 REBNATIVE(switch)
-//
-// !!! SWITCH historically has had a /DEFAULT refinement.  However, with the
-// rise of the void-means-no-result convention and THEN and ELSE, it is
-// somewhat inelegant.  Consider removing it, when a suitable way to let
-// users create expanded versions of functions with their own refinements
-// exists, so that creating compatibility can be easy/performant.
 {
     INCLUDE_PARAMS_OF_SWITCH;
 
+    if (REF(default))
+        fail (
+            "SWITCH/DEFAULT is no longer supported by the core.  Use the"
+            " fallout feature, or ELSE/UNLESS/!!/etc. based on null result:"
+            " https://forum.rebol.info/t/312"
+        );
+    UNUSED(ARG(default_branch));
+
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(cases));
-
-    assert(IS_END(D_OUT)); // evaluator guarantees this on entry
 
     REBVAL *value = ARG(value);
 
     if (IS_BLOCK(value) and GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED))
         fail (Error_Block_Switch_Raw(value)); // `switch [x] [...]` safeguard
 
-    // D_CELL is a temporary GC-safe location.  Initialize void, as it holds
-    // the last test so that `switch 9 [1 ["a"] 2 ["b"] "c"]` is "c"
-
-    Init_Void(D_CELL); // used for "fallout"
+    Init_Void(D_OUT); // used for "fallout"
 
     while (FRM_HAS_MORE(f)) {
         //
@@ -859,25 +849,36 @@ REBNATIVE(switch)
         // condition to match.  If no more tests are run, let it suppress the
         // feature of the last value "falling out" the bottom of the switch
         //
-        if (
-            IS_BLOCK(f->value)
-            or IS_ACTION(f->value) // literal ACTION!, likely COMPOSE'd in
-        ){
-            Init_Void(D_CELL);
+        if (IS_BLOCK(f->value)) {
+            Init_Void(D_OUT);
             Fetch_Next_In_Frame(f);
             continue;
         }
 
+        if (IS_ACTION(f->value)) {
+            //
+            // It's a literal ACTION!, e.g. one composed in the block:
+            //
+            //    switch :some-func compose [
+            //        :append [print "not this case... this is fine"]
+            //        :insert (:branch) ;-- it's this situation
+            //    ]
+            //
+        action_not_supported:
+            fail (
+                "ACTION! branches currently not supported in SWITCH --"
+                " none existed after having the feature for 2 years."
+                " Complain if you found a good use for it."
+            );
+        }
+
         if (REF(quote))
-            Quote_Next_In_Frame(D_CELL, f);
+            Quote_Next_In_Frame(D_OUT, f);
         else {
-            if (Eval_Value_Core_Throws(D_CELL, f->value, f->specifier)) {
-                Move_Value(D_OUT, D_CELL);
+            if (Do_Next_In_Frame_Throws(D_OUT, f)) {
                 Abort_Frame(f);
                 return R_OUT_IS_THROWN;
             }
-
-            Fetch_Next_In_Frame(f);
         }
 
         // It's okay that we are letting the comparison change `value`
@@ -894,68 +895,46 @@ REBNATIVE(switch)
         // the un-mutated condition value, in which case this should not
         // be changing D_CELL
 
-        if (!Compare_Modify_Values(ARG(value), D_CELL, REF(strict) ? 1 : 0))
+        if (!Compare_Modify_Values(ARG(value), D_OUT, REF(strict) ? 1 : 0))
             continue;
 
         // Skip ahead to try and find a block, to treat as code for the match
 
-        while (TRUE) {
-            if (FRM_AT_END(f))
-                goto return_defaulted;
-            if (IS_BLOCK(f->value) or IS_ACTION(f->value))
+        while (true) {
+            if (FRM_AT_END(f)) {
+                Drop_Frame(f);
+                return R_OUT; // last test "falls out", might be void
+            }
+            if (IS_BLOCK(f->value))
                 break;
+            if (IS_ACTION(f->value))
+                goto action_not_supported; // literal action
             Fetch_Next_In_Frame(f);
         }
 
-        // Run the code if it was found.  Because it writes D_OUT with a value
-        // (or void), it won't be END--we'll know at least one case has run.
-        //
-        // Derelativize the ACTION! or BLOCK! into the cases cell, which is
-        // available because the frame already captured it.
-        //
-        // !!! We only have to derelativize because we're not using plain
-        // Do_At_Throws()...which takes a specifier.  If the literal-ACTION!
-        // in the cases feature turns out to be superfluous, use that instead.
-        //
-        Derelativize(ARG(cases), f->value, f->specifier);
-        if (Run_Branch_Throws(D_OUT, D_CELL, ARG(cases), REF(opt))) {
+        if (Do_At_Throws( // it's a match, so run the BLOCK!
+            D_OUT,
+            VAL_ARRAY(f->value),
+            VAL_INDEX(f->value),
+            f->specifier
+        )){
             Abort_Frame(f);
             return R_OUT_IS_THROWN;
         }
 
-        // Only keep processing if the /ALL refinement was specified
+        if (not REF(opt) and IS_VOID(D_OUT))
+            Init_Blank(D_OUT); // blankify if needed
 
         if (not REF(all)) {
             Abort_Frame(f);
             return R_OUT;
         }
-    }
 
-    if (NOT_END(D_OUT)) { // at least one case body ran and overwrote D_OUT
-        Drop_Frame(f);
-        return R_OUT;
+        Fetch_Next_In_Frame(f); // keep matching if /ALL
     }
-
-return_defaulted:
-    assert(IS_END(D_OUT)); // nothing should have been written into D_OUT
 
     Drop_Frame(f);
-
-    if (not REF(default)) {
-        Move_Value(D_OUT, D_CELL); // last test "falls out", might be void
-        return R_OUT;
-    }
-
-    // The default branch is run, but the condition triggering it is said to
-    // be a void.  Hence if the default case is a single-arity function, that
-    // is the argument it will be receiving.  (Loops like FOREVER pass in
-    // END, so only single-arity functions can be used, but by using void
-    // here it allows a common function to take the default.)
-    //
-    if (Run_Branch_Throws(D_OUT, VOID_CELL, ARG(default_case), REF(opt)))
-        return R_OUT_IS_THROWN;
-
-    return R_OUT;
+    return R_OUT; // last test "falls out" or last match if /ALL, may be void
 }
 
 

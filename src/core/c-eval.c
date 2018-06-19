@@ -1820,10 +1820,6 @@ reevaluate:;
             if (IS_VOID(f->out))
                 fail (Error_Need_Value_Raw(DS_TOP));
 
-            // if x: [1 < 2] [print "errors if set-word doesn't clear flag"]
-            //
-            CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
-
             Move_Value(Sink_Var_May_Fail(DS_TOP, SPECIFIED), f->out);
 
             DS_DROP;
@@ -1840,10 +1836,8 @@ reevaluate:;
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_GET_WORD:
-        //
-        // Note: copying values does not copy VALUE_FLAG_UNEVALUATED
-        //
         Move_Opt_Var_May_Fail(f->out, current, f->specifier);
+        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break;
 
 //==/////////////////////////////////////////////////////////////////////==//
@@ -1856,11 +1850,9 @@ reevaluate:;
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_LIT_WORD:
-        //
-        // Derelativize will clear VALUE_FLAG_UNEVALUATED
-        //
         Derelativize(f->out, current, f->specifier);
         VAL_SET_TYPE_BITS(f->out, REB_WORD);
+        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break;
 
 //==//// INERT WORD AND STRING TYPES /////////////////////////////////////==//
@@ -1908,12 +1900,7 @@ reevaluate:;
             goto finished;
         }
 
-        // This has to set the evaluated flag to bypass checking.  e.g.
-        // `if (1) [print "this is supposed to work"]`.  Unfortunately this
-        // means you can't semiquote things inside groups, only outside of
-        // them, e.g. `semiquote (a b c)` and not `(semiquote a b c)`.
-        //
-        CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -1980,7 +1967,7 @@ reevaluate:;
             goto process_action;
         }
 
-        CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2091,6 +2078,7 @@ reevaluate:;
             }
         }
 
+        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2115,7 +2103,7 @@ reevaluate:;
         if (Get_Path_Throws_Core(f->out, current, f->specifier))
             goto finished;
 
-        CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2130,11 +2118,9 @@ reevaluate:;
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_LIT_PATH:
-        //
-        // Derelativize will leave VALUE_FLAG_UNEVALUATED clear
-        //
         Derelativize(f->out, current, f->specifier);
         VAL_SET_TYPE_BITS(f->out, REB_PATH);
+        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2569,6 +2555,11 @@ abort_action:;
     DS_DROP_TO(f->dsp_orig); // any unprocessed refinements or chains on stack
 
 finished:;
+
+    // The unevaluated flag is meaningless outside of arguments to functions.
+
+    if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
+        CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
 
   #if !defined(NDEBUG)
     Do_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps

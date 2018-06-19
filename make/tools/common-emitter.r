@@ -87,12 +87,11 @@ cscape: function [
             ]
             sub: do code
 
-            sub: switch/default mode [
+            sub: switch mode [
                 #cname [to-c-name sub]
                 #unspaced [either block? sub [unspaced sub] [form sub]]
                 #delim [delimit sub unspaced [dlm newline]]
-            ][
-                fail ["Invalid CSCAPE mode:" mode]
+                (fail ["Invalid CSCAPE mode:" mode])
             ]
             case [
                 all [any-upper | not any-lower] [uppercase sub]

@@ -101,7 +101,7 @@ pkg-config: function [
     var [word!]
     lib [any-string!]
 ][
-    switch/default var [
+    if null? switch var [
         'includes [
             dlm: "-I"
             opt: "--cflags-only-I"
@@ -255,7 +255,7 @@ windows: make platform-class [
 set-target-platform: func [
     platform
 ][
-    switch/default platform [
+    if null? switch platform [
         'posix [
             target-platform: posix
         ]
@@ -754,18 +754,21 @@ ld: make linker-class [
     ]
 
     accept: func [
+        return: [<opt> string!]
         dep [object!]
         <local>
         ddep
         lib
     ][
-        switch/default dep/class-name [
+        opt switch dep/class-name [
             'object-file-class [
-                ;if find words-of dep 'depends [
-                    ;for-each ddep dep/depends [
-                    ;    dump ddep
-                    ;]
-                ;]
+                comment [ ;-- !!! This was commented out, why?
+                    if find words-of dep 'depends [
+                        for-each ddep dep/depends [
+                            dump ddep
+                        ]
+                    ]
+                ]
                 file-to-local dep/output
             ]
             'ext-dynamic-class [
@@ -787,7 +790,6 @@ ld: make linker-class [
                 spaced map-each ddep dep/depends [
                     file-to-local ddep/output
                 ]
-                ;pass
             ]
             'application-class [
                 ;pass
@@ -798,9 +800,12 @@ ld: make linker-class [
             'entry-class [
                 ;pass
             ]
-        ][
-            dump dep
-            fail "unrecognized dependency"
+
+            ;-- default
+            (
+                dump dep
+                fail "unrecognized dependency"
+            )
         ]
     ]
 
@@ -872,18 +877,21 @@ llvm-link: make linker-class [
     ]
 
     accept: func [
+        return: [<opt> string!]
         dep [object!]
         <local>
         ddep
         lib
     ][
-        switch/default dep/class-name [
+        opt switch dep/class-name [
             'object-file-class [
-                ;if find words-of dep 'depends [
-                    ;for-each ddep dep/depends [
-                    ;    dump ddep
-                    ;]
-                ;]
+                comment [ ;-- !!! This was commented out, why?
+                    if find words-of dep 'depends [
+                        for-each ddep dep/depends [
+                            dump ddep
+                        ]
+                    ]
+                ]
                 file-to-local dep/output
             ]
             'ext-dynamic-class [
@@ -896,7 +904,6 @@ llvm-link: make linker-class [
                 spaced map-each ddep dep/depends [
                     file-to-local ddep/output
                 ]
-                ;pass
             ]
             'application-class [
                 ;pass
@@ -907,9 +914,12 @@ llvm-link: make linker-class [
             'entry-class [
                 ;pass
             ]
-        ][
-            dump dep
-            fail "unrecognized dependency"
+
+            ;-- default
+            (
+                dump dep
+                fail "unrecognized dependency"
+            )
         ]
     ]
 ]
@@ -972,22 +982,25 @@ link: make linker-class [
     ]
 
     accept: func [
+        return: [<opt> string!]
         dep [object!]
         <local>
         ddep
     ][
-        switch/default dep/class-name [
+        opt switch dep/class-name [
             'object-file-class [
-                ;if find words-of dep 'depends [
-                    ;for-each ddep dep/depends [
-                    ;    dump ddep
-                    ;]
-                ;]
+                comment [ ;-- !!! This was commented out, why?
+                    if find words-of dep 'depends [
+                        for-each ddep dep/depends [
+                            dump ddep
+                        ]
+                    ]
+                ]
                 file-to-local to-file dep/output
             ]
             'ext-dynamic-class [
-                ;static property is ignored
-                ;import file
+                comment [import file] ;-- static property is ignored
+
                 either tag? dep/output [
                     filter-flag dep/output id
                 ][
@@ -1006,7 +1019,6 @@ link: make linker-class [
                 spaced map-each ddep dep/depends [
                     file-to-local to-file ddep/output
                 ]
-                ;pass
             ]
             'application-class [
                 file-to-local any [dep/implib join-of dep/basename ".lib"]
@@ -1017,9 +1029,12 @@ link: make linker-class [
             'entry-class [
                 ;pass
             ]
-        ][
-            dump dep
-            fail "unrecognized dependency"
+
+            ;-- default
+            (
+                dump dep
+                fail "unrecognized dependency"
+            )
         ]
     ]
 ]
@@ -1200,7 +1215,7 @@ generator-class: make object! [
     gen-cmd: func [
         cmd [object!]
     ][
-        switch/default cmd/class-name [
+        switch cmd/class-name [
             'cmd-create-class [
                 apply any [:gen-cmd-create :target-platform/gen-cmd-create] compose [cmd: (cmd)]
             ]
@@ -1210,8 +1225,8 @@ generator-class: make object! [
             'cmd-strip-class [
                 apply any [:gen-cmd-strip :target-platform/gen-cmd-strip] compose [cmd: (cmd)]
             ]
-        ][
-            fail ["Unknown cmd class:" cmd/class-name]
+
+            (fail ["Unknown cmd class:" cmd/class-name])
         ]
     ]
 
@@ -1314,7 +1329,7 @@ generator-class: make object! [
 
         case [
             blank? project/output [
-                switch/default project/class-name [
+                if null? switch project/class-name [
                     'object-file-class [
                         project/output: copy project/source
                     ]
@@ -1355,7 +1370,7 @@ generator-class: make object! [
     ][
         ;print ["Setting outputs for:"]
         ;dump project
-        switch/default project/class-name [
+        if null? switch project/class-name [
             'application-class
             'dynamic-library-class
             'static-library-class
@@ -1373,7 +1388,7 @@ generator-class: make object! [
                 setup-output project
             ]
         ][
-            ;leave ;causes Ren-C to crash
+            leave
         ]
     ]
 ]
@@ -1392,7 +1407,7 @@ makefile: make generator-class [
         w
         cmd
     ][
-        switch/default entry/class-name [
+        switch entry/class-name [
             'var-class [
                 unspaced [
                     entry/name either entry/default [
@@ -1414,7 +1429,7 @@ makefile: make generator-class [
                     space case [
                         block? entry/depends [
                             spaced map-each w entry/depends [
-                                switch/default w/class-name [
+                                if null? switch w/class-name [
                                     'var-class [
                                         unspaced ["$(" w/name ")"]
                                     ]
@@ -1476,8 +1491,9 @@ makefile: make generator-class [
                     newline
                 ]
             ]
-        ][
-            fail ["Unrecognized entry class:" entry/class-name]
+
+            ;-- default
+            (fail ["Unrecognized entry class:" entry/class-name])
         ]
     ]
 
@@ -1506,7 +1522,7 @@ makefile: make generator-class [
                     dep/generated?: true
                 ]
             ]
-            switch/default dep/class-name [
+            if null? switch dep/class-name [
                 'application-class
                 'dynamic-library-class
                 'static-library-class [
@@ -1594,14 +1610,19 @@ mingw-make: make makefile [
 
 ; Execute the command to generate the target directly
 Execution: make generator-class [
-    host: switch/default system/platform/1 [
+    host: switch system/platform/1 [
         'Windows [windows]
         'Linux [linux]
         'OSX [osx]
         'Android [android]
-    ][
-        print unspaced ["Untested platform " system/platform ", assuming is POSIX compilant"]
-        posix
+
+        ;-- default
+        (
+           print [
+               "Untested platform" system/platform "- assume POSIX compilant"
+           ]
+           posix
+        )
     ]
 
     gen-cmd-create: :host/gen-cmd-create
@@ -1614,7 +1635,7 @@ Execution: make generator-class [
         <local>
         cmd
     ][
-        switch/default target/class-name [
+        if null? switch target/class-name [
             'var-class [
                 ;pass: already been taken care of by PREPARE
             ]
@@ -1664,7 +1685,7 @@ Execution: make generator-class [
             ]
         ]
 
-        switch/default project/class-name [
+        if null? switch project/class-name [
             'application-class
             'dynamic-library-class
             'static-library-class [
@@ -1893,7 +1914,7 @@ visual-studio: make generator-class [
     find-optimization: func [
         optimization
     ][
-        switch/default optimization [
+        if null? switch optimization [
             0 _ 'no 'false 'off #[false] [
                 "Disabled"
             ]
@@ -2037,12 +2058,14 @@ visual-studio: make generator-class [
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
-  <ConfigurationType>} switch/default project/class-name [
+  <ConfigurationType>} switch project/class-name [
       'static-library-class 'object-library-class ["StaticLibrary"]
       'dynamic-library-class ["DynamicLibrary"]
       'application-class ["Application"]
       'entry-class ["Utility"]
-  ][fail ["Unsupported project class:" (project/class-name)]] {</ConfigurationType>
+      ;-- default
+      (fail ["Unsupported project class:" (project/class-name)])
+] {</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>} platform-tool-set {</PlatformToolset>

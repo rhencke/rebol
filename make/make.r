@@ -38,7 +38,7 @@ either commands: try find args '| [
 ; now args are splitted in options and commands
 
 for-each [name value] options [
-    switch/default name [
+    if null? switch name [
         'CONFIG 'LOAD 'DO [
             user-config: make user-config load to-file value
         ]
@@ -123,7 +123,7 @@ gen-obj: func [
 
     if block? s [
         for-each flag next s [
-            append flags opt switch/default flag [
+            append flags opt switch flag [
                 <no-uninitialized> [
                     [
                         <gnu:-Wno-uninitialized>
@@ -162,8 +162,9 @@ gen-obj: func [
                 <no-constant-conditional> [
                     <msc:/wd4127>
                 ]
-            ][
-                ensure [text! tag!] flag
+
+                ;-- default
+                (ensure [text! tag!] flag)
             ]
         ]
         s: s/1
@@ -511,7 +512,7 @@ if blank? rebmake/default-linker [
     fail ["Default linker is not set"]
 ]
 
-switch/default rebmake/default-compiler/name [
+switch rebmake/default-compiler/name [
     'gcc [
         if rebmake/default-linker/name != 'ld [
             fail ["Incompatible compiler (GCC) and linker: " rebmake/default-linker/name]
@@ -527,9 +528,11 @@ switch/default rebmake/default-compiler/name [
             fail ["Incompatible compiler (CL) and linker: " rebmake/default-linker/name]
         ]
     ]
-][
-    fail ["Unrecognized compiler (gcc, clang or cl):" cc]
+
+    ;-- default
+    (fail ["Unrecognized compiler (gcc, clang or cl):" cc])
 ]
+
 if all [set? 'cc-exec cc-exec][
     set-exec-path rebmake/default-compiler cc-exec
 ]
@@ -550,7 +553,7 @@ app-config: make object! [
 
 cfg-sanitize: false
 cfg-symbols: false
-switch/default user-config/debug [
+switch user-config/debug [
     #[false] 'no 'false 'off 'none [
         append app-config/definitions ["NDEBUG"]
         app-config/debug: off
@@ -604,8 +607,9 @@ switch/default user-config/debug [
         ;
         append app-config/definitions ["INCLUDE_CALLGRIND_NATIVE"]
     ]
-][
-    fail ["unrecognized debug setting:" user-config/debug]
+
+    ;-- default
+    (fail ["unrecognized debug setting:" user-config/debug])
 ]
 
 switch user-config/optimize [
@@ -619,7 +623,7 @@ switch user-config/optimize [
 
 cfg-cplusplus: false
 ;standard
-append app-config/cflags opt switch/default user-config/standard [
+append app-config/cflags opt switch user-config/standard [
     'c [
         _
     ]
@@ -686,19 +690,20 @@ append app-config/cflags opt switch/default user-config/standard [
             <msc:/DCPLUSPLUS_11>
         ]
     ]
-][
-    fail [
+
+    ;-- default
+    (fail [
         "STANDARD should be one of"
         "[c gnu89 gnu99 c99 c11 c++ c++11 c++14 c++17 c++latest]"
         "not" (user-config/standard)
-    ]
+    ])
 ]
 
 ; pre-vista switch
 ; Example. Mingw32 does not have access to windows console api prior to vista.
 ;
 cfg-pre-vista: false
-append app-config/definitions opt switch/default user-config/pre-vista [
+append app-config/definitions opt switch user-config/pre-vista [
     #[true] 'yes 'on 'true [
         cfg-pre-vista: true
         compose [
@@ -709,12 +714,13 @@ append app-config/definitions opt switch/default user-config/pre-vista [
         cfg-pre-vista: false
         _
     ]
-][
-    fail ["PRE-VISTA must be yes, no, or logic! not" (user-config/pre-vista)]
+
+    ;-- default
+    (fail ["PRE-VISTA must be yes, no, or logic! not" (user-config/pre-vista)])
 ]
 
 cfg-rigorous: false
-append app-config/cflags opt switch/default user-config/rigorous [
+append app-config/cflags opt switch user-config/rigorous [
     #[true] 'yes 'on 'true [
         cfg-rigorous: true
         compose [
@@ -930,11 +936,12 @@ append app-config/cflags opt switch/default user-config/rigorous [
         cfg-rigorous: false
         _
     ]
-][
-    fail ["RIGOROUS must be yes, no, or logic! not" (user-config/rigorous)]
+
+    ;-- default
+    (fail ["RIGOROUS must be yes, no, or logic! not" (user-config/rigorous)])
 ]
 
-append app-config/ldflags opt switch/default user-config/static [
+append app-config/ldflags opt switch user-config/static [
     _ 'no 'off 'false #[false] [
         ;pass
         _
@@ -946,8 +953,9 @@ append app-config/ldflags opt switch/default user-config/static [
             (if cfg-sanitize [<gnu:-static-libasan>])
         ]
     ]
-][
-    fail ["STATIC must be yes, no or logic! not" (user-config/static)]
+
+    ;-- default
+    (fail ["STATIC must be yes, no or logic! not" (user-config/static)])
 ]
 
 ;TCC
@@ -1156,7 +1164,7 @@ pthread: make rebmake/ext-dynamic-class [
 builtin-extensions: copy available-extensions
 dynamic-extensions: make block! 8
 for-each [action name modules] user-config/extensions [
-    switch/default action [
+    switch action [
         '+ [; builtin
             ;pass, default action
         ]
@@ -1199,8 +1207,9 @@ for-each [action name modules] user-config/extensions [
                 append dynamic-extensions item
             ]
         ]
-    ][
-        fail ["Unrecognized extension action:" mold action]
+
+        ;-- default
+        (fail ["Unrecognized extension action:" mold action])
     ]
 ]
 
@@ -1534,7 +1543,7 @@ add-new-obj-folders: procedure [
     obj
 ][
     for-each lib objs [
-        switch/default lib/class-name [
+        if null? switch lib/class-name [
             'object-file-class [
                 lib: reduce [lib]
             ]
@@ -1754,13 +1763,12 @@ solution: make rebmake/solution-class [
 target: user-config/target
 if not block? target [target: reduce [target]]
 forall target [
-    switch/default target/1 targets [fail [
-        newline
-        newline
-        "UNSUPPORTED TARGET"
-        user-config/target
-        newline
-        "TRY --HELP TARGETS"
-        newline
-    ] ]
+    if null? switch target/1 targets [
+        fail [
+            newline
+            newline
+            "UNSUPPORTED TARGET" user-config/target newline
+            "TRY --HELP TARGETS" newline
+        ]
+    ]
 ]

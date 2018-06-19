@@ -116,13 +116,11 @@ finish-init-core: proc [
                     fail/where [
                         {Temporarily disabled word/path SWITCH clause:} :c LF
 
-                        {You likely meant to use a LIT-WORD! / LIT-PATH!} LF
+                        {You may have meant to use a LIT-WORD! / LIT-PATH!} LF
 
-                        {SWITCH in Ren-C evaluates its match clauses, and}
-                        {will even allow 0-arity ACTION!s (larger arities are}
-                        {put in a GROUP! to facilitate skipping after a match}
-                        {is found.  But to help catch old uses, only datatype}
-                        {lookups are enabled.  SWITCH: :LIB/SWITCH overrides.}
+                        {SWITCH in Ren-C evaluates its match clauses.  But to}
+                        {help catch old uses, only datatype lookups enabled.}
+                        {SWITCH: :LIB/SWITCH overrides.}
                     ] 'cases
                 ]
             ]

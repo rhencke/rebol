@@ -530,13 +530,13 @@ unless: enfix func [
 
 
 case*: redescribe [
-    {Same as CASE/ONLY (void, not blank, if branch evaluates to void)}
+    {Same as CASE/OPT (null, not blank, if branch evaluates to null)}
 ](
-    specialize 'case [only: true]
+    specialize 'case [opt: true]
 )
 
 switch*: redescribe [
-    {Same as SWITCH/ONLY (void, not blank, if branch evaluates to void)}
+    {Same as SWITCH/OPT (null, not blank, if branch evaluates to null)}
 ](
     specialize 'switch [opt: true]
 )

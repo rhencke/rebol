@@ -33,18 +33,20 @@
 )]
 
 (
-    error? trap [
-        case [
-            first [a b c] ;-- no corresponding branch, illegal
-        ]
+    'a = case [
+        first [a b c] ;-- no corresponding branch, means "case fallout"
     ]
 )
 
 (
-    3 = case [true (reduce ['add 1 2])]
+    error? trap [
+        3 = case [true (reduce ['add 1 2])]
+    ] ;-- soft-quoting not supported for CASE branches
 )
 (
-    null? case [false (reduce ['add 1 2])]
+    error? trap [
+        null? case [false (reduce ['add 1 2])]
+    ] ;-- soft-quoting not supported for CASE branches
 )
 
 (
