@@ -1861,7 +1861,6 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
         // Finally, if it's the kind of thing that can have a non-reified
         // binding but it's managed, then that's also fine.
         //
-        //    
       #if !defined(NDEBUG)
         if (Is_Bindable(v)) {
             if (not (v->header.bits & CELL_FLAG_STACK))

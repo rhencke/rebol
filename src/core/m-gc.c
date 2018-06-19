@@ -188,9 +188,6 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
 
     SER(a)->header.bits |= NODE_FLAG_MARKED; // the up-front marking
 
-    if (GET_SER_INFO(a, SERIES_INFO_INACCESSIBLE))
-        return;
-
     // Add series to the end of the mark stack series.  The length must be
     // maintained accurately to know when the stack needs to grow.
     //
@@ -770,9 +767,10 @@ static void Propagate_All_GC_Marks(void)
         assert(not IS_FREE_NODE(SER(a)));
     #endif
 
-        RELVAL *v = ARR_HEAD(a);
+        RELVAL *v;
 
         if (GET_SER_FLAG(a, ARRAY_FLAG_PARAMLIST)) {
+            v = ARR_HEAD(a); // archetype
             assert(IS_ACTION(v));
             assert(v->extra.binding == UNBOUND); // archetypes have no binding
 
@@ -794,10 +792,15 @@ static void Propagate_All_GC_Marks(void)
             if (meta != NULL)
                 Queue_Mark_Context_Deep(meta);
 
+            // Functions can't currently be freed by FREE...
+            //
+            assert(NOT_SER_INFO(a, SERIES_INFO_INACCESSIBLE));
+
             ++v; // function archetype completely marked by this process
         }
         else if (GET_SER_FLAG(a, ARRAY_FLAG_VARLIST)) {
-            //
+            v = CTX_ARCHETYPE(CTX(a)); // works if SERIES_INFO_INACCESSIBLE
+
             // Currently only FRAME! uses binding
             //
             assert(ANY_CONTEXT(v));
@@ -846,7 +849,13 @@ static void Propagate_All_GC_Marks(void)
             if (meta != NULL)
                 Queue_Mark_Context_Deep(meta);
 
-            ++v; // context archtype completely marked by this process
+            // Stack-based frames will be inaccessible if they are no longer
+            // running, so there's no data to mark...
+            //
+            if (GET_SER_INFO(a, SERIES_INFO_INACCESSIBLE))
+                continue;
+
+            ++v; // context archetype completely marked by this process
         }
         else if (GET_SER_FLAG(a, ARRAY_FLAG_PAIRLIST)) {
             //
@@ -860,17 +869,24 @@ static void Propagate_All_GC_Marks(void)
             assert(hashlist != NULL);
 
             Mark_Rebser_Only(hashlist);
-        }
 
-        if (GET_SER_INFO(a, SERIES_INFO_INACCESSIBLE)) {
+            // !!! Currently MAP! doesn't work with FREE, but probably should.
             //
-            // At present the only inaccessible arrays are expired frames of
-            // functions with stack-bound arg and local lifetimes.  They are
-            // just singular REBARRs with the FRAME! archetype value.
+            assert(NOT_SER_INFO(a, SERIES_INFO_INACCESSIBLE));
+
+            v = ARR_HEAD(a);
+        }
+        else {
+            // Users can free the data of a plain array with FREE, leaving
+            // the array stub.
             //
-            assert(ALL_SER_FLAGS(a, ARRAY_FLAG_VARLIST | CONTEXT_FLAG_STACK));
-            assert(IS_FRAME(ARR_SINGLE(a)));
-            continue;
+            // !!! It could be possible to GC all these to a common freed
+            // array stub, though that wouldn't permit equality comparisons.
+            //
+            if (GET_SER_INFO(a, SERIES_INFO_INACCESSIBLE))
+                continue;
+
+            v = ARR_HEAD(a);
         }
 
         for (; NOT_END(v); ++v) {
@@ -1208,6 +1224,7 @@ static void Mark_Frame_Stack_Deep(void)
         }
 
         Queue_Mark_Action_Deep(f->phase); // never NULL
+        Queue_Mark_Action_Deep(f->original); // also never NULL
         if (f->opt_label) // will be null if no symbol
             Mark_Rebser_Only(f->opt_label);
 

@@ -377,8 +377,6 @@ void MAKE_Event(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     UNUSED(kind);
 
     if (IS_BLOCK(arg)) {
-        CLEARS(out);
-        Prep_Non_Stack_Cell(out);
         RESET_VAL_HEADER(out, REB_EVENT);
         Set_Event_Vars(
             out,

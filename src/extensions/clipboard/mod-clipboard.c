@@ -29,7 +29,6 @@
 //
 // The clipboard is currently implemented for Windows only, see #2029
 //
-// 
 
 #ifdef TO_WINDOWS
     #include <windows.h>
