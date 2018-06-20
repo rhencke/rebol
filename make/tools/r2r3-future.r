@@ -198,6 +198,20 @@ case: function [
     :result
 ]
 
+; !!! PARSE returns null or BAR! by default, but this shim can't tell a RETURN
+; explicitly of a true/false from a plain true/false based on end of input.
+;
+parse: chain [
+    :parse
+        |
+    func [return: [<opt> any-value!] x [<opt> any-value!]] [
+        lib/switch/opt :x [
+            #[false] []
+            #[true] ['|]
+            (:x)
+        ]
+    ]
+]
 
 choose: function [
     {Like CASE but doesn't evaluate blocks https://trello.com/c/noVnuHwz}

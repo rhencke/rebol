@@ -2309,14 +2309,15 @@ REBNATIVE(subparse)
 //
 //  parse: native [
 //
-//  "Parses a series according to grammar rules and returns a result."
+//  "Parses a series according to grammar rules and returns a result"
 //
-//      input [any-series!]
-//          "Input series to parse (default result for successful match)"
-//      rules [block! text! blank!]
-//          "Rules to parse by (TEXT! and BLANK!/none! are deprecated)"
-//      /case
-//          "Uses case-sensitive comparison"
+//      return: "null if end not reached, BAR! if so, or RETURN value"
+//          [<opt> any-value!]
+//      input "Input series to parse (blank input just returns null)"
+//          [blank! any-series!]
+//      rules "Rules to parse by (TEXT! and BLANK!/none! are deprecated)"
+//          [block! text! blank!]
+//      /case "Uses case-sensitive comparison"
 //  ]
 //
 REBNATIVE(parse)
@@ -2325,15 +2326,14 @@ REBNATIVE(parse)
 
     REBVAL *rules = ARG(rules);
 
-    if (IS_BLANK(rules) or IS_TEXT(rules)) {
-        //
-        // !!! R3-Alpha supported "simple parse", which was cued by the rules
-        // being either NONE! or a STRING!.  Though this functionality does
-        // not exist in Ren-C, it's more informative to give an error telling
-        // where to look for the functionality than a generic "parse doesn't
-        // take that type" error.
-        //
-        fail (Error_Use_Split_Simple_Raw());
+    if (IS_BLANK(ARG(input)))
+        return R_NULL; // blank in, null out protocol
+
+    if (IS_BLANK(rules) or IS_TEXT(rules)) { // give helpful error, for now
+        fail (
+            "R3-Alpha eliminated 'simple' PARSE in favor of SPLIT, so use"
+            " that instead of passing BLANK! or TEXT! as a PARSE rule."
+        );
     }
 
     REBOOL interrupted;
@@ -2344,7 +2344,7 @@ REBNATIVE(parse)
         SPECIFIED, // input is a non-relative REBVAL
         rules,
         SPECIFIED, // rules is a non-relative REBVAL
-        REF(case) || IS_BINARY(ARG(input)) ? AM_FIND_CASE : 0
+        REF(case) or IS_BINARY(ARG(input)) ? AM_FIND_CASE : 0
         //
         // We always want "case-sensitivity" on binary bytes, vs. treating
         // as case-insensitive bytes for ASCII characters.
@@ -2380,7 +2380,7 @@ REBNATIVE(parse)
     // Parse can fail if the match rule state can't process pending input.
     //
     if (IS_BLANK(D_OUT))
-        return R_FALSE;
+        return R_NULL;
 
     assert(IS_INTEGER(D_OUT));
 
@@ -2388,11 +2388,9 @@ REBNATIVE(parse)
     // at (or beyond) the tail of the input series, the parse also failed.
     //
     if (VAL_UNT32(D_OUT) < VAL_LEN_HEAD(ARG(input)))
-        return R_FALSE;
+        return R_NULL;
 
-    // The end was reached.  Return TRUE.  (Alternate thoughts, see #2165)
-    //
-    return R_TRUE;
+    return R_BAR; // use BAR! to avoid suggesting that failing gives #[false]
 }
 
 

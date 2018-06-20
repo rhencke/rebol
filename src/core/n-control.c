@@ -1143,19 +1143,6 @@ REBNATIVE(throw)
 
     REBVAL *value = ARG(value);
 
-    if (IS_ERROR(value)) {
-        //
-        // We raise an alert from within the implementation of throw for
-        // trying to use it to trigger errors, because if THROW just didn't
-        // take errors in the spec it wouldn't guide what *to* use.
-        //
-        fail (Error_Use_Fail_For_Error_Raw(value));
-
-        // Note: Caller can put the ERROR! in a block or use some other
-        // such trick if it wants to actually throw an error.
-        // (Better than complicating via THROW/ERROR-IS-INTENTIONAL!)
-    }
-
     if (REF(name))
         Move_Value(D_OUT, ARG(name_value));
     else {

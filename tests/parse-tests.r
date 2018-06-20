@@ -1,72 +1,71 @@
 ; Is PARSE working at all?
 
-(parse "abc" ["abc"])
+(did parse "abc" ["abc"])
 
 ; Blank and empty block case handling
 
-(parse [] [])
-(parse [] [[[]]])
-(parse [] [_ _ _])
+(did parse [] [])
+(did parse [] [[[]]])
+(did parse [] [_ _ _])
 (not parse [x] [])
 (not parse [x] [_ _ _])
 (not parse [x] [[[]]])
-(parse [] [[[_ _ _]]])
-(parse [x] ['x _])
-(parse [x] [_ 'x])
-(parse [x] [[] 'x []])
+(did parse [] [[[_ _ _]]])
+(did parse [x] ['x _])
+(did parse [x] [_ 'x])
+(did parse [x] [[] 'x []])
 
 ; SET-WORD! (store current input position)
 
 (
-    res: parse ser: [x y] [pos: skip skip]
+    res: did parse ser: [x y] [pos: skip skip]
     all [res | pos = ser]
 )
 (
-    res: parse ser: [x y] [skip pos: skip]
+    res: did parse ser: [x y] [skip pos: skip]
     all [res | pos = next ser]
 )
 (
-    res: parse ser: [x y] [skip skip pos: end]
+    res: did parse ser: [x y] [skip skip pos: end]
     all [res | pos = tail of ser]
 )
 [#2130 (
-    res: parse ser: [x] [set val pos: word!]
+    res: did parse ser: [x] [set val pos: word!]
     all [res | val = 'x | pos = ser]
 )]
 [#2130 (
-    res: parse ser: [x] [set val: pos: word!]
+    res: did parse ser: [x] [set val: pos: word!]
     all [res | val = 'x | pos = ser]
 )]
 [#2130 (
-    res: parse
-    ser: "foo" [copy val pos: skip]
+    res: did parse ser: "foo" [copy val pos: skip]
     all [not res | val = "f" | pos = ser]
 )]
 [#2130 (
-    res: parse ser: "foo" [copy val: pos: skip]
+    res: did parse ser: "foo" [copy val: pos: skip]
     all [not res | val = "f" | pos = ser]
 )]
 
 ; TO/THRU integer!
 
-(parse "abcd" [to 3 "cd"])
-(parse "abcd" [to 5])
-(parse "abcd" [to 128])
+(did parse "abcd" [to 3 "cd"])
+(did parse "abcd" [to 5])
+(did parse "abcd" [to 128])
 
 [#1965
-    (parse "abcd" [thru 3 "d"])
+    (did parse "abcd" [thru 3 "d"])
 ]
 [#1965
-    (parse "abcd" [thru 4])
+    (did parse "abcd" [thru 4])
 ]
 [#1965
-    (parse "abcd" [thru 128])
+    (did parse "abcd" [thru 128])
 ]
 [#1965
-    (parse "abcd" ["ab" to 1 "abcd"])
+    (did parse "abcd" ["ab" to 1 "abcd"])
 ]
 [#1965
-    (parse "abcd" ["ab" thru 1 "bcd"])
+    (did parse "abcd" ["ab" thru 1 "bcd"])
 ]
 
 ; parse THRU tag!
@@ -86,20 +85,20 @@
 )
 
 [#1959
-    (parse "abcd" [thru "d"])
+    (did parse "abcd" [thru "d"])
 ]
 [#1959
-    (parse "abcd" [to "d" skip])
+    (did parse "abcd" [to "d" skip])
 ]
 
 [#1959
-    (parse "<abcd>" [thru <abcd>])
+    (did parse "<abcd>" [thru <abcd>])
 ]
 [#1959
-    (parse [a b c d] [thru 'd])
+    (did parse [a b c d] [thru 'd])
 ]
 [#1959
-    (parse [a b c d] [to 'd skip])
+    (did parse [a b c d] [to 'd skip])
 ]
 
 ; self-invoking rule
@@ -139,10 +138,10 @@
 ; NOT rule
 
 [#1246
-    (parse "1" [not not "1" "1"])
+    (did parse "1" [not not "1" "1"])
 ]
 [#1246
-    (parse "1" [not [not "1"] "1"])
+    (did parse "1" [not [not "1"] "1"])
 ]
 [#1246
     (not parse "" [not 0 "a"])
@@ -151,13 +150,13 @@
     (not parse "" [not [0 "a"]])
 ]
 [#1240
-    (parse "" [not "a"])
+    (did parse "" [not "a"])
 ]
 [#1240
-    (parse "" [not skip])
+    (did parse "" [not skip])
 ]
 [#1240
-    (parse "" [not fail])
+    (did parse "" [not fail])
 ]
 
 [#100
@@ -167,13 +166,13 @@
 ; TO/THRU + bitset!/charset!
 
 [#1457
-    (parse "a" compose [thru (charset "a")])
+    (did parse "a" compose [thru (charset "a")])
 ]
 [#1457
     (not parse "a" compose [thru (charset "a") skip])
 ]
 [#1457
-    (parse "ba" compose [to (charset "a") skip])
+    (did parse "ba" compose [to (charset "a") skip])
 ]
 [#1457
     (not parse "ba" compose [to (charset "a") "ba"])
@@ -186,22 +185,22 @@
 (
     https://github.com/metaeducation/ren-c/issues/377
     o: make object! [a: 1]
-    true = parse "a" [o/a: skip]
+    '| = parse "a" [o/a: skip]
 )
 
 ; A couple of tests for the problematic DO operation
 
-(parse [1 + 2] [do [quote 3]])
-(parse [1 + 2] [do integer!])
-(parse [1 + 2] [do [integer!]])
+(did parse [1 + 2] [do [quote 3]])
+(did parse [1 + 2] [do integer!])
+(did parse [1 + 2] [do [integer!]])
 (not parse [1 + 2] [do [quote 100]])
-(parse [reverse copy [a b c]] [do [into ['c 'b 'a]]])
+(did parse [reverse copy [a b c]] [do [into ['c 'b 'a]]])
 (not parse [reverse copy [a b c]] [do [into ['a 'b 'c]]])
 
 ; AHEAD and AND are synonyms
 ;
-(parse ["aa"] [ahead text! into ["a" "a"]])
-(parse ["aa"] [and text! into ["a" "a"]])
+(did parse ["aa"] [ahead text! into ["a" "a"]])
+(did parse ["aa"] [and text! into ["a" "a"]])
 
 ; INTO is not legal if a string parse is already running
 ;

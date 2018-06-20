@@ -109,11 +109,7 @@ Script: [
     reduce-made-null:   {Expression in REDUCE was null, see REDUCE/OPT, /TRY}
     break-not-continue: {Use BREAK/WITH when body is the breaking condition}
 
-    ; !!! Temporary errors while faulty constructs are still outstanding
-    ; (more informative than just saying "function doesn't take that type")
-    use-eval-for-eval:  {Use EVAL or APPLY to call functions arity > 0, not DO}
-    use-fail-for-error: [{Use FAIL (not THROW or DO) to raise} :arg1]
-    use-split-simple:   {Use SPLIT (instead of PARSE) for "simple" parsing}
+    use-eval-for-eval:  {Use EVAL or APPLY on actions of arity > 0, not DO}
 
     limited-fail-input: {FAIL requires complex expressions to be in a GROUP!}
 
