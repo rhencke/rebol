@@ -491,17 +491,18 @@ gcc: make compiler-class [
                     opt-level = false ["-O0"]
                     integer? opt-level [unspaced ["-O" opt-level]]
                     find ["s" "z" 's 'z] opt-level [unspaced ["-O" opt-level]]
-                    true [fail ["unrecognized optimization level:" opt-level]]
+                    
+                    fail ["unrecognized optimization level:" opt-level]
                 ]
             ]
-            if g [
-                ;print mold debug
+            opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new
                 case [
                     blank? debug [] ;FIXME: _ should be passed in at all
                     debug = true ["-g -g3"]
                     debug = false []
                     integer? debug [unspaced ["-g" debug]]
-                    true [fail ["unrecognized debug option:" debug]]
+
+                    fail ["unrecognized debug option:" debug]
                 ]
             ]
             if all [F block? cflags][
@@ -563,17 +564,18 @@ tcc: make compiler-class [
                     opt-level = true ["-O2"]
                     opt-level = false ["-O0"]
                     integer? opt-level [unspaced ["-O" opt-level]]
-                    true [fail ["unknown optimization level" opt-level]]
+                    
+                    fail ["unknown optimization level" opt-level]
                 ]
             ]
-            if g [
-                ;print mold debug
+            opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new
                 case [
                     blank? debug [] ;FIXME: _ should be passed in at all
                     debug = true ["-g"]
                     debug = false []
                     integer? debug [unspaced ["-g" debug]]
-                    true [fail ["unrecognized debug option:" debug]]
+
+                    fail ["unrecognized debug option:" debug]
                 ]
             ]
             if all [F block? cflags][
@@ -645,7 +647,7 @@ cl: make compiler-class [
                     ]
                 ]
             ]
-            if g [
+            opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new 
                 ;print mold debug
                 case [
                     blank? debug [] ;FIXME: _ shouldn't be passed in at all
@@ -656,7 +658,8 @@ cl: make compiler-class [
                         "/Od /Zi"
                     ]
                     debug = false []
-                    true [fail ["unrecognized debug option:" debug]]
+                    
+                    fail ["unrecognized debug option:" debug]
                 ]
             ]
             if all [F block? cflags][
@@ -1234,6 +1237,7 @@ generator-class: make object! [
         "Substitue variables in the command with its value"
         "will recursively substitue if the value has variables"
 
+        return: [<opt> object! any-string!]
         cmd [object! any-string!]
         <static>
         letter (charset [#"a" - #"z" #"A" - #"Z"])
@@ -1248,7 +1252,7 @@ generator-class: make object! [
             ]
             cmd: gen-cmd cmd
         ]
-        if not cmd [return _]
+        if not cmd [return null]
 
         stop: false
         while [not stop][
@@ -1426,10 +1430,10 @@ makefile: make generator-class [
                         entry/target
                     ]
                     either word? entry/target [": .PHONY"] [":"]
-                    space case [
+                    space opt case [
                         block? entry/depends [
                             spaced map-each w entry/depends [
-                                if null? switch w/class-name [
+                                opt switch w/class-name [
                                     'var-class [
                                         unspaced ["$(" w/name ")"]
                                     ]
@@ -1439,18 +1443,12 @@ makefile: make generator-class [
                                     'ext-dynamic-class 'ext-static-class [
                                         ;only contribute to the command line
                                     ]
-                                ][
-                                    case [
-                                        file? w [
-                                            file-to-local w
-                                        ]
-                                        file? w/output [
-                                            file-to-local w/output
-                                        ]
-                                        true [
-                                            w/output
-                                        ]
-                                    ]
+
+                                    (case [
+                                        file? w [file-to-local w]
+                                        file? w/output [file-to-local w/output]
+                                        w/output
+                                    ])
                                 ]
                             ]
                         ]
@@ -1981,21 +1979,21 @@ visual-studio: make generator-class [
             append inc "%(AdditionalIncludeDirectories)"
 
             def: make text! 1024
-            for-each i project/definitions [
-                if i: try filter-flag i "msc" [
-                    append def unspaced [file-to-local i ";"]
+            for-each d project/definitions [
+                if d: try filter-flag d "msc" [
+                    append def unspaced [d ";"]
                 ]
             ]
             append def "%(PreprocessorDefinitions)"
             def
 
             lib: make text! 1024
-            for-each i project/depends [
-                switch i/class-name [
+            for-each d project/depends [
+                switch d/class-name [
                     'ext-dynamic-class
                     'ext-static-class
                     'static-library-class [
-                        if ext: try filter-flag i/output "msc" [
+                        if ext: try filter-flag d/output "msc" [
                             append lib unspaced [
                                 ext
                                 if not ends-with? ext ".lib" [".lib"]
@@ -2004,19 +2002,21 @@ visual-studio: make generator-class [
                         ]
                     ]
                     'application-class [
-                        append lib unspaced [any [i/implib unspaced [i/basename ".lib"]] ";"]
+                        append lib unspaced [any [d/implib unspaced [d/basename ".lib"]] ";"]
                         append searches unspaced [
-                            unspaced [i/name ".dir\" build-type] ";"
+                            unspaced [d/name ".dir\" build-type] ";"
                         ]
                     ]
                 ]
             ]
-            remove back tail-of lib ;move the trailing ";"
+            if not empty? lib [
+                remove back tail-of lib ;move the trailing ";"
+            ]
 
             if find [dynamic-library-class application-class] project/class-name [
-                for-each i project/searches [
-                    if i: try filter-flag i "msc" [
-                        append searches unspaced [file-to-local i ";"]
+                for-each s project/searches [
+                    if s: try filter-flag s "msc" [
+                        append searches unspaced [file-to-local s ";"]
                     ]
                 ]
 
@@ -2140,7 +2140,7 @@ visual-studio: make generator-class [
           unspaced [ {<StackReserveSize>} stack-size {</StackReserveSize>} ]
       ]
       {
-      <SubSystem>} either project/ldflags [find-subsystem project/ldflags]["Console"] {</SubSystem>
+      <SubSystem>} opt either project/ldflags [find-subsystem project/ldflags]["Console"] {</SubSystem>
       <Version></Version>
     </Link>}
             ]
@@ -2212,11 +2212,11 @@ visual-studio: make generator-class [
                             ]
                         ]
                     ]
-                    use [i o-def][
+                    use [d o-def][
                         o-def: make text! 1024
-                        for-each i o/definitions [
-                            if i: try filter-flag i "msc" [
-                                append o-def unspaced [file-to-local i ";"]
+                        for-each d o/definitions [
+                            if d: try filter-flag d "msc" [
+                                append o-def unspaced [d ";"]
                             ]
                         ]
                         if not empty? o-def [

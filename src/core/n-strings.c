@@ -103,7 +103,7 @@ static struct {
 //
 //      return: [text!]
 //      block [block!]
-//      delimiter [blank! char! text!]
+//      delimiter [<opt> char! text!] ;-- should this accept ANY-VALUE!?
 //  ]
 //
 REBNATIVE(delimit)
@@ -119,7 +119,7 @@ REBNATIVE(delimit)
         VAL_INDEX(block),
         VAL_SPECIFIER(block),
         delimiter
-    )) {
+    )){
         return R_OUT_IS_THROWN;
     }
 

@@ -573,29 +573,30 @@ REBSER *Copy_Mold_Or_Form_Value(const RELVAL *v, REBFLGS opts, REBOOL form)
 //
 // Evaluates each item in a block and forms it, with an optional delimiter.
 //
-// The special treatment of BLANK! in the source block is to act as an
-// opt-out, and the special treatment of BAR! is to act as a line break.
-// There's no such thing as a void literal in the incoming block, but if
-// an element evaluated to void it is also considered an opt-out, equivalent
-// to a BLANK!.
+// CHAR! suppress the delimiter logic.  Hence:
 //
-// BAR!, BLANK!/void, and CHAR! suppress the delimiter logic.  Hence if you
-// are to form `["a" space "b" | () (blank) "c" newline "d" "e"]` with a
-// delimiter of ":", you will get back `"a b^/c^/d:e"... where only the
-// last interstitial is considered a valid candidate for delimiting.
+//    >> delimit ["a" space "b" | () "c" newline "d" "e"] ":"
+//    == `"a b^/c^/d:e"
+// 
+// Note only the last interstitial is considered a candidate for delimiting.
 //
 REBOOL Form_Reduce_Throws(
     REBVAL *out,
     REBARR *array,
     REBCNT index,
     REBSPC *specifier,
-    const REBVAL *delimiter
-) {
-    assert(not IS_VOID(delimiter)); // use BLANK! to indicate no delimiting
-    if (IS_BAR(delimiter))
-        delimiter = NEWLINE_VALUE; // BAR! is synonymous to newline here
-
+    const REBVAL *delimiter // may be IS_VOID() (e.g. null)
+){
     DECLARE_MOLD (mo);
+
+    // Mechanically, SPECIALIZE cannot be used with a null value.  And BLANK!
+    // may be being used for the string representation of a BLANK! (e.g.
+    // `delimit ["a" "b" "c"] _` => `a_b_c`, which could be intended).  So
+    // an empty TEXT! can be used instead...convert it to a void though so
+    // it doesn't have to be tested as an empty string on each delimit.
+    //
+    if (IS_TEXT(delimiter) and VAL_LEN_AT(delimiter) == 0)
+        delimiter = VOID_CELL;
 
     Push_Mold(mo);
 
@@ -611,14 +612,22 @@ REBOOL Form_Reduce_Throws(
             return TRUE;
         }
 
-        if (IS_VOID(out) or IS_BLANK(out)) // opt-out
-            continue;
+        if (IS_VOID(out) or (IS_TEXT(out) and VAL_LEN_AT(out) == 0))
+            continue; // opt-out
+
+        if (IS_BLANK(out))
+            fail (
+                "Temp error: BLANK! encountered in Form_Reduce(...)!"
+                " For a time this meant invisible, but in the future it will"
+                " show up as an underscore.  Use null, or if you have a"
+                " value that may be BLANK! then OPT it to make it null if so."
+            );
 
         if (IS_CHAR(out)) {
             Append_Utf8_Codepoint(mo->series, VAL_CHAR(out));
             pending = FALSE;
         }
-        else if (IS_BLANK(delimiter)) // no delimiter
+        else if (IS_VOID(delimiter)) // checked as empty text above
             Form_Value(mo, out);
         else {
             if (pending)

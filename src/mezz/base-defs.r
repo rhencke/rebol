@@ -130,14 +130,14 @@ of: enfix func [
 ;
 next: specialize 'skip [
     offset: 1
-    only: true ;-- don't clip (return BLANK! if already at head of series)
+    only: true ;-- don't clip (return null if already at head of series)
 ]
 back: specialize 'skip [
     offset: -1
-    only: true ;-- don't clip (return BLANK! if already at tail of series)
+    only: true ;-- don't clip (return null if already at tail of series)
 ]
 
-unspaced: specialize 'delimit [delimiter: blank]
+unspaced: specialize 'delimit [delimiter: ""]
 spaced: specialize 'delimit [delimiter: space]
 
 an: func [
@@ -276,7 +276,7 @@ print: proc [
 
     if blank? :value [leave]
 
-    write-stdout identity case [
+    write-stdout case [
         not block? value [
             form :value
         ]
@@ -284,10 +284,11 @@ print: proc [
         eval_PRINT or (semiquoted? 'value) [
             spaced value
         ]
-    ] else [
-        fail/where
+
+        (fail/where
             "PRINT called on non-literal block without /EVAL switch"
             'value
+        )
     ]
 
     write-stdout newline

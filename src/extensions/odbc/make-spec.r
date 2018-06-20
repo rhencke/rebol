@@ -29,13 +29,18 @@ modules: [
         includes: [
             %prep/extensions/odbc ;for %tmp-ext-odbc-init.inc
         ]
-        libraries: if null? switch system-config/os-base [
+        libraries: switch system-config/os-base [
             'Windows [
                 [%odbc32]
             ]
-        ][
+
+            ; default
             ; On some systems (32-bit Ubuntu 12.04), odbc requires ltdl
-            append-of [%odbc] if not find [no false off _ #[false]] user-config/odbc-requires-ltdl [%ltdl]
+            ;
+            (append-of [%odbc] all [
+                not find [no false off _ #[false]] user-config/odbc-requires-ltdl
+                %ltdl
+            ])
         ]
     ]
 ]

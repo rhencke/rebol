@@ -91,7 +91,7 @@ console!: make object! [
         ; We don't want to use PRINT here because it would put the cursor on
         ; a new line.
         ;
-        write-stdout identity block? prompt then [
+        write-stdout <- block? prompt then [
             unspaced prompt
         ] else [
             form prompt
@@ -235,12 +235,12 @@ start-console: procedure [
     proto-skin: make console! []
     skin-error: _
 
-    if all [
+    all [
         skin-file: %console-skin.reb
         not find o/suppress skin-file
         o/resources
         exists? skin-file: join-of o/resources skin-file
-    ][
+    ] then [
         trap/with [
             new-skin: do load skin-file
 
