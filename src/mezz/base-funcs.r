@@ -373,19 +373,19 @@ redescribe: function [
     ; but to reuse archetypal ones.  Also to limit the total number of
     ; variations that clients like HELP have to reason about.)
     ;
-    on-demand-notes: does catch [
+    on-demand-notes: does [ ;-- was a DOES CATCH, removed during DOES tweaking
         on-demand-meta
 
-        if find meta 'parameter-notes [throw ()]
+        if find meta 'parameter-notes [
+            fields: dig-action-meta-fields :value
 
-        fields: dig-action-meta-fields :value
+            meta: _ ;-- need to get a parameter-notes field in the OBJECT!
+            on-demand-meta ;-- ...so this loses SPECIALIZEE, etc.
 
-        meta: _ ;-- need to get a parameter-notes field in the OBJECT!
-        on-demand-meta ;-- ...so this loses SPECIALIZEE, etc.
-
-        description: meta/description: fields/description
-        notes: meta/parameter-notes: fields/parameter-notes
-        types: meta/parameter-types: fields/parameter-types
+            description: meta/description: fields/description
+            notes: meta/parameter-notes: fields/parameter-notes
+            types: meta/parameter-types: fields/parameter-types
+        ]
     ]
 
     parse spec [

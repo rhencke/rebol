@@ -640,9 +640,8 @@ reevaluate:;
             VAL_BINDING(current)
         );
 
-        // It should not be possible to encounter a literal ACTION! value
-        // with the enfix bit set, as this bit can only be retrieved from
-        // words that are assigned in contexts via SET/ENFIX.
+        // Enfix bit is only retrieved from vars assigned to words in contexts
+        // via SET/ENFIX...a literal ACTION! value shouldn't have it.
         //
         assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED));
 
@@ -683,19 +682,16 @@ reevaluate:;
     process_args_for_pickup_or_to_end:;
 
         for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
+            enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
+
           #ifdef DEBUG_CHUNK_STACK
             assert(
-                f->special != f->param
-                or IS_TRASH_DEBUG(f->arg)
-                or (
+                f->special != f->param or IS_TRASH_DEBUG(f->arg) or (
                     f->doing_pickups
-                    and VAL_PARAM_CLASS(f->param) == PARAM_CLASS_REFINEMENT
-                    and IS_LOGIC(f->arg)
+                    and pclass == PARAM_CLASS_REFINEMENT and IS_LOGIC(f->arg)
                 )
             );
           #endif
-
-            enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
 
     //=//// A /REFINEMENT ARG /////////////////////////////////////////////=//
 

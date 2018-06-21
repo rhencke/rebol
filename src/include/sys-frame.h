@@ -430,7 +430,7 @@ inline static void Enter_Native(REBFRM *f) {
 inline static void Push_Action(
     REBFRM *f,
     REBSTR *opt_label,
-    REBACT *a,
+    REBACT *act,
     REBSPC *binding
 ){
     f->eval_type = REB_ACTION;
@@ -443,7 +443,8 @@ inline static void Push_Action(
     f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
   #endif
 
-    f->original = f->phase = a;
+    f->original = act;
+    f->phase = act;
 
     f->binding = binding; // e.g. how a RETURN knows where to return to
 
@@ -459,14 +460,15 @@ inline static void Push_Action(
     // *look* like a paramlist, with the underlying function in slot 0 instead
     // of a canon value which points back to itself.
     //
-    REBCNT num_args = ACT_FACADE_NUM_PARAMS(a);
-    f->param = ACT_FACADE_HEAD(f->phase);
+    REBCNT num_args = ACT_FACADE_NUM_PARAMS(act);
+    f->param = ACT_FACADE_HEAD(act);
 
     // Allocate the data for the args and locals on the chunk stack.  The
     // addresses of these values will be stable for the duration of the
     // function call, but the pointers will be invalid after that point.
     //
-    f->arg = f->args_head = Push_Value_Chunk_Of_Length(num_args);
+    f->args_head = Push_Value_Chunk_Of_Length(num_args);
+    f->arg = f->args_head;
 
     // Each layer of specialization of a function can only add specializaitons
     // of arguments which have not been specialized already.  For efficiency,
@@ -474,8 +476,8 @@ inline static void Push_Action(
     // specialization together.  This means only the outermost specialization
     // is needed to fill all the specialized slots contributed by later phases.
     //
-    REBCTX *exemplar = ACT_EXEMPLAR(a);
-    if (exemplar != NULL)
+    REBCTX *exemplar = ACT_EXEMPLAR(act);
+    if (exemplar)
         f->special = CTX_VARS_HEAD(exemplar);
     else
         f->special = const_KNOWN(f->param);

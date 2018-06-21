@@ -602,7 +602,7 @@ REBNATIVE(apply)
     // For a one-off APPLY, we don't want Make_Frame_For_Action() to get a
     // heap object just for one use.  Better to DO the block directly into
     // stack cells that will be used in the function application.  But the
-    // code from the blcok that fills the frame can't see garbage, so go
+    // code from the block that fills the frame can't see garbage, so go
     // ahead and format the stack cells.
     //
     // !!! We will walk the parameters again to setup the binder; see

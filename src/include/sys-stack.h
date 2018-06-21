@@ -305,16 +305,10 @@ inline static REBVAL* Push_Value_Chunk_Of_Length(REBCNT num_values) {
             //
             assert(not CHUNKER_NEXT(next));
 
-            // You'll get a compiler warning if you don't initialize chunk
-            // on all if/else branches...this is only applicable in the first
-            // branch, but overwhelmingly the common case.
-            //
-            chunk = cast(struct Reb_Chunk*, &next->values);
-
             REBCNT avail = CHUNKER_AVAIL(next);
             if (avail >= num_values + 2) { // needs subinfo and END
-                alloc_len = 0;
                 CHUNKER_AVAIL(next) -= (num_values + 1); // don't count END
+                chunk = cast(struct Reb_Chunk*, &next->values);
             }
             else {
                 Free_Mem(next, (avail + 1) * sizeof(REBVAL)); // include info
@@ -324,10 +318,11 @@ inline static REBVAL* Push_Value_Chunk_Of_Length(REBCNT num_values) {
                     + 1; // for the chunker's info
 
                 assert(alloc_len > CS_CHUNKER_MIN_LEN); // else why realloc?
+                goto alloc_chunk;
             }
         }
-
-        if (alloc_len != 0) { // no suitable chunker...we have to allocate
+        else {
+        alloc_chunk:
             next = cast(struct Reb_Chunker*,
                 Alloc_Mem(alloc_len * sizeof(REBVAL))
             );
