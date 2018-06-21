@@ -520,6 +520,15 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
     free(f->stress);
   #endif
 
+    // We are changing f->value, and thus by definition any f->gotten value
+    // will be invalid.  It might be "wasteful" to always set this to END,
+    // especially if it's going to be overwritten with the real fetch...but
+    // at a source level, having every call to Fetch_Next_In_Frame have to
+    // explicitly set f->gotten to END is overkill.  Could be split into
+    // a version that just trashes f->gotten in the debug build vs. END.
+    //
+    f->gotten = END;
+
     const RELVAL *lookback;
 
     if (NOT_END(f->source.pending)) {
@@ -586,7 +595,6 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
 inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
     Derelativize(dest, f->value, f->specifier);
     SET_VAL_FLAG(dest, VALUE_FLAG_UNEVALUATED);
-    f->gotten = END;
     Fetch_Next_In_Frame(f);
 }
 
@@ -777,6 +785,16 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
     child->value = parent->value;
     child->gotten = parent->gotten;
     child->specifier = parent->specifier;
+
+    // f->gotten is never marked for GC, because it should never be kept
+    // alive across arbitrary evaluations (f->value should keep it alive).
+    // We'll write it back with an updated value from the child after the
+    // call, and no one should be able to read it until then (e.g. the caller
+    // can't be a variadic frame that is executing yet)
+    //
+  #if !defined(NDEBUG)
+    TRASH_POINTER_IF_DEBUG(parent->gotten);
+  #endif
 
     Init_Endlike_Header(&child->flags, flags);
 

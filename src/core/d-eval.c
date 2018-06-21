@@ -204,6 +204,19 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
 
     Do_Core_Shared_Checks_Debug(f);
 
+    // The previous frame doesn't know *what* code is going to be running,
+    // and it can shake up data pointers arbitrarily.  Any cache of a fetched
+    // word must be dropped if it calls a sub-evaluator (signified by END).
+    // Exception is subframes, which proxy the gotten into the child and
+    // then copy the updated gotten back...signify this interim state in
+    // the debug build with trash pointer.
+    //
+    assert(
+        not f->prior
+        or IS_POINTER_TRASH_DEBUG(f->prior->gotten)
+        or f->prior->gotten == END
+    );
+
     // The only thing the evaluator can take for granted between evaluations
     // about the output cell is that it's not trash.  In the debug build,
     // give this more teeth by explicitly setting it to an unreadable blank,

@@ -577,7 +577,7 @@ REBSER *Copy_Mold_Or_Form_Value(const RELVAL *v, REBFLGS opts, REBOOL form)
 //
 //    >> delimit ["a" space "b" | () "c" newline "d" "e"] ":"
 //    == `"a b^/c^/d:e"
-// 
+//
 // Note only the last interstitial is considered a candidate for delimiting.
 //
 REBOOL Form_Reduce_Throws(

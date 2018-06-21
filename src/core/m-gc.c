@@ -1191,6 +1191,11 @@ static void Mark_Frame_Stack_Deep(void)
                 Queue_Mark_Singular_Array(Singular_From_Cell(f->value));
             else
                 Queue_Mark_Value_Deep(f->value);
+
+            // Note that f->gotten is explicitly *not* marked alive, because
+            // f->value keeps it alive by reference in its binding.  This
+            // might need to be rethought if it becomes a cache to where a
+            // path resolves...
         }
 
         if (NOT_CELL(f->specifier)) {

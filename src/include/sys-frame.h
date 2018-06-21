@@ -435,18 +435,11 @@ inline static void Push_Action(
 ){
     f->eval_type = REB_ACTION;
 
-    assert(
-        opt_label == NULL
-        or GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING)
-    );
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_ACTION
+    assert(not opt_label or GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING));
     f->opt_label = opt_label;
 
-  #if defined(DEBUG_FRAME_LABELS)
-    //
-    // It's helpful when looking in the debugger to be able to look at a frame
-    // and see a cached string for the function it's running.
-    //
+  #if defined(DEBUG_FRAME_LABELS) // helpful for looking in the debugger
     f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
   #endif
 
@@ -454,16 +447,12 @@ inline static void Push_Action(
 
     f->binding = binding; // e.g. how a RETURN knows where to return to
 
-    // The underlying function is who the frame is *ultimately* being built
-    // for.  This underlying function can have more arguments than the
-    // original "interface" function being called.  Consider that even if you
-    // make a specialization of APPEND that no longer has any parameters,
+    // Even if you specialize APPEND until it no longer has any parameters,
     // eventually the C code for REBNATIVE(append) will be executed to do
-    // the work.  And it will expect the ARG() and REF() macros to find the
+    // the work.  It will expect the ARG() and REF() macros to find the
     // right arguments at the right indices.
     //
-    // The "facade" is the interface this function uses, which must have the
-    // same number of arguments and be compatible with the underlying
+    // The "facade" must have the same number of arguments as the underlying
     // function.  But it may accept more limited data types than the layers
     // underneath, or change the parameter conventions (e.g. from normal to
     // quoted).  A facade might be a valid paramlist, but it might just
@@ -471,16 +460,13 @@ inline static void Push_Action(
     // of a canon value which points back to itself.
     //
     REBCNT num_args = ACT_FACADE_NUM_PARAMS(a);
+    f->param = ACT_FACADE_HEAD(f->phase);
 
     // Allocate the data for the args and locals on the chunk stack.  The
     // addresses of these values will be stable for the duration of the
     // function call, but the pointers will be invalid after that point.
     //
     f->arg = f->args_head = Push_Value_Chunk_Of_Length(num_args);
-    assert(CHUNK_LEN_FROM_VALUES(f->args_head) == num_args);
-    assert(IS_END(f->args_head + num_args)); // guaranteed by chunk stack
-
-    f->param = ACT_FACADE_HEAD(f->phase);
 
     // Each layer of specialization of a function can only add specializaitons
     // of arguments which have not been specialized already.  For efficiency,

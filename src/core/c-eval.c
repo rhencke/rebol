@@ -411,7 +411,6 @@ do_next:;
     // of the feature actually is.
 
     current_gotten = f->gotten;
-    f->gotten = END;
 
     // Most calls to Fetch_Next_In_Frame() are no longer interested in the
     // cell backing the pointer that used to be in f->value (this is enforced
@@ -467,7 +466,6 @@ reevaluate:;
         and IS_WORD(f->value)
         and evaluating == NOT_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)
     ){
-        //
         // While the next item may be a WORD! that looks up to an enfixed
         // function, and it may want to quote what's on its left...there
         // could be a conflict.  This happens if the current item is also
@@ -600,7 +598,6 @@ reevaluate:;
             // We don't want the WORD! that invoked the function to act like
             // an argument, so we have to advance the frame once more.
             //
-            f->gotten = END;
             Fetch_Next_In_Frame(f);
             goto process_action;
         }
@@ -1635,7 +1632,7 @@ reevaluate:;
             // might be possible to finesse use of this cache and clear it
             // only if such cases occur, but for now don't take chances.
             //
-            f->gotten = END;
+            assert(f->gotten == END);
 
             Drop_Action_Core(f, true); // drop_chunks = true
             goto reevaluate; // we don't move index!
@@ -1889,6 +1886,11 @@ reevaluate:;
             Move_Value(f->out, const_KNOWN(current));
             break; // VALUE_FLAG_UNEVALUATED does not get moved
         }
+
+        // The f->gotten we fetched for lookahead could become invalid when
+        // we run the arbitrary code here.  Have to lose the cache.
+        //
+        f->gotten = END;
 
         REBSPC *derived = Derive_Specifier(f->specifier, current);
         if (Do_At_Throws(
@@ -2445,7 +2447,7 @@ post_switch:;
 
         current = f->value;
         current_gotten = f->gotten; // if END, the word will error
-        f->gotten = END;
+
         Fetch_Next_In_Frame(f);
 
         // Were we to jump to the REB_WORD switch case here, LENGTH would
@@ -2543,7 +2545,6 @@ post_switch:;
     );
     f->refine = LOOKBACK_ARG;
 
-    f->gotten = END;
     Fetch_Next_In_Frame(f); // advances f->value
     goto process_action;
 

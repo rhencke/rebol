@@ -317,6 +317,7 @@ REB_R Do_Vararg_Op_May_Throw(
             )){
                 return R_OUT_IS_THROWN;
             }
+            f->gotten = END; // cache must be forgotten...
             break; }
 
         case PARAM_CLASS_TIGHT: {
@@ -329,6 +330,7 @@ REB_R Do_Vararg_Op_May_Throw(
             )){
                 return R_OUT_IS_THROWN;
             }
+            f->gotten = END; // cache must be forgotten...
             break; }
 
         case PARAM_CLASS_HARD_QUOTE:
