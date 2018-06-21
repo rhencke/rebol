@@ -523,7 +523,7 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     #endif
     }
 
-    if (IS_VOID(v)) {
+    if (IS_NULLED(v)) {
         //
         // Voids should only be molded out in debug scenarios, but this still
         // happens a lot, e.g. PROBE() of context arrays when they have unset
@@ -585,7 +585,7 @@ REBOOL Form_Reduce_Throws(
     REBARR *array,
     REBCNT index,
     REBSPC *specifier,
-    const REBVAL *delimiter // may be IS_VOID() (e.g. null)
+    const REBVAL *delimiter // may be IS_NULLED() (e.g. null)
 ){
     DECLARE_MOLD (mo);
 
@@ -596,7 +596,7 @@ REBOOL Form_Reduce_Throws(
     // it doesn't have to be tested as an empty string on each delimit.
     //
     if (IS_TEXT(delimiter) and VAL_LEN_AT(delimiter) == 0)
-        delimiter = VOID_CELL;
+        delimiter = NULLED_CELL;
 
     Push_Mold(mo);
 
@@ -612,7 +612,7 @@ REBOOL Form_Reduce_Throws(
             return TRUE;
         }
 
-        if (IS_VOID(out) or (IS_TEXT(out) and VAL_LEN_AT(out) == 0))
+        if (IS_NULLED(out) or (IS_TEXT(out) and VAL_LEN_AT(out) == 0))
             continue; // opt-out
 
         if (IS_BLANK(out))
@@ -627,7 +627,7 @@ REBOOL Form_Reduce_Throws(
             Append_Utf8_Codepoint(mo->series, VAL_CHAR(out));
             pending = FALSE;
         }
-        else if (IS_VOID(delimiter)) // checked as empty text above
+        else if (IS_NULLED(delimiter)) // checked as empty text above
             Form_Value(mo, out);
         else {
             if (pending)

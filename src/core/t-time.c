@@ -399,7 +399,7 @@ void Pick_Time(REBVAL *out, const REBVAL *value, const REBVAL *picker)
             Init_Decimal(out, cast(REBDEC, tf.s) + (tf.n * NANO));
         break;
     default:
-        Init_Void(out); // "out of range" behavior for pick
+        Init_Nulled(out); // "out of range" behavior for pick
     }
 }
 

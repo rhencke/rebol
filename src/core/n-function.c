@@ -285,7 +285,7 @@ REBNATIVE(leave)
     Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
     INIT_BINDING(D_OUT, frame_->binding);
 
-    CONVERT_NAME_TO_THROWN(D_OUT, VOID_CELL);
+    CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
     return R_OUT_IS_THROWN;
 }
 
@@ -405,9 +405,9 @@ REBNATIVE(chain)
     //
     REBVAL *std_meta = Get_System(SYS_STANDARD, STD_CHAINED_META);
     REBCTX *meta = Copy_Context_Shallow(VAL_CONTEXT(std_meta));
-    Init_Void(CTX_VAR(meta, STD_CHAINED_META_DESCRIPTION)); // default
+    Init_Nulled(CTX_VAR(meta, STD_CHAINED_META_DESCRIPTION)); // default
     Init_Block(CTX_VAR(meta, STD_CHAINED_META_CHAINEES), chainees);
-    Init_Void(CTX_VAR(meta, STD_CHAINED_META_CHAINEE_NAMES));
+    Init_Nulled(CTX_VAR(meta, STD_CHAINED_META_CHAINEE_NAMES));
     MANAGE_ARRAY(CTX_VARLIST(meta));
     MISC(paramlist).meta = meta; // must initialize before Make_Action
 
@@ -496,10 +496,10 @@ REBNATIVE(adapt)
     REBVAL *example = Get_System(SYS_STANDARD, STD_ADAPTED_META);
 
     REBCTX *meta = Copy_Context_Shallow(VAL_CONTEXT(example));
-    Init_Void(CTX_VAR(meta, STD_ADAPTED_META_DESCRIPTION)); // default
+    Init_Nulled(CTX_VAR(meta, STD_ADAPTED_META_DESCRIPTION)); // default
     Move_Value(CTX_VAR(meta, STD_ADAPTED_META_ADAPTEE), adaptee);
     if (opt_adaptee_name == NULL)
-        Init_Void(CTX_VAR(meta, STD_ADAPTED_META_ADAPTEE_NAME));
+        Init_Nulled(CTX_VAR(meta, STD_ADAPTED_META_ADAPTEE_NAME));
     else
         Init_Word(
             CTX_VAR(meta, STD_ADAPTED_META_ADAPTEE_NAME),
@@ -614,10 +614,10 @@ REBNATIVE(enclose)
     REBVAL *example = Get_System(SYS_STANDARD, STD_ENCLOSED_META);
 
     REBCTX *meta = Copy_Context_Shallow(VAL_CONTEXT(example));
-    Init_Void(CTX_VAR(meta, STD_ENCLOSED_META_DESCRIPTION)); // default
+    Init_Nulled(CTX_VAR(meta, STD_ENCLOSED_META_DESCRIPTION)); // default
     Move_Value(CTX_VAR(meta, STD_ENCLOSED_META_INNER), inner);
     if (opt_inner_name == NULL)
-        Init_Void(CTX_VAR(meta, STD_ENCLOSED_META_INNER_NAME));
+        Init_Nulled(CTX_VAR(meta, STD_ENCLOSED_META_INNER_NAME));
     else
         Init_Word(
             CTX_VAR(meta, STD_ENCLOSED_META_INNER_NAME),
@@ -625,7 +625,7 @@ REBNATIVE(enclose)
         );
     Move_Value(CTX_VAR(meta, STD_ENCLOSED_META_OUTER), outer);
     if (opt_outer_name == NULL)
-        Init_Void(CTX_VAR(meta, STD_ENCLOSED_META_OUTER_NAME));
+        Init_Nulled(CTX_VAR(meta, STD_ENCLOSED_META_OUTER_NAME));
     else
         Init_Word(
             CTX_VAR(meta, STD_ENCLOSED_META_OUTER_NAME),

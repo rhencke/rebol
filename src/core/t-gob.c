@@ -626,7 +626,7 @@ static void Set_GOB_Vars(REBGOB *gob, const RELVAL *blk, REBSPC *specifier)
     DECLARE_LOCAL (val);
 
     while (NOT_END(blk)) {
-        assert(!IS_VOID(blk));
+        assert(not IS_NULLED(blk));
 
         Derelativize(var, blk, specifier);
         ++blk;

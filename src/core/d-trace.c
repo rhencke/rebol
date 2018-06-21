@@ -178,7 +178,7 @@ void Do_Core_Traced(REBFRM * const f)
                 if (IS_END(var)) {
                     Debug_Fmt_(" : \\\\end\\\\"); // displays as "\\end\\"
                 }
-                else if (IS_VOID(var)) {
+                else if (IS_NULLED(var)) {
                     Debug_Fmt_(" : \\\\null\\\\"); // displays as "\\null\\"
                 }
                 else if (IS_ACTION(var)) {
@@ -327,7 +327,7 @@ REB_R Apply_Core_Traced(REBFRM * const f)
             DECLARE_LOCAL (arg);
             CATCH_THROWN(arg, f->out); // clears bit
 
-            if (IS_VOID(f->out))
+            if (IS_NULLED(f->out))
                 Debug_Fmt_("throw %50r", arg);
             else
                 Debug_Fmt_("throw %30r, label %20r", arg, f->out);

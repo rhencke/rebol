@@ -81,7 +81,7 @@ REB_R PD_Unhooked(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 //
 REBOOL Next_Path_Throws(REBPVS *pvs)
 {
-    if (IS_VOID(pvs->out))
+    if (IS_NULLED(pvs->out))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
     REBPEF dispatcher = Path_Dispatch[VAL_TYPE(pvs->out)];
@@ -119,7 +119,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     // common sense for safety, and also corresponds to voids being illegal
     // to use in SELECT.
     //
-    if (IS_VOID(pvs->refine))
+    if (IS_NULLED(pvs->refine))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
     Fetch_Next_In_Frame(pvs); // may be at end
@@ -226,7 +226,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             break;
 
         case R_NULL:
-            Init_Void(pvs->out);
+            Init_Nulled(pvs->out);
             break;
 
         case R_BLANK:
@@ -390,7 +390,7 @@ REBOOL Do_Path_Throws_Core(
         Derelativize(pvs->out, pvs->value, pvs->specifier);
     }
 
-    if (IS_VOID(pvs->out))
+    if (IS_NULLED(pvs->out))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
     Fetch_Next_In_Frame(pvs);

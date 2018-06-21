@@ -193,7 +193,7 @@ REB_R Pending_Native_Dispatcher(REBFRM *f) {
     // Today's COMPILE doesn't return a result on success (just fails on
     // errors), but if it changes to return one consider what to do with it.
     //
-    assert(IS_VOID(f->out));
+    assert(IS_NULLED(f->out));
 
     // Now that it's compiled, it should have replaced the dispatcher with a
     // function pointer that lives in the TCC_State.  Use REDO, and don't
@@ -479,7 +479,7 @@ REBNATIVE(compile)
         const RELVAL *var = item;
         if (IS_WORD(item) or IS_GET_WORD(item)) {
             var = Get_Opt_Var_May_Fail(item, VAL_SPECIFIER(natives));
-            if (IS_VOID(var))
+            if (IS_NULLED(var))
                 fail (Error_No_Value_Core(item, VAL_SPECIFIER(natives)));
         }
 

@@ -331,7 +331,7 @@ inline static void Queue_Mark_Singular_Array(REBARR *a) {
 //
 //  Queue_Mark_Opt_Value_Deep: C
 //
-// This queues *optional* values, which may include void cells.  If a slot is
+// This queues *optional* values, which may include nulled cells.  If a slot is
 // not supposed to allow a void, use Queue_Mark_Value_Deep()
 //
 static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
@@ -687,9 +687,9 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
             Queue_Mark_Context_Deep(meta);
         break; }
 
-    case REB_MAX_VOID:
+    case REB_MAX_NULLED:
         //
-        // Not an actual ANY-VALUE! "value", just a void cell.  Instead of
+        // Not an actual ANY-VALUE! "value", just a nulled cell.  Instead of
         // this "Opt"ional routine, use Queue_Mark_Value_Deep() on slots
         // that should not be void.
         //
@@ -708,9 +708,9 @@ inline static void Queue_Mark_Value_Deep(const RELVAL *v)
 {
 #if !defined(NDEBUG)
     //
-    // Note: IS_VOID() would trip on unreadable blanks, which is okay for GC
+    // Note: IS_NULLED() would trip on unreadable blanks, which is okay for GC
     //
-    if (VAL_TYPE_RAW(v) == REB_MAX_VOID)
+    if (VAL_TYPE_RAW(v) == REB_MAX_NULLED)
         panic (v);
 #endif
     Queue_Mark_Opt_Value_Deep(v);
@@ -900,7 +900,7 @@ static void Propagate_All_GC_Marks(void)
             //
             if (
                 not IS_BLANK_RAW(v)
-                and IS_VOID(v)
+                and IS_NULLED(v)
                 and not GET_SER_FLAG(a, ARRAY_FLAG_VARLIST)
                 and not GET_SER_FLAG(a, ARRAY_FLAG_VOIDS_LEGAL)
             ){
@@ -1024,7 +1024,7 @@ static void Mark_Root_Series(void)
               #ifdef DEBUG_UNREADABLE_BLANKS
                 if (not IS_UNREADABLE_DEBUG(v))
               #endif
-                    if (not IS_VOID(v))
+                    if (not IS_NULLED(v))
                         Queue_Mark_Value_Deep(v);
             }
 
@@ -1155,7 +1155,7 @@ static void Mark_Frame_Stack_Deep(void)
     REBFRM *f = TG_Frame_Stack;
 
     for (; f != NULL; f = f->prior) {
-        assert(f->eval_type <= REB_MAX_VOID);
+        assert(f->eval_type <= REB_MAX_NULLED);
 
         // Should have taken care of reifying all the VALIST on the stack
         // earlier in the recycle process (don't want to create new arrays
@@ -1710,7 +1710,7 @@ void Guard_Node_Core(const REBNOD *node)
         assert(
             IS_END(value)
             or IS_BLANK_RAW(value)
-            or VAL_TYPE(value) <= REB_MAX_VOID
+            or VAL_TYPE(value) <= REB_MAX_NULLED
         );
 
     #ifdef STRESS_CHECK_GUARD_VALUE_POINTER

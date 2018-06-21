@@ -205,7 +205,7 @@ void Pick_Tuple(REBVAL *out, const REBVAL *value, const REBVAL *picker)
     if (n > 0 and n <= len)
         Init_Integer(out, byte);
     else
-        Init_Void(out);
+        Init_Nulled(out);
 }
 
 

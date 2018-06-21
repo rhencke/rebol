@@ -210,7 +210,7 @@ static REBOOL Subparse_Throws(
   #else
     assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 3); // checks RETURN:
     Prep_Stack_Cell(&f->args_head[2]);
-    Init_Void(&f->args_head[2]);
+    Init_Nulled(&f->args_head[2]);
   #endif
 
     Prep_Stack_Cell(&f->args_head[0]);
@@ -376,7 +376,7 @@ static const RELVAL *Get_Parse_Value(
             return rule;
 
         Move_Opt_Var_May_Fail(cell, rule, specifier);
-        if (IS_VOID(cell))
+        if (IS_NULLED(cell))
             fail (Error_No_Value_Core(rule, specifier));
 
         return cell;
@@ -392,7 +392,7 @@ static const RELVAL *Get_Parse_Value(
         if (Get_Path_Throws_Core(cell, rule, specifier))
             fail (Error_No_Catch_For_Throw(cell));
 
-        if (IS_VOID(cell))
+        if (IS_NULLED(cell))
             fail (Error_No_Value_Core(rule, specifier));
 
         return cell;
@@ -1678,7 +1678,7 @@ REBNATIVE(subparse)
                 if (IS_WORD(P_RULE)) {
                     Move_Opt_Var_May_Fail(save, P_RULE, P_RULE_SPECIFIER);
                     rule = save;
-                    if (IS_VOID(rule))
+                    if (IS_NULLED(rule))
                         fail (Error_No_Value_Core(P_RULE, P_RULE_SPECIFIER));
                 }
                 else {
@@ -1745,7 +1745,7 @@ REBNATIVE(subparse)
 
         // All cases should have either set `rule` by this point or continued
         //
-        assert(rule != NULL and not IS_VOID(rule));
+        assert(rule != NULL and not IS_NULLED(rule));
 
         if (IS_GROUP(rule)) {
             DECLARE_LOCAL (evaluated);

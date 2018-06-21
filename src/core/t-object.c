@@ -442,7 +442,7 @@ REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         // with the behavior of GET-WORD!
         //
         if (pvs->eval_type == REB_GET_PATH and FRM_AT_END(pvs)) {
-            Init_Void(pvs->out);
+            Init_Nulled(pvs->out);
             return R_OUT;
         }
         return R_UNHANDLED;
@@ -523,7 +523,7 @@ REBNATIVE(set_meta)
         meta = VAL_CONTEXT(ARG(meta));
     }
     else {
-        assert(IS_VOID(ARG(meta)));
+        assert(IS_NULLED(ARG(meta)));
         meta = nullptr;
     }
 
@@ -744,7 +744,7 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         // Having the key mentioned in the spec and then not being assigned
         // a value in the body is how voids are denoted.
         //
-        if (var && IS_VOID(var))
+        if (var && IS_NULLED(var))
             continue;
 
         New_Indented_Line(mo);

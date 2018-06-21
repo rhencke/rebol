@@ -212,7 +212,7 @@ static void Startup_Base(REBARR *boot_base)
     if (Do_At_Throws(result, boot_base, 0, SPECIFIED))
         panic (result);
 
-    if (not IS_VOID(result))
+    if (not IS_NULLED(result))
         panic (result);
 }
 
@@ -247,7 +247,7 @@ static void Startup_Sys(REBARR *boot_sys) {
     if (Do_At_Throws(result, boot_sys, 0, SPECIFIED))
         panic (result);
 
-    if (not IS_VOID(result))
+    if (not IS_NULLED(result))
         panic (result);
 }
 
@@ -445,7 +445,7 @@ static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
     for (i = 0; names[i] != NULL; ++i) {
         REBSTR *str = Intern_UTF8_Managed(cb_cast(names[i]), strlen(names[i]));
         REBVAL *val = Append_Context(Lib_Context, NULL, str);
-        Init_Void(val); // functions will fill in (no-op, since void already)
+        Init_Nulled(val); // functions will fill in (no-op, since void already)
     }
 }
 
@@ -699,7 +699,7 @@ static REBARR *Startup_Actions(REBARR *boot_actions)
     if (Do_At_Throws(result, boot_actions, 0, SPECIFIED))
         panic (result);
 
-    if (not IS_VOID(result))
+    if (not IS_NULLED(result))
         panic (result);
 
     // Sanity check the symbol transformation
@@ -748,10 +748,10 @@ static void Init_Root_Vars(void)
     // the root set.  Should that change, they could be explicitly added
     // to the GC's root set.
 
-    Prep_Non_Stack_Cell(&PG_Void_Cell[0]);
-    Prep_Non_Stack_Cell(&PG_Void_Cell[1]);
-    Init_Void(&PG_Void_Cell[0]);
-    TRASH_CELL_IF_DEBUG(&PG_Void_Cell[1]);
+    Prep_Non_Stack_Cell(&PG_Nulled_Cell[0]);
+    Prep_Non_Stack_Cell(&PG_Nulled_Cell[1]);
+    Init_Nulled(&PG_Nulled_Cell[0]);
+    TRASH_CELL_IF_DEBUG(&PG_Nulled_Cell[1]);
 
     Prep_Non_Stack_Cell(&PG_Blank_Value[0]);
     Prep_Non_Stack_Cell(&PG_Blank_Value[1]);
@@ -883,7 +883,7 @@ static void Init_System_Object(
     DECLARE_LOCAL (result);
     if (Do_At_Throws(result, boot_sysobj_spec, 0, SPECIFIED))
         panic (result);
-    if (not IS_VOID(result))
+    if (not IS_NULLED(result))
         panic (result);
 
     // Create a global value for it.  (This is why we are able to say `system`
@@ -1410,7 +1410,7 @@ static REBVAL *Startup_Mezzanine(BOOT_BLK *boot)
         fail (Error_No_Catch_For_Throw(result));
     }
 
-    if (not IS_VOID(result))
+    if (not IS_NULLED(result))
         panic (result); // FINISH-INIT-CORE returns void by convention
 
     return NULL;

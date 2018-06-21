@@ -85,14 +85,14 @@ PVAR REB_OPTS *Reb_Opts;
     PVAR REBOOL PG_Always_Malloc;   // For memory-related troubleshooting
 #endif
 
-// These are some canon BLANK, TRUE, and FALSE values (and void/end cells).
+// These are some canon BLANK, TRUE, and FALSE values (and nulled/end cells).
 // In two-element arrays in order that those using them don't accidentally
 // pass them to routines that will increment the pointer as if they are
 // arrays--they are singular values, and the second element is set to
 // be trash to trap any unwanted access.
 //
 PVAR RELVAL PG_End_Node;
-PVAR REBVAL PG_Void_Cell[2];
+PVAR REBVAL PG_Nulled_Cell[2];
 
 PVAR REBVAL PG_Blank_Value[2];
 PVAR REBVAL PG_Bar_Value[2];

@@ -172,7 +172,7 @@ void Dump_Values(RELVAL *vp, REBCNT count)
         if (IS_END(val)) {
             break;
         }
-        if (IS_BLANK_RAW(val) || IS_VOID(val)) {
+        if (IS_BLANK_RAW(val) or IS_NULLED(val)) {
             bp = cast(REBCNT*, val + 1);
             continue;
         }
@@ -275,7 +275,7 @@ void Dump_Stack(REBFRM *f, REBCNT level)
     REBVAL *param = ACT_PARAMS_HEAD(f->phase);
 
     for (; NOT_END(param); ++param, ++arg, ++n) {
-        if (IS_VOID(arg))
+        if (IS_NULLED(arg))
             Debug_Fmt(
                 "    %s:",
                 STR_HEAD(VAL_PARAM_SPELLING(param))
@@ -323,7 +323,7 @@ REBNATIVE(dump)
         if (VAL_TYPE_OR_0(var) == REB_0) {
             PROBE("\\unbound\\");
         }
-        else if (IS_VOID(var)) {
+        else if (IS_NULLED(var)) {
             PROBE("\\null\\");
         }
         else

@@ -322,7 +322,7 @@ REBNATIVE(do)
         REBFLGS flags = 0;
         if (REF(next)) {
             if (FRM_AT_END(f))
-                Init_Void(D_OUT);
+                Init_Nulled(D_OUT);
             else if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
                 return R_OUT_IS_THROWN;
 
@@ -334,7 +334,7 @@ REBNATIVE(do)
                 Move_Value(Sink_Var_May_Fail(var, SPECIFIED), source);
         }
         else {
-            Init_Void(D_OUT);
+            Init_Nulled(D_OUT);
             while (not FRM_AT_END(f)) {
                 if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
                     return R_OUT_IS_THROWN;
@@ -362,8 +362,8 @@ REBNATIVE(do)
             fully,
             sys_do_helper,
             source,
-            DEVOID(ARG(arg)), // convert void cells to NULL for API
-            DEVOID(ARG(var)), // convert void cells to NULL for API
+            NULLIZE(ARG(arg)), // nulled cells => nullptr for API
+            NULLIZE(ARG(var)), // nulled cells => nullptr for API
             REF(only) ? TRUE_VALUE : FALSE_VALUE,
             END
         )){
@@ -611,7 +611,7 @@ REBNATIVE(apply)
     if (f->special == f->param) { // signals "no exemplar"
         for (; NOT_END(f->param); ++f->param, ++f->arg) {
             Prep_Stack_Cell(f->arg);
-            Init_Void(f->arg);
+            Init_Nulled(f->arg);
         }
     }
     else {
@@ -631,11 +631,11 @@ REBNATIVE(apply)
                 continue;
             }
 
-            assert(IS_REFINEMENT(f->special) || IS_VOID(f->special));
+            assert(IS_REFINEMENT(f->special) or IS_NULLED(f->special));
             if (IS_REFINEMENT_SPECIALIZED(f->param))
                 Init_Logic(f->arg, TRUE);
             else
-                Init_Void(f->arg);
+                Init_Nulled(f->arg);
         }
         assert(IS_END(f->special));
     }

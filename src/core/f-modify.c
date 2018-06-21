@@ -50,7 +50,7 @@ REBCNT Modify_Array(
     const RELVAL *src_rel;
     REBSPC *specifier;
 
-    if (IS_VOID(src_val) or dups <= 0) {
+    if (IS_NULLED(src_val) or dups <= 0) {
         // If they are effectively asking for "no action" then all we have
         // to do is return the natural index result for the operation.
         // (APPEND will return 0, insert the tail of the insertion...so index)
@@ -227,7 +227,7 @@ REBCNT Modify_Binary(
     else
         limit = -1;
 
-    if (IS_VOID(src_val) || limit == 0 || dups < 0)
+    if (IS_NULLED(src_val) || limit == 0 || dups < 0)
         return verb == SYM_APPEND ? 0 : dst_idx;
 
     REBCNT tail = SER_LEN(dst_ser);
@@ -367,7 +367,7 @@ REBCNT Modify_String(
     else
         limit = -1;
 
-    if (IS_VOID(src_val) || limit == 0 || dups < 0)
+    if (IS_NULLED(src_val) || limit == 0 || dups < 0)
         return verb == SYM_APPEND ? 0 : dst_idx;
 
     REBCNT tail = SER_LEN(dst_ser);

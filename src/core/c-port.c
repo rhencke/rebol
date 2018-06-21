@@ -238,7 +238,7 @@ REBOOL Wait_Ports_Throws(
             CLR_SIGNAL(SIG_HALT);
 
             Move_Value(out, NAT_VALUE(halt));
-            CONVERT_NAME_TO_THROWN(out, VOID_CELL);
+            CONVERT_NAME_TO_THROWN(out, NULLED_CELL);
             return TRUE;
         }
 
@@ -249,7 +249,7 @@ REBOOL Wait_Ports_Throws(
                 fail (Error_Host_No_Breakpoint_Raw());
 
             const REBOOL interrupted = TRUE;
-            const REBVAL*default_value = VOID_CELL;
+            const REBVAL*default_value = NULLED_CELL;
             const REBOOL do_default = FALSE;
 
             if ((*PG_Breakpoint_Hook)(
@@ -258,7 +258,7 @@ REBOOL Wait_Ports_Throws(
                 return TRUE; // thrown
             }
 
-            if (!IS_VOID(out)) {
+            if (not IS_NULLED(out)) {
                 //
                 // !!! Same as above... if `resume/with 10` is to have any
                 // meaning then there must be a way to deliver that result

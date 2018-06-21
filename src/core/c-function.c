@@ -336,7 +336,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // not "passed in" that way...the refinement is inactive.
             //
             if (refinement_seen) {
-                if (TYPE_CHECK(typeset, REB_MAX_VOID))
+                if (TYPE_CHECK(typeset, REB_MAX_NULLED))
                     fail (Error_Refinement_Arg_Opt_Raw());
             }
 
@@ -374,9 +374,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         assert(IS_TEXT(DS_TOP));
 
         // By default allow "all datatypes but function and void".  Note that
-        // since void isn't a "datatype" the use of the REB_MAX_VOID bit is for
+        // since void isn't a "datatype" the use of the REB_MAX_NULLED bit is for
         // expedience.  Also that there are two senses of void signal...the
-        // typeset REB_MAX_VOID represents <opt> sense, not the <end> sense,
+        // typeset REB_MAX_NULLED represents <opt> sense, not the <end> sense,
         // which is encoded by TYPESET_FLAG_ENDABLE.
         //
         // We do not canonize the saved symbol in the paramlist, see #2258.
@@ -387,7 +387,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             typeset,
             (flags & MKF_ANY_VALUE)
                 ? ALL_64
-                : ALL_64 & ~(FLAGIT_KIND(REB_MAX_VOID) | FLAGIT_KIND(REB_ACTION)),
+                : ALL_64 & ~(FLAGIT_KIND(REB_MAX_NULLED) | FLAGIT_KIND(REB_ACTION)),
             VAL_WORD_SPELLING(item)
         );
 
@@ -514,7 +514,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             REBSTR *canon_leave = Canon(SYM_LEAVE);
 
             DS_PUSH_TRASH;
-            Init_Typeset(DS_TOP, FLAGIT_KIND(REB_MAX_VOID), canon_leave);
+            Init_Typeset(DS_TOP, FLAGIT_KIND(REB_MAX_NULLED), canon_leave);
             INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_LEAVE);
             definitional_leave_dsp = DSP;
 
@@ -738,7 +738,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 continue;
 
             if (VAL_ARRAY_LEN_AT(src) == 0)
-                Init_Void(dest);
+                Init_Nulled(dest);
             else
                 Move_Value(dest, src);
             ++dest;
@@ -761,7 +761,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             }
 
             if (not (flags & MKF_FAKE_RETURN)) {
-                Init_Void(dest); // clear the local RETURN: var's description
+                Init_Nulled(dest); // clear the local RETURN: var's description
                 ++dest;
             }
         }
@@ -801,7 +801,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 continue;
 
             if (SER_LEN(VAL_SERIES(src)) == 0)
-                Init_Void(dest);
+                Init_Nulled(dest);
             else
                 Move_Value(dest, src);
             ++dest;
@@ -814,7 +814,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // parameter in the list
             //
             if (SER_LEN(VAL_SERIES(definitional_return + 2)) == 0)
-                Init_Void(CTX_VAR(meta, STD_ACTION_META_RETURN_NOTE));
+                Init_Nulled(CTX_VAR(meta, STD_ACTION_META_RETURN_NOTE));
             else {
                 Move_Value(
                     CTX_VAR(meta, STD_ACTION_META_RETURN_NOTE),
@@ -823,7 +823,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             }
 
             if (not (flags & MKF_FAKE_RETURN)) {
-                Init_Void(dest);
+                Init_Nulled(dest);
                 ++dest;
             }
         }
@@ -967,7 +967,7 @@ REBACT *Make_Action(
             break;
 
         case PARAM_CLASS_HARD_QUOTE:
-            if (TYPE_CHECK(param, REB_MAX_VOID))
+            if (TYPE_CHECK(param, REB_MAX_NULLED))
                 fail ("Hard quoted function parameters cannot receive voids");
 
             goto quote_check; // avoid implicit fallthrough warning
@@ -1302,7 +1302,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
         else if (GET_VAL_FLAG(value, ACTION_FLAG_RETURN)) {
             REBVAL *typeset = ACT_PARAM(a, ACT_NUM_PARAMS(a));
             assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
-            if (not TYPE_CHECK(typeset, REB_MAX_VOID)) // all do [] can return
+            if (not TYPE_CHECK(typeset, REB_MAX_NULLED)) // all do [] can return
                 ACT_DISPATCHER(a) = &Returner_Dispatcher; // error when run
         }
         else {
@@ -1407,7 +1407,7 @@ void Make_Frame_For_Action(
         // No prior specialization means all the slots should be void.
         //
         for (; NOT_END(param); ++param, ++arg)
-            Init_Void(arg);
+            Init_Nulled(arg);
     }
     else {
         // Partially specialized refinements put INTEGER! in refinement slots
@@ -1438,11 +1438,11 @@ void Make_Frame_For_Action(
             // Drive whether the refinement is present or not based on whether
             // it's available for the user to pass in or not.
             //
-            assert(IS_REFINEMENT(special) or IS_VOID(special));
+            assert(IS_REFINEMENT(special) or IS_NULLED(special));
             if (IS_REFINEMENT_SPECIALIZED(param))
                 Init_Logic(arg, TRUE);
             else
-                Init_Void(arg);
+                Init_Nulled(arg);
         }
     }
 
@@ -1548,7 +1548,7 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
             fail (Error_Cannot_Reflect(kind, ARG(property)));
 
         case SYM_TYPE:
-            if (kind == REB_MAX_VOID)
+            if (kind == REB_MAX_NULLED)
                 return R_NULL; // `() = type of ()`, `null = type of ()`
             Init_Datatype(f->out, kind);
             return R_OUT;
@@ -1563,7 +1563,7 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
     // but in general actions should not allow void first arguments...there's
     // no entry in the dispatcher table for them.
     //
-    if (kind == REB_MAX_VOID)
+    if (kind == REB_MAX_NULLED)
         fail ("VOID isn't valid for REFLECT, except for TYPE OF ()");
 
     assert(kind < REB_MAX);

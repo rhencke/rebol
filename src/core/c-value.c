@@ -56,7 +56,7 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
     REBNOD *containing = Try_Find_Containing_Node_Debug(v);
 
     switch (VAL_TYPE_RAW(v)) {
-    case REB_MAX_VOID:
+    case REB_MAX_NULLED:
     case REB_BLANK:
     case REB_LOGIC:
     case REB_BAR:
@@ -157,7 +157,7 @@ Reb_Specific_Value::~Reb_Specific_Value ()
     assert(
         header.bits & NODE_FLAG_FREE
             ? kind == REB_MAX_PLUS_ONE_TRASH
-            : kind <= REB_MAX_VOID
+            : kind <= REB_MAX_NULLED
     );
 }
 #endif

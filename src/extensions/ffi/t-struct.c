@@ -107,7 +107,7 @@ static void get_scalar(
         // !!! This just gets void with no error...that seems like a bad idea,
         // if the data is truly inaccessible.
         //
-        Init_Void(out);
+        Init_Nulled(out);
         return;
     }
 

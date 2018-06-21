@@ -129,7 +129,7 @@ REBOOL Do_Signals_Throws(REBVAL *out)
         Eval_Sigmask = saved_mask;
 
         Move_Value(out, NAT_VALUE(halt));
-        CONVERT_NAME_TO_THROWN(out, VOID_CELL);
+        CONVERT_NAME_TO_THROWN(out, NULLED_CELL);
         return TRUE; // thrown
     }
 
@@ -151,7 +151,7 @@ REBOOL Do_Signals_Throws(REBVAL *out)
         Eval_Sigmask = saved_mask;
 
         const REBOOL interrupted = TRUE;
-        const REBVAL *default_value = VOID_CELL;
+        const REBVAL *default_value = NULLED_CELL;
         const REBOOL do_default = FALSE;
 
         if ((*PG_Breakpoint_Hook)(
@@ -167,7 +167,7 @@ REBOOL Do_Signals_Throws(REBVAL *out)
         // user that something is off, but perhaps the failure should be
         // contained in a sandbox and restart the break?
         //
-        if (not IS_VOID(out))
+        if (not IS_NULLED(out))
             fail ("Interrupt-based debug session used RESUME/WITH");
 
         SET_END(out);

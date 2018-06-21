@@ -206,7 +206,7 @@ inline static REBVAL *Init_Any_Word_Bound(
 // it can be useful to allow passing UTF-8 text, a REBVAL* with an ANY-WORD!
 // or ANY-STRING!, or just plain UTF-8 text.
 //
-// !!! Should VOID_CELL or other arguments make anonymous symbols?
+// !!! Should NULLED_CELL or other arguments make anonymous symbols?
 //
 #ifdef CPLUSPLUS_11
 template<typename T>

@@ -505,7 +505,7 @@ REBNATIVE(get)
             Init_Bar(dest);
         }
         else if (IS_BLANK(source)) {
-            Init_Void(dest); // may be turned to blank after loop, or error
+            Init_Nulled(dest); // may be turned to blank after loop, or error
         }
         else if (ANY_WORD(source)) {
             Move_Opt_Var_May_Fail(dest, source, specifier);
@@ -518,7 +518,7 @@ REBNATIVE(get)
             Get_Path_Core(dest, source, specifier);
         }
 
-        if (IS_VOID(dest)) {
+        if (IS_NULLED(dest)) {
             if (REF(try))
                 Init_Blank(dest);
             else {
@@ -549,7 +549,7 @@ REBNATIVE(try)
 {
     INCLUDE_PARAMS_OF_TRY;
 
-    if (IS_VOID(ARG(optional)))
+    if (IS_NULLED(ARG(optional)))
         return R_BLANK;
 
     Move_Value(D_OUT, ARG(optional));
@@ -792,7 +792,7 @@ REBNATIVE(set)
         if (REF(enfix) and not IS_ACTION(ARG(value)))
             fail ("Attempt to SET/ENFIX on a non-function");
 
-        if (IS_VOID(ARG(value)) and not REF(opt))
+        if (IS_NULLED(ARG(value)) and not REF(opt))
             fail (Error_Need_Value_Core(target, target_specifier));
 
         if (IS_BAR(target)) {
@@ -856,7 +856,7 @@ REBNATIVE(unset)
 
     if (ANY_WORD(target)) {
         REBVAL *var = Sink_Var_May_Fail(target, SPECIFIED);
-        Init_Void(var);
+        Init_Nulled(var);
         return R_NULL;
     }
 
@@ -868,7 +868,7 @@ REBNATIVE(unset)
             fail (Error_Invalid_Core(word, VAL_SPECIFIER(target)));
 
         REBVAL *var = Sink_Var_May_Fail(word, VAL_SPECIFIER(target));
-        Init_Void(var);
+        Init_Nulled(var);
     }
 
     return R_NULL;
@@ -1322,7 +1322,7 @@ REBNATIVE(null_q)
 {
     INCLUDE_PARAMS_OF_NULL_Q;
 
-    return R_FROM_BOOL(IS_VOID(ARG(optional)));
+    return R_FROM_BOOL(IS_NULLED(ARG(optional)));
 }
 
 
@@ -1343,7 +1343,7 @@ REBNATIVE(nothing_q)
 {
     INCLUDE_PARAMS_OF_NOTHING_Q;
 
-    return R_FROM_BOOL(IS_BLANK(ARG(value)) or IS_VOID(ARG(value)));
+    return R_FROM_BOOL(IS_BLANK(ARG(value)) or IS_NULLED(ARG(value)));
 }
 
 
@@ -1364,5 +1364,5 @@ REBNATIVE(something_q)
 {
     INCLUDE_PARAMS_OF_SOMETHING_Q;
 
-    return R_FROM_BOOL(not (IS_BLANK(ARG(value)) or IS_VOID(ARG(value))));
+    return R_FROM_BOOL(not (IS_BLANK(ARG(value)) or IS_NULLED(ARG(value))));
 }

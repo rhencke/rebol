@@ -194,7 +194,7 @@ uint32_t Hash_Value(const RELVAL *v)
     uint32_t hash;
 
     switch(VAL_TYPE(v)) {
-    case REB_MAX_VOID:
+    case REB_MAX_NULLED:
         //
         // While a void might technically be hashed, it can't be a value *or*
         // a key in a map.

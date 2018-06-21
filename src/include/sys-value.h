@@ -906,7 +906,7 @@ inline static RELVAL *REL(REBVAL *v) {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  VOID CELLS (*internal* form of Rebol NULL)
+//  NULLED CELLS (*internal* form of Rebol NULL)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -925,7 +925,7 @@ inline static RELVAL *REL(REBVAL *v) {
 // But that's the API.  Internal to Rebol, cells are the currency used, and
 // if they are to represent an "optional" value, there must be a special
 // bit pattern used to mark them as not containing any value at all.  These
-// are called "void cells" and marked by means of their VAL_TYPE(), but they
+// are called "nulled cells" and marked by means of their VAL_TYPE(), but they
 // use REB_MAX--because that is one past the range of valid REB_XXX values
 // in the enumeration created for the actual types.
 //
@@ -935,27 +935,27 @@ inline static RELVAL *REL(REBVAL *v) {
 // come up in common practice.
 //
 
-#define REB_MAX_VOID \
-    REB_MAX // there is no VOID! datatype, use REB_MAX
+#define REB_MAX_NULLED \
+    REB_MAX // there is no NULL! datatype, use REB_MAX
 
-#define VOID_CELL \
-    c_cast(const REBVAL*, &PG_Void_Cell[0])
+#define NULLED_CELL \
+    c_cast(const REBVAL*, &PG_Nulled_Cell[0])
 
-#define IS_VOID(v) \
-    (VAL_TYPE(v) == REB_MAX_VOID)
+#define IS_NULLED(v) \
+    (VAL_TYPE(v) == REB_MAX_NULLED)
 
 #ifdef NDEBUG
-    inline static REBVAL *Init_Void(RELVAL *out) {
-        RESET_VAL_CELL(out, REB_MAX_VOID, VALUE_FLAG_FALSEY);
+    inline static REBVAL *Init_Nulled(RELVAL *out) {
+        RESET_VAL_CELL(out, REB_MAX_NULLED, VALUE_FLAG_FALSEY);
         return KNOWN(out);
     }
 #else
-    inline static REBVAL *Init_Void_Debug(
+    inline static REBVAL *Init_Nulled_Debug(
         RELVAL *out, const char *file, int line
     ){
         RESET_VAL_CELL_Debug(
             out,
-            REB_MAX_VOID,
+            REB_MAX_NULLED,
             VALUE_FLAG_FALSEY,
             file,
             line
@@ -963,8 +963,8 @@ inline static RELVAL *REL(REBVAL *v) {
         return KNOWN(out);
     }
 
-    #define Init_Void(out) \
-        Init_Void_Debug((out), __FILE__, __LINE__)
+    #define Init_Nulled(out) \
+        Init_Nulled_Debug((out), __FILE__, __LINE__)
 #endif
 
 // !!! A theory was that the "evaluated" flag would help a function that took
@@ -973,16 +973,15 @@ inline static RELVAL *REL(REBVAL *v) {
 // here just to make a note of the concept, and tag it via the callsites.
 //
 #define Init_Endish_Void(v) \
-    RESET_VAL_CELL((v), REB_MAX_VOID, \
+    RESET_VAL_CELL((v), REB_MAX_NULLED, \
         VALUE_FLAG_FALSEY | VALUE_FLAG_UNEVALUATED)
 
-// The API uses nullptr to signify void.  To help ensure full void cells don't
-// leak to the API, the variadic interface only handles nulls.  Any internal
-// code that passes a value which may be void through the variadic interface
-// needs to make sure any voids get converted to null first.
+// To help ensure full nulled cells don't leak to the API, the variadic
+// interface only accepts nullptr.  Any internal code with a REBVAL* that may
+// be a "nulled cell" must translate any such cells to nullptr.
 //
-inline static const REBVAL *DEVOID(const REBVAL *cell) {
-    return VAL_TYPE_OR_0(cell) == REB_MAX_VOID // tolerate END as REB_0
+inline static const REBVAL *NULLIZE(const REBVAL *cell) {
+    return VAL_TYPE_OR_0(cell) == REB_MAX_NULLED // tolerate END as REB_0
         ? nullptr
         : cell;
 }

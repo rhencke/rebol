@@ -975,7 +975,7 @@ acquisition_loop:
                 fail ("can't splice null in ANY-ARRAY!...use rebUneval()");
 
             DS_PUSH_TRASH;
-            Init_Void(DS_TOP); // convert to cell void for evaluator
+            Init_Nulled(DS_TOP); // convert to cell void for evaluator
             break; }
 
         case DETECTED_AS_END: {
@@ -984,8 +984,8 @@ acquisition_loop:
 
         case DETECTED_AS_VALUE: {
             const REBVAL *splice = cast(const REBVAL*, p);
-            if (IS_VOID(splice))
-                fail ("VOID cell leaked to API, see DEVOID() in C sources");
+            if (IS_NULLED(splice))
+                fail ("VOID cell leaked to API, see NULLIZE() in C sources");
 
             DS_PUSH_TRASH;
             Move_Value(DS_TOP, splice);

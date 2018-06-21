@@ -67,7 +67,7 @@ REBOOL Reduce_Any_Array_Throws(
             return TRUE;
         }
 
-        if (IS_VOID(reduced)) {
+        if (IS_NULLED(reduced)) {
             if (flags & REDUCE_FLAG_TRY) {
                 DS_PUSH_TRASH;
                 Init_Blank(DS_TOP);
@@ -158,7 +158,7 @@ REBNATIVE(reduce)
         return R_OUT_IS_THROWN;
 
     if (not REF(into)) { // just return the evaluated item if no /INTO target
-        if (IS_VOID(D_OUT)) {
+        if (IS_NULLED(D_OUT)) {
             if (REF(try))
                 return R_BLANK;
 
@@ -175,7 +175,7 @@ REBNATIVE(reduce)
     assert(ANY_ARRAY(into));
     FAIL_IF_READ_ONLY_ARRAY(VAL_ARRAY(into)); // should fail even if no-op
 
-    if (IS_VOID(D_OUT)) { // null insertions are no-op if /OPT, else fail
+    if (IS_NULLED(D_OUT)) { // null insertions are no-op if /OPT, else fail
         if (not REF(opt))
             fail ("null cannot be inserted /INTO target...use REDUCE/OPT");
 
@@ -322,7 +322,7 @@ REBOOL Compose_Any_Array_Throws(
                     push++;
                 }
             }
-            else if (not IS_VOID(composed)) {
+            else if (not IS_NULLED(composed)) {
                 //
                 // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
                 // compose/only [([a b c]) unmerged] => [[a b c] unmerged]

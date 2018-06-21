@@ -48,7 +48,7 @@ REBOL [
            associated baggage that VAL_TYPE() carries over VAL_TYPE_RAW() */
 
         #define ANY_VALUE(v) \
-            (VAL_TYPE(v) != REB_MAX_VOID)
+            (VAL_TYPE(v) != REB_MAX_NULLED)
 
         inline static REBOOL ANY_SCALAR_KIND(enum Reb_Kind k) {
             return k >= REB_LOGIC and k <= REB_DATE;

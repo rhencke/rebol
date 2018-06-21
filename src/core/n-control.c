@@ -205,13 +205,13 @@ inline static REB_R Either_Test_Core(
             cell,
             TRUE, // `fully` (ensure argument consumed)
             test,
-            DEVOID(arg), // convert void cells to C nullptr for API
+            NULLIZE(arg), // convert nulled cells to C nullptr for API
             END
         )){
             return R_OUT_IS_THROWN;
         }
 
-        if (IS_VOID(cell))
+        if (IS_NULLED(cell))
             fail (Error_No_Return_Raw());
 
         return R_FROM_BOOL(IS_TRUTHY(cell)); }
@@ -319,7 +319,7 @@ REBNATIVE(either_test_null)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST_NULL;
 
-    if (IS_VOID(ARG(arg))) // Either_Test_Core() would call Apply()
+    if (IS_NULLED(ARG(arg))) // Either_Test_Core() would call Apply()
         return R_NULL;
 
     if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
@@ -347,7 +347,7 @@ REBNATIVE(either_test_value_p)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST_VALUE_P;
 
-    if (not IS_VOID(ARG(arg))) { // Either_Test_Core() would call Apply()
+    if (not IS_NULLED(ARG(arg))) { // Either_Test_Core() would call Apply()
         Move_Value(D_OUT, ARG(arg));
         return R_OUT;
     }
@@ -482,7 +482,7 @@ REBNATIVE(match)
 
         assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
 
-        if (IS_VOID(D_CELL)) // neither true nor false
+        if (IS_NULLED(D_CELL)) // neither true nor false
             fail (Error_No_Return_Raw());
 
         // We still have the first argument from the filter call in D_OUT.
@@ -556,7 +556,7 @@ REBNATIVE(all)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(block));
 
-    Init_Void(D_OUT); // default return result
+    Init_Nulled(D_OUT); // default return result
 
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(D_OUT, f)) {
@@ -662,7 +662,7 @@ static REB_R Case_Choose_Core(
     DECLARE_FRAME (f);
     Push_Frame(f, block);
 
-    Init_Void(out); // default return result
+    Init_Nulled(out); // default return result
 
     // With the block argument pushed in the enumerator, that frame slot is
     // available for scratch space in the rest of the routine.
@@ -727,7 +727,7 @@ static REB_R Case_Choose_Core(
                 Abort_Frame(f);
                 return R_OUT_IS_THROWN;
             }
-            if (not opt and IS_VOID(out))
+            if (not opt and IS_NULLED(out))
                 Init_Blank(out);
         }
 
@@ -851,7 +851,7 @@ REBNATIVE(switch)
     if (IS_BLOCK(value) and GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED))
         fail (Error_Block_Switch_Raw(value)); // `switch [x] [...]` safeguard
 
-    Init_Void(D_OUT); // used for "fallout"
+    Init_Nulled(D_OUT); // used for "fallout"
 
     while (FRM_HAS_MORE(f)) {
         //
@@ -860,7 +860,7 @@ REBNATIVE(switch)
         // feature of the last value "falling out" the bottom of the switch
         //
         if (IS_BLOCK(f->value)) {
-            Init_Void(D_OUT);
+            Init_Nulled(D_OUT);
             Fetch_Next_In_Frame(f);
             continue;
         }
@@ -932,7 +932,7 @@ REBNATIVE(switch)
             return R_OUT_IS_THROWN;
         }
 
-        if (not REF(opt) and IS_VOID(D_OUT))
+        if (not REF(opt) and IS_NULLED(D_OUT))
             Init_Blank(D_OUT); // blankify if needed
 
         if (not REF(all)) {
@@ -1084,8 +1084,8 @@ was_caught:
                 D_OUT,
                 FALSE, // do not alert if handler doesn't consume all args
                 handler,
-                DEVOID(thrown_arg), // convert void cells to NULL for API
-                DEVOID(thrown_name), // convert void cells to NULL for API
+                NULLIZE(thrown_arg), // convert nulled cells to NULL for API
+                NULLIZE(thrown_name), // convert nulled cells to NULL for API
                 END
             )){
                 return R_OUT_IS_THROWN;

@@ -158,7 +158,7 @@ REBCTX *Make_Context_For_Specialization(
 
         if (VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT) {
             if (special == param) // e.g. exemplar == NULL
-                Init_Void(arg);
+                Init_Nulled(arg);
             else
                 Move_Value(arg, special);
 
@@ -177,7 +177,7 @@ REBCTX *Make_Context_For_Specialization(
                 goto continue_unbindable;
             }
 
-            if (IS_VOID(special)) {
+            if (IS_NULLED(special)) {
                 //
                 // Might find it on the stack
             }
@@ -286,7 +286,7 @@ REBCTX *Make_Context_For_Specialization(
         // void and has no known order, so unspecified/bindable...we have to
         // make it a void for now, because this slot will be seen by the user
         //
-        Init_Void(arg);
+        Init_Nulled(arg);
         if (opt_binder != NULL)
             Add_Binder_Index(opt_binder, param_canon, index);
 
@@ -418,7 +418,7 @@ REBOOL Specialize_Action_Throws(
                 continue;
 
             if (VAL_PARAM_CLASS(key) == PARAM_CLASS_REFINEMENT)
-                if (not IS_VOID(var)) {
+                if (not IS_NULLED(var)) {
                     assert(IS_INTEGER(var) or IS_LOGIC(var));
                     continue; // specialized and partials not added
                 }
@@ -465,7 +465,7 @@ REBOOL Specialize_Action_Throws(
             refine = arg;
 
             if (
-                IS_VOID(refine)
+                IS_NULLED(refine)
                 or (IS_INTEGER(refine) and IS_REFINEMENT_SPECIALIZED(param))
             ){
                 //
@@ -479,7 +479,7 @@ REBOOL Specialize_Action_Throws(
                 // partials are checked to see if they become complete anyway,
                 // use the same mechanic for voids.
 
-                REBDSP partial_dsp = IS_VOID(refine) ? 0 : VAL_INT32(refine);
+                REBDSP partial_dsp = IS_NULLED(refine) ? 0 : VAL_INT32(refine);
 
                 if (first_partial == NULL)
                     first_partial = refine;
@@ -511,7 +511,7 @@ REBOOL Specialize_Action_Throws(
         case PARAM_CLASS_RETURN:
         case PARAM_CLASS_LEAVE:
         case PARAM_CLASS_LOCAL:
-            assert(IS_VOID(arg)); // no bindings, you can't set these
+            assert(IS_NULLED(arg)); // no bindings, you can't set these
             goto unspecialized_arg;
 
         default:
@@ -521,13 +521,13 @@ REBOOL Specialize_Action_Throws(
         // It's an argument, either a normal one or a refinement arg.
 
         if (refine == ORDINARY_ARG) {
-            if (IS_VOID(arg))
+            if (IS_NULLED(arg))
                 goto unspecialized_arg;
             goto specialized_arg;
         }
 
         if (VAL_TYPE(refine) == REB_0_PARTIAL) {
-            if (IS_VOID(arg)) {
+            if (IS_NULLED(arg)) {
                 Mark_Void_Arg_Seen(refine); // we *know* it's not fulfilled
                 goto unspecialized_arg;
             }
@@ -564,12 +564,12 @@ REBOOL Specialize_Action_Throws(
             //
             // `specialize 'append [dup: false count: 10]` is not legal.
             //
-            if (not IS_VOID(arg))
+            if (not IS_NULLED(arg))
                 fail (Error_Bad_Refine_Revoke(param, arg));
             goto specialized_arg_no_typecheck;
         }
 
-        if (not IS_VOID(arg))
+        if (not IS_NULLED(arg))
             goto unspecialized_arg;
 
         // A previously fully-specialized TRUE should not have any void args.
@@ -724,7 +724,7 @@ REBOOL Specialize_Action_Throws(
             goto continue_loop;
         }
 
-        Init_Void(partial);
+        Init_Nulled(partial);
 
     continue_loop:;
 
@@ -750,13 +750,13 @@ REBOOL Specialize_Action_Throws(
 
     REBCTX *meta = Copy_Context_Shallow(VAL_CONTEXT(example));
 
-    Init_Void(CTX_VAR(meta, STD_SPECIALIZED_META_DESCRIPTION)); // default
+    Init_Nulled(CTX_VAR(meta, STD_SPECIALIZED_META_DESCRIPTION)); // default
     Move_Value(
         CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE),
         specializee
     );
     if (opt_specializee_name == NULL)
-        Init_Void(CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE_NAME));
+        Init_Nulled(CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE_NAME));
     else
         Init_Word(
             CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE_NAME),
@@ -1025,7 +1025,7 @@ REBOOL Make_Invocation_Frame_Throws(
         case PARAM_CLASS_HARD_QUOTE:
         case PARAM_CLASS_SOFT_QUOTE: {
             if (refine != NULL) {
-                if (IS_VOID(refine))
+                if (IS_NULLED(refine))
                     break;
 
                 if (IS_LOGIC(refine) and VAL_LOGIC(refine) == false)

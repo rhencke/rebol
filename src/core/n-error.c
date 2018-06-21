@@ -85,7 +85,7 @@ REBNATIVE(trap)
         if (not REF(with) and IS_ERROR(D_OUT)) // code may evaluate to ERROR!
             return R_NULL; // ...but void it so ERROR! *always* means raised
 
-        if (IS_VOID(D_OUT))
+        if (IS_NULLED(D_OUT))
             return R_BLANK; // blankify output (should there be an /OPT ?)
         return R_OUT;
     }
@@ -117,7 +117,7 @@ static REBVAL *Entrap_Dangerous(REBFRM *frame_) {
         return NULL;
     }
 
-    if (IS_VOID(D_OUT))
+    if (IS_NULLED(D_OUT))
         return NULL; // don't box it up
 
     REBARR *a = Alloc_Singular_Array();

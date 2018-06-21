@@ -130,7 +130,7 @@ REB_R PD_Blank(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 REBTYPE(Unit)
 {
     REBVAL *val = D_ARG(1);
-    assert(not IS_VOID(val));
+    assert(not IS_NULLED(val));
 
     switch (verb) {
 

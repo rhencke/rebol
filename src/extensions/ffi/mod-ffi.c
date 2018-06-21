@@ -491,7 +491,7 @@ REBNATIVE(get_at_pointer)
     FFI_INCLUDE_PARAMS_OF_GET_AT_POINTER;
 
     REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(source))));
-    if (IS_VOID(paired) && !REF(only))
+    if (IS_NULLED(paired) && !REF(only))
         Init_Blank(D_OUT);
     else
         Move_Value(D_OUT, paired);
@@ -522,7 +522,7 @@ REBNATIVE(set_at_pointer)
 {
     FFI_INCLUDE_PARAMS_OF_SET_AT_POINTER;
 
-    if (IS_VOID(ARG(value)) && !REF(only))
+    if (IS_NULLED(ARG(value)) && !REF(only))
         fail (Error_No_Value(ARG(value)));
 
     REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(target))));

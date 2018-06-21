@@ -44,7 +44,7 @@ REBNATIVE(halt)
     INCLUDE_PARAMS_OF_HALT;
 
     Move_Value(D_OUT, NAT_VALUE(halt));
-    CONVERT_NAME_TO_THROWN(D_OUT, VOID_CELL);
+    CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
     return R_OUT_IS_THROWN;
 }
 
@@ -79,7 +79,7 @@ REBNATIVE(quit)
 
         // void translated to 0 if it gets caught for the shell, see #2241
 
-        CONVERT_NAME_TO_THROWN(D_OUT, VOID_CELL);
+        CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
     }
 
     return R_OUT_IS_THROWN;
@@ -419,7 +419,7 @@ REBNATIVE(c_debug_break)
     // to evaluate if it's a void.
     //
     Move_Value(D_CELL, ARG(value));
-    if (IS_VOID(D_CELL))
+    if (IS_NULLED(D_CELL))
         SET_VAL_FLAG(D_CELL, VALUE_FLAG_EVAL_FLIP);
 
     return R_REEVALUATE_CELL;

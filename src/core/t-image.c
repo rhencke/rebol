@@ -830,7 +830,7 @@ void Find_Image(REBFRM *frame_)
 
     REBCNT len = tail - index;
     if (len == 0) {
-        Init_Void(D_OUT);
+        Init_Nulled(D_OUT);
         return;
     }
 
@@ -873,7 +873,7 @@ void Find_Image(REBFRM *frame_)
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
 
     if (p == 0) {
-        Init_Void(D_OUT);
+        Init_Nulled(D_OUT);
         return;
     }
 
@@ -883,7 +883,7 @@ void Find_Image(REBFRM *frame_)
     n = (REBCNT)(p - (REBCNT *)VAL_IMAGE_HEAD(value));
     if (REF(match)) {
         if (n != cast(REBINT, index)) {
-            Init_Void(D_OUT);
+            Init_Nulled(D_OUT);
             return;
         }
         n++;
@@ -1287,7 +1287,7 @@ void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
     if (Adjust_Image_Pick_Index_Is_Valid(&index, value, picker))
         Set_Tuple_Pixel(QUAD_SKIP(series, index), out);
     else
-        Init_Void(out);
+        Init_Nulled(out);
 }
 
 

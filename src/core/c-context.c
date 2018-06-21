@@ -236,7 +236,7 @@ REBVAL *Append_Context(
     //
     EXPAND_SERIES_TAIL(SER(CTX_VARLIST(context)), 1);
 
-    REBVAL *value = Init_Void(ARR_LAST(CTX_VARLIST(context)));
+    REBVAL *value = Init_Nulled(ARR_LAST(CTX_VARLIST(context)));
     TERM_ARRAY_LEN(CTX_VARLIST(context), ARR_LEN(CTX_VARLIST(context)));
 
     if (opt_any_word) {
@@ -539,7 +539,7 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL head[])
             if (cl->flags & COLLECT_AS_TYPESET)
                 Init_Typeset(
                     ARR_LAST(BUF_COLLECT),
-                    ~FLAGIT_KIND(REB_MAX_VOID), // default is all but void
+                    ~FLAGIT_KIND(REB_MAX_NULLED), // default is all but void
                     VAL_WORD_SPELLING(v)
                 );
             else
@@ -732,7 +732,7 @@ REBARR *Collect_Unique_Words_Managed(
         }
     }
     else
-        assert(IS_VOID(ignore));
+        assert(IS_NULLED(ignore));
 
     Collect_Inner_Loop(cl, head);
 
@@ -764,7 +764,7 @@ REBARR *Collect_Unique_Words_Managed(
         }
     }
     else
-        assert(IS_VOID(ignore));
+        assert(IS_NULLED(ignore));
 
     Collect_End(cl);
     return array;
@@ -866,7 +866,7 @@ REBCTX *Make_Selfish_Context_Detect(
     ++var;
 
     for (; len > 1; --len, ++var) // [0] is rootvar (context), already done
-        Init_Void(var);
+        Init_Nulled(var);
 
     if (opt_parent != NULL) {
         //
@@ -1031,7 +1031,7 @@ REBARR *Context_To_Array(REBCTX *context, REBINT mode)
                 // been set.  These contexts cannot be converted to blocks,
                 // since user arrays may not contain void.
                 //
-                if (IS_VOID(var))
+                if (IS_NULLED(var))
                     fail (Error_Null_Object_Block_Raw());
 
                 DS_PUSH(var);
@@ -1256,7 +1256,7 @@ void Resolve_Context(
     key = CTX_KEYS_HEAD(source);
     for (n = 1; NOT_END(key); n++, key++) {
         REBSTR *canon = VAL_KEY_CANON(key);
-        if (IS_VOID(only_words))
+        if (IS_NULLED(only_words))
             Add_Binder_Index(&binder, canon, n);
         else {
             if (Get_Binder_Index_Else_0(&binder, canon) != 0) {
@@ -1276,10 +1276,10 @@ void Resolve_Context(
             // "the remove succeeded, so it's marked as set now" (old comment)
             if (
                 NOT_VAL_FLAG(var, CELL_FLAG_PROTECTED)
-                and (all or IS_VOID(var))
+                and (all or IS_NULLED(var))
             ){
                 if (m < 0)
-                    Init_Void(var); // no value in source context
+                    Init_Nulled(var); // no value in source context
                 else
                     Move_Var(var, CTX_VAR(source, m)); // preserves enfix
             }

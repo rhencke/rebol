@@ -57,7 +57,7 @@ void MAKE_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     REBVAL *make_port_helper = CTX_VAR(Sys_Context, SYS_CTX_MAKE_PORT_P);
     assert(IS_ACTION(make_port_helper));
 
-    assert(not IS_VOID(arg)); // would need to DEVOID it otherwise
+    assert(not IS_NULLED(arg)); // would need to DEVOID it otherwise
     if (Apply_Only_Throws(out, fully, make_port_helper, arg, END))
         fail (Error_No_Catch_For_Throw(out));
 
@@ -141,8 +141,8 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
     DECLARE_LOCAL (write_append);
     Init_Path(write_append, a);
 
-    assert(not IS_VOID(D_ARG(1))); // would need to DEVOID otherwise
-    assert(not IS_VOID(D_ARG(2))); // would need to DEVOID otherwise
+    assert(not IS_NULLED(D_ARG(1))); // would need to DEVOID otherwise
+    assert(not IS_NULLED(D_ARG(2))); // would need to DEVOID otherwise
 
     if (Apply_Only_Throws(
         D_OUT, TRUE, write_append, D_ARG(1), D_ARG(2), END

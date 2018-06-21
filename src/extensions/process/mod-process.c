@@ -248,7 +248,7 @@ int OS_Create_Process(
         si.hStdInput = 0;
         break;
 
-    case REB_MAX_VOID:
+    case REB_MAX_NULLED:
         si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
         break;
 
@@ -309,7 +309,7 @@ int OS_Create_Process(
         si.hStdOutput = 0;
         break;
 
-    case REB_MAX_VOID:
+    case REB_MAX_NULLED:
         si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
         break;
 
@@ -370,7 +370,7 @@ int OS_Create_Process(
         si.hStdError = 0;
         break;
 
-    case REB_MAX_VOID:
+    case REB_MAX_NULLED:
         si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
         break;
 
@@ -895,7 +895,7 @@ int OS_Create_Process(
             close(fd);
         }
         else {
-            assert(IS_VOID(ARG(in)));
+            assert(IS_NULLED(ARG(in)));
             // inherit stdin from the parent
         }
 
@@ -927,7 +927,7 @@ int OS_Create_Process(
             close(fd);
         }
         else {
-            assert(IS_VOID(ARG(out)));
+            assert(IS_NULLED(ARG(out)));
             // inherit stdout from the parent
         }
 
@@ -959,7 +959,7 @@ int OS_Create_Process(
             close(fd);
         }
         else {
-            assert(IS_VOID(ARG(err)));
+            assert(IS_NULLED(ARG(err)));
             // inherit stderr from the parent
         }
 
@@ -1464,7 +1464,7 @@ REBNATIVE(call)
     UNUSED(REF(input)); // implicit by void ARG(in)
     switch (VAL_TYPE(ARG(in))) {
     case REB_BLANK:
-    case REB_MAX_VOID: // no /INPUT, so no argument provided
+    case REB_MAX_NULLED: // no /INPUT, so no argument provided
         os_input = NULL;
         input_len = 0;
         break;

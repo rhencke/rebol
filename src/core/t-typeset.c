@@ -209,7 +209,7 @@ REBOOL Update_Typeset_Bits_Core(
             // A BLANK! in a typeset spec for functions indicates a willingness
             // to take an optional.  (This was once done with the "UNSET!"
             // datatype, but now that there isn't a user-exposed unset data
-            // type this is not done.)  Still, since REB_MAX_VOID is available
+            // type this is not done.)  Still, since REB_MAX_NULLED is available
             // internally it is used in the type filtering here.
             //
             // func [x [<opt> integer!]] => func [x [_ integer!]]
@@ -220,7 +220,7 @@ REBOOL Update_Typeset_Bits_Core(
             // of ANY-TYPE!, which included UNSET! because it was a datatype
             // in R3-Alpha and Rebol2.
             //
-            TYPE_SET(typeset, REB_MAX_VOID);
+            TYPE_SET(typeset, REB_MAX_NULLED);
         }
         else if (IS_DATATYPE(var)) {
             TYPE_SET(typeset, VAL_TYPE_KIND(var));
@@ -324,13 +324,13 @@ void MF_Typeset(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     REBSTR *spelling = VAL_KEY_SPELLING(v);
     if (spelling == NULL) {
         //
-        // Note that although REB_MAX_VOID is used as an implementation detail
+        // Note that although REB_MAX_NULLED is used as an implementation detail
         // for special typesets in function paramlists or context keys to
         // indicate <opt>-style optionality, the "absence of a type" is not
         // generally legal in user typesets.  Only legal "key" typesets
         // (that have symbols).
         //
-        assert(not TYPE_CHECK(v, REB_MAX_VOID));
+        assert(not TYPE_CHECK(v, REB_MAX_NULLED));
     }
     else {
         //

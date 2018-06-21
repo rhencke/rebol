@@ -607,7 +607,7 @@ void Pick_Or_Poke_Date(
 
         case SYM_TIME:
             if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
-                Init_Void(opt_out);
+                Init_Nulled(opt_out);
             else {
                 Move_Value(opt_out, v); // want v's adjusted VAL_NANO()
                 Adjust_Date_Zone(opt_out, FALSE);
@@ -617,7 +617,7 @@ void Pick_Or_Poke_Date(
 
         case SYM_ZONE:
             if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_ZONE)) {
-                Init_Void(opt_out);
+                Init_Nulled(opt_out);
             }
             else {
                 assert(GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME));
@@ -657,7 +657,7 @@ void Pick_Or_Poke_Date(
 
         case SYM_HOUR:
             if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
-                Init_Void(opt_out);
+                Init_Nulled(opt_out);
             else {
                 REB_TIMEF time;
                 Split_Time(VAL_NANO(v), &time);
@@ -667,7 +667,7 @@ void Pick_Or_Poke_Date(
 
         case SYM_MINUTE:
             if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
-                Init_Void(opt_out);
+                Init_Nulled(opt_out);
             else {
                 REB_TIMEF time;
                 Split_Time(VAL_NANO(v), &time);
@@ -677,7 +677,7 @@ void Pick_Or_Poke_Date(
 
         case SYM_SECOND:
             if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
-                Init_Void(opt_out);
+                Init_Nulled(opt_out);
             else {
                 REB_TIMEF time;
                 Split_Time(VAL_NANO(v), &time);
@@ -692,7 +692,7 @@ void Pick_Or_Poke_Date(
             break;
 
         default:
-            Init_Void(opt_out); // "out of range" PICK semantics
+            Init_Nulled(opt_out); // "out of range" PICK semantics
         }
     }
     else {
@@ -727,7 +727,7 @@ void Pick_Or_Poke_Date(
             break;
 
         case SYM_TIME:
-            if (IS_VOID(opt_poke)) { // clear out the time component
+            if (IS_NULLED(opt_poke)) { // clear out the time component
                 CLEAR_VAL_FLAGS(v, DATE_FLAG_HAS_TIME | DATE_FLAG_HAS_ZONE);
                 return;
             }
@@ -744,7 +744,7 @@ void Pick_Or_Poke_Date(
             break;
 
         case SYM_ZONE:
-            if (IS_VOID(opt_poke)) { // clear out the zone component
+            if (IS_NULLED(opt_poke)) { // clear out the zone component
                 CLEAR_VAL_FLAG(v, DATE_FLAG_HAS_ZONE);
                 return;
             }

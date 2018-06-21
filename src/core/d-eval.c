@@ -362,7 +362,7 @@ void Do_Core_Exit_Checks_Debug(REBFRM *f) {
     // distinction is only offered internally, at the moment.
     //
     if (NOT_END(f->out))
-        assert(VAL_TYPE(f->out) <= REB_MAX_VOID);
+        assert(VAL_TYPE(f->out) <= REB_MAX_NULLED);
 
     f->flags.bits |= DO_FLAG_FINAL_DEBUG;
 }

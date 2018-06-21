@@ -138,7 +138,7 @@ static REB_R Loop_Series_Common(
     REBOOL opt
 ){
     if (opt)
-        Init_Void(out); // default result of REPEAT* if body never runs
+        Init_Nulled(out); // default result of REPEAT* if body never runs
     else
         Init_Blank(out); // default result of REPEAT if body never runs
 
@@ -166,7 +166,7 @@ static REB_R Loop_Series_Common(
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_VOID(out))
+            if (not opt and IS_NULLED(out))
                 return R_BLANK; // blankify continue if needed
         }
         return R_OUT;
@@ -191,7 +191,7 @@ static REB_R Loop_Series_Common(
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_VOID(out))
+            if (not opt and IS_NULLED(out))
                 Init_Blank(out); // blankify continues if needed
         }
 
@@ -229,7 +229,7 @@ static REB_R Loop_Integer_Common(
     REBOOL opt
 ){
     if (opt)
-        Init_Void(out); // default for REPEAT* if body never runs
+        Init_Nulled(out); // default for REPEAT* if body never runs
     else
         Init_Blank(out); // default for REPEAT if body never runs
 
@@ -250,7 +250,7 @@ static REB_R Loop_Integer_Common(
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_VOID(out))
+            if (not opt and IS_NULLED(out))
                 return R_BLANK; // blankify CONTINUE if needed
         }
         return R_OUT;
@@ -271,7 +271,7 @@ static REB_R Loop_Integer_Common(
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_VOID(out))
+            if (not opt and IS_NULLED(out))
                 Init_Blank(out); // blankify continues if needed
         }
 
@@ -299,7 +299,7 @@ static REB_R Loop_Number_Common(
     REBOOL opt
 ){
     if (opt)
-        Init_Void(out); // default result for LOOP* if body never runs
+        Init_Nulled(out); // default result for LOOP* if body never runs
     else
         Init_Blank(out); // default result for LOOP if body never runs
 
@@ -343,7 +343,7 @@ static REB_R Loop_Number_Common(
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_VOID(out))
+            if (not opt and IS_NULLED(out))
                 return R_BLANK; // blankify continue if needed
         }
         return R_OUT;
@@ -362,7 +362,7 @@ static REB_R Loop_Number_Common(
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_VOID(out))
+            if (not opt and IS_NULLED(out))
                 Init_Blank(out); // blankify continue if needed
         }
 
@@ -394,7 +394,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     const REBOOL opt = (mode == LOOP_MAP_EACH);
 
     REBVAL *data = ARG(data);
-    assert(not IS_VOID(data));
+    assert(not IS_NULLED(data));
 
     if (IS_BLANK(data))
         return R_NULL; // blank in, void out (same result as BREAK)
@@ -403,7 +403,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     REBOOL threw = FALSE; // did a non-BREAK or non-CONTINUE throw occur
 
     if (opt)
-        Init_Void(D_OUT); // default result for FOR-EACH*, etc if no body runs
+        Init_Nulled(D_OUT); // default result for FOR-EACH*, etc if no body runs
     else
         Init_Blank(D_OUT); // default result for FOR-EACH, etc if no body runs
 
@@ -495,7 +495,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 var = pseudo_var;
 
             if (index >= tail) {
-                Init_Void(var);
+                Init_Nulled(var);
                 continue;
             }
 
@@ -560,7 +560,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 // MAP! does not store RELVALs
                 //
                 REBVAL *val = KNOWN(ARR_AT(ARR(series), index | 1));
-                if (not IS_VOID(val)) {
+                if (not IS_NULLED(val)) {
                     if (j == 0) {
                         Derelativize(
                             var,
@@ -613,7 +613,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 break;
             }
 
-            if (not opt and IS_VOID(D_OUT))
+            if (not opt and IS_NULLED(D_OUT))
                 Init_Blank(D_OUT); // blankify if necessary
 
             // Fall through and process the D_OUT (unset if no /WITH) for
@@ -627,12 +627,12 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
         case LOOP_MAP_EACH:
             // anything that's not void will be added to the result
-            if (not IS_VOID(D_OUT))
+            if (not IS_NULLED(D_OUT))
                 DS_PUSH(D_OUT);
             break;
 
         case LOOP_EVERY:
-            if (IS_VOID(D_OUT)) {
+            if (IS_NULLED(D_OUT)) {
                 // Unsets "opt out" of the vote, as with ANY and ALL
             }
             else if (IS_FALSEY(D_OUT))
@@ -831,7 +831,7 @@ REBNATIVE(for_skip)
         return R_NULL; // blank in, void out (same result as BREAK)
 
     if (REF(opt))
-        Init_Void(D_OUT); // default result for FOR-SKIP*
+        Init_Nulled(D_OUT); // default result for FOR-SKIP*
     else
         Init_Blank(D_OUT); // default result for FOR-SKIP
 
@@ -839,7 +839,7 @@ REBNATIVE(for_skip)
     // status can change, etc.  It must be re-fetched on each loop.
     //
     REBVAL *var = Get_Mutable_Var_May_Fail(word, SPECIFIED);
-    if (IS_VOID(var))
+    if (IS_NULLED(var))
         fail (Error_No_Value(word));
     if (not ANY_SERIES(var))
         fail (Error_Invalid(var));
@@ -881,7 +881,7 @@ REBNATIVE(for_skip)
                 return R_NULL;
             }
 
-            if (REF(opt) and IS_VOID(D_OUT))
+            if (REF(opt) and IS_NULLED(D_OUT))
                 Init_Blank(D_OUT); // blankify continues if necessary
         }
 
@@ -890,7 +890,7 @@ REBNATIVE(for_skip)
         // Modifications to var are allowed, to another ANY-SERIES! value.
         //
         var = Get_Mutable_Var_May_Fail(word, SPECIFIED);
-        if (IS_VOID(var))
+        if (IS_NULLED(var))
             fail (Error_No_Value(word));
         if (not ANY_SERIES(var))
             fail (Error_Invalid(var));
@@ -1113,7 +1113,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
                 //     data: copy "abc"
                 //     remove-each [x y] data [...]
                 //
-                Init_Void(var);
+                Init_Nulled(var);
                 continue; // the `for` loop setting variables
             }
 
@@ -1149,7 +1149,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
         }
 
         if (ANY_ARRAY(res->data)) {
-            if (IS_VOID(res->out) or IS_FALSEY(res->out)) {
+            if (IS_NULLED(res->out) or IS_FALSEY(res->out)) {
                 res->start = index;
                 continue; // keep requested, don't mark for culling
             }
@@ -1162,7 +1162,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
             } while (res->start != index);
         }
         else {
-            if (not IS_VOID(res->out) and IS_TRUTHY(res->out)) {
+            if (not IS_NULLED(res->out) and IS_TRUTHY(res->out)) {
                 res->start = index;
                 continue; // remove requested, don't save to buffer
             }
@@ -1389,7 +1389,7 @@ REBNATIVE(loop)
         return R_BLANK; // must be false...opposite of infinite loop
 
     if (REF(opt))
-        Init_Void(D_OUT); // result for LOOP* if body never runs
+        Init_Nulled(D_OUT); // result for LOOP* if body never runs
     else
         Init_Blank(D_OUT); // result for LOOP if body never runs
 
@@ -1415,7 +1415,7 @@ REBNATIVE(loop)
             if (stop)
                 return R_NULL;
 
-            if (not REF(opt) and IS_VOID(D_OUT))
+            if (not REF(opt) and IS_NULLED(D_OUT))
                 Init_Blank(D_OUT); // blankify voids if needed
         }
     }
@@ -1511,13 +1511,13 @@ inline static REB_R Until_Core(REBFRM *frame_, REBOOL trigger)
             // conditions must be true or false...and continue needs to work.
             // Hence it just means to continue either way.
             //
-            if (IS_VOID(D_OUT)) {
+            if (IS_NULLED(D_OUT)) {
                 Init_Blank(D_OUT);
                 goto skip_check;
             }
         }
         else { // didn't throw, see above about null difference from CONTINUE
-            if (IS_VOID(D_OUT))
+            if (IS_NULLED(D_OUT))
                 fail (Error_No_Return_Raw());
         }
     } while (IS_TRUTHY(D_OUT) == trigger);
@@ -1570,7 +1570,7 @@ inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
     INCLUDE_PARAMS_OF_WHILE;
 
     if (REF(opt))
-        Init_Void(D_OUT); // default result for WHILE* and WHILE-NOT*
+        Init_Nulled(D_OUT); // default result for WHILE* and WHILE-NOT*
     else
         Init_Blank(D_OUT); // default result for WHILE and WHILE-NOT
 
@@ -1587,7 +1587,7 @@ inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
             return R_OUT_IS_THROWN;
         }
 
-        if (IS_VOID(D_CELL))
+        if (IS_NULLED(D_CELL))
             fail (Error_No_Return_Raw()); // void is neither truthy nor falsey
 
         if (IS_TRUTHY(D_CELL) != trigger)
@@ -1599,7 +1599,7 @@ inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not REF(opt) and IS_VOID(D_OUT))
+            if (not REF(opt) and IS_NULLED(D_OUT))
                 Init_Blank(D_OUT); // blankify voids
         }
     } while (TRUE);

@@ -580,7 +580,7 @@ void Pick_Vector(REBVAL *out, const REBVAL *value, const REBVAL *picker) {
         fail (Error_Invalid(picker));
 
     if (n == 0) {
-        Init_Void(out);
+        Init_Nulled(out);
         return; // Rebol2/Red convention, 0 is bad pick
     }
 
@@ -590,7 +590,7 @@ void Pick_Vector(REBVAL *out, const REBVAL *value, const REBVAL *picker) {
     n += VAL_INDEX(value);
 
     if (n <= 0 or cast(REBCNT, n) > SER_LEN(vect)) {
-        Init_Void(out);
+        Init_Nulled(out);
         return; // out of range of vector data
     }
 

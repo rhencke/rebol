@@ -1232,7 +1232,7 @@ REBCTX *Error_Bad_Refine_Revoke(const RELVAL *param, const REBVAL *arg)
     DECLARE_LOCAL (refine_name);
     Init_Refinement(refine_name, VAL_PARAM_SPELLING(param));
 
-    if (IS_VOID(arg)) // was void and shouldn't have been
+    if (IS_NULLED(arg)) // was void and shouldn't have been
         return Error_Bad_Refine_Revoke_Raw(refine_name, param_name);
 
     // wasn't void and should have been
@@ -1368,14 +1368,14 @@ REBCTX *Error_Arg_Type(
     DECLARE_LOCAL (label);
     Get_Frame_Label_Or_Blank(label, f);
 
-    if (actual != REB_MAX_VOID)
+    if (actual != REB_MAX_NULLED)
         return Error_Expect_Arg_Raw(
             label,
             Datatype_From_Kind(actual),
             param_word
         );
 
-    // Although REB_MAX_VOID is not a type, the typeset bits are used
+    // Although REB_MAX_NULLED is not a type, the typeset bits are used
     // to check it.  Since Datatype_From_Kind() will fail, use another error.
     //
     return Error_Arg_Required_Raw(label, param_word);
@@ -1389,7 +1389,7 @@ REBCTX *Error_Bad_Return_Type(REBFRM *f, enum Reb_Kind kind) {
     DECLARE_LOCAL (label);
     Get_Frame_Label_Or_Blank(label, f);
 
-    if (kind == REB_MAX_VOID)
+    if (kind == REB_MAX_NULLED)
         return Error_Needs_Return_Value_Raw(label);
 
     return Error_Bad_Return_Type_Raw(label, Datatype_From_Kind(kind));

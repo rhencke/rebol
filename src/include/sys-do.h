@@ -317,7 +317,7 @@ detect_again:;
 
     case DETECTED_AS_NULL: { // libRebol's null/<opt> (IS_VOID prohibited below)
         f->source.array = nullptr;
-        f->value = VOID_CELL;
+        f->value = NULLED_CELL;
         break; }
 
     case DETECTED_AS_UTF8: {
@@ -443,8 +443,8 @@ detect_again:;
 
     case DETECTED_AS_VALUE: {
         const REBVAL *cell = cast(const REBVAL*, p);
-        if (IS_VOID(cell))
-            fail ("VOID cell leaked to API, see DEVOID() in C sources");
+        if (IS_NULLED(cell))
+            fail ("VOID cell leaked to API, see NULLIZE() in C sources");
 
         if (Is_Api_Value(cell)) {
             //
@@ -461,7 +461,7 @@ detect_again:;
         f->value = cell; // note that END is detected separately
         assert(
             not IS_RELATIVE(f->value) or (
-                IS_VOID(f->value)
+                IS_NULLED(f->value)
                 and (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
             )
         );
@@ -864,7 +864,7 @@ inline static REBIXO DO_NEXT_MAY_THROW(
     SET_FRAME_VALUE(f, ARR_AT(array, index));
 
     if (FRM_AT_END(f)) {
-        Init_Void(out); // shouldn't set VALUE_FLAG_UNEVALUATED
+        Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
         return END_FLAG;
     }
 
@@ -888,7 +888,7 @@ inline static REBIXO DO_NEXT_MAY_THROW(
 
     if (FRM_AT_END(f)) {
         if (IS_END(out))
-            Init_Void(out); // shouldn't set VALUE_FLAG_UNEVALUATED
+            Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
 
         return END_FLAG;
     }
@@ -932,7 +932,7 @@ inline static REBIXO Do_Array_At_Core(
         if (flags & DO_FLAG_FULFILLING_ARG)
             Init_Endish_Void(out);
         else
-            Init_Void(out); // shouldn't set VALUE_FLAG_UNEVALUATED
+            Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
         return END_FLAG;
     }
 
@@ -954,7 +954,7 @@ inline static REBIXO Do_Array_At_Core(
             if (flags & DO_FLAG_FULFILLING_ARG)
                 Init_Endish_Void(out);
             else
-                Init_Void(out); // shouldn't set VALUE_FLAG_UNEVALUATED
+                Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
         }
 
         return END_FLAG;
@@ -1123,7 +1123,7 @@ inline static REBIXO Do_Va_Core(
     }
 
     if (FRM_AT_END(f)) {
-        Init_Void(out);
+        Init_Nulled(out);
         return END_FLAG;
     }
 
@@ -1321,11 +1321,11 @@ inline static REBOOL Run_Branch_Throws(
         assert(IS_ACTION(branch));
 
         const REBOOL fully = false; // arity-0 functions can ignore condition
-        if (Apply_Only_Throws(out, fully, branch, DEVOID(condition), END))
+        if (Apply_Only_Throws(out, fully, branch, NULLIZE(condition), END))
             return true;
     }
 
-    if (not opt and IS_VOID(out))
+    if (not opt and IS_NULLED(out))
         Init_Blank(out); // "blankification", see comment above
 
     return false;

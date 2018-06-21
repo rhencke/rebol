@@ -473,7 +473,7 @@ static void Sort_Block(
         flags.offset = Int32(compv) - 1;
     }
     else {
-        assert(IS_VOID(compv));
+        assert(IS_NULLED(compv));
         flags.comparator = NULL;
         flags.offset = 0;
     }
@@ -486,7 +486,7 @@ static void Sort_Block(
 
     // Skip factor:
     REBCNT skip;
-    if (!IS_VOID(skipv)) {
+    if (not IS_NULLED(skipv)) {
         skip = Get_Num_From_Arg(skipv);
         if (skip <= 0 || len % skip != 0 || skip > len)
             fail (Error_Out_Of_Range(skipv));
@@ -606,7 +606,7 @@ REB_R PD_Array(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         if (opt_setval)
             return R_UNHANDLED;
 
-        Init_Void(pvs->out);
+        Init_Nulled(pvs->out);
         return R_OUT;
     }
 
@@ -633,7 +633,7 @@ RELVAL *Pick_Block(REBVAL *out, const REBVAL *block, const REBVAL *picker)
     REBINT n = Get_Num_From_Arg(picker);
     n += VAL_INDEX(block) - 1;
     if (n < 0 || cast(REBCNT, n) >= VAL_LEN_HEAD(block)) {
-        Init_Void(out);
+        Init_Nulled(out);
         return NULL;
     }
 
@@ -1033,7 +1033,7 @@ REBTYPE(Array)
             );
 
             RELVAL *slot = Pick_Block(D_OUT, value, ARG(seed));
-            if (IS_VOID(D_OUT)) {
+            if (IS_NULLED(D_OUT)) {
                 assert(slot == NULL);
                 UNUSED(slot);
                 return R_NULL;

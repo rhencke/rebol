@@ -103,7 +103,7 @@ static void Schema_From_Block_May_Fail(
         switch (VAL_WORD_SYM(item)) {
         case SYM_VOID:
             Init_Blank(schema_out); // only valid for return types
-            Init_Typeset(param_out, FLAGIT_KIND(REB_MAX_VOID), NULL);
+            Init_Typeset(param_out, FLAGIT_KIND(REB_MAX_NULLED), NULL);
             break;
 
         case SYM_UINT8:
@@ -847,7 +847,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
     );
 
     if (IS_BLANK(RIN_RET_SCHEMA(rin)))
-        Init_Void(f->out);
+        Init_Nulled(f->out);
     else
         ffi_to_rebol(f->out, RIN_RET_SCHEMA(rin), ret_offset);
 

@@ -137,10 +137,10 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
     RELVAL *item = ARR_AT(FRM_ARRAY(f), start);
     for (; NOT_END(item) and count < 6; ++item, ++count) {
         DS_PUSH_TRASH;
-        if (IS_VOID(item)) {
+        if (IS_NULLED(item)) {
             //
             // If a va_list is used to do a non-evaluative call (something
-            // like R3-Alpha's APPLY/ONLY) then void cells are currently
+            // like R3-Alpha's APPLY/ONLY) then nulled cells are currently
             // allowed.  Reify_Va_To_Array_In_Frame() may come along and
             // make a special block containing voids, which we don't want
             // to expose in a user-visible block.  Since this array is just

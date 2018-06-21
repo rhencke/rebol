@@ -492,7 +492,7 @@ void Partial1(
 ){
     REBOOL is_series = ANY_SERIES(value);
 
-    if (IS_VOID(limit)) { // use current length of the target value
+    if (IS_NULLED(limit)) { // use current length of the target value
         if (!is_series) {
             *span = 1;
         }
@@ -565,7 +565,7 @@ REBINT Partial(REBVAL *aval, REBVAL *bval, REBVAL *lval)
     REBINT maxlen;
 
     // If lval is unset, use the current len of the target value:
-    if (IS_VOID(lval)) {
+    if (IS_NULLED(lval)) {
         val = (bval and ANY_SERIES(bval)) ? bval : aval;
         if (VAL_INDEX(val) >= VAL_LEN_HEAD(val))
             return 0;

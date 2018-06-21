@@ -476,7 +476,7 @@ inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
 // The Get_Opt_Var_May_Fail() function takes the conservative default that
 // only const access is needed.  A const pointer to a REBVAL is given back
 // which may be inspected, but the contents not modified.  While a bound
-// variable that is not currently set will return a REB_MAX_VOID value, trying
+// variable that is not currently set will return a REB_MAX_NULLED value, trying
 // to Get_Opt_Var_May_Fail() on an *unbound* word will raise an error.
 //
 // Get_Mutable_Var_May_Fail() offers a parallel facility for getting a

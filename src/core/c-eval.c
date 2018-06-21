@@ -64,7 +64,7 @@
     // using the `--breakpoint NNN` option.
     //
     // Notice also that in debug builds, `REBSER.tick` carries this value.
-    // *Plus* you can get the initialization tick for void cells, BLANK!s,
+    // *Plus* you can get the initialization tick for nulled cells, BLANK!s,
     // LOGIC!s, and most end markers by looking at the `track` payload of
     // the REBVAL cell.  And series contain the `REBSER.tick` where they were
     // created as well.
@@ -180,7 +180,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 //
 // Additionally, in the f->param state, f->special will never register as
 // anything other than a typeset.  This increases performance of some checks,
-// e.g. `IS_VOID(f->special)` can only match the other two cases.
+// e.g. `IS_NULLED(f->special)` can only match the other two cases.
 //
 
 inline static REBOOL In_Typecheck_Mode(REBFRM *f) {
@@ -227,7 +227,7 @@ inline static void Finalize_Arg(
         or (IS_LOGIC(refine) and IS_TRUTHY(refine)) // ensure arg not void
     );
 
-    if (IS_VOID(arg)) {
+    if (IS_NULLED(arg)) {
         if (IS_LOGIC(refine)) {
             //
             // We can only revoke the refinement if this is the 1st
@@ -732,7 +732,7 @@ reevaluate:;
                 if (In_Unspecialized_Mode(f))
                     goto unspecialized_refinement; // most common case
 
-                if (IS_VOID(f->special)) {
+                if (IS_NULLED(f->special)) {
                     //
                     // Even just In_Typecheck_Mode(), we still may either
                     // APPLY a function with refinements (apply 'append/only)
@@ -858,14 +858,14 @@ reevaluate:;
 
             switch (pclass) {
             case PARAM_CLASS_LOCAL:
-                Init_Void(f->arg); // !!! f->special?
+                Init_Nulled(f->arg); // !!! f->special?
                 goto continue_arg_loop;
 
             case PARAM_CLASS_RETURN:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
 
                 if (not GET_ACT_FLAG(f->phase, ACTION_FLAG_RETURN)) {
-                    Init_Void(f->arg);
+                    Init_Nulled(f->arg);
                     goto continue_arg_loop;
                 }
 
@@ -877,7 +877,7 @@ reevaluate:;
                 assert(VAL_PARAM_SYM(f->param) == SYM_LEAVE);
 
                 if (not GET_ACT_FLAG(f->phase, ACTION_FLAG_LEAVE)) {
-                    Init_Void(f->arg);
+                    Init_Nulled(f->arg);
                     goto continue_arg_loop;
                 }
 
@@ -915,7 +915,7 @@ reevaluate:;
 
     //=//// SPECIALIZED ARG ///////////////////////////////////////////////=//
 
-                if (not IS_VOID(f->special)) {
+                if (not IS_NULLED(f->special)) {
                     Move_Value(f->arg, f->special);
 
                     // SPECIALIZE checks types at specialization time, to
@@ -934,7 +934,7 @@ reevaluate:;
             // further processing or checking.  void will always be fine.
             //
             if (f->refine == ARG_TO_UNUSED_REFINEMENT) {
-                Init_Void(f->arg);
+                Init_Nulled(f->arg);
                 goto continue_arg_loop;
             }
 
@@ -1437,7 +1437,7 @@ reevaluate:;
             break;
 
         case R_NULL:
-            Init_Void(f->out);
+            Init_Nulled(f->out);
             break;
 
         case R_BLANK:
@@ -1518,7 +1518,7 @@ reevaluate:;
                         f->special = CTX_VARS_HEAD(exemplar);
                         f->arg = f->args_head;
                         for (; NOT_END(f->arg); ++f->arg, ++f->special) {
-                            if (IS_VOID(f->special)) // no specialization
+                            if (IS_NULLED(f->special)) // no specialization
                                 continue;
                             Move_Value(f->arg, f->special); // reset it
                         }
@@ -1661,7 +1661,7 @@ reevaluate:;
                 f->out,
                 true, // fully = true
                 fun,
-                DEVOID(KNOWN(&f->cell)), // void cell => nullptr for API
+                NULLIZE(KNOWN(&f->cell)), // nulled cell => nullptr for API
                 END
             )){
                 goto abort_action;
@@ -1693,7 +1693,7 @@ reevaluate:;
         if (current_gotten == END)
             current_gotten = Get_Opt_Var_May_Fail(current, f->specifier);
 
-        if (IS_ACTION(current_gotten)) { // before IS_VOID() is common case
+        if (IS_ACTION(current_gotten)) { // before IS_NULLED() is common case
             Push_Action(
                 f,
                 VAL_WORD_SPELLING(current),
@@ -1723,7 +1723,7 @@ reevaluate:;
             goto process_action;
         }
 
-        if (IS_VOID(current_gotten)) // need `:x` if `x` is unset
+        if (IS_NULLED(current_gotten)) // need `:x` if `x` is unset
             fail (Error_No_Value_Core(current, f->specifier));
 
         Move_Value(f->out, current_gotten); // no copy VALUE_FLAG_UNEVALUATED
@@ -1769,7 +1769,7 @@ reevaluate:;
             // or we ARE evaluating and there IS A special exemption.  Treat
             // the f->value as inert.
             //
-            if (IS_VOID(f->value))
+            if (IS_NULLED(f->value))
                 fail (Error_Need_Value_Core(current, f->specifier));
 
             Derelativize(f->out, f->value, f->specifier);
@@ -1792,7 +1792,7 @@ reevaluate:;
                 goto finished;
             }
 
-            if (IS_VOID(f->out))
+            if (IS_NULLED(f->out))
                 fail (Error_Need_Value_Raw(DS_TOP));
 
             Move_Value(Sink_Var_May_Fail(DS_TOP, SPECIFIED), f->out);
@@ -1849,7 +1849,7 @@ reevaluate:;
     case REB_GROUP: {
         REBCNT len = VAL_LEN_AT(current);
         if (len == 0) {
-            Init_Void(f->out);
+            Init_Nulled(f->out);
             break; // no VALUE_FLAG_UNEVALUATED
         }
 
@@ -1913,7 +1913,7 @@ reevaluate:;
             goto finished;
         }
 
-        if (IS_VOID(f->out)) // need `:x/y` if `y` is unset
+        if (IS_NULLED(f->out)) // need `:x/y` if `y` is unset
             fail (Error_No_Value_Core(current, f->specifier));
 
         if (IS_ACTION(f->out)) {
@@ -1994,7 +1994,7 @@ reevaluate:;
             // or we ARE evaluating and there IS A special exemption.  Treat
             // the f->value as inert.
 
-            if (IS_VOID(f->value))
+            if (IS_NULLED(f->value))
                 fail (Error_Need_Value_Core(current, f->specifier));
 
             Derelativize(f->out, f->value, f->specifier);
@@ -2031,7 +2031,7 @@ reevaluate:;
                 goto finished;
             }
 
-            if (IS_VOID(f->out))
+            if (IS_NULLED(f->out))
                 fail (Error_Need_Value_Raw(DS_TOP));
 
             // The path cannot be executed directly from the data stack, so
@@ -2215,10 +2215,10 @@ reevaluate:;
 //
 // [void]
 //
-// Void is not an ANY-VALUE!, and void cells are not allowed in ANY-ARRAY!
+// Void is not an ANY-VALUE!, and nulled cells are not allowed in ANY-ARRAY!
 // exposed to the user.  So usually, a DO shouldn't be able to see them,
 // unless they are un-evaluated...e.g. `Apply_Only_Throws()` passes in a
-// VOID_CELL as an evaluation-already-accounted-for parameter to a function.
+// NULLED_CELL as an evaluation-already-accounted-for parameter to a function.
 //
 // The exception case is something like `eval ()`, which is the user
 // deliberately trying to invoke the evaluator on a void.  (Not to be confused
@@ -2231,9 +2231,9 @@ reevaluate:;
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_MAX_VOID:
+    case REB_MAX_NULLED:
         if (evaluating == GET_VAL_FLAG(current, VALUE_FLAG_EVAL_FLIP)) {
-            Init_Void(f->out); // it's inert, treat as okay
+            Init_Nulled(f->out); // it's inert, treat as okay
         }
         else {
             // must be EVAL, so the value must be living in the frame cell

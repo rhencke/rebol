@@ -491,7 +491,7 @@ REBVAL *RL_rebRun(const void *p, ...)
         fail (Error_No_Catch_For_Throw(uncaught));
     }
 
-    if (not IS_VOID(result))
+    if (not IS_NULLED(result))
         return result;
 
     // To API clients, null means void.  This provides convenience for testing
@@ -609,7 +609,7 @@ const void *RL_rebEval(const REBVAL *v)
 {
     Enter_Api();
 
-    if (IS_VOID(v))
+    if (IS_NULLED(v))
         fail ("Cannot pass voids to rebEval()");
 
     // !!! The presence of the VALUE_FLAG_EVAL_FLIP is a pretty good
@@ -976,7 +976,7 @@ REBVAL *RL_rebRescue(
     if (not result)
         return nullptr; // null is considered a legal result
 
-    assert(not IS_VOID(result)); // leaked non-API null
+    assert(not IS_NULLED(result)); // leaked non-API null
 
     // Analogous to how TRAP works, if you don't have a handler for the
     // error case then you can't return an ERROR!, since all errors indicate
@@ -1031,7 +1031,7 @@ REBVAL *RL_rebRescueWith(
     }
 
     REBVAL *result = (*dangerous)(opaque); // guarded by trap
-    assert(not IS_VOID(result)); // void cells not exposed by API
+    assert(not IS_NULLED(result)); // nulled cells not exposed by API
 
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 
@@ -1333,7 +1333,7 @@ char *RL_rebSpellAlloc(const void *p, ...)
     if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(string));
 
-    if (IS_VOID(string))
+    if (IS_NULLED(string))
         return NULL; // NULL is passed through, for opting out
 
     size_t size = rebSpellingOf(nullptr, 0, string);
@@ -1430,7 +1430,7 @@ REBWCHAR *RL_rebSpellAllocW(const void *p, ...)
     if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(string));
 
-    if (IS_VOID(string))
+    if (IS_NULLED(string))
         return NULL; // NULL is passed through, for opting out
 
     REBCNT len = rebSpellingOfW(nullptr, 0, string);
@@ -1503,7 +1503,7 @@ REBYTE *RL_rebBytesAlloc(REBSIZ *size_out, const void *p, ...)
     if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(series));
 
-    if (IS_VOID(series)) {
+    if (IS_NULLED(series)) {
         *size_out = 0;
         return NULL; // NULL is passed through, for opting out
     }

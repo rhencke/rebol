@@ -645,7 +645,7 @@ struct Reb_Frame {
     // value can be used to test without typing, but then can also be
     // checked with conditional truth and falsehood.
     //
-    // * If VOID_CELL, then refinements are being skipped and the arguments
+    // * If NULLED_CELL, then refinements are being skipped and the arguments
     //   that follow should not be written to.
     //
     // * If BLANK_VALUE, this is an arg to a refinement that was not used in

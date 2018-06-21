@@ -143,7 +143,7 @@ REBINT Find_Key_Hashed(
                     if (VAL_WORD_CANON(key) == VAL_WORD_CANON(k))
                         FOUND_SYNONYM;
             }
-            if (wide > 1 && IS_VOID(k + 1) && zombie_slot == -1)
+            if (wide > 1 && IS_NULLED(k + 1) && zombie_slot == -1)
                 zombie_slot = slot;
 
             slot += skip;
@@ -162,7 +162,7 @@ REBINT Find_Key_Hashed(
                     if (0 == Compare_String_Vals(k, key, TRUE))
                         FOUND_SYNONYM;
             }
-            if (wide > 1 && IS_VOID(k + 1) && zombie_slot == -1)
+            if (wide > 1 && IS_NULLED(k + 1) && zombie_slot == -1)
                 zombie_slot = slot;
 
             slot += skip;
@@ -181,7 +181,7 @@ REBINT Find_Key_Hashed(
                     if (IS_CHAR(k) && 0 == Cmp_Value(k, key, FALSE))
                         FOUND_SYNONYM; // CHAR! is only non-STRING!/WORD! case
             }
-            if (wide > 1 && IS_VOID(k + 1) && zombie_slot == -1)
+            if (wide > 1 && IS_NULLED(k + 1) && zombie_slot == -1)
                 zombie_slot = slot;
 
             slot += skip;
@@ -235,7 +235,7 @@ static void Rehash_Map(REBMAP *map)
     for (n = 0; n < ARR_LEN(pairlist); n += 2, key += 2) {
         const REBOOL cased = TRUE; // cased=TRUE is always fine
 
-        if (IS_VOID(key + 1)) {
+        if (IS_NULLED(key + 1)) {
             //
             // It's a "zombie", move last key to overwrite it
             //
@@ -255,7 +255,7 @@ static void Rehash_Map(REBMAP *map)
 
         // discard zombies at end of pairlist
         //
-        while (IS_VOID(ARR_AT(pairlist, ARR_LEN(pairlist) - 1))) {
+        while (IS_NULLED(ARR_AT(pairlist, ARR_LEN(pairlist) - 1))) {
             SET_ARRAY_LEN_NOTERM(pairlist, ARR_LEN(pairlist) - 2);
         }
     }
@@ -305,7 +305,7 @@ REBCNT Find_Map_Entry(
     REBSPC *val_specifier,
     REBOOL cased // case-sensitive if true
 ) {
-    assert(!IS_VOID(key));
+    assert(not IS_NULLED(key));
 
     REBSER *hashlist = MAP_HASHLIST(map); // can be null
     REBARR *pairlist = MAP_PAIRLIST(map);
@@ -350,7 +350,7 @@ REBCNT Find_Map_Entry(
         return n;
     }
 
-    if (IS_VOID(val)) return 0; // trying to remove non-existing key
+    if (IS_NULLED(val)) return 0; // trying to remove non-existing key
 
     // Create new entry.  Note that it does not copy underlying series (e.g.
     // the data of a string), which is why the immutability test is necessary
@@ -401,7 +401,7 @@ REB_R PD_Map(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     REBVAL *val = KNOWN(
         ARR_AT(MAP_PAIRLIST(VAL_MAP(pvs->out)), ((n - 1) * 2) + 1)
     );
-    if (IS_VOID(val)) // zombie entry, means unused
+    if (IS_NULLED(val)) // zombie entry, means unused
         return R_NULL;
 
     Move_Value(pvs->out, val);
@@ -487,7 +487,7 @@ inline static REBMAP *Copy_Map(REBMAP *map, REBU64 types) {
         assert(Is_Value_Immutable(key)); // immutable key
 
         RELVAL *v = key + 1;
-        if (IS_VOID(v))
+        if (IS_NULLED(v))
             continue; // "zombie" map element (not present)
 
         // No plain Clonify_Value() yet, call on values with length of 1.
@@ -553,7 +553,7 @@ REBARR *Map_To_Array(REBMAP *map, REBINT what)
     REBVAL *val = KNOWN(ARR_HEAD(MAP_PAIRLIST(map)));
     for (; NOT_END(val); val += 2) {
         assert(NOT_END(val + 1));
-        if (!IS_VOID(val + 1)) {
+        if (not IS_NULLED(val + 1)) {
             if (what <= 0) {
                 Move_Value(dest, &val[0]);
                 ++dest;
@@ -613,7 +613,7 @@ REBCTX *Alloc_Context_From_Map(REBMAP *map)
 
     for (; NOT_END(mval); mval += 2) {
         assert(NOT_END(mval + 1));
-        if (ANY_WORD(mval) && !IS_VOID(mval + 1))
+        if (ANY_WORD(mval) and not IS_NULLED(mval + 1))
             ++count;
     }
 
@@ -627,14 +627,14 @@ REBCTX *Alloc_Context_From_Map(REBMAP *map)
 
     for (; NOT_END(mval); mval += 2) {
         assert(NOT_END(mval + 1));
-        if (ANY_WORD(mval) && !IS_VOID(mval + 1)) {
+        if (ANY_WORD(mval) and not IS_NULLED(mval + 1)) {
             // !!! Used to leave SET_WORD typed values here... but why?
             // (Objects did not make use of the set-word vs. other distinctions
             // that function specs did.)
             Init_Typeset(
                 key,
                 // all types except void
-                ~FLAGIT_KIND(REB_MAX_VOID),
+                ~FLAGIT_KIND(REB_MAX_NULLED),
                 VAL_WORD_SPELLING(mval)
             );
             ++key;
@@ -680,7 +680,7 @@ void MF_Map(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     RELVAL *key = ARR_HEAD(MAP_PAIRLIST(m));
     for (; NOT_END(key); key += 2) {
         assert(NOT_END(key + 1)); // value slot must not be END
-        if (IS_VOID(key + 1))
+        if (IS_NULLED(key + 1))
             continue; // if value for this key is void, key has been removed
 
         if (not form)
@@ -792,7 +792,7 @@ REBTYPE(Map)
         );
 
         if (verb == SYM_FIND)
-            return IS_VOID(D_OUT) ? R_NULL : R_BAR;
+            return IS_NULLED(D_OUT) ? R_NULL : R_BAR;
 
         return R_OUT; }
 
@@ -862,7 +862,7 @@ REBTYPE(Map)
 
         Move_Value(D_OUT, val);
         Find_Map_Entry(
-            map, ARG(key), SPECIFIED, VOID_CELL, SPECIFIED, TRUE
+            map, ARG(key), SPECIFIED, NULLED_CELL, SPECIFIED, TRUE
         );
         return R_OUT; }
 

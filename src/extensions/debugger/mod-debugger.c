@@ -116,8 +116,8 @@ static REBNATIVE(breakpoint)
     if (Do_Breakpoint_Throws(
         D_OUT,
         FALSE, // not a Ctrl-C, it's an actual BREAKPOINT
-        VOID_CELL, // default result if RESUME does not override
-        FALSE // !execute (don't try to evaluate the VOID_CELL)
+        NULLED_CELL, // default result if RESUME does not override
+        FALSE // !execute (don't try to evaluate the NULLED_CELL)
     )){
         return R_OUT_IS_THROWN;
     }
@@ -127,7 +127,7 @@ static REBNATIVE(breakpoint)
     // return *either* a value or no-value...if breakpoint were variadic, it
     // could splice in a value in place of what comes after it.
     //
-    if (not IS_VOID(D_OUT))
+    if (not IS_NULLED(D_OUT))
         fail ("BREAKPOINT is invisible, can't RESUME/WITH code (use PAUSE)");
 
     return R_INVISIBLE;
@@ -257,7 +257,7 @@ REBFRM *Frame_For_Stack_Level(
         if (IS_INTEGER(level) && num == VAL_INT32(level))
             goto return_maybe_set_number_out;
 
-        if (IS_VOID(level) || IS_BLANK(level)) {
+        if (IS_NULLED(level) || IS_BLANK(level)) {
             //
             // Take first actual frame if void or blank
             //
@@ -492,7 +492,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
     const REBVAL **last_failed = cast(const REBVAL**, malloc(sizeof(REBVAL*)));
     *last_failed = BLANK_VALUE; // indicate first call to REPL
 
-    Init_Void(instruction_out);
+    Init_Nulled(instruction_out);
 
     DECLARE_LOCAL (frame);
     Init_Blank(frame);
@@ -959,7 +959,7 @@ static REBNATIVE(debug)
 
     REBVAL *value = ARG(value);
 
-    if (IS_VOID(value)) {
+    if (IS_NULLED(value)) {
         //
         // e.g. just `>> debug` and [enter] in the console.  Ideally this
         // would shift the REPL into a mode where all commands issued were

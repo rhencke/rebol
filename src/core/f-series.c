@@ -438,7 +438,7 @@ chkDecimal:
         /* return Cmp_Struct(s, t); */
 
     case REB_BLANK:
-    case REB_MAX_VOID:
+    case REB_MAX_NULLED:
     default:
         break;
 

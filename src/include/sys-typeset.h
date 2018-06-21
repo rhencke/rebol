@@ -27,7 +27,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // A typeset is a collection of up to 62 of the REB_XXX types, implemented as
-// a 64-bit bitset.  The bits for REB_0 and REB_MAX_VOID can be used for
+// a 64-bit bitset.  The bits for REB_0 and REB_MAX_NULLED can be used for
 // special purposes, as these are not actual legal datatypes.
 //
 // !!! The limit of only being able to hold a set of 62 types is a temporary

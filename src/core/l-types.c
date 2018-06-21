@@ -179,7 +179,7 @@ REBNATIVE(make)
             REBVAL *param = ACT_FACADE_HEAD(param_frame->phase)
                 + arg->payload.varargs.param_offset;
 
-            if (TYPE_CHECK(param, REB_MAX_VOID))
+            if (TYPE_CHECK(param, REB_MAX_NULLED))
                 fail (Error_Null_Vararg_Array_Raw());
         }
 

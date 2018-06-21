@@ -357,7 +357,7 @@ e-types/emit {
     ** (absence of a value), nor do they include the internal "REB_0" type.
     */
 
-    #define TS_VALUE ((FLAGIT_KIND(REB_MAX_VOID) - 1) - FLAGIT_KIND(REB_0))
+    #define TS_VALUE ((FLAGIT_KIND(REB_MAX_NULLED) - 1) - FLAGIT_KIND(REB_0))
 }
 typeset-sets: copy []
 
