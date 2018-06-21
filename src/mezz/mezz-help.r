@@ -380,7 +380,11 @@ help: procedure [
             enfixed: enfixed? topic
         ]
     ] else [
-        print [mold :topic "is" an mold type of :topic]
+        if free? :topic [
+            print ["is a freed" mold type of :topic]
+        ] else [
+            print [mold :topic "is" an mold type of :topic]
+        ]
         leave
     ]
 
@@ -436,12 +440,16 @@ help: procedure [
     if not action? :value [
         print spaced collect [
             keep [(uppercase mold topic) "is" an (mold type of :value)]
-            keep "of value:"
-            if match [object! port!] value [
-                keep newline
-                keep unspaced dump-obj value
+            if free? :value [
+                keep "that has been FREEd"
             ] else [
-                keep mold value
+                keep "of value:"
+                if match [object! port!] value [
+                    keep newline
+                    keep unspaced dump-obj value
+                ] else [
+                    keep mold value
+                ]
             ]
         ]
         leave
