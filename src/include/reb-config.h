@@ -276,6 +276,9 @@ Special internal defines used by RT, not Host-Kit developers:
 // constrained systems (like emscripten) can build in just the features it
 // needs for a specific debug scenario.
 //
+// !!! Revisit a more organized way to inventory these settings and turn them
+// on and off as time permits.
+//
 #if !defined(NDEBUG)
     #ifndef DEBUG_STDIO_OK // !!! TCC currently respecifying this, review
         #define DEBUG_STDIO_OK
@@ -347,6 +350,11 @@ Special internal defines used by RT, not Host-Kit developers:
         // explicitly...only Address Sanitizer can be detected here.
         //
         #define DEBUG_SERIES_ORIGINS
+
+        // The chunk stack has some bigger checks which are good to have on
+        // when it's being modified.
+        //
+        #define DEBUG_CHUNK_STACK
     #endif
 
     // !!! Due to the massive change of UTF8-Everywhere, it motivates some

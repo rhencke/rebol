@@ -253,6 +253,12 @@ typedef REBWCHAR REBUNI;
     //
     typedef struct Reb_Frame REBPVS;
 
+    // These data types are really just arrays of values, but given a distinct
+    // datatype to improve the semantics of working with them.
+    //
+    struct Reb_Chunker; // used for non-volatile stack arrays of REBVAL
+    struct Reb_Chunk; // subdivides the chunker into handed-out "chunks"
+
     // Compare Types Function
     //
     typedef REBINT (*REBCTF)(const RELVAL *a, const RELVAL *b, REBINT s);

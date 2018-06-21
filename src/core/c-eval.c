@@ -683,6 +683,17 @@ reevaluate:;
     process_args_for_pickup_or_to_end:;
 
         for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
+          #ifdef DEBUG_CHUNK_STACK
+            assert(
+                f->special != f->param
+                or IS_TRASH_DEBUG(f->arg)
+                or (
+                    f->doing_pickups
+                    and VAL_PARAM_CLASS(f->param) == PARAM_CLASS_REFINEMENT
+                    and IS_LOGIC(f->arg)
+                )
+            );
+          #endif
 
             enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
 
@@ -738,10 +749,8 @@ reevaluate:;
                 }
 
                 if (IS_LOGIC(f->special)) { // similar for check vs. special
-                    if (not In_Typecheck_Mode(f)) {
-                        Prep_Stack_Cell(f->arg);
+                    if (not In_Typecheck_Mode(f))
                         Init_Logic(f->arg, VAL_LOGIC(f->special));
-                    }
 
                     if (VAL_LOGIC(f->special) == true)
                         f->refine = f->arg; // remember so we can revoke!
@@ -775,7 +784,6 @@ reevaluate:;
                         goto unspecialized_refinement; // !!! not top
                     }
 
-                    Prep_Stack_Cell(f->arg);
                     Init_Logic(f->arg, true);
                     f->refine = SKIPPING_REFINEMENT_ARGS;
                     goto continue_arg_loop;
@@ -789,7 +797,6 @@ reevaluate:;
             unspecialized_refinement:
 
                 if (f->dsp_orig == DSP) { // no refinements left on stack
-                    Prep_Stack_Cell(f->arg);
                     Init_Logic(f->arg, false);
                     f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
                     goto continue_arg_loop;
@@ -802,7 +809,6 @@ reevaluate:;
                 if (VAL_STORED_CANON(ordered) == param_canon) {
                     DS_DROP; // we're lucky: this was next refinement used
 
-                    Prep_Stack_Cell(f->arg);
                     Init_Logic(f->arg, true); // marks refinement used
                     f->refine = f->arg; // "consume args (can be revoked)"
                     goto continue_arg_loop;
@@ -814,7 +820,6 @@ reevaluate:;
                     if (VAL_STORED_CANON(ordered) != param_canon)
                         continue;
 
-                    Prep_Stack_Cell(f->arg);
                     Init_Logic(f->arg, true); // marks refinement used
 
                     // The call uses this refinement but we'll have to
@@ -836,7 +841,6 @@ reevaluate:;
 
                 // Wasn't in the path and not specialized, so not present
                 //
-                Prep_Stack_Cell(f->arg);
                 Init_Logic(f->arg, false);
                 f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
                 goto continue_arg_loop;
@@ -858,7 +862,6 @@ reevaluate:;
 
             switch (pclass) {
             case PARAM_CLASS_LOCAL:
-                Prep_Stack_Cell(f->arg);
                 Init_Void(f->arg); // !!! f->special?
                 goto continue_arg_loop;
 
@@ -866,12 +869,10 @@ reevaluate:;
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
 
                 if (not GET_ACT_FLAG(f->phase, ACTION_FLAG_RETURN)) {
-                    Prep_Stack_Cell(f->arg);
                     Init_Void(f->arg);
                     goto continue_arg_loop;
                 }
 
-                Prep_Stack_Cell(f->arg);
                 Move_Value(f->arg, NAT_VALUE(return)); // !!! f->special?
                 f->arg->extra.binding = NOD(f); // !!! INIT_BINDING reifies
                 goto continue_arg_loop;
@@ -880,12 +881,10 @@ reevaluate:;
                 assert(VAL_PARAM_SYM(f->param) == SYM_LEAVE);
 
                 if (not GET_ACT_FLAG(f->phase, ACTION_FLAG_LEAVE)) {
-                    Prep_Stack_Cell(f->arg);
                     Init_Void(f->arg);
                     goto continue_arg_loop;
                 }
 
-                Prep_Stack_Cell(f->arg);
                 Move_Value(f->arg, NAT_VALUE(leave)); // !!! f->special?
                 f->arg->extra.binding = NOD(f); // !!! INIT_BINDING reifies
                 goto continue_arg_loop;
@@ -903,7 +902,6 @@ reevaluate:;
                 // it has special handling to tolerate that, so long as we're
                 // doing pickups.
 
-                Prep_Stack_Cell(f->arg);
                 goto continue_arg_loop;
             }
 
@@ -914,7 +912,6 @@ reevaluate:;
                 }
 
                 if (f->flags.bits & DO_FLAG_APPLYING) {
-                    Prep_Stack_Cell(f->arg);
                     Move_Value(f->arg, f->special); // voids are literal
                     Finalize_Current_Arg(f);
                     goto continue_arg_loop;
@@ -923,7 +920,6 @@ reevaluate:;
     //=//// SPECIALIZED ARG ///////////////////////////////////////////////=//
 
                 if (not IS_VOID(f->special)) {
-                    Prep_Stack_Cell(f->arg);
                     Move_Value(f->arg, f->special);
 
                     // SPECIALIZE checks types at specialization time, to
@@ -942,7 +938,6 @@ reevaluate:;
             // further processing or checking.  void will always be fine.
             //
             if (f->refine == ARG_TO_UNUSED_REFINEMENT) {
-                Prep_Stack_Cell(f->arg);
                 Init_Void(f->arg);
                 goto continue_arg_loop;
             }
@@ -955,8 +950,6 @@ reevaluate:;
                 // go for the next argument
                 //
                 f->refine = ORDINARY_ARG;
-
-                Prep_Stack_Cell(f->arg);
 
                 if (
                     (f->out->header.bits & NODE_FLAG_END)
@@ -1106,7 +1099,6 @@ reevaluate:;
             // consume additional arguments during the function run.
             //
             if (GET_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC)) {
-                Prep_Stack_Cell(f->arg);
                 RESET_VAL_HEADER(f->arg, REB_VARARGS);
 
                 // !!! Doesn't use INIT_BINDING() because that conservatively
@@ -1198,7 +1190,6 @@ reevaluate:;
                 if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
                     fail (Error_No_Arg(f, f->param));
 
-                Prep_Stack_Cell(f->arg);
                 Init_Endish_Void(f->arg);
                 goto continue_arg_loop;
             }
@@ -1213,7 +1204,6 @@ reevaluate:;
                 // exemption, or we ARE evaluating and there IS A special
                 // exemption.  Treat this as if it's quoted.
                 //
-                Prep_Stack_Cell(f->arg);
                 Quote_Next_In_Frame(f->arg, f); // has VALUE_FLAG_UNEVALUATED
                 Finalize_Current_Arg(f);
                 goto continue_arg_loop;
@@ -1229,7 +1219,6 @@ reevaluate:;
                 if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
                     fail (Error_No_Arg(f, f->param));
 
-                Prep_Stack_Cell(f->arg);
                 Init_Endish_Void(f->arg);
                 goto continue_arg_loop;
             }
@@ -1242,8 +1231,6 @@ reevaluate:;
                 REBFLGS flags = DO_FLAG_FULFILLING_ARG;
                 if (not evaluating)
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
-
-                Prep_Stack_Cell(f->arg);
 
                 DECLARE_FRAME (child); // capture DSP *now*
                 if (Do_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
@@ -1264,8 +1251,6 @@ reevaluate:;
                 if (not evaluating)
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
-                Prep_Stack_Cell(f->arg);
-
                 DECLARE_FRAME (child);
                 if (Do_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
@@ -1276,7 +1261,6 @@ reevaluate:;
     //=//// HARD QUOTED ARG-OR-REFINEMENT-ARG /////////////////////////////=//
 
             case PARAM_CLASS_HARD_QUOTE:
-                Prep_Stack_Cell(f->arg);
                 Quote_Next_In_Frame(f->arg, f); // has VALUE_FLAG_UNEVALUATED
                 break;
 
@@ -1284,13 +1268,11 @@ reevaluate:;
 
             case PARAM_CLASS_SOFT_QUOTE:
                 if (not IS_QUOTABLY_SOFT(f->value)) {
-                    Prep_Stack_Cell(f->arg);
                     Quote_Next_In_Frame(f->arg, f); // VALUE_FLAG_UNEVALUATED
                     Finalize_Current_Arg(f);
                     goto continue_arg_loop;
                 }
 
-                Prep_Stack_Cell(f->arg);
                 if (Eval_Value_Core_Throws(f->arg, f->value, f->specifier)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;

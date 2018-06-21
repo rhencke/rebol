@@ -42,33 +42,33 @@ void Startup_Stacks(REBCNT size)
 
     TG_Root_Chunker = cast(
         struct Reb_Chunker*,
-        Alloc_Mem(BASE_CHUNKER_SIZE + CS_CHUNKER_PAYLOAD)
+        Alloc_Mem(CS_CHUNKER_MIN_LEN * sizeof(REBVAL))
     );
 
-#if !defined(NDEBUG)
-    memset(TG_Root_Chunker, 0xBD, sizeof(struct Reb_Chunker));
-#endif
+    Prep_Stack_Cell(&TG_Root_Chunker->info);
+    SET_END(&TG_Root_Chunker->info); // "REB_0_CHUNKER"
+    CHUNKER_NEXT(TG_Root_Chunker) = nullptr;
+    CHUNKER_AVAIL(TG_Root_Chunker) = CS_CHUNKER_MIN_LEN - 1;
 
-    TG_Root_Chunker->next = NULL;
-    TG_Root_Chunker->size = CS_CHUNKER_PAYLOAD;
-    TG_Top_Chunk = cast(struct Reb_Chunk*, &TG_Root_Chunker->payload);
-    TG_Top_Chunk->prev = NULL;
+    REBCNT n;
+    for (n = 0; n < CS_CHUNKER_MIN_LEN - 1; ++n)
+        Prep_Stack_Cell(&TG_Root_Chunker->values[n]);
+
+    TG_Top_Chunk = cast(struct Reb_Chunk*, &TG_Root_Chunker->values);
+    CHUNK_PREV(TG_Top_Chunk) = nullptr;
 
     // Zero values for initial chunk, also sets offset to 0
     //
-    Init_Endlike_Header(&TG_Top_Chunk->header, 0);
-    TG_Top_Chunk->offset = 0;
-    TG_Top_Chunk->size = BASE_CHUNK_SIZE;
+    SET_END(&TG_Top_Chunk->subinfo); // "REB_0_CHUNK"
+    CHUNK_CHUNKER(TG_Top_Chunk) = TG_Root_Chunker;
+    CHUNK_LEN(TG_Top_Chunk) = 0;
+    SET_END(&TG_Top_Chunk->subvalues[0]);
+    CHUNKER_AVAIL(TG_Root_Chunker) -= 1;
 
-    // Implicit termination trick, see notes on NODE_FLAG_END
-    //
-    Init_Endlike_Header(
-        &cast(
-            struct Reb_Chunk*, cast(REBYTE*, TG_Top_Chunk) + BASE_CHUNK_SIZE
-        )->header,
-        0
-    );
-    assert(IS_END(&TG_Top_Chunk->values[0]));
+  #if !defined(NDEBUG)
+    TG_Top_Chunk->subinfo.header.bits |= CELL_FLAG_PROTECTED;
+    TG_Top_Chunk->subvalues[0].header.bits |= CELL_FLAG_PROTECTED;
+  #endif
 
     // Start the data stack out with just one element in it, and make it an
     // unreadable blank in the debug build.  This helps avoid accidental
@@ -118,18 +118,23 @@ void Shutdown_Stacks(void)
 
     Free_Unmanaged_Array(DS_Array);
 
-    assert(TG_Top_Chunk == cast(struct Reb_Chunk*, &TG_Root_Chunker->payload));
+    assert(TG_Top_Chunk == cast(struct Reb_Chunk*, &TG_Root_Chunker->values));
 
     // Because we always keep one chunker of headroom allocated, and the
     // push/drop is not designed to manage the last chunk, we *might* have
     // that next chunk of headroom still allocated.
     //
-    if (TG_Root_Chunker->next)
-        Free_Mem(TG_Root_Chunker->next, TG_Root_Chunker->next->size + BASE_CHUNKER_SIZE);
+    struct Reb_Chunker *next = CHUNKER_NEXT(TG_Root_Chunker);
+    if (next)
+        Free_Mem(next, (CHUNKER_AVAIL(next) + 1) * sizeof(REBVAL));
 
     // OTOH we always have to free the root chunker.
     //
-    Free_Mem(TG_Root_Chunker, TG_Root_Chunker->size + BASE_CHUNKER_SIZE);
+    CHUNKER_AVAIL(TG_Root_Chunker) += 1; // drop empty top chunk
+    Free_Mem(
+        TG_Root_Chunker,
+        (CHUNKER_AVAIL(TG_Root_Chunker) + 1) * sizeof(REBVAL)
+    );
 }
 
 

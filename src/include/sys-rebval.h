@@ -593,6 +593,22 @@ struct Reb_Deferred_Payload {
 };
 
 
+// The chunk stack consists of stack-formatted cells which are allocated out
+// of a range of cells in a "chunker".  These cells know they are not
+// indefinite lifetime, and are formatted as such...so that Move_Value()
+// can be more conservative about reifying GC structures into them.
+//
+#define REB_0_CHUNK REB_0 // links backwards via extra.prev_chunk
+struct Reb_Chunk_Payload {
+    struct Reb_Chunker *chunker; // container
+    REBCNT len;
+};
+
+#define REB_0_CHUNKER REB_0 // links forward to extra.next_chunker
+struct Reb_Chunker_Payload {
+    REBCNT avail; // number of REBVAL cells available in the chunker
+};
+
 // Handles hold a pointer and a size...which allows them to stand-in for
 // a binary REBSER.
 //
@@ -753,6 +769,9 @@ union Reb_Value_Extra {
     //
     REBARR *singular;
 
+    struct Reb_Chunk *prev_chunk; // used by REB_0_CHUNK
+    struct Reb_Chunker *next_chunker; // used by REB_0_CHUNKER
+
   #if defined(DEBUG_TRACK_CELLS) && !defined(DEBUG_TRACK_EXTEND_CELLS)
     #ifdef DEBUG_COUNT_TICKS
         uintptr_t tick; // Reb_Track_Payload not big enough for a tick too
@@ -797,6 +816,8 @@ union Reb_Value_Payload {
     struct Reb_Reference_Payload reference; // used with REB_0_REFERENCE
     struct Reb_Partial_Payload partial; // used with REB_0_PARTIAL
     struct Reb_Deferred_Payload deferred; // used with REB_0_DEFERRED
+    struct Reb_Chunk_Payload chunk; // used with REB_0_CHUNK
+    struct Reb_Chunker_Payload chunker; // used with REB_0_CHUNKER
 };
 
 struct Reb_Cell
