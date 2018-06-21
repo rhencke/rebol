@@ -384,7 +384,7 @@ r3-alpha-apply: function [
     using-args: true
 
     while-not [tail? block] [
-        set* quote arg: either* only [
+        set* quote arg: either only [
             block/1
             elide (block: try next block)
         ][
@@ -735,7 +735,7 @@ set 'r3-legacy* func [<local>] [
             if block? :source [
                 return source ;-- this is what it did :-/
             ]
-            set* quote result: either* any-context? source [
+            set* quote result: either any-context? source [
                 get words of source
             ][
                 get source

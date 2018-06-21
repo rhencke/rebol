@@ -103,7 +103,7 @@ finish-init-core: proc [
                 ] 'look
             ]
 
-            either-test-value :right [:left]
+            either-test-value* :right [:left]
         ])
 
         switch: (adapt 'switch [

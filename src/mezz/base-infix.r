@@ -143,7 +143,7 @@ for-each [comparison-op function-name] compose [
     left [any-value!]
     right [any-value!]
 ][
-    if/opt :left [:right]
+    if :left [:right] ;-- blankifies branched results
 ]
 
 !!: enfix func [
@@ -153,7 +153,7 @@ for-each [comparison-op function-name] compose [
     left [<opt> any-value!]
     right [any-value!]
 ][
-    either-test-value/opt :left [:right]
+    either-test-value* :left [:right] ;-- doesn't blankify branched result
 ]
 
 ?!: enfix func [ ;-- name suggests shorthand of `left ?? () !! right`
@@ -200,16 +200,10 @@ also*: enfix redescribe [
 )
 
 else: enfix redescribe [
-    "Evaluate the branch if the left hand side expression is void"
+    "Evaluate the branch if the left hand side expression is null"
 ](
-    comment [specialize 'either-test [test: :value?]]
-    :either-test-value ;-- So common as to warrant hand-specialized native
-)
-
-else*: enfix redescribe [
-    "Would be the same as ELSE/OPT, if infix functions dispatched from paths"
-](
-    specialize 'else [opt: true]
+    comment [specialize 'either-test [test: :value? | opt: true]]
+    :either-test-value* ;-- So common as to warrant hand-specialized native
 )
 
 

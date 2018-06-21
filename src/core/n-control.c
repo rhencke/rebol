@@ -113,12 +113,17 @@ REBNATIVE(if_not)
 //      true-branch "If arity-1 ACTION!, receives the evaluated condition"
 //          [block! action!]
 //      false-branch [block! action!]
-//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
 REBNATIVE(either)
 {
     INCLUDE_PARAMS_OF_EITHER;
+
+    // !!! For the moment, EITHER is not precisely compatible with IF...ELSE,
+    // because IF will blankify the true branch if null.  This idea is being
+    // reconsidered in light of *disallowing* null branches for IFs.
+    //
+    const REBOOL opt = true;
 
     if (Run_Branch_Throws(
         D_OUT,
@@ -126,7 +131,7 @@ REBNATIVE(either)
         IS_CONDITIONAL_TRUE(ARG(condition))
             ? ARG(true_branch)
             : ARG(false_branch),
-        REF(opt)
+        opt
     )){
         return R_OUT_IS_THROWN;
     }
@@ -325,7 +330,7 @@ REBNATIVE(either_test_null)
 
 
 //
-//  either-test-value: native [
+//  either-test-value*: native [
 //
 //  {If argument is not null, return the value, otherwise take the branch}
 //
@@ -333,22 +338,27 @@ REBNATIVE(either_test_null)
 //          [<opt> any-value!]
 //      arg [<opt> any-value!]
 //      branch [block! action!]
-//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
-REBNATIVE(either_test_value)
+REBNATIVE(either_test_value_p)
 //
 // Native optimization of `specialize 'either-test [test: :any-value?]`
 // Worth it to write because this is the functionality enfixed as ELSE.
 {
-    INCLUDE_PARAMS_OF_EITHER_TEST_VALUE;
+    INCLUDE_PARAMS_OF_EITHER_TEST_VALUE_P;
 
     if (not IS_VOID(ARG(arg))) { // Either_Test_Core() would call Apply()
         Move_Value(D_OUT, ARG(arg));
         return R_OUT;
     }
 
-    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
+    // Note ELSE does not blankify its branch output; it is specifically
+    // being invoked to compensate for a "missing value".  This is asymmetric
+    // with IF, which if it runs a branch must blankify it as a signal for
+    // ELSE.  Hence only truthy branches have an implicit TRY on them.
+    //
+    const REBOOL opt = true;
+    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), opt))
         return R_OUT_IS_THROWN;
 
     return R_OUT;

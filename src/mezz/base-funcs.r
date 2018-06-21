@@ -395,7 +395,9 @@ redescribe: function [
                     ; No action needed (no meta to delete old description in)
                 ][
                     on-demand-meta
-                    meta/description: if not equal? description {} [
+                    meta/description: either equal? description {} [
+                        _
+                    ][ ;-- else not defined yet
                         description
                     ]
                 ]
@@ -442,7 +444,7 @@ redescribe: function [
     ; object will be left behind, however.
     ;
     if notes and (every [param note] notes [unset? 'note]) [
-        meta/parameter-notes: ()
+        meta/parameter-notes: _
     ]
 
     :value ;-- should have updated the meta
@@ -511,12 +513,6 @@ if-not*: redescribe [
     specialize 'if-not [opt: true]
 )
 
-either*: redescribe [
-    {Same as EITHER/OPT (null, not blank, if branch evaluates to null)}
-](
-    specialize 'either [opt: true]
-)
-
 
 unless: enfix func [
     {Returns the left hand side, unless the right hand side is something}
@@ -525,7 +521,7 @@ unless: enfix func [
     left [any-value!]
     right [<opt> any-value!]
 ][
-    either-test-value :right [:left]
+    either-test-value* :right [:left]
 ]
 
 
@@ -633,7 +629,9 @@ take: redescribe [
     chain [
         :take*
             |
-        specialize 'either-test-value [
+        specialize 'either-test-value* [
+            ;-- doesn't return so * (/OPT) is irrelevant, use the optimized
+            ;-- EITHER-TEST-VALUE* for speed vs. plain EITHER-TEST :VALUE?
             branch: [
                 fail "Can't TAKE from series end (see TAKE* to get void)"
             ]
