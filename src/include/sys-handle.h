@@ -152,7 +152,7 @@ inline static void Init_Handle_Managed_Common(
     uintptr_t length,
     CLEANUP_CFUNC *cleaner
 ){
-    REBARR *singular = Alloc_Singular_Array();
+    REBARR *singular = Alloc_Singular(SERIES_MASK_NONE);
     MISC(singular).cleaner = cleaner;
 
     RELVAL *v = ARR_HEAD(singular);

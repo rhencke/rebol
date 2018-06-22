@@ -990,7 +990,7 @@ REBACT *Make_Action(
     // The "body" for a function can be any REBVAL.  It doesn't have to be
     // a block--it's anything that the dispatcher might wish to interpret.
 
-    REBARR *body_holder = Alloc_Singular_Array();
+    REBARR *body_holder = Alloc_Singular(SERIES_MASK_NONE);
     Init_Blank(ARR_SINGLE(body_holder));
     MANAGE_ARRAY(body_holder);
 
@@ -1090,10 +1090,8 @@ REBACT *Make_Action(
 //
 REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
 {
-    REBARR *varlist = Alloc_Singular_Array_Core(
-        ARRAY_FLAG_VARLIST | CONTEXT_FLAG_STACK
-    );
-    MISC(varlist).meta = NULL;
+    REBARR *varlist = Alloc_Singular(ARRAY_FLAG_VARLIST | CONTEXT_FLAG_STACK);
+    MISC(varlist).meta = nullptr;
     MANAGE_ARRAY(varlist);
 
     RELVAL *rootvar = ARR_SINGLE(varlist);

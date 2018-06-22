@@ -797,7 +797,7 @@ static void Init_Root_Vars(void)
     // something in the block to make it stand out in a debug dump, like a
     // `#PG_Unbound_Singular` ISSUE! (mold buffer not initialized yet)
     //
-    PG_Unbound_Singular = Alloc_Singular_Array();
+    PG_Unbound_Singular = Alloc_Singular(SERIES_MASK_NONE);
     SET_SER_INFO(PG_Unbound_Singular, SERIES_INFO_FROZEN);
     SET_END(ARR_SINGLE(PG_Unbound_Singular));
     Root_Unbound = Init_Block(Alloc_Value(), PG_Unbound_Singular);

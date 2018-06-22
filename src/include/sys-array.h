@@ -285,34 +285,30 @@ inline static REBARR *Make_Array_For_Copy(
 
 
 // A singular array is specifically optimized to hold *one* value in a REBSER
-// directly, and stay fixed at that size.  Note that the internal logic of
-// series will give you this optimization even if you don't ask for it if
-// a series or array is small.  However, this allocator adds the fixed size
-// bit and defaults the array to an uninitialized cell with length 1, vs.
-// going through a length 0 step.
+// node directly, and stay fixed at that size.
 //
-inline static REBARR *Alloc_Singular_Array_Core(REBFLGS flags) {
+// Note that Make_Array()/Make_Series() gives this optimization automatically
+// if a series or array is small.  However, this allocator adds the fixed size
+// bit, and is tuned to be a little faster (could likely be made moreso).
+//
+inline static REBARR *Alloc_Singular(
+    REBFLGS flags // be sure to consider if you need SERIES_FLAG_FILE_LINE
+){
     REBSER *s = Make_Series_Core(
-        2, // Length 2 is requested, but there is no "real" second slot
+        2, // "Capacity 2" requested, but position 2 is not a full cell
         sizeof(REBVAL),
         SERIES_FLAG_ARRAY | SERIES_FLAG_FIXED_SIZE | flags
     );
     assert(NOT_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
 
-    // The length still needs to be set in the header, as it defaults
-    // to 0 and we want it to be 1.
-    //
-    CLEAR_8_MID_BITS(s->info.bits);
-    s->info.bits |= FLAGBYTE_MID(1);
-    assert(SER_LEN(s) == 1);
+    assert(MID_8_BITS(s->info.bits) == 0); // non-dynamic length defaults to 0
+    s->info.bits |= FLAGBYTE_MID(1); // update header bits so it's 1
+    assert(SER_LEN(s) == 1); // sanity check: make sure that worked
 
     REBARR *a = ARR(s);
-    assert(IS_END(ARR_TAIL(a)));
+    assert(IS_END(ARR_TAIL(a))); // Implicit end, see Init_Endlike_Header()
     return a;
 }
-
-#define Alloc_Singular_Array() \
-    Alloc_Singular_Array_Core(0)
 
 
 #define Append_Value(a,v) \

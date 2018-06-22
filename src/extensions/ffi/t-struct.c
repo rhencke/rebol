@@ -75,7 +75,7 @@ static void get_scalar(
         // already... !!! ?? !!! ... it will be necessary if the schemas
         // are to uniquely carry an ffi_type freed when they are GC'd
         //
-        REBSTU *sub_stu = Alloc_Singular_Array();
+        REBSTU *sub_stu = Alloc_Singular(SERIES_MASK_NONE);
         LINK(sub_stu).schema = field;
         REBVAL *single = SINK(ARR_SINGLE(sub_stu));
 
@@ -266,7 +266,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
             // Dimension becomes INTEGER! in a BLOCK! (to look like a C array)
             //
             REBCNT dimension = FLD_DIMENSION(field);
-            REBARR *one_int = Alloc_Singular_Array();
+            REBARR *one_int = Alloc_Singular(SERIES_MASK_NONE);
             Init_Integer(ARR_SINGLE(one_int), dimension);
             Init_Block(Alloc_Tail_Array(typespec), one_int);
 
@@ -1334,7 +1334,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 // FINALIZE VALUE
 //
 
-    REBSTU *stu = Alloc_Singular_Array();
+    REBSTU *stu = Alloc_Singular(SERIES_MASK_NONE);
 
     // Set it to blank so the Kill_Series can be called upon in case of error
     // thrown before it is fully constructed.

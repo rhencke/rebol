@@ -618,7 +618,7 @@ const void *RL_rebEval(const REBVAL *v)
     // instructions like this, there'd probably need to be a misc->opcode or
     // something to distinguish them.
     //
-    REBARR *instruction = Alloc_Singular_Array();
+    REBARR *instruction = Alloc_Singular(SERIES_MASK_NONE);
     RELVAL *single = ARR_SINGLE(instruction);
     Move_Value(single, v);
     SET_VAL_FLAG(single, VALUE_FLAG_EVAL_FLIP);
@@ -657,7 +657,7 @@ const void *RL_rebUneval(const REBVAL *v)
     // !!! See notes in rebEval() about adding opcodes.  No particular need
     // for one right now, just put in the value.
 
-    REBARR *instruction = Alloc_Singular_Array();
+    REBARR *instruction = Alloc_Singular(SERIES_MASK_NONE);
     RELVAL *single = ARR_SINGLE(instruction);
     if (not v)
         Init_Group(single, EMPTY_ARRAY);

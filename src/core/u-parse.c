@@ -1212,7 +1212,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
         // !!! This copies a single value into a block to use as data, because
         // parse input is matched as a series.  Can this be avoided?
         //
-        holder = Alloc_Singular_Array();
+        holder = Alloc_Singular(SERIES_MASK_NONE);
         Move_Value(ARR_SINGLE(holder), P_CELL);
         Deep_Freeze_Array(holder); // don't allow modification of temporary
     }

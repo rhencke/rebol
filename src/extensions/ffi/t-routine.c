@@ -511,7 +511,7 @@ static void ffi_to_rebol(
         assert(FLD_IS_STRUCT(top));
         assert(!FLD_IS_ARRAY(top)); // !!! wasn't supported, should be?
 
-        REBSTU *stu = Alloc_Singular_Array();
+        REBSTU *stu = Alloc_Singular(SERIES_MASK_NONE);
 
         REBSER *data = Make_Series(
             FLD_WIDE(top), // !!! what about FLD_LEN_BYTES_TOTAL ?

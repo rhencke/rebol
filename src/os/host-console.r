@@ -252,7 +252,7 @@ start-console: procedure [
             ;; if loaded skin returns console! object then use as prototype
             all [
                 object? new-skin
-                did select new-skin 'repl ;; quacks like REPL, it's a console!
+                select new-skin 'repl ;; quacks like REPL, it's a console!
             ] then [
                 proto-skin: new-skin
                 proto-skin/was-updated: true

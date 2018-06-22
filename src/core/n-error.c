@@ -119,16 +119,16 @@ static REBVAL *Entrap_Dangerous(REBFRM *frame_) {
     const REBVAL *condition = END; // only allow 0-arity functions
     if (Run_Branch_Throws(D_OUT, condition, ARG(code))) {
         Init_Error(D_OUT, Error_No_Catch_For_Throw(D_OUT));
-        return NULL;
+        return nullptr;
     }
 
     if (IS_NULLED(D_OUT))
-        return NULL; // don't box it up
+        return nullptr; // don't box it up
 
-    REBARR *a = Alloc_Singular_Array();
+    REBARR *a = Alloc_Singular(ARRAY_FLAG_FILE_LINE);
     Move_Value(ARR_SINGLE(a), D_OUT);
     Init_Block(D_OUT, a);
-    return NULL;
+    return nullptr;
 }
 
 

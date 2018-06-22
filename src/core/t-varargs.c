@@ -414,7 +414,7 @@ void MAKE_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // By protocol, if the array is exhausted then the shared element
         // should be an END marker (not an array at its end)
         //
-        REBARR *array1 = Alloc_Singular_Array();
+        REBARR *array1 = Alloc_Singular(SERIES_MASK_NONE);
         if (IS_END(VAL_ARRAY_AT(arg)))
             SET_END(ARR_SINGLE(array1));
         else

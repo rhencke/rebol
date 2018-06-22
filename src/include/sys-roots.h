@@ -64,10 +64,8 @@ inline static REBOOL Is_Api_Value(const RELVAL *v) {
 //
 inline static REBVAL *Alloc_Value(void)
 {
-    REBARR *a = Alloc_Singular_Array_Core(
-        NODE_FLAG_ROOT
-        | NODE_FLAG_MANAGED
-        | SERIES_FLAG_FIXED_SIZE
+    REBARR *a = Alloc_Singular(
+        NODE_FLAG_ROOT | NODE_FLAG_MANAGED | SERIES_FLAG_FIXED_SIZE
     );
 
     // Giving the cell itself NODE_FLAG_ROOT lets a REBVAL* be discerned as

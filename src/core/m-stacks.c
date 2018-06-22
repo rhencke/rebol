@@ -283,7 +283,7 @@ REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
     if (f->varlist != NULL)
         return CTX(f->varlist);
 
-    f->varlist = Alloc_Singular_Array_Core(
+    f->varlist = Alloc_Singular(
         ARRAY_FLAG_VARLIST | CONTEXT_FLAG_STACK | NODE_FLAG_MANAGED
     );
     MISC(f->varlist).meta = NULL; // seen by GC, must initialize

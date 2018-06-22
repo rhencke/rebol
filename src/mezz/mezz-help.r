@@ -722,13 +722,13 @@ require-commit: procedure [
     "checks current commit against required commit"
     commit [text!]
 ][
-    if not c: select system/script/header 'commit [leave]
+    c: select system/script/header 'commit else [leave]
 
     ; If we happen to have commit information that includes a date, then we
     ; can look at the date of the running Rebol and know that a build that is
     ; older than that won't work.
     ;
-    if did date: select c 'date and (rebol/build < date) [
+    if date: select c 'date and (rebol/build < date) [
         fail [
             "This script needs a build newer or equal to" date
             "so run `upgrade`"
@@ -738,7 +738,7 @@ require-commit: procedure [
     ; If there's a specific ID then assume that if the current build does not
     ; have that ID then there *could* be a problem.
     ;
-    if did id: select c 'id and (id <> commit) [
+    if id: select c 'id and (id <> commit) [
         print [
             "This script has only been tested again commit" id LF
 
