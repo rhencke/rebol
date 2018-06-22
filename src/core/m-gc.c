@@ -400,10 +400,6 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
       #endif
         break; }
 
-    case REB_BAR:
-    case REB_LIT_BAR:
-        break;
-
     case REB_WORD:
     case REB_SET_WORD:
     case REB_GET_WORD:
@@ -515,7 +511,6 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         Mark_Rebser_Only(VAL_SERIES(v));
         break;
 
-    case REB_BLANK:
     case REB_LOGIC:
     case REB_INTEGER:
     case REB_DECIMAL:
@@ -686,6 +681,12 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         if (meta != NULL)
             Queue_Mark_Context_Deep(meta);
         break; }
+
+    case REB_BLANK:
+    case REB_BAR:
+    case REB_LIT_BAR:
+    case REB_VOID:
+        break;
 
     case REB_MAX_NULLED:
         //

@@ -514,7 +514,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             REBSTR *canon_leave = Canon(SYM_LEAVE);
 
             DS_PUSH_TRASH;
-            Init_Typeset(DS_TOP, FLAGIT_KIND(REB_MAX_NULLED), canon_leave);
+            Init_Typeset(DS_TOP, FLAGIT_KIND(REB_VOID), canon_leave);
             INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_LEAVE);
             definitional_leave_dsp = DSP;
 
@@ -1655,7 +1655,8 @@ REB_R Voider_Dispatcher(REBFRM *f)
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
         return R_OUT_IS_THROWN;
 
-    return R_NULL;
+    Init_Void(f->out);
+    return R_OUT;
 }
 
 

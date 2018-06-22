@@ -98,6 +98,7 @@ PVAR REBVAL PG_Blank_Value[2];
 PVAR REBVAL PG_Bar_Value[2];
 PVAR REBVAL PG_False_Value[2];
 PVAR REBVAL PG_True_Value[2];
+PVAR REBVAL PG_Void_Value[2];
 
 // These are root variables which used to be described in %root.r and kept
 // alive by keeping that array alive.  Now they are API handles, kept alive

@@ -103,12 +103,17 @@ console!: make object! [
         set* (quote last-result:) :v
         case [
             null? :v [
-                ; Historically Rebol wouldn't print any eval result in the
-                ; case of things that "didn't return a value".  Trying to
-                ; do otherwise e.g. by printing `;-- null` is annoying.
+                ; Because NULL has no representation, there's nothing really
+                ; to print after an "==".  It could use invalid forms, e.g.
+                ; "== \\null\\" or just go with a comment.
                 ;
-                ; (It might be useful feedback for commands which have none of
-                ; their own output, however.)
+                print ";-- null"
+            ]
+
+            void? :v [
+                ; This is what a procedure returns, and since it's what comes
+                ; back from HELP and other such functions it's best that the
+                ; console not print anything in response.
             ]
 
             free? :v [
@@ -533,7 +538,7 @@ host-console: function [
 
     if block? :result [
         assert [length of result = 1]
-        result: :result/1
+        set* quote result: :result/1
     ] else [
         assert [unset? 'result]
     ]

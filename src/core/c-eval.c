@@ -1769,7 +1769,7 @@ reevaluate:;
             // or we ARE evaluating and there IS A special exemption.  Treat
             // the f->value as inert.
             //
-            if (IS_NULLED(f->value))
+            if (IS_NULLED_OR_VOID(f->value))
                 fail (Error_Need_Value_Core(current, f->specifier));
 
             Derelativize(f->out, f->value, f->specifier);
@@ -1792,7 +1792,7 @@ reevaluate:;
                 goto finished;
             }
 
-            if (IS_NULLED(f->out))
+            if (IS_NULLED_OR_VOID(f->out))
                 fail (Error_Need_Value_Raw(DS_TOP));
 
             Move_Value(Sink_Var_May_Fail(DS_TOP, SPECIFIED), f->out);
@@ -1994,7 +1994,7 @@ reevaluate:;
             // or we ARE evaluating and there IS A special exemption.  Treat
             // the f->value as inert.
 
-            if (IS_NULLED(f->value))
+            if (IS_NULLED_OR_VOID(f->value))
                 fail (Error_Need_Value_Core(current, f->specifier));
 
             Derelativize(f->out, f->value, f->specifier);
@@ -2031,7 +2031,7 @@ reevaluate:;
                 goto finished;
             }
 
-            if (IS_NULLED(f->out))
+            if (IS_NULLED_OR_VOID(f->out))
                 fail (Error_Need_Value_Raw(DS_TOP));
 
             // The path cannot be executed directly from the data stack, so
@@ -2167,7 +2167,6 @@ reevaluate:;
         SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
         break;
 
-
 //==//////////////////////////////////////////////////////////////////////==//
 //
 // [BAR!]
@@ -2213,9 +2212,20 @@ reevaluate:;
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// [void]
+// [VOID!]
 //
-// Void is not an ANY-VALUE!, and nulled cells are not allowed in ANY-ARRAY!
+// VOID is "evaluatively unfriendly", and unlike NULL is an actual value.
+//
+//==//////////////////////////////////////////////////////////////////////==//
+
+    case REB_VOID:
+        fail ("VOID! cells cannot be evaluated");
+
+//==//////////////////////////////////////////////////////////////////////==//
+//
+// [NULL]
+//
+// NULL is not an ANY-VALUE!, and nulled cells are not allowed in ANY-ARRAY!
 // exposed to the user.  So usually, a DO shouldn't be able to see them,
 // unless they are un-evaluated...e.g. `Apply_Only_Throws()` passes in a
 // NULLED_CELL as an evaluation-already-accounted-for parameter to a function.

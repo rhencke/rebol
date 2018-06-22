@@ -2258,6 +2258,11 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                     Init_Logic(DS_TOP, TRUE);
                     break;
 
+                case SYM_VOID:
+                    DS_PUSH_TRASH;
+                    Init_Void(DS_TOP);
+                    break;
+
                 default: {
                     DECLARE_LOCAL (temp);
                     Init_Block(temp, array);

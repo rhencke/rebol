@@ -560,10 +560,10 @@ REBNATIVE(try)
 //
 //  opt: native [
 //
-//  {Convert blanks to optionals, other values pass through (See Also: TRY)}
+//  {Convert blank/void to null, other values pass through (See Also: TRY)}
 //
-//      return: [<opt> any-value!]
-//          {void if input was a BLANK!, or original value otherwise}
+//      return: "null if input was BLANK! or VOID!, else original value"
+//          [<opt> any-value!]
 //      value [<opt> any-value!]
 //  ]
 //
@@ -571,7 +571,7 @@ REBNATIVE(opt)
 {
     INCLUDE_PARAMS_OF_OPT;
 
-    if (IS_BLANK(ARG(value)))
+    if (IS_BLANK(ARG(value)) or IS_VOID(ARG(value)))
         return R_NULL;
 
     Move_Value(D_OUT, ARG(value));
@@ -792,7 +792,7 @@ REBNATIVE(set)
         if (REF(enfix) and not IS_ACTION(ARG(value)))
             fail ("Attempt to SET/ENFIX on a non-function");
 
-        if (IS_NULLED(ARG(value)) and not REF(opt))
+        if (IS_NULLED_OR_VOID(ARG(value)) and not REF(opt))
             fail (Error_Need_Value_Core(target, target_specifier));
 
         if (IS_BAR(target)) {

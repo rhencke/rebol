@@ -57,6 +57,7 @@ self
 blank
 true
 false
+void
 on
 off
 yes
@@ -240,7 +241,7 @@ extern
 rebval
 
 ;routine
-void
+;void -- already specified
 library
 name
 abi

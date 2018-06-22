@@ -989,6 +989,46 @@ inline static const REBVAL *NULLIZE(const REBVAL *cell) {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
+//  VOID!
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// Voids are the the result given by PROCEDURE calls, and unlike NULL it *is*
+// a value...however a somewhat unfriendly one.  It is distinct from null so
+// that you can write:
+//
+//     if condition [print "Hi"] else [print "Bye"]
+//
+// If it weren't a value, then the IF would complain that its branch evaluated
+// to null (hence there would be no way to use null as the trigger to run
+// the else branch).  While NULLs are falsey, voids are *neither* truthy nor
+// falsey, and can't be casually assigned via SET-WORD!.
+//
+
+#define VOID_VALUE \
+    c_cast(const REBVAL*, &PG_Void_Value[0])
+
+#ifdef NDEBUG
+    inline static REBVAL *Init_Void(RELVAL *out) {
+        RESET_VAL_CELL(out, REB_VOID, 0);
+        return KNOWN(out);
+    }
+#else
+    inline static REBVAL *Init_Void_Debug(
+        RELVAL *out, const char *file, int line
+    ){
+        RESET_VAL_CELL_Debug(out, REB_VOID, 0, file, line);
+        return KNOWN(out);
+    }
+
+    #define Init_Void(out) \
+        Init_Void_Debug((out), __FILE__, __LINE__)
+#endif
+
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
 //  BAR! and LIT-BAR!
 //
 //=////////////////////////////////////////////////////////////////////////=//
@@ -1193,11 +1233,17 @@ inline static const REBVAL *NULLIZE(const REBVAL *cell) {
 #define TRUE_VALUE \
     c_cast(const REBVAL*, &PG_True_Value[0])
 
-#define IS_FALSEY(v) \
-    GET_VAL_FLAG((v), VALUE_FLAG_FALSEY)
+inline static REBOOL IS_TRUTHY(const RELVAL *v) {
+    if (GET_VAL_FLAG(v, VALUE_FLAG_FALSEY))
+        return false;
+    if (IS_VOID(v))
+        fail (Error_Void_Conditional_Raw());
+    return true;
+}
 
-#define IS_TRUTHY(v) \
-    NOT_VAL_FLAG((v), VALUE_FLAG_FALSEY)
+#define IS_FALSEY(v) \
+    (not IS_TRUTHY(v))
+
 
 #ifdef NDEBUG
     inline static REBVAL *Init_Logic(RELVAL *out, REBOOL b) {
@@ -1230,24 +1276,17 @@ inline static const REBVAL *NULLIZE(const REBVAL *cell) {
 // So ANY and ALL use IS_TRUTHY() directly
 //
 inline static REBOOL IS_CONDITIONAL_TRUE(const REBVAL *v) {
-    if (IS_BLOCK(v)) {
-        if (GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED))
-            fail (Error_Block_Conditional_Raw(v));
-            
-        return TRUE;
-    }
-    return IS_TRUTHY(v);
+    if (GET_VAL_FLAG(v, VALUE_FLAG_FALSEY))
+        return false;
+    if (IS_VOID(v))
+        fail (Error_Void_Conditional_Raw());
+    if (IS_BLOCK(v) and GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED))
+        fail (Error_Block_Conditional_Raw(v));
+    return true;
 }
 
-inline static REBOOL IS_CONDITIONAL_FALSE(const REBVAL *v) {
-    if (IS_BLOCK(v)) {
-        if (GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED))
-            fail (Error_Block_Conditional_Raw(v));
-            
-        return FALSE;
-    }
-    return IS_FALSEY(v);
-}
+#define IS_CONDITIONAL_FALSE(v) \
+    (not IS_CONDITIONAL_TRUE(v))
 
 inline static REBOOL VAL_LOGIC(const RELVAL *v) {
     assert(IS_LOGIC(v));

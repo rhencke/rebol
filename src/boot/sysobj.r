@@ -179,14 +179,14 @@ standard: construct [] [
         ] #BODY
     ]
 
-    proc-return-type: [<opt>]
+    proc-return-type: [void!]
 
     proc-body: [
         leave: make action! [
             [{Leaves a procedure, giving no result to the caller.}]
             [unwind (context of 'leave)]
         ] #BODY
-        ()
+        ; #[void] ;-- illegal notation in legacy R3s, but returns this
     ]
 
     ; !!! The PORT! and actor code is deprecated, but this bridges it so

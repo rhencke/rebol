@@ -199,6 +199,7 @@ eval proc [
         ]
     ]
 ]
+    void?:
     blank?:
     bar?:
     lit-bar?:

@@ -773,6 +773,11 @@ static void Init_Root_Vars(void)
     Init_Logic(&PG_True_Value[0], true);
     TRASH_CELL_IF_DEBUG(&PG_True_Value[1]);
 
+    Prep_Non_Stack_Cell(&PG_Void_Value[0]);
+    Prep_Non_Stack_Cell(&PG_Void_Value[1]);
+    Init_Void(&PG_Void_Value[0]);
+    TRASH_CELL_IF_DEBUG(&PG_Void_Value[1]);
+
     // We can't actually put an end value in the middle of a block, so we poke
     // this one into a program global.  It is not legal to bit-copy an
     // END (you always use SET_END), so we can make it unwritable.
@@ -1410,8 +1415,8 @@ static REBVAL *Startup_Mezzanine(BOOT_BLK *boot)
         fail (Error_No_Catch_For_Throw(result));
     }
 
-    if (not IS_NULLED(result))
-        panic (result); // FINISH-INIT-CORE returns void by convention
+    if (not IS_VOID(result))
+        panic (result); // FINISH-INIT-CORE is a PROCEDURE, returns void
 
     return NULL;
 }

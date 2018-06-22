@@ -82,6 +82,18 @@ void MF_Unit(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         Append_Unencoded(mo->series, "_");
         break;
 
+    case REB_VOID:
+        //
+        // !!! VOID! values are new, and no literal notation for them has been
+        // decided yet.  One difference from things like BAR! and BLANK! is
+        // that they would not be amenable to use for "stringlike" purposes,
+        // as they are conditionally neither true nor false and can't be
+        // assigned directly via SET-WORD! or plain SET...so choosing a
+        // notation like ??? (or ?, or !) would be slippery.
+        // 
+        Append_Unencoded(mo->series, "#[void]");
+        break;
+
     default:
         panic (v);
     }
