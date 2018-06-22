@@ -331,6 +331,9 @@ inline static REBARR *Alloc_Singular(
 #define Copy_Array_Shallow(a,s) \
     Copy_Array_At_Shallow((a), 0, (s))
 
+#define Copy_Array_Shallow_Flags(a,s,f) \
+    Copy_Array_At_Extra_Shallow((a), 0, (s), 0, (f))
+
 #define Copy_Array_Deep_Managed(a,s) \
     Copy_Array_At_Extra_Deep_Managed((a), 0, (s), 0)
 

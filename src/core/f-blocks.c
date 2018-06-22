@@ -151,7 +151,6 @@ void Clonify_Values_Len_Managed(
     RELVAL head[],
     REBSPC *specifier,
     REBCNT len,
-    REBFLGS flags,
     REBU64 types
 ) {
     if (C_STACK_OVERFLOWING(&len))
@@ -181,11 +180,10 @@ void Clonify_Values_Len_Managed(
                             0, // !!! what if VAL_INDEX() is nonzero?
                             derived,
                             0,
-                            flags
+                            NODE_FLAG_MANAGED
                         )
                     );
 
-                    MANAGE_SERIES(series);
                     INIT_VAL_ARRAY(v, ARR(series)); // copies args
 
                     // If it was relative, then copying with a specifier
@@ -194,8 +192,10 @@ void Clonify_Values_Len_Managed(
                     INIT_BINDING(v, UNBOUND);
                 }
                 else {
-                    series = Copy_Sequence(VAL_SERIES(v));
-                    MANAGE_SERIES(series);
+                    series = Copy_Sequence_Core(
+                        VAL_SERIES(v),
+                        NODE_FLAG_MANAGED
+                    );
                     INIT_VAL_SERIES(v, series);
                 }
             }
@@ -214,7 +214,6 @@ void Clonify_Values_Len_Managed(
                      ARR_HEAD(ARR(series)),
                      derived,
                      VAL_LEN_HEAD(v),
-                     flags,
                      types
                 );
             }
@@ -259,6 +258,7 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
     REBU64 types
 ){
     assert(index <= tail and tail <= ARR_LEN(original));
+    assert(flags & NODE_FLAG_MANAGED);
 
     REBCNT len = tail - index;
 
@@ -274,11 +274,9 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
 
     TERM_ARRAY_LEN(copy, len);
 
-    MANAGE_ARRAY(copy);
-
     if (types != 0)
         Clonify_Values_Len_Managed(
-            ARR_HEAD(copy), SPECIFIED, ARR_LEN(copy), flags, types
+            ARR_HEAD(copy), SPECIFIED, ARR_LEN(copy), types
         );
 
     return copy;
@@ -306,23 +304,18 @@ REBARR *Copy_Array_Core_Managed(
     if (index > tail) // !!! should this be asserted?
         index = tail;
 
-    if (index > ARR_LEN(original)) { // should this be asserted?
-        REBARR *copy = Make_Array_Core(extra, flags);
-        MANAGE_ARRAY(copy);
-        return copy;
-    }
+    if (index > ARR_LEN(original)) // !!! should this be asserted?
+        return Make_Array_Core(extra, flags | NODE_FLAG_MANAGED);
 
-    REBARR *copy = Copy_Array_Core_Managed_Inner_Loop(
+    return Copy_Array_Core_Managed_Inner_Loop(
         original,
         index,
         specifier,
         tail,
         extra,
-        flags,
+        flags | NODE_FLAG_MANAGED,
         types
     );
-
-    return copy;
 }
 
 
@@ -348,7 +341,7 @@ REBARR *Copy_Rerelativized_Array_Deep_Managed(
     REBACT *before, // references to `before` will be changed to `after`
     REBACT *after
 ){
-    const REBFLGS flags = 0;
+    const REBFLGS flags = NODE_FLAG_MANAGED;
 
     REBARR *copy = Make_Array_For_Copy(ARR_LEN(original), flags, original);
     RELVAL *src = ARR_HEAD(original);
@@ -385,7 +378,6 @@ REBARR *Copy_Rerelativized_Array_Deep_Managed(
     }
 
     TERM_ARRAY_LEN(copy, ARR_LEN(original));
-    MANAGE_ARRAY(copy);
 
     return copy;
 }

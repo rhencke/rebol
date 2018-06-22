@@ -120,7 +120,7 @@ void Append_Values_Len(REBARR *a, const REBVAL head[], REBCNT len)
 
 
 //
-//  Copy_Sequence: C
+//  Copy_Sequence_Core: C
 //
 // Copy any series that *isn't* an "array" (such as STRING!,
 // BINARY!, BITSET!, VECTOR!...).  Includes the terminator.
@@ -136,12 +136,12 @@ void Append_Values_Len(REBARR *a, const REBVAL head[], REBCNT len)
 // to the importance of stating one's intentions specifically
 // about semantics when copying an array.
 //
-REBSER *Copy_Sequence(REBSER *original)
+REBSER *Copy_Sequence_Core(REBSER *original, REBFLGS flags)
 {
     assert(NOT_SER_FLAG(original, SERIES_FLAG_ARRAY));
 
     REBCNT len = SER_LEN(original);
-    REBSER *copy = Make_Series(len + 1, SER_WIDE(original));
+    REBSER *copy = Make_Series_Core(len + 1, SER_WIDE(original), flags);
 
     memcpy(
         SER_DATA_RAW(copy),

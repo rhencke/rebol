@@ -430,8 +430,11 @@ int main(int argc, char *argv_ansi[])
     // then the console would die.  General API point to consider, as the
     // design emerges.
     //
-    REBCTX *console_ctx = Alloc_Context(REB_OBJECT, 80);
-    MANAGE_ARRAY(CTX_VARLIST(console_ctx)); // no guard needed, gets refs
+    REBCTX *console_ctx = Alloc_Context_Core(
+        REB_OBJECT,
+        80,
+        NODE_FLAG_MANAGED // no PUSH_GUARD needed, gets refs
+    );
 
     // Bind words that can be found in lib context (don't add any new words)
     //

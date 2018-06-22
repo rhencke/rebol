@@ -68,7 +68,7 @@
 
 
 //
-//  Alloc_Context: C
+//  Alloc_Context_Core: C
 //
 // Create context of a given size, allocating space for both words and values.
 //
@@ -76,13 +76,15 @@
 // configured, hence this is an "Alloc" instead of a "Make" (because there
 // is still work to be done before it will pass ASSERT_CONTEXT).
 //
-REBCTX *Alloc_Context(enum Reb_Kind kind, REBCNT capacity)
+REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
 {
+    assert(not (flags & ARRAY_FLAG_FILE_LINE)); // LINK and MISC are taken
+
     REBARR *varlist = Make_Array_Core(
         capacity + 1, // size + room for ROOTVAR
-        ARRAY_FLAG_VARLIST
+        ARRAY_FLAG_VARLIST | flags
     );
-    MISC(varlist).meta = NULL; // GC sees meta object, must init
+    MISC(varlist).meta = nullptr; // GC sees meta object, must init
 
     // varlist[0] is a value instance of the OBJECT!/MODULE!/PORT!/ERROR! we
     // are building which contains this context.
@@ -90,7 +92,7 @@ REBCTX *Alloc_Context(enum Reb_Kind kind, REBCNT capacity)
     REBVAL *rootvar = Alloc_Tail_Array(varlist);
     RESET_VAL_HEADER(rootvar, kind);
     rootvar->payload.any_context.varlist = varlist;
-    rootvar->payload.any_context.phase = NULL;
+    rootvar->payload.any_context.phase = nullptr;
     INIT_BINDING(rootvar, UNBOUND);
 
     // keylist[0] is the "rootkey" which we currently initialize to an
@@ -98,7 +100,7 @@ REBCTX *Alloc_Context(enum Reb_Kind kind, REBCNT capacity)
 
     REBARR *keylist = Make_Array_Core(
         capacity + 1, // size + room for ROOTKEY
-        0 // No keylist flag, but we don't want line numbers
+        NODE_FLAG_MANAGED // No keylist flag, but we don't want line numbers
     );
     Init_Unreadable_Blank(Alloc_Tail_Array(keylist));
 
@@ -109,7 +111,6 @@ REBCTX *Alloc_Context(enum Reb_Kind kind, REBCNT capacity)
     // varlists link keylists via LINK().keysource, sharable hence managed
 
     INIT_CTX_KEYLIST_UNIQUE(CTX(varlist), keylist);
-    MANAGE_ARRAY(keylist);
 
     return CTX(varlist); // varlist pointer is context handle
 }
@@ -359,10 +360,11 @@ REBARR *Grab_Collected_Array_Managed(struct Reb_Collector *collector)
     //
     // All collected values should have been fully specified.
     //
-    REBARR *array = Copy_Array_Shallow(BUF_COLLECT, SPECIFIED);
-    MANAGE_ARRAY(array);
-
-    return array;
+    return Copy_Array_Shallow_Flags(
+        BUF_COLLECT,
+        SPECIFIED,
+        NODE_FLAG_MANAGED
+    );
 }
 
 
@@ -886,7 +888,6 @@ REBCTX *Make_Selfish_Context_Detect(
             CTX_VARS_HEAD(context),
             SPECIFIED,
             CTX_LEN(context),
-            SERIES_MASK_NONE,
             TS_CLONE
         );
     }
@@ -1097,8 +1098,11 @@ REBCTX *Merge_Contexts_Selfish(REBCTX *parent1, REBCTX *parent2)
     // !!! Review: should child start fresh with no meta information, or get
     // the meta information held by parents?
     //
-    REBARR *keylist = Copy_Array_Shallow(BUF_COLLECT, SPECIFIED);
-    MANAGE_ARRAY(keylist);
+    REBARR *keylist = Copy_Array_Shallow_Flags(
+        BUF_COLLECT,
+        SPECIFIED,
+        NODE_FLAG_MANAGED
+    );
     Init_Unreadable_Blank(ARR_HEAD(keylist)); // Currently no rootkey usage
 
     if (parent1 == NULL)
@@ -1154,7 +1158,6 @@ REBCTX *Merge_Contexts_Selfish(REBCTX *parent1, REBCTX *parent2)
         CTX_VARS_HEAD(merged),
         SPECIFIED,
         CTX_LEN(merged),
-        SERIES_MASK_NONE,
         TS_CLONE
     );
 

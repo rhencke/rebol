@@ -511,14 +511,14 @@ static void ffi_to_rebol(
         assert(FLD_IS_STRUCT(top));
         assert(!FLD_IS_ARRAY(top)); // !!! wasn't supported, should be?
 
-        REBSTU *stu = Alloc_Singular(SERIES_MASK_NONE);
+        REBSTU *stu = Alloc_Singular(NODE_FLAG_MANAGED);
 
-        REBSER *data = Make_Series(
+        REBSER *data = Make_Series_Core(
             FLD_WIDE(top), // !!! what about FLD_LEN_BYTES_TOTAL ?
-            sizeof(REBYTE)
+            sizeof(REBYTE),
+            NODE_FLAG_MANAGED
         );
         memcpy(SER_HEAD(REBYTE, data), ffi_rvalue, FLD_WIDE(top));
-        MANAGE_SERIES(data);
 
         RESET_VAL_HEADER(out, REB_STRUCT);
         out->payload.structure.stu = stu;
@@ -527,7 +527,6 @@ static void ffi_to_rebol(
 
         Move_Value(ARR_SINGLE(stu), out); // save canon value
         LINK(stu).schema = top;
-        MANAGE_ARRAY(stu);
 
         assert(STU_DATA_HEAD(stu) == BIN_HEAD(data));
         return;

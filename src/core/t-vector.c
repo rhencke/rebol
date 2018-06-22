@@ -740,7 +740,7 @@ REBTYPE(Vector)
             fail (Error_Bad_Refines_Raw());
         }
 
-        ser = Copy_Sequence(vect);
+        ser = Copy_Sequence_Core(vect, NODE_FLAG_MANAGED);
         MISC(ser).vect_info = MISC(vect).vect_info; // attributes
         Init_Vector(value, ser);
         goto return_vector; }

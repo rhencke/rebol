@@ -414,15 +414,14 @@ void MAKE_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // By protocol, if the array is exhausted then the shared element
         // should be an END marker (not an array at its end)
         //
-        REBARR *array1 = Alloc_Singular(SERIES_MASK_NONE);
+        REBARR *array1 = Alloc_Singular(NODE_FLAG_MANAGED);
         if (IS_END(VAL_ARRAY_AT(arg)))
             SET_END(ARR_SINGLE(array1));
         else
             Move_Value(ARR_SINGLE(array1), arg);
-        MANAGE_ARRAY(array1);
 
         RESET_VAL_HEADER(out, REB_VARARGS);
-        out->payload.varargs.facade = NULL;
+        out->payload.varargs.facade = nullptr;
         UNUSED(out->payload.varargs.param_offset); // trashes in C++11 build
         INIT_BINDING(out, array1);
 

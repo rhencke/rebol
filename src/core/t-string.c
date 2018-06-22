@@ -364,7 +364,7 @@ static REBSER *make_binary(const REBVAL *arg, REBOOL make)
 
     case REB_BLOCK:
         // Join_Binary returns a shared buffer, so produce a copy:
-        ser = Copy_Sequence(Join_Binary(arg, -1));
+        ser = Copy_Sequence_Core(Join_Binary(arg, -1), SERIES_MASK_NONE);
         break;
 
     // MAKE/TO BINARY! <tuple!>

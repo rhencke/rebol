@@ -695,7 +695,7 @@ REBNATIVE(what_dir)
     Init_Any_Series_At(
         D_OUT,
         VAL_TYPE(current_path),
-        Copy_Sequence(VAL_SERIES(current_path)),
+        Copy_Sequence_Core(VAL_SERIES(current_path), NODE_FLAG_MANAGED),
         VAL_INDEX(current_path)
     );
 

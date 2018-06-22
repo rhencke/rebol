@@ -244,9 +244,8 @@ const REBPOOLSPEC Mem_Pool_Spec[MAX_POOLS] =
 void Startup_Pools(REBINT scale)
 {
   #ifndef NDEBUG
-    const char *env_always_malloc = NULL;
-    env_always_malloc = getenv("R3_ALWAYS_MALLOC");
-    if (env_always_malloc != NULL and atoi(env_always_malloc) != 0) {
+    const char *env_always_malloc = getenv("R3_ALWAYS_MALLOC");
+    if (env_always_malloc and atoi(env_always_malloc) != 0) {
         printf(
             "**\n"
             "** R3_ALWAYS_MALLOC is TRUE in environment variable!\n"

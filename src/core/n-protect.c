@@ -493,7 +493,7 @@ REBNATIVE(lock)
             Init_Any_Series_At(
                 D_OUT,
                 VAL_TYPE(v),
-                Copy_Sequence(VAL_SERIES(v)),
+                Copy_Sequence_Core(VAL_SERIES(v), NODE_FLAG_MANAGED),
                 VAL_INDEX(v)
             );
         }

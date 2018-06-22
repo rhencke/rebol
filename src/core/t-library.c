@@ -59,14 +59,13 @@ void MAKE_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     if (fd == NULL)
         fail (Error_Bad_Make(REB_LIBRARY, arg));
 
-    REBARR *singular = Alloc_Singular(SERIES_MASK_NONE);
+    REBARR *singular = Alloc_Singular(NODE_FLAG_MANAGED);
     RESET_VAL_HEADER(ARR_SINGLE(singular), REB_LIBRARY);
     ARR_SINGLE(singular)->payload.library.singular = singular;
 
     LINK(singular).fd = fd;
     MISC(singular).meta = NULL; // build from spec, e.g. arg?
 
-    MANAGE_ARRAY(singular);
     Move_Value(out, KNOWN(ARR_HEAD(singular)));
 }
 

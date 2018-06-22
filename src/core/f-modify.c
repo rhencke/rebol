@@ -100,10 +100,13 @@ REBCNT Modify_Array(
 
         // Are we modifying ourselves? If so, copy src_val block first:
         if (dst_arr == VAL_ARRAY(src_val)) {
-            REBARR *copy = Copy_Array_At_Shallow(
-                VAL_ARRAY(src_val), VAL_INDEX(src_val), VAL_SPECIFIER(src_val)
+            REBARR *copy = Copy_Array_At_Extra_Shallow(
+                VAL_ARRAY(src_val),
+                VAL_INDEX(src_val),
+                VAL_SPECIFIER(src_val),
+                0, // extra
+                NODE_FLAG_MANAGED // !!! Worth it to not manage and free? 
             );
-            MANAGE_ARRAY(copy); // !!! Review: worth it to not manage and free?
             src_rel = ARR_HEAD(copy);
             specifier = SPECIFIED; // copy already specified it
         }

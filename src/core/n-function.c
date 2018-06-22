@@ -305,7 +305,10 @@ REBNATIVE(typechecker)
 
     REBVAL *type = ARG(type);
 
-    REBARR *paramlist = Make_Array_Core(2, ARRAY_FLAG_PARAMLIST);
+    REBARR *paramlist = Make_Array_Core(
+        2,
+        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST
+    );
 
     REBVAL *archetype = Alloc_Tail_Array(paramlist);
     RESET_VAL_HEADER(archetype, REB_ACTION);
@@ -315,8 +318,6 @@ REBNATIVE(typechecker)
     REBVAL *param = Alloc_Tail_Array(paramlist);
     Init_Typeset(param, ALL_64, Canon(SYM_VALUE));
     INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_NORMAL);
-
-    MANAGE_ARRAY(paramlist);
 
     LINK(paramlist).facade = paramlist;
 
@@ -386,12 +387,12 @@ REBNATIVE(chain)
     // Paramlist needs to be unique to identify the new function, but will be
     // a compatible interface with the first function in the chain.
     //
-    REBARR *paramlist = Copy_Array_Shallow(
-        VAL_ACT_PARAMLIST(ARR_HEAD(chainees)), SPECIFIED
+    REBARR *paramlist = Copy_Array_Shallow_Flags(
+        VAL_ACT_PARAMLIST(ARR_HEAD(chainees)),
+        SPECIFIED,
+        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST // flags not auto-copied
     );
     ARR_HEAD(paramlist)->payload.action.paramlist = paramlist;
-    SET_SER_FLAG(paramlist, ARRAY_FLAG_PARAMLIST);
-    MANAGE_ARRAY(paramlist);
 
     // Initialize the "meta" information, which is used by HELP.  Because it
     // has a link to the "chainees", it is not necessary to copy parameter
@@ -484,12 +485,12 @@ REBNATIVE(adapt)
     // will be identical typesets to the original.  It's [0] element must
     // identify the function we're creating vs the original, however.
     //
-    REBARR *paramlist = Copy_Array_Shallow(
-        VAL_ACT_PARAMLIST(adaptee), SPECIFIED
+    REBARR *paramlist = Copy_Array_Shallow_Flags(
+        VAL_ACT_PARAMLIST(adaptee),
+        SPECIFIED,
+        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST
     );
     ARR_HEAD(paramlist)->payload.action.paramlist = paramlist;
-    SET_SER_FLAG(paramlist, ARRAY_FLAG_PARAMLIST);
-    MANAGE_ARRAY(paramlist);
 
     // See %sysobj.r for `adapted-meta:` object template
 
@@ -525,7 +526,7 @@ REBNATIVE(adapt)
     // the prelude as the first element, then index the prelude after that.
     // It wouldn't be seen by the execution.  Worth doing, someday...
     //
-    REBARR *info = Make_Array(2);
+    REBARR *info = Make_Array_Core(2, NODE_FLAG_MANAGED);
 
     REBVAL *block = Alloc_Tail_Array(info);
     RESET_VAL_HEADER(block, REB_BLOCK);
@@ -537,7 +538,6 @@ REBNATIVE(adapt)
 
     RELVAL *body = ACT_BODY(adaptation);
     RESET_VAL_HEADER(body, REB_BLOCK);
-    MANAGE_ARRAY(info);
     INIT_VAL_ARRAY(body, info);
     VAL_INDEX(body) = 0;
     INIT_BINDING(body, underlying); // relative binding
@@ -602,12 +602,12 @@ REBNATIVE(enclose)
     // will be identical typesets to the inner.  It's [0] element must
     // identify the function we're creating vs the original, however.
     //
-    REBARR *paramlist = Copy_Array_Shallow(
-        VAL_ACT_PARAMLIST(inner), SPECIFIED
+    REBARR *paramlist = Copy_Array_Shallow_Flags(
+        VAL_ACT_PARAMLIST(inner),
+        SPECIFIED,
+        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST
     );
     ARR_HEAD(paramlist)->payload.action.paramlist = paramlist;
-    SET_SER_FLAG(paramlist, ARRAY_FLAG_PARAMLIST);
-    MANAGE_ARRAY(paramlist);
 
     // See %sysobj.r for `enclosed-meta:` object template
 
@@ -829,11 +829,11 @@ REBNATIVE(tighten)
     // Copy the paramlist, which serves as the function's unique identity,
     // and set the tight flag on all the parameters.
 
-    REBARR *paramlist = Copy_Array_Shallow(
+    REBARR *paramlist = Copy_Array_Shallow_Flags(
         ACT_PARAMLIST(original),
-        SPECIFIED // no relative values in parameter lists
+        SPECIFIED, // no relative values in parameter lists
+        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST // flags not auto-copied
     );
-    SET_SER_FLAG(paramlist, ARRAY_FLAG_PARAMLIST); // flags not auto-copied
 
     RELVAL *param = ARR_AT(paramlist, 1); // first parameter (0 is ACTION!)
     for (; NOT_END(param); ++param) {
@@ -853,8 +853,6 @@ REBNATIVE(tighten)
     //
     MISC(paramlist).meta = ACT_META(original);
 
-    MANAGE_ARRAY(paramlist);
-
     // Our function has a new identity, but we don't want to be using that
     // identity for the pushed frame.  If we did that, then if the underlying
     // function were interpreted, we would have to make a copy of its body
@@ -867,15 +865,15 @@ REBNATIVE(tighten)
     // but with stricter parameter types and different parameter classes.
     // So just as the paramlist got transformed, transform the facade.
     //
-    // Note: Do NOT set the ARRAY_FLAG_PARAMLIST on this facade.  It holds
-    // whatever function value in the [0] slot the original had, and that is
+    // It holds whatever function value in the [0] slot the original had,
     // used for the identity of the "underlying function".  (In order to make
     // this a real ACTION!'s paramlist, the paramlist in the [0] slot would
     // have to be equal to the facade's pointer.)
     //
-    REBARR *facade = Copy_Array_Shallow(
+    REBARR *facade = Copy_Array_Shallow_Flags(
         ACT_FACADE(original),
-        SPECIFIED // no relative values in facades, either
+        SPECIFIED, // no relative values in facades, either
+        NODE_FLAG_MANAGED // NOT an ARRAY_FLAG_PARAMLIST, [0] isn't archetype
     );
     RELVAL *facade_param = ARR_AT(facade, 1);
     for (; NOT_END(facade_param); ++facade_param) {
@@ -890,8 +888,6 @@ REBNATIVE(tighten)
         if (pclass == PARAM_CLASS_NORMAL)
             INIT_VAL_PARAM_CLASS(facade_param, PARAM_CLASS_TIGHT);
     }
-
-    MANAGE_ARRAY(facade);
 
     REBACT *tightened = Make_Action(
         paramlist,

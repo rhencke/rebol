@@ -152,7 +152,7 @@ inline static void Init_Handle_Managed_Common(
     uintptr_t length,
     CLEANUP_CFUNC *cleaner
 ){
-    REBARR *singular = Alloc_Singular(SERIES_MASK_NONE);
+    REBARR *singular = Alloc_Singular(NODE_FLAG_MANAGED);
     MISC(singular).cleaner = cleaner;
 
     RELVAL *v = ARR_HEAD(singular);
@@ -165,8 +165,6 @@ inline static void Init_Handle_Managed_Common(
     //
     TRASH_POINTER_IF_DEBUG(v->payload.handle.data.pointer);
     TRASH_CFUNC_IF_DEBUG(v->payload.handle.data.cfunc);
-
-    MANAGE_ARRAY(singular);
 
     // Don't fill the handle properties in the instance if it's the managed
     // form.  This way, you can set the properties in the canon value and

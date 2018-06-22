@@ -612,24 +612,25 @@ const void *RL_rebEval(const REBVAL *v)
     if (IS_NULLED(v))
         fail ("Cannot pass voids to rebEval()");
 
-    // !!! The presence of the VALUE_FLAG_EVAL_FLIP is a pretty good
-    // indication that it's an eval instruction.  So it's not necessary to
-    // fill in the ->link or ->misc fields.  But if there were more
-    // instructions like this, there'd probably need to be a misc->opcode or
-    // something to distinguish them.
-    //
-    REBARR *instruction = Alloc_Singular(SERIES_MASK_NONE);
-    RELVAL *single = ARR_SINGLE(instruction);
-    Move_Value(single, v);
-    SET_VAL_FLAG(single, VALUE_FLAG_EVAL_FLIP);
-
     // !!! The intent for the long term is that these rebEval() instructions
     // not tax the garbage collector and be freed as they are encountered
     // while traversing the va_list.  Right now an assert would trip if we
     // tried that.  It's a good assert in general, so rather than subvert it
     // the instructions are just GC managed for now.
     //
-    MANAGE_ARRAY(instruction);
+    REBARR *instruction = Alloc_Singular(NODE_FLAG_MANAGED);
+
+    RELVAL *single = ARR_SINGLE(instruction);
+    Move_Value(single, v);
+
+    // !!! The presence of the VALUE_FLAG_EVAL_FLIP is a pretty good
+    // indication that it's an eval instruction.  So it's not necessary to
+    // fill in the ->link or ->misc fields.  But if there were more
+    // instructions like this, there'd probably need to be a misc->opcode or
+    // something to distinguish them.
+    //
+    SET_VAL_FLAG(single, VALUE_FLAG_EVAL_FLIP);
+
     return instruction;
 }
 
@@ -654,10 +655,10 @@ const void *RL_rebUneval(const REBVAL *v)
 {
     Enter_Api();
 
-    // !!! See notes in rebEval() about adding opcodes.  No particular need
-    // for one right now, just put in the value.
+    // !!! See notes in rebEval() about why these are currently GC'd
+    //
+    REBARR *instruction = Alloc_Singular(NODE_FLAG_MANAGED);
 
-    REBARR *instruction = Alloc_Singular(SERIES_MASK_NONE);
     RELVAL *single = ARR_SINGLE(instruction);
     if (not v)
         Init_Group(single, EMPTY_ARRAY);
@@ -670,9 +671,9 @@ const void *RL_rebUneval(const REBVAL *v)
         Init_Group(single, a);
     }
 
-    // !!! See notes in rebEval() about why these are currently GC'd
-    //
-    MANAGE_ARRAY(instruction);
+    // !!! See notes in rebEval() about adding opcodes.  No particular need
+    // for one right now, just put in the value.
+
     return instruction;
 }
 

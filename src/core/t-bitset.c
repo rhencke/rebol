@@ -637,7 +637,7 @@ REBTYPE(Bitset)
 
     case SYM_COMPLEMENT:
     case SYM_NEGATE:
-        ser = Copy_Sequence(VAL_SERIES(value));
+        ser = Copy_Sequence_Core(VAL_SERIES(value), NODE_FLAG_MANAGED);
         INIT_BITS_NOT(ser, not BITS_NOT(VAL_SERIES(value)));
         Init_Bitset(value, ser);
         goto return_bitset;

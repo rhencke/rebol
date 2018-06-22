@@ -75,7 +75,7 @@ static void get_scalar(
         // already... !!! ?? !!! ... it will be necessary if the schemas
         // are to uniquely carry an ffi_type freed when they are GC'd
         //
-        REBSTU *sub_stu = Alloc_Singular(SERIES_MASK_NONE);
+        REBSTU *sub_stu = Alloc_Singular(NODE_FLAG_MANAGED);
         LINK(sub_stu).schema = field;
         REBVAL *single = SINK(ARR_SINGLE(sub_stu));
 
@@ -84,7 +84,6 @@ static void get_scalar(
         // Note: The original code allowed this for STU_INACCESSIBLE(stu).
         //
         RESET_VAL_HEADER(single, REB_STRUCT);
-        MANAGE_ARRAY(sub_stu);
         single->payload.structure.stu = sub_stu;
 
         // The parent data may be a singular array for a HANDLE! or a BINARY!
@@ -266,7 +265,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
             // Dimension becomes INTEGER! in a BLOCK! (to look like a C array)
             //
             REBCNT dimension = FLD_DIMENSION(field);
-            REBARR *one_int = Alloc_Singular(SERIES_MASK_NONE);
+            REBARR *one_int = Alloc_Singular(NODE_FLAG_MANAGED);
             Init_Integer(ARR_SINGLE(one_int), dimension);
             Init_Block(Alloc_Tail_Array(typespec), one_int);
 
@@ -1334,7 +1333,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 // FINALIZE VALUE
 //
 
-    REBSTU *stu = Alloc_Singular(SERIES_MASK_NONE);
+    REBSTU *stu = Alloc_Singular(NODE_FLAG_MANAGED);
 
     // Set it to blank so the Kill_Series can be called upon in case of error
     // thrown before it is fully constructed.
@@ -1359,7 +1358,6 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     out->extra.struct_offset = 0;
 
     Move_Value(ARR_HEAD(stu), out);
-    MANAGE_ARRAY(stu);
 }
 
 

@@ -331,6 +331,13 @@ inline static void INIT_VAL_CONTEXT(REBVAL *v, REBCTX *c) {
 #define Ensure_Keylist_Unique_Invalidated(context) \
     Expand_Context_Keylist_Core((context), 0)
 
+// Useful if you want to start a context out as NODE_FLAG_MANAGED so it does
+// not have to go in the unmanaged roots list and be removed later.  (Be
+// careful not to do any evaluations or trigger GC until it's well formed)
+//
+#define Alloc_Context(kind,capacity) \
+    Alloc_Context_Core((kind), (capacity), SERIES_MASK_NONE)
+
 
 //=////////////////////////////////////////////////////////////////////////=//
 //

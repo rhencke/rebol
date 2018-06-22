@@ -990,9 +990,8 @@ REBACT *Make_Action(
     // The "body" for a function can be any REBVAL.  It doesn't have to be
     // a block--it's anything that the dispatcher might wish to interpret.
 
-    REBARR *body_holder = Alloc_Singular(SERIES_MASK_NONE);
+    REBARR *body_holder = Alloc_Singular(NODE_FLAG_MANAGED);
     Init_Blank(ARR_SINGLE(body_holder));
-    MANAGE_ARRAY(body_holder);
 
     rootparam->payload.action.body_holder = body_holder;
 
@@ -1090,9 +1089,10 @@ REBACT *Make_Action(
 //
 REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
 {
-    REBARR *varlist = Alloc_Singular(ARRAY_FLAG_VARLIST | CONTEXT_FLAG_STACK);
+    REBARR *varlist = Alloc_Singular(
+        ARRAY_FLAG_VARLIST | CONTEXT_FLAG_STACK | NODE_FLAG_MANAGED
+    );
     MISC(varlist).meta = nullptr;
-    MANAGE_ARRAY(varlist);
 
     RELVAL *rootvar = ARR_SINGLE(varlist);
     RESET_VAL_HEADER(rootvar, REB_FRAME);
@@ -1181,9 +1181,10 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
         else {
             // See %sysobj.r for STANDARD/FUNC-BODY and STANDARD/PROC-BODY
             //
-            maybe_fake_body = Copy_Array_Shallow(
+            maybe_fake_body = Copy_Array_Shallow_Flags(
                 VAL_ARRAY(example),
-                VAL_SPECIFIER(example)
+                VAL_SPECIFIER(example),
+                NODE_FLAG_MANAGED
             );
             SET_SER_INFO(maybe_fake_body, SERIES_INFO_FROZEN);
 
@@ -1198,8 +1199,6 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
             INIT_VAL_ARRAY(slot, VAL_ARRAY(ACT_BODY(a)));
             VAL_INDEX(slot) = 0;
             INIT_BINDING(slot, a); // relative binding
-
-            MANAGE_ARRAY(maybe_fake_body);
         }
 
         // Cannot give user a relative value back, so make the relative

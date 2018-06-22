@@ -610,7 +610,6 @@ REBCTX *Copy_Context_Core(REBCTX *original, REBU64 types)
             CTX_VARS_HEAD(copy),
             SPECIFIED,
             CTX_LEN(copy),
-            SERIES_MASK_NONE,
             types
         );
     }

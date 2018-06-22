@@ -1066,13 +1066,11 @@ reevaluate:;
                     if (IS_END(f->arg))
                         array1 = EMPTY_ARRAY;
                     else {
-                        REBARR *feed = Alloc_Singular(SERIES_MASK_NONE);
+                        REBARR *feed = Alloc_Singular(NODE_FLAG_MANAGED);
                         Move_Value(ARR_SINGLE(feed), f->arg);
-                        MANAGE_ARRAY(feed);
 
-                        array1 = Alloc_Singular(SERIES_MASK_NONE);
+                        array1 = Alloc_Singular(NODE_FLAG_MANAGED);
                         Init_Block(ARR_SINGLE(array1), feed); // index 0
-                        MANAGE_ARRAY(array1);
                     }
 
                     RESET_VAL_HEADER_EXTRA(

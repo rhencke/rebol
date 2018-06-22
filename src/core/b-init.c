@@ -493,7 +493,7 @@ static void Init_Action_Meta_Shim(void) {
         SYM_SELF, SYM_DESCRIPTION, SYM_RETURN_TYPE, SYM_RETURN_NOTE,
         SYM_PARAMETER_TYPES, SYM_PARAMETER_NOTES
     };
-    REBCTX *meta = Alloc_Context(REB_OBJECT, 6);
+    REBCTX *meta = Alloc_Context_Core(REB_OBJECT, 6, NODE_FLAG_MANAGED);
     REBCNT i = 1;
     for (; i != 7; ++i) // BLANK!, as `make object! [x: ()]` is illegal
         Init_Blank(Append_Context(meta, nullptr, Canon(field_syms[i - 1])));
@@ -926,7 +926,10 @@ static void Init_System_Object(
 
     // Create system/codecs object
     //
-    Init_Object(Get_System(SYS_CODECS, 0), Alloc_Context(REB_OBJECT, 10));
+    Init_Object(
+        Get_System(SYS_CODECS, 0),
+        Alloc_Context_Core(REB_OBJECT, 10, NODE_FLAG_MANAGED)
+    );
 
     // The "standard error" template was created as an OBJECT!, because the
     // `make error!` functionality is not ready when %sysobj.r runs.  Fix
@@ -1002,8 +1005,27 @@ void Startup_Task(void)
 
     Startup_Stacks(STACK_MIN / 4);
 
-    TG_Ballast = MEM_BALLAST;
+    TG_Ballast = MEM_BALLAST; // or overwritten by debug build below...
     TG_Max_Ballast = MEM_BALLAST;
+
+    // RECYCLE/TORTURE is a useful test, but we might want to be running it
+    // from the very beginning... before we can rebRun("recycle/torture")...
+    // and before command-line processing.  Make it an environment option.
+    //
+  #ifndef NDEBUG
+    const char *env_recycle_torture = getenv("R3_RECYCLE_TORTURE");
+    if (env_recycle_torture and atoi(env_recycle_torture) != 0) {
+        printf(
+            "**\n"
+            "** R3_RECYCLE_TORTURE is TRUE in environment variable!\n"
+            "** Recycling on EVERY evaluator step, EXTREMELY SLOW!...\n"
+            "**\n"
+        );
+        fflush(stdout);
+        GC_Disabled = false;
+        TG_Ballast = 0;
+    }
+  #endif
 
     // The thrown arg is not intended to ever be around long enough to be
     // seen by the GC.
@@ -1250,12 +1272,10 @@ void Startup_Core(void)
 
     // !!! Have MAKE-BOOT compute # of words
     //
-    Lib_Context = Alloc_Context(REB_OBJECT, 600);
-    MANAGE_ARRAY(CTX_VARLIST(Lib_Context));
+    Lib_Context = Alloc_Context_Core(REB_OBJECT, 600, NODE_FLAG_MANAGED);
     PUSH_GUARD_CONTEXT(Lib_Context);
 
-    Sys_Context = Alloc_Context(REB_OBJECT, 50);
-    MANAGE_ARRAY(CTX_VARLIST(Sys_Context));
+    Sys_Context = Alloc_Context_Core(REB_OBJECT, 50, NODE_FLAG_MANAGED);
     PUSH_GUARD_CONTEXT(Sys_Context);
 
     REBARR *datatypes_catalog = Startup_Datatypes(

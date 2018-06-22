@@ -471,7 +471,10 @@ inline static REBMAP *Copy_Map(REBMAP *map, REBU64 types) {
     // a literal copy of the hashlist can still be used, as a start (needs
     // its own copy so new map's hashes will reflect its own mutations)
     //
-    LINK(copy).hashlist = Copy_Sequence(MAP_HASHLIST(map));
+    LINK(copy).hashlist = Copy_Sequence_Core(
+        MAP_HASHLIST(map),
+        SERIES_MASK_NONE // !!! No NODE_FLAG_MANAGED?
+    );
 
     if (types == 0)
         return MAP(copy); // no types have deep copy requested, shallow is OK
@@ -492,7 +495,7 @@ inline static REBMAP *Copy_Map(REBMAP *map, REBU64 types) {
 
         // No plain Clonify_Value() yet, call on values with length of 1.
         //
-        Clonify_Values_Len_Managed(v, SPECIFIED, 1, SERIES_MASK_NONE, types);
+        Clonify_Values_Len_Managed(v, SPECIFIED, 1, types);
     }
 
     return MAP(copy);
