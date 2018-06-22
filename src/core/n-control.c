@@ -29,15 +29,18 @@
 //
 // Control constructs in Ren-C differ from R3-Alpha in some ways:
 //
-// * If they do not run any branches, they evaluate to null (which is similar
-//   to "unset!", but with important differences).  If a branch *does* run,
-//   and evaluates to null, then the result is altered to be BLANK!.  Hence
-//   null can cue other functions (like ELSE and ALSO) to be sure no branch
-//   ran, and respond appropriately.
+// * If they do not run any branches, the construct returns NULL...which is
+//   not an ANY-VALUE! and can't be put in a block or assigned to a variable
+//   via SET-WORD! or SET-PATH!.  This is systemically the sign of a "soft
+//   failure", and can signal constructs like ELSE to run.
 //
-// * It is possible to ask the branch return result to not be "blankified",
-//   but give back nulls as-is, with the /OPT refinement.  This is specialized
-//   as functions ending in *.  (IF*, EITHER*, CASE*, SWITCH*...)
+// * If a branch *does* run--and that branch evaluation produces a NULL--then
+//   conditionals designed to be used with branching (like IF or CASE) will
+//   return a VOID! result.  Voids are neither true nor false, and are not
+//   friendly to work with (e.g. can't be assigned to a variable via SET-WORD!
+//   or SET-PATH!).  Yet they are values and can be put in blocks, so are
+//   unlike NULL...constructs like ELSE can realize that a branch was taken
+//   and not run their own branch.
 //
 // * Zero-arity function values used as branches will be executed, and
 //   single-arity functions used as branches will also be executed--but passed
@@ -60,7 +63,6 @@
 //      condition [<opt> any-value!]
 //      branch "If arity-1 ACTION!, receives the evaluated condition"
 //          [block! action!]
-//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
 REBNATIVE(if)
@@ -70,9 +72,10 @@ REBNATIVE(if)
     if (IS_CONDITIONAL_FALSE(ARG(condition)))
         return R_NULL;
 
-    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch), REF(opt)))
+    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch)))
         return R_OUT_IS_THROWN;
 
+    Voidify_If_Nulled(D_OUT); // null is reserved for no branch run
     return R_OUT;
 }
 
@@ -86,7 +89,6 @@ REBNATIVE(if)
 //          [<opt> any-value!]
 //      condition [<opt> any-value!]
 //      branch [block! action!]
-//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
 REBNATIVE(if_not)
@@ -96,9 +98,10 @@ REBNATIVE(if_not)
     if (IS_CONDITIONAL_TRUE(ARG(condition)))
         return R_NULL;
 
-    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch), REF(opt)))
+    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch)))
         return R_OUT_IS_THROWN;
 
+    Voidify_If_Nulled(D_OUT); // null is reserved for no branch run
     return R_OUT;
 }
 
@@ -116,22 +119,18 @@ REBNATIVE(if_not)
 //  ]
 //
 REBNATIVE(either)
+//
+// Note that EITHER is not a precise synonym for IF...ELSE, because both
+// branches are allowed to return null, not just the second.
 {
     INCLUDE_PARAMS_OF_EITHER;
-
-    // !!! For the moment, EITHER is not precisely compatible with IF...ELSE,
-    // because IF will blankify the true branch if null.  This idea is being
-    // reconsidered in light of *disallowing* null branches for IFs.
-    //
-    const REBOOL opt = true;
 
     if (Run_Branch_Throws(
         D_OUT,
         ARG(condition),
         IS_CONDITIONAL_TRUE(ARG(condition))
             ? ARG(true_branch)
-            : ARG(false_branch),
-        opt
+            : ARG(false_branch)
     )){
         return R_OUT_IS_THROWN;
     }
@@ -211,8 +210,8 @@ inline static REB_R Either_Test_Core(
             return R_OUT_IS_THROWN;
         }
 
-        if (IS_NULLED(cell))
-            fail (Error_No_Return_Raw());
+        if (IS_VOID(cell))
+            fail (Error_Void_Conditional_Raw());
 
         return R_FROM_BOOL(IS_TRUTHY(cell)); }
 
@@ -274,7 +273,6 @@ inline static REB_R Either_Test_Core(
 //      arg [<opt> any-value!]
 //      branch "If arity-1 ACTION!, receives the non-matching argument"
 //          [block! action!]
-//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
 REBNATIVE(either_test)
@@ -292,7 +290,7 @@ REBNATIVE(either_test)
 
     assert(r == R_FALSE);
 
-    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
+    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch)))
         return R_OUT_IS_THROWN;
 
     return R_OUT;
@@ -300,67 +298,100 @@ REBNATIVE(either_test)
 
 
 //
-//  either-test-null: native [
+//  else: enfix native [
 //
-//  {If argument is null, return null, otherwise take the branch}
+//  {If input is not null, return that value, otherwise evaluate the branch}
 //
-//      return: {null if input is null, or branch result}
+//      return: "Input value if not null, or branch result (possibly null)"
 //          [<opt> any-value!]
-//      arg [<opt> any-value!]
-//      branch "If arity-1 ACTION!, receives value that triggered branch"
+//      optional "Run branch if this is null (note a VOID! is not null)"
+//          [<opt> any-value!]
+//      branch "If arity-1 ACTION!, receives null (done for consistency)"
 //          [block! action!]
-//      /opt "If branch runs and produces null, don't convert it to a BLANK!"
 //  ]
 //
-REBNATIVE(either_test_null)
-//
-// Native optimization of `specialize 'either-test [test: :null?]`
-// Worth it to write because this is the functionality enfixed as ALSO.
+REBNATIVE(else)
 {
-    INCLUDE_PARAMS_OF_EITHER_TEST_NULL;
+    INCLUDE_PARAMS_OF_ELSE; // faster than EITHER-TEST specialized w/`VALUE?`
 
-    if (IS_NULLED(ARG(arg))) // Either_Test_Core() would call Apply()
-        return R_NULL;
-
-    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), REF(opt)))
-        return R_OUT_IS_THROWN;
-
-    return R_OUT;
-}
-
-
-//
-//  either-test-value*: native [
-//
-//  {If argument is not null, return the value, otherwise take the branch}
-//
-//      return: {Input value if not null, or branch result}
-//          [<opt> any-value!]
-//      arg [<opt> any-value!]
-//      branch [block! action!]
-//  ]
-//
-REBNATIVE(either_test_value_p)
-//
-// Native optimization of `specialize 'either-test [test: :any-value?]`
-// Worth it to write because this is the functionality enfixed as ELSE.
-{
-    INCLUDE_PARAMS_OF_EITHER_TEST_VALUE_P;
-
-    if (not IS_NULLED(ARG(arg))) { // Either_Test_Core() would call Apply()
-        Move_Value(D_OUT, ARG(arg));
+    if (not IS_NULLED(ARG(optional))) { // note that VOID!s are non-NULL
+        Move_Value(D_OUT, ARG(optional));
         return R_OUT;
     }
 
-    // Note ELSE does not blankify its branch output; it is specifically
-    // being invoked to compensate for a "missing value".  This is asymmetric
-    // with IF, which if it runs a branch must blankify it as a signal for
-    // ELSE.  Hence only truthy branches have an implicit TRY on them.
-    //
-    const REBOOL opt = true;
-    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch), opt))
+    if (Run_Branch_Throws(D_OUT, NULLED_CELL, ARG(branch)))
         return R_OUT_IS_THROWN;
 
+    // For ELSE, we do not Voidify_If_Nulled() so that you can write:
+    //
+    //     if condition [...] else [...] else [...] also [...]
+    //
+    return R_OUT;
+}
+
+
+//
+//  also: enfix native [
+//
+//  {If input is null, return null, otherwise evaluate the branch}
+//
+//      return: "null if input is null, or branch result (voided if null)"
+//          [<opt> any-value!]
+//      optional "Run branch if this is not null (note a VOID! is not null)"
+//          [<opt> any-value!]
+//      branch "If arity-1 ACTION!, receives value that triggered branch"
+//          [block! action!]
+//  ]
+//
+REBNATIVE(also)
+{
+    INCLUDE_PARAMS_OF_ALSO; // faster than EITHER-TEST specialized w/`NULL?`
+
+    if (IS_NULLED(ARG(optional)))
+        return R_NULL;
+
+    if (Run_Branch_Throws(D_OUT, ARG(optional), ARG(branch)))
+        return R_OUT_IS_THROWN;
+
+    // For ALSO, we Voidify_If_Nulled() in order to relieve the person writing
+    // the branch of worrying about getting out of the way of an ELSE:
+    //
+    //     switch x [...] also [if y [print "matched!"]] else [...]
+    //
+    // The concept being that the author means to ELSE the whole expression,
+    // e.g. the ALSO and the SWITCH are linked to the "group of things that
+    // are associated with success".  Hence the outcome of the ALSO shouldn't
+    // be able to accidentally "un-success" it by evaluating to NULL.
+    //
+    Voidify_If_Nulled(D_OUT);
+    return R_OUT;
+}
+
+
+//
+//  so: enfix native [
+//
+//  {"The Lesser ALSO": For non-null input, evaluate and discard branch}
+//
+//      return: "The same value as input, regardless of if branch runs"
+//          [<opt> any-value!]
+//      optional "Run branch if this is not null (note a VOID! is not null)"
+//          [<opt> any-value!]
+//      branch "If arity-1 ACTION!, receives value that triggered branch"
+//          [block! action!]
+//  ]
+//
+REBNATIVE(so)
+{
+    INCLUDE_PARAMS_OF_SO; // `so [...]` faster than `also func [x] [(...) :x]`
+
+    if (IS_NULLED(ARG(optional)))
+        return R_NULL;
+
+    if (Run_Branch_Throws(D_OUT, ARG(optional), ARG(branch)))
+        return R_OUT_IS_THROWN;
+
+    Move_Value(D_OUT, ARG(optional));
     return R_OUT;
 }
 
@@ -482,8 +513,8 @@ REBNATIVE(match)
 
         assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
 
-        if (IS_NULLED(D_CELL)) // neither true nor false
-            fail (Error_No_Return_Raw());
+        if (IS_VOID(D_CELL))
+            fail (Error_Void_Conditional_Raw());
 
         // We still have the first argument from the filter call in D_OUT.
 
@@ -656,7 +687,6 @@ static REB_R Case_Choose_Core(
     REBVAL *cell, // scratch "D_CELL", must be GC safe
     REBVAL *block, // "choices" or "cases", must be GC safe
     REBOOL all,
-    REBOOL opt,
     REBOOL choose // do not evaluate branches, just "choose" them
 ){
     DECLARE_FRAME (f);
@@ -716,7 +746,7 @@ static REB_R Case_Choose_Core(
         // is not set, as it would run code *after* the taken branch.
         //
         if (choose)
-            Derelativize(out, f->value, f->specifier);
+            Derelativize(out, f->value, f->specifier); // null not possible
         else {
             if (Do_At_Throws(
                 out,
@@ -727,8 +757,7 @@ static REB_R Case_Choose_Core(
                 Abort_Frame(f);
                 return R_OUT_IS_THROWN;
             }
-            if (not opt and IS_NULLED(out))
-                Init_Blank(out);
+            Voidify_If_Nulled(out); // null is reserved for no branch taken
         }
 
         if (not all) {
@@ -755,8 +784,6 @@ static REB_R Case_Choose_Core(
 //          "Block of cases (conditions followed by branches)"
 //      /all
 //          "Evaluate all cases (do not stop at first logically true case)"
-//      /opt
-//          "If branch runs and returns null, do not convert it to BLANK!"
 //  ]
 //
 REBNATIVE(case)
@@ -764,9 +791,7 @@ REBNATIVE(case)
     INCLUDE_PARAMS_OF_CASE;
 
     const REBOOL choose = FALSE;
-    return Case_Choose_Core(
-        D_OUT, D_CELL, ARG(cases), REF(all), REF(opt), choose
-    );
+    return Case_Choose_Core(D_OUT, D_CELL, ARG(cases), REF(all), choose);
 }
 
 
@@ -787,12 +812,6 @@ REBNATIVE(choose)
 {
     INCLUDE_PARAMS_OF_CHOOSE;
 
-    // There's no need to worry about "blankification" here, as it's picking
-    // values out of a block that cannot be null.  (It would be different if
-    // the branches were soft quoted, then they might evaluate to null.)
-    //
-    const REBOOL opt = false;
-
     // The choose can't be run backwards, only forwards.  So implementation
     // means that "/LAST" really can only be done as an /ALL, there's no way
     // to go backwards in the block and get a Rebol-coherent answer.  Calling
@@ -802,9 +821,7 @@ REBNATIVE(choose)
     const REBOOL all = REF(all);
 
     const REBOOL choose = true;
-    return Case_Choose_Core(
-        D_OUT, D_CELL, ARG(choices), all, opt, choose
-    );
+    return Case_Choose_Core(D_OUT, D_CELL, ARG(choices), all, choose);
 }
 
 
@@ -820,7 +837,6 @@ REBNATIVE(choose)
 //      cases "Block of cases (comparison lists followed by block branches)"
 //          [block!]
 //      /all "Evaluate all matches (not just first one)"
-//      /opt "If branch runs and returns null, do not convert it to BLANK!"
 //      ; !!! /STRICT may have a different name
 //      ; https://forum.rebol.info/t/349
 //      /strict "Use STRICT-EQUAL? when comparing cases instead of EQUAL?"
@@ -932,8 +948,7 @@ REBNATIVE(switch)
             return R_OUT_IS_THROWN;
         }
 
-        if (not REF(opt) and IS_NULLED(D_OUT))
-            Init_Blank(D_OUT); // blankify if needed
+        Voidify_If_Nulled(D_OUT); // null is reserved for no branch run
 
         if (not REF(all)) {
             Abort_Frame(f);

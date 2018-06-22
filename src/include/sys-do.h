@@ -1293,12 +1293,6 @@ inline static REBOOL Eval_Value_Core_Throws(
 //     >> case [false "a" false "b"] then func [x] [print x] else [print "*"]
 //     *
 //
-// Also, Ren-C does something called "blankification", unless the /OPT
-// refinement is used.  This is the process by which a void-producing branch
-// is forced to be a BLANK! instead, allowing void to be reserved for the
-// result when no branch ran.  This gives a uniform way of determining
-// whether a branch ran or not (utilized by ELSE, ALSO, etc.)
-//
 // Note: Tolerance of non-BLOCK! and non-ACTION! branches to act as literal
 // values was proven to cause more harm than good.
 //
@@ -1307,8 +1301,7 @@ inline static REBOOL Eval_Value_Core_Throws(
 inline static REBOOL Run_Branch_Throws(
     REBVAL *out,
     const REBVAL *condition,
-    const REBVAL *branch,
-    REBOOL opt
+    const REBVAL *branch
 ){
     assert(branch != out);
     assert(condition != out);
@@ -1324,9 +1317,6 @@ inline static REBOOL Run_Branch_Throws(
         if (Apply_Only_Throws(out, fully, branch, NULLIZE(condition), END))
             return true;
     }
-
-    if (not opt and IS_NULLED(out))
-        Init_Blank(out); // "blankification", see comment above
 
     return false;
 }

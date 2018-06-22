@@ -674,7 +674,7 @@ split: function [
         ; implied empty field after it, which we add here.
         ;
         switch type of dlm [
-            bitset! [find dlm try last series]
+            bitset! [did find dlm try last series]
             char! [dlm = last series]
             text! [(find series dlm) and (empty? find/last/tail series dlm)]
             block! [false]

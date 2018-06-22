@@ -235,12 +235,12 @@ title-of: function [
 
     value [any-value!]
 ][
-    switch type of :value [
+    opt switch type of :value [
         action! [
             all [
                 meta: try match* object! meta-of :value
                 copy try match* text! select meta 'description
-            ]
+            ] ;-- may be null and get voidified, hence OPT
         ]
 
         datatype! [

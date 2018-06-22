@@ -140,10 +140,10 @@ for-each [comparison-op function-name] compose [
     {If TO-LOGIC of the left is true, return right value, otherwise null}
 
     return: [<opt> any-value!]
-    left [any-value!]
-    right [any-value!]
+    left [<opt> any-value!]
+    right [<opt> any-value!]
 ][
-    if :left [:right] ;-- blankifies branched results
+    if :left [:right] ;-- will voidify result if right is null
 ]
 
 !!: enfix func [
@@ -151,60 +151,27 @@ for-each [comparison-op function-name] compose [
 
     return: [<opt> any-value!]
     left [<opt> any-value!]
-    right [any-value!]
+    right [<opt> any-value!]
 ][
-    either-test-value* :left [:right] ;-- doesn't blankify branched result
+    :left else [:right] ;-- will *not* voidify result if right is null
 ]
 
 ?!: enfix func [ ;-- name suggests shorthand of `left ?? () !! right`
     {If TO LOGIC! of the left is false, return right value, otherwise null}
 
     return: [<opt> any-value!]
-    left [any-value!]
-    right [any-value!]
+    left [<opt> any-value!]
+    right [<opt> any-value!]
 ][
-    if-not/opt :left [:right]
+    if-not :left [:right] ;-- will voidify result if right is null
 ]
 
 
 ; https://trello.com/c/8NF3DFBM
 
 then: enfix :if
-then*: enfix specialize :if [ ;-- THEN/OPT is path, can't be infix
-    opt: true
-]
 
 not-then: enfix :if-not
-not-then*: enfix specialize :if-not [ ;-- NOT-THEN/OPT is path, can't be infix
-    opt: true
-]
-
-
-; ALSO and ELSE are "non-TIGHTened" enfix functions which either pass through
-; an argument or run a branch, based on nullity of the argument.  They take
-; advantage of the pattern of conditionals such as `if condition [...]` to
-; only return null if the branch does not run, and never return null if it
-; does run (null branch evaluations are forced to a BLANK!)
-
-also: enfix redescribe [
-    "Evaluate the branch if the left hand side expression is not null"
-](
-    comment [specialize 'either-test [test: :null?]]
-    :either-test-null ;-- So common as to warrant hand-specialized native
-)
-
-also*: enfix redescribe [
-    "Would be the same as ALSO/OPT, if infix functions dispatched from paths"
-](
-    specialize 'also [opt: true]
-)
-
-else: enfix redescribe [
-    "Evaluate the branch if the left hand side expression is null"
-](
-    comment [specialize 'either-test [test: :value? | opt: true]]
-    :either-test-value* ;-- So common as to warrant hand-specialized native
-)
 
 
 ; The -- and ++ operators were deemed too "C-like", so ME was created to allow

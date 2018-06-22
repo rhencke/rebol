@@ -47,10 +47,17 @@ static REBVAL *Trap_Dangerous(REBFRM *frame_) {
     UNUSED(ARG(handler));
 
     const REBVAL *condition = END; // only allow 0-arity functions
-    const REBOOL only = REF(with); // voids verbatim only if handler given
-    if (Run_Branch_Throws(D_OUT, condition, ARG(code), only)) {
+    if (Run_Branch_Throws(D_OUT, condition, ARG(code))) {
         //
         // returned value is tested for THROWN() status by caller
+    }
+    else {
+        if (not REF(with) and IS_ERROR(D_OUT)) {
+            fail (
+                "TRAP'ped expressions are not allowed to evaluate to a"
+                " non-*raised* ERROR! unless a /WITH handler is provided"
+            );
+        }
     }
 
     return NULL;
@@ -93,8 +100,7 @@ REBNATIVE(trap)
     assert(IS_ERROR(error));
 
     if (REF(with)) {
-        const REBOOL only = TRUE; // return voids as-is from error handler
-        if (Run_Branch_Throws(D_OUT, error, ARG(handler), only)) {
+        if (Run_Branch_Throws(D_OUT, error, ARG(handler))) {
             rebRelease(error);
             return R_OUT_IS_THROWN;
         }
@@ -110,9 +116,8 @@ REBNATIVE(trap)
 static REBVAL *Entrap_Dangerous(REBFRM *frame_) {
     INCLUDE_PARAMS_OF_ENTRAP;
 
-    const REBOOL only = TRUE; // want nulls as-is
     const REBVAL *condition = END; // only allow 0-arity functions
-    if (Run_Branch_Throws(D_OUT, condition, ARG(code), only)) {
+    if (Run_Branch_Throws(D_OUT, condition, ARG(code))) {
         Init_Error(D_OUT, Error_No_Catch_For_Throw(D_OUT));
         return NULL;
     }

@@ -37,7 +37,6 @@
 [
     (did match2: enclose specialize 'either-test [
         branch: [] ;-- runs on test failure
-        opt: true ;-- failure branch returns void, signals the enclosure
     ] function [
         return: [<opt> any-value!]
         f [frame!]

@@ -395,9 +395,9 @@ redescribe: function [
                     ; No action needed (no meta to delete old description in)
                 ][
                     on-demand-meta
-                    meta/description: either equal? description {} [
+                    meta/description: if equal? description {} [
                         _
-                    ][ ;-- else not defined yet
+                    ] else [
                         description
                     ]
                 ]
@@ -501,41 +501,15 @@ default*: enfix redescribe [
 semiquote: specialize 'identity [quote: true]
 
 
-if*: redescribe [
-    {Same as IF/OPT (null, not blank, if branch evaluates to null)}
-](
-    specialize 'if [opt: true]
-)
-
-if-not*: redescribe [
-    {Same as IF-NOT/OPT (null, not blank, if branch evaluates to null)}
-](
-    specialize 'if-not [opt: true]
-)
-
-
 unless: enfix func [
     {Returns the left hand side, unless the right hand side is something}
 
     return: [any-value!]
-    left [any-value!]
+    left [any-value!] ;-- should null be allowed here?
     right [<opt> any-value!]
 ][
-    either-test-value* :right [:left]
+    :right else [:left]
 ]
-
-
-case*: redescribe [
-    {Same as CASE/OPT (null, not blank, if branch evaluates to null)}
-](
-    specialize 'case [opt: true]
-)
-
-switch*: redescribe [
-    {Same as SWITCH/OPT (null, not blank, if branch evaluates to null)}
-](
-    specialize 'switch [opt: true]
-)
 
 skip*: redescribe [
     {Variant of SKIP that returns BLANK! instead of clipping to series bounds}
@@ -553,7 +527,6 @@ match*: redescribe [
     {Variant of MATCH that passes through a NULL vs. error (variadic TBD}
 ](
     specialize 'either-test [
-        opt: true
         branch: []
     ]
 )
@@ -577,7 +550,6 @@ ensure: redescribe [
                 ]
             ]
         ]
-        opt: false ;-- Doesn't matter (it fails) just hide the refinement
     ]
 )
 
@@ -600,7 +572,6 @@ ensure*: redescribe [
                 ]
             ]
         ]
-        opt: true ;-- Doesn't matter (it fails) just hide the refinement
     ]
 )
 
@@ -629,9 +600,7 @@ take: redescribe [
     chain [
         :take*
             |
-        specialize 'either-test-value* [
-            ;-- doesn't return so * (/OPT) is irrelevant, use the optimized
-            ;-- EITHER-TEST-VALUE* for speed vs. plain EITHER-TEST :VALUE?
+        specialize 'else [
             branch: [
                 fail "Can't TAKE from series end (see TAKE* to get void)"
             ]
@@ -778,7 +747,7 @@ right-bar: func [
     expressions [<opt> any-value! <...>]
         {Any number of expression.}
 ][
-    if* not tail? expressions [take* expressions] ;-- return result
+    if not tail? expressions [take* expressions] ;-- return result
 
     elide do expressions
 ]

@@ -994,15 +994,29 @@ inline static const REBVAL *NULLIZE(const REBVAL *cell) {
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Voids are the the result given by PROCEDURE calls, and unlike NULL it *is*
-// a value...however a somewhat unfriendly one.  It is distinct from null so
-// that you can write:
+// a value...however a somewhat unfriendly one.  While NULLs are falsey, voids
+// are *neither* truthy nor falsey, but like NULL they can't be casually
+// assigned via a SET-WORD!, SET-PATH!, or SET.  Though a void can be put in
+// an array (a NULL can't) if the evaluator comes across a void cell in an
+// array, it will trigger an error.
 //
-//     if condition [print "Hi"] else [print "Bye"]
+// Voids also come into play in what is known as "voidification" of NULLs.
+// Loops wish to reserve NULL as the return result if there is a BREAK, and
+// conditionals like IF and SWITCH want to reserve NULL to mean there was no
+// branch taken.  So when branches or loop bodies produce null, they need
+// to be converted to some ANY-VALUE!.  (Or raise an error, but raising an
+// error would disllow `if true [if false [...]]`, which seems bad!)
 //
-// If it weren't a value, then the IF would complain that its branch evaluated
-// to null (hence there would be no way to use null as the trigger to run
-// the else branch).  While NULLs are falsey, voids are *neither* truthy nor
-// falsey, and can't be casually assigned via SET-WORD!.
+// Early on in Ren-C this was done by converting NULL to BLANK!, a process
+// called "blankification".  But blanks are "friendly"...which meant that
+// `either condition [a] [b]` mismatched `if condition [a] else [b]` in a
+// way that could be hard to diagnose, since the truthy branch in the IF case
+// could silently convert nulls to blank.  Because voids are "unfriendly" and
+// rarer, auto-voidifying nulls is a lesser evil than auto-blankifying them.
+//
+// The console doesn't print anything for void evaluation results by default,
+// so that routines like HELP won't have additional output than what they
+// print out.
 //
 
 #define VOID_VALUE \
@@ -1025,6 +1039,10 @@ inline static const REBVAL *NULLIZE(const REBVAL *cell) {
         Init_Void_Debug((out), __FILE__, __LINE__)
 #endif
 
+inline static void Voidify_If_Nulled(REBVAL *cell) {
+    if (IS_NULLED(cell))
+        Init_Void(cell);
+}
 
 
 //=////////////////////////////////////////////////////////////////////////=//

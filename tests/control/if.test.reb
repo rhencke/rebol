@@ -11,8 +11,8 @@
 )
 (1 = if true [1])
 
-(null? if* true [])
-(blank? if true [])
+(null? if false [])
+(void? if true [])
 
 (error? if true [trap [1 / 0]])
 ; RETURN stops the evaluation
@@ -81,8 +81,7 @@
 
 ; recursive behaviour
 
-(blank? if true [if false [1]])
-(null? if* true [if* false [1]])
+(void? if true [if false [1]])
 (1 = if true [if true [1]])
 
 ; infinite recursion
@@ -110,10 +109,8 @@
 )
 (1 = if-not false [1])
 
-(null? if-not* true [1])
-(null? if-not* false [])
 (null? if-not true [1])
-(blank? if-not false [])
+(void? if-not false [])
 
 (error? if-not false [trap [1 / 0]])
 

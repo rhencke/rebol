@@ -90,7 +90,7 @@ void MF_Unit(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         // as they are conditionally neither true nor false and can't be
         // assigned directly via SET-WORD! or plain SET...so choosing a
         // notation like ??? (or ?, or !) would be slippery.
-        // 
+        //
         Append_Unencoded(mo->series, "#[void]");
         break;
 

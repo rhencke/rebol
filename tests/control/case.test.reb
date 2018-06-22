@@ -14,22 +14,22 @@
 )
 
 (
-    null? case [false []] ;-- void indicates no branch was taken
+    null? case [false []] ;-- null indicates no branch was taken
 )
 (
     null? case [] ;-- empty case block is legal (e.g. as COMPOSE product)
 )
 (
-    blank? case [true []] ;-- blank vs. void, indicates branch was taken
+    void? case [true []] ;-- void indicates branch was taken (vs. null)
 )
 (
-    blank? case [
+    void? case [
         true []
         false [1 + 2]
     ]
 )
 [#2246 (
-    null? case* [true []] ;-- overrides the "blankification"
+    void? case [true []]
 )]
 
 (

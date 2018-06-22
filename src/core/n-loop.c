@@ -134,13 +134,9 @@ static REB_R Loop_Series_Common(
     const REBVAL *body,
     REBVAL *start,
     REBINT end,
-    REBINT bump,
-    REBOOL opt
+    REBINT bump
 ){
-    if (opt)
-        Init_Nulled(out); // default result of REPEAT* if body never runs
-    else
-        Init_Blank(out); // default result of REPEAT if body never runs
+    Init_Void(out); // result if body never runs
 
     // !!! This bounds incoming `end` inside the array.  Should it assert?
     //
@@ -160,15 +156,14 @@ static REB_R Loop_Series_Common(
     //
     REBINT s = VAL_INDEX(start);
     if (s == end) {
-        if (Run_Branch_Throws(out, END, body, opt)) {
+        if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_NULLED(out))
-                return R_BLANK; // blankify continue if needed
         }
+        Voidify_If_Nulled(out); // null is reserved for BREAK
         return R_OUT;
     }
 
@@ -185,15 +180,14 @@ static REB_R Loop_Series_Common(
             ? cast(REBINT, *state) <= end
             : cast(REBINT, *state) >= end
     ){
-        if (Run_Branch_Throws(out, END, body, opt)) {
+        if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_NULLED(out))
-                Init_Blank(out); // blankify continues if needed
         }
+        Voidify_If_Nulled(out); // null is reserved for BREAK
 
         if (
             VAL_TYPE(var) != VAL_TYPE(start)
@@ -225,13 +219,9 @@ static REB_R Loop_Integer_Common(
     const REBVAL *body,
     REBI64 start,
     REBI64 end,
-    REBI64 bump,
-    REBOOL opt
+    REBI64 bump
 ){
-    if (opt)
-        Init_Nulled(out); // default for REPEAT* if body never runs
-    else
-        Init_Blank(out); // default for REPEAT if body never runs
+    Init_Void(out); // result if body never runs
 
     // A value cell exposed to the user is used to hold the state.  This means
     // if they change `var` during the loop, it affects the iteration.  Hence
@@ -244,15 +234,14 @@ static REB_R Loop_Integer_Common(
     // Run only once if start is equal to end...edge case.
     //
     if (start == end) {
-        if (Run_Branch_Throws(out, END, body, opt)) {
+        if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_NULLED(out))
-                return R_BLANK; // blankify CONTINUE if needed
         }
+        Voidify_If_Nulled(out); // null is reserved for BREAK
         return R_OUT;
     }
 
@@ -265,15 +254,14 @@ static REB_R Loop_Integer_Common(
         return R_NULL; // avoid infinite loops
 
     while (counting_up ? *state <= end : *state >= end) {
-        if (Run_Branch_Throws(out, END, body, opt)) {
+        if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_NULLED(out))
-                Init_Blank(out); // blankify continues if needed
         }
+        Voidify_If_Nulled(out); // null is reserved for BREAK
 
         if (not IS_INTEGER(var))
             fail (Error_Invalid_Type(VAL_TYPE(var)));
@@ -295,13 +283,9 @@ static REB_R Loop_Number_Common(
     const REBVAL *body,
     REBVAL *start,
     REBVAL *end,
-    REBVAL *bump,
-    REBOOL opt
+    REBVAL *bump
 ){
-    if (opt)
-        Init_Nulled(out); // default result for LOOP* if body never runs
-    else
-        Init_Blank(out); // default result for LOOP if body never runs
+    Init_Void(out); // result if body never runs
 
     REBDEC s;
     if (IS_INTEGER(start))
@@ -337,34 +321,34 @@ static REB_R Loop_Number_Common(
     // Run only once if start is equal to end...edge case.
     //
     if (s == e) {
-        if (Run_Branch_Throws(out, END, body, opt)) {
+        if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_NULLED(out))
-                return R_BLANK; // blankify continue if needed
         }
+        Voidify_If_Nulled(out); // null is reserved for BREAK
         return R_OUT;
     }
 
     // As per #1993, see notes in Loop_Integer_Common()
     //
     const REBOOL counting_up = (s < e); // equal checked above
-    if ((counting_up and b <= 0) or (not counting_up and b >= 0))
-        return opt ? R_NULL : R_BLANK; // avoid infinite loops
+    if ((counting_up and b <= 0) or (not counting_up and b >= 0)) {
+        Init_Void(out);
+        return R_OUT; // avoid infinite loops, void if body never runs
+    }
 
     while (counting_up ? *state <= e : *state >= e) {
-        if (Run_Branch_Throws(out, END, body, opt)) {
+        if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not opt and IS_NULLED(out))
-                Init_Blank(out); // blankify continue if needed
         }
+        Voidify_If_Nulled(out); // null is reserved for BREAK
 
         if (not IS_DECIMAL(var))
             fail (Error_Invalid_Type(VAL_TYPE(var)));
@@ -389,10 +373,6 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 {
     INCLUDE_PARAMS_OF_FOR_EACH;
 
-    // !!! Would make sense for FOR-EACH, but not others?
-    //
-    const REBOOL opt = (mode == LOOP_MAP_EACH);
-
     REBVAL *data = ARG(data);
     assert(not IS_NULLED(data));
 
@@ -402,10 +382,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     REBOOL stop = FALSE;
     REBOOL threw = FALSE; // did a non-BREAK or non-CONTINUE throw occur
 
-    if (opt)
-        Init_Nulled(D_OUT); // default result for FOR-EACH*, etc if no body runs
-    else
-        Init_Blank(D_OUT); // default result for FOR-EACH, etc if no body runs
+    Init_Void(D_OUT); // result if body never runs (MAP-EACH gives [], atm)
 
     if (mode == LOOP_EVERY)
         SET_END(D_CELL); // Final result is in D_CELL (last truthy or BLANK!)
@@ -606,15 +583,12 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
         assert(IS_END(key) and IS_END(pseudo_var));
 
-        if (Run_Branch_Throws(D_OUT, nullptr, ARG(body), opt)) {
+        if (Run_Branch_Throws(D_OUT, nullptr, ARG(body))) {
             if (not Catching_Break_Or_Continue(D_OUT, &stop)) {
                 // A non-loop throw, we should be bubbling up
                 threw = TRUE;
                 break;
             }
-
-            if (not opt and IS_NULLED(D_OUT))
-                Init_Blank(D_OUT); // blankify if necessary
 
             // Fall through and process the D_OUT (unset if no /WITH) for
             // this iteration.  `stop` flag will be checked ater that.
@@ -622,20 +596,24 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
         switch (mode) {
         case LOOP_FOR_EACH:
-            // no action needed after body is run
+            Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
             break;
 
         case LOOP_MAP_EACH:
-            // anything that's not void will be added to the result
+            // anything that's not null will be added to the result
             if (not IS_NULLED(D_OUT))
                 DS_PUSH(D_OUT);
             break;
 
         case LOOP_EVERY:
-            if (IS_NULLED(D_OUT)) {
-                // Unsets "opt out" of the vote, as with ANY and ALL
-            }
-            else if (IS_FALSEY(D_OUT))
+            //
+            // !!! EVERY is an interesting idea that really never came into
+            // use, about a loop version of ALL.  However, ALL has a protocol
+            // of returning null in the case of no match, which loops use to
+            // indicate a break occurred.  Hence the idea needs review, as
+            // it was created before the break protocol or null ALL protocol.
+            //
+            if (IS_FALSEY(D_OUT))
                 Init_Blank(D_CELL); // at least one false means blank result
             else if (IS_END(D_CELL) or not IS_BLANK(D_CELL))
                 Move_Value(D_CELL, D_OUT);
@@ -643,7 +621,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         }
 
         if (stop) {
-            Init_Blank(D_OUT);
+            Init_Nulled(D_OUT);
             break;
         }
 
@@ -735,7 +713,6 @@ skip_hidden: ;
 //          "Amount to skip each time"
 //      body [block! action!]
 //          "Code to evaluate"
-//      /opt "If body runs and returns null, don't convert it to a blank"
 //  ]
 //
 REBNATIVE(for)
@@ -765,8 +742,7 @@ REBNATIVE(for)
             IS_DECIMAL(ARG(end))
                 ? cast(REBI64, VAL_DECIMAL(ARG(end)))
                 : VAL_INT64(ARG(end)),
-            VAL_INT64(ARG(bump)),
-            REF(opt)
+            VAL_INT64(ARG(bump))
         );
     }
 
@@ -778,8 +754,7 @@ REBNATIVE(for)
                 ARG(body),
                 ARG(start),
                 VAL_INDEX(ARG(end)),
-                Int32(ARG(bump)),
-                REF(opt)
+                Int32(ARG(bump))
             );
         }
         else {
@@ -789,14 +764,13 @@ REBNATIVE(for)
                 ARG(body),
                 ARG(start),
                 Int32s(ARG(end), 1) - 1,
-                Int32(ARG(bump)),
-                REF(opt)
+                Int32(ARG(bump))
             );
         }
     }
 
     return Loop_Number_Common(
-        D_OUT, var, ARG(body), ARG(start), ARG(end), ARG(bump), REF(opt)
+        D_OUT, var, ARG(body), ARG(start), ARG(end), ARG(bump)
     );
 }
 
@@ -814,7 +788,6 @@ REBNATIVE(for)
 //          "Number of positions to skip each time"
 //      body [block! action!]
 //          "Block to evaluate each time"
-//      /opt "If body evaluates to null, don't convert to a blank"
 //  ]
 //
 REBNATIVE(for_skip)
@@ -828,12 +801,9 @@ REBNATIVE(for_skip)
     REBVAL *word = ARG(word);
 
     if (IS_BLANK(word))
-        return R_NULL; // blank in, void out (same result as BREAK)
+        return R_NULL; // blank in, null out (same result as BREAK)
 
-    if (REF(opt))
-        Init_Nulled(D_OUT); // default result for FOR-SKIP*
-    else
-        Init_Blank(D_OUT); // default result for FOR-SKIP
+    Init_Void(D_OUT); // result if body never runs
 
     // Note that variable addresses may move on context expansion, protect
     // status can change, etc.  It must be re-fetched on each loop.
@@ -857,7 +827,7 @@ REBNATIVE(for_skip)
     if (skip < 0 and VAL_INDEX(var) >= VAL_LEN_HEAD(var))
         VAL_INDEX(var) = VAL_LEN_HEAD(var) + skip;
 
-    while (TRUE) {
+    while (true) {
         REBINT len = VAL_LEN_HEAD(var); // VAL_LEN_HEAD() always >= 0
         REBINT index = VAL_INDEX(var); // (may have been set to < 0 below)
 
@@ -872,7 +842,7 @@ REBNATIVE(for_skip)
             VAL_INDEX(var) = index;
         }
 
-        if (Run_Branch_Throws(D_OUT, END, ARG(body), REF(opt))) {
+        if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return R_OUT_IS_THROWN;
@@ -880,10 +850,8 @@ REBNATIVE(for_skip)
                 Move_Value(var, D_CELL); // restore initial variable value
                 return R_NULL;
             }
-
-            if (REF(opt) and IS_NULLED(D_OUT))
-                Init_Blank(D_OUT); // blankify continues if necessary
         }
+        Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
 
         // `var` must be refreshed each time arbitrary code runs, since the
         // context may expand and move the address, may get PROTECTed, etc.
@@ -919,14 +887,14 @@ REBNATIVE(forever)
     INCLUDE_PARAMS_OF_FOREVER;
 
     do {
-        const REBOOL opt = false; // don't bother blankifying (result unused)
-        if (Run_Branch_Throws(D_OUT, END, ARG(body), opt)) {
+        if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
         }
+        // No need to voidify result, it doesn't escape...
     } while (true);
 
     DEAD_END;
@@ -1132,8 +1100,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
             ++index;
         }
 
-        const REBOOL opt = true; // !!! voids tolerated as don't remove, good?
-        if (Run_Branch_Throws(res->out, END, res->body, opt)) {
+        if (Run_Branch_Throws(res->out, END, res->body)) {
             if (not Catching_Break_Or_Continue(res->out, &stop)) {
                 assert(THROWN(res->out)); // how caller knows it threw
                 return NULL; // we'll bubble it up, but will also finalize
@@ -1147,6 +1114,8 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
                 // CONTINUE - res->out may not be void if /WITH refinement used
             }
         }
+        if (IS_VOID(res->out))
+            fail (Error_Void_Conditional_Raw()); // neither true nor false
 
         if (ANY_ARRAY(res->data)) {
             if (IS_NULLED(res->out) or IS_FALSEY(res->out)) {
@@ -1375,7 +1344,6 @@ REBNATIVE(every)
 //          "Repetitions (true loops infinitely, FALSE? doesn't run)"
 //      body [block! action!]
 //          "Block to evaluate or action to run."
-//      /opt "If the body returns null, don't convert it to blank"
 //  ]
 //
 REBNATIVE(loop)
@@ -1385,13 +1353,13 @@ REBNATIVE(loop)
     if (IS_BLANK(ARG(count)))
         return R_NULL; // blank in, void out (same output as BREAK)
 
-    if (IS_FALSEY(ARG(count)))
-        return R_BLANK; // must be false...opposite of infinite loop
+    if (IS_FALSEY(ARG(count))) {
+        assert(IS_LOGIC(ARG(count))); // is false...opposite of infinite loop
+        Init_Void(D_OUT);
+        return R_OUT;
+    }
 
-    if (REF(opt))
-        Init_Nulled(D_OUT); // result for LOOP* if body never runs
-    else
-        Init_Blank(D_OUT); // result for LOOP if body never runs
+    Init_Void(D_OUT); // result if body never runs
 
     REBI64 count;
 
@@ -1408,16 +1376,14 @@ REBNATIVE(loop)
         count = Int64(ARG(count));
 
     for (; count > 0; count--) {
-        if (Run_Branch_Throws(D_OUT, END, ARG(body), REF(opt))) {
+        if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-
-            if (not REF(opt) and IS_NULLED(D_OUT))
-                Init_Blank(D_OUT); // blankify voids if needed
         }
+        Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
     }
 
     if (IS_LOGIC(ARG(count)))
@@ -1433,14 +1399,13 @@ REBNATIVE(loop)
 //  {Evaluates a block a number of times or over a series.}
 //
 //      return: [<opt> any-value!]
-//          {Last body result or BREAK value, will also be void if never run}
+//          {Last body result or BREAK value}
 //      'word [word!]
 //          "Word to set each time"
 //      value [any-number! any-series! blank!]
 //          "Maximum number or series to traverse"
 //      body [block!]
 //          "Block to evaluate each time"
-//      /opt "If body runs and produces null, don't convert it to blank"
 //  ]
 //
 REBNATIVE(repeat)
@@ -1468,15 +1433,17 @@ REBNATIVE(repeat)
     REBVAL *var = CTX_VAR(context, 1); // not movable, see #2274
     if (ANY_SERIES(value))
         return Loop_Series_Common(
-            D_OUT, var, ARG(body), value, VAL_LEN_HEAD(value) - 1, 1, REF(opt)
+            D_OUT, var, ARG(body), value, VAL_LEN_HEAD(value) - 1, 1
         );
 
     REBI64 n = VAL_INT64(value);
-    if (n < 1) // Loop_Integer from 1 to 0 with bump of 1 is infinite
-        return REF(opt) ? R_NULL : R_BLANK;
+    if (n < 1) { // Loop_Integer from 1 to 0 with bump of 1 is infinite
+        Init_Void(D_OUT);
+        return R_OUT; // void if loop condition never runs
+    }
 
     return Loop_Integer_Common(
-        D_OUT, var, ARG(body), 1, VAL_INT64(value), 1, REF(opt)
+        D_OUT, var, ARG(body), 1, VAL_INT64(value), 1
     );
 }
 
@@ -1487,13 +1454,11 @@ inline static REB_R Until_Core(REBFRM *frame_, REBOOL trigger)
 {
     INCLUDE_PARAMS_OF_UNTIL;
 
-    Init_Blank(D_OUT); // default return result if no branch runs
-
     do {
+
     skip_check:;
 
-        const REBOOL opt = true; // need to explicitly check for voids
-        if (Run_Branch_Throws(D_OUT, END, ARG(body), opt)) {
+        if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return R_OUT_IS_THROWN;
@@ -1511,14 +1476,12 @@ inline static REB_R Until_Core(REBFRM *frame_, REBOOL trigger)
             // conditions must be true or false...and continue needs to work.
             // Hence it just means to continue either way.
             //
-            if (IS_NULLED(D_OUT)) {
-                Init_Blank(D_OUT);
+            if (IS_NULLED(D_OUT))
                 goto skip_check;
-            }
         }
         else { // didn't throw, see above about null difference from CONTINUE
-            if (IS_NULLED(D_OUT))
-                fail (Error_No_Return_Raw());
+            if (IS_VOID(D_OUT))
+                fail (Error_Void_Conditional_Raw());
         }
     } while (IS_TRUTHY(D_OUT) == trigger);
 
@@ -1569,39 +1532,34 @@ inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
 {
     INCLUDE_PARAMS_OF_WHILE;
 
-    if (REF(opt))
-        Init_Nulled(D_OUT); // default result for WHILE* and WHILE-NOT*
-    else
-        Init_Blank(D_OUT); // default result for WHILE and WHILE-NOT
+    Init_Void(D_OUT); // result if body never runs
 
     do {
-        const REBOOL opt_condition = false; // check for void, don't blankify
-        if (Run_Branch_Throws(D_CELL, END, ARG(condition), opt_condition)) {
+        if (Run_Branch_Throws(D_CELL, END, ARG(condition))) {
             //
             // A while loop should only look for breaks and continues in its
             // body, not in its condition.  So `while [break] []` is a
             // request to break the enclosing loop (or error if there is
-            // nothing to catch that break).  Hence we bubble up the throw.
+            // nothing to catch that break).  Hence we bubble up all throws.
             //
             Move_Value(D_OUT, D_CELL);
             return R_OUT_IS_THROWN;
         }
 
-        if (IS_NULLED(D_CELL))
-            fail (Error_No_Return_Raw()); // void is neither truthy nor falsey
+        if (IS_VOID(D_CELL))
+            fail (Error_Void_Conditional_Raw()); // neither truthy nor falsey
 
         if (IS_TRUTHY(D_CELL) != trigger)
             return R_OUT; // loop trigger didn't match, return last result
 
-        if (Run_Branch_Throws(D_OUT, D_CELL, ARG(body), REF(opt))) {
+        if (Run_Branch_Throws(D_OUT, D_CELL, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return R_OUT_IS_THROWN;
             if (stop)
                 return R_NULL;
-            if (not REF(opt) and IS_NULLED(D_OUT))
-                Init_Blank(D_OUT); // blankify voids
         }
+        Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
     } while (TRUE);
 
     DEAD_END;
@@ -1617,7 +1575,6 @@ inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
 //          "Last body result, or null if BREAK"
 //      condition [block! action!]
 //      body [block! action!]
-//      /opt "If branch runs and produces null, don't convert it to blank"
 //  ]
 //
 REBNATIVE(while)
@@ -1635,7 +1592,6 @@ REBNATIVE(while)
 //          "Last body result, or null if BREAK"
 //      condition [block! action!]
 //      body [block! action!]
-//      /opt "If branch runs and produces null, don't convert it to blank"
 //  ]
 //
 REBNATIVE(while_not)
