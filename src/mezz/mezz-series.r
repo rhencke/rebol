@@ -191,10 +191,6 @@ reword: function [
         {Default "$"}
         ; Note: since blank is being taken deliberately, it's not possible
         ; to use the defaulting feature, e.g. ()
-    /into
-        "Insert into a buffer instead (returns position after insert)"
-    output [any-string! binary!]
-        "The buffer series (modified)"
 
     <static>
 
@@ -211,7 +207,7 @@ reword: function [
     case_REWORD: case
     case: :lib/case
 
-    output: default [make (type of source) length of source]
+    out: make (type of source) length of source
 
     prefix: _
     suffix: _
@@ -332,10 +328,10 @@ reword: function [
                         ;
                         ; Output any leading text before the prefix was seen
                         ;
-                        output: insert/part output a b
+                        append/part out a b
 
                         v: select/(case_REWORD ?? 'case !! _) values keyword-match
-                        output: insert output case [
+                        append out case [
                             action? :v [v :keyword-match]
                             block? :v [do :v]
                             true [:v]
@@ -360,16 +356,14 @@ reword: function [
 
         ; Finalize the output, such that any remainder is transferred verbatim
         ;
-        (output: insert output a)
+        (append out a)
     ]
 
     parse/(case_REWORD ?? 'case !! _) source rule or [
         fail "Unexpected error in REWORD's parse rule, should not happen."
     ]
 
-    ; Return end of output with /into, head otherwise
-    ;
-    either into [output] [head of output]
+    out
 ]
 
 
@@ -404,15 +398,13 @@ extract: func [
     pos "The position(s)" [any-number! logic! block!]
     /default "Use a default value instead of blank"
     value "The value to use (will be called each time if a function)"
-    /into "Insert into a buffer instead (returns position after insert)"
-    output [any-series!] "The buffer series (modified)"
-    <local> len val default_EXTRACT
+    <local> len val out default_EXTRACT
 ][  ; Default value is "" for any-string! output
 
     default_EXTRACT: default
     default: enfix :lib/default
 
-    if zero? width [return any [output make series 0]]  ; To avoid an infinite loop
+    if zero? width [return make (type of series) 0]  ; avoid an infinite loop
     len: either positive? width [  ; Length to preallocate
         divide (length of series) width  ; Forward loop, use length
     ][
@@ -423,21 +415,21 @@ extract: func [
         parse pos [some [any-number! | logic!]] or [
             cause-error 'Script 'invalid-arg reduce [pos]
         ]
-        output: default [make series len * length of pos]
-        if not default_EXTRACT and (any-string? output) [value: copy ""]
+        out: make (type of series) len * length of pos
+        if not default_EXTRACT and (any-string? out) [value: copy ""]
         for-skip series width [for-next pos [
             val: pick series pos/1 else [value]
-            output: insert/only output :val
+            append/only out :val
         ]]
     ] else [
-        output: default [make series len]
-        if not default_EXTRACT and (any-string? output) [value: copy ""]
+        out: make (type of series) len
+        if not default_EXTRACT and (any-string? out) [value: copy ""]
         for-skip series width [
             val: pick series pos else [value]
-            output: insert/only output :val
+            append/only out :val
         ]
     ]
-    either into [output] [head of output]
+    out
 ]
 
 
@@ -476,55 +468,36 @@ collect-with: func [
         "Name to which keep function will be assigned (<local> if word!)"
     body [block!]
         "Block to evaluate"
-    /into
-        "Insert into a buffer instead (returns position after insert)"
-    output [any-series!]
-        "The buffer series (modified)"
 
-    <local> keeper
+    <local> out keeper
 ][
-    output: default [make block! 16]
+    out: make block! 16
 
-    ; Make a KEEP action! to give the caller, that is a specialization of
-    ; INSERT which targets `output`.  By using a specialization, it will
-    ; inherit all of INSERT's arguments (e.g. /ONLY, /LINE, /DUP).
-    ;
-    ; Though specialization is used to remove the series parameter, the actual
-    ; series position to INSERT must be updated on each call.  KEEP also wants
-    ; a different RETURN: result than what INSERT would give...it passes
-    ; thru the argument it got.  So it actually specializes an *ENCLOSE* of
-    ; INSERT, which adjusts the input series and tweaks the return result.
-    ;
     keeper: specialize (
-        enclose 'insert function [
-            return: [<opt> any-value!]
-            f [frame!]
-            <static> o (:output)
-        ][
-            f/series: o
-            o: do f ;-- update static's position on each insertion
-            return :f/value
+        ;-- SPECIALIZE to inherit /ONLY, /LINE, /DUP from APPEND
+
+        enclose 'append function [f [frame!]] [
+            ;-- ENCLOSE to alter return result
+
+            :f/value ;-- ELIDE leaves as result (F/VALUE invalid after DO F)
+            elide do f
         ]
     )[
-        series: <remove-unused-series-parameter>
+        series: out
     ]
 
-    if word? name [
-        ;
-        ; A word `name` indicates that the body is not already bound to
-        ; that word.  FUNC does binding and variable creation so let it
-        ; do the work.
-        ;
+    either word? name [
+        ;-- body not bound to word, use FUNC do binding work
+
         eval func compose [(name) [action!] <with> return] body :keeper
-    ] else [
-        ; A lit-word `name` indicates that the word for the keeper already
-        ; exists.  Set the variable and DO the body bound as-is.
-        ;
+    ][
+        ;-- lit-word! means variable exists, just set it and DO body as-is
+
         set name :keeper
         do body
     ]
 
-    either into [output] [head of output]
+    out
 ]
 
 

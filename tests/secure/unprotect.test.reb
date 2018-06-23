@@ -22,18 +22,6 @@
     value: copy original: [1 + 2 + 3]
     protect value
     unprotect value
-    not error? trap [reduce/into [4 + 5] value]
-)
-(
-    value: copy original: [1 + 2 + 3]
-    protect value
-    unprotect value
-    not error? trap [compose/into [(4 + 5)] value]
-)
-(
-    value: copy original: [1 + 2 + 3]
-    protect value
-    unprotect value
     not error? trap [poke value 1 4]
 )
 (

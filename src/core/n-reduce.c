@@ -30,18 +30,11 @@
 #include "sys-core.h"
 
 //
-//  Reduce_Any_Array_Throws: C
+//  Reduce_To_Stack_Throws: C
 //
 // Reduce array from the index position specified in the value.
 //
-// If `into` then splice into the existing `out`.  Otherwise, overwrite the
-// `out` with all values collected from the stack, into an array matching the
-// type of the input.  So [1 + 1 2 + 2] => [3 4], and 1/+/1/2/+/2 => 3/4
-//
-// !!! This is not necessarily the best answer, it's just the mechanically
-// most obvious one.
-//
-REBOOL Reduce_Any_Array_Throws(
+REBOOL Reduce_To_Stack_Throws(
     REBVAL *out,
     REBVAL *any_array,
     REBFLGS flags
@@ -55,19 +48,16 @@ REBOOL Reduce_Any_Array_Throws(
     DECLARE_FRAME (f);
     Push_Frame(f, any_array);
 
-    DECLARE_LOCAL (reduced);
-
     while (FRM_HAS_MORE(f)) {
         REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
 
-        if (Do_Next_In_Frame_Throws(reduced, f)) {
-            Move_Value(out, reduced);
+        if (Do_Next_In_Frame_Throws(out, f)) {
             DS_DROP_TO(dsp_orig);
             Abort_Frame(f);
             return TRUE;
         }
 
-        if (IS_NULLED(reduced)) {
+        if (IS_NULLED(out)) {
             if (flags & REDUCE_FLAG_TRY) {
                 DS_PUSH_TRASH;
                 Init_Blank(DS_TOP);
@@ -78,27 +68,13 @@ REBOOL Reduce_Any_Array_Throws(
                 fail (Error_Reduce_Made_Null_Raw());
         }
         else {
-            DS_PUSH(reduced);
+            DS_PUSH(out);
             if (line)
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
         }
     }
 
-    if (flags & REDUCE_FLAG_INTO)
-        Pop_Stack_Values_Into(out, dsp_orig);
-    else {
-        REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
-        if (GET_SER_FLAG(VAL_ARRAY(any_array), ARRAY_FLAG_TAIL_NEWLINE))
-            pop_flags |= ARRAY_FLAG_TAIL_NEWLINE;
-
-        Init_Any_Array(
-            out,
-            VAL_TYPE(any_array),
-            Pop_Stack_Values_Core(dsp_orig, pop_flags)
-        );
-    }
-
-    Drop_Frame(f);
+    Drop_Frame_Core(f); // Drop_Frame() would assert about stack accumulation
     return FALSE;
 }
 
@@ -112,8 +88,6 @@ REBOOL Reduce_Any_Array_Throws(
 //          [<opt> any-value!]
 //      value "GROUP! and BLOCK! evaluate each item, single values evaluate"
 //          [any-value!]
-//      /into "Output results into a series with no intermediate storage"
-//      target [any-array!]
 //      /try "If an evaluation returns null, convert to blank vs. failing"
 //      /opt "If an evaluation returns null, omit the result" ; !!! EXPERIMENT
 //  ]
@@ -128,19 +102,27 @@ REBNATIVE(reduce)
         fail (Error_Bad_Refines_Raw());
 
     if (IS_BLOCK(value) or IS_GROUP(value)) {
-        if (REF(into))
-            Move_Value(D_OUT, ARG(target));
+        REBDSP dsp_orig = DSP;
 
-        if (Reduce_Any_Array_Throws(
+        if (Reduce_To_Stack_Throws(
             D_OUT,
             value,
             REDUCE_MASK_NONE
-                | (REF(into) ? REDUCE_FLAG_INTO : 0)
                 | (REF(try) ? REDUCE_FLAG_TRY : 0)
                 | (REF(opt) ? REDUCE_FLAG_OPT : 0)
         )){
             return R_OUT_IS_THROWN;
         }
+
+        REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
+        if (GET_SER_FLAG(VAL_ARRAY(value), ARRAY_FLAG_TAIL_NEWLINE))
+            pop_flags |= ARRAY_FLAG_TAIL_NEWLINE;
+
+        Init_Any_Array(
+            D_OUT,
+            VAL_TYPE(value),
+            Pop_Stack_Values_Core(dsp_orig, pop_flags)
+        );
 
         return R_OUT;
     }
@@ -150,52 +132,26 @@ REBNATIVE(reduce)
     // If there are arguments required, Eval_Value_Throws() will error.
     //
     // !!! Should the error be more "reduce-specific" if args were required?
-    //
-    if (ANY_INERT(value)) {
+
+    if (ANY_INERT(value)) { // don't bother with the evaluation
         Move_Value(D_OUT, value);
+        return R_OUT;
     }
-    else if (Eval_Value_Throws(D_OUT, value))
+
+    if (Eval_Value_Throws(D_OUT, value))
         return R_OUT_IS_THROWN;
 
-    if (not REF(into)) { // just return the evaluated item if no /INTO target
-        if (IS_NULLED(D_OUT)) {
-            if (REF(try))
-                return R_BLANK;
-
-            // Don't bother erroring if not REF(opt).  Since we *can* return a
-            // void result for a non-BLOCK!/GROUP!, the caller will have to
-            // worry about whether to error on that themselves.
-            //
-            return R_NULL;
-        }
+    if (not IS_NULLED(D_OUT))
         return R_OUT;
-    }
 
-    REBVAL *into = ARG(target);
-    assert(ANY_ARRAY(into));
-    FAIL_IF_READ_ONLY_ARRAY(VAL_ARRAY(into)); // should fail even if no-op
+    if (REF(try))
+        return R_BLANK;
 
-    if (IS_NULLED(D_OUT)) { // null insertions are no-op if /OPT, else fail
-        if (not REF(opt))
-            fail ("null cannot be inserted /INTO target...use REDUCE/OPT");
-
-        Move_Value(D_OUT, into);
-        return R_OUT;
-    }
-
-
-    // Insert the single item into the target array at its current position,
-    // and return the position after the insertion (the /INTO convention)
-
-    REBCNT after = Insert_Series(
-        SER(VAL_ARRAY(into)),
-        VAL_INDEX(into),
-        cast(REBYTE*, D_OUT),
-        1 // multiplied by width (sizeof(REBVAL)) in Insert_Series
-    );
-    Move_Value(D_OUT, into);
-    VAL_INDEX(D_OUT) = after;
-    return R_OUT;
+    // Don't bother erroring if not REF(opt).  Since we *can* return a
+    // null result for a non-BLOCK!/GROUP!, the caller will have to worry
+    // about whether to error on that themselves.
+    //
+    return R_NULL;
 }
 
 
@@ -208,7 +164,7 @@ static inline const RELVAL *Match_For_Compose(
     const RELVAL *pattern,
     REBSPC *specifier
 ){
-    assert(IS_GROUP(pattern) || IS_BLOCK(pattern));
+    assert(IS_GROUP(pattern) or IS_BLOCK(pattern));
 
     if (VAL_TYPE(value) != VAL_TYPE(pattern))
         return NULL;
@@ -248,222 +204,194 @@ static inline const RELVAL *Match_For_Compose(
 
 
 //
-//  Compose_Any_Array_Throws: C
+//  Compose_To_Stack_Throws: C
 //
-// Compose a block from a block of un-evaluated values and GROUP! arrays that
-// are evaluated.  This calls into Do_Core, so if 'into' is provided, then its
-// series must be protected from garbage collection.
+// Use rules of composition to do template substitutions on values matching
+// `pattern` by evaluating those slots, leaving all other slots as is.
 //
-//     deep - recurse into sub-blocks
-//     only - parens that return blocks are kept as blocks
+// Values are pushed to the stack because it is a "hot" preallocated large
+// memory range, and the number of values can be calculated in order to
+// accurately size the result when it needs to be allocated.  Not returning
+// an array also offers more options for avoiding that intermediate if the
+// caller wants to add part or all of the popped data to an existing array.
 //
-// Writes result value at address pointed to by out.
-//
-REBOOL Compose_Any_Array_Throws(
-    REBVAL *out,
-    const REBVAL *any_array,
-    const REBVAL *pattern,
-    REBOOL deep,
-    REBOOL only,
-    REBOOL into
-) {
+REBOOL Compose_To_Stack_Throws(
+    REBVAL *out, // if return result is true, will hold the thrown value
+    const RELVAL *any_array, // the template
+    REBSPC *specifier, // specifier for relative any_array value
+    const REBVAL *pattern, // e.g. ()->(match this), [([])]->[([match this])]
+    REBOOL deep, // recurse into sub-blocks
+    REBOOL only // pattern matches that return blocks are kept as blocks
+){
     REBDSP dsp_orig = DSP;
 
     DECLARE_FRAME (f);
-    Push_Frame(f, any_array);
-
-    DECLARE_LOCAL (composed);
-    DECLARE_LOCAL (specific);
+    Push_Frame_At(
+        f, VAL_ARRAY(any_array), VAL_INDEX(any_array), specifier, DO_MASK_NONE
+    );
 
     while (FRM_HAS_MORE(f)) {
-        REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
+        if (not ANY_ARRAY(f->value)) { // non-arrays don't substitute/recurse
+            DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
+            Fetch_Next_In_Frame(f);
+            continue;
+        }
 
         REBSPC *match_specifier;
         const RELVAL *match = Match_For_Compose(
             &match_specifier,
             f->value,
             pattern,
-            f->specifier
+            specifier
         );
 
-        if (match) {
-            //
-            // Evaluate the GROUP! at current position into `composed` cell.
-            //
+        if (match) { // only f->value if pattern is just [] or (), else deeper
             if (Do_At_Throws(
-                composed,
+                out, // can't do directly into stack cell, DO can expand stack
                 VAL_ARRAY(match),
                 VAL_INDEX(match),
                 match_specifier
             )){
-                Move_Value(out, composed);
                 DS_DROP_TO(dsp_orig);
+                Abort_Frame(f);
+                return true;
+            }
+
+            if (IS_NULLED(out)) {
+                //
+                // compose [("nulls *vanish*!" null)] => []
+            }
+            else if (not only and IS_BLOCK(out)) {
+                //
+                // compose [not-only ([a b]) merges] => [not-only a b merges]
+
+                RELVAL *push = VAL_ARRAY_AT(out);
+                if (NOT_END(push)) {
+                    //
+                    // Only proxy newline flag from the template on *first*
+                    // value spliced in (it may have its own newline flag)
+                    //
+                    DS_PUSH_RELVAL(push, VAL_SPECIFIER(out));
+                    if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
+                        SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+
+                    while (++push, NOT_END(push))
+                        DS_PUSH_RELVAL(push, VAL_SPECIFIER(out));
+                }
+            }
+            else {
+                // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
+                // compose/only [([a b c]) unmerged] => [[a b c] unmerged]
+
+                DS_PUSH(out);
+                if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
+                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+            }
+
+          #ifdef DEBUG_UNREADABLE_BLANKS
+            Init_Unreadable_Blank(out); // shouldn't leak temp eval to caller
+          #endif
+        }
+        else if (deep) {
+            // compose/deep [does [(1 + 2)] nested] => [does [3] nested]
+
+            REBDSP dsp_deep = DSP;
+            if (Compose_To_Stack_Throws(
+                out,
+                f->value,
+                specifier,
+                pattern,
+                true, // deep (guaranteed true if we get here)
+                only
+            )){
+                DS_DROP_TO(dsp_orig); // drop to outer DSP (@ function start)
                 Abort_Frame(f);
                 return TRUE;
             }
 
-            Fetch_Next_In_Frame(f);
+            REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
+            if (GET_SER_FLAG(VAL_ARRAY(f->value), ARRAY_FLAG_TAIL_NEWLINE))
+                flags |= ARRAY_FLAG_TAIL_NEWLINE;
 
-            if (IS_BLOCK(composed) and not only) {
-                //
-                // compose [blocks ([a b c]) merge] => [blocks a b c merge]
-                //
-                RELVAL *push = VAL_ARRAY_AT(composed);
-                while (NOT_END(push)) {
-                    //
-                    // `evaluated` is known to be specific, but its specifier
-                    // may be needed to derelativize its children.
-                    //
-                    DS_PUSH_RELVAL(push, VAL_SPECIFIER(composed));
-                    if (line) {
-                        SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
-                        line = FALSE;
-                    }
-                    push++;
-                }
-            }
-            else if (not IS_NULLED(composed)) {
-                //
-                // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
-                // compose/only [([a b c]) unmerged] => [[a b c] unmerged]
-                //
-                DS_PUSH(composed);
-                if (line)
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
-            }
-            else {
-                //
-                // compose [(print "Voids *vanish*!")] => []
-                //
-            }
-        }
-        else if (deep) {
-            //
-            // Historically, ANY-PATH! was not seen as a candidate for /DEEP
-            // traversal.  GROUP! was not a possibility (as it was always
-            // composed).  With generalized CONCOCT, it is possible for those
-            // who wish to leave GROUP! in PATH! untouched to do so--and more
-            // obvious to treat all ANY-ARRAY! types equal.
-            //
-            if (ANY_ARRAY(f->value)) {
-                //
-                // compose/deep [does [(1 + 2)] nested] => [does [3] nested]
+            REBARR *popped = Pop_Stack_Values_Core(dsp_deep, flags);
+            DS_PUSH_TRASH;
+            Init_Any_Array(
+                DS_TOP,
+                VAL_TYPE(f->value),
+                popped // can't push and pop in same step, need this variable!
+            );
 
-                Derelativize(specific, f->value, f->specifier);
-
-                if (Compose_Any_Array_Throws(
-                    composed,
-                    specific,
-                    pattern,
-                    TRUE,
-                    only,
-                    into
-                )) {
-                    Move_Value(out, composed);
-                    DS_DROP_TO(dsp_orig);
-                    Abort_Frame(f);
-                    return TRUE;
-                }
-
-                DS_PUSH(composed);
-                if (line)
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
-            }
-            else {
-                if (ANY_ARRAY(f->value)) {
-                    //
-                    // compose [copy/(orig) (copy)] => [copy/(orig) (copy)]
-                    // !!! path and second group are copies, first group isn't
-                    //
-                    REBSPC *derived = Derive_Specifier(f->specifier, f->value);
-                    REBARR *copy = Copy_Array_Shallow(
-                        VAL_ARRAY(f->value),
-                        derived
-                    );
-                    DS_PUSH_TRASH;
-                    Init_Any_Array_At(
-                        DS_TOP, VAL_TYPE(f->value), copy, VAL_INDEX(f->value)
-                    ); // ...manages
-                }
-                else
-                    DS_PUSH_RELVAL(f->value, f->specifier);
-
-                if (line)
-                    SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
-            }
-            Fetch_Next_In_Frame(f);
+            if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
+                SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
         }
         else {
+            // compose [[(1 + 2)] (3 + 4)] => [[(1 + 2)] 7] ;-- non-deep
             //
-            // compose [[(1 + 2)] (reverse "wollahs")] => [[(1 + 2)] "shallow"]
-            //
-            DS_PUSH_RELVAL(f->value, f->specifier);
-            assert(line == GET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE));
-            Fetch_Next_In_Frame(f);
+            DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
         }
+
+        Fetch_Next_In_Frame(f);
     }
 
-    if (into)
-        Pop_Stack_Values_Into(out, dsp_orig);
-    else {
-        REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
-        if (GET_SER_FLAG(VAL_ARRAY(any_array), ARRAY_FLAG_TAIL_NEWLINE))
-            flags |= ARRAY_FLAG_TAIL_NEWLINE;
-
-        Init_Any_Array(
-            out,
-            VAL_TYPE(any_array),
-            Pop_Stack_Values_Core(dsp_orig, flags)
-        );
-    }
-
-    Drop_Frame(f);
-    return FALSE;
+    Drop_Frame_Core(f); // Drop_Frame() would check for no stack accumulation
+    return false;
 }
 
 
 //
 //  concoct: native [
 //
-//  {Evaluates only contents of pattern-delimited expressions in an array.}
+//  {Evaluates only contents of pattern-delimited expressions in an array}
 //
 //      return: [any-array!]
-//      :pattern [group! block!]
-//          "Pattern like (([()])), to recognize and do evaluations for"
-//      value [any-array!]
-//          "Array to compose"
-//      /deep
-//          "Compose nested BLOCK!s and GROUP!s (ANY-PATH! not considered)"
-//      /only
-//          {Insert BLOCK!s as a single value (not the contents of the block)}
-//      /into
-//          {Output results into a series with no intermediate storage}
-//      out [any-array! any-string! binary!]
+//      :pattern "Pattern like (([()])), to recognize and do evaluations for"
+//          [group! block!]
+//      value "Array to use as the template for substitution"
+//          [any-array!]
+//      /deep "Compose deeply into nested arrays"
+//      /only "Insert arrays as single value (not as contents of array)"
 //  ]
 //
 REBNATIVE(concoct)
 //
-// Note: COMPOSE is a specialization of CONCOCT where the pattern is ()
+// COMPOSE is a specialization of CONCOCT where the pattern is ()
+// COMPOSEII is a specialization of CONCOCT where the pattern is (())
 {
     INCLUDE_PARAMS_OF_CONCOCT;
 
-    // Compose_Values_Throws() expects `out` to contain the target if it is
-    // passed TRUE as the `into` flag.
-    //
-    if (REF(into))
-        Move_Value(D_OUT, ARG(out));
-    else
-        assert(IS_END(D_OUT)); // !!! guaranteed, better signal than `into`?
+    REBDSP dsp_orig = DSP;
 
-    if (Compose_Any_Array_Throws(
+    if (Compose_To_Stack_Throws(
         D_OUT,
         ARG(value),
+        VAL_SPECIFIER(ARG(value)),
         ARG(pattern),
         REF(deep),
-        REF(only),
-        REF(into)
-    )) {
+        REF(only)
+    )){
         return R_OUT_IS_THROWN;
+    }
+
+    REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
+    if (GET_SER_FLAG(VAL_ARRAY(ARG(value)), ARRAY_FLAG_TAIL_NEWLINE))
+        flags |= ARRAY_FLAG_TAIL_NEWLINE;
+
+    Init_Any_Array(
+        D_OUT,
+        VAL_TYPE(ARG(value)),
+        Pop_Stack_Values_Core(dsp_orig, flags)
+    );
+
+    // !!! An internal optimization may try to notice when you write
+    // `append x compose [...]` and avert generation of a temporary REBSER
+    // node and associated temporary storage, adding to `x` directly.  But
+    // /INTO is no longer a user-visible refinement:
+    //
+    // https://forum.rebol.info/t/stopping-the-into-virus/705
+    //
+    if (false) {
+        DECLARE_LOCAL (into);
+        Pop_Stack_Values_Into(into, dsp_orig);
     }
 
     return R_OUT;

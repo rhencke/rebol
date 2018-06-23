@@ -91,34 +91,36 @@ make-port*: function [
     s1: s2: _ ; in R3, input datatype is preserved - these are now URL strings
     out: []
     emit: func ['w v] [
-        reduce/into [to set-word! w if :v [to text! :v]] tail of out
+        append out reduce [
+            to set-word! w (either :v [to text! :v] [_])
+        ]
     ]
 
     rules: [
         ; Scheme://user-host-part
         [
             ; scheme name: [//]
-            copy s1 some scheme-char ":" opt "//" ; we allow it
-            (reduce/into [
-                to set-word! 'scheme
-                to lit-word! to text! s1
-            ] tail of out)
+            copy s1 some scheme-char ":" opt "//" ( ; "//" is optional ("URN")
+                append out compose [
+                    scheme: (to lit-word! to text! s1)
+                ]
+            )
 
             ; optional user [:pass]
             opt [
                 copy s1 some user-char
-                opt [#":" copy s2 to #"@" (emit pass s2)]
-                #"@" (emit user s1)
+                opt [":" copy s2 to "@" (emit pass s2)]
+                "@" (emit user s1)
             ]
 
             ; optional host [:port]
             opt [
                 copy s1 any user-char
                 opt [
-                    #":" copy s2 digits (
-                        compose/into [
+                    ":" copy s2 digits (
+                        append out compose [
                             port-id: (to-integer/unsigned s2)
-                        ] tail of out
+                        ]
                     )
                 ] (
                     ; Note: This code has historically attempted to convert
@@ -154,7 +156,7 @@ make-port*: function [
         opt [copy s1 some path-char (emit path s1)]
 
         ; optional bookmark
-        opt [#"#" copy s1 some path-char (emit tag s1)]
+        opt ["#" copy s1 some path-char (emit tag s1)]
     ]
 
     decode-url: func ["Decode a URL according to rules of sys/*parse-url." url] [

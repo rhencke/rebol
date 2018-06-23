@@ -576,7 +576,7 @@ load-ext-module: function [
     do code
 
     if hdr/name [
-        reduce/into [hdr/name mod] system/modules
+        append system/modules reduce [hdr/name mod]
     ]
 
     any [
@@ -897,7 +897,7 @@ load-module: function [
         if pos [
             pos/2: mod ; replace delayed module
         ] else [
-            reduce/into [name mod] system/modules
+            append system/modules reduce [name mod]
         ]
 
         all [

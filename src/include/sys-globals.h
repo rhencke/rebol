@@ -212,7 +212,7 @@ TVAR REBFRM *TG_Frame_Stack;
 //-- Evaluation stack:
 TVAR REBARR *DS_Array;
 TVAR REBDSP DS_Index;
-TVAR REBVAL *DS_Movable_Base;
+TVAR REBVAL *DS_Movable_Top;
 
 // We store the head chunk of the current chunker even though it could be
 // computed, because it's quicker to compare to a pointer than to do the

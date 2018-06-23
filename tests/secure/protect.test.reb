@@ -28,22 +28,6 @@
     value: copy original: [1 + 2 + 3]
     protect value
     all [
-        error? trap [reduce/into [4 + 5] value]
-        equal? value original
-    ]
-)
-(
-    value: copy original: [1 + 2 + 3]
-    protect value
-    all [
-        error? trap [compose/into [(4 + 5)] value]
-        equal? value original
-    ]
-)
-(
-    value: copy original: [1 + 2 + 3]
-    protect value
-    all [
         error? trap [poke value 1 4]
         equal? value original
     ]

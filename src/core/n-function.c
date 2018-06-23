@@ -360,15 +360,17 @@ REBNATIVE(chain)
 
     REBVAL *pipeline = ARG(pipeline);
     REBARR *chainees;
-    if (REF(quote)) {
+    if (REF(quote))
         chainees = COPY_ANY_ARRAY_AT_DEEP_MANAGED(pipeline);
-    }
     else {
-        if (Reduce_Any_Array_Throws(out, pipeline, REDUCE_MASK_NONE))
+        REBDSP dsp_orig = DSP;
+        if (Reduce_To_Stack_Throws(out, pipeline, REDUCE_MASK_NONE))
             return R_OUT_IS_THROWN;
 
-        chainees = VAL_ARRAY(out); // should be all specific values
-        ASSERT_ARRAY_MANAGED(chainees);
+        // No more evaluations *should* run before putting this array in a
+        // GC-safe spot, but leave unmanaged anyway.
+        //
+        chainees = Pop_Stack_Values(dsp_orig); // no NODE_FLAG_MANAGED
     }
 
     REBVAL *first = KNOWN(ARR_HEAD(chainees));

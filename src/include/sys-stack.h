@@ -45,11 +45,10 @@
 // Because of their differences, they are applied to different problems:
 //
 // A notable usage of the data stack is by REDUCE and COMPOSE.  They use it
-// as a buffer for values that are being gathered to be inserted into the
-// final array.  It's better to use the data stack as a buffer because it
-// means the size of the accumulated result is known before either creating
-// a new series or inserting /INTO a target.  This prevents wasting space on
-// expansions or resizes and shuffling due to a guessed size.
+// to gather values prior to their insertion into a final array.  It's better
+// for many clients to use the data stack as a common preallocated working
+// space.  This way the size of the accumulated result is known, preventing
+// wasting space on expansions or resizes and shuffling due to a guessed size.
 //
 // The chunk stack has an important use as the storage for arguments to
 // functions being invoked.  The pointers to these arguments are passed by
@@ -96,25 +95,25 @@
 // of the data stack (last valid item in the underlying array)
 //
 #define DSP \
-    DS_Index
+    cast(REBDSP, DS_Index) // cast helps stop ++DSP, etc.
+
+// DS_TOP is the most recently pushed item.
+//
+#define DS_TOP \
+    cast(REBVAL*, DS_Movable_Top) // cast helps stop ++DS_TOP, etc.
 
 // DS_AT accesses value at given stack location.  It is allowed to point at
 // a stack location that is an end, e.g. DS_AT(dsp + 1), because that location
 // may be used as the start of a copy which is ultimately of length 0.
 //
 inline static REBVAL *DS_AT(REBDSP d) {
-    REBVAL *v = DS_Movable_Base + d;
+    REBVAL *at = KNOWN(ARR_HEAD(DS_Array) + d);
     assert(
-        ((v->header.bits & NODE_FLAG_CELL) and d <= (DSP + 1))
-        or ((v->header.bits & NODE_FLAG_END) and d == (DSP + 1))
+        ((at->header.bits & NODE_FLAG_CELL) and d <= (DSP + 1))
+        or ((at->header.bits & NODE_FLAG_END) and d == (DSP + 1))
     );
-    return v;
+    return at;
 }
-
-// DS_TOP is the most recently pushed item
-//
-#define DS_TOP \
-    DS_AT(DSP)
 
 #if !defined(NDEBUG)
     #define IN_DATA_STACK_DEBUG(v) \
@@ -136,17 +135,15 @@ inline static REBVAL *DS_AT(REBDSP d) {
 
 #define STACK_EXPAND_BASIS 128
 
-// Note: DS_Movable_Base + DSP is just DS_TOP, but it asserts on ENDs.
+// Note: DS_Movable_Top is DS_TOP, but it asserts on ENDs...
 //
 #define DS_PUSH_TRASH \
-    (++DSP, IS_END(DS_Movable_Base + DSP) \
+    (++DS_Index, ++DS_Movable_Top, IS_END(DS_Movable_Top) \
         ? Expand_Data_Stack_May_Fail(STACK_EXPAND_BASIS) \
-        : TRASH_CELL_IF_DEBUG(DS_Movable_Base + DSP))
+        : TRASH_CELL_IF_DEBUG(DS_Movable_Top)) \
 
-inline static void DS_PUSH(const REBVAL *v) {
-    DS_PUSH_TRASH;
-    Move_Value(DS_TOP, v);
-}
+#define DS_PUSH(v) \
+    (DS_PUSH_TRASH, Move_Value(DS_TOP, (v))) \
 
 
 //
@@ -159,15 +156,15 @@ inline static void DS_PUSH(const REBVAL *v) {
 
 #ifdef NDEBUG
     #define DS_DROP \
-        (--DS_Index)
+        (--DS_Index, --DS_Movable_Top)
 
     #define DS_DROP_TO(dsp) \
-        (DS_Index = dsp)
+        (DS_Movable_Top -= (DS_Index - (dsp)), DS_Index = (dsp))
 #else
     inline static void DS_DROP_Core(void) {
-        // Note: DS_TOP checks to make sure it's not an END.
-        Init_Unreadable_Blank(DS_TOP); // TRASH would mean ASSERT_ARRAY failing
+        Init_Unreadable_Blank(DS_TOP); // TRASH makes ASSERT_ARRAY fail
         --DS_Index;
+        --DS_Movable_Top;
     }
 
     #define DS_DROP \

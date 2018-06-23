@@ -898,35 +898,68 @@ set 'r3-legacy* func [<local>] [
         ])
 
         reduce: (function [
-            value {Not just BLOCK!s evaluated: https://trello.com/c/evTPswH3}
-            /into target [any-array!]
+            value "Not just BLOCK!s evaluated: https://trello.com/c/evTPswH3"
+            /into "https://forum.rebol.info/t/stopping-the-into-virus/705"
+            out [any-array!]
         ][
-            if not block? :value [return :value]
-
-            apply 'reduce/into [
-                value: :value
-                target: :target
+            case [
+                not block? :value [:value]
+                into [insert out reduce :value]
+                /else [reduce :value]
             ]
         ])
 
         compose: (function [
-            value {Ren-C composes ANY-ARRAY!: https://trello.com/c/8WMgdtMp}
+            value "Ren-C composes ANY-ARRAY!: https://trello.com/c/8WMgdtMp"
                 [any-value!]
-            /deep {Ren-C recurses into PATH!s: https://trello.com/c/8WMgdtMp}
+            /deep "Ren-C recurses into PATH!s: https://trello.com/c/8WMgdtMp"
             /only
-            /into out [any-array! any-string! binary!]
+            /into "https://forum.rebol.info/t/stopping-the-into-virus/705"
+            out [any-array! any-string! binary!]
         ][
-            if block? :value [
-                apply 'compose [
-                    value: :value
-                    deep: deep
-                    only: only
-                    into: into
-                    out: :out
+            case [
+                not block? value [:value]
+                into [
+                    insert out apply 'compose [
+                        value: :value
+                        deep: deep
+                        only: only
+                    ]
                 ]
-            ] else [
-                :value
+                /else [
+                    apply 'compose [
+                        value: :value
+                        deep: deep
+                        only: only
+                    ]
+                ]
             ]
+        ])
+
+        collect: (func [
+            return: [any-series!]
+            body [block!]
+            /into "https://forum.rebol.info/t/stopping-the-into-virus/705"
+            output [any-series!]
+            <local> keeper
+        ][
+            output: default [make block! 16]
+
+            keeper: specialize (
+                enclose 'insert function [
+                    f [frame!]
+                    <static> o (:output)
+                ][
+                    f/series: o
+                    o: do f ;-- update static's position on each insertion
+                    :f/value
+                ]
+            )[
+                series: <remove-unused-series-parameter>
+            ]
+
+            eval func compose [(name) [action!] <with> return] body :keeper
+            either into [output] [head of output]
         ])
 
         ; because reduce has been changed but lib/reduce is not in legacy

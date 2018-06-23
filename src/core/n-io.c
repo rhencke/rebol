@@ -404,10 +404,8 @@ REBCNT Milliseconds_From_Value(const RELVAL *v) {
 //  "Waits for a duration, port, or both."
 //
 //      value [<opt> any-number! time! port! block!]
-//      /all
-//          "Returns all in a block"
-//      /only
-//          {only check for ports given in the block to this function}
+//      /all "Returns all in a block"
+//      /only "only check for ports given in the block to this function"
 //  ]
 //
 REBNATIVE(wait)
@@ -418,20 +416,26 @@ REBNATIVE(wait)
     REBARR *ports = NULL;
     REBINT n = 0;
 
-    Init_Blank(D_OUT);
 
     RELVAL *val;
-    if (IS_BLOCK(ARG(value))) {
-        DECLARE_LOCAL (unsafe); // temporary not safe from GC
-
-        if (Reduce_Any_Array_Throws(
-            unsafe, ARG(value), REDUCE_MASK_NONE
+    if (not IS_BLOCK(ARG(value)))
+        val = ARG(value);
+    else {
+        REBDSP dsp_orig = DSP;
+        if (Reduce_To_Stack_Throws(
+            D_OUT,
+            ARG(value),
+            REDUCE_MASK_NONE
         )){
-            Move_Value(D_OUT, unsafe);
             return R_OUT_IS_THROWN;
         }
 
-        ports = VAL_ARRAY(unsafe);
+        // !!! This takes the stack array and creates an unmanaged array from
+        // it, which ends up being put into a value and becomes managed.  So
+        // it has to be protected.
+        //
+        ports = Pop_Stack_Values(dsp_orig);
+
         for (val = ARR_HEAD(ports); NOT_END(val); val++) { // find timeout
             if (Pending_Port(KNOWN(val)))
                 ++n;
@@ -445,8 +449,6 @@ REBNATIVE(wait)
             timeout = ALL_BITS; // no timeout provided
         }
     }
-    else
-        val = ARG(value);
 
     if (NOT_END(val)) {
         switch (VAL_TYPE(val)) {
@@ -501,7 +503,7 @@ REBNATIVE(wait)
         if (IS_PORT(val))
             Move_Value(D_OUT, KNOWN(val));
         else
-            Init_Blank(D_OUT);
+            Init_Nulled(D_OUT);
     }
 
     return R_OUT;

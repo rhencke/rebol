@@ -93,7 +93,7 @@ void Startup_Stacks(REBCNT size)
     // initial stack size.  It requires you to be on an END to run.
     //
     DS_Index = 1;
-    DS_Movable_Base = KNOWN(ARR_HEAD(DS_Array)); // can't push RELVALs
+    DS_Movable_Top = KNOWN(ARR_AT(DS_Array, DS_Index)); // can't push RELVALs
     Expand_Data_Stack_May_Fail(size);
 
     // Now drop the hypothetical thing pushed that triggered the expand.
@@ -158,15 +158,10 @@ void Expand_Data_Stack_May_Fail(REBCNT amount)
     // The current requests for expansion should only happen when the stack
     // is at its end.  Sanity check that.
     //
-#if !defined(NDEBUG)
-    //
-    // Note: DS_TOP or DS_AT(DSP) would assert on END, calculate directly
-    //
-    REBVAL *end_top = DS_Movable_Base + DSP;
-    assert(IS_END(end_top));
-    assert(cast(RELVAL*, end_top) == ARR_TAIL(DS_Array)); // can't push RELVALs
-    assert(cast(RELVAL*, end_top) - ARR_HEAD(DS_Array) == cast(int, len_old));
-#endif
+    assert(len_old == DS_Index);
+    assert(IS_END(DS_Movable_Top));
+    assert(DS_Movable_Top == KNOWN(ARR_TAIL(DS_Array)));
+    assert(DS_Movable_Top - KNOWN(ARR_HEAD(DS_Array)) == cast(int, len_old));
 
     // If adding in the requested amount would overflow the stack limit, then
     // give a data stack overflow error.
@@ -176,28 +171,23 @@ void Expand_Data_Stack_May_Fail(REBCNT amount)
         // Because the stack pointer was incremented and hit the END marker
         // before the expansion, we have to decrement it if failing.
         //
-        --DSP;
+        --DS_Index;
         Fail_Stack_Overflow(); // !!! Should this be a "data stack" message?
     }
 
     Extend_Series(SER(DS_Array), amount);
 
-    // Update the global pointer representing the base of the stack that
-    // likely was moved by the above allocation.  (It's not necessarily a
-    // huge win to cache it, but it turns data stack access from a double
-    // dereference into a single dereference in the common case, and it was
-    // how R3-Alpha did it).
+    // Update the pointer used for fast access to the top of the stack that
+    // likely was moved by the above allocation (needed before using DS_TOP)
     //
-    DS_Movable_Base = cast(REBVAL*, ARR_HEAD(DS_Array)); // before using DS_TOP
+    DS_Movable_Top = cast(REBVAL*, ARR_AT(DS_Array, DS_Index));
 
     // We fill in the data stack with "GC safe trash" (which is void in the
     // release build, but will raise an alarm if VAL_TYPE() called on it in
     // the debug build).  In order to serve as a marker for the stack slot
     // being available, it merely must not be IS_END()...
 
-    // again, DS_TOP or DS_AT(DSP) would assert on END, calculate directly
-    //
-    REBVAL *value = DS_Movable_Base + DSP;
+    REBVAL *value = DS_Movable_Top;
 
     REBCNT len_new = len_old + amount;
     REBCNT n;

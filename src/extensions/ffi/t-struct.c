@@ -1207,11 +1207,16 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             if (IS_BLOCK(item)) {
                 Derelativize(specified, item, VAL_SPECIFIER(arg));
 
-                if (Reduce_Any_Array_Throws(
-                    init, specified, REDUCE_MASK_NONE
+                REBDSP dsp_reduce = DSP;
+                if (Reduce_To_Stack_Throws(
+                    out,
+                    specified,
+                    REDUCE_MASK_NONE
                 )){
                     fail (Error_No_Catch_For_Throw(init));
                 }
+
+                Init_Block(init, Pop_Stack_Values(dsp_reduce));
 
                 ++item;
             }

@@ -438,10 +438,8 @@ inline static REBVAL *Derelativize(
 #endif
 
 
-inline static void DS_PUSH_RELVAL(const RELVAL *v, REBSPC *specifier) {
-    DS_PUSH_TRASH;
-    Derelativize(DS_TOP, v, specifier);
-}
+#define DS_PUSH_RELVAL(v,specifier) \
+    (DS_PUSH_TRASH, Derelativize(DS_TOP, (v), (specifier)))
 
 inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
     const RELVAL *v,

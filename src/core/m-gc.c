@@ -1052,10 +1052,11 @@ static void Mark_Root_Series(void)
 //
 static void Mark_Data_Stack(void)
 {
-    ASSERT_UNREADABLE_IF_DEBUG(&DS_Movable_Base[0]);
+    REBVAL *head = KNOWN(ARR_HEAD(DS_Array));
+    ASSERT_UNREADABLE_IF_DEBUG(head);
 
     REBVAL *stackval = DS_TOP;
-    for (; stackval != &DS_Movable_Base[0]; --stackval)
+    for (; stackval != head; --stackval)
         Queue_Mark_Value_Deep(stackval);
 
     Propagate_All_GC_Marks();

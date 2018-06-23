@@ -1323,9 +1323,8 @@ inline static REBOOL Run_Branch_Throws(
 
 
 enum {
-    REDUCE_FLAG_INTO = 1 << 0, // target is an existing array
-    REDUCE_FLAG_TRY = 1 << 1, // null should be converted to blank, vs fail
-    REDUCE_FLAG_OPT = 1 << 2 // discard nulls (incompatible w/REDUCE_FLAG_TRY)
+    REDUCE_FLAG_TRY = 1 << 0, // null should be converted to blank, vs fail
+    REDUCE_FLAG_OPT = 1 << 1 // discard nulls (incompatible w/REDUCE_FLAG_TRY)
 };
 
 #define REDUCE_MASK_NONE 0
