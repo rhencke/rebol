@@ -210,18 +210,18 @@
     FLAGIT_LEFT(GENERAL_ARRAY_BIT + 0)
 
 
-//=//// ARRAY_FLAG_VOIDS_LEGAL ////////////////////////////////////////////=//
+//=//// ARRAY_FLAG_NULLEDS_LEGAL //////////////////////////////////////////=//
 //
-// Identifies arrays in which it is legal to have void elements.  This is true
-// for instance on reified C va_list()s which were being used for unevaluated
-// applies (like R3-Alpha's APPLY/ONLY).  When those va_lists need to be put
-// into arrays for the purposes of GC protection, they may contain voids which
-// they need to track.
+// Identifies arrays in which it is legal to have nulled elements.  This is
+// true for reified C va_list()s which treated slots as if they had already
+// abeen evaluated.  (See VALUE_FLAG_EVAL_FLIP).  When those va_lists need to
+// be put into arrays for the purposes of GC protection, they may contain
+// nulled cells.  (How to present this in the debugger will be a UI issue.)
 //
-// Note: ARRAY_FLAG_VARLIST also implies legality of voids, which
-// are used to represent unset variables.
+// Note: ARRAY_FLAG_VARLIST also implies legality of nulleds, which in that
+// case are used to represent unset variables.
 //
-#define ARRAY_FLAG_VOIDS_LEGAL \
+#define ARRAY_FLAG_NULLEDS_LEGAL \
     FLAGIT_LEFT(GENERAL_ARRAY_BIT + 1)
 
 

@@ -109,20 +109,6 @@ uneval: func [
 ]
 
 
-; Despite being very "noun-like", HEAD and TAIL have classically been "verbs"
-; in Rebol.  Ren-C builds on the concept of REFLECT, so that REFLECT STR 'HEAD
-; will get the head of a string.  An enfix left-soft-quoting operation is
-; introduced called OF, so that you can write HEAD OF STR and get the same
-; ultimate effect.
-;
-of: enfix func [
-    return: [<opt> any-value!]
-    'property [word!]
-    value [<opt> any-value!] ;-- TYPE OF () needs to be BLANK!, so <opt> okay
-][
-    reflect :value property
-]
-
 ; !!! NEXT and BACK seem somewhat "noun-like" and desirable to use as variable
 ; names, but are very entrenched in Rebol history.  Also, since they are
 ; specializations they don't fit easily into the NEXT OF SERIES model--this

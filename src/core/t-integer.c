@@ -374,11 +374,9 @@ void MF_Integer(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 REBTYPE(Integer)
 {
     REBVAL *val = D_ARG(1);
-    REBVAL *val2 = D_ARGC > 1 ? D_ARG(2) : NULL;
+    REBI64 num = VAL_INT64(val);
 
     REBI64 arg;
-
-    REBI64 num = VAL_INT64(val);
 
     // !!! This used to rely on IS_BINARY_ACT, which is no longer available
     // in the symbol based dispatch.  Consider doing another way.
@@ -394,6 +392,8 @@ REBTYPE(Integer)
         or verb == SYM_DIFFERENCE
         or verb == SYM_REMAINDER
     ){
+        REBVAL *val2 = D_ARG(2);
+
         if (IS_INTEGER(val2))
             arg = VAL_INT64(val2);
         else if (IS_CHAR(val2))
@@ -483,8 +483,8 @@ REBTYPE(Integer)
         }
         // Fall thru
     case SYM_POWER:
-        Init_Decimal(val, cast(REBDEC, num));
-        Init_Decimal(val2, cast(REBDEC, arg));
+        Init_Decimal(D_ARG(1), cast(REBDEC, num));
+        Init_Decimal(D_ARG(2), cast(REBDEC, arg));
         return T_Decimal(frame_, verb);
 
     case SYM_REMAINDER:
@@ -545,7 +545,7 @@ REBTYPE(Integer)
             | (REF(half_ceiling) ? RF_HALF_CEILING : 0)
         );
 
-        val2 = ARG(scale);
+        REBVAL *val2 = ARG(scale);
         if (REF(to)) {
             if (IS_MONEY(val2)) {
                 Init_Money(D_OUT, Round_Deci(

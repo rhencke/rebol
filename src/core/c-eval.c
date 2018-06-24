@@ -1438,6 +1438,10 @@ reevaluate:;
             Init_Nulled(f->out);
             break;
 
+        case R_VOID:
+            Init_Void(f->out);
+            break;
+
         case R_BLANK:
             Init_Blank(f->out);
             break;

@@ -240,16 +240,6 @@ put: action [
     /case {Perform a case-sensitive search}
 ]
 
-reflect: action [
-    {Returns specific details about a datatype.}
-
-    return: {Only returns void for some cases where value is BLANK!}
-        [<opt> any-value!]
-    value [<opt> any-value!] ; accepts void for REFLECT () 'TYPE to be BLANK!
-    property [word!]
-        "Such as: type, length, spec, body, words, values, title"
-]
-
 ;-- Making, copying, modifying
 
 copy: action [

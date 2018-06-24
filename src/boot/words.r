@@ -368,3 +368,10 @@ options
 zlib
 gzip
 detect
+
+; REFLECT needs a SYM_XXX values at the moment, because it uses the dispatcher
+; Type_Action_Dispatcher() vs. there being a separate one just for REFLECT.
+; But it's not a type action, it's a native in order to be faster and also
+; because it wants to accept nulls for TYPE OF () => null
+;
+reflect

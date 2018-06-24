@@ -279,6 +279,109 @@ REBTYPE(Unhooked)
 }
 
 
+// !!! Some reflectors are more general and apply to all types (e.g. TYPE)
+// while others only apply to some types (e.g. LENGTH or HEAD only to series,
+// or perhaps things like PORT! that wish to act like a series).  This
+// suggests a need for a kind of hierarchy of handling.
+//
+// The series common code is in Series_Common_Action_Maybe_Unhandled(), but
+// that is only called from series.  Handle a few extra cases here.
+//
+REB_R Reflect_Core(REBFRM *frame_)
+{
+    INCLUDE_PARAMS_OF_REFLECT;
+
+    enum Reb_Kind kind = VAL_TYPE(ARG(value));
+
+    switch (VAL_WORD_SYM(ARG(property))) {
+    case SYM_0:
+        //
+        // If a word wasn't in %words.r, it has no integer SYM.  There is
+        // no way for a built-in reflector to handle it...since they just
+        // operate on SYMs in a switch().  Longer term, a more extensible
+        // idea will be necessary.
+        //
+        fail (Error_Cannot_Reflect(kind, ARG(property)));
+
+    case SYM_TYPE:
+        if (kind == REB_MAX_NULLED)
+            return R_NULL; // `() = type of ()`, `null = type of ()`
+        Init_Datatype(D_OUT, kind);
+        return R_OUT;
+
+    default:
+        // !!! Are there any other universal reflectors?
+        break;
+    }
+
+    // !!! The reflector for TYPE is universal and so it is allowed on nulls,
+    // but in general actions should not allow null first arguments...there's
+    // no entry in the dispatcher table for them.
+    //
+    if (kind == REB_MAX_NULLED)
+        fail ("VOID isn't valid for REFLECT, except for TYPE OF ()");
+
+    REBTAF subdispatch = Value_Dispatch[kind];
+    return subdispatch(frame_, SYM_REFLECT);
+}
+
+
+//
+//  reflect: native [
+//
+//  {Returns specific details about a datatype.}
+//
+//      return: [<opt> any-value!]
+//      value "Accepts NULL so REFLECT () 'TYPE can be returned as NULL"
+//          [<opt> any-value!]
+//      property [word!]
+//          "Such as: type, length, spec, body, words, values, title"
+//  ]
+//
+REBNATIVE(reflect)
+//
+// Although REFLECT goes through dispatch to the REBTYPE(), it was needing
+// a null check in Type_Action_Dispatcher--which no other type needs.  So
+// it is its own native.  Consider giving it its own dispatcher as well, as
+// the question of exactly what a "REFLECT" or "OF" actually *is*.
+{
+    return Reflect_Core(frame_);
+}
+
+
+//
+//  of: enfix native [
+//
+//  {Infix form of REFLECT which quotes its left (X OF Y => REFLECT Y 'X)}
+//
+//      return: [<opt> any-value!]
+//      'property [word!]
+//      value "Accepts NULL so TYPE OF () can be returned as NULL"
+//          [<opt> any-value!]
+//  ]
+//
+REBNATIVE(of)
+//
+// Common enough to be worth it to do some kind of optimization so it's not
+// much slower than a REFLECT; e.g. you don't want it building a separate
+// frame to make the REFLECT call in just because of the parameter reorder.
+{
+    INCLUDE_PARAMS_OF_OF;
+
+    // !!! Ugly hack to make OF frame-compatible with REFLECT.  If there was
+    // a separate dispatcher for REFLECT it could be called with proper
+    // parameterization, but as things are it expects the arguments to
+    // fit the type action dispatcher rule... dispatch item in first arg,
+    // property in the second.
+    //
+    Move_Value(D_CELL, ARG(property));
+    Move_Value(ARG(property), ARG(value));
+    Move_Value(ARG(value), D_CELL);
+
+    return Reflect_Core(frame_);
+}
+
+
 //
 //  Scan_Hex: C
 //

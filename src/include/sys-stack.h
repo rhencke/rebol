@@ -190,7 +190,7 @@ inline static REBVAL *DS_AT(REBDSP d) {
     Pop_Stack_Values_Core((dsp), ARRAY_FLAG_FILE_LINE)
 
 #define Pop_Stack_Values_Keep_Eval_Flip(dsp) \
-    Pop_Stack_Values_Core((dsp), ARRAY_FLAG_FILE_LINE | ARRAY_FLAG_VOIDS_LEGAL)
+    Pop_Stack_Values_Core((dsp), ARRAY_FLAG_FILE_LINE | ARRAY_FLAG_NULLEDS_LEGAL)
 
 
 //=////////////////////////////////////////////////////////////////////////=//

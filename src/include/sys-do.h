@@ -352,7 +352,7 @@ detect_again:;
         // which elements came from strings and which were existing blocks
         // from elsewhere.  This is not ideal, but it's just to start.
         //
-        ss.opts |= SCAN_FLAG_VOIDS_LEGAL;
+        ss.opts |= SCAN_FLAG_NULLEDS_LEGAL;
 
         // !!! Current hack is to just allow one binder to be passed in for
         // use binding any newly loaded portions (spliced ones are left with
@@ -405,7 +405,7 @@ detect_again:;
         f->source.array = a;
         f->source.index = 1;
 
-        assert(GET_SER_FLAG(f->source.array, ARRAY_FLAG_VOIDS_LEGAL));
+        assert(GET_SER_FLAG(f->source.array, ARRAY_FLAG_NULLEDS_LEGAL));
         break; }
 
     case DETECTED_AS_SERIES: {
@@ -1051,7 +1051,7 @@ inline static void Reify_Va_To_Array_In_Frame(
     // special array...may contain voids and eval flip is kept
     f->source.array = Pop_Stack_Values_Keep_Eval_Flip(dsp_orig);
     MANAGE_ARRAY(f->source.array); // held alive while frame running
-    SET_SER_FLAG(f->source.array, ARRAY_FLAG_VOIDS_LEGAL);
+    SET_SER_FLAG(f->source.array, ARRAY_FLAG_NULLEDS_LEGAL);
 
     // The array just popped into existence, and it's tied to a running
     // frame...so safe to say we're holding it.  (This would be more complex

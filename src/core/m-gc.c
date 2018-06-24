@@ -902,8 +902,8 @@ static void Propagate_All_GC_Marks(void)
             if (
                 not IS_BLANK_RAW(v)
                 and IS_NULLED(v)
-                and not GET_SER_FLAG(a, ARRAY_FLAG_VARLIST)
-                and not GET_SER_FLAG(a, ARRAY_FLAG_VOIDS_LEGAL)
+                and NOT_SER_FLAG(a, ARRAY_FLAG_VARLIST)
+                and NOT_SER_FLAG(a, ARRAY_FLAG_NULLEDS_LEGAL)
             ){
                 panic(a);
             }

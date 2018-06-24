@@ -304,6 +304,9 @@ REB_R Apply_Core_Measured(REBFRM * const f)
         case R_NULL:
             break;
 
+        case R_VOID:
+            break;
+
         case R_BLANK:
             break;
 
@@ -387,6 +390,7 @@ REBNATIVE(metrics)
 //
 //  {Provide access to services in <valgrind/callgrind.h>}
 //
+//      return: [void!]
 //      'instruction [word!]
 //          {Currently just either ON or OFF}
 //  ]
@@ -417,7 +421,7 @@ REBNATIVE(callgrind)
     default:
         fail ("Currently CALLGRIND only supports ON and OFF");
     }
-    return R_NULL;
+    return R_VOID;
   #else
     UNUSED(ARG(instruction));
     fail ("This executable wasn't compiled with INCLUDE_CALLGRIND_NATIVE");

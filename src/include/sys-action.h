@@ -49,9 +49,10 @@ enum Reb_Result {
     R_FALSE = 0, // => Init_Logic(D_OUT, FALSE); return R_OUT;
     R_TRUE = 1, // => Init_Logic(D_OUT, TRUE); return R_OUT;
 
-    // NULL and blank are also common results.
+    // NULL, void, blank, and bar are also common results.
     //
-    R_NULL, // => Init_Void(D_OUT); return R_OUT;
+    R_NULL, // => Init_Null(D_OUT); return R_OUT;
+    R_VOID, // => Init_Void(D_OUT); return R_OUT;
     R_BLANK, // => Init_Blank(D_OUT); return R_OUT;
     R_BAR, // Init_Bar(D_OUT); return R_OUT;
 

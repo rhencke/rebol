@@ -1508,61 +1508,11 @@ REBTYPE(Fail)
 //
 // https://en.wikipedia.org/wiki/Multiple_dispatch
 //
-// Note: R3-Alpha had an enum type for "action numbers", so that they could be
-// handled in a switch statement.  Ren-C just unified that with the REBSYM
-// number mechanism, so it leverages words that have compile-time constants
-// (like SYM_APPEND, etc.)  Using a symbol in this way is called a "verb".
-//
 REB_R Type_Action_Dispatcher(REBFRM *f)
 {
     enum Reb_Kind kind = VAL_TYPE(FRM_ARG(f, 1));
     REBSYM verb = VAL_WORD_SYM(ACT_BODY(f->phase));
-    assert(verb != SYM_0);
-
-    // !!! Some reflectors are more general and apply to all types (e.g. TYPE)
-    // while others only apply to some types (e.g. LENGTH or HEAD only to
-    // series, or perhaps things like PORT! that wish to act like a series).
-    // This suggests a need for a kind of hierarchy of handling.
-    //
-    // The series common code is in Series_Common_Action_Maybe_Unhandled(),
-    // but that is only called from series.  Handle a few extra cases here.
-    //
-    if (verb == SYM_REFLECT) {
-        REBFRM *frame_ = f;
-        INCLUDE_PARAMS_OF_REFLECT;
-
-        UNUSED(ARG(value));
-        REBSYM property = VAL_WORD_SYM(ARG(property));
-
-        switch (property) {
-        case SYM_0:
-            //
-            // If a word wasn't in %words.r, it has no integer SYM.  There is
-            // no way for a built-in reflector to handle it...since they just
-            // operate on SYMs in a switch().  Longer term, a more extensible
-            // idea may be necessary.
-            //
-            fail (Error_Cannot_Reflect(kind, ARG(property)));
-
-        case SYM_TYPE:
-            if (kind == REB_MAX_NULLED)
-                return R_NULL; // `() = type of ()`, `null = type of ()`
-            Init_Datatype(f->out, kind);
-            return R_OUT;
-
-        default:
-            // !!! Are there any other universal reflectors?
-            break;
-        }
-    }
-
-    // !!! The reflector for TYPE is universal and so it is allowed on voids,
-    // but in general actions should not allow void first arguments...there's
-    // no entry in the dispatcher table for them.
-    //
-    if (kind == REB_MAX_NULLED)
-        fail ("VOID isn't valid for REFLECT, except for TYPE OF ()");
-
+    assert(verb != SYM_0); // not a compile-time constant, needed for switch()
     assert(kind < REB_MAX);
 
     REBTAF subdispatch = Value_Dispatch[kind];

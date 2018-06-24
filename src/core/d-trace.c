@@ -306,6 +306,10 @@ REB_R Apply_Core_Traced(REBFRM * const f)
             Debug_Fmt("\\\\null\\\\\n"); // displays as "\\null\\"
             break;
 
+        case R_VOID:
+            Debug_Values(VOID_VALUE, 1, 50);
+            break;
+
         case R_BLANK:
             Debug_Values(BLANK_VALUE, 1, 50);
             break;

@@ -147,7 +147,7 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
             // for display purposes and is "lossy" (as evidenced by the ...)
             // substitute a placeholder to avoid crashing the GC.
             //
-            assert(GET_SER_FLAG(FRM_ARRAY(f), ARRAY_FLAG_VOIDS_LEGAL));
+            assert(GET_SER_FLAG(FRM_ARRAY(f), ARRAY_FLAG_NULLEDS_LEGAL));
             Init_Word(DS_TOP, Canon(SYM___VOID__));
         }
         else

@@ -268,7 +268,7 @@ enum {
     SCAN_FLAG_NEXT = 1 << 0, // load/next feature
     SCAN_FLAG_ONLY = 1 << 1, // only single value (no blocks)
     SCAN_FLAG_RELAX = 1 << 2, // no error throw
-    SCAN_FLAG_VOIDS_LEGAL = 1 << 3, // void splice ok in top level of rebRun()
+    SCAN_FLAG_NULLEDS_LEGAL = 1 << 3, // void splice ok in top level of rebRun()
     SCAN_FLAG_LOCK_SCANNED = 1 << 4  // lock series as they are loaded
 };
 

@@ -80,7 +80,7 @@ void Startup_Stacks(REBCNT size)
     // contain them.  But DS_PUSH_MAYBE_VOID allows you to, in case you
     // are building a context varlist or similar.
     //
-    DS_Array = Make_Array_Core(1, ARRAY_FLAG_VOIDS_LEGAL);
+    DS_Array = Make_Array_Core(1, ARRAY_FLAG_NULLEDS_LEGAL);
     Init_Unreadable_Blank(ARR_HEAD(DS_Array));
 
     // The END marker will signal DS_PUSH that it has run out of space,

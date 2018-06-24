@@ -576,7 +576,7 @@ void Free_Node(REBCNT pool_id, void *p)
 // like expansion.
 //
 REBOOL Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
-    assert(not GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
+    assert(NOT_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
 
     REBYTE wide = SER_WIDE(s);
     assert(wide != 0);

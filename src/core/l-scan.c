@@ -971,7 +971,7 @@ acquisition_loop:
         switch (Detect_Rebol_Pointer(p)) {
 
         case DETECTED_AS_NULL: { // libRebol representation of <opt>/NULL
-            if (not (ss->opts & SCAN_FLAG_VOIDS_LEGAL))
+            if (not (ss->opts & SCAN_FLAG_NULLEDS_LEGAL))
                 fail ("can't splice null in ANY-ARRAY!...use rebUneval()");
 
             DS_PUSH_TRASH;
@@ -1023,7 +1023,7 @@ acquisition_loop:
             REBVAL *single = KNOWN(ARR_SINGLE(instruction));
 
             if (GET_VAL_FLAG(single, VALUE_FLAG_EVAL_FLIP)) { // rebEval()
-                if (not (ss->opts & SCAN_FLAG_VOIDS_LEGAL))
+                if (not (ss->opts & SCAN_FLAG_NULLEDS_LEGAL))
                     fail ("can only use rebEval() at top level of run");
 
                 DS_PUSH_TRASH;
@@ -2511,7 +2511,7 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char)
     child.start_line = ss->line;
     child.start_line_head = ss->line_head;
     child.newline_pending = FALSE;
-    child.opts &= ~(SCAN_FLAG_VOIDS_LEGAL | SCAN_FLAG_NEXT);
+    child.opts &= ~(SCAN_FLAG_NULLEDS_LEGAL | SCAN_FLAG_NEXT);
 
     // The way that path scanning works is that after one item has been
     // scanned it is *retroactively* decided to begin picking up more items
@@ -2627,7 +2627,7 @@ REBARR *Scan_Va_Managed(
     //
     REBARR *a = Pop_Stack_Values_Core(
         dsp_orig,
-        ARRAY_FLAG_VOIDS_LEGAL | NODE_FLAG_MANAGED
+        ARRAY_FLAG_NULLEDS_LEGAL | NODE_FLAG_MANAGED
             | (ss.newline_pending ? ARRAY_FLAG_TAIL_NEWLINE : 0)
     );
 
