@@ -561,7 +561,7 @@ REBCTX *Copy_Context_Core(REBCTX *original, REBU64 types)
 
     REBARR *original_array = NULL; // may not be an array
     REBARR *varlist = Make_Array_For_Copy(
-        CTX_LEN(original) + 1, SERIES_MASK_NONE, original_array
+        CTX_LEN(original) + 1, SERIES_FLAGS_NONE, original_array
     );
     REBVAL *dest = KNOWN(ARR_HEAD(varlist)); // all context vars are SPECIFIED
 

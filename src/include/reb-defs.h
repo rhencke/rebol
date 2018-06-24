@@ -318,6 +318,27 @@ typedef REBWCHAR REBUNI;
     //
     #define END \
         ((const REBVAL*)&PG_End_Node) // sizeof(REBVAL) but not NODE_FLAG_CELL
+
+    // It's not desirable to export the details of %mem-pools.h to most of the
+    // code, even the internal API.  But Make_Node() takes a pool ID, so
+    // things that want to make nodes need to know about SER_POOL.  This
+    // exports these constants here to avoid importing all of %mem-pools.h.
+    //
+    enum Mem_Pool_Specs {
+        MEM_TINY_POOL = 0,
+        MEM_SMALL_POOLS = MEM_TINY_POOL + 16,
+        MEM_MID_POOLS = MEM_SMALL_POOLS + 4,
+        MEM_BIG_POOLS = MEM_MID_POOLS + 4, // larger pools
+        SER_POOL = MEM_BIG_POOLS,
+      #ifdef UNUSUAL_REBVAL_SIZE
+        PAR_POOL,
+      #else
+        PAR_POOL = SER_POOL,
+      #endif
+        GOB_POOL,
+        SYSTEM_POOL,
+        MAX_POOLS
+    };
 #endif
 
 

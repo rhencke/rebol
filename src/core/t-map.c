@@ -473,7 +473,7 @@ inline static REBMAP *Copy_Map(REBMAP *map, REBU64 types) {
     //
     LINK(copy).hashlist = Copy_Sequence_Core(
         MAP_HASHLIST(map),
-        SERIES_MASK_NONE // !!! No NODE_FLAG_MANAGED?
+        SERIES_FLAGS_NONE // !!! No NODE_FLAG_MANAGED?
     );
 
     if (types == 0)

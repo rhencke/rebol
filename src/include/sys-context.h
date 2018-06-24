@@ -336,7 +336,7 @@ inline static void INIT_VAL_CONTEXT(REBVAL *v, REBCTX *c) {
 // careful not to do any evaluations or trigger GC until it's well formed)
 //
 #define Alloc_Context(kind,capacity) \
-    Alloc_Context_Core((kind), (capacity), SERIES_MASK_NONE)
+    Alloc_Context_Core((kind), (capacity), SERIES_FLAGS_NONE)
 
 
 //=////////////////////////////////////////////////////////////////////////=//

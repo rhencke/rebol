@@ -64,9 +64,7 @@ inline static REBOOL Is_Api_Value(const RELVAL *v) {
 //
 inline static REBVAL *Alloc_Value(void)
 {
-    REBARR *a = Alloc_Singular(
-        NODE_FLAG_ROOT | NODE_FLAG_MANAGED | SERIES_FLAG_FIXED_SIZE
-    );
+    REBARR *a = Alloc_Singular(NODE_FLAG_ROOT | NODE_FLAG_MANAGED);
 
     // Giving the cell itself NODE_FLAG_ROOT lets a REBVAL* be discerned as
     // either an API handle or not.  The flag is not copied by Move_Value().

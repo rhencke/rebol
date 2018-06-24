@@ -117,8 +117,8 @@ PVAR REBVAL *Root_Local_Tag; // marks beginning of a list of "pure locals"
 PVAR REBVAL *Root_Empty_String; // read-only ""
 PVAR REBVAL *Root_Empty_Block; // read-only []
 PVAR REBARR* PG_Empty_Array; // optimization of VAL_ARRAY(Root_Empty_Block)
-PVAR REBARR *PG_Unbound_Singular; // used in fabricated empty varargs
-PVAR REBVAL *Root_Unbound; // protects PG_Unbound_Singular from GC
+PVAR REBARR *PG_Unbound; // also used in fabricated empty varargs
+PVAR REBVAL *Root_Unbound; // protects PG_Unbound from GC
 
 PVAR REBVAL *Root_Space_Char; // ' ' as a CHAR!
 PVAR REBVAL *Root_Newline_Char; // '\n' as a CHAR!

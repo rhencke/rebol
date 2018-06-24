@@ -117,33 +117,33 @@
 //
 
 #if defined(DEBUG_TRACK_CELLS)
-    inline static void Set_Track_Payload_Debug(
-        RELVAL *v,
+    inline static void Set_Track_Payload_Extra_Debug(
+        struct Reb_Cell *c,
         const char *file,
         int line
     ){
       #ifdef DEBUG_TRACK_EXTEND_CELLS // cell is made bigger to hold it
-        v->track.file = file;
-        v->track.line = line;
+        c->track.file = file;
+        c->track.line = line;
 
         #ifdef DEBUG_COUNT_TICKS
-            v->tick = TG_Tick;
-            v->move_tick = 0;
+            c->tick = TG_Tick;
+            c->move_tick = 0;
         #endif
       #else // in space that is overwritten for cells that fill in payloads 
-        v->payload.track.file = file;
-        v->payload.track.line = line;
+        c->payload.track.file = file;
+        c->payload.track.line = line;
           
         #ifdef DEBUG_COUNT_TICKS
-            v->extra.tick = TG_Tick;
+            c->extra.tick = TG_Tick;
         #endif
       #endif
     }
 
-    #define TRACK_CELL_IF_DEBUG(v,file,line) \
-        Set_Track_Payload_Debug((v), (file), (line))
+    #define TRACK_CELL_IF_DEBUG(c,file,line) \
+        Set_Track_Payload_Extra_Debug((c), (file), (line))
 #else
-    #define TRACK_CELL_IF_DEBUG(v,file,line) \
+    #define TRACK_CELL_IF_DEBUG(c,file,line) \
         NOOP
 #endif
 
@@ -543,6 +543,13 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
         panic_at ((c), file, line); \
     }
 
+#define CELL_MASK_NON_STACK \
+    (NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL \
+    | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH))
+
+#define CELL_MASK_NON_STACK_END \
+    (NODE_FLAG_NODE | NODE_FLAG_CELL | NODE_FLAG_END \
+    | HEADERIZE_KIND(REB_0))
 
 inline static void Prep_Non_Stack_Cell_Core(
     struct Reb_Cell *c
@@ -556,12 +563,7 @@ inline static void Prep_Non_Stack_Cell_Core(
     ALIGN_CHECK_CELL_EVIL_MACRO(c, file, line);
   #endif
 
-    c->header.bits =
-        NODE_FLAG_NODE
-        | NODE_FLAG_FREE
-        | NODE_FLAG_CELL
-        | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
-
+    c->header.bits = CELL_MASK_NON_STACK;
     TRACK_CELL_IF_DEBUG(cast(RELVAL*, c), file, line);
 }
 
@@ -1819,14 +1821,14 @@ inline static void SET_GOB(RELVAL *v, REBGOB *g) {
 // in Move_Value() without special-casing the null handling.
 //
 #define SPECIFIED \
-    cast(REBSPC*, PG_Unbound_Singular)
+    cast(REBSPC*, PG_Unbound)
 
 // A WORD! cannot be merely "specified" as its binding, because that is not
 // meaningful.  But in order to avoid having a separate flag, the same idea
 // is used with a unique singular array.
 //
 #define UNBOUND \
-   NOD(PG_Unbound_Singular)
+   NOD(PG_Unbound)
 
 inline static REBNOD *VAL_BINDING(const RELVAL *v) {
     assert(Is_Bindable(v));

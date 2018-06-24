@@ -783,29 +783,27 @@ static void Init_Root_Vars(void)
     // END (you always use SET_END), so we can make it unwritable.
     //
     Init_Endlike_Header(&PG_End_Node.header, 0); // mutate to read-only end
-  #if defined(DEBUG_TRACK_CELLS)
-    Set_Track_Payload_Debug(&PG_End_Node, __FILE__, __LINE__);
-  #endif
+    TRACK_CELL_IF_DEBUG(&PG_End_Node, __FILE__, __LINE__);
     assert(IS_END(END)); // sanity check that it took
     assert(VAL_TYPE_RAW(END) == REB_0); // this implicit END marker has this
 
     // Note: Not only can rebBlock() not be used yet (because there is no
-    // data stack), PG_Unbound_Singular must exist before calling Init_Block()
+    // data stack), PG_Unbound must exist before calling Init_Block()
     //
     // !!! Users should never see this, and if you panic() on this series it
     // will point to this line of code to identify it.  Still, review putting
     // something in the block to make it stand out in a debug dump, like a
-    // `#PG_Unbound_Singular` ISSUE! (mold buffer not initialized yet)
+    // `#PG_Unbound` ISSUE! (mold buffer not initialized yet)
     //
-    PG_Unbound_Singular = Alloc_Singular(SERIES_MASK_NONE);
-    SET_SER_INFO(PG_Unbound_Singular, SERIES_INFO_FROZEN);
-    SET_END(ARR_SINGLE(PG_Unbound_Singular));
-    Root_Unbound = Init_Block(Alloc_Value(), PG_Unbound_Singular);
+    PG_Unbound = Alloc_Singular(NODE_FLAG_MANAGED);
+    SET_SER_INFO(PG_Unbound, SERIES_INFO_FROZEN);
+    Init_Unreadable_Blank(ARR_SINGLE(PG_Unbound));
+    Root_Unbound = Init_Block(Alloc_Value(), PG_Unbound);
     rebLock(Root_Unbound, END);
 
     // Generic read-only empty array, and locked block containing it.
     //
-    PG_Empty_Array = Make_Array_Core(0, SERIES_FLAG_FIXED_SIZE);
+    PG_Empty_Array = Make_Array(0);
     SET_SER_INFO(PG_Empty_Array, SERIES_INFO_FROZEN);
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);
     rebLock(Root_Empty_Block, END);

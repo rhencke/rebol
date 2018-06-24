@@ -91,7 +91,7 @@
 // Such things might help with caching.)
 //
 
-#define SERIES_MASK_NONE \
+#define SERIES_FLAGS_NONE \
     0 // helps locate places that want to say "no flags"
 
 

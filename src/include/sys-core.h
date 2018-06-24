@@ -673,6 +673,11 @@ enum Reb_Vararg_Op {
 #include "sys-value.h" // basic definitions that don't need series accessrors
 #include "sys-time.h"
 
+inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
+    Eval_Signals |= f;
+    Eval_Count = 1;
+}
+
 #include "sys-series.h"
 #include "sys-binary.h"
 #include "sys-string.h"
@@ -713,11 +718,6 @@ enum Reb_Vararg_Op {
 #define LO_CASE(c) Lower_Cases[c]
 #define IS_WHITE(c) ((c) <= 32 and (White_Chars[c] & 1) != 0)
 #define IS_SPACE(c) ((c) <= 32 and (White_Chars[c] & 2) != 0)
-
-inline static void SET_SIGNAL(REBFLGS f) {
-    Eval_Signals |= f;
-    Eval_Count = 1;
-}
 
 #define GET_SIGNAL(f) \
     (did (Eval_Signals & (f)))

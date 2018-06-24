@@ -473,13 +473,10 @@ static void Fill_Pool(REBPOL *pool)
 //
 //  Make_Node: C
 //
-// Allocate a node from a pool.  If the pool has run out of nodes, it will
-// be refilled.
-//
-// The node will not be zero-filled.  However its header bits will be
-// guaranteed to be zero--which is the same as the state of all freed nodes.
-// Callers likely want to change this to not be zero, so that zero can be
-// used to recognize freed nodes if they enumerate the pool themselves.
+// Allocate a node from a pool.  Returned node will not be zero-filled, but
+// the header will have NODE_FLAG_FREE set when it is returned (client is
+// responsible for changing that if they plan to enumerate the pool and
+// distinguish free nodes from non-free ones.)
 //
 // All nodes are 64-bit aligned.  This way, data allocated in nodes can be
 // structured to know where legal 64-bit alignment points would be.  This
@@ -489,16 +486,16 @@ static void Fill_Pool(REBPOL *pool)
 void *Make_Node(REBCNT pool_id)
 {
     REBPOL *pool = &Mem_Pools[pool_id];
-    if (pool->first == NULL)
-        Fill_Pool(pool);
+    if (not pool->first) // pool has run out of nodes
+        Fill_Pool(pool); // refill it
 
-    assert(pool->first != NULL);
+    assert(pool->first);
 
     REBNOD *node = pool->first;
 
     pool->first = node->next_if_free;
     if (node == pool->last)
-        pool->last = NULL;
+        pool->last = nullptr;
 
     pool->free--;
 
@@ -517,7 +514,7 @@ void *Make_Node(REBCNT pool_id)
     }
   #endif
 
-    assert(IS_FREE_NODE(node)); // client needs to change to non-zero
+    assert(IS_FREE_NODE(node)); // client needs to change to non-free
     return cast(void *, node);
 }
 
@@ -568,7 +565,7 @@ void Free_Node(REBCNT pool_id, void *p)
 
 
 //
-//  Series_Data_Alloc: C
+//  Did_Series_Data_Alloc: C
 //
 // Allocates element array for an already allocated REBSER node structure.
 // Resets the bias and tail to zero, and sets the new width.  Flags like
@@ -576,14 +573,10 @@ void Free_Node(REBCNT pool_id, void *p)
 // series structure are untouched.
 //
 // This routine can thus be used for an initial construction or an operation
-// like expansion.  Currently not exported from this file.
+// like expansion.
 //
-static REBOOL Series_Data_Alloc(REBSER *s, REBCNT length) {
-    //
-    // Data should have not been allocated yet OR caller has extracted it
-    // and nulled it to indicate taking responsibility for freeing it.
-    //
-    assert(s->content.dynamic.data == NULL);
+REBOOL Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
+    assert(not GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
 
     REBYTE wide = SER_WIDE(s);
     assert(wide != 0);
@@ -594,8 +587,8 @@ static REBOOL Series_Data_Alloc(REBSER *s, REBCNT length) {
     if (pool_num < SYSTEM_POOL) {
         // ...there is a pool designated for allocations of this size range
         s->content.dynamic.data = cast(char*, Make_Node(pool_num));
-        if (s->content.dynamic.data == NULL)
-            return FALSE;
+        if (not s->content.dynamic.data)
+            return false;
 
         // The pooled allocation might wind up being larger than we asked.
         // Don't waste the space...mark as capacity the series could use.
@@ -614,7 +607,7 @@ static REBOOL Series_Data_Alloc(REBSER *s, REBCNT length) {
         size = length * wide;
         if (GET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2)) {
             REBCNT len = 2048;
-            while(len < size)
+            while (len < size)
                 len *= 2;
             size = len;
 
@@ -626,8 +619,8 @@ static REBOOL Series_Data_Alloc(REBSER *s, REBCNT length) {
         }
 
         s->content.dynamic.data = ALLOC_N(char, size);
-        if (s->content.dynamic.data == NULL)
-            return FALSE;
+        if (not s->content.dynamic.data)
+            return false;
 
         Mem_Pools[SYSTEM_POOL].has += size;
         Mem_Pools[SYSTEM_POOL].free++;
@@ -724,7 +717,7 @@ static REBOOL Series_Data_Alloc(REBSER *s, REBCNT length) {
         TRACK_CELL_IF_DEBUG(ultimate, __FILE__, __LINE__);
     }
 
-    return TRUE;
+    return true;
 }
 
 
@@ -841,128 +834,6 @@ REBCNT Series_Allocation_Unpooled(REBSER *series)
     }
 
     return total;
-}
-
-
-//
-//  Make_Series_Core: C
-//
-// Make a series of a given capacity and width (unit size).
-// If the data is tiny enough, it will be fit into the series node itself.
-// Small series will be allocated from a memory pool.
-// Large series will be allocated from system memory.
-// The series will be zero length to start with.
-//
-REBSER *Make_Series_Core(REBCNT capacity, REBYTE wide, REBFLGS flags)
-{
-    assert(wide != 0 and capacity != 0); // not allowed
-
-    if (cast(REBU64, capacity) * wide > INT32_MAX)
-        fail (Error_No_Memory(cast(REBU64, capacity) * wide));
-
-  #if !defined(NDEBUG)
-    PG_Reb_Stats->Series_Made++;
-    PG_Reb_Stats->Series_Memory += capacity * wide;
-  #endif
-
-    REBSER *s = cast(REBSER*, Make_Node(SER_POOL));
-
-    // Header bits can't be zero.  NODE_FLAG_NODE is sufficient to identify
-    // this as a REBSER node that is not GC managed.
-    //
-    s->header.bits = NODE_FLAG_NODE | flags;
-
-    if ((GC_Ballast -= sizeof(REBSER)) <= 0)
-        SET_SIGNAL(SIG_RECYCLE);
-
-    TOUCH_SERIES_IF_DEBUG(s);
-
-    TRASH_POINTER_IF_DEBUG(LINK(s).trash);
-    TRASH_POINTER_IF_DEBUG(MISC(s).trash);
-
-    // The info bits must be able to implicitly terminate the `content`,
-    // so that if a REBVAL is in slot [0] then it would appear terminated
-    // if the [1] slot was read.
-    //
-    Init_Endlike_Header(&s->info, 0); // acts as unwritable END marker
-    assert(IS_END(cast(RELVAL*, &s->content.fixed.values[1]))); // ^-- test
-
-    s->content.dynamic.data = NULL;
-
-    assert(wide != 0);
-    SER_SET_WIDE(s, wide);
-
-    if ((flags & SERIES_FLAG_ARRAY) and capacity <= 2) {
-        //
-        // An array requested of capacity 2 actually means one cell of data
-        // and one cell that can serve as an END marker.  The invariant that
-        // is guaranteed is that the final slot will already be written as
-        // an END, and that the caller must never write it...hence it can
-        // be less than a full cell's size.
-        //
-        assert(NOT_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
-        Prep_Non_Stack_Cell(&s->content.fixed.values[0]);
-    }
-    else if (capacity * wide <= sizeof(s->content)) {
-        assert(NOT_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
-    }
-    else {
-        // Allocate the actual data blob that holds the series elements
-
-        if (!Series_Data_Alloc(s, capacity)) {
-            Free_Node(SER_POOL, s);
-            fail (Error_No_Memory(capacity * wide));
-        }
-
-        // <<IMPORTANT>> - The capacity that will be given back as the ->rest
-        // field may be larger than the requested size.  The memory pool API
-        // is able to give back the size of the actual allocated block--which
-        // includes any overage.  So to keep that from going to waste it is
-        // recorded as the block's capacity, in case it ever needs to grow
-        // it might be able to save on a reallocation.
-    }
-
-    // It is possible for a series to start out unmanaged and then be
-    // transitioned to managed, or it may start off in a managed state.  It
-    // is more efficient if you know a series is going to be managed to
-    // create it in the managed state (it doesn't have to be added and
-    // removed from a manuals list).  But be sure no evaluations are called
-    // in that case before the places that will hold it live are set up.
-    //
-    // Note: The call to create GC_Manuals itself lies and says it is managed,
-    // just for the moment of set up, so it doesn't try to add itself to the
-    // manuals list!  It removes the managed flag after the create.
-    //
-    if (not (flags & NODE_FLAG_MANAGED)) {
-        assert(GET_SER_INFO(GC_Manuals, SERIES_INFO_HAS_DYNAMIC));
-
-        if (SER_FULL(GC_Manuals))
-            Extend_Series(GC_Manuals, 8);
-
-        cast(REBSER**, GC_Manuals->content.dynamic.data)[
-            GC_Manuals->content.dynamic.len++
-        ] = s;
-    }
-
-    // Since we're not the scanner, the only way we can attribute a file and
-    // a line number to a series created at runtime is to examine the frame
-    // stack and propagate whatever file and line number information it might
-    // know about from the source it's running onto this series.
-    //
-    if (flags & ARRAY_FLAG_FILE_LINE) {
-        assert(flags & SERIES_FLAG_ARRAY);
-        if (FS_TOP != NULL) {
-            LINK(s).file = FRM_FILE(FS_TOP);
-            MISC(s).line = FRM_LINE(FS_TOP);
-        }
-        else
-            CLEAR_SER_FLAG(s, ARRAY_FLAG_FILE_LINE);
-    }
-
-    assert(s->info.bits & NODE_FLAG_END);
-    assert(not (s->info.bits & NODE_FLAG_CELL));
-    assert(SER_LEN(s) == 0);
-    return s;
 }
 
 
@@ -1285,12 +1156,12 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     // The new series will *always* be dynamic, because it would not be
     // expanding if a fixed size allocation was sufficient.
 
-    s->content.dynamic.data = NULL;
+    CLEAR_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC);
     SET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
-    if (not Series_Data_Alloc(s, len_old + delta + x))
+    if (not Did_Series_Data_Alloc(s, len_old + delta + x))
         fail (Error_No_Memory((len_old + delta + x) * wide));
 
-    assert(s->content.dynamic.data != NULL);
+    assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
 
     // If necessary, add series to the recently expanded list
     //
@@ -1434,14 +1305,13 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
     // a REBSER.  All series code needs a general audit, so that should be one
     // of the things considered.
 
-    s->content.dynamic.data = NULL;
-
-    if (!Series_Data_Alloc(s, units + 1)) {
+    CLEAR_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC);
+    if (not Did_Series_Data_Alloc(s, units + 1)) {
         // Put series back how it was (there may be extant references)
         s->content.dynamic.data = cast(char*, data_old);
         fail (Error_No_Memory((units + 1) * wide));
     }
-    assert(s->content.dynamic.data != NULL);
+    assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
 
     if (preserve) {
         // Preserve as much data as possible (if it was requested, some
@@ -1748,8 +1618,6 @@ void Assert_Pointer_Detection_Working(void)
 //
 REBCNT Check_Memory_Debug(void)
 {
-    REBOOL expansion_null_found = FALSE;
-
     REBSEG *seg;
     for (seg = Mem_Pools[SER_POOL].segs; seg; seg = seg->next) {
         REBSER *s = cast(REBSER*, seg + 1);
@@ -1767,19 +1635,6 @@ REBCNT Check_Memory_Debug(void)
 
             if (SER_REST(s) == 0)
                 panic (s); // zero size allocations not legal
-
-            if (s->content.dynamic.data == NULL) {
-                //
-                // !!! legal during the moment of series expansion only; e.g.
-                // can only be true for one series at a time (current invariant
-                // which was needed as a patch so Check_Memory could be called
-                // during Make_Node()...hacky, should be rethought)
-                //
-                if (expansion_null_found)
-                    panic (s);
-
-                expansion_null_found = TRUE;
-            }
 
             REBCNT pool_num = FIND_POOL(SER_TOTAL(s));
             if (pool_num >= SER_POOL)

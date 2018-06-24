@@ -171,18 +171,6 @@
 
 
 //
-// The fundamental Make_Series creator makes a series which is not GC
-// managed, and whose contents do not interact with the garbage collector.
-// It is possible to pre-create a managed series by using Make_Series_Core()
-// with the option NODE_FLAG_MANAGED...which bypasses the series being
-// added (and later removed) from the manuals tracking list.
-//
-#define Make_Series(capacity, wide) \
-    Make_Series_Core((capacity), (wide), 0)
-
-
-
-//
 // Series header FLAGs (distinct from INFO bits)
 //
 
@@ -577,11 +565,6 @@ inline static void FAIL_IF_READ_ONLY_SERIES(REBSER *s) {
 // The guard stack is not meant to accumulate, and must be cleared out
 // before a command ends.
 //
-// Also: Some REBVALs contain one or more series that need to be guarded.
-// PUSH_GUARD_VALUE() makes it possible to not worry about what series are in
-// a value, as it will take care of it if there are any.  As with series
-// guarding, the last value guarded must be the first one you DROP_GUARD on.
-//
 
 inline static void PUSH_GUARD_SERIES(REBSER *s) {
     ASSERT_SERIES_MANAGED(s); // see PUSH_GUARD_ARRAY_CONTENTS if you need it
@@ -644,23 +627,7 @@ inline static void Drop_Guard_Value_Common(const RELVAL *v) {
 //=////////////////////////////////////////////////////////////////////////=//
 
 inline static REBSER *VAL_SERIES(const RELVAL *v) {
-#if !defined(NDEBUG)
-    //
-    // !!! In gcc 5.4, with a debug build, writing this expression as simply:
-    //
-    //     assert(ANY_SERIES(v) or IS_MAP(v) or IS_IMAGE(v));
-    //
-    // Appears to omit the ANY_SERIES() test entirely in -O2.  Hence when a
-    // STRING! is passed in, it just fails the map and image test in the
-    // assembly.  There is seemingly no good reason for this code to be
-    // missing, or that rewriting it as these ifs should fix it.  But it does,
-    // so this is presumed to be an optimizer bug in that version.  Review.
-    //
-    if (not ANY_SERIES(v))
-        if (not IS_MAP(v))
-            if (not IS_IMAGE(v))
-                panic (v);
-#endif
+    assert(ANY_SERIES(v) or IS_MAP(v) or IS_IMAGE(v)); // !!! gcc 5.4 -O2 bug
     return v->payload.any_series.series;
 }
 
@@ -721,3 +688,89 @@ inline static REBYTE *VAL_RAW_DATA_AT(const RELVAL *v) {
 
 #define Init_Bitset(v,s) \
     Init_Any_Series((v), REB_BITSET, (s))
+
+
+// Make a series of a given width (unit size).  The series will be zero
+// length to start with, and will not have a dynamic data allocation.  This
+// is a particularly efficient default state, so separating the dynamic
+// allocation into a separate routine is not a huge cost.
+//
+inline static REBSER *Make_Series_Node(REBYTE wide, REBFLGS flags) {
+    assert(wide != 0);
+    assert(not (flags & NODE_FLAG_CELL));
+
+    REBSER *s = cast(REBSER*, Make_Node(SER_POOL));
+    if ((GC_Ballast -= sizeof(REBSER)) <= 0)
+        SET_SIGNAL(SIG_RECYCLE);
+
+    // Out of the 8 platform pointers that comprise a series node, only 3
+    // actually need to be initialized to get a functional non-dynamic
+    // series or array of length 0!  See %rebser.h for an explanation, and
+    // Init_Endlike_Header() for why we can't just say `s->info.bits = ...`
+    //
+    // Note that the optimizer *should* be able to fold together additional
+    // bits for the infos in immediately subsequent SET_SER_INFO() calls.
+    //
+    s->header.bits = NODE_FLAG_NODE | flags; // #1
+    TRASH_POINTER_IF_DEBUG(LINK(s).trash); // #2
+    s->content.fixed.values[0].header.bits = CELL_MASK_NON_STACK_END; // #3
+    TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<make>>", 0); // #4-#6
+    Init_Endlike_Header(&s->info, FLAGBYTE_RIGHT(wide)); // #7
+    TRASH_POINTER_IF_DEBUG(MISC(s).trash); // #8
+
+    // It is more efficient if you know a series is going to become managed to
+    // create it in the managed state.  But be sure no evaluations are called
+    // before it's made reachable by the GC, or use PUSH_GUARD_SERIES().
+    //
+    if (not (flags & NODE_FLAG_MANAGED)) {
+        if (SER_FULL(GC_Manuals))
+            Extend_Series(GC_Manuals, 8);
+
+        cast(REBSER**, GC_Manuals->content.dynamic.data)[
+            GC_Manuals->content.dynamic.len++
+        ] = s; // start out managed to not need to find/remove from this later
+    }
+
+  #if !defined(NDEBUG)
+    TOUCH_SERIES_IF_DEBUG(s); // tag current C stack as series origin in ASAN
+    PG_Reb_Stats->Series_Made++;
+  #endif
+
+    return s;
+}
+
+// If the data is tiny enough, it will be fit into the series node itself.
+// Small series will be allocated from a memory pool.
+// Large series will be allocated from system memory.
+//
+inline static REBSER *Make_Series_Core(
+    REBCNT capacity,
+    REBYTE wide,
+    REBFLGS flags
+){
+    assert(not (flags & (SERIES_FLAG_ARRAY | ARRAY_FLAG_FILE_LINE)));
+
+    if (cast(REBU64, capacity) * wide > INT32_MAX)
+        fail (Error_No_Memory(cast(REBU64, capacity) * wide));
+
+    REBSER *s = Make_Series_Node(wide, flags);
+
+    if (capacity * wide > sizeof(s->content)) {
+        //
+        // Data won't fit in a REBSER node, needs a dynamic allocation.  The
+        // capacity given back as the ->rest may be larger than the requested
+        // size, because the memory pool reports the full rounded allocation.
+
+        if (not Did_Series_Data_Alloc(s, capacity))
+            fail (Error_No_Memory(capacity * wide));
+
+      #if !defined(NDEBUG)
+        PG_Reb_Stats->Series_Memory += capacity * wide;
+      #endif
+    }
+
+    return s;
+}
+
+#define Make_Series(capacity, wide) \
+    Make_Series_Core((capacity), (wide), SERIES_FLAGS_NONE)

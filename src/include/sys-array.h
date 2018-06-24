@@ -221,27 +221,53 @@ inline static void Deep_Freeze_Array(REBARR *a) {
     FAIL_IF_READ_ONLY_SERIES(SER(a))
 
 
-// Make a series that is the right size to store REBVALs (and
-// marked for the garbage collector to look into recursively).
-// Terminator included implicitly. Sets TAIL to zero.
+// Make a series that is the right size to store REBVALs (and marked for the
+// garbage collector to look into recursively).  ARR_LEN() will be 0.
 //
-inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags)
-{
-    REBSER *s = Make_Series_Core(
-        capacity + 1,
-        sizeof(REBVAL),
-        flags | SERIES_FLAG_ARRAY
-    );
+inline static REBARR *Make_Array_Core(
+    REBCNT capacity,
+    REBFLGS flags // FLAGBYTE_MID(1) may be passed in *if* capacity = 1
+){
+    const REBCNT wide = sizeof(REBVAL);
 
-    assert(
-        capacity <= 1
-            ? NOT_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC)
-            : GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC)
-    );
+    REBSER *s = Make_Series_Node(wide, SERIES_FLAG_ARRAY | flags);
 
-    REBARR *a = ARR(s);
-    TERM_ARRAY_LEN(a, 0);
-    return a;
+    if (capacity > 1) {
+        capacity += 1; // account for cell needed for terminator (END)
+
+        // Don't pay for oversize check unless dynamic.  It means the node
+        // that just got allocated may get GC'd/freed...that's insignificant.
+        //
+        if (cast(REBU64, capacity) * wide > INT32_MAX)
+            fail (Error_No_Memory(cast(REBU64, capacity) * wide));
+
+        if (not Did_Series_Data_Alloc(s, capacity))
+            fail (Error_No_Memory(capacity * wide));
+
+      #if !defined(NDEBUG)
+        PG_Reb_Stats->Series_Memory += capacity * wide;
+      #endif
+
+      TERM_ARRAY_LEN(cast(REBARR*, s), 0); // (non-dynamic is auto-terminated)
+    }
+
+    // Arrays created at runtime default to inheriting the file and line
+    // number from the array executing in the current frame.
+    //
+    if (flags & ARRAY_FLAG_FILE_LINE) {
+        if (
+            TG_Frame_Stack and TG_Frame_Stack->source.array and
+            GET_SER_FLAG(TG_Frame_Stack->source.array, ARRAY_FLAG_FILE_LINE)
+        ){
+            LINK(s).file = LINK(TG_Frame_Stack->source.array).file;
+            MISC(s).line = MISC(TG_Frame_Stack->source.array).line;
+        }
+        else
+            CLEAR_SER_FLAG(s, ARRAY_FLAG_FILE_LINE);
+    }
+
+    assert(ARR_LEN(cast(REBARR*, s)) == 0);
+    return cast(REBARR*, s);
 }
 
 #define Make_Array(capacity) \
@@ -287,29 +313,18 @@ inline static REBARR *Make_Array_For_Copy(
 // A singular array is specifically optimized to hold *one* value in a REBSER
 // node directly, and stay fixed at that size.
 //
-// Note that Make_Array()/Make_Series() gives this optimization automatically
-// if a series or array is small.  However, this allocator adds the fixed size
-// bit, and is tuned to be a little faster (could likely be made moreso).
+// For `flags`, be sure to consider if you need SERIES_FLAG_FILE_LINE.
 //
-inline static REBARR *Alloc_Singular(
-    REBFLGS flags // be sure to consider if you need SERIES_FLAG_FILE_LINE
-){
-    REBSER *s = Make_Series_Core(
-        2, // "Capacity 2" requested, but position 2 is not a full cell
-        sizeof(REBVAL),
-        SERIES_FLAG_ARRAY | SERIES_FLAG_FIXED_SIZE | flags
-    );
-    assert(NOT_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
+inline static REBARR *Alloc_Singular(REBFLGS flags) {
+    REBARR *a = Make_Array_Core(1, flags | SERIES_FLAG_FIXED_SIZE);
 
-    assert(MID_8_BITS(s->info.bits) == 0); // non-dynamic length defaults to 0
-    s->info.bits |= FLAGBYTE_MID(1); // update header bits so it's 1
-    assert(SER_LEN(s) == 1); // sanity check: make sure that worked
-
-    REBARR *a = ARR(s);
-    assert(IS_END(ARR_TAIL(a))); // Implicit end, see Init_Endlike_Header()
+    // `a` is guaranteed to be non-dynamic, and its length bits in the info
+    // (FLAGBYTE_MID) are guaranteed to be 0.  Tweak it to 1.  ARR_SINGLE()
+    // must be overwritten by the caller...it still contains the END marker.
+    //
+    SER(a)->info.bits |= FLAGBYTE_MID(1);
     return a;
 }
-
 
 #define Append_Value(a,v) \
     Move_Value(Alloc_Tail_Array(a), (v))
@@ -345,10 +360,10 @@ inline static REBARR *Alloc_Singular(
         VAL_ARRAY(v), VAL_INDEX(v), VAL_SPECIFIER(v), 0)
 
 #define Copy_Array_At_Shallow(a,i,s) \
-    Copy_Array_At_Extra_Shallow((a), (i), (s), 0, SERIES_MASK_NONE)
+    Copy_Array_At_Extra_Shallow((a), (i), (s), 0, SERIES_FLAGS_NONE)
 
 #define Copy_Array_Extra_Shallow(a,s,e) \
-    Copy_Array_At_Extra_Shallow((a), 0, (s), (e), SERIES_MASK_NONE)
+    Copy_Array_At_Extra_Shallow((a), 0, (s), (e), SERIES_FLAGS_NONE)
 
 // See TS_NOT_COPIED for the default types excluded from being deep copied
 //
@@ -364,7 +379,7 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Managed(
         specifier,
         ARR_LEN(original), // tail
         extra, // extra
-        SERIES_MASK_NONE, // no ARRAY_FLAG_FILE_LINE by default
+        SERIES_FLAGS_NONE, // no ARRAY_FLAG_FILE_LINE by default
         TS_SERIES & ~TS_NOT_COPIED // types
     );
 }

@@ -270,32 +270,17 @@ void Pop_Stack_Values_Into(REBVAL *into, REBDSP dsp_start) {
 REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
 {
     assert(Is_Action_Frame(f));
-    if (f->varlist != NULL)
+    if (f->varlist)
         return CTX(f->varlist);
 
     f->varlist = Alloc_Singular(
         ARRAY_FLAG_VARLIST | CONTEXT_FLAG_STACK | NODE_FLAG_MANAGED
     );
-    MISC(f->varlist).meta = NULL; // seen by GC, must initialize
-    LINK(f->varlist).keysource = NOD(f); // see notes on LINK().keysource
 
-    REBVAL *rootvar = SINK(ARR_SINGLE(f->varlist));
-    RESET_VAL_HEADER(rootvar, REB_FRAME);
-    rootvar->payload.any_context.varlist = f->varlist;
-    rootvar->payload.any_context.phase = f->phase;
-
-    // The binding on the rootvar is important...this is how Get_Var_Core()
-    // can know what the binding in the ACTION! value that spawned the
-    // frame, even after the frame is expired.
-    //
-    INIT_BINDING(rootvar, f->binding);
-
-    // A reification of a frame for native code should not allow changing
-    // the values out from under it, because that could cause it to crash
-    // the interpreter.  (Generally speaking, modification should only be
-    // possible in the debugger anyway.)  For now, mark the array as
-    // running...which should not stop FRM_ARG from working in the native
-    // itself, but should stop modifications from user code.
+    // Changing the values in a running native's frame out from under it can
+    // cause the interpreter to crash.  Mark the varlist array as being
+    // "locked due to running", which won't stop FRM_ARG() from writing to
+    // arguments in the native itself, but stops modifications via user code.
     //
     if (f->flags.bits & DO_FLAG_NATIVE_HOLD)
         SET_SER_INFO(f->varlist, SERIES_INFO_HOLD);
@@ -311,6 +296,20 @@ REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
         //
         SET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE);
     }
+
+    MISC(f->varlist).meta = nullptr; // seen by GC, must initialize
+    LINK(f->varlist).keysource = NOD(f); // see notes on LINK().keysource
+
+    REBVAL *rootvar = SINK(ARR_SINGLE(f->varlist));
+    RESET_VAL_HEADER(rootvar, REB_FRAME);
+    rootvar->payload.any_context.varlist = f->varlist;
+    rootvar->payload.any_context.phase = f->phase;
+
+    // The binding on the rootvar is important...this is how Get_Var_Core()
+    // can know what the binding in the ACTION! value that spawned the
+    // frame, even after the frame is expired.
+    //
+    INIT_BINDING(rootvar, f->binding);
 
     REBCTX *c = CTX(f->varlist);
     ASSERT_ARRAY_MANAGED(CTX_KEYLIST(c));
