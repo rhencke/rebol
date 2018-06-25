@@ -668,6 +668,8 @@ enum Reb_Vararg_Op {
 
 #include "sys-trap.h" // includes PUSH_TRAP, fail(), and panic() macros
 
+#include "mem-pools.h"
+
 #include "sys-node.h"
 
 #include "sys-value.h" // basic definitions that don't need series accessrors

@@ -66,10 +66,7 @@
 //
 
 #include "sys-core.h"
-
-#include "mem-pools.h" // low-level memory pool access
-#include "mem-series.h" // low-level series memory access
-
+#include "mem-series.h"
 #include "sys-int-funcs.h"
 
 
@@ -409,7 +406,7 @@ void Shutdown_Pools(void)
 // the size and units specified when the pool header was created.  The nodes
 // of the pool are linked to the free list.
 //
-static void Fill_Pool(REBPOL *pool)
+void Fill_Pool(REBPOL *pool)
 {
     REBCNT units = pool->units;
     REBCNT mem_size = pool->wide * units + sizeof(REBSEG);
@@ -463,97 +460,6 @@ static void Fill_Pool(REBPOL *pool)
     }
 
     pool->last = node;
-}
-
-
-//
-//  Make_Node: C
-//
-// Allocate a node from a pool.  Returned node will not be zero-filled, but
-// the header will have NODE_FLAG_FREE set when it is returned (client is
-// responsible for changing that if they plan to enumerate the pool and
-// distinguish free nodes from non-free ones.)
-//
-// All nodes are 64-bit aligned.  This way, data allocated in nodes can be
-// structured to know where legal 64-bit alignment points would be.  This
-// is required for correct functioning of some types.  (See notes on
-// alignment in %sys-rebval.h.)
-//
-void *Make_Node(REBCNT pool_id)
-{
-    REBPOL *pool = &Mem_Pools[pool_id];
-    if (not pool->first) // pool has run out of nodes
-        Fill_Pool(pool); // refill it
-
-    assert(pool->first);
-
-    REBNOD *node = pool->first;
-
-    pool->first = node->next_if_free;
-    if (node == pool->last)
-        pool->last = nullptr;
-
-    pool->free--;
-
-  #ifdef DEBUG_MEMORY_ALIGN
-    if (cast(uintptr_t, node) % sizeof(REBI64) != 0) {
-        printf(
-            "Node address %p not aligned to %d bytes\n",
-            cast(void*, node),
-            cast(int, sizeof(REBI64))
-        );
-        printf("Pool address is %p and pool-first is %p\n",
-            cast(void*, pool),
-            cast(void*, pool->first)
-        );
-        panic (node);
-    }
-  #endif
-
-    assert(IS_FREE_NODE(node)); // client needs to change to non-free
-    return cast(void *, node);
-}
-
-
-//
-//  Free_Node: C
-//
-// Free a node, returning it to its pool.  Once it is freed, its header will
-// have NODE_FLAG_FREE...which will identify the node as not in use to anyone
-// who enumerates the nodes in the pool (such as the garbage collector).
-//
-void Free_Node(REBCNT pool_id, void *p)
-{
-    REBNOD *node = NOD(p);
-
-    FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
-
-    REBPOL *pool = &Mem_Pools[pool_id];
-
-  #ifdef NDEBUG
-    node->next_if_free = pool->first;
-    pool->first = node;
-  #else
-    // !!! In R3-Alpha, the most recently freed node would become the first
-    // node to hand out.  This is a simple and likely good strategy for
-    // cache usage, but makes the "poisoning" nearly useless.
-    //
-    // This code was added to insert an empty segment, such that this node
-    // won't be picked by the next Make_Node.  That enlongates the poisonous
-    // time of this area to catch stale pointers.  But doing this in the
-    // debug build only creates a source of variant behavior.
-
-    if (not pool->last) // Fill pool if empty
-        Fill_Pool(pool);
-
-    assert(pool->last);
-
-    pool->last->next_if_free = node;
-    pool->last = node;
-    node->next_if_free = nullptr;
-  #endif
-
-    pool->free++;
 }
 
 

@@ -108,7 +108,7 @@ inline static REBVAL *CTX_ARCHETYPE(REBCTX *c) {
 // possible--even in an unoptimized build.  Use VAL_TYPE_RAW, plain C cast.
 //
 inline static REBARR *CTX_KEYLIST(REBCTX *c) {
-    if (NOT_CELL(LINK(CTX_VARLIST(c)).keysource)) {
+    if (NOT_NODE_CELL(LINK(CTX_VARLIST(c)).keysource)) {
         //
         // Ordinarily, we want to use the keylist pointer that is stored in
         // the link field of the varlist.

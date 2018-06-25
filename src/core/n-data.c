@@ -289,7 +289,7 @@ REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
             return FALSE;
 
         REBCTX *c;
-        if (IS_CELL(n)) {
+        if (IS_NODE_REBFRM(n)) {
             REBFRM *f = cast(REBFRM*, n);
             c = Context_For_Frame_May_Reify_Managed(f);
         }
@@ -890,9 +890,7 @@ REBNATIVE(enfixed_q)
     REBVAL *source = ARG(source);
 
     if (ANY_WORD(source)) {
-        const REBVAL *var = Get_Var_Core(
-            source, SPECIFIED, GETVAR_READ_ONLY // may fail()
-        );
+        const REBVAL *var = Get_Opt_Var_May_Fail(source, SPECIFIED);
 
         assert(NOT_VAL_FLAG(var, VALUE_FLAG_ENFIXED) or IS_ACTION(var));
         return R_FROM_BOOL(GET_VAL_FLAG(var, VALUE_FLAG_ENFIXED));
@@ -928,9 +926,8 @@ REBNATIVE(semiquoted_q)
     // !!! TBD: Enforce this is a function parameter (specific binding branch
     // makes the test different, and easier)
 
-    const REBVAL *var = Get_Var_Core( // may fail
-        ARG(parameter), SPECIFIED, GETVAR_READ_ONLY
-    );
+    const REBVAL *var = Get_Opt_Var_May_Fail(ARG(parameter), SPECIFIED);
+
     return R_FROM_BOOL(GET_VAL_FLAG(var, VALUE_FLAG_UNEVALUATED));
 }
 

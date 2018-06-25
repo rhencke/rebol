@@ -408,7 +408,7 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
 //
 inline static void Enter_Native(REBFRM *f) {
     f->flags.bits |= DO_FLAG_NATIVE_HOLD;
-    if (f->varlist != NULL)
+    if (f->varlist != GHOST_ARRAY)
         SET_SER_INFO(f->varlist, SERIES_INFO_HOLD);
 }
 
@@ -500,7 +500,7 @@ inline static void Push_Action(
     // Move_Value() and Derelativize() contain the logic that generates this
     // varlist on demand, but start out assuming one is not needed.
     //
-    f->varlist = NULL;
+    assert(f->varlist == GHOST_ARRAY);
 
     // Make sure the person who pushed the function correctly sets the
     // f->refine to either ORDINARY_ARG or LOOKBACK_ARG after this call.
@@ -545,7 +545,7 @@ inline static void Drop_Action_Core(
         f->flags.bits &= ~DO_FLAG_BARRIER_HIT;
 
     if (drop_chunks) {
-        if (f->varlist == NULL) {
+        if (f->varlist == GHOST_ARRAY) {
             Drop_Chunk_Of_Values(f->args_head);
 
             goto finished; // nothing else to do...
@@ -559,7 +559,7 @@ inline static void Drop_Action_Core(
             Drop_Chunk_Of_Values(f->args_head);
     }
     else {
-        if (f->varlist == NULL)
+        if (f->varlist == GHOST_ARRAY)
             goto finished;
     }
 
@@ -599,10 +599,12 @@ inline static void Drop_Action_Core(
             SERIES_INFO_INACCESSIBLE | FRAME_INFO_FAILED
         );
 
+    f->varlist = GHOST_ARRAY;
+
 finished:
 
     TRASH_POINTER_IF_DEBUG(f->args_head);
-    TRASH_POINTER_IF_DEBUG(f->varlist);
+    assert(f->varlist == GHOST_ARRAY);
 
     return; // needed for release build so `finished:` labels a statement
 }

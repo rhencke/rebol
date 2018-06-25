@@ -208,7 +208,7 @@ REBNATIVE(return)
     // in the specific ACTION! value that was invoked.
     //
     REBFRM *target_frame;
-    if (IS_CELL(f->binding)) {
+    if (IS_NODE_REBFRM(f->binding)) {
         target_frame = cast(REBFRM*, f->binding);
     }
     else if (f->binding->header.bits & ARRAY_FLAG_VARLIST) {

@@ -342,7 +342,7 @@ void Rebind_Values_Deep(
                 //
                 INIT_BINDING(v, dst);
             }
-            else if (IS_CELL(binding)) {
+            else if (IS_NODE_REBFRM(binding)) {
                 //
                 // Direct binding to a REBFRM* (e.g. it may be some kind of
                 // definitional RETURN), don't override that.

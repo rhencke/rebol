@@ -30,8 +30,6 @@
 
 #include "sys-core.h"
 
-#include "mem-pools.h" // low-level memory pool access
-
 const struct {
     REBSYM sym;
     REBFLGS flags;

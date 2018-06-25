@@ -46,7 +46,6 @@
 
 
 #include "sys-core.h"
-#include "mem-pools.h"
 
 #define EVAL_DOSE 10000
 
@@ -728,6 +727,13 @@ static REBARR *Startup_Actions(REBARR *boot_actions)
 //
 static void Init_Root_Vars(void)
 {
+    // Most flags are left zero in the ghost's header, but by marking it
+    // as managed then it can quickly be decided that unbounds don't need to
+    // be reified, and by marking it as a cell it quickly avoids GC marking.
+    //
+    PG_Ghost.header.bits = NODE_FLAG_MANAGED | NODE_FLAG_CELL;
+    PG_Ghost.info.bits = 0; // no SERIES_INFO_INACCESSIBLE, etc. etc.
+
     // These values are simple isolated VOID, NONE, TRUE, and FALSE values
     // that can be used in lieu of initializing them.  They are initialized
     // as two-element series in order to ensure that their address is not
@@ -783,21 +789,8 @@ static void Init_Root_Vars(void)
     assert(IS_END(END)); // sanity check that it took
     assert(VAL_TYPE_OR_0(END) == REB_0); // *only* for this global END marker!
 
-    // Note: Not only can rebBlock() not be used yet (because there is no
-    // data stack), PG_Unbound must exist before calling Init_Block()
-    //
-    // !!! Users should never see this, and if you panic() on this series it
-    // will point to this line of code to identify it.  Still, review putting
-    // something in the block to make it stand out in a debug dump, like a
-    // `#PG_Unbound` ISSUE! (mold buffer not initialized yet)
-    //
-    PG_Unbound = Alloc_Singular(NODE_FLAG_MANAGED);
-    SET_SER_INFO(PG_Unbound, SERIES_INFO_FROZEN);
-    Init_Unreadable_Blank(ARR_SINGLE(PG_Unbound));
-    Root_Unbound = Init_Block(Alloc_Value(), PG_Unbound);
-    rebLock(Root_Unbound, END);
-
     // Generic read-only empty array, and locked block containing it.
+    // rebBlock() can't be used yet (there is no data stack)
     //
     PG_Empty_Array = Make_Array(0);
     SET_SER_INFO(PG_Empty_Array, SERIES_INFO_FROZEN);
@@ -838,8 +831,6 @@ static void Shutdown_Root_Vars(void)
     rebRelease(Root_Newline_Char);
     Root_Newline_Char = NULL;
 
-    rebRelease(Root_Unbound);
-    Root_Unbound = NULL;
     rebRelease(Root_Empty_String);
     Root_Empty_String = NULL;
     rebRelease(Root_Empty_Block);

@@ -168,10 +168,9 @@ static void Protect_Word_Value(REBVAL *word, REBFLGS flags)
             // Ignore existing mutability state so that it may be modified.
             // Most routines should NOT do this!
             //
-            REBVAL *var = Get_Var_Core(
-                word,
-                SPECIFIED,
-                GETVAR_READ_ONLY
+            REBVAL *var = m_cast(
+                REBVAL*,
+                Get_Opt_Var_May_Fail(word, SPECIFIED)
             );
             Protect_Value(var, flags);
             Uncolor(var);
@@ -244,10 +243,9 @@ static REB_R Protect_Unprotect_Core(REBFRM *frame_, REBFLGS flags)
                     // Since we *are* PROTECT we allow ourselves to get mutable
                     // references to even protected values to protect them.
                     //
-                    var = Get_Var_Core(
-                        item,
-                        VAL_SPECIFIER(value),
-                        GETVAR_READ_ONLY
+                    var = m_cast(
+                        REBVAL*,
+                        Get_Opt_Var_May_Fail(item, VAL_SPECIFIER(value))
                     );
                 }
                 else if (IS_PATH(value)) {

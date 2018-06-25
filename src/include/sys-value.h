@@ -1776,34 +1776,31 @@ inline static void SET_GOB(RELVAL *v, REBGOB *g) {
 // Some value types use their `->extra` field in order to store a pointer to
 // a REBNOD which constitutes their notion of "binding".
 //
-// At time of writing, this can be either a pointer to EMPTY_ARRAY (which
-// indicates UNBOUND), or to a function's paramlist (which indicates a
-// relative binding), or to a context's varlist (which indicates a specific
-// binding.)
+// At time of writing, this can be either a pointer to GHOST (which indicates
+// UNBOUND), or to a function's paramlist (windicates a relative binding), or
+// to a context's varlist (which indicates a specific binding.)
 //
 // The ordering of %types.r is chosen specially so that all bindable types
 // are at lower values than the unbindable types.
 //
 
-// Originally a null pointer was used to indicate when a value was specified
-// by its nature.  However, by using something that is a valid REBNOD there
-// is an advantage of being able to merely test it for NODE_FLAG_MANAGED
-// in Move_Value() without special-casing the null handling.
-//
 #define SPECIFIED \
-    cast(REBSPC*, PG_Unbound)
+    cast(REBSPC*, &PG_Ghost)
 
-// A WORD! cannot be merely "specified" as its binding, because that is not
-// meaningful.  But in order to avoid having a separate flag, the same idea
-// is used with a unique singular array.
-//
 #define UNBOUND \
-   NOD(PG_Unbound)
+   NOD(&PG_Ghost) // NODE_FLAG_CELL and NODE_FLAG_MANAGED set is useful here
 
 inline static REBNOD *VAL_BINDING(const RELVAL *v) {
     assert(Is_Bindable(v));
     return v->extra.binding;
 }
+
+// UNBOUND has NODE_FLAG_CELL set, but it doesn't have NODE_FLAG_NODE set.
+// This is a very particular test that won't work for all cells, so do not
+// mark the f->out... (review test for that).  NODE, STACK, CELL
+//
+#define IS_NODE_REBFRM(binding) \
+    (cast(REBYTE*, &((binding)->header))[0] == 0x83) // 0b10000011
 
 inline static void INIT_BINDING(RELVAL *v, void *p) {
     //
@@ -1814,8 +1811,9 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
 
     REBNOD *binding = NOD(p);
 
-    if (IS_CELL(binding)) {
-        //
+    if (not (binding->header.bits & NODE_FLAG_MANAGED)) { // UNBOUND has set
+        assert(IS_NODE_REBFRM(binding));
+
         // This should be sensitive to whether or not the target cell has a
         // stack lifetime of longer or shorter than the binding, so testing
         // the things that Derelativize() and Move_Value() do w.r.t. to
@@ -1827,18 +1825,18 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
     }
     else {
       #if !defined(NDEBUG)
-        if (not (v->header.bits & CELL_FLAG_STACK))
+        if (p != UNBOUND and not (v->header.bits & CELL_FLAG_STACK))
             assert(binding->header.bits & NODE_FLAG_MANAGED);
       #endif
 
-     v->extra.binding = binding;
+        v->extra.binding = binding;
     }
 }
 
 inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
 {
     assert(out != v); // usually a sign of a mistake; not worth supporting
-    assert(not IS_END(v)); // SET_END() is the only way to write an end
+    assert(NOT_END(v)); // SET_END() is the only way to write an end
 
     ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);
 
@@ -1871,36 +1869,30 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
   #endif
 
     if (
-        not (v->header.bits & CELL_FLAG_STACK)
-        or not Is_Bindable(v)
-        or (v->extra.binding->header.bits & NODE_FLAG_MANAGED)
-    ) {
-        // If the source value isn't the kind of value that can have a
-        // non-reified binding (e.g. an INTEGER! or STRING!), then it is
-        // fully specified by definition.
-        //
-        // Also, if it is the kind of value that can have a non-reified
-        // binding but isn't resident on the stack, we know that it must have
-        // already been reified.
-        //
-        // Finally, if it's the kind of thing that can have a non-reified
-        // binding but it's managed, then that's also fine.
+        Is_Bindable(v)
+        and not (v->extra.binding->header.bits & NODE_FLAG_MANAGED)
+    ){
+        assert(IS_NODE_REBFRM(v->extra.binding));
+        assert(v->header.bits & CELL_FLAG_STACK); // we might have to reify
+    }
+    else {
+        // Isn't the kind of cell with a binding (INTEGER!, STRING!...) or
+        // is UNBOUND (has the managed bit set), or the binding is reified.
         //
       #if !defined(NDEBUG)
-        if (Is_Bindable(v)) {
-            if (not (v->header.bits & CELL_FLAG_STACK))
-                assert(NOT_CELL(v->extra.binding));
-        }
+        if (Is_Bindable(v))
+            assert(
+                v->extra.binding == UNBOUND
+                or NOT_NODE_CELL(v->extra.binding)
+            );
       #endif
         out->extra = v->extra;
         return KNOWN(out);
     }
 
-    // If we get here, the source value is on the stack and has a non-reified
-    // binding of some kind.  Check to see if the target stack level will
-    // outlive the stack level of the non-reified material in the binding. 
+    // Check if the target stack level will outlive the stack level of the
+    // non-reified material in the binding. 
 
-    assert(IS_CELL(v->extra.binding));
     REBFRM *f = cast(REBFRM*, v->extra.binding);
 
     REBCNT bind_depth = 1; // !!! need to determine v's binding stack level

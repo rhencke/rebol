@@ -202,8 +202,8 @@ static REBOOL Subparse_Throws(
 
     f->param = END; // informs infix lookahead
     f->arg = m_cast(REBVAL*, END);
-    f->refine = NULL;
-    f->special = NULL;
+    f->refine = m_cast(REBVAL*, END);
+    f->special = END;
 
   #if defined(NDEBUG)
     assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 2); // elides RETURN:
@@ -221,8 +221,6 @@ static REBOOL Subparse_Throws(
     //
     Prep_Stack_Cell(&f->args_head[1]);
     Init_Integer(&f->args_head[1], find_flags);
-
-    f->varlist = NULL;
 
     // !!! By calling the subparse native here directly from its C function
     // vs. going through the evaluator, we don't get the opportunity to do

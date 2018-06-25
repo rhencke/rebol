@@ -270,7 +270,7 @@ void Pop_Stack_Values_Into(REBVAL *into, REBDSP dsp_start) {
 REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
 {
     assert(Is_Action_Frame(f));
-    if (f->varlist)
+    if (f->varlist != GHOST_ARRAY)
         return CTX(f->varlist);
 
     f->varlist = Alloc_Singular(

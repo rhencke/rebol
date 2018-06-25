@@ -947,9 +947,9 @@ REBVAL *RL_rebRescue(
     Init_Unreadable_Blank(f->arg);
   #endif
     f->param = END; // signal all arguments gathered
-    f->refine = NULL;
-    f->arg = NULL;
-    f->special = NULL;
+    f->refine = m_cast(REBVAL*, END);
+    f->arg = m_cast(REBVAL*, END);
+    f->special = END;
 
     struct Reb_State state;
     REBCTX *error_ctx;
@@ -960,7 +960,7 @@ REBVAL *RL_rebRescue(
     // `fail` can longjmp here, so 'error' won't be null *if* that happens!
     //
     if (error_ctx) {
-        if (f->varlist) // was reified
+        if (f->varlist != GHOST_ARRAY) // was reified
             SET_SER_INFO(f->varlist, FRAME_INFO_FAILED);
         Drop_Action_Core(f, TRUE);
         Abort_Frame(f);

@@ -33,16 +33,37 @@
 // See %sys-rebnod.h for what a "node" means in this context.
 //
 
+
+// The GHOST pointer is something that can be used in places that might use a
+// nullptr otherwise, but it has the advantage of being able to avoid checking
+// for null before dereferencing it.  So instead of writing:
+//
+//    if (x != nullptr and GET_SER_FLAG(x, ...))
+//
+// You can use GHOST and just say `GET_SER_FLAG(x, ...)` on it, and it will
+// fail for nearly everything...except NODE_FLAG_CELL and NODE_FLAG_MANAGED.
+// These are chosen for tactical reasons of their use in UNBOUND, but note
+// that ghost does not have NODE_FLAG_NODE set.
+//
+#define GHOST \
+    &PG_Ghost
+
+#define GHOST_ARRAY \
+    cast(REBARR*, GHOST)
+
 // NOD(p) gives REBNOD* from a pointer to another type, with optional checking
 //
 #ifdef DEBUG_CHECK_CASTS
     inline static REBNOD *NOD(void *p) {
-        assert(p != NULL);
+        assert(p); // use GHOST instead of nullptr to dodge this check
 
         REBNOD *node = cast(REBNOD*, p);
         assert(
-            (node->header.bits & NODE_FLAG_NODE)
-            and not (node->header.bits & NODE_FLAG_FREE)
+            p == &PG_Ghost // let GHOST be an honorary "node"
+            or (
+                (node->header.bits & NODE_FLAG_NODE)
+                and not (node->header.bits & NODE_FLAG_FREE)
+            )
         );
         return node;
     }
@@ -52,25 +73,89 @@
 #endif
 
 
-#ifdef NDEBUG
-    inline static REBOOL IS_CELL(REBNOD *node) {
-        return did (node->header.bits & NODE_FLAG_CELL);
-    }
+// Allocate a node from a pool.  Returned node will not be zero-filled, but
+// the header will have NODE_FLAG_FREE set when it is returned (client is
+// responsible for changing that if they plan to enumerate the pool and
+// distinguish free nodes from non-free ones.)
+//
+// All nodes are 64-bit aligned.  This way, data allocated in nodes can be
+// structured to know where legal 64-bit alignment points would be.  This
+// is required for correct functioning of some types.  (See notes on
+// alignment in %sys-rebval.h.)
+//
+inline static void *Make_Node(REBCNT pool_id)
+{
+    REBPOL *pool = &Mem_Pools[pool_id];
+    if (not pool->first) // pool has run out of nodes
+        Fill_Pool(pool); // refill it
 
-    inline static REBOOL NOT_CELL(REBNOD *node) {
-        return not (node->header.bits & NODE_FLAG_CELL);
+    assert(pool->first);
+
+    REBNOD *node = pool->first;
+
+    pool->first = node->next_if_free;
+    if (node == pool->last)
+        pool->last = nullptr;
+
+    pool->free--;
+
+  #ifdef DEBUG_MEMORY_ALIGN
+    if (cast(uintptr_t, node) % sizeof(REBI64) != 0) {
+        printf(
+            "Node address %p not aligned to %d bytes\n",
+            cast(void*, node),
+            cast(int, sizeof(REBI64))
+        );
+        printf("Pool address is %p and pool-first is %p\n",
+            cast(void*, pool),
+            cast(void*, pool->first)
+        );
+        panic (node);
     }
-#else
-    // We want to get a compile-time check on whether the argument is a
-    // REBNOD (and not, say, a REBSER or REBVAL).  But we don't want to pay
-    // for the function call in debug builds, so only check in release builds.
+  #endif
+
+    assert(IS_FREE_NODE(node)); // client needs to change to non-free
+    return cast(void*, node);
+}
+
+
+// Free a node, returning it to its pool.  Once it is freed, its header will
+// have NODE_FLAG_FREE...which will identify the node as not in use to anyone
+// who enumerates the nodes in the pool (such as the garbage collector).
+//
+inline static void Free_Node(REBCNT pool_id, void *p)
+{
+    REBNOD *node = NOD(p);
+
+    FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
+
+    REBPOL *pool = &Mem_Pools[pool_id];
+
+  #ifdef NDEBUG
+    node->next_if_free = pool->first;
+    pool->first = node;
+  #else
+    // !!! In R3-Alpha, the most recently freed node would become the first
+    // node to hand out.  This is a simple and likely good strategy for
+    // cache usage, but makes the "poisoning" nearly useless.
     //
-    #define IS_CELL(node) \
-        cast(REBOOL, did ((node)->header.bits & NODE_FLAG_CELL))
+    // This code was added to insert an empty segment, such that this node
+    // won't be picked by the next Make_Node.  That enlongates the poisonous
+    // time of this area to catch stale pointers.  But doing this in the
+    // debug build only creates a source of variant behavior.
 
-    #define NOT_CELL(node) \
-        cast(REBOOL, not ((node)->header.bits & NODE_FLAG_CELL))
-#endif
+    if (not pool->last) // Fill pool if empty
+        Fill_Pool(pool);
+
+    assert(pool->last);
+
+    pool->last->next_if_free = node;
+    pool->last = node;
+    node->next_if_free = nullptr;
+  #endif
+
+    pool->free++;
+}
 
 
 //=////////////////////////////////////////////////////////////////////////=//

@@ -276,6 +276,27 @@
 #define TYPE_SPECIFIC_BIT (GENERAL_CELL_BIT + 8)
 
 
+#ifdef NDEBUG
+    inline static REBOOL IS_NODE_CELL(REBNOD *node) {
+        return did (node->header.bits & NODE_FLAG_CELL);
+    }
+
+    inline static REBOOL NOT_NODE_CELL(REBNOD *node) {
+        return not (node->header.bits & NODE_FLAG_CELL);
+    }
+#else
+    // We want to get a compile-time check on whether the argument is a
+    // REBNOD (and not, say, a REBSER or REBVAL).  But we don't want to pay
+    // for the function call in debug builds, so only check in release builds.
+    //
+    #define IS_NODE_CELL(node) \
+        cast(REBOOL, did ((node)->header.bits & NODE_FLAG_CELL))
+
+    #define NOT_NODE_CELL(node) \
+        cast(REBOOL, not ((node)->header.bits & NODE_FLAG_CELL))
+#endif
+
+
 //
 // With these definitions:
 //

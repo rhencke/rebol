@@ -406,7 +406,7 @@ inline static REBSPC* SPC(void *p) {
     REBSPC *specifier = cast(REBSPC*, p);
 
 #if !defined(NDEBUG)
-    if (IS_CELL(specifier)) {
+    if (not (specifier->header.bits & NODE_FLAG_MANAGED)) {
         REBFRM *f = cast(REBFRM*, specifier);
         assert(f->eval_type == REB_ACTION);
     }

@@ -68,9 +68,6 @@
 
 #include "sys-core.h"
 
-#include "mem-pools.h" // low-level memory pool access
-#include "mem-series.h" // low-level series memory access
-
 #include "sys-int-funcs.h"
 
 
@@ -265,21 +262,21 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     REBNOD *binding = v->extra.binding;
 
   #if !defined(NDEBUG)
-    if (IS_CELL(binding)) {
-        assert(v->header.bits & CELL_FLAG_STACK);
+    if (binding->header.bits & NODE_FLAG_CELL) {
+        if (binding != UNBOUND) { // has CELL bit set, but not a cell...
+            assert(v->header.bits & CELL_FLAG_STACK);
 
-        REBFRM *f = cast(REBFRM*, binding);
-        assert(f->eval_type == REB_ACTION);
+            REBFRM *f = cast(REBFRM*, binding);
+            assert(f->eval_type == REB_ACTION);
 
-        // must be on the stack still, also...
-        //
-        REBFRM *temp = FS_TOP;
-        while (temp != NULL) {
-            if (temp == f)
-                break;
-            temp = temp->prior;
+            REBFRM *temp = FS_TOP;
+            while (temp != NULL) {
+                if (temp == f)
+                    break;
+                temp = temp->prior;
+            }
+            assert(temp); // should have been on the stack, still...
         }
-        assert(temp != NULL);
     }
     else if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
         //
@@ -299,7 +296,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     }
   #endif
 
-    if (NOT_CELL(binding))
+    if (not (binding->header.bits & NODE_FLAG_CELL)) // UNBOUND has CELL set
         Queue_Mark_Array_Subclass_Deep(ARR(binding));
 }
 
@@ -812,7 +809,7 @@ static void Propagate_All_GC_Marks(void)
             // to Queue_Mark_Context_Deep.
 
             REBNOD *keysource = LINK(a).keysource;
-            if (IS_CELL(keysource)) {
+            if (IS_NODE_REBFRM(keysource)) {
                 //
                 // Must be a FRAME! and it must be on the stack running.  If
                 // it has stopped running, then the keylist must be set to
@@ -989,7 +986,11 @@ static void Mark_Root_Series(void)
             assert(not (s->header.bits & NODE_FLAG_MARKED));
 
             if (GET_SER_FLAG(s, NODE_FLAG_MANAGED)) {
-                if (GET_SER_INFO(LINK(s).owner, SERIES_INFO_INACCESSIBLE)) {
+                if (
+                    cast(REBSER*, LINK(s).owner)->info.bits
+                    & SERIES_INFO_INACCESSIBLE
+                ){
+                    assert(LINK(s).owner != UNBOUND); // no info bits set
                     if (NOT_SER_INFO(LINK(s).owner, FRAME_INFO_FAILED)) {
                         //
                         // Long term, it is likely that implicit managed-ness
@@ -1118,7 +1119,7 @@ static void Mark_Guarded_Nodes(void)
     REBCNT n = SER_LEN(GC_Guarded);
     for (; n > 0; --n, ++np) {
         REBNOD *node = *np;
-        if (IS_CELL(node)) { // a value cell
+        if (IS_NODE_CELL(node)) {
             if (not (node->header.bits & CELL_FLAG_END))
                 Queue_Mark_Opt_Value_Deep(cast(REBVAL*, node));
         }
@@ -1200,7 +1201,7 @@ static void Mark_Frame_Stack_Deep(void)
             // path resolves...
         }
 
-        if (NOT_CELL(f->specifier)) {
+        if (NOT_NODE_CELL(f->specifier)) {
             assert(
                 f->specifier == SPECIFIED
                 or (f->specifier->header.bits & ARRAY_FLAG_VARLIST)
@@ -1235,27 +1236,24 @@ static void Mark_Frame_Stack_Deep(void)
         if (f->opt_label) // will be null if no symbol
             Mark_Rebser_Only(f->opt_label);
 
-        if (not Is_Action_Frame_Fulfilling(f)) {
+        if (Is_Action_Frame_Fulfilling(f))
+            assert(f->varlist == GHOST_ARRAY); // can't reify until fulfilled
+        else {
+            if (f->varlist != GHOST_ARRAY)
+                Queue_Mark_Context_Deep(CTX(f->varlist));
+
             assert(IS_END(f->param)); // indicates function is running
 
             // refine and special can be used to GC protect an arbitrary
             // value while a function is running, currently.  (A more
             // important purpose may come up...)
 
-            if (f->refine and NOT_END(f->refine))
+            if (NOT_END(f->refine))
                 Queue_Mark_Opt_Value_Deep(f->refine);
 
-            if (f->special and NOT_END(f->special))
+            if (NOT_END(f->special))
                 Queue_Mark_Opt_Value_Deep(f->special);
         }
-
-        // We need to GC protect the values in the args no matter what,
-        // but it might not be managed yet (e.g. could still contain garbage
-        // during argument fulfillment).  But if it is managed, then it needs
-        // to be handed to normal GC.
-        //
-        if (f->varlist != NULL and IS_ARRAY_MANAGED(f->varlist))
-            Queue_Mark_Context_Deep(CTX(f->varlist));
 
         // (Although the above will mark the varlist, it may not mark the
         // values...because it may be a single element array that merely
@@ -1687,7 +1685,7 @@ REBCNT Recycle(void)
 void Guard_Node_Core(const REBNOD *node)
 {
 #if !defined(NDEBUG)
-    if (IS_CELL(node)) {
+    if (IS_NODE_CELL(node)) {
         //
         // It is a value.  Cheap check: require that it already contain valid
         // data when the guard call is made (even if GC isn't necessarily
@@ -1701,7 +1699,7 @@ void Guard_Node_Core(const REBNOD *node)
             or VAL_TYPE(value) <= REB_MAX_NULLED
         );
 
-    #ifdef STRESS_CHECK_GUARD_VALUE_POINTER
+      #ifdef STRESS_CHECK_GUARD_VALUE_POINTER
         //
         // Technically we should never call this routine to guard a value
         // that lives inside of a series.  Not only would we have to guard the
@@ -1710,9 +1708,9 @@ void Guard_Node_Core(const REBNOD *node)
         // a somewhat expensive check, so only feasible to run occasionally.
         //
         REBNOD *containing = Try_Find_Containing_Node_Debug(value);
-        if (containing != NULL)
+        if (containing)
             panic (containing);
-    #endif
+      #endif
     }
     else {
         // It's a series.  Does not ensure the series being guarded is

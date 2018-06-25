@@ -255,14 +255,15 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
     // hold valid values.
 
     TRASH_POINTER_IF_DEBUG(f->param);
-    TRASH_POINTER_IF_DEBUG(f->arg);
-    TRASH_POINTER_IF_DEBUG(f->refine);
-
     TRASH_POINTER_IF_DEBUG(f->args_head);
-    TRASH_POINTER_IF_DEBUG(f->varlist);
+    TRASH_POINTER_IF_DEBUG(f->arg);
+    TRASH_POINTER_IF_DEBUG(f->special);
+    TRASH_POINTER_IF_DEBUG(f->refine);
 
     TRASH_POINTER_IF_DEBUG(f->original);
     TRASH_POINTER_IF_DEBUG(f->binding);
+
+    assert(f->varlist == GHOST_ARRAY);
 
     // Mutate va_list sources into arrays at fairly random moments in the
     // debug build.  It should be able to handle it at any time.

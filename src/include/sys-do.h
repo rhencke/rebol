@@ -184,6 +184,8 @@ inline static void Push_Frame_Core(REBFRM *f)
     f->prior = TG_Frame_Stack;
     TG_Frame_Stack = f;
 
+    f->varlist = GHOST_ARRAY;
+
     // If the source for the frame is a REBARR*, then we want to temporarily
     // lock that array against mutations.  
     //

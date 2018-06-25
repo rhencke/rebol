@@ -1345,13 +1345,13 @@ reevaluate:;
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
         if (In_Typecheck_Mode(f)) {
-            if (f->varlist)
+            if (f->varlist != GHOST_ARRAY)
                 assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
 
             assert(IS_POINTER_TRASH_DEBUG(f->deferred));
         }
         else { // was fulfilling...
-            if (f->varlist) {
+            if (f->varlist != GHOST_ARRAY) {
                 assert(GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
                 CLEAR_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE);
             }

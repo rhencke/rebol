@@ -53,23 +53,22 @@
 inline static REBOOL Same_Binding(void *a_ptr, void *b_ptr) {
     REBNOD *a = NOD(a_ptr);
     REBNOD *b = NOD(b_ptr);
+    assert(a and b); // can't be nullptr, compared to potentially null varlist
     if (a == b)
-        return TRUE;
-    if (IS_CELL(a)) {
-        if (IS_CELL(b))
-            return FALSE;
+        return true;
+
+    if (IS_NODE_REBFRM(a)) {
+        if (IS_NODE_REBFRM(b))
+            return false;
+
         REBFRM *f_a = cast(REBFRM*, a);
-        if (f_a->varlist != NULL and NOD(f_a->varlist) == b)
-            return TRUE;
-        return FALSE;
+        return NOD(f_a->varlist) == b; // varlist may be GHOST_ARRAY
     }
-    if (IS_CELL(b)) {
+    if (IS_NODE_REBFRM(b)) {
         REBFRM *f_b = cast(REBFRM*, b);
-        if (f_b->varlist != NULL and NOD(f_b->varlist) == a)
-            return TRUE;
-        return FALSE;
+        return (NOD(f_b->varlist) == a); // varlist may be GHOST_ARRAY
     }
-    return FALSE;
+    return false;
 }
 
 
@@ -327,7 +326,7 @@ inline static REBVAL *Derelativize(
     else if (v->extra.binding == UNBOUND) {
         out->extra.binding = UNBOUND;
     }
-    else if (IS_CELL(v->extra.binding)) {
+    else if (IS_NODE_REBFRM(v->extra.binding)) {
         //
         // This would happen if we allowed cells to point directly to REBFRM*.
         // You could only do this safely for frame variables in the case where
@@ -350,7 +349,7 @@ inline static REBVAL *Derelativize(
         }
     #endif
 
-        if (IS_CELL(specifier)) {
+        if (IS_NODE_REBFRM(specifier)) {
             REBFRM *f = cast(REBFRM*, specifier);
 
         #if !defined(NDEBUG)
@@ -384,7 +383,7 @@ inline static REBVAL *Derelativize(
         and (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
     ){
         REBNOD *f_binding;
-        if (IS_CELL(specifier))
+        if (IS_NODE_REBFRM(specifier))
             f_binding = cast(REBFRM*, specifier)->binding;
         else {
             // !!! Repeats code in Get_Var_Core, see explanation there
@@ -396,7 +395,7 @@ inline static REBVAL *Derelativize(
 
         if (
             f_binding != UNBOUND
-            and NOT_CELL(f_binding)
+            and NOT_NODE_CELL(f_binding)
             and Is_Overriding_Context(CTX(v->extra.binding), CTX(f_binding))
         ){
             // !!! Repeats code in Get_Var_Core, see explanation there
@@ -466,16 +465,17 @@ inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
 // may be called an ARG (and an ARG's "persistence" is only as long as that
 // function call is on the stack).
 //
-// All variables can be put in a protected state where they cannot be written.
-// This protection status is marked on the KEY of the context.  Again, more
-// narrowly we may refer to a KEY that represents a parameter to a function
-// as a PARAM.
+// All variables can be put in a CELL_FLAG_PROTECTED state.  This is a flag
+// on the variable cell itself--not the key--so different instances of
+// the same object sharing the keylist don't all have to be protected just
+// because one instance is.  This is not one of the flags included in the
+// CELL_MASK_COPIED, so it shouldn't be able to leak out of the varlist.
 //
 // The Get_Opt_Var_May_Fail() function takes the conservative default that
 // only const access is needed.  A const pointer to a REBVAL is given back
 // which may be inspected, but the contents not modified.  While a bound
-// variable that is not currently set will return a REB_MAX_NULLED value, trying
-// to Get_Opt_Var_May_Fail() on an *unbound* word will raise an error.
+// variable that is not currently set will return a REB_MAX_NULLED value,
+// Get_Opt_Var_May_Fail() on an *unbound* word will raise an error.
 //
 // Get_Mutable_Var_May_Fail() offers a parallel facility for getting a
 // non-const REBVAL back.  It will fail if the variable is either unbound
@@ -508,8 +508,7 @@ inline static REBVAL *Get_Var_Core(
     assert(ANY_WORD(any_word));
 
     REBNOD *binding = VAL_BINDING(any_word);
-
-    if (IS_CELL(binding)) {
+    if (not (binding->header.bits & NODE_FLAG_MANAGED)) {
         //
         // DIRECT BINDING: This will be the case hit when a REBFRM* is used
         // in a word's binding.  The frame should still be on the stack.
@@ -546,7 +545,7 @@ inline static REBVAL *Get_Var_Core(
         }
     #endif
 
-        if (IS_CELL(specifier)) {
+        if (IS_NODE_REBFRM(specifier)) {
             REBFRM *f = cast(REBFRM*, specifier);
 
             assert(Same_Binding(FRM_UNDERLYING(f), binding));
@@ -588,7 +587,7 @@ inline static REBVAL *Get_Var_Core(
         }
         else {
             REBNOD *f_binding;
-            if (IS_CELL(specifier))
+            if (IS_NODE_REBFRM(specifier))
                 f_binding = cast(REBFRM*, specifier)->binding;
             else {
                 // Regardless of whether the frame is still on the stack
@@ -604,7 +603,7 @@ inline static REBVAL *Get_Var_Core(
 
             if (
                 f_binding != UNBOUND
-                and NOT_CELL(f_binding)
+                and NOT_NODE_CELL(f_binding)
                 and Is_Overriding_Context(CTX(binding), CTX(f_binding))
             ){
                 // The frame's binding overrides--because what's happening is

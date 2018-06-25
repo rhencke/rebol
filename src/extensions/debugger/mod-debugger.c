@@ -797,7 +797,7 @@ REBOOL Do_Breakpoint_Throws(
             // If the frame were the one we were looking for, it would be
             // reified (so it would have a context to match)
             //
-            if (frame->varlist == NULL)
+            if (frame->varlist == GHOST_ARRAY)
                 continue;
 
             if (VAL_CONTEXT(target) == CTX(frame->varlist)) {
