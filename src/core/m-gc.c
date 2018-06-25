@@ -1119,7 +1119,7 @@ static void Mark_Guarded_Nodes(void)
     for (; n > 0; --n, ++np) {
         REBNOD *node = *np;
         if (IS_CELL(node)) { // a value cell
-            if (not (node->header.bits & NODE_FLAG_END))
+            if (not (node->header.bits & CELL_FLAG_END))
                 Queue_Mark_Opt_Value_Deep(cast(REBVAL*, node));
         }
         else { // a series
@@ -1289,11 +1289,6 @@ static void Mark_Frame_Stack_Deep(void)
                 // output slot for some other frame.  Hence it is protected by
                 // that output slot, and it also may be an END, which is not
                 // legal for any other slots.  We won't be needing to mark it.
-                //
-              #if !defined(NDEBUG)
-                if (NOT_END(f->arg))
-                    ASSERT_NOT_TRASH_IF_DEBUG(f->arg);
-              #endif
 
                 // If we're not doing "pickups" then the cell slots after
                 // this one have not been initialized, not even to trash.
@@ -1307,15 +1302,6 @@ static void Mark_Frame_Stack_Deep(void)
                 // all the cells to something...even to trash.  Continue and
                 // mark them.
                 //
-                continue;
-            }
-
-            if (arg->header.bits & NODE_FLAG_FREE) {
-                //
-                // Slot was skipped, e.g. out of order refinement.  It's
-                // initialized bits, but left as trash until f->doing_pickups.
-                //
-                ASSERT_TRASH_IF_DEBUG(arg); // check more trash bits
                 continue;
             }
 

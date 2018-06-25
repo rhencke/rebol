@@ -274,7 +274,7 @@ REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
         return CTX(f->varlist);
 
     f->varlist = Alloc_Singular(
-        ARRAY_FLAG_VARLIST | CONTEXT_FLAG_STACK | NODE_FLAG_MANAGED
+        ARRAY_FLAG_VARLIST | SERIES_FLAG_STACK | NODE_FLAG_MANAGED
     );
 
     // Changing the values in a running native's frame out from under it can

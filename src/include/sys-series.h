@@ -147,7 +147,7 @@
             NODE_FLAG_NODE == (
                 reinterpret_cast<REBSER*>(p)->header.bits &
                 (NODE_FLAG_NODE // good!
-                | NODE_FLAG_FREE | NODE_FLAG_CELL | NODE_FLAG_END) // bad!
+                | NODE_FLAG_FREE | NODE_FLAG_CELL | CELL_FLAG_END) // bad!
             )
         );
         return reinterpret_cast<REBSER*>(p);
@@ -159,7 +159,7 @@
             NODE_FLAG_NODE == (
                 reinterpret_cast<REBSER*>(p)->header.bits &
                 (NODE_FLAG_NODE // good!
-                | NODE_FLAG_FREE | NODE_FLAG_CELL | NODE_FLAG_END) // bad!
+                | NODE_FLAG_FREE | NODE_FLAG_CELL) // bad!
             )
         );
         return reinterpret_cast<REBSER*>(p);
@@ -249,11 +249,10 @@ inline static REBCNT SER_LEN(REBSER *s) {
 }
 
 inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
-    assert(NOT_SER_FLAG(s, CONTEXT_FLAG_STACK));
+    assert(NOT_SER_FLAG(s, SERIES_FLAG_STACK));
 
-    if (s->info.bits & SERIES_INFO_HAS_DYNAMIC) {
+    if (s->info.bits & SERIES_INFO_HAS_DYNAMIC)
         s->content.dynamic.len = len;
-    }
     else {
         assert(len < sizeof(s->content));
         CLEAR_8_MID_BITS(s->info.bits);

@@ -530,7 +530,7 @@ void Free_Node(REBCNT pool_id, void *p)
 {
     REBNOD *node = NOD(p);
 
-    // See Init_Endlike_Header() for why we do this
+    // See Init_Endlike_Header() for why we do this through an aliased pointer
     //
     struct Reb_Header *alias = &node->header;
     alias->bits = FLAGBYTE_FIRST(FREED_SERIES_BYTE);
@@ -1555,35 +1555,25 @@ void Assert_Pointer_Detection_Working(void)
 {
     uintptr_t cell_flag = NODE_FLAG_CELL;
     assert(LEFT_8_BITS(cell_flag) == 0x1);
-    uintptr_t end_flag = NODE_FLAG_END;
-    assert(LEFT_8_BITS(end_flag) == 0x8);
-
-    assert(
-        SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE
-        and SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE
-        and SERIES_INFO_4_IS_TRUE == NODE_FLAG_END
-        and SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL
-    );
-    assert(
-        DO_FLAG_0_IS_TRUE == NODE_FLAG_NODE
-        and DO_FLAG_1_IS_FALSE == NODE_FLAG_FREE
-        and DO_FLAG_4_IS_TRUE == NODE_FLAG_END
-        and DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL
-    );
-
-    assert(Detect_Rebol_Pointer(nullptr) == DETECTED_AS_NULL);
+    uintptr_t end_flag = CELL_FLAG_END;
+    assert(cast(REBYTE*, &end_flag)[1] == 0x80);
 
     assert(Detect_Rebol_Pointer("") == DETECTED_AS_UTF8);
     assert(Detect_Rebol_Pointer("asdf") == DETECTED_AS_UTF8);
 
     assert(Detect_Rebol_Pointer(EMPTY_ARRAY) == DETECTED_AS_SERIES);
-    assert(Detect_Rebol_Pointer(BLANK_VALUE) == DETECTED_AS_VALUE);
+    assert(Detect_Rebol_Pointer(BLANK_VALUE) == DETECTED_AS_CELL);
 
-  #if defined(DEBUG_TRASH_MEMORY)
-    DECLARE_LOCAL (trash_cell);
-    assert(IS_TRASH_DEBUG(trash_cell));
-    assert(Detect_Rebol_Pointer(trash_cell) == DETECTED_AS_TRASH_CELL);
-  #endif
+    // The system does not really intentionally "free" any cells, but they
+    // can happen in bad memory locations.  Along with CELL_FLAG_PROTECED and
+    // the potential absence of NODE_FLAG_CELL or NODE_FLAG_NODE, they make
+    // four good ways that a random Move_Value() might fail in the debug
+    // build.  It could also become useful if one wanted a more "serious"
+    // form of trashing than TRASH_CELL_IF_DEBUG().
+    //
+    DECLARE_LOCAL (freed_cell);
+    freed_cell->header.bits = NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL;
+    assert(Detect_Rebol_Pointer(freed_cell) == DETECTED_AS_FREED_CELL);
 
     DECLARE_LOCAL (end_cell);
     SET_END(end_cell);

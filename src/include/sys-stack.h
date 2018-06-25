@@ -110,7 +110,7 @@ inline static REBVAL *DS_AT(REBDSP d) {
     REBVAL *at = KNOWN(ARR_HEAD(DS_Array) + d);
     assert(
         ((at->header.bits & NODE_FLAG_CELL) and d <= (DSP + 1))
-        or ((at->header.bits & NODE_FLAG_END) and d == (DSP + 1))
+        or ((at->header.bits & CELL_FLAG_END) and d == (DSP + 1))
     );
     return at;
 }
@@ -234,7 +234,7 @@ struct Reb_Chunker {
 
 struct Reb_Chunk {
     //
-    // Chunk starts with a REB_0_CHUNK value, with the NODE_FLAG_END bit set,
+    // Chunk starts with a REB_0_CHUNK value, with the CELL_FLAG_END bit set,
     // so it can implicitly terminate the preceding chunk.  ->extra contains
     // the pointer to the previous chunk.  ->payload has the length of the
     // chunk and the address of the containing chunker.

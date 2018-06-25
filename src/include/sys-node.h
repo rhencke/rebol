@@ -87,32 +87,26 @@
 // Rebol structures could be distinguished from the leading byte of a UTF-8
 // string.  This is taken advantage of in the API.
 //
-// During startup, Assert_Pointer_Detection_Working() checks that:
-//
-//     LEFT_8_BITS(NODE_FLAG_CELL) == 0x1
-//     LEFT_8_BITS(NODE_FLAG_END) == 0x8
+// During startup, Assert_Pointer_Detection_Working() checks invariants that
+// make this routine able to work.
 //
 
 enum Reb_Pointer_Detect {
-    DETECTED_AS_NULL = 0,
-
-    DETECTED_AS_UTF8 = 1,
+    DETECTED_AS_UTF8 = 0,
     
-    DETECTED_AS_SERIES = 2,
-    DETECTED_AS_FREED_SERIES = 3,
+    DETECTED_AS_SERIES = 1,
+    DETECTED_AS_FREED_SERIES = 2,
 
-    DETECTED_AS_VALUE = 4,
-    DETECTED_AS_END = 5, // may be a cell, or made with Init_Endlike_Header()
-    DETECTED_AS_TRASH_CELL = 6
+    DETECTED_AS_CELL = 3,
+    DETECTED_AS_FREED_CELL = 4,
+
+    DETECTED_AS_END = 5 // may be a cell, or made with Init_Endlike_Header()
 };
 
 inline static enum Reb_Pointer_Detect Detect_Rebol_Pointer(const void *p) {
-    if (not p)
-        return DETECTED_AS_NULL;
+    const REBYTE *bp = cast(const REBYTE*, p);
 
-    REBYTE bp = *cast(const REBYTE*, p);
-
-    switch (bp >> 4) { // switch on the left 4 bits of the byte
+    switch (*bp >> 4) { // switch on the left 4 bits of the byte
     case 0:
     case 1:
     case 2:
@@ -127,36 +121,36 @@ inline static enum Reb_Pointer_Detect Detect_Rebol_Pointer(const void *p) {
     // valid starting points for a UTF-8 string)
 
     case 8: // 0xb1000
-        if (bp & 0x8)
+        if (bp[1] & 0x80)
             return DETECTED_AS_END; // may be end cell or "endlike" header
-        if (bp & 0x1)
-            return DETECTED_AS_VALUE; // unmanaged
+        if (bp[0] & 0x1)
+            return DETECTED_AS_CELL; // unmanaged
         return DETECTED_AS_SERIES; // unmanaged
 
     case 9: // 0xb1001
-        if (bp & 0x8)
+        if (bp[1] & 0x80)
             return DETECTED_AS_END; // has to be an "endlike" header
-        assert(bp & 0x1); // marked and unmanaged, must be a cell
-        return DETECTED_AS_VALUE;
+        assert(bp[0] & 0x1); // marked and unmanaged, must be a cell
+        return DETECTED_AS_CELL;
 
     case 10: // 0b1010
     case 11: // 0b1011
-        if (bp & 0x8)
+        if (bp[1] & 0x80)
             return DETECTED_AS_END;
-        if (bp & 0x1)
-            return DETECTED_AS_VALUE; // managed, marked if `case 11`
+        if (bp[0] & 0x1)
+            return DETECTED_AS_CELL; // managed, marked if `case 11`
         return DETECTED_AS_SERIES; // managed, marked if `case 11`
 
     // v-- bit sequences starting with `11` are *usually* legal multi-byte
     // valid starting points for UTF-8, with only the exceptions made for
-    // the illegal 192 and 193 bytes which represent freed series and trash.
+    // the illegal 192 and 193 bytes which represent freed series and cells.
 
     case 12: // 0b1100
-        if (bp == FREED_SERIES_BYTE)
+        if (bp[0] == FREED_SERIES_BYTE)
             return DETECTED_AS_FREED_SERIES;
 
-        if (bp == TRASH_CELL_BYTE)
-            return DETECTED_AS_TRASH_CELL;
+        if (bp[0] == FREED_CELL_BYTE)
+            return DETECTED_AS_FREED_CELL;
 
         return DETECTED_AS_UTF8;
 

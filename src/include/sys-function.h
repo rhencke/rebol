@@ -52,7 +52,7 @@ struct Reb_Action {
             (NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST)
             == (reinterpret_cast<REBSER*>(p)->header.bits & (
                 NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST
-                | NODE_FLAG_FREE | NODE_FLAG_CELL | NODE_FLAG_END // bad!
+                | NODE_FLAG_FREE | NODE_FLAG_CELL // bad!
             ))
         );
         return reinterpret_cast<REBACT*>(p);

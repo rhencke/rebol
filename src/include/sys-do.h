@@ -104,7 +104,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     if (C_STACK_OVERFLOWING(&f))
         Fail_Stack_Overflow();
 
-    assert(f->flags.bits & NODE_FLAG_END);
+    assert(f->flags.bits & CELL_FLAG_END);
     assert(not (f->flags.bits & NODE_FLAG_CELL));
 
     // Though we can protect the value written into the target pointer 'out'
@@ -313,12 +313,12 @@ inline static const RELVAL *Set_Frame_Detected_Fetch(REBFRM *f, const void *p)
 
 detect_again:;
 
-    switch (Detect_Rebol_Pointer(p)) {
+    if (not p) { // libRebol's null/<opt> (IS_NULLED prohibited below)
 
-    case DETECTED_AS_NULL: { // libRebol's null/<opt> (IS_VOID prohibited below)
         f->source.array = nullptr;
         f->value = NULLED_CELL;
-        break; }
+
+    } else switch (Detect_Rebol_Pointer(p)) {
 
     case DETECTED_AS_UTF8: {
         REBDSP dsp_orig = DSP;
@@ -441,10 +441,10 @@ detect_again:;
     case DETECTED_AS_FREED_SERIES:
         panic (p);
 
-    case DETECTED_AS_VALUE: {
+    case DETECTED_AS_CELL: {
         const REBVAL *cell = cast(const REBVAL*, p);
         if (IS_NULLED(cell))
-            fail ("VOID cell leaked to API, see NULLIZE() in C sources");
+            fail ("NULLED cell leaked to API, see NULLIZE() in C sources");
 
         if (Is_Api_Value(cell)) {
             //
@@ -490,7 +490,7 @@ detect_again:;
         f->source.index = 0;
         break; }
 
-    case DETECTED_AS_TRASH_CELL:
+    case DETECTED_AS_FREED_CELL:
         panic (p);
 
     default:

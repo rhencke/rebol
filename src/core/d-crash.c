@@ -132,14 +132,15 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
 
     strncat(buf, "\n", PANIC_BUF_SIZE - strlen(buf));
 
-    switch (Detect_Rebol_Pointer(p)) {
-    case DETECTED_AS_NULL:
+    if (not p) {
+
         strncat(
             buf,
             "Panic was passed C nullptr",
             PANIC_BUF_SIZE - strlen(buf)
         );
-        break;
+
+    } else switch (Detect_Rebol_Pointer(p)) {
 
     case DETECTED_AS_UTF8: // string might be empty...handle specially?
         strncat(
@@ -184,7 +185,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
       #endif
         break;
 
-    case DETECTED_AS_VALUE:
+    case DETECTED_AS_CELL:
     case DETECTED_AS_END: {
         const REBVAL *v = cast(const REBVAL*, p);
       #if defined(NDEBUG)
@@ -199,9 +200,9 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
       #endif
         break; }
 
-    case DETECTED_AS_TRASH_CELL:
+    case DETECTED_AS_FREED_CELL:
       #if defined(NDEBUG)
-        strncat(buf, "trash cell", PANIC_BUF_SIZE - strlen(buf));
+        strncat(buf, "freed cell", PANIC_BUF_SIZE - strlen(buf));
       #else
         Panic_Value_Debug(cast(const RELVAL*, p));
       #endif

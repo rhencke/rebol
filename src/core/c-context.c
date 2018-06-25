@@ -1447,7 +1447,7 @@ void Assert_Context_Core(REBCTX *c)
     if (keys_len < 1)
         panic (keylist);
 
-    if (GET_SER_FLAG(CTX_VARLIST(c), CONTEXT_FLAG_STACK)) {
+    if (GET_SER_FLAG(CTX_VARLIST(c), SERIES_FLAG_STACK)) {
         if (vars_len != 1)
             panic (varlist);
     }

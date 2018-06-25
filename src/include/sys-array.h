@@ -75,7 +75,7 @@ struct Reb_Array {
             (NODE_FLAG_NODE | SERIES_FLAG_ARRAY)
             == (reinterpret_cast<REBSER*>(p)->header.bits & (
                 NODE_FLAG_NODE | SERIES_FLAG_ARRAY // good!
-                | NODE_FLAG_FREE | NODE_FLAG_CELL | NODE_FLAG_END // bad!
+                | NODE_FLAG_FREE | NODE_FLAG_CELL // bad!
             ))
         );
         return reinterpret_cast<REBARR*>(p);

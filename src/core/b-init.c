@@ -166,15 +166,18 @@ static void Assert_Basics(void)
 
     // Make sure tricks for "internal END markers" are lined up as expected.
     //
-    assert(SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE);
-    assert(SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE);
-    assert(SERIES_INFO_4_IS_TRUE == NODE_FLAG_END);
-    assert(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
-
-    assert(DO_FLAG_0_IS_TRUE == NODE_FLAG_NODE);
-    assert(DO_FLAG_1_IS_FALSE == NODE_FLAG_FREE);
-    assert(DO_FLAG_4_IS_TRUE == NODE_FLAG_END);
-    assert(DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
+    assert(
+        SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE
+        and SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE
+        and SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL
+        and SERIES_INFO_8_IS_TRUE == CELL_FLAG_END
+    );
+    assert(
+        DO_FLAG_0_IS_TRUE == NODE_FLAG_NODE
+        and DO_FLAG_1_IS_FALSE == NODE_FLAG_FREE
+        and DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL
+        and DO_FLAG_8_IS_TRUE == CELL_FLAG_END
+    );
 }
 
 
@@ -785,7 +788,7 @@ static void Init_Root_Vars(void)
     Init_Endlike_Header(&PG_End_Node.header, 0); // mutate to read-only end
     TRACK_CELL_IF_DEBUG(&PG_End_Node, __FILE__, __LINE__);
     assert(IS_END(END)); // sanity check that it took
-    assert(VAL_TYPE_RAW(END) == REB_0); // this implicit END marker has this
+    assert(VAL_TYPE_OR_0(END) == REB_0); // *only* for this global END marker!
 
     // Note: Not only can rebBlock() not be used yet (because there is no
     // data stack), PG_Unbound must exist before calling Init_Block()
@@ -1207,6 +1210,10 @@ void Startup_Core(void)
 
     Init_Root_Vars();    // Special REBOL values per program
 
+  #if !defined(NDEBUG)
+    Assert_Pointer_Detection_Working(); // uses root series/values to test
+  #endif
+
 //==//////////////////////////////////////////////////////////////////////==//
 //
 // INITIALIZE (SINGULAR) TASK
@@ -1397,7 +1404,6 @@ void Startup_Core(void)
 
   #if !defined(NDEBUG)
     Check_Memory_Debug(); // old R3-Alpha check, call here to keep it working
-    Assert_Pointer_Detection_Working(); // can't be done too early in boot
   #endif
 
     Recycle(); // necessary?

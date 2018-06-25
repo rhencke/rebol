@@ -107,9 +107,6 @@
     FLAGIT_LEFT(3)
 
 
-#define DO_FLAG_4_IS_TRUE FLAGIT_LEFT(4) // NODE_FLAG_END
-
-
 //=//// DO_FLAG_TOOK_FRAME_HOLD ///////////////////////////////////////////=//
 //
 // While R3-Alpha permitted modifications of an array while it was being
@@ -118,7 +115,7 @@
 // finished (or on errors).  See SERIES_INFO_HOLD for more about this.
 //
 #define DO_FLAG_TOOK_FRAME_HOLD \
-    FLAGIT_LEFT(5)
+    FLAGIT_LEFT(4)
 
 
 //=//// DO_FLAG_APPLYING //////////////////////////////////////////////////=//
@@ -127,10 +124,7 @@
 // frame was already set up.
 //
 #define DO_FLAG_APPLYING \
-    FLAGIT_LEFT(6)
-
-
-#define DO_FLAG_7_IS_FALSE FLAGIT_LEFT(7) // NOT(NODE_FLAG_CELL)
+    FLAGIT_LEFT(5)
 
 
 //=//// DO_FLAG_FULFILLING_ARG ////////////////////////////////////////////=//
@@ -141,7 +135,11 @@
 // also means that `add 1 <| 2` will act as an error.
 //
 #define DO_FLAG_FULFILLING_ARG \
-    FLAGIT_LEFT(8)
+    FLAGIT_LEFT(6)
+
+
+#define DO_FLAG_7_IS_FALSE FLAGIT_LEFT(7) // NOT(NODE_FLAG_CELL)
+#define DO_FLAG_8_IS_TRUE FLAGIT_LEFT(8) // CELL_FLAG_END
 
 
 //=//// DO_FLAG_FULFILLING_SET ////////////////////////////////////////////=//

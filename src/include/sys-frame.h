@@ -50,13 +50,18 @@
 // will occur exactly once (when it is caught).
 //
 
-#define THROWN(v) \
-    GET_VAL_FLAG((v), VALUE_FLAG_THROWN)
+inline static REBOOL THROWN(const RELVAL *v) {
+    assert(v->header.bits & NODE_FLAG_CELL);
 
-static inline void CONVERT_NAME_TO_THROWN(
-    REBVAL *name, const REBVAL *arg
-){
-    assert(!THROWN(name));
+    if (v->header.bits & VALUE_FLAG_THROWN) {
+        assert(NOT_END(v)); // can't throw END, but allow THROWN() to test it
+        return true;
+    }
+    return false;
+}
+
+inline static void CONVERT_NAME_TO_THROWN(REBVAL *name, const REBVAL *arg) {
+    assert(not THROWN(name));
     SET_VAL_FLAG(name, VALUE_FLAG_THROWN);
 
     ASSERT_UNREADABLE_IF_DEBUG(&TG_Thrown_Arg);
@@ -569,7 +574,7 @@ inline static void Drop_Action_Core(
     assert(cast(REBFRM*, LINK(f->varlist).keysource) == f);
     LINK(f->varlist).keysource = NOD(ACT_PARAMLIST(f->original));
 
-    if (NOT_SER_FLAG(f->varlist, CONTEXT_FLAG_STACK)) {
+    if (NOT_SER_FLAG(f->varlist, SERIES_FLAG_STACK)) {
         //
         // If there's no stack memory being tracked by this context, it
         // has dynamic memory and is being managed by the garbage collector

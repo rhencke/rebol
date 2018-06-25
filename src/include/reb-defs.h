@@ -284,7 +284,7 @@ typedef REBWCHAR REBUNI;
     // This defines END as the address of a global node.  It's important to
     // point out that several definitions you might think would work for END
     // will not.  For example, this string literal seems to have the right
-    // bits in the leading byte (NODE_FLAG_NODE and NODE_FLAG_END):
+    // bits in the leading byte (NODE_FLAG_NODE and CELL_FLAG_END):
     //
     //     #define END ((const REBVAL*)"\x88")
     //

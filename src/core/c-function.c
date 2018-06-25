@@ -1090,7 +1090,7 @@ REBACT *Make_Action(
 REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
 {
     REBARR *varlist = Alloc_Singular(
-        ARRAY_FLAG_VARLIST | CONTEXT_FLAG_STACK | NODE_FLAG_MANAGED
+        ARRAY_FLAG_VARLIST | SERIES_FLAG_STACK | NODE_FLAG_MANAGED
     );
     SET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE);
     MISC(varlist).meta = nullptr;

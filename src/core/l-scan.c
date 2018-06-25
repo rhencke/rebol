@@ -968,21 +968,21 @@ acquisition_loop:
 
         const void *p = va_arg(*ss->vaptr, const void*);
 
-        switch (Detect_Rebol_Pointer(p)) {
+        if (not p) { // libRebol representation of <opt>/NULL
 
-        case DETECTED_AS_NULL: { // libRebol representation of <opt>/NULL
             if (not (ss->opts & SCAN_FLAG_NULLEDS_LEGAL))
                 fail ("can't splice null in ANY-ARRAY!...use rebUneval()");
 
             DS_PUSH_TRASH;
             Init_Nulled(DS_TOP); // convert to cell void for evaluator
-            break; }
+
+        } else switch (Detect_Rebol_Pointer(p)) {
 
         case DETECTED_AS_END: {
             ss->token = TOKEN_END;
             return; }
 
-        case DETECTED_AS_VALUE: {
+        case DETECTED_AS_CELL: {
             const REBVAL *splice = cast(const REBVAL*, p);
             if (IS_NULLED(splice))
                 fail ("VOID cell leaked to API, see NULLIZE() in C sources");

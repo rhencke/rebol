@@ -143,25 +143,6 @@ REBCTX *VAL_SPECIFIC_Debug(const REBVAL *v)
     return specific;
 }
 
-
-#ifdef CPLUSPLUS_11
-//
-// This destructor checks to make sure that any cell that was created via
-// DECLARE_LOCAL got properly initialized.
-//
-Reb_Specific_Value::~Reb_Specific_Value ()
-{
-    assert(header.bits & NODE_FLAG_CELL);
-
-    enum Reb_Kind kind = VAL_TYPE_RAW(this);
-    assert(
-        header.bits & NODE_FLAG_FREE
-            ? kind == REB_MAX_PLUS_ONE_TRASH
-            : kind <= REB_MAX_NULLED
-    );
-}
-#endif
-
 #endif // !defined(NDEBUG)
 
 
@@ -213,10 +194,11 @@ void* Probe_Core_Debug(
     REBOOL was_disabled = GC_Disabled;
     GC_Disabled = TRUE;
 
-    switch (Detect_Rebol_Pointer(p)) {
-    case DETECTED_AS_NULL:
+    if (not p) {
+
         Probe_Print_Helper(p, "C nullptr", file, line);
-        break;
+
+    } else switch (Detect_Rebol_Pointer(p)) {
 
     case DETECTED_AS_UTF8:
         Probe_Print_Helper(p, "C String", file, line);
@@ -277,7 +259,7 @@ void* Probe_Core_Debug(
         Probe_Print_Helper(p, "Freed Series", file, line);
         panic (p);
 
-    case DETECTED_AS_VALUE: {
+    case DETECTED_AS_CELL: {
         Probe_Print_Helper(p, "Value", file, line);
         Mold_Value(mo, cast(const REBVAL*, p));
         break; }
@@ -286,8 +268,8 @@ void* Probe_Core_Debug(
         Probe_Print_Helper(p, "END", file, line);
         break;
 
-    case DETECTED_AS_TRASH_CELL:
-        Probe_Print_Helper(p, "Trash Cell", file, line);
+    case DETECTED_AS_FREED_CELL:
+        Probe_Print_Helper(p, "Freed Cell", file, line);
         panic (p);
     }
 

@@ -232,7 +232,7 @@ inline static REBSTR* Intern(const void *p)
         assert(GET_SER_FLAG(s, SERIES_FLAG_UTF8_STRING));
         return s; }
 
-    case DETECTED_AS_VALUE: {
+    case DETECTED_AS_CELL: {
         const REBVAL *v = cast(const REBVAL*, p);
         if (ANY_WORD(v))
             return VAL_WORD_SPELLING(v);

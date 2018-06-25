@@ -688,7 +688,10 @@ reevaluate:;
             assert(
                 f->special != f->param or IS_TRASH_DEBUG(f->arg) or (
                     f->doing_pickups
-                    and pclass == PARAM_CLASS_REFINEMENT and IS_LOGIC(f->arg)
+                    and (
+                        (pclass == PARAM_CLASS_REFINEMENT and IS_LOGIC(f->arg))
+                        or IS_UNREADABLE_DEBUG(f->arg)
+                    )
                 )
             );
           #endif
@@ -894,10 +897,10 @@ reevaluate:;
             if (f->refine == SKIPPING_REFINEMENT_ARGS) {
                 //
                 // The GC will protect values up through how far we have
-                // enumerated, and though we're leaving trash in this slot
-                // it has special handling to tolerate that, so long as we're
-                // doing pickups.
-
+                // enumerated, so we need to put *something* in this slot
+                // when skipping, since we're passing it in the enumeration.
+                //
+                Init_Unreadable_Blank(f->arg);
                 goto continue_arg_loop;
             }
 
@@ -948,7 +951,7 @@ reevaluate:;
                 f->refine = ORDINARY_ARG;
 
                 if (
-                    (f->out->header.bits & NODE_FLAG_END)
+                    (f->out->header.bits & CELL_FLAG_END)
                     or (f->flags.bits & DO_FLAG_BARRIER_HIT)
                 ){
                     // Seeing an END in the output slot could mean that there
@@ -2550,7 +2553,7 @@ finished:;
     // The unevaluated flag is meaningless outside of arguments to functions.
 
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
-        CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+        f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // may be an END cell
 
   #if !defined(NDEBUG)
     Do_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps

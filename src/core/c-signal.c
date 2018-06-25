@@ -78,8 +78,6 @@
 //
 REBOOL Do_Signals_Throws(REBVAL *out)
 {
-    ASSERT_NOT_TRASH_IF_DEBUG(out);
-
     // !!! When it was the case that the only way Do_Signals_Throws would run
     // due to the Eval_Count reaching the end of an Eval_Dose, this way of
     // doing "CPU quota" would work.  Currently, however, it is inaccurate,

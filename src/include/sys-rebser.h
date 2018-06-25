@@ -95,6 +95,14 @@
     0 // helps locate places that want to say "no flags"
 
 
+// Even though this isn't a cell, go ahead and leave the bit at this location
+// as 0 for series.  This way Detect_Rebol_Pointer() can check a pointer to
+// a REBSER or a REBVAL for END.  If push comes to shove that could be done
+// differently and this bit retaken for a miscellaneous SERIES_FLAG.
+//
+#define SERIES_FLAG_8_IS_FALSE FLAGIT_LEFT(8) // NOT(NODE_FLAG_CELL)
+
+
 //=//// SERIES_FLAG_FIXED_SIZE ////////////////////////////////////////////=//
 //
 // This means a series cannot be expanded or contracted.  Values within the
@@ -113,7 +121,7 @@
 // equivalent but let the callsite distinguish the intent.
 //
 #define SERIES_FLAG_FIXED_SIZE \
-    FLAGIT_LEFT(GENERAL_SERIES_BIT + 0)
+    FLAGIT_LEFT(9)
 
 #define SERIES_FLAG_DONT_RELOCATE SERIES_FLAG_FIXED_SIZE
 
@@ -132,7 +140,7 @@
 // http://utf8everywhere.org/
 //
 #define SERIES_FLAG_UTF8_STRING \
-    FLAGIT_LEFT(GENERAL_SERIES_BIT + 1)
+    FLAGIT_LEFT(10)
 
 
 //=//// SERIES_FLAG_POWER_OF_2 ////////////////////////////////////////////=//
@@ -155,7 +163,7 @@
 // was not necessary there.
 //
 #define SERIES_FLAG_POWER_OF_2 \
-    FLAGIT_LEFT(GENERAL_SERIES_BIT + 2)
+    FLAGIT_LEFT(11)
 
 
 //=//// SERIES_FLAG_ARRAY /////////////////////////////////////////////////=//
@@ -170,7 +178,7 @@
 // allows series of items that aren't REBVAL, just incidentally the same size.
 //
 #define SERIES_FLAG_ARRAY \
-    FLAGIT_LEFT(GENERAL_SERIES_BIT + 3)
+    FLAGIT_LEFT(12)
 
 
 // ^-- STOP GENERIC SERIES FLAGS AT FLAGIT_LEFT(15) --^
@@ -181,7 +189,7 @@
 // have one).
 //
 #ifdef CPLUSPLUS_11
-    static_assert(GENERAL_SERIES_BIT + 4 < 16, "SERIES_FLAG_XXX too high");
+    static_assert(12 < 16, "SERIES_FLAG_XXX too high");
 #endif
 
 
@@ -256,19 +264,11 @@
     FLAGIT_LEFT(GENERAL_ARRAY_BIT + 4)
 
 
-//=//// CONTEXT_FLAG_STACK ////////////////////////////////////////////////=//
+//=//// ARRAY_FLAG_5 /////////////////////////////////////////////////////=//
 //
-// This indicates that a context's varlist data lives on the stack.  That
-// means that when the function terminates, the data will no longer be
-// accessible (so SERIES_FLAG_INACCESSIBLE will be true).
+// Not used as of yet.
 //
-// !!! Ultimately this flag may be unnecessary because stack-based and
-// dynamic series will "hybridize" so that they may have some stack
-// fields and some fields in dynamic memory.  For now it's a good sanity
-// check that things which should only happen to stack contexts (like becoming
-// inaccessible) are checked against this flag.
-//
-#define CONTEXT_FLAG_STACK \
+#define ARRAY_FLAG_5 \
     FLAGIT_LEFT(GENERAL_ARRAY_BIT + 5)
 
 
@@ -351,9 +351,6 @@
     FLAGIT_LEFT(3)
 
 
-#define SERIES_INFO_4_IS_TRUE FLAGIT_LEFT(4) // NODE_FLAG_END
-
-
 //=//// SERIES_INFO_PROTECTED /////////////////////////////////////////////=//
 //
 // This indicates that the user had a tempoary desire to protect a series
@@ -368,7 +365,7 @@
 // Note: Same bit as NODE_FLAG_ROOT, should not be relevant.
 //
 #define SERIES_INFO_PROTECTED \
-    FLAGIT_LEFT(5)
+    FLAGIT_LEFT(4)
 
 
 //=//// SERIES_INFO_HOLD //////////////////////////////////////////////////=//
@@ -385,10 +382,7 @@
 // Note: Same bit as NODE_FLAG_SPECIAL, should not be relevant.
 // 
 #define SERIES_INFO_HOLD \
-    FLAGIT_LEFT(6)
-
-
-#define SERIES_INFO_7_IS_FALSE FLAGIT_LEFT(7) // NOT(NODE_FLAG_CELL)
+    FLAGIT_LEFT(5)
 
 
 //=//// SERIES_INFO_FROZEN ////////////////////////////////////////////////=//
@@ -406,7 +400,11 @@
 // value in the series data...then by that point it cannot be enforced.
 //
 #define SERIES_INFO_FROZEN \
-    FLAGIT_LEFT(8)
+    FLAGIT_LEFT(6)
+
+
+#define SERIES_INFO_7_IS_FALSE FLAGIT_LEFT(7) // NOT(NODE_FLAG_CELL)
+#define SERIES_INFO_8_IS_TRUE FLAGIT_LEFT(8) // CELL_FLAG_END
 
 
 //=//// SERIES_INFO_AUTO_LOCKED ///////////////////////////////////////////=//
@@ -531,7 +529,7 @@
 // `info` is not the start of a "Rebol Node" (REBNODE, e.g. either a REBSER or
 // a REBVAL cell).  But in the singular case it is positioned right where
 // the next cell after the embedded cell *would* be.  Hence the bit in the
-// info corresponding to NODE_FLAG_END is set, making it conform to the
+// info corresponding to CELL_FLAG_END is set, making it conform to the
 // "terminating array" pattern.  To lower the risk of this implicit terminator
 // being accidentally overwritten (which would corrupt link and misc), the
 // bit corresponding to NODE_FLAG_CELL is clear.
@@ -608,7 +606,7 @@ union Reb_Series_Content {
     // the series node.  This trick is accomplished via "implicit termination"
     // in the ->info bits that come directly after ->content.
     //
-    // (See NODE_FLAG_END and NODE_FLAG_CELL for how this is done.)
+    // (See CELL_FLAG_END and NODE_FLAG_CELL for how this is done.)
     //
     // We do not use a RELVAL here, because it would rule out making simple
     // assignments of one series's content to another, as the assignment
@@ -904,7 +902,7 @@ struct Reb_Series {
     // even if it is not using a dynamic allocation.
     //
     // It is purposefully positioned in the structure directly after the
-    // ->content field, because it has NODE_FLAG_END set to true.  Hence it
+    // ->content field, because it has CELL_FLAG_END set to true.  Hence it
     // appears to terminate an array of values if the content is not dynamic.
     // Yet NODE_FLAG_CELL is set to false, so it is not a writable location
     // (an "implicit terminator").

@@ -79,7 +79,7 @@
 // There are also applications of Reb_Header as an "implicit terminator".
 // Such header patterns don't actually start valid REBNODs, but have a bit
 // pattern able to signal the IS_END() test for REBVAL.  See notes on
-// NODE_FLAG_END and NODE_FLAG_CELL.
+// CELL_FLAG_END and NODE_FLAG_CELL.
 //
 
 struct Reb_Header {
@@ -184,26 +184,13 @@ struct Reb_Header {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  NODE_FLAG_END (fifth-leftmost bit)
+//  NODE_FLAG_4 (fifth-leftmost bit)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// If set, it means this header should signal the termination of an array
-// of REBVAL, as in `for (; NOT_END(value); ++value) {}` loops.  In this
-// sense it means the header is functioning much like a null-terminator for
-// C strings.
+// Unused, as of yet.
 //
-// *** This bit being set does not necessarily mean the header is sitting at
-// the head of a full REBVAL-sized slot! ***
-//
-// Some data structures punctuate arrays of REBVALs with a Reb_Header that
-// has the NODE_FLAG_END bit set, and the NODE_FLAG_CELL bit clear.  This
-// functions fine as the terminator for a finite number of REBVAL cells, but
-// can only be read with IS_END() with no other operations legal.
-//
-// It's only valid to overwrite end markers when NODE_FLAG_CELL is set.
-//
-#define NODE_FLAG_END \
+#define NODE_FLAG_4 \
     FLAGIT_LEFT(4)
 
 
@@ -226,21 +213,37 @@ struct Reb_Header {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  NODE_FLAG_6 (seventh-leftmost bit)
+//  NODE_FLAG_STACK (seventh-leftmost bit)
+//  aliased as CELL_FLAG_STACK and SERIES_FLAG_STACK
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// It's a bit of a pun to try and come up with a meaning that is shared
-// between REBSER and REBVAL for this bit.  But the specific desire to put the
-// NODE_FLAG_CELL in eighth from the left position means it's easier to make
-// this a generic node flag to keep the first byte layout knowledge here.
+// When writing to a value cell, it is sometimes necessary to know how long
+// that cell will "be alive".  This is important if there is some stack-based
+// transient structure in the source cell, which would need to be converted
+// into something longer-lived if the destination cell will outlive it.
 //
-// For the moment it's unused, but the ideal use would be for something you
-// would want to test on a node without needing to know if it was a cell
-// or a series in order to make some fast decision.
+// Hence cells must be formatted to say whether they are CELL_FLAG_STACK or
+// not, before any writing can be done to them.  If they are not then they
+// are presumed to be indefinite lifetime (e.g. cells resident inside of an
+// array managed by the garbage collector).
 //
-#define NODE_FLAG_6 \
+// But if a cell is marked with CELL_FLAG_STACK, that means it is expected
+// that scanning *backwards* in memory will find a specially marked REB_FRAME
+// cell, which will lead to the frame to whose lifetime the cell is bound.
+//
+// !!! This feature is a work in progress.
+//
+// For series, varlists of FRAME! are also marked with this to indicates that
+// a context's varlist data lives on the stack.  That means that when the
+// action terminates, the data will no longer be accessible (so
+// SERIES_INFO_INACCESSIBLE will be true).
+//
+#define NODE_FLAG_STACK \
     FLAGIT_LEFT(6)
+
+#define CELL_FLAG_STACK NODE_FLAG_STACK
+#define SERIES_FLAG_STACK NODE_FLAG_STACK
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -254,7 +257,7 @@ struct Reb_Header {
 //
 // In the debug build, it provides safety for all value writing routines,
 // including avoiding writing over "implicit END markers" (which have
-// NODE_FLAG_END set, but are backed only by `sizeof(struct Reb_Header)`.
+// CELL_FLAG_END set, but are backed only by `sizeof(struct Reb_Header)`.
 //
 // In the release build, it distinguishes "pairing" nodes (holders for two
 // REBVALs in the same pool as ordinary REBSERs) from an ordinary REBSER node.
@@ -277,11 +280,12 @@ struct Reb_Header {
 
 
 // There are two special invalid bytes in UTF8 which have a leading "110"
-// bit pattern, and these are used to signal the header bytes in trashed
-// values...this is why NODE_FLAG_CELL is chosen at its position.
+// bit pattern, which are freed nodes.  These two patterns are for freed bytes
+// and "freed cells"...though NODE_FLAG_FREE is not generally used on purpose
+// (mostly happens if reading uninitialized memory)
 //
 #define FREED_SERIES_BYTE 192
-#define TRASH_CELL_BYTE 193
+#define FREED_CELL_BYTE 193
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -314,7 +318,7 @@ struct Reb_Node {
         (did (cast(struct Reb_Node*, (p))->header.bits & NODE_FLAG_FREE))
 #else
     // In the debug build, add in an extra check that the left 8 bits of any
-    // freed nodes match FREED_SERIES_BYTE or TRASH_CELL_BYTE.  This is
+    // freed nodes match FREED_SERIES_BYTE or FREED_CELL_BYTE.  This is
     // needed to distinguish freed nodes from valid UTF8 strings, to implement
     // features like polymorphic fail() or distinguishing strings in the API.
     //
@@ -322,65 +326,13 @@ struct Reb_Node {
         struct Reb_Node *n = cast(struct Reb_Node*, p);
 
         if (not (n->header.bits & NODE_FLAG_FREE))
-            return FALSE;
+            return false;
 
         REBYTE left_8 = LEFT_8_BITS(n->header.bits);
-        assert(left_8 == FREED_SERIES_BYTE or left_8 == TRASH_CELL_BYTE);
-        return TRUE;
+        assert(left_8 == FREED_SERIES_BYTE or left_8 == FREED_CELL_BYTE);
+        return true;
     }
 #endif
-
-
-//
-// With these definitions:
-//
-//     struct Foo_Type { struct Reb_Header header; int x; }
-//     struct Foo_Type *foo = ...;
-//
-//     struct Bar_Type { struct Reb_Header header; float x; }
-//     struct Bar_Type *bar = ...;
-//
-// This C code:
-//
-//     foo->header.bits = 1020;
-//
-// ...is actually different *semantically* from this code:
-//
-//     struct Reb_Header *alias = &foo->header;
-//     alias->bits = 1020;
-//
-// The first is considered as not possibly able to affect the header in a
-// Bar_Type.  It only is seen as being able to influence the header in other
-// Foo_Type instances.
-//
-// The second case, by forcing access through a generic aliasing pointer,
-// will cause the optimizer to realize all bets are off for any type which
-// might contain a `struct Reb_Header`.
-//
-// This is an important point to know, with certain optimizations of writing
-// headers through one type and then reading them through another.  That
-// trick is used for "implicit termination", see documentation of IS_END().
-//
-// (Note that this "feature" of writing through pointers actually slows
-// things down.  Desire to control this behavior is why the `restrict`
-// keyword exists in C99: https://en.wikipedia.org/wiki/Restrict )
-//
-inline static void Init_Endlike_Header(
-    struct Reb_Header *alias,
-    uintptr_t bits
-){
-    // Endlike headers have the leading bits `10` so they don't look like a
-    // UTF-8 string.  This makes them look like an "in use node", and they
-    // of course have NODE_FLAG_END set.  They do not have NODE_FLAG_CELL
-    // set, however, which prevents value writes to them.
-    //
-    assert(
-        0 == (bits & (
-            NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_END | NODE_FLAG_CELL
-        ))
-    );
-    alias->bits = bits | NODE_FLAG_NODE | NODE_FLAG_END;
-}
 
 
 //=////////////////////////////////////////////////////////////////////////=//

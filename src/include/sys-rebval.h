@@ -70,6 +70,60 @@
 //
 
 
+// v-- BEGIN GENERAL CELL BITS HERE, third byte in the header
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+//  CELL_FLAG_END (eight from the left bit)
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// If set, it means this header should signal the termination of an array
+// of REBVAL, as in `for (; NOT_END(value); ++value) {}` loops.  In this
+// sense it means the header is functioning much like a null-terminator for
+// C strings.
+//
+// *** This bit being set does not necessarily mean the header is sitting at
+// the head of a full REBVAL-sized slot! ***
+//
+// Some data structures punctuate arrays of REBVALs with a Reb_Header that
+// has the CELL_FLAG_END bit set, -but- the NODE_FLAG_CELL bit clear.  This
+// functions fine as the terminator for a finite number of REBVAL cells, but
+// can only be read with IS_END() with no other operations legal.
+//
+// It's only valid to overwrite end markers when NODE_FLAG_CELL is set.
+//
+#define CELL_FLAG_END \
+    FLAGIT_LEFT(8)
+
+#define CELL_BYTE_END 0x80 // put in the second byte by SET_END()
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+//  CELL_FLAG_PROTECTED
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// Values can carry a user-level protection bit.  The bit is not copied by
+// Move_Value(), and hence reading a protected value and writing it to
+// another location will not propagate the protectedness from the original
+// value to the copy.
+//
+// This is called a CELL_FLAG and not a VALUE_FLAG because any formatted cell
+// can be tested for it, even if it is "trash".  This means writing routines
+// that are putting data into a cell for the first time can check the bit.
+// (Series, having more than one kind of protection, put those bits in the
+// "info" so they can all be checked at once...otherwise there might be a
+// shared NODE_FLAG_PROTECTED in common.)
+
+#define CELL_FLAG_PROTECTED \
+    FLAGIT_LEFT(9)
+
+#define CELL_BYTE_PROTECTED_END 192 // second byte if both protected and end
+
+
 //=////////////////////////////////////////////////////////////////////////=//
 //
 //  VALUE_FLAG_THROWN
@@ -98,7 +152,7 @@
 //     }
 //
 #define VALUE_FLAG_THROWN \
-    FLAGIT_LEFT(GENERAL_CELL_BIT + 0)
+    FLAGIT_LEFT(10)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -124,7 +178,7 @@
 // reclaim the bit for a "higher purpose".
 //
 #define VALUE_FLAG_FALSEY \
-    FLAGIT_LEFT(GENERAL_CELL_BIT + 1)
+    FLAGIT_LEFT(11)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -148,7 +202,7 @@
 // representing paths with newlines in them may be needed.
 //
 #define VALUE_FLAG_NEWLINE_BEFORE \
-    FLAGIT_LEFT(GENERAL_CELL_BIT + 2)
+    FLAGIT_LEFT(12)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -174,33 +228,7 @@
 // That has a lot of impact for the new user experience.
 //
 #define VALUE_FLAG_UNEVALUATED \
-    FLAGIT_LEFT(GENERAL_CELL_BIT + 3)
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  CELL_FLAG_STACK
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// When writing to a value cell, it is sometimes necessary to know how long
-// that cell will "be alive".  This is important if there is some stack-based
-// transient structure in the source cell, which would need to be converted
-// into something longer-lived if the destination cell will outlive it.
-//
-// Hence cells must be formatted to say whether they are CELL_FLAG_STACK or
-// not, before any writing can be done to them.  If they are not then they
-// are presumed to be indefinite lifetime (e.g. cells resident inside of an
-// array managed by the garbage collector).
-//
-// But if a cell is marked with CELL_FLAG_STACK, that means it is expected
-// that scanning *backwards* in memory will find a specially marked REB_FRAME
-// cell, which will lead to the frame to whose lifetime the cell is bound.
-//
-// !!! This feature is a work in progress.
-//
-#define CELL_FLAG_STACK \
-    FLAGIT_LEFT(GENERAL_CELL_BIT + 4)
+    FLAGIT_LEFT(13)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -220,29 +248,7 @@
 //
 
 #define VALUE_FLAG_ENFIXED \
-    FLAGIT_LEFT(GENERAL_CELL_BIT + 5)
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  CELL_FLAG_PROTECTED
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Values can carry a user-level protection bit.  The bit is not copied by
-// Move_Value(), and hence reading a protected value and writing it to
-// another location will not propagate the protectedness from the original
-// value to the copy.
-//
-// This is called a CELL_FLAG and not a VALUE_FLAG because any formatted cell
-// can be tested for it, even if it is "trash".  This means writing routines
-// that are putting data into a cell for the first time can check the bit.
-// (Series, having more than one kind of protection, put those bits in the
-// "info" so they can all be checked at once...otherwise there might be a
-// shared NODE_FLAG_PROTECTED in common.)
-
-#define CELL_FLAG_PROTECTED \
-    FLAGIT_LEFT(GENERAL_CELL_BIT + 6)
+    FLAGIT_LEFT(14)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -260,14 +266,66 @@
 //
 
 #define VALUE_FLAG_EVAL_FLIP \
-    FLAGIT_LEFT(GENERAL_CELL_BIT + 7)
+    FLAGIT_LEFT(15)
 
 
 
-// v-- BEGIN TYPE SPECIFIC BITS HERE
+// v-- BEGIN TYPE SPECIFIC BITS HERE, third byte in the header
 
 
 #define TYPE_SPECIFIC_BIT (GENERAL_CELL_BIT + 8)
+
+
+//
+// With these definitions:
+//
+//     struct Foo_Type { struct Reb_Header header; int x; }
+//     struct Foo_Type *foo = ...;
+//
+//     struct Bar_Type { struct Reb_Header header; float x; }
+//     struct Bar_Type *bar = ...;
+//
+// This C code:
+//
+//     foo->header.bits = 1020;
+//
+// ...is actually different *semantically* from this code:
+//
+//     struct Reb_Header *alias = &foo->header;
+//     alias->bits = 1020;
+//
+// The first is considered as not possibly able to affect the header in a
+// Bar_Type.  It only is seen as being able to influence the header in other
+// Foo_Type instances.
+//
+// The second case, by forcing access through a generic aliasing pointer,
+// will cause the optimizer to realize all bets are off for any type which
+// might contain a `struct Reb_Header`.
+//
+// This is an important point to know, with certain optimizations of writing
+// headers through one type and then reading them through another.  That
+// trick is used for "implicit termination", see documentation of IS_END().
+//
+// (Note that this "feature" of writing through pointers actually slows
+// things down.  Desire to control this behavior is why the `restrict`
+// keyword exists in C99: https://en.wikipedia.org/wiki/Restrict )
+//
+inline static void Init_Endlike_Header(
+    struct Reb_Header *alias,
+    uintptr_t bits
+){
+    // Endlike headers have the leading bits `10` so they don't look like a
+    // UTF-8 string.  This makes them look like an "in use node", and they
+    // of course have CELL_FLAG_END set.  They do not have NODE_FLAG_CELL
+    // set, however, which prevents value writes to them.
+    //
+    assert(
+        0 == (bits & (
+            NODE_FLAG_NODE | NODE_FLAG_FREE | CELL_FLAG_END | NODE_FLAG_CELL
+        ))
+    );
+    alias->bits = bits | NODE_FLAG_NODE | CELL_FLAG_END;
+}
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -840,6 +898,31 @@ struct Reb_Cell
 };
 
 
+// To help speed up VAL_TYPE_Debug, we push the trash flag into the farthest
+// right value bit...on a 32-bit architecture, this is going to be the 24th
+// flag...pushing up against the rightmost 8-bits used for the value's type.
+// We still don't completely reserve it...it's just used for REB_BLANK and
+// REB_MAX_PLUS_ONE_TRASH, but any other types that use this flag would
+// have their VAL_TYPE() a little slower in the debug build.
+//
+#if defined(NDEBUG)
+    #define TRASH_FLAG_UNREADABLE_IF_DEBUG 0
+#else
+    #define TRASH_FLAG_UNREADABLE_IF_DEBUG \
+        FLAGIT_LEFT(23)
+#endif
+
+#if defined(DEBUG_TRASH_MEMORY)
+    #define REB_MAX_PLUS_ONE_TRASH \
+        (REB_MAX + 1) // used in the debug build to help identify trash nodes
+#else
+    #define REB_MAX_PLUS_ONE_TRASH 0
+#endif
+
+#define HEADERIZE_KIND(kind) \
+    FLAGBYTE_RIGHT(kind)
+
+
 //=////////////////////////////////////////////////////////////////////////=//
 //
 //  RELATIVE AND SPECIFIC VALUES (difference enforced in C++ build only)
@@ -873,12 +956,20 @@ struct Reb_Cell
     //
     struct Reb_Relative_Value : public Reb_Cell
     {
-        // This cannot have any custom constructors or destructors; relative
-        // values are found in unions and structures in places that
-        // non-trivial construction is disallowed.  We must use the C++11
-        // `= default` feature to request "trivial" construction.
+        // In C++11, it is now formally legal to add constructors to types
+        // without interfering with their "standard layout" properties, or
+        // making them uncopyable with memcpy(), etc.  For the rules, see:
+        //
+        //     http://stackoverflow.com/a/7189821/211160
+        //
+        // No required functionality should be implemented via the constructor
+        // as the C build must have the same feature set as the C++ one.
+        // But optional debug features can be added.  (Since most REBVAL* are
+        // produced by casts using KNOWN(), it's not clear exactly what use
+        // those would be.)
         //
         Reb_Relative_Value () = default;
+        ~Reb_Relative_Value () = default;
 
         // Overwriting one RELVAL* with another RELVAL* cannot be done with
         // a direct assignment, such as `*dest = *src;`
@@ -900,25 +991,14 @@ struct Reb_Cell
     struct Reb_Specific_Value : public Reb_Relative_Value {
     #if !defined(NDEBUG)
         //
-        // In C++11, it is now formally legal to add constructors to types
-        // without interfering with their "standard layout" properties, or
-        // making them uncopyable with memcpy(), etc.  For the rules, see:
+        // See notes in Reb_Relative_Value about the legality of putting some
+        // kind of cell hookpoint here.  For now, just make sure the cell was
+        // initialized with valid bits at some point.
         //
-        //     http://stackoverflow.com/a/7189821/211160
-        //
-        // No required functionality should be implemented via the constructor
-        // as the C build must have the same feature set as the C++ one.
-        // But optional debug features can be added.  (Since most REBVAL* are
-        // produced by casts using KNOWN(), it's not clear exactly what use
-        // those would be.)
-        //
-        Reb_Specific_Value () {}
-
-        // The destructor checks that all REBVALs wound up with NODE_FLAG_CELL
-        // set on them.  This would be done by DECLARE_LOCAL () if a stack
-        // value, and by the Make_Series() construction for SERIES_FLAG_ARRAY.
-        //
-        ~Reb_Specific_Value(); // defined in %c-value.c
+        Reb_Specific_Value () = default;
+        ~Reb_Specific_Value () {
+            assert(this->header.bits & (NODE_FLAG_NODE | NODE_FLAG_CELL));
+        }
 
         // Overwriting one REBVAL* with another REBVAL* cannot be done with
         // a direct assignment, such as `*dest = *src;`  Instead one is
@@ -963,7 +1043,7 @@ struct Reb_Cell
             // The static checking only affects IS_END(), there's no
             // compile-time check that can determine if an END is assigned.
             //
-            assert(not rhs or not (rhs->header.bits & NODE_FLAG_END));
+            assert(not rhs or not (rhs->header.bits & CELL_FLAG_END));
 
             p = rhs;
             return rhs;
