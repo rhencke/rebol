@@ -96,8 +96,8 @@ inline static REBSTR *STR_CANON(REBSTR *str) {
 }
 
 inline static OPT_REBSYM STR_SYMBOL(REBSTR *str) {
-    uintptr_t sym = RIGHT_16_BITS(str->header.bits);
-    assert(RIGHT_16_BITS(STR_CANON(str)->header.bits) == sym);
+    uint16_t sym = SECOND_UINT16(str->header);
+    assert(sym == SECOND_UINT16(STR_CANON(str)->header));
     return cast(REBSYM, sym);
 }
 

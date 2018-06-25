@@ -66,7 +66,7 @@
 //
 // Assignments to bits and fields in the header are done through a native
 // platform-sized integer...while still being able to control the underlying
-// ordering of those bits in memory.  See FLAGIT_LEFT() in %reb-c.h for how
+// ordering of those bits in memory.  See FLAG_LEFT_BIT() in %reb-c.h for how
 // this is achieved.
 //
 // This control allows the leftmost byte of a Rebol header (the one you'd
@@ -86,7 +86,7 @@ struct Reb_Header {
     //
     // unsigned integer that's the size of a platform pointer (e.g. 32-bits on
     // 32 bit platforms and 64-bits on 64 bit machines).  See macros like
-    // FLAGIT_LEFT() for how these bits are laid out in a special way.
+    // FLAG_LEFT_BIT() for how these bits are laid out in a special way.
     //
     // !!! Future application of the 32 unused header bits on 64-bit machines
     // might add some kind of optimization or instrumentation, though the
@@ -111,7 +111,7 @@ struct Reb_Header {
 // other situations.  Better to sacrifice the bit and keep it straightforward.
 //
 #define NODE_FLAG_NODE \
-    FLAGIT_LEFT(0)
+    FLAG_LEFT_BIT(0)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -133,7 +133,7 @@ struct Reb_Header {
 // NODE_FLAG_CELL for why it is chosen to be that 8th bit.
 //
 #define NODE_FLAG_FREE \
-    FLAGIT_LEFT(1)
+    FLAG_LEFT_BIT(1)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -157,7 +157,7 @@ struct Reb_Header {
 // would you know after running it that pointers inside weren't stored?)
 //
 #define NODE_FLAG_MANAGED \
-    FLAGIT_LEFT(2)
+    FLAG_LEFT_BIT(2)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -179,7 +179,7 @@ struct Reb_Header {
 // not an API REBVAL) then values can use it for other things.
 //
 #define NODE_FLAG_MARKED \
-    FLAGIT_LEFT(3)
+    FLAG_LEFT_BIT(3)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -191,7 +191,7 @@ struct Reb_Header {
 // Unused, as of yet.
 //
 #define NODE_FLAG_4 \
-    FLAGIT_LEFT(4)
+    FLAG_LEFT_BIT(4)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -208,7 +208,7 @@ struct Reb_Header {
 // into or out of API handle cells the flag is left untouched.
 //
 #define NODE_FLAG_ROOT \
-    FLAGIT_LEFT(5)
+    FLAG_LEFT_BIT(5)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -240,7 +240,7 @@ struct Reb_Header {
 // SERIES_INFO_INACCESSIBLE will be true).
 //
 #define NODE_FLAG_STACK \
-    FLAGIT_LEFT(6)
+    FLAG_LEFT_BIT(6)
 
 #define CELL_FLAG_STACK NODE_FLAG_STACK
 #define SERIES_FLAG_STACK NODE_FLAG_STACK
@@ -270,7 +270,7 @@ struct Reb_Header {
 // a leading byte of a string.
 //
 #define NODE_FLAG_CELL \
-    FLAGIT_LEFT(7)
+    FLAG_LEFT_BIT(7)
 
 
 // v-- BEGIN GENERAL CELL AND SERIES BITS WITH THIS INDEX
@@ -317,19 +317,16 @@ struct Reb_Node {
     #define IS_FREE_NODE(p) \
         (did (cast(struct Reb_Node*, (p))->header.bits & NODE_FLAG_FREE))
 #else
-    // In the debug build, add in an extra check that the left 8 bits of any
-    // freed nodes match FREED_SERIES_BYTE or FREED_CELL_BYTE.  This is
-    // needed to distinguish freed nodes from valid UTF8 strings, to implement
-    // features like polymorphic fail() or distinguishing strings in the API.
-    //
     inline static REBOOL IS_FREE_NODE(void *p) {
         struct Reb_Node *n = cast(struct Reb_Node*, p);
 
         if (not (n->header.bits & NODE_FLAG_FREE))
             return false;
 
-        REBYTE left_8 = LEFT_8_BITS(n->header.bits);
-        assert(left_8 == FREED_SERIES_BYTE or left_8 == FREED_CELL_BYTE);
+        assert(
+            FIRST_BYTE(n->header) == FREED_SERIES_BYTE
+            or FIRST_BYTE(n->header) == FREED_CELL_BYTE
+        );
         return true;
     }
 #endif

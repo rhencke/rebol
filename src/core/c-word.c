@@ -303,13 +303,6 @@ new_interning: ; // semicolon needed for statement
         SERIES_FLAG_UTF8_STRING | SERIES_FLAG_FIXED_SIZE
     );
 
-#if !defined(NDEBUG)
-    if (size + 1 > sizeof(intern->content))
-        assert(GET_SER_INFO(intern, SERIES_INFO_HAS_DYNAMIC));
-    else
-        assert(NOT_SER_INFO(intern, SERIES_INFO_HAS_DYNAMIC));
-#endif
-
     // The incoming string isn't always null terminated, e.g. if you are
     // interning `foo` in `foo: bar + 1` it would be colon-terminated.
     //
@@ -364,8 +357,8 @@ new_interning: ; // semicolon needed for statement
         // If the canon form had a SYM_XXX for quick comparison of %words.r
         // words in C switch statements, the synonym inherits that number.
         //
-        assert(RIGHT_16_BITS(intern->header.bits) == 0);
-        intern->header.bits |= FLAGUINT16_RIGHT(STR_SYMBOL(canon));
+        assert(SECOND_UINT16(intern->header) == 0);
+        SECOND_UINT16(intern->header) = STR_SYMBOL(canon);
     }
 
   #if !defined(NDEBUG)
@@ -379,7 +372,6 @@ new_interning: ; // semicolon needed for statement
     // to know if a shared instance had been managed by someone else or not.
     //
     MANAGE_SERIES(intern);
-    assert(LEFT_N_BITS(intern->header.bits, 4) != 0);
     return intern;
 }
 
@@ -585,8 +577,8 @@ void Startup_Symbols(REBARR *words)
             // the header are free for the symbol number (could probably use
             // less than 16 bits, but 8 is insufficient, length %words.r > 256)
             //
-            assert(RIGHT_16_BITS(name->header.bits) == 0);
-            name->header.bits |= FLAGUINT16_RIGHT(sym);
+            assert(SECOND_UINT16(name->header) == 0);
+            SECOND_UINT16(name->header) = sym;
             assert(SAME_SYM_NONZERO(STR_SYMBOL(name), sym));
 
             name = LINK(name).synonym;

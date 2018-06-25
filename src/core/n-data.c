@@ -538,7 +538,7 @@ REBNATIVE(get)
 //
 //  try: native [
 //
-//  {Turns nulls into blanks, ANY-VALUE! passes through. (See Also: OPT)}
+//  {Turn nulls/voids into blanks, all else passes through (see also: OPT)}
 //
 //      return: [any-value!]
 //          {blank if input was null, or original value otherwise}
@@ -549,7 +549,7 @@ REBNATIVE(try)
 {
     INCLUDE_PARAMS_OF_TRY;
 
-    if (IS_NULLED(ARG(optional)))
+    if (IS_NULLED_OR_VOID(ARG(optional)))
         return R_BLANK;
 
     Move_Value(D_OUT, ARG(optional));

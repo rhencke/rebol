@@ -43,10 +43,10 @@
 
 #ifdef NDEBUG
     #define WORD_FLAG(n) \
-        FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n))
+        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
 #else
     #define WORD_FLAG(n) \
-        (FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_WORD))
+        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_WORD))
 #endif
 
 

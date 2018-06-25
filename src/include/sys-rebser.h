@@ -100,7 +100,7 @@
 // a REBSER or a REBVAL for END.  If push comes to shove that could be done
 // differently and this bit retaken for a miscellaneous SERIES_FLAG.
 //
-#define SERIES_FLAG_8_IS_FALSE FLAGIT_LEFT(8) // NOT(NODE_FLAG_CELL)
+#define SERIES_FLAG_8_IS_FALSE FLAG_LEFT_BIT(8) // NOT(NODE_FLAG_CELL)
 
 
 //=//// SERIES_FLAG_FIXED_SIZE ////////////////////////////////////////////=//
@@ -121,7 +121,7 @@
 // equivalent but let the callsite distinguish the intent.
 //
 #define SERIES_FLAG_FIXED_SIZE \
-    FLAGIT_LEFT(9)
+    FLAG_LEFT_BIT(9)
 
 #define SERIES_FLAG_DONT_RELOCATE SERIES_FLAG_FIXED_SIZE
 
@@ -140,7 +140,7 @@
 // http://utf8everywhere.org/
 //
 #define SERIES_FLAG_UTF8_STRING \
-    FLAGIT_LEFT(10)
+    FLAG_LEFT_BIT(10)
 
 
 //=//// SERIES_FLAG_POWER_OF_2 ////////////////////////////////////////////=//
@@ -163,7 +163,7 @@
 // was not necessary there.
 //
 #define SERIES_FLAG_POWER_OF_2 \
-    FLAGIT_LEFT(11)
+    FLAG_LEFT_BIT(11)
 
 
 //=//// SERIES_FLAG_ARRAY /////////////////////////////////////////////////=//
@@ -178,10 +178,10 @@
 // allows series of items that aren't REBVAL, just incidentally the same size.
 //
 #define SERIES_FLAG_ARRAY \
-    FLAGIT_LEFT(12)
+    FLAG_LEFT_BIT(12)
 
 
-// ^-- STOP GENERIC SERIES FLAGS AT FLAGIT_LEFT(15) --^
+// ^-- STOP GENERIC SERIES FLAGS AT FLAG_LEFT_BIT(15) --^
 //
 // If a series is not an array, then the rightmost 16 bits of the series flags
 // are used to store an arbitrary per-series-type 16 bit number.  Right now,
@@ -215,7 +215,7 @@
 // ->misc and ->link fields for caching purposes in strings.
 //
 #define ARRAY_FLAG_FILE_LINE \
-    FLAGIT_LEFT(GENERAL_ARRAY_BIT + 0)
+    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 0)
 
 
 //=//// ARRAY_FLAG_NULLEDS_LEGAL //////////////////////////////////////////=//
@@ -230,7 +230,7 @@
 // case are used to represent unset variables.
 //
 #define ARRAY_FLAG_NULLEDS_LEGAL \
-    FLAGIT_LEFT(GENERAL_ARRAY_BIT + 1)
+    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 1)
 
 
 //=//// ARRAY_FLAG_PARAMLIST //////////////////////////////////////////////=//
@@ -239,7 +239,7 @@
 // ACTION! (the first element will be a canon value of the function)
 //
 #define ARRAY_FLAG_PARAMLIST \
-    FLAGIT_LEFT(GENERAL_ARRAY_BIT + 2)
+    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 2)
 
 
 //=//// ARRAY_FLAG_VARLIST ////////////////////////////////////////////////=//
@@ -252,7 +252,7 @@
 // See notes on REBCTX for further details about what a context is.
 //
 #define ARRAY_FLAG_VARLIST \
-    FLAGIT_LEFT(GENERAL_ARRAY_BIT + 3)
+    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 3)
 
 
 //=//// ARRAY_FLAG_PAIRLIST ///////////////////////////////////////////////=//
@@ -261,7 +261,7 @@
 // series also has a hashlist linked to in the series node.
 //
 #define ARRAY_FLAG_PAIRLIST \
-    FLAGIT_LEFT(GENERAL_ARRAY_BIT + 4)
+    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 4)
 
 
 //=//// ARRAY_FLAG_5 /////////////////////////////////////////////////////=//
@@ -269,7 +269,7 @@
 // Not used as of yet.
 //
 #define ARRAY_FLAG_5 \
-    FLAGIT_LEFT(GENERAL_ARRAY_BIT + 5)
+    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 5)
 
 
 //=//// ARRAY_FLAG_TAIL_NEWLINE ///////////////////////////////////////////=//
@@ -282,10 +282,10 @@
 // tail of an array.
 //
 #define ARRAY_FLAG_TAIL_NEWLINE \
-    FLAGIT_LEFT(GENERAL_ARRAY_BIT + 6)
+    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 6)
 
 
-// ^-- STOP ARRAY FLAGS AT FLAGIT_LEFT(31) --^
+// ^-- STOP ARRAY FLAGS AT FLAG_LEFT_BIT(31) --^
 //
 // Arrays can use all the way up to the 32-bit limit on the flags (since
 // they're not using the arbitrary 16-bit number the way that a REBSTR is for
@@ -317,8 +317,8 @@
 // the lifetime of the series.  (?)
 //
 
-#define SERIES_INFO_0_IS_TRUE FLAGIT_LEFT(0) // NODE_FLAG_NODE
-#define SERIES_INFO_1_IS_FALSE FLAGIT_LEFT(1) // NOT(NODE_FLAG_FREE)
+#define SERIES_INFO_0_IS_TRUE FLAG_LEFT_BIT(0) // NODE_FLAG_NODE
+#define SERIES_INFO_1_IS_FALSE FLAG_LEFT_BIT(1) // NOT(NODE_FLAG_FREE)
 
 
 //=//// SERIES_INFO_HAS_DYNAMIC ///////////////////////////////////////////=//
@@ -334,7 +334,7 @@
 // Note: Same bit as NODE_FLAG_MANAGED, should not be relevant.
 //
 #define SERIES_INFO_HAS_DYNAMIC \
-    FLAGIT_LEFT(2)
+    FLAG_LEFT_BIT(2)
 
 
 //=//// SERIES_INFO_BLACK /////////////////////////////////////////////////=//
@@ -348,7 +348,7 @@
 // Note: Same bit as NODE_FLAG_MARKED, interesting but irrelevant.
 //
 #define SERIES_INFO_BLACK \
-    FLAGIT_LEFT(3)
+    FLAG_LEFT_BIT(3)
 
 
 //=//// SERIES_INFO_PROTECTED /////////////////////////////////////////////=//
@@ -365,7 +365,7 @@
 // Note: Same bit as NODE_FLAG_ROOT, should not be relevant.
 //
 #define SERIES_INFO_PROTECTED \
-    FLAGIT_LEFT(4)
+    FLAG_LEFT_BIT(4)
 
 
 //=//// SERIES_INFO_HOLD //////////////////////////////////////////////////=//
@@ -382,7 +382,7 @@
 // Note: Same bit as NODE_FLAG_SPECIAL, should not be relevant.
 // 
 #define SERIES_INFO_HOLD \
-    FLAGIT_LEFT(5)
+    FLAG_LEFT_BIT(5)
 
 
 //=//// SERIES_INFO_FROZEN ////////////////////////////////////////////////=//
@@ -400,11 +400,11 @@
 // value in the series data...then by that point it cannot be enforced.
 //
 #define SERIES_INFO_FROZEN \
-    FLAGIT_LEFT(6)
+    FLAG_LEFT_BIT(6)
 
 
-#define SERIES_INFO_7_IS_FALSE FLAGIT_LEFT(7) // NOT(NODE_FLAG_CELL)
-#define SERIES_INFO_8_IS_TRUE FLAGIT_LEFT(8) // CELL_FLAG_END
+#define SERIES_INFO_7_IS_FALSE FLAG_LEFT_BIT(7) // NOT(NODE_FLAG_CELL)
+#define SERIES_INFO_8_IS_TRUE FLAG_LEFT_BIT(8) // CELL_FLAG_END
 
 
 //=//// SERIES_INFO_AUTO_LOCKED ///////////////////////////////////////////=//
@@ -419,7 +419,7 @@
 // !!! The file-line feature is pending.
 //
 #define SERIES_INFO_AUTO_LOCKED \
-    FLAGIT_LEFT(9)
+    FLAG_LEFT_BIT(9)
 
 
 //=//// SERIES_INFO_INACCESSIBLE //////////////////////////////////////////=//
@@ -437,7 +437,7 @@
 // stack and dynamic values+locals).  These are potential things to look at.
 //
 #define SERIES_INFO_INACCESSIBLE \
-    FLAGIT_LEFT(10)
+    FLAG_LEFT_BIT(10)
 
 
 //=//// FRAME_INFO_FAILED /////////////////////////////////////////////////=//
@@ -454,7 +454,7 @@
 // for granted that it will GC things.
 //
 #define FRAME_INFO_FAILED \
-    FLAGIT_LEFT(11)
+    FLAG_LEFT_BIT(11)
 
 
 //=//// STRING_INFO_CANON /////////////////////////////////////////////////=//
@@ -469,7 +469,7 @@
 // holding an index during binding.
 //
 #define STRING_INFO_CANON \
-    FLAGIT_LEFT(12)
+    FLAG_LEFT_BIT(12)
 
 
 //=//// SERIES_INFO_SHARED_KEYLIST ////////////////////////////////////////=//
@@ -485,7 +485,7 @@
 // the GC would have to clean up.
 //
 #define SERIES_INFO_SHARED_KEYLIST \
-    FLAGIT_LEFT(13)
+    FLAG_LEFT_BIT(13)
 
 
 //=//// SERIES_INFO_API_RELEASE ///////////////////////////////////////////=//
@@ -499,14 +499,14 @@
 // contention for bits may become an issue in the future.
 //
 #define SERIES_INFO_API_RELEASE \
-    FLAGIT_LEFT(14)
+    FLAG_LEFT_BIT(14)
 
 
-// ^-- STOP AT FLAGIT_LEFT(15) --^
+// ^-- STOP AT FLAG_LEFT_BIT(15) --^
 //
 // The rightmost 16 bits of the series info is used to store an 8 bit length
 // for non-dynamic series and an 8 bit width of the series.  So the info
-// flags need to stop at FLAGIT_LEFT(15).
+// flags need to stop at FLAG_LEFT_BIT(15).
 //
 #ifdef CPLUSPLUS_11
     static_assert(14 < 16, "SERIES_INFO_XXX too high");

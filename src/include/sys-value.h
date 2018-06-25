@@ -181,7 +181,7 @@
 // future-proof concept in the first place.  Use a full byte for speed.
 //
 #define VAL_TYPE_RAW(v) \
-    ((enum Reb_Kind)(RIGHT_8_BITS((v)->header.bits)))
+    cast(enum Reb_Kind, const_FOURTH_BYTE((v)->header))
 
 #ifdef NDEBUG
     #define VAL_TYPE(v) \
@@ -328,7 +328,7 @@
     // borderline assert doesn't wind up taking up 20% of the debug's runtime.
     //
     #define CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(flags) \
-        enum Reb_Kind category = (enum Reb_Kind)(RIGHT_8_BITS(flags)); \
+        enum Reb_Kind category = cast(enum Reb_Kind, FOURTH_BYTE(flags)); \
         assert(kind <= REB_MAX); /* REB_0 is okay here */ \
         if (category != REB_0) { \
             if (kind != category) { \
@@ -339,7 +339,7 @@
                 else \
                     assert(FALSE); \
             } \
-            CLEAR_8_RIGHT_BITS(flags); \
+            FOURTH_BYTE(flags) = 0; \
         } \
 
     inline static void SET_VAL_FLAGS(RELVAL *v, uintptr_t f) {
@@ -592,8 +592,7 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     // Otherwise the value-specific flags might be misinterpreted.
     //
     ASSERT_CELL_WRITABLE_EVIL_MACRO(v, __FILE__, __LINE__);
-    CLEAR_8_RIGHT_BITS(v->header.bits);
-    v->header.bits |= HEADERIZE_KIND(kind);
+    FOURTH_BYTE(v->header) = kind;
 }
 
 
@@ -685,11 +684,9 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
       #endif
     ){
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
+        FOURTH_BYTE(v->header) = REB_MAX_PLUS_ONE_TRASH;
 
-        CLEAR_8_RIGHT_BITS(v->header.bits);
-        v->header.bits |= HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
-
-        SET_END_Core(v);
+        SET_END_Core(v); // only thing that's done in release build
 
         TRACK_CELL_IF_DEBUG(v, file, line);
     }

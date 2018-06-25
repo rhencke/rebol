@@ -40,10 +40,8 @@
 
 #define MAX_SERIES_WIDE 0x100
 
-inline static void SER_SET_WIDE(REBSER *s, REBYTE w) {
-    CLEAR_8_RIGHT_BITS(s->info.bits);
-    s->info.bits |= FLAGBYTE_RIGHT(w);
-}
+#define SER_SET_WIDE(s,w) \
+    (FOURTH_BYTE((s)->info) = w)
 
 //
 // Bias is empty space in front of head:

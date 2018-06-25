@@ -48,67 +48,67 @@
 // memory pool.  (This is not the long term plan.)
 
 #define GOBF_0_IS_TRUE \
-    FLAGIT_LEFT(0) // aligns with NODE_FLAG_NODE
+    FLAG_LEFT_BIT(0) // aligns with NODE_FLAG_NODE
 
 #define GOBF_1_IS_FALSE \
-    FLAGIT_LEFT(1) // aligns with NODE_FLAG_FREE
+    FLAG_LEFT_BIT(1) // aligns with NODE_FLAG_FREE
 
 #define GOBF_MARK \
-    FLAGIT_LEFT(2)
+    FLAG_LEFT_BIT(2)
 
 #define GOBF_TOP \
-    FLAGIT_LEFT(3) // Top level (window or output image)
+    FLAG_LEFT_BIT(3) // Top level (window or output image)
 
 #define GOBF_WINDOW \
-    FLAGIT_LEFT(4) // Window (parent is OS window reference)
+    FLAG_LEFT_BIT(4) // Window (parent is OS window reference)
 
 #define GOBF_OPAQUE \
-    FLAGIT_LEFT(5) // Has no alpha
+    FLAG_LEFT_BIT(5) // Has no alpha
 
 #define GOBF_STATIC \
-    FLAGIT_LEFT(6) // Does not change
+    FLAG_LEFT_BIT(6) // Does not change
     
 #define GOBF_HIDDEN \
-    FLAGIT_LEFT(7) // Is hidden (e.g. hidden window)
+    FLAG_LEFT_BIT(7) // Is hidden (e.g. hidden window)
 
 #define GOBF_RESIZE \
-    FLAGIT_LEFT(8) // Can be resized
+    FLAG_LEFT_BIT(8) // Can be resized
 
 #define GOBF_NO_TITLE \
-    FLAGIT_LEFT(9) // Has window title
+    FLAG_LEFT_BIT(9) // Has window title
 
 #define GOBF_NO_BORDER \
-    FLAGIT_LEFT(10) // Has no window border
+    FLAG_LEFT_BIT(10) // Has no window border
 
 #define GOBF_DROPABLE \
-    FLAGIT_LEFT(11) // Let window receive drag and drop
+    FLAG_LEFT_BIT(11) // Let window receive drag and drop
 
 #define GOBF_TRANSPARENT \
-    FLAGIT_LEFT(12) // Window is in transparent mode
+    FLAG_LEFT_BIT(12) // Window is in transparent mode
 
 #define GOBF_POPUP \
-    FLAGIT_LEFT(13) // Window is a popup (with owner window)
+    FLAG_LEFT_BIT(13) // Window is a popup (with owner window)
 
 #define GOBF_MODAL \
-    FLAGIT_LEFT(14) // Modal event filtering
+    FLAG_LEFT_BIT(14) // Modal event filtering
 
 #define GOBF_ON_TOP \
-    FLAGIT_LEFT(15) // The window is always on top
+    FLAG_LEFT_BIT(15) // The window is always on top
 
 #define GOBF_ACTIVE \
-    FLAGIT_LEFT(16) // Window is active
+    FLAG_LEFT_BIT(16) // Window is active
 
 #define GOBF_MINIMIZE \
-    FLAGIT_LEFT(17) // Window is minimized
+    FLAG_LEFT_BIT(17) // Window is minimized
 
 #define GOBF_MAXIMIZE \
-    FLAGIT_LEFT(18) // Window is maximized
+    FLAG_LEFT_BIT(18) // Window is maximized
 
 #define GOBF_RESTORE \
-    FLAGIT_LEFT(19) // Window is restored
+    FLAG_LEFT_BIT(19) // Window is restored
 
 #define GOBF_FULLSCREEN \
-    FLAGIT_LEFT(20) // Window is fullscreen
+    FLAG_LEFT_BIT(20) // Window is fullscreen
 
 #if defined(CPLUSPLUS_11)
     static_assert(20 < 32, "GOBF_XXX too high"); // 32 bits on 32 bit platform

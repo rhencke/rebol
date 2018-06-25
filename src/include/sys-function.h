@@ -155,10 +155,10 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 
 #ifdef NDEBUG
     #define ACTION_FLAG(n) \
-        FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n))
+        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
 #else
     #define ACTION_FLAG(n) \
-        (FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_ACTION))
+        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_ACTION))
 #endif
 
 // RETURN will always be in the last paramlist slot (if present)

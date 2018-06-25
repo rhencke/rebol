@@ -153,14 +153,15 @@ enum Reb_Param_Class {
 #define PCLASS_ANY_QUOTE_MASK 0x02
 
 #define PCLASS_NUM_BITS 3
+#define PCLASS_BYTE_MASK 0x07 // for 3 bits, 0x00000111
 
 
 #ifdef NDEBUG
     #define TYPESET_FLAG(n) \
-        FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n))
+        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
 #else
     #define TYPESET_FLAG(n) \
-        (FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_TYPESET))
+        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_TYPESET))
 #endif
 
 
@@ -256,13 +257,13 @@ inline static enum Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
     assert(IS_TYPESET(v));
     return cast(
         enum Reb_Param_Class,
-        MID_N_BITS(v->header.bits, PCLASS_NUM_BITS)
+        (const_THIRD_BYTE(v->header) & PCLASS_BYTE_MASK)
     );
 }
 
 inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
-    CLEAR_N_MID_BITS(v->header.bits, PCLASS_NUM_BITS);
-    v->header.bits |= FLAGBYTE_MID(c);
+    THIRD_BYTE(v->header) &= ~PCLASS_BYTE_MASK;
+    THIRD_BYTE(v->header) |= c;
 }
 
 

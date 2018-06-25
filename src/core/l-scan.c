@@ -1977,10 +1977,10 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             }
 
             REBSTR *spelling = Intern_UTF8_Managed(bp, len);
+            enum Reb_Kind kind = KIND_OF_WORD_FROM_TOKEN(ss->token);
+
             DS_PUSH_TRASH;
-            Init_Any_Word(
-                DS_TOP, KIND_OF_WORD_FROM_TOKEN(ss->token), spelling
-            );
+            Init_Any_Word(DS_TOP, kind, spelling);
             break; }
 
         case TOKEN_REFINE: {

@@ -94,21 +94,14 @@ static void Assert_Basics(void)
     //
     // Sanity check the platform byte-ordering sensitive flag macros
     //
-    REBFLGS flags;
+    REBFLGS flags
+        = FLAG_LEFT_BIT(5) | FLAG_SECOND_BYTE(21) | FLAG_SECOND_UINT16(1975);
 
-    flags = FLAGIT_LEFT(0);
-    unsigned char *ch = (unsigned char*)&flags;
-    if (*ch != 128) {
-        printf("Expected 128, got %d\n", *ch);
-        panic ("Bad leftmost bit setting of platform unsigned integer.");
-    }
-
-    flags = FLAGIT_LEFT(0) | FLAGIT_LEFT(1) | FLAGBYTE_RIGHT(13);
-
-    unsigned int left = LEFT_N_BITS(flags, 3); // == 6 (binary `110`)
-    unsigned int right = RIGHT_N_BITS(flags, 3); // == 5 (binary `101`)
-    if (left != 6 or right != 5) {
-        printf("Expected 6 and 5, got %u and %u\n", left, right);
+    REBYTE m = FIRST_BYTE(flags); // 6th bit from left set (0b00000100 is 4)
+    REBYTE d = SECOND_BYTE(flags);
+    uint16_t y = SECOND_UINT16(flags);
+    if (m != 4 or d != 21 or y != 1975) {
+        printf("m = %u, d = %u, y = %u\n", m, d, y);
         panic ("Bad composed integer assignment for byte-ordering macro.");
     }
   #endif

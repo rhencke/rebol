@@ -75,8 +75,8 @@
 // Reb_Frame->cell, as well as be distinguished from a REBVAL*, a REBSER*, or
 // a UTF8 string.
 //
-#define DO_FLAG_0_IS_TRUE FLAGIT_LEFT(0) // NODE_FLAG_NODE
-#define DO_FLAG_1_IS_FALSE FLAGIT_LEFT(1) // NOT(NODE_FLAG_FREE)
+#define DO_FLAG_0_IS_TRUE FLAG_LEFT_BIT(0) // NODE_FLAG_NODE
+#define DO_FLAG_1_IS_FALSE FLAG_LEFT_BIT(1) // NOT(NODE_FLAG_FREE)
 
 
 //=//// DO_FLAG_TO_END ////////////////////////////////////////////////////=//
@@ -93,7 +93,7 @@
 // especially in light of interaction with lookahead.
 //
 #define DO_FLAG_TO_END \
-    FLAGIT_LEFT(2)
+    FLAG_LEFT_BIT(2)
 
 
 //=//// DO_FLAG_POST_SWITCH ///////////////////////////////////////////////=//
@@ -104,7 +104,7 @@
 // the point after the switch() statement, with a preloaded f->out.
 //
 #define DO_FLAG_POST_SWITCH \
-    FLAGIT_LEFT(3)
+    FLAG_LEFT_BIT(3)
 
 
 //=//// DO_FLAG_TOOK_FRAME_HOLD ///////////////////////////////////////////=//
@@ -115,7 +115,7 @@
 // finished (or on errors).  See SERIES_INFO_HOLD for more about this.
 //
 #define DO_FLAG_TOOK_FRAME_HOLD \
-    FLAGIT_LEFT(4)
+    FLAG_LEFT_BIT(4)
 
 
 //=//// DO_FLAG_APPLYING //////////////////////////////////////////////////=//
@@ -124,7 +124,7 @@
 // frame was already set up.
 //
 #define DO_FLAG_APPLYING \
-    FLAGIT_LEFT(5)
+    FLAG_LEFT_BIT(5)
 
 
 //=//// DO_FLAG_FULFILLING_ARG ////////////////////////////////////////////=//
@@ -135,11 +135,11 @@
 // also means that `add 1 <| 2` will act as an error.
 //
 #define DO_FLAG_FULFILLING_ARG \
-    FLAGIT_LEFT(6)
+    FLAG_LEFT_BIT(6)
 
 
-#define DO_FLAG_7_IS_FALSE FLAGIT_LEFT(7) // NOT(NODE_FLAG_CELL)
-#define DO_FLAG_8_IS_TRUE FLAGIT_LEFT(8) // CELL_FLAG_END
+#define DO_FLAG_7_IS_FALSE FLAG_LEFT_BIT(7) // NOT(NODE_FLAG_CELL)
+#define DO_FLAG_8_IS_TRUE FLAG_LEFT_BIT(8) // CELL_FLAG_END
 
 
 //=//// DO_FLAG_FULFILLING_SET ////////////////////////////////////////////=//
@@ -148,7 +148,7 @@
 // noticing when a frame is being used to fulfill a SET-WORD! or a SET-PATH!
 //
 #define DO_FLAG_FULFILLING_SET \
-    FLAGIT_LEFT(9)
+    FLAG_LEFT_BIT(9)
 
 
 //=//// DO_FLAG_EXPLICIT_EVALUATE /////////////////////////////////////////=//
@@ -165,7 +165,7 @@
 // !!! This feature is in the process of being designed.
 //
 #define DO_FLAG_EXPLICIT_EVALUATE \
-    FLAGIT_LEFT(10)
+    FLAG_LEFT_BIT(10)
 
 
 //=//// DO_FLAG_NO_LOOKAHEAD //////////////////////////////////////////////=//
@@ -181,7 +181,7 @@
 // adds this flag to its argument gathering call.
 //
 #define DO_FLAG_NO_LOOKAHEAD \
-    FLAGIT_LEFT(11)
+    FLAG_LEFT_BIT(11)
 
 
 //=//// DO_FLAG_NATIVE_HOLD ///////////////////////////////////////////////=//
@@ -205,7 +205,7 @@
 // the reification happens.
 //
 #define DO_FLAG_NATIVE_HOLD \
-    FLAGIT_LEFT(12)
+    FLAG_LEFT_BIT(12)
 
 
 //=//// DO_FLAG_NO_PATH_GROUPS ////////////////////////////////////////////=//
@@ -214,7 +214,7 @@
 // It prevents GET of a PATH! from running GROUP!s.
 //
 #define DO_FLAG_NO_PATH_GROUPS \
-    FLAGIT_LEFT(13)
+    FLAG_LEFT_BIT(13)
 
 
 //=//// DO_FLAG_SET_PATH_ENFIXED //////////////////////////////////////////=//
@@ -228,7 +228,7 @@
 // a frame used with SET-PATH! semantics to make its final assignment enfix.
 //
 #define DO_FLAG_SET_PATH_ENFIXED \
-    FLAGIT_LEFT(14)
+    FLAG_LEFT_BIT(14)
 
 
 //=//// DO_FLAG_VALUE_IS_INSTRUCTION //////////////////////////////////////=//
@@ -247,7 +247,7 @@
 // duration that f->value points into the singular array's data.
 //
 #define DO_FLAG_VALUE_IS_INSTRUCTION \
-    FLAGIT_LEFT(15)
+    FLAG_LEFT_BIT(15)
 
 
 //=//// DO_FLAG_PUSH_PATH_REFINEMENTS /////////////////////////////////////=//
@@ -263,7 +263,7 @@
 // step, vs needing to make an intermediate ACTION!.
 //
 #define DO_FLAG_PUSH_PATH_REFINEMENTS \
-    FLAGIT_LEFT(16)
+    FLAG_LEFT_BIT(16)
 
 
 //=//// DO_FLAG_BARRIER_HIT ///////////////////////////////////////////////=//
@@ -277,7 +277,7 @@
 // will be gone, so this flag is used.
 //
 #define DO_FLAG_BARRIER_HIT \
-    FLAGIT_LEFT(17)
+    FLAG_LEFT_BIT(17)
 
 
 #if !defined(NDEBUG)
@@ -292,7 +292,7 @@
 //
 
 #define DO_FLAG_FINAL_DEBUG \
-    FLAGIT_LEFT(18)
+    FLAG_LEFT_BIT(18)
 
 #endif
 

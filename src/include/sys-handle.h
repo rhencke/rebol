@@ -48,10 +48,10 @@
 
 #ifdef NDEBUG
     #define HANDLE_FLAG(n) \
-        FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n))
+        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
 #else
     #define HANDLE_FLAG(n) \
-        (FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_HANDLE))
+        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_HANDLE))
 #endif
 
 // Note: In the C language, sizeof(void*) may not be the same size as a

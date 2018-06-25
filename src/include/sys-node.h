@@ -80,7 +80,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Rebol's "nodes" all have a platform-pointer-sized header of bits, which
-// is constructed using byte-order-sensitive bit flags (see FLAGIT_LEFT and
+// is constructed using byte-order-sensitive bit flags (see FLAG_LEFT_BIT and
 // related definitions).
 //
 // The values for the bits were chosen carefully, so that the leading byte of

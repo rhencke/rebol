@@ -240,12 +240,12 @@
 //
 
 #define SER_WIDE(s) \
-    RIGHT_8_BITS((s)->info.bits) // inlining unnecessary
+    FOURTH_BYTE((s)->info)
 
 inline static REBCNT SER_LEN(REBSER *s) {
     return (s->info.bits & SERIES_INFO_HAS_DYNAMIC)
         ? s->content.dynamic.len
-        : MID_8_BITS(s->info.bits);
+        : THIRD_BYTE(s->info);
 }
 
 inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
@@ -255,9 +255,8 @@ inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
         s->content.dynamic.len = len;
     else {
         assert(len < sizeof(s->content));
-        CLEAR_8_MID_BITS(s->info.bits);
-        s->info.bits |= FLAGBYTE_MID(len);
-        assert(SER_LEN(s) == len);
+        THIRD_BYTE(s->info) = len;
+        assert(SER_LEN(s) == len); // !!! is this an over-protective assert?
     }
 }
 
@@ -714,7 +713,7 @@ inline static REBSER *Make_Series_Node(REBYTE wide, REBFLGS flags) {
     TRASH_POINTER_IF_DEBUG(LINK(s).trash); // #2
     s->content.fixed.values[0].header.bits = CELL_MASK_NON_STACK_END; // #3
     TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<make>>", 0); // #4-#6
-    Init_Endlike_Header(&s->info, FLAGBYTE_RIGHT(wide)); // #7
+    Init_Endlike_Header(&s->info, FLAG_FOURTH_BYTE(wide)); // #7
     TRASH_POINTER_IF_DEBUG(MISC(s).trash); // #8
 
     // It is more efficient if you know a series is going to become managed to

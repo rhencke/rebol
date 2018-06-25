@@ -30,10 +30,10 @@
 
 #ifdef NDEBUG
     #define DATE_FLAG(n) \
-        FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n))
+        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
 #else
     #define DATE_FLAG(n) \
-        (FLAGIT_LEFT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_DATE))
+        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_DATE))
 #endif
 
 // `DATE_FLAG_HAS_TIME` answers whether a date's Reb_Time payload is valid.

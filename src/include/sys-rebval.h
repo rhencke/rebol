@@ -64,7 +64,7 @@
 //
 // * Forward declarations are in %reb-defs.h
 //
-// * See %sys-rebnod.h for an explanation of FLAGIT_LEFT.  This file defines
+// * See %sys-rebnod.h for an explanation of FLAG_LEFT_BIT.  This file defines
 //   those flags which are common to every value of every type.  Due to their
 //   scarcity, they are chosen carefully.
 //
@@ -95,7 +95,7 @@
 // It's only valid to overwrite end markers when NODE_FLAG_CELL is set.
 //
 #define CELL_FLAG_END \
-    FLAGIT_LEFT(8)
+    FLAG_LEFT_BIT(8)
 
 #define CELL_BYTE_END 0x80 // put in the second byte by SET_END()
 
@@ -119,7 +119,7 @@
 // shared NODE_FLAG_PROTECTED in common.)
 
 #define CELL_FLAG_PROTECTED \
-    FLAGIT_LEFT(9)
+    FLAG_LEFT_BIT(9)
 
 #define CELL_BYTE_PROTECTED_END 192 // second byte if both protected and end
 
@@ -152,7 +152,7 @@
 //     }
 //
 #define VALUE_FLAG_THROWN \
-    FLAGIT_LEFT(10)
+    FLAG_LEFT_BIT(10)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -178,7 +178,7 @@
 // reclaim the bit for a "higher purpose".
 //
 #define VALUE_FLAG_FALSEY \
-    FLAGIT_LEFT(11)
+    FLAG_LEFT_BIT(11)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -202,7 +202,7 @@
 // representing paths with newlines in them may be needed.
 //
 #define VALUE_FLAG_NEWLINE_BEFORE \
-    FLAGIT_LEFT(12)
+    FLAG_LEFT_BIT(12)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -228,7 +228,7 @@
 // That has a lot of impact for the new user experience.
 //
 #define VALUE_FLAG_UNEVALUATED \
-    FLAGIT_LEFT(13)
+    FLAG_LEFT_BIT(13)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -248,7 +248,7 @@
 //
 
 #define VALUE_FLAG_ENFIXED \
-    FLAGIT_LEFT(14)
+    FLAG_LEFT_BIT(14)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -266,7 +266,7 @@
 //
 
 #define VALUE_FLAG_EVAL_FLIP \
-    FLAGIT_LEFT(15)
+    FLAG_LEFT_BIT(15)
 
 
 
@@ -909,7 +909,7 @@ struct Reb_Cell
     #define TRASH_FLAG_UNREADABLE_IF_DEBUG 0
 #else
     #define TRASH_FLAG_UNREADABLE_IF_DEBUG \
-        FLAGIT_LEFT(23)
+        FLAG_LEFT_BIT(23)
 #endif
 
 #if defined(DEBUG_TRASH_MEMORY)
@@ -920,7 +920,7 @@ struct Reb_Cell
 #endif
 
 #define HEADERIZE_KIND(kind) \
-    FLAGBYTE_RIGHT(kind)
+    FLAG_FOURTH_BYTE(kind)
 
 
 //=////////////////////////////////////////////////////////////////////////=//

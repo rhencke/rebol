@@ -927,26 +927,23 @@ typedef bool REBOOL;
 // "leftmost" and "rightmost" bytes of the underlying platform, when encoding
 // them into an unsigned integer the size of a platform pointer:
 //
-//     uintptr_t flags = FLAGIT_LEFT(0);
+//     uintptr_t flags = FLAG_LEFT_BIT(0);
 //     unsigned char *ch = (unsigned char*)&flags;
 //
 // In the code above, the leftmost bit of the flags has been set to 1,
 // resulting in `ch == 128` on all supported platforms.
 //
-// Quantities smaller than a byte can be mixed in on the right with flags
-// from the left.  These form single optimized constants, which can be
-// assigned to an integer.  They can be masked or shifted out efficiently:
+// These can form *compile-time constants*, which can be singly assigned to
+// a uintptr_t in one instruction.  Quantities smaller than a byte can be
+// mixed in on with bytes: 
 //
-//    uintptr_t flags = FLAGIT_LEFT(0) | FLAGIT_LEFT(1) | FLAGBYTE_RIGHT(13);
+//    uintptr_t flags
+//        = FLAG_LEFT_BIT(0) | FLAG_LEFT_BIT(1) | FLAG_SECOND_BYTE(13);
+//
+// They can be masked or shifted out efficiently:
 //
 //    unsigned int left = LEFT_N_BITS(flags, 3); // == 6 (binary `110`)
-//    unsigned int right = RIGHT_N_BITS(flags, 3); // == 5 (binary `101`)
-//
-// `left` gets `110` because it asked for the left 3 bits, of which only
-// the first and the second had been set.
-//
-// `right` gets `101` because 13 was binary `1101` that was added into the
-// value.  Yet only the rightmost 3 bits were requested.
+//    unsigned int right = SECOND_BYTE(flags); // == 13
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -957,7 +954,7 @@ typedef bool REBOOL;
 //
 // * bitfields arranged in a `union` with integers have no layout guarantee
 // * `#pragma pack` is not standard C98 or C99...nor is any #pragma
-// * `char[4]` or `char[8]` can't generally be assigned in one instruction
+// * `char[4]` or `char[8]` targets don't usuall assigned in one instruction
 //
 
 #define PLATFORM_BITS \
@@ -965,46 +962,52 @@ typedef bool REBOOL;
 
 #if defined(ENDIAN_BIG) // Byte w/most significant bit first
 
-    #define FLAGIT_LEFT(n) \
+    #define FLAG_LEFT_BIT(n) \
         ((uintptr_t)1 << (PLATFORM_BITS - (n) - 1)) // 63,62,61..or..32,31,30
 
-    #define FLAGBYTE_FIRST(val) \
-        ((uintptr_t)val << (PLATFORM_BITS - 8)) // val <= 255
+    #define FLAG_FIRST_BYTE(b) \
+        ((uintptr_t)(b) << (24 + (PLATFORM_BITS - 8)))
 
-    #define FLAGBYTE_RIGHT(val) \
-        ((uintptr_t)val) // little endian needs val <= 255
+    #define FLAG_SECOND_BYTE(b) \
+        ((uintptr_t)(b) << (16 + (PLATFORM_BITS - 8)))
 
-    #define FLAGBYTE_MID(val) \
-        (((uintptr_t)val) << 8) // little endian needs val <= 255
+    #define FLAG_THIRD_BYTE(b) \
+        ((uintptr_t)(b) << (8 + (PLATFORM_BITS - 32)))
 
-    #define FLAGUINT16_RIGHT(val) \
-        ((uintptr_t)val) // litte endian needs val <= 65535
+    #define FLAG_FOURTH_BYTE(b) \
+        ((uintptr_t)(b) << (0 + (PLATFORM_BITS - 32)))
 
-    #define RIGHT_16_BITS(flags) \
-        ((flags) & 0xFFFF)
+    #define FLAG_FIRST_UINT16(u16) \
+        ((uintptr_t)(u16) << (16 + (PLATFORM_BITS - 32)))
+
+    #define FLAG_SECOND_UINT16(u16) \
+        ((uintptr_t)(u16) << (0 + (PLATFORM_BITS - 32)))
 
 #elif defined(ENDIAN_LITTLE) // Byte w/least significant bit first (e.g. x86)
 
-    #define FLAGIT_LEFT(n) \
+    #define FLAG_LEFT_BIT(n) \
         ((uintptr_t)1 << (7 + ((n) / 8) * 8 - (n) % 8)) // 7,6,..0|15,14..8|..
 
-    #define FLAGBYTE_FIRST(val) \
-        ((uintptr_t)val) // val <= 255
+    #define FLAG_FIRST_BYTE(b) \
+        ((uintptr_t)(b))
 
-    #define FLAGBYTE_RIGHT(val) \
-        ((uintptr_t)(val) << (PLATFORM_BITS - 8)) // val <= 255
+    #define FLAG_SECOND_BYTE(b) \
+        ((uintptr_t)(b) << 8)
 
-    #define FLAGBYTE_MID(val) \
-        ((uintptr_t)(val) << (PLATFORM_BITS - 16)) // val <= 255
+    #define FLAG_THIRD_BYTE(b) \
+        ((uintptr_t)(b) << 16)
 
-    #define FLAGUINT16_RIGHT(val) \
-        ((uintptr_t)(val) << (PLATFORM_BITS - 16))
+    #define FLAG_FOURTH_BYTE(b) \
+        ((uintptr_t)(b) << 24)
 
-    #define RIGHT_16_BITS(flags) \
-        ((flags) >> (PLATFORM_BITS - 16)) // unsigned, should zero fill left
+    #define FLAG_FIRST_UINT16(u16) \
+        ((uintptr_t)(u16))
+
+    #define FLAG_SECOND_UINT16(u16) \
+        ((uintptr_t)(u16) << 16)
 #else
     // !!! There are macro hacks which can actually make reasonable guesses
-    // at endianness, and should probably be used in the config if nothing is
+    // at endianness, and should possibly be used in the config if nothing is
     // specified explicitly.
     //
     // http://stackoverflow.com/a/2100549/211160
@@ -1012,57 +1015,49 @@ typedef bool REBOOL;
     #error "ENDIAN_BIG or ENDIAN_LITTLE must be defined"
 #endif
 
-// These specialized extractions of N bits out of the leftmost, rightmost,
-// or "middle" byte (one step to the left of rightmost) can be expressed in
-// a platform-agnostic way.  The constructions by integer to establish these
-// positions are where the the difference is.
-//
-// !!! It would be possible to do this with integer shifting on big endian
-// in a "simpler" way, e.g.:
-//
-//    #define LEFT_N_BITS(flags,n) ((flags) >> PLATFORM_BITS - (n))
-//
-// But in addition to big endian platforms being kind of rare, it's not clear
-// that would be faster than a byte operation, especially with optimization.
-//
 // `unsigned char` is used below, as opposed to `uint8_t`, to coherently
 // access the bytes despite being written via a `uintptr_t`, due to the strict
 // aliasing exemption for character types.
-//
 
-#define LEFT_8_BITS(flags) \
-    (((const unsigned char*)&flags)[0]) // 8 is faster
+#define FIRST_BYTE(flags) \
+    ((unsigned char*)&(flags))[0]
 
-#define LEFT_N_BITS(flags,n) /* n <= 8 */ \
-    (((const unsigned char*)&flags)[0] >> (8 - (n)))
+#define SECOND_BYTE(flags) \
+    ((unsigned char*)&(flags))[1]
 
-#define RIGHT_N_BITS(flags,n) /* n <= 8 */ \
-    (((const unsigned char*)&flags)[sizeof(uintptr_t) - 1] & ((1 << (n)) - 1))
+#define THIRD_BYTE(flags) \
+    ((unsigned char*)&(flags))[2]
 
-#define RIGHT_8_BITS(flags) \
-    (((const unsigned char*)&flags)[sizeof(uintptr_t) - 1]) // 8 is faster
+#define FOURTH_BYTE(flags) \
+    ((unsigned char*)&(flags))[3]
 
-#define CLEAR_N_RIGHT_BITS(flags,n) /* n <= 8 */ \
-    (((unsigned char*)&flags)[sizeof(uintptr_t) - 1] &= ~((1 << (n)) - 1))
+#define const_FIRST_BYTE(flags) \
+    ((const unsigned char*)&(flags))[0]
 
-#define CLEAR_8_RIGHT_BITS(flags) \
-    (((unsigned char*)&flags)[sizeof(uintptr_t) - 1] = 0) // 8 is faster
+#define const_SECOND_BYTE(flags) \
+    ((const unsigned char*)&(flags))[1]
 
-#define MID_N_BITS(flags,n) /* n <= 8 */ \
-    (((const unsigned char*)&flags)[sizeof(uintptr_t) - 2] & ((1 << (n)) - 1))
+#define const_THIRD_BYTE(flags) \
+    ((const unsigned char*)&(flags))[2]
 
-#define MID_8_BITS(flags) \
-    (((const unsigned char*)&flags)[sizeof(uintptr_t) - 2]) // 8 is faster
+#define const_FOURTH_BYTE(flags) \
+    ((const unsigned char*)&(flags))[3]
 
-#define CLEAR_N_MID_BITS(flags,n) /* n <= 8 */ \
-    (((unsigned char*)&flags)[sizeof(uintptr_t) - 2] &= ~((1 << (n)) - 1))
+#define FIRST_UINT16(flags) \
+    ((uint16_t*)&(flags))[0]
 
-#define CLEAR_8_MID_BITS(flags) \
-    (((unsigned char*)&flags)[sizeof(uintptr_t) - 2] = 0) // 8 is faster
+#define SECOND_UINT16(flags) \
+    ((uint16_t*)&(flags))[1]
 
-#define CLEAR_16_RIGHT_BITS(flags) \
-    (((unsigned char*)&flags)[sizeof(uintptr_t) - 1] = \
-        ((unsigned char*)&flags)[sizeof(uintptr_t) - 2] = 0)
+#define const_FIRST_UINT16(flags) \
+    ((const uint16_t*)&(flags))[0]
+
+#define const_SECOND_UINT16(flags) \
+    ((const uint16_t*)&(flags))[1]
+
+
+// !!! SECOND_UINT32 should be defined on 64-bit platforms, for any enhanced
+// features that might be taken advantage of when that storage is available.
 
 
 //=////////////////////////////////////////////////////////////////////////=//

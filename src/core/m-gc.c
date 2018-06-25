@@ -1328,10 +1328,10 @@ static REBCNT Sweep_Series(void)
     // Optimization here depends on SWITCH of a bank of 4 bits.
     //
     static_assert_c(
-        NODE_FLAG_MARKED == FLAGIT_LEFT(3) // 0x1 after right shift
-        and (NODE_FLAG_MANAGED == FLAGIT_LEFT(2)) // 0x2 after right shift
-        and (NODE_FLAG_FREE == FLAGIT_LEFT(1)) // 0x4 after right shift
-        and (NODE_FLAG_NODE == FLAGIT_LEFT(0)) // 0x8 after right shift
+        NODE_FLAG_MARKED == FLAG_LEFT_BIT(3) // 0x1 after right shift
+        and (NODE_FLAG_MANAGED == FLAG_LEFT_BIT(2)) // 0x2 after right shift
+        and (NODE_FLAG_FREE == FLAG_LEFT_BIT(1)) // 0x4 after right shift
+        and (NODE_FLAG_NODE == FLAG_LEFT_BIT(0)) // 0x8 after right shift
     );
 
     REBSEG *seg;
@@ -1339,7 +1339,7 @@ static REBCNT Sweep_Series(void)
         REBSER *s = cast(REBSER*, seg + 1);
         REBCNT n;
         for (n = Mem_Pools[SER_POOL].units; n > 0; --n, ++s) {
-            switch (LEFT_N_BITS(s->header.bits, 4)) {
+            switch (FIRST_BYTE(s->header) >> 4) {
             case 0:
             case 1: // 0x1
             case 2: // 0x2
@@ -1407,7 +1407,7 @@ static REBCNT Sweep_Series(void)
             case 12:
                 // 0x8 + 0x4: free node, uses special illegal UTF-8 byte
                 //
-                assert(LEFT_8_BITS(s->header.bits) == FREED_SERIES_BYTE);
+                assert(FIRST_BYTE(s->header) == FREED_SERIES_BYTE);
                 break;
 
             case 13:
@@ -1427,7 +1427,7 @@ static REBCNT Sweep_Series(void)
     for (seg = Mem_Pools[PAR_POOL].segs; seg != NULL; seg = seg->next) {
         REBVAL *v = cast(REBVAL*, seg + 1);
         if (v->header.bits & NODE_FLAG_FREE) {
-            assert(LEFT_8_BITS(v->header.bits) == FREED_SERIES_BYTE);
+            assert(FIRST_BYTE(v->header) == FREED_SERIES_BYTE);
             continue;
         }
 
@@ -1466,7 +1466,7 @@ REBCNT Fill_Sweeplist(REBSER *sweeplist)
         REBSER *s = cast(REBSER*, seg + 1);
         REBCNT n;
         for (n = Mem_Pools[SER_POOL].units; n > 0; --n, ++s) {
-            switch (LEFT_N_BITS(s->header.bits, 4)) {
+            switch (FIRST_BYTE(s->header) >> 4) {
             case 9: // 0x8 + 0x1
                 assert(IS_SERIES_MANAGED(s));
                 if (Is_Rebser_Marked(s))

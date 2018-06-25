@@ -224,10 +224,7 @@ inline static void Deep_Freeze_Array(REBARR *a) {
 // Make a series that is the right size to store REBVALs (and marked for the
 // garbage collector to look into recursively).  ARR_LEN() will be 0.
 //
-inline static REBARR *Make_Array_Core(
-    REBCNT capacity,
-    REBFLGS flags // FLAGBYTE_MID(1) may be passed in *if* capacity = 1
-){
+inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     const REBCNT wide = sizeof(REBVAL);
 
     REBSER *s = Make_Series_Node(wide, SERIES_FLAG_ARRAY | flags);
@@ -313,16 +310,14 @@ inline static REBARR *Make_Array_For_Copy(
 // A singular array is specifically optimized to hold *one* value in a REBSER
 // node directly, and stay fixed at that size.
 //
+// Note ARR_SINGLE() must be overwritten by the caller...it contains an END
+// marker but the array length is 1, so that will assert if you don't.
+//
 // For `flags`, be sure to consider if you need SERIES_FLAG_FILE_LINE.
 //
 inline static REBARR *Alloc_Singular(REBFLGS flags) {
     REBARR *a = Make_Array_Core(1, flags | SERIES_FLAG_FIXED_SIZE);
-
-    // `a` is guaranteed to be non-dynamic, and its length bits in the info
-    // (FLAGBYTE_MID) are guaranteed to be 0.  Tweak it to 1.  ARR_SINGLE()
-    // must be overwritten by the caller...it still contains the END marker.
-    //
-    SER(a)->info.bits |= FLAGBYTE_MID(1);
+    THIRD_BYTE(SER(a)->info) = 1; // non-dynamic length (defaulted to 0)
     return a;
 }
 

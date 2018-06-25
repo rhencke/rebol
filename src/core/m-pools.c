@@ -439,24 +439,20 @@ static void Fill_Pool(REBPOL *pool)
     //
     REBNOD *node = cast(REBNOD*, seg + 1);
 
-    if (pool->first == NULL) {
-        assert(pool->last == NULL);
+    if (not pool->first) {
+        assert(not pool->last);
         pool->first = node;
     }
     else {
-        assert(pool->last != NULL);
+        assert(pool->last);
         pool->last->next_if_free = node;
     }
 
-    while (TRUE) {
-        //
-        // See Init_Endlike_Header() for why we do this
-        //
-        struct Reb_Header *alias = &node->header;
-        alias->bits = FLAGBYTE_FIRST(FREED_SERIES_BYTE);
+    while (true) {
+        FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
 
         if (--units == 0) {
-            node->next_if_free = NULL;
+            node->next_if_free = nullptr;
             break;
         }
 
@@ -523,17 +519,14 @@ void *Make_Node(REBCNT pool_id)
 //  Free_Node: C
 //
 // Free a node, returning it to its pool.  Once it is freed, its header will
-// be set to 0.  This will identify the node as not in use to anyone who
-// enumerates the nodes in the pool (such as the garbage collector).
+// have NODE_FLAG_FREE...which will identify the node as not in use to anyone
+// who enumerates the nodes in the pool (such as the garbage collector).
 //
 void Free_Node(REBCNT pool_id, void *p)
 {
     REBNOD *node = NOD(p);
 
-    // See Init_Endlike_Header() for why we do this through an aliased pointer
-    //
-    struct Reb_Header *alias = &node->header;
-    alias->bits = FLAGBYTE_FIRST(FREED_SERIES_BYTE);
+    FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
 
     REBPOL *pool = &Mem_Pools[pool_id];
 
@@ -550,14 +543,14 @@ void Free_Node(REBCNT pool_id, void *p)
     // time of this area to catch stale pointers.  But doing this in the
     // debug build only creates a source of variant behavior.
 
-    if (pool->last == NULL) // Fill pool if empty
+    if (not pool->last) // Fill pool if empty
         Fill_Pool(pool);
 
-    assert(pool->last != NULL);
+    assert(pool->last);
 
     pool->last->next_if_free = node;
     pool->last = node;
-    node->next_if_free = NULL;
+    node->next_if_free = nullptr;
   #endif
 
     pool->free++;
@@ -948,10 +941,7 @@ static void Free_Unbiased_Series_Data(char *unbiased, REBCNT size_unpooled)
         pool->first = node;
         pool->free++;
 
-        // See Init_Endlike_Header() for why we do this
-        //
-        struct Reb_Header *alias = &node->header;
-        alias->bits = FLAGBYTE_FIRST(FREED_SERIES_BYTE);
+        FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
     }
     else {
         FREE_N(char, size_unpooled, unbiased);
@@ -1554,9 +1544,9 @@ void Manage_Series(REBSER *s)
 void Assert_Pointer_Detection_Working(void)
 {
     uintptr_t cell_flag = NODE_FLAG_CELL;
-    assert(LEFT_8_BITS(cell_flag) == 0x1);
+    assert(FIRST_BYTE(cell_flag) == 0x1);
     uintptr_t end_flag = CELL_FLAG_END;
-    assert(cast(REBYTE*, &end_flag)[1] == 0x80);
+    assert(SECOND_BYTE(end_flag) == 0x80);
 
     assert(Detect_Rebol_Pointer("") == DETECTED_AS_UTF8);
     assert(Detect_Rebol_Pointer("asdf") == DETECTED_AS_UTF8);
