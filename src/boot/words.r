@@ -153,7 +153,6 @@ exit
 quit
 ;break ;-- covered by parse below
 ;return ;-- covered by parse below
-leave ;-- for PROC
 continue
 
 subparse ;-- recursions of parse use this for REBNATIVE(subparse) in backtrace

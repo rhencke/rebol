@@ -66,9 +66,9 @@ REBARR *List_Func_Words(const RELVAL *func, REBOOL pure_locals)
             break;
 
         case PARAM_CLASS_LOCAL:
-        case PARAM_CLASS_RETURN: // "magic" local - prefilled invisibly
-        case PARAM_CLASS_LEAVE: // "magic" local - prefilled invisibly
-            if (!pure_locals)
+        case PARAM_CLASS_RETURN_1: // "magic" local - prefilled invisibly
+        case PARAM_CLASS_RETURN_0: // "magic" local - prefilled invisibly
+            if (not pure_locals)
                 continue; // treat as invisible, e.g. for WORDS-OF
 
             kind = REB_SET_WORD;
@@ -182,7 +182,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     assert(DS_TOP == DS_AT(dsp_orig));
 
     REBDSP definitional_return_dsp = 0;
-    REBDSP definitional_leave_dsp = 0;
 
     // As we go through the spec block, we push TYPESET! BLOCK! STRING! triples.
     // These will be split out into separate arrays after the process is done.
@@ -247,19 +246,28 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         if (IS_TAG(item) and (flags & MKF_KEYWORDS)) {
             if (0 == Compare_String_Vals(item, Root_With_Tag, TRUE)) {
                 mode = SPEC_MODE_WITH;
+                continue;
             }
             else if (0 == Compare_String_Vals(item, Root_Local_Tag, TRUE)) {
                 mode = SPEC_MODE_LOCAL;
+                continue;
+            }
+            else if (0 == Compare_String_Vals(item, Root_Void_Tag, TRUE)) {
+                header_bits |= ACTION_FLAG_VOIDER; // use Voider_Dispatcher()
+
+                // Fake as if they said [void!] !!! make more efficient
+                //
+                item = Get_System(SYS_STANDARD, STD_PROC_RETURN_TYPE);
+                goto process_typeset_block;
             }
             else
                 fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
-
-            continue;
         }
 
     //=//// BLOCK! OF TYPES TO MAKE TYPESET FROM (PLUS PARAMETER TAGS) ////=//
 
         if (IS_BLOCK(item)) {
+          process_typeset_block:
             if (IS_BLOCK(DS_TOP)) // two blocks of types!
                 fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
 
@@ -346,7 +354,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     //=//// ANY-WORD! PARAMETERS THEMSELVES (MAKE TYPESETS w/SYMBOL) //////=//
 
-        if (!ANY_WORD(item))
+        if (not ANY_WORD(item))
             fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
 
         // !!! If you say [<with> x /foo y] the <with> terminates and a
@@ -373,13 +381,16 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             DS_PUSH(EMPTY_STRING);
         assert(IS_TEXT(DS_TOP));
 
-        // By default allow "all datatypes but function and void".  Note that
-        // since void isn't a "datatype" the use of the REB_MAX_NULLED bit is for
-        // expedience.  Also that there are two senses of void signal...the
-        // typeset REB_MAX_NULLED represents <opt> sense, not the <end> sense,
-        // which is encoded by TYPESET_FLAG_ENDABLE.
+        // Non-annotated arguments disallow ACTION!, VOID! and NULL.  Not
+        // having to worry about ACTION! and NULL means by default, code
+        // does not have to worry about "disarming" arguments via GET-WORD!.
+        // Also, keeping NULL a bit "prickly" helps discourage its use as
+        // an input parameter...because it faces problems being used in
+        // SPECIALIZE and other scenarios.
         //
-        // We do not canonize the saved symbol in the paramlist, see #2258.
+        // Note there are currently two ways to get NULL: <opt> and <end>.
+        // If the typeset bits contain REB_MAX_NULLED, that indicates <opt>.
+        // But the TYPESET_FLAG_ENDABLE indicates <end>.
         //
         DS_PUSH_TRASH;
         REBVAL *typeset = DS_TOP; // volatile if you DS_PUSH!
@@ -387,8 +398,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             typeset,
             (flags & MKF_ANY_VALUE)
                 ? ALL_64
-                : ALL_64 & ~(FLAGIT_KIND(REB_MAX_NULLED) | FLAGIT_KIND(REB_ACTION)),
-            VAL_WORD_SPELLING(item)
+                : ALL_64 & ~(
+                    FLAGIT_KIND(REB_ACTION)
+                    | FLAGIT_KIND(REB_VOID)
+                    | FLAGIT_KIND(REB_MAX_NULLED)
+                ),
+            VAL_WORD_SPELLING(item) // don't canonize, see #2258
         );
 
         // All these would cancel a definitional return (leave has same idea):
@@ -401,22 +416,16 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // ...although `return:` is explicitly tolerated ATM for compatibility
         // (despite violating the "pure locals are NULL" premise)
         //
-        if (STR_SYMBOL(canon) == SYM_RETURN and not (flags & MKF_LEAVE)) {
-            assert(definitional_return_dsp == 0);
+        if (STR_SYMBOL(canon) == SYM_RETURN) {
+            if (definitional_return_dsp != 0) {
+                DECLARE_LOCAL (word);
+                Init_Word(word, canon);
+                fail (Error_Dup_Vars_Raw(word)); // most dup checks done later
+            }
             if (IS_SET_WORD(item))
                 definitional_return_dsp = DSP; // RETURN: explicitly tolerated
             else
                 flags &= ~(MKF_RETURN | MKF_FAKE_RETURN);
-        }
-        else if (
-            STR_SYMBOL(canon) == SYM_LEAVE
-            and not (flags & (MKF_RETURN | MKF_FAKE_RETURN))
-        ){
-            assert(definitional_leave_dsp == 0);
-            if (IS_SET_WORD(item))
-                definitional_leave_dsp = DSP; // LEAVE: explicitly tolerated
-            else
-                flags &= ~MKF_LEAVE;
         }
 
         if (mode == SPEC_MODE_WITH and not IS_SET_WORD(item)) {
@@ -497,49 +506,31 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         DS_PUSH(EMPTY_STRING);
     assert((DSP - dsp_orig) % 3 == 0); // must be a multiple of 3
 
-    // Definitional RETURN and LEAVE slots must have their argument values
-    // fulfilled with ACTION! values specific to the function being called
-    // on *every instantiation*.  They are marked with special parameter
-    // classes to avoid needing to separately do canon comparison of their
-    // symbols to find them.  In addition, since RETURN's typeset holds
-    // types that need to be checked at the end of the function run, it
-    // is moved to a predictable location: last slot of the paramlist.
+    // Definitional RETURN slots must have their argument value fulfilled with
+    // an ACTION! specific to the action called on *every instantiation*.
+    // They are marked with special parameter classes to avoid needing to
+    // separately do canon comparison of their symbols to find them.  In
+    // addition, since RETURN's typeset holds types that need to be checked at
+    // the end of the function run, it is moved to a predictable location:
+    // last slot of the paramlist.
     //
-    // Note: Trying to take advantage of the "predictable first position"
-    // by swapping is not legal, as the first argument's position matters
-    // in the ordinary arity of calling.
-
-    if (flags & MKF_LEAVE) {
-        if (definitional_leave_dsp == 0) { // no LEAVE: pure local explicit
-            REBSTR *canon_leave = Canon(SYM_LEAVE);
-
-            DS_PUSH_TRASH;
-            Init_Typeset(DS_TOP, FLAGIT_KIND(REB_VOID), canon_leave);
-            INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_LEAVE);
-            definitional_leave_dsp = DSP;
-
-            DS_PUSH(EMPTY_BLOCK);
-            DS_PUSH(EMPTY_STRING);
-        }
-        else {
-            REBVAL *definitional_leave = DS_AT(definitional_leave_dsp);
-            assert(VAL_PARAM_CLASS(definitional_leave) == PARAM_CLASS_LOCAL);
-            INIT_VAL_PARAM_CLASS(definitional_leave, PARAM_CLASS_LEAVE);
-        }
-        header_bits |= ACTION_FLAG_LEAVE;
-    }
+    // !!! The ability to add locals anywhere in the frame exists to make it
+    // possible to expand frames, so it might work to put it in the first
+    // slot--these mechanisms should have some review.
 
     if (flags & MKF_RETURN) {
-        if (definitional_return_dsp == 0) { // no RETURN: pure local explicit
-            REBSTR *canon_return = Canon(SYM_RETURN);
-
-            // All types are allowed as return types by default.  (Previously
-            // it was limited to not include null or ACTION!, but as null
-            // became "destigmatized" it really wasn't adding value.)
+        if (definitional_return_dsp == 0) { // no explicit RETURN: pure local
+            //
+            // While default arguments disallow ACTION!, VOID!, and NULL...
+            // they are allowed to return anything.  Generally speaking, the
+            // checks are on the input side, not the output.
             //
             DS_PUSH_TRASH;
-            Init_Typeset(DS_TOP, ALL_64, canon_return);
-            INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN);
+            Init_Typeset(DS_TOP, ALL_64, Canon(SYM_RETURN));
+            if (header_bits & ACTION_FLAG_VOIDER)
+                INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN_0);
+            else
+                INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN_1);
             definitional_return_dsp = DSP;
 
             DS_PUSH(EMPTY_BLOCK);
@@ -547,9 +538,13 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // no need to move it--it's already at the tail position
         }
         else {
-            REBVAL *definitional_return = DS_AT(definitional_return_dsp);
-            assert(VAL_PARAM_CLASS(definitional_return) == PARAM_CLASS_LOCAL);
-            INIT_VAL_PARAM_CLASS(definitional_return, PARAM_CLASS_RETURN);
+            REBVAL *param = DS_AT(definitional_return_dsp);
+            assert(VAL_PARAM_CLASS(param) == PARAM_CLASS_LOCAL);
+            INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_RETURN_1);
+            if (header_bits & ACTION_FLAG_VOIDER)
+                INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_RETURN_0);
+            else
+                INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_RETURN_1);
 
             // definitional_return handled specially when paramlist copied
             // off of the stack...
@@ -596,7 +591,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     //
     LINK(paramlist).facade = paramlist;
 
-    if (TRUE) {
+    if (true) {
         RELVAL *dest = ARR_HEAD(paramlist); // canon function value
         RESET_VAL_HEADER(dest, REB_ACTION);
         SET_VAL_FLAGS(dest, header_bits);
@@ -621,7 +616,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
         for (; src <= DS_TOP; src += 3) {
             assert(IS_TYPESET(src));
-            if (!Try_Add_Binder_Index(&binder, VAL_PARAM_CANON(src), 1020))
+            if (not Try_Add_Binder_Index(&binder, VAL_PARAM_CANON(src), 1020))
                 duplicate = VAL_PARAM_SPELLING(src);
 
             if (definitional_return and src == definitional_return)
@@ -657,13 +652,13 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 Remove_Binder_Index_Else_0(&binder, VAL_PARAM_CANON(src))
                 == 0
             ){
-                assert(duplicate != NULL);
+                assert(duplicate);
             }
         }
 
         SHUTDOWN_BINDER(&binder);
 
-        if (duplicate != NULL) {
+        if (duplicate) {
             DECLARE_LOCAL (word);
             Init_Word(word, duplicate);
             fail (Error_Dup_Vars_Raw(word));
@@ -681,9 +676,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // !!! See notes on ACTION-META in %sysobj.r
 
-    REBCTX *meta = NULL;
+    REBCTX *meta = nullptr;
 
-    if (has_description or has_types or has_notes or (flags & MKF_LEAVE)) {
+    if (has_description or has_types or has_notes) {
         meta = Copy_Context_Shallow(VAL_CONTEXT(Root_Action_Meta));
         MANAGE_ARRAY(CTX_VARLIST(meta));
     }
@@ -698,18 +693,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         Move_Value(
             CTX_VAR(meta, STD_ACTION_META_DESCRIPTION),
             DS_AT(dsp_orig + 3)
-        );
-    }
-
-    // PROC and PROCEDURE need to set their [<opt>] return, otherwise HELP
-    // will say "(undocumented)" (assumption if it's left BLANK!).  Note that
-    // this applies whether definitional_leave was overridden by an ordinary
-    // LEAVE parameter or not... PROC use still implies no result.
-    //
-    if (flags & MKF_LEAVE) {
-        Move_Value(
-            CTX_VAR(meta, STD_ACTION_META_RETURN_TYPE),
-            Get_System(SYS_STANDARD, STD_PROC_RETURN_TYPE)
         );
     }
 
@@ -923,7 +906,7 @@ REBACT *Make_Action(
         case PARAM_CLASS_LOCAL:
             break; // skip
 
-        case PARAM_CLASS_RETURN: {
+        case PARAM_CLASS_RETURN_1: {
             assert(VAL_PARAM_SYM(param) == SYM_RETURN);
 
             // See notes on ACTION_FLAG_INVISIBLE.
@@ -932,8 +915,8 @@ REBACT *Make_Action(
                 SET_VAL_FLAG(rootparam, ACTION_FLAG_INVISIBLE);
             break; }
 
-        case PARAM_CLASS_LEAVE: {
-            assert(VAL_PARAM_SYM(param) == SYM_LEAVE);
+        case PARAM_CLASS_RETURN_0: {
+            assert(VAL_PARAM_SYM(param) == SYM_RETURN);
             break; } // skip.
 
         case PARAM_CLASS_REFINEMENT:
@@ -1139,7 +1122,8 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
     UNUSED(binding);
 
     if (
-        ACT_DISPATCHER(a) == &Noop_Dispatcher
+        ACT_DISPATCHER(a) == &Null_Dispatcher
+        or ACT_DISPATCHER(a) == &Null_Dispatcher
         or ACT_DISPATCHER(a) == &Unchecked_Dispatcher
         or ACT_DISPATCHER(a) == &Voider_Dispatcher
         or ACT_DISPATCHER(a) == &Returner_Dispatcher
@@ -1155,13 +1139,12 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 
         REBVAL *example;
         REBCNT real_body_index;
-        if (GET_ACT_FLAG(a, ACTION_FLAG_RETURN)) {
-            assert(not GET_ACT_FLAG(a, ACTION_FLAG_LEAVE)); // can't have both
-            example = Get_System(SYS_STANDARD, STD_FUNC_BODY);
+        if (GET_ACT_FLAG(a, ACTION_FLAG_VOIDER)) {
+            example = Get_System(SYS_STANDARD, STD_PROC_BODY);
             real_body_index = 4;
         }
-        else if (GET_ACT_FLAG(a, ACTION_FLAG_LEAVE)) {
-            example = Get_System(SYS_STANDARD, STD_PROC_BODY);
+        else if (GET_ACT_FLAG(a, ACTION_FLAG_RETURN)) {
+            example = Get_System(SYS_STANDARD, STD_FUNC_BODY);
             real_body_index = 4;
         }
         else {
@@ -1235,18 +1218,20 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 //
 //  Make_Interpreted_Action_May_Fail: C
 //
-// This is the support routine behind `MAKE ACTION!`, FUNC, and PROC.
+// This is the support routine behind both `MAKE ACTION!` and FUNC.
 //
-// Ren-C's schematic for the FUNC and PROC generators is *very* different
-// from R3-Alpha, whose definition of FUNC was simply:
+// Ren-C's schematic is *very* different from R3-Alpha, whose definition of
+// FUNC was simply:
 //
 //     make function! copy/deep reduce [spec body]
 //
 // Ren-C's `make action!` doesn't need to copy the spec (it does not save
-// it--parameter descriptions are in a meta object).  It also copies the body
-// by virtue of the need to relativize it.  They also have "definitional
-// return" constructs so that the body introduces RETURN and LEAVE constructs
-// specific to each action invocation, so the body acts more like:
+// it--parameter descriptions are in a meta object).  The body is copied
+// implicitly (as it must be in order to relativize it).
+//
+// There is also a "definitional return" MKF_RETURN option used by FUNC, so
+// the body will introduce a RETURN specific to each action invocation, thus
+// acting more like:
 //
 //     return: make action! [
 //         [{Returns a value from a function.} value [<opt> any-value!]]
@@ -1254,17 +1239,14 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 //     ]
 //     (body goes here)
 //
-// This pattern addresses "Definitional Return" in a way that does not
-// technically require building RETURN or LEAVE in as a language keyword in
-// any specific form (in the sense that MAKE ACTION! does not itself
-// require it, and one can pretend FUNC and PROC don't exist).
+// This pattern addresses "Definitional Return" in a way that does not need to
+// build in RETURN as a language keyword in any specific form (in the sense
+// that MAKE ACTION! does not itself require it).
 //
-// FUNC and PROC optimize by not internally building or executing the
-// equivalent body, but giving it back from BODY-OF.  This is another benefit
-// of making a copy--since the user cannot access the new root, it makes it
-// possible to "lie" about what the body "above" is.  This gives FUNC and PROC
-// the edge to pretend to add containing code and simulate its effects, while
-// really only holding onto the body the caller provided.
+// FUNC optimizes by not internally building or executing the equivalent body,
+// but giving it back from BODY-OF.  This gives FUNC the edge to pretend to
+// add containing code and simulate its effects, while really only holding
+// onto the body the caller provided.
 //
 // While plain MAKE ACTION! has no RETURN, UNWIND can be used to exit frames
 // but must be explicit about what frame is being exited.  This can be used
@@ -1273,13 +1255,13 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 REBACT *Make_Interpreted_Action_May_Fail(
     const REBVAL *spec,
     const REBVAL *code,
-    REBFLGS mkf_flags // MKF_RETURN, MKF_LEAVE, etc.
+    REBFLGS mkf_flags // MKF_RETURN, etc.
 ) {
     assert(IS_BLOCK(spec) and IS_BLOCK(code));
 
     REBACT *a = Make_Action(
         Make_Paramlist_Managed_May_Fail(spec, mkf_flags),
-        &Noop_Dispatcher, // will be overwritten if non-NULL body
+        &Null_Dispatcher, // will be overwritten if non-[] body
         NULL, // no facade (use paramlist)
         NULL // no specialization exemplar (or inherited exemplar)
     );
@@ -1296,14 +1278,17 @@ REBACT *Make_Interpreted_Action_May_Fail(
         if (GET_VAL_FLAG(value, ACTION_FLAG_INVISIBLE)) {
             ACT_DISPATCHER(a) = &Commenter_Dispatcher;
         }
+        else if (GET_VAL_FLAG(value, ACTION_FLAG_VOIDER)) {
+            ACT_DISPATCHER(a) = &Voider_Dispatcher;
+        }
         else if (GET_VAL_FLAG(value, ACTION_FLAG_RETURN)) {
             REBVAL *typeset = ACT_PARAM(a, ACT_NUM_PARAMS(a));
             assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
-            if (not TYPE_CHECK(typeset, REB_MAX_NULLED)) // all do [] can return
+            if (not TYPE_CHECK(typeset, REB_MAX_NULLED)) // what do [] returns
                 ACT_DISPATCHER(a) = &Returner_Dispatcher; // error when run
         }
         else {
-            // Keep the Noop_Dispatcher passed in above
+            // Keep the Null_Dispatcher passed in above
         }
 
         // Reusing EMPTY_ARRAY won't allow adding ARRAY_FLAG_FILE_LINE bits
@@ -1314,10 +1299,10 @@ REBACT *Make_Interpreted_Action_May_Fail(
 
         if (GET_VAL_FLAG(value, ACTION_FLAG_INVISIBLE))
             ACT_DISPATCHER(a) = &Elider_Dispatcher; // no f->out mutation
+        else if (GET_VAL_FLAG(value, ACTION_FLAG_VOIDER))
+            ACT_DISPATCHER(a) = &Voider_Dispatcher; // forces f->out void
         else if (GET_VAL_FLAG(value, ACTION_FLAG_RETURN))
             ACT_DISPATCHER(a) = &Returner_Dispatcher; // type checks f->out
-        else if (GET_VAL_FLAG(value, ACTION_FLAG_LEAVE))
-            ACT_DISPATCHER(a) = &Voider_Dispatcher; // forces f->out void
         else
             ACT_DISPATCHER(a) = &Unchecked_Dispatcher; // unchecked f->out
 
@@ -1521,20 +1506,31 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
 
 
 //
-//  Noop_Dispatcher: C
+//  Null_Dispatcher: C
 //
-// If a function's body is an empty block, rather than bother running the
-// equivalent of `DO []` and generating a frame for specific binding, this
-// just returns void.  What makes this a semi-interesting optimization is
-// for functions like ASSERT whose default implementation is an empty block,
-// but intended to be hijacked in "debug mode" with an implementation.  So
-// you can minimize the cost of instrumentation hooks.
+// If you write `func [...] []` it uses this dispatcher instead of running
+// Do_Core() on an empty block.  This is a more interesting optimization than
+// it sounds, because you can make fast stub actions that only cost if they
+// are HIJACK'd (e.g. ASSERT is done this way).
 //
-REB_R Noop_Dispatcher(REBFRM *f)
+REB_R Null_Dispatcher(REBFRM *f)
 {
     assert(VAL_LEN_AT(ACT_BODY(f->phase)) == 0);
     UNUSED(f);
     return R_NULL;
+}
+
+
+//
+//  Void_Dispatcher: C
+//
+// Analogue to Null_Dispatcher() for `func [return: <void> ...] []`.
+//
+REB_R Void_Dispatcher(REBFRM *f)
+{
+    assert(VAL_LEN_AT(ACT_BODY(f->phase)) == 0);
+    UNUSED(f);
+    return R_VOID;
 }
 
 
@@ -1627,7 +1623,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
 
     // Typeset bits for locals in frames are usually ignored, but the RETURN:
     // local uses them for the return types of a "virtual" definitional return
-    // if the parameter is PARAM_CLASS_RETURN.
+    // if the parameter is PARAM_CLASS_RETURN_1.
     //
     if (not TYPE_CHECK(typeset, VAL_TYPE(f->out)))
         fail (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));

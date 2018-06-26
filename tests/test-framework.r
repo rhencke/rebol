@@ -31,7 +31,8 @@ make object! compose [
 
     allowed-flags: _
 
-    process-vector: procedure [
+    process-vector: function [
+        return: <void>
         flags [block!]
         source [text!]
         <with> test-failures successes skipped
@@ -41,7 +42,7 @@ make object! compose [
         if not empty? exclude flags allowed-flags [
             skipped: me + 1
             log [space "skipped" newline]
-            leave
+            return
         ]
 
         case [
@@ -82,7 +83,8 @@ make object! compose [
 
     total-tests: 0
 
-    process-tests: procedure [
+    process-tests: function [
+        return: <void>
         test-sources [block!]
         emit-test [action!]
     ][

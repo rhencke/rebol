@@ -97,9 +97,10 @@ rebsource: context [
     ] ; Not analysed ...
 
 
-    log-emit: procedure [
+    log-emit: function [
         {Append a COMPOSE'd block to a log block, clearing any new-line flags}
 
+        return: <void>
         log [block!]
         label [tag!]
         body [block!]
@@ -180,8 +181,8 @@ rebsource: context [
                     emit <eof-eol-missing> [(file)]
                 ]
 
-                emit-proto: procedure [proto] [
-                    if not block? proto-parser/data [leave]
+                emit-proto: function [return: <void> proto] [
+                    if not block? proto-parser/data [return]
 
                     do in c-parser-extension [
                         if last-func-end [

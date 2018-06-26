@@ -14,8 +14,9 @@ REBOL [
     Needs: 2.100.100
 ]
 
-emit-native-proto: procedure [
+emit-native-proto: function [
     "Emit native prototypes to @unsorted-buffer"
+    return: <void>
     proto
     <with> proto-count
 ][
@@ -65,9 +66,10 @@ emit-native-proto: procedure [
     ]
 ]
 
-emit-include-params-macro: procedure [
+emit-include-params-macro: function [
     "Emit macros for a native's parameters"
 
+    return: <void>
     e [object!] "where to emit (see %common-emitters.r)"
     word [word!] "name of the native"
     paramlist [block!] "paramlist of the native"

@@ -268,9 +268,10 @@ init-schemes: func [
 
             false ; keep waiting
         ]
-        init: proc [port] [
+        init: func [port] [
             ;;print ["Init" title]
             port/data: copy [] ; The port wake list
+            return void
         ]
     ]
 
@@ -285,11 +286,12 @@ init-schemes: func [
         name: 'file
         actor: get-file-actor-handle
         info: system/standard/file-info ; for C enums
-        init: proc [port <local> path] [
+        init: func [port <local> path] [
             if url? port/spec/ref [
                 parse port/spec/ref [thru #":" 0 2 slash path:]
                 append port/spec compose [path: (to file! path)]
             ]
+            return void
         ]
     ]
 
@@ -349,7 +351,7 @@ init-schemes: func [
         name: 'serial
         actor: get-serial-actor-handle
         spec: system/standard/port-spec-serial
-        init: proc [port <local> path speed] [
+        init: func [port <local> path speed] [
             if url? port/spec/ref [
                 parse port/spec/ref
                     [thru #":" 0 2 slash copy path [to slash | end] skip copy speed to end]
@@ -358,6 +360,7 @@ init-schemes: func [
                 ]
                 port/spec/path: to file! path
             ]
+            return void
         ]
     ]
 

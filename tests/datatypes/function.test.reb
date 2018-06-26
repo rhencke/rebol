@@ -296,7 +296,7 @@
 ; basic test for recursive action! invocation
 (
     i: 0
-    countdown: proc [n] [if n > 0 [i: i + 1 | countdown n - 1]]
+    countdown: func [n] [if n > 0 [i: i + 1 | countdown n - 1]]
     countdown 10
     i = 10
 )
@@ -411,9 +411,9 @@
 )
 
 [#539 (
-    f: proc [] [
-        use [x] [leave] ;-- https://github.com/metaeducation/ren-c/issues/755
+    f: func [return: <void>] [
+        use [x] [return] ;-- https://github.com/metaeducation/ren-c/issues/755
         42
     ]
-    null? f
+    void? f
 )]

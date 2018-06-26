@@ -16,9 +16,10 @@ REBOL [
     }
 ]
 
-assert: proc [
+assert: func [
     {Ensure conditions are conditionally true if hooked by debugging}
 
+    return: <void>
     conditions [block!]
         {Block of conditions to evaluate and test for logical truth}
 ][
@@ -106,12 +107,13 @@ was: func [
     elide take evaluation
 ]
 
+;-- These are internal and not meant to be exposed or called directly
+unset 'return-0
+unset 'return-1
 
-make-action: func [
-    {Internal generator used by FUNCTION and PROCEDURE specializations.}
+function: func [
+    {Make action with set-words as locals, <static>, <in>, <with>, <local>}
     return: [action!]
-    generator [action!]
-        {Arity-2 "lower"-level function generator to use (e.g. FUNC or PROC)}
     spec [block!]
         {Help string (opt) followed by arg words (and opt type and string)}
     body [block!]
@@ -146,6 +148,8 @@ make-action: func [
     ; !!! REVIEW: ignore self too if binding object?
     ;
     parse spec [any [
+        <void> (append new-spec <void>)
+    |
         if (var) [
             set var: any-word! (
                 append exclusions var ;-- exclude args/refines
@@ -157,8 +161,16 @@ make-action: func [
             )
         ]
     |
+        if (not var) [
+            set var: set-word! ( ;-- locals legal anywhere
+                append exclusions var
+                append new-spec var
+                var: _
+            )
+        ]
+    |
         other:
-        [group!] (
+        group! (
             if not var [
                 fail [
                     ; <where> spec
@@ -230,6 +242,7 @@ make-action: func [
         end accept
     |
         other: (
+            print mold other/1
             fail [
                 ; <where> spec
                 ; <near> other
@@ -258,17 +271,12 @@ make-action: func [
 
     ;; dump [{after} new-spec defaulters]
 
-    generator new-spec either defaulters [
+    func new-spec either defaulters [
         append/only defaulters as group! any [new-body body]
     ][
         any [new-body body]
     ]
 ]
-
-;-- These are "redescribed" after REDESCRIBE is created
-;
-function: specialize :make-action [generator: :func]
-procedure: specialize :make-action [generator: :proc]
 
 
 ; Actions can be chained, adapted, and specialized--repeatedly.  The meta
@@ -328,6 +336,7 @@ dig-action-meta-fields: function [value [action!]] [
         ]
     ]
 ]
+
 
 redescribe: function [
     {Mutate action description with new title and/or new argument notes.}
@@ -452,12 +461,7 @@ redescribe: function [
 
 
 redescribe [
-    {Define an action with set-words as locals, that returns a value.}
 ] :function
-
-redescribe [
-    {Define an action with set-words as locals, that doesn't return a value.}
-] :procedure
 
 redescribe [
     {Evaluates only the GROUP!s in an array of expressions.}

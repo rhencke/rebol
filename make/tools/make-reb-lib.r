@@ -45,7 +45,7 @@ direct-call-macros: make block! 50
 table-init-items: make block! 50
 cwrap-items: make block! 50
 
-emit-proto: proc [proto] [
+emit-proto: func [return: <void> proto] [
     header: proto-parser/data
 
     if not all [
@@ -61,9 +61,7 @@ emit-proto: proc [proto] [
         ]
     ]
 
-    if header/2 != 'RL_API [
-        leave
-    ]
+    if header/2 != 'RL_API [return]
 
     ; Currently the only part of the comment header for the exports in
     ; the %a-lib.c file that is paid attention to is the SET-WORD! that

@@ -38,16 +38,19 @@ e-syms: make-emitter "Function Symbols" output-dir/core/tmp-symbols.c
 
 prototypes: make block! 10000 ; MAP! is buggy in R3-Alpha
 
-emit-proto: proc [proto] [
+emit-proto: func [
+    return: <void>
+    proto
+][
     if any [
         find proto "static"
         find proto "REBNATIVE(" ; Natives handled by make-natives.r
 
         ; The REBTYPE macro actually is expanded in the tmp-funcs
         ; Should we allow macro expansion or do the REBTYPE another way?
-        (comment [not find proto "REBTYPE("] false)
+        ; `not find proto "REBTYPE("]`
     ][
-        leave
+        return
     ]
 
     header: proto-parser/data
@@ -73,7 +76,7 @@ emit-proto: proc [proto] [
             ; and considers itself to have "non-extension linkage" to the API,
             ; so the calls can be directly linked without a struct.
             ;
-            leave
+            return
         ]
         'C [
             ; The only accepted type for now
@@ -106,7 +109,8 @@ emit-proto: proc [proto] [
     ]
 ]
 
-process-conditional: procedure [
+process-conditional: function [
+    return: <void>
     directive
     dir-position
     emitter [object!]
@@ -127,7 +131,7 @@ process-conditional: procedure [
     ]
 ]
 
-emit-directive: procedure [directive] [
+emit-directive: function [return: <void> directive] [
     process-conditional directive proto-parser/parse.position e-funcs
     process-conditional directive proto-parser/parse.position e-syms
 ]

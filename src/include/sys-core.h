@@ -356,13 +356,13 @@ enum Boot_Levels {
 
 // Modes allowed by Make_Function:
 enum {
-    MKF_NONE        = 0,        // no special handling (e.g. MAKE ACTION!)
-    MKF_RETURN      = 1 << 0,   // has definitional RETURN
-    MKF_LEAVE       = 1 << 1,   // has definitional LEAVE
-    MKF_KEYWORDS    = 1 << 2,   // respond to tags like <opt>, <with>, <local>
-    MKF_ANY_VALUE   = 1 << 3,   // args and return are [<opt> any-value!]
-    MKF_FAKE_RETURN = 1 << 4    // has RETURN but not actually in frame
+    MKF_RETURN      = 1 << 0,   // give a RETURN (but local RETURN: overrides)
+    MKF_KEYWORDS    = 1 << 1,   // respond to tags like <opt>, <with>, <local>
+    MKF_ANY_VALUE   = 1 << 2,   // args and return are [<opt> any-value!]
+    MKF_FAKE_RETURN = 1 << 3    // has RETURN label for HELP, but not in frame
 };
+
+#define MKF_MASK_NONE 0 // no special handling (e.g. MAKE ACTION!)
 
 // Modes allowed by FORM
 enum {

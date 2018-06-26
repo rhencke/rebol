@@ -1390,6 +1390,9 @@ REBCTX *Error_Bad_Return_Type(REBFRM *f, enum Reb_Kind kind) {
     Get_Frame_Label_Or_Blank(label, f);
 
     if (kind == REB_MAX_NULLED)
+        return Error_Needs_Return_Opt_Raw(label);
+
+    if (kind == REB_VOID)
         return Error_Needs_Return_Value_Raw(label);
 
     return Error_Bad_Return_Type_Raw(label, Datatype_From_Kind(kind));

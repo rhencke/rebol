@@ -30,7 +30,8 @@ replace/all inp "// #undef" "#undef"
 replace/all inp "<ce>" "##" ;bug in tcc??
 
 ;remove "#define __BASE_FILE__" to avoid duplicates
-remove-macro: proc [
+remove-macro: func [
+    return: <void>
     macro [any-string!]
     <local> pos-m inc eol
 ][

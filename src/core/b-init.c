@@ -454,6 +454,7 @@ static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
 //
 static void Init_Action_Spec_Tags(void)
 {
+    Root_Void_Tag = rebLock(rebTag("void"), END);
     Root_With_Tag = rebLock(rebTag("with"), END);
     Root_Ellipsis_Tag = rebLock(rebTag("..."), END);
     Root_Opt_Tag = rebLock(rebTag("opt"), END);
@@ -463,6 +464,7 @@ static void Init_Action_Spec_Tags(void)
 
 static void Shutdown_Action_Spec_Tags(void)
 {
+    rebRelease(Root_Void_Tag);
     rebRelease(Root_With_Tag);
     rebRelease(Root_Ellipsis_Tag);
     rebRelease(Root_Opt_Tag);

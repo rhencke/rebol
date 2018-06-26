@@ -121,21 +121,22 @@ sys/make-scheme [
             ]
         ]
 
-        close: procedure [
+        close: function [
             {Closes a statement port only or a database port w/all statements}
+            return: <void>
             port [port!]
         ][
             if get in (statement: port/locals) 'hstmt [
                 remove find head statement/database/statements port
                 close-statement statement
-                leave
+                return
             ]
 
             if get in (connection: port/locals) 'hdbc [
                 for-each stmt-port connection/statements [close stmt-port]
                 clear connection/statements
                 close-connection connection
-                leave
+                return
             ]
         ]
 

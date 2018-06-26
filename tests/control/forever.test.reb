@@ -15,13 +15,13 @@
     forever [if cycle? [cycle?: false continue success: false] break]
     success
 )
-; Test that return stops the loop
+; Test that arity-1 return stops the loop
 (
     f1: func [] [forever [return 1]]
     1 = f1
 )
-; Test that leave stops the loop
-(null? eval proc [] [forever [leave]])
+; Test that arity-0 return stops the loop
+(null? eval func [return: <void>] [forever [return]])
 ; Test that errors do not stop the loop and errors can be returned
 (
     num: 0

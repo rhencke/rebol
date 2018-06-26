@@ -159,9 +159,10 @@ make-emitter: function [
         file: (file)
         title: (title)
 
-        emit: procedure [
+        emit: function [
             {Write data to the emitter using CSCAPE templating (see HELP)}
 
+            return: <void>
             :look [any-value! <...>]
             data [text! char! <...>]
         ][
@@ -187,7 +188,8 @@ make-emitter: function [
         ]
 
 
-        write-emitted: procedure [
+        write-emitted: function [
+            return: <void>
             /tabbed
         ][
             if newline != last buf-emit [

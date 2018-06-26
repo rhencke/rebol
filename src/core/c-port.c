@@ -372,8 +372,11 @@ void Sieve_Ports(REBARR *ports)
 // and repetition of logic in Do_Core.  Ren-C more simply builds a PATH! of
 // the target function and refinements, passing args with DO_FLAG_EVAL_ONLY.
 //
-// !!! This won't stand up in the face of targets that are "adversarial"
-// to the archetype:
+// !!! This could be done more efficiently now by pushing the refinements to
+// the stack and using an APPLY-like technique.
+//
+// !!! This still isn't perfect and needs reworking, as it won't stand up in
+// the face of targets that are "adversarial" to the archetype:
 //
 //     foo: func [a /b c] [...]  =>  bar: func [/b d e] [...]
 //                    foo/b 1 2  =>  bar/b 1 2
@@ -413,9 +416,9 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
 
         if (
             pclass == PARAM_CLASS_LOCAL
-            || pclass == PARAM_CLASS_LEAVE
-            || pclass == PARAM_CLASS_RETURN
-        ) {
+            or pclass == PARAM_CLASS_RETURN_0
+            or pclass == PARAM_CLASS_RETURN_1
+        ){
              continue; // don't add a callsite expression for it (can't)!
         }
 

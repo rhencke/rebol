@@ -508,8 +508,8 @@ REBOOL Specialize_Action_Throws(
 
             fail (Error_Non_Logic_Refinement(param, refine)); }
 
-        case PARAM_CLASS_RETURN:
-        case PARAM_CLASS_LEAVE:
+        case PARAM_CLASS_RETURN_1:
+        case PARAM_CLASS_RETURN_0:
         case PARAM_CLASS_LOCAL:
             assert(IS_NULLED(arg)); // no bindings, you can't set these
             goto unspecialized_arg;
@@ -1058,8 +1058,8 @@ REBOOL Make_Invocation_Frame_Throws(
             break; }
 
         case PARAM_CLASS_LOCAL:
-        case PARAM_CLASS_RETURN:
-        case PARAM_CLASS_LEAVE:
+        case PARAM_CLASS_RETURN_1:
+        case PARAM_CLASS_RETURN_0:
             break;
 
         default:

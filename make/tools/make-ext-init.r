@@ -47,7 +47,8 @@ dest: either did select args 'DEST [
 
 print unspaced ["--- Make Extension Init Code from " src " ---"]
 
-write-c-file: procedure [
+write-c-file: function [
+    return: <void>
     c-file
     r-file
 ][

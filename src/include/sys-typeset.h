@@ -66,7 +66,7 @@ enum Reb_Param_Class {
     // `PARAM_CLASS_NORMAL` is cued by an ordinary WORD! in the function spec
     // to indicate that you would like that argument to be evaluated normally.
     //
-    //     >> foo: procedure [a] [print [{a is} a]]
+    //     >> foo: function [a] [print [{a is} a]]
     //
     //     >> foo 1 + 2
     //     a is 3
@@ -83,7 +83,7 @@ enum Reb_Param_Class {
     // dialect.  It indicates that a single value of content at the callsite
     // should be passed through *literally*, without any evaluation:
     //
-    //     >> foo: procedure [:a] [print [{a is} a]]
+    //     >> foo: function [:a] [print [{a is} a]]
     //
     //     >> foo 1 + 2
     //     a is 1
@@ -117,10 +117,10 @@ enum Reb_Param_Class {
     //
     PARAM_CLASS_TIGHT = 0x04,
 
-    // PARAM_CLASS_RETURN acts like a pure local, but is pre-filled with a
+    // PARAM_CLASS_RETURN_1 acts like a pure local, but is pre-filled with a
     // definitionally-scoped function value that takes 1 arg and returns it.
     //
-    PARAM_CLASS_RETURN = 0x05,
+    PARAM_CLASS_RETURN_1 = 0x05,
 
     // `PARAM_CLASS_SOFT_QUOTE` is cued by a LIT-WORD! in the function spec
     // dialect.  It quotes with the exception of GROUP!, GET-WORD!, and
@@ -142,10 +142,10 @@ enum Reb_Param_Class {
     //
     PARAM_CLASS_SOFT_QUOTE = 0x06,
 
-    // `PARAM_CLASS_LEAVE` acts like a pure local, but is pre-filled with a
+    // `PARAM_CLASS_RETURN_0` acts like a pure local, but is pre-filled with a
     // definitionally-scoped function value that takes 0 args and returns void
     //
-    PARAM_CLASS_LEAVE = 0x07,
+    PARAM_CLASS_RETURN_0 = 0x07,
 
     PARAM_CLASS_MAX
 };

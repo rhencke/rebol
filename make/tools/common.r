@@ -224,7 +224,7 @@ binary-to-c: function [
 ]
 
 
-for-each-record: procedure [
+for-each-record: function [
     {Iterate a table with a header by creating an object for each row}
 
     return: [<opt> any-value!]
@@ -383,7 +383,8 @@ propercase-of: func [
     propercase form string
 ]
 
-write-if-changed: procedure [
+write-if-changed: function [
+    return: <void>
     dest [file!]
     content [text! block!]
 ][

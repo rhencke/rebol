@@ -127,7 +127,8 @@ Script: [
     bad-func-def:       [{invalid function definition:} :arg1]
     bad-func-arg:       [{function argument} :arg1 {is not valid}] ; can be a number
 
-    needs-return-value: [:arg1 {must return value (use PROC or RETURN: <opt>)}]
+    needs-return-opt:   [:arg1 {can't return null (see RETURN: [<opt> ...])}]
+    needs-return-value: [:arg1 {can't return void! (see RETURN: <void>)}]
     bad-return-type:    [:arg1 {doesn't have RETURN: enabled for} :arg2]
 
     no-refine:          [:arg1 {has no refinement called} :arg2]
@@ -172,7 +173,6 @@ Script: [
     bad-cast:           [{cannot cast} :arg1 {as} :arg2]
 
     return-archetype:   {RETURN called with no generator providing it in use}
-    leave-archetype:    {LEAVE called with no generator providing it in use}
 
     parse-rule:         {PARSE - invalid rule or usage of rule}
     parse-end:          {PARSE - unexpected end of rule}

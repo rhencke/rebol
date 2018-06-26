@@ -64,4 +64,12 @@ null: func [
     "Function returning no result (alternative for `()`)"
     return: [<opt>]
 ][
+    ;-- Note: actually *faster* than a native, due to Null_Dispatcher()
+]
+
+void: func [
+    "Function returning void result (alternative for `#[void]`)"
+    return: <void>
+][
+    ;-- Note: actually *faster* than a native, due to Void_Dispatcher()
 ]

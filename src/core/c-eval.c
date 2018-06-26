@@ -847,13 +847,10 @@ reevaluate:;
 
     //=//// "PURE" LOCAL: ARG /////////////////////////////////////////////=//
 
-            // This takes care of locals, including "magic" RETURN and LEAVE
-            // cells that need to be pre-filled.  Notice that although the
-            // parameter list may have RETURN and LEAVE slots, that parameter
-            // list may be reused by an "adapter" or "hijacker" which would
-            // technically happen *before* the "magic" (if the user had
-            // implemented the definitinal returns themselves inside the
-            // function body).  Hence they are not always filled.
+            // This takes care of locals, including "magic" RETURN cells that
+            // need to be pre-filled.  !!! Note nuances with compositions:
+            //
+            // https://github.com/metaeducation/ren-c/issues/823
             //
             // Also note that while it might seem intuitive to take care of
             // these "easy" fills before refinement checking--checking for
@@ -864,27 +861,15 @@ reevaluate:;
                 Init_Nulled(f->arg); // !!! f->special?
                 goto continue_arg_loop;
 
-            case PARAM_CLASS_RETURN:
+            case PARAM_CLASS_RETURN_1:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
-
-                if (not GET_ACT_FLAG(f->phase, ACTION_FLAG_RETURN)) {
-                    Init_Nulled(f->arg);
-                    goto continue_arg_loop;
-                }
-
-                Move_Value(f->arg, NAT_VALUE(return)); // !!! f->special?
+                Move_Value(f->arg, NAT_VALUE(return_1)); // !!! f->special?
                 f->arg->extra.binding = NOD(f); // !!! INIT_BINDING reifies
                 goto continue_arg_loop;
 
-            case PARAM_CLASS_LEAVE:
-                assert(VAL_PARAM_SYM(f->param) == SYM_LEAVE);
-
-                if (not GET_ACT_FLAG(f->phase, ACTION_FLAG_LEAVE)) {
-                    Init_Nulled(f->arg);
-                    goto continue_arg_loop;
-                }
-
-                Move_Value(f->arg, NAT_VALUE(leave)); // !!! f->special?
+            case PARAM_CLASS_RETURN_0:
+                assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
+                Move_Value(f->arg, NAT_VALUE(return_0)); // !!! f->special?
                 f->arg->extra.binding = NOD(f); // !!! INIT_BINDING reifies
                 goto continue_arg_loop;
 

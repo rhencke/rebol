@@ -50,8 +50,9 @@ composeII: specialize 'concoct [pattern: quote (())]
 
 ; Convenience helper for making enfixed functions
 
-set/enfix quote enfix: proc [ ;-- `x: y: enfix :z` wouldn't enfix x
+set/enfix quote enfix: func [
     "Convenience version of SET/ENFIX, e.g `+: enfix :add`"
+    return: <void> "`x: y: enfix :z` wouldn't enfix x, so returns void"
     :target [set-word! set-path!]
     action [action!]
 ][
@@ -167,8 +168,9 @@ empty?: func [
 ]
 
 
-eval proc [
+eval func [
     {Make fast type testing functions (variadic to quote "top-level" words)}
+    return: <void>
     'set-word... [set-word! <...>]
     <local>
         set-word type-name tester meta
@@ -249,11 +251,12 @@ eval proc [
 |
 
 
-print: proc [
+print: func [
     "Textually output value (evaluating elements if a block), adds newline"
 
+    return: <void>
     value [any-value!]
-        "Value or BLOCK! literal (BLANK! means print nothing)"
+        "Value or BLOCK! literal (NULL means print nothing)"
     /eval
         "Allow value to be a block and evaluated (even if not literal)"
     <local> eval_PRINT ;quote_PRINT
@@ -261,7 +264,7 @@ print: proc [
     eval_PRINT: eval
     eval: :lib/eval
 
-    if blank? :value [leave]
+    if null? :value [return]
 
     write-stdout case [
         not block? value [

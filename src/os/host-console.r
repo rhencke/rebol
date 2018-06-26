@@ -61,7 +61,7 @@ console!: make object! [
     info: to-text #{e29398} ;-- info "(i)" symbol
     greeting: _
 
-    print-prompt: proc [] [
+    print-prompt: func [return: <void>] [
         ;
         ; !!! Previously the HOST-CONSOLE hook explicitly took an (optional)
         ; FRAME! where a debug session was focused and a stack depth integer,
@@ -99,7 +99,7 @@ console!: make object! [
         write-stdout space
     ]
 
-    print-result: procedure [v [<opt> any-value!]]  [
+    print-result: function [return: <void> v [<opt> any-value!]]  [
         set* (quote last-result:) :v
         case [
             null? :v [
@@ -147,16 +147,16 @@ console!: make object! [
         ]
     ]
 
-    print-warning:  proc [s] [print [warning reduce s]]
-    print-error:    proc [e [error!]] [print e]
+    print-warning:  func [s] [print [warning reduce s]]
+    print-error:    func [e [error!]] [print e]
 
-    print-halted: proc [] [
+    print-halted: func [] [
         print "[interrupted by Ctrl-C or HALT instruction]"
     ]
 
-    print-info:     proc [s] [print [info space space space reduce s]]
-    print-greeting: proc []  [boot-print greeting]
-    print-gap:      proc []  [print-newline]
+    print-info:     func [s] [print [info space space space reduce s]]
+    print-greeting: func []  [boot-print greeting]
+    print-gap:      func []  [print-newline]
 
     ;; BEHAVIOR (can be overridden)
 
@@ -214,21 +214,21 @@ console!: make object! [
 
     ;; HELPERS (could be overridden!)
 
-    add-shortcut: proc [
+    add-shortcut: func [
         {Add/Change console shortcut}
-        name  [any-word!]
-            {shortcut name}
-        block [block!]
-            {command(s) expanded to}
+        return: <void>
+        name [any-word!] "Shortcut name"
+        block [block!] "Command(s) expanded to"
     ][
         extend shortcuts name block
     ]
 ]
 
 
-start-console: procedure [
+start-console: function [
     "Called when a REPL is desired after command-line processing, vs quitting"
 
+    return: <void>
     <static>
         o (system/options) ;-- shorthand since options are often read/written
 ][
@@ -667,8 +667,9 @@ host-console: function [
 ]
 
 
-why: procedure [
+why: function [
     "Explain the last error in more detail."
+    return: <void>
     'err [<end> word! path! error! blank!] "Optional error value"
 ][
     err: default [system/state/last-error]
@@ -687,8 +688,9 @@ why: procedure [
 ]
 
 
-upgrade: procedure [
+upgrade: function [
     "Check for newer versions."
+    return: <void>
 ][
     ; Should this be a console-detected command, like Q, or is it meaningful
     ; to define this as a function you could call from code?
@@ -709,9 +711,10 @@ upgrade: procedure [
 ; issue that the CONSOLE must collaborate specifically with ECHO to achieve
 ; this.
 ;
-echo: procedure [
+echo: function [
     {Copies console I/O to a file.}
 
+    return: <void>
     'instruction [file! text! block! word!]
         {File or template with * substitution, or command: [ON OFF RESET].}
 
@@ -749,7 +752,8 @@ echo: procedure [
     ; would just be WRITE, so this would be hooking WRITE and checking for
     ; STDOUT or falling through.  Note WRITE doesn't take CHAR! right now.
     ;
-    hook-out: default [proc [
+    hook-out: default [func [
+        return: <void>
         value [text! char! binary!]
             {Text to write, if a STRING! or CHAR! is converted to OS format}
     ][

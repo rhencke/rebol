@@ -174,7 +174,7 @@ standard: construct [] [
 
     func-body: [
         return: make action! [
-            [{Returns a value from a function.} value [<opt> any-value!]]
+            [{Returns a value from an action} value [<opt> any-value!]]
             [unwind/with (context of 'return) :value]
         ] #BODY
     ]
@@ -182,9 +182,9 @@ standard: construct [] [
     proc-return-type: [void!]
 
     proc-body: [
-        leave: make action! [
-            [{Leaves a procedure, giving no result to the caller.}]
-            [unwind (context of 'leave)]
+        return: make action! [
+            [{Leaves an action, giving no result to the caller}]
+            [unwind (context of 'return)]
         ] #BODY
         ; #[void] ;-- illegal notation in legacy R3s, but returns this
     ]

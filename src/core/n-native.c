@@ -241,7 +241,7 @@ REBNATIVE(make_native)
         fail (Error_Tcc_Empty_Source_Raw());
 
     REBACT *native = Make_Action(
-        Make_Paramlist_Managed_May_Fail(ARG(spec), MKF_NONE),
+        Make_Paramlist_Managed_May_Fail(ARG(spec), MKF_MASK_NONE),
         &Pending_Native_Dispatcher, // will be replaced e.g. by COMPILE
         NULL, // no facade (use paramlist)
         NULL // no specialization exemplar (or inherited exemplar)
@@ -508,8 +508,8 @@ REBNATIVE(compile)
                 enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
                 switch (pclass) {
                 case PARAM_CLASS_LOCAL:
-                case PARAM_CLASS_RETURN:
-                case PARAM_CLASS_LEAVE:
+                case PARAM_CLASS_RETURN_1:
+                case PARAM_CLASS_RETURN_0:
                     assert(FALSE); // natives shouldn't generally use these...
                     break;
 

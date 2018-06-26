@@ -64,33 +64,6 @@ REBNATIVE(func)
 
 
 //
-//  proc: native [
-//
-//  "Defines an ACTION! with given spec and body, but no return result"
-//
-//      return: [action!]
-//      spec "Help string (opt) followed by arg words (and opt type + string)"
-//          [block!]
-//      body "Code implementing the function--use LEAVE to exit"
-//          [block!]
-//  ]
-//
-REBNATIVE(proc)
-{
-    INCLUDE_PARAMS_OF_PROC;
-
-    REBACT *proc = Make_Interpreted_Action_May_Fail(
-        ARG(spec),
-        ARG(body),
-        MKF_LEAVE | MKF_KEYWORDS
-    );
-
-    Move_Value(D_OUT, ACT_ARCHETYPE(proc));
-    return R_OUT;
-}
-
-
-//
 //  Make_Thrown_Unwind_Value: C
 //
 // This routine will generate a THROWN() value that can be used to indicate
@@ -189,16 +162,16 @@ REBNATIVE(unwind)
 
 
 //
-//  return: native [
+//  return-1: native [
 //
-//  "Returns a value from a function."
+//  "Arity-1 RETURN, giving a result to the caller"
 //
 //      value [<opt> any-value!]
 //  ]
 //
-REBNATIVE(return)
+REBNATIVE(return_1)
 {
-    INCLUDE_PARAMS_OF_RETURN;
+    INCLUDE_PARAMS_OF_RETURN_1;
 
     REBFRM *f = frame_; // implicit parameter to REBNATIVE()
 
@@ -238,12 +211,11 @@ REBNATIVE(return)
     //
     REBACT *target_fun = FRM_UNDERLYING(target_frame);
 
-    // If it's a definitional return, the associated function's frame must
-    // have a SYM_RETURN in it, which is also a local.  The trick used is
-    // that the type bits in that local are used to store the legal types
-    // for the return value.
+    // Defininitional returns are "locals"--there's no argument type check.
+    // So TYPESET! bits in the RETURN param are used for legal return types.
     //
     REBVAL *typeset = ACT_PARAM(target_fun, ACT_NUM_PARAMS(target_fun));
+    assert(VAL_PARAM_CLASS(typeset) == PARAM_CLASS_RETURN_1);
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
     // Check the type *NOW* instead of waiting and letting Do_Core() check it.
@@ -257,7 +229,7 @@ REBNATIVE(return)
     // itself...implicating the frame (in a way parallel to this native).
     //
     REBVAL *value = ARG(value);
-    if (!TYPE_CHECK(typeset, VAL_TYPE(value)))
+    if (not TYPE_CHECK(typeset, VAL_TYPE(value)))
         fail (Error_Bad_Return_Type(target_frame, VAL_TYPE(value)));
 
     Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
@@ -269,23 +241,23 @@ REBNATIVE(return)
 
 
 //
-//  leave: native [
+//  return-0: native [
 //
-//  "Leaves a procedure, giving no result to the caller."
+//  {Arity-0 RETURN, giving a VOID! result to the caller}
 //
 //  ]
 //
-REBNATIVE(leave)
+REBNATIVE(return_0)
 //
-// See notes on REBNATIVE(return)
+// See notes on REBNATIVE(return_1)
 {
-    if (frame_->binding == UNBOUND) // raw native, not variant PROCEDURE made
+    if (frame_->binding == UNBOUND) // raw native, not variant Do_Core() made
         fail (Error_Return_Archetype_Raw());
 
     Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
     INIT_BINDING(D_OUT, frame_->binding);
 
-    CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
+    CONVERT_NAME_TO_THROWN(D_OUT, VOID_VALUE);
     return R_OUT_IS_THROWN;
 }
 

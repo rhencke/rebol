@@ -18,7 +18,7 @@ do %test-framework.r
 ; Example runner for the REBOL/Core tests which chooses
 ; appropriate flags depending on the interpreter version.
 
-do-core-tests: procedure [] [
+do-core-tests: function [return: <void>] [
     ; Check if we run R3 or R2.
     flags: pick [
         [<64bit> <r3only> <r3>]

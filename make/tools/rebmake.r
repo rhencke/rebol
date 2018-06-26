@@ -1274,7 +1274,8 @@ generator-class: make object! [
         cmd
     ]
 
-    prepare: procedure [
+    prepare: function [
+        return: <void>
         solution [object!]
         <local>
         dep
@@ -1299,7 +1300,8 @@ generator-class: make object! [
         ]
     ]
 
-    flip-flag: proc [
+    flip-flag: func [
+        return: <void>
         project [object!]
         to [logic!]
         <local>
@@ -1318,7 +1320,8 @@ generator-class: make object! [
         ]
     ]
 
-    setup-output: procedure [
+    setup-output: function [
+        return: <void>
         project [object!]
     ][
         if not suffix: try find reduce [
@@ -1327,7 +1330,7 @@ generator-class: make object! [
             'static-library-class target-platform/archive-suffix
             'object-library-class target-platform/archive-suffix
             'object-file-class target-platform/obj-suffix
-        ] project/class-name [leave]
+        ] project/class-name [return]
 
         suffix: second suffix
 
@@ -1366,8 +1369,9 @@ generator-class: make object! [
         project/basename: basename
     ]
 
-    setup-outputs: procedure [
+    setup-outputs: function [
         {Set the output/implib for the project tree}
+        return: <void>
         project [object!]
         <local>
         dep
@@ -1380,7 +1384,7 @@ generator-class: make object! [
             'static-library-class
             'solution-class
             'object-library-class [
-                if project/generated? [leave]
+                if project/generated? [return]
                 setup-output project
                 project/generated?: true
                 for-each dep project/depends [
@@ -1392,7 +1396,7 @@ generator-class: make object! [
                 setup-output project
             ]
         ][
-            leave
+            return
         ]
     ]
 ]
@@ -1495,7 +1499,8 @@ makefile: make generator-class [
         ]
     ]
 
-    emit: proc [
+    emit: func [
+        return: <void>
         buf [binary!]
         project [object!]
         /parent parent-object
@@ -1507,7 +1512,7 @@ makefile: make generator-class [
     ][
         ;print ["emitting..."]
         ;dump project
-        ;if project/generated? [leave]
+        ;if project/generated? [return]
         ;project/generated?: true
 
         for-each dep project/depends [
@@ -1627,7 +1632,8 @@ Execution: make generator-class [
     gen-cmd-delete: :host/gen-cmd-delete
     gen-cmd-strip: :host/gen-cmd-strip
 
-    run-target: proc [
+    run-target: func [
+        return: <void>
         target [object!]
         /cwd dir [file!]
         <local>
@@ -1642,7 +1648,7 @@ Execution: make generator-class [
                     not word? target/target 
                     ; so you can use words for "phony" targets
                     exists? to-file target/target
-                ] [leave] ;TODO: Check the timestamp to see if it needs to be updated
+                ] [return] ;TODO: Check the timestamp to see if it needs to be updated
                 either block? target/commands [
                     for-each cmd target/commands [
                         cmd: reify cmd
@@ -1661,7 +1667,8 @@ Execution: make generator-class [
         ]
     ]
 
-    run: proc [
+    run: func [
+        return: <void>
         project [object!]
         /parent p-project
         <local>
@@ -1671,16 +1678,13 @@ Execution: make generator-class [
         suffix
     ][
         ;dump project
-        if not object? project [leave]
+        if not object? project [return]
 
         prepare project
 
         if not find [ext-dynamic-class ext-static-class] project/class-name [
-            either project/generated? [
-                leave
-            ][
-                project/generated?: true
-            ]
+            if project/generated? [return]
+            project/generated?: true
         ]
 
         if null? switch project/class-name [
@@ -1930,7 +1934,8 @@ visual-studio: make generator-class [
         not find [0 _ no false off #[false]] optimization
     ]
 
-    generate-project: procedure [
+    generate-project: function [
+        return: <void>
         output-dir [file!] {Solution directory}
         project [object!]
         <with>
@@ -1943,7 +1948,7 @@ visual-studio: make generator-class [
         project-name: either project/class-name = 'entry-class [project/target][project/name]
         if project/generated? [
             print ["project" project-name "was already generated"]
-            leave
+            return
         ]
 
         ;print ["Generating project file for" project-name]
@@ -1962,7 +1967,6 @@ visual-studio: make generator-class [
         ][
             dump project
             fail ["unsupported project:" (project/class-name)]
-            leave
         ]
 
         config: unspaced [build-type {|} platform]

@@ -11,9 +11,10 @@ REBOL [
     }
 ]
 
-verify: procedure [
+verify: function [
     {Verify all the conditions in the passed-in block are conditionally true}
 
+    return: <void>
     conditions [block!]
         {Conditions to check}
 ][
@@ -139,8 +140,10 @@ speed?: function [
 
 net-log: func [txt /C /S][txt]
 
-net-trace: procedure [
+net-trace: function [
     "Switch between using a no-op or a print operation for net-tracing"
+
+    return: <void>
     val [logic!]
 ][
     either val [

@@ -288,3 +288,26 @@ switch: adapt 'switch [
         ]
     ]
 ]
+
+; https://forum.rebol.info/t/method-and-the-argument-against-procedure/710
+;
+actionmaker: lib/function [
+    return: [action!]
+    gather-locals [logic!]
+    spec [block!]
+    body [block!]
+][
+    generator: either find spec [return: <void>] [
+        spec: replace copy spec [<void>] [] ;-- keep RETURN: as local
+        body: compose [return: :leave (body)]
+        either gather-locals [:lib/procedure] [:lib/proc]
+    ][
+        either gather-locals [:lib/function] [:lib/func]
+    ]
+    generator spec body
+]
+
+func: specialize 'actionmaker [gather-locals: false]
+function: specialize 'actionmaker [gather-locals: true]
+unset 'procedure
+unset 'proc

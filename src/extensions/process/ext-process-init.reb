@@ -10,12 +10,13 @@ REBOL [
 ; as some potentially OS-specific detection on how to launch URLs (e.g. looks
 ; at registry keys on Windows)
 
-browse*: procedure [
+browse*: function [
     "Open web browser to a URL or local file."
 
+    return: <void>
     location [url! file! blank!]
 ][
-    if blank? location [leave]
+    if blank? location [return]
 
     ; Note that GET-OS-BROWSERS uses the Windows registry convention of having
     ; %1 be what needs to be substituted.  This may not be ideal, it was just
@@ -29,7 +30,7 @@ browse*: procedure [
         ]
         trap/with [
             call/shell command ; don't use /WAIT
-            leave
+            return
         ][
             ;-- Just keep trying
         ]

@@ -563,8 +563,9 @@ format: function [
 ]
 
 
-printf: proc [
+printf: func [
     "Formatted print."
+    return: <void>
     fmt "Format"
     val "Value or block of values"
 ][

@@ -78,7 +78,8 @@ make object! [
         test-source
     ]
 
-    set 'collect-tests procedure [
+    set 'collect-tests function [
+        return: <void>
         collected-tests [block!]
             {collect the tests here (modified)}
         test-file [file!]
@@ -98,7 +99,7 @@ make object! [
                 test-file 'dialect {^/"failed, cannot read the file"^/}
             ]
             change-dir current-dir
-            leave
+            return
         ][
             change-dir current-dir
             append collected-tests test-file

@@ -501,9 +501,10 @@ change/only at-value platform reduce [
 
 ob: has boot-sysobj
 
-make-obj-defs: procedure [
+make-obj-defs: function [
     {Given a Rebol OBJECT!, write C structs that can access its raw variables}
 
+    return: <void>
     e [object!]
        {The emitter to write definitions to}
     obj

@@ -459,7 +459,8 @@ if commands [forall commands [
 
 ;;;; GO!
 
-set-exec-path: proc [
+set-exec-path: func [
+    return: <void>
     tool [object!]
     path
 ][
@@ -1016,11 +1017,12 @@ case [
     ]
 ]
 
-assert-no-blank-inside: proc [
+assert-no-blank-inside: func [
+    return: <void>
     block [block! blank!]
     <local> e
 ][
-    if blank? block [leave]
+    if blank? block [return]
 
     for-each e block [
         if blank? e [
@@ -1231,7 +1233,8 @@ for-each [label list] reduce [
 
 all-extensions: join-of builtin-extensions dynamic-extensions
 
-add-project-flags: proc [
+add-project-flags: func [
+    return: <void>
     project [object!]
     /I includes
     /D definitions
@@ -1535,7 +1538,8 @@ prep: make rebmake/entry-class [
 ; to add those obj folders.  So if the `%generic/host-xxx.c` is listed,
 ; this will make sure `%objs/generic/` is in there.
 
-add-new-obj-folders: procedure [
+add-new-obj-folders: function [
+    return: <void>
     objs
     folders
     <local>

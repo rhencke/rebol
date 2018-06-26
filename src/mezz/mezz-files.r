@@ -162,8 +162,10 @@ confirm: function [
 ]
 
 
-list-dir: procedure [
+list-dir: function [
     "Print contents of a directory (ls)."
+
+    return: <void>
     'path [<end> file! word! path! text!]
         "Accepts %file, :variables, and just words (as dirs)"
     /l "Line of info format"
@@ -195,7 +197,7 @@ list-dir: procedure [
     if not (files: attempt [read %./]) [
         print ["Not found:" :path]
         change-dir save-dir
-        leave
+        return
     ]
 
     for-each file files [
@@ -297,16 +299,20 @@ to-relative-file: function [
 ;
 ; http://www.rebol.com/r3/docs/concepts/scripts-style.html#section-4
 ;
-detab-file: procedure [
+detab-file: function [
     "detabs a disk file"
+
+    return: <void>
     filename [file!]
 ][
     write filename detab to text! read filename
 ]
 
 ; temporary location
-set-net: procedure [
+set-net: function [
     {sets the system/user/identity email smtp pop3 esmtp-usr esmtp-pass fqdn}
+
+    return: <void>
     bl [block!]
 ][
     if 6 <> length of bl [fail "Needs all 6 parameters for set-net"]

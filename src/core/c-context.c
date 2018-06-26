@@ -808,7 +808,7 @@ void Rebind_Context_Deep(
 //
 // This routine will *always* make a context with a SELF.  This lacks the
 // nuance that is expected of the generators, which will have an equivalent
-// to `<with> return` or `<with> leave` to suppress it.
+// to `<with> return` to suppress it.
 //
 REBCTX *Make_Selfish_Context_Detect(
     enum Reb_Kind kind,

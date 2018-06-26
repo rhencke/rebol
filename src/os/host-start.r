@@ -36,8 +36,9 @@ REBOL [
 ;
 host-prot: default [_]
 
-boot-print: procedure [
+boot-print: function [
     "Prints during boot when not quiet."
+    return: <void>
     data
     /eval
 ][
@@ -49,8 +50,9 @@ boot-print: procedure [
     ]
 ]
 
-loud-print: procedure [
+loud-print: function [
     "Prints during boot when verbose."
+    return: <void>
     data
     /eval
 ][
@@ -115,8 +117,9 @@ boot-banner: [
     *
 ]
 
-about: procedure [
+about: function [
     "Information about REBOL"
+    return: <void>
 ][
     print make-banner boot-banner
 ]
@@ -130,8 +133,9 @@ about: procedure [
 ; like an ordinary ACTION!, and all the proxying is handled for the user.
 ; Work done on the dialect here could be shared in common.
 ;
-usage: procedure [
+usage: function [
     "Prints command-line arguments."
+    return: <void>
 ][
 ;       --cgi (-c)       Load CGI utiliy module and modes
 ;       --version tuple  Script must be this version or greater
@@ -191,14 +195,16 @@ boot-welcome:
   ABOUT   - Information about your Rebol
   CHANGES - What's different about this version}
 
-license: procedure [
+license: function [
     "Prints the REBOL/core license agreement."
+    return: <void>
 ][
     print system/license
 ]
 
-host-script-pre-load: procedure [
+host-script-pre-load: function [
     {Code registered as a hook when a module or script are loaded}
+    return: <void>
     is-module [logic!]
     hdr [blank! object!]
         {Header object (will be blank for DO of BINARY! with no header)}

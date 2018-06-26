@@ -1100,7 +1100,8 @@ load-extension: function [
 ]
 
 
-unload-extension: procedure [
+unload-extension: function [
+    return: <void>
     ext [object!] "extension object"
 ][
     if not locked? ext [

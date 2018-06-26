@@ -254,7 +254,8 @@ parse-asn: function [
 ; PROTOCOL STATE HANDLING
 ;
 
-update-state: procedure [
+update-state: function [
+    return: <void>
     ctx [object!]
     new [tag! issue!] "new state, ISSUE! is a (potentially) terminal state"
     direction [word!] "READ or WRITE"
@@ -304,7 +305,8 @@ update-write-state: specialize 'update-state [
 ; TLS PROTOCOL CODE
 ;
 
-client-hello: procedure [
+client-hello: function [
+    return: <void>
     ctx [object!]
 ][
     clear ctx/handshake-messages
@@ -351,7 +353,8 @@ client-hello: procedure [
 ]
 
 
-client-key-exchange: procedure [
+client-key-exchange: function [
+    return: <void>
     ctx [object!]
 ][
     switch ctx/key-method [
@@ -427,7 +430,8 @@ client-key-exchange: procedure [
 ]
 
 
-change-cipher-spec: procedure [
+change-cipher-spec: function [
+    return: <void>
     ctx [object!]
 ][
     emit ctx [
@@ -439,7 +443,8 @@ change-cipher-spec: procedure [
 ]
 
 
-encrypted-handshake-msg: procedure [
+encrypted-handshake-msg: function [
+    return: <void>
     ctx [object!]
     message [binary!]
 ][
@@ -455,7 +460,8 @@ encrypted-handshake-msg: procedure [
 ]
 
 
-application-data: procedure [
+application-data: function [
+    return: <void>
     ctx [object!]
     message [binary! text!]
 ][
@@ -987,7 +993,8 @@ make-master-secret: function [
 ]
 
 
-do-commands: procedure [
+do-commands: function [
+    return: <void>
     ctx [object!]
     commands [block!]
     /no-wait
@@ -1039,7 +1046,8 @@ do-commands: procedure [
 ;
 
 
-tls-init: procedure [
+tls-init: function [
+    return: <void>
     ctx [object!]
 ][
     ctx/seq-num-r: 0

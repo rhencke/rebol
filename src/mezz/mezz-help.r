@@ -56,6 +56,8 @@ dump-obj: function [
         wild: did all [set? 'pat | text? pat | find pat "*"]
 
         for-each [word val] obj [
+            if not set? 'val [continue] ;-- !!! review
+
             type: type of :val
 
             str: if lib/match [action! object!] :type [
@@ -107,7 +109,7 @@ dump: func [
 ][
     if bar? first value [
         take value
-        leave
+        return
     ] ;-- treat this DUMP as disabled, `dump | x`
 
     dump-val: function [val [<opt> any-value!]] [
@@ -123,7 +125,7 @@ dump: func [
         ]
     ]
 
-    dump-one: proc [item][
+    dump-one: func [item][
         switch type of item [
             text! [ ;-- allow customized labels
                 print ["---" mold/limit item system/options/dump-size "---"]
@@ -251,15 +253,19 @@ title-of: function [
     ]
 ]
 
-browse: procedure [
+browse: function [
     "stub function for browse* in extensions/process/ext-process-init.reb"
+
+    return: <void>
     location [url! file! blank!]
 ][
     print "Browse needs redefining"
 ]
 
-help: procedure [
+help: function [
     "Prints information about words and values (if no args, general help)."
+
+    return: <void>
     :topic [<end> any-value!]
         "WORD! whose value to explain, or other HELP target (try HELP HELP)"
     /doc
@@ -322,7 +328,7 @@ help: procedure [
                 upgrade - check for newer versions
                 usage - program cmd line options
         }
-        leave
+        return
     ]
 
     ; HELP quotes, but someone might want to use an expression, e.g.
@@ -366,16 +372,16 @@ help: procedure [
             sort types
             if not empty? types [
                 print ["Found these related words:" newline types]
-                leave
+                return
             ]
             print ["No information on" topic]
-            leave
+            return
         ]
 
         path! word! [
             value: get topic else [
                 print ["No information on" topic "(has no value)"]
-                leave
+                return
             ]
             enfixed: enfixed? topic
         ]
@@ -385,7 +391,7 @@ help: procedure [
         ] else [
             print [mold :topic "is" an mold type of :topic]
         ]
-        leave
+        return
     ]
 
     ; Open the web page for it?
@@ -434,7 +440,7 @@ help: procedure [
         ] else [
             print [topic {is a datatype}]
         ]
-        leave
+        return
     ]
 
     if not action? :value [
@@ -452,7 +458,7 @@ help: procedure [
                 ]
             ]
         ]
-        leave
+        return
     ]
 
     ; The HELP mechanics for ACTION! are more complex in Ren-C due to the
@@ -540,7 +546,7 @@ help: procedure [
         space4 spaced [(uppercase mold topic) {is} classification]
     ]
 
-    print-args: procedure [list /indent-words] [
+    print-args: function [list /indent-words] [
         for-each param list [
             type: try ensure* block! (
                 opt select fields/parameter-types to-word param
@@ -560,6 +566,7 @@ help: procedure [
                 print unspaced [space4 space4 note]
             ]
         ]
+        null
     ]
 
     print-newline
@@ -586,8 +593,10 @@ help: procedure [
 ]
 
 
-source: procedure [
+source: function [
     "Prints the source code for an ACTION! (if available)"
+
+    return: <void>
     'arg [word! path! action! tag!]
 ][
     switch type of :arg [
@@ -605,7 +614,7 @@ source: procedure [
             name: arg
             f: get arg else [
                 print [name "is not set to a value"]
-                leave
+                return
             ]
         ]
     ] else [
@@ -621,7 +630,7 @@ source: procedure [
             print [name "is" an mold type of :f "and not an ACTION!"]
         ]
     ] also [
-        leave
+        return
     ]
 
     ;; ACTION!
@@ -652,8 +661,10 @@ source: procedure [
 ]
 
 
-what: procedure [
+what: function [
     {Prints a list of known actions}
+
+    return: <void>
     'name [<end> word! lit-word!]
         "Optional module name"
     /args
@@ -701,7 +712,7 @@ say-browser: does [
 ]
 
 
-bugs: proc [
+bugs: func [return: <void>] [
     "View bug database."
 ][
     say-browser
@@ -709,8 +720,9 @@ bugs: proc [
 ]
 
 
-chat: proc [
+chat: func [
     "Open REBOL/ren-c developers chat forum"
+    return: <void>
 ][
     say-browser
     browse http://chat.stackoverflow.com/rooms/291/rebol
@@ -718,11 +730,13 @@ chat: proc [
 
 ; temporary solution to ensuring scripts run on a minimum build
 ;
-require-commit: procedure [
+require-commit: function [
     "checks current commit against required commit"
+
+    return: <void>
     commit [text!]
 ][
-    c: select system/script/header 'commit else [leave]
+    c: select system/script/header 'commit else [return]
 
     ; If we happen to have commit information that includes a date, then we
     ; can look at the date of the running Rebol and know that a build that is

@@ -257,9 +257,10 @@ elf-format: context [
         return blank
     ]
 
-    update-offsets: procedure [
+    update-offsets: function [
         {Adjust headers to account for insertion or removal of data @ offset}
 
+        return: <void>
         executable [binary!]
         offset [integer!]
         delta [integer!]
@@ -293,7 +294,8 @@ elf-format: context [
         ]
     ]
 
-    update-embedding: procedure [
+    update-embedding: function [
+        return: <void>
         executable [binary!]
             {Executable to be mutated to either add or update an embedding}
         embedding [binary!]
@@ -584,7 +586,8 @@ pe-format: context [
         def
         find-a-word
     ][
-        find-a-word: proc [
+        find-a-word: func [
+            return: <void>
             word [any-word!]
         ][
             any [
@@ -832,7 +835,8 @@ pe-format: context [
         true
     ]
 
-    update-section-header: procedure [
+    update-section-header: function [
+        return: <void>
         pos [binary!]
         section [object!]
     ][
@@ -1156,7 +1160,8 @@ generic-format: context [
     signature: to-binary "ENCAP000"
     sig-length: length of signature
 
-    update-embedding: procedure [
+    update-embedding: function [
+        return: <void>
         executable [binary!]
             {Executable to be mutated to either add or update an embedding}
         embedding [binary!]

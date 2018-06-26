@@ -108,6 +108,7 @@ PVAR REBVAL PG_Void_Value[2];
 PVAR REBVAL *Root_System;
 PVAR REBVAL *Root_Typesets;
 
+PVAR REBVAL *Root_Void_Tag; // used with RETURN: <void> to suppress results
 PVAR REBVAL *Root_With_Tag; // overrides locals gathering (can disable RETURN)
 PVAR REBVAL *Root_Ellipsis_Tag; // marks variadic argument <...>
 PVAR REBVAL *Root_Opt_Tag; // marks optional argument (can be void)

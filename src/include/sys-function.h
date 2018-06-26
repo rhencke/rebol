@@ -161,13 +161,13 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
         (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_ACTION))
 #endif
 
-// RETURN will always be in the last paramlist slot (if present)
+// RETURN in the last paramlist slot
 //
 #define ACTION_FLAG_RETURN ACTION_FLAG(0)
 
-// LEAVE will always be in the last paramlist slot (if present)
+// Uses the Voider_Dispatcher() (implies ACTION_FLAG_RETURN + arity-0 RETURN)
 //
-#define ACTION_FLAG_LEAVE ACTION_FLAG(1)
+#define ACTION_FLAG_VOIDER ACTION_FLAG(1)
 
 // DEFERS_LOOKBACK_ARG flag is a cached property, which tells you whether a
 // function defers its first real argument when used as a lookback.  Because
