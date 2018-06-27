@@ -406,3 +406,229 @@ typedef struct rebol_mem_pool REBPOL;
 
 #define CLEARS(m) \
     memset((void*)(m), 0, sizeof(*m))
+
+
+// The GHOST pointer is something that can be used in places that might use a
+// nullptr otherwise, but it has the advantage of being able to avoid checking
+// for null before dereferencing it.  So instead of writing:
+//
+//    if (x != nullptr and GET_SER_FLAG(x, ...))
+//
+// You can use GHOST and just say `GET_SER_FLAG(x, ...)` on it, and it will
+// fail for nearly everything...except NODE_FLAG_CELL and NODE_FLAG_MANAGED.
+// These are chosen for tactical reasons of their use in UNBOUND, but note
+// that ghost does not have NODE_FLAG_NODE set.
+//
+#if defined(__cplusplus) and defined(REB_DEF)
+    class GHOST_Cpp { // C++ won't allow assign/compare void* to any pointer
+      private:
+        GHOST_Cpp() {}
+      public:
+        static GHOST_Cpp ghost() { return GHOST_Cpp (); }
+        operator void*();
+        operator REBNOD*();
+        operator REBFRM*();
+        operator REBSER*();
+        operator REBARR*();
+        operator REBACT*();
+        operator REBCTX*();
+    };
+    #define GHOST \
+        GHOST_Cpp::ghost()
+#else
+    #define GHOST \
+        cast(void*, &PG_Ghost) // C allows assign/compare void* to any pointer
+#endif
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// "GHOSTABLE" : REDUCE LIKELIHOOD THAT A POINTER IS NULL
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// This is a C-biased adaptation of `non_null` from the C++ Core Guidelines:
+//
+// https://github.com/isocpp/CppCoreGuidelines
+//
+// It is abridged code from Microsoft's MIT-Licensed implementation, removing
+// dependencies on complex pre/post conditions and moving to a simple assert:
+//
+// https://github.com/Microsoft/GSL/blob/master/include/gsl/gsl_assert
+//
+//     "Has zero size overhead over T.
+//
+//     If T is a pointer (i.e. T == U*) then
+//     - allow construction from U*
+//     - disallow construction from nullptr_t
+//     - disallow default construction
+//     - ensure construction from null U* fails
+//     - allow implicit conversion to U*"
+//
+// Notably, this does not support pointer incrementation and other operators,
+// assuming it points to a single object.  Casting to the raw pointer type
+// can work around that, while losing checking.
+//
+// This weaker version is usable from code that otherwise compiles as C, as
+// it doesn't make structures non-default constructible to enforce the rule.
+// Hence an uninitialized pointer might wind up holding null.  It uses
+// assert instead of more complex mechanics, removes `constexpr` for GCC 4.8
+// compatibility (used on Travis), it also doesn't use std::enable_if_t.
+//
+// It is specifically to assist checking when GHOST is used instead of nullptr
+// to indicate a disengaged state, as it's easy to forget and compare with
+// null or assign null.
+//
+// It requires DEBUG_CHECK_CASTS because otherwise, SER() and NOD() are just
+// macros, and thus are not powerful enough to do tricky type conversions.
+//
+#if !defined(CPLUSPLUS_11) || !defined(REB_DEF) || !defined(DEBUG_CHECK_CASTS)
+    #define GHOSTABLE(ptr_type) \
+        ptr_type
+#else
+    #include <utility> // for std::forward
+
+    template <class T>
+    class ghostable {
+      private:
+        T ptr_;
+
+      public:
+        // A key difference between not_null and ghostable is that it
+        // allows default construction.
+        //
+        ghostable() = default; // possibly uninitialized, including null/0
+
+        // It also allows assignments from other pointers (including GHOST).
+        //
+        // !!! Checking on assignment and on get() is probably overkill; best
+        // to probably pick one or the other.
+        //
+        ghostable(T&& other)
+          { assert(other != nullptr); ptr_ = other; }
+        ghostable(const T other)
+          { assert(other != nullptr); ptr_ = other; }
+        ghostable& operator=(const T& other)
+          { assert(other != nullptr); ptr_ = other; return *this; }
+
+        static_assert(
+            std::is_assignable<T&, std::nullptr_t>::value,
+            "T cannot be assigned nullptr."
+        );
+
+        template <
+            typename U,
+            typename = typename std::enable_if<
+                std::is_convertible<U, T>::value
+            >::type
+        >
+        explicit ghostable(U&& u) : ptr_(std::forward<U>(u))
+          { assert(ptr_ != nullptr); }
+
+        template <
+            typename = typename std::enable_if<
+                !std::is_same<ghostable, T>::value
+            >::type
+        >
+        explicit ghostable(T u) : ptr_(u)
+          { assert(ptr_ != nullptr); }
+
+        template <
+            typename U,
+            typename = typename std::enable_if<
+                std::is_convertible<U, T>::value
+            >::type
+        >
+        ghostable(const ghostable<U>& other)
+            : ghostable(other.get())
+          {}
+
+        ghostable(ghostable&& other) = default;
+        ghostable(const ghostable& other) = default;
+        ghostable& operator=(const ghostable& other) = default;
+
+        T get() const
+          { assert(ptr_ != nullptr); return ptr_; }
+
+        explicit operator REBACT*() const
+          { return reinterpret_cast<REBACT*>(get()); }
+        explicit operator REBCTX*() const
+          { return reinterpret_cast<REBCTX*>(get()); }
+        explicit operator REBFRM*() const
+          { return reinterpret_cast<REBFRM*>(get()); }
+        explicit operator REBSER*() const
+          { return reinterpret_cast<REBSER*>(get()); }
+        explicit operator REBARR*() const
+          { return reinterpret_cast<REBARR*>(get()); }
+
+        operator T() const { return get(); }
+        T operator->() const { return get(); }
+        typename std::remove_pointer<T>::type operator*() const
+          { return *get(); } 
+
+        ghostable(std::nullptr_t) = delete;
+        ghostable& operator=(std::nullptr_t) = delete;
+
+        ghostable& operator++() = delete;
+        ghostable& operator--() = delete;
+        ghostable operator++(int) = delete;
+        ghostable operator--(int) = delete;
+        ghostable& operator+=(std::ptrdiff_t) = delete;
+        ghostable& operator-=(std::ptrdiff_t) = delete;
+        void operator[](std::ptrdiff_t) const = delete;
+
+        // https://stackoverflow.com/q/51057099/211160
+        //
+        bool operator==(std::nullptr_t rhs) = delete;
+        bool operator!=(std::nullptr_t rhs) = delete;
+    };
+
+    // https://stackoverflow.com/q/51057099/211160
+    //
+    template <class U>
+    bool operator==(std::nullptr_t lhs, const ghostable<U> &rhs) = delete;
+    template <class U>
+    bool operator!=(std::nullptr_t lhs, const ghostable<U> &rhs) = delete;
+
+    template <class T, class U>
+    auto operator==(const ghostable<T>& lhs, const ghostable<U>& rhs)
+        -> decltype(lhs.get() == rhs.get())
+      { return lhs.get() == rhs.get(); }
+
+    template <class T, class U>
+    auto operator!=(const ghostable<T>& lhs, const ghostable<U>& rhs)
+        -> decltype(lhs.get() != rhs.get())
+      {  return lhs.get() != rhs.get(); }
+
+    template <class T, class U>
+    auto operator<(const ghostable<T>& lhs, const ghostable<U>& rhs)
+        -> decltype(lhs.get() < rhs.get())
+      { return lhs.get() < rhs.get(); }
+
+    template <class T, class U>
+    auto operator<=(const ghostable<T>& lhs, const ghostable<U>& rhs)
+        -> decltype(lhs.get() <= rhs.get())
+      { return lhs.get() <= rhs.get(); }
+
+    template <class T, class U>
+    auto operator>(const ghostable<T>& lhs, const ghostable<U>& rhs)
+        -> decltype(lhs.get() > rhs.get())
+      { return lhs.get() > rhs.get(); }
+
+    template <class T, class U>
+    auto operator>=(const ghostable<T>& lhs, const ghostable<U>& rhs)
+        -> decltype(lhs.get() >= rhs.get())
+      {  return lhs.get() >= rhs.get(); }
+
+    template <class T, class U>
+    std::ptrdiff_t operator-(const ghostable<T>&, const ghostable<U>&) = delete;
+    template <class T>
+    ghostable<T> operator-(const ghostable<T>&, std::ptrdiff_t) = delete;
+    template <class T>
+    ghostable<T> operator+(const ghostable<T>&, std::ptrdiff_t) = delete;
+    template <class T>
+    ghostable<T> operator+(std::ptrdiff_t, const ghostable<T>&) = delete;
+
+    #define GHOSTABLE(ptr_type) \
+        ghostable<ptr_type>
+#endif

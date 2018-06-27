@@ -960,9 +960,9 @@ REBVAL *RL_rebRescue(
     // `fail` can longjmp here, so 'error' won't be null *if* that happens!
     //
     if (error_ctx) {
-        if (f->varlist != GHOST_ARRAY) // was reified
-            SET_SER_INFO(f->varlist, FRAME_INFO_FAILED);
-        Drop_Action_Core(f, TRUE);
+        if (f->reified != GHOST)
+            SET_SER_INFO(f->reified, FRAME_INFO_FAILED);
+        Drop_Action(f);
         Abort_Frame(f);
         return Init_Error(Alloc_Value(), error_ctx);
     }
@@ -971,8 +971,8 @@ REBVAL *RL_rebRescue(
 
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 
-    Drop_Action_Core(f, TRUE); // drop_chunks = TRUE
-    Drop_Frame_Core(f); // stack may not balance
+    Drop_Action(f);
+    Drop_Frame_Core(f); // f->eval_type may not be REB_0
 
     if (not result)
         return nullptr; // null is considered a legal result

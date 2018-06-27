@@ -813,7 +813,7 @@ union Reb_Value_Extra {
     // coming.  It can be an ordinary singular array which was created with
     // MAKE VARARGS! and has its index updated for all shared instances.
     //
-    REBNOD *binding;
+    GHOSTABLE(REBNOD*) binding;
 
     // See REB_0_PARTIAL.
     //

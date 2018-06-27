@@ -270,10 +270,10 @@ void Pop_Stack_Values_Into(REBVAL *into, REBDSP dsp_start) {
 REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
 {
     assert(Is_Action_Frame(f));
-    if (f->varlist != GHOST_ARRAY)
-        return CTX(f->varlist);
+    if (f->reified != GHOST)
+        return f->reified;
 
-    f->varlist = Alloc_Singular(
+    REBARR *varlist = Alloc_Singular(
         ARRAY_FLAG_VARLIST | SERIES_FLAG_STACK | NODE_FLAG_MANAGED
     );
 
@@ -283,7 +283,7 @@ REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
     // arguments in the native itself, but stops modifications via user code.
     //
     if (f->flags.bits & DO_FLAG_NATIVE_HOLD)
-        SET_SER_INFO(f->varlist, SERIES_INFO_HOLD);
+        SET_SER_INFO(varlist, SERIES_INFO_HOLD);
 
     if (Is_Action_Frame_Fulfilling(f)) {
         //
@@ -294,15 +294,15 @@ REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
         // much sense to do this with anything but a FRAME! value.  But a
         // frame in such a state must not permit access to fields.
         //
-        SET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE);
+        SET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE);
     }
 
-    MISC(f->varlist).meta = nullptr; // seen by GC, must initialize
-    LINK(f->varlist).keysource = NOD(f); // see notes on LINK().keysource
+    MISC(varlist).meta = nullptr; // seen by GC, must initialize
+    LINK(varlist).keysource = NOD(f); // see notes on LINK().keysource
 
-    REBVAL *rootvar = SINK(ARR_SINGLE(f->varlist));
+    REBVAL *rootvar = SINK(ARR_SINGLE(varlist));
     RESET_VAL_HEADER(rootvar, REB_FRAME);
-    rootvar->payload.any_context.varlist = f->varlist;
+    rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = f->phase;
 
     // The binding on the rootvar is important...this is how Get_Var_Core()
@@ -311,8 +311,9 @@ REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
     //
     INIT_BINDING(rootvar, f->binding);
 
-    REBCTX *c = CTX(f->varlist);
+    REBCTX *c = CTX(varlist);
     ASSERT_ARRAY_MANAGED(CTX_KEYLIST(c));
     ASSERT_CONTEXT(c);
+    f->reified = c;
     return c;
 }

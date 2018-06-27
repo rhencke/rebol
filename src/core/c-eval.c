@@ -1330,15 +1330,15 @@ reevaluate:;
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
         if (In_Typecheck_Mode(f)) {
-            if (f->varlist != GHOST_ARRAY)
-                assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+            if (f->reified != GHOST)
+                assert(NOT_SER_INFO(f->reified, SERIES_INFO_INACCESSIBLE));
 
             assert(IS_POINTER_TRASH_DEBUG(f->deferred));
         }
         else { // was fulfilling...
-            if (f->varlist != GHOST_ARRAY) {
-                assert(GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
-                CLEAR_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE);
+            if (f->reified != GHOST) {
+                assert(GET_SER_INFO(f->reified, SERIES_INFO_INACCESSIBLE));
+                CLEAR_SER_INFO(f->reified, SERIES_INFO_INACCESSIBLE);
             }
 
             if (f->deferred) {
@@ -1602,7 +1602,7 @@ reevaluate:;
             //
             assert(f->gotten == END);
 
-            Drop_Action_Core(f, true); // drop_chunks = true
+            Drop_Action(f);
             goto reevaluate; // we don't move index!
 
         case R_UNHANDLED: // internal use only, shouldn't be returned
@@ -1665,7 +1665,7 @@ reevaluate:;
         // this frame that could be even more optimal.  However, having the
         // original function still on the stack helps make errors clearer.
         //
-        Drop_Action_Core(f, true); // drop_chunks = true
+        Drop_Action(f);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2530,7 +2530,7 @@ abort_action:;
 
     assert(THROWN(f->out));
 
-    Drop_Action_Core(f, true); // drop_chunks = true
+    Drop_Action(f);
     DS_DROP_TO(f->dsp_orig); // any unprocessed refinements or chains on stack
 
 finished:;

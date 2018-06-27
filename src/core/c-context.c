@@ -272,7 +272,7 @@ REBVAL *Append_Context(
 // the same keylist will be used.
 //
 REBCTX *Copy_Context_Shallow_Extra(REBCTX *src, REBCNT extra) {
-    assert(GET_SER_FLAG(CTX_VARLIST(src), ARRAY_FLAG_VARLIST));
+    assert(GET_SER_FLAG(src, ARRAY_FLAG_VARLIST));
     ASSERT_ARRAY_MANAGED(CTX_KEYLIST(src));
 
     // Note that keylists contain only typesets (hence no relative values),
@@ -1447,7 +1447,7 @@ void Assert_Context_Core(REBCTX *c)
     if (keys_len < 1)
         panic (keylist);
 
-    if (GET_SER_FLAG(CTX_VARLIST(c), SERIES_FLAG_STACK)) {
+    if (GET_SER_FLAG(c, SERIES_FLAG_STACK)) {
         if (vars_len != 1)
             panic (varlist);
     }

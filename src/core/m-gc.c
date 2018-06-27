@@ -613,7 +613,7 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
             Queue_Mark_Action_Deep(phase);
         }
 
-        if (GET_SER_INFO(CTX_VARLIST(context), SERIES_INFO_INACCESSIBLE))
+        if (GET_SER_INFO(context, SERIES_INFO_INACCESSIBLE))
             break;
 
       #if !defined(NDEBUG)
@@ -1237,10 +1237,10 @@ static void Mark_Frame_Stack_Deep(void)
             Mark_Rebser_Only(f->opt_label);
 
         if (Is_Action_Frame_Fulfilling(f))
-            assert(f->varlist == GHOST_ARRAY); // can't reify until fulfilled
+            assert(f->reified == GHOST); // can't reify until fulfilled
         else {
-            if (f->varlist != GHOST_ARRAY)
-                Queue_Mark_Context_Deep(CTX(f->varlist));
+            if (f->reified != GHOST)
+                Queue_Mark_Context_Deep(CTX(f->reified));
 
             assert(IS_END(f->param)); // indicates function is running
 

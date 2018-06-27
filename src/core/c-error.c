@@ -308,8 +308,13 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
     REBFRM *f = FS_TOP;
     while (f != Saved_State->frame) {
         if (Is_Action_Frame(f)) {
-            const REBOOL drop_chunks = FALSE;
-            Drop_Action_Core(f, drop_chunks);
+            if (f->reified != GHOST)
+                SET_SER_INFO(f->reified, FRAME_INFO_FAILED);
+
+            // The chunk stack may be in use for other purposes...don't drop
+            // the chunked allocation, let it clean up after jump.
+            //
+            Drop_Action_Core(f);
         }
 
         REBFRM *prior = f->prior;

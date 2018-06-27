@@ -69,17 +69,42 @@ struct Reb_Context {
     #define ASSERT_CONTEXT(c) Assert_Context_Core(c)
 #endif
 
-// CTX(p) gives REBCTX* from a pointer to another type, with optional checking
-//
-#ifdef DEBUG_CHECK_CASTS
-    inline static REBCTX *CTX(void *p) {
-        REBARR *a = ARR(p);
-        assert(GET_SER_FLAG(a, ARRAY_FLAG_VARLIST));
-        return cast(REBCTX*, a);
-    }
-#else
+#if !defined(DEBUG_CHECK_CASTS)
+
     #define CTX(p) \
-        cast(REBCTX*, (p))
+        cast(REBCTX*, (p)) // CTX() just does a cast (maybe with added checks)
+
+#elif defined(CPLUSPLUS_11)
+
+    template<typename T>
+    inline static REBCTX *CTX(T *p) {
+        constexpr bool base = std::is_same<T, void>::value
+            or std::is_same<T, REBNOD>::value
+            or std::is_same<T, REBSER>::value
+            or std::is_same<T, REBARR>::value;
+
+        static_assert(base, "CTX() works on REBNOD/REBSER/REBARR");
+
+        if (base)
+            assert(
+                (reinterpret_cast<REBNOD*>(p)->header.bits & (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST
+                        | NODE_FLAG_FREE
+                        | NODE_FLAG_CELL
+                        | ARRAY_FLAG_PARAMLIST
+                        | ARRAY_FLAG_PAIRLIST
+                )) == (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST
+                )
+            );
+
+        return reinterpret_cast<REBCTX*>(p);
+    }
+
+    template <typename TP>
+    inline REBCTX *CTX(ghostable<TP> gp) {
+        return CTX(static_cast<TP>(gp));
+    }
 #endif
 
 #define CTX_VARLIST(c) \
@@ -201,7 +226,7 @@ inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
 
 inline static REBVAL *CTX_VAR(REBCTX *c, REBCNT n) {
     assert(n != 0 and n <= CTX_LEN(c));
-    assert(GET_SER_FLAG(CTX_VARLIST(c), ARRAY_FLAG_VARLIST));
+    assert(GET_SER_FLAG(c, ARRAY_FLAG_VARLIST));
     REBVAL *var = CTX_VARS_HEAD(c) + (n) - 1;
     assert(not IS_RELATIVE(cast(RELVAL*, var)));
     return var;
@@ -239,8 +264,8 @@ inline static REBOOL CTX_VARS_UNAVAILABLE(REBCTX *c) {
     // Mechanically any array can become inaccessible, but really the varlist
     // of a stack context is the only case that should happen today.
     //
-    if (GET_SER_INFO(CTX_VARLIST(c), SERIES_INFO_INACCESSIBLE)) {
-        assert(GET_SER_FLAG(CTX_VARLIST(c), SERIES_FLAG_STACK));
+    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE)) {
+        assert(GET_SER_FLAG(c, SERIES_FLAG_STACK));
         return TRUE;
     }
     return FALSE;
@@ -354,7 +379,7 @@ inline static void Deep_Freeze_Context(REBCTX *c) {
 }
 
 inline static REBOOL Is_Context_Deeply_Frozen(REBCTX *c) {
-    return GET_SER_INFO(CTX_VARLIST(c), SERIES_INFO_FROZEN);
+    return GET_SER_INFO(c, SERIES_INFO_FROZEN);
 }
 
 
@@ -407,7 +432,7 @@ inline static REBCNT ERR_NUM(REBCTX *e) {
 // repeating the code.
 //
 inline static void FAIL_IF_BAD_PORT(REBCTX *port) {
-    assert(GET_SER_FLAG(CTX_VARLIST(port), ARRAY_FLAG_VARLIST));
+    assert(GET_SER_FLAG(port, ARRAY_FLAG_VARLIST));
 
     if (
         CTX_LEN(port) < (STD_PORT_MAX - 1)

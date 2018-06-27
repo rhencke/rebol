@@ -55,34 +55,39 @@ struct Reb_Array {
     struct Reb_Series series; // http://stackoverflow.com/a/9747062
 };
 
-// ARR(p) gives REBARR* from a pointer to another type, with optional checking
-//
-#if defined(DEBUG_CHECK_CASTS) && defined(CPLUSPLUS_11)
+#if! defined(DEBUG_CHECK_CASTS)
+
+    #define ARR(p) \
+        cast(REBARR*, (p)) // ARR() just does a cast (maybe with added checks)
+
+#elif defined(CPLUSPLUS_11)
+
     template <class T>
     inline REBARR *ARR(T *p) {
-        static_assert(
-            std::is_same<T, void>::value
+        constexpr bool base = std::is_same<T, void>::value
             or std::is_same<T, REBNOD>::value
-            or std::is_same<T, REBSER>::value,
-            "ARR works on: void*, REBNOD*, REBSER*"
-        );
+            or std::is_same<T, REBSER>::value;
 
-        // This is only in unoptimized builds, so code it as carefully as
-        // possible...no local variables, use reinterpret_cast and not cast(),
-        // and test bit flags all at once.
-        // 
-        assert(
-            (NODE_FLAG_NODE | SERIES_FLAG_ARRAY)
-            == (reinterpret_cast<REBSER*>(p)->header.bits & (
-                NODE_FLAG_NODE | SERIES_FLAG_ARRAY // good!
-                | NODE_FLAG_FREE | NODE_FLAG_CELL // bad!
-            ))
-        );
+        static_assert(base, "ARR works on void/REBNOD/REBSER*");
+
+        if (base)
+            assert(
+                (reinterpret_cast<REBSER*>(p)->header.bits & (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY
+                        | NODE_FLAG_FREE
+                        | NODE_FLAG_CELL
+                )) == (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY
+                )
+           );
+
         return reinterpret_cast<REBARR*>(p);
     }
-#else
-    #define ARR(p) \
-        cast(REBARR*, (p))
+
+    template <typename TP>
+    inline REBARR *ARR(ghostable<TP> gp) {
+        return ARR(static_cast<TP>(gp));
+    }
 #endif
 
 

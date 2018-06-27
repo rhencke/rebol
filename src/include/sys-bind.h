@@ -53,7 +53,6 @@
 inline static REBOOL Same_Binding(void *a_ptr, void *b_ptr) {
     REBNOD *a = NOD(a_ptr);
     REBNOD *b = NOD(b_ptr);
-    assert(a and b); // can't be nullptr, compared to potentially null varlist
     if (a == b)
         return true;
 
@@ -62,11 +61,11 @@ inline static REBOOL Same_Binding(void *a_ptr, void *b_ptr) {
             return false;
 
         REBFRM *f_a = cast(REBFRM*, a);
-        return NOD(f_a->varlist) == b; // varlist may be GHOST_ARRAY
+        return NOD(f_a->reified) == b; // Note: reified may be GHOST
     }
     if (IS_NODE_REBFRM(b)) {
         REBFRM *f_b = cast(REBFRM*, b);
-        return (NOD(f_b->varlist) == a); // varlist may be GHOST_ARRAY
+        return NOD(f_b->reified) == a; // Note: reified may be GHOST
     }
     return false;
 }

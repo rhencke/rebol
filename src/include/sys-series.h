@@ -119,54 +119,45 @@
 #endif
 
 
-// SER(p) gives REBSER* from a pointer to another type, with optional checking
-//
-#if defined(DEBUG_CHECK_CASTS) && defined(CPLUSPLUS_11) 
+#if !defined(DEBUG_CHECK_CASTS)
+
+    #define SER(p) \
+        cast(REBSER*, (p)) // SER() just does a cast (maybe with added checks)
+
+#elif defined(CPLUSPLUS_11)
+
     template <class T>
     inline REBSER *SER(T *p) {
-        static_assert(
-            // see specializations for void* and REBNOD*, which do more checks
-            std::is_same<T, REBSTR>::value
+        constexpr bool derived = std::is_same<T, REBSTR>::value
             or std::is_same<T, REBARR>::value
-            or std::is_same<T, REBNOD>::value,
-            "SER works on: void*, REBNOD*, REBSTR*, REBARR*"
+            or std::is_same<T, REBCTX>::value
+            or std::is_same<T, REBACT>::value;
+
+        constexpr bool base = std::is_same<T, void*>::value
+            or std::is_same<T, REBNOD>::value;
+
+        static_assert(
+            base or derived, 
+            "SER() works on void/REBNOD/REBSTR/REBARR/REBCTX/REBACT"
         );
+
+        if (base)
+            assert(
+                (reinterpret_cast<REBNOD*>(p)->header.bits & (
+                    NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+                )) == (
+                    NODE_FLAG_NODE
+                )
+            );
 
         return reinterpret_cast<REBSER*>(p);
     }
 
-    // Specialize the template with extra checks for cases that aren't assumed
-    // correct by virtue of the type system (REBNOD* and void*).  Can be
-    // costly, so reduce that cost in unoptimized builds by avoiding local
-    // variables, using plain reinterpret_cast vs. cast(), and being clever
-    // about the bitwise math.
-   
-    template <>
-    inline REBSER *SER(void *p) {
-        assert(
-            NODE_FLAG_NODE == (
-                reinterpret_cast<REBSER*>(p)->header.bits &
-                (NODE_FLAG_NODE // good!
-                | NODE_FLAG_FREE | NODE_FLAG_CELL | CELL_FLAG_END) // bad!
-            )
-        );
-        return reinterpret_cast<REBSER*>(p);
-    }
-
-    template <>
-    inline REBSER *SER(REBNOD *p) {
-        assert(
-            NODE_FLAG_NODE == (
-                reinterpret_cast<REBSER*>(p)->header.bits &
-                (NODE_FLAG_NODE // good!
-                | NODE_FLAG_FREE | NODE_FLAG_CELL) // bad!
-            )
-        );
-        return reinterpret_cast<REBSER*>(p);
+    template <typename TP>
+    inline REBSER *SER(ghostable<TP> gp) {
+        return SER(static_cast<TP>(gp));
     }
 #else
-    #define SER(p) \
-        cast(REBSER*, (p))
 #endif
 
 

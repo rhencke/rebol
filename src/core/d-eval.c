@@ -263,7 +263,7 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
     TRASH_POINTER_IF_DEBUG(f->original);
     TRASH_POINTER_IF_DEBUG(f->binding);
 
-    assert(f->varlist == GHOST_ARRAY);
+    assert(f->reified == GHOST);
 
     // Mutate va_list sources into arrays at fairly random moments in the
     // debug build.  It should be able to handle it at any time.
@@ -320,7 +320,6 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     assert(f->eval_type == REB_ACTION);
     assert(NOT_END(f->out));
     assert(not THROWN(f->out));
-    assert(not Is_Bindable(f->out) or f->out->extra.binding != NULL);
 
     // Usermode functions check the return type via Returner_Dispatcher(),
     // with everything else assumed to return the correct type.  But this

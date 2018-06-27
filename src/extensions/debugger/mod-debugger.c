@@ -269,7 +269,7 @@ REBFRM *Frame_For_Stack_Level(
                 goto return_maybe_set_number_out;
         }
         else if (IS_FRAME(level)) {
-            if (frame->varlist == CTX_VARLIST(VAL_CONTEXT(level))) {
+            if (frame->reified == VAL_CONTEXT(level)) {
                 goto return_maybe_set_number_out;
             }
         }
@@ -797,10 +797,10 @@ REBOOL Do_Breakpoint_Throws(
             // If the frame were the one we were looking for, it would be
             // reified (so it would have a context to match)
             //
-            if (frame->varlist == GHOST_ARRAY)
+            if (frame->reified == GHOST)
                 continue;
 
-            if (VAL_CONTEXT(target) == CTX(frame->varlist)) {
+            if (VAL_CONTEXT(target) == frame->reified) {
                 // Found a match before hitting any breakpoints, so no
                 // need to retransmit.
                 //

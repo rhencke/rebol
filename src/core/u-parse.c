@@ -229,14 +229,9 @@ static REBOOL Subparse_Throws(
     REB_R r = N_subparse(f);
     assert(NOT_END(out));
 
-    // Can't just drop f->data.stackvars because the debugger may have
-    // "reified" the frame into a FRAME!, which means it would now be using
-    // the f->data.context field.
-    //
-    const REBOOL drop_chunks = TRUE;
-    Drop_Action_Core(f, drop_chunks);
+    Drop_Action(f);
 
-    Drop_Frame_Core(f);
+    Drop_Frame_Core(f); // may not be FRM_AT_END(f)
 
     if (r == R_OUT_IS_THROWN) {
         assert(THROWN(out));

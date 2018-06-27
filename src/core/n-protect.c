@@ -129,16 +129,16 @@ void Protect_Series(REBSER *s, REBCNT index, REBFLGS flags)
 //
 void Protect_Context(REBCTX *c, REBFLGS flags)
 {
-    if (Is_Series_Black(SER(CTX_VARLIST(c))))
+    if (Is_Series_Black(SER(c)))
         return; // avoid loop
 
     if (flags & PROT_SET) {
         if (flags & PROT_FREEZE) {
             assert(flags & PROT_DEEP);
-            SET_SER_INFO(CTX_VARLIST(c), SERIES_INFO_FROZEN);
+            SET_SER_INFO(c, SERIES_INFO_FROZEN);
         }
         else
-            SET_SER_INFO(CTX_VARLIST(c), SERIES_INFO_PROTECTED);
+            SET_SER_INFO(c, SERIES_INFO_PROTECTED);
     }
     else {
         assert(not (flags & PROT_FREEZE));
@@ -412,13 +412,13 @@ void Ensure_Value_Immutable(const RELVAL *v, REBSER *opt_locker) {
 
     if (ANY_ARRAY(v)) {
         Deep_Freeze_Array(VAL_ARRAY(v));
-        if (opt_locker != NULL)
+        if (opt_locker)
             SET_SER_INFO(VAL_ARRAY(v), SERIES_INFO_AUTO_LOCKED);
     }
     else if (ANY_CONTEXT(v)) {
         Deep_Freeze_Context(VAL_CONTEXT(v));
-        if (opt_locker != NULL)
-            SET_SER_INFO(CTX_VARLIST(VAL_CONTEXT(v)), SERIES_INFO_AUTO_LOCKED);
+        if (opt_locker)
+            SET_SER_INFO(VAL_CONTEXT(v), SERIES_INFO_AUTO_LOCKED);
     }
     else if (ANY_SERIES(v)) {
         Freeze_Sequence(VAL_SERIES(v));

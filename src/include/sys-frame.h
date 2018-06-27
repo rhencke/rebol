@@ -408,8 +408,8 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
 //
 inline static void Enter_Native(REBFRM *f) {
     f->flags.bits |= DO_FLAG_NATIVE_HOLD;
-    if (f->varlist != GHOST_ARRAY)
-        SET_SER_INFO(f->varlist, SERIES_INFO_HOLD);
+    if (f->reified != GHOST)
+        SET_SER_INFO(f->reified, SERIES_INFO_HOLD);
 }
 
 
@@ -438,6 +438,8 @@ inline static void Push_Action(
     REBACT *act,
     REBSPC *binding
 ){
+    assert(f->reified == GHOST); // each new action push needs own reification
+
     f->eval_type = REB_ACTION;
 
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_ACTION
@@ -489,19 +491,6 @@ inline static void Push_Action(
 
     f->deferred = NULL;
 
-    // A REBFRM* for a function call may-or-may-not need an associated REBCTX*
-    // dynamically allocated.  Whether it does or not depends on if bindings
-    // to the args or locals wind up "leaking" into slots that have a lifetime
-    // longer than the stack level of that REBFRM* (which would include any
-    // indefinite-extent object variables or slots in arrays).  It can also
-    // be necessary to create that REBCTX if the user tries to create a
-    // FRAME! value for the function call, with similar rules about lifetime.
-    //
-    // Move_Value() and Derelativize() contain the logic that generates this
-    // varlist on demand, but start out assuming one is not needed.
-    //
-    assert(f->varlist == GHOST_ARRAY);
-
     // Make sure the person who pushed the function correctly sets the
     // f->refine to either ORDINARY_ARG or LOOKBACK_ARG after this call.
     //
@@ -518,12 +507,15 @@ inline static void Push_Action(
 // because there are other clients of the chunk stack that may be running.
 // Hence the chunks will be freed by the error trap helper.
 //
-inline static void Drop_Action_Core(
-    REBFRM *f,
-    REBOOL drop_chunks
-){
+inline static void Drop_Action_Core(REBFRM *f) {
+    //
+    // !!! The caller is responsible for deciding about dropping any chunks
+    // or other data.  Should they also be trashing the pointer?
+    //
+    TRASH_POINTER_IF_DEBUG(f->args_head);
+
     assert(
-        f->opt_label == NULL
+        not f->opt_label
         or GET_SER_FLAG(f->opt_label, SERIES_FLAG_UTF8_STRING)
     );
     TRASH_POINTER_IF_DEBUG(f->opt_label);
@@ -544,67 +536,45 @@ inline static void Drop_Action_Core(
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
         f->flags.bits &= ~DO_FLAG_BARRIER_HIT;
 
-    if (drop_chunks) {
-        if (f->varlist == GHOST_ARRAY) {
-            Drop_Chunk_Of_Values(f->args_head);
+    if (f->reified == GHOST)
+        return;
 
-            goto finished; // nothing else to do...
-        }
+    REBARR *varlist = CTX_VARLIST(f->reified);
 
-        // A varlist may happen even with stackvars...if "singular" (e.g.
-        // it's just a REBSER node for purposes of GC-referencing, but gets
-        // its actual content from the stackvars.
-        //
-        if (ARR_LEN(f->varlist) == 1)
-            Drop_Chunk_Of_Values(f->args_head);
-    }
-    else {
-        if (f->varlist == GHOST_ARRAY)
-            goto finished;
-    }
-
-    assert(GET_SER_FLAG(f->varlist, SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST));
-    ASSERT_ARRAY_MANAGED(f->varlist);
+    assert(GET_SER_FLAG(varlist, SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST));
+    ASSERT_ARRAY_MANAGED(varlist);
 
     // The varlist is going to outlive this call, so the frame correspondence
     // in it needs to be cleared out, so callers will know the frame is dead.
     // We substitute the paramlist of the original function the frame is for
     // in the keysource slot.
     //
-    assert(cast(REBFRM*, LINK(f->varlist).keysource) == f);
-    LINK(f->varlist).keysource = NOD(ACT_PARAMLIST(f->original));
+    assert(cast(REBFRM*, LINK(varlist).keysource) == f);
+    LINK(varlist).keysource = NOD(ACT_PARAMLIST(f->original));
 
-    if (NOT_SER_FLAG(f->varlist, SERIES_FLAG_STACK)) {
+    if (NOT_SER_FLAG(varlist, SERIES_FLAG_STACK)) {
         //
         // If there's no stack memory being tracked by this context, it
         // has dynamic memory and is being managed by the garbage collector
         // so there's nothing to do.
         //
-        assert(GET_SER_INFO(f->varlist, SERIES_INFO_HAS_DYNAMIC));
-        goto finished;
+        assert(GET_SER_INFO(varlist, SERIES_INFO_HAS_DYNAMIC));
+        return;
     }
 
     // It's reified but has its data pointer into the chunk stack, which
     // means we have to free it and mark the array inaccessible.
 
-    assert(NOT_SER_INFO(f->varlist, SERIES_INFO_HAS_DYNAMIC));
+    assert(NOT_SER_INFO(varlist, SERIES_INFO_HAS_DYNAMIC));
 
-    if (drop_chunks) {
-        assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
-        SET_SER_INFOS(f->varlist, SERIES_INFO_INACCESSIBLE);
-    }
-    else
-        SET_SER_INFOS(
-            f->varlist,
-            SERIES_INFO_INACCESSIBLE | FRAME_INFO_FAILED
-        );
+    assert(NOT_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE));
+    SET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE);
 
-    f->varlist = GHOST_ARRAY;
-
-finished:
-
-    TRASH_POINTER_IF_DEBUG(f->args_head);
-    assert(f->varlist == GHOST_ARRAY);
-
+    f->reified = GHOST;
     return; // needed for release build so `finished:` labels a statement
+}
+
+inline static void Drop_Action(REBFRM *f) {
+    Drop_Chunk_Of_Values(f->args_head);
+    Drop_Action_Core(f);
 }

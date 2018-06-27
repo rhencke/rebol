@@ -34,42 +34,82 @@
 //
 
 
-// The GHOST pointer is something that can be used in places that might use a
-// nullptr otherwise, but it has the advantage of being able to avoid checking
-// for null before dereferencing it.  So instead of writing:
-//
-//    if (x != nullptr and GET_SER_FLAG(x, ...))
-//
-// You can use GHOST and just say `GET_SER_FLAG(x, ...)` on it, and it will
-// fail for nearly everything...except NODE_FLAG_CELL and NODE_FLAG_MANAGED.
-// These are chosen for tactical reasons of their use in UNBOUND, but note
-// that ghost does not have NODE_FLAG_NODE set.
-//
-#define GHOST \
-    &PG_Ghost
+#if !defined(DEBUG_CHECK_CASTS)
 
-#define GHOST_ARRAY \
-    cast(REBARR*, GHOST)
-
-// NOD(p) gives REBNOD* from a pointer to another type, with optional checking
-//
-#ifdef DEBUG_CHECK_CASTS
-    inline static REBNOD *NOD(void *p) {
-        assert(p); // use GHOST instead of nullptr to dodge this check
-
-        REBNOD *node = cast(REBNOD*, p);
-        assert(
-            p == &PG_Ghost // let GHOST be an honorary "node"
-            or (
-                (node->header.bits & NODE_FLAG_NODE)
-                and not (node->header.bits & NODE_FLAG_FREE)
-            )
-        );
-        return node;
-    }
-#else
     #define NOD(p) \
-        cast(REBNOD*, (p))
+        cast(REBNOD*, (p)) // NOD() just does a cast (maybe with added checks)
+
+#elif defined(CPLUSPLUS_11)
+
+    template <typename T>
+    inline static REBNOD *NOD(T *p) {
+        assert(p); // nullptr is not a node (see GHOST)
+
+        constexpr bool base = std::is_same<T, void>::value;
+
+        constexpr bool derived =
+            std::is_same<T, decltype(GHOST)>::value // "honorary node"
+            or std::is_same<T, REBSER>::value
+            or std::is_same<T, REBSTR>::value
+            or std::is_same<T, REBARR>::value
+            or std::is_same<T, REBCTX>::value
+            or std::is_same<T, REBACT>::value
+            or std::is_same<T, REBMAP>::value
+            or std::is_same<T, REBFRM>::value;
+
+        static_assert(
+            base or derived,
+            "NOD() works on void/GHOST/REBSER/REBSTR/REBARR/REBCTX/REBACT" \
+               "/REBMAP/REBFRM"
+        );
+
+        if (derived) {
+            // it's a subtype of REBNOD, so just take its word for it
+        }
+        else if (p == GHOST) {
+            // ghost value passed in via void* won't have NODE_FLAG_NODE
+        }
+        else if (base)
+            assert(
+                (reinterpret_cast<REBNOD*>(p)->header.bits & (
+                    NODE_FLAG_NODE | NODE_FLAG_FREE
+                )) == (
+                    NODE_FLAG_NODE
+                )
+            );
+
+        return reinterpret_cast<REBNOD*>(p);
+    }
+
+    template <typename TP>
+    inline static REBNOD *NOD(ghostable<TP> gp) {
+        return NOD(static_cast<TP>(gp));
+    }
+#endif
+
+
+#ifdef __cplusplus
+    inline GHOST_Cpp::operator void*() {
+        return reinterpret_cast<void*>(&PG_Ghost);
+    }
+    inline GHOST_Cpp::operator REBFRM*() {
+        return reinterpret_cast<REBFRM*>(&PG_Ghost);
+    }
+    inline GHOST_Cpp::operator REBNOD*() {
+        return reinterpret_cast<REBNOD*>(&PG_Ghost);
+    }
+    inline GHOST_Cpp::operator REBSER*() {
+        return reinterpret_cast<REBSER*>(&PG_Ghost);
+    }
+    inline GHOST_Cpp::operator REBARR*() {
+        return reinterpret_cast<REBARR*>(&PG_Ghost);
+    }
+    inline GHOST_Cpp::operator REBACT*() {
+        return reinterpret_cast<REBACT*>(&PG_Ghost);
+    }
+    inline GHOST_Cpp::operator REBCTX*() {
+        return reinterpret_cast<REBCTX*>(&PG_Ghost);
+    }
 #endif
 
 

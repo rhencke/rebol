@@ -557,18 +557,22 @@ struct Reb_Frame {
     //
     REBSTR *opt_label;
 
-    // `varlist`
+    // `reified`
     //
-    // For functions with "indefinite extent", the varlist is the CTX_VARLIST
-    // of a FRAME! context in which the function's arguments live.  It is
-    // also possible for this varlist to come into existence even for functions
-    // like natives, if the frame's context is "reified" (e.g. by the debugger)
-    // If neither of these conditions are true, it will be NULL
+    // While an action is running, it may need a reference put in a location
+    // that could outlive the lifetime on the stack.  The REBFRM* can't be
+    // used in that case, because unless there's code that explicitly looks
+    // for such pointers and expires them, then dereferencing those pointers
+    // would result in a crash.
     //
-    // This can contain END markers at any position during arg fulfillment,
-    // and this means it cannot have a MANAGE_ARRAY call until that is over.
+    // When these are needed, use Context_For_Frame_May_Reify_Managed(), and
+    // it will ensure there is a small tracking stub that serves as a varlist
+    // for a context.  The REBFRM points to it through this field, and while
+    // the frame is running it will point back via its LINK().f field.
     //
-    REBARR *varlist;
+    // Uses GHOST instead of nullptr to indicate disengaged state.
+    //
+    GHOSTABLE(REBCTX*) reified;
 
     // `param`
     //

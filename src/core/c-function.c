@@ -1039,7 +1039,7 @@ REBACT *Make_Action(
     //
     assert(
         MISC(paramlist).meta == NULL
-        or GET_SER_FLAG(CTX_VARLIST(MISC(paramlist).meta), ARRAY_FLAG_VARLIST)
+        or GET_SER_FLAG(MISC(paramlist).meta, ARRAY_FLAG_VARLIST)
     );
 
     // Note: used to set the keys of natives as read-only so that the debugger
