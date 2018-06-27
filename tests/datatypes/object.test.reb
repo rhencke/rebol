@@ -95,8 +95,17 @@
 
 
 
+; Change from R3-Alpha, FUNC and FUNCTION do not by default participate in
+; "derived binding" but keep their bindings as-is.  The ACTION! must have a
+; binding set up with BIND to get the derived behavior, which is done
+; "magically" by METHOD.
 (
     o1: make object! [a: 10 b: func [] [f: func [] [a] f]]
+    o2: make o1 [a: 20]
+
+    o2/b = 10
+)(
+    o1: make object! [a: 10 b: method [] [f: func [] [a] f]]
     o2: make o1 [a: 20]
 
     o2/b = 20
@@ -112,22 +121,22 @@
             ; var-256: 256
             ;
             keep compose/only [
-                (to-set-word rejoin ["var-" n]) (n)
+                (to set-word! unspaced ["var-" n]) (n)
             ]
         ]
         repeat n 256 [
             ;
-            ; fun-1: does [var-1]
-            ; fun-2: does [var-1 + var-2]
+            ; fun-1: method [] [var-1]
+            ; fun-2: method [] [var-1 + var-2]
             ; ...
-            ; fun-256: does [var-1 + var-2 ... + var-256]
+            ; fun-256: method [] [var-1 + var-2 ... + var-256]
             ;
             keep compose/only [
-                (to-set-word rejoin ["fun-" n]) does (collect [
+                (to set-word! unspaced ["meth-" n]) method [] (collect [
                     keep 'var-1
                     repeat i n - 1 [
                         keep compose [
-                            + (to-word rejoin ["var-" i + 1])
+                            + (to word! unspaced ["var-" i + 1])
                         ]
                     ]
                 ])
@@ -135,13 +144,18 @@
         ]
     ]
 
-    o-big-b: make o-big [var-1: 100001]
-    o-big-c: make o-big-b [var-2: 200002]
-
-    did all [
-        o-big/fun-255 = 32640
-        o-big-b/fun-255 = 132640
-        o-big-c/fun-255 = 332640
+    ; Note: Because derivation in R3-Alpha requires deep copying and rebinding
+    ; bodies of all function members, it will choke on the following.  In
+    ; Ren-C it is nearly instantaneous.  Despite not making those copies,
+    ; derived binding allows the derived object's methods to see the derived
+    ; object's values.
+    ;
+    did repeat i 2048 [
+        derived: make o-big [var-1: 100000 + i]
+        if derived/meth-255 <> 132639 + i [
+            break
+        ]
+        true
     ]
 )
 
@@ -165,5 +179,5 @@
 
 [#1553 (
     o: make object! [a: _]
-    same? context of in o 'self context-of in o 'a
+    same? (binding of in o 'self) (binding of in o 'a)
 )]

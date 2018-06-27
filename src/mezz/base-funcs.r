@@ -207,8 +207,8 @@ function: func [
             ]
         )
         any [
-            set other: [word! | path!] (
-                other: ensure any-context! get other
+            set other: [object! | word! | path!] (
+                if not object? other [other: ensure any-context! get other]
                 bind new-body other
                 for-each [key val] other [
                     append exclusions key
@@ -527,14 +527,6 @@ set*: redescribe [
     specialize 'set [opt: true]
 )
 
-match*: redescribe [
-    {Variant of MATCH that passes through a NULL vs. error (variadic TBD}
-](
-    specialize 'either-test [
-        branch: []
-    ]
-)
-
 ensure: redescribe [
     {Pass through value if it matches test, otherwise trigger a FAIL}
 ](
@@ -791,6 +783,42 @@ has: func [
     construct/(only ?? 'only !! _) [] body
 ]
 
+method: enfix func [
+    {FUNCTION variant that creates an ACTION! implicitly bound in a context}
+
+    return: [action!]
+    :member [set-word! set-path!]
+    spec [block!]
+    body [block!]
+    <local> context
+][
+    context: binding of member else [
+        fail [member "must be bound to an ANY-CONTEXT! to use METHOD"]
+    ]
+    set member bind (function compose [(spec) <in> (context)] body) context
+]
+
+meth: enfix func [
+    {FUNC variant that creates an ACTION! implicitly bound in a context}
+
+    return: [action!]
+    :member [set-word! set-path!]
+    spec [block!]
+    body [block!]
+    <local> context
+][
+    context: binding of member else [
+        fail [target "must be bound to an ANY-CONTEXT! to use METH"]
+    ]
+
+    ; !!! This is somewhat inefficient because <in> is currently implemented
+    ; in usermode...so the body will get copied twice.  The contention is
+    ; between not wanting to alter the bindings in the caller's body variable
+    ; and wanting to update them for the purposes of the FUNC.  Review.
+    ;
+    set member bind (func spec bind copy/deep body context) context
+]
+
 
 module: func [
     {Creates a new module.}
@@ -1025,7 +1053,7 @@ fail: function [
         ; If no specific location specified, and error doesn't already have a
         ; location, make it appear to originate from the frame calling FAIL.
         ;
-        location: default [context of 'reason]
+        location: default [binding of 'reason]
 
         ; !!! Does SET-LOCATION-OF-ERROR need to be a native?
         ;

@@ -167,7 +167,7 @@ posix: make platform-class [
     obj-suffix: ".o"
     archive-suffix: ".a"
 
-    gen-cmd-create: function [
+    gen-cmd-create: method [
         cmd [object!]
     ][
         either dir? cmd/file [
@@ -177,13 +177,13 @@ posix: make platform-class [
         ]
     ]
 
-    gen-cmd-delete: function [
+    gen-cmd-delete: method [
         cmd [object!]
     ][
         spaced ["rm -fr" cmd/file]
     ]
 
-    gen-cmd-strip: function [
+    gen-cmd-strip: method [
         cmd [object!]
     ][
         tool: try any [:cmd/strip :default-strip]
@@ -221,7 +221,7 @@ windows: make platform-class [
     obj-suffix: ".obj"
     archive-suffix: ".lib"
 
-    gen-cmd-create: function [
+    gen-cmd-create: method [
         cmd [object!]
     ][
         d: file-to-local cmd/file
@@ -232,7 +232,7 @@ windows: make platform-class [
             unspaced ["echo . 2>" d]
         ]
     ]
-    gen-cmd-delete: function [
+    gen-cmd-delete: method [
         cmd [object!]
     ][
         d: file-to-local cmd/file
@@ -244,7 +244,7 @@ windows: make platform-class [
         ]
     ]
 
-    gen-cmd-strip: function [
+    gen-cmd-strip: method [
         cmd [object!]
     ][
         ;not implemented
@@ -336,11 +336,11 @@ application-class: make project-class [
     searches: _
     ldflags: _
 
-    link: func [][
+    link: meth [][
         linker/link output depends ldflags
     ]
 
-    command: func [
+    command: meth [
         <local>
         ld
     ][
@@ -362,11 +362,11 @@ dynamic-library-class: make project-class [
 
     searches: _
     ldflags: _
-    link: func [][
+    link: meth [][
         linker/link output depends ldflags
     ]
 
-    command: function [
+    command: method [
         <with>
         default-linker
     ][
@@ -390,7 +390,7 @@ compiler-class: make object! [
     id: _ ;flag prefix
     version: _
     exec-file: _
-    compile: func [
+    compile: meth [
         output [file!]
         source [file!]
         include [file! block!]
@@ -399,7 +399,7 @@ compiler-class: make object! [
     ][
     ]
 
-    command: func [
+    command: meth [
         output
         source
         includes
@@ -408,13 +408,13 @@ compiler-class: make object! [
     ][
     ]
     ;check if the compiler is available
-    check: function [path [any-string! blank!]] []
+    check: method [path [any-string! blank!]] []
 ]
 
 gcc: make compiler-class [
     name: 'gcc
     id: "gnu"
-    check: function [
+    check: method [
         /exec path [file! blank!]
         <local>
         w
@@ -446,9 +446,9 @@ gcc: make compiler-class [
         ]
     ]
 
-    command: func [
-        output
-        source
+    command: meth [
+        output [file! text!]
+        source [file! text!]
         /I includes
         /D definitions
         /F cflags
@@ -526,7 +526,7 @@ tcc: make compiler-class [
     name: 'tcc
     id: "tcc"
 
-    command: func [
+    command: meth [
         output
         source
         /E {Preprocess}
@@ -603,8 +603,8 @@ clang: make gcc [
 cl: make compiler-class [
     name: 'cl
     id: "msc" ;flag id
-    command: func [
-        output
+    command: meth [
+        output [file! string!]
         source
         /I includes
         /D definitions
@@ -687,10 +687,10 @@ linker-class: make object! [
     name: _
     id: _ ;flag prefix
     version: _
-    link: func [
+    link: meth [
     ][
     ]
-    commands: func [
+    commands: meth [
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
@@ -706,7 +706,7 @@ ld: make linker-class [
     version: _
     exec-file: _
     id: "gnu"
-    command: func [
+    command: meth [
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
@@ -756,7 +756,7 @@ ld: make linker-class [
         ]
     ]
 
-    accept: func [
+    accept: meth [
         return: [<opt> string!]
         dep [object!]
         <local>
@@ -812,7 +812,7 @@ ld: make linker-class [
         ]
     ]
 
-    check: func [
+    check: meth [
         /exec path [file! blank!]
     ][
         version: copy ""
@@ -829,7 +829,7 @@ llvm-link: make linker-class [
     version: _
     exec-file: _
     id: "llvm"
-    command: func [
+    command: meth [
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
@@ -879,7 +879,7 @@ llvm-link: make linker-class [
         ]
     ]
 
-    accept: func [
+    accept: meth [
         return: [<opt> string!]
         dep [object!]
         <local>
@@ -933,7 +933,7 @@ link: make linker-class [
     id: "msc"
     version: _
     exec-file: _
-    command: func [
+    command: meth [
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
@@ -984,7 +984,7 @@ link: make linker-class [
         ]
     ]
 
-    accept: func [
+    accept: meth [
         return: [<opt> string!]
         dep [object!]
         <local>
@@ -1048,7 +1048,7 @@ strip-class: make object! [
     id: _ ;flag prefix
     exec-file: _
     options: _
-    commands: function [
+    commands: method [
         target [file!]
         /params flags [block! any-string! blank!]
         <local>
@@ -1088,10 +1088,10 @@ strip: make strip-class [
 object-file-class: make object! [
     class-name: 'object-file-class
     compiler: _
-    cflags:
-    definitions:
-    source:
-    output:
+    cflags: _
+    definitions: _
+    source: _
+    output: _
     basename: _ ;output without extension part
     optimization: _
     debug: _
@@ -1099,11 +1099,11 @@ object-file-class: make object! [
     generated?: false
     depends: _
 
-    compile: func [][
+    compile: meth [][
         compiler/compile
     ]
 
-    command: func [
+    command: meth [
         /I ex-includes
         /D ex-definitions
         /F ex-cflags
@@ -1138,7 +1138,7 @@ object-file-class: make object! [
             opt either g [either debug [debug][dbg]][debug]
     ]
 
-    gen-entries: func [
+    gen-entries: meth [
         parent [object!]
         /PIC
         <local>
@@ -1215,7 +1215,7 @@ generator-class: make object! [
     gen-cmd-delete:
     gen-cmd-strip: _
 
-    gen-cmd: func [
+    gen-cmd: meth [
         cmd [object!]
     ][
         switch cmd/class-name [
@@ -1233,8 +1233,8 @@ generator-class: make object! [
         ]
     ]
 
-    reify: function [
-        "Substitue variables in the command with its value"
+    reify: method [
+        "Substitute variables in the command with its value"
         "will recursively substitue if the value has variables"
 
         return: [<opt> object! any-string!]
@@ -1274,7 +1274,7 @@ generator-class: make object! [
         cmd
     ]
 
-    prepare: function [
+    prepare: method [
         return: <void>
         solution [object!]
         <local>
@@ -1300,7 +1300,7 @@ generator-class: make object! [
         ]
     ]
 
-    flip-flag: func [
+    flip-flag: meth [
         return: <void>
         project [object!]
         to [logic!]
@@ -1320,7 +1320,7 @@ generator-class: make object! [
         ]
     ]
 
-    setup-output: function [
+    setup-output: method [
         return: <void>
         project [object!]
     ][
@@ -1369,7 +1369,7 @@ generator-class: make object! [
         project/basename: basename
     ]
 
-    setup-outputs: function [
+    setup-outputs: method [
         {Set the output/implib for the project tree}
         return: <void>
         project [object!]
@@ -1409,7 +1409,7 @@ makefile: make generator-class [
     gen-cmd-delete: :posix/gen-cmd-delete
     gen-cmd-strip: :posix/gen-cmd-strip
 
-    gen-rule: func [
+    gen-rule: meth [
         entry [object!]
         <local>
         w
@@ -1499,7 +1499,7 @@ makefile: make generator-class [
         ]
     ]
 
-    emit: func [
+    emit: meth [
         return: <void>
         buf [binary!]
         project [object!]
@@ -1577,7 +1577,7 @@ makefile: make generator-class [
         ]
     ]
 
-    generate: function [
+    generate: method [
         output [file!]
         solution [object!]
         <with>
@@ -1632,7 +1632,7 @@ Execution: make generator-class [
     gen-cmd-delete: :host/gen-cmd-delete
     gen-cmd-strip: :host/gen-cmd-strip
 
-    run-target: func [
+    run-target: meth [
         return: <void>
         target [object!]
         /cwd dir [file!]
@@ -1667,7 +1667,7 @@ Execution: make generator-class [
         ]
     ]
 
-    run: func [
+    run: meth [
         return: <void>
         project [object!]
         /parent p-project
@@ -1805,7 +1805,7 @@ visual-studio: make generator-class [
         {{e20f9729-4575-459a-98be-c69167089b8c}}
     ]
 
-    emit: function [
+    emit: method [
         buf
         project [object!]
         <local>
@@ -1851,7 +1851,7 @@ visual-studio: make generator-class [
         depends
     ]
 
-    find-compile-as: function [
+    find-compile-as: method [
         cflags [block!]
     ][
         for-next cflags [
@@ -1871,7 +1871,7 @@ visual-studio: make generator-class [
         return blank
     ]
 
-    find-stack-size: function [
+    find-stack-size: method [
         ldflags [block!]
         <static>
         digit (charset "0123456789")
@@ -1893,7 +1893,7 @@ visual-studio: make generator-class [
         size
     ]
 
-    find-subsystem: function [
+    find-subsystem: method [
         ldflags [block!]
     ][
         subsystem: _
@@ -1913,7 +1913,7 @@ visual-studio: make generator-class [
         subsystem
     ]
 
-    find-optimization: func [
+    find-optimization: meth [
         optimization
     ][
         if null? switch optimization [
@@ -1928,13 +1928,13 @@ visual-studio: make generator-class [
         ]
     ]
 
-    find-optimization?: func [
+    find-optimization?: meth [
         optimization
     ][
         not find [0 _ no false off #[false]] optimization
     ]
 
-    generate-project: function [
+    generate-project: method [
         return: <void>
         output-dir [file!] {Solution directory}
         project [object!]
@@ -2300,7 +2300,7 @@ visual-studio: make generator-class [
         ;print ["Wrote to" out-file]
     ]
 
-    generate: function [
+    generate: method [
         output-dir [file!] {Solution directory}
         solution [object!]
         /x86

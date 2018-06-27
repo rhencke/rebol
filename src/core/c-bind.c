@@ -329,18 +329,10 @@ void Rebind_Values_Deep(
             REBSPC *binding = VAL_BINDING(v);
             if (binding == UNBOUND) {
                 //
-                // !!! For starters, we try saying that if a function has no
-                // binding, we default to adding one to the object.  This
-                // could mean that things like `make object! [a: :append]`
-                // will add a useless binding...but, it may still have an
-                // effect if there's a hijacking, and members from this
-                // object get used in the hijacking code.
-                //
-                // This may be the wrong way to do it, and something more
-                // explicit might be needed, via a METHOD type or more complex
-                // mechanism.
-                //
-                INIT_BINDING(v, dst);
+                // Leave NULL bindings alone.  Hence, unlike in R3-Alpha, an
+                // ordinary FUNC won't forward its references.  An explicit
+                // BIND to an object must be performed, or METHOD should be
+                // used to do it implicitly.
             }
             else if (IS_NODE_REBFRM(binding)) {
                 //

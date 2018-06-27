@@ -199,6 +199,6 @@ backtrace: function [
 
     return: []
 ][
-    stack: backtrace* context of 'return _
+    stack: backtrace* binding of 'return _
     print mold/only stack
 ]

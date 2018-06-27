@@ -1235,7 +1235,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 //
 //     return: make action! [
 //         [{Returns a value from a function.} value [<opt> any-value!]]
-//         [unwind/with (context of 'return) :value]
+//         [unwind/with (binding of 'return) :value]
 //     ]
 //     (body goes here)
 //

@@ -258,7 +258,7 @@ REBTYPE(Word)
             Init_Integer(D_OUT, len);
             return R_OUT; }
 
-        case SYM_CONTEXT: {
+        case SYM_BINDING: {
             if (Get_Context_Of(D_OUT, val))
                 return R_OUT;
             return R_NULL; }

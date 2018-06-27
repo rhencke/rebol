@@ -135,7 +135,7 @@ words-of: specialize 'reflect [property: 'words]
 values-of: specialize 'reflect [property: 'values]
 index-of: specialize 'reflect [property: 'index]
 type-of: specialize 'reflect [property: 'type]
-context-of: specialize 'reflect [property: 'context]
+binding-of: specialize 'reflect [property: 'binding]
 head-of: specialize 'reflect [property: 'head]
 tail-of: specialize 'reflect [property: 'tail]
 file-of: specialize 'reflect [property: 'file]
@@ -180,12 +180,12 @@ forall: :for-next
 forskip: :for-skip
 
 
-; BIND? and BOUND? didn't fit the naming convention of returning LOGIC! if
-; they end in a question mark.  Also, CONTEXT-OF is more explicit about the
-; type of the return result, which makes it more useful than BINDING-OF or
-; BIND-OF as a name.  (Result can be an ANY-CONTEXT!, including FRAME!)
-;
-bound?: bind?: specialize 'reflect [property: 'context]
+
+bound?: bind?: func [dummy:] [
+    fail/where [
+        {BOUND? and BIND? have been replaced by `BINDING OF`.}
+    ] 'dummy
+]
 
 
 ; !!! Technically speaking all frames should be "selfless" in the sense that
@@ -573,16 +573,11 @@ r3-alpha-func: function [
         replace/all spec [[any-type!]] [[<opt> any-value!]]
     ]
 
-    ; Policy requires a RETURN: annotation to say if one returns functions
-    ; or void in Ren-C--there was no such requirement in R3-Alpha.
-    ;
     func compose [
-        return: [<opt> any-value!]
-        (spec)
-        <local> exit
+       (spec) <local> exit
     ] compose [
-        blankify-refinement-args context of 'return
-        exit: make action! [[] [unwind context of 'return]]
+        blankify-refinement-args binding of 'return
+        exit: make action! [[] [unwind binding of 'return]]
         (body)
     ]
 ]
@@ -607,14 +602,13 @@ r3-alpha-function: function [
     ; everything into the spec...marked with <tags>
     ;
     function compose [
-        return: [<opt> any-value!]
         (spec)
         (with ?? <in>) (:object) ;-- <in> replaces functionality of /WITH
         (extern ?? <with>) (:words) ;-- then <with> took over what /EXTERN was
         ;-- <local> exit, picked up since using FUNCTION as generator
     ] compose [
-        blankify-refinement-args context of 'return
-        exit: make action! [[] [unwind context of 'return]]
+        blankify-refinement-args binding of 'return
+        exit: make action! [[] [unwind binding of 'return]]
         (body)
     ]
 ]
@@ -697,6 +691,9 @@ set 'r3-legacy* func [<local>] [
             :discarded [block! any-string! binary! any-scalar!]
         ][
         ])
+
+        bound?: (specialize 'reflect [property: 'binding])
+        bind?: (specialize 'reflect [property: 'binding])
 
         value?: (func [
             {See SET? in Ren-C: https://trello.com/c/BlktEl2M}

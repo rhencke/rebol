@@ -43,7 +43,7 @@ r3-alpha-quote: func [:spelling [word! text!]] [
     either word? spelling [
         spelling
     ][
-        bind (to word! spelling) (context of 'r3-alpha-quote)
+        bind (to word! spelling) (binding of 'r3-alpha-quote)
     ]
 ]
 

@@ -12,7 +12,7 @@ REBOL [
         See: http://www.apache.org/licenses/LICENSE-2.0
     }
     Purpose: {
-        This file was originally used to make an R3-Alpha "act like" a Ren-C.
+        This file was originally used to make an R3-Alpha "act like a Ren-C".
         That way, bootstrapping code could be written under various revised
         language conventions--while still using older executables to build.
 
@@ -116,6 +116,7 @@ of: enfix function [
         words [words-of :value]
         head [head-of :value]
         tail [tail-of :value]
+        binding [context-of :value]
     ][
         fail/where ["Unknown reflector:" property] 'property
     ]
@@ -311,3 +312,27 @@ func: specialize 'actionmaker [gather-locals: false]
 function: specialize 'actionmaker [gather-locals: true]
 unset 'procedure
 unset 'proc
+
+
+; https://forum.rebol.info/t/method-and-the-argument-against-procedure/710
+; 
+; This only does the <in> part, since the older Ren-C is like R3-Alpha and
+; FUNCTION will automatically get copied and have the binding derived.
+;
+method: enfix func [
+    {FUNCTION variant that creates an ACTION! implicitly bound in a context}
+
+    return: [action!]
+    :member [set-word! set-path!]
+    spec [block!]
+    body [block!]
+    <local> context
+][
+    if not context: try binding of member [
+        fail [member "must be bound to an ANY-CONTEXT! to use METHOD"]
+    ]
+    ;-- Older Ren-C don't take OBJECT! literally with <in>
+    set member (function compose [(spec) <in> context] body)
+]
+
+meth: :func ;-- suitable enough synonym in the older Ren-C

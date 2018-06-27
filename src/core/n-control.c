@@ -542,9 +542,16 @@ either_test:;
 
     REBVAL *varpar = PAR(args);
 
+    // !!! Hard-quoted arguments don't accept nulls, but we're tweaking the
+    // parameter class... make it allow NULL too.
+    //
+    VAL_TYPESET_BITS(varpar) |= FLAGIT_KIND(REB_MAX_NULLED);
     INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_NORMAL); // !!! hack
+
     REB_R r = Do_Vararg_Op_May_Throw(D_OUT, ARG(args), VARARG_OP_TAKE);
+
     INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_HARD_QUOTE);
+    VAL_TYPESET_BITS(varpar) &= ~FLAGIT_KIND(REB_MAX_NULLED);
 
     if (r == R_OUT_IS_THROWN)
         return R_OUT_IS_THROWN;

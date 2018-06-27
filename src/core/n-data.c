@@ -119,8 +119,8 @@ REBNATIVE(as_pair)
 //
 //  "Binds words or words in arrays to the specified context."
 //
-//      value [any-array! any-word!]
-//          "A word or array (modified) (returned)"
+//      value [action! any-array! any-word!]
+//          "Value whose binding is to be set (modified) (returned)"
 //      target [any-word! any-context!]
 //          "The target context or a word whose binding should be the target"
 //      /copy
@@ -190,6 +190,17 @@ REBNATIVE(bind)
         }
 
         fail (Error_Not_In_Context_Raw(v));
+    }
+
+    // Binding an ACTION! to a context means it will obey derived binding
+    // relative to that context.  See METHOD for usage.  (Note that the same
+    // binding pointer is also used in cases like RETURN_0 and RETURN_1 to
+    // link them to the FRAME! that they intend to return from.)
+    //
+    if (IS_ACTION(v)) {
+        Move_Value(D_OUT, v);
+        INIT_BINDING(D_OUT, context);
+        return R_OUT;
     }
 
     assert(ANY_ARRAY(v));

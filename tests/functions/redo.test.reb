@@ -3,7 +3,7 @@
 ; REDO via a direct FRAME! value
 (
     foo: func [n] [
-        frame: context of 'n
+        frame: binding of 'n
         if n = 0 [
             return <success>
         ]
@@ -95,7 +95,7 @@
             return <success>
         ]
 
-        f: context of 'n
+        f: binding of 'n
         captured-frame: true
 
         ;-- fall through to inner
@@ -180,7 +180,7 @@
         adapt 'base [
            log [{C} n delta]
 
-           f: context of 'n
+           f: binding of 'n
            captured-frame: true
            redo/other 'n :s
 

@@ -655,7 +655,6 @@ REBNATIVE(hijack)
 // places in the system (frames, specializations, adaptations) and can't
 // be corrupted...or the places that rely on their properties (number and
 // types of parameters) would get out of sync.
-//
 {
     INCLUDE_PARAMS_OF_HIJACK;
 
@@ -745,6 +744,9 @@ REBNATIVE(hijack)
     // alone?  Add a note about the hijacking?
 
     Move_Value(D_OUT, victim);
+
+    // !!! Review how binding and hijacking interact.
+    //
     INIT_BINDING(D_OUT, VAL_BINDING(hijacker));
 
     return R_OUT;

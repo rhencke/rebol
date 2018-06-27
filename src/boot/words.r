@@ -88,7 +88,7 @@ words
 values
 types
 title
-context
+binding
 file
 line
 function

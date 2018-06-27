@@ -280,7 +280,7 @@ load: function [
         [word!]
     <in> no-all ;-- temporary fake of <unbind> option
 ][
-    self: context of 'return ;-- so you can say SELF/ALL
+    self: binding of 'return ;-- so you can say SELF/ALL
 
     ; NOTES:
     ; Note that code/data can be embedded in other datatypes, including

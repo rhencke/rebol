@@ -185,11 +185,11 @@ spec-of: function [
 
     action [action!]
 ][
-    meta: try match* object! meta-of :action
+    meta: try match object! meta-of :action
 
-    specializee: try match* action! select meta 'specializee
-    adaptee: try match* action! select meta 'adaptee
-    original-meta: try match* object! any [
+    specializee: try match action! select meta 'specializee
+    adaptee: try match action! select meta 'adaptee
+    original-meta: try match object! any [
         meta-of :specializee
         meta-of :adaptee
     ]
@@ -240,8 +240,8 @@ title-of: function [
     opt switch type of :value [
         action! [
             all [
-                meta: try match* object! meta-of :value
-                copy try match* text! select meta 'description
+                meta: try match object! meta-of :value
+                copy try match text! select meta 'description
             ] ;-- may be null and get voidified, hence OPT
         ]
 
