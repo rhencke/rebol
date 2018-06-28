@@ -182,7 +182,7 @@ REBNATIVE(return_1)
     //
     REBFRM *target_frame;
     if (IS_NODE_REBFRM(f->binding)) {
-        target_frame = cast(REBFRM*, f->binding);
+        target_frame = FRM(f->binding);
     }
     else if (f->binding->header.bits & ARRAY_FLAG_VARLIST) {
         target_frame = CTX_FRAME_MAY_FAIL(CTX(f->binding));

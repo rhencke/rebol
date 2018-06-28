@@ -43,10 +43,6 @@
 
     template <typename T>
     inline static REBNOD *NOD(T *p) {
-        assert(p); // nullptr is not a node (see GHOST)
-
-        constexpr bool base = std::is_same<T, void>::value;
-
         constexpr bool derived =
             std::is_same<T, decltype(GHOST)>::value // "honorary node"
             or std::is_same<T, REBSER>::value
@@ -57,14 +53,16 @@
             or std::is_same<T, REBMAP>::value
             or std::is_same<T, REBFRM>::value;
 
+        constexpr bool base = std::is_same<T, void>::value;
+
         static_assert(
-            base or derived,
+            derived or base,
             "NOD() works on void/GHOST/REBSER/REBSTR/REBARR/REBCTX/REBACT" \
                "/REBMAP/REBFRM"
         );
 
-        if (derived) {
-            // it's a subtype of REBNOD, so just take its word for it
+        if (not p) {
+            assert(!"NOD() does not accept nullptr (use GHOST)");
         }
         else if (p == GHOST) {
             // ghost value passed in via void* won't have NODE_FLAG_NODE

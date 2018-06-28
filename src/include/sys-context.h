@@ -59,52 +59,10 @@
 // entire REBVAL if it is needed.
 //
 
-struct Reb_Context {
-    struct Reb_Array varlist; // keylist is held in ->link.keylist
-};
-
 #ifdef NDEBUG
     #define ASSERT_CONTEXT(c) cast(void, 0)
 #else
     #define ASSERT_CONTEXT(c) Assert_Context_Core(c)
-#endif
-
-#if !defined(DEBUG_CHECK_CASTS)
-
-    #define CTX(p) \
-        cast(REBCTX*, (p)) // CTX() just does a cast (maybe with added checks)
-
-#elif defined(CPLUSPLUS_11)
-
-    template<typename T>
-    inline static REBCTX *CTX(T *p) {
-        constexpr bool base = std::is_same<T, void>::value
-            or std::is_same<T, REBNOD>::value
-            or std::is_same<T, REBSER>::value
-            or std::is_same<T, REBARR>::value;
-
-        static_assert(base, "CTX() works on REBNOD/REBSER/REBARR");
-
-        if (base)
-            assert(
-                (reinterpret_cast<REBNOD*>(p)->header.bits & (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST
-                        | NODE_FLAG_FREE
-                        | NODE_FLAG_CELL
-                        | ARRAY_FLAG_PARAMLIST
-                        | ARRAY_FLAG_PAIRLIST
-                )) == (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST
-                )
-            );
-
-        return reinterpret_cast<REBCTX*>(p);
-    }
-
-    template <typename TP>
-    inline REBCTX *CTX(ghostable<TP> gp) {
-        return CTX(static_cast<TP>(gp));
-    }
 #endif
 
 #define CTX_VARLIST(c) \
@@ -196,7 +154,7 @@ inline static REBFRM *CTX_FRAME_IF_ON_STACK(REBCTX *c) {
 
     // Note: inlining of Is_Action_Frame() to break dependency
     //
-    REBFRM *f = cast(REBFRM*, keysource);
+    REBFRM *f = FRM(keysource);
     assert(f->eval_type == REB_ACTION and f->phase != NULL);
     return f;
 }

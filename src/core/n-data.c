@@ -282,9 +282,9 @@ REBNATIVE(use)
 
 
 //
-//  Get_Context_Of: C
+//  Did_Get_Binding_Of: C
 //
-REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
+REBOOL Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
 {
     switch (VAL_TYPE(v)) {
     case REB_ACTION: {
@@ -297,17 +297,14 @@ REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
         //
         REBNOD *n = VAL_BINDING(v);
         if (n == UNBOUND)
-            return FALSE;
+            return false;
 
         REBCTX *c;
         if (IS_NODE_REBFRM(n)) {
-            REBFRM *f = cast(REBFRM*, n);
-            c = Context_For_Frame_May_Reify_Managed(f);
+            c = Context_For_Frame_May_Reify_Managed(FRM(n));
         }
-        else {
-            assert(n->header.bits & (SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST));
-            c = cast(REBCTX*, n);
-        }
+        else
+            c = CTX(n);
         Move_Value(out, CTX_ARCHETYPE(c));
         assert(IS_FRAME(out));
         break; }
@@ -319,7 +316,7 @@ REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
     case REB_REFINEMENT:
     case REB_ISSUE: {
         if (IS_WORD_UNBOUND(v))
-            return FALSE;
+            return false;
 
         // Requesting the context of a word that is relatively bound may
         // result in that word having a FRAME! incarnated as a REBSER node (if
@@ -340,7 +337,7 @@ REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
         // in should they be passed trough as "the context"?  For now, keep
         // things clear?
         //
-        assert(FALSE);
+        assert(false);
     }
 
     // A FRAME! has special properties of ->phase and ->binding which
@@ -355,7 +352,7 @@ REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
     if (IS_FRAME(out)) {
         REBCTX *c = VAL_CONTEXT(out);
         REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
-        if (f != NULL) {
+        if (f) {
             out->payload.any_context.phase = f->phase;
             INIT_BINDING(out, f->binding);
         }
@@ -366,7 +363,7 @@ REBOOL Get_Context_Of(REBVAL *out, const REBVAL *v)
         }
 
         assert(
-            out->payload.any_context.phase == NULL
+            not out->payload.any_context.phase
             or GET_SER_FLAG(
                 ACT_PARAMLIST(out->payload.any_context.phase),
                 ARRAY_FLAG_PARAMLIST

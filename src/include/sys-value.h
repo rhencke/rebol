@@ -803,8 +803,8 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 // the same function if it contains any instances of such relative words.
 //
 inline static REBOOL IS_RELATIVE(const RELVAL *v) {
-    if (Not_Bindable(v)) // uses VAL_TYPE_RAW(), don't check unreadable blank
-        return FALSE;
+    if (Not_Bindable(v))
+        return false; // INTEGER! and other types are inherently "specific"
     return did (v->extra.binding->header.bits & ARRAY_FLAG_PARAMLIST);
 }
 
@@ -823,21 +823,9 @@ inline static REBOOL IS_RELATIVE(const RELVAL *v) {
 
 inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
     assert(IS_RELATIVE(v));
-    return cast(REBACT*, v->extra.binding);
+    return ACT(v->extra.binding);
 }
 
-inline static REBCTX *VAL_SPECIFIC_COMMON(const RELVAL *v) {
-    assert(IS_SPECIFIC(v));
-    return cast(REBCTX*, v->extra.binding);
-}
-
-#ifdef NDEBUG
-    #define VAL_SPECIFIC(v) \
-        VAL_SPECIFIC_COMMON(v)
-#else
-    #define VAL_SPECIFIC(v) \
-        VAL_SPECIFIC_Debug(v)
-#endif
 
 // When you have a RELVAL* (e.g. from a REBARR) that you "know" to be specific,
 // the KNOWN macro can be used for that.  Checks to make sure in debug build.
@@ -1514,7 +1502,7 @@ inline static REBVAL *Init_Reference(
 
 inline static RELVAL *VAL_REFERENCE(const RELVAL *v) {
     assert(VAL_TYPE(v) == REB_0_REFERENCE);
-    return v->payload.reference.cell; // Use VAL_SPECIFIC() to get specifier
+    return v->payload.reference.cell; // Use VAL_SPECIFIER() to get specifier
 }
 
 
@@ -1820,7 +1808,7 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
         // CELL_FLAG_STACK.
         //
         v->extra.binding = NOD(
-            Context_For_Frame_May_Reify_Managed(cast(REBFRM*, binding))
+            Context_For_Frame_May_Reify_Managed(FRM(binding))
         );
     }
     else {
@@ -1893,7 +1881,7 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
     // Check if the target stack level will outlive the stack level of the
     // non-reified material in the binding. 
 
-    REBFRM *f = cast(REBFRM*, v->extra.binding);
+    REBFRM *f = FRM(v->extra.binding);
 
     REBCNT bind_depth = 1; // !!! need to determine v's binding stack level
     REBCNT out_depth;

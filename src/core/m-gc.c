@@ -266,7 +266,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
         if (binding != UNBOUND) { // has CELL bit set, but not a cell...
             assert(v->header.bits & CELL_FLAG_STACK);
 
-            REBFRM *f = cast(REBFRM*, binding);
+            REBFRM *f = FRM(binding);
             assert(f->eval_type == REB_ACTION);
 
             REBFRM *temp = FS_TOP;

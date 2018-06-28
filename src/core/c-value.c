@@ -105,44 +105,6 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
     Panic_Series_Debug(SER(EMPTY_ARRAY));
 }
 
-
-//
-//  VAL_SPECIFIC_Debug: C
-//
-REBCTX *VAL_SPECIFIC_Debug(const REBVAL *v)
-{
-    assert(
-        VAL_TYPE(v) == REB_0_REFERENCE
-        or ANY_WORD(v)
-        or ANY_ARRAY(v)
-        or IS_VARARGS(v)
-        or IS_ACTION(v)
-        or ANY_CONTEXT(v)
-    );
-
-    REBCTX *specific = VAL_SPECIFIC_COMMON(v);
-
-    if (SPC(specific) != SPECIFIED) {
-        //
-        // Basic sanity check: make sure it's a context at all
-        //
-        if (NOT_SER_FLAG(CTX_VARLIST(specific), ARRAY_FLAG_VARLIST)) {
-            printf("Non-CONTEXT found as specifier in specific value\n");
-            panic (specific); // may not be a series, either
-        }
-
-        // While an ANY-WORD! can be bound specifically to an arbitrary
-        // object, an ANY-ARRAY! only becomes bound specifically to frames.
-        // The keylist for a frame's context should come from a function's
-        // paramlist, which should have an ACTION! value in keylist[0]
-        //
-        if (ANY_ARRAY(v))
-            assert(IS_ACTION(CTX_ROOTKEY(specific)));
-    }
-
-    return specific;
-}
-
 #endif // !defined(NDEBUG)
 
 

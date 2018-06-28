@@ -222,7 +222,7 @@ REBTYPE(Action)
         switch (sym) {
 
         case SYM_BINDING: {
-            if (Get_Context_Of(D_OUT, value))
+            if (Did_Get_Binding_Of(D_OUT, value))
                 return R_OUT;
             return R_NULL; }
 

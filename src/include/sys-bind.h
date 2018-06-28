@@ -54,19 +54,18 @@ inline static REBOOL Same_Binding(void *a_ptr, void *b_ptr) {
     REBNOD *a = NOD(a_ptr);
     REBNOD *b = NOD(b_ptr);
     if (a == b)
-        return true;
+        return true; // fast check
 
     if (IS_NODE_REBFRM(a)) {
         if (IS_NODE_REBFRM(b))
             return false;
 
-        REBFRM *f_a = cast(REBFRM*, a);
-        return NOD(f_a->reified) == b; // Note: reified may be GHOST
+        return NOD(FRM(a)->reified) == b; // Note: reified may be GHOST
     }
-    if (IS_NODE_REBFRM(b)) {
-        REBFRM *f_b = cast(REBFRM*, b);
-        return NOD(f_b->reified) == a; // Note: reified may be GHOST
-    }
+    
+    if (IS_NODE_REBFRM(b))
+        return NOD(FRM(b)->reified) == a; // Note: reified may be GHOST
+    
     return false;
 }
 
@@ -349,7 +348,7 @@ inline static REBVAL *Derelativize(
     #endif
 
         if (IS_NODE_REBFRM(specifier)) {
-            REBFRM *f = cast(REBFRM*, specifier);
+            REBFRM *f = FRM(specifier);
 
         #if !defined(NDEBUG)
             if (VAL_RELATIVE(v) != FRM_UNDERLYING(f)) {
@@ -383,7 +382,7 @@ inline static REBVAL *Derelativize(
     ){
         REBNOD *f_binding;
         if (IS_NODE_REBFRM(specifier))
-            f_binding = cast(REBFRM*, specifier)->binding;
+            f_binding = FRM(specifier)->binding;
         else {
             // !!! Repeats code in Get_Var_Core, see explanation there
             //
@@ -512,7 +511,7 @@ inline static REBVAL *Get_Var_Core(
         // DIRECT BINDING: This will be the case hit when a REBFRM* is used
         // in a word's binding.  The frame should still be on the stack.
         //
-        REBFRM *f = cast(REBFRM*, binding);
+        REBFRM *f = FRM(binding);
         REBVAL *var = FRM_ARG(f, VAL_WORD_INDEX(any_word));
 
         if (flags & GETVAR_MUTABLE) {
@@ -545,7 +544,7 @@ inline static REBVAL *Get_Var_Core(
     #endif
 
         if (IS_NODE_REBFRM(specifier)) {
-            REBFRM *f = cast(REBFRM*, specifier);
+            REBFRM *f = FRM(specifier);
 
             assert(Same_Binding(FRM_UNDERLYING(f), binding));
 
@@ -587,7 +586,7 @@ inline static REBVAL *Get_Var_Core(
         else {
             REBNOD *f_binding;
             if (IS_NODE_REBFRM(specifier))
-                f_binding = cast(REBFRM*, specifier)->binding;
+                f_binding = FRM(specifier)->binding;
             else {
                 // Regardless of whether the frame is still on the stack
                 // or not, the FRAME! value embedded into the REBSER ndoe
@@ -616,11 +615,7 @@ inline static REBVAL *Get_Var_Core(
             }
         }
 
-        // We use VAL_SPECIFIC_COMMON() here instead of the heavy-checked
-        // VAL_WORD_CONTEXT(), because const_KNOWN() checks for specificity
-        // and the context operations will ensure it's a context.
-        //
-        context = VAL_SPECIFIC_COMMON(const_KNOWN(any_word));
+        context = CTX(binding); // stored binding to context not overridden
     }
     else {
         // UNBOUND: No variable location to retrieve.

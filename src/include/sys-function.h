@@ -34,49 +34,6 @@
 // stack, and can be viewed as a context using a FRAME!.
 //
 
-struct Reb_Action {
-    struct Reb_Array paramlist;
-};
-
-#if !defined(DEBUG_CHECK_CASTS)
-
-    #define ACT(p) \
-        cast(REBACT*, (p)) // ACT() just does a cast (maybe with added checks)
-
-#elif defined(CPLUSPLUS_11)
-
-    template <class T>
-    inline REBACT *ACT(T *p) {
-        constexpr bool base = std::is_same<T, void>::value
-            or std::is_same<T, REBNOD>::value
-            or std::is_same<T, REBSER>::value
-            or std::is_same<T, REBARR>::value;
-
-        static_assert(base, "ACT() works on void/REBNOD/REBSER/REBARR");
-
-        if (base)
-            assert(
-                (reinterpret_cast<REBSER*>(p)->header.bits & (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST
-                        | NODE_FLAG_FREE
-                        | NODE_FLAG_CELL
-                        | ARRAY_FLAG_VARLIST
-                        | ARRAY_FLAG_PAIRLIST
-                )) == (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST
-                )
-            );
-
-        return reinterpret_cast<REBACT*>(p);
-    }
-
-    template <typename TP>
-    inline REBACT *ACT(ghostable<TP> gp) {
-        return ACT(static_cast<TP>(gp));
-    }
-#endif
-
-
 inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     assert(GET_SER_FLAG(&a->paramlist, ARRAY_FLAG_PARAMLIST));
     return &a->paramlist;

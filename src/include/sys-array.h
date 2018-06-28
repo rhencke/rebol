@@ -51,45 +51,6 @@
 // context (which is also required to do a GET_VAR lookup).
 //
 
-struct Reb_Array {
-    struct Reb_Series series; // http://stackoverflow.com/a/9747062
-};
-
-#if! defined(DEBUG_CHECK_CASTS)
-
-    #define ARR(p) \
-        cast(REBARR*, (p)) // ARR() just does a cast (maybe with added checks)
-
-#elif defined(CPLUSPLUS_11)
-
-    template <class T>
-    inline REBARR *ARR(T *p) {
-        constexpr bool base = std::is_same<T, void>::value
-            or std::is_same<T, REBNOD>::value
-            or std::is_same<T, REBSER>::value;
-
-        static_assert(base, "ARR works on void/REBNOD/REBSER*");
-
-        if (base)
-            assert(
-                (reinterpret_cast<REBSER*>(p)->header.bits & (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY
-                        | NODE_FLAG_FREE
-                        | NODE_FLAG_CELL
-                )) == (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY
-                )
-           );
-
-        return reinterpret_cast<REBARR*>(p);
-    }
-
-    template <typename TP>
-    inline REBARR *ARR(ghostable<TP> gp) {
-        return ARR(static_cast<TP>(gp));
-    }
-#endif
-
 
 // HEAD, TAIL, and LAST refer to specific value pointers in the array.  An
 // empty array should have an END marker in its head slot, and since it has
@@ -407,26 +368,45 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Managed(
 #define EMPTY_STRING \
     Root_Empty_String
 
-inline static REBSPC* SPC(void *p) {
-    REBSPC *specifier = cast(REBSPC*, p);
 
-#if !defined(NDEBUG)
-    if (not (specifier->header.bits & NODE_FLAG_MANAGED)) {
-        REBFRM *f = cast(REBFRM*, specifier);
-        assert(f->eval_type == REB_ACTION);
+#ifdef NDEBUG
+    #define SPC(p) \
+        cast(REBSPC*, (p)) // makes UNBOUND look like SPECIFIED
+
+    #define VAL_SPECIFIER(v) \
+        SPC(v->extra.binding)
+#else
+    inline static REBSPC* SPC(void *p) {
+        REBNOD *specifier = NOD(p);
+
+      #if !defined(NDEBUG)
+        if (not (specifier->header.bits & NODE_FLAG_MANAGED)) {
+            REBFRM *f = FRM(specifier);
+            assert(f->eval_type == REB_ACTION);
+        }
+        else if (not (specifier->header.bits & ARRAY_FLAG_VARLIST)) {
+            assert(specifier == SPECIFIED);
+        }
+      #endif
+
+        return cast(REBSPC*, specifier);
     }
-    else if (not (specifier->header.bits & ARRAY_FLAG_VARLIST)) {
-        assert(specifier == SPECIFIED);
+
+    inline static REBSPC *VAL_SPECIFIER(const REBVAL *v) {
+        assert(VAL_TYPE(v) == REB_0_REFERENCE or ANY_ARRAY(v));
+        if (v->extra.binding == UNBOUND)
+            return SPECIFIED;
+
+        // While an ANY-WORD! can be bound specifically to an arbitrary
+        // object, an ANY-ARRAY! only becomes bound specifically to frames.
+        // The keylist for a frame's context should come from a function's
+        // paramlist, which should have an ACTION! value in keylist[0]
+        //
+        REBCTX *c = CTX(v->extra.binding);
+        assert(GET_SER_FLAG(c, NODE_FLAG_STACK));
+        return cast(REBSPC*, c);
     }
 #endif
-
-    return specifier;
-}
-
-inline static REBSPC *VAL_SPECIFIER(const REBVAL *v) {
-    assert(VAL_TYPE(v) == REB_0_REFERENCE or ANY_ARRAY(v));
-    return SPC(VAL_SPECIFIC(v));
-}
 
 inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {
     INIT_BINDING(v, UNBOUND);

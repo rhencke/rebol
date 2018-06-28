@@ -550,17 +550,6 @@ typedef struct rebol_mem_pool REBPOL;
         T get() const
           { assert(ptr_ != nullptr); return ptr_; }
 
-        explicit operator REBACT*() const
-          { return reinterpret_cast<REBACT*>(get()); }
-        explicit operator REBCTX*() const
-          { return reinterpret_cast<REBCTX*>(get()); }
-        explicit operator REBFRM*() const
-          { return reinterpret_cast<REBFRM*>(get()); }
-        explicit operator REBSER*() const
-          { return reinterpret_cast<REBSER*>(get()); }
-        explicit operator REBARR*() const
-          { return reinterpret_cast<REBARR*>(get()); }
-
         operator T() const { return get(); }
         T operator->() const { return get(); }
         typename std::remove_pointer<T>::type operator*() const
@@ -631,4 +620,30 @@ typedef struct rebol_mem_pool REBPOL;
 
     #define GHOSTABLE(ptr_type) \
         ghostable<ptr_type>
+
+    template <typename TP>
+    inline REBSER *SER(ghostable<TP> gp) {
+        return SER(static_cast<TP>(gp));
+    }
+
+    template <typename TP>
+    inline REBARR *ARR(ghostable<TP> gp) {
+        return ARR(static_cast<TP>(gp));
+    }
+
+    template <typename TP>
+    inline REBACT *ACT(ghostable<TP> gp) {
+        return ACT(static_cast<TP>(gp));
+    }
+
+    template <typename TP>
+    inline REBCTX *CTX(ghostable<TP> gp) {
+        return CTX(static_cast<TP>(gp));
+    }
+
+    template <typename TP>
+    inline REBFRM *FRM(ghostable<TP> gp) {
+        return FRM(static_cast<TP>(gp));
+    }
+
 #endif

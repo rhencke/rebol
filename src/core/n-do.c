@@ -484,7 +484,7 @@ REBNATIVE(redo)
 
     REBVAL *restartee = ARG(restartee);
     if (not IS_FRAME(restartee)) {
-        if (not Get_Context_Of(D_OUT, restartee))
+        if (not Did_Get_Binding_Of(D_OUT, restartee))
             fail ("No context found from restartee in REDO");
 
         if (not IS_FRAME(D_OUT))

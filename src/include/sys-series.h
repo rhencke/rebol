@@ -119,48 +119,6 @@
 #endif
 
 
-#if !defined(DEBUG_CHECK_CASTS)
-
-    #define SER(p) \
-        cast(REBSER*, (p)) // SER() just does a cast (maybe with added checks)
-
-#elif defined(CPLUSPLUS_11)
-
-    template <class T>
-    inline REBSER *SER(T *p) {
-        constexpr bool derived = std::is_same<T, REBSTR>::value
-            or std::is_same<T, REBARR>::value
-            or std::is_same<T, REBCTX>::value
-            or std::is_same<T, REBACT>::value;
-
-        constexpr bool base = std::is_same<T, void*>::value
-            or std::is_same<T, REBNOD>::value;
-
-        static_assert(
-            base or derived, 
-            "SER() works on void/REBNOD/REBSTR/REBARR/REBCTX/REBACT"
-        );
-
-        if (base)
-            assert(
-                (reinterpret_cast<REBNOD*>(p)->header.bits & (
-                    NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
-                )) == (
-                    NODE_FLAG_NODE
-                )
-            );
-
-        return reinterpret_cast<REBSER*>(p);
-    }
-
-    template <typename TP>
-    inline REBSER *SER(ghostable<TP> gp) {
-        return SER(static_cast<TP>(gp));
-    }
-#else
-#endif
-
-
 //
 // Series header FLAGs (distinct from INFO bits)
 //

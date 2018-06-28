@@ -259,7 +259,7 @@ REBTYPE(Word)
             return R_OUT; }
 
         case SYM_BINDING: {
-            if (Get_Context_Of(D_OUT, val))
+            if (Did_Get_Binding_Of(D_OUT, val))
                 return R_OUT;
             return R_NULL; }
 

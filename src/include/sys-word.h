@@ -104,13 +104,11 @@ inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
         //
         // Bound directly to un-reified REBFRM*.  Force reification, for now.
         //
-        REBFRM *f = cast(REBFRM*, binding);
-        return Context_For_Frame_May_Reify_Managed(f);
+        return Context_For_Frame_May_Reify_Managed(FRM(binding));
     }
 
     // Bound specifically to a REBCTX*.
     //
-    assert(binding->header.bits & ARRAY_FLAG_VARLIST);
     return CTX(binding);
 }
 

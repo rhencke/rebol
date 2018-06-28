@@ -116,18 +116,18 @@ inline static REBOOL Is_Frame_Style_Varargs_Maybe_Null(
         and not (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
     ){
         TRASH_POINTER_IF_DEBUG(*f);
-        return FALSE; // it's a block varargs, made via MAKE VARARGS!
+        return false; // it's a block varargs, made via MAKE VARARGS!
     }
 
     // "Ordinary" case... use the original frame implied by the VARARGS!
     // (so long as it is still live on the stack)
 
     if (IS_NODE_REBFRM(vararg->extra.binding))
-        *f = cast(REBFRM*, vararg->extra.binding);
+        *f = FRM(vararg->extra.binding);
     else
         *f = CTX_FRAME_IF_ON_STACK(CTX(vararg->extra.binding));
 
-    return TRUE;
+    return true;
 }
 
 

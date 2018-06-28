@@ -549,7 +549,7 @@ inline static void Drop_Action_Core(REBFRM *f) {
     // We substitute the paramlist of the original function the frame is for
     // in the keysource slot.
     //
-    assert(cast(REBFRM*, LINK(varlist).keysource) == f);
+    assert(LINK(varlist).keysource == NOD(f));
     LINK(varlist).keysource = NOD(ACT_PARAMLIST(f->original));
 
     if (NOT_SER_FLAG(varlist, SERIES_FLAG_STACK)) {

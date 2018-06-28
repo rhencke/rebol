@@ -955,3 +955,152 @@ struct Reb_Series {
     #define MISC(s) \
         SER(s)->misc_private
 #endif
+
+struct Reb_Array {
+    struct Reb_Series series; // http://stackoverflow.com/a/9747062
+};
+
+struct Reb_Action {
+    struct Reb_Array paramlist;
+};
+
+struct Reb_Context {
+    struct Reb_Array varlist; // keylist is held in ->link.keylist
+};
+
+#if !defined(DEBUG_CHECK_CASTS)
+    //
+    // These are really just casts, but can do additional debug build checking
+
+    #define SER(p) \
+        cast(REBSER*, (p))
+
+    #define ARR(p) \
+        cast(REBARR*, (p))
+
+    #define ACT(p) \
+        cast(REBACT*, (p))
+
+    #define CTX(p) \
+        cast(REBCTX*, (p))
+
+#elif defined(CPLUSPLUS_11)
+    //
+    // Note ghostable:: has overloads of these templated inlined functions
+
+    template <class T>
+    inline REBSER *SER(T *p) {
+        constexpr bool derived = std::is_same<T, REBSER>::value
+            or std::is_same<T, REBSTR>::value
+            or std::is_same<T, REBARR>::value
+            or std::is_same<T, REBCTX>::value
+            or std::is_same<T, REBACT>::value;
+
+        constexpr bool base = std::is_same<T, void*>::value
+            or std::is_same<T, REBNOD>::value;
+
+        static_assert(
+            derived or base, 
+            "SER() works on void/REBNOD/REBSER/REBSTR/REBARR/REBCTX/REBACT"
+        );
+
+        if (base)
+            assert(
+                (reinterpret_cast<REBNOD*>(p)->header.bits & (
+                    NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+                )) == (
+                    NODE_FLAG_NODE
+                )
+            );
+
+        return reinterpret_cast<REBSER*>(p);
+    }
+
+    template <class T>
+    inline REBARR *ARR(T *p) {
+        constexpr bool derived = std::is_same<T, REBARR>::value;
+
+        constexpr bool base = std::is_same<T, void>::value
+            or std::is_same<T, REBNOD>::value
+            or std::is_same<T, REBSER>::value;
+
+        static_assert(
+            derived or base,
+            "ARR works on void/REBNOD/REBSER/REBARR"
+        );
+
+        if (base)
+            assert(
+                (reinterpret_cast<REBSER*>(p)->header.bits & (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY
+                        | NODE_FLAG_FREE
+                        | NODE_FLAG_CELL
+                )) == (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY
+                )
+           );
+
+        return reinterpret_cast<REBARR*>(p);
+    }
+
+    template <class T>
+    inline REBACT *ACT(T *p) {
+        constexpr bool derived = std::is_same<REBACT, void>::value;
+
+        constexpr bool base = std::is_same<T, void>::value
+            or std::is_same<T, REBNOD>::value
+            or std::is_same<T, REBSER>::value
+            or std::is_same<T, REBARR>::value;
+
+        static_assert(
+            derived or base,
+            "ACT() works on void/REBNOD/REBSER/REBARR/REBACT"
+        );
+
+        if (base)
+            assert(
+                (reinterpret_cast<REBSER*>(p)->header.bits & (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST
+                        | NODE_FLAG_FREE
+                        | NODE_FLAG_CELL
+                        | ARRAY_FLAG_VARLIST
+                        | ARRAY_FLAG_PAIRLIST
+                )) == (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST
+                )
+            );
+
+        return reinterpret_cast<REBACT*>(p);
+    }
+
+    template<typename T>
+    inline static REBCTX *CTX(T *p) {
+        constexpr bool derived = std::is_same<T, REBCTX>::value;
+
+        constexpr bool base = std::is_same<T, void>::value
+            or std::is_same<T, REBNOD>::value
+            or std::is_same<T, REBSER>::value
+            or std::is_same<T, REBARR>::value;
+
+        static_assert(
+            derived or base,
+            "CTX() works on REBNOD/REBSER/REBARR/REBCTX"
+        );
+
+        if (base)
+            assert(
+                (reinterpret_cast<REBNOD*>(p)->header.bits & (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST
+                        | NODE_FLAG_FREE
+                        | NODE_FLAG_CELL
+                        | ARRAY_FLAG_PARAMLIST
+                        | ARRAY_FLAG_PAIRLIST
+                )) == (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST
+                )
+            );
+
+        return reinterpret_cast<REBCTX*>(p);
+    }
+
+#endif

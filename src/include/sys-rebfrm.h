@@ -873,3 +873,32 @@ typedef REB_R (*REBAPF)(REBFRM * const);
 
 #define LOOKBACK_ARG \
     m_cast(REBVAL*, EMPTY_STRING)
+
+
+#if !defined(DEBUG_CHECK_CASTS)
+
+    #define FRM(p) \
+        cast(REBFRM*, (p)) // FRM() just does a cast (maybe with added checks)
+
+#elif defined(CPLUSPLUS_11)
+
+    template <class T>
+    inline REBFRM *FRM(T *p) {
+        constexpr bool base = std::is_same<T, void>::value
+            or std::is_same<T, REBNOD>::value;
+
+        static_assert(base, "FRM() works on void/REBNOD");
+
+        if (base)
+            assert(
+                (reinterpret_cast<REBNOD*>(p)->header.bits & (
+                    NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+                )) == (
+                    NODE_FLAG_NODE | NODE_FLAG_CELL
+                )
+            );
+
+        return reinterpret_cast<REBFRM*>(p);
+    }
+
+#endif
