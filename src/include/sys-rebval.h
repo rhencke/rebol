@@ -905,16 +905,14 @@ struct Reb_Cell
     union Reb_Value_Extra extra;
     union Reb_Value_Payload payload;
 
-  #if defined(DEBUG_TRACK_CELLS) && defined(DEBUG_TRACK_EXTEND_CELLS)
+  #if defined(DEBUG_TRACK_EXTEND_CELLS)
     //
-    // Lets you preserve the tracking info even if the cell has a payload,
-    // which doubles the cell size, but helps in extreme debugging cases.
-    // Since the cell must be an even multiple of 4 * sizeof(void*), add in
-    // an additional piece of information on the last move/derelativize.
+    // Lets you preserve the tracking info even if the cell has a payload.
+    // This doubles the cell size, but can be a very helpful debug option.
     //
     struct Reb_Track_Payload track;
     uintptr_t tick; // stored in the Reb_Value_Extra for basic tracking
-    uintptr_t move_tick; // bonus to pad out to 4 * sizeof(void*)
+    uintptr_t touch; // see TOUCH_CELL(), also pads out to 4 * sizeof(void*)
   #endif
 };
 

@@ -66,8 +66,8 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
         #if defined(DEBUG_TRACK_EXTEND_CELLS)
             #if defined(DEBUG_COUNT_TICKS)
                 printf("@ tick #%d", cast(unsigned int, v->tick));
-                if (v->move_tick != 0)
-                    printf("moved @ #%d", cast(unsigned int, v->move_tick));
+                if (v->touch != 0)
+                    printf("@ touch #%d", cast(unsigned int, v->touch));
             #endif
 
             printf("@ %s:%d\n", v->track.file, v->track.line);

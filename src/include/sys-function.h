@@ -65,7 +65,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
     (ARR_LEN(ACT_PARAMLIST(a)) - 1)
 
 #define ACT_META(a) \
-    (MISC(ACT_PARAMLIST(a)).meta)
+    MISC(a).meta
 
 
 // *** These ACT_FACADE fetchers are called VERY frequently, so it is best
@@ -75,7 +75,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 // reason...and seeing the impact on the debug build!!! ***
 
 #define ACT_FACADE(a) \
-    LINK(ACT_PARAMLIST(a)).facade
+    LINK(a).facade
 
 #define ACT_FACADE_NUM_PARAMS(a) \
     (ARR_LEN(ACT_FACADE(a)) - 1)
@@ -107,7 +107,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
     ACT(ARR_HEAD(ACT_FACADE(a))->payload.action.paramlist)
 
 #define ACT_EXEMPLAR(a) \
-    (LINK(ACT_ARCHETYPE(a)->payload.action.body_holder).exemplar)
+    LINK(ACT_ARCHETYPE(a)->payload.action.body_holder).exemplar
 
 
 // There is no binding information in a function parameter (typeset) so a

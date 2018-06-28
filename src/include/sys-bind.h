@@ -90,8 +90,8 @@ inline static REBOOL Same_Binding(void *a_ptr, void *b_ptr) {
 //
 inline static REBOOL Is_Overriding_Context(REBCTX *stored, REBCTX *override)
 {
-    REBNOD *stored_source = LINK(CTX_VARLIST(stored)).keysource;
-    REBNOD *temp = LINK(CTX_VARLIST(override)).keysource;
+    REBNOD *stored_source = LINK(stored).keysource;
+    REBNOD *temp = LINK(override).keysource;
 
     // In a FRAME! the "keylist" is actually a paramlist, and the LINK.facade
     // field is used in paramlists (precluding a LINK.ancestor).  Plus, since
@@ -412,12 +412,6 @@ inline static REBVAL *Derelativize(
     }
 
     out->payload = v->payload;
-
-  #ifdef DEBUG_TRACK_EXTEND_CELLS
-    out->track = v->track;
-    out->tick = v->tick;
-    out->move_tick = TG_Tick;
-  #endif
 
     // in case the caller had a relative value slot and wants to use its
     // known non-relative form... this is inline, so no cost if not used.

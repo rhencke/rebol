@@ -386,7 +386,7 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         // facade is "fronting for" in the head slot.  The facade must always
         // hold the same number of parameters as the underlying action.
         //
-        REBARR *facade = LINK(ACT_PARAMLIST(a)).facade;
+        REBARR *facade = LINK(a).facade;
         assert(IS_ACTION(ARR_HEAD(facade)));
         REBARR *underlying = ARR_HEAD(facade)->payload.action.paramlist;
         if (underlying != facade) {

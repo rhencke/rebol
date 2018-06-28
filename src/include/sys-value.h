@@ -117,6 +117,11 @@
 //
 
 #if defined(DEBUG_TRACK_CELLS)
+    #if defined(DEBUG_COUNT_TICKS) && defined(DEBUG_TRACK_EXTEND_CELLS)
+        #define TOUCH_CELL(c) \
+            ((c)->touch = TG_Tick)
+    #endif
+
     inline static void Set_Track_Payload_Extra_Debug(
         struct Reb_Cell *c,
         const char *file,
@@ -128,7 +133,7 @@
 
         #ifdef DEBUG_COUNT_TICKS
             c->tick = TG_Tick;
-            c->move_tick = 0;
+            c->touch = 0;
         #endif
       #else // in space that is overwritten for cells that fill in payloads 
         c->payload.track.file = file;
@@ -411,11 +416,16 @@
     // risk of repeating macro arguments to speed up this critical test.
     //
     #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
-        if (not ((c)->header.bits & (NODE_FLAG_CELL | NODE_FLAG_NODE))) { \
-            printf("Non-cell/node passed to writing routine\n"); \
+        if (not ((c)->header.bits & NODE_FLAG_CELL)) { \
+            printf("Non-cell passed to cell writing routine\n"); \
             panic_at ((c), (file), (line)); \
         } \
-        if ((c)->header.bits & (CELL_FLAG_PROTECTED | NODE_FLAG_FREE)) { \
+        else if (not ((c)->header.bits & NODE_FLAG_NODE)) { \
+            printf("Non-node passed to cell writing routine\n"); \
+            panic_at ((c), (file), (line)); \
+        } else if (\
+            (c)->header.bits & (CELL_FLAG_PROTECTED | NODE_FLAG_FREE) \
+        ){ \
             printf("Protected/free cell passed to writing routine\n"); \
             panic_at ((c), (file), (line)); \
         }
@@ -1830,6 +1840,12 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
 
     out->header.bits &= CELL_MASK_RESET;
     out->header.bits |= v->header.bits & CELL_MASK_COPY;
+
+  #ifdef DEBUG_TRACK_EXTEND_CELLS
+    out->track = v->track;
+    out->tick = v->tick; // initialization tick
+    out->touch = v->touch; // arbitrary debugging use via TOUCH_CELL
+  #endif
 }
 
 
@@ -1849,12 +1865,6 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
     Move_Value_Header(out, v);
 
     out->payload = v->payload; // payloads cannot hold references to stackvars
-
-  #ifdef DEBUG_TRACK_EXTEND_CELLS
-    out->track = v->track;
-    out->tick = v->tick;
-    out->move_tick = TG_Tick;
-  #endif
 
     if (
         Is_Bindable(v)

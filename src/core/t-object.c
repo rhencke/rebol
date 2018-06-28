@@ -488,7 +488,7 @@ REBNATIVE(meta_of)
         meta = VAL_ACT_META(v);
     else {
         assert(ANY_CONTEXT(v));
-        meta = MISC(CTX_VARLIST(VAL_CONTEXT(v))).meta;
+        meta = MISC(VAL_CONTEXT(v)).meta;
     }
 
     if (not meta)
@@ -533,7 +533,7 @@ REBNATIVE(set_meta)
         MISC(VAL_ACT_PARAMLIST(v)).meta = meta;
     else {
         assert(ANY_CONTEXT(v));
-        MISC(CTX_VARLIST(VAL_CONTEXT(v))).meta = meta;
+        MISC(VAL_CONTEXT(v)).meta = meta;
     }
 
     if (not meta)

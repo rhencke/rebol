@@ -91,12 +91,12 @@ inline static REBVAL *CTX_ARCHETYPE(REBCTX *c) {
 // possible--even in an unoptimized build.  Use VAL_TYPE_RAW, plain C cast.
 //
 inline static REBARR *CTX_KEYLIST(REBCTX *c) {
-    if (NOT_NODE_CELL(LINK(CTX_VARLIST(c)).keysource)) {
+    if (NOT_NODE_CELL(LINK(c).keysource)) {
         //
         // Ordinarily, we want to use the keylist pointer that is stored in
         // the link field of the varlist.
         //
-        return ARR(LINK(CTX_VARLIST(c)).keysource);
+        return ARR(LINK(c).keysource);
     }
 
     // If the context in question is a FRAME! value, then the ->phase
@@ -109,17 +109,17 @@ inline static REBARR *CTX_KEYLIST(REBCTX *c) {
     //
     REBVAL *archetype = CTX_ARCHETYPE(c);
     assert(VAL_TYPE_RAW(archetype) == REB_FRAME);
-    return LINK(ACT_PARAMLIST(archetype->payload.any_context.phase)).facade;
+    return LINK(archetype->payload.any_context.phase).facade;
 }
 
 static inline void INIT_CTX_KEYLIST_SHARED(REBCTX *c, REBARR *keylist) {
     SET_SER_INFO(keylist, SERIES_INFO_SHARED_KEYLIST);
-    LINK(CTX_VARLIST(c)).keysource = NOD(keylist);
+    LINK(c).keysource = NOD(keylist);
 }
 
 static inline void INIT_CTX_KEYLIST_UNIQUE(REBCTX *c, REBARR *keylist) {
     assert(NOT_SER_INFO(keylist, SERIES_INFO_SHARED_KEYLIST));
-    LINK(CTX_VARLIST(c)).keysource = NOD(keylist);
+    LINK(c).keysource = NOD(keylist);
 }
 
 // Navigate from context to context components.  Note that the context's
@@ -145,7 +145,7 @@ static inline void INIT_CTX_KEYLIST_UNIQUE(REBCTX *c, REBARR *keylist) {
     SER_AT(REBVAL, SER(CTX_KEYLIST(c)), 1) // a CTX_KEY can't hold a RELVAL
 
 inline static REBFRM *CTX_FRAME_IF_ON_STACK(REBCTX *c) {
-    REBNOD *keysource = LINK(CTX_VARLIST(c)).keysource;
+    REBNOD *keysource = LINK(c).keysource;
     if (not (keysource->header.bits & NODE_FLAG_CELL))
         return nullptr; // e.g. came from MAKE FRAME! or Encloser_Dispatcher
 

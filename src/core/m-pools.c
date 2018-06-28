@@ -242,15 +242,17 @@ void Startup_Pools(REBINT scale)
 {
   #ifndef NDEBUG
     const char *env_always_malloc = getenv("R3_ALWAYS_MALLOC");
-    if (env_always_malloc and atoi(env_always_malloc) != 0) {
+    if (env_always_malloc and atoi(env_always_malloc) != 0)
+        PG_Always_Malloc = true;
+    if (PG_Always_Malloc) {
         printf(
-            "**\n"
-            "** R3_ALWAYS_MALLOC is TRUE in environment variable!\n"
-            "** Memory allocations aren't pooled, expect slowness...\n"
+            "**\n" \
+            "** R3_ALWAYS_MALLOC is TRUE in environment variable!\n" \
+            "** (Or hardcoded PG_Always_Malloc = true in initialization)\n" \
+            "** Memory allocations aren't pooled, expect slowness...\n" \
             "**\n"
         );
         fflush(stdout);
-        PG_Always_Malloc = TRUE;
     }
   #endif
 

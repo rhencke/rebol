@@ -1001,17 +1001,19 @@ void Startup_Task(void)
     //
   #ifndef NDEBUG
     const char *env_recycle_torture = getenv("R3_RECYCLE_TORTURE");
-    if (env_recycle_torture and atoi(env_recycle_torture) != 0) {
+    if (env_recycle_torture and atoi(env_recycle_torture) != 0)
+        TG_Ballast = 0;
+
+    if (TG_Ballast == 0) {
         printf(
-            "**\n"
-            "** R3_RECYCLE_TORTURE is TRUE in environment variable!\n"
-            "** Recycling on EVERY evaluator step, EXTREMELY SLOW!...\n"
+            "**\n" \
+            "** R3_RECYCLE_TORTURE is nonzero in environment variable!\n" \
+            "** (or TG_Ballast is set to 0 manually in the init code)\n" \
+            "** Recycling on EVERY evaluator step, *EXTREMELY* SLOW!...\n" \
             "**\n"
         );
         fflush(stdout);
-        GC_Disabled = false;
-        TG_Ballast = 0;
-    }
+     }
   #endif
 
     // The thrown arg is not intended to ever be around long enough to be

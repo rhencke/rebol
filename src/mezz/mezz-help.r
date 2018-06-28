@@ -339,7 +339,9 @@ help: function [
     ; must hard quote and simulate its own soft quote semantics.
     ;
     if match [group! get-word! get-path!] :topic [
-        topic: eval topic
+        topic: eval topic else [
+            fail "HELP requested on NULL" ;-- should this PRINT vs. FAIL?
+        ]
     ]
 
     ; !!! R3-Alpha permitted "multiple inheritance" in objects, in the sense

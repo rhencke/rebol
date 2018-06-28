@@ -26,6 +26,7 @@
 (not error? trap [
     for-each w words of lib [
         dump w
+        if not set? w [continue]
         if action? get w
             compose [help (w)]
         else [
