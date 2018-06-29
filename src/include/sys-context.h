@@ -88,16 +88,11 @@ inline static REBVAL *CTX_ARCHETYPE(REBCTX *c) {
 }
 
 // CTX_KEYLIST is called often, and it's worth it to make it as fast as
-// possible--even in an unoptimized build.  Use VAL_TYPE_RAW, plain C cast.
+// possible--even in an unoptimized build.
 //
 inline static REBARR *CTX_KEYLIST(REBCTX *c) {
-    if (NOT_NODE_CELL(LINK(c).keysource)) {
-        //
-        // Ordinarily, we want to use the keylist pointer that is stored in
-        // the link field of the varlist.
-        //
-        return ARR(LINK(c).keysource);
-    }
+    if (not (LINK(c).keysource->header.bits & NODE_FLAG_CELL))
+        return ARR(LINK(c).keysource); // not a REBFRM, so use keylist
 
     // If the context in question is a FRAME! value, then the ->phase
     // of the frame presents the "view" of which keys should be visible at
@@ -155,7 +150,7 @@ inline static REBFRM *CTX_FRAME_IF_ON_STACK(REBCTX *c) {
     // Note: inlining of Is_Action_Frame() to break dependency
     //
     REBFRM *f = FRM(keysource);
-    assert(f->eval_type == REB_ACTION and f->phase != NULL);
+    assert(f->eval_type == REB_ACTION and f->original != NULL);
     return f;
 }
 
@@ -166,14 +161,8 @@ inline static REBFRM *CTX_FRAME_MAY_FAIL(REBCTX *c) {
     return f;
 }
 
-inline static REBVAL *CTX_VARS_HEAD(REBCTX *c) {
-    if (NOT_SER_FLAG(CTX_VARLIST(c), SERIES_FLAG_STACK))
-        return SER_AT(REBVAL, SER(CTX_VARLIST(c)), 1);
-
-    REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
-    assert(f);
-    return f->args_head;
-}
+#define CTX_VARS_HEAD(c) \
+    SER_AT(REBVAL, SER(CTX_VARLIST(c)), 1) // may fail() if inaccessible
 
 inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
     assert(n != 0 and n <= CTX_LEN(c));

@@ -43,7 +43,6 @@
 void Snap_State_Core(struct Reb_State *s)
 {
     s->dsp = DSP;
-    s->top_chunk = TG_Top_Chunk;
 
     // There should not be a Collect_Keys in progress.  (We use a non-zero
     // length of the collect buffer to tell if a later fail() happens in
@@ -83,8 +82,6 @@ void Assert_State_Balanced_Debug(
         );
         panic_at (NULL, file, line);
     }
-
-    assert(s->top_chunk == TG_Top_Chunk);
 
     assert(s->frame == FS_TOP);
 
@@ -165,11 +162,6 @@ void Trapped_Helper(struct Reb_State *s)
     // Restore Rebol data stack pointer at time of Push_Trap
     //
     DS_DROP_TO(s->dsp);
-
-    // Drop to the chunk state at the time of Push_Trap
-    //
-    while (TG_Top_Chunk != s->top_chunk)
-        Drop_Chunk_Of_Values(NULL);
 
     // If we were in the middle of a Collect_Keys and an error occurs, then
     // the binding lookup table has entries in it that need to be zeroed out.
@@ -308,13 +300,10 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
     REBFRM *f = FS_TOP;
     while (f != Saved_State->frame) {
         if (Is_Action_Frame(f)) {
-            if (f->reified != GHOST)
-                SET_SER_INFO(f->reified, FRAME_INFO_FAILED);
-
-            // The chunk stack may be in use for other purposes...don't drop
-            // the chunked allocation, let it clean up after jump.
-            //
-            Drop_Action_Core(f);
+            assert(f->varlist); // action must be running
+            REBARR *stub = f->varlist; // will be stubbed, info bits reset
+            Drop_Action(f);
+            SET_SER_INFO(stub, FRAME_INFO_FAILED); // API leaks o.k.
         }
 
         REBFRM *prior = f->prior;

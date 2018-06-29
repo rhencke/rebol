@@ -152,7 +152,7 @@ void Unbind_Values_Core(RELVAL head[], REBCTX *context, REBOOL deep)
     for (; NOT_END(v); ++v) {
         if (
             ANY_WORD(v)
-            and (context == NULL or Same_Binding(VAL_BINDING(v), context))
+            and (not context or Same_Binding(VAL_BINDING(v), context))
         ){
             Unbind_Any_Word(v);
         }
@@ -334,19 +334,17 @@ void Rebind_Values_Deep(
                 // BIND to an object must be performed, or METHOD should be
                 // used to do it implicitly.
             }
-            else if (IS_NODE_REBFRM(binding)) {
+            else if (GET_SER_FLAG(binding, SERIES_FLAG_STACK)) {
                 //
-                // Direct binding to a REBFRM* (e.g. it may be some kind of
-                // definitional RETURN), don't override that.
+                // Leave bindings to frame alone, e.g. RETURN's definitional
+                // reference...may be an unnecessary optimization as they
+                // wouldn't match any derivation since there are no "derived
+                // frames" (would that ever make sense?)
             }
             else {
                 REBCTX *stored = CTX(binding);
-                if (
-                    REB_FRAME != CTX_TYPE(stored)
-                    and Is_Overriding_Context(stored, dst)
-                ){
+                if (Is_Overriding_Context(stored, dst))
                     INIT_BINDING(v, dst);
-                }
                 else {
                     // Could be bound to a reified frame context, or just
                     // to some other object not related to this derivation.

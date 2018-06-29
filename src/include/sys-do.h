@@ -152,19 +152,19 @@ inline static void Push_Frame_Core(REBFRM *f)
         if (Is_Action_Frame_Fulfilling(ftemp))
             continue;
         assert(
-            f->out < ftemp->args_head
-            or f->out >= ftemp->args_head + FRM_NUM_ARGS(ftemp)
+            f->out < FRM_ARGS_HEAD(ftemp)
+            or f->out >= FRM_ARGS_HEAD(ftemp) + FRM_NUM_ARGS(ftemp)
         );
     }
   #endif
 
     // Some initialized bit pattern is needed to check to see if a
     // function call is actually in progress, or if eval_type is just
-    // REB_ACTION but doesn't have valid args/state.  The phase is a
+    // REB_ACTION but doesn't have valid args/state.  The original action is a
     // good choice because it is only affected by the function call case,
     // see Is_Action_Frame_Fulfilling().
     //
-    f->phase = nullptr;
+    f->original = nullptr;
 
     TRASH_POINTER_IF_DEBUG(f->deferred);
 
@@ -184,7 +184,8 @@ inline static void Push_Frame_Core(REBFRM *f)
     f->prior = TG_Frame_Stack;
     TG_Frame_Stack = f;
 
-    f->reified = GHOST;
+    f->varlist = nullptr;
+    TRASH_POINTER_IF_DEBUG(f->rootvar);
 
     // If the source for the frame is a REBARR*, then we want to temporarily
     // lock that array against mutations.  
@@ -602,7 +603,9 @@ inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
 
 
 inline static void Abort_Frame(REBFRM *f) {
-    //
+    if (f->varlist and NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED))
+        GC_Kill_Series(SER(f->varlist)); // not alloc'd with manuals tracking
+
     // Abort_Frame() handles any work that wouldn't be done done naturally by
     // feeding a frame to its natural end.
     // 
@@ -659,6 +662,10 @@ inline static void Drop_Frame_Core(REBFRM *f) {
     free(f->stress);
   #endif
 
+    if (f->varlist) {
+        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+        GC_Kill_Series(SER(f->varlist)); // not alloc'd with manuals tracking
+    }
     assert(TG_Frame_Stack == f);
     TG_Frame_Stack = f->prior;
 }

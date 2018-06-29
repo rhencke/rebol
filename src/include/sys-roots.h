@@ -75,7 +75,7 @@ inline static REBVAL *Alloc_Value(void)
     assert(UNBOUND != NULL);
     LINK(a).owner = (FS_TOP == NULL)
         ? UNBOUND
-        : NOD(CTX_VARLIST(Context_For_Frame_May_Reify_Managed(FS_TOP)));
+        : NOD(Context_For_Frame_May_Manage(FS_TOP));
     return v;
 }
 

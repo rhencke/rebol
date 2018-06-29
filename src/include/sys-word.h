@@ -100,15 +100,7 @@ inline static void INIT_WORD_CONTEXT(RELVAL *v, REBCTX *context) {
 inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
     assert(IS_WORD_BOUND(v));
     REBNOD *binding = VAL_BINDING(v);
-    if (IS_NODE_REBFRM(binding)) {
-        //
-        // Bound directly to un-reified REBFRM*.  Force reification, for now.
-        //
-        return Context_For_Frame_May_Reify_Managed(FRM(binding));
-    }
-
-    // Bound specifically to a REBCTX*.
-    //
+    binding->header.bits |= NODE_FLAG_MANAGED; // !!! review managing needs
     return CTX(binding);
 }
 

@@ -36,40 +36,6 @@
 //
 void Startup_Stacks(REBCNT size)
 {
-    // We always keep one chunker around for the first chunk push, and prep
-    // one chunk so that the push and drop routines never worry about testing
-    // for the empty case.
-
-    TG_Root_Chunker = cast(
-        struct Reb_Chunker*,
-        Alloc_Mem(CS_CHUNKER_MIN_LEN * sizeof(REBVAL))
-    );
-
-    Prep_Stack_Cell(&TG_Root_Chunker->info);
-    SET_END(&TG_Root_Chunker->info); // "REB_0_CHUNKER"
-    CHUNKER_NEXT(TG_Root_Chunker) = nullptr;
-    CHUNKER_AVAIL(TG_Root_Chunker) = CS_CHUNKER_MIN_LEN - 1;
-
-    REBCNT n;
-    for (n = 0; n < CS_CHUNKER_MIN_LEN - 1; ++n)
-        Prep_Stack_Cell(&TG_Root_Chunker->values[n]);
-
-    TG_Top_Chunk = cast(struct Reb_Chunk*, &TG_Root_Chunker->values);
-    CHUNK_PREV(TG_Top_Chunk) = nullptr;
-
-    // Zero values for initial chunk, also sets offset to 0
-    //
-    SET_END(&TG_Top_Chunk->subinfo); // "REB_0_CHUNK"
-    CHUNK_CHUNKER(TG_Top_Chunk) = TG_Root_Chunker;
-    CHUNK_LEN(TG_Top_Chunk) = 0;
-    SET_END(&TG_Top_Chunk->subvalues[0]);
-    CHUNKER_AVAIL(TG_Root_Chunker) -= 1;
-
-  #if !defined(NDEBUG)
-    TG_Top_Chunk->subinfo.header.bits |= CELL_FLAG_PROTECTED;
-    TG_Top_Chunk->subvalues[0].header.bits |= CELL_FLAG_PROTECTED;
-  #endif
-
     // Start the data stack out with just one element in it, and make it an
     // unreadable blank in the debug build.  This helps avoid accidental
     // reads and is easy to notice when it is overwritten.  It also means
@@ -117,24 +83,6 @@ void Shutdown_Stacks(void)
     ASSERT_UNREADABLE_IF_DEBUG(ARR_HEAD(DS_Array));
 
     Free_Unmanaged_Array(DS_Array);
-
-    assert(TG_Top_Chunk == cast(struct Reb_Chunk*, &TG_Root_Chunker->values));
-
-    // Because we always keep one chunker of headroom allocated, and the
-    // push/drop is not designed to manage the last chunk, we *might* have
-    // that next chunk of headroom still allocated.
-    //
-    struct Reb_Chunker *next = CHUNKER_NEXT(TG_Root_Chunker);
-    if (next)
-        Free_Mem(next, (CHUNKER_AVAIL(next) + 1) * sizeof(REBVAL));
-
-    // OTOH we always have to free the root chunker.
-    //
-    CHUNKER_AVAIL(TG_Root_Chunker) += 1; // drop empty top chunk
-    Free_Mem(
-        TG_Root_Chunker,
-        (CHUNKER_AVAIL(TG_Root_Chunker) + 1) * sizeof(REBVAL)
-    );
 }
 
 
@@ -246,74 +194,4 @@ void Pop_Stack_Values_Into(REBVAL *into, REBDSP dsp_start) {
     );
 
     DS_DROP_TO(dsp_start);
-}
-
-
-//
-//  Context_For_Frame_May_Reify_Managed: C
-//
-// A Reb_Frame does not allocate a series node for it to be used in FRAME!
-// any_context payloads by default.  Operations like `context of 'return` will
-// allocate them.  The debugger can even make them for native functions for
-// stack introspection (though they should be read-only for user access).
-//
-// !!! Techniques are planned to allow REBVAL* with any_context payloads that
-// point directly at REBFRM* with no series node the GC has to process.  This
-// would only be possible if the cell storing its lifetime is not longer than
-// the lifetime of the REBFRM*.  (This is similar to how REBFRM* are permitted
-// in "direct binding" slots.)
-//
-// If there's already a frame this returns it, otherwise create it.  The
-// managed status is so it's safe to refer to from FRAME! REBVAL*, since the
-// arguments and locals in the frame's contents are marked by the frame stack.
-//
-REBCTX *Context_For_Frame_May_Reify_Managed(REBFRM *f)
-{
-    assert(Is_Action_Frame(f));
-    if (f->reified != GHOST)
-        return f->reified;
-
-    REBARR *varlist = Alloc_Singular(
-        ARRAY_FLAG_VARLIST | SERIES_FLAG_STACK | NODE_FLAG_MANAGED
-    );
-
-    // Changing the values in a running native's frame out from under it can
-    // cause the interpreter to crash.  Mark the varlist array as being
-    // "locked due to running", which won't stop FRM_ARG() from writing to
-    // arguments in the native itself, but stops modifications via user code.
-    //
-    if (f->flags.bits & DO_FLAG_NATIVE_HOLD)
-        SET_SER_INFO(varlist, SERIES_INFO_HOLD);
-
-    if (Is_Action_Frame_Fulfilling(f)) {
-        //
-        // Generally only the debugger should be able to reify a function
-        // frame that is still fulfilling.  (TBD: Enforce this?)  However it
-        // needs to be possible, because the userspace debugger has to have
-        // some way of modeling the in-progress stack, and it doesn't make
-        // much sense to do this with anything but a FRAME! value.  But a
-        // frame in such a state must not permit access to fields.
-        //
-        SET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE);
-    }
-
-    MISC(varlist).meta = nullptr; // seen by GC, must initialize
-    LINK(varlist).keysource = NOD(f); // see notes on LINK().keysource
-
-    REBVAL *rootvar = SINK(ARR_SINGLE(varlist));
-    RESET_VAL_HEADER(rootvar, REB_FRAME);
-    rootvar->payload.any_context.varlist = varlist;
-    rootvar->payload.any_context.phase = f->phase;
-
-    // The binding on the rootvar is important...this is how Get_Var_Core()
-    // can know what the binding in the ACTION! value that spawned the
-    // frame, even after the frame is expired.
-    //
-    INIT_BINDING(rootvar, f->binding);
-
-    REBCTX *c = CTX(varlist);
-    ASSERT_ARRAY_MANAGED(CTX_KEYLIST(c));
-    ASSERT_CONTEXT(c);
-    f->reified = c;
-    return c;
 }

@@ -176,7 +176,7 @@ REBNATIVE(make)
             REBCTX *context = CTX(arg->extra.binding);
             REBFRM *param_frame = CTX_FRAME_MAY_FAIL(context);
 
-            REBVAL *param = ACT_FACADE_HEAD(param_frame->phase)
+            REBVAL *param = ACT_FACADE_HEAD(FRM_PHASE(param_frame))
                 + arg->payload.varargs.param_offset;
 
             if (TYPE_CHECK(param, REB_MAX_NULLED))

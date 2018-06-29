@@ -179,13 +179,15 @@ static void cleanup(const REBVAL *val)
 // simple COMPILE for just that one function, using default options.
 //
 REB_R Pending_Native_Dispatcher(REBFRM *f) {
+    REBACT *phase = FRM_PHASE(f);
+
     REBARR *array = Make_Array(1);
-    Append_Value(array, ACT_ARCHETYPE(f->phase));
+    Append_Value(array, ACT_ARCHETYPE(phase));
 
     DECLARE_LOCAL (natives);
     Init_Block(natives, array);
 
-    assert(ACT_DISPATCHER(f->phase) == &Pending_Native_Dispatcher);
+    assert(ACT_DISPATCHER(phase) == &Pending_Native_Dispatcher);
 
     if (Do_Va_Throws(f->out, NAT_VALUE(compile), &natives, END))
         return R_OUT_IS_THROWN;
@@ -199,7 +201,7 @@ REB_R Pending_Native_Dispatcher(REBFRM *f) {
     // function pointer that lives in the TCC_State.  Use REDO, and don't
     // bother re-checking the argument types.
     //
-    assert(ACT_DISPATCHER(f->phase) != &Pending_Native_Dispatcher);
+    assert(ACT_DISPATCHER(phase) != &Pending_Native_Dispatcher);
     return R_REDO_UNCHECKED;
 }
 

@@ -299,13 +299,9 @@ REBOOL Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
         if (n == UNBOUND)
             return false;
 
-        REBCTX *c;
-        if (IS_NODE_REBFRM(n)) {
-            c = Context_For_Frame_May_Reify_Managed(FRM(n));
-        }
-        else
-            c = CTX(n);
-        Move_Value(out, CTX_ARCHETYPE(c));
+        REBCTX *c = CTX(n);
+        assert(CTX_TYPE(c) == REB_FRAME);
+        Move_Value(out, CTX_ARCHETYPE(CTX(c)));
         assert(IS_FRAME(out));
         break; }
 
@@ -353,8 +349,8 @@ REBOOL Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
         REBCTX *c = VAL_CONTEXT(out);
         REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
         if (f) {
-            out->payload.any_context.phase = f->phase;
-            INIT_BINDING(out, f->binding);
+            out->payload.any_context.phase = FRM_PHASE(f);
+            INIT_BINDING(out, FRM_BINDING(f));
         }
         else {
             // !!! Assume the canon FRAME! value in varlist[0] is useful?

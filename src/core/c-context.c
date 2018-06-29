@@ -1447,14 +1447,8 @@ void Assert_Context_Core(REBCTX *c)
     if (keys_len < 1)
         panic (keylist);
 
-    if (GET_SER_FLAG(c, SERIES_FLAG_STACK)) {
-        if (vars_len != 1)
-            panic (varlist);
-    }
-    else {
-        if (keys_len != vars_len)
-            panic (c);
-    }
+    if (keys_len != vars_len)
+        panic (c);
 
     if (rootvar->payload.any_context.varlist != varlist)
         panic (rootvar);

@@ -600,7 +600,7 @@ static void ffi_to_rebol(
 //
 REB_R Routine_Dispatcher(REBFRM *f)
 {
-    REBRIN *rin = VAL_ARRAY(ACT_BODY(f->phase));
+    REBRIN *rin = VAL_ARRAY(ACT_BODY(FRM_PHASE(f)));
 
     if (RIN_IS_CALLBACK(rin) || RIN_LIB(rin) == NULL) {
         //
@@ -623,10 +623,10 @@ REB_R Routine_Dispatcher(REBFRM *f)
         // The function specification should have one extra parameter for
         // the variadic source ("...")
         //
-        assert(ACT_NUM_PARAMS(f->phase) == num_fixed + 1);
+        assert(ACT_NUM_PARAMS(FRM_PHASE(f)) == num_fixed + 1);
 
         REBVAL *vararg = FRM_ARG(f, num_fixed + 1); // 1-based
-        assert(IS_VARARGS(vararg) && f->binding == NULL);
+        assert(IS_VARARGS(vararg) && FRM_BINDING(f) == UNBOUND);
 
         // Evaluate the VARARGS! feed of values to the data stack.  This way
         // they will be available to be counted, to know how big to make the
@@ -722,7 +722,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
                 NULL, // dest pointer must be NULL if store is non-NULL
                 FRM_ARG(f, i + 1), // 1-based
                 RIN_ARG_SCHEMA(rin, i), // 0-based
-                ACT_PARAM(f->phase, i + 1) // 1-based
+                ACT_PARAM(FRM_PHASE(f), i + 1) // 1-based
             );
 
             // We will convert the offset to a pointer later

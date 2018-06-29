@@ -960,9 +960,10 @@ REBVAL *RL_rebRescue(
     // `fail` can longjmp here, so 'error' won't be null *if* that happens!
     //
     if (error_ctx) {
-        if (f->reified != GHOST)
-            SET_SER_INFO(f->reified, FRAME_INFO_FAILED);
+        assert(f->varlist); // action must be running
+        REBARR *stub = f->varlist; // will be stubbed, with info bits reset
         Drop_Action(f);
+        SET_SER_INFO(stub, FRAME_INFO_FAILED); // signal API leaks ok
         Abort_Frame(f);
         return Init_Error(Alloc_Value(), error_ctx);
     }
@@ -1713,9 +1714,7 @@ REBVAL *RL_rebManage(REBVAL *v)
     if (not FS_TOP)
         LINK(a).owner = UNBOUND;
     else
-        LINK(a).owner = NOD(CTX_VARLIST(
-            Context_For_Frame_May_Reify_Managed(FS_TOP)
-        ));
+        LINK(a).owner = NOD(Context_For_Frame_May_Manage(FS_TOP));
 
     return v;
 }

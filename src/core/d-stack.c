@@ -291,10 +291,7 @@ REBNATIVE(parent_of)
     REBFRM *f = CTX_FRAME_MAY_FAIL(VAL_CONTEXT(frame));
     while ((f = f->prior) != NULL) {
         if (Is_Action_Frame(f)) {
-            Init_Any_Context(
-                D_OUT, REB_FRAME, Context_For_Frame_May_Reify_Managed(f)
-            );
-            D_OUT->payload.any_context.phase = f->phase;
+            Move_Value(D_OUT, CTX_ARCHETYPE(Context_For_Frame_May_Manage(f)));
             return R_OUT;
         }
     }

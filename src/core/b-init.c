@@ -731,9 +731,9 @@ static void Init_Root_Vars(void)
 {
     // Most flags are left zero in the ghost's header, but by marking it
     // as managed then it can quickly be decided that unbounds don't need to
-    // be reified, and by marking it as a cell it quickly avoids GC marking.
+    // be reified, and it can bypass GC marking by looking already marked.
     //
-    PG_Ghost.header.bits = NODE_FLAG_MANAGED | NODE_FLAG_CELL;
+    PG_Ghost.header.bits = NODE_FLAG_MANAGED;
     PG_Ghost.info.bits = 0; // no SERIES_INFO_INACCESSIBLE, etc. etc.
 
     // These values are simple isolated VOID, NONE, TRUE, and FALSE values

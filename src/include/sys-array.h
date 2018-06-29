@@ -187,6 +187,64 @@ inline static void Deep_Freeze_Array(REBARR *a) {
     FAIL_IF_READ_ONLY_SERIES(SER(a))
 
 
+//
+// For REBVAL-valued-arrays, we mark as trash to mark the "settable" bit,
+// heeded by both SET_END() and RESET_HEADER().  See VALUE_FLAG_CELL comments
+// for why this is done.
+//
+// Note that the "len" field of the series at prep time (its number of valid
+// elements as maintained by the client) will be 0.  As far as this layer is
+// concerned, we've given back `length` entries for the caller to manage...
+// they do not know about the ->rest
+//
+inline static void Prep_Array(REBARR *a) {
+    assert(GET_SER_INFO(a, SERIES_INFO_HAS_DYNAMIC));
+
+    REBCNT n;
+
+  #if !defined(NDEBUG)
+    PG_Reb_Stats->Blocks++;
+  #endif
+
+    for (n = 0; n < ARR_LEN(a); n++)
+        Prep_Non_Stack_Cell(ARR_AT(a, n));
+
+    // !!! We should intentionally mark the overage range as not having
+    // NODE_FLAG_CELL in the debug build.  Then have the series go through
+    // an expansion to overrule it.
+    //
+    // That's complicated logic that is likely best done in the context of
+    // a simplifying review of the series mechanics themselves.  So
+    // for now we just use ordinary trash...which means we don't get
+    // as much potential debug warning as we might when writing into
+    // bias or tail capacity.
+    //
+    // !!! Also, should the release build do the NODE_FLAG_CELL setting
+    // up front, or only on expansions?
+    //
+    for(; n < SER(a)->content.dynamic.rest - 1; n++)
+        Prep_Non_Stack_Cell(ARR_AT(a, n));
+
+    // The convention is that the *last* cell in the allocated capacity
+    // is an unwritable end.  This may be located arbitrarily beyond the
+    // capacity the user requested, if a pool unit was used that was
+    // bigger than they asked for...but this will be used in expansion.
+    //
+    // Having an unwritable END in that spot paves the way for more forms
+    // of implicit termination.  In theory one should not need 5 cells
+    // to hold an array of length 4...the 5th header position can merely
+    // mark termination with the low bit clear.
+    //
+    // Currently only singular arrays exploit this, but since they exist
+    // they must be accounted for.  Because callers cannot write past the
+    // capacity they requested, they must use TERM_ARRAY_LEN(), which
+    // avoids writing the unwritable locations by checking for END first.
+    //
+    RELVAL *ultimate = ARR_AT(a, SER(a)->content.dynamic.rest - 1);
+    Init_Endlike_Header(&ultimate->header, 0);
+    TRACK_CELL_IF_DEBUG(ultimate, __FILE__, __LINE__);
+}
+
 // Make a series that is the right size to store REBVALs (and marked for the
 // garbage collector to look into recursively).  ARR_LEN() will be 0.
 //
@@ -204,14 +262,33 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
         if (cast(REBU64, capacity) * wide > INT32_MAX)
             fail (Error_No_Memory(cast(REBU64, capacity) * wide));
 
+        SET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC); // caller sets
         if (not Did_Series_Data_Alloc(s, capacity))
             fail (Error_No_Memory(capacity * wide));
+
+        Prep_Array(ARR(s));
 
       #if !defined(NDEBUG)
         PG_Reb_Stats->Series_Memory += capacity * wide;
       #endif
 
-      TERM_ARRAY_LEN(cast(REBARR*, s), 0); // (non-dynamic is auto-terminated)
+        TERM_ARRAY_LEN(cast(REBARR*, s), 0); // (non-dynamic auto-terminated)
+    }
+
+
+    // It is more efficient if you know a series is going to become managed to
+    // create it in the managed state.  But be sure no evaluations are called
+    // before it's made reachable by the GC, or use PUSH_GUARD_SERIES().
+    //
+    // !!! Code duplicated in Make_Series_Core ATM.
+    //
+    if (not (flags & NODE_FLAG_MANAGED)) {
+        if (SER_FULL(GC_Manuals))
+            Extend_Series(GC_Manuals, 8);
+
+        cast(REBSER**, GC_Manuals->content.dynamic.data)[
+            GC_Manuals->content.dynamic.len++
+        ] = s; // start out managed to not need to find/remove from this later
     }
 
     // Arrays created at runtime default to inheriting the file and line
@@ -368,45 +445,6 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Managed(
 #define EMPTY_STRING \
     Root_Empty_String
 
-
-#ifdef NDEBUG
-    #define SPC(p) \
-        cast(REBSPC*, (p)) // makes UNBOUND look like SPECIFIED
-
-    #define VAL_SPECIFIER(v) \
-        SPC(v->extra.binding)
-#else
-    inline static REBSPC* SPC(void *p) {
-        REBNOD *specifier = NOD(p);
-
-      #if !defined(NDEBUG)
-        if (not (specifier->header.bits & NODE_FLAG_MANAGED)) {
-            REBFRM *f = FRM(specifier);
-            assert(f->eval_type == REB_ACTION);
-        }
-        else if (not (specifier->header.bits & ARRAY_FLAG_VARLIST)) {
-            assert(specifier == SPECIFIED);
-        }
-      #endif
-
-        return cast(REBSPC*, specifier);
-    }
-
-    inline static REBSPC *VAL_SPECIFIER(const REBVAL *v) {
-        assert(VAL_TYPE(v) == REB_0_REFERENCE or ANY_ARRAY(v));
-        if (v->extra.binding == UNBOUND)
-            return SPECIFIED;
-
-        // While an ANY-WORD! can be bound specifically to an arbitrary
-        // object, an ANY-ARRAY! only becomes bound specifically to frames.
-        // The keylist for a frame's context should come from a function's
-        // paramlist, which should have an ACTION! value in keylist[0]
-        //
-        REBCTX *c = CTX(v->extra.binding);
-        assert(GET_SER_FLAG(c, NODE_FLAG_STACK));
-        return cast(REBSPC*, c);
-    }
-#endif
 
 inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {
     INIT_BINDING(v, UNBOUND);

@@ -808,11 +808,11 @@ REBOOL Specialize_Action_Throws(
 //
 REB_R Specializer_Dispatcher(REBFRM *f)
 {
-    REBVAL *exemplar = KNOWN(ACT_BODY(f->phase));
-    f->phase = exemplar->payload.any_context.phase;
-    f->binding = VAL_BINDING(exemplar);
+    REBVAL *exemplar = KNOWN(ACT_BODY(FRM_PHASE(f)));
 
-    return R_REDO_UNCHECKED;
+    FRM_PHASE(f) = exemplar->payload.any_context.phase;
+    FRM_BINDING(f) = VAL_BINDING(exemplar);
+    return R_REDO_UNCHECKED; // redo uses the updated phase and binding
 }
 
 
@@ -893,11 +893,11 @@ REBNATIVE(specialize)
 //
 REB_R Block_Dispatcher(REBFRM *f)
 {
-    RELVAL *block = ACT_BODY(f->phase);
+    RELVAL *block = ACT_BODY(FRM_PHASE(f));
     assert(IS_BLOCK(block));
 
     if (IS_SPECIFIC(block)) {
-        if (f->binding == UNBOUND) {
+        if (FRM_BINDING(f) == UNBOUND) {
             if (Do_Any_Array_At_Throws(f->out, KNOWN(block)))
                 return R_OUT_IS_THROWN;
             return R_OUT;
@@ -922,7 +922,7 @@ REB_R Block_Dispatcher(REBFRM *f)
 
         REBARR *body_array = Copy_And_Bind_Relative_Deep_Managed(
             KNOWN(block),
-            ACT_PARAMLIST(f->phase),
+            ACT_PARAMLIST(FRM_PHASE(f)),
             TS_ANY_WORD
         );
 
@@ -939,15 +939,21 @@ REB_R Block_Dispatcher(REBFRM *f)
         //
         INIT_VAL_ARRAY(block, body_array);
         VAL_INDEX(block) = 0;
-        INIT_BINDING(block, f->phase); // relative binding
+        INIT_BINDING(block, FRM_PHASE(f)); // relative binding
 
         // Block is now a relativized copy; we won't do this again.
     }
 
     assert(IS_RELATIVE(block));
 
-    if (Do_At_Throws(f->out, VAL_ARRAY(block), VAL_INDEX(block), SPC(f)))
+    if (Do_At_Throws(
+        f->out,
+        VAL_ARRAY(block),
+        VAL_INDEX(block),
+        SPC(f->varlist)
+    )){
         return R_OUT_IS_THROWN;
+    }
 
     return R_OUT;
 }

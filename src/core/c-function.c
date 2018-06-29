@@ -1496,7 +1496,7 @@ REBTYPE(Fail)
 REB_R Type_Action_Dispatcher(REBFRM *f)
 {
     enum Reb_Kind kind = VAL_TYPE(FRM_ARG(f, 1));
-    REBSYM verb = VAL_WORD_SYM(ACT_BODY(f->phase));
+    REBSYM verb = VAL_WORD_SYM(ACT_BODY(FRM_PHASE(f)));
     assert(verb != SYM_0); // not a compile-time constant, needed for switch()
     assert(kind < REB_MAX);
 
@@ -1515,7 +1515,7 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
 //
 REB_R Null_Dispatcher(REBFRM *f)
 {
-    assert(VAL_LEN_AT(ACT_BODY(f->phase)) == 0);
+    assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE(f))) == 0);
     UNUSED(f);
     return R_NULL;
 }
@@ -1528,7 +1528,7 @@ REB_R Null_Dispatcher(REBFRM *f)
 //
 REB_R Void_Dispatcher(REBFRM *f)
 {
-    assert(VAL_LEN_AT(ACT_BODY(f->phase)) == 0);
+    assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE(f))) == 0);
     UNUSED(f);
     return R_VOID;
 }
@@ -1541,7 +1541,7 @@ REB_R Void_Dispatcher(REBFRM *f)
 //
 REB_R Datatype_Checker_Dispatcher(REBFRM *f)
 {
-    RELVAL *datatype = ACT_BODY(f->phase);
+    RELVAL *datatype = ACT_BODY(FRM_PHASE(f));
     assert(IS_DATATYPE(datatype));
     if (VAL_TYPE(FRM_ARG(f, 1)) == VAL_TYPE_KIND(datatype))
         return R_TRUE;
@@ -1556,7 +1556,7 @@ REB_R Datatype_Checker_Dispatcher(REBFRM *f)
 //
 REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 {
-    RELVAL *typeset = ACT_BODY(f->phase);
+    RELVAL *typeset = ACT_BODY(FRM_PHASE(f));
     assert(IS_TYPESET(typeset));
     if (TYPE_CHECK(typeset, VAL_TYPE(FRM_ARG(f, 1))))
         return R_TRUE;
@@ -1573,10 +1573,10 @@ REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 //
 REB_R Unchecked_Dispatcher(REBFRM *f)
 {
-    RELVAL *body = ACT_BODY(f->phase);
+    RELVAL *body = ACT_BODY(FRM_PHASE(f));
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
-    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
+    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
         return R_OUT_IS_THROWN;
 
     return R_OUT;
@@ -1592,10 +1592,10 @@ REB_R Unchecked_Dispatcher(REBFRM *f)
 //
 REB_R Voider_Dispatcher(REBFRM *f)
 {
-    RELVAL *body = ACT_BODY(f->phase);
+    RELVAL *body = ACT_BODY(FRM_PHASE(f));
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
-    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
+    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
         return R_OUT_IS_THROWN;
 
     Init_Void(f->out);
@@ -1612,13 +1612,14 @@ REB_R Voider_Dispatcher(REBFRM *f)
 //
 REB_R Returner_Dispatcher(REBFRM *f)
 {
-    RELVAL *body = ACT_BODY(f->phase);
+    REBACT *phase = FRM_PHASE(f);
+    RELVAL *body = ACT_BODY(phase);
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
-    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f)))
+    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
         return R_OUT_IS_THROWN;
 
-    REBVAL *typeset = ACT_PARAM(f->phase, ACT_NUM_PARAMS(f->phase));
+    REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
     // Typeset bits for locals in frames are usually ignored, but the RETURN:
@@ -1642,7 +1643,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
 //
 REB_R Elider_Dispatcher(REBFRM *f)
 {
-    RELVAL *body = ACT_BODY(f->phase);
+    RELVAL *body = ACT_BODY(FRM_PHASE(f));
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     // !!! It would be nice to use the frame's spare "cell" for the thrownaway
@@ -1651,7 +1652,7 @@ REB_R Elider_Dispatcher(REBFRM *f)
     DECLARE_LOCAL (dummy);
     SET_END(dummy);
 
-    if (Do_At_Throws(dummy, VAL_ARRAY(body), 0, SPC(f))) {
+    if (Do_At_Throws(dummy, VAL_ARRAY(body), 0, SPC(f->varlist))) {
         Move_Value(f->out, dummy);
         return R_OUT_IS_THROWN;
     }
@@ -1668,7 +1669,7 @@ REB_R Elider_Dispatcher(REBFRM *f)
 //
 REB_R Commenter_Dispatcher(REBFRM *f)
 {
-    assert(VAL_LEN_AT(ACT_BODY(f->phase)) == 0);
+    assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE(f))) == 0);
     UNUSED(f);
     return R_INVISIBLE;
 }
@@ -1689,7 +1690,7 @@ REB_R Commenter_Dispatcher(REBFRM *f)
 //
 REB_R Hijacker_Dispatcher(REBFRM *f)
 {
-    RELVAL *hijacker = ACT_BODY(f->phase);
+    RELVAL *hijacker = ACT_BODY(FRM_PHASE(f));
 
     // We need to build a new frame compatible with the hijacker, and
     // transform the parameters we've gathered to be compatible with it.
@@ -1708,7 +1709,7 @@ REB_R Hijacker_Dispatcher(REBFRM *f)
 //
 REB_R Adapter_Dispatcher(REBFRM *f)
 {
-    RELVAL *adaptation = ACT_BODY(f->phase);
+    RELVAL *adaptation = ACT_BODY(FRM_PHASE(f));
     assert(ARR_LEN(VAL_ARRAY(adaptation)) == 2);
 
     RELVAL* prelude = VAL_ARRAY_AT_HEAD(adaptation, 0);
@@ -1722,12 +1723,18 @@ REB_R Adapter_Dispatcher(REBFRM *f)
     // the paramlist of the *underlying* function--because that's what a
     // compatible frame gets pushed for.)
     //
-    if (Do_At_Throws(f->out, VAL_ARRAY(prelude), VAL_INDEX(prelude), SPC(f)))
+    if (Do_At_Throws(
+        f->out,
+        VAL_ARRAY(prelude),
+        VAL_INDEX(prelude),
+        SPC(f->varlist)
+    )){
         return R_OUT_IS_THROWN;
+    }
 
-    f->phase = VAL_ACTION(adaptee);
-    f->binding = VAL_BINDING(adaptee);
-    return R_REDO_CHECKED; // Have Do_Core run the adaptee updated into f->phase
+    FRM_PHASE(f) = VAL_ACTION(adaptee);
+    FRM_BINDING(f) = VAL_BINDING(adaptee);
+    return R_REDO_CHECKED; // the redo will use the updated phase/binding
 }
 
 
@@ -1738,7 +1745,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
 //
 REB_R Encloser_Dispatcher(REBFRM *f)
 {
-    RELVAL *enclosure = ACT_BODY(f->phase);
+    RELVAL *enclosure = ACT_BODY(FRM_PHASE(f));
     assert(ARR_LEN(VAL_ARRAY(enclosure)) == 2);
 
     RELVAL* inner = KNOWN(VAL_ARRAY_AT_HEAD(enclosure, 0)); // same args as f
@@ -1768,7 +1775,8 @@ REB_R Encloser_Dispatcher(REBFRM *f)
 
     const REBU64 types = 0;
     REBCTX *copy = Copy_Context_Core(
-        Context_For_Frame_May_Reify_Managed(f), types
+        Context_For_Frame_May_Manage(f),
+        types
     );
 
     DECLARE_LOCAL (arg);
@@ -1796,7 +1804,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
 //
 REB_R Chainer_Dispatcher(REBFRM *f)
 {
-    REBVAL *pipeline = KNOWN(ACT_BODY(f->phase)); // array of functions
+    REBVAL *pipeline = KNOWN(ACT_BODY(FRM_PHASE(f))); // array of functions
 
     // Before skipping off to find the underlying non-chained function
     // to kick off the execution, the post-processing pipeline has to
@@ -1812,8 +1820,8 @@ REB_R Chainer_Dispatcher(REBFRM *f)
 
     // Extract the first function, itself which might be a chain.
     //
-    f->phase = VAL_ACTION(value);
-    f->binding = VAL_BINDING(value);
+    FRM_PHASE(f) = VAL_ACTION(value);
+    FRM_BINDING(f) = VAL_BINDING(value);
 
     return R_REDO_UNCHECKED; // signatures should match
 }

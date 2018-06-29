@@ -193,12 +193,13 @@ REB_R Apply_Core_Measured(REBFRM * const f)
 {
     REBMAP *m = VAL_MAP(Root_Stats_Map);
 
-    REBOOL is_first_phase = (f->phase == f->original);
+    REBACT *phase = FRM_PHASE(f);
+    REBOOL is_first_phase = (phase == f->original);
 
     // We can only tell if it's the last phase *before* the apply; because if
     // we check *after* it may change to become the last and need R_REDO_XXX.
     //
-    REBOOL is_last_phase = (ACT_UNDERLYING(f->phase) == f->phase);
+    REBOOL is_last_phase = (ACT_UNDERLYING(phase) == phase);
 
     if (is_first_phase) {
         //

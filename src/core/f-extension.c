@@ -430,7 +430,7 @@ static REB_R Unloaded_Dispatcher(REBFRM *f)
 {
     UNUSED(f);
 
-    fail (Error_Native_Unloaded_Raw(ACT_ARCHETYPE(f->phase)));
+    fail (Error_Native_Unloaded_Raw(ACT_ARCHETYPE(FRM_PHASE(f))));
 }
 
 

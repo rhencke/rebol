@@ -665,18 +665,8 @@ inline static REBSER *Make_Series_Node(REBYTE wide, REBFLGS flags) {
     Init_Endlike_Header(&s->info, FLAG_FOURTH_BYTE(wide)); // #7
     TRASH_POINTER_IF_DEBUG(MISC(s).trash); // #8
 
-    // It is more efficient if you know a series is going to become managed to
-    // create it in the managed state.  But be sure no evaluations are called
-    // before it's made reachable by the GC, or use PUSH_GUARD_SERIES().
-    //
-    if (not (flags & NODE_FLAG_MANAGED)) {
-        if (SER_FULL(GC_Manuals))
-            Extend_Series(GC_Manuals, 8);
-
-        cast(REBSER**, GC_Manuals->content.dynamic.data)[
-            GC_Manuals->content.dynamic.len++
-        ] = s; // start out managed to not need to find/remove from this later
-    }
+    // Note: This series will not participate in management tracking!
+    // See NODE_FLAG_MANAGED handling in Make_Array_Core and Make_Series_Core.
 
   #if !defined(NDEBUG)
     TOUCH_SERIES_IF_DEBUG(s); // tag current C stack as series origin in ASAN
@@ -685,6 +675,115 @@ inline static REBSER *Make_Series_Node(REBYTE wide, REBFLGS flags) {
 
     return s;
 }
+
+
+inline static REBCNT FIND_POOL(size_t size) {
+  #if !defined(NDEBUG)
+    if (PG_Always_Malloc)
+        return SYSTEM_POOL;
+  #endif
+
+    if (size > 4 * MEM_BIG_SIZE)
+        return SYSTEM_POOL;
+
+    return PG_Pool_Map[size]; // ((4 * MEM_BIG_SIZE) + 1) entries
+}
+
+
+// Allocates element array for an already allocated REBSER node structure.
+// Resets the bias and tail to zero, and sets the new width.  Flags like
+// SERIES_FLAG_FIXED_SIZE are left as they were, and other fields in the
+// series structure are untouched.
+//
+// This routine can thus be used for an initial construction or an operation
+// like expansion.
+//
+inline static REBOOL Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
+    //
+    // Currently once a series becomes dynamic, it never goes back.  There is
+    // no shrinking process that will pare it back to fit completely inside
+    // the REBSER node.
+    //
+    assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC)); // caller sets
+
+    REBYTE wide = SER_WIDE(s);
+    assert(wide != 0);
+
+    REBCNT size; // size of allocation (possibly bigger than we need)
+
+    REBCNT pool_num = FIND_POOL(length * wide);
+    if (pool_num < SYSTEM_POOL) {
+        // ...there is a pool designated for allocations of this size range
+        s->content.dynamic.data = cast(char*, Make_Node(pool_num));
+        if (not s->content.dynamic.data)
+            return false;
+
+        // The pooled allocation might wind up being larger than we asked.
+        // Don't waste the space...mark as capacity the series could use.
+        size = Mem_Pools[pool_num].wide;
+        assert(size >= length * wide);
+
+        // We don't round to power of 2 for allocations in memory pools
+        CLEAR_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
+    }
+    else {
+        // ...the allocation is too big for a pool.  But instead of just
+        // doing an unpooled allocation to give you the size you asked
+        // for, the system does some second-guessing to align to 2Kb
+        // boundaries (or choose a power of 2, if requested).
+
+        size = length * wide;
+        if (GET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2)) {
+            REBCNT len = 2048;
+            while (len < size)
+                len *= 2;
+            size = len;
+
+            // Clear the power of 2 flag if it isn't necessary, due to even
+            // divisibility by the item width.
+            //
+            if (size % wide == 0)
+                CLEAR_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
+        }
+
+        s->content.dynamic.data = ALLOC_N(char, size);
+        if (not s->content.dynamic.data)
+            return false;
+
+        Mem_Pools[SYSTEM_POOL].has += size;
+        Mem_Pools[SYSTEM_POOL].free++;
+    }
+
+    // Note: Bias field may contain other flags at some point.  Because
+    // SER_SET_BIAS() uses bit masking on an existing value, we are sure
+    // here to clear out the whole value for starters.
+    //
+    s->content.dynamic.bias = 0;
+
+    // The allocation may have returned more than we requested, so we note
+    // that in 'rest' so that the series can expand in and use the space.
+    // Note that it wastes remainder if size % wide != 0 :-(
+    //
+    s->content.dynamic.rest = size / wide;
+
+    // We set the tail of all series to zero initially, but currently do
+    // leave series termination to callers.  (This is under review.)
+    //
+    s->content.dynamic.len = 0;
+
+    // See if allocation tripped our need to queue a garbage collection
+
+    if ((GC_Ballast -= size) <= 0)
+        SET_SIGNAL(SIG_RECYCLE);
+
+  #if !defined(NDEBUG)
+    if (pool_num >= SYSTEM_POOL)
+        assert(Series_Allocation_Unpooled(s) == size);
+  #endif
+
+    return true;
+}
+
 
 // If the data is tiny enough, it will be fit into the series node itself.
 // Small series will be allocated from a memory pool.
@@ -708,12 +807,28 @@ inline static REBSER *Make_Series_Core(
         // capacity given back as the ->rest may be larger than the requested
         // size, because the memory pool reports the full rounded allocation.
 
+        SET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC); // alloc caller sets
         if (not Did_Series_Data_Alloc(s, capacity))
             fail (Error_No_Memory(capacity * wide));
 
       #if !defined(NDEBUG)
         PG_Reb_Stats->Series_Memory += capacity * wide;
       #endif
+    }
+
+    // It is more efficient if you know a series is going to become managed to
+    // create it in the managed state.  But be sure no evaluations are called
+    // before it's made reachable by the GC, or use PUSH_GUARD_SERIES().
+    //
+    // !!! Code duplicated in Make_Array_Core ATM.
+    //
+    if (not (flags & NODE_FLAG_MANAGED)) {
+        if (SER_FULL(GC_Manuals))
+            Extend_Series(GC_Manuals, 8);
+
+        cast(REBSER**, GC_Manuals->content.dynamic.data)[
+            GC_Manuals->content.dynamic.len++
+        ] = s; // start out managed to not need to find/remove from this later
     }
 
     return s;

@@ -81,13 +81,13 @@
 #define P_RULE              (f->value + 0) // rvalue, don't change pointer
 #define P_RULE_SPECIFIER    (f->specifier + 0) // rvalue, don't change pointer
 
-#define P_INPUT_VALUE       (&f->args_head[0])
+#define P_INPUT_VALUE       (FRM_ARGS_HEAD(f) + 0)
 #define P_TYPE              VAL_TYPE(P_INPUT_VALUE)
 #define P_INPUT             VAL_SERIES(P_INPUT_VALUE)
 #define P_INPUT_SPECIFIER   VAL_SPECIFIER(P_INPUT_VALUE)
 #define P_POS               VAL_INDEX(P_INPUT_VALUE)
 
-#define P_FIND_FLAGS        VAL_INT64(&f->args_head[1])
+#define P_FIND_FLAGS        VAL_INT64(FRM_ARGS_HEAD(f) + 1)
 #define P_HAS_CASE          (did (P_FIND_FLAGS & AM_FIND_CASE))
 
 #define P_OUT (f->out)
@@ -209,18 +209,18 @@ static REBOOL Subparse_Throws(
     assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 2); // elides RETURN:
   #else
     assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 3); // checks RETURN:
-    Prep_Stack_Cell(&f->args_head[2]);
-    Init_Nulled(&f->args_head[2]);
+    Prep_Stack_Cell(FRM_ARGS_HEAD(f) + 2);
+    Init_Nulled(FRM_ARGS_HEAD(f) + 2);
   #endif
 
-    Prep_Stack_Cell(&f->args_head[0]);
-    Derelativize(&f->args_head[0], input, input_specifier);
+    Prep_Stack_Cell(FRM_ARGS_HEAD(f) + 0);
+    Derelativize(FRM_ARGS_HEAD(f) + 0, input, input_specifier);
 
     // We always want "case-sensitivity" on binary bytes, vs. treating as
     // case-insensitive bytes for ASCII characters.
     //
-    Prep_Stack_Cell(&f->args_head[1]);
-    Init_Integer(&f->args_head[1], find_flags);
+    Prep_Stack_Cell(FRM_ARGS_HEAD(f) + 1);
+    Init_Integer(FRM_ARGS_HEAD(f) + 1, find_flags);
 
     // !!! By calling the subparse native here directly from its C function
     // vs. going through the evaluator, we don't get the opportunity to do
@@ -330,8 +330,8 @@ static void Set_Parse_Series(
     REBFRM *f,
     const REBVAL *any_series
 ) {
-    Move_Value(&f->args_head[0], any_series);
-    VAL_INDEX(&f->args_head[0]) =
+    Move_Value(FRM_ARGS_HEAD(f) + 0, any_series);
+    VAL_INDEX(FRM_ARGS_HEAD(f) + 0) =
         (VAL_INDEX(any_series) > VAL_LEN_HEAD(any_series))
             ? VAL_LEN_HEAD(any_series)
             : VAL_INDEX(any_series);

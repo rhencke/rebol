@@ -100,7 +100,7 @@ void Make_Thrown_Unwind_Value(
 
             --count;
             if (count == 0) {
-                INIT_BINDING(out, f);
+                INIT_BINDING(out, f->varlist);
                 break;
             }
         }
@@ -120,7 +120,7 @@ void Make_Thrown_Unwind_Value(
                 continue; // not ready to exit
 
             if (VAL_ACTION(level) == f->original) {
-                INIT_BINDING(out, f);
+                INIT_BINDING(out, f->varlist);
                 break;
             }
         }
@@ -181,16 +181,12 @@ REBNATIVE(return_1)
     // in the specific ACTION! value that was invoked.
     //
     REBFRM *target_frame;
-    if (IS_NODE_REBFRM(f->binding)) {
-        target_frame = FRM(f->binding);
-    }
-    else if (f->binding->header.bits & ARRAY_FLAG_VARLIST) {
-        target_frame = CTX_FRAME_MAY_FAIL(CTX(f->binding));
-    }
-    else {
-        assert(f->binding == UNBOUND);
-        fail (Error_Return_Archetype_Raw());
-    }
+    REBNOD *f_binding = FRM_BINDING(f);
+    if (f_binding == UNBOUND)
+        fail (Error_Return_Archetype_Raw()); // explicit call to RETURN_1
+
+    assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
+    target_frame = CTX_FRAME_MAY_FAIL(CTX(f_binding));
 
     // !!! We only have a REBFRM via the binding.  We don't have distinct
     // knowledge about exactly which "phase" the original RETURN was
@@ -232,8 +228,10 @@ REBNATIVE(return_1)
     if (not TYPE_CHECK(typeset, VAL_TYPE(value)))
         fail (Error_Bad_Return_Type(target_frame, VAL_TYPE(value)));
 
+    assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
+
     Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
-    INIT_BINDING(D_OUT, f->binding);
+    INIT_BINDING(D_OUT, f_binding);
 
     CONVERT_NAME_TO_THROWN(D_OUT, value);
     return R_OUT_IS_THROWN;
@@ -251,11 +249,15 @@ REBNATIVE(return_0)
 //
 // See notes on REBNATIVE(return_1)
 {
-    if (frame_->binding == UNBOUND) // raw native, not variant Do_Core() made
-        fail (Error_Return_Archetype_Raw());
+    REBFRM *f = frame_; // implicit parameter to natives
 
+    REBNOD *f_binding = FRM_BINDING(f);
+    if (f_binding == UNBOUND)
+        fail (Error_Return_Archetype_Raw()); // somehow RETURN_0 got called
+
+    assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
     Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
-    INIT_BINDING(D_OUT, frame_->binding);
+    INIT_BINDING(D_OUT, f_binding);
 
     CONVERT_NAME_TO_THROWN(D_OUT, VOID_VALUE);
     return R_OUT_IS_THROWN;

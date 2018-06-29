@@ -90,7 +90,7 @@
 // the frame and postfix it by showing the evaluative result.
 //
 REB_R Apply_Core(REBFRM * const f) {
-    return ACT_DISPATCHER(f->phase)(f);
+    return ACT_DISPATCHER(FRM_PHASE(f))(f);
 }
 
 
@@ -283,8 +283,8 @@ inline static void Finalize_Arg(
     // Store the offset so that both the arg and param locations can
     // be quickly recovered, while using only a single slot in the REBVAL.
     //
-    arg->payload.varargs.param_offset = arg - f_state->args_head;
-    arg->payload.varargs.facade = ACT_FACADE(f_state->phase);
+    arg->payload.varargs.param_offset = arg - FRM_ARGS_HEAD(f_state);
+    arg->payload.varargs.facade = ACT_FACADE(FRM_PHASE(f_state));
 }
 
 inline static void Finalize_Current_Arg(REBFRM *f) {
@@ -684,17 +684,28 @@ reevaluate:;
         for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
             enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
 
-          #ifdef DEBUG_CHUNK_STACK
-            assert(
-                f->special != f->param or IS_TRASH_DEBUG(f->arg) or (
-                    f->doing_pickups
-                    and (
-                        (pclass == PARAM_CLASS_REFINEMENT and IS_LOGIC(f->arg))
-                        or IS_UNREADABLE_DEBUG(f->arg)
-                    )
-                )
-            );
-          #endif
+            // !!! If not an APPLY or a typecheck of existing values, the data
+            // array which backs the frame may not have any initialization of
+            // its bits.  The goal is to make it so that the GC uses the
+            // f->param position to know how far the frame fulfillment is
+            // gotten, and only mark those values.  Hoewver, there is also
+            // a desire to differentiate cell formatting between "stack"
+            // and "heap" to do certain optimizations.  After a recent change,
+            // it's becoming more integrated by using pooled memory for the
+            // args...however issues of stamping the bits remain.  This just
+            // blindly formats them with NODE_FLAG_STACK to make the arg
+            // initialization work, but it's in progress to do this more
+            // subtly so that the frame can be left formatted as non-stack.
+            if (
+                not f->doing_pickups
+                and f->special != f->arg
+                and f->param != LOOKBACK_ARG
+            ){
+                Prep_Stack_Cell(f->arg); // improve...
+            }
+
+            assert(f->arg->header.bits & NODE_FLAG_CELL);
+            assert(f->arg->header.bits & CELL_FLAG_STACK);
 
     //=//// A /REFINEMENT ARG /////////////////////////////////////////////=//
 
@@ -775,7 +786,7 @@ reevaluate:;
                     //
                     DS_PUSH_TRASH;
                     Init_Refinement(DS_TOP, partial_canon);
-                    DS_TOP->extra.binding = NOD(f); // need unmanaged
+                    DS_TOP->extra.binding = NOD(f->varlist); // need unmanaged
                     DS_TOP->payload.any_word.index = partial_index;
 
                     if (not IS_REFINEMENT_SPECIALIZED(f->param)) {
@@ -828,8 +839,8 @@ reevaluate:;
                     //
                     // !!! INIT_BINDING manages, and INIT_WORD_INDEX reifies
                     //
-                    REBCNT offset = f->arg - f->args_head;
-                    ordered->extra.binding = NOD(f);
+                    REBCNT offset = f->arg - FRM_ARGS_HEAD(f);
+                    ordered->extra.binding = NOD(f->varlist); // unmanaged
                     ordered->payload.any_word.index = offset + 1;
 
                     // "consume args later" (promise not to change)
@@ -864,13 +875,13 @@ reevaluate:;
             case PARAM_CLASS_RETURN_1:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
                 Move_Value(f->arg, NAT_VALUE(return_1)); // !!! f->special?
-                f->arg->extra.binding = NOD(f); // !!! INIT_BINDING reifies
+                f->arg->extra.binding = NOD(f->varlist); // need unmanaged
                 goto continue_arg_loop;
 
             case PARAM_CLASS_RETURN_0:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
                 Move_Value(f->arg, NAT_VALUE(return_0)); // !!! f->special?
-                f->arg->extra.binding = NOD(f); // !!! INIT_BINDING reifies
+                f->arg->extra.binding = NOD(f->varlist); // need unmanaged
                 goto continue_arg_loop;
 
             default:
@@ -1039,7 +1050,7 @@ reevaluate:;
                     assert(false);
                 }
 
-                if (not GET_ACT_FLAG(f->phase, ACTION_FLAG_INVISIBLE))
+                if (not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE))
                     SET_END(f->out);
 
                 // Now that we've gotten the argument figured out, make a
@@ -1087,7 +1098,7 @@ reevaluate:;
                 // reifies, and not only do we know we don't have to here, it
                 // would assert trying to reify a fulfilling frame.
                 //
-                f->arg->extra.binding = NOD(f);
+                f->arg->extra.binding = NOD(f->varlist);
 
                 Finalize_Current_Arg(f); // sets VARARGS! offset and facade
                 goto continue_arg_loop;
@@ -1306,10 +1317,11 @@ reevaluate:;
             if (not IS_WORD_BOUND(DS_TOP)) // the loop didn't index it
                 fail (Error_Bad_Refine_Raw(DS_TOP)); // so duplicate or junk
 
-            // f->args_head offsets are 0-based, while index is 1-based.
+            // FRM_ARGS_HEAD offsets are 0-based, while index is 1-based.
             // But +1 is okay, because we want the slots after the refinement.
             //
-            REBINT offset = VAL_WORD_INDEX(DS_TOP) - (f->arg - f->args_head);
+            REBINT offset =
+                VAL_WORD_INDEX(DS_TOP) - (f->arg - FRM_ARGS_HEAD(f));
             f->param += offset;
             f->arg += offset;
             f->special += offset;
@@ -1329,18 +1341,13 @@ reevaluate:;
 
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
-        if (In_Typecheck_Mode(f)) {
-            if (f->reified != GHOST)
-                assert(NOT_SER_INFO(f->reified, SERIES_INFO_INACCESSIBLE));
 
+        assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+
+        if (In_Typecheck_Mode(f)) {
             assert(IS_POINTER_TRASH_DEBUG(f->deferred));
         }
         else { // was fulfilling...
-            if (f->reified != GHOST) {
-                assert(GET_SER_INFO(f->reified, SERIES_INFO_INACCESSIBLE));
-                CLEAR_SER_INFO(f->reified, SERIES_INFO_INACCESSIBLE);
-            }
-
             if (f->deferred) {
                 //
                 // We deferred typechecking, but still need to do it...
@@ -1384,7 +1391,8 @@ reevaluate:;
         // has written the out slot yet or not.
         //
         assert(
-            IS_END(f->out) or GET_ACT_FLAG(f->phase, ACTION_FLAG_INVISIBLE)
+            IS_END(f->out)
+            or GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE)
         );
 
         // While you can't evaluate into an array cell (because it may move)
@@ -1398,7 +1406,7 @@ reevaluate:;
         // need to take a "hold" on the cell to prevent a rebFree() while the
         // evaluation was in progress.
         //
-        assert(f->out->header.bits & (CELL_FLAG_STACK | NODE_FLAG_ROOT));
+        /*assert(f->out->header.bits & (CELL_FLAG_STACK | NODE_FLAG_ROOT)); */
 
         // Running arbitrary native code can manipulate the bindings or cache
         // of a variable.  It's very conservative to say this, but any word
@@ -1447,7 +1455,7 @@ reevaluate:;
             if (IS_ACTION(f->out)) {
                 if (
                     VAL_ACTION(f->out) == NAT_ACTION(unwind)
-                    and Same_Binding(VAL_BINDING(f->out), f)
+                    and Same_Binding(VAL_BINDING(f->out), f->varlist)
                 ){
                     // Do_Core catches unwinds to the current frame, so throws
                     // where the "/name" is the JUMP native with a binding to
@@ -1464,7 +1472,7 @@ reevaluate:;
                 }
                 else if (
                     VAL_ACTION(f->out) == NAT_ACTION(redo)
-                    and Same_Binding(VAL_BINDING(f->out), f)
+                    and Same_Binding(VAL_BINDING(f->out), f->varlist)
                 ){
                     // This was issued by REDO, and should be a FRAME! with
                     // the phase and binding we are to resume with.
@@ -1500,13 +1508,13 @@ reevaluate:;
                     //
                     REBCTX *exemplar;
                     if (
-                        f->phase != f->out->payload.any_context.phase
+                        FRM_PHASE(f) != f->out->payload.any_context.phase
                         and did (exemplar = ACT_EXEMPLAR(
                             f->out->payload.any_context.phase
                         ))
                     ){
                         f->special = CTX_VARS_HEAD(exemplar);
-                        f->arg = f->args_head;
+                        f->arg = FRM_ARGS_HEAD(f);
                         for (; NOT_END(f->arg); ++f->arg, ++f->special) {
                             if (IS_NULLED(f->special)) // no specialization
                                 continue;
@@ -1514,8 +1522,8 @@ reevaluate:;
                         }
                     }
 
-                    f->phase = f->out->payload.any_context.phase;
-                    f->binding = VAL_BINDING(f->out);
+                    FRM_PHASE(f) = f->out->payload.any_context.phase;
+                    FRM_BINDING(f) = VAL_BINDING(f->out);
                     goto redo_checked;
                 }
             }
@@ -1528,11 +1536,11 @@ reevaluate:;
 
         redo_checked:
 
-            f->param = ACT_FACADE_HEAD(f->phase);
-            f->arg = f->args_head;
+            f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
+            f->arg = FRM_ARGS_HEAD(f);
             f->special = f->arg;
             f->refine = ORDINARY_ARG; // no gathering, but need for assert
-            assert(not GET_ACT_FLAG(f->phase, ACTION_FLAG_INVISIBLE));
+            assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
             SET_END(f->out);
             goto process_action;
 
@@ -1542,7 +1550,7 @@ reevaluate:;
             // run the f->phase again.  The dispatcher may have changed the
             // value of what f->phase is, for instance.
             //
-            assert(not GET_ACT_FLAG(f->phase, ACTION_FLAG_INVISIBLE));
+            assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
             SET_END(f->out);
             goto redo_unchecked;
 
@@ -1555,7 +1563,7 @@ reevaluate:;
             goto prep_for_reevaluate;
 
         case R_INVISIBLE: {
-            assert(GET_ACT_FLAG(f->phase, ACTION_FLAG_INVISIBLE));
+            assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
 
             // It is possible that when the elider ran, that there really was
             // no output in the cell yet (e.g. `do [comment "hi" ...]`) so it
@@ -1860,6 +1868,11 @@ reevaluate:;
         //
         f->gotten = END;
 
+        // !!! Note: A new frame state is needed to track a new array,
+        // new specifier, etc.  But f->varlist could be passed down and
+        // reused here since no ACTION! is in effect, that could save some
+        // time if it's not null.
+        //
         REBSPC *derived = Derive_Specifier(f->specifier, current);
         if (Do_At_Throws(
             f->out,

@@ -258,7 +258,9 @@ REB_R Apply_Core_Traced(REBFRM * const f)
     if (depth > 10)
         depth = 10; // don't indent so far it goes off the screen
 
-    if (f->phase == f->original) {
+    REBACT *phase = FRM_PHASE(f);
+
+    if (phase == f->original) {
         //
         // Only show the label if this phase is the first phase.
 
@@ -273,7 +275,7 @@ REB_R Apply_Core_Traced(REBFRM * const f)
     // We can only tell if it's the last phase *before* the apply, because if
     // we check *after* it may change to become the last and need R_REDO_XXX.
     //
-    REBOOL last_phase = (ACT_UNDERLYING(f->phase) == f->phase);
+    REBOOL last_phase = (ACT_UNDERLYING(phase) == phase);
 
     REB_R r = Apply_Core(f);
 

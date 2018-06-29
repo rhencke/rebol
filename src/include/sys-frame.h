@@ -160,7 +160,7 @@ inline static int FRM_LINE(REBFRM *f) {
 }
 
 #define FRM_OUT(f) \
-    cast(REBVAL * const, (f)->out) // writable Lvalue
+    cast(REBVAL * const, (f)->out) // writable rvalue
 
 
 // Note about FRM_NUM_ARGS: A native should generally not detect the arity it
@@ -171,29 +171,25 @@ inline static int FRM_LINE(REBFRM *f) {
 // ID ran.  Consider when reviewing the future of ACTION!.
 //
 #define FRM_NUM_ARGS(f) \
-    ACT_FACADE_NUM_PARAMS((f)->phase)
+    (cast(REBSER*, (f)->varlist)->content.dynamic.len - 1) // minus rootvar
 
-inline static REBVAL *FRM_CELL(REBFRM *f) {
-    //
-    // An earlier optimization would use the frame's cell if a function
-    // took exactly one argument for that argument.  This meant it was not
-    // available to those functions to use as a GC-protected temporary.  The
-    // optimization made it complex for the generalized code that does
-    // stack level discovery from a value pointer, and was removed.
-    //
-    return KNOWN(&f->cell);
-}
+#define FRM_CELL(f) \
+    cast(REBVAL*, &(f)->cell)
 
 #define FRM_PRIOR(f) \
-    ((f)->prior)
+    ((f)->prior + 0) // prevent assignment via this macro
 
-inline static REBACT *FRM_UNDERLYING(REBFRM *f) {
-    assert(ACT_UNDERLYING(f->phase) == ACT_UNDERLYING(f->original));
-    return ACT_UNDERLYING(f->phase);
-}
+#define FRM_PHASE(f) \
+    f->rootvar->payload.any_context.phase
+
+#define FRM_BINDING(f) \
+    f->rootvar->extra.binding
+
+#define FRM_UNDERLYING(f) \
+    ACT_UNDERLYING((f)->original)
 
 #define FRM_DSP_ORIG(f) \
-    ((f)->dsp_orig + 0) // Lvalue
+    ((f)->dsp_orig + 0) // prevent assignment via this macro
 
 // `arg` is in use to point at the arguments during evaluation, and `param`
 // may hold a SET-WORD! or SET-PATH! available for a lookback to quote.
@@ -210,15 +206,19 @@ inline static REBACT *FRM_UNDERLYING(REBFRM *f) {
 
 
 // ARGS is the parameters and refinements
-// 1-based indexing into the arglist (0 slot is for object/function value)
+// 1-based indexing into the arglist (0 slot is for FRAME! value)
+
+#define FRM_ARGS_HEAD(f) \
+    ((f)->rootvar + 1)
+
 #ifdef NDEBUG
     #define FRM_ARG(f,n) \
-        ((f)->args_head + (n) - 1)
+        ((f)->rootvar + (n))
 #else
     inline static REBVAL *FRM_ARG(REBFRM *f, REBCNT n) {
         assert(n != 0 and n <= FRM_NUM_ARGS(f));
 
-        REBVAL *var = &f->args_head[n - 1];
+        REBVAL *var = f->rootvar + n; // 1-indexed
 
         assert(!THROWN(var));
         assert(not IS_RELATIVE(cast(RELVAL*, var)));
@@ -244,7 +244,7 @@ inline static REBOOL Is_Action_Frame(REBFRM *f) {
         // Do not count as a function frame unless its gotten to the point
         // of pushing arguments.
         //
-        return f->phase != NULL;
+        return f->original != nullptr;
     }
     return FALSE;
 }
@@ -343,7 +343,7 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
         FRM_ARG(frame_, (p_##name))
 
     #define PAR(name) \
-        ACT_PARAM(frame_->phase, (p_##name)) /* a TYPESET! */
+        ACT_PARAM(FRM_PHASE(frame_), (p_##name)) /* a TYPESET! */
 
     #define REF(name) \
         IS_TRUTHY(ARG(name))
@@ -379,7 +379,7 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
         FRM_ARG(frame_, (p_##name).num)
 
     #define PAR(name) \
-        ACT_PARAM(frame_->phase, (p_##name).num) /* a TYPESET! */
+        ACT_PARAM(FRM_PHASE(frame_), (p_##name).num) /* a TYPESET! */
 
     #define REF(name) \
         ((p_##name).used_cache /* used_cache use stops REF() on PARAM()s */ \
@@ -389,12 +389,10 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
 
 
 // The native entry prelude makes sure that once native code starts running,
-// then a reified frame will be locked or a non-reified frame will be flagged
-// in such a way as to indicate that it should be locked when reified.  This
-// prevents a FRAME! generated for a native from being able to get write
-// access to the variables, which could cause crashes, as raw C code is not
-// insulated against having bit patterns for types in cells that aren't
-// expected.
+// then the frame's stub is flagged to indicate access via a FRAME! should
+// not have write access to variables.  That could cause crashes, as raw C
+// code is not insulated against having bit patterns for types in cells that
+// aren't expected.
 //
 // !!! Debug injection of bad types into usermode code may cause havoc as
 // well, and should be considered a security/permissions issue.  It just won't
@@ -407,9 +405,7 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
 // This way there is no test and only natives pay the cost of flag setting.
 //
 inline static void Enter_Native(REBFRM *f) {
-    f->flags.bits |= DO_FLAG_NATIVE_HOLD;
-    if (f->reified != GHOST)
-        SET_SER_INFO(f->reified, SERIES_INFO_HOLD);
+    SET_SER_INFO(f->varlist, SERIES_INFO_HOLD); // may or may not be managed
 }
 
 
@@ -438,9 +434,8 @@ inline static void Push_Action(
     REBACT *act,
     REBSPC *binding
 ){
-    assert(f->reified == GHOST); // each new action push needs own reification
-
     f->eval_type = REB_ACTION;
+    f->original = act;
 
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_ACTION
     assert(not opt_label or GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING));
@@ -450,32 +445,84 @@ inline static void Push_Action(
     f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
   #endif
 
-    f->original = act;
-    f->phase = act;
-
-    f->binding = binding; // e.g. how a RETURN knows where to return to
-
-    // Even if you specialize APPEND until it no longer has any parameters,
-    // eventually the C code for REBNATIVE(append) will be executed to do
-    // the work.  It will expect the ARG() and REF() macros to find the
-    // right arguments at the right indices.
-    //
-    // The "facade" must have the same number of arguments as the underlying
-    // function.  But it may accept more limited data types than the layers
-    // underneath, or change the parameter conventions (e.g. from normal to
-    // quoted).  A facade might be a valid paramlist, but it might just
-    // *look* like a paramlist, with the underlying function in slot 0 instead
-    // of a canon value which points back to itself.
+    // Number of args may be larger than the number of interface parameters.
+    // (e.g. a specialization of EITHER which has removed the TRUE-BRANCH
+    // parameter still needs the arg present when REBNATIVE(either) runs.)
+    // FACADE has the same number of args as the underlying action.
     //
     REBCNT num_args = ACT_FACADE_NUM_PARAMS(act);
-    f->param = ACT_FACADE_HEAD(act);
+    f->param = ACT_FACADE_HEAD(act); // see definitions for notes on facades
 
-    // Allocate the data for the args and locals on the chunk stack.  The
-    // addresses of these values will be stable for the duration of the
-    // function call, but the pointers will be invalid after that point.
+    REBSER *s;
+    if (not f->varlist) {
+        //
+        // First action call in frame, or previous one wound up managed and
+        // nabbed by Drop_Action() for stub use in extant references.  Make a
+        // new one, and setup for reuse if it doesn't wind up getting managed.
+        //
+        s = cast(REBSER*, Make_Node(SER_POOL));
+        s->header.bits = (
+            NODE_FLAG_NODE
+                | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST | SERIES_FLAG_STACK
+        );
+        s->link_private.keysource = NOD(f); // maps varlist back to f
+        // content allocated below
+        Init_Endlike_Header(
+            &s->info,
+            SERIES_INFO_HAS_DYNAMIC // allocated @ `sufficient_allocation:
+                | FLAG_THIRD_BYTE(0) // unused slot (non-dynamic len)
+                | FLAG_FOURTH_BYTE(sizeof(REBVAL)) // series "wide"
+        );
+        s->misc_private.meta = nullptr; // GC will sees this
+        f->varlist = ARR(s);
+    }
+    else {
+        // An allocated varlist exists, but it might not have enough capacity.
+        // Fall through to realloc if too small (needs room for +ROOTVAR +END)
+        //
+        s = SER(f->varlist);
+        if (s->content.dynamic.rest >= num_args + 1 + 1)
+            goto sufficient_allocation;
+
+        //assert(SER_BIAS(s) == 0);
+        Free_Unbiased_Series_Data(
+            s->content.dynamic.data,
+            Series_Allocation_Unpooled(s)
+        );
+    }
+
+    // !!! Work should be done on picking a smart size... but just use the
+    // exact size needed for this action, for now.
     //
-    f->args_head = Push_Value_Chunk_Of_Length(num_args);
-    f->arg = f->args_head;
+    if (not Did_Series_Data_Alloc(s, num_args + 1 + 1))
+        fail ("Out of memory in Push_Action()");
+
+    f->rootvar = cast(REBVAL*, s->content.dynamic.data);
+    f->rootvar->header.bits =
+        NODE_FLAG_NODE | NODE_FLAG_CELL | NODE_FLAG_STACK
+        | CELL_FLAG_PROTECTED // cell payload/binding tweaked, not by user
+        | HEADERIZE_KIND(REB_FRAME);
+    f->rootvar->payload.any_context.varlist = f->varlist;
+
+  sufficient_allocation:
+
+    assert(NOT_SER_FLAG(s, NODE_FLAG_MANAGED));
+    assert(NOT_SER_INFO(s, SERIES_INFO_INACCESSIBLE));
+
+    s->content.dynamic.len = num_args + 1;
+    RELVAL *tail = ARR_TAIL(f->varlist);
+    tail->header.bits = CELL_FLAG_END | NODE_FLAG_STACK
+        | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
+    TRACK_CELL_IF_DEBUG(tail, __FILE__, __LINE__);
+  
+    // Rather than separately track the running phase, it's updated in the
+    // actual rootvar of the frame itself.  This means it's slightly slower
+    // to access, but doesn't have to be multiply updated.  Review.
+    //
+    FRM_PHASE(f) = act;
+    FRM_BINDING(f) = binding;
+
+    f->arg = f->rootvar + 1;
 
     // Each layer of specialization of a function can only add specializaitons
     // of arguments which have not been specialized already.  For efficiency,
@@ -489,7 +536,7 @@ inline static void Push_Action(
     else
         f->special = const_KNOWN(f->param);
 
-    f->deferred = NULL;
+    f->deferred = nullptr;
 
     // Make sure the person who pushed the function correctly sets the
     // f->refine to either ORDINARY_ARG or LOOKBACK_ARG after this call.
@@ -508,73 +555,130 @@ inline static void Push_Action(
 // Hence the chunks will be freed by the error trap helper.
 //
 inline static void Drop_Action_Core(REBFRM *f) {
-    //
-    // !!! The caller is responsible for deciding about dropping any chunks
-    // or other data.  Should they also be trashing the pointer?
-    //
-    TRASH_POINTER_IF_DEBUG(f->args_head);
+    assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+    assert(NOT_SER_INFO(f->varlist, FRAME_INFO_FAILED));
 
     assert(
         not f->opt_label
         or GET_SER_FLAG(f->opt_label, SERIES_FLAG_UTF8_STRING)
     );
+
+    if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
+        f->flags.bits &= ~DO_FLAG_BARRIER_HIT;
+
+    assert(LINK(f->varlist).keysource == NOD(f));
+
+    if (GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
+        //
+        // The varlist wound up getting referenced in a cell that will outlive
+        // this Drop_Action().  The pointer needed to stay working up until
+        // now, but the args memory won't be available.  But since we know
+        // there were outstanding references to the varlist, we need to
+        // convert it into a "stub" that's enough to avoid crashes.
+        //
+        REBSER *stub = SER(f->varlist);
+
+        // ...but we don't free the memory for the args, we just hide it from
+        // the stub and get it ready for potential reuse by the next action
+        // call.  That's done by making an adjusted copy of the stub, which
+        // steals its dynamic memory (by setting the stub not HAS_DYNAMIC).
+        //
+        // Rather than memcpy() and touch up the header and info to remove
+        // SERIES_INFO_HOLD put on by Enter_Native(), or NODE_FLAG_MANAGED,
+        // etc.--use constant assignments and only copy the remaining fields.
+        //
+        REBSER *copy = cast(REBSER*, Make_Node(SER_POOL));
+        copy->header.bits =
+            NODE_FLAG_NODE | NODE_FLAG_STACK
+            | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST; // now unmanaged
+        copy->link_private = stub->link_private;
+        copy->content = stub->content;
+        Init_Endlike_Header(
+            &copy->info,
+            SERIES_INFO_HAS_DYNAMIC
+                | FLAG_THIRD_BYTE(0) // HAS_DYNAMIC, so not length, unused ATM
+                | FLAG_FOURTH_BYTE(sizeof(REBVAL)) // fourth byte is width
+        );
+        copy->misc_private = stub->misc_private;
+        
+        REBVAL *rootvar = cast(REBVAL*, copy->content.dynamic.data);
+        
+        // Convert the old varlist that had outstanding references into a
+        // singular "stub", holding only the CTX_ARCHETYPE.  This is needed
+        // for the ->binding to allow Derelativize(), see SPC_BINDING().
+        //
+        // Note: previously this had to preserve FRAME_INFO_FAILED, but now
+        // those marking failure are asked to do so manually to the stub
+        // after this returns (hence they need to cache the varlist first).
+        //
+        Init_Endlike_Header(
+            &stub->info,
+            SERIES_INFO_INACCESSIBLE // args memory now "stolen" by copy
+                | FLAG_THIRD_BYTE(1) // no HAS_DYNAMIC bit, this is length
+                | FLAG_FOURTH_BYTE(sizeof(REBVAL)) // fourth byte is width
+        );
+
+        stub->content.fixed.values[0].header.bits =
+            NODE_FLAG_NODE | NODE_FLAG_CELL | HEADERIZE_KIND(REB_FRAME);
+        stub->content.fixed.values[0].extra.binding = rootvar->extra.binding;
+        stub->content.fixed.values[0].payload.any_context.varlist = ARR(stub);
+        stub->content.fixed.values[0].payload.any_context.phase = f->original;
+
+        rootvar->payload.any_context.varlist = ARR(copy);
+        TRASH_POINTER_IF_DEBUG(rootvar->payload.any_context.phase);
+        /* TRASH_POINTER_IF_DEBUG(rootvar->extra.binding); */ // ghostable
+
+        // Disassociate the stub from the frame, by degrading the link field
+        // to a keylist.  !!! Review why this was needed, vs just nullptr
+        //
+        LINK(stub).keysource = NOD(ACT_PARAMLIST(f->original));
+
+        f->varlist = ARR(copy);
+    }
+    else {
+        // We can reuse the varlist and its data allocation, which may be
+        // big enough for ensuing calls.  
+        //
+        // But no series bits we didn't set should be set...and right now,
+        // only Enter_Native() sets HOLD.  Clear that.
+        //
+        CLEAR_SER_INFOS(f->varlist, SERIES_INFO_HOLD);
+        assert(0 == (SER(f->varlist)->info.bits & ~( // <- note bitwise not
+            SERIES_INFO_HAS_DYNAMIC
+            | SERIES_INFO_0_IS_TRUE // parallels NODE_FLAG_NODE
+            | SERIES_INFO_8_IS_TRUE // parallels CELL_FLAG_END
+            | FLAG_THIRD_BYTE(255) // mask out non-dynamic-len (it's dynamic)
+            | FLAG_FOURTH_BYTE(255) // mask out wide (sizeof(REBVAL))
+        )));
+
+      #if !defined(NDEBUG)
+        REBVAL *rootvar = cast(REBVAL*, ARR_HEAD(f->varlist));
+        assert(IS_FRAME(rootvar));
+        assert(rootvar->payload.any_context.varlist == f->varlist);
+        TRASH_POINTER_IF_DEBUG(rootvar->payload.any_context.phase);
+      #endif
+    }
+
+    assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+
+    f->original = nullptr; // signal an action is no longer running
+
     TRASH_POINTER_IF_DEBUG(f->opt_label);
   #if defined(DEBUG_FRAME_LABELS)
     TRASH_POINTER_IF_DEBUG(f->label_utf8);
   #endif
-
-    f->phase = NULL; // should args_head == NULL be the indicator instead?
-
-    // The frame may be reused for another function call, and that function
-    // may not start with native code (or use native code at all).
-    //
-    // !!! Should the code be willing to drop the running flag off the varlist
-    // as well if it is persistent, so that the values can be modified once
-    // the native code is no longer running?
-    //
-    f->flags.bits &= ~DO_FLAG_NATIVE_HOLD;
-    if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
-        f->flags.bits &= ~DO_FLAG_BARRIER_HIT;
-
-    if (f->reified == GHOST)
-        return;
-
-    REBARR *varlist = CTX_VARLIST(f->reified);
-
-    assert(GET_SER_FLAG(varlist, SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST));
-    ASSERT_ARRAY_MANAGED(varlist);
-
-    // The varlist is going to outlive this call, so the frame correspondence
-    // in it needs to be cleared out, so callers will know the frame is dead.
-    // We substitute the paramlist of the original function the frame is for
-    // in the keysource slot.
-    //
-    assert(LINK(varlist).keysource == NOD(f));
-    LINK(varlist).keysource = NOD(ACT_PARAMLIST(f->original));
-
-    if (NOT_SER_FLAG(varlist, SERIES_FLAG_STACK)) {
-        //
-        // If there's no stack memory being tracked by this context, it
-        // has dynamic memory and is being managed by the garbage collector
-        // so there's nothing to do.
-        //
-        assert(GET_SER_INFO(varlist, SERIES_INFO_HAS_DYNAMIC));
-        return;
-    }
-
-    // It's reified but has its data pointer into the chunk stack, which
-    // means we have to free it and mark the array inaccessible.
-
-    assert(NOT_SER_INFO(varlist, SERIES_INFO_HAS_DYNAMIC));
-
-    assert(NOT_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE));
-    SET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE);
-
-    f->reified = GHOST;
-    return; // needed for release build so `finished:` labels a statement
 }
 
 inline static void Drop_Action(REBFRM *f) {
-    Drop_Chunk_Of_Values(f->args_head);
     Drop_Action_Core(f);
+}
+
+
+//
+//  Context_For_Frame_May_Manage: C
+//
+inline static REBCTX *Context_For_Frame_May_Manage(REBFRM *f)
+{
+    SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
+    return CTX(f->varlist);
 }

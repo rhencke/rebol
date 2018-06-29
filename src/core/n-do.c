@@ -650,7 +650,7 @@ REBNATIVE(apply)
     //
     Bind_Values_Core(
         VAL_ARRAY_AT(ARG(def)),
-        Context_For_Frame_May_Reify_Managed(f),
+        Context_For_Frame_May_Manage(f),
         FLAGIT_KIND(REB_SET_WORD), // types to bind (just set-word!)
         0, // types to "add midstream" to binding as we go (nothing)
         BIND_DEEP
@@ -664,8 +664,8 @@ REBNATIVE(apply)
         return R_OUT_IS_THROWN;
     }
 
-    f->arg = f->args_head; // reset
-    f->param = ACT_FACADE_HEAD(f->phase); // reset
+    f->arg = FRM_ARGS_HEAD(f); // reset
+    f->param = ACT_FACADE_HEAD(FRM_PHASE(f)); // reset
 
     f->special = f->arg; // now signal only type-check the existing data
     TRASH_POINTER_IF_DEBUG(f->deferred); // invariant for checking mode

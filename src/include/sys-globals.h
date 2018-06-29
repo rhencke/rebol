@@ -222,15 +222,6 @@ TVAR REBARR *DS_Array;
 TVAR REBDSP DS_Index;
 TVAR REBVAL *DS_Movable_Top;
 
-// We store the head chunk of the current chunker even though it could be
-// computed, because it's quicker to compare to a pointer than to do the
-// math to calculate it on each Drop_Chunk...and it only needs to be updated
-// when a chunk boundary gets crossed (pushing or dropping)
-//
-TVAR struct Reb_Chunk *TG_Top_Chunk;
-TVAR struct Reb_Chunk *TG_Head_Chunk;
-TVAR struct Reb_Chunker *TG_Root_Chunker;
-
 TVAR struct Reb_State *Saved_State; // Saved state for Catch (CPU state, etc.)
 
 #if !defined(NDEBUG)

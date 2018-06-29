@@ -230,9 +230,10 @@ REBFRM *Frame_For_Stack_Level(
         REBOOL pending = Is_Action_Frame_Fulfilling(frame);
         if (not pending) {
             if (first) {
+                REBACT *phase = FRM_PHASE(frame);
                 if (
-                    ACT_DISPATCHER(frame->phase) == &N_DEBUGGER_pause
-                    or ACT_DISPATCHER(frame->phase) == N_DEBUGGER_breakpoint
+                    ACT_DISPATCHER(phase) == &N_DEBUGGER_pause
+                    or ACT_DISPATCHER(phase) == N_DEBUGGER_breakpoint
                 ){
                     // this is considered the "0".  Return it only if 0
                     // requested specifically (you don't "count down to it")
@@ -269,13 +270,14 @@ REBFRM *Frame_For_Stack_Level(
                 goto return_maybe_set_number_out;
         }
         else if (IS_FRAME(level)) {
-            if (frame->reified == VAL_CONTEXT(level)) {
+            if (frame->varlist == CTX_VARLIST(VAL_CONTEXT(level))) {
+                assert(GET_SER_FLAG(frame->varlist, NODE_FLAG_MANAGED));
                 goto return_maybe_set_number_out;
             }
         }
         else {
             assert(IS_ACTION(level));
-            if (VAL_ACTION(level) == frame->phase)
+            if (VAL_ACTION(level) == FRM_PHASE(frame))
                 goto return_maybe_set_number_out;
         }
     }
@@ -395,9 +397,10 @@ static REBNATIVE(resume)
             if (Is_Action_Frame_Fulfilling(frame))
                 continue;
 
+            REBACT *phase = FRM_PHASE(frame);
             if (
-                ACT_DISPATCHER(frame->phase) == &N_DEBUGGER_pause
-                || ACT_DISPATCHER(frame->phase) == &N_DEBUGGER_breakpoint
+                ACT_DISPATCHER(phase) == &N_DEBUGGER_pause
+                || ACT_DISPATCHER(phase) == &N_DEBUGGER_breakpoint
             ) {
                 break;
             }
@@ -410,7 +413,7 @@ static REBNATIVE(resume)
     Init_Any_Context(
         ARR_AT(instruction, RESUME_INST_TARGET),
         REB_FRAME,
-        Context_For_Frame_May_Reify_Managed(frame)
+        Context_For_Frame_May_Manage(frame)
     );
 
     TERM_ARRAY_LEN(instruction, RESUME_INST_MAX);
@@ -426,7 +429,7 @@ static REBNATIVE(resume)
 
     // Throw the instruction with the name of the RESUME function
     //
-    Move_Value(D_OUT, ACT_ARCHETYPE(frame_->phase));
+    Move_Value(D_OUT, ACT_ARCHETYPE(FRM_PHASE(frame)));
     CONVERT_NAME_TO_THROWN(D_OUT, cell);
     return R_OUT_IS_THROWN;
 }
@@ -515,7 +518,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
         Init_Any_Context(
             frame,
             REB_FRAME,
-            Context_For_Frame_May_Reify_Managed(f)
+            Context_For_Frame_May_Manage(f)
         );
 
         const REBOOL fully = TRUE; // error if not all arguments consumed
@@ -777,11 +780,12 @@ REBOOL Do_Breakpoint_Throws(
             if (Is_Action_Frame_Fulfilling(frame))
                 continue;
 
+            REBACT *phase = FRM_PHASE(frame);
             if (
                 frame != FS_TOP
                 && (
-                    ACT_DISPATCHER(frame->phase) == &N_DEBUGGER_pause
-                    || ACT_DISPATCHER(frame->phase) == &N_DEBUGGER_breakpoint
+                    ACT_DISPATCHER(phase) == &N_DEBUGGER_pause
+                    || ACT_DISPATCHER(phase) == &N_DEBUGGER_breakpoint
                 )
             ) {
                 // We hit a breakpoint (that wasn't this call to
@@ -797,10 +801,10 @@ REBOOL Do_Breakpoint_Throws(
             // If the frame were the one we were looking for, it would be
             // reified (so it would have a context to match)
             //
-            if (frame->reified == GHOST)
+            if (NOT_SER_FLAG(frame->varlist, NODE_FLAG_MANAGED))
                 continue;
 
-            if (VAL_CONTEXT(target) == frame->reified) {
+            if (CTX_VARLIST(VAL_CONTEXT(target)) == frame->varlist) {
                 // Found a match before hitting any breakpoints, so no
                 // need to retransmit.
                 //

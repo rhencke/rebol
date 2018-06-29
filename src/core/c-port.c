@@ -387,7 +387,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     // invocation is the total number of parameters to the *old* function's
     // invocation (if it had no refinements or locals).
     //
-    REBARR *code_array = Make_Array(ACT_NUM_PARAMS(f->phase));
+    REBARR *code_array = Make_Array(ACT_NUM_PARAMS(FRM_PHASE(f)));
     RELVAL *code = ARR_HEAD(code_array);
 
     // We'll walk through the original functions param and arglist only, and
@@ -396,8 +396,8 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     //
     // !!! See note in function description about arity mismatches.
     //
-    f->param = ACT_FACADE_HEAD(f->phase);
-    f->arg = f->args_head;
+    f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
+    f->arg = FRM_ARGS_HEAD(f);
     REBOOL ignoring = FALSE;
 
     // The first element of our path will be the function, followed by its
@@ -405,7 +405,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     // opposite case where it had only refinements and then the function
     // at the head...
     //
-    REBARR *path_array = Make_Array(ACT_NUM_PARAMS(f->phase) + 1);
+    REBARR *path_array = Make_Array(ACT_NUM_PARAMS(FRM_PHASE(f)) + 1);
     RELVAL *path = ARR_HEAD(path_array);
 
     Move_Value(path, ACT_ARCHETYPE(run)); // !!! What if there's a binding?

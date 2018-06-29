@@ -1793,13 +1793,6 @@ inline static REBNOD *VAL_BINDING(const RELVAL *v) {
     return v->extra.binding;
 }
 
-// UNBOUND has NODE_FLAG_CELL set, but it doesn't have NODE_FLAG_NODE set.
-// This is a very particular test that won't work for all cells, so do not
-// mark the f->out... (review test for that).  NODE, STACK, CELL
-//
-#define IS_NODE_REBFRM(binding) \
-    (cast(REBYTE*, &((binding)->header))[0] == 0x83) // 0b10000011
-
 inline static void INIT_BINDING(RELVAL *v, void *p) {
     //
     // This can be used on a partially initialized value, hence GET_VAL_FLAG
@@ -1808,25 +1801,29 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
     assert(Is_Bindable(v));
 
     REBNOD *binding = NOD(p);
+    assert(not (binding->header.bits & NODE_FLAG_CELL)); // not currently used
 
-    if (not (binding->header.bits & NODE_FLAG_MANAGED)) { // UNBOUND has set
-        assert(IS_NODE_REBFRM(binding));
-
-        // This should be sensitive to whether or not the target cell has a
+    if (not (binding->header.bits & NODE_FLAG_MANAGED)) {
+        //
+        // !!! Should be sensitive to whether or not the target cell has a
         // stack lifetime of longer or shorter than the binding, so testing
         // the things that Derelativize() and Move_Value() do w.r.t. to
         // CELL_FLAG_STACK.
         //
-        v->extra.binding = NOD(
-            Context_For_Frame_May_Reify_Managed(FRM(binding))
-        );
+        assert(CTX(p) and (binding->header.bits & SERIES_FLAG_STACK));
+        binding->header.bits |= NODE_FLAG_MANAGED;
+        v->extra.binding = binding;
     }
     else {
-      #if !defined(NDEBUG)
-        if (p != UNBOUND and not (v->header.bits & CELL_FLAG_STACK))
-            assert(binding->header.bits & NODE_FLAG_MANAGED);
-      #endif
-
+        assert(
+            binding == UNBOUND // has the MANAGED bit set (by design)
+            or binding->header.bits & ARRAY_FLAG_VARLIST // specific
+            or binding->header.bits & ARRAY_FLAG_PARAMLIST // relative
+            or (
+                IS_VARARGS(v)
+                and not (SER(binding)->info.bits & SERIES_INFO_HAS_DYNAMIC)
+            ) // varargs from MAKE VARARGS! [...], else is a varlist
+        );
         v->extra.binding = binding;
     }
 }
@@ -1865,61 +1862,48 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
     Move_Value_Header(out, v);
 
     out->payload = v->payload; // payloads cannot hold references to stackvars
+    out->extra = v->extra; // will use this node, but might need reification
 
     if (
-        Is_Bindable(v)
-        and not (v->extra.binding->header.bits & NODE_FLAG_MANAGED)
+        not Is_Bindable(v)
+        or (v->extra.binding->header.bits & NODE_FLAG_MANAGED)
     ){
-        assert(IS_NODE_REBFRM(v->extra.binding));
-        assert(v->header.bits & CELL_FLAG_STACK); // we might have to reify
-    }
-    else {
         // Isn't the kind of cell with a binding (INTEGER!, STRING!...) or
-        // is UNBOUND (has the managed bit set), or the binding is reified.
+        // is UNBOUND (has the managed bit set), or already managed.
         //
-      #if !defined(NDEBUG)
-        if (Is_Bindable(v))
-            assert(
-                v->extra.binding == UNBOUND
-                or NOT_NODE_CELL(v->extra.binding)
-            );
-      #endif
-        out->extra = v->extra;
         return KNOWN(out);
     }
 
-    // Check if the target stack level will outlive the stack level of the
-    // non-reified material in the binding. 
+    assert(v->header.bits & NODE_FLAG_STACK); // v's binding was not managed
 
-    REBFRM *f = FRM(v->extra.binding);
-
-    REBCNT bind_depth = 1; // !!! need to determine v's binding stack level
-    REBCNT out_depth;
-    if (not (out->header.bits & CELL_FLAG_STACK))
-        out_depth = 0;
-    else
-        out_depth = 1; // !!! need to determine out's stack level
-
-    REBOOL smarts_enabled = FALSE; 
-    if (smarts_enabled and out_depth >= bind_depth) {
+    if (out->header.bits & NODE_FLAG_STACK) {
         //
-        // The non-reified binding will outlive the output slot, so there is
-        // no reason to reify it.
+        // If the cell we're writing to is a stack cell, there's a chance
+        // that management/reification can be avoided.
         //
-        INIT_BINDING(out, f);
-        return KNOWN(out);
+        REBFRM *f = FRM(LINK(v->extra.binding).keysource);
+        UNUSED(f); // don't actually use it...
+
+        REBCNT bind_depth = 1; // !!! need to determine v's binding stack level
+        REBCNT out_depth;
+        if (not (out->header.bits & CELL_FLAG_STACK))
+            out_depth = 0;
+        else
+            out_depth = 1; // !!! need to determine out's stack level
+
+        REBOOL smarts_enabled = FALSE; 
+        if (smarts_enabled and out_depth >= bind_depth) {
+            //
+            // The non-reified binding will outlive the output slot, so there
+            // is no reason to manage it.
+            //
+            return KNOWN(out);
+        }
+
+        // otherwise no dice, the reference may outlive
     }
 
-    // This is the expensive case, we know the binding as-is will not outlive
-    // the target slot.  A reification is necessary.
-
-    // !!! For now we very conservatively reify on all cases, and reach
-    // beneath the const of the source in order to update its binding too.
-    
-    REBCTX *reified = Context_For_Frame_May_Reify_Managed(f);
-    INIT_BINDING(out, reified);
-    INIT_BINDING(m_cast(REBVAL*, v), reified);
-
+    v->extra.binding->header.bits |= NODE_FLAG_MANAGED;
     return KNOWN(out);
 }
 

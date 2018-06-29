@@ -184,27 +184,11 @@
     FLAG_LEFT_BIT(11)
 
 
-//=//// DO_FLAG_NATIVE_HOLD ///////////////////////////////////////////////=//
+//=//// DO_FLAG_NATIVE_12 /////////////////////////////////////////////////=//
 //
-// When a REBNATIVE()'s code starts running, it means that the associated
-// frame must consider itself locked to user code modification.  This is
-// because native code does not check the datatypes of its frame contents,
-// and if access through the debug API were allowed to modify those contents
-// out from under it then it could crash.
+// Recovered...
 //
-// A native may wind up running in a reified frame from the get-go (e.g. if
-// there is an ADAPT that created the frame and ran user code into it prior
-// to the native.)  But the average case is that the native will run on a
-// frame that is using the chunk stack, and has no varlist to lock.  But if
-// a frame reification happens after the fact, it needs to know to take a
-// lock if the native code has started running.
-//
-// The current solution is that all natives set this flag on the frame as
-// part of their entry.  If they have a varlist, they will also lock that...
-// but if they don't have a varlist, this flag controls the locking when
-// the reification happens.
-//
-#define DO_FLAG_NATIVE_HOLD \
+#define DO_FLAG_12 \
     FLAG_LEFT_BIT(12)
 
 
@@ -521,30 +505,23 @@ struct Reb_Frame {
     //
     const REBVAL *gotten;
 
-    // `phase` and `original`
+    // `original`
     //
-    // If a function call is currently in effect, `phase` holds a pointer to
-    // the function being run.  Because functions are identified and passed
-    // by a platform pointer as their paramlist REBSER*, you must use
-    // `ACT_ARCHETYPE(c->phase)` to get a pointer to a canon REBVAL representing
-    // that function (to examine its function flags, for instance).
+    // If a function call is currently in effect, FRM_PHASE() is how you get
+    // at the curren function being run.  Because functions are identified and
+    // passed by a platform pointer as their paramlist REBARR*, you must use
+    // `ACT_ARCHETYPE(FRM_PHASE(f))` to get a pointer to a canon REBVAL
+    // representing that function (to examine its value flags, for instance).
+    //
+    // !!! ACTION_FLAG_XXX should probably be used for frequently checks.
     //
     // Compositions of functions (adaptations, specializations, hijacks, etc)
-    // update `f->phase` in their dispatcher and then signal to resume the
-    // evaluation in that same frame in some way.  The `original` function
+    // update the FRAME!'s payload in the f->varlist archetype to say what
+    // the current "phase" is.  The reason it is updated there instead of
+    // as a REBFRM field is because specifiers use it.  Similarly, that is
+    // where the binding is stored.
     //
     REBACT *original;
-    REBACT *phase;
-
-    // `binding`
-    //
-    // A REBACT* alone is not enough to fully specify a function, because
-    // it may be an "archetype".  For instance, the archetypal RETURN native
-    // doesn't have enough specific information in it to know *which* function
-    // to exit.  The additional pointer of context is binding, and it is
-    // extracted from the function REBVAL.
-    //
-    REBNOD *binding; // either a varlist of a FRAME! or function paramlist
 
     // `opt_label`
     //
@@ -557,22 +534,21 @@ struct Reb_Frame {
     //
     REBSTR *opt_label;
 
-    // `reified`
+    // `varlist`
     //
-    // While an action is running, it may need a reference put in a location
-    // that could outlive the lifetime on the stack.  The REBFRM* can't be
-    // used in that case, because unless there's code that explicitly looks
-    // for such pointers and expires them, then dereferencing those pointers
-    // would result in a crash.
+    // The varlist is where arguments for the frame are kept.  Though it is
+    // ultimately usable as an ordinary CTX_VARLIST() for a FRAME! value, it
+    // is different because it is built progressively, with random bits in
+    // its pending capacity that are specifically accounted for by the GC...
+    // which limits its marking up to the progress point of `f->param`.
     //
-    // When these are needed, use Context_For_Frame_May_Reify_Managed(), and
-    // it will ensure there is a small tracking stub that serves as a varlist
-    // for a context.  The REBFRM points to it through this field, and while
-    // the frame is running it will point back via its LINK().f field.
+    // It starts out unmanaged, so that if no usages by the user specifically
+    // ask for a FRAME! value, and the REBCTX* isn't needed to store in a
+    // Derelativize()'d or Move_Velue()'d value as a binding, it can be
+    // reused or freed.  See Push_Action() and Drop_Action() for the logic.
     //
-    // Uses GHOST instead of nullptr to indicate disengaged state.
-    //
-    GHOSTABLE(REBCTX*) reified;
+    REBARR *varlist;
+    REBVAL *rootvar; // cache, is ARR_HEAD(varlist) if varlist is not null
 
     // `param`
     //
@@ -588,21 +564,6 @@ struct Reb_Frame {
     // Made relative just to have another RELVAL on hand.
     //
     const RELVAL *param;
-
-    // `args_head`
-    //
-    // For functions without "indefinite extent", the invocation arguments are
-    // stored in the "chunk stack", where allocations are fast, address stable,
-    // and implicitly terminated.  If a function has indefinite extent, this
-    // will be set to NULL.
-    //
-    // This can contain END markers at any position during arg fulfillment,
-    // but must all be non-END when the function actually runs.
-    //
-    // If a function is indefinite extent, this just points to the front of
-    // the head of varlist.
-    //
-    REBVAL *args_head;
 
     // `arg`
     //

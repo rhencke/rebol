@@ -122,22 +122,15 @@ static void Mark_Devices_Deep(void);
 static inline void Mark_Rebser_Only(REBSER *s)
 {
   #if !defined(NDEBUG)
-    if (not IS_SERIES_MANAGED(s)) {
+    if (NOT_SER_FLAG((s), NODE_FLAG_MANAGED)) {
         printf("Link to non-MANAGED item reached by GC\n");
         panic (s);
     }
+    if (GET_SER_INFO((s), SERIES_INFO_INACCESSIBLE))
+        assert(NOT_SER_FLAG((s), SERIES_FLAG_HAS_DYNAMIC));
   #endif
-    assert(NOT_SER_FLAG(s, SERIES_FLAG_ARRAY));
-    s->header.bits |= NODE_FLAG_MARKED;
-}
 
-static inline REBOOL Is_Rebser_Marked_Or_Pending(REBSER *rebser) {
-    return did (rebser->header.bits & NODE_FLAG_MARKED);
-}
-
-static inline REBOOL Is_Rebser_Marked(REBSER *rebser) {
-    // ASSERT_NO_GC_MARKS_PENDING(); // overkill check, but must be true
-    return did (rebser->header.bits & NODE_FLAG_MARKED);
+    (s)->header.bits |= NODE_FLAG_MARKED;
 }
 
 static inline void Unmark_Rebser(REBSER *rebser) {
@@ -180,10 +173,10 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
     // have been marked yet--it could still be waiting in the queue.  But we
     // don't want to wastefully submit it to the queue multiple times.
     //
-    if (Is_Rebser_Marked_Or_Pending(SER(a)))
+    if (GET_SER_FLAG(a, NODE_FLAG_MARKED))
         return;
 
-    SER(a)->header.bits |= NODE_FLAG_MARKED; // the up-front marking
+    Mark_Rebser_Only(cast(REBSER*, a));
 
     // Add series to the end of the mark stack series.  The length must be
     // maintained accurately to know when the stack needs to grow.
@@ -262,23 +255,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     REBNOD *binding = v->extra.binding;
 
   #if !defined(NDEBUG)
-    if (binding->header.bits & NODE_FLAG_CELL) {
-        if (binding != UNBOUND) { // has CELL bit set, but not a cell...
-            assert(v->header.bits & CELL_FLAG_STACK);
-
-            REBFRM *f = FRM(binding);
-            assert(f->eval_type == REB_ACTION);
-
-            REBFRM *temp = FS_TOP;
-            while (temp != NULL) {
-                if (temp == f)
-                    break;
-                temp = temp->prior;
-            }
-            assert(temp); // should have been on the stack, still...
-        }
-    }
-    else if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
+    if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
         //
         // It's an action, any reasonable added check?
     }
@@ -286,18 +263,21 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
         //
         // It's a context, any reasonable added check?
     }
+    else if (binding == UNBOUND) {
+        //
+        // only has NODE_FLAG_MANAGED set
+    }
     else {
+        assert(IS_VARARGS(v));
         assert(binding->header.bits & SERIES_FLAG_ARRAY);
-        if (IS_VARARGS(v)) {
-            assert(binding != UNBOUND);
-            assert(NOT_SER_INFO(binding, SERIES_INFO_HAS_DYNAMIC)); // single
-        } else
-            assert(binding == UNBOUND);
+        assert(NOT_SER_INFO(binding, SERIES_INFO_HAS_DYNAMIC)); // singular
     }
   #endif
 
-    if (not (binding->header.bits & NODE_FLAG_CELL)) // UNBOUND has CELL set
-        Queue_Mark_Array_Subclass_Deep(ARR(binding));
+    if (binding->header.bits & NODE_FLAG_MANAGED) {
+        if (binding != UNBOUND) // finesse with NODE_FLAG_MARKED on UNBOUND
+            Queue_Mark_Array_Subclass_Deep(ARR(binding));
+    }
 }
 
 
@@ -586,7 +566,7 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         //
         Queue_Mark_Binding_Deep(v);
 
-    #if !defined(NDEBUG)
+      #if !defined(NDEBUG)
         if (v->extra.binding != UNBOUND) {
             assert(CTX_TYPE(context) == REB_FRAME);
 
@@ -601,17 +581,19 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
             }
             else {
                 struct Reb_Frame *f = CTX_FRAME_IF_ON_STACK(context);
-                if (f != NULL) // comes from execution, not MAKE FRAME!
-                    assert(v->extra.binding == f->binding);
+                if (f) // comes from execution, not MAKE FRAME!
+                    assert(v->extra.binding == FRM_BINDING(f));
             }
         }
-    #endif
+      #endif
 
         REBACT *phase = v->payload.any_context.phase;
         if (phase) {
-            assert(CTX_TYPE(context) == REB_FRAME);
+            assert(VAL_TYPE(v) == REB_FRAME); // may be heap-based frame
             Queue_Mark_Action_Deep(phase);
         }
+        else
+            assert(VAL_TYPE(v) != REB_FRAME); // phase if-and-only-if frame
 
         if (GET_SER_INFO(context, SERIES_INFO_INACCESSIBLE))
             break;
@@ -747,7 +729,7 @@ static void Propagate_All_GC_Marks(void)
         // We should have marked this series at queueing time to keep it from
         // being doubly added before the queue had a chance to be processed
          //
-        assert(Is_Rebser_Marked(SER(a)));
+        assert(SER(a)->header.bits & NODE_FLAG_MARKED);
 
     #ifdef HEAVY_CHECKS
         //
@@ -809,7 +791,7 @@ static void Propagate_All_GC_Marks(void)
             // to Queue_Mark_Context_Deep.
 
             REBNOD *keysource = LINK(a).keysource;
-            if (IS_NODE_REBFRM(keysource)) {
+            if (keysource->header.bits & NODE_FLAG_CELL) {
                 //
                 // Must be a FRAME! and it must be on the stack running.  If
                 // it has stopped running, then the keylist must be set to
@@ -985,6 +967,10 @@ static void Mark_Root_Series(void)
             //
             assert(not (s->header.bits & NODE_FLAG_MARKED));
 
+            // Is either GHOST or a managed frame context.
+            //
+            assert(LINK(s).owner->header.bits & NODE_FLAG_MANAGED);
+
             if (GET_SER_FLAG(s, NODE_FLAG_MANAGED)) {
                 if (
                     cast(REBSER*, LINK(s).owner)->info.bits
@@ -1119,7 +1105,7 @@ static void Mark_Guarded_Nodes(void)
     REBCNT n = SER_LEN(GC_Guarded);
     for (; n > 0; --n, ++np) {
         REBNOD *node = *np;
-        if (IS_NODE_CELL(node)) {
+        if (node->header.bits & NODE_FLAG_CELL) {
             if (not (node->header.bits & CELL_FLAG_END))
                 Queue_Mark_Opt_Value_Deep(cast(REBVAL*, node));
         }
@@ -1201,12 +1187,9 @@ static void Mark_Frame_Stack_Deep(void)
             // path resolves...
         }
 
-        if (NOT_NODE_CELL(f->specifier)) {
-            assert(
-                f->specifier == SPECIFIED
-                or (f->specifier->header.bits & ARRAY_FLAG_VARLIST)
-            );
-            Queue_Mark_Array_Subclass_Deep(ARR(f->specifier));
+        if (f->specifier->header.bits & NODE_FLAG_MANAGED) {
+            if (f->specifier != SPECIFIED)
+                Queue_Mark_Context_Deep(CTX(f->specifier));
         }
 
         if (NOT_END(f->out)) // never NULL, always initialized bit pattern
@@ -1231,47 +1214,42 @@ static void Mark_Frame_Stack_Deep(void)
             continue;
         }
 
-        Queue_Mark_Action_Deep(f->phase); // never NULL
-        Queue_Mark_Action_Deep(f->original); // also never NULL
+        Queue_Mark_Action_Deep(f->original); // never NULL
         if (f->opt_label) // will be null if no symbol
             Mark_Rebser_Only(f->opt_label);
 
-        if (Is_Action_Frame_Fulfilling(f))
-            assert(f->reified == GHOST); // can't reify until fulfilled
-        else {
-            if (f->reified != GHOST)
-                Queue_Mark_Context_Deep(CTX(f->reified));
+        // refine and special can be used to GC protect an arbitrary
+        // value while a function is running, currently.  (A more
+        // important purpose may come up...)
 
-            assert(IS_END(f->param)); // indicates function is running
+        if (NOT_END(f->refine))
+            Queue_Mark_Opt_Value_Deep(f->refine);
 
-            // refine and special can be used to GC protect an arbitrary
-            // value while a function is running, currently.  (A more
-            // important purpose may come up...)
+        if (NOT_END(f->special))
+            Queue_Mark_Opt_Value_Deep(f->special);
 
-            if (NOT_END(f->refine))
-                Queue_Mark_Opt_Value_Deep(f->refine);
-
-            if (NOT_END(f->special))
-                Queue_Mark_Opt_Value_Deep(f->special);
+        if (f->varlist and GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
+            //
+            // If the context is all set up with valid values and managed,
+            // then it can just be marked normally...no need to do custom
+            // partial parameter traversal.
+            //
+            assert(IS_END(f->param)); // done walking
+            Queue_Mark_Context_Deep(CTX(f->varlist));
+            continue;
         }
 
-        // (Although the above will mark the varlist, it may not mark the
-        // values...because it may be a single element array that merely
-        // points at the stackvars.  Queue_Mark_Context expects stackvars
-        // to be marked separately.)
-
-        // The slots may be stack based or dynamic.  Mark in use but only
-        // as far as parameter filling has gotten (may be garbage bits
-        // past that).  Could also be an END value of an in-progress arg
-        // fulfillment, but in that case it is protected by the evaluating
-        // frame's f->out.
+        // Mark arguments as used, but only as far as parameter filling has
+        // gotten (may be garbage bits past that).  Could also be an END value
+        // of an in-progress arg fulfillment, but in that case it is protected
+        // by the *evaluating frame's f->out* (!)
         //
-        // Refinements need special treatment, and also consideration
-        // of if this is the "doing pickups" or not.  If doing pickups
-        // then skip the cells for pending refinement arguments.
+        // Refinements need special treatment, and also consideration of if
+        // this is the "doing pickups" or not.  If doing pickups then skip the
+        // cells for pending refinement arguments.
         //
-        REBVAL *param = ACT_FACADE_HEAD(f->phase);
-        REBVAL *arg = f->args_head;
+        REBVAL *param = ACT_FACADE_HEAD(FRM_PHASE(f));
+        REBVAL *arg = FRM_ARGS_HEAD(f);
         for (; NOT_END(param); ++param, ++arg) {
             //
             // At time of writing, all frame storage is in stack cells...not
@@ -1467,8 +1445,8 @@ REBCNT Fill_Sweeplist(REBSER *sweeplist)
             switch (FIRST_BYTE(s->header) >> 4) {
             case 9: // 0x8 + 0x1
                 assert(IS_SERIES_MANAGED(s));
-                if (Is_Rebser_Marked(s))
-                    Unmark_Rebser(s);
+                if (s->header.bits & NODE_FLAG_MARKED)
+                    s->header.bits &= ~NODE_FLAG_MARKED;
                 else {
                     EXPAND_SERIES_TAIL(sweeplist, 1);
                     *SER_AT(REBNOD*, sweeplist, count) = NOD(s);
@@ -1484,8 +1462,8 @@ REBCNT Fill_Sweeplist(REBSER *sweeplist)
                 // !!! It is a REBNOD, but *not* a "series".
                 //
                 assert(IS_SERIES_MANAGED(s));
-                if (Is_Rebser_Marked(s))
-                    Unmark_Rebser(s);
+                if (s->header.bits & NODE_FLAG_MARKED)
+                    s->header.bits &= ~NODE_FLAG_MARKED;
                 else {
                     EXPAND_SERIES_TAIL(sweeplist, 1);
                     *SER_AT(REBNOD*, sweeplist, count) = NOD(s);
@@ -1685,7 +1663,7 @@ REBCNT Recycle(void)
 void Guard_Node_Core(const REBNOD *node)
 {
 #if !defined(NDEBUG)
-    if (IS_NODE_CELL(node)) {
+    if (node->header.bits & NODE_FLAG_CELL) {
         //
         // It is a value.  Cheap check: require that it already contain valid
         // data when the guard call is made (even if GC isn't necessarily

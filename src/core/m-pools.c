@@ -161,19 +161,6 @@ void Free_Mem(void *mem, size_t size)
 }
 
 
-inline static REBCNT FIND_POOL(size_t size) {
-  #if !defined(NDEBUG)
-    if (PG_Always_Malloc)
-        return SYSTEM_POOL;
-  #endif
-
-    if (size > 4 * MEM_BIG_SIZE)
-        return SYSTEM_POOL;
-
-    return PG_Pool_Map[size]; // ((4 * MEM_BIG_SIZE) + 1) entries
-}
-
-
 /***********************************************************************
 **
 **  MEMORY POOLS
@@ -465,163 +452,6 @@ void Fill_Pool(REBPOL *pool)
 }
 
 
-//
-//  Did_Series_Data_Alloc: C
-//
-// Allocates element array for an already allocated REBSER node structure.
-// Resets the bias and tail to zero, and sets the new width.  Flags like
-// SERIES_FLAG_FIXED_SIZE are left as they were, and other fields in the
-// series structure are untouched.
-//
-// This routine can thus be used for an initial construction or an operation
-// like expansion.
-//
-REBOOL Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
-    assert(NOT_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
-
-    REBYTE wide = SER_WIDE(s);
-    assert(wide != 0);
-
-    REBCNT size; // size of allocation (possibly bigger than we need)
-
-    REBCNT pool_num = FIND_POOL(length * wide);
-    if (pool_num < SYSTEM_POOL) {
-        // ...there is a pool designated for allocations of this size range
-        s->content.dynamic.data = cast(char*, Make_Node(pool_num));
-        if (not s->content.dynamic.data)
-            return false;
-
-        // The pooled allocation might wind up being larger than we asked.
-        // Don't waste the space...mark as capacity the series could use.
-        size = Mem_Pools[pool_num].wide;
-        assert(size >= length * wide);
-
-        // We don't round to power of 2 for allocations in memory pools
-        CLEAR_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
-    }
-    else {
-        // ...the allocation is too big for a pool.  But instead of just
-        // doing an unpooled allocation to give you the size you asked
-        // for, the system does some second-guessing to align to 2Kb
-        // boundaries (or choose a power of 2, if requested).
-
-        size = length * wide;
-        if (GET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2)) {
-            REBCNT len = 2048;
-            while (len < size)
-                len *= 2;
-            size = len;
-
-            // Clear the power of 2 flag if it isn't necessary, due to even
-            // divisibility by the item width.
-            //
-            if (size % wide == 0)
-                CLEAR_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
-        }
-
-        s->content.dynamic.data = ALLOC_N(char, size);
-        if (not s->content.dynamic.data)
-            return false;
-
-        Mem_Pools[SYSTEM_POOL].has += size;
-        Mem_Pools[SYSTEM_POOL].free++;
-    }
-
-    // Note: Bias field may contain other flags at some point.  Because
-    // SER_SET_BIAS() uses bit masking on an existing value, we are sure
-    // here to clear out the whole value for starters.
-    //
-    s->content.dynamic.bias = 0;
-
-    // The allocation may have returned more than we requested, so we note
-    // that in 'rest' so that the series can expand in and use the space.
-    // Note that it wastes remainder if size % wide != 0 :-(
-    //
-    s->content.dynamic.rest = size / wide;
-
-    // We set the tail of all series to zero initially, but currently do
-    // leave series termination to callers.  (This is under review.)
-    //
-    s->content.dynamic.len = 0;
-
-    // Currently once a series becomes dynamic, it never goes back.  There is
-    // no shrinking process that will pare it back to fit completely inside
-    // the REBSER node.
-    //
-    SET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC);
-
-    // See if allocation tripped our need to queue a garbage collection
-
-    if ((GC_Ballast -= size) <= 0)
-        SET_SIGNAL(SIG_RECYCLE);
-
-  #if !defined(NDEBUG)
-    if (pool_num >= SYSTEM_POOL)
-        assert(Series_Allocation_Unpooled(s) == size);
-  #endif
-
-    if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
-        assert(wide == sizeof(REBVAL));
-
-        REBCNT n;
-
-      #if !defined(NDEBUG)
-        PG_Reb_Stats->Blocks++;
-      #endif
-
-        // For REBVAL-valued-arrays, we mark as trash to mark the "settable"
-        // bit, heeded by both SET_END() and RESET_HEADER().  See remarks on
-        // VALUE_FLAG_CELL for why this is done.
-        //
-        // Note that the "len" field of the series (its number of valid
-        // elements as maintained by the client) will be 0.  As far as this
-        // layer is concerned, we've given back `length` entries for the
-        // caller to manage...they do not know about the ->rest
-        //
-        for (n = 0; n < length; n++)
-            Prep_Non_Stack_Cell(ARR_AT(ARR(s), n));
-
-        // !!! We should intentionally mark the overage range as not having
-        // NODE_FLAG_CELL in the debug build.  Then have the series go through
-        // an expansion to overrule it.
-        //
-        // That's complicated logic that is likely best done in the context of
-        // a simplifying review of the series mechanics themselves.  So
-        // for now we just use ordinary trash...which means we don't get
-        // as much potential debug warning as we might when writing into
-        // bias or tail capacity.
-        //
-        // !!! Also, should the release build do the NODE_FLAG_CELL setting
-        // up front, or only on expansions?
-        //
-        for(; n < s->content.dynamic.rest - 1; n++) {
-            Prep_Non_Stack_Cell(ARR_AT(ARR(s), n));
-        }
-
-        // The convention is that the *last* cell in the allocated capacity
-        // is an unwritable end.  This may be located arbitrarily beyond the
-        // capacity the user requested, if a pool unit was used that was
-        // bigger than they asked for...but this will be used in expansion.
-        //
-        // Having an unwritable END in that spot paves the way for more forms
-        // of implicit termination.  In theory one should not need 5 cells
-        // to hold an array of length 4...the 5th header position can merely
-        // mark termination with the low bit clear.
-        //
-        // Currently only singular arrays exploit this, but since they exist
-        // they must be accounted for.  Because callers cannot write past the
-        // capacity they requested, they must use TERM_ARRAY_LEN(), which
-        // avoids writing the unwritable locations by checking for END first.
-        //
-        RELVAL *ultimate = ARR_AT(ARR(s), s->content.dynamic.rest - 1);
-        Init_Endlike_Header(&ultimate->header, 0);
-        TRACK_CELL_IF_DEBUG(ultimate, __FILE__, __LINE__);
-    }
-
-    return true;
-}
-
-
 #if !defined(NDEBUG)
 
 //
@@ -828,7 +658,10 @@ void Free_Pairing(REBVAL *paired) {
 // ahead to account for unused capacity at the head of the
 // allocation.  They also must know the total allocation size.
 //
-static void Free_Unbiased_Series_Data(char *unbiased, REBCNT size_unpooled)
+// !!! Ideally this wouldn't be exported, but series data is now used to hold
+// function arguments.
+//
+void Free_Unbiased_Series_Data(char *unbiased, REBCNT size_unpooled)
 {
     REBCNT pool_num = FIND_POOL(size_unpooled);
     REBPOL *pool;
@@ -1054,12 +887,14 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     // The new series will *always* be dynamic, because it would not be
     // expanding if a fixed size allocation was sufficient.
 
-    CLEAR_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC);
+    SET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC); // series alloc caller sets
     SET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
     if (not Did_Series_Data_Alloc(s, len_old + delta + x))
         fail (Error_No_Memory((len_old + delta + x) * wide));
 
     assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
+    if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY))
+        Prep_Array(ARR(s));
 
     // If necessary, add series to the recently expanded list
     //
@@ -1203,13 +1038,15 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
     // a REBSER.  All series code needs a general audit, so that should be one
     // of the things considered.
 
-    CLEAR_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC);
+    SET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC); // series alloc caller sets
     if (not Did_Series_Data_Alloc(s, units + 1)) {
         // Put series back how it was (there may be extant references)
         s->content.dynamic.data = cast(char*, data_old);
         fail (Error_No_Memory((units + 1) * wide));
     }
     assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
+    if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY))
+        Prep_Array(ARR(s));
 
     if (preserve) {
         // Preserve as much data as possible (if it was requested, some
@@ -1252,15 +1089,22 @@ void Decay_Series(REBSER *s)
     }
 
     if (GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC)) {
-        REBCNT size = SER_TOTAL(s);
+        REBCNT unpooled = Series_Allocation_Unpooled(s);
 
         REBYTE wide = SER_WIDE(s);
         REBCNT bias = SER_BIAS(s);
-        s->content.dynamic.data -= wide * bias;
-        Free_Unbiased_Series_Data(
-            s->content.dynamic.data,
-            Series_Allocation_Unpooled(s)
-        );
+        char *unbiased = s->content.dynamic.data - (wide * bias);
+
+        // !!! Contexts and actions keep their archetypes, for now, in the
+        // now collapsed node.  For FRAME! this means holding onto the binding
+        // which winds up being used in Derelativize().  See SPC_BINDING.
+        // Preserving ACTION!'s archetype is speculative--to point out the
+        // possibility exists for the other array with a "canon" [0]
+        //
+        if (ANY_SER_FLAGS(s, ARRAY_FLAG_VARLIST | ARRAY_FLAG_PARAMLIST))
+            memcpy(&s->content.fixed, ARR_HEAD(ARR(s)), sizeof(REBVAL));
+
+        Free_Unbiased_Series_Data(unbiased, unpooled);
 
         // !!! This indicates reclaiming of the space, not for the series
         // nodes themselves...have they never been accounted for, e.g. in
@@ -1270,7 +1114,11 @@ void Decay_Series(REBSER *s)
         // level" allocations.
 
         int tmp;
-        GC_Ballast = REB_I32_ADD_OF(GC_Ballast, size, &tmp) ? INT32_MAX : tmp;
+        GC_Ballast = REB_I32_ADD_OF(GC_Ballast, unpooled, &tmp)
+            ? INT32_MAX
+            : tmp;
+
+        CLEAR_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC);
     }
     else {
         // Special GC processing for HANDLE! when the handle is implemented as

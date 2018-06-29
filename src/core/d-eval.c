@@ -121,10 +121,6 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
     // multiple calls by something like REDUCE or FORM, accumulating items
     // on the data stack or mold stack/etc.  See Drop_Frame_Core() for the
     // actual balance check.
-    //
-  #ifdef DEBUG_BALANCE_STATE
-    assert(f->state.top_chunk == TG_Top_Chunk);
-  #endif
 
     assert(f == FS_TOP);
     assert(DSP == f->dsp_orig);
@@ -155,9 +151,9 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
     }
 
     // We only have a label if we are in the middle of running a function,
-    // and if we're not running a function then f->phase should be NULL.
+    // and if we're not running a function then f->original should be null.
     //
-    assert(f->phase == NULL);
+    assert(f->original == nullptr);
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label));
 
     //=//// ^-- ABOVE CHECKS *ALWAYS* APPLY ///////////////////////////////=//
@@ -255,15 +251,14 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
     // hold valid values.
 
     TRASH_POINTER_IF_DEBUG(f->param);
-    TRASH_POINTER_IF_DEBUG(f->args_head);
     TRASH_POINTER_IF_DEBUG(f->arg);
     TRASH_POINTER_IF_DEBUG(f->special);
     TRASH_POINTER_IF_DEBUG(f->refine);
 
-    TRASH_POINTER_IF_DEBUG(f->original);
-    TRASH_POINTER_IF_DEBUG(f->binding);
-
-    assert(f->reified == GHOST);
+    assert(
+        not f->varlist
+        or NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)
+    );
 
     // Mutate va_list sources into arrays at fairly random moments in the
     // debug build.  It should be able to handle it at any time.
@@ -279,11 +274,11 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
 //  Do_Process_Action_Checks_Debug: C
 //
 void Do_Process_Action_Checks_Debug(REBFRM *f) {
-    assert(f->param == ACT_FACADE_HEAD(f->phase));
+    assert(f->param == ACT_FACADE_HEAD(FRM_PHASE(f)));
 
     if (f->refine == ORDINARY_ARG) {
         if (NOT_END(f->out))
-            assert(GET_ACT_FLAG(f->phase, ACTION_FLAG_INVISIBLE));
+            assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
     }
     else
         assert(f->refine == LOOKBACK_ARG);
@@ -326,8 +321,10 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     // double checks any function marked with RETURN in the debug build,
     // so native return types are checked instead of just trusting the C.
     //
-    if (GET_ACT_FLAG(f->phase, ACTION_FLAG_RETURN)) {
-        REBVAL *typeset = ACT_PARAM(f->phase, ACT_NUM_PARAMS(f->phase));
+    REBACT *phase = FRM_PHASE(f);
+
+    if (GET_ACT_FLAG(phase, ACTION_FLAG_RETURN)) {
+        REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
         assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
         if (not TYPE_CHECK(typeset, VAL_TYPE(f->out))) {
             printf("Native code violated return type contract!\n");

@@ -82,10 +82,7 @@ inline static REBOOL Is_Block_Style_Varargs(
 ){
     assert(IS_VARARGS(vararg));
 
-    if (
-        IS_NODE_CELL(vararg->extra.binding)
-        or (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
-    ){
+    if (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST) {
         TRASH_POINTER_IF_DEBUG(*shared_out);
         return FALSE; // it's an ordinary vararg, representing a FRAME!
     }
@@ -111,10 +108,7 @@ inline static REBOOL Is_Frame_Style_Varargs_Maybe_Null(
 ){
     assert(IS_VARARGS(vararg));
 
-    if (
-        NOT_NODE_CELL(vararg->extra.binding)
-        and not (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
-    ){
+    if (not (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)) {
         TRASH_POINTER_IF_DEBUG(*f);
         return false; // it's a block varargs, made via MAKE VARARGS!
     }
@@ -122,11 +116,7 @@ inline static REBOOL Is_Frame_Style_Varargs_Maybe_Null(
     // "Ordinary" case... use the original frame implied by the VARARGS!
     // (so long as it is still live on the stack)
 
-    if (IS_NODE_REBFRM(vararg->extra.binding))
-        *f = FRM(vararg->extra.binding);
-    else
-        *f = CTX_FRAME_IF_ON_STACK(CTX(vararg->extra.binding));
-
+    *f = CTX_FRAME_IF_ON_STACK(CTX(vararg->extra.binding));
     return true;
 }
 
@@ -156,10 +146,7 @@ inline static const REBVAL *Param_For_Varargs_Maybe_Null(const RELVAL *v) {
         // so no typeset or quoting settings available.  Treat as "normal"
         // parameter.
         //
-        assert(
-            NOT_NODE_CELL(v->extra.binding)
-            and not (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
-        );
+        assert(not (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST));
         param = NULL; // doesn't correspond to a real varargs parameter
     }
     else
