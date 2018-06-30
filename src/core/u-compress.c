@@ -138,18 +138,22 @@ REBYTE *Compress_Alloc_Core(
     REBCNT *out_len,
     const unsigned char* input,
     REBCNT in_len,
-    REBSYM envelope // SYM_0, SYM_ZLIB, or SYM_GZIP
+    REBSTR *envelope // NONE, ZLIB, or GZIP... null defaults GZIP
 ){
     z_stream strm;
     strm.zalloc = &zalloc; // fail() cleans up automatically, see notes
     strm.zfree = &zfree;
-    strm.opaque = NULL; // passed to zalloc and zfree, not needed currently
+    strm.opaque = nullptr; // passed to zalloc and zfree, not needed currently
 
-    int window_bits;
-    switch (envelope) {
-    default:
-        assert(FALSE);
-    case SYM_0:
+    int window_bits = window_bits_gzip;
+    if (not envelope) {
+        //
+        // See notes in Decompress_Alloc_Core() about why gzip is chosen to
+        // be invocable via nullptr for bootstrap; not really applicable to
+        // the compression side, but might as well be consistent.
+    }
+    else switch (STR_SYMBOL(envelope)) {
+    case SYM_NONE:
         window_bits = window_bits_zlib_raw;
         break;
 
@@ -160,6 +164,9 @@ REBYTE *Compress_Alloc_Core(
     case SYM_GZIP:
         window_bits = window_bits_gzip;
         break;
+
+    default:
+        assert(FALSE); // release build keeps default
     }
 
     // compression level can be a value from 1 to 9, or Z_DEFAULT_COMPRESSION
@@ -193,7 +200,7 @@ REBYTE *Compress_Alloc_Core(
         fail (Error_Compression(&strm, ret_deflate));
 
     assert(strm.total_out == buf_size - strm.avail_out);
-    if (out_len != NULL)
+    if (out_len)
         *out_len = strm.total_out;
 
   #if !defined(NDEBUG)
@@ -201,7 +208,7 @@ REBYTE *Compress_Alloc_Core(
     // GZIP contains a 32-bit length of the uncompressed data (modulo 2^32),
     // at the tail of the compressed data.  Sanity check that it's right.
     //
-    if (envelope == SYM_GZIP) {
+    if (envelope and STR_SYMBOL(envelope) == SYM_GZIP) {
         uint32_t gzip_len = Bytes_To_U32_BE(
             output + strm.total_out - sizeof(uint32_t)
         );
@@ -231,22 +238,26 @@ REBYTE *Decompress_Alloc_Core(
     const REBYTE *input,
     REBCNT len_in,
     REBINT max,
-    REBSYM envelope // SYM_0, SYM_ZLIB, SYM_GZIP, or SYM_DETECT
+    REBSTR *envelope // NONE, ZLIB, GZIP, or DETECT... null defaults GZIP
 ){
     z_stream strm;
     strm.zalloc = &zalloc; // fail() cleans up automatically, see notes
     strm.zfree = &zfree;
-    strm.opaque = NULL; // passed to zalloc and zfree, not needed currently
+    strm.opaque = nullptr; // passed to zalloc and zfree, not needed currently
     strm.total_out = 0;
 
     strm.avail_in = len_in;
     strm.next_in = input;
 
-    int window_bits;
-    switch (envelope) {
-    default:
-        assert(FALSE);
-    case SYM_0:
+    int window_bits = window_bits_gzip;
+    if (not envelope) {
+        //
+        // The reason GZIP is chosen as the default is because the symbols
+        // in %words.r are loaded as part of the boot process from code that
+        // is compressed with GZIP, so it's a Catch-22 otherwise.
+    }
+    else switch (STR_SYMBOL(envelope)) {
+    case SYM_NONE:
         window_bits = window_bits_zlib_raw;
         break;
 
@@ -261,6 +272,9 @@ REBYTE *Decompress_Alloc_Core(
     case SYM_DETECT:
         window_bits = window_bits_detect_zlib_gzip;
         break;
+
+    default:
+        assert(FALSE); // fall through with default in release build
     }
 
     int ret_init = inflateInit2(&strm, window_bits);
@@ -269,8 +283,9 @@ REBYTE *Decompress_Alloc_Core(
 
     REBCNT buf_size;
     if (
-        envelope == SYM_GZIP // embedded size trusted if not SYM_DETECT
-        and len_in < 4161808 // (2^32 / 1032 + 18) -> 1032 is max deflate ratio
+        envelope
+        and STR_SYMBOL(envelope) == SYM_GZIP // not DETECT...trust stored size
+        and len_in < 4161808 // (2^32 / 1032 + 18) ->1032 is max deflate ratio
     ){ 
         const REBSIZ gzip_min_overhead = 18; // at *least* 18 bytes
         if (len_in < gzip_min_overhead)
@@ -321,7 +336,7 @@ REBYTE *Decompress_Alloc_Core(
     // Loop through and allocate a larger buffer each time we find the
     // decompression did not run to completion.  Stop if we exceed max.
     //
-    while (TRUE) {
+    while (true) {
         int ret_inflate = inflate(&strm, Z_NO_FLUSH);
 
         if (ret_inflate == Z_STREAM_END)
@@ -366,7 +381,7 @@ REBYTE *Decompress_Alloc_Core(
     if (strm.total_out - buf_size > 1024)
         output = cast(REBYTE*, rebRealloc(output, strm.total_out));
 
-    if (len_out != NULL)
+    if (len_out)
         *len_out = strm.total_out;
 
     inflateEnd(&strm); // done last (so strm variables can be read up to end)

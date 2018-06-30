@@ -540,7 +540,9 @@ REBNATIVE(wake_up)
         // support".  Added assertion and convention here that this call
         // doesn't throw or return meaningful data... (?)
         //
-        REB_R r = Do_Port_Action(frame_, port, SYM_ON_WAKE_UP);
+        DECLARE_LOCAL (verb);
+        Init_Word(verb, Canon(SYM_ON_WAKE_UP));
+        REB_R r = Do_Port_Action(frame_, port, verb);
         assert(r == R_BAR);
         UNUSED(r);
     }

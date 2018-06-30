@@ -1014,7 +1014,7 @@ REBTYPE(Gob)
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     // unary actions
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
 
@@ -1094,7 +1094,7 @@ REBTYPE(Gob)
         if (!GOB_PANE(gob) || index >= tail)
             fail (Error_Past_End_Raw());
         if (
-            verb == SYM_CHANGE
+            VAL_WORD_SYM(verb) == SYM_CHANGE
             && (REF(part) || REF(only) || REF(dup))
         ){
             UNUSED(PAR(limit));
@@ -1103,7 +1103,7 @@ REBTYPE(Gob)
         }
 
         Insert_Gobs(gob, arg, index, 1, FALSE);
-        if (verb == SYM_POKE) {
+        if (VAL_WORD_SYM(verb) == SYM_POKE) {
             Move_Value(D_OUT, arg);
             return R_OUT;
         }

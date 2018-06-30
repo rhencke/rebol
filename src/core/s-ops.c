@@ -182,7 +182,7 @@ REBSER *Temp_UTF8_At_Managed(
 //
 // Only valid for BINARY data.
 //
-REBSER *Xandor_Binary(REBCNT verb, REBVAL *value, REBVAL *arg)
+REBSER *Xandor_Binary(REBVAL *verb, REBVAL *value, REBVAL *arg)
 {
     REBYTE *p0 = VAL_BIN_AT(value);
     REBYTE *p1 = VAL_BIN_AT(arg);
@@ -224,7 +224,7 @@ REBSER *Xandor_Binary(REBCNT verb, REBVAL *value, REBVAL *arg)
 
     REBYTE *p2 = BIN_HEAD(series);
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
     case SYM_INTERSECT: { // and
         REBCNT i;
         for (i = 0; i < mt; i++)
@@ -244,16 +244,16 @@ REBSER *Xandor_Binary(REBCNT verb, REBVAL *value, REBVAL *arg)
             *p2++ = *p0++ ^ *p1++;
         break; }
 
-    default: {
-        //
-        // special bit set case EXCLUDE
-        //
+    case SYM_EXCLUDE: { // !!! not a "type action", word manually in %words.r
         REBCNT i;
         for (i = 0; i < mt; i++)
             *p2++ = *p0++ & ~*p1++;
         if (t0 > t1)
             memcpy(p2, p0, t0 - t1); // residual from first only
         return series; }
+
+    default:
+        fail (Error_Illegal_Action(REB_BINARY, verb));
     }
 
     // Copy the residual

@@ -349,16 +349,18 @@ REBTYPE(Decimal)
 
     REBDEC d1 = VAL_DECIMAL(val);
 
+    REBSYM sym = VAL_WORD_SYM(verb);
+
     // !!! This used to use IS_BINARY_ACT() which is no longer available with
     // symbol-based dispatch.  Consider doing this another way.
     //
     if (
-        verb == SYM_ADD
-        || verb == SYM_SUBTRACT
-        || verb == SYM_MULTIPLY
-        || verb == SYM_DIVIDE
-        || verb == SYM_REMAINDER
-        || verb == SYM_POWER
+        sym == SYM_ADD
+        || sym == SYM_SUBTRACT
+        || sym == SYM_MULTIPLY
+        || sym == SYM_DIVIDE
+        || sym == SYM_REMAINDER
+        || sym == SYM_POWER
     ){
         arg = D_ARG(2);
         type = VAL_TYPE(arg);
@@ -368,8 +370,8 @@ REBTYPE(Decimal)
             or type == REB_MONEY
             or type == REB_TIME
         ) and (
-            verb == SYM_ADD ||
-            verb == SYM_MULTIPLY
+            sym == SYM_ADD ||
+            sym == SYM_MULTIPLY
         )){
             Move_Value(D_OUT, D_ARG(2));
             Move_Value(D_ARG(2), D_ARG(1));
@@ -389,7 +391,7 @@ REBTYPE(Decimal)
             }
             else if (type == REB_PERCENT) {
                 d2 = VAL_DECIMAL(arg);
-                if (verb == SYM_DIVIDE)
+                if (sym == SYM_DIVIDE)
                     type = REB_DECIMAL;
                 else if (not IS_PERCENT(val))
                     type = VAL_TYPE(val);
@@ -407,7 +409,7 @@ REBTYPE(Decimal)
                 type = REB_DECIMAL;
             }
 
-            switch (verb) {
+            switch (sym) {
 
             case SYM_ADD:
                 d1 += d2;
@@ -425,7 +427,7 @@ REBTYPE(Decimal)
             case SYM_REMAINDER:
                 if (d2 == 0.0)
                     fail (Error_Zero_Divide_Raw());
-                if (verb == SYM_DIVIDE)
+                if (sym == SYM_DIVIDE)
                     d1 /= d2;
                 else
                     d1 = fmod(d1, d2);
@@ -453,7 +455,7 @@ REBTYPE(Decimal)
     type = VAL_TYPE(val);
 
     // unary actions
-    switch (verb) {
+    switch (sym) {
 
     case SYM_COPY:
         Move_Value(D_OUT, val);

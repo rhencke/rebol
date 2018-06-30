@@ -30,6 +30,11 @@
 
 #include <ffi.h>
 
+// "Routine INfo" was once a specialized C structure, now an ordinary
+// Rebol REBARR pointer.
+//
+typedef REBARR REBRIN;
+
 
 // Returns an ffi_type* (which contains a ->type field, that holds the
 // FFI_TYPE_XXX enum).
@@ -497,7 +502,7 @@ extern void callback_dispatcher(
 );
 extern void cleanup_ffi_closure(const REBVAL *v);
 
-extern REB_R T_Struct(REBFRM *frame_, REBSYM action);
+extern REB_R T_Struct(REBFRM *frame_, REBVAL *verb);
 extern REB_R PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval);
 extern REBINT CT_Struct(const RELVAL *a, const RELVAL *b, REBINT mode);
 extern void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);

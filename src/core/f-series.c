@@ -42,7 +42,7 @@
 //
 REB_R Series_Common_Action_Maybe_Unhandled(
     REBFRM *frame_,
-    REBSYM verb
+    REBVAL *verb
 ){
     REBVAL *value = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
@@ -50,7 +50,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
     REBINT index = cast(REBINT, VAL_INDEX(value));
     REBINT tail = cast(REBINT, VAL_LEN_HEAD(value));
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         REBSYM property = VAL_WORD_SYM(arg);
@@ -122,7 +122,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         REBINT len = Get_Num_From_Arg(arg);
         REBI64 i;
-        if (verb == SYM_SKIP) {
+        if (VAL_WORD_SYM(verb) == SYM_SKIP) {
             //
             // `skip x logic` means `either logic [skip x] [x]` (this is
             // reversed from R3-Alpha and Rebol2, which skipped when false)
@@ -140,7 +140,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
             }
         }
         else {
-            assert(verb == SYM_AT);
+            assert(VAL_WORD_SYM(verb) == SYM_AT);
 
             // `at series 1` means first element, adjust index
             //

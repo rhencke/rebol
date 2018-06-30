@@ -135,7 +135,7 @@ REBVAL *Find_Last_Event(REBINT model, REBINT type)
 //
 // Internal port handler for events.
 //
-static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
@@ -151,7 +151,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
     if (!IS_BLOCK(state))
         Init_Block(state, Make_Array(EVENTS_CHUNK - 1));
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
@@ -200,9 +200,9 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         REB_R r = T_Array(frame_, verb);
         SET_SIGNAL(SIG_EVENT_PORT);
         if (
-            verb == SYM_INSERT
-            || verb == SYM_APPEND
-            || verb == SYM_REMOVE
+            VAL_WORD_SYM(verb) == SYM_INSERT
+            || VAL_WORD_SYM(verb) == SYM_APPEND
+            || VAL_WORD_SYM(verb) == SYM_REMOVE
         ){
             Move_Value(D_OUT, save_port);
             return R_OUT;

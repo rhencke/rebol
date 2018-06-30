@@ -480,7 +480,7 @@ inline static void Push_Action(
         //assert(SER_BIAS(s) == 0);
         Free_Unbiased_Series_Data(
             s->content.dynamic.data,
-            Series_Allocation_Unpooled(s)
+            SER_TOTAL(s)
         );
     }
 

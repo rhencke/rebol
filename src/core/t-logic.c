@@ -428,7 +428,7 @@ REBTYPE(Logic)
     REBOOL val1 = VAL_LOGIC(D_ARG(1));
     REBOOL val2;
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_INTERSECT:
         val2 = Math_Arg_For_Logic(D_ARG(2));

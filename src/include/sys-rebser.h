@@ -967,10 +967,6 @@ struct Reb_Array {
     struct Reb_Series series; // http://stackoverflow.com/a/9747062
 };
 
-struct Reb_Action {
-    struct Reb_Array paramlist;
-};
-
 struct Reb_Context {
     struct Reb_Array varlist; // keylist is held in ->link.keylist
 };
@@ -1050,36 +1046,6 @@ struct Reb_Context {
         return reinterpret_cast<REBARR*>(p);
     }
 
-    template <class T>
-    inline REBACT *ACT(T *p) {
-        constexpr bool derived = std::is_same<REBACT, void>::value;
-
-        constexpr bool base = std::is_same<T, void>::value
-            or std::is_same<T, REBNOD>::value
-            or std::is_same<T, REBSER>::value
-            or std::is_same<T, REBARR>::value;
-
-        static_assert(
-            derived or base,
-            "ACT() works on void/REBNOD/REBSER/REBARR/REBACT"
-        );
-
-        if (base)
-            assert(
-                (reinterpret_cast<REBSER*>(p)->header.bits & (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST
-                        | NODE_FLAG_FREE
-                        | NODE_FLAG_CELL
-                        | ARRAY_FLAG_VARLIST
-                        | ARRAY_FLAG_PAIRLIST
-                )) == (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST
-                )
-            );
-
-        return reinterpret_cast<REBACT*>(p);
-    }
-
     template<typename T>
     inline static REBCTX *CTX(T *p) {
         constexpr bool derived = std::is_same<T, REBCTX>::value;
@@ -1111,3 +1077,135 @@ struct Reb_Context {
     }
 
 #endif
+
+
+//
+// Series header FLAGs (distinct from INFO bits)
+//
+
+#define SET_SER_FLAG(s,f) \
+    cast(void, SER(s)->header.bits |= (f))
+
+#define CLEAR_SER_FLAG(s,f) \
+    cast(void, SER(s)->header.bits &= ~(f))
+
+#define GET_SER_FLAG(s,f) \
+    (did (SER(s)->header.bits & (f))) // !!! ensure it's just one flag?
+
+#define ANY_SER_FLAGS(s,f) \
+    (did (SER(s)->header.bits & (f)))
+
+inline static REBOOL ALL_SER_FLAGS(
+    void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
+    REBFLGS f
+){
+    return (SER(s)->header.bits & f) == f; // repeats f, so not a macro
+}
+
+#define NOT_SER_FLAG(s,f) \
+    (not (SER(s)->header.bits & (f)))
+
+#define SET_SER_FLAGS(s,f) \
+    SET_SER_FLAG((s), (f))
+
+#define CLEAR_SER_FLAGS(s,f) \
+    CLEAR_SER_FLAG((s), (f))
+
+
+//
+// Series INFO bits (distinct from header FLAGs)
+//
+
+#define SET_SER_INFO(s,f) \
+    cast(void, SER(s)->info.bits |= (f))
+
+#define CLEAR_SER_INFO(s,f) \
+    cast(void, SER(s)->info.bits &= ~(f))
+
+#define GET_SER_INFO(s,f) \
+    (did (SER(s)->info.bits & (f))) // !!! ensure it's just one flag?
+
+#define ANY_SER_INFOS(s,f) \
+    (did (SER(s)->info.bits & (f)))
+
+inline static REBOOL ALL_SER_INFOS(
+    void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
+    REBFLGS f
+){
+    return (SER(s)->info.bits & f) == f; // repeats f, so not a macro
+}
+
+#define NOT_SER_INFO(s,f) \
+    (not (SER(s)->info.bits & (f)))
+
+#define SET_SER_INFOS(s,f) \
+    SET_SER_INFO((s), (f))
+
+#define CLEAR_SER_INFOS(s,f) \
+    CLEAR_SER_INFO((s), (f))
+
+
+// These are series implementation details that should not be used by most
+// code.  But in order to get good inlining, they have to be in the header
+// files (of the *internal* API, not of libRebol).  Generally avoid it.
+//
+// !!! Can't `assert((w) < MAX_SERIES_WIDE)` without triggering "range of
+// type makes this always false" warning; C++ build could sense if it's a
+// REBYTE and dodge the comparison if so.
+//
+
+#define MAX_SERIES_WIDE 0x100
+
+#define SER_WIDE(s) \
+    FOURTH_BYTE((s)->info)
+
+#define SER_SET_WIDE(s,w) \
+    (FOURTH_BYTE((s)->info) = w)
+
+//
+// Bias is empty space in front of head:
+//
+
+inline static REBCNT SER_BIAS(REBSER *s) {
+    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    return cast(REBCNT, ((s)->content.dynamic.bias >> 16) & 0xffff);
+}
+
+inline static REBCNT SER_REST(REBSER *s) {
+    if (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
+        return s->content.dynamic.rest;
+
+    if (s->header.bits & SERIES_FLAG_ARRAY)
+        return 2; // includes info bits acting as trick "terminator"
+
+    assert(sizeof(s->content) % SER_WIDE(s) == 0);
+    return sizeof(s->content) / SER_WIDE(s);
+}
+
+#define MAX_SERIES_BIAS 0x1000
+
+inline static void SER_SET_BIAS(REBSER *s, REBCNT bias) {
+    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    s->content.dynamic.bias =
+        (s->content.dynamic.bias & 0xffff) | (bias << 16);
+}
+
+inline static void SER_ADD_BIAS(REBSER *s, REBCNT b) {
+    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    s->content.dynamic.bias += b << 16;
+}
+
+inline static void SER_SUB_BIAS(REBSER *s, REBCNT b) {
+    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    s->content.dynamic.bias -= b << 16;
+}
+
+inline static size_t SER_TOTAL(REBSER *s) {
+    return (SER_REST(s) + SER_BIAS(s)) * SER_WIDE(s);
+}
+
+inline static size_t SER_TOTAL_IF_DYNAMIC(REBSER *s) {
+    if (NOT_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC))
+        return 0;
+    return SER_TOTAL(s);
+}

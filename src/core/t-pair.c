@@ -238,7 +238,7 @@ static void Get_Math_Arg_For_Pair(
     REBDEC *x_out,
     REBDEC *y_out,
     REBVAL *arg,
-    REBSYM verb
+    REBVAL *verb
 ){
     switch (VAL_TYPE(arg)) {
     case REB_PAIR:
@@ -302,7 +302,7 @@ REBTYPE(Pair)
     REBDEC x2;
     REBDEC y2;
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_COPY: {
         goto setPair;
@@ -330,7 +330,7 @@ REBTYPE(Pair)
     case SYM_REMAINDER:
         Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
         if (x2 == 0 || y2 == 0) fail (Error_Zero_Divide_Raw());
-        if (verb == SYM_DIVIDE) {
+        if (VAL_WORD_SYM(verb) == SYM_DIVIDE) {
             x1 /= x2;
             y1 /= y2;
         }

@@ -151,7 +151,7 @@ void Bin_To_Money_May_Fail(REBVAL *result, const REBVAL *val)
 }
 
 
-static REBVAL *Math_Arg_For_Money(REBVAL *store, REBVAL *arg, REBSYM verb)
+static REBVAL *Math_Arg_For_Money(REBVAL *store, REBVAL *arg, REBVAL *verb)
 {
     if (IS_MONEY(arg))
         return arg;
@@ -178,7 +178,7 @@ REBTYPE(Money)
     REBVAL *val = D_ARG(1);
     REBVAL *arg;
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
     case SYM_ADD:
         arg = Math_Arg_For_Money(D_OUT, D_ARG(2), verb);
         Init_Money(D_OUT, deci_add(
@@ -280,7 +280,7 @@ REBTYPE(Money)
     case SYM_EVEN_Q:
     case SYM_ODD_Q: {
         REBINT result = 1 & cast(REBINT, deci_to_int(VAL_MONEY_AMOUNT(val)));
-        if (verb == SYM_EVEN_Q)
+        if (VAL_WORD_SYM(verb) == SYM_EVEN_Q)
             result = not result;
         return result ? R_TRUE : R_FALSE; }
 

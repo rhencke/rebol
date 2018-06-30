@@ -350,9 +350,9 @@ REBNATIVE(exclude)
         if (VAL_TYPE(val1) != VAL_TYPE(val2))
             fail (Error_Unexpected_Type(VAL_TYPE(val1), VAL_TYPE(val2)));
 
-        // !!! 0 was said to be a "special case" in original code
-        //
-        Init_Bitset(D_OUT, Xandor_Binary(0, val1, val2));
+        DECLARE_LOCAL (verb); // initial code did something weird w/this
+        Init_Word(verb, Canon(SYM_EXCLUDE));
+        Init_Bitset(D_OUT, Xandor_Binary(verb, val1, val2));
         return R_OUT;
     }
 

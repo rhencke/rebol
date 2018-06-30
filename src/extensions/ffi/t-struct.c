@@ -1543,7 +1543,7 @@ REBTYPE(Struct)
     REBVAL *arg;
 
     // unary actions
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_CHANGE: {
         arg = D_ARG(2);

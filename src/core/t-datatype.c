@@ -88,7 +88,7 @@ REBTYPE(Datatype)
     REBVAL *arg = D_ARG(2);
     enum Reb_Kind kind = VAL_TYPE_KIND(value);
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         REBSYM sym = VAL_WORD_SYM(arg);

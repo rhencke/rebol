@@ -45,7 +45,7 @@
 //
 //  Clipboard_Actor: C
 //
-static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
+static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     // !!! All state is in windows, nothing in the port at the moment.  It
     // could track whether it's open or not, but the details of what is
@@ -55,7 +55,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
 
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
-    switch (action) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
@@ -254,7 +254,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBSYM action)
         break;
     }
 
-    fail (Error_Illegal_Action(REB_PORT, action));
+    fail (Error_Illegal_Action(REB_PORT, verb));
 
 return_port:
     Move_Value(D_OUT, D_ARG(1));

@@ -497,7 +497,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
 // NOTE: stack must already be setup correctly for action, and
 // the caller must cleanup the stack.
 //
-REB_R Do_Port_Action(REBFRM *frame_, REBCTX *port, REBSYM verb)
+REB_R Do_Port_Action(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     FAIL_IF_BAD_PORT(port);
 
@@ -523,17 +523,13 @@ REB_R Do_Port_Action(REBFRM *frame_, REBCTX *port, REBSYM verb)
     REBCNT n; // goto would cross initialization
     n = Find_Canon_In_Context(
         VAL_CONTEXT(actor),
-        Canon(verb),
+        VAL_WORD_CANON(verb),
         FALSE // !always
     );
 
     REBVAL *action;
-    if (n == 0 or not IS_ACTION(action = VAL_CONTEXT_VAR(actor, n))) {
-        DECLARE_LOCAL (verb_word);
-        Init_Word(verb_word, Canon(verb));
-
-        fail (Error_No_Port_Action_Raw(verb_word));
-    }
+    if (n == 0 or not IS_ACTION(action = VAL_CONTEXT_VAR(actor, n)))
+        fail (Error_No_Port_Action_Raw(verb));
 
     if (Redo_Action_Throws(frame_, VAL_ACTION(action)))
         return R_OUT_IS_THROWN;
@@ -548,7 +544,7 @@ REB_R Do_Port_Action(REBFRM *frame_, REBCTX *port, REBSYM verb)
     // !!! Note this code is incorrect for files read in chunks!!!
 
 post_process_output:
-    if (verb == SYM_READ) {
+    if (VAL_WORD_SYM(verb) == SYM_READ) {
         INCLUDE_PARAMS_OF_READ;
 
         UNUSED(PAR(source));
@@ -600,7 +596,7 @@ post_process_output:
 // matter at the moment--but is a placeholder for finding the right place.
 //
 void Secure_Port(
-    REBSYM sym_kind,
+    REBSTR *kind,
     REBREQ *req,
     const REBVAL *name
     /* , const REBVAL *path */
@@ -608,15 +604,15 @@ void Secure_Port(
     const REBVAL *path = name;
     assert(IS_FILE(path)); // !!! relative, untranslated
 
-    const REBYTE *flags = Security_Policy(Canon(sym_kind), path);
+    const REBYTE *flags = Security_Policy(STR_CANON(kind), path);
 
     // Check policy integer:
     // Mask is [xxxx wwww rrrr] - each holds the action
     if (req->modes & RFM_READ)
-        Trap_Security(flags[POL_READ], Canon(sym_kind), name);
+        Trap_Security(flags[POL_READ], STR_CANON(kind), name);
 
     if (req->modes & RFM_WRITE)
-        Trap_Security(flags[POL_WRITE], Canon(sym_kind), name);
+        Trap_Security(flags[POL_WRITE], STR_CANON(kind), name);
 }
 
 

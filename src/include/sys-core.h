@@ -241,9 +241,8 @@
 #include "tmp-bootdefs.h"
 
 #include "sys-rebval.h" // REBVAL structure definition
-#include "sys-action.h" // native CFUNCs and REB_R definitions !!! %-rebact.h
-
 #include "sys-rebser.h" // REBSER series definition (embeds REBVAL definition)
+#include "sys-rebact.h" // REBACT and ACT()
 
 typedef void (*MAKE_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
 typedef void (*TO_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
@@ -255,7 +254,7 @@ typedef void (*TO_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
 //-- Port actions (for native port schemes):
 
 typedef struct rebol_port_action_map {
-    REBSYM verb;
+    REBVAL *verb;
     REBPAF func;
 } PORT_ACTION;
 
@@ -689,7 +688,7 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 
 #include "sys-handle.h"
 
-#include "sys-function.h" // !!! TBD: rename %sys-action.h
+#include "sys-action.h"
 #include "sys-context.h"
 #include "sys-word.h"
 

@@ -61,7 +61,7 @@ static void Setup_File(struct devreq_file *file, REBFLGS flags, REBVAL *path)
 
     file->path = path;
 
-    Secure_Port(SYM_FILE, req, path /* , file->path */);
+    Secure_Port(Canon(SYM_FILE), req, path /* , file->path */);
 
     // !!! For the moment, assume `path` has a lifetime that will exceed
     // the operation.  This will be easier to ensure once the REQ state is
@@ -270,7 +270,7 @@ static void Set_Seek(struct devreq_file *file, REBVAL *arg)
 //
 // Internal port handler for files.
 //
-static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
     if (!IS_OBJECT(spec))
@@ -291,7 +291,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
     // !!! R3-Alpha never implemented quite a number of operations on files,
     // including FLUSH, POKE, etc.
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

@@ -144,7 +144,7 @@ REBTYPE(Unit)
     REBVAL *val = D_ARG(1);
     assert(not IS_NULLED(val));
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     // !!! The category of "non-mutating type actions" should be knowable via
     // some meta information.  Any new such actions should get the behavior

@@ -329,19 +329,21 @@ REBTYPE(Tuple)
     REBYTE *vp = VAL_TUPLE(value);
     len = VAL_TUPLE_LEN(value);
 
+    REBSYM sym = VAL_WORD_SYM(verb);
+
     // !!! This used to depend on "IS_BINARY_ACT", a concept that does not
     // exist any longer with symbol-based action dispatch.  Patch with more
     // elegant mechanism.
     //
     if (
-        verb == SYM_ADD
-        or verb == SYM_SUBTRACT
-        or verb == SYM_MULTIPLY
-        or verb == SYM_DIVIDE
-        or verb == SYM_REMAINDER
-        or verb == SYM_INTERSECT
-        or verb == SYM_UNION
-        or verb == SYM_DIFFERENCE
+        sym == SYM_ADD
+        or sym == SYM_SUBTRACT
+        or sym == SYM_MULTIPLY
+        or sym == SYM_DIVIDE
+        or sym == SYM_REMAINDER
+        or sym == SYM_INTERSECT
+        or sym == SYM_UNION
+        or sym == SYM_DIFFERENCE
     ){
         assert(vp);
 
@@ -371,7 +373,7 @@ REBTYPE(Tuple)
             if (ap)
                 a = (REBINT) *ap++;
 
-            switch (verb) {
+            switch (VAL_WORD_SYM(verb)) {
             case SYM_ADD: v += a; break;
 
             case SYM_SUBTRACT: v -= a; break;
@@ -429,12 +431,12 @@ REBTYPE(Tuple)
     }
 
     // !!!! merge with SWITCH below !!!
-    if (verb == SYM_COMPLEMENT) {
+    if (sym == SYM_COMPLEMENT) {
         for (; len > 0; len--, vp++)
             *vp = cast(REBYTE, ~*vp);
         goto ret_value;
     }
-    if (verb == SYM_RANDOM) {
+    if (sym == SYM_RANDOM) {
         INCLUDE_PARAMS_OF_RANDOM;
 
         UNUSED(PAR(value));
@@ -451,7 +453,7 @@ REBTYPE(Tuple)
         goto ret_value;
     }
 
-    switch (verb) {
+    switch (sym) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

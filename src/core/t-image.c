@@ -618,7 +618,7 @@ void Clear_Image(REBVAL *img)
 //
 // Insert or change image
 //
-REBVAL *Modify_Image(REBFRM *frame_, REBCNT action)
+REBVAL *Modify_Image(REBFRM *frame_, REBVAL *verb)
 {
     INCLUDE_PARAMS_OF_INSERT; // currently must have same frame as CHANGE
 
@@ -645,9 +645,10 @@ REBVAL *Modify_Image(REBFRM *frame_, REBCNT action)
 
     if (!(w = VAL_IMAGE_WIDE(value))) return value;
 
-    if (action == SYM_APPEND) {
+    REBSYM sym = VAL_WORD_SYM(verb);
+    if (sym == SYM_APPEND) {
         index = tail;
-        action = SYM_INSERT;
+        sym = SYM_INSERT;
     }
 
     x = index % w; // offset on the line
@@ -674,7 +675,7 @@ REBVAL *Modify_Image(REBFRM *frame_, REBCNT action)
             dupx = MAX(dupx, 0);
             dupx = MIN(dupx, (REBINT)w - x); // clip dup width
             dupy = MAX(dupy, 0);
-            if (action != SYM_INSERT)
+            if (sym != SYM_INSERT)
                 dupy = MIN(dupy, (REBINT)VAL_IMAGE_HIGH(value) - y);
             else
                 dup = dupy * w;
@@ -716,7 +717,7 @@ REBVAL *Modify_Image(REBFRM *frame_, REBCNT action)
                 partx = MAX(partx, 0);
                 partx = MIN(partx, (REBINT)w - x); // clip part width
                 party = MAX(party, 0);
-                if (action != SYM_INSERT)
+                if (sym != SYM_INSERT)
                     party = MIN(party, (REBINT)VAL_IMAGE_HIGH(value) - y);
                 else
                     part = party * w;
@@ -733,7 +734,7 @@ REBVAL *Modify_Image(REBFRM *frame_, REBCNT action)
             partx = VAL_IMAGE_WIDE(arg);
             party = VAL_IMAGE_HIGH(arg);
             partx = MIN(partx, (REBINT)w - x); // clip part width
-            if (action != SYM_INSERT)
+            if (sym != SYM_INSERT)
                 party = MIN(party, (REBINT)VAL_IMAGE_HIGH(value) - y);
             else
                 part = party * w;
@@ -749,7 +750,7 @@ REBVAL *Modify_Image(REBFRM *frame_, REBCNT action)
     }
 
     // Expand image data if necessary:
-    if (action == SYM_INSERT) {
+    if (sym == SYM_INSERT) {
         if (index > tail) index = tail;
         Expand_Series(VAL_SERIES(value), index, dup * part);
 
@@ -802,7 +803,8 @@ REBVAL *Modify_Image(REBFRM *frame_, REBCNT action)
 
     Reset_Height(value);
 
-    if (action == SYM_APPEND) VAL_INDEX(value) = 0;
+    if (sym == SYM_APPEND)
+        VAL_INDEX(value) = 0;
     return value;
 }
 
@@ -1003,7 +1005,8 @@ REBTYPE(Image)
     if (index > tail)
         index = tail;
 
-    switch (verb) {
+    REBSYM sym = VAL_WORD_SYM(verb);
+    switch (sym) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
@@ -1060,15 +1063,15 @@ REBTYPE(Image)
         // This logic is somewhat complicated by the fact that INTEGER args use
         // base-1 indexing, but PAIR args use base-0.
         if (IS_PAIR(arg)) {
-            if (verb == SYM_AT)
-                verb = SYM_SKIP;
+            if (sym == SYM_AT)
+                sym = SYM_SKIP;
             diff = (VAL_PAIR_Y_INT(arg) * VAL_IMAGE_WIDE(value))
-                + VAL_PAIR_X_INT(arg) + (verb == SYM_SKIP ? 0 : 1);
+                + VAL_PAIR_X_INT(arg) + (sym == SYM_SKIP ? 0 : 1);
         } else
             diff = Get_Num_From_Arg(arg);
 
         index += diff;
-        if (verb == SYM_SKIP) {
+        if (sym == SYM_SKIP) {
             if (IS_LOGIC(arg))
                 --index;
         }

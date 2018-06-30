@@ -488,7 +488,7 @@ REBTYPE(Varargs)
 {
     REBVAL *value = D_ARG(1);
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
 

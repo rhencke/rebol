@@ -45,7 +45,6 @@
 //
 
 #include "sys-core.h"
-#include "mem-series.h" // low-level series memory access
 
 #if !defined(NDEBUG)
 

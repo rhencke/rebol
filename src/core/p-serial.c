@@ -36,7 +36,7 @@
 //
 //  Serial_Actor: C
 //
-static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     FAIL_IF_BAD_PORT(port);
 
@@ -50,7 +50,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
     // Actions for an unopened serial port:
     if (not (req->flags & RRF_OPEN)) {
-        switch (verb) {
+        switch (VAL_WORD_SYM(verb)) {
 
         case SYM_REFLECT: {
             INCLUDE_PARAMS_OF_REFLECT;
@@ -162,7 +162,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
     }
 
     // Actions for an open socket:
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

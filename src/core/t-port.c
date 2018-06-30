@@ -164,7 +164,7 @@ REBTYPE(Port)
 {
     REBVAL *value = D_ARG(1);
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_READ:
     case SYM_WRITE:

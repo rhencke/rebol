@@ -37,14 +37,17 @@
 // Returns new dst_idx
 //
 REBCNT Modify_Array(
-    REBCNT action,          // INSERT, APPEND, CHANGE
+    REBSTR *verb,           // INSERT, APPEND, CHANGE
     REBARR *dst_arr,        // target
     REBCNT dst_idx,         // position
     const REBVAL *src_val,  // source
     REBCNT flags,           // AM_ONLY, AM_PART
     REBINT dst_len,         // length to remove
     REBINT dups             // dup count
-) {
+){
+    REBSYM sym = STR_SYMBOL(verb);
+    assert(sym == SYM_INSERT or sym == SYM_CHANGE or sym == SYM_APPEND);
+
     REBCNT tail = ARR_LEN(dst_arr);
 
     const RELVAL *src_rel;
@@ -55,10 +58,10 @@ REBCNT Modify_Array(
         // to do is return the natural index result for the operation.
         // (APPEND will return 0, insert the tail of the insertion...so index)
 
-        return (action == SYM_APPEND) ? 0 : dst_idx;
+        return (sym == SYM_APPEND) ? 0 : dst_idx;
     }
 
-    if (action == SYM_APPEND or dst_idx > tail)
+    if (sym == SYM_APPEND or dst_idx > tail)
         dst_idx = tail;
 
     // Each dup being inserted need a newline signal after it if:
@@ -76,7 +79,7 @@ REBCNT Modify_Array(
     // Check /PART, compute LEN:
     if (not (flags & AM_ONLY) and ANY_ARRAY(src_val)) {
         // Adjust length of insertion if changing /PART:
-        if (action != SYM_CHANGE and (flags & AM_PART))
+        if (sym != SYM_CHANGE and (flags & AM_PART))
             ilen = dst_len;
         else
             ilen = VAL_LEN_AT(src_val);
@@ -132,7 +135,7 @@ REBCNT Modify_Array(
         (dst_idx == ARR_LEN(dst_arr))
         and GET_SER_FLAG(dst_arr, ARRAY_FLAG_TAIL_NEWLINE);
 
-    if (action != SYM_CHANGE) {
+    if (sym != SYM_CHANGE) {
         // Always expand dst_arr for INSERT and APPEND actions:
         Expand_Series(SER(dst_arr), dst_idx, size);
     }
@@ -146,7 +149,7 @@ REBCNT Modify_Array(
         }
     }
 
-    tail = (action == SYM_APPEND) ? 0 : size + dst_idx;
+    tail = (sym == SYM_APPEND) ? 0 : size + dst_idx;
 
     REBINT dup_index = 0;
     for (; dup_index < dups; ++dup_index) {
@@ -213,28 +216,31 @@ REBCNT Modify_Array(
 //
 REBCNT Modify_Binary(
     REBVAL *dst_val,        // target
-    REBSYM verb,            // INSERT, APPEND, CHANGE
+    REBSTR *verb,            // INSERT, APPEND, CHANGE
     const REBVAL *src_val,  // source
     REBFLGS flags,          // AM_PART
     REBINT dst_len,         // length to remove
     REBINT dups             // dup count
 ){
+    REBSYM sym = STR_SYMBOL(verb);
+    assert(sym == SYM_INSERT or sym == SYM_CHANGE or sym == SYM_APPEND);
+
     REBSER *dst_ser = VAL_SERIES(dst_val);
     REBCNT dst_idx = VAL_INDEX(dst_val);
 
     // For INSERT/PART and APPEND/PART
     //
     REBINT limit;
-    if (verb != SYM_CHANGE && (flags & AM_PART))
+    if (sym != SYM_CHANGE && (flags & AM_PART))
         limit = dst_len; // should be non-negative
     else
         limit = -1;
 
     if (IS_NULLED(src_val) || limit == 0 || dups < 0)
-        return verb == SYM_APPEND ? 0 : dst_idx;
+        return sym == SYM_APPEND ? 0 : dst_idx;
 
     REBCNT tail = SER_LEN(dst_ser);
-    if (verb == SYM_APPEND || dst_idx > tail)
+    if (sym == SYM_APPEND || dst_idx > tail)
         dst_idx = tail;
 
     // If the src_val is not a string, then we need to create a string:
@@ -318,7 +324,7 @@ REBCNT Modify_Binary(
     //
     REBINT size = dups * src_len;
 
-    if (verb != SYM_CHANGE) {
+    if (sym != SYM_CHANGE) {
         // Always expand dst_ser for INSERT and APPEND actions:
         Expand_Series(dst_ser, dst_idx, size);
     } else {
@@ -342,7 +348,7 @@ REBCNT Modify_Binary(
     if (needs_free) // didn't use original data as-is
         Free_Unmanaged_Series(src_ser);
 
-    return (verb == SYM_APPEND) ? 0 : dst_idx;
+    return (sym == SYM_APPEND) ? 0 : dst_idx;
 }
 
 
@@ -353,28 +359,31 @@ REBCNT Modify_Binary(
 //
 REBCNT Modify_String(
     REBVAL *dst_val,        // target
-    REBSYM verb,            // INSERT, APPEND, CHANGE
+    REBSTR *verb,            // INSERT, APPEND, CHANGE
     const REBVAL *src_val,  // source
     REBFLGS flags,          // AM_PART
     REBINT dst_len,         // length to remove
     REBINT dups             // dup count
 ){
+    REBSYM sym = STR_SYMBOL(verb);
+    assert(sym == SYM_INSERT or sym == SYM_CHANGE or sym == SYM_APPEND);
+
     REBSER *dst_ser = VAL_SERIES(dst_val);
     REBCNT dst_idx = VAL_INDEX(dst_val);
 
     // For INSERT/PART and APPEND/PART
     //
     REBINT limit;
-    if (verb != SYM_CHANGE && (flags & AM_PART))
+    if (sym != SYM_CHANGE && (flags & AM_PART))
         limit = dst_len; // should be non-negative
     else
         limit = -1;
 
     if (IS_NULLED(src_val) || limit == 0 || dups < 0)
-        return verb == SYM_APPEND ? 0 : dst_idx;
+        return sym == SYM_APPEND ? 0 : dst_idx;
 
     REBCNT tail = SER_LEN(dst_ser);
-    if (verb == SYM_APPEND || dst_idx > tail)
+    if (sym == SYM_APPEND or dst_idx > tail)
         dst_idx = tail;
 
     // If the src_val is not a string, then we need to create a string:
@@ -436,7 +445,7 @@ REBCNT Modify_String(
     //
     REBINT size = dups * src_len;
 
-    if (verb != SYM_CHANGE) {
+    if (sym != SYM_CHANGE) {
         // Always expand dst_ser for INSERT and APPEND actions:
         Expand_Series(dst_ser, dst_idx, size);
     }
@@ -466,5 +475,5 @@ REBCNT Modify_String(
     if (needs_free) // didn't use original data as-is
         Free_Unmanaged_Series(src_ser);
 
-    return (verb == SYM_APPEND) ? 0 : dst_idx;
+    return (sym == SYM_APPEND) ? 0 : dst_idx;
 }

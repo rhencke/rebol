@@ -716,7 +716,7 @@ REBTYPE(Map)
     REBMAP *map = VAL_MAP(val);
     REBCNT tail;
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
@@ -794,7 +794,7 @@ REBTYPE(Map)
             KNOWN(ARR_AT(MAP_PAIRLIST(map), ((n - 1) * 2) + 1))
         );
 
-        if (verb == SYM_FIND)
+        if (VAL_WORD_SYM(verb) == SYM_FIND)
             return IS_NULLED(D_OUT) ? R_NULL : R_BAR;
 
         return R_OUT; }

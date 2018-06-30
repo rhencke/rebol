@@ -149,9 +149,11 @@ static void reverse_string(REBVAL *v, REBCNT len)
         // Effectively do a CHANGE/PART to overwrite the reversed portion of
         // the string (from the input value's index to the tail).
 
+        DECLARE_LOCAL (verb);
+        Init_Word(verb, Canon(SYM_CHANGE));
         Modify_String(
             v,
-            SYM_CHANGE,
+            VAL_WORD_SPELLING(verb),
             temp,
             0, // not AM_PART, we want to change all len bytes
             len,
@@ -1204,7 +1206,7 @@ REBTYPE(String)
     REBINT index = cast(REBINT, VAL_INDEX(v));
     REBINT tail = cast(REBINT, VAL_LEN_HEAD(v));
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     //-- Modification:
     case SYM_APPEND:
@@ -1223,7 +1225,7 @@ REBTYPE(String)
 
         REBINT len;
         Partial1(
-            (verb == SYM_CHANGE) ? v : arg,
+            (VAL_WORD_SYM(verb) == SYM_CHANGE) ? v : arg,
             ARG(limit),
             cast(REBCNT*, &len)
         );
@@ -1240,7 +1242,7 @@ REBTYPE(String)
 
             VAL_INDEX(v) = Modify_Binary(
                 v,
-                verb,
+                VAL_WORD_SPELLING(verb),
                 arg,
                 flags,
                 len,
@@ -1253,7 +1255,7 @@ REBTYPE(String)
 
             VAL_INDEX(v) = Modify_String(
                 v,
-                verb,
+                VAL_WORD_SPELLING(verb),
                 arg,
                 flags,
                 len,
@@ -1332,7 +1334,7 @@ REBTYPE(String)
         if (REF(only))
             len = 1;
 
-        if (verb == SYM_FIND) {
+        if (VAL_WORD_SYM(verb) == SYM_FIND) {
             if (REF(tail) || REF(match))
                 ret += len;
             VAL_INDEX(v) = ret;
@@ -1507,7 +1509,7 @@ REBTYPE(String)
         else
             fail (Error_Invalid(arg)); // what about other types?
 
-        if (verb == SYM_SUBTRACT)
+        if (VAL_WORD_SYM(verb) == SYM_SUBTRACT)
             amount = -amount;
 
         if (amount == 0) { // adding or subtracting 0 works, even #{} + 0

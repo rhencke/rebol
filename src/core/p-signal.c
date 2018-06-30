@@ -146,7 +146,7 @@ static int sig_word_num(REBSTR *canon)
 //
 //  Signal_Actor: C
 //
-static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     REBREQ *req = Ensure_Port_State(port, RDI_SIGNAL);
     struct devreq_posix_signal *signal = DEVREQ_POSIX_SIGNAL(req);
@@ -154,7 +154,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
     REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
 
     if (not (req->flags & RRF_OPEN)) {
-        switch (verb) {
+        switch (VAL_WORD_SYM(verb)) {
         case SYM_REFLECT: {
             INCLUDE_PARAMS_OF_REFLECT;
 
@@ -205,10 +205,10 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
             OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
-            if (verb == SYM_OPEN)
+            if (VAL_WORD_SYM(verb) == SYM_OPEN)
                 goto return_port;
 
-            assert((req->flags & RRF_OPEN) and verb == SYM_READ);
+            assert((req->flags & RRF_OPEN) and VAL_WORD_SYM(verb) == SYM_READ);
             break; } // fallthrough
 
         case SYM_CLOSE:
@@ -222,7 +222,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
         }
     }
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
 

@@ -115,7 +115,7 @@ static void Accept_New_Port(REBVAL *out, REBCTX *port, struct devreq_net *sock)
 static REB_R Transport_Actor(
     REBFRM *frame_,
     REBCTX *port,
-    REBSYM verb,
+    REBVAL *verb,
     enum Transport_Types proto
 ){
     FAIL_IF_BAD_PORT(port);
@@ -137,7 +137,7 @@ static REB_R Transport_Actor(
 
     if (not (sock->flags & RRF_OPEN)) {
 
-        switch (verb) { // Ordered by frequency
+        switch (VAL_WORD_SYM(verb)) { // Ordered by frequency
 
         case SYM_REFLECT: {
             INCLUDE_PARAMS_OF_REFLECT;
@@ -233,7 +233,7 @@ static REB_R Transport_Actor(
 
     // Actions for an open socket:
 
-    switch (verb) { // Ordered by frequency
+    switch (VAL_WORD_SYM(verb)) { // Ordered by frequency
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
@@ -510,7 +510,7 @@ return_port:
 //
 //  TCP_Actor: C
 //
-static REB_R TCP_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R TCP_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     return Transport_Actor(frame_, port, verb, TRANSPORT_TCP);
 }
@@ -519,7 +519,7 @@ static REB_R TCP_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 //
 //  UDP_Actor: C
 //
-static REB_R UDP_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R UDP_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     return Transport_Actor(frame_, port, verb, TRANSPORT_UDP);
 }

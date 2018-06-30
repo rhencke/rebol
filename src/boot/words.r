@@ -374,3 +374,10 @@ detect
 ; because it wants to accept nulls for TYPE OF () => null
 ;
 reflect
+
+; There was a special case in R3-Alpha for REBNATIVE(exclude) which wasn't an
+; "ACTION!" (which meant no enum value) but it called a common routine that
+; expected an action number.  So it passed zero.  Now that "type actions"
+; use symbols as identity, this formalizes the hack by adding exclude.
+;
+exclude

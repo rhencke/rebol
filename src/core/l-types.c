@@ -319,10 +319,12 @@ REB_R Reflect_Core(REBFRM *frame_)
     // no entry in the dispatcher table for them.
     //
     if (kind == REB_MAX_NULLED)
-        fail ("VOID isn't valid for REFLECT, except for TYPE OF ()");
+        fail ("NULL isn't valid for REFLECT, except for TYPE OF ()");
 
     REBTAF subdispatch = Value_Dispatch[kind];
-    return subdispatch(frame_, SYM_REFLECT);
+    DECLARE_LOCAL (verb);
+    Init_Word(verb, Canon(SYM_REFLECT));
+    return subdispatch(frame_, verb);
 }
 
 

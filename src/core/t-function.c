@@ -164,7 +164,7 @@ REBTYPE(Action)
     REBVAL *value = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
     case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
 

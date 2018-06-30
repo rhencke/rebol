@@ -382,7 +382,7 @@ REBTYPE(Typeset)
     REBVAL *val = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_FIND:
         if (not IS_DATATYPE(arg))
@@ -402,12 +402,12 @@ REBTYPE(Typeset)
         else if (not IS_TYPESET(arg))
             fail (Error_Invalid(arg));
 
-        if (verb == SYM_UNION)
+        if (VAL_WORD_SYM(verb) == SYM_UNION)
             VAL_TYPESET_BITS(val) |= VAL_TYPESET_BITS(arg);
-        else if (verb == SYM_INTERSECT)
+        else if (VAL_WORD_SYM(verb) == SYM_INTERSECT)
             VAL_TYPESET_BITS(val) &= VAL_TYPESET_BITS(arg);
         else {
-            assert(verb == SYM_DIFFERENCE);
+            assert(VAL_WORD_SYM(verb) == SYM_DIFFERENCE);
             VAL_TYPESET_BITS(val) ^= VAL_TYPESET_BITS(arg);
         }
         Move_Value(D_OUT, D_ARG(1));

@@ -66,7 +66,6 @@
 //
 
 #include "sys-core.h"
-#include "mem-series.h"
 #include "sys-int-funcs.h"
 
 
@@ -537,38 +536,6 @@ REBNOD *Try_Find_Containing_Node_Debug(const void *p)
 
 
 //
-//  Series_Allocation_Unpooled: C
-//
-// When we want the actual memory accounting for a series, the whole story may
-// not be told by the element size multiplied by the capacity.  The series may
-// have been allocated from a pool where it was rounded up to the pool size,
-// and elements may not fit evenly in that space.  Or it may be allocated from
-// the "system pool" via Alloc_Mem, but rounded up to a power of 2.
-//
-// (Note: It's necessary to know the size because Free_Mem requires it, as
-// Rebol's allocator doesn't remember the size of system pool allocations for
-// you.  It also needs it in order to keep track of GC boundaries and memory
-// use quotas.)
-//
-// Rather than pay for the cost on every series of an "actual allocation size",
-// the optimization choice is to only pay for a "rounded up to power of 2" bit.
-//
-REBCNT Series_Allocation_Unpooled(REBSER *series)
-{
-    REBCNT total = SER_TOTAL(series);
-
-    if (GET_SER_FLAG(series, SERIES_FLAG_POWER_OF_2)) {
-        REBCNT len = 2048;
-        while(len < total)
-            len *= 2;
-        return len;
-    }
-
-    return total;
-}
-
-
-//
 //  Alloc_Pairing: C
 //
 // Allocate a paired set of values.  The "key" is in the cell *before* the
@@ -661,9 +628,9 @@ void Free_Pairing(REBVAL *paired) {
 // !!! Ideally this wouldn't be exported, but series data is now used to hold
 // function arguments.
 //
-void Free_Unbiased_Series_Data(char *unbiased, REBCNT size_unpooled)
+void Free_Unbiased_Series_Data(char *unbiased, REBCNT total)
 {
-    REBCNT pool_num = FIND_POOL(size_unpooled);
+    REBCNT pool_num = FIND_POOL(total);
     REBPOL *pool;
 
     if (pool_num < SYSTEM_POOL) {
@@ -675,7 +642,7 @@ void Free_Unbiased_Series_Data(char *unbiased, REBCNT size_unpooled)
         //
         REBNOD *node = cast(REBNOD*, unbiased);
 
-        assert(Mem_Pools[pool_num].wide >= size_unpooled);
+        assert(Mem_Pools[pool_num].wide >= total);
 
         pool = &Mem_Pools[pool_num];
         node->next_if_free = pool->first;
@@ -685,8 +652,8 @@ void Free_Unbiased_Series_Data(char *unbiased, REBCNT size_unpooled)
         FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
     }
     else {
-        FREE_N(char, size_unpooled, unbiased);
-        Mem_Pools[SYSTEM_POOL].has -= size_unpooled;
+        FREE_N(char, total, unbiased);
+        Mem_Pools[SYSTEM_POOL].has -= total;
         Mem_Pools[SYSTEM_POOL].free++;
     }
 }
@@ -877,7 +844,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     if (was_dynamic) {
         data_old = s->content.dynamic.data;
         bias_old = SER_BIAS(s);
-        size_old = Series_Allocation_Unpooled(s);
+        size_old = SER_TOTAL(s);
     }
     else {
         content_old = s->content; // may be raw bits
@@ -1020,17 +987,13 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         assert(s->content.dynamic.data != NULL);
         data_old = s->content.dynamic.data;
         bias_old = SER_BIAS(s);
-        size_old = Series_Allocation_Unpooled(s);
+        size_old = SER_TOTAL(s);
     }
     else {
         content_old = s->content;
         data_old = cast(char*, &content_old);
     }
 
-    // We don't want to update the header bits to reflect a new state of the
-    // SERIES_FLAG_POWER_OF_2 until *after* Series_Allocation_Unpooled
-    // was able to take the old state into account.
-    //
     SER_SET_WIDE(s, wide);
     s->header.bits |= flags;
 
@@ -1089,10 +1052,9 @@ void Decay_Series(REBSER *s)
     }
 
     if (GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)) {
-        REBCNT unpooled = Series_Allocation_Unpooled(s);
-
         REBYTE wide = SER_WIDE(s);
         REBCNT bias = SER_BIAS(s);
+        REBCNT total = (bias + SER_REST(s)) * wide;
         char *unbiased = s->content.dynamic.data - (wide * bias);
 
         // !!! Contexts and actions keep their archetypes, for now, in the
@@ -1104,7 +1066,7 @@ void Decay_Series(REBSER *s)
         if (ANY_SER_FLAGS(s, ARRAY_FLAG_VARLIST | ARRAY_FLAG_PARAMLIST))
             memcpy(&s->content.fixed, ARR_HEAD(ARR(s)), sizeof(REBVAL));
 
-        Free_Unbiased_Series_Data(unbiased, unpooled);
+        Free_Unbiased_Series_Data(unbiased, total);
 
         // !!! This indicates reclaiming of the space, not for the series
         // nodes themselves...have they never been accounted for, e.g. in
@@ -1114,7 +1076,7 @@ void Decay_Series(REBSER *s)
         // level" allocations.
 
         int tmp;
-        GC_Ballast = REB_I32_ADD_OF(GC_Ballast, unpooled, &tmp)
+        GC_Ballast = REB_I32_ADD_OF(GC_Ballast, total, &tmp)
             ? INT32_MAX
             : tmp;
 

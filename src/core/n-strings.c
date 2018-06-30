@@ -337,10 +337,10 @@ REBNATIVE(deflate)
         bp = BIN_AT(temp, offset);
     }
 
-    REBSYM envelope;
+    REBSTR *envelope = nullptr;
     if (REF(envelope)) {
-        envelope = VAL_WORD_SYM(ARG(format));
-        switch (envelope) {
+        envelope = VAL_WORD_SPELLING(ARG(format));
+        switch (STR_SYMBOL(envelope)) {
         case SYM_ZLIB:
         case SYM_GZIP:
             break;
@@ -349,8 +349,6 @@ REBNATIVE(deflate)
             fail (Error_Invalid(ARG(format)));
         }
     }
-    else
-        envelope = SYM_0;
 
     REBSIZ compressed_size;
     void *compressed = Compress_Alloc_Core(
@@ -406,21 +404,22 @@ REBNATIVE(inflate)
     Partial1(data, ARG(limit), &len);
     UNUSED(REF(part)); // checked by if limit is void
 
-    REBSYM envelope;
-    if (REF(envelope)) {
-        envelope = VAL_WORD_SYM(ARG(format));
-        switch (envelope) {
+    REBSTR *envelope = nullptr;
+    if (not REF(envelope)) {
+        // use default
+    }
+    else if (REF(envelope)) {
+        switch (VAL_WORD_SYM(ARG(format))) {
         case SYM_ZLIB:
         case SYM_GZIP:
         case SYM_DETECT:
+            envelope = VAL_WORD_SPELLING(ARG(format));
             break;
 
         default:
             fail (Error_Invalid(ARG(format)));
         }
     }
-    else
-        envelope = SYM_0;
 
     REBSIZ decompressed_size;
     void *decompressed = Decompress_Alloc_Core(

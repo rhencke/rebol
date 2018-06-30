@@ -35,7 +35,7 @@
 //
 //  DNS_Actor: C
 //
-static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     FAIL_IF_BAD_PORT(port);
 
@@ -48,7 +48,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
     REBCNT len;
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

@@ -47,7 +47,7 @@
 //
 //  Timer_Actor: C
 //
-static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
@@ -62,7 +62,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
     if (!IS_BLOCK(state))
         Init_Block(state, Make_Array(127));
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

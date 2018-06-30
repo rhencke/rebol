@@ -579,7 +579,7 @@ REBTYPE(Bitset)
     // !!! Set_Bits does locked series check--what should the more general
     // responsibility be for checking?
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

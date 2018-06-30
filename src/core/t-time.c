@@ -500,15 +500,17 @@ REBTYPE(Time)
 
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
+    REBSYM sym = VAL_WORD_SYM(verb);
+
     // !!! This used to use IS_BINARY_ACT(), which is not available under
     // the symbol-based dispatch.  Consider doing another way.
     //
     if (
-        verb == SYM_ADD
-        or verb == SYM_SUBTRACT
-        or verb == SYM_MULTIPLY
-        or verb == SYM_DIVIDE
-        or verb == SYM_REMAINDER
+        sym == SYM_ADD
+        or sym == SYM_SUBTRACT
+        or sym == SYM_MULTIPLY
+        or sym == SYM_DIVIDE
+        or sym == SYM_REMAINDER
     ){
         REBINT  type = VAL_TYPE(arg);
 
@@ -517,7 +519,7 @@ REBTYPE(Time)
         if (type == REB_TIME) {     // handle TIME - TIME cases
             REBI64 secs2 = VAL_NANO(arg);
 
-            switch (verb) {
+            switch (sym) {
             case SYM_ADD:
                 secs = Add_Max(REB_TIME, secs, secs2, MAX_TIME);
                 goto fixTime;
@@ -547,7 +549,7 @@ REBTYPE(Time)
         else if (type == REB_INTEGER) {     // handle TIME - INTEGER cases
             REBI64 num = VAL_INT64(arg);
 
-            switch (verb) {
+            switch (VAL_WORD_SYM(verb)) {
             case SYM_ADD:
                 secs = Add_Max(REB_TIME, secs, num * SEC_SEC, MAX_TIME);
                 goto fixTime;
@@ -582,7 +584,7 @@ REBTYPE(Time)
         else if (type == REB_DECIMAL) {     // handle TIME - DECIMAL cases
             REBDEC dec = VAL_DECIMAL(arg);
 
-            switch (verb) {
+            switch (VAL_WORD_SYM(verb)) {
             case SYM_ADD:
                 secs = Add_Max(
                     REB_TIME,
@@ -619,7 +621,7 @@ REBTYPE(Time)
                 fail (Error_Math_Args(REB_TIME, verb));
             }
         }
-        else if (type == REB_DATE and verb == SYM_ADD) { // TIME + DATE case
+        else if (type == REB_DATE and sym == SYM_ADD) { // TIME + DATE case
             // Swap args and call DATE datatupe:
             Move_Value(D_ARG(3), val); // (temporary location for swap)
             Move_Value(D_ARG(1), arg);
@@ -630,7 +632,7 @@ REBTYPE(Time)
     }
     else {
         // unary actions
-        switch (verb) {
+        switch (sym) {
 
         case SYM_ODD_Q:
             return ((SECS_FROM_NANO(secs) & 1) != 0) ? R_TRUE : R_FALSE;

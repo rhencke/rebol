@@ -36,11 +36,11 @@
 //
 //  Console_Actor: C
 //
-static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     REBREQ *req = Ensure_Port_State(port, RDI_STDIO);
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

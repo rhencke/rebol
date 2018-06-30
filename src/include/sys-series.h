@@ -120,72 +120,6 @@
 
 
 //
-// Series header FLAGs (distinct from INFO bits)
-//
-
-#define SET_SER_FLAG(s,f) \
-    cast(void, SER(s)->header.bits |= (f))
-
-#define CLEAR_SER_FLAG(s,f) \
-    cast(void, SER(s)->header.bits &= ~(f))
-
-#define GET_SER_FLAG(s,f) \
-    (did (SER(s)->header.bits & (f))) // !!! ensure it's just one flag?
-
-#define ANY_SER_FLAGS(s,f) \
-    (did (SER(s)->header.bits & (f)))
-
-inline static REBOOL ALL_SER_FLAGS(
-    void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
-    REBFLGS f
-){
-    return (SER(s)->header.bits & f) == f; // repeats f, so not a macro
-}
-
-#define NOT_SER_FLAG(s,f) \
-    (not (SER(s)->header.bits & (f)))
-
-#define SET_SER_FLAGS(s,f) \
-    SET_SER_FLAG((s), (f))
-
-#define CLEAR_SER_FLAGS(s,f) \
-    CLEAR_SER_FLAG((s), (f))
-
-
-//
-// Series INFO bits (distinct from header FLAGs)
-//
-
-#define SET_SER_INFO(s,f) \
-    cast(void, SER(s)->info.bits |= (f))
-
-#define CLEAR_SER_INFO(s,f) \
-    cast(void, SER(s)->info.bits &= ~(f))
-
-#define GET_SER_INFO(s,f) \
-    (did (SER(s)->info.bits & (f))) // !!! ensure it's just one flag?
-
-#define ANY_SER_INFOS(s,f) \
-    (did (SER(s)->info.bits & (f)))
-
-inline static REBOOL ALL_SER_INFOS(
-    void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
-    REBFLGS f
-){
-    return (SER(s)->info.bits & f) == f; // repeats f, so not a macro
-}
-
-#define NOT_SER_INFO(s,f) \
-    (not (SER(s)->info.bits & (f)))
-
-#define SET_SER_INFOS(s,f) \
-    SET_SER_INFO((s), (f))
-
-#define CLEAR_SER_INFOS(s,f) \
-    CLEAR_SER_INFO((s), (f))
-
-
-//
 // The mechanics of the macros that get or set the length of a series are a
 // little bit complicated.  This is due to the optimization that allows data
 // which is sizeof(REBVAL) or smaller to fit directly inside the series node.
@@ -196,8 +130,6 @@ inline static REBOOL ALL_SER_INFOS(
 // "content", there's room for a length in the node.
 //
 
-#define SER_WIDE(s) \
-    FOURTH_BYTE((s)->info)
 
 inline static REBCNT SER_LEN(REBSER *s) {
     return (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
@@ -217,16 +149,6 @@ inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
     }
 }
 
-inline static REBCNT SER_REST(REBSER *s) {
-    if (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
-        return s->content.dynamic.rest;
-
-    if (s->header.bits & SERIES_FLAG_ARRAY)
-        return 2; // includes info bits acting as trick "terminator"
-
-    assert(sizeof(s->content) % SER_WIDE(s) == 0);
-    return sizeof(s->content) / SER_WIDE(s);
-}
 
 // Raw access does not demand that the caller know the contained type.  So
 // for instance a generic debugging routine might just want a byte pointer
@@ -778,8 +700,8 @@ inline static REBOOL Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
 
     // The allocation may have returned more than we requested, so we note
     // that in 'rest' so that the series can expand in and use the space.
-    // Note that it wastes remainder if size % wide != 0 :-(
     //
+    assert(size % wide == 0);
     s->content.dynamic.rest = size / wide;
 
     // We set the tail of all series to zero initially, but currently do
@@ -792,11 +714,7 @@ inline static REBOOL Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
     if ((GC_Ballast -= size) <= 0)
         SET_SIGNAL(SIG_RECYCLE);
 
-  #if !defined(NDEBUG)
-    if (pool_num >= SYSTEM_POOL)
-        assert(Series_Allocation_Unpooled(s) == size);
-  #endif
-
+    assert(SER_TOTAL(s) == size);
     return true;
 }
 

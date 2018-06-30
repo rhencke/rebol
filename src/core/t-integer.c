@@ -378,19 +378,21 @@ REBTYPE(Integer)
 
     REBI64 arg;
 
+    REBSYM sym = VAL_WORD_SYM(verb);
+
     // !!! This used to rely on IS_BINARY_ACT, which is no longer available
     // in the symbol based dispatch.  Consider doing another way.
     //
     if (
-        verb == SYM_ADD
-        or verb == SYM_SUBTRACT
-        or verb == SYM_MULTIPLY
-        or verb == SYM_DIVIDE
-        or verb == SYM_POWER
-        or verb == SYM_INTERSECT
-        or verb == SYM_UNION
-        or verb == SYM_DIFFERENCE
-        or verb == SYM_REMAINDER
+        sym == SYM_ADD
+        or sym == SYM_SUBTRACT
+        or sym == SYM_MULTIPLY
+        or sym == SYM_DIVIDE
+        or sym == SYM_POWER
+        or sym == SYM_INTERSECT
+        or sym == SYM_UNION
+        or sym == SYM_DIFFERENCE
+        or sym == SYM_REMAINDER
     ){
         REBVAL *val2 = D_ARG(2);
 
@@ -401,7 +403,7 @@ REBTYPE(Integer)
         else {
             // Decimal or other numeric second argument:
             REBCNT n = 0; // use to flag special case
-            switch (verb) {
+            switch (VAL_WORD_SYM(verb)) {
             // Anything added to an integer is same as adding the integer:
             case SYM_ADD:
             case SYM_MULTIPLY:
@@ -445,7 +447,7 @@ REBTYPE(Integer)
     else
         arg = 0xDECAFBAD; // wasteful, but avoid maybe unassigned warning
 
-    switch (verb) {
+    switch (sym) {
 
     case SYM_COPY:
         Move_Value(D_OUT, val);

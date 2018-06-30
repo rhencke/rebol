@@ -884,6 +884,8 @@ REBTYPE(Date)
     REBVAL *val = D_ARG(1);
     assert(IS_DATE(val));
 
+    REBSYM sym = VAL_WORD_SYM(verb);
+
     RESET_VAL_HEADER(D_OUT, REB_DATE); // so we can set flags on it
 
     REBDAT date = VAL_DATE(val);
@@ -894,22 +896,22 @@ REBTYPE(Date)
 
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
-    if (verb == SYM_SUBTRACT || verb == SYM_ADD) {
+    if (sym == SYM_SUBTRACT || sym == SYM_ADD) {
         REBINT  type = VAL_TYPE(arg);
 
         if (type == REB_DATE) {
-            if (verb == SYM_SUBTRACT) {
+            if (sym == SYM_SUBTRACT) {
                 Init_Integer(D_OUT, Diff_Date(date, VAL_DATE(arg)));
                 return R_OUT;
             }
         }
         else if (type == REB_TIME) {
-            if (verb == SYM_ADD) {
+            if (sym == SYM_ADD) {
                 SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
                 secs += VAL_NANO(arg);
                 goto fixTime;
             }
-            if (verb == SYM_SUBTRACT) {
+            if (sym == SYM_SUBTRACT) {
                 SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
                 secs -= VAL_NANO(arg);
                 goto fixTime;
@@ -917,23 +919,23 @@ REBTYPE(Date)
         }
         else if (type == REB_INTEGER) {
             REBINT num = Int32(arg);
-            if (verb == SYM_ADD) {
+            if (sym == SYM_ADD) {
                 day += num;
                 goto fixDate;
             }
-            if (verb == SYM_SUBTRACT) {
+            if (sym == SYM_SUBTRACT) {
                 day -= num;
                 goto fixDate;
             }
         }
         else if (type == REB_DECIMAL) {
             REBDEC dec = Dec64(arg);
-            if (verb == SYM_ADD) {
+            if (sym == SYM_ADD) {
                 SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
                 secs += (REBI64)(dec * TIME_IN_DAY);
                 goto fixTime;
             }
-            if (verb == SYM_SUBTRACT) {
+            if (sym == SYM_SUBTRACT) {
                 SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
                 secs -= (REBI64)(dec * TIME_IN_DAY);
                 goto fixTime;
@@ -941,7 +943,7 @@ REBTYPE(Date)
         }
     }
     else {
-        switch (verb) {
+        switch (sym) {
         case SYM_EVEN_Q:
             return ((~day) & 1) == 0 ? R_TRUE : R_FALSE;
 

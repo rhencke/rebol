@@ -1490,8 +1490,8 @@ REBTYPE(Fail)
 REB_R Type_Action_Dispatcher(REBFRM *f)
 {
     enum Reb_Kind kind = VAL_TYPE(FRM_ARG(f, 1));
-    REBSYM verb = VAL_WORD_SYM(ACT_BODY(FRM_PHASE(f)));
-    assert(verb != SYM_0); // not a compile-time constant, needed for switch()
+    REBVAL *verb = KNOWN(ACT_BODY(FRM_PHASE(f)));
+    assert(IS_WORD(verb));
     assert(kind < REB_MAX);
 
     REBTAF subdispatch = Value_Dispatch[kind];

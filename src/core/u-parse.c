@@ -2226,7 +2226,9 @@ REBNATIVE(subparse)
                         Derelativize(specified, rule, P_RULE_SPECIFIER);
 
                         P_POS = Modify_Array(
-                            (flags & PF_CHANGE) ? SYM_CHANGE : SYM_INSERT,
+                            (flags & PF_CHANGE)
+                                ? Canon(SYM_CHANGE)
+                                : Canon(SYM_INSERT),
                             ARR(P_INPUT),
                             begin,
                             specified,
@@ -2249,22 +2251,26 @@ REBNATIVE(subparse)
                         if (P_TYPE == REB_BINARY)
                             P_POS = Modify_Binary(
                                 P_INPUT_VALUE,
-                                (flags & PF_CHANGE) ? SYM_CHANGE : SYM_INSERT,
+                                (flags & PF_CHANGE)
+                                    ? Canon(SYM_CHANGE)
+                                    : Canon(SYM_INSERT),
                                 specified,
                                 mod_flags,
                                 count,
                                 1
                             );
-                        else
+                        else {
                             P_POS = Modify_String(
                                 P_INPUT_VALUE,
-                                (flags & PF_CHANGE) ? SYM_CHANGE : SYM_INSERT,
+                                (flags & PF_CHANGE)
+                                    ? Canon(SYM_CHANGE)
+                                    : Canon(SYM_INSERT),
                                 specified,
                                 mod_flags,
                                 count,
                                 1
                             );
-
+                        }
                     }
                 }
 

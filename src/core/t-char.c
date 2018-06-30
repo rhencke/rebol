@@ -118,7 +118,7 @@ void TO_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 }
 
 
-static REBINT Math_Arg_For_Char(REBVAL *arg, REBSYM verb)
+static REBINT Math_Arg_For_Char(REBVAL *arg, REBVAL *verb)
 {
     switch (VAL_TYPE(arg)) {
     case REB_CHAR:
@@ -179,7 +179,7 @@ REBTYPE(Char)
     REBI64 chr = cast(REBI64, VAL_CHAR(D_ARG(1)));
     REBI64 arg;
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_ADD: {
         arg = Math_Arg_For_Char(D_ARG(2), verb);

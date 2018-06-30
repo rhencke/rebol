@@ -781,14 +781,14 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 //
 REB_R Context_Common_Action_Maybe_Unhandled(
     REBFRM *frame_,
-    REBSYM verb
+    REBVAL *verb
 ){
     REBVAL *value = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     REBCTX *c = VAL_CONTEXT(value);
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         REBSYM property = VAL_WORD_SYM(arg);
@@ -847,7 +847,7 @@ REBTYPE(Context)
 
     REBCTX *c = VAL_CONTEXT(value);
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT:
         // should be handled by the common handler
@@ -899,7 +899,7 @@ REBTYPE(Context)
         if (cast(REBCNT, n) > CTX_LEN(c))
             return R_NULL;
 
-        if (verb == SYM_FIND)
+        if (VAL_WORD_SYM(verb) == SYM_FIND)
             return R_BAR; // synthesizing TRUE would obscure non-LOGIC! result
 
         Move_Value(D_OUT, CTX_VAR(c, n));

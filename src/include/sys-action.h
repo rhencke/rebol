@@ -1,17 +1,16 @@
 //
-//  File: %sys-action.h
-//  Summary: "Definition of action dispatchers"
-//  Section: core
+//  File: %sys-function.h
+//  Summary: {Definitions for REBACT}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
-// See README.md and CREDITS.md for more information.
+// See README.md and CREDITS.md for more information
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,234 +26,249 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-
-
-// An action's paramlist is always allocated dynamically, in order to speed
-// up parameter access--no need to test SERIES_FLAG_HAS_DYNAMIC to find them.
+// Using a technique strongly parallel to contexts, an action is identified
+// by a series which is also its paramlist, in which the 0th element is an
+// archetypal value of that ACTION!.  Unlike contexts, an action does not
+// have values of its own...only parameter definitions (or "params").  The
+// arguments ("args") come from finding an action's instantiation on the
+// stack, and can be viewed as a context using a FRAME!.
 //
-// !!! Expanding the parameter list might be part of an advanced feature
-// under the hood in the future, but users should not themselves grow action
-// frames by appending to them.
-//
-#define SERIES_MASK_ACTION \
-    (NODE_FLAG_NODE | SERIES_FLAG_HAS_DYNAMIC | SERIES_FLAG_FIXED_SIZE \
-        | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST)
 
-
-// !!! Originally, REB_R was a REBCNT from reb-c.h (not this enumerated type
-// containing its legal values).  That's because enums in C have no guaranteed
-// size, yet Rebol wants to use known size types in its interfaces.
-//
-// However, there are other enums in %tmp-funcs.h, and the potential for bugs
-// is too high to not let the C++ build check the types.  So for now, REB_R
-// uses this enum.
-//
-enum Reb_Result {
-    //
-    // Returning boolean results is specially chosen as the 0 and 1 values,
-    // so that a logic result can just be cast, as with R_FROM_BOOL().
-    // See remarks on REBOOL about how it is ensured that TRUE is 1, and
-    // that this is the standard for C/C++ bool conversion:
-    //
-    // http://stackoverflow.com/questions/2725044/
-    //
-    R_FALSE = 0, // => Init_Logic(D_OUT, FALSE); return R_OUT;
-    R_TRUE = 1, // => Init_Logic(D_OUT, TRUE); return R_OUT;
-
-    // NULL, void, blank, and bar are also common results.
-    //
-    R_NULL, // => Init_Null(D_OUT); return R_OUT;
-    R_VOID, // => Init_Void(D_OUT); return R_OUT;
-    R_BLANK, // => Init_Blank(D_OUT); return R_OUT;
-    R_BAR, // Init_Bar(D_OUT); return R_OUT;
-
-    // This means that the value in D_OUT is to be used as the return result.
-    // Note that value starts as an END, and must be written to some other
-    // value before this return can be used (checked by assert in debug build)
-    //
-    R_OUT,
-
-    // See comments on VALUE_FLAG_THROWN about the migration of "thrownness"
-    // from being a property signaled to the evaluator.
-    //
-    // R_OUT_IS_THROWN is a test of that signaling mechanism.  It is currently
-    // being kept in parallel with the THROWN() bit and ensured as matching.
-    // Being in the state of doing a stack unwind will likely be knowable
-    // through other mechanisms even once the thrown bit on the value is
-    // gone...so it may not be the case that natives are asked to do their
-    // own separate indication, so this may wind up replaced with R_OUT.  For
-    // the moment it is good as a double-check.
-    //
-    R_OUT_IS_THROWN,
-
-    // If Do_Core gets back an R_REDO from a dispatcher, it will re-execute
-    // the f->phase in the frame.  This function may be changed by the
-    // dispatcher from what was originally called.
-    //
-    R_REDO_CHECKED, // check the types again, fill in exits
-    R_REDO_UNCHECKED, // don't recheck types, just run next function in stack
-
-    // EVAL is special because it stays at the frame level it is already
-    // running, but re-evaluates.  In order to do this, it must protect its
-    // argument during that evaluation, so it writes into the frame's
-    // "eval cell".
-    //
-    R_REEVALUATE_CELL,
-    R_REEVALUATE_CELL_ONLY,
-
-    // See ACTION_FLAG_INVISIBLE...this is what any function with that flag
-    // needs to return.
-    //
-    // It is also used by path dispatch when it has taken performing a
-    // SET-PATH! into its own hands, but doesn't want to bother saying to
-    // move the value into the output slot...instead leaving that to the
-    // evaluator (as a SET-PATH! should always evaluate to what was just set)
-    //
-    R_INVISIBLE,
-
-    // Path dispatch used to have a return value PE_SET_IF_END which meant
-    // that the dispatcher itself should realize whether it was doing a path
-    // get or set, and if it were doing a set then to write the value to set
-    // into the target cell.  That means it had to keep track of a pointer to
-    // a cell vs. putting the bits of the cell into the output.  This is now
-    // done with a special REB_0_REFERENCE type which holds in its payload
-    // a RELVAL and a specifier, which is enough to be able to do either a
-    // read or a write, depending on the need.
-    //
-    // !!! See notes in %c-path.c of why the R3-Alpha path dispatch is hairier
-    // than that.  It hasn't been addressed much in Ren-C yet, but needs a
-    // more generalized design.
-    //
-    R_REFERENCE,
-
-    // This is used in path dispatch, signifying that a SET-PATH! assignment
-    // resulted in the updating of an immediate expression in pvs->out,
-    // meaning it will have to be copied back into whatever reference cell
-    // it had been in.
-    //
-    R_IMMEDIATE,
-
-    // This is a signal that isn't accepted as a return value from a native,
-    // so it can be used by common routines that return REB_R values and need
-    // an "escape" code.
-    //
-    R_UNHANDLED,
-
-    // Used as a signal from Do_Vararg_Op_May_Throw
-    //
-    R_END
-};
-typedef enum Reb_Result REB_R;
-
-// Specially chosen 0 and 1 values for R_FALSE and R_TRUE enable this. 
-//
-inline static REB_R R_FROM_BOOL(REBOOL b) {
-    return cast(REB_R, cast(int, b));
+inline static REBARR *ACT_PARAMLIST(REBACT *a) {
+    assert(GET_SER_FLAG(&a->paramlist, ARRAY_FLAG_PARAMLIST));
+    return &a->paramlist;
 }
 
-// R3-Alpha's concept was that all words got persistent integer values, which
-// prevented garbage collection.  Ren-C only gives built-in words integer
-// values--or SYMs--while others must be compared by pointers to their
-// name or canon-name pointers.  A non-built-in symbol will return SYM_0 as
-// its symbol, allowing it to fall through to defaults in case statements.
+#define ACT_ARCHETYPE(a) \
+    cast(REBVAL*, cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.data)
+
+// Functions hold their flags in their canon value, some of which are cached
+// flags put there during Make_Action().
 //
-// Though it works fine for switch statements, it creates a problem if someone
-// writes `VAL_WORD_SYM(a) == VAL_WORD_SYM(b)`, because all non-built-ins
-// will appear to be equal.  It's a tricky enough bug to catch to warrant an
-// extra check in C++ that disallows comparing SYMs with ==
+// !!! Review if (and how) a HIJACK might affect these flags (?)
 //
-#if !defined(NDEBUG) && defined(CPLUSPLUS_11)
-    struct REBSYM;
+#define GET_ACT_FLAG(a, flag) \
+    GET_VAL_FLAG(ACT_ARCHETYPE(a), (flag))
 
-    struct OPT_REBSYM { // can only be converted to REBSYM, no comparisons
-        enum REBOL_Symbols n;
-        OPT_REBSYM (const REBSYM& sym);
-        REBOOL operator==(enum REBOL_Symbols other) const {
-            return n == other;
-        }
-        REBOOL operator!=(enum REBOL_Symbols other) const {
-            return n != other;
-        }
+#define ACT_DISPATCHER(a) \
+    (MISC(ACT_ARCHETYPE(a)->payload.action.body_holder).dispatcher)
 
-        REBOOL operator==(OPT_REBSYM &&other) const;
-        REBOOL operator!=(OPT_REBSYM &&other) const;
+#define ACT_BODY(a) \
+    ARR_SINGLE(ACT_ARCHETYPE(a)->payload.action.body_holder)
 
-        operator unsigned int() const {
-            return cast(unsigned int, n);
-        }
-    };
+inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
+    assert(n != 0 and n < ARR_LEN(ACT_PARAMLIST(a)));
+    return SER_AT(REBVAL, SER(ACT_PARAMLIST(a)), n);
+}
 
-    struct REBSYM { // acts like a REBOL_Symbol with no OPT_REBSYM compares
-        enum REBOL_Symbols n;
-        REBSYM () {}
-        REBSYM (int n) : n (cast(enum REBOL_Symbols, n)) {}
-        REBSYM (OPT_REBSYM opt_sym) : n (opt_sym.n) {}
-        operator unsigned int() const {
-            return cast(unsigned int, n);
-        }
-        REBOOL operator>=(enum REBOL_Symbols other) const {
-            assert(other != SYM_0);
-            return n >= other;
-        }
-        REBOOL operator<=(enum REBOL_Symbols other) const {
-            assert(other != SYM_0);
-            return n <= other;
-        }
-        REBOOL operator>(enum REBOL_Symbols other) const {
-            assert(other != SYM_0);
-            return n > other;
-        }
-        REBOOL operator<(enum REBOL_Symbols other) const {
-            assert(other != SYM_0);
-            return n < other;
-        }
-        REBOOL operator==(enum REBOL_Symbols other) const {
-            return n == other;
-        }
-        REBOOL operator!=(enum REBOL_Symbols other) const {
-            return n != other;
-        }
-        REBOOL operator==(REBSYM &other) const; // could be SYM_0!
-        void operator!=(REBSYM &other) const; // could be SYM_0!
-        REBOOL operator==(const OPT_REBSYM &other) const; // could be SYM_0!
-        void operator!=(const OPT_REBSYM &other) const; // could be SYM_0!
-    };
+#define ACT_NUM_PARAMS(a) \
+    (cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.len - 1)
 
-    inline OPT_REBSYM::OPT_REBSYM(const REBSYM &sym) : n (sym.n) {}
+#define ACT_META(a) \
+    MISC(a).meta
+
+
+// *** These ACT_FACADE fetchers are called VERY frequently, so it is best
+// to keep them light (as the debug build does not inline).  Integrity checks
+// of the facades are deferred to the GC, see the REB_ACTION case in the
+// switch(), and don't turn these into inline functions without a really good
+// reason...and seeing the impact on the debug build!!! ***
+
+#define ACT_FACADE(a) \
+    LINK(a).facade
+
+#define ACT_FACADE_NUM_PARAMS(a) \
+    (cast(REBSER*, ACT_FACADE(a))->content.dynamic.len - 1)
+
+#define ACT_FACADE_HEAD(a) \
+    (cast(REBVAL*, cast(REBSER*, ACT_FACADE(a))->content.dynamic.data) + 1)
+
+// The concept of the "underlying" function is that which has the right
+// number of arguments for the frame to be built--and which has the actual
+// correct paramlist identity to use for binding in adaptations.
+//
+// So if you specialize a plain function with 2 arguments so it has just 1,
+// and then specialize the specialization so that it has 0, your call still
+// needs to be building a frame with 2 arguments.  Because that's what the
+// code that ultimately executes--after the specializations are peeled away--
+// will expect.
+//
+// And if you adapt an adaptation of a function, the keylist referred to in
+// the frame has to be the one for the inner function.  Using the adaptation's
+// parameter list would write variables the adapted code wouldn't read.
+//
+// For efficiency, the underlying pointer can be derived from the "facade".
+// Though the facade may not be the underlying paramlist (it could have its
+// parameter types tweaked for the purposes of that composition), it will
+// always have an ACTION! value in its 0 slot as the underlying function.
+//
+#define ACT_UNDERLYING(a) \
+    ACT(ARR_HEAD(ACT_FACADE(a))->payload.action.paramlist)
+
+#define ACT_EXEMPLAR(a) \
+    LINK(ACT_ARCHETYPE(a)->payload.action.body_holder).exemplar
+
+
+// There is no binding information in a function parameter (typeset) so a
+// REBVAL should be okay.
+//
+#define ACT_PARAMS_HEAD(a) \
+    (cast(REBVAL*, SER(ACT_PARAMLIST(a))->content.dynamic.data) + 1)
+
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+//  ACTION!
+//
+//=////////////////////////////////////////////////////////////////////////=//
+
+#ifdef NDEBUG
+    #define ACTION_FLAG(n) \
+        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
 #else
-    typedef enum REBOL_Symbols REBSYM;
-    typedef enum REBOL_Symbols OPT_REBSYM; // act sameas REBSYM in C build
+    #define ACTION_FLAG(n) \
+        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_ACTION))
 #endif
 
-inline static REBOOL SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
-    assert(a != SYM_0 and b != SYM_0);
-    return cast(REBCNT, a) == cast(REBCNT, b);
+// RETURN in the last paramlist slot
+//
+#define ACTION_FLAG_RETURN ACTION_FLAG(0)
+
+// Uses the Voider_Dispatcher() (implies ACTION_FLAG_RETURN + arity-0 RETURN)
+//
+#define ACTION_FLAG_VOIDER ACTION_FLAG(1)
+
+// DEFERS_LOOKBACK_ARG flag is a cached property, which tells you whether a
+// function defers its first real argument when used as a lookback.  Because
+// lookback dispatches cannot use refinements at this time, the answer is
+// static for invocation via a plain word.  This property is calculated at
+// the time of Make_Action().
+//
+#define ACTION_FLAG_DEFERS_LOOKBACK ACTION_FLAG(2)
+
+// This is another cached property, needed because lookahead/lookback is done
+// so frequently, and it's quicker to check a bit on the function than to
+// walk the parameter list every time that function is called.
+//
+#define ACTION_FLAG_QUOTES_FIRST_ARG ACTION_FLAG(3)
+
+// The COMPILE-NATIVES command wants to operate on user natives, and be able
+// to recompile unchanged natives as part of a unit even after they were
+// initially compiled.  But since that replaces their dispatcher with an
+// arbitrary function, they can't be recognized to know they have the specific
+// body structure of a user native.  So this flag is used.
+//
+#define ACTION_FLAG_USER_NATIVE ACTION_FLAG(4)
+
+// This flag is set when the native (e.g. extensions) can be unloaded
+//
+#define ACTION_FLAG_UNLOADABLE_NATIVE ACTION_FLAG(5)
+
+// An "invisible" function is one that does not touch its frame output cell,
+// leaving it completely alone.  This is how `10 comment ["hi"] + 20` can
+// work...if COMMENT destroyed the 10 in the output cell it would be lost and
+// the addition could no longer work.
+//
+// !!! One property considered for invisible items was if they might not be
+// quoted in soft-quoted positions.  This would require fetching something
+// that might not otherwise need to be fetched, to test the flag.  Review.
+//
+#define ACTION_FLAG_INVISIBLE ACTION_FLAG(6)
+
+#if !defined(NDEBUG)
+    //
+    // If a function is a native then it may provide return information as
+    // documentation, but not want to pay for the run-time check of whether
+    // the type is correct or not.  In the debug build though, it's good
+    // to double-check.  So when MKF_FAKE_RETURN is used in a debug build,
+    // it leaves this flag on the function.
+    //
+    #define ACTION_FLAG_RETURN_DEBUG ACTION_FLAG(7)
+#endif
+
+// These are the flags which are scanned for and set during Make_Action
+//
+#define ACTION_FLAG_CACHED_MASK \
+    (ACTION_FLAG_DEFERS_LOOKBACK | ACTION_FLAG_QUOTES_FIRST_ARG \
+        | ACTION_FLAG_INVISIBLE)
+
+
+inline static REBACT *VAL_ACTION(const RELVAL *v) {
+    assert(IS_ACTION(v));
+    REBSER *s = SER(v->payload.action.paramlist);
+    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+        fail (Error_Series_Data_Freed_Raw());
+    return ACT(s);
 }
 
-// C function implementing a native ACTION!
-//
-typedef REB_R (*REBNAT)(REBFRM *frame_);
-#define REBNATIVE(n) \
-    REB_R N_##n(REBFRM *frame_)
+#define VAL_ACT_PARAMLIST(v) \
+    ACT_PARAMLIST(VAL_ACTION(v))
 
-// Type-Action-Function: implementing a "verb" ACTION! for a particular type
-// (or class of types).
-//
-typedef REB_R (*REBTAF)(REBFRM *frame_, REBSYM verb);
-#define REBTYPE(n) \
-    REB_R T_##n(REBFRM *frame_, REBSYM verb)
+#define VAL_ACT_NUM_PARAMS(v) \
+    ACT_NUM_PARAMS(VAL_ACTION(v))
 
-// Port-Action-Function: for implementing "verb" ACTION!s on a PORT! class
-// 
-typedef REB_R (*REBPAF)(REBFRM *frame_, REBCTX *p, REBSYM verb);
+#define VAL_ACT_PARAMS_HEAD(v) \
+    ACT_PARAMS_HEAD(VAL_ACTION(v))
 
-// Path evaluator function
-//
-typedef REB_R (*REBPEF)(
-    REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval
-);
+#define VAL_ACT_PARAM(v,n) \
+    ACT_PARAM(VAL_ACTION(v), n)
 
-// "Routine INfo" was once a specialized C structure, now an ordinary Rebol
-// REBARR pointer.
+inline static RELVAL *VAL_ACT_BODY(const RELVAL *v) {
+    assert(IS_ACTION(v));
+    return ARR_HEAD(v->payload.action.body_holder);
+}
+
+inline static REBNAT VAL_ACT_DISPATCHER(const RELVAL *v) {
+    assert(IS_ACTION(v));
+    return MISC(v->payload.action.body_holder).dispatcher;
+}
+
+inline static REBCTX *VAL_ACT_META(const RELVAL *v) {
+    assert(IS_ACTION(v));
+    return MISC(v->payload.action.paramlist).meta;
+}
+
+
+// Native values are stored in an array at boot time.  These are convenience
+// routines for accessing them, which should compile to be as efficient as
+// fetching any global pointer.
+
+#define NAT_VALUE(name) \
+    (&Natives[N_##name##_ID])
+
+#define NAT_ACTION(name) \
+    VAL_ACTION(NAT_VALUE(name))
+
+
+// A fully constructed action can reconstitute the ACTION! REBVAL
+// that is its canon form from a single pointer...the REBVAL sitting in
+// the 0 slot of the action's paramlist.
 //
-typedef REBARR REBRIN;
+static inline REBVAL *Init_Action_Unbound(
+    RELVAL *out,
+    REBACT *a
+){
+  #if !defined(NDEBUG)
+    Extra_Init_Action_Checks_Debug(a);
+  #endif
+    ENSURE_ARRAY_MANAGED(ACT_PARAMLIST(a));
+    Move_Value(out, ACT_ARCHETYPE(a));
+    assert(VAL_BINDING(out) == UNBOUND);
+    return KNOWN(out);
+}
+
+static inline REBVAL *Init_Action_Maybe_Bound(
+    RELVAL *out,
+    REBACT *a,
+    REBNOD *binding // allowed to be UNBOUND
+){
+  #if !defined(NDEBUG)
+    Extra_Init_Action_Checks_Debug(a);
+  #endif
+    ENSURE_ARRAY_MANAGED(ACT_PARAMLIST(a));
+    Move_Value(out, ACT_ARCHETYPE(a));
+    assert(VAL_BINDING(out) == UNBOUND);
+    INIT_BINDING(out, binding);
+    return KNOWN(out);
+}

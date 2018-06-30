@@ -123,7 +123,8 @@ static void Init_Dir_Path(
 
     REBREQ *req = AS_REBREQ(dir);
     req->modes |= RFM_DIR;
-    Secure_Port(SYM_FILE, req, path /* , dir->path */);
+
+    Secure_Port(Canon(SYM_FILE), req, path /* , dir->path */);
 
     dir->path = path;
 }
@@ -134,7 +135,7 @@ static void Init_Dir_Path(
 //
 // Internal port handler for file directories.
 //
-static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
+static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 {
     REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
     if (not IS_OBJECT(spec))
@@ -164,7 +165,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
     //
     Move_Value(D_OUT, D_ARG(1));
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
@@ -240,7 +241,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBSYM verb)
 
         rebRelease(result); // ignore result
 
-        if (verb == SYM_CREATE) {
+        if (VAL_WORD_SYM(verb) == SYM_CREATE) {
             Move_Value(D_OUT, D_ARG(1));
             return R_OUT;
         }

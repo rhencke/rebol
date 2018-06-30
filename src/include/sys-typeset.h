@@ -50,6 +50,25 @@
 //      make typeset! [<hide> <quote> <protect> text! integer!]
 //
 
+
+#define IS_KIND_SYM(s) \
+    ((s) < cast(REBSYM, REB_MAX))
+
+inline static enum Reb_Kind KIND_FROM_SYM(REBSYM s) {
+    assert(IS_KIND_SYM(s));
+    return cast(enum Reb_Kind, cast(int, (s)));
+}
+
+#define SYM_FROM_KIND(k) \
+    cast(REBSYM, cast(enum Reb_Kind, (k)))
+
+#define VAL_TYPE_SYM(v) \
+    SYM_FROM_KIND((v)->payload.datatype.kind)
+
+inline static REBSTR *Get_Type_Name(const RELVAL *value)
+    { return Canon(SYM_FROM_KIND(VAL_TYPE(value))); }
+
+
 enum Reb_Param_Class {
     //
     // `PARAM_CLASS_LOCAL` is a "pure" local, which will be set to void by

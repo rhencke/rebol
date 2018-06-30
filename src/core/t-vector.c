@@ -704,7 +704,7 @@ REBTYPE(Vector)
 
     REBSER *vect = VAL_SERIES(value);
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;

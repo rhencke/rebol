@@ -29,7 +29,6 @@
 //
 
 #include "sys-core.h"
-#include "mem-series.h" // low-level series memory access
 #include "sys-int-funcs.h"
 
 

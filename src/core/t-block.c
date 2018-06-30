@@ -746,7 +746,7 @@ REBTYPE(Array)
     REBCNT index = VAL_INDEX(value);
     REBSPC *specifier = VAL_SPECIFIER(value);
 
-    switch (verb) {
+    switch (VAL_WORD_SYM(verb)) {
 
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
@@ -829,7 +829,7 @@ REBTYPE(Array)
         if (REF(only))
             len = 1;
 
-        if (verb == SYM_FIND) {
+        if (VAL_WORD_SYM(verb) == SYM_FIND) {
             if (REF(tail) || REF(match))
                 ret += len;
             VAL_INDEX(value) = ret;
@@ -858,7 +858,7 @@ REBTYPE(Array)
         //
         REBCNT len;
         Partial1(
-            (verb == SYM_CHANGE)
+            (VAL_WORD_SYM(verb) == SYM_CHANGE)
                 ? value
                 : arg,
             ARG(limit),
@@ -877,7 +877,7 @@ REBTYPE(Array)
             flags |= AM_LINE;
 
         index = Modify_Array(
-            verb,
+            VAL_WORD_SPELLING(verb),
             array,
             index,
             arg,

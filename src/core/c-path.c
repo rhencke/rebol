@@ -589,8 +589,11 @@ REBNATIVE(pick)
     // Use a symbol-based call to bounce the frame to the port, which should
     // be a compatible frame with the historical "action".
     //
-    if (IS_PORT(location))
-        return Do_Port_Action(frame_, VAL_CONTEXT(location), SYM_PICK);
+    if (IS_PORT(location)) {
+        DECLARE_LOCAL (word);
+        Init_Word(word, Canon(SYM_PICK));
+        return Do_Port_Action(frame_, VAL_CONTEXT(location), word);
+    }
 
     DECLARE_FRAME (pvs);
 
@@ -664,8 +667,11 @@ REBNATIVE(poke)
     // Use a symbol-based call to bounce the frame to the port, which should
     // be a compatible frame with the historical "action".
     //
-    if (IS_PORT(location))
-        return Do_Port_Action(frame_, VAL_CONTEXT(location), SYM_POKE);
+    if (IS_PORT(location)) {
+        DECLARE_LOCAL (word);
+        Init_Word(word, Canon(SYM_POKE));
+        return Do_Port_Action(frame_, VAL_CONTEXT(location), word);
+    }
 
     DECLARE_FRAME (pvs);
 

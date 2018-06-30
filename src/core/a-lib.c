@@ -64,7 +64,6 @@
 //
 
 #include "sys-core.h"
-#include "mem-series.h" // needed for SER_SET_BIAS in rebRepossess()
 
 
 // "Linkage back to HOST functions. Needed when we compile as a DLL
@@ -1842,7 +1841,8 @@ REBYTE *RL_rebDeflateAlloc(
     const unsigned char* input,
     REBCNT in_len
 ){
-    return Compress_Alloc_Core(out_len, input, in_len, SYM_0);
+    REBSTR *envelope = Canon(SYM_NONE);
+    return Compress_Alloc_Core(out_len, input, in_len, envelope);
 }
 
 
@@ -1857,7 +1857,8 @@ REBYTE *RL_rebZdeflateAlloc(
     const unsigned char* input,
     REBCNT in_len
 ){
-    return Compress_Alloc_Core(out_len, input, in_len, SYM_ZLIB);
+    REBSTR *envelope = Canon(SYM_ZLIB);
+    return Compress_Alloc_Core(out_len, input, in_len, envelope);
 }
 
 
@@ -1872,7 +1873,8 @@ REBYTE *RL_rebGzipAlloc(
     const unsigned char* input,
     REBCNT in_len
 ){
-    return Compress_Alloc_Core(out_len, input, in_len, SYM_GZIP);
+    REBSTR *envelope = nullptr; // see notes in Gunzip on why GZIP is default
+    return Compress_Alloc_Core(out_len, input, in_len, envelope);
 }
 
 
@@ -1892,7 +1894,8 @@ REBYTE *RL_rebInflateAlloc(
     REBCNT len_in,
     REBINT max
 ){
-    return Decompress_Alloc_Core(len_out, input, len_in, max, SYM_0);
+    REBSTR *envelope = Canon(SYM_NONE);
+    return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
 }
 
 
@@ -1908,7 +1911,8 @@ REBYTE *RL_rebZinflateAlloc(
     REBCNT len_in,
     REBINT max
 ){
-    return Decompress_Alloc_Core(len_out, input, len_in, max, SYM_ZLIB);
+    REBSTR *envelope = Canon(SYM_ZLIB);
+    return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
 }
 
 
@@ -1931,7 +1935,12 @@ REBYTE *RL_rebGunzipAlloc(
     REBCNT len_in,
     REBINT max
 ){
-    return Decompress_Alloc_Core(len_out, input, len_in, max, SYM_GZIP);
+    // Note: Because GZIP is what Rebol uses for booting, `nullptr` means
+    // use GZIP.  That's because symbols in %words.r haven't been loaded yet,
+    // so a call to Canon(SYM_XXX) would fail.
+    //
+    REBSTR *envelope = nullptr; // GZIP is the default
+    return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
 }
 
 
@@ -1949,7 +1958,8 @@ REBYTE *RL_rebDeflateDetectAlloc(
     REBCNT len_in,
     REBINT max
 ){
-    return Decompress_Alloc_Core(len_out, input, len_in, max, SYM_DETECT);
+    REBSTR *envelope = Canon(SYM_DETECT);
+    return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
 }
 
 
