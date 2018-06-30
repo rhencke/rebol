@@ -1095,7 +1095,7 @@ void Assert_Array_Core(REBARR *a)
     if (NOT_END(item))
         panic (item);
 
-    if (GET_SER_INFO(a, SERIES_INFO_HAS_DYNAMIC)) {
+    if (GET_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC)) {
         REBCNT rest = SER_REST(SER(a));
 
         assert(rest > 0 && rest > i);

@@ -263,9 +263,11 @@ REBNATIVE(action_of)
     // binding of the FRAME! value.  Otherwise you'd know (for instance) that
     // you had a RETURN, but you wouldn't know where to return *from*.
     //
-    Move_Value(D_OUT, ACT_ARCHETYPE(frame->payload.any_context.phase));
-    D_OUT->extra.binding = frame->extra.binding;
-
+    Init_Action_Maybe_Bound(
+        D_OUT,
+        frame->payload.any_context.phase,
+        frame->extra.binding
+    );
     return R_OUT;
 }
 

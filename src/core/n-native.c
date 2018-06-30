@@ -315,7 +315,7 @@ REBNATIVE(make_native)
     //
     SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_USER_NATIVE);
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(native));
+    Init_Action_Unbound(D_OUT, native);
     return R_OUT;
 #endif
 }

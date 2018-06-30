@@ -40,15 +40,15 @@ inline static REBARR *ACT_PARAMLIST(REBACT *a) {
 }
 
 #define ACT_ARCHETYPE(a) \
-    SER_AT(REBVAL, SER(ACT_PARAMLIST(a)), 0) // binding should be UNBOUND
+    cast(REBVAL*, cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.data)
 
 // Functions hold their flags in their canon value, some of which are cached
 // flags put there during Make_Action().
 //
 // !!! Review if (and how) a HIJACK might affect these flags (?)
 //
-#define GET_ACT_FLAG(fun, flag) \
-    GET_VAL_FLAG(ACT_ARCHETYPE(fun), (flag))
+#define GET_ACT_FLAG(a, flag) \
+    GET_VAL_FLAG(ACT_ARCHETYPE(a), (flag))
 
 #define ACT_DISPATCHER(a) \
     (MISC(ACT_ARCHETYPE(a)->payload.action.body_holder).dispatcher)
@@ -62,7 +62,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 }
 
 #define ACT_NUM_PARAMS(a) \
-    (ARR_LEN(ACT_PARAMLIST(a)) - 1)
+    (cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.len - 1)
 
 #define ACT_META(a) \
     MISC(a).meta
@@ -78,11 +78,10 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
     LINK(a).facade
 
 #define ACT_FACADE_NUM_PARAMS(a) \
-    (ARR_LEN(ACT_FACADE(a)) - 1)
+    (cast(REBSER*, ACT_FACADE(a))->content.dynamic.len - 1)
 
 #define ACT_FACADE_HEAD(a) \
-    KNOWN(ARR_AT(ACT_FACADE(a), 1))
-
+    (cast(REBVAL*, cast(REBSER*, ACT_FACADE(a))->content.dynamic.data) + 1)
 
 // The concept of the "underlying" function is that which has the right
 // number of arguments for the frame to be built--and which has the actual
@@ -114,7 +113,7 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 // REBVAL should be okay.
 //
 #define ACT_PARAMS_HEAD(a) \
-    SER_AT(REBVAL, SER(ACT_PARAMLIST(a)), 1)
+    (cast(REBVAL*, SER(ACT_PARAMLIST(a))->content.dynamic.data) + 1)
 
 
 
@@ -197,7 +196,10 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 
 inline static REBACT *VAL_ACTION(const RELVAL *v) {
     assert(IS_ACTION(v));
-    return ACT(v->payload.action.paramlist);
+    REBSER *s = SER(v->payload.action.paramlist);
+    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+        fail (Error_Series_Data_Freed_Raw());
+    return ACT(s);
 }
 
 #define VAL_ACT_PARAMLIST(v) \
@@ -237,3 +239,36 @@ inline static REBCTX *VAL_ACT_META(const RELVAL *v) {
 
 #define NAT_ACTION(name) \
     VAL_ACTION(NAT_VALUE(name))
+
+
+// A fully constructed action can reconstitute the ACTION! REBVAL
+// that is its canon form from a single pointer...the REBVAL sitting in
+// the 0 slot of the action's paramlist.
+//
+static inline REBVAL *Init_Action_Unbound(
+    RELVAL *out,
+    REBACT *a
+){
+  #if !defined(NDEBUG)
+    Extra_Init_Action_Checks_Debug(a);
+  #endif
+    ENSURE_ARRAY_MANAGED(ACT_PARAMLIST(a));
+    Move_Value(out, ACT_ARCHETYPE(a));
+    assert(VAL_BINDING(out) == UNBOUND);
+    return KNOWN(out);
+}
+
+static inline REBVAL *Init_Action_Maybe_Bound(
+    RELVAL *out,
+    REBACT *a,
+    REBNOD *binding // allowed to be UNBOUND
+){
+  #if !defined(NDEBUG)
+    Extra_Init_Action_Checks_Debug(a);
+  #endif
+    ENSURE_ARRAY_MANAGED(ACT_PARAMLIST(a));
+    Move_Value(out, ACT_ARCHETYPE(a));
+    assert(VAL_BINDING(out) == UNBOUND);
+    INIT_BINDING(out, binding);
+    return KNOWN(out);
+}

@@ -777,8 +777,6 @@ REBOOL Make_Error_Object_Throws(
 // It knows how many arguments the error particular error ID requires based
 // on the templates defined in %errors.r.
 //
-// If the error code RE_USER is used, then the error will have
-//
 // This routine should either succeed and return to the caller, or panic()
 // and crash if there is a problem (such as running out of memory, or that
 // %errors.r has not been loaded).  Hence the caller can assume it will

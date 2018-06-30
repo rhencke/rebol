@@ -95,10 +95,9 @@
     0 // helps locate places that want to say "no flags"
 
 
-// Even though this isn't a cell, go ahead and leave the bit at this location
-// as 0 for series.  This way Detect_Rebol_Pointer() can check a pointer to
-// a REBSER or a REBVAL for END.  If push comes to shove that could be done
-// differently and this bit retaken for a miscellaneous SERIES_FLAG.
+// Detect_Rebol_Pointer() uses the fact that this bit is 0 for series headers
+// to discern between REBSER, REBVAL, and END.  If push comes to shove that
+// could be done differently, and this bit retaken.
 //
 #define SERIES_FLAG_8_IS_FALSE FLAG_LEFT_BIT(8) // NOT(NODE_FLAG_CELL)
 
@@ -181,6 +180,20 @@
     FLAG_LEFT_BIT(12)
 
 
+//=//// SERIES_FLAG_HAS_DYNAMIC ///////////////////////////////////////////=//
+//
+// Indicates that this series has a dynamically allocated portion.  If it does
+// not, then its data pointer is the address of the embedded value inside of
+// it, and that the length is stored in the rightmost byte of the header
+// bits (of which this is one bit).
+//
+// This bit will be flipped if a series grows.  (In the future it should also
+// be flipped when the series shrinks, but no shrinking in the GC yet.)
+//
+#define SERIES_FLAG_HAS_DYNAMIC \
+    FLAG_LEFT_BIT(13)
+
+
 // ^-- STOP GENERIC SERIES FLAGS AT FLAG_LEFT_BIT(15) --^
 //
 // If a series is not an array, then the rightmost 16 bits of the series flags
@@ -189,7 +202,7 @@
 // have one).
 //
 #ifdef CPLUSPLUS_11
-    static_assert(12 < 16, "SERIES_FLAG_XXX too high");
+    static_assert(13 < 16, "SERIES_FLAG_XXX too high");
 #endif
 
 
@@ -321,19 +334,13 @@
 #define SERIES_INFO_1_IS_FALSE FLAG_LEFT_BIT(1) // NOT(NODE_FLAG_FREE)
 
 
-//=//// SERIES_INFO_HAS_DYNAMIC ///////////////////////////////////////////=//
+//=//// SERIES_INFO_2 /////////////////////////////////////////////////////=//
 //
-// Indicates that this series has a dynamically allocated portion.  If it does
-// not, then its data pointer is the address of the embedded value inside of
-// it, and that the length is stored in the rightmost byte of the header
-// bits (of which this is one bit).
+// reclaimed.
 //
-// This bit will be flipped if a series grows.  (In the future it should also
-// be flipped when the series shrinks, but no shrinking in the GC yet.)
+// Note: Same bit position as NODE_FLAG_MANAGED in flags, if that is relevant.
 //
-// Note: Same bit as NODE_FLAG_MANAGED, should not be relevant.
-//
-#define SERIES_INFO_HAS_DYNAMIC \
+#define SERIES_INFO_2 \
     FLAG_LEFT_BIT(2)
 
 
@@ -602,7 +609,7 @@ union Reb_Series_Content {
     //
     struct Reb_Series_Dynamic dynamic;
 
-    // If not SERIES_INFO_HAS_DYNAMIC, 0 or 1 length arrays can be held in
+    // If not SERIES_FLAG_HAS_DYNAMIC, 0 or 1 length arrays can be held in
     // the series node.  This trick is accomplished via "implicit termination"
     // in the ->info bits that come directly after ->content.
     //
@@ -996,7 +1003,7 @@ struct Reb_Context {
             or std::is_same<T, REBCTX>::value
             or std::is_same<T, REBACT>::value;
 
-        constexpr bool base = std::is_same<T, void*>::value
+        constexpr bool base = std::is_same<T, void>::value
             or std::is_same<T, REBNOD>::value;
 
         static_assert(

@@ -415,7 +415,7 @@ REBNATIVE(load_native)
     if (REF(body))
         Move_Value(ACT_BODY(native), ARG(code));
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(native));
+    Init_Action_Unbound(D_OUT, native);
     return R_OUT;
 }
 

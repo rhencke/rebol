@@ -102,7 +102,7 @@ void MAKE_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         MKF_ANY_VALUE
     );
 
-    Move_Value(out, ACT_ARCHETYPE(act));
+    Init_Action_Unbound(out, act);
 }
 
 
@@ -185,14 +185,14 @@ REBTYPE(Action)
         // code, yet has a distinct identity.  This means it would not be
         // HIJACK'd if the function that it was copied from was.
 
-        REBARR *proxy_paramlist = Copy_Array_Deep_Managed(
+        REBARR *proxy_paramlist = Copy_Array_Deep_Flags_Managed(
             VAL_ACT_PARAMLIST(value),
-            SPECIFIED // !!! Note: not actually "deep", just typesets
+            SPECIFIED, // !!! Note: not actually "deep", just typesets
+            SERIES_MASK_ACTION
         );
         ARR_HEAD(proxy_paramlist)->payload.action.paramlist
             = proxy_paramlist;
         MISC(proxy_paramlist).meta = VAL_ACT_META(value);
-        SET_SER_FLAG(proxy_paramlist, ARRAY_FLAG_PARAMLIST);
 
         // If the function had code, then that code will be bound relative
         // to the original paramlist that's getting hijacked.  So when the
@@ -212,8 +212,7 @@ REBTYPE(Action)
         //
         Blit_Cell(ACT_BODY(proxy), VAL_ACT_BODY(value));
 
-        Move_Value(D_OUT, ACT_ARCHETYPE(proxy));
-        D_OUT->extra.binding = VAL_BINDING(value);
+        Init_Action_Maybe_Bound(D_OUT, proxy, VAL_BINDING(value));
         return R_OUT; }
 
     case SYM_REFLECT: {

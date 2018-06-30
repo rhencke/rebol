@@ -82,7 +82,8 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
 
     REBARR *varlist = Make_Array_Core(
         capacity + 1, // size + room for ROOTVAR
-        ARRAY_FLAG_VARLIST | flags
+        SERIES_MASK_CONTEXT // includes assurance of dynamic allocation
+            | flags // e.g. NODE_FLAG_MANAGED
     );
     MISC(varlist).meta = nullptr; // GC sees meta object, must init
 
@@ -282,8 +283,11 @@ REBCTX *Copy_Context_Shallow_Extra(REBCTX *src, REBCNT extra) {
     REBCTX *dest;
     REBARR *varlist;
     if (extra == 0) {
-        varlist = Copy_Array_Shallow(CTX_VARLIST(src), SPECIFIED);
-        SET_SER_FLAG(varlist, ARRAY_FLAG_VARLIST);
+        varlist = Copy_Array_Shallow_Flags(
+            CTX_VARLIST(src),
+            SPECIFIED,
+            SERIES_MASK_CONTEXT // includes assurance of non-dynamic
+        );
 
         dest = CTX(varlist);
 
@@ -827,7 +831,7 @@ REBCTX *Make_Selfish_Context_Detect(
 
     // Make a context of same size as keylist (END already accounted for)
     //
-    REBARR *varlist = Make_Array_Core(len, ARRAY_FLAG_VARLIST);
+    REBARR *varlist = Make_Array_Core(len, SERIES_MASK_CONTEXT);
     TERM_ARRAY_LEN(varlist, len);
     MISC(varlist).meta = NULL; // clear meta object (GC sees this)
 
@@ -1110,7 +1114,7 @@ REBCTX *Merge_Contexts_Selfish(REBCTX *parent1, REBCTX *parent2)
     else
         LINK(keylist).ancestor = CTX_KEYLIST(parent1);
 
-    REBARR *varlist = Make_Array_Core(ARR_LEN(keylist), ARRAY_FLAG_VARLIST);
+    REBARR *varlist = Make_Array_Core(ARR_LEN(keylist), SERIES_MASK_CONTEXT);
     MISC(varlist).meta = NULL; // GC sees this, it must be initialized
 
     REBCTX *merged = CTX(varlist);
@@ -1430,7 +1434,7 @@ void Assert_Context_Core(REBCTX *c)
 {
     REBARR *varlist = CTX_VARLIST(c);
 
-    if (NOT_SER_FLAG(varlist, ARRAY_FLAG_VARLIST))
+    if (not ALL_SER_FLAGS(varlist, SERIES_MASK_CONTEXT))
         panic (varlist);
 
     REBARR *keylist = CTX_KEYLIST(c);

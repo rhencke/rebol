@@ -165,7 +165,7 @@ REBNATIVE(make_routine)
     Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc, 0);
     Move_Value(RIN_AT(r, IDX_ROUTINE_ORIGIN), ARG(lib));
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(routine));
+    Init_Action_Unbound(D_OUT, routine);
     return R_OUT;
 }
 
@@ -212,7 +212,7 @@ REBNATIVE(make_routine_raw)
     Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc, 0);
     Init_Blank(RIN_AT(r, IDX_ROUTINE_ORIGIN)); // no LIBRARY! in this case.
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(routine));
+    Init_Action_Unbound(D_OUT, routine);
     return R_OUT;
 }
 
@@ -285,7 +285,7 @@ REBNATIVE(wrap_callback)
     );
     Move_Value(RIN_AT(r, IDX_ROUTINE_ORIGIN), ARG(action));
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(callback));
+    Init_Action_Unbound(D_OUT, callback);
     return R_OUT;
 }
 

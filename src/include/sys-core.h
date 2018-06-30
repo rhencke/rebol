@@ -241,7 +241,7 @@
 #include "tmp-bootdefs.h"
 
 #include "sys-rebval.h" // REBVAL structure definition
-#include "sys-action.h"
+#include "sys-action.h" // native CFUNCs and REB_R definitions !!! %-rebact.h
 
 #include "sys-rebser.h" // REBSER series definition (embeds REBVAL definition)
 
@@ -689,7 +689,7 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 
 #include "sys-handle.h"
 
-#include "sys-function.h"
+#include "sys-function.h" // !!! TBD: rename %sys-action.h
 #include "sys-context.h"
 #include "sys-word.h"
 

@@ -130,16 +130,20 @@
     cast(void, SER(s)->header.bits &= ~(f))
 
 #define GET_SER_FLAG(s,f) \
-    cast(REBOOL, did (SER(s)->header.bits & (f))) // !!! single-flag check?
+    (did (SER(s)->header.bits & (f))) // !!! ensure it's just one flag?
 
 #define ANY_SER_FLAGS(s,f) \
-    cast(REBOOL, did (SER(s)->header.bits & (f)))
+    (did (SER(s)->header.bits & (f)))
 
-#define ALL_SER_FLAGS(s,f) \
-    cast(REBOOL, (SER(s)->header.bits & (f)) == (f))
+inline static REBOOL ALL_SER_FLAGS(
+    void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
+    REBFLGS f
+){
+    return (SER(s)->header.bits & f) == f; // repeats f, so not a macro
+}
 
 #define NOT_SER_FLAG(s,f) \
-    cast(REBOOL, not (SER(s)->header.bits & (f)))
+    (not (SER(s)->header.bits & (f)))
 
 #define SET_SER_FLAGS(s,f) \
     SET_SER_FLAG((s), (f))
@@ -159,16 +163,20 @@
     cast(void, SER(s)->info.bits &= ~(f))
 
 #define GET_SER_INFO(s,f) \
-    cast(REBOOL, did (SER(s)->info.bits & (f))) // !!! single-flag check?
+    (did (SER(s)->info.bits & (f))) // !!! ensure it's just one flag?
 
 #define ANY_SER_INFOS(s,f) \
-    cast(REBOOL, did (SER(s)->info.bits & (f)))
+    (did (SER(s)->info.bits & (f)))
 
-#define ALL_SER_INFOS(s,f) \
-    cast(REBOOL, (SER(s)->info.bits & (f)) == (f))
+inline static REBOOL ALL_SER_INFOS(
+    void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
+    REBFLGS f
+){
+    return (SER(s)->info.bits & f) == f; // repeats f, so not a macro
+}
 
 #define NOT_SER_INFO(s,f) \
-    cast(REBOOL, not (SER(s)->info.bits & (f)))
+    (not (SER(s)->info.bits & (f)))
 
 #define SET_SER_INFOS(s,f) \
     SET_SER_INFO((s), (f))
@@ -192,7 +200,7 @@
     FOURTH_BYTE((s)->info)
 
 inline static REBCNT SER_LEN(REBSER *s) {
-    return (s->info.bits & SERIES_INFO_HAS_DYNAMIC)
+    return (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
         ? s->content.dynamic.len
         : THIRD_BYTE(s->info);
 }
@@ -200,7 +208,7 @@ inline static REBCNT SER_LEN(REBSER *s) {
 inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
     assert(NOT_SER_FLAG(s, SERIES_FLAG_STACK));
 
-    if (s->info.bits & SERIES_INFO_HAS_DYNAMIC)
+    if (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
         s->content.dynamic.len = len;
     else {
         assert(len < sizeof(s->content));
@@ -210,7 +218,7 @@ inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
 }
 
 inline static REBCNT SER_REST(REBSER *s) {
-    if (s->info.bits & SERIES_INFO_HAS_DYNAMIC)
+    if (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
         return s->content.dynamic.rest;
 
     if (s->header.bits & SERIES_FLAG_ARRAY)
@@ -226,16 +234,19 @@ inline static REBCNT SER_REST(REBSER *s) {
 //
 inline static REBYTE *SER_DATA_RAW(REBSER *s) {
     // if updating, also update manual inlining in SER_AT_RAW
-    if (s->info.bits & SERIES_INFO_INACCESSIBLE)
-        fail (Error_Series_Data_Freed_Raw());
 
-    return (s->info.bits & SERIES_INFO_HAS_DYNAMIC)
+    // The VAL_CONTEXT(), VAL_SERIES(), VAL_ARRAY() extractors do the failing
+    // upon extraction--that's meant to catch it before it gets this far.
+    //
+    assert(not (s->info.bits & SERIES_INFO_INACCESSIBLE));
+
+    return (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
         ? cast(REBYTE*, s->content.dynamic.data)
         : cast(REBYTE*, &s->content);
 }
 
-inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
-#if !defined(NDEBUG)
+inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {   
+  #if !defined(NDEBUG)
     if (w != SER_WIDE(s)) {
         //
         // This is usually a sign that the series was GC'd, as opposed to the
@@ -249,12 +260,14 @@ inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
             printf("SER_AT_RAW asked %d on width=%d\n", w, SER_WIDE(s));
         panic (s);
     }
-#endif
-    if (s->info.bits & SERIES_INFO_INACCESSIBLE)
-        fail (Error_Series_Data_Freed_Raw());
+    // The VAL_CONTEXT(), VAL_SERIES(), VAL_ARRAY() extractors do the failing
+    // upon extraction--that's meant to catch it before it gets this far.
+    //
+    assert(not (s->info.bits & SERIES_INFO_INACCESSIBLE));
+  #endif
 
     return ((w) * (i)) + ( // v-- inlining of SER_DATA_RAW
-        (s->info.bits & SERIES_INFO_HAS_DYNAMIC)
+        (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
             ? cast(REBYTE*, s->content.dynamic.data)
             : cast(REBYTE*, &s->content)
         );
@@ -575,7 +588,10 @@ inline static void Drop_Guard_Value_Common(const RELVAL *v) {
 
 inline static REBSER *VAL_SERIES(const RELVAL *v) {
     assert(ANY_SERIES(v) or IS_MAP(v) or IS_IMAGE(v)); // !!! gcc 5.4 -O2 bug
-    return v->payload.any_series.series;
+    REBSER *s = v->payload.any_series.series;
+    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+        fail (Error_Series_Data_Freed_Raw());
+    return s;
 }
 
 inline static void INIT_VAL_SERIES(RELVAL *v, REBSER *s) {
@@ -704,7 +720,7 @@ inline static REBOOL Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
     // no shrinking process that will pare it back to fit completely inside
     // the REBSER node.
     //
-    assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC)); // caller sets
+    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)); // caller sets
 
     REBYTE wide = SER_WIDE(s);
     assert(wide != 0);
@@ -801,13 +817,16 @@ inline static REBSER *Make_Series_Core(
 
     REBSER *s = Make_Series_Node(wide, flags);
 
-    if (capacity * wide > sizeof(s->content)) {
+    if (
+        (flags & SERIES_FLAG_HAS_DYNAMIC) // inlining will constant fold
+        or (capacity * wide > sizeof(s->content))
+    ){
         //
         // Data won't fit in a REBSER node, needs a dynamic allocation.  The
         // capacity given back as the ->rest may be larger than the requested
         // size, because the memory pool reports the full rounded allocation.
 
-        SET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC); // alloc caller sets
+        SET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC); // alloc caller sets
         if (not Did_Series_Data_Alloc(s, capacity))
             fail (Error_No_Memory(capacity * wide));
 

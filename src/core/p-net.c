@@ -220,7 +220,7 @@ static REB_R Transport_Actor(
             break; }
 
         case SYM_CLOSE:
-            Move_Value(D_OUT, CTX_ARCHETYPE(port));
+            Init_Port(D_OUT, port);
             return R_OUT;
 
         case SYM_ON_WAKE_UP:  // allowed after a close
@@ -502,7 +502,7 @@ static REB_R Transport_Actor(
     fail (Error_Illegal_Action(REB_PORT, verb));
 
 return_port:
-    Move_Value(D_OUT, CTX_ARCHETYPE(port));
+    Init_Port(D_OUT, port);
     return R_OUT;
 }
 

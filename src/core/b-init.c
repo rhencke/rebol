@@ -370,8 +370,9 @@ REBNATIVE(action)
     // assignment, it's good practice to evaluate the whole expression to
     // the result the SET-WORD! was set to, so `x: y: op z` makes `x = y`.
     //
-    Move_Value(Sink_Var_May_Fail(ARG(verb), SPECIFIED), ACT_ARCHETYPE(a));
-    Move_Value(D_OUT, ACT_ARCHETYPE(a));
+    Init_Action_Unbound(Sink_Var_May_Fail(ARG(verb), SPECIFIED), a);
+
+    Init_Action_Unbound(D_OUT, a);
 
     // !!! A very hacky (yet less hacky than R3-Alpha) re-dispatch of APPEND
     // as WRITE/APPEND on ports requires knowing what the WRITE action is.
@@ -640,12 +641,12 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         }
 
         Prep_Non_Stack_Cell(&Natives[n]);
-        Move_Value(&Natives[n], ACT_ARCHETYPE(act));
+        Init_Action_Unbound(&Natives[n], act);
 
         // Append the native to the Lib_Context under the name given.
         //
         REBVAL *var = Append_Context(Lib_Context, name, 0);
-        Move_Value(var, &Natives[n]);
+        Init_Action_Unbound(var, act);
         if (enfix)
             SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
 

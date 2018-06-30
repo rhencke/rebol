@@ -68,11 +68,11 @@ inline static REBMAP *MAP(void *p) {
 inline static REBMAP *VAL_MAP(const RELVAL *v) {
     assert(IS_MAP(v));
 
-    // Ren-C introduced const REBVAL* usage, but propagating const vs non
-    // const REBSER pointers didn't show enough benefit to be worth the
-    // work in supporting them (at this time).  Mutability cast needed.
-    //
-    return MAP(m_cast(RELVAL*, v)->payload.any_series.series);
+    REBSER *s = v->payload.any_series.series;
+    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+        fail (Error_Series_Data_Freed_Raw());
+
+    return MAP(s);
 }
 
 inline static REBCNT Length_Map(REBMAP *map)

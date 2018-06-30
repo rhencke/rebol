@@ -453,35 +453,28 @@ inline static void Push_Action(
     REBCNT num_args = ACT_FACADE_NUM_PARAMS(act);
     f->param = ACT_FACADE_HEAD(act); // see definitions for notes on facades
 
+    // !!! Note: Should pick "smart" size when allocating varlist storage due
+    // to potential reuse--but use exact size for *this* action, for now.
+    //
     REBSER *s;
     if (not f->varlist) {
         //
-        // First action call in frame, or previous one wound up managed and
-        // nabbed by Drop_Action() for stub use in extant references.  Make a
-        // new one, and setup for reuse if it doesn't wind up getting managed.
+        // First action call in frame, or previous varlist wound up managed
+        // and nabbed by Drop_Action() for stub use in extant references.
         //
-        s = cast(REBSER*, Make_Node(SER_POOL));
-        s->header.bits = (
-            NODE_FLAG_NODE
-                | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST | SERIES_FLAG_STACK
+        s = Make_Series_Node(
+            sizeof(REBVAL),
+            SERIES_MASK_CONTEXT // includes dynamic flag, for allocation below
+                | SERIES_FLAG_STACK
+                | SERIES_FLAG_FIXED_SIZE // FRAME!s don't expand ATM
         );
         s->link_private.keysource = NOD(f); // maps varlist back to f
-        // content allocated below
-        Init_Endlike_Header(
-            &s->info,
-            SERIES_INFO_HAS_DYNAMIC // allocated @ `sufficient_allocation:
-                | FLAG_THIRD_BYTE(0) // unused slot (non-dynamic len)
-                | FLAG_FOURTH_BYTE(sizeof(REBVAL)) // series "wide"
-        );
         s->misc_private.meta = nullptr; // GC will sees this
         f->varlist = ARR(s);
     }
     else {
-        // An allocated varlist exists, but it might not have enough capacity.
-        // Fall through to realloc if too small (needs room for +ROOTVAR +END)
-        //
         s = SER(f->varlist);
-        if (s->content.dynamic.rest >= num_args + 1 + 1)
+        if (s->content.dynamic.rest >= num_args + 1 + 1) // +roovar, +end
             goto sufficient_allocation;
 
         //assert(SER_BIAS(s) == 0);
@@ -491,10 +484,7 @@ inline static void Push_Action(
         );
     }
 
-    // !!! Work should be done on picking a smart size... but just use the
-    // exact size needed for this action, for now.
-    //
-    if (not Did_Series_Data_Alloc(s, num_args + 1 + 1))
+    if (not Did_Series_Data_Alloc(s, num_args + 1 + 1)) // +rootvar, +end
         fail ("Out of memory in Push_Action()");
 
     f->rootvar = cast(REBVAL*, s->content.dynamic.data);
@@ -587,19 +577,15 @@ inline static void Drop_Action_Core(REBFRM *f) {
         // SERIES_INFO_HOLD put on by Enter_Native(), or NODE_FLAG_MANAGED,
         // etc.--use constant assignments and only copy the remaining fields.
         //
-        REBSER *copy = cast(REBSER*, Make_Node(SER_POOL));
-        copy->header.bits =
-            NODE_FLAG_NODE | NODE_FLAG_STACK
-            | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST; // now unmanaged
-        copy->link_private = stub->link_private;
-        copy->content = stub->content;
-        Init_Endlike_Header(
-            &copy->info,
-            SERIES_INFO_HAS_DYNAMIC
-                | FLAG_THIRD_BYTE(0) // HAS_DYNAMIC, so not length, unused ATM
-                | FLAG_FOURTH_BYTE(sizeof(REBVAL)) // fourth byte is width
+        REBSER *copy = Make_Series_Node(
+            sizeof(REBVAL),
+            SERIES_MASK_CONTEXT // includes dynamic, applies to stolen content
+                | SERIES_FLAG_STACK
+                | SERIES_FLAG_FIXED_SIZE
         );
-        copy->misc_private = stub->misc_private;
+        copy->link_private.keysource = NOD(f); // same as what was in stub.
+        copy->content = stub->content;
+        copy->misc_private.meta = nullptr; // let stub swipe the meta
         
         REBVAL *rootvar = cast(REBVAL*, copy->content.dynamic.data);
         
@@ -611,6 +597,7 @@ inline static void Drop_Action_Core(REBFRM *f) {
         // those marking failure are asked to do so manually to the stub
         // after this returns (hence they need to cache the varlist first).
         //
+        stub->header.bits &= ~SERIES_FLAG_HAS_DYNAMIC;
         Init_Endlike_Header(
             &stub->info,
             SERIES_INFO_INACCESSIBLE // args memory now "stolen" by copy
@@ -618,11 +605,12 @@ inline static void Drop_Action_Core(REBFRM *f) {
                 | FLAG_FOURTH_BYTE(sizeof(REBVAL)) // fourth byte is width
         );
 
-        stub->content.fixed.values[0].header.bits =
+        REBVAL *single = cast(REBVAL*, &stub->content.fixed);
+        single->header.bits =
             NODE_FLAG_NODE | NODE_FLAG_CELL | HEADERIZE_KIND(REB_FRAME);
-        stub->content.fixed.values[0].extra.binding = rootvar->extra.binding;
-        stub->content.fixed.values[0].payload.any_context.varlist = ARR(stub);
-        stub->content.fixed.values[0].payload.any_context.phase = f->original;
+        single->extra.binding = rootvar->extra.binding;
+        single->payload.any_context.varlist = ARR(stub);
+        single->payload.any_context.phase = f->original;
 
         rootvar->payload.any_context.varlist = ARR(copy);
         TRASH_POINTER_IF_DEBUG(rootvar->payload.any_context.phase);
@@ -644,8 +632,7 @@ inline static void Drop_Action_Core(REBFRM *f) {
         //
         CLEAR_SER_INFOS(f->varlist, SERIES_INFO_HOLD);
         assert(0 == (SER(f->varlist)->info.bits & ~( // <- note bitwise not
-            SERIES_INFO_HAS_DYNAMIC
-            | SERIES_INFO_0_IS_TRUE // parallels NODE_FLAG_NODE
+            SERIES_INFO_0_IS_TRUE // parallels NODE_FLAG_NODE
             | SERIES_INFO_8_IS_TRUE // parallels CELL_FLAG_END
             | FLAG_THIRD_BYTE(255) // mask out non-dynamic-len (it's dynamic)
             | FLAG_FOURTH_BYTE(255) // mask out wide (sizeof(REBVAL))

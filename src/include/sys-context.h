@@ -59,6 +59,18 @@
 // entire REBVAL if it is needed.
 //
 
+// An context's varlist is always allocated dynamically, in order to speed
+// up variable access--no need to test SERIES_FLAG_HAS_DYNAMIC to find them.
+//
+// !!! Ideally this would carry a flag to tell a GC "shrinking" process not
+// to reclaim the dynamic memory to make a singular cell...but that flag
+// can't be SERIES_FLAG_FIXED_SIZE, because most varlists can expand.
+//
+#define SERIES_MASK_CONTEXT \
+    (NODE_FLAG_NODE | SERIES_FLAG_HAS_DYNAMIC \
+        | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST)
+
+
 #ifdef NDEBUG
     #define ASSERT_CONTEXT(c) cast(void, 0)
 #else
@@ -75,8 +87,8 @@
 //
 inline static REBVAL *CTX_ARCHETYPE(REBCTX *c) {
     REBSER *varlist = SER(CTX_VARLIST(c));
-    if (NOT_SER_INFO(varlist, SERIES_INFO_HAS_DYNAMIC))
-        return cast(REBVAL*, &varlist->content);
+    if (NOT_SER_FLAG(varlist, SERIES_FLAG_HAS_DYNAMIC))
+        return cast(REBVAL*, &varlist->content.fixed);
 
     // If a context has its data freed, it must be converted into non-dynamic
     // form if it wasn't already (e.g. if it wasn't a FRAME!)
@@ -126,10 +138,10 @@ static inline void INIT_CTX_KEYLIST_UNIQUE(REBCTX *c, REBARR *keylist) {
 // requested in context creation).
 //
 #define CTX_LEN(c) \
-    (ARR_LEN(CTX_KEYLIST(c)) - 1)
+    (cast(REBSER*, (c))->content.dynamic.len - 1) // len > 1 => dynamic
 
 #define CTX_ROOTKEY(c) \
-    SER_HEAD(REBVAL, SER(CTX_KEYLIST(c)))
+    cast(REBVAL*, SER(CTX_KEYLIST(c))->content.dynamic.data) // len > 1
 
 #define CTX_TYPE(c) \
     VAL_TYPE(CTX_ARCHETYPE(c))
@@ -165,18 +177,18 @@ inline static REBFRM *CTX_FRAME_MAY_FAIL(REBCTX *c) {
     SER_AT(REBVAL, SER(CTX_VARLIST(c)), 1) // may fail() if inaccessible
 
 inline static REBVAL *CTX_KEY(REBCTX *c, REBCNT n) {
+    assert(NOT_SER_FLAG(c, SERIES_INFO_INACCESSIBLE));
+    assert(GET_SER_FLAG(c, ARRAY_FLAG_VARLIST));
     assert(n != 0 and n <= CTX_LEN(c));
-    REBVAL *key = CTX_KEYS_HEAD(c) + (n) - 1;
-    assert(key->extra.key_spelling != NULL);
-    return key;
+    return cast(REBVAL*, cast(REBSER*, CTX_KEYLIST(c))->content.dynamic.data)
+        + n;
 }
 
 inline static REBVAL *CTX_VAR(REBCTX *c, REBCNT n) {
-    assert(n != 0 and n <= CTX_LEN(c));
+    assert(NOT_SER_FLAG(c, SERIES_INFO_INACCESSIBLE));
     assert(GET_SER_FLAG(c, ARRAY_FLAG_VARLIST));
-    REBVAL *var = CTX_VARS_HEAD(c) + (n) - 1;
-    assert(not IS_RELATIVE(cast(RELVAL*, var)));
-    return var;
+    assert(n != 0 and n <= CTX_LEN(c));
+    return cast(REBVAL*, cast(REBSER*, c)->content.dynamic.data) + n;
 }
 
 inline static REBSTR *CTX_KEY_SPELLING(REBCTX *c, REBCNT n) {
@@ -241,8 +253,11 @@ inline static REBOOL CTX_VARS_UNAVAILABLE(REBCTX *c) {
 
 inline static REBCTX *VAL_CONTEXT(const RELVAL *v) {
     assert(ANY_CONTEXT(v));
-    assert(v->payload.any_context.phase == NULL or VAL_TYPE(v) == REB_FRAME);
-    return CTX(v->payload.any_context.varlist);
+    assert(not v->payload.any_context.phase or VAL_TYPE(v) == REB_FRAME);
+    REBSER *s = SER(v->payload.any_context.varlist);
+    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+        fail (Error_Series_Data_Freed_Raw());
+    return CTX(s);
 }
 
 inline static void INIT_VAL_CONTEXT(REBVAL *v, REBCTX *c) {
@@ -275,8 +290,25 @@ inline static void INIT_VAL_CONTEXT(REBVAL *v, REBCTX *c) {
 #define SELFISH(n) \
     ((n) + 1)
 
-#define Init_Any_Context(out,kind,c) \
-    Init_Any_Context_Core((out), (kind), (c))
+// Common routine for initializing OBJECT, MODULE!, PORT!, and ERROR!
+//
+// A fully constructed context can reconstitute the ANY-CONTEXT! REBVAL
+// that is its canon form from a single pointer...the REBVAL sitting in
+// the 0 slot of the context's varlist.
+//
+static inline REBVAL *Init_Any_Context(
+    RELVAL *out,
+    enum Reb_Kind kind,
+    REBCTX *c
+){
+  #if !defined(NDEBUG)
+    Extra_Init_Any_Context_Checks_Debug(kind, c);
+  #endif
+    UNUSED(kind);
+    ENSURE_ARRAY_MANAGED(CTX_VARLIST(c));
+    Move_Value(out, CTX_ARCHETYPE(c));
+    return KNOWN(out);
+}
 
 #define Init_Object(out,c) \
     Init_Any_Context((out), REB_OBJECT, (c))

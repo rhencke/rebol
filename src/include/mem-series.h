@@ -48,25 +48,25 @@
 //
 
 inline static REBCNT SER_BIAS(REBSER *s) {
-    assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
+    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
     return cast(REBCNT, ((s)->content.dynamic.bias >> 16) & 0xffff);
 }
 
 #define MAX_SERIES_BIAS 0x1000
 
 inline static void SER_SET_BIAS(REBSER *s, REBCNT bias) {
-    assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
+    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
     s->content.dynamic.bias =
         (s->content.dynamic.bias & 0xffff) | (bias << 16);
 }
 
 inline static void SER_ADD_BIAS(REBSER *s, REBCNT b) {
-    assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
+    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
     s->content.dynamic.bias += b << 16;
 }
 
 inline static void SER_SUB_BIAS(REBSER *s, REBCNT b) {
-    assert(GET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC));
+    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
     s->content.dynamic.bias -= b << 16;
 }
 
@@ -75,7 +75,7 @@ inline static size_t SER_TOTAL(REBSER *s) {
 }
 
 inline static size_t SER_TOTAL_IF_DYNAMIC(REBSER *s) {
-    if (NOT_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC))
+    if (NOT_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC))
         return 0;
     return SER_TOTAL(s);
 }

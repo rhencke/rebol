@@ -408,7 +408,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     REBARR *path_array = Make_Array(ACT_NUM_PARAMS(FRM_PHASE(f)) + 1);
     RELVAL *path = ARR_HEAD(path_array);
 
-    Move_Value(path, ACT_ARCHETYPE(run)); // !!! What if there's a binding?
+    Init_Action_Unbound(path, run); // !!! What if there's a binding?
     ++path;
 
     for (; NOT_END(f->param); ++f->param, ++f->arg) {

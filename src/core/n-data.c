@@ -1016,11 +1016,11 @@ REBNATIVE(free_q)
 
     REBSER *s;
     if (ANY_CONTEXT(v))
-        s = SER(CTX_VARLIST(VAL_CONTEXT(v)));
+        s = SER(v->payload.any_context.varlist); // VAL_CONTEXT fails if freed
     else if (IS_HANDLE(v))
         s = SER(v->extra.singular);
     else if (ANY_SERIES(v))
-        s = VAL_SERIES(v);
+        s = v->payload.any_series.series; // VAL_SERIES fails if freed
     else
         return R_FALSE;
 

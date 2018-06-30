@@ -429,7 +429,7 @@ static REBNATIVE(resume)
 
     // Throw the instruction with the name of the RESUME function
     //
-    Move_Value(D_OUT, ACT_ARCHETYPE(FRM_PHASE(frame)));
+    Init_Action_Maybe_Bound(D_OUT, FRM_PHASE(frame), FRM_BINDING(frame));
     CONVERT_NAME_TO_THROWN(D_OUT, cell);
     return R_OUT_IS_THROWN;
 }

@@ -383,42 +383,27 @@ void Set_Tuple(REBVAL *value, REBYTE *bytes, REBCNT len)
 }
 
 
+#if !defined(NDEBUG)
+
 //
-//  Init_Any_Context_Core: C
+//  Extra_Init_Any_Context_Checks_Debug: C
 //
-// Common routine for initializing OBJECT, MODULE!, PORT!, and ERROR!
+// !!! Overlaps with ASSERT_CONTEXT, review folding them together.
 //
-// A fully constructed context can reconstitute the ANY-CONTEXT! REBVAL that
-// is its canon form from a single pointer...the REBVAL sitting in the 0 slot
-// of the context's varlist.
-//
-REBVAL *Init_Any_Context_Core(
-    RELVAL *out, // allows RELVAL slot as input, but will be filled w/REBVAL
-    enum Reb_Kind kind,
-    REBCTX *c
-){
-  #if defined(NDEBUG)
-    UNUSED(kind);
-  #else
-    //
-    // In a debug build we check to make sure the type of the embedded value
-    // matches the type of what is intended (so someone who thinks they are
-    // initializing a REB_OBJECT from a CONTEXT does not accidentally get a
-    // REB_ERROR, for instance.)  It's a point for several other integrity
-    // checks as well.
-    //
+void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
+    assert(ALL_SER_FLAGS(c, SERIES_MASK_CONTEXT));
+
     REBVAL *archetype = CTX_ARCHETYPE(c);
     assert(VAL_CONTEXT(archetype) == c);
-    assert(VAL_BINDING(archetype) == UNBOUND);
-
     assert(CTX_TYPE(c) == kind);
+
+    // Currently only FRAME! uses the ->binding field, in order to capture the
+    // ->binding of the function value it links to (which is in ->phase)
+    //
+    assert(VAL_BINDING(archetype) == UNBOUND or CTX_TYPE(c) == REB_FRAME);
 
     REBARR *varlist = CTX_VARLIST(c);
     REBARR *keylist = CTX_KEYLIST(c);
-
-    assert(GET_SER_FLAG(varlist, ARRAY_FLAG_VARLIST));
-
-    assert(NOT_SER_FLAG(varlist, ARRAY_FLAG_FILE_LINE));
     assert(NOT_SER_FLAG(keylist, ARRAY_FLAG_FILE_LINE));
 
     if (kind == REB_ACTION)
@@ -431,48 +416,48 @@ REBVAL *Init_Any_Context_Core(
         MISC(varlist).meta == NULL
         or ANY_CONTEXT(CTX_ARCHETYPE(MISC(varlist).meta))
     );
-  #endif
-
-    // Some contexts (stack frames in particular) start out unmanaged, and
-    // then check to see if an operation like Init_Any_Context set them to
-    // managed.  If not, they will free the context.  This avoids the need
-    // for the garbage collector to have to deal with the series if there's
-    // no reason too.
-    //
-    // Here is a case of where we mark the context as having an extant usage,
-    // so that at minimum this value must become unreachable from the root GC
-    // set before they are GC'd.  For another case, see INIT_WORD_CONTEXT(),
-    // where an ANY-WORD! can mark a context as in use.
-    //
-    ENSURE_ARRAY_MANAGED(CTX_VARLIST(c));
-
-    // Keylists are different, because they may-or-may-not-be-reused by some
-    // operations.  There needs to be a uniform policy on their management,
-    // or certain routines would return "sometimes managed, sometimes not"
-    // keylist series...a bad invariant.
-    //
-    ASSERT_ARRAY_MANAGED(CTX_KEYLIST(c));
-
-    Move_Value(out, CTX_ARCHETYPE(c));
-
-    // Currently only FRAME! uses the ->binding field, in order to capture the
-    // ->binding of the function value it links to (which is in ->phase)
-    //
-    assert(VAL_BINDING(out) == UNBOUND or CTX_TYPE(c) == REB_FRAME);
 
     // FRAME!s must always fill in the phase slot, but that piece of the
     // REBVAL is reserved for future use in other context types...so make
     // sure it's null at this point in time.
     //
-#if !defined(NDEBUG)
     if (CTX_TYPE(c) == REB_FRAME)
-        assert(out->payload.any_context.phase != NULL);
+        assert(archetype->payload.any_context.phase);
     else
-        assert(out->payload.any_context.phase == NULL);
-#endif
+        assert(not archetype->payload.any_context.phase);
 
-    return KNOWN(out);
+    // Keylists are uniformly managed, or certain routines would return
+    // "sometimes managed, sometimes not" keylists...a bad invariant.
+    //
+    ASSERT_ARRAY_MANAGED(CTX_KEYLIST(c));
 }
+
+
+//
+//  Extra_Init_Action_Checks_Debug: C
+//
+// !!! Overlaps with ASSERT_ACTION, review folding them together.
+//
+void Extra_Init_Action_Checks_Debug(REBACT *a) {
+    assert(ALL_SER_FLAGS(a, SERIES_MASK_ACTION));
+
+    REBVAL *archetype = ACT_ARCHETYPE(a);
+    assert(VAL_ACTION(archetype) == a);
+    assert(VAL_BINDING(archetype) != nullptr); // must be UNBOUND if unused
+
+    REBARR *paramlist = ACT_PARAMLIST(a);
+    assert(NOT_SER_FLAG(paramlist, ARRAY_FLAG_FILE_LINE));
+
+    // !!! Currently only a context can serve as the "meta" information,
+    // though the interface may expand.
+    //
+    assert(
+        MISC(paramlist).meta == NULL
+        or ANY_CONTEXT(CTX_ARCHETYPE(MISC(paramlist).meta))
+    );
+}
+
+#endif
 
 
 //

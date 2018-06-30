@@ -202,15 +202,18 @@ inline static void Queue_Mark_Array_Deep(REBARR *a) {
 }
 
 inline static void Queue_Mark_Context_Deep(REBCTX *c) {
-    REBARR *a = CTX_VARLIST(c);
+    REBARR *varlist = CTX_VARLIST(c);
     assert(
-        ARRAY_FLAG_VARLIST == (SER(a)->header.bits & (
-            ARRAY_FLAG_VARLIST | ARRAY_FLAG_PAIRLIST | ARRAY_FLAG_PARAMLIST
-            | ARRAY_FLAG_FILE_LINE
+        GET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE)
+        or SERIES_MASK_CONTEXT == (SER(varlist)->header.bits & (
+            SERIES_MASK_CONTEXT // these should be set, not the others
+                | ARRAY_FLAG_PAIRLIST
+                | ARRAY_FLAG_PARAMLIST
+                | ARRAY_FLAG_FILE_LINE
         ))
     );
 
-    Queue_Mark_Array_Subclass_Deep(a);
+    Queue_Mark_Array_Subclass_Deep(varlist);
 
     // Further handling is in Propagate_All_GC_Marks() for ARRAY_FLAG_VARLIST
     // where it can safely call Queue_Mark_Context_Deep() again without it
@@ -220,9 +223,11 @@ inline static void Queue_Mark_Context_Deep(REBCTX *c) {
 inline static void Queue_Mark_Action_Deep(REBACT *a) {
     REBARR *paramlist = ACT_PARAMLIST(a);
     assert(
-        ARRAY_FLAG_PARAMLIST == (SER(paramlist)->header.bits & (
-            ARRAY_FLAG_VARLIST | ARRAY_FLAG_PAIRLIST | ARRAY_FLAG_PARAMLIST
-            | ARRAY_FLAG_FILE_LINE
+        SERIES_MASK_ACTION == (SER(paramlist)->header.bits & (
+            SERIES_MASK_ACTION // these should be set, not the others
+                | ARRAY_FLAG_PAIRLIST
+                | ARRAY_FLAG_VARLIST
+                | ARRAY_FLAG_FILE_LINE
         ))
     );
 
@@ -270,7 +275,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     else {
         assert(IS_VARARGS(v));
         assert(binding->header.bits & SERIES_FLAG_ARRAY);
-        assert(NOT_SER_INFO(binding, SERIES_INFO_HAS_DYNAMIC)); // singular
+        assert(NOT_SER_FLAG(binding, SERIES_FLAG_HAS_DYNAMIC)); // singular
     }
   #endif
 
@@ -294,7 +299,7 @@ inline static void Queue_Mark_Singular_Array(REBARR *a) {
         ))
     );
 
-    assert(NOT_SER_INFO(a, SERIES_INFO_HAS_DYNAMIC));
+    assert(NOT_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC));
 
     // While it would be tempting to just go ahead and try to queue the
     // ARR_SINGLE() value here, that could keep recursing if that value had
@@ -423,8 +428,23 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
     case REB_LIT_PATH:
     case REB_BLOCK:
     case REB_GROUP: {
-        Queue_Mark_Array_Deep(VAL_ARRAY(v));
-        Queue_Mark_Binding_Deep(v);
+        REBSER *s = v->payload.any_series.series;
+        if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE)) {
+            //
+            // !!! Review: preserving the identity of inaccessible array nodes
+            // is likely uninteresting--the only reason the node wasn't freed
+            // in the first place was so this code wouldn't crash trying to
+            // mark it.  So this should probably be used as an opportunity to
+            // update the pointer in the cell to some global inaccessible
+            // REBARR, and *not* mark the dead node at all.
+            //
+            Mark_Rebser_Only(s);
+            Queue_Mark_Binding_Deep(v); // !!! Review this too, is it needed?
+        }
+        else {
+            Queue_Mark_Array_Deep(ARR(s));
+            Queue_Mark_Binding_Deep(v);
+        }
         break; }
 
     case REB_BINARY:
@@ -434,10 +454,19 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
     case REB_URL:
     case REB_TAG:
     case REB_BITSET: {
-        REBSER *series = VAL_SERIES(v);
-        assert(SER_WIDE(series) <= sizeof(REBUNI));
-        Mark_Rebser_Only(series);
+        REBSER *s = v->payload.any_series.series;
+
+        assert(SER_WIDE(s) <= sizeof(REBUNI));
         assert(v->extra.binding == UNBOUND);
+
+        if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE)) {
+            //
+            // !!! See notes above on REB_BLOCK/etc. RE: letting series die.
+            //
+            Mark_Rebser_Only(s);
+        }
+        else
+            Mark_Rebser_Only(s);
         break; }
 
     case REB_HANDLE: { // See %sys-handle.h
@@ -550,8 +579,8 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
     case REB_FRAME:
     case REB_MODULE:
     case REB_ERROR:
-    case REB_PORT: {
-        REBCTX *context = VAL_CONTEXT(v);
+    case REB_PORT: { // Note: VAL_CONTEXT() fails on SER_INFO_INACCESSIBLE
+        REBCTX *context = CTX(v->payload.any_context.varlist);
         Queue_Mark_Context_Deep(context);
 
         // Currently the "binding" in a context is only used by FRAME! to
@@ -959,7 +988,7 @@ static void Mark_Root_Series(void)
             if (not (s->header.bits & NODE_FLAG_ROOT))
                 continue;
 
-            assert(not (s->info.bits & SERIES_INFO_HAS_DYNAMIC));
+            assert(NOT_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
 
             // API nodes are referenced from C code, they should never wind
             // up referenced from values.  Marking another root should not

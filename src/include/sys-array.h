@@ -71,12 +71,12 @@ inline static RELVAL *ARR_TAIL(REBARR *a)
 inline static RELVAL *ARR_LAST(REBARR *a)
     { return SER_LAST(RELVAL, cast(REBSER*, a)); }
 
-// If you know something is a singular array a priori, then you don't have to
-// check the SERIES_INFO_HAS_DYNAMIC as you would in a generic ARR_HEAD.
+// If you know something is a singular array, there's no need to check the
+// SERIES_FLAG_HAS_DYNAMIC as you would in a generic ARR_HEAD.
 //
 inline static RELVAL *ARR_SINGLE(REBARR *a) {
-    assert(NOT_SER_INFO(a, SERIES_INFO_HAS_DYNAMIC));
-    return cast(RELVAL*, &SER(a)->content.fixed.values[0]);
+    assert(NOT_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC));
+    return cast(RELVAL*, &SER(a)->content.fixed);
 }
 
 // It's possible to calculate the array from just a cell if you know it's a
@@ -89,7 +89,7 @@ inline static REBARR *Singular_From_Cell(const RELVAL *v) {
             - offsetof(struct Reb_Series, content)
         )
     );
-    assert(NOT_SER_INFO(singular, SERIES_INFO_HAS_DYNAMIC));
+    assert(NOT_SER_FLAG(singular, SERIES_FLAG_HAS_DYNAMIC));
     return singular;
 }
 
@@ -198,13 +198,9 @@ inline static void Deep_Freeze_Array(REBARR *a) {
 // they do not know about the ->rest
 //
 inline static void Prep_Array(REBARR *a) {
-    assert(GET_SER_INFO(a, SERIES_INFO_HAS_DYNAMIC));
+    assert(GET_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC));
 
     REBCNT n;
-
-  #if !defined(NDEBUG)
-    PG_Reb_Stats->Blocks++;
-  #endif
 
     for (n = 0; n < ARR_LEN(a); n++)
         Prep_Non_Stack_Cell(ARR_AT(a, n));
@@ -245,6 +241,7 @@ inline static void Prep_Array(REBARR *a) {
     TRACK_CELL_IF_DEBUG(ultimate, __FILE__, __LINE__);
 }
 
+
 // Make a series that is the right size to store REBVALs (and marked for the
 // garbage collector to look into recursively).  ARR_LEN() will be 0.
 //
@@ -253,7 +250,10 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
 
     REBSER *s = Make_Series_Node(wide, SERIES_FLAG_ARRAY | flags);
 
-    if (capacity > 1) {
+    if (
+        (flags & SERIES_FLAG_HAS_DYNAMIC) // inlining will constant fold
+        or (capacity > 1)
+    ){
         capacity += 1; // account for cell needed for terminator (END)
 
         // Don't pay for oversize check unless dynamic.  It means the node
@@ -262,7 +262,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
         if (cast(REBU64, capacity) * wide > INT32_MAX)
             fail (Error_No_Memory(cast(REBU64, capacity) * wide));
 
-        SET_SER_INFO(s, SERIES_INFO_HAS_DYNAMIC); // caller sets
+        SET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC); // caller sets
         if (not Did_Series_Data_Alloc(s, capacity))
             fail (Error_No_Memory(capacity * wide));
 
@@ -282,7 +282,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     //
     // !!! Code duplicated in Make_Series_Core ATM.
     //
-    if (not (flags & NODE_FLAG_MANAGED)) {
+    if (not (flags & NODE_FLAG_MANAGED)) { // most callsites const fold this
         if (SER_FULL(GC_Manuals))
             Extend_Series(GC_Manuals, 8);
 
@@ -294,7 +294,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     // Arrays created at runtime default to inheriting the file and line
     // number from the array executing in the current frame.
     //
-    if (flags & ARRAY_FLAG_FILE_LINE) {
+    if (flags & ARRAY_FLAG_FILE_LINE) { // most callsites const fold this
         if (
             TG_Frame_Stack and TG_Frame_Stack->source.array and
             GET_SER_FLAG(TG_Frame_Stack->source.array, ARRAY_FLAG_FILE_LINE)
@@ -305,6 +305,10 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
         else
             CLEAR_SER_FLAG(s, ARRAY_FLAG_FILE_LINE);
     }
+
+  #if !defined(NDEBUG)
+    PG_Reb_Stats->Blocks++;
+  #endif
 
     assert(ARR_LEN(cast(REBARR*, s)) == 0);
     return cast(REBARR*, s);
@@ -388,14 +392,17 @@ inline static REBARR *Alloc_Singular(REBFLGS flags) {
     Copy_Array_At_Extra_Shallow((a), 0, (s), 0, (f))
 
 #define Copy_Array_Deep_Managed(a,s) \
-    Copy_Array_At_Extra_Deep_Managed((a), 0, (s), 0)
+    Copy_Array_At_Extra_Deep_Flags_Managed((a), 0, (s), 0, SERIES_FLAGS_NONE)
+
+#define Copy_Array_Deep_Flags_Managed(a,s,f) \
+    Copy_Array_At_Extra_Deep_Flags_Managed((a), 0, (s), 0, (f))
 
 #define Copy_Array_At_Deep_Managed(a,i,s) \
-    Copy_Array_At_Extra_Deep_Managed((a), (i), (s), 0)
+    Copy_Array_At_Extra_Deep_Flags_Managed((a), (i), (s), 0, SERIES_FLAGS_NONE)
 
 #define COPY_ANY_ARRAY_AT_DEEP_MANAGED(v) \
-    Copy_Array_At_Extra_Deep_Managed( \
-        VAL_ARRAY(v), VAL_INDEX(v), VAL_SPECIFIER(v), 0)
+    Copy_Array_At_Extra_Deep_Flags_Managed( \
+        VAL_ARRAY(v), VAL_INDEX(v), VAL_SPECIFIER(v), 0, SERIES_FLAGS_NONE)
 
 #define Copy_Array_At_Shallow(a,i,s) \
     Copy_Array_At_Extra_Shallow((a), (i), (s), 0, SERIES_FLAGS_NONE)
@@ -405,11 +412,12 @@ inline static REBARR *Alloc_Singular(REBFLGS flags) {
 
 // See TS_NOT_COPIED for the default types excluded from being deep copied
 //
-inline static REBARR* Copy_Array_At_Extra_Deep_Managed(
-    REBARR *original,
+inline static REBARR* Copy_Array_At_Extra_Deep_Flags_Managed(
+    REBARR *original, // ^-- not a macro because original mentioned twice
     REBCNT index,
     REBSPC *specifier,
-    REBCNT extra
+    REBCNT extra,
+    REBFLGS flags
 ){
     return Copy_Array_Core_Managed(
         original,
@@ -417,7 +425,7 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Managed(
         specifier,
         ARR_LEN(original), // tail
         extra, // extra
-        SERIES_FLAGS_NONE, // no ARRAY_FLAG_FILE_LINE by default
+        flags, // note no ARRAY_FLAG_FILE_LINE by default
         TS_SERIES & ~TS_NOT_COPIED // types
     );
 }
@@ -467,7 +475,10 @@ inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {
 //
 inline static REBARR *VAL_ARRAY(const RELVAL *v) {
     assert(ANY_ARRAY(v));
-    return ARR(v->payload.any_series.series);
+    REBSER *s = v->payload.any_series.series;
+    if (s->info.bits & SERIES_INFO_INACCESSIBLE)
+        fail (Error_Series_Data_Freed_Raw());
+    return ARR(s);
 }
 
 #define VAL_ARRAY_HEAD(v) \

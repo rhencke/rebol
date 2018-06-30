@@ -572,16 +572,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             : DS_AT(definitional_return_dsp);
 
     // Must make the function "paramlist" even if "empty", for identity.
-    // Also make sure the parameter list does not expand.
     //
-    // !!! Expanding the parameter list might be part of an advanced feature
-    // under the hood in the future, but users should not themselves grow
-    // function frames by appending to them.
-    //
-    REBARR *paramlist = Make_Array_Core(
-        num_slots,
-        ARRAY_FLAG_PARAMLIST | SERIES_FLAG_FIXED_SIZE
-    );
+    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_ACTION);
 
     // In order to use this paramlist as a ->phase in a frame below, it must
     // have a valid facade so CTX_KEYLIST() will work.  The Make_Action()
@@ -700,7 +692,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     //
     if (has_types) {
         REBARR *types_varlist = Make_Array_Core(
-            num_slots, ARRAY_FLAG_VARLIST
+            num_slots,
+            SERIES_MASK_CONTEXT
         );
         MISC(types_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(types_varlist), paramlist);
@@ -763,7 +756,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     //
     if (has_notes) {
         REBARR *notes_varlist = Make_Array_Core(
-            num_slots, ARRAY_FLAG_VARLIST
+            num_slots,
+            SERIES_MASK_CONTEXT
         );
         MISC(notes_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(notes_varlist), paramlist);
@@ -1372,7 +1366,7 @@ void Make_Frame_For_Action(
     REBCNT facade_len = ACT_FACADE_NUM_PARAMS(a) + 1;
     REBARR *varlist = Make_Array_Core(
         facade_len, // +1 for the CTX_ARCHETYPE() at [0]
-        ARRAY_FLAG_VARLIST | SERIES_FLAG_FIXED_SIZE
+        SERIES_MASK_CONTEXT
     );
 
     REBVAL *rootvar = SINK(ARR_HEAD(varlist));

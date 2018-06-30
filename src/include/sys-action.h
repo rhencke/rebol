@@ -29,6 +29,18 @@
 //
 
 
+// An action's paramlist is always allocated dynamically, in order to speed
+// up parameter access--no need to test SERIES_FLAG_HAS_DYNAMIC to find them.
+//
+// !!! Expanding the parameter list might be part of an advanced feature
+// under the hood in the future, but users should not themselves grow action
+// frames by appending to them.
+//
+#define SERIES_MASK_ACTION \
+    (NODE_FLAG_NODE | SERIES_FLAG_HAS_DYNAMIC | SERIES_FLAG_FIXED_SIZE \
+        | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST)
+
+
 // !!! Originally, REB_R was a REBCNT from reb-c.h (not this enumerated type
 // containing its legal values).  That's because enums in C have no guaranteed
 // size, yet Rebol wants to use known size types in its interfaces.

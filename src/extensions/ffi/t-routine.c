@@ -903,7 +903,7 @@ static void callback_dispatcher_core(struct Reb_Callback_Invocation *inv)
     //
     REBARR *code = Make_Array(1 + inv->cif->nargs);
     RELVAL *elem = ARR_HEAD(code);
-    Move_Value(elem, ACT_ARCHETYPE(RIN_CALLBACK_ACTION(inv->rin)));
+    Init_Action_Unbound(elem, RIN_CALLBACK_ACTION(inv->rin));
     ++elem;
 
     REBCNT i;
@@ -1018,7 +1018,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
 
     const REBCNT capacity_guess = 8; // !!! Magic number...why 8? (can grow)
 
-    REBARR *paramlist = Make_Array_Core(capacity_guess, ARRAY_FLAG_PARAMLIST);
+    REBARR *paramlist = Make_Array_Core(capacity_guess, SERIES_MASK_ACTION);
 
     // first slot is reserved for the "canon value", see `struct Reb_Function`
     //

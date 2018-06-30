@@ -126,11 +126,11 @@ REBCTX *Make_Context_For_Specialization(
     REBCNT num_slots = ACT_FACADE_NUM_PARAMS(unspecialized) + 1;
     REBARR *facade = Make_Array_Core(num_slots, SERIES_FLAG_FIXED_SIZE);
     REBVAL *rootkey = SINK(ARR_HEAD(facade));
-    Move_Value(rootkey, ACT_ARCHETYPE(ACT_UNDERLYING(unspecialized)));
+    Init_Action_Unbound(rootkey, ACT_UNDERLYING(unspecialized));
 
     REBARR *varlist = Make_Array_Core(
         num_slots, // includes +1 for the CTX_ARCHETYPE() at [0]
-        ARRAY_FLAG_VARLIST | SERIES_FLAG_FIXED_SIZE
+        SERIES_MASK_CONTEXT
     );
 
     REBVAL *rootvar = SINK(ARR_HEAD(varlist));
@@ -641,7 +641,7 @@ REBOOL Specialize_Action_Throws(
 
     REBARR *paramlist = Pop_Stack_Values_Core(
         dsp_paramlist,
-        ARRAY_FLAG_PARAMLIST | SERIES_FLAG_FIXED_SIZE
+        SERIES_MASK_ACTION
     );
     MANAGE_ARRAY(paramlist);
     RELVAL *rootparam = ARR_HEAD(paramlist);
@@ -792,7 +792,7 @@ REBOOL Specialize_Action_Throws(
     INIT_BINDING(body, VAL_BINDING(specializee));
     body->payload.any_context.phase = unspecialized;
 
-    Move_Value(out, ACT_ARCHETYPE(specialized));
+    Init_Action_Unbound(out, specialized);
     return false; // code block did not throw
 }
 
@@ -1099,14 +1099,16 @@ REBNATIVE(does)
 
     REBVAL *specializee = ARG(specializee);
 
-    // DOES always creates a function with no arguments.
-
-    REBARR *paramlist = Make_Array_Core(1, ARRAY_FLAG_PARAMLIST);
+    REBARR *paramlist = Make_Array_Core(
+        1, // archetype only...DOES always makes function with no arguments
+        SERIES_MASK_ACTION
+    );
 
     REBVAL *archetype = Alloc_Tail_Array(paramlist);
     RESET_VAL_HEADER(archetype, REB_ACTION);
     archetype->payload.action.paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
+    TERM_ARRAY_LEN(paramlist, 1);
 
     LINK(paramlist).facade = paramlist;
     MISC(paramlist).meta = NULL; // REDESCRIBE can be used to add help
@@ -1136,7 +1138,7 @@ REBNATIVE(does)
         Ensure_Value_Immutable(specializee, locker);
         Move_Value(body, specializee);
 
-        Move_Value(D_OUT, ACT_ARCHETYPE(doer));
+        Init_Action_Unbound(D_OUT, doer);
         return R_OUT;
     }
 
@@ -1201,7 +1203,7 @@ REBNATIVE(does)
     REBCNT num_slots = ACT_FACADE_NUM_PARAMS(unspecialized) + 1;
     REBARR *facade = Make_Array_Core(num_slots, SERIES_FLAG_FIXED_SIZE);
     REBVAL *rootkey = SINK(ARR_HEAD(facade));
-    Move_Value(rootkey, ACT_ARCHETYPE(ACT_UNDERLYING(unspecialized)));
+    Init_Action_Unbound(rootkey, ACT_UNDERLYING(unspecialized));
 
     REBVAL *param = ACT_FACADE_HEAD(unspecialized);
     RELVAL *alias = rootkey + 1;
@@ -1233,6 +1235,6 @@ REBNATIVE(does)
     INIT_BINDING(body, VAL_BINDING(specializee));
     body->payload.any_context.phase = unspecialized;
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(doer));
+    Init_Action_Unbound(D_OUT, doer);
     return R_OUT;
 }

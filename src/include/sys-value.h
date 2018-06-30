@@ -1821,7 +1821,7 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
             or binding->header.bits & ARRAY_FLAG_PARAMLIST // relative
             or (
                 IS_VARARGS(v)
-                and not (SER(binding)->info.bits & SERIES_INFO_HAS_DYNAMIC)
+                and not (SER(binding)->header.bits & SERIES_FLAG_HAS_DYNAMIC)
             ) // varargs from MAKE VARARGS! [...], else is a varlist
         );
         v->extra.binding = binding;

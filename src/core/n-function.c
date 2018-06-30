@@ -58,7 +58,7 @@ REBNATIVE(func)
         MKF_RETURN | MKF_KEYWORDS
     );
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(func));
+    Init_Action_Unbound(D_OUT, func);
     return R_OUT;
 }
 
@@ -281,7 +281,7 @@ REBNATIVE(typechecker)
 
     REBARR *paramlist = Make_Array_Core(
         2,
-        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST
+        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
 
     REBVAL *archetype = Alloc_Tail_Array(paramlist);
@@ -308,8 +308,7 @@ REBNATIVE(typechecker)
 
     Move_Value(ACT_BODY(typechecker), type);
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(typechecker));
-
+    Init_Action_Unbound(D_OUT, typechecker);
     return R_OUT;
 }
 
@@ -366,7 +365,7 @@ REBNATIVE(chain)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         VAL_ACT_PARAMLIST(ARR_HEAD(chainees)),
         SPECIFIED,
-        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST // flags not auto-copied
+        SERIES_MASK_ACTION | NODE_FLAG_MANAGED // flags not auto-copied
     );
     ARR_HEAD(paramlist)->payload.action.paramlist = paramlist;
 
@@ -397,7 +396,7 @@ REBNATIVE(chain)
 
     Init_Block(ACT_BODY(chain), chainees); // used by Chainer_Dispatcher
 
-    Move_Value(out, ACT_ARCHETYPE(chain));
+    Init_Action_Unbound(out, chain);
     return R_OUT;
 }
 
@@ -464,7 +463,7 @@ REBNATIVE(adapt)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         VAL_ACT_PARAMLIST(adaptee),
         SPECIFIED,
-        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST
+        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
     ARR_HEAD(paramlist)->payload.action.paramlist = paramlist;
 
@@ -518,9 +517,7 @@ REBNATIVE(adapt)
     VAL_INDEX(body) = 0;
     INIT_BINDING(body, underlying); // relative binding
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(adaptation));
-    assert(VAL_BINDING(D_OUT) == UNBOUND);
-
+    Init_Action_Unbound(D_OUT, adaptation);
     return R_OUT;
 }
 
@@ -581,7 +578,7 @@ REBNATIVE(enclose)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         VAL_ACT_PARAMLIST(inner),
         SPECIFIED,
-        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST
+        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
     ARR_HEAD(paramlist)->payload.action.paramlist = paramlist;
 
@@ -629,9 +626,7 @@ REBNATIVE(enclose)
 
     Init_Block(ACT_BODY(enclosure), info);
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(enclosure));
-    assert(VAL_BINDING(D_OUT) == UNBOUND);
-
+    Init_Action_Unbound(D_OUT, enclosure);
     return R_OUT;
 }
 
@@ -810,7 +805,7 @@ REBNATIVE(tighten)
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         ACT_PARAMLIST(original),
         SPECIFIED, // no relative values in parameter lists
-        NODE_FLAG_MANAGED | ARRAY_FLAG_PARAMLIST // flags not auto-copied
+        SERIES_MASK_ACTION | NODE_FLAG_MANAGED // flags not auto-copied
     );
 
     RELVAL *param = ARR_AT(paramlist, 1); // first parameter (0 is ACTION!)
@@ -851,7 +846,8 @@ REBNATIVE(tighten)
     REBARR *facade = Copy_Array_Shallow_Flags(
         ACT_FACADE(original),
         SPECIFIED, // no relative values in facades, either
-        NODE_FLAG_MANAGED // NOT an ARRAY_FLAG_PARAMLIST, [0] isn't archetype
+        (SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST) // [0] isn't archetype
+            | NODE_FLAG_MANAGED
     );
     RELVAL *facade_param = ARR_AT(facade, 1);
     for (; NOT_END(facade_param); ++facade_param) {
@@ -881,14 +877,10 @@ REBNATIVE(tighten)
     //
     Blit_Cell(ACT_BODY(tightened), ACT_BODY(original));
 
-    Move_Value(D_OUT, ACT_ARCHETYPE(tightened));
-
-    // Currently esoteric case if someone chose to tighten a definitional
-    // return, so `return 1 + 2` would return 1 instead of 3.  Would need to
-    // preserve the binding of the incoming value, which is never present in
-    // the canon value of the function.
-    //
-    INIT_BINDING(D_OUT, VAL_BINDING(ARG(action)));
-
+    Init_Action_Maybe_Bound(
+        D_OUT,
+        tightened, // REBACT* archetype doesn't contain a binding
+        VAL_BINDING(ARG(action)) // e.g. keep binding for `tighten 'return`
+    );
     return R_OUT;
 }
