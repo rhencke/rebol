@@ -727,10 +727,13 @@ union Reb_Series_Link {
     //
     uintptr_t stamp;
 
-    // On Reb_Action_Payload's body_holders, this is the specialization frame
-    // for a function--or NULL if none.
+    // REBACT uses this.  It can hold either the varlist of a frame containing
+    // specialized values (e.g. an "exemplar"), with ARRAY_FLAG_VARLIST set.
+    // Or it can just hold the facade.  This speeds up Push_Action() because
+    // if this were `REBCTX *exemplar;` then it would have to test it for null
+    // explicitly to default f->special to f->param.
     //
-    REBCTX *exemplar;
+    REBARR *specialty;
 
     // The MAP! datatype uses this.
     //

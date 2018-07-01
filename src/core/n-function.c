@@ -710,8 +710,8 @@ REBNATIVE(hijack)
         // originally hijacked function back.
 
         LINK(victim_paramlist).facade = LINK(hijacker_paramlist).facade;
-        LINK(victim->payload.action.body_holder).exemplar =
-            LINK(hijacker->payload.action.body_holder).exemplar;
+        LINK(victim->payload.action.body_holder).specialty =
+            LINK(hijacker->payload.action.body_holder).specialty;
 
         // All function bodies should live in cells with the same underlying
         // formatting.  Blit_Cell ensures that's the case.

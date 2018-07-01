@@ -516,11 +516,12 @@ inline static void Push_Action(
     // specialization together.  This means only the outermost specialization
     // is needed to fill the specialized slots contributed by later phases.
     //
-    REBCTX *exemplar = ACT_EXEMPLAR(act);
-    if (exemplar)
-        f->special = CTX_VARS_HEAD(exemplar);
-    else
-        f->special = const_KNOWN(f->param);
+    // f->special here will either equal f->param (to indicate normal argument
+    // fulfillment) or the head of the "exemplar".  To speed this up, the
+    // absence of a cached exemplar just means that the "specialty" holds the
+    // facade... this means no conditional code is needed here.
+    //
+    f->special = ACT_SPECIALTY_HEAD(act);
 
     f->deferred = nullptr;
 

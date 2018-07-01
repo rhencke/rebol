@@ -793,9 +793,11 @@ static void Propagate_All_GC_Marks(void)
             REBARR *facade = LINK(a).facade;
             Queue_Mark_Array_Subclass_Deep(facade);
 
-            REBCTX *exemplar = LINK(body_holder).exemplar;
-            if (exemplar != NULL)
-                Queue_Mark_Context_Deep(exemplar);
+            REBARR *specialty = LINK(body_holder).specialty;
+            if (GET_SER_FLAG(specialty, ARRAY_FLAG_VARLIST))
+                Queue_Mark_Context_Deep(CTX(specialty));
+            else
+                assert(specialty == facade);
 
             REBCTX *meta = MISC(a).meta;
             if (meta != NULL)

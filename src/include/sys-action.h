@@ -105,8 +105,26 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 #define ACT_UNDERLYING(a) \
     ACT(ARR_HEAD(ACT_FACADE(a))->payload.action.paramlist)
 
-#define ACT_EXEMPLAR(a) \
-    LINK(ACT_ARCHETYPE(a)->payload.action.body_holder).exemplar
+
+// An efficiency trick makes functions that do not have exemplars NOT store
+// nullptr in the body_holder node in that case--instead the facade.  This
+// helps make Push_Action() slightly faster in assigning f->special.
+//
+inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
+    REBARR *specialty
+        = LINK(ACT_ARCHETYPE(a)->payload.action.body_holder).specialty;
+
+    if (GET_SER_FLAG(specialty, ARRAY_FLAG_VARLIST))
+        return CTX(specialty);
+
+    return nullptr;
+}
+
+inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
+    REBARR *body_holder = ACT_ARCHETYPE(a)->payload.action.body_holder;
+    REBSER *s = SER(LINK(body_holder).specialty);
+    return cast(REBVAL*, s->content.dynamic.data) + 1; // skip archetype/root
+}
 
 
 // There is no binding information in a function parameter (typeset) so a

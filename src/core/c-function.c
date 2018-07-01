@@ -1003,11 +1003,11 @@ REBACT *Make_Action(
 
     if (opt_exemplar == NULL) {
         //
-        // !!! There may be some efficiency hack where this could be END, so
-        // that when a REBFRM's ->special field is set there's no need to
-        // check for NULL.
+        // No exemplar is used as a cue to set the "specialty" to the facade,
+        // so that f->special can be assigned directly from it in dispatch
+        // and match f->param.  See Push_Action() for details.
         //
-        LINK(body_holder).exemplar = NULL;
+        LINK(body_holder).specialty = LINK(paramlist).facade;
     }
     else {
         // Because a dispatcher can update the phase and swap in the next
@@ -1024,7 +1024,7 @@ REBACT *Make_Action(
             CTX_LEN(opt_exemplar) == ARR_LEN(LINK(paramlist).facade) - 1
         );
 
-        LINK(body_holder).exemplar = opt_exemplar;
+        LINK(body_holder).specialty = CTX_VARLIST(opt_exemplar);
     }
 
     // The meta information may already be initialized, since the native
