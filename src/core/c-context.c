@@ -1457,7 +1457,7 @@ void Assert_Context_Core(REBCTX *c)
     if (rootvar->payload.any_context.varlist != varlist)
         panic (rootvar);
 
-    if (CTX_VARS_UNAVAILABLE(c)) {
+    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE)) {
         //
         // !!! For the moment, don't check inaccessible stack frames any
         // further.  This includes varless reified frames and those reified

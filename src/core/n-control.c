@@ -468,14 +468,14 @@ REBNATIVE(match)
         // but actually captures its first argument.  That will be MATCH's
         // return value if the filter function returns a truthy result.
 
+        DECLARE_FRAME (f); // REBFRM whose built FRAME! context we will steal
+
         REBVAL *first_arg;
-        REBCTX *exemplar;
-        if (Make_Invocation_Frame_Throws( // !!! currently hacky/inefficient
+        if (Make_Invocation_Frame_Throws(
             D_OUT,
-            &exemplar,
+            f,
             &first_arg,
             test,
-            PAR(args),
             ARG(args),
             lowest_ordered_dsp
         )){
@@ -487,20 +487,16 @@ REBNATIVE(match)
 
         Move_Value(D_OUT, first_arg); // steal first argument before call
 
-        DECLARE_FRAME (f);
-
         f->out = D_CELL;
 
-        Push_Frame_For_Apply(f);
+        f->rootvar = CTX_ARCHETYPE(CTX(f->varlist));
+        f->param = ACT_FACADE_HEAD(VAL_ACTION(test));
+        f->arg = f->rootvar + 1;
+        f->special = f->arg;
 
-        Push_Action(
-            f,
-            opt_label,
-            VAL_ACTION(test),
-            VAL_BINDING(test)
-        );
+        f->flags.bits &= ~DO_FLAG_NULLS_UNSPECIALIZED;
+
         f->refine = ORDINARY_ARG;
-        f->special = CTX_VARS_HEAD(exemplar); // override action's exemplar
 
         (*PG_Do)(f);
 

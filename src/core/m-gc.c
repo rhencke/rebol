@@ -599,7 +599,7 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         if (v->extra.binding != UNBOUND) {
             assert(CTX_TYPE(context) == REB_FRAME);
 
-            if (CTX_VARS_UNAVAILABLE(context)) {
+            if (GET_SER_INFO(context, SERIES_INFO_INACCESSIBLE)) {
                 //
                 // !!! It seems a bit wasteful to keep alive the binding of a
                 // stack frame you can no longer get values out of.  But

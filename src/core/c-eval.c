@@ -375,9 +375,20 @@ void Do_Core(REBFRM * const f)
     //
     SET_END(f->out);
 
-    // APPLY and a DO of a FRAME! both use process_action.
-    //
     if (f->flags.bits & DO_FLAG_APPLYING) {
+        //
+        // Cells can't be trash...must be filled in.  Voids will be taken
+        // literally as null arguments unless DO_FLAG_NULLS_UNSPECIALIZED,
+        // in which case they will undergo a "normal" acquisition process.
+        //
+        assert(
+            f->special == f->arg
+            or (
+                (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED)
+                and (f->special == f->param)
+            )
+        );
+
         evaluating = not (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
         assert(f->refine == ORDINARY_ARG); // APPLY infix not (yet?) supported
@@ -505,12 +516,11 @@ reevaluate:;
                 //
                 Push_Action(
                     f,
-                    VAL_WORD_SPELLING(current),
                     VAL_ACTION(current_gotten),
                     VAL_BINDING(current_gotten)
                 );
+                Begin_Action(f, VAL_WORD_SPELLING(current), ORDINARY_ARG);
 
-                f->refine = ORDINARY_ARG;
                 if (NOT_VAL_FLAG(current_gotten, ACTION_FLAG_INVISIBLE)) {
                   #if defined(DEBUG_UNREADABLE_BLANKS)
                     assert(IS_UNREADABLE_DEBUG(f->out) or IS_END(f->out));
@@ -568,37 +578,20 @@ reevaluate:;
                 VALUE_FLAG_ENFIXED | ACTION_FLAG_QUOTES_FIRST_ARG
             )
         ){
-            Push_Action(
-                f,
-                VAL_WORD_SPELLING(f->value),
-                VAL_ACTION(f->gotten),
-                VAL_BINDING(f->gotten)
-            );
+            Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
+            Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
 
-            // The protocol for lookback is that the lookback argument is
-            // consumed from the f->out slot.  It will ultimately wind up
-            // moved into the frame, so having the quoting cases get
-            // it there by way of the f->out is *slightly* inefficient.  But
-            // since evaluative cases do wind up with the value in f->out,
-            // and are much more common, it's not worth worrying about.
+            // Lookback args are fetched from f->out, then copied into an arg
+            // slot.  Put the backwards quoted value into f->out, and in the
+            // debug build annotate it with the unevaluated flag, to indicate
+            // the lookback value was quoted, for some double-check tests.
             //
-            f->refine = LOOKBACK_ARG;
-            Derelativize(f->out, current, f->specifier);
-
+            Derelativize(f->out, current, f->specifier); // lookback in f->out
           #if !defined(NDEBUG)
-            //
-            // Since the value is going to be copied into an arg slot anyway,
-            // setting the unevaluated flag here isn't necessary.  However,
-            // it allows for an added debug check that if an enfixed parameter
-            // is hard or soft quoted, it *probably* came from here.
-            //
             SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
           #endif
 
-            // We don't want the WORD! that invoked the function to act like
-            // an argument, so we have to advance the frame once more.
-            //
-            Fetch_Next_In_Frame(f);
+            Fetch_Next_In_Frame(f); // skip the WORD! that invoked the action
             goto process_action;
         }
     }
@@ -625,29 +618,28 @@ reevaluate:;
 //
 // If an action makes it to the SWITCH statement, that means it is either
 // literally an action value in the array (`do compose [(:+) 1 2]`) or is
-// being retriggered via EVAL
+// being retriggered via EVAL.
 //
-// Most action evaluations are triggered from a SWITCH on a WORD! or PATH!,
-// which jumps in at the `process_action` label.
+// Most action evaluations are triggered from a WORD! or PATH!, which jumps in
+// at the `process_action` label.
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_ACTION: // literal action in a block
-        Push_Action(
-            f,
-            nullptr, // no label, nameless literal action direct in source
-            VAL_ACTION(current),
-            VAL_BINDING(current)
-        );
+    case REB_ACTION: { // literal action in a block
+        REBSTR *opt_label = nullptr; // not invoked through a word, "nameless"
+
+        Push_Action(f, VAL_ACTION(current), VAL_BINDING(current));
 
         // Enfix bit is only retrieved from vars assigned to words in contexts
         // via SET/ENFIX...a literal ACTION! value shouldn't have it.
         //
         assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED));
+        Begin_Action(f, opt_label, ORDINARY_ARG);
 
         if (NOT_VAL_FLAG(current, ACTION_FLAG_INVISIBLE))
             SET_END(f->out); // clear out previous result
-        f->refine = ORDINARY_ARG;
+
+        fallthrough; }
 
     //==////////////////////////////////////////////////////////////////==//
     //
@@ -665,17 +657,18 @@ reevaluate:;
         // expression from values that come after the invocation point.  But
         // not all parameters will consume arguments for all calls.
 
-    process_action:;
-
-        TRASH_POINTER_IF_DEBUG(current); // shouldn't be used below
-        TRASH_POINTER_IF_DEBUG(current_gotten);
+    process_action:; // Note: Also jumped to by the redo_checked code
 
       #if !defined(NDEBUG)
+        assert(f->eval_type == REB_ACTION); // set by Begin_Action()
         Do_Process_Action_Checks_Debug(f);
       #endif
 
-        assert(DSP >= f->dsp_orig); // REFINEMENT!s pushed by path processing
+        assert(DSP >= f->dsp_orig); // path processing may push REFINEMENT!s
         assert(f->refine == LOOKBACK_ARG or f->refine == ORDINARY_ARG);
+
+        TRASH_POINTER_IF_DEBUG(current); // shouldn't be used below
+        TRASH_POINTER_IF_DEBUG(current_gotten);
 
         f->doing_pickups = false;
 
@@ -702,6 +695,15 @@ reevaluate:;
                 and f->param != LOOKBACK_ARG
             ){
                 Prep_Stack_Cell(f->arg); // improve...
+            }
+            else {
+                // If the incoming series came from a heap frame, just put
+                // a bit on it saying its a stack node for now--this will
+                // stop some asserts.  The optimization is not enabled yet
+                // which avoids reification on stack nodes of lower stack
+                // levels--so it's not going to cause problems -yet-
+                //
+                SET_VAL_FLAG(f->arg, CELL_FLAG_STACK);
             }
 
             assert(f->arg->header.bits & NODE_FLAG_CELL);
@@ -902,19 +904,18 @@ reevaluate:;
 
             if (not In_Unspecialized_Mode(f)) {
                if (In_Typecheck_Mode(f)) {
-                    Finalize_Current_Arg(f);
-                    goto continue_arg_loop; // looping to verify args/refines
+                    if (
+                        not IS_NULLED(f->arg)
+                        or not (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED)
+                    ){
+                        Finalize_Current_Arg(f);
+                        goto continue_arg_loop; // looping to verify args/refines
+                    }
                 }
-
-                if (f->flags.bits & DO_FLAG_APPLYING) {
-                    Move_Value(f->arg, f->special); // voids are literal
-                    Finalize_Current_Arg(f);
-                    goto continue_arg_loop;
-                }
+                else if (not IS_NULLED(f->special)) {
 
     //=//// SPECIALIZED ARG ///////////////////////////////////////////////=//
 
-                if (not IS_NULLED(f->special)) {
                     Move_Value(f->arg, f->special);
 
                     // SPECIALIZE checks types at specialization time, to
@@ -933,6 +934,9 @@ reevaluate:;
             // further processing or checking.  void will always be fine.
             //
             if (f->refine == ARG_TO_UNUSED_REFINEMENT) {
+                //
+                // Overwrite if DO_FLAG_NULLS_UNSPECIALIZED faster than check
+                //
                 Init_Nulled(f->arg);
                 goto continue_arg_loop;
             }
@@ -1287,7 +1291,10 @@ reevaluate:;
 
             assert(pclass != PARAM_CLASS_REFINEMENT);
             assert(pclass != PARAM_CLASS_LOCAL);
-            assert(not In_Typecheck_Mode(f)); // already handled
+            assert(
+                not In_Typecheck_Mode(f) // already handled, unless...
+                or (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED) // ...this!
+            );
 
             if (not f->deferred)
                 Finalize_Arg(f, f->param, f->arg, f->refine);
@@ -1345,7 +1352,10 @@ reevaluate:;
         assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
 
         if (In_Typecheck_Mode(f)) {
-            assert(IS_POINTER_TRASH_DEBUG(f->deferred));
+            assert(
+                IS_POINTER_TRASH_DEBUG(f->deferred)
+                or (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED)
+            );
         }
         else { // was fulfilling...
             if (f->deferred) {
@@ -1407,6 +1417,17 @@ reevaluate:;
         // evaluation was in progress.
         //
         /*assert(f->out->header.bits & (CELL_FLAG_STACK | NODE_FLAG_ROOT)); */
+
+        if (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED) {
+            //
+            // For the moment, the only client of DO_FLAG_NULLS_UNSPECIALIZED
+            // is a routine that wants us to build the specialized frame
+            // but not actually call it.  This should likely be done with
+            // a dispatcher.  This can't work with variadics: review.
+            //
+            TRASH_CELL_IF_DEBUG(f->out);
+            goto finished_unchecked;
+        }
 
         // Running arbitrary native code can manipulate the bindings or cache
         // of a variable.  It's very conservative to say this, but any word
@@ -1694,11 +1715,11 @@ reevaluate:;
         if (IS_ACTION(current_gotten)) { // before IS_NULLED() is common case
             Push_Action(
                 f,
-                VAL_WORD_SPELLING(current),
                 VAL_ACTION(current_gotten),
                 VAL_BINDING(current_gotten)
             );
 
+            REBSTR *opt_label = VAL_WORD_SPELLING(current);
             if (GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)) {
                 //
                 // Note: The usual dispatch of enfix functions is not via a
@@ -1706,14 +1727,14 @@ reevaluate:;
                 // the switch.  So you only see this in cases like `(+ 1 2)`,
                 // or after ACTION_FLAG_INVISIBLE e.g. `10 comment "hi" + 20`.
                 //
-                f->refine = LOOKBACK_ARG;
+                Begin_Action(f, opt_label, LOOKBACK_ARG);
 
               #if defined(DEBUG_UNREADABLE_BLANKS)
                 assert(IS_END(f->out) or not IS_UNREADABLE_DEBUG(f->out));
               #endif
             }
             else {
-                f->refine = ORDINARY_ARG;
+                Begin_Action(f, opt_label, ORDINARY_ARG);
                 if (NOT_VAL_FLAG(current_gotten, ACTION_FLAG_INVISIBLE))
                     SET_END(f->out);
             }
@@ -1938,14 +1959,15 @@ reevaluate:;
                 fail ("ENFIX/INVISIBLE dispatch w/PATH! not yet supported");
             }
 
-            Push_Action(
-                f,
-                opt_label, // null label means anonymous
-                VAL_ACTION(f->out),
-                VAL_BINDING(f->out)
-            );
+            Push_Action(f, VAL_ACTION(f->out), VAL_BINDING(f->out));
 
-            f->refine = ORDINARY_ARG; // paths are never enfixed (for now)
+            // !!! Paths are currently never enfixed.  It's a problem which is
+            // difficult to do efficiently, as well as introduces questions of
+            // running GROUP! in paths twice--once for lookahead, and then
+            // possibly once again if the lookahead reported non-enfix.  It's
+            // something that really should be made to work *when it can*.
+            //
+            Begin_Action(f, opt_label, ORDINARY_ARG);
             SET_END(f->out); // loses enfix left hand side, invisible passthru
             goto process_action;
         }
@@ -2528,13 +2550,8 @@ post_switch:;
     // requested in the context of parameter fulfillment.  We want to reuse
     // the f->out value and get it into the new function's frame.
 
-    Push_Action(
-        f,
-        VAL_WORD_SPELLING(f->value),
-        VAL_ACTION(f->gotten),
-        VAL_BINDING(f->gotten)
-    );
-    f->refine = LOOKBACK_ARG;
+    Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
+    Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
 
     Fetch_Next_In_Frame(f); // advances f->value
     goto process_action;
@@ -2559,4 +2576,11 @@ finished:;
 
     // All callers must inspect for THROWN(f->out), and most should also
     // inspect for FRM_AT_END(f)
+
+finished_unchecked:
+
+    // this is the special case where we do not drop the frame state
+    // because we wanted to save it, e.g. MAKE FRAME! from VARARGS!
+
+    NOOP;
 }

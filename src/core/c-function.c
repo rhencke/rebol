@@ -1739,52 +1739,44 @@ REB_R Adapter_Dispatcher(REBFRM *f)
 //
 REB_R Encloser_Dispatcher(REBFRM *f)
 {
-    RELVAL *enclosure = ACT_BODY(FRM_PHASE(f));
-    assert(ARR_LEN(VAL_ARRAY(enclosure)) == 2);
+    RELVAL *info = ACT_BODY(FRM_PHASE(f));
+    assert(ARR_LEN(VAL_ARRAY(info)) == 2);
 
-    RELVAL* inner = KNOWN(VAL_ARRAY_AT_HEAD(enclosure, 0)); // same args as f
+    RELVAL *inner = KNOWN(VAL_ARRAY_AT_HEAD(info, 0)); // same args as f
     assert(IS_ACTION(inner));
-    REBVAL* outer = KNOWN(VAL_ARRAY_AT_HEAD(enclosure, 1)); // 1 FRAME! arg
+    REBVAL *outer = KNOWN(VAL_ARRAY_AT_HEAD(info, 1)); // 1 FRAME! arg
     assert(IS_ACTION(outer));
 
+    assert(GET_SER_FLAG(f->varlist, SERIES_FLAG_STACK));
+
     // We want to call OUTER with a FRAME! value that will dispatch to INNER
-    // when it runs DO on it.  The contents of the arguments for that call to
-    // inner should start out as the same as what has been built for the
-    // passed in F.  (OUTER may mutate these before the call if it likes.)
+    // when (and if) it runs DO on it.  That frame is the one built for this
+    // call to the encloser.  If it isn't managed, there's no worries about
+    // user handles on it...so just take it.  Otherwise, "steal" its vars.
     //
-    // !!! It is desirable in the general case to just reuse the values in
-    // the chunk stack that f already has for inner.  However, inner is going
-    // to be called at a deeper stack level than outer.  This tampers with
-    // the logic of the system for things like Move_Value(), which have to
-    // make decisions about the relative lifetimes of cells in order to
-    // decide whether to reify things (like REBFRM* to a REBSER* for FRAME!)
+    REBCTX *c = Steal_Context_Vars(CTX(f->varlist), NOD(FRM_PHASE(f)));
+    assert(GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)); // look dead
+
+    // f->varlist may or may not have wound up being managed.  It was not
+    // allocated through the usual mechanisms, so if unmanaged it's not in
+    // the tracking list Init_Any_Context() expects.  Just fiddle the bit.
     //
-    // !!! To get the ball rolling with testing the feature, pass a copy of
-    // the frame values in a heap-allocated FRAME!...which it will turn around
-    // and stack allocate again when DO is called.  That's triply inefficient
-    // because it forces reification of the stub frame just to copy it...
-    // which is not necessary, but easier code to write since it can use
-    // Copy_Context_Core().  Tune this all up as it becomes more mainstream,
-    // since you don't need to make 1 copy of the values...much less 2.
+    SET_SER_FLAG(c, NODE_FLAG_MANAGED);
 
-    const REBU64 types = 0;
-    REBCTX *copy = Copy_Context_Core(
-        Context_For_Frame_May_Manage(f),
-        types
-    );
+    CLEAR_SER_FLAG(c, SERIES_FLAG_STACK);
+    LINK(c).keysource = NOD(ACT_FACADE(VAL_ACTION(inner)));
 
-    DECLARE_LOCAL (arg);
-    Init_Any_Context(arg, REB_FRAME, copy);
-
-    // !!! Review how exactly this update to the phase and binding is supposed
-    // to work.  We know that when `outer` tries to DO its frame argument,
-    // it needs to run inner with the correct binding.
+    // When the DO of the FRAME! executes, we don't want it to run the
+    // encloser again (infinite loop).
     //
-    arg->payload.any_context.phase = VAL_ACTION(inner);
-    INIT_BINDING(arg, VAL_BINDING(inner));
+    REBVAL *rootvar = CTX_ARCHETYPE(c);
+    rootvar->payload.any_context.phase = VAL_ACTION(inner);
+    rootvar->extra.binding = VAL_BINDING(inner);
 
-    const REBOOL fully = TRUE;
-    if (Apply_Only_Throws(f->out, fully, outer, arg, END))
+    Init_Any_Context(&f->cell, REB_FRAME, c); // user may DO this, or not...
+
+    const REBOOL fully = true;
+    if (Apply_Only_Throws(f->out, fully, outer, KNOWN(&f->cell), END))
         return R_OUT_IS_THROWN;
 
     return R_OUT;

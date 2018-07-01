@@ -153,8 +153,13 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
     // We only have a label if we are in the middle of running a function,
     // and if we're not running a function then f->original should be null.
     //
-    assert(f->original == nullptr);
+    assert(not f->original);
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label));
+
+    if (f->varlist) {
+        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+        assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+    }
 
     //=//// ^-- ABOVE CHECKS *ALWAYS* APPLY ///////////////////////////////=//
 
@@ -274,7 +279,17 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
 //  Do_Process_Action_Checks_Debug: C
 //
 void Do_Process_Action_Checks_Debug(REBFRM *f) {
+
+    assert(IS_FRAME(f->rootvar));
+    assert(GET_SER_FLAG(FRM_PHASE(f), ARRAY_FLAG_PARAMLIST));
+
+    assert(f->arg == f->rootvar + 1);
     assert(f->param == ACT_FACADE_HEAD(FRM_PHASE(f)));
+
+    // ACTION!s with no args will have ends in the first position of their
+    // paramlist, which may come from Init_Endlike_Header() and not be cells.
+    //
+    assert(IS_END(f->special) or (f->special->header.bits & NODE_FLAG_CELL));
 
     if (f->refine == ORDINARY_ARG) {
         if (NOT_END(f->out))
@@ -283,10 +298,10 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     else
         assert(f->refine == LOOKBACK_ARG);
 
-    if (f->special == f->arg)
-        assert(IS_POINTER_TRASH_DEBUG(f->deferred));
+    if (f->special != f->arg or (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED))
+        assert(not f->deferred);
     else
-        assert(f->deferred == NULL);
+        assert(IS_POINTER_TRASH_DEBUG(f->deferred));
 
     // DECLARE_FRAME() starts out f->cell as valid GC-visible bits, and as
     // it's used for various temporary purposes it should remain valid.  But
@@ -315,6 +330,9 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     assert(f->eval_type == REB_ACTION);
     assert(NOT_END(f->out));
     assert(not THROWN(f->out));
+
+    if (GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) // e.g. ENCLOSE
+        return;
 
     // Usermode functions check the return type via Returner_Dispatcher(),
     // with everything else assumed to return the correct type.  But this

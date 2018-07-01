@@ -404,36 +404,35 @@ REBNATIVE(do)
     case REB_FRAME: {
         REBCTX *c = VAL_CONTEXT(source);
 
-        if (CTX_VARS_UNAVAILABLE(c)) // frame already ran, no data left
-            fail (Error_Do_Expired_Frame_Raw());
-
-        // See REBNATIVE(redo) for how tail-call recursion works.
-        //
-        if (CTX_FRAME_IF_ON_STACK(c) != NULL)
+        if (CTX_FRAME_IF_ON_STACK(c)) // see REDO for tail-call recursion
             fail ("Use REDO to restart a running FRAME! (not DO)");
 
-        DECLARE_FRAME (f);
+        // To DO a FRAME! will "steal" its data.  If a user wishes to use a
+        // frame multiple times, they must say DO COPY FRAME, so that the
+        // data is stolen from the copy.  This allows for efficient reuse of
+        // the context's memory in the cases where a copy isn't needed.
 
+        DECLARE_FRAME (f);
         f->out = D_OUT;
 
         Push_Frame_For_Apply(f);
 
-        REBSTR *label = NULL;
-        Push_Action(
-            f,
-            label,
-            source->payload.any_context.phase,
-            VAL_BINDING(source)
-        );
-        f->refine = ORDINARY_ARG;
+        REBACT *phase = VAL_PHASE(source);
 
-        // When you DO a FRAME!, it feeds its varlist in to be copied into
-        // the stack positions.
-        //
-        // Push_Action() defaults f->special to the exemplar of the function
-        // but we wish to override it (with a maybe more filled frame)
-        //
-        f->special = CTX_VARS_HEAD(VAL_CONTEXT(source));
+        REBCTX *stolen = Steal_Context_Vars(c, NOD(phase));
+        LINK(stolen).keysource = NOD(f);
+
+        f->varlist = CTX_VARLIST(stolen);
+        f->rootvar = CTX_ARCHETYPE(stolen);
+        f->arg = f->rootvar + 1;
+        f->param = ACT_FACADE_HEAD(phase);
+        f->special = f->arg;
+
+        assert(FRM_PHASE(f) == phase);
+        FRM_BINDING(f) = VAL_BINDING(source); // !!! should archetype match?
+
+        REBSTR *opt_label = nullptr;
+        Begin_Action(f, opt_label, ORDINARY_ARG);
 
         (*PG_Do)(f);
 
@@ -450,12 +449,7 @@ REBNATIVE(do)
         break;
     }
 
-    // Note: it is not possible to write a wrapper function in Rebol
-    // which can do what EVAL can do for types that consume arguments
-    // (like SET-WORD!, SET-PATH! and ACTION!).  DO used to do this for
-    // functions only, EVAL generalizes it.
-    //
-    fail (Error_Use_Eval_For_Eval_Raw());
+    fail (Error_Use_Eval_For_Eval_Raw()); // https://trello.com/c/YMAb89dv
 }
 
 
@@ -494,9 +488,6 @@ REBNATIVE(redo)
     }
 
     REBCTX *c = VAL_CONTEXT(restartee);
-
-    if (CTX_VARS_UNAVAILABLE(c)) // frame already ran, no data left
-        fail (Error_Do_Expired_Frame_Raw());
 
     REBFRM *f = CTX_FRAME_IF_ON_STACK(c);
     if (f == NULL)
@@ -596,8 +587,11 @@ REBNATIVE(apply)
         fail (Error_Invalid(applicand));
     Move_Value(applicand, D_OUT);
 
-    Push_Action(f, opt_label, VAL_ACTION(applicand), VAL_BINDING(applicand));
-    f->refine = ORDINARY_ARG;
+    Push_Action(f, VAL_ACTION(applicand), VAL_BINDING(applicand));
+    Begin_Action(f, opt_label, ORDINARY_ARG);
+
+    assert(not f->deferred); // Begin_Action() sets null
+    TRASH_POINTER_IF_DEBUG(f->deferred); // For sanity check in Do_Core()
 
     // For a one-off APPLY, we don't want Make_Frame_For_Action() to get a
     // heap object just for one use.  Better to DO the block directly into
@@ -668,7 +662,6 @@ REBNATIVE(apply)
     f->param = ACT_FACADE_HEAD(FRM_PHASE(f)); // reset
 
     f->special = f->arg; // now signal only type-check the existing data
-    TRASH_POINTER_IF_DEBUG(f->deferred); // invariant for checking mode
 
     (*PG_Do)(f);
 

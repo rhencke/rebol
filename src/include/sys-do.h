@@ -151,6 +151,8 @@ inline static void Push_Frame_Core(REBFRM *f)
             continue;
         if (Is_Action_Frame_Fulfilling(ftemp))
             continue;
+        if (GET_SER_INFO(ftemp->varlist, SERIES_INFO_INACCESSIBLE))
+            continue; // Encloser_Dispatcher() reuses args from up stack
         assert(
             f->out < FRM_ARGS_HEAD(ftemp)
             or f->out >= FRM_ARGS_HEAD(ftemp) + FRM_NUM_ARGS(ftemp)

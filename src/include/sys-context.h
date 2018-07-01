@@ -59,7 +59,7 @@
 // entire REBVAL if it is needed.
 //
 
-// An context's varlist is always allocated dynamically, in order to speed
+// A context's varlist is always allocated dynamically, in order to speed
 // up variable access--no need to test SERIES_FLAG_HAS_DYNAMIC to find them.
 //
 // !!! Ideally this would carry a flag to tell a GC "shrinking" process not
@@ -217,18 +217,12 @@ inline static void FREE_CONTEXT(REBCTX *c) {
 #define DROP_GUARD_CONTEXT(c) \
     DROP_GUARD_ARRAY(CTX_VARLIST(c))
 
-
-inline static REBOOL CTX_VARS_UNAVAILABLE(REBCTX *c) {
-    //
-    // Mechanically any array can become inaccessible, but really the varlist
-    // of a stack context is the only case that should happen today.
-    //
-    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE)) {
-        assert(GET_SER_FLAG(c, SERIES_FLAG_STACK));
-        return TRUE;
-    }
-    return FALSE;
-}
+// Note: Used to only be possible for stack contexts, but now DO of a heap
+// FRAME! uses bit fiddling to reclaim the memory underlying the context and
+// reassign it to stack use...leaving that FRAME! appearing FREE'd.
+//
+#define CTX_VARS_UNAVAILABLE(c) \
+    GET_SER_INFO(CTX_VARLIST(c), SERIES_INFO_INACCESSIBLE)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -255,8 +249,11 @@ inline static REBCTX *VAL_CONTEXT(const RELVAL *v) {
     assert(ANY_CONTEXT(v));
     assert(not v->payload.any_context.phase or VAL_TYPE(v) == REB_FRAME);
     REBSER *s = SER(v->payload.any_context.varlist);
-    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
+    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE)) {
+        if (CTX_TYPE(CTX(s)) == REB_FRAME)
+            fail (Error_Do_Expired_Frame_Raw()); // !!! different error?
         fail (Error_Series_Data_Freed_Raw());
+    }
     return CTX(s);
 }
 
@@ -429,4 +426,69 @@ inline static REBOOL Is_Native_Port_Actor(const REBVAL *actor) {
         return TRUE;
     assert(IS_OBJECT(actor));
     return FALSE;
+}
+
+
+//
+//  Steal_Context_Vars: C
+//
+// This is a low-level trick which mutates a context's varlist into a stub
+// "free" node, while grabbing the underlying memory for its variables into
+// an array of values.
+//
+// It has a notable use by DO of a heap-based FRAME!, so that the frame's
+// filled-in heap memory can be directly used as the args for the invocation,
+// instead of needing to push a redundant run of stack-based memory cells.
+//
+inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
+    REBSER *stub = SER(c);
+
+    // Rather than memcpy() and touch up the header and info to remove
+    // SERIES_INFO_HOLD put on by Enter_Native(), or NODE_FLAG_MANAGED,
+    // etc.--use constant assignments and only copy the remaining fields.
+    //
+    REBSER *copy = Make_Series_Node(
+        sizeof(REBVAL),
+        SERIES_MASK_CONTEXT // includes dynamic, applies to stolen content
+            | SERIES_FLAG_STACK
+            | SERIES_FLAG_FIXED_SIZE
+    );
+    copy->link_private.keysource = stub->link_private.keysource;
+    copy->content = stub->content;
+    copy->misc_private.meta = nullptr; // let stub have the meta
+        
+    REBVAL *rootvar = cast(REBVAL*, copy->content.dynamic.data);
+        
+    // Convert the old varlist that had outstanding references into a
+    // singular "stub", holding only the CTX_ARCHETYPE.  This is needed
+    // for the ->binding to allow Derelativize(), see SPC_BINDING().
+    //
+    // Note: previously this had to preserve FRAME_INFO_FAILED, but now
+    // those marking failure are asked to do so manually to the stub
+    // after this returns (hence they need to cache the varlist first).
+    //
+    stub->header.bits &= ~SERIES_FLAG_HAS_DYNAMIC;
+    Init_Endlike_Header(
+        &stub->info,
+        SERIES_INFO_INACCESSIBLE // args memory now "stolen" by copy
+            | FLAG_THIRD_BYTE(1) // no HAS_DYNAMIC bit, this is length
+            | FLAG_FOURTH_BYTE(sizeof(REBVAL)) // fourth byte is width
+    );
+
+    REBVAL *single = cast(REBVAL*, &stub->content.fixed);
+    single->header.bits =
+        NODE_FLAG_NODE | NODE_FLAG_CELL | HEADERIZE_KIND(REB_FRAME);
+    single->extra.binding = rootvar->extra.binding;
+    single->payload.any_context.varlist = ARR(stub);
+    TRASH_POINTER_IF_DEBUG(single->payload.any_context.phase);
+    /* single->payload.any_context.phase = f->original; */ // !!! needed?
+
+    rootvar->payload.any_context.varlist = ARR(copy);
+
+    // Disassociate the stub from the frame, by degrading the link field
+    // to a keylist.  !!! Review why this was needed, vs just nullptr
+    //
+    LINK(stub).keysource = keysource;
+
+    return CTX(copy);
 }

@@ -966,102 +966,98 @@ REB_R Block_Dispatcher(REBFRM *f)
 // frame from feeding forward a VARARGS! parameter, which is a bit like being
 // able to call DO/NEXT via Do_Core() yet introspect the evaluator step.
 //
-// !!! This is an inefficient and sloppy hack just to get the ball rolling.
-// What's actually needed is to wire this to Do_Core() and share the logic.
-// One mechanical impediment to that is that cell preparation is different
-// for stack vs. heap, and so the evaluator logic can't be used without
-// walking the cells in advance--which it was painstakingly designed to not
-// need to do...so giving that up would be a step backwards for potential
-// future performance work.
-//
-// Until the organizational issues are sorted out, fill the frame in a very
-// limited and conservative way that is usually "good enough".
-//
 REBOOL Make_Invocation_Frame_Throws(
-    REBVAL *out,
-    REBCTX **exemplar_out,
+    REBVAL *out, // in case there is a throw
+    REBFRM *f,
     REBVAL **first_arg_ptr, // returned so that MATCH can steal it
     const REBVAL *action,
-    REBVAL *varpar,
     REBVAL *varargs,
     REBDSP lowest_ordered_dsp
 ){
     assert(IS_ACTION(action));
-    assert(IS_TYPESET(varpar));
     assert(IS_VARARGS(varargs));
 
-    REBCTX *exemplar = Make_Context_For_Specialization(
-        action,
-        lowest_ordered_dsp,
-        NULL
+    // !!! The vararg's frame is not really a parent, but try to stay
+    // consistent with the naming in subframe code copy/pasted for now...
+    //
+    REBFRM *parent;
+    if (not Is_Frame_Style_Varargs_May_Fail(&parent, varargs))
+        fail (
+            "Currently MAKE FRAME! on a VARARGS! only works with a varargs"
+            " which is tied to an existing, running frame--not one that is"
+            " being simulated from a BLOCK! (e.g. MAKE VARARGS! [...])"
+        );
+
+    assert(parent->eval_type == REB_ACTION);
+
+    // Slip the REBFRM a dsp_orig which may be lower than the DSP captured by
+    // DECLARE_FRAME().  This way, it will see any pushes done during a
+    // path resolution as ordered refinements to use.
+    //
+    f->dsp_orig = lowest_ordered_dsp;
+
+    // === FIRST PART OF CODE FROM DO_SUBFRAME ===
+    f->out = out;
+
+    f->source = parent->source;
+    f->value = parent->value;
+    f->gotten = parent->gotten;
+    f->specifier = parent->specifier;
+    TRASH_POINTER_IF_DEBUG(parent->gotten);
+
+    // Just do one step of the evaluator, so no DO_FLAG_TO_END.  Specifically,
+    // it is desired that any voids encountered be processed as if they are
+    // not specialized...and gather at the callsite if necessary.
+    //
+    Init_Endlike_Header(
+        &f->flags,
+        DO_FLAG_APPLYING | DO_FLAG_NULLS_UNSPECIALIZED
     );
-    MANAGE_ARRAY(CTX_VARLIST(exemplar));
-    PUSH_GUARD_CONTEXT(exemplar);
 
-    REBINT last_partial = 0;
+    Push_Frame_Core(f);
+    // === END FIRST PART OF CODE FROM DO_SUBFRAME ===
 
-    *first_arg_ptr = NULL;
+    REBSTR *opt_label = nullptr; // !!! for now
+    Push_Action(f, VAL_ACTION(action), VAL_BINDING(action));
+    Begin_Action(f, opt_label, ORDINARY_ARG);
 
-    REBVAL *refine = NULL;
-    REBVAL *param = CTX_KEYS_HEAD(exemplar);
-    REBVAL *arg = CTX_VARS_HEAD(exemplar);
+    (*PG_Do)(f);
+
+    // For the moment, don't worry about whether f->varlist got managed or
+    // not... let the GC free it.
+    //
+    SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
+
+    parent->source = f->source;
+    parent->value = f->value;
+    parent->gotten = f->gotten;
+    assert(parent->specifier == f->specifier); // !!! can't change?
+
+    if (f->flags.bits & DO_FLAG_BARRIER_HIT)
+        parent->flags.bits |= DO_FLAG_BARRIER_HIT;
+    // === END SECOND PART OF CODE FROM DO_SUBFRAME ===
+
+    *first_arg_ptr = nullptr;
+
+    REBVAL *refine = nullptr;
+    REBVAL *param = CTX_KEYS_HEAD(CTX(f->varlist));
+    REBVAL *arg = CTX_VARS_HEAD(CTX(f->varlist));
     for (; NOT_END(param); ++param, ++arg) {
         enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
         switch (pclass) {
-        case PARAM_CLASS_REFINEMENT: {
-            refine = arg;
-            if (IS_INTEGER(refine)) {
-                if (not IS_REFINEMENT_SPECIALIZED(param)) {
-                    Init_Logic(refine, false);
-                    break;
-                }
-
-                // !!! Just one of the examples of why this code shouldn't be
-                // trying to repeat all the nuances of Do_Core...
-                //
-                if (VAL_INT32(refine) < last_partial)
-                    fail ("Frame hack can't handle this refinement order :(");
-                last_partial = VAL_INT32(refine);
-                Init_Logic(refine, true);
-            }
-            break; }
+        case PARAM_CLASS_REFINEMENT:
+            refine = param;
+            break;
 
         case PARAM_CLASS_NORMAL:
         case PARAM_CLASS_TIGHT:
         case PARAM_CLASS_HARD_QUOTE:
-        case PARAM_CLASS_SOFT_QUOTE: {
-            if (refine != NULL) {
-                if (IS_NULLED(refine))
-                    break;
-
-                if (IS_LOGIC(refine) and VAL_LOGIC(refine) == false)
-                    break;
-            }
-
-            // !!! Corrupt the parameter class of ARGS to match.  This is
-            // a general problem, of wanting to be able to take from a
-            // variadic feed using multiple conventions...the interface
-            // hasn't been hammered out yet.
-
-            INIT_VAL_PARAM_CLASS(varpar, pclass);
-            REB_R r = Do_Vararg_Op_May_Throw(out, varargs, VARARG_OP_TAKE);
-            INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_HARD_QUOTE);
-
-            if (r == R_OUT_IS_THROWN) {
-                DROP_GUARD_CONTEXT(exemplar);
-                return true;
-            }
-
-            if (r == R_END)
-                fail ("Frame hack is written to need argument!");
-
-            Move_Value(arg, out);
-            if (GET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED))
-                SET_VAL_FLAG(arg, VALUE_FLAG_UNEVALUATED);
-
-            if (not *first_arg_ptr)
+        case PARAM_CLASS_SOFT_QUOTE:
+            if (not refine or VAL_LOGIC(refine)) {
                 *first_arg_ptr = arg;
-            break; }
+                goto found_first_arg_ptr;
+            }
+            break;
 
         case PARAM_CLASS_LOCAL:
         case PARAM_CLASS_RETURN_1:
@@ -1073,10 +1069,12 @@ REBOOL Make_Invocation_Frame_Throws(
         }
     }
 
-    DS_DROP_TO(lowest_ordered_dsp);
-    DROP_GUARD_CONTEXT(exemplar);
+    fail ("ACTION! has no args to MAKE FRAME! from...");
 
-    *exemplar_out = exemplar;
+found_first_arg_ptr:
+
+    // DS_DROP_TO(lowest_ordered_dsp);
+
     return false;
 }
 
@@ -1171,18 +1169,40 @@ REBNATIVE(does)
         // semantics...which can be useful in their own right, plus the
         // resulting function will run faster.
 
+        DECLARE_FRAME (f); // REBFRM whose built FRAME! context we will steal
+
         REBVAL *first_arg;
         if (Make_Invocation_Frame_Throws(
             D_OUT,
-            &exemplar,
+            f,
             &first_arg,
             specializee,
-            PAR(args),
             ARG(args),
             lowest_ordered_dsp
         )){
             return R_OUT_IS_THROWN;
         }
+
+        exemplar = Steal_Context_Vars(
+            CTX(f->varlist),
+            NOD(VAL_ACTION(specializee))
+        );
+        assert(
+            ACT_FACADE_NUM_PARAMS(VAL_ACTION(specializee))
+            == CTX_LEN(exemplar)
+        );
+
+        if (GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED))
+            f->varlist = nullptr; // let the GC get it, for now
+
+        Drop_Frame_Core(f); // f->eval_type isn't REB_0, may not be FRM_END
+
+        // The exemplar may or may not be managed as of yet.  We want it
+        // managed, but Push_Action() does not use ordinary series creation to
+        // make its nodes, so manual ones don't wind up in the tracking list.
+        //
+        SET_SER_FLAG(exemplar, NODE_FLAG_MANAGED); // can't use Manage_Series
+
         UNUSED(first_arg);
         UNUSED(opt_label);
     }
@@ -1201,7 +1221,10 @@ REBNATIVE(does)
     REBACT *unspecialized = VAL_ACTION(specializee);
 
     REBCNT num_slots = ACT_FACADE_NUM_PARAMS(unspecialized) + 1;
-    REBARR *facade = Make_Array_Core(num_slots, SERIES_FLAG_FIXED_SIZE);
+    REBARR *facade = Make_Array_Core(
+        num_slots,
+        SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST // [0] slot isn't archetype
+    );
     REBVAL *rootkey = SINK(ARR_HEAD(facade));
     Init_Action_Unbound(rootkey, ACT_UNDERLYING(unspecialized));
 

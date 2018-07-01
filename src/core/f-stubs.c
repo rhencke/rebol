@@ -406,25 +406,25 @@ void Extra_Init_Any_Context_Checks_Debug(enum Reb_Kind kind, REBCTX *c) {
     REBARR *keylist = CTX_KEYLIST(c);
     assert(NOT_SER_FLAG(keylist, ARRAY_FLAG_FILE_LINE));
 
-    if (kind == REB_ACTION)
-        assert(IS_ACTION(CTX_ROOTKEY(c)));
-
-    // !!! Currently only a context can serve as the "meta" information,
-    // though the interface may expand.
-    //
     assert(
-        MISC(varlist).meta == NULL
-        or ANY_CONTEXT(CTX_ARCHETYPE(MISC(varlist).meta))
+        not MISC(varlist).meta
+        or ANY_CONTEXT(CTX_ARCHETYPE(MISC(varlist).meta)) // current rule
     );
 
     // FRAME!s must always fill in the phase slot, but that piece of the
     // REBVAL is reserved for future use in other context types...so make
     // sure it's null at this point in time.
     //
-    if (CTX_TYPE(c) == REB_FRAME)
+    if (CTX_TYPE(c) == REB_FRAME) {
+        assert(IS_ACTION(CTX_ROOTKEY(c)));
         assert(archetype->payload.any_context.phase);
-    else
+    }
+    else {
+      #ifdef DEBUG_UNREADABLE_BLANKS
+        assert(IS_UNREADABLE_DEBUG(CTX_ROOTKEY(c)));
+      #endif
         assert(not archetype->payload.any_context.phase);
+    }
 
     // Keylists are uniformly managed, or certain routines would return
     // "sometimes managed, sometimes not" keylists...a bad invariant.

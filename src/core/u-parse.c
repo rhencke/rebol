@@ -193,16 +193,13 @@ static REBOOL Subparse_Throws(
     Init_Endlike_Header(&f->flags, 0); // implicitly terminate f->cell
 
     Push_Frame_Core(f); // checks for C stack overflow
-    Push_Action(
-        f,
-        Canon(SYM_SUBPARSE),
-        NAT_ACTION(subparse),
-        UNBOUND
-    );
+    Push_Action(f, NAT_ACTION(subparse), UNBOUND);
+
+    Begin_Action(f, Canon(SYM_SUBPARSE), m_cast(REBVAL*, END));
 
     f->param = END; // informs infix lookahead
     f->arg = m_cast(REBVAL*, END);
-    f->refine = m_cast(REBVAL*, END);
+    assert(f->refine == END); // passed to Begin_Action()
     f->special = END;
 
   #if defined(NDEBUG)

@@ -45,7 +45,7 @@
     append-10: specialize 'append [value: 10]
     f: make frame! :append-10
     f/series: copy [a b c]
-    do f
+    do copy f ;-- COPY before DO allows reuse of F, only the copy is "stolen"
     [a b c 10 10] = do f
 )
 (

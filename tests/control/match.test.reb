@@ -4,10 +4,6 @@
 ; userspace VARARGS!.  This enables it to intercept the first argument of a
 ; filter function, that is invoked.
 ;
-; !!! Because of its variadic implementation mechanism, there is currently
-; an issue with MATCH and writing `match parse "aaa" [some "a"] = "aaa"`.
-; The problem is ambiguous variadic deferment; known and being researched...
-;
 ; https://github.com/metaeducation/ren-c/pull/730
 ;
 
@@ -41,30 +37,29 @@
         return: [<opt> any-value!]
         f [frame!]
     ][
-        if null? arg: :f/arg [
+        arg: :f/arg else [
             fail "MATCH cannot take null as input" ;-- EITHER-TEST allows it
         ]
 
         ; Ideally we'd pass through all input results on a "match" and give
-        ; blank to indicate a non-match.  But what about:
+        ; null to indicate a non-match.  But what about:
         ;
         ;     if match [logic!] 1 > 2 [...]
         ;     if match [blank!] find "abc" "d" [...]
         ;
-        ; Rather than have MATCH return a falsey result in these cases, pass
-        ; back a BAR!.  But on failure, pass back a null.  That will cue
-        ; attention to the distorted success result.
+        ; Rather than have MATCH return a falsey result in these cases of
+        ; success, pass back a BAR! in the hopes of drawing attention.
 
         set* quote result: do f ;-- can't access f/arg after the DO
 
         if not :arg and (not null? :result) [
             return '| ;-- BAR! if matched a falsey type
         ]
-        to-value :result ;-- return blank if no match, else truthy result
+        :result ;-- return null if no match, else truthy result
     ])
 
     (10 = match2 integer! 10)
-    (_ = match2 integer! "ten")
+    (null = match2 integer! "ten")
     (bar? match2 blank! _)
-    (_ = match2 blank! 10)
+    (null = match2 blank! 10)
 ]

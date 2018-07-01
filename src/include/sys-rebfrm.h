@@ -264,6 +264,16 @@
     FLAG_LEFT_BIT(17)
 
 
+//=//// DO_FLAG_NULLS_UNSPECIALIZED ///////////////////////////////////////=//
+//
+// When a void is seen in f->special, the question is whether that is an
+// intentional "void specialization" or if it means the argument should be
+// gathered normally (if applicable), as it would in a typical invocation.
+//
+#define DO_FLAG_NULLS_UNSPECIALIZED \
+    FLAG_LEFT_BIT(18)
+
+
 #if !defined(NDEBUG)
 
 //=//// DO_FLAG_FINAL_DEBUG ///////////////////////////////////////////////=//
@@ -276,7 +286,7 @@
 //
 
 #define DO_FLAG_FINAL_DEBUG \
-    FLAG_LEFT_BIT(18)
+    FLAG_LEFT_BIT(19)
 
 #endif
 
@@ -287,7 +297,7 @@
 // information in a platform aligned position of the frame.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(18 < 32, "DO_FLAG_XXX too high");
+    static_assert(19 < 32, "DO_FLAG_XXX too high");
 #endif
 
 
@@ -548,7 +558,7 @@ struct Reb_Frame {
     // reused or freed.  See Push_Action() and Drop_Action() for the logic.
     //
     REBARR *varlist;
-    REBVAL *rootvar; // cache, is ARR_HEAD(varlist) if varlist is not null
+    REBVAL *rootvar; // cache of CTX_ARCHETYPE(varlist) if varlist is not null
 
     // `param`
     //

@@ -409,6 +409,33 @@ inline static void Enter_Native(REBFRM *f) {
 }
 
 
+inline static void Begin_Action(
+    REBFRM *f,
+    REBSTR *opt_label,
+    REBVAL *mode // LOOKBACK_ARG or ORDINARY_ARG or END
+){
+    f->eval_type = REB_ACTION; // must set here, frame label fetch requires it
+    assert(not f->original);
+    f->original = FRM_PHASE(f);
+
+    assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_ACTION
+    assert(not opt_label or GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING));
+    f->opt_label = opt_label;
+  #if defined(DEBUG_FRAME_LABELS) // helpful for looking in the debugger
+    f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
+  #endif
+
+
+
+    assert(
+        mode == LOOKBACK_ARG
+        or mode == ORDINARY_ARG
+        or mode == END
+    );
+    f->refine = mode;
+}
+
+
 // Allocate the series of REBVALs inspected by a function when executed (the
 // values behind ARG(name), REF(name), D_ARG(3),  etc.)
 //
@@ -430,38 +457,17 @@ inline static void Enter_Native(REBFRM *f) {
 //
 inline static void Push_Action(
     REBFRM *f,
-    REBSTR *opt_label,
     REBACT *act,
-    REBSPC *binding
+    REBNOD *binding
 ){
-    f->eval_type = REB_ACTION;
-    f->original = act;
-
-    assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_ACTION
-    assert(not opt_label or GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING));
-    f->opt_label = opt_label;
-
-  #if defined(DEBUG_FRAME_LABELS) // helpful for looking in the debugger
-    f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
-  #endif
-
-    // Number of args may be larger than the number of interface parameters.
-    // (e.g. a specialization of EITHER which has removed the TRUE-BRANCH
-    // parameter still needs the arg present when REBNATIVE(either) runs.)
-    // FACADE has the same number of args as the underlying action.
-    //
-    REBCNT num_args = ACT_FACADE_NUM_PARAMS(act);
-    f->param = ACT_FACADE_HEAD(act); // see definitions for notes on facades
+    f->param = ACT_FACADE_HEAD(act); // May have more params than `act`...!
+    REBCNT num_args = ACT_FACADE_NUM_PARAMS(act); // ...see notes on "facades"
 
     // !!! Note: Should pick "smart" size when allocating varlist storage due
     // to potential reuse--but use exact size for *this* action, for now.
     //
     REBSER *s;
-    if (not f->varlist) {
-        //
-        // First action call in frame, or previous varlist wound up managed
-        // and nabbed by Drop_Action() for stub use in extant references.
-        //
+    if (not f->varlist) { // usually means first action call in the REBFRM
         s = Make_Series_Node(
             sizeof(REBVAL),
             SERIES_MASK_CONTEXT // includes dynamic flag, for allocation below
@@ -496,29 +502,19 @@ inline static void Push_Action(
 
   sufficient_allocation:
 
-    assert(NOT_SER_FLAG(s, NODE_FLAG_MANAGED));
-    assert(NOT_SER_INFO(s, SERIES_INFO_INACCESSIBLE));
-
     s->content.dynamic.len = num_args + 1;
     RELVAL *tail = ARR_TAIL(f->varlist);
     tail->header.bits = CELL_FLAG_END | NODE_FLAG_STACK
         | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
     TRACK_CELL_IF_DEBUG(tail, __FILE__, __LINE__);
-  
-    // Rather than separately track the running phase, it's updated in the
-    // actual rootvar of the frame itself.  This means it's slightly slower
-    // to access, but doesn't have to be multiply updated.  Review.
-    //
-    FRM_PHASE(f) = act;
-    FRM_BINDING(f) = binding;
 
     f->arg = f->rootvar + 1;
 
-    // Each layer of specialization of a function can only add specializaitons
+    // Each layer of specialization of a function can only add specializations
     // of arguments which have not been specialized already.  For efficiency,
     // the act of specialization merges all the underlying layers of
     // specialization together.  This means only the outermost specialization
-    // is needed to fill all the specialized slots contributed by later phases.
+    // is needed to fill the specialized slots contributed by later phases.
     //
     REBCTX *exemplar = ACT_EXEMPLAR(act);
     if (exemplar)
@@ -528,24 +524,15 @@ inline static void Push_Action(
 
     f->deferred = nullptr;
 
-    // Make sure the person who pushed the function correctly sets the
-    // f->refine to either ORDINARY_ARG or LOOKBACK_ARG after this call.
-    //
-    TRASH_POINTER_IF_DEBUG(f->refine);
+    FRM_PHASE(f) = act;
+    FRM_BINDING(f) = binding;
+
+    assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+    assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
 }
 
 
-// This routine needs to be shared with the error handling code.  It would be
-// nice if it were inlined into Do_Core...but repeating the code just to save
-// the function call overhead is second-guessing the optimizer and would be
-// a cause of bugs.
-//
-// Note that in response to an error, we do not want to drop the chunks,
-// because there are other clients of the chunk stack that may be running.
-// Hence the chunks will be freed by the error trap helper.
-//
-inline static void Drop_Action_Core(REBFRM *f) {
-    assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+inline static void Drop_Action(REBFRM *f) {
     assert(NOT_SER_INFO(f->varlist, FRAME_INFO_FAILED));
 
     assert(
@@ -556,9 +543,30 @@ inline static void Drop_Action_Core(REBFRM *f) {
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
         f->flags.bits &= ~DO_FLAG_BARRIER_HIT;
 
-    assert(LINK(f->varlist).keysource == NOD(f));
+    assert(
+        GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)
+        or LINK(f->varlist).keysource == NOD(f)
+    );
 
-    if (GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
+    if (GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) {
+        //
+        // If something like Encloser_Dispatcher() runs, it might steal the
+        // variables from a context to give them to the user, leaving behind
+        // a non-dynamic node.  Pretty much all the bits in the node are
+        // therefore useless.  It served a purpose by being non-null during
+        // the call, however, up to this moment.
+        //
+        if (GET_SER_INFO(f->varlist, NODE_FLAG_MANAGED))
+            f->varlist = nullptr; // references exist, let a new one alloc
+        else {
+            // This node could be reused vs. calling Make_Node() on the next
+            // action invocation...but easier for the moment to let it go.
+            //
+            Free_Node(SER_POOL, f->varlist);
+            f->varlist = nullptr;
+        }
+    }
+    else if (GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
         //
         // The varlist wound up getting referenced in a cell that will outlive
         // this Drop_Action().  The pointer needed to stay working up until
@@ -566,62 +574,17 @@ inline static void Drop_Action_Core(REBFRM *f) {
         // there were outstanding references to the varlist, we need to
         // convert it into a "stub" that's enough to avoid crashes.
         //
-        REBSER *stub = SER(f->varlist);
-
         // ...but we don't free the memory for the args, we just hide it from
         // the stub and get it ready for potential reuse by the next action
         // call.  That's done by making an adjusted copy of the stub, which
         // steals its dynamic memory (by setting the stub not HAS_DYNAMIC).
         //
-        // Rather than memcpy() and touch up the header and info to remove
-        // SERIES_INFO_HOLD put on by Enter_Native(), or NODE_FLAG_MANAGED,
-        // etc.--use constant assignments and only copy the remaining fields.
-        //
-        REBSER *copy = Make_Series_Node(
-            sizeof(REBVAL),
-            SERIES_MASK_CONTEXT // includes dynamic, applies to stolen content
-                | SERIES_FLAG_STACK
-                | SERIES_FLAG_FIXED_SIZE
+        f->varlist = CTX_VARLIST(
+            Steal_Context_Vars(
+                CTX(f->varlist),
+                NOD(ACT_PARAMLIST(f->original)) // degrade keysource from f
+            )
         );
-        copy->link_private.keysource = NOD(f); // same as what was in stub.
-        copy->content = stub->content;
-        copy->misc_private.meta = nullptr; // let stub swipe the meta
-        
-        REBVAL *rootvar = cast(REBVAL*, copy->content.dynamic.data);
-        
-        // Convert the old varlist that had outstanding references into a
-        // singular "stub", holding only the CTX_ARCHETYPE.  This is needed
-        // for the ->binding to allow Derelativize(), see SPC_BINDING().
-        //
-        // Note: previously this had to preserve FRAME_INFO_FAILED, but now
-        // those marking failure are asked to do so manually to the stub
-        // after this returns (hence they need to cache the varlist first).
-        //
-        stub->header.bits &= ~SERIES_FLAG_HAS_DYNAMIC;
-        Init_Endlike_Header(
-            &stub->info,
-            SERIES_INFO_INACCESSIBLE // args memory now "stolen" by copy
-                | FLAG_THIRD_BYTE(1) // no HAS_DYNAMIC bit, this is length
-                | FLAG_FOURTH_BYTE(sizeof(REBVAL)) // fourth byte is width
-        );
-
-        REBVAL *single = cast(REBVAL*, &stub->content.fixed);
-        single->header.bits =
-            NODE_FLAG_NODE | NODE_FLAG_CELL | HEADERIZE_KIND(REB_FRAME);
-        single->extra.binding = rootvar->extra.binding;
-        single->payload.any_context.varlist = ARR(stub);
-        single->payload.any_context.phase = f->original;
-
-        rootvar->payload.any_context.varlist = ARR(copy);
-        TRASH_POINTER_IF_DEBUG(rootvar->payload.any_context.phase);
-        /* TRASH_POINTER_IF_DEBUG(rootvar->extra.binding); */ // ghostable
-
-        // Disassociate the stub from the frame, by degrading the link field
-        // to a keylist.  !!! Review why this was needed, vs just nullptr
-        //
-        LINK(stub).keysource = NOD(ACT_PARAMLIST(f->original));
-
-        f->varlist = ARR(copy);
     }
     else {
         // We can reuse the varlist and its data allocation, which may be
@@ -637,16 +600,20 @@ inline static void Drop_Action_Core(REBFRM *f) {
             | FLAG_THIRD_BYTE(255) // mask out non-dynamic-len (it's dynamic)
             | FLAG_FOURTH_BYTE(255) // mask out wide (sizeof(REBVAL))
         )));
+    }
 
-      #if !defined(NDEBUG)
+  #if !defined(NDEBUG)
+    if (f->varlist) {
+        assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
+
         REBVAL *rootvar = cast(REBVAL*, ARR_HEAD(f->varlist));
         assert(IS_FRAME(rootvar));
         assert(rootvar->payload.any_context.varlist == f->varlist);
         TRASH_POINTER_IF_DEBUG(rootvar->payload.any_context.phase);
-      #endif
+        /* TRASH_POINTER_IF_DEBUG(rootvar->extra.binding); */ // ghostable
     }
-
-    assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+  #endif
 
     f->original = nullptr; // signal an action is no longer running
 
@@ -654,10 +621,6 @@ inline static void Drop_Action_Core(REBFRM *f) {
   #if defined(DEBUG_FRAME_LABELS)
     TRASH_POINTER_IF_DEBUG(f->label_utf8);
   #endif
-}
-
-inline static void Drop_Action(REBFRM *f) {
-    Drop_Action_Core(f);
 }
 
 
@@ -668,4 +631,10 @@ inline static REBCTX *Context_For_Frame_May_Manage(REBFRM *f)
 {
     SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
     return CTX(f->varlist);
+}
+
+
+inline static REBACT *VAL_PHASE(REBVAL *frame) {
+    assert(IS_FRAME(frame));
+    return frame->payload.any_context.phase;
 }

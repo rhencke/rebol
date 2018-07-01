@@ -378,6 +378,7 @@
     #define NOOP \
         ((void)(0))
 #endif
+#define fallthrough NOOP // clarifies intent in switch() statements
 
 
 //=////////////////////////////////////////////////////////////////////////=//

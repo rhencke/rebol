@@ -934,19 +934,16 @@ REBVAL *RL_rebRescue(
     DECLARE_FRAME (f);
     f->out = m_cast(REBVAL*, END); // should not be written
 
+    REBSTR *opt_label = NULL;
     Push_Frame_For_Apply(f);
-    Push_Action(
-        f,
-        NULL, // opt_label
-        NAT_ACTION(rescue),
-        UNBOUND
-    );
+    Push_Action(f, NAT_ACTION(rescue), UNBOUND);
+    Begin_Action(f, opt_label, m_cast(REBVAL*, END));
   #if !defined(NDEBUG)
     Prep_Stack_Cell(f->arg);
     Init_Unreadable_Blank(f->arg);
   #endif
     f->param = END; // signal all arguments gathered
-    f->refine = m_cast(REBVAL*, END);
+    assert(f->refine == END); // passed to Begin_Action();
     f->arg = m_cast(REBVAL*, END);
     f->special = END;
 
