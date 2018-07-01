@@ -342,8 +342,9 @@ REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
                     REBCNT n = VAL_CHAR(item);
                     if (n < c)
                         fail (Error_Past_End_Raw());
-                    for (; c <= n; c++)
+                    do {
                         Set_Bit(bset, c, set);
+                    } while (c++ < n); // post-increment: test before overflow
                 }
                 else
                     fail (Error_Invalid_Core(item, VAL_SPECIFIER(val)));
