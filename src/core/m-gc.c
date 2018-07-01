@@ -1563,6 +1563,17 @@ REBCNT Recycle_Core(REBOOL shutdown, REBSER *sweeplist)
     //
     TERM_ARRAY_LEN(BUF_COLLECT, ARR_LEN(BUF_COLLECT));
 
+    // The TG_Reuse list consists of entries which could grow to arbitrary
+    // length, and which aren't being tracked anywhere.  Cull them during GC
+    // in case the stack at one point got very deep and isn't going to use
+    // them again, and the memory needs reclaiming.
+    //
+    while (TG_Reuse) {
+        REBARR *varlist = TG_Reuse;
+        TG_Reuse = LINK(TG_Reuse).reuse;
+        GC_Kill_Series(SER(varlist)); // no track for Free_Unmanaged_Series()
+    }
+
     // MARKING PHASE: the "root set" from which we determine the liveness
     // (or deadness) of a series.  If we are shutting down, we do not mark
     // several categories of series...but we do need to run the root marking.

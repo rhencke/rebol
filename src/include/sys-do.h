@@ -186,8 +186,14 @@ inline static void Push_Frame_Core(REBFRM *f)
     f->prior = TG_Frame_Stack;
     TG_Frame_Stack = f;
 
-    f->varlist = nullptr;
-    TRASH_POINTER_IF_DEBUG(f->rootvar);
+    if (not TG_Reuse)
+        f->varlist = nullptr;
+    else {
+        f->varlist = TG_Reuse;
+        TG_Reuse = LINK(TG_Reuse).reuse;
+        f->rootvar = cast(REBVAL*, SER(f->varlist)->content.dynamic.data);
+        LINK(f->varlist).keysource = NOD(f);
+    }
 
     // If the source for the frame is a REBARR*, then we want to temporarily
     // lock that array against mutations.  
@@ -666,8 +672,10 @@ inline static void Drop_Frame_Core(REBFRM *f) {
 
     if (f->varlist) {
         assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
-        GC_Kill_Series(SER(f->varlist)); // not alloc'd with manuals tracking
+        LINK(f->varlist).reuse = TG_Reuse;
+        TG_Reuse = f->varlist;
     }
+
     assert(TG_Frame_Stack == f);
     TG_Frame_Stack = f->prior;
 }

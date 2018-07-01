@@ -739,6 +739,13 @@ union Reb_Series_Link {
     //
     REBSER *hashlist;
 
+    // The REBFRM's `varlist` field holds a ready-made varlist for a frame,
+    // which may be reused.  However, when a stack frame is dropped it can
+    // only be reused by putting it in a place that future pushes can find
+    // it.  This is used to link a varlist into the reusable list.
+    //
+    REBARR *reuse;
+
     // for STRUCT, this is a "REBFLD" array.  It parallels an object's
     // keylist, giving not only names of the fields in the structure but
     // also the types and sizes.

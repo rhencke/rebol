@@ -1889,11 +1889,6 @@ reevaluate:;
         //
         f->gotten = END;
 
-        // !!! Note: A new frame state is needed to track a new array,
-        // new specifier, etc.  But f->varlist could be passed down and
-        // reused here since no ACTION! is in effect, that could save some
-        // time if it's not null.
-        //
         REBSPC *derived = Derive_Specifier(f->specifier, current);
         if (Do_At_Throws(
             f->out,
