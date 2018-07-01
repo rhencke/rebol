@@ -1,6 +1,6 @@
 //
 //  File: %sys-series.h
-//  Summary: {Definitions for Series (REBSER) plus Array, Frame, and Map}
+//  Summary: {any-series! defs AFTER %tmp-internals.h (see: %sys-rebser.h)}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
@@ -68,10 +68,11 @@
 // with pointers to garbage-collected series, to avoid having them be GC'd
 // out from under the code while working with them.
 //
-// This file defines series subclasses which are type-incompatible with
-// REBSER for safety.  (In C++ they would be derived classes, so common
-// operations would not require casting...but this is C.)  The subclasses
-// are explained where they are defined.
+// Series subclasses REBARR, REBCTX, REBACT, REBMAP are defined which are
+// type-incompatible with REBSER for safety.  (In C++ they would be derived
+// classes, so common operations would not require casting...but it is seen
+// as worthwhile to offer some protection even compiling as C.)  The
+// subclasses are explained where they are defined in separate header files.
 //
 // Notes:
 //

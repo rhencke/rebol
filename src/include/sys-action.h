@@ -1,6 +1,6 @@
 //
-//  File: %sys-function.h
-//  Summary: {Definitions for REBACT}
+//  File: %sys-action.h
+//  Summary: {action! defs AFTER %tmp-internals.h (see: %sys-rebact.h)}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //

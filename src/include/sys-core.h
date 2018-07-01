@@ -33,7 +33,7 @@
 //   It also includes any enumerated type parameters to functions which are
 //   shared between various C files.
 //
-// * With those types defined, it includes %tmp-funcs.h - which is basically
+// * With those types defined, it includes %tmp-internals.h - which is all
 //   all the non-inline "internal API" functions.  This list of function
 //   prototypes is generated automatically by a Rebol script that scans the
 //   %.c files during the build process. 
@@ -243,6 +243,7 @@
 #include "sys-rebval.h" // REBVAL structure definition
 #include "sys-rebser.h" // REBSER series definition (embeds REBVAL definition)
 #include "sys-rebact.h" // REBACT and ACT()
+#include "sys-rebctx.h" // REBCTX and CTX()
 
 typedef void (*MAKE_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
 typedef void (*TO_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
@@ -559,7 +560,7 @@ enum encoding_opts {
 // evaluator--such as to having one unit of lookahead.
 //
 // While it might seem natural for this to live in %sys-varargs.h, the enum
-// type is used by a function prototype in %tmp-funcs.h...hence it must be
+// type is used by a function prototype in %tmp-internals.h...hence it must be
 // defined before that is included.
 //
 enum Reb_Vararg_Op {
@@ -582,7 +583,7 @@ enum Reb_Vararg_Op {
 // However, there are cases where code is being migrated to use the internal
 // API over to using the external one, so it's helpful to allow calling both.
 // We therefore include %reb-ext so it defines RX* for all of the core, and
-// these types must be available to process %tmp-funcs.h since the RL_API
+// these types must be available to process %tmp-internals.h since the RL_API
 // functions appear there too.
 //
 #include "reb-ext.h"
@@ -607,7 +608,7 @@ enum Reb_Vararg_Op {
 //
 // See %make/make-headers.r for the generation of this list.
 //
-#include "tmp-funcs.h"
+#include "tmp-internals.h"
 
 #include "tmp-strings.h"
 

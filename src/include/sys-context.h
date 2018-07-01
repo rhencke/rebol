@@ -1,13 +1,13 @@
 //
 //  File: %sys-context.h
-//  Summary: {Definitions for REBCTX}
+//  Summary: {context! defs AFTER %tmp-internals.h (see: %sys-context.h)}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -58,18 +58,6 @@
 // than the REBVAL struct which is 4x larger, yet still reconstitute the
 // entire REBVAL if it is needed.
 //
-
-// A context's varlist is always allocated dynamically, in order to speed
-// up variable access--no need to test SERIES_FLAG_HAS_DYNAMIC to find them.
-//
-// !!! Ideally this would carry a flag to tell a GC "shrinking" process not
-// to reclaim the dynamic memory to make a singular cell...but that flag
-// can't be SERIES_FLAG_FIXED_SIZE, because most varlists can expand.
-//
-#define SERIES_MASK_CONTEXT \
-    (NODE_FLAG_NODE | SERIES_FLAG_HAS_DYNAMIC \
-        | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST)
-
 
 #ifdef NDEBUG
     #define ASSERT_CONTEXT(c) cast(void, 0)
@@ -217,13 +205,6 @@ inline static void FREE_CONTEXT(REBCTX *c) {
 #define DROP_GUARD_CONTEXT(c) \
     DROP_GUARD_ARRAY(CTX_VARLIST(c))
 
-// Note: Used to only be possible for stack contexts, but now DO of a heap
-// FRAME! uses bit fiddling to reclaim the memory underlying the context and
-// reassign it to stack use...leaving that FRAME! appearing FREE'd.
-//
-#define CTX_VARS_UNAVAILABLE(c) \
-    GET_SER_INFO(CTX_VARLIST(c), SERIES_INFO_INACCESSIBLE)
-
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -235,15 +216,6 @@ inline static void FREE_CONTEXT(REBCTX *c) {
 // MODULE!, ERROR!, and PORT!.  It builds upon the context datatype REBCTX,
 // which permits the storage of associated KEYS and VARS.
 //
-
-#ifdef NDEBUG
-    #define ANY_CONTEXT_FLAG(n) \
-        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
-#else
-    #define ANY_CONTEXT_FLAG(n) \
-        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | HEADERIZE_KIND(REB_OBJECT))
-#endif
-
 
 inline static REBCTX *VAL_CONTEXT(const RELVAL *v) {
     assert(ANY_CONTEXT(v));

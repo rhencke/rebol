@@ -244,7 +244,7 @@ typedef REBWCHAR REBUNI;
     struct Reb_Frame; // Non-GC'd raw call frame, see %sys-frame.h
     typedef struct Reb_Frame REBFRM;
 
-    struct Reb_Binder; // used as argument in %tmp-funcs.h, needs forward decl
+    struct Reb_Binder; // needs forward decl for use in %tmp-internals.h
     struct Reb_Collector; // same
 
     // Paths formerly used their own specialized structure to track the path,

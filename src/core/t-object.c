@@ -448,9 +448,6 @@ REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         return R_UNHANDLED;
     }
 
-    if (CTX_VARS_UNAVAILABLE(c))
-        fail (Error_No_Relative_Raw(picker));
-
     if (opt_setval) {
         FAIL_IF_READ_ONLY_CONTEXT(c);
 
@@ -556,8 +553,7 @@ REBNATIVE(set_meta)
 //
 REBCTX *Copy_Context_Core(REBCTX *original, REBU64 types)
 {
-    if (CTX_VARS_UNAVAILABLE(original))
-        fail ("Cannot copy a context with unavailable vars"); // !!! improve
+    assert(NOT_SER_INFO(original, SERIES_INFO_INACCESSIBLE));
 
     REBARR *original_array = NULL; // may not be an array
     REBARR *varlist = Make_Array_For_Copy(
@@ -694,17 +690,7 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     Append_Utf8_Codepoint(out, '[');
 
     REBVAL *keys_head = CTX_KEYS_HEAD(c);
-    REBVAL *vars_head;
-    if (CTX_VARS_UNAVAILABLE(VAL_CONTEXT(v))) {
-        //
-        // If something like a function call has gone of the stack, the data
-        // for the vars will no longer be available.  The keys should still
-        // be good, however.
-        //
-        vars_head = NULL;
-    }
-    else
-        vars_head = CTX_VARS_HEAD(VAL_CONTEXT(v));
+    REBVAL *vars_head = CTX_VARS_HEAD(VAL_CONTEXT(v));
 
     REBOOL first = TRUE;
     REBVAL *key = keys_head;

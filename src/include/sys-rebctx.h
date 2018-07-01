@@ -1,17 +1,16 @@
 //
-//  File: %sys-action.h
-//  Summary: "action! defs BEFORE %tmp-internals.h (see: %sys-action.h)"
-//  Section: core
+//  File: %sys-rebctx.h
+//  Summary: {context! defs BEFORE %tmp-internals.h (see: %sys-context.h)}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
-// See README.md and CREDITS.md for more information.
+// See README.md and CREDITS.md for more information
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,34 +28,33 @@
 //
 
 
-struct Reb_Action {
-    struct Reb_Array paramlist;
+// A context's varlist is always allocated dynamically, in order to speed
+// up variable access--no need to test SERIES_FLAG_HAS_DYNAMIC to find them.
+//
+// !!! Ideally this would carry a flag to tell a GC "shrinking" process not
+// to reclaim the dynamic memory to make a singular cell...but that flag
+// can't be SERIES_FLAG_FIXED_SIZE, because most varlists can expand.
+//
+#define SERIES_MASK_CONTEXT \
+    (NODE_FLAG_NODE | SERIES_FLAG_HAS_DYNAMIC \
+        | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST)
+
+
+struct Reb_Context {
+    struct Reb_Array varlist; // keylist is held in ->link.keylist
 };
-
-
-// Includes SERIES_FLAG_DYNAMIC because an action's paramlist is always
-// allocated dynamically, in order to make access to the archetype and the
-// parameters faster than ARR_AT().  See code for ACT_PARAM(), etc.
-//
-// Includes SERIES_FLAG_FIXED_SIZE because for now, the user can't expand
-// them (e.g. by APPENDing to a FRAME! value).  Also, no internal tricks
-// for function composition expand them either at this time.
-//
-#define SERIES_MASK_ACTION \
-    (NODE_FLAG_NODE | SERIES_FLAG_HAS_DYNAMIC | SERIES_FLAG_FIXED_SIZE \
-        | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST)
 
 
 #if !defined(DEBUG_CHECK_CASTS)
 
-    #define ACT(p) \
-        cast(REBACT*, (p))
+    #define CTX(p) \
+        cast(REBCTX*, (p))
 
 #elif defined(CPLUSPLUS_11)
 
-    template <class T>
-    inline REBACT *ACT(T *p) {
-        constexpr bool derived = std::is_same<REBACT, void>::value;
+    template<typename T>
+    inline static REBCTX *CTX(T *p) {
+        constexpr bool derived = std::is_same<T, REBCTX>::value;
 
         constexpr bool base = std::is_same<T, void>::value
             or std::is_same<T, REBNOD>::value
@@ -65,21 +63,23 @@ struct Reb_Action {
 
         static_assert(
             derived or base,
-            "ACT() works on void/REBNOD/REBSER/REBARR/REBACT"
+            "CTX() works on REBNOD/REBSER/REBARR/REBCTX"
         );
 
         if (base)
             assert(
-                SERIES_MASK_ACTION == (cast(REBSER*, p)->header.bits & (
-                    SERIES_MASK_ACTION
+                (reinterpret_cast<REBNOD*>(p)->header.bits & (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST
                         | NODE_FLAG_FREE
                         | NODE_FLAG_CELL
-                        | ARRAY_FLAG_VARLIST
+                        | ARRAY_FLAG_PARAMLIST
                         | ARRAY_FLAG_PAIRLIST
-                ))
+                )) == (
+                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY | ARRAY_FLAG_VARLIST
+                )
             );
 
-        return reinterpret_cast<REBACT*>(p);
+        return reinterpret_cast<REBCTX*>(p);
     }
 
 #endif

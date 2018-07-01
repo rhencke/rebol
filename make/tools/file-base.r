@@ -198,7 +198,7 @@ generated: [
 
 made: [
     make-boot.r         core/tmp-boot-block.c
-    make-headers.r      include/tmp-funcs.h
+    make-headers.r      include/tmp-internals.h
 
     make-host-init.r    include/host-init.h
     make-os-ext.r       include/host-lib.h

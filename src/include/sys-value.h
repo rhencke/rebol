@@ -1,6 +1,6 @@
 //
 //  File: %sys-value.h
-//  Summary: {Accessor Functions for properties of a Rebol Value}
+//  Summary: {any-value! defs AFTER %tmp-internals.h (see: %sys-rebval.h)}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //

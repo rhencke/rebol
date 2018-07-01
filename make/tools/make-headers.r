@@ -32,7 +32,7 @@ change-dir %../../src/core/
 
 print "------ Building headers"
 
-e-funcs: make-emitter "Function Prototypes" output-dir/include/tmp-funcs.h
+e-funcs: make-emitter "Internal API" output-dir/include/tmp-internals.h
 
 e-syms: make-emitter "Function Symbols" output-dir/core/tmp-symbols.c
 
@@ -46,7 +46,7 @@ emit-proto: func [
         find proto "static"
         find proto "REBNATIVE(" ; Natives handled by make-natives.r
 
-        ; The REBTYPE macro actually is expanded in the tmp-funcs
+        ; The REBTYPE macro actually is expanded in %tmp-internals.h
         ; Should we allow macro expansion or do the REBTYPE another way?
         ; `not find proto "REBTYPE("]`
     ][
@@ -71,8 +71,8 @@ emit-proto: func [
     if null? switch header/2 [
         'RL_API [
             ; Currently the RL_API entries should only occur in %a-lib.c, and
-            ; are processed by %make-reb-lib.r.  Their RL_XxxYyy() forms don't
-            ; appear in the %tmp-funcs.h file, but core includes %reb-lib.h
+            ; are processed by %make-reb-lib.r.  Their RL_XxxYyy() forms are
+            ; not in the %tmp-internals.h file, but core includes %reb-lib.h
             ; and considers itself to have "non-extension linkage" to the API,
             ; so the calls can be directly linked without a struct.
             ;

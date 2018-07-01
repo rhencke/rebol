@@ -1,6 +1,6 @@
 //
 //  File: %sys-rebval.h
-//  Summary: {Definitions for the Rebol Boxed Value Struct (REBVAL)}
+//  Summary: {any-value! defs BEFORE %tmp-internals.h (see: %sys-value.h)}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
