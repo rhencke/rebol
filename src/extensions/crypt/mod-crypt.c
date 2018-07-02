@@ -30,11 +30,16 @@
 // The original cryptography additions to Rebol were done by Saphirion, at
 // a time prior to Rebol's open sourcing.  They had to go through a brittle,
 // incomplete, and difficult to read API for extending the interpreter with
-// C code.
+// C code.  This was in a file called %host-core.c.
 //
-// This contains a simplification of %host-core.c, written directly to the
-// native API.  It also includes the longstanding (but not standard, and not
-// particularly secure) ENCLOAK and DECLOAK operations from R3-Alpha.
+// As a transitional phase, the routines from that file were changed to
+// directly use the internal API--the same one used by natives exposed from
+// %sys-core.  The longstanding (but not standard, and not particularly
+// secure) ENCLOAK and DECLOAK operations from R3-Alpha were moved here too.
+//
+// That made it easier to see what the code was doing, but the ultimate goal
+// is to retarget it to use the new "libRebol" API.  So dependencies on the
+// internal API are being slowly cut, as that functionality improves.
 //
 
 #include "rc4/rc4.h"
@@ -145,7 +150,7 @@ static REBNATIVE(rc4)
         // In %host-core.c this used to fall through to return the first arg,
         // a refinement, which was true in this case.  :-/
         //
-        return R_TRUE;
+        return rebLogic(true);
     }
 
     if (REF(key)) { // Key defined - setup new context
@@ -323,11 +328,7 @@ static REBNATIVE(rsa)
     bi_free(rsa_ctx->bi_ctx, data_bi);
     RSA_free(rsa_ctx);
 
-    REBVAL *binary = rebRepossess(crypted, binary_len);
-    Move_Value(D_OUT, binary);
-    rebRelease(binary);
-
-    return R_OUT;
+    return rebRepossess(crypted, binary_len);
 }
 
 
@@ -384,7 +385,7 @@ static REBNATIVE(dh_generate_key)
     rebRelease(priv);
     rebRelease(pub);
 
-    return R_OUT;
+    return nullptr; // !!! Should be void, how to denote?
 }
 
 
@@ -430,11 +431,7 @@ static REBNATIVE(dh_compute_key)
 
     DH_compute_key(&dh_ctx);
 
-    REBVAL *binary = rebRepossess(dh_ctx.k, dh_ctx.len);
-    Move_Value(D_OUT, binary);
-    rebRelease(binary);
-
-    return R_OUT;
+    return rebRepossess(dh_ctx.k, dh_ctx.len);
 }
 
 
@@ -485,7 +482,7 @@ static REBNATIVE(aes)
         REBINT len = VAL_LEN_AT(ARG(data));
 
         if (len == 0)
-            return R_NULL; // !!! Is NULL a good result for 0 data?
+            return nullptr; // !!! Is NULL a good result for 0 data?
 
         REBINT pad_len = (((len - 1) >> 4) << 4) + AES_BLOCKSIZE;
 
@@ -494,38 +491,36 @@ static REBNATIVE(aes)
             //
             //  make new data input with zero-padding
             //
-            pad_data = ALLOC_N(REBYTE, pad_len);
+            pad_data = rebAllocN(REBYTE, pad_len);
             memset(pad_data, 0, pad_len);
             memcpy(pad_data, dataBuffer, len);
             dataBuffer = pad_data;
         }
         else
-            pad_data = NULL;
+            pad_data = nullptr;
 
-        REBSER *binaryOut = Make_Binary(pad_len);
-        memset(BIN_HEAD(binaryOut), 0, pad_len);
+        REBYTE *data_out = rebAllocN(REBYTE, pad_len);
+        memset(data_out, 0, pad_len);
 
         if (aes_ctx->key_mode == AES_MODE_DECRYPT)
             AES_cbc_decrypt(
                 aes_ctx,
                 cast(const uint8_t*, dataBuffer),
-                BIN_HEAD(binaryOut),
+                data_out,
                 pad_len
             );
         else
             AES_cbc_encrypt(
                 aes_ctx,
                 cast(const uint8_t*, dataBuffer),
-                BIN_HEAD(binaryOut),
+                data_out,
                 pad_len
             );
 
         if (pad_data)
-            FREE_N(REBYTE, pad_len, pad_data);
+            rebFree(pad_data);
 
-        SET_SERIES_LEN(binaryOut, pad_len);
-        Init_Binary(D_OUT, binaryOut);
-        return R_OUT;
+        return rebRepossess(data_out, pad_len);
     }
 
     if (REF(key)) {
@@ -609,12 +604,9 @@ REBNATIVE(sha256)
     sha256_init(&ctx);
     sha256_update(&ctx, bp, size);
 
-    REBSER *buf = Make_Binary(SHA256_BLOCK_SIZE);
-    sha256_final(&ctx, BIN_HEAD(buf));
-    TERM_BIN_LEN(buf, SHA256_BLOCK_SIZE);
-
-    Init_Binary(D_OUT, buf);
-    return R_OUT;
+    REBYTE *buf = rebAllocN(REBYTE, SHA256_BLOCK_SIZE);
+    sha256_final(&ctx, buf);
+    return rebRepossess(buf, SHA256_BLOCK_SIZE);
 }
 
 

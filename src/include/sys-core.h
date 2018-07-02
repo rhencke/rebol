@@ -610,7 +610,7 @@ enum Reb_Vararg_Op {
 //
 #include "tmp-internals.h"
 
-#include "tmp-strings.h"
+#include "tmp-constants.h"
 
 // %tmp-paramlists.h is the file that contains macros for natives and actions
 // that map their argument names to indices in the frame.  This defines the

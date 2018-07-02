@@ -376,20 +376,26 @@ e-params/write-emitted
 ;-------------------------------------------------------------------------
 
 e-strings: (make-emitter
-    "REBOL Constants Strings" output-dir/include/tmp-strings.h)
+    "REBOL Constants with Global Linkage" output-dir/include/tmp-constants.h)
 
-parse to text! read %a-constants.c [
-    some [
-        to "^/const"
-        copy constd to "="
-        (
-            remove constd
-            trim/tail constd
-
+e-strings/emit {
+    /*
+     * This file comes from scraping %a-constants.c for any `const XXX =` or
+     * `#define` definitions, and it is included in %sys-core.h in order to
+     * to conveniently make the global data available in other source files.
+     */
+}
+for-each line read/lines %a-constants.c [
+    case [
+        parse line ["#define" to end] [
+            e-strings/emit line
+            e-strings/emit newline
+        ]
+        parse line [to {const } copy constd to { =} to end] [
             e-strings/emit {
                 extern $<Constd>;
             }
-        )
+        ]
     ]
 ]
 

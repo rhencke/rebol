@@ -1447,37 +1447,147 @@ reevaluate:;
         // The dispatcher may push functions to the data stack which will be
         // used to process the return result after the switch.
         //
-        switch ((*PG_Dispatcher)(f)) { // default just calls FRM_PHASE(f)
-        case R_FALSE:
+        REB_R r; // initialization would be skipped by gotos
+        r = (*PG_Dispatcher)(f); // default just calls FRM_PHASE(f)
+
+        if (r == R_OUT) {
+        }
+        else if (not r) {
+            Init_Nulled(f->out);
+        }
+        else switch (const_FIRST_BYTE(r->header)) {
+
+        case R_00_FALSE:
             Init_Logic(f->out, false);
             break;
 
-        case R_TRUE:
+        case R_01_TRUE:
             Init_Logic(f->out, true);
             break;
 
-        case R_NULL:
-            Init_Nulled(f->out);
-            break;
-
-        case R_VOID:
+        case R_02_VOID:
             Init_Void(f->out);
             break;
 
-        case R_BLANK:
+        case R_03_BLANK:
             Init_Blank(f->out);
             break;
 
-        case R_BAR:
+        case R_04_BAR:
             Init_Bar(f->out);
             break;
 
-        case R_OUT:
+        case R_05_REDO_CHECKED:
+
+        redo_checked:
+
+            f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
+            f->arg = FRM_ARGS_HEAD(f);
+            f->special = f->arg;
+            f->refine = ORDINARY_ARG; // no gathering, but need for assert
+            assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
+            SET_END(f->out);
+            goto process_action;
+
+        case R_06_REDO_UNCHECKED:
+            //
+            // This instruction represents the idea that it is desired to
+            // run the f->phase again.  The dispatcher may have changed the
+            // value of what f->phase is, for instance.
+            //
+            assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
+            SET_END(f->out);
+            goto redo_unchecked;
+
+        case R_07_REEVALUATE_CELL:
+            evaluating = true; // unnecessary?
+            goto prep_for_reevaluate;
+
+        case R_08_REEVALUATE_CELL_ONLY:
+            evaluating = false;
+            goto prep_for_reevaluate;
+
+        case R_09_INVISIBLE: {
+            assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
+
+            // It is possible that when the elider ran, that there really was
+            // no output in the cell yet (e.g. `do [comment "hi" ...]`) so it
+            // would still be END after the fact.
+            //
+            // !!! Ideally we would check that f->out hadn't changed, but
+            // that would require saving the old value somewhere...
+            //
+          #if defined(DEBUG_UNREADABLE_BLANKS)
+            assert(IS_END(f->out) or not IS_UNREADABLE_DEBUG(f->out));
+          #endif
+
+            // If an invisible is at the start of a frame and there's nothing
+            // after it, it has to retrigger until it finds something (or
+            // until it hits the end of the frame).
+            //
+            //     do [comment "a" 1] => 1
+            //
+            // Use same mechanic as EVAL by loading next item.
+            //
+            if (IS_END(f->out) and not FRM_AT_END(f)) {
+                Derelativize(&f->cell, f->value, f->specifier);
+                Fetch_Next_In_Frame(f);
+
+                evaluating = true; // unnecessary?
+                goto prep_for_reevaluate;
+            }
+
+            goto skip_output_check; }
+
+        prep_for_reevaluate:
+
+            current = &f->cell;
+            f->eval_type = VAL_TYPE(current);
+            current_gotten = END;
+
+            // The f->gotten (if any) was the fetch for f->value, not what we
+            // just put in current.  We conservatively clear this cache:
+            // assume for instance that f->value is a WORD! that looks up to
+            // a value which is in f->gotten, and then f->cell contains a
+            // zero-arity function which changes the value of that word.  It
+            // might be possible to finesse use of this cache and clear it
+            // only if such cases occur, but for now don't take chances.
+            //
+            assert(f->gotten == END);
+
+            Drop_Action(f);
+            goto reevaluate; // we don't move index!
+
+        case R_0A_REFERENCE:
+        case R_0B_IMMEDIATE:
+        case R_0C_UNHANDLED: // internal use only, shouldn't be returned
+        case R_0D_END:
+            assert(false);
             break;
 
-        case R_OUT_IS_THROWN: {
-            assert(THROWN(f->out));
+        case R_0E_OUT:
+            break;
 
+        default: {
+            // can be any cell--including thrown value
+            // !!! main focus here is auto-handling API cells, add that!
+            //
+            assert(r->header.bits & NODE_FLAG_CELL);
+            Move_Value(f->out, r);
+            if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) {
+                assert(not THROWN(r)); // API values can't be thrown
+                assert(not IS_NULLED(r)); // API values can't be null
+                if (NOT_VAL_FLAG(r, NODE_FLAG_MANAGED))
+                    rebRelease(r);
+                break;
+            }
+            if (THROWN(f->out))
+                goto r_out_is_thrown;
+            break; }
+
+        case R_0F_OUT_IS_THROWN: {
+          r_out_is_thrown:
+            assert(THROWN(f->out)); // thrown value is the label.
             if (IS_ACTION(f->out)) {
                 if (
                     VAL_ACTION(f->out) == NAT_ACTION(unwind)
@@ -1557,94 +1667,6 @@ reevaluate:;
             // Stay THROWN and let stack levels above try and catch
             //
             goto abort_action; }
-
-        case R_REDO_CHECKED:
-
-        redo_checked:
-
-            f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
-            f->arg = FRM_ARGS_HEAD(f);
-            f->special = f->arg;
-            f->refine = ORDINARY_ARG; // no gathering, but need for assert
-            assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
-            SET_END(f->out);
-            goto process_action;
-
-        case R_REDO_UNCHECKED:
-            //
-            // This instruction represents the idea that it is desired to
-            // run the f->phase again.  The dispatcher may have changed the
-            // value of what f->phase is, for instance.
-            //
-            assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
-            SET_END(f->out);
-            goto redo_unchecked;
-
-        case R_REEVALUATE_CELL:
-            evaluating = true; // unnecessary?
-            goto prep_for_reevaluate;
-
-        case R_REEVALUATE_CELL_ONLY:
-            evaluating = false;
-            goto prep_for_reevaluate;
-
-        case R_INVISIBLE: {
-            assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
-
-            // It is possible that when the elider ran, that there really was
-            // no output in the cell yet (e.g. `do [comment "hi" ...]`) so it
-            // would still be END after the fact.
-            //
-            // !!! Ideally we would check that f->out hadn't changed, but
-            // that would require saving the old value somewhere...
-            //
-          #if defined(DEBUG_UNREADABLE_BLANKS)
-            assert(IS_END(f->out) or not IS_UNREADABLE_DEBUG(f->out));
-          #endif
-
-            // If an invisible is at the start of a frame and there's nothing
-            // after it, it has to retrigger until it finds something (or
-            // until it hits the end of the frame).
-            //
-            //     do [comment "a" 1] => 1
-            //
-            // Use same mechanic as EVAL by loading next item.
-            //
-            if (IS_END(f->out) and not FRM_AT_END(f)) {
-                Derelativize(&f->cell, f->value, f->specifier);
-                Fetch_Next_In_Frame(f);
-
-                evaluating = true; // unnecessary?
-                goto prep_for_reevaluate;
-            }
-
-            goto skip_output_check; }
-
-        prep_for_reevaluate:
-
-            current = &f->cell;
-            f->eval_type = VAL_TYPE(current);
-            current_gotten = END;
-
-            // The f->gotten (if any) was the fetch for f->value, not what we
-            // just put in current.  We conservatively clear this cache:
-            // assume for instance that f->value is a WORD! that looks up to
-            // a value which is in f->gotten, and then f->cell contains a
-            // zero-arity function which changes the value of that word.  It
-            // might be possible to finesse use of this cache and clear it
-            // only if such cases occur, but for now don't take chances.
-            //
-            assert(f->gotten == END);
-
-            Drop_Action(f);
-            goto reevaluate; // we don't move index!
-
-        case R_UNHANDLED: // internal use only, shouldn't be returned
-            assert(false);
-            break;
-
-        default:
-            assert(false);
         }
 
     apply_completed:;

@@ -815,6 +815,22 @@ static void Init_Root_Vars(void)
     //
     Root_Stats_Map = Init_Map(Alloc_Value(), Make_Map(10));
 
+    PG_R_FALSE.header.bits = FLAG_FIRST_BYTE(0);
+    PG_R_TRUE.header.bits = FLAG_FIRST_BYTE(1);
+    PG_R_VOID.header.bits = FLAG_FIRST_BYTE(2);
+    PG_R_BLANK.header.bits = FLAG_FIRST_BYTE(3);
+    PG_R_BAR.header.bits = FLAG_FIRST_BYTE(4);
+    PG_R_REDO_CHECKED.header.bits = FLAG_FIRST_BYTE(5);
+    PG_R_REDO_UNCHECKED.header.bits = FLAG_FIRST_BYTE(6);
+    PG_R_REEVALUATE_CELL.header.bits = FLAG_FIRST_BYTE(7);
+    PG_R_REEVALUATE_CELL_ONLY.header.bits = FLAG_FIRST_BYTE(8);
+    PG_R_INVISIBLE.header.bits = FLAG_FIRST_BYTE(9);
+    PG_R_REFERENCE.header.bits = FLAG_FIRST_BYTE(10);
+    PG_R_IMMEDIATE.header.bits = FLAG_FIRST_BYTE(11);
+    PG_R_UNHANDLED.header.bits = FLAG_FIRST_BYTE(12);
+    PG_R_END.header.bits = FLAG_FIRST_BYTE(13);
+    PG_R_OUT.header.bits = FLAG_FIRST_BYTE(14);
+    PG_R_OUT_IS_THROWN.header.bits = FLAG_FIRST_BYTE(15);
 }
 
 static void Shutdown_Root_Vars(void)

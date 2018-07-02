@@ -1524,7 +1524,8 @@ REB_R Void_Dispatcher(REBFRM *f)
 {
     assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE(f))) == 0);
     UNUSED(f);
-    return R_VOID;
+    Init_Void(f->out);
+    return R_OUT;
 }
 
 
@@ -1537,9 +1538,8 @@ REB_R Datatype_Checker_Dispatcher(REBFRM *f)
 {
     RELVAL *datatype = ACT_BODY(FRM_PHASE(f));
     assert(IS_DATATYPE(datatype));
-    if (VAL_TYPE(FRM_ARG(f, 1)) == VAL_TYPE_KIND(datatype))
-        return R_TRUE;
-    return R_FALSE;
+    Init_Logic(f->out, VAL_TYPE(FRM_ARG(f, 1)) == VAL_TYPE_KIND(datatype));
+    return R_OUT;
 }
 
 
@@ -1552,9 +1552,8 @@ REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 {
     RELVAL *typeset = ACT_BODY(FRM_PHASE(f));
     assert(IS_TYPESET(typeset));
-    if (TYPE_CHECK(typeset, VAL_TYPE(FRM_ARG(f, 1))))
-        return R_TRUE;
-    return R_FALSE;
+    Init_Logic(f->out, TYPE_CHECK(typeset, VAL_TYPE(FRM_ARG(f, 1))));
+    return R_OUT;
 }
 
 

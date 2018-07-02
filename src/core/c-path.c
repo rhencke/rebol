@@ -124,19 +124,18 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
     Fetch_Next_In_Frame(pvs); // may be at end
 
-    REB_R r;
-
     if (FRM_AT_END(pvs) and pvs->eval_type == REB_SET_PATH) {
         const REBVAL *opt_setval = pvs->special;
         assert(opt_setval != NULL);
 
-        switch (dispatcher(pvs, pvs->refine, opt_setval)) {
-        case R_INVISIBLE: // dispatcher assigned target with opt_setval
+        REB_R r = dispatcher(pvs, pvs->refine, opt_setval);
+        switch (const_FIRST_BYTE(r->header)) {
+        case R_09_INVISIBLE: // dispatcher assigned target with opt_setval
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED)
                 fail ("Path setting was not via an enfixable reference");
             break; // nothing left to do, have to take the dispatcher's word
 
-        case R_REFERENCE: { // dispatcher wants us to set *if* at end of path
+        case R_0A_REFERENCE: { // dispatcher wants us to set *if* at end of path
             assert(VAL_TYPE(pvs->out) == REB_0_REFERENCE);
             Move_Value(VAL_REFERENCE(pvs->out), pvs->special);
 
@@ -146,7 +145,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             }
             break; }
 
-        case R_IMMEDIATE: {
+        case R_0B_IMMEDIATE: {
             //
             // Imagine something like:
             //
@@ -171,7 +170,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             Move_Value(pvs->deferred, pvs->out);
             break; }
 
-        case R_UNHANDLED:
+        case R_0C_UNHANDLED:
             fail (Error_Bad_Path_Poke_Raw(pvs->refine));
 
         default:
@@ -186,12 +185,17 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     }
     else {
         const REBVAL *opt_setval = NULL;
-        r = dispatcher(pvs, pvs->refine, opt_setval);
+
+        REB_R r = dispatcher(pvs, pvs->refine, opt_setval);
 
         pvs->deferred = NULL; // clear status of the deferred
 
-        switch (r) {
-        case R_INVISIBLE:
+        if (not r) {
+            Init_Nulled(pvs->out);
+        }
+        else switch (const_FIRST_BYTE(r->header)) {
+
+        case R_09_INVISIBLE:
             assert(pvs->eval_type == REB_SET_PATH);
             if (
                 dispatcher != Path_Dispatch[REB_STRUCT]
@@ -209,7 +213,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             assert(FRM_AT_END(pvs));
             break;
 
-        case R_REFERENCE:
+        case R_0A_REFERENCE:
             assert(VAL_TYPE(pvs->out) == REB_0_REFERENCE);
 
             // Save the reference location in case the next update turns out
@@ -225,22 +229,25 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
                 SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
             break;
 
-        case R_NULL:
-            Init_Nulled(pvs->out);
-            break;
-
-        case R_BLANK:
+        case R_03_BLANK:
             Init_Blank(pvs->out);
             break;
 
-        case R_OUT:
-            break;
-
-        case R_UNHANDLED:
+        case R_0C_UNHANDLED:
             fail (Error_Bad_Path_Pick_Raw(pvs->refine));
 
+        case R_0E_OUT:
+            assert(not THROWN(pvs->out));
+            break;
+
+        case R_0F_OUT_IS_THROWN:
+            assert(!"Path dispatch isn't allowed to throw, only GROUP!s");
+            break;
+
         default:
-            assert(FALSE);
+            assert(r->header.bits & NODE_FLAG_CELL);
+            assert(not THROWN(r));
+            Move_Value(pvs->out, r);
         }
     }
 
@@ -618,16 +625,19 @@ REBNATIVE(pick)
     assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
 
     REB_R r = dispatcher(pvs, ARG(picker), NULL);
-    switch (r) {
-    case R_INVISIBLE:
+    if (not r)
+        return r;
+
+    switch (const_FIRST_BYTE(r->header)) {
+    case R_09_INVISIBLE:
         assert(FALSE); // only SETs should do this
         break;
 
-    case R_REFERENCE:
+    case R_0A_REFERENCE:
         Derelativize(D_OUT, VAL_REFERENCE(D_OUT), VAL_SPECIFIER(D_OUT));
         return R_OUT;
 
-    case R_UNHANDLED:
+    case R_0C_UNHANDLED:
         fail (Error_Bad_Path_Pick_Raw(ARG(picker)));
 
     default:
@@ -698,15 +708,15 @@ REBNATIVE(poke)
     assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
 
     REB_R r = dispatcher(pvs, ARG(picker), ARG(value));
-    switch (r) {
-    case R_REFERENCE: // wants us to write it
+    switch (const_FIRST_BYTE(r->header)) {
+    case R_09_INVISIBLE: // is saying it did the write already
+        break;
+
+    case R_0A_REFERENCE: // wants us to write it
         Move_Value(VAL_REFERENCE(D_OUT), ARG(value));
         break;
 
-    case R_INVISIBLE: // is saying it did the write already
-        break;
-
-    case R_UNHANDLED:
+    case R_0C_UNHANDLED:
         fail (Error_Bad_Path_Poke_Raw(ARG(picker)));
 
     default:

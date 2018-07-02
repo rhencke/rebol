@@ -295,54 +295,61 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
         // Not clear if there's any statistical reason to process the r result
         // here, but leave the scaffold in case there is.
         //
-        switch (r) {
-        case R_FALSE:
+        if (not r) {
+            // null
+        }
+        else switch (const_FIRST_BYTE(r->header)) {
+        case R_00_FALSE:
             break;
 
-        case R_TRUE:
+        case R_01_TRUE:
             break;
 
-        case R_NULL:
+        case R_02_VOID:
             break;
 
-        case R_VOID:
+        case R_03_BLANK:
             break;
 
-        case R_BLANK:
+        case R_04_BAR:
             break;
 
-        case R_BAR:
-            break;
-
-        case R_OUT:
-            break;
-
-        case R_OUT_IS_THROWN: {
-            break; }
-
-        case R_REDO_CHECKED:
+        case R_05_REDO_CHECKED:
             assert(FALSE); // shouldn't be possible for final phase
             break;
 
-        case R_REDO_UNCHECKED:
+        case R_06_REDO_UNCHECKED:
             assert(FALSE); // shouldn't be possible for final phase
             break;
 
-        case R_REEVALUATE_CELL:
+        case R_07_REEVALUATE_CELL:
             break;
 
-        case R_REEVALUATE_CELL_ONLY:
+        case R_08_REEVALUATE_CELL_ONLY:
             break;
 
-        case R_INVISIBLE:
+        case R_09_INVISIBLE:
             break;
 
-        case R_UNHANDLED: // internal use only, shouldn't be returned
-            assert(FALSE);
+        case R_0A_REFERENCE:
+        case R_0B_IMMEDIATE:
+        case R_0C_UNHANDLED:
+        case R_0D_END:
+            assert(FALSE); // internal use only, shouldn't be returned
+            break;
+
+        case R_0E_OUT:
+            assert(not THROWN(r));
+            break;
+
+        case R_0F_OUT_IS_THROWN:
+            assert(THROWN(r));
             break;
 
         default:
-            assert(FALSE);
+            assert(r->header.bits & NODE_FLAG_CELL);
+            // may be thrown, may not be
+            break;
         }
     }
 

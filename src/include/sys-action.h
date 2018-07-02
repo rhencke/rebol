@@ -34,6 +34,9 @@
 // stack, and can be viewed as a context using a FRAME!.
 //
 
+inline static REB_R R_FROM_BOOL(REBOOL b)
+  { return b ? R_TRUE : R_FALSE; }
+
 inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     assert(GET_SER_FLAG(&a->paramlist, ARRAY_FLAG_PARAMLIST));
     return &a->paramlist;

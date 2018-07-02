@@ -295,40 +295,74 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         Debug_Space(cast(REBCNT, 4 * depth));
         Debug_Fmt_(RM_TRACE_RETURN, Frame_Label_Or_Anonymous_UTF8(f));
 
-        switch (r) {
-        case R_FALSE:
+        if (not r) {
+            Debug_Fmt("\\\\null\\\\\n"); // displays as "\\null\\"
+        }
+        else switch (const_FIRST_BYTE(r->header)) {
+        case R_00_FALSE:
             Debug_Values(FALSE_VALUE, 1, 50);
             break;
 
-        case R_TRUE:
+        case R_01_TRUE:
             Debug_Values(TRUE_VALUE, 1, 50);
             break;
 
-        case R_NULL:
-            Debug_Fmt("\\\\null\\\\\n"); // displays as "\\null\\"
-            break;
-
-        case R_VOID:
+        case R_02_VOID:
             Debug_Values(VOID_VALUE, 1, 50);
             break;
 
-        case R_BLANK:
+        case R_03_BLANK:
             Debug_Values(BLANK_VALUE, 1, 50);
             break;
 
-        case R_BAR:
+        case R_04_BAR:
             Debug_Values(BAR_VALUE, 1, 50);
             break;
 
-        case R_OUT:
+        case R_05_REDO_CHECKED:
+            assert(FALSE); // accounted for as not being final phase above
+            break;
+
+        case R_06_REDO_UNCHECKED:
+            assert(FALSE); // shouldn't be possible for final phase
+            break;
+
+        case R_07_REEVALUATE_CELL:
+            //
+            // !!! It's EVAL, should we print f->out ?
+            //
+            Debug_Fmt("\\\\reevaluate\\\\\n"); // displays as "\\reevalaute\\"
+            break;
+
+        case R_08_REEVALUATE_CELL_ONLY:
+            //
+            // !!! It's EVAL/ONLY, should we print f->out ?
+            //
+            Debug_Fmt("\\\\reevaluate\\\\\n"); // displays as "\\reevaluate\\"
+            break;
+
+        case R_09_INVISIBLE:
+            Debug_Fmt("\\\\invisible\\\\\n"); // displays as "\\invisible\\"
+            break;
+
+        case R_0A_REFERENCE:
+        case R_0B_IMMEDIATE:
+        case R_0C_UNHANDLED:
+        case R_0D_END:
+            assert(FALSE); // internal use only, shouldn't be returned
+            break;
+
+        case R_0E_OUT:
+          normal_output:
             Debug_Values(f->out, 1, 50);
             break;
 
-        case R_OUT_IS_THROWN: {
-            //
+        case R_0F_OUT_IS_THROWN: {
+          thrown_output:
             // The system guards against the molding or forming of thrown
-            // values, which are actually a pairing of label + value.  "Catch"
-            // it temporarily, long enough to output it, then re-throw it.
+            // values, which are actually a pairing of label + value.
+            // "Catch" it temporarily, long enough to output it, then
+            // re-throw it.
             //
             DECLARE_LOCAL (arg);
             CATCH_THROWN(arg, f->out); // clears bit
@@ -341,38 +375,12 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
             CONVERT_NAME_TO_THROWN(f->out, arg); // sets bit
             break; }
 
-        case R_REDO_CHECKED:
-            assert(FALSE); // accounted for as not being final phase above
-            break;
-
-        case R_REDO_UNCHECKED:
-            assert(FALSE); // shouldn't be possible for final phase
-            break;
-
-        case R_REEVALUATE_CELL:
-            //
-            // !!! It's EVAL, should we print f->out ?
-            //
-            Debug_Fmt("\\\\reevaluate\\\\\n"); // displays as "\\reevalaute\\"
-            break;
-
-        case R_REEVALUATE_CELL_ONLY:
-            //
-            // !!! It's EVAL/ONLY, should we print f->out ?
-            //
-            Debug_Fmt("\\\\reevaluate\\\\\n"); // displays as "\\reevaluate\\"
-            break;
-
-        case R_INVISIBLE:
-            Debug_Fmt("\\\\invisible\\\\\n"); // displays as "\\invisible\\"
-            break;
-
-        case R_UNHANDLED: // internal use only, shouldn't be returned
-            assert(FALSE);
-            break;
-
-        default:
-            assert(FALSE);
+        default: {
+            assert(r->header.bits & NODE_FLAG_CELL);
+            Move_Value(f->out, r);
+            if (THROWN(r))
+                goto thrown_output;
+            goto normal_output; }
         }
     }
 

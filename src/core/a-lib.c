@@ -1785,7 +1785,7 @@ long RL_rebLengthOf(const REBVAL *series)
 // leak avoidance will need to at least allow for GC of handles across errors
 // for their associated frames.
 //
-void RL_rebRelease(REBVAL *v)
+void RL_rebRelease(const REBVAL *v)
 {
     Enter_Api();
 
@@ -1795,7 +1795,7 @@ void RL_rebRelease(REBVAL *v)
     if (not Is_Api_Value(v))
         panic ("Attempt to rebRelease() a non-API handle");
 
-    Free_Value(v);
+    Free_Value(m_cast(REBVAL*, v));
 }
 
 

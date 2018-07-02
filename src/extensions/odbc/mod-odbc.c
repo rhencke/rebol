@@ -287,7 +287,7 @@ REBNATIVE(open_connection)
     rebElide("poke", ARG(connection), "'henv", rebR(henv_value), END);
     rebElide("poke", ARG(connection), "'hdbc", rebR(hdbc_value), END);
 
-    return R_TRUE;
+    return rebLogic(true);
 }
 
 
@@ -324,7 +324,7 @@ REBNATIVE(open_statement)
 
     rebElide("poke", ARG(statement), "'hstmt", rebR(hstmt_value), END);
 
-    return R_TRUE;
+    return rebLogic(true);
 }
 
 
@@ -977,8 +977,7 @@ REBNATIVE(insert_odbc)
         if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
             fail (Error_ODBC_Stmt(hstmt));
 
-        Init_Integer(D_OUT, num_rows);
-        return R_OUT;
+        return rebInteger(num_rows);
     }
 
     //=//// RETURN CACHED TITLES BLOCK OR REBUILD IF NEEDED ///////////////=//
@@ -998,9 +997,7 @@ REBNATIVE(insert_odbc)
         REBVAL *cache = rebRun(
             "ensure block! pick", statement, "'titles", END
         );
-        Move_Value(D_OUT, cache);
-        rebRelease(cache);
-        return R_OUT;
+        return cache;
     }
 
     REBVAL *old_columns_value = rebRun(
@@ -1037,9 +1034,7 @@ REBNATIVE(insert_odbc)
     //
     rebElide("poke", statement, "'titles", titles, END);
 
-    Move_Value(D_OUT, titles);
-    rebRelease(titles);
-    return R_OUT;
+    return titles;
 }
 
 
@@ -1215,7 +1210,7 @@ REBNATIVE(copy_odbc)
     COLUMN *columns = VAL_HANDLE_POINTER(COLUMN, columns_value);
     rebRelease(columns_value);
 
-    if (hstmt == SQL_NULL_HANDLE or columns == NULL)
+    if (hstmt == SQL_NULL_HANDLE or not columns)
         fail ("Invalid statement object!");
 
     SQLRETURN rc;
@@ -1306,7 +1301,7 @@ REBNATIVE(update_odbc)
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Dbc(hdbc));
 
-    return R_TRUE;
+    return rebLogic(true);
 }
 
 
@@ -1328,7 +1323,7 @@ REBNATIVE(close_statement)
     );
     if (columns_value) {
         COLUMN *columns = VAL_HANDLE_POINTER(COLUMN, columns_value);
-        assert(columns != NULL);
+        assert(columns);
 
         REBCNT num_columns = VAL_HANDLE_LEN(columns_value);
         REBCNT col;
@@ -1347,7 +1342,7 @@ REBNATIVE(close_statement)
     );
     if (hstmt_value) {
         SQLHSTMT hstmt = cast(SQLHSTMT, VAL_HANDLE_VOID_POINTER(hstmt_value));
-        assert(hstmt != NULL);
+        assert(hstmt);
 
         SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
         SET_HANDLE_POINTER(hstmt_value, SQL_NULL_HANDLE); // avoid GC cleanup
@@ -1381,7 +1376,7 @@ REBNATIVE(close_connection)
     );
     if (hdbc_value) {
         SQLHDBC hdbc = cast(SQLHDBC, VAL_HANDLE_VOID_POINTER(hdbc_value));
-        assert(hdbc != NULL);
+        assert(hdbc);
 
         SQLDisconnect(hdbc);
         SQLFreeHandle(SQL_HANDLE_DBC, hdbc);
@@ -1398,7 +1393,7 @@ REBNATIVE(close_connection)
     );
     if (henv_value) {
         SQLHENV henv = cast(SQLHENV, VAL_HANDLE_VOID_POINTER(henv_value));
-        assert(henv != NULL);
+        assert(henv);
 
         SQLFreeHandle(SQL_HANDLE_ENV, henv);
         SET_HANDLE_POINTER(henv_value, SQL_NULL_HANDLE); // avoid GC cleanup
@@ -1407,7 +1402,7 @@ REBNATIVE(close_connection)
         rebRelease(henv_value);
     }
 
-    return R_TRUE;
+    return rebLogic(true);
 }
 
 
