@@ -1298,7 +1298,7 @@ void Startup_Core(void)
     // augmented function must be substituted.
     //
     PG_Do = &Do_Core;
-    PG_Apply = &Apply_Core;
+    PG_Dispatcher = &Dispatcher_Core;
 
     // boot->natives is from the automatically gathered list of natives found
     // by scanning comments in the C sources for `native: ...` declarations.

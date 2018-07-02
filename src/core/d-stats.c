@@ -131,12 +131,12 @@ REBNATIVE(stats)
 
 
 //
-//  Do_Core_Measured: C
+//  Measured_Do_Hook: C
 //
 // Putting in measurement for Do_Core would interfere with measurements for
-// Apply_Core, as it would slow down the very functions that are being timed.
+// Dispatcher, as it would slow down the very functions that are being timed.
 //
-void Do_Core_Measured(REBFRM * const f)
+void Measured_Do_Hook(REBFRM * const f)
 {
     // There are a lot of invariants checked on entry to Do_Core(), but this
     // is a simple one that is important enough to mirror here.
@@ -181,15 +181,15 @@ enum {
 
 
 //
-//  Apply_Core_Measured: C
+//  Measured_Dispatcher_Hook: C
 //
-// This is the function which is swapped in for Apply_Core when stats are
+// This is the function which is swapped in for Dispatcher_Core when stats are
 // enabled.
 //
 // In order to actually be accurate, it would need some way to subtract out
 // its own effect on the timing of functions above on the stack.
 //
-REB_R Apply_Core_Measured(REBFRM * const f)
+REB_R Measured_Dispatcher_Hook(REBFRM * const f)
 {
     REBMAP *m = VAL_MAP(Root_Stats_Map);
 
@@ -214,7 +214,7 @@ REB_R Apply_Core_Measured(REBFRM * const f)
         // being studied for starters...of just counting.
     }
 
-    REB_R r = Apply_Core(f);
+    REB_R r = Dispatcher_Core(f);
 
     if (is_last_phase) {
         //
@@ -369,12 +369,12 @@ REBNATIVE(metrics)
     Check_Security(Canon(SYM_DEBUG), POL_READ, 0);
 
     if (VAL_LOGIC(mode)) {
-        //PG_Do = &Do_Core_Measured;
-        PG_Apply = &Apply_Core_Measured;
+        //PG_Do = &Measured_Do_Hook;
+        PG_Dispatcher = &Measured_Dispatcher_Hook;
     }
     else {
         //PG_Do = &Do_Core;
-        PG_Apply = &Apply_Core;
+        PG_Dispatcher = &Dispatcher_Core;
     }
 
     Move_Value(D_OUT, Root_Stats_Map);

@@ -117,12 +117,12 @@ void Trace_Error(const REBVAL *value)
 
 
 //
-//  Do_Core_Traced: C
+//  Traced_Do_Hook: C
 //
 // This is the function which is swapped in for Do_Core when tracing is
 // enabled.
 //
-void Do_Core_Traced(REBFRM * const f)
+void Traced_Do_Hook(REBFRM * const f)
 {
     // There are a lot of invariants checked on entry to Do_Core(), but this is
     // a simple one that is important enough to mirror here.
@@ -244,16 +244,16 @@ void Do_Core_Traced(REBFRM * const f)
 
 
 //
-//  Apply_Core_Traced: C
+//  Traced_Dispatcher_Hook: C
 //
-// This is the function which is swapped in for Apply_Core when tracing is
-// enabled.
+// This is the function which is swapped in for Dispatcher_Core when tracing
+// isenabled.
 //
-REB_R Apply_Core_Traced(REBFRM * const f)
+REB_R Traced_Dispatcher_Hook(REBFRM * const f)
 {
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level)
-        return Apply_Core(f); // don't apply tracing (REPL uses this to hide)
+        return Dispatcher_Core(f);
 
     if (depth > 10)
         depth = 10; // don't indent so far it goes off the screen
@@ -277,7 +277,7 @@ REB_R Apply_Core_Traced(REBFRM * const f)
     //
     REBOOL last_phase = (ACT_UNDERLYING(phase) == phase);
 
-    REB_R r = Apply_Core(f);
+    REB_R r = Dispatcher_Core(f);
 
     // When you HIJACK a function with an incompatible frame, it can REDO
     // even on what looks like the "last phase" because it is wiring in a new
@@ -413,8 +413,8 @@ REBNATIVE(trace)
         Trace_Level = Int32(mode);
 
     if (Trace_Level) {
-        PG_Do = &Do_Core_Traced;
-        PG_Apply = &Apply_Core_Traced;
+        PG_Do = &Traced_Do_Hook;
+        PG_Dispatcher = &Traced_Dispatcher_Hook;
 
         if (REF(function))
             Trace_Flags |= TRACE_FLAG_FUNCTION;
@@ -422,7 +422,7 @@ REBNATIVE(trace)
     }
     else {
         PG_Do = &Do_Core;
-        PG_Apply = &Apply_Core;
+        PG_Dispatcher = &Dispatcher_Core;
     }
 
     return R_NULL;

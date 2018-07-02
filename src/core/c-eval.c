@@ -81,15 +81,23 @@
 
 
 //
-//  Apply_Core: C
+//  Dispatcher_Core: C
 //
-// It is desirable to be able to hook the moment of function application,
-// when all the parameters are gathered, and to be able to monitor the return
-// result.  This is the default function put into PG_Apply, but it can be
-// overridden e.g. by TRACE, which would like to preface the apply by dumping
-// the frame and postfix it by showing the evaluative result.
+// Default function provided for the hook at the moment of action application.
+// All arguments are gathered, and this gets access to the return result.
 //
-REB_R Apply_Core(REBFRM * const f) {
+// As this is the default, it does nothing besides call the phase dispatcher.
+// Debugging and instrumentation might want to do other things...e.g TRACE
+// wants to preface the call by dumping the frame, and postfix it by showing
+// the evaluative result.
+//
+// This adds one level of function cost into every dispatch--but well worth it
+// for the functionality.  Note also that R3-Alpha had `if (Trace_Flags)`
+// in the main loop before and after function dispatch, which was more costly
+// and much less flexible.  Nevertheless, sneaky lower-level-than-C tricks
+// might be used to patch the machine code and avoid cost when not hooked.
+//
+REB_R Dispatcher_Core(REBFRM * const f) {
     return ACT_DISPATCHER(FRM_PHASE(f))(f);
 }
 
@@ -1439,7 +1447,7 @@ reevaluate:;
         // The dispatcher may push functions to the data stack which will be
         // used to process the return result after the switch.
         //
-        switch ((*PG_Apply)(f)) {
+        switch ((*PG_Dispatcher)(f)) { // default just calls FRM_PHASE(f)
         case R_FALSE:
             Init_Logic(f->out, false);
             break;

@@ -770,10 +770,10 @@ struct Reb_Frame {
 
 
 // Hookable "Rebol DO Function" and "Rebol APPLY Function".  See PG_Do and
-// PG_Apply for usage.
+// PG_Dispatcher for usage.
 //
 typedef void (*REBDOF)(REBFRM * const);
-typedef REB_R (*REBAPF)(REBFRM * const);
+typedef REB_R (*REBDSF)(REBFRM * const);
 
 
 //=////////////////////////////////////////////////////////////////////////=//

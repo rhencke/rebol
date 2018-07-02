@@ -527,7 +527,7 @@ int main(int argc, char *argv_ansi[])
     // it were part of the C codebase, even though it isn't written in C)
     //
     REBDOF saved_do_hook = PG_Do;
-    REBAPF saved_apply_hook = PG_Apply;
+    REBDSF saved_dispatcher_hook = PG_Dispatcher;
 
     // !!! While the new mode of TRACE (and other code hooking function
     // execution) is covered by `saved_do_hook` and `saved_apply_hook`, there
@@ -602,7 +602,7 @@ int main(int argc, char *argv_ansi[])
             no_recover = FALSE;
 
             PG_Do = saved_do_hook;
-            PG_Apply = saved_apply_hook;
+            PG_Dispatcher = saved_dispatcher_hook;
             Trace_Level = Save_Trace_Level;
             Trace_Depth = Save_Trace_Depth;
         }
@@ -622,9 +622,9 @@ int main(int argc, char *argv_ansi[])
         //
         if (not is_console_instruction) {
             saved_do_hook = PG_Do;
-            saved_apply_hook = PG_Apply;
+            saved_dispatcher_hook = PG_Dispatcher;
             PG_Do = &Do_Core;
-            PG_Apply = &Apply_Core;
+            PG_Dispatcher = &Dispatcher_Core;
             Save_Trace_Level = Trace_Level;
             Save_Trace_Depth = Trace_Depth;
             Trace_Level = 0;

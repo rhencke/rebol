@@ -152,8 +152,8 @@ PVAR REBVAL PG_Write_Action;
 // It is possible to swap out the evaluator for one that does tracing, or
 // single step debugging, etc.
 //
-PVAR REBDOF PG_Do; // Rebol "DO function" (takes REBFRM, returns void)
-PVAR REBAPF PG_Apply; // Rebol "APPLY function" (takes REBFRM, returns REB_R)
+PVAR REBDOF PG_Do; // Evaluator (takes REBFRM, returns void)
+PVAR REBDSF PG_Dispatcher; // Dispatcher (takes REBFRM, returns REB_R)
 
 
 /***********************************************************************
