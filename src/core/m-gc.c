@@ -255,22 +255,19 @@ inline static void Queue_Mark_Map_Deep(REBMAP *m) {
 }
 
 inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
-    assert(Is_Bindable(v));
-
-    REBNOD *binding = v->extra.binding;
+    REBNOD *binding = VAL_BINDING(v);
 
   #if !defined(NDEBUG)
-    if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
+    if (not binding) {
+        // unbound, so what to check?
+    }
+    else if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
         //
         // It's an action, any reasonable added check?
     }
     else if (binding->header.bits & ARRAY_FLAG_VARLIST) {
         //
         // It's a context, any reasonable added check?
-    }
-    else if (binding == UNBOUND) {
-        //
-        // only has NODE_FLAG_MANAGED set
     }
     else {
         assert(IS_VARARGS(v));
@@ -279,10 +276,8 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     }
   #endif
 
-    if (binding->header.bits & NODE_FLAG_MANAGED) {
-        if (binding != UNBOUND) // finesse with NODE_FLAG_MARKED on UNBOUND
-            Queue_Mark_Array_Subclass_Deep(ARR(binding));
-    }
+    if (binding and (binding->header.bits & NODE_FLAG_MANAGED))
+        Queue_Mark_Array_Subclass_Deep(ARR(binding));
 }
 
 
@@ -998,16 +993,16 @@ static void Mark_Root_Series(void)
             //
             assert(not (s->header.bits & NODE_FLAG_MARKED));
 
-            // Is either GHOST or a managed frame context.
-            //
-            assert(LINK(s).owner->header.bits & NODE_FLAG_MANAGED);
+            assert(
+                not LINK(s).owner
+                or LINK(s).owner->header.bits & NODE_FLAG_MANAGED
+            );
 
             if (GET_SER_FLAG(s, NODE_FLAG_MANAGED)) {
                 if (
-                    cast(REBSER*, LINK(s).owner)->info.bits
-                    & SERIES_INFO_INACCESSIBLE
+                    LINK(s).owner and // !!! TBD: ensure top frame existence
+                    SER(LINK(s).owner)->info.bits & SERIES_INFO_INACCESSIBLE
                 ){
-                    assert(LINK(s).owner != UNBOUND); // no info bits set
                     if (NOT_SER_INFO(LINK(s).owner, FRAME_INFO_FAILED)) {
                         //
                         // Long term, it is likely that implicit managed-ness
@@ -1218,9 +1213,11 @@ static void Mark_Frame_Stack_Deep(void)
             // path resolves...
         }
 
-        if (f->specifier->header.bits & NODE_FLAG_MANAGED) {
-            if (f->specifier != SPECIFIED)
-                Queue_Mark_Context_Deep(CTX(f->specifier));
+        if (
+            f->specifier != SPECIFIED
+            and (f->specifier->header.bits & NODE_FLAG_MANAGED)
+        ){
+            Queue_Mark_Context_Deep(CTX(f->specifier));
         }
 
         if (NOT_END(f->out)) // never NULL, always initialized bit pattern

@@ -50,14 +50,6 @@
 // matches the set count.
 //
 
-inline static REBOOL Same_Binding(void *a_ptr, void *b_ptr) {
-    REBNOD *a = NOD(a_ptr); // ensures not null
-    REBNOD *b = NOD(b_ptr); // ensures not null
-    assert(not (a->header.bits & NODE_FLAG_CELL)); // not used right now...
-    assert(not (b->header.bits & NODE_FLAG_CELL)); // not used right now...
-    return a == b; // could become more complex, but simple for now...
-}
-
 
 #ifdef NDEBUG
     #define SPC(p) \
@@ -513,8 +505,19 @@ inline static REBVAL *Get_Var_Core(
     REBCTX *context;
 
     REBNOD *binding = VAL_BINDING(any_word);
-    if (binding->header.bits & ARRAY_FLAG_VARLIST) {
-        //
+    if (not binding) {
+
+        // UNBOUND: No variable location to retrieve.
+
+        if (flags & GETVAR_END_IF_UNAVAILABLE)
+            return m_cast(REBVAL*, END); // only const callers should use
+
+        DECLARE_LOCAL (unbound);
+        Init_Word(unbound, VAL_WORD_SPELLING(any_word));
+        fail (Error_Not_Bound_Raw(unbound));
+    }
+    else if (binding->header.bits & ARRAY_FLAG_VARLIST) {
+
         // SPECIFIC BINDING: The context the word is bound to is explicitly
         // contained in the `any_word` REBVAL payload.  Extract it, but check
         // to see if there is an override via "DERIVED BINDING", e.g.:
@@ -536,10 +539,8 @@ inline static REBVAL *Get_Var_Core(
         }
         else {
             REBNOD *f_binding = SPC_BINDING(specifier); // can't fail()
-            if (
-                f_binding != UNBOUND
-                and Is_Overriding_Context(context, CTX(f_binding))
-            ){
+            if (f_binding and Is_Overriding_Context(context, CTX(f_binding))) {
+                //
                 // The specifier binding overrides--because what's happening 
                 // is that this cell came from a METHOD's body, where the
                 // particular ACTION! value cell triggering it held a binding
@@ -550,14 +551,14 @@ inline static REBVAL *Get_Var_Core(
             }
         }
     }
-    else if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
-        //
+    else {
+        assert(binding->header.bits & ARRAY_FLAG_PARAMLIST);
+
         // RELATIVE BINDING: The word was made during a deep copy of the block
         // that was given as a function's body, and stored a reference to that
         // ACTION! as its binding.  To get a variable for the word, we must
         // find the right function call on the stack (if any) for the word to
         // refer to (the FRAME!)
-        //
 
       #if !defined(NDEBUG)
         if (specifier == SPECIFIED) {
@@ -567,21 +568,7 @@ inline static REBVAL *Get_Var_Core(
       #endif
 
         context = CTX(specifier);
-        REBACT *action = VAL_ACTION(CTX_ROOTKEY(context));
-        assert(Same_Binding(binding, action));
-        UNUSED(action);
-    }
-    else {
-        // UNBOUND: No variable location to retrieve.
-
-        assert(binding == UNBOUND);
-
-        if (flags & GETVAR_END_IF_UNAVAILABLE)
-            return m_cast(REBVAL*, END); // only const callers should use
-
-        DECLARE_LOCAL (unbound);
-        Init_Word(unbound, VAL_WORD_SPELLING(any_word));
-        fail (Error_Not_Bound_Raw(unbound));
+        assert(binding == NOD(VAL_ACTION(CTX_ROOTKEY(context))));
     }
 
     if (GET_SER_INFO(context, SERIES_INFO_INACCESSIBLE)) {

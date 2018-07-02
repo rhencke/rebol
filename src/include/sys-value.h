@@ -813,7 +813,7 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 // the same function if it contains any instances of such relative words.
 //
 inline static REBOOL IS_RELATIVE(const RELVAL *v) {
-    if (Not_Bindable(v))
+    if (Not_Bindable(v) or not v->extra.binding)
         return false; // INTEGER! and other types are inherently "specific"
     return did (v->extra.binding->header.bits & ARRAY_FLAG_PARAMLIST);
 }
@@ -1760,19 +1760,37 @@ inline static void SET_GOB(RELVAL *v, REBGOB *g) {
 // Some value types use their `->extra` field in order to store a pointer to
 // a REBNOD which constitutes their notion of "binding".
 //
-// At time of writing, this can be either a pointer to GHOST (which indicates
-// UNBOUND), or to a function's paramlist (windicates a relative binding), or
-// to a context's varlist (which indicates a specific binding.)
+// This can either be null (a.k.a. UNBOUND), or to a function's paramlist
+// (indicates a relative binding), or to a context's varlist (which indicates
+// a specific binding.)
 //
-// The ordering of %types.r is chosen specially so that all bindable types
-// are at lower values than the unbindable types.
+// NOTE: Instead of using null for UNBOUND, a special global REBSER struct was
+// experimented with.  It was at a location in memory known at compile time,
+// and it had its ->header and ->info bits set in such a way as to avoid the
+// need for some conditional checks.  e.g. instead of writing:
+//
+//     if (binding and binding->header.bits & NODE_FLAG_MANAGED) {...}
+//
+// The special UNBOUND node set some bits, such as to pretend to be managed:
+//
+//     if (binding->header.bits & NODE_FLAG_MANAGED) {...} // incl. UNBOUND
+//
+// Question was whether avoiding the branching involved from the extra test
+// for null would be worth it for a consistent ability to dereference.  At
+// least on x86/x64, the answer was: No.  It was maybe even a little slower.
+// Testing for null pointers the processor has in its hand is very common and
+// seemed to outweigh the need to dereference all the time.  The increased
+// clarity of having unbound be nullptr is also in its benefit.
+//
+// NOTE: The ordering of %types.r is chosen specially so that all bindable
+// types are at lower values than the unbindable types.
 //
 
 #define SPECIFIED \
-    cast(REBSPC*, &PG_Ghost)
+    cast(REBSPC*, 0) // cast() doesn't like nullptr, fix
 
 #define UNBOUND \
-   NOD(&PG_Ghost) // NODE_FLAG_CELL and NODE_FLAG_MANAGED set is useful here
+   cast(REBNOD*, 0) // cast() doesn't like nullptr, fix
 
 inline static REBNOD *VAL_BINDING(const RELVAL *v) {
     assert(Is_Bindable(v));
@@ -1786,10 +1804,17 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
     //
     assert(Is_Bindable(v));
 
-    REBNOD *binding = NOD(p);
-    assert(not (binding->header.bits & NODE_FLAG_CELL)); // not currently used
+    REBNOD *binding = cast(REBNOD*, p);
 
-    if (not (binding->header.bits & NODE_FLAG_MANAGED)) {
+    assert(
+        not binding
+        or not (binding->header.bits & NODE_FLAG_CELL) // not currently used
+    );
+
+    if (not binding) {
+        // means UNBOUND
+    }
+    else if (not (binding->header.bits & NODE_FLAG_MANAGED)) {
         //
         // !!! Should be sensitive to whether or not the target cell has a
         // stack lifetime of longer or shorter than the binding, so testing
@@ -1802,16 +1827,15 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
     }
     else {
         assert(
-            binding == UNBOUND // has the MANAGED bit set (by design)
-            or binding->header.bits & ARRAY_FLAG_VARLIST // specific
+            binding->header.bits & ARRAY_FLAG_VARLIST // specific
             or binding->header.bits & ARRAY_FLAG_PARAMLIST // relative
             or (
                 IS_VARARGS(v)
                 and not (SER(binding)->header.bits & SERIES_FLAG_HAS_DYNAMIC)
             ) // varargs from MAKE VARARGS! [...], else is a varlist
         );
-        v->extra.binding = binding;
     }
+    v->extra.binding = binding;
 }
 
 inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
@@ -1852,6 +1876,7 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
 
     if (
         not Is_Bindable(v)
+        or (not v->extra.binding)
         or (v->extra.binding->header.bits & NODE_FLAG_MANAGED)
     ){
         // Isn't the kind of cell with a binding (INTEGER!, STRING!...) or

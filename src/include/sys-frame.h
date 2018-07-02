@@ -610,7 +610,7 @@ inline static void Drop_Action(REBFRM *f) {
         assert(IS_FRAME(rootvar));
         assert(rootvar->payload.any_context.varlist == f->varlist);
         TRASH_POINTER_IF_DEBUG(rootvar->payload.any_context.phase);
-        /* TRASH_POINTER_IF_DEBUG(rootvar->extra.binding); */ // ghostable
+        TRASH_POINTER_IF_DEBUG(rootvar->extra.binding);
     }
   #endif
 

@@ -185,7 +185,7 @@
 (
     https://github.com/metaeducation/ren-c/issues/377
     o: make object! [a: 1]
-    '| = parse "a" [o/a: skip]
+    bar = parse "a" [o/a: skip]
 )
 
 ; A couple of tests for the problematic DO operation

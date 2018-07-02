@@ -44,8 +44,7 @@
     template <typename T>
     inline static REBNOD *NOD(T *p) {
         constexpr bool derived =
-            std::is_same<T, decltype(GHOST)>::value // "honorary node"
-            or std::is_same<T, REBSER>::value
+            std::is_same<T, REBSER>::value
             or std::is_same<T, REBSTR>::value
             or std::is_same<T, REBARR>::value
             or std::is_same<T, REBCTX>::value
@@ -57,15 +56,12 @@
 
         static_assert(
             derived or base,
-            "NOD() works on void/GHOST/REBSER/REBSTR/REBARR/REBCTX/REBACT" \
+            "NOD() works on void/REBSER/REBSTR/REBARR/REBCTX/REBACT" \
                "/REBMAP/REBFRM"
         );
 
-        if (not p) {
-            assert(!"NOD() does not accept nullptr (use GHOST)");
-        }
-        else if (p == GHOST) {
-            // ghost value passed in via void* won't have NODE_FLAG_NODE
+        if (not p) { // !!! include a static check for nullptr/0?
+            assert(!"Use cast(REBNOD*, x) and not NOD(x) on null pointers");
         }
         else if (base)
             assert(
@@ -77,36 +73,6 @@
             );
 
         return reinterpret_cast<REBNOD*>(p);
-    }
-
-    template <typename TP>
-    inline static REBNOD *NOD(ghostable<TP> gp) {
-        return NOD(static_cast<TP>(gp));
-    }
-#endif
-
-
-#ifdef __cplusplus
-    inline GHOST_Cpp::operator void*() {
-        return reinterpret_cast<void*>(&PG_Ghost);
-    }
-    inline GHOST_Cpp::operator REBFRM*() {
-        return reinterpret_cast<REBFRM*>(&PG_Ghost);
-    }
-    inline GHOST_Cpp::operator REBNOD*() {
-        return reinterpret_cast<REBNOD*>(&PG_Ghost);
-    }
-    inline GHOST_Cpp::operator REBSER*() {
-        return reinterpret_cast<REBSER*>(&PG_Ghost);
-    }
-    inline GHOST_Cpp::operator REBARR*() {
-        return reinterpret_cast<REBARR*>(&PG_Ghost);
-    }
-    inline GHOST_Cpp::operator REBACT*() {
-        return reinterpret_cast<REBACT*>(&PG_Ghost);
-    }
-    inline GHOST_Cpp::operator REBCTX*() {
-        return reinterpret_cast<REBCTX*>(&PG_Ghost);
     }
 #endif
 

@@ -1481,7 +1481,7 @@ reevaluate:;
             if (IS_ACTION(f->out)) {
                 if (
                     VAL_ACTION(f->out) == NAT_ACTION(unwind)
-                    and Same_Binding(VAL_BINDING(f->out), f->varlist)
+                    and VAL_BINDING(f->out) == NOD(f->varlist)
                 ){
                     // Do_Core catches unwinds to the current frame, so throws
                     // where the "/name" is the JUMP native with a binding to
@@ -1498,7 +1498,7 @@ reevaluate:;
                 }
                 else if (
                     VAL_ACTION(f->out) == NAT_ACTION(redo)
-                    and Same_Binding(VAL_BINDING(f->out), f->varlist)
+                    and VAL_BINDING(f->out) == NOD(f->varlist)
                 ){
                     // This was issued by REDO, and should be a FRAME! with
                     // the phase and binding we are to resume with.

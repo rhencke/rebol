@@ -119,15 +119,6 @@ PVAR REBVAL *Root_Empty_String; // read-only ""
 PVAR REBVAL *Root_Empty_Block; // read-only []
 PVAR REBARR* PG_Empty_Array; // optimization of VAL_ARRAY(Root_Empty_Block)
 
-// The "ghost" pointer is a funny name for a series pointer that has a number
-// of useful properties making it preferable to NULL.  It is marked as not
-// a node, but has NODE_FLAG_CELL set and NODE_FLAG_MANAGED, with nothing
-// else.  Hence it can be dereferenced easily and has an interesting "shape"
-// for testing that helps dodge testing explicitly for NULL.  This speeds
-// up a number of scenarios related to UNBOUND, SPECIFIED, and elsewhere.
-//
-PVAR REBSER PG_Ghost;
-
 PVAR REBVAL *Root_Space_Char; // ' ' as a CHAR!
 PVAR REBVAL *Root_Newline_Char; // '\n' as a CHAR!
 

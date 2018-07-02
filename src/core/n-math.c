@@ -705,7 +705,7 @@ REBNATIVE(same_q)
         //
         if (VAL_WORD_SPELLING(value1) != VAL_WORD_SPELLING(value2))
             return R_FALSE;
-        if (not Same_Binding(VAL_BINDING(value1), VAL_BINDING(value2)))
+        if (VAL_BINDING(value1) != VAL_BINDING(value2))
             return R_FALSE;
         return R_TRUE;
     }

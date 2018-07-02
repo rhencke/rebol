@@ -72,9 +72,8 @@ inline static REBVAL *Alloc_Value(void)
     REBVAL *v = SINK(ARR_SINGLE(a));
     v->header.bits |= NODE_FLAG_ROOT; // it's trash (can't use SET_VAL_FLAGS)
 
-    assert(UNBOUND != NULL);
     LINK(a).owner = (FS_TOP == NULL)
-        ? UNBOUND
+        ? nullptr
         : NOD(Context_For_Frame_May_Manage(FS_TOP));
     return v;
 }

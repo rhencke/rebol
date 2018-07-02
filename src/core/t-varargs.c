@@ -581,7 +581,7 @@ REBINT CT_Varargs(const RELVAL *a, const RELVAL *b, REBINT mode)
     // expired varargs, because the expired stub should be kept alive as
     // long as its identity is needed).
     //
-    if (Same_Binding(VAL_BINDING(a), VAL_BINDING(b)))
+    if (VAL_BINDING(a) == VAL_BINDING(b))
         return 1;
     return 0;
 }

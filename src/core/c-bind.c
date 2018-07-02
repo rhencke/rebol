@@ -152,7 +152,7 @@ void Unbind_Values_Core(RELVAL head[], REBCTX *context, REBOOL deep)
     for (; NOT_END(v); ++v) {
         if (
             ANY_WORD(v)
-            and (not context or Same_Binding(VAL_BINDING(v), context))
+            and (not context or VAL_BINDING(v) == NOD(context))
         ){
             Unbind_Any_Word(v);
         }
@@ -307,7 +307,7 @@ void Rebind_Values_Deep(
         if (ANY_ARRAY(v)) {
             Rebind_Values_Deep(src, dst, VAL_ARRAY_AT(v), opt_binder);
         }
-        else if (ANY_WORD(v) and Same_Binding(VAL_BINDING(v), src)) {
+        else if (ANY_WORD(v) and VAL_BINDING(v) == NOD(src)) {
             INIT_BINDING(v, dst);
 
             if (opt_binder != NULL) {

@@ -986,8 +986,6 @@ struct Reb_Array {
         cast(REBARR*, (p))
 
 #elif defined(CPLUSPLUS_11)
-    //
-    // Note ghostable:: has overloads of these templated inlined functions
 
     template <class T>
     inline REBSER *SER(T *p) {

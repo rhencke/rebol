@@ -443,7 +443,6 @@ void Extra_Init_Action_Checks_Debug(REBACT *a) {
 
     REBVAL *archetype = ACT_ARCHETYPE(a);
     assert(VAL_ACTION(archetype) == a);
-    assert(VAL_BINDING(archetype) != nullptr); // must be UNBOUND if unused
 
     REBARR *paramlist = ACT_PARAMLIST(a);
     assert(NOT_SER_FLAG(paramlist, ARRAY_FLAG_FILE_LINE));
