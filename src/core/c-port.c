@@ -412,6 +412,9 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     ++path;
 
     for (; NOT_END(f->param); ++f->param, ++f->arg) {
+        if (GET_VAL_FLAG(f->param, TYPESET_FLAG_HIDDEN))
+            continue; // a parameter that was "specialized out" in this phase
+
         enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
 
         if (

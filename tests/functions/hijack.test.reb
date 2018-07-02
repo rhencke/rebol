@@ -69,3 +69,11 @@
         step10 = 60
     ]
 )
+
+; HIJACK of a specialization (needs to notice facade has "hidden" params)
+(
+    two: func [a b] [a + b]
+    one: specialize 'two [a: 10]
+    hijack 'one func [b] [20 - b]
+    one 20 = 0
+)
