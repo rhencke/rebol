@@ -402,7 +402,8 @@ REBNATIVE(do)
         return R_OUT; }
 
     case REB_FRAME: {
-        REBCTX *c = VAL_CONTEXT(source);
+        REBCTX *c = VAL_CONTEXT(source); // checks for INACCESSIBLE
+        REBACT *phase = VAL_PHASE(source);
 
         if (CTX_FRAME_IF_ON_STACK(c)) // see REDO for tail-call recursion
             fail ("Use REDO to restart a running FRAME! (not DO)");
@@ -414,13 +415,16 @@ REBNATIVE(do)
 
         DECLARE_FRAME (f);
         f->out = D_OUT;
-
         Push_Frame_For_Apply(f);
-
-        REBACT *phase = VAL_PHASE(source);
 
         REBCTX *stolen = Steal_Context_Vars(c, NOD(phase));
         LINK(stolen).keysource = NOD(f);
+
+        // Its data stolen, the context's node should now be GC'd when
+        // references in other FRAME! value cells have all gone away.
+        //
+        assert(GET_SER_FLAG(c, NODE_FLAG_MANAGED));
+        assert(GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE));
 
         f->varlist = CTX_VARLIST(stolen);
         f->rootvar = CTX_ARCHETYPE(stolen);
@@ -569,6 +573,7 @@ REBNATIVE(apply)
 
     f->out = D_OUT;
     Push_Frame_For_Apply(f); // captures DSP here (we may push refinements)
+    Reuse_Varlist_If_Available(f);
 
     REBSTR *opt_label;
     const REBOOL push_refinements = TRUE;

@@ -1015,6 +1015,8 @@ REBOOL Make_Invocation_Frame_Throws(
     );
 
     Push_Frame_Core(f);
+    Reuse_Varlist_If_Available(f);
+
     // === END FIRST PART OF CODE FROM DO_SUBFRAME ===
 
     REBSTR *opt_label = nullptr; // !!! for now

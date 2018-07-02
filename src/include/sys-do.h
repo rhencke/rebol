@@ -186,14 +186,10 @@ inline static void Push_Frame_Core(REBFRM *f)
     f->prior = TG_Frame_Stack;
     TG_Frame_Stack = f;
 
-    if (not TG_Reuse)
-        f->varlist = nullptr;
-    else {
-        f->varlist = TG_Reuse;
-        TG_Reuse = LINK(TG_Reuse).reuse;
-        f->rootvar = cast(REBVAL*, SER(f->varlist)->content.dynamic.data);
-        LINK(f->varlist).keysource = NOD(f);
-    }
+    // Push_Frame_For_Apply() means it will fill in later, Push_Frame() fills
+    // it in at the time of the push.
+    //
+    TRASH_POINTER_IF_DEBUG(f->varlist);
 
     // If the source for the frame is a REBARR*, then we want to temporarily
     // lock that array against mutations.  
@@ -242,6 +238,17 @@ inline static void UPDATE_EXPRESSION_START(REBFRM *f) {
     f->expr_index = f->source.index; // this is garbage if DO_FLAG_VA_LIST
 }
 
+inline static void Reuse_Varlist_If_Available(REBFRM *f) {
+    if (not TG_Reuse)
+        f->varlist = nullptr;
+    else {
+        f->varlist = TG_Reuse;
+        TG_Reuse = LINK(TG_Reuse).reuse;
+        f->rootvar = cast(REBVAL*, SER(f->varlist)->content.dynamic.data);
+        LINK(f->varlist).keysource = NOD(f);
+    }
+}
+
 inline static void Push_Frame_At(
     REBFRM *f,
     REBARR *array,
@@ -278,6 +285,7 @@ inline static void Push_Frame_At(
     f->out = m_cast(REBVAL*, END);
 
     Push_Frame_Core(f);
+    Reuse_Varlist_If_Available(f);
 }
 
 inline static void Push_Frame(REBFRM *f, const REBVAL *v)
@@ -613,6 +621,7 @@ inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
 inline static void Abort_Frame(REBFRM *f) {
     if (f->varlist and NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED))
         GC_Kill_Series(SER(f->varlist)); // not alloc'd with manuals tracking
+    TRASH_POINTER_IF_DEBUG(f->varlist);
 
     // Abort_Frame() handles any work that wouldn't be done done naturally by
     // feeding a frame to its natural end.
@@ -675,6 +684,7 @@ inline static void Drop_Frame_Core(REBFRM *f) {
         LINK(f->varlist).reuse = TG_Reuse;
         TG_Reuse = f->varlist;
     }
+    TRASH_POINTER_IF_DEBUG(f->varlist);
 
     assert(TG_Frame_Stack == f);
     TG_Frame_Stack = f->prior;
@@ -818,6 +828,7 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
     Init_Endlike_Header(&child->flags, flags);
 
     Push_Frame_Core(child);
+    Reuse_Varlist_If_Available(child);
     (*PG_Do)(child);
     Drop_Frame_Core(child);
 
@@ -899,6 +910,7 @@ inline static REBIXO DO_NEXT_MAY_THROW(
     f->out = out;
 
     Push_Frame_Core(f);
+    Reuse_Varlist_If_Available(f);
     (*PG_Do)(f);
     Drop_Frame_Core(f); // Drop_Frame() requires f->eval_type to be REB_0
 
@@ -962,6 +974,7 @@ inline static REBIXO Do_Array_At_Core(
     Init_Endlike_Header(&f->flags, flags); // see notes on definition
 
     Push_Frame_Core(f);
+    Reuse_Varlist_If_Available(f);
     (*PG_Do)(f);
     Drop_Frame_Core(f);
 
@@ -1151,6 +1164,7 @@ inline static REBIXO Do_Va_Core(
     f->specifier = SPECIFIED; // relative values not allowed in va_lists
 
     Push_Frame_Core(f);
+    Reuse_Varlist_If_Available(f);
     (*PG_Do)(f);
     Drop_Frame_Core(f); // will va_end() if not reified during evaluation
 

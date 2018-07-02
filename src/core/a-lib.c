@@ -936,6 +936,7 @@ REBVAL *RL_rebRescue(
 
     REBSTR *opt_label = NULL;
     Push_Frame_For_Apply(f);
+    Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, NAT_ACTION(rescue), UNBOUND);
     Begin_Action(f, opt_label, m_cast(REBVAL*, END));
   #if !defined(NDEBUG)

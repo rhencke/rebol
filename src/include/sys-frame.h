@@ -425,8 +425,6 @@ inline static void Begin_Action(
     f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
   #endif
 
-
-
     assert(
         mode == LOOKBACK_ARG
         or mode == ORDINARY_ARG

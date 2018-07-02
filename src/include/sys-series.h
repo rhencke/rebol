@@ -99,7 +99,9 @@
 // enable it only comes automatically with address sanitizer.
 //
 #if defined(DEBUG_SERIES_ORIGINS) || defined(DEBUG_COUNT_TICKS)
-    inline static void Touch_Series(REBSER *s) {
+    inline static void Touch_Series_Debug(void *p) {
+        REBSER *s = SER(p); // allow REBARR, REBCTX, REBACT...
+
       #if defined(DEBUG_SERIES_ORIGINS)
         s->guard = cast(intptr_t*, malloc(sizeof(*s->guard)));
         free(s->guard);
@@ -113,7 +115,7 @@
     }
 
     #define TOUCH_SERIES_IF_DEBUG(s) \
-        Touch_Series(s)
+        Touch_Series_Debug(s)
 #else
     #define TOUCH_SERIES_IF_DEBUG(s) \
         NOOP

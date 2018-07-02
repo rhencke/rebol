@@ -1348,9 +1348,6 @@ reevaluate:;
 
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
-
-        assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
-
         if (In_Typecheck_Mode(f)) {
             assert(
                 IS_POINTER_TRASH_DEBUG(f->deferred)

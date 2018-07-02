@@ -217,7 +217,7 @@ TVAR uintptr_t TG_Stack_Limit;    // Limit address for CPU stack.
 //
 TVAR REBFRM *TG_Frame_Stack;
 
-// When Drop_Frame() happens, it may have an allocated varlist allocation that
+// When Drop_Frame() happens, it may have an allocated varlist REBARR that
 // can be reused by the next Push_Frame().  Reusing this has a significant
 // performance impact, as opposed to paying for freeing the memory when a
 // frame is dropped and then reallocating it when the next one is pushed.

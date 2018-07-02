@@ -193,6 +193,7 @@ static REBOOL Subparse_Throws(
     Init_Endlike_Header(&f->flags, 0); // implicitly terminate f->cell
 
     Push_Frame_Core(f); // checks for C stack overflow
+    Reuse_Varlist_If_Available(f);
     Push_Action(f, NAT_ACTION(subparse), UNBOUND);
 
     Begin_Action(f, Canon(SYM_SUBPARSE), m_cast(REBVAL*, END));
