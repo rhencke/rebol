@@ -153,6 +153,7 @@ suffix?: :suffix-of
 length?: :length-of
 head: :head-of
 tail: :tail-of
+bound?: chain [specialize 'reflect [property: 'binding] | :value?]
 
 comment [
     ; !!! Less common cases still linger as question mark routines that
@@ -181,9 +182,11 @@ forskip: :for-skip
 
 
 
-bound?: bind?: func [dummy:] [
+bind?: func [dummy:] [
     fail/where [
-        {BOUND? and BIND? have been replaced by `BINDING OF`.}
+        {BIND? has been replaced by `BINDING OF` (gives the context or NULL}
+        {if no binding) and BOUND?--which now returns just LOGIC! and is}
+        {equivalent to checking if the BINDING OF is <> NULL}
     ] 'dummy
 ]
 
