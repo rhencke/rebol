@@ -792,7 +792,7 @@ REBNATIVE(map_event)
     }
 
     Move_Value(D_OUT, ARG(event));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -840,7 +840,7 @@ REBNATIVE(map_gob_offset)
 
     Return_Gob_Pair(D_OUT, gob, xo, yo);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -954,7 +954,7 @@ REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
                 Set_GOB_Var(gob, orig_picker, pvs->out);
                 DROP_GUARD_VALUE(orig_picker);
             }
-            return R_OUT;
+            return pvs->out;
         }
         else {
             if (!Set_GOB_Var(gob, picker, opt_setval))
@@ -976,7 +976,7 @@ REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         RESET_VAL_HEADER(pvs->out, REB_GOB);
         VAL_GOB(pvs->out) = gob;
         VAL_GOB_INDEX(pvs->out) = 0;
-        return R_OUT;
+        return pvs->out;
     }
 
     return R_UNHANDLED;
@@ -1067,10 +1067,10 @@ REBTYPE(Gob)
             fail (Error_Invalid(arg));
 
         if (!GOB_PANE(gob))
-            return R_NULL;
+            return nullptr;
         index += Get_Num_From_Arg(arg) - 1;
         if (index >= tail)
-            return R_NULL;
+            return nullptr;
         gob = *GOB_AT(gob, index);
         index = 0;
         goto set_index;
@@ -1105,7 +1105,7 @@ REBTYPE(Gob)
         Insert_Gobs(gob, arg, index, 1, FALSE);
         if (VAL_WORD_SYM(verb) == SYM_POKE) {
             Move_Value(D_OUT, arg);
-            return R_OUT;
+            return D_OUT;
         }
         index++;
         goto set_index; }
@@ -1142,14 +1142,14 @@ REBTYPE(Gob)
         Insert_Gobs(gob, arg, index, len, FALSE);
 
         Move_Value(D_OUT, val);
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_CLEAR:
         if (tail > index)
             Remove_Gobs(gob, index, tail - index);
 
         Move_Value(D_OUT, val);
-        return R_OUT;
+        return D_OUT;
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
@@ -1168,7 +1168,7 @@ REBTYPE(Gob)
             Remove_Gobs(gob, index, len);
 
         Move_Value(D_OUT, val);
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
@@ -1184,20 +1184,20 @@ REBTYPE(Gob)
         if (index + len > tail)
             len = tail - index;
         if (index >= tail)
-            return R_NULL;
+            return nullptr;
 
         if (!REF(part)) { // just one value
             RESET_VAL_HEADER(D_OUT, REB_GOB);
             VAL_GOB(D_OUT) = *GOB_AT(gob, index);
             VAL_GOB_INDEX(D_OUT) = 0;
             Remove_Gobs(gob, index, 1);
-            return R_OUT;
+            return D_OUT;
         }
 
         Init_Block(D_OUT, Pane_To_Array(gob, index, len));
         Remove_Gobs(gob, index, len);
         Move_Value(D_OUT, val);
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_AT:
         index--;
@@ -1210,10 +1210,10 @@ REBTYPE(Gob)
         if (IS_GOB(arg)) {
             index = Find_Gob(gob, VAL_GOB(arg));
             if (index == NOT_FOUND)
-                return R_NULL;
+                return nullptr;
             goto set_index;
         }
-        return R_NULL;
+        return nullptr;
 
     case SYM_REVERSE:
         for (index = 0; index < tail/2; index++) {
@@ -1222,7 +1222,7 @@ REBTYPE(Gob)
             *GOB_AT(gob, index) = ngob;
         }
         Move_Value(D_OUT, D_ARG(1));
-        return R_OUT;
+        return D_OUT;
 
     default:
         break;
@@ -1234,5 +1234,5 @@ set_index:
     RESET_VAL_HEADER(D_OUT, REB_GOB);
     VAL_GOB(D_OUT) = gob;
     VAL_GOB_INDEX(D_OUT) = index;
-    return R_OUT;
+    return D_OUT;
 }

@@ -1442,7 +1442,7 @@ REB_R PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             return R_INVISIBLE;
         }
 
-        return R_OUT;
+        return pvs->out;
     }
     else {
         if (!Set_Struct_Var(stu, picker, NULL, opt_setval))
@@ -1559,7 +1559,7 @@ REBTYPE(Struct)
             VAL_STRUCT_DATA_LEN(val)
         );
         Move_Value(D_OUT, val);
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
@@ -1571,7 +1571,7 @@ REBTYPE(Struct)
         switch (property) {
         case SYM_LENGTH:
             Init_Integer(D_OUT, VAL_STRUCT_DATA_LEN(val));
-            return R_OUT;
+            return D_OUT;
 
         case SYM_VALUES: {
             fail_if_non_accessible(val);
@@ -1583,11 +1583,11 @@ REBTYPE(Struct)
             );
             TERM_BIN_LEN(bin, VAL_STRUCT_SIZE(val));
             Init_Binary(D_OUT, bin);
-            return R_OUT; }
+            return D_OUT; }
 
         case SYM_SPEC:
             Init_Block(D_OUT, Struct_To_Array(VAL_STRUCT(val)));
-            return R_OUT;
+            return D_OUT;
 
         default:
             break;

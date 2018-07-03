@@ -849,7 +849,7 @@ REBNATIVE(specialize)
     )){
         // e.g. `specialize 'append/(throw 10 'dup) [value: 20]`
         //
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     // Note: Even if there was a PATH! doesn't mean there were refinements
@@ -868,10 +868,10 @@ REBNATIVE(specialize)
     )){
         // e.g. `specialize 'append/dup [value: throw 10]`
         //
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -899,8 +899,8 @@ REB_R Block_Dispatcher(REBFRM *f)
     if (IS_SPECIFIC(block)) {
         if (FRM_BINDING(f) == UNBOUND) {
             if (Do_Any_Array_At_Throws(f->out, KNOWN(block)))
-                return R_OUT_IS_THROWN;
-            return R_OUT;
+                return f->out;
+            return f->out;
         }
 
         // Until "virtual binding" is implemented, we would lose f->binding's
@@ -952,10 +952,10 @@ REB_R Block_Dispatcher(REBFRM *f)
         VAL_INDEX(block),
         SPC(f->varlist)
     )){
-        return R_OUT_IS_THROWN;
+        return f->out;
     }
 
-    return R_OUT;
+    return f->out;
 }
 
 
@@ -1139,7 +1139,7 @@ REBNATIVE(does)
         Move_Value(body, specializee);
 
         Init_Action_Unbound(D_OUT, doer);
-        return R_OUT;
+        return D_OUT;
     }
 
     REBCTX *exemplar;
@@ -1156,7 +1156,7 @@ REBNATIVE(does)
             SPECIFIED,
             true // push_refinements = true
         )){
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         if (not IS_ACTION(D_OUT))
@@ -1182,7 +1182,7 @@ REBNATIVE(does)
             ARG(args),
             lowest_ordered_dsp
         )){
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         exemplar = Steal_Context_Vars(
@@ -1261,5 +1261,5 @@ REBNATIVE(does)
     body->payload.any_context.phase = unspecialized;
 
     Init_Action_Unbound(D_OUT, doer);
-    return R_OUT;
+    return D_OUT;
 }

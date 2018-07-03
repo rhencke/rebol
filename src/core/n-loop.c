@@ -94,7 +94,7 @@ REBNATIVE(break)
     UNUSED(REF(with)); // value will be void if no refinement provided
     CONVERT_NAME_TO_THROWN(D_OUT, ARG(value));
 
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }
 
 
@@ -121,7 +121,7 @@ REBNATIVE(continue)
     UNUSED(REF(with)); // value will be void if no refinement provided
     CONVERT_NAME_TO_THROWN(D_OUT, ARG(value));
 
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }
 
 
@@ -159,12 +159,12 @@ static REB_R Loop_Series_Common(
         if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return R_OUT_IS_THROWN;
+                return out;
             if (stop)
-                return R_NULL;
+                return nullptr;
         }
         Voidify_If_Nulled(out); // null is reserved for BREAK
-        return R_OUT;
+        return out;
     }
 
     // As per #1993, start relative to end determines the "direction" of the
@@ -173,7 +173,7 @@ static REB_R Loop_Series_Common(
     //
     const REBOOL counting_up = (s < end); // equal checked above
     if ((counting_up and bump <= 0) or (not counting_up and bump >= 0))
-        return R_OUT; // avoid infinite loops
+        return out; // avoid infinite loops
 
     while (
         counting_up
@@ -183,9 +183,9 @@ static REB_R Loop_Series_Common(
         if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return R_OUT_IS_THROWN;
+                return out;
             if (stop)
-                return R_NULL;
+                return nullptr;
         }
         Voidify_If_Nulled(out); // null is reserved for BREAK
 
@@ -206,7 +206,7 @@ static REB_R Loop_Series_Common(
         *state += bump;
     }
 
-    return R_OUT;
+    return out;
 }
 
 
@@ -237,12 +237,12 @@ static REB_R Loop_Integer_Common(
         if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return R_OUT_IS_THROWN;
+                return out;
             if (stop)
-                return R_NULL;
+                return nullptr;
         }
         Voidify_If_Nulled(out); // null is reserved for BREAK
-        return R_OUT;
+        return out;
     }
 
     // As per #1993, start relative to end determines the "direction" of the
@@ -251,15 +251,15 @@ static REB_R Loop_Integer_Common(
     //
     const REBOOL counting_up = (start < end); // equal checked above
     if ((counting_up and bump <= 0) or (not counting_up and bump >= 0))
-        return R_NULL; // avoid infinite loops
+        return nullptr; // avoid infinite loops
 
     while (counting_up ? *state <= end : *state >= end) {
         if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return R_OUT_IS_THROWN;
+                return out;
             if (stop)
-                return R_NULL;
+                return nullptr;
         }
         Voidify_If_Nulled(out); // null is reserved for BREAK
 
@@ -270,7 +270,7 @@ static REB_R Loop_Integer_Common(
             fail (Error_Overflow_Raw());
     }
 
-    return R_OUT;
+    return out;
 }
 
 
@@ -324,12 +324,12 @@ static REB_R Loop_Number_Common(
         if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return R_OUT_IS_THROWN;
+                return out;
             if (stop)
-                return R_NULL;
+                return nullptr;
         }
         Voidify_If_Nulled(out); // null is reserved for BREAK
-        return R_OUT;
+        return out;
     }
 
     // As per #1993, see notes in Loop_Integer_Common()
@@ -337,16 +337,16 @@ static REB_R Loop_Number_Common(
     const REBOOL counting_up = (s < e); // equal checked above
     if ((counting_up and b <= 0) or (not counting_up and b >= 0)) {
         Init_Void(out);
-        return R_OUT; // avoid infinite loops, void if body never runs
+        return out; // avoid infinite loops, void if body never runs
     }
 
     while (counting_up ? *state <= e : *state >= e) {
         if (Run_Branch_Throws(out, END, body)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return R_OUT_IS_THROWN;
+                return out;
             if (stop)
-                return R_NULL;
+                return nullptr;
         }
         Voidify_If_Nulled(out); // null is reserved for BREAK
 
@@ -356,7 +356,7 @@ static REB_R Loop_Number_Common(
         *state += b;
     }
 
-    return R_OUT;
+    return out;
 }
 
 
@@ -377,7 +377,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     assert(not IS_NULLED(data));
 
     if (IS_BLANK(data))
-        return R_NULL; // blank in, void out (same result as BREAK)
+        return nullptr; // blank in, void out (same result as BREAK)
 
     REBOOL stop = FALSE;
     REBOOL threw = FALSE; // did a non-BREAK or non-CONTINUE throw occur
@@ -410,9 +410,9 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         if (index >= SER_LEN(series)) {
             if (mode == LOOP_MAP_EACH) {
                 Init_Block(D_OUT, Make_Array(0));
-                return R_OUT;
+                return D_OUT;
             }
-            return R_OUT;
+            return D_OUT;
         }
     }
     else if (ANY_CONTEXT(data)) {
@@ -644,7 +644,7 @@ skip_hidden: ;
         if (mode == LOOP_MAP_EACH)
             DS_DROP_TO(dsp_orig);
 
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     // Note: This finalization will be run by finished loops as well as
@@ -664,33 +664,32 @@ skip_hidden: ;
         // In legacy R3-ALPHA, BREAK without a provided value did *not*
         // override the result.  It returned the partial results.
         if (stop and NOT_END(D_OUT))
-            return R_OUT;
+            return D_OUT;
     }
 #endif
 
     switch (mode) {
     case LOOP_FOR_EACH:
         if (stop)
-            return R_NULL;
-        return R_OUT;
+            return nullptr;
+        return D_OUT;
 
     case LOOP_MAP_EACH:
         UNUSED(stop); // !!! MAP-EACH historically kept the remainder
         Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-        return R_OUT;
+        return D_OUT;
 
     case LOOP_EVERY:
         if (threw)
-            return R_OUT_IS_THROWN;
+            return D_OUT;
 
         if (stop)
-            return R_NULL;
+            return nullptr;
 
         if (IS_END(D_CELL))
             return R_BAR; // all evaluations opted out
 
-        Move_Value(D_OUT, D_CELL);
-        return R_OUT;
+        return D_CELL;
     }
 
     DEAD_END; // all branches handled in enum switch
@@ -801,7 +800,7 @@ REBNATIVE(for_skip)
     REBVAL *word = ARG(word);
 
     if (IS_BLANK(word))
-        return R_NULL; // blank in, null out (same result as BREAK)
+        return nullptr; // blank in, null out (same result as BREAK)
 
     Init_Void(D_OUT); // result if body never runs
 
@@ -845,10 +844,10 @@ REBNATIVE(for_skip)
         if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
-                return R_OUT_IS_THROWN;
+                return D_OUT;
             if (stop) {
                 Move_Value(var, D_CELL); // restore initial variable value
-                return R_NULL;
+                return nullptr;
             }
         }
         Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
@@ -867,7 +866,7 @@ REBNATIVE(for_skip)
     }
 
     Move_Value(var, D_CELL); // restore initial variable value
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -890,9 +889,9 @@ REBNATIVE(forever)
         if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
-                return R_OUT_IS_THROWN;
+                return D_OUT;
             if (stop)
-                return R_NULL;
+                return nullptr;
         }
         // No need to voidify result, it doesn't escape...
     } while (true);
@@ -1219,7 +1218,7 @@ REBNATIVE(remove_each)
         // body never gets a chance to run, the return value is null?
         //
         Init_Integer(D_OUT, 0);
-        return R_OUT;
+        return D_OUT;
     }
 
     // Create a context for the loop variables, and bind the body to it.
@@ -1284,10 +1283,10 @@ REBNATIVE(remove_each)
         rebJUMPS ("lib/fail", error, END);
 
     if (THROWN(res.out))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     Init_Integer(D_OUT, removals);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1351,12 +1350,12 @@ REBNATIVE(loop)
     INCLUDE_PARAMS_OF_LOOP;
 
     if (IS_BLANK(ARG(count)))
-        return R_NULL; // blank in, void out (same output as BREAK)
+        return nullptr; // blank in, void out (same output as BREAK)
 
     if (IS_FALSEY(ARG(count))) {
         assert(IS_LOGIC(ARG(count))); // is false...opposite of infinite loop
         Init_Void(D_OUT);
-        return R_OUT;
+        return D_OUT;
     }
 
     Init_Void(D_OUT); // result if body never runs
@@ -1379,9 +1378,9 @@ REBNATIVE(loop)
         if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
-                return R_OUT_IS_THROWN;
+                return D_OUT;
             if (stop)
-                return R_NULL;
+                return nullptr;
         }
         Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
     }
@@ -1389,7 +1388,7 @@ REBNATIVE(loop)
     if (IS_LOGIC(ARG(count)))
         goto restart; // "infinite" loop exhausted MAX_I64 steps (rare case)
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1415,7 +1414,7 @@ REBNATIVE(repeat)
     REBVAL *value = ARG(value);
 
     if (IS_BLANK(value))
-        return R_NULL; // blank in, void out (same result as BREAK)
+        return nullptr; // blank in, void out (same result as BREAK)
 
     if (IS_DECIMAL(value) or IS_PERCENT(value))
         Init_Integer(value, Int64(value));
@@ -1439,7 +1438,7 @@ REBNATIVE(repeat)
     REBI64 n = VAL_INT64(value);
     if (n < 1) { // Loop_Integer from 1 to 0 with bump of 1 is infinite
         Init_Void(D_OUT);
-        return R_OUT; // void if loop condition never runs
+        return D_OUT; // void if loop condition never runs
     }
 
     return Loop_Integer_Common(
@@ -1461,9 +1460,9 @@ inline static REB_R Until_Core(REBFRM *frame_, REBOOL trigger)
         if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
-                return R_OUT_IS_THROWN;
+                return D_OUT;
             if (stop)
-                return R_NULL;
+                return nullptr;
 
             // UNTIL and UNTIL-NOT both follow the precedent that the way
             // a CONTINUE/WITH works is to act as if the loop body returned
@@ -1485,7 +1484,7 @@ inline static REB_R Until_Core(REBFRM *frame_, REBOOL trigger)
         }
     } while (IS_TRUTHY(D_OUT) == trigger);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1535,29 +1534,21 @@ inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
     Init_Void(D_OUT); // result if body never runs
 
     do {
-        if (Run_Branch_Throws(D_CELL, END, ARG(condition))) {
-            //
-            // A while loop should only look for breaks and continues in its
-            // body, not in its condition.  So `while [break] []` is a
-            // request to break the enclosing loop (or error if there is
-            // nothing to catch that break).  Hence we bubble up all throws.
-            //
-            Move_Value(D_OUT, D_CELL);
-            return R_OUT_IS_THROWN;
-        }
+        if (Run_Branch_Throws(D_CELL, END, ARG(condition)))
+            return D_CELL; // don't look for break/continue in the *condition*
 
         if (IS_VOID(D_CELL))
             fail (Error_Void_Conditional_Raw()); // neither truthy nor falsey
 
         if (IS_TRUTHY(D_CELL) != trigger)
-            return R_OUT; // loop trigger didn't match, return last result
+            return D_OUT; // loop trigger didn't match, return last result
 
         if (Run_Branch_Throws(D_OUT, D_CELL, ARG(body))) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
-                return R_OUT_IS_THROWN;
+                return D_OUT;
             if (stop)
-                return R_NULL;
+                return nullptr;
         }
         Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
     } while (TRUE);

@@ -175,9 +175,9 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
         default:
             //
-            // Something like an R_NULL or generic R_OUT.  We could in theory
-            // take those to just be variations of R_IMMEDIATE, but it's safer
-            // to break that out as a separate class.
+            // Something like a generic D_OUT.  We could in theory take those
+            // to just be variations of R_IMMEDIATE, but it's safer to break
+            // that out as a separate class.
             //
             fail ("Path evaluation produced temporary value, can't POKE it");
         }
@@ -190,7 +190,11 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
         pvs->deferred = NULL; // clear status of the deferred
 
-        if (not r) {
+        if (r == pvs->out) {
+            if (THROWN(pvs->out))
+                assert(!"Path dispatch isn't allowed to throw, only GROUP!s");
+        }
+        else if (not r) {
             Init_Nulled(pvs->out);
         }
         else switch (const_FIRST_BYTE(r->header)) {
@@ -235,14 +239,6 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
         case R_0C_UNHANDLED:
             fail (Error_Bad_Path_Pick_Raw(pvs->refine));
-
-        case R_0E_OUT:
-            assert(not THROWN(pvs->out));
-            break;
-
-        case R_0F_OUT_IS_THROWN:
-            assert(!"Path dispatch isn't allowed to throw, only GROUP!s");
-            break;
 
         default:
             assert(r->header.bits & NODE_FLAG_CELL);
@@ -635,7 +631,7 @@ REBNATIVE(pick)
 
     case R_0A_REFERENCE:
         Derelativize(D_OUT, VAL_REFERENCE(D_OUT), VAL_SPECIFIER(D_OUT));
-        return R_OUT;
+        return D_OUT;
 
     case R_0C_UNHANDLED:
         fail (Error_Bad_Path_Pick_Raw(ARG(picker)));
@@ -725,5 +721,5 @@ REBNATIVE(poke)
     }
 
     Move_Value(D_OUT, ARG(value)); // return the value we got in
-    return R_OUT;
+    return D_OUT;
 }

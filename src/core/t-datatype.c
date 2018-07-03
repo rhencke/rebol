@@ -139,5 +139,5 @@ REBTYPE(Datatype)
         fail (Error_Illegal_Action(REB_DATATYPE, verb));
     }
 
-    return R_OUT;
+    return D_OUT;
 }

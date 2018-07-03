@@ -872,7 +872,7 @@ REB_R PD_Date(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     DECLARE_LOCAL (temp);
     Move_Value(temp, pvs->out);
     Pick_Or_Poke_Date(pvs->out, temp, picker, NULL);
-    return R_OUT;
+    return pvs->out;
 }
 
 
@@ -902,7 +902,7 @@ REBTYPE(Date)
         if (type == REB_DATE) {
             if (sym == SYM_SUBTRACT) {
                 Init_Integer(D_OUT, Diff_Date(date, VAL_DATE(arg)));
-                return R_OUT;
+                return D_OUT;
             }
         }
         else if (type == REB_TIME) {
@@ -969,7 +969,7 @@ REBTYPE(Date)
                     + (cast(REBI64, Julian_Date(date)) << 32)
                     + secs
                 );
-                return R_NULL;
+                return nullptr;
             }
 
             if (year == 0) break;
@@ -1011,7 +1011,7 @@ REBTYPE(Date)
                 fail (Error_Unexpected_Type(VAL_TYPE(val1), VAL_TYPE(val2)));
 
             Subtract_Date(val1, val2, D_OUT);
-            return R_OUT; }
+            return D_OUT; }
 
         default:
             fail (Error_Illegal_Action(REB_DATE, verb));
@@ -1034,5 +1034,5 @@ setDate:
     VAL_DATE(D_OUT) = date;
     if (GET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME))
         VAL_NANO(D_OUT) = secs;
-    return R_OUT;
+    return D_OUT;
 }

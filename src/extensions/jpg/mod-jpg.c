@@ -99,7 +99,7 @@ REBNATIVE(decode_jpeg)
     jpeg_load(s_cast(data), len, cast(char*, IMG_DATA(ser)));
 
     Init_Image(D_OUT, ser);
-    return R_OUT;
+    return D_OUT;
 }
 
 #include "tmp-mod-jpg-last.h"

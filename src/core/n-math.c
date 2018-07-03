@@ -120,7 +120,7 @@ REBNATIVE(cosine)
     REBDEC dval = cos(Trig_Value(ARG(angle), REF(radians), COSINE));
     if (fabs(dval) < DBL_EPSILON) dval = 0.0;
     Init_Decimal(D_OUT, dval);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -142,7 +142,7 @@ REBNATIVE(sine)
     REBDEC dval = sin(Trig_Value(ARG(angle), REF(radians), SINE));
     if (fabs(dval) < DBL_EPSILON) dval = 0.0;
     Init_Decimal(D_OUT, dval);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -166,7 +166,7 @@ REBNATIVE(tangent)
         fail (Error_Overflow_Raw());
 
     Init_Decimal(D_OUT, tan(dval));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -186,7 +186,7 @@ REBNATIVE(arccosine)
     INCLUDE_PARAMS_OF_ARCCOSINE;
 
     Arc_Trans(D_OUT, ARG(cosine), REF(radians), COSINE);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -206,7 +206,7 @@ REBNATIVE(arcsine)
     INCLUDE_PARAMS_OF_ARCSINE;
 
     Arc_Trans(D_OUT, ARG(sine), REF(radians), SINE);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -226,7 +226,7 @@ REBNATIVE(arctangent)
     INCLUDE_PARAMS_OF_ARCTANGENT;
 
     Arc_Trans(D_OUT, ARG(tangent), REF(radians), TANGENT);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -248,7 +248,7 @@ REBNATIVE(exp)
     dval = pow(eps, dval);
 //!!!!  Check_Overflow(dval);
     Init_Decimal(D_OUT, dval);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -267,7 +267,7 @@ REBNATIVE(log_10)
     REBDEC dval = AS_DECIMAL(ARG(value));
     if (dval <= 0) fail (Error_Positive_Raw());
     Init_Decimal(D_OUT, log10(dval));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -286,7 +286,7 @@ REBNATIVE(log_2)
     REBDEC dval = AS_DECIMAL(ARG(value));
     if (dval <= 0) fail (Error_Positive_Raw());
     Init_Decimal(D_OUT, log(dval) / LOG2);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -305,7 +305,7 @@ REBNATIVE(log_e)
     REBDEC dval = AS_DECIMAL(ARG(value));
     if (dval <= 0) fail (Error_Positive_Raw());
     Init_Decimal(D_OUT, log(dval));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -324,7 +324,7 @@ REBNATIVE(square_root)
     REBDEC dval = AS_DECIMAL(ARG(value));
     if (dval < 0) fail (Error_Positive_Raw());
     Init_Decimal(D_OUT, sqrt(dval));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -406,7 +406,7 @@ REBNATIVE(shift)
     }
 
     Move_Value(D_OUT, ARG(value));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -861,7 +861,7 @@ REBNATIVE(maximum)
         else
             Move_Value(D_OUT, value2);
     }
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -895,7 +895,7 @@ REBNATIVE(minimum)
         else
             Move_Value(D_OUT, value1);
     }
-    return R_OUT;
+    return D_OUT;
 }
 
 

@@ -3,13 +3,14 @@ REBOL [
 ]
 
 c-fib: make-native [
-   "nth Fibonacci Number"
-   n [integer!]
+    "nth Fibonacci Number"
+    n [integer!]
 ]{
-    int n = VAL_INT64(ARG(n));
+    int n = rebUnboxInteger(ARG(n));
 
-    if (n < zero) { Init_Integer(D_OUT, -1); return R_OUT; }
-    if (n <= one) { Init_Integer(D_OUT, n); return R_OUT; }
+    /* use `zero` and `one` to demonstrate providing constants via COMPILE */
+    if (n < zero) { return rebInteger(-1); }
+    if (n <= one) { return rebInteger(n); }
 
     int i0 = zero;
     int i1 = one;
@@ -19,8 +20,7 @@ c-fib: make-native [
         i0 = t;
         --n;
     }
-    Init_Integer(D_OUT, i1);
-    return R_OUT;
+    return rebInteger(i1);
 }
 
 compile/options [

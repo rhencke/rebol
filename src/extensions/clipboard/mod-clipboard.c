@@ -147,7 +147,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         REBVAL *binary = rebRepossess(utf8, size);
         Move_Value(D_OUT, binary);
         rebRelease(binary); // output has reference on the series, drop ours
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
@@ -258,7 +258,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
 return_port:
     Move_Value(D_OUT, D_ARG(1));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -273,7 +273,7 @@ return_port:
 REBNATIVE(get_clipboard_actor_handle)
 {
     Make_Port_Actor_Handle(D_OUT, &Clipboard_Actor);
-    return R_OUT;
+    return D_OUT;
 }
 
 #include "tmp-mod-clipboard-last.h"

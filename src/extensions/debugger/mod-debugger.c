@@ -86,7 +86,7 @@ static REBNATIVE(init_debugger)
     DEBUGGER_INCLUDE_PARAMS_OF_INIT_DEBUGGER;
 
     HG_Host_Repl = ACT_ARCHETYPE(VAL_ACTION(ARG(console)));
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -119,7 +119,7 @@ static REBNATIVE(breakpoint)
         NULLED_CELL, // default result if RESUME does not override
         FALSE // !execute (don't try to evaluate the NULLED_CELL)
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     // !!! Should use a more specific protocol (e.g. pass in END).  But also,
@@ -157,10 +157,10 @@ static REBNATIVE(pause)
         ARG(code), // default result if RESUME does not override
         TRUE // execute (run the GROUP! as code, don't return as-is)
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -431,7 +431,7 @@ static REBNATIVE(resume)
     //
     Init_Action_Maybe_Bound(D_OUT, FRM_PHASE(frame), FRM_BINDING(frame));
     CONVERT_NAME_TO_THROWN(D_OUT, cell);
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }
 
 
@@ -915,10 +915,10 @@ static REBNATIVE(backtrace_index)
 
     if (NULL != Frame_For_Stack_Level(&number, ARG(level), TRUE)) {
         Init_Integer(D_OUT, number);
-        return R_OUT;
+        return D_OUT;
     }
 
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -984,7 +984,7 @@ static REBNATIVE(debug)
             fail (Error_Invalid(value));
 
         Init_Near_For_Frame(D_OUT, frame);
-        return R_OUT;
+        return D_OUT;
     }
 
     assert(IS_BLOCK(value));
@@ -1003,7 +1003,7 @@ modify_with_confidence:
         "feature you want isn't implemented doesn't mean you can't add it!)\n"
     );
 
-    return R_NULL;
+    return nullptr;
 }
 
 #include "tmp-mod-debugger-last.h"

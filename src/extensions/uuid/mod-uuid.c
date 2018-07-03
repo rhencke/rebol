@@ -122,7 +122,7 @@ static REBNATIVE(generate)
     fail ("UUID is not implemented");
 #endif
 
-    return R_OUT;
+    return D_OUT;
 }
 
 

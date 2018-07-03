@@ -262,5 +262,4 @@ PVAR struct Reb_Cell PG_R_REFERENCE;
 PVAR struct Reb_Cell PG_R_IMMEDIATE;
 PVAR struct Reb_Cell PG_R_UNHANDLED;
 PVAR struct Reb_Cell PG_R_END;
-PVAR struct Reb_Cell PG_R_OUT;
-PVAR struct Reb_Cell PG_R_OUT_IS_THROWN;
+PVAR struct Reb_Cell PG_R_THROWN;

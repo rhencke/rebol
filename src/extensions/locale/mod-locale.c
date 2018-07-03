@@ -95,7 +95,7 @@ REBNATIVE(locale)
     Move_Value(D_OUT, str);
     rebRelease(str);
 
-    return R_OUT;
+    return D_OUT;
   #else
     UNUSED(frame_);
     fail ("LOCALE not implemented natively for non-Windows");
@@ -166,7 +166,7 @@ REBNATIVE(setlocale)
         "]", END
     );
 
-    int cat = rebUnbox("select", map, ARG(category), "else [-1]", END);
+    int cat = rebUnbox("-1 unless select", map, ARG(category), END);
     rebRelease(map);
 
     if (cat == -1)
@@ -177,12 +177,9 @@ REBNATIVE(setlocale)
     rebFree(value_utf8);
 
     if (not result)
-        return R_NULL;
+        return nullptr;
 
-    REBVAL *str = rebText(result);
-    Move_Value(D_OUT, str);
-    rebRelease(str);
-    return R_OUT;
+    return rebText(result);
 }
 
 #include "tmp-mod-locale-last.h"

@@ -258,7 +258,7 @@ void Poke_Tuple_Immediate(
 //
 REB_R PD_Tuple(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 {
-    if (opt_setval != NULL) {
+    if (opt_setval) {
         //
         // Returning R_IMMEDIATE means it is up to the caller to decide if
         // they can meaningfully find a variable to store any updates to.
@@ -268,7 +268,7 @@ REB_R PD_Tuple(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     }
 
     Pick_Tuple(pvs->out, pvs->out, picker);
-    return R_OUT;
+    return pvs->out;
 }
 
 
@@ -466,7 +466,7 @@ REBTYPE(Tuple)
         case SYM_LENGTH:
             len = MAX(len, 3);
             Init_Integer(D_OUT, len);
-            return R_OUT;
+            return D_OUT;
 
         default:
             break;
@@ -497,12 +497,12 @@ REBTYPE(Tuple)
   poke_it:
         a = Get_Num_From_Arg(arg);
         if (a <= 0 || a > len) {
-            if (action == A_PICK) return R_NULL;
+            if (action == A_PICK) return nullptr;
             fail (Error_Out_Of_Range(arg));
         }
         if (action == A_PICK) {
             Init_Integer(D_OUT, vp[a-1]);
-            return R_OUT;
+            return D_OUT;
         }
         // Poke:
         if (not IS_INTEGER(D_ARG(3)))
@@ -524,5 +524,5 @@ REBTYPE(Tuple)
 
 ret_value:
     Move_Value(D_OUT, value);
-    return R_OUT;
+    return D_OUT;
 }

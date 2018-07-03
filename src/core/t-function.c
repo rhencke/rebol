@@ -213,7 +213,7 @@ REBTYPE(Action)
         Blit_Cell(ACT_BODY(proxy), VAL_ACT_BODY(value));
 
         Init_Action_Maybe_Bound(D_OUT, proxy, VAL_BINDING(value));
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_REFLECT: {
         REBSYM sym = VAL_WORD_SYM(arg);
@@ -222,16 +222,16 @@ REBTYPE(Action)
 
         case SYM_BINDING: {
             if (Did_Get_Binding_Of(D_OUT, value))
-                return R_OUT;
-            return R_NULL; }
+                return D_OUT;
+            return nullptr; }
 
         case SYM_WORDS:
             Init_Block(D_OUT, List_Func_Words(value, FALSE)); // no locals
-            return R_OUT;
+            return D_OUT;
 
         case SYM_BODY:
             Get_Maybe_Fake_Action_Body(D_OUT, value);
-            return R_OUT;
+            return D_OUT;
 
         case SYM_TYPES: {
             REBARR *copy = Make_Array(VAL_ACT_NUM_PARAMS(value));
@@ -252,7 +252,7 @@ REBTYPE(Action)
             assert(IS_END(typeset));
 
             Init_Block(D_OUT, copy);
-            return R_OUT;
+            return D_OUT;
         }
 
         // We use a heuristic that if the first element of a function's body
@@ -261,31 +261,31 @@ REBTYPE(Action)
         //
         case SYM_FILE: {
             if (not ANY_SERIES(VAL_ACT_BODY(value)))
-                return R_NULL;
+                return nullptr;
 
             REBSER *s = VAL_SERIES(VAL_ACT_BODY(value));
 
             if (NOT_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
-                return R_NULL;
+                return nullptr;
 
             // !!! How to tell whether it's a URL! or a FILE! ?
             //
             Scan_File(
                 D_OUT, cb_cast(STR_HEAD(LINK(s).file)), SER_LEN(LINK(s).file)
             );
-            return R_OUT; }
+            return D_OUT; }
 
         case SYM_LINE: {
             if (not ANY_SERIES(VAL_ACT_BODY(value)))
-                return R_NULL;
+                return nullptr;
 
             REBSER *s = VAL_SERIES(VAL_ACT_BODY(value));
 
             if (NOT_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
-                return R_NULL;
+                return nullptr;
 
             Init_Integer(D_OUT, MISC(s).line);
-            return R_OUT; }
+            return D_OUT; }
 
         default:
             fail (Error_Cannot_Reflect(VAL_TYPE(value), arg));
@@ -318,7 +318,6 @@ REB_R PD_Action(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     UNUSED(opt_setval);
 
     assert(IS_ACTION(pvs->out));
-    UNUSED(pvs);
 
     if (IS_BLANK(picker)) {
         //
@@ -334,7 +333,7 @@ REB_R PD_Action(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         // however it is disallowed to use nulls at the higher level path
         // protocol.  This is probably for the best.
         //
-        return R_OUT;
+        return pvs->out;
     }
 
     // The first evaluation of a GROUP! and GET-WORD! are processed by the
@@ -349,5 +348,5 @@ REB_R PD_Action(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 
     // Leave the function value as is in pvs->out
     //
-    return R_OUT;
+    return pvs->out;
 }

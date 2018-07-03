@@ -163,7 +163,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         switch (property) {
         case SYM_LENGTH:
             Init_Integer(D_OUT, VAL_LEN_HEAD(state));
-            return R_OUT;
+            return D_OUT;
 
         default:
             break;
@@ -205,7 +205,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             || VAL_WORD_SYM(verb) == SYM_REMOVE
         ){
             Move_Value(D_OUT, save_port);
-            return R_OUT;
+            return D_OUT;
         }
         return r; }
 
@@ -271,7 +271,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
 return_port:
     Move_Value(D_OUT, D_ARG(1));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -307,5 +307,5 @@ void Shutdown_Event_Scheme(void)
 REBNATIVE(get_event_actor_handle)
 {
     Make_Port_Actor_Handle(D_OUT, &Event_Actor);
-    return R_OUT;
+    return D_OUT;
 }

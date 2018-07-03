@@ -70,13 +70,13 @@ REBNATIVE(if)
     INCLUDE_PARAMS_OF_IF;
 
     if (IS_CONDITIONAL_FALSE(ARG(condition)))
-        return R_NULL;
+        return nullptr;
 
     if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch)))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     Voidify_If_Nulled(D_OUT); // null is reserved for no branch run
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -96,13 +96,13 @@ REBNATIVE(if_not)
     INCLUDE_PARAMS_OF_IF_NOT;
 
     if (IS_CONDITIONAL_TRUE(ARG(condition)))
-        return R_NULL;
+        return nullptr;
 
     if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch)))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     Voidify_If_Nulled(D_OUT); // null is reserved for no branch run
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -132,10 +132,10 @@ REBNATIVE(either)
             ? ARG(true_branch)
             : ARG(false_branch)
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -184,7 +184,7 @@ inline static REB_R Either_Test_Core(
             SPECIFIED,
             push_refinements
         )){
-            return R_OUT_IS_THROWN;
+            return R_THROWN;
         }
 
         assert(lowest_ordered_dsp == DSP); // would have made specialization
@@ -207,7 +207,7 @@ inline static REB_R Either_Test_Core(
             NULLIZE(arg), // convert nulled cells to C nullptr for API
             END
         )){
-            return R_OUT_IS_THROWN;
+            return R_THROWN;
         }
 
         if (IS_VOID(cell))
@@ -280,20 +280,20 @@ REBNATIVE(either_test)
     INCLUDE_PARAMS_OF_EITHER_TEST;
 
     REB_R r = Either_Test_Core(D_OUT, ARG(test), ARG(arg));
-    if (r == R_OUT_IS_THROWN)
-        return R_OUT_IS_THROWN;
+    if (r == R_THROWN)
+        return D_OUT;
 
     if (r == R_TRUE) {
         Move_Value(D_OUT, ARG(arg));
-        return R_OUT;
+        return D_OUT; // *slightly* faster than `return ARG(arg);`
     }
 
     assert(r == R_FALSE);
 
     if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch)))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -316,17 +316,17 @@ REBNATIVE(else)
 
     if (not IS_NULLED(ARG(optional))) { // note that VOID!s are non-NULL
         Move_Value(D_OUT, ARG(optional));
-        return R_OUT;
+        return D_OUT; // *slightly* faster than `return ARG(optional);`
     }
 
     if (Run_Branch_Throws(D_OUT, NULLED_CELL, ARG(branch)))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     // For ELSE, we do not Voidify_If_Nulled() so that you can write:
     //
     //     if condition [...] else [...] else [...] also [...]
     //
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -348,10 +348,10 @@ REBNATIVE(also)
     INCLUDE_PARAMS_OF_ALSO; // faster than EITHER-TEST specialized w/`NULL?`
 
     if (IS_NULLED(ARG(optional)))
-        return R_NULL;
+        return nullptr;
 
     if (Run_Branch_Throws(D_OUT, ARG(optional), ARG(branch)))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     // For ALSO, we Voidify_If_Nulled() in order to relieve the person writing
     // the branch of worrying about getting out of the way of an ELSE:
@@ -364,7 +364,7 @@ REBNATIVE(also)
     // be able to accidentally "un-success" it by evaluating to NULL.
     //
     Voidify_If_Nulled(D_OUT);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -386,13 +386,12 @@ REBNATIVE(so)
     INCLUDE_PARAMS_OF_SO; // `so [...]` faster than `also func [x] [(...) :x]`
 
     if (IS_NULLED(ARG(optional)))
-        return R_NULL;
+        return nullptr;
 
     if (Run_Branch_Throws(D_OUT, ARG(optional), ARG(branch)))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
-    Move_Value(D_OUT, ARG(optional));
-    return R_OUT;
+    return ARG(optional);
 }
 
 
@@ -450,7 +449,7 @@ REBNATIVE(match)
             SPECIFIED,
             TRUE // push_refinements
         )){
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         Move_Value(test, D_OUT);
@@ -479,7 +478,7 @@ REBNATIVE(match)
             ARG(args),
             lowest_ordered_dsp
         )){
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         if (not first_arg)
@@ -502,10 +501,8 @@ REBNATIVE(match)
 
         Drop_Frame_Core(f); // !!! Drop_Frame() asserts f->eval_type as REB_0
 
-        if (THROWN(D_CELL)) {
-            Move_Value(D_OUT, D_CELL);
-            return R_OUT_IS_THROWN;
-        }
+        if (THROWN(D_CELL))
+            return D_CELL;
 
         assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
 
@@ -521,10 +518,10 @@ REBNATIVE(match)
         if (IS_TRUTHY(D_CELL)) {
             if (IS_FALSEY(D_OUT))
                 return R_BAR;
-            return R_OUT;
+            return D_OUT;
         }
 
-        return R_NULL; }
+        return nullptr; }
 
     default:
         break;
@@ -549,26 +546,26 @@ either_test:;
     INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_HARD_QUOTE);
     VAL_TYPESET_BITS(varpar) &= ~FLAGIT_KIND(REB_MAX_NULLED);
 
-    if (r == R_OUT_IS_THROWN)
-        return R_OUT_IS_THROWN;
+    if (r == R_THROWN)
+        return R_THROWN;
 
     if (r == R_END)
         fail ("Frame hack is written to need argument!");
 
-    assert(r == R_OUT);
+    assert(r == D_OUT);
 
     r = Either_Test_Core(D_CELL, test, D_OUT);
-    if (r == R_OUT_IS_THROWN)
-        return R_OUT_IS_THROWN;
+    if (r == R_THROWN)
+        return R_THROWN;
 
     if (r == R_TRUE) {
         if (IS_FALSEY(D_OUT)) // see above for why false match not passed thru
             return R_BAR;
-        return R_OUT;
+        return D_OUT;
     }
 
     assert(r == R_FALSE);
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -595,17 +592,17 @@ REBNATIVE(all)
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         if (IS_FALSEY(D_OUT)) { // any false/blank/null will trigger failure
             Abort_Frame(f);
-            return R_NULL;
+            return nullptr;
         }
     }
 
     Drop_Frame(f);
-    return R_OUT; // successful all when the last D_OUT assignment is truthy
+    return D_OUT; // successful ALL when the last D_OUT assignment is truthy
 }
 
 
@@ -630,17 +627,17 @@ REBNATIVE(any)
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         if (IS_TRUTHY(D_OUT)) { // successful ANY returns the value
             Abort_Frame(f);
-            return R_OUT;
+            return D_OUT;
         }
     }
 
     Drop_Frame(f);
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -668,12 +665,12 @@ REBNATIVE(none)
     while (FRM_HAS_MORE(f)) {
         if (Do_Next_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         if (IS_TRUTHY(D_OUT)) { // any true results mean failure
             Abort_Frame(f);
-            return R_NULL;
+            return nullptr;
         }
     }
 
@@ -706,9 +703,8 @@ static REB_R Case_Choose_Core(
         // Will consume any pending "invisibles" (COMMENT, ELIDE, DUMP...)
 
         if (Do_Next_In_Frame_Throws(cell, f)) {
-            Move_Value(out, cell);
             Abort_Frame(f);
-            return R_OUT_IS_THROWN;
+            return cell;
         }
 
         // The last condition will "fall out" if there is no branch/choice:
@@ -718,8 +714,7 @@ static REB_R Case_Choose_Core(
         //
         if (FRM_AT_END(f)) {
             Drop_Frame(f);
-            Move_Value(out, cell);
-            return R_OUT;
+            return cell;
         }
 
         // Regardless of if the condition matches or not, the next value must
@@ -758,21 +753,21 @@ static REB_R Case_Choose_Core(
                 f->specifier
             )){
                 Abort_Frame(f);
-                return R_OUT_IS_THROWN;
+                return out;
             }
             Voidify_If_Nulled(out); // null is reserved for no branch taken
         }
 
         if (not all) {
             Abort_Frame(f);
-            return R_OUT;
+            return out;
         }
 
         Fetch_Next_In_Frame(f); // keep matching if /ALL
     }
 
     Drop_Frame(f);
-    return R_OUT;
+    return out;
 }
 
 
@@ -906,7 +901,7 @@ REBNATIVE(switch)
         else {
             if (Do_Next_In_Frame_Throws(D_OUT, f)) {
                 Abort_Frame(f);
-                return R_OUT_IS_THROWN;
+                return D_OUT;
             }
         }
 
@@ -932,7 +927,7 @@ REBNATIVE(switch)
         while (true) {
             if (FRM_AT_END(f)) {
                 Drop_Frame(f);
-                return R_OUT; // last test "falls out", might be void
+                return D_OUT; // last test "falls out", might be void
             }
             if (IS_BLOCK(f->value))
                 break;
@@ -948,21 +943,21 @@ REBNATIVE(switch)
             f->specifier
         )){
             Abort_Frame(f);
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         Voidify_If_Nulled(D_OUT); // null is reserved for no branch run
 
         if (not REF(all)) {
             Abort_Frame(f);
-            return R_OUT;
+            return D_OUT;
         }
 
         Fetch_Next_In_Frame(f); // keep matching if /ALL
     }
 
     Drop_Frame(f);
-    return R_OUT; // last test "falls out" or last match if /ALL, may be void
+    return D_OUT; // last test "falls out" or last match if /ALL, may be void
 }
 
 
@@ -1063,12 +1058,10 @@ REBNATIVE(catch)
                 goto was_caught;
         }
 
-        // Throw name is in D_OUT, thrown value is held task local
-        //
-        return R_OUT_IS_THROWN;
+        return D_OUT; // throw name is in D_OUT, value is held task local
     }
 
-    return R_OUT;
+    return D_OUT;
 
 was_caught:
     if (REF(with)) {
@@ -1088,9 +1081,9 @@ was_caught:
             // There's no way to pass args to a block (so just DO it)
             //
             if (Do_Any_Array_At_Throws(D_OUT, ARG(handler)))
-                return R_OUT_IS_THROWN;
+                return D_OUT;
 
-            return R_OUT;
+            return D_OUT;
         }
         else if (IS_ACTION(handler)) {
             //
@@ -1106,10 +1099,10 @@ was_caught:
                 NULLIZE(thrown_name), // convert nulled cells to NULL for API
                 END
             )){
-                return R_OUT_IS_THROWN;
+                return D_OUT;
             }
 
-            return R_OUT;
+            return D_OUT;
         }
     }
 
@@ -1117,7 +1110,7 @@ was_caught:
     //
     CATCH_THROWN(D_OUT, D_OUT);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1152,5 +1145,5 @@ REBNATIVE(throw)
     }
 
     CONVERT_NAME_TO_THROWN(D_OUT, value);
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }

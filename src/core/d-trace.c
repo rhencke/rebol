@@ -295,10 +295,35 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         Debug_Space(cast(REBCNT, 4 * depth));
         Debug_Fmt_(RM_TRACE_RETURN, Frame_Label_Or_Anonymous_UTF8(f));
 
-        if (not r) {
+        if (r == f->out) {
+
+        process_out:;
+        
+            if (not THROWN(f->out)) {
+                Debug_Values(f->out, 1, 50);
+                goto finished;
+            }
+
+            // The system guards against the molding or forming of thrown
+            // values, which are actually a pairing of label + value.
+            // "Catch" it temporarily, long enough to output it, then
+            // re-throw it.
+            //
+            DECLARE_LOCAL (arg);
+            CATCH_THROWN(arg, f->out); // clears bit
+
+            if (IS_NULLED(f->out))
+                Debug_Fmt_("throw %50r", arg);
+            else
+                Debug_Fmt_("throw %30r, label %20r", arg, f->out);
+
+            CONVERT_NAME_TO_THROWN(f->out, arg); // sets bit
+        }
+        else if (not r) {
             Debug_Fmt("\\\\null\\\\\n"); // displays as "\\null\\"
         }
         else switch (const_FIRST_BYTE(r->header)) {
+
         case R_00_FALSE:
             Debug_Values(FALSE_VALUE, 1, 50);
             break;
@@ -349,39 +374,17 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         case R_0B_IMMEDIATE:
         case R_0C_UNHANDLED:
         case R_0D_END:
+        case R_0E_THROWN:
             assert(FALSE); // internal use only, shouldn't be returned
             break;
-
-        case R_0E_OUT:
-          normal_output:
-            Debug_Values(f->out, 1, 50);
-            break;
-
-        case R_0F_OUT_IS_THROWN: {
-          thrown_output:
-            // The system guards against the molding or forming of thrown
-            // values, which are actually a pairing of label + value.
-            // "Catch" it temporarily, long enough to output it, then
-            // re-throw it.
-            //
-            DECLARE_LOCAL (arg);
-            CATCH_THROWN(arg, f->out); // clears bit
-
-            if (IS_NULLED(f->out))
-                Debug_Fmt_("throw %50r", arg);
-            else
-                Debug_Fmt_("throw %30r, label %20r", arg, f->out);
-
-            CONVERT_NAME_TO_THROWN(f->out, arg); // sets bit
-            break; }
 
         default: {
             assert(r->header.bits & NODE_FLAG_CELL);
             Move_Value(f->out, r);
-            if (THROWN(r))
-                goto thrown_output;
-            goto normal_output; }
+            goto process_out; }
         }
+
+        finished:;
     }
 
     return r;
@@ -433,5 +436,5 @@ REBNATIVE(trace)
         PG_Dispatcher = &Dispatcher_Core;
     }
 
-    return R_NULL;
+    return nullptr;
 }

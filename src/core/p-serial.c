@@ -301,7 +301,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
 return_port:
     Move_Value(D_OUT, D_ARG(1));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -316,5 +316,5 @@ return_port:
 REBNATIVE(get_serial_actor_handle)
 {
     Make_Port_Actor_Handle(D_OUT, &Serial_Actor);
-    return R_OUT;
+    return D_OUT;
 }

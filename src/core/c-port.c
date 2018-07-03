@@ -535,9 +535,9 @@ REB_R Do_Port_Action(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         fail (Error_No_Port_Action_Raw(verb));
 
     if (Redo_Action_Throws(frame_, VAL_ACTION(action)))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
-    r = R_OUT; // result should be in frame_->out
+    r = D_OUT; // result should be in frame_->out
 
     // !!! READ's /LINES and /STRING refinements are something that should
     // work regardless of data source.  But R3-Alpha only implemented it in
@@ -556,7 +556,7 @@ post_process_output:
         UNUSED(PAR(seek));
         UNUSED(PAR(index));
 
-        assert(r == R_OUT);
+        assert(r == D_OUT);
 
         if ((REF(string) or REF(lines)) and not IS_TEXT(D_OUT)) {
             if (not IS_BINARY(D_OUT))

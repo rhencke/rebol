@@ -166,7 +166,7 @@ REBNATIVE(make_routine)
     Move_Value(RIN_AT(r, IDX_ROUTINE_ORIGIN), ARG(lib));
 
     Init_Action_Unbound(D_OUT, routine);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -213,7 +213,7 @@ REBNATIVE(make_routine_raw)
     Init_Blank(RIN_AT(r, IDX_ROUTINE_ORIGIN)); // no LIBRARY! in this case.
 
     Init_Action_Unbound(D_OUT, routine);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -286,7 +286,7 @@ REBNATIVE(wrap_callback)
     Move_Value(RIN_AT(r, IDX_ROUTINE_ORIGIN), ARG(action));
 
     Init_Action_Unbound(D_OUT, callback);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -316,7 +316,7 @@ REBNATIVE(addr_of) {
         Init_Integer(
             D_OUT, cast(intptr_t, RIN_CFUNC(VAL_ACT_ROUTINE(v)))
         );
-        return R_OUT;
+        return D_OUT;
     }
 
     assert(IS_STRUCT(v));
@@ -332,7 +332,7 @@ REBNATIVE(addr_of) {
     // HANDLE! to a non-moving malloc would need to be used instead.
     //
     Init_Integer(D_OUT, cast(intptr_t, VAL_STRUCT_DATA_AT(v)));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -367,7 +367,7 @@ REBNATIVE(make_similar_struct)
     // !!! Comment said "only accept value initialization"
     //
     Init_Struct_Fields(D_OUT, body);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -407,10 +407,10 @@ REBNATIVE(destroy_struct_storage)
             fail (Error_Free_Needs_Routine_Raw());
 
         if (Do_Va_Throws(D_OUT, ARG(free_func), pointer, END))
-            return R_OUT_IS_THROWN;
+            return D_OUT;
     }
 
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -435,7 +435,7 @@ REBNATIVE(alloc_value_pointer)
     rebUnmanage(allocated);
 
     Init_Integer(D_OUT, cast(intptr_t, allocated));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -464,7 +464,7 @@ REBNATIVE(free_value_pointer)
     //
     rebFree(v);
 
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -496,7 +496,7 @@ REBNATIVE(get_at_pointer)
     else
         Move_Value(D_OUT, paired);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -529,7 +529,7 @@ REBNATIVE(set_at_pointer)
     Move_Value(paired, ARG(value));
 
     Move_Value(D_OUT, ARG(value));
-    return R_OUT;
+    return D_OUT;
 }
 
 

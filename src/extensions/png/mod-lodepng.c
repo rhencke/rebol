@@ -301,7 +301,7 @@ REBNATIVE(decode_png)
 
     Init_Image(D_OUT, image);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -413,7 +413,7 @@ REBNATIVE(encode_png)
     Move_Value(D_OUT, binary);
     rebRelease(binary);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 

@@ -59,7 +59,7 @@ REBNATIVE(func)
     );
 
     Init_Action_Unbound(D_OUT, func);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -153,11 +153,10 @@ REBNATIVE(unwind)
 {
     INCLUDE_PARAMS_OF_UNWIND;
 
-    UNUSED(REF(with)); // implied by non-void value
+    UNUSED(REF(with)); // implied by non-null value
 
     Make_Thrown_Unwind_Value(D_OUT, ARG(level), ARG(value), frame_);
-
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }
 
 
@@ -182,7 +181,7 @@ REBNATIVE(return_1)
     //
     REBFRM *target_frame;
     REBNOD *f_binding = FRM_BINDING(f);
-    if (f_binding == UNBOUND)
+    if (not f_binding)
         fail (Error_Return_Archetype_Raw()); // explicit call to RETURN_1
 
     assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
@@ -234,7 +233,7 @@ REBNATIVE(return_1)
     INIT_BINDING(D_OUT, f_binding);
 
     CONVERT_NAME_TO_THROWN(D_OUT, value);
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }
 
 
@@ -252,7 +251,7 @@ REBNATIVE(return_0)
     REBFRM *f = frame_; // implicit parameter to natives
 
     REBNOD *f_binding = FRM_BINDING(f);
-    if (f_binding == UNBOUND)
+    if (not f_binding)
         fail (Error_Return_Archetype_Raw()); // somehow RETURN_0 got called
 
     assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
@@ -260,7 +259,7 @@ REBNATIVE(return_0)
     INIT_BINDING(D_OUT, f_binding);
 
     CONVERT_NAME_TO_THROWN(D_OUT, VOID_VALUE);
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }
 
 
@@ -309,7 +308,7 @@ REBNATIVE(typechecker)
     Move_Value(ACT_BODY(typechecker), type);
 
     Init_Action_Unbound(D_OUT, typechecker);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -338,7 +337,7 @@ REBNATIVE(chain)
     else {
         REBDSP dsp_orig = DSP;
         if (Reduce_To_Stack_Throws(out, pipeline, REDUCE_MASK_NONE))
-            return R_OUT_IS_THROWN;
+            return out;
 
         // No more evaluations *should* run before putting this array in a
         // GC-safe spot, but leave unmanaged anyway.
@@ -397,7 +396,7 @@ REBNATIVE(chain)
     Init_Block(ACT_BODY(chain), chainees); // used by Chainer_Dispatcher
 
     Init_Action_Unbound(out, chain);
-    return R_OUT;
+    return out;
 }
 
 
@@ -428,7 +427,7 @@ REBNATIVE(adapt)
         SPECIFIED,
         push_refinements
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -518,7 +517,7 @@ REBNATIVE(adapt)
     INIT_BINDING(body, underlying); // relative binding
 
     Init_Action_Unbound(D_OUT, adaptation);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -548,7 +547,7 @@ REBNATIVE(enclose)
         SPECIFIED,
         push_refinements
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -564,7 +563,7 @@ REBNATIVE(enclose)
         SPECIFIED,
         push_refinements
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -627,7 +626,7 @@ REBNATIVE(enclose)
     Init_Block(ACT_BODY(enclosure), info);
 
     Init_Action_Unbound(D_OUT, enclosure);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -665,7 +664,7 @@ REBNATIVE(hijack)
         SPECIFIED,
         push_refinements
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -681,7 +680,7 @@ REBNATIVE(hijack)
         SPECIFIED,
         push_refinements
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -693,7 +692,7 @@ REBNATIVE(hijack)
         // Permitting a no-op hijack has some applications...but offer a
         // distinguished result for those who want to detect the condition.
         //
-        return R_NULL;
+        return nullptr;
     }
 
     REBARR *victim_paramlist = VAL_ACT_PARAMLIST(victim);
@@ -746,7 +745,7 @@ REBNATIVE(hijack)
     //
     INIT_BINDING(D_OUT, VAL_BINDING(hijacker));
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -882,5 +881,5 @@ REBNATIVE(tighten)
         tightened, // REBACT* archetype doesn't contain a binding
         VAL_BINDING(ARG(action)) // e.g. keep binding for `tighten 'return`
     );
-    return R_OUT;
+    return D_OUT;
 }

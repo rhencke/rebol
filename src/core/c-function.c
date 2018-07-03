@@ -1511,7 +1511,7 @@ REB_R Null_Dispatcher(REBFRM *f)
 {
     assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE(f))) == 0);
     UNUSED(f);
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -1525,7 +1525,7 @@ REB_R Void_Dispatcher(REBFRM *f)
     assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE(f))) == 0);
     UNUSED(f);
     Init_Void(f->out);
-    return R_OUT;
+    return f->out;
 }
 
 
@@ -1539,7 +1539,7 @@ REB_R Datatype_Checker_Dispatcher(REBFRM *f)
     RELVAL *datatype = ACT_BODY(FRM_PHASE(f));
     assert(IS_DATATYPE(datatype));
     Init_Logic(f->out, VAL_TYPE(FRM_ARG(f, 1)) == VAL_TYPE_KIND(datatype));
-    return R_OUT;
+    return f->out;
 }
 
 
@@ -1553,7 +1553,7 @@ REB_R Typeset_Checker_Dispatcher(REBFRM *f)
     RELVAL *typeset = ACT_BODY(FRM_PHASE(f));
     assert(IS_TYPESET(typeset));
     Init_Logic(f->out, TYPE_CHECK(typeset, VAL_TYPE(FRM_ARG(f, 1))));
-    return R_OUT;
+    return f->out;
 }
 
 
@@ -1570,9 +1570,9 @@ REB_R Unchecked_Dispatcher(REBFRM *f)
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
-        return R_OUT_IS_THROWN;
+        return f->out;
 
-    return R_OUT;
+    return f->out;
 }
 
 
@@ -1589,10 +1589,10 @@ REB_R Voider_Dispatcher(REBFRM *f)
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
-        return R_OUT_IS_THROWN;
+        return f->out;
 
     Init_Void(f->out);
-    return R_OUT;
+    return f->out;
 }
 
 
@@ -1610,7 +1610,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
-        return R_OUT_IS_THROWN;
+        return f->out;
 
     REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
@@ -1622,7 +1622,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
     if (not TYPE_CHECK(typeset, VAL_TYPE(f->out)))
         fail (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
 
-    return R_OUT;
+    return f->out;
 }
 
 
@@ -1647,7 +1647,7 @@ REB_R Elider_Dispatcher(REBFRM *f)
 
     if (Do_At_Throws(dummy, VAL_ARRAY(body), 0, SPC(f->varlist))) {
         Move_Value(f->out, dummy);
-        return R_OUT_IS_THROWN;
+        return f->out;
     }
 
     return R_INVISIBLE;
@@ -1689,9 +1689,9 @@ REB_R Hijacker_Dispatcher(REBFRM *f)
     // transform the parameters we've gathered to be compatible with it.
     //
     if (Redo_Action_Throws(f, VAL_ACTION(hijacker)))
-        return R_OUT_IS_THROWN;
+        return f->out;
 
-    return R_OUT;
+    return f->out;
 }
 
 
@@ -1722,7 +1722,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
         VAL_INDEX(prelude),
         SPC(f->varlist)
     )){
-        return R_OUT_IS_THROWN;
+        return f->out;
     }
 
     FRM_PHASE(f) = VAL_ACTION(adaptee);
@@ -1776,9 +1776,9 @@ REB_R Encloser_Dispatcher(REBFRM *f)
 
     const REBOOL fully = true;
     if (Apply_Only_Throws(f->out, fully, outer, KNOWN(&f->cell), END))
-        return R_OUT_IS_THROWN;
+        return f->out;
 
-    return R_OUT;
+    return f->out;
 }
 
 

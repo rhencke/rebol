@@ -190,7 +190,7 @@ REB_R Pending_Native_Dispatcher(REBFRM *f) {
     assert(ACT_DISPATCHER(phase) == &Pending_Native_Dispatcher);
 
     if (Do_Va_Throws(f->out, NAT_VALUE(compile), &natives, END))
-        return R_OUT_IS_THROWN;
+        return f->out;
 
     // Today's COMPILE doesn't return a result on success (just fails on
     // errors), but if it changes to return one consider what to do with it.
@@ -316,7 +316,7 @@ REBNATIVE(make_native)
     SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_USER_NATIVE);
 
     Init_Action_Unbound(D_OUT, native);
-    return R_OUT;
+    return D_OUT;
 #endif
 }
 
@@ -350,14 +350,14 @@ REBNATIVE(compile)
 {
     INCLUDE_PARAMS_OF_COMPILE;
 
-#if !defined(WITH_TCC)
+  #if !defined(WITH_TCC)
     UNUSED(ARG(natives));
     UNUSED(REF(options));
     UNUSED(ARG(flags));
     UNUSED(ARG(inspect));
 
     fail (Error_Not_Tcc_Build_Raw());
-#else
+  #else
     REBVAL *natives = ARG(natives);
 
     REBOOL debug = FALSE; // !!! not implemented yet
@@ -560,7 +560,7 @@ REBNATIVE(compile)
     if (REF(inspect)) {
         DS_DROP_TO(dsp_orig); // don't modify the collected user natives
         Init_Text(D_OUT, Pop_Molded_String(mo));
-        return R_OUT;
+        return D_OUT;
     }
 
     REBSER *combined_src = Pop_Molded_UTF8(mo);
@@ -682,6 +682,6 @@ REBNATIVE(compile)
         DS_DROP;
     }
 
-    return R_NULL;
-#endif
+    return nullptr;
+  #endif
 }

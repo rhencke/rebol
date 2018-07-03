@@ -120,10 +120,10 @@ REBNATIVE(delimit)
         VAL_SPECIFIER(block),
         delimiter
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -189,7 +189,7 @@ REBNATIVE(checksum)
             //
             REBINT crc32 = cast(REBINT, crc32_z(0L, data, len));
             Init_Integer(D_OUT, crc32);
-            return R_OUT;
+            return D_OUT;
         }
 
         if (sym == SYM_ADLER32) {
@@ -202,7 +202,7 @@ REBNATIVE(checksum)
             //
             uLong adler = z_adler32(0L, data, len);
             Init_Integer(D_OUT, adler);
-            return R_OUT;
+            return D_OUT;
         }
 
         REBCNT i;
@@ -274,7 +274,7 @@ REBNATIVE(checksum)
             TERM_BIN_LEN(digest, digests[i].len);
             Init_Binary(D_OUT, digest);
 
-            return R_OUT;
+            return D_OUT;
         }
 
         fail (Error_Invalid(ARG(word)));
@@ -294,7 +294,7 @@ REBNATIVE(checksum)
     else
         Init_Integer(D_OUT, Compute_CRC24(data, len));
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -362,7 +362,7 @@ REBNATIVE(deflate)
     Move_Value(D_OUT, bin);
     rebRelease(bin);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -434,7 +434,7 @@ REBNATIVE(inflate)
     Move_Value(D_OUT, bin);
     rebRelease(bin);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -472,7 +472,7 @@ REBNATIVE(debase)
     if (!Decode_Binary(D_OUT, BIN_AT(temp, offset), size, base, 0))
         fail (Error_Invalid_Data_Raw(ARG(value)));
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -544,7 +544,7 @@ REBNATIVE(enbase)
     );
     Free_Unmanaged_Series(enbased);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -711,7 +711,7 @@ REBNATIVE(enhex)
         Pop_Molded_String(mo)
     );
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -841,7 +841,7 @@ REBNATIVE(dehex)
         Pop_Molded_String(mo)
     );
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -865,7 +865,7 @@ REBNATIVE(deline)
 
     if (REF(lines)) {
         Init_Block(D_OUT, Split_Lines(val));
-        return R_OUT;
+        return D_OUT;
     }
 
     REBSER *s = VAL_SERIES(val);
@@ -894,7 +894,7 @@ REBNATIVE(deline)
     TERM_UNI_LEN(s, len_head);
 
     Move_Value(D_OUT, ARG(string));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -942,7 +942,7 @@ REBNATIVE(enline)
 
     if (delta == 0) { // nothing to do
         Move_Value(D_OUT, ARG(string));
-        return R_OUT;
+        return D_OUT;
     }
 
     EXPAND_SERIES_TAIL(ser, delta);
@@ -972,7 +972,7 @@ REBNATIVE(enline)
     }
 
     Move_Value(D_OUT, ARG(string));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1048,7 +1048,7 @@ REBNATIVE(entab)
     TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
 
     Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1128,7 +1128,7 @@ REBNATIVE(detab)
     TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
 
     Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1150,7 +1150,7 @@ REBNATIVE(lowercase)
 
     UNUSED(REF(part)); // checked by if limit is void
     Change_Case(D_OUT, ARG(string), ARG(limit), FALSE);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1172,7 +1172,7 @@ REBNATIVE(uppercase)
 
     UNUSED(REF(part)); // checked by if limit is void
     Change_Case(D_OUT, ARG(string), ARG(limit), TRUE);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1234,7 +1234,7 @@ REBNATIVE(to_hex)
     if (NULL == Scan_Issue(D_OUT, &buffer[0], len))
         fail (Error_Invalid(arg));
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1255,12 +1255,12 @@ REBNATIVE(find_script)
 
     REBINT offset = Scan_Header(VAL_BIN_AT(arg), VAL_LEN_AT(arg));
     if (offset == -1)
-        return R_NULL;
+        return nullptr;
 
     VAL_INDEX(arg) += offset;
 
     Move_Value(D_OUT, ARG(script));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1280,10 +1280,10 @@ REBNATIVE(invalid_utf8_q)
 
     REBYTE *bp = Check_UTF8(VAL_BIN_AT(arg), VAL_LEN_AT(arg));
     if (not bp)
-        return R_NULL;
+        return nullptr;
 
     VAL_INDEX(arg) = bp - VAL_BIN_HEAD(arg);
 
     Move_Value(D_OUT, arg);
-    return R_OUT;
+    return D_OUT;
 }

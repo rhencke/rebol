@@ -391,7 +391,7 @@ REBTYPE(Typeset)
         if (TYPE_CHECK(val, VAL_TYPE_KIND(arg)))
             return R_BAR;
 
-        return R_NULL;
+        return nullptr;
 
     case SYM_INTERSECT:
     case SYM_UNION:
@@ -411,12 +411,12 @@ REBTYPE(Typeset)
             VAL_TYPESET_BITS(val) ^= VAL_TYPESET_BITS(arg);
         }
         Move_Value(D_OUT, D_ARG(1));
-        return R_OUT;
+        return D_OUT;
 
     case SYM_COMPLEMENT:
         VAL_TYPESET_BITS(val) = ~VAL_TYPESET_BITS(val);
         Move_Value(D_OUT, D_ARG(1));
-        return R_OUT;
+        return D_OUT;
 
     default:
         fail (Error_Illegal_Action(REB_TYPESET, verb));

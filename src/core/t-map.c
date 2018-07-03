@@ -396,16 +396,15 @@ REB_R PD_Map(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     }
 
     if (n == 0)
-        return R_NULL;
+        return nullptr;
 
     REBVAL *val = KNOWN(
         ARR_AT(MAP_PAIRLIST(VAL_MAP(pvs->out)), ((n - 1) * 2) + 1)
     );
     if (IS_NULLED(val)) // zombie entry, means unused
-        return R_NULL;
+        return nullptr;
 
-    Move_Value(pvs->out, val);
-    return R_OUT;
+    return val;
 }
 
 
@@ -728,19 +727,19 @@ REBTYPE(Map)
         switch (property) {
         case SYM_LENGTH:
             Init_Integer(D_OUT, Length_Map(map));
-            return R_OUT;
+            return D_OUT;
 
         case SYM_VALUES:
             Init_Block(D_OUT, Map_To_Array(map, 1));
-            return R_OUT;
+            return D_OUT;
 
         case SYM_WORDS:
             Init_Block(D_OUT, Map_To_Array(map, -1));
-            return R_OUT;
+            return D_OUT;
 
         case SYM_BODY:
             Init_Block(D_OUT, Map_To_Array(map, 0));
-            return R_OUT;
+            return D_OUT;
 
         case SYM_TAIL_Q:
             return R_FROM_BOOL(Length_Map(map) == 0);
@@ -787,7 +786,7 @@ REBTYPE(Map)
         );
 
         if (n == 0)
-            return R_NULL;
+            return nullptr;
 
         Move_Value(
             D_OUT,
@@ -795,9 +794,9 @@ REBTYPE(Map)
         );
 
         if (VAL_WORD_SYM(verb) == SYM_FIND)
-            return IS_NULLED(D_OUT) ? R_NULL : R_BAR;
+            return IS_NULLED(D_OUT) ? nullptr : R_BAR;
 
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_PUT: {
         INCLUDE_PARAMS_OF_PUT;
@@ -814,7 +813,7 @@ REBTYPE(Map)
         UNUSED(n);
 
         Move_Value(D_OUT, ARG(value));
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_INSERT:
     case SYM_APPEND: {
@@ -847,7 +846,7 @@ REBTYPE(Map)
             VAL_SPECIFIER(arg),
             tail
         );
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
@@ -867,7 +866,7 @@ REBTYPE(Map)
         Find_Map_Entry(
             map, ARG(key), SPECIFIED, NULLED_CELL, SPECIFIED, TRUE
         );
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
@@ -891,7 +890,7 @@ REBTYPE(Map)
         }
 
         Init_Map(D_OUT, Copy_Map(map, types));
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_CLEAR:
         FAIL_IF_READ_ONLY_ARRAY(MAP_PAIRLIST(map));
@@ -904,7 +903,7 @@ REBTYPE(Map)
         Clear_Series(MAP_HASHLIST(map));
 
         Init_Map(D_OUT, map);
-        return R_OUT;
+        return D_OUT;
 
     default:
         break;

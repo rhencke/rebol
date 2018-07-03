@@ -87,14 +87,14 @@ REBNATIVE(trap)
 
     if (not error) {
         if (THROWN(D_OUT)) // though code didn't fail(), it may have thrown
-            return R_OUT_IS_THROWN;
+            return D_OUT;
 
         if (not REF(with) and IS_ERROR(D_OUT)) // code may evaluate to ERROR!
-            return R_NULL; // ...but void it so ERROR! *always* means raised
+            return nullptr; // ...but null it so ERROR! *always* means raised
 
         if (IS_NULLED(D_OUT))
-            return R_BLANK; // blankify output (should there be an /OPT ?)
-        return R_OUT;
+            Init_Blank(D_OUT); // blankify output (should there be an /OPT ?)
+        return D_OUT;
     }
 
     assert(IS_ERROR(error));
@@ -102,14 +102,14 @@ REBNATIVE(trap)
     if (REF(with)) {
         if (Run_Branch_Throws(D_OUT, error, ARG(handler))) {
             rebRelease(error);
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
     }
     else
         Move_Value(D_OUT, error);
 
     rebRelease(error); // released automatically if branch above fails
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -153,13 +153,13 @@ REBNATIVE(entrap)
     if (error) {
         Move_Value(D_OUT, error);
         rebRelease(error);
-        return R_OUT;
+        return D_OUT;
     }
 
     if (THROWN(D_OUT))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -195,5 +195,5 @@ REBNATIVE(set_location_of_error)
     REBCTX *error = VAL_CONTEXT(ARG(error));
     Set_Location_Of_Error(error, where);
 
-    return R_NULL;
+    return nullptr;
 }

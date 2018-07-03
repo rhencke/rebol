@@ -353,7 +353,7 @@ REBNATIVE(exclude)
         DECLARE_LOCAL (verb); // initial code did something weird w/this
         Init_Word(verb, Canon(SYM_EXCLUDE));
         Init_Bitset(D_OUT, Xandor_Binary(verb, val1, val2));
-        return R_OUT;
+        return D_OUT;
     }
 
     if (IS_TYPESET(val1) || IS_TYPESET(val2)) {
@@ -362,7 +362,7 @@ REBNATIVE(exclude)
 
         Move_Value(D_OUT, val1);
         VAL_TYPESET_BITS(D_OUT) &= ~VAL_TYPESET_BITS(val2);
-        return R_OUT;
+        return D_OUT;
     }
 
     Init_Any_Series(
@@ -376,7 +376,7 @@ REBNATIVE(exclude)
             REF(skip) ? Int32s(ARG(size), 1) : 1
         )
     );
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -404,7 +404,7 @@ REBNATIVE(unique)
         // Bitsets and typesets already unique (by definition)
         //
         Move_Value(D_OUT, ARG(series));
-        return R_OUT;
+        return D_OUT;
     }
 
     Init_Any_Series(
@@ -419,5 +419,5 @@ REBNATIVE(unique)
         )
     );
 
-    return R_OUT;
+    return D_OUT;
 }

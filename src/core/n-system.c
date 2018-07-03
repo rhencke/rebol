@@ -45,7 +45,7 @@ REBNATIVE(halt)
 
     Move_Value(D_OUT, NAT_VALUE(halt));
     CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }
 
 
@@ -82,7 +82,7 @@ REBNATIVE(quit)
         CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
     }
 
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }
 
 
@@ -139,7 +139,7 @@ REBNATIVE(recycle)
 
     if (REF(off)) {
         GC_Disabled = TRUE;
-        return R_NULL;
+        return nullptr;
     }
 
     if (REF(on)) {
@@ -158,7 +158,7 @@ REBNATIVE(recycle)
     }
 
     if (GC_Disabled)
-        return R_NULL; // don't give back misleading "0", since no recycle ran
+        return nullptr; // don't give misleading "0", since no recycle ran
 
     REBCNT count;
 
@@ -200,7 +200,7 @@ REBNATIVE(recycle)
     }
 
     Init_Integer(D_OUT, count);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -233,7 +233,7 @@ REBNATIVE(limit_usage)
     else
         fail (Error_Invalid(ARG(field)));
 
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -368,14 +368,14 @@ REBNATIVE(c_debug_break_at)
             (one << (ceil_log2(TG_Tick) + 1))
             + VAL_INT64(ARG(tick))
             - 1;
-        return R_NULL;
+        return nullptr;
     }
 
     if (REF(relative))
         TG_Break_At_Tick = frame_->tick + 1 + VAL_INT64(ARG(tick));
     else
         TG_Break_At_Tick = VAL_INT64(ARG(tick));
-    return R_NULL;
+    return nullptr;
   #else
     UNUSED(ARG(tick));
     UNUSED(ARG(relative));
@@ -450,5 +450,5 @@ REBNATIVE(test)
 
     rebElide("print", rebI(10), "if false [print", rebInteger(30), "]", END);
 
-    return R_NULL;
+    return nullptr;
 }

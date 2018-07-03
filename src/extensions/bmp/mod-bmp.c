@@ -544,7 +544,7 @@ REBNATIVE(decode_bmp)
     }
 
     Init_Image(D_OUT, ser);
-    return R_OUT;
+    return D_OUT;
 
 bit_len_error:
 bad_encoding_error:
@@ -620,7 +620,7 @@ REBNATIVE(encode_bmp)
 
     TERM_BIN_LEN(bin, bmfh.bfSize);
     Init_Binary(D_OUT, bin);
-    return R_OUT;
+    return D_OUT;
 }
 
 

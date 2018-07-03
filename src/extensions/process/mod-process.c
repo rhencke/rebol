@@ -1680,7 +1680,7 @@ REBNATIVE(call)
             );
 
         Init_Object(D_OUT, info);
-        return R_OUT;
+        return D_OUT;
     }
 
     if (r != 0)
@@ -1694,7 +1694,7 @@ REBNATIVE(call)
     else
         Init_Integer(D_OUT, pid);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1792,7 +1792,7 @@ REBNATIVE(get_os_browsers)
     Move_Value(D_OUT, list);
     rebRelease(list);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1801,7 +1801,7 @@ REBNATIVE(get_os_browsers)
 //
 //  "Use system sleep to wait a certain amount of time (doesn't use PORT!s)."
 //
-//      return: [<opt>]
+//      return: [void!]
 //      duration [integer! decimal! time!]
 //          {Length to sleep (integer and decimal are measuring seconds)}
 //
@@ -1829,7 +1829,7 @@ REBNATIVE(sleep)
     usleep(msec * 1000);
 #endif
 
-    return R_NULL;
+    return R_VOID;
 }
 
 #if defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
@@ -1878,7 +1878,7 @@ static REBNATIVE(terminate)
 
     if (TerminateProcess(ph, 0)) {
         CloseHandle(ph);
-        return R_NULL;
+        return nullptr;
     }
 
     err = GetLastError();
@@ -1899,7 +1899,7 @@ static REBNATIVE(terminate)
         fail ("Use QUIT or EXIT-REBOL to terminate current process, instead");
     }
     kill_process(VAL_INT32(ARG(pid)), SIGTERM);
-    return R_NULL;
+    return nullptr;
 #else
     UNUSED(frame_);
     fail ("terminate is not implemented for this platform");
@@ -1979,7 +1979,7 @@ static REBNATIVE(get_env)
     if (error != NULL)
         fail (error);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -2078,7 +2078,7 @@ static REBNATIVE(set_env)
     rebFree(key_utf8);
   #endif
 
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -2138,7 +2138,7 @@ static REBNATIVE(list_env)
     REBMAP *map = Mutate_Array_Into_Map(array);
     Init_Map(D_OUT, map);
 
-    return R_OUT;
+    return D_OUT;
   #else
     // Note: 'environ' is an extern of a global found in <unistd.h>, and each
     // entry contains a `key=value` formatted string.
@@ -2180,7 +2180,7 @@ static REBNATIVE(list_env)
     REBMAP *map = Mutate_Array_Into_Map(array);
     Init_Map(D_OUT, map);
 
-    return R_OUT;
+    return D_OUT;
   #endif
 }
 
@@ -2202,7 +2202,7 @@ static REBNATIVE(get_pid)
 
     Init_Integer(D_OUT, getpid());
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -2223,7 +2223,7 @@ static REBNATIVE(get_uid)
 
     Init_Integer(D_OUT, getuid());
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -2244,7 +2244,7 @@ static REBNATIVE(get_euid)
 
     Init_Integer(D_OUT, geteuid());
 
-    return R_OUT;
+    return D_OUT;
 }
 
 //
@@ -2263,7 +2263,7 @@ static REBNATIVE(get_gid)
 
     Init_Integer(D_OUT, getgid());
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -2284,7 +2284,7 @@ static REBNATIVE(get_egid)
 
     Init_Integer(D_OUT, getegid());
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -2292,11 +2292,12 @@ static REBNATIVE(get_egid)
 //
 //  set-uid: native [
 //
-//  "Set real user ID of the process"
+//  {Set real user ID of the process}
 //
-//      return: [<opt>]
-//      uid [integer!]
-//          {The effective user ID}
+//      return: "Same ID as input"
+//          [integer!]
+//      uid {The effective user ID}
+//          [integer!]
 //  ]
 //  new-errors: [
 //      invalid-uid: ["User id is invalid or not supported:" :arg1]
@@ -2323,7 +2324,7 @@ static REBNATIVE(set_uid)
         }
     }
 
-    return R_NULL;
+    return ARG(uid);
 }
 
 
@@ -2331,11 +2332,12 @@ static REBNATIVE(set_uid)
 //
 //  set-euid: native [
 //
-//  "Get effective user ID of the process"
+//  {Get effective user ID of the process}
 //
-//      return: [<opt>]
-//      euid [integer!]
-//          {The effective user ID}
+//      return: "Same ID as input"
+//          [<opt>]
+//      euid "The effective user ID"
+//          [integer!]
 //  ]
 //  new-errors: [
 //      invalid-euid: ["user id is invalid or not supported:" :arg1]
@@ -2362,7 +2364,7 @@ static REBNATIVE(set_euid)
         }
     }
 
-    return R_NULL;
+    return ARG(euid);
 }
 
 
@@ -2370,11 +2372,12 @@ static REBNATIVE(set_euid)
 //
 //  set-gid: native [
 //
-//  "Set real group ID of the process"
+//  {Set real group ID of the process}
 //
-//      return: [<opt>]
-//      gid [integer!]
-//          {The effective group ID}
+//      return: "Same ID as input"
+//          [<opt>]
+//      gid "The effective group ID"
+//          [integer!]
 //  ]
 //  new-errors: [
 //      invalid-gid: ["group id is invalid or not supported:" :arg1]
@@ -2401,7 +2404,7 @@ static REBNATIVE(set_gid)
         }
     }
 
-    return R_NULL;
+    return ARG(gid);
 }
 
 
@@ -2411,9 +2414,10 @@ static REBNATIVE(set_gid)
 //
 //  "Get effective group ID of the process"
 //
-//      return: [<opt>]
-//      egid [integer!]
-//          {The effective group ID}
+//      return: "Same ID as input"
+//          [integer!]
+//      egid "The effective group ID"
+//          [integer!]
 //  ]
 //  new-errors: [
 //      invalid-egid: ["group id is invalid or not supported:" :arg1]
@@ -2440,7 +2444,7 @@ static REBNATIVE(set_egid)
         }
     }
 
-    return R_NULL;
+    return ARG(egid);
 }
 
 
@@ -2475,7 +2479,7 @@ static void kill_process(REBINT pid, REBINT signal)
 //
 //  "Send signal to a process"
 //
-//      return: [<opt>]
+//      return: [void!] ;-- !!! might this return pid or signal (?)
 //      pid [integer!]
 //          {The process ID}
 //      signal [integer!]
@@ -2493,7 +2497,7 @@ static REBNATIVE(send_signal)
 
     kill_process(VAL_INT32(ARG(pid)), VAL_INT32(ARG(signal)));
 
-    return R_NULL;
+    return R_VOID;
 }
 #endif // defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
 

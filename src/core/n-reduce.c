@@ -111,7 +111,7 @@ REBNATIVE(reduce)
                 | (REF(try) ? REDUCE_FLAG_TRY : 0)
                 | (REF(opt) ? REDUCE_FLAG_OPT : 0)
         )){
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
@@ -124,7 +124,7 @@ REBNATIVE(reduce)
             Pop_Stack_Values_Core(dsp_orig, pop_flags)
         );
 
-        return R_OUT;
+        return D_OUT;
     }
 
     // Single element REDUCE does an EVAL, but doesn't allow arguments.
@@ -135,23 +135,19 @@ REBNATIVE(reduce)
 
     if (ANY_INERT(value)) { // don't bother with the evaluation
         Move_Value(D_OUT, value);
-        return R_OUT;
+        return D_OUT;
     }
 
     if (Eval_Value_Throws(D_OUT, value))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     if (not IS_NULLED(D_OUT))
-        return R_OUT;
+        return D_OUT;
 
     if (REF(try))
         return R_BLANK;
 
-    // Don't bother erroring if not REF(opt).  Since we *can* return a
-    // null result for a non-BLOCK!/GROUP!, the caller will have to worry
-    // about whether to error on that themselves.
-    //
-    return R_NULL;
+    return nullptr; // let caller worry about whether to error on nulls
 }
 
 
@@ -369,7 +365,7 @@ REBNATIVE(concoct)
         REF(deep),
         REF(only)
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
@@ -394,7 +390,7 @@ REBNATIVE(concoct)
         Pop_Stack_Values_Into(into, dsp_orig);
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -451,5 +447,5 @@ REBNATIVE(flatten)
     );
 
     Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-    return R_OUT;
+    return D_OUT;
 }

@@ -217,12 +217,12 @@ REBTYPE(Money)
     case SYM_NEGATE:
         val->payload.money.s = !val->payload.money.s;
         Move_Value(D_OUT, D_ARG(1));
-        return R_OUT;
+        return D_OUT;
 
     case SYM_ABSOLUTE:
         val->payload.money.s = 0;
         Move_Value(D_OUT, D_ARG(1));
-        return R_OUT;
+        return D_OUT;
 
     case SYM_ROUND: {
         INCLUDE_PARAMS_OF_ROUND;
@@ -266,13 +266,13 @@ REBTYPE(Money)
                 REBDEC dec = deci_to_decimal(VAL_MONEY_AMOUNT(D_OUT));
                 RESET_VAL_HEADER(D_OUT, VAL_TYPE(scale));
                 VAL_DECIMAL(D_OUT) = dec;
-                return R_OUT;
+                return D_OUT;
             }
             if (IS_INTEGER(scale)) {
                 REBI64 i64 = deci_to_int(VAL_MONEY_AMOUNT(D_OUT));
                 RESET_VAL_HEADER(D_OUT, REB_INTEGER);
                 VAL_INT64(D_OUT) = i64;
-                return R_OUT;
+                return D_OUT;
             }
         }
         break; }
@@ -289,6 +289,6 @@ REBTYPE(Money)
     }
 
     RESET_VAL_HEADER(D_OUT, REB_MONEY);
-    return R_OUT;
+    return D_OUT;
 }
 

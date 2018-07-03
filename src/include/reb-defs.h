@@ -319,6 +319,10 @@ typedef REBWCHAR REBUNI;
     #define END \
         ((const REBVAL*)&PG_End_Node) // sizeof(REBVAL) but not NODE_FLAG_CELL
 
+    // These definitions are needed in %sys-rebval.h, and can't be put in
+    // %sys-rebact.h because that depends on Reb_Array, which depends on
+    // Reb_Series, which depends on values... :-/
+    //
     typedef const REBVAL* REB_R;
 
     // C function implementing a native ACTION!

@@ -497,11 +497,11 @@ REBNATIVE(request_file_p)
     // The error is broken out this way so that any allocated strings can
     // be freed before the failure.
     //
-    if (error != NULL)
+    if (error)
         fail (error);
 
     if (DSP == dsp_orig)
-        return R_NULL;
+        return nullptr;
 
     if (REF(multi)) {
         //
@@ -510,7 +510,7 @@ REBNATIVE(request_file_p)
         // be better than null for that case?)
         //
         Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-        return R_OUT;
+        return D_OUT;
     }
 
     assert(IS_FILE(DS_TOP));
@@ -519,7 +519,7 @@ REBNATIVE(request_file_p)
     assert(DSP == dsp_orig + 1); // should be only one pushed, so check...
     DS_DROP_TO(dsp_orig); // ...but use DS_DROP_TO just to be safe in release
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -662,7 +662,7 @@ REBNATIVE(request_dir_p)
     if (error != NULL)
         fail (error);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 

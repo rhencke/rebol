@@ -385,7 +385,7 @@ REBNATIVE(action)
         Move_Value(&PG_Write_Action, D_OUT);
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -829,8 +829,7 @@ static void Init_Root_Vars(void)
     PG_R_IMMEDIATE.header.bits = FLAG_FIRST_BYTE(11);
     PG_R_UNHANDLED.header.bits = FLAG_FIRST_BYTE(12);
     PG_R_END.header.bits = FLAG_FIRST_BYTE(13);
-    PG_R_OUT.header.bits = FLAG_FIRST_BYTE(14);
-    PG_R_OUT_IS_THROWN.header.bits = FLAG_FIRST_BYTE(15);
+    PG_R_THROWN.header.bits = FLAG_FIRST_BYTE(14);
 }
 
 static void Shutdown_Root_Vars(void)

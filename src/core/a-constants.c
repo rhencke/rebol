@@ -189,7 +189,7 @@ const char RM_TRACE_PARSE_INPUT[] = "Parse input: %s";
 // into the out position instead of just setting headers, for unit types.
 //
 // It's not terribly significant, but `return R_VOID;` in a native is slightly
-// faster than `return VOID_CELL;`, and `Move_Value(D_OUT, t); return R_OUT;`
+// faster than `return VOID_CELL;`, and `Move_Value(D_OUT, t); return D_OUT;`
 // will also be slightly faster than `return t;`
 //
 // NOTE: Initially the letters were chosen to be meaningful ('F' for false,
@@ -285,17 +285,5 @@ const char RM_TRACE_PARSE_INPUT[] = "Parse input: %s";
 #define R_0D_END 0x0D
 #define R_END cast(const REBVAL*, &PG_R_END)
 
-#define R_0E_OUT 0x0E
-#define R_OUT cast(const REBVAL*, &PG_R_OUT)
-
-#define R_0F_OUT_IS_THROWN 0x0F
-#define R_OUT_IS_THROWN cast(const REBVAL*, &PG_R_OUT_IS_THROWN)
-
-// NOTE: The representation for nulls is just null.  This adds an extra check
-// vs. dereferencing the bytes unconditionally for the switch, but it's too
-// lame to not support it when REBVAL* is supported.  Given that, there's no
-// point in having an R_NULL also...but it is kept in case it is decided
-// to tradeoff "non-lameness" for the small amount of performance that not
-// having to check for null provides.
-//
-#define R_NULL nullptr
+#define R_0E_THROWN 0x0E
+#define R_THROWN cast(const REBVAL*, &PG_R_THROWN)

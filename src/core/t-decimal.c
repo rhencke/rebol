@@ -459,7 +459,7 @@ REBTYPE(Decimal)
 
     case SYM_COPY:
         Move_Value(D_OUT, val);
-        return R_OUT;
+        return D_OUT;
 
     case SYM_NEGATE:
         d1 = -d1;
@@ -502,7 +502,7 @@ REBTYPE(Decimal)
                 Init_Money(D_OUT, Round_Deci(
                     decimal_to_deci(d1), flags, VAL_MONEY_AMOUNT(arg)
                 ));
-                return R_OUT;
+                return D_OUT;
             }
             if (IS_TIME(arg))
                 fail (Error_Invalid(arg));
@@ -511,7 +511,7 @@ REBTYPE(Decimal)
             if (IS_INTEGER(arg)) {
                 RESET_VAL_HEADER(D_OUT, REB_INTEGER);
                 VAL_INT64(D_OUT) = cast(REBI64, d1);
-                return R_OUT;
+                return D_OUT;
             }
             if (IS_PERCENT(arg))
                 type = REB_PERCENT;
@@ -535,14 +535,14 @@ REBTYPE(Decimal)
             assert(sizeof(d) == sizeof(i));
             memcpy(&i, &d, sizeof(d));
             Set_Random(i); // use IEEE bits
-            return R_NULL;
+            return nullptr;
         }
         d1 = Random_Dec(d1, REF(secure));
         goto setDec; }
 
     case SYM_COMPLEMENT:
         Init_Integer(D_OUT, ~cast(REBINT, d1));
-        return R_OUT;
+        return D_OUT;
 
     default:
         ; // put fail outside switch() to catch any leaks
@@ -557,5 +557,5 @@ setDec:
     RESET_VAL_HEADER(D_OUT, type);
     VAL_DECIMAL(D_OUT) = d1;
 
-    return R_OUT;
+    return D_OUT;
 }

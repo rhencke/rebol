@@ -62,13 +62,13 @@ REBNATIVE(stats)
     if (REF(timer)) {
         RESET_VAL_HEADER(D_OUT, REB_TIME);
         VAL_NANO(D_OUT) = OS_DELTA_TIME(PG_Boot_Time) * 1000;
-        return R_OUT;
+        return D_OUT;
     }
 
     if (REF(evals)) {
         REBI64 n = Eval_Cycles + Eval_Dose - Eval_Count;
         Init_Integer(D_OUT, n);
-        return R_OUT;
+        return D_OUT;
     }
 
 #ifdef NDEBUG
@@ -111,13 +111,13 @@ REBNATIVE(stats)
             Init_Integer(stats, PG_Reb_Stats->Recycle_Counter);
         }
 
-        return R_OUT;
+        return D_OUT;
     }
 
     if (REF(dump_series)) {
         REBVAL *pool_id = ARG(pool_id);
         Dump_Series_In_Pool(VAL_INT32(pool_id));
-        return R_NULL;
+        return nullptr;
     }
 
     Init_Integer(D_OUT, Inspect_Series(REF(show)));
@@ -125,7 +125,7 @@ REBNATIVE(stats)
     if (REF(show))
         Dump_Pools();
 
-    return R_OUT;
+    return D_OUT;
 #endif
 }
 
@@ -295,6 +295,9 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
         // Not clear if there's any statistical reason to process the r result
         // here, but leave the scaffold in case there is.
         //
+        if (r == f->out) {
+            // most common return, possibly thrown or not
+        }
         if (not r) {
             // null
         }
@@ -338,14 +341,6 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
             assert(FALSE); // internal use only, shouldn't be returned
             break;
 
-        case R_0E_OUT:
-            assert(not THROWN(r));
-            break;
-
-        case R_0F_OUT_IS_THROWN:
-            assert(THROWN(r));
-            break;
-
         default:
             assert(r->header.bits & NODE_FLAG_CELL);
             // may be thrown, may not be
@@ -385,7 +380,7 @@ REBNATIVE(metrics)
     }
 
     Move_Value(D_OUT, Root_Stats_Map);
-    return R_OUT;
+    return D_OUT;
 }
 
 

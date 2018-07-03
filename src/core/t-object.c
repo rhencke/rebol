@@ -441,10 +441,9 @@ REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         // lookup that fails here is hacked in, but desirable for parity
         // with the behavior of GET-WORD!
         //
-        if (pvs->eval_type == REB_GET_PATH and FRM_AT_END(pvs)) {
-            Init_Nulled(pvs->out);
-            return R_OUT;
-        }
+        if (pvs->eval_type == REB_GET_PATH and FRM_AT_END(pvs))
+            return nullptr;
+
         return R_UNHANDLED;
     }
 
@@ -478,7 +477,7 @@ REBNATIVE(meta_of)
 
     REBVAL *v = ARG(value);
     if (IS_BLANK(v))
-        return R_NULL;
+        return nullptr;
 
     REBCTX *meta;
     if (IS_ACTION(v))
@@ -489,10 +488,10 @@ REBNATIVE(meta_of)
     }
 
     if (not meta)
-        return R_NULL;
+        return nullptr;
 
     Move_Value(D_OUT, CTX_ARCHETYPE(meta));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -534,10 +533,10 @@ REBNATIVE(set_meta)
     }
 
     if (not meta)
-        return R_NULL;
+        return nullptr;
 
     Move_Value(D_OUT, CTX_ARCHETYPE(meta));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -783,23 +782,23 @@ REB_R Context_Common_Action_Maybe_Unhandled(
         switch (property) {
         case SYM_LENGTH: // !!! Should this be legal?
             Init_Integer(D_OUT, CTX_LEN(c));
-            return R_OUT;
+            return D_OUT;
 
         case SYM_TAIL_Q: // !!! Should this be legal?
             Init_Logic(D_OUT, CTX_LEN(c) == 0);
-            return R_OUT;
+            return D_OUT;
 
         case SYM_WORDS:
             Init_Block(D_OUT, Context_To_Array(c, 1));
-            return R_OUT;
+            return D_OUT;
 
         case SYM_VALUES:
             Init_Block(D_OUT, Context_To_Array(c, 2));
-            return R_OUT;
+            return D_OUT;
 
         case SYM_BODY:
             Init_Block(D_OUT, Context_To_Array(c, 3));
-            return R_OUT;
+            return D_OUT;
 
         // Noticeably not handled by average objects: SYM_OPEN_Q (`open?`)
 
@@ -845,7 +844,7 @@ REBTYPE(Context)
             fail (Error_Illegal_Action(VAL_TYPE(value), verb));
         Append_To_Context(c, arg);
         Move_Value(D_OUT, D_ARG(1));
-        return R_OUT;
+        return D_OUT;
 
     case SYM_COPY: { // Note: words are not copied and bindings not changed!
         INCLUDE_PARAMS_OF_COPY;
@@ -870,26 +869,26 @@ REBTYPE(Context)
             types = 0;
 
         Init_Any_Context(D_OUT, VAL_TYPE(value), Copy_Context_Core(c, types));
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_SELECT:
     case SYM_FIND: {
         if (not IS_WORD(arg))
-            return R_NULL;
+            return nullptr;
 
         REBCNT n = Find_Canon_In_Context(c, VAL_WORD_CANON(arg), FALSE);
 
         if (n == 0)
-            return R_NULL;
+            return nullptr;
 
         if (cast(REBCNT, n) > CTX_LEN(c))
-            return R_NULL;
+            return nullptr;
 
         if (VAL_WORD_SYM(verb) == SYM_FIND)
             return R_BAR; // synthesizing TRUE would obscure non-LOGIC! result
 
         Move_Value(D_OUT, CTX_VAR(c, n));
-        return R_OUT;
+        return D_OUT;
     }
 
     default:
@@ -955,7 +954,7 @@ REBNATIVE(construct)
 
         Extend_Gob_Core(gob, body);
         SET_GOB(D_OUT, gob);
-        return R_OUT;
+        return D_OUT;
     }
     else if (IS_EVENT(spec)) {
         //
@@ -971,7 +970,7 @@ REBNATIVE(construct)
             VAL_ARRAY_AT(body),
             VAL_SPECIFIER(body)
         );
-        return R_OUT;
+        return D_OUT;
     }
     else if (ANY_CONTEXT(spec)) {
         parent = VAL_CONTEXT(spec);
@@ -1004,7 +1003,7 @@ REBNATIVE(construct)
                 parent
             )
         );
-        return R_OUT;
+        return D_OUT;
     }
 
     // This code came from REBTYPE(Context) for implementing MAKE OBJECT!.
@@ -1034,23 +1033,16 @@ REBNATIVE(construct)
 
         if (!IS_BLANK(body)) {
             //
-            // !!! This binds the actual body data, not a copy of it
-            // (functions make a copy of the body they are passed to
-            // be rebound).  This seems wrong.
+            // !!! This binds the actual body data, not a copy of it.  See
+            // Virtual_Bind_Deep_To_New_Context() for future directions.
             //
             Bind_Values_Deep(VAL_ARRAY_AT(body), context);
 
-            // Do the block into scratch space (we ignore the result,
-            // unless it is thrown in which case it must be returned.
-            //
-            DECLARE_LOCAL (dummy);
-            if (Do_Any_Array_At_Throws(dummy, body)) {
-                Move_Value(D_OUT, dummy);
-                return R_OUT_IS_THROWN;
-            }
+            if (Do_Any_Array_At_Throws(D_CELL, body))
+                return D_CELL; // body evaluation result ignored unless thrown
         }
 
-        return R_OUT;
+        return D_OUT;
     }
 
     // "multiple inheritance" case when both spec and body are objects.
@@ -1065,7 +1057,7 @@ REBNATIVE(construct)
         //
         context = Merge_Contexts_Selfish(parent, VAL_CONTEXT(body));
         Init_Object(D_OUT, context);
-        return R_OUT;
+        return D_OUT;
     }
 
     fail ("Unsupported CONSTRUCT arguments");

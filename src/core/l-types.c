@@ -188,23 +188,23 @@ REBNATIVE(make)
         do {
             REB_R r = Do_Vararg_Op_May_Throw(D_OUT, arg, VARARG_OP_TAKE);
 
-            if (r == R_OUT_IS_THROWN) {
+            if (r == R_THROWN) {
                 DS_DROP_TO(dsp_orig);
-                return R_OUT_IS_THROWN;
+                return D_OUT;
             }
             if (r == R_END)
                 break;
-            assert(r == R_OUT);
+            assert(r == D_OUT);
 
             DS_PUSH(D_OUT);
         } while (TRUE);
 
         Init_Any_Array(D_OUT, kind, Pop_Stack_Values(dsp_orig));
-        return R_OUT;
+        return D_OUT;
     }
 
     dispatcher(D_OUT, kind, arg); // may fail()
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -259,7 +259,7 @@ REBNATIVE(to)
         fail (Error_Invalid(v));
 
     dispatcher(D_OUT, new_kind, v); // may fail();
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -305,9 +305,9 @@ REB_R Reflect_Core(REBFRM *frame_)
 
     case SYM_TYPE:
         if (kind == REB_MAX_NULLED)
-            return R_NULL; // `() = type of ()`, `null = type of ()`
+            return nullptr; // `() = type of ()`, `null = type of ()`
         Init_Datatype(D_OUT, kind);
-        return R_OUT;
+        return D_OUT;
 
     default:
         // !!! Are there any other universal reflectors?
@@ -1463,5 +1463,5 @@ REBNATIVE(scan_net_header)
     }
 
     Init_Block(D_OUT, result);
-    return R_OUT;
+    return D_OUT;
 }

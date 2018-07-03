@@ -185,7 +185,7 @@ REBNATIVE(decode_text)
     // having wider format support might be a good thing.
 
     Init_Text(D_OUT, Make_String_UTF8(cs_cast(VAL_BIN_AT(ARG(data)))));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -212,7 +212,7 @@ REBNATIVE(encode_text)
     }
 
     Init_Binary(D_OUT, Copy_Sequence_At_Position(ARG(string)));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -329,7 +329,7 @@ REBNATIVE(decode_utf16le)
         Remove_Series(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -356,7 +356,7 @@ REBNATIVE(encode_utf16le)
         VAL_LEN_AT(ARG(text)),
         little_endian
     );
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -414,7 +414,7 @@ REBNATIVE(decode_utf16be)
         Remove_Series(VAL_SERIES(D_OUT), VAL_INDEX(D_OUT), 1);
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -442,5 +442,5 @@ REBNATIVE(encode_utf16be)
         VAL_LEN_AT(ARG(text)),
         little_endian
     );
-    return R_OUT;
+    return D_OUT;
 }

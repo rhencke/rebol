@@ -97,7 +97,7 @@ static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         // !!! Among many confusions in this file, it said "Another copy???"
         //
         Init_Binary(D_OUT, Copy_Bytes(req->common.data, req->actual));
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_OPEN: {
         req->flags |= RRF_OPEN;
@@ -116,7 +116,7 @@ static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
 return_port:
     Move_Value(D_OUT, D_ARG(1));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -131,5 +131,5 @@ return_port:
 REBNATIVE(get_console_actor_handle)
 {
     Make_Port_Actor_Handle(D_OUT, &Console_Actor);
-    return R_OUT;
+    return D_OUT;
 }

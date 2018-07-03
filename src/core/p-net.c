@@ -221,7 +221,7 @@ static REB_R Transport_Actor(
 
         case SYM_CLOSE:
             Init_Port(D_OUT, port);
-            return R_OUT;
+            return D_OUT;
 
         case SYM_ON_WAKE_UP:  // allowed after a close
             break;
@@ -249,7 +249,7 @@ static REB_R Transport_Actor(
                 D_OUT,
                 ANY_SERIES(port_data) ? VAL_LEN_HEAD(port_data) : 0
             );
-            return R_OUT; }
+            return D_OUT; }
 
         case SYM_OPEN_Q:
             //
@@ -456,7 +456,7 @@ static REB_R Transport_Actor(
         }
         else
             fail (Error_Out_Of_Range(ARG(picker)));
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_QUERY: {
         //
@@ -464,7 +464,7 @@ static REB_R Transport_Actor(
         // Special notation allows just getting part of the info.
         //
         Ret_Query_Net(port, DEVREQ_NET(sock), D_OUT);
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_CLOSE: {
         if (sock->flags & RRF_OPEN) {
@@ -503,7 +503,7 @@ static REB_R Transport_Actor(
 
 return_port:
     Init_Port(D_OUT, port);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -536,7 +536,7 @@ static REB_R UDP_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 REBNATIVE(get_tcp_actor_handle)
 {
     Make_Port_Actor_Handle(D_OUT, &TCP_Actor);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -551,7 +551,7 @@ REBNATIVE(get_tcp_actor_handle)
 REBNATIVE(get_udp_actor_handle)
 {
     Make_Port_Actor_Handle(D_OUT, &UDP_Actor);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -609,7 +609,7 @@ REBNATIVE(set_udp_multicast)
     UNUSED(REF(drop));
 
     OS_DO_DEVICE_SYNC(sock, RDC_MODIFY);
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -643,5 +643,5 @@ REBNATIVE(set_udp_ttl)
     UNUSED(ARG(ttl));
 
     OS_DO_DEVICE_SYNC(sock, RDC_MODIFY);
-    return R_NULL;
+    return nullptr;
 }

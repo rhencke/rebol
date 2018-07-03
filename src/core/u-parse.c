@@ -231,7 +231,7 @@ static REBOOL Subparse_Throws(
 
     Drop_Frame_Core(f); // may not be FRM_AT_END(f)
 
-    if (r == R_OUT_IS_THROWN) {
+    if (r == R_THROWN) {
         assert(THROWN(out));
 
         // ACCEPT and REJECT are special cases that can happen at nested parse
@@ -264,7 +264,7 @@ static REBOOL Subparse_Throws(
         return TRUE;
     }
 
-    assert(r == R_OUT);
+    assert(r == out);
     *interrupted_out = FALSE;
     return FALSE;
 }
@@ -1279,12 +1279,12 @@ REBNATIVE(subparse)
 // Rules are matched until one of these things happens:
 //
 // * A rule fails, and is not then picked up by a later "optional" rule.
-// This returns R_OUT with the value in out as BLANK!.
+// This returns D_OUT with the value in out as BLANK!.
 //
 // * You run out of rules to apply without any failures or errors, and the
 // position in the input series is returned.  This may be at the end of
 // the input data or not--it's up to the caller to decide if that's relevant.
-// This will return R_OUT with out containing an integer index.
+// This will return D_OUT with out containing an integer index.
 //
 // !!! The return of an integer index is based on the R3-Alpha convention,
 // but needs to be rethought in light of the ability to switch series.  It
@@ -1296,10 +1296,10 @@ REBNATIVE(subparse)
 // rule pattern, or if there's an error in code that is run in parentheses.
 //
 // * A throw-style result caused by DO code run in parentheses (e.g. a
-// THROW, RETURN, BREAK, CONTINUE).  This returns R_OUT_IS_THROWN.
+// THROW, RETURN, BREAK, CONTINUE).  This returns R_THROWN.
 //
 // * A special throw to indicate a return out of the PARSE itself, triggered
-// by the RETURN instruction.  This also returns R_OUT_IS_THROWN, but will
+// by the RETURN instruction.  This also returns R_THROWN, but will
 // be caught by PARSE before returning.
 //
 {
@@ -1408,7 +1408,7 @@ REBNATIVE(subparse)
             // (Note this means `[| ...anything...]` is a "no-op" match)
             //
             Init_Integer(P_OUT, P_POS);
-            return R_OUT;
+            return D_OUT;
         }
 
         // If word, set-word, or get-word, process it:
@@ -1523,12 +1523,12 @@ REBNATIVE(subparse)
                                 // THROW, BREAK, CONTINUE, etc then we'll
                                 // return that
                                 Move_Value(P_OUT, evaluated);
-                                return R_OUT_IS_THROWN;
+                                return R_THROWN;
                             }
 
                             Move_Value(P_OUT, NAT_VALUE(parse));
                             CONVERT_NAME_TO_THROWN(P_OUT, evaluated);
-                            return R_OUT_IS_THROWN;
+                            return R_THROWN;
                         }
                         flags |= PF_RETURN;
                         continue;
@@ -1553,7 +1553,7 @@ REBNATIVE(subparse)
                         thrown_arg->extra.binding = UNBOUND; // unused by ints
 
                         CONVERT_NAME_TO_THROWN(P_OUT, thrown_arg);
-                        return R_OUT_IS_THROWN;
+                        return R_THROWN;
                     }
 
                     case SYM_REJECT: {
@@ -1562,7 +1562,7 @@ REBNATIVE(subparse)
                         //
                         Move_Value(P_OUT, NAT_VALUE(parse_reject));
                         CONVERT_NAME_TO_THROWN(P_OUT, BLANK_VALUE);
-                        return R_OUT;
+                        return D_OUT;
                     }
 
                     case SYM_FAIL:
@@ -1587,7 +1587,7 @@ REBNATIVE(subparse)
                             P_RULE_SPECIFIER
                         )) {
                             Move_Value(P_OUT, condition);
-                            return R_OUT_IS_THROWN;
+                            return R_THROWN;
                         }
 
                         FETCH_NEXT_RULE_MAYBE_END(f);
@@ -1748,7 +1748,7 @@ REBNATIVE(subparse)
                 derived
             )) {
                 Move_Value(P_OUT, evaluated);
-                return R_OUT_IS_THROWN;
+                return R_THROWN;
             }
             // ignore evaluated if it's not THROWN?
 
@@ -1905,7 +1905,7 @@ REBNATIVE(subparse)
                         P_FIND_FLAGS
                     )) {
                         Move_Value(P_OUT, P_CELL);
-                        return R_OUT_IS_THROWN;
+                        return R_THROWN;
                     }
 
                     // !!! ignore interrupted? (e.g. ACCEPT or REJECT ran)
@@ -1937,7 +1937,7 @@ REBNATIVE(subparse)
 
                     i = Do_Eval_Rule(f); // changes P_RULE (should)
 
-                    if (i == THROWN_FLAG) return R_OUT_IS_THROWN;
+                    if (i == THROWN_FLAG) return R_THROWN;
 
                     break;
                 }
@@ -1958,7 +1958,7 @@ REBNATIVE(subparse)
                     P_FIND_FLAGS
                 )) {
                     Move_Value(P_OUT, P_CELL);
-                    return R_OUT_IS_THROWN;
+                    return R_THROWN;
                 }
 
                 // Non-breaking out of loop instances of match or not.
@@ -1991,7 +1991,7 @@ REBNATIVE(subparse)
             }
 
             if (i == THROWN_FLAG)
-                return R_OUT_IS_THROWN;
+                return R_THROWN;
 
             // Necessary for special cases like: some [to end]
             // i: indicates new index or failure of the match, but
@@ -2161,7 +2161,7 @@ REBNATIVE(subparse)
 
                     Move_Value(P_OUT, NAT_VALUE(parse));
                     CONVERT_NAME_TO_THROWN(P_OUT, captured);
-                    return R_OUT_IS_THROWN;
+                    return R_THROWN;
                 }
 
                 if (flags & PF_REMOVE) {
@@ -2213,7 +2213,7 @@ REBNATIVE(subparse)
                             derived
                         )) {
                             Move_Value(P_OUT, evaluated);
-                            return R_OUT_IS_THROWN;
+                            return R_THROWN;
                         }
 
                         rule = evaluated;
@@ -2288,7 +2288,7 @@ REBNATIVE(subparse)
             FETCH_TO_BAR_MAYBE_END(f);
             if (FRM_AT_END(f)) { // no alternate rule
                 Init_Blank(P_OUT);
-                return R_OUT;
+                return D_OUT;
             }
 
             // Jump to the alternate rule and reset input
@@ -2302,7 +2302,7 @@ REBNATIVE(subparse)
     }
 
     Init_Integer(P_OUT, P_POS); // !!! return switched input series??
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -2327,7 +2327,7 @@ REBNATIVE(parse)
     REBVAL *rules = ARG(rules);
 
     if (IS_BLANK(ARG(input)))
-        return R_NULL; // blank in, null out protocol
+        return nullptr; // "blank in, null out" convention
 
     if (IS_BLANK(rules) or IS_TEXT(rules)) { // give helpful error, for now
         fail (
@@ -2369,18 +2369,18 @@ REBNATIVE(parse)
             // This handles that branch and catches the result value.
             //
             CATCH_THROWN(D_OUT, D_OUT);
-            return R_OUT;
+            return D_OUT;
         }
 
         // All other throws should just bubble up uncaught.
         //
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
     // Parse can fail if the match rule state can't process pending input.
     //
     if (IS_BLANK(D_OUT))
-        return R_NULL;
+        return nullptr;
 
     assert(IS_INTEGER(D_OUT));
 
@@ -2388,7 +2388,7 @@ REBNATIVE(parse)
     // at (or beyond) the tail of the input series, the parse also failed.
     //
     if (VAL_UNT32(D_OUT) < VAL_LEN_HEAD(ARG(input)))
-        return R_NULL;
+        return nullptr;
 
     return R_BAR; // use BAR! to avoid suggesting that failing gives #[false]
 }

@@ -133,7 +133,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         if (DEVREQ_NET(sock)->host_info == NULL) {
             Init_Blank(D_OUT); // HOST_NOT_FOUND or NO_ADDRESS blank vs. error
-            return R_OUT; // READ action currently required to use R_OUTs
+            return D_OUT; // READ action currently required to use R_OUTs
         }
 
         if (sock->modes & RST_REVERSE) {
@@ -184,7 +184,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
 return_port:
     Move_Value(D_OUT, D_ARG(1));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -199,5 +199,5 @@ return_port:
 REBNATIVE(get_dns_actor_handle)
 {
     Make_Port_Actor_Handle(D_OUT, &DNS_Actor);
-    return R_OUT;
+    return D_OUT;
 }

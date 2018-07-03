@@ -677,13 +677,13 @@ void Poke_Vector_Fail_If_Read_Only(
 //
 REB_R PD_Vector(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 {
-    if (opt_setval != NULL) {
+    if (opt_setval) {
         Poke_Vector_Fail_If_Read_Only(pvs->out, picker, opt_setval);
         return R_INVISIBLE;
     }
 
     Pick_Vector(pvs->out, pvs->out, picker);
-    return R_OUT;
+    return pvs->out;
 }
 
 
@@ -717,7 +717,7 @@ REBTYPE(Vector)
         case SYM_LENGTH:
             //bits = 1 << (vect->size & 3);
             Init_Integer(D_OUT, SER_LEN(vect));
-            return R_OUT;
+            return D_OUT;
 
         default:
             break;
@@ -756,7 +756,7 @@ REBTYPE(Vector)
 
         Shuffle_Vector(value, REF(secure));
         Move_Value(D_OUT, D_ARG(1));
-        return R_OUT; }
+        return D_OUT; }
 
     default:
         break;
@@ -766,7 +766,7 @@ REBTYPE(Vector)
 
 return_vector:
     Move_Value(D_OUT, value);
-    return R_OUT;
+    return D_OUT;
 }
 
 

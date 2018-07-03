@@ -206,7 +206,7 @@ REB_R PD_Pair(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (opt_setval == NULL) {
         dec = (n == 1 ? VAL_PAIR_X(pvs->out) : VAL_PAIR_Y(pvs->out));
         Init_Decimal(pvs->out, dec);
-        return R_OUT;
+        return pvs->out;
     }
 
     if (IS_INTEGER(opt_setval))
@@ -403,6 +403,6 @@ REBTYPE(Pair)
 
 setPair:
     SET_PAIR(D_OUT, x1, y1);
-    return R_OUT;
+    return D_OUT;
 }
 

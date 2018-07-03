@@ -74,7 +74,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         switch (property) {
         case SYM_LENGTH:
             Init_Integer(D_OUT, VAL_LEN_HEAD(state));
-            return R_OUT;
+            return D_OUT;
 
         default:
             break;
@@ -110,7 +110,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             or verb == SYM_REMOVE
         ){
             Move_Value(D_OUT, save_port);
-            return R_OUT;
+            return D_OUT;
         }
         return r; }
 
@@ -140,7 +140,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
 return_port:
     Move_Value(D_OUT, D_ARG(1));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -156,5 +156,5 @@ return_port:
 REBNATIVE(get_timer_actor_handle)
 {
     Make_Port_Actor_Handle(D_OUT, &Timer_Actor);
-    return R_OUT;
+    return D_OUT;
 }

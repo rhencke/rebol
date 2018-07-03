@@ -147,10 +147,10 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
     if (Apply_Only_Throws(
         D_OUT, TRUE, write_append, D_ARG(1), D_ARG(2), END
     )){
-        return R_OUT_IS_THROWN;
+        return D_OUT;
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 

@@ -110,7 +110,7 @@ REBNATIVE(as_pair)
         IS_INTEGER(y) ? VAL_INT64(y) : VAL_DECIMAL(y)
     );
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -178,7 +178,7 @@ REBNATIVE(bind)
 
         if (Try_Bind_Word(context, v)) {
             Move_Value(D_OUT, v);
-            return R_OUT;
+            return D_OUT;
         }
 
         // not in context, bind/new means add it if it's not.
@@ -186,7 +186,7 @@ REBNATIVE(bind)
         if (REF(new) or (IS_SET_WORD(v) and REF(set))) {
             Append_Context(context, v, NULL);
             Move_Value(D_OUT, v);
-            return R_OUT;
+            return D_OUT;
         }
 
         fail (Error_Not_In_Context_Raw(v));
@@ -200,7 +200,7 @@ REBNATIVE(bind)
     if (IS_ACTION(v)) {
         Move_Value(D_OUT, v);
         INIT_BINDING(D_OUT, context);
-        return R_OUT;
+        return D_OUT;
     }
 
     assert(ANY_ARRAY(v));
@@ -232,7 +232,7 @@ REBNATIVE(bind)
         flags
     );
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -275,9 +275,9 @@ REBNATIVE(use)
     );
 
     if (Do_Any_Array_At_Throws(D_OUT, ARG(body)))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -410,7 +410,7 @@ REBNATIVE(unbind)
         Unbind_Values_Core(VAL_ARRAY_AT(word), NULL, REF(deep));
 
     Move_Value(D_OUT, word);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -448,7 +448,7 @@ REBNATIVE(collect_words)
     RELVAL *head = VAL_ARRAY_AT(ARG(block));
 
     Init_Block(D_OUT, Collect_Unique_Words_Managed(head, flags, ARG(hidden)));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -535,7 +535,7 @@ REBNATIVE(get)
     if (IS_BLOCK(ARG(source)))
         Init_Block(D_OUT, results);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -557,7 +557,7 @@ REBNATIVE(try)
         return R_BLANK;
 
     Move_Value(D_OUT, ARG(optional));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -568,18 +568,18 @@ REBNATIVE(try)
 //
 //      return: "null if input was BLANK! or VOID!, else original value"
 //          [<opt> any-value!]
-//      value [<opt> any-value!]
+//      optional [<opt> any-value!]
 //  ]
 //
 REBNATIVE(opt)
 {
     INCLUDE_PARAMS_OF_OPT;
 
-    if (IS_BLANK(ARG(value)) or IS_VOID(ARG(value)))
-        return R_NULL;
+    if (IS_BLANK(ARG(optional)) or IS_VOID(ARG(optional)))
+        return nullptr;
 
-    Move_Value(D_OUT, ARG(value));
-    return R_OUT;
+    Move_Value(D_OUT, ARG(optional));
+    return D_OUT;
 }
 
 
@@ -626,11 +626,11 @@ REBNATIVE(in)
                         INIT_WORD_CONTEXT(word, context);
                         INIT_WORD_INDEX(word, index);
                         Move_Value(D_OUT, word);
-                        return R_OUT;
+                        return D_OUT;
                     }
                 }
             }
-            return R_NULL;
+            return nullptr;
         }
 
         fail (Error_Invalid(word));
@@ -642,12 +642,12 @@ REBNATIVE(in)
     if (IS_BLOCK(word) || IS_GROUP(word)) {
         Bind_Values_Deep(VAL_ARRAY_HEAD(word), context);
         Move_Value(D_OUT, word);
-        return R_OUT;
+        return D_OUT;
     }
 
     REBCNT index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), FALSE);
     if (index == 0)
-        return R_NULL;
+        return nullptr;
 
     Init_Any_Word_Bound(
         D_OUT,
@@ -656,7 +656,7 @@ REBNATIVE(in)
         context,
         index
     );
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -696,7 +696,7 @@ REBNATIVE(resolve)
     );
 
     Move_Value(D_OUT, ARG(target));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -838,7 +838,7 @@ REBNATIVE(set)
     }
 
     Move_Value(D_OUT, ARG(value));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -861,7 +861,7 @@ REBNATIVE(unset)
     if (ANY_WORD(target)) {
         REBVAL *var = Sink_Var_May_Fail(target, SPECIFIED);
         Init_Nulled(var);
-        return R_NULL;
+        return nullptr;
     }
 
     assert(IS_BLOCK(target));
@@ -875,7 +875,7 @@ REBNATIVE(unset)
         Init_Nulled(var);
     }
 
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -966,7 +966,7 @@ REBNATIVE(identity)
     if (REF(quote))
         SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -975,7 +975,7 @@ REBNATIVE(identity)
 //
 //  {Releases the underlying data of a value so it can no longer be accessed}
 //
-//      return: [<opt>]
+//      return: [void!]
 //      memory [any-series! any-context! handle!]
 //  ]
 //
@@ -994,7 +994,7 @@ REBNATIVE(free)
     FAIL_IF_READ_ONLY_SERIES(s);
 
     Decay_Series(s);
-    return R_NULL;
+    return R_VOID; // !!! Should it return the freed, not-useful value?
 }
 
 
@@ -1044,7 +1044,7 @@ REBNATIVE(as)
 
     REBVAL *v = ARG(value);
     if (IS_BLANK(v))
-        return R_NULL; // "blank in, null out" convention for non-modifiers
+        return nullptr; // "blank in, null out" convention for non-modifiers
 
     enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
 
@@ -1078,7 +1078,7 @@ REBNATIVE(as)
             );
             SET_SER_INFO(string, SERIES_INFO_FROZEN);
             Init_Any_Series(D_OUT, new_kind, string);
-            return R_OUT;
+            return D_OUT;
         }
 
         // !!! Similarly, until UTF-8 Everywhere, we can't actually alias
@@ -1101,7 +1101,7 @@ REBNATIVE(as)
                 Decay_Series(VAL_SERIES(v));
             }
             Init_Any_Series(D_OUT, new_kind, string);
-            return R_OUT;
+            return D_OUT;
         }
 
         if (not ANY_STRING(v))
@@ -1136,7 +1136,7 @@ REBNATIVE(as)
                 new_kind,
                 Intern_UTF8_Managed(BIN_AT(temp, offset), utf8_size)
             );
-            return R_OUT;
+            return D_OUT;
         }
 
         // !!! Since pre-UTF8-everywhere ANY-WORD! was saved in UTF-8 it would
@@ -1154,7 +1154,7 @@ REBNATIVE(as)
                 new_kind,
                 Intern_UTF8_Managed(VAL_BIN_AT(v), VAL_LEN_AT(v))
             );
-            return R_OUT;
+            return D_OUT;
         }
 
         if (not ANY_WORD(v))
@@ -1169,7 +1169,7 @@ REBNATIVE(as)
         if (ANY_WORD(v)) {
             assert(Is_Value_Immutable(v));
             Init_Binary(D_OUT, VAL_WORD_SPELLING(v));
-            return R_OUT;
+            return D_OUT;
         }
 
         if (ANY_STRING(v)) {
@@ -1185,7 +1185,7 @@ REBNATIVE(as)
                 Decay_Series(VAL_SERIES(v));
 
             Init_Binary(D_OUT, bin);
-            return R_OUT;
+            return D_OUT;
         }
 
         fail (v); }
@@ -1199,7 +1199,7 @@ REBNATIVE(as)
 
     VAL_SET_TYPE_BITS(v, new_kind);
     Move_Value(D_OUT, v);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -1305,7 +1305,7 @@ REBNATIVE(quote)
 
     Move_Value(D_OUT, v);
     SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
-    return R_OUT;
+    return D_OUT;
 }
 
 

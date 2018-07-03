@@ -163,7 +163,7 @@ static REBNATIVE(rc4)
         );
 
         Init_Handle_Managed(D_OUT, rc4_ctx, 0, &cleanup_rc4_ctx);
-        return R_OUT;
+        return D_OUT;
     }
 
     fail (Error(RE_EXT_CRYPT_KEY_OR_STREAM_REQUIRED, END));
@@ -559,7 +559,7 @@ static REBNATIVE(aes)
             AES_convert_key(aes_ctx);
 
         Init_Handle_Managed(D_OUT, aes_ctx, 0, &cleanup_aes_ctx);
-        return R_OUT;
+        return D_OUT;
     }
 
     fail (Error(RE_EXT_CRYPT_KEY_OR_STREAM_REQUIRED, END));
@@ -728,7 +728,7 @@ static REBNATIVE(decloak)
     );
 
     Move_Value(D_OUT, ARG(data));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -758,7 +758,7 @@ static REBNATIVE(encloak)
     );
 
     Move_Value(D_OUT, ARG(data));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -819,7 +819,7 @@ REBNATIVE(checksum_crc8_tello)
     }
 
     Init_Integer(D_OUT, cast(REBYTE, (seed & 0xff)));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -887,7 +887,7 @@ REBNATIVE(checksum_crc16_tello)
     }
 
     Init_Integer(D_OUT, seed);
-    return R_OUT;
+    return D_OUT;
 }
 
 

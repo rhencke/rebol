@@ -1450,9 +1450,105 @@ reevaluate:;
         REB_R r; // initialization would be skipped by gotos
         r = (*PG_Dispatcher)(f); // default just calls FRM_PHASE(f)
 
-        if (r == R_OUT) {
+        if (r == f->out) {
+            //
+            // This is the most common result, and taking it out of the
+            // switch improves performance.  `Init_Void(D_OUT); return D_OUT`
+            // will thus always be faster than `return R_VOID`, which in
+            // turn will be faster than `return VOID_CELL` (copies full cell)
+            //
+            if (not THROWN(f->out))
+                goto dispatch_completed;
+
+        out_is_thrown:;
+
+            if (IS_ACTION(f->out)) {
+                if (
+                    VAL_ACTION(f->out) == NAT_ACTION(unwind)
+                    and VAL_BINDING(f->out) == NOD(f->varlist)
+                ){
+                    // Do_Core catches unwinds to the current frame, so throws
+                    // where the "/name" is the JUMP native with a binding to
+                    // this frame, and the thrown value is the return code.
+                    //
+                    // !!! This might be a little more natural if the name of
+                    // the throw was a FRAME! value.  But that also would mean
+                    // throws named by frames couldn't be taken advantage by
+                    // the user for other features, while this only takes one
+                    // function away.
+                    //
+                    CATCH_THROWN(f->out, f->out);
+                    goto dispatch_completed;
+                }
+                else if (
+                    VAL_ACTION(f->out) == NAT_ACTION(redo)
+                    and VAL_BINDING(f->out) == NOD(f->varlist)
+                ){
+                    // This was issued by REDO, and should be a FRAME! with
+                    // the phase and binding we are to resume with.
+                    //
+                    CATCH_THROWN(f->out, f->out);
+                    assert(IS_FRAME(f->out));
+
+                    // !!! We are reusing the frame and may be jumping to an
+                    // "earlier phase" of a composite function, or even to
+                    // a "not-even-earlier-just-compatible" phase of another
+                    // function.  Type checking is necessary, as is zeroing
+                    // out any locals...but if we're jumping to any higher
+                    // or different phase we need to reset the specialization
+                    // values as well.
+                    //
+                    // Since dispatchers run arbitrary code to pick how (and
+                    // if) they want to change the phase on each redo, we
+                    // have no easy way to tell if a phase is "earlier" or
+                    // "later".  The only thing we have is if it's the same
+                    // we know we couldn't have touched the specialized args
+                    // (no binding to them) so no need to fill those slots
+                    // in via the exemplar.  Otherwise, we have to use the
+                    // exemplar of the phase.
+                    //
+                    // REDO is a fairly esoteric feature to start with, and
+                    // REDO of a frame phase that isn't the running one even
+                    // more esoteric, with REDO/OTHER being *extremely*
+                    // esoteric.  So having a fourth state of how to handle
+                    // f->special (in addition to the three described above)
+                    // seems like more branching in the baseline argument
+                    // loop.  Hence, do a pre-pass here to fill in just the
+                    // specializations and leave everything else alone.
+                    //
+                    REBCTX *exemplar;
+                    if (
+                        FRM_PHASE(f) != f->out->payload.any_context.phase
+                        and did (exemplar = ACT_EXEMPLAR(
+                            f->out->payload.any_context.phase
+                        ))
+                    ){
+                        f->special = CTX_VARS_HEAD(exemplar);
+                        f->arg = FRM_ARGS_HEAD(f);
+                        for (; NOT_END(f->arg); ++f->arg, ++f->special) {
+                            if (IS_NULLED(f->special)) // no specialization
+                                continue;
+                            Move_Value(f->arg, f->special); // reset it
+                        }
+                    }
+
+                    FRM_PHASE(f) = f->out->payload.any_context.phase;
+                    FRM_BINDING(f) = VAL_BINDING(f->out);
+                    goto redo_checked;
+                }
+            }
+
+            // Stay THROWN and let stack levels above try and catch
+            //
+            goto abort_action;
         }
         else if (not r) {
+            //
+            // It's not necessarily ideal to test null before the switch, but
+            // there isn't really a choice, as dereferencing it would crash.
+            // There could be an R_NULL and forbid actual nullptr, but that
+            // ruins returning API results directly from dispatchers.
+            //
             Init_Nulled(f->out);
         }
         else switch (const_FIRST_BYTE(r->header)) {
@@ -1565,9 +1661,6 @@ reevaluate:;
             assert(false);
             break;
 
-        case R_0E_OUT:
-            break;
-
         default: {
             // can be any cell--including thrown value
             // !!! main focus here is auto-handling API cells, add that!
@@ -1582,94 +1675,11 @@ reevaluate:;
                 break;
             }
             if (THROWN(f->out))
-                goto r_out_is_thrown;
+                goto out_is_thrown;
             break; }
-
-        case R_0F_OUT_IS_THROWN: {
-          r_out_is_thrown:
-            assert(THROWN(f->out)); // thrown value is the label.
-            if (IS_ACTION(f->out)) {
-                if (
-                    VAL_ACTION(f->out) == NAT_ACTION(unwind)
-                    and VAL_BINDING(f->out) == NOD(f->varlist)
-                ){
-                    // Do_Core catches unwinds to the current frame, so throws
-                    // where the "/name" is the JUMP native with a binding to
-                    // this frame, and the thrown value is the return code.
-                    //
-                    // !!! This might be a little more natural if the name of
-                    // the throw was a FRAME! value.  But that also would mean
-                    // throws named by frames couldn't be taken advantage by
-                    // the user for other features, while this only takes one
-                    // function away.
-                    //
-                    CATCH_THROWN(f->out, f->out);
-                    goto apply_completed;
-                }
-                else if (
-                    VAL_ACTION(f->out) == NAT_ACTION(redo)
-                    and VAL_BINDING(f->out) == NOD(f->varlist)
-                ){
-                    // This was issued by REDO, and should be a FRAME! with
-                    // the phase and binding we are to resume with.
-                    //
-                    CATCH_THROWN(f->out, f->out);
-                    assert(IS_FRAME(f->out));
-
-                    // !!! We are reusing the frame and may be jumping to an
-                    // "earlier phase" of a composite function, or even to
-                    // a "not-even-earlier-just-compatible" phase of another
-                    // function.  Type checking is necessary, as is zeroing
-                    // out any locals...but if we're jumping to any higher
-                    // or different phase we need to reset the specialization
-                    // values as well.
-                    //
-                    // Since dispatchers run arbitrary code to pick how (and
-                    // if) they want to change the phase on each redo, we
-                    // have no easy way to tell if a phase is "earlier" or
-                    // "later".  The only thing we have is if it's the same
-                    // we know we couldn't have touched the specialized args
-                    // (no binding to them) so no need to fill those slots
-                    // in via the exemplar.  Otherwise, we have to use the
-                    // exemplar of the phase.
-                    //
-                    // REDO is a fairly esoteric feature to start with, and
-                    // REDO of a frame phase that isn't the running one even
-                    // more esoteric, with REDO/OTHER being *extremely*
-                    // esoteric.  So having a fourth state of how to handle
-                    // f->special (in addition to the three described above)
-                    // seems like more branching in the baseline argument
-                    // loop.  Hence, do a pre-pass here to fill in just the
-                    // specializations and leave everything else alone.
-                    //
-                    REBCTX *exemplar;
-                    if (
-                        FRM_PHASE(f) != f->out->payload.any_context.phase
-                        and did (exemplar = ACT_EXEMPLAR(
-                            f->out->payload.any_context.phase
-                        ))
-                    ){
-                        f->special = CTX_VARS_HEAD(exemplar);
-                        f->arg = FRM_ARGS_HEAD(f);
-                        for (; NOT_END(f->arg); ++f->arg, ++f->special) {
-                            if (IS_NULLED(f->special)) // no specialization
-                                continue;
-                            Move_Value(f->arg, f->special); // reset it
-                        }
-                    }
-
-                    FRM_PHASE(f) = f->out->payload.any_context.phase;
-                    FRM_BINDING(f) = VAL_BINDING(f->out);
-                    goto redo_checked;
-                }
-            }
-
-            // Stay THROWN and let stack levels above try and catch
-            //
-            goto abort_action; }
         }
 
-    apply_completed:;
+    dispatch_completed:;
 
     //==////////////////////////////////////////////////////////////////==//
     //

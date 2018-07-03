@@ -198,7 +198,7 @@ REBTYPE(Char)
         //
         if (IS_CHAR(D_ARG(2))) {
             Init_Integer(D_OUT, chr - arg);
-            return R_OUT;
+            return D_OUT;
         }
 
         chr -= arg;
@@ -257,7 +257,7 @@ REBTYPE(Char)
 
         if (REF(seed)) {
             Set_Random(chr);
-            return R_NULL;
+            return nullptr;
         }
         if (chr == 0) break;
         chr = cast(REBUNI, 1 + cast(REBCNT, Random_Int(REF(secure)) % chr));
@@ -271,6 +271,6 @@ REBTYPE(Char)
         fail (Error_Type_Limit_Raw(Datatype_From_Kind(REB_CHAR)));
 
     Init_Char(D_OUT, cast(REBUNI, chr));
-    return R_OUT;
+    return D_OUT;
 }
 

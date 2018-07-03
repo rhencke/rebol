@@ -415,7 +415,7 @@ REB_R PD_Event(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
                 return R_UNHANDLED;
             }
 
-            return R_OUT;
+            return pvs->out;
         }
         else {
             if (!Set_Event_Var(pvs->out, picker, opt_setval))

@@ -212,7 +212,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             break; } // fallthrough
 
         case SYM_CLOSE:
-            return R_OUT;
+            return D_OUT;
 
         case SYM_ON_WAKE_UP:
             break; // fallthrough (allowed after a close)
@@ -272,7 +272,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         if (len <= 0) {
             Free_Unmanaged_Series(ser);
-            return R_NULL;
+            return nullptr;
         }
 
         update(signal, len, arg);
@@ -294,7 +294,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
 return_port:
     Move_Value(D_OUT, D_ARG(1));
-    return R_OUT;
+    return D_OUT;
 }
 
 #endif //HAS_POSIX_SIGNAL
@@ -316,7 +316,7 @@ REBNATIVE(get_signal_actor_handle)
 {
 #ifdef HAS_POSIX_SIGNAL
     Make_Port_Actor_Handle(D_OUT, &Signal_Actor);
-    return R_OUT;
+    return D_OUT;
 #else
     UNUSED(frame_);
     fail ("GET-SIGNAL-ACTOR-HANDLE only works in builds with POSIX signals");

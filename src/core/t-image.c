@@ -1036,15 +1036,15 @@ REBTYPE(Image)
                 index % VAL_IMAGE_WIDE(value),
                 index / VAL_IMAGE_WIDE(value)
             );
-            return R_OUT;
+            return D_OUT;
 
         case SYM_INDEX:
             Init_Integer(D_OUT, index + 1);
-            return R_OUT;
+            return D_OUT;
 
         case SYM_LENGTH:
             Init_Integer(D_OUT, tail > index ? tail - index : 0);
-            return R_OUT;
+            return D_OUT;
 
         default:
             break;
@@ -1056,7 +1056,7 @@ REBTYPE(Image)
         series = Complement_Image(value);
         Init_Image(value, series); // use series var not func
         Move_Value(D_OUT, value);
-        return R_OUT;
+        return D_OUT;
 
     case SYM_SKIP:
     case SYM_AT:
@@ -1087,7 +1087,7 @@ REBTYPE(Image)
 
         VAL_INDEX(value) = cast(REBCNT, index);
         Move_Value(D_OUT, value);
-        return R_OUT;
+        return D_OUT;
 
     case SYM_CLEAR:
         FAIL_IF_READ_ONLY_SERIES(series);
@@ -1096,7 +1096,7 @@ REBTYPE(Image)
             Reset_Height(value);
         }
         Move_Value(D_OUT, value);
-        return R_OUT;
+        return D_OUT;
 
     case SYM_REMOVE: {
         FAIL_IF_READ_ONLY_SERIES(series);
@@ -1131,7 +1131,7 @@ REBTYPE(Image)
         }
         Reset_Height(value);
         Move_Value(D_OUT, value);
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_APPEND:
     case SYM_INSERT:  // insert ser val /part len /only /dup count
@@ -1139,11 +1139,11 @@ REBTYPE(Image)
         FAIL_IF_READ_ONLY_SERIES(series);
         value = Modify_Image(frame_, verb); // sets DS_OUT
         Move_Value(D_OUT, value);
-        return R_OUT;
+        return D_OUT;
 
     case SYM_FIND:
         Find_Image(frame_); // sets DS_OUT
-        return R_OUT;
+        return D_OUT;
 
     case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
@@ -1193,7 +1193,7 @@ REBTYPE(Image)
             Init_Image(D_OUT, series);
             Copy_Rect_Data(D_OUT, 0, 0, w, h, value, diff, len);
 //          VAL_IMAGE_TRANSP(D_OUT) = VAL_IMAGE_TRANSP(value);
-            return R_OUT;
+            return D_OUT;
         }
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
 
@@ -1202,7 +1202,7 @@ makeCopy:
         len = VAL_IMAGE_LEN(arg);
 makeCopy2:
         Copy_Image_Value(D_OUT, arg, len);
-        return R_OUT; }
+        return D_OUT; }
 
     default:
         break;
@@ -1418,5 +1418,5 @@ REB_R PD_Image(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     }
 
     Pick_Image(pvs->out, pvs->out, picker);
-    return R_OUT;
+    return pvs->out;
 }

@@ -473,7 +473,7 @@ void Poke_Time_Immediate(
 //
 REB_R PD_Time(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 {
-    if (opt_setval != NULL) {
+    if (opt_setval) {
         //
         // Returning R_IMMEDIATE means that we aren't actually changing a
         // variable directly, and it will be up to the caller to decide if
@@ -485,7 +485,7 @@ REB_R PD_Time(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     }
 
     Pick_Time(pvs->out, pvs->out, picker);
-    return R_OUT;
+    return pvs->out;
 }
 
 
@@ -534,7 +534,7 @@ REBTYPE(Time)
                 //secs /= secs2;
                 RESET_VAL_HEADER(D_OUT, REB_DECIMAL);
                 VAL_DECIMAL(D_OUT) = cast(REBDEC, secs) / cast(REBDEC, secs2);
-                return R_OUT;
+                return D_OUT;
 
             case SYM_REMAINDER:
                 if (secs2 == 0)
@@ -677,13 +677,13 @@ REBTYPE(Time)
                     VAL_DECIMAL(arg) /= SEC_SEC;
                     RESET_VAL_HEADER(arg, REB_DECIMAL);
                     Move_Value(D_OUT, ARG(scale));
-                    return R_OUT;
+                    return D_OUT;
                 }
                 else if (IS_INTEGER(arg)) {
                     VAL_INT64(arg) = Round_Int(secs, 1, Int32(arg) * SEC_SEC) / SEC_SEC;
                     RESET_VAL_HEADER(arg, REB_INTEGER);
                     Move_Value(D_OUT, ARG(scale));
-                    return R_OUT;
+                    return D_OUT;
                 }
                 else
                     fail (Error_Invalid(arg));
@@ -703,7 +703,7 @@ REBTYPE(Time)
 
             if (REF(seed)) {
                 Set_Random(secs);
-                return R_NULL;
+                return nullptr;
             }
             secs = Random_Range(secs / SEC_SEC, REF(secure)) * SEC_SEC;
             goto fixTime; }
@@ -718,5 +718,5 @@ fixTime:
 setTime:
     RESET_VAL_HEADER(D_OUT, REB_TIME);
     VAL_NANO(D_OUT) = secs;
-    return R_OUT;
+    return D_OUT;
 }

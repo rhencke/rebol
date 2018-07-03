@@ -224,26 +224,26 @@ REBNATIVE(and)
 
     if (IS_GROUP(right)) { // result should be LOGIC!
         if (IS_FALSEY(left))
-            return R_FALSE; // no need to evaluate right
-
-        if (Do_Any_Array_At_Throws(D_OUT, right))
-            return R_OUT_IS_THROWN;
-
-        return R_FROM_BOOL(IS_TRUTHY(D_OUT));
+            Init_Logic(D_OUT, false); // no need to evaluate right
+        else if (Do_Any_Array_At_Throws(D_OUT, right))
+            return D_OUT;
+        else
+            Init_Logic(D_OUT, IS_TRUTHY(D_OUT));
+        return D_OUT;
     }
 
     assert(IS_BLOCK(right)); // any-value! result, or null
 
     if (IS_FALSEY(left))
-        return R_NULL; // no need to evaluate right
+        return nullptr; // no need to evaluate right
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     if (IS_FALSEY(D_OUT))
-        return R_NULL;
+        return nullptr;
 
-    return R_OUT; // preserve the exact truthy value
+    return D_OUT; // preserve the exact truthy value
 }
 
 
@@ -270,28 +270,26 @@ REBNATIVE(or)
 
     if (IS_GROUP(right)) { // result should be LOGIC!
         if (IS_TRUTHY(left))
-            return R_TRUE; // no need to evaluate right
-
-        if (Do_Any_Array_At_Throws(D_OUT, right))
-            return R_OUT_IS_THROWN;
-
-        return R_FROM_BOOL(IS_TRUTHY(D_OUT));
+            Init_Logic(D_OUT, true); // no need to evaluate right
+        else if (Do_Any_Array_At_Throws(D_OUT, right))
+            return D_OUT;
+        else
+            Init_Logic(D_OUT, IS_TRUTHY(D_OUT));
+        return D_OUT;
     }
 
     assert(IS_BLOCK(right)); // any-value! result, or null
 
-    if (IS_TRUTHY(left)) {
-        Move_Value(D_OUT, left);
-        return R_OUT; // no need to evaluate right
-    }
+    if (IS_TRUTHY(left))
+        return left; // no need to evaluate right
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     if (IS_TRUTHY(D_OUT))
-        return R_OUT; // preserve the exact truthy value
+        return D_OUT; // preserve the exact truthy value
 
-    return R_NULL;
+    return nullptr;
 }
 
 
@@ -318,28 +316,27 @@ REBNATIVE(xor)
         fail ("left hand side of XOR should not be literal block");
 
     if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     REBVAL *right = D_OUT;
 
-    if (IS_GROUP(right)) // result should be LOGIC!
-        return R_FROM_BOOL(IS_TRUTHY(left) != IS_TRUTHY(right));
+    if (IS_GROUP(right)) { // result should be LOGIC!
+        Init_Logic(D_OUT, IS_TRUTHY(left) != IS_TRUTHY(right));
+        return D_OUT;
+    }
 
     assert(IS_BLOCK(right)); // any-value! result, or null
 
     if (IS_FALSEY(left)) {
         if (IS_FALSEY(right))
-            return R_NULL;
-
-        assert(right == D_OUT);
-        return R_OUT;
+            return nullptr;
+        return right;
     }
 
     if (IS_TRUTHY(right))
-        return R_NULL;
+        return nullptr;
 
-    Move_Value(D_OUT, left);
-    return R_OUT;
+    return left;
 }
 
 
@@ -460,7 +457,7 @@ REBTYPE(Logic)
         if (REF(seed)) {
             // random/seed false restarts; true randomizes
             Set_Random(val1 ? cast(REBINT, OS_DELTA_TIME(0)) : 1);
-            return R_NULL;
+            return nullptr;
         }
         if (Random_Int(REF(secure)) & 1)
             return R_TRUE;

@@ -161,7 +161,7 @@ REBNATIVE(load_extension_helper)
 
                     OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
                     Move_Value(D_OUT, KNOWN(item));
-                    return R_OUT;
+                    return D_OUT;
                 }
             }
         }
@@ -201,7 +201,7 @@ REBNATIVE(load_extension_helper)
     }
 
     Init_Object(D_OUT, context);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -210,7 +210,7 @@ REBNATIVE(load_extension_helper)
 //
 //  "Unload an extension"
 //
-//      return: [<opt>]
+//      return: [void!]
 //      ext [object!]
 //          "The extension to be unloaded"
 //      /cleanup
@@ -271,7 +271,7 @@ REBNATIVE(unload_extension_helper)
         fail (Error_Fail_To_Quit_Extension_Raw(i));
     }
 
-    return R_NULL;
+    return R_VOID;
 }
 
 
@@ -416,7 +416,7 @@ REBNATIVE(load_native)
         Move_Value(ACT_BODY(native), ARG(code));
 
     Init_Action_Unbound(D_OUT, native);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -439,7 +439,7 @@ static REB_R Unloaded_Dispatcher(REBFRM *f)
 //
 //  "Unload a native when the containing extension is unloaded"
 //
-//      return: [<opt>]
+//      return: [void!]
 //      native "The native function to be unloaded"
 //          [action!]
 //      /relax "Don't error if it's not actually unloadable (REVIEW!)"
@@ -468,14 +468,14 @@ REBNATIVE(unload_native)
             // For minimal invasiveness right now, the /RELAX refinement just
             // documents the issue in the unloading process.
             //
-            return R_NULL;
+            return R_VOID;
         }
 
         fail (Error_Non_Unloadable_Native_Raw(ARG(native)));
     }
 
     ACT_DISPATCHER(action) = &Unloaded_Dispatcher;
-    return R_NULL;
+    return R_VOID;
 }
 
 

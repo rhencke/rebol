@@ -529,9 +529,9 @@ REB_R PD_Bitset(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (opt_setval == NULL) {
         if (Check_Bits(ser, picker, FALSE)) {
             Init_Logic(pvs->out, TRUE);
-            return R_OUT;
+            return pvs->out;
         }
-        return R_BLANK;
+        return nullptr; // !!! Red false on out of range, R3-Alpha NONE! (?)
     }
 
     if (Set_Bits(
@@ -632,7 +632,7 @@ REBTYPE(Bitset)
             fail (Error_Bad_Refines_Raw());
 
         if (not Check_Bits(VAL_SERIES(value), arg, REF(case)))
-            return R_NULL;
+            return nullptr;
         return R_BAR;
     }
 
@@ -694,7 +694,7 @@ REBTYPE(Bitset)
             VAL_INDEX(value) // !!! can bitset ever not be at 0?
         );
         INIT_BITS_NOT(VAL_SERIES(D_OUT), BITS_NOT(VAL_SERIES(value)));
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_CLEAR:
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(value));
@@ -709,7 +709,7 @@ REBTYPE(Bitset)
         ser = Xandor_Binary(verb, value, arg);
         Trim_Tail_Zeros(ser);
         Init_Any_Series(D_OUT, VAL_TYPE(value), ser);
-        return R_OUT;
+        return D_OUT;
 
     default:
         break;
@@ -719,6 +719,6 @@ REBTYPE(Bitset)
 
 return_bitset:
     Move_Value(D_OUT, value);
-    return R_OUT;
+    return D_OUT;
 }
 

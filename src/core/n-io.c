@@ -51,7 +51,7 @@ REBNATIVE(form)
 
     Init_Text(D_OUT, Copy_Form_Value(value, 0));
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -96,7 +96,7 @@ REBNATIVE(mold)
 
     Init_Text(D_OUT, Pop_Molded_String(mo));
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -105,7 +105,7 @@ REBNATIVE(mold)
 //
 //  "Write text to standard output, or raw BINARY! (for control codes / CGI)"
 //
-//      return: [<opt>]
+//      return: [void!]
 //      value [text! char! binary!]
 //          "Text to write, if a STRING! or CHAR! is converted to OS format"
 //  ]
@@ -160,7 +160,7 @@ REBNATIVE(write_stdout)
         DROP_GUARD_SERIES(temp);
     }
 
-    return R_NULL;
+    return R_VOID;
 }
 
 
@@ -199,7 +199,7 @@ REBNATIVE(new_line)
             SET_SER_FLAG(a, ARRAY_FLAG_TAIL_NEWLINE);
         else
             CLEAR_SER_FLAG(a, ARRAY_FLAG_TAIL_NEWLINE);
-        return R_OUT;
+        return D_OUT;
     }
 
     REBINT skip;
@@ -227,7 +227,7 @@ REBNATIVE(new_line)
             break;
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -362,7 +362,7 @@ REBNATIVE(now)
     if (n > 0)
         Init_Integer(D_OUT, n);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -427,7 +427,7 @@ REBNATIVE(wait)
             ARG(value),
             REDUCE_MASK_NONE
         )){
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
 
         // !!! This takes the stack array and creates an unmanaged array from
@@ -445,7 +445,7 @@ REBNATIVE(wait)
         }
         if (IS_END(val)) {
             if (n == 0)
-                return R_NULL; // has no pending ports!
+                return nullptr; // has no pending ports!
             timeout = ALL_BITS; // no timeout provided
         }
     }
@@ -460,7 +460,7 @@ REBNATIVE(wait)
 
         case REB_PORT:
             if (not Pending_Port(KNOWN(val)))
-                return R_NULL;
+                return nullptr;
             ports = Make_Array(1);
             Append_Value(ports, KNOWN(val));
             timeout = ALL_BITS;
@@ -483,30 +483,30 @@ REBNATIVE(wait)
 
     // Process port events [stack-move]:
     if (Wait_Ports_Throws(D_OUT, ports, timeout, REF(only)))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     assert(IS_LOGIC(D_OUT));
 
     if (IS_FALSEY(D_OUT)) { // timeout
         Sieve_Ports(NULL); // just reset the waked list
-        return R_NULL;
+        return nullptr;
     }
 
     if (not ports)
-        return R_NULL;
+        return nullptr;
 
     // Determine what port(s) waked us:
     Sieve_Ports(ports);
 
     if (not REF(all)) {
         val = ARR_HEAD(ports);
-        if (IS_PORT(val))
-            Move_Value(D_OUT, KNOWN(val));
-        else
-            Init_Nulled(D_OUT);
+        if (not IS_PORT(val))
+            return nullptr;
+
+        Move_Value(D_OUT, KNOWN(val));
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -596,14 +596,14 @@ REBNATIVE(local_to_file)
                 VAL_LEN_AT(path)
             )
         );
-        return R_OUT;
+        return D_OUT;
     }
 
     Init_File(
         D_OUT,
         To_REBOL_Path(path, REF(dir) ? PATH_OPT_SRC_IS_DIR : 0)
     );
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -643,7 +643,7 @@ REBNATIVE(file_to_local)
                 VAL_LEN_AT(path)
             )
         );
-        return R_OUT;
+        return D_OUT;
     }
 
     Init_Text(
@@ -656,7 +656,7 @@ REBNATIVE(file_to_local)
                 | (REF(wild) ? REB_FILETOLOCAL_WILD : 0)
         )
     );
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -703,7 +703,7 @@ REBNATIVE(what_dir)
         VAL_INDEX(current_path)
     );
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -743,5 +743,5 @@ REBNATIVE(change_dir)
     Move_Value(current_path, arg);
 
     Move_Value(D_OUT, ARG(path));
-    return R_OUT;
+    return D_OUT;
 }

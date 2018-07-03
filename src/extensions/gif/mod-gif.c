@@ -367,7 +367,7 @@ REBNATIVE(decode_gif)
         Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
     }
 
-    return R_OUT;
+    return D_OUT;
 }
 
 

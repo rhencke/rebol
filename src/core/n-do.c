@@ -133,7 +133,7 @@ REBNATIVE(eval_enfix)
 
     DECLARE_FRAME (child); // capture DSP *now*, before any refinements push
 
-    const REBOOL push_refinements = TRUE;
+    const REBOOL push_refinements = true;
     REBSTR *opt_label;
     if (Get_If_Word_Or_Path_Throws(
         D_CELL,
@@ -142,8 +142,7 @@ REBNATIVE(eval_enfix)
         f->specifier,
         push_refinements
     )){
-        Move_Value(D_OUT, D_CELL);
-        return R_OUT_IS_THROWN;
+        return D_CELL;
     }
 
     // !!! If we were to give an error on using ME with non-enfix or MY with
@@ -190,11 +189,11 @@ REBNATIVE(eval_enfix)
 
     REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
     if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
-        return R_OUT_IS_THROWN;
+        return D_OUT;
 
     FS_TOP->deferred = NULL;
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -239,7 +238,7 @@ REBNATIVE(do)
 
     switch (VAL_TYPE(source)) {
     case REB_BLANK:
-        return R_NULL;
+        return nullptr; // "blank in, null out" convention
 
     case REB_BLOCK:
     case REB_GROUP: {
@@ -256,7 +255,7 @@ REBNATIVE(do)
         assert(NOT_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED));
 
         if (indexor == THROWN_FLAG)
-            return R_OUT_IS_THROWN;
+            return D_OUT;
 
         if (REF(next) and not IS_BLANK(ARG(var))) {
             if (indexor == END_FLAG)
@@ -267,7 +266,7 @@ REBNATIVE(do)
             Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), source);
         }
 
-        return R_OUT; }
+        return D_OUT; }
 
     case REB_VARARGS: {
         REBVAL *position;
@@ -298,7 +297,7 @@ REBNATIVE(do)
                 // having BLANK! mean "thrown" may evolve into a convention.
                 //
                 Init_Unreadable_Blank(position);
-                return R_OUT_IS_THROWN;
+                return D_OUT;
             }
 
             if (indexor == END_FLAG)
@@ -307,7 +306,7 @@ REBNATIVE(do)
             if (REF(next) and not IS_BLANK(var))
                 Move_Value(Sink_Var_May_Fail(var, SPECIFIED), source);
 
-            return R_OUT;
+            return D_OUT;
         }
 
         REBFRM *f;
@@ -324,7 +323,7 @@ REBNATIVE(do)
             if (FRM_AT_END(f))
                 Init_Nulled(D_OUT);
             else if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
-                return R_OUT_IS_THROWN;
+                return D_OUT;
 
             // The variable passed in /NEXT is just set to the vararg itself,
             // which has its positioning updated automatically by virtue of
@@ -337,11 +336,11 @@ REBNATIVE(do)
             Init_Nulled(D_OUT);
             while (not FRM_AT_END(f)) {
                 if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
-                    return R_OUT_IS_THROWN;
+                    return D_OUT;
             }
         }
 
-        return R_OUT; }
+        return D_OUT; }
 
     case REB_BINARY:
     case REB_TEXT:
@@ -367,9 +366,9 @@ REBNATIVE(do)
             REF(only) ? TRUE_VALUE : FALSE_VALUE,
             END
         )){
-            return R_OUT_IS_THROWN;
+            return D_OUT;
         }
-        return R_OUT; }
+        return D_OUT; }
 
     case REB_ERROR:
         //
@@ -398,8 +397,8 @@ REBNATIVE(do)
             fail (Error_Use_Eval_For_Eval_Raw());
 
         if (Eval_Value_Throws(D_OUT, source))
-            return R_OUT_IS_THROWN;
-        return R_OUT; }
+            return D_OUT;
+        return D_OUT; }
 
     case REB_FRAME: {
         REBCTX *c = VAL_CONTEXT(source); // checks for INACCESSIBLE
@@ -443,11 +442,11 @@ REBNATIVE(do)
         Drop_Frame_Core(f);
 
         if (THROWN(f->out))
-            return R_OUT_IS_THROWN; // prohibits recovery from exits
+            return f->out; // prohibits recovery from exits
 
         assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
 
-        return R_OUT; }
+        return f->out; }
 
     default:
         break;
@@ -536,7 +535,7 @@ REBNATIVE(redo)
     // the actual value that Do_Core() catches.
     //
     CONVERT_NAME_TO_THROWN(D_OUT, restartee);
-    return R_OUT_IS_THROWN;
+    return D_OUT;
 }
 
 
@@ -585,7 +584,7 @@ REBNATIVE(apply)
         push_refinements
     )){
         Drop_Frame_Core(f);
-        return R_OUT_IS_THROWN;
+        return f->out;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -659,8 +658,8 @@ REBNATIVE(apply)
     //
     if (Do_Any_Array_At_Throws(SINK(&f->cell), ARG(def))) {
         Drop_Frame_Core(f);
-        Move_Value(f->out, KNOWN(&f->cell));
-        return R_OUT_IS_THROWN;
+        Move_Value(f->out, KNOWN(&f->cell)); // local, can't return directly
+        return f->out;
     }
 
     f->arg = FRM_ARGS_HEAD(f); // reset
@@ -673,9 +672,9 @@ REBNATIVE(apply)
     Drop_Frame_Core(f);
 
     if (THROWN(f->out))
-        return R_OUT_IS_THROWN; // prohibits recovery from exits
+        return f->out; // prohibits recovery from exits
 
     assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
 
-    return R_OUT;
+    return D_OUT;
 }

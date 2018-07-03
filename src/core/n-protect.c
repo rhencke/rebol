@@ -275,7 +275,7 @@ static REB_R Protect_Unprotect_Core(REBFRM *frame_, REBFLGS flags)
 
 return_value_arg:
     Move_Value(D_OUT, ARG(value));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -502,5 +502,5 @@ REBNATIVE(lock)
     REBSER *locker = NULL;
     Ensure_Value_Immutable(D_OUT, locker);
 
-    return R_OUT;
+    return D_OUT;
 }

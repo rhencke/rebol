@@ -2822,7 +2822,7 @@ REBNATIVE(transcode)
 
     Init_Block(D_OUT, a);
 
-    return R_OUT;
+    return D_OUT;
 }
 
 

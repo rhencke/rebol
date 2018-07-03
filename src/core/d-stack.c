@@ -214,7 +214,7 @@ REBNATIVE(near_of)
     REBFRM *f = CTX_FRAME_MAY_FAIL(VAL_CONTEXT(ARG(frame)));
 
     Init_Near_For_Frame(D_OUT, f);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -234,10 +234,10 @@ REBNATIVE(label_of)
     REBFRM *f = CTX_FRAME_MAY_FAIL(VAL_CONTEXT(ARG(frame)));
 
     if (not f->opt_label)
-        return R_NULL;
+        return nullptr;
 
     Init_Word(D_OUT, f->opt_label);
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -268,7 +268,7 @@ REBNATIVE(action_of)
         frame->payload.any_context.phase,
         frame->extra.binding
     );
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -294,11 +294,11 @@ REBNATIVE(parent_of)
     while ((f = f->prior) != NULL) {
         if (Is_Action_Frame(f)) {
             Move_Value(D_OUT, CTX_ARCHETYPE(Context_For_Frame_May_Manage(f)));
-            return R_OUT;
+            return D_OUT;
         }
     }
 
-    return R_NULL;
+    return nullptr;
 }
 
 

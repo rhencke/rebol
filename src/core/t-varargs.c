@@ -68,7 +68,7 @@ inline static REB_R Vararg_Op_If_No_Advance(
                 return R_FALSE;
             if (op == VARARG_OP_FIRST) {
                 Init_Bar(out);
-                return R_OUT;
+                return out;
             }
             assert(op == VARARG_OP_TAKE);
             return R_UNHANDLED; // advance frame/array to consume BAR!
@@ -120,7 +120,7 @@ inline static REB_R Vararg_Op_If_No_Advance(
         Derelativize(out, opt_look, specifier);
         SET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED);
 
-        return R_OUT; // only a lookahead, no need to advance
+        return out; // only a lookahead, no need to advance
     }
 
     return R_UNHANDLED; // must advance, may need to create a frame to do so
@@ -141,12 +141,12 @@ inline static REB_R Vararg_Op_If_No_Advance(
 // the parameter symbol in the fail() message.
 //
 // If op is VARARG_OP_TAIL_Q, then it will return R_TRUE or R_FALSE, and
-// this case cannot return R_OUT_IS_THROWN.
+// this case cannot return R_THROWN.
 //
 // For other ops, it will return R_END if at the end of variadic input,
-// or R_OUT if there is a value.
+// or D_OUT if there is a value.
 //
-// If an evaluation is involved, then R_OUT_IS_THROWN is possibly returned.
+// If an evaluation is involved, then R_THROWN is possibly returned.
 //
 REB_R Do_Vararg_Op_May_Throw(
     REBVAL *out,
@@ -204,7 +204,7 @@ REB_R Do_Vararg_Op_May_Throw(
             if (GET_VAL_FLAG(single, VALUE_FLAG_UNEVALUATED))
                 SET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED); // not auto-copied
             SET_END(shared);
-            r = R_OUT;
+            r = out;
             goto type_check_and_return;
         }
 
@@ -227,7 +227,7 @@ REB_R Do_Vararg_Op_May_Throw(
             //
             if (Do_Next_In_Frame_Throws(out, f_temp)) {
                 Abort_Frame(f_temp);
-                return R_OUT_IS_THROWN;
+                return R_THROWN;
             }
 
             if (
@@ -259,7 +259,7 @@ REB_R Do_Vararg_Op_May_Throw(
                 if (Eval_Value_Core_Throws(
                     out, VAL_ARRAY_AT(shared), VAL_SPECIFIER(shared)
                 )){
-                    return R_OUT_IS_THROWN;
+                    return R_THROWN;
                 }
             }
             else { // not a soft-"exception" case, quote ordinarily
@@ -315,7 +315,7 @@ REB_R Do_Vararg_Op_May_Throw(
                 DO_FLAG_FULFILLING_ARG,
                 child
             )){
-                return R_OUT_IS_THROWN;
+                return R_THROWN;
             }
             f->gotten = END; // cache must be forgotten...
             break; }
@@ -328,7 +328,7 @@ REB_R Do_Vararg_Op_May_Throw(
                 DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD,
                 child
             )){
-                return R_OUT_IS_THROWN;
+                return R_THROWN;
             }
             f->gotten = END; // cache must be forgotten...
             break; }
@@ -340,7 +340,7 @@ REB_R Do_Vararg_Op_May_Throw(
         case PARAM_CLASS_SOFT_QUOTE:
             if (IS_QUOTABLY_SOFT(f->value)) {
                 if (Eval_Value_Core_Throws(out, f->value, f->specifier))
-                    return R_OUT_IS_THROWN;
+                    return R_THROWN;
 
                 Fetch_Next_In_Frame(f);
             }
@@ -355,13 +355,13 @@ REB_R Do_Vararg_Op_May_Throw(
     else
         panic ("Malformed VARARG cell");
 
-    r = R_OUT;
+    r = out;
 
 type_check_and_return:
     if (r == R_END)
         return R_END;
 
-    if (r != R_OUT) {
+    if (r != out) {
         assert(op == VARARG_OP_TAIL_Q);
         assert(r == R_TRUE or r == R_FALSE);
         return r;
@@ -390,7 +390,7 @@ type_check_and_return:
             CLEAR_VAL_FLAG(arg, VALUE_FLAG_UNEVALUATED);
     }
 
-    return R_OUT; // may be at end now, but reflect that at *next* call
+    return out; // may be at end now, but reflect that at *next* call
 }
 
 
@@ -467,14 +467,14 @@ REB_R PD_Varargs(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     Move_Value(location, pvs->out);
 
     REB_R r = Do_Vararg_Op_May_Throw(pvs->out, location, VARARG_OP_FIRST);
-    if (r == R_OUT_IS_THROWN)
+    if (r == R_THROWN)
         assert(FALSE); // VARARG_OP_FIRST can't throw
     else if (r == R_END)
         Init_Endish_Void(pvs->out);
     else
-        assert(r == R_OUT);
+        assert(r == pvs->out);
 
-    return R_OUT;
+    return pvs->out;
 }
 
 
@@ -523,8 +523,8 @@ REBTYPE(Varargs)
             if (r == R_END)
                 Init_Endish_Void(D_OUT);
             else
-                assert(r == R_OUT);
-            return R_OUT;
+                assert(r == D_OUT);
+            return D_OUT;
         }
 
         REBDSP dsp_orig = DSP;
@@ -544,11 +544,11 @@ REBTYPE(Varargs)
         while (limit-- > 0) {
             REB_R r = Do_Vararg_Op_May_Throw(D_OUT, value, VARARG_OP_TAKE);
 
-            if (r == R_OUT_IS_THROWN)
-                return R_OUT_IS_THROWN;
+            if (r == R_THROWN)
+                return D_OUT;
             if (r == R_END)
                 break;
-            assert(r == R_OUT);
+            assert(r == D_OUT);
 
             DS_PUSH(D_OUT);
         }
@@ -556,7 +556,7 @@ REBTYPE(Varargs)
         // !!! What if caller wanted a REB_GROUP, REB_PATH, or an /INTO?
         //
         Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-        return R_OUT; }
+        return D_OUT; }
 
     default:
         break;

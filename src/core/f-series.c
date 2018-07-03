@@ -59,21 +59,21 @@ REB_R Series_Common_Action_Maybe_Unhandled(
         switch (property) {
         case SYM_INDEX:
             Init_Integer(D_OUT, cast(REBI64, index) + 1);
-            return R_OUT;
+            return D_OUT;
 
         case SYM_LENGTH:
             Init_Integer(D_OUT, tail > index ? tail - index : 0);
-            return R_OUT;
+            return D_OUT;
 
         case SYM_HEAD:
             Move_Value(D_OUT, value);
             VAL_INDEX(D_OUT) = 0;
-            return R_OUT;
+            return D_OUT;
 
         case SYM_TAIL:
             Move_Value(D_OUT, value);
             VAL_INDEX(D_OUT) = cast(REBCNT, tail);
-            return R_OUT;
+            return D_OUT;
 
         case SYM_HEAD_Q:
             return R_FROM_BOOL(index == 0);
@@ -95,17 +95,17 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                     cb_cast(STR_HEAD(LINK(s).file)),
                     SER_LEN(LINK(s).file)
                 );
-                return R_OUT;
+                return D_OUT;
             }
-            return R_NULL; }
+            return nullptr; }
 
         case SYM_LINE: {
             REBSER *s = VAL_SERIES(value);
             if (ALL_SER_FLAGS(s, SERIES_FLAG_ARRAY | ARRAY_FLAG_FILE_LINE)) {
                 Init_Integer(D_OUT, MISC(s).line);
-                return R_OUT;
+                return D_OUT;
             }
-            return R_NULL; }
+            return nullptr; }
 
         default:
             break;
@@ -155,18 +155,18 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         if (i > cast(REBI64, tail)) {
             if (REF(only))
-                return R_NULL;
+                return nullptr;
             i = cast(REBI64, tail); // past tail clips to tail if not /ONLY
         }
         else if (i < 0) {
             if (REF(only))
-                return R_NULL;
+                return nullptr;
             i = 0; // past head clips to head if not /ONLY
         }
 
         VAL_INDEX(value) = cast(REBCNT, i);
         Move_Value(D_OUT, value);
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
@@ -186,7 +186,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
             Remove_Series(VAL_SERIES(value), VAL_INDEX(value), len);
 
         Move_Value(D_OUT, value);
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_INTERSECT: {
         if (IS_BINARY(value))
@@ -207,7 +207,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 REF(skip) ? Int32s(ARG(size), 1) : 1
             )
         );
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_UNION: {
         if (IS_BINARY(value))
@@ -228,7 +228,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 REF(skip) ? Int32s(ARG(size), 1) : 1
             )
         );
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_DIFFERENCE: {
         if (IS_BINARY(value))
@@ -249,7 +249,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 REF(skip) ? Int32s(ARG(size), 1) : 1
             )
         );
-        return R_OUT; }
+        return D_OUT; }
 
     default:
         break;

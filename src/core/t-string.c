@@ -612,19 +612,19 @@ REB_R PD_String(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         if (IS_INTEGER(picker) or IS_DECIMAL(picker)) { // #2312
             REBINT n = Int32(picker);
             if (n == 0)
-                return R_NULL; // Rebol2/Red convention, 0 is bad pick
+                return nullptr; // Rebol2/Red convention, 0 is bad pick
             if (n < 0)
                 ++n; // Rebol2/Red convention, `pick tail "abc" -1` is #"c"
             n += VAL_INDEX(pvs->out) - 1;
             if (n < 0 or cast(REBCNT, n) >= SER_LEN(ser))
-                return R_NULL;
+                return nullptr;
 
             if (IS_BINARY(pvs->out))
                 Init_Integer(pvs->out, *BIN_AT(ser, n));
             else
                 Init_Char(pvs->out, GET_ANY_CHAR(ser, n));
 
-            return R_OUT;
+            return pvs->out;
         }
 
         if (
@@ -706,7 +706,7 @@ REB_R PD_String(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         // Note: pvs->out may point to pvs->store
         //
         Init_Any_Series(pvs->out, VAL_TYPE(pvs->out), copy);
-        return R_OUT;
+        return pvs->out;
     }
 
     // Otherwise, POKE-ing
@@ -1329,7 +1329,7 @@ REBTYPE(String)
         );
 
         if (ret >= cast(REBCNT, tail))
-            return R_NULL;
+            return nullptr;
 
         if (REF(only))
             len = 1;
@@ -1342,7 +1342,7 @@ REBTYPE(String)
         else {
             ret++;
             if (ret >= cast(REBCNT, tail))
-                return R_NULL;
+                return nullptr;
 
             if (IS_BINARY(v)) {
                 Init_Integer(v, *BIN_AT(VAL_SERIES(v), ret));
@@ -1367,7 +1367,7 @@ REBTYPE(String)
             len = Partial(v, 0, ARG(limit));
             if (len == 0) {
                 Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
-                return R_OUT;
+                return D_OUT;
             }
         } else
             len = 1;
@@ -1385,9 +1385,9 @@ REBTYPE(String)
 
         if (cast(REBINT, VAL_INDEX(v)) >= tail) {
             if (not REF(part))
-                return R_NULL;
+                return nullptr;
             Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
-            return R_OUT;
+            return D_OUT;
         }
 
         ser = VAL_SERIES(v);
@@ -1412,7 +1412,7 @@ REBTYPE(String)
                 Init_Any_Series(D_OUT, kind, Copy_String_At_Len(v, len));
         }
         Remove_Series(ser, VAL_INDEX(v), len);
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_CLEAR: {
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(v));
@@ -1514,7 +1514,7 @@ REBTYPE(String)
 
         if (amount == 0) { // adding or subtracting 0 works, even #{} + 0
             Move_Value(D_OUT, v);
-            return R_OUT;
+            return D_OUT;
         }
         else if (VAL_LEN_AT(v) == 0) // add/subtract to #{} otherwise
             fail (Error_Overflow_Raw());
@@ -1552,7 +1552,7 @@ REBTYPE(String)
             }
         }
         Move_Value(D_OUT, v);
-        return R_OUT; }
+        return D_OUT; }
 
     //-- Special actions:
 
@@ -1630,19 +1630,19 @@ REBTYPE(String)
                     VAL_LEN_AT(v) * SER_WIDE(VAL_SERIES(v))
                 )
             );
-            return R_NULL;
+            return nullptr;
         }
 
         if (REF(only)) {
             if (index >= tail)
-                return R_NULL;
+                return nullptr;
             index += (REBCNT)Random_Int(REF(secure)) % (tail - index);
             if (IS_BINARY(v)) { // same as PICK
                 Init_Integer(D_OUT, *VAL_BIN_AT_HEAD(v, index));
             }
             else
                 str_to_char(D_OUT, v, index);
-            return R_OUT;
+            return D_OUT;
         }
 
         if (ANY_STRING(v) and not Is_String_ASCII(v))
@@ -1661,11 +1661,11 @@ REBTYPE(String)
     }
 
     Move_Value(D_OUT, v);
-    return R_OUT;
+    return D_OUT;
 
 return_ser:
     Init_Any_Series(D_OUT, VAL_TYPE(v), ser);
-    return R_OUT;
+    return D_OUT;
 }
 
 

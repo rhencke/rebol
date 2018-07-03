@@ -635,11 +635,11 @@ REB_R Routine_Dispatcher(REBFRM *f)
         do {
             REB_R r = Do_Vararg_Op_May_Throw(f->out, vararg, VARARG_OP_TAKE);
 
-            if (r == R_OUT_IS_THROWN)
-                return R_OUT_IS_THROWN;
+            if (r == R_THROWN)
+                return f->out;
             if (r == R_END)
                 break;
-            assert(r == R_OUT);
+            assert(r == f->out);
 
             DS_PUSH(f->out);
             SET_END(f->out); // expected by Do_Vararg_Op
@@ -862,8 +862,8 @@ REB_R Routine_Dispatcher(REBFRM *f)
 
     // Note: cannot "throw" a Rebol value across an FFI boundary.
 
-    assert(!THROWN(f->out));
-    return R_OUT;
+    assert(not THROWN(f->out));
+    return f->out;
 }
 
 

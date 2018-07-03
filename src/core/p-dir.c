@@ -177,7 +177,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         case SYM_LENGTH: {
             REBCNT len = IS_BLOCK(state) ? VAL_ARRAY_LEN_AT(state) : 0;
             Init_Integer(D_OUT, len);
-            return R_OUT; }
+            return D_OUT; }
 
         case SYM_OPEN_Q:
             return R_FROM_BOOL(IS_BLOCK(state));
@@ -223,7 +223,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
                 )
             );
         }
-        return R_OUT; }
+        return D_OUT; }
 
     case SYM_CREATE: {
         if (IS_BLOCK(state))
@@ -243,7 +243,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         if (VAL_WORD_SYM(verb) == SYM_CREATE) {
             Move_Value(D_OUT, D_ARG(1));
-            return R_OUT;
+            return D_OUT;
         }
         Init_Blank(state);
         goto return_port; }
@@ -327,13 +327,13 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         if (rebDid("lib/error?", result, END)) {
             rebRelease(result); // !!! R3-Alpha threw out error, returns null
-            return R_NULL;
+            return nullptr;
         }
 
         rebRelease(result); // ignore result
 
         Ret_Query_File(port, &dir, D_OUT);
-        return R_OUT; }
+        return D_OUT; }
 
     default:
         break;
@@ -343,7 +343,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
 return_port:
     Move_Value(D_OUT, D_ARG(1));
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -358,5 +358,5 @@ return_port:
 REBNATIVE(get_dir_actor_handle)
 {
     Make_Port_Actor_Handle(D_OUT, &Dir_Actor);
-    return R_OUT;
+    return D_OUT;
 }

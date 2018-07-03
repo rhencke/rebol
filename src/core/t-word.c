@@ -190,14 +190,14 @@ REB_R PD_Word(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         if (IS_INTEGER(picker)) {
             REBINT n = Int32(picker) - 1;
             if (n < 0)
-                return R_NULL;
+                return nullptr;
 
             REBCNT len = SER_LEN(str);
             const REBYTE *bp = cb_cast(STR_HEAD(str));
             REBUNI c;
             do {
                 if (len == 0)
-                    return R_NULL; // character asked for is past end
+                    return nullptr; // character asked for is past end
 
                 if (*bp < 0x80)
                     c = *bp;
@@ -208,7 +208,7 @@ REB_R PD_Word(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             } while (n-- != 0);
 
             Init_Char(pvs->out, c);
-            return R_OUT;
+            return pvs->out;
         }
 
         return R_UNHANDLED;
@@ -256,12 +256,12 @@ REBTYPE(Word)
                }
             }
             Init_Integer(D_OUT, len);
-            return R_OUT; }
+            return D_OUT; }
 
         case SYM_BINDING: {
             if (Did_Get_Binding_Of(D_OUT, val))
-                return R_OUT;
-            return R_NULL; }
+                return D_OUT;
+            return nullptr; }
 
         default:
             break;

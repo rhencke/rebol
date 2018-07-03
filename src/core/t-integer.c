@@ -351,7 +351,7 @@ REBNATIVE(to_integer)
 
     Value_To_Int64(D_OUT, ARG(value), REF(unsigned));
 
-    return R_OUT;
+    return D_OUT;
 }
 
 
@@ -451,7 +451,7 @@ REBTYPE(Integer)
 
     case SYM_COPY:
         Move_Value(D_OUT, val);
-        return R_OUT;
+        return D_OUT;
 
     case SYM_ADD: {
         REBI64 anum;
@@ -553,7 +553,7 @@ REBTYPE(Integer)
                 Init_Money(D_OUT, Round_Deci(
                     int_to_deci(num), flags, VAL_MONEY_AMOUNT(val2)
                 ));
-                return R_OUT;
+                return D_OUT;
             }
             if (IS_DECIMAL(val2) || IS_PERCENT(val2)) {
                 REBDEC dec = Round_Dec(
@@ -561,7 +561,7 @@ REBTYPE(Integer)
                 );
                 RESET_VAL_HEADER(D_OUT, VAL_TYPE(val2));
                 VAL_DECIMAL(D_OUT) = dec;
-                return R_OUT;
+                return D_OUT;
             }
             if (IS_TIME(val2))
                 fail (Error_Invalid(val2));
@@ -582,7 +582,7 @@ REBTYPE(Integer)
 
         if (REF(seed)) {
             Set_Random(num);
-            return R_NULL;
+            return nullptr;
         }
         if (num == 0)
             break;
@@ -594,5 +594,5 @@ REBTYPE(Integer)
     }
 
     Init_Integer(D_OUT, num);
-    return R_OUT;
+    return D_OUT;
 }

@@ -556,7 +556,7 @@ REB_R PD_Array(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (IS_INTEGER(picker) or IS_DECIMAL(picker)) { // #2312
         n = Int32(picker);
         if (n == 0)
-            return R_NULL; // Rebol2/Red convention: 0 is not a pick
+            return nullptr; // Rebol2/Red convention: 0 is not a pick
         if (n < 0)
             ++n; // Rebol2/Red convention: `pick tail [a b c] -1` is `c`
         n += VAL_INDEX(pvs->out) - 1;
@@ -606,8 +606,7 @@ REB_R PD_Array(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         if (opt_setval)
             return R_UNHANDLED;
 
-        Init_Nulled(pvs->out);
-        return R_OUT;
+        return nullptr;
     }
 
     if (opt_setval)
@@ -776,7 +775,7 @@ REBTYPE(Array)
 
         if (index >= VAL_LEN_HEAD(value)) {
             if (not REF(part))
-                return R_NULL;
+                return nullptr;
 
             goto return_empty_block;
         }
@@ -789,7 +788,7 @@ REBTYPE(Array)
             Derelativize(D_OUT, &ARR_HEAD(array)[index], specifier);
 
         Remove_Series(SER(array), index, len);
-        return R_OUT;
+        return D_OUT;
     }
 
     //-- Search:
@@ -824,7 +823,7 @@ REBTYPE(Array)
         );
 
         if (ret >= limit)
-            return R_NULL;
+            return nullptr;
 
         if (REF(only))
             len = 1;
@@ -838,11 +837,11 @@ REBTYPE(Array)
         else {
             ret += len;
             if (ret >= limit)
-                return R_NULL;
+                return nullptr;
 
             Derelativize(D_OUT, ARR_AT(array, ret), specifier);
         }
-        return R_OUT;
+        return D_OUT;
     }
 
     //-- Modification:
@@ -887,7 +886,7 @@ REBTYPE(Array)
         );
         VAL_INDEX(value) = index;
         Move_Value(D_OUT, value);
-        return R_OUT;
+        return D_OUT;
     }
 
     case SYM_CLEAR: {
@@ -900,7 +899,7 @@ REBTYPE(Array)
             }
         }
         Move_Value(D_OUT, value);
-        return R_OUT;
+        return D_OUT;
     }
 
     //-- Creation:
@@ -937,7 +936,7 @@ REBTYPE(Array)
             types // types to copy deeply
         );
         Init_Any_Array(D_OUT, VAL_TYPE(value), copy);
-        return R_OUT;
+        return D_OUT;
     }
 
     //-- Special actions:
@@ -964,7 +963,7 @@ REBTYPE(Array)
             Blit_Cell(VAL_ARRAY_AT(arg), &temp);
         }
         Move_Value(D_OUT, D_ARG(1));
-        return R_OUT;
+        return D_OUT;
     }
 
     case SYM_REVERSE: {
@@ -989,7 +988,7 @@ REBTYPE(Array)
             }
         }
         Move_Value(D_OUT, D_ARG(1));
-        return R_OUT;
+        return D_OUT;
     }
 
     case SYM_SORT: {
@@ -1012,7 +1011,7 @@ REBTYPE(Array)
             REF(reverse)
         );
         Move_Value(D_OUT, value);
-        return R_OUT;
+        return D_OUT;
     }
 
     case SYM_RANDOM: {
@@ -1025,7 +1024,7 @@ REBTYPE(Array)
 
         if (REF(only)) { // pick an element out of the array
             if (index >= VAL_LEN_HEAD(value))
-                return R_NULL;
+                return nullptr;
 
             Init_Integer(
                 ARG(seed),
@@ -1034,17 +1033,17 @@ REBTYPE(Array)
 
             RELVAL *slot = Pick_Block(D_OUT, value, ARG(seed));
             if (IS_NULLED(D_OUT)) {
-                assert(slot == NULL);
+                assert(slot);
                 UNUSED(slot);
-                return R_NULL;
+                return nullptr;
             }
-            return R_OUT;
+            return D_OUT;
 
         }
 
         Shuffle_Block(value, REF(secure));
         Move_Value(D_OUT, value);
-        return R_OUT;
+        return D_OUT;
     }
 
     default:
@@ -1063,7 +1062,7 @@ REBTYPE(Array)
 
 return_empty_block:
     Init_Block(D_OUT, Make_Array(0));
-    return R_OUT;
+    return D_OUT;
 }
 
 
