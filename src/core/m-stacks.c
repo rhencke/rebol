@@ -135,20 +135,21 @@ void Expand_Data_Stack_May_Fail(REBCNT amount)
     // the debug build).  In order to serve as a marker for the stack slot
     // being available, it merely must not be IS_END()...
 
-    REBVAL *value = DS_Movable_Top;
+    REBVAL *cell = DS_Movable_Top;
 
     REBCNT len_new = len_old + amount;
     REBCNT n;
     for (n = len_old; n < len_new; ++n) {
-        Init_Unreadable_Blank(value);
-        ++value;
+        Init_Unreadable_Blank(cell);
+        SET_VAL_FLAGS(cell, CELL_FLAG_STACK | CELL_FLAG_TRANSIENT);
+        ++cell;
     }
 
     // Update the end marker to serve as the indicator for when the next
     // stack push would need to expand.
     //
     TERM_ARRAY_LEN(DS_Array, len_new);
-    assert(value == ARR_TAIL(DS_Array));
+    assert(cell == ARR_TAIL(DS_Array));
 
     ASSERT_ARRAY(DS_Array);
 }

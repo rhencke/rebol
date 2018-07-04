@@ -179,7 +179,7 @@ inline static int FRM_LINE(REBFRM *f) {
 #define FRM_PRIOR(f) \
     ((f)->prior + 0) // prevent assignment via this macro
 
-#if !defined(NDEBUG) or !defined(__cplusplus)
+#if defined(NDEBUG) or !defined(__cplusplus)
     #define FRM_PHASE(f) \
         f->rootvar->payload.any_context.phase
 #else
@@ -194,8 +194,8 @@ inline static int FRM_LINE(REBFRM *f) {
     //
     // Any manipulations aware of this hack need to access the field directly.
     //
-    inline static REBACT& FRM_PHASE(REBFRM *f) {
-        REBACT &phase = f->rootvar->payload.any_context.phase;
+    inline static REBACT* &FRM_PHASE(REBFRM *f) {
+        REBACT* &phase = f->rootvar->payload.any_context.phase;
         assert(phase != NAT_ACTION(defer_0));
         return phase;
     }

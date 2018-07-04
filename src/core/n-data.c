@@ -613,7 +613,7 @@ REBNATIVE(in)
                         context, VAL_WORD_CANON(word), FALSE
                     );
                     if (index != 0) {
-                        INIT_WORD_CONTEXT(word, context);
+                        INIT_BINDING(word, context);
                         INIT_WORD_INDEX(word, index);
                         Move_Value(D_OUT, word);
                         return D_OUT;

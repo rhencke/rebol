@@ -326,7 +326,12 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
         // Using the keylist as the facade is taken care of in DO for FRAME!,
         // and this check is here pending a more elegant sorting of this.
         //
-        assert(f->prior and FRM_PHASE(f->prior) == NAT_ACTION(do));
+        assert(
+            f->prior and (
+                FRM_PHASE(f->prior) == NAT_ACTION(do)
+                or FRM_PHASE(f->prior) == NAT_ACTION(apply)
+            )
+        );
     }
 
     if (f->refine == ORDINARY_ARG) {

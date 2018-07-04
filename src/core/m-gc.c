@@ -122,6 +122,8 @@ static void Mark_Devices_Deep(void);
 static inline void Mark_Rebser_Only(REBSER *s)
 {
   #if !defined(NDEBUG)
+    if (IS_FREE_NODE(s))
+        panic (s);
     if (NOT_SER_FLAG((s), NODE_FLAG_MANAGED)) {
         printf("Link to non-MANAGED item reached by GC\n");
         panic (s);
@@ -130,7 +132,7 @@ static inline void Mark_Rebser_Only(REBSER *s)
         assert(NOT_SER_FLAG((s), SERIES_FLAG_HAS_DYNAMIC));
   #endif
 
-    (s)->header.bits |= NODE_FLAG_MARKED;
+    (s)->header.bits |= NODE_FLAG_MARKED; // may be already set
 }
 
 static inline void Unmark_Rebser(REBSER *rebser) {
@@ -158,23 +160,13 @@ static inline void Unmark_Rebser(REBSER *rebser) {
 //
 static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
 {
-#if !defined(NDEBUG)
-    if (IS_FREE_NODE(a))
-        panic (a);
-
+  #if !defined(NDEBUG)
     if (NOT_SER_FLAG(a, SERIES_FLAG_ARRAY))
         panic (a);
+  #endif
 
-    if (not IS_ARRAY_MANAGED(a))
-        panic (a);
-#endif
-
-    // A marked array doesn't necessarily mean all references reached from it
-    // have been marked yet--it could still be waiting in the queue.  But we
-    // don't want to wastefully submit it to the queue multiple times.
-    //
     if (GET_SER_FLAG(a, NODE_FLAG_MARKED))
-        return;
+        return; // may not be finished marking yet, but has been queued
 
     Mark_Rebser_Only(cast(REBSER*, a));
 
@@ -190,7 +182,7 @@ static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
     SET_SERIES_LEN(GC_Mark_Stack, SER_LEN(GC_Mark_Stack) + 1); // unterminated
 }
 
-inline static void Queue_Mark_Array_Deep(REBARR *a) {
+inline static void Queue_Mark_Array_Deep(REBARR *a) { // plain array
     assert(NOT_SER_FLAG(a, ARRAY_FLAG_VARLIST));
     assert(NOT_SER_FLAG(a, ARRAY_FLAG_PARAMLIST));
     assert(NOT_SER_FLAG(a, ARRAY_FLAG_PAIRLIST));
@@ -201,7 +193,7 @@ inline static void Queue_Mark_Array_Deep(REBARR *a) {
     Queue_Mark_Array_Subclass_Deep(a);
 }
 
-inline static void Queue_Mark_Context_Deep(REBCTX *c) {
+inline static void Queue_Mark_Context_Deep(REBCTX *c) { // ARRAY_FLAG_VARLIST
     REBARR *varlist = CTX_VARLIST(c);
     assert(
         GET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE)
@@ -213,14 +205,10 @@ inline static void Queue_Mark_Context_Deep(REBCTX *c) {
         ))
     );
 
-    Queue_Mark_Array_Subclass_Deep(varlist);
-
-    // Further handling is in Propagate_All_GC_Marks() for ARRAY_FLAG_VARLIST
-    // where it can safely call Queue_Mark_Context_Deep() again without it
-    // being a recursion.  (e.g. marking the context for this context's meta)
+    Queue_Mark_Array_Subclass_Deep(varlist); // see Propagate_All_GC_Marks()
 }
 
-inline static void Queue_Mark_Action_Deep(REBACT *a) {
+inline static void Queue_Mark_Action_Deep(REBACT *a) { // ARRAY_FLAG_PARAMLIST
     REBARR *paramlist = ACT_PARAMLIST(a);
     assert(
         SERIES_MASK_ACTION == (SER(paramlist)->header.bits & (
@@ -231,14 +219,10 @@ inline static void Queue_Mark_Action_Deep(REBACT *a) {
         ))
     );
 
-    Queue_Mark_Array_Subclass_Deep(paramlist);
-
-    // Further handling in Propagate_All_GC_Marks() for ARRAY_FLAG_PARAMLIST
-    // where it can safely call Queue_Mark_Actionn_Deep() again without it
-    // being a recursion (e.g. marking underlying action for this action)
+    Queue_Mark_Array_Subclass_Deep(paramlist); // see Propagate_All_GC_Marks()
 }
 
-inline static void Queue_Mark_Map_Deep(REBMAP *m) {
+inline static void Queue_Mark_Map_Deep(REBMAP *m) { // ARRAY_FLAG_PAIRLIST
     REBARR *pairlist = MAP_PAIRLIST(m);
     assert(
         ARRAY_FLAG_PAIRLIST == (SER(pairlist)->header.bits & (
@@ -247,21 +231,16 @@ inline static void Queue_Mark_Map_Deep(REBMAP *m) {
         ))
     );
 
-    Queue_Mark_Array_Subclass_Deep(pairlist);
-
-    // Further handling is in Propagate_All_GC_Marks() for ARRAY_FLAG_PAIRLIST
-    // where it can safely call Queue_Mark_Map_Deep() again without it
-    // being a recursion (e.g. marking underlying action for this action)
+    Queue_Mark_Array_Subclass_Deep(pairlist); // see Propagate_All_GC_Marks()
 }
 
 inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     REBNOD *binding = VAL_BINDING(v);
+    if (not binding)
+        return;
 
   #if !defined(NDEBUG)
-    if (not binding) {
-        // unbound, so what to check?
-    }
-    else if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
+    if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
         //
         // It's an action, any reasonable added check?
     }
@@ -276,8 +255,19 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     }
   #endif
 
-    if (binding and (binding->header.bits & NODE_FLAG_MANAGED))
+    if (binding->header.bits & NODE_FLAG_MANAGED)
         Queue_Mark_Array_Subclass_Deep(ARR(binding));
+    else {
+        // If a stack cell is holding onto an unmanaged stack-based pointer,
+        // it's assumed the lifetime is taken care of by other means and
+        // the GC does not need to be involved.  But only stack cells are
+        // allowed to do this.
+        //
+      #if !defined(NDEBUG)
+        if (not ANY_VAL_FLAGS(v, CELL_FLAG_STACK | CELL_FLAG_TRANSIENT))
+            panic (v);
+      #endif
+    }
 }
 
 
@@ -452,7 +442,7 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         REBSER *s = v->payload.any_series.series;
 
         assert(SER_WIDE(s) <= sizeof(REBUNI));
-        assert(v->extra.binding == UNBOUND);
+        assert(not v->extra.binding); // for future use
 
         if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE)) {
             //
@@ -606,7 +596,7 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
             else {
                 struct Reb_Frame *f = CTX_FRAME_IF_ON_STACK(context);
                 if (f) // comes from execution, not MAKE FRAME!
-                    assert(v->extra.binding == FRM_BINDING(f));
+                    assert(VAL_BINDING(v) == FRM_BINDING(f));
             }
         }
       #endif
@@ -776,7 +766,7 @@ static void Propagate_All_GC_Marks(void)
         if (GET_SER_FLAG(a, ARRAY_FLAG_PARAMLIST)) {
             v = ARR_HEAD(a); // archetype
             assert(IS_ACTION(v));
-            assert(v->extra.binding == UNBOUND); // archetypes have no binding
+            assert(not v->extra.binding); // archetypes have no binding
 
             // These queueings cannot be done in Queue_Mark_Function_Deep
             // because of the potential for overflowing the C stack with calls
@@ -810,7 +800,7 @@ static void Propagate_All_GC_Marks(void)
             // Currently only FRAME! uses binding
             //
             assert(ANY_CONTEXT(v));
-            assert(v->extra.binding == UNBOUND or VAL_TYPE(v) == REB_FRAME);
+            assert(not v->extra.binding or VAL_TYPE(v) == REB_FRAME);
 
             // These queueings cannot be done in Queue_Mark_Context_Deep
             // because of the potential for overflowing the C stack with calls

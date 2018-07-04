@@ -1550,7 +1550,7 @@ REBNATIVE(subparse)
                         // be used by the Move_Value() inlined here.  Get
                         // past that by initializing it.
                         //
-                        thrown_arg->extra.binding = UNBOUND; // unused by ints
+                        thrown_arg->extra.trash = thrown_arg; // local trash
 
                         CONVERT_NAME_TO_THROWN(P_OUT, thrown_arg);
                         return R_THROWN;

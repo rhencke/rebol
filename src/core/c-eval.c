@@ -796,7 +796,7 @@ reevaluate:;
 
                     DS_PUSH_TRASH;
                     Init_Refinement(DS_TOP, partial_canon);
-                    DS_TOP->extra.binding = NOD(f->varlist); // need unmanaged
+                    INIT_BINDING(DS_TOP, f->varlist);
                     DS_TOP->payload.any_word.index = partial_index;
 
                     if (not IS_REFINEMENT_SPECIALIZED(f->param)) {
@@ -860,11 +860,9 @@ reevaluate:;
                     // consume lines up.  Save the position to come back to,
                     // as binding information on the refinement.
                     //
-                    // !!! INIT_BINDING manages, and INIT_WORD_INDEX reifies
-                    //
                     REBCNT offset = f->arg - FRM_ARGS_HEAD(f);
-                    ordered->extra.binding = NOD(f->varlist); // unmanaged
-                    ordered->payload.any_word.index = offset + 1;
+                    INIT_BINDING(ordered, f->varlist);
+                    INIT_WORD_INDEX(ordered, offset + 1);
 
                     // "consume args later" (promise not to change)
                     //
@@ -898,13 +896,13 @@ reevaluate:;
             case PARAM_CLASS_RETURN_1:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
                 Move_Value(f->arg, NAT_VALUE(return_1)); // !!! f->special?
-                f->arg->extra.binding = NOD(f->varlist); // need unmanaged
+                INIT_BINDING(f->arg, f->varlist);
                 goto continue_arg_loop;
 
             case PARAM_CLASS_RETURN_0:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
                 Move_Value(f->arg, NAT_VALUE(return_0)); // !!! f->special?
-                f->arg->extra.binding = NOD(f->varlist); // need unmanaged
+                INIT_BINDING(f->arg, f->varlist);
                 goto continue_arg_loop;
 
             default:
@@ -1118,12 +1116,7 @@ reevaluate:;
             //
             if (GET_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC)) {
                 RESET_VAL_HEADER(f->arg, REB_VARARGS);
-
-                // !!! Doesn't use INIT_BINDING() because that conservatively
-                // reifies, and not only do we know we don't have to here, it
-                // would assert trying to reify a fulfilling frame.
-                //
-                f->arg->extra.binding = NOD(f->varlist);
+                INIT_BINDING(f->arg, f->varlist); // frame-based VARARGS!
 
                 Finalize_Current_Arg(f); // sets VARARGS! offset and facade
                 goto continue_arg_loop;

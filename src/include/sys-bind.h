@@ -72,7 +72,7 @@
 
     inline static REBSPC *VAL_SPECIFIER(const REBVAL *v) {
         assert(VAL_TYPE(v) == REB_0_REFERENCE or ANY_ARRAY(v));
-        if (v->extra.binding == UNBOUND)
+        if (not v->extra.binding)
             return SPECIFIED;
 
         // While an ANY-WORD! can be bound specifically to an arbitrary
@@ -81,7 +81,7 @@
         // paramlist, which should have an ACTION! value in keylist[0]
         //
         REBCTX *c = CTX(v->extra.binding);
-        /* assert(CTX_TYPE(c) == REB_FRAME); */ // may be inaccessible
+        assert(CTX_TYPE(c) == REB_FRAME); // may be inaccessible
         assert(GET_SER_FLAG(c, SERIES_FLAG_STACK));
         return cast(REBSPC*, c);
     }
@@ -352,14 +352,19 @@ inline static REBVAL *Derelativize(
     REBSPC *specifier
 ){
     Move_Value_Header(out, v);
+    out->payload = v->payload;
 
     if (Not_Bindable(v)) {
         out->extra = v->extra; // extra.binding union field isn't even active
+        return KNOWN(out);
     }
-    else if (v->extra.binding == UNBOUND) {
+
+    REBNOD *binding = v->extra.binding;
+
+    if (not binding) {
         out->extra.binding = UNBOUND;
     }
-    else if (v->extra.binding->header.bits & ARRAY_FLAG_PARAMLIST) {
+    else if (binding->header.bits & ARRAY_FLAG_PARAMLIST) {
         //
         // The stored binding is relative to a function, and so the specifier
         // needs to be a frame to have a precise invocation to lookup in.
@@ -367,47 +372,42 @@ inline static REBVAL *Derelativize(
         assert(ANY_WORD(v) or ANY_ARRAY(v));
 
       #if !defined(NDEBUG)
-        if (specifier == SPECIFIED) {
+        if (not specifier) {
             printf("Relative item used with SPECIFIED\n");
             panic (v);
         }
 
-        if (VAL_RELATIVE(v) != VAL_ACTION(CTX_ROOTKEY(CTX(specifier)))) {
+        if (binding != NOD(VAL_ACTION(CTX_ROOTKEY(CTX(specifier))))) {
             printf("Function mismatch in specific binding, expected:\n");
-            PROBE(ACT_ARCHETYPE(VAL_RELATIVE(v)));
+            PROBE(ACT_ARCHETYPE(ACT(binding)));
             printf("Panic on relative value\n");
             panic (v);
         }
       #endif
 
-        INIT_BINDING(out, specifier);
+        INIT_BINDING_MAY_MANAGE(out, specifier);
     }
-    else if (
-        specifier != SPECIFIED
-        and (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
-    ){
+    else if (specifier and (binding->header.bits & ARRAY_FLAG_VARLIST)) {
         REBNOD *f_binding = SPC_BINDING(specifier); // can't fail(), see notes
 
         if (
-            f_binding != UNBOUND
-            and Is_Overriding_Context(CTX(v->extra.binding), CTX(f_binding))
+            f_binding
+            and Is_Overriding_Context(CTX(binding), CTX(f_binding))
         ){
             // !!! Repeats code in Get_Var_Core, see explanation there
             //
-            INIT_BINDING(out, f_binding);
+            INIT_BINDING_MAY_MANAGE(out, f_binding);
         }
         else
-            out->extra.binding = v->extra.binding;
+            INIT_BINDING_MAY_MANAGE(out, binding);
     }
     else { // no potential override
         assert(
-            (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST)
+            (binding->header.bits & ARRAY_FLAG_VARLIST)
             or IS_VARARGS(v) // BLOCK! style varargs use binding to hold array
         );
-        out->extra.binding = v->extra.binding;
+        INIT_BINDING_MAY_MANAGE(out, binding);
     }
-
-    out->payload = v->payload;
 
     // in case the caller had a relative value slot and wants to use its
     // known non-relative form... this is inline, so no cost if not used.

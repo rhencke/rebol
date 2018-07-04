@@ -68,7 +68,7 @@ void Bind_Values_Inner_Loop(
                 // We're overwriting any previous binding, which may have
                 // been relative.
 
-                INIT_WORD_CONTEXT(v, context);
+                INIT_BINDING_MAY_MANAGE(v, NOD(context));
                 INIT_WORD_INDEX(v, n);
             }
             else if (type_bit & add_midstream_types) {
@@ -165,16 +165,14 @@ void Unbind_Values_Core(RELVAL head[], REBCTX *context, REBOOL deep)
 //
 //  Try_Bind_Word: C
 //
-// Binds a word to a context. If word is not part of the context.
+// Returns 0 if word is not part of the context, otherwise the index of the
+// word in the context.
 //
 REBCNT Try_Bind_Word(REBCTX *context, REBVAL *word)
 {
     REBCNT n = Find_Canon_In_Context(context, VAL_WORD_CANON(word), FALSE);
     if (n != 0) {
-        //
-        // Previously may have been bound relative.
-        //
-        INIT_WORD_CONTEXT(word, context);
+        INIT_BINDING(word, context); // binding may have been relative before
         INIT_WORD_INDEX(word, n);
     }
     return n;
@@ -585,12 +583,19 @@ void Virtual_Bind_Deep_To_New_Context(
     //
     SET_SER_FLAG(CTX_VARLIST(c), SERIES_FLAG_DONT_RELOCATE);
 
-    if (not rebinding) {
-        ENSURE_ARRAY_MANAGED(CTX_VARLIST(c));
-        return; // nothing else needed to do
-    }
+    // !!! In virtual binding, there would not be a Bind_Values call below;
+    // so it wouldn't necessarily be required to manage the augmented
+    // information.  For now it's a requirement for any references that
+    // might be found...and INIT_BINDING_MAY_MANAGE() won't auto-manage
+    // things unless they are stack-based.  Virtual bindings will be, but
+    // contexts like this won't.
+    //
+    MANAGE_ARRAY(CTX_VARLIST(c));
 
-    if (duplicate == NULL) {
+    if (not rebinding)
+        return; // nothing else needed to do
+
+    if (not duplicate) {
         //
         // This is effectively `Bind_Values_Deep(ARR_HEAD(body_out), context)`
         // but we want to reuse the binder we had anyway for detecting the
@@ -620,21 +625,10 @@ void Virtual_Bind_Deep_To_New_Context(
     SHUTDOWN_BINDER(&binder);
 
     if (duplicate) {
-        Free_Unmanaged_Array(CTX_VARLIST(c));
-
         DECLARE_LOCAL (word);
         Init_Word(word, duplicate);
         fail (Error_Dup_Vars_Raw(word));
     }
-
-    // !!! The binding process may or may not wind up initializing a word
-    // in the body to point into the context, which (currently) would
-    // ensure the varlist of the context is managed.  If that didn't happen,
-    // (e.g. no references in the body) it would not be managed.  Make sure
-    // the resulting context is always managed for now, and review the idea
-    // of whether binding should ensure vs. assert.
-    //
-    ENSURE_ARRAY_MANAGED(CTX_VARLIST(c));
 }
 
 

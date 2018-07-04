@@ -607,36 +607,10 @@ REBNATIVE(apply)
     REBCTX *exemplar = Make_Context_For_Action_Int_Partials(
         applicand,
         f->dsp_orig, // lowest_ordered_dsp of refinements to weave in
-        &binder
+        &binder,
+        CELL_MASK_STACK
     );
-
-    Push_Frame_At_End(f, DO_FLAG_GOTO_PROCESS_ACTION);
-
-    if (REF(opt))
-        f->deferred = nullptr; // needed if !(DO_FLAG_FULLY_SPECIALIZED)
-    else {
-        //
-        // If nulls are taken literally as null arguments, then no arguments
-        // are gathered at the callsite, so the "ordering information"
-        // on the stack isn't needed.  Do_Core() will just treat a slot
-        // with an INTEGER! for a refinement as if it were "true".
-        //
-        f->flags.bits |= DO_FLAG_FULLY_SPECIALIZED;
-        DS_DROP_TO(lowest_ordered_dsp); // zero refinements on stack, now
-    }
-
-    f->varlist = CTX_VARLIST(exemplar); // GC protected after Begin_Action()
-    SET_SER_FLAG(f->varlist, SERIES_FLAG_STACK);
-    LINK(f->varlist).keysource = NOD(f);
-    f->rootvar = CTX_ARCHETYPE(exemplar);
-    f->arg = f->rootvar + 1;
-    f->param = ACT_FACADE_HEAD(VAL_ACTION(applicand));
-    f->special = f->arg; // signal only type-check the existing data
-    FRM_PHASE(f) = VAL_ACTION(applicand);
-    FRM_BINDING(f) = VAL_BINDING(applicand);
-
-    Begin_Action(f, opt_label, ORDINARY_ARG);
-    assert(IS_POINTER_TRASH_DEBUG(f->deferred)); // Do_Core() sanity checks
+    MANAGE_ARRAY(CTX_VARLIST(exemplar)); // binding code into it
 
     // Bind any SET-WORD!s in the supplied code block into the FRAME!, so
     // e.g. APPLY 'APPEND [VALUE: 10]` will set VALUE in exemplar to 10.
@@ -667,23 +641,50 @@ REBNATIVE(apply)
 
     // Run the bound code, ignore evaluative result (unless thrown)
     //
+    PUSH_GUARD_CONTEXT(exemplar);
     REBOOL threw = Do_Any_Array_At_Throws(D_CELL, ARG(def));
+    DROP_GUARD_CONTEXT(exemplar);
 
-    // The convention for f->varlist is that if it's unmanaged, it should be
-    // freeable without going through the ordinary "tracking" debug check.
-    // If for some reason the code execution did not manage the varlist, we
-    // do a little tapdance here to manage (to get it out of the tracklist)
-    // and then mark it unmanaged again.
+    // Actions require unmanaged varlists, and we had to manage that one.
     //
-    if (NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
-        MANAGE_ARRAY(f->varlist);
-        CLEAR_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
-    }
+    f->param = CTX_KEYS_HEAD(exemplar); // maybe hides params of applicand
+    REBCTX *stolen = Steal_Context_Vars(
+        exemplar,
+        NOD(ACT_FACADE(VAL_ACTION(applicand)))
+    );
+    LINK(stolen).keysource = NOD(f); // changes CTX_KEYS_HEAD result
 
     if (threw) {
-        Drop_Frame_Core(f);
+        Free_Unmanaged_Array(CTX_VARLIST(stolen)); // could TG_Reuse it
         return D_CELL;
     }
+
+    Push_Frame_At_End(f, DO_FLAG_GOTO_PROCESS_ACTION);
+
+    if (REF(opt))
+        f->deferred = nullptr; // needed if !(DO_FLAG_FULLY_SPECIALIZED)
+    else {
+        //
+        // If nulls are taken literally as null arguments, then no arguments
+        // are gathered at the callsite, so the "ordering information"
+        // on the stack isn't needed.  Do_Core() will just treat a slot
+        // with an INTEGER! for a refinement as if it were "true".
+        //
+        f->flags.bits |= DO_FLAG_FULLY_SPECIALIZED;
+        DS_DROP_TO(lowest_ordered_dsp); // zero refinements on stack, now
+    }
+
+    f->varlist = CTX_VARLIST(stolen);
+    SET_SER_FLAG(f->varlist, SERIES_FLAG_STACK);
+    f->rootvar = CTX_ARCHETYPE(stolen);
+    f->arg = f->rootvar + 1;
+    // f->param assigned above
+    f->special = f->arg; // signal only type-check the existing data
+    FRM_PHASE(f) = VAL_ACTION(applicand);
+    FRM_BINDING(f) = VAL_BINDING(applicand);
+
+    Begin_Action(f, opt_label, ORDINARY_ARG);
+    assert(IS_POINTER_TRASH_DEBUG(f->deferred)); // Do_Core() sanity checks
 
     (*PG_Do)(f);
 

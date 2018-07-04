@@ -214,7 +214,7 @@ void Expand_Context(REBCTX *context, REBCNT delta)
 REBVAL *Append_Context(
     REBCTX *context,
     RELVAL *opt_any_word,
-    REBSTR *opt_name
+    REBSTR *opt_spelling
 ) {
     REBARR *keylist = CTX_KEYLIST(context);
 
@@ -226,11 +226,11 @@ REBVAL *Append_Context(
     // also check that redundant keys aren't getting added here.
     //
     EXPAND_SERIES_TAIL(SER(keylist), 1);
-    REBVAL *key = SINK(ARR_LAST(keylist));
+    REBVAL *key = SINK(ARR_LAST(keylist)); // !!! non-dynamic, could optimize
     Init_Typeset(
         key,
         ALL_64,
-        opt_any_word != NULL ? VAL_WORD_SPELLING(opt_any_word) : opt_name
+        opt_spelling ? opt_spelling : VAL_WORD_SPELLING(opt_any_word)
     );
     TERM_ARRAY_LEN(keylist, ARR_LEN(keylist));
 
@@ -241,28 +241,20 @@ REBVAL *Append_Context(
     REBVAL *value = Init_Nulled(ARR_LAST(CTX_VARLIST(context)));
     TERM_ARRAY_LEN(CTX_VARLIST(context), ARR_LEN(CTX_VARLIST(context)));
 
-    if (opt_any_word) {
-        REBCNT len = CTX_LEN(context);
-
+    if (not opt_any_word)
+        assert(opt_spelling);
+    else {
         // We want to not just add a key/value pairing to the context, but we
         // want to bind a word while we are at it.  Make sure symbol is valid.
         //
-        assert(opt_name == NULL);
+        assert(not opt_spelling);
 
-        // When a binding is made to an ordinary context, the value list is
-        // used as the target and the index is a positive number.  Note that
-        // for stack-relative bindings, the index will be negative and the
-        // target will be a function's PARAMLIST series.
-        //
-        INIT_WORD_CONTEXT(opt_any_word, context);
-        INIT_WORD_INDEX(opt_any_word, len); // length we just bumped
+        REBCNT len = CTX_LEN(context); // length we just bumped
+        INIT_BINDING(opt_any_word, context);
+        INIT_WORD_INDEX(opt_any_word, len);
     }
-    else
-        assert(opt_name != NULL);
 
-    // The variable value location for the key we just added (unset).
-    //
-    return value;
+    return value; // location we just added (nulled cell)
 }
 
 

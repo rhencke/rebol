@@ -1672,7 +1672,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     //
     REBVAL *rootvar = CTX_ARCHETYPE(c);
     rootvar->payload.any_context.phase = VAL_ACTION(inner);
-    rootvar->extra.binding = VAL_BINDING(inner);
+    INIT_BINDING(rootvar, VAL_BINDING(inner));
 
     Init_Frame(&f->cell, c); // user may DO this, or not...
 

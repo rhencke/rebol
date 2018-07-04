@@ -2290,7 +2290,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 //
                 // Exists in user context at the given positive index.
                 //
-                INIT_WORD_CONTEXT(DS_TOP, ss->user);
+                INIT_BINDING(DS_TOP, ss->user);
                 INIT_WORD_INDEX(DS_TOP, n);
             }
             else if (n < 0) {

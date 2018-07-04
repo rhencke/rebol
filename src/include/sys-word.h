@@ -52,7 +52,7 @@
 
 inline static REBOOL IS_WORD_UNBOUND(const RELVAL *v) {
     assert(ANY_WORD(v));
-    return v->extra.binding == UNBOUND;
+    return v->extra.binding == nullptr;
 }
 
 #define IS_WORD_BOUND(v) \
@@ -84,17 +84,6 @@ inline static REBSTR *VAL_STORED_CANON(const RELVAL *v) {
 
 inline static OPT_REBSYM VAL_WORD_SYM(const RELVAL *v) {
     return STR_SYMBOL(v->payload.any_word.spelling);
-}
-
-inline static void INIT_WORD_CONTEXT(RELVAL *v, REBCTX *context) {
-    //
-    // !!! Is it a good idea to be willing to do the ENSURE here?
-    // See weirdness in Copy_Body_Deep_Bound_To_New_Context()
-    //
-    ENSURE_ARRAY_MANAGED(CTX_VARLIST(context));
-
-    ASSERT_ARRAY_MANAGED(CTX_KEYLIST(context));
-    INIT_BINDING(v, context);
 }
 
 inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
@@ -136,16 +125,11 @@ inline static REBVAL *Init_Any_Word(
 ){
     RESET_VAL_HEADER(out, kind);
 
-    assert(spelling != NULL);
     out->payload.any_word.spelling = spelling;
     INIT_BINDING(out, UNBOUND);
-
-#if !defined(NDEBUG)
-    out->payload.any_word.index = 0;
-#endif
-
-    assert(ANY_WORD(out));
-    assert(IS_WORD_UNBOUND(out));
+  #if !defined(NDEBUG)
+    out->payload.any_word.index = 0; // index not heeded if no binding
+  #endif
 
     return KNOWN(out);
 }
@@ -179,14 +163,9 @@ inline static REBVAL *Init_Any_Word_Bound(
 ) {
     RESET_VAL_HEADER(out, type);
 
-    assert(spelling != NULL);
     out->payload.any_word.spelling = spelling;
-
-    INIT_WORD_CONTEXT(out, context);
+    INIT_BINDING(out, context);
     INIT_WORD_INDEX(out, index);
-
-    assert(ANY_WORD(out));
-    assert(IS_WORD_BOUND(out));
 
     return KNOWN(out);
 }

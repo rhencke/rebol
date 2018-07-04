@@ -359,12 +359,12 @@ inline static void Init_Endlike_Header(
 // that meaning, but time will tell if it's a good idea to reuse the bit.
 //
 
-#define CELL_MASK_RESET \
-    (NODE_FLAG_NODE | NODE_FLAG_CELL \
-        | NODE_FLAG_MANAGED | NODE_FLAG_ROOT | CELL_FLAG_STACK)
+#define CELL_MASK_PERSIST \
+    (NODE_FLAG_NODE | NODE_FLAG_CELL | NODE_FLAG_MANAGED | NODE_FLAG_ROOT \
+        | CELL_FLAG_TRANSIENT | CELL_FLAG_STACK)
 
 #define CELL_MASK_COPY \
-    ~(CELL_MASK_RESET | NODE_FLAG_MARKED | CELL_FLAG_PROTECTED \
+    ~(CELL_MASK_PERSIST | NODE_FLAG_MARKED | CELL_FLAG_PROTECTED \
         | VALUE_FLAG_ENFIXED | VALUE_FLAG_UNEVALUATED | VALUE_FLAG_EVAL_FLIP)
 
 
@@ -768,6 +768,16 @@ struct Reb_Gob_Payload {
 
 union Reb_Value_Extra {
     //
+    // The release build doesn't put anything in the ->extra field by default,
+    // so sensitive compilers notice when cells are moved without that
+    // initialization.  Rather than disable the warning, this can be used to
+    // put some junk into, but TRASH_POINTER_IF_DEBUG() won't subvert the
+    // warning.  So just poke whatever pointer is at hand that is likely to
+    // already be in a register and not meaningful (e.g. nullptr is a bad
+    // value, because that could look like a valid non-binding)
+    //
+    void *trash;
+
     // The binding will be either a REBACT (relative to a function) or a
     // REBCTX (specific to a context), or simply a plain REBARR such as
     // EMPTY_ARRAY which indicates UNBOUND.  ARRAY_FLAG_VARLIST and

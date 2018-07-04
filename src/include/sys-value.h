@@ -472,7 +472,7 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     //
     CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(extra);
 
-    v->header.bits &= CELL_MASK_RESET;
+    v->header.bits &= CELL_MASK_PERSIST;
     v->header.bits |= HEADERIZE_KIND(kind) | extra;
     return cast(REBVAL*, v);
 }
@@ -535,7 +535,7 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     }
 
 #define CELL_MASK_NON_STACK \
-    (NODE_FLAG_NODE | NODE_FLAG_CELL | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH))
+    (NODE_FLAG_NODE | NODE_FLAG_CELL)
 
 #define CELL_MASK_NON_STACK_END \
     (CELL_MASK_NON_STACK | CELL_FLAG_END)
@@ -564,6 +564,8 @@ inline static void Prep_Non_Stack_Cell_Core(
         Prep_Non_Stack_Cell_Core(c)
 #endif
 
+#define CELL_MASK_STACK \
+    (NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_STACK)
 
 inline static void Prep_Stack_Cell_Core(
     struct Reb_Cell *c
@@ -577,12 +579,7 @@ inline static void Prep_Stack_Cell_Core(
     ALIGN_CHECK_CELL_EVIL_MACRO(c, file, line);
   #endif
 
-    c->header.bits =
-        NODE_FLAG_NODE
-        | NODE_FLAG_CELL
-        | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH)
-        | CELL_FLAG_STACK;
-
+    c->header.bits = CELL_MASK_STACK | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
     TRACK_CELL_IF_DEBUG(cast(RELVAL*, c), file, line);
 }
 
@@ -630,7 +627,7 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     ){
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
-        v->header.bits &= CELL_MASK_RESET;
+        v->header.bits &= CELL_MASK_PERSIST;
         v->header.bits |=
             TRASH_FLAG_UNREADABLE_IF_DEBUG
             | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
@@ -815,7 +812,7 @@ inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 inline static REBOOL IS_RELATIVE(const RELVAL *v) {
     if (Not_Bindable(v) or not v->extra.binding)
         return false; // INTEGER! and other types are inherently "specific"
-    return did (v->extra.binding->header.bits & ARRAY_FLAG_PARAMLIST);
+    return GET_SER_FLAG(v->extra.binding, ARRAY_FLAG_PARAMLIST);
 }
 
 #if defined(__cplusplus) && __cplusplus >= 201103L
@@ -1475,35 +1472,6 @@ inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  REFERENCE!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// References are an internal type, used transiently to communicate a cell
-// location via a cell.  They are not robust enough for userspace, so they
-// use the internal REB_0_REFERENCE type and currently only appear in the
-// path dispatch code.
-//
-
-inline static REBVAL *Init_Reference(
-    RELVAL *out,
-    RELVAL *cell,
-    REBSPC *specifier
-){
-    RESET_VAL_HEADER(out, REB_0_REFERENCE);
-    out->payload.reference.cell = cell;
-    out->extra.binding = cast(REBNOD*, specifier);
-    return cast(REBVAL*, out);
-}
-
-inline static RELVAL *VAL_REFERENCE(const RELVAL *v) {
-    assert(VAL_TYPE(v) == REB_0_REFERENCE);
-    return v->payload.reference.cell; // Use VAL_SPECIFIER() to get specifier
-}
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
 //  TUPLE!
 //
 //=////////////////////////////////////////////////////////////////////////=//
@@ -1798,34 +1766,18 @@ inline static REBNOD *VAL_BINDING(const RELVAL *v) {
 }
 
 inline static void INIT_BINDING(RELVAL *v, void *p) {
-    //
-    // This can be used on a partially initialized value, hence GET_VAL_FLAG
-    // is not appropriate to apply, since it assumes a fully formed value.
-    //
-    assert(Is_Bindable(v));
+    assert(Is_Bindable(v)); // works on partially formed values
 
     REBNOD *binding = cast(REBNOD*, p);
+    v->extra.binding = binding;
 
-    assert(
-        not binding
-        or not (binding->header.bits & NODE_FLAG_CELL) // not currently used
-    );
+  #if !defined(NDEBUG)
+    if (not binding)
+        return; // e.g. UNBOUND
 
-    if (not binding) {
-        // means UNBOUND
-    }
-    else if (not (binding->header.bits & NODE_FLAG_MANAGED)) {
-        //
-        // !!! Should be sensitive to whether or not the target cell has a
-        // stack lifetime of longer or shorter than the binding, so testing
-        // the things that Derelativize() and Move_Value() do w.r.t. to
-        // CELL_FLAG_STACK.
-        //
-        assert(CTX(p) and (binding->header.bits & SERIES_FLAG_STACK));
-        binding->header.bits |= NODE_FLAG_MANAGED;
-        v->extra.binding = binding;
-    }
-    else {
+    assert(not (binding->header.bits & NODE_FLAG_CELL)); // not currently used
+
+    if (binding->header.bits & NODE_FLAG_MANAGED) {
         assert(
             binding->header.bits & ARRAY_FLAG_VARLIST // specific
             or binding->header.bits & ARRAY_FLAG_PARAMLIST // relative
@@ -1835,7 +1787,22 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
             ) // varargs from MAKE VARARGS! [...], else is a varlist
         );
     }
-    v->extra.binding = binding;
+    else {
+        // Can only store unmanaged pointers in stack cells (and only if the
+        // lifetime of the stack entry is guaranteed to outlive the binding)
+        //
+        assert(CTX(p));
+        if (v->header.bits & NODE_FLAG_TRANSIENT) {
+            // let anything go... for now.
+            // SERIES_FLAG_STACK might not be set yet due to construction
+            // constraints, see Make_Context_For_Action_Int_Partials()
+        }
+        else {
+            assert(v->header.bits & CELL_FLAG_STACK);
+            assert(binding->header.bits & SERIES_FLAG_STACK);
+        }
+    }
+  #endif
 }
 
 inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
@@ -1845,7 +1812,7 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
 
     ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);
 
-    out->header.bits &= CELL_MASK_RESET;
+    out->header.bits &= CELL_MASK_PERSIST;
     out->header.bits |= v->header.bits & CELL_MASK_COPY;
 
   #ifdef DEBUG_TRACK_EXTEND_CELLS
@@ -1853,6 +1820,53 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
     out->tick = v->tick; // initialization tick
     out->touch = v->touch; // arbitrary debugging use via TOUCH_CELL
   #endif
+}
+
+
+// If the cell we're writing into is a stack cell, there's a chance that
+// management/reification of the binding can be avoided.
+//
+inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
+    if (not binding) {
+        out->extra.binding = nullptr; // unbound
+        return;
+    }
+    if (GET_SER_FLAG(binding, NODE_FLAG_MANAGED)) {
+        out->extra.binding = binding; // managed is safe for any `out`
+        return;
+    }
+    if (out->header.bits & NODE_FLAG_TRANSIENT) {
+        out->extra.binding = binding; // can't be passed between frame levels
+        return;
+    }
+
+    assert(GET_SER_FLAG(binding, SERIES_FLAG_STACK));
+ 
+    REBFRM *f = FRM(LINK(binding).keysource);
+    assert(IS_END(f->param)); // cannot manage frame varlist in mid fulfill!
+    UNUSED(f); // !!! not actually used yet, coming soon
+
+    if (out->header.bits & NODE_FLAG_STACK) {
+        //
+        // If the cell we're writing to is a stack cell, there's a chance
+        // that management/reification of the binding can be avoided.
+        //
+        REBCNT bind_depth = 1; // !!! need to find v's binding stack level
+        REBCNT out_depth;
+        if (not (out->header.bits & CELL_FLAG_STACK))
+            out_depth = 0;
+        else
+            out_depth = 1; // !!! need to find out's stack level
+
+        REBOOL smarts_enabled = false; 
+        if (smarts_enabled and out_depth >= bind_depth)
+            return; // binding will outlive `out`, don't manage
+
+        // no luck...`out` might outlive the binding, must manage
+    }
+
+    binding->header.bits |= NODE_FLAG_MANAGED; // burdens the GC, now...
+    out->extra.binding = binding;
 }
 
 
@@ -1871,50 +1885,12 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
 {
     Move_Value_Header(out, v);
 
+    if (Not_Bindable(v))
+        out->extra = v->extra; // extra isn't a binding (INTEGER! MONEY!...)
+    else
+        INIT_BINDING_MAY_MANAGE(out, v->extra.binding);
+
     out->payload = v->payload; // payloads cannot hold references to stackvars
-    out->extra = v->extra; // will use this node, but might need reification
-
-    if (
-        not Is_Bindable(v)
-        or (not v->extra.binding)
-        or (v->extra.binding->header.bits & NODE_FLAG_MANAGED)
-    ){
-        // Isn't the kind of cell with a binding (INTEGER!, STRING!...) or
-        // is UNBOUND (has the managed bit set), or already managed.
-        //
-        return KNOWN(out);
-    }
-
-    assert(v->header.bits & NODE_FLAG_STACK); // v's binding was not managed
-
-    if (out->header.bits & NODE_FLAG_STACK) {
-        //
-        // If the cell we're writing to is a stack cell, there's a chance
-        // that management/reification can be avoided.
-        //
-        REBFRM *f = FRM(LINK(v->extra.binding).keysource);
-        UNUSED(f); // don't actually use it...
-
-        REBCNT bind_depth = 1; // !!! need to determine v's binding stack level
-        REBCNT out_depth;
-        if (not (out->header.bits & CELL_FLAG_STACK))
-            out_depth = 0;
-        else
-            out_depth = 1; // !!! need to determine out's stack level
-
-        REBOOL smarts_enabled = FALSE; 
-        if (smarts_enabled and out_depth >= bind_depth) {
-            //
-            // The non-reified binding will outlive the output slot, so there
-            // is no reason to manage it.
-            //
-            return KNOWN(out);
-        }
-
-        // otherwise no dice, the reference may outlive
-    }
-
-    v->extra.binding->header.bits |= NODE_FLAG_MANAGED;
     return KNOWN(out);
 }
 
@@ -1922,40 +1898,19 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
 // When doing something like a COPY of an OBJECT!, the var cells have to be
 // handled specially, e.g. by preserving VALUE_FLAG_ENFIXED.
 //
+// !!! What about other non-copyable properties like CELL_FLAG_PROTECTED?
+//
 inline static REBVAL *Move_Var(RELVAL *out, const REBVAL *v)
 {
+    assert(not (out->header.bits & CELL_FLAG_STACK));
+
     // This special kind of copy can only be done into another object's
     // variable slot. (Since the source may be a FRAME!, v *might* be stack
     // but it should never be relative.  If it's stack, we have to go through
     // the whole potential reification process...double-set header for now.)
-    //
-    if (v->header.bits & CELL_FLAG_STACK) {
-        Move_Value(out, v);
-        if (GET_VAL_FLAG(v, VALUE_FLAG_ENFIXED))
-            SET_VAL_FLAG(out, VALUE_FLAG_ENFIXED); // !!! refactor better!
-        return KNOWN(out);
-    }
 
-   assert(out != v); // usually a sign of a mistake; not worth supporting
-   assert(
-        (v->header.bits & (NODE_FLAG_CELL | NODE_FLAG_NODE))
-        and not (v->header.bits & (CELL_FLAG_END | NODE_FLAG_FREE))
-    );
-
-    ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);
-
-    assert(not (out->header.bits & CELL_FLAG_STACK));
-
-    // !!! We preserve VALUE_FLAG_ENFIXED, but should we preserve protection
-    // status as well?
-    //
-    out->header.bits &= CELL_MASK_RESET;
-    out->header.bits |= v->header.bits & (
-        CELL_MASK_COPY | VALUE_FLAG_ENFIXED
-    );
-
-    out->payload = v->payload;
-    out->extra = v->extra;
+    Move_Value(out, v);
+    out->header.bits |= (v->header.bits & VALUE_FLAG_ENFIXED);
     return KNOWN(out);
 }
 
@@ -1980,8 +1935,8 @@ inline static void Blit_Cell(RELVAL *out, const RELVAL *v)
     // the release build.
     //
     assert(
-        (out->header.bits & CELL_MASK_RESET)
-        == (v->header.bits & CELL_MASK_RESET)
+        (out->header.bits & CELL_MASK_PERSIST)
+        == (v->header.bits & CELL_MASK_PERSIST)
     );
 
     out->header = v->header;

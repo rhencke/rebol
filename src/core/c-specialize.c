@@ -32,7 +32,7 @@
 // as it will always be appending 10.
 //
 // The method used is to store a FRAME! in the specialization's ACT_BODY.
-// It contains non-void values for any arguments that have been specialized.
+// It contains non-null values for any arguments that have been specialized.
 // Do_Core() heeds these when walking the parameters (see `f->special`),
 // and processes slots with voids in them normally.
 //
@@ -56,7 +56,7 @@
 //
 // The current trick for solving this efficiently involves exploiting the
 // fact that refinements in exemplar frames are nominally only unspecialized
-// (void), in use (LOGIC! true) or disabled (LOGIC! false).  So a REFINEMENT!
+// (null), in use (LOGIC! true) or disabled (LOGIC! false).  So a REFINEMENT!
 // is put in refinement slots that aren't fully specialized, to give a partial
 // that should be pushed to the top of the list of refinements in use.
 //
@@ -69,15 +69,15 @@
 // More concretely, the exemplar frame slots for `foo23: :foo/ref2/ref3` are:
 //
 // * REF1's slot would contain the REFINEMENT! ref3.  As Do_Core() traverses
-//   the arguments it push ref3 to be the current first-in-line to take
+//   the arguments it pushes ref3 to be the current first-in-line to take
 //   arguments at the callsite.  Yet REF1 has not been "specialized out", so
-//   a call like `foo23/ref1` is legal...its just that pushing ref3 from the
+//   a call like `foo23/ref1` is legal...it's just that pushing ref3 from the
 //   ref1 slot means ref1 defers gathering arguments at the callsite.
 //
 // * REF2's slot would contain the REFINEMENT! ref2.  This will push ref2 to
 //   now be first in line in fulfillment.
 //
-// * REF3's slot would hold a void, having the typical appearance of not
+// * REF3's slot would hold a null, having the typical appearance of not
 //   being specialized.
 //
 
@@ -112,7 +112,8 @@
 REBCTX *Make_Context_For_Action_Int_Partials(
     const REBVAL *action, // need ->binding, so can't just be a REBACT*
     REBDSP lowest_ordered_dsp, // caller can add refinement specializations
-    struct Reb_Binder *opt_binder
+    struct Reb_Binder *opt_binder,
+    REBFLGS prep // cell formatting mask bits, result managed if non-stack
 ){
     REBDSP highest_ordered_dsp = DSP;
 
@@ -121,11 +122,15 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     // See LINK().facade for details.  [0] cell is underlying function, then
     // there is a parameter for each slot, possibly hidden by specialization.
     //
+    // We manage the series even though it is incomplete during this routine.
+    // No code runs that can start the GC, so the incompleteness should be ok.
+    //
     REBCNT num_slots = ACT_FACADE_NUM_PARAMS(act) + 1;
     REBARR *facade = Make_Array_Core(
         num_slots,
-        SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST // [0] is not archetype
+        (SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST) // [0] is not archetype
     );
+
     REBVAL *rootkey = SINK(ARR_HEAD(facade));
     Init_Action_Unbound(rootkey, ACT_UNDERLYING(act));
 
@@ -159,6 +164,8 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     REBCNT index = 1;
 
     for (; NOT_END(param); ++param, ++arg, ++special, ++alias, ++index) {
+        arg->header.bits = prep;
+
         Move_Value(alias, param); // only change if in passed-in ordering
 
         if (VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT) {
@@ -210,7 +217,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
                     // to be completed/bound
                     //
                     REBVAL *passed = rootvar + partial_index;
-                    assert(IS_TRASH_DEBUG(passed));
+                    assert(passed->header.bits == prep);
 
                     assert(
                         VAL_STORED_CANON(special) ==
@@ -248,7 +255,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
                     }
                 }
 
-                assert(IS_TRASH_DEBUG(arg)); // fill in above later.
+                assert(arg->header.bits == prep); // fill in above later.
                 goto continue_unbindable;
             }
         }
@@ -270,7 +277,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
             REBVAL *ordered = DS_AT(dsp);
             if (VAL_STORED_CANON(ordered) == param_canon) {
                 assert(not IS_WORD_BOUND(ordered)); // we bind only one
-                ordered->extra.binding = NOD(varlist);
+                INIT_BINDING(ordered, varlist);
                 ordered->payload.any_word.index = index;
 
                 // Wasn't hidden in the incoming paramlist, but it should be
@@ -300,6 +307,12 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
     TERM_ARRAY_LEN(varlist, num_slots);
     MISC(varlist).meta = NULL; // GC sees this, we must initialize
+
+    // !!! Can't currently pass SERIES_FLAG_STACK into Make_Array_Core(),
+    // because TERM_ARRAY_LEN won't let it set stack array lengths.
+    //
+    if (prep & CELL_FLAG_STACK)
+        SET_SER_FLAG(varlist, SERIES_FLAG_STACK);
 
     // This facade is not final--when code runs bound into this context, it
     // might wind up needing to hide more fields.  But also, it will be
@@ -333,9 +346,15 @@ REBCTX *Make_Context_For_Action(
     REBCTX *exemplar = Make_Context_For_Action_Int_Partials(
         action,
         lowest_ordered_dsp,
-        opt_binder
+        opt_binder,
+        CELL_MASK_NON_STACK
     );
 
+    // Currently this has to be managed because references to it are being
+    // used in bindings with indefinite lifetime for partial refinements.
+    // As it's only used by MAKE FRAME! right now--which would manage it
+    // anyway--this is not a problem.
+    //
     MANAGE_ARRAY(CTX_VARLIST(exemplar));
 
     // Go through the partially specialized and unspecialized refinement slots
@@ -384,6 +403,11 @@ REBCTX *Make_Context_For_Action(
             VAL_WORD_SPELLING(ordered) ==
             VAL_PARAM_SPELLING(CTX_KEY(exemplar, VAL_WORD_INDEX(ordered)))
         );
+
+        // Binding in ordered is to exemplar, arg is a stack cell... hence
+        // the exemplar must be managed for this to be legal (as it is not
+        // SERIES_FLAG_STACK, and doesn't do on-demand management).
+        //
         Move_Value(arg, ordered);
     }
     assert(dsp == DSP); // should have handled everything
@@ -463,9 +487,10 @@ REBOOL Specialize_Action_Throws(
     REBCTX *exemplar = Make_Context_For_Action_Int_Partials(
         specializee,
         lowest_ordered_dsp,
-        opt_def ? &binder : nullptr
+        opt_def ? &binder : nullptr,
+        CELL_MASK_NON_STACK
     );
-    MANAGE_ARRAY(CTX_VARLIST(exemplar));
+    MANAGE_ARRAY(CTX_VARLIST(exemplar)); // destined to be managed, guarded
 
     if (opt_def) { // code that fills the frame...fully or partially
         //
@@ -480,7 +505,7 @@ REBOOL Specialize_Action_Throws(
         // body they are passed before rebinding.  Rethink.
 
         // See Bind_Values_Core() for explanations of how the binding works.
-
+        assert(GET_SER_FLAG(exemplar, ARRAY_FLAG_VARLIST));
         Bind_Values_Inner_Loop(
             &binder,
             VAL_ARRAY_AT(opt_def),

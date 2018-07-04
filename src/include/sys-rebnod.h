@@ -184,14 +184,21 @@ struct Reb_Header {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  NODE_FLAG_4 (fifth-leftmost bit)
+//  NODE_FLAG_TRANSIENT (fifth-leftmost bit)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Unused, as of yet.
+// The "TRANSIENT" flag is currently used only by node cells, and only in
+// the data stack.  The concept is that data stack cells are so volatile that
+// they cannot be passed as REBVAL* addresses to anything that might write
+// between frames.  This means that moving any value with an unmanaged binding
+// into it need not worry about managing...because the data stack cell has
+// no longer lifetime than any cell with which it can interact.
 //
-#define NODE_FLAG_4 \
+#define NODE_FLAG_TRANSIENT \
     FLAG_LEFT_BIT(4)
+
+#define CELL_FLAG_TRANSIENT NODE_FLAG_TRANSIENT
 
 
 //=////////////////////////////////////////////////////////////////////////=//
