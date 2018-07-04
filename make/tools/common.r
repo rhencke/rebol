@@ -51,12 +51,11 @@ spaced-tab: unspaced [space space space space]
 to-c-name: function [
     {Take a Rebol value and transliterate it as a (likely) valid C identifier.}
 
-    value [text! block! word!]
-        {Will be converted to text (via UNSPACED if BLOCK!)}
-    /scope
-        {See scope rules: http://stackoverflow.com/questions/228783/}
-    word [word!]
-        {Either 'global or 'local (defaults global)}
+    value "Will be converted to text (via UNSPACED if BLOCK!)"
+        [text! block! word!]
+    /scope "See C's rules: http://stackoverflow.com/questions/228783/"
+    word "Either 'global or 'local (defaults global)"
+    [word!]
 ][
     c-chars: charset [
         #"a" - #"z"
@@ -67,34 +66,31 @@ to-c-name: function [
 
     string: either block? :value [unspaced value][form value]
 
-    ; Note: SWITCH/DEFAULT is deprecated in Ren-C, and ELSE is not usable in
-    ; R3-Alpha, required for bootstrap.  Hence the wordy CASE is used here.
-    ;
-    string: case [
+    string: switch string [
         ; Take care of special cases of singular symbols
 
         ; Used specifically by t-routine.c to make SYM_ELLIPSIS
         ;
-        string = "..." [copy "ellipsis"]
+        "..." [copy "ellipsis"]
 
         ; Used to make SYM_HYPHEN which is needed by `charset [#"A" - #"Z"]`
         ;
-        string = "-" [copy "hyphen"]
+        "-" [copy "hyphen"]
 
         ; Used to deal with the /? refinements (which may not last)
         ;
-        string = "?" [copy "q"]
+        "?" [copy "q"]
 
         ; None of these are used at present, but included just in case
         ;
-        string = "*" [copy "asterisk"]
-        string = "." [copy "period"]
-        string = "!" [copy "exclamation"]
-        string = "+" [copy "plus"]
-        string = "~" [copy "tilde"]
-        string = "|" [copy "bar"]
+        "*" [copy "asterisk"]
+        "." [copy "period"]
+        "!" [copy "exclamation"]
+        "+" [copy "plus"]
+        "~" [copy "tilde"]
+        "|" [copy "bar"]
 
-        true [ ;-- !!! See notes above, don't change to an ELSE!
+        ( ;-- default
             ;
             ; If these symbols occur composite in a longer word, they use a
             ; shorthand; e.g. `foo?` => `foo_q`
@@ -115,7 +111,7 @@ to-c-name: function [
             ]
 
             string
-        ]
+        )
     ]
 
     if empty? string [
