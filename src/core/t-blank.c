@@ -43,9 +43,12 @@ REBINT CT_Unit(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Unit: C
 //
+// !!! MAKE is disallowed, with the general rule that a blank in will give
+// a null out... for e.g. `make object! try select data spec else [...]`
+//
 void MAKE_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-    UNUSED(arg);
-    RESET_VAL_HEADER(out, kind);
+    UNUSED(out);
+    fail (Error_Bad_Make(kind, arg));
 }
 
 

@@ -1176,12 +1176,12 @@ static void Mark_Frame_Stack_Deep(void)
         // earlier in the recycle process (don't want to create new arrays
         // once the recycling has started...)
         //
-    #if !defined(NDEBUG)
-        if (f->flags.bits & DO_FLAG_APPLYING)
+      #if !defined(NDEBUG)
+        if (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION)
             assert(IS_POINTER_TRASH_DEBUG(f->source.pending));
         else
-            assert(f->source.pending != NULL); // lives in f->source.array
-    #endif
+            assert(f->source.pending); // lives in f->source.array
+      #endif
 
         if (f->source.array)
             Queue_Mark_Array_Deep(f->source.array);
@@ -1228,7 +1228,10 @@ static void Mark_Frame_Stack_Deep(void)
         //
         if (NOT_END(&f->cell)) {
             if (VAL_TYPE_RAW(&f->cell) == REB_0_DEFERRED)
-                assert(f->deferred != NULL);
+                assert(
+                    not IS_POINTER_TRASH_DEBUG(f->deferred)
+                    and f->deferred
+                );
             else
                 Queue_Mark_Opt_Value_Deep(&f->cell);
         }

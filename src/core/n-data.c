@@ -288,21 +288,11 @@ REBOOL Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
 {
     switch (VAL_TYPE(v)) {
     case REB_ACTION: {
-        //
-        // The only examples of functions bound to contexts that exist at the
-        // moment are RETURN and LEAVE.  While there are archetypal natives
-        // for these functions, the REBVAL instances can contain a binding
-        // to the specific frame they exit.  Assume what is desired is that
-        // frame...
-        //
-        REBNOD *n = VAL_BINDING(v);
-        if (n == UNBOUND)
+        REBNOD *n = VAL_BINDING(v); // see METHOD... RETURNs also have binding
+        if (not n)
             return false;
 
-        REBCTX *c = CTX(n);
-        assert(CTX_TYPE(c) == REB_FRAME);
-        Move_Value(out, CTX_ARCHETYPE(CTX(c)));
-        assert(IS_FRAME(out));
+        Init_Frame(out, CTX(n));
         break; }
 
     case REB_WORD:
@@ -367,7 +357,7 @@ REBOOL Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
         );
     }
 
-    return TRUE;
+    return true;
 }
 
 

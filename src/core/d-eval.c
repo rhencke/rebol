@@ -281,27 +281,12 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
 void Do_Process_Action_Checks_Debug(REBFRM *f) {
 
     assert(IS_FRAME(f->rootvar));
-    assert(GET_SER_FLAG(FRM_PHASE(f), ARRAY_FLAG_PARAMLIST));
-
     assert(f->arg == f->rootvar + 1);
-    assert(f->param == ACT_FACADE_HEAD(FRM_PHASE(f)));
 
     // ACTION!s with no args will have ends in the first position of their
     // paramlist, which may come from Init_Endlike_Header() and not be cells.
     //
     assert(IS_END(f->special) or (f->special->header.bits & NODE_FLAG_CELL));
-
-    if (f->refine == ORDINARY_ARG) {
-        if (NOT_END(f->out))
-            assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
-    }
-    else
-        assert(f->refine == LOOKBACK_ARG);
-
-    if (f->special != f->arg or (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED))
-        assert(not f->deferred);
-    else
-        assert(IS_POINTER_TRASH_DEBUG(f->deferred));
 
     // DECLARE_FRAME() starts out f->cell as valid GC-visible bits, and as
     // it's used for various temporary purposes it should remain valid.  But
@@ -320,6 +305,36 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
   #if !defined(NDEBUG)
     Init_Unreadable_Blank(&f->cell); // DECLARE_FRAME() requires GC safe
   #endif
+
+    // See FRM_PHASE() for why it's not allowed when DEFER-0 is the dispatcher
+    //
+    REBACT *phase = f->rootvar->payload.any_context.phase;
+    if (phase == NAT_ACTION(defer_0))
+        return;
+
+    //=//// v-- BELOW CHECKS ONLY APPLY WHEN FRM_PHASE() is VALID ////////=//
+
+    assert(GET_SER_FLAG(phase, ARRAY_FLAG_PARAMLIST));
+    if (f->param != ACT_FACADE_HEAD(phase)) {
+        //
+        // !!! When you MAKE FRAME! 'APPEND/ONLY, it will create a frame
+        // with a keylist that has /ONLY hidden.  But there's no new ACTION!
+        // to tie it to, so the only phase it knows about is plain APPEND.
+        // This means when it sees system internal signals like a REFINEMENT!
+        // in a refinement slot--instead of TRUE or FALSE--it thinks it has
+        // to type check it, as if the user said `apply 'append [only: /foo]`.
+        // Using the keylist as the facade is taken care of in DO for FRAME!,
+        // and this check is here pending a more elegant sorting of this.
+        //
+        assert(f->prior and FRM_PHASE(f->prior) == NAT_ACTION(do));
+    }
+
+    if (f->refine == ORDINARY_ARG) {
+        if (NOT_END(f->out))
+            assert(GET_ACT_FLAG(phase, ACTION_FLAG_INVISIBLE));
+    }
+    else
+        assert(f->refine == LOOKBACK_ARG);
 }
 
 
@@ -334,13 +349,19 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     if (GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) // e.g. ENCLOSE
         return;
 
+    // See FRM_PHASE() for why it's not allowed when DEFER-0 is the dispatcher
+    //
+    REBACT *phase = f->rootvar->payload.any_context.phase;
+    if (phase == NAT_ACTION(defer_0))
+        return;
+
+    //=//// v-- BELOW CHECKS ONLY APPLY WHEN FRM_PHASE() is VALID ////////=//
+
     // Usermode functions check the return type via Returner_Dispatcher(),
     // with everything else assumed to return the correct type.  But this
     // double checks any function marked with RETURN in the debug build,
     // so native return types are checked instead of just trusting the C.
     //
-    REBACT *phase = FRM_PHASE(f);
-
     if (GET_ACT_FLAG(phase, ACTION_FLAG_RETURN)) {
         REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
         assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);

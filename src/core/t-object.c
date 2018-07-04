@@ -254,50 +254,44 @@ REBINT CT_Context(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Context: C
 //
+// !!! MAKE functions currently don't have an explicit protocol for
+// thrown values.  So out just might be set as thrown.  Review.
+//
 void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     if (kind == REB_FRAME) {
         //
-        // !!! It is imaginable that you could make a FRAME! out of a BLOCK!,
-        // which would chunk-stack allocate values that would expire after
-        // the creation.  So `f: make frame! [x: 10 print x]` where `f/x`
-        // was not valid after the block has been run.  This could offer
-        // more efficiency than an OBJECT! for some scenarios.
+        // !!! The feature of MAKE FRAME! from a VARARGS! would be interesting
+        // as a way to support usermode authoring of things like MATCH.
+        // For now just support ACTION! (or path/word to specify an action)
         //
-        // But for now, just allow MAKE FRAME! for a specific ACTION!.
-        //
-        if (not IS_ACTION(arg))
+        REBDSP lowest_ordered_dsp = DSP;
+
+        REBSTR *opt_label;
+        if (Get_If_Word_Or_Path_Throws(
+            out,
+            &opt_label,
+            arg,
+            SPECIFIED,
+            true // push_refinements, don't specialize ACTION! if PATH!
+        )){
+            return; // !!! no explicit Throws() protocol, review
+        }
+
+        if (not IS_ACTION(out))
             fail (Error_Bad_Make(kind, arg));
 
-        // In order to have the frame survive the call to MAKE and be
-        // returned to the user it can't be stack allocated, because it
-        // would immediately become useless.  Allocate dynamically.
-        //
-        Make_Frame_For_Action(out, arg);
-
-        // The frame's keylist is the same as the function's facade, and
-        // the [0] canon value of that array can be used to find the
-        // archetype of the function.  But if the `arg` is a RETURN with a
-        // binding in the REBVAL to where to return from, that unique
-        // instance information must be carried in the REBVAL of the context.
-        //
-        assert(VAL_BINDING(out) == VAL_BINDING(arg));
-        return;
-    }
-
-    if (kind == REB_OBJECT && IS_BLANK(arg)) {
-        //
-        // Special case (necessary?) to return an empty object.
-        //
-        Init_Object(
-            out,
-            Construct_Context(
-                REB_OBJECT,
-                NULL, // head
-                SPECIFIED,
-                NULL
-            )
+        REBCTX *exemplar = Make_Context_For_Action(
+            out, // being used here as input (e.g. the ACTION!)
+            lowest_ordered_dsp, // will weave in the refinements pushed
+            nullptr // no binder needed, not running any code
         );
+
+        // See notes in %c-specialize.c about the special encoding used to
+        // put /REFINEMENTs in refinement slots (instead of true/false/null)
+        // to preserve the order of execution.
+        //
+        Init_Frame(out, exemplar);
         return;
     }
 
@@ -339,13 +333,8 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     // type checking.
     //
     if (kind == REB_ERROR) {
-        //
-        // !!! Evaluation should not happen during a make.  FAIL should
-        // be the primitive that does the evaluations, and then call
-        // into this with the reduced block.
-        //
         if (Make_Error_Object_Throws(out, arg))
-            fail (Error_No_Catch_For_Throw(out));
+            return; // !!! no explicit Throws() protocol, review
 
         return;
     }

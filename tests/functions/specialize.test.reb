@@ -34,12 +34,12 @@
 
 (
     append-123: specialize :append [value: [1 2 3] only: true]
-    [a b c [1 2 3] [1 2 3]] = append-123/dup [a b c] 2
+    [a b c [1 2 3] [1 2 3]] = append-123/dup copy [a b c] 2
 )
 (
     append-123: specialize :append [value: [1 2 3] only: true]
     append-123-twice: specialize :append-123 [dup: true count: 2]
-    [a b c [1 2 3] [1 2 3]] = append-123-twice [a b c]
+    [a b c [1 2 3] [1 2 3]] = append-123-twice copy [a b c]
 )
 (
     append-10: specialize 'append [value: 10]
@@ -47,6 +47,12 @@
     f/series: copy [a b c]
     do copy f ;-- COPY before DO allows reuse of F, only the copy is "stolen"
     [a b c 10 10] = do f
+)
+(
+    f: make frame! 'append/only
+    f/series: copy [a b c]
+    f/value: [d e f]
+    [a b c [d e f]] = do f
 )
 (
     foo: func [] [
@@ -123,4 +129,16 @@
     ]
 
     is-bad
+)
+
+
+(
+    ap10d: specialize 'append/dup [value: 10]
+    f: make frame! :ap10d
+    f/series: copy [a b c]
+    did all [
+        [a b c 10] = do copy f
+        f/count: 2
+        [a b c 10 10 10] = do f
+    ]
 )

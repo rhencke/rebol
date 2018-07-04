@@ -150,11 +150,11 @@ enum {
 
 struct Reb_Binder {
     REBOOL high;
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     REBCNT count;
-#endif
+  #endif
 
-#if defined(CPLUSPLUS_11)
+  #if defined(CPLUSPLUS_11)
     //
     // The C++ debug build can help us make sure that no binder ever fails to
     // get an INIT_BINDER() and SHUTDOWN_BINDER() pair called on it, which
@@ -163,33 +163,33 @@ struct Reb_Binder {
     REBOOL initialized;
     Reb_Binder () { initialized = FALSE; }
     ~Reb_Binder () { assert(initialized == FALSE); }
-#endif
+  #endif
 };
 
 
 inline static void INIT_BINDER(struct Reb_Binder *binder) {
     binder->high = TRUE; // !!! what about `did (SPORADICALLY(2))` to test?
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     binder->count = 0;
 
     #ifdef CPLUSPLUS_11
-        binder->initialized = TRUE;
+        binder->initialized = true;
     #endif
-#endif
+  #endif
 }
 
 
 inline static void SHUTDOWN_BINDER(struct Reb_Binder *binder) {
-#ifdef NDEBUG
-    UNUSED(binder);
-#else
+  #if !defined(NDEBUG)
     assert(binder->count == 0);
 
     #ifdef CPLUSPLUS_11
         binder->initialized = FALSE;
     #endif
-#endif
+  #endif
+
+    UNUSED(binder);
 }
 
 
@@ -213,9 +213,9 @@ inline static REBOOL Try_Add_Binder_Index(
         MISC(canon).bind_index.low = index;
     }
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     ++binder->count;
-#endif
+  #endif
     return TRUE;
 }
 
@@ -226,12 +226,8 @@ inline static void Add_Binder_Index(
     REBINT index
 ){
     REBOOL success = Try_Add_Binder_Index(binder, canon, index);
-
-#ifdef NDEBUG
-    UNUSED(success);
-#else
     assert(success);
-#endif
+    UNUSED(success);
 }
 
 
@@ -268,9 +264,10 @@ inline static REBINT Remove_Binder_Index_Else_0( // return old value if there
         MISC(canon).bind_index.low = 0;
     }
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
+    assert(binder->count > 0);
     --binder->count;
-#endif
+  #endif
     return old_index;
 }
 
@@ -280,12 +277,8 @@ inline static void Remove_Binder_Index(
     REBSTR *canon
 ){
     REBINT old_index = Remove_Binder_Index_Else_0(binder, canon);
-
-#if defined(NDEBUG)
-    UNUSED(old_index);
-#else
     assert(old_index != 0);
-#endif
+    UNUSED(old_index);
 }
 
 

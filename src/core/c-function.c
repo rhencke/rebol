@@ -808,9 +808,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         TERM_ARRAY_LEN(notes_varlist, num_slots);
         MANAGE_ARRAY(notes_varlist);
 
-        Init_Any_Context(
+        Init_Frame(
             CTX_VAR(meta, STD_ACTION_META_PARAMETER_NOTES),
-            REB_FRAME,
             CTX(notes_varlist)
         );
     }
@@ -1020,6 +1019,7 @@ REBACT *Make_Action(
         // Base it off the facade since ACT_NUM_PARAMS(ACT_UNDERLYING())
         // would assert, since the function we're making is incomplete..
         //
+        assert(GET_SER_FLAG(opt_exemplar, NODE_FLAG_MANAGED));
         assert(
             CTX_LEN(opt_exemplar) == ARR_LEN(LINK(paramlist).facade) - 1
         );
@@ -1350,104 +1350,6 @@ REBACT *Make_Interpreted_Action_May_Fail(
 
 
 //
-//  Make_Frame_For_Action: C
-//
-// This creates a *non-stack-allocated* FRAME!, which can be used in function
-// applications or specializations.  It reuses the keylist of the function
-// but makes a new varlist.
-//
-void Make_Frame_For_Action(
-    REBVAL *out,
-    const REBVAL *action // need the binding, can't just be a REBACT*
-){
-    REBACT *a = VAL_ACTION(action);
-    REBCTX *exemplar = ACT_EXEMPLAR(a); // may be NULL
-
-    REBCNT facade_len = ACT_FACADE_NUM_PARAMS(a) + 1;
-    REBARR *varlist = Make_Array_Core(
-        facade_len, // +1 for the CTX_ARCHETYPE() at [0]
-        SERIES_MASK_CONTEXT
-    );
-
-    REBVAL *rootvar = SINK(ARR_HEAD(varlist));
-    RESET_VAL_HEADER(rootvar, REB_FRAME);
-    rootvar->payload.any_context.varlist = varlist;
-    rootvar->payload.any_context.phase = a;
-    INIT_BINDING(rootvar, UNBOUND);
-
-    REBVAL *arg = rootvar + 1;
-    REBVAL *param = ACT_FACADE_HEAD(a);
-
-    if (exemplar == NULL) {
-        //
-        // No prior specialization means all the slots should be void.
-        //
-        for (; NOT_END(param); ++param, ++arg)
-            Init_Nulled(arg);
-    }
-    else {
-        // Partially specialized refinements put INTEGER! in refinement slots
-        // (see notes on REB_0_PARTIAL for the mechanic).  But we don't want
-        // to leak that to the user.  Convert to TRUE or void as appropriate,
-        // so FRAME! won't show these refinements.
-        //
-        // !!! This loses the ordering, see Make_Frame_For_Specialization for
-        // a frame-making mechanic which preserves it.
-        //
-        // !!! Logic is duplicated in APPLY with the slight change of needing
-        // to prep stack cells; review.
-        //
-        REBVAL *special = CTX_VARS_HEAD(exemplar);
-        for (; NOT_END(param); ++param, ++arg, ++special) {
-            if (VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT) {
-                Move_Value(arg, special);
-                continue;
-            }
-            if (IS_LOGIC(special)) { // fully specialized, or disabled
-                Init_Logic(arg, VAL_LOGIC(special));
-                continue;
-            }
-
-            // See %c-special.c for an overview of why a REFINEMENT! in an
-            // exemplar slot and void have a complex interpretation.
-            //
-            // Drive whether the refinement is present or not based on whether
-            // it's available for the user to pass in or not.
-            //
-            assert(IS_REFINEMENT(special) or IS_NULLED(special));
-            if (IS_REFINEMENT_SPECIALIZED(param))
-                Init_Logic(arg, TRUE);
-            else
-                Init_Nulled(arg);
-        }
-    }
-
-    TERM_ARRAY_LEN(varlist, facade_len);
-
-    MISC(varlist).meta = NULL; // GC sees this, we must initialize
-
-    // The facade of the action is used as the keylist of the frame, as
-    // that is how many values the frame must ultimately have.  Since this
-    // is not a stack frame, there will be no ->phase to override it...the
-    // FRAME! will always be viewed with those keys.
-    //
-    // Also, for things like definitional RETURN and LEAVE we had to stow the
-    // `binding` field in the FRAME! REBVAL, since the single archetype
-    // paramlist does not hold enough information to know where to return to.
-    //
-    // Note that this precludes the LINK().keysource from holding a REBFRM*,
-    // since it is holding a parameter list instead.
-    //
-    INIT_CTX_KEYLIST_SHARED(CTX(varlist), ACT_FACADE(a));
-    ASSERT_ARRAY_MANAGED(CTX_KEYLIST(CTX(varlist)));
-
-    Init_Any_Context(out, REB_FRAME, CTX(varlist));
-    INIT_BINDING(out, VAL_BINDING(action));
-    out->payload.any_context.phase = a;
-}
-
-
-//
 //  REBTYPE: C
 //
 // This handler is used to fail for a type which cannot handle actions.
@@ -1754,6 +1656,9 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     // user handles on it...so just take it.  Otherwise, "steal" its vars.
     //
     REBCTX *c = Steal_Context_Vars(CTX(f->varlist), NOD(FRM_PHASE(f)));
+    LINK(c).keysource = NOD(ACT_FACADE(VAL_ACTION(inner)));
+    CLEAR_SER_FLAG(c, SERIES_FLAG_STACK);
+
     assert(GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)); // look dead
 
     // f->varlist may or may not have wound up being managed.  It was not
@@ -1762,9 +1667,6 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     //
     SET_SER_FLAG(c, NODE_FLAG_MANAGED);
 
-    CLEAR_SER_FLAG(c, SERIES_FLAG_STACK);
-    LINK(c).keysource = NOD(ACT_FACADE(VAL_ACTION(inner)));
-
     // When the DO of the FRAME! executes, we don't want it to run the
     // encloser again (infinite loop).
     //
@@ -1772,7 +1674,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     rootvar->payload.any_context.phase = VAL_ACTION(inner);
     rootvar->extra.binding = VAL_BINDING(inner);
 
-    Init_Any_Context(&f->cell, REB_FRAME, c); // user may DO this, or not...
+    Init_Frame(&f->cell, c); // user may DO this, or not...
 
     const REBOOL fully = true;
     if (Apply_Only_Throws(f->out, fully, outer, KNOWN(&f->cell), END))

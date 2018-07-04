@@ -179,8 +179,27 @@ inline static int FRM_LINE(REBFRM *f) {
 #define FRM_PRIOR(f) \
     ((f)->prior + 0) // prevent assignment via this macro
 
-#define FRM_PHASE(f) \
-    f->rootvar->payload.any_context.phase
+#if !defined(NDEBUG) or !defined(__cplusplus)
+    #define FRM_PHASE(f) \
+        f->rootvar->payload.any_context.phase
+#else
+    // The C++ debug build adds a check that a frame is not uing a tricky
+    // noop dispatcher, when access to the phase is gotten with FRM_PHASE().
+    // This trick lets the sunk cost of calling a dispatcher be used instead
+    // of a separate flag checked on every evaluator cycle.  What it's for is
+    // so routines like `MAYBE PARSE "AAA" [SOME "A"]` can build the frame
+    // for parse without actually *running* PARSE yet...return from Do_Core(),
+    // extract the first argument, and then call back into Do_Core() to
+    // actually run the PARSE.
+    //
+    // Any manipulations aware of this hack need to access the field directly.
+    //
+    inline static REBACT& FRM_PHASE(REBFRM *f) {
+        REBACT &phase = f->rootvar->payload.any_context.phase;
+        assert(phase != NAT_ACTION(defer_0));
+        return phase;
+    }
+#endif
 
 #define FRM_BINDING(f) \
     f->rootvar->extra.binding
@@ -581,9 +600,10 @@ inline static void Drop_Action(REBFRM *f) {
         f->varlist = CTX_VARLIST(
             Steal_Context_Vars(
                 CTX(f->varlist),
-                NOD(ACT_PARAMLIST(f->original)) // degrade keysource from f
+                NOD(ACT_FACADE(f->original)) // degrade keysource from f
             )
         );
+        LINK(f->varlist).keysource = NOD(f);
     }
     else {
         // We can reuse the varlist and its data allocation, which may be

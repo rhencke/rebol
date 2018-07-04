@@ -186,10 +186,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     f->prior = TG_Frame_Stack;
     TG_Frame_Stack = f;
 
-    // Push_Frame_For_Apply() means it will fill in later, Push_Frame() fills
-    // it in at the time of the push.
-    //
-    TRASH_POINTER_IF_DEBUG(f->varlist);
+    TRASH_POINTER_IF_DEBUG(f->varlist); // must Try_Reuse_Varlist() or fill in
 
     // If the source for the frame is a REBARR*, then we want to temporarily
     // lock that array against mutations.  
@@ -216,10 +213,11 @@ inline static void Push_Frame_Core(REBFRM *f)
   #endif
 }
 
-inline static void Push_Frame_For_Apply(REBFRM *f) {
-    //
-    // Common code for DO FRAME! and APPLY, pretend "input source" has ended.
-    //
+// Pretend the input source has ended; used with DO_FLAG_GOTO_PROCESS_ACTION.
+//
+inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
+    Init_Endlike_Header(&f->flags, flags);
+
     f->source.index = 0;
     f->source.vaptr = nullptr;
     f->source.array = EMPTY_ARRAY; // for setting HOLD flag in Push_Frame
@@ -228,8 +226,6 @@ inline static void Push_Frame_For_Apply(REBFRM *f) {
     f->gotten = END;
     SET_FRAME_VALUE(f, END);
     f->specifier = SPECIFIED;
-
-    Init_Endlike_Header(&f->flags, DO_FLAG_APPLYING);
 
     Push_Frame_Core(f);
 }

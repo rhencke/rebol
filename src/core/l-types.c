@@ -82,8 +82,8 @@ void MAKE_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  {Constructs or allocates the specified datatype.}
 //
-//      return: [any-value!]
-//          {Constructed value.}
+//      return: [<opt> any-value!]
+//          {Constructed value, or NULL if BLANK! input}
 //      type [any-value!]
 //          {The datatype -or- an examplar value of the type to construct}
 //      def [any-value!]
@@ -91,11 +91,27 @@ void MAKE_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //  ]
 //
 REBNATIVE(make)
+//
+// !!! AT THE MOMENT THIS ROUTINE HAS A USERMODE SHIM IN %MEZZ-LEGACY.R
+// So if you make changes here and don't see them, that's why.  The idea
+// behind MAKE is being rethought, because at one time it was trying to be
+// compatible with "construction syntax" and disallow evaluations.  However,
+// that is now being rethought of as being in TO and allowing MAKE to
+// do evaluations.  Work in progress.
 {
     INCLUDE_PARAMS_OF_MAKE;
 
     REBVAL *type = ARG(type);
     REBVAL *arg = ARG(def);
+
+    enum Reb_Kind kind;
+    if (IS_DATATYPE(type))
+        kind = VAL_TYPE_KIND(type);
+    else
+        kind = VAL_TYPE(type);
+
+    if (IS_BLANK(arg) and kind != REB_BLANK) // errors below if kind == blank
+        return nullptr; // follows "blank in, null out" (Note that TO doesn't)
 
 #if !defined(NDEBUG)
     if (IS_GOB(type)) {
@@ -121,12 +137,6 @@ REBNATIVE(make)
         assert(FALSE); // ^-- same for events (?)
     }
 #endif
-
-    enum Reb_Kind kind;
-    if (IS_DATATYPE(type))
-        kind = VAL_TYPE_KIND(type);
-    else
-        kind = VAL_TYPE(type);
 
     MAKE_CFUNC dispatcher = Make_Dispatch[kind];
     if (dispatcher == NULL)
@@ -203,8 +213,8 @@ REBNATIVE(make)
         return D_OUT;
     }
 
-    dispatcher(D_OUT, kind, arg); // may fail()
-    return D_OUT;
+    dispatcher(D_OUT, kind, arg); // may fail() or throw
+    return D_OUT; // may be thrown..
 }
 
 

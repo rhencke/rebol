@@ -285,6 +285,9 @@ static inline REBVAL *Init_Any_Context(
 #define Init_Port(out,c) \
     Init_Any_Context((out), REB_PORT, (c))
 
+#define Init_Frame(out,c) \
+    Init_Any_Context((out), REB_FRAME, (c))
+
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -425,7 +428,7 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
             | SERIES_FLAG_STACK
             | SERIES_FLAG_FIXED_SIZE
     );
-    copy->link_private.keysource = stub->link_private.keysource;
+    TRASH_POINTER_IF_DEBUG(copy->link_private.keysource); // needs update
     copy->content = stub->content;
     copy->misc_private.meta = nullptr; // let stub have the meta
         

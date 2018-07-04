@@ -127,7 +127,7 @@ void Traced_Do_Hook(REBFRM * const f)
     // There are a lot of invariants checked on entry to Do_Core(), but this is
     // a simple one that is important enough to mirror here.
     //
-    assert(FRM_HAS_MORE(f) || f->flags.bits & DO_FLAG_APPLYING);
+    assert(FRM_HAS_MORE(f) or (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION));
 
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level) {
@@ -145,7 +145,7 @@ void Traced_Do_Hook(REBFRM * const f)
 
     while (TRUE) {
         if (not (
-            (f->flags.bits & DO_FLAG_APPLYING) // only value is END
+            (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION) // only value is END
             or IS_ACTION(f->value)
             or (Trace_Flags & TRACE_FLAG_FUNCTION)
         )){
@@ -298,7 +298,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         if (r == f->out) {
 
         process_out:;
-        
+
             if (not THROWN(f->out)) {
                 Debug_Values(f->out, 1, 50);
                 goto finished;

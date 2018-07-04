@@ -85,25 +85,23 @@
 
 
 //
-//  Make_Context_For_Specialization: C
+//  Make_Context_For_Action_Int_Partials: C
 //
-// This is a variation of Make_Frame_For_Function, which *does not* lose the
-// ordering information implicit in the refinements of a function's existing
-// specializations.
+// This creates a FRAME! context with "Nulled" in all the unspecialized slots
+// that are available to be filled.  For partial refinement specializations
+// in the action, it will push the refinement to the stack and fill the arg
+// slot in the new context with an INTEGER! indicating the data stack
+// position of the partial.  In this way it retains the ordering information
+// implicit in the refinements of an action's existing specialization.
 //
 // It is able to take in more specialized refinements on the stack.  These
 // will be ordered *after* partial specializations in the function already.
 // The caller passes in the stack pointer of the lowest priority refinement,
 // which goes up to DSP for the highest of those added specializations.
 //
-// The produced frame will contain INTEGER! cells in any partially
-// specialized refinement slots, which point to the stack index where the
-// ordered invocation is.  These cells should be unbindable and not exposed
-// to the user...they are for optimized post-processing by specialization.
-//
 // Since this is walking the parameters to make the frame already--and since
-// we don't want binding to anything specialized out, including the ad-hoc
-// refinements added on the stack--we go ahead and collect bindings from the
+// we don't want to bind to anything specialized out (including the ad-hoc
+// refinements added on the stack) we go ahead and collect bindings from the
 // frame if needed.
 //
 // Note: For added refinements, as with any other parameter specialized out,
@@ -111,22 +109,25 @@
 //
 //     specialize 'append/dup [dup: false] ; Note DUP: isn't frame /DUP
 //
-REBCTX *Make_Context_For_Specialization(
-    const REBVAL *specializee, // need ->binding, can't just be REBACT*
-    REBDSP lowest_ordered_dsp,
+REBCTX *Make_Context_For_Action_Int_Partials(
+    const REBVAL *action, // need ->binding, so can't just be a REBACT*
+    REBDSP lowest_ordered_dsp, // caller can add refinement specializations
     struct Reb_Binder *opt_binder
 ){
     REBDSP highest_ordered_dsp = DSP;
 
-    REBACT *unspecialized = VAL_ACTION(specializee);
+    REBACT *act = VAL_ACTION(action);
 
     // See LINK().facade for details.  [0] cell is underlying function, then
     // there is a parameter for each slot, possibly hidden by specialization.
     //
-    REBCNT num_slots = ACT_FACADE_NUM_PARAMS(unspecialized) + 1;
-    REBARR *facade = Make_Array_Core(num_slots, SERIES_FLAG_FIXED_SIZE);
+    REBCNT num_slots = ACT_FACADE_NUM_PARAMS(act) + 1;
+    REBARR *facade = Make_Array_Core(
+        num_slots,
+        SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST // [0] is not archetype
+    );
     REBVAL *rootkey = SINK(ARR_HEAD(facade));
-    Init_Action_Unbound(rootkey, ACT_UNDERLYING(unspecialized));
+    Init_Action_Unbound(rootkey, ACT_UNDERLYING(act));
 
     REBARR *varlist = Make_Array_Core(
         num_slots, // includes +1 for the CTX_ARCHETYPE() at [0]
@@ -136,20 +137,24 @@ REBCTX *Make_Context_For_Specialization(
     REBVAL *rootvar = SINK(ARR_HEAD(varlist));
     RESET_VAL_HEADER(rootvar, REB_FRAME);
     rootvar->payload.any_context.varlist = varlist;
-    rootvar->payload.any_context.phase = NULL; // heap-based, not running
-    INIT_BINDING(rootvar, VAL_BINDING(specializee));
+    rootvar->payload.any_context.phase = VAL_ACTION(action);
+    INIT_BINDING(rootvar, VAL_BINDING(action));
 
     // Copy values from any prior specializations, transforming REFINEMENT!
-    // used for partial specializations into REB_0_PARTIAL or void, depending
+    // used for partial specializations into INTEGER! or null, depending
     // on whether that slot was actually specialized out.
 
     REBVAL *alias = rootkey + 1;
     REBVAL *arg = rootvar + 1;
 
-    const REBVAL *param = ACT_FACADE_HEAD(unspecialized);
+    const REBVAL *param = ACT_FACADE_HEAD(act);
 
-    REBCTX *exemplar = ACT_EXEMPLAR(unspecialized); // may be NULL
-    const REBVAL *special = exemplar != NULL ? CTX_VARS_HEAD(exemplar) : param;
+    REBCTX *exemplar = ACT_EXEMPLAR(act); // may be null
+    const REBVAL *special = ACT_SPECIALTY_HEAD(act); // exemplar/facade head
+    if (exemplar)
+        assert(special == CTX_VARS_HEAD(exemplar));
+    else
+        assert(special == ACT_FACADE_HEAD(act));
 
     REBCNT index = 1;
 
@@ -162,7 +167,7 @@ REBCTX *Make_Context_For_Specialization(
             else
                 Move_Value(arg, special);
 
-            if (opt_binder != NULL) {
+            if (opt_binder) {
                 REBSTR *canon = VAL_PARAM_CANON(param);
                 if (NOT_VAL_FLAG(param, TYPESET_FLAG_UNBINDABLE))
                     Add_Binder_Index(opt_binder, canon, index);
@@ -184,8 +189,7 @@ REBCTX *Make_Context_For_Specialization(
             else {
                 assert(IS_REFINEMENT(special));
 
-                // Save to the stack (they're in *reverse* order of use),
-                // which is the mechanic of WORD_FLAG_PARTIAL_REFINE.
+                // Save to the stack (they're in *reverse* order of use).
                 //
                 // !!! Review potential use of Move_Value() here.
                 //
@@ -216,7 +220,6 @@ REBCTX *Make_Context_For_Specialization(
                     );
 
                     Init_Integer(passed, DSP);
-                    SET_VAL_FLAG(passed, NODE_FLAG_MARKED);
 
                     if (partial_index == index)
                         goto continue_unbindable; // just filled in this slot
@@ -287,7 +290,7 @@ REBCTX *Make_Context_For_Specialization(
         // make it a void for now, because this slot will be seen by the user
         //
         Init_Nulled(arg);
-        if (opt_binder != NULL)
+        if (opt_binder)
             Add_Binder_Index(opt_binder, param_canon, index);
 
     continue_unbindable:;
@@ -308,6 +311,85 @@ REBCTX *Make_Context_For_Specialization(
     INIT_CTX_KEYLIST_SHARED(CTX(varlist), facade);
 
     return CTX(varlist);
+}
+
+
+//
+//  Make_Context_For_Action: C
+//
+// This version of context making will consolidate any partial refinements
+// back into the varlist, e.g. for MAKE FRAME! which does not intend to call
+// Do_Core() on it or weave the pushed refinements in to build a further
+// specialization.  It balances the stack while doing consolidation.
+//
+// !!! It would be more efficient to do this in one pass, but this helps
+// keep the phases more clear, in what is kind of tricky code.
+//
+REBCTX *Make_Context_For_Action(
+    const REBVAL *action, // need ->binding, so can't just be a REBACT*
+    REBDSP lowest_ordered_dsp,
+    struct Reb_Binder *opt_binder
+){
+    REBCTX *exemplar = Make_Context_For_Action_Int_Partials(
+        action,
+        lowest_ordered_dsp,
+        opt_binder
+    );
+
+    MANAGE_ARRAY(CTX_VARLIST(exemplar));
+
+    // Go through the partially specialized and unspecialized refinement slots
+    // and move the stack-pushed refinements into them in order from lowest
+    // to highest, so when pushed they will have the highest priority (first
+    // or deepest use) refinements on top at the end.  See notes at the
+    // top of %c-specialize.c for how this strategy works.
+    //
+    // !!! The process used by SPECIALIZE is more nuanced, and will actually
+    // notice when a refinement has no arguments and thus turn it into a
+    // LOGIC! true instead of requiring Do_Core() to push it, which is a bit
+    // more efficient on the calling side.  Review that point if looking to
+    // re-engineer these routines.
+
+    if (DSP == lowest_ordered_dsp)
+        return exemplar; // no partial (or potentially partial) slots
+
+    REBVAL *param = CTX_KEYS_HEAD(exemplar);
+    REBVAL *arg = CTX_VARS_HEAD(exemplar);
+    REBDSP dsp = lowest_ordered_dsp;
+    for (; NOT_END(param); ++param, ++arg) {
+        if (NOT_VAL_FLAG(param, TYPESET_FLAG_UNBINDABLE))
+            continue; // unspecialized
+        if (VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT)
+            continue; // possibly specialized, but not a refinement
+        if (IS_LOGIC(arg))
+            continue; // fully specialized refinement
+
+        // NOTE: INTEGER! here represents specialized refinement, while NULL
+        // represents an unspecialized one.  After the filling process below
+        // this distinction is rediscoverable, but it would be easy to cache
+        // it here (e.g. with NODE_FLAG_MARKED on the arg) if that were
+        // deemed useful for some reason.
+        //
+        assert(IS_NULLED(arg) or IS_INTEGER(arg));
+
+        if (dsp == DSP) {
+            Init_Nulled(arg); // have to overwrite any INTEGER! slots
+            continue;
+        }
+
+        ++dsp;
+        REBVAL *ordered = DS_AT(dsp);
+        assert(IS_REFINEMENT(ordered));
+        assert(
+            VAL_WORD_SPELLING(ordered) ==
+            VAL_PARAM_SPELLING(CTX_KEY(exemplar, VAL_WORD_INDEX(ordered)))
+        );
+        Move_Value(arg, ordered);
+    }
+    assert(dsp == DSP); // should have handled everything
+
+    DS_DROP_TO(lowest_ordered_dsp);
+    return exemplar;
 }
 
 
@@ -371,21 +453,21 @@ REBOOL Specialize_Action_Throws(
     REBACT *unspecialized = VAL_ACTION(specializee);
 
     // This produces a context where partially specialized refinement slots
-    // will be INTEGER! pointing into the stack at the partial order position.
-    // (This takes into account any we are adding "virtually", from the
-    // current DSP down to the lowest_ordered_dsp).
+    // will be REFINEMENT! pointing into the stack at the partial order
+    // position. (This takes into account any we are adding "virtually", from
+    // the current DSP down to the lowest_ordered_dsp).
     //
     // Note that REB_0_PARTIAL can't be used in slots yet, because the GC
     // will be able to see this frame (code runs bound into it).
     //
-    REBCTX *exemplar = Make_Context_For_Specialization(
+    REBCTX *exemplar = Make_Context_For_Action_Int_Partials(
         specializee,
         lowest_ordered_dsp,
-        opt_def != NULL ? &binder : NULL
+        opt_def ? &binder : nullptr
     );
     MANAGE_ARRAY(CTX_VARLIST(exemplar));
 
-    if (opt_def != NULL) { // code that fills the frame...fully or partially
+    if (opt_def) { // code that fills the frame...fully or partially
         //
         // Bind all the SET-WORD! in the body that match params in the frame
         // into the frame.  This means `value: value` can very likely have
@@ -411,18 +493,11 @@ REBOOL Specialize_Action_Throws(
         // !!! Only one binder can be in effect, and we're calling arbitrary
         // code.  Must clean up now vs. in loop we do at the end.  :-(
         //
-        RELVAL *key = ACT_FACADE_HEAD(unspecialized);
+        RELVAL *key = CTX_KEYS_HEAD(exemplar); // the new facade
         REBVAL *var = CTX_VARS_HEAD(exemplar);
         for (; NOT_END(key); ++key, ++var) {
             if (GET_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
-                continue;
-
-            if (VAL_PARAM_CLASS(key) == PARAM_CLASS_REFINEMENT)
-                if (not IS_NULLED(var)) {
-                    assert(IS_INTEGER(var) or IS_LOGIC(var));
-                    continue; // specialized and partials not added
-                }
-
+                continue; // may be refinement from stack, now specialized out
             Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
         }
         SHUTDOWN_BINDER(&binder);
@@ -960,6 +1035,23 @@ REB_R Block_Dispatcher(REBFRM *f)
 
 
 //
+//  defer-0: native [
+//
+//  {<INTERNAL> No-op dispatcher used to avoid a flag check in the eval loop}
+//
+//  ]
+//
+REBNATIVE(defer_0)
+//
+// See `#define FRM_PHASE` for the safety precaution that helps this not be
+// mistaken for the actual intended phase of a frame being fulfilled.
+{
+    Init_Bar(D_OUT);
+    return D_OUT;
+}
+
+
+//
 //  Make_Invocation_Frame_Throws: C
 //
 // Logic shared currently by DOES and MATCH to build a single executable
@@ -1011,7 +1103,7 @@ REBOOL Make_Invocation_Frame_Throws(
     //
     Init_Endlike_Header(
         &f->flags,
-        DO_FLAG_APPLYING | DO_FLAG_NULLS_UNSPECIALIZED
+        DO_FLAG_GOTO_PROCESS_ACTION
     );
 
     Push_Frame_Core(f);
@@ -1023,12 +1115,22 @@ REBOOL Make_Invocation_Frame_Throws(
     Push_Action(f, VAL_ACTION(action), VAL_BINDING(action));
     Begin_Action(f, opt_label, ORDINARY_ARG);
 
-    (*PG_Do)(f);
-
-    // For the moment, don't worry about whether f->varlist got managed or
-    // not... let the GC free it.
+    // !!! A hack here is needed to slip in a lie to make the dispatcher not
+    // run the action, but rather to throw back to us.
     //
-    SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
+    assert(FRM_BINDING(f) == VAL_BINDING(action));
+    assert(FRM_PHASE(f) == VAL_ACTION(action));
+    f->rootvar->payload.any_context.phase = NAT_ACTION(defer_0);
+    (*PG_Do)(f);
+    f->rootvar->payload.any_context.phase = VAL_ACTION(action);
+    FRM_BINDING(f) = VAL_BINDING(action); // can change during invoke
+
+    // The function did not actually execute, so no SPC(f) was never handed
+    // out...the varlist should never have gotten managed.  So this context
+    // can theoretically just be put back into the reuse list, or managed
+    // and handed out for other purposes by the caller.
+    //
+    assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
 
     parent->source = f->source;
     parent->value = f->value;
@@ -1037,6 +1139,12 @@ REBOOL Make_Invocation_Frame_Throws(
 
     if (f->flags.bits & DO_FLAG_BARRIER_HIT)
         parent->flags.bits |= DO_FLAG_BARRIER_HIT;
+
+    if (THROWN(f->out))
+        return true;
+
+    assert(IS_BAR(f->out)); // guaranteed by defer_0, for the skipped action
+
     // === END SECOND PART OF CODE FROM DO_SUBFRAME ===
 
     *first_arg_ptr = nullptr;
@@ -1184,18 +1292,20 @@ REBNATIVE(does)
         )){
             return D_OUT;
         }
-
+        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)); // not invoked yet
+        assert(FRM_BINDING(f) == VAL_BINDING(specializee));
         exemplar = Steal_Context_Vars(
             CTX(f->varlist),
             NOD(VAL_ACTION(specializee))
         );
+        LINK(exemplar).keysource = NOD(ACT_FACADE(VAL_ACTION(specializee)));
         assert(
             ACT_FACADE_NUM_PARAMS(VAL_ACTION(specializee))
             == CTX_LEN(exemplar)
         );
 
-        if (GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED))
-            f->varlist = nullptr; // let the GC get it, for now
+        SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED); // is inaccessible
+        f->varlist = nullptr; // just let it GC, for now
 
         Drop_Frame_Core(f); // f->eval_type isn't REB_0, may not be FRM_END
 
@@ -1212,10 +1322,12 @@ REBNATIVE(does)
         // On all other types, we just make it act like a specialized call to
         // DO for that value.
 
-        Make_Frame_For_Action(D_OUT, NAT_VALUE(do));
-        assert(VAL_BINDING(D_OUT) == UNBOUND);
-        exemplar = VAL_CONTEXT(D_OUT);
-
+        exemplar = Make_Context_For_Action(
+            NAT_VALUE(do),
+            DSP, // lower dsp would be if we wanted to add refinements
+            nullptr // don't set up a binder; just poke specializee in frame
+        );
+        assert(GET_SER_FLAG(exemplar, NODE_FLAG_MANAGED));
         Move_Value(CTX_VAR(exemplar, 1), specializee);
         Move_Value(specializee, NAT_VALUE(do));
     }
@@ -1252,13 +1364,7 @@ REBNATIVE(does)
         facade, // no facade, use paramlist
         exemplar // also provide a context of specialization values
     );
-
-    INIT_CTX_KEYLIST_SHARED(exemplar, ACT_FACADE(unspecialized));
-
-    RELVAL *body = ACT_BODY(doer);
-    Move_Value(ACT_BODY(doer), CTX_ARCHETYPE(exemplar));
-    INIT_BINDING(body, VAL_BINDING(specializee));
-    body->payload.any_context.phase = unspecialized;
+    Init_Frame(ACT_BODY(doer), exemplar);
 
     Init_Action_Unbound(D_OUT, doer);
     return D_OUT;

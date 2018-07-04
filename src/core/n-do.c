@@ -414,10 +414,14 @@ REBNATIVE(do)
 
         DECLARE_FRAME (f);
         f->out = D_OUT;
-        Push_Frame_For_Apply(f);
+        Push_Frame_At_End(
+            f,
+            DO_FLAG_GOTO_PROCESS_ACTION | DO_FLAG_FULLY_SPECIALIZED
+        );
 
+        f->param = CTX_KEYS_HEAD(c); // may hide some params in phase
         REBCTX *stolen = Steal_Context_Vars(c, NOD(phase));
-        LINK(stolen).keysource = NOD(f);
+        LINK(stolen).keysource = NOD(f); // changes CTX_KEYS_HEAD() result
 
         // Its data stolen, the context's node should now be GC'd when
         // references in other FRAME! value cells have all gone away.
@@ -428,7 +432,7 @@ REBNATIVE(do)
         f->varlist = CTX_VARLIST(stolen);
         f->rootvar = CTX_ARCHETYPE(stolen);
         f->arg = f->rootvar + 1;
-        f->param = ACT_FACADE_HEAD(phase);
+        //f->param set above
         f->special = f->arg;
 
         assert(FRM_PHASE(f) == phase);
@@ -549,6 +553,7 @@ REBNATIVE(redo)
 //          [action! word! path!]
 //      def "Frame definition block (will be bound and evaluated)"
 //          [block!]
+//      /opt "Treat nulls as unspecialized <<experimental!>>"
 //  ]
 //
 REBNATIVE(apply)
@@ -568,113 +573,125 @@ REBNATIVE(apply)
 
     REBVAL *applicand = ARG(applicand);
 
-    DECLARE_FRAME (f);
-
+    DECLARE_FRAME (f); // captures f->dsp
     f->out = D_OUT;
-    Push_Frame_For_Apply(f); // captures DSP here (we may push refinements)
-    Reuse_Varlist_If_Available(f);
 
+    // Argument can be a literal action (APPLY :APPEND) or a WORD!/PATH!.
+    // If it is a path, we push the refinements to the stack so they can
+    // be taken into account, e.g. APPLY 'APPEND/ONLY/DUP pushes /ONLY, /DUP
+    //
+    REBDSP lowest_ordered_dsp = DSP;
     REBSTR *opt_label;
-    const REBOOL push_refinements = TRUE;
     if (Get_If_Word_Or_Path_Throws(
-        f->out,
+        D_OUT,
         &opt_label,
         applicand,
         SPECIFIED,
-        push_refinements
+        true // push_refinements, don't specialize ACTION! on 'APPEND/ONLY/DUP
     )){
-        Drop_Frame_Core(f);
-        return f->out;
+        return D_OUT;
     }
 
     if (not IS_ACTION(D_OUT))
         fail (Error_Invalid(applicand));
     Move_Value(applicand, D_OUT);
 
-    Push_Action(f, VAL_ACTION(applicand), VAL_BINDING(applicand));
-    Begin_Action(f, opt_label, ORDINARY_ARG);
-
-    assert(not f->deferred); // Begin_Action() sets null
-    TRASH_POINTER_IF_DEBUG(f->deferred); // For sanity check in Do_Core()
-
-    // For a one-off APPLY, we don't want Make_Frame_For_Action() to get a
-    // heap object just for one use.  Better to DO the block directly into
-    // stack cells that will be used in the function application.  But the
-    // code from the block that fills the frame can't see garbage, so go
-    // ahead and format the stack cells.
+    // Make a FRAME! for the ACTION!, weaving in the ordered refinements
+    // collected on the stack (if any).  Any refinements that are used in
+    // any specialization level will be pushed as well, which makes them
+    // out-prioritize (e.g. higher-ordered) than any used in a PATH! that
+    // were pushed during the Get of the ACTION!.
     //
-    // !!! We will walk the parameters again to setup the binder; see
-    // Make_Context_For_Specialization() for how loops could be combined.
+    struct Reb_Binder binder;
+    INIT_BINDER(&binder);
+    REBCTX *exemplar = Make_Context_For_Action_Int_Partials(
+        applicand,
+        f->dsp_orig, // lowest_ordered_dsp of refinements to weave in
+        &binder
+    );
 
-    if (f->special == f->param) { // signals "no exemplar"
-        for (; NOT_END(f->param); ++f->param, ++f->arg) {
-            Prep_Stack_Cell(f->arg);
-            Init_Nulled(f->arg);
-        }
-    }
+    Push_Frame_At_End(f, DO_FLAG_GOTO_PROCESS_ACTION);
+
+    if (REF(opt))
+        f->deferred = nullptr; // needed if !(DO_FLAG_FULLY_SPECIALIZED)
     else {
-        // !!! This needs more complex logic now with partial refinements;
-        // code needs to be unified with Make_Frame_For_Action().  The
-        // main difference is that this formats stack cells for direct use
-        // vs. creating a heap object, but the logic is the same.
-
-        for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
-            Prep_Stack_Cell(f->arg);
-            if (VAL_PARAM_CLASS(f->param) != PARAM_CLASS_REFINEMENT) {
-                Move_Value(f->arg, f->special);
-                continue;
-            }
-            if (IS_LOGIC(f->special)) { // fully specialized, or disabled
-                Init_Logic(f->arg, VAL_LOGIC(f->special));
-                continue;
-            }
-
-            assert(IS_REFINEMENT(f->special) or IS_NULLED(f->special));
-            if (IS_REFINEMENT_SPECIALIZED(f->param))
-                Init_Logic(f->arg, TRUE);
-            else
-                Init_Nulled(f->arg);
-        }
-        assert(IS_END(f->special));
+        //
+        // If nulls are taken literally as null arguments, then no arguments
+        // are gathered at the callsite, so the "ordering information"
+        // on the stack isn't needed.  Do_Core() will just treat a slot
+        // with an INTEGER! for a refinement as if it were "true".
+        //
+        f->flags.bits |= DO_FLAG_FULLY_SPECIALIZED;
+        DS_DROP_TO(lowest_ordered_dsp); // zero refinements on stack, now
     }
 
-    assert(IS_END(f->arg)); // all other chunk stack cells unformatted
+    f->varlist = CTX_VARLIST(exemplar); // GC protected after Begin_Action()
+    SET_SER_FLAG(f->varlist, SERIES_FLAG_STACK);
+    LINK(f->varlist).keysource = NOD(f);
+    f->rootvar = CTX_ARCHETYPE(exemplar);
+    f->arg = f->rootvar + 1;
+    f->param = ACT_FACADE_HEAD(VAL_ACTION(applicand));
+    f->special = f->arg; // signal only type-check the existing data
+    FRM_PHASE(f) = VAL_ACTION(applicand);
+    FRM_BINDING(f) = VAL_BINDING(applicand);
 
-    // In today's implementation, the body must be rebound to the frame.
-    // Ideally if it were read-only (at least), then the opt_def value
-    // should be able to carry a virtual binding into the new context.
-    // That feature is not currently implemented, so this mutates the
-    // bindings on the passed in block...as OBJECTs and other things do
+    Begin_Action(f, opt_label, ORDINARY_ARG);
+    assert(IS_POINTER_TRASH_DEBUG(f->deferred)); // Do_Core() sanity checks
+
+    // Bind any SET-WORD!s in the supplied code block into the FRAME!, so
+    // e.g. APPLY 'APPEND [VALUE: 10]` will set VALUE in exemplar to 10.
     //
-    Bind_Values_Core(
-        VAL_ARRAY_AT(ARG(def)),
-        Context_For_Frame_May_Manage(f),
-        FLAGIT_KIND(REB_SET_WORD), // types to bind (just set-word!)
+    // !!! Today's implementation mutates the bindings on the passed-in block,
+    // like R3-Alpha's MAKE OBJECT!.  See Virtual_Bind_Deep_To_New_Context()
+    // for potential future directions.
+    //
+    Bind_Values_Inner_Loop(
+        &binder,
+        VAL_ARRAY_HEAD(ARG(def)), // !!! bindings are mutated!  :-(
+        exemplar,
+        FLAGIT_KIND(REB_SET_WORD), // types to bind (just set-word!),
         0, // types to "add midstream" to binding as we go (nothing)
         BIND_DEEP
     );
 
-    // Do the block into scratch cell, ignore the result (unless thrown)
+    // Reset all the binder indices to zero, balancing out what was added.
     //
-    if (Do_Any_Array_At_Throws(SINK(&f->cell), ARG(def))) {
-        Drop_Frame_Core(f);
-        Move_Value(f->out, KNOWN(&f->cell)); // local, can't return directly
-        return f->out;
+    REBVAL *key = CTX_KEYS_HEAD(exemplar);
+    REBVAL *var = CTX_VARS_HEAD(exemplar);
+    for (; NOT_END(key); key++, ++var) {
+        if (GET_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
+            continue; // shouldn't have been in the binder
+        Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
+    }
+    SHUTDOWN_BINDER(&binder); // must do before running code that might BIND
+
+    // Run the bound code, ignore evaluative result (unless thrown)
+    //
+    REBOOL threw = Do_Any_Array_At_Throws(D_CELL, ARG(def));
+
+    // The convention for f->varlist is that if it's unmanaged, it should be
+    // freeable without going through the ordinary "tracking" debug check.
+    // If for some reason the code execution did not manage the varlist, we
+    // do a little tapdance here to manage (to get it out of the tracklist)
+    // and then mark it unmanaged again.
+    //
+    if (NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
+        MANAGE_ARRAY(f->varlist);
+        CLEAR_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
     }
 
-    f->arg = FRM_ARGS_HEAD(f); // reset
-    f->param = ACT_FACADE_HEAD(FRM_PHASE(f)); // reset
-
-    f->special = f->arg; // now signal only type-check the existing data
+    if (threw) {
+        Drop_Frame_Core(f);
+        return D_CELL;
+    }
 
     (*PG_Do)(f);
 
     Drop_Frame_Core(f);
 
     if (THROWN(f->out))
-        return f->out; // prohibits recovery from exits
+        return f->out;
 
     assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
-
     return D_OUT;
 }

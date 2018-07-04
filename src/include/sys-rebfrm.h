@@ -118,12 +118,12 @@
     FLAG_LEFT_BIT(4)
 
 
-//=//// DO_FLAG_APPLYING //////////////////////////////////////////////////=//
+//=//// DO_FLAG_GOTO_PROCESS_ACTION ///////////////////////////////////////=//
 //
-// Used to indicate that the Do_Core code is entering a situation where the
-// frame was already set up.
+// Used to indicate that the Do_Core code is being jumped into directly to
+// process an ACTION!, in a varlist that has already been set up.
 //
-#define DO_FLAG_APPLYING \
+#define DO_FLAG_GOTO_PROCESS_ACTION \
     FLAG_LEFT_BIT(5)
 
 
@@ -264,13 +264,15 @@
     FLAG_LEFT_BIT(17)
 
 
-//=//// DO_FLAG_NULLS_UNSPECIALIZED ///////////////////////////////////////=//
+//=//// DO_FLAG_FULLY_SPECIALIZED /////////////////////////////////////////=//
 //
-// When a void is seen in f->special, the question is whether that is an
-// intentional "void specialization" or if it means the argument should be
+// When a null is seen in f->special, the question is whether that is an
+// intentional "null specialization" or if it means the argument should be
 // gathered normally (if applicable), as it would in a typical invocation.
+// If the frame is considered fully specialized (as with DO F) then there
+// will be no further argument gathered at the callsite, nulls are as-is.
 //
-#define DO_FLAG_NULLS_UNSPECIALIZED \
+#define DO_FLAG_FULLY_SPECIALIZED \
     FLAG_LEFT_BIT(18)
 
 

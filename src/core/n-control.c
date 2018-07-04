@@ -493,9 +493,12 @@ REBNATIVE(match)
         f->arg = f->rootvar + 1;
         f->special = f->arg;
 
-        f->flags.bits &= ~DO_FLAG_NULLS_UNSPECIALIZED;
+        Init_Endlike_Header(
+            &f->flags,
+            DO_FLAG_GOTO_PROCESS_ACTION | DO_FLAG_FULLY_SPECIALIZED
+        );
 
-        f->refine = ORDINARY_ARG;
+        Begin_Action(f, opt_label, ORDINARY_ARG);
 
         (*PG_Do)(f);
 

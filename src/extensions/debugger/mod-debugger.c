@@ -410,9 +410,8 @@ static REBNATIVE(resume)
             fail (Error_No_Current_Pause_Raw());
     }
 
-    Init_Any_Context(
+    Init_Frame(
         ARR_AT(instruction, RESUME_INST_TARGET),
-        REB_FRAME,
         Context_For_Frame_May_Manage(frame)
     );
 
@@ -515,11 +514,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
         REBFRM *f = Frame_For_Stack_Level(NULL, level, FALSE);
         assert(f != NULL);
 
-        Init_Any_Context(
-            frame,
-            REB_FRAME,
-            Context_For_Frame_May_Manage(f)
-        );
+        Init_Frame(frame, Context_For_Frame_May_Manage(f));
 
         const REBOOL fully = TRUE; // error if not all arguments consumed
 

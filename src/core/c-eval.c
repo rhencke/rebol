@@ -383,20 +383,7 @@ void Do_Core(REBFRM * const f)
     //
     SET_END(f->out);
 
-    if (f->flags.bits & DO_FLAG_APPLYING) {
-        //
-        // Cells can't be trash...must be filled in.  Voids will be taken
-        // literally as null arguments unless DO_FLAG_NULLS_UNSPECIALIZED,
-        // in which case they will undergo a "normal" acquisition process.
-        //
-        assert(
-            f->special == f->arg
-            or (
-                (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED)
-                and (f->special == f->param)
-            )
-        );
-
+    if (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION) {
         evaluating = not (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
         assert(f->refine == ORDINARY_ARG); // APPLY infix not (yet?) supported
@@ -751,49 +738,62 @@ reevaluate:;
                     goto arg_loop_and_any_pickups_done;
                 }
 
-                TRASH_POINTER_IF_DEBUG(f->refine); // updated to new value
+                TRASH_POINTER_IF_DEBUG(f->refine); // must update to new value
 
-                if (In_Unspecialized_Mode(f))
+                if (f->special == f->param) // acquire all args at callsite
                     goto unspecialized_refinement; // most common case
 
-                if (IS_NULLED(f->special)) {
-                    //
-                    // Even just In_Typecheck_Mode(), we still may either
-                    // APPLY a function with refinements (apply 'append/only)
-                    // or a MAKE FRAME! may have refinements filled with void.
-                    // So even if we are "just checking" we actually change
-                    // voids in refinement slots, to FALSE if not refined
-                    // or to TRUE if it is.
-                    //
-                    goto unspecialized_refinement;
-                }
+                // All tests below are on special, but if f->special is not
+                // the same as f->arg then f->arg must get assigned somehow
+                // (jumping to unspecialized_refinement will take care of it)
 
-                if (IS_LOGIC(f->special)) { // similar for check vs. special
-                    if (not In_Typecheck_Mode(f))
-                        Init_Logic(f->arg, VAL_LOGIC(f->special));
+                if (IS_NULLED(f->special))
+                    goto unspecialized_refinement; // *always* means this
 
-                    if (VAL_LOGIC(f->special) == true)
+                if (IS_LOGIC(f->special)) {
+                    if (VAL_LOGIC(f->special) == true) {
+                        Init_Logic(f->arg, true); // f->arg may == f->special
                         f->refine = f->arg; // remember so we can revoke!
-                    else
+                    }
+                    else {
+                        Init_Logic(f->arg, false); // f->arg may == f->special
                         f->refine = ARG_TO_UNUSED_REFINEMENT; // (read-only)
+                    }
 
                     goto continue_arg_loop;
                 }
 
-                if (IS_REFINEMENT(f->special) and not In_Typecheck_Mode(f)) {
+                // If supplied by user code, e.g. APPLY via a def block, then
+                // LOGIC! or null were the only legal choices.
+                if (
+                    f->arg == f->special
+                    and NOT_VAL_FLAG(f->param, TYPESET_FLAG_UNBINDABLE)
+                ){
+                    fail (Error_Non_Logic_Refinement(f->param, f->arg));
+                }
+
+                assert(IS_INTEGER(f->special) or IS_REFINEMENT(f->special));
+
+                if (f->flags.bits & DO_FLAG_FULLY_SPECIALIZED) {
                     //
-                    // See REB_0_PARTIAL for explanations of how storing a
-                    // REFINEMENT! with a binding in it indicates a partial
-                    // refinement with parameter index (pushed to top of
-                    // stack, hence *higher priority* for fulfilling at the
-                    // callsite than any refinements added by a PATH!).
+                    // Not gathering any arguments at the callsite means that
+                    // the ordering isn't important, say refinement is true.
+                    //
+                    Init_Logic(f->arg, true);
+                    f->refine = f->arg;
+                    goto continue_arg_loop;
+                }
+
+                if (IS_REFINEMENT(f->special)) {
+                    //
+                    // A REFINEMENT! with a binding in it indicates a partial
+                    // refinement with parameter index (which needs to be pushed
+                    // to top of stack, hence *higher priority* for fulfilling at
+                    // the callsite than any refinements added by a PATH!).
                     //
                     REBCNT partial_index = VAL_WORD_INDEX(f->special);
                     REBSTR *partial_canon = VAL_STORED_CANON(f->special);
 
-                    // !!! Simplify this, but we need to make sure we don't
-                    // cause reification or management code to run here
-                    //
                     DS_PUSH_TRASH;
                     Init_Refinement(DS_TOP, partial_canon);
                     DS_TOP->extra.binding = NOD(f->varlist); // need unmanaged
@@ -809,8 +809,21 @@ reevaluate:;
                     goto continue_arg_loop;
                 }
 
-                assert(In_Typecheck_Mode(f)); // specialization bug otherwise
-                fail (Error_Non_Logic_Refinement(f->param, f->arg));
+              #if !defined(NDEBUG)
+                if (not IS_INTEGER(f->special)) {
+                    // Should not be able to get here, but new and tricky code
+                    // so be friendlier than a panic(), for now.
+                    //
+                    printf("!!! SPECIALIZATION BUG--PLEASE REPORT\n");
+                    fail (Error_Non_Logic_Refinement(f->param, f->special));
+                }
+              #endif
+
+                // INTEGER! is left by Make_Context_For_Action_Int_Partials().
+                // It indicates the refinement was in use.
+                //
+
+                goto unspecialized_refinement;
 
     //=//// UNSPECIALIZED REFINEMENT SLOT (no consumption) ////////////////=//
 
@@ -914,7 +927,7 @@ reevaluate:;
                if (In_Typecheck_Mode(f)) {
                     if (
                         not IS_NULLED(f->arg)
-                        or not (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED)
+                        or (f->flags.bits & DO_FLAG_FULLY_SPECIALIZED)
                     ){
                         Finalize_Current_Arg(f);
                         goto continue_arg_loop; // looping to verify args/refines
@@ -943,7 +956,7 @@ reevaluate:;
             //
             if (f->refine == ARG_TO_UNUSED_REFINEMENT) {
                 //
-                // Overwrite if DO_FLAG_NULLS_UNSPECIALIZED faster than check
+                // Overwrite if !(DO_FLAG_FULLY_SPECIALIZED) faster than check
                 //
                 Init_Nulled(f->arg);
                 goto continue_arg_loop;
@@ -1136,6 +1149,7 @@ reevaluate:;
             // second chance to run the enfix processing it put off before,
             // this time using the 10 as the AND's left-hand argument.
             //
+            assert(not IS_POINTER_TRASH_DEBUG(f->deferred));
             if (f->deferred) {
                 assert(VAL_TYPE(&f->cell) == REB_0_DEFERRED);
 
@@ -1301,9 +1315,10 @@ reevaluate:;
             assert(pclass != PARAM_CLASS_LOCAL);
             assert(
                 not In_Typecheck_Mode(f) // already handled, unless...
-                or (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED) // ...this!
+                or not (f->flags.bits & DO_FLAG_FULLY_SPECIALIZED) // ...this!
             );
 
+            assert(not IS_POINTER_TRASH_DEBUG(f->deferred));
             if (not f->deferred)
                 Finalize_Arg(f, f->param, f->arg, f->refine);
 
@@ -1323,7 +1338,7 @@ reevaluate:;
         // second time through, and we were just jumping up to check the
         // parameters in response to a R_REDO_CHECKED; if so, skip this.
         //
-        if (not In_Typecheck_Mode(f) and DSP != f->dsp_orig) {
+        if (DSP != f->dsp_orig and IS_REFINEMENT(DS_TOP)) {
 
         next_pickup:;
 
@@ -1356,13 +1371,8 @@ reevaluate:;
 
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
-        if (In_Typecheck_Mode(f)) {
-            assert(
-                IS_POINTER_TRASH_DEBUG(f->deferred)
-                or (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED)
-            );
-        }
-        else { // was fulfilling...
+        if (not In_Typecheck_Mode(f)) { // was fulfilling...
+            assert(not IS_POINTER_TRASH_DEBUG(f->deferred));
             if (f->deferred) {
                 //
                 // We deferred typechecking, but still need to do it...
@@ -1377,7 +1387,6 @@ reevaluate:;
                 );
                 Init_Unreadable_Blank(&f->cell);
             }
-
             TRASH_POINTER_IF_DEBUG(f->deferred);
         }
 
@@ -1422,17 +1431,6 @@ reevaluate:;
         // evaluation was in progress.
         //
         /*assert(f->out->header.bits & (CELL_FLAG_STACK | NODE_FLAG_ROOT)); */
-
-        if (f->flags.bits & DO_FLAG_NULLS_UNSPECIALIZED) {
-            //
-            // For the moment, the only client of DO_FLAG_NULLS_UNSPECIALIZED
-            // is a routine that wants us to build the specialized frame
-            // but not actually call it.  This should likely be done with
-            // a dispatcher.  This can't work with variadics: review.
-            //
-            TRASH_CELL_IF_DEBUG(f->out);
-            goto finished_unchecked;
-        }
 
         // Running arbitrary native code can manipulate the bindings or cache
         // of a variable.  It's very conservative to say this, but any word
@@ -1583,6 +1581,7 @@ reevaluate:;
             f->refine = ORDINARY_ARG; // no gathering, but need for assert
             assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
             SET_END(f->out);
+            assert(IS_POINTER_TRASH_DEBUG(f->deferred));
             goto process_action;
 
         case R_06_REDO_UNCHECKED:
@@ -1593,6 +1592,7 @@ reevaluate:;
             //
             assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
             SET_END(f->out);
+            assert(IS_POINTER_TRASH_DEBUG(f->deferred));
             goto redo_unchecked;
 
         case R_07_REEVALUATE_CELL:
@@ -2608,11 +2608,4 @@ finished:;
 
     // All callers must inspect for THROWN(f->out), and most should also
     // inspect for FRM_AT_END(f)
-
-finished_unchecked:
-
-    // this is the special case where we do not drop the frame state
-    // because we wanted to save it, e.g. MAKE FRAME! from VARARGS!
-
-    NOOP;
 }

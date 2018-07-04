@@ -473,13 +473,17 @@ apply: adapt 'apply [
 lib-make: :make
 make: function [
     "Constructs or allocates the specified datatype."
-    return: [any-value!]
+    return: [<opt> any-value!]
     type [any-value!]
         "The datatype or an example value"
     def [any-value!]
         "Attributes or size of the new value (modified)"
 ][
     case [
+        type = blank or (type = blank!) [
+            fail "MAKE cannot produce BLANK! values"
+        ]
+        blank? :def [return null] ;-- otherwise blank in, null out
         all [
             :type = object!
             block? :def and (not block? first def)

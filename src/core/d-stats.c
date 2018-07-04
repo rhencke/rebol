@@ -141,7 +141,7 @@ void Measured_Do_Hook(REBFRM * const f)
     // There are a lot of invariants checked on entry to Do_Core(), but this
     // is a simple one that is important enough to mirror here.
     //
-    assert(FRM_HAS_MORE(f) || f->flags.bits & DO_FLAG_APPLYING);
+    assert(FRM_HAS_MORE(f) or f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION);
 
     // In order to measure single steps, we convert a DO_FLAG_TO_END request
     // into a sequence of DO/NEXT operations, and loop them.
