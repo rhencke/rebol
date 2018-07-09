@@ -156,7 +156,7 @@ static REB_R Loop_Series_Common(
     //
     REBINT s = VAL_INDEX(start);
     if (s == end) {
-        if (Run_Branch_Throws(out, END, body)) {
+        if (Run_Branch_Throws(out, body, END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return out;
@@ -180,7 +180,7 @@ static REB_R Loop_Series_Common(
             ? cast(REBINT, *state) <= end
             : cast(REBINT, *state) >= end
     ){
-        if (Run_Branch_Throws(out, END, body)) {
+        if (Run_Branch_Throws(out, body, END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return out;
@@ -234,7 +234,7 @@ static REB_R Loop_Integer_Common(
     // Run only once if start is equal to end...edge case.
     //
     if (start == end) {
-        if (Run_Branch_Throws(out, END, body)) {
+        if (Run_Branch_Throws(out, body, END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return out;
@@ -254,7 +254,7 @@ static REB_R Loop_Integer_Common(
         return nullptr; // avoid infinite loops
 
     while (counting_up ? *state <= end : *state >= end) {
-        if (Run_Branch_Throws(out, END, body)) {
+        if (Run_Branch_Throws(out, body, END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return out;
@@ -321,7 +321,7 @@ static REB_R Loop_Number_Common(
     // Run only once if start is equal to end...edge case.
     //
     if (s == e) {
-        if (Run_Branch_Throws(out, END, body)) {
+        if (Run_Branch_Throws(out, body, END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return out;
@@ -341,7 +341,7 @@ static REB_R Loop_Number_Common(
     }
 
     while (counting_up ? *state <= e : *state >= e) {
-        if (Run_Branch_Throws(out, END, body)) {
+        if (Run_Branch_Throws(out, body, END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(out, &stop))
                 return out;
@@ -583,7 +583,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
         assert(IS_END(key) and IS_END(pseudo_var));
 
-        if (Run_Branch_Throws(D_OUT, nullptr, ARG(body))) {
+        if (Run_Branch_Throws(D_OUT, ARG(body), END)) {
             if (not Catching_Break_Or_Continue(D_OUT, &stop)) {
                 // A non-loop throw, we should be bubbling up
                 threw = TRUE;
@@ -841,7 +841,7 @@ REBNATIVE(for_skip)
             VAL_INDEX(var) = index;
         }
 
-        if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
+        if (Run_Branch_Throws(D_OUT, ARG(body), END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return D_OUT;
@@ -886,7 +886,7 @@ REBNATIVE(forever)
     INCLUDE_PARAMS_OF_FOREVER;
 
     do {
-        if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
+        if (Run_Branch_Throws(D_OUT, ARG(body), END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return D_OUT;
@@ -1099,7 +1099,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
             ++index;
         }
 
-        if (Run_Branch_Throws(res->out, END, res->body)) {
+        if (Run_Branch_Throws(res->out, res->body, END)) {
             if (not Catching_Break_Or_Continue(res->out, &stop)) {
                 assert(THROWN(res->out)); // how caller knows it threw
                 return NULL; // we'll bubble it up, but will also finalize
@@ -1375,7 +1375,7 @@ REBNATIVE(loop)
         count = Int64(ARG(count));
 
     for (; count > 0; count--) {
-        if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
+        if (Run_Branch_Throws(D_OUT, ARG(body), END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return D_OUT;
@@ -1457,7 +1457,7 @@ inline static REB_R Until_Core(REBFRM *frame_, REBOOL trigger)
 
     skip_check:;
 
-        if (Run_Branch_Throws(D_OUT, END, ARG(body))) {
+        if (Run_Branch_Throws(D_OUT, ARG(body), END)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return D_OUT;
@@ -1534,7 +1534,7 @@ inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
     Init_Void(D_OUT); // result if body never runs
 
     do {
-        if (Run_Branch_Throws(D_CELL, END, ARG(condition)))
+        if (Run_Branch_Throws(D_CELL, ARG(condition), END))
             return D_CELL; // don't look for break/continue in the *condition*
 
         if (IS_VOID(D_CELL))
@@ -1543,7 +1543,7 @@ inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
         if (IS_TRUTHY(D_CELL) != trigger)
             return D_OUT; // loop trigger didn't match, return last result
 
-        if (Run_Branch_Throws(D_OUT, D_CELL, ARG(body))) {
+        if (Run_Branch_Throws(D_OUT, ARG(body), D_CELL)) {
             REBOOL stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
                 return D_OUT;

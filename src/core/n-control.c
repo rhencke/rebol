@@ -27,20 +27,18 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Control constructs in Ren-C differ from R3-Alpha in some ways:
+// Control constructs follow these rules:
 //
 // * If they do not run any branches, the construct returns NULL...which is
 //   not an ANY-VALUE! and can't be put in a block or assigned to a variable
-//   via SET-WORD! or SET-PATH!.  This is systemically the sign of a "soft
-//   failure", and can signal constructs like ELSE to run.
+//   (via SET-WORD! or SET-PATH!).  This is systemically the sign of a "soft
+//   failure", and can signal constructs like ELSE, ALSO, TRY, etc.
 //
 // * If a branch *does* run--and that branch evaluation produces a NULL--then
 //   conditionals designed to be used with branching (like IF or CASE) will
-//   return a VOID! result.  Voids are neither true nor false, and are not
-//   friendly to work with (e.g. can't be assigned to a variable via SET-WORD!
-//   or SET-PATH!).  Yet they are values and can be put in blocks, so are
-//   unlike NULL...constructs like ELSE can realize that a branch was taken
-//   and not run their own branch.
+//   return a VOID! result.  Voids are neither true nor false, and since they
+//   are values (unlike NULL), they distinguish the signal of a branch that
+//   evaluated to NULL from no branch at all.
 //
 // * Zero-arity function values used as branches will be executed, and
 //   single-arity functions used as branches will also be executed--but passed
@@ -56,7 +54,7 @@
 //
 //  if: native [
 //
-//  {When TO-LOGIC CONDITION is true, execute branch}
+//  {When TO LOGIC! CONDITION is true, execute branch}
 //
 //      return: "null if branch not run, otherwise branch result"
 //          [<opt> any-value!]
@@ -69,13 +67,13 @@ REBNATIVE(if)
 {
     INCLUDE_PARAMS_OF_IF;
 
-    if (IS_CONDITIONAL_FALSE(ARG(condition)))
+    if (IS_CONDITIONAL_FALSE(ARG(condition))) // fails on void, literal blocks
         return nullptr;
 
-    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch)))
+    if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(condition)))
         return D_OUT;
 
-    Voidify_If_Nulled(D_OUT); // null is reserved for no branch run
+    Voidify_If_Nulled(D_OUT); // null reserved for no branch (cues ELSE, etc.)
     return D_OUT;
 }
 
@@ -83,7 +81,7 @@ REBNATIVE(if)
 //
 //  if-not: native [
 //
-//  {When TO-LOGIC CONDITION is false, execute branch}
+//  {When TO LOGIC! CONDITION is false, execute branch}
 //
 //      return: "null if branch not run, otherwise branch result"
 //          [<opt> any-value!]
@@ -95,13 +93,13 @@ REBNATIVE(if_not)
 {
     INCLUDE_PARAMS_OF_IF_NOT;
 
-    if (IS_CONDITIONAL_TRUE(ARG(condition)))
+    if (IS_CONDITIONAL_TRUE(ARG(condition)))  // fails on void, literal blocks
         return nullptr;
 
-    if (Run_Branch_Throws(D_OUT, ARG(condition), ARG(branch)))
+    if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(condition)))
         return D_OUT;
 
-    Voidify_If_Nulled(D_OUT); // null is reserved for no branch run
+    Voidify_If_Nulled(D_OUT); // null reserved for no branch (cues ELSE, etc.)
     return D_OUT;
 }
 
@@ -112,6 +110,7 @@ REBNATIVE(if_not)
 //  {Choose a branch to execute, based on TO-LOGIC of the CONDITION value}
 //
 //      return: [<opt> any-value!]
+//          "Returns null if either branch returns null (unlike IF...ELSE)"
 //      condition [<opt> any-value!]
 //      true-branch "If arity-1 ACTION!, receives the evaluated condition"
 //          [block! action!]
@@ -119,18 +118,15 @@ REBNATIVE(if_not)
 //  ]
 //
 REBNATIVE(either)
-//
-// Note that EITHER is not a precise synonym for IF...ELSE, because both
-// branches are allowed to return null, not just the second.
 {
     INCLUDE_PARAMS_OF_EITHER;
 
     if (Run_Branch_Throws(
         D_OUT,
-        ARG(condition),
-        IS_CONDITIONAL_TRUE(ARG(condition))
+        IS_CONDITIONAL_TRUE(ARG(condition)) // fails on void, literal blocks
             ? ARG(true_branch)
-            : ARG(false_branch)
+            : ARG(false_branch),
+        ARG(condition)
     )){
         return D_OUT;
     }
@@ -290,7 +286,7 @@ REBNATIVE(either_test)
 
     assert(r == R_FALSE);
 
-    if (Run_Branch_Throws(D_OUT, ARG(arg), ARG(branch)))
+    if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(arg)))
         return D_OUT;
 
     return D_OUT;
@@ -304,29 +300,22 @@ REBNATIVE(either_test)
 //
 //      return: "Input value if not null, or branch result (possibly null)"
 //          [<opt> any-value!]
-//      optional "Run branch if this is null (note a VOID! is not null)"
+//      optional "Run branch if this is null"
 //          [<opt> any-value!]
-//      branch "If arity-1 ACTION!, receives null (done for consistency)"
-//          [block! action!]
+//      branch [block! action!]
 //  ]
 //
 REBNATIVE(else)
 {
     INCLUDE_PARAMS_OF_ELSE; // faster than EITHER-TEST specialized w/`VALUE?`
 
-    if (not IS_NULLED(ARG(optional))) { // note that VOID!s are non-NULL
-        Move_Value(D_OUT, ARG(optional));
-        return D_OUT; // *slightly* faster than `return ARG(optional);`
-    }
+    if (not IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
+        return ARG(optional);
 
-    if (Run_Branch_Throws(D_OUT, NULLED_CELL, ARG(branch)))
+    if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(optional))) // null argument
         return D_OUT;
 
-    // For ELSE, we do not Voidify_If_Nulled() so that you can write:
-    //
-    //     if condition [...] else [...] else [...] also [...]
-    //
-    return D_OUT;
+    return D_OUT; // don't voidify, allows chaining: `else [...] also [...]`
 }
 
 
@@ -337,7 +326,7 @@ REBNATIVE(else)
 //
 //      return: "null if input is null, or branch result (voided if null)"
 //          [<opt> any-value!]
-//      optional "Run branch if this is not null (note a VOID! is not null)"
+//      optional "Run branch if this is not null"
 //          [<opt> any-value!]
 //      branch "If arity-1 ACTION!, receives value that triggered branch"
 //          [block! action!]
@@ -347,23 +336,13 @@ REBNATIVE(also)
 {
     INCLUDE_PARAMS_OF_ALSO; // faster than EITHER-TEST specialized w/`NULL?`
 
-    if (IS_NULLED(ARG(optional)))
-        return nullptr;
+    if (IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
+        return nullptr; // left didn't run, so signal ALSO didn't run either
 
-    if (Run_Branch_Throws(D_OUT, ARG(optional), ARG(branch)))
+    if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(optional)))
         return D_OUT;
 
-    // For ALSO, we Voidify_If_Nulled() in order to relieve the person writing
-    // the branch of worrying about getting out of the way of an ELSE:
-    //
-    //     switch x [...] also [if y [print "matched!"]] else [...]
-    //
-    // The concept being that the author means to ELSE the whole expression,
-    // e.g. the ALSO and the SWITCH are linked to the "group of things that
-    // are associated with success".  Hence the outcome of the ALSO shouldn't
-    // be able to accidentally "un-success" it by evaluating to NULL.
-    //
-    Voidify_If_Nulled(D_OUT);
+    Voidify_If_Nulled(D_OUT); // if left signaled it ran, ensure ALSO signals
     return D_OUT;
 }
 
@@ -375,7 +354,7 @@ REBNATIVE(also)
 //
 //      return: "The same value as input, regardless of if branch runs"
 //          [<opt> any-value!]
-//      optional "Run branch if this is not null (note a VOID! is not null)"
+//      optional "Run branch if this is not null"
 //          [<opt> any-value!]
 //      branch "If arity-1 ACTION!, receives value that triggered branch"
 //          [block! action!]
@@ -388,7 +367,7 @@ REBNATIVE(so)
     if (IS_NULLED(ARG(optional)))
         return nullptr;
 
-    if (Run_Branch_Throws(D_OUT, ARG(optional), ARG(branch)))
+    if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(optional)))
         return D_OUT;
 
     return ARG(optional);

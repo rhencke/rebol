@@ -46,8 +46,7 @@ static REBVAL *Trap_Dangerous(REBFRM *frame_) {
     UNUSED(REF(with));
     UNUSED(ARG(handler));
 
-    const REBVAL *condition = END; // only allow 0-arity functions
-    if (Run_Branch_Throws(D_OUT, condition, ARG(code))) {
+    if (Run_Branch_Throws(D_OUT, ARG(code), END)) {
         //
         // returned value is tested for THROWN() status by caller
     }
@@ -100,7 +99,7 @@ REBNATIVE(trap)
     assert(IS_ERROR(error));
 
     if (REF(with)) {
-        if (Run_Branch_Throws(D_OUT, error, ARG(handler))) {
+        if (Run_Branch_Throws(D_OUT, ARG(handler), error)) {
             rebRelease(error);
             return D_OUT;
         }
@@ -117,7 +116,7 @@ static REBVAL *Entrap_Dangerous(REBFRM *frame_) {
     INCLUDE_PARAMS_OF_ENTRAP;
 
     const REBVAL *condition = END; // only allow 0-arity functions
-    if (Run_Branch_Throws(D_OUT, condition, ARG(code))) {
+    if (Run_Branch_Throws(D_OUT, ARG(code), condition)) {
         Init_Error(D_OUT, Error_No_Catch_For_Throw(D_OUT));
         return nullptr;
     }

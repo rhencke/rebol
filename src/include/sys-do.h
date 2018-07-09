@@ -1329,8 +1329,8 @@ inline static REBOOL Eval_Value_Core_Throws(
 //
 inline static REBOOL Run_Branch_Throws(
     REBVAL *out,
-    const REBVAL *condition,
-    const REBVAL *branch
+    const REBVAL *branch,
+    const REBVAL *condition
 ){
     assert(branch != out);
     assert(condition != out);
