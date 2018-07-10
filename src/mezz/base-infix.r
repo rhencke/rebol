@@ -167,13 +167,6 @@ for-each [comparison-op function-name] compose [
 ]
 
 
-; https://trello.com/c/8NF3DFBM
-
-then: enfix :if
-
-not-then: enfix :if-not
-
-
 ; The -- and ++ operators were deemed too "C-like", so ME was created to allow
 ; `some-var: me + 1` or `some-var: me / 2` in a generic way.
 ;

@@ -179,9 +179,12 @@ inline static int FRM_LINE(REBFRM *f) {
 #define FRM_PRIOR(f) \
     ((f)->prior + 0) // prevent assignment via this macro
 
+#define FRM_PHASE_OR_DEFER_0(f) \
+    f->rootvar->payload.any_context.phase
+
 #if defined(NDEBUG) or !defined(__cplusplus)
     #define FRM_PHASE(f) \
-        f->rootvar->payload.any_context.phase
+        FRM_PHASE_OR_DEFER_0(f)
 #else
     // The C++ debug build adds a check that a frame is not uing a tricky
     // noop dispatcher, when access to the phase is gotten with FRM_PHASE().
@@ -195,7 +198,7 @@ inline static int FRM_LINE(REBFRM *f) {
     // Any manipulations aware of this hack need to access the field directly.
     //
     inline static REBACT* &FRM_PHASE(REBFRM *f) {
-        REBACT* &phase = f->rootvar->payload.any_context.phase;
+        REBACT* &phase = FRM_PHASE_OR_DEFER_0(f);
         assert(phase != NAT_ACTION(defer_0));
         return phase;
     }

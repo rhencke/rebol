@@ -91,7 +91,7 @@ console!: make object! [
         ; We don't want to use PRINT here because it would put the cursor on
         ; a new line.
         ;
-        write-stdout <- block? prompt then [
+        write-stdout <- block? prompt and [
             unspaced prompt
         ] else [
             form prompt
@@ -140,7 +140,7 @@ console!: make object! [
             pos: molded: mold/limit :v 2048
             loop 20 [
                 pos: next (find pos newline else [break])
-            ] also [ ; e.g. didn't break
+            ] then [ ; e.g. didn't break
                 insert clear pos "..."
             ]
             print [result (molded)]
@@ -388,7 +388,7 @@ host-console: function [
                 emit [print ((mold uneval prior))]
                 emit [fail ["Bad REPL continuation:" ((uneval result))]]
             ]
-        ] also [
+        ] then [
             return-to-c instruction
         ]
 
@@ -527,7 +527,7 @@ host-console: function [
                     print "** UNSAFE ERROR ENCOUNTERED IN CONSOLE SKIN"
                 ]
                 print mold result
-            ] also [
+            ] then [
                 print "** REVERTING TO DEFAULT SKIN"
                 system/console: make console! []
                 print mold prior ;-- Might help debug to see what was running

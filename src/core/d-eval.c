@@ -356,7 +356,7 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 
     // See FRM_PHASE() for why it's not allowed when DEFER-0 is the dispatcher
     //
-    REBACT *phase = f->rootvar->payload.any_context.phase;
+    REBACT *phase = FRM_PHASE_OR_DEFER_0(f);
     if (phase == NAT_ACTION(defer_0))
         return;
 

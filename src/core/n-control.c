@@ -315,12 +315,12 @@ REBNATIVE(else)
     if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(optional))) // null argument
         return D_OUT;
 
-    return D_OUT; // don't voidify, allows chaining: `else [...] also [...]`
+    return D_OUT; // don't voidify, allows chaining: `else [...] then [...]`
 }
 
 
 //
-//  also: enfix native [
+//  then: enfix native [
 //
 //  {If input is null, return null, otherwise evaluate the branch}
 //
@@ -332,25 +332,25 @@ REBNATIVE(else)
 //          [block! action!]
 //  ]
 //
-REBNATIVE(also)
+REBNATIVE(then)
 {
-    INCLUDE_PARAMS_OF_ALSO; // faster than EITHER-TEST specialized w/`NULL?`
+    INCLUDE_PARAMS_OF_THEN; // faster than EITHER-TEST specialized w/`NULL?`
 
     if (IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
-        return nullptr; // left didn't run, so signal ALSO didn't run either
+        return nullptr; // left didn't run, so signal THEN didn't run either
 
     if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(optional)))
         return D_OUT;
 
-    Voidify_If_Nulled(D_OUT); // if left signaled it ran, ensure ALSO signals
+    Voidify_If_Nulled(D_OUT); // if left signaled it ran, ensure THEN signals
     return D_OUT;
 }
 
 
 //
-//  so: enfix native [
+//  also: enfix native [
 //
-//  {"The Lesser ALSO": For non-null input, evaluate and discard branch}
+//  {For non-null input, evaluate and discard branch (like a pass-thru THEN)}
 //
 //      return: "The same value as input, regardless of if branch runs"
 //          [<opt> any-value!]
@@ -360,17 +360,17 @@ REBNATIVE(also)
 //          [block! action!]
 //  ]
 //
-REBNATIVE(so)
+REBNATIVE(also)
 {
-    INCLUDE_PARAMS_OF_SO; // `so [...]` faster than `also func [x] [(...) :x]`
+    INCLUDE_PARAMS_OF_ALSO; // `then func [x] [(...) :x]` => `also [...]`
 
-    if (IS_NULLED(ARG(optional)))
+    if (IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
         return nullptr;
 
     if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(optional)))
         return D_OUT;
 
-    return ARG(optional);
+    return ARG(optional); // just passing thru the input
 }
 
 

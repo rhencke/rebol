@@ -98,7 +98,13 @@
 // might be used to patch the machine code and avoid cost when not hooked.
 //
 REB_R Dispatcher_Core(REBFRM * const f) {
-    return ACT_DISPATCHER(FRM_PHASE(f))(f);
+    //
+    // Callers can "lie" to make the dispatch a no-op by substituting the
+    // DEFER-0 native in the frame, even though it doesn't match the args,
+    // in order to build the frame of a function without running it.  This
+    // is one of the few places tolerant of the lie, so don't call FRM_PHASE()
+    //
+    return ACT_DISPATCHER(FRM_PHASE_OR_DEFER_0(f))(f);
 }
 
 

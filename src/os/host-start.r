@@ -346,7 +346,7 @@ host-start: function [
         <with> return
     ][
         print "Startup encountered an error!"
-        print ["**" block? reason then [spaced reason] else [reason]]
+        print ["**" if block? reason [spaced reason] else [reason]]
         if error [
             print either o/verbose [e] ["!! use --verbose for more detail"]
         ]

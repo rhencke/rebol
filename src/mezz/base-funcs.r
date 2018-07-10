@@ -713,7 +713,7 @@ lambda: function [
         {Block that serves as the body or variadic elements for the body}
 ][
     make action! compose/deep [
-        [(:args also [to block! args])]
+        [(:args then [to block! args])]
         [(
             if block? first body [
                 take body

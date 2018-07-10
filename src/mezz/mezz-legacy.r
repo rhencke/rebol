@@ -261,8 +261,8 @@ op?: func [dummy:] [
 hijack 'also adapt copy :also [
     if (block? :branch) and (not semiquoted? 'branch) [
         fail/where [
-            {ALSO serves a different and important purpose in Ren-C as a}
-            {complement to ELSE, so use ELIDE for old-ALSO-like tasks.}
+            {ALSO serves a different purpose in Ren-C, so use ELIDE for}
+            {old-ALSO-like tasks.}
             {See: https://trello.com/c/Y03HJTY4}
         ] 'branch
     ]
@@ -1013,7 +1013,7 @@ set 'r3-legacy* func [<local>] [
             ;
             apply 'append/part/dup [
                 series: series
-                value: block? :value then [reduce :value] !! :value
+                value: block? :value and [reduce :value] !! :value
                 limit: :limit
                 only: only
                 count: :count

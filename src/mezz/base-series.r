@@ -302,7 +302,7 @@ trim: function [
         tail_TRIM [
             parse series [while [remove [some rule end] | skip]] ;-- see #2289
         ]
-    ] also [
+    ] then [
         return series
     ]
 

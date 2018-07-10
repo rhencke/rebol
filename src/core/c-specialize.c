@@ -1145,9 +1145,9 @@ REBOOL Make_Invocation_Frame_Throws(
     //
     assert(FRM_BINDING(f) == VAL_BINDING(action));
     assert(FRM_PHASE(f) == VAL_ACTION(action));
-    f->rootvar->payload.any_context.phase = NAT_ACTION(defer_0);
+    FRM_PHASE_OR_DEFER_0(f) = NAT_ACTION(defer_0);
     (*PG_Do)(f);
-    f->rootvar->payload.any_context.phase = VAL_ACTION(action);
+    FRM_PHASE_OR_DEFER_0(f) = VAL_ACTION(action);
     FRM_BINDING(f) = VAL_BINDING(action); // can change during invoke
 
     // The function did not actually execute, so no SPC(f) was never handed

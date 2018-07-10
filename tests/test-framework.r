@@ -218,7 +218,7 @@ make object! compose [
                 ]
                 process-tests test-sources :process-vector
             ]
-        ] also [
+        ] then [
             summary: spaced [
                 "system/version:" system/version LF
                 "code-checksum:" code-checksum LF

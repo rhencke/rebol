@@ -631,7 +631,7 @@ source: function [
         not action? :f [
             print [name "is" an mold type of :f "and not an ACTION!"]
         ]
-    ] also [
+    ] then [
         return
     ]
 

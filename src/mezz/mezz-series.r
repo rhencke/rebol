@@ -652,7 +652,7 @@ split: function [
             char! [dlm = last series]
             text! [(find series dlm) and (empty? find/last/tail series dlm)]
             block! [false]
-        ] then [
+        ] and [
             add-fill-val
         ]
     ]
