@@ -233,7 +233,16 @@ REBNATIVE(do)
 {
     INCLUDE_PARAMS_OF_DO;
 
+    // The debug build sets source to be an unwritable cell, to emphasize
+    // that since DO does a long-running operation, it's responsible for
+    // keeping the thing being run (which may have no other references)
+    // alive.  The cell should not be reused as a temporary.
+    //
     REBVAL *source = ARG(source);
+  #if !defined(NDEBUG)
+    SET_VAL_FLAG(ARG(source), CELL_FLAG_PROTECTED);
+  #endif
+
     REBVAL *var = ARG(var);
 
     switch (VAL_TYPE(source)) {
@@ -419,6 +428,10 @@ REBNATIVE(do)
             DO_FLAG_GOTO_PROCESS_ACTION | DO_FLAG_FULLY_SPECIALIZED
         );
 
+        // Note that since we pass CTX_KEYS_HEAD() in to the frame, we are
+        // responsible for keeping the REBCTX* alive for the duration of
+        // the call.  That happens by virtue of it being in an ARG() slot.
+        //
         f->param = CTX_KEYS_HEAD(c); // may hide some params in phase
         REBCTX *stolen = Steal_Context_Vars(c, NOD(phase));
         LINK(stolen).keysource = NOD(f); // changes CTX_KEYS_HEAD() result
@@ -646,7 +659,14 @@ REBNATIVE(apply)
     DROP_GUARD_CONTEXT(exemplar);
 
     // Actions require unmanaged varlists, and we had to manage that one.
+    // We use the keys of the exemplar and not the keys of the applicand,
+    // which means we're responsible for keeping that GC guard on the
+    // keylist until the apply is done.  *but* we steal the exemplar's
+    // variables, which makes it no longer protect its keylist.  So a guard
+    // on the exemplar would be insufficient.
     //
+    REBARR *facade = CTX_KEYLIST(exemplar);
+    PUSH_GUARD_ARRAY(facade);
     f->param = CTX_KEYS_HEAD(exemplar); // maybe hides params of applicand
     REBCTX *stolen = Steal_Context_Vars(
         exemplar,
@@ -655,6 +675,7 @@ REBNATIVE(apply)
     LINK(stolen).keysource = NOD(f); // changes CTX_KEYS_HEAD result
 
     if (threw) {
+        DROP_GUARD_ARRAY(facade);
         Free_Unmanaged_Array(CTX_VARLIST(stolen)); // could TG_Reuse it
         return D_CELL;
     }
@@ -689,6 +710,11 @@ REBNATIVE(apply)
     (*PG_Do)(f);
 
     Drop_Frame_Core(f);
+
+    // The CTX_KEYS_HEAD() we used to fill the f->param doesn't need to be
+    // kept alive anymore.
+    //
+    DROP_GUARD_ARRAY(facade);
 
     if (THROWN(f->out))
         return f->out;
