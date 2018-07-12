@@ -1910,7 +1910,9 @@ inline static REBVAL *Move_Var(RELVAL *out, const REBVAL *v)
     // the whole potential reification process...double-set header for now.)
 
     Move_Value(out, v);
-    out->header.bits |= (v->header.bits & VALUE_FLAG_ENFIXED);
+    out->header.bits |= (
+        v->header.bits & (VALUE_FLAG_ENFIXED | ARG_FLAG_TYPECHECKED)
+    );
     return KNOWN(out);
 }
 

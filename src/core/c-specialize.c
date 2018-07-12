@@ -119,21 +119,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
     REBACT *act = VAL_ACTION(action);
 
-    // See LINK().facade for details.  [0] cell is underlying function, then
-    // there is a parameter for each slot, possibly hidden by specialization.
-    //
-    // We manage the series even though it is incomplete during this routine.
-    // No code runs that can start the GC, so the incompleteness should be ok.
-    //
     REBCNT num_slots = ACT_FACADE_NUM_PARAMS(act) + 1;
-    REBARR *facade = Make_Array_Core(
-        num_slots,
-        (SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST) // [0] is not archetype
-    );
-
-    REBVAL *rootkey = SINK(ARR_HEAD(facade));
-    Init_Action_Unbound(rootkey, ACT_UNDERLYING(act));
-
     REBARR *varlist = Make_Array_Core(
         num_slots, // includes +1 for the CTX_ARCHETYPE() at [0]
         SERIES_MASK_CONTEXT
@@ -149,133 +135,130 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     // used for partial specializations into INTEGER! or null, depending
     // on whether that slot was actually specialized out.
 
-    REBVAL *alias = rootkey + 1;
-    REBVAL *arg = rootvar + 1;
-
     const REBVAL *param = ACT_FACADE_HEAD(act);
+    REBVAL *arg = rootvar + 1;
+    const REBVAL *special = ACT_SPECIALTY_HEAD(act); // exemplar/facade head
+
+    REBCNT index = 1; // used to bind REFINEMENT! values to parameter slots
 
     REBCTX *exemplar = ACT_EXEMPLAR(act); // may be null
-    const REBVAL *special = ACT_SPECIALTY_HEAD(act); // exemplar/facade head
     if (exemplar)
         assert(special == CTX_VARS_HEAD(exemplar));
     else
         assert(special == ACT_FACADE_HEAD(act));
 
-    REBCNT index = 1;
-
-    for (; NOT_END(param); ++param, ++arg, ++special, ++alias, ++index) {
+    for (; NOT_END(param); ++param, ++arg, ++special, ++index) {
         arg->header.bits = prep;
 
-        Move_Value(alias, param); // only change if in passed-in ordering
+        REBSTR *canon = VAL_PARAM_CANON(param);
+
+        assert(special != param or NOT_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED));
+
+    //=//// NON-REFINEMENT SLOT HANDLING //////////////////////////////////=//
 
         if (VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT) {
-            if (special == param) // e.g. exemplar == NULL
-                Init_Nulled(arg);
-            else
-                Move_Value(arg, special);
+            if (GET_VAL_FLAG(special, ARG_FLAG_TYPECHECKED)) {
+                Move_Value(arg, special); // !!! copy the flag?
+                SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+                goto continue_specialized; // Do_Core() debug checks the type
+            }
+            goto continue_unspecialized;
+        }
 
-            if (opt_binder) {
-                REBSTR *canon = VAL_PARAM_CANON(param);
-                if (NOT_VAL_FLAG(param, TYPESET_FLAG_UNBINDABLE))
-                    Add_Binder_Index(opt_binder, canon, index);
+    //=//// REFINEMENT PARAMETER HANDLING /////////////////////////////////=//
+
+        if (IS_LOGIC(special)) { // specialized LOGIC! => "in use"/"disabled"
+            Init_Logic(arg, VAL_LOGIC(special));
+            SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+            goto continue_specialized;
+        }
+
+        // Refinement argument slots are tricky--they can be unspecialized,
+        // -but- have a REFINEMENT! in them we need to push to the stack.
+        // (they're in *reverse* order of use).  Or they may be specialized
+        // and have a NULL in them pushed by an earlier slot.  Refinements
+        // in use must be turned into INTEGER! partials, to point to the DSP
+        // of their stack order.
+
+        if (IS_REFINEMENT(special)) {
+            REBCNT partial_index = VAL_WORD_INDEX(special);
+            DS_PUSH_TRASH;
+            Init_Any_Word_Bound( // push a REFINEMENT! to data stack
+                DS_TOP,
+                REB_REFINEMENT,
+                VAL_STORED_CANON(special),
+                exemplar,
+                partial_index
+            );
+
+            if (partial_index <= index) {
+                //
+                // We've already passed the slot we need to mark partial.
+                // Go back and fill it in, and consider the stack item
+                // to be completed/bound
+                //
+                REBVAL *passed = rootvar + partial_index;
+                assert(passed->header.bits == prep);
+
+                assert(
+                    VAL_STORED_CANON(special) ==
+                    VAL_PARAM_CANON(
+                        CTX_KEYS_HEAD(exemplar) + partial_index - 1
+                    )
+                );
+
+                Init_Integer(passed, DSP);
+                SET_VAL_FLAG(passed, ARG_FLAG_TYPECHECKED); // passed, not arg
+
+                if (partial_index == index)
+                    goto continue_specialized; // just filled in *this* slot
             }
 
+            // We know this is partial (and should be set to an INTEGER!)
+            // but it may have been pushed to the stack already, or it may
+            // be coming along later.  Search only the higher priority
+            // pushes since the call began.
+            //
+            canon = VAL_PARAM_CANON(param);
+            REBDSP dsp = DSP;
+            for (; dsp != highest_ordered_dsp; --dsp) {
+                REBVAL *ordered = DS_AT(dsp);
+                assert(IS_WORD_BOUND(ordered));
+                if (VAL_WORD_INDEX(ordered) == index) { // prescient push
+                    assert(canon == VAL_STORED_CANON(ordered));
+                    Init_Integer(arg, dsp);
+                    SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+                    goto continue_specialized;
+                }
+            }
+
+            assert(arg->header.bits == prep); // skip slot for now
             continue;
         }
 
-        if (special != param) { // e.g. exemplar != NULL
-            if (IS_LOGIC(special)) { // guaranteed used, or fully disabled
-                Init_Logic(arg, VAL_LOGIC(special));
-                goto continue_unbindable;
-            }
-
-            if (IS_NULLED(special)) {
-                //
-                // Might find it on the stack
-            }
-            else {
-                assert(IS_REFINEMENT(special));
-
-                // Save to the stack (they're in *reverse* order of use).
-                //
-                // !!! Review potential use of Move_Value() here.
-                //
-                REBCNT partial_index = VAL_WORD_INDEX(special);
-                DS_PUSH_TRASH;
-                Init_Any_Word_Bound(
-                    DS_TOP,
-                    REB_REFINEMENT,
-                    VAL_STORED_CANON(special),
-                    exemplar,
-                    partial_index
-                );
-
-                if (partial_index <= index) {
-                    //
-                    // We've already passed the slot we need to mark partial.
-                    // Go back and fill it in, and consider the stack item
-                    // to be completed/bound
-                    //
-                    REBVAL *passed = rootvar + partial_index;
-                    assert(passed->header.bits == prep);
-
-                    assert(
-                        VAL_STORED_CANON(special) ==
-                        VAL_PARAM_CANON(
-                            CTX_KEYS_HEAD(exemplar) + partial_index - 1
-                        )
-                    );
-
-                    Init_Integer(passed, DSP);
-
-                    if (partial_index == index)
-                        goto continue_unbindable; // just filled in this slot
-                }
-            }
-
-            if (IS_REFINEMENT_SPECIALIZED(param)) {
-                //
-                // We know this is partial (and should be set to an INTEGER!)
-                // but it may have been pushed to the stack already, or it may
-                // be coming along later.  Search only the higher priority
-                // pushes since the call began.
-                //
-                REBDSP dsp = DSP;
-                for (; dsp != highest_ordered_dsp; --dsp) {
-                    REBVAL *ordered = DS_AT(dsp);
-                    assert(IS_WORD_BOUND(ordered));
-                    if (VAL_WORD_INDEX(ordered) == index) { // prescient push
-                        assert(
-                            VAL_PARAM_CANON(param)
-                            == VAL_STORED_CANON(ordered)
-                        );
-
-                        Init_Integer(arg, dsp);
-                        goto continue_unbindable;
-                    }
-                }
-
-                assert(arg->header.bits == prep); // fill in above later.
-                goto continue_unbindable;
-            }
-        }
+        assert(
+            special == param
+            or IS_NULLED(special)
+            or (
+                IS_VOID(special)
+                and GET_VAL_FLAG(special, ARG_FLAG_TYPECHECKED)
+            )
+        );
 
         // If we get here, then the refinement is unspecified in the
-        // exemplar, *but* the passed in refinements may wish to override
-        // that in a "virtual" sense...and remove it from binding
-        // consideration for a specialization, e.g.
+        // exemplar (or there is no exemplar and special == param).
+        // *but* the passed in refinements may wish to override that in
+        // a "virtual" sense...and remove it from binding consideration
+        // for a specialization, e.g.
         //
         //     specialize 'append/only [only: false] ; won't disable only
+        {
+            REBDSP dsp = highest_ordered_dsp;
+            for (; dsp != lowest_ordered_dsp; --dsp) {
+                REBVAL *ordered = DS_AT(dsp);
+                if (VAL_STORED_CANON(ordered) != canon)
+                    continue; // just continuing this loop
 
-        assert(not IS_REFINEMENT_SPECIALIZED(param));
-
-        REBSTR *param_canon; // goto would cross initialization
-        param_canon = VAL_PARAM_CANON(param);
-
-        REBDSP dsp;
-        for (dsp = highest_ordered_dsp; dsp != lowest_ordered_dsp; --dsp) {
-            REBVAL *ordered = DS_AT(dsp);
-            if (VAL_STORED_CANON(ordered) == param_canon) {
                 assert(not IS_WORD_BOUND(ordered)); // we bind only one
                 INIT_BINDING(ordered, varlist);
                 ordered->payload.any_word.index = index;
@@ -286,22 +269,27 @@ REBCTX *Make_Context_For_Action_Int_Partials(
                 // based on the outcome of that code has been calculated.
                 //
                 Init_Integer(arg, dsp);
-                SET_VAL_FLAGS(
-                    alias, TYPESET_FLAG_HIDDEN | TYPESET_FLAG_UNBINDABLE
-                );
-                goto continue_unbindable;
+                SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+                goto continue_specialized;
             }
         }
 
-        // void and has no known order, so unspecified/bindable...we have to
-        // make it a void for now, because this slot will be seen by the user
-        //
+        goto continue_unspecialized;
+
+      continue_unspecialized:;
+
+        assert(arg->header.bits == prep);
         Init_Nulled(arg);
-        if (opt_binder)
-            Add_Binder_Index(opt_binder, param_canon, index);
+        if (opt_binder) {
+            if (NOT_VAL_FLAG(param, TYPESET_FLAG_UNBINDABLE))
+                Add_Binder_Index(opt_binder, canon, index);
+        }
+        continue;
 
-    continue_unbindable:;
+      continue_specialized:;
 
+        assert(not IS_NULLED(arg));
+        assert(GET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED));
         continue;
     }
 
@@ -314,15 +302,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     if (prep & CELL_FLAG_STACK)
         SET_SER_FLAG(varlist, SERIES_FLAG_STACK);
 
-    // This facade is not final--when code runs bound into this context, it
-    // might wind up needing to hide more fields.  But also, it will be
-    // patched out and in as the function's facade, with the unspecialized
-    // keylist taking its place, at the end of specialization.
-    //
-    TERM_ARRAY_LEN(facade, num_slots);
-    MANAGE_ARRAY(facade);
-    INIT_CTX_KEYLIST_SHARED(CTX(varlist), facade);
-
+    INIT_CTX_KEYLIST_SHARED(CTX(varlist), ACT_FACADE(act));
     return CTX(varlist);
 }
 
@@ -330,13 +310,11 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 //
 //  Make_Context_For_Action: C
 //
-// This version of context making will consolidate any partial refinements
-// back into the varlist, e.g. for MAKE FRAME! which does not intend to call
-// Do_Core() on it or weave the pushed refinements in to build a further
-// specialization.  It balances the stack while doing consolidation.
-//
-// !!! It would be more efficient to do this in one pass, but this helps
-// keep the phases more clear, in what is kind of tricky code.
+// !!! The ultimate concept is that it would be possible for a FRAME! to
+// preserve ordering information such that an ACTION! could be made from it.
+// Right now the information is the stack ordering numbers of the refinements
+// which to make it usable should be relative to the lowest ordered DSP and
+// not absolute.
 //
 REBCTX *Make_Context_For_Action(
     const REBVAL *action, // need ->binding, so can't just be a REBACT*
@@ -350,85 +328,9 @@ REBCTX *Make_Context_For_Action(
         CELL_MASK_NON_STACK
     );
 
-    // Currently this has to be managed because references to it are being
-    // used in bindings with indefinite lifetime for partial refinements.
-    // As it's only used by MAKE FRAME! right now--which would manage it
-    // anyway--this is not a problem.
-    //
-    MANAGE_ARRAY(CTX_VARLIST(exemplar));
-
-    // Go through the partially specialized and unspecialized refinement slots
-    // and move the stack-pushed refinements into them in order from lowest
-    // to highest, so when pushed they will have the highest priority (first
-    // or deepest use) refinements on top at the end.  See notes at the
-    // top of %c-specialize.c for how this strategy works.
-    //
-    // !!! The process used by SPECIALIZE is more nuanced, and will actually
-    // notice when a refinement has no arguments and thus turn it into a
-    // LOGIC! true instead of requiring Do_Core() to push it, which is a bit
-    // more efficient on the calling side.  Review that point if looking to
-    // re-engineer these routines.
-
-    if (DSP == lowest_ordered_dsp)
-        return exemplar; // no partial (or potentially partial) slots
-
-    REBVAL *param = CTX_KEYS_HEAD(exemplar);
-    REBVAL *arg = CTX_VARS_HEAD(exemplar);
-    REBDSP dsp = lowest_ordered_dsp;
-    for (; NOT_END(param); ++param, ++arg) {
-        if (NOT_VAL_FLAG(param, TYPESET_FLAG_UNBINDABLE))
-            continue; // unspecialized
-        if (VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT)
-            continue; // possibly specialized, but not a refinement
-        if (IS_LOGIC(arg))
-            continue; // fully specialized refinement
-
-        // NOTE: INTEGER! here represents specialized refinement, while NULL
-        // represents an unspecialized one.  After the filling process below
-        // this distinction is rediscoverable, but it would be easy to cache
-        // it here (e.g. with NODE_FLAG_MARKED on the arg) if that were
-        // deemed useful for some reason.
-        //
-        assert(IS_NULLED(arg) or IS_INTEGER(arg));
-
-        if (dsp == DSP) {
-            Init_Nulled(arg); // have to overwrite any INTEGER! slots
-            continue;
-        }
-
-        ++dsp;
-        REBVAL *ordered = DS_AT(dsp);
-        assert(IS_REFINEMENT(ordered));
-        assert(
-            VAL_WORD_SPELLING(ordered) ==
-            VAL_PARAM_SPELLING(CTX_KEY(exemplar, VAL_WORD_INDEX(ordered)))
-        );
-
-        // Binding in ordered is to exemplar, arg is a stack cell... hence
-        // the exemplar must be managed for this to be legal (as it is not
-        // SERIES_FLAG_STACK, and doesn't do on-demand management).
-        //
-        Move_Value(arg, ordered);
-    }
-    assert(dsp == DSP); // should have handled everything
-
+    MANAGE_ARRAY(CTX_VARLIST(exemplar)); // !!! was needed before, review
     DS_DROP_TO(lowest_ordered_dsp);
     return exemplar;
-}
-
-
-// On REB_0_PARTIALs, the NODE_FLAG_MARKED is used to keep track of if a
-// void argument for that partial is ever seen.  If it never gets set, then
-// the partial refinement was actually fulfilled.
-
-inline static void Mark_Void_Arg_Seen(REBVAL *p) {
-    assert(VAL_TYPE(p) == REB_0_PARTIAL);
-    SET_VAL_FLAG(p, NODE_FLAG_MARKED);
-}
-
-inline static REBOOL Saw_Void_Arg_Of(const REBVAL *p) {
-    assert(VAL_TYPE(p) == REB_0_PARTIAL);
-    return GET_VAL_FLAG(p, NODE_FLAG_MARKED);
 }
 
 
@@ -439,7 +341,7 @@ inline static REBOOL Saw_Void_Arg_Of(const REBVAL *p) {
 #define FINALIZE_REFINE_IF_FULFILLED \
     assert(evoked != refine or evoked->payload.partial.dsp == 0); \
     if (VAL_TYPE(refine) == REB_0_PARTIAL) { \
-        if (not Saw_Void_Arg_Of(refine)) { /* no voids, no order needed! */ \
+        if (not GET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG)) { \
             if (refine->payload.partial.dsp != 0) \
                 Init_Blank(DS_AT(refine->payload.partial.dsp)); /* full! */ \
             else if (refine == evoked) \
@@ -477,7 +379,7 @@ REBOOL Specialize_Action_Throws(
     REBACT *unspecialized = VAL_ACTION(specializee);
 
     // This produces a context where partially specialized refinement slots
-    // will be REFINEMENT! pointing into the stack at the partial order
+    // will be INTEGER! pointing into the stack at the partial order
     // position. (This takes into account any we are adding "virtually", from
     // the current DSP down to the lowest_ordered_dsp).
     //
@@ -505,7 +407,7 @@ REBOOL Specialize_Action_Throws(
         // body they are passed before rebinding.  Rethink.
 
         // See Bind_Values_Core() for explanations of how the binding works.
-        assert(GET_SER_FLAG(exemplar, ARRAY_FLAG_VARLIST));
+
         Bind_Values_Inner_Loop(
             &binder,
             VAL_ARRAY_AT(opt_def),
@@ -518,10 +420,12 @@ REBOOL Specialize_Action_Throws(
         // !!! Only one binder can be in effect, and we're calling arbitrary
         // code.  Must clean up now vs. in loop we do at the end.  :-(
         //
-        RELVAL *key = CTX_KEYS_HEAD(exemplar); // the new facade
+        RELVAL *key = CTX_KEYS_HEAD(exemplar);
         REBVAL *var = CTX_VARS_HEAD(exemplar);
         for (; NOT_END(key); ++key, ++var) {
             if (GET_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
+                continue; // !!! is this flag still relevant?
+            if (GET_VAL_FLAG(var, ARG_FLAG_TYPECHECKED))
                 continue; // may be refinement from stack, now specialized out
             Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
         }
@@ -540,9 +444,8 @@ REBOOL Specialize_Action_Throws(
 
     REBVAL *rootkey = CTX_ROOTKEY(exemplar);
 
-    // Build up the paramlist for the specialized function on the stack, and
-    // fill in the facade slots with whether arguments are speciailzed.  The
-    // same walk used for that is used to link and process the REB_0_PARTIAL
+    // Build up the paramlist for the specialized function on the stack.
+    // The same walk used for that is used to link and process REB_0_PARTIAL
     // arguments for whether they become fully specialized or not.
 
     REBDSP dsp_paramlist = DSP;
@@ -553,10 +456,10 @@ REBOOL Specialize_Action_Throws(
     REBVAL *refine = ORDINARY_ARG; // parallels state logic in Do_Core()
     REBCNT index = 1;
 
-    REBVAL *first_partial = NULL;
-    REBVAL *last_partial = NULL;
+    REBVAL *first_partial = nullptr;
+    REBVAL *last_partial = nullptr;
 
-    REBVAL *evoked = NULL;
+    REBVAL *evoked = nullptr;
 
     for (; NOT_END(param); ++param, ++arg, ++index) {
         switch (VAL_PARAM_CLASS(param)) {
@@ -566,9 +469,11 @@ REBOOL Specialize_Action_Throws(
 
             if (
                 IS_NULLED(refine)
-                or (IS_INTEGER(refine) and IS_REFINEMENT_SPECIALIZED(param))
+                or (
+                    IS_INTEGER(refine)
+                    and GET_VAL_FLAG(refine, ARG_FLAG_TYPECHECKED)
+                )
             ){
-                //
                 // /DUP is implicitly "evoked" to be true in the following
                 // case, despite being void, since an argument is supplied:
                 //
@@ -581,7 +486,7 @@ REBOOL Specialize_Action_Throws(
 
                 REBDSP partial_dsp = IS_NULLED(refine) ? 0 : VAL_INT32(refine);
 
-                if (first_partial == NULL)
+                if (not first_partial)
                     first_partial = refine;
                 else
                     last_partial->extra.next_partial = refine;
@@ -598,14 +503,18 @@ REBOOL Specialize_Action_Throws(
 
                 // Though Make_Frame_For_Specialization() knew this slot was
                 // partial when it ran, user code might have run to fill in
-                // all the void arguments.  We need to know the stack position
+                // all the null arguments.  We need to know the stack position
                 // of the ordering, to BLANK! it from the partial stack if so.
                 //
+                SET_VAL_FLAG(refine, PARTIAL_FLAG_IN_USE);
                 goto specialized_arg_no_typecheck;
             }
-            else if (IS_LOGIC(refine))
+            else if (IS_LOGIC(refine)) {
+                SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
                 goto specialized_arg_no_typecheck;
+            }
 
+            assert(NOT_VAL_FLAG(refine, ARG_FLAG_TYPECHECKED));
             fail (Error_Non_Logic_Refinement(param, refine)); }
 
         case PARAM_CLASS_RETURN_1:
@@ -623,12 +532,13 @@ REBOOL Specialize_Action_Throws(
         if (refine == ORDINARY_ARG) {
             if (IS_NULLED(arg))
                 goto unspecialized_arg;
+
             goto specialized_arg;
         }
 
         if (VAL_TYPE(refine) == REB_0_PARTIAL) {
-            if (IS_NULLED(arg)) {
-                Mark_Void_Arg_Seen(refine); // we *know* it's not fulfilled
+            if (IS_NULLED(arg)) { // we *know* it's not completely fulfilled
+                SET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG);
                 goto unspecialized_arg;
             }
 
@@ -638,23 +548,19 @@ REBOOL Specialize_Action_Throws(
             if (evoked == refine)
                 goto specialized_arg; // already evoking this refinement
 
-            // If we started out with a void refinement this arg "evokes" it.
+            // If we started out with a null refinement this arg "evokes" it.
             // (Opposite of void "revocation" at callsites).
             // An "evoked" refinement from the code block has no order,
             // so only one such partial is allowed, unless it turns out to
             // be completely fulfilled.
             //
-            if (evoked != NULL)
+            if (evoked)
                 fail (Error_Ambiguous_Partial_Raw());
 
-            REBVAL *fix = param - (arg - refine); // specialize in facade
-            SET_VAL_FLAGS(fix, TYPESET_FLAG_HIDDEN | TYPESET_FLAG_UNBINDABLE);
-
-            assert(VAL_PARAM_CLASS(DS_TOP) == PARAM_CLASS_REFINEMENT);
-            assert(VAL_PARAM_SPELLING(DS_TOP) == VAL_PARAM_SPELLING(fix));
             DS_DROP; // added at `unspecialized_but_may_evoke`, but drop it
 
             evoked = refine; // gets reset to NULL if ends up fulfilled
+            SET_VAL_FLAG(refine, PARTIAL_FLAG_IN_USE);
             goto specialized_arg;
         }
 
@@ -670,73 +576,69 @@ REBOOL Specialize_Action_Throws(
         }
 
         if (not IS_NULLED(arg))
-            goto unspecialized_arg;
+            goto specialized_arg;
 
-        // A previously fully-specialized TRUE should not have any void args.
+        // A previously *fully* specialized TRUE should not have null args.
         // But code run for the specialization may have set the refinement
         // to true without setting all its arguments.
         //
         // Unlike with the REB_0_PARTIAL cases, we have no ordering info
         // besides "after all of those", we can only do that *once*.
 
-        if (evoked != NULL)
+        if (evoked)
             fail (Error_Ambiguous_Partial_Raw());
 
         // Link into partials list (some repetition with code above)
 
-        if (first_partial == NULL)
+        if (not first_partial)
             first_partial = refine;
         else
             last_partial->extra.next_partial = refine;
 
-        RESET_VAL_CELL(refine, REB_0_PARTIAL, 0);
+        RESET_VAL_CELL(refine, REB_0_PARTIAL, PARTIAL_FLAG_IN_USE);
         refine->payload.partial.dsp = 0; // no ordered position on stack
         refine->payload.partial.index = index - (arg - refine);
         TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
 
         last_partial = refine;
 
-        Mark_Void_Arg_Seen(refine); // void arg, so can't be completely filled
-        evoked = refine; // ...so we won't ever set this back to NULL later
+        SET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG); // this is a null arg
+        evoked = refine; // ...we won't ever set this back to NULL later
         goto unspecialized_arg;
 
     unspecialized_arg_but_may_evoke:;
 
         assert(refine->payload.partial.dsp == 0);
-        assert(not IS_REFINEMENT_SPECIALIZED(param));
 
     unspecialized_arg:;
 
+        assert(NOT_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED));
         DS_PUSH(param); // if evoked, will get DS_DROP'd from the paramlist
         continue;
 
     specialized_arg:;
 
         assert(VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT);
-        if (GET_VAL_FLAG(param, TYPESET_FLAG_UNBINDABLE)) {
-            //
-            // Argument was previously specialized, should have been type
-            // checked already.
-            //
-            assert(GET_VAL_FLAG(param, TYPESET_FLAG_HIDDEN));
-        }
-        else {
-            if (GET_VAL_FLAG(param, TYPESET_FLAG_VARIADIC))
-                fail ("Cannot currently SPECIALIZE variadic arguments.");
 
-            if (not TYPE_CHECK(param, VAL_TYPE(arg)))
-                fail (Error_Invalid(arg)); // !!! merge w/Error_Invalid_Arg()
-        }
+        // !!! If argument was previously specialized, should have been type
+        // checked already... don't type check again (?)
+        //
+        if (GET_VAL_FLAG(param, TYPESET_FLAG_VARIADIC))
+            fail ("Cannot currently SPECIALIZE variadic arguments.");
+
+        if (not TYPE_CHECK(param, VAL_TYPE(arg)))
+            fail (Error_Invalid(arg)); // !!! merge w/Error_Invalid_Arg()
+
+       SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
 
     specialized_arg_no_typecheck:;
 
-        SET_VAL_FLAGS(param, TYPESET_FLAG_HIDDEN | TYPESET_FLAG_UNBINDABLE);
         continue;
     }
 
-    if (first_partial != NULL) {
+    if (first_partial) {
         FINALIZE_REFINE_IF_FULFILLED; // last chance (no more refinements)
-        last_partial->extra.next_partial = NULL; // not needed until now
+        last_partial->extra.next_partial = nullptr; // not needed until now
     }
 
     REBARR *paramlist = Pop_Stack_Values_Core(
@@ -747,50 +649,64 @@ REBOOL Specialize_Action_Throws(
     RELVAL *rootparam = ARR_HEAD(paramlist);
     rootparam->payload.action.paramlist = paramlist;
 
-    // The exemplar frame slots now contain a linked list of REB_0_PARTIAL
-    // slots.  These slots need to be converted into TRUE if they are actually
-    // fully fulfilled, REFINEMENT! to hold partial refinements in the reverse
-    // order of their application, or void when partials have run out.
+    // PARAM_CLASS_REFINEMENT slots which started partially specialized (or
+    // unspecialized) in the exemplar now all contain REB_0_PARTIAL, but we
+    // must now convert these transitional placeholders to...
     //
-    // (Note that the result may have voids in slots that are "actually" true,
-    // and a REFINEMENT! can appear in slots that aren't specialized at all.
-    // However, one can tell if a refinement is true by looking in the facade
-    // and seeing if it has a bit saying it was "specialized out".)
+    // * VOID! -- Unspecialized, BUT in traversal order before a partial
+    //   refinement.  That partial must pre-empt Do_Core() fulfilling a use
+    //   of this unspecialized refinement from a PATH! at the callsite.
     //
-    // !!! If (dsp == DSP), e.g. no partials pending after this one, and
-    // the parameter's canon matches the partial's canon its storing...we
-    // *could* signal to the evaluator that it could consume the slot
-    // without a pickup pass, e.g. by leaving the refinement unbound.
-    // For now, avoid doing that, as it's confusing (and likely rare).
+    // * NULL -- Unspecialized with no outranking partials later in traversal.
+    //   So Do_Core() is free to fulfill a use of this refinement from a
+    //   PATH! at the callsite when it first comes across it.
     //
+    // * LOGIC! TRUE -- All arguments were filled in, it's no longer partial.
+    //
+    // * REFINEMENT! -- Partially specialized.  Note the symbol of the
+    //   refinement is probably different from the slot it's in...this is how
+    //   the priority order of usage of partial refinements is encoded.
+
+    // We start filling in slots with the lowest priority ordered refinements
+    // and move on to the higher ones, so that when those refinements are
+    // pushed the end result will be a stack with the highest priority
+    // refinements at the top.
+    //
+    REBVAL *ordered = DS_AT(lowest_ordered_dsp);
+    while (ordered != DS_TOP) {
+        if (IS_BLANK(ordered + 1)) // blanked when seen no longer partial
+            ++ordered;
+        else
+            break;
+    }
+
     REBVAL *partial = first_partial;
-    REBDSP dsp = lowest_ordered_dsp;
-    while (partial != NULL) {
+    while (partial) {
         assert(VAL_TYPE(partial) == REB_0_PARTIAL);
         REBVAL *next_partial = partial->extra.next_partial; // overwritten
 
-        if (not Saw_Void_Arg_Of(partial)) {
-            REBCNT partial_index = partial->payload.partial.index;
-            if (IS_REFINEMENT_SPECIALIZED(rootkey + partial_index)) {
-                //
-                // Since it's not revealed in the facade, it must be in use
-                // (even if it was "evoked" to be so, from void).  If all the
-                // args were non-void, it's not actually a partial.
-                //
-                Init_Logic(partial, true);
-                goto continue_loop;
+        if (NOT_VAL_FLAG(partial, PARTIAL_FLAG_IN_USE)) {
+            if (ordered == DS_TOP)
+                Init_Nulled(partial); // no more partials coming
+            else {
+                Init_Void(partial); // still partials to go, signal pre-empt
+                SET_VAL_FLAG(partial, ARG_FLAG_TYPECHECKED);
             }
+            goto continue_loop;
         }
 
-        if (evoked != NULL) {
+        if (NOT_VAL_FLAG(partial, PARTIAL_FLAG_SAW_NULL_ARG)) {
+            Init_Logic(partial, true); // must be fully specialized
+            goto continue_loop;
+        }
+
+        if (evoked) {
             //
             // A non-position-bearing refinement use coming from running the
             // code block will come after all the refinements in the path,
-            // making it first in the exemplar partial/unspecialized slots.
+            // making it *first* in the exemplar partial/unspecialized slots.
             //
             REBCNT evoked_index = evoked->payload.partial.index;
-            assert(IS_REFINEMENT_SPECIALIZED(rootkey + evoked_index));
-
             Init_Any_Word_Bound(
                 partial,
                 REB_REFINEMENT,
@@ -798,50 +714,49 @@ REBOOL Specialize_Action_Throws(
                 exemplar,
                 evoked_index
             );
+            SET_VAL_FLAG(partial, ARG_FLAG_TYPECHECKED);
 
-            evoked = NULL;
+            evoked = nullptr;
             goto continue_loop;
         }
 
-    try_higher_ordered:;
-
-        if (dsp != DSP) {
-            ++dsp;
-            REBVAL *ordered = DS_AT(dsp);
-            if (IS_BLANK(ordered)) // blanked when seen to be longer partial
-                goto try_higher_ordered;
-            if (IS_WORD_UNBOUND(ordered)) // not in paramlist, or a duplicate
-                fail (Error_Bad_Refine_Raw(ordered));
-
-            Init_Any_Word_Bound(
-                partial,
-                REB_REFINEMENT,
-                VAL_STORED_CANON(ordered),
-                exemplar,
-                VAL_WORD_INDEX(ordered)
-            );
-
+        if (ordered == DS_TOP) { // some partials fully specialized
+            Init_Nulled(partial);
             goto continue_loop;
         }
 
-        Init_Nulled(partial);
+        ++ordered;
+        if (IS_WORD_UNBOUND(ordered)) // not in paramlist, or a duplicate
+            fail (Error_Bad_Refine_Raw(ordered));
+
+        Init_Any_Word_Bound(
+            partial,
+            REB_REFINEMENT,
+            VAL_STORED_CANON(ordered),
+            exemplar,
+            VAL_WORD_INDEX(ordered)
+        );
+        SET_VAL_FLAG(partial, ARG_FLAG_TYPECHECKED);
+
+        while (ordered != DS_TOP) {
+            if (IS_BLANK(ordered + 1))
+                ++ordered; // loop invariant, no BLANK! in next stack
+            else
+                break;
+        };
+
+        goto continue_loop;
 
     continue_loop:;
 
         partial = next_partial;
     }
 
-    // If there was no error, everything should have balanced out...and if
-    // there's anything left on the stack, it should be a ordered refinement
-    // that was completely fulfilled and hence blank.
+    // Everything should have balanced out for a valid specialization
     //
-    assert(evoked == NULL);
-    while (dsp != DSP) {
-        ++dsp;
-        REBVAL *ordered = DS_AT(dsp);
-        if (not IS_BLANK(ordered))
-            fail (Error_Bad_Refine_Raw(ordered)); // specialize 'print/asdf
-    }
+    assert(not evoked);
+    if (ordered != DS_TOP)
+        fail (Error_Bad_Refine_Raw(ordered)); // specialize 'print/asdf
     DS_DROP_TO(lowest_ordered_dsp);
 
     // See %sysobj.r for `specialized-meta:` object template
@@ -855,7 +770,7 @@ REBOOL Specialize_Action_Throws(
         CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE),
         specializee
     );
-    if (opt_specializee_name == NULL)
+    if (not opt_specializee_name)
         Init_Nulled(CTX_VAR(meta, STD_SPECIALIZED_META_SPECIALIZEE_NAME));
     else
         Init_Word(
@@ -1365,6 +1280,7 @@ REBNATIVE(does)
         );
         assert(GET_SER_FLAG(exemplar, NODE_FLAG_MANAGED));
         Move_Value(CTX_VAR(exemplar, 1), specializee);
+        SET_VAL_FLAG(CTX_VAR(exemplar, 1), ARG_FLAG_TYPECHECKED); // checked
         Move_Value(specializee, NAT_VALUE(do));
     }
 

@@ -230,8 +230,11 @@ inline static void Finalize_Arg(
             fail (Error_No_Arg(f_state, param));
 
         Init_Endish_Void(arg);
+        SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
         return;
     }
+
+    assert(NOT_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED)); // no get val flag on END
 
     assert(
         refine == ORDINARY_ARG // check arg type
@@ -252,15 +255,18 @@ inline static void Finalize_Arg(
                 fail (Error_Bad_Refine_Revoke(param, arg));
 
             Init_Logic(refine, false); // can't re-enable...
+            SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+
             refine = ARG_TO_REVOKED_REFINEMENT;
             return; // don't type check for optionality
         }
 
         if (IS_FALSEY(refine)) {
             //
-            // FALSE means refinement already revoked, void is okay
+            // FALSE means refinement already revoked, null is okay
             // BLANK! means refinement was never in use, so also okay
             //
+            SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
             return;
         }
 
@@ -277,8 +283,10 @@ inline static void Finalize_Arg(
     }
 
     if (NOT_VAL_FLAG(param, TYPESET_FLAG_VARIADIC)) {
-        if (TYPE_CHECK(param, VAL_TYPE(arg)))
+        if (TYPE_CHECK(param, VAL_TYPE(arg))) {
+            SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
             return;
+        }
 
         fail (Error_Arg_Type(f_state, param, VAL_TYPE(arg)));
     }
@@ -299,6 +307,7 @@ inline static void Finalize_Arg(
     //
     arg->payload.varargs.param_offset = arg - FRM_ARGS_HEAD(f_state);
     arg->payload.varargs.facade = ACT_FACADE(FRM_PHASE(f_state));
+    SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
 }
 
 inline static void Finalize_Current_Arg(REBFRM *f) {
@@ -746,6 +755,9 @@ reevaluate:;
 
                 TRASH_POINTER_IF_DEBUG(f->refine); // must update to new value
 
+                REBVAL *ordered = DS_TOP;
+                REBSTR *param_canon = VAL_PARAM_CANON(f->param); // #2258
+
                 if (f->special == f->param) // acquire all args at callsite
                     goto unspecialized_refinement; // most common case
 
@@ -753,50 +765,41 @@ reevaluate:;
                 // the same as f->arg then f->arg must get assigned somehow
                 // (jumping to unspecialized_refinement will take care of it)
 
-                if (IS_NULLED(f->special))
-                    goto unspecialized_refinement; // *always* means this
+                if (IS_NULLED(f->special)) {
+                    assert(NOT_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED));
+                    goto unspecialized_refinement; // second most common
+                }
 
                 if (IS_LOGIC(f->special)) {
-                    if (VAL_LOGIC(f->special) == true) {
-                        Init_Logic(f->arg, true); // f->arg may == f->special
-                        f->refine = f->arg; // remember so we can revoke!
-                    }
-                    else {
-                        Init_Logic(f->arg, false); // f->arg may == f->special
-                        f->refine = ARG_TO_UNUSED_REFINEMENT; // (read-only)
-                    }
+                    Init_Logic(f->arg, VAL_LOGIC(f->special)); // may be no-op
+                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+
+                    if (VAL_LOGIC(f->special) == true)
+                        f->refine = f->arg; // remember, as we might revoke!
+                    else
+                        f->refine = ARG_TO_UNUSED_REFINEMENT; // read-only
 
                     goto continue_arg_loop;
                 }
 
-                // If supplied by user code, e.g. APPLY via a def block, then
-                // LOGIC! or null were the only legal choices.
-                if (
-                    f->arg == f->special
-                    and NOT_VAL_FLAG(f->param, TYPESET_FLAG_UNBINDABLE)
-                ){
+                // The only special allowances for non-LOGIC! or non-NULL is
+                // when the slot claims to have been "TYPECHECKED".  This
+                // is how specialization sneaks in things like REFINEMENT!
+                // which would not be legal for users to say, but it must
+                // change to a LOGIC! before it actually makes it to the call.
+                //
+                if (NOT_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED))
                     fail (Error_Non_Logic_Refinement(f->param, f->arg));
-                }
 
-                assert(IS_INTEGER(f->special) or IS_REFINEMENT(f->special));
+                if (IS_VOID(f->special)) // partial refinements are coming
+                    goto unspecialized_refinement_must_pickup;
 
-                if (f->flags.bits & DO_FLAG_FULLY_SPECIALIZED) {
-                    //
-                    // Not gathering any arguments at the callsite means that
-                    // the ordering isn't important, say refinement is true.
-                    //
-                    Init_Logic(f->arg, true);
-                    f->refine = f->arg;
-                    goto continue_arg_loop;
-                }
-
+                // A REFINEMENT! with a binding in it indicates a partial
+                // refinement with parameter index that needs to be pushed
+                // to top of stack, hence HIGHER priority for fulfilling
+                // @ the callsite than any refinements added by a PATH!.
+                //
                 if (IS_REFINEMENT(f->special)) {
-                    //
-                    // A REFINEMENT! with a binding in it indicates a partial
-                    // refinement with parameter index (which needs to be pushed
-                    // to top of stack, hence *higher priority* for fulfilling at
-                    // the callsite than any refinements added by a PATH!).
-                    //
                     REBCNT partial_index = VAL_WORD_INDEX(f->special);
                     REBSTR *partial_canon = VAL_STORED_CANON(f->special);
 
@@ -805,31 +808,19 @@ reevaluate:;
                     INIT_BINDING(DS_TOP, f->varlist);
                     DS_TOP->payload.any_word.index = partial_index;
 
-                    if (not IS_REFINEMENT_SPECIALIZED(f->param)) {
-                        assert(partial_canon != VAL_PARAM_CANON(f->param));
-                        goto unspecialized_refinement; // !!! not top
-                    }
-
                     Init_Logic(f->arg, true);
+                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                     f->refine = SKIPPING_REFINEMENT_ARGS;
                     goto continue_arg_loop;
                 }
 
-              #if !defined(NDEBUG)
-                if (not IS_INTEGER(f->special)) {
-                    // Should not be able to get here, but new and tricky code
-                    // so be friendlier than a panic(), for now.
-                    //
-                    printf("!!! SPECIALIZATION BUG--PLEASE REPORT\n");
-                    fail (Error_Non_Logic_Refinement(f->param, f->special));
-                }
-              #endif
+                assert(IS_INTEGER(f->special)); // DO FRAME! leaves these
 
-                // INTEGER! is left by Make_Context_For_Action_Int_Partials().
-                // It indicates the refinement was in use.
-                //
-
-                goto unspecialized_refinement;
+                assert(f->flags.bits & DO_FLAG_FULLY_SPECIALIZED);
+                Init_Logic(f->arg, true);
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                f->refine = f->arg; // remember so we can revoke!
+                goto continue_arg_loop;
 
     //=//// UNSPECIALIZED REFINEMENT SLOT (no consumption) ////////////////=//
 
@@ -837,29 +828,30 @@ reevaluate:;
 
                 if (f->dsp_orig == DSP) { // no refinements left on stack
                     Init_Logic(f->arg, false);
+                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                     f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
                     goto continue_arg_loop;
                 }
-
-                REBVAL *ordered = DS_TOP;
-
-                REBSTR *param_canon = VAL_PARAM_CANON(f->param); // #2258
 
                 if (VAL_STORED_CANON(ordered) == param_canon) {
                     DS_DROP; // we're lucky: this was next refinement used
 
                     Init_Logic(f->arg, true); // marks refinement used
+                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                     f->refine = f->arg; // "consume args (can be revoked)"
                     goto continue_arg_loop;
                 }
 
                 --ordered; // not lucky: if in use, this is out of order
 
+            unspecialized_refinement_must_pickup: // only fulfill on 2nd pass
+
                 for (; ordered != DS_AT(f->dsp_orig); --ordered) {
                     if (VAL_STORED_CANON(ordered) != param_canon)
                         continue;
 
                     Init_Logic(f->arg, true); // marks refinement used
+                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
 
                     // The call uses this refinement but we'll have to
                     // come back to it when the expression index to
@@ -869,16 +861,14 @@ reevaluate:;
                     REBCNT offset = f->arg - FRM_ARGS_HEAD(f);
                     INIT_BINDING(ordered, f->varlist);
                     INIT_WORD_INDEX(ordered, offset + 1);
-
-                    // "consume args later" (promise not to change)
-                    //
-                    f->refine = SKIPPING_REFINEMENT_ARGS;
+                    f->refine = SKIPPING_REFINEMENT_ARGS; // fill args later
                     goto continue_arg_loop;
                 }
 
                 // Wasn't in the path and not specialized, so not present
                 //
                 Init_Logic(f->arg, false);
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
                 goto continue_arg_loop;
             }
@@ -897,18 +887,21 @@ reevaluate:;
             switch (pclass) {
             case PARAM_CLASS_LOCAL:
                 Init_Nulled(f->arg); // !!! f->special?
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
 
             case PARAM_CLASS_RETURN_1:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
                 Move_Value(f->arg, NAT_VALUE(return_1)); // !!! f->special?
                 INIT_BINDING(f->arg, f->varlist);
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
 
             case PARAM_CLASS_RETURN_0:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
                 Move_Value(f->arg, NAT_VALUE(return_0)); // !!! f->special?
                 INIT_BINDING(f->arg, f->varlist);
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
 
             default:
@@ -917,52 +910,60 @@ reevaluate:;
 
     //=//// IF COMING BACK TO REFINEMENT ARGS LATER, MOVE ON FOR NOW //////=//
 
-            if (f->refine == SKIPPING_REFINEMENT_ARGS) {
+            if (f->refine == SKIPPING_REFINEMENT_ARGS)
+                goto skip_this_arg_for_now;
+
+            if (GET_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED)) {
+
+    //=//// SPECIALIZED OR OTHERWISE TYPECHECKED ARG //////////////////////=//
+
+                // The flag's whole purpose is that it's not set if the type
+                // is invalid (excluding the narrow purpose of slipping types
+                // used for partial specialization into refinement slots).
+                // But this isn't a refinement slot.  Double check it's true.
                 //
-                // The GC will protect values up through how far we have
-                // enumerated, so we need to put *something* in this slot
-                // when skipping, since we're passing it in the enumeration.
+                // Note SPECIALIZE checks types at specialization time, to
+                // save us the time of doing it on each call.  Also note that
+                // NULL is not technically in the valid argument types for
+                // refinement arguments, but is legal in fulfilled frames.
                 //
-                Init_Unreadable_Blank(f->arg);
+                assert(
+                    (f->refine != ORDINARY_ARG and IS_NULLED(f->special))
+                    or TYPE_CHECK(f->param, VAL_TYPE(f->special))
+                );
+
+                if (f->arg != f->special) {
+                    assert(NOT_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC));
+
+                    Move_Value(f->arg, f->special); // won't copy the bit
+                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                }
                 goto continue_arg_loop;
             }
 
-            if (not In_Unspecialized_Mode(f)) {
-               if (In_Typecheck_Mode(f)) {
-                    if (
-                        not IS_NULLED(f->arg)
-                        or (f->flags.bits & DO_FLAG_FULLY_SPECIALIZED)
-                    ){
-                        Finalize_Current_Arg(f);
-                        goto continue_arg_loop; // looping to verify args/refines
-                    }
-                }
-                else if (not IS_NULLED(f->special)) {
-
-    //=//// SPECIALIZED ARG ///////////////////////////////////////////////=//
-
-                    Move_Value(f->arg, f->special);
-
-                    // SPECIALIZE checks types at specialization time, to
-                    // save us the time of doing it on each call.  But double
-                    // check to make sure.
-                    //
-                    assert(NOT_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC));
-                    assert(TYPE_CHECK(f->param, VAL_TYPE(f->arg)));
-                    goto continue_arg_loop;
-                }
+            // !!! This is currently a hack for APPLY.  It doesn't do a type
+            // checking pass after filling the frame, but it still wants to
+            // treat all values (nulls included) as fully specialized.
+            //
+            if (
+                f->arg == f->special // !!! should this ever allow gathering?
+                /* f->flags.bits & DO_FLAG_FULLY_SPECIALIZED */
+            ){
+                Finalize_Current_Arg(f);
+                goto continue_arg_loop; // looping to verify args/refines
             }
 
-    //=//// IF UNSPECIALIZED ARG IS INACTIVE, SET VOID AND MOVE ON ////////=//
+    //=//// IF UNSPECIALIZED ARG IS INACTIVE, SET NULL AND MOVE ON ////////=//
 
             // Unspecialized arguments that do not consume do not need any
-            // further processing or checking.  void will always be fine.
+            // further processing or checking.  null will always be fine.
             //
             if (f->refine == ARG_TO_UNUSED_REFINEMENT) {
                 //
                 // Overwrite if !(DO_FLAG_FULLY_SPECIALIZED) faster than check
                 //
                 Init_Nulled(f->arg);
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1013,6 +1014,7 @@ reevaluate:;
                         fail (Error_No_Arg(f, f->param));
 
                     Init_Endish_Void(f->arg);
+                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                     goto continue_arg_loop;
                 }
 
@@ -1209,6 +1211,7 @@ reevaluate:;
                     fail (Error_No_Arg(f, f->param));
 
                 Init_Endish_Void(f->arg);
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1238,6 +1241,7 @@ reevaluate:;
                     fail (Error_No_Arg(f, f->param));
 
                 Init_Endish_Void(f->arg);
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1318,11 +1322,23 @@ reevaluate:;
             );
 
             assert(not IS_POINTER_TRASH_DEBUG(f->deferred));
-            if (not f->deferred)
-                Finalize_Arg(f, f->param, f->arg, f->refine);
+            if (f->deferred)
+                continue; // don't do typechecking on this *yet*...
 
-        continue_arg_loop:;
+            Finalize_Arg(f, f->param, f->arg, f->refine);
 
+          continue_arg_loop:;
+
+            assert(GET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED));
+            continue;
+
+          skip_this_arg_for_now:;
+
+            // The GC will protect values up through how far we have
+            // enumerated, so we need to put *something* in this slot when
+            // skipping, since we're going past it in the enumeration.
+            //
+            Init_Unreadable_Blank(f->arg);
             continue;
         }
 

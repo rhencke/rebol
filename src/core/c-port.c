@@ -383,37 +383,29 @@ void Sieve_Ports(REBARR *ports)
 //
 REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
 {
-    // Upper bound on the length of the args we might need for a redo
-    // invocation is the total number of parameters to the *old* function's
-    // invocation (if it had no refinements or locals).
-    //
-    REBARR *code_array = Make_Array(ACT_NUM_PARAMS(FRM_PHASE(f)));
+    REBARR *code_array = Make_Array(FRM_NUM_ARGS(f)); // max, e.g. no refines
     RELVAL *code = ARR_HEAD(code_array);
 
-    // We'll walk through the original functions param and arglist only, and
-    // accept the error-checking the evaluator provides at this time (types,
-    // refinement presence or absence matching).
+    // The first element of our path will be the ACTION!, followed by its
+    // refinements...which in the worst case, all args will be refinements:
     //
-    // !!! See note in function description about arity mismatches.
-    //
-    f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
-    f->arg = FRM_ARGS_HEAD(f);
-    REBOOL ignoring = FALSE;
-
-    // The first element of our path will be the function, followed by its
-    // refinements.  It has an upper bound on length that is to consider the
-    // opposite case where it had only refinements and then the function
-    // at the head...
-    //
-    REBARR *path_array = Make_Array(ACT_NUM_PARAMS(FRM_PHASE(f)) + 1);
+    REBARR *path_array = Make_Array(FRM_NUM_ARGS(f) + 1);
     RELVAL *path = ARR_HEAD(path_array);
-
     Init_Action_Unbound(path, run); // !!! What if there's a binding?
     ++path;
 
-    for (; NOT_END(f->param); ++f->param, ++f->arg) {
+    assert(IS_END(f->param)); // okay to reuse, if it gets put back...
+    f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
+    f->arg = FRM_ARGS_HEAD(f);
+    f->special = ACT_SPECIALTY_HEAD(FRM_PHASE(f));
+
+    REBOOL ignoring = FALSE;
+
+    for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
         if (GET_VAL_FLAG(f->param, TYPESET_FLAG_HIDDEN))
-            continue; // a parameter that was "specialized out" in this phase
+            continue; // !!! is this still relevant?
+        if (GET_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED))
+            continue; // a parameter that was "specialized out" of this phase
 
         enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
 
@@ -426,27 +418,19 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
         }
 
         if (pclass == PARAM_CLASS_REFINEMENT) {
-            if (IS_FALSEY(f->arg)) {
-                //
-                // If the refinement is not in use, do not add it and ignore
-                // args until the next refinement.
-                //
-                ignoring = TRUE;
+            if (VAL_LOGIC(f->arg) == false) {
+                ignoring = true; // don't add to PATH!
                 continue;
             }
 
-            // In use--and used refinements must be added to the PATH!
-            //
-            ignoring = FALSE;
+            ignoring = false;
             Init_Word(path, VAL_PARAM_SPELLING(f->param));
             ++path;
             continue;
         }
 
-        // Otherwise it should be a quoted or normal argument.  If ignoring
-        // then pass on it, otherwise add the arg to the code as-is.
-        //
-        if (ignoring) continue;
+        if (ignoring)
+            continue;
 
         Move_Value(code, f->arg);
         ++code;
@@ -455,16 +439,10 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     TERM_ARRAY_LEN(code_array, code - ARR_HEAD(code_array));
     MANAGE_ARRAY(code_array);
 
-    // This is a "redo" of values that have already been evaluated, that are
-    // now being forwarded to a different function.  So we don't want the
-    // arguments to be double-evaluated, hence DO_FLAG_EXPLICIT_EVALUATE.
-    // However, we *do* want the path at the head of the evaluation to be
-    // evaluator-active...so we need to set VALUE_FLAG_EVAL_FLIP on it.
-    //
     DECLARE_LOCAL (first);
     TERM_ARRAY_LEN(path_array, path - ARR_HEAD(path_array));
     Init_Path(first, path_array);
-    SET_VAL_FLAG(first, VALUE_FLAG_EVAL_FLIP);
+    SET_VAL_FLAG(first, VALUE_FLAG_EVAL_FLIP); // make the PATH! invoke action
 
     // Invoke DO with the special mode requesting non-evaluation on all
     // args, as they were evaluated the first time around.
@@ -475,7 +453,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
         code_array,
         0, // index
         SPECIFIED, // reusing existing REBVAL arguments, no relative values
-        DO_FLAG_EXPLICIT_EVALUATE
+        DO_FLAG_EXPLICIT_EVALUATE // DON'T double-evaluate arguments
     );
 
     if (indexor != THROWN_FLAG and indexor != END_FLAG) {

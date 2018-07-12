@@ -428,11 +428,8 @@ REBNATIVE(do)
             DO_FLAG_GOTO_PROCESS_ACTION | DO_FLAG_FULLY_SPECIALIZED
         );
 
-        // Note that since we pass CTX_KEYS_HEAD() in to the frame, we are
-        // responsible for keeping the REBCTX* alive for the duration of
-        // the call.  That happens by virtue of it being in an ARG() slot.
-        //
-        f->param = CTX_KEYS_HEAD(c); // may hide some params in phase
+        assert(CTX_KEYS_HEAD(c) == ACT_FACADE_HEAD(phase));
+        f->param = CTX_KEYS_HEAD(c);
         REBCTX *stolen = Steal_Context_Vars(c, NOD(phase));
         LINK(stolen).keysource = NOD(f); // changes CTX_KEYS_HEAD() result
 
@@ -648,6 +645,8 @@ REBNATIVE(apply)
     for (; NOT_END(key); key++, ++var) {
         if (GET_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
             continue; // shouldn't have been in the binder
+        if (GET_VAL_FLAG(var, ARG_FLAG_TYPECHECKED))
+            continue; // was part of a specialization internal to the action
         Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
     }
     SHUTDOWN_BINDER(&binder); // must do before running code that might BIND
@@ -658,16 +657,8 @@ REBNATIVE(apply)
     REBOOL threw = Do_Any_Array_At_Throws(D_CELL, ARG(def));
     DROP_GUARD_CONTEXT(exemplar);
 
-    // Actions require unmanaged varlists, and we had to manage that one.
-    // We use the keys of the exemplar and not the keys of the applicand,
-    // which means we're responsible for keeping that GC guard on the
-    // keylist until the apply is done.  *but* we steal the exemplar's
-    // variables, which makes it no longer protect its keylist.  So a guard
-    // on the exemplar would be insufficient.
-    //
-    REBARR *facade = CTX_KEYLIST(exemplar);
-    PUSH_GUARD_ARRAY(facade);
-    f->param = CTX_KEYS_HEAD(exemplar); // maybe hides params of applicand
+    assert(CTX_KEYS_HEAD(exemplar) == ACT_FACADE_HEAD(VAL_ACTION(applicand)));
+    f->param = CTX_KEYS_HEAD(exemplar);
     REBCTX *stolen = Steal_Context_Vars(
         exemplar,
         NOD(ACT_FACADE(VAL_ACTION(applicand)))
@@ -675,7 +666,6 @@ REBNATIVE(apply)
     LINK(stolen).keysource = NOD(f); // changes CTX_KEYS_HEAD result
 
     if (threw) {
-        DROP_GUARD_ARRAY(facade);
         Free_Unmanaged_Array(CTX_VARLIST(stolen)); // could TG_Reuse it
         return D_CELL;
     }
@@ -710,11 +700,6 @@ REBNATIVE(apply)
     (*PG_Do)(f);
 
     Drop_Frame_Core(f);
-
-    // The CTX_KEYS_HEAD() we used to fill the f->param doesn't need to be
-    // kept alive anymore.
-    //
-    DROP_GUARD_ARRAY(facade);
 
     if (THROWN(f->out))
         return f->out;

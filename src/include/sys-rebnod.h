@@ -175,11 +175,24 @@ struct Reb_Header {
 //
 // Because "pairings" can wind up marking what looks like both a value cell
 // and a series, it's a bit dangerous to try exploiting this bit on a generic
-// REBVAL.  If one is *certain* that a value is not "paired" (for instance,
-// not an API REBVAL) then values can use it for other things.
+// REBVAL.  If one is *certain* that a value is not "paired" (e.g. it's in
+// a function arglist, or array slot), it may be used for other things, e.g.
+//
+// * ARG_FLAG_TYPECHECKED -- This uses the NODE_FLAG_MARKED bit on args in
+//   action frames, and in particular specialization uses it to denote which
+//   arguments in a frame are actually specialized.  This helps notice the
+//   difference during an APPLY of encoded partial refinement specialization
+//   encoding from just a user putting random values in a refinement slot.
+//
+// **IMPORTANT**: This means that a routine being passed an arbitrary value
+//   should not make assumptions about the marked bit.  It should only be
+//   used in circumstances where some understanding of being "in control"
+//   of the bit are in place--like processing an array a routine itself made.
 //
 #define NODE_FLAG_MARKED \
     FLAG_LEFT_BIT(3)
+
+#define ARG_FLAG_TYPECHECKED NODE_FLAG_MARKED
 
 
 //=////////////////////////////////////////////////////////////////////////=//

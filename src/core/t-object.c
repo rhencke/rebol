@@ -563,7 +563,7 @@ REBCTX *Copy_Context_Core(REBCTX *original, REBU64 types)
     //
     REBVAL *src = CTX_VARS_HEAD(original);
     for (; NOT_END(src); ++src, ++dest)
-        Move_Var(dest, src); // must preserve VALUE_FLAG_ENFIXED
+        Move_Var(dest, src); // keep VALUE_FLAG_ENFIXED, ARG_FLAG_TYPECHECKED
 
     TERM_ARRAY_LEN(varlist, CTX_LEN(original) + 1);
     SET_SER_FLAG(varlist, ARRAY_FLAG_VARLIST);
@@ -682,9 +682,12 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
     REBOOL first = TRUE;
     REBVAL *key = keys_head;
-    for (; NOT_END(key); ++key) {
+    REBVAL *var = vars_head;
+    for (; NOT_END(key); ++key, ++var) {
         if (GET_VAL_FLAG(key, TYPESET_FLAG_HIDDEN))
             continue;
+        if (GET_VAL_FLAG(var, ARG_FLAG_TYPECHECKED))
+            continue; // specialized out, don't show
 
         if (first)
             first = FALSE;
@@ -707,12 +710,13 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     mo->indent++;
 
     key = keys_head;
-
-    REBVAL *var = vars_head;
+    var = vars_head;
 
     for (; NOT_END(key); var ? (++key, ++var) : ++key) {
         if (GET_VAL_FLAG(key, TYPESET_FLAG_HIDDEN))
             continue;
+        if (GET_VAL_FLAG(var, ARG_FLAG_TYPECHECKED))
+            continue; // specialized out, don't show
 
         // Having the key mentioned in the spec and then not being assigned
         // a value in the body is how voids are denoted.

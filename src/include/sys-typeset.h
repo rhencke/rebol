@@ -286,21 +286,6 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 }
 
 
-// Specialized parameters are unbindable and hidden, but so are locals.  So
-// this test is used somewhat narrowly to ask if a parameter that is
-// a refinement has been specialized out.  (Helps for readability.)
-//
-inline static REBOOL IS_REFINEMENT_SPECIALIZED(const RELVAL *param)
-{
-    assert(VAL_PARAM_CLASS(param) == PARAM_CLASS_REFINEMENT);
-    if (GET_VAL_FLAG(param, TYPESET_FLAG_UNBINDABLE)) {
-        assert(GET_VAL_FLAG(param, TYPESET_FLAG_HIDDEN));
-        return TRUE;
-    }
-    return FALSE;
-}
-
-
 // Macros for defining full bit masks
 
 #define ALL_BITS \

@@ -632,6 +632,13 @@ struct Reb_Reference_Payload {
 // payload is used along with a singly linked list via extra.next_partial
 //
 #define REB_0_PARTIAL REB_0
+
+#define PARTIAL_FLAG_IN_USE \
+    FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT)
+
+#define PARTIAL_FLAG_SAW_NULL_ARG \
+    FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + 1)
+
 struct Reb_Partial_Payload {
     REBDSP dsp; // the DSP of this partial slot (if ordered on the stack)
     REBCNT index; // maps to the index of this parameter in the paramlist
