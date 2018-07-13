@@ -418,11 +418,12 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
         }
 
         if (pclass == PARAM_CLASS_REFINEMENT) {
-            if (VAL_LOGIC(f->arg) == false) {
+            if (IS_BLANK(f->arg)) {
                 ignoring = true; // don't add to PATH!
                 continue;
             }
 
+            assert(IS_REFINEMENT(f->arg));
             ignoring = false;
             Init_Word(path, VAL_PARAM_SPELLING(f->param));
             ++path;

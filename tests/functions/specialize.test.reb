@@ -9,9 +9,7 @@
 (
     foo: func [/A aa /B bb /C cc] [
         return compose [
-            (ensure logic! A ?? /A) (:aa)
-            (ensure logic! B ?? /B) (:bb)
-            (ensure logic! C ?? /C) (:cc)
+            (opt A) (:aa) (opt B) (:bb) (opt C) (:cc)
         ]
     ]
 

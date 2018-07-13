@@ -421,16 +421,16 @@ REBOOL Do_Path_Throws_Core(
     if (dsp_orig != DSP) {
         //
         // To make things easier for processing, reverse any refinements
-        // pushed to the data stack (we needed to evaluate them in forward
-        // order).  This way we can just pop them as we go, and know if they
-        // weren't all consumed if not back to `dsp_orig` by the end.
+        // pushed as ISSUE!s (we needed to evaluate them in forward order).
+        // This way we can just pop them as we go, and know if they weren't
+        // all consumed if not back to `dsp_orig` by the end.
 
         REBVAL *bottom = DS_AT(dsp_orig + 1);
         REBVAL *top = DS_TOP;
 
         while (top > bottom) {
-            assert(IS_REFINEMENT(bottom) and not IS_WORD_BOUND(bottom));
-            assert(IS_REFINEMENT(top) and not IS_WORD_BOUND(top));
+            assert(IS_ISSUE(bottom) and not IS_WORD_BOUND(bottom));
+            assert(IS_ISSUE(top) and not IS_WORD_BOUND(top));
 
             // It's faster to just swap the spellings.  (If binding
             // mattered, we'd need to swap the whole cells).

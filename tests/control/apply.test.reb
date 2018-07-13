@@ -13,18 +13,18 @@
 
 (error? r3-alpha-apply :make [error! ""])
 
-(true = r3-alpha-apply func [/a] [a] [true])
-(false == r3-alpha-apply func [/a] [a] [false])
-(false == r3-alpha-apply func [/a] [a] [])
-(true = r3-alpha-apply/only func [/a] [a] [true])
+(/a = r3-alpha-apply func [/a] [a] [true])
+(_ = r3-alpha-apply func [/a] [a] [false])
+(_ = r3-alpha-apply func [/a] [a] [])
+(/a = r3-alpha-apply/only func [/a] [a] [true])
 ; the word 'false
-(true = r3-alpha-apply/only func [/a] [a] [false])
-(false == r3-alpha-apply/only func [/a] [a] [])
-(use [a] [a: true true = r3-alpha-apply func [/a] [a] [a]])
-(use [a] [a: false false == r3-alpha-apply func [/a] [a] [a]])
-(use [a] [a: false true = r3-alpha-apply func [/a] [a] ['a]])
-(use [a] [a: false true = r3-alpha-apply func [/a] [a] [/a]])
-(use [a] [a: false true = r3-alpha-apply/only func [/a] [a] [a]])
+(/a = r3-alpha-apply/only func [/a] [a] [false])
+(_ == r3-alpha-apply/only func [/a] [a] [])
+(use [a] [a: true /a = r3-alpha-apply func [/a] [a] [a]])
+(use [a] [a: false _ == r3-alpha-apply func [/a] [a] [a]])
+(use [a] [a: false /a = r3-alpha-apply func [/a] [a] ['a]])
+(use [a] [a: false /a = r3-alpha-apply func [/a] [a] [/a]])
+(use [a] [a: false /a = r3-alpha-apply/only func [/a] [a] [a]])
 (group! == r3-alpha-apply/only (specialize 'of [property: 'type]) [()])
 ([1] == head of r3-alpha-apply :insert [copy [] [1] blank blank blank])
 ([1] == head of r3-alpha-apply :insert [copy [] [1] blank blank false])
@@ -154,5 +154,5 @@
 ;
 (1 == eval func [] [r3-alpha-apply :return [1] 2])
 
-(false == r3-alpha-apply/only func [/a] [a] [#[false]])
+(_ == r3-alpha-apply/only func [/a] [a] [#[false]])
 (group! == r3-alpha-apply/only :type-of [()])

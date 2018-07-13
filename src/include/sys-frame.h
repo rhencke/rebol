@@ -368,7 +368,7 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
         ACT_PARAM(FRM_PHASE(frame_), (p_##name)) /* a TYPESET! */
 
     #define REF(name) \
-        IS_TRUTHY(ARG(name))
+        (not IS_BLANK(ARG(name)))
 #else
     struct Native_Param {
         int num;
@@ -405,8 +405,8 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
 
     #define REF(name) \
         ((p_##name).used_cache /* used_cache use stops REF() on PARAM()s */ \
-            ? IS_TRUTHY(ARG(name)) \
-            : IS_TRUTHY(ARG(name)))
+            ? not IS_BLANK(ARG(name)) \
+            : not IS_BLANK(ARG(name)))
 #endif
 
 

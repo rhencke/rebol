@@ -167,25 +167,31 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
     //=//// REFINEMENT PARAMETER HANDLING /////////////////////////////////=//
 
-        if (IS_LOGIC(special)) { // specialized LOGIC! => "in use"/"disabled"
-            Init_Logic(arg, VAL_LOGIC(special));
+        if (IS_BLANK(special)) { // specialized BLANK! => "disabled"
+            Init_Blank(arg);
+            SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+            goto continue_specialized;
+        }
+
+        if (IS_REFINEMENT(special)) { // specialized REFINEMENT! => "in use"
+            Init_Refinement(arg, VAL_PARAM_SPELLING(param));
             SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
             goto continue_specialized;
         }
 
         // Refinement argument slots are tricky--they can be unspecialized,
-        // -but- have a REFINEMENT! in them we need to push to the stack.
+        // -but- have an ISSUE! in them we need to push to the stack.
         // (they're in *reverse* order of use).  Or they may be specialized
         // and have a NULL in them pushed by an earlier slot.  Refinements
         // in use must be turned into INTEGER! partials, to point to the DSP
         // of their stack order.
 
-        if (IS_REFINEMENT(special)) {
+        if (IS_ISSUE(special)) {
             REBCNT partial_index = VAL_WORD_INDEX(special);
             DS_PUSH_TRASH;
-            Init_Any_Word_Bound( // push a REFINEMENT! to data stack
+            Init_Any_Word_Bound( // push an ISSUE! to data stack
                 DS_TOP,
-                REB_REFINEMENT,
+                REB_ISSUE,
                 VAL_STORED_CANON(special),
                 exemplar,
                 partial_index
@@ -509,13 +515,25 @@ REBOOL Specialize_Action_Throws(
                 SET_VAL_FLAG(refine, PARTIAL_FLAG_IN_USE);
                 goto specialized_arg_no_typecheck;
             }
-            else if (IS_LOGIC(refine)) {
-                SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
-                goto specialized_arg_no_typecheck;
-            }
 
-            assert(NOT_VAL_FLAG(refine, ARG_FLAG_TYPECHECKED));
-            fail (Error_Non_Logic_Refinement(param, refine)); }
+            assert(
+                NOT_VAL_FLAG(refine, ARG_FLAG_TYPECHECKED)
+                or (
+                    IS_REFINEMENT(refine)
+                    and (
+                        VAL_WORD_SPELLING(refine)
+                        == VAL_PARAM_SPELLING(param)
+                    )
+                )
+            );
+
+            if (IS_TRUTHY(refine))
+                Init_Refinement(refine, VAL_PARAM_SPELLING(param));
+            else
+                Init_Blank(arg);
+
+            SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+            goto specialized_arg_no_typecheck; }
 
         case PARAM_CLASS_RETURN_1:
         case PARAM_CLASS_RETURN_0:
@@ -564,9 +582,9 @@ REBOOL Specialize_Action_Throws(
             goto specialized_arg;
         }
 
-        assert(IS_LOGIC(refine));
+        assert(IS_BLANK(refine) or IS_REFINEMENT(refine));
 
-        if (VAL_LOGIC(refine) == false) {
+        if (IS_BLANK(refine)) {
             //
             // `specialize 'append [dup: false count: 10]` is not legal.
             //
@@ -661,11 +679,12 @@ REBOOL Specialize_Action_Throws(
     //   So Do_Core() is free to fulfill a use of this refinement from a
     //   PATH! at the callsite when it first comes across it.
     //
-    // * LOGIC! TRUE -- All arguments were filled in, it's no longer partial.
+    // * REFINEMENT! (with symbol of the parameter) -- All arguments were
+    //   filled in, it's no longer partial.
     //
-    // * REFINEMENT! -- Partially specialized.  Note the symbol of the
-    //   refinement is probably different from the slot it's in...this is how
-    //   the priority order of usage of partial refinements is encoded.
+    // * ISSUE! -- Partially specialized.  Note the symbol of the issue
+    //   is probably different from the slot it's in...this is how the
+    //   priority order of usage of partial refinements is encoded.
 
     // We start filling in slots with the lowest priority ordered refinements
     // and move on to the higher ones, so that when those refinements are
@@ -695,8 +714,12 @@ REBOOL Specialize_Action_Throws(
             goto continue_loop;
         }
 
-        if (NOT_VAL_FLAG(partial, PARTIAL_FLAG_SAW_NULL_ARG)) {
-            Init_Logic(partial, true); // must be fully specialized
+        if (NOT_VAL_FLAG(partial, PARTIAL_FLAG_SAW_NULL_ARG)) { // filled
+            Init_Refinement(
+                partial,
+                VAL_PARAM_SPELLING(rootkey + partial->payload.partial.index)
+            );
+            SET_VAL_FLAG(partial, ARG_FLAG_TYPECHECKED);
             goto continue_loop;
         }
 
@@ -709,7 +732,7 @@ REBOOL Specialize_Action_Throws(
             REBCNT evoked_index = evoked->payload.partial.index;
             Init_Any_Word_Bound(
                 partial,
-                REB_REFINEMENT,
+                REB_ISSUE,
                 VAL_PARAM_CANON(rootkey + evoked_index),
                 exemplar,
                 evoked_index
@@ -731,7 +754,7 @@ REBOOL Specialize_Action_Throws(
 
         Init_Any_Word_Bound(
             partial,
-            REB_REFINEMENT,
+            REB_ISSUE,
             VAL_STORED_CANON(ordered),
             exemplar,
             VAL_WORD_INDEX(ordered)
@@ -743,7 +766,7 @@ REBOOL Specialize_Action_Throws(
                 ++ordered; // loop invariant, no BLANK! in next stack
             else
                 break;
-        };
+        }
 
         goto continue_loop;
 

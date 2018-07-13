@@ -241,11 +241,11 @@ inline static void Finalize_Arg(
         or refine == LOOKBACK_ARG // check arg type
         or refine == ARG_TO_UNUSED_REFINEMENT // ensure arg void
         or refine == ARG_TO_REVOKED_REFINEMENT // ensure arg void
-        or (IS_LOGIC(refine) and IS_TRUTHY(refine)) // ensure arg not void
+        or IS_REFINEMENT(refine) // ensure arg not void
     );
 
     if (IS_NULLED(arg)) {
-        if (IS_LOGIC(refine)) {
+        if (IS_REFINEMENT(refine)) {
             //
             // We can only revoke the refinement if this is the 1st
             // refinement arg.  If it's a later arg, then the first
@@ -254,7 +254,7 @@ inline static void Finalize_Arg(
             if (refine + 1 != arg)
                 fail (Error_Bad_Refine_Revoke(param, arg));
 
-            Init_Logic(refine, false); // can't re-enable...
+            Init_Blank(refine); // can't re-enable...
             SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
 
             refine = ARG_TO_REVOKED_REFINEMENT;
@@ -263,8 +263,8 @@ inline static void Finalize_Arg(
 
         if (IS_FALSEY(refine)) {
             //
-            // FALSE means refinement already revoked, null is okay
-            // BLANK! means refinement was never in use, so also okay
+            // BLANK! means refinement already revoked, null is okay
+            // false means refinement was never in use, so also okay
             //
             SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
             return;
@@ -770,76 +770,79 @@ reevaluate:;
                     goto unspecialized_refinement; // second most common
                 }
 
-                if (IS_LOGIC(f->special)) {
-                    Init_Logic(f->arg, VAL_LOGIC(f->special)); // may be no-op
-                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                if (IS_BLANK(f->special)) // either specialized or not...
+                    goto unused_refinement; // will get ARG_FLAG_TYPECHECKED
 
-                    if (VAL_LOGIC(f->special) == true)
-                        f->refine = f->arg; // remember, as we might revoke!
-                    else
-                        f->refine = ARG_TO_UNUSED_REFINEMENT; // read-only
+                // If arguments in the frame haven't already gone through
+                // some kind of processing, use the truthiness of the value.
+                //
+                // !!! This must accept what it puts out--the /REFINE-NAME
+                // or a BLANK!, to work with pre-built frames.  Accepting
+                // #[true] and #[false] are a given as well.  It seems that
+                // doing more typechecking than that has limited benefit,
+                // since at minimum it needs to accept any other refinement
+                // name to control it, but it could be considered.
+                //
+                if (NOT_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED)) {
+                    if (IS_FALSEY(f->special)) // !!! error on void, needed?
+                        goto unused_refinement;
 
-                    goto continue_arg_loop;
+                    f->refine = f->arg; // remember, as we might revoke!
+                    goto used_refinement;
                 }
 
-                // The only special allowances for non-LOGIC! or non-NULL is
-                // when the slot claims to have been "TYPECHECKED".  This
-                // is how specialization sneaks in things like REFINEMENT!
-                // which would not be legal for users to say, but it must
-                // change to a LOGIC! before it actually makes it to the call.
+                if (IS_REFINEMENT(f->special)) {
+                    assert(
+                        VAL_WORD_SPELLING(f->special)
+                        == VAL_PARAM_SPELLING(f->param)
+                    ); // !!! Maybe not, if REDESCRIBE renamed args, but...
+                    f->refine = f->arg;
+                    goto used_refinement; // !!! ...this would fix it up.
+                }
+
+                // A "typechecked" void means it's unspecialized, but partial
+                // refinements are still coming that may have higher priority
+                // in taking arguments at the callsite than the current
+                // refinement, if it's in use due to a PATH! invocation.
                 //
-                if (NOT_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED))
-                    fail (Error_Non_Logic_Refinement(f->param, f->arg));
+                if (IS_VOID(f->special))
+                    goto unspecialized_refinement_must_pickup; // defer this
 
-                if (IS_VOID(f->special)) // partial refinements are coming
-                    goto unspecialized_refinement_must_pickup;
-
-                // A REFINEMENT! with a binding in it indicates a partial
+                // A "typechecked" ISSUE! with binding indicates a partial
                 // refinement with parameter index that needs to be pushed
                 // to top of stack, hence HIGHER priority for fulfilling
                 // @ the callsite than any refinements added by a PATH!.
                 //
-                if (IS_REFINEMENT(f->special)) {
+                if (IS_ISSUE(f->special)) {
                     REBCNT partial_index = VAL_WORD_INDEX(f->special);
                     REBSTR *partial_canon = VAL_STORED_CANON(f->special);
 
                     DS_PUSH_TRASH;
-                    Init_Refinement(DS_TOP, partial_canon);
+                    Init_Issue(DS_TOP, partial_canon);
                     INIT_BINDING(DS_TOP, f->varlist);
                     DS_TOP->payload.any_word.index = partial_index;
 
-                    Init_Logic(f->arg, true);
-                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                     f->refine = SKIPPING_REFINEMENT_ARGS;
-                    goto continue_arg_loop;
+                    goto used_refinement;
                 }
 
                 assert(IS_INTEGER(f->special)); // DO FRAME! leaves these
 
                 assert(f->flags.bits & DO_FLAG_FULLY_SPECIALIZED);
-                Init_Logic(f->arg, true);
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 f->refine = f->arg; // remember so we can revoke!
-                goto continue_arg_loop;
+                goto used_refinement;
 
     //=//// UNSPECIALIZED REFINEMENT SLOT (no consumption) ////////////////=//
 
             unspecialized_refinement:
 
-                if (f->dsp_orig == DSP) { // no refinements left on stack
-                    Init_Logic(f->arg, false);
-                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
-                    f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
-                    goto continue_arg_loop;
-                }
+                if (f->dsp_orig == DSP) // no refinements left on stack
+                    goto unused_refinement;
 
                 if (VAL_STORED_CANON(ordered) == param_canon) {
                     DS_DROP; // we're lucky: this was next refinement used
-
-                    Init_Logic(f->arg, true); // marks refinement used
-                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
-                    f->refine = f->arg; // "consume args (can be revoked)"
-                    goto continue_arg_loop;
+                    f->refine = f->arg; // remember so we can revoke!
+                    goto used_refinement;
                 }
 
                 --ordered; // not lucky: if in use, this is out of order
@@ -850,9 +853,6 @@ reevaluate:;
                     if (VAL_STORED_CANON(ordered) != param_canon)
                         continue;
 
-                    Init_Logic(f->arg, true); // marks refinement used
-                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
-
                     // The call uses this refinement but we'll have to
                     // come back to it when the expression index to
                     // consume lines up.  Save the position to come back to,
@@ -862,14 +862,23 @@ reevaluate:;
                     INIT_BINDING(ordered, f->varlist);
                     INIT_WORD_INDEX(ordered, offset + 1);
                     f->refine = SKIPPING_REFINEMENT_ARGS; // fill args later
-                    goto continue_arg_loop;
+                    goto used_refinement;
                 }
 
-                // Wasn't in the path and not specialized, so not present
-                //
-                Init_Logic(f->arg, false);
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                goto unused_refinement; // not in path, not specialized
+
+              unused_refinement:;
+
                 f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
+                Init_Blank(f->arg);
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                goto continue_arg_loop;
+
+              used_refinement:;
+
+                assert(not IS_POINTER_TRASH_DEBUG(f->refine)); // must be set
+                Init_Refinement(f->arg, VAL_PARAM_SPELLING(f->param));
+                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1132,10 +1141,7 @@ reevaluate:;
 
     //=//// AFTER THIS, PARAMS CONSUME FROM CALLSITE IF NOT APPLY ////////=//
 
-            assert(
-                f->refine == ORDINARY_ARG
-                or (IS_LOGIC(f->refine) and IS_TRUTHY(f->refine))
-            );
+            assert(f->refine == ORDINARY_ARG or IS_REFINEMENT(f->refine));
 
     //=//// START BY HANDLING ANY DEFERRED ENFIX PROCESSING //////////////=//
 
@@ -1353,11 +1359,11 @@ reevaluate:;
         // second time through, and we were just jumping up to check the
         // parameters in response to a R_REDO_CHECKED; if so, skip this.
         //
-        if (DSP != f->dsp_orig and IS_REFINEMENT(DS_TOP)) {
+        if (DSP != f->dsp_orig and IS_ISSUE(DS_TOP)) {
 
         next_pickup:;
 
-            assert(IS_REFINEMENT(DS_TOP));
+            assert(IS_ISSUE(DS_TOP));
 
             if (not IS_WORD_BOUND(DS_TOP)) // the loop didn't index it
                 fail (Error_Bad_Refine_Raw(DS_TOP)); // so duplicate or junk
@@ -1372,7 +1378,13 @@ reevaluate:;
             f->special += offset;
 
             f->refine = f->arg - 1; // this refinement may still be revoked
-            assert(IS_LOGIC(f->refine) and VAL_LOGIC(f->refine));
+            assert(
+                IS_REFINEMENT(f->refine)
+                and (
+                    VAL_WORD_SPELLING(f->refine)
+                    == VAL_PARAM_SPELLING(f->param - 1)
+                )
+            );
 
             assert(VAL_STORED_CANON(DS_TOP) == VAL_PARAM_CANON(f->param - 1));
             assert(VAL_PARAM_CLASS(f->param - 1) == PARAM_CLASS_REFINEMENT);

@@ -545,11 +545,11 @@ blankify-refinement-args: function [return: <void> f [frame!]] [
         case [
             refinement? w [
                 seen-refinement: true
-                if not f/(to-word w) [
-                    f/(to-word w): _ ;-- turn LOGIC! false to a BLANK!
+                if f/(to-word w) [
+                    f/(to-word w): true ;-- turn REFINEMENT! into #[true]
                 ]
             ]
-            seen-refinement [ ;-- turn any voids into BLANK!s
+            seen-refinement [ ;-- turn any null args into BLANK!s
                 ;
                 ; !!! This is better expressed as `: default [_]`, but DEFAULT
                 ; is based on using SET, which disallows GROUP!s in PATH!s.

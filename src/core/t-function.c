@@ -338,13 +338,13 @@ REB_R PD_Action(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 
     // The first evaluation of a GROUP! and GET-WORD! are processed by the
     // general path mechanic before reaching this dispatch.  So if it's not
-    // a word or one of those that evaluated to a word raise an error.
+    // a word/refinement or or one of those that evaluated it, then error.
     //
-    if (!IS_WORD(picker))
+    if (not IS_WORD(picker) and not IS_REFINEMENT(picker))
         fail (Error_Bad_Refine_Raw(picker));
 
     DS_PUSH_TRASH;
-    Init_Refinement(DS_TOP, VAL_WORD_CANON(picker)); // canonize just once
+    Init_Issue(DS_TOP, VAL_WORD_CANON(picker)); // canonize just once
 
     // Leave the function value as is in pvs->out
     //
