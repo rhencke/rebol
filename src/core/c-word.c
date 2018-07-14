@@ -642,3 +642,31 @@ void Shutdown_Interning(void)
 
     Free_Unmanaged_Series(PG_Canons_By_Hash);
 }
+
+
+#if !defined(NDEBUG)
+
+//
+//  INIT_WORD_INDEX_Extra_Checks_Debug: C
+//
+// Previously used VAL_WORD_CONTEXT() to check that the spelling was legit.
+// However, that would incarnate running frames.
+//
+void INIT_WORD_INDEX_Extra_Checks_Debug(RELVAL *v, REBCNT i)
+{
+    assert(IS_WORD_BOUND(v));
+    REBNOD *binding = VAL_BINDING(v);
+    REBARR *keysource;
+    if (NOT_SER_FLAG(binding, NODE_FLAG_MANAGED))
+        keysource = ACT_PARAMLIST(FRM_PHASE(FRM(LINK(binding).keysource)));
+    else if (GET_SER_FLAG(binding, ARRAY_FLAG_PARAMLIST))
+        keysource = ACT_PARAMLIST(ACT(binding));
+    else
+        keysource = CTX_KEYLIST(CTX(binding));
+    assert(SAME_STR(
+        VAL_KEY_SPELLING(ARR_AT(keysource, i)),
+        VAL_WORD_SPELLING(v)
+    ));
+}
+
+#endif

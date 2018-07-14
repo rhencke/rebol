@@ -199,12 +199,6 @@ inline static void FREE_CONTEXT(REBCTX *c) {
     Free_Unmanaged_Array(CTX_VARLIST(c));
 }
 
-#define PUSH_GUARD_CONTEXT(c) \
-    PUSH_GUARD_ARRAY(CTX_VARLIST(c)) // varlist points to/guards keylist
-
-#define DROP_GUARD_CONTEXT(c) \
-    DROP_GUARD_ARRAY(CTX_VARLIST(c))
-
 
 //=////////////////////////////////////////////////////////////////////////=//
 //

@@ -89,7 +89,7 @@ void Assert_State_Balanced_Debug(
 
     if (s->guarded_len != SER_LEN(GC_Guarded)) {
         printf(
-            "PUSH_GUARD()x%d without DROP_GUARD()\n",
+            "PUSH_GC_GUARD()x%d without DROP_GC_GUARD()\n",
             cast(int, SER_LEN(GC_Guarded) - s->guarded_len)
         );
         REBNOD *guarded = *SER_AT(

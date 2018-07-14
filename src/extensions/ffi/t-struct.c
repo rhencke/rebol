@@ -242,12 +242,12 @@ REBARR *Struct_To_Array(REBSTU *stu)
             DECLARE_LOCAL (nested);
             get_scalar(nested, stu, field, 0);
 
-            PUSH_GUARD_VALUE(nested); // is this guard still necessary?
+            PUSH_GC_GUARD(nested); // is this guard still necessary?
             Init_Block(
                 Alloc_Tail_Array(typespec),
                 Struct_To_Array(VAL_STRUCT(nested))
             );
-            DROP_GUARD_VALUE(nested);
+            DROP_GC_GUARD(nested);
         }
         else {
             // Elemental type (from a fixed list of known C types)
@@ -1419,10 +1419,10 @@ REB_R PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             //
             DECLARE_LOCAL (sel_orig);
             Move_Value(sel_orig, picker);
-            PUSH_GUARD_VALUE(sel_orig);
+            PUSH_GC_GUARD(sel_orig);
 
             if (Next_Path_Throws(pvs)) { // updates pvs->out, pvs->refine
-                DROP_GUARD_VALUE(sel_orig);
+                DROP_GC_GUARD(sel_orig);
                 fail (Error_No_Catch_For_Throw(pvs->out)); // !!! Review
             }
 
@@ -1437,7 +1437,7 @@ REB_R PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             if (!Set_Struct_Var(stu, sel_orig, pvs->refine, specific))
                 return R_UNHANDLED;
 
-            DROP_GUARD_VALUE(sel_orig);
+            DROP_GC_GUARD(sel_orig);
 
             return R_INVISIBLE;
         }

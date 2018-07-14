@@ -944,7 +944,7 @@ REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
                 //
                 DECLARE_LOCAL (orig_picker);
                 Move_Value(orig_picker, picker);
-                PUSH_GUARD_VALUE(orig_picker);
+                PUSH_GC_GUARD(orig_picker);
 
                 if (Next_Path_Throws(pvs)) // sets value in pvs->store
                     fail (Error_No_Catch_For_Throw(pvs->out)); // Review
@@ -952,7 +952,7 @@ REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
                 // write it back to gob
                 //
                 Set_GOB_Var(gob, orig_picker, pvs->out);
-                DROP_GUARD_VALUE(orig_picker);
+                DROP_GC_GUARD(orig_picker);
             }
             return pvs->out;
         }

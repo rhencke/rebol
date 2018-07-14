@@ -44,7 +44,8 @@
     template <typename T>
     inline static REBNOD *NOD(T *p) {
         constexpr bool derived =
-            std::is_same<T, REBSER>::value
+            std::is_same<T, REBVAL>::value
+            or std::is_same<T, REBSER>::value
             or std::is_same<T, REBSTR>::value
             or std::is_same<T, REBARR>::value
             or std::is_same<T, REBCTX>::value
@@ -56,7 +57,7 @@
 
         static_assert(
             derived or base,
-            "NOD() works on void/REBSER/REBSTR/REBARR/REBCTX/REBACT" \
+            "NOD() works on void/REBVAL/REBSER/REBSTR/REBARR/REBCTX/REBACT" \
                "/REBMAP/REBFRM"
         );
 

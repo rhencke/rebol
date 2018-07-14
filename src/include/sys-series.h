@@ -64,7 +64,7 @@
 //
 // REBSERs may be either manually memory managed or delegated to the garbage
 // collector.  Free_Unmanaged_Series() may only be called on manual series.
-// See MANAGE_SERIES()/PUSH_GUARD_SERIES() for remarks on how to work safely
+// See MANAGE_SERIES()/PUSH_GC_GUARD() for remarks on how to work safely
 // with pointers to garbage-collected series, to avoid having them be GC'd
 // out from under the code while working with them.
 //
@@ -451,57 +451,30 @@ inline static void FAIL_IF_READ_ONLY_SERIES(REBSER *s) {
 // before a command ends.
 //
 
-inline static void PUSH_GUARD_SERIES(REBSER *s) {
-    ASSERT_SERIES_MANAGED(s); // see PUSH_GUARD_ARRAY_CONTENTS if you need it
-    Guard_Node_Core(cast(const REBNOD*, s));
-}
-
-inline static void PUSH_GUARD_VALUE(const RELVAL *v) {
-    Guard_Node_Core(cast(const REBNOD*, v));
-}
-
-inline static void Drop_Guard_Series_Common(REBSER *s) {
-    UNUSED(s);
-    GC_Guarded->content.dynamic.len--;
-}
-
-inline static void Drop_Guard_Value_Common(const RELVAL *v) {
-    UNUSED(v);
-    GC_Guarded->content.dynamic.len--;
-}
+#define PUSH_GC_GUARD(p) \
+    Push_Guard_Node(NOD(p))
 
 #ifdef NDEBUG
-    #define DROP_GUARD_SERIES(s) \
-        Drop_Guard_Series_Common(s);
+    inline static void Drop_Guard_Node(REBNOD *n) {
+        UNUSED(n);
+        GC_Guarded->content.dynamic.len--;
+    }
 
-    #define DROP_GUARD_VALUE(v) \
-        Drop_Guard_Value_Common(v);
+    #define DROP_GC_GUARD(p) \
+        Drop_Guard_Node(NOD(p))
 #else
-    inline static void Drop_Guard_Series_Debug(
-        REBSER *s,
+    inline static void Drop_Guard_Node_Debug(
+        REBNOD *n,
         const char *file,
         int line
     ){
-        if (s != *SER_LAST(REBSER*, GC_Guarded))
-            panic_at (s, file, line);
-        Drop_Guard_Series_Common(s);
+        if (n != *SER_LAST(REBNOD*, GC_Guarded))
+            panic_at (n, file, line);
+        GC_Guarded->content.dynamic.len--;
     }
 
-    inline static void Drop_Guard_Value_Debug(
-        const RELVAL *v,
-        const char *file,
-        int line
-    ){
-        if (v != *SER_LAST(RELVAL*, GC_Guarded))
-            panic_at (v, file, line);
-        Drop_Guard_Value_Common(v);
-    }
-
-    #define DROP_GUARD_SERIES(s) \
-        Drop_Guard_Series_Debug(s, __FILE__, __LINE__);
-
-    #define DROP_GUARD_VALUE(v) \
-        Drop_Guard_Value_Debug(v, __FILE__, __LINE__);
+    #define DROP_GC_GUARD(p) \
+        Drop_Guard_Node_Debug(NOD(p), __FILE__, __LINE__)
 #endif
 
 
@@ -758,7 +731,7 @@ inline static REBSER *Make_Series_Core(
 
     // It is more efficient if you know a series is going to become managed to
     // create it in the managed state.  But be sure no evaluations are called
-    // before it's made reachable by the GC, or use PUSH_GUARD_SERIES().
+    // before it's made reachable by the GC, or use PUSH_GC_GUARD().
     //
     // !!! Code duplicated in Make_Array_Core ATM.
     //

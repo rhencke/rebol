@@ -145,21 +145,6 @@ inline static void TERM_SERIES(REBSER *s) {
 #define ENSURE_ARRAY_MANAGED(a) \
     ENSURE_SERIES_MANAGED(SER(a))
 
-#define PUSH_GUARD_ARRAY(a) \
-    PUSH_GUARD_SERIES(SER(a))
-
-#define DROP_GUARD_ARRAY(a) \
-    DROP_GUARD_SERIES(SER(a))
-
-inline static void PUSH_GUARD_ARRAY_CONTENTS(REBARR *a) {
-    assert(not IS_ARRAY_MANAGED(a)); // if managed, just use PUSH_GUARD_ARRAY
-    Guard_Node_Core(NOD(a));
-}
-
-inline static void DROP_GUARD_ARRAY_CONTENTS(REBARR *a) {
-    DROP_GUARD_SERIES(SER(a));
-}
-
 
 //
 // Locking
@@ -278,7 +263,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
 
     // It is more efficient if you know a series is going to become managed to
     // create it in the managed state.  But be sure no evaluations are called
-    // before it's made reachable by the GC, or use PUSH_GUARD_SERIES().
+    // before it's made reachable by the GC, or use PUSH_GC_GUARD().
     //
     // !!! Code duplicated in Make_Series_Core ATM.
     //

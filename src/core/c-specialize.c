@@ -439,13 +439,14 @@ REBOOL Specialize_Action_Throws(
 
         // Run block and ignore result (unless it is thrown)
         //
-        PUSH_GUARD_CONTEXT(exemplar);
-        if (Do_Any_Array_At_Throws(out, opt_def)) {
-            DROP_GUARD_CONTEXT(exemplar);
+        PUSH_GC_GUARD(exemplar);
+        REBOOL threw = Do_Any_Array_At_Throws(out, opt_def);
+        DROP_GC_GUARD(exemplar);
+
+        if (threw) {
             DS_DROP_TO(lowest_ordered_dsp);
             return true;
         }
-        DROP_GUARD_CONTEXT(exemplar);
     }
 
     REBVAL *rootkey = CTX_ROOTKEY(exemplar);

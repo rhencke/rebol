@@ -1041,7 +1041,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     //
     REBARR *args_schemas = Make_Array(capacity_guess);
     MANAGE_ARRAY(args_schemas);
-    PUSH_GUARD_ARRAY(args_schemas);
+    PUSH_GC_GUARD(args_schemas);
 
     REBCNT num_fixed = 0; // number of fixed (non-variadic) arguments
     REBOOL is_variadic = FALSE; // default to not being variadic
@@ -1191,7 +1191,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
             ); // lifetime must match cif lifetime
     }
 
-    DROP_GUARD_ARRAY(args_schemas);
+    DROP_GC_GUARD(args_schemas);
 
     // Now fill in the canon value of the paramlist so it is an actual REBACT
     // Note: address may have moved if the array was resized.

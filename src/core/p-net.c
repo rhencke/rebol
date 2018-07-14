@@ -184,7 +184,7 @@ static REB_R Transport_Actor(
                 REBSER *temp = Temp_UTF8_At_Managed(
                     &offset, &size, arg, VAL_LEN_AT(arg)
                 );
-                PUSH_GUARD_SERIES(temp);
+                PUSH_GC_GUARD(temp);
 
                 sock->common.data = BIN_AT(temp, offset);
                 DEVREQ_NET(sock)->remote_port =
@@ -193,7 +193,7 @@ static REB_R Transport_Actor(
                 // Note: sets remote_ip field
                 //
                 REBVAL *l_result = OS_DO_DEVICE(sock, RDC_LOOKUP);
-                DROP_GUARD_SERIES(temp);
+                DROP_GC_GUARD(temp);
 
                 assert(l_result != NULL);
                 if (rebDid("lib/error?", l_result, END))
@@ -413,7 +413,7 @@ static REB_R Transport_Actor(
             sock->common.data = BIN_AT(temp, offset);
             sock->length = size;
 
-            PUSH_GUARD_SERIES(temp);
+            PUSH_GC_GUARD(temp);
         }
 
         sock->actual = 0;
@@ -421,7 +421,7 @@ static REB_R Transport_Actor(
         REBVAL *result = OS_DO_DEVICE(sock, RDC_WRITE);
 
         if (temp != NULL)
-            DROP_GUARD_SERIES(temp);
+            DROP_GC_GUARD(temp);
 
         if (result == NULL) {
             //

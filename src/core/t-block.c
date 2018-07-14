@@ -191,14 +191,14 @@ void TO_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         REBSER *temp = Temp_UTF8_At_Managed(
             &offset, &size, arg, VAL_LEN_AT(arg)
         );
-        PUSH_GUARD_SERIES(temp);
+        PUSH_GC_GUARD(temp);
         REBSTR * const filename = Canon(SYM___ANONYMOUS__);
         Init_Any_Array(
             out,
             kind,
             Scan_UTF8_Managed(filename, BIN_AT(temp, offset), size)
         );
-        DROP_GUARD_SERIES(temp);
+        DROP_GC_GUARD(temp);
     }
     else if (IS_BINARY(arg)) {
         //

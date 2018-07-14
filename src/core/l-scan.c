@@ -2216,16 +2216,16 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 // data stack could go bad on any DS_PUSH or DS_DROP.
                 //
                 DECLARE_LOCAL (cell);
-                PUSH_GUARD_ARRAY(array);
                 Init_Unreadable_Blank(cell);
-                PUSH_GUARD_VALUE(cell);
+                PUSH_GC_GUARD(cell);
 
+                PUSH_GC_GUARD(array);
                 dispatcher(cell, kind, KNOWN(ARR_AT(array, 1))); // may fail()
+                DROP_GC_GUARD(array);
 
                 DS_PUSH_TRASH;
                 Move_Value(DS_TOP, cell);
-                DROP_GUARD_VALUE(cell);
-                DROP_GUARD_ARRAY(array);
+                DROP_GC_GUARD(cell);
             }
             else {
                 if (ARR_LEN(array) != 1) {

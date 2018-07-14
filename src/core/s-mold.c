@@ -285,8 +285,8 @@ void New_Indented_Line(REB_MOLD *mo)
 // is robust to their existence.  These helper functions can be used to
 // maintain a stack of series.
 //
-// !!! TBD: Unify this with the PUSH_GUARD and DROP_GUARD implementation so
-// that improvements in one will improve the other?
+// !!! TBD: Unify this with the PUSH_GC_GUARD and DROP_GC_GUARD implementation
+// so that improvements in one will improve the other?
 //
 //=////////////////////////////////////////////////////////////////////////=//
 

@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -950,14 +950,19 @@ static void Reify_Any_C_Valist_Frames(void)
 //
 //  Mark_Root_Series: C
 //
-// Currently Alloc_Value() is the only creator of root nodes, which can keep
-// a single API REBVAL* value alive.  This looks at those root nodes and
-// checks to see if their lifetime was dependent on a FRAME!.  If so, it
-// will free the node.  Otherwise, it will mark its dependencies.
+// Root Series are any manual series that were allocated but have not been
+// managed yet, as well as Alloc_Value() nodes that are explicitly "roots".
 //
-// !!! This implementation walks over *all* the nodes.  Conceivably API roots
-// could be in their own pool.  They also wouldn't have to be REBSER nodes
-// at all.  Review.
+// For root nodes, this checks to see if their lifetime was dependent on a
+// FRAME!, and if that frame is no longer on the stack.  If so, it (currently)
+// will panic if that frame did not end due to a fail().  This could be
+// relaxed to automatically free those nodes as a normal GC.
+//
+// !!! This implementation walks over *all* the nodes.  It wouldn't have to
+// if API nodes were in their own pool, or if the outstanding manuals list
+// were maintained even in non-debug builds--it could just walk those.  This
+// should be weighed against background GC and other more sophisticated
+// methods which might come down the road for the GC than this simple one.
 //
 static void Mark_Root_Series(void)
 {
@@ -972,25 +977,29 @@ static void Mark_Root_Series(void)
             //
             if (IS_FREE_NODE(s))
                 continue;
-            if (not (s->header.bits & NODE_FLAG_ROOT))
-                continue;
 
-            assert(NOT_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+            if (s->header.bits & NODE_FLAG_ROOT) {
+                //
+                // This came from Alloc_Value(); all references should be
+                // from the C stack, only this visit should be marking it.
+                //
+                assert(not (s->header.bits & NODE_FLAG_MARKED));
+                assert(not (s->header.bits & SERIES_FLAG_HAS_DYNAMIC));
+                assert(
+                    not LINK(s).owner
+                    or LINK(s).owner->header.bits & NODE_FLAG_MANAGED
+                );
 
-            // API nodes are referenced from C code, they should never wind
-            // up referenced from values.  Marking another root should not
-            // be able to mark these handles.
-            //
-            assert(not (s->header.bits & NODE_FLAG_MARKED));
-
-            assert(
-                not LINK(s).owner
-                or LINK(s).owner->header.bits & NODE_FLAG_MANAGED
-            );
-
-            if (GET_SER_FLAG(s, NODE_FLAG_MANAGED)) {
-                if (
-                    LINK(s).owner and // !!! TBD: ensure top frame existence
+                if (not (s->header.bits & NODE_FLAG_MANAGED))
+                    assert(not LINK(s).owner);
+                else if (not LINK(s).owner) {
+                    //
+                    // TBD: ensure at least one frame always exists, that
+                    // way "managed but no owner" won't need to happen.
+                    //
+                    s->header.bits |= NODE_FLAG_MARKED;
+                }
+                else if (
                     SER(LINK(s).owner)->info.bits & SERIES_INFO_INACCESSIBLE
                 ){
                     if (NOT_SER_INFO(LINK(s).owner, FRAME_INFO_FAILED)) {
@@ -1009,33 +1018,62 @@ static void Mark_Root_Series(void)
                     GC_Kill_Series(s);
                     continue;
                 }
+                else // note that Mark_Frame_Stack_Deep() will mark the owner
+                    s->header.bits |= NODE_FLAG_MARKED;
 
-                // Since the frame is still alive, we should not have to mark
-                // it (it's on the stack and marked in the stack walk).
-                //
-                // But since this node is managed, currently this has to mark
-                // the node as in use else it will be freed in Sweep_Series()
-                //
-                s->header.bits |= NODE_FLAG_MARKED;
+                RELVAL *v = ARR_SINGLE(ARR(s));
+                if (NOT_END(v)) // Do_Core() might target API cells, uses END
+                    Queue_Mark_Opt_Value_Deep(v);
+
+                continue;
             }
 
-            // Pick up the dependencies deeply.  Note that ENDs are allowed
-            // because for instance, a DO might be executed with the API value
-            // as the OUT slot (since it is memory guaranteed not to relocate)
-            //
-            RELVAL *v = ARR_SINGLE(ARR(s));
-            if (NOT_END(v)) {
-              #ifdef DEBUG_UNREADABLE_BLANKS
-                if (not IS_UNREADABLE_DEBUG(v))
-              #endif
-                    if (not IS_NULLED(v))
-                        Queue_Mark_Value_Deep(v);
+            if (s->header.bits & NODE_FLAG_CELL) { // a pairing
+                if (s->header.bits & NODE_FLAG_STACK)
+                    assert(!"stack pairings not believed to exist");
+
+                if (s->header.bits & NODE_FLAG_MANAGED)
+                    continue; // PAIR! or other value will mark it
+
+                assert(!"unmanaged pairings not believed to exist yet");
+                REBVAL *paired = cast(REBVAL*, s);
+                Queue_Mark_Opt_Value_Deep(paired);
+                Queue_Mark_Opt_Value_Deep(PAIRING_KEY(paired));
             }
 
+            if (s->header.bits & SERIES_FLAG_ARRAY) {
+                if (s->header.bits & (NODE_FLAG_MANAGED | NODE_FLAG_STACK))
+                    continue; // BLOCK!, Mark_Frame_Stack_Deep() etc. mark it
+
+                // This means someone did something like Make_Array() and then
+                // ran an evaluation before referencing it somewhere from the
+                // root set.
+
+                // !!! Because the array is "under construction", and also
+                // not managed, we can't Queue_Array_Subclass_Deep().  If it's
+                // the varlist of a context...for example, the keylist might
+                // not be made and trying to mark it could fail.  For the
+                // moment, limit it to just marking the cells in the array...
+                // not tending to the LINK() or MISC() which could be trash.
+                // However, if it ever got a usermode/source array with the
+                // file and line set in LINK() and MISC(), it would have to
+                // mark that.  Notice if any such array ever comes up.
+                //
+                assert(not (s->header.bits & ARRAY_FLAG_FILE_LINE));
+
+                RELVAL *item = ARR_HEAD(cast(REBARR*, s));
+                for (; NOT_END(item); ++item)
+                    Queue_Mark_Value_Deep(item);
+            }
+
+            // At present, no handling for unmanaged STRING!, BINARY!, etc.
+            // This would have to change, e.g. if any of other types stored
+            // something on the heap in their LINK() or MISC()
         }
+
+        Propagate_All_GC_Marks(); // !!! is propagating on each segment good?
     }
 
-    Propagate_All_GC_Marks();
 }
 
 
@@ -1108,12 +1146,8 @@ static void Mark_Natives(void)
 //  Mark_Guarded_Nodes: C
 //
 // Mark series and values that have been temporarily protected from garbage
-// collection with PUSH_GUARD_SERIES and PUSH_GUARD_VALUE.
-//
-// Note: If the REBSER is actually a REBCTX, REBACT, or REBARR then the
-// reachable values for the series will be guarded appropriate to its type.
-// (e.g. guarding a REBSER of an array will mark the values in that array,
-// not just shallow mark the REBSER node)
+// collection with PUSH_GC_GUARD.  Subclasses e.g. ARRAY_FLAG_CONTEXT will
+// have their LINK() and MISC() fields guarded appropriately for the class.
 //
 static void Mark_Guarded_Nodes(void)
 {
@@ -1122,10 +1156,14 @@ static void Mark_Guarded_Nodes(void)
     for (; n > 0; --n, ++np) {
         REBNOD *node = *np;
         if (node->header.bits & NODE_FLAG_CELL) {
+            //
+            // !!! What if someone tried to GC_GUARD a managed paired REBSER?
+            //
             if (not (node->header.bits & CELL_FLAG_END))
                 Queue_Mark_Opt_Value_Deep(cast(REBVAL*, node));
         }
         else { // a series
+            assert(node->header.bits & NODE_FLAG_MANAGED);
             REBSER *s = cast(REBSER*, node);
             if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY))
                 Queue_Mark_Array_Subclass_Deep(ARR(s));
@@ -1166,13 +1204,11 @@ static void Mark_Frame_Stack_Deep(void)
         // earlier in the recycle process (don't want to create new arrays
         // once the recycling has started...)
         //
-      #if !defined(NDEBUG)
-        if (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION)
-            assert(IS_POINTER_TRASH_DEBUG(f->source.pending));
-        else
-            assert(f->source.pending); // lives in f->source.array
-      #endif
+        assert(not f->source.vaptr or IS_POINTER_TRASH_DEBUG(f->source.vaptr));
 
+        // Note: f->source.pending should either live in f->source.array, or
+        // it may be trash (e.g. if it's an apply).  GC can ignore it.
+        //
         if (f->source.array)
             Queue_Mark_Array_Deep(f->source.array);
 
@@ -1269,7 +1305,13 @@ static void Mark_Frame_Stack_Deep(void)
         // this is the "doing pickups" or not.  If doing pickups then skip the
         // cells for pending refinement arguments.
         //
-        REBVAL *param = ACT_FACADE_HEAD(FRM_PHASE(f));
+        REBACT *phase = FRM_PHASE_OR_DEFER_0(f);
+        REBVAL *param;
+        if (phase == NAT_ACTION(defer_0))
+            param = ACT_PARAMS_HEAD(f->original); // no phases will run
+        else
+            param = ACT_FACADE_HEAD(phase);
+
         REBVAL *arg = FRM_ARGS_HEAD(f);
         for (; NOT_END(param); ++param, ++arg) {
             //
@@ -1567,7 +1609,7 @@ REBCNT Recycle_Core(REBOOL shutdown, REBSER *sweeplist)
     // MARKING PHASE: the "root set" from which we determine the liveness
     // (or deadness) of a series.  If we are shutting down, we do not mark
     // several categories of series...but we do need to run the root marking.
-    // (In particular because that is when pairing series whose lifetimes
+    // (In particular because that is when API series whose lifetimes
     // are bound to frames will be freed, if the frame is expired.)
     //
     Mark_Root_Series();
@@ -1690,11 +1732,11 @@ REBCNT Recycle(void)
 
 
 //
-//  Guard_Node_Core: C
+//  Push_Guard_Node: C
 //
-void Guard_Node_Core(const REBNOD *node)
+void Push_Guard_Node(const REBNOD *node)
 {
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     if (node->header.bits & NODE_FLAG_CELL) {
         //
         // It is a value.  Cheap check: require that it already contain valid
@@ -1728,7 +1770,7 @@ void Guard_Node_Core(const REBNOD *node)
         // *contents* of an unmanaged array.  The calling wrappers ensure
         // managedness or not.
     }
-#endif
+  #endif
 
     if (SER_FULL(GC_Guarded))
         Extend_Series(GC_Guarded, 8);

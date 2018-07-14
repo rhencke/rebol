@@ -234,7 +234,7 @@ REBNATIVE(checksum)
                     REBSER *temp = Temp_UTF8_At_Managed(
                         &offset, &keylen, key, VAL_LEN_AT(key)
                     );
-                    PUSH_GUARD_SERIES(temp);
+                    PUSH_GC_GUARD(temp);
                     keycp = BIN_AT(temp, offset);
                 }
 

@@ -36,7 +36,7 @@
 // being held in arbitrary locations in user code the GC could not find.
 //
 // Ren-C split this into two kinds of clients: one that can use the internal
-// API, including things like PUSH_GUARD_VALUE() and SER_HEAD(), with all
+// API, including things like PUSH_GC_GUARD() and SER_HEAD(), with all of
 // the powers and responsibility of a native in the EXE.  Then the libRebol
 // clients do not know what a REBSER is, they only have REBVAL pointers...
 // which are opaque, and they can't pick them apart.  This means the GC

@@ -46,8 +46,8 @@
 // A REBVAL in a C stack variable does not have to worry about its memory
 // address becoming invalid--but by default the garbage collector does not
 // know that value exists.  So while the address may be stable, any series
-// it has in the payload might go bad.  Use PUSH_GUARD_VALUE() to protect a
-// stack variable's payload, and then DROP_GUARD_VALUE() when the protection
+// it has in the payload might go bad.  Use PUSH_GC_GUARD() to protect a
+// stack variable's payload, and then DROP_GC_GUARD() when the protection
 // is not needed.  (You must always drop the most recently pushed guard.)
 //
 // For a means of creating a temporary array of GC-protected REBVALs, see

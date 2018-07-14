@@ -89,18 +89,18 @@ inline static OPT_REBSYM VAL_WORD_SYM(const RELVAL *v) {
 inline static REBCTX *VAL_WORD_CONTEXT(const REBVAL *v) {
     assert(IS_WORD_BOUND(v));
     REBNOD *binding = VAL_BINDING(v);
+    assert(
+        GET_SER_FLAG(binding, NODE_FLAG_MANAGED)
+        or IS_END(FRM(LINK(binding).keysource)->param) // not fulfilling
+    );
     binding->header.bits |= NODE_FLAG_MANAGED; // !!! review managing needs
     return CTX(binding);
 }
 
 inline static void INIT_WORD_INDEX(RELVAL *v, REBCNT i) {
-    assert(IS_WORD_BOUND(v));
-    assert(SAME_STR(
-        VAL_WORD_SPELLING(v),
-        IS_RELATIVE(v)
-            ? VAL_KEY_SPELLING(ACT_PARAM(VAL_RELATIVE(v), i))
-            : CTX_KEY_SPELLING(VAL_WORD_CONTEXT(KNOWN(v)), i)
-    ));
+  #if !defined(NDEBUG)
+    INIT_WORD_INDEX_Extra_Checks_Debug(v, i); // not inline, needs FRM_PHASE()
+  #endif
     v->payload.any_word.index = cast(REBINT, i);
 }
 

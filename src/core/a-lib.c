@@ -33,7 +33,7 @@
 //
 // What characterizes the external API is that it is not necessary to #include
 // the extensive definitions of `struct REBSER` or the APIs for dealing with
-// all the internal details (e.g. PUSH_GUARD_SERIES(), which are easy to get
+// all the internal details (e.g. PUSH_GC_GUARD(), which are easy to get
 // wrong).  Not only does this simplify the interface, but it also means that
 // the C code using the library isn't competing as much for definitions in
 // the global namespace.

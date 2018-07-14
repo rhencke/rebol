@@ -1219,7 +1219,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     //
     DECLARE_LOCAL (saved_input);
     Move_Value(saved_input, P_INPUT_VALUE); // series and P_POS position
-    PUSH_GUARD_VALUE(saved_input);
+    PUSH_GC_GUARD(saved_input);
     Init_Block(P_INPUT_VALUE, holder);
 
     // !!! There is not a generic form of SUBPARSE/NEXT, but there should be.
@@ -1241,7 +1241,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     // (this restores P_POS, since it's just an alias for the input's index)
     //
     Move_Value(P_INPUT_VALUE, saved_input);
-    DROP_GUARD_VALUE(saved_input);
+    DROP_GC_GUARD(saved_input);
 
     if (n == THROWN_FLAG) {
         assert(THROWN(P_OUT));

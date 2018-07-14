@@ -433,7 +433,7 @@ int main(int argc, char *argv_ansi[])
     REBCTX *console_ctx = Alloc_Context_Core(
         REB_OBJECT,
         80,
-        NODE_FLAG_MANAGED // no PUSH_GUARD needed, gets refs
+        NODE_FLAG_MANAGED // no PUSH_GC_GUARD needed, gets referenced
     );
 
     // Bind words that can be found in lib context (don't add any new words)

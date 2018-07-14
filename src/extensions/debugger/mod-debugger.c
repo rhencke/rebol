@@ -499,7 +499,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
     DECLARE_LOCAL (frame);
     Init_Blank(frame);
 
-    PUSH_GUARD_VALUE(frame);
+    PUSH_GC_GUARD(frame);
 
     while (TRUE) {
     loop:
@@ -623,7 +623,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
     }
 
 cleanup_and_return:
-    DROP_GUARD_VALUE(frame);
+    DROP_GC_GUARD(frame);
 
     // Restore stack level, which is presumably still valid (there shouldn't
     // have been any way to "delete levels from the stack above" while we

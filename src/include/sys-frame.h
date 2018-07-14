@@ -651,6 +651,7 @@ inline static void Drop_Action(REBFRM *f) {
 //
 inline static REBCTX *Context_For_Frame_May_Manage(REBFRM *f)
 {
+    assert(not Is_Action_Frame_Fulfilling(f));
     SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
     return CTX(f->varlist);
 }

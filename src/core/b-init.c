@@ -963,10 +963,10 @@ void Shutdown_System_Object(void)
 //
 static void Init_Contexts_Object(void)
 {
-    DROP_GUARD_CONTEXT(Sys_Context);
+    DROP_GC_GUARD(Sys_Context);
     Init_Object(Get_System(SYS_CONTEXTS, CTX_SYS), Sys_Context);
 
-    DROP_GUARD_CONTEXT(Lib_Context);
+    DROP_GC_GUARD(Lib_Context);
     Init_Object(Get_System(SYS_CONTEXTS, CTX_LIB), Lib_Context);
     Init_Object(Get_System(SYS_CONTEXTS, CTX_USER), Lib_Context);
 }
@@ -1247,7 +1247,7 @@ void Startup_Core(void)
         utf8,
         utf8_size
     );
-    PUSH_GUARD_ARRAY(boot_array); // managed, so must be guarded
+    PUSH_GC_GUARD(boot_array); // managed, so must be guarded
 
     rebFree(utf8); // don't need decompressed text after it's scanned
 
@@ -1275,16 +1275,16 @@ void Startup_Core(void)
     // !!! Have MAKE-BOOT compute # of words
     //
     Lib_Context = Alloc_Context_Core(REB_OBJECT, 600, NODE_FLAG_MANAGED);
-    PUSH_GUARD_CONTEXT(Lib_Context);
+    PUSH_GC_GUARD(Lib_Context);
 
     Sys_Context = Alloc_Context_Core(REB_OBJECT, 50, NODE_FLAG_MANAGED);
-    PUSH_GUARD_CONTEXT(Sys_Context);
+    PUSH_GC_GUARD(Sys_Context);
 
     REBARR *datatypes_catalog = Startup_Datatypes(
         VAL_ARRAY(&boot->types), VAL_ARRAY(&boot->typespecs)
     );
     MANAGE_ARRAY(datatypes_catalog);
-    PUSH_GUARD_ARRAY(datatypes_catalog);
+    PUSH_GC_GUARD(datatypes_catalog);
 
     // !!! REVIEW: Startup_Typesets() uses symbols, data stack, and
     // adds words to lib--not available untilthis point in time.
@@ -1313,18 +1313,18 @@ void Startup_Core(void)
     //
     REBARR *natives_catalog = Startup_Natives(VAL_ARRAY(&boot->natives));
     MANAGE_ARRAY(natives_catalog);
-    PUSH_GUARD_ARRAY(natives_catalog);
+    PUSH_GC_GUARD(natives_catalog);
 
     // boot->actions is the list in %actions.r
     //
     REBARR *actions_catalog = Startup_Actions(VAL_ARRAY(&boot->actions));
     MANAGE_ARRAY(actions_catalog);
-    PUSH_GUARD_ARRAY(actions_catalog);
+    PUSH_GC_GUARD(actions_catalog);
 
     // boot->errors is the error definition list from %errors.r
     //
     REBCTX *errors_catalog = Startup_Errors(VAL_ARRAY(&boot->errors));
-    PUSH_GUARD_CONTEXT(errors_catalog);
+    PUSH_GC_GUARD(errors_catalog);
 
     Init_System_Object(
         VAL_ARRAY(&boot->sysobj),
@@ -1334,10 +1334,10 @@ void Startup_Core(void)
         errors_catalog
     );
 
-    DROP_GUARD_CONTEXT(errors_catalog);
-    DROP_GUARD_ARRAY(actions_catalog);
-    DROP_GUARD_ARRAY(natives_catalog);
-    DROP_GUARD_ARRAY(datatypes_catalog);
+    DROP_GC_GUARD(errors_catalog);
+    DROP_GC_GUARD(actions_catalog);
+    DROP_GC_GUARD(natives_catalog);
+    DROP_GC_GUARD(datatypes_catalog);
 
     Init_Contexts_Object();
 
@@ -1395,7 +1395,7 @@ void Startup_Core(void)
 
     assert(DSP == 0 and FS_TOP == NULL);
 
-    DROP_GUARD_ARRAY(boot_array);
+    DROP_GC_GUARD(boot_array);
 
     PG_Boot_Phase = BOOT_DONE;
 

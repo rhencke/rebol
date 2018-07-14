@@ -653,9 +653,9 @@ REBNATIVE(apply)
 
     // Run the bound code, ignore evaluative result (unless thrown)
     //
-    PUSH_GUARD_CONTEXT(exemplar);
+    PUSH_GC_GUARD(exemplar);
     REBOOL threw = Do_Any_Array_At_Throws(D_CELL, ARG(def));
-    DROP_GUARD_CONTEXT(exemplar);
+    DROP_GC_GUARD(exemplar);
 
     assert(CTX_KEYS_HEAD(exemplar) == ACT_FACADE_HEAD(VAL_ACTION(applicand)));
     f->param = CTX_KEYS_HEAD(exemplar);

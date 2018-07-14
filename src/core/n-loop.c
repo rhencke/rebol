@@ -433,8 +433,8 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         switch (VAL_TYPE_KIND(data)) {
         case REB_ACTION:
             series = SER(Snapshot_All_Actions());
+            assert(NOT_SER_FLAG(series, NODE_FLAG_MANAGED)); // content marked
             index = 0;
-            PUSH_GUARD_ARRAY_CONTENTS(ARR(series));
             break;
 
         default:
@@ -628,14 +628,8 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 skip_hidden: ;
     }
 
-    if (IS_DATATYPE(data)) {
-        //
-        // If asked to enumerate a datatype, we allocated a temporary array
-        // of all instances of that datatype.  It has to be freed.
-        //
-        DROP_GUARD_ARRAY_CONTENTS(ARR(series));
-        Free_Unmanaged_Array(ARR(series));
-    }
+    if (IS_DATATYPE(data))
+        Free_Unmanaged_Array(ARR(series)); // temporary array of all instances
 
     if (threw) {
         // a non-BREAK and non-CONTINUE throw overrides any other return
