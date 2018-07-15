@@ -334,7 +334,7 @@ reword: function [
                         append out case [
                             action? :v [v :keyword-match]
                             block? :v [do :v]
-                            true [:v]
+                            default [:v]
                         ]
                     )
 
@@ -527,7 +527,7 @@ format: function [
             integer! [abs rule]
             text! [length of rule]
             char! [1]
-            (0)
+            default [0]
         ]
     ]
 

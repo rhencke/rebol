@@ -91,7 +91,9 @@ cscape: function [
                 #cname [to-c-name sub]
                 #unspaced [either block? sub [unspaced sub] [form sub]]
                 #delim [delimit sub unspaced [dlm newline]]
-                (fail ["Invalid CSCAPE mode:" mode])
+                default [
+                    fail ["Invalid CSCAPE mode:" mode]
+                ]
             ]
             case [
                 all [any-upper | not any-lower] [uppercase sub]

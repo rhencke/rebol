@@ -30,30 +30,6 @@ assert: func [
     ; there was no idea of a "debug mode"
 ]
 
-
-default: enfix func [
-    {Set word or path to a default value if it is not set yet or blank.}
-
-    return: [any-value!]
-    'target "The word or path which might be set"
-        [set-word! set-path!]
-    branch "If target is not set already, this is evaluated and stored there"
-        [block! action!]
-    /only "Consider target being BLANK! to be a value not to overwrite"
-    <local> gotten
-][
-    either all [
-        value? set/opt quote gotten: get target ;-- SET* not defined yet
-        only or (not blank? :gotten)
-    ][
-        :gotten ;; so that `x: y: default z` leads to `x = y`
-    ][
-        set target <- do branch else [
-            fail ["DEFAULT for" target "came back NULL"]
-        ]
-    ]
-]
-
 maybe: enfix func [
     "Set word or path to a default value if that value is a value"
 

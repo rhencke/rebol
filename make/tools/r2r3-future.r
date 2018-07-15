@@ -83,6 +83,8 @@ null?: :void?
 unset 'void
 unset 'void?
 set*: :set ;-- used to allow nulls by default
+unset?: chain [:lib/set? | :lib/not]
+value?: :any-value?
 
 ; http://blog.hostilefork.com/did-programming-opposite-of-not/
 ;
@@ -284,6 +286,8 @@ compress: decompress: does [
 ; https://trello.com/c/9ChhSWC4/
 ;
 switch: adapt 'switch [
+    if default [fail/where ["use DEFAULT [], not /DEFAULT, in SWITCH"] 'cases]
+    ;-- re-use /DEFAULT slot as variable
     cases: map-each c cases [
         lib/case [
             lit-word? :c [to word! c]
@@ -293,14 +297,52 @@ switch: adapt 'switch [
                 fail/where ["Switch now evaluative" c] 'cases
             ]
             word? :c [
-                if not datatype? get c [
-                    fail/where ["Switch now evaluative" c] 'cases
+                opt either c = 'default [
+                    default: true ;-- signal next BLOCK! to be GROUP!'d
+                    continue
+                ][
+                    if all [
+                        c != 'default
+                        not datatype? get c
+                    ][
+                        fail/where ["Switch now evaluative" c] 'cases
+                    ]
+                    get c
                 ]
-                get c
+            ]
+
+            block? :c [
+                either default [
+                    default: false
+                    as group! :c
+                ][
+                    :c
+                ]
             ]
 
             true [:c]
         ]
+    ]
+    if default [fail "DEFAULT must be followed by BLOCK! when used in SWITCH"]
+]
+
+default: enfix function [
+    return: [<opt> any-value!]
+    'target [<end> set-word! set-path!]
+     branch [block! action!]
+     /only
+][
+    if unset? 'target [return do :branch] ;-- `case [... default [...]]`
+    either all [
+        value? set* quote gotten: get target
+        only or (not blank? :gotten)
+    ][
+        :gotten ;; so that `x: y: default z` leads to `x = y`
+    ][
+        if null? branch: do :branch [
+            fail ["DEFAULT for" target "came back NULL"]
+        ]
+        set target :branch
     ]
 ]
 

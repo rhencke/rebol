@@ -275,10 +275,11 @@ print: func [
             spaced value
         ]
 
-        (fail/where
-            "PRINT called on non-literal block without /EVAL switch"
-            'value
-        )
+        default [
+            fail/where
+                <- "PRINT called on non-literal block without /EVAL switch"
+                <- 'value
+        ]
     ]
 
     write-stdout newline

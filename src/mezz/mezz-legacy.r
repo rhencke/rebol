@@ -322,7 +322,7 @@ prin: function [
         text! char! [value]
         block! [spaced value]
 
-        (form :value)
+        default [form :value]
     ]
 ]
 
@@ -941,7 +941,8 @@ set 'r3-legacy* func [<local>] [
             case [
                 not block? :value [:value]
                 into [insert out reduce :value]
-                /else [reduce :value]
+            ] else [
+                reduce :value
             ]
         ])
 
@@ -962,12 +963,11 @@ set 'r3-legacy* func [<local>] [
                         only: only
                     ]
                 ]
-                /else [
-                    apply 'compose [
-                        value: :value
-                        deep: deep
-                        only: only
-                    ]
+            ] else [
+                apply 'compose [
+                    value: :value
+                    deep: deep
+                    only: only
                 ]
             ]
         ])

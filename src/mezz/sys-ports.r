@@ -24,38 +24,39 @@ make-port*: function [
         "port specification"
 ][
     ; The first job is to identify the scheme specified:
-    case [
-        file? spec  [
+
+    really switch type of spec [
+        file! [
             name: pick [dir file] dir? spec
             spec: join-of [ref:] spec
         ]
-        url? spec [
+        url! [
             spec: join decode-url spec [to set-word! 'ref spec]
             name: select spec to set-word! 'scheme
         ]
-        block? spec [
+        block! [
             name: select spec to set-word! 'scheme
         ]
-        object? spec [
+        object! [
             name: get in spec 'scheme
         ]
-        word? spec [
+        word! [
             name: spec
             spec: []
         ]
-        port? spec [
+        port! [
             name: port/scheme/name
             spec: port/spec
         ]
-    ] else [
-        return blank
     ]
 
     ; Get the scheme definition:
     all [
         match [word! lit-word!] name
-        scheme: try get in system/schemes to word! name
-    ] or [cause-error 'access 'no-scheme name]
+        scheme: try get in system/schemes as word! name
+    ] else [
+        cause-error 'access 'no-scheme name
+    ]
 
     ; Create the port with the correct scheme spec:
     port: construct system/standard/port []

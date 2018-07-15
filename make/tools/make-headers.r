@@ -68,7 +68,7 @@ emit-proto: func [
         ]
     ]
 
-    if null? switch header/2 [
+    switch header/2 [
         'RL_API [
             ; Currently the RL_API entries should only occur in %a-lib.c, and
             ; are processed by %make-reb-lib.r.  Their RL_XxxYyy() forms are
@@ -84,8 +84,10 @@ emit-proto: func [
         ; Natives handled by searching for REBNATIVE() currently.  If it
         ; checked for the word NATIVE it would also have to look for paths
         ; like NATIVE/BODY
-    ][
-        fail "%make-headers.r only understands C functions"
+
+        default [
+            fail "%make-headers.r only understands C functions"
+        ]
     ]
 
     if find prototypes proto [

@@ -201,7 +201,7 @@ for-each native native-specs [
                         break
                     ]
                 ]
-                true [
+                default [
                     fail ["Unrecognized platform spec:" mold plat]
                 ]
             ]

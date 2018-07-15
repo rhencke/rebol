@@ -392,7 +392,7 @@ host-console: function [
             return-to-c instruction
         ]
 
-        return-to-c <- switch type of state [
+        return-to-c switch type of state [
             integer! [ ;-- just tells the calling C loop to exit() process
                 assert [empty? instruction]
                 state
@@ -405,8 +405,9 @@ host-console: function [
                 assert [empty? instruction]
                 state
             ]
-        ] else [
-            emit [fail [{Bad console instruction:} ((mold state))]]
+            default [
+                emit [fail [{Bad console instruction:} ((mold state))]]
+            ]
         ]
     ]
 
@@ -795,8 +796,8 @@ echo: function [
         hijack 'input 'old-input
     ]]
 
-    case [
-        word? instruction [
+    switch type of instruction [
+        word! [
             switch instruction [
                 'on [ensure-echo-on]
                 'off [ensure-echo-off]
@@ -807,19 +808,18 @@ echo: function [
             ] else [
                 word: to-uppercase word
                 fail [
-                    "Unknown ECHO command, not [ON OFF RESET]"
-                        |
-                    unspaced ["Use ECHO (" word ") to force evaluation"]
+                    "Unknown ECHO command, not [ON OFF RESET]" LF
+                    "Use ECHO" unspaced ["(" word ")"] "to force evaluation"
                 ]
             ]
         ]
 
-        text? instruction [
+        text! [
             sub: instruction
             ensure-echo-on
         ]
 
-        any [block? instruction | file? instruction] [
+        block! file! [
             target: instruction
             ensure-echo-on
         ]

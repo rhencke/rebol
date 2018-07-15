@@ -998,7 +998,7 @@ import: function [
             ]
         ]
 
-        any [file? module | url? module] [
+        match [file! url!] module [
             cause-error 'access 'cannot-open reduce [
                 module "not found or not valid"
             ]

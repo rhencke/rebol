@@ -31,8 +31,7 @@ REBOL [
 ;
 ; Moving protocol loading from core to host fixes the problem.
 ;
-; This should be initialized by make-host-init.r, but set a default just in
-; case
+; Should be initialized by make-host-init.r, but set a default just in case.
 ;
 host-prot: default [_]
 
@@ -741,31 +740,35 @@ comment [
         ]
     ]
 
-    if not blank? boot-embedded [
-        case [
-            binary? boot-embedded [ ; single script
-                code: load/header/type boot-embedded 'unbound
-            ]
-            block? boot-embedded [
-                ;
-                ; The encapping is an embedded zip archive.  get-encap did
-                ; the unzipping into a block, and this information must be
-                ; made available somehow.  It shouldn't be part of the "core"
-                ; but just responsibility of the host that supports encap
-                ; based loading.
-                ;
-                o/encap: boot-embedded
+    switch type of boot-embedded [
+        blank! [
+            false ;-- signal the `AND []` that there's no embedded code
+        ]
+        binary! [ ; single script
+            code: load/header/type boot-embedded 'unbound
+            true
+        ]
+        block! [
+            ;
+            ; The encapping is an embedded zip archive.  get-encap did
+            ; the unzipping into a block, and this information must be
+            ; made available somehow.  It shouldn't be part of the "core"
+            ; but just responsibility of the host that supports encap
+            ; based loading.
+            ;
+            o/encap: boot-embedded
 
-                main: select boot-embedded %main.reb
-                if not binary? main [
-                    die "Could not find %main.reb in encapped zip file"
-                ]
-                code: load/header/type main 'unbound
+            main: select boot-embedded %main.reb
+            if not binary? main [
+                die "Could not find %main.reb in encapped zip file"
             ]
-        ] else [
+            code: load/header/type main 'unbound
+            true
+        ]
+        default [
             die "Bad embedded boot data (not a BLOCK! or a BINARY!)"
         ]
-
+    ] and [
         ;boot-print ["executing embedded script:" mold code]
         system/script: construct system/standard/script [
             title: select first code 'title

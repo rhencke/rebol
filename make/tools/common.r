@@ -90,7 +90,7 @@ to-c-name: function [
         "~" [copy "tilde"]
         "|" [copy "bar"]
 
-        ( ;-- default
+        default [
             ;
             ; If these symbols occur composite in a longer word, they use a
             ; shorthand; e.g. `foo?` => `foo_q`
@@ -111,7 +111,7 @@ to-c-name: function [
             ]
 
             string
-        )
+        ]
     ]
 
     if empty? string [
@@ -172,7 +172,7 @@ to-c-name: function [
             ]
         ]
 
-        true [ ;-- !!! See notes above, do not change to an ELSE!
+        default [
             fail "scope word must be 'global or 'local"
         ]
     ]

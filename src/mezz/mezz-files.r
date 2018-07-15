@@ -152,10 +152,10 @@ confirm: function [
 
     response: ask question
 
-    return did case [
+    return case [
         empty? choices [true]
-        text? choices [find/match response choices]
-        length of choices < 2 [find/match response first choices]
+        text? choices [did find/match response choices]
+        length of choices < 2 [did find/match response first choices]
         find first choices response [true]
         find second choices response [false]
     ]

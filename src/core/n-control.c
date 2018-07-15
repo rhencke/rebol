@@ -834,8 +834,8 @@ REBNATIVE(switch)
     if (REF(default))
         fail (
             "SWITCH/DEFAULT is no longer supported by the core.  Use the"
-            " fallout feature, or ELSE/UNLESS/!!/etc. based on null result:"
-            " https://forum.rebol.info/t/312"
+            " DEFAULT [...] as the last clause, or ELSE/UNLESS/!!/etc. based"
+            " on null result: https://forum.rebol.info/t/312"
         );
     UNUSED(ARG(default_branch));
 
@@ -940,6 +940,83 @@ REBNATIVE(switch)
 
     Drop_Frame(f);
     return D_OUT; // last test "falls out" or last match if /ALL, may be void
+}
+
+
+//
+//  default: enfix native/body [
+//
+//  {Set word or path to a default value if it is not set yet or blank.}
+//
+//      return: "Former value or branch result, can only be null if no target"
+//          [<opt> any-value!]
+//     'target "Word or path which might be set--no target always branches"
+//          [<end> set-word! set-path!]
+//      branch "If target not set already, this is evaluated and stored there"
+//          [block! action!]
+//      :look "Variadic lookahead used to make sure at end if no target"
+//          [<...>]
+//      /only "Consider target being BLANK! to be a value not to overwrite"
+//  ][
+//      if unset? 'target [ ;-- `case [... default [...]]`
+//          if not tail? look [
+//              fail ["DEFAULT usage with no left hand side must be at <end>"]
+//          ]
+//          return do :branch
+//      ]
+//      either all [
+//          value? set* quote gotten: get target
+//          only or (not blank? :gotten)
+//      ][
+//          :gotten ;; so that `x: y: default z` leads to `x = y`
+//      ][
+//          set target <- do :branch else [
+//              fail ["DEFAULT for" target "came back NULL"]
+//          ]
+//      ]
+//  ]
+//
+REBNATIVE(default)
+{
+    INCLUDE_PARAMS_OF_DEFAULT;
+
+    REBVAL *target = ARG(target);
+
+    if (IS_NULLED(target)) { // e.g. `case [... default [...]]`
+        UNUSED(ARG(look));
+        if (not FRM_AT_END(frame_)) // !!! shortcut using variadic for now
+            fail ("DEFAULT usage with no left hand side must be at <end>");
+
+        if (Run_Branch_Throws(D_OUT, ARG(branch), END))
+            return D_OUT;
+
+        return D_OUT; // NULL is okay in this case
+    }
+
+    if (IS_SET_WORD(target))
+        Move_Opt_Var_May_Fail(D_OUT, target, SPECIFIED);
+    else {
+        assert(IS_SET_PATH(target));
+        Get_Path_Core(D_OUT, target, SPECIFIED); // will fail() on GROUP!s
+    }
+
+    if (not IS_NULLED(D_OUT) and (not IS_BLANK(D_OUT) or REF(only)))
+        return D_OUT; // count it as "already set" !!! what about VOID! ?
+
+    if (Run_Branch_Throws(D_OUT, ARG(branch), END))
+        return D_OUT;
+
+    if (IS_NULLED(D_OUT))
+        fail ("DEFAULT came back NULL"); // !!! Review--what about BLANK!
+
+    const REBOOL enfix = false;
+    if (IS_SET_WORD(target))
+        Move_Value(Sink_Var_May_Fail(target, SPECIFIED), D_OUT);
+    else {
+        assert(IS_SET_PATH(target));
+        Set_Path_Core(target, SPECIFIED, D_OUT, enfix);
+    }
+    return D_OUT;
 }
 
 

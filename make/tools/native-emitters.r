@@ -49,10 +49,11 @@ emit-native-proto: function [
         ]
     ][
         append case [
+            ;
             ; could do tests here to create special buffer categories to
             ; put certain natives first or last, etc. (not currently needed)
             ;
-            true [ ;-- R3-Alpha needs to bootstrap, do not convert to an ELSE!
+            default [
                 unsorted-buffer
             ]
         ] unspaced [

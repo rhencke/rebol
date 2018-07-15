@@ -111,6 +111,7 @@ finish-init-core: func [
             for-each c cases [
                 lib/all [ ;-- SWITCH's /ALL would override
                     match [word! path!] c
+                    not find [elide comment default] c
                     'null <> c
                     not datatype? get c
                 ] then [

@@ -350,7 +350,7 @@ arg-to-js: func [s [text!]][
             to END
         ] ["'number'"]
         parse s ["void" any space] ["null"]
-        /else [to-tag s]
+        default [to-tag s]
     ]
 ]
 

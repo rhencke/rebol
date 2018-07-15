@@ -57,13 +57,13 @@ options: [
                     ][
                         lib
                     ]
-                    true [
+                    default [
                         fail ["Libraries can only be file! or static/dynamic library object, not" lib]
                     ]
                 ]
             ]
         ][
-            if null? switch user-config/with-ffi [
+            switch user-config/with-ffi [
                 'static 'dynamic [
                     for-each var [includes cflags searches ldflags][
                         x: rebmake/pkg-config
@@ -90,10 +90,12 @@ options: [
                 _ 'no 'off 'false #[false] [
                     ;pass
                 ]
-            ][
-                fail [
-                    "WITH-FFI should be one of [dynamic static no]"
-                    "not" (user-config/with-ffi)
+
+                default [
+                    fail [
+                        "WITH-FFI should be one of [dynamic static no]"
+                        "not" (user-config/with-ffi)
+                    ]
                 ]
             ]
         ]

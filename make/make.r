@@ -38,7 +38,7 @@ either commands: try find args '| [
 ; now args are splitted in options and commands
 
 for-each [name value] options [
-    if null? switch name [
+    switch name [
         'CONFIG 'LOAD 'DO [
             user-config: make user-config load to-file value
         ]
@@ -68,9 +68,10 @@ for-each [name value] options [
                 ]
             ]
         ]
-    ][
-        set in user-config (to-word replace/all to text! name #"_" #"-")
-            load value
+        default [
+            set in user-config (to-word replace/all to text! name #"_" #"-")
+                load value
+        ]
     ]
 ]
 
@@ -163,8 +164,9 @@ gen-obj: func [
                     <msc:/wd4127>
                 ]
 
-                ;-- default
-                (ensure [text! tag!] flag)
+                default [
+                    ensure [text! tag!] flag
+                ]
             ]
         ]
         s: s/1
@@ -176,7 +178,7 @@ gen-obj: func [
         source: to-file case [
             dir [join-of directory s]
             main [s]
-            /else [join-of src-dir s]
+            default [join-of src-dir s]
         ]
         output: to-obj-path to text! ;\
             either main [
@@ -447,7 +449,7 @@ help: function [topic [text! blank!]] [
         msg: select help-topics topic [
             print msg
         ]
-        /else [print help-topics/usage]
+        default [print help-topics/usage]
     ]
 ]
 
@@ -530,8 +532,9 @@ switch rebmake/default-compiler/name [
         ]
     ]
 
-    ;-- default
-    (fail ["Unrecognized compiler (gcc, clang or cl):" cc])
+    default [
+        fail ["Unrecognized compiler (gcc, clang or cl):" cc]
+    ]
 ]
 
 if all [set? 'cc-exec cc-exec][
@@ -609,8 +612,9 @@ switch user-config/debug [
         append app-config/definitions ["INCLUDE_CALLGRIND_NATIVE"]
     ]
 
-    ;-- default
-    (fail ["unrecognized debug setting:" user-config/debug])
+    default [
+        fail ["unrecognized debug setting:" user-config/debug]
+    ]
 ]
 
 switch user-config/optimize [
@@ -692,12 +696,13 @@ append app-config/cflags opt switch user-config/standard [
         ]
     ]
 
-    ;-- default
-    (fail [
-        "STANDARD should be one of"
-        "[c gnu89 gnu99 c99 c11 c++ c++11 c++14 c++17 c++latest]"
-        "not" (user-config/standard)
-    ])
+    default [
+        fail [
+            "STANDARD should be one of"
+            "[c gnu89 gnu99 c99 c11 c++ c++11 c++14 c++17 c++latest]"
+            "not" (user-config/standard)
+        ]
+    ]
 ]
 
 ; pre-vista switch
@@ -716,8 +721,9 @@ append app-config/definitions opt switch user-config/pre-vista [
         _
     ]
 
-    ;-- default
-    (fail ["PRE-VISTA must be yes, no, or logic! not" (user-config/pre-vista)])
+    default [
+        fail ["PRE-VISTA [yes no \logic!\] not" (user-config/pre-vista)]
+    ]
 ]
 
 cfg-rigorous: false
@@ -938,8 +944,9 @@ append app-config/cflags opt switch user-config/rigorous [
         _
     ]
 
-    ;-- default
-    (fail ["RIGOROUS must be yes, no, or logic! not" (user-config/rigorous)])
+    default [
+        fail ["RIGOROUS [yes no \logic!\] not" (user-config/rigorous)]
+    ]
 ]
 
 append app-config/ldflags opt switch user-config/static [
@@ -955,8 +962,9 @@ append app-config/ldflags opt switch user-config/static [
         ]
     ]
 
-    ;-- default
-    (fail ["STATIC must be yes, no or logic! not" (user-config/static)])
+    default [
+        fail ["STATIC must be yes, no or logic! not" (user-config/static)]
+    ]
 ]
 
 ;TCC
@@ -1009,7 +1017,7 @@ case [
     find [no off false #[false] _] user-config/with-tcc [
         ;pass
     ]
-    true [
+    default [
         fail [
             "WITH-TCC must be yes or no]"
             "not" (user-config/with-tcc)
@@ -1210,8 +1218,9 @@ for-each [action name modules] user-config/extensions [
             ]
         ]
 
-        ;-- default
-        (fail ["Unrecognized extension action:" mold action])
+        default [
+            fail ["Unrecognized extension action:" mold action]
+        ]
     ]
 ]
 
@@ -1313,7 +1322,7 @@ process-module: func [
                     ;object-library-class has already been taken care of above
                     ;if s/class-name = 'object-file-class [s]
                 ]
-                true [
+                default [
                     dump s
                     fail [type of s "can't be a dependency of a module"]
                 ]
@@ -1336,7 +1345,7 @@ process-module: func [
                     ][
                         lib
                     ]
-                    true [
+                    default [
                         dump [
                             "unrecognized module library" lib
                             "in module" mod
@@ -1478,20 +1487,22 @@ prep: make rebmake/entry-class [
             cmds: make block! 8
             for-each ext all-extensions [
                 for-each mod ext/modules [
-                    append cmds unspaced [
-                        {$(REBOL) } tools-dir/make-ext-natives.r { MODULE=} mod/name { SRC=} %extensions/
-                            case [
-                                file? mod/source [
-                                    mod/source
-                                ]
-                                block? mod/source [
-                                    first find mod/source file!
-                                ]
-                                true [
-                                    fail "mod/source must be BLOCK! or FILE!"
-                                ]
+                    append cmds spaced [
+                        {$(REBOL)}
+                        tools-dir/make-ext-natives.r
+                        unspaced [{MODULE=} mod/name]
+                        unspaced [{SRC=extensions/} case [
+                            file? mod/source [
+                                mod/source
                             ]
-                        { OS_ID=} system-config/id
+                            block? mod/source [
+                                first find mod/source file!
+                            ]
+                            default [
+                                fail "mod/source must be BLOCK! or FILE!"
+                            ]
+                        ]]
+                        unspaced [{OS_ID=} system-config/id]
                     ]
                 ]
                 if ext/init [
@@ -1547,16 +1558,17 @@ add-new-obj-folders: function [
     obj
 ][
     for-each lib objs [
-        if null? switch lib/class-name [
+        switch lib/class-name [
             'object-file-class [
                 lib: reduce [lib]
             ]
             'object-library-class [
                 lib: lib/depends
             ]
-        ][
-            dump lib
-            fail ["unexpected class"]
+            default [
+                dump lib
+                fail ["unexpected class"]
+            ]
         ]
 
         for-each obj lib [

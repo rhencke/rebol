@@ -136,81 +136,88 @@ e-dispatch: make-emitter "Dispatchers" core/tmp-dispatchers.c
 
 tafs: collect [
     for-each-record t type-table [
-        if null? switch t/class [
+        switch t/class [
             '* [
                 keep cscape/with {/* $<T/Name> */ T_Unhooked} [t]
             ]
-        ][
-            keep cscape/with {/* $<T/Name> */ T_$<Propercase-Of t/class>} [t]
+            default [
+                keep cscape/with
+                    {/* $<T/Name> */ T_$<Propercase-Of t/class>} [t]
+            ]
         ]
     ]
 ]
 
 pds: collect [
     for-each-record t type-table [
-        if null? switch t/path [
+        switch t/path [
             '- [keep cscape/with {/* $<T/Name> */ PD_Fail} [t]]
             '+ [
                 proper: propercase-of t/class
                 keep cscape/with {/* $<T/Name> */ PD_$<Proper>} [proper t]
             ]
             '* [keep cscape/with {/* $<T/Name> */ PD_Unhooked} [t]]
-        ][
-            ; !!! Today's PORT! path dispatches through context even though
-            ; that isn't its technical "class" for responding to actions.
-            ;
-            proper: propercase-of t/path
-            keep cscape/with {/* $<T/Name> */ PD_$<Proper>} [proper t]
+            default [
+                ; !!! Today's PORT! path dispatches through context although
+                ; that isn't its technical "class" for responding to actions.
+                ;
+                proper: propercase-of t/path
+                keep cscape/with {/* $<T/Name> */ PD_$<Proper>} [proper t]
+            ]
         ]
     ]
 ]
 
 makes: collect [
     for-each-record t type-table [
-        if null? switch t/make [
+        switch t/make [
             '- [keep cscape/with {/* $<T/Name> */ MAKE_Fail} [t]]
             '+ [
                 proper: propercase-of t/class
                 keep cscape/with {/* $<T/Name> */ MAKE_$<Proper>} [proper t]
             ]
             '* [keep cscape/with {/* $<T/Name> */ MAKE_Unhooked} [t]]
-        ][
-            fail "MAKE in %types.r should be, -, +, or *"
+            default [
+                fail "MAKE in %types.r should be, -, +, or *"
+            ]
         ]
     ]
 ]
 
 tos: collect [
     for-each-record t type-table [
-        if null? switch t/make [
+        switch t/make [
             '- [keep cscape/with {/* $<T/Name> */ TO_Fail} [t]]
             '+ [
                 proper: propercase-of T/Class
                 keep cscape/with {/* $<T/Name> */ TO_$<Proper>} [proper t]
             ]
             '* [keep cscape/with {/* $T/Name> */ TO_Unhooked} [t]]
-        ][
-            fail "TO in %types.r should be -, +, or *"
+            default [
+                fail "TO in %types.r should be -, +, or *"
+            ]
         ]
     ]
 ]
 
 mfs: collect [
     for-each-record t type-table [
-        if null? switch t/mold [
+        switch t/mold [
             '- [keep cscape/with {/* $<T/Name> */ MF_Fail"} [t]]
             '+ [
                 proper: propercase-of t/class
                 keep cscape/with {/* $<T/Name> */ MF_$<Proper>} [proper t]
             ]
             '* [keep cscape/with {/* $<T/Name> */ MF_Unhooked} [t]]
-        ][
-            ; ERROR! may be a context, but it has its own special forming
-            ; beyond the class (falls through to ANY-CONTEXT! for mold), and
-            ; BINARY! has a different handler than strings
-            ;
-            proper: propercase-of t/mold
-            keep cscape/with {/* $<T/Name> */ MF_$<Proper>} [proper t]
+            default [
+                ;
+                ; ERROR! may be a context, but it has its own special forming
+                ; beyond the class (falls through to ANY-CONTEXT! for mold),
+                ; and BINARY! has a different handler than strings
+                ;
+                proper: propercase-of t/mold
+                keep cscape/with {/* $<T/Name> */ MF_$<Proper>} [proper t]
+            ]
         ]
     ]
 ]

@@ -101,7 +101,7 @@ pkg-config: function [
     var [word!]
     lib [any-string!]
 ][
-    if null? switch var [
+    switch var [
         'includes [
             dlm: "-I"
             opt: "--cflags-only-I"
@@ -122,8 +122,9 @@ pkg-config: function [
             dlm: _
             opt: "--libs-only-other"
         ]
-    ][
-        fail ["Unsupported pkg-config word:" var]
+        default [
+            fail ["Unsupported pkg-config word:" var]
+        ]
     ]
 
     x: run-command spaced reduce [pkg opt lib]
@@ -255,7 +256,7 @@ windows: make platform-class [
 set-target-platform: func [
     platform
 ][
-    if null? switch platform [
+    switch platform [
         'posix [
             target-platform: posix
         ]
@@ -274,10 +275,10 @@ set-target-platform: func [
         'emscripten [
             target-platform: emscripten
         ]
-    ][
-        ;unknown
-        print ["Unknown platform:" platform "falling back to POSIX"]
-        target-platform: posix
+        default [
+            print ["Unknown platform:" platform "falling back to POSIX"]
+            target-platform: posix
+        ]
     ]
 ]
 
@@ -466,7 +467,7 @@ gcc: make compiler-class [
             case [
                 file? exec-file [file-to-local exec-file]
                 exec-file [exec-file]
-                true [to text! name]
+                default [to text! name]
             ]
             either E ["-E"]["-c"]
 
@@ -491,8 +492,9 @@ gcc: make compiler-class [
                     opt-level = false ["-O0"]
                     integer? opt-level [unspaced ["-O" opt-level]]
                     find ["s" "z" 's 'z] opt-level [unspaced ["-O" opt-level]]
-
-                    fail ["unrecognized optimization level:" opt-level]
+                    default [
+                        fail ["unrecognized optimization level:" opt-level]
+                    ]
                 ]
             ]
             opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new
@@ -501,8 +503,9 @@ gcc: make compiler-class [
                     debug = true ["-g -g3"]
                     debug = false []
                     integer? debug [unspaced ["-g" debug]]
-
-                    fail ["unrecognized debug option:" debug]
+                    default [
+                        fail ["unrecognized debug option:" debug]
+                    ]
                 ]
             ]
             if all [F block? cflags][
@@ -514,7 +517,7 @@ gcc: make compiler-class [
             "-o" case [
                 E [output]
                 ends-with? output target-platform/obj-suffix [output]
-                true [unspaced [output target-platform/obj-suffix]]
+                default [unspaced [output target-platform/obj-suffix]]
             ]
 
             source
@@ -564,8 +567,9 @@ tcc: make compiler-class [
                     opt-level = true ["-O2"]
                     opt-level = false ["-O0"]
                     integer? opt-level [unspaced ["-O" opt-level]]
-                    
-                    fail ["unknown optimization level" opt-level]
+                    default [
+                        fail ["unknown optimization level" opt-level]
+                    ]
                 ]
             ]
             opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new
@@ -574,8 +578,9 @@ tcc: make compiler-class [
                     debug = true ["-g"]
                     debug = false []
                     integer? debug [unspaced ["-g" debug]]
-
-                    fail ["unrecognized debug option:" debug]
+                    default [
+                        fail ["unrecognized debug option:" debug]
+                    ]
                 ]
             ]
             if all [F block? cflags][
@@ -587,7 +592,7 @@ tcc: make compiler-class [
             "-o" case [
                 E [output]
                 ends-with? output target-platform/obj-suffix [output]
-                true [unspaced [output target-platform/obj-suffix]]
+                default [unspaced [output target-platform/obj-suffix]]
             ]
 
             source
@@ -621,7 +626,7 @@ cl: make compiler-class [
             case [
                 file? exec-file [file-to-local exec-file]
                 exec-file [exec-file]
-                true [{cl}]
+                default [{cl}]
             ]
             "/nologo" ; don't show startup banner
             either E ["/P"]["/c"]
@@ -659,7 +664,9 @@ cl: make compiler-class [
                     ]
                     debug = false []
                     
-                    fail ["unrecognized debug option:" debug]
+                    default [
+                        fail ["unrecognized debug option:" debug]
+                    ]
                 ]
             ]
             if all [F block? cflags][
@@ -673,7 +680,9 @@ cl: make compiler-class [
                 case [
                     E [output]
                     ends-with? output target-platform/obj-suffix [output]
-                    true [unspaced [output target-platform/obj-suffix]]
+                    default [
+                        unspaced [output target-platform/obj-suffix]
+                    ]
                 ]
             ]
 
@@ -725,7 +734,7 @@ ld: make linker-class [
             case [
                 file? exec-file [file-to-local exec-file]
                 exec-file [exec-file]
-                true [{gcc}]
+                default [{gcc}]
             ]
             
             if dynamic ["-shared"]
@@ -804,11 +813,10 @@ ld: make linker-class [
                 ;pass
             ]
 
-            ;-- default
-            (
+            default [
                 dump dep
                 fail "unrecognized dependency"
-            )
+            ]
         ]
     ]
 
@@ -848,7 +856,7 @@ llvm-link: make linker-class [
             case [
                 file? exec-file [file-to-local exec-file]
                 exec-file [exec-file]
-                true [{llvm-link}]
+                default [{llvm-link}]
             ]
             "-o" file-to-local either ends-with? output suffix [
                 output
@@ -917,12 +925,10 @@ llvm-link: make linker-class [
             'entry-class [
                 ;pass
             ]
-
-            ;-- default
-            (
+            default [
                 dump dep
                 fail "unrecognized dependency"
-            )
+            ]
         ]
     ]
 ]
@@ -952,7 +958,7 @@ link: make linker-class [
             case [
                 file? exec-file [file-to-local exec-file]
                 exec-file [exec-file]
-                true [{link}]
+                default [{link}]
             ]
             "/NOLOGO"
             if dynamic ["/DLL"]
@@ -1032,12 +1038,10 @@ link: make linker-class [
             'entry-class [
                 ;pass
             ]
-
-            ;-- default
-            (
+            default [
                 dump dep
                 fail "unrecognized dependency"
-            )
+            ]
         ]
     ]
 ]
@@ -1058,7 +1062,7 @@ strip-class: make object! [
             case [
                 file? exec-file [file-to-local exec-file]
                 exec-file [exec-file]
-                true [ {strip} ]
+                default [ {strip} ]
             ]
             if flags: any [
                 all [params flags]
@@ -1118,18 +1122,18 @@ object-file-class: make object! [
             case [
                 all [I includes][join-of includes ex-includes]
                 I [ex-includes]
-                true [includes]
+                default [includes]
             ]
             case [
                 all [D definitions][join-of definitions ex-definitions]
                 D [ex-definitions]
-                true [definitions]
+                default [definitions]
             ]
             case [
                 ;putting cflags after ex-cflags so that it has a chance to overwrite
                 all [F cflags][join-of ex-cflags cflags]
                 F [ex-cflags]
-                true [cflags]
+                default [cflags]
             ]
 
             ; current setting overwrites /refinement
@@ -1228,8 +1232,9 @@ generator-class: make object! [
             'cmd-strip-class [
                 apply any [:gen-cmd-strip :target-platform/gen-cmd-strip] compose [cmd: (cmd)]
             ]
-
-            (fail ["Unknown cmd class:" cmd/class-name])
+            default [
+                fail ["Unknown cmd class:" cmd/class-name]
+            ]
         ]
     ]
 
@@ -1336,15 +1341,16 @@ generator-class: make object! [
 
         case [
             blank? project/output [
-                if null? switch project/class-name [
+                switch project/class-name [
                     'object-file-class [
                         project/output: copy project/source
                     ]
                     'object-library-class [
                         project/output: to text! project/name
                     ]
-                ][
-                    fail ["Unexpected project class:" (project/class-name)]
+                    default [
+                        fail ["Unexpected project class:" (project/class-name)]
+                    ]
                 ]
                 if output-ext: try find/last project/output #"." [
                     remove output-ext
@@ -1378,7 +1384,7 @@ generator-class: make object! [
     ][
         ;print ["Setting outputs for:"]
         ;dump project
-        if null? switch project/class-name [
+        switch project/class-name [
             'application-class
             'dynamic-library-class
             'static-library-class
@@ -1395,8 +1401,9 @@ generator-class: make object! [
             'object-file-class [
                 setup-output project
             ]
-        ][
-            return
+            default [
+                return
+            ]
         ]
     ]
 ]
@@ -1448,11 +1455,17 @@ makefile: make generator-class [
                                         ;only contribute to the command line
                                     ]
 
-                                    (case [
-                                        file? w [file-to-local w]
-                                        file? w/output [file-to-local w/output]
-                                        w/output
-                                    ])
+                                    default [
+                                        case [
+                                            file? w [file-to-local w]
+                                            file? w/output [
+                                                file-to-local w/output
+                                            ]
+                                            default [
+                                                w/output
+                                            ]
+                                        ]
+                                    ]
                                 ]
                             ]
                         ]
@@ -1461,7 +1474,7 @@ makefile: make generator-class [
                         ]
                         blank? entry/depends [
                         ]
-                        true [
+                        default [
                             fail ["unrecognized depends for" entry entry/depends]
                         ]
                     ]
@@ -1494,8 +1507,9 @@ makefile: make generator-class [
                 ]
             ]
 
-            ;-- default
-            (fail ["Unrecognized entry class:" entry/class-name])
+            default [
+                fail ["Unrecognized entry class:" entry/class-name]
+            ]
         ]
     ]
 
@@ -1525,7 +1539,7 @@ makefile: make generator-class [
                     dep/generated?: true
                 ]
             ]
-            if null? switch dep/class-name [
+            switch dep/class-name [
                 'application-class
                 'dynamic-library-class
                 'static-library-class [
@@ -1570,9 +1584,11 @@ makefile: make generator-class [
                 'ext-dynamic-class 'ext-static-class [
                     ;pass
                 ]
-            ][
-                dump dep
-                fail ["unrecognized project type:" dep/class-name]
+
+                default [
+                    dump dep
+                    fail ["unrecognized project type:" dep/class-name]
+                ]
             ]
         ]
     ]
@@ -1619,13 +1635,12 @@ Execution: make generator-class [
         'OSX [osx]
         'Android [android]
 
-        ;-- default
-        (
+        default [
            print [
                "Untested platform" system/platform "- assume POSIX compilant"
            ]
            posix
-        )
+        ]
     ]
 
     gen-cmd-create: :host/gen-cmd-create
@@ -1639,7 +1654,7 @@ Execution: make generator-class [
         <local>
         cmd
     ][
-        if null? switch target/class-name [
+        switch target/class-name [
             'var-class [
                 ;pass: already been taken care of by PREPARE
             ]
@@ -1661,9 +1676,10 @@ Execution: make generator-class [
                     call/wait/shell cmd
                 ]
             ]
-        ][
-            dump target
-            fail "Unrecognized target class"
+            default [
+                dump target
+                fail "Unrecognized target class"
+            ]
         ]
     ]
 
@@ -1687,7 +1703,7 @@ Execution: make generator-class [
             project/generated?: true
         ]
 
-        if null? switch project/class-name [
+        switch project/class-name [
             'application-class
             'dynamic-library-class
             'static-library-class [
@@ -1737,9 +1753,11 @@ Execution: make generator-class [
                     run dep
                 ]
             ]
-        ][
-            dump project
-            fail ["unrecognized project type:" project/class-name]
+
+            default [
+                dump project
+                fail ["unrecognized project type:" project/class-name]
+            ]
         ]
     ]
 ]
@@ -1916,15 +1934,16 @@ visual-studio: make generator-class [
     find-optimization: meth [
         optimization
     ][
-        if null? switch optimization [
+        switch optimization [
             0 _ 'no 'false 'off #[false] [
                 "Disabled"
             ]
             1 ["MinSpace"]
             2 ["MaxSpeed"]
             'x ["Full"]
-        ][
-            fail ["Unrecognized optimization level:" (optimization)]
+            default [
+                fail ["Unrecognized optimization level:" (optimization)]
+            ]
         ]
     ]
 
@@ -2067,8 +2086,9 @@ visual-studio: make generator-class [
       'dynamic-library-class ["DynamicLibrary"]
       'application-class ["Application"]
       'entry-class ["Utility"]
-      ;-- default
-      (fail ["Unsupported project class:" (project/class-name)])
+      default [
+          fail ["Unsupported project class:" (project/class-name)]
+      ]
 ] {</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>Unicode</CharacterSet>
