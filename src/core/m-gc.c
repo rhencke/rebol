@@ -1296,6 +1296,15 @@ static void Mark_Frame_Stack_Deep(void)
             continue;
         }
 
+        if (f->varlist and GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) {
+            //
+            // This happens in Encloser_Dispatcher(), where it can capture a
+            // varlist that may not be managed (e.g. if there were no ADAPTs
+            // or other phases running that triggered it).
+            //
+            continue;
+        }
+
         // Mark arguments as used, but only as far as parameter filling has
         // gotten (may be garbage bits past that).  Could also be an END value
         // of an in-progress arg fulfillment, but in that case it is protected
