@@ -771,6 +771,10 @@ struct Reb_Frame {
     name->dsp_orig = DSP;
 
 
+#define FS_TOP (TG_Top_Frame + 0) // avoid assign to FS_TOP via + 0
+#define FS_BOTTOM (TG_Bottom_Frame + 0) // avoid assign to FS_BOTTOM via + 0
+
+
 // Hookable "Rebol DO Function" and "Rebol APPLY Function".  See PG_Do and
 // PG_Dispatcher for usage.
 //

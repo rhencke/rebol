@@ -281,11 +281,11 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     //
     if (flags & ARRAY_FLAG_FILE_LINE) { // most callsites const fold this
         if (
-            TG_Frame_Stack and TG_Frame_Stack->source.array and
-            GET_SER_FLAG(TG_Frame_Stack->source.array, ARRAY_FLAG_FILE_LINE)
+            FS_TOP->source.array and
+            GET_SER_FLAG(FS_TOP->source.array, ARRAY_FLAG_FILE_LINE)
         ){
-            LINK(s).file = LINK(TG_Frame_Stack->source.array).file;
-            MISC(s).line = MISC(TG_Frame_Stack->source.array).line;
+            LINK(s).file = LINK(FS_TOP->source.array).file;
+            MISC(s).line = MISC(FS_TOP->source.array).line;
         }
         else
             CLEAR_SER_FLAG(s, ARRAY_FLAG_FILE_LINE);

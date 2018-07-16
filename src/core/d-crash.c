@@ -107,7 +107,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
     // Address Sanitizer gives a reasonable idea of the stack.
     //
     Dump_Info();
-    Dump_Stack(NULL, 0);
+    Dump_Stack(FS_TOP, 0);
   #endif
 
   #if !defined(NDEBUG) && defined(HAVE_EXECINFO_AVAILABLE)

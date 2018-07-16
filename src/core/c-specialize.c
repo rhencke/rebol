@@ -999,23 +999,6 @@ REB_R Block_Dispatcher(REBFRM *f)
 
 
 //
-//  defer-0: native [
-//
-//  {<INTERNAL> No-op dispatcher used to avoid a flag check in the eval loop}
-//
-//  ]
-//
-REBNATIVE(defer_0)
-//
-// See `#define FRM_PHASE` for the safety precaution that helps this not be
-// mistaken for the actual intended phase of a frame being fulfilled.
-{
-    Init_Bar(D_OUT);
-    return D_OUT;
-}
-
-
-//
 //  Make_Invocation_Frame_Throws: C
 //
 // Logic shared currently by DOES and MATCH to build a single executable
@@ -1084,9 +1067,9 @@ REBOOL Make_Invocation_Frame_Throws(
     //
     assert(FRM_BINDING(f) == VAL_BINDING(action));
     assert(FRM_PHASE(f) == VAL_ACTION(action));
-    FRM_PHASE_OR_DEFER_0(f) = NAT_ACTION(defer_0);
+    FRM_PHASE_OR_DUMMY(f) = PG_Dummy_Action;
     (*PG_Do)(f);
-    FRM_PHASE_OR_DEFER_0(f) = VAL_ACTION(action);
+    FRM_PHASE_OR_DUMMY(f) = VAL_ACTION(action);
     FRM_BINDING(f) = VAL_BINDING(action); // can change during invoke
 
     // The function did not actually execute, so no SPC(f) was never handed
@@ -1107,7 +1090,7 @@ REBOOL Make_Invocation_Frame_Throws(
     if (THROWN(f->out))
         return true;
 
-    assert(IS_BAR(f->out)); // guaranteed by defer_0, for the skipped action
+    assert(IS_NULLED(f->out)); // guaranteed by dummy, for the skipped action
 
     // === END SECOND PART OF CODE FROM DO_SUBFRAME ===
 

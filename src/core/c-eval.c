@@ -104,7 +104,7 @@ REB_R Dispatcher_Core(REBFRM * const f) {
     // in order to build the frame of a function without running it.  This
     // is one of the few places tolerant of the lie, so don't call FRM_PHASE()
     //
-    return ACT_DISPATCHER(FRM_PHASE_OR_DEFER_0(f))(f);
+    return ACT_DISPATCHER(FRM_PHASE_OR_DUMMY(f))(f);
 }
 
 
@@ -2447,7 +2447,7 @@ post_switch:;
         //
         assert(
             f->gotten == Get_Opt_Var_Else_End(f->value, f->specifier)
-            or (f->prior and f->prior->deferred == BLANK_VALUE) // !!! hack
+            or (f->prior->deferred == BLANK_VALUE) // !!! hack
         );
     }
 

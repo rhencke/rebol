@@ -291,7 +291,7 @@ REBNATIVE(parent_of)
     // `pending? = true` ones count).
     //
     REBFRM *f = CTX_FRAME_MAY_FAIL(VAL_CONTEXT(frame));
-    while ((f = f->prior) != NULL) {
+    while ((f = f->prior) != FS_BOTTOM) {
         if (Is_Action_Frame(f)) {
             Move_Value(D_OUT, CTX_ARCHETYPE(Context_For_Frame_May_Manage(f)));
             return D_OUT;

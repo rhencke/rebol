@@ -89,7 +89,7 @@ void Make_Thrown_Unwind_Value(
 
         REBFRM *f = frame->prior;
         for (; TRUE; f = f->prior) {
-            if (f == NULL)
+            if (f == FS_BOTTOM)
                 fail (Error_Invalid_Exit_Raw());
 
             if (not Is_Action_Frame(f))
@@ -110,7 +110,7 @@ void Make_Thrown_Unwind_Value(
 
         REBFRM *f = frame->prior;
         for (; TRUE; f = f->prior) {
-            if (f == NULL)
+            if (f == FS_BOTTOM)
                 fail (Error_Invalid_Exit_Raw());
 
             if (not Is_Action_Frame(f))

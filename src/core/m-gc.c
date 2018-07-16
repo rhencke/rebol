@@ -938,7 +938,7 @@ static void Reify_Any_C_Valist_Frames(void)
     ASSERT_NO_GC_MARKS_PENDING();
 
     REBFRM *f = FS_TOP;
-    for (; f != NULL; f = f->prior) {
+    for (; f != FS_BOTTOM; f = f->prior) {
         if (not FRM_AT_END(f) and FRM_IS_VALIST(f)) {
             const REBOOL truncated = TRUE;
             Reify_Va_To_Array_In_Frame(f, truncated);
@@ -992,13 +992,6 @@ static void Mark_Root_Series(void)
 
                 if (not (s->header.bits & NODE_FLAG_MANAGED))
                     assert(not LINK(s).owner);
-                else if (not LINK(s).owner) {
-                    //
-                    // TBD: ensure at least one frame always exists, that
-                    // way "managed but no owner" won't need to happen.
-                    //
-                    s->header.bits |= NODE_FLAG_MARKED;
-                }
                 else if (
                     SER(LINK(s).owner)->info.bits & SERIES_INFO_INACCESSIBLE
                 ){
@@ -1195,9 +1188,9 @@ static void Mark_Guarded_Nodes(void)
 //
 static void Mark_Frame_Stack_Deep(void)
 {
-    REBFRM *f = TG_Frame_Stack;
+    REBFRM *f = FS_TOP;
 
-    for (; f != NULL; f = f->prior) {
+    while (true) { // mark all frames (even FS_BOTTOM)
         assert(f->eval_type <= REB_MAX_NULLED);
 
         // Should have taken care of reifying all the VALIST on the stack
@@ -1268,7 +1261,7 @@ static void Mark_Frame_Stack_Deep(void)
             // while evaluating the group it has no anchor anywhere in the
             // root set and could be GC'd.  The Reb_Frame's array ref is it.
             //
-            continue;
+            goto propagate_and_continue;
         }
 
         Queue_Mark_Action_Deep(f->original); // never NULL
@@ -1293,7 +1286,7 @@ static void Mark_Frame_Stack_Deep(void)
             //
             assert(IS_END(f->param)); // done walking
             Queue_Mark_Context_Deep(CTX(f->varlist));
-            continue;
+            goto propagate_and_continue;
         }
 
         if (f->varlist and GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) {
@@ -1302,7 +1295,7 @@ static void Mark_Frame_Stack_Deep(void)
             // varlist that may not be managed (e.g. if there were no ADAPTs
             // or other phases running that triggered it).
             //
-            continue;
+            goto propagate_and_continue;
         }
 
         // Mark arguments as used, but only as far as parameter filling has
@@ -1314,15 +1307,16 @@ static void Mark_Frame_Stack_Deep(void)
         // this is the "doing pickups" or not.  If doing pickups then skip the
         // cells for pending refinement arguments.
         //
-        REBACT *phase = FRM_PHASE_OR_DEFER_0(f);
+        REBACT *phase; // goto would cross initialization
+        phase = FRM_PHASE_OR_DUMMY(f);
         REBVAL *param;
-        if (phase == NAT_ACTION(defer_0))
+        if (phase == PG_Dummy_Action)
             param = ACT_PARAMS_HEAD(f->original); // no phases will run
         else
             param = ACT_FACADE_HEAD(phase);
 
-        REBVAL *arg = FRM_ARGS_HEAD(f);
-        for (; NOT_END(param); ++param, ++arg) {
+        REBVAL *arg;
+        for (arg = FRM_ARGS_HEAD(f); NOT_END(param); ++param, ++arg) {
             //
             // At time of writing, all frame storage is in stack cells...not
             // varlists.
@@ -1356,7 +1350,13 @@ static void Mark_Frame_Stack_Deep(void)
             Queue_Mark_Opt_Value_Deep(arg);
         }
 
+      propagate_and_continue:;
+
         Propagate_All_GC_Marks();
+        if (f == FS_BOTTOM)
+            break;
+
+        f = f->prior;
     }
 }
 

@@ -637,12 +637,12 @@ const void *RL_rebEval(const REBVAL *v)
 //
 //  rebUneval: RL_API
 //
-// voids are represented as null, and they are not legal to splice into
-// blocks.  So the rebUneval() expression works around it by splicing in a
-// GROUP!, and if it's not void then it puts an QUOTE and the value inside.
+// nulls are not legal to splice into blocks.  So the rebUneval() expression
+// works around it by splicing in a GROUP!, and if it's not null then it puts
+// a QUOTE and the value inside.
 //
-//    void => `()`
-//    non-void => `(quote ...)`
+//    null => `()`
+//    non-null => `(quote ...)`
 //
 // There's a parallel Rebol action! that does this called UNEVAL, which is
 // for use with REDUCE and COMPOSE/ONLY.  However, rather than return REBVAL*
@@ -685,9 +685,8 @@ const void *RL_rebUneval(const REBVAL *v)
 // they are seen (or even if they are not seen, if there is a failure on that
 // call it will still process the va_list in order to release these handles)
 //
-// Though what is returned is a REBVAL*, it is returned as a const void*,
-// in order to discourage using these anywhere than as an argument to a
-// variadic API like rebRun().
+// It is returned as a const void*, in order to discourage using these
+// anywhere besides as an argument to a variadic API like rebRun().
 //
 const void *RL_rebR(REBVAL *v)
 {
@@ -857,24 +856,6 @@ int RL_rebEvent(REBEVT *evt)
 
 
 //
-//  rescue: native [
-//
-//  {Dummy ACTION! for rebRescue() API to hinge stray allocations to}
-//
-//  ]
-//
-REBNATIVE(rescue)
-//
-// !!! *VERY* temporary hack, because API handles must be owned by frames
-// that can be reified.  The system currently does not allow the reification
-// of non-ACTION! frames.
-{
-    UNUSED(frame_);
-    return R_UNHANDLED;
-}
-
-
-//
 //  rebRescue: RL_API
 //
 // This API abstracts the mechanics by which exception-handling is done.
@@ -921,6 +902,11 @@ REBVAL *RL_rebRescue(
 ){
     Enter_Api();
 
+    struct Reb_State state;
+    REBCTX *error_ctx;
+
+    PUSH_TRAP(&error_ctx, &state);
+
     // We want allocations that occur in the body of the C function for the
     // rebRescue() to be automatically cleaned up in the case of an error.
     //
@@ -938,21 +924,13 @@ REBVAL *RL_rebRescue(
     Push_Frame_At_End(f, DO_FLAG_GOTO_PROCESS_ACTION); // not FULLY_SPECIALIZED
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
-    Push_Action(f, NAT_ACTION(rescue), UNBOUND);
+    Push_Action(f, PG_Dummy_Action, UNBOUND);
     Begin_Action(f, opt_label, m_cast(REBVAL*, END));
-  #if !defined(NDEBUG)
-    Prep_Stack_Cell(f->arg);
-    Init_Unreadable_Blank(f->arg);
-  #endif
+    assert(IS_END(f->arg));
     f->param = END; // signal all arguments gathered
     assert(f->refine == END); // passed to Begin_Action();
     f->arg = m_cast(REBVAL*, END);
     f->special = END;
-
-    struct Reb_State state;
-    REBCTX *error_ctx;
-
-    PUSH_TRAP(&error_ctx, &state);
 
     // The first time through the following code 'error' will be null, but...
     // `fail` can longjmp here, so 'error' won't be null *if* that happens!
@@ -968,10 +946,10 @@ REBVAL *RL_rebRescue(
 
     REBVAL *result = (*dangerous)(opaque);
 
-    DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
-
     Drop_Action(f);
     Drop_Frame_Core(f); // f->eval_type may not be REB_0
+
+    DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 
     if (not result)
         return nullptr; // null is considered a legal result
@@ -1036,38 +1014,6 @@ REBVAL *RL_rebRescueWith(
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 
     return result; // no special handling, may be NULL
-}
-
-
-inline static REBFRM *Extract_Live_Rebfrm_May_Fail(const REBVAL *frame) {
-    if (not IS_FRAME(frame))
-        fail ("Not a FRAME!");
-
-    REBFRM *f = CTX_FRAME_MAY_FAIL(VAL_CONTEXT(frame));
-
-    assert(Is_Action_Frame(f) and not Is_Action_Frame_Fulfilling(f));
-    return f;
-}
-
-
-//
-//  rebFrmNumArgs: RL_API
-//
-REBCNT RL_rebFrmNumArgs(const REBVAL *frame) {
-    Enter_Api();
-
-    REBFRM *f = Extract_Live_Rebfrm_May_Fail(frame);
-    return FRM_NUM_ARGS(f);
-}
-
-//
-//  rebFrmArg: RL_API
-//
-REBVAL *RL_rebFrmArg(const REBVAL *frame, REBCNT n) {
-    Enter_Api();
-
-    REBFRM *f = Extract_Live_Rebfrm_May_Fail(frame);
-    return FRM_ARG(f, n);
 }
 
 
@@ -1708,11 +1654,8 @@ REBVAL *RL_rebManage(REBVAL *v)
         fail ("Attempt to rebManage() a handle that's already managed.");
 
     SET_SER_FLAG(a, NODE_FLAG_MANAGED);
-    assert(LINK(a).owner == UNBOUND);
-    if (not FS_TOP)
-        LINK(a).owner = UNBOUND;
-    else
-        LINK(a).owner = NOD(Context_For_Frame_May_Manage(FS_TOP));
+    assert(not LINK(a).owner);
+    LINK(a).owner = NOD(Context_For_Frame_May_Manage(FS_TOP));
 
     return v;
 }
@@ -1747,10 +1690,7 @@ void RL_rebUnmanage(void *p)
     // own risk to do this, and not use those pointers after a free.
     //
     CLEAR_SER_FLAG(a, NODE_FLAG_MANAGED);
-    assert(
-        LINK(a).owner == UNBOUND // freed when program exits
-        or GET_SER_FLAG(LINK(a).owner, ARRAY_FLAG_VARLIST)
-    );
+    assert(GET_SER_FLAG(LINK(a).owner, ARRAY_FLAG_VARLIST));
     LINK(a).owner = UNBOUND;
 }
 

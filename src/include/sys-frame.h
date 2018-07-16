@@ -88,7 +88,6 @@ static inline void CATCH_THROWN(REBVAL *arg_out, REBVAL *thrown) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 
-#define FS_TOP (TG_Frame_Stack + 0) // avoid assignment to FS_TOP via + 0
 
 inline static REBOOL FRM_IS_VALIST(REBFRM *f) {
     assert(not IS_POINTER_TRASH_DEBUG(f->source.vaptr));
@@ -136,21 +135,26 @@ inline static REBSTR* FRM_FILE(REBFRM *f) {
     // be kept as a UTF-8 string inside the frame without needing interning
     // as a series.  But for now, just signal that it came from C code.
     //
-    if (f->source.array == NULL)
-        return Canon(SYM___ANONYMOUS__);
+    if (not f->source.array)
+        return nullptr;
 
     if (NOT_SER_FLAG(f->source.array, ARRAY_FLAG_FILE_LINE))
-        return Canon(SYM___ANONYMOUS__);
+        return nullptr;
 
     return LINK(f->source.array).file;
 }
 
 inline static const char* FRM_FILE_UTF8(REBFRM *f) {
-    return STR_HEAD(FRM_FILE(f));
+    //
+    // !!! Note: This is used too early in boot at the moment to use
+    // Canon(__ANONYMOUS__).
+    //
+    REBSTR *str = FRM_FILE(f);
+    return str ? STR_HEAD(str) : "(anonymous)"; 
 }
 
 inline static int FRM_LINE(REBFRM *f) {
-    if (f->source.array == NULL)
+    if (not f->source.array)
         return 0;
 
     if (NOT_SER_FLAG(f->source.array, ARRAY_FLAG_FILE_LINE))
@@ -179,12 +183,12 @@ inline static int FRM_LINE(REBFRM *f) {
 #define FRM_PRIOR(f) \
     ((f)->prior + 0) // prevent assignment via this macro
 
-#define FRM_PHASE_OR_DEFER_0(f) \
+#define FRM_PHASE_OR_DUMMY(f) \
     f->rootvar->payload.any_context.phase
 
 #if defined(NDEBUG) or !defined(__cplusplus)
     #define FRM_PHASE(f) \
-        FRM_PHASE_OR_DEFER_0(f)
+        FRM_PHASE_OR_DUMMY(f)
 #else
     // The C++ debug build adds a check that a frame is not uing a tricky
     // noop dispatcher, when access to the phase is gotten with FRM_PHASE().
@@ -198,8 +202,8 @@ inline static int FRM_LINE(REBFRM *f) {
     // Any manipulations aware of this hack need to access the field directly.
     //
     inline static REBACT* &FRM_PHASE(REBFRM *f) {
-        REBACT* &phase = FRM_PHASE_OR_DEFER_0(f);
-        assert(phase != NAT_ACTION(defer_0));
+        REBACT* &phase = FRM_PHASE_OR_DUMMY(f);
+        assert(phase != PG_Dummy_Action);
         return phase;
     }
 #endif
@@ -438,7 +442,7 @@ inline static void Begin_Action(
 ){
     f->eval_type = REB_ACTION; // must set here, frame label fetch requires it
     assert(not f->original);
-    f->original = FRM_PHASE(f);
+    f->original = FRM_PHASE_OR_DUMMY(f);
 
     assert(IS_POINTER_TRASH_DEBUG(f->opt_label)); // only valid w/REB_ACTION
     assert(not opt_label or GET_SER_FLAG(opt_label, SERIES_FLAG_UTF8_STRING));

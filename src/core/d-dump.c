@@ -240,10 +240,7 @@ void Dump_Stack(REBFRM *f, REBCNT level)
 {
     printf("\n");
 
-    if (f == NULL)
-        f = FS_TOP;
-
-    if (f == NULL) {
+    if (f == FS_BOTTOM) {
         printf("*STACK[] - NO FRAMES*\n");
         fflush(stdout);
         return;
@@ -287,7 +284,7 @@ void Dump_Stack(REBFRM *f, REBCNT level)
             );
     }
 
-    if (f->prior)
+    if (f->prior != FS_BOTTOM)
         Dump_Stack(f->prior, level + 1);
 }
 

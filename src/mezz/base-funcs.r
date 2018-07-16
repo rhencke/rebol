@@ -86,7 +86,6 @@ was: func [
 ;-- These are internal and not meant to be exposed or called directly
 unset 'return-0
 unset 'return-1
-unset 'defer-0
 
 function: func [
     {Make action with set-words as locals, <static>, <in>, <with>, <local>}

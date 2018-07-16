@@ -135,10 +135,10 @@ PVAR REBFLGS Eval_Signals;   // Signal flags
 
 PVAR REBBRK PG_Breakpoint_Hook; // hook called to spawn the debugger
 
-// !!! See bad hack in %t-port.c that uses this for the moment.
+// The "dummy" action is used in frames which are marked as being action
+// frames because they need a varlist, that don't actually execute.
 //
-PVAR REBVAL PG_Write_Action;
-
+PVAR REBACT *PG_Dummy_Action;
 
 // It is possible to swap out the evaluator for one that does tracing, or
 // single step debugging, etc.
@@ -206,7 +206,9 @@ TVAR uintptr_t TG_Stack_Limit;    // Limit address for CPU stack.
 // be filtered to get an understanding of something like a "backtrace of
 // currently running functions".
 //
-TVAR REBFRM *TG_Frame_Stack;
+TVAR REBFRM *TG_Top_Frame;
+TVAR REBFRM *TG_Bottom_Frame;
+
 
 // When Drop_Frame() happens, it may have an allocated varlist REBARR that
 // can be reused by the next Push_Frame().  Reusing this has a significant

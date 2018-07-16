@@ -134,23 +134,7 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
     if (REF(line))
         fail (Error_Bad_Refines_Raw());
 
-    REBARR *a = Make_Array(2);
-    Move_Value(Alloc_Tail_Array(a), &PG_Write_Action);
-    Init_Word(Alloc_Tail_Array(a), Canon(SYM_APPEND));
-
-    DECLARE_LOCAL (write_append);
-    Init_Path(write_append, a);
-
-    assert(not IS_NULLED(D_ARG(1))); // would need to DEVOID otherwise
-    assert(not IS_NULLED(D_ARG(2))); // would need to DEVOID otherwise
-
-    if (Apply_Only_Throws(
-        D_OUT, TRUE, write_append, D_ARG(1), D_ARG(2), END
-    )){
-        return D_OUT;
-    }
-
-    return D_OUT;
+    return rebRun("write/append", D_ARG(1), D_ARG(2), END);
 }
 
 

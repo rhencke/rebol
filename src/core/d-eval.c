@@ -213,8 +213,7 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
     // the debug build with trash pointer.
     //
     assert(
-        not f->prior
-        or IS_POINTER_TRASH_DEBUG(f->prior->gotten)
+        IS_POINTER_TRASH_DEBUG(f->prior->gotten)
         or f->prior->gotten == END
     );
 
@@ -306,10 +305,10 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     Init_Unreadable_Blank(&f->cell); // DECLARE_FRAME() requires GC safe
   #endif
 
-    // See FRM_PHASE() for why it's not allowed when DEFER-0 is the dispatcher
+    // See FRM_PHASE() for why it's not allowed when dummy is the dispatcher
     //
     REBACT *phase = f->rootvar->payload.any_context.phase;
-    if (phase == NAT_ACTION(defer_0))
+    if (phase == PG_Dummy_Action)
         return;
 
     //=//// v-- BELOW CHECKS ONLY APPLY WHEN FRM_PHASE() is VALID ////////=//
@@ -327,10 +326,8 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
         // and this check is here pending a more elegant sorting of this.
         //
         assert(
-            f->prior and (
-                FRM_PHASE(f->prior) == NAT_ACTION(do)
-                or FRM_PHASE(f->prior) == NAT_ACTION(apply)
-            )
+            FRM_PHASE(f->prior) == NAT_ACTION(do)
+            or FRM_PHASE(f->prior) == NAT_ACTION(apply)
         );
     }
 
@@ -356,8 +353,8 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 
     // See FRM_PHASE() for why it's not allowed when DEFER-0 is the dispatcher
     //
-    REBACT *phase = FRM_PHASE_OR_DEFER_0(f);
-    if (phase == NAT_ACTION(defer_0))
+    REBACT *phase = FRM_PHASE_OR_DUMMY(f);
+    if (phase == PG_Dummy_Action)
         return;
 
     //=//// v-- BELOW CHECKS ONLY APPLY WHEN FRM_PHASE() is VALID ////////=//

@@ -374,17 +374,6 @@ REBNATIVE(action)
 
     Init_Action_Unbound(D_OUT, a);
 
-    // !!! A very hacky (yet less hacky than R3-Alpha) re-dispatch of APPEND
-    // as WRITE/APPEND on ports requires knowing what the WRITE action is.
-    // Rather than track an entire table of all the actions in order to
-    // support that and thus endorse this hack being used other places, just
-    // save the write action into a global.
-    //
-    if (VAL_WORD_SYM(ARG(verb)) == SYM_WRITE) {
-        Prep_Non_Stack_Cell(&PG_Write_Action);
-        Move_Value(&PG_Write_Action, D_OUT);
-    }
-
     return D_OUT;
 }
 
@@ -719,6 +708,37 @@ static REBARR *Startup_Actions(REBARR *boot_actions)
 
 
 //
+//  Startup_End_0: C
+//
+// We can't actually put an end value in the middle of a block, so we poke
+// this one into a program global.  It is not legal to bit-copy an END (you
+// always use SET_END), so we can make it unwritable.
+//
+static void Startup_End_0(void)
+{
+    Init_Endlike_Header(&PG_End_Node.header, 0); // mutate to read-only end
+    TRACK_CELL_IF_DEBUG(&PG_End_Node, __FILE__, __LINE__);
+    assert(IS_END(END)); // sanity check that it took
+    assert(VAL_TYPE_OR_0(END) == REB_0); // *only* for this global END marker!
+}
+
+
+//
+//  Startup_Empty_Array: C
+//
+// Generic read-only empty array, which will be put into EMPTY_BLOCK when
+// Alloc_Value() is available.  Note it's too early for ARRAY_FLAG_FILE_LINE.
+//
+// Warning: GC must not run before Init_Root_Vars() puts it in an API node!
+//
+static void Startup_Empty_Array(void)
+{
+    PG_Empty_Array = Make_Array_Core(0, NODE_FLAG_MANAGED);
+    SET_SER_INFO(PG_Empty_Array, SERIES_INFO_FROZEN);
+}
+
+
+//
 //  Init_Root_Vars: C
 //
 // Create some global variables that are useful, and need to be safe from
@@ -776,20 +796,6 @@ static void Init_Root_Vars(void)
     Init_Void(&PG_Void_Value[0]);
     TRASH_CELL_IF_DEBUG(&PG_Void_Value[1]);
 
-    // We can't actually put an end value in the middle of a block, so we poke
-    // this one into a program global.  It is not legal to bit-copy an
-    // END (you always use SET_END), so we can make it unwritable.
-    //
-    Init_Endlike_Header(&PG_End_Node.header, 0); // mutate to read-only end
-    TRACK_CELL_IF_DEBUG(&PG_End_Node, __FILE__, __LINE__);
-    assert(IS_END(END)); // sanity check that it took
-    assert(VAL_TYPE_OR_0(END) == REB_0); // *only* for this global END marker!
-
-    // Generic read-only empty array, and locked block containing it.
-    // rebBlock() can't be used yet (there is no data stack)
-    //
-    PG_Empty_Array = Make_Array(0);
-    SET_SER_INFO(PG_Empty_Array, SERIES_INFO_FROZEN);
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);
     rebLock(Root_Empty_Block, END);
 
@@ -999,8 +1005,6 @@ void Startup_Task(void)
     Eval_Sigmask = ALL_BITS;
     Eval_Limit = 0;
 
-    Startup_Stacks(STACK_MIN / 4);
-
     TG_Ballast = MEM_BALLAST; // or overwritten by debug build below...
     TG_Max_Ballast = MEM_BALLAST;
 
@@ -1033,9 +1037,7 @@ void Startup_Task(void)
 
     Startup_Raw_Print();
     Startup_Scanner();
-    Startup_Mold(MIN_COMMON / 4);
     Startup_String();
-    Startup_Collector();
 }
 
 
@@ -1097,6 +1099,30 @@ void Set_Stack_Limit(void *base) {
 static REBVAL *Startup_Mezzanine(BOOT_BLK *boot);
 
 
+#if !defined(NDEBUG)
+//
+//  Startup_Trash_Debug: C
+//
+// The C language initializes global variables to 0.
+//
+// https://stackoverflow.com/q/2091499
+//
+// For some values this may risk them being consulted and interpreted as the
+// 0 carrying information, as opposed to them not being ready yet.  Any
+// variables that should be trashed up front should do so here.
+//
+static void Startup_Trash_Debug(void)
+{
+    assert(not TG_Top_Frame);
+    TRASH_POINTER_IF_DEBUG(TG_Top_Frame);
+    assert(not TG_Bottom_Frame);
+    TRASH_POINTER_IF_DEBUG(TG_Bottom_Frame);
+
+    // ...add more on a case-by-case basis if the case seems helpful...
+}
+#endif
+
+
 //
 //  Startup_Core: C
 //
@@ -1121,6 +1147,9 @@ static REBVAL *Startup_Mezzanine(BOOT_BLK *boot);
 //
 void Startup_Core(void)
 {
+  #if !defined(NDEBUG)
+    Startup_Trash_Debug();
+  #endif
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
@@ -1196,6 +1225,15 @@ void Startup_Core(void)
     Startup_CRC();             // For word hashing
     Set_Random(0);
     Startup_Interning();
+
+    Startup_End_0();
+    Startup_Empty_Array();
+
+    Startup_Collector();
+    Startup_Mold(MIN_COMMON / 4);
+
+    Startup_Data_Stack(STACK_MIN / 4);
+    Startup_Frame_Stack(); // uses Canon() in FRM_FILE() currently
 
     Startup_Api();
 
@@ -1364,7 +1402,7 @@ void Startup_Core(void)
 
     PG_Boot_Phase = BOOT_MEZZ;
 
-    assert(DSP == 0 and FS_TOP == NULL);
+    assert(DSP == 0 and FS_TOP == FS_BOTTOM);
 
     REBVAL *error = rebRescue(cast(REBDNG*, &Startup_Mezzanine), boot);
     if (error != NULL) {
@@ -1393,7 +1431,7 @@ void Startup_Core(void)
         panic (error);
     }
 
-    assert(DSP == 0 and FS_TOP == NULL);
+    assert(DSP == 0 and FS_TOP == FS_BOTTOM);
 
     DROP_GC_GUARD(boot_array);
 
@@ -1468,7 +1506,7 @@ void Shutdown_Core(void)
 
     assert(Saved_State == NULL);
 
-    Shutdown_Stacks();
+    Shutdown_Data_Stack();
 
     Shutdown_Stackoverflow();
     Shutdown_System_Object();
@@ -1477,6 +1515,8 @@ void Shutdown_Core(void)
     Shutdown_Action_Meta_Shim();
     Shutdown_Action_Spec_Tags();
     Shutdown_Root_Vars();
+
+    Shutdown_Frame_Stack();
 
     const REBOOL shutdown = true; // go ahead and free all managed series
     Recycle_Core(shutdown, NULL);
@@ -1495,6 +1535,7 @@ void Shutdown_Core(void)
     Shutdown_StdIO();
 
     Shutdown_Api();
+
     Shutdown_Symbols();
     Shutdown_Interning();
 

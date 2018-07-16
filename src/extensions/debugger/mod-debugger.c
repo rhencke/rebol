@@ -210,7 +210,7 @@ REBFRM *Frame_For_Stack_Level(
     if (skip_current)
         frame = frame->prior;
 
-    for (; frame != NULL; frame = frame->prior) {
+    for (; frame != FS_BOTTOM; frame = frame->prior) {
         if (not Is_Action_Frame(frame)) {
             //
             // Don't consider pending calls, or GROUP!, or any non-invoked
@@ -391,7 +391,7 @@ static REBNATIVE(resume)
         // the most recent one (if any, error if none found).
 
         frame = FS_TOP;
-        for (; frame != NULL; frame = frame->prior) {
+        for (; frame != FS_BOTTOM; frame = frame->prior) {
             if (not Is_Action_Frame(frame))
                 continue;
             if (Is_Action_Frame_Fulfilling(frame))
@@ -406,7 +406,7 @@ static REBNATIVE(resume)
             }
         }
 
-        if (frame == NULL)
+        if (frame == FS_BOTTOM)
             fail (Error_No_Current_Pause_Raw());
     }
 
@@ -769,7 +769,7 @@ REBOOL Do_Breakpoint_Throws(
         // it into an EXIT/FROM that would just get intercepted.
         //
         REBFRM *frame;
-        for (frame = FS_TOP; frame != NULL; frame = frame->prior) {
+        for (frame = FS_TOP; frame != FS_BOTTOM; frame = frame->prior) {
             if (not Is_Action_Frame(frame))
                 continue;
             if (Is_Action_Frame_Fulfilling(frame))

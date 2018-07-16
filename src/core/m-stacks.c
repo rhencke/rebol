@@ -32,9 +32,9 @@
 
 
 //
-//  Startup_Stacks: C
+//  Startup_Data_Stack: C
 //
-void Startup_Stacks(REBCNT size)
+void Startup_Data_Stack(REBCNT size)
 {
     // Start the data stack out with just one element in it, and make it an
     // unreadable blank in the debug build.  This helps avoid accidental
@@ -65,24 +65,107 @@ void Startup_Stacks(REBCNT size)
     // Now drop the hypothetical thing pushed that triggered the expand.
     //
     DS_DROP;
-
-    // Call stack (includes pending functions, parens...anything that sets
-    // up a `REBFRM` and calls Do_Core())  Singly linked.
-    //
-    TG_Frame_Stack = NULL;
 }
 
 
 //
-//  Shutdown_Stacks: C
+//  Shutdown_Data_Stack: C
 //
-void Shutdown_Stacks(void)
+void Shutdown_Data_Stack(void)
 {
-    assert(FS_TOP == NULL);
     assert(DSP == 0);
     ASSERT_UNREADABLE_IF_DEBUG(ARR_HEAD(DS_Array));
 
     Free_Unmanaged_Array(DS_Array);
+}
+
+
+//
+//  Startup_Frame_Stack: C
+//
+// We always push one unused frame at the top of the stack.  This way, it is
+// not necessary for unused frames to check if `f->prior` is null; it may be
+// assumed that it never is.
+//
+void Startup_Frame_Stack(void)
+{
+  #if !defined(NDEBUG) // see Startup_Trash_Debug() for explanation
+    assert(IS_POINTER_TRASH_DEBUG(TG_Top_Frame));
+    assert(IS_POINTER_TRASH_DEBUG(TG_Bottom_Frame));
+    TG_Top_Frame = TG_Bottom_Frame = nullptr;
+  #endif
+
+    REBFRM *f = ALLOC(REBFRM); // needs dynamic allocation
+    Prep_Stack_Cell(&f->cell);
+    Init_Unreadable_Blank(&f->cell);
+
+    f->out = m_cast(REBVAL*, END); // should not be written
+    Push_Frame_At_End(f, DO_FLAG_GOTO_PROCESS_ACTION);
+
+    // It's too early to be using Make_Paramlist_Managed_May_Fail()
+    //
+    REBARR *paramlist = Make_Array_Core(
+        1,
+        NODE_FLAG_MANAGED | SERIES_MASK_ACTION
+    );
+    LINK(paramlist).facade = paramlist;
+    MISC(paramlist).meta = nullptr;
+
+    RELVAL *archetype = ARR_HEAD(paramlist);
+    RESET_VAL_HEADER(archetype, REB_ACTION);
+    archetype->payload.action.paramlist = paramlist;
+    TERM_ARRAY_LEN(paramlist, 1);
+
+    PG_Dummy_Action = Make_Action(
+        paramlist,
+        &Null_Dispatcher,
+        NULL, // no facade (use paramlist)
+        NULL // no specialization exemplar (or inherited exemplar)
+    );
+    Init_Block(ACT_BODY(PG_Dummy_Action), EMPTY_ARRAY);
+
+    Reuse_Varlist_If_Available(f); // needed to attach API handles to
+    Push_Action(f, PG_Dummy_Action, UNBOUND);
+
+    REBSTR *opt_label = nullptr;
+    Begin_Action(f, opt_label, m_cast(REBVAL*, END));
+    assert(IS_END(f->arg));
+    f->param = END; // signal all arguments gathered
+    assert(f->refine == END); // passed to Begin_Action();
+    f->arg = m_cast(REBVAL*, END);
+    f->special = END;
+
+    TRASH_POINTER_IF_DEBUG(f->prior); // help catch enumeration past FS_BOTTOM
+    TG_Bottom_Frame = f;
+
+    assert(FS_TOP == f and FS_BOTTOM == f);
+}
+
+
+//
+//  Shutdown_Frame_Stack: C
+//
+void Shutdown_Frame_Stack(void)
+{
+    assert(FS_TOP == FS_BOTTOM);
+
+    // To stop enumerations from using nullptr to stop the walk, and not count
+    // the bottom frame as a "real stack level", it had a trash pointer put
+    // in the debug build.  Restore it to a typical null before the drop.
+    //
+    assert(IS_POINTER_TRASH_DEBUG(TG_Bottom_Frame->prior));
+    TG_Bottom_Frame->prior = nullptr;
+
+    REBFRM *f = FS_TOP;
+    Drop_Action(f);
+    Drop_Frame_Core(f);
+    assert(not FS_TOP);
+    FREE(REBFRM, f);
+
+    TG_Top_Frame = nullptr;
+    TG_Bottom_Frame = nullptr;
+
+    PG_Dummy_Action = nullptr; // was GC protected as FS_BOTTOM's f->original
 }
 
 

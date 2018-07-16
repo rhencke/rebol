@@ -185,7 +185,7 @@ void Trapped_Helper(struct Reb_State *s)
     }
 
     SET_SERIES_LEN(GC_Guarded, s->guarded_len);
-    TG_Frame_Stack = s->frame;
+    TG_Top_Frame = s->frame;
     TERM_SEQUENCE_LEN(MOLD_BUF, s->mold_buf_len);
 
   #if !defined(NDEBUG)
@@ -311,7 +311,7 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
         f = prior;
     }
 
-    TG_Frame_Stack = f; // TG_Frame_Stack is writable FS_TOP
+    TG_Top_Frame = f; // TG_Top_Frame is writable FS_TOP
 
     Saved_State->error = error;
 
@@ -457,7 +457,7 @@ void Set_Location_Of_Error(
     // from the top of stack and go downward.
     //
     REBFRM *f = where;
-    for (; f != NULL; f = f->prior) {
+    for (; f != FS_BOTTOM; f = f->prior) {
         //
         // Only invoked functions (not pending functions, groups, etc.)
         //
@@ -480,7 +480,7 @@ void Set_Location_Of_Error(
     // stack, looking for arrays with ARRAY_FLAG_FILE_LINE.
     //
     f = where;
-    for (; f != NULL; f = f->prior) {
+    for (; f != FS_BOTTOM; f = f->prior) {
         if (not f->source.array) {
             //
             // !!! We currently skip any calls from C (e.g. rebRun()) and look
@@ -494,7 +494,7 @@ void Set_Location_Of_Error(
             continue;
         break;
     }
-    if (f != NULL) {
+    if (f != FS_BOTTOM) {
         REBSTR *file = LINK(f->source.array).file;
         REBLIN line = MISC(f->source.array).line;
 
@@ -757,11 +757,7 @@ REBOOL Make_Error_Object_Throws(
         }
     }
 
-    // There might be no Rebol code running when the error is created (e.g.
-    // the static creation of the stack overflow error before any code runs)
-    //
-    if (FS_TOP != NULL)
-        Set_Location_Of_Error(error, FS_TOP);
+    Set_Location_Of_Error(error, FS_TOP);
 
     Init_Error(out, error);
     return FALSE;
@@ -945,11 +941,7 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
     Move_Value(&vars->id, id);
     Move_Value(&vars->type, type);
 
-    // There might be no Rebol code running when the error is created (e.g.
-    // the static creation of the stack overflow error before any code runs)
-    //
-    if (FS_TOP != NULL)
-        Set_Location_Of_Error(error, FS_TOP);
+    Set_Location_Of_Error(error, FS_TOP);
 
     // !!! We create errors and then fail() on them without ever putting them
     // into a REBVAL.  This means that if left unmanaged, they would count as

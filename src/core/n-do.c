@@ -191,7 +191,7 @@ REBNATIVE(eval_enfix)
     if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
         return D_OUT;
 
-    FS_TOP->deferred = NULL;
+    FS_TOP->deferred = nullptr;
 
     return D_OUT;
 }

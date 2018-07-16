@@ -52,7 +52,7 @@ REBINT Eval_Depth(void)
     REBINT depth = 0;
     REBFRM *frame = FS_TOP;
 
-    for (; frame != NULL; frame = FRM_PRIOR(frame), depth++)
+    for (; frame != FS_BOTTOM; frame = FRM_PRIOR(frame), depth++)
         NOOP;
 
     return depth;

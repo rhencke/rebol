@@ -146,7 +146,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     //
   #if !defined(NDEBUG)
     REBFRM *ftemp = FS_TOP;
-    for (; ftemp != nullptr; ftemp = ftemp->prior) {
+    for (; ftemp != FS_BOTTOM; ftemp = ftemp->prior) {
         if (not Is_Action_Frame(ftemp))
             continue;
         if (Is_Action_Frame_Fulfilling(ftemp))
@@ -183,8 +183,8 @@ inline static void Push_Frame_Core(REBFRM *f)
     f->line = FRM_LINE(f);
   #endif
 
-    f->prior = TG_Frame_Stack;
-    TG_Frame_Stack = f;
+    f->prior = TG_Top_Frame;
+    TG_Top_Frame = f;
 
     TRASH_POINTER_IF_DEBUG(f->varlist); // must Try_Reuse_Varlist() or fill in
 
@@ -665,8 +665,8 @@ inline static void Abort_Frame(REBFRM *f) {
 
 pop:;
 
-    assert(TG_Frame_Stack == f);
-    TG_Frame_Stack = f->prior;
+    assert(TG_Top_Frame == f);
+    TG_Top_Frame = f->prior;
 }
 
 
@@ -682,8 +682,8 @@ inline static void Drop_Frame_Core(REBFRM *f) {
     }
     TRASH_POINTER_IF_DEBUG(f->varlist);
 
-    assert(TG_Frame_Stack == f);
-    TG_Frame_Stack = f->prior;
+    assert(TG_Top_Frame == f);
+    TG_Top_Frame = f->prior;
 }
 
 inline static void Drop_Frame(REBFRM *f)

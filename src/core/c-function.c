@@ -1032,7 +1032,7 @@ REBACT *Make_Action(
     // used by HELP.  If so, it must be a valid REBCTX*.  Otherwise NULL.
     //
     assert(
-        MISC(paramlist).meta == NULL
+        not MISC(paramlist).meta
         or GET_SER_FLAG(MISC(paramlist).meta, ARRAY_FLAG_VARLIST)
     );
 
@@ -1117,7 +1117,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 
     if (
         ACT_DISPATCHER(a) == &Null_Dispatcher
-        or ACT_DISPATCHER(a) == &Null_Dispatcher
+        or ACT_DISPATCHER(a) == &Void_Dispatcher
         or ACT_DISPATCHER(a) == &Unchecked_Dispatcher
         or ACT_DISPATCHER(a) == &Voider_Dispatcher
         or ACT_DISPATCHER(a) == &Returner_Dispatcher
@@ -1411,7 +1411,7 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
 //
 REB_R Null_Dispatcher(REBFRM *f)
 {
-    assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE(f))) == 0);
+    assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE_OR_DUMMY(f))) == 0);
     UNUSED(f);
     return nullptr;
 }
