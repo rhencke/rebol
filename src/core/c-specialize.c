@@ -1193,8 +1193,7 @@ REBNATIVE(does)
         Ensure_Value_Immutable(specializee, locker);
         Move_Value(body, specializee);
 
-        Init_Action_Unbound(D_OUT, doer);
-        return D_OUT;
+        return Init_Action_Unbound(D_OUT, doer);
     }
 
     REBCTX *exemplar;
@@ -1325,6 +1324,5 @@ REBNATIVE(does)
     );
     Init_Frame(ACT_BODY(doer), exemplar);
 
-    Init_Action_Unbound(D_OUT, doer);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, doer);
 }

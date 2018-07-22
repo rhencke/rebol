@@ -595,7 +595,7 @@ REBNATIVE(pick)
     if (IS_PORT(location)) {
         DECLARE_LOCAL (word);
         Init_Word(word, Canon(SYM_PICK));
-        return Do_Port_Action(frame_, VAL_CONTEXT(location), word);
+        return Do_Port_Action(frame_, location, word);
     }
 
     DECLARE_FRAME (pvs);
@@ -676,7 +676,7 @@ REBNATIVE(poke)
     if (IS_PORT(location)) {
         DECLARE_LOCAL (word);
         Init_Word(word, Canon(SYM_POKE));
-        return Do_Port_Action(frame_, VAL_CONTEXT(location), word);
+        return Do_Port_Action(frame_, location, word);
     }
 
     DECLARE_FRAME (pvs);
@@ -720,6 +720,5 @@ REBNATIVE(poke)
         fail (Error_Invalid(ARG(picker))); // raise error in release build
     }
 
-    Move_Value(D_OUT, ARG(value)); // return the value we got in
-    return D_OUT;
+    return ARG(value); // return the value we got in
 }

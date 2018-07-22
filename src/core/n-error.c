@@ -98,16 +98,13 @@ REBNATIVE(trap)
 
     assert(IS_ERROR(error));
 
-    if (REF(with)) {
-        if (Run_Branch_Throws(D_OUT, ARG(handler), error)) {
-            rebRelease(error);
-            return D_OUT;
-        }
-    }
-    else
-        Move_Value(D_OUT, error);
+    if (not REF(with))
+        return error;
 
-    rebRelease(error); // released automatically if branch above fails
+    REBOOL handler_threw = Run_Branch_Throws(D_OUT, ARG(handler), error);
+    rebRelease(error); // Note: auto-released if fail() while handler runs
+    UNUSED(handler_threw);
+
     return D_OUT;
 }
 
@@ -149,11 +146,8 @@ REBNATIVE(entrap)
     REBVAL *error = rebRescue(cast(REBDNG*, &Entrap_Dangerous), frame_);
     UNUSED(ARG(code)); // gets used by the above call, via the frame_ pointer
 
-    if (error) {
-        Move_Value(D_OUT, error);
-        rebRelease(error);
-        return D_OUT;
-    }
+    if (error)
+        return error;
 
     if (THROWN(D_OUT))
         return D_OUT;

@@ -726,20 +726,16 @@ REBTYPE(Map)
 
         switch (property) {
         case SYM_LENGTH:
-            Init_Integer(D_OUT, Length_Map(map));
-            return D_OUT;
+            return Init_Integer(D_OUT, Length_Map(map));
 
         case SYM_VALUES:
-            Init_Block(D_OUT, Map_To_Array(map, 1));
-            return D_OUT;
+            return Init_Block(D_OUT, Map_To_Array(map, 1));
 
         case SYM_WORDS:
-            Init_Block(D_OUT, Map_To_Array(map, -1));
-            return D_OUT;
+            return Init_Block(D_OUT, Map_To_Array(map, -1));
 
         case SYM_BODY:
-            Init_Block(D_OUT, Map_To_Array(map, 0));
-            return D_OUT;
+            return Init_Block(D_OUT, Map_To_Array(map, 0));
 
         case SYM_TAIL_Q:
             return R_FROM_BOOL(Length_Map(map) == 0);
@@ -812,8 +808,7 @@ REBTYPE(Map)
         );
         UNUSED(n);
 
-        Move_Value(D_OUT, ARG(value));
-        return D_OUT; }
+        return ARG(value); }
 
     case SYM_INSERT:
     case SYM_APPEND: {
@@ -889,8 +884,7 @@ REBTYPE(Map)
                 types |= VAL_TYPESET_BITS(ARG(kinds));
         }
 
-        Init_Map(D_OUT, Copy_Map(map, types));
-        return D_OUT; }
+        return Init_Map(D_OUT, Copy_Map(map, types)); }
 
     case SYM_CLEAR:
         FAIL_IF_READ_ONLY_ARRAY(MAP_PAIRLIST(map));
@@ -902,8 +896,7 @@ REBTYPE(Map)
         //
         Clear_Series(MAP_HASHLIST(map));
 
-        Init_Map(D_OUT, map);
-        return D_OUT;
+        return Init_Map(D_OUT, map);
 
     default:
         break;

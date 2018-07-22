@@ -118,13 +118,11 @@ REBNATIVE(reduce)
         if (GET_SER_FLAG(VAL_ARRAY(value), ARRAY_FLAG_TAIL_NEWLINE))
             pop_flags |= ARRAY_FLAG_TAIL_NEWLINE;
 
-        Init_Any_Array(
+        return Init_Any_Array(
             D_OUT,
             VAL_TYPE(value),
             Pop_Stack_Values_Core(dsp_orig, pop_flags)
         );
-
-        return D_OUT;
     }
 
     // Single element REDUCE does an EVAL, but doesn't allow arguments.
@@ -133,10 +131,8 @@ REBNATIVE(reduce)
     //
     // !!! Should the error be more "reduce-specific" if args were required?
 
-    if (ANY_INERT(value)) { // don't bother with the evaluation
-        Move_Value(D_OUT, value);
-        return D_OUT;
-    }
+    if (ANY_INERT(value)) // don't bother with the evaluation
+        return value;
 
     if (Eval_Value_Throws(D_OUT, value))
         return D_OUT;
@@ -446,6 +442,5 @@ REBNATIVE(flatten)
         REF(deep) ? FLATTEN_DEEP : FLATTEN_ONCE
     );
 
-    Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-    return D_OUT;
+    return Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
 }

@@ -1039,12 +1039,10 @@ REBTYPE(Image)
             return D_OUT;
 
         case SYM_INDEX:
-            Init_Integer(D_OUT, index + 1);
-            return D_OUT;
+            return Init_Integer(D_OUT, index + 1);
 
         case SYM_LENGTH:
-            Init_Integer(D_OUT, tail > index ? tail - index : 0);
-            return D_OUT;
+            return Init_Integer(D_OUT, tail > index ? tail - index : 0);
 
         default:
             break;
@@ -1053,10 +1051,7 @@ REBTYPE(Image)
         break; }
 
     case SYM_COMPLEMENT:
-        series = Complement_Image(value);
-        Init_Image(value, series); // use series var not func
-        Move_Value(D_OUT, value);
-        return D_OUT;
+        return Init_Image(D_OUT, Complement_Image(value));
 
     case SYM_SKIP:
     case SYM_AT:
@@ -1085,8 +1080,8 @@ REBTYPE(Image)
         else if (index < 0)
             index = 0;
 
-        VAL_INDEX(value) = cast(REBCNT, index);
         Move_Value(D_OUT, value);
+        VAL_INDEX(D_OUT) = cast(REBCNT, index);
         return D_OUT;
 
     case SYM_CLEAR:

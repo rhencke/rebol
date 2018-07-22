@@ -218,7 +218,7 @@ static REB_R Protect_Unprotect_Core(REBFRM *frame_, REBFLGS flags)
 
     if (IS_WORD(value) || IS_PATH(value)) {
         Protect_Word_Value(value, flags); // will unmark if deep
-        goto return_value_arg;
+        return ARG(value);
     }
 
     if (IS_BLOCK(value)) {
@@ -229,7 +229,7 @@ static REB_R Protect_Unprotect_Core(REBFRM *frame_, REBFLGS flags)
                 Derelativize(word, val, VAL_SPECIFIER(value));
                 Protect_Word_Value(word, flags);  // will unmark if deep
             }
-            goto return_value_arg;
+            return ARG(value);
         }
         if (REF(values)) {
             REBVAL *var;
@@ -261,7 +261,7 @@ static REB_R Protect_Unprotect_Core(REBFRM *frame_, REBFLGS flags)
                 if (flags & PROT_DEEP)
                     Uncolor(var);
             }
-            goto return_value_arg;
+            return ARG(value);
         }
     }
 
@@ -273,9 +273,7 @@ static REB_R Protect_Unprotect_Core(REBFRM *frame_, REBFLGS flags)
     if (flags & PROT_DEEP)
         Uncolor(value);
 
-return_value_arg:
-    Move_Value(D_OUT, ARG(value));
-    return D_OUT;
+    return ARG(value);
 }
 
 

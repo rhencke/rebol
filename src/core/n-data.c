@@ -176,17 +176,14 @@ REBNATIVE(bind)
         //
         // Bind a single word
 
-        if (Try_Bind_Word(context, v)) {
-            Move_Value(D_OUT, v);
-            return D_OUT;
-        }
+        if (Try_Bind_Word(context, v))
+            return v;
 
         // not in context, bind/new means add it if it's not.
         //
         if (REF(new) or (IS_SET_WORD(v) and REF(set))) {
             Append_Context(context, v, NULL);
-            Move_Value(D_OUT, v);
-            return D_OUT;
+            return v;
         }
 
         fail (Error_Not_In_Context_Raw(v));
@@ -399,8 +396,7 @@ REBNATIVE(unbind)
     else
         Unbind_Values_Core(VAL_ARRAY_AT(word), NULL, REF(deep));
 
-    Move_Value(D_OUT, word);
-    return D_OUT;
+    return word;
 }
 
 
@@ -436,9 +432,10 @@ REBNATIVE(collect_words)
     UNUSED(REF(ignore)); // implied used or unused by ARG(hidden)'s voidness
 
     RELVAL *head = VAL_ARRAY_AT(ARG(block));
-
-    Init_Block(D_OUT, Collect_Unique_Words_Managed(head, flags, ARG(hidden)));
-    return D_OUT;
+    return Init_Block(
+        D_OUT,
+        Collect_Unique_Words_Managed(head, flags, ARG(hidden))
+    );
 }
 
 
@@ -546,8 +543,7 @@ REBNATIVE(try)
     if (IS_NULLED_OR_VOID(ARG(optional)))
         return R_BLANK;
 
-    Move_Value(D_OUT, ARG(optional));
-    return D_OUT;
+    return ARG(optional);
 }
 
 
@@ -568,8 +564,7 @@ REBNATIVE(opt)
     if (IS_BLANK(ARG(optional)) or IS_VOID(ARG(optional)))
         return nullptr;
 
-    Move_Value(D_OUT, ARG(optional));
-    return D_OUT;
+    return ARG(optional);
 }
 
 
@@ -612,12 +607,14 @@ REBNATIVE(in)
                     REBCNT index = Find_Canon_In_Context(
                         context, VAL_WORD_CANON(word), FALSE
                     );
-                    if (index != 0) {
-                        INIT_BINDING(word, context);
-                        INIT_WORD_INDEX(word, index);
-                        Move_Value(D_OUT, word);
-                        return D_OUT;
-                    }
+                    if (index != 0)
+                        return Init_Any_Word_Bound(
+                            D_OUT,
+                            VAL_TYPE(word),
+                            VAL_WORD_SPELLING(word),
+                            context,
+                            index
+                        );
                 }
             }
             return nullptr;
@@ -629,24 +626,22 @@ REBNATIVE(in)
     REBCTX *context = VAL_CONTEXT(val);
 
     // Special form: IN object block
-    if (IS_BLOCK(word) || IS_GROUP(word)) {
+    if (IS_BLOCK(word) or IS_GROUP(word)) {
         Bind_Values_Deep(VAL_ARRAY_HEAD(word), context);
-        Move_Value(D_OUT, word);
-        return D_OUT;
+        return word;
     }
 
     REBCNT index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), FALSE);
     if (index == 0)
         return nullptr;
 
-    Init_Any_Word_Bound(
+    return Init_Any_Word_Bound(
         D_OUT,
         VAL_TYPE(word),
         VAL_WORD_SPELLING(word),
         context,
         index
     );
-    return D_OUT;
 }
 
 
@@ -685,8 +680,7 @@ REBNATIVE(resolve)
         REF(extend)
     );
 
-    Move_Value(D_OUT, ARG(target));
-    return D_OUT;
+    return ARG(target);
 }
 
 
@@ -827,8 +821,7 @@ REBNATIVE(set)
             fail (Error_Invalid_Core(target, target_specifier));
     }
 
-    Move_Value(D_OUT, ARG(value));
-    return D_OUT;
+    return ARG(value);
 }
 
 
@@ -1067,8 +1060,7 @@ REBNATIVE(as)
                 STR_SIZE(spelling)
             );
             SET_SER_INFO(string, SERIES_INFO_FROZEN);
-            Init_Any_Series(D_OUT, new_kind, string);
-            return D_OUT;
+            return Init_Any_Series(D_OUT, new_kind, string);
         }
 
         // !!! Similarly, until UTF-8 Everywhere, we can't actually alias
@@ -1090,8 +1082,7 @@ REBNATIVE(as)
                 //
                 Decay_Series(VAL_SERIES(v));
             }
-            Init_Any_Series(D_OUT, new_kind, string);
-            return D_OUT;
+            return Init_Any_Series(D_OUT, new_kind, string);
         }
 
         if (not ANY_STRING(v))
@@ -1121,12 +1112,11 @@ REBNATIVE(as)
             REBSER *temp = Temp_UTF8_At_Managed(
                 &offset, &utf8_size, v, VAL_LEN_AT(v)
             );
-            Init_Any_Word(
+            return Init_Any_Word(
                 D_OUT,
                 new_kind,
                 Intern_UTF8_Managed(BIN_AT(temp, offset), utf8_size)
             );
-            return D_OUT;
         }
 
         // !!! Since pre-UTF8-everywhere ANY-WORD! was saved in UTF-8 it would
@@ -1139,12 +1129,11 @@ REBNATIVE(as)
         //
         if (IS_BINARY(v)) {
             Freeze_Sequence(VAL_SERIES(v));
-            Init_Any_Word(
+            return Init_Any_Word(
                 D_OUT,
                 new_kind,
                 Intern_UTF8_Managed(VAL_BIN_AT(v), VAL_LEN_AT(v))
             );
-            return D_OUT;
         }
 
         if (not ANY_WORD(v))
@@ -1158,8 +1147,7 @@ REBNATIVE(as)
         //
         if (ANY_WORD(v)) {
             assert(Is_Value_Immutable(v));
-            Init_Binary(D_OUT, VAL_WORD_SPELLING(v));
-            return D_OUT;
+            return Init_Binary(D_OUT, VAL_WORD_SPELLING(v));
         }
 
         if (ANY_STRING(v)) {
@@ -1174,8 +1162,7 @@ REBNATIVE(as)
             else
                 Decay_Series(VAL_SERIES(v));
 
-            Init_Binary(D_OUT, bin);
-            return D_OUT;
+            return Init_Binary(D_OUT, bin);
         }
 
         fail (v); }
@@ -1187,8 +1174,8 @@ REBNATIVE(as)
         fail (Error_Bad_Cast_Raw(v, ARG(type)));
     }
 
-    VAL_SET_TYPE_BITS(v, new_kind);
     Move_Value(D_OUT, v);
+    VAL_SET_TYPE_BITS(D_OUT, new_kind);
     return D_OUT;
 }
 

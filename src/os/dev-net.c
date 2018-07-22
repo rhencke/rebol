@@ -650,15 +650,17 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
 
     // Create a new port using ACCEPT
 
-    REBCTX *listener = CTX(req->port);
+    REBCTX *listener = CTX(req->port_ctx);
     REBCTX *connection = Copy_Context_Shallow(listener);
     MANAGE_ARRAY(CTX_VARLIST(connection));
 
     Init_Blank(CTX_VAR(connection, STD_PORT_DATA)); // just to be sure.
     Init_Blank(CTX_VAR(connection, STD_PORT_STATE)); // just to be sure.
 
-    struct devreq_net *sock
-        = cast(struct devreq_net*, Ensure_Port_State(connection, RDI_NET));
+    struct devreq_net *sock = cast(
+        struct devreq_net*,
+        Ensure_Port_State(CTX_ARCHETYPE(listener), RDI_NET)
+    );
 
     memset(sock, '\0', sizeof(struct devreq_net));
     sock->devreq.device = req->device;
@@ -674,7 +676,7 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
     sock->remote_port = ntohs(sa.sin_port);
     Get_Local_IP(sock);
 
-    AS_REBREQ(sock)->port = connection;
+    AS_REBREQ(sock)->port_ctx = connection;
 
     rebElide(
         "lib/append ensure block!", CTX_VAR(listener, STD_PORT_CONNECTIONS),

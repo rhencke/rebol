@@ -479,8 +479,7 @@ REBNATIVE(meta_of)
     if (not meta)
         return nullptr;
 
-    Move_Value(D_OUT, CTX_ARCHETYPE(meta));
-    return D_OUT;
+    return CTX_ARCHETYPE(meta);
 }
 
 
@@ -524,8 +523,7 @@ REBNATIVE(set_meta)
     if (not meta)
         return nullptr;
 
-    Move_Value(D_OUT, CTX_ARCHETYPE(meta));
-    return D_OUT;
+    return CTX_ARCHETYPE(meta);
 }
 
 
@@ -774,24 +772,19 @@ REB_R Context_Common_Action_Maybe_Unhandled(
 
         switch (property) {
         case SYM_LENGTH: // !!! Should this be legal?
-            Init_Integer(D_OUT, CTX_LEN(c));
-            return D_OUT;
+            return Init_Integer(D_OUT, CTX_LEN(c));
 
         case SYM_TAIL_Q: // !!! Should this be legal?
-            Init_Logic(D_OUT, CTX_LEN(c) == 0);
-            return D_OUT;
+            return Init_Logic(D_OUT, CTX_LEN(c) == 0);
 
         case SYM_WORDS:
-            Init_Block(D_OUT, Context_To_Array(c, 1));
-            return D_OUT;
+            return Init_Block(D_OUT, Context_To_Array(c, 1));
 
         case SYM_VALUES:
-            Init_Block(D_OUT, Context_To_Array(c, 2));
-            return D_OUT;
+            return Init_Block(D_OUT, Context_To_Array(c, 2));
 
         case SYM_BODY:
-            Init_Block(D_OUT, Context_To_Array(c, 3));
-            return D_OUT;
+            return Init_Block(D_OUT, Context_To_Array(c, 3));
 
         // Noticeably not handled by average objects: SYM_OPEN_Q (`open?`)
 
@@ -870,18 +863,13 @@ REBTYPE(Context)
             return nullptr;
 
         REBCNT n = Find_Canon_In_Context(c, VAL_WORD_CANON(arg), FALSE);
-
         if (n == 0)
-            return nullptr;
-
-        if (cast(REBCNT, n) > CTX_LEN(c))
             return nullptr;
 
         if (VAL_WORD_SYM(verb) == SYM_FIND)
             return R_BAR; // synthesizing TRUE would obscure non-LOGIC! result
 
-        Move_Value(D_OUT, CTX_VAR(c, n));
-        return D_OUT;
+        return CTX_VAR(c, n);
     }
 
     default:
@@ -1049,8 +1037,7 @@ REBNATIVE(construct)
         // the generator choice by the person doing the derivation.
         //
         context = Merge_Contexts_Selfish(parent, VAL_CONTEXT(body));
-        Init_Object(D_OUT, context);
-        return D_OUT;
+        return Init_Object(D_OUT, context);
     }
 
     fail ("Unsupported CONSTRUCT arguments");

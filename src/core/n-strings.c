@@ -188,8 +188,7 @@ REBNATIVE(checksum)
             // could be used by Rebol2, as it only had 32-bit signed INTEGER!.
             //
             REBINT crc32 = cast(REBINT, crc32_z(0L, data, len));
-            Init_Integer(D_OUT, crc32);
-            return D_OUT;
+            return Init_Integer(D_OUT, crc32);
         }
 
         if (sym == SYM_ADLER32) {
@@ -201,8 +200,7 @@ REBNATIVE(checksum)
             // of the adler calculation to a signed integer.
             //
             uLong adler = z_adler32(0L, data, len);
-            Init_Integer(D_OUT, adler);
-            return D_OUT;
+            return Init_Integer(D_OUT, adler);
         }
 
         REBCNT i;
@@ -272,9 +270,7 @@ REBNATIVE(checksum)
             }
 
             TERM_BIN_LEN(digest, digests[i].len);
-            Init_Binary(D_OUT, digest);
-
-            return D_OUT;
+            return Init_Binary(D_OUT, digest);
         }
 
         fail (Error_Invalid(ARG(word)));
@@ -358,11 +354,7 @@ REBNATIVE(deflate)
         envelope
     );
 
-    REBVAL *bin = rebRepossess(compressed, compressed_size);
-    Move_Value(D_OUT, bin);
-    rebRelease(bin);
-
-    return D_OUT;
+    return rebRepossess(compressed, compressed_size);
 }
 
 
@@ -430,11 +422,7 @@ REBNATIVE(inflate)
         envelope
     );
 
-    REBVAL *bin = rebRepossess(decompressed, decompressed_size);
-    Move_Value(D_OUT, bin);
-    rebRelease(bin);
-
-    return D_OUT;
+    return rebRepossess(decompressed, decompressed_size);
 }
 
 
@@ -705,13 +693,11 @@ REBNATIVE(enhex)
 
     SET_SERIES_LEN(mo->series, dp - BIN_HEAD(mo->series));
 
-    Init_Any_Series(
+    return Init_Any_Series(
         D_OUT,
         VAL_TYPE(ARG(string)),
         Pop_Molded_String(mo)
     );
-
-    return D_OUT;
 }
 
 
@@ -835,13 +821,11 @@ REBNATIVE(dehex)
 
     SET_SERIES_LEN(mo->series, dp - BIN_HEAD(mo->series));
 
-    Init_Any_Series(
+    return Init_Any_Series(
         D_OUT,
         VAL_TYPE(ARG(string)),
         Pop_Molded_String(mo)
     );
-
-    return D_OUT;
 }
 
 
@@ -863,10 +847,8 @@ REBNATIVE(deline)
 
     REBVAL *val = ARG(string);
 
-    if (REF(lines)) {
-        Init_Block(D_OUT, Split_Lines(val));
-        return D_OUT;
-    }
+    if (REF(lines))
+        return Init_Block(D_OUT, Split_Lines(val));
 
     REBSER *s = VAL_SERIES(val);
     REBCNT len_head = SER_LEN(s);
@@ -893,8 +875,7 @@ REBNATIVE(deline)
 
     TERM_UNI_LEN(s, len_head);
 
-    Move_Value(D_OUT, ARG(string));
-    return D_OUT;
+    return ARG(string);
 }
 
 
@@ -940,10 +921,8 @@ REBNATIVE(enline)
         c_prev = c;
     }
 
-    if (delta == 0) { // nothing to do
-        Move_Value(D_OUT, ARG(string));
-        return D_OUT;
-    }
+    if (delta == 0)
+        return ARG(string); // nothing to do
 
     EXPAND_SERIES_TAIL(ser, delta);
 
@@ -971,8 +950,7 @@ REBNATIVE(enline)
         --len;
     }
 
-    Move_Value(D_OUT, ARG(string));
-    return D_OUT;
+    return ARG(string);
 }
 
 
@@ -1047,8 +1025,7 @@ REBNATIVE(entab)
 
     TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
 
-    Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
-    return D_OUT;
+    return Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
 }
 
 
@@ -1127,8 +1104,7 @@ REBNATIVE(detab)
 
     TERM_BIN_LEN(mo->series, dp - BIN_HEAD(mo->series));
 
-    Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
-    return D_OUT;
+    return Init_Any_Series(D_OUT, VAL_TYPE(val), Pop_Molded_String(mo));
 }
 
 
@@ -1257,9 +1233,8 @@ REBNATIVE(find_script)
     if (offset == -1)
         return nullptr;
 
-    VAL_INDEX(arg) += offset;
-
-    Move_Value(D_OUT, ARG(script));
+    Move_Value(D_OUT, arg);
+    VAL_INDEX(D_OUT) += offset;
     return D_OUT;
 }
 
@@ -1282,8 +1257,7 @@ REBNATIVE(invalid_utf8_q)
     if (not bp)
         return nullptr;
 
-    VAL_INDEX(arg) = bp - VAL_BIN_HEAD(arg);
-
     Move_Value(D_OUT, arg);
+    VAL_INDEX(D_OUT) = bp - VAL_BIN_HEAD(arg);
     return D_OUT;
 }

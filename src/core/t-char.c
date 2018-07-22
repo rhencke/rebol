@@ -270,7 +270,6 @@ REBTYPE(Char)
     if (chr < 0 || chr > 0xffff) // DEBUG_UTF8_EVERYWHERE
         fail (Error_Type_Limit_Raw(Datatype_From_Kind(REB_CHAR)));
 
-    Init_Char(D_OUT, cast(REBUNI, chr));
-    return D_OUT;
+    return Init_Char(D_OUT, cast(REBUNI, chr));
 }
 

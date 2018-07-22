@@ -900,10 +900,8 @@ REBTYPE(Date)
         REBINT  type = VAL_TYPE(arg);
 
         if (type == REB_DATE) {
-            if (sym == SYM_SUBTRACT) {
-                Init_Integer(D_OUT, Diff_Date(date, VAL_DATE(arg)));
-                return D_OUT;
-            }
+            if (sym == SYM_SUBTRACT)
+                return Init_Integer(D_OUT, Diff_Date(date, VAL_DATE(arg)));
         }
         else if (type == REB_TIME) {
             if (sym == SYM_ADD) {

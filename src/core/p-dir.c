@@ -135,9 +135,10 @@ static void Init_Dir_Path(
 //
 // Internal port handler for file directories.
 //
-static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
-    REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
     if (not IS_OBJECT(spec))
         fail (Error_Invalid_Spec_Raw(spec));
 
@@ -150,7 +151,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
     else if (not IS_FILE(path))
         fail (Error_Invalid_Spec_Raw(path));
 
-    REBVAL *state = CTX_VAR(port, STD_PORT_STATE); // BLOCK! means port open
+    REBVAL *state = CTX_VAR(ctx, STD_PORT_STATE); // BLOCK! means port open
 
     //const REBYTE *flags = Security_Policy(SYM_FILE, path);
 
@@ -158,12 +159,8 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
     struct devreq_file dir;
     CLEARS(&dir);
-    dir.devreq.port = port;
+    dir.devreq.port_ctx = ctx;
     dir.devreq.device = RDI_FILE;
-
-    // Default to outputting the PORT! value as a result.
-    //
-    Move_Value(D_OUT, D_ARG(1));
 
     switch (VAL_WORD_SYM(verb)) {
 
@@ -176,8 +173,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         switch (property) {
         case SYM_LENGTH: {
             REBCNT len = IS_BLOCK(state) ? VAL_ARRAY_LEN_AT(state) : 0;
-            Init_Integer(D_OUT, len);
-            return D_OUT; }
+            return Init_Integer(D_OUT, len); }
 
         case SYM_OPEN_Q:
             return R_FROM_BOOL(IS_BLOCK(state));
@@ -241,12 +237,10 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         rebRelease(result); // ignore result
 
-        if (VAL_WORD_SYM(verb) == SYM_CREATE) {
-            Move_Value(D_OUT, D_ARG(1));
-            return D_OUT;
-        }
-        Init_Blank(state);
-        goto return_port; }
+        if (VAL_WORD_SYM(verb) != SYM_CREATE)
+            Init_Blank(state);
+
+        return port; }
 
     case SYM_RENAME: {
         INCLUDE_PARAMS_OF_RENAME;
@@ -268,7 +262,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         }
 
         rebRelease(result); // ignore result
-        goto return_port; }
+        return port; }
 
     case SYM_DELETE: {
         Init_Blank(state);
@@ -286,7 +280,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         }
 
         rebRelease(result); // ignore result
-        goto return_port; }
+        return port; }
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -312,11 +306,11 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         Init_Dir_Path(&dir, path, POL_READ);
         Init_Block(state, Read_Dir_May_Fail(&dir));
-        goto return_port; }
+        return port; }
 
     case SYM_CLOSE:
         Init_Blank(state);
-        goto return_port;
+        return port;
 
     case SYM_QUERY: {
         Init_Blank(state);
@@ -332,7 +326,7 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         rebRelease(result); // ignore result
 
-        Ret_Query_File(port, &dir, D_OUT);
+        Query_File_Or_Dir(D_OUT, port, &dir);
         return D_OUT; }
 
     default:
@@ -340,10 +334,6 @@ static REB_R Dir_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Move_Value(D_OUT, D_ARG(1));
-    return D_OUT;
 }
 
 

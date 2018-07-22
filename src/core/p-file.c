@@ -80,36 +80,35 @@ static void Cleanup_File(struct devreq_file *file)
 
 
 //
-//  Ret_Query_File: C
+//  Query_File_Or_Dir: C
 //
-// Query file and set RET value to resulting STD_FILE_INFO object.
+// Produces a STD_FILE_INFO object.
 //
-void Ret_Query_File(REBCTX *port, struct devreq_file *file, REBVAL *ret)
+void Query_File_Or_Dir(REBVAL *out, REBVAL *port, struct devreq_file *file)
 {
     REBREQ *req = AS_REBREQ(file);
 
-    REBVAL *info = In_Object(port, STD_PORT_SCHEME, STD_SCHEME_INFO, 0);
-
-    if (!info || !IS_OBJECT(info))
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *example = In_Object(ctx, STD_PORT_SCHEME, STD_SCHEME_INFO, 0);
+    if (not example or not IS_OBJECT(example))
         fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
 
-    REBCTX *context = Copy_Context_Shallow(VAL_CONTEXT(info));
+    REBCTX *info = Copy_Context_Shallow(VAL_CONTEXT(example));
 
-    Init_Object(ret, context);
     Init_Word(
-        CTX_VAR(context, STD_FILE_INFO_TYPE),
+        CTX_VAR(info, STD_FILE_INFO_TYPE),
         (req->modes & RFM_DIR) ? Canon(SYM_DIR) : Canon(SYM_FILE)
     );
-    Init_Integer(
-        CTX_VAR(context, STD_FILE_INFO_SIZE), file->size
-    );
+    Init_Integer(CTX_VAR(info, STD_FILE_INFO_SIZE), file->size);
 
     REBVAL *timestamp = OS_FILE_TIME(file);
-    Move_Value(CTX_VAR(context, STD_FILE_INFO_DATE), timestamp);
+    Move_Value(CTX_VAR(info, STD_FILE_INFO_DATE), timestamp);
     rebRelease(timestamp);
 
     assert(IS_FILE(file->path));
-    Move_Value(CTX_VAR(context, STD_FILE_INFO_NAME), file->path);
+    Move_Value(CTX_VAR(info, STD_FILE_INFO_NAME), file->path);
+
+    Init_Object(out, info);
 }
 
 
@@ -118,16 +117,20 @@ void Ret_Query_File(REBCTX *port, struct devreq_file *file, REBVAL *ret)
 //
 // Open a file port.
 //
-static void Open_File_Port(REBCTX *port, struct devreq_file *file, REBVAL *path)
-{
-    REBREQ *req = AS_REBREQ(file);
+static void Open_File_Port(
+    REBVAL *port,
+    struct devreq_file *file,
+    REBVAL *path
+){
+    UNUSED(port);
 
-    if (Is_Port_Open(port))
+    REBREQ *req = AS_REBREQ(file);
+    if (req->flags & RRF_OPEN)
         fail (Error_Already_Open_Raw(path));
 
     OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
-    Set_Port_Open(port, TRUE);
+    req->flags |= RRF_OPEN; // open it
 }
 
 
@@ -152,17 +155,15 @@ REBINT Mode_Syms[] = {
 //
 static void Read_File_Port(
     REBVAL *out,
-    REBCTX *port,
+    REBVAL *port,
     struct devreq_file *file,
     REBVAL *path,
     REBFLGS flags,
     REBCNT len
 ) {
-#ifdef NDEBUG
-    UNUSED(path);
-#else
     assert(IS_FILE(path));
-#endif
+
+    UNUSED(path);
     UNUSED(flags);
     UNUSED(port);
 
@@ -270,9 +271,10 @@ static void Set_Seek(struct devreq_file *file, REBVAL *arg)
 //
 // Internal port handler for files.
 //
-static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
-    REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
     if (!IS_OBJECT(spec))
         fail (Error_Invalid_Spec_Raw(spec));
 
@@ -302,27 +304,23 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         switch (property) {
         case SYM_INDEX:
-            Init_Integer(D_OUT, file->index + 1);
-            return D_OUT;
+            return Init_Integer(D_OUT, file->index + 1);;
 
         case SYM_LENGTH:
             //
             // Comment said "clip at zero"
             ///
-            Init_Integer(D_OUT, file->size - file->index);
-            return D_OUT;
+            return Init_Integer(D_OUT, file->size - file->index);;
 
         case SYM_HEAD:
             file->index = 0;
             req->modes |= RFM_RESEEK;
-            Move_Value(D_OUT, CTX_ARCHETYPE(port));
-            return D_OUT;
+            return port;
 
         case SYM_TAIL:
             file->index = file->size;
             req->modes |= RFM_RESEEK;
-            Move_Value(D_OUT, CTX_ARCHETYPE(port));
-            return D_OUT;
+            return port;
 
         case SYM_HEAD_Q:
             return R_FROM_BOOL(file->index == 0);
@@ -451,7 +449,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             rebRelease(result);
         }
 
-        goto return_port; }
+        return port; }
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -475,7 +473,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         Open_File_Port(port, file, path);
 
-        goto return_port; }
+        return port; }
 
     case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
@@ -509,7 +507,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
                 rebJUMPS ("lib/fail", result, END);
             rebRelease(result); // ignore error
         }
-        goto return_port; }
+        return port; }
 
     case SYM_DELETE: {
         INCLUDE_PARAMS_OF_DELETE;
@@ -525,7 +523,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             rebJUMPS ("lib/fail", result, END);
         rebRelease(result); // ignore result
 
-        goto return_port; }
+        return port; }
 
     case SYM_RENAME: {
         INCLUDE_PARAMS_OF_RENAME;
@@ -543,8 +541,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             rebJUMPS ("lib/fail", result, END);
         rebRelease(result); // ignore result
 
-        Move_Value(D_OUT, ARG(from));
-        return D_OUT; }
+        return ARG(from); }
 
     case SYM_CREATE: {
         if (not (req->flags & RRF_OPEN)) {
@@ -565,7 +562,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         // !!! should it leave file open???
 
-        goto return_port; }
+        return port; }
 
     case SYM_QUERY: {
         INCLUDE_PARAMS_OF_QUERY;
@@ -586,7 +583,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             }
             rebRelease(result); // ignore result
         }
-        Ret_Query_File(port, file, D_OUT);
+        Query_File_Or_Dir(D_OUT, port, file);
 
         // !!! free file path?
 
@@ -621,7 +618,7 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         file->index += Get_Num_From_Arg(ARG(offset));
         req->modes |= RFM_RESEEK;
-        goto return_port;}
+        return port; }
 
     case SYM_CLEAR: {
         // !! check for write enabled?
@@ -630,17 +627,13 @@ static REB_R File_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         req->length = 0;
 
         OS_DO_DEVICE_SYNC(req, RDC_WRITE);
-        goto return_port; }
+        return port; }
 
     default:
         break;
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Move_Value(D_OUT, CTX_ARCHETYPE(port));
-    return D_OUT;
 }
 
 

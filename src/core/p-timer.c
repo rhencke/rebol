@@ -47,18 +47,18 @@
 //
 //  Timer_Actor: C
 //
-static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
-    // Validate and fetch relevant PORT fields:
-    REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
     if (!IS_OBJECT(spec))
         fail (Error_Invalid_Spec_Raw(spec));
 
     // Get or setup internal state data:
     //
-    REBVAL *state = CTX_VAR(port, STD_PORT_STATE);
+    REBVAL *state = CTX_VAR(ctx, STD_PORT_STATE);
     if (!IS_BLOCK(state))
         Init_Block(state, Make_Array(127));
 
@@ -73,8 +73,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         switch (property) {
         case SYM_LENGTH:
-            Init_Integer(D_OUT, VAL_LEN_HEAD(state));
-            return D_OUT;
+            return Init_Integer(D_OUT, VAL_LEN_HEAD(state));
 
         default:
             break;
@@ -117,7 +116,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
     case SYM_CLEAR:
         RESET_ARRAY(state);
         Eval_Signals &= ~SIG_EVENT_PORT;
-        goto return_port;
+        return port;
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -130,17 +129,13 @@ static REB_R Timer_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             // "stays queued"
             // !!! or stays queued means it's pending?
         }
-        goto return_port; }
+        return port; }
 
     default:
         break;
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Move_Value(D_OUT, D_ARG(1));
-    return D_OUT;
 }
 
 

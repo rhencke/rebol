@@ -165,8 +165,7 @@ REBNATIVE(make_routine)
     Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc, 0);
     Move_Value(RIN_AT(r, IDX_ROUTINE_ORIGIN), ARG(lib));
 
-    Init_Action_Unbound(D_OUT, routine);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, routine);
 }
 
 
@@ -212,8 +211,7 @@ REBNATIVE(make_routine_raw)
     Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc, 0);
     Init_Blank(RIN_AT(r, IDX_ROUTINE_ORIGIN)); // no LIBRARY! in this case.
 
-    Init_Action_Unbound(D_OUT, routine);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, routine);
 }
 
 
@@ -285,8 +283,7 @@ REBNATIVE(wrap_callback)
     );
     Move_Value(RIN_AT(r, IDX_ROUTINE_ORIGIN), ARG(action));
 
-    Init_Action_Unbound(D_OUT, callback);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, callback);
 }
 
 
@@ -313,10 +310,9 @@ REBNATIVE(addr_of) {
         // The CFUNC is fabricated by the FFI if it's a callback, or
         // just the wrapped DLL function if it's an ordinary routine
         //
-        Init_Integer(
+        return Init_Integer(
             D_OUT, cast(intptr_t, RIN_CFUNC(VAL_ACT_ROUTINE(v)))
         );
-        return D_OUT;
     }
 
     assert(IS_STRUCT(v));
@@ -331,8 +327,7 @@ REBNATIVE(addr_of) {
     // "do not move in memory" bit would be needed for the BINARY! or a
     // HANDLE! to a non-moving malloc would need to be used instead.
     //
-    Init_Integer(D_OUT, cast(intptr_t, VAL_STRUCT_DATA_AT(v)));
-    return D_OUT;
+    return Init_Integer(D_OUT, cast(intptr_t, VAL_STRUCT_DATA_AT(v)));
 }
 
 
@@ -434,8 +429,7 @@ REBNATIVE(alloc_value_pointer)
     REBVAL *allocated = Move_Value(Alloc_Value(), ARG(value));
     rebUnmanage(allocated);
 
-    Init_Integer(D_OUT, cast(intptr_t, allocated));
-    return D_OUT;
+    return Init_Integer(D_OUT, cast(intptr_t, allocated));
 }
 
 
@@ -452,7 +446,7 @@ REBNATIVE(free_value_pointer)
 {
     FFI_INCLUDE_PARAMS_OF_FREE_VALUE_POINTER;
 
-    REBVAL *v = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(pointer))));
+    REBVAL *cell = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(pointer))));
 
     // Although currently unmanaged API handles are used, it would also be
     // possible to use a managed ones.
@@ -462,7 +456,7 @@ REBNATIVE(free_value_pointer)
     // have the GC clean up leaks on exit instead of complaining in the
     // debug build.  For now, assume complaining is better.
     //
-    rebFree(v);
+    rebFree(cell);
 
     return nullptr;
 }
@@ -477,8 +471,6 @@ REBNATIVE(free_value_pointer)
 //          {If the source looks up to a value, that value--else blank}
 //      source [integer!]
 //          {A pointer to a Rebol value}
-//      /only
-//          {Return void if no value instead of blank}
 //  ]
 //
 REBNATIVE(get_at_pointer)
@@ -487,16 +479,16 @@ REBNATIVE(get_at_pointer)
 // for a POINTER!, and then GET could be overloaded to work with it.  No
 // such mechanisms have been designed yet.  In the meantime, the interface
 // for GET-AT-POINTER should not deviate too far from GET.
+//
+// !!! Alloc_Value() doesn't currently prohibit nulled cells mechanically,
+// but libRebol doesn't allow them.  What should this API do?
 {
     FFI_INCLUDE_PARAMS_OF_GET_AT_POINTER;
 
-    REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(source))));
-    if (IS_NULLED(paired) && !REF(only))
-        Init_Blank(D_OUT);
-    else
-        Move_Value(D_OUT, paired);
+    REBVAL *cell = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(source))));
 
-    return D_OUT;
+    Move_Value(D_OUT, cell);
+    return D_OUT; // don't return `cell` (would do a rebRelease())
 }
 
 
@@ -511,8 +503,8 @@ REBNATIVE(get_at_pointer)
 //          {A pointer to a Rebol value}
 //      value [<opt> any-value!]
 //          "Value to assign"
-//      /only
-//          {Treat void values as unsetting the target instead of an error}
+//      /opt
+//          {Treat nulls as unsetting the target instead of an error}
 //  ]
 //
 REBNATIVE(set_at_pointer)
@@ -522,14 +514,15 @@ REBNATIVE(set_at_pointer)
 {
     FFI_INCLUDE_PARAMS_OF_SET_AT_POINTER;
 
-    if (IS_NULLED(ARG(value)) && !REF(only))
-        fail (Error_No_Value(ARG(value)));
+    REBVAL *v = ARG(value);
 
-    REBVAL *paired = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(target))));
-    Move_Value(paired, ARG(value));
+    if (IS_NULLED(v) and not REF(opt))
+        fail (Error_No_Value(v));
 
-    Move_Value(D_OUT, ARG(value));
-    return D_OUT;
+    REBVAL *cell = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(target))));
+    Move_Value(cell, v);
+
+    return ARG(value); // Don't return `cell` directly (would rebRelease())
 }
 
 

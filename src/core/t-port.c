@@ -146,39 +146,6 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
 //
 REBTYPE(Port)
 {
-    REBVAL *value = D_ARG(1);
-
-    switch (VAL_WORD_SYM(verb)) {
-
-    case SYM_READ:
-    case SYM_WRITE:
-    case SYM_QUERY:
-    case SYM_OPEN:
-    case SYM_CREATE:
-    case SYM_DELETE:
-    case SYM_RENAME: {
-        //
-        // !!! We are going to "re-apply" the call frame with routines that
-        // are going to read the D_ARG(1) slot *implicitly* regardless of
-        // what value points to.
-        //
-        if (not IS_PORT(D_ARG(1))) {
-            DECLARE_LOCAL (temp);
-            MAKE_Port(temp, REB_PORT, value);
-            Move_Value(value, temp);
-        }
-        break; }
-
-    case SYM_ON_WAKE_UP:
-        break;
-
-    // Once handled SYM_REFLECT here by delegating to T_Context(), but common
-    // reflectors should be handled by Context_Common_Action_Maybe_Unhandled()
-
-    default:
-        break;
-    }
-
     // !!! The ability to transform some BLOCK!s into PORT!s for some actions
     // was hardcoded in a fairly ad-hoc way in R3-Alpha, which was based on
     // an integer range of action numbers.  Ren-C turned these numbers into
@@ -187,14 +154,44 @@ REBTYPE(Port)
     //
     // https://github.com/metaeducation/ren-c/issues/311
     //
-    // This prevents a crash but doesn't address the design issue.
-    //
+    if (not IS_PORT(D_ARG(1))) {
+        switch (VAL_WORD_SYM(verb)) {
+
+        case SYM_READ:
+        case SYM_WRITE:
+        case SYM_QUERY:
+        case SYM_OPEN:
+        case SYM_CREATE:
+        case SYM_DELETE:
+        case SYM_RENAME: {
+            //
+            // !!! We are going to "re-apply" the call frame with routines we
+            // are going to read the D_ARG(1) slot *implicitly* regardless of
+            // what value points to.
+            //
+            MAKE_Port(D_CELL, REB_PORT, D_ARG(1)); // can't eval into D_OUT
+            Move_Value(D_ARG(1), D_CELL);
+            break; }
+
+        case SYM_ON_WAKE_UP:
+            break;
+
+        // Once handled SYM_REFLECT here by delegating to T_Context(), but
+        // common reflectors now in Context_Common_Action_Maybe_Unhandled()
+
+        default:
+            break;
+        }
+    }
+
     if (not IS_PORT(D_ARG(1)))
         fail (Error_Illegal_Action(VAL_TYPE(D_ARG(1)), verb));
+
+    REBVAL *port = D_ARG(1);
 
     REB_R r = Context_Common_Action_Maybe_Unhandled(frame_, verb);
     if (r != R_UNHANDLED)
         return r;
 
-    return Do_Port_Action(frame_, VAL_CONTEXT(value), verb);
+    return Do_Port_Action(frame_, port, verb);
 }

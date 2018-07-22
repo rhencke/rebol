@@ -162,8 +162,7 @@ static REBNATIVE(rc4)
             VAL_LEN_AT(ARG(crypt_key))
         );
 
-        Init_Handle_Managed(D_OUT, rc4_ctx, 0, &cleanup_rc4_ctx);
-        return D_OUT;
+        return Init_Handle_Managed(D_OUT, rc4_ctx, 0, &cleanup_rc4_ctx);
     }
 
     fail (Error(RE_EXT_CRYPT_KEY_OR_STREAM_REQUIRED, END));
@@ -558,8 +557,7 @@ static REBNATIVE(aes)
         if (REF(decrypt))
             AES_convert_key(aes_ctx);
 
-        Init_Handle_Managed(D_OUT, aes_ctx, 0, &cleanup_aes_ctx);
-        return D_OUT;
+        return Init_Handle_Managed(D_OUT, aes_ctx, 0, &cleanup_aes_ctx);
     }
 
     fail (Error(RE_EXT_CRYPT_KEY_OR_STREAM_REQUIRED, END));
@@ -727,8 +725,7 @@ static REBNATIVE(decloak)
         REF(with)
     );
 
-    Move_Value(D_OUT, ARG(data));
-    return D_OUT;
+    return ARG(data);
 }
 
 
@@ -757,8 +754,7 @@ static REBNATIVE(encloak)
         REF(with)
     );
 
-    Move_Value(D_OUT, ARG(data));
-    return D_OUT;
+    return ARG(data);
 }
 
 
@@ -814,12 +810,10 @@ REBNATIVE(checksum_crc8_tello)
     int i = 0;
     uint8_t seed = INIT_SEED8;
 
-    while (size-- > 0) {
+    while (size-- > 0)
         seed = TBL_CRC8[(seed ^ buf[i++]) & 0xff];
-    }
 
-    Init_Integer(D_OUT, cast(REBYTE, (seed & 0xff)));
-    return D_OUT;
+    return Init_Integer(D_OUT, cast(REBYTE, (seed & 0xff)));
 }
 
 
@@ -882,12 +876,10 @@ REBNATIVE(checksum_crc16_tello)
     REBSIZ size = VAL_LEN_AT(ARG(data));
 
     int i = 0;
-    while (size-- > 0) {
+    while (size-- > 0)
         seed = TBL_CRC16[(seed ^ buf[i++]) & 0xff] ^ (seed >> 8);
-    }
 
-    Init_Integer(D_OUT, seed);
-    return D_OUT;
+    return Init_Integer(D_OUT, seed);
 }
 
 

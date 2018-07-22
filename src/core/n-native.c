@@ -315,8 +315,7 @@ REBNATIVE(make_native)
     //
     SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_USER_NATIVE);
 
-    Init_Action_Unbound(D_OUT, native);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, native);
 #endif
 }
 
@@ -559,8 +558,7 @@ REBNATIVE(compile)
     //
     if (REF(inspect)) {
         DS_DROP_TO(dsp_orig); // don't modify the collected user natives
-        Init_Text(D_OUT, Pop_Molded_String(mo));
-        return D_OUT;
+        return Init_Text(D_OUT, Pop_Molded_String(mo));
     }
 
     REBSER *combined_src = Pop_Molded_UTF8(mo);

@@ -36,11 +36,10 @@
 //
 //  Serial_Actor: C
 //
-static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
-    FAIL_IF_BAD_PORT(port);
-
-    REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
     REBVAL *path = Obj_Value(spec, STD_PORT_SPEC_HEAD_REF);
     if (path == NULL)
         fail (Error_Invalid_Spec_Raw(spec));
@@ -151,10 +150,10 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
             req->flags |= RRF_OPEN;
-            goto return_port; }
+            return port; }
 
         case SYM_CLOSE:
-            goto return_port;
+            return port;
 
         default:
             fail (Error_On_Port(RE_NOT_OPEN, port, -12));
@@ -197,7 +196,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         UNUSED(PAR(lines)); // handled in dispatcher
 
         // Setup the read buffer (allocate a buffer if needed):
-        REBVAL *data = CTX_VAR(port, STD_PORT_DATA);
+        REBVAL *data = CTX_VAR(ctx, STD_PORT_DATA);
         if (!IS_BINARY(data))
             Init_Binary(data, Make_Binary(32000));
 
@@ -226,7 +225,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         }
         printf("\n");
 #endif
-        goto return_port; }
+        return port; }
 
     case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
@@ -256,7 +255,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
                 len = n;
         }
 
-        Move_Value(CTX_VAR(port, STD_PORT_DATA), data); // keep it GC safe
+        Move_Value(CTX_VAR(ctx, STD_PORT_DATA), data); // keep it GC safe
         req->length = len;
         req->common.data = VAL_BIN_AT(data);
         req->actual = 0;
@@ -265,13 +264,13 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         //
         OS_DO_DEVICE_SYNC(req, RDC_WRITE);
 
-        goto return_port; }
+        return port; }
 
     case SYM_ON_WAKE_UP: {
         // Update the port object after a READ or WRITE operation.
         // This is normally called by the WAKE-UP function.
 
-        REBVAL *data = CTX_VAR(port, STD_PORT_DATA);
+        REBVAL *data = CTX_VAR(ctx, STD_PORT_DATA);
         if (req->command == RDC_READ) {
             if (IS_BINARY(data)) {
                 SET_SERIES_LEN(
@@ -291,17 +290,13 @@ static REB_R Serial_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
             req->flags &= ~RRF_OPEN;
         }
-        goto return_port;
+        return port;
 
     default:
         break;
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Move_Value(D_OUT, D_ARG(1));
-    return D_OUT;
 }
 
 

@@ -1006,9 +1006,10 @@ inline static const REBVAL *NULLIZE(const REBVAL *cell) {
         Init_Void_Debug((out), __FILE__, __LINE__)
 #endif
 
-inline static void Voidify_If_Nulled(REBVAL *cell) {
+inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
     if (IS_NULLED(cell))
         Init_Void(cell);
+    return cell;
 }
 
 

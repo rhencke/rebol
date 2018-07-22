@@ -2014,8 +2014,8 @@ static void Queue_Mark_Event_Deep(const RELVAL *value)
 
         while (req) {
             // Comment says void* ->port is "link back to REBOL port object"
-            if (req->port)
-                Queue_Mark_Context_Deep(CTX(req->port));
+            if (req->port_ctx)
+                Queue_Mark_Context_Deep(CTX(req->port_ctx));
             req = req->next;
         }
     }
@@ -2042,8 +2042,8 @@ static void Mark_Devices_Deep(void)
             continue;
 
         for (req = dev->pending; req; req = req->next)
-            if (req->port)
-                Queue_Mark_Context_Deep(CTX(req->port));
+            if (req->port_ctx)
+                Queue_Mark_Context_Deep(CTX(req->port_ctx));
     }
 
     Propagate_All_GC_Marks();

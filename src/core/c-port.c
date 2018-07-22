@@ -37,49 +37,13 @@
 
 
 //
-//  Is_Port_Open: C
-//
-// Standard method for checking if port is open.
-// A convention. Not all ports use this method.
-//
-REBOOL Is_Port_Open(REBCTX *port)
-{
-    REBVAL *state = CTX_VAR(port, STD_PORT_STATE);
-    if (!IS_BINARY(state))
-        return FALSE;
-
-    REBREQ *req = cast(REBREQ*, VAL_BIN_AT(state));
-    return did (req->flags & RRF_OPEN);
-}
-
-
-//
-//  Set_Port_Open: C
-//
-// Standard method for setting a port open/closed.
-// A convention. Not all ports use this method.
-//
-void Set_Port_Open(REBCTX *port, REBOOL open)
-{
-    REBVAL *state = CTX_VAR(port, STD_PORT_STATE);
-    if (IS_BINARY(state)) {
-        REBREQ *req = cast(REBREQ*, VAL_BIN_AT(state));
-        if (open)
-            req->flags |= RRF_OPEN; // open it
-        else
-            req->flags &= ~RRF_OPEN; // close it
-    }
-}
-
-
-//
 //  Ensure_Port_State: C
 //
 // Use private state area in a port. Create if necessary.
 // The size is that of a binary structure used by
 // the port for storing internal information.
 //
-REBREQ *Ensure_Port_State(REBCTX *port, REBCNT device)
+REBREQ *Ensure_Port_State(REBVAL *port, REBCNT device)
 {
     assert(device < RDI_MAX);
 
@@ -87,7 +51,8 @@ REBREQ *Ensure_Port_State(REBCTX *port, REBCNT device)
     if (not dev)
         return NULL;
 
-    REBVAL *state = CTX_VAR(port, STD_PORT_STATE);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *state = CTX_VAR(ctx, STD_PORT_STATE);
     REBCNT req_size = dev->req_size;
 
     if (!IS_BINARY(state)) {
@@ -97,7 +62,7 @@ REBREQ *Ensure_Port_State(REBCTX *port, REBCNT device)
         TERM_BIN_LEN(data, req_size);
 
         REBREQ *req = cast(REBREQ*, BIN_HEAD(data));
-        req->port = port;
+        req->port_ctx = ctx;
         req->device = device;
         Init_Binary(state, data);
     }
@@ -479,11 +444,12 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
 // NOTE: stack must already be setup correctly for action, and
 // the caller must cleanup the stack.
 //
-REB_R Do_Port_Action(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+REB_R Do_Port_Action(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     FAIL_IF_BAD_PORT(port);
 
-    REBVAL *actor = CTX_VAR(port, STD_PORT_ACTOR);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *actor = CTX_VAR(ctx, STD_PORT_ACTOR);
 
     REB_R r;
 

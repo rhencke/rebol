@@ -67,8 +67,7 @@ REBNATIVE(stats)
 
     if (REF(evals)) {
         REBI64 n = Eval_Cycles + Eval_Dose - Eval_Count;
-        Init_Integer(D_OUT, n);
-        return D_OUT;
+        return Init_Integer(D_OUT, n);
     }
 
 #ifdef NDEBUG
@@ -120,12 +119,10 @@ REBNATIVE(stats)
         return nullptr;
     }
 
-    Init_Integer(D_OUT, Inspect_Series(REF(show)));
-
     if (REF(show))
         Dump_Pools();
 
-    return D_OUT;
+    return Init_Integer(D_OUT, Inspect_Series(REF(show)));
 #endif
 }
 
@@ -379,8 +376,7 @@ REBNATIVE(metrics)
         PG_Dispatcher = &Dispatcher_Core;
     }
 
-    Move_Value(D_OUT, Root_Stats_Map);
-    return D_OUT;
+    return Root_Stats_Map;
 }
 
 

@@ -224,12 +224,12 @@ REBNATIVE(and)
 
     if (IS_GROUP(right)) { // result should be LOGIC!
         if (IS_FALSEY(left))
-            Init_Logic(D_OUT, false); // no need to evaluate right
-        else if (Do_Any_Array_At_Throws(D_OUT, right))
+            return Init_Logic(D_OUT, false); // no need to evaluate right
+
+        if (Do_Any_Array_At_Throws(D_OUT, right))
             return D_OUT;
-        else
-            Init_Logic(D_OUT, IS_TRUTHY(D_OUT));
-        return D_OUT;
+
+        return Init_Logic(D_OUT, IS_TRUTHY(D_OUT));
     }
 
     assert(IS_BLOCK(right)); // any-value! result, or null
@@ -270,12 +270,12 @@ REBNATIVE(or)
 
     if (IS_GROUP(right)) { // result should be LOGIC!
         if (IS_TRUTHY(left))
-            Init_Logic(D_OUT, true); // no need to evaluate right
-        else if (Do_Any_Array_At_Throws(D_OUT, right))
+            return Init_Logic(D_OUT, true); // no need to evaluate right
+
+        if (Do_Any_Array_At_Throws(D_OUT, right))
             return D_OUT;
-        else
-            Init_Logic(D_OUT, IS_TRUTHY(D_OUT));
-        return D_OUT;
+
+        return Init_Logic(D_OUT, IS_TRUTHY(D_OUT));
     }
 
     assert(IS_BLOCK(right)); // any-value! result, or null
@@ -320,16 +320,15 @@ REBNATIVE(xor)
 
     REBVAL *right = D_OUT;
 
-    if (IS_GROUP(right)) { // result should be LOGIC!
-        Init_Logic(D_OUT, IS_TRUTHY(left) != IS_TRUTHY(right));
-        return D_OUT;
-    }
+    if (IS_GROUP(right)) // result should be LOGIC!
+        return Init_Logic(D_OUT, IS_TRUTHY(left) != IS_TRUTHY(right));
 
     assert(IS_BLOCK(right)); // any-value! result, or null
 
     if (IS_FALSEY(left)) {
         if (IS_FALSEY(right))
             return nullptr;
+
         return right;
     }
 

@@ -255,8 +255,7 @@ REBTYPE(Word)
                     ++len;
                }
             }
-            Init_Integer(D_OUT, len);
-            return D_OUT; }
+            return Init_Integer(D_OUT, len); }
 
         case SYM_BINDING: {
             if (Did_Get_Binding_Of(D_OUT, val))

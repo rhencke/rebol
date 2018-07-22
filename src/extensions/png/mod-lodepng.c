@@ -299,9 +299,7 @@ REBNATIVE(decode_png)
     }
     rebFree(image_bytes); // !!! would have been nicer to rebRepossess()
 
-    Init_Image(D_OUT, image);
-
-    return D_OUT;
+    return Init_Image(D_OUT, image);
 }
 
 
@@ -409,11 +407,7 @@ REBNATIVE(encode_png)
     // the encoded buffer can be taken back as a BINARY! without making a
     // new series, see rebMalloc()/rebRepossess() for details.
     //
-    REBVAL *binary = rebRepossess(encoded_bytes, encoded_size);
-    Move_Value(D_OUT, binary);
-    rebRelease(binary);
-
-    return D_OUT;
+    return rebRepossess(encoded_bytes, encoded_size);
 }
 
 

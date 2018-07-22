@@ -590,10 +590,8 @@ REBTYPE(Bitset)
         assert(property != SYM_0);
 
         switch (property) {
-        case SYM_LENGTH: {
-            REBINT len = VAL_LEN_HEAD(value) * 8;
-            Init_Integer(value, len);
-            break; }
+        case SYM_LENGTH:
+            return Init_Integer(value, VAL_LEN_HEAD(value) * 8);
 
         case SYM_TAIL_Q:
             // Necessary to make EMPTY? work:
@@ -708,8 +706,7 @@ REBTYPE(Bitset)
             fail (Error_Math_Args(VAL_TYPE(arg), verb));
         ser = Xandor_Binary(verb, value, arg);
         Trim_Tail_Zeros(ser);
-        Init_Any_Series(D_OUT, VAL_TYPE(value), ser);
-        return D_OUT;
+        return Init_Any_Series(D_OUT, VAL_TYPE(value), ser);
 
     default:
         break;
@@ -717,7 +714,8 @@ REBTYPE(Bitset)
 
     fail (Error_Illegal_Action(REB_BITSET, verb));
 
-return_bitset:
+  return_bitset:;
+
     Move_Value(D_OUT, value);
     return D_OUT;
 }

@@ -372,9 +372,7 @@ REBNATIVE(action)
     //
     Init_Action_Unbound(Sink_Var_May_Fail(ARG(verb), SPECIFIED), a);
 
-    Init_Action_Unbound(D_OUT, a);
-
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, a);
 }
 
 

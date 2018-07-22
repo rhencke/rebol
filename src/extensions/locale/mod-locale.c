@@ -89,13 +89,10 @@ REBNATIVE(locale)
     assert(len_check == len_plus_term);
     UNUSED(len_check);
 
-    REBVAL *str = rebLengthedTextW(buffer, len_plus_term - 1);
+    REBVAL *text = rebLengthedTextW(buffer, len_plus_term - 1);
     rebFree(buffer);
 
-    Move_Value(D_OUT, str);
-    rebRelease(str);
-
-    return D_OUT;
+    return text;
   #else
     UNUSED(frame_);
     fail ("LOCALE not implemented natively for non-Windows");

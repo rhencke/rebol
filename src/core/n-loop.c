@@ -163,8 +163,7 @@ static REB_R Loop_Series_Common(
             if (stop)
                 return nullptr;
         }
-        Voidify_If_Nulled(out); // null is reserved for BREAK
-        return out;
+        return Voidify_If_Nulled(out); // null is reserved for BREAK
     }
 
     // As per #1993, start relative to end determines the "direction" of the
@@ -241,8 +240,7 @@ static REB_R Loop_Integer_Common(
             if (stop)
                 return nullptr;
         }
-        Voidify_If_Nulled(out); // null is reserved for BREAK
-        return out;
+        return Voidify_If_Nulled(out); // null is reserved for BREAK
     }
 
     // As per #1993, start relative to end determines the "direction" of the
@@ -328,17 +326,14 @@ static REB_R Loop_Number_Common(
             if (stop)
                 return nullptr;
         }
-        Voidify_If_Nulled(out); // null is reserved for BREAK
-        return out;
+        return Voidify_If_Nulled(out); // null is reserved for BREAK
     }
 
     // As per #1993, see notes in Loop_Integer_Common()
     //
     const REBOOL counting_up = (s < e); // equal checked above
-    if ((counting_up and b <= 0) or (not counting_up and b >= 0)) {
-        Init_Void(out);
-        return out; // avoid infinite loops, void if body never runs
-    }
+    if ((counting_up and b <= 0) or (not counting_up and b >= 0))
+        return Init_Void(out); // avoid infinite loop, void if body never runs
 
     while (counting_up ? *state <= e : *state >= e) {
         if (Run_Branch_Throws(out, body, END)) {
@@ -408,10 +403,8 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         series = VAL_SERIES(data);
         index = VAL_INDEX(data);
         if (index >= SER_LEN(series)) {
-            if (mode == LOOP_MAP_EACH) {
-                Init_Block(D_OUT, Make_Array(0));
-                return D_OUT;
-            }
+            if (mode == LOOP_MAP_EACH)
+                return Init_Block(D_OUT, Make_Array(0));
             return D_OUT;
         }
     }
@@ -670,8 +663,7 @@ skip_hidden: ;
 
     case LOOP_MAP_EACH:
         UNUSED(stop); // !!! MAP-EACH historically kept the remainder
-        Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-        return D_OUT;
+        return Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
 
     case LOOP_EVERY:
         if (threw)
@@ -1209,10 +1201,9 @@ REBNATIVE(remove_each)
         // If index is past the series end, then there's nothing removable.
         //
         // !!! Should REMOVE-EACH follow the "loop conventions" where if the
-        // body never gets a chance to run, the return value is null?
+        // body never gets a chance to run, the return value is void?
         //
-        Init_Integer(D_OUT, 0);
-        return D_OUT;
+        return Init_Integer(D_OUT, 0);
     }
 
     // Create a context for the loop variables, and bind the body to it.
@@ -1279,8 +1270,7 @@ REBNATIVE(remove_each)
     if (THROWN(res.out))
         return D_OUT;
 
-    Init_Integer(D_OUT, removals);
-    return D_OUT;
+    return Init_Integer(D_OUT, removals);
 }
 
 
@@ -1348,8 +1338,7 @@ REBNATIVE(loop)
 
     if (IS_FALSEY(ARG(count))) {
         assert(IS_LOGIC(ARG(count))); // is false...opposite of infinite loop
-        Init_Void(D_OUT);
-        return D_OUT;
+        return R_VOID;
     }
 
     Init_Void(D_OUT); // result if body never runs
@@ -1430,10 +1419,8 @@ REBNATIVE(repeat)
         );
 
     REBI64 n = VAL_INT64(value);
-    if (n < 1) { // Loop_Integer from 1 to 0 with bump of 1 is infinite
-        Init_Void(D_OUT);
-        return D_OUT; // void if loop condition never runs
-    }
+    if (n < 1) // Loop_Integer from 1 to 0 with bump of 1 is infinite
+        return R_VOID; // void if loop condition never runs
 
     return Loop_Integer_Common(
         D_OUT, var, ARG(body), 1, VAL_INT64(value), 1

@@ -58,12 +58,10 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         switch (property) {
         case SYM_INDEX:
-            Init_Integer(D_OUT, cast(REBI64, index) + 1);
-            return D_OUT;
+            return Init_Integer(D_OUT, cast(REBI64, index) + 1);
 
         case SYM_LENGTH:
-            Init_Integer(D_OUT, tail > index ? tail - index : 0);
-            return D_OUT;
+            return Init_Integer(D_OUT, tail > index ? tail - index : 0);
 
         case SYM_HEAD:
             Move_Value(D_OUT, value);
@@ -165,8 +163,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
         }
 
         VAL_INDEX(value) = cast(REBCNT, i);
-        Move_Value(D_OUT, value);
-        return D_OUT; }
+        return value; }
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
@@ -185,8 +182,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
         if (index < tail and len != 0)
             Remove_Series(VAL_SERIES(value), VAL_INDEX(value), len);
 
-        Move_Value(D_OUT, value);
-        return D_OUT; }
+        return value; }
 
     case SYM_INTERSECT: {
         if (IS_BINARY(value))

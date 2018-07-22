@@ -457,32 +457,27 @@ REBTYPE(Integer)
         REBI64 anum;
         if (REB_I64_ADD_OF(num, arg, &anum))
             fail (Error_Overflow_Raw());
-        num = anum;
-        break; }
+        return Init_Integer(D_OUT, anum); }
 
     case SYM_SUBTRACT: {
         REBI64 anum;
         if (REB_I64_SUB_OF(num, arg, &anum))
             fail (Error_Overflow_Raw());
-        num = anum;
-        break; }
+        return Init_Integer(D_OUT, anum); }
 
     case SYM_MULTIPLY: {
         REBI64 p;
         if (REB_I64_MUL_OF(num, arg, &p))
             fail (Error_Overflow_Raw());
-        num = p;
-        break; }
+        return Init_Integer(D_OUT, p); }
 
     case SYM_DIVIDE:
         if (arg == 0)
             fail (Error_Zero_Divide_Raw());
         if (num == INT64_MIN && arg == -1)
             fail (Error_Overflow_Raw());
-        if (num % arg == 0) {
-            num = num / arg;
-            break;
-        }
+        if (num % arg == 0)
+            return Init_Integer(D_OUT, num / arg);
         // Fall thru
     case SYM_POWER:
         Init_Decimal(D_ARG(1), cast(REBDEC, num));
@@ -492,37 +487,29 @@ REBTYPE(Integer)
     case SYM_REMAINDER:
         if (arg == 0)
             fail (Error_Zero_Divide_Raw());
-        num = (arg != -1) ? (num % arg) : 0; // !!! was macro called REM2 (?)
-        break;
+        return Init_Integer(D_OUT, (arg != -1) ? (num % arg) : 0);
 
     case SYM_INTERSECT:
-        num &= arg;
-        break;
+        return Init_Integer(D_OUT, num & arg);
 
     case SYM_UNION:
-        num |= arg;
-        break;
+        return Init_Integer(D_OUT, num | arg);
 
     case SYM_DIFFERENCE:
-        num ^= arg;
-        break;
+        return Init_Integer(D_OUT, num ^ arg);
 
     case SYM_NEGATE:
         if (num == INT64_MIN)
             fail (Error_Overflow_Raw());
-        num = -num;
-        break;
+        return Init_Integer(D_OUT, -num);
 
     case SYM_COMPLEMENT:
-        num = ~num;
-        break;
+        return Init_Integer(D_OUT, ~num);
 
     case SYM_ABSOLUTE:
         if (num == INT64_MIN)
             fail (Error_Overflow_Raw());
-        if (num < 0)
-            num = -num;
-        break;
+        return Init_Integer(D_OUT, num < 0 ? -num : num);
 
     case SYM_EVEN_Q:
         num = ~num;
@@ -549,12 +536,13 @@ REBTYPE(Integer)
 
         REBVAL *val2 = ARG(scale);
         if (REF(to)) {
-            if (IS_MONEY(val2)) {
-                Init_Money(D_OUT, Round_Deci(
-                    int_to_deci(num), flags, VAL_MONEY_AMOUNT(val2)
-                ));
-                return D_OUT;
-            }
+            if (IS_MONEY(val2))
+                return Init_Money(
+                    D_OUT,
+                    Round_Deci(
+                        int_to_deci(num), flags, VAL_MONEY_AMOUNT(val2)
+                    )
+                );
             if (IS_DECIMAL(val2) || IS_PERCENT(val2)) {
                 REBDEC dec = Round_Dec(
                     cast(REBDEC, num), flags, VAL_DECIMAL(val2)
@@ -569,8 +557,8 @@ REBTYPE(Integer)
         }
         else
             arg = 0L;
-        num = Round_Int(num, flags, arg);
-        break; }
+
+        return Init_Integer(D_OUT, Round_Int(num, flags, arg)); }
 
     case SYM_RANDOM: {
         INCLUDE_PARAMS_OF_RANDOM;
@@ -586,13 +574,11 @@ REBTYPE(Integer)
         }
         if (num == 0)
             break;
-        num = Random_Range(num, REF(secure));  // !!! 64 bits
-        break; }
+        return Init_Integer(D_OUT, Random_Range(num, REF(secure))); }
 
     default:
-        fail (Error_Illegal_Action(REB_INTEGER, verb));
+        break;
     }
 
-    Init_Integer(D_OUT, num);
-    return D_OUT;
+    fail (Error_Illegal_Action(REB_INTEGER, verb));
 }

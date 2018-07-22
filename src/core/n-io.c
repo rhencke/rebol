@@ -47,11 +47,7 @@ REBNATIVE(form)
 {
     INCLUDE_PARAMS_OF_FORM;
 
-    REBVAL *value = ARG(value);
-
-    Init_Text(D_OUT, Copy_Form_Value(value, 0));
-
-    return D_OUT;
+    return Init_Text(D_OUT, Copy_Form_Value(ARG(value), 0));
 }
 
 
@@ -94,9 +90,7 @@ REBNATIVE(mold)
 
     Mold_Value(mo, ARG(value));
 
-    Init_Text(D_OUT, Pop_Molded_String(mo));
-
-    return D_OUT;
+    return Init_Text(D_OUT, Pop_Molded_String(mo));
 }
 
 
@@ -527,10 +521,11 @@ REBNATIVE(wake_up)
 {
     INCLUDE_PARAMS_OF_WAKE_UP;
 
-    REBCTX *port = VAL_CONTEXT(ARG(port));
-    FAIL_IF_BAD_PORT(port);
+    FAIL_IF_BAD_PORT(ARG(port));
 
-    REBVAL *actor = CTX_VAR(port, STD_PORT_ACTOR);
+    REBCTX *ctx = VAL_CONTEXT(ARG(port));
+
+    REBVAL *actor = CTX_VAR(ctx, STD_PORT_ACTOR);
     if (Is_Native_Port_Actor(actor)) {
         //
         // We don't pass `actor` or `event` in, because we just pass the
@@ -542,14 +537,14 @@ REBNATIVE(wake_up)
         //
         DECLARE_LOCAL (verb);
         Init_Word(verb, Canon(SYM_ON_WAKE_UP));
-        REB_R r = Do_Port_Action(frame_, port, verb);
+        REB_R r = Do_Port_Action(frame_, ARG(port), verb);
         assert(r == R_BAR);
         UNUSED(r);
     }
 
     REBOOL woke_up = TRUE; // start by assuming success
 
-    REBVAL *awake = CTX_VAR(port, STD_PORT_AWAKE);
+    REBVAL *awake = CTX_VAR(ctx, STD_PORT_AWAKE);
     if (IS_ACTION(awake)) {
         const REBOOL fully = TRUE; // error if not all arguments consumed
 
@@ -588,7 +583,7 @@ REBNATIVE(local_to_file)
         if (not REF(pass))
             fail ("LOCAL-TO-FILE only passes through FILE! if /PASS used");
 
-        Init_File(
+        return Init_File(
             D_OUT,
             Copy_Sequence_At_Len( // Copy (callers frequently modify result)
                 VAL_SERIES(path),
@@ -596,14 +591,12 @@ REBNATIVE(local_to_file)
                 VAL_LEN_AT(path)
             )
         );
-        return D_OUT;
     }
 
-    Init_File(
+    return Init_File(
         D_OUT,
         To_REBOL_Path(path, REF(dir) ? PATH_OPT_SRC_IS_DIR : 0)
     );
-    return D_OUT;
 }
 
 
@@ -635,7 +628,7 @@ REBNATIVE(file_to_local)
         if (not REF(pass))
             fail ("FILE-TO-LOCAL only passes through STRING! if /PASS used");
 
-        Init_Text(
+        return Init_Text(
             D_OUT,
             Copy_Sequence_At_Len( // Copy (callers frequently modify result)
                 VAL_SERIES(path),
@@ -643,10 +636,9 @@ REBNATIVE(file_to_local)
                 VAL_LEN_AT(path)
             )
         );
-        return D_OUT;
     }
 
-    Init_Text(
+    return Init_Text(
         D_OUT,
         To_Local_Path(
             path,
@@ -656,7 +648,6 @@ REBNATIVE(file_to_local)
                 | (REF(wild) ? REB_FILETOLOCAL_WILD : 0)
         )
     );
-    return D_OUT;
 }
 
 
@@ -696,14 +687,12 @@ REBNATIVE(what_dir)
     // mutated by the caller without affecting future calls to WHAT-DIR, so
     // the variable holding the current path must be copied.
     //
-    Init_Any_Series_At(
+    return Init_Any_Series_At(
         D_OUT,
         VAL_TYPE(current_path),
         Copy_Sequence_Core(VAL_SERIES(current_path), NODE_FLAG_MANAGED),
         VAL_INDEX(current_path)
     );
-
-    return D_OUT;
 }
 
 
@@ -742,6 +731,5 @@ REBNATIVE(change_dir)
 
     Move_Value(current_path, arg);
 
-    Move_Value(D_OUT, ARG(path));
-    return D_OUT;
+    return ARG(path);
 }

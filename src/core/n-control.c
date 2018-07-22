@@ -73,8 +73,7 @@ REBNATIVE(if)
     if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(condition)))
         return D_OUT;
 
-    Voidify_If_Nulled(D_OUT); // null reserved for no branch (cues ELSE, etc.)
-    return D_OUT;
+    return Voidify_If_Nulled(D_OUT); // null means no branch (cues ELSE, etc.)
 }
 
 
@@ -93,14 +92,13 @@ REBNATIVE(if_not)
 {
     INCLUDE_PARAMS_OF_IF_NOT;
 
-    if (IS_CONDITIONAL_TRUE(ARG(condition)))  // fails on void, literal blocks
+    if (IS_CONDITIONAL_TRUE(ARG(condition))) // fails on void, literal blocks
         return nullptr;
 
     if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(condition)))
         return D_OUT;
 
-    Voidify_If_Nulled(D_OUT); // null reserved for no branch (cues ELSE, etc.)
-    return D_OUT;
+    return Voidify_If_Nulled(D_OUT); // null means no branch (cues ELSE, etc.)
 }
 
 
@@ -279,10 +277,8 @@ REBNATIVE(either_test)
     if (r == R_THROWN)
         return D_OUT;
 
-    if (r == R_TRUE) {
-        Move_Value(D_OUT, ARG(arg));
-        return D_OUT; // *slightly* faster than `return ARG(arg);`
-    }
+    if (r == R_TRUE)
+        return ARG(arg);
 
     assert(r == R_FALSE);
 
@@ -342,8 +338,7 @@ REBNATIVE(then)
     if (Run_Branch_Throws(D_OUT, ARG(branch), ARG(optional)))
         return D_OUT;
 
-    Voidify_If_Nulled(D_OUT); // if left signaled it ran, ensure THEN signals
-    return D_OUT;
+    return Voidify_If_Nulled(D_OUT); // if left ran, make THEN signal it did
 }
 
 

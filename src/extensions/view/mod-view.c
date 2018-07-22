@@ -509,8 +509,7 @@ REBNATIVE(request_file_p)
         // /MULTI and there's even just one file.  (An empty block might even
         // be better than null for that case?)
         //
-        Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-        return D_OUT;
+        return Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
     }
 
     assert(IS_FILE(DS_TOP));

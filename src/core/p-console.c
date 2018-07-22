@@ -36,8 +36,9 @@
 //
 //  Console_Actor: C
 //
-static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
+    REBCTX *ctx = VAL_CONTEXT(port);
     REBREQ *req = Ensure_Port_State(port, RDI_STDIO);
 
     switch (VAL_WORD_SYM(verb)) {
@@ -81,7 +82,7 @@ static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         // If no buffer, create a buffer:
         //
-        REBVAL *data = CTX_VAR(port, STD_PORT_DATA);
+        REBVAL *data = CTX_VAR(ctx, STD_PORT_DATA);
         if (not IS_BINARY(data))
             Init_Binary(data, Make_Binary(OUT_BUF_SIZE));
 
@@ -101,22 +102,18 @@ static REB_R Console_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
     case SYM_OPEN: {
         req->flags |= RRF_OPEN;
-        goto return_port; }
+        return port; }
 
     case SYM_CLOSE:
         req->flags &= ~RRF_OPEN;
         //OS_DO_DEVICE(req, RDC_CLOSE);
-        goto return_port;
+        return port;
 
     default:
         break;
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Move_Value(D_OUT, D_ARG(1));
-    return D_OUT;
 }
 
 

@@ -41,17 +41,17 @@ enum Transport_Types {
 };
 
 //
-//  Ret_Query_Net: C
+//  Query_Net: C
 //
-static void Ret_Query_Net(REBCTX *port, struct devreq_net *sock, REBVAL *out)
+static void Query_Net(REBVAL *out, REBVAL *port, struct devreq_net *sock)
 {
-    REBVAL *std_info = In_Object(port, STD_PORT_SCHEME, STD_SCHEME_INFO, 0);
-    REBCTX *info;
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *std_info = In_Object(ctx, STD_PORT_SCHEME, STD_SCHEME_INFO, 0);
 
-    if (!std_info || !IS_OBJECT(std_info))
+    if (not std_info or not IS_OBJECT(std_info))
         fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
 
-    info = Copy_Context_Shallow(VAL_CONTEXT(std_info));
+    REBCTX *info = Copy_Context_Shallow(VAL_CONTEXT(std_info));
 
     Set_Tuple(
         CTX_VAR(info, STD_NET_INFO_LOCAL_IP),
@@ -82,19 +82,18 @@ static void Ret_Query_Net(REBCTX *port, struct devreq_net *sock, REBVAL *out)
 //
 static REB_R Transport_Actor(
     REBFRM *frame_,
-    REBCTX *port,
+    REBVAL *port,
     REBVAL *verb,
     enum Transport_Types proto
 ){
-    FAIL_IF_BAD_PORT(port);
-
     // Initialize the IO request
     //
     REBREQ *sock = Ensure_Port_State(port, RDI_NET);
     if (proto == TRANSPORT_UDP)
         sock->modes |= RST_UDP;
 
-    REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
 
     // sock->timeout = 4000; // where does this go? !!!
 
@@ -168,13 +167,13 @@ static REB_R Transport_Actor(
                     rebJUMPS ("lib/fail", l_result, END);
                 rebRelease(l_result); // ignore result
 
-                goto return_port;
+                return port;
             }
             else if (IS_TUPLE(arg)) { // Host IP specified:
                 DEVREQ_NET(sock)->remote_port =
                     IS_INTEGER(port_id) ? VAL_INT32(port_id) : 80;
                 memcpy(&(DEVREQ_NET(sock)->remote_ip), VAL_TUPLE(arg), 4);
-                break; // fall through to open case SYM_OPEN/CONNECT (?)
+                goto open_socket_actions;
             }
             else if (IS_BLANK(arg)) { // No host, must be a LISTEN socket:
                 sock->modes |= RST_LISTEN;
@@ -185,18 +184,17 @@ static REB_R Transport_Actor(
                 // to a BLOCK! of connections.
                 //
                 Init_Block(
-                    CTX_VAR(port, STD_PORT_CONNECTIONS),
+                    CTX_VAR(ctx, STD_PORT_CONNECTIONS),
                     Make_Array(2)
                 );
-                break; // fall through to open case SYM_OPEN/CONNECT (?)
+                goto open_socket_actions;
             }
             else
                 fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
             break; }
 
         case SYM_CLOSE:
-            Init_Port(D_OUT, port);
-            return D_OUT;
+            return port;
 
         case SYM_ON_WAKE_UP:  // allowed after a close
             break;
@@ -206,7 +204,7 @@ static REB_R Transport_Actor(
         }
     }
 
-    // Actions for an open socket:
+  open_socket_actions:;
 
     switch (VAL_WORD_SYM(verb)) { // Ordered by frequency
 
@@ -219,12 +217,11 @@ static REB_R Transport_Actor(
 
         switch (property) {
         case SYM_LENGTH: {
-            REBVAL *port_data = CTX_VAR(port, STD_PORT_DATA);
-            Init_Integer(
+            REBVAL *port_data = CTX_VAR(ctx, STD_PORT_DATA);
+            return Init_Integer(
                 D_OUT,
                 ANY_SERIES(port_data) ? VAL_LEN_HEAD(port_data) : 0
-            );
-            return D_OUT; }
+            ); }
 
         case SYM_OPEN_Q:
             //
@@ -245,7 +242,7 @@ static REB_R Transport_Actor(
         // Update the port object after a READ or WRITE operation.
         // This is normally called by the WAKE-UP function.
         //
-        REBVAL *port_data = CTX_VAR(port, STD_PORT_DATA);
+        REBVAL *port_data = CTX_VAR(ctx, STD_PORT_DATA);
         if (sock->command == RDC_READ) {
             if (ANY_BINSTR(port_data)) {
                 SET_SERIES_LEN(
@@ -286,7 +283,7 @@ static REB_R Transport_Actor(
 
         // Setup the read buffer (allocate a buffer if needed):
         //
-        REBVAL *port_data = CTX_VAR(port, STD_PORT_DATA);
+        REBVAL *port_data = CTX_VAR(ctx, STD_PORT_DATA);
         REBSER *buffer;
         if (not IS_TEXT(port_data) and not IS_BINARY(port_data)) {
             buffer = Make_Binary(NET_BUF_SIZE);
@@ -318,7 +315,11 @@ static REB_R Transport_Actor(
             rebRelease(result); // ignore result
         }
 
-        goto return_port; }
+        // !!! Post-processing enforces READ as returning D_OUT at the moment;
+        // so you can't just `return port`.
+        //
+        Move_Value(D_OUT, port);
+        return D_OUT; }
 
     case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
@@ -366,7 +367,7 @@ static REB_R Transport_Actor(
             sock->common.data = VAL_BIN_AT(data);
             sock->length = len;
 
-            Move_Value(CTX_VAR(port, STD_PORT_DATA), data); // keep it GC safe
+            Move_Value(CTX_VAR(ctx, STD_PORT_DATA), data); // keep it GC safe
         }
         else {
             // !!! R3-Alpha did not lay out the invariants of the port model,
@@ -411,9 +412,8 @@ static REB_R Transport_Actor(
             rebRelease(result); // ignore result
         }
 
-        Init_Blank(CTX_VAR(port, STD_PORT_DATA));
-        goto return_port; }
-
+        Init_Blank(CTX_VAR(ctx, STD_PORT_DATA));
+        return port; }
 
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
@@ -432,7 +432,7 @@ static REB_R Transport_Actor(
 
         return rebRun(
             "lib/take*/part",
-                CTX_VAR(port, STD_PORT_CONNECTIONS),
+                CTX_VAR(ctx, STD_PORT_CONNECTIONS),
                 NULLIZE(ARG(limit)),
                 END
         ); }
@@ -451,7 +451,7 @@ static REB_R Transport_Actor(
         // Get specific information - the scheme's info object.
         // Special notation allows just getting part of the info.
         //
-        Ret_Query_Net(port, DEVREQ_NET(sock), D_OUT);
+        Query_Net(D_OUT, port, DEVREQ_NET(sock));
         return D_OUT; }
 
     case SYM_CLOSE: {
@@ -460,7 +460,7 @@ static REB_R Transport_Actor(
 
             sock->flags &= ~RRF_OPEN;
         }
-        goto return_port; }
+        return port; }
 
     case SYM_OPEN: {
         REBVAL *result = OS_DO_DEVICE(sock, RDC_CONNECT);
@@ -481,24 +481,20 @@ static REB_R Transport_Actor(
                 rebRelease(result); // ignore result
             }
         }
-        goto return_port; }
+        return port; }
 
     default:
         break;
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Init_Port(D_OUT, port);
-    return D_OUT;
 }
 
 
 //
 //  TCP_Actor: C
 //
-static REB_R TCP_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R TCP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     return Transport_Actor(frame_, port, verb, TRANSPORT_TCP);
 }
@@ -507,7 +503,7 @@ static REB_R TCP_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 //
 //  UDP_Actor: C
 //
-static REB_R UDP_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R UDP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     return Transport_Actor(frame_, port, verb, TRANSPORT_UDP);
 }
@@ -581,8 +577,7 @@ REBNATIVE(set_udp_multicast)
 {
     INCLUDE_PARAMS_OF_SET_UDP_MULTICAST;
 
-    REBCTX *port = VAL_CONTEXT(ARG(port));
-    REBREQ *sock = Ensure_Port_State(port, RDI_NET);
+    REBREQ *sock = Ensure_Port_State(ARG(port), RDI_NET);
 
     sock->common.data = cast(REBYTE*, frame_);
 
@@ -617,8 +612,7 @@ REBNATIVE(set_udp_ttl)
 {
     INCLUDE_PARAMS_OF_SET_UDP_TTL;
 
-    REBCTX *port = VAL_CONTEXT(ARG(port));
-    REBREQ *sock = Ensure_Port_State(port, RDI_NET);
+    REBREQ *sock = Ensure_Port_State(ARG(port), RDI_NET);
 
     sock->common.data = cast(REBYTE*, frame_);
 

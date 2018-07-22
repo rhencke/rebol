@@ -619,8 +619,7 @@ REBNATIVE(encode_bmp)
     }
 
     TERM_BIN_LEN(bin, bmfh.bfSize);
-    Init_Binary(D_OUT, bin);
-    return D_OUT;
+    return Init_Binary(D_OUT, bin);
 }
 
 

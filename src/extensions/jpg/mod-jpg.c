@@ -98,8 +98,7 @@ REBNATIVE(decode_jpeg)
     REBSER *ser = Make_Image(w, h, TRUE);
     jpeg_load(s_cast(data), len, cast(char*, IMG_DATA(ser)));
 
-    Init_Image(D_OUT, ser);
-    return D_OUT;
+    return Init_Image(D_OUT, ser);
 }
 
 #include "tmp-mod-jpg-last.h"

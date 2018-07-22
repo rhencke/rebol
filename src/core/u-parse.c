@@ -1407,8 +1407,7 @@ REBNATIVE(subparse)
             //
             // (Note this means `[| ...anything...]` is a "no-op" match)
             //
-            Init_Integer(P_OUT, P_POS);
-            return D_OUT;
+            return Init_Integer(P_OUT, P_POS);
         }
 
         // If word, set-word, or get-word, process it:
@@ -2286,10 +2285,8 @@ REBNATIVE(subparse)
             // options later in the block to consider separated by |.
 
             FETCH_TO_BAR_MAYBE_END(f);
-            if (FRM_AT_END(f)) { // no alternate rule
-                Init_Blank(P_OUT);
-                return D_OUT;
-            }
+            if (FRM_AT_END(f)) // no alternate rule
+                return Init_Blank(D_OUT);
 
             // Jump to the alternate rule and reset input
             //
@@ -2301,8 +2298,7 @@ REBNATIVE(subparse)
         mincount = maxcount = 1;
     }
 
-    Init_Integer(P_OUT, P_POS); // !!! return switched input series??
-    return D_OUT;
+    return Init_Integer(D_OUT, P_POS); // !!! return switched input series??
 }
 
 

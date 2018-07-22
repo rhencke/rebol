@@ -146,12 +146,13 @@ static int sig_word_num(REBSTR *canon)
 //
 //  Signal_Actor: C
 //
-static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBREQ *req = Ensure_Port_State(port, RDI_SIGNAL);
     struct devreq_posix_signal *signal = DEVREQ_POSIX_SIGNAL(req);
 
-    REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
 
     if (not (req->flags & RRF_OPEN)) {
         switch (VAL_WORD_SYM(verb)) {
@@ -206,7 +207,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
             OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
             if (VAL_WORD_SYM(verb) == SYM_OPEN)
-                goto return_port;
+                return port;
 
             assert((req->flags & RRF_OPEN) and VAL_WORD_SYM(verb) == SYM_READ);
             break; } // fallthrough
@@ -244,7 +245,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         // Update the port object after a READ or WRITE operation.
         // This is normally called by the WAKE-UP function.
         //
-        REBVAL *arg = CTX_VAR(port, STD_PORT_DATA);
+        REBVAL *arg = CTX_VAR(ctx, STD_PORT_DATA);
         if (req->command == RDC_READ) {
             REBINT len = req->actual;
             if (len > 0) {
@@ -256,7 +257,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
     case SYM_READ: {
         // This device is opened on the READ:
         // Issue the read request:
-        REBVAL *arg = CTX_VAR(port, STD_PORT_DATA);
+        REBVAL *arg = CTX_VAR(ctx, STD_PORT_DATA);
 
         REBINT len = req->length = 8;
         REBSER *ser = Make_Binary(len * sizeof(siginfo_t));
@@ -264,7 +265,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         OS_DO_DEVICE_SYNC(req, RDC_READ);
 
-        arg = CTX_VAR(port, STD_PORT_DATA);
+        arg = CTX_VAR(ctx, STD_PORT_DATA);
         if (!IS_BLOCK(arg))
             Init_Block(arg, Make_Array(len));
 
@@ -277,11 +278,11 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         update(signal, len, arg);
         Free_Unmanaged_Series(ser);
-        goto return_port; }
+        return port; }
 
     case SYM_CLOSE: {
         OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
-        goto return_port; }
+        return port; }
 
     case SYM_OPEN:
         fail (Error_Already_Open_Raw(D_ARG(1)));
@@ -291,10 +292,6 @@ static REB_R Signal_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Move_Value(D_OUT, D_ARG(1));
-    return D_OUT;
 }
 
 #endif //HAS_POSIX_SIGNAL

@@ -118,9 +118,10 @@ REBNATIVE(cosine)
     INCLUDE_PARAMS_OF_COSINE;
 
     REBDEC dval = cos(Trig_Value(ARG(angle), REF(radians), COSINE));
-    if (fabs(dval) < DBL_EPSILON) dval = 0.0;
-    Init_Decimal(D_OUT, dval);
-    return D_OUT;
+    if (fabs(dval) < DBL_EPSILON)
+        dval = 0.0;
+
+    return Init_Decimal(D_OUT, dval);
 }
 
 
@@ -140,9 +141,10 @@ REBNATIVE(sine)
     INCLUDE_PARAMS_OF_SINE;
 
     REBDEC dval = sin(Trig_Value(ARG(angle), REF(radians), SINE));
-    if (fabs(dval) < DBL_EPSILON) dval = 0.0;
-    Init_Decimal(D_OUT, dval);
-    return D_OUT;
+    if (fabs(dval) < DBL_EPSILON)
+        dval = 0.0;
+
+    return Init_Decimal(D_OUT, dval);
 }
 
 
@@ -165,8 +167,7 @@ REBNATIVE(tangent)
     if (Eq_Decimal(fabs(dval), PI / 2.0))
         fail (Error_Overflow_Raw());
 
-    Init_Decimal(D_OUT, tan(dval));
-    return D_OUT;
+    return Init_Decimal(D_OUT, tan(dval));
 }
 
 
@@ -242,13 +243,12 @@ REBNATIVE(exp)
 {
     INCLUDE_PARAMS_OF_EXP;
 
-    REBDEC dval = AS_DECIMAL(ARG(power));
     static REBDEC eps = EPS;
+    REBDEC dval = pow(eps, AS_DECIMAL(ARG(power)));
 
-    dval = pow(eps, dval);
-//!!!!  Check_Overflow(dval);
-    Init_Decimal(D_OUT, dval);
-    return D_OUT;
+    // !!! Check_Overflow(dval);
+
+    return Init_Decimal(D_OUT, dval);
 }
 
 
@@ -265,9 +265,10 @@ REBNATIVE(log_10)
     INCLUDE_PARAMS_OF_LOG_10;
 
     REBDEC dval = AS_DECIMAL(ARG(value));
-    if (dval <= 0) fail (Error_Positive_Raw());
-    Init_Decimal(D_OUT, log10(dval));
-    return D_OUT;
+    if (dval <= 0)
+        fail (Error_Positive_Raw());
+
+    return Init_Decimal(D_OUT, log10(dval));
 }
 
 
@@ -284,9 +285,10 @@ REBNATIVE(log_2)
     INCLUDE_PARAMS_OF_LOG_2;
 
     REBDEC dval = AS_DECIMAL(ARG(value));
-    if (dval <= 0) fail (Error_Positive_Raw());
-    Init_Decimal(D_OUT, log(dval) / LOG2);
-    return D_OUT;
+    if (dval <= 0)
+        fail (Error_Positive_Raw());
+
+    return Init_Decimal(D_OUT, log(dval) / LOG2);
 }
 
 
@@ -303,9 +305,10 @@ REBNATIVE(log_e)
     INCLUDE_PARAMS_OF_LOG_E;
 
     REBDEC dval = AS_DECIMAL(ARG(value));
-    if (dval <= 0) fail (Error_Positive_Raw());
-    Init_Decimal(D_OUT, log(dval));
-    return D_OUT;
+    if (dval <= 0)
+        fail (Error_Positive_Raw());
+
+    return Init_Decimal(D_OUT, log(dval));
 }
 
 
@@ -322,9 +325,10 @@ REBNATIVE(square_root)
     INCLUDE_PARAMS_OF_SQUARE_ROOT;
 
     REBDEC dval = AS_DECIMAL(ARG(value));
-    if (dval < 0) fail (Error_Positive_Raw());
-    Init_Decimal(D_OUT, sqrt(dval));
-    return D_OUT;
+    if (dval < 0)
+        fail (Error_Positive_Raw());
+
+    return Init_Decimal(D_OUT, sqrt(dval));
 }
 
 
@@ -405,8 +409,7 @@ REBNATIVE(shift)
         }
     }
 
-    Move_Value(D_OUT, ARG(value));
-    return D_OUT;
+    return ARG(value);
 }
 
 

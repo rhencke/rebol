@@ -555,8 +555,7 @@ REBTYPE(Varargs)
 
         // !!! What if caller wanted a REB_GROUP, REB_PATH, or an /INTO?
         //
-        Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-        return D_OUT; }
+        return Init_Block(D_OUT, Pop_Stack_Values(dsp_orig)); }
 
     default:
         break;

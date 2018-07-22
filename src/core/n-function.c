@@ -58,8 +58,7 @@ REBNATIVE(func)
         MKF_RETURN | MKF_KEYWORDS
     );
 
-    Init_Action_Unbound(D_OUT, func);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, func);
 }
 
 
@@ -307,8 +306,7 @@ REBNATIVE(typechecker)
 
     Move_Value(ACT_BODY(typechecker), type);
 
-    Init_Action_Unbound(D_OUT, typechecker);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, typechecker);
 }
 
 
@@ -516,8 +514,7 @@ REBNATIVE(adapt)
     VAL_INDEX(body) = 0;
     INIT_BINDING(body, underlying); // relative binding
 
-    Init_Action_Unbound(D_OUT, adaptation);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, adaptation);
 }
 
 
@@ -625,8 +622,7 @@ REBNATIVE(enclose)
 
     Init_Block(ACT_BODY(enclosure), info);
 
-    Init_Action_Unbound(D_OUT, enclosure);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, enclosure);
 }
 
 
@@ -876,10 +872,9 @@ REBNATIVE(tighten)
     //
     Blit_Cell(ACT_BODY(tightened), ACT_BODY(original));
 
-    Init_Action_Maybe_Bound(
+    return Init_Action_Maybe_Bound(
         D_OUT,
         tightened, // REBACT* archetype doesn't contain a binding
         VAL_BINDING(ARG(action)) // e.g. keep binding for `tighten 'return`
     );
-    return D_OUT;
 }

@@ -1400,13 +1400,14 @@ REBCTX *Error_Cannot_Reflect(enum Reb_Kind type, const REBVAL *arg)
 //
 //  Error_On_Port: C
 //
-REBCTX *Error_On_Port(REBCNT errnum, REBCTX *port, REBINT err_code)
+REBCTX *Error_On_Port(REBCNT errnum, REBVAL *port, REBINT err_code)
 {
     FAIL_IF_BAD_PORT(port);
 
-    REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
 
-    REBVAL *val = VAL_CONTEXT_VAR(spec, STD_PORT_SPEC_HEAD_REF); // informative
+    REBVAL *val = VAL_CONTEXT_VAR(spec, STD_PORT_SPEC_HEAD_REF);
     if (IS_BLANK(val))
         val = VAL_CONTEXT_VAR(spec, STD_PORT_SPEC_HEAD_TITLE); // less info
 

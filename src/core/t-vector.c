@@ -716,8 +716,7 @@ REBTYPE(Vector)
         switch (property) {
         case SYM_LENGTH:
             //bits = 1 << (vect->size & 3);
-            Init_Integer(D_OUT, SER_LEN(vect));
-            return D_OUT;
+            return Init_Integer(D_OUT, SER_LEN(vect));
 
         default:
             break;

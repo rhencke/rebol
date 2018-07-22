@@ -45,14 +45,12 @@
 //
 //  Clipboard_Actor: C
 //
-static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+// !!! Note: All state is in Windows, nothing in the port at the moment.  It
+// could track whether it's "open" or not, but the details of what is needed
+// depends on the development of a coherent port model.
+//
+static REB_R Clipboard_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
-    // !!! All state is in windows, nothing in the port at the moment.  It
-    // could track whether it's open or not, but the details of what is
-    // needed depends on the development of a coherent port model.
-    //
-    UNUSED(port);
-
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     switch (VAL_WORD_SYM(verb)) {
@@ -144,10 +142,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         // See notes on how rebRepossess reclaims the memory of a rebMalloc()
         // (which is used by rebSpellingOfAlloc()) as a BINARY!.
         //
-        REBVAL *binary = rebRepossess(utf8, size);
-        Move_Value(D_OUT, binary);
-        rebRelease(binary); // output has reference on the series, drop ours
-        return D_OUT; }
+        return rebRepossess(utf8, size); }
 
     case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
@@ -221,7 +216,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         assert(h_check == h);
 
-        goto return_port; }
+        return port; }
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -242,23 +237,19 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         // !!! Currently just ignore (it didn't do anything)
 
-        goto return_port; }
+        return port; }
 
     case SYM_CLOSE: {
 
         // !!! Currently just ignore (it didn't do anything)
 
-        goto return_port; }
+        return port; }
 
     default:
         break;
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Move_Value(D_OUT, D_ARG(1));
-    return D_OUT;
 }
 
 

@@ -991,7 +991,7 @@ link: make linker-class [
     ]
 
     accept: meth [
-        return: [<opt> string!]
+        return: [<opt> string! file!]
         dep [object!]
         <local>
         ddep
@@ -1022,7 +1022,7 @@ link: make linker-class [
                 ]
             ]
             'ext-static-class [
-                file-to-local dep/file
+                file-to-local dep/output
             ]
             'object-library-class [
                 spaced map-each ddep dep/depends [

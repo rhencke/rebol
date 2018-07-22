@@ -236,8 +236,7 @@ REBNATIVE(label_of)
     if (not f->opt_label)
         return nullptr;
 
-    Init_Word(D_OUT, f->opt_label);
-    return D_OUT;
+    return Init_Word(D_OUT, f->opt_label);
 }
 
 
@@ -263,12 +262,11 @@ REBNATIVE(action_of)
     // binding of the FRAME! value.  Otherwise you'd know (for instance) that
     // you had a RETURN, but you wouldn't know where to return *from*.
     //
-    Init_Action_Maybe_Bound(
+    return Init_Action_Maybe_Bound(
         D_OUT,
         frame->payload.any_context.phase,
         frame->extra.binding
     );
-    return D_OUT;
 }
 
 
@@ -292,10 +290,8 @@ REBNATIVE(parent_of)
     //
     REBFRM *f = CTX_FRAME_MAY_FAIL(VAL_CONTEXT(frame));
     while ((f = f->prior) != FS_BOTTOM) {
-        if (Is_Action_Frame(f)) {
-            Move_Value(D_OUT, CTX_ARCHETYPE(Context_For_Frame_May_Manage(f)));
-            return D_OUT;
-        }
+        if (Is_Action_Frame(f))
+            return CTX_ARCHETYPE(Context_For_Frame_May_Manage(f));
     }
 
     return nullptr;

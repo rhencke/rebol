@@ -181,7 +181,7 @@ struct rebol_devreq {
     // Linkages:
     uint32_t device;        // device id (dev table)
     REBREQ *next;           // linked list (pending or done lists)
-    void *port;             // link back to REBOL port object
+    void *port_ctx;         // link back to REBOL port object
     union {
         void *handle;       // OS object
         int socket;         // OS identifier

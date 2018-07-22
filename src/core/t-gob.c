@@ -791,8 +791,7 @@ REBNATIVE(map_event)
         SET_EVENT_XY(val, ROUND_TO_INT(xy.x), ROUND_TO_INT(xy.y));
     }
 
-    Move_Value(D_OUT, ARG(event));
-    return D_OUT;
+    return ARG(event);
 }
 
 

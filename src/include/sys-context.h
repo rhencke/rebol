@@ -376,12 +376,14 @@ inline static REBCNT ERR_NUM(REBCTX *e) {
 // was some validation checking.  This factors out that check instead of
 // repeating the code.
 //
-inline static void FAIL_IF_BAD_PORT(REBCTX *port) {
-    assert(GET_SER_FLAG(port, ARRAY_FLAG_VARLIST));
+inline static void FAIL_IF_BAD_PORT(REBVAL *port) {
+    if (not ANY_CONTEXT(port))
+        fail (Error_Invalid_Port_Raw());
 
+    REBCTX *ctx = VAL_CONTEXT(port);
     if (
-        CTX_LEN(port) < (STD_PORT_MAX - 1)
-        or not IS_OBJECT(CTX_VAR(port, STD_PORT_SPEC))
+        CTX_LEN(ctx) < (STD_PORT_MAX - 1)
+        or not IS_OBJECT(CTX_VAR(ctx, STD_PORT_SPEC))
     ){
         fail (Error_Invalid_Port_Raw());
     }

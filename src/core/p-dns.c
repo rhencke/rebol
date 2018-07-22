@@ -35,16 +35,15 @@
 //
 //  DNS_Actor: C
 //
-static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
-    FAIL_IF_BAD_PORT(port);
-
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     REBREQ *sock = Ensure_Port_State(port, RDI_DNS);
-    REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
-
     sock->timeout = 4000; // where does this go? !!!
+
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
 
     REBCNT len;
 
@@ -133,7 +132,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         if (DEVREQ_NET(sock)->host_info == NULL) {
             Init_Blank(D_OUT); // HOST_NOT_FOUND or NO_ADDRESS blank vs. error
-            return D_OUT; // READ action currently required to use R_OUTs
+            return D_OUT; // READ action currently required to use D_OUT
         }
 
         if (sock->modes & RST_REVERSE) {
@@ -147,7 +146,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         }
 
         OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
-        goto return_port; }
+        return D_OUT; }
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -167,11 +166,11 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         }
 
         OS_DO_DEVICE_SYNC(sock, RDC_OPEN);
-        goto return_port; }
+        return port; }
 
     case SYM_CLOSE: {
         OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
-        goto return_port; }
+        return port; }
 
     case SYM_ON_WAKE_UP:
         return R_BAR;
@@ -181,10 +180,6 @@ static REB_R DNS_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Move_Value(D_OUT, D_ARG(1));
-    return D_OUT;
 }
 
 

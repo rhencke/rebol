@@ -160,8 +160,7 @@ REBNATIVE(load_extension_helper)
                     // added by MAKE_library
 
                     OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
-                    Move_Value(D_OUT, KNOWN(item));
-                    return D_OUT;
+                    return KNOWN(item);
                 }
             }
         }
@@ -200,8 +199,7 @@ REBNATIVE(load_extension_helper)
         }
     }
 
-    Init_Object(D_OUT, context);
-    return D_OUT;
+    return Init_Object(D_OUT, context);
 }
 
 
@@ -415,8 +413,7 @@ REBNATIVE(load_native)
     if (REF(body))
         Move_Value(ACT_BODY(native), ARG(code));
 
-    Init_Action_Unbound(D_OUT, native);
-    return D_OUT;
+    return Init_Action_Unbound(D_OUT, native);
 }
 
 

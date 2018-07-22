@@ -1246,8 +1246,7 @@ REBNATIVE(copy_odbc)
         ++row;
     }
 
-    Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-    return D_OUT;
+    return Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
 }
 
 

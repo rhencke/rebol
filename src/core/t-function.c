@@ -212,8 +212,7 @@ REBTYPE(Action)
         //
         Blit_Cell(ACT_BODY(proxy), VAL_ACT_BODY(value));
 
-        Init_Action_Maybe_Bound(D_OUT, proxy, VAL_BINDING(value));
-        return D_OUT; }
+        return Init_Action_Maybe_Bound(D_OUT, proxy, VAL_BINDING(value)); }
 
     case SYM_REFLECT: {
         REBSYM sym = VAL_WORD_SYM(arg);
@@ -251,8 +250,7 @@ REBTYPE(Action)
             TERM_ARRAY_LEN(copy, VAL_ACT_NUM_PARAMS(value));
             assert(IS_END(typeset));
 
-            Init_Block(D_OUT, copy);
-            return D_OUT;
+            return Init_Block(D_OUT, copy);
         }
 
         // We use a heuristic that if the first element of a function's body
@@ -284,8 +282,7 @@ REBTYPE(Action)
             if (NOT_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
                 return nullptr;
 
-            Init_Integer(D_OUT, MISC(s).line);
-            return D_OUT; }
+            return Init_Integer(D_OUT, MISC(s).line); }
 
         default:
             fail (Error_Cannot_Reflect(VAL_TYPE(value), arg));

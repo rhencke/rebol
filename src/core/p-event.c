@@ -135,14 +135,15 @@ REBVAL *Find_Last_Event(REBINT model, REBINT type)
 //
 // Internal port handler for events.
 //
-static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
+static REB_R Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     // Validate and fetch relevant PORT fields:
     //
-    REBVAL *state = CTX_VAR(port, STD_PORT_STATE);
-    REBVAL *spec = CTX_VAR(port, STD_PORT_SPEC);
+    REBCTX *ctx = VAL_CONTEXT(port);
+    REBVAL *state = CTX_VAR(ctx, STD_PORT_STATE);
+    REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
     if (!IS_OBJECT(spec))
         fail (Error_Invalid_Spec_Raw(spec));
 
@@ -162,8 +163,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
 
         switch (property) {
         case SYM_LENGTH:
-            Init_Integer(D_OUT, VAL_LEN_HEAD(state));
-            return D_OUT;
+            return Init_Integer(D_OUT, VAL_LEN_HEAD(state));
 
         default:
             break;
@@ -212,7 +212,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
     case SYM_CLEAR:
         TERM_ARRAY_LEN(VAL_ARRAY(state), 0);
         CLR_SIGNAL(SIG_EVENT_PORT);
-        goto return_port;
+        return port;
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -248,7 +248,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
                 }
             }
         }
-        goto return_port; }
+        return port; }
 
     case SYM_CLOSE: {
         OS_ABORT_DEVICE(req);
@@ -258,7 +258,7 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
         // free req!!!
         req->flags &= ~RRF_OPEN;
         req = NULL;
-        goto return_port; }
+        return port; }
 
     case SYM_FIND:
         break; // !!! R3-Alpha said "add it" (e.g. unimplemented)
@@ -268,10 +268,6 @@ static REB_R Event_Actor(REBFRM *frame_, REBCTX *port, REBVAL *verb)
     }
 
     fail (Error_Illegal_Action(REB_PORT, verb));
-
-return_port:
-    Move_Value(D_OUT, D_ARG(1));
-    return D_OUT;
 }
 
 

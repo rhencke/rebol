@@ -199,8 +199,7 @@ REBNATIVE(recycle)
       #endif
     }
 
-    Init_Integer(D_OUT, count);
-    return D_OUT;
+    return Init_Integer(D_OUT, count);
 }
 
 

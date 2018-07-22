@@ -2820,9 +2820,7 @@ REBNATIVE(transcode)
     LINK(a).file = ss.file;
     SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
 
-    Init_Block(D_OUT, a);
-
-    return D_OUT;
+    return Init_Block(D_OUT, a);;
 }
 
 

@@ -1365,10 +1365,8 @@ REBTYPE(String)
         REBINT len;
         if (REF(part)) {
             len = Partial(v, 0, ARG(limit));
-            if (len == 0) {
-                Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
-                return D_OUT;
-            }
+            if (len == 0)
+                return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
         } else
             len = 1;
 
@@ -1386,8 +1384,7 @@ REBTYPE(String)
         if (cast(REBINT, VAL_INDEX(v)) >= tail) {
             if (not REF(part))
                 return nullptr;
-            Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
-            return D_OUT;
+            return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
         }
 
         ser = VAL_SERIES(v);

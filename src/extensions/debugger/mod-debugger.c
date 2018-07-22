@@ -908,10 +908,8 @@ static REBNATIVE(backtrace_index)
 
     REBCNT number;
 
-    if (NULL != Frame_For_Stack_Level(&number, ARG(level), TRUE)) {
-        Init_Integer(D_OUT, number);
-        return D_OUT;
-    }
+    if (Frame_For_Stack_Level(&number, ARG(level), TRUE))
+        return Init_Integer(D_OUT, number);
 
     return nullptr;
 }

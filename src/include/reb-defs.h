@@ -340,7 +340,7 @@ typedef REBWCHAR REBUNI;
 
     // Port-Action-Function: for implementing "verb" ACTION!s on a PORT! class
     // 
-    typedef REB_R (*REBPAF)(REBFRM *frame_, REBCTX *p, REBVAL *verb);
+    typedef REB_R (*REBPAF)(REBFRM *frame_, REBVAL *port, REBVAL *verb);
 
     // Path evaluator function
     //

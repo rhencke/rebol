@@ -498,21 +498,18 @@ REBTYPE(Decimal)
 
         arg = ARG(scale);
         if (REF(to)) {
-            if (IS_MONEY(arg)) {
-                Init_Money(D_OUT, Round_Deci(
+            if (IS_MONEY(arg))
+                return Init_Money(D_OUT, Round_Deci(
                     decimal_to_deci(d1), flags, VAL_MONEY_AMOUNT(arg)
                 ));
-                return D_OUT;
-            }
+
             if (IS_TIME(arg))
                 fail (Error_Invalid(arg));
 
             d1 = Round_Dec(d1, flags, Dec64(arg));
-            if (IS_INTEGER(arg)) {
-                RESET_VAL_HEADER(D_OUT, REB_INTEGER);
-                VAL_INT64(D_OUT) = cast(REBI64, d1);
-                return D_OUT;
-            }
+            if (IS_INTEGER(arg))
+                return Init_Integer(D_OUT, cast(REBI64, d1));
+
             if (IS_PERCENT(arg))
                 type = REB_PERCENT;
         }
@@ -541,8 +538,7 @@ REBTYPE(Decimal)
         goto setDec; }
 
     case SYM_COMPLEMENT:
-        Init_Integer(D_OUT, ~cast(REBINT, d1));
-        return D_OUT;
+        return Init_Integer(D_OUT, ~cast(REBINT, d1));
 
     default:
         ; // put fail outside switch() to catch any leaks

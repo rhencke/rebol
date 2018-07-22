@@ -1679,8 +1679,7 @@ REBNATIVE(call)
                 exit_code
             );
 
-        Init_Object(D_OUT, info);
-        return D_OUT;
+        return Init_Object(D_OUT, info);
     }
 
     if (r != 0)
@@ -1690,11 +1689,9 @@ REBNATIVE(call)
     // we only return a process ID if /WAIT was not explicitly used
     //
     if (REF(wait))
-        Init_Integer(D_OUT, exit_code);
-    else
-        Init_Integer(D_OUT, pid);
+        return Init_Integer(D_OUT, exit_code);
 
-    return D_OUT;
+    return Init_Integer(D_OUT, pid);
 }
 
 
@@ -1789,10 +1786,7 @@ REBNATIVE(get_os_browsers)
 
   #endif
 
-    Move_Value(D_OUT, list);
-    rebRelease(list);
-
-    return D_OUT;
+    return list;
 }
 
 
@@ -2135,10 +2129,7 @@ static REBNATIVE(list_env)
 
     FreeEnvironmentStrings(env);
 
-    REBMAP *map = Mutate_Array_Into_Map(array);
-    Init_Map(D_OUT, map);
-
-    return D_OUT;
+    return Init_Map(D_OUT, Mutate_Array_Into_Map(array));
   #else
     // Note: 'environ' is an extern of a global found in <unistd.h>, and each
     // entry contains a `key=value` formatted string.
@@ -2177,10 +2168,7 @@ static REBNATIVE(list_env)
         rebRelease(val);
     }
 
-    REBMAP *map = Mutate_Array_Into_Map(array);
-    Init_Map(D_OUT, map);
-
-    return D_OUT;
+    return Init_Map(D_OUT, Mutate_Array_Into_Map(array));
   #endif
 }
 
@@ -2200,9 +2188,7 @@ static REBNATIVE(get_pid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_PID;
 
-    Init_Integer(D_OUT, getpid());
-
-    return D_OUT;
+    return rebInteger(getpid());
 }
 
 
@@ -2221,9 +2207,7 @@ static REBNATIVE(get_uid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_UID;
 
-    Init_Integer(D_OUT, getuid());
-
-    return D_OUT;
+    return rebInteger(getuid());
 }
 
 
@@ -2242,9 +2226,7 @@ static REBNATIVE(get_euid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_EUID;
 
-    Init_Integer(D_OUT, geteuid());
-
-    return D_OUT;
+    return rebInteger(geteuid());
 }
 
 //
@@ -2261,9 +2243,7 @@ static REBNATIVE(get_gid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_UID;
 
-    Init_Integer(D_OUT, getgid());
-
-    return D_OUT;
+    return rebInteger(getgid());
 }
 
 
@@ -2282,9 +2262,7 @@ static REBNATIVE(get_egid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_EUID;
 
-    Init_Integer(D_OUT, getegid());
-
-    return D_OUT;
+    return rebInteger(getegid());
 }
 
 

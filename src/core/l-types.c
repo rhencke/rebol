@@ -209,8 +209,7 @@ REBNATIVE(make)
             DS_PUSH(D_OUT);
         } while (TRUE);
 
-        Init_Any_Array(D_OUT, kind, Pop_Stack_Values(dsp_orig));
-        return D_OUT;
+        return Init_Any_Array(D_OUT, kind, Pop_Stack_Values(dsp_orig));
     }
 
     dispatcher(D_OUT, kind, arg); // may fail() or throw
@@ -316,8 +315,8 @@ REB_R Reflect_Core(REBFRM *frame_)
     case SYM_TYPE:
         if (kind == REB_MAX_NULLED)
             return nullptr; // `() = type of ()`, `null = type of ()`
-        Init_Datatype(D_OUT, kind);
-        return D_OUT;
+
+        return Init_Datatype(D_OUT, kind);;
 
     default:
         // !!! Are there any other universal reflectors?
@@ -1472,6 +1471,5 @@ REBNATIVE(scan_net_header)
         Init_Text(val, string);
     }
 
-    Init_Block(D_OUT, result);
-    return D_OUT;
+    return Init_Block(D_OUT, result);
 }

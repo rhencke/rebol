@@ -875,7 +875,8 @@ REBTYPE(Array)
         if (REF(line))
             flags |= AM_LINE;
 
-        index = Modify_Array(
+        Move_Value(D_OUT, value);
+        VAL_INDEX(D_OUT) = Modify_Array(
             VAL_WORD_SPELLING(verb),
             array,
             index,
@@ -884,8 +885,6 @@ REBTYPE(Array)
             len,
             REF(dup) ? Int32(ARG(count)) : 1
         );
-        VAL_INDEX(value) = index;
-        Move_Value(D_OUT, value);
         return D_OUT;
     }
 
@@ -935,8 +934,7 @@ REBTYPE(Array)
             ARRAY_FLAG_FILE_LINE, // flags
             types // types to copy deeply
         );
-        Init_Any_Array(D_OUT, VAL_TYPE(value), copy);
-        return D_OUT;
+        return Init_Any_Array(D_OUT, VAL_TYPE(value), copy);
     }
 
     //-- Special actions:
@@ -962,8 +960,7 @@ REBTYPE(Array)
             Blit_Cell(VAL_ARRAY_AT(value), VAL_ARRAY_AT(arg));
             Blit_Cell(VAL_ARRAY_AT(arg), &temp);
         }
-        Move_Value(D_OUT, D_ARG(1));
-        return D_OUT;
+        return D_ARG(1);
     }
 
     case SYM_REVERSE: {
@@ -987,8 +984,7 @@ REBTYPE(Array)
                 Blit_Cell(back, &temp);
             }
         }
-        Move_Value(D_OUT, D_ARG(1));
-        return D_OUT;
+        return D_ARG(1);
     }
 
     case SYM_SORT: {
@@ -1060,9 +1056,9 @@ REBTYPE(Array)
 
     return T_Port(frame_, verb);
 
-return_empty_block:
-    Init_Block(D_OUT, Make_Array(0));
-    return D_OUT;
+  return_empty_block:
+
+    return Init_Block(D_OUT, Make_Array(0));
 }
 
 

@@ -211,8 +211,7 @@ REBNATIVE(encode_text)
         fail ("Can only write out strings to .txt if they are Latin1.");
     }
 
-    Init_Binary(D_OUT, Copy_Sequence_At_Position(ARG(string)));
-    return D_OUT;
+    return Init_Binary(D_OUT, Copy_Sequence_At_Position(ARG(string)));
 }
 
 

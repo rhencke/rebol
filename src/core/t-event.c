@@ -261,9 +261,9 @@ static REBOOL Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
         else { // Event holds the IO-Request, which has the PORT:
             assert(IS_EVENT_MODEL(v, EVM_DEVICE));
             REBREQ *req = VAL_EVENT_REQ(v);
-            if (req == NULL || req->port == NULL)
+            if (not req or not req->port_ctx)
                 goto is_blank;
-            Init_Port(out, CTX(req->port));
+            Init_Port(out, CTX(req->port_ctx));
         }
         break; }
 
