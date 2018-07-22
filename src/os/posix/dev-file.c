@@ -151,8 +151,16 @@ static REBOOL Seek_File_64(struct devreq_file *file)
 
 static int Get_File_Info(struct devreq_file *file)
 {
+    // The original implementation here used /no-trailing-slash for the
+    // FILE-TO-LOCAL, which meant that %/ would turn into an empty string.
+    // It would appear that for directories, trailing slashes are acceptable
+    // in `stat`...though for symlinks different answers are given based
+    // on the presence of the slash:
+    //
+    // https://superuser.com/questions/240743/
+    //
     char *path_utf8 = rebSpellAlloc(
-        "file-to-local/full/no-tail-slash", file->path,
+        "file-to-local/full", file->path,
         rebEnd()
     );
 

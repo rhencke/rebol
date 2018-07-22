@@ -164,7 +164,7 @@ void Mold_File_To_Local(REB_MOLD *mo, const RELVAL *file, REBFLGS flags) {
             c = '\0';
 
     #ifdef TO_WINDOWS
-        if (c != '/') { // %/c or %/c/ but not %/ %// %//c
+        if (c != '\0' and c != '/') { // %/c or %/c/ but not %/ %// %//c
             //
             // peek ahead for a '/'
             //

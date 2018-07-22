@@ -285,7 +285,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         return port; }
 
     case SYM_OPEN:
-        fail (Error_Already_Open_Raw(D_ARG(1)));
+        fail (Error_Already_Open_Raw(port));
 
     default:
         break;

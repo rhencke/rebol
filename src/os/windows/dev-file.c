@@ -482,8 +482,13 @@ DEVICE_CMD Query_File(REBREQ *req)
     WIN32_FILE_ATTRIBUTE_DATA info;
     struct devreq_file *file = DEVREQ_FILE(req);
 
+    // Windows seems to tolerate a trailing slash for directories, hence
+    // `/no-tail-slash` is not necessary here for FILE-TO-LOCAL.  If that were
+    // used, it would mean `%/` would turn into an empty string, that would
+    // cause GetFileAttributesEx() to error, vs. backslash (which works)
+    //
     WCHAR *path_wide = rebSpellAllocW(
-        "file-to-local/full/no-tail-slash", file->path,
+        "file-to-local/full", file->path,
         rebEnd()
     );
 
