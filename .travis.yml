@@ -668,6 +668,7 @@ script:
     - rm r3-osx-x64-gbf237fc
     - rm -f CMakeLists.txt
     - rm -rf tcc
+    - ls
     
     # Name the executable based on the abbreviated commit, whether it is a
     # debug or release build, and if it was built using C++ or not.  Note that
@@ -696,11 +697,14 @@ script:
       if [[ -e "r3.exe" ]]; then
            mv r3.exe ${NEW_NAME}.exe;
       fi
+      if [[ -e "r3" ]]; then
+           mv r3 ${NEW_NAME};
+      fi
       if [[ -e "r3.js" ]]; then
            mv r3.js ${NEW_NAME}.js;
       fi
-      if [[ -e "r3" ]]; then
-           mv r3 ${NEW_NAME};
+      if [[ -e "r3.wasm" ]]; then
+           mv r3.js ${NEW_NAME}.wasm;
       fi
 
     # Return whether the build succeeded or not to Travis.  If this succeeded 
