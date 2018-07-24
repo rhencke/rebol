@@ -404,9 +404,9 @@ REBNATIVE(match)
             fail (Error_Invalid(test)); // disallow `MATCH (QUOTE 'NULL?) ...`
 
         if (IS_LIT_WORD(test))
-            VAL_SET_TYPE_BITS(test, REB_WORD);
+            CHANGE_VAL_TYPE_BITS(test, REB_WORD);
         else
-            VAL_SET_TYPE_BITS(test, REB_PATH);
+            CHANGE_VAL_TYPE_BITS(test, REB_PATH);
         goto either_test; }
 
     case REB_WORD:

@@ -586,7 +586,7 @@ REBVAL *RL_rebRunInline(const REBVAL *array)
 
     DECLARE_LOCAL (group);
     Move_Value(group, array);
-    VAL_SET_TYPE_BITS(group, REB_GROUP);
+    CHANGE_VAL_TYPE_BITS(group, REB_GROUP);
 
     return rebRun(rebEval(NAT_VALUE(eval)), group, END);
 }

@@ -1175,7 +1175,7 @@ REBNATIVE(as)
     }
 
     Move_Value(D_OUT, v);
-    VAL_SET_TYPE_BITS(D_OUT, new_kind);
+    CHANGE_VAL_TYPE_BITS(D_OUT, new_kind);
     return D_OUT;
 }
 

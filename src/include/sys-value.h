@@ -592,7 +592,7 @@ inline static void Prep_Stack_Cell_Core(
 #endif
 
 
-inline static void VAL_SET_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
+inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     //
     // Note: Only use if you are sure the new type payload is in sync with
     // the type and bits (e.g. changing ANY-WORD! to another ANY-WORD!).

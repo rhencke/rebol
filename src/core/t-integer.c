@@ -431,7 +431,7 @@ REBTYPE(Integer)
                 if (n > 0) {
                     if (IS_TIME(val2)) {
                         VAL_NANO(val) = SEC_TIME(VAL_INT64(val));
-                        VAL_SET_TYPE_BITS(val, REB_TIME);
+                        CHANGE_VAL_TYPE_BITS(val, REB_TIME);
                         return T_Time(frame_, verb);
                     }
                     if (IS_DATE(val2))

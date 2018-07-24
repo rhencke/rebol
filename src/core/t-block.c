@@ -68,19 +68,16 @@ REBINT CT_Array(const RELVAL *a, const RELVAL *b, REBINT mode)
 //     MAKE_Lit_Path
 //
 void MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-    //
-    // `make block! 10` => creates array with certain initial capacity
-    //
     if (IS_INTEGER(arg) or IS_DECIMAL(arg)) {
+        //
+        // `make block! 10` => creates array with certain initial capacity
+        //
         Init_Any_Array(out, kind, Make_Array(Int32s(arg, 0)));
         return;
     }
-
-    // Historically TO BLOCK! and MAKE BLOCK! of a string would scan it.
-    // Ren-C's ruleset for TO says that the TO of a value to its own type
-    // must do the same thing as COPY.  Hence, only MAKE scans.  (unbound)
-    //
-    if (IS_TEXT(arg)) {
+    else if (IS_TEXT(arg)) {
+        //
+        // `make block! "a <b> #c"` => `[a <b> #c]`, scans as code (unbound)
         //
         // Until UTF-8 Everywhere, text must be converted to UTF-8 before
         // using it with the scanner.
@@ -100,32 +97,37 @@ void MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         DROP_GC_GUARD(temp);
         return;
     }
-
-    // !!! See #2263 -- Ren-C has unified MAKE and construction syntax.  A
-    // block parameter to MAKE should be arity 2...the existing array for
-    // the data source, and an offset from that array value's index:
-    //
-    //     >> p1: #[path! [[a b c] 2]]
-    //     == b/c
-    //
-    //     >> head p1
-    //     == a/b/c
-    //
-    //     >> block: [a b c]
-    //     >> p2: make path! compose [(block) 2]
-    //     == b/c
-    //
-    //     >> append block 'd
-    //     == [a b c d]
-    //
-    //     >> p2
-    //     == b/c/d
-    //
-    // !!! This could be eased to not require the index, but without it then
-    // it can be somewhat confusing as to why [[a b c]] is needed instead of
-    // just [a b c] as the construction spec.
-    //
-    if (ANY_ARRAY(arg)) {
+    else if (ANY_ARRAY(arg)) {
+        //
+        // !!! Ren-C unified MAKE and construction syntax, see #2263.  This is
+        // now a questionable idea, as MAKE and TO have their roles defined
+        // with more clarity (e.g. MAKE is allowed to throw and run arbitrary
+        // code, while TO is not, so MAKE seems bad to run while scanning.)
+        //
+        // However, the idea was that if MAKE of a BLOCK! via a definition
+        // itself was a block, then the block would have 2 elements in it,
+        // with one existing array and an index into that array:
+        //
+        //     >> p1: #[path! [[a b c] 2]]
+        //     == b/c
+        //
+        //     >> head p1
+        //     == a/b/c
+        //
+        //     >> block: [a b c]
+        //     >> p2: make path! compose [(block) 2]
+        //     == b/c
+        //
+        //     >> append block 'd
+        //     == [a b c d]
+        //
+        //     >> p2
+        //     == b/c/d
+        //
+        // !!! This could be eased to not require the index, but without it
+        // then it can be somewhat confusing as to why [[a b c]] is needed
+        // instead of just [a b c] as the construction spec.
+        //
         if (
             VAL_ARRAY_LEN_AT(arg) != 2
             || !ANY_ARRAY(VAL_ARRAY_AT(arg))
@@ -158,25 +160,13 @@ void MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         return;
     }
-
-    // !!! In R3-Alpha, MAKE and TO handled all cases except INTEGER!
-    // and TYPESET! in the same way.  Ren-C switches MAKE of ANY-ARRAY!
-    // to be special (in order to compatible with construction syntax),
-    // continues the special treatment of INTEGER! by MAKE to mean
-    // a size, and disallows MAKE TYPESET!.  This is a practical matter
-    // of addressing changes in #2263 and keeping legacy working, as
-    // opposed to endorsing any rationale in R3-Alpha's choices.
-    //
-    if (IS_TYPESET(arg))
-        goto bad_make;
-
-    if (IS_TYPESET(arg)) {
+    else if (IS_TYPESET(arg)) {
         //
-        // This makes a block of types out of a typeset.  Previously it was
-        // restricted to only BLOCK!, now it lets you turn a typeset into
-        // a GROUP! or a PATH!, etc.
+        // !!! Should MAKE GROUP! and MAKE PATH! from a TYPESET! work like
+        // MAKE BLOCK! does?  Allow it for now.
         //
         Init_Any_Array(out, kind, Typeset_To_Array(arg));
+        return;
     }
     else if (IS_BINARY(arg)) {
         //
@@ -189,21 +179,23 @@ void MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             kind,
             Scan_UTF8_Managed(filename, VAL_BIN_AT(arg), VAL_LEN_AT(arg))
         );
+        return;
     }
     else if (IS_MAP(arg)) {
         Init_Any_Array(out, kind, Map_To_Array(VAL_MAP(arg), 0));
+        return;
     }
     else if (ANY_CONTEXT(arg)) {
         Init_Any_Array(out, kind, Context_To_Array(VAL_CONTEXT(arg), 3));
+        return;
     }
     else if (IS_VECTOR(arg)) {
         Init_Any_Array(out, kind, Vector_To_Array(arg));
+        return;
     }
 
-    TO_Array(out, kind, arg);
-    return;
+  bad_make:;
 
-bad_make:
     fail (Error_Bad_Make(kind, arg));
 }
 

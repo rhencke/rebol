@@ -58,8 +58,8 @@ decode-key-value-text: function [
         ]
     ]
 
-    meta: make block! []
-    
+    meta: copy []
+
     if not parse text data-fields [
         fail [
             {Expected key value format on line} (text-line-of position)

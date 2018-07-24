@@ -46,7 +46,7 @@ make object! compose [
         ]
 
         case [
-            error? trap [test-block: make block! load source] [
+            error? trap [test-block: as block! load source] [
                 "cannot load test source"
             ]
 

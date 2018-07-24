@@ -20,7 +20,7 @@ verify: function [
 ][
     while-not [tail? conditions] [
         if not (result: do/next conditions quote pos:) [
-            fail [
+            fail/where [
                 "Assertion condition returned"
                  choose [
                     (unset? 'result) "void"
@@ -29,7 +29,7 @@ verify: function [
                 ]
                 ":"
                 copy/part conditions pos
-            ]
+            ] 'conditions
         ]
 
         conditions: pos ;-- move expression position and continue

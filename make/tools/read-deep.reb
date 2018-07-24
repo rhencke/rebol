@@ -49,7 +49,7 @@ read-deep: function [
 ][
     taker: default [:read-deep-seq]
 
-    result: make block! []
+    result: copy []
 
     queue: compose [(root)]
 

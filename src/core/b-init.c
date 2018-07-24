@@ -639,7 +639,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
 
         REBVAL *catalog_item = Alloc_Tail_Array(catalog);
         Move_Value(catalog_item, name);
-        VAL_SET_TYPE_BITS(catalog_item, REB_WORD);
+        CHANGE_VAL_TYPE_BITS(catalog_item, REB_WORD);
 
         if (VAL_WORD_SYM(name) == SYM_ACTION)
             action_word = name;
@@ -698,7 +698,7 @@ static REBARR *Startup_Actions(REBARR *boot_actions)
     for (; NOT_END(item); ++item)
         if (IS_SET_WORD(item)) {
             DS_PUSH_RELVAL(item, SPECIFIED);
-            VAL_SET_TYPE_BITS(DS_TOP, REB_WORD); // change pushed to WORD!
+            CHANGE_VAL_TYPE_BITS(DS_TOP, REB_WORD); // change pushed to WORD!
         }
 
     return Pop_Stack_Values(dsp_orig); // catalog of actions
@@ -937,10 +937,10 @@ static void Init_System_Object(
     //
     REBVAL *std_error = Get_System(SYS_STANDARD, STD_ERROR);
     assert(IS_OBJECT(std_error));
-    VAL_SET_TYPE_BITS(std_error, REB_ERROR);
-    VAL_SET_TYPE_BITS(CTX_ARCHETYPE(VAL_CONTEXT(std_error)), REB_ERROR);
+    CHANGE_VAL_TYPE_BITS(std_error, REB_ERROR);
+    CHANGE_VAL_TYPE_BITS(CTX_ARCHETYPE(VAL_CONTEXT(std_error)), REB_ERROR);
     assert(CTX_KEY_SYM(VAL_CONTEXT(std_error), 1) == SYM_SELF);
-    VAL_SET_TYPE_BITS(VAL_CONTEXT_VAR(std_error, 1), REB_ERROR);
+    CHANGE_VAL_TYPE_BITS(VAL_CONTEXT_VAR(std_error, 1), REB_ERROR);
 }
 
 void Shutdown_System_Object(void)

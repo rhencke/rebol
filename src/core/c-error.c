@@ -1013,7 +1013,10 @@ REBCTX *Error_User(const char *utf8) {
 //  Error_Need_Value_Core: C
 //
 REBCTX *Error_Need_Value_Core(const RELVAL *target, REBSPC *specifier) {
-    assert(IS_SET_WORD(target) or IS_SET_PATH(target));
+    //
+    // SET calls this, and doesn't work on just SET-WORD! and SET-PATH!
+    //
+    assert(ANY_WORD(target) or ANY_PATH(target));
 
     DECLARE_LOCAL (specific);
     Derelativize(specific, target, specifier);

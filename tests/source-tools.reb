@@ -154,7 +154,7 @@ rebsource: context [
                 identifier: c.lexical/grammar/identifier
                 c-pp-token: c.lexical/grammar/c-pp-token
 
-                malloc-found: make block! []
+                malloc-found: copy []
 
                 malloc-check: [
                     and identifier "malloc" (
@@ -273,7 +273,7 @@ rebsource: context [
             file [file!]
             data
         ][
-            analysis: make block! []
+            analysis: copy []
             emit: specialize 'log-emit [log: analysis]
 
             data: read src-folder/:file
@@ -317,11 +317,11 @@ rebsource: context [
                 bol:
             ]
 
-            tabbed: make block! []
-            whitespace-at-eol: make block! []
-            over-std-len: make block! []
-            over-max-len: make block! []
-            inconsistent-eol: make block! []
+            tabbed: copy []
+            whitespace-at-eol: copy []
+            over-std-len: copy []
+            over-max-len: copy []
+            inconsistent-eol: copy []
 
             parse/case data [
 

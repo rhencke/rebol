@@ -315,7 +315,7 @@ load: function [
     if match [file! url!] source [
         file: source
         line: 1
-        ftype: default [try file-type? source]
+        ftype: default [file-type? source else ['rebol]] ; !!! rebol default?
 
         if ftype = 'extension [
             if not file? source [

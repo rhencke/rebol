@@ -79,7 +79,7 @@ void MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // stay in sync with the binding state)
         //
         Move_Value(out, arg);
-        VAL_SET_TYPE_BITS(out, kind);
+        CHANGE_VAL_TYPE_BITS(out, kind);
         return;
     }
 

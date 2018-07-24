@@ -1365,8 +1365,10 @@ reevaluate:;
 
             assert(IS_ISSUE(DS_TOP));
 
-            if (not IS_WORD_BOUND(DS_TOP)) // the loop didn't index it
+            if (not IS_WORD_BOUND(DS_TOP)) { // the loop didn't index it
+                CHANGE_VAL_TYPE_BITS(DS_TOP, REB_REFINEMENT);
                 fail (Error_Bad_Refine_Raw(DS_TOP)); // so duplicate or junk
+            }
 
             // FRM_ARGS_HEAD offsets are 0-based, while index is 1-based.
             // But +1 is okay, because we want the slots after the refinement.
@@ -1909,7 +1911,7 @@ reevaluate:;
 
     case REB_LIT_WORD:
         Derelativize(f->out, current, f->specifier);
-        VAL_SET_TYPE_BITS(f->out, REB_WORD);
+        CHANGE_VAL_TYPE_BITS(f->out, REB_WORD);
         assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break;
 
@@ -2183,7 +2185,7 @@ reevaluate:;
 
     case REB_LIT_PATH:
         Derelativize(f->out, current, f->specifier);
-        VAL_SET_TYPE_BITS(f->out, REB_PATH);
+        CHANGE_VAL_TYPE_BITS(f->out, REB_PATH);
         assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break;
 

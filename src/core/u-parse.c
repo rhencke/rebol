@@ -1002,7 +1002,7 @@ static REBIXO To_Thru_Non_Block_Rule(
         DECLARE_LOCAL (word);
         if (IS_LIT_WORD(rule)) {
             Derelativize(word, rule, P_RULE_SPECIFIER);
-            VAL_SET_TYPE_BITS(word, REB_WORD);
+            CHANGE_VAL_TYPE_BITS(word, REB_WORD);
             rule = word;
         }
 
@@ -2242,7 +2242,7 @@ REBNATIVE(subparse)
                         );
 
                         if (IS_LIT_WORD(rule))
-                            VAL_SET_TYPE_BITS( // keeps binding flags
+                            CHANGE_VAL_TYPE_BITS( // keeps binding flags
                                 ARR_AT(ARR(P_INPUT), P_POS - 1),
                                 REB_WORD
                             );

@@ -2366,13 +2366,13 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
             if (ss->token == TOKEN_LIT) {
                 RESET_VAL_HEADER(DS_TOP, REB_LIT_PATH);
-                VAL_SET_TYPE_BITS(ARR_HEAD(array), REB_WORD);
+                CHANGE_VAL_TYPE_BITS(ARR_HEAD(array), REB_WORD);
             }
             else if (IS_GET_WORD(ARR_HEAD(array))) {
                 if (*ss->end == ':')
                     fail (Error_Syntax(ss));
                 RESET_VAL_HEADER(DS_TOP, REB_GET_PATH);
-                VAL_SET_TYPE_BITS(ARR_HEAD(array), REB_WORD);
+                CHANGE_VAL_TYPE_BITS(ARR_HEAD(array), REB_WORD);
             }
             else {
                 if (*ss->end == ':') {
