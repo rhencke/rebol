@@ -253,7 +253,7 @@ host-start: function [
         why: (ensure action! :why)
         license: (ensure action! :license)
         echo: (ensure action! :echo)
-        upgrade: (ensure action! :echo)
+        upgrade: (ensure action! :upgrade)
     ]
 
     ; The core presumes no built-in I/O ability in the release build, hence
