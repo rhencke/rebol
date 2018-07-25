@@ -470,7 +470,7 @@ REB_R PD_Varargs(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (r == R_THROWN)
         assert(FALSE); // VARARG_OP_FIRST can't throw
     else if (r == R_END)
-        Init_Endish_Void(pvs->out);
+        Init_Endish_Nulled(pvs->out);
     else
         assert(r == pvs->out);
 
@@ -521,7 +521,7 @@ REBTYPE(Varargs)
         if (not REF(part)) {
             REB_R r = Do_Vararg_Op_May_Throw(D_OUT, value, VARARG_OP_TAKE);
             if (r == R_END)
-                Init_Endish_Void(D_OUT);
+                Init_Endish_Nulled(D_OUT);
             else
                 assert(r == D_OUT);
             return D_OUT;

@@ -66,8 +66,7 @@ REBARR *List_Func_Words(const RELVAL *func, REBOOL pure_locals)
             break;
 
         case PARAM_CLASS_LOCAL:
-        case PARAM_CLASS_RETURN_1: // "magic" local - prefilled invisibly
-        case PARAM_CLASS_RETURN_0: // "magic" local - prefilled invisibly
+        case PARAM_CLASS_RETURN: // "magic" local - prefilled invisibly
             if (not pure_locals)
                 continue; // treat as invisible, e.g. for WORDS-OF
 
@@ -527,10 +526,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             //
             DS_PUSH_TRASH;
             Init_Typeset(DS_TOP, ALL_64, Canon(SYM_RETURN));
-            if (header_bits & ACTION_FLAG_VOIDER)
-                INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN_0);
-            else
-                INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN_1);
+            INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN);
             definitional_return_dsp = DSP;
 
             DS_PUSH(EMPTY_BLOCK);
@@ -540,11 +536,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         else {
             REBVAL *param = DS_AT(definitional_return_dsp);
             assert(VAL_PARAM_CLASS(param) == PARAM_CLASS_LOCAL);
-            INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_RETURN_1);
-            if (header_bits & ACTION_FLAG_VOIDER)
-                INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_RETURN_0);
-            else
-                INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_RETURN_1);
+            INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_RETURN);
 
             // definitional_return handled specially when paramlist copied
             // off of the stack...
@@ -899,7 +891,7 @@ REBACT *Make_Action(
         case PARAM_CLASS_LOCAL:
             break; // skip
 
-        case PARAM_CLASS_RETURN_1: {
+        case PARAM_CLASS_RETURN: {
             assert(VAL_PARAM_SYM(param) == SYM_RETURN);
 
             // See notes on ACTION_FLAG_INVISIBLE.
@@ -907,10 +899,6 @@ REBACT *Make_Action(
             if (VAL_TYPESET_BITS(param) == 0)
                 SET_VAL_FLAG(rootparam, ACTION_FLAG_INVISIBLE);
             break; }
-
-        case PARAM_CLASS_RETURN_0: {
-            assert(VAL_PARAM_SYM(param) == SYM_RETURN);
-            break; } // skip.
 
         case PARAM_CLASS_REFINEMENT:
             //

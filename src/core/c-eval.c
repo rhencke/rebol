@@ -229,7 +229,7 @@ inline static void Finalize_Arg(
         if (NOT_VAL_FLAG(param, TYPESET_FLAG_ENDABLE))
             fail (Error_No_Arg(f_state, param));
 
-        Init_Endish_Void(arg);
+        Init_Endish_Nulled(arg);
         SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
         return;
     }
@@ -899,16 +899,9 @@ reevaluate:;
                 SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
 
-            case PARAM_CLASS_RETURN_1:
+            case PARAM_CLASS_RETURN:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
-                Move_Value(f->arg, NAT_VALUE(return_1)); // !!! f->special?
-                INIT_BINDING(f->arg, f->varlist);
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
-                goto continue_arg_loop;
-
-            case PARAM_CLASS_RETURN_0:
-                assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
-                Move_Value(f->arg, NAT_VALUE(return_0)); // !!! f->special?
+                Move_Value(f->arg, NAT_VALUE(return)); // !!! f->special?
                 INIT_BINDING(f->arg, f->varlist);
                 SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
@@ -1022,7 +1015,7 @@ reevaluate:;
                     if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
                         fail (Error_No_Arg(f, f->param));
 
-                    Init_Endish_Void(f->arg);
+                    Init_Endish_Nulled(f->arg);
                     SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                     goto continue_arg_loop;
                 }
@@ -1216,7 +1209,7 @@ reevaluate:;
                 if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
                     fail (Error_No_Arg(f, f->param));
 
-                Init_Endish_Void(f->arg);
+                Init_Endish_Nulled(f->arg);
                 SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
             }
@@ -1246,7 +1239,7 @@ reevaluate:;
                 if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
                     fail (Error_No_Arg(f, f->param));
 
-                Init_Endish_Void(f->arg);
+                Init_Endish_Nulled(f->arg);
                 SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
                 goto continue_arg_loop;
             }

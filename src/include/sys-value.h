@@ -935,11 +935,11 @@ inline static RELVAL *REL(REBVAL *v) {
 #endif
 
 // !!! A theory was that the "evaluated" flag would help a function that took
-// both <opt> and <end>, which are converted to voids, distinguish what kind
-// of void it is.  This may or may not be a good idea, but unevaluating it
+// both <opt> and <end>, which are converted to nulls, distinguish what kind
+// of null it is.  This may or may not be a good idea, but unevaluating it
 // here just to make a note of the concept, and tag it via the callsites.
 //
-#define Init_Endish_Void(v) \
+#define Init_Endish_Nulled(v) \
     RESET_VAL_CELL((v), REB_MAX_NULLED, \
         VALUE_FLAG_FALSEY | VALUE_FLAG_UNEVALUATED)
 

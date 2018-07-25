@@ -957,7 +957,7 @@ inline static REBIXO Do_Array_At_Core(
 
     if (FRM_AT_END(f)) {
         if (flags & DO_FLAG_FULFILLING_ARG)
-            Init_Endish_Void(out);
+            Init_Endish_Nulled(out);
         else
             Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
         return END_FLAG;
@@ -980,7 +980,7 @@ inline static REBIXO Do_Array_At_Core(
     if (FRM_AT_END(f)) {
         if (IS_END(f->out)) {
             if (flags & DO_FLAG_FULFILLING_ARG)
-                Init_Endish_Void(out);
+                Init_Endish_Nulled(out);
             else
                 Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
         }

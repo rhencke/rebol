@@ -162,7 +162,7 @@ script: construct [] [
 ]
 
 standard: construct [] [
-    ; FUNC+PROC implement a native-optimized variant of an action generator.
+    ; FUNC implements a native-optimized variant of an action generator.
     ; This is the body template that it provides as the code *equivalent* of
     ; what it is doing (via a more specialized/internal method).  Though
     ; the only "real" body stored and used is the one the user provided
@@ -174,8 +174,8 @@ standard: construct [] [
 
     func-body: [
         return: make action! [
-            [{Returns a value from an action} value [<opt> any-value!]]
-            [unwind/with (binding of 'return) :value]
+            [{Returns a value from an action} value [<opt> <end> any-value!]]
+            [unwind/with (binding of 'return) end? 'value ?? void !! :value]
         ] #BODY
     ]
 
@@ -183,10 +183,10 @@ standard: construct [] [
 
     proc-body: [
         return: make action! [
-            [{Leaves an action, giving no result to the caller}]
-            [unwind (binding of 'return)]
+            [{Returns a value from an action} value [<opt> <end> any-value!]]
+            [unwind/with (binding of 'return) end? 'value ?? void !! :value]
         ] #BODY
-        ; #[void] ;-- illegal notation in legacy R3s, but returns this
+        void
     ]
 
     ; !!! The PORT! and actor code is deprecated, but this bridges it so

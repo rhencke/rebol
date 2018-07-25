@@ -191,8 +191,8 @@ REBNATIVE(bind)
 
     // Binding an ACTION! to a context means it will obey derived binding
     // relative to that context.  See METHOD for usage.  (Note that the same
-    // binding pointer is also used in cases like RETURN_0 and RETURN_1 to
-    // link them to the FRAME! that they intend to return from.)
+    // binding pointer is also used in cases like RETURN to link them to the
+    // FRAME! that they intend to return from.)
     //
     if (IS_ACTION(v)) {
         Move_Value(D_OUT, v);

@@ -376,8 +376,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
 
         if (
             pclass == PARAM_CLASS_LOCAL
-            or pclass == PARAM_CLASS_RETURN_0
-            or pclass == PARAM_CLASS_RETURN_1
+            or pclass == PARAM_CLASS_RETURN
         ){
              continue; // don't add a callsite expression for it (can't)!
         }

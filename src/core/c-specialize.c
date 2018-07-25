@@ -536,8 +536,7 @@ REBOOL Specialize_Action_Throws(
             SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
             goto specialized_arg_no_typecheck; }
 
-        case PARAM_CLASS_RETURN_1:
-        case PARAM_CLASS_RETURN_0:
+        case PARAM_CLASS_RETURN:
         case PARAM_CLASS_LOCAL:
             assert(IS_NULLED(arg)); // no bindings, you can't set these
             goto unspecialized_arg;
@@ -1117,8 +1116,7 @@ REBOOL Make_Invocation_Frame_Throws(
             break;
 
         case PARAM_CLASS_LOCAL:
-        case PARAM_CLASS_RETURN_1:
-        case PARAM_CLASS_RETURN_0:
+        case PARAM_CLASS_RETURN:
             break;
 
         default:

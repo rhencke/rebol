@@ -509,8 +509,7 @@ REBNATIVE(compile)
                 enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
                 switch (pclass) {
                 case PARAM_CLASS_LOCAL:
-                case PARAM_CLASS_RETURN_1:
-                case PARAM_CLASS_RETURN_0:
+                case PARAM_CLASS_RETURN:
                     assert(FALSE); // natives shouldn't generally use these...
                     break;
 

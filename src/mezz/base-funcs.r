@@ -83,9 +83,8 @@ was: func [
     elide take evaluation
 ]
 
-;-- These are internal and not meant to be exposed or called directly
-unset 'return-0
-unset 'return-1
+assert [null = binding of :return] ;-- it's archetypal, nowhere to return to
+unset 'return ;-- so don't let the archetype be visible
 
 function: func [
     {Make action with set-words as locals, <static>, <in>, <with>, <local>}

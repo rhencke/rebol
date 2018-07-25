@@ -136,10 +136,10 @@ enum Reb_Param_Class {
     //
     PARAM_CLASS_TIGHT = 0x04,
 
-    // PARAM_CLASS_RETURN_1 acts like a pure local, but is pre-filled with a
-    // definitionally-scoped function value that takes 1 arg and returns it.
+    // PARAM_CLASS_RETURN acts like a pure local, but is pre-filled with a
+    // ACTION! bound to the frame, that takes 0 or 1 arg and returns it.
     //
-    PARAM_CLASS_RETURN_1 = 0x05,
+    PARAM_CLASS_RETURN = 0x05,
 
     // `PARAM_CLASS_SOFT_QUOTE` is cued by a LIT-WORD! in the function spec
     // dialect.  It quotes with the exception of GROUP!, GET-WORD!, and
@@ -161,10 +161,7 @@ enum Reb_Param_Class {
     //
     PARAM_CLASS_SOFT_QUOTE = 0x06,
 
-    // `PARAM_CLASS_RETURN_0` acts like a pure local, but is pre-filled with a
-    // definitionally-scoped function value that takes 0 args and returns void
-    //
-    PARAM_CLASS_RETURN_0 = 0x07,
+    PARAM_CLASS_UNUSED_0x07 = 0x07,
 
     PARAM_CLASS_MAX
 };

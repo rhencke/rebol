@@ -160,16 +160,17 @@ REBNATIVE(unwind)
 
 
 //
-//  return-1: native [
+//  return: native [
 //
-//  "Arity-1 RETURN, giving a result to the caller"
+//  {RETURN, giving a result to the caller}
 //
-//      value [<opt> any-value!]
+//      value "If no argument is given, result will be a VOID!"
+//          [<end> <opt> any-value!]
 //  ]
 //
-REBNATIVE(return_1)
+REBNATIVE(return)
 {
-    INCLUDE_PARAMS_OF_RETURN_1;
+    INCLUDE_PARAMS_OF_RETURN;
 
     REBFRM *f = frame_; // implicit parameter to REBNATIVE()
 
@@ -181,7 +182,7 @@ REBNATIVE(return_1)
     REBFRM *target_frame;
     REBNOD *f_binding = FRM_BINDING(f);
     if (not f_binding)
-        fail (Error_Return_Archetype_Raw()); // explicit call to RETURN_1
+        fail (Error_Return_Archetype_Raw()); // must have binding to jump to
 
     assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
     target_frame = CTX_FRAME_MAY_FAIL(CTX(f_binding));
@@ -209,8 +210,17 @@ REBNATIVE(return_1)
     // So TYPESET! bits in the RETURN param are used for legal return types.
     //
     REBVAL *typeset = ACT_PARAM(target_fun, ACT_NUM_PARAMS(target_fun));
-    assert(VAL_PARAM_CLASS(typeset) == PARAM_CLASS_RETURN_1);
+    assert(VAL_PARAM_CLASS(typeset) == PARAM_CLASS_RETURN);
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
+
+    REBVAL *value = ARG(value);
+
+    // If the <end> is reached and there is no argument, e.g. `do [return]`,
+    // interpret that as the same as if it was `return void`.  For why an
+    // unevaluated null signals this, see Init_Endish_Nulled()
+    //
+    if (IS_NULLED(value) and GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED))
+        Init_Void(value);
 
     // Check the type *NOW* instead of waiting and letting Do_Core() check it.
     // The reasoning is that this way, the error will indicate the callsite,
@@ -222,42 +232,15 @@ REBNATIVE(return_1)
     // take [<opt> any-value!] as its argument, and then do the error report
     // itself...implicating the frame (in a way parallel to this native).
     //
-    REBVAL *value = ARG(value);
     if (not TYPE_CHECK(typeset, VAL_TYPE(value)))
         fail (Error_Bad_Return_Type(target_frame, VAL_TYPE(value)));
 
     assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
 
     Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
-    INIT_BINDING(D_OUT, f_binding);
+    INIT_BINDING_MAY_MANAGE(D_OUT, f_binding);
 
     CONVERT_NAME_TO_THROWN(D_OUT, value);
-    return D_OUT;
-}
-
-
-//
-//  return-0: native [
-//
-//  {Arity-0 RETURN, giving a VOID! result to the caller}
-//
-//  ]
-//
-REBNATIVE(return_0)
-//
-// See notes on REBNATIVE(return_1)
-{
-    REBFRM *f = frame_; // implicit parameter to natives
-
-    REBNOD *f_binding = FRM_BINDING(f);
-    if (not f_binding)
-        fail (Error_Return_Archetype_Raw()); // somehow RETURN_0 got called
-
-    assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
-    Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
-    INIT_BINDING(D_OUT, f_binding);
-
-    CONVERT_NAME_TO_THROWN(D_OUT, VOID_VALUE);
     return D_OUT;
 }
 
