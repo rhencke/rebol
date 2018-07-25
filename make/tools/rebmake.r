@@ -609,7 +609,7 @@ cl: make compiler-class [
     name: 'cl
     id: "msc" ;flag id
     command: meth [
-        output [file! string!]
+        output [file! text!]
         source
         /I includes
         /D definitions
@@ -766,7 +766,7 @@ ld: make linker-class [
     ]
 
     accept: meth [
-        return: [<opt> string!]
+        return: [<opt> text!]
         dep [object!]
         <local>
         ddep
@@ -888,7 +888,7 @@ llvm-link: make linker-class [
     ]
 
     accept: meth [
-        return: [<opt> string!]
+        return: [<opt> text!]
         dep [object!]
         <local>
         ddep
@@ -991,7 +991,7 @@ link: make linker-class [
     ]
 
     accept: meth [
-        return: [<opt> string! file!]
+        return: [<opt> text! file!]
         dep [object!]
         <local>
         ddep

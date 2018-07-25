@@ -61,7 +61,7 @@ make object! compose [
                 "test returned null"
             ]
             error? :result [
-                to string! result/id
+                to text! result/id
             ]
 
             elide (result: first result)
