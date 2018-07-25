@@ -77,10 +77,10 @@ filter-flag: function [
 ][
     if not tag? flag [return flag] ;-- no filtering
 
-    if not parse to text! flag [
+    parse to text! flag [
         copy header: to ":"
         ":" copy option: to end
-    ][
+    ] or [
         fail ["Tag must be <prefix:flag> ->" (flag)]
     ]
 
@@ -428,20 +428,20 @@ gcc: make compiler-class [
         version: copy ""
         attempt [
             call/output reduce [exec-file: any [all [exec path] "gcc"] "--version"] version
-            either parse version [
+            parse version [
                 {gcc (GCC) } 
                 copy major: some digit #"."
                 copy minor: some digit #"."
                 copy macro: some digit
                 to end
-            ][
+            ] then [
                 version: reduce [
                     to integer! major
                     to integer! minor
                     to integer! macro
                 ]
                 true
-            ][
+            ] else [
                 false
             ]
         ]

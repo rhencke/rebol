@@ -313,3 +313,21 @@ try: checked [
         ;-- fall through to native TRY implementation
     ]
 ]
+
+foreach: deprecated [
+    https://trello.com/c/cxvHGNha
+
+    {FOREACH is not appropriately English, use FOR-EACH or EVERY}
+]
+
+forall: deprecated [
+    https://trello.com/c/StCADPIB
+
+    {FOR-NEXT is a clearer name for what FORALL did (see also FOR-BACK)}
+]
+
+forskip: deprecated [
+    https://trello.com/c/StCADPIB
+
+    {FORSKIP is now FOR-SKIP, see also FOR-NEXT and FOR-BACK}
+]

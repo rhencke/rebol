@@ -997,7 +997,7 @@ fail: function [
     {Interrupts execution by reporting an error (a TRAP can intercept it).}
 
     reason "ERROR! value, message text, or failure spec"
-        [error! text! block!]
+        [<end> error! text! block!]
     /where "Specify an originating location other than the FAIL itself"
     location "Frame or parameter at which to indicate the error originated"
         [frame! any-word!]
@@ -1014,13 +1014,15 @@ fail: function [
     ;
     ;     fail/with [{The key} :key-name {is invalid}] [key-name: key]
     ;
-    error: switch type of reason [
+    error: switch type of :reason [
         error! [reason]
+
+        null [make error! "(no message)"]
         text! [make error! reason]
         block! [make error! spaced reason]
     ]
 
-    if not error? reason or (not pick reason 'where) [
+    if not error? :reason or (not pick reason 'where) [
         ;
         ; If no specific location specified, and error doesn't already have a
         ; location, make it appear to originate from the frame calling FAIL.

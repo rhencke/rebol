@@ -44,19 +44,22 @@ for-each [name value] options [
         ]
         'EXTENSIONS [
             use [ext-file user-ext][
-                either any [
+                any [
                     exists? ext-file: to file! value
                     exists? ext-file: to file! tools-dir/(value)
-                ][
+                ] then [
                     user-ext: make object! load ext-file
-                    if not all [
+                    all [
                         find words-of user-ext 'extensions
                         block? user-ext/extensions
-                    ][
-                        fail ["Malformated extension selection file, it needs to be 'EXTENSIONS: []'" (mold user-ext)]
+                    ] or [
+                        fail [
+                            "Malformed extension selection file"
+                            "it needs to be 'EXTENSIONS: []'" (mold user-ext)
+                        ]
                     ]
                     user-config/extensions: user-ext/extensions
-                ][
+                ] else [
                     user-ext: load value
                     if not block? user-ext [
                         fail [
@@ -445,9 +448,11 @@ help: function [topic [text! blank!]] [
     topic: attempt [to-word topic]
     print ""
     case [
-        topic = 'all [forskip help-topics 2 [
-            print help-topics/2
-        ] ]
+        topic = 'all [
+            for-each [topic msg] help-topics [
+                print msg
+            ]
+        ]
         msg: select help-topics topic [
             print msg
         ]
@@ -456,10 +461,13 @@ help: function [topic [text! blank!]] [
 ]
 
 ; process help: {-h | -help | --help} [TOPIC]
-if commands [forall commands [
-    if find ["-h" "-help" "--help"] first commands
-    [help second commands quit]
-]]
+if commands [
+    for-next commands [
+        if find ["-h" "-help" "--help"] first commands [
+            help second commands quit
+        ]
+    ]
+]
 
 ;;;; GO!
 
@@ -539,10 +547,10 @@ switch rebmake/default-compiler/name [
     ]
 ]
 
-if all [set? 'cc-exec cc-exec][
+all [set? 'cc-exec | cc-exec] then [
     set-exec-path rebmake/default-compiler cc-exec
 ]
-if all [set? 'linker-exec linker-exec][
+all [set? 'linker-exec | linker-exec] then [
     set-exec-path rebmake/default-linker linker-exec
 ]
 
@@ -1780,7 +1788,7 @@ solution: make rebmake/solution-class [
 
 target: user-config/target
 if not block? target [target: reduce [target]]
-forall target [
+for-next target [
     if null? switch target/1 targets [
         fail [
             newline

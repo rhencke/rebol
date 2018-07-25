@@ -121,19 +121,6 @@ comment [
 ]
 
 
-; FOREACH isn't being taken for anything else, may stay a built-in synonym
-; https://trello.com/c/cxvHGNha
-;
-foreach: :for-each
-
-
-; FOR-NEXT lets you switch series (unlike FORALL), see also FOR-BACK
-; https://trello.com/c/StCADPIB
-;
-forall: :for-next
-forskip: :for-skip
-
-
 ; The legacy PRIN construct is replaced by WRITE-STDOUT SPACED and similar
 ;
 prin: function [

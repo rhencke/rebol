@@ -48,11 +48,11 @@ cwrap-items: make block! 50
 emit-proto: func [return: <void> proto] [
     header: proto-parser/data
 
-    if not all [
+    all [
         block? header
         2 <= length-of header
         set-word? header/1
-    ][
+    ] or [
         print mold header
         fail [
             proto
@@ -74,7 +74,7 @@ emit-proto: func [return: <void> proto] [
     ; use Rebol syntax...the new idea is to always use Rebol syntax.)
 
     api-name: copy-as-text header/1
-    if not proto-parser/proto.id = unspaced ["RL_" api-name] [
+    if proto-parser/proto.id != unspaced ["RL_" api-name] [
         fail [
             "Name in comment header (" api-name ") isn't function name"
             "minus RL_ prefix for" proto-parser/proto.id
@@ -100,13 +100,16 @@ emit-proto: func [return: <void> proto] [
     ; It's not possible to make a function pointer in a struct carry the no
     ; return attribute.  So we have to go through an inline function.
     ;
-    either all [block? :header/3 | find header/3 #noreturn] [
+    all [
+        block? :header/3
+        find header/3 #noreturn
+    ] then [
         inline-proto: copy proto
         replace inline-proto "RL_API" {}
         replace inline-proto "RL_" {}
 
         inline-args: unspaced collect [
-            if not parse inline-proto [
+            parse inline-proto [
                 thru "("
                 any [
                     [copy param thru "," | copy param to ")" to end] (
@@ -126,12 +129,12 @@ emit-proto: func [return: <void> proto] [
                         keep next pos
                     )
                 ]
-            ][
+            ] or [
                 fail ["Couldn't extract args from prototype:" inline-proto]
             ]
         ]
 
-        either find inline-proto "va_list *vaptr" [
+        if find inline-proto "va_list *vaptr" [
             replace inline-proto "va_list *vaptr" "..."
             parse inline-args [
                 some [copy next-to-last-arg: to "," skip]
@@ -156,7 +159,7 @@ emit-proto: func [return: <void> proto] [
                     DEAD_END;
                 }
             }
-        ][
+        ] else [
             append direct-call-macros cscape {
                 ATTRIBUTE_NO_RETURN inline static $<Inline-Proto> {
                     $<Proto-Parser/Proto.Id>($<Inline-Args>);
@@ -171,7 +174,7 @@ emit-proto: func [return: <void> proto] [
                 }
             }
         ]
-    ][
+    ] else [
         ;-- alias version without the RL_ on it to just call the RL_ version
         append direct-call-macros cscape {
             #define $<Api-Name> $<Proto-Parser/Proto.Id>
@@ -367,9 +370,11 @@ map-names: [
 for-each [result RL_name args] cwrap-items [
     args: split args ","
     result: arg-to-js result
-    rebName: at RL_name 4
+    parse RL_Name ["RL_" copy rebName to end] or [fail]
+
     if find/skip (next map-names) rebName 2 [
-        print ["Skipping" rebName] continue
+        print ["Skipping" rebName]
+        continue
     ]
     line: unspaced [
         rebName " = Module.cwrap('"
@@ -380,11 +385,11 @@ for-each [result RL_name args] cwrap-items [
             ", "
         "]);"
     ]
-    either find line "<" [
+    if find line "<" [
         e-cwrap/emit {
             // Unknown type: <...> -- $<Line>
         }
-    ][
+    ] else [
         e-cwrap/emit {
             $<Line>
         }
@@ -400,11 +405,11 @@ for-each [result RL_name args] cwrap-items [
         ") {var p = " rebName "(" args
         "); var s = Pointer_stringify(p); rebFree(p); return s};"
     ]
-    either find line "<" [
+    if find line "<" [
         e-cwrap/emit {
             // Unknown type: <...> -- $<Line>
         }
-    ][
+    ] else [
         e-cwrap/emit {
             $<Line>
         }
@@ -435,10 +440,6 @@ e-cwrap/emit {
         }
         HEAP32[(va>>2)+argc] = _RL_rebEnd();
         return _RL_rebRun(HEAP32[va>>2], va+4);
-    }
-
-    rebForm = function(s) {
-        return rebSpellingOf(0, rebRun('form', s));
     }
 }
 

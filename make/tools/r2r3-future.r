@@ -32,17 +32,6 @@ REBOL [
     }
 ]
 
-for-each w [ELSE THEN ALSO OR AND UNLESS !! !? ?!] [
-    set w func [dummy:] compose [
-        fail/where [
-            "Do not use" w "in bootstrap.  It is based on normal enfix"
-            "mechanics that worked differently in the stable snapshot version"
-            "committed in 0da70da4c12677bf71ce4cf3fad1923c185db0b8, so"
-            "until a new stable snapshot is picked" w "must be avoided."
-        ] 'dummy
-    ]
-]
-
 ; The snapshotted Ren-C existed when VOID? was the name for NULL?.  What we
 ; will (falsely) assume is that any Ren-C that knows NULL? is "modern" and
 ; does not need patching forward.  What this really means is that we are
@@ -69,6 +58,11 @@ print "== SHIMMING OLDER R3 TO MODERN LANGUAGE DEFINITIONS =="
 
 ; NOTE: The slower these routines are, the slower the overall build will be.
 ; It's worth optimizing it as much as is reasonable.
+
+
+unset 'forall ;-- use FOR-NEXT
+unset 'forskip ;-- use FOR-SKIP
+unset 'foreach ;-- use FOR-EACH
 
 
 ; https://forum.rebol.info/t/behavior-of-to-string-as-string-mold/630
@@ -406,4 +400,39 @@ for-each modifier [append insert change] [
             only: true
         ]
     ]
+]
+
+also: enfix function [
+    return: [<opt> any-value!]
+    optional [<opt> any-value!]
+    :branch [block! action!]
+][
+    :optional then :branch
+    return :optional
+]
+
+and: enfix function [
+    return: [<opt> any-value!]
+    left [<opt> any-value!]
+    :right [group! block!]
+][
+    if group? :right [
+        if not :left [return false]
+        return did do right
+    ]
+    if not :left [return null]
+    return do right
+]
+
+or: enfix function [
+    return: [<opt> any-value!]
+    left [<opt> any-value!]
+    :right [group! block!]
+][
+    if group? :right [
+        if :left [return true]
+        return did do right
+    ]
+    if :left [return :left]
+    return do right
 ]
