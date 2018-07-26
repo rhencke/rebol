@@ -58,6 +58,11 @@
 //
 //     #include "sys-core.h"
 //
+// !!! Because this header is included by all files in the core, it has been a
+// bit of a dumping ground for flags and macros that have no particular home.
+// Addressing that is an ongoing process.
+//
+
 
 #include "reb-config.h"
 
@@ -73,30 +78,15 @@
 #define HAS_SHA1                // allow it
 #define HAS_MD5                 // allow it
 
-// External system includes:
 #include <stdlib.h>
-#include <stdarg.h>     // For var-arg Print functions
+#include <stdarg.h> // va_list, va_arg()...
 #include <string.h>
 #include <setjmp.h>
 #include <math.h>
-#include <stddef.h>     // for offsetof()
+#include <stddef.h> // for offsetof()
 
-
-//
-// ASSERTIONS
-//
-// Assertions are in debug builds only, and use the conventional standard C
-// assert macro.  The code inside the assert will be removed if the flag
-// NDEBUG is defined to indicate "NoDEBUGging".  While negative logic is
-// counter-intuitive (e.g. `#ifndef NDEBUG` vs. `#ifdef DEBUG`) it's the
-// standard and is the least of evils:
-//
-// http://stackoverflow.com/a/17241278/211160
-//
-// Assertions should mostly be used as a kind of "traffic cone" when working
-// on new code (or analyzing a bug you're trying to trigger in development).
-// It's preferable to update the design via static typing or otherwise as the
-// code hardens.
+// assert() is enabled by default; disable with `#define NDEBUG`
+// http://stackoverflow.com/a/17241278
 //
 #include <assert.h>
 #include "assert-fixes.h"
@@ -133,7 +123,6 @@
 #if defined(NDEBUG) && !defined(DEBUG_STDIO_OK)
     #define printf dont_include_stdio_h
     #define fprintf dont_include_stdio_h
-    #define putc dont_include_stdio_h
 #else
     // Desire to not bake in <stdio.h> notwithstanding, in debug builds it
     // can be convenient (or even essential) to have access to stdio.  This
@@ -156,12 +145,54 @@
 
 
 // The %reb-c.h file includes something like C99's <stdint.h> for setting up
-// a basis for concrete data type sizes, which define the Rebol basic types
-// (such as REBOOL, REBYTE, REBU64, etc.)  It also contains some other helpful
-// macros and tools for C programming.
+// a basis for concrete data type sizes.  It also contains some other helpful
+// macros and tools for C programming, and added checks when building as C++.
 //
 #include "reb-c.h"
+
+
+// Historically, Rebol source did not include the external library, because it
+// was assumed the core would never want to use the less-privileged and higher
+// overhead API.  However, libRebol now operates on REBVAL* directly (though
+// opaque to clients).  It has many conveniences, and is the preferred way to
+// work with isolated values that need indefinite duration.
+//
+#include "rebol.h"
+
+
+// This does all the forward definitions that are necessary for the compiler
+// to be willing to build %tmp-internals.h.  Some structures are fully defined
+// and some are only forward declared.
+//
 #include "reb-defs.h"
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// #INCLUDE THE AUTO-GENERATED FUNCTION PROTOTYPES FOR THE INTERNAL API
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// The somewhat-awkward requirement to have all the definitions up-front for
+// all the prototypes, instead of defining them in a hierarchy, comes from
+// the automated method of prototype generation.  If they were defined more
+// naturally in individual includes, it could be cleaner...at the cost of
+// needing to update prototypes separately from the definitions.
+//
+// See %make/make-headers.r for the generation of this list.
+//
+#include "tmp-internals.h"
+
+
+// Small integer symbol IDs, e.g. SYM_THRU or SYM_ON, for built-in words so
+// that they can be used in C switch() statements.
+//
+#include "tmp-symbols.h"
+
+
+// Rebol versioning information, basically 5 numbers for a tuple.
+//
+#include "tmp-version.h"
 
 
 //
@@ -183,7 +214,6 @@
         #include "debugbreak.h"
     #endif
 #endif
-
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -231,69 +261,30 @@
 
 
 #include "reb-device.h"
-#include "reb-types.h"
 #include "reb-event.h"
 
+// !!! Definitions for the memory allocator generally don't need to be
+// included by all clients, though currently it is necessary to indicate
+// whether a "node" is to be allocated from the REBSER pool or the REBGOB
+// pool.  Hence, the REBPOL has to be exposed to be included in the
+// function prototypes.  Review this necessity when REBGOB is changed.
+//
+#include "mem-pools.h"
+
 #include "sys-rebnod.h"
-
-#include "sys-deci.h"
-
-#include "tmp-bootdefs.h"
 
 #include "sys-rebval.h" // REBVAL structure definition
 #include "sys-rebser.h" // REBSER series definition (embeds REBVAL definition)
 #include "sys-rebact.h" // REBACT and ACT()
 #include "sys-rebctx.h" // REBCTX and CTX()
 
-typedef void (*MAKE_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
-typedef void (*TO_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
-
 #include "sys-state.h"
 #include "sys-rebfrm.h" // `REBFRM` definition (also used by value)
 #include "sys-indexor.h" // REBIXO definition
 
+#include "sys-mold.h"
+
 //-- Port actions (for native port schemes):
-
-typedef struct rebol_port_action_map {
-    REBVAL *verb;
-    REBPAF func;
-} PORT_ACTION;
-
-typedef struct rebol_mold {
-    REBSER *series;     // destination series (uni)
-    REBCNT start;       // index where this mold starts within series
-    REBFLGS opts;        // special option flags
-    REBCNT limit;       // how many characters before cutting off with "..."
-    REBCNT reserve;     // how much capacity to reserve at the outset
-    REBINT indent;      // indentation amount
-    REBYTE period;      // for decimal point
-    REBYTE dash;        // for date fields
-    REBYTE digits;      // decimal digits
-} REB_MOLD;
-
-#define Drop_Mold_If_Pushed(mo) \
-    Drop_Mold_Core((mo), TRUE)
-
-#define Drop_Mold(mo) \
-    Drop_Mold_Core((mo), FALSE)
-
-#define Pop_Molded_String(mo) \
-    Pop_Molded_String_Core((mo), UNKNOWN)
-
-#define Pop_Molded_String_Len(mo,len) \
-    Pop_Molded_String_Core((mo), (len))
-
-#define Mold_Value(mo,v) \
-    Mold_Or_Form_Value((mo), (v), FALSE)
-
-#define Form_Value(mo,v) \
-    Mold_Or_Form_Value((mo), (v), TRUE)
-
-#define Copy_Mold_Value(v,opts) \
-    Copy_Mold_Or_Form_Value((v), (opts), FALSE)
-
-#define Copy_Form_Value(v,opts) \
-    Copy_Mold_Or_Form_Value((v), (opts), TRUE)
 
 
 /***********************************************************************
@@ -324,13 +315,6 @@ typedef struct rebol_opts {
     REBOOL  watch_expand;
     REBOOL  crash_dump;
 } REB_OPTS;
-
-typedef struct rebol_time_fields {
-    REBCNT h;
-    REBCNT m;
-    REBCNT s;
-    REBCNT n;
-} REB_TIMEF;
 
 
 /***********************************************************************
@@ -363,26 +347,6 @@ enum {
 };
 
 #define MKF_MASK_NONE 0 // no special handling (e.g. MAKE ACTION!)
-
-// Modes allowed by FORM
-enum {
-    FORM_FLAG_ONLY = 0,
-    FORM_FLAG_REDUCE = 1 << 0,
-    FORM_FLAG_NEWLINE_SEQUENTIAL_STRINGS = 1 << 1,
-    FORM_FLAG_NEWLINE_UNLESS_EMPTY = 1 << 2,
-    FORM_FLAG_MOLD = 1 << 3
-};
-
-// Modes allowed by Copy_Block function:
-enum {
-    COPY_SHALLOW = 0,
-    COPY_DEEP,          // recurse into blocks
-    COPY_STRINGS,       // copy strings in blocks
-    COPY_ALL,           // both deep, strings (3)
-//  COPY_IGNORE = 4,    // ignore tail position (used for stack args)
-    COPY_OBJECT = 8,    // copy an object
-    COPY_SAME = 16
-};
 
 // Mathematical set operations for UNION, INTERSECT, DIFFERENCE
 enum {
@@ -417,50 +381,6 @@ enum {
     PROT_FREEZE = 1 << 4
 };
 
-// Mold and form options:
-enum REB_Mold_Opts {
-    MOLD_FLAG_0 = 0,
-    MOLD_FLAG_ALL = 1 << 0, // Output lexical types in #[type...] format
-    MOLD_FLAG_COMMA_PT = 1 << 1, // Decimal point is a comma.
-    MOLD_FLAG_SLASH_DATE = 1 << 2, // Date as 1/1/2000
-    MOLD_FLAG_INDENT = 1 << 3, // Indentation
-    MOLD_FLAG_TIGHT = 1 << 4, // No space between block values
-    MOLD_FLAG_ONLY = 1 << 5, // Mold/only - no outer block []
-    MOLD_FLAG_LINES  = 1 << 6, // add a linefeed between each value
-    MOLD_FLAG_LIMIT = 1 << 7, // Limit length to mold->limit, then "..."
-    MOLD_FLAG_RESERVE = 1 << 8  // At outset, reserve capacity for buffer
-};
-
-// Temporary:
-#define MOLD_FLAG_NON_ANSI_PARENED \
-    MOLD_FLAG_ALL // Non ANSI chars are ^() escaped
-
-#define DECLARE_MOLD(name) \
-    REB_MOLD mold_struct; \
-    mold_struct.series = NULL; /* used to tell if pushed or not */ \
-    mold_struct.opts = 0; \
-    mold_struct.indent = 0; \
-    REB_MOLD *name = &mold_struct; \
-
-#define SET_MOLD_FLAG(mo,f) \
-    ((mo)->opts |= (f))
-
-#define GET_MOLD_FLAG(mo,f) \
-    (did ((mo)->opts & (f)))
-
-#define NOT_MOLD_FLAG(mo,f) \
-    (not ((mo)->opts & (f)))
-
-#define CLEAR_MOLD_FLAG(mo,f) \
-    ((mo)->opts &= ~(f))
-
-typedef void (*MOLD_CFUNC)(REB_MOLD *mo, const RELVAL *v, REBOOL form);
-
-// Special flags for decimal formatting:
-enum {
-    DEC_MOLD_PERCENT = 1 << 0,      // follow num with %
-    DEC_MOLD_MINIMAL = 1 << 1       // allow decimal to be integer
-};
 
 // Options for To_REBOL_Path
 enum {
@@ -555,60 +475,50 @@ enum encoding_opts {
 };
 
 
-// These 3 operations are the current legal set of what can be done with a
-// VARARG!.  They integrate with Do_Core()'s limitations in the prefetch
-// evaluator--such as to having one unit of lookahead.
-//
-// While it might seem natural for this to live in %sys-varargs.h, the enum
-// type is used by a function prototype in %tmp-internals.h...hence it must be
-// defined before that is included.
-//
-enum Reb_Vararg_Op {
-    VARARG_OP_TAIL_Q, // tail?
-    VARARG_OP_FIRST, // "lookahead"
-    VARARG_OP_TAKE // doesn't modify underlying data stream--advances index
+enum {
+    REB_FILETOLOCAL_0 = 0, // make it clearer when using no options
+    REB_FILETOLOCAL_FULL = 1 << 0, // expand path relative to current dir
+    REB_FILETOLOCAL_WILD = 1 << 1, // add on a `*` for wildcard listing
+
+    // !!! A comment in the R3-Alpha %p-dir.c said "Special policy: Win32 does
+    // not want tail slash for dir info".
+    //
+    REB_FILETOLOCAL_NO_TAIL_SLASH = 1 << 2 // don't include the terminal slash
 };
 
-// %sys-do.h needs to call into the scanner if Fetch_Next_In_Frame() is to
-// be inlined at all (at its many time-critical callsites), so the scanner
-// API has to be exposed with SCAN_STATE before %tmp-funcs.h
-//
-#include "sys-scan.h"
 
-// Historically, Rebol source did not include %reb-ext.h...because it was
-// assumed the core would never want to use the less-privileged and higher
-// overhead API.  Hence data types like REBRXT were not included in the core,
-// except in the one file that was implementing the "user library".
+enum {
+    BEL =   7,
+    BS  =   8,
+    LF  =  10,
+    CR  =  13,
+    ESC =  27,
+    DEL = 127
+};
+
+#define LDIV            lldiv
+#define LDIV_T          lldiv_t
+
+// Skip to the specified byte but not past the provided end
+// pointer of the byte string.  Return NULL if byte is not found.
 //
-// However, there are cases where code is being migrated to use the internal
-// API over to using the external one, so it's helpful to allow calling both.
-// We therefore include %reb-ext so it defines RX* for all of the core, and
-// these types must be available to process %tmp-internals.h since the RL_API
-// functions appear there too.
-//
-#include "reb-ext.h"
-#include "reb-lib.h"
+inline static const REBYTE *Skip_To_Byte(
+    const REBYTE *cp,
+    const REBYTE *ep,
+    REBYTE b
+) {
+    while (cp != ep && *cp != b) cp++;
+    if (*cp == b) return cp;
+    return 0;
+}
+
+typedef int cmp_t(void *, const void *, const void *);
+extern void reb_qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp);
+
+#define ROUND_TO_INT(d) \
+    cast(int32_t, floor((MAX(INT32_MIN, MIN(INT32_MAX, d))) + 0.5))
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// #INCLUDE THE AUTO-GENERATED FUNCTION PROTOTYPES FOR THE INTERNAL API
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// All the prior definitions and includes built up to this.  That's to have
-// enough of the structs, enumerated types, and typedefs set up to define
-// the function prototypes for all the functions shared between the %.c files.
-//
-// The somewhat-awkward requirement to have all the definitions up-front for
-// all the prototypes, instead of defining them in a hierarchy, comes from
-// the automated method of prototype generation.  If they were defined more
-// naturally in individual includes, it could be cleaner...at the cost of
-// needing to update prototypes separately from the definitions.
-//
-// See %make/make-headers.r for the generation of this list.
-//
-#include "tmp-internals.h"
 
 #include "tmp-constants.h"
 
@@ -664,11 +574,55 @@ enum Reb_Vararg_Op {
 
 #include "sys-globals.h"
 
-#include "tmp-error-funcs.h"
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// GLOBAL END NODE
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// This defines END as the address of a global node.  It's important to
+// point out that several definitions you might think would work for END
+// will not.  For example, this string literal seems to have the right
+// bits in the leading byte (NODE_FLAG_NODE and CELL_FLAG_END):
+//
+//     #define END ((const REBVAL*)"\x88")
+//
+// (Note: it's actually two bytes, C adds a terminator \x00)
+//
+// But the special "endlike" value of "the" END global node is set up to
+// assuming further that it has 0 in its rightmost bits, where the type is
+// stored.  Why would this be true when you cannot run a VAL_TYPE() on an
+// arbitrary end marker?
+//
+// (Note: the reason you can't run VAL_TYPE() on arbitrary cells that
+// return true to IS_END() is because some--like the above--only set
+// enough bits to say that they're ends and not cells, so they can use
+// subsequent bits for other purposes.  See Init_Endlike_Header())
+//
+// The reason there's a special loophole for this END is to help avoid
+// extra testing for NULL.  So in various internal code where NULL might
+// be used, this END is...which permits the operation VAL_TYPE_OR_0.
+//
+// So you might think that more zero bytes would help.  If you're on a
+// 64-bit platform, that means you'd need at least 7 bytes plus null
+// terminator:
+//
+//     #define END ((const REBVAL*)"\x88\x00\x00\x00\x00\x00\x00")
+//
+// ...but even that doesn't work for the core, since END is expected to
+// have a single memory address across translation units.  This means if
+// one C file assigns a variable to END, another C file can turn around
+// and test `value == END` instead of with `IS_END(value)` (though it's
+// not clear whether that actually benefits performance much or not.)
+//
+#define END \
+    ((const REBVAL*)&PG_End_Node) // sizeof(REBVAL) but not NODE_FLAG_CELL
+
+#include "tmp-error-funcs.h" // uses END, functions called below
+
 
 #include "sys-trap.h" // includes PUSH_TRAP, fail(), and panic() macros
-
-#include "mem-pools.h"
 
 #include "sys-node.h"
 
@@ -712,9 +666,6 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 **  Macros
 **
 ***********************************************************************/
-
-// Generic defines:
-#define ALIGN(s, a) (((s) + (a)-1) & ~((a)-1))
 
 #define UP_CASE(c) Upper_Cases[c]
 #define LO_CASE(c) Lower_Cases[c]
@@ -789,4 +740,3 @@ extern MOLD_CFUNC Mold_Or_Form_Dispatch[REB_MAX];
 
 #include "sys-do.h"
 #include "sys-path.h"
-

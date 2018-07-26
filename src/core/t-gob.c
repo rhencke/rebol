@@ -647,12 +647,9 @@ static void Set_GOB_Vars(REBGOB *gob, const RELVAL *blk, REBSPC *specifier)
 }
 
 
-//
-//  Gob_To_Array: C
-//
 // Used by MOLD to create a block.
 //
-REBARR *Gob_To_Array(REBGOB *gob)
+static REBARR *Gob_To_Array(REBGOB *gob)
 {
     REBARR *array = Make_Array(10);
     REBVAL *val;

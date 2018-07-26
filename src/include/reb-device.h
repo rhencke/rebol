@@ -152,7 +152,6 @@ enum {
 
 // Forward references:
 typedef struct rebol_device REBDEV;
-typedef struct rebol_devreq REBREQ;
 
 // Commands:
 typedef int32_t (*DEVICE_CMD_CFUNC)(REBREQ *req);
@@ -200,7 +199,7 @@ struct rebol_devreq {
 
     // Common fields:
     union {
-        REBYTE *data;       // data to transfer
+        unsigned char *data;       // data to transfer
     } common;
     uint32_t length;        // length to transfer
     uint32_t actual;        // length actually transferred

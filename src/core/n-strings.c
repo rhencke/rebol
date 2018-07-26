@@ -346,7 +346,7 @@ REBNATIVE(deflate)
         }
     }
 
-    REBSIZ compressed_size;
+    size_t compressed_size;
     void *compressed = Compress_Alloc_Core(
         &compressed_size,
         bp,
@@ -413,7 +413,7 @@ REBNATIVE(inflate)
         }
     }
 
-    REBSIZ decompressed_size;
+    size_t decompressed_size;
     void *decompressed = Decompress_Alloc_Core(
         &decompressed_size,
         VAL_BIN_AT(data),

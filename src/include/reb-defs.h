@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -26,52 +26,38 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This file is used by internal and external C code.  It should not depend
-// on any other include files before it.
+// These are the forward declarations of datatypes used by %tmp-internals.h
+// (the internal Rebol API).  They must be at least mentioned before that file
+// will be able to compile, after which the structures are defined in order.
 //
-// If REB_DEF is defined, it expects full definitions of the structures behind
-// REBVAL and REBSER.  If not, then it treats them opaquely.  The reason this
-// is done in a single file with an #ifdef as opposed to just doing the
-// opaque definitions in %reb-ext.h (and not including %reb-defs.h there) is
-// because of %a-lib.c - which wants to use the non-opaque definitions to
-// implement the API while still having the various enums in %reb-ext.h
-// available to the compiler.
+// This shouldn't depend on other include files before it (besides %reb-c.h)
 //
 
-#ifndef REB_DEFS_H  // due to sequences within the lib build itself
-#define REB_DEFS_H
+
+// Defines `enum Reb_Kind`, which is the enumeration of low-level cell types
+// in Rebol (e.g. REB_BLOCK, REB_TEXT, etc.)
+//
+// The ordering encodes properties of the types for efficiency, so adding or
+// removing a type generally means shuffling their values.  They are generated
+// from a table and the numbers should not be exported to clients.
+//
+#include "tmp-kinds.h"
 
 
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// REBYTE 8-BIT UNSIGNED /////////////////////////////////////////////=//
 //
-// REBYTE unsigned 8-bit value
+// Using unsigned characters helps convey information is not limited to
+// textual data.  API-wise, ordinary `char`--marked neither signed nor
+// unsigned--is used for UTF-8 text.  But internally REBYTE is used for UTF-8
+// when encoding or decoding.
 //
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Using unsigned characters is good for conveying information is not limited
-// to textual data.  It provides type-checking that helps discern between
-// single-codepoint null terminated data (on which you might legitimately
-// use `strlen()`, for instance) and something like UTF-8 data.
-//
-// Note: uint8_t might seem like an equally appropriate choice for REBYTE, if
-// not better.  But in 99% of cases they will be the same.  In the 1% where
-// they might be different, the entire difference would likely be that
-// uint8_t would not offer the strict aliasing exemption of char types:
-//
+// Note: uint8_t may not be equivalent to unsigned char:
 // https://stackoverflow.com/a/16138470/211160
 //
-// Hence it's better to use unsigned char, so the compiler doesn't assume that
-// a REBYTE isn't pointing to the same address as another type, leading to
-// cache problems (e.g. if you try to read the first byte of an integer)
-//
-typedef unsigned char REBYTE;
+typedef unsigned char REBYTE; // don't change to uint8_t, see note
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// REBOL NUMERIC TYPES ("REBXXX")
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// REBOL NUMERIC TYPES ("REBXXX") ////////////////////////////////////=//
 //
 // The 64-bit build modifications to R3-Alpha after its open sourcing changed
 // *pointers* internal to data structures to be 64-bit.  But indexes did not
@@ -81,7 +67,6 @@ typedef unsigned char REBYTE;
 // machines, and a possible loss of performance for forcing a platform to use
 // a specific size int (instead of deferring to C's generic `int`).
 //
-
 typedef int32_t REBINT; // 32 bit signed integer
 typedef uint32_t REBCNT; // 32 bit (counting number, length in "units")
 typedef uint32_t REBSIZ; // 32 bit (size in bytes)
@@ -89,7 +74,6 @@ typedef int64_t REBI64; // 64 bit integer
 typedef uint64_t REBU64; // 64 bit unsigned integer
 typedef float REBD32; // 32 bit decimal
 typedef double REBDEC; // 64 bit decimal
-
 typedef uintptr_t REBFLGS; // platform-pointer-size unsigned for bit flags
 typedef uintptr_t REBLIN; // type used to store line numbers in Rebol files
 typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
@@ -102,50 +86,7 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 #define MAX_D64 ((double) 9.2233720368547758e18)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// "WIDE" CHARACTER DEFINITION (UCS-2)
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Consensus about the wchar_t datatype is generally that it's a pre-Unicode
-// abstraction that should be avoided unless you absolutely need it.  It
-// varies in size by platform...though it is standardized to 2 bytes in size
-// on Windows, where there is `#define WCHAR wchar_t`
-//
-// Some APIs (such as unixodbc) use UCS-2 for wide character handling in order
-// to be compatible with Windows, vs. using the native wchar_t type.  It thus
-// defines SQLWCHAR as an unsigned short integer (itself not *guaranteed* to
-// be 16-bits in size).  However, such a definition cannot be used if
-// compiling as C++ and be compatible with Windows's #define:
-//
-// https://stackoverflow.com/q/1238609
-//
-// The primary focus of Ren-C is on UTF-8, but it does grudgingly provide
-// some UCS-2 APIs.  To avoid duplicating u16-based "UCS-2" API and a wchar_t
-// API, the API is exposed as being REBWCHAR based, which does a #define
-// based on the platform.
-//
-// *** However, don't use REBWCHAR in client code.  If the client code is
-// on Windows, use WCHAR.  If it's in a unixodbc client use SQLWCHAR.  In
-// general, try and use UTF8 if you possibly can. ***
-//
-// It may be that the API never supports higher codepoints via UTF-16
-// encoding, and only does higher codepoints on input/output to get UTF-8.
-//
-
-#ifdef TO_WINDOWS
-    #define REBWCHAR wchar_t
-#else
-    #define REBWCHAR uint16_t
-#endif
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// UNICODE CODEPOINT
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// UNICODE CODEPOINT /////////////////////////////////////////////////=//
 //
 // REBUNI is currently a two-byte representation of a Unicode codepoint.  It
 // is not UTF-16...it's simply limited to 16-bit codepoints (UCS-2).  R3-Alpha
@@ -157,293 +98,218 @@ typedef uintptr_t REBTCK; // type the debug build uses for evaluator "ticks"
 // to it have been changed to use the REBCHR(*) interface for safe variable
 // sized encoding enumeration, a switch can be flipped and it can be upgraded.
 //
-
 typedef REBWCHAR REBUNI;
-
 #define MAX_UNI \
     ((1 << (8 * sizeof(REBUNI))) - 1)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// MEMORY POOLS //////////////////////////////////////////////////////=//
 //
-// REBOL SERIES TYPES
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Forward declarations of the series subclasses defined in %sys-series.h
-// Because the Reb_Series structure includes a Reb_Value by value, it
-// must be included *after* %sys-value.h
-//
-#if !defined(REB_DEF)
-    //
-    // The %reb-xxx.h files define structures visible to host code (client)
-    // which don't also require pulling in all of the %sys-xxx.h files and
-    // dependencies.  Some of these definitions are shared with the core,
-    // and mention things like REBVAL.  When building as core that's fine,
-    // but when building as host this will be undefined unless something
-    // is there.  Define as a void so that it can point at it, but not know
-    // anything else about it (including size).
-    //
-    typedef void REBVAL;
+typedef struct rebol_mem_pool REBPOL;
+typedef struct Reb_Node REBNOD;
 
-    // By contract, C's NULL is the same bit pattern in a REBVAL* that is used
-    // for Rebol's representation of null in the API.  This means that if a
-    // REBVAL* is returned from an operation, it can be checked for "nullness"
-    // with just `if (!v)`.
-    //
-    // Hence library users should feel comfortable saying `REBVAL *v = NULL;`
-    // and know it will be interpreted as "an <opt>".  However, there is a
-    // danger in passing NULL to variadics, see %reb-c.h for the explanation
-    // of why `nullptr` was "shimmed" into C, and should be preferred.
-    //
-    // Passing `nullptr` to a variadic in slots where a REBVAL* is intended is
-    // a perfectly clear and safe expression of intent to pass the absence of
-    // a Rebol value.  But it may not be clear in routines that take pointers
-    // to other types also.  This macro exists for that case, but in variable
-    // initialization cases just `REBVAL *v = nullptr;` should be used.
-    //
-    #define rebNull \
-        cast(REBVAL*, 0)
+
+//=//// REBOL VALUES //////////////////////////////////////////////////////=//
+//
+// Note that in the C build, %rebol.h forward-declares `struct Reb_Cell` and
+// then #defines REBVAL to that.  But in the C++11 build, it defines REBVAL
+// as `struct Reb_Specific_Value;`
+//
+// !!! Because the type is ultimately opaque to libRebol clients, and the
+// API calls are via pointers to `extern "C"` functions, the distinction
+// should not matter there.  It should only matter when code is built against
+// the internal API.
+//
+#if !defined(CPLUSPLUS_11)
+    #define RELVAL \
+        struct Reb_Cell // same as REBVAL, no checking in C build
+
+    #define const_RELVAL_NO_END_PTR \
+        const struct Reb_Cell * // no extra checking in C build
 #else
-    struct Reb_Cell;
+    struct Reb_Relative_Value; // won't implicitly downcast to REBVAL
+    #define RELVAL \
+        struct Reb_Relative_Value // *might* be IS_RELATIVE()
 
-    #if !defined(CPLUSPLUS_11)
-        #define RELVAL struct Reb_Cell
-        #define REBVAL struct Reb_Cell
-        #define const_RELVAL_NO_END_PTR const struct Reb_Cell *
-    #else
-        struct Reb_Relative_Value;
-        #define RELVAL struct Reb_Relative_Value // *maybe* IS_RELATIVE()
-
-        struct Reb_Specific_Value;
-        #define REBVAL struct Reb_Specific_Value // guaranteed IS_SPECIFIC()
-
-        struct const_Reb_Relative_Value_No_End_Ptr;
-        #define const_RELVAL_NO_END_PTR \
-            struct const_Reb_Relative_Value_No_End_Ptr
-    #endif
-
-    struct Reb_Series; // Rebol series node
-    typedef struct Reb_Series REBSER;
-
-    // UTF-8 Everywhere series (used for WORD!s only ATM)
-    typedef REBSER REBSTR;
-
-    struct Reb_Array; // REBSER containing REBVALs ("Rebol Array")
-    typedef struct Reb_Array REBARR;
-
-    struct Reb_Context; // parallel REBARR key/var arrays + ANY-CONTEXT! value
-    typedef struct Reb_Context REBCTX;
-
-    struct Reb_Action;  // function parameters + ACTION! value
-    typedef struct Reb_Action REBACT;
-
-    struct Reb_Map; // REBARR listing key/value pairs with hash
-    typedef struct Reb_Map REBMAP;
-
-    struct Reb_Frame; // Non-GC'd raw call frame, see %sys-frame.h
-    typedef struct Reb_Frame REBFRM;
-
-    struct Reb_Binder; // needs forward decl for use in %tmp-internals.h
-    struct Reb_Collector; // same
-
-    // Paths formerly used their own specialized structure to track the path,
-    // (path-value-state), but now they're just another kind of frame.  It is
-    // helpful for the moment to give them a different name.
-    //
-    typedef struct Reb_Frame REBPVS;
-
-    // These data types are really just arrays of values, but given a distinct
-    // datatype to improve the semantics of working with them.
-    //
-    struct Reb_Chunker; // used for non-volatile stack arrays of REBVAL
-    struct Reb_Chunk; // subdivides the chunker into handed-out "chunks"
-
-    // Compare Types Function
-    //
-    typedef REBINT (*REBCTF)(const RELVAL *a, const RELVAL *b, REBINT s);
-
-    // A standard integer is currently used to represent the data stack
-    // pointer.  `unsigned int` instead of a `REBCNT` in order to leverage the
-    // native performance of the integer type unconstrained by bit size, as
-    // data stack pointers are not stored in REBVALs or similar, and
-    // performance in comparing and manipulation is more important than size.
-    //
-    // Note that a value of 0 indicates an empty stack; the [0] entry is made
-    // to be alerting trash to trap invalid reads or writes of empty stacks.
-    //
-    typedef unsigned int REBDSP;
-    struct Reb_Chunk;
-    struct Reb_Chunker;
-
-    struct Reb_Node;
-    typedef struct Reb_Node REBNOD;
-
-    typedef struct Reb_Node REBSPC;
-
-    // This defines END as the address of a global node.  It's important to
-    // point out that several definitions you might think would work for END
-    // will not.  For example, this string literal seems to have the right
-    // bits in the leading byte (NODE_FLAG_NODE and CELL_FLAG_END):
-    //
-    //     #define END ((const REBVAL*)"\x88")
-    //
-    // (Note: it's actually two bytes, C adds a terminator \x00)
-    //
-    // But the special "endlike" value of "the" END global node is set up to
-    // assuming further that it has 0 in its rightmost bits, where the type is
-    // stored.  Why would this be true when you cannot run a VAL_TYPE() on an
-    // arbitrary end marker?
-    //
-    // (Note: the reason you can't run VAL_TYPE() on arbitrary cells that
-    // return true to IS_END() is because some--like the above--only set
-    // enough bits to say that they're ends and not cells, so they can use
-    // subsequent bits for other purposes.  See Init_Endlike_Header())
-    //
-    // The reason there's a special loophole for this END is to help avoid
-    // extra testing for NULL.  So in various internal code where NULL might
-    // be used, this END is...which permits the operation VAL_TYPE_OR_0.
-    //
-    // So you might think that more zero bytes would help.  If you're on a
-    // 64-bit platform, that means you'd need at least 7 bytes plus null
-    // terminator:
-    //
-    //     #define END ((const REBVAL*)"\x88\x00\x00\x00\x00\x00\x00")
-    //
-    // ...but even that doesn't work for the core, since END is expected to
-    // have a single memory address across translation units.  This means if
-    // one C file assigns a variable to END, another C file can turn around
-    // and test `value == END` instead of with `IS_END(value)` (though it's
-    // not clear whether that actually benefits performance much or not.)
-    //
-    #define END \
-        ((const REBVAL*)&PG_End_Node) // sizeof(REBVAL) but not NODE_FLAG_CELL
-
-    // These definitions are needed in %sys-rebval.h, and can't be put in
-    // %sys-rebact.h because that depends on Reb_Array, which depends on
-    // Reb_Series, which depends on values... :-/
-    //
-    typedef const REBVAL* REB_R;
-
-    // C function implementing a native ACTION!
-    //
-    typedef REB_R (*REBNAT)(REBFRM *frame_);
-    #define REBNATIVE(n) \
-        REB_R N_##n(REBFRM *frame_)
-
-    // Type-Action-Function: implementing a "verb" ACTION! for a particular
-    // type (or class of types).
-    //
-    typedef REB_R (*REBTAF)(REBFRM *frame_, REBVAL *verb);
-    #define REBTYPE(n) \
-        REB_R T_##n(REBFRM *frame_, REBVAL *verb)
-
-    // Port-Action-Function: for implementing "verb" ACTION!s on a PORT! class
-    // 
-    typedef REB_R (*REBPAF)(REBFRM *frame_, REBVAL *port, REBVAL *verb);
-
-    // Path evaluator function
-    //
-    typedef REB_R (*REBPEF)(
-        REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval
-    );
+    struct const_Reb_Relative_Value_No_End_Ptr;
+    #define const_RELVAL_NO_END_PTR \
+        struct const_Reb_Relative_Value_No_End_Ptr // stops END assignments
 #endif
 
 
-// "Dangerous Function" which is called by rebRescue().  Argument can be a
-// REBVAL* but does not have to be.  Result must be a REBVAL* or NULL.
+//=//// SERIES SUBCLASSES /////////////////////////////////////////////////=//
 //
-// !!! If the dangerous function returns an ERROR!, it will currently be
-// converted to void, in a behavior which parallels TRAP without a handler.
-// voids will also be converted to BLANK!s.
+// Note that because the Reb_Series structure includes a Reb_Value by value,
+// the %sys-rebser.h must be included *after* %sys-rebval.h; however the
+// higher level definitions in %sys-series.h are *before* %sys-value.h.
 //
-typedef REBVAL* (REBDNG)(void *opaque);
 
-// "Rescue Function" which is called as the handler in rebRescueWith().  It
-// receives the REBVAL* of the error that occurred, and the opaque pointer.
+struct Reb_Series;
+typedef struct Reb_Series REBSER;
+
+typedef REBSER REBSTR;
+
+struct Reb_Array;
+typedef struct Reb_Array REBARR;
+
+struct Reb_Context;
+typedef struct Reb_Context REBCTX;
+
+struct Reb_Action;
+typedef struct Reb_Action REBACT;
+
+struct Reb_Map;
+typedef struct Reb_Map REBMAP;
+
+
+//=//// BINDING ///////////////////////////////////////////////////////////=//
+
+struct Reb_Node;
+typedef struct Reb_Node REBSPC;
+
+struct Reb_Binder;
+struct Reb_Collector;
+
+
+//=//// FRAMES ////////////////////////////////////////////////////////////=//
 //
-// !!! If either the dangerous function or the rescuing function return an
-// ERROR! value, that is not interfered with the way rebRescue() does.
+// Paths formerly used their own specialized structure to track the path,
+// (path-value-state), but now they're just another kind of frame.  It is
+// helpful for the moment to give them a different name.
 //
-typedef REBVAL* (REBRSC)(REBVAL *error, void *opaque);
 
+struct Reb_Frame;
 
-typedef void (CLEANUP_CFUNC)(const REBVAL*); // for some HANDLE!s GC callback
+typedef struct Reb_Frame REBFRM;
+typedef struct Reb_Frame REBPVS;
 
+struct Reb_State;
 
+//=//// DATA STACK ////////////////////////////////////////////////////////=//
 //
-// These flags are used by file to local conversion, and that is exposed from
-// the core in %a-lib.c
-//
-enum {
-    REB_FILETOLOCAL_0 = 0, // make it clearer when using no options
-    REB_FILETOLOCAL_FULL = 1 << 0, // expand path relative to current dir
-    REB_FILETOLOCAL_WILD = 1 << 1, // add on a `*` for wildcard listing
+typedef uint_fast32_t REBDSP; // Note: 0 for empty stack ([0] entry is trash)
 
-    // !!! A comment in the R3-Alpha %p-dir.c said "Special policy: Win32 does
-    // not want tail slash for dir info".
-    //
-    REB_FILETOLOCAL_NO_TAIL_SLASH = 1 << 2 // don't include the terminal slash
+
+//=//// DISPATCHERS ///////////////////////////////////////////////////////=//
+//
+typedef REBINT (*REBCTF)(const RELVAL *a, const RELVAL *b, REBINT s);
+typedef void (*MAKE_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
+typedef void (*TO_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
+
+
+//=//// MOLDING ///////////////////////////////////////////////////////////=//
+//
+struct rebol_mold;
+typedef struct rebol_mold REB_MOLD;
+typedef void (*MOLD_CFUNC)(REB_MOLD *mo, const RELVAL *v, REBOOL form);
+
+
+// These definitions are needed in %sys-rebval.h, and can't be put in
+// %sys-rebact.h because that depends on Reb_Array, which depends on
+// Reb_Series, which depends on values... :-/
+//
+typedef const REBVAL* REB_R;
+
+// C function implementing a native ACTION!
+//
+typedef REB_R (*REBNAT)(REBFRM *frame_);
+#define REBNATIVE(n) \
+    REB_R N_##n(REBFRM *frame_)
+
+// Type-Action-Function: implementing a "verb" ACTION! for a particular
+// type (or class of types).
+//
+typedef REB_R (*REBTAF)(REBFRM *frame_, REBVAL *verb);
+#define REBTYPE(n) \
+    REB_R T_##n(REBFRM *frame_, REBVAL *verb)
+
+// Port-Action-Function: for implementing "verb" ACTION!s on a PORT! class
+// 
+typedef REB_R (*REBPAF)(REBFRM *frame_, REBVAL *port, REBVAL *verb);
+
+// Path evaluator function
+//
+typedef REB_R (*REBPEF)(
+    REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval
+);
+
+
+//=//// VARIADIC OPERATIONS ///////////////////////////////////////////////=//
+//
+// These 3 operations are the current legal set of what can be done with a
+// VARARG!.  They integrate with Do_Core()'s limitations in the prefetch
+// evaluator--such as to having one unit of lookahead.
+//
+// While it might seem natural for this to live in %sys-varargs.h, the enum
+// type is used by a function prototype in %tmp-internals.h...hence it must be
+// defined before that is included.
+//
+enum Reb_Vararg_Op {
+    VARARG_OP_TAIL_Q, // tail?
+    VARARG_OP_FIRST, // "lookahead"
+    VARARG_OP_TAKE // doesn't modify underlying data stream--advances index
 };
 
 
-//=////////////////////////////////////////////////////////////////////////=//
+// REBCHR(*) is defined in %sys-scan.h, along with SCAN_STATE, and both are
+// referenced by internal API functions.
 //
-// MISCELLANY
+// (Note: %sys-do.h needs to call into the scanner if Fetch_Next_In_Frame() is
+// to be inlined at all--at its many time-critical callsites--so the scanner
+// has to be in the internal API)
 //
-//=////////////////////////////////////////////////////////////////////////=//
+#include "sys-scan.h"
+
+
+//=//// DEVICE REQUEST ////////////////////////////////////////////////////=//
 //
-// !!! This is stuff that needs a better home.
+// !!! The device and port model is being reviewed/excised.  However, for the
+// moment REBREQ appears in the prototypes of functions in the internal API.
+//
+struct rebol_devreq;
+typedef struct rebol_devreq REBREQ;
+struct devreq_file;
 
-// Useful char constants:
-enum {
-    BEL =   7,
-    BS  =   8,
-    LF  =  10,
-    CR  =  13,
-    ESC =  27,
-    DEL = 127
-};
+//=//// REBVAL PAYLOAD CONTENTS ///////////////////////////////////////////=//
+//
+// Some internal APIs pass around the extraction of value payloads, like take
+// a REBDAT* or REBGOB*, when they could probably just as well pass around a
+// REBVAL*.  The usages are few and far enough between.  But for the moment
+// just define things here.
+//
 
-// Used for MOLDing:
-#define MAX_DIGITS 17   // number of digits
-#define MAX_NUMCHR 32   // space for digits and -.e+000%
-
-#define MAX_INT_LEN     21
-#define MAX_HEX_LEN     16
-
-#ifdef ITOA64           // Integer to ascii conversion
-    #define INT_TO_STR(n,s) _i64toa(n, s_cast(s), 10)
+// !!! This structure varies the layout based on endianness, so that when it
+// is seen throuh the .bits field of the REBDAT union, a later date will
+// have a value that will be greater (>) than an earlier date.  This should
+// be reviewed for standards compliance; masking and shifting is generally
+// safer than bit field union tricks.
+//
+typedef struct reb_ymdz {
+#ifdef ENDIAN_LITTLE
+    int zone:7; // +/-15:00 res: 0:15
+    unsigned day:5;
+    unsigned month:4;
+    unsigned year:16;
 #else
-    #define INT_TO_STR(n,s) Form_Int_Len(s, n, MAX_INT_LEN)
+    unsigned year:16;
+    unsigned month:4;
+    unsigned day:5;
+    int zone:7; // +/-15:00 res: 0:15
 #endif
+} REBYMD;
 
-#ifdef ATOI64           // Ascii to integer conversion
-#define CHR_TO_INT(s)   _atoi64(cs_cast(s))
-#else
-#define CHR_TO_INT(s)   strtoll(cs_cast(s), 0, 10)
-#endif
+typedef union reb_date {
+    REBYMD date;
+    REBCNT bits; // !!! alias used for hashing date, is this standards-legal? 
+} REBDAT;
 
-#define LDIV            lldiv
-#define LDIV_T          lldiv_t
+typedef struct rebol_time_fields {
+    REBCNT h;
+    REBCNT m;
+    REBCNT s;
+    REBCNT n;
+} REB_TIMEF;
 
-// Skip to the specified byte but not past the provided end
-// pointer of the byte string.  Return NULL if byte is not found.
-//
-inline static const REBYTE *Skip_To_Byte(
-    const REBYTE *cp,
-    const REBYTE *ep,
-    REBYTE b
-) {
-    while (cp != ep && *cp != b) cp++;
-    if (*cp == b) return cp;
-    return 0;
-}
+#include "sys-deci.h"
 
-typedef int cmp_t(void *, const void *, const void *);
-extern void reb_qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp);
-
-#define ROUND_TO_INT(d) \
-    cast(int32_t, floor((MAX(INT32_MIN, MIN(INT32_MAX, d))) + 0.5))
-
-#endif
+typedef struct rebol_gob REBGOB;

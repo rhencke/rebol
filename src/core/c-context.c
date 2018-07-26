@@ -512,7 +512,7 @@ void Collect_Context_Keys(
 //
 // The inner recursive loop used for collecting context keys or ANY-WORD!s.
 //
-static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL head[])
+static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL *head)
 {
     const RELVAL *v = head;
     for (; NOT_END(v); ++v) {
@@ -584,7 +584,7 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL head[])
 //
 REBARR *Collect_Keylist_Managed(
     REBCNT *self_index_out, // which context index SELF is in (if COLLECT_SELF)
-    const RELVAL head[],
+    const RELVAL *head,
     REBCTX *prior,
     REBFLGS flags // see %sys-core.h for COLLECT_ANY_WORD, etc.
 ) {
@@ -670,7 +670,7 @@ REBARR *Collect_Keylist_Managed(
 // Collect unique words from a block, possibly deeply...maybe just SET-WORD!s.
 //
 REBARR *Collect_Unique_Words_Managed(
-    const RELVAL head[],
+    const RELVAL *head,
     REBFLGS flags, // See COLLECT_XXX
     const REBVAL *ignore // BLOCK!, ANY-CONTEXT!, or void for none
 ){
@@ -808,7 +808,7 @@ void Rebind_Context_Deep(
 //
 REBCTX *Make_Selfish_Context_Detect(
     enum Reb_Kind kind,
-    const RELVAL head[],
+    const RELVAL *head,
     REBCTX *opt_parent
 ) {
     REBCNT self_index;
@@ -951,7 +951,7 @@ REBCTX *Make_Selfish_Context_Detect(
 //
 REBCTX *Construct_Context(
     enum Reb_Kind kind,
-    RELVAL head[], // !!! Warning: modified binding
+    RELVAL *head, // !!! Warning: modified binding
     REBSPC *specifier,
     REBCTX *opt_parent
 ) {

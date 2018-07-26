@@ -852,12 +852,12 @@ typedef REB_R (*REBDSF)(REBFRM * const);
     m_cast(REBVAL*, EMPTY_STRING)
 
 
-#if !defined(DEBUG_CHECK_CASTS)
+#if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
 
     #define FRM(p) \
         cast(REBFRM*, (p)) // FRM() just does a cast (maybe with added checks)
 
-#elif defined(CPLUSPLUS_11)
+#else
 
     template <class T>
     inline REBFRM *FRM(T *p) {

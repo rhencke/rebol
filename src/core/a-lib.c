@@ -27,7 +27,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This is the "external" API, and %reb-lib.h contains its exported
+// This is the "external" API, and %rebol.h contains its exported
 // definitions.  That file (and %make-reb-lib.r which generates it) contains
 // comments and notes which will help understand it.
 //
@@ -260,7 +260,7 @@ void RL_rebFree(void *ptr)
 // and since C does not have the size exposed in malloc() and you track it
 // yourself, it seems fair to *always* ask the caller to pass in a size.
 //
-REBVAL *RL_rebRepossess(void *ptr, REBCNT size)
+REBVAL *RL_rebRepossess(void *ptr, size_t size)
 {
     Enter_Api();
 
@@ -356,7 +356,7 @@ void Shutdown_Api(void)
 //      if (vers[1] != RL_VER or vers[2] != RL_REV)
 //          rebPanic ("Incompatible reb-lib DLL");
 //
-void RL_rebVersion(REBYTE vers[])
+void RL_rebVersion(unsigned char vers[])
 {
     if (vers[5] != 5)
         panic ("rebVersion() requires 1 + 5 byte structure");
@@ -433,7 +433,7 @@ void RL_rebInit(void)
 //
 // For rigor, the debug build *always* runs a "clean" shutdown.
 //
-void RL_rebShutdown(REBOOL clean)
+void RL_rebShutdown(bool clean)
 {
     Enter_Api();
 
@@ -730,9 +730,13 @@ REBVAL *RL_rebLogic(long logic)
 //
 //  rebChar: RL_API
 //
-REBVAL *RL_rebChar(REBUNI codepoint)
+REBVAL *RL_rebChar(unsigned long codepoint)
 {
     Enter_Api();
+
+    if (codepoint > MAX_UNI)
+        fail ("Codepoint out of range, see: https://forum.rebol.info/t/374");
+
     return Init_Char(Alloc_Value(), codepoint);
 }
 
@@ -743,7 +747,7 @@ REBVAL *RL_rebChar(REBUNI codepoint)
 // !!! Should there be rebSigned() and rebUnsigned(), in order to catch cases
 // of using out of range values?
 //
-REBVAL *RL_rebInteger(REBI64 i)
+REBVAL *RL_rebInteger(int64_t i)
 {
     Enter_Api();
     return Init_Integer(Alloc_Value(), i);
@@ -755,7 +759,7 @@ REBVAL *RL_rebInteger(REBI64 i)
 //
 // Convenience form of `rebR(rebInteger(i))`.
 //
-const void *RL_rebI(REBI64 i)
+const void *RL_rebI(int64_t i)
 {
     Enter_Api();
 
@@ -766,7 +770,7 @@ const void *RL_rebI(REBI64 i)
 //
 //  rebDecimal: RL_API
 //
-REBVAL *RL_rebDecimal(REBDEC dec)
+REBVAL *RL_rebDecimal(double dec)
 {
     Enter_Api();
     return Init_Decimal(Alloc_Value(), dec);
@@ -811,47 +815,6 @@ void RL_rebHalt(void)
     Enter_Api();
 
     SET_SIGNAL(SIG_HALT);
-}
-
-
-//
-//  rebEvent: RL_API
-//
-// Appends an application event (e.g. GUI) to the event port.
-//
-// Returns:
-//     Returns TRUE if queued, or FALSE if event queue is full.
-// Arguments:
-//     evt - A properly initialized event structure. The
-//         contents of this structure are copied as part of
-//         the function, allowing use of locals.
-// Notes:
-//     Sets a signal to get REBOL attention for WAIT and awake.
-//     To avoid environment problems, this function only appends
-//     to the event queue (no auto-expand). So if the queue is full
-//
-// !!! Note to whom it may concern: REBEVT would now be 100% compatible with
-// a REB_EVENT REBVAL if there was a way of setting the header bits in the
-// places that generate them.
-//
-int RL_rebEvent(REBEVT *evt)
-{
-    Enter_Api();
-
-    REBVAL *event = Append_Event();     // sets signal
-
-    if (event) {                        // null if no room left in series
-        RESET_VAL_HEADER(event, REB_EVENT); // has more space, if needed
-        event->extra.eventee = evt->eventee;
-        event->payload.event.type = evt->type;
-        event->payload.event.flags = evt->flags;
-        event->payload.event.win = evt->win;
-        event->payload.event.model = evt->model;
-        event->payload.event.data = evt->data;
-        return 1;
-    }
-
-    return 0;
 }
 
 
@@ -1119,7 +1082,7 @@ long RL_rebUnboxInteger(const REBVAL *v) {
 //
 //  rebUnboxDecimal: RL_API
 //
-REBDEC RL_rebUnboxDecimal(const REBVAL *v) {
+double RL_rebUnboxDecimal(const REBVAL *v) {
     Enter_Api();
     return VAL_DECIMAL(v);
 }
@@ -1127,7 +1090,7 @@ REBDEC RL_rebUnboxDecimal(const REBVAL *v) {
 //
 //  rebUnboxChar: RL_API
 //
-REBUNI RL_rebUnboxChar(const REBVAL *v) {
+long RL_rebUnboxChar(const REBVAL *v) {
     Enter_Api();
     return VAL_CHAR(v);
 }
@@ -1144,7 +1107,7 @@ long RL_rebNanoOfTime(const REBVAL *v) {
 //
 //  rebValTupleData: RL_API
 //
-REBYTE *RL_rebValTupleData(const REBVAL *v) {
+unsigned char *RL_rebValTupleData(const REBVAL *v) {
     Enter_Api();
     return VAL_TUPLE_DATA(m_cast(REBVAL*, v));
 }
@@ -1301,9 +1264,9 @@ char *RL_rebSpellAlloc(const void *p, ...)
 // be more useful for the wide string APIs to do this so leaving it that way
 // for now.
 //
-REBCNT RL_rebSpellingOfW(
+unsigned int RL_rebSpellingOfW(
     REBWCHAR *buf,
-    REBCNT buf_chars, // characters buffer can hold (not including terminator)
+    unsigned int buf_chars, // chars buf can hold (not including terminator)
     const REBVAL *v
 ){
     Enter_Api();
@@ -1397,15 +1360,15 @@ REBWCHAR *RL_rebSpellAllocW(const void *p, ...)
 // if this is a good idea; but this is based on a longstanding convention of
 // zero termination of Rebol series, including binaries.  Review.
 //
-REBSIZ RL_rebBytesOfBinary(
-    REBYTE *buf,
-    REBSIZ buf_size,
+size_t RL_rebBytesOfBinary(
+    unsigned char *buf,
+    size_t buf_size,
     const REBVAL *binary
 ){
     Enter_Api();
 
     if (not IS_BINARY(binary))
-        fail ("rebValBin() only works on BINARY!");
+        fail ("rebBytesOfBinary() only works on BINARY!");
 
     REBCNT size = VAL_LEN_AT(binary);
 
@@ -1431,7 +1394,7 @@ REBSIZ RL_rebBytesOfBinary(
 // !!! This may wind up being a generic TO BINARY! converter, so you might
 // be able to get the byte conversion for any type.
 //
-REBYTE *RL_rebBytesAlloc(REBSIZ *size_out, const void *p, ...)
+unsigned char *RL_rebBytesAlloc(size_t *size_out, const void *p, ...)
 {
     Enter_Api();
 
@@ -1563,21 +1526,15 @@ REBVAL *RL_rebLock(REBVAL *p1, const REBVAL *p2)
 //
 //  rebLengthedTextW: RL_API
 //
-REBVAL *RL_rebLengthedTextW(const REBWCHAR *wstr, REBCNT len)
+REBVAL *RL_rebLengthedTextW(const REBWCHAR *wstr, unsigned int num_chars)
 {
     Enter_Api();
 
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    if (len == UNKNOWN) {
-        for (; *wstr != 0; ++wstr)
-            Append_Utf8_Codepoint(mo->series, *wstr);
-    }
-    else {
-        for (; len != 0; --len, ++wstr)
-            Append_Utf8_Codepoint(mo->series, *wstr);
-    }
+    for (; num_chars != 0; --num_chars, ++wstr)
+        Append_Utf8_Codepoint(mo->series, *wstr);
 
     return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
 }
@@ -1589,7 +1546,14 @@ REBVAL *RL_rebLengthedTextW(const REBWCHAR *wstr, REBCNT len)
 REBVAL *RL_rebTextW(const REBWCHAR *wstr)
 {
     Enter_Api();
-    return rebLengthedTextW(wstr, UNKNOWN);
+
+    DECLARE_MOLD (mo);
+    Push_Mold(mo);
+
+    for (; *wstr != 0; ++wstr)
+        Append_Utf8_Codepoint(mo->series, *wstr);
+
+    return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
 }
 
 
@@ -1598,21 +1562,15 @@ REBVAL *RL_rebTextW(const REBWCHAR *wstr)
 //
 // !!! Currently needed by ODBC module to make column titles.
 //
-REBVAL *RL_rebSizedWordW(const REBWCHAR *ucs2, REBCNT len)
+REBVAL *RL_rebSizedWordW(const REBWCHAR *ucs2, unsigned int num_chars)
 {
     Enter_Api();
 
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    if (len == UNKNOWN) {
-        for (; *ucs2 != 0; ++ucs2)
-            Append_Utf8_Codepoint(mo->series, *ucs2);
-    }
-    else {
-        for (; len != 0; --len, ++ucs2)
-            Append_Utf8_Codepoint(mo->series, *ucs2);
-    }
+    for (; num_chars != 0; --num_chars, ++ucs2)
+        Append_Utf8_Codepoint(mo->series, *ucs2);
 
     REBSER *bin = Pop_Molded_UTF8(mo);
     REBSTR *spelling = Intern_UTF8_Managed(BIN_HEAD(bin), BIN_LEN(bin));
@@ -1775,10 +1733,10 @@ const REBVAL *RL_rebEnd(void) {return END;}
 //
 // See rebRepossess() for the ability to mutate the result into a BINARY!
 //
-REBYTE *RL_rebDeflateAlloc(
-    REBCNT *out_len,
-    const unsigned char* input,
-    REBCNT in_len
+void *RL_rebDeflateAlloc(
+    size_t *out_len,
+    const void* input,
+    size_t in_len
 ){
     REBSTR *envelope = Canon(SYM_NONE);
     return Compress_Alloc_Core(out_len, input, in_len, envelope);
@@ -1791,10 +1749,10 @@ REBYTE *RL_rebDeflateAlloc(
 // Variant of rebDeflateAlloc() which adds a zlib envelope...which is a 2-byte
 // header and 32-bit ADLER32 CRC at the tail.
 //
-REBYTE *RL_rebZdeflateAlloc(
-    REBCNT *out_len,
-    const unsigned char* input,
-    REBCNT in_len
+void *RL_rebZdeflateAlloc(
+    size_t *out_len,
+    const void* input,
+    size_t in_len
 ){
     REBSTR *envelope = Canon(SYM_ZLIB);
     return Compress_Alloc_Core(out_len, input, in_len, envelope);
@@ -1807,10 +1765,10 @@ REBYTE *RL_rebZdeflateAlloc(
 // Slight variant of deflate() which stores the uncompressed data's size
 // implicitly in the returned data, and a CRC32 checksum.
 //
-REBYTE *RL_rebGzipAlloc(
-    REBCNT *out_len,
-    const unsigned char* input,
-    REBCNT in_len
+void *RL_rebGzipAlloc(
+    size_t *out_len,
+    const void* input,
+    size_t in_len
 ){
     REBSTR *envelope = nullptr; // see notes in Gunzip on why GZIP is default
     return Compress_Alloc_Core(out_len, input, in_len, envelope);
@@ -1827,11 +1785,11 @@ REBYTE *RL_rebGzipAlloc(
 //
 // See rebRepossess() for the ability to mutate the result into a BINARY!
 //
-REBYTE *RL_rebInflateAlloc(
-    REBCNT *len_out,
-    const REBYTE *input,
-    REBCNT len_in,
-    REBINT max
+void *RL_rebInflateAlloc(
+    size_t *len_out,
+    const void *input,
+    size_t len_in,
+    int max
 ){
     REBSTR *envelope = Canon(SYM_NONE);
     return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
@@ -1844,11 +1802,11 @@ REBYTE *RL_rebInflateAlloc(
 // Variant of rebInflateAlloc() which assumes a zlib envelope...checking for
 // the 2-byte header and verifying the 32-bit ADLER32 CRC at the tail.
 //
-REBYTE *RL_rebZinflateAlloc(
-    REBCNT *len_out,
-    const REBYTE *input,
-    REBCNT len_in,
-    REBINT max
+void *RL_rebZinflateAlloc(
+    size_t *len_out,
+    const void *input,
+    size_t len_in,
+    int max
 ){
     REBSTR *envelope = Canon(SYM_ZLIB);
     return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);
@@ -1868,11 +1826,11 @@ REBYTE *RL_rebZinflateAlloc(
 //
 // http://stackoverflow.com/a/9213826
 //
-REBYTE *RL_rebGunzipAlloc(
-    REBCNT *len_out,
-    const REBYTE *input,
-    REBCNT len_in,
-    REBINT max
+void *RL_rebGunzipAlloc(
+    size_t *len_out,
+    const void *input,
+    size_t len_in,
+    int max
 ){
     // Note: Because GZIP is what Rebol uses for booting, `nullptr` means
     // use GZIP.  That's because symbols in %words.r haven't been loaded yet,
@@ -1891,11 +1849,11 @@ REBYTE *RL_rebGunzipAlloc(
 //
 // http://stackoverflow.com/a/9213826
 //
-REBYTE *RL_rebDeflateDetectAlloc(
-    REBCNT *len_out,
-    const REBYTE *input,
-    REBCNT len_in,
-    REBINT max
+void *RL_rebDeflateDetectAlloc(
+    size_t *len_out,
+    const void *input,
+    size_t len_in,
+    int max
 ){
     REBSTR *envelope = Canon(SYM_DETECT);
     return Decompress_Alloc_Core(len_out, input, len_in, max, envelope);

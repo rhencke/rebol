@@ -72,7 +72,7 @@ emit-proto: func [
         'RL_API [
             ; Currently the RL_API entries should only occur in %a-lib.c, and
             ; are processed by %make-reb-lib.r.  Their RL_XxxYyy() forms are
-            ; not in the %tmp-internals.h file, but core includes %reb-lib.h
+            ; not in the %tmp-internals.h file, but core includes %rebol.h
             ; and considers itself to have "non-extension linkage" to the API,
             ; so the calls can be directly linked without a struct.
             ;

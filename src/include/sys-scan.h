@@ -477,3 +477,19 @@ extern const REBYTE Lex_Map[256];
     #define AS_REBCHR(p) \
         (p)
 #endif
+
+#ifdef ITOA64 // Integer to ascii conversion
+    #define INT_TO_STR(n,s) \
+        _i64toa(n, s_cast(s), 10)
+#else
+    #define INT_TO_STR(n,s) \
+        Form_Int_Len(s, n, MAX_INT_LEN)
+#endif
+
+#ifdef ATOI64 // Ascii to integer conversion
+    #define CHR_TO_INT(s) \
+        _atoi64(cs_cast(s))
+#else
+    #define CHR_TO_INT(s) \
+        strtoll(cs_cast(s), 0, 10)
+#endif

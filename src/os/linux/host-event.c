@@ -116,16 +116,16 @@ static const REBCNT keysym_to_event_fallback[] = {
 
 static void Add_Event_XY(REBGOB *gob, REBINT id, REBINT xy, REBINT flags)
 {
-    REBEVT evt;
-
-    memset(&evt, 0, sizeof(evt));
-    evt.type  = id;
-    evt.flags = cast(u8, flags | EVF_HAS_XY);
-    evt.model = EVM_GUI;
-    evt.data  = xy;
-    evt.eventee.ser = gob;
-
-    rebEvent(&evt); // returns 0 if queue is full
+    REBVAL *e = Append_Event(); // sets signal, null if no room in series
+    if (e) {
+        RESET_VAL_HEADER(e, REB_EVENT);
+        e->payload.event.model = EVM_GUI;
+        e->extra.eventee.ser = gob;
+        e->payload.event.type = id;
+        e->payload.event.flags = cast(u8, flags | EVF_HAS_XY);
+        e->payload.event.win = 0;
+        e->payload.event.data = xy;
+    }
 }
 
 static void Update_Event_XY(REBGOB *gob, REBINT id, REBINT xy, REBINT flags)
@@ -155,16 +155,16 @@ static void Update_Event_XY(REBGOB *gob, REBINT id, REBINT xy, REBINT flags)
 
 static void Add_Event_Key(REBGOB *gob, REBINT id, REBINT key, REBINT flags)
 {
-    REBEVT evt;
-
-    memset(&evt, 0, sizeof(evt));
-    evt.type  = id;
-    evt.flags = flags;
-    evt.model = EVM_GUI;
-    evt.data  = key;
-    evt.eventee.ser = gob;
-
-    rebEvent(&evt); // returns 0 if queue is full
+    REBVAL *e = Append_Event(); // sets signal, null if no room in series
+    if (e) {
+        RESET_VAL_HEADER(e, REB_EVENT);
+        e->payload.event.model = EVM_GUI;
+        e->extra.eventee.ser = gob;
+        e->payload.event.type = id;
+        e->payload.event.flags = flags;
+        e->payload.event.win = 0;
+        e->payload.event.data = key;
+    }
 }
 
 static REBINT Check_Modifiers(REBINT flags, unsigned state)

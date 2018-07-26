@@ -295,7 +295,7 @@ e-dispatch/write-emitted
 ;
 ;----------------------------------------------------------------------------
 
-e-types: make-emitter "Datatype Definitions" inc/reb-types.h
+e-types: make-emitter "Datatype Definitions" inc/tmp-kinds.h
 
 n: 1
 rebs: collect [
@@ -395,14 +395,14 @@ e-types/write-emitted
 
 ;----------------------------------------------------------------------------
 ;
-; Bootdefs.h - Boot include file
+; %tmp-version.h - Version Information
 ;
 ;----------------------------------------------------------------------------
 
-e-bootdefs: make-emitter "Boot Definitions" inc/tmp-bootdefs.h
+e-version: make-emitter "Version Information" inc/tmp-version.h
 
 
-e-bootdefs/emit {
+e-version/emit {
     /*
     ** VERSION INFORMATION
     **
@@ -416,8 +416,17 @@ e-bootdefs/emit {
     #define REBOL_SYS $<version/4>
     #define REBOL_VAR $<version/5>
 }
-e-bootdefs/emit newline
+e-version/emit newline
+e-version/write-emitted
 
+
+;----------------------------------------------------------------------------
+;
+; %tmp-symbols.h - Symbol Numbers
+;
+;----------------------------------------------------------------------------
+
+e-symbols: make-emitter "Symbol Numbers" inc/tmp-symbols.h
 
 syms: collect [
     n: 1
@@ -456,7 +465,7 @@ syms: collect [
     ]
 ]
 
-e-bootdefs/emit {
+e-symbols/emit {
     /*
      * CONSTANTS FOR BUILT-IN SYMBOLS: e.g. SYM_THRU or SYM_INTEGER_X
      *
@@ -483,7 +492,7 @@ e-bootdefs/emit {
 
 print [n "words + actions"]
 
-e-bootdefs/write-emitted
+e-symbols/write-emitted
 
 ;----------------------------------------------------------------------------
 ;

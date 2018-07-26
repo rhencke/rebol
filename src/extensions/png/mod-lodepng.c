@@ -102,11 +102,11 @@ void lodepng_free(void* ptr)
 //=////////////////////////////////////////////////////////////////////////=//
 
 static unsigned rebol_zlib_decompress(
-    unsigned char** out,
-    size_t* outsize,
-    const unsigned char* in,
+    unsigned char **out,
+    size_t *outsize,
+    const unsigned char *in,
     size_t insize,
-    const LodePNGDecompressSettings* settings
+    const LodePNGDecompressSettings *settings
 ){
     // as far as I can tell, the logic of LodePNG is to preallocate a buffer
     // and so out and outsize are already set up.  This is due to some
@@ -126,19 +126,19 @@ static unsigned rebol_zlib_decompress(
     // PNG uses "zlib envelope" w/ADLER32 checksum, hence "Zinflate"
     //
     const REBINT max = -1; // size unknown, inflation will need to guess
-    REBCNT out_len;
-    *out = rebZinflateAlloc(&out_len, in, insize, max);
+    size_t out_len;
+    *out = cast(unsigned char*, rebZinflateAlloc(&out_len, in, insize, max));
     *outsize = out_len;
 
     return 0;
 }
 
 static unsigned rebol_zlib_compress(
-    unsigned char** out,
-    size_t* outsize,
-    const unsigned char* in,
+    unsigned char **out,
+    size_t *outsize,
+    const unsigned char *in,
     size_t insize,
-    const LodePNGCompressSettings* settings
+    const LodePNGCompressSettings *settings
 ){
     lodepng_free(*out); // see remarks in decompress, and about COMPRESS/INTO
 
@@ -147,9 +147,7 @@ static unsigned rebol_zlib_compress(
 
     // PNG uses "zlib envelope" w/ADLER32 checksum, hence "Zdeflate"
     //
-    REBCNT out_len;
-    *out = rebZdeflateAlloc(&out_len, in, insize);
-    *outsize = out_len;
+    *out = cast(unsigned char*, rebZdeflateAlloc(outsize, in, insize));
 
     return 0;
 }

@@ -43,10 +43,12 @@
 //
 
 #include <windows.h>
+#undef IS_ERROR // windows defines this, different meaning from %sys-core.h
+
 #include <stdio.h>
 #include <assert.h>
 
-#include "reb-host.h"
+#include "sys-core.h" // for CTX_ARCHETYPE(), temporary
 
 #define MAX_SERIAL_DEV_PATH 128
 
@@ -229,7 +231,11 @@ DEVICE_CMD Read_Serial(REBREQ *req)
         return DR_PEND;
 
     req->actual = result;
-    OS_SIGNAL_DEVICE(req, EVT_READ);
+
+    rebElide("insert system/ports/system make event! [",
+        "type: 'read",
+        "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+    "]", END);
 
 #ifdef DEBUG_SERIAL
     printf("read %d ret: %d\n", req->length, req->actual);
@@ -265,7 +271,11 @@ DEVICE_CMD Write_Serial(REBREQ *req)
     req->actual += result;
     req->common.data += result;
     if (req->actual >= req->length) {
-        OS_SIGNAL_DEVICE(req, EVT_WROTE);
+        rebElide("insert system/ports/system make event! [",
+            "type: 'wrote",
+            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+        "]", END);
+
         return DR_DONE;
     }
 

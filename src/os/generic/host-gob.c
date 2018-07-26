@@ -65,7 +65,7 @@ REBSER* Gob_To_Image(REBGOB *gob);
 // Render a GOB into an image. Returns an image or zero if
 // it cannot be done.
 //
-REBVAL *OS_GOB_To_Image(REBGOB *gob)
+REBVAL *OS_GOB_To_Image(const REBVAL *gob)
 {
 #if (defined REB_CORE)
     UNUSED(gob);

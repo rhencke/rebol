@@ -197,11 +197,11 @@ DEVICE_CMD Write_IO(REBREQ *req)
             // those functions, and WriteFile is too low level to do this
             // translation.  Do it one line at a time.)
             //
-            REBCNT start = 0;
-            REBCNT end = 0;
+            unsigned int start = 0;
+            unsigned int end = 0;
 
-            while (TRUE) {
-                while (end < req->length && req->common.data[end] != LF)
+            while (true) {
+                while (end < req->length && req->common.data[end] != '\n')
                     ++end;
                 DWORD total_bytes;
 
@@ -221,7 +221,7 @@ DEVICE_CMD Write_IO(REBREQ *req)
                 if (req->common.data[end] == '\0')
                     break;
 
-                assert(req->common.data[end] == LF);
+                assert(req->common.data[end] == '\n');
                 BOOL ok = WriteFile(
                     Std_Out,
                     "\r\n",
@@ -448,8 +448,8 @@ DEVICE_CMD Read_IO(REBREQ *req)
     // encountered, we write a line to maintain the visual invariant.
     //
     WCHAR cr_lf_term[3];
-    cr_lf_term[0] = CR;
-    cr_lf_term[1] = LF;
+    cr_lf_term[0] = '\r'; // CR
+    cr_lf_term[1] = '\n'; // LF
     cr_lf_term[2] = '\0';
 
     if (total == 0) {

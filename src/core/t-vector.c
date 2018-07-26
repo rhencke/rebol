@@ -409,7 +409,7 @@ static REBSER *Make_Vector(
 //           size:       integer units
 //           init:        block of values
 //
-REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL head[], REBSPC *specifier)
+REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
 {
     const RELVAL *item = head;
 

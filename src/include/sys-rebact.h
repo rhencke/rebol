@@ -47,12 +47,12 @@ struct Reb_Action {
         | SERIES_FLAG_ARRAY | ARRAY_FLAG_PARAMLIST)
 
 
-#if !defined(DEBUG_CHECK_CASTS)
+#if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
 
     #define ACT(p) \
         cast(REBACT*, (p))
 
-#elif defined(CPLUSPLUS_11)
+#else
 
     template <class T>
     inline REBACT *ACT(T *p) {

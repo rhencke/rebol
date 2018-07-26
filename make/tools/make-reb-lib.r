@@ -1,6 +1,6 @@
 REBOL [
     System: "REBOL [R3] Language Interpreter and Run-time Environment"
-    Title: "Make Reb-Lib related files"
+    Title: "Make libRebol related files (for %rebol.h)"
     File: %make-reb-lib.r
     Rights: {
         Copyright 2012 REBOL Technologies
@@ -36,7 +36,7 @@ ver: load %../../src/boot/version.r
 
 ; These are the blocks of strings that are gathered in the EMIT-PROTO scan of
 ; %a-lib.c.  They are later composed along with some boilerplate to produce
-; the %reb-lib.h file.
+; the %rebol.h file.
 ;
 lib-struct-fields: make block! 50
 struct-call-macros: make block! 50
@@ -217,10 +217,10 @@ process src-dir/f-extension.c ; !!! is there a reason to process this file?
 ;-----------------------------------------------------------------------------
 
 e-lib: (make-emitter
-    "Lightweight Rebol Interface Library" output-dir/reb-lib.h)
+    "Rebol External Library Interface" output-dir/rebol.h)
 
 e-lib/emit {
-    #include <stdarg.h> // needed for va_start() in inline functions
+    #include <stdarg.h> /* needed for va_start() in inline functions */
 
     #ifdef TO_EMSCRIPTEN
         /*
@@ -237,12 +237,82 @@ e-lib/emit {
     extern "C" ^{
     #endif
 
-    /* !!! These constants are part of an old R3-Alpha versioning system
+    /*
+     * !!! These constants are part of an old R3-Alpha versioning system
      * that hasn't been paid much attention to.  Keeping as a placeholder.
      */
     #define RL_VER $<ver/1>
     #define RL_REV $<ver/2>
     #define RL_UPD $<ver/3>
+
+    /*
+     * As far as most libRebol clients are concerned, a REBVAL is a black box.
+     * However, the internal code also includes %rebol.h, so the definition
+     * has to line up with what is actually used when building as C++ vs. not.
+     */
+    #if !defined(CPLUSPLUS_11)
+        struct Reb_Cell;
+        #define REBVAL struct Reb_Cell
+    #else
+        struct Reb_Specific_Value;
+        #define REBVAL struct Reb_Specific_Value
+    #endif
+
+    /*
+     * `wchar_t` is a pre-Unicode abstraction, whose size varies per-platform
+     * and should be avoided where possible.  But Win32 standardizes it to
+     * 2 bytes in size for UTF-16, and uses it pervasively.  So libRebol
+     * currently offers APIs (e.g. rebTextW() instead of rebText()) which
+     * support this 2-byte notion of wide characters.
+     *
+     * In order for C++ to be type-compatible with Windows's WCHAR definition,
+     * a #define on Windows to wchar_t is needed.  But on non-Windows, it
+     * must use `uint16_t` since there's no size guarantee for wchar_t.  This
+     * is useful for compatibility with unixodbc's SQLWCHAR.
+     *
+     * !!! REBWCHAR is just for the API definitions--don't mention it in
+     * client code.  If the client code is on Windows, use WCHAR.  If it's in
+     * a unixodbc client use SQLWCHAR.  But use UTF-8 if you possibly can.
+     */
+    #ifdef TO_WINDOWS
+        #define REBWCHAR wchar_t
+    #else
+        #define REBWCHAR uint16_t
+    #endif
+
+    /*
+     * "Dangerous Function" which is called by rebRescue().  Argument can be a
+     * REBVAL* but does not have to be.  Result must be a REBVAL* or NULL.
+     *
+     * !!! If the dangerous function returns an ERROR!, it will currently be
+     * converted to null, which parallels TRAP without a handler.  nulls will
+     * be converted to voids.
+     */
+    typedef REBVAL* (REBDNG)(void *opaque);
+
+    /*
+     * "Rescue Function" called as the handler in rebRescueWith().  Receives
+     * the REBVAL* of the error that occurred, and the opaque pointer.
+     *
+     * !!! If either the dangerous function or the rescuing function return an
+     * ERROR! value, that is not interfered with the way rebRescue() does.
+     */
+    typedef REBVAL* (REBRSC)(REBVAL *error, void *opaque);
+
+    /*
+     * For some HANDLE!s GC callback
+     */
+    typedef void (CLEANUP_CFUNC)(const REBVAL*);
+
+    /*
+     * Some C compilers define NULL as simply the constant 0.  This causes a
+     * problem with variadic APIs, because they will assume you are passing
+     * an `int` and not a `REBVAL*`.  So although the API uses a NULL pointer
+     * to represent the Rebol NULL, it is safer to use this macro.  (Or use
+     * C++'s `nullptr`, which is equally acceptable.)
+     */
+    #define rebNull \
+        cast(REBVAL*, 0)
 
     /*
      * Function entry points for reb-lib (used for MACROS below):

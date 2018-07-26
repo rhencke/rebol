@@ -39,7 +39,7 @@
 #include <errno.h>
 #include <termios.h>
 
-#include "reb-host.h"
+#include "sys-core.h"
 
 #define MAX_SERIAL_PATH 128
 
@@ -276,7 +276,12 @@ DEVICE_CMD Read_Serial(REBREQ *req)
         return DR_PEND;
 
     req->actual = result;
-    OS_SIGNAL_DEVICE(req, EVT_READ);
+
+    rebElide("insert system/ports/system make event! [",
+        "type: 'read",
+        "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+    "]", END);
+
     return DR_DONE;
 }
 
@@ -286,14 +291,14 @@ DEVICE_CMD Read_Serial(REBREQ *req)
 //
 DEVICE_CMD Write_Serial(REBREQ *req)
 {
-    REBINT len = req->length - req->actual;
+    size_t len = req->length - req->actual;
 
     assert(req->requestee.id != 0);
 
     if (len <= 0)
         return DR_DONE;
 
-    REBINT result = write(req->requestee.id, req->common.data, len);
+    int result = write(req->requestee.id, req->common.data, len);
 
 #ifdef DEBUG_SERIAL
     printf("write %d ret: %d\n", len, result);
@@ -309,7 +314,11 @@ DEVICE_CMD Write_Serial(REBREQ *req)
     req->actual += result;
     req->common.data += result;
     if (req->actual >= req->length) {
-        OS_SIGNAL_DEVICE(req, EVT_WROTE);
+        rebElide("insert system/ports/system make event! [",
+            "type: 'wrote",
+            "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+        "]", END);
+
         return DR_DONE;
     }
 

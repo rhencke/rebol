@@ -57,7 +57,7 @@ typedef struct term_data {
 
 extern STD_TERM *Init_Terminal();
 extern void Quit_Terminal(STD_TERM*);
-extern int Read_Line(STD_TERM*, REBYTE*, int);
+extern int Read_Line(STD_TERM*, unsigned char*, int);
 
 STD_TERM *Term_IO;
 #endif

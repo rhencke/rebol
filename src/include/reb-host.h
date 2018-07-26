@@ -32,15 +32,11 @@
 #include "reb-config.h"
 
 #include "reb-c.h"
-#include "reb-ext.h"        // includes reb-defs.h
+#include "rebol.h" // libRebol, "external" API
 
+struct rebol_devreq;
+typedef struct rebol_devreq REBREQ;
 #include "reb-device.h"
-#include "reb-event.h"
-#include "reb-evtypes.h"
 
-#include "sys-rebnod.h" // !!! Legacy dependency, REBGOB should not be REBNOD
-#include "reb-gob.h"
-
-#include "reb-lib.h"
 
 #include "host-lib.h"

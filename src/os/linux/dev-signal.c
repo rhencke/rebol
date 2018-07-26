@@ -36,7 +36,7 @@
 
 #include <sys/signal.h>
 
-#include "reb-host.h"
+#include "sys-core.h"
 
 
 //
@@ -63,7 +63,11 @@ DEVICE_CMD Open_Signal(REBREQ *req)
         rebFail_OS (errno);
 
     req->flags |= RRF_OPEN;
-    OS_SIGNAL_DEVICE(req, EVT_OPEN);
+
+    rebElide("insert system/ports/system make event! [",
+        "type: 'open",
+        "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+    "]", END);
 
     return DR_DONE;
 }
@@ -113,7 +117,12 @@ DEVICE_CMD Read_Signal(REBREQ *req)
         return DR_PEND;
 
     //printf("read %d signals\n", req->actual);
-    OS_SIGNAL_DEVICE(req, EVT_READ);
+
+    rebElide("insert system/ports/system make event! [",
+        "type: 'read",
+        "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
+    "]", END);
+
     return DR_DONE;
 }
 

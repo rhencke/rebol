@@ -259,7 +259,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         // Issue the read request:
         REBVAL *arg = CTX_VAR(ctx, STD_PORT_DATA);
 
-        REBINT len = req->length = 8;
+        size_t len = req->length = 8;
         REBSER *ser = Make_Binary(len * sizeof(siginfo_t));
         req->common.data = BIN_HEAD(ser);
 

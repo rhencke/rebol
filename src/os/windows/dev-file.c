@@ -136,8 +136,9 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     // fails if an uninitialized case ever happens.
     //
     WIN32_FIND_DATA info;
-    CLEARS(&info); // got_info protects usage if never initialized
-    REBOOL got_info = FALSE;
+    memset(&info, 0, sizeof(info)); // got_info avoids use if uninitialized
+
+    bool got_info = FALSE;
 
     WCHAR *cp = NULL;
 
@@ -409,13 +410,13 @@ DEVICE_CMD Write_File(REBREQ *req)
         // !!! This repeats code used in %dev-stdio.c, which is needed when
         // console output is redirected to a file.  It should be shareable.
 
-        REBCNT start = 0;
-        REBCNT end = 0;
+        unsigned int start = 0;
+        unsigned int end = 0;
 
         req->actual = 0; // count actual bytes written as we go along
 
         while (TRUE) {
-            while (end < req->length && req->common.data[end] != LF)
+            while (end < req->length && req->common.data[end] != '\n')
                 ++end;
             DWORD total_bytes;
 
@@ -435,7 +436,7 @@ DEVICE_CMD Write_File(REBREQ *req)
             if (req->common.data[end] == '\0')
                 break;
 
-            assert(req->common.data[end] == LF);
+            assert(req->common.data[end] == '\n');
             BOOL ok = WriteFile(
                 req->requestee.handle,
                 "\r\n",

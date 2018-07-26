@@ -359,6 +359,18 @@ inline static REBARR *Alloc_Singular(REBFLGS flags) {
 #define Append_Value_Core(a,v,s) \
     Derelativize(Alloc_Tail_Array(a), (v), (s))
 
+// Modes allowed by Copy_Block function:
+enum {
+    COPY_SHALLOW = 1 << 0,
+    COPY_DEEP = 1 << 1, // recurse into arrays
+    COPY_STRINGS = 1 << 2,
+    COPY_OBJECT = 1 << 3,
+    COPY_SAME = 1 << 4
+};
+
+#define COPY_ALL \
+    (COPY_DEEP | COPY_STRINGS)
+
 
 #define Copy_Values_Len_Shallow(v,s,l) \
     Copy_Values_Len_Extra_Shallow_Core((v), (s), (l), 0, 0)

@@ -375,14 +375,6 @@ struct Reb_Node {
 // FREE or FREE_N lines up with the type of pointer being freed.
 //
 
-// !!! Definitions for the memory allocator generally don't need to be
-// included by all clients, though currently it is necessary to indicate
-// whether a "node" is to be allocated from the REBSER pool or the REBGOB
-// pool.  Hence, the REBPOL has to be exposed to be included in the
-// function prototypes.  Review this necessity when REBGOB is changed.
-//
-typedef struct rebol_mem_pool REBPOL;
-
 #define ALLOC(t) \
     cast(t *, Alloc_Mem(sizeof(t)))
 

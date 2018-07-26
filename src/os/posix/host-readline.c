@@ -49,6 +49,14 @@
 #define READ_BUF_LEN 64     // chars per read()
 #define MAX_HISTORY  300    // number of lines stored
 
+enum {
+    BEL = 7,
+    BS = 8,
+    LF = 10,
+    CR = 13,
+    ESC = 27,
+    DEL = 127
+};
 
 #define CHAR_LEN(c) (1 + trailingBytesForUTF8[c])
 
@@ -85,18 +93,18 @@
     } while ((term->buffer[term->pos] & 0xC0) == 0x80);
 
 typedef struct term_data {
-    REBYTE *buffer;
-    REBYTE *residue;
-    REBYTE *out;
+    unsigned char *buffer;
+    unsigned char *residue;
+    unsigned char *out;
     int pos;
     int end;
     int hist;
 } STD_TERM;
 
 // Globals:
-static REBOOL Term_Initialized = FALSE;     // Terminal init was successful
-static REBYTE **Line_History;               // Prior input lines
-static int Line_Count;                      // Number of prior lines
+static bool Term_Initialized = false; // Terminal init was successful
+static unsigned char **Line_History; // Prior input lines
+static int Line_Count; // Number of prior lines
 
 #ifndef NO_TTY_ATTRIBUTES
 static struct termios Term_Attrs;   // Initial settings, restored on exit
@@ -144,18 +152,21 @@ STD_TERM *Init_Terminal(void)
 #endif
 
     // Setup variables:
-    Line_History = cast(REBYTE**, malloc(sizeof(REBYTE*) * (MAX_HISTORY + 2)));
+    Line_History = cast(
+        unsigned char**,
+        malloc(sizeof(char*) * (MAX_HISTORY + 2))
+    );
 
     // Make first line as an empty string
-    Line_History[0] = cast(REBYTE*, malloc(sizeof(REBYTE) * 1));
+    Line_History[0] = cast(unsigned char*, malloc(sizeof(char) * 1));
     Line_History[0][0] = '\0';
     Line_Count = 1;
 
     STD_TERM *term = cast(STD_TERM*, malloc(sizeof(STD_TERM)));
     memset(term, '\0', sizeof(STD_TERM));
-    term->buffer = cast(REBYTE*, malloc(sizeof(REBYTE) * TERM_BUF_LEN));
+    term->buffer = cast(unsigned char*, malloc(sizeof(char) * TERM_BUF_LEN));
     term->buffer[0] = 0;
-    term->residue = cast(REBYTE*, malloc(sizeof(REBYTE) * TERM_BUF_LEN));
+    term->residue = cast(unsigned char*, malloc(sizeof(char) * TERM_BUF_LEN));
     term->residue[0] = 0;
 
     Term_Initialized = TRUE;
@@ -188,7 +199,7 @@ void Quit_Terminal(STD_TERM *term)
         free(Line_History);
     }
 
-    Term_Initialized = FALSE;
+    Term_Initialized = false;
 }
 
 
@@ -210,7 +221,7 @@ void Quit_Terminal(STD_TERM *term)
 // are not *likely* to be pasted in a batch that could overflow READ_BUF_LEN
 // and be split up.
 //
-static REBOOL Read_Bytes_Interrupted(STD_TERM *term, REBYTE *buf, int len)
+static bool Read_Bytes_Interrupted(STD_TERM *term, unsigned char *buf, int len)
 {
     // If we have leftovers:
     //
@@ -245,9 +256,9 @@ static REBOOL Read_Bytes_Interrupted(STD_TERM *term, REBYTE *buf, int len)
 // Write out repeated number of chars.
 // Unicode: not used
 //
-static void Write_Char(REBYTE c, int n)
+static void Write_Char(unsigned char c, int n)
 {
-    REBYTE buf[4];
+    unsigned char buf[4];
 
     buf[0] = c;
     for (; n > 0; n--)
@@ -264,7 +275,7 @@ static void Write_Char(REBYTE c, int n)
 static void Store_Line(STD_TERM *term)
 {
     term->buffer[term->end] = 0;
-    term->out = cast(REBYTE*, malloc(sizeof(REBYTE) * (term->end + 1)));
+    term->out = cast(unsigned char*, malloc(sizeof(char) * (term->end + 1)));
     strcpy(s_cast(term->out), s_cast(term->buffer));
 
     // If max history, drop older lines (but not [0] empty line):
@@ -273,7 +284,7 @@ static void Store_Line(STD_TERM *term)
         memmove(
             Line_History + 1,
             Line_History + 2,
-            (MAX_HISTORY - 2) * sizeof(REBYTE*)
+            (MAX_HISTORY - 2) * sizeof(char*)
         );
         Line_Count = MAX_HISTORY - 1;
     }
@@ -364,7 +375,7 @@ static void End_Line(STD_TERM *term)
 //  !!! Used to calculate the correct number of BS to us in Show_Line().
 //      Would stepping through the UTF-8 string be better?
 //
-static int Strlen_UTF8(REBYTE *buffer, int byte_count)
+static int Strlen_UTF8(unsigned char *buffer, int byte_count)
 {
     int char_count = 0;
     int i = 0;
@@ -436,11 +447,11 @@ static const char trailingBytesForUTF8[256] = {
 // * Adjust end position.
 // * Redisplay the line.
 //
-static const REBYTE *Insert_Char_Null_If_Interrupted(
+static const unsigned char *Insert_Char_Null_If_Interrupted(
     STD_TERM *term,
-    REBYTE *buf,
+    unsigned char *buf,
     int limit,
-    const REBYTE *cp
+    const unsigned char *cp
 ){
     int encoded_len = 1 + trailingBytesForUTF8[*cp];
 
@@ -489,7 +500,7 @@ static const REBYTE *Insert_Char_Null_If_Interrupted(
 // Redisplay the line. Blank out extra char at end.
 // Unicode: ok
 //
-static void Delete_Char(STD_TERM *term, REBOOL back)
+static void Delete_Char(STD_TERM *term, bool back)
 {
     if (term->pos == term->end and not back)
         return; // Ctrl-D at end of line
@@ -553,7 +564,7 @@ static void Move_Cursor(STD_TERM *term, int count)
 // that people could see what the key registered as on their machine and
 // configure their console to respond to it.
 //
-inline static void Unrecognized_Key_Sequence(const REBYTE* cp)
+inline static void Unrecognized_Key_Sequence(const unsigned char* cp)
 {
     UNUSED(cp);
 
@@ -562,7 +573,7 @@ inline static void Unrecognized_Key_Sequence(const REBYTE* cp)
 #endif
 }
 
-extern int Read_Line(STD_TERM *term, REBYTE *result, int limit);
+extern int Read_Line(STD_TERM *term, unsigned char *result, int limit);
 
 //
 //  Read_Line: C
@@ -578,7 +589,7 @@ extern int Read_Line(STD_TERM *term, REBYTE *result, int limit);
 // result will be 0.  All successful results have at least a line feed, which
 // will be returned as part of the data.
 //
-int Read_Line(STD_TERM *term, REBYTE *result, int limit)
+int Read_Line(STD_TERM *term, unsigned char *result, int limit)
 {
     term->pos = 0;
     term->end = 0;
@@ -597,8 +608,8 @@ restart:;
     // `restart`.  Thus, hitting an unknown escape sequence and a character
     // very fast after it may discard that character.
     //
-    REBYTE buf[READ_BUF_LEN]; // will always be '\0' terminated, hence `- 1`
-    const REBYTE *cp = buf;
+    unsigned char buf[READ_BUF_LEN]; // always '\0' terminated, hence `- 1`
+    const unsigned char *cp = buf;
 
     if (Read_Bytes_Interrupted(term, buf, READ_BUF_LEN - 1))
         goto return_halt;
@@ -867,12 +878,12 @@ restart:;
             // the Windows version had to manage the edit buffer with as
             // much manual code as this POSIX version does.
             //
-        #if 0
+          #if 0
             Delete_Char(term, FALSE);
             break
-        #else
+          #else
             goto return_blank;
-        #endif
+          #endif
 
         case 5: // CTRL-E, End of Line (bash)
             End_Line(term);

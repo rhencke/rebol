@@ -469,6 +469,9 @@
 #define ALIGN_SIZE \
     (sizeof(double) > sizeof(void*) ? sizeof(double) : sizeof(void*))
 
+#define ALIGN(s,a) \
+    (((s) + (a) - 1) & ~((a) - 1)) // !!! this macro not used anywhere ATM
+
 
 //=////////////////////////////////////////////////////////////////////////=//
 //

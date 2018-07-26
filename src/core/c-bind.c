@@ -43,7 +43,7 @@
 //
 void Bind_Values_Inner_Loop(
     struct Reb_Binder *binder,
-    RELVAL head[],
+    RELVAL *head,
     REBCTX *context,
     REBU64 bind_types, // !!! REVIEW: force word types low enough for 32-bit?
     REBU64 add_midstream_types,
@@ -105,7 +105,7 @@ void Bind_Values_Inner_Loop(
 // bindings that come after the added value is seen will be bound.
 //
 void Bind_Values_Core(
-    RELVAL head[],
+    RELVAL *head,
     REBCTX *context,
     REBU64 bind_types,
     REBU64 add_midstream_types,
@@ -146,7 +146,7 @@ void Bind_Values_Core(
 // bound to a particular target (if target is NULL, then all
 // words will be unbound regardless of their VAL_WORD_CONTEXT).
 //
-void Unbind_Values_Core(RELVAL head[], REBCTX *context, REBOOL deep)
+void Unbind_Values_Core(RELVAL *head, REBCTX *context, REBOOL deep)
 {
     RELVAL *v = head;
     for (; NOT_END(v); ++v) {
@@ -187,7 +187,7 @@ REBCNT Try_Bind_Word(REBCTX *context, REBVAL *word)
 //
 static void Bind_Relative_Inner_Loop(
     struct Reb_Binder *binder,
-    RELVAL head[],
+    RELVAL *head,
     REBARR *paramlist,
     REBU64 bind_types
 ) {
@@ -297,7 +297,7 @@ REBARR *Copy_And_Bind_Relative_Deep_Managed(
 void Rebind_Values_Deep(
     REBCTX *src,
     REBCTX *dst,
-    RELVAL head[],
+    RELVAL *head,
     struct Reb_Binder *opt_binder
 ) {
     RELVAL *v = head;

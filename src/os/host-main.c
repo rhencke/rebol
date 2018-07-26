@@ -395,10 +395,10 @@ int main(int argc, char *argv_ansi[])
     }
   #endif
 
-    REBCNT host_size;
-    const REBINT max = -1; // decompressed size is stored in gzip
-    REBYTE *host_bytes = rebGunzipAlloc(
-        &host_size,
+    size_t host_utf8_size;
+    const int max = -1; // decompressed size is stored in gzip
+    void *host_utf8_bytes = rebGunzipAlloc(
+        &host_utf8_size,
         &Reb_Init_Code[0],
         REB_INIT_SIZE,
         max
@@ -407,7 +407,7 @@ int main(int argc, char *argv_ansi[])
     // The inflated data was allocated with rebMalloc, and hence can be
     // repossessed as a BINARY!
     //
-    REBVAL *host_bin = rebRepossess(host_bytes, host_size);
+    REBVAL *host_bin = rebRepossess(host_utf8_bytes, host_utf8_size);
 
     // Use TRANSCODE to get a BLOCK! from the BINARY!, then release the binary
     //

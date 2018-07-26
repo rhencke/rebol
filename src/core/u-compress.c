@@ -134,10 +134,10 @@ static REBCTX *Error_Compression(const z_stream *strm, int ret)
 // Common code for compressing raw deflate, zlib envelope, gzip envelope.
 // Exported as rebDeflateAlloc() and rebGunzipAlloc() for clarity.
 //
-REBYTE *Compress_Alloc_Core(
-    REBCNT *out_len,
-    const unsigned char* input,
-    REBCNT in_len,
+unsigned char *Compress_Alloc_Core(
+    size_t *out_len,
+    const void* input,
+    size_t in_len,
     REBSTR *envelope // NONE, ZLIB, or GZIP... null defaults GZIP
 ){
     z_stream strm;
@@ -189,7 +189,7 @@ REBYTE *Compress_Alloc_Core(
     REBCNT buf_size = deflateBound(&strm, in_len);
 
     strm.avail_in = in_len;
-    strm.next_in = input;
+    strm.next_in = cast(const z_Bytef*, input);
 
     REBYTE *output = rebAllocN(REBYTE, buf_size);
     strm.avail_out = buf_size;
@@ -233,11 +233,11 @@ REBYTE *Compress_Alloc_Core(
 // Common code for decompressing: raw deflate, zlib envelope, gzip envelope.
 // Exported as rebInflateAlloc() and rebGunzipAlloc() for clarity.
 //
-REBYTE *Decompress_Alloc_Core(
-    REBCNT *len_out,
-    const REBYTE *input,
-    REBCNT len_in,
-    REBINT max,
+unsigned char *Decompress_Alloc_Core(
+    size_t *len_out,
+    const void *input,
+    size_t len_in,
+    int max,
     REBSTR *envelope // NONE, ZLIB, GZIP, or DETECT... null defaults GZIP
 ){
     z_stream strm;
@@ -247,7 +247,7 @@ REBYTE *Decompress_Alloc_Core(
     strm.total_out = 0;
 
     strm.avail_in = len_in;
-    strm.next_in = input;
+    strm.next_in = cast(const z_Bytef*, input);
 
     int window_bits = window_bits_gzip;
     if (not envelope) {
@@ -299,7 +299,9 @@ REBYTE *Decompress_Alloc_Core(
         // there is, it's not possible to tell if a very small number here
         // (compared to the input data) is actually wrong.
         //
-        buf_size = Bytes_To_U32_BE(input + len_in - sizeof(uint32_t));
+        buf_size = Bytes_To_U32_BE(
+            cast(REBYTE*, input) + len_in - sizeof(uint32_t)
+        );
     }
     else {
         // Zlib envelope does not store decompressed size, have to guess:

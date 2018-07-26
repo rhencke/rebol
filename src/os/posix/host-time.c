@@ -202,8 +202,8 @@ int64_t OS_Delta_Time(int64_t base)
 REBVAL *OS_File_Time(struct devreq_file *file)
 {
     if (sizeof(time_t) > sizeof(file->time.l)) {
-        REBI64 t = file->time.l;
-        t |= cast(REBI64, file->time.h) << 32;
+        int64_t t = file->time.l;
+        t |= cast(int64_t, file->time.h) << 32;
         return Convert_Date(cast(time_t*, &t), 0);
     }
 

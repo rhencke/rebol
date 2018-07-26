@@ -45,9 +45,12 @@
 // based on what it captures up to the `=` sign.
 //
 
+#include "reb-config.h"
+
 #include "reb-c.h"
-#define REB_DEF
+#include "rebol.h"
 #include "reb-defs.h"
+
 #include "tmp-constants.h" // need the extern definitions
 
 const char Str_REBOL[] = "REBOL";

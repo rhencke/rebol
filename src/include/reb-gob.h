@@ -155,8 +155,6 @@ typedef struct {
 } REBXYF;
 
 
-typedef struct rebol_gob REBGOB;
-
 struct rebol_gob {
     struct Reb_Header header;
 
@@ -267,17 +265,11 @@ typedef struct gob_window {             // Maps gob to window
 #define GOB_PARENT(g)   ((g)->parent)
 #define GOB_CONTENT(g)  ((g)->content)
 
-// Control dependencies on series structures:
-#ifdef REB_DEF
 #define GOB_STRING(g)       SER_HEAD(GOB_CONTENT(g))
 #define GOB_LEN(g)          SER_LEN((g)->pane)
 #define SET_GOB_LEN(g,l)    SET_SERIES_LEN((g)->pane, (l))
 #define GOB_HEAD(g)         SER_HEAD(REBGOB*, GOB_PANE(g))
-#else
-#define GOB_STRING(g)   RL_Gob_String(g)
-#define GOB_LEN(g)      RL_Gob_Len(g)
-#define GOB_HEAD(g)     RL_Gob_Head(g)
-#endif
+
 #define GOB_BITMAP(g)   GOB_STRING(g)
 #define GOB_AT(g,n)   (GOB_HEAD(g)+n)
 

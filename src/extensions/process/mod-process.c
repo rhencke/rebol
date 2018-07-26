@@ -1470,7 +1470,7 @@ REBNATIVE(call)
         break;
 
     case REB_TEXT: {
-        REBSIZ size;
+        size_t size;
         os_input = s_cast(rebBytesAlloc(
             &size,
             ARG(in),
@@ -1480,7 +1480,7 @@ REBNATIVE(call)
         break; }
 
     case REB_FILE: {
-        REBSIZ size;
+        size_t size;
         os_input = s_cast(rebBytesAlloc( // !!! why fileNAME size passed in???
             &size,
             "file-to-local", ARG(in),
@@ -1490,7 +1490,9 @@ REBNATIVE(call)
         break; }
 
     case REB_BINARY: {
-        os_input = s_cast(rebBytesAlloc(&input_len, ARG(in)));
+        size_t size;
+        os_input = s_cast(rebBytesAlloc(&size, ARG(in)));
+        input_len = size;
         break; }
 
     default:

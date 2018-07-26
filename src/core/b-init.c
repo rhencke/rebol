@@ -1269,14 +1269,14 @@ void Startup_Core(void)
     // includes the type list, word list, error message templates, system
     // object, mezzanines, etc.
 
-    REBCNT utf8_size;
-    const REBINT max = -1; // trust size in gzip data
-    REBYTE *utf8 = rebGunzipAlloc(
+    size_t utf8_size;
+    const int max = -1; // trust size in gzip data
+    REBYTE *utf8 = cast(REBYTE*, rebGunzipAlloc(
         &utf8_size,
         Native_Specs,
         Nat_Compressed_Size,
         max
-    );
+    ));
 
     REBARR *boot_array = Scan_UTF8_Managed(
         Intern("tmp-boot.r"),

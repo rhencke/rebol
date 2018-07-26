@@ -35,9 +35,9 @@ EXT_API int EXT_INIT(e) (REBVAL *script, REBVAL *out) \
 {\
     code \
     /* binary does not have a \0 terminator */ \
-    REBCNT utf8_size; \
-    const REBINT max = -1; \
-    REBYTE *utf8 = rebGunzipAlloc( \
+    size_t utf8_size; \
+    const int max = -1; \
+    void *utf8 = rebGunzipAlloc( \
         &utf8_size, script_bytes, sizeof(script_bytes), max \
     ); \
     REBVAL *bin = rebRepossess(utf8, utf8_size); \

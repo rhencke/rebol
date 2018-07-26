@@ -202,7 +202,7 @@ made: [
 
     make-host-init.r    include/host-init.h
     make-os-ext.r       include/host-lib.h
-    make-reb-lib.r      include/reb-lib.h
+    make-reb-lib.r      include/rebol.h
 ]
 
 ;

@@ -977,7 +977,7 @@ struct Reb_Array {
     struct Reb_Series series; // http://stackoverflow.com/a/9747062
 };
 
-#if !defined(DEBUG_CHECK_CASTS)
+#if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)
 
     #define SER(p) \
         cast(REBSER*, (p))
@@ -985,7 +985,7 @@ struct Reb_Array {
     #define ARR(p) \
         cast(REBARR*, (p))
 
-#elif defined(CPLUSPLUS_11)
+#else
 
     template <class T>
     inline REBSER *SER(T *p) {

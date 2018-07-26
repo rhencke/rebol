@@ -412,30 +412,6 @@ struct Reb_Money_Payload {
     int e:8;        /* exponent */
 };
 
-// !!! This structure varies the layout based on endianness, so that when it
-// is seen throuh the .bits field of the REBDAT union, a later date will
-// have a value that will be greater (>) than an earlier date.  This should
-// be reviewed for standards compliance; masking and shifting is generally
-// safer than bit field union tricks.
-//
-typedef struct reb_ymdz {
-#ifdef ENDIAN_LITTLE
-    int zone:7; // +/-15:00 res: 0:15
-    unsigned day:5;
-    unsigned month:4;
-    unsigned year:16;
-#else
-    unsigned year:16;
-    unsigned month:4;
-    unsigned day:5;
-    int zone:7; // +/-15:00 res: 0:15
-#endif
-} REBYMD;
-
-typedef union reb_date {
-    REBYMD date;
-    REBCNT bits; // !!! alias used for hashing date, is this standards-legal? 
-} REBDAT;
 
 // The same payload is used for TIME! and DATE!.  The extra bits needed by
 // DATE! (as REBYMD) fit into 32 bits, so can live in the ->extra field,
@@ -658,22 +634,6 @@ struct Reb_Deferred_Payload {
 };
 
 
-// The chunk stack consists of stack-formatted cells which are allocated out
-// of a range of cells in a "chunker".  These cells know they are not
-// indefinite lifetime, and are formatted as such...so that Move_Value()
-// can be more conservative about reifying GC structures into them.
-//
-#define REB_0_CHUNK REB_0 // links backwards via extra.prev_chunk
-struct Reb_Chunk_Payload {
-    struct Reb_Chunker *chunker; // container
-    REBCNT len;
-};
-
-#define REB_0_CHUNKER REB_0 // links forward to extra.next_chunker
-struct Reb_Chunker_Payload {
-    REBCNT avail; // number of REBVAL cells available in the chunker
-};
-
 // Handles hold a pointer and a size...which allows them to stand-in for
 // a binary REBSER.
 //
@@ -891,8 +851,6 @@ union Reb_Value_Payload {
     struct Reb_Reference_Payload reference; // used with REB_0_REFERENCE
     struct Reb_Partial_Payload partial; // used with REB_0_PARTIAL
     struct Reb_Deferred_Payload deferred; // used with REB_0_DEFERRED
-    struct Reb_Chunk_Payload chunk; // used with REB_0_CHUNK
-    struct Reb_Chunker_Payload chunker; // used with REB_0_CHUNKER
 };
 
 struct Reb_Cell

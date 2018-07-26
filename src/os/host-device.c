@@ -178,28 +178,6 @@ void Detach_Request(REBREQ **node, REBREQ *req)
 }
 
 
-//
-//  OS_Signal_Device: C
-//
-// Generate a device event to awake a port on REBOL.
-//
-// !!! R3-Alpha had this explicitly imported in some files by having an extern
-// definition, but just put it in as another OS_XXX function for now.
-//
-void OS_Signal_Device(REBREQ *req, REBYTE type)
-{
-    REBEVT evt;
-
-    CLEARS(&evt);
-
-    evt.type = type;
-    evt.model = EVM_DEVICE;
-    evt.eventee.req = req;
-
-    rebEvent(&evt); // (returns 0 if queue is full, ignored)
-}
-
-
 // For use with rebRescue(), to intercept failures in order to do some
 // processing if necessary before passing the failure up the stack.  The
 // rescue will return this function's result (an INTEGER!) if no error is
@@ -223,7 +201,7 @@ static REBVAL *Dangerous_Command(REBREQ *req) {
 // (DR_PEND) and negative numbers for errors.  As the device model is revamped
 // the concept is to return the actual result, NULL if pending, or an ERROR!.
 //
-REBVAL *OS_Do_Device(REBREQ *req, REBCNT command)
+REBVAL *OS_Do_Device(REBREQ *req, int command)
 {
     req->command = command;
 
@@ -325,7 +303,7 @@ REBVAL *OS_Do_Device(REBREQ *req, REBCNT command)
 // this is not particularly important...more important is that the API
 // handles and error mechanism works.
 //
-void OS_Do_Device_Sync(REBREQ *req, REBCNT command)
+void OS_Do_Device_Sync(REBREQ *req, int command)
 {
     REBVAL *result = OS_DO_DEVICE(req, command);
     assert(result != NULL); // should be synchronous
@@ -445,7 +423,7 @@ int OS_Quit_Devices(int flags)
 // The time it takes for the devices to be scanned is
 // subtracted from the timer value.
 //
-REBINT OS_Wait(REBCNT millisec, REBCNT res)
+int OS_Wait(unsigned int millisec, unsigned int res)
 {
     // printf("OS_Wait %d\n", millisec);
 
@@ -454,7 +432,7 @@ REBINT OS_Wait(REBCNT millisec, REBCNT res)
     // Comment said "Setup for timing: OK: QUERY below does not store it"
     //
     REBREQ req;
-    CLEARS(&req);
+    memset(&req, 0, sizeof(REBREQ));
     req.device = RDI_EVENT;
 
     OS_REAP_PROCESS(-1, NULL, 0);
@@ -466,7 +444,7 @@ REBINT OS_Wait(REBCNT millisec, REBCNT res)
 
     // Nothing, so wait for period of time
 
-    REBCNT delta = cast(REBCNT, OS_DELTA_TIME(base)) / 1000 + res;
+    unsigned int delta = OS_DELTA_TIME(base) / 1000 + res;
     if (delta >= millisec)
         return 0;
 

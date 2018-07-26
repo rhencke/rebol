@@ -32,7 +32,7 @@
 #endif
 #include <locale.h>
 
-// IS_ERROR might be defined in winerror.h and reb-types.h
+// IS_ERROR might be defined in winerror.h and tmp-kinds.h
 #ifdef IS_ERROR
 #undef IS_ERROR
 #endif
