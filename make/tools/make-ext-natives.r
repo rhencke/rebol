@@ -210,8 +210,7 @@ for-each native native-specs [
     ]
 
     num-native: num-native + 1
-    ;dump (to block! first native/spec)
-    if find to block! first native/spec 'export [
+    if all [path? first native/spec | find first native/spec 'export] [
         append export-list to word! native/name
     ]
     if not blank? native/errors [append error-list native/errors]
