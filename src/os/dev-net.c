@@ -659,7 +659,7 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
 
     struct devreq_net *sock = cast(
         struct devreq_net*,
-        Ensure_Port_State(CTX_ARCHETYPE(listener), RDI_NET)
+        Ensure_Port_State(CTX_ARCHETYPE(connection), RDI_NET)
     );
 
     memset(sock, '\0', sizeof(struct devreq_net));
