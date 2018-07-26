@@ -57,7 +57,7 @@ encode-lines: func [
     if not equal? newline :pos/1 [insert pos indent]
 
     ; Clear indent from tail if present.
-    if indent = pos: skip tail-of text 0 - length-of indent [clear pos]
+    if indent = pos: skip tail-of text 0 - length of indent [clear pos]
     append text newline
 
     text

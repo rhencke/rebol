@@ -310,7 +310,7 @@ parse-args: function [
                 value: copy next idx
             ]
             #":" = last value [; name=value
-                name: to word! copy/part value (length-of value) - 1
+                name: to word! copy/part value (length of value) - 1
                 args: next args
                 if empty? args [
                     fail ["Missing value after" value]
@@ -342,15 +342,15 @@ fix-win32-path: func [
     drive: first path
     colon: second path
 
-    if all [
+    all [
         any [
-        all [#"A" <= drive #"Z" >= drive] 
-        all [#"a" <= drive #"z" >= drive] 
-    ]
-    #":" = colon
-    ][
+            (#"A" <= drive) and (#"Z" >= drive)
+            (#"a" <= drive) and (#"z" >= drive)
+        ]
+        #":" = colon
+    ] then [
         insert path #"/"
-    remove skip path 2 ;remove ":"
+        remove skip path 2 ;remove ":"
     ]
 
     path
@@ -392,10 +392,10 @@ write-if-changed: function [
         content: to binary! content
     ]
 
-    if not all [
-        exists? dest
-        content = read dest
-    ][
+    any [
+        not exists? dest
+        content != read dest
+    ] then [
         write dest content
     ]
 ]

@@ -49,7 +49,7 @@ either args/GIT_COMMIT = "unknown" [
     ]
 ][
     git-commit: args/GIT_COMMIT
-    if (length-of git-commit) != (length-of first-rebol-commit) [
+    if (length of git-commit) != (length of first-rebol-commit) [
         print ["GIT_COMMIT should be a full hash, e.g." first-rebol-commit]
         print ["Invalid hash was:" git-commit]
         quit
@@ -102,7 +102,7 @@ sections: [
 ; be able to bootstrap under the conditions of the A111 rebol.com R3-Alpha
 ; as well as function either from the command line or the REPL.
 ;
-if not args: any [
+args: any [
     either text? :system/script/args [
         either block? load system/script/args [
             load system/script/args
@@ -115,7 +115,7 @@ if not args: any [
 
     ; This is the only piece that should be necessary if not dealing w/legacy
     system/options/args
-][
+] or [
     fail "No platform specified."
 ]
 
@@ -640,12 +640,12 @@ res: collect [
     id-list: make block! 200
 
     for-each [category info] boot-errors [
-        if not all [
+        all [
             (quote code:) == info/1
             integer? info/2
             (quote type:) == info/3
             text? info/4
-        ][
+        ] or [
             fail ["%errors.r" category "not [code: INTEGER! type: TEXT! ...]"]
         ]
 
@@ -664,11 +664,11 @@ res: collect [
 
             append id-list reduce [id val]
 
-            either new-section [
+            if new-section [
                 keep cscape/with
                     {/* $<mold val> */ RE_${ID} = $<code>} [code id val]
                 new-section: false
-            ][
+            ] else [
                 keep cscape/with {/* $<mold val> */ RE_${ID}} [id val]
             ]
 
@@ -722,10 +722,10 @@ for-each [id val] id-list [
         any [#"_" w: (uppercase/part w 1) | skip]
     ]
 
-    either arity = 0 [
+    if arity = 0 [
         params: ["void"] ;-- In C, f(void) has a distinct meaning from f()
         args: ["END"]
-    ][
+    ] else [
         params: collect [
             repeat i arity [keep unspaced ["const REBVAL *arg" i]]
         ]
@@ -820,12 +820,12 @@ nats: collect [
     ]
 ]
 
-print [length-of nats "natives"]
+print [length of nats "natives"]
 
 e-bootblock/emit {
     #include "sys-core.h"
 
-    #define NUM_NATIVES $<length-of nats>
+    #define NUM_NATIVES $<length of nats>
     const REBCNT Num_Natives = NUM_NATIVES;
     REBVAL Natives[NUM_NATIVES];
 
@@ -855,13 +855,13 @@ compressed: gzip data
 e-bootblock/emit {
     /*
      * Gzip compression of boot block
-     * Originally $<length-of data> bytes
+     * Originally $<length of data> bytes
      *
      * Size is a constant with storage vs. using a #define, so that relinking
      * is enough to sync up the referencing sites.
      */
-    const REBCNT Nat_Compressed_Size = $<length-of compressed>;
-    const REBYTE Native_Specs[$<length-of compressed>] = {
+    const REBCNT Nat_Compressed_Size = $<length of compressed>;
+    const REBYTE Native_Specs[$<length of compressed>] = {
         $<Binary-To-C Compressed>
     };
 }

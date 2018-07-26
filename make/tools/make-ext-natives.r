@@ -132,9 +132,9 @@ native-list-rule: [
                 append native-specs make native-spec compose/only [
                     name: (to lit-word! n-name)
                     spec: (copy n-spec)
-                    errors: (either errors [copy errors][_])
-                    words: (either words [copy words][_])
-                    platforms: (either platforms [copy platforms][_])
+                    errors: (try copy errors)
+                    words: (try copy words)
+                    platforms: (try copy platforms)
                 ]
             ]
 
@@ -160,7 +160,7 @@ native-list-rule: [
     ]
 ]
 
-if not parse native-list native-list-rule [
+parse native-list native-list-rule or [
     fail [
         "failed to parse" mold native-list ":"
         "current word-list:" mold word-list
@@ -172,9 +172,9 @@ if not blank? n-name [
     append native-specs make native-spec compose/only [
         name: (to lit-word! n-name)
         spec: (copy n-spec)
-        errors: (either errors [copy errors][_])
-        words: (either words [copy words][_])
-        platforms: (either platforms [copy platforms][_])
+        errors: (try copy errors)
+        words: (try copy words)
+        platforms: (try copy platforms)
     ]
 ]
 
@@ -249,7 +249,7 @@ e2/emit {
     #if !defined(MODULE_INCLUDE_DECLARATION_ONLY)
     
     #define EXT_NUM_NATIVES_${MOD} $<num-native>
-    #define EXT_NAT_COMPRESSED_SIZE_${MOD} $<length-of data>
+    #define EXT_NAT_COMPRESSED_SIZE_${MOD} $<length of data>
     
     const REBYTE Ext_Native_Specs_${Mod}[EXT_NAT_COMPRESSED_SIZE_${MOD}] = {
         $<Binary-To-C Compressed>
@@ -321,10 +321,10 @@ e1/emit newline
 for-next native-list [
     if tail? next native-list [break]
 
-    if any [
+    any [
         'native = native-list/2
-        all [path? native-list/2 | 'native = first native-list/2]
-    ][
+        path? native-list/2 and ('native = first native-list/2)
+    ] then [
         assert [set-word? native-list/1]
         (emit-include-params-macro/ext e1
             (to-word native-list/1) (native-list/3)
@@ -357,7 +357,7 @@ e1/emit {
     ** in an array that was Alloc_Value()'d...and rebRelease()'d on unload.
     */
 
-    #define NUM_EXT_${MOD}_WORDS $<length-of word-list>
+    #define NUM_EXT_${MOD}_WORDS $<length of word-list>
 }
 e1/emit newline
 

@@ -50,7 +50,7 @@ emit-proto: func [return: <void> proto] [
 
     all [
         block? header
-        2 <= length-of header
+        2 <= length of header
         set-word? header/1
     ] or [
         print mold header

@@ -238,7 +238,7 @@ parse-ext-build-spec: function [
     spec [block!]
 ][
     ext-body: copy []
-    if not parse spec [
+    parse spec [
         any [
             quote options: into [
                 any [
@@ -250,7 +250,7 @@ parse-ext-build-spec: function [
             | quote modules: set modules block!
             | set n: set-word! set v: skip (append ext-body reduce [n v])
         ]
-    ][
+    ] or [
         print ["Failed to parse extension build spec" mold spec]
         return _
     ]
@@ -271,10 +271,15 @@ use [extension-dir entry][
     extension-dir: src-dir/extensions/%
     for-each entry read extension-dir [
         ;print ["entry:" mold entry]
-        if all [
+        all [
             dir? entry
-            find read rejoin [extension-dir entry] %make-spec.r][
-            append available-extensions opt parse-ext-build-spec load rejoin [extension-dir entry/make-spec.r]
+            find read rejoin [extension-dir entry] %make-spec.r
+        ] then [
+            append available-extensions opt (
+                parse-ext-build-spec load rejoin [
+                    extension-dir entry/make-spec.r
+                ]
+            )
         ]
     ]
 ]
@@ -342,18 +347,20 @@ targets: [
     ]
     'vs2017
     'visual-studio [
-        rebmake/visual-studio/generate/(try all [system-config/os-name = 'Windows-x86 'x86]) %. solution
+        x86: try all [system-config/os-name = 'Windows-x86 'x86]
+        rebmake/visual-studio/generate/(x86) %. solution
     ]
     'vs2015 [
-        rebmake/vs2015/generate/(try all [system-config/os-name = 'Windows-x86 'x86]) %. solution
+        x86: try all [system-config/os-name = 'Windows-x86 'x86]
+        rebmake/vs2015/generate/(x86) %. solution
     ]
 ]
 target-names: make block! 16
 for-each x targets [
-    either lit-word? x [
+    if lit-word? x [
         append target-names to word! x
         append target-names '|
-    ][
+    ] else [
         take/last target-names
         append target-names newline
     ]
@@ -518,27 +525,33 @@ parse user-config/toolset [
 ]
 
 ; sanity checking the compiler and linker
-if blank? rebmake/default-compiler [
-    fail ["Compiler is not set"]
-]
-if blank? rebmake/default-linker [
-    fail ["Default linker is not set"]
-]
+
+rebmake/default-compiler: default [fail "Compiler is not set"]
+rebmake/default-linker: default [fail "Default linker is not set"]
 
 switch rebmake/default-compiler/name [
     'gcc [
         if rebmake/default-linker/name != 'ld [
-            fail ["Incompatible compiler (GCC) and linker: " rebmake/default-linker/name]
+            fail [
+                "Incompatible compiler (GCC) and linker:"
+                    rebmake/default-linker/name
+            ]
         ]
     ]
     'clang [
         if not find [ld llvm-link] rebmake/default-linker/name [
-            fail ["Incompatible compiler (CLANG) and linker: " rebmake/default-linker/name]
+            fail [
+                "Incompatible compiler (CLANG) and linker:"
+                rebmake/default-linker/name
+            ]
         ]
     ]
     'cl [
         if rebmake/default-linker/name != 'link [
-            fail ["Incompatible compiler (CL) and linker: " rebmake/default-linker/name]
+            fail [
+                "Incompatible compiler (CL) and linker:"
+                rebmake/default-linker/name
+            ]
         ]
     ]
 
@@ -750,9 +763,9 @@ append app-config/cflags opt switch user-config/rigorous [
             ; warnings unless you're at c99 or higher, or C++.
             ;
             (
-                if any [
+                any [
                     cfg-cplusplus | not find [c gnu89] user-config/standard
-                ][
+                ] then [
                     <gnu:--pedantic>
                 ]
             )
@@ -994,7 +1007,9 @@ case [
             includes: reduce [tcc-dir]
             searches: reduce [tcc-rootdir]
             libraries: reduce [tcc-rootdir/libtcc1.a tcc-rootdir/libtcc.a]
-            cpp-flags: get-env "TCC_CPP_EXTRA_FLAGS" ; extra cpp flags passed to tcc for preprocess %sys-core.i
+
+            ; extra cpp flags passed to tcc for preprocessing %sys-core.i
+            cpp-flags: get-env "TCC_CPP_EXTRA_FLAGS"
         ]
         if block? cfg-tcc/libraries [
             cfg-tcc/libraries: map-each lib cfg-tcc/libraries [
@@ -1134,8 +1149,13 @@ append app-config/definitions reduce [
 libr3-core: make rebmake/object-library-class [
     name: 'libr3-core
     definitions: join-of ["REB_API"] app-config/definitions
-    includes: append-of app-config/includes %prep/core ;might be modified by the generator, thus copying
-    cflags: copy app-config/cflags ;might be modified by the generator, thus copying
+
+    ; might be modified by the generator, thus copying
+    includes: append-of app-config/includes %prep/core
+
+    ; might be modified by the generator, thus copying
+    cflags: copy app-config/cflags
+
     optimization: app-config/optimization
     debug: app-config/debug
     depends: map-each w file-base/core [
@@ -1193,10 +1213,10 @@ for-each [action name modules] user-config/extensions [
             for-next builtin-extensions [
                 if builtin-extensions/1/name = name [
                     item: take builtin-extensions
-                    if all [
+                    all [
                         not item/loadable
                         action = '*
-                    ][
+                    ] then [
                         fail [{Extension} name {is not dynamically loadable}]
                     ]
                 ]
@@ -1206,10 +1226,10 @@ for-each [action name modules] user-config/extensions [
             ]
 
             if action = '* [;dynamic extension
-                selected-modules: either blank? modules [
+                selected-modules: if blank? modules [
                     ; all modules in the extension
                     item/modules
-                ][
+                ] else [
                     map-each m item/modules [
                         if find modules m/name [
                             m
@@ -1272,30 +1292,29 @@ add-project-flags: func [
 
     if D [
         assert-no-blank-inside definitions
-        either block? project/definitions [
+        if block? project/definitions [
             append project/definitions definitions
-        ][
+        ] else [
+            ensure blank! project/definitions
             project/definitions: definitions
         ]
     ]
 
     if I [
         assert-no-blank-inside includes
-        either block? project/includes [
-            either locked? project/includes [
-                project/includes: join-of project/includes includes
-            ][
-                append project/includes includes
-            ]
-        ][
+        if block? project/includes [
+            append project/includes includes
+        ] else [
+            ensure blank! project/includes
             project/includes: includes
         ]
     ]
     if c [
         assert-no-blank-inside cflags
-        either block? project/cflags [
+        if block? project/cflags [
             append project/cflags cflags
-        ][
+        ] else [
+            ensure blank! project/cflags
             project/cflags: cflags
         ]
     ]
@@ -1347,7 +1366,8 @@ process-module: func [
                             output: lib
                         ]
                     ]
-                    all [object? lib
+                    all [
+                        object? lib
                         find [
                             ext-dynamic-class
                             ext-static-class
@@ -1379,7 +1399,10 @@ ext-objs: make block! 8
 for-each ext builtin-extensions [
     mod-obj: _
     for-each mod ext/modules [
-        ;extract object-library, because an object-library can't depend on another object-library
+        ;
+        ; extract object-library, because an object-library can't depend on
+        ; another object-library
+        ;
         if all [block? mod/depends
             not empty? mod/depends][
             append ext-objs map-each s mod/depends [

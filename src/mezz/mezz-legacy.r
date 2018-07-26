@@ -106,7 +106,6 @@ suffix?: :suffix-of
 length?: :length-of
 head: :head-of
 tail: :tail-of
-bound?: chain [specialize 'reflect [property: 'binding] | :value?]
 
 comment [
     ; !!! Less common cases still linger as question mark routines that

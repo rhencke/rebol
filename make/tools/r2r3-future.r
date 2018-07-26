@@ -418,7 +418,7 @@ and: enfix function [
 ][
     if group? :right [
         if not :left [return false]
-        return did do right
+        return did do as block! right ;-- old r3 didn't allow DO of GROUP!
     ]
     if not :left [return null]
     return do right
@@ -431,8 +431,11 @@ or: enfix function [
 ][
     if group? :right [
         if :left [return true]
-        return did do right
+        return did do as block! right ;-- old r3 didn't allow DO of GROUP!
     ]
     if :left [return :left]
     return do right
 ]
+
+;-- make COPY obey "blank in, null out"
+copy: chain [:copy | :opt]

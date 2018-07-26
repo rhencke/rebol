@@ -42,24 +42,24 @@ emit-proto: func [
     return: <void>
     proto
 ][
-    if any [
+    any [
         find proto "static"
         find proto "REBNATIVE(" ; Natives handled by make-natives.r
 
         ; The REBTYPE macro actually is expanded in %tmp-internals.h
         ; Should we allow macro expansion or do the REBTYPE another way?
         ; `not find proto "REBTYPE("]`
-    ][
+    ] then [
         return
     ]
 
     header: proto-parser/data
 
-    if not all [
+    all [
         block? header 
-        2 <= length-of header
+        2 <= length of header
         set-word? header/1
-    ][
+    ] or [
         print mold proto-parser/data
         fail [
             proto
@@ -100,11 +100,11 @@ emit-proto: func [
         RL_API $<Proto>; /* $<The-File> */
     }
 
-    either "REBTYPE" = proto-parser/proto.id [
+    if "REBTYPE" = proto-parser/proto.id [
         e-syms/emit [the-file proto-parser] {
             /* $<The-File> */ SYM_CFUNC(T_$<Proto-Parser/Proto.Arg.1>),
         }
-    ][
+    ] else [
         e-syms/emit [the-file proto-parser] {
             /* $<The-File> */ SYM_CFUNC($<Proto-Parser/Proto.Id>),
         }
@@ -125,10 +125,10 @@ process-conditional: function [
     ;
     ; !!! Note this reaches into the emitter and modifies the buffer.
     ;
-    if all [
+    all [
         find/match directive "#endif"
         position: try find/last tail-of emitter/buf-emit "#if"
-    ][
+    ] then [
         rewrite-if-directives position
     ]
 ]
@@ -236,16 +236,16 @@ for-each item file-base/core [
     ; Items can be blocks if there's special flags for the file (
     ; <no-make-header> marks it to be skipped by this script)
     ;
-    either block? item [
-        either all [
-            2 <= length-of item
+    if block? item [
+        all [
+            2 <= length of item
             <no-make-header> = item/2
-        ][; skip this file
-            continue
-        ][
-            file: to file! first item
+        ] then [
+            continue ; skip this file
         ]
-    ][
+
+        file: to file! first item
+    ] else [
         file: to file! item
     ]
 
@@ -267,7 +267,7 @@ e-funcs/emit {
 
 e-funcs/write-emitted
 
-print [length-of prototypes "function prototypes"]
+print [length of prototypes "function prototypes"]
 ;wait 1
 
 ;-------------------------------------------------------------------------
@@ -357,7 +357,7 @@ for-next action-list [
 ]
 
 native-list: load output-dir/boot/tmp-natives.r
-if not parse native-list [
+parse native-list [
     some [
         set name: set-word! (name: to-word name)
         opt 'enfix
@@ -369,7 +369,7 @@ if not parse native-list [
             e-params/emit newline
         )
     ]
-][
+] or [
     fail "Error processing native-list"
 ]
 

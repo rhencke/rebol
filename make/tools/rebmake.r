@@ -64,7 +64,7 @@ ends-with?: func [
     did any [
         blank? suffix
         empty? suffix
-        suffix = (skip tail-of s negate length-of suffix)
+        suffix = (skip tail-of s negate length of suffix)
     ]
 ]
 
@@ -1361,7 +1361,7 @@ generator-class: make object! [
             ends-with? project/output suffix [
                 basename: either suffix [
                     copy/part project/output
-                        (length-of project/output) - (length-of suffix)
+                        (length of project/output) - (length of suffix)
                 ][
                     copy project/output
                 ]
