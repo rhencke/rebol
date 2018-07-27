@@ -1392,13 +1392,15 @@ stdin_pipe_err:
     //
 
     if (non_errno_ret > 0) {
-        DECLARE_LOCAL(i);
-        Init_Integer(i, non_errno_ret);
-        fail (Error(RE_EXT_PROCESS_CHILD_TERMINATED_BY_SIGNAL, i, END));
+        fail (Error(
+            RE_EXT_PROCESS_CHILD_TERMINATED_BY_SIGNAL,
+            rebInteger(non_errno_ret),
+            END
+        ));
     }
-    else if (non_errno_ret < 0) {
+    else if (non_errno_ret < 0)
         fail ("Unknown error happened in CALL");
-    }
+
     return ret;
 }
 
@@ -1864,11 +1866,8 @@ static REBNATIVE(terminate)
             fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
         case ERROR_INVALID_PARAMETER:
             fail (Error(RE_EXT_PROCESS_NO_PROCESS, ARG(pid), END));
-        default: {
-            DECLARE_LOCAL(val);
-            Init_Integer(val, err);
-            fail (Error(RE_EXT_PROCESS_TERMINATE_FAILED, val, END));
-            }
+        default:
+            fail (Error(RE_EXT_PROCESS_TERMINATE_FAILED, rebInteger(err), END));
         }
     }
 
@@ -1880,13 +1879,10 @@ static REBNATIVE(terminate)
     err = GetLastError();
     CloseHandle(ph);
     switch (err) {
-        case ERROR_INVALID_HANDLE:
-            fail (Error(RE_EXT_PROCESS_NO_PROCESS, ARG(pid), END));
-        default: {
-            DECLARE_LOCAL(val);
-            Init_Integer(val, err);
-            fail (Error(RE_EXT_PROCESS_TERMINATE_FAILED, val, END));
-         }
+    case ERROR_INVALID_HANDLE:
+        fail (Error(RE_EXT_PROCESS_NO_PROCESS, ARG(pid), END));
+    default:
+        fail (Error(RE_EXT_PROCESS_TERMINATE_FAILED, rebInteger(err), END));
     }
 #elif defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
     if (getpid() == VAL_INT32(ARG(pid))) {
@@ -2289,22 +2285,19 @@ static REBNATIVE(set_uid)
 {
     PROCESS_INCLUDE_PARAMS_OF_SET_UID;
 
-    if (setuid(VAL_INT32(ARG(uid))) < 0) {
-        switch (errno) {
-        case EINVAL:
-            fail (Error(RE_EXT_PROCESS_INVALID_UID, ARG(uid), END));
+    if (setuid(VAL_INT32(ARG(uid))) >= 0)
+        return ARG(uid);
 
-        case EPERM:
-            fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+    switch (errno) {
+    case EINVAL:
+        fail (Error(RE_EXT_PROCESS_INVALID_UID, ARG(uid), END));
 
-        default: {
-            DECLARE_LOCAL(err);
-            Init_Integer(err, errno);
-            fail (Error(RE_EXT_PROCESS_SET_UID_FAILED, err, END)); }
-        }
+    case EPERM:
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+
+    default:
+        fail (Error(RE_EXT_PROCESS_SET_UID_FAILED, rebInteger(errno), END));
     }
-
-    return ARG(uid);
 }
 
 
@@ -2329,22 +2322,19 @@ static REBNATIVE(set_euid)
 {
     PROCESS_INCLUDE_PARAMS_OF_SET_EUID;
 
-    if (seteuid(VAL_INT32(ARG(euid))) < 0) {
-        switch (errno) {
-        case EINVAL:
-            fail (Error(RE_EXT_PROCESS_INVALID_EUID, ARG(euid), END));
+    if (seteuid(VAL_INT32(ARG(euid))) >= 0)
+        return ARG(euid);
 
-        case EPERM:
-            fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+    switch (errno) {
+    case EINVAL:
+        fail (Error(RE_EXT_PROCESS_INVALID_EUID, ARG(euid), END));
 
-        default: {
-            DECLARE_LOCAL(err);
-            Init_Integer(err, errno);
-            fail (Error(RE_EXT_PROCESS_SET_EUID_FAILED, err, END)); }
-        }
+    case EPERM:
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+
+    default:
+        fail (Error(RE_EXT_PROCESS_SET_EUID_FAILED, rebInteger(errno), END));
     }
-
-    return ARG(euid);
 }
 
 
@@ -2369,22 +2359,19 @@ static REBNATIVE(set_gid)
 {
     PROCESS_INCLUDE_PARAMS_OF_SET_GID;
 
-    if (setgid(VAL_INT32(ARG(gid))) < 0) {
-        switch (errno) {
-        case EINVAL:
-            fail (Error(RE_EXT_PROCESS_INVALID_GID, ARG(gid), END));
+    if (setgid(VAL_INT32(ARG(gid))) >= 0)
+        return ARG(gid);
 
-        case EPERM:
-            fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+    switch (errno) {
+    case EINVAL:
+        fail (Error(RE_EXT_PROCESS_INVALID_GID, ARG(gid), END));
 
-        default: {
-            DECLARE_LOCAL(err);
-            Init_Integer(err, errno);
-            fail (Error(RE_EXT_PROCESS_SET_GID_FAILED, err, END)); }
-        }
+    case EPERM:
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+
+    default:
+        fail (Error(RE_EXT_PROCESS_SET_GID_FAILED, rebInteger(errno), END));
     }
-
-    return ARG(gid);
 }
 
 
@@ -2409,47 +2396,40 @@ static REBNATIVE(set_egid)
 {
     PROCESS_INCLUDE_PARAMS_OF_SET_EGID;
 
-    if (setegid(VAL_INT32(ARG(egid))) < 0) {
-        switch (errno) {
-        case EINVAL:
-            fail (Error(RE_EXT_PROCESS_INVALID_EGID, ARG(egid), END));
+    if (setegid(VAL_INT32(ARG(egid))) >= 0)
+        return ARG(egid);
 
-        case EPERM:
-            fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+    switch (errno) {
+    case EINVAL:
+        fail (Error(RE_EXT_PROCESS_INVALID_EGID, ARG(egid), END));
 
-        default: {
-            DECLARE_LOCAL(err);
-            Init_Integer(err, errno);
-            fail (Error(RE_EXT_PROCESS_SET_EGID_FAILED, err, END)); }
-        }
+    case EPERM:
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+
+    default:
+        fail (Error(RE_EXT_PROCESS_SET_EGID_FAILED, rebInteger(errno), END));
     }
-
-    return ARG(egid);
 }
 
 
 
 static void kill_process(REBINT pid, REBINT signal)
 {
-    if (kill(pid, signal) < 0) {
-        DECLARE_LOCAL(arg1);
+    if (kill(pid, signal) >= 0)
+        return; // success
 
-        switch (errno) {
-        case EINVAL:
-            Init_Integer(arg1, signal);
-            fail (Error(RE_EXT_PROCESS_INVALID_SIGNAL, arg1, END));
+    switch (errno) {
+    case EINVAL:
+        fail (Error(RE_EXT_PROCESS_INVALID_SIGNAL, rebInteger(signal), END));
 
-        case EPERM:
-            fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+    case EPERM:
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
 
-        case ESRCH:
-            Init_Integer(arg1, pid);
-            fail (Error(RE_EXT_PROCESS_NO_PROCESS, arg1, END));
+    case ESRCH:
+        fail (Error(RE_EXT_PROCESS_NO_PROCESS, rebInteger(pid), END));
 
-        default:
-            Init_Integer(arg1, errno);
-            fail (Error(RE_EXT_PROCESS_SEND_SIGNAL_FAILED, arg1, END));
-        }
+    default:
+        fail (Error(RE_EXT_PROCESS_SEND_SIGNAL_FAILED, rebInteger(errno), END));
     }
 }
 

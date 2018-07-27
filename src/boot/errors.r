@@ -36,7 +36,6 @@ Internal: [
     io-error:           {problem with IO}
     locked-series:      {locked series expansion}
     unexpected-case:    {no case in switch statement}
-    invalid-datatype:   [{invalid datatype #} :arg1]
     bad-path:           [{bad path:} :arg1]
     not-here:           [:arg1 {not supported on your system}]
     globals-full:       {no more global variable space}

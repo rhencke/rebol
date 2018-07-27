@@ -482,20 +482,15 @@ REBVAL *RL_rebRun(const void *p, ...)
     );
     va_end(va);
 
-    if (indexor == THROWN_FLAG) {
-        DECLARE_LOCAL (uncaught);
-        Move_Value(uncaught, result);
-        rebRelease(result); // ...or could GC after fail at some point
-
-        fail (Error_No_Catch_For_Throw(uncaught));
-    }
+    if (indexor == THROWN_FLAG)
+        fail (Error_No_Catch_For_Throw(result)); // no rebRelease() needed
 
     if (not IS_NULLED(result))
         return result;
 
-    // To API clients, null means void.  This provides convenience for testing
-    // a result (`if (val)`), doesn't require a rebRelease(), and interacts
-    // well with the TRY/OPT mechanic from inside of Rebol statements.
+    // Nulled cells are not returned to the API, but converted to nullptr.
+    // This provides convenience for testing a result (`if (val)`), doesn't
+    // require a rebRelease(), and can exploit the various null protocols.
 
     rebRelease(result);
     return nullptr;
@@ -715,14 +710,27 @@ REBVAL *RL_rebBlank(void)
 //
 //  rebLogic: RL_API
 //
-// !!! Uses libRed convention that it takes a long where 0 is false and all
-// other values are true, for the moment.  REBOOL is standardized to only hold
-// 0 or 1 inside the core, so taking a foreign REBOOL is risky and would
-// require normalization anyway.
+// !!! Use of bool in this file assumes compatibility between C99 stdbool and
+// C++ stdbool.  Are they compatible?
 //
-REBVAL *RL_rebLogic(long logic)
+// "There doesn't seem to be any guarantee that C int is compatible with C++
+//  int. 'Linkage from C++ to objects defined in other languages and to
+//  objects defined in C++ from other languages is implementation-defined
+//  (...) I'd expect C and C++ compilers intended to be used together (such as
+//  gcc and g++) to make their bool and int types, among others, compatible."
+// https://stackoverflow.com/q/3529831
+//
+// Take this for granted, then assume that a shim `bool` that is -not- part of
+// stdbool would be defined to be the same size as C++'s bool (if such a
+// pre-C99 system could even be used to make a C++ build at all!)
+//
+REBVAL *RL_rebLogic(bool logic)
 {
     Enter_Api();
+
+    // Use DID on the bool, in case it's a "shim bool" (e.g. just some integer
+    // type) and hence may have values other than strictly 0 or 1.
+    //
     return Init_Logic(Alloc_Value(), did logic);
 }
 
@@ -730,7 +738,7 @@ REBVAL *RL_rebLogic(long logic)
 //
 //  rebChar: RL_API
 //
-REBVAL *RL_rebChar(unsigned long codepoint)
+REBVAL *RL_rebChar(uint32_t codepoint)
 {
     Enter_Api();
 
@@ -983,7 +991,7 @@ REBVAL *RL_rebRescueWith(
 //
 //  rebDid: RL_API
 //
-REBOOL RL_rebDid(const void *p, ...) {
+bool RL_rebDid(const void *p, ...) {
     Enter_Api();
 
     va_list va;
@@ -1009,7 +1017,7 @@ REBOOL RL_rebDid(const void *p, ...) {
 // !!! If this were going to be a macro like (not (rebDid(...))) it would have
 // to be a variadic macro.  Just make a separate entry point for now.
 //
-REBOOL RL_rebNot(const void *p, ...) {
+bool RL_rebNot(const void *p, ...) {
     Enter_Api();
 
     va_list va;
@@ -1935,12 +1943,8 @@ void RL_rebFail_OS(int errnum)
         error = Error_User("FormatMessage() gave no error description");
     }
     else {
-        REBVAL *temp = rebTextW(lpMsgBuf);
+        REBVAL *message = rebTextW(lpMsgBuf);
         LocalFree(lpMsgBuf);
-
-        DECLARE_LOCAL (message);
-        Move_Value(message, temp);
-        rebRelease(temp);
 
         error = Error(RE_USER, message, END);
     }

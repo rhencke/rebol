@@ -417,89 +417,59 @@ void Collect_End(struct Reb_Collector *cl)
 //
 //  Collect_Context_Keys: C
 //
-// Collect words from a prior context.  If `check_dups` is passed in then
-// there is a check for duplicates, otherwise the keys are assumed to
-// be unique and copied in using `memcpy` as an optimization.
+// Collect keys from a prior context into BUF_COLLECT for a new context.
 //
 void Collect_Context_Keys(
     struct Reb_Collector *cl,
     REBCTX *context,
-    REBOOL check_dups
+    REBOOL check_dups // check for duplicates (otherwise assume unique)
 ){
     assert(cl->flags & COLLECT_AS_TYPESET);
 
     REBVAL *key = CTX_KEYS_HEAD(context);
 
-    // The BUF_COLLECT buffer should at least have the SYM_0 in its first slot
-    // to use as a "rootkey" in the generated keylist (and also that the first
-    // binding index we give out is at least 1, since 0 is used in the
-    // Bind_Table to mean "word not collected yet").
-    //
-    assert(cl->index >= 1);
+    assert(cl->index >= 1); // 0 in bind table means "not present"
 
-    // this is necessary for memcpy below to not overwrite memory BUF_COLLECT
-    // does not own.  (It may make the buffer capacity bigger than necessary
-    // if duplicates are found, but the actual buffer length will be set
-    // correctly by the end.)
+    // This is necessary so Blit_Cell() below isn't overwriting memory that
+    // BUF_COLLECT does not own.  (It may make the buffer capacity bigger than
+    // necessary if duplicates are found, but the actual buffer length will be
+    // set correctly by the end.)
     //
     EXPAND_SERIES_TAIL(SER(BUF_COLLECT), CTX_LEN(context));
-
-    // EXPAND_SERIES_TAIL will increase the ARR_LEN, even though we intend
-    // to overwrite it with a possibly shorter length.  Put the length back
-    // and now that the expansion is done, get the pointer to where we want
-    // to start collecting new typesets.
-    //
     SET_ARRAY_LEN_NOTERM(BUF_COLLECT, cl->index);
-    RELVAL *collected = ARR_TAIL(BUF_COLLECT);
+
+    RELVAL *collect = ARR_TAIL(BUF_COLLECT); // get address *after* expansion
 
     if (check_dups) {
-        // We're adding onto the end of the collect buffer and need to
-        // check for duplicates of what's already there.
-        //
         for (; NOT_END(key); key++) {
             REBSTR *canon = VAL_KEY_CANON(key);
-            if (not Try_Add_Binder_Index(&cl->binder, canon, cl->index)) {
-                //
-                // If we found the typeset's symbol in the bind table already
-                // then don't collect it in the buffer again.
-                //
-                continue;
-            }
+            if (not Try_Add_Binder_Index(&cl->binder, canon, cl->index))
+                continue; // don't collect if already in bind table
 
             ++cl->index;
 
-            // !!! At the moment objects do not heed the typesets in the
-            // keys.  If they did, what sort of rule should the typesets
-            // have when being inherited?
-            //
-            Move_Value(collected, key);
-            ++collected;
+            Blit_Cell(collect, key); // fast copy, matching cell formats
+            ++collect;
         }
 
-        // Increase the length of BUF_COLLLECT by how far `collect` advanced
+        // Mark length of BUF_COLLECT by how far `collect` advanced
         // (would be 0 if all the keys were duplicates...)
         //
         SET_ARRAY_LEN_NOTERM(
             BUF_COLLECT,
-            ARR_LEN(BUF_COLLECT) + (collected - ARR_TAIL(BUF_COLLECT))
+            ARR_LEN(BUF_COLLECT) + (collect - ARR_TAIL(BUF_COLLECT))
         );
     }
     else {
-        // Optimized copy of the keys.  We can use `memcpy` because these are
-        // typesets that are just 64-bit bitsets plus a symbol ID; there is
-        // no need to clone the REBVALs to give the copies new identity.
+        // Optimized add of all keys to bind table and collect buffer.
         //
-        // Add the keys and bump the length of the collect buffer after
-        // (prior to that, the tail should be on the END marker of
-        // the existing content--if any)
-        //
-        memcpy(collected, key, CTX_LEN(context) * sizeof(REBVAL));
+        for (; NOT_END(key); ++key, ++collect, ++cl->index) {
+            Blit_Cell(collect, key);
+            Add_Binder_Index(&cl->binder, VAL_KEY_CANON(key), cl->index);
+        }
         SET_ARRAY_LEN_NOTERM(
             BUF_COLLECT, ARR_LEN(BUF_COLLECT) + CTX_LEN(context)
         );
-
-        for (; NOT_END(key); ++key, ++cl->index)
-            Add_Binder_Index(&cl->binder, VAL_KEY_CANON(key), cl->index);
     }
 
     // BUF_COLLECT doesn't get terminated as its being built, but it gets

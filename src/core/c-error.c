@@ -1089,18 +1089,6 @@ REBCTX *Error_No_Arg(REBFRM *f, const RELVAL *param)
 
 
 //
-//  Error_Invalid_Datatype: C
-//
-REBCTX *Error_Invalid_Datatype(REBCNT id)
-{
-    DECLARE_LOCAL (id_value);
-
-    Init_Integer(id_value, id);
-    return Error_Invalid_Datatype_Raw(id_value);
-}
-
-
-//
 //  Error_No_Memory: C
 //
 REBCTX *Error_No_Memory(REBCNT bytes)
