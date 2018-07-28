@@ -76,7 +76,7 @@ void *OS_Open_Library(const REBVAL *path)
     //
     char *path_utf8 = rebSpellAlloc(
         "file-to-local", path, // ^-- don't use /full, see above
-        rebEnd()
+        rebEND
     );
 
     void *dll = dlopen(path_utf8, RTLD_LAZY/*|RTLD_GLOBAL*/);
@@ -84,7 +84,7 @@ void *OS_Open_Library(const REBVAL *path)
     rebFree(path_utf8);
 
     if (not dll) // dlerror() gives const char*
-        rebJUMPS ("fail", rebT(dlerror()), rebEnd());
+        rebJUMPS ("fail", rebT(dlerror()), rebEND);
 
     return dll;
   #endif

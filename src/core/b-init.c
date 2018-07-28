@@ -158,17 +158,18 @@ static void Assert_Basics(void)
 
     // Make sure tricks for "internal END markers" are lined up as expected.
     //
+    assert(SERIES_FLAG_8_IS_TRUE == CELL_FLAG_NOT_END);
     assert(
         SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE
         and SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE
         and SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL
-        and SERIES_INFO_8_IS_TRUE == CELL_FLAG_END
+        and SERIES_INFO_8_IS_FALSE == CELL_FLAG_NOT_END
     );
     assert(
         DO_FLAG_0_IS_TRUE == NODE_FLAG_NODE
         and DO_FLAG_1_IS_FALSE == NODE_FLAG_FREE
         and DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL
-        and DO_FLAG_8_IS_TRUE == CELL_FLAG_END
+        and DO_FLAG_8_IS_FALSE == CELL_FLAG_NOT_END
     );
 }
 
@@ -442,12 +443,12 @@ static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
 //
 static void Init_Action_Spec_Tags(void)
 {
-    Root_Void_Tag = rebLock(rebTag("void"), END);
-    Root_With_Tag = rebLock(rebTag("with"), END);
-    Root_Ellipsis_Tag = rebLock(rebTag("..."), END);
-    Root_Opt_Tag = rebLock(rebTag("opt"), END);
-    Root_End_Tag = rebLock(rebTag("end"), END);
-    Root_Local_Tag = rebLock(rebTag("local"), END);
+    Root_Void_Tag = rebLock(rebTag("void"), rebEND);
+    Root_With_Tag = rebLock(rebTag("with"), rebEND);
+    Root_Ellipsis_Tag = rebLock(rebTag("..."), rebEND);
+    Root_Opt_Tag = rebLock(rebTag("opt"), rebEND);
+    Root_End_Tag = rebLock(rebTag("end"), rebEND);
+    Root_Local_Tag = rebLock(rebTag("local"), rebEND);
 }
 
 static void Shutdown_Action_Spec_Tags(void)
@@ -486,7 +487,7 @@ static void Init_Action_Meta_Shim(void) {
     Init_Object(CTX_VAR(meta, 1), meta); // it's "selfish"
 
     Root_Action_Meta = Init_Object(Alloc_Value(), meta);
-    rebLock(Root_Action_Meta, END);
+    rebLock(Root_Action_Meta, rebEND);
 }
 
 static void Shutdown_Action_Meta_Shim(void) {
@@ -706,18 +707,17 @@ static REBARR *Startup_Actions(REBARR *boot_actions)
 
 
 //
-//  Startup_End_0: C
+//  Startup_End_Node: C
 //
 // We can't actually put an end value in the middle of a block, so we poke
 // this one into a program global.  It is not legal to bit-copy an END (you
 // always use SET_END), so we can make it unwritable.
 //
-static void Startup_End_0(void)
+static void Startup_End_Node(void)
 {
     Init_Endlike_Header(&PG_End_Node.header, 0); // mutate to read-only end
     TRACK_CELL_IF_DEBUG(&PG_End_Node, __FILE__, __LINE__);
-    assert(IS_END(END)); // sanity check that it took
-    assert(VAL_TYPE_OR_0(END) == REB_0); // *only* for this global END marker!
+    assert(IS_END(END_NODE)); // sanity check that it took
 }
 
 
@@ -795,7 +795,7 @@ static void Init_Root_Vars(void)
     TRASH_CELL_IF_DEBUG(&PG_Void_Value[1]);
 
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);
-    rebLock(Root_Empty_Block, END);
+    rebLock(Root_Empty_Block, rebEND);
 
     // Note: rebText() can't run yet, review.
     //
@@ -803,7 +803,7 @@ static void Init_Root_Vars(void)
     assert(CHR_CODE(UNI_AT(nulled_uni, 0)) == '\0');
     assert(UNI_LEN(nulled_uni) == 0);
     Root_Empty_String = Init_Text(Alloc_Value(), nulled_uni);
-    rebLock(Root_Empty_String, END);
+    rebLock(Root_Empty_String, rebEND);
 
     Root_Space_Char = rebChar(' ');
     Root_Newline_Char = rebChar('\n');
@@ -1224,7 +1224,7 @@ void Startup_Core(void)
     Set_Random(0);
     Startup_Interning();
 
-    Startup_End_0();
+    Startup_End_Node();
     Startup_Empty_Array();
 
     Startup_Collector();
@@ -1467,7 +1467,7 @@ static REBVAL *Startup_Mezzanine(BOOT_BLK *boot)
         true, // fully = true (error if all arguments aren't consumed)
         finish_init, // %sys-start.r function to call
         KNOWN(&boot->mezz), // boot-mezz argument
-        END
+        rebEND
     )){
         fail (Error_No_Catch_For_Throw(result));
     }

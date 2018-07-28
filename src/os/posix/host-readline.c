@@ -795,7 +795,7 @@ restart:;
               #if !defined(NDEBUG)
                 rebJUMPS (
                     "fail {ESC H: please report your system info}",
-                    rebEnd()
+                    rebEND
                 );
               #endif
                 Home_Line(term);
@@ -805,7 +805,7 @@ restart:;
               #if !defined(NDEBUG)
                 rebJUMPS (
                     "fail {ESC F: please report your system info}",
-                    rebEnd()
+                    rebEND
                 );
               #endif
                 End_Line(term);
@@ -861,7 +861,7 @@ restart:;
             //
             rebJUMPS (
                 "fail {Unexpected literal Ctrl-C in console}",
-                rebEnd()
+                rebEND
             );
 
         case 4: // CTRL-D, Synonym for Cancel Input (Windows Terminal Garbage)

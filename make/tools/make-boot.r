@@ -733,21 +733,21 @@ for-each [id val] id-list [
 
     if arity = 0 [
         params: ["void"] ;-- In C, f(void) has a distinct meaning from f()
-        args: ["END"]
+        args: ["rebEND"]
     ] else [
         params: collect [
             repeat i arity [keep unspaced ["const REBVAL *arg" i]]
         ]
         args: collect [
             repeat i arity [keep unspaced ["arg" i]]
-            keep "END"
+            keep "rebEND"
         ]
     ]
 
     e-errfuncs/emit [f-name params id args val] {
         /* $<Mold Val> */
-        static inline REBCTX *Error_${F-Name}_Raw($<Delimit Params ",">) {
-            return Error(RE_${ID}, $<Delimit Args ",">);
+        static inline REBCTX *Error_${F-Name}_Raw($<Delimit Params ", ">) {
+            return Error(RE_${ID}, $<Delimit Args ", ">);
         }
     }
     e-errfuncs/emit newline

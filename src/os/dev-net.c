@@ -289,7 +289,7 @@ DEVICE_CMD Lookup_Socket(REBREQ *req)
     rebElide("insert system/ports/system make event! [",
         "type: 'lookup",
         "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-    "]", END);
+    "]", rebEND);
 
     return DR_DONE;
 }
@@ -329,7 +329,7 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
         rebElide("insert system/ports/system make event! [",
             "type: 'connect",
             "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-        "]", END);
+        "]", rebEND);
 
         if (req->modes & RST_LISTEN)
             return Listen_Socket(req);
@@ -378,7 +378,7 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
     rebElide("insert system/ports/system make event! [",
         "type: 'connect",
         "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-    "]", END);
+    "]", rebEND);
 
     return DR_DONE;
 }
@@ -412,7 +412,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
     if (not (req->state & RSM_CONNECT) and not (req->modes & RST_UDP))
         rebJUMPS (
             "fail {RSM_CONNECT must be true in Transfer_Socket() unless UDP}",
-            END
+            rebEND
         );
 
     struct sockaddr_in remote_addr;
@@ -447,7 +447,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
                 rebElide("insert system/ports/system make event! [",
                     "type: 'wrote",
                     "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-                "]", END);
+                "]", rebEND);
 
                 return DR_DONE;
             }
@@ -475,7 +475,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
             rebElide("insert system/ports/system make event! [",
                 "type: 'read",
                 "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-            "]", END);
+            "]", rebEND);
 
             return DR_DONE;
         }
@@ -486,7 +486,7 @@ DEVICE_CMD Transfer_Socket(REBREQ *req)
             rebElide("insert system/ports/system make event! [",
                 "type: 'close",
                 "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-            "]", END);
+            "]", rebEND);
 
             return DR_DONE;
         }
@@ -582,7 +582,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
         if (not (sock->modes & RST_UDP)) // !!! other checks?
-            rebJUMPS ("fail {SET-UDP-MULTICAST used on non-UDP port}", END);
+            rebJUMPS ("fail {SET-UDP-MULTICAST used on non-UDP port}", rebEND);
 
         struct ip_mreq mreq;
         memcpy(&mreq.imr_multiaddr.s_addr, VAL_TUPLE(ARG(group)), 4);
@@ -604,7 +604,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
         if (not (sock->modes & RST_UDP)) // !!! other checks?
-            rebJUMPS ("fail {SET-UDP-TTL used on non-UDP port}", END);
+            rebJUMPS ("fail {SET-UDP-TTL used on non-UDP port}", rebEND);
 
         int ttl = VAL_INT32(ARG(ttl));
         result = setsockopt(
@@ -618,7 +618,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         break; }
 
     default:
-        rebJUMPS ("fail {Unknown socket MODIFY operation}", END);
+        rebJUMPS ("fail {Unknown socket MODIFY operation}", rebEND);
     }
 
     if (result < 0)
@@ -658,7 +658,7 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
         rebElide("insert system/ports/system make event! [",
             "type: 'accept",
             "port:", CTX_ARCHETYPE(CTX(req->port_ctx)),
-        "]", END);
+        "]", rebEND);
 
         return DR_PEND;
     }
@@ -713,7 +713,7 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
     rebElide(
         "lib/append ensure block!", CTX_VAR(listener, STD_PORT_CONNECTIONS),
         CTX_ARCHETYPE(connection), // will GC protect during run
-        END
+        rebEND
     );
 
     // We've added the new PORT! for the connection, but the client has to
@@ -722,7 +722,7 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
     rebElide("insert system/ports/system make event! [",
         "type: 'accept",
         "port:", CTX_ARCHETYPE(listener),
-    "]", END);
+    "]", rebEND);
 
     // Even though we signalled, we keep the listen pending to
     // accept additional connections.

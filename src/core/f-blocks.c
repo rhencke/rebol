@@ -55,7 +55,7 @@ REBARR *Copy_Array_At_Extra_Shallow(
     REBARR *copy = Make_Array_For_Copy(len + extra, flags, original);
 
     RELVAL *src = ARR_AT(original, index);
-    REBVAL *dest = KNOWN(ARR_HEAD(copy));
+    RELVAL *dest = ARR_HEAD(copy);
     REBCNT count = 0;
     for (; count < len; ++count, ++dest, ++src)
         Derelativize(dest, src, specifier);
@@ -267,7 +267,7 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
     REBARR *copy = Make_Array_For_Copy(len + extra, flags, original);
 
     RELVAL *src = ARR_AT(original, index);
-    REBVAL *dest = KNOWN(ARR_HEAD(copy));
+    RELVAL *dest = ARR_HEAD(copy);
     REBCNT count = 0;
     for (; count < len; ++count, ++dest, ++src)
         Derelativize(dest, src, specifier);

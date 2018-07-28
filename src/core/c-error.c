@@ -862,59 +862,48 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
         //
         const RELVAL *temp =
             IS_TEXT(message)
-                ? cast(const RELVAL*, END) // needed by gcc/g++ 2.95 (bug)
+                ? cast(const RELVAL*, END_NODE) // gcc/g++ 2.95 needs (bug)
                 : VAL_ARRAY_HEAD(message);
     #endif
 
         for (; NOT_END(temp); ++temp) {
             if (IS_GET_WORD(temp)) {
-                const REBVAL *arg = va_arg(*vaptr, const REBVAL*);
+                const void *p = va_arg(*vaptr, const void*);
 
-                // NULL is 0 in C, and so passing NULL to a va_arg list and
-                // reading it as a pointer is not legal (because it will just
-                // be an integer).  One would have to use `(REBVAL*)NULL`, so
-                // END is used instead (consistent w/variadic Do_XXX)
+                // !!! Variadic Error() predates rebNull...but should possibly
+                // be adapted to take nullptr instead of "nulled cells".  For
+                // the moment, though, it still takes nulled cells.
                 //
-                assert(arg != NULL);
+                assert(p != nullptr);
 
-                if (IS_END(arg)) {
-                    // Terminating with an end marker is optional but can help
-                    // catch errors here of too few args passed when the
-                    // template expected more substitutions.
-
-                #ifdef NDEBUG
+                if (IS_END(p)) {
+                  #ifdef NDEBUG
+                    //
                     // If the C code passed too few args in a debug build,
                     // prevent a crash in the release build by filling it.
-                    // No perfect answer if you're going to keep running...
-                    // something like ISSUE! #404 could be an homage:
                     //
-                    //     http://www.room404.com/page.php?pg=homepage
+                    p = BLANK_VALUE; // ...or perhaps ISSUE! `#404` ?
+                  #else
                     //
-                    // But we'll just use NONE.  Debug build asserts here.
-
-                    arg = BLANK_VALUE;
-                #else
-                    printf(
-                        "too few args passed for error code %d\n",
-                        cast(int, code)
-                    );
-                    assert(FALSE);
-
-                    // !!! Note that we have no way of checking for too *many*
-                    // args with C's va_list machinery
-                #endif
+                    // Termination is currently optional, but catches mistakes
+                    // (requiring it could check for too *many* arguments.)
+                    //
+                    panic ("too few args passed for error");
+                  #endif
                 }
 
-            #if !defined(NDEBUG)
-                if (IS_RELATIVE(cast(const RELVAL*, arg))) {
+              #if !defined(NDEBUG)
+                if (IS_RELATIVE(cast(const RELVAL*, p))) {
                     //
                     // Make_Error doesn't have any way to pass in a specifier,
                     // so only specific values should be used.
                     //
                     printf("Relative value passed to Make_Error()\n");
-                    panic (arg);
+                    panic (p);
                 }
-            #endif
+              #endif
+
+                const REBVAL *arg = cast(const REBVAL*, p);
 
                 Init_Typeset(key, ALL_64, VAL_WORD_SPELLING(temp));
                 Move_Value(value, arg);
@@ -976,11 +965,11 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
 //
 //     fail (Error_Something(arg1, thing_processed_to_make_arg2));
 //
-// But to make variadic calls *slightly* safer, a caller can pass END
+// But to make variadic calls *slightly* safer, a caller can pass rebEND
 // after the last argument for a double-check that won't try reading invalid
 // memory if too few arguments are given:
 //
-//     fail (Error(RE_SOMETHING, arg1, arg2, END));
+//     fail (Error(RE_SOMETHING, arg1, arg2, rebEND));
 //
 REBCTX *Error(REBCNT num, ... /* REBVAL *arg1, REBVAL *arg2, ... */)
 {
@@ -1005,7 +994,7 @@ REBCTX *Error(REBCNT num, ... /* REBVAL *arg1, REBVAL *arg2, ... */)
 REBCTX *Error_User(const char *utf8) {
     DECLARE_LOCAL (message);
     Init_Text(message, Make_String_UTF8(utf8));
-    return Error(RE_USER, message, END);
+    return Error(RE_USER, message, rebEND);
 }
 
 
@@ -1405,7 +1394,7 @@ REBCTX *Error_On_Port(REBCNT errnum, REBVAL *port, REBINT err_code)
     DECLARE_LOCAL (err_code_value);
     Init_Integer(err_code_value, err_code);
 
-    return Error(errnum, val, err_code_value, END);
+    return Error(errnum, val, err_code_value, rebEND);
 }
 
 

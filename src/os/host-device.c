@@ -206,15 +206,15 @@ REBVAL *OS_Do_Device(REBREQ *req, int command)
     req->command = command;
 
     if (req->device >= RDI_MAX)
-        rebJUMPS ("fail {Rebol Device Number Too Large}", rebEnd());
+        rebJUMPS ("fail {Rebol Device Number Too Large}", rebEND);
 
     REBDEV *dev = Devices[req->device];
     if (dev == NULL)
-        rebJUMPS ("fail {Rebol Device Not Found}", rebEnd());
+        rebJUMPS ("fail {Rebol Device Not Found}", rebEND);
 
     if (not (dev->flags & RDF_INIT)) {
         if (dev->flags & RDO_MUST_INIT)
-            rebJUMPS ("fail {Rebol Device Uninitialized}", rebEnd());
+            rebJUMPS ("fail {Rebol Device Uninitialized}", rebEND);
 
         if (
             !dev->commands[RDC_INIT]
@@ -228,7 +228,7 @@ REBVAL *OS_Do_Device(REBREQ *req, int command)
         req->command > dev->max_command
         || dev->commands[req->command] == NULL
     ){
-        rebJUMPS ("fail {Invalid Command for Rebol Device}", rebEnd());
+        rebJUMPS ("fail {Invalid Command for Rebol Device}", rebEND);
     }
 
     // !!! Currently the StdIO port is initialized before Rebol's startup
@@ -264,7 +264,7 @@ REBVAL *OS_Do_Device(REBREQ *req, int command)
 
     REBVAL *error_or_int = rebRescue(cast(REBDNG*, &Dangerous_Command), req);
 
-    if (rebDid("lib/error?", error_or_int, rebEnd())) {
+    if (rebDid("lib/error?", error_or_int, rebEND)) {
         if (dev->pending)
             Detach_Request(&dev->pending, req); // "often a no-op", it said
 
@@ -274,7 +274,7 @@ REBVAL *OS_Do_Device(REBREQ *req, int command)
         // do not want to get involved?
     }
 
-    assert(rebDid("lib/integer?", error_or_int, rebEnd()));
+    assert(rebDid("lib/integer?", error_or_int, rebEND));
 
     int result = rebUnboxInteger(error_or_int);
     rebRelease(error_or_int);
@@ -307,8 +307,8 @@ void OS_Do_Device_Sync(REBREQ *req, int command)
 {
     REBVAL *result = OS_DO_DEVICE(req, command);
     assert(result != NULL); // should be synchronous
-    if (rebDid("lib/error?", result, rebEnd()))
-        rebJUMPS ("lib/fail", result, rebEnd());
+    if (rebDid("lib/error?", result, rebEND))
+        rebJUMPS ("lib/fail", result, rebEND);
     rebRelease(result); // ignore result
 }
 

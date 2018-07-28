@@ -104,7 +104,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     if (C_STACK_OVERFLOWING(&f))
         Fail_Stack_Overflow();
 
-    assert(f->flags.bits & CELL_FLAG_END);
+    assert(not (f->flags.bits & CELL_FLAG_NOT_END));
     assert(not (f->flags.bits & NODE_FLAG_CELL));
 
     // Though we can protect the value written into the target pointer 'out'
@@ -223,8 +223,8 @@ inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
     f->source.array = EMPTY_ARRAY; // for setting HOLD flag in Push_Frame
     TRASH_POINTER_IF_DEBUG(f->source.pending);
     //
-    f->gotten = END;
-    SET_FRAME_VALUE(f, END);
+    f->gotten = nullptr;
+    SET_FRAME_VALUE(f, END_NODE);
     f->specifier = SPECIFIED;
 
     Push_Frame_Core(f);
@@ -254,7 +254,7 @@ inline static void Push_Frame_At(
 ){
     Init_Endlike_Header(&f->flags, flags);
 
-    f->gotten = END; // tells ET_WORD and ET_GET_WORD they must do a get
+    f->gotten = nullptr; // tells Do_Core() it must fetch for REB_WORD, etc.
     SET_FRAME_VALUE(f, ARR_AT(array, index));
 
     f->source.vaptr = nullptr;
@@ -278,7 +278,7 @@ inline static void Push_Frame_At(
     // (Do_Core() does not do this, but the wrappers that need it do.)
     //
     f->eval_type = REB_0;
-    f->out = m_cast(REBVAL*, END);
+    f->out = m_cast(REBVAL*, END_NODE);
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
@@ -350,8 +350,8 @@ detect_again:;
 
         // !!! In the working definition, the "topmost level" of a variadic
         // call is considered to be already evaluated...unless you ask to
-        // evaluate it further.  This is what allows `rebSpellingOf(v, END)`
-        // to work as well as `rebSpellingOf("first", v, END)`, the idea of
+        // evaluate it further.  This is what allows `rebSpellingOf(v, rebEND)`
+        // to work as well as `rebSpellingOf("first", v, rebEND)`, the idea of
         // "fetch" is the reading of the C variable V, and it would be a
         // "double eval" if that v were a WORD! that then executed.
         //
@@ -536,13 +536,13 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
   #endif
 
     // We are changing f->value, and thus by definition any f->gotten value
-    // will be invalid.  It might be "wasteful" to always set this to END,
+    // will be invalid.  It might be "wasteful" to always set this to null,
     // especially if it's going to be overwritten with the real fetch...but
     // at a source level, having every call to Fetch_Next_In_Frame have to
-    // explicitly set f->gotten to END is overkill.  Could be split into
-    // a version that just trashes f->gotten in the debug build vs. END.
+    // explicitly set f->gotten to null is overkill.  Could be split into
+    // a version that just trashes f->gotten in the debug build vs. null.
     //
-    f->gotten = END;
+    f->gotten = nullptr;
 
     const RELVAL *lookback;
 
@@ -886,7 +886,7 @@ inline static REBIXO DO_NEXT_MAY_THROW(
 ){
     DECLARE_FRAME (f);
 
-    f->gotten = END;
+    f->gotten = nullptr;
     SET_FRAME_VALUE(f, ARR_AT(array, index));
 
     if (FRM_AT_END(f)) {
@@ -940,7 +940,7 @@ inline static REBIXO Do_Array_At_Core(
 ){
     DECLARE_FRAME (f);
 
-    f->gotten = END;
+    f->gotten = nullptr;
 
     f->source.vaptr = nullptr;
     f->source.array = array;
@@ -1047,7 +1047,7 @@ inline static void Reify_Va_To_Array_In_Frame(
     }
 
     if (FRM_HAS_MORE(f)) {
-        assert(f->source.pending == END);
+        assert(f->source.pending == END_NODE);
 
         do {
             // may be void.  Preserve VALUE_FLAG_EVAL_FLIP flag.
@@ -1127,12 +1127,12 @@ inline static REBIXO Do_Va_Core(
     DECLARE_FRAME (f);
     Init_Endlike_Header(&f->flags, flags); // read by Set_Frame_Detected_Fetch
 
-    f->gotten = END; // so REB_WORD and REB_GET_WORD do their own Get_Var
+    f->gotten = nullptr; // so REB_WORD and REB_GET_WORD do their own Get_Var
 
     f->source.index = TRASHED_INDEX; // avoids warning in release build
     f->source.array = nullptr;
     f->source.vaptr = vaptr;
-    f->source.pending = END; // signal next fetch should come from va_list
+    f->source.pending = END_NODE; // signal next fetch comes from va_list
     if (opt_first)
         Set_Frame_Detected_Fetch(f, opt_first);
     else {
@@ -1327,10 +1327,10 @@ inline static REBOOL Eval_Value_Core_Throws(
 //
 // https://forum.rebol.info/t/backpedaling-on-non-block-branches/476
 //
-inline static REBOOL Run_Branch_Throws(
+inline static REBOOL Run_Branch_Core_Throws(
     REBVAL *out,
     const REBVAL *branch,
-    const REBVAL *condition
+    const REBVAL *condition // can be END or nullptr--can't be a NULLED cell!
 ){
     assert(branch != out);
     assert(condition != out);
@@ -1342,14 +1342,25 @@ inline static REBOOL Run_Branch_Throws(
     else {
         assert(IS_ACTION(branch));
 
-        const REBOOL fully = false; // arity-0 functions can ignore condition
-        if (Apply_Only_Throws(out, fully, branch, NULLIZE(condition), END))
+        if (Apply_Only_Throws(
+            out,
+            false, // !fully, e.g. arity-0 functions can ignore condition
+            branch,
+            condition, // may be an END marker, if not Run_Branch_With() case
+            rebEND // ...but if condition wasn't an END marker, we need one
+        )){
             return true;
+        }
     }
 
     return false;
 }
 
+#define Run_Branch_With_Throws(out,branch,condition) \
+    Run_Branch_Core_Throws((out), (branch), NULLIZE(condition))
+
+#define Run_Branch_Throws(out,branch) \
+    Run_Branch_Core_Throws((out), (branch), END_NODE)
 
 enum {
     REDUCE_FLAG_TRY = 1 << 0, // null should be converted to blank, vs fail

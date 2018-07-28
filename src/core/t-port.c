@@ -58,7 +58,7 @@ void MAKE_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     assert(IS_ACTION(make_port_helper));
 
     assert(not IS_NULLED(arg)); // would need to DEVOID it otherwise
-    if (Apply_Only_Throws(out, fully, make_port_helper, arg, END))
+    if (Apply_Only_Throws(out, fully, make_port_helper, arg, rebEND))
         fail (Error_No_Catch_For_Throw(out));
 
     // !!! Shouldn't this be testing for !IS_PORT( ) ?
@@ -134,7 +134,7 @@ REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
     if (REF(line))
         fail (Error_Bad_Refines_Raw());
 
-    return rebRun("write/append", D_ARG(1), D_ARG(2), END);
+    return rebRun("write/append", D_ARG(1), D_ARG(2), rebEND);
 }
 
 

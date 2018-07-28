@@ -226,7 +226,7 @@ void RL_rebFree(void *ptr)
                 "{rebFree() mismatched with allocator!}"
                 "{Did you mean to use free() instead of rebFree()?}",
             "]",
-            rebEnd()
+            rebEND
         );
     }
 
@@ -569,7 +569,7 @@ void RL_rebJUMPS(const void *p, va_list *vaptr)
 // the console, so that BACKTRACE does not look up and see a Rebol function
 // like DO on the stack.
 //
-// !!! This may be replaceable with `rebRun(rebInline(v), END);` or something
+// !!! May be replaceable with `rebRun(rebInline(v), rebEND);` or something
 // similar.
 //
 REBVAL *RL_rebRunInline(const REBVAL *array)
@@ -583,7 +583,7 @@ REBVAL *RL_rebRunInline(const REBVAL *array)
     Move_Value(group, array);
     CHANGE_VAL_TYPE_BITS(group, REB_GROUP);
 
-    return rebRun(rebEval(NAT_VALUE(eval)), group, END);
+    return rebRun(rebEval(NAT_VALUE(eval)), group, rebEND);
 }
 
 
@@ -889,19 +889,19 @@ REBVAL *RL_rebRescue(
     // now pretend to be applying a dummy native.
     //
     DECLARE_FRAME (f);
-    f->out = m_cast(REBVAL*, END); // should not be written
+    f->out = m_cast(REBVAL*, END_NODE); // should not be written
 
     REBSTR *opt_label = NULL;
     Push_Frame_At_End(f, DO_FLAG_GOTO_PROCESS_ACTION); // not FULLY_SPECIALIZED
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);
-    Begin_Action(f, opt_label, m_cast(REBVAL*, END));
+    Begin_Action(f, opt_label, m_cast(REBVAL*, END_NODE));
     assert(IS_END(f->arg));
-    f->param = END; // signal all arguments gathered
-    assert(f->refine == END); // passed to Begin_Action();
-    f->arg = m_cast(REBVAL*, END);
-    f->special = END;
+    f->param = END_NODE; // signal all arguments gathered
+    assert(f->refine == END_NODE); // passed to Begin_Action();
+    f->arg = m_cast(REBVAL*, END_NODE);
+    f->special = END_NODE;
 
     // The first time through the following code 'error' will be null, but...
     // `fail` can longjmp here, so 'error' won't be null *if* that happens!
@@ -1520,7 +1520,7 @@ REBVAL *RL_rebTag(const char *utf8)
 //
 //  rebLock: RL_API
 //
-REBVAL *RL_rebLock(REBVAL *p1, const REBVAL *p2)
+REBVAL *RL_rebLock(REBVAL *p1, const void *p2)
 {
     assert(IS_END(p2)); // Not yet variadic...
     UNUSED(p2);
@@ -1664,7 +1664,7 @@ void RL_rebUnmanage(void *p)
 //
 //  rebLengthOf: RL_API
 //
-// !!! Should this be an entry point, vs `rebUnbox("length of", x, END)`?
+// !!! Should this be an entry point, vs `rebUnbox("length of", x, rebEND)`?
 // It may be one of the cases that is called often enough to warrant it for
 // performance, but a question of the libRebol API is whether such hard-coded
 // behaviors that subvert hooks on OF (for instance) are a solid plan.
@@ -1724,12 +1724,6 @@ REBVAL *RL_rebError(const char *msg)
     Enter_Api();
     return Init_Error(Alloc_Value(), Error_User(msg));
 }
-
-
-//
-//  rebEnd: RL_API
-//
-const REBVAL *RL_rebEnd(void) {return END;}
 
 
 //
@@ -1946,7 +1940,7 @@ void RL_rebFail_OS(int errnum)
         REBVAL *message = rebTextW(lpMsgBuf);
         LocalFree(lpMsgBuf);
 
-        error = Error(RE_USER, message, END);
+        error = Error(RE_USER, message, END_NODE);
     }
 #else
     // strerror() is not thread-safe, but strerror_r is. Unfortunately, at
@@ -2008,7 +2002,7 @@ void RL_rebFail_OS(int errnum)
 
     DECLARE_LOCAL (temp);
     Init_Error(temp, error);
-    rebJUMPS ("lib/fail", temp, END);
+    rebJUMPS ("lib/fail", temp, rebEND);
 }
 
 

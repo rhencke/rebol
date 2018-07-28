@@ -75,7 +75,7 @@ REBVAL *OS_Get_Current_Exec(void)
     if (resolved_path_utf8) {
         REBVAL *result = rebRun(
             "local-to-file", rebT(resolved_path_utf8),
-            rebEnd()
+            rebEND
         );
         rebFree(path_utf8);
         free(resolved_path_utf8); // NOTE: realpath() uses malloc()
@@ -84,7 +84,7 @@ REBVAL *OS_Get_Current_Exec(void)
 
     REBVAL *result = rebRun(
         "local-to-file", rebT(path_utf8), // just return unresolved path
-        rebEnd()
+        rebEND
     );
     rebFree(path_utf8);
     return result;

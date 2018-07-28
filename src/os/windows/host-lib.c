@@ -116,7 +116,7 @@ int64_t OS_Delta_Time(int64_t base)
 {
     LARGE_INTEGER time;
     if (not QueryPerformanceCounter(&time))
-        rebJUMPS ("panic {Missing high performance timer}", rebEnd());
+        rebJUMPS ("panic {Missing high performance timer}", rebEND);
 
     if (base == 0) return time.QuadPart; // counter (may not be time)
 
@@ -141,7 +141,7 @@ REBVAL *OS_Get_Current_Dir(void)
 
     REBVAL *result = rebRun(
         "local-to-file/dir", rebR(rebTextW(path)),
-        rebEnd()
+        rebEND
     );
     rebFree(path);
     return result;
@@ -158,7 +158,7 @@ REBOOL OS_Set_Current_Dir(const REBVAL *path)
 {
     WCHAR *path_wide = rebSpellAllocW(
         "file-to-local/full", path,
-        rebEnd()
+        rebEND
     );
 
     REBOOL success = did SetCurrentDirectory(path_wide);
@@ -203,7 +203,7 @@ void *OS_Open_Library(const REBVAL *path)
     //
     WCHAR *path_utf8 = rebSpellAllocW(
         "file-to-local", path,
-        rebEnd()
+        rebEND
     );
 
     void *dll = LoadLibraryW(path_utf8);
@@ -308,7 +308,7 @@ REBVAL *OS_Get_Current_Exec(void)
 
     REBVAL *result = rebRun(
         "local-to-file", rebR(rebTextW(path)),
-        rebEnd()
+        rebEND
     );
     rebFree(path);
 

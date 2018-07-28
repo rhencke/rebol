@@ -99,7 +99,7 @@ void Startup_Frame_Stack(void)
     Prep_Stack_Cell(&f->cell);
     Init_Unreadable_Blank(&f->cell);
 
-    f->out = m_cast(REBVAL*, END); // should not be written
+    f->out = m_cast(REBVAL*, END_NODE); // should not be written
     Push_Frame_At_End(f, DO_FLAG_GOTO_PROCESS_ACTION);
 
     // It's too early to be using Make_Paramlist_Managed_May_Fail()
@@ -113,6 +113,7 @@ void Startup_Frame_Stack(void)
 
     RELVAL *archetype = ARR_HEAD(paramlist);
     RESET_VAL_HEADER(archetype, REB_ACTION);
+    archetype->extra.binding = UNBOUND;
     archetype->payload.action.paramlist = paramlist;
     TERM_ARRAY_LEN(paramlist, 1);
 
@@ -128,12 +129,12 @@ void Startup_Frame_Stack(void)
     Push_Action(f, PG_Dummy_Action, UNBOUND);
 
     REBSTR *opt_label = nullptr;
-    Begin_Action(f, opt_label, m_cast(REBVAL*, END));
+    Begin_Action(f, opt_label, m_cast(REBVAL*, END_NODE));
     assert(IS_END(f->arg));
-    f->param = END; // signal all arguments gathered
-    assert(f->refine == END); // passed to Begin_Action();
-    f->arg = m_cast(REBVAL*, END);
-    f->special = END;
+    f->param = END_NODE; // signal all arguments gathered
+    assert(f->refine == END_NODE); // passed to Begin_Action();
+    f->arg = m_cast(REBVAL*, END_NODE);
+    f->special = END_NODE;
 
     TRASH_POINTER_IF_DEBUG(f->prior); // help catch enumeration past FS_BOTTOM
     TG_Bottom_Frame = f;

@@ -447,7 +447,11 @@ REBNATIVE(test)
     INCLUDE_PARAMS_OF_TEST;
     UNUSED(ARG(value));
 
-    rebElide("print", rebI(10), "if false [print", rebInteger(30), "]", END);
+    rebElide(
+        "print", rebI(10), // won't leak, rebI() releases during variadic walk
+        "if false [print", rebInteger(30), "]", // rebInteger() leaks here
+        rebEND
+    );
 
     return nullptr;
 }

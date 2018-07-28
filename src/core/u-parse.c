@@ -181,7 +181,7 @@ static REBOOL Subparse_Throws(
     SET_END(out);
     f->out = out;
 
-    f->gotten = END;
+    f->gotten = nullptr;
     SET_FRAME_VALUE(f, VAL_ARRAY_AT(rules)); // not an END due to test above
     f->specifier = Derive_Specifier(rules_specifier, rules);
 
@@ -196,12 +196,12 @@ static REBOOL Subparse_Throws(
     Reuse_Varlist_If_Available(f);
     Push_Action(f, NAT_ACTION(subparse), UNBOUND);
 
-    Begin_Action(f, Canon(SYM_SUBPARSE), m_cast(REBVAL*, END));
+    Begin_Action(f, Canon(SYM_SUBPARSE), m_cast(REBVAL*, END_NODE));
 
-    f->param = END; // informs infix lookahead
-    f->arg = m_cast(REBVAL*, END);
-    assert(f->refine == END); // passed to Begin_Action()
-    f->special = END;
+    f->param = END_NODE; // informs infix lookahead
+    f->arg = m_cast(REBVAL*, END_NODE);
+    assert(f->refine == END_NODE); // passed to Begin_Action()
+    f->special = END_NODE;
 
   #if defined(NDEBUG)
     assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 2); // elides RETURN:

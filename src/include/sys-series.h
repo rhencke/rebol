@@ -572,7 +572,7 @@ inline static REBSER *Make_Series_Node(REBYTE wide, REBFLGS flags) {
     // Note that the optimizer *should* be able to fold together additional
     // bits for the infos in immediately subsequent SET_SER_INFO() calls.
     //
-    s->header.bits = NODE_FLAG_NODE | flags; // #1
+    s->header.bits = NODE_FLAG_NODE | flags | SERIES_FLAG_8_IS_TRUE; // #1
     TRASH_POINTER_IF_DEBUG(LINK(s).trash); // #2
     s->content.fixed.values[0].header.bits = CELL_MASK_NON_STACK_END; // #3
     TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<make>>", 0); // #4-#6

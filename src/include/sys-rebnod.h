@@ -79,7 +79,7 @@
 // There are also applications of Reb_Header as an "implicit terminator".
 // Such header patterns don't actually start valid REBNODs, but have a bit
 // pattern able to signal the IS_END() test for REBVAL.  See notes on
-// CELL_FLAG_END and NODE_FLAG_CELL.
+// CELL_FLAG_NOT_END and NODE_FLAG_CELL.
 //
 
 struct Reb_Header {
@@ -277,7 +277,7 @@ struct Reb_Header {
 //
 // In the debug build, it provides safety for all value writing routines,
 // including avoiding writing over "implicit END markers" (which have
-// CELL_FLAG_END set, but are backed only by `sizeof(struct Reb_Header)`.
+// CELL_FLAG_NOT_END clear, but backed only by `sizeof(struct Reb_Header)`.
 //
 // In the release build, it distinguishes "pairing" nodes (holders for two
 // REBVALs in the same pool as ordinary REBSERs) from an ordinary REBSER node.

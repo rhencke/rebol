@@ -203,16 +203,16 @@
         //
         if (
             (v->header.bits & (
-                CELL_FLAG_END
-                | NODE_FLAG_CELL
+                NODE_FLAG_CELL
                 | NODE_FLAG_FREE
+                | CELL_FLAG_NOT_END
                 | TRASH_FLAG_UNREADABLE_IF_DEBUG
-            )) == NODE_FLAG_CELL
+            )) == (NODE_FLAG_CELL | CELL_FLAG_NOT_END)
         ){
             return VAL_TYPE_RAW(v);
         }
 
-        if (v->header.bits & CELL_FLAG_END) {
+        if (not (v->header.bits & CELL_FLAG_NOT_END)) {
             printf("VAL_TYPE() called on END marker\n");
             panic_at (v, file, line);
         }
@@ -473,7 +473,7 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(extra);
 
     v->header.bits &= CELL_MASK_PERSIST;
-    v->header.bits |= HEADERIZE_KIND(kind) | extra;
+    v->header.bits |= HEADERIZE_KIND(kind) | extra | CELL_FLAG_NOT_END;
     return cast(REBVAL*, v);
 }
 
@@ -535,10 +535,10 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     }
 
 #define CELL_MASK_NON_STACK \
-    (NODE_FLAG_NODE | NODE_FLAG_CELL)
+    (NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_NOT_END)
 
 #define CELL_MASK_NON_STACK_END \
-    (CELL_MASK_NON_STACK | CELL_FLAG_END)
+    (NODE_FLAG_NODE | NODE_FLAG_CELL)
 
 inline static void Prep_Non_Stack_Cell_Core(
     struct Reb_Cell *c
@@ -565,7 +565,7 @@ inline static void Prep_Non_Stack_Cell_Core(
 #endif
 
 #define CELL_MASK_STACK \
-    (NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_STACK)
+    (NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_STACK | CELL_FLAG_NOT_END)
 
 inline static void Prep_Stack_Cell_Core(
     struct Reb_Cell *c
@@ -662,7 +662,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 // in sync, also).
 //
 // Ren-C changed this so that end is not a data type, but a header bit.
-// See CELL_FLAG_END for an explanation of this choice--and how it means
+// See CELL_FLAG_NOT_END for an explanation of this choice--and how it means
 // a full cell's worth of size is not needed to terminate.
 //
 // VAL_TYPE() and many other operations will panic if they are used on an END
@@ -675,11 +675,14 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 // the type of an end marker is REB_0, but one can rarely exploit that.)
 //
 
+#define END_NODE \
+    cast(const REBVAL*, &PG_End_Node) // rebEND is char*, not REBVAL* aligned!
+
 #define SET_END_Core(v) \
     (cast(REBYTE*, (v))[1] = CELL_BYTE_END) // needs to be a prepared cell
 
-#define IS_END_Core(v) \
-    (did (cast(const REBYTE*, (v))[1] & 0x80)) // faster than & CELL_FLAG_END
+#define NOT_END_Core(p) \
+    (did (cast(const REBYTE*, (p))[1] & 0x80)) // !!! vs. & CELL_FLAG_NOT_END?
 
 #if defined(DEBUG_TRACK_CELLS) || defined(DEBUG_CELL_WRITABILITY)
     inline static void SET_END_Debug(
@@ -707,42 +710,42 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 
 
 #ifdef NDEBUG
-    #define IS_END(v) \
-        IS_END_Core(v)
-
-    // Warning: Only use on global END value
-    //
-    #define VAL_TYPE_OR_0(v) \
-        VAL_TYPE_RAW(v)
+    #define NOT_END(p) \
+        NOT_END_Core(p)
 #else
-    inline static REBOOL IS_END_Debug(
-        const RELVAL *v, // Note: not all end markers have NODE_FLAG_CELL
+    inline static REBOOL NOT_END_Debug(
+        const void *p, // may not have NODE_FLAG_CELL, may be short as 2 bytes
         const char *file,
         int line
     ){
-        if (v->header.bits & NODE_FLAG_FREE) {
-            printf("IS_END() called on garbage\n");
-            panic_at(v, file, line);
+        if (cast(const REBYTE*, p)[0] & 0x40) { // e.g. NODE_FLAG_FREE
+            printf("NOT_END() called on garbage\n");
+            panic_at(p, file, line);
         }
 
-        if (not IS_END_Core(v))
-            return false;
+        if (NOT_END_Core(p)) {
+            if (cast(const REBYTE*, p)[0] & 0x01) // e.g. NODE_FLAG_CELL
+                return true;
 
-        if (v->header.bits & NODE_FLAG_CELL) {
+            printf("NOT_END() found non-END pointer that's not a cell\n");
+            panic_at(p, file, line);
+        }
+
+        if (cast(const REBYTE*, p)[0] & 0x01) { // e.g. NODE_FLAG_CELL
             //
             // The only possible cell flag that should be set on an end
             // is CELL_FLAG_PROTECTED, no other value flags should apply.
             //
             assert(
-                cast(const REBYTE*, v)[1] == CELL_BYTE_END
-                or cast(const REBYTE*, v)[1] == CELL_BYTE_PROTECTED_END
+                cast(const REBYTE*, p)[1] == CELL_BYTE_END
+                or cast(const REBYTE*, p)[1] == CELL_BYTE_PROTECTED_END
             );
         }
         else {
-            // See Init_Endlike_Header() RE: non-cells with CELL_FLAG_END
+            // Could be Init_Endlike_Header(), or 2-byte rebEND ("\x80")
         }
 
-        return true;
+        return false;
     }
 
 #ifdef CPLUSPLUS_11
@@ -753,36 +756,15 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     // !!! This could probably be tweaked to give a better message with
     // type_traits and SFINAE, these just give a linker error
     //
-    REBOOL IS_END_Debug(const_RELVAL_NO_END_PTR v, const char* file, int line);
+    REBOOL NOT_END_Debug(const_RELVAL_NO_END_PTR v, const char* file, int line);
 #endif
 
-    #define IS_END(v) \
-        IS_END_Debug((v), __FILE__, __LINE__)
-
-    inline static enum Reb_Kind VAL_TYPE_OR_0_Debug(
-        const RELVAL *v,
-        const char *file,
-        int line
-    ){
-        if (v->header.bits & CELL_FLAG_END) {
-            if (v != END) {
-                printf("VAL_TYPE_OR_0 called on end that isn't -the- END");
-                panic_at(v, file, line);
-            }
-            return VAL_TYPE_RAW(v); // asserted as REB_0 at startup for END
-        }
-
-        return VAL_TYPE_Debug(v, file, line);
-    }
-
-    // Warning: Only use on valid non-END REBVAL -or- on global END value
-    //
-    #define VAL_TYPE_OR_0(v) \
-        VAL_TYPE_OR_0_Debug((v), __FILE__, __LINE__)
+    #define NOT_END(v) \
+        NOT_END_Debug((v), __FILE__, __LINE__)
 #endif
 
-#define NOT_END(v) \
-    cast(REBOOL, not IS_END(v))
+#define IS_END(v) \
+    (not NOT_END(v))
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -839,27 +821,14 @@ inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
 //
 // Use for: "invalid conversion from 'Reb_Value*' to 'Reb_Specific_Value*'"
 
-inline static const REBVAL *const_KNOWN(const RELVAL *value) {
-    assert(IS_END(value) or IS_SPECIFIC(value));
-    return cast(const REBVAL*, value); // we asserted it's actually specific
+inline static const REBVAL *const_KNOWN(const RELVAL *v) {
+    assert(IS_END(v) or IS_SPECIFIC(v)); // END for KNOWN(ARR_HEAD()), etc.
+    return cast(const REBVAL*, v);
 }
 
-inline static REBVAL *KNOWN(RELVAL *value) {
-    //
-    // Trash is tolerated for KNOWN() because it is often used to indicate
-    // a cell which may be targeted for writing or reading, which when read
-    // can't be relative.  This only applies to mutable slots, so it's *not*
-    // tolerated in the const_KNOWN() case.
-    //
-    // Because this is called so often, though, we speed it up and don't do
-    // a full trash-validity or end-validity check.  Just check the bits.
-    //
-    assert(
-        (value->header.bits & (CELL_FLAG_END | NODE_FLAG_FREE)) != 0
-        or VAL_TYPE_RAW(value) == REB_0
-        or IS_SPECIFIC(value)
-    );
-    return cast(REBVAL*, value); // we asserted it's actually specific
+inline static REBVAL *KNOWN(RELVAL *v) {
+    assert(IS_END(v) or IS_SPECIFIC(v)); // END for KNOWN(ARR_HEAD()), etc.
+    return cast(REBVAL*, v);
 }
 
 inline static const RELVAL *const_REL(const REBVAL *v) {
@@ -947,11 +916,8 @@ inline static RELVAL *REL(REBVAL *v) {
 // interface only accepts nullptr.  Any internal code with a REBVAL* that may
 // be a "nulled cell" must translate any such cells to nullptr.
 //
-inline static const REBVAL *NULLIZE(const REBVAL *cell) {
-    return VAL_TYPE_OR_0(cell) == REB_MAX_NULLED // tolerate END as REB_0
-        ? nullptr
-        : cell;
-}
+inline static const REBVAL *NULLIZE(const REBVAL *cell)
+  { return VAL_TYPE(cell) == REB_MAX_NULLED ? nullptr : cell; }
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -1927,8 +1893,8 @@ inline static void Blit_Cell(RELVAL *out, const RELVAL *v)
 {
     assert(out != v); // usually a sign of a mistake; not worth supporting
     assert(
-        (v->header.bits & (NODE_FLAG_CELL | NODE_FLAG_NODE))
-        and not (v->header.bits & (CELL_FLAG_END | NODE_FLAG_FREE))
+        ALL_VAL_FLAGS(v, NODE_FLAG_CELL | NODE_FLAG_NODE | CELL_FLAG_NOT_END)
+        and NOT_VAL_FLAG(v, NODE_FLAG_FREE)
     );
 
     ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);

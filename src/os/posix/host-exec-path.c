@@ -104,7 +104,7 @@ REBVAL *OS_Get_Current_Exec(void)
 
     REBVAL *result = rebRun(
         "local-to-file", rebT(path_utf8),
-        rebEnd()
+        rebEND
     );
     rebFree(path_utf8);
     return result;

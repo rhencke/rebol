@@ -400,7 +400,7 @@ static int Compare_Val_Custom(void *arg, const void *v1, const void *v2)
         flags->comparator,
         flags->reverse ? v1 : v2,
         flags->reverse ? v2 : v1,
-        END
+        rebEND
     )) {
         fail (Error_No_Catch_For_Throw(result));
     }

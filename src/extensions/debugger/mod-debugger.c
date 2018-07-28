@@ -535,7 +535,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
             *last_failed, // TRUE, FALSE, BLANK! on first run, BAR! if HALT
             level, // focus-level
             frame, // focus-frame
-            END
+            rebEND
         )){
             // The REPL should not execute anything that should throw.
             // Determine graceful way of handling if it does.

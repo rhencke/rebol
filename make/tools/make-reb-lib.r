@@ -305,14 +305,37 @@ e-lib/emit {
     typedef void (CLEANUP_CFUNC)(const REBVAL*);
 
     /*
-     * Some C compilers define NULL as simply the constant 0.  This causes a
-     * problem with variadic APIs, because they will assume you are passing
-     * an `int` and not a `REBVAL*`.  So although the API uses a NULL pointer
-     * to represent the Rebol NULL, it is safer to use this macro.  (Or use
-     * C++'s `nullptr`, which is equally acceptable.)
+     * The API maps Rebol's `null` to C's 0 pointer, **but don't use NULL**.
+     * Some C compilers define NULL as simply the constant 0, which breaks
+     * use with variadic APIs...since they will interpret it as an integer
+     * and not a pointer.
+     *
+     * **It's best to use C++'s `nullptr`**, or a suitable C shim for it,
+     * e.g. `#define nullptr ((void*)0)`.  That helps avoid obscuring the
+     * fact that the Rebol API's null really is C's null, and is conditionally
+     * false.  Seeing `rebNull` in source doesn't as clearly suggest this.
+     *
+     * However, **using NULL is broken, so don't use it**.  This macro is
+     * provided in case defining `nullptr` is not an option--for some reason.
      */
     #define rebNull \
         cast(REBVAL*, 0)
+
+    /*
+     * Since a C nullptr (pointer cast of 0) is used to represent the Rebol
+     * `null` in the API, something different must be used to indicate the
+     * end of variadic input.  So a pointer to data is used where the first
+     * byte is illegal for starting UTF-8 (a continuation byte, first bit 1,
+     * second bit 0) and the second byte is 0.
+     *
+     * To Rebol, the first bit being 1 means it's a Rebol node, the second
+     * that it is not in the "free" state.  The lowest bit in the first byte
+     * clear indicates it doesn't point to a "cell".  With the second byte as
+     * a 0, this means the NOT_END bit (highest in second byte) is clear.  So
+     * this simple 2 byte string does the trick!
+     */
+    #define rebEND \
+        "\x80"
 
     /*
      * Function entry points for reb-lib (used for MACROS below):
@@ -508,7 +531,15 @@ e-cwrap/emit {
             }
             HEAP32[(va>>2)+i] = p;
         }
-        HEAP32[(va>>2)+argc] = _RL_rebEnd();
+
+        // !!! There's no rebEnd() API now, it's just a 2-byte sequence at an
+        // address; how to do this better?  See rebEND definition.
+        //
+        p = allocate(2, '', ALLOC_STACK);
+        setValue(p, 'i8', -127) // 0x80
+        setValue(p + 1, 'i8', 0) // 0x00
+        HEAP32[(va>>2)+argc] = p;
+
         return _RL_rebRun(HEAP32[va>>2], va+4);
     }
 }

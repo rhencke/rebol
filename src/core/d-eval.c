@@ -145,7 +145,7 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
     //
     assert(TG_Num_Black_Series == 0);
 
-    if (f->gotten != END) {
+    if (f->gotten) {
         assert(IS_WORD(f->value)); // may not match eval_type at this point
         assert(Get_Opt_Var_May_Fail(f->value, f->specifier) == f->gotten);
     }
@@ -214,7 +214,7 @@ void Do_Core_Expression_Checks_Debug(REBFRM *f) {
     //
     assert(
         IS_POINTER_TRASH_DEBUG(f->prior->gotten)
-        or f->prior->gotten == END
+        or not f->prior->gotten
     );
 
     // The only thing the evaluator can take for granted between evaluations

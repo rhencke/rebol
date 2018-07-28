@@ -139,7 +139,7 @@
 
 
 #define DO_FLAG_7_IS_FALSE FLAG_LEFT_BIT(7) // NOT(NODE_FLAG_CELL)
-#define DO_FLAG_8_IS_TRUE FLAG_LEFT_BIT(8) // CELL_FLAG_END
+#define DO_FLAG_8_IS_FALSE FLAG_LEFT_BIT(8) // NOT(CELL_FLAG_NOT_END)
 
 
 //=//// DO_FLAG_FULFILLING_SET ////////////////////////////////////////////=//

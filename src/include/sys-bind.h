@@ -474,7 +474,7 @@ inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
 enum {
     GETVAR_READ_ONLY = 0,
     GETVAR_MUTABLE = 1 << 0,
-    GETVAR_END_IF_UNAVAILABLE = 1 << 1
+    GETVAR_NULLPTR_IF_UNAVAILABLE = 1 << 1
 };
 
 
@@ -502,8 +502,8 @@ inline static REBVAL *Get_Var_Core(
 
         // UNBOUND: No variable location to retrieve.
 
-        if (flags & GETVAR_END_IF_UNAVAILABLE)
-            return m_cast(REBVAL*, END); // only const callers should use
+        if (flags & GETVAR_NULLPTR_IF_UNAVAILABLE)
+            return nullptr;
 
         DECLARE_LOCAL (unbound);
         Init_Word(unbound, VAL_WORD_SPELLING(any_word));
@@ -565,8 +565,8 @@ inline static REBVAL *Get_Var_Core(
     }
 
     if (GET_SER_INFO(context, SERIES_INFO_INACCESSIBLE)) {
-        if (flags & GETVAR_END_IF_UNAVAILABLE)
-            return m_cast(REBVAL*, END); // only const callers should use
+        if (flags & GETVAR_NULLPTR_IF_UNAVAILABLE)
+            return nullptr;
 
         fail (Error_No_Relative_Core(any_word));
     }
@@ -609,12 +609,12 @@ static inline const REBVAL *Get_Opt_Var_May_Fail(
     return Get_Var_Core(any_word, specifier, GETVAR_READ_ONLY);
 }
 
-static inline const REBVAL *Get_Opt_Var_Else_End(
+static inline const REBVAL *Try_Get_Opt_Var(
     const RELVAL *any_word,
     REBSPC *specifier
 ) {
     return Get_Var_Core(
-        any_word, specifier, GETVAR_READ_ONLY | GETVAR_END_IF_UNAVAILABLE
+        any_word, specifier, GETVAR_READ_ONLY | GETVAR_NULLPTR_IF_UNAVAILABLE
     );
 }
 

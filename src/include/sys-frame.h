@@ -303,7 +303,7 @@ inline static const char* Frame_Label_Or_Anonymous_UTF8(REBFRM *f) {
 }
 
 inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
-    assert(f->gotten == END); // is fetched f->value, we'd be invalidating it!
+    assert(not f->gotten); // is fetched f->value, we'd be invalidating it!
 
     if (IS_END(value))
         f->value = NULL;
@@ -454,7 +454,7 @@ inline static void Begin_Action(
     assert(
         mode == LOOKBACK_ARG
         or mode == ORDINARY_ARG
-        or mode == END
+        or mode == END_NODE
     );
     f->refine = mode;
 }
@@ -520,6 +520,7 @@ inline static void Push_Action(
     f->rootvar = cast(REBVAL*, s->content.dynamic.data);
     f->rootvar->header.bits =
         NODE_FLAG_NODE | NODE_FLAG_CELL | NODE_FLAG_STACK
+        | CELL_FLAG_NOT_END
         | CELL_FLAG_PROTECTED // cell payload/binding tweaked, not by user
         | HEADERIZE_KIND(REB_FRAME);
     f->rootvar->payload.any_context.varlist = f->varlist;
@@ -528,7 +529,7 @@ inline static void Push_Action(
 
     s->content.dynamic.len = num_args + 1;
     RELVAL *tail = ARR_TAIL(f->varlist);
-    tail->header.bits = CELL_FLAG_END | NODE_FLAG_STACK
+    tail->header.bits = NODE_FLAG_STACK // no CELL_FLAG_NOT_END
         | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
     TRACK_CELL_IF_DEBUG(tail, __FILE__, __LINE__);
 
@@ -622,7 +623,6 @@ inline static void Drop_Action(REBFRM *f) {
         CLEAR_SER_INFOS(f->varlist, SERIES_INFO_HOLD);
         assert(0 == (SER(f->varlist)->info.bits & ~( // <- note bitwise not
             SERIES_INFO_0_IS_TRUE // parallels NODE_FLAG_NODE
-            | SERIES_INFO_8_IS_TRUE // parallels CELL_FLAG_END
             | FLAG_THIRD_BYTE(255) // mask out non-dynamic-len (it's dynamic)
             | FLAG_FOURTH_BYTE(255) // mask out wide (sizeof(REBVAL))
         )));

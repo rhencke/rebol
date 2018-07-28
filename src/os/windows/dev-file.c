@@ -148,7 +148,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
 
         WCHAR *dir_wide = rebSpellAllocW(
             "file-to-local/full/wild", dir->path,
-            rebEnd()
+            rebEND
         );
         h = FindFirstFile(dir_wide, &info);
         rebFree(dir_wide);
@@ -187,7 +187,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         assert(FALSE); // see above for why this R3-Alpha code had a "hole"
         rebJUMPS (
             "fail {%dev-clipboard: NOT(got_info), please report}",
-            rebEnd()
+            rebEND
         );
     }
 
@@ -199,7 +199,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         "lib/apply 'local-to-file [",
             "path:", rebR(rebTextW(info.cFileName)),
             "dir:", rebR(rebLogic(file_req->modes & RFM_DIR)),
-        "]", rebEnd()
+        "]", rebEND
     );
 
     // !!! We currently unmanage this, because code using the API may
@@ -264,14 +264,14 @@ DEVICE_CMD Open_File(REBREQ *req)
         attrib |= FILE_ATTRIBUTE_READONLY;
 
     if (access == 0)
-        rebJUMPS ("fail {No access modes provided to Open_File()}", rebEnd());
+        rebJUMPS ("fail {No access modes provided to Open_File()}", rebEND);
 
     WCHAR *path_wide = rebSpellAllocW(
         "lib/apply 'file-to-local [",
             "path:", file->path,
             "wild:", rebR(rebLogic(req->modes & RFM_DIR)),
             "full: true",
-        "]", rebEnd()
+        "]", rebEND
     );
 
     HANDLE h = CreateFile(
@@ -490,7 +490,7 @@ DEVICE_CMD Query_File(REBREQ *req)
     //
     WCHAR *path_wide = rebSpellAllocW(
         "file-to-local/full", file->path,
-        rebEnd()
+        rebEND
     );
 
     REBOOL success = GetFileAttributesEx(
@@ -528,7 +528,7 @@ DEVICE_CMD Create_File(REBREQ *req)
 
     WCHAR *path_wide = rebSpellAllocW(
         "file-to-local/full/no-tail-slash", file->path,
-        rebEnd()
+        rebEND
     );
 
     LPSECURITY_ATTRIBUTES lpSecurityAttributes = NULL;
@@ -558,7 +558,7 @@ DEVICE_CMD Delete_File(REBREQ *req)
 
     WCHAR *path_wide = rebSpellAllocW(
         "file-to-local/full", file->path,
-        rebEnd() // leave tail slash on for directory removal
+        rebEND // leave tail slash on for directory removal
     );
 
     REBOOL success;
@@ -590,11 +590,11 @@ DEVICE_CMD Rename_File(REBREQ *req)
 
     WCHAR *from_wide = rebSpellAllocW(
         "file-to-local/full/no-tail-slash", file->path,
-        rebEnd()
+        rebEND
     );
     WCHAR *to_wide = rebSpellAllocW(
         "file-to-local/full/no-tail-slash", to,
-        rebEnd()
+        rebEND
     );
 
     REBOOL success = MoveFile(from_wide, to_wide);

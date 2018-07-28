@@ -96,9 +96,9 @@
 OSCHR *rebValSpellingAllocOS(const REBVAL *any_string)
 {
   #ifdef OS_WIDE_CHAR
-    return rebSpellAllocW(any_string, END);
+    return rebSpellAllocW(any_string, rebEND);
   #else
-    return rebSpellAlloc(any_string, END);
+    return rebSpellAlloc(any_string, rebEND);
   #endif
 }
 
@@ -123,7 +123,7 @@ void Append_OS_Str(REBVAL *dest, const void *src, REBINT len)
     REBVAL *src_str = rebSizedText(cast(const char*, src), len);
   #endif
 
-    rebElide("append", dest, src_str, END);
+    rebElide("append", dest, src_str, rebEND);
 
     rebRelease(src_str);
 }
@@ -228,7 +228,10 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebSpellAllocW("lib/file-to-local", ARG(in), END);
+        WCHAR *local_wide = rebSpellAllocW(
+            "lib/file-to-local", ARG(in),
+            rebEND
+        );
 
         hInputRead = CreateFile(
             local_wide,
@@ -275,7 +278,7 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebSpellAllocW("file-to-local", ARG(out), END);
+        WCHAR *local_wide = rebSpellAllocW("file-to-local", ARG(out), rebEND);
 
         si.hStdOutput = CreateFile(
             local_wide,
@@ -336,7 +339,7 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebSpellAllocW("file-to-local", ARG(out), END);
+        WCHAR *local_wide = rebSpellAllocW("file-to-local", ARG(out), rebEND);
 
         si.hStdError = CreateFile(
             local_wide,
@@ -874,7 +877,7 @@ int OS_Create_Process(
             close(stdin_pipe[R]);
         }
         else if (IS_FILE(ARG(in))) {
-            char *local_utf8 = rebSpellAlloc("file-to-local", ARG(in), END);
+            char *local_utf8 = rebSpellAlloc("file-to-local", ARG(in), rebEND);
 
             int fd = open(local_utf8, O_RDONLY);
 
@@ -906,7 +909,10 @@ int OS_Create_Process(
             close(stdout_pipe[W]);
         }
         else if (IS_FILE(ARG(out))) {
-            char *local_utf8 = rebSpellAlloc("file-to-local", ARG(out), END);
+            char *local_utf8 = rebSpellAlloc(
+                "file-to-local", ARG(out),
+                rebEND
+            );
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -938,7 +944,10 @@ int OS_Create_Process(
             close(stderr_pipe[W]);
         }
         else if (IS_FILE(ARG(err))) {
-            char *local_utf8 = rebSpellAlloc("file-to-local", ARG(err), END);
+            char *local_utf8 = rebSpellAlloc(
+                "file-to-local", ARG(err),
+                rebEND
+            );
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -1351,7 +1360,7 @@ cleanup:
         assert(FALSE);
         if (info != NULL)
             free(info);
-        fail (Error(RE_EXT_PROCESS_CHILD_STOPPED, END));
+        fail (Error(RE_EXT_PROCESS_CHILD_STOPPED, rebEND));
     }
     else {
         non_errno_ret = -2048; //randomly picked
@@ -1395,7 +1404,7 @@ stdin_pipe_err:
         fail (Error(
             RE_EXT_PROCESS_CHILD_TERMINATED_BY_SIGNAL,
             rebInteger(non_errno_ret),
-            END
+            rebEND
         ));
     }
     else if (non_errno_ret < 0)
@@ -1476,7 +1485,7 @@ REBNATIVE(call)
         os_input = s_cast(rebBytesAlloc(
             &size,
             ARG(in),
-            END
+            rebEND
         ));
         input_len = size;
         break; }
@@ -1486,7 +1495,7 @@ REBNATIVE(call)
         os_input = s_cast(rebBytesAlloc( // !!! why fileNAME size passed in???
             &size,
             "file-to-local", ARG(in),
-            END
+            rebEND
         ));
         input_len = size;
         break; }
@@ -1564,11 +1573,11 @@ REBNATIVE(call)
             else if (IS_FILE(param)) {
               #ifdef OS_WIDE_CHAR
                 argv[i] = rebSpellAllocW(
-                    "file-to-local", KNOWN(param), END
+                    "file-to-local", KNOWN(param), rebEND
                 );
               #else
                 argv[i] = rebSpellAlloc(
-                    "file-to-local", KNOWN(param), END
+                    "file-to-local", KNOWN(param), rebEND
                 );
               #endif
             }
@@ -1586,9 +1595,9 @@ REBNATIVE(call)
         argv = rebAllocN(const OSCHR*, (argc + 1));
 
       #ifdef OS_WIDE_CHAR
-        argv[0] = rebSpellAllocW("file-to-local", ARG(command), END);
+        argv[0] = rebSpellAllocW("file-to-local", ARG(command), rebEND);
       #else
-        argv[0] = rebSpellAlloc("file-to-local", ARG(command), END);
+        argv[0] = rebSpellAlloc("file-to-local", ARG(command), rebEND);
       #endif
 
         argv[1] = NULL;
@@ -1716,7 +1725,7 @@ REBNATIVE(get_os_browsers)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_OS_BROWSERS;
 
-    REBVAL *list = rebRun("copy []", END);
+    REBVAL *list = rebRun("copy []", rebEND);
 
   #if defined(TO_WINDOWS)
 
@@ -1769,7 +1778,7 @@ REBNATIVE(get_os_browsers)
         --len;
     }
 
-    rebElide("append", list, rebR(rebLengthedTextW(buffer, len)), END);
+    rebElide("append", list, rebR(rebLengthedTextW(buffer, len)), rebEND);
 
     rebFree(buffer);
 
@@ -1781,12 +1790,12 @@ REBNATIVE(get_os_browsers)
         "append", list, "[",
             rebT("xdg-open %1"),
             rebT("x-www-browser %1"),
-        "]", END
+        "]", rebEND
     );
 
   #else // Just try /usr/bin/open on POSIX, OS X, Haiku, etc.
 
-    rebElide("append", list, rebT("/usr/bin/open %1"), END);
+    rebElide("append", list, rebT("/usr/bin/open %1"), rebEND);
 
   #endif
 
@@ -1863,11 +1872,13 @@ static REBNATIVE(terminate)
         err = GetLastError();
         switch (err) {
         case ERROR_ACCESS_DENIED:
-            fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+            fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
         case ERROR_INVALID_PARAMETER:
-            fail (Error(RE_EXT_PROCESS_NO_PROCESS, ARG(pid), END));
+            fail (Error(RE_EXT_PROCESS_NO_PROCESS, ARG(pid), rebEND));
         default:
-            fail (Error(RE_EXT_PROCESS_TERMINATE_FAILED, rebInteger(err), END));
+            fail (Error(
+                RE_EXT_PROCESS_TERMINATE_FAILED, rebInteger(err), rebEND
+            ));
         }
     }
 
@@ -1880,9 +1891,9 @@ static REBNATIVE(terminate)
     CloseHandle(ph);
     switch (err) {
     case ERROR_INVALID_HANDLE:
-        fail (Error(RE_EXT_PROCESS_NO_PROCESS, ARG(pid), END));
+        fail (Error(RE_EXT_PROCESS_NO_PROCESS, ARG(pid), rebEND));
     default:
-        fail (Error(RE_EXT_PROCESS_TERMINATE_FAILED, rebInteger(err), END));
+        fail (Error(RE_EXT_PROCESS_TERMINATE_FAILED, rebInteger(err), rebEND));
     }
 #elif defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
     if (getpid() == VAL_INT32(ARG(pid))) {
@@ -1923,7 +1934,7 @@ static REBNATIVE(get_env)
   #ifdef TO_WINDOWS
     // Note: The Windows variant of this API is NOT case-sensitive
 
-    WCHAR *key = rebSpellAllocW(variable, END);
+    WCHAR *key = rebSpellAllocW(variable, rebEND);
 
     DWORD val_len_plus_one = GetEnvironmentVariable(key, NULL, 0);
     if (val_len_plus_one == 0) { // some failure...
@@ -1949,7 +1960,7 @@ static REBNATIVE(get_env)
   #else
     // Note: The Posix variant of this API is case-sensitive
 
-    char *key = rebSpellAlloc(variable, END);
+    char *key = rebSpellAlloc(variable, rebEND);
 
     const char* val = getenv(key);
     if (val == NULL) // key not present in environment
@@ -1997,9 +2008,9 @@ static REBNATIVE(set_env)
     Check_Security(Canon(SYM_ENVR), POL_WRITE, variable);
 
   #ifdef TO_WINDOWS
-    WCHAR *key_wide = rebSpellAllocW(variable, END);
+    WCHAR *key_wide = rebSpellAllocW(variable, rebEND);
     WCHAR *val_wide = rebSpellAllocW(
-        "opt ensure [text! blank!]", value, END
+        "opt ensure [text! blank!]", value, rebEND
     ); // may be NULL if blank! input, which will unset the envionment var
 
     if (not SetEnvironmentVariable(key_wide, val_wide))
@@ -2008,7 +2019,7 @@ static REBNATIVE(set_env)
     rebFree(val_wide);
     rebFree(key_wide);
   #else
-    char *key_utf8 = rebSpellAlloc(variable, END);
+    char *key_utf8 = rebSpellAlloc(variable, rebEND);
 
     if (IS_BLANK(value)) {
       #ifdef unsetenv
@@ -2031,7 +2042,7 @@ static REBNATIVE(set_env)
     }
     else {
       #ifdef setenv
-        char *val_utf8 = rebSpellAlloc(value, END);
+        char *val_utf8 = rebSpellAlloc(value, rebEND);
 
         if (setenv(key_utf8, val_utf8, 1) == -1) // the 1 means "overwrite"
             fail ("setenv() coudln't set environment variable");
@@ -2056,7 +2067,7 @@ static REBNATIVE(set_env)
         // not worth the work.
 
         char *key_equals_val_utf8 = rebSpellAlloc(
-            "unspaced [", variable, "{=}", value, "]", END
+            "unspaced [", variable, "{=}", value, "]", rebEND
         );
 
         if (putenv(key_equals_val_utf8) == -1) // !!! why mutable?  :-/
@@ -2290,13 +2301,13 @@ static REBNATIVE(set_uid)
 
     switch (errno) {
     case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_UID, ARG(uid), END));
+        fail (Error(RE_EXT_PROCESS_INVALID_UID, ARG(uid), rebEND));
 
     case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
 
     default:
-        fail (Error(RE_EXT_PROCESS_SET_UID_FAILED, rebInteger(errno), END));
+        fail (Error(RE_EXT_PROCESS_SET_UID_FAILED, rebInteger(errno), rebEND));
     }
 }
 
@@ -2327,13 +2338,13 @@ static REBNATIVE(set_euid)
 
     switch (errno) {
     case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_EUID, ARG(euid), END));
+        fail (Error(RE_EXT_PROCESS_INVALID_EUID, ARG(euid), rebEND));
 
     case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
 
     default:
-        fail (Error(RE_EXT_PROCESS_SET_EUID_FAILED, rebInteger(errno), END));
+        fail (Error(RE_EXT_PROCESS_SET_EUID_FAILED, rebInteger(errno), rebEND));
     }
 }
 
@@ -2364,13 +2375,13 @@ static REBNATIVE(set_gid)
 
     switch (errno) {
     case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_GID, ARG(gid), END));
+        fail (Error(RE_EXT_PROCESS_INVALID_GID, ARG(gid), rebEND));
 
     case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
 
     default:
-        fail (Error(RE_EXT_PROCESS_SET_GID_FAILED, rebInteger(errno), END));
+        fail (Error(RE_EXT_PROCESS_SET_GID_FAILED, rebInteger(errno), rebEND));
     }
 }
 
@@ -2401,13 +2412,13 @@ static REBNATIVE(set_egid)
 
     switch (errno) {
     case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_EGID, ARG(egid), END));
+        fail (Error(RE_EXT_PROCESS_INVALID_EGID, ARG(egid), rebEND));
 
     case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
 
     default:
-        fail (Error(RE_EXT_PROCESS_SET_EGID_FAILED, rebInteger(errno), END));
+        fail (Error(RE_EXT_PROCESS_SET_EGID_FAILED, rebInteger(errno), rebEND));
     }
 }
 
@@ -2420,16 +2431,16 @@ static void kill_process(REBINT pid, REBINT signal)
 
     switch (errno) {
     case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_SIGNAL, rebInteger(signal), END));
+        fail (Error(RE_EXT_PROCESS_INVALID_SIGNAL, rebInteger(signal), rebEND));
 
     case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, END));
+        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
 
     case ESRCH:
-        fail (Error(RE_EXT_PROCESS_NO_PROCESS, rebInteger(pid), END));
+        fail (Error(RE_EXT_PROCESS_NO_PROCESS, rebInteger(pid), rebEND));
 
     default:
-        fail (Error(RE_EXT_PROCESS_SEND_SIGNAL_FAILED, rebInteger(errno), END));
+        fail (Error(RE_EXT_PROCESS_SEND_SIGNAL_FAILED, rebInteger(errno), rebEND));
     }
 }
 

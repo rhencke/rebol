@@ -433,7 +433,7 @@ void Assert_Series_Core(REBSER *s)
         GET_SER_INFO(s, SERIES_INFO_0_IS_TRUE) // @ NODE_FLAG_NODE
         and NOT_SER_INFO(s, SERIES_INFO_1_IS_FALSE) // @ NOT(NODE_FLAG_FREE)
         and NOT_SER_INFO(s, SERIES_INFO_7_IS_FALSE) // @ NODE_FLAG_CELL
-        and GET_SER_INFO(s, SERIES_INFO_8_IS_TRUE) // @ CELL_FLAG_END
+        and NOT_SER_INFO(s, SERIES_INFO_8_IS_FALSE) // @ CELL_FLAG_NOT_END
     );
 
     assert(SER_LEN(s) < SER_REST(s));

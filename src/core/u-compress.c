@@ -300,7 +300,7 @@ unsigned char *Decompress_Alloc_Core(
         // (compared to the input data) is actually wrong.
         //
         buf_size = Bytes_To_U32_BE(
-            cast(REBYTE*, input) + len_in - sizeof(uint32_t)
+            cast(const REBYTE*, input) + len_in - sizeof(uint32_t)
         );
     }
     else {

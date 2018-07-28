@@ -105,7 +105,7 @@ void Startup_Typesets(void)
     // using the Root_Typesets?
     //
     Root_Typesets = Init_Block(Alloc_Value(), Pop_Stack_Values(dsp_orig));
-    rebLock(Root_Typesets, END);
+    rebLock(Root_Typesets, rebEND);
 }
 
 

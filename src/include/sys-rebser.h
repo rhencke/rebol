@@ -99,7 +99,7 @@
 // to discern between REBSER, REBVAL, and END.  If push comes to shove that
 // could be done differently, and this bit retaken.
 //
-#define SERIES_FLAG_8_IS_FALSE FLAG_LEFT_BIT(8) // NOT(NODE_FLAG_CELL)
+#define SERIES_FLAG_8_IS_TRUE FLAG_LEFT_BIT(8) // CELL_FLAG_NOT_END
 
 
 //=//// SERIES_FLAG_FIXED_SIZE ////////////////////////////////////////////=//
@@ -411,7 +411,7 @@
 
 
 #define SERIES_INFO_7_IS_FALSE FLAG_LEFT_BIT(7) // NOT(NODE_FLAG_CELL)
-#define SERIES_INFO_8_IS_TRUE FLAG_LEFT_BIT(8) // CELL_FLAG_END
+#define SERIES_INFO_8_IS_FALSE FLAG_LEFT_BIT(8) // NOT(CELL_FLAG_NOT_END)
 
 
 //=//// SERIES_INFO_AUTO_LOCKED ///////////////////////////////////////////=//
@@ -536,7 +536,7 @@
 // `info` is not the start of a "Rebol Node" (REBNODE, e.g. either a REBSER or
 // a REBVAL cell).  But in the singular case it is positioned right where
 // the next cell after the embedded cell *would* be.  Hence the bit in the
-// info corresponding to CELL_FLAG_END is set, making it conform to the
+// info corresponding to CELL_FLAG_NOT_END is clear, making it conform to the
 // "terminating array" pattern.  To lower the risk of this implicit terminator
 // being accidentally overwritten (which would corrupt link and misc), the
 // bit corresponding to NODE_FLAG_CELL is clear.
@@ -613,7 +613,7 @@ union Reb_Series_Content {
     // the series node.  This trick is accomplished via "implicit termination"
     // in the ->info bits that come directly after ->content.
     //
-    // (See CELL_FLAG_END and NODE_FLAG_CELL for how this is done.)
+    // (See CELL_FLAG_NOT_END and NODE_FLAG_CELL for how this is done.)
     //
     // We do not use a RELVAL here, because it would rule out making simple
     // assignments of one series's content to another, as the assignment
@@ -919,7 +919,7 @@ struct Reb_Series {
     // even if it is not using a dynamic allocation.
     //
     // It is purposefully positioned in the structure directly after the
-    // ->content field, because it has CELL_FLAG_END set to true.  Hence it
+    // ->content field, because it has CELL_FLAG_NOT_END clear.  Hence it
     // appears to terminate an array of values if the content is not dynamic.
     // Yet NODE_FLAG_CELL is set to false, so it is not a writable location
     // (an "implicit terminator").

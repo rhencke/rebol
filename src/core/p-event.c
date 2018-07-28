@@ -240,8 +240,8 @@ static REB_R Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 // comment said "stays queued", hence seems pending happens
             }
             else {
-                if (rebDid("lib/error?", result, END))
-                    rebJUMPS ("lib/fail", result, END);
+                if (rebDid("lib/error?", result, rebEND))
+                    rebJUMPS ("lib/fail", result, rebEND);
                 else {
                     assert(FALSE); // !!! can this happen?
                     rebRelease(result); // ignore result

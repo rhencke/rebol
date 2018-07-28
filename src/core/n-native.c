@@ -107,7 +107,7 @@ static int do_add_path(
     //
     char *local_utf8 = rebSpellAlloc(
         "file-to-local/pass/full ensure [file! text!]", const_KNOWN(path),
-        rebEnd()
+        rebEND
     );
     int ret = add(state, local_utf8);
     rebFree(local_utf8);
@@ -124,7 +124,7 @@ static void do_set_path(
     //
     char *local_utf8 = rebSpellAlloc(
         "file-to-local/pass/full ensure [file! text!]", const_KNOWN(path),
-        rebEnd()
+        rebEND
     );
     set(state, local_utf8);
     rebFree(local_utf8);
@@ -189,7 +189,7 @@ REB_R Pending_Native_Dispatcher(REBFRM *f) {
 
     assert(ACT_DISPATCHER(phase) == &Pending_Native_Dispatcher);
 
-    if (Do_Va_Throws(f->out, NAT_VALUE(compile), &natives, END))
+    if (Do_Va_Throws(f->out, NAT_VALUE(compile), &natives, rebEND))
         return f->out;
 
     // Today's COMPILE doesn't return a result on success (just fails on
@@ -572,7 +572,7 @@ REBNATIVE(compile)
     if (options) {
         char *options_utf8 = rebSpellAlloc(
             const_KNOWN(options),
-            rebEnd()
+            rebEND
         );
         tcc_set_options(state, options_utf8);
         rebFree(options_utf8);
@@ -657,10 +657,7 @@ REBNATIVE(compile)
         REBVAL *name = KNOWN(VAL_ARRAY_AT_HEAD(info, 1));
         REBVAL *stored_state = KNOWN(VAL_ARRAY_AT_HEAD(info, 2));
 
-        char *name_utf8 = rebSpellAlloc(
-            "ensure text!", name,
-            rebEnd()
-        );
+        char *name_utf8 = rebSpellAlloc("ensure text!", name, rebEND);
         void *sym = tcc_get_symbol(state, name_utf8);
         rebFree(name_utf8);
 

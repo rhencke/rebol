@@ -350,7 +350,7 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         //
         REBCTX *context = Make_Selfish_Context_Detect(
             kind, // type
-            END, // values to scan for toplevel set-words (empty)
+            END_NODE, // values to scan for toplevel set-words (empty)
             NULL // parent
         );
 
@@ -1006,7 +1006,7 @@ REBNATIVE(construct)
             target, // type
             // scan for toplevel set-words
             IS_BLANK(body)
-                ? cast(const RELVAL*, END) // needed by gcc/g++ 2.95 (bug)
+                ? cast(const RELVAL*, END_NODE) // gcc/g++ 2.95 needs (bug)
                 : VAL_ARRAY_AT(body),
             parent
         );

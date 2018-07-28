@@ -1152,7 +1152,7 @@ static void Mark_Guarded_Nodes(void)
             //
             // !!! What if someone tried to GC_GUARD a managed paired REBSER?
             //
-            if (not (node->header.bits & CELL_FLAG_END))
+            if (node->header.bits & CELL_FLAG_NOT_END)
                 Queue_Mark_Opt_Value_Deep(cast(REBVAL*, node));
         }
         else { // a series

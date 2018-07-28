@@ -70,34 +70,38 @@
 //
 
 
-// v-- BEGIN GENERAL CELL BITS HERE, third byte in the header
+// v-- BEGIN GENERAL CELL BITS HERE, second byte in the header
 
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  CELL_FLAG_END (eight from the left bit)
+//  CELL_FLAG_NOT_END (eighth from the left bit)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// If set, it means this header should signal the termination of an array
+// If clear, it means this header should signal the termination of an array
 // of REBVAL, as in `for (; NOT_END(value); ++value) {}` loops.  In this
 // sense it means the header is functioning much like a null-terminator for
 // C strings.
 //
-// *** This bit being set does not necessarily mean the header is sitting at
+// *** This bit being clear does not necessarily mean the header is sitting at
 // the head of a full REBVAL-sized slot! ***
 //
 // Some data structures punctuate arrays of REBVALs with a Reb_Header that
-// has the CELL_FLAG_END bit set, -but- the NODE_FLAG_CELL bit clear.  This
-// functions fine as the terminator for a finite number of REBVAL cells, but
-// can only be read with IS_END() with no other operations legal.
+// has the CELL_FLAG_NOT_END bit clear, -but- the NODE_FLAG_CELL bit clear.
+// This is fine as the terminator for a finite number of REBVAL cells, but
+// can only be read with IS_END()/NOT_END() with no other operations legal.
 //
 // It's only valid to overwrite end markers when NODE_FLAG_CELL is set.
 //
-#define CELL_FLAG_END \
+// !!! The reason this is in the negative sense is so that rebEnd can be
+// defined as a string literal "\x80", where the second byte is implicitly
+// a NUL terminator 0 byte.
+//
+#define CELL_FLAG_NOT_END \
     FLAG_LEFT_BIT(8)
 
-#define CELL_BYTE_END 0x80 // put in the second byte by SET_END()
+#define CELL_BYTE_END 0x00 // put in the second byte by SET_END()
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -121,7 +125,7 @@
 #define CELL_FLAG_PROTECTED \
     FLAG_LEFT_BIT(9)
 
-#define CELL_BYTE_PROTECTED_END 192 // second byte if both protected and end
+#define CELL_BYTE_PROTECTED_END 0x40 // second byte if both protected and end
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -316,15 +320,16 @@ inline static void Init_Endlike_Header(
 ){
     // Endlike headers have the leading bits `10` so they don't look like a
     // UTF-8 string.  This makes them look like an "in use node", and they
-    // of course have CELL_FLAG_END set.  They do not have NODE_FLAG_CELL
+    // of course have CELL_FLAG_NOT_END clear.  They don't have NODE_FLAG_CELL
     // set, however, which prevents value writes to them.
     //
     assert(
         0 == (bits & (
-            NODE_FLAG_NODE | NODE_FLAG_FREE | CELL_FLAG_END | NODE_FLAG_CELL
+            NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+            | CELL_FLAG_NOT_END
         ))
     );
-    alias->bits = bits | NODE_FLAG_NODE | CELL_FLAG_END;
+    alias->bits = bits | NODE_FLAG_NODE;
 }
 
 
@@ -1016,7 +1021,7 @@ struct Reb_Cell
             // The static checking only affects IS_END(), there's no
             // compile-time check that can determine if an END is assigned.
             //
-            assert(not rhs or not (rhs->header.bits & CELL_FLAG_END));
+            assert(not rhs or (rhs->header.bits & CELL_FLAG_NOT_END));
 
             p = rhs;
             return rhs;

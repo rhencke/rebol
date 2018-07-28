@@ -171,7 +171,7 @@ void Traced_Do_Hook(REBFRM * const f)
                 Debug_Fmt_("%-02d: %50r", FRM_INDEX(f), f->value);
 
             if (IS_WORD(f->value) || IS_GET_WORD(f->value)) {
-                const RELVAL *var = Get_Opt_Var_Else_End(
+                const RELVAL *var = Try_Get_Opt_Var(
                     f->value,
                     f->specifier
                 );

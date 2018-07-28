@@ -373,7 +373,7 @@ REBNATIVE(do)
             NULLIZE(ARG(arg)), // nulled cells => nullptr for API
             NULLIZE(ARG(var)), // nulled cells => nullptr for API
             REF(only) ? TRUE_VALUE : FALSE_VALUE,
-            END
+            rebEND
         )){
             return D_OUT;
         }

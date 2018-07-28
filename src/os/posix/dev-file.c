@@ -161,7 +161,7 @@ static int Get_File_Info(struct devreq_file *file)
     //
     char *path_utf8 = rebSpellAlloc(
         "file-to-local/full", file->path,
-        rebEnd()
+        rebEND
     );
 
     struct stat info;
@@ -239,7 +239,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
 
     char *dir_utf8 = rebSpellAlloc(
         "file-to-local", dir->path,
-        rebEnd() // "wild" append of * not necessary on POSIX
+        rebEND // "wild" append of * not necessary on POSIX
     );
 
     // If no dir handle, open the dir:
@@ -311,7 +311,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         "lib/apply 'local-to-file [",
             "path:", rebT(file_utf8),
             "dir:", rebR(rebLogic(file_req->modes & RFM_DIR)),
-        "]", rebEnd()
+        "]", rebEND
     );
 
     // !!! We currently unmanage this, because code using the API may
@@ -378,7 +378,7 @@ DEVICE_CMD Open_File(REBREQ *req)
             "path:", file->path,
             "wild:", rebR(rebLogic(req->modes & RFM_DIR)), // !!! necessary?
             "full: true"
-        "]", rebEnd()
+        "]", rebEND
     );
 
     struct stat info;
@@ -524,7 +524,7 @@ DEVICE_CMD Create_File(REBREQ *req)
 
     char *path_utf8 = rebSpellAlloc(
         "file-to-local/full/no-tail-slash", file->path,
-        rebEnd()
+        rebEND
     );
 
     int mkdir_result = mkdir(path_utf8, 0777);
@@ -552,7 +552,7 @@ DEVICE_CMD Delete_File(REBREQ *req)
 
     char *path_utf8 = rebSpellAlloc(
         "file-to-local/full", file->path,
-        rebEnd() // leave tail slash on for directory removal
+        rebEND // leave tail slash on for directory removal
     );
 
     int removal_result;
@@ -584,11 +584,11 @@ DEVICE_CMD Rename_File(REBREQ *req)
 
     char *from_utf8 = rebSpellAlloc(
         "file-to-local/full/no-tail-slash", file->path,
-        rebEnd()
+        rebEND
     );
     char *to_utf8 = rebSpellAlloc(
         "file-to-local/full/no-tail-slash", to,
-        rebEnd()
+        rebEND
     );
 
     int rename_result = rename(from_utf8, to_utf8);

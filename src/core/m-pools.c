@@ -1263,8 +1263,8 @@ void Assert_Pointer_Detection_Working(void)
 {
     uintptr_t cell_flag = NODE_FLAG_CELL;
     assert(FIRST_BYTE(cell_flag) == 0x1);
-    uintptr_t end_flag = CELL_FLAG_END;
-    assert(SECOND_BYTE(end_flag) == 0x80);
+    uintptr_t protected_flag = CELL_FLAG_PROTECTED;
+    assert(SECOND_BYTE(protected_flag) == 0x40);
 
     assert(Detect_Rebol_Pointer("") == DETECTED_AS_UTF8);
     assert(Detect_Rebol_Pointer("asdf") == DETECTED_AS_UTF8);
@@ -1280,20 +1280,22 @@ void Assert_Pointer_Detection_Working(void)
     // form of trashing than TRASH_CELL_IF_DEBUG().
     //
     DECLARE_LOCAL (freed_cell);
-    freed_cell->header.bits = NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL;
+    freed_cell->header.bits = NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+        | CELL_FLAG_NOT_END;
     assert(Detect_Rebol_Pointer(freed_cell) == DETECTED_AS_FREED_CELL);
 
     DECLARE_LOCAL (end_cell);
     SET_END(end_cell);
     assert(Detect_Rebol_Pointer(end_cell) == DETECTED_AS_END);
-    assert(Detect_Rebol_Pointer(END) == DETECTED_AS_END);
+    assert(Detect_Rebol_Pointer(END_NODE) == DETECTED_AS_END);
+    assert(Detect_Rebol_Pointer(rebEND) == DETECTED_AS_END);
 
     // It's not generally known that an Init_Endlike_Header() header will
-    // not be managed.  But the canon END is not managed, and end cells can
-    // be either managed or unmanaged...but by default, not.
+    // not be managed.  But the canon END_NODE is not managed, and end cells
+    // can be either managed or unmanaged...but by default, not.
     //
     assert(not (end_cell->header.bits & NODE_FLAG_MANAGED));
-    assert(not (END->header.bits & NODE_FLAG_MANAGED));
+    assert(not (END_NODE->header.bits & NODE_FLAG_MANAGED));
 
     REBSER *series = Make_Series(1, sizeof(char));
     assert(Detect_Rebol_Pointer(series) == DETECTED_AS_SERIES);

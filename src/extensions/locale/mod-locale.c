@@ -72,7 +72,7 @@ REBNATIVE(locale)
             "territory*", rebI(LOCALE_SCOUNTRY),
         "]", cat, "else [",
             "fail [{Invalid locale category:}", rebUneval(cat), "]",
-        "]", END // !!! review using fail with ID-based errors
+        "]", rebEND // !!! review using fail with ID-based errors
     );
 
     // !!! MS docs say: "For interoperability reasons, the application should
@@ -160,16 +160,16 @@ REBNATIVE(setlocale)
           #endif
 
             "time", rebI(LC_TIME),
-        "]", END
+        "]", rebEND
     );
 
-    int cat = rebUnbox("-1 unless select", map, ARG(category), END);
+    int cat = rebUnbox("-1 unless select", map, ARG(category), rebEND);
     rebRelease(map);
 
     if (cat == -1)
-        fail (Error(RE_EXT_LOCALE_INVALID_CATEGORY, ARG(category), END));
+        fail (Error(RE_EXT_LOCALE_INVALID_CATEGORY, ARG(category), rebEND));
 
-    char *value_utf8 = rebSpellAlloc(ARG(value), END);
+    char *value_utf8 = rebSpellAlloc(ARG(value), rebEND);
     const char *result = setlocale(cat, value_utf8);
     rebFree(value_utf8);
 

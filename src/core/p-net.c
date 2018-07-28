@@ -163,8 +163,8 @@ static REB_R Transport_Actor(
                 DROP_GC_GUARD(temp);
 
                 assert(l_result != NULL);
-                if (rebDid("lib/error?", l_result, END))
-                    rebJUMPS ("lib/fail", l_result, END);
+                if (rebDid("lib/error?", l_result, rebEND))
+                    rebJUMPS ("lib/fail", l_result, rebEND);
                 rebRelease(l_result); // ignore result
 
                 return port;
@@ -307,8 +307,8 @@ static REB_R Transport_Actor(
             // Request pending
         }
         else {
-            if (rebDid("lib/error?", result, END))
-                rebJUMPS ("lib/fail", result, END);
+            if (rebDid("lib/error?", result, rebEND))
+                rebJUMPS ("lib/fail", result, rebEND);
 
             // a note said "recv CAN happen immediately"
             //
@@ -404,8 +404,8 @@ static REB_R Transport_Actor(
             // Write pending !!! old comment said "do we get here?"
         }
         else {
-            if (rebDid("lib/error?", result, END))
-                rebJUMPS ("lib/fail", result, END);
+            if (rebDid("lib/error?", result, rebEND))
+                rebJUMPS ("lib/fail", result, rebEND);
 
             // Note here said "send CAN happen immediately"
             //
@@ -434,7 +434,7 @@ static REB_R Transport_Actor(
             "lib/take*/part",
                 CTX_VAR(ctx, STD_PORT_CONNECTIONS),
                 NULLIZE(ARG(limit)),
-                END
+                rebEND
         ); }
 
     case SYM_PICK: {
@@ -469,8 +469,8 @@ static REB_R Transport_Actor(
             // Asynchronous connect, this happens in TCP_Actor
         }
         else {
-            if (rebDid("lib/error?", result, END))
-                rebJUMPS ("lib/fail", result, END);
+            if (rebDid("lib/error?", result, rebEND))
+                rebJUMPS ("lib/fail", result, rebEND);
             else {
                 // This can happen with UDP, which is connectionless so it
                 // returns DR_DONE.

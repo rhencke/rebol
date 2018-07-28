@@ -335,7 +335,7 @@ REBVAL *Run_Sandboxed_Code(REBVAL *group_or_block) {
     if (not result)
         return result; // ownership will be proxied
 
-    return rebRun("[", rebR(result), "]", END); // ownership will be proxied
+    return rebRun("[", rebR(result), "]", rebEND); // ownership gets proxied
 }
 
 
@@ -360,7 +360,7 @@ int main(int argc, char *argv_ansi[])
     // That way the command line argument processing can be taken care of by
     // PARSE in the HOST-STARTUP user function, instead of C code!
     //
-    REBVAL *argv_block = rebRun("lib/copy []", END);
+    REBVAL *argv_block = rebRun("lib/copy []", rebEND);
 
   #ifdef TO_WINDOWS
     //
@@ -381,7 +381,7 @@ int main(int argc, char *argv_ansi[])
         // Note: rebTextW() currently only supports UCS-2, so codepoints that
         // need more than two bytes to be represented will cause a failure.
         //
-        rebElide("append", argv_block, rebR(rebTextW(argv_ucs2[i])), END);
+        rebElide("append", argv_block, rebR(rebTextW(argv_ucs2[i])), rebEND);
     }
   #else
     // Just take the ANSI C "char*" args...which should ideally be in UTF8.
@@ -391,7 +391,7 @@ int main(int argc, char *argv_ansi[])
         if (argv_ansi[i] == nullptr)
             continue; // !!! Comment here said "shell bug" (?)
 
-        rebElide("append", argv_block, rebT(argv_ansi[i]), END);
+        rebElide("append", argv_block, rebT(argv_ansi[i]), rebEND);
     }
   #endif
 
@@ -412,11 +412,11 @@ int main(int argc, char *argv_ansi[])
     // Use TRANSCODE to get a BLOCK! from the BINARY!, then release the binary
     //
     REBVAL *host_code = rebRun(
-        "lib/transcode/file", host_bin, "%tmp-host-start.inc", END
+        "lib/transcode/file", host_bin, "%tmp-host-start.inc", rebEND
     );
     rebElide(
         "lib/ensure :lib/empty? lib/take/last", host_code, // empty bin @ tail
-        END
+        rebEND
     );
     rebRelease(host_bin);
 
@@ -461,13 +461,13 @@ int main(int argc, char *argv_ansi[])
     // way that would work well for users, by leveraging modules or some other
     // level of abstraction, where issues like this would be taken care of.
     //
-    rebElide("lib/lock", host_code, END);
+    rebElide("lib/lock", host_code, rebEND);
 
     REBVAL *host_console = rebRunInline(host_code); // console is an ACTION!
     rebRelease(host_code);
 
-    if (rebNot("lib/action?", host_console, END))
-        rebJUMPS ("panic-value", host_console, END);
+    if (rebNot("lib/action?", host_console, rebEND))
+        rebJUMPS ("panic-value", host_console, rebEND);
 
     // The config file used by %make.r marks extensions to be built into the
     // executable (`+`), built as a dynamic library (`*`), or not built at
@@ -492,7 +492,8 @@ int main(int argc, char *argv_ansi[])
     //
     REBVAL *exec_path = OS_GET_CURRENT_EXEC();
     rebElide(
-        "system/options/boot: lib/ensure [blank! file!]", rebR(exec_path), END
+        "system/options/boot: lib/ensure [blank! file!]", rebR(exec_path),
+        rebEND
     );
 
     // !!! Previously the C code would call a separate startup function
@@ -513,7 +514,7 @@ int main(int argc, char *argv_ansi[])
     // Note that `code`, and `result` have to be released each loop ATM.
     //
     REBVAL *code = rebBlank();
-    REBVAL *result = rebRun("[", argv_block, extensions, "]", END);
+    REBVAL *result = rebRun("[", argv_block, extensions, "]", rebEND);
 
     // References in the `result` BLOCK! keep the underlying series alive now
     //
@@ -556,13 +557,13 @@ int main(int argc, char *argv_ansi[])
                 host_console, // action! that takes 3 args, run it
                 rebUneval(code), // group!/block! executed prior (or blank!)
                 rebUneval(result), // prior result in a block, or error/null
-            "]", END
+            "]", rebEND
         );
 
         rebRelease(code);
         rebRelease(result);
 
-        if (rebDid("lib/error?", trapped, END)) {
+        if (rebDid("lib/error?", trapped, rebEND)) {
             //
             // If the HOST-CONSOLE function has any of its own implementation
             // that could raise an error (or act as an uncaught throw) it
@@ -574,21 +575,21 @@ int main(int argc, char *argv_ansi[])
             // it might have generated (a BLOCK!) asking itself to crash.
 
             if (no_recover)
-                rebJUMPS("lib/panic", trapped, END);
+                rebJUMPS("lib/panic", trapped, rebEND);
 
-            code = rebRun("[#host-console-error]", END);
+            code = rebRun("[#host-console-error]", rebEND);
             result = trapped;
             no_recover = TRUE; // no second chances until user code runs
             goto recover;
         }
 
-        code = rebRun("lib/first", trapped, END); // entrap []'s the output
+        code = rebRun("lib/first", trapped, rebEND); // entrap []'s the output
         rebRelease(trapped); // don't need the outer block any more
 
-        if (rebDid("lib/integer?", code, END))
+        if (rebDid("lib/integer?", code, rebEND))
             break; // when HOST-CONSOLE returns INTEGER! it means an exit code
 
-        REBOOL is_console_instruction = rebDid("lib/block?", code, END);
+        REBOOL is_console_instruction = rebDid("lib/block?", code, rebEND);
 
         // Restore custom DO and APPLY hooks, but only if running a GROUP!.
         // (We do not want to trace/debug/instrument Rebol code that the

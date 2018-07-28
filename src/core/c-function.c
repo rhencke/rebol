@@ -1665,7 +1665,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     Init_Frame(&f->cell, c); // user may DO this, or not...
 
     const REBOOL fully = true;
-    if (Apply_Only_Throws(f->out, fully, outer, KNOWN(&f->cell), END))
+    if (Apply_Only_Throws(f->out, fully, outer, KNOWN(&f->cell), rebEND))
         return f->out;
 
     return f->out;

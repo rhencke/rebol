@@ -448,7 +448,8 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
 
     REBVAL *single = cast(REBVAL*, &stub->content.fixed);
     single->header.bits =
-        NODE_FLAG_NODE | NODE_FLAG_CELL | HEADERIZE_KIND(REB_FRAME);
+        NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_NOT_END
+        | HEADERIZE_KIND(REB_FRAME);
     INIT_BINDING(single, VAL_BINDING(rootvar));
     single->payload.any_context.varlist = ARR(stub);
     TRASH_POINTER_IF_DEBUG(single->payload.any_context.phase);

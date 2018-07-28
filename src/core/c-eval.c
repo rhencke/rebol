@@ -494,16 +494,16 @@ reevaluate:;
         // to quote what's on its right!
         //
         if (f->eval_type == REB_WORD) {
-            if (current_gotten == END)
-                current_gotten = Get_Opt_Var_Else_End(current, f->specifier);
+            if (not current_gotten)
+                current_gotten = Try_Get_Opt_Var(current, f->specifier);
             else
                 assert(
-                    current_gotten
-                    == Get_Opt_Var_Else_End(current, f->specifier)
+                    current_gotten == Try_Get_Opt_Var(current, f->specifier)
                 );
 
             if (
-                VAL_TYPE_OR_0(current_gotten) == REB_ACTION // END is REB_0
+                current_gotten
+                and VAL_TYPE(current_gotten) == REB_ACTION
                 and NOT_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
                 and GET_VAL_FLAG(current_gotten, ACTION_FLAG_QUOTES_FIRST_ARG)
             ){
@@ -563,15 +563,16 @@ reevaluate:;
             // For now, see comments in the WORD branch above for the
             // cloned mechanic.
 
-            assert(current_gotten == END); // no caching for paths
+            assert(not current_gotten); // no caching for paths
 
             REBSPC *derived = Derive_Specifier(f->specifier, current);
 
             RELVAL *path_at = VAL_ARRAY_AT(current);
-            const REBVAL *var_at = Get_Opt_Var_Else_End(path_at, derived);
+            const REBVAL *var_at = Try_Get_Opt_Var(path_at, derived);
 
             if (
-                VAL_TYPE_OR_0(var_at) == REB_ACTION // END is REB_0
+                var_at
+                and VAL_TYPE(var_at) == REB_ACTION
                 and NOT_VAL_FLAG(var_at, VALUE_FLAG_ENFIXED)
                 and GET_VAL_FLAG(var_at, ACTION_FLAG_QUOTES_FIRST_ARG)
             ){
@@ -579,15 +580,15 @@ reevaluate:;
             }
         }
 
-        f->gotten = Get_Opt_Var_Else_End(f->value, f->specifier);
+        f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
 
-        if (
-            VAL_TYPE_OR_0(f->gotten) == REB_ACTION // END is REB_0
+        if (f->gotten and (
+            VAL_TYPE(f->gotten) == REB_ACTION
             and ALL_VAL_FLAGS(
                 f->gotten,
                 VALUE_FLAG_ENFIXED | ACTION_FLAG_QUOTES_FIRST_ARG
             )
-        ){
+        )){
             Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
             Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
 
@@ -749,7 +750,7 @@ reevaluate:;
                     if (DSP != f->dsp_orig)
                         goto next_pickup;
 
-                    f->param = END; // done, so f->param need not be in facade
+                    f->param = END_NODE; // don't need f->param in facade
                     goto arg_loop_and_any_pickups_done;
                 }
 
@@ -978,10 +979,8 @@ reevaluate:;
                 //
                 f->refine = ORDINARY_ARG;
 
-                if (
-                    (f->out->header.bits & CELL_FLAG_END)
-                    or (f->flags.bits & DO_FLAG_BARRIER_HIT)
-                ){
+                if (IS_END(f->out) or (f->flags.bits & DO_FLAG_BARRIER_HIT)) {
+                    //
                     // Seeing an END in the output slot could mean that there
                     // was really "nothing" to the left, or it could be a
                     // consequence of a frame being in an argument gathering
@@ -1459,7 +1458,7 @@ reevaluate:;
         // fetches that were done for lookahead are potentially invalidated
         // by every function call.
         //
-        f->gotten = END;
+        f->gotten = nullptr;
 
         // Cases should be in enum order for jump-table optimization
         // (R_FALSE first, R_TRUE second, etc.)
@@ -1661,7 +1660,7 @@ reevaluate:;
 
             current = &f->cell;
             f->eval_type = VAL_TYPE(current);
-            current_gotten = END;
+            current_gotten = nullptr;
 
             // The f->gotten (if any) was the fetch for f->value, not what we
             // just put in current.  We conservatively clear this cache:
@@ -1671,7 +1670,7 @@ reevaluate:;
             // might be possible to finesse use of this cache and clear it
             // only if such cases occur, but for now don't take chances.
             //
-            assert(f->gotten == END);
+            assert(not f->gotten);
 
             Drop_Action(f);
             goto reevaluate; // we don't move index!
@@ -1740,7 +1739,7 @@ reevaluate:;
                 true, // fully = true
                 fun,
                 NULLIZE(KNOWN(&f->cell)), // nulled cell => nullptr for API
-                END
+                rebEND
             )){
                 goto abort_action;
             }
@@ -1768,7 +1767,7 @@ reevaluate:;
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_WORD:
-        if (current_gotten == END)
+        if (not current_gotten)
             current_gotten = Get_Opt_Var_May_Fail(current, f->specifier);
 
         if (IS_ACTION(current_gotten)) { // before IS_NULLED() is common case
@@ -1946,7 +1945,7 @@ reevaluate:;
         // The f->gotten we fetched for lookahead could become invalid when
         // we run the arbitrary code here.  Have to lose the cache.
         //
-        f->gotten = END;
+        f->gotten = nullptr;
 
         REBSPC *derived = Derive_Specifier(f->specifier, current);
         if (Do_At_Throws(
@@ -2431,8 +2430,8 @@ post_switch:;
     // First things first, we fetch the WORD! (if not previously fetched) so
     // we can see if it looks up to any kind of ACTION! at all.
 
-    if (f->gotten == END)
-        f->gotten = Get_Opt_Var_Else_End(f->value, f->specifier);
+    if (not f->gotten)
+        f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
     else {
         // !!! a particularly egregious hack in EVAL-ENFIX lets us simulate
         // enfix for a function whose value is not enfix.  This means the
@@ -2441,7 +2440,7 @@ post_switch:;
         // if f->deferred is precisely equal to BLANK_VALUE.
         //
         assert(
-            f->gotten == Get_Opt_Var_Else_End(f->value, f->specifier)
+            f->gotten == Try_Get_Opt_Var(f->value, f->specifier)
             or (f->prior->deferred == BLANK_VALUE) // !!! hack
         );
     }
@@ -2452,19 +2451,22 @@ post_switch:;
     // continues the evaluator loop if DO_FLAG_TO_END, but will stop with
     // `goto finished` if not (DO_FLAG_TO_END).
     //
-    // We fall back on word-like "dispatch" even if f->gotten == END (unset or
+    // Fall back on word-like "dispatch" even if f->gotten is null (unset or
     // unbound word).  It'll be an error, but that code path raises it for us.
 
     if (
-        VAL_TYPE_OR_0(f->gotten) != REB_ACTION // END is REB_0 (UNBOUND)
+        not f->gotten
+        or VAL_TYPE(f->gotten) != REB_ACTION
         or NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED)
     ){
         if (not (f->flags.bits & DO_FLAG_TO_END)) {
             //
             // Since it's a new expression, a DO/NEXT doesn't want to run it
             // *unless* it's "invisible"
+            //
             if (
-                VAL_TYPE_OR_0(f->gotten) != REB_ACTION
+                not f->gotten
+                or VAL_TYPE(f->gotten) != REB_ACTION
                 or NOT_VAL_FLAG(f->gotten, ACTION_FLAG_INVISIBLE)
             ){
                 goto finished;
@@ -2494,7 +2496,8 @@ post_switch:;
             f->flags.bits |= DO_FLAG_NO_LOOKAHEAD; // might have set already
         }
         else if (
-            VAL_TYPE_OR_0(f->gotten) == REB_ACTION
+            f->gotten
+            and VAL_TYPE(f->gotten) == REB_ACTION
             and GET_VAL_FLAG(f->gotten, ACTION_FLAG_INVISIBLE)
         ){
             // Even if not a DO/NEXT, we do not want START_NEW_EXPRESSION on
@@ -2513,7 +2516,7 @@ post_switch:;
         }
 
         current = f->value;
-        current_gotten = f->gotten; // if END, the word will error
+        current_gotten = f->gotten; // if nullptr, the word will error
 
         Fetch_Next_In_Frame(f);
 

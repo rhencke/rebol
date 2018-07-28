@@ -165,7 +165,7 @@ REBNATIVE(request_file_p)
         //
         DECLARE_LOCAL (hack);
         Init_Text(hack, ser);
-        lpstrFilter = rebSpellAllocW(hack, END);
+        lpstrFilter = rebSpellAllocW(hack, rebEND);
     }
     else {
         // Currently the implementation of default filters is in usermode,
@@ -194,9 +194,9 @@ REBNATIVE(request_file_p)
 
     WCHAR *lpstrInitialDir;
     if (REF(file)) {
-        REBCNT path_len = rebUnbox("length of", ARG(name), END);
+        REBCNT path_len = rebUnbox("length of", ARG(name), rebEND);
         WCHAR *path = rebSpellAllocW(
-            "file-to-local/full", ARG(name), END
+            "file-to-local/full", ARG(name), rebEND
         );
 
         // If the last character doesn't indicate a directory, that means
@@ -229,7 +229,7 @@ REBNATIVE(request_file_p)
 
     WCHAR *lpstrTitle;
     if (REF(title))
-        lpstrTitle = rebSpellAllocW(ARG(text), END);
+        lpstrTitle = rebSpellAllocW(ARG(text), rebEND);
     else
         lpstrTitle = NULL; // Will use "Save As" or "Open" defaults
     ofn.lpstrTitle = lpstrTitle;
@@ -275,7 +275,7 @@ REBNATIVE(request_file_p)
         if (not REF(multi)) {
             REBVAL *solo = rebRun(
                 "local-to-file", rebR(rebTextW(ofn.lpstrFile)),
-                END
+                rebEND
             );
             DS_PUSH_TRASH;
             Move_Value(DS_TOP, solo);
@@ -293,7 +293,7 @@ REBNATIVE(request_file_p)
                 //
                 REBVAL *solo = rebRun(
                     "local-to-file", rebR(rebTextW(item)),
-                    END
+                    rebEND
                 );
                 DS_PUSH_TRASH;
                 Move_Value(DS_TOP, solo);
@@ -311,15 +311,15 @@ REBNATIVE(request_file_p)
                 //
                 REBVAL *dir = rebRun(
                     "local-to-file/dir", rebR(rebTextW(item)),
-                    END
+                    rebEND
                 );
 
                 item += item_len + 1; // next
 
-                REBCNT dir_len = rebUnbox("length of", dir, END);
+                REBCNT dir_len = rebUnbox("length of", dir, rebEND);
                 WCHAR *dir_wide = rebSpellAllocW(
                     "file-to-local/full", dir,
-                    END
+                    rebEND
                 );
 
                 while ((item_len = wcslen(item)) != 0) {
@@ -332,7 +332,7 @@ REBNATIVE(request_file_p)
 
                     REBVAL *file = rebRun(
                         "local-to-file", rebR(rebTextW(buffer)),
-                        END
+                        rebEND
                     );
                     rebFree(buffer);
 
@@ -377,7 +377,7 @@ REBNATIVE(request_file_p)
 
     char *title;
     if (REF(title))
-        title = rebSpellAlloc(ARG(text), END);
+        title = rebSpellAlloc(ARG(text), rebEND);
     else
         title = NULL;
 
@@ -412,7 +412,7 @@ REBNATIVE(request_file_p)
 
     REBYTE *name;
     if (REF(file)) {
-        name = rebSpellAlloc(ARG(name), END);
+        name = rebSpellAlloc(ARG(name), rebEND);
         gtk_file_chooser_set_current_folder(chooser, cast(gchar*, name));
     }
     else
@@ -606,7 +606,7 @@ REBNATIVE(request_dir_p)
     bi.pszDisplayName = display; // assumed length is MAX_PATH
 
     if (REF(title))
-        bi.lpszTitle = rebSpellAllocW(ARG(text), END);
+        bi.lpszTitle = rebSpellAllocW(ARG(text), rebEND);
     else
         bi.lpszTitle = L"Please, select a directory...";
 
@@ -626,7 +626,7 @@ REBNATIVE(request_dir_p)
     //
     bi.lpfn = ReqDirCallbackProc;
     if (REF(path))
-        bi.lParam = cast(LPARAM, rebSpellAllocW(ARG(dir), END));
+        bi.lParam = cast(LPARAM, rebSpellAllocW(ARG(dir), rebEND));
     else
         bi.lParam = cast(LPARAM, NULL);
 
