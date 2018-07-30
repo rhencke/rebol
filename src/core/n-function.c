@@ -714,9 +714,7 @@ REBNATIVE(hijack)
     // alone?  Add a note about the hijacking?  Also: how should binding and
     // hijacking interact?
 
-    Init_Action_Maybe_Bound(D_OUT, victim, VAL_BINDING(ARG(hijacker)));
-
-    return D_OUT;
+    return Init_Action_Maybe_Bound(D_OUT, victim, VAL_BINDING(ARG(hijacker)));
 }
 
 

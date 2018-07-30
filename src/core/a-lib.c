@@ -149,9 +149,9 @@ void *RL_rebMalloc(size_t size)
     // https://stackoverflow.com/a/37184840
     //
     // It may be that rebMalloc() and rebRealloc() should initialize with 0
-    // in the release build to defend against that, but doing so in the debug
-    // build would keep address sanitizer from noticing when memory was not
-    // initialized.
+    // to defend against that, but that isn't free.  For now we make no such
+    // promise--and leave it uninitialized so that address sanitizer notices
+    // when bytes are used that haven't been assigned.
     //
     TERM_BIN_LEN(s, ALIGN_SIZE + size);
 
@@ -221,8 +221,8 @@ void RL_rebFree(void *ptr)
 
     REBSER *s = *ps;
     if (s->header.bits & NODE_FLAG_CELL) {
-        rebJUMPS (
-            "panic [",
+        rebJumps(
+            "PANIC [",
                 "{rebFree() mismatched with allocator!}"
                 "{Did you mean to use free() instead of rebFree()?}",
             "]",
@@ -524,16 +524,19 @@ void RL_rebElide(const void *p, ...)
 
 
 //
-//  rebJUMPS: RL_API [
+//  rebJumps: RL_API [
 //      #noreturn
 //  ]
 //
-// rebJUMPS() is like rebElide, but has the noreturn attribute, so that
-// compiler warnings can be enabled and checked.  You can thus use it with
-// things like `rebJUMPS ("fail", ...)` or `rebJUMPS ("throw", ...)`.
+// rebJumps() is like rebElide, but has the noreturn attribute.  This helps
+// inform the compiler that the routine is not expected to return.  Use it
+// with things like `rebJumps("FAIL", ...)` or `rebJumps("THROW", ...)`.  If
+// by some chance the code passed to it does not jump and finishes normally,
+// then an error will be raised.
 //
-// Capitalizing it helps draw attention, and it is suggested that a space be
-// used between it and the arguments to draw further attention.
+// (Note: Capitalizing the "FAIL" or other non-returning operation is just a
+// suggestion to help emphasize the operation.  Capitalizing rebJUMPS was
+// considered, but looked odd.)
 //
 // !!! The name is not ideal, but other possibilites aren't great:
 //
@@ -541,7 +544,7 @@ void RL_rebElide(const void *p, ...)
 //    rebNoReturn(...) -- whose return?
 //    rebStop(...) -- STOP is rather final sounding, the code keeps going
 //
-void RL_rebJUMPS(const void *p, va_list *vaptr)
+void RL_rebJumps(const void *p, va_list *vaptr)
 {
     Enter_Api();
 
@@ -553,10 +556,15 @@ void RL_rebJUMPS(const void *p, va_list *vaptr)
         DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
     );
 
+    // !!! Being able to THROW across C stacks is necessary in the general
+    // case (consider implementing QUIT or HALT).  It would need to be
+    // converted into some kind of error, and then re-converted into a THROW
+    // to bubble up through Rebol stacks.  Development on this is ongoing.
+    //
     if (indexor == THROWN_FLAG)
         fail (Error_No_Catch_For_Throw(elided));
 
-    panic ("rebJUMPS() was used to run code, but it didn't FAIL/QUIT/THROW!");
+    fail ("rebJumps() was used to run code, but it didn't FAIL/QUIT/THROW!");
 }
 
 
@@ -2002,7 +2010,7 @@ void RL_rebFail_OS(int errnum)
 
     DECLARE_LOCAL (temp);
     Init_Error(temp, error);
-    rebJUMPS ("lib/fail", temp, rebEND);
+    rebJumps("fail", temp, rebEND);
 }
 
 

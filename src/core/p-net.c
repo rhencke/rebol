@@ -163,8 +163,8 @@ static REB_R Transport_Actor(
                 DROP_GC_GUARD(temp);
 
                 assert(l_result != NULL);
-                if (rebDid("lib/error?", l_result, rebEND))
-                    rebJUMPS ("lib/fail", l_result, rebEND);
+                if (rebDid("error?", l_result, rebEND))
+                    rebJumps("FAIL", l_result, rebEND);
                 rebRelease(l_result); // ignore result
 
                 return port;
@@ -307,8 +307,8 @@ static REB_R Transport_Actor(
             // Request pending
         }
         else {
-            if (rebDid("lib/error?", result, rebEND))
-                rebJUMPS ("lib/fail", result, rebEND);
+            if (rebDid("error?", result, rebEND))
+                rebJumps("FAIL", result, rebEND);
 
             // a note said "recv CAN happen immediately"
             //
@@ -404,8 +404,8 @@ static REB_R Transport_Actor(
             // Write pending !!! old comment said "do we get here?"
         }
         else {
-            if (rebDid("lib/error?", result, rebEND))
-                rebJUMPS ("lib/fail", result, rebEND);
+            if (rebDid("error?", result, rebEND))
+                rebJumps("FAIL", result, rebEND);
 
             // Note here said "send CAN happen immediately"
             //
@@ -424,14 +424,8 @@ static REB_R Transport_Actor(
 
         UNUSED(REF(part)); // non-null limit accounts for
 
-        // !!! Better chaining mechanics needed, an APPLY here would be
-        // awkward...just do /PART for now since it has a refinement argument.
-        //
-        if (REF(deep) or REF(last))
-            fail ("/DEEP and /LAST not implemented for TCP LISTEN TAKE, atm");
-
         return rebRun(
-            "lib/take*/part",
+            "take*/part/(", ARG(deep), ")/(", ARG(last), ")",
                 CTX_VAR(ctx, STD_PORT_CONNECTIONS),
                 NULLIZE(ARG(limit)),
                 rebEND
@@ -469,17 +463,16 @@ static REB_R Transport_Actor(
             // Asynchronous connect, this happens in TCP_Actor
         }
         else {
-            if (rebDid("lib/error?", result, rebEND))
-                rebJUMPS ("lib/fail", result, rebEND);
-            else {
-                // This can happen with UDP, which is connectionless so it
-                // returns DR_DONE.
-                //
-                // !!! Also can happen if it's already open (it checks for the
-                // connected flag).  R3-Alpha could OPEN OPEN a port.  :-/
-                //
-                rebRelease(result); // ignore result
-            }
+            if (rebDid("error?", result, rebEND))
+                rebJumps("libFAIL", result, rebEND);
+
+            // This can happen with UDP, which is connectionless so it
+            // returns DR_DONE.
+            //
+            // !!! Also can happen if it's already open (it checks for the
+            // connected flag).  R3-Alpha could OPEN OPEN a port.  :-/
+            //
+            rebRelease(result); // ignore result
         }
         return port; }
 

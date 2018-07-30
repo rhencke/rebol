@@ -308,7 +308,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         file_req->modes |= RFM_DIR;
 
     file->path = rebRun(
-        "lib/apply 'local-to-file [",
+        "apply 'local-to-file [",
             "path:", rebT(file_utf8),
             "dir:", rebR(rebLogic(file_req->modes & RFM_DIR)),
         "]", rebEND

@@ -793,8 +793,8 @@ restart:;
             switch (*cp) {
             case 'H':   // !!! "home" (in what standard??)
               #if !defined(NDEBUG)
-                rebJUMPS (
-                    "fail {ESC H: please report your system info}",
+                rebJumps(
+                    "FAIL {ESC H: please report your system info}",
                     rebEND
                 );
               #endif
@@ -803,8 +803,8 @@ restart:;
 
             case 'F':   // !!! "end" (in what standard??)
               #if !defined(NDEBUG)
-                rebJUMPS (
-                    "fail {ESC F: please report your system info}",
+                rebJumps(
+                    "FAIL {ESC F: please report your system info}",
                     rebEND
                 );
               #endif
@@ -855,12 +855,12 @@ restart:;
         case 3: // CTRL-C, Interrupt (ANSI, <signal.h> is standard C)
             //
             // It's theoretically possible to clear the termios `c_lflag` ISIG
-            // in order to receive literal Ctrl-C, but we dont' want to get
+            // in order to receive literal Ctrl-C, but we don't want to get
             // involved at that level.  Using sigaction() on SIGINT and
             // causing EINTR is how we would like to be triggering HALT.
             //
-            rebJUMPS (
-                "fail {Unexpected literal Ctrl-C in console}",
+            rebJumps(
+                "FAIL {Unexpected literal Ctrl-C in console}",
                 rebEND
             );
 

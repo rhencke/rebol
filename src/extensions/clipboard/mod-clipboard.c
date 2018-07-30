@@ -101,13 +101,13 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         }
 
         if (not OpenClipboard(NULL))
-            rebJUMPS ("fail {OpenClipboard() fail while reading}", rebEND);
+            rebJumps("FAIL {OpenClipboard() fail while reading}", rebEND);
 
         HANDLE h = GetClipboardData(CF_UNICODETEXT);
         if (h == NULL) {
             CloseClipboard();
-            rebJUMPS (
-                "fail",
+            rebJumps (
+                "FAIL",
                 "{IsClipboardFormatAvailable()/GetClipboardData() mismatch}",
                 rebEND
             );
@@ -116,8 +116,8 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         WCHAR *wide = cast(WCHAR*, GlobalLock(h));
         if (wide == NULL) {
             CloseClipboard();
-            rebJUMPS (
-                "fail {Couldn't GlobalLock() UCS2 clipboard data}", rebEND
+            rebJumps(
+                "FAIL {Couldn't GlobalLock() UCS2 clipboard data}", rebEND
             );
         }
 
@@ -177,13 +177,13 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             len = VAL_INT32(ARG(limit));
 
         if (not OpenClipboard(NULL))
-            rebJUMPS (
-                "fail {OpenClipboard() fail on clipboard write}", rebEND
+            rebJumps(
+                "FAIL {OpenClipboard() fail on clipboard write}", rebEND
             );
 
         if (not EmptyClipboard()) // !!! is this superfluous?
-            rebJUMPS (
-                "fail {EmptyClipboard() fail on clipboard write}", rebEND
+            rebJumps(
+                "FAIL {EmptyClipboard() fail on clipboard write}", rebEND
             );
 
         // Clipboard wants a Windows memory handle with UCS2 data.  Allocate a
@@ -192,14 +192,14 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         HANDLE h = GlobalAlloc(GHND, sizeof(WCHAR) * (len + 1));
         if (h == NULL) // per documentation, not INVALID_HANDLE_VALUE
-            rebJUMPS (
-                "fail {GlobalAlloc() fail on clipboard write}", rebEND
+            rebJumps(
+                "FAIL {GlobalAlloc() fail on clipboard write}", rebEND
             );
 
         WCHAR *wide = cast(WCHAR*, GlobalLock(h));
         if (wide == NULL)
-            rebJUMPS (
-                "fail {GlobalLock() fail on clipboard write}", rebEND
+            rebJumps(
+                "FAIL {GlobalLock() fail on clipboard write}", rebEND
             );
 
         REBINT len_check = rebSpellingOfW(wide, len, arg); // UTF-16 extract
@@ -212,7 +212,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         CloseClipboard();
 
         if (h_check == NULL)
-            rebJUMPS ("fail {SetClipboardData() failed.}", rebEND);
+            rebJumps("FAIL {SetClipboardData() failed.}", rebEND);
 
         assert(h_check == h);
 

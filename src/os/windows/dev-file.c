@@ -185,8 +185,8 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
 
     if (not got_info) {
         assert(FALSE); // see above for why this R3-Alpha code had a "hole"
-        rebJUMPS (
-            "fail {%dev-clipboard: NOT(got_info), please report}",
+        rebJumps(
+            "FAIL {%dev-clipboard: NOT(got_info), please report}",
             rebEND
         );
     }
@@ -196,7 +196,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         file_req->modes |= RFM_DIR;
 
     file->path = rebRun(
-        "lib/apply 'local-to-file [",
+        "apply 'local-to-file [",
             "path:", rebR(rebTextW(info.cFileName)),
             "dir:", rebR(rebLogic(file_req->modes & RFM_DIR)),
         "]", rebEND
@@ -264,10 +264,10 @@ DEVICE_CMD Open_File(REBREQ *req)
         attrib |= FILE_ATTRIBUTE_READONLY;
 
     if (access == 0)
-        rebJUMPS ("fail {No access modes provided to Open_File()}", rebEND);
+        rebJumps("FAIL {No access modes provided to Open_File()}", rebEND);
 
     WCHAR *path_wide = rebSpellAllocW(
-        "lib/apply 'file-to-local [",
+        "apply 'file-to-local [",
             "path:", file->path,
             "wild:", rebR(rebLogic(req->modes & RFM_DIR)),
             "full: true",

@@ -69,10 +69,10 @@ void *OS_Open_Library(const REBVAL *path)
   #ifdef NO_DL_LIB
     return nullptr;
   #else
-    // While often when communicating with the OS, the local path should be
-    // fully resolved, the dlopen() function searches library directories by
-    // default.  So if %foo is passed in, you don't want to prepend the
-    // current dir to make it absolute, because it will *only* look there.
+    // Usually you want to fully resolve local paths before making OS calls.
+    // But the dlopen() function searches library directories by default.
+    // So if %foo is passed in, you don't want to prepend the current dir to
+    // make it absolute, because it will *only* look there.
     //
     char *path_utf8 = rebSpellAlloc(
         "file-to-local", path, // ^-- don't use /full, see above
@@ -84,7 +84,7 @@ void *OS_Open_Library(const REBVAL *path)
     rebFree(path_utf8);
 
     if (not dll) // dlerror() gives const char*
-        rebJUMPS ("fail", rebT(dlerror()), rebEND);
+        rebJumps("FAIL", rebT(dlerror()), rebEND);
 
     return dll;
   #endif

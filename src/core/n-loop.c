@@ -1265,7 +1265,7 @@ REBNATIVE(remove_each)
     REBCNT removals = Finalize_Remove_Each(&res);
 
     if (error)
-        rebJUMPS ("lib/fail", error, rebEND);
+        rebJumps("FAIL", error, rebEND);
 
     if (THROWN(res.out))
         return D_OUT;

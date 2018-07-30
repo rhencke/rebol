@@ -410,8 +410,8 @@ DEVICE_CMD Connect_Socket(REBREQ *req)
 DEVICE_CMD Transfer_Socket(REBREQ *req)
 {
     if (not (req->state & RSM_CONNECT) and not (req->modes & RST_UDP))
-        rebJUMPS (
-            "fail {RSM_CONNECT must be true in Transfer_Socket() unless UDP}",
+        rebJumps(
+            "FAIL {RSM_CONNECT must be true in Transfer_Socket() unless UDP}",
             rebEND
         );
 
@@ -582,7 +582,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
         if (not (sock->modes & RST_UDP)) // !!! other checks?
-            rebJUMPS ("fail {SET-UDP-MULTICAST used on non-UDP port}", rebEND);
+            rebJumps("FAIL {SET-UDP-MULTICAST used on non-UDP port}", rebEND);
 
         struct ip_mreq mreq;
         memcpy(&mreq.imr_multiaddr.s_addr, VAL_TUPLE(ARG(group)), 4);
@@ -604,7 +604,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         UNUSED(ARG(port)); // implicit from sock, which caller extracted
 
         if (not (sock->modes & RST_UDP)) // !!! other checks?
-            rebJUMPS ("fail {SET-UDP-TTL used on non-UDP port}", rebEND);
+            rebJumps("FAIL {SET-UDP-TTL used on non-UDP port}", rebEND);
 
         int ttl = VAL_INT32(ARG(ttl));
         result = setsockopt(
@@ -618,7 +618,7 @@ DEVICE_CMD Modify_Socket(REBREQ *sock)
         break; }
 
     default:
-        rebJUMPS ("fail {Unknown socket MODIFY operation}", rebEND);
+        rebJumps("FAIL {Unknown socket MODIFY operation}", rebEND);
     }
 
     if (result < 0)
@@ -711,7 +711,7 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
     AS_REBREQ(sock)->port_ctx = connection;
 
     rebElide(
-        "lib/append ensure block!", CTX_VAR(listener, STD_PORT_CONNECTIONS),
+        "append ensure block!", CTX_VAR(listener, STD_PORT_CONNECTIONS),
         CTX_ARCHETYPE(connection), // will GC protect during run
         rebEND
     );

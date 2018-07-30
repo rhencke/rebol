@@ -372,11 +372,13 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         if (opened) {
             REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
+            assert(result != NULL); // should be synchronous
+
             Cleanup_File(file);
 
-            assert(result != NULL); // should be synchronous
-            if (rebDid("lib/error?", result, rebEND))
-                rebJUMPS ("lib/fail", result, rebEND);
+            if (rebDid("error?", result, rebEND))
+                rebJumps("FAIL", result, rebEND);
+
             rebRelease(result); // ignore result
         }
 
@@ -441,11 +443,13 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         if (opened) {
             REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
+            assert(result != NULL); // should be synchronous
+
             Cleanup_File(file);
 
-            assert(result != NULL);
-            if (rebDid("lib/error?", result, rebEND))
-                rebJUMPS ("lib/fail", result, rebEND);
+            if (rebDid("error?", result, rebEND))
+                rebJumps("FAIL", result, rebEND);
+
             rebRelease(result);
         }
 
@@ -500,11 +504,13 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         if (req->flags & RRF_OPEN) {
             REBVAL *result = OS_DO_DEVICE(req, RDC_CLOSE);
+            assert(result != NULL); // should be synchronous
+
             Cleanup_File(file);
 
-            assert(result != NULL); // should be synchronous
-            if (rebDid("lib/error?", result, rebEND))
-                rebJUMPS ("lib/fail", result, rebEND);
+            if (rebDid("error?", result, rebEND))
+                rebJumps("FAIL", result, rebEND);
+
             rebRelease(result); // ignore error
         }
         return port; }
@@ -519,10 +525,11 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         REBVAL *result = OS_DO_DEVICE(req, RDC_DELETE);
         assert(result != NULL); // should be synchronous
-        if (rebDid("lib/error?", result, rebEND))
-            rebJUMPS ("lib/fail", result, rebEND);
-        rebRelease(result); // ignore result
 
+        if (rebDid("error?", result, rebEND))
+            rebJumps("FAIL", result, rebEND);
+
+        rebRelease(result); // ignore result
         return port; }
 
     case SYM_RENAME: {
@@ -537,8 +544,8 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         REBVAL *result = OS_DO_DEVICE(req, RDC_RENAME);
         assert(result != NULL); // should be synchronous
-        if (rebDid("lib/error?", result, rebEND))
-            rebJUMPS ("lib/fail", result, rebEND);
+        if (rebDid("error?", result, rebEND))
+            rebJumps("FAIL", result, rebEND);
         rebRelease(result); // ignore result
 
         return ARG(from); }
@@ -549,14 +556,14 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
             REBVAL *cr_result = OS_DO_DEVICE(req, RDC_CREATE);
             assert(cr_result != NULL);
-            if (rebDid("lib/error?", cr_result, rebEND))
-                rebJUMPS ("lib/fail", cr_result, rebEND);
+            if (rebDid("error?", cr_result, rebEND))
+                rebJumps("FAIL", cr_result, rebEND);
             rebRelease(cr_result);
 
             REBVAL *cl_result = OS_DO_DEVICE(req, RDC_CLOSE);
             assert(cl_result != NULL);
-            if (rebDid("lib/error?", cl_result, rebEND))
-                rebJUMPS ("lib/fail", cl_result, rebEND);
+            if (rebDid("error?", cl_result, rebEND))
+                rebJumps("FAIL", cl_result, rebEND);
             rebRelease(cl_result);
         }
 
@@ -577,7 +584,7 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             Setup_File(file, 0, path);
             REBVAL *result = OS_DO_DEVICE(req, RDC_QUERY);
             assert(result != NULL);
-            if (rebDid("lib/error?", result, rebEND)) {
+            if (rebDid("error?", result, rebEND)) {
                 rebRelease(result); // !!! R3-Alpha returned blank on error
                 return nullptr;
             }
@@ -602,7 +609,7 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
             REBVAL *result = OS_DO_DEVICE(req, RDC_MODIFY);
             assert(result != NULL);
-            if (rebDid("lib/error?", result, rebEND)) {
+            if (rebDid("error?", result, rebEND)) {
                 rebRelease(result); // !!! R3-Alpha returned blank on error
                 return R_FALSE;
             }

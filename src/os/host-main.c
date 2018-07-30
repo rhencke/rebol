@@ -194,7 +194,7 @@ EXTERN_C REBOL_HOST_LIB Host_Lib_Init;
 // in which case conventional wisdom is that we should not be enabling it
 // ourselves.)
 //
-REBOOL ctrl_c_enabled = TRUE;
+bool ctrl_c_enabled = true;
 
 
 #ifdef TO_WINDOWS
@@ -246,7 +246,7 @@ void Disable_Ctrl_C(void)
     SetConsoleCtrlHandler(Handle_Break, FALSE);
     SetConsoleCtrlHandler(Handle_Nothing, TRUE);
 
-    ctrl_c_enabled = FALSE;
+    ctrl_c_enabled = false;
 }
 
 void Enable_Ctrl_C(void)
@@ -256,7 +256,7 @@ void Enable_Ctrl_C(void)
     SetConsoleCtrlHandler(Handle_Break, TRUE);
     SetConsoleCtrlHandler(Handle_Nothing, FALSE);
 
-    ctrl_c_enabled = TRUE;
+    ctrl_c_enabled = true;
 }
 
 #else
@@ -301,7 +301,7 @@ void Disable_Ctrl_C(void)
         sigaction(SIGINT, &new_action, nullptr);
     }
 
-    ctrl_c_enabled = FALSE;
+    ctrl_c_enabled = false;
 }
 
 void Enable_Ctrl_C(void)
@@ -313,10 +313,10 @@ void Enable_Ctrl_C(void)
         new_action.sa_handler = &Handle_Signal;
         sigemptyset(&new_action.sa_mask);
         new_action.sa_flags = 0;
-        sigaction(SIGINT, &new_action, NULL);
+        sigaction(SIGINT, &new_action, nullptr);
     }
 
-    ctrl_c_enabled = TRUE;
+    ctrl_c_enabled = true;
 }
 
 #endif
@@ -467,7 +467,7 @@ int main(int argc, char *argv_ansi[])
     rebRelease(host_code);
 
     if (rebNot("lib/action?", host_console, rebEND))
-        rebJUMPS ("panic-value", host_console, rebEND);
+        rebJumps("lib/PANIC-VALUE", host_console, rebEND);
 
     // The config file used by %make.r marks extensions to be built into the
     // executable (`+`), built as a dynamic library (`*`), or not built at
@@ -539,9 +539,9 @@ int main(int argc, char *argv_ansi[])
     REBINT Save_Trace_Level = Trace_Level;
     REBINT Save_Trace_Depth = Trace_Depth;
 
-    REBOOL no_recover = FALSE; // allow one try at HOST-CONSOLE internal error
+    bool no_recover = false; // allow one try at HOST-CONSOLE internal error
 
-    while (TRUE) {
+    while (true) {
         assert(not ctrl_c_enabled); // not while HOST-CONSOLE is on the stack
 
     recover:;
@@ -575,11 +575,11 @@ int main(int argc, char *argv_ansi[])
             // it might have generated (a BLOCK!) asking itself to crash.
 
             if (no_recover)
-                rebJUMPS("lib/panic", trapped, rebEND);
+                rebJumps("lib/PANIC", trapped, rebEND);
 
             code = rebRun("[#host-console-error]", rebEND);
             result = trapped;
-            no_recover = TRUE; // no second chances until user code runs
+            no_recover = true; // no second chances until user code runs
             goto recover;
         }
 
@@ -589,7 +589,7 @@ int main(int argc, char *argv_ansi[])
         if (rebDid("lib/integer?", code, rebEND))
             break; // when HOST-CONSOLE returns INTEGER! it means an exit code
 
-        REBOOL is_console_instruction = rebDid("lib/block?", code, rebEND);
+        bool is_console_instruction = rebDid("lib/block?", code, rebEND);
 
         // Restore custom DO and APPLY hooks, but only if running a GROUP!.
         // (We do not want to trace/debug/instrument Rebol code that the
@@ -600,7 +600,7 @@ int main(int argc, char *argv_ansi[])
             //
             // If they made it to a user mode instruction, re-enable recovery.
             //
-            no_recover = FALSE;
+            no_recover = false;
 
             PG_Do = saved_do_hook;
             PG_Dispatcher = saved_dispatcher_hook;
@@ -650,7 +650,7 @@ int main(int argc, char *argv_ansi[])
 
     OS_QUIT_DEVICES(0);
 
-    const REBOOL clean = FALSE; // process exiting, not necessary
+    const bool clean = false; // process exiting, not necessary
     rebShutdown(clean); // Note: debug build runs a clean shutdown anyway
 
     return exit_status; // http://stackoverflow.com/q/1101957/

@@ -129,19 +129,19 @@ DEVICE_CMD Read_DNS(REBREQ *req)
         break;
 
     case NO_RECOVERY:
-        rebJUMPS (
-            "fail {A nonrecoverable name server error occurred}",
+        rebJumps(
+            "FAIL {A nonrecoverable name server error occurred}",
             rebEND
         );
 
     case TRY_AGAIN:
-        rebJUMPS (
-            "fail {Temporary error on authoritative name server}",
+        rebJumps(
+            "FAIL {Temporary error on authoritative name server}",
             rebEND
         );
 
     default:
-        rebJUMPS ("fail {Unknown host error}", rebEND);
+        rebJumps("FAIL {Unknown host error}", rebEND);
     }
 
     req->flags |= RRF_DONE;
