@@ -1094,16 +1094,17 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     // hierarchical) of its fields, including any nested structs.  The
     // schema should be shared between common instances of the same struct.
     //
+    // Though the schema is not managed, the MAKE process runs evaluations, so
+    // the fields must be GC valid.
+    //
     REBFLD *schema = Make_Array(IDX_FIELD_MAX);
-    Init_Blank(FLD_AT(schema, IDX_FIELD_NAME)); // no symbol for struct itself
-    // we'll be filling in the IDX_FIELD_TYPE slot with an array of fields
+    Init_Unreadable_Blank(FLD_AT(schema, IDX_FIELD_TYPE)); // will fill in
     Init_Blank(FLD_AT(schema, IDX_FIELD_DIMENSION)); // not an array
-
-    Init_Unreadable_Blank(FLD_AT(schema, IDX_FIELD_FFTYPE));
-
+    Init_Unreadable_Blank(FLD_AT(schema, IDX_FIELD_FFTYPE)); // will fill in
+    Init_Blank(FLD_AT(schema, IDX_FIELD_NAME)); // no symbol for struct itself
     Init_Blank(FLD_AT(schema, IDX_FIELD_OFFSET)); // the offset is not used
-    // we'll be filling in the IDX_FIELD_WIDE at the end.
-
+    Init_Unreadable_Blank(FLD_AT(schema, IDX_FIELD_WIDE)); // will fill in
+    TERM_ARRAY_LEN(schema, IDX_FIELD_MAX);
 
 //
 // PROCESS FIELDS
@@ -1147,12 +1148,17 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
     while (NOT_END(item)) {
 
-        // Add another field...
+        // Add another field...although we don't manage the array (so it won't
+        // get GC'd) we do run evaluations, so it must be GC-valid.
 
         REBFLD *field = Make_Array(IDX_FIELD_MAX);
-
+        Init_Unreadable_Blank(FLD_AT(field, IDX_FIELD_TYPE));
+        Init_Unreadable_Blank(FLD_AT(field, IDX_FIELD_DIMENSION));
         Init_Unreadable_Blank(FLD_AT(field, IDX_FIELD_FFTYPE));
+        Init_Unreadable_Blank(FLD_AT(field, IDX_FIELD_NAME));
         Init_Integer(FLD_AT(field, IDX_FIELD_OFFSET), offset);
+        Init_Unreadable_Blank(FLD_AT(field, IDX_FIELD_WIDE));
+        TERM_ARRAY_LEN(field, IDX_FIELD_MAX);
 
         // Must be a word or a set-word, with set-words initializing
 
@@ -1314,25 +1320,18 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         if (offset > VAL_STRUCT_LIMIT)
             fail (Error_Size_Limit_Raw(out));
 
-        ++ field_idx;
-
-        TERM_ARRAY_LEN(field, 6);
-        ASSERT_ARRAY(field);
+        ++field_idx;
 
         DS_PUSH_TRASH;
         Init_Block(DS_TOP, field); // really should be an OBJECT!
     }
 
-    REBARR *fieldlist = Pop_Stack_Values(dsp_orig);
-    ASSERT_ARRAY(fieldlist);
+    REBARR *fieldlist = Pop_Stack_Values_Core(dsp_orig, NODE_FLAG_MANAGED);
 
     Init_Block(FLD_AT(schema, IDX_FIELD_TYPE), fieldlist);
     Prepare_Field_For_FFI(schema);
 
     Init_Integer(FLD_AT(schema, IDX_FIELD_WIDE), offset); // total size known
-
-    TERM_ARRAY_LEN(schema, IDX_FIELD_MAX);
-    ASSERT_ARRAY(schema);
 
 //
 // FINALIZE VALUE

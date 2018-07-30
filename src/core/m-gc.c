@@ -346,7 +346,7 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         //
         REBVAL *archetype = ACT_ARCHETYPE(a);
         assert(ACT_PARAMLIST(a) == VAL_ACT_PARAMLIST(archetype));
-        assert(ACT_BODY(a) == VAL_ACT_BODY(archetype));
+        assert(ACT_DETAILS(a) == VAL_ACT_DETAILS(archetype));
 
         // It would be prohibitive to do validity checks on the facade of
         // a function on each call to ACT_FACADE, so it is checked here.
@@ -772,20 +772,20 @@ static void Propagate_All_GC_Marks(void)
             // because of the potential for overflowing the C stack with calls
             // to Queue_Mark_Function_Deep.
 
-            REBARR *body_holder = v->payload.action.body_holder;
-            Queue_Mark_Singular_Array(body_holder);
+            REBARR *details = v->payload.action.details;
+            Queue_Mark_Array_Deep(details);
 
             REBARR *facade = LINK(a).facade;
             Queue_Mark_Array_Subclass_Deep(facade);
 
-            REBARR *specialty = LINK(body_holder).specialty;
+            REBARR *specialty = LINK(details).specialty;
             if (GET_SER_FLAG(specialty, ARRAY_FLAG_VARLIST))
                 Queue_Mark_Context_Deep(CTX(specialty));
             else
                 assert(specialty == facade);
 
             REBCTX *meta = MISC(a).meta;
-            if (meta != NULL)
+            if (meta)
                 Queue_Mark_Context_Deep(meta);
 
             // Functions can't currently be freed by FREE...

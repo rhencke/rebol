@@ -284,10 +284,12 @@ REBNATIVE(typechecker)
             ? &Datatype_Checker_Dispatcher
             : &Typeset_Checker_Dispatcher,
         NULL, // no facade (use paramlist)
-        NULL // no specialization exemplar (or inherited exemplar)
+        NULL, // no specialization exemplar (or inherited exemplar)
+        1 // details array capacity
     );
 
-    Move_Value(ACT_BODY(typechecker), type);
+    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(typechecker));
+    Move_Value(body, type);
 
     return Init_Action_Unbound(D_OUT, typechecker);
 }
@@ -371,10 +373,12 @@ REBNATIVE(chain)
         paramlist,
         &Chainer_Dispatcher,
         ACT_FACADE(VAL_ACTION(first)), // same interface as first action
-        ACT_EXEMPLAR(VAL_ACTION(first)) // same exemplar as first action
+        ACT_EXEMPLAR(VAL_ACTION(first)), // same exemplar as first action
+        1 // details array capacity
     );
 
-    Init_Block(ACT_BODY(chain), chainees); // used by Chainer_Dispatcher
+    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(chain));
+    Init_Block(body, chainees); // used by Chainer_Dispatcher
 
     Init_Action_Unbound(out, chain);
     return out;
@@ -469,33 +473,19 @@ REBNATIVE(adapt)
         paramlist,
         &Adapter_Dispatcher,
         ACT_FACADE(VAL_ACTION(adaptee)), // same interface as adaptee
-        ACT_EXEMPLAR(VAL_ACTION(adaptee)) // same exemplar as adaptee
+        ACT_EXEMPLAR(VAL_ACTION(adaptee)), // same exemplar as adaptee
+        2 // details array capacity => [prelude, adaptee]
     );
 
-    // We need to store the 2 values describing the adaptation so that the
-    // dispatcher knows what to do when it gets called and inspects ACT_BODY.
-    //
-    // [0] is the prelude BLOCK!, [1] is the ACTION! we've adapted.
-    //
-    // !!! We could avoid this array allocation by putting the ACTION! in
-    // the prelude as the first element, then index the prelude after that.
-    // It wouldn't be seen by the execution.  Worth doing, someday...
-    //
-    REBARR *info = Make_Array_Core(2, NODE_FLAG_MANAGED);
+    REBARR *details = ACT_DETAILS(adaptation);
 
-    REBVAL *block = Alloc_Tail_Array(info);
+    REBVAL *block = Alloc_Tail_Array(details);
     RESET_VAL_HEADER(block, REB_BLOCK);
     INIT_VAL_ARRAY(block, prelude);
     VAL_INDEX(block) = 0;
     INIT_BINDING(block, underlying); // relative binding
 
-    Append_Value(info, adaptee);
-
-    RELVAL *body = ACT_BODY(adaptation);
-    RESET_VAL_HEADER(body, REB_BLOCK);
-    INIT_VAL_ARRAY(body, info);
-    VAL_INDEX(body) = 0;
-    INIT_BINDING(body, underlying); // relative binding
+    Append_Value(details, adaptee);
 
     return Init_Action_Unbound(D_OUT, adaptation);
 }
@@ -591,19 +581,13 @@ REBNATIVE(enclose)
         paramlist,
         &Encloser_Dispatcher,
         ACT_FACADE(VAL_ACTION(inner)), // same interface as inner
-        ACT_EXEMPLAR(VAL_ACTION(inner)) // same exemplar as inner
+        ACT_EXEMPLAR(VAL_ACTION(inner)), // same exemplar as inner
+        2 // details array capacity => [inner, outer]
     );
 
-    // We need to store the 2 values describing the enclosure so that the
-    // dispatcher knows what to do when it gets called and inspects ACT_BODY.
-    //
-    // [0] is the inner ACTION!, [2] is the outer ACTION!
-    //
-    REBARR *info = Make_Array(2);
-    Append_Value(info, inner);
-    Append_Value(info, outer);
-
-    Init_Block(ACT_BODY(enclosure), info);
+    REBARR *details = ACT_DETAILS(enclosure);
+    Append_Value(details, inner);
+    Append_Value(details, outer);
 
     return Init_Action_Unbound(D_OUT, enclosure);
 }
@@ -633,13 +617,12 @@ REBNATIVE(hijack)
 {
     INCLUDE_PARAMS_OF_HIJACK;
 
-    REBVAL *victim = ARG(victim);
     REBSTR *opt_victim_name;
     const REBOOL push_refinements = FALSE;
     if (Get_If_Word_Or_Path_Throws(
         D_OUT,
         &opt_victim_name,
-        victim,
+        ARG(victim),
         SPECIFIED,
         push_refinements
     )){
@@ -648,14 +631,14 @@ REBNATIVE(hijack)
 
     if (not IS_ACTION(D_OUT))
         fail ("Victim of HIJACK must be an ACTION!");
-    Move_Value(victim, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
+    Move_Value(ARG(victim), D_OUT); // Frees up D_OUT
+    REBACT *victim = VAL_ACTION(ARG(victim)); // GC safe (in ARG slot)
 
-    REBVAL *hijacker = ARG(hijacker);
     REBSTR *opt_hijacker_name;
     if (Get_If_Word_Or_Path_Throws(
         D_OUT,
         &opt_hijacker_name,
-        hijacker,
+        ARG(hijacker),
         SPECIFIED,
         push_refinements
     )){
@@ -664,23 +647,19 @@ REBNATIVE(hijack)
 
     if (not IS_ACTION(D_OUT))
         fail ("Hijacker in HIJACK must be an ACTION!");
-    Move_Value(hijacker, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
+    Move_Value(ARG(hijacker), D_OUT); // Frees up D_OUT
+    REBACT *hijacker = VAL_ACTION(ARG(hijacker)); // GC safe (in ARG slot)
 
-    if (VAL_ACTION(victim) == VAL_ACTION(hijacker)) {
+    if (victim == hijacker)
+        return nullptr; // permitting no-op hijack has some practical uses
+
+    REBARR *victim_paramlist = ACT_PARAMLIST(victim);
+    REBARR *victim_details = ACT_DETAILS(victim);
+    REBARR *hijacker_paramlist = ACT_PARAMLIST(hijacker);
+    REBARR *hijacker_details = ACT_DETAILS(hijacker);
+
+    if (ACT_UNDERLYING(hijacker) == ACT_UNDERLYING(victim)) {
         //
-        // Permitting a no-op hijack has some applications...but offer a
-        // distinguished result for those who want to detect the condition.
-        //
-        return nullptr;
-    }
-
-    REBARR *victim_paramlist = VAL_ACT_PARAMLIST(victim);
-    REBARR *hijacker_paramlist = VAL_ACT_PARAMLIST(hijacker);
-
-    if (
-        ACT_UNDERLYING(VAL_ACTION(hijacker))
-        == ACT_UNDERLYING(VAL_ACTION(victim))
-    ){
         // Should the underliers of the hijacker and victim match, that means
         // any ADAPT or CHAIN or SPECIALIZE of the victim can work equally
         // well if we just use the hijacker's dispatcher directly.  This is a
@@ -688,16 +667,29 @@ REBNATIVE(hijack)
         // originally hijacked function back.
 
         LINK(victim_paramlist).facade = LINK(hijacker_paramlist).facade;
-        LINK(victim->payload.action.body_holder).specialty =
-            LINK(hijacker->payload.action.body_holder).specialty;
+        LINK(victim_details).specialty = LINK(hijacker_details).specialty;
 
-        // All function bodies should live in cells with the same underlying
-        // formatting.  Blit_Cell ensures that's the case.
+        MISC(victim_details).dispatcher = MISC(hijacker_details).dispatcher;
+
+        // All function info arrays should live in cells with the same
+        // underlying formatting.  Blit_Cell ensures that's the case.
         //
-        Blit_Cell(VAL_ACT_BODY(victim), VAL_ACT_BODY(hijacker));
+        // !!! It may be worth it to optimize some dispatchers to depend on
+        // ARR_SINGLE(info) being correct.  That would mean hijack reversals
+        // would need to restore the *exact* capacity.  Review.
 
-        MISC(victim->payload.action.body_holder).dispatcher =
-            MISC(hijacker->payload.action.body_holder).dispatcher;
+        REBCNT details_len = ARR_LEN(hijacker_details);
+        if (SER_REST(SER(victim_details)) < details_len + 1)
+            EXPAND_SERIES_TAIL(
+                SER(victim_details),
+                details_len + 1 - SER_REST(SER(victim_details))
+            );
+
+        RELVAL *src = ARR_HEAD(hijacker_details);
+        RELVAL *dest = ARR_HEAD(victim_details);
+        for (; NOT_END(src); ++src, ++dest)
+            Blit_Cell(dest, src);
+        TERM_ARRAY_LEN(victim_details, details_len);
     }
     else {
         // A mismatch means there could be someone out there pointing at this
@@ -710,19 +702,19 @@ REBNATIVE(hijack)
         // process of building a new frame.  But in general one basically
         // needs to do a new function call.
         //
-        Move_Value(VAL_ACT_BODY(victim), hijacker);
-        MISC(victim->payload.action.body_holder).dispatcher =
-            &Hijacker_Dispatcher;
+        MISC(victim_details).dispatcher = &Hijacker_Dispatcher;
+
+        if (ARR_LEN(victim_details) < 1)
+            Alloc_Tail_Array(victim_details);
+        Move_Value(ARR_HEAD(victim_details), ARG(hijacker));
+        TERM_ARRAY_LEN(victim_details, 1);
     }
 
     // !!! What should be done about MISC(victim_paramlist).meta?  Leave it
-    // alone?  Add a note about the hijacking?
+    // alone?  Add a note about the hijacking?  Also: how should binding and
+    // hijacking interact?
 
-    Move_Value(D_OUT, victim);
-
-    // !!! Review how binding and hijacking interact.
-    //
-    INIT_BINDING(D_OUT, VAL_BINDING(hijacker));
+    Init_Action_Maybe_Bound(D_OUT, victim, VAL_BINDING(ARG(hijacker)));
 
     return D_OUT;
 }
@@ -841,11 +833,13 @@ REBNATIVE(tighten)
             INIT_VAL_PARAM_CLASS(facade_param, PARAM_CLASS_TIGHT);
     }
 
+    REBCNT details_len = ARR_LEN(ACT_DETAILS(original));
     REBACT *tightened = Make_Action(
         paramlist,
         ACT_DISPATCHER(original),
         facade, // use the new, tightened facade
-        ACT_EXEMPLAR(original) // don't add to the original's specialization
+        ACT_EXEMPLAR(original), // don't add to the original's specialization
+        details_len // details array capacity
     );
 
     // We're reusing the original dispatcher, so we also reuse the original
@@ -853,7 +847,11 @@ REBNATIVE(tighten)
     // on the source and target are the same, and it preserves relative
     // value information (rarely what you meant, but it's meant here).
     //
-    Blit_Cell(ACT_BODY(tightened), ACT_BODY(original));
+    REBVAL *src = KNOWN(ARR_HEAD(ACT_DETAILS(original)));
+    RELVAL *dest = ARR_HEAD(ACT_DETAILS(tightened));
+    for (; NOT_END(src); ++src, ++dest)
+        Blit_Cell(dest, src);
+    TERM_ARRAY_LEN(ACT_DETAILS(tightened), details_len);
 
     return Init_Action_Maybe_Bound(
         D_OUT,

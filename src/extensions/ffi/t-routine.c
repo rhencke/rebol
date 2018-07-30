@@ -430,10 +430,11 @@ static uintptr_t arg_to_ffi(
             break;}
 
         case REB_ACTION:{
-            if (!IS_ACTION_RIN(arg))
+            if (not IS_ACTION_RIN(arg))
                 fail (Error_Only_Callback_Ptr_Raw()); // actually routines too
 
-            CFUNC* cfunc = RIN_CFUNC(VAL_ACT_ROUTINE(arg));
+            REBRIN *rin = VAL_ACT_DETAILS(arg);
+            CFUNC* cfunc = RIN_CFUNC(rin);
             size_t sizeof_cfunc = sizeof(cfunc); // avoid conditional const
             if (sizeof_cfunc != sizeof(void*)) // not necessarily true
                 fail ("Void pointer size not equal to function pointer size");
@@ -600,7 +601,7 @@ static void ffi_to_rebol(
 //
 REB_R Routine_Dispatcher(REBFRM *f)
 {
-    REBRIN *rin = VAL_ARRAY(ACT_BODY(FRM_PHASE(f)));
+    REBRIN *rin = ACT_DETAILS(FRM_PHASE(f));
 
     if (RIN_IS_CALLBACK(rin) || RIN_LIB(rin) == NULL) {
         //
@@ -1004,28 +1005,12 @@ void callback_dispatcher(
 REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     assert(IS_BLOCK(ffi_spec));
 
-    REBRIN *r = Make_Array(IDX_ROUTINE_MAX);
-
-    Init_Integer(RIN_AT(r, IDX_ROUTINE_ABI), abi);
-
-    // Caller will update these in the returned function.
+    // Build the paramlist on the data stack.  First slot is reserved for the
+    // ACT_ARCHETYPE (see comments on `struct Reb_Action`)
     //
-    Init_Unreadable_Blank(RIN_AT(r, IDX_ROUTINE_CFUNC));
-    Init_Unreadable_Blank(RIN_AT(r, IDX_ROUTINE_CLOSURE));
-    Init_Unreadable_Blank(RIN_AT(r, IDX_ROUTINE_ORIGIN)); // LIBRARY!/ACTION!
-
-    Init_Blank(RIN_AT(r, IDX_ROUTINE_RET_SCHEMA)); // returns void as default
-
-    const REBCNT capacity_guess = 8; // !!! Magic number...why 8? (can grow)
-
-    REBARR *paramlist = Make_Array_Core(capacity_guess, SERIES_MASK_ACTION);
-
-    // first slot is reserved for the "canon value", see `struct Reb_Function`
-    //
-    // !!! Should this use the data stack?  What about the schemas, they can't
-    // *both* be using the data stack...
-    //
-    Alloc_Tail_Array(paramlist); // trash, but not managed, so OK
+    REBDSP dsp_orig = DSP;
+    DS_PUSH_TRASH;
+    Init_Unreadable_Blank(DS_TOP); // GC-safe form of "trash"
 
     // arguments can be complex, defined as structures.  A "schema" is a
     // REBVAL that holds either an INTEGER! for simple types, or a HANDLE!
@@ -1039,12 +1024,17 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     //
     // !!! Should the spec analysis be allowed to do evaluation? (it does)
     //
+    const REBCNT capacity_guess = 8; // !!! Magic number...why 8? (can grow)
     REBARR *args_schemas = Make_Array(capacity_guess);
     MANAGE_ARRAY(args_schemas);
     PUSH_GC_GUARD(args_schemas);
 
+    DECLARE_LOCAL (ret_schema);
+    Init_Blank(ret_schema); // ret_schema defaults to blank (e.g. void C func)
+    PUSH_GC_GUARD(ret_schema);
+
     REBCNT num_fixed = 0; // number of fixed (non-variadic) arguments
-    REBOOL is_variadic = FALSE; // default to not being variadic
+    REBOOL is_variadic = false; // default to not being variadic
 
     RELVAL *item = VAL_ARRAY_AT(ffi_spec);
     for (; NOT_END(item); ++item) {
@@ -1061,40 +1051,38 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
 
                 is_variadic = TRUE;
 
-                REBVAL *param = Alloc_Tail_Array(paramlist);
-
                 // Currently the rule is that if VARARGS! is itself a valid
                 // parameter type, then the varargs will not chain.  We want
                 // chaining as opposed to passing the parameter pack to the
                 // C code to process (it wouldn't know what to do with it)
                 //
+                DS_PUSH_TRASH;
                 Init_Typeset(
-                    param,
+                    DS_TOP,
                     ALL_64 & ~FLAGIT_KIND(REB_VARARGS),
                     Canon(SYM_VARARGS)
                 );
-                SET_VAL_FLAG(param, TYPESET_FLAG_VARIADIC);
-                INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_NORMAL);
+                SET_VAL_FLAG(DS_TOP, TYPESET_FLAG_VARIADIC);
+                INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_NORMAL);
             }
             else { // ordinary argument
                 if (is_variadic)
                     fail ("FFI: Variadic must be final parameter");
-
-                REBVAL *param = Alloc_Tail_Array(paramlist);
 
                 ++item;
 
                 DECLARE_LOCAL (block);
                 Derelativize(block, item, VAL_SPECIFIER(ffi_spec));
 
+                DS_PUSH_TRASH;
                 Schema_From_Block_May_Fail(
                     Alloc_Tail_Array(args_schemas), // schema (out)
-                    param, // param (out)
+                    DS_TOP, // param (out)
                     block // block (in)
                 );
 
-                INIT_TYPESET_NAME(param, name);
-                INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_NORMAL);
+                INIT_TYPESET_NAME(DS_TOP, name);
+                INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_NORMAL);
                 ++num_fixed;
             }
             break;}
@@ -1102,7 +1090,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
         case REB_SET_WORD:
             switch (VAL_WORD_SYM(item)) {
             case SYM_RETURN:{
-                if (!IS_BLANK(RIN_AT(r, IDX_ROUTINE_RET_SCHEMA)))
+                if (not IS_BLANK(ret_schema))
                     fail ("FFI: Return already specified");
 
                 ++item;
@@ -1112,7 +1100,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
 
                 DECLARE_LOCAL (param);
                 Schema_From_Block_May_Fail(
-                    RIN_AT(r, IDX_ROUTINE_RET_SCHEMA),
+                    ret_schema,
                     param, // dummy (a return/output has no arg to typecheck)
                     block
                 );
@@ -1128,11 +1116,47 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
         }
     }
 
+    REBARR *paramlist = Pop_Stack_Values_Core(
+        dsp_orig,
+        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
+    );
+
+    // Now fill in the canon value of the paramlist so it is an actual REBACT
+    //
+    RELVAL *rootparam = ARR_HEAD(paramlist);
+    RESET_VAL_HEADER(rootparam, REB_ACTION);
+    rootparam->payload.action.paramlist = paramlist;
+    INIT_BINDING(rootparam, UNBOUND);
+
+    LINK(paramlist).facade = paramlist;
+    MISC(paramlist).meta = nullptr;
+
+    REBACT *action = Make_Action(
+        paramlist,
+        &Routine_Dispatcher,
+        NULL, // no facade (use paramlist)
+        NULL, // no specialization exemplar (or inherited exemplar)
+        IDX_ROUTINE_MAX // details array len
+    );
+
+    REBRIN *r = ACT_DETAILS(action);
+
+    Init_Integer(RIN_AT(r, IDX_ROUTINE_ABI), abi);
+
+    // Caller must update these in the returned function.
+    //
+    TRASH_CELL_IF_DEBUG(RIN_AT(r, IDX_ROUTINE_CFUNC));
+    TRASH_CELL_IF_DEBUG(RIN_AT(r, IDX_ROUTINE_CLOSURE));
+    TRASH_CELL_IF_DEBUG(RIN_AT(r, IDX_ROUTINE_ORIGIN)); // LIBRARY!/ACTION!
+
+    Move_Value(RIN_AT(r, IDX_ROUTINE_RET_SCHEMA), ret_schema);
+    DROP_GC_GUARD(ret_schema);
+
     Init_Logic(RIN_AT(r, IDX_ROUTINE_IS_VARIADIC), is_variadic);
 
-    TERM_ARRAY_LEN(r, IDX_ROUTINE_MAX);
     ASSERT_ARRAY(args_schemas);
     Init_Block(RIN_AT(r, IDX_ROUTINE_ARG_SCHEMAS), args_schemas);
+    DROP_GC_GUARD(args_schemas);
 
     if (RIN_IS_VARIADIC(r)) {
         //
@@ -1191,28 +1215,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
             ); // lifetime must match cif lifetime
     }
 
-    DROP_GC_GUARD(args_schemas);
+    TERM_ARRAY_LEN(r, IDX_ROUTINE_MAX);
 
-    // Now fill in the canon value of the paramlist so it is an actual REBACT
-    // Note: address may have moved if the array was resized.
-    //
-    RELVAL *rootparam = ARR_HEAD(paramlist);
-    RESET_VAL_HEADER(rootparam, REB_ACTION);
-    rootparam->payload.action.paramlist = paramlist;
-    INIT_BINDING(rootparam, UNBOUND);
-
-    LINK(paramlist).facade = paramlist;
-    MISC(paramlist).meta = NULL;
-
-    MANAGE_ARRAY(paramlist);
-
-    REBACT *action = Make_Action(
-        paramlist,
-        &Routine_Dispatcher,
-        NULL, // no facade (use paramlist)
-        NULL // no specialization exemplar (or inherited exemplar)
-    );
-
-    Init_Block(ACT_BODY(action), r); // still needs routine or callback info!
     return action;
 }

@@ -505,25 +505,24 @@ struct Reb_Action_Payload {
     //
     REBARR *paramlist;
 
-    // `body_holder` is a "singular" REBSER, which is big enough to hold one
-    // value cell and two pointers.  One pointers is the MISC().dispatcher,
-    // which is the C code that gets called by Do_Core() to run the function.
-    // The function can then interpret the value cell, e.g.:
+    // `details` holds the instance data used by the dispatcher (which lives
+    // in MISC(details).dispatcher) to run this particular action.  What the
+    // details array holds varies:
     //
-    // PLAIN FUNCTIONS: body is a BLOCK!, the body of the function, obviously
-    // ACTIONS: body is a WORD! for the verb of the action (OPEN, APPEND, etc)
-    // SPECIALIZATIONS: body is a FRAME!
-    // ROUTINES/CALLBACKS: body is a stylized array (REBRIN*)
+    // USER FUNCTIONS: 1-element array w/a BLOCK!, the body of the function
+    // ACTIONS: 1-element array w/WORD! verb of the action (OPEN, APPEND, etc)
+    // SPECIALIZATIONS: 1-element array containing a FRAME! value
+    // ROUTINES/CALLBACKS: stylized array (REBRIN*)
     //
     // Since plain natives only need the C function, the body is optionally
     // used to store a block of Rebol code that is equivalent to the native,
     // for illustrative purposes.  (a "fake" answer for SOURCE)
     //
-    // By storing the function dispatcher in the body_holder series node
-    // instead of in the value cell itself, it also means the dispatcher can
-    // be HIJACKed--or otherwise hooked to affect all instances of a function.
+    // By storing the function dispatcher in the `details` array node instead
+    // of in the value cell itself, it also means the dispatcher can be
+    // HIJACKed--or otherwise hooked to affect all instances of a function.
     //
-    REBARR *body_holder;
+    REBARR *details;
 };
 
 struct Reb_Context_Payload {

@@ -160,9 +160,10 @@ REBNATIVE(make_routine)
     // Process the parameter types into a function, then fill it in
 
     REBACT *routine = Alloc_Ffi_Action_For_Spec(ARG(ffi_spec), abi);
-    REBRIN *r = VAL_ARRAY(ACT_BODY(routine));
+    REBRIN *r = ACT_DETAILS(routine);
 
     Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc, 0);
+    Init_Blank(RIN_AT(r, IDX_ROUTINE_CLOSURE));
     Move_Value(RIN_AT(r, IDX_ROUTINE_ORIGIN), ARG(lib));
 
     return Init_Action_Unbound(D_OUT, routine);
@@ -206,9 +207,10 @@ REBNATIVE(make_routine_raw)
         fail ("FFI: NULL pointer not allowed for raw MAKE-ROUTINE");
 
     REBACT *routine = Alloc_Ffi_Action_For_Spec(ARG(ffi_spec), abi);
-    REBRIN *r = VAL_ARRAY(ACT_BODY(routine));
+    REBRIN *r = ACT_DETAILS(routine);
 
     Init_Handle_Cfunc(RIN_AT(r, IDX_ROUTINE_CFUNC), cfunc, 0);
+    Init_Blank(RIN_AT(r, IDX_ROUTINE_CLOSURE));
     Init_Blank(RIN_AT(r, IDX_ROUTINE_ORIGIN)); // no LIBRARY! in this case.
 
     return Init_Action_Unbound(D_OUT, routine);
@@ -242,7 +244,7 @@ REBNATIVE(wrap_callback)
         abi = FFI_DEFAULT_ABI;
 
     REBACT *callback = Alloc_Ffi_Action_For_Spec(ARG(ffi_spec), abi);
-    REBRIN *r = VAL_ARRAY(ACT_BODY(callback));
+    REBRIN *r = ACT_DETAILS(callback);
 
     void *thunk; // actually CFUNC (FFI uses void*, may not be same size!)
     ffi_closure *closure = cast(ffi_closure*, ffi_closure_alloc(
@@ -304,14 +306,15 @@ REBNATIVE(addr_of) {
     REBVAL *v = ARG(value);
 
     if (IS_ACTION(v)) {
-        if (!IS_ACTION_RIN(v))
+        if (not IS_ACTION_RIN(v))
             fail ("Can only take address of ACTION!s created though FFI");
 
         // The CFUNC is fabricated by the FFI if it's a callback, or
         // just the wrapped DLL function if it's an ordinary routine
         //
+        REBRIN *rin = VAL_ACT_DETAILS(v);
         return Init_Integer(
-            D_OUT, cast(intptr_t, RIN_CFUNC(VAL_ACT_ROUTINE(v)))
+            D_OUT, cast(intptr_t, RIN_CFUNC(rin))
         );
     }
 

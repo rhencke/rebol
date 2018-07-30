@@ -35,8 +35,7 @@ static REBOOL Same_Action(const RELVAL *a1, const RELVAL *a2)
     assert(IS_ACTION(a1) && IS_ACTION(a2));
 
     if (VAL_ACT_PARAMLIST(a1) == VAL_ACT_PARAMLIST(a2)) {
-        assert(VAL_ACT_DISPATCHER(a1) == VAL_ACT_DISPATCHER(a2));
-        assert(VAL_ACT_BODY(a1) == VAL_ACT_BODY(a2));
+        assert(VAL_ACT_DETAILS(a1) == VAL_ACT_DETAILS(a2));
 
         // All actions that have the same paramlist are not necessarily the
         // "same action".  For instance, every RETURN shares a common
@@ -181,18 +180,20 @@ REBTYPE(Action)
             // !!! always "deep", allow it?
         }
 
+        REBACT *act = VAL_ACTION(value);
+
         // Copying functions creates another handle which executes the same
         // code, yet has a distinct identity.  This means it would not be
         // HIJACK'd if the function that it was copied from was.
 
         REBARR *proxy_paramlist = Copy_Array_Deep_Flags_Managed(
-            VAL_ACT_PARAMLIST(value),
+            ACT_PARAMLIST(act),
             SPECIFIED, // !!! Note: not actually "deep", just typesets
             SERIES_MASK_ACTION
         );
         ARR_HEAD(proxy_paramlist)->payload.action.paramlist
             = proxy_paramlist;
-        MISC(proxy_paramlist).meta = VAL_ACT_META(value);
+        MISC(proxy_paramlist).meta = ACT_META(act);
 
         // If the function had code, then that code will be bound relative
         // to the original paramlist that's getting hijacked.  So when the
@@ -200,17 +201,23 @@ REBTYPE(Action)
         // whatever underlied the function...even if it was foundational
         // so `underlying = VAL_ACTION(value)`
 
+        REBCNT details_len = ARR_LEN(ACT_DETAILS(act));
         REBACT *proxy = Make_Action(
             proxy_paramlist,
-            ACT_DISPATCHER(VAL_ACTION(value)),
-            ACT_FACADE(VAL_ACTION(value)), // can reuse the facade
-            ACT_EXEMPLAR(VAL_ACTION(value)) // not changing the specialization
+            ACT_DISPATCHER(act),
+            ACT_FACADE(act), // can reuse the facade
+            ACT_EXEMPLAR(act), // not changing the specialization
+            details_len // details array capacity
         );
 
         // A new body_holder was created inside Make_Action().  Rare case
         // where we can bit-copy a possibly-relative value.
         //
-        Blit_Cell(ACT_BODY(proxy), VAL_ACT_BODY(value));
+        RELVAL *src = ARR_HEAD(ACT_DETAILS(act));
+        RELVAL *dest = ARR_HEAD(ACT_DETAILS(proxy));
+        for (; NOT_END(src); ++src, ++dest)
+            Blit_Cell(dest, src);
+        TERM_ARRAY_LEN(ACT_DETAILS(proxy), details_len);
 
         return Init_Action_Maybe_Bound(D_OUT, proxy, VAL_BINDING(value)); }
 
@@ -258,31 +265,37 @@ REBTYPE(Action)
         // returns for FILE OF and LINE OF.
         //
         case SYM_FILE: {
-            if (not ANY_SERIES(VAL_ACT_BODY(value)))
+            REBARR *details = VAL_ACT_DETAILS(value);
+            if (ARR_LEN(details) < 1)
                 return nullptr;
 
-            REBSER *s = VAL_SERIES(VAL_ACT_BODY(value));
+            if (not ANY_ARRAY(ARR_HEAD(details)))
+                return nullptr;
 
-            if (NOT_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
+            REBARR *a = VAL_ARRAY(ARR_HEAD(details));
+            if (NOT_SER_FLAG(a, ARRAY_FLAG_FILE_LINE))
                 return nullptr;
 
             // !!! How to tell whether it's a URL! or a FILE! ?
             //
             Scan_File(
-                D_OUT, cb_cast(STR_HEAD(LINK(s).file)), SER_LEN(LINK(s).file)
+                D_OUT, cb_cast(STR_HEAD(LINK(a).file)), SER_LEN(LINK(a).file)
             );
             return D_OUT; }
 
         case SYM_LINE: {
-            if (not ANY_SERIES(VAL_ACT_BODY(value)))
+            REBARR *details = VAL_ACT_DETAILS(value);
+            if (ARR_LEN(details) < 1)
                 return nullptr;
 
-            REBSER *s = VAL_SERIES(VAL_ACT_BODY(value));
-
-            if (NOT_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
+            if (not ANY_ARRAY(ARR_HEAD(details)))
                 return nullptr;
 
-            return Init_Integer(D_OUT, MISC(s).line); }
+            REBARR *a = VAL_ARRAY(ARR_HEAD(details));
+            if (NOT_SER_FLAG(a, ARRAY_FLAG_FILE_LINE))
+                return nullptr;
+
+            return Init_Integer(D_OUT, MISC(a).line); }
 
         default:
             fail (Error_Cannot_Reflect(VAL_TYPE(value), arg));

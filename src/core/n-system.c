@@ -277,7 +277,7 @@ REBNATIVE(check)
     }
     else if (IS_ACTION(value)) {
         ASSERT_ARRAY(VAL_ACT_PARAMLIST(value));
-        ASSERT_ARRAY(VAL_ARRAY(VAL_ACT_BODY(value)));
+        ASSERT_ARRAY(VAL_ACT_DETAILS(value));
     }
 
     return R_TRUE;

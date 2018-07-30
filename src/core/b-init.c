@@ -360,10 +360,12 @@ REBNATIVE(action)
         Make_Paramlist_Managed_May_Fail(spec, flags),
         &Type_Action_Dispatcher,
         NULL, // no facade (use paramlist)
-        NULL // no specialization exemplar (or inherited exemplar)
+        NULL, // no specialization exemplar (or inherited exemplar)
+        1 // details array capacity
     );
 
-    Init_Word(ACT_BODY(a), VAL_WORD_CANON(ARG(verb)));
+    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(a));
+    Init_Word(body, VAL_WORD_CANON(ARG(verb)));
 
     // A lookback quoting function that quotes a SET-WORD! on its left is
     // responsible for setting the value if it wants it to change since the
@@ -614,19 +616,24 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
             Make_Paramlist_Managed_May_Fail(KNOWN(spec), flags),
             Native_C_Funcs[n], // "dispatcher" is unique to this "native"
             NULL, // no facade (use paramlist)
-            NULL // no specialization exemplar (or inherited exemplar)
+            NULL, // no specialization exemplar (or inherited exemplar)
+            1 // details array capacity
         );
+
+        REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(act));
 
         // If a user-equivalent body was provided, we save it in the native's
         // REBVAL for later lookup.
         //
         if (has_body) {
-            REBVAL *body = KNOWN(item); // !!! handle relative?
+            if (not IS_BLOCK(item))
+                panic (item);
+
+            Move_Value(body, KNOWN(item)); // !!! handle relative?
             ++item;
-            if (not IS_BLOCK(body))
-                panic (body);
-            Move_Value(ACT_BODY(act), body);
         }
+        else
+            Init_Blank(body);
 
         Prep_Non_Stack_Cell(&Natives[n]);
         Init_Action_Unbound(&Natives[n], act);

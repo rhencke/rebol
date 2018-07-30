@@ -121,9 +121,16 @@ void Startup_Frame_Stack(void)
         paramlist,
         &Null_Dispatcher,
         NULL, // no facade (use paramlist)
-        NULL // no specialization exemplar (or inherited exemplar)
+        NULL, // no specialization exemplar (or inherited exemplar)
+        1 // details array capacity
     );
-    Init_Block(ACT_BODY(PG_Dummy_Action), EMPTY_ARRAY);
+
+    // !!! Null_Dispatcher() currently requires a body for things like fake
+    // source.  The user shouldn't get PG_Dummy_Action in their hands to ask
+    // for SOURCE of, but still, the Null_Dispatcher() has asserts.
+    //
+    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(PG_Dummy_Action));
+    Init_Block(body, EMPTY_ARRAY);
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);

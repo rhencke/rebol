@@ -857,23 +857,23 @@ REBCNT Find_Param_Index(REBARR *paramlist, REBSTR *spelling)
 // RETURN is distinguished from another--the binding data stored in the REBVAL
 // identifies the pointer of the FRAME! to exit).
 //
-// Actions have an associated REBVAL-sized cell of data, accessible via
-// ACT_BODY().  This is where they can store information that will be
-// available when the dispatcher is called.  Despite being called "body", it
-// doesn't have to be an array--it can be any REBVAL.
+// Actions have an associated REBARR of data, accessible via ACT_DETAILS().
+// This is where they can store information that will be available when the
+// dispatcher is called.
 //
 REBACT *Make_Action(
     REBARR *paramlist,
     REBNAT dispatcher, // native C function called by Do_Core
     REBARR *opt_facade, // if provided, 0 element must be underlying function
-    REBCTX *opt_exemplar // if provided, should be consistent w/next level
+    REBCTX *opt_exemplar, // if provided, should be consistent w/next level
+    REBCNT details_capacity // desired capacity of the ACT_DETAILS() array
 ){
     ASSERT_ARRAY_MANAGED(paramlist);
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
-    assert(IS_ACTION(rootparam)); // !!! body not fully formed...
+    assert(VAL_TYPE_RAW(rootparam) == REB_ACTION); // !!! not fully formed...
     assert(rootparam->payload.action.paramlist == paramlist);
-    assert(VAL_BINDING(rootparam) == UNBOUND); // archetype
+    assert(rootparam->extra.binding == UNBOUND); // archetype
 
     // Precalculate cached function flags.
     //
@@ -951,20 +951,14 @@ REBACT *Make_Action(
         }
     }
 
-    // The "body" for a function can be any REBVAL.  It doesn't have to be
-    // a block--it's anything that the dispatcher might wish to interpret.
+    // "details" for an action is an array of cells which can be anything
+    // the dispatcher understands it to be, by contract.
 
-    REBARR *body_holder = Alloc_Singular(NODE_FLAG_MANAGED);
-    Init_Blank(ARR_SINGLE(body_holder));
+    REBARR *details = Make_Array_Core(details_capacity, NODE_FLAG_MANAGED);
 
-    rootparam->payload.action.body_holder = body_holder;
+    rootparam->payload.action.details = details;
 
-    // The C function pointer is stored inside the REBSER node for the body.
-    // Hence there's no need for a `switch` on a function class in Do_Core,
-    // Having a level of indirection from the REBVAL bits themself also
-    // facilitates the "Hijacker" to change multiple REBVALs behavior.
-
-    MISC(body_holder).dispatcher = dispatcher;
+    MISC(details).dispatcher = dispatcher; // level of indirection, hijackable
 
     // When this function is run, it needs to push a stack frame with a
     // certain number of arguments, and do type checking and parameter class
@@ -976,8 +970,9 @@ REBACT *Make_Action(
     // may have new parameter classes through a "facade".  This facade is
     // initially just the underlying function's paramlist, but may change.
     //
-    if (opt_facade == NULL) {
-        //
+    if (opt_facade)
+        LINK(paramlist).facade = opt_facade;
+    else {
         // To avoid NULL checking when a function is called and looking for
         // the facade, just use the functions own paramlist if needed.  See
         // notes in Make_Paramlist_Managed_May_Fail() on why this has to be
@@ -985,16 +980,14 @@ REBACT *Make_Action(
         //
         assert(LINK(paramlist).facade == paramlist);
     }
-    else
-        LINK(paramlist).facade = opt_facade;
 
-    if (opt_exemplar == NULL) {
+    if (not opt_exemplar) {
         //
         // No exemplar is used as a cue to set the "specialty" to the facade,
-        // so that f->special can be assigned directly from it in dispatch
-        // and match f->param.  See Push_Action() for details.
+        // so that Push_Action() can assign f->special directly from it in
+        // dispatch, and be equal to f->param.
         //
-        LINK(body_holder).specialty = LINK(paramlist).facade;
+        LINK(details).specialty = LINK(paramlist).facade;
     }
     else {
         // Because a dispatcher can update the phase and swap in the next
@@ -1012,7 +1005,7 @@ REBACT *Make_Action(
             CTX_LEN(opt_exemplar) == ARR_LEN(LINK(paramlist).facade) - 1
         );
 
-        LINK(body_holder).specialty = CTX_VARLIST(opt_exemplar);
+        LINK(details).specialty = CTX_VARLIST(opt_exemplar);
     }
 
     // The meta information may already be initialized, since the native
@@ -1024,14 +1017,8 @@ REBACT *Make_Action(
         or GET_SER_FLAG(MISC(paramlist).meta, ARRAY_FLAG_VARLIST)
     );
 
-    // Note: used to set the keys of natives as read-only so that the debugger
-    // couldn't manipulate the values in a native frame out from under it,
-    // potentially crashing C code (vs. just causing userspace code to
-    // error).  That protection is now done to the frame series on reification
-    // in order to be able to MAKE FRAME! and reuse the native's paramlist.
-
     assert(NOT_SER_FLAG(paramlist, ARRAY_FLAG_FILE_LINE));
-    assert(NOT_SER_FLAG(body_holder, ARRAY_FLAG_FILE_LINE));
+    assert(NOT_SER_FLAG(details, ARRAY_FLAG_FILE_LINE));
 
     return ACT(paramlist);
 }
@@ -1094,9 +1081,11 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
     // the top of the returned body?
     //
     while (ACT_DISPATCHER(a) == &Hijacker_Dispatcher) {
-        a = VAL_ACTION(ACT_BODY(a));
+        a = VAL_ACTION(ARR_HEAD(ACT_DETAILS(a)));
         // !!! Review what should happen to binding
     }
+
+    REBARR *details = ACT_DETAILS(a);
 
     // !!! Should the binding make a difference in the returned body?  It is
     // exposed programmatically via CONTEXT OF.
@@ -1113,6 +1102,8 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
     ){
         // Interpreted code, the body is a block with some bindings relative
         // to the action.
+
+        RELVAL *body = ARR_HEAD(details);
 
         // The ACTION_FLAG_LEAVE/ACTION_FLAG_RETURN tricks for definitional
         // scoping make it seem like a generator authored more code in the
@@ -1135,7 +1126,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
             UNUSED(real_body_index);
         }
 
-        REBARR *real_body = VAL_ARRAY(ACT_BODY(a));
+        REBARR *real_body = VAL_ARRAY(body);
         assert(GET_SER_INFO(real_body, SERIES_INFO_FROZEN));
 
         REBARR *maybe_fake_body;
@@ -1161,7 +1152,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
             assert(IS_ISSUE(slot));
 
             RESET_VAL_HEADER_EXTRA(slot, REB_GROUP, 0); // clear VAL_FLAG_LINE
-            INIT_VAL_ARRAY(slot, VAL_ARRAY(ACT_BODY(a)));
+            INIT_VAL_ARRAY(slot, VAL_ARRAY(body));
             VAL_INDEX(slot) = 0;
             INIT_BINDING(slot, a); // relative binding
         }
@@ -1181,14 +1172,16 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
         // The FRAME! stored in the body for the specialization has a phase
         // which is actually the function to be run.
         //
-        assert(IS_FRAME(ACT_BODY(a)));
-        Move_Value(out, KNOWN(ACT_BODY(a)));
+        REBVAL *frame = KNOWN(ARR_HEAD(details));
+        assert(IS_FRAME(frame));
+        Move_Value(out, frame);
         return;
     }
 
     if (ACT_DISPATCHER(a) == &Type_Action_Dispatcher) {
-        assert(IS_WORD(ACT_BODY(a)));
-        Move_Value(out, KNOWN(ACT_BODY(a)));
+        REBVAL *verb = KNOWN(ARR_HEAD(details));
+        assert(IS_WORD(verb));
+        Move_Value(out, verb);
         return;
     }
 
@@ -1245,7 +1238,8 @@ REBACT *Make_Interpreted_Action_May_Fail(
         Make_Paramlist_Managed_May_Fail(spec, mkf_flags),
         &Null_Dispatcher, // will be overwritten if non-[] body
         NULL, // no facade (use paramlist)
-        NULL // no specialization exemplar (or inherited exemplar)
+        NULL, // no specialization exemplar (or inherited exemplar)
+        1 // details array capacity
     );
 
     // We look at the *actual* function flags; e.g. the person may have used
@@ -1295,7 +1289,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
         );
     }
 
-    RELVAL *body = ACT_BODY(a);
+    RELVAL *body = Alloc_Tail_Array(ACT_DETAILS(a));
     RESET_VAL_HEADER(body, REB_BLOCK); // Init_Block() assumes specific values
     INIT_VAL_ARRAY(body, copy);
     VAL_INDEX(body) = 0;
@@ -1379,8 +1373,10 @@ REBTYPE(Fail)
 //
 REB_R Type_Action_Dispatcher(REBFRM *f)
 {
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+
     enum Reb_Kind kind = VAL_TYPE(FRM_ARG(f, 1));
-    REBVAL *verb = KNOWN(ACT_BODY(FRM_PHASE(f)));
+    REBVAL *verb = KNOWN(ARR_HEAD(details));
     assert(IS_WORD(verb));
     assert(kind < REB_MAX);
 
@@ -1399,8 +1395,10 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
 //
 REB_R Null_Dispatcher(REBFRM *f)
 {
-    assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE_OR_DUMMY(f))) == 0);
-    UNUSED(f);
+    REBARR *details = ACT_DETAILS(FRM_PHASE_OR_DUMMY(f));
+    assert(VAL_LEN_AT(ARR_HEAD(details)) == 0);
+    UNUSED(details);
+
     return nullptr;
 }
 
@@ -1412,8 +1410,10 @@ REB_R Null_Dispatcher(REBFRM *f)
 //
 REB_R Void_Dispatcher(REBFRM *f)
 {
-    assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE(f))) == 0);
-    UNUSED(f);
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    assert(VAL_LEN_AT(ARR_HEAD(details)) == 0);
+    UNUSED(details);
+
     Init_Void(f->out);
     return f->out;
 }
@@ -1426,7 +1426,8 @@ REB_R Void_Dispatcher(REBFRM *f)
 //
 REB_R Datatype_Checker_Dispatcher(REBFRM *f)
 {
-    RELVAL *datatype = ACT_BODY(FRM_PHASE(f));
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    RELVAL *datatype = ARR_HEAD(details);
     assert(IS_DATATYPE(datatype));
     Init_Logic(f->out, VAL_TYPE(FRM_ARG(f, 1)) == VAL_TYPE_KIND(datatype));
     return f->out;
@@ -1440,7 +1441,8 @@ REB_R Datatype_Checker_Dispatcher(REBFRM *f)
 //
 REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 {
-    RELVAL *typeset = ACT_BODY(FRM_PHASE(f));
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    RELVAL *typeset = ARR_HEAD(details);
     assert(IS_TYPESET(typeset));
     Init_Logic(f->out, TYPE_CHECK(typeset, VAL_TYPE(FRM_ARG(f, 1))));
     return f->out;
@@ -1456,7 +1458,8 @@ REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 //
 REB_R Unchecked_Dispatcher(REBFRM *f)
 {
-    RELVAL *body = ACT_BODY(FRM_PHASE(f));
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    RELVAL *body = ARR_HEAD(details);
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
@@ -1475,7 +1478,8 @@ REB_R Unchecked_Dispatcher(REBFRM *f)
 //
 REB_R Voider_Dispatcher(REBFRM *f)
 {
-    RELVAL *body = ACT_BODY(FRM_PHASE(f));
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    RELVAL *body = ARR_HEAD(details);
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
@@ -1496,7 +1500,9 @@ REB_R Voider_Dispatcher(REBFRM *f)
 REB_R Returner_Dispatcher(REBFRM *f)
 {
     REBACT *phase = FRM_PHASE(f);
-    RELVAL *body = ACT_BODY(phase);
+    REBARR *details = ACT_DETAILS(phase);
+
+    RELVAL *body = ARR_HEAD(details);
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
@@ -1526,7 +1532,9 @@ REB_R Returner_Dispatcher(REBFRM *f)
 //
 REB_R Elider_Dispatcher(REBFRM *f)
 {
-    RELVAL *body = ACT_BODY(FRM_PHASE(f));
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+
+    RELVAL *body = ARR_HEAD(details);
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     // !!! It would be nice to use the frame's spare "cell" for the thrownaway
@@ -1552,8 +1560,10 @@ REB_R Elider_Dispatcher(REBFRM *f)
 //
 REB_R Commenter_Dispatcher(REBFRM *f)
 {
-    assert(VAL_LEN_AT(ACT_BODY(FRM_PHASE(f))) == 0);
-    UNUSED(f);
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    RELVAL *body = ARR_HEAD(details);
+    assert(VAL_LEN_AT(body) == 0);
+    UNUSED(body);
     return R_INVISIBLE;
 }
 
@@ -1573,7 +1583,8 @@ REB_R Commenter_Dispatcher(REBFRM *f)
 //
 REB_R Hijacker_Dispatcher(REBFRM *f)
 {
-    RELVAL *hijacker = ACT_BODY(FRM_PHASE(f));
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    RELVAL *hijacker = ARR_HEAD(details);
 
     // We need to build a new frame compatible with the hijacker, and
     // transform the parameters we've gathered to be compatible with it.
@@ -1592,11 +1603,11 @@ REB_R Hijacker_Dispatcher(REBFRM *f)
 //
 REB_R Adapter_Dispatcher(REBFRM *f)
 {
-    RELVAL *adaptation = ACT_BODY(FRM_PHASE(f));
-    assert(ARR_LEN(VAL_ARRAY(adaptation)) == 2);
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    assert(ARR_LEN(details) == 2);
 
-    RELVAL* prelude = VAL_ARRAY_AT_HEAD(adaptation, 0);
-    REBVAL* adaptee = KNOWN(VAL_ARRAY_AT_HEAD(adaptation, 1));
+    RELVAL* prelude = ARR_AT(details, 0);
+    REBVAL* adaptee = KNOWN(ARR_AT(details, 1));
 
     // The first thing to do is run the prelude code, which may throw.  If it
     // does throw--including a RETURN--that means the adapted function will
@@ -1628,12 +1639,12 @@ REB_R Adapter_Dispatcher(REBFRM *f)
 //
 REB_R Encloser_Dispatcher(REBFRM *f)
 {
-    RELVAL *info = ACT_BODY(FRM_PHASE(f));
-    assert(ARR_LEN(VAL_ARRAY(info)) == 2);
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    assert(ARR_LEN(details) == 2);
 
-    RELVAL *inner = KNOWN(VAL_ARRAY_AT_HEAD(info, 0)); // same args as f
+    REBVAL *inner = KNOWN(ARR_AT(details, 0)); // same args as f
     assert(IS_ACTION(inner));
-    REBVAL *outer = KNOWN(VAL_ARRAY_AT_HEAD(info, 1)); // 1 FRAME! arg
+    REBVAL *outer = KNOWN(ARR_AT(details, 1)); // takes 1 arg (a FRAME!)
     assert(IS_ACTION(outer));
 
     assert(GET_SER_FLAG(f->varlist, SERIES_FLAG_STACK));
@@ -1679,24 +1690,23 @@ REB_R Encloser_Dispatcher(REBFRM *f)
 //
 REB_R Chainer_Dispatcher(REBFRM *f)
 {
-    REBVAL *pipeline = KNOWN(ACT_BODY(FRM_PHASE(f))); // array of functions
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    REBARR *pipeline = VAL_ARRAY(ARR_HEAD(details));
 
-    // Before skipping off to find the underlying non-chained function
-    // to kick off the execution, the post-processing pipeline has to
-    // be "pushed" so it is not forgotten.  Go in reverse order so
-    // the function to apply last is at the bottom of the stack.
+    // The post-processing pipeline has to be "pushed" so it is not forgotten.
+    // Go in reverse order, so the function to apply last is at the bottom of
+    // the stack.
     //
-    REBVAL *value = KNOWN(ARR_LAST(VAL_ARRAY(pipeline)));
-    while (value != VAL_ARRAY_HEAD(pipeline)) {
-        assert(IS_ACTION(value));
-        DS_PUSH(KNOWN(value));
-        --value;
+    REBVAL *chained = KNOWN(ARR_LAST(pipeline));
+    for (; chained != ARR_HEAD(pipeline); --chained) {
+        assert(IS_ACTION(chained));
+        DS_PUSH(KNOWN(chained));
     }
 
     // Extract the first function, itself which might be a chain.
     //
-    FRM_PHASE(f) = VAL_ACTION(value);
-    FRM_BINDING(f) = VAL_BINDING(value);
+    FRM_PHASE(f) = VAL_ACTION(chained);
+    FRM_BINDING(f) = VAL_BINDING(chained);
 
     return R_REDO_UNCHECKED; // signatures should match
 }

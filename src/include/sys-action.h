@@ -54,10 +54,10 @@ inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     GET_VAL_FLAG(ACT_ARCHETYPE(a), (flag))
 
 #define ACT_DISPATCHER(a) \
-    (MISC(ACT_ARCHETYPE(a)->payload.action.body_holder).dispatcher)
+    (MISC(ACT_ARCHETYPE(a)->payload.action.details).dispatcher)
 
-#define ACT_BODY(a) \
-    ARR_SINGLE(ACT_ARCHETYPE(a)->payload.action.body_holder)
+#define ACT_DETAILS(a) \
+    ACT_ARCHETYPE(a)->payload.action.details
 
 inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
     assert(n != 0 and n < ARR_LEN(ACT_PARAMLIST(a)));
@@ -110,13 +110,12 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
 
 
 // An efficiency trick makes functions that do not have exemplars NOT store
-// nullptr in the body_holder node in that case--instead the facade.  This
-// helps make Push_Action() slightly faster in assigning f->special.
+// nullptr in the LINK(info).specialty node in that case--instead the facade.
+// This makes Push_Action() slightly faster in assigning f->special.
 //
 inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
-    REBARR *specialty
-        = LINK(ACT_ARCHETYPE(a)->payload.action.body_holder).specialty;
-
+    REBARR *details = ACT_ARCHETYPE(a)->payload.action.details;
+    REBARR *specialty = LINK(details).specialty;
     if (GET_SER_FLAG(specialty, ARRAY_FLAG_VARLIST))
         return CTX(specialty);
 
@@ -124,8 +123,8 @@ inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {
 }
 
 inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
-    REBARR *body_holder = ACT_ARCHETYPE(a)->payload.action.body_holder;
-    REBSER *s = SER(LINK(body_holder).specialty);
+    REBARR *details = ACT_ARCHETYPE(a)->payload.action.details;
+    REBSER *s = SER(LINK(details).specialty);
     return cast(REBVAL*, s->content.dynamic.data) + 1; // skip archetype/root
 }
 
@@ -235,14 +234,14 @@ inline static REBACT *VAL_ACTION(const RELVAL *v) {
 #define VAL_ACT_PARAM(v,n) \
     ACT_PARAM(VAL_ACTION(v), n)
 
-inline static RELVAL *VAL_ACT_BODY(const RELVAL *v) {
+inline static REBARR *VAL_ACT_DETAILS(const RELVAL *v) {
     assert(IS_ACTION(v));
-    return ARR_HEAD(v->payload.action.body_holder);
+    return v->payload.action.details;
 }
 
 inline static REBNAT VAL_ACT_DISPATCHER(const RELVAL *v) {
     assert(IS_ACTION(v));
-    return MISC(v->payload.action.body_holder).dispatcher;
+    return MISC(v->payload.action.details).dispatcher;
 }
 
 inline static REBCTX *VAL_ACT_META(const RELVAL *v) {

@@ -329,36 +329,6 @@ inline static REBOOL VAL_STRUCT_INACCESSIBLE(const RELVAL *v) {
     STU_FFTYPE(VAL_STRUCT(v))
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  ROUTINE SUPPORT
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// "Routine info" used to be a specialized C structure, which referenced
-// Rebol functions/values/series.  This meant there had to be specialized
-// code in the garbage collector.  It actually went as far as to have a memory
-// pool for objects that was sizeof(Reb_Routine_Info), which complicates the
-// concerns further.
-//
-// That "invasive" approach is being gradually generalized to speak in the
-// natural vocabulary of Rebol values.  What enables the transition is that
-// arbitrary C allocations (such as an ffi_closure*) can use the new freeing
-// handler feature of a GC'd HANDLE! value.  So now "routine info" is just
-// a BLOCK! REBVAL*, which lives in the ACT_BODY of a routine, and has some
-// HANDLE!s in it that array.
-//
-// !!! An additional benefit is that if the structures used internally
-// are actual Rebol-manipulatable values, then that means more parts of the
-// FFI extension itself could be written as Rebol.  e.g. the FFI spec analysis
-// could be done with PARSE, as opposed to harder-to-edit-and-maintain
-// internal API C code.
-//
- 
-inline static REBRIN *VAL_ACT_ROUTINE(const RELVAL *v) {
-    return VAL_ARRAY(VAL_ACT_BODY(v));
-}
-
 enum {
     // The HANDLE! of a CFUNC*, obeying the interface of the C-format call.
     // If it's a routine, then it's the pointer to a pre-existing function

@@ -810,7 +810,8 @@ REBOOL Specialize_Action_Throws(
         paramlist,
         &Specializer_Dispatcher,
         facade, // use facade with specialized parameters flagged hidden
-        exemplar // also provide a context of specialization values
+        exemplar, // also provide a context of specialization values
+        1 // details array capacity
     );
 
     // We patch the facade of the unspecialized action in as the keylist
@@ -825,7 +826,7 @@ REBOOL Specialize_Action_Throws(
     // that binding has to be UNBOUND).  It also remembers the original
     // action in the phase, so Specializer_Dispatcher() knows what to call.
     //
-    RELVAL *body = ACT_BODY(specialized);
+    RELVAL *body = Alloc_Tail_Array(ACT_DETAILS(specialized));
     Move_Value(body, CTX_ARCHETYPE(exemplar));
     INIT_BINDING(body, VAL_BINDING(specializee));
     body->payload.any_context.phase = unspecialized;
@@ -846,7 +847,10 @@ REBOOL Specialize_Action_Throws(
 //
 REB_R Specializer_Dispatcher(REBFRM *f)
 {
-    REBVAL *exemplar = KNOWN(ACT_BODY(FRM_PHASE(f)));
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+
+    REBVAL *exemplar = KNOWN(ARR_HEAD(details));
+    assert(IS_FRAME(exemplar));
 
     FRM_PHASE(f) = exemplar->payload.any_context.phase;
     FRM_BINDING(f) = VAL_BINDING(exemplar);
@@ -931,7 +935,8 @@ REBNATIVE(specialize)
 //
 REB_R Block_Dispatcher(REBFRM *f)
 {
-    RELVAL *block = ACT_BODY(FRM_PHASE(f));
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    RELVAL *block = ARR_HEAD(details);
     assert(IS_BLOCK(block));
 
     if (IS_SPECIFIC(block)) {
@@ -1180,13 +1185,14 @@ REBNATIVE(does)
             paramlist,
             &Block_Dispatcher, // **SEE COMMENTS**, not quite like plain DO!
             NULL, // no facade (use paramlist)
-            NULL // no specialization exemplar (or inherited exemplar)
+            NULL, // no specialization exemplar (or inherited exemplar)
+            1 // details array capacity
         );
 
         // Block_Dispatcher() *may* copy at an indeterminate time, so to keep
         // things invariant we have to lock it.
         //
-        RELVAL *body = ACT_BODY(doer);
+        RELVAL *body = Alloc_Tail_Array(ACT_DETAILS(doer));
         REBSER *locker = NULL;
         Ensure_Value_Immutable(specializee, locker);
         Move_Value(body, specializee);
@@ -1318,9 +1324,12 @@ REBNATIVE(does)
         paramlist,
         &Specializer_Dispatcher,
         facade, // no facade, use paramlist
-        exemplar // also provide a context of specialization values
+        exemplar, // also provide a context of specialization values
+        1 // details array capacity
     );
-    Init_Frame(ACT_BODY(doer), exemplar);
+
+    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(doer));
+    Init_Frame(body, exemplar);
 
     return Init_Action_Unbound(D_OUT, doer);
 }

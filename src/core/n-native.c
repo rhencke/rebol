@@ -246,18 +246,19 @@ REBNATIVE(make_native)
         Make_Paramlist_Managed_May_Fail(ARG(spec), MKF_MASK_NONE),
         &Pending_Native_Dispatcher, // will be replaced e.g. by COMPILE
         NULL, // no facade (use paramlist)
-        NULL // no specialization exemplar (or inherited exemplar)
+        NULL, // no specialization exemplar (or inherited exemplar)
+        3 // details array capacity [source name tcc_state]
     );
 
-    REBARR *info = Make_Array(3); // [source name tcc_state]
+    REBARR *details = ACT_DETAILS(native);
 
     if (Is_Series_Frozen(VAL_SERIES(source)))
-        Append_Value(info, source); // no need to copy it...
+        Append_Value(details, source); // no need to copy it...
     else {
         // have to copy it (might change before COMPILE is called)
         //
         Init_Text(
-            Alloc_Tail_Array(info),
+            Alloc_Tail_Array(details),
             Copy_String_At_Len(source, -1)
         );
     }
@@ -266,10 +267,10 @@ REBNATIVE(make_native)
         REBVAL *name = ARG(name);
 
         if (Is_Series_Frozen(VAL_SERIES(name)))
-            Append_Value(info, name);
+            Append_Value(details, name);
         else {
             Init_Text(
-                Alloc_Tail_Array(info),
+                Alloc_Tail_Array(details),
                 Copy_String_At_Len(name, -1)
             );
         }
@@ -302,12 +303,10 @@ REBNATIVE(make_native)
         }
         TERM_UNI_LEN(ser, len);
 
-        Init_Text(Alloc_Tail_Array(info), ser);
+        Init_Text(Alloc_Tail_Array(details), ser);
     }
 
-    Init_Blank(Alloc_Tail_Array(info)); // no TCC_State, yet...
-
-    Init_Block(ACT_BODY(native), info);
+    Init_Blank(Alloc_Tail_Array(details)); // no TCC_State, yet...
 
     // We need to remember this is a user native, because we won't over the
     // long run be able to tell it is when the dispatcher is replaced with an
@@ -493,9 +492,9 @@ REBNATIVE(compile)
             //
             DS_PUSH(const_KNOWN(var));
 
-            RELVAL *info = VAL_ACT_BODY(var);
-            RELVAL *source = VAL_ARRAY_AT_HEAD(info, 0);
-            RELVAL *name = VAL_ARRAY_AT_HEAD(info, 1);
+            REBARR *details = VAL_ACT_DETAILS(var);
+            RELVAL *source = ARR_AT(details, 0);
+            RELVAL *name = ARR_AT(details, 1);
 
             Append_Unencoded(mo->series, "REB_R ");
             Append_Utf8_String(mo->series, name, VAL_LEN_AT(name));
@@ -653,9 +652,9 @@ REBNATIVE(compile)
         assert(IS_ACTION(var));
         assert(GET_VAL_FLAG(var, ACTION_FLAG_USER_NATIVE));
 
-        REBVAL *info = KNOWN(VAL_ACT_BODY(var));
-        REBVAL *name = KNOWN(VAL_ARRAY_AT_HEAD(info, 1));
-        REBVAL *stored_state = KNOWN(VAL_ARRAY_AT_HEAD(info, 2));
+        REBARR *details = VAL_ACT_DETAILS(var);
+        REBVAL *name = KNOWN(ARR_AT(details, 1));
+        REBVAL *stored_state = SINK(ARR_AT(details, 2));
 
         char *name_utf8 = rebSpellAlloc("ensure text!", name, rebEND);
         void *sym = tcc_get_symbol(state, name_utf8);

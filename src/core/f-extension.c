@@ -404,14 +404,19 @@ REBNATIVE(load_native)
         ),
         dispatcher, // unique
         NULL, // no facade (use paramlist)
-        NULL // no specialization exemplar (or inherited exemplar)
+        NULL, // no specialization exemplar (or inherited exemplar)
+        1 // details array capacity
     );
+
+    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(native));
 
     if (REF(unloadable))
         SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_UNLOADABLE_NATIVE);
 
     if (REF(body))
-        Move_Value(ACT_BODY(native), ARG(code));
+        Move_Value(body, ARG(code));
+    else
+        Init_Blank(body); // signal no body provided
 
     return Init_Action_Unbound(D_OUT, native);
 }
