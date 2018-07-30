@@ -356,16 +356,23 @@ REBNATIVE(action)
     //
     REBFLGS flags = MKF_KEYWORDS | MKF_FAKE_RETURN;
 
-    REBACT *a = Make_Action(
+    REBACT *action = Make_Action(
         Make_Paramlist_Managed_May_Fail(spec, flags),
         &Type_Action_Dispatcher,
         NULL, // no facade (use paramlist)
         NULL, // no specialization exemplar (or inherited exemplar)
-        1 // details array capacity
+        2 // details array capacity
     );
 
-    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(a));
+    SET_VAL_FLAG(ACT_ARCHETYPE(action), ACTION_FLAG_NATIVE);
+
+    REBARR *details = ACT_DETAILS(action);
+
+    REBVAL *body = Alloc_Tail_Array(details);
     Init_Word(body, VAL_WORD_CANON(ARG(verb)));
+
+    REBVAL *context = Alloc_Tail_Array(details);
+    Init_Object(context, Lib_Context);
 
     // A lookback quoting function that quotes a SET-WORD! on its left is
     // responsible for setting the value if it wants it to change since the
@@ -373,9 +380,9 @@ REBNATIVE(action)
     // assignment, it's good practice to evaluate the whole expression to
     // the result the SET-WORD! was set to, so `x: y: op z` makes `x = y`.
     //
-    Init_Action_Unbound(Sink_Var_May_Fail(ARG(verb), SPECIFIED), a);
+    Init_Action_Unbound(Sink_Var_May_Fail(ARG(verb), SPECIFIED), action);
 
-    return Init_Action_Unbound(D_OUT, a);
+    return Init_Action_Unbound(D_OUT, action);
 }
 
 
@@ -617,14 +624,17 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
             Native_C_Funcs[n], // "dispatcher" is unique to this "native"
             NULL, // no facade (use paramlist)
             NULL, // no specialization exemplar (or inherited exemplar)
-            1 // details array capacity
+            2 // details array capacity
         );
 
-        REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(act));
+        SET_VAL_FLAG(ACT_ARCHETYPE(act), ACTION_FLAG_NATIVE);
+
+        REBARR *details = ACT_DETAILS(act);
 
         // If a user-equivalent body was provided, we save it in the native's
         // REBVAL for later lookup.
         //
+        REBVAL *body = Alloc_Tail_Array(details);
         if (has_body) {
             if (not IS_BLOCK(item))
                 panic (item);
@@ -634,6 +644,13 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         }
         else
             Init_Blank(body);
+
+        // When code in the core calls APIs like `rebRun()`, it consults the
+        // stack and looks to see where the native function that is running
+        // says its "module" is.  For natives, we default to Lib_Context.
+        //
+        REBVAL *context = Alloc_Tail_Array(details);
+        Init_Object(context, Lib_Context);
 
         Prep_Non_Stack_Cell(&Natives[n]);
         Init_Action_Unbound(&Natives[n], act);

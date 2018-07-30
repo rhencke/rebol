@@ -643,32 +643,36 @@ void Virtual_Bind_Deep_To_New_Context(
 // quickly, this sets up that global binding table for all lib context words
 // at negative integers, and all user context words at positive ones.
 //
-void Init_Interning_Binder(struct Reb_Binder *binder)
-{
+void Init_Interning_Binder(
+    struct Reb_Binder *binder,
+    REBCTX *ctx // location to bind into (in addition to lib)
+){
     INIT_BINDER(binder);
 
     REBVAL *key;
     REBINT index;
 
-    // Use positive numbers for all the keys in user context.
+    // Use positive numbers for all the keys in the context.
     //
-    key = CTX_KEYS_HEAD(VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER)));
+    key = CTX_KEYS_HEAD(ctx);
     index = 1;
     for (; NOT_END(key); ++key, ++index)
         Add_Binder_Index(binder, VAL_KEY_CANON(key), index); // positives
 
-    // For all the keys that aren't in the user context but *are* in lib,
+    // For all the keys that aren't in the supplied context but *are* in lib,
     // use a negative index to locate its position in lib.  Its meaning can be
-    // "imported" from there to user, and adjusted in the binder to the new
-    // positive index.
+    // "imported" from there to the context, and adjusted in the binder to the
+    // new positive index.
     //
-    key = CTX_KEYS_HEAD(Lib_Context);
-    index = 1;
-    for (; NOT_END(key); ++key, ++index) {
-        REBSTR *canon = VAL_KEY_CANON(key);
-        REBINT n = Get_Binder_Index_Else_0(binder, canon);
-        if (n == 0)
-            Add_Binder_Index(binder, canon, -index);
+    if (ctx != Lib_Context) {
+        key = CTX_KEYS_HEAD(Lib_Context);
+        index = 1;
+        for (; NOT_END(key); ++key, ++index) {
+            REBSTR *canon = VAL_KEY_CANON(key);
+            REBINT n = Get_Binder_Index_Else_0(binder, canon);
+            if (n == 0)
+                Add_Binder_Index(binder, canon, -index);
+        }
     }
 }
 
@@ -679,14 +683,14 @@ void Init_Interning_Binder(struct Reb_Binder *binder)
 // This will remove the bindings added in Init_Interning_Binder, along with
 // any other bindings which were incorporated along the way to positives.
 //
-void Shutdown_Interning_Binder(struct Reb_Binder *binder)
+void Shutdown_Interning_Binder(struct Reb_Binder *binder, REBCTX *ctx)
 {
     REBVAL *key;
     REBINT index;
 
     // All of the user context keys should be positive, and removable
     //
-    key = CTX_KEYS_HEAD(VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER)));
+    key = CTX_KEYS_HEAD(ctx);
     index = 1;
     for (; NOT_END(key); ++key, ++index) {
         REBINT n = Remove_Binder_Index_Else_0(binder, VAL_KEY_CANON(key));
@@ -697,12 +701,14 @@ void Shutdown_Interning_Binder(struct Reb_Binder *binder)
     // The lib context keys may have been imported, so you won't necessarily
     // find them in the list any more.
     //
-    key = CTX_KEYS_HEAD(Lib_Context);
-    index = 1;
-    for (; NOT_END(key); ++key, ++index) {
-        REBINT n = Remove_Binder_Index_Else_0(binder, VAL_KEY_CANON(key));
-        assert(n == 0 or n == -index);
-        UNUSED(n);
+    if (ctx != Lib_Context) {
+        key = CTX_KEYS_HEAD(Lib_Context);
+        index = 1;
+        for (; NOT_END(key); ++key, ++index) {
+            REBINT n = Remove_Binder_Index_Else_0(binder, VAL_KEY_CANON(key));
+            assert(n == 0 or n == -index);
+            UNUSED(n);
+        }
     }
 
     SHUTDOWN_BINDER(binder);

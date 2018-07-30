@@ -2281,24 +2281,24 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         // the lib context (which we do not expand) and any positive numbers
         // are into the user context (which we will expand).
         //
-        if (ss->binder != NULL and ANY_WORD(DS_TOP)) {
+        if (ss->binder and ANY_WORD(DS_TOP)) {
             REBSTR *canon = VAL_WORD_CANON(DS_TOP);
             REBINT n = Get_Binder_Index_Else_0(ss->binder, canon);
             if (n > 0) {
                 //
                 // Exists in user context at the given positive index.
                 //
-                INIT_BINDING(DS_TOP, ss->user);
+                INIT_BINDING(DS_TOP, ss->context);
                 INIT_WORD_INDEX(DS_TOP, n);
             }
             else if (n < 0) {
                 //
                 // Index is the negative of where the value exists in lib.
-                // A proxy needs to be imported from lib to user.
+                // A proxy needs to be imported from lib to context.
                 //
-                Expand_Context(ss->user, 1);
+                Expand_Context(ss->context, 1);
                 Move_Var( // preserve enfix state
-                    Append_Context(ss->user, DS_TOP, 0),
+                    Append_Context(ss->context, DS_TOP, 0),
                     CTX_VAR(ss->lib, -n) // -n is positive
                 );
                 REBINT check = Remove_Binder_Index_Else_0(ss->binder, canon);
@@ -2311,8 +2311,8 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 // in user (this is not the preferred behavior for modules
                 // and isolation, but going with it for the API for now).
                 //
-                Expand_Context(ss->user, 1);
-                Append_Context(ss->user, DS_TOP, 0);
+                Expand_Context(ss->context, 1);
+                Append_Context(ss->context, DS_TOP, 0);
                 Add_Binder_Index(ss->binder, canon, VAL_WORD_INDEX(DS_TOP));
             }
         }

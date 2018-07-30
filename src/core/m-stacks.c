@@ -178,6 +178,59 @@ void Shutdown_Frame_Stack(void)
 
 
 //
+//  Get_Context_From_Stack: C
+//
+// Generally speaking, Rebol does not have a "current context" in effect; as
+// should you call an `IF` in a function body, there is now a Rebol IF on the
+// stack.  But the story for ACTION!s that are implemented in C is different,
+// as they have one Rebol action in effect while their C code is in control.
+//
+// This is used to an advantage in the APIs like rebRun(), to be able to get
+// a notion of a "current context" applicable *only* to when natives run.
+//
+REBCTX *Get_Context_From_Stack(void)
+{
+    REBFRM *f = FS_TOP;
+    REBACT *phase;
+    while (true) {
+        if (f == FS_BOTTOM) {
+            //
+            // Special case, no natives are in effect, so basically API code
+            // running directly from an `int main()`.  This is dangerous, as
+            // it means any failures will crash.  For the moment, go with
+            // user, though console code would probably prefer to be in the
+            // console module (configure this in rebStartup()?).
+            //
+            return VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER));
+        }
+
+        phase = FRM_PHASE_OR_DUMMY(f);
+        if (phase == PG_Dummy_Action) {
+            //
+            // Some frames are set up just to catch failures, but aren't
+            // tied to a function call themselves.  Ignore them (unless they
+            // are FS_BOTTOM, handled above.)
+            //
+            f = f->prior;
+            continue;
+        }
+
+        break;
+    }
+
+    // The topmost stack level must be a native if we call this function.
+    // (So don't call it from something like Returner_Dispatcher, where you
+    // know for a fact it's a user function and not a native on the stack.)
+    //
+    assert(GET_ACT_FLAG(phase, ACTION_FLAG_NATIVE));
+
+    REBARR *details = ACT_DETAILS(phase);
+    REBVAL *context = KNOWN(ARR_AT(details, 1));
+    return VAL_CONTEXT(context);
+}
+
+
+//
 //  Expand_Data_Stack_May_Fail: C
 //
 // The data stack maintains an invariant that you may never push an END to it.

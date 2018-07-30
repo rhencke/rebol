@@ -7,7 +7,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Copyright 2016 Rebol Open Source Contributors
+// Copyright 2016-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -50,6 +50,16 @@
 #include "sys-core.h"
 
 #if defined(WITH_TCC)
+
+enum {
+    IDX_NATIVE_SOURCE = 0, // text string source code of native (for SOURCE)
+    IDX_NATIVE_CONTEXT = 1, // rebRun()/etc. bind here (and lib) when running
+    IDX_NATIVE_LINKNAME = 2, // generated if the native doesn't specify
+    IDX_NATIVE_TCC_STATE = 3, // will be a BLANK! until COMPILE happens
+    IDX_NATIVE_MAX
+}; // for the ACT_DETAILS() array of a user native
+
+
 //
 // libtcc provides the following functions:
 //
@@ -229,14 +239,14 @@ REBNATIVE(make_native)
 {
     INCLUDE_PARAMS_OF_MAKE_NATIVE;
 
-#if !defined(WITH_TCC)
+  #if !defined(WITH_TCC)
     UNUSED(ARG(spec));
     UNUSED(ARG(source));
     UNUSED(REF(linkname));
     UNUSED(ARG(name));
 
     fail (Error_Not_Tcc_Build_Raw());
-#else
+  #else
     REBVAL *source = ARG(source);
 
     if (VAL_LEN_AT(source) == 0)
@@ -247,30 +257,37 @@ REBNATIVE(make_native)
         &Pending_Native_Dispatcher, // will be replaced e.g. by COMPILE
         NULL, // no facade (use paramlist)
         NULL, // no specialization exemplar (or inherited exemplar)
-        3 // details array capacity [source name tcc_state]
+        IDX_NATIVE_MAX // details capacity [source module linkname tcc_state]
     );
 
     REBARR *details = ACT_DETAILS(native);
 
     if (Is_Series_Frozen(VAL_SERIES(source)))
-        Append_Value(details, source); // no need to copy it...
+        Move_Value(ARR_AT(details, IDX_NATIVE_SOURCE), source); // no copy
     else {
-        // have to copy it (might change before COMPILE is called)
-        //
         Init_Text(
-            Alloc_Tail_Array(details),
-            Copy_String_At_Len(source, -1)
+            ARR_AT(details, IDX_NATIVE_SOURCE),
+            Copy_String_At_Len(source, -1) // might change before COMPILE call
         );
     }
+
+    // !!! Natives on the stack can specify where APIs like rebRun() should
+    // look for bindings.  For the moment, set user natives to use the user
+    // context...it could be a parameter of some kind (?)
+    //
+    Move_Value(
+        ARR_AT(details, IDX_NATIVE_CONTEXT),
+        Get_System(SYS_CONTEXTS, CTX_USER)
+    );
 
     if (REF(linkname)) {
         REBVAL *name = ARG(name);
 
         if (Is_Series_Frozen(VAL_SERIES(name)))
-            Append_Value(details, name);
+            Move_Value(ARR_AT(details, IDX_NATIVE_LINKNAME), name);
         else {
             Init_Text(
-                Alloc_Tail_Array(details),
+                ARR_AT(details, IDX_NATIVE_LINKNAME),
                 Copy_String_At_Len(name, -1)
             );
         }
@@ -303,19 +320,22 @@ REBNATIVE(make_native)
         }
         TERM_UNI_LEN(ser, len);
 
-        Init_Text(Alloc_Tail_Array(details), ser);
+        Init_Text(ARR_AT(details, IDX_NATIVE_LINKNAME), ser);
     }
 
-    Init_Blank(Alloc_Tail_Array(details)); // no TCC_State, yet...
+    Init_Blank(ARR_AT(details, IDX_NATIVE_TCC_STATE)); // no TCC_State, yet...
 
     // We need to remember this is a user native, because we won't over the
     // long run be able to tell it is when the dispatcher is replaced with an
     // arbitrary compiled function pointer!
     //
-    SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_USER_NATIVE);
+    SET_VAL_FLAGS(
+        ACT_ARCHETYPE(native),
+        ACTION_FLAG_NATIVE | ACTION_FLAG_USER_NATIVE
+    );
 
     return Init_Action_Unbound(D_OUT, native);
-#endif
+  #endif
 }
 
 
@@ -493,11 +513,11 @@ REBNATIVE(compile)
             DS_PUSH(const_KNOWN(var));
 
             REBARR *details = VAL_ACT_DETAILS(var);
-            RELVAL *source = ARR_AT(details, 0);
-            RELVAL *name = ARR_AT(details, 1);
+            RELVAL *source = ARR_AT(details, IDX_NATIVE_SOURCE);
+            RELVAL *linkname = ARR_AT(details, IDX_NATIVE_LINKNAME);
 
             Append_Unencoded(mo->series, "REB_R ");
-            Append_Utf8_String(mo->series, name, VAL_LEN_AT(name));
+            Append_Utf8_String(mo->series, linkname, VAL_LEN_AT(linkname));
             Append_Unencoded(mo->series, "(REBFRM *frame_)\n{\n");
 
             REBVAL *param = VAL_ACT_PARAMS_HEAD(var);
@@ -653,24 +673,23 @@ REBNATIVE(compile)
         assert(GET_VAL_FLAG(var, ACTION_FLAG_USER_NATIVE));
 
         REBARR *details = VAL_ACT_DETAILS(var);
-        REBVAL *name = KNOWN(ARR_AT(details, 1));
-        REBVAL *stored_state = SINK(ARR_AT(details, 2));
+        REBVAL *linkname = KNOWN(ARR_AT(details, IDX_NATIVE_LINKNAME));
 
-        char *name_utf8 = rebSpellAlloc("ensure text!", name, rebEND);
+        char *name_utf8 = rebSpellAlloc("ensure text!", linkname, rebEND);
         void *sym = tcc_get_symbol(state, name_utf8);
         rebFree(name_utf8);
 
-        if (sym == NULL)
-            fail (Error_Tcc_Sym_Not_Found_Raw(name));
+        if (not sym)
+            fail (Error_Tcc_Sym_Not_Found_Raw(linkname));
 
-        // ISO C++ forbids casting between pointer-to-function and
-        // pointer-to-object, use memcpy to circumvent.
+        // Circumvent ISO C++ forbidding cast between function/data pointers
+        //
         REBNAT c_func;
         assert(sizeof(c_func) == sizeof(void*));
         memcpy(&c_func, &sym, sizeof(c_func));
 
         ACT_DISPATCHER(VAL_ACTION(var)) = c_func;
-        Move_Value(stored_state, handle);
+        Move_Value(ARR_AT(details, IDX_NATIVE_TCC_STATE), handle);
 
         DS_DROP;
     }

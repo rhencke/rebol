@@ -374,14 +374,15 @@ detect_again:;
         // their bindings, though there may be special "binding instructions"
         // or otherwise, that get added).
         //
+        ss.context = Get_Context_From_Stack();
+        ss.lib = (ss.context != Lib_Context) ? Lib_Context : nullptr;
+
         struct Reb_Binder binder;
-        Init_Interning_Binder(&binder);
+        Init_Interning_Binder(&binder, ss.context);
         ss.binder = &binder;
-        ss.user = VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER));
-        ss.lib = Lib_Context;
 
         REBVAL *error = rebRescue(cast(REBDNG*, &Scan_To_Stack), &ss);
-        Shutdown_Interning_Binder(&binder);
+        Shutdown_Interning_Binder(&binder, ss.context);
 
         if (error) {
             REBCTX *error_ctx = VAL_CONTEXT(error);

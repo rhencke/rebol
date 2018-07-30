@@ -165,12 +165,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
   #if !defined(NDEBUG)
     //
     // Debug builds go ahead and include a RETURN field and hang onto the
-    // typeset for fake returns (e.g. natives).  But they make a note that
-    // they are doing this, which helps know what the actual size of the
-    // frame would be in a release build (e.g. for a FRM_CELL() assert)
+    // typeset for fake returns (e.g. natives).
     //
     if (flags & MKF_FAKE_RETURN) {
-        header_bits |= ACTION_FLAG_RETURN_DEBUG;
         flags &= ~MKF_FAKE_RETURN;
         assert(not (flags & MKF_RETURN));
         flags |= MKF_RETURN;

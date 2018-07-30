@@ -259,7 +259,7 @@ typedef struct rebol_scan_state {
     //
     struct Reb_Binder *binder;
     REBCTX *lib; // does not expand, has negative indices in binder
-    REBCTX *user; // expands, has positive indices in binder
+    REBCTX *context; // expands, has positive indices in binder
 } SCAN_STATE;
 
 #define ANY_CR_LF_END(c) ((c) == '\0' or (c) == CR or (c) == LF)

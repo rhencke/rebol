@@ -405,18 +405,30 @@ REBNATIVE(load_native)
         dispatcher, // unique
         NULL, // no facade (use paramlist)
         NULL, // no specialization exemplar (or inherited exemplar)
-        1 // details array capacity
+        2 // details array capacity
     );
 
-    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(native));
-
+    SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_NATIVE);
     if (REF(unloadable))
         SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_UNLOADABLE_NATIVE);
 
+    REBARR *details = ACT_DETAILS(native);
+
+    REBVAL *body = Alloc_Tail_Array(details);
     if (REF(body))
         Move_Value(body, ARG(code));
     else
         Init_Blank(body); // signal no body provided
+
+    // !!! Ultimately extensions should all have associated modules known
+    // about here.  That should be where rebXXX() APIs do their binding, and
+    // they should be isolated.  For the moment, use the lib context.
+    // This runs risk of contamination if they aren't careful...but it should
+    // insulate the modules from user context changes.  (Note that R3-Alpha
+    // modules would bind modules direct to lib w/o the Isolate option...)
+    //
+    REBVAL *context = Alloc_Tail_Array(details);
+    Init_Object(context, Lib_Context);
 
     return Init_Action_Unbound(D_OUT, native);
 }

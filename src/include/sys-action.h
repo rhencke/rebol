@@ -173,17 +173,26 @@ inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
 //
 #define ACTION_FLAG_QUOTES_FIRST_ARG ACTION_FLAG(3)
 
+// Native functions are flagged that their dispatcher represents a native in
+// order to say that their ACT_DETAILS() follow the protocol that the [0]
+// slot is "equivalent source" (may be a TEXT!, as in user natives, or a
+// BLOCK!).  The [1] slot is a module or other context into which APIs like
+// rebRun() etc. should consider for binding, in addition to lib.  A BLANK!
+// in the 1 slot means no additional consideration...bind to lib only.
+//
+#define ACTION_FLAG_NATIVE ACTION_FLAG(4)
+
 // The COMPILE-NATIVES command wants to operate on user natives, and be able
 // to recompile unchanged natives as part of a unit even after they were
 // initially compiled.  But since that replaces their dispatcher with an
 // arbitrary function, they can't be recognized to know they have the specific
 // body structure of a user native.  So this flag is used.
 //
-#define ACTION_FLAG_USER_NATIVE ACTION_FLAG(4)
+#define ACTION_FLAG_USER_NATIVE ACTION_FLAG(5)
 
 // This flag is set when the native (e.g. extensions) can be unloaded
 //
-#define ACTION_FLAG_UNLOADABLE_NATIVE ACTION_FLAG(5)
+#define ACTION_FLAG_UNLOADABLE_NATIVE ACTION_FLAG(6)
 
 // An "invisible" function is one that does not touch its frame output cell,
 // leaving it completely alone.  This is how `10 comment ["hi"] + 20` can
@@ -194,18 +203,9 @@ inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
 // quoted in soft-quoted positions.  This would require fetching something
 // that might not otherwise need to be fetched, to test the flag.  Review.
 //
-#define ACTION_FLAG_INVISIBLE ACTION_FLAG(6)
+#define ACTION_FLAG_INVISIBLE ACTION_FLAG(7)
 
-#if !defined(NDEBUG)
-    //
-    // If a function is a native then it may provide return information as
-    // documentation, but not want to pay for the run-time check of whether
-    // the type is correct or not.  In the debug build though, it's good
-    // to double-check.  So when MKF_FAKE_RETURN is used in a debug build,
-    // it leaves this flag on the function.
-    //
-    #define ACTION_FLAG_RETURN_DEBUG ACTION_FLAG(7)
-#endif
+// ^--- !!! STOP AT ACTION_FLAG(7) !!! ---^
 
 // These are the flags which are scanned for and set during Make_Action
 //
