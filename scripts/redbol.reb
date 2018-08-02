@@ -262,9 +262,6 @@ comment: emulate [
     ]
 ]
 
-bound?: emulate [specialize 'reflect [property: 'binding]]
-bind?: emulate [specialize 'reflect [property: 'binding]]
-
 value?: emulate [
     func [
         {See SET? in Ren-C: https://trello.com/c/BlktEl2M}

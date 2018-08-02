@@ -63,13 +63,6 @@ do*: function [
     ; websites.  There should also be some kind of local caching facility.
     ;
     if tag? source [
-        if source = <r3-legacy> [
-            ; Special compatibility tag... Rebol2 and R3-Alpha will ignore the
-            ; DO of a <tag>, so this is a no-op in them.
-            ;
-            return r3-legacy* ;-- calls function defined in %mezz-legacy.r
-        ]
-
         ; Convert value into a URL!
         source: switch source
             load rebol/locale/library/utilities

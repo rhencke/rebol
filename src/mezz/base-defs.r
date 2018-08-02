@@ -124,6 +124,8 @@ back: specialize 'skip [
     only: true ;-- don't clip (return null if already at tail of series)
 ]
 
+bound?: chain [specialize 'reflect [property: 'binding] | :value?]
+
 unspaced: specialize 'delimit [delimiter: ""]
 spaced: specialize 'delimit [delimiter: space]
 
@@ -289,8 +291,6 @@ print-newline: specialize 'write-stdout [value: newline]
 
 
 decode-url: _ ; set in sys init
-
-r3-legacy*: _ ; set in %mezz-legacy.r
 
 ; used only by Ren-C++ as a test of how to patch the lib context prior to
 ; boot at the higher levels.
