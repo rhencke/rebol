@@ -178,7 +178,7 @@ struct Reb_Header {
 // REBVAL.  If one is *certain* that a value is not "paired" (e.g. it's in
 // a function arglist, or array slot), it may be used for other things, e.g.
 //
-// * ARG_FLAG_TYPECHECKED -- This uses the NODE_FLAG_MARKED bit on args in
+// * ARG_MARKED_CHECKED -- This uses the NODE_FLAG_MARKED bit on args in
 //   action frames, and in particular specialization uses it to denote which
 //   arguments in a frame are actually specialized.  This helps notice the
 //   difference during an APPLY of encoded partial refinement specialization
@@ -192,7 +192,7 @@ struct Reb_Header {
 #define NODE_FLAG_MARKED \
     FLAG_LEFT_BIT(3)
 
-#define ARG_FLAG_TYPECHECKED NODE_FLAG_MARKED
+#define ARG_MARKED_CHECKED NODE_FLAG_MARKED
 
 
 //=////////////////////////////////////////////////////////////////////////=//

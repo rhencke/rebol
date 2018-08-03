@@ -230,11 +230,11 @@ inline static void Finalize_Arg(
             fail (Error_No_Arg(f_state, param));
 
         Init_Endish_Nulled(arg);
-        SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+        SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
         return;
     }
 
-    assert(NOT_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED)); // no get val flag on END
+    assert(NOT_VAL_FLAG(arg, ARG_MARKED_CHECKED)); // no get val flag on END
 
     assert(
         refine == ORDINARY_ARG // check arg type
@@ -255,7 +255,7 @@ inline static void Finalize_Arg(
                 fail (Error_Bad_Refine_Revoke(param, arg));
 
             Init_Blank(refine); // can't re-enable...
-            SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+            SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
 
             refine = ARG_TO_REVOKED_REFINEMENT;
             return; // don't type check for optionality
@@ -266,7 +266,7 @@ inline static void Finalize_Arg(
             // BLANK! means refinement already revoked, null is okay
             // false means refinement was never in use, so also okay
             //
-            SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+            SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
             return;
         }
 
@@ -284,7 +284,7 @@ inline static void Finalize_Arg(
 
     if (NOT_VAL_FLAG(param, TYPESET_FLAG_VARIADIC)) {
         if (TYPE_CHECK(param, VAL_TYPE(arg))) {
-            SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+            SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
             return;
         }
 
@@ -307,7 +307,7 @@ inline static void Finalize_Arg(
     //
     arg->payload.varargs.param_offset = arg - FRM_ARGS_HEAD(f_state);
     arg->payload.varargs.facade = ACT_FACADE(FRM_PHASE(f_state));
-    SET_VAL_FLAG(arg, ARG_FLAG_TYPECHECKED);
+    SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
 }
 
 inline static void Finalize_Current_Arg(REBFRM *f) {
@@ -767,12 +767,12 @@ reevaluate:;
                 // (jumping to unspecialized_refinement will take care of it)
 
                 if (IS_NULLED(f->special)) {
-                    assert(NOT_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED));
+                    assert(NOT_VAL_FLAG(f->special, ARG_MARKED_CHECKED));
                     goto unspecialized_refinement; // second most common
                 }
 
                 if (IS_BLANK(f->special)) // either specialized or not...
-                    goto unused_refinement; // will get ARG_FLAG_TYPECHECKED
+                    goto unused_refinement; // will get ARG_MARKED_CHECKED
 
                 // If arguments in the frame haven't already gone through
                 // some kind of processing, use the truthiness of the value.
@@ -784,7 +784,7 @@ reevaluate:;
                 // since at minimum it needs to accept any other refinement
                 // name to control it, but it could be considered.
                 //
-                if (NOT_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED)) {
+                if (NOT_VAL_FLAG(f->special, ARG_MARKED_CHECKED)) {
                     if (IS_FALSEY(f->special)) // !!! error on void, needed?
                         goto unused_refinement;
 
@@ -872,14 +872,14 @@ reevaluate:;
 
                 f->refine = ARG_TO_UNUSED_REFINEMENT; // "don't consume"
                 Init_Blank(f->arg);
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
               used_refinement:;
 
                 assert(not IS_POINTER_TRASH_DEBUG(f->refine)); // must be set
                 Init_Refinement(f->arg, VAL_PARAM_SPELLING(f->param));
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
             }
 
@@ -897,14 +897,14 @@ reevaluate:;
             switch (pclass) {
             case PARAM_CLASS_LOCAL:
                 Init_Nulled(f->arg); // !!! f->special?
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
             case PARAM_CLASS_RETURN:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
                 Move_Value(f->arg, NAT_VALUE(return)); // !!! f->special?
                 INIT_BINDING(f->arg, f->varlist);
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
             default:
@@ -916,7 +916,7 @@ reevaluate:;
             if (f->refine == SKIPPING_REFINEMENT_ARGS)
                 goto skip_this_arg_for_now;
 
-            if (GET_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED)) {
+            if (GET_VAL_FLAG(f->special, ARG_MARKED_CHECKED)) {
 
     //=//// SPECIALIZED OR OTHERWISE TYPECHECKED ARG //////////////////////=//
 
@@ -939,7 +939,7 @@ reevaluate:;
                     assert(NOT_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC));
 
                     Move_Value(f->arg, f->special); // won't copy the bit
-                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 }
                 goto continue_arg_loop;
             }
@@ -966,7 +966,7 @@ reevaluate:;
                 // Overwrite if !(DO_FLAG_FULLY_SPECIALIZED) faster than check
                 //
                 Init_Nulled(f->arg);
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1015,7 +1015,7 @@ reevaluate:;
                         fail (Error_No_Arg(f, f->param));
 
                     Init_Endish_Nulled(f->arg);
-                    SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                     goto continue_arg_loop;
                 }
 
@@ -1209,7 +1209,7 @@ reevaluate:;
                     fail (Error_No_Arg(f, f->param));
 
                 Init_Endish_Nulled(f->arg);
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1239,7 +1239,7 @@ reevaluate:;
                     fail (Error_No_Arg(f, f->param));
 
                 Init_Endish_Nulled(f->arg);
-                SET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED);
+                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
             }
 
@@ -1327,7 +1327,7 @@ reevaluate:;
 
           continue_arg_loop:;
 
-            assert(GET_VAL_FLAG(f->arg, ARG_FLAG_TYPECHECKED));
+            assert(GET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED));
             continue;
 
           skip_this_arg_for_now:;

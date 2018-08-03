@@ -1880,7 +1880,7 @@ inline static REBVAL *Move_Var(RELVAL *out, const REBVAL *v)
 
     Move_Value(out, v);
     out->header.bits |= (
-        v->header.bits & (VALUE_FLAG_ENFIXED | ARG_FLAG_TYPECHECKED)
+        v->header.bits & (VALUE_FLAG_ENFIXED | ARG_MARKED_CHECKED)
     );
     return KNOWN(out);
 }

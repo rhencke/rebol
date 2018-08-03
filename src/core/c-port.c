@@ -369,7 +369,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
         if (GET_VAL_FLAG(f->param, TYPESET_FLAG_HIDDEN))
             continue; // !!! is this still relevant?
-        if (GET_VAL_FLAG(f->special, ARG_FLAG_TYPECHECKED))
+        if (GET_VAL_FLAG(f->special, ARG_MARKED_CHECKED))
             continue; // a parameter that was "specialized out" of this phase
 
         enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);

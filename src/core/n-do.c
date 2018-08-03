@@ -645,7 +645,7 @@ REBNATIVE(apply)
     for (; NOT_END(key); key++, ++var) {
         if (GET_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
             continue; // shouldn't have been in the binder
-        if (GET_VAL_FLAG(var, ARG_FLAG_TYPECHECKED))
+        if (GET_VAL_FLAG(var, ARG_MARKED_CHECKED))
             continue; // was part of a specialization internal to the action
         Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
     }
