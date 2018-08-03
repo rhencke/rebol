@@ -1172,24 +1172,26 @@ inline static REBIXO Eval_Va_Core(
 }
 
 
-// Wrapper around Do_Va_Core which has the actual variadic interface (as
-// opposed to taking the `va_list` which has been captured out of the
-// variadic interface).
+// Variant of Eval_Va_Core() which assumes explicit evaluation, that the code
+// tries to run to the end, and defaults to void if empty or all invisibles.
 //
 inline static REBOOL Do_Va_Throws(
     REBVAL *out, // last param before ... mentioned in va_start()
-    ...
+    const void *opt_first,
+    va_list *vaptr // va_end() will be called on success, fail, throw, etc.
 ){
-    va_list va;
-    va_start(va, out);
+    REBIXO indexor = Eval_Va_Core(
+        out,
+        opt_first,
+        vaptr,
+        DO_FLAG_TO_END | DO_FLAG_EXPLICIT_EVALUATE
+    );
 
-    const void *opt_first = nullptr;
-    REBIXO indexor = Eval_Va_Core(out, opt_first, &va, DO_FLAG_TO_END);
+    if (indexor == THROWN_FLAG)
+        return true;
 
-    // Note: va_end() is handled by Do_Va_Core (one way or another)
-
-    assert(indexor == THROWN_FLAG or indexor == END_FLAG);
-    return indexor == THROWN_FLAG;
+    assert(indexor == END_FLAG);
+    return false;
 }
 
 

@@ -248,25 +248,12 @@ REBOOL Wait_Ports_Throws(
             if (wt > MAX_WAIT_MS) wt = MAX_WAIT_MS;
         }
         REBVAL *pump = Get_System(SYS_PORTS, PORTS_PUMP);
-        if (IS_BLOCK(pump)) {
-            if (VAL_LEN_AT(pump) > 0) {
-                DECLARE_LOCAL (result);
-                REBIXO indexor = Do_Array_At_Core(
-                    result,
-                    NULL,
-                    VAL_ARRAY(pump),
-                    VAL_INDEX(pump),
-                    SPECIFIED,
-                    DO_FLAG_TO_END
-                );
-
-                if (indexor == THROWN_FLAG) {
-                    fail (Error_No_Catch_For_Throw(result));
-                }
-            }
-        } else {
+        if (not IS_BLOCK(pump))
             fail ("system/ports/pump must be a block");
-        }
+
+        DECLARE_LOCAL (result);
+        if (Do_Any_Array_At_Throws(result, pump))
+            fail (Error_No_Catch_For_Throw(result));
 
         if (timeout != ALL_BITS) {
             // Figure out how long that (and OS_WAIT) took:

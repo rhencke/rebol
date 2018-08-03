@@ -404,8 +404,7 @@ REBNATIVE(destroy_struct_storage)
         if (!IS_ACTION_RIN(ARG(free_func)))
             fail (Error_Free_Needs_Routine_Raw());
 
-        if (Do_Va_Throws(D_OUT, ARG(free_func), pointer, rebEND))
-            return D_OUT;
+        rebElide(rebEval(ARG(free_func)), pointer, rebEND);
     }
 
     return nullptr;

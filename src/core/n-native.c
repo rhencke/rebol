@@ -199,8 +199,11 @@ REB_R Pending_Native_Dispatcher(REBFRM *f) {
 
     assert(ACT_DISPATCHER(phase) == &Pending_Native_Dispatcher);
 
-    if (Do_Va_Throws(f->out, NAT_VALUE(compile), &natives, rebEND))
-        return f->out;
+    // !!! With this as an extension and with binding advancements, this
+    // should be able to use the string "compile" and trust it to bind to the
+    // extension module's COMPILE.
+    //
+    rebElide(rebEval(NAT_VALUE(compile)), natives, rebEND); // may fail
 
     // Today's COMPILE doesn't return a result on success (just fails on
     // errors), but if it changes to return one consider what to do with it.

@@ -474,26 +474,14 @@ REBVAL *RL_rebRun(const void *p, ...)
     va_start(va, p);
 
     REBVAL *result = Alloc_Value();
-    REBIXO indexor = Eval_Va_Core(
-        result,
-        p, // opt_first (preloads value)
-        &va,
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-    va_end(va);
-
-    if (indexor == THROWN_FLAG)
-        fail (Error_No_Catch_For_Throw(result)); // no rebRelease() needed
+    if (Do_Va_Throws(result, p, &va)) // calls va_end()
+        fail (Error_No_Catch_For_Throw(result)); // no need to release result
 
     if (not IS_NULLED(result))
         return result;
 
-    // Nulled cells are not returned to the API, but converted to nullptr.
-    // This provides convenience for testing a result (`if (val)`), doesn't
-    // require a rebRelease(), and can exploit the various null protocols.
-
     rebRelease(result);
-    return nullptr;
+    return nullptr; // API uses nullptr for NULL (see notes on NULLIZE)
 }
 
 
@@ -511,14 +499,7 @@ void RL_rebElide(const void *p, ...)
     va_start(va, p);
 
     DECLARE_LOCAL (elided);
-    REBIXO indexor = Eval_Va_Core(
-        elided,
-        p, // opt_first (preloads value)
-        &va,  // va_end called by evaluator (has to, e.g. for fail())
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-
-    if (indexor == THROWN_FLAG)
+    if (Do_Va_Throws(elided, p, &va)) // calls va_end()
         fail (Error_No_Catch_For_Throw(elided));
 }
 
@@ -549,20 +530,15 @@ void RL_rebJumps(const void *p, va_list *vaptr)
     Enter_Api();
 
     DECLARE_LOCAL (elided);
-    REBIXO indexor = Eval_Va_Core(
-        elided,
-        p, // opt_first (preloads value)
-        vaptr, // va_end called by evaluator (has to, e.g. for fail())
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-
-    // !!! Being able to THROW across C stacks is necessary in the general
-    // case (consider implementing QUIT or HALT).  It would need to be
-    // converted into some kind of error, and then re-converted into a THROW
-    // to bubble up through Rebol stacks.  Development on this is ongoing.
-    //
-    if (indexor == THROWN_FLAG)
+    if (Do_Va_Throws(elided, p, vaptr)) { // calls va_end()
+        //
+        // !!! Being able to THROW across C stacks is necessary in the general
+        // case (consider implementing QUIT or HALT).  Probably need to be
+        // converted to a kind of error, and then re-converted into a THROW
+        // to bubble up through Rebol stacks?  Development on this is ongoing.
+        //
         fail (Error_No_Catch_For_Throw(elided));
+    }
 
     fail ("rebJumps() was used to run code, but it didn't FAIL/QUIT/THROW!");
 }
@@ -591,7 +567,7 @@ REBVAL *RL_rebRunInline(const REBVAL *array)
     Move_Value(group, array);
     CHANGE_VAL_TYPE_BITS(group, REB_GROUP);
 
-    return rebRun(rebEval(NAT_VALUE(eval)), group, rebEND);
+    return rebRun(rebEval(group), rebEND);
 }
 
 
@@ -1006,13 +982,7 @@ bool RL_rebDid(const void *p, ...) {
     va_start(va, p);
 
     DECLARE_LOCAL (condition);
-    REBIXO indexor = Eval_Va_Core(
-        condition,
-        p, // opt_first (preloads value)
-        &va, // va_end called by evaluator (has to, e.g. for fail())
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-    if (indexor == THROWN_FLAG)
+    if (Do_Va_Throws(condition, p, &va)) // calls va_end()
         fail (Error_No_Catch_For_Throw(condition));
 
     return IS_TRUTHY(condition);
@@ -1032,13 +1002,7 @@ bool RL_rebNot(const void *p, ...) {
     va_start(va, p);
 
     DECLARE_LOCAL (condition);
-    REBIXO indexor = Eval_Va_Core(
-        condition,
-        p, // opt_first (preloads value)
-        &va, // va_end called by evaluator (has to, e.g. for fail())
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-    if (indexor == THROWN_FLAG)
+    if (Do_Va_Throws(condition, p, &va)) // calls va_end()
         fail (Error_No_Catch_For_Throw(condition));
 
     return IS_FALSEY(condition);
@@ -1062,13 +1026,7 @@ long RL_rebUnbox(const void *p, ...) {
     va_start(va, p);
 
     DECLARE_LOCAL (result);
-    REBIXO indexor = Eval_Va_Core(
-        result,
-        p, // opt_first (preloads value)
-        &va, // va_end called by evaluator (has to, e.g. for fail())
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-    if (indexor == THROWN_FLAG)
+    if (Do_Va_Throws(result, p, &va))
         fail (Error_No_Catch_For_Throw(result));
 
     switch (VAL_TYPE(result)) {
@@ -1248,14 +1206,7 @@ char *RL_rebSpellAlloc(const void *p, ...)
     va_start(va, p);
 
     DECLARE_LOCAL (string);
-    REBIXO indexor = Eval_Va_Core(
-        string,
-        p, // opt_first (preloads value)
-        &va,  // va_end called by evaluator (has to, e.g. for fail())
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-
-    if (indexor == THROWN_FLAG)
+    if (Do_Va_Throws(string, p, &va)) // calls va_end()
         fail (Error_No_Catch_For_Throw(string));
 
     if (IS_NULLED(string))
@@ -1345,18 +1296,11 @@ REBWCHAR *RL_rebSpellAllocW(const void *p, ...)
     va_start(va, p);
 
     DECLARE_LOCAL (string);
-    REBIXO indexor = Eval_Va_Core(
-        string,
-        p, // opt_first (preloads value)
-        &va,  // va_end called by evaluator (has to, e.g. for fail())
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-
-    if (indexor == THROWN_FLAG)
+    if (Do_Va_Throws(string, p, &va)) // calls va_end()
         fail (Error_No_Catch_For_Throw(string));
 
     if (IS_NULLED(string))
-        return NULL; // NULL is passed through, for opting out
+        return nullptr; // NULL is passed through, for opting out
 
     REBCNT len = rebSpellingOfW(nullptr, 0, string);
     REBWCHAR *result = cast(
@@ -1418,19 +1362,12 @@ unsigned char *RL_rebBytesAlloc(size_t *size_out, const void *p, ...)
     va_start(va, p);
 
     DECLARE_LOCAL (series);
-    REBIXO indexor = Eval_Va_Core(
-        series,
-        p, // opt_first (preloads value)
-        &va,  // va_end called by evaluator (has to, e.g. for fail())
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_TO_END
-    );
-
-    if (indexor == THROWN_FLAG)
+    if (Do_Va_Throws(series, p, &va)) // calls va_end()
         fail (Error_No_Catch_For_Throw(series));
 
     if (IS_NULLED(series)) {
         *size_out = 0;
-        return NULL; // NULL is passed through, for opting out
+        return nullptr; // NULL is passed through, for opting out
     }
 
     if (ANY_WORD(series) or ANY_STRING(series)) {
