@@ -95,6 +95,10 @@ boot-types: load src-dir/boot/types.r
 
 append output-buffer mold/only load src-dir/boot/actions.r
 
-append output-buffer unspaced [newline newline]
+append output-buffer unspaced [
+    newline
+    "_ ;-- C code expects BLANK! evaluation result, at present" newline
+    newline
+]
 
 write-if-changed output-dir/boot/tmp-actions.r output-buffer

@@ -449,6 +449,3 @@ rename: action [
     from [port! file! url! block!]
     to [port! file! url! block!]
 ]
-
-;-- Expectation is that evaluation ends with no result, empty GROUP! does that
-()

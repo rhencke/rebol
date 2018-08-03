@@ -770,8 +770,10 @@ for-each section [boot-base boot-sys boot-mezz] [
         append get section load join-of %../mezz/ file
     ]
 
-    ;-- Expectation is that section does not return result; GROUP! makes unset
-    append get section [()]
+    ; Make section evaluation return a BLANK! (something like <section-done>
+    ; may be better, but calling code is C and that complicates checking).
+    ;
+    append get section _
 
     mezz-files: next mezz-files
 ]

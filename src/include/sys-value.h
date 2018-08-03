@@ -640,6 +640,8 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 
     inline static REBOOL IS_TRASH_DEBUG(const RELVAL *v) {
         assert(v->header.bits & NODE_FLAG_CELL);
+        if (not (v->header.bits & CELL_FLAG_NOT_END))
+            return false;
         return VAL_TYPE_RAW(v) == REB_MAX_PLUS_ONE_TRASH;
     }
 #else

@@ -655,5 +655,5 @@ cgi: construct [] [ ; CGI environment variables
 ;   help: _         ; True if the --help flags was specified
 ;   halt: _         ; halt after script
 
-;-- Expectation is that evaluation ends with no result, empty GROUP! does that
-()
+;-- Current expectation is that evaluation ends with BLANK!
+_
