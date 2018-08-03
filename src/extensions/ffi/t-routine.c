@@ -710,7 +710,7 @@ REB_R Routine_Dispatcher(REBFRM *f)
         arg_offsets = Make_Series(num_args, sizeof(void*));
 
     // First gather the fixed parameters from the frame.  They are known to
-    // be of correct general types (they were checked by Do_Core for the call)
+    // be of correct general types (they were checked by Eval_Core for the call)
     // but a STRUCT! might not be compatible with the type of STRUCT! in
     // the parameter specification.  They might also be out of range, e.g.
     // a too-large or negative INTEGER! passed to a uint8.  Could fail() here.

@@ -892,7 +892,7 @@ static void Propagate_All_GC_Marks(void)
             //
             // Voids are illegal in most arrays, but the varlist of a context
             // uses void values to denote that the variable is not set.  Also
-            // reified C va_lists as Do_Core() sources can have them.
+            // reified C va_lists as Eval_Core() sources can have them.
             //
             if (
                 not IS_BLANK_RAW(v)
@@ -1015,7 +1015,7 @@ static void Mark_Root_Series(void)
                     s->header.bits |= NODE_FLAG_MARKED;
 
                 RELVAL *v = ARR_SINGLE(ARR(s));
-                if (NOT_END(v)) // Do_Core() might target API cells, uses END
+                if (NOT_END(v)) // Eval_Core() might target API cells, uses END
                     Queue_Mark_Opt_Value_Deep(v);
 
                 continue;

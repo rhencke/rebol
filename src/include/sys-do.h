@@ -26,7 +26,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The primary routine that performs DO and DO/NEXT is called Do_Core().  It
+// The primary routine that performs DO and DO/NEXT is called Eval_Core().  It
 // takes a single parameter which holds the running state of the evaluator.
 // This state may be allocated on the C variable stack:  fail() is
 // written such that a longjmp up to a failure handler above it can run
@@ -74,7 +74,7 @@ inline static REBOOL IS_QUOTABLY_SOFT(const RELVAL *v) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This API is used internally in the implementation of Do_Core.  It does
+// This API is used internally in the implementation of Eval_Core.  It does
 // not speak in terms of arrays or indices, it works entirely by setting
 // up a call frame (f), and threading that frame's state through successive
 // operations, vs. setting it up and disposing it on each DO/NEXT step.
@@ -96,10 +96,10 @@ inline static REBOOL IS_QUOTABLY_SOFT(const RELVAL *v) {
 
 inline static void Push_Frame_Core(REBFRM *f)
 {
-    // All calls to a Do_Core() are assumed to happen at the same C stack
+    // All calls to a Eval_Core() are assumed to happen at the same C stack
     // level for a pushed frame (though this is not currently enforced).
     // Hence it's sufficient to check for C stack overflow only once, e.g.
-    // not on each Do_Next_In_Frame_Throws() for `reduce [a | b | ... | z]`.
+    // not on each Eval_Next_In_Frame_Throws() for `reduce [a | b | ... | z]`.
     //
     if (C_STACK_OVERFLOWING(&f))
         Fail_Stack_Overflow();
@@ -254,7 +254,7 @@ inline static void Push_Frame_At(
 ){
     Init_Endlike_Header(&f->flags, flags);
 
-    f->gotten = nullptr; // tells Do_Core() it must fetch for REB_WORD, etc.
+    f->gotten = nullptr; // tells Eval_Core() it must fetch for REB_WORD, etc.
     SET_FRAME_VALUE(f, ARR_AT(array, index));
 
     f->source.vaptr = nullptr;
@@ -268,14 +268,14 @@ inline static void Push_Frame_At(
     // operations, when not using DO_FLAG_TO_END.  This is found in operations
     // like ANY and ALL, or anything that needs to do additional processing
     // beyond a plain DO.  Each time those operations run, they can set the
-    // output to a new location, and Do_Next_In_Frame_Throws() will call into
-    // Do_Core() and properly configure the eval_type.
+    // output to a new location, and Eval_Next_In_Frame_Throws() will call into
+    // Eval_Core() and properly configure the eval_type.
     //
     // But to make the frame safe for Recycle() in-between the calls to
-    // Do_Next_In_Frame_Throws(), the eval_type and output cannot be left as
+    // Eval_Next_In_Frame_Throws(), the eval_type and output cannot be left as
     // uninitialized bits.  So start with an unwritable END, and then
     // each evaluation will canonize the eval_type to REB_0 in-between.
-    // (Do_Core() does not do this, but the wrappers that need it do.)
+    // (Eval_Core() does not do this, but the wrappers that need it do.)
     //
     f->eval_type = REB_0;
     f->out = m_cast(REBVAL*, END_NODE);
@@ -306,7 +306,7 @@ inline static const RELVAL *Set_Frame_Detected_Fetch(REBFRM *f, const void *p)
         Move_Value(&f->cell, const_KNOWN(f->value));
 
         // Flag is not copied, but is it necessary to set it on the lookback,
-        // or has the flag already been extracted to a local in Do_Core()?
+        // or has the flag already been extracted to a local in Eval_Core()?
         //
         SET_VAL_FLAG(&f->cell, VALUE_FLAG_EVAL_FLIP);
 
@@ -314,7 +314,7 @@ inline static const RELVAL *Set_Frame_Detected_Fetch(REBFRM *f, const void *p)
         f->flags.bits &= ~DO_FLAG_VALUE_IS_INSTRUCTION;
 
         // Ideally we would free the singular array here, but since the free
-        // would occur during a Do_Core() it would appear to be happening
+        // would occur during a Eval_Core() it would appear to be happening
         // outside of a checkpoint.  It's an important enough assert to
         // not disable lightly just for this case, so the instructions
         // are managed for now...but the intention is to free them as
@@ -693,7 +693,7 @@ inline static void Drop_Frame(REBFRM *f)
 
   #if defined(DEBUG_BALANCE_STATE)
     //
-    // To keep from slowing down the debug build too much, Do_Core() doesn't
+    // To keep from slowing down the debug build too much, Eval_Core() doesn't
     // check this every cycle, just on drop.  But if it's hard to find which
     // exact cycle caused the problem, see BALANCE_CHECK_EVERY_EVALUATION_STEP
     //
@@ -705,12 +705,12 @@ inline static void Drop_Frame(REBFRM *f)
 }
 
 
-// This is a very light wrapper over Do_Core(), which is used with
+// This is a very light wrapper over Eval_Core(), which is used with
 // Push_Frame_At() for operations like ANY or REDUCE that wish to perform
 // several successive operations on an array, without creating a new frame
 // each time.
 //
-inline static REBOOL Do_Next_In_Frame_Throws(
+inline static REBOOL Eval_Next_In_Frame_Throws(
     REBVAL *out,
     REBFRM *f
 ){
@@ -720,11 +720,11 @@ inline static REBOOL Do_Next_In_Frame_Throws(
 
     f->out = out;
     f->dsp_orig = DSP;
-    (*PG_Do)(f); // should already be pushed
+    (*PG_Eval)(f); // should already be pushed
 
-    // Since Do_Core() currently makes no guarantees about the state of
+    // Since Eval_Core() currently makes no guarantees about the state of
     // f->eval_type when an operation is over, restore it to a benign REB_0
-    // so that a GC between calls to Do_Next_In_Frame_Throws() doesn't think
+    // so that a GC between calls to Eval_Next_In_Frame_Throws() doesn't think
     // it has to protect the frame as another running type.
     //
     f->eval_type = REB_0;
@@ -741,7 +741,7 @@ inline static REBOOL Do_Next_In_Frame_Throws(
 }
 
 
-// Slightly heavier wrapper over Do_Core() than Do_Next_In_Frame_Throws().
+// Slightly heavier wrapper over Eval_Core() than Eval_Next_In_Frame_Throws().
 // It also reuses the frame...but has to clear and restore the frame's
 // flags.  It is currently used only by SET-WORD! and SET-PATH!.
 //
@@ -752,7 +752,7 @@ inline static REBOOL Do_Next_In_Frame_Throws(
 //
 // !!! Review how much cheaper this actually is than making a new frame.
 //
-inline static REBOOL Do_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
+inline static REBOOL Eval_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
     assert(f->eval_type == REB_SET_WORD or f->eval_type == REB_SET_PATH);
 
     REBFLGS prior_flags = f->flags.bits;
@@ -761,7 +761,7 @@ inline static REBOOL Do_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
     REBDSP prior_dsp_orig = f->dsp_orig;
 
     f->dsp_orig = DSP;
-    (*PG_Do)(f); // should already be pushed
+    (*PG_Eval)(f); // should already be pushed
 
     // The & on the following line is purposeful.  See Init_Endlike_Header.
     //
@@ -784,12 +784,12 @@ inline static REBOOL Do_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 // slot as `1` unless you are sure there's no `+` or other enfixed operation.
 // Over time as the evaluator got more complicated, the redundant work and
 // conditional code paths showed a slight *slowdown* over just having an
-// inline straight-line function that built a frame and recursed Do_Core().
+// inline straight-line function that built a frame and recursed Eval_Core().
 //
 // Future investigation could attack the problem again and see if there is
 // any common case that actually offered an advantage to optimize for here.
 //
-inline static REBOOL Do_Next_In_Subframe_Throws(
+inline static REBOOL Eval_Next_In_Subframe_Throws(
     REBVAL *out,
     REBFRM *parent,
     REBFLGS flags,
@@ -798,8 +798,8 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
     // It should not be necessary to use a subframe unless there is meaningful
     // state which would be overwritten in the parent frame.  For the moment,
     // that only happens if a function call is in effect.  Otherwise, it is
-    // more efficient to call Do_Next_In_Frame_Throws(), or the also lighter
-    // Do_Next_In_Mid_Frame_Throws() used by REB_SET_WORD and REB_SET_PATH.
+    // more efficient to call Eval_Next_In_Frame_Throws(), or the also lighter
+    // Eval_Next_In_Mid_Frame_Throws() used by REB_SET_WORD and REB_SET_PATH.
     //
     assert(parent->eval_type == REB_ACTION);
 
@@ -826,7 +826,7 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
 
     Push_Frame_Core(child);
     Reuse_Varlist_If_Available(child);
-    (*PG_Do)(child);
+    (*PG_Eval)(child);
     Drop_Frame_Core(child);
 
     assert(
@@ -859,7 +859,7 @@ inline static REBOOL Do_Next_In_Subframe_Throws(
 //
 // This is a wrapper for a single evaluation.  If one is planning to do
 // multiple evaluations, it is not as efficient as creating a frame and then
-// doing `Do_Next_In_Frame_Throws()` calls into it.
+// doing `Eval_Next_In_Frame_Throws()` calls into it.
 //
 // DO_NEXT_MAY_THROW takes in an array and a REBCNT offset into that array
 // of where to execute.  Although the return value is a REBCNT, it is *NOT*
@@ -908,7 +908,7 @@ inline static REBIXO DO_NEXT_MAY_THROW(
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
-    (*PG_Do)(f);
+    (*PG_Eval)(f);
     Drop_Frame_Core(f); // Drop_Frame() requires f->eval_type to be REB_0
 
     if (THROWN(out))
@@ -931,7 +931,7 @@ inline static REBIXO DO_NEXT_MAY_THROW(
 // or a DO/NEXT at the position given.  Option to provide an element that
 // may not be resident in the array to kick off the execution.
 //
-inline static REBIXO Do_Array_At_Core(
+inline static REBIXO Eval_Array_At_Core(
     REBVAL *out,
     const RELVAL *opt_first, // must also be relative to specifier if relative
     REBARR *array,
@@ -972,7 +972,7 @@ inline static REBIXO Do_Array_At_Core(
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
-    (*PG_Do)(f);
+    (*PG_Eval)(f);
     Drop_Frame_Core(f);
 
     if (THROWN(f->out))
@@ -1016,7 +1016,7 @@ inline static REBIXO Do_Array_At_Core(
 //
 // For performance and memory usage reasons, a variadic C function call that
 // wants to invoke the evaluator with just a comma-delimited list of REBVAL*
-// does not need to make a series to hold them.  Do_Core is written to use
+// does not need to make a series to hold them.  Eval_Core is written to use
 // the va_list traversal as an alternate to DO-ing an ARRAY.
 //
 // However, va_lists cannot be backtracked once advanced.  So in a debug mode
@@ -1119,7 +1119,7 @@ inline static void Reify_Va_To_Array_In_Frame(
 //
 // Returns THROWN_FLAG, END_FLAG, or VA_LIST_FLAG
 //
-inline static REBIXO Do_Va_Core(
+inline static REBIXO Eval_Va_Core(
     REBVAL *out,
     const void *opt_first,
     va_list *vaptr,
@@ -1162,7 +1162,7 @@ inline static REBIXO Do_Va_Core(
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
-    (*PG_Do)(f);
+    (*PG_Eval)(f);
     Drop_Frame_Core(f); // will va_end() if not reified during evaluation
 
     if (THROWN(f->out))
@@ -1184,7 +1184,7 @@ inline static REBOOL Do_Va_Throws(
     va_start(va, out);
 
     const void *opt_first = nullptr;
-    REBIXO indexor = Do_Va_Core(out, opt_first, &va, DO_FLAG_TO_END);
+    REBIXO indexor = Eval_Va_Core(out, opt_first, &va, DO_FLAG_TO_END);
 
     // Note: va_end() is handled by Do_Va_Core (one way or another)
 
@@ -1217,7 +1217,7 @@ inline static REBOOL Apply_Only_Throws(
     Move_Value(applicand_eval, applicand);
     SET_VAL_FLAG(applicand_eval, VALUE_FLAG_EVAL_FLIP);
 
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         out,
         applicand_eval, // opt_first
         &va,
@@ -1250,7 +1250,7 @@ inline static REBOOL Do_At_Throws(
     REBSPC *specifier
 ){
     const REBVAL *opt_first = nullptr;
-    return THROWN_FLAG == Do_Array_At_Core(
+    return THROWN_FLAG == Eval_Array_At_Core(
         out,
         opt_first,
         array,
@@ -1276,7 +1276,7 @@ inline static REBOOL Do_Any_Array_At_Throws(
     );
 }
 
-// Because Do_Core can seed with a single value, we seed with our value and
+// Because Eval_Core can seed with a single value, we seed with our value and
 // an EMPTY_ARRAY.  Revisit if there's a "best" dispatcher.  Note this is
 // an EVAL and not a DO...hence if you pass it a block, then the block will
 // just evaluate to itself!
@@ -1286,7 +1286,7 @@ inline static REBOOL Eval_Value_Core_Throws(
     const RELVAL *value,
     REBSPC *specifier
 ){
-    return THROWN_FLAG == Do_Array_At_Core(
+    return THROWN_FLAG == Eval_Array_At_Core(
         out,
         value,
         EMPTY_ARRAY,

@@ -51,7 +51,7 @@ REBOOL Reduce_To_Stack_Throws(
     while (FRM_HAS_MORE(f)) {
         REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
 
-        if (Do_Next_In_Frame_Throws(out, f)) {
+        if (Eval_Next_In_Frame_Throws(out, f)) {
             DS_DROP_TO(dsp_orig);
             Abort_Frame(f);
             return TRUE;

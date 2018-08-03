@@ -219,7 +219,7 @@ const char RM_TRACE_PARSE_INPUT[] = "Parse input: %s";
 #define R_04_BAR 0x04
 #define R_BAR cast(const REBVAL*, &PG_R_BAR)
 
-// If Do_Core gets back an R_REDO from a dispatcher, it will re-execute the
+// If Eval_Core gets back an R_REDO from a dispatcher, it will re-execute the
 // f->phase in the frame.  This function may be changed by the dispatcher from
 // what was originally called.
 //

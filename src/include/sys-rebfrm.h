@@ -26,11 +26,11 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The primary routine that performs DO and DO/NEXT is called Do_Core().  It
+// The primary routine that performs DO and DO/NEXT is called Eval_Core().  It
 // takes a single parameter which holds the running state of the evaluator.
 // This state may be allocated on the C variable stack.
 //
-// Do_Core() is written such that a longjmp up to a failure handler above it
+// Eval_Core() is written such that a longjmp up to a failure handler above it
 // can run safely and clean up even though intermediate stacks have vanished.
 // This is because Push_Frame and Drop_Frame maintain an independent global
 // list of the frames in effect, so that the Fail_Core() routine can unwind
@@ -111,7 +111,7 @@
 //
 // While R3-Alpha permitted modifications of an array while it was being
 // executed, Ren-C does not.  It takes a temporary read-only "hold" if the
-// source is not already read only, and sets it back when Do_Core is
+// source is not already read only, and sets it back when Eval_Core is
 // finished (or on errors).  See SERIES_INFO_HOLD for more about this.
 //
 #define DO_FLAG_TOOK_FRAME_HOLD \
@@ -120,7 +120,7 @@
 
 //=//// DO_FLAG_GOTO_PROCESS_ACTION ///////////////////////////////////////=//
 //
-// Used to indicate that the Do_Core code is being jumped into directly to
+// Used to indicate that the Eval_Core code is being jumped into directly to
 // process an ACTION!, in a varlist that has already been set up.
 //
 #define DO_FLAG_GOTO_PROCESS_ACTION \
@@ -284,7 +284,7 @@
 // flags, and if a frame's memory winds up getting reused (e.g. by successive
 // calls in a reduce) that code is responsible for resetting the DO_FLAG_XXX
 // each time.  To make sure this is the case, this is set on each exit from
-// Do_Core() and then each entry checks to make sure it is not present.
+// Eval_Core() and then each entry checks to make sure it is not present.
 //
 
 #define DO_FLAG_FINAL_DEBUG \
@@ -411,7 +411,7 @@ struct Reb_Frame {
     // The prior call frame (may be NULL if this is the topmost stack call).
     //
     // !!! Should there always be a known "top stack level" so prior does
-    // not ever have to be tested for NULL from within Do_Core?
+    // not ever have to be tested for NULL from within Eval_Core?
     //
     struct Reb_Frame *prior;
 
@@ -492,7 +492,7 @@ struct Reb_Frame {
     //
     // It may not always tell the whole story due to frame reuse--a running
     // state may have stored enough information to not worry about a recursion
-    // overwriting it.  See Do_Next_Mid_Frame_Throws() for that case.
+    // overwriting it.  See Eval_Next_Mid_Frame_Throws() for that case.
     //
     // Additionally, the actual dispatch may not have started, so if a fail()
     // or other operation occurs it may not be able to assume that eval_type
@@ -758,7 +758,7 @@ struct Reb_Frame {
 //
 // Just to simplify matters, the frame cell is set to a bit pattern the GC
 // will accept.  It would need stack preparation anyway, and this simplifies
-// the invariant so that if a recycle happens before Do_Core() gets to its
+// the invariant so that if a recycle happens before Eval_Core() gets to its
 // body, it's always set to something.  Using an unreadable blank means we
 // signal to users of the frame that they can't be assured of any particular
 // value between evaluations; it's not cleared.
@@ -775,7 +775,7 @@ struct Reb_Frame {
 #define FS_BOTTOM (TG_Bottom_Frame + 0) // avoid assign to FS_BOTTOM via + 0
 
 
-// Hookable "Rebol DO Function" and "Rebol APPLY Function".  See PG_Do and
+// Hookable stepwise-evaluator and action dispatcher. See PG_Eval and
 // PG_Dispatcher for usage.
 //
 typedef void (*REBDOF)(REBFRM * const);

@@ -217,7 +217,7 @@ REBFRM *Frame_For_Stack_Level(
             // function as a candidate to target.
             //
             // !!! The inability to target a GROUP! by number is an artifact
-            // of implementation, in that there's no hook in Do_Core() at
+            // of implementation, in that there's no hook in Eval_Core() at
             // the point of group evaluation to process the return.  The
             // matter is different with a pending function call, because its
             // arguments are only partially processed--hence something

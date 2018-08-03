@@ -128,14 +128,14 @@ REBNATIVE(stats)
 
 
 //
-//  Measured_Do_Hook: C
+//  Measured_Eval_Hook: C
 //
-// Putting in measurement for Do_Core would interfere with measurements for
+// Putting in measurement for Eval_Core would interfere with measurements for
 // Dispatcher, as it would slow down the very functions that are being timed.
 //
-void Measured_Do_Hook(REBFRM * const f)
+void Measured_Eval_Hook(REBFRM * const f)
 {
-    // There are a lot of invariants checked on entry to Do_Core(), but this
+    // There are a lot of invariants checked on entry to Eval_Core(), but this
     // is a simple one that is important enough to mirror here.
     //
     assert(FRM_HAS_MORE(f) or f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION);
@@ -147,7 +147,7 @@ void Measured_Do_Hook(REBFRM * const f)
     f->flags.bits &= ~DO_FLAG_TO_END;
 
     while (TRUE) {
-        Do_Core(f);
+        Eval_Core(f);
 
         if (not was_do_to_end or THROWN(f->out) or FRM_AT_END(f))
             break;
@@ -368,11 +368,11 @@ REBNATIVE(metrics)
     Check_Security(Canon(SYM_DEBUG), POL_READ, 0);
 
     if (VAL_LOGIC(mode)) {
-        //PG_Do = &Measured_Do_Hook;
+        //PG_Eval = &Measured_Eval_Hook;
         PG_Dispatcher = &Measured_Dispatcher_Hook;
     }
     else {
-        //PG_Do = &Do_Core;
+        //PG_Eval = &Eval_Core;
         PG_Dispatcher = &Dispatcher_Core;
     }
 

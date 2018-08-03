@@ -195,8 +195,8 @@ inline static int FRM_LINE(REBFRM *f) {
     // This trick lets the sunk cost of calling a dispatcher be used instead
     // of a separate flag checked on every evaluator cycle.  What it's for is
     // so routines like `MAYBE PARSE "AAA" [SOME "A"]` can build the frame
-    // for parse without actually *running* PARSE yet...return from Do_Core(),
-    // extract the first argument, and then call back into Do_Core() to
+    // for parse without actually *running* PARSE yet...return from Eval_Core(),
+    // extract the first argument, and then call back into Eval_Core() to
     // actually run the PARSE.
     //
     // Any manipulations aware of this hack need to access the field directly.
@@ -464,10 +464,10 @@ inline static void Begin_Action(
 // values behind ARG(name), REF(name), D_ARG(3),  etc.)
 //
 // This only allocates space for the arguments, it does not initialize.
-// Do_Core initializes as it goes, and updates f->param so the GC knows how
+// Eval_Core initializes as it goes, and updates f->param so the GC knows how
 // far it has gotten so as not to see garbage.  APPLY has different handling
 // when it has to build the frame for the user to write to before running;
-// so Do_Core only checks the arguments, and does not fulfill them.
+// so Eval_Core only checks the arguments, and does not fulfill them.
 //
 // If the function is a specialization, then the parameter list of that
 // specialization will have *fewer* parameters than the full function would.

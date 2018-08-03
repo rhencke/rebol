@@ -562,7 +562,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         // Though the manual building of this table is not as nice as running
         // the evaluator, the evaluator makes comparisons against native
         // values.  Having all natives loaded fully before ever running
-        // Do_Core() helps with stability and invariants.
+        // Eval_Core() helps with stability and invariants.
 
         // Get the name the native will be started at with in Lib_Context
         //
@@ -1360,12 +1360,12 @@ void Startup_Core(void)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    // Initialize the "Do" handler to the default, Do_Core(), and the "Apply"
-    // of an ACTION! handler to Apply_Core().  These routines have no
+    // Initialize eval handler to the default, Eval_Core(), and the dispatcher
+    // of an ACTION! handler to Dispatcher_Core().  These routines have no
     // tracing, no debug handling, etc.  If those features are needed, an
     // augmented function must be substituted.
     //
-    PG_Do = &Do_Core;
+    PG_Eval = &Eval_Core;
     PG_Dispatcher = &Dispatcher_Core;
 
     // boot->natives is from the automatically gathered list of natives found

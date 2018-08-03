@@ -26,7 +26,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This file contains `Do_Core()`, which is the central evaluator which
+// This file contains `Eval_Core()`, which is the central evaluator which
 // is behind DO.  It can execute single evaluation steps (e.g. a DO/NEXT)
 // or it can run the array to the end of its content.  A flag controls that
 // behavior, and there are DO_FLAG_XXX for controlling other behaviors.
@@ -36,7 +36,7 @@
 //
 // NOTES:
 //
-// * Do_Core() is a very long routine.  That is largely on purpose, because it
+// * Eval_Core() is a very long routine.  That is largely on purpose, because it
 //   doesn't contain repeated portions.  If it were broken into functions that
 //   would add overhead for little benefit, and prevent interesting tricks
 //   and optimizations.  Note that it is separated into sections, and
@@ -55,7 +55,7 @@
 #if defined(DEBUG_COUNT_TICKS)
     //
     // The evaluator `tick` should be visible in the C debugger watchlist as a
-    // local variable in Do_Core() for each stack level.  So if a fail()
+    // local variable in Eval_Core() for each stack level.  So if a fail()
     // happens at a deterministic moment in a run, capture the number from
     // the level of interest and recompile with it here to get a breakpoint
     // at that tick.
@@ -134,7 +134,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 
 #if !defined(NDEBUG)
     #define START_NEW_EXPRESSION_MAY_THROW(f,g) \
-        Do_Core_Expression_Checks_Debug(f); \
+        Eval_Core_Expression_Checks_Debug(f); \
         if (Start_New_Expression_Throws(f)) \
             g; \
         evaluating = not ((f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
@@ -148,7 +148,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 
 #ifdef DEBUG_COUNT_TICKS
     //
-    // Macro for same stack level as Do_Core when debugging at TICK_BREAKPOINT
+    // Macro for same stack level as Eval_Core when debugging at TICK_BREAKPOINT
     //
     #define UPDATE_TICK_DEBUG(cur) \
         do { \
@@ -223,8 +223,8 @@ inline static void Finalize_Arg(
 ){
     if (IS_END(arg)) {
 
-        // Consider Do_Core() result for COMMENT in `do [1 + comment "foo"]`.
-        // Should be no different from `do [1 +]`, when Do_Core() gives END.
+        // Consider Eval_Core() result for COMMENT in `do [1 + comment "foo"]`.
+        // Should be no different from `do [1 +]`, when Eval_Core() gives END.
 
         if (NOT_VAL_FLAG(param, TYPESET_FLAG_ENDABLE))
             fail (Error_No_Arg(f_state, param));
@@ -316,7 +316,7 @@ inline static void Finalize_Current_Arg(REBFRM *f) {
 
 
 //
-//  Do_Core: C
+//  Eval_Core: C
 //
 // While this routine looks very complex, it's actually not that difficult
 // to step through.  A lot of it is assertions, debug tracking, and comments.
@@ -329,12 +329,12 @@ inline static void Finalize_Current_Arg(REBFRM *f) {
 //     f->out
 //     REBVAL pointer to which the evaluation's result should be written.
 //     Should be to writable memory in a cell that lives above this call to
-//     Do_Core in stable memory that is not user-visible (e.g. DECLARE_LOCAL
+//     Eval_Core in stable memory that is not user-visible (e.g. DECLARE_LOCAL
 //     or the frame's f->cell).  This can't point into an array whose memory
 //     may move during arbitrary evaluation, and that includes cells on the
 //     expandable data stack.  It also usually can't write a function argument
 //     cell, because that could expose an unfinished calculation during this
-//     Do_Core() through its FRAME!...though a Do_Core(f) must write f's *own*
+//     Eval_Core() through its FRAME!...though a Eval_Core(f) must write f's *own*
 //     arg slots to fulfill them.
 //
 //     f->value
@@ -357,7 +357,7 @@ inline static void Finalize_Current_Arg(REBFRM *f) {
 // More detailed assertions of the preconditions, postconditions, and state
 // at each evaluation step are contained in %d-eval.c
 //
-void Do_Core(REBFRM * const f)
+void Eval_Core(REBFRM * const f)
 {
   #if defined(DEBUG_COUNT_TICKS)
     REBTCK tick = f->tick = TG_Tick; // snapshot start tick
@@ -365,7 +365,7 @@ void Do_Core(REBFRM * const f)
 
     // Some routines (like Reduce_XXX) reuse the frame across multiple calls
     // and accrue stack state, and that stack state should be skipped when
-    // considering the usages in Do_Core().  Hence Do_Next_In_Frame_Throws()
+    // considering the usages in Eval_Core().  Hence Eval_Next_In_Frame_Throws()
     // will set it on each call.  However, some routines want to slip the
     // DSP in with refinements on the stack (e.g. APPLY or MY).  The
     // compromise is that it is also done in DECLARE_FRAME(); that way it
@@ -621,7 +621,7 @@ reevaluate:;
     switch (f->eval_type) {
 
     case REB_0:
-        panic ("REB_0 encountered in Do_Core"); // internal type, never DO it
+        panic ("REB_0 encountered in Eval_Core"); // internal type, never DO it
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
@@ -1170,7 +1170,7 @@ reevaluate:;
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 DECLARE_FRAME (child); // capture DSP *now*
-                if (Do_Next_In_Subframe_Throws(
+                if (Eval_Next_In_Subframe_Throws(
                     f->deferred, // old f->arg preload for DO_FLAG_POST_SWITCH
                     f,
                     flags,
@@ -1253,7 +1253,7 @@ reevaluate:;
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 DECLARE_FRAME (child); // capture DSP *now*
-                if (Do_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
+                if (Eval_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;
                 }
@@ -1272,7 +1272,7 @@ reevaluate:;
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 DECLARE_FRAME (child);
-                if (Do_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
+                if (Eval_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;
                 }
@@ -1432,7 +1432,7 @@ reevaluate:;
         // you can use as output targets can't be visible to the GC (that
         // includes argument arrays being fulfilled).  This offers extra
         // perks, because it means a recycle/torture will catch you if you
-        // try to Do_Core into movable memory...*and* a native can tell if it
+        // try to Eval_Core into movable memory...*and* a native can tell if it
         // has written the out slot yet or not.
         //
         assert(
@@ -1486,7 +1486,7 @@ reevaluate:;
                     VAL_ACTION(f->out) == NAT_ACTION(unwind)
                     and VAL_BINDING(f->out) == NOD(f->varlist)
                 ){
-                    // Do_Core catches unwinds to the current frame, so throws
+                    // Eval_Core catches unwinds to the current frame, so throws
                     // where the "/name" is the JUMP native with a binding to
                     // this frame, and the thrown value is the return code.
                     //
@@ -1814,8 +1814,8 @@ reevaluate:;
 // SET-WORD!s before the value to assign is found.  Some kind of list needs to
 // be maintained.
 //
-// Recursion into Do_Core() is used, but a new frame is not created.  Instead
-// it reuses `f` with a lighter-weight approach.  Do_Next_Mid_Frame_Throws()
+// Recursion into Eval_Core() is used, but a new frame is not created.  Instead
+// it reuses `f` with a lighter-weight approach.  Eval_Next_Mid_Frame_Throws()
 // has remarks on how this is done.
 //
 // !!! Note that `10 = 5 + 5` would be an error due to lookahead suppression
@@ -1864,7 +1864,7 @@ reevaluate:;
             if (not evaluating)
                 flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
-            if (Do_Next_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
+            if (Eval_Next_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
                 DS_DROP;
                 goto finished;
             }
@@ -1918,7 +1918,7 @@ reevaluate:;
 //
 // [GROUP!]
 //
-// If a GROUP! is seen then it generates another call into Do_Core().  The
+// If a GROUP! is seen then it generates another call into Eval_Core().  The
 // resulting value for this step will be the outcome of that evaluation.
 //
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2104,7 +2104,7 @@ reevaluate:;
             if (not evaluating)
                 flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
-            if (Do_Next_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
+            if (Eval_Next_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
                 DS_DROP;
                 goto finished;
             }
@@ -2628,7 +2628,7 @@ finished:;
         f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // may be an END cell
 
   #if !defined(NDEBUG)
-    Do_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps
+    Eval_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps
   #endif
 
     // All callers must inspect for THROWN(f->out), and most should also

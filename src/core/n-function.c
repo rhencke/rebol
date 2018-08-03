@@ -144,7 +144,7 @@ REBNATIVE(unwind)
 //
 // UNWIND is implemented via a THROWN() value that bubbles through the stack.
 // Using UNWIND's action REBVAL with a target `binding` field is the
-// protocol understood by Do_Core to catch a throw itself.
+// protocol understood by Eval_Core to catch a throw itself.
 //
 // !!! Allowing to pass an INTEGER! to jump from a function based on its
 // BACKTRACE number is a bit low-level, and perhaps should be restricted to
@@ -222,7 +222,7 @@ REBNATIVE(return)
     if (IS_NULLED(value) and GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED))
         Init_Void(value);
 
-    // Check the type *NOW* instead of waiting and letting Do_Core() check it.
+    // Check the type *NOW* instead of waiting and letting Eval_Core() check it.
     // The reasoning is that this way, the error will indicate the callsite,
     // e.g. the point where `return badly-typed-value` happened.
     //

@@ -27,18 +27,18 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Due to the length of Do_Core() and how many debug checks it already has,
+// Due to the length of Eval_Core() and how many debug checks it already has,
 // some debug-only routines are separated out here.  (Note that these are in
 // addition to the checks already done by Push_Frame() and Drop_Frame() time)
 //
-// * Do_Core_Expression_Checks_Debug() runs before each full "expression"
+// * Eval_Core_Expression_Checks_Debug() runs before each full "expression"
 //   is evaluated, e.g. before each DO/NEXT step.  It makes sure the state
 //   balanced completely--so no DS_PUSH that wasn't balanced by a DS_POP
 //   or DS_DROP (for example).  It also trashes variables in the frame which
 //   might accidentally carry over from one step to another, so that there
 //   will be a crash instead of a casual reuse.
 //
-// * Do_Core_Exit_Checks_Debug() runs if the Do_Core() call makes it to the
+// * Eval_Core_Exit_Checks_Debug() runs if the Eval_Core() call makes it to the
 //   end without a fail() longjmping out from under it.  It also checks to
 //   make sure the state has balanced, and that the return result is
 //   consistent with the state being returned.
@@ -114,7 +114,7 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
 // These are checks common to Expression and Exit checks (hence also common
 // to the "end of Start" checks, since that runs on the first expression)
 //
-static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
+static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     //
     // The state isn't actually guaranteed to balance overall until a frame
     // is completely dropped.  This is because a frame may be reused over
@@ -173,7 +173,7 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
 
     // The eval_type is expected to be calculated already.  Should match
     // f->value, with special exemption for optimized lookback calls
-    // coming from Do_Next_In_Subframe_Throws()
+    // coming from Eval_Next_In_Subframe_Throws()
     //
     if (f->eval_type != VAL_TYPE(f->value))
         assert(
@@ -191,7 +191,7 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
 
 
 //
-//  Do_Core_Expression_Checks_Debug: C
+//  Eval_Core_Expression_Checks_Debug: C
 //
 // The iteration preamble takes care of clearing out variables and preparing
 // the state for a new "/NEXT" evaluation.  It's a way of ensuring in the
@@ -199,11 +199,11 @@ static void Do_Core_Shared_Checks_Debug(REBFRM *f) {
 // making the code shareable allows code paths that jump to later spots
 // in the switch (vs. starting at the top) to reuse the work.
 //
-void Do_Core_Expression_Checks_Debug(REBFRM *f) {
+void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
 
     assert(f == FS_TOP); // should be topmost frame, still
 
-    Do_Core_Shared_Checks_Debug(f);
+    Eval_Core_Shared_Checks_Debug(f);
 
     // The previous frame doesn't know *what* code is going to be running,
     // and it can shake up data pointers arbitrarily.  Any cache of a fetched
@@ -297,7 +297,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     // natives may be bad, and there are advantages to being able to count on
     // this being an END.  However, unless one wants to get in the habit of
     // zeroing out all temporary state for "security" reasons then clients who
-    // call Do_Next_In_Frame() would be able to see it anyway.  For now, do
+    // call Eval_Next_In_Frame() would be able to see it anyway.  For now, do
     // the more performant thing and leak whatever is in f->cell to the
     // function in the release build, to avoid paying for the initialization.
     //
@@ -376,10 +376,10 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 
 
 //
-//  Do_Core_Exit_Checks_Debug: C
+//  Eval_Core_Exit_Checks_Debug: C
 //
-void Do_Core_Exit_Checks_Debug(REBFRM *f) {
-    Do_Core_Shared_Checks_Debug(f);
+void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
+    Eval_Core_Shared_Checks_Debug(f);
 
     if (not FRM_AT_END(f) and not FRM_IS_VALIST(f)) {
         if (f->source.index > ARR_LEN(f->source.array)) {
@@ -395,7 +395,7 @@ void Do_Core_Exit_Checks_Debug(REBFRM *f) {
         assert(THROWN(f->out) or FRM_AT_END(f));
 
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`
-    // (as opposed to `do [1 + ()]`).  Hence Do_Core() offers the distinction
+    // (as opposed to `do [1 + ()]`).  Hence Eval_Core() offers the distinction
     // of END for a fully "invisible" evaluation, as opposed to void.  This
     // distinction is only offered internally, at the moment.
     //

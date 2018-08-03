@@ -33,7 +33,7 @@
 //
 // The method used is to store a FRAME! in the specialization's ACT_BODY.
 // It contains non-null values for any arguments that have been specialized.
-// Do_Core() heeds these when walking the parameters (see `f->special`),
+// Eval_Core() heeds these when walking the parameters (see `f->special`),
 // and processes slots with voids in them normally.
 //
 // Code is shared between the SPECIALIZE native and specialization of a
@@ -68,7 +68,7 @@
 //
 // More concretely, the exemplar frame slots for `foo23: :foo/ref2/ref3` are:
 //
-// * REF1's slot would contain the REFINEMENT! ref3.  As Do_Core() traverses
+// * REF1's slot would contain the REFINEMENT! ref3.  As Eval_Core() traverses
 //   the arguments it pushes ref3 to be the current first-in-line to take
 //   arguments at the callsite.  Yet REF1 has not been "specialized out", so
 //   a call like `foo23/ref1` is legal...it's just that pushing ref3 from the
@@ -160,7 +160,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
             if (GET_VAL_FLAG(special, ARG_MARKED_CHECKED)) {
                 Move_Value(arg, special); // !!! copy the flag?
                 SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
-                goto continue_specialized; // Do_Core() debug checks the type
+                goto continue_specialized; // Eval_Core() debug checks the type
             }
             goto continue_unspecialized;
         }
@@ -460,7 +460,7 @@ REBOOL Specialize_Action_Throws(
 
     REBVAL *param = rootkey + 1;
     REBVAL *arg = CTX_VARS_HEAD(exemplar);
-    REBVAL *refine = ORDINARY_ARG; // parallels state logic in Do_Core()
+    REBVAL *refine = ORDINARY_ARG; // parallels state logic in Eval_Core()
     REBCNT index = 1;
 
     REBVAL *first_partial = nullptr;
@@ -672,11 +672,11 @@ REBOOL Specialize_Action_Throws(
     // must now convert these transitional placeholders to...
     //
     // * VOID! -- Unspecialized, BUT in traversal order before a partial
-    //   refinement.  That partial must pre-empt Do_Core() fulfilling a use
+    //   refinement.  That partial must pre-empt Eval_Core() fulfilling a use
     //   of this unspecialized refinement from a PATH! at the callsite.
     //
     // * NULL -- Unspecialized with no outranking partials later in traversal.
-    //   So Do_Core() is free to fulfill a use of this refinement from a
+    //   So Eval_Core() is free to fulfill a use of this refinement from a
     //   PATH! at the callsite when it first comes across it.
     //
     // * REFINEMENT! (with symbol of the parameter) -- All arguments were
@@ -841,7 +841,7 @@ REBOOL Specialize_Action_Throws(
 //
 // The evaluator does not do any special "running" of a specialized frame.
 // All of the contribution that the specialization had to make was taken care
-// of when Do_Core() used f->special to fill from the exemplar.  So all
+// of when Eval_Core() used f->special to fill from the exemplar.  So all
 // this does is change the phase and binding to match the function that this
 // layer was specializing.
 //
@@ -1007,7 +1007,7 @@ REB_R Block_Dispatcher(REBFRM *f)
 //
 // Logic shared currently by DOES and MATCH to build a single executable
 // frame from feeding forward a VARARGS! parameter, which is a bit like being
-// able to call DO/NEXT via Do_Core() yet introspect the evaluator step.
+// able to call DO/NEXT via Eval_Core() yet introspect the evaluator step.
 //
 REBOOL Make_Invocation_Frame_Throws(
     REBVAL *out, // in case there is a throw
@@ -1072,7 +1072,7 @@ REBOOL Make_Invocation_Frame_Throws(
     assert(FRM_BINDING(f) == VAL_BINDING(action));
     assert(FRM_PHASE(f) == VAL_ACTION(action));
     FRM_PHASE_OR_DUMMY(f) = PG_Dummy_Action;
-    (*PG_Do)(f);
+    (*PG_Eval)(f);
     FRM_PHASE_OR_DUMMY(f) = VAL_ACTION(action);
     FRM_BINDING(f) = VAL_BINDING(action); // can change during invoke
 

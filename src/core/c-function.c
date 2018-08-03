@@ -845,7 +845,7 @@ REBCNT Find_Param_Index(REBARR *paramlist, REBSTR *spelling)
 //  Make_Action: C
 //
 // Create an archetypal form of a function, given C code implementing a
-// dispatcher that will be called by Do_Core.  Dispatchers are of the form:
+// dispatcher that will be called by Eval_Core.  Dispatchers are of the form:
 //
 //     REB_R Dispatcher(REBFRM *f) {...}
 //
@@ -860,7 +860,7 @@ REBCNT Find_Param_Index(REBARR *paramlist, REBSTR *spelling)
 //
 REBACT *Make_Action(
     REBARR *paramlist,
-    REBNAT dispatcher, // native C function called by Do_Core
+    REBNAT dispatcher, // native C function called by Eval_Core
     REBARR *opt_facade, // if provided, 0 element must be underlying function
     REBCTX *opt_exemplar, // if provided, should be consistent w/next level
     REBCNT details_capacity // desired capacity of the ACT_DETAILS() array
@@ -1386,7 +1386,7 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
 //  Null_Dispatcher: C
 //
 // If you write `func [...] []` it uses this dispatcher instead of running
-// Do_Core() on an empty block.  This is a more interesting optimization than
+// Eval_Core() on an empty block.  This is a more interesting optimization than
 // it sounds, because you can make fast stub actions that only cost if they
 // are HIJACK'd (e.g. ASSERT is done this way).
 //

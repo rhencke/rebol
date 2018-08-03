@@ -178,7 +178,7 @@ REBNATIVE(eval_enfix)
 
     // We're kind-of-abusing an internal mechanism, where it is checked that
     // we are actually doing a deferment.  Try not to make that abuse break
-    // the assertions in Do_Core.
+    // the assertions in Eval_Core.
     //
     // Note that while f may have a "prior" already, its prior will become
     // this frame...so when it asserts about "f->prior->deferred" it means
@@ -188,7 +188,7 @@ REBNATIVE(eval_enfix)
     FS_TOP->deferred = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
 
     REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
-    if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
+    if (Eval_Next_In_Subframe_Throws(D_OUT, f, flags, child))
         return D_OUT;
 
     FS_TOP->deferred = nullptr;
@@ -252,7 +252,7 @@ REBNATIVE(do)
     case REB_BLOCK:
     case REB_GROUP: {
         REBVAL *opt_head = NULL;
-        REBIXO indexor = Do_Array_At_Core(
+        REBIXO indexor = Eval_Array_At_Core(
             D_OUT,
             opt_head,
             VAL_ARRAY(source),
@@ -289,7 +289,7 @@ REBNATIVE(do)
             // or DO'd while this operation is in progress.
             //
             REBVAL *opt_head = NULL;
-            REBIXO indexor = Do_Array_At_Core(
+            REBIXO indexor = Eval_Array_At_Core(
                 D_OUT,
                 opt_head,
                 VAL_ARRAY(position),
@@ -331,7 +331,7 @@ REBNATIVE(do)
         if (REF(next)) {
             if (FRM_AT_END(f))
                 Init_Nulled(D_OUT);
-            else if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
+            else if (Eval_Next_In_Subframe_Throws(D_OUT, f, flags, child))
                 return D_OUT;
 
             // The variable passed in /NEXT is just set to the vararg itself,
@@ -344,7 +344,7 @@ REBNATIVE(do)
         else {
             Init_Nulled(D_OUT);
             while (not FRM_AT_END(f)) {
-                if (Do_Next_In_Subframe_Throws(D_OUT, f, flags, child))
+                if (Eval_Next_In_Subframe_Throws(D_OUT, f, flags, child))
                     return D_OUT;
             }
         }
@@ -451,7 +451,7 @@ REBNATIVE(do)
         REBSTR *opt_label = nullptr;
         Begin_Action(f, opt_label, ORDINARY_ARG);
 
-        (*PG_Do)(f);
+        (*PG_Eval)(f);
 
         Drop_Frame_Core(f);
 
@@ -538,7 +538,7 @@ REBNATIVE(redo)
     );
 
     // We need to cooperatively throw a restart instruction up to the level
-    // of the frame.  Use REDO as the label of the throw that Do_Core() will
+    // of the frame.  Use REDO as the label of the throw that Eval_Core() will
     // identify for that behavior.
     //
     Move_Value(D_OUT, NAT_VALUE(redo));
@@ -546,7 +546,7 @@ REBNATIVE(redo)
 
     // The FRAME! contains its ->phase and ->binding, which should be enough
     // to restart the phase at the point of parameter checking.  Make that
-    // the actual value that Do_Core() catches.
+    // the actual value that Eval_Core() catches.
     //
     CONVERT_NAME_TO_THROWN(D_OUT, restartee);
     return D_OUT;
@@ -569,7 +569,7 @@ REBNATIVE(redo)
 REBNATIVE(apply)
 //
 // !!! Because APPLY is being written as a regular native (and not a
-// special exception case inside of Do_Core) it has to "re-enter" Do_Core
+// special exception case inside of Eval_Core) it has to "re-enter" Eval_Core
 // and jump to the argument processing.
 //
 // This could also be accomplished if function dispatch were a subroutine
@@ -678,7 +678,7 @@ REBNATIVE(apply)
         //
         // If nulls are taken literally as null arguments, then no arguments
         // are gathered at the callsite, so the "ordering information"
-        // on the stack isn't needed.  Do_Core() will just treat a slot
+        // on the stack isn't needed.  Eval_Core() will just treat a slot
         // with an INTEGER! for a refinement as if it were "true".
         //
         f->flags.bits |= DO_FLAG_FULLY_SPECIALIZED;
@@ -695,9 +695,9 @@ REBNATIVE(apply)
     FRM_BINDING(f) = VAL_BINDING(applicand);
 
     Begin_Action(f, opt_label, ORDINARY_ARG);
-    assert(IS_POINTER_TRASH_DEBUG(f->deferred)); // Do_Core() sanity checks
+    assert(IS_POINTER_TRASH_DEBUG(f->deferred)); // Eval_Core() sanity checks
 
-    (*PG_Do)(f);
+    (*PG_Eval)(f);
 
     Drop_Frame_Core(f);
 

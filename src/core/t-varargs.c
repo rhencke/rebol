@@ -222,10 +222,10 @@ REB_R Do_Vararg_Op_May_Throw(
                     : DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD
             );
 
-            // Note: Do_Next_In_Subframe_Throws() is not needed here because
+            // Note: Eval_Next_In_Subframe_Throws() is not needed here because
             // this is a single use frame, whose state can be overwritten.
             //
-            if (Do_Next_In_Frame_Throws(out, f_temp)) {
+            if (Eval_Next_In_Frame_Throws(out, f_temp)) {
                 Abort_Frame(f_temp);
                 return R_THROWN;
             }
@@ -302,14 +302,14 @@ REB_R Do_Vararg_Op_May_Throw(
         if (r != R_UNHANDLED)
             goto type_check_and_return;
 
-        // Note that evaluative cases here need Do_Next_In_Subframe_Throws(),
+        // Note that evaluative cases here need Eval_Next_In_Subframe_Throws(),
         // because a function is running and the frame state can't be
         // overwritten by an arbitrary evaluation.
         //
         switch (pclass) {
         case PARAM_CLASS_NORMAL: {
             DECLARE_FRAME (child);
-            if (Do_Next_In_Subframe_Throws(
+            if (Eval_Next_In_Subframe_Throws(
                 out,
                 f,
                 DO_FLAG_FULFILLING_ARG,
@@ -322,7 +322,7 @@ REB_R Do_Vararg_Op_May_Throw(
 
         case PARAM_CLASS_TIGHT: {
             DECLARE_FRAME (child);
-            if (Do_Next_In_Subframe_Throws(
+            if (Eval_Next_In_Subframe_Throws(
                 out,
                 f,
                 DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD,

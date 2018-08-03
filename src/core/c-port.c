@@ -334,7 +334,7 @@ void Sieve_Ports(REBARR *ports)
 // action may have different orders and names of parameters.
 //
 // R3-Alpha had a rather brittle implementation, that had no error checking
-// and repetition of logic in Do_Core.  Ren-C more simply builds a PATH! of
+// and repetition of logic in Eval_Core.  Ren-C more simply builds a PATH! of
 // the target function and refinements, passing args with DO_FLAG_EVAL_ONLY.
 //
 // !!! This could be done more efficiently now by pushing the refinements to
@@ -412,7 +412,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     // Invoke DO with the special mode requesting non-evaluation on all
     // args, as they were evaluated the first time around.
     //
-    REBIXO indexor = Do_Array_At_Core(
+    REBIXO indexor = Eval_Array_At_Core(
         f->out,
         first, // path not in array, will be "virtual" first element
         code_array,

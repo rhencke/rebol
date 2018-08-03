@@ -143,7 +143,7 @@ PVAR REBACT *PG_Dummy_Action;
 // It is possible to swap out the evaluator for one that does tracing, or
 // single step debugging, etc.
 //
-PVAR REBDOF PG_Do; // Evaluator (takes REBFRM, returns void)
+PVAR REBDOF PG_Eval; // Evaluator (takes REBFRM, returns void)
 PVAR REBDSF PG_Dispatcher; // Dispatcher (takes REBFRM, returns REB_R)
 
 
@@ -199,7 +199,7 @@ TVAR uintptr_t TG_Stack_Limit;    // Limit address for CPU stack.
     TVAR intptr_t TG_Num_Black_Series;
 #endif
 
-// Each time Do_Core is called a Reb_Frame* is pushed to the "frame stack".
+// Each time Eval_Core is called a Reb_Frame* is pushed to the "frame stack".
 // Some pushed entries will represent groups or paths being executed, and
 // some will represent functions that are gathering arguments...hence they
 // have been "pushed" but are not yet actually running.  This stack must

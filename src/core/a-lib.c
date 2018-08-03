@@ -474,7 +474,7 @@ REBVAL *RL_rebRun(const void *p, ...)
     va_start(va, p);
 
     REBVAL *result = Alloc_Value();
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         result,
         p, // opt_first (preloads value)
         &va,
@@ -511,7 +511,7 @@ void RL_rebElide(const void *p, ...)
     va_start(va, p);
 
     DECLARE_LOCAL (elided);
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         elided,
         p, // opt_first (preloads value)
         &va,  // va_end called by evaluator (has to, e.g. for fail())
@@ -549,7 +549,7 @@ void RL_rebJumps(const void *p, va_list *vaptr)
     Enter_Api();
 
     DECLARE_LOCAL (elided);
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         elided,
         p, // opt_first (preloads value)
         vaptr, // va_end called by evaluator (has to, e.g. for fail())
@@ -1006,7 +1006,7 @@ bool RL_rebDid(const void *p, ...) {
     va_start(va, p);
 
     DECLARE_LOCAL (condition);
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         condition,
         p, // opt_first (preloads value)
         &va, // va_end called by evaluator (has to, e.g. for fail())
@@ -1032,7 +1032,7 @@ bool RL_rebNot(const void *p, ...) {
     va_start(va, p);
 
     DECLARE_LOCAL (condition);
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         condition,
         p, // opt_first (preloads value)
         &va, // va_end called by evaluator (has to, e.g. for fail())
@@ -1062,7 +1062,7 @@ long RL_rebUnbox(const void *p, ...) {
     va_start(va, p);
 
     DECLARE_LOCAL (result);
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         result,
         p, // opt_first (preloads value)
         &va, // va_end called by evaluator (has to, e.g. for fail())
@@ -1248,7 +1248,7 @@ char *RL_rebSpellAlloc(const void *p, ...)
     va_start(va, p);
 
     DECLARE_LOCAL (string);
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         string,
         p, // opt_first (preloads value)
         &va,  // va_end called by evaluator (has to, e.g. for fail())
@@ -1345,7 +1345,7 @@ REBWCHAR *RL_rebSpellAllocW(const void *p, ...)
     va_start(va, p);
 
     DECLARE_LOCAL (string);
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         string,
         p, // opt_first (preloads value)
         &va,  // va_end called by evaluator (has to, e.g. for fail())
@@ -1418,7 +1418,7 @@ unsigned char *RL_rebBytesAlloc(size_t *size_out, const void *p, ...)
     va_start(va, p);
 
     DECLARE_LOCAL (series);
-    REBIXO indexor = Do_Va_Core(
+    REBIXO indexor = Eval_Va_Core(
         series,
         p, // opt_first (preloads value)
         &va,  // va_end called by evaluator (has to, e.g. for fail())

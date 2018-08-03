@@ -237,7 +237,7 @@ typedef REB_R (*REBPEF)(
 //=//// VARIADIC OPERATIONS ///////////////////////////////////////////////=//
 //
 // These 3 operations are the current legal set of what can be done with a
-// VARARG!.  They integrate with Do_Core()'s limitations in the prefetch
+// VARARG!.  They integrate with Eval_Core()'s limitations in the prefetch
 // evaluator--such as to having one unit of lookahead.
 //
 // While it might seem natural for this to live in %sys-varargs.h, the enum

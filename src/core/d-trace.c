@@ -117,21 +117,21 @@ void Trace_Error(const REBVAL *value)
 
 
 //
-//  Traced_Do_Hook: C
+//  Traced_Eval_Hook: C
 //
-// This is the function which is swapped in for Do_Core when tracing is
+// This is the function which is swapped in for Eval_Core when tracing is
 // enabled.
 //
-void Traced_Do_Hook(REBFRM * const f)
+void Traced_Eval_Hook(REBFRM * const f)
 {
-    // There are a lot of invariants checked on entry to Do_Core(), but this is
+    // There are a lot of invariants checked on entry to Eval_Core(), but this is
     // a simple one that is important enough to mirror here.
     //
     assert(FRM_HAS_MORE(f) or (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION));
 
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level) {
-        Do_Core(f); // don't apply tracing (REPL uses this to hide)
+        Eval_Core(f); // don't apply tracing (REPL uses this to hide)
         return;
     }
 
@@ -214,7 +214,7 @@ void Traced_Do_Hook(REBFRM * const f)
             Debug_Line();
         }
 
-        Do_Core(f);
+        Eval_Core(f);
 
         if (not (saved_flags & DO_FLAG_TO_END)) {
             //
@@ -424,7 +424,7 @@ REBNATIVE(trace)
         Trace_Level = Int32(mode);
 
     if (Trace_Level) {
-        PG_Do = &Traced_Do_Hook;
+        PG_Eval = &Traced_Eval_Hook;
         PG_Dispatcher = &Traced_Dispatcher_Hook;
 
         if (REF(function))
@@ -432,7 +432,7 @@ REBNATIVE(trace)
         Trace_Depth = Eval_Depth() - 1; // subtract current TRACE frame
     }
     else {
-        PG_Do = &Do_Core;
+        PG_Eval = &Eval_Core;
         PG_Dispatcher = &Dispatcher_Core;
     }
 
