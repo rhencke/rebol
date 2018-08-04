@@ -1130,7 +1130,7 @@ static REBIXO To_Thru_Non_Block_Rule(
 //
 //  Do_Eval_Rule: C
 //
-// Perform a DO/NEXT on the *input* as a code block, and match the following
+// Perform an EVALAUTE on the *input* as a code block, and match the following
 // rule against the evaluative result.
 //
 //     parse [1 + 2] [do [quote 3]] => true
@@ -1139,6 +1139,9 @@ static REBIXO To_Thru_Non_Block_Rule(
 //
 //     parse [reverse copy "abc"] [do "cba"]
 //     parse [reverse copy "abc"] [do ["cba"]]
+//
+// !!! Since this only does one step, it no longer corresponds to DO as a
+// name, and corresponds to EVALUATE.
 //
 // !!! Due to failures in the mechanics of "Parse_One_Rule", a block must
 // be used on rules that are more than one item in length.

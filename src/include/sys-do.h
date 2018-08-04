@@ -26,9 +26,9 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The primary routine that performs DO and DO/NEXT is called Eval_Core().  It
-// takes a single parameter which holds the running state of the evaluator.
-// This state may be allocated on the C variable stack:  fail() is
+// The primary routine that performs DO and EVALUATE is called Eval_Core().
+// It takes one parameter which holds the running state of the evaluator.
+// This state may be allocated on the C variable stack...and fail() is
 // written such that a longjmp up to a failure handler above it can run
 // safely and clean up even though intermediate stacks have vanished.
 //
@@ -77,13 +77,13 @@ inline static REBOOL IS_QUOTABLY_SOFT(const RELVAL *v) {
 // This API is used internally in the implementation of Eval_Core.  It does
 // not speak in terms of arrays or indices, it works entirely by setting
 // up a call frame (f), and threading that frame's state through successive
-// operations, vs. setting it up and disposing it on each DO/NEXT step.
+// operations, vs. setting it up and disposing it on each EVALUATE step.
 //
 // Like higher level APIs that move through the input series, this low-level
-// API can move at full DO/NEXT intervals.  Unlike the higher APIs, the
+// API can move at full EVALUATE intervals.  Unlike the higher APIs, the
 // possibility exists to move by single elements at a time--regardless of
 // if the default evaluation rules would consume larger expressions.  Also
-// making it different is the ability to resume after a DO/NEXT on value
+// making it different is the ability to resume after an EVALUATE on value
 // sources that aren't random access (such as C's va_arg list).
 //
 // One invariant of access is that the input may only advance.  Before any
@@ -578,6 +578,8 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
         f->value = nullptr;
         TRASH_POINTER_IF_DEBUG(f->source.pending);
 
+        ++f->source.index; // for consistency in index termination state
+
         if (f->flags.bits & DO_FLAG_TOOK_FRAME_HOLD) {
             assert(GET_SER_INFO(f->source.array, SERIES_INFO_HOLD));
             CLEAR_SER_INFO(f->source.array, SERIES_INFO_HOLD);
@@ -791,7 +793,7 @@ inline static REBOOL Eval_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 //
 inline static REBOOL Eval_Next_In_Subframe_Throws(
     REBVAL *out,
-    REBFRM *parent,
+    REBFRM *higher, // may not be direct parent (not child->prior upon push!)
     REBFLGS flags,
     REBFRM *child // passed w/dsp_orig preload, refinements can be on stack
 ){
@@ -801,16 +803,16 @@ inline static REBOOL Eval_Next_In_Subframe_Throws(
     // more efficient to call Eval_Next_In_Frame_Throws(), or the also lighter
     // Eval_Next_In_Mid_Frame_Throws() used by REB_SET_WORD and REB_SET_PATH.
     //
-    assert(parent->eval_type == REB_ACTION);
+    assert(higher->eval_type == REB_ACTION);
 
     child->out = out;
 
     // !!! Should they share a source instead of updating?
     //
-    child->source = parent->source;
-    child->value = parent->value;
-    child->gotten = parent->gotten;
-    child->specifier = parent->specifier;
+    child->source = higher->source;
+    child->value = higher->value;
+    child->gotten = higher->gotten;
+    child->specifier = higher->specifier;
 
     // f->gotten is never marked for GC, because it should never be kept
     // alive across arbitrary evaluations (f->value should keep it alive).
@@ -819,11 +821,17 @@ inline static REBOOL Eval_Next_In_Subframe_Throws(
     // can't be a variadic frame that is executing yet)
     //
   #if !defined(NDEBUG)
-    TRASH_POINTER_IF_DEBUG(parent->gotten);
+    TRASH_POINTER_IF_DEBUG(higher->gotten);
   #endif
 
     Init_Endlike_Header(&child->flags, flags);
 
+    // One case in which child->prior on this push may not be equal to the
+    // higher frame passed in is variadics.  The frame making the call to
+    // advance the variadic feed can be deeper down the stack, and it will
+    // be the ->prior, so it's important not to corrupt it based on assuming
+    // it is the variadic frame.
+    //
     Push_Frame_Core(child);
     Reuse_Varlist_If_Available(child);
     (*PG_Eval)(child);
@@ -832,67 +840,57 @@ inline static REBOOL Eval_Next_In_Subframe_Throws(
     assert(
         FRM_AT_END(child)
         or FRM_IS_VALIST(child)
-        or parent->source.index != child->source.index
+        or higher->source.index != child->source.index
         or THROWN(out)
     );
 
     // !!! Should they share a source instead of updating?
     //
-    parent->source = child->source;
-    parent->value = child->value;
-    parent->gotten = child->gotten;
-    assert(parent->specifier == child->specifier); // !!! can't change?
+    higher->source = child->source;
+    higher->value = child->value;
+    higher->gotten = child->gotten;
+    assert(higher->specifier == child->specifier); // !!! can't change?
 
     if (child->flags.bits & DO_FLAG_BARRIER_HIT)
-        parent->flags.bits |= DO_FLAG_BARRIER_HIT;
+        higher->flags.bits |= DO_FLAG_BARRIER_HIT;
 
     return THROWN(out);
 }
 
 
 // Most common case of evaluator invocation in Rebol: the data lives in an
-// array series.  Generic routine takes flags and may act as either a DO
-// or a DO/NEXT at the position given.  Option to provide an element that
-// may not be resident in the array to kick off the execution.
+// array series.
 //
 inline static REBIXO Eval_Array_At_Core(
-    REBVAL *out,
-    const RELVAL *opt_first, // must also be relative to specifier if relative
+    REBVAL *out, // must be initialized, marked stale if empty / all invisible
+    const RELVAL *opt_first, // non-array element to kick off execution with
     REBARR *array,
     REBCNT index,
-    REBSPC *specifier,
-    REBFLGS flags
+    REBSPC *specifier, // must match array, but also opt_first if relative
+    REBFLGS flags // DO_FLAG_TO_END, DO_FLAG_EXPLICIT_EVALUATE, etc.
 ){
     DECLARE_FRAME (f);
-
-    f->gotten = nullptr;
+    Init_Endlike_Header(&f->flags, flags); // SET_FRAME_VALUE() *could* use
 
     f->source.vaptr = nullptr;
     f->source.array = array;
+    f->gotten = nullptr; // SET_FRAME_VALUE() asserts this is null
     if (opt_first) {
         SET_FRAME_VALUE(f, opt_first);
         f->source.index = index;
         f->source.pending = ARR_AT(array, index);
+        assert(not FRM_AT_END(f));
     }
     else {
         SET_FRAME_VALUE(f, ARR_AT(array, index));
         f->source.index = index + 1;
         f->source.pending = f->value + 1;
-    }
-
-    if (FRM_AT_END(f)) {
-        if (flags & DO_FLAG_FULFILLING_ARG)
-            Init_Endish_Nulled(out);
-        else
-            Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
-        return END_FLAG;
+        if (FRM_AT_END(f))
+            return END_FLAG;
     }
 
     f->out = out;
-
     f->specifier = specifier;
-
-    Init_Endlike_Header(&f->flags, flags); // see notes on definition
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
@@ -902,17 +900,10 @@ inline static REBIXO Eval_Array_At_Core(
     if (THROWN(f->out))
         return THROWN_FLAG;
 
-    if (FRM_AT_END(f)) {
-        if (IS_END(f->out)) {
-            if (flags & DO_FLAG_FULFILLING_ARG)
-                Init_Endish_Nulled(out);
-            else
-                Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
-        }
-
-        return END_FLAG;
-    }
-
+    assert(
+        not (flags & DO_FLAG_TO_END)
+        or f->source.index == ARR_LEN(array) + 1
+    );
     return f->source.index;
 }
 
@@ -1026,7 +1017,7 @@ inline static void Reify_Va_To_Array_In_Frame(
 // Returns THROWN_FLAG, END_FLAG, or VA_LIST_FLAG
 //
 inline static REBIXO Eval_Va_Core(
-    REBVAL *out,
+    REBVAL *out, // must be initialized, marked stale if empty / all invisible
     const void *opt_first,
     va_list *vaptr,
     REBFLGS flags
@@ -1034,14 +1025,15 @@ inline static REBIXO Eval_Va_Core(
     DECLARE_FRAME (f);
     Init_Endlike_Header(&f->flags, flags); // read by Set_Frame_Detected_Fetch
 
-    f->gotten = nullptr; // so REB_WORD and REB_GET_WORD do their own Get_Var
-
     f->source.index = TRASHED_INDEX; // avoids warning in release build
     f->source.array = nullptr;
     f->source.vaptr = vaptr;
     f->source.pending = END_NODE; // signal next fetch comes from va_list
-    if (opt_first)
+    f->gotten = nullptr; // SET_FRAME_VALUE() asserts this is null
+    if (opt_first) {
         Set_Frame_Detected_Fetch(f, opt_first);
+        assert(not FRM_AT_END(f));
+    }
     else {
       #if !defined(NDEBUG)
         //
@@ -1055,15 +1047,11 @@ inline static REBIXO Eval_Va_Core(
         f->value = junk;
       #endif
         Fetch_Next_In_Frame(f);
-    }
-
-    if (FRM_AT_END(f)) {
-        Init_Nulled(out);
-        return END_FLAG;
+        if (FRM_AT_END(f))
+            return END_FLAG;
     }
 
     f->out = out;
-
     f->specifier = SPECIFIED; // relative values not allowed in va_lists
 
     Push_Frame_Core(f);
@@ -1074,30 +1062,32 @@ inline static REBIXO Eval_Va_Core(
     if (THROWN(f->out))
         return THROWN_FLAG;
 
-    return FRM_AT_END(f) ? END_FLAG : VA_LIST_FLAG;
+    if (
+        (flags & DO_FLAG_TO_END) // not just an EVALUATE, but a full DO
+        or (f->out->header.bits & OUT_MARKED_STALE) // just ELIDEs and COMMENTs
+    ){
+        assert(FRM_AT_END(f));
+        return END_FLAG;
+    }
+
+    if ((flags & DO_FLAG_NO_RESIDUE) and not FRM_AT_END(f))
+        fail (Error_Apply_Too_Many_Raw());
+
+    return VA_LIST_FLAG; // frame may be at end, next call might just END_FLAG
 }
 
 
-// Variant of Eval_Va_Core() which assumes explicit evaluation, that the code
-// tries to run to the end, and defaults to void if empty or all invisibles.
-//
 inline static REBOOL Do_Va_Throws(
-    REBVAL *out, // last param before ... mentioned in va_start()
+    REBVAL *out,
     const void *opt_first,
     va_list *vaptr // va_end() will be called on success, fail, throw, etc.
 ){
-    REBIXO indexor = Eval_Va_Core(
-        out,
+    return THROWN_FLAG == Eval_Va_Core(
+        Init_Void(out), // DO protocol: default to void if no eval product
         opt_first,
         vaptr,
         DO_FLAG_TO_END | DO_FLAG_EXPLICIT_EVALUATE
     );
-
-    if (indexor == THROWN_FLAG)
-        return true;
-
-    assert(indexor == END_FLAG);
-    return false;
 }
 
 
@@ -1108,9 +1098,6 @@ inline static REBOOL Do_Va_Throws(
 // This is equivalent to putting the value at the head of the input and
 // then calling EVAL/ONLY on it.  If all the inputs are not consumed, an
 // error will be thrown.
-//
-// The boolean result will be TRUE if an argument eval or the call created
-// a THROWN() value, with the thrown value in `out`.
 //
 inline static REBOOL Apply_Only_Throws(
     REBVAL *out,
@@ -1126,27 +1113,17 @@ inline static REBOOL Apply_Only_Throws(
     SET_VAL_FLAG(applicand_eval, VALUE_FLAG_EVAL_FLIP);
 
     REBIXO indexor = Eval_Va_Core(
-        out,
+        SET_END(out), // start at END to detect error if no eval product
         applicand_eval, // opt_first
-        &va,
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_NO_LOOKAHEAD
+        &va, // va_end() handled by Eval_Va_Core on success, fail, throw, etc.
+        DO_FLAG_EXPLICIT_EVALUATE
+            | DO_FLAG_NO_LOOKAHEAD
+            | (fully ? DO_FLAG_NO_RESIDUE : 0)
     );
 
-    if (fully and indexor == VA_LIST_FLAG) {
-        //
-        // Not consuming all the arguments given suggests a problem if `fully`
-        // is passed in as TRUE.
-        //
-        fail (Error_Apply_Too_Many_Raw());
-    }
+    if (IS_END(out))
+        fail ("Apply_Only_Throws() empty or just COMMENTs/ELIDEs/BAR!s");
 
-    // Note: va_end() is handled by Do_Va_Core (one way or another)
-
-    assert(
-        indexor == THROWN_FLAG
-        or indexor == END_FLAG
-        or (not fully and indexor == VA_LIST_FLAG)
-    );
     return indexor == THROWN_FLAG;
 }
 
@@ -1157,10 +1134,9 @@ inline static REBOOL Do_At_Throws(
     REBCNT index,
     REBSPC *specifier
 ){
-    const REBVAL *opt_first = nullptr;
     return THROWN_FLAG == Eval_Array_At_Core(
-        out,
-        opt_first,
+        Init_Void(out), // DO protocol: default to void if no eval product
+        nullptr, // opt_first (null indicates nothing, not nulled cell)
         array,
         index,
         specifier,
@@ -1168,13 +1144,10 @@ inline static REBOOL Do_At_Throws(
     );
 }
 
-// Note: It is safe for `out` and `array` to be the same variable.  The
-// array and index are extracted, and will be protected from GC by the DO
-// state...so it is legal to e.g Do_Any_Array_At_Throws(D_OUT, D_OUT).
-//
+
 inline static REBOOL Do_Any_Array_At_Throws(
     REBVAL *out,
-    const REBVAL *any_array
+    const REBVAL *any_array // Note: can be same pointer as `out`
 ){
     return Do_At_Throws(
         out,
@@ -1184,24 +1157,25 @@ inline static REBOOL Do_Any_Array_At_Throws(
     );
 }
 
-// Because Eval_Core can seed with a single value, we seed with our value and
-// an EMPTY_ARRAY.  Revisit if there's a "best" dispatcher.  Note this is
-// an EVAL and not a DO...hence if you pass it a block, then the block will
-// just evaluate to itself!
-//
+
 inline static REBOOL Eval_Value_Core_Throws(
     REBVAL *out,
-    const RELVAL *value,
+    const RELVAL *value, // e.g. a BLOCK! here would just evaluate to itself!
     REBSPC *specifier
 ){
-    return THROWN_FLAG == Eval_Array_At_Core(
-        out,
-        value,
+    REBIXO indexor = Eval_Array_At_Core(
+        SET_END(out), // start with END to detect no actual eval product
+        value, // put the value as the opt_first element
         EMPTY_ARRAY,
-        0,
+        0, // start index (it's an empty array, there's no added processing)
         specifier,
         DO_FLAG_TO_END
     );
+
+    if (IS_END(out))
+        fail ("Eval_Value_Core_Throws() empty or just COMMENTs/ELIDEs/BAR!s");
+
+    return indexor == THROWN_FLAG;
 }
 
 #define Eval_Value_Throws(out,value) \

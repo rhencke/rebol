@@ -1007,7 +1007,7 @@ REB_R Block_Dispatcher(REBFRM *f)
 //
 // Logic shared currently by DOES and MATCH to build a single executable
 // frame from feeding forward a VARARGS! parameter, which is a bit like being
-// able to call DO/NEXT via Eval_Core() yet introspect the evaluator step.
+// able to call EVALUATE via Eval_Core() yet introspect the evaluator step.
 //
 REBOOL Make_Invocation_Frame_Throws(
     REBVAL *out, // in case there is a throw

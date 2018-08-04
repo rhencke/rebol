@@ -65,43 +65,43 @@
 )
 
 (
-    null? applique func [
+    void? applique func [
         return: [<opt> any-value!]
         x [<opt> any-value!]
     ][
         get 'x
     ][
-        ()
+        void
     ]
 )
 (
-    null? applique func [
+    void? applique func [
         return: [<opt> any-value!]
         'x [<opt> any-value!]
     ][
         get 'x
     ][
-        ()
+        (void)
     ]
 )
 (
-    null? applique func [
+    void? applique func [
         return: [<opt> any-value!]
         x [<opt> any-value!]
     ][
         return get 'x
     ][
-        ()
+        void
     ]
 )
 (
-    null? applique func [
+    void? applique func [
         return: [<opt> any-value!]
         'x [<opt> any-value!]
     ][
         return get 'x
     ][
-        ()
+        (void)
     ]
 )
 (

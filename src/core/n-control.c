@@ -676,7 +676,7 @@ static REB_R Case_Choose_Core(
 
     while (FRM_HAS_MORE(f)) {
 
-        // Perform a DO/NEXT's worth of evaluation on a "condition" to test
+        // Perform 1 EVALUATE's worth of evaluation on a "condition" to test
         // Will consume any pending "invisibles" (COMMENT, ELIDE, DUMP...)
 
         if (Eval_Next_In_Frame_Throws(cell, f)) {
@@ -1141,7 +1141,7 @@ was_caught:
         }
         else if (IS_ACTION(handler)) {
             //
-            // This calls the function but only does a DO/NEXT.  Hence the
+            // This calls the function but only does an EVALUATE.  Hence the
             // function might be arity 0, arity 1, or arity 2.  If it has
             // greater arity it will process more arguments.
             //

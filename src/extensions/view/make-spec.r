@@ -19,7 +19,8 @@ modules: [
         ; For now just enable REQUEST-FILE on Windows if the view module is
         ; included, because it doesn't bring along any extra dependencies.
         ;
-        libraries: to-value (comment [
+        libraries: _
+        (comment [
             switch system-config/os-base [
                 'Windows [
                     ; You would currently have to define USE_WINDOWS_DIRCHOOSER

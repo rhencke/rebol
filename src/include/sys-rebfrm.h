@@ -26,7 +26,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The primary routine that performs DO and DO/NEXT is called Eval_Core().  It
+// The primary routine that handles DO and EVALUATE is called Eval_Core().  It
 // takes a single parameter which holds the running state of the evaluator.
 // This state may be allocated on the C variable stack.
 //
@@ -65,7 +65,7 @@
 // *without* evaluation.  This introduced EVAL/ONLY.
 
 
-// The default for a DO operation is just a single DO/NEXT, where args
+// The default for Eval_Core() operation is just a single EVALUATE, where args
 // to functions are evaluated (vs. quoted), and lookahead is enabled.
 //
 #define DO_MASK_NONE 0
@@ -88,7 +88,7 @@
 // controlling flag to do it from within the core evaluator as a loop.
 //
 // However: since running to the end follows a different code path than
-// performing DO/NEXT several times, it is important to ensure they achieve
+// performing EVALUATE several times, it is important to ensure they achieve
 // equivalent results.  There are nuances to preserve this invariant and
 // especially in light of interaction with lookahead.
 //
@@ -252,13 +252,16 @@
 
 //=//// DO_FLAG_BARRIER_HIT ///////////////////////////////////////////////=//
 //
-// If a variadic operation is not hard-quoting, all instances of a variadic
-// tied to the same frame need to see a BAR! as an end of the variadic input.
-// But evaluation cannot leave BAR!s in the input stream, because they are
-// "invisibles".  So a `do/next [1 + 2 | | |]` must run through all the bars
-// otherwise the next evaluation would be `[| | |]` and there'd be no way
-// to synthesize 3 from it.  This means after a variadic TAKE the signal
-// will be gone, so this flag is used.
+// Evaluation of arguments can wind up seeing a barrier and "consuming" it.
+// This is true of a BAR!, but also GROUP!s which have no effective content:
+//
+//    >> 1 + (comment "vaporizes, but disrupts like a BAR! would") 2
+//    ** Script Error: + is missing its value2 argument
+//
+// But the evaluation will advance the frame.  So if a function has more than
+// one argument it has to remember that one of its arguments saw a "barrier",
+// otherwise it would receive an end signal on an earlier argument yet then
+// get a later argument fulfilled.
 //
 #define DO_FLAG_BARRIER_HIT \
     FLAG_LEFT_BIT(17)
@@ -276,6 +279,26 @@
     FLAG_LEFT_BIT(18)
 
 
+//=//// DO_FLAG_NO_RESIDUE ////////////////////////////////////////////////=//
+//
+// Sometimes a single step evaluation is done in which it would be considered
+// an error if all of the arguments are not used.  This requests an error if
+// the frame does not reach the end.
+//
+// !!! Interactions with ELIDE won't currently work with this, so evaluation
+// would have to take this into account to greedily run ELIDEs if the flag
+// is set.  However, it's only used in variadic apply at the moment with
+// calls from the system that do not use ELIDE.  These calls may someday
+// turn into rebRun(), in which case the mechanism would need rethinking.
+//
+// !!! A userspace tool for doing this was once conceived as `||`, which
+// was variadic and would only allow one evaluation step after it, after
+// which it would need to reach either an END or another `||`.
+//
+#define DO_FLAG_NO_RESIDUE \
+    FLAG_LEFT_BIT(19)
+
+
 #if !defined(NDEBUG)
 
 //=//// DO_FLAG_FINAL_DEBUG ///////////////////////////////////////////////=//
@@ -288,7 +311,7 @@
 //
 
 #define DO_FLAG_FINAL_DEBUG \
-    FLAG_LEFT_BIT(19)
+    FLAG_LEFT_BIT(20)
 
 #endif
 
@@ -299,7 +322,7 @@
 // information in a platform aligned position of the frame.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(19 < 32, "DO_FLAG_XXX too high");
+    static_assert(20 < 32, "DO_FLAG_XXX too high");
 #endif
 
 
@@ -480,7 +503,7 @@ struct Reb_Frame {
     // `expr_index`
     //
     // The error reporting machinery doesn't want where `index` is right now,
-    // but where it was at the beginning of a single DO/NEXT step.
+    // but where it was at the beginning of a single EVALUATE step.
     //
     uintptr_t expr_index;
 

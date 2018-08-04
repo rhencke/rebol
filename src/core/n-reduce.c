@@ -48,7 +48,7 @@ REBOOL Reduce_To_Stack_Throws(
     DECLARE_FRAME (f);
     Push_Frame(f, any_array);
 
-    while (FRM_HAS_MORE(f)) {
+    while (not FRM_AT_END(f)) {
         REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
 
         if (Eval_Next_In_Frame_Throws(out, f)) {
@@ -56,6 +56,9 @@ REBOOL Reduce_To_Stack_Throws(
             Abort_Frame(f);
             return TRUE;
         }
+
+        if (out->header.bits & OUT_MARKED_STALE)
+            continue; // BAR!, empty GROUP!, code and it was just comments...
 
         if (IS_NULLED(out)) {
             if (flags & REDUCE_FLAG_TRY) {
@@ -238,12 +241,16 @@ REBOOL Compose_To_Stack_Throws(
         );
 
         if (match) { // only f->value if pattern is just [] or (), else deeper
-            if (Do_At_Throws(
-                out, // can't do directly into stack cell, DO can expand stack
+            REBIXO indexor = Eval_Array_At_Core(
+                Init_Nulled(out), // want empty () to vanish as a NULL would
+                nullptr, // no opt_first
                 VAL_ARRAY(match),
                 VAL_INDEX(match),
-                match_specifier
-            )){
+                match_specifier,
+                DO_FLAG_TO_END
+            );
+
+            if (indexor == THROWN_FLAG) {
                 DS_DROP_TO(dsp_orig);
                 Abort_Frame(f);
                 return true;
@@ -252,6 +259,7 @@ REBOOL Compose_To_Stack_Throws(
             if (IS_NULLED(out)) {
                 //
                 // compose [("nulls *vanish*!" null)] => []
+                // compose [(elide "so do 'empty' composes")] => []
             }
             else if (not only and IS_BLOCK(out)) {
                 //
@@ -275,7 +283,7 @@ REBOOL Compose_To_Stack_Throws(
                 // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
                 // compose/only [([a b c]) unmerged] => [[a b c] unmerged]
 
-                DS_PUSH(out);
+                DS_PUSH(out); // Note: not legal to eval to stack direct!
                 if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
                     SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
@@ -298,7 +306,7 @@ REBOOL Compose_To_Stack_Throws(
             )){
                 DS_DROP_TO(dsp_orig); // drop to outer DSP (@ function start)
                 Abort_Frame(f);
-                return TRUE;
+                return true;
             }
 
             REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;

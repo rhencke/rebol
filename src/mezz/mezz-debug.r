@@ -17,13 +17,20 @@ verify: function [
     return: <void>
     conditions [block!]
         {Conditions to check}
+    <local> result
 ][
-    while-not [tail? conditions] [
-        if not (result: do/next conditions quote pos:) [
+    while [pos: try evaluate/set conditions 'result] [
+        if not try :result [
+            ;
+            ; including BAR!s in the failure report looks messy, skip them
+            ;
+            while [bar? first conditions] [conditions: my next]
+
             fail/where [
                 "Assertion condition returned"
                  choose [
-                    (unset? 'result) "void"
+                    (unset? 'result) "null"
+                    (void? result) "void"
                     (blank? result) "blank"
                     (result = false) "false"
                 ]
@@ -33,9 +40,6 @@ verify: function [
         ]
 
         conditions: pos ;-- move expression position and continue
-
-        ; including BAR!s in the failure report looks messy
-        while [bar? :conditions/1] [conditions: next conditions]
     ]
 ]
 

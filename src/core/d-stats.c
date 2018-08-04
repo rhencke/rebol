@@ -141,7 +141,7 @@ void Measured_Eval_Hook(REBFRM * const f)
     assert(FRM_HAS_MORE(f) or f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION);
 
     // In order to measure single steps, we convert a DO_FLAG_TO_END request
-    // into a sequence of DO/NEXT operations, and loop them.
+    // into a sequence of EVALUATE operations, and loop them.
     //
     REBOOL was_do_to_end = did (f->flags.bits & DO_FLAG_TO_END);
     f->flags.bits &= ~DO_FLAG_TO_END;

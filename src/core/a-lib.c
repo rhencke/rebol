@@ -638,8 +638,17 @@ const void *RL_rebUneval(const REBVAL *v)
     REBARR *instruction = Alloc_Singular(NODE_FLAG_MANAGED);
 
     RELVAL *single = ARR_SINGLE(instruction);
-    if (not v)
-        Init_Group(single, EMPTY_ARRAY);
+    if (not v) {
+        //
+        // !!! Would like to be using a NULLED cell here, but the current
+        // indicator for whether something is a rebEval() or rebUneval() is
+        // if VALUE_FLAG_EVAL_FLIP is set, and we'd have to set that flag to
+        // get the evaluator not to choke on the nulled cell.  The mechanism
+        // should be revisited where instructions encode what they are in the
+        // header/info/link/misc.
+        //
+        Move_Value(single, NAT_VALUE(null));
+    }
     else {
         REBARR *a = Make_Array(2);
         SET_SER_INFO(a, SERIES_INFO_HOLD);
@@ -985,7 +994,7 @@ bool RL_rebDid(const void *p, ...) {
     if (Do_Va_Throws(condition, p, &va)) // calls va_end()
         fail (Error_No_Catch_For_Throw(condition));
 
-    return IS_TRUTHY(condition);
+    return IS_TRUTHY(condition); // will fail() on voids
 }
 
 
@@ -1005,7 +1014,7 @@ bool RL_rebNot(const void *p, ...) {
     if (Do_Va_Throws(condition, p, &va)) // calls va_end()
         fail (Error_No_Catch_For_Throw(condition));
 
-    return IS_FALSEY(condition);
+    return IS_FALSEY(condition); // will fail() on voids
 }
 
 
@@ -1210,7 +1219,7 @@ char *RL_rebSpellAlloc(const void *p, ...)
         fail (Error_No_Catch_For_Throw(string));
 
     if (IS_NULLED(string))
-        return NULL; // NULL is passed through, for opting out
+        return nullptr; // NULL is passed through, for opting out
 
     size_t size = rebSpellingOf(nullptr, 0, string);
     char *result = cast(char*, rebMalloc(size + 1)); // add space for term

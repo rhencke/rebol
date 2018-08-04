@@ -139,7 +139,7 @@ void Traced_Eval_Hook(REBFRM * const f)
         depth = 10; // don't indent so far it goes off the screen
 
     // In order to trace single steps, we convert a DO_FLAG_TO_END request
-    // into a sequence of DO/NEXT operations, and loop them.
+    // into a sequence of EVALUATE operations, and loop them.
     //
     uintptr_t saved_flags = f->flags.bits;
 
@@ -219,8 +219,8 @@ void Traced_Eval_Hook(REBFRM * const f)
         if (not (saved_flags & DO_FLAG_TO_END)) {
             //
             // If we didn't morph the flag bits from wanting a full DO to
-            // wanting only a DO/NEXT, then the original intent was actually
-            // just a DO/NEXT.  Return the frame state as-is.
+            // wanting only a EVALUATE, then the original intent was actually
+            // just an EVALUATE.  Return the frame state as-is.
             //
             return;
         }

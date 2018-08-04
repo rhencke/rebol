@@ -566,30 +566,30 @@
             if not test :v select b-value w [break]
         ]
 )
-; unset! comparison fails
-(equal? () ())
+; void! comparison fails
+(equal? void void)
 ; basic comparison with unset first argument fails
-(not-equal? () blank)
+(not-equal? void blank)
 ; basic comparison with unset second argument fails
-(not-equal? blank ())
+(not-equal? blank void)
 ; unset! symmetry
-(equal? equal? blank () equal? () blank)
+(equal? equal? blank (void) equal? void blank)
 ; unset! symmetry
 ; Fails on R2 because there is no structural comparison of objects.
 ; basic comparison with unset first argument succeeds with = op
 ; Code in R3 mezzanines depends on this.
-(not (() = blank))
+(not (void = blank))
 ; basic comparison with unset first argument succeeds with != op
 ; Code in R3 mezzanines depends on this.
-(() <> blank)
+(void <> blank)
 ; basic comparison with unset second argument fails with = op
-(not (blank = ()))
+(not (blank = void))
 ; basic comparison with unset second argument fails with != op
-(blank != ())
-(() = ())
-(not (() != ()))
+(blank != (void))
+(void = (void))
+(not ((void) != void))
 ; unset! symmetry with =
-(equal? (blank = ()) (() = blank))
+(equal? (blank = void) ((void) = blank))
 ; error! reflexivity
 ; Evaluates (trap [1 / 0]) to get error! value.
 (

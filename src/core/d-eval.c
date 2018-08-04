@@ -32,7 +32,7 @@
 // addition to the checks already done by Push_Frame() and Drop_Frame() time)
 //
 // * Eval_Core_Expression_Checks_Debug() runs before each full "expression"
-//   is evaluated, e.g. before each DO/NEXT step.  It makes sure the state
+//   is evaluated, e.g. before each EVALUATE step.  It makes sure the state
 //   balanced completely--so no DS_PUSH that wasn't balanced by a DS_POP
 //   or DS_DROP (for example).  It also trashes variables in the frame which
 //   might accidentally carry over from one step to another, so that there
@@ -217,22 +217,8 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
         or not f->prior->gotten
     );
 
-    // The only thing the evaluator can take for granted between evaluations
-    // about the output cell is that it's not trash.  In the debug build,
-    // give this more teeth by explicitly setting it to an unreadable blank,
-    // but only if it wasn't an END marker (that's how we can tell no
-    // evaluations have been done yet, consider `(comment [...] + 2)`) or
-    // have NODE_FLAG_MARKED by BAR! for (1 + 2 | comment "hi") to be 3.
-
   #if defined(DEBUG_UNREADABLE_BLANKS)
-    if (
-        not IS_UNREADABLE_DEBUG(f->out)
-        and NOT_END(f->out)
-        and not (f->flags.bits & DO_FLAG_BARRIER_HIT)
-    ){
-        Init_Unreadable_Blank(f->out);
-    }
-
+    //
     // Once a throw is started, no new expressions may be evaluated until
     // that throw gets handled.
     //
@@ -332,7 +318,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     }
 
     if (f->refine == ORDINARY_ARG) {
-        if (NOT_END(f->out))
+        if (not (f->out->header.bits & OUT_MARKED_STALE))
             assert(GET_ACT_FLAG(phase, ACTION_FLAG_INVISIBLE));
     }
     else

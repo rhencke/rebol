@@ -1541,7 +1541,7 @@ REB_R Elider_Dispatcher(REBFRM *f)
     SET_END(dummy);
 
     if (Do_At_Throws(dummy, VAL_ARRAY(body), 0, SPC(f->varlist))) {
-        Move_Value(f->out, dummy);
+        Move_Value(f->out, dummy); // can't return a local variable
         return f->out;
     }
 

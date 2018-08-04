@@ -184,6 +184,15 @@ struct Reb_Header {
 //   difference during an APPLY of encoded partial refinement specialization
 //   encoding from just a user putting random values in a refinement slot.
 //
+// * OUT_MARKED_STALE -- This application of NODE_FLAG_MARKED helps show
+//   when an evaluation step didn't add any new output, but it does not
+//   overwrite the contents of the out cell.  This allows the evaluator to
+//   leave a value in the output slot even if there is trailing invisible
+//   evaluation to be done, such as in `[1 + 2 elide (print "Hi")]`, where
+//   something like ALL would want to hold onto the 3 without needing to
+//   cache it in some other location.  Stale out cells cannot be used as
+//   left side input for enfix.
+//
 // **IMPORTANT**: This means that a routine being passed an arbitrary value
 //   should not make assumptions about the marked bit.  It should only be
 //   used in circumstances where some understanding of being "in control"
@@ -193,6 +202,7 @@ struct Reb_Header {
     FLAG_LEFT_BIT(3)
 
 #define ARG_MARKED_CHECKED NODE_FLAG_MARKED
+#define OUT_MARKED_STALE NODE_FLAG_MARKED
 
 
 //=////////////////////////////////////////////////////////////////////////=//

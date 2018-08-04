@@ -126,10 +126,11 @@
 )
 
 (
-    null? (<| 10)
+    is-barrier?: func [x [<end> integer!]] [unset? 'x]
+    is-barrier? (<| 10)
 )
 (
-    null? (10 |>)
+    void? (10 |>)
 )
 
 (

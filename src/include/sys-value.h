@@ -687,7 +687,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     (did (cast(const REBYTE*, (p))[1] & 0x80)) // !!! vs. & CELL_FLAG_NOT_END?
 
 #if defined(DEBUG_TRACK_CELLS) || defined(DEBUG_CELL_WRITABILITY)
-    inline static void SET_END_Debug(
+    inline static REBVAL *SET_END_Debug(
         RELVAL *v
 
       #if defined(DEBUG_TRACK_CELLS) || defined(DEBUG_CELL_WRITABILITY)
@@ -701,15 +701,17 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
         SET_END_Core(v); // only thing that's done in release build
 
         TRACK_CELL_IF_DEBUG(v, file, line);
+        return cast(REBVAL*, v);
     }
 
     #define SET_END(v) \
         SET_END_Debug((v), __FILE__, __LINE__)
 #else
-    #define SET_END(v) \
-        SET_END_Core(v)
+    inline static REBVAL *SET_END(RELVAL *v) {
+        SET_END_Core(v);
+        return cast(REBVAL*, v);
+    }
 #endif
-
 
 #ifdef NDEBUG
     #define NOT_END(p) \

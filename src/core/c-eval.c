@@ -27,7 +27,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // This file contains `Eval_Core()`, which is the central evaluator which
-// is behind DO.  It can execute single evaluation steps (e.g. a DO/NEXT)
+// is behind DO.  It can execute single evaluation steps (e.g. EVALUATE/EVAL)
 // or it can run the array to the end of its content.  A flag controls that
 // behavior, and there are DO_FLAG_XXX for controlling other behaviors.
 //
@@ -122,12 +122,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 
     UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
 
-  #if defined(DEBUG_UNREADABLE_BLANKS)
-    assert(
-        IS_UNREADABLE_DEBUG(f->out) or IS_END(f->out) or IS_BAR(f->value)
-    );
-  #endif
-
+    f->out->header.bits |= OUT_MARKED_STALE;
     return false;
 }
 
@@ -234,7 +229,9 @@ inline static void Finalize_Arg(
         return;
     }
 
-    assert(NOT_VAL_FLAG(arg, ARG_MARKED_CHECKED)); // no get val flag on END
+  #if defined(DEBUG_STALE_ARGS) // see notes on flag definition
+    assert(NOT_VAL_FLAG(arg, ARG_MARKED_CHECKED));
+  #endif
 
     assert(
         refine == ORDINARY_ARG // check arg type
@@ -390,16 +387,15 @@ void Eval_Core(REBFRM * const f)
         goto post_switch;
     }
 
-    // END signals no evaluations have produced a result yet, even if some
-    // functions have run (e.g. COMMENT with ACTION_FLAG_INVISIBLE).  It also
-    // is initialized bits to be safe for the GC to inspect and protect, and
-    // triggers noisy alarms to help detect when someone attempts to evaluate
-    // into a cell in an array (which may have its memory moved).
+    // When Eval_Core() is entered, the out slot may be preserved.  If it is,
+    // it will be marked with OUT_MARKED_STALE.  (This is done by the
+    // START_NEW_EXPRESSION_MAY_THROW() as well in the case below.)
     //
-    SET_END(f->out);
+    assert(not IS_TRASH_DEBUG(f->out));
 
     if (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION) {
         evaluating = not (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        f->out->header.bits |= OUT_MARKED_STALE;
 
         assert(f->refine == ORDINARY_ARG); // APPLY infix not (yet?) supported
         goto process_action;
@@ -532,10 +528,9 @@ reevaluate:;
                 Begin_Action(f, VAL_WORD_SPELLING(current), ORDINARY_ARG);
 
                 if (NOT_VAL_FLAG(current_gotten, ACTION_FLAG_INVISIBLE)) {
-                  #if defined(DEBUG_UNREADABLE_BLANKS)
-                    assert(IS_UNREADABLE_DEBUG(f->out) or IS_END(f->out));
-                  #endif
+                    assert(f->out->header.bits & OUT_MARKED_STALE);
                     SET_END(f->out);
+                    f->out->header.bits |= OUT_MARKED_STALE;
                 }
                 goto process_action;
             }
@@ -979,7 +974,7 @@ reevaluate:;
                 //
                 f->refine = ORDINARY_ARG;
 
-                if (IS_END(f->out) or (f->flags.bits & DO_FLAG_BARRIER_HIT)) {
+                if (f->out->header.bits & OUT_MARKED_STALE) {
                     //
                     // Seeing an END in the output slot could mean that there
                     // was really "nothing" to the left, or it could be a
@@ -1066,24 +1061,27 @@ reevaluate:;
                             goto abort_action;
                         }
                     }
+                    else if (IS_BAR(f->out)) {
+                        //
+                        // Hard quotes take BAR!s but they should look like an
+                        // <end> to a soft quote.
+                        //
+                        SET_END(f->arg);
+                    }
                     else {
                         Move_Value(f->arg, f->out);
                         SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
                     }
-
-                    // Hard quotes can take BAR!s but they should look like an
-                    // <end> to a soft quote.
-                    //
-                    if (IS_BAR(f->arg))
-                        SET_END(f->arg);
                     break;
 
                 default:
                     assert(false);
                 }
 
-                if (not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE))
+                if (not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE)) {
                     SET_END(f->out);
+                    f->out->header.bits |= OUT_MARKED_STALE;
+                }
 
                 // Now that we've gotten the argument figured out, make a
                 // singular array to feed it to the variadic.
@@ -1204,7 +1202,7 @@ reevaluate:;
 
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE //////////////////////=//
 
-            if (FRM_AT_END(f)) {
+            if (FRM_AT_END(f) or (f->flags.bits & DO_FLAG_BARRIER_HIT)) {
                 if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
                     fail (Error_No_Arg(f, f->param));
 
@@ -1228,24 +1226,9 @@ reevaluate:;
                 goto continue_arg_loop;
             }
 
-    //=//// IF EVAL SEMANTICS, DISALLOW LITERAL EXPRESSION BARRIERS ///////=//
-
-            if (IS_BAR(f->value) and pclass != PARAM_CLASS_HARD_QUOTE) {
-                //
-                // Only legal if arg is *hard quoted*.  Else, it must come via
-                // other means (e.g. literal as `'|` or `first [|]`)
-
-                if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
-                    fail (Error_No_Arg(f, f->param));
-
-                Init_Endish_Nulled(f->arg);
-                SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
-                goto continue_arg_loop;
-            }
-
             switch (pclass) {
 
-   //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes a DO/NEXT's worth) ////=//
+   //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
             case PARAM_CLASS_NORMAL: {
                 REBFLGS flags = DO_FLAG_FULFILLING_ARG;
@@ -1253,6 +1236,7 @@ reevaluate:;
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 DECLARE_FRAME (child); // capture DSP *now*
+                SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
                 if (Eval_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;
@@ -1272,6 +1256,7 @@ reevaluate:;
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 DECLARE_FRAME (child);
+                SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
                 if (Eval_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;
@@ -1287,6 +1272,14 @@ reevaluate:;
     //=//// SOFT QUOTED ARG-OR-REFINEMENT-ARG  ////////////////////////////=//
 
             case PARAM_CLASS_SOFT_QUOTE:
+                if (IS_BAR(f->value)) { // BAR! stops a soft quote
+                    f->flags.bits |= DO_FLAG_BARRIER_HIT;
+                    Fetch_Next_In_Frame(f);
+                    SET_END(f->arg);
+                    Finalize_Current_Arg(f);
+                    goto continue_arg_loop;
+                }
+
                 if (not IS_QUOTABLY_SOFT(f->value)) {
                     Quote_Next_In_Frame(f->arg, f); // VALUE_FLAG_UNEVALUATED
                     Finalize_Current_Arg(f);
@@ -1427,18 +1420,26 @@ reevaluate:;
             or IS_VALUE_IN_ARRAY_DEBUG(f->source.array, f->value)
         );
 
-        // The out slot needs initialization for GC safety during the function
-        // run.  Choosing an END marker should be legal because places that
-        // you can use as output targets can't be visible to the GC (that
-        // includes argument arrays being fulfilled).  This offers extra
-        // perks, because it means a recycle/torture will catch you if you
-        // try to Eval_Core into movable memory...*and* a native can tell if it
-        // has written the out slot yet or not.
+      #ifdef DEBUG_UNREADABLE_BLANKS
         //
-        assert(
-            IS_END(f->out)
-            or GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE)
-        );
+        // The f->out slot should be initialized well enough for GC safety.
+        // But in the debug build, if we're not running an invisible function
+        // set it to END here, to make sure the non-invisible function writes
+        // *something* to the output.
+        //
+        // END has an advantage because recycle/torture will catch cases of
+        // evaluating into movable memory.  But if END is always set, natives
+        // might *assume* it.  Fuzz it with unreadable blanks.
+        //
+        if (not GET_ACT_FLAG(FRM_PHASE_OR_DUMMY(f), ACTION_FLAG_INVISIBLE)) {
+            assert(f->out->header.bits & OUT_MARKED_STALE);
+            if (SPORADICALLY(2))
+                Init_Unreadable_Blank(f->out);
+            else
+                SET_END(f->out);
+            f->out->header.bits |= OUT_MARKED_STALE;
+        }
+      #endif
 
         // While you can't evaluate into an array cell (because it may move)
         // an evaluation is allowed to be performed into stable cells on the
@@ -1602,6 +1603,7 @@ reevaluate:;
             f->refine = ORDINARY_ARG; // no gathering, but need for assert
             assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
             SET_END(f->out);
+            f->out->header.bits |= OUT_MARKED_STALE;
             assert(IS_POINTER_TRASH_DEBUG(f->deferred));
             goto process_action;
 
@@ -1613,6 +1615,7 @@ reevaluate:;
             //
             assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
             SET_END(f->out);
+            f->out->header.bits |= OUT_MARKED_STALE;
             assert(IS_POINTER_TRASH_DEBUG(f->deferred));
             goto redo_unchecked;
 
@@ -1627,16 +1630,8 @@ reevaluate:;
         case R_09_INVISIBLE: {
             assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
 
-            // It is possible that when the elider ran, that there really was
-            // no output in the cell yet (e.g. `do [comment "hi" ...]`) so it
-            // would still be END after the fact.
-            //
             // !!! Ideally we would check that f->out hadn't changed, but
             // that would require saving the old value somewhere...
-            //
-          #if defined(DEBUG_UNREADABLE_BLANKS)
-            assert(IS_END(f->out) or not IS_UNREADABLE_DEBUG(f->out));
-          #endif
 
             // If an invisible is at the start of a frame and there's nothing
             // after it, it has to retrigger until it finds something (or
@@ -1646,7 +1641,10 @@ reevaluate:;
             //
             // Use same mechanic as EVAL by loading next item.
             //
-            if (IS_END(f->out) and not FRM_AT_END(f)) {
+            if (
+                (f->out->header.bits & OUT_MARKED_STALE)
+                and not FRM_AT_END(f)
+            ){
                 Derelativize(&f->cell, f->value, f->specifier);
                 Fetch_Next_In_Frame(f);
 
@@ -1777,26 +1775,18 @@ reevaluate:;
                 VAL_BINDING(current_gotten)
             );
 
-            REBSTR *opt_label = VAL_WORD_SPELLING(current);
-            if (GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)) {
-                //
-                // Note: The usual dispatch of enfix functions is not via a
-                // REB_WORD in this switch, it's by some code at the end of
-                // the switch.  So you only see this in cases like `(+ 1 2)`,
-                // or after ACTION_FLAG_INVISIBLE e.g. `10 comment "hi" + 20`.
-                //
-                Begin_Action(f, opt_label, LOOKBACK_ARG);
-
-              #if defined(DEBUG_UNREADABLE_BLANKS)
-                assert(IS_END(f->out) or not IS_UNREADABLE_DEBUG(f->out));
-              #endif
-            }
-            else {
-                Begin_Action(f, opt_label, ORDINARY_ARG);
-                if (NOT_VAL_FLAG(current_gotten, ACTION_FLAG_INVISIBLE))
-                    SET_END(f->out);
-            }
-
+            // Note: The usual dispatch of enfix functions is not via a
+            // REB_WORD in this switch, it's by some code at the end of
+            // the switch.  So you only see enfix in cases like `(+ 1 2)`,
+            // or after ACTION_FLAG_INVISIBLE e.g. `10 comment "hi" + 20`.
+            //
+            Begin_Action(
+                f,
+                VAL_WORD_SPELLING(current), // use word as stack frame label
+                GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
+                    ? LOOKBACK_ARG
+                    : ORDINARY_ARG
+            );
             goto process_action;
         }
 
@@ -1814,7 +1804,7 @@ reevaluate:;
 // SET-WORD!s before the value to assign is found.  Some kind of list needs to
 // be maintained.
 //
-// Recursion into Eval_Core() is used, but a new frame is not created.  Instead
+// Recursion into Eval_Core() is used, but a new frame is not created.  So
 // it reuses `f` with a lighter-weight approach.  Eval_Next_Mid_Frame_Throws()
 // has remarks on how this is done.
 //
@@ -1921,43 +1911,78 @@ reevaluate:;
 // If a GROUP! is seen then it generates another call into Eval_Core().  The
 // resulting value for this step will be the outcome of that evaluation.
 //
+// Empty groups evaluate to #[void].  If one considers `while [] [...]`, that
+// is more appropriately an error than acting like the block is falsey, and
+// for consistency this suggests () should produce something that is neither
+// conditionally true nor false.  #[void] fits the bill, null does not.
+//
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_GROUP: {
-        REBCNT len = VAL_LEN_AT(current);
-        if (len == 0) {
-            Init_Nulled(f->out);
-            break; // no VALUE_FLAG_UNEVALUATED
-        }
-
-        if (len == 1 and ANY_INERT(current)) {
-            //
-            // (1) does not need to make a new frame to tell you that's 1,
-            // ([a b c]) does not need a new frame to get [a b c], etc.
-            //
-            // Not worth it to optimize any evaluated types (GET-WORD!, etc.)
-            // as if they fail, the frame should be there to tie errors to.
-            //
-            Move_Value(f->out, const_KNOWN(current));
-            break; // VALUE_FLAG_UNEVALUATED does not get moved
-        }
-
+        //
         // The f->gotten we fetched for lookahead could become invalid when
         // we run the arbitrary code here.  Have to lose the cache.
         //
         f->gotten = nullptr;
 
-        REBSPC *derived = Derive_Specifier(f->specifier, current);
-        if (Do_At_Throws(
-            f->out,
-            VAL_ARRAY(current), // the GROUP!'s array
-            VAL_INDEX(current), // index in REBVAL (may not be head)
-            derived
-        )){
-            goto finished;
-        }
+        assert(f->out->header.bits & OUT_MARKED_STALE);
 
-        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+        // Since current may be f->cell, extract properties to reuse it.
+        //
+        REBARR *array = VAL_ARRAY(current); // array of the GROUP!
+        REBCNT index = VAL_INDEX(current); // index may not be @ head
+        REBSPC *derived = Derive_Specifier(f->specifier, current);
+
+        if (f->flags.bits & DO_FLAG_FULFILLING_ARG) {
+            //
+            // No need for a temporary cell...we know we're starting from an
+            // END cell so determining if the GROUP! is invisible is easy.
+            //
+            assert(IS_END(f->out));
+            REBIXO indexor = Eval_Array_At_Core(
+                f->out,
+                nullptr, // opt_first (null means nothing, not nulled cell)
+                array,
+                index,
+                derived,
+                DO_FLAG_TO_END
+            );
+            if (indexor == THROWN_FLAG)
+                goto finished;
+            if (IS_END(f->out)) {
+                f->flags.bits |= DO_FLAG_BARRIER_HIT;
+                if (not FRM_AT_END(f))
+                    f->eval_type = VAL_TYPE(f->value);
+                goto finished;
+            }
+            f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // (1) "evaluates"
+        }
+        else {
+            // Not as lucky... we might have something like (1 + 2 elide "Hi")
+            // that would show up as having the stale bit.
+            //
+            REBIXO indexor = Eval_Array_At_Core(
+                SET_END(&f->cell),
+                nullptr, // opt_first (null means nothing, not nulled cell)
+                array,
+                index,
+                derived,
+                DO_FLAG_TO_END
+            );
+            if (indexor == THROWN_FLAG) {
+                Move_Value(f->out, KNOWN(&f->cell));
+                goto finished;
+            }
+            if (IS_END(&f->cell)) {
+                if (FRM_AT_END(f))
+                    goto finished; // stale f->out (possibly end) is result
+
+                f->eval_type = VAL_TYPE(f->value);
+                goto do_next; // quickly process next item, no infix test
+            }
+
+            Move_Value(f->out, KNOWN(&f->cell)); // no VALUE_FLAG_UNEVALUATED
+        }
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2022,6 +2047,7 @@ reevaluate:;
             //
             Begin_Action(f, opt_label, ORDINARY_ARG);
             SET_END(f->out); // loses enfix left hand side, invisible passthru
+            f->out->header.bits |= OUT_MARKED_STALE;
             goto process_action;
         }
 
@@ -2249,29 +2275,34 @@ reevaluate:;
 //
 // [BAR!]
 //
-// Expression barriers are "invisibles", and hence as many of them have to
-// be processed at the end of the loop as there are--they can't be left in
-// the source feed, else `do/next [1 + 2 | | | |] 'pos` would not be able
-// to reconstitute 3 from `[| | | |]` for the next operation.
-//
-// Though they have to be processed at the end of the loop, they could also
-// be at the beginning of an evaluation.  This handles that case.
+// Expression barriers prevent non-hard-quoted operations from picking up
+// parameters, e.g. `do [1 | + 2]` is an error.  But they don't erase values,
+// so `do [1 + 2 |]` is 3.  In that sense, they are like "invisible" actions.
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_BAR:
-        if (FRM_HAS_MORE(f)) {
+        assert(f->out->header.bits & OUT_MARKED_STALE);
+
+        if (f->flags.bits & DO_FLAG_FULFILLING_ARG) {
             //
             // May be fulfilling a variadic argument (or an argument to an
-            // argument of a variadic, etc.)  Make a note that a barrier was
-            // hit so it can stop gathering evaluative arguments.
+            // argument of a variadic, etc.)  Let this appear to give back
+            // an END...though if the frame is not FRM_AT_END() then it has
+            // more potential evaluation after the current action invocation.
             //
-            if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-                f->flags.bits |= DO_FLAG_BARRIER_HIT;
-            f->eval_type = VAL_TYPE(f->value);
-            goto do_next; // quickly process next item, no infix test needed
+            assert(IS_END(f->out));
+            if (FRM_HAS_MORE(f))
+                f->eval_type = VAL_TYPE(f->value);
+            f->flags.bits |= DO_FLAG_BARRIER_HIT;
+            goto finished;
         }
-        break;
+
+        if (FRM_AT_END(f))
+            goto finished; // let stale output (possibly end) be the result
+
+        f->eval_type = VAL_TYPE(f->value);
+        goto do_next; // quickly process next item, no infix test needed
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
@@ -2353,12 +2384,12 @@ reevaluate:;
     // We're sitting at what "looks like the end" of an evaluation step.
     // But we still have to consider enfix.  e.g.
     //
-    //    do/next [1 + 2 * 3] 'pos
+    //    evaluate/set [1 + 2 * 3] 'val
     //
-    // We want that to come back as 9, with `pos = []`.  So the evaluator
+    // We want that to give a position of [] and `val = 9`.  The evaluator
     // cannot just dispatch on REB_INTEGER in the switch() above, give you 1,
-    // and consider its job done.  It has to notice that the variable `+`
-    // looks up to is an ACTION! assigned with SET/ENFIX, and keep going.
+    // and consider its job done.  It has to notice that the word `+` looks up
+    // to an ACTION! that was assigned with SET/ENFIX, and keep going.
     //
     // Next, there's a subtlety with DO_FLAG_NO_LOOKAHEAD which explains why
     // processing of the 2 argument doesn't greedily continue to advance, but
@@ -2368,41 +2399,24 @@ reevaluate:;
     // Slightly more nuanced is why ACTION_FLAG_INVISIBLE functions have to be
     // considered in the lookahead also.  Consider this case:
     //
-    //    do/next [1 + 2 * 3 comment ["hi"] 4 / 5] 'pos
+    //    evaluate/set [1 + 2 * comment ["hi"] 3 4 / 5] 'val
     //
-    // We want this to evaluate to 9, with `pos = [4 / 5]`.  To do this, we
+    // We want `val = 9`, with `pos = [4 / 5]`.  To do this, we
     // can't consider an evaluation finished until all the "invisibles" have
-    // been processed.  That's because letting the comment wait until the next
-    // evaluation would preclude `do/next [1 + 2 * 3 comment ["hi"]]` being
-    // 9, since `comment ["hi"]` alone can't come up with 9 out of thin air.
+    // been processed.
     //
     // If that's not enough to consider :-) it can even be the case that
     // subsequent enfix gets "deferred".  Then, possibly later the evaluated
     // value gets re-fed back in, and we jump right to this post-switch point
     // to give it a "second chance" to take the enfix.  (See 'deferred'.)
     //
-    // So this post-switch step is where all of it happens, and it's tricky.
+    // So this post-switch step is where all of it happens, and it's tricky!
 
 post_switch:;
 
     assert(IS_POINTER_TRASH_DEBUG(f->deferred));
 
     f->eval_type = VAL_TYPE(f->value);
-
-    // Because BAR! is effectively an "invisible", it must follow the same
-    // rule of being consumed in the same step as its left hand side, as a
-    // DO/NEXT of the BAR! alone can't bring back the lost value.
-    //
-    if (f->eval_type == REB_BAR) {
-        if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-            f->flags.bits |= DO_FLAG_BARRIER_HIT;
-        do {
-            Fetch_Next_In_Frame(f);
-            if (FRM_AT_END(f))
-                goto finished;
-            f->eval_type = VAL_TYPE(f->value);
-        } while (f->eval_type == REB_BAR);
-    }
 
 //=//// IF NOT A WORD!, IT DEFINITELY STARTS A NEW EXPRESSION /////////////=//
 
@@ -2414,7 +2428,7 @@ post_switch:;
 
     if (f->eval_type != REB_WORD) {
         if (not (f->flags.bits & DO_FLAG_TO_END))
-            goto finished; // only want DO/NEXT of work, so stop evaluating
+            goto finished; // only want 1 EVALUATE of work, so stop evaluating
 
         START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
         // ^-- resets evaluating + tick, corrupts f->out, Ctrl-C may abort
@@ -2461,46 +2475,18 @@ post_switch:;
     ){
         if (not (f->flags.bits & DO_FLAG_TO_END)) {
             //
-            // Since it's a new expression, a DO/NEXT doesn't want to run it
-            // *unless* it's "invisible"
+            // Since it's a new expression, EVALUATE doesn't want to run it
+            // even if invisible, as it's not completely invisible (enfixed)
             //
-            if (
-                not f->gotten
-                or VAL_TYPE(f->gotten) != REB_ACTION
-                or NOT_VAL_FLAG(f->gotten, ACTION_FLAG_INVISIBLE)
-            ){
-                goto finished;
-            }
-
-            // Though it's an "invisible" function, we don't want to call it
-            // unless it's our *last* chance to do so for a fulfillment (e.g.
-            // DUMP should be called for `do [x: 1 + 2 dump [x]]` only
-            // after the assignment to X is complete.)
-            //
-            // The way we test for this is to see if there's no fulfillment
-            // process above us which will get a later chance (that later
-            // chance will occur for that higher frame at this code point.)
-            //
-            if (
-                f->flags.bits
-                & (DO_FLAG_FULFILLING_ARG | DO_FLAG_FULFILLING_SET)
-            ){
-                goto finished;
-            }
-
-            // Take our last chance to run the invisible function, but shift
-            // into a mode where we *only* run such functions.  (Once this
-            // flag is set, it will have it until termination, then erased
-            // when the frame is discarded/reused.)
-            //
-            f->flags.bits |= DO_FLAG_NO_LOOKAHEAD; // might have set already
+            goto finished;
         }
-        else if (
+
+        if (
             f->gotten
             and VAL_TYPE(f->gotten) == REB_ACTION
             and GET_VAL_FLAG(f->gotten, ACTION_FLAG_INVISIBLE)
         ){
-            // Even if not a DO/NEXT, we do not want START_NEW_EXPRESSION on
+            // Even if not EVALUATE, we do not want START_NEW_EXPRESSION on
             // "invisible" functions.  e.g. `do [1 + 2 comment "hi"]` should
             // consider that one whole expression.  Reason being that the
             // comment cannot be broken out and thought of as having a return
@@ -2626,6 +2612,11 @@ finished:;
 
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
         f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // may be an END cell
+
+  #if defined(DEBUG_STALE_ARGS) // see notes on flag definition
+    if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+        f->out->header.bits &= ~OUT_MARKED_STALE; // same as ARG_MARKED_CHECKED
+  #endif
 
   #if !defined(NDEBUG)
     Eval_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps

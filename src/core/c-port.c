@@ -400,22 +400,17 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     // args, as they were evaluated the first time around.
     //
     REBIXO indexor = Eval_Array_At_Core(
-        f->out,
+        SET_END(f->out),
         first, // path not in array, will be "virtual" first element
         code_array,
         0, // index
         SPECIFIED, // reusing existing REBVAL arguments, no relative values
         DO_FLAG_EXPLICIT_EVALUATE // DON'T double-evaluate arguments
+            | DO_FLAG_NO_RESIDUE // raise an error if all args not consumed
     );
 
-    if (indexor != THROWN_FLAG and indexor != END_FLAG) {
-        //
-        // We may not have stopped the invocation by virtue of the args
-        // all not getting consumed, but we can raise an error now that it
-        // did not.
-        //
-        fail ("Function frame proxying did not consume all arguments");
-    }
+    if (IS_END(f->out))
+        fail ("Redo_Action_Throws() was either empty or all COMMENTs/ELIDEs");
 
     return indexor == THROWN_FLAG;
 }

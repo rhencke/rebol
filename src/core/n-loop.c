@@ -1254,7 +1254,7 @@ REBNATIVE(remove_each)
         Push_Mold(res.mo);
     }
 
-    assert(IS_END(D_OUT)); // tested for THROWN() to signal a throw happened
+    SET_END(D_OUT); // will be tested for THROWN() to signal a throw happened
     res.out = D_OUT;
 
     REBVAL *error = rebRescue(cast(REBDNG*, &Remove_Each_Core), &res);

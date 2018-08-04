@@ -919,7 +919,7 @@ static void Propagate_All_GC_Marks(void)
 //
 // Although it's a list of REBVAL*, these call frames have no REBARR series
 // behind.  Yet they still need to be enumerated to protect the values coming
-// up in the later DO/NEXTs.  But enumerating a C va_list can't be undone.
+// up in the later EVALUATEs.  But enumerating a C va_list can't be undone.
 // The REBVAL* is lost if it isn't saved, and these frames may be in
 // mid-evaluation.
 //
