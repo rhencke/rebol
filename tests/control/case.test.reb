@@ -39,14 +39,10 @@
 )
 
 (
-    error? trap [
-        3 = case [true (reduce ['add 1 2])]
-    ] ;-- soft-quoting not supported for CASE branches
+    3 = case [true (reduce ['add 1 2])]
 )
 (
-    error? trap [
-        null? case [false (reduce ['add 1 2])]
-    ] ;-- soft-quoting not supported for CASE branches
+    null? case [false (reduce ['add 1 2])]
 )
 
 (

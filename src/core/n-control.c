@@ -667,12 +667,9 @@ static REB_R Case_Choose_Core(
     REBOOL choose // do not evaluate branches, just "choose" them
 ){
     DECLARE_FRAME (f);
-    Push_Frame(f, block);
+    Push_Frame(f, block); // array GC safe now, can re-use `block` cell
 
     Init_Nulled(out); // default return result
-
-    // With the block argument pushed in the enumerator, that frame slot is
-    // available for scratch space in the rest of the routine.
 
     while (FRM_HAS_MORE(f)) {
 
@@ -694,44 +691,58 @@ static REB_R Case_Choose_Core(
             return cell;
         }
 
-        // Regardless of if the condition matches or not, the next value must
-        // be valid for the construct.  If it's a CHOOSE operation, it can
-        // be any value.  For a CASE be more picky--BLOCK!s only.
-        //
-        if (not choose and not IS_BLOCK(f->value)) {
-            if (IS_ACTION(f->value))
-                fail (
-                    "ACTION! branches currently not supported in CASE --"
-                    " none existed after having the feature for 2 years."
-                    " It costs extra to shuffle cells to support passing in"
-                    " the condition.  Complain if you have a good reason."
-                );
-            fail (Error_Invalid_Core(f->value, f->specifier));
-        }
+        if (IS_CONDITIONAL_FALSE(cell)) { // not a matching condition
+            if (choose) {
+                Fetch_Next_In_Frame(f); // skip next item, whatever it is
+                continue;
+            }
 
-        if (IS_CONDITIONAL_FALSE(cell)) { // condition didn't match, skip
-            Fetch_Next_In_Frame(f);
+            // Even if branch is being skipped, it gets an evaluation--like
+            // how `if false (print "A" [print "B"])` prints A, but not B.
+            //
+            if (Eval_Step_In_Frame_Throws(cell, f)) {
+                Abort_Frame(f);
+                return cell; // preserving `out` value (may be previous match)
+            }
+
+            // Maintain symmetry with IF's typechecking of non-taken branches:
+            //
+            // >> if false <some-tag>
+            // ** Script Error: if does not allow tag! for its branch argument
+            //
+            if (not IS_BLOCK(cell) and not IS_ACTION(cell))
+                fail (Error_Invalid_Core(cell, f->specifier));
+
             continue;
         }
 
-        // When the condition matches, we must only use the next value
-        // literally.  If something like Eval_Step_In_Frame_Throws() were
-        // called to evaluate the thing-that-became-a-branch, it would also
-        // evaluate any ELIDEs after it...which would not be good if /ALL
-        // is not set, as it would run code *after* the taken branch.
-        //
-        if (choose)
+        if (choose) {
             Derelativize(out, f->value, f->specifier); // null not possible
+            Fetch_Next_In_Frame(f); // keep matching if /ALL
+        }
         else {
-            if (Do_At_Throws(
-                out,
-                VAL_ARRAY(f->value),
-                VAL_INDEX(f->value),
-                f->specifier
-            )){
+            if (Eval_Step_In_Frame_Throws(out, f)) {
                 Abort_Frame(f);
-                return out;
+                return out; // preserving `cell` to pass to an arity-1 ACTION!
             }
+
+            f->gotten = nullptr; // can't hold onto cache, running user code
+
+            if (IS_BLOCK(out)) {
+                if (Do_Any_Array_At_Throws(out, out)) { // out=any_array legal
+                    Abort_Frame(f);
+                    return out;
+                }
+            }
+            else if (IS_ACTION(out)) {
+                Move_Value(block, out); // couldn't evaluate into arg directly
+                if (Do_Branch_With_Throws(out, block, cell)) {
+                    Abort_Frame(f);
+                    return out;
+                }
+            } else
+                fail (Error_Invalid_Core(out, f->specifier));
+
             Voidify_If_Nulled(out); // null is reserved for no branch taken
         }
 
@@ -739,8 +750,6 @@ static REB_R Case_Choose_Core(
             Abort_Frame(f);
             return out;
         }
-
-        Fetch_Next_In_Frame(f); // keep matching if /ALL
     }
 
     Drop_Frame(f);
