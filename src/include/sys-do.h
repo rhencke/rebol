@@ -850,82 +850,6 @@ inline static REBOOL Eval_Next_In_Subframe_Throws(
 }
 
 
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  BASIC API: DO_NEXT_MAY_THROW and DO_ARRAY_THROWS
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// This is a wrapper for a single evaluation.  If one is planning to do
-// multiple evaluations, it is not as efficient as creating a frame and then
-// doing `Eval_Next_In_Frame_Throws()` calls into it.
-//
-// DO_NEXT_MAY_THROW takes in an array and a REBCNT offset into that array
-// of where to execute.  Although the return value is a REBCNT, it is *NOT*
-// always a series index!!!  It may return END_FLAG, THROWN_FLAG, VA_LIST_FLAG
-//
-// Do_Any_Array_At_Throws is another helper for the frequent case where one
-// has a BLOCK! or a GROUP! REBVAL at an index which already indicates the
-// point where execution is to start.
-//
-// (The "Throws" name is because it's expected to usually be used in an
-// 'if' statement.  It cues you into realizing that it returns TRUE if a
-// THROW interrupts this current DO_BLOCK execution--not asking about a
-// "THROWN" that happened as part of a prior statement.)
-//
-// If it returns FALSE, then the DO completed successfully to end of input
-// without a throw...and the output contains the last value evaluated in the
-// block (empty blocks give void).  If it returns TRUE then it will be the
-// THROWN() value.
-//
-inline static REBIXO DO_NEXT_MAY_THROW(
-    REBVAL *out,
-    REBARR *array,
-    REBCNT index,
-    REBSPC *specifier
-){
-    DECLARE_FRAME (f);
-
-    f->gotten = nullptr;
-    SET_FRAME_VALUE(f, ARR_AT(array, index));
-
-    if (FRM_AT_END(f)) {
-        Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
-        return END_FLAG;
-    }
-
-    Init_Endlike_Header(&f->flags, DO_MASK_NONE);
-
-    f->source.vaptr = nullptr;
-    f->source.array = array;
-    f->source.index = index + 1;
-    f->source.pending = f->value + 1;
-
-    f->specifier = specifier;
-
-    f->out = out;
-
-    Push_Frame_Core(f);
-    Reuse_Varlist_If_Available(f);
-    (*PG_Eval)(f);
-    Drop_Frame_Core(f); // Drop_Frame() requires f->eval_type to be REB_0
-
-    if (THROWN(out))
-        return THROWN_FLAG;
-
-    if (FRM_AT_END(f)) {
-        if (IS_END(out))
-            Init_Nulled(out); // shouldn't set VALUE_FLAG_UNEVALUATED
-
-        return END_FLAG;
-    }
-
-    assert(f->source.index > 1);
-    return f->source.index - 1;
-}
-
-
 // Most common case of evaluator invocation in Rebol: the data lives in an
 // array series.  Generic routine takes flags and may act as either a DO
 // or a DO/NEXT at the position given.  Option to provide an element that
@@ -991,24 +915,6 @@ inline static REBIXO Eval_Array_At_Core(
 
     return f->source.index;
 }
-
-
-// !!! Not yet implemented--concept is to accept a REBVAL[] array, rather
-// than a REBARR of values.
-//
-// Note: Functionally it would be possible to assume a 0 index and require
-// the caller to bump the value pointer as necessary.  But an index-based
-// interface is likely useful to avoid the bookkeeping required for the caller.
-//
-/*inline static REBIXO Do_Values_At_Core(
-    REBVAL *out,
-    REBFLGS flags,
-    const REBVAL *opt_head,
-    const REBVAL values[],
-    REBCNT index
-) {
-    fail (Error_Not_Done_Raw());
-}*/
 
 
 //
@@ -1302,32 +1208,11 @@ inline static REBOOL Eval_Value_Core_Throws(
     Eval_Value_Core_Throws((out), (value), SPECIFIED)
 
 
-// When running a "branch" of code in conditional execution, Rebol has
-// traditionally executed BLOCK!s.  But Ren-C also executes ACTION!s that
-// are arity 0 or 1:
+// Conditional constructs allow branches that are either BLOCK!s or ACTION!s.
+// If an action, the condition may be passed as an argument.  Allowing other
+// values was deemed to do more harm than good:
 //
-//     >> foo: does [print "Hello"]
-//     >> if true :foo
-//     Hello
-//
-//     >> foo: func [x] [print x]
-//     >> if 5 :foo
-//     5
-//
-// When the branch is single-arity, the condition which triggered the branch
-// is passed as the argument.  This permits some interesting possibilities in
-// chaining.
-//
-//     >> case [true "a" false "b"] then func [x] [print x] else [print "*"]
-//     a
-//     >> case [false "a" true "b"] then func [x] [print x] else [print "*"]
-//     b
-//     >> case [false "a" false "b"] then func [x] [print x] else [print "*"]
-//     *
-//
-// Note: Tolerance of non-BLOCK! and non-ACTION! branches to act as literal
-// values was proven to cause more harm than good.
-//
+// https://trello.com/c/ay9rnjIe
 // https://forum.rebol.info/t/backpedaling-on-non-block-branches/476
 //
 inline static REBOOL Run_Branch_Core_Throws(
@@ -1335,28 +1220,19 @@ inline static REBOOL Run_Branch_Core_Throws(
     const REBVAL *branch,
     const REBVAL *condition // can be END or nullptr--can't be a NULLED cell!
 ){
-    assert(branch != out);
-    assert(condition != out);
+    assert(branch != out and condition != out);
 
-    if (IS_BLOCK(branch)) {
-        if (Do_Any_Array_At_Throws(out, branch))
-            return true;
-    }
-    else {
-        assert(IS_ACTION(branch));
+    if (IS_BLOCK(branch))
+        return Do_Any_Array_At_Throws(out, branch);
 
-        if (Apply_Only_Throws(
-            out,
-            false, // !fully, e.g. arity-0 functions can ignore condition
-            branch,
-            condition, // may be an END marker, if not Run_Branch_With() case
-            rebEND // ...but if condition wasn't an END marker, we need one
-        )){
-            return true;
-        }
-    }
-
-    return false;
+    assert(IS_ACTION(branch));
+    return Apply_Only_Throws(
+        out,
+        false, // !fully, e.g. arity-0 functions can ignore condition
+        branch,
+        condition, // may be an END marker, if not Run_Branch_With() case
+        rebEND // ...but if condition wasn't an END marker, we need one
+    );
 }
 
 #define Run_Branch_With_Throws(out,branch,condition) \
@@ -1364,6 +1240,7 @@ inline static REBOOL Run_Branch_Core_Throws(
 
 #define Run_Branch_Throws(out,branch) \
     Run_Branch_Core_Throws((out), (branch), END_NODE)
+
 
 enum {
     REDUCE_FLAG_TRY = 1 << 0, // null should be converted to blank, vs fail

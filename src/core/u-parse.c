@@ -1192,13 +1192,21 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     else {
         // Evaluate next expression from the *input* series (not the rules)
         //
-        indexor = DO_NEXT_MAY_THROW(
-            P_CELL, ARR(P_INPUT), P_POS, P_INPUT_SPECIFIER
+        indexor = Eval_Array_At_Core(
+            P_CELL,
+            nullptr, // opt_first (null indicates nothing)
+            ARR(P_INPUT),
+            P_POS,
+            P_INPUT_SPECIFIER,
+            DO_MASK_NONE
         );
         if (indexor == THROWN_FLAG) { // BREAK/RETURN/QUIT/THROW...
             Move_Value(P_OUT, P_CELL);
             return THROWN_FLAG;
         }
+
+        if (indexor != END_FLAG)
+            indexor = cast(REBCNT, indexor) - 1; // 1 past
 
         // !!! This copies a single value into a block to use as data, because
         // parse input is matched as a series.  Can this be avoided?

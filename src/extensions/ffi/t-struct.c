@@ -1227,19 +1227,30 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
                 ++item;
             }
             else {
-                eval_idx = DO_NEXT_MAY_THROW(
+                // !!! If using the internal API, this should be done with
+                // DECLARE_FRAME (f) and Push_Frame_At(f, arg)...which would
+                // reuse the frame across evaluations...as opposed to this
+                // unusual function.  But ideally, the FFI extension would be
+                // using Rebol code (e.g. with PARSE, etc.) to build narrow
+                // FFI structures to be used by the C...so that would be more
+                // worthwhile an investment if improvement was a priority.
+                //
+                eval_idx = Eval_Array_At_Core(
                     init,
+                    nullptr, // opt_first (null indicates nothing)
                     VAL_ARRAY(arg),
-                    item - VAL_ARRAY_AT(arg),
-                    VAL_SPECIFIER(arg)
+                    item - VAL_ARRAY_AT(arg), // index
+                    VAL_SPECIFIER(arg),
+                    DO_MASK_NONE
                 );
+
                 if (eval_idx == THROWN_FLAG)
                     fail (Error_No_Catch_For_Throw(init));
 
                 if (eval_idx == END_FLAG)
                     item = VAL_ARRAY_TAIL(arg);
                 else
-                    item = VAL_ARRAY_AT_HEAD(item, cast(REBCNT, eval_idx));
+                    item = VAL_ARRAY_AT_HEAD(item, cast(REBCNT, eval_idx - 1));
             }
 
             if (FLD_IS_ARRAY(field)) {
