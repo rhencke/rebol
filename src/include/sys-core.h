@@ -694,5 +694,7 @@ extern MOLD_CFUNC Mold_Or_Form_Dispatch[REB_MAX];
 
 #include "sys-roots.h"
 
-#include "sys-eval.h"
+#include "sys-eval.h" // low-level single-step evaluation API
+#include "sys-do.h" // higher-level evaluate-until-end API
+
 #include "sys-path.h"

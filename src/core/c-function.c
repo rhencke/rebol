@@ -1736,7 +1736,7 @@ REBOOL Get_If_Word_Or_Path_Throws(
     }
     else if (IS_PATH(v)) {
         REBSPC *derived = Derive_Specifier(specifier, v);
-        if (Do_Path_Throws_Core(
+        if (Eval_Path_Throws_Core(
             out,
             opt_name_out, // requesting says we run functions (not GET-PATH!)
             REB_PATH,

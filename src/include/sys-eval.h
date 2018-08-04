@@ -1,13 +1,13 @@
 //
-//  File: %sys-do.h
-//  Summary: {Evaluator Helper Functions and Macros}
+//  File: %sys-eval.h
+//  Summary: {Low-Level Internal Evaluator API}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -35,7 +35,6 @@
 // Ren-C can run the evaluator across a REBARR-style series of input based on
 // index.  It can also enumerate through C's `va_list`, providing the ability
 // to pass pointers as REBVAL* to comma-separated input at the source level.
-// (Someday it may fetch values from a standard C array of REBVAL[] as well.) 
 //
 // To provide even greater flexibility, it allows the very first element's
 // pointer in an evaluation to come from an arbitrary source.  It doesn't
@@ -1077,87 +1076,6 @@ inline static REBIXO Eval_Va_Core(
 }
 
 
-inline static REBOOL Do_Va_Throws(
-    REBVAL *out,
-    const void *opt_first,
-    va_list *vaptr // va_end() will be called on success, fail, throw, etc.
-){
-    return THROWN_FLAG == Eval_Va_Core(
-        Init_Void(out), // DO protocol: default to void if no eval product
-        opt_first,
-        vaptr,
-        DO_FLAG_TO_END | DO_FLAG_EXPLICIT_EVALUATE
-    );
-}
-
-
-// Takes a list of arguments terminated by an end marker and will do something
-// similar to R3-Alpha's "apply/only" with a value.  If that value is a
-// function, it will be called...if it's a SET-WORD! it will be assigned, etc.
-//
-// This is equivalent to putting the value at the head of the input and
-// then calling EVAL/ONLY on it.  If all the inputs are not consumed, an
-// error will be thrown.
-//
-inline static REBOOL Apply_Only_Throws(
-    REBVAL *out,
-    REBOOL fully,
-    const REBVAL *applicand, // last param before ... mentioned in va_start()
-    ...
-) {
-    va_list va;
-    va_start(va, applicand);
-
-    DECLARE_LOCAL (applicand_eval);
-    Move_Value(applicand_eval, applicand);
-    SET_VAL_FLAG(applicand_eval, VALUE_FLAG_EVAL_FLIP);
-
-    REBIXO indexor = Eval_Va_Core(
-        SET_END(out), // start at END to detect error if no eval product
-        applicand_eval, // opt_first
-        &va, // va_end() handled by Eval_Va_Core on success, fail, throw, etc.
-        DO_FLAG_EXPLICIT_EVALUATE
-            | DO_FLAG_NO_LOOKAHEAD
-            | (fully ? DO_FLAG_NO_RESIDUE : 0)
-    );
-
-    if (IS_END(out))
-        fail ("Apply_Only_Throws() empty or just COMMENTs/ELIDEs/BAR!s");
-
-    return indexor == THROWN_FLAG;
-}
-
-
-inline static REBOOL Do_At_Throws(
-    REBVAL *out,
-    REBARR *array,
-    REBCNT index,
-    REBSPC *specifier
-){
-    return THROWN_FLAG == Eval_Array_At_Core(
-        Init_Void(out), // DO protocol: default to void if no eval product
-        nullptr, // opt_first (null indicates nothing, not nulled cell)
-        array,
-        index,
-        specifier,
-        DO_FLAG_TO_END
-    );
-}
-
-
-inline static REBOOL Do_Any_Array_At_Throws(
-    REBVAL *out,
-    const REBVAL *any_array // Note: can be same pointer as `out`
-){
-    return Do_At_Throws(
-        out,
-        VAL_ARRAY(any_array),
-        VAL_INDEX(any_array),
-        VAL_SPECIFIER(any_array)
-    );
-}
-
-
 inline static REBOOL Eval_Value_Core_Throws(
     REBVAL *out,
     const RELVAL *value, // e.g. a BLOCK! here would just evaluate to itself!
@@ -1180,45 +1098,3 @@ inline static REBOOL Eval_Value_Core_Throws(
 
 #define Eval_Value_Throws(out,value) \
     Eval_Value_Core_Throws((out), (value), SPECIFIED)
-
-
-// Conditional constructs allow branches that are either BLOCK!s or ACTION!s.
-// If an action, the condition may be passed as an argument.  Allowing other
-// values was deemed to do more harm than good:
-//
-// https://trello.com/c/ay9rnjIe
-// https://forum.rebol.info/t/backpedaling-on-non-block-branches/476
-//
-inline static REBOOL Run_Branch_Core_Throws(
-    REBVAL *out,
-    const REBVAL *branch,
-    const REBVAL *condition // can be END or nullptr--can't be a NULLED cell!
-){
-    assert(branch != out and condition != out);
-
-    if (IS_BLOCK(branch))
-        return Do_Any_Array_At_Throws(out, branch);
-
-    assert(IS_ACTION(branch));
-    return Apply_Only_Throws(
-        out,
-        false, // !fully, e.g. arity-0 functions can ignore condition
-        branch,
-        condition, // may be an END marker, if not Run_Branch_With() case
-        rebEND // ...but if condition wasn't an END marker, we need one
-    );
-}
-
-#define Run_Branch_With_Throws(out,branch,condition) \
-    Run_Branch_Core_Throws((out), (branch), NULLIZE(condition))
-
-#define Run_Branch_Throws(out,branch) \
-    Run_Branch_Core_Throws((out), (branch), END_NODE)
-
-
-enum {
-    REDUCE_FLAG_TRY = 1 << 0, // null should be converted to blank, vs fail
-    REDUCE_FLAG_OPT = 1 << 1 // discard nulls (incompatible w/REDUCE_FLAG_TRY)
-};
-
-#define REDUCE_MASK_NONE 0

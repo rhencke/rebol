@@ -42,7 +42,7 @@
 //
 // * Zero-arity function values used as branches will be executed, and
 //   single-arity functions used as branches will also be executed--but passed
-//   the value of the triggering condition.  See Run_Branch_Throws().
+//   the value of the triggering condition.  See Do_Branch_Throws().
 //
 // * There is added checking that a literal block is not used as a condition,
 //   to catch common mistakes like `if [x = 10] [...]`.
@@ -70,7 +70,7 @@ REBNATIVE(if)
     if (IS_CONDITIONAL_FALSE(ARG(condition))) // fails on void, literal blocks
         return nullptr;
 
-    if (Run_Branch_With_Throws(D_OUT, ARG(branch), ARG(condition)))
+    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(condition)))
         return D_OUT;
 
     return Voidify_If_Nulled(D_OUT); // null means no branch (cues ELSE, etc.)
@@ -95,7 +95,7 @@ REBNATIVE(if_not)
     if (IS_CONDITIONAL_TRUE(ARG(condition))) // fails on void, literal blocks
         return nullptr;
 
-    if (Run_Branch_With_Throws(D_OUT, ARG(branch), ARG(condition)))
+    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(condition)))
         return D_OUT;
 
     return Voidify_If_Nulled(D_OUT); // null means no branch (cues ELSE, etc.)
@@ -119,7 +119,7 @@ REBNATIVE(either)
 {
     INCLUDE_PARAMS_OF_EITHER;
 
-    if (Run_Branch_With_Throws(
+    if (Do_Branch_With_Throws(
         D_OUT,
         IS_CONDITIONAL_TRUE(ARG(condition)) // fails on void, literal blocks
             ? ARG(true_branch)
@@ -282,7 +282,7 @@ REBNATIVE(either_test)
 
     assert(r == R_FALSE);
 
-    if (Run_Branch_With_Throws(D_OUT, ARG(branch), ARG(arg)))
+    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(arg)))
         return D_OUT;
 
     return D_OUT;
@@ -308,7 +308,7 @@ REBNATIVE(else)
     if (not IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
         return ARG(optional);
 
-    if (Run_Branch_With_Throws(D_OUT, ARG(branch), NULLED_CELL))
+    if (Do_Branch_With_Throws(D_OUT, ARG(branch), NULLED_CELL))
         return D_OUT;
 
     return D_OUT; // don't voidify, allows chaining: `else [...] then [...]`
@@ -335,7 +335,7 @@ REBNATIVE(then)
     if (IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
         return nullptr; // left didn't run, so signal THEN didn't run either
 
-    if (Run_Branch_With_Throws(D_OUT, ARG(branch), ARG(optional)))
+    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(optional)))
         return D_OUT;
 
     return Voidify_If_Nulled(D_OUT); // if left ran, make THEN signal it did
@@ -362,7 +362,7 @@ REBNATIVE(also)
     if (IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
         return nullptr;
 
-    if (Run_Branch_With_Throws(D_OUT, ARG(branch), ARG(optional)))
+    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(optional)))
         return D_OUT;
 
     return ARG(optional); // just passing thru the input
@@ -982,7 +982,7 @@ REBNATIVE(default)
         if (not FRM_AT_END(frame_)) // !!! shortcut using variadic for now
             fail ("DEFAULT usage with no left hand side must be at <end>");
 
-        if (Run_Branch_Throws(D_OUT, ARG(branch)))
+        if (Do_Branch_Throws(D_OUT, ARG(branch)))
             return D_OUT;
 
         return D_OUT; // NULL is okay in this case
@@ -998,7 +998,7 @@ REBNATIVE(default)
     if (not IS_NULLED(D_OUT) and (not IS_BLANK(D_OUT) or REF(only)))
         return D_OUT; // count it as "already set" !!! what about VOID! ?
 
-    if (Run_Branch_Throws(D_OUT, ARG(branch)))
+    if (Do_Branch_Throws(D_OUT, ARG(branch)))
         return D_OUT;
 
     if (IS_NULLED(D_OUT))

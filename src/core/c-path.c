@@ -266,7 +266,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
 
 //
-//  Do_Path_Throws_Core: C
+//  Eval_Path_Throws_Core: C
 //
 // Evaluate an ANY_PATH! REBVAL, starting from the index position of that
 // path value and continuing to the end.
@@ -289,7 +289,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 // !!! Path evaluation is one of the parts of R3-Alpha that has not been
 // vetted very heavily by Ren-C, and needs a review and overhaul.
 //
-REBOOL Do_Path_Throws_Core(
+REBOOL Eval_Path_Throws_Core(
     REBVAL *out,
     REBSTR **label_out,
     enum Reb_Kind kind,
@@ -525,7 +525,7 @@ void Get_Simple_Value_Into(REBVAL *out, const RELVAL *val, REBSPC *specifier)
 // return the object assocated with obj, while `a/str/1` would return
 // NULL if `str` were a string as it's not an object selection.
 //
-// !!! This routine overlaps the logic of Do_Path, and should potentially
+// !!! This routine overlaps the logic of Eval_Path, and should potentially
 // be a mode of that instead.  It is not very complete, considering that it
 // does not execute GROUP! (and perhaps shouldn't?) and only supports a
 // path that picks contexts out of other contexts, via word selection.

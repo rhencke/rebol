@@ -2002,7 +2002,7 @@ reevaluate:;
     do_path_in_current:;
 
         REBSTR *opt_label;
-        if (Do_Path_Throws_Core(
+        if (Eval_Path_Throws_Core(
             f->out,
             &opt_label, // requesting says we run functions (not GET-PATH!)
             REB_PATH,
@@ -2066,7 +2066,7 @@ reevaluate:;
 // separate "evaluate path to target location" and "set target' step.  This
 // is because some targets of assignments (e.g. gob/size/x:) do not correspond
 // to a cell that can be returned; the path operation "encodes as it goes"
-// and requires the value to set as a parameter to Do_Path.  Yet it is
+// and requires the value to set as a parameter to Eval_Path.  Yet it is
 // counterintuitive given the "left-to-right" nature of the language:
 //
 //     >> foo: make object! [[bar][bar: 10]]
@@ -2140,7 +2140,7 @@ reevaluate:;
 
             // The path cannot be executed directly from the data stack, so
             // it has to be popped.  This could be changed by making the core
-            // Do_Path_Throws take a VAL_ARRAY, index, and kind.  By moving
+            // Eval_Path_Throws take a VAL_ARRAY, index, and kind.  By moving
             // it into the f->cell, it is guaranteed garbage collected.
             //
             Move_Value(&f->cell, DS_TOP);

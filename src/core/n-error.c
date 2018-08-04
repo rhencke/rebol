@@ -46,7 +46,7 @@ static REBVAL *Trap_Dangerous(REBFRM *frame_) {
     UNUSED(REF(with));
     UNUSED(ARG(handler));
 
-    if (Run_Branch_Throws(D_OUT, ARG(code))) {
+    if (Do_Branch_Throws(D_OUT, ARG(code))) {
         //
         // returned value is tested for THROWN() status by caller
     }
@@ -94,7 +94,7 @@ REBNATIVE(trap)
     if (not REF(with))
         return error;
 
-    REBOOL handler_threw = Run_Branch_With_Throws(D_OUT, ARG(handler), error);
+    REBOOL handler_threw = Do_Branch_With_Throws(D_OUT, ARG(handler), error);
     rebRelease(error); // Note: auto-released if fail() while handler runs
     UNUSED(handler_threw);
 
@@ -105,7 +105,7 @@ REBNATIVE(trap)
 static REBVAL *Entrap_Dangerous(REBFRM *frame_) {
     INCLUDE_PARAMS_OF_ENTRAP;
 
-    if (Run_Branch_Throws(D_OUT, ARG(code))) {
+    if (Do_Branch_Throws(D_OUT, ARG(code))) {
         Init_Error(D_OUT, Error_No_Catch_For_Throw(D_OUT));
         return nullptr;
     }

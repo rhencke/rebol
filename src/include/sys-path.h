@@ -28,7 +28,7 @@
 //
 // When a path like `a/(b + c)/d` is evaluated, it moves in steps.  The
 // evaluative result of chaining the prior steps is offered as input to
-// the next step.  The path evaluator `Do_Path_Throws` delegates steps to
+// the next step.  The path evaluator `Eval_Path_Throws` delegates steps to
 // type-specific "(P)ath (D)ispatchers" with names like PD_Context,
 // PD_Array, etc.
 //
@@ -79,7 +79,7 @@ inline static REBOOL Get_Path_Throws_Core(
     const RELVAL *any_path,
     REBSPC *specifier
 ){
-    return Do_Path_Throws_Core(
+    return Eval_Path_Throws_Core(
         out,
         NULL, // not requesting symbol means refinements not allowed
         REB_GET_PATH,
@@ -99,7 +99,7 @@ inline static void Get_Path_Core(
 ){
     assert(ANY_PATH(any_path)); // *could* work on ANY_ARRAY(), actually
 
-    if (Do_Path_Throws_Core(
+    if (Eval_Path_Throws_Core(
         out,
         NULL, // not requesting symbol means refinements not allowed
         REB_GET_PATH,
@@ -122,7 +122,7 @@ inline static REBOOL Set_Path_Throws_Core(
 ){
     assert(ANY_PATH(any_path)); // *could* work on ANY_ARRAY(), actually
 
-    return Do_Path_Throws_Core(
+    return Eval_Path_Throws_Core(
         out,
         NULL, // not requesting symbol means refinements not allowed
         REB_SET_PATH,
@@ -152,7 +152,7 @@ inline static void Set_Path_Core(
     if (enfix)
         flags |= DO_FLAG_SET_PATH_ENFIXED;
 
-    if (Do_Path_Throws_Core(
+    if (Eval_Path_Throws_Core(
         out,
         NULL, // not requesting symbol means refinements not allowed
         REB_SET_PATH,
