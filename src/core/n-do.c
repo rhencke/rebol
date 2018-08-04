@@ -188,7 +188,7 @@ REBNATIVE(eval_enfix)
     FS_TOP->deferred = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
 
     REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
-    if (Eval_Next_In_Subframe_Throws(D_OUT, f, flags, child))
+    if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
         return D_OUT;
 
     FS_TOP->deferred = nullptr;
@@ -302,7 +302,7 @@ REBNATIVE(do)
         REBFLGS flags = 0;
         Init_Void(D_OUT);
         while (not FRM_AT_END(f)) {
-            if (Eval_Next_In_Subframe_Throws(D_OUT, f, flags, child))
+            if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
                 return D_OUT;
         }
 
@@ -543,7 +543,7 @@ REBNATIVE(evaluate)
         if (FRM_AT_END(f))
             return nullptr;
 
-        if (Eval_Next_In_Subframe_Throws(SET_END(D_CELL), f, flags, child))
+        if (Eval_Step_In_Subframe_Throws(SET_END(D_CELL), f, flags, child))
             return D_CELL;
 
         if (IS_END(D_CELL))

@@ -606,7 +606,7 @@ REBOOL Form_Reduce_Throws(
     REBOOL pending = FALSE;
 
     while (FRM_HAS_MORE(f)) {
-        if (Eval_Next_In_Frame_Throws(out, f)) {
+        if (Eval_Step_In_Frame_Throws(out, f)) {
             Drop_Mold(mo);
             Abort_Frame(f);
             return TRUE;

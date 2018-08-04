@@ -515,7 +515,7 @@ struct Reb_Frame {
     //
     // It may not always tell the whole story due to frame reuse--a running
     // state may have stored enough information to not worry about a recursion
-    // overwriting it.  See Eval_Next_Mid_Frame_Throws() for that case.
+    // overwriting it.  See Eval_Step_Mid_Frame_Throws() for that case.
     //
     // Additionally, the actual dispatch may not have started, so if a fail()
     // or other operation occurs it may not be able to assume that eval_type

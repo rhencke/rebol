@@ -98,7 +98,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     // All calls to a Eval_Core() are assumed to happen at the same C stack
     // level for a pushed frame (though this is not currently enforced).
     // Hence it's sufficient to check for C stack overflow only once, e.g.
-    // not on each Eval_Next_In_Frame_Throws() for `reduce [a | b | ... | z]`.
+    // not on each Eval_Step_In_Frame_Throws() for `reduce [a | b | ... | z]`.
     //
     if (C_STACK_OVERFLOWING(&f))
         Fail_Stack_Overflow();
@@ -267,11 +267,11 @@ inline static void Push_Frame_At(
     // operations, when not using DO_FLAG_TO_END.  This is found in operations
     // like ANY and ALL, or anything that needs to do additional processing
     // beyond a plain DO.  Each time those operations run, they can set the
-    // output to a new location, and Eval_Next_In_Frame_Throws() will call into
+    // output to a new location, and Eval_Step_In_Frame_Throws() will call into
     // Eval_Core() and properly configure the eval_type.
     //
     // But to make the frame safe for Recycle() in-between the calls to
-    // Eval_Next_In_Frame_Throws(), the eval_type and output cannot be left as
+    // Eval_Step_In_Frame_Throws(), the eval_type and output cannot be left as
     // uninitialized bits.  So start with an unwritable END, and then
     // each evaluation will canonize the eval_type to REB_0 in-between.
     // (Eval_Core() does not do this, but the wrappers that need it do.)
@@ -711,7 +711,7 @@ inline static void Drop_Frame(REBFRM *f)
 // several successive operations on an array, without creating a new frame
 // each time.
 //
-inline static REBOOL Eval_Next_In_Frame_Throws(
+inline static REBOOL Eval_Step_In_Frame_Throws(
     REBVAL *out,
     REBFRM *f
 ){
@@ -725,7 +725,7 @@ inline static REBOOL Eval_Next_In_Frame_Throws(
 
     // Since Eval_Core() currently makes no guarantees about the state of
     // f->eval_type when an operation is over, restore it to a benign REB_0
-    // so that a GC between calls to Eval_Next_In_Frame_Throws() doesn't think
+    // so that a GC between calls to Eval_Step_In_Frame_Throws() doesn't think
     // it has to protect the frame as another running type.
     //
     f->eval_type = REB_0;
@@ -742,7 +742,7 @@ inline static REBOOL Eval_Next_In_Frame_Throws(
 }
 
 
-// Slightly heavier wrapper over Eval_Core() than Eval_Next_In_Frame_Throws().
+// Slightly heavier wrapper over Eval_Core() than Eval_Step_In_Frame_Throws().
 // It also reuses the frame...but has to clear and restore the frame's
 // flags.  It is currently used only by SET-WORD! and SET-PATH!.
 //
@@ -753,7 +753,7 @@ inline static REBOOL Eval_Next_In_Frame_Throws(
 //
 // !!! Review how much cheaper this actually is than making a new frame.
 //
-inline static REBOOL Eval_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
+inline static REBOOL Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
     assert(f->eval_type == REB_SET_WORD or f->eval_type == REB_SET_PATH);
 
     REBFLGS prior_flags = f->flags.bits;
@@ -790,7 +790,7 @@ inline static REBOOL Eval_Next_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 // Future investigation could attack the problem again and see if there is
 // any common case that actually offered an advantage to optimize for here.
 //
-inline static REBOOL Eval_Next_In_Subframe_Throws(
+inline static REBOOL Eval_Step_In_Subframe_Throws(
     REBVAL *out,
     REBFRM *higher, // may not be direct parent (not child->prior upon push!)
     REBFLGS flags,
@@ -799,8 +799,8 @@ inline static REBOOL Eval_Next_In_Subframe_Throws(
     // It should not be necessary to use a subframe unless there is meaningful
     // state which would be overwritten in the parent frame.  For the moment,
     // that only happens if a function call is in effect.  Otherwise, it is
-    // more efficient to call Eval_Next_In_Frame_Throws(), or the also lighter
-    // Eval_Next_In_Mid_Frame_Throws() used by REB_SET_WORD and REB_SET_PATH.
+    // more efficient to call Eval_Step_In_Frame_Throws(), or the also lighter
+    // Eval_Step_In_Mid_Frame_Throws() used by REB_SET_WORD and REB_SET_PATH.
     //
     assert(higher->eval_type == REB_ACTION);
 

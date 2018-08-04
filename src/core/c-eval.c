@@ -391,7 +391,7 @@ void Eval_Core(REBFRM * const f)
 
     // Some routines (like Reduce_XXX) reuse the frame across multiple calls
     // and accrue stack state, and that stack state should be skipped when
-    // considering the usages in Eval_Core().  Hence Eval_Next_In_Frame_Throws()
+    // considering the usages in Eval_Core().  Hence Eval_Step_In_Frame_Throws()
     // will set it on each call.  However, some routines want to slip the
     // DSP in with refinements on the stack (e.g. APPLY or MY).  The
     // compromise is that it is also done in DECLARE_FRAME(); that way it
@@ -1214,7 +1214,7 @@ reevaluate:;
                     flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
                 DECLARE_FRAME (child); // capture DSP *now*
-                if (Eval_Next_In_Subframe_Throws(
+                if (Eval_Step_In_Subframe_Throws(
                     f->deferred, // old f->arg preload for DO_FLAG_POST_SWITCH
                     f,
                     flags,
@@ -1283,7 +1283,7 @@ reevaluate:;
 
                 DECLARE_FRAME (child); // capture DSP *now*
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
-                if (Eval_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
+                if (Eval_Step_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;
                 }
@@ -1303,7 +1303,7 @@ reevaluate:;
 
                 DECLARE_FRAME (child);
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
-                if (Eval_Next_In_Subframe_Throws(f->arg, f, flags, child)) {
+                if (Eval_Step_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
                     goto abort_action;
                 }
@@ -1865,7 +1865,7 @@ reevaluate:;
 // be maintained.
 //
 // Recursion into Eval_Core() is used, but a new frame is not created.  So
-// it reuses `f` with a lighter-weight approach.  Eval_Next_Mid_Frame_Throws()
+// it reuses `f` with a lighter-weight approach.  Eval_Step_Mid_Frame_Throws()
 // has remarks on how this is done.
 //
 // !!! Note that `10 = 5 + 5` would be an error due to lookahead suppression
@@ -1914,7 +1914,7 @@ reevaluate:;
             if (not evaluating)
                 flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
-            if (Eval_Next_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
+            if (Eval_Step_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
                 DS_DROP;
                 goto finished;
             }
@@ -2190,7 +2190,7 @@ reevaluate:;
             if (not evaluating)
                 flags |= DO_FLAG_EXPLICIT_EVALUATE;
 
-            if (Eval_Next_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
+            if (Eval_Step_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
                 DS_DROP;
                 goto finished;
             }

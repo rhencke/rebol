@@ -173,7 +173,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
 
     // The eval_type is expected to be calculated already.  Should match
     // f->value, with special exemption for optimized lookback calls
-    // coming from Eval_Next_In_Subframe_Throws()
+    // coming from Eval_Step_In_Subframe_Throws()
     //
     if (f->eval_type != VAL_TYPE(f->value))
         assert(
@@ -283,7 +283,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     // natives may be bad, and there are advantages to being able to count on
     // this being an END.  However, unless one wants to get in the habit of
     // zeroing out all temporary state for "security" reasons then clients who
-    // call Eval_Next_In_Frame() would be able to see it anyway.  For now, do
+    // call Eval_Step_In_Frame() would be able to see it anyway.  For now, do
     // the more performant thing and leak whatever is in f->cell to the
     // function in the release build, to avoid paying for the initialization.
     //

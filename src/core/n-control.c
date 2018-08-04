@@ -567,7 +567,7 @@ REBNATIVE(all)
     Init_Nulled(D_OUT); // default return result
 
     while (FRM_HAS_MORE(f)) {
-        if (Eval_Next_In_Frame_Throws(D_OUT, f)) {
+        if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return D_OUT;
         }
@@ -602,7 +602,7 @@ REBNATIVE(any)
     Push_Frame(f, ARG(block));
 
     while (FRM_HAS_MORE(f)) {
-        if (Eval_Next_In_Frame_Throws(D_OUT, f)) {
+        if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return D_OUT;
         }
@@ -640,7 +640,7 @@ REBNATIVE(none)
     Push_Frame(f, ARG(block));
 
     while (FRM_HAS_MORE(f)) {
-        if (Eval_Next_In_Frame_Throws(D_OUT, f)) {
+        if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return D_OUT;
         }
@@ -679,7 +679,7 @@ static REB_R Case_Choose_Core(
         // Perform 1 EVALUATE's worth of evaluation on a "condition" to test
         // Will consume any pending "invisibles" (COMMENT, ELIDE, DUMP...)
 
-        if (Eval_Next_In_Frame_Throws(cell, f)) {
+        if (Eval_Step_In_Frame_Throws(cell, f)) {
             Abort_Frame(f);
             return cell;
         }
@@ -715,7 +715,7 @@ static REB_R Case_Choose_Core(
         }
 
         // When the condition matches, we must only use the next value
-        // literally.  If something like Eval_Next_In_Frame_Throws() were
+        // literally.  If something like Eval_Step_In_Frame_Throws() were
         // called to evaluate the thing-that-became-a-branch, it would also
         // evaluate any ELIDEs after it...which would not be good if /ALL
         // is not set, as it would run code *after* the taken branch.
@@ -876,7 +876,7 @@ REBNATIVE(switch)
         if (REF(quote))
             Quote_Next_In_Frame(D_OUT, f);
         else {
-            if (Eval_Next_In_Frame_Throws(D_OUT, f)) {
+            if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
                 Abort_Frame(f);
                 return D_OUT;
             }
