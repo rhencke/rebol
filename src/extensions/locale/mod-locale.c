@@ -169,7 +169,7 @@ REBNATIVE(setlocale)
     if (cat == -1)
         fail (Error(RE_EXT_LOCALE_INVALID_CATEGORY, ARG(category), rebEND));
 
-    char *value_utf8 = rebSpellAlloc(ARG(value), rebEND);
+    char *value_utf8 = rebSpell(ARG(value), rebEND);
     const char *result = setlocale(cat, value_utf8);
     rebFree(value_utf8);
 

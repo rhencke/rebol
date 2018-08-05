@@ -92,7 +92,7 @@ DEVICE_CMD Open_Serial(REBREQ *req)
     // to be placed at the end of the buffer.
     //
     REBCNT buf_left = MAX_SERIAL_DEV_PATH - wcslen(fullpath) - 1;
-    REBCNT chars_appended = rebSpellingOfW(
+    REBCNT chars_appended = rebSpellIntoW(
         &fullpath[wcslen(fullpath)],
         buf_left, // space, minus terminator
         serial->path

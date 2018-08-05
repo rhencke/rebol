@@ -349,8 +349,8 @@ detect_again:;
 
         // !!! In the working definition, the "topmost level" of a variadic
         // call is considered to be already evaluated...unless you ask to
-        // evaluate it further.  This is what allows `rebSpellingOf(v, rebEND)`
-        // to work as well as `rebSpellingOf("first", v, rebEND)`, the idea of
+        // evaluate it further.  This is what allows `rebSpellInto(v, rebEND)`
+        // to work as well as `rebSpellInto("first", v, rebEND)`, the idea of
         // "fetch" is the reading of the C variable V, and it would be a
         // "double eval" if that v were a WORD! that then executed.
         //

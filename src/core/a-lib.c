@@ -739,26 +739,6 @@ REBVAL *RL_rebDecimal(double dec)
 
 
 //
-//  rebTimeNano: RL_API
-//
-// !!! Unfortunately there's no way to make times with nanoseconds from
-// integers in plain Rebol, so rebTimeNano is around for now.
-//
-// (It is technically possible to MAKE TIME! with a decimal seconds component,
-// e.g. `make time! [10 20 30.0040]`, but since you have to calculate that it
-// introduces some questions on precision.)
-//
-REBVAL *RL_rebTimeNano(long nanoseconds) {
-    Enter_Api();
-
-    REBVAL *result = Alloc_Value();
-    RESET_VAL_HEADER(result, REB_TIME);
-    VAL_NANO(result) = nanoseconds;
-    return result;
-}
-
-
-//
 //  rebHalt: RL_API
 //
 // Signal that code evaluation needs to be interrupted.
@@ -1089,7 +1069,7 @@ REBVAL *RL_rebHandle(void *data, uintptr_t length, CLEANUP_CFUNC* cleaner)
 
 
 //
-//  rebSpellingOf: RL_API
+//  rebSpellInto: RL_API
 //
 // Extract UTF-8 data from an ANY-STRING! or ANY-WORD!.
 //
@@ -1097,7 +1077,7 @@ REBVAL *RL_rebHandle(void *data, uintptr_t length, CLEANUP_CFUNC* cleaner)
 // the answer to that is always cached for any value position as LENGTH OF.
 // The more immediate quantity of concern to return is the number of bytes.
 //
-size_t RL_rebSpellingOf(
+size_t RL_rebSpellInto(
     char *buf,
     size_t buf_size, // number of bytes
     const REBVAL *v
@@ -1134,13 +1114,13 @@ size_t RL_rebSpellingOf(
 
 
 //
-//  rebSpellAlloc: RL_API
+//  rebSpell: RL_API
 //
 // This gives the spelling as UTF-8 bytes.  Length in codepoints should be
 // extracted with LENGTH OF.  If size in bytes of the encoded UTF-8 is needed,
 // use the binary extraction API (works on ANY-STRING! to get UTF-8)
 //
-char *RL_rebSpellAlloc(const void *p, ...)
+char *RL_rebSpell(const void *p, ...)
 {
     Enter_Api();
 
@@ -1154,26 +1134,26 @@ char *RL_rebSpellAlloc(const void *p, ...)
     if (IS_NULLED(string))
         return nullptr; // NULL is passed through, for opting out
 
-    size_t size = rebSpellingOf(nullptr, 0, string);
+    size_t size = rebSpellInto(nullptr, 0, string);
     char *result = cast(char*, rebMalloc(size + 1)); // add space for term
-    rebSpellingOf(result, size, string);
+    rebSpellInto(result, size, string);
     return result;
 }
 
 
 //
-//  rebSpellingOfW: RL_API
+//  rebSpellIntoW: RL_API
 //
 // Extract UCS-2 data from an ANY-STRING! or ANY-WORD!.  Note this is *not*
 // UTF-16, so codepoints that require more than two bytes to represent will
 // cause errors.
 //
-// !!! Although the rebSpellingOf API deals in bytes, this deals in count of
+// !!! Although the rebSpellInto API deals in bytes, this deals in count of
 // characters.  (The use of REBCNT instead of REBSIZ indicates this.)  It may
 // be more useful for the wide string APIs to do this so leaving it that way
 // for now.
 //
-unsigned int RL_rebSpellingOfW(
+unsigned int RL_rebSpellIntoW(
     REBWCHAR *buf,
     unsigned int buf_chars, // chars buf can hold (not including terminator)
     const REBVAL *v
@@ -1218,19 +1198,19 @@ unsigned int RL_rebSpellingOfW(
 
 
 //
-//  rebSpellAllocW: RL_API
+//  rebSpellW: RL_API
 //
 // Gives the spelling as WCHARs.  If length in codepoints is needed, use
 // a separate LENGTH OF call.
 //
-// !!! Unlike with rebSpellAlloc(), there is not an alternative for getting
+// !!! Unlike with rebSpell(), there is not an alternative for getting
 // the size in UTF-16-encoded characters, just the LENGTH OF result.  While
 // that works for UCS-2 (where all codepoints are two bytes), it would not
 // work if Rebol supported UTF-16.  Which it may never do in the core or
 // API (possible solutions could include usermode UTF-16 conversion to binary,
 // and extraction of that with rebBytes(), then dividing the size by 2).
 //
-REBWCHAR *RL_rebSpellAllocW(const void *p, ...)
+REBWCHAR *RL_rebSpellW(const void *p, ...)
 {
     Enter_Api();
 
@@ -1244,17 +1224,17 @@ REBWCHAR *RL_rebSpellAllocW(const void *p, ...)
     if (IS_NULLED(string))
         return nullptr; // NULL is passed through, for opting out
 
-    REBCNT len = rebSpellingOfW(nullptr, 0, string);
+    REBCNT len = rebSpellIntoW(nullptr, 0, string);
     REBWCHAR *result = cast(
         REBWCHAR*, rebMalloc(sizeof(REBWCHAR) * (len + 1))
     );
-    rebSpellingOfW(result, len, string);
+    rebSpellIntoW(result, len, string);
     return result;
 }
 
 
 //
-//  rebBytesOfBinary: RL_API
+//  rebBytesInto: RL_API
 //
 // Extract binary data from a BINARY!
 //
@@ -1262,7 +1242,7 @@ REBWCHAR *RL_rebSpellAllocW(const void *p, ...)
 // if this is a good idea; but this is based on a longstanding convention of
 // zero termination of Rebol series, including binaries.  Review.
 //
-size_t RL_rebBytesOfBinary(
+size_t RL_rebBytesInto(
     unsigned char *buf,
     size_t buf_size,
     const REBVAL *binary
@@ -1270,7 +1250,7 @@ size_t RL_rebBytesOfBinary(
     Enter_Api();
 
     if (not IS_BINARY(binary))
-        fail ("rebBytesOfBinary() only works on BINARY!");
+        fail ("rebBytesInto() only works on BINARY!");
 
     REBCNT size = VAL_LEN_AT(binary);
 
@@ -1287,16 +1267,16 @@ size_t RL_rebBytesOfBinary(
 
 
 //
-//  rebBytesAlloc: RL_API
+//  rebBytes: RL_API
 //
 // Can be used to get the bytes of a BINARY! and its size, or the UTF-8
 // encoding of an ANY-STRING! or ANY-WORD! and that size in bytes.  (Hence,
-// for strings it is like rebSpellAlloc() except telling you how many bytes.)
+// for strings it is like rebSpell() except telling you how many bytes.)
 //
 // !!! This may wind up being a generic TO BINARY! converter, so you might
 // be able to get the byte conversion for any type.
 //
-unsigned char *RL_rebBytesAlloc(size_t *size_out, const void *p, ...)
+unsigned char *RL_rebBytes(size_t *size_out, const void *p, ...)
 {
     Enter_Api();
 
@@ -1313,20 +1293,20 @@ unsigned char *RL_rebBytesAlloc(size_t *size_out, const void *p, ...)
     }
 
     if (ANY_WORD(series) or ANY_STRING(series)) {
-        *size_out = rebSpellingOf(nullptr, 0, series);
+        *size_out = rebSpellInto(nullptr, 0, series);
         REBYTE *result = rebAllocN(REBYTE, (*size_out + 1));
-        rebSpellAlloc(result, *size_out, series);
+        rebSpell(result, *size_out, series);
         return result;
     }
 
     if (IS_BINARY(series)) {
-        *size_out = rebBytesOfBinary(nullptr, 0, series);
+        *size_out = rebBytesInto(nullptr, 0, series);
         REBYTE *result = rebAllocN(REBYTE, (*size_out + 1));
-        rebBytesOfBinary(result, *size_out, series);
+        rebBytesInto(result, *size_out, series);
         return result;
     }
 
-    fail ("rebBytesAlloc() only works with ANY-STRING!/ANY-WORD!/BINARY!");
+    fail ("rebBytes() only works with ANY-STRING!/ANY-WORD!/BINARY!");
 }
 
 

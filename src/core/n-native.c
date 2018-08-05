@@ -115,7 +115,7 @@ static int do_add_path(
 ){
     // Converts FILE! to a local path, or assumes TEXT! is already local
     //
-    char *local_utf8 = rebSpellAlloc(
+    char *local_utf8 = rebSpell(
         "file-to-local/pass/full ensure [file! text!]", const_KNOWN(path),
         rebEND
     );
@@ -132,7 +132,7 @@ static void do_set_path(
 ){
     // Converts FILE! to a local path, or assumes TEXT! is already local
     //
-    char *local_utf8 = rebSpellAlloc(
+    char *local_utf8 = rebSpell(
         "file-to-local/pass/full ensure [file! text!]", const_KNOWN(path),
         rebEND
     );
@@ -592,7 +592,7 @@ REBNATIVE(compile)
     tcc_set_error_func(state, opaque, tcc_error_report);
 
     if (options) {
-        char *options_utf8 = rebSpellAlloc(
+        char *options_utf8 = rebSpell(
             const_KNOWN(options),
             rebEND
         );
@@ -678,7 +678,7 @@ REBNATIVE(compile)
         REBARR *details = VAL_ACT_DETAILS(var);
         REBVAL *linkname = KNOWN(ARR_AT(details, IDX_NATIVE_LINKNAME));
 
-        char *name_utf8 = rebSpellAlloc("ensure text!", linkname, rebEND);
+        char *name_utf8 = rebSpell("ensure text!", linkname, rebEND);
         void *sym = tcc_get_symbol(state, name_utf8);
         rebFree(name_utf8);
 

@@ -165,7 +165,7 @@ REBNATIVE(request_file_p)
         //
         DECLARE_LOCAL (hack);
         Init_Text(hack, ser);
-        lpstrFilter = rebSpellAllocW(hack, rebEND);
+        lpstrFilter = rebSpellW(hack, rebEND);
     }
     else {
         // Currently the implementation of default filters is in usermode,
@@ -195,9 +195,7 @@ REBNATIVE(request_file_p)
     WCHAR *lpstrInitialDir;
     if (REF(file)) {
         REBCNT path_len = rebUnbox("length of", ARG(name), rebEND);
-        WCHAR *path = rebSpellAllocW(
-            "file-to-local/full", ARG(name), rebEND
-        );
+        WCHAR *path = rebSpellW("file-to-local/full", ARG(name), rebEND);
 
         // If the last character doesn't indicate a directory, that means
         // we are trying to pre-select a file, which we do by copying the
@@ -229,7 +227,7 @@ REBNATIVE(request_file_p)
 
     WCHAR *lpstrTitle;
     if (REF(title))
-        lpstrTitle = rebSpellAllocW(ARG(text), rebEND);
+        lpstrTitle = rebSpellW(ARG(text), rebEND);
     else
         lpstrTitle = NULL; // Will use "Save As" or "Open" defaults
     ofn.lpstrTitle = lpstrTitle;
@@ -317,10 +315,7 @@ REBNATIVE(request_file_p)
                 item += item_len + 1; // next
 
                 REBCNT dir_len = rebUnbox("length of", dir, rebEND);
-                WCHAR *dir_wide = rebSpellAllocW(
-                    "file-to-local/full", dir,
-                    rebEND
-                );
+                WCHAR *dir_wide = rebSpellW("file-to-local/full", dir, rebEND);
 
                 while ((item_len = wcslen(item)) != 0) {
                     WCHAR *buffer = rebAllocN(
@@ -377,7 +372,7 @@ REBNATIVE(request_file_p)
 
     char *title;
     if (REF(title))
-        title = rebSpellAlloc(ARG(text), rebEND);
+        title = rebSpell(ARG(text), rebEND);
     else
         title = NULL;
 
@@ -412,7 +407,7 @@ REBNATIVE(request_file_p)
 
     REBYTE *name;
     if (REF(file)) {
-        name = rebSpellAlloc(ARG(name), rebEND);
+        name = rebSpell(ARG(name), rebEND);
         gtk_file_chooser_set_current_folder(chooser, cast(gchar*, name));
     }
     else
@@ -612,7 +607,7 @@ REBNATIVE(request_dir_p)
     bi.pszDisplayName = display; // assumed length is MAX_PATH
 
     if (REF(title))
-        bi.lpszTitle = rebSpellAllocW(ARG(text), rebEND);
+        bi.lpszTitle = rebSpellW(ARG(text), rebEND);
     else
         bi.lpszTitle = L"Please, select a directory...";
 
@@ -632,7 +627,7 @@ REBNATIVE(request_dir_p)
     //
     bi.lpfn = ReqDirCallbackProc;
     if (REF(path))
-        bi.lParam = cast(LPARAM, rebSpellAllocW(ARG(dir), rebEND));
+        bi.lParam = cast(LPARAM, rebSpellW(ARG(dir), rebEND));
     else
         bi.lParam = cast(LPARAM, NULL);
 

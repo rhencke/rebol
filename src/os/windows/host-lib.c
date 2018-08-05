@@ -158,10 +158,7 @@ REBVAL *OS_Get_Current_Dir(void)
 //
 REBOOL OS_Set_Current_Dir(const REBVAL *path)
 {
-    WCHAR *path_wide = rebSpellAllocW(
-        "file-to-local/full", path,
-        rebEND
-    );
+    WCHAR *path_wide = rebSpellW("file-to-local/full", path, rebEND);
 
     REBOOL success = did SetCurrentDirectory(path_wide);
 
@@ -203,10 +200,7 @@ void *OS_Open_Library(const REBVAL *path)
     // default.  So if %foo is passed in, you don't want to prepend the
     // current dir to make it absolute, because it will *only* look there.
     //
-    WCHAR *path_utf8 = rebSpellAllocW(
-        "file-to-local", path,
-        rebEND
-    );
+    WCHAR *path_utf8 = rebSpellW("file-to-local", path, rebEND);
 
     void *dll = LoadLibraryW(path_utf8);
 

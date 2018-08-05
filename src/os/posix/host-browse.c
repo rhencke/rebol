@@ -93,10 +93,7 @@ REBVAL *OS_Get_Current_Dir(void)
 //
 REBOOL OS_Set_Current_Dir(const REBVAL *path)
 {
-    char *path_utf8 = rebSpellAlloc(
-        "file-to-local/full", path,
-        rebEND
-    );
+    char *path_utf8 = rebSpell("file-to-local/full", path, rebEND);
 
     int chdir_result = chdir(path_utf8);
 

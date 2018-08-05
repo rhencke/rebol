@@ -96,9 +96,9 @@
 OSCHR *rebValSpellingAllocOS(const REBVAL *any_string)
 {
   #ifdef OS_WIDE_CHAR
-    return rebSpellAllocW(any_string, rebEND);
+    return rebSpellW(any_string, rebEND);
   #else
-    return rebSpellAlloc(any_string, rebEND);
+    return rebSpell(any_string, rebEND);
   #endif
 }
 
@@ -228,10 +228,7 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebSpellAllocW(
-            "lib/file-to-local", ARG(in),
-            rebEND
-        );
+        WCHAR *local_wide = rebSpellW("file-to-local", ARG(in), rebEND);
 
         hInputRead = CreateFile(
             local_wide,
@@ -278,7 +275,7 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebSpellAllocW("file-to-local", ARG(out), rebEND);
+        WCHAR *local_wide = rebSpellW("file-to-local", ARG(out), rebEND);
 
         si.hStdOutput = CreateFile(
             local_wide,
@@ -339,7 +336,7 @@ int OS_Create_Process(
         break;
 
     case REB_FILE: {
-        WCHAR *local_wide = rebSpellAllocW("file-to-local", ARG(out), rebEND);
+        WCHAR *local_wide = rebSpellW("file-to-local", ARG(out), rebEND);
 
         si.hStdError = CreateFile(
             local_wide,
@@ -877,7 +874,7 @@ int OS_Create_Process(
             close(stdin_pipe[R]);
         }
         else if (IS_FILE(ARG(in))) {
-            char *local_utf8 = rebSpellAlloc("file-to-local", ARG(in), rebEND);
+            char *local_utf8 = rebSpell("file-to-local", ARG(in), rebEND);
 
             int fd = open(local_utf8, O_RDONLY);
 
@@ -909,10 +906,7 @@ int OS_Create_Process(
             close(stdout_pipe[W]);
         }
         else if (IS_FILE(ARG(out))) {
-            char *local_utf8 = rebSpellAlloc(
-                "file-to-local", ARG(out),
-                rebEND
-            );
+            char *local_utf8 = rebSpell("file-to-local", ARG(out), rebEND);
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -944,10 +938,7 @@ int OS_Create_Process(
             close(stderr_pipe[W]);
         }
         else if (IS_FILE(ARG(err))) {
-            char *local_utf8 = rebSpellAlloc(
-                "file-to-local", ARG(err),
-                rebEND
-            );
+            char *local_utf8 = rebSpell("file-to-local", ARG(err), rebEND);
 
             int fd = open(local_utf8, O_CREAT | O_WRONLY, 0666);
 
@@ -1482,7 +1473,7 @@ REBNATIVE(call)
 
     case REB_TEXT: {
         size_t size;
-        os_input = s_cast(rebBytesAlloc(
+        os_input = s_cast(rebBytes(
             &size,
             ARG(in),
             rebEND
@@ -1492,7 +1483,7 @@ REBNATIVE(call)
 
     case REB_FILE: {
         size_t size;
-        os_input = s_cast(rebBytesAlloc( // !!! why fileNAME size passed in???
+        os_input = s_cast(rebBytes( // !!! why fileNAME size passed in???
             &size,
             "file-to-local", ARG(in),
             rebEND
@@ -1502,7 +1493,7 @@ REBNATIVE(call)
 
     case REB_BINARY: {
         size_t size;
-        os_input = s_cast(rebBytesAlloc(&size, ARG(in)));
+        os_input = s_cast(rebBytes(&size, ARG(in)));
         input_len = size;
         break; }
 
@@ -1572,13 +1563,9 @@ REBNATIVE(call)
             }
             else if (IS_FILE(param)) {
               #ifdef OS_WIDE_CHAR
-                argv[i] = rebSpellAllocW(
-                    "file-to-local", KNOWN(param), rebEND
-                );
+                argv[i] = rebSpellW("file-to-local", KNOWN(param), rebEND);
               #else
-                argv[i] = rebSpellAlloc(
-                    "file-to-local", KNOWN(param), rebEND
-                );
+                argv[i] = rebSpell("file-to-local", KNOWN(param), rebEND);
               #endif
             }
             else
@@ -1595,9 +1582,9 @@ REBNATIVE(call)
         argv = rebAllocN(const OSCHR*, (argc + 1));
 
       #ifdef OS_WIDE_CHAR
-        argv[0] = rebSpellAllocW("file-to-local", ARG(command), rebEND);
+        argv[0] = rebSpellW("file-to-local", ARG(command), rebEND);
       #else
-        argv[0] = rebSpellAlloc("file-to-local", ARG(command), rebEND);
+        argv[0] = rebSpell("file-to-local", ARG(command), rebEND);
       #endif
 
         argv[1] = NULL;
@@ -1934,7 +1921,7 @@ static REBNATIVE(get_env)
   #ifdef TO_WINDOWS
     // Note: The Windows variant of this API is NOT case-sensitive
 
-    WCHAR *key = rebSpellAllocW(variable, rebEND);
+    WCHAR *key = rebSpellW(variable, rebEND);
 
     DWORD val_len_plus_one = GetEnvironmentVariable(key, NULL, 0);
     if (val_len_plus_one == 0) { // some failure...
@@ -1960,7 +1947,7 @@ static REBNATIVE(get_env)
   #else
     // Note: The Posix variant of this API is case-sensitive
 
-    char *key = rebSpellAlloc(variable, rebEND);
+    char *key = rebSpell(variable, rebEND);
 
     const char* val = getenv(key);
     if (val == NULL) // key not present in environment
@@ -2008,10 +1995,10 @@ static REBNATIVE(set_env)
     Check_Security(Canon(SYM_ENVR), POL_WRITE, variable);
 
   #ifdef TO_WINDOWS
-    WCHAR *key_wide = rebSpellAllocW(variable, rebEND);
-    WCHAR *val_wide = rebSpellAllocW(
-        "opt ensure [text! blank!]", value, rebEND
-    ); // may be NULL if blank! input, which will unset the envionment var
+    WCHAR *key_wide = rebSpellW(variable, rebEND);
+    WCHAR *val_wide = rebSpellW("opt ensure [text! blank!]", value, rebEND);
+    
+    // val may be NULL if blank! input, which will unset the envionment var
 
     if (not SetEnvironmentVariable(key_wide, val_wide))
         fail ("environment variable couldn't be modified");
@@ -2019,7 +2006,7 @@ static REBNATIVE(set_env)
     rebFree(val_wide);
     rebFree(key_wide);
   #else
-    char *key_utf8 = rebSpellAlloc(variable, rebEND);
+    char *key_utf8 = rebSpell(variable, rebEND);
 
     if (IS_BLANK(value)) {
       #ifdef unsetenv
@@ -2042,7 +2029,7 @@ static REBNATIVE(set_env)
     }
     else {
       #ifdef setenv
-        char *val_utf8 = rebSpellAlloc(value, rebEND);
+        char *val_utf8 = rebSpell(value, rebEND);
 
         if (setenv(key_utf8, val_utf8, 1) == -1) // the 1 means "overwrite"
             fail ("setenv() coudln't set environment variable");
@@ -2066,7 +2053,7 @@ static REBNATIVE(set_env)
         // each string added in some sort of a map...which is currently deemed
         // not worth the work.
 
-        char *key_equals_val_utf8 = rebSpellAlloc(
+        char *key_equals_val_utf8 = rebSpell(
             "unspaced [", variable, "{=}", value, "]", rebEND
         );
 

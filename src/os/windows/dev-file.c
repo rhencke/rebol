@@ -146,7 +146,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     if (h == NULL) {
         // Read first file entry:
 
-        WCHAR *dir_wide = rebSpellAllocW(
+        WCHAR *dir_wide = rebSpellW(
             "file-to-local/full/wild", dir->path,
             rebEND
         );
@@ -266,7 +266,7 @@ DEVICE_CMD Open_File(REBREQ *req)
     if (access == 0)
         rebJumps("FAIL {No access modes provided to Open_File()}", rebEND);
 
-    WCHAR *path_wide = rebSpellAllocW(
+    WCHAR *path_wide = rebSpellW(
         "apply 'file-to-local [",
             "path:", file->path,
             "wild:", rebR(rebLogic(req->modes & RFM_DIR)),
@@ -488,10 +488,7 @@ DEVICE_CMD Query_File(REBREQ *req)
     // used, it would mean `%/` would turn into an empty string, that would
     // cause GetFileAttributesEx() to error, vs. backslash (which works)
     //
-    WCHAR *path_wide = rebSpellAllocW(
-        "file-to-local/full", file->path,
-        rebEND
-    );
+    WCHAR *path_wide = rebSpellW("file-to-local/full", file->path, rebEND);
 
     REBOOL success = GetFileAttributesEx(
         path_wide, GetFileExInfoStandard, &info
@@ -526,7 +523,7 @@ DEVICE_CMD Create_File(REBREQ *req)
     if (not (req->modes & RFM_DIR))
         return Open_File(req);
 
-    WCHAR *path_wide = rebSpellAllocW(
+    WCHAR *path_wide = rebSpellW(
         "file-to-local/full/no-tail-slash", file->path,
         rebEND
     );
@@ -556,7 +553,7 @@ DEVICE_CMD Delete_File(REBREQ *req)
 {
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    WCHAR *path_wide = rebSpellAllocW(
+    WCHAR *path_wide = rebSpellW(
         "file-to-local/full", file->path,
         rebEND // leave tail slash on for directory removal
     );
@@ -588,11 +585,11 @@ DEVICE_CMD Rename_File(REBREQ *req)
 
     REBVAL *to = cast(REBVAL*, req->common.data); // !!! hack!
 
-    WCHAR *from_wide = rebSpellAllocW(
+    WCHAR *from_wide = rebSpellW(
         "file-to-local/full/no-tail-slash", file->path,
         rebEND
     );
-    WCHAR *to_wide = rebSpellAllocW(
+    WCHAR *to_wide = rebSpellW(
         "file-to-local/full/no-tail-slash", to,
         rebEND
     );

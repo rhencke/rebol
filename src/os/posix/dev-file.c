@@ -159,10 +159,7 @@ static int Get_File_Info(struct devreq_file *file)
     //
     // https://superuser.com/questions/240743/
     //
-    char *path_utf8 = rebSpellAlloc(
-        "file-to-local/full", file->path,
-        rebEND
-    );
+    char *path_utf8 = rebSpell("file-to-local/full", file->path, rebEND);
 
     struct stat info;
     int stat_result = stat(path_utf8, &info);
@@ -237,10 +234,9 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     REBREQ *dir_req = AS_REBREQ(dir);
     REBREQ *file_req = AS_REBREQ(file);
 
-    char *dir_utf8 = rebSpellAlloc(
-        "file-to-local", dir->path,
-        rebEND // "wild" append of * not necessary on POSIX
-    );
+    // Note: /WILD append of * is not necessary on POSIX
+    //
+    char *dir_utf8 = rebSpell("file-to-local", dir->path, rebEND);
 
     // If no dir handle, open the dir:
     //
@@ -373,8 +369,8 @@ DEVICE_CMD Open_File(REBREQ *req)
     // Open the file:
     // printf("Open: %s %d %d\n", path, modes, access);
 
-    char *path_utf8 = rebSpellAlloc(
-        "lib/apply 'file-to-local [",
+    char *path_utf8 = rebSpell(
+        "apply 'file-to-local [",
             "path:", file->path,
             "wild:", rebR(rebLogic(req->modes & RFM_DIR)), // !!! necessary?
             "full: true"
@@ -522,7 +518,7 @@ DEVICE_CMD Create_File(REBREQ *req)
     if (not (req->modes & RFM_DIR))
         return Open_File(req);
 
-    char *path_utf8 = rebSpellAlloc(
+    char *path_utf8 = rebSpell(
         "file-to-local/full/no-tail-slash", file->path,
         rebEND
     );
@@ -550,7 +546,7 @@ DEVICE_CMD Delete_File(REBREQ *req)
 {
     struct devreq_file *file = DEVREQ_FILE(req);
 
-    char *path_utf8 = rebSpellAlloc(
+    char *path_utf8 = rebSpell(
         "file-to-local/full", file->path,
         rebEND // leave tail slash on for directory removal
     );
@@ -582,11 +578,11 @@ DEVICE_CMD Rename_File(REBREQ *req)
 
     REBVAL *to = cast(REBVAL*, req->common.data); // !!! hack!
 
-    char *from_utf8 = rebSpellAlloc(
+    char *from_utf8 = rebSpell(
         "file-to-local/full/no-tail-slash", file->path,
         rebEND
     );
-    char *to_utf8 = rebSpellAlloc(
+    char *to_utf8 = rebSpell(
         "file-to-local/full/no-tail-slash", to,
         rebEND
     );

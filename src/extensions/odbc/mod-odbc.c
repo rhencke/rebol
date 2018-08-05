@@ -259,7 +259,7 @@ REBNATIVE(open_connection)
     // Connect to the Driver, using the converted connection string
     //
     REBCNT connect_len = rebUnbox("length of", ARG(spec), rebEND);
-    SQLWCHAR *connect = rebSpellAllocW(ARG(spec), rebEND);
+    SQLWCHAR *connect = rebSpellW(ARG(spec), rebEND);
 
     SQLSMALLINT out_connect_len;
     rc = SQLDriverConnectW(
@@ -441,10 +441,10 @@ SQLRETURN ODBC_BindParameter(
         break; }
 
     case REB_TEXT: {
-        REBCNT len_no_term = rebSpellingOfW(NULL, 0, v); // first, get length
+        REBCNT len_no_term = rebSpellIntoW(NULL, 0, v); // first, get length
         SQLWCHAR *chars = rebAllocN(SQLWCHAR, len_no_term + 1);
 
-        REBCNT len_check = rebSpellingOfW(chars, len_no_term, v); // now, get
+        REBCNT len_check = rebSpellIntoW(chars, len_no_term, v); // now, get
         assert(len_check == len_no_term);
         UNUSED(len_check);
 
@@ -511,7 +511,7 @@ SQLRETURN ODBC_GetCatalog(
         );
         if (value) {
             REBCNT len = rebUnbox("length of", value, rebEND);
-            pattern[arg] = rebSpellAllocW(value, rebEND);
+            pattern[arg] = rebSpellW(value, rebEND);
             length[arg] = len;
             rebRelease(value);
         }
@@ -901,7 +901,7 @@ REBNATIVE(insert_odbc)
 
         if (not use_cache) {
             REBCNT length = rebUnbox("length of", value, rebEND);
-            SQLWCHAR *sql_string = rebSpellAllocW(value, rebEND);
+            SQLWCHAR *sql_string = rebSpellW(value, rebEND);
 
             rc = SQLPrepareW(hstmt, sql_string, cast(SQLSMALLINT, length));
             if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
@@ -1116,36 +1116,21 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
     case SQL_TYPE_TIMESTAMP: {
         TIMESTAMP_STRUCT *stamp = cast(TIMESTAMP_STRUCT*, col->buffer);
 
-        // stamp->fraction is billionths of a second, e.g. nanoseconds
-        //
-        // !!! Unfortunately there's no way to make times with nanoseconds
-        // from integers in plain Rebol, so rebTimeNano is around for now.
-        // (It is technically possible to MAKE TIME! with a decimal seconds
-        // component, however this introduces some questions on precision.)
-        //
-        REBVAL *time = rebTimeNano(
-            stamp->fraction + SECS_TO_NANO(
-                stamp->hour * 3600
-                + stamp->minute * 60
-                + stamp->second
-            )
-        );
-
         // !!! This isn't a very elegant way of combining a date and time
         // component, but the point is that however it is done...it should
         // be done with Rebol code vs. some special C date API.  See
-        // GitHub issue #2313 regarding improving the Rebol side.  This
-        // somewhat odd way of doing it changes d's value from one immediate
-        // to another...it's not currently possible to "mutate a DATE!"
+        // GitHub issue #2313 regarding improving the Rebol side.
         //
-        return rebRun(
-            "use [d] [",
-                "d: make date! [",
-                    rebI(stamp->day), rebI(stamp->month), rebI(stamp->year),
-                "]",
-                "d/time:", rebR(time),
-            "]", rebEND
-        ); }
+        return rebRun("ensure date! (make-date-ymdsnz",
+            rebI(stamp->year),
+            rebI(stamp->month),
+            rebI(stamp->day),
+            rebI(
+                stamp->hour * 3600 + stamp->minute * 60 + stamp->second
+            ), // seconds
+            rebI(stamp->fraction), // billionths of a second, e.g. nanoseconds
+            "0" // timezone
+        ")", rebEND); }
 
     case SQL_BIT:
         //
@@ -1156,7 +1141,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
         if (col->column_size != 1)
             fail ("BIT(n) fields are only supported for n = 1");
 
-        return rebLogic(did (*cast(unsigned char*, col->buffer)));
+        return rebLogic(*cast(unsigned char*, col->buffer) != 0);
 
     case SQL_BINARY:
     case SQL_VARBINARY:
