@@ -444,7 +444,10 @@ REBNATIVE(request_file_p)
                     // there was code here that tried to add it (?)  If it
                     // becomes relevant, `folder` is available to prepend.
                     //
-                    REBVAL *file = rebFile(item->data); // UTF-8 data
+                    REBVAL *file = rebRun(
+                        "as file!", rebT(item->data), // UTF-8
+                        rebEND
+                    );
                     DS_PUSH_TRASH;
                     Move_Value(DS_TOP, file);
                     rebRelease(file);
@@ -457,7 +460,10 @@ REBNATIVE(request_file_p)
         else {
             // filename is in UTF-8, directory seems to be included.
             //
-            REBVAL *file = rebFile(gtk_file_chooser_get_filename(chooser));
+            REBVAL *file = rebRun(
+                "as file!", rebT(gtk_file_chooser_get_filename(chooser)),
+                rebEND
+            );
             DS_PUSH_TRASH;
             Move_Value(DS_TOP, file);
             g_free(filename);
@@ -640,7 +646,7 @@ REBNATIVE(request_dir_p)
     else if (not SHGetPathFromIDList(pFolder, folder))
         error = Error_User("SHGetPathFromIDList failed");
     else {
-        REBVAL *file = rebFile(folder);
+        REBVAL *file = rebRun("as file!", rebT(folder), rebEND);
         Move_Value(D_OUT, file);
         rebRelease(file);
     }

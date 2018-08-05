@@ -635,8 +635,7 @@ int main(int argc, char *argv_ansi[])
 
     rebRelease(host_console);
 
-    int exit_status = rebUnboxInteger(code);
-    rebRelease(code);
+    int exit_status = rebUnboxInteger(rebR(code), rebEND);
 
     // This calls the QUIT functions of the extensions loaded at boot, in the
     // reverse order of initialization.  (It does not call unload-extension,

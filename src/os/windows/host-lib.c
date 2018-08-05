@@ -66,14 +66,16 @@ REBSER* Gob_To_Image(REBGOB *gob);
 //
 REBVAL *Convert_Date(long zone, const SYSTEMTIME *stime)
 {
-    return rebInitDate(
-        stime->wYear, // year
-        stime->wMonth, // month
-        stime->wDay, // day
-        stime->wHour * 3600 + stime->wMinute * 60 + stime->wSecond, // "time"
-        1000000 * stime->wMilliseconds, // nano
-        zone
-    );
+    return rebRun("ensure date! (make-date-ymdsnz",
+        rebI(stime->wYear), // year
+        rebI(stime->wMonth), // month
+        rebI(stime->wDay), // day
+        rebI(
+            stime->wHour * 3600 + stime->wMinute * 60 + stime->wSecond
+        ), // "secs"
+        rebI(1000000 * stime->wMilliseconds), // nano
+        rebI(zone), // zone
+    ")", rebEND);
 }
 
 

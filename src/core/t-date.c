@@ -1034,3 +1034,48 @@ setDate:
         VAL_NANO(D_OUT) = secs;
     return D_OUT;
 }
+
+
+//
+//  make-date-ymdsnz: native [
+//
+//  {Make a date from Year, Month, Day, Seconds, Nanoseconds, time Zone}
+//
+//      return: [date!]
+//      year [integer!]
+//          "full integer, e.g. 1975"
+//      month [integer!]
+//          "1 is January, 12 is December"
+//      day [integer!]
+//          "1 to 31"
+//      seconds [integer!]
+//          "3600 for each hour, 60 for each minute"
+//      nano [integer!]
+//      zone [integer!]
+//  ]
+//
+REBNATIVE(make_date_ymdsnz)
+//
+// !!! This native exists to avoid adding specialized C routines to the API
+// for the purposes of date creation in NOW.  Ideally there would be a nicer
+// syntax via MAKE TIME!, which could use other enhancements:
+//
+// https://github.com/rebol/rebol-issues/issues/2313
+//
+{
+    INCLUDE_PARAMS_OF_MAKE_DATE_YMDSNZ;
+
+    RESET_VAL_HEADER(D_OUT, REB_DATE);
+    VAL_YEAR(D_OUT) = VAL_INT32(ARG(year));
+    VAL_MONTH(D_OUT) = VAL_INT32(ARG(month));
+    VAL_DAY(D_OUT) = VAL_INT32(ARG(day));
+
+    SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_ZONE);
+    INIT_VAL_ZONE(D_OUT, VAL_INT32(ARG(zone)) / ZONE_MINS);
+
+    SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
+    VAL_NANO(D_OUT)
+        = SECS_TO_NANO(VAL_INT64(ARG(seconds))) + VAL_INT64(ARG(nano));
+
+    return D_OUT;
+}

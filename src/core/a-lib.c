@@ -330,46 +330,6 @@ void Shutdown_Api(void)
 
 
 //
-//  rebVersion: RL_API
-//
-// Obtain the current Rebol version information.  Takes a byte array to
-// hold the version info:
-//
-//      vers[0]: (input) length of the expected version information
-//      vers[1]: version
-//      vers[2]: revision
-//      vers[3]: update
-//      vers[4]: system
-//      vers[5]: variation
-//
-// !!! In the original RL_API, this function was to be called before any other
-// initialization to determine version compatiblity with the caller.  With the
-// massive changes in Ren-C and the lack of RL_API clients, this check is low
-// priority...but something like it will be needed.
-//
-// This is how it was originally done:
-//
-//      REBYTE vers[8];
-//      vers[0] = 5; // len
-//      RL_Version(&vers[0]);
-//
-//      if (vers[1] != RL_VER or vers[2] != RL_REV)
-//          rebPanic ("Incompatible reb-lib DLL");
-//
-void RL_rebVersion(unsigned char vers[])
-{
-    if (vers[5] != 5)
-        panic ("rebVersion() requires 1 + 5 byte structure");
-
-    vers[1] = REBOL_VER;
-    vers[2] = REBOL_REV;
-    vers[3] = REBOL_UPD;
-    vers[4] = REBOL_SYS;
-    vers[5] = REBOL_VAR;
-}
-
-
-//
 //  rebStartup: RL_API
 //
 // This function will allocate and initialize all memory structures used by
@@ -1039,17 +999,17 @@ long RL_rebUnbox(const void *p, ...) {
         fail (Error_No_Catch_For_Throw(result));
 
     switch (VAL_TYPE(result)) {
-    case REB_INTEGER:
+      case REB_INTEGER:
         return VAL_INT64(result);
 
-    case REB_CHAR:
+      case REB_CHAR:
         return VAL_CHAR(result);
 
-    case REB_LOGIC:
+      case REB_LOGIC:
         return VAL_LOGIC(result) ? 1 : 0;
 
-    default:
-        fail ("Only REB_INTEGER, REB_CHAR, REB_LOGIC for rebUnbox() in C");
+      default:
+        fail ("C-based rebUnbox() only supports INTEGER!, CHAR!, and LOGIC!");
     }
 }
 
@@ -1057,87 +1017,60 @@ long RL_rebUnbox(const void *p, ...) {
 //
 //  rebUnboxInteger: RL_API
 //
-long RL_rebUnboxInteger(const REBVAL *v) {
+long RL_rebUnboxInteger(const void *p, ...) {
     Enter_Api();
-    return VAL_INT64(v);
+
+    va_list va;
+    va_start(va, p);
+
+    DECLARE_LOCAL (result);
+    if (Do_Va_Throws(result, p, &va))
+        fail (Error_No_Catch_For_Throw(result));
+
+    if (VAL_TYPE(result) != REB_INTEGER)
+        fail ("rebUnboxInteger() called on non-INTEGER!");
+
+    return VAL_INT64(result);
 }
+
 
 //
 //  rebUnboxDecimal: RL_API
 //
-double RL_rebUnboxDecimal(const REBVAL *v) {
+double RL_rebUnboxDecimal(const void *p, ...) {
     Enter_Api();
-    return VAL_DECIMAL(v);
+
+    va_list va;
+    va_start(va, p);
+
+    DECLARE_LOCAL (result);
+    if (Do_Va_Throws(result, p, &va))
+        fail (Error_No_Catch_For_Throw(result));
+
+    if (VAL_TYPE(result) != REB_DECIMAL)
+        fail ("rebUnboxDecimal() called on non-DECIMAL!");
+
+    return VAL_DECIMAL(result);
 }
+
 
 //
 //  rebUnboxChar: RL_API
 //
-long RL_rebUnboxChar(const REBVAL *v) {
-    Enter_Api();
-    return VAL_CHAR(v);
-}
-
-//
-//  rebNanoOfTime: RL_API
-//
-long RL_rebNanoOfTime(const REBVAL *v) {
-    Enter_Api();
-    return VAL_NANO(v);
-}
-
-
-//
-//  rebValTupleData: RL_API
-//
-unsigned char *RL_rebValTupleData(const REBVAL *v) {
-    Enter_Api();
-    return VAL_TUPLE_DATA(m_cast(REBVAL*, v));
-}
-
-
-//
-//  rebIndexOf: RL_API
-//
-long RL_rebIndexOf(const REBVAL *v) {
-    Enter_Api();
-    return VAL_INDEX(v);
-}
-
-
-//
-//  rebInitDate: RL_API
-//
-// !!! Note this doesn't allow you to say whether the date has a time
-// or zone component at all.  Those could be extra flags, or if Rebol values
-// were used they could be blanks vs. integers.  Further still, this kind
-// of API is probably best kept as calls into Rebol code, e.g.
-// RL_Do("make time!", ...); which might not offer the best performance, but
-// the internal API is available for clients who need that performance,
-// who can call date initialization themselves.
-//
-REBVAL *RL_rebInitDate(
-    int year,
-    int month,
-    int day,
-    int seconds,
-    int nano,
-    int zone
-){
+uint32_t RL_rebUnboxChar(const void *p, ...) {
     Enter_Api();
 
-    REBVAL *result = Alloc_Value();
-    RESET_VAL_HEADER(result, REB_DATE);
-    VAL_YEAR(result) = year;
-    VAL_MONTH(result) = month;
-    VAL_DAY(result) = day;
+    va_list va;
+    va_start(va, p);
 
-    SET_VAL_FLAG(result, DATE_FLAG_HAS_ZONE);
-    INIT_VAL_ZONE(result, zone / ZONE_MINS);
+    DECLARE_LOCAL (result);
+    if (Do_Va_Throws(result, p, &va))
+        fail (Error_No_Catch_For_Throw(result));
 
-    SET_VAL_FLAG(result, DATE_FLAG_HAS_TIME);
-    VAL_NANO(result) = SECS_TO_NANO(seconds) + nano;
-    return result;
+    if (VAL_TYPE(result) != REB_CHAR)
+        fail ("rebUnboxChar() called on non-CHAR!");
+
+    return VAL_CHAR(result);
 }
 
 
@@ -1450,42 +1383,6 @@ const void *RL_rebT(const char *utf8)
 
 
 //
-//  rebFile: RL_API
-//
-REBVAL *RL_rebFile(const char *utf8)
-{
-    REBVAL *result = rebText(utf8); // Enter_Api() called
-    RESET_VAL_HEADER(result, REB_FILE);
-    return result;
-}
-
-
-//
-//  rebTag: RL_API
-//
-REBVAL *RL_rebTag(const char *utf8)
-{
-    REBVAL *result = rebText(utf8);
-    RESET_VAL_HEADER(result, REB_TAG);
-    return result;
-}
-
-
-//
-//  rebLock: RL_API
-//
-REBVAL *RL_rebLock(REBVAL *p1, const void *p2)
-{
-    assert(IS_END(p2)); // Not yet variadic...
-    UNUSED(p2);
-
-    REBSER *locker = nullptr;
-    Ensure_Value_Immutable(p1, locker);
-    return p1;
-}
-
-
-//
 //  rebLengthedTextW: RL_API
 //
 REBVAL *RL_rebLengthedTextW(const REBWCHAR *wstr, unsigned int num_chars)
@@ -1516,39 +1413,6 @@ REBVAL *RL_rebTextW(const REBWCHAR *wstr)
         Append_Utf8_Codepoint(mo->series, *wstr);
 
     return Init_Text(Alloc_Value(), Pop_Molded_String(mo));
-}
-
-
-//
-//  rebSizedWordW: RL_API
-//
-// !!! Currently needed by ODBC module to make column titles.
-//
-REBVAL *RL_rebSizedWordW(const REBWCHAR *ucs2, unsigned int num_chars)
-{
-    Enter_Api();
-
-    DECLARE_MOLD (mo);
-    Push_Mold(mo);
-
-    for (; num_chars != 0; --num_chars, ++ucs2)
-        Append_Utf8_Codepoint(mo->series, *ucs2);
-
-    REBSER *bin = Pop_Molded_UTF8(mo);
-    REBSTR *spelling = Intern_UTF8_Managed(BIN_HEAD(bin), BIN_LEN(bin));
-
-    return Init_Word(Alloc_Value(), spelling);
-}
-
-
-//
-//  rebFileW: RL_API
-//
-REBVAL *RL_rebFileW(const REBWCHAR *wstr)
-{
-    REBVAL *result = rebTextW(wstr); // Enter_Api() called
-    RESET_VAL_HEADER(result, REB_FILE);
-    return result;
 }
 
 
@@ -1612,25 +1476,6 @@ void RL_rebUnmanage(void *p)
     CLEAR_SER_FLAG(a, NODE_FLAG_MANAGED);
     assert(GET_SER_FLAG(LINK(a).owner, ARRAY_FLAG_VARLIST));
     LINK(a).owner = UNBOUND;
-}
-
-
-//
-//  rebLengthOf: RL_API
-//
-// !!! Should this be an entry point, vs `rebUnbox("length of", x, rebEND)`?
-// It may be one of the cases that is called often enough to warrant it for
-// performance, but a question of the libRebol API is whether such hard-coded
-// behaviors that subvert hooks on OF (for instance) are a solid plan.
-//
-long RL_rebLengthOf(const REBVAL *series)
-{
-    Enter_Api();
-
-    if (not ANY_SERIES(series))
-        fail ("rebLengthOf() can only be used on ANY-SERIES!");
-
-    return VAL_LEN_AT(series);
 }
 
 

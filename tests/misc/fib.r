@@ -6,7 +6,7 @@ c-fib: make-native [
     "nth Fibonacci Number"
     n [integer!]
 ]{
-    int n = rebUnboxInteger(ARG(n));
+    int n = rebUnboxInteger(ARG(n), rebEND);
 
     /* use `zero` and `one` to demonstrate providing constants via COMPILE */
     if (n < zero) { return rebInteger(-1); }

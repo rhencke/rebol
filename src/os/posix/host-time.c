@@ -134,16 +134,18 @@ REBVAL *Convert_Date(time_t *stime, long usec)
 
     int zone = Get_Timezone(&utc_tm);
 
-    return rebInitDate(
-        utc_tm.tm_year + 1900, // year
-        utc_tm.tm_mon + 1, // month
-        utc_tm.tm_mday, // day
-        utc_tm.tm_hour * 3600
+    return rebRun("ensure date! (make-date-ymdsnz",
+        rebI(utc_tm.tm_year + 1900), // year
+        rebI(utc_tm.tm_mon + 1), // month
+        rebI(utc_tm.tm_mday), // day
+        rebI(
+            utc_tm.tm_hour * 3600
             + utc_tm.tm_min * 60
-            + utc_tm.tm_sec, // secs
-        usec * 1000, // nano
-        zone // zone
-    );
+            + utc_tm.tm_sec
+        ), // secs
+        rebI(usec * 1000), // nano
+        rebI(zone), // zone
+    ")", rebEND);
 }
 
 

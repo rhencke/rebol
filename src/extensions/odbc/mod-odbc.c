@@ -672,7 +672,9 @@ SQLRETURN ODBC_DescribeResults(
         //
         // int length = ODBC_UnCamelCase(column->title, title);
 
-        column->title_word = rebSizedWordW(title, title_length);
+        column->title_word = rebRun(
+            "as word!", rebLengthedTextW(title, title_length), rebEND
+        );
         rebUnmanage(column->title_word);
     }
 
@@ -921,7 +923,8 @@ REBNATIVE(insert_odbc)
         // different quarantined part of the query is to protect against SQL
         // injection.
 
-        REBCNT num_params = rebLengthOf(ARG(sql)) - sql_index; // after SQL
+        REBCNT num_params
+            = rebUnbox("length of", ARG(sql), rebEND) - sql_index; // after SQL
         ++sql_index;
 
         PARAMETER *params = NULL;

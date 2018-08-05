@@ -443,6 +443,15 @@ static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
 }
 
 
+static REBVAL *Make_Locked_Tag(const char *utf8) { // helper
+    REBVAL *t = rebText(utf8);
+    RESET_VAL_HEADER(t, REB_TAG);
+
+    REBSER *locker = nullptr;
+    Ensure_Value_Immutable(t, locker);
+    return t;
+}
+
 //
 //  Init_Action_Spec_Tags: C
 //
@@ -452,13 +461,13 @@ static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
 //
 static void Init_Action_Spec_Tags(void)
 {
-    Root_Void_Tag = rebLock(rebTag("void"), rebEND);
-    Root_With_Tag = rebLock(rebTag("with"), rebEND);
-    Root_Ellipsis_Tag = rebLock(rebTag("..."), rebEND);
-    Root_Opt_Tag = rebLock(rebTag("opt"), rebEND);
-    Root_End_Tag = rebLock(rebTag("end"), rebEND);
-    Root_Local_Tag = rebLock(rebTag("local"), rebEND);
-    Root_Skip_Tag = rebLock(rebTag("skip"), rebEND);
+    Root_Void_Tag = Make_Locked_Tag("void");
+    Root_With_Tag = Make_Locked_Tag("with");
+    Root_Ellipsis_Tag = Make_Locked_Tag("...");
+    Root_Opt_Tag = Make_Locked_Tag("opt");
+    Root_End_Tag = Make_Locked_Tag("end");
+    Root_Local_Tag = Make_Locked_Tag("local");
+    Root_Skip_Tag = Make_Locked_Tag("skip");
 }
 
 static void Shutdown_Action_Spec_Tags(void)
@@ -498,7 +507,10 @@ static void Init_Action_Meta_Shim(void) {
     Init_Object(CTX_VAR(meta, 1), meta); // it's "selfish"
 
     Root_Action_Meta = Init_Object(Alloc_Value(), meta);
-    rebLock(Root_Action_Meta, rebEND);
+
+    REBSER *locker = nullptr;
+    Ensure_Value_Immutable(Root_Action_Meta, locker);
+
 }
 
 static void Shutdown_Action_Meta_Shim(void) {
@@ -820,8 +832,10 @@ static void Init_Root_Vars(void)
     Init_Void(&PG_Void_Value[0]);
     TRASH_CELL_IF_DEBUG(&PG_Void_Value[1]);
 
+    REBSER *locker = nullptr;
+
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);
-    rebLock(Root_Empty_Block, rebEND);
+    Ensure_Value_Immutable(Root_Empty_Block, locker);
 
     // Note: rebText() can't run yet, review.
     //
@@ -829,7 +843,7 @@ static void Init_Root_Vars(void)
     assert(CHR_CODE(UNI_AT(nulled_uni, 0)) == '\0');
     assert(UNI_LEN(nulled_uni) == 0);
     Root_Empty_String = Init_Text(Alloc_Value(), nulled_uni);
-    rebLock(Root_Empty_String, rebEND);
+    Ensure_Value_Immutable(Root_Empty_String, locker);
 
     Root_Space_Char = rebChar(' ');
     Root_Newline_Char = rebChar('\n');

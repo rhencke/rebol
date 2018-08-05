@@ -274,10 +274,7 @@ REBVAL *OS_Do_Device(REBREQ *req, int command)
         // do not want to get involved?
     }
 
-    assert(rebDid("integer?", error_or_int, rebEND));
-
-    int result = rebUnboxInteger(error_or_int);
-    rebRelease(error_or_int);
+    int result = rebUnboxInteger(rebR(error_or_int), rebEND);
 
     // If request is pending, attach it to device for polling:
     //
