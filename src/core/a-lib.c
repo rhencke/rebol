@@ -426,15 +426,12 @@ void RL_rebShutdown(bool clean)
 // product already.  Use rebEval() to "retrigger" them (which wraps them in
 // a singular REBARR*, another type of detectable pointer.)
 //
-REBVAL *RL_rebRun(const void *p, ...)
+REBVAL *RL_rebRun(const void *p, va_list *vaptr)
 {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     REBVAL *result = Alloc_Value();
-    if (Do_Va_Throws(result, p, &va)) // calls va_end()
+    if (Do_Va_Throws(result, p, vaptr)) // calls va_end()
         fail (Error_No_Catch_For_Throw(result)); // no need to release result
 
     if (not IS_NULLED(result))
@@ -451,15 +448,12 @@ REBVAL *RL_rebRun(const void *p, ...)
 // Variant of rebRun() which assumes you don't need the result.  This saves on
 // allocating an API handle, or the caller needing to manage its lifetime.
 //
-void RL_rebElide(const void *p, ...)
+void RL_rebElide(const void *p, va_list *vaptr)
 {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (elided);
-    if (Do_Va_Throws(elided, p, &va)) // calls va_end()
+    if (Do_Va_Throws(elided, p, vaptr)) // calls va_end()
         fail (Error_No_Catch_For_Throw(elided));
 }
 
@@ -633,7 +627,7 @@ const void *RL_rebUneval(const REBVAL *v)
 // they are seen (or even if they are not seen, if there is a failure on that
 // call it will still process the va_list in order to release these handles)
 //
-// It is returned as a const void*, in order to discourage using these
+// It is returned as a const void *, in order to discourage using these
 // anywhere besides as an argument to a variadic API like rebRun().
 //
 const void *RL_rebR(REBVAL *v)
@@ -924,14 +918,11 @@ REBVAL *RL_rebRescueWith(
 //
 //  rebDid: RL_API
 //
-bool RL_rebDid(const void *p, ...) {
+bool RL_rebDid(const void *p, va_list *vaptr) {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (condition);
-    if (Do_Va_Throws(condition, p, &va)) // calls va_end()
+    if (Do_Va_Throws(condition, p, vaptr)) // calls va_end()
         fail (Error_No_Catch_For_Throw(condition));
 
     return IS_TRUTHY(condition); // will fail() on voids
@@ -944,14 +935,11 @@ bool RL_rebDid(const void *p, ...) {
 // !!! If this were going to be a macro like (not (rebDid(...))) it would have
 // to be a variadic macro.  Just make a separate entry point for now.
 //
-bool RL_rebNot(const void *p, ...) {
+bool RL_rebNot(const void *p, va_list *vaptr) {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (condition);
-    if (Do_Va_Throws(condition, p, &va)) // calls va_end()
+    if (Do_Va_Throws(condition, p, vaptr)) // calls va_end()
         fail (Error_No_Catch_For_Throw(condition));
 
     return IS_FALSEY(condition); // will fail() on voids
@@ -968,14 +956,11 @@ bool RL_rebNot(const void *p, ...) {
 // an integer for INTEGER!, LOGIC!, CHAR!...assume it's most common so the
 // short name is worth it.
 //
-long RL_rebUnbox(const void *p, ...) {
+long RL_rebUnbox(const void *p, va_list *vaptr) {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (result);
-    if (Do_Va_Throws(result, p, &va))
+    if (Do_Va_Throws(result, p, vaptr))
         fail (Error_No_Catch_For_Throw(result));
 
     switch (VAL_TYPE(result)) {
@@ -997,14 +982,11 @@ long RL_rebUnbox(const void *p, ...) {
 //
 //  rebUnboxInteger: RL_API
 //
-long RL_rebUnboxInteger(const void *p, ...) {
+long RL_rebUnboxInteger(const void *p, va_list *vaptr) {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (result);
-    if (Do_Va_Throws(result, p, &va))
+    if (Do_Va_Throws(result, p, vaptr))
         fail (Error_No_Catch_For_Throw(result));
 
     if (VAL_TYPE(result) != REB_INTEGER)
@@ -1017,14 +999,11 @@ long RL_rebUnboxInteger(const void *p, ...) {
 //
 //  rebUnboxDecimal: RL_API
 //
-double RL_rebUnboxDecimal(const void *p, ...) {
+double RL_rebUnboxDecimal(const void *p, va_list *vaptr) {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (result);
-    if (Do_Va_Throws(result, p, &va))
+    if (Do_Va_Throws(result, p, vaptr))
         fail (Error_No_Catch_For_Throw(result));
 
     if (VAL_TYPE(result) != REB_DECIMAL)
@@ -1037,14 +1016,11 @@ double RL_rebUnboxDecimal(const void *p, ...) {
 //
 //  rebUnboxChar: RL_API
 //
-uint32_t RL_rebUnboxChar(const void *p, ...) {
+uint32_t RL_rebUnboxChar(const void *p, va_list *vaptr) {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (result);
-    if (Do_Va_Throws(result, p, &va))
+    if (Do_Va_Throws(result, p, vaptr))
         fail (Error_No_Catch_For_Throw(result));
 
     if (VAL_TYPE(result) != REB_CHAR)
@@ -1062,7 +1038,7 @@ uint32_t RL_rebUnboxChar(const void *p, ...) {
 // pointers.  Also, there is an optional size stored in the handle, and a
 // cleanup function the GC may call when references to the handle are gone.
 //
-REBVAL *RL_rebHandle(void *data, uintptr_t length, CLEANUP_CFUNC* cleaner)
+REBVAL *RL_rebHandle(void *data, uintptr_t length, CLEANUP_CFUNC *cleaner)
 {
     return Init_Handle_Managed(Alloc_Value(), data, length, cleaner);
 }
@@ -1120,15 +1096,12 @@ size_t RL_rebSpellInto(
 // extracted with LENGTH OF.  If size in bytes of the encoded UTF-8 is needed,
 // use the binary extraction API (works on ANY-STRING! to get UTF-8)
 //
-char *RL_rebSpell(const void *p, ...)
+char *RL_rebSpell(const void *p, va_list *vaptr)
 {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (string);
-    if (Do_Va_Throws(string, p, &va)) // calls va_end()
+    if (Do_Va_Throws(string, p, vaptr)) // calls va_end()
         fail (Error_No_Catch_For_Throw(string));
 
     if (IS_NULLED(string))
@@ -1210,15 +1183,12 @@ unsigned int RL_rebSpellIntoW(
 // API (possible solutions could include usermode UTF-16 conversion to binary,
 // and extraction of that with rebBytes(), then dividing the size by 2).
 //
-REBWCHAR *RL_rebSpellW(const void *p, ...)
+REBWCHAR *RL_rebSpellW(const void *p, va_list *vaptr)
 {
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (string);
-    if (Do_Va_Throws(string, p, &va)) // calls va_end()
+    if (Do_Va_Throws(string, p, vaptr)) // calls va_end()
         fail (Error_No_Catch_For_Throw(string));
 
     if (IS_NULLED(string))
@@ -1276,15 +1246,14 @@ size_t RL_rebBytesInto(
 // !!! This may wind up being a generic TO BINARY! converter, so you might
 // be able to get the byte conversion for any type.
 //
-unsigned char *RL_rebBytes(size_t *size_out, const void *p, ...)
-{
+unsigned char *RL_rebBytes(
+    size_t *size_out, // !!! Enforce non-null, to ensure type safety?
+    const void *p, va_list *vaptr
+){
     Enter_Api();
 
-    va_list va;
-    va_start(va, p);
-
     DECLARE_LOCAL (series);
-    if (Do_Va_Throws(series, p, &va)) // calls va_end()
+    if (Do_Va_Throws(series, p, vaptr)) // calls va_end()
         fail (Error_No_Catch_For_Throw(series));
 
     if (IS_NULLED(series)) {
@@ -1516,7 +1485,7 @@ REBVAL *RL_rebError(const char *msg)
 //
 void *RL_rebDeflateAlloc(
     size_t *out_len,
-    const void* input,
+    const void *input,
     size_t in_len
 ){
     REBSTR *envelope = Canon(SYM_NONE);
@@ -1532,7 +1501,7 @@ void *RL_rebDeflateAlloc(
 //
 void *RL_rebZdeflateAlloc(
     size_t *out_len,
-    const void* input,
+    const void *input,
     size_t in_len
 ){
     REBSTR *envelope = Canon(SYM_ZLIB);
@@ -1548,7 +1517,7 @@ void *RL_rebZdeflateAlloc(
 //
 void *RL_rebGzipAlloc(
     size_t *out_len,
-    const void* input,
+    const void *input,
     size_t in_len
 ){
     REBSTR *envelope = nullptr; // see notes in Gunzip on why GZIP is default

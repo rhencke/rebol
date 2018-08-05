@@ -87,6 +87,8 @@ cscape: function [
             ]
             sub: do code
 
+            if blank? sub [sub: "/* _ */"] ;-- replaced in post-phase
+
             sub: switch mode [
                 #cname [to-c-name sub]
                 #unspaced [either block? sub [unspaced sub] [form sub]]
@@ -114,6 +116,33 @@ cscape: function [
     string: reword/case/escape string substitutions ["$<" ">"]
     string: reword/case/escape string substitutions ["$(" ")"]
     string: reword/case/escape string substitutions ["$[" "]"]
+
+    ; BLANK! in CSCAPE tries to be "smart" about omitting the item from its
+    ; surrounding context, including removing lines when blank output and
+    ; whitespace is all that ends up on them.  If the user doesn't want the
+    ; intelligence, they should use "".
+    ;
+    parse string [
+        (nonwhite: removed: false) start-line:
+        while [
+            space
+            |
+            newline
+            [
+                if (did all [not nonwhite | removed])
+                :start-line remove thru [newline | end]
+                |
+                skip
+            ]
+            (nonwhite: removed: false) start-line:
+            |
+            remove "/* _ */" (removed: true) opt remove space
+            |
+            (nonwhite: true)
+            skip
+        ]
+    ]
+
     return string
 ]
 

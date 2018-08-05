@@ -100,6 +100,39 @@ REBNATIVE(locale)
 }
 
 
+// Some locales are GNU extensions; define them as -1 if not present:
+//
+// http://man7.org/linux/man-pages/man7/locale.7.html
+
+#ifndef LC_ADDRESS
+    #define LC_ADDRESS -1
+#endif
+
+#ifndef LC_IDENTIFICATION
+    #define LC_IDENTIFICATION -1
+#endif
+
+#ifndef LC_MEASUREMENT
+    #define LC_MEASUREMENT -1
+#endif
+
+#ifndef LC_MESSAGES
+    #define LC_MESSAGES -1
+#endif
+
+#ifndef LC_NAME
+    #define LC_NAME -1
+#endif
+
+#ifndef LC_PAPER
+    #define LC_PAPER -1
+#endif
+
+#ifndef LC_TELEPHONE
+    #define LC_TELEPHONE -1
+#endif
+
+
 //
 //  setlocale: native/export [
 //
@@ -116,49 +149,22 @@ REBNATIVE(setlocale)
 {
     LOCALE_INCLUDE_PARAMS_OF_SETLOCALE;
 
-    // Some locales are GNU extensions, and only included via #ifdef
-    //
-    // http://man7.org/linux/man-pages/man7/locale.7.html
+    // GNU extensions are #define'd to -1 above this routine if not available
     //
     REBVAL *map = rebRun(
         "make map! [",
             "all", rebI(LC_ALL),
-
-          #if defined(LC_ADDRESS)
-            "address", rebI(LC_ADDRESS),
-          #endif
-
+            "address", rebI(LC_ADDRESS), // GNU extension
             "collate", rebI(LC_COLLATE),
             "ctype", rebI(LC_CTYPE),
-
-          #ifdef LC_IDENTIFICATION
-            "identification", rebI(LC_IDENTIFICATION),
-          #endif
-
-          #ifdef LC_MEASUREMENT
-            "measurement", rebI(LC_MEASUREMENT),
-          #endif
-
-          #ifdef LC_MESSAGES
-            "messages", rebI(LC_MESSAGES),
-          #endif
-
-            "monetary", rebI(LC_MONETARY),
-
-          #ifdef LC_NAME
-            "name", rebI(LC_NAME),
-          #endif
-
+            "identification", rebI(LC_IDENTIFICATION), // GNU extension
+            "measurement", rebI(LC_MEASUREMENT), // GNU extension
+            "messages", rebI(LC_MESSAGES), // GNU extension
+            "monetary", rebI(LC_MONETARY), // GNU extension
+            "name", rebI(LC_NAME), // GNU extension
             "numeric", rebI(LC_NUMERIC),
-
-          #ifdef LC_PAPER
-            "paper", rebI(LC_PAPER),
-          #endif
-
-          #ifdef LC_TELEPHONE
-            "telephone", rebI(LC_TELEPHONE),
-          #endif
-
+            "paper", rebI(LC_PAPER), // GNU extension
+            "telephone", rebI(LC_TELEPHONE), // GNU extension
             "time", rebI(LC_TIME),
         "]", rebEND
     );

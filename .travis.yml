@@ -630,7 +630,7 @@ script:
     #
     - |
       if [[ "${OS_ID}" = "0.4.40" || "${OS_ID}" = "0.4.4" || "${OS_ID}" = "0.2.40" ]]; then
-          ./r3 --do "print {Testing...} quit/with either find to-string read https://example.com {<h1>Example Domain</h1>} [0] [1]";
+          ./r3 --do "print {Testing...} quit/with either find to-text read https://example.com {<h1>Example Domain</h1>} [0] [1]";
           R3_EXIT_STATUS=$?;
       else
           R3_EXIT_STATUS=0;

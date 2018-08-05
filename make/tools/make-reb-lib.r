@@ -21,10 +21,6 @@ do %common-emitter.r
 
 print "--- Make Reb-Lib Headers ---"
 
-lib-ver: 2
-
-preface: "RL_"
-
 args: parse-args system/options/args
 output-dir: system/options/path/prep
 output-dir: output-dir/include
@@ -32,18 +28,32 @@ mkdir/deep output-dir
 
 ver: load %../../src/boot/version.r
 
-;-----------------------------------------------------------------------------
 
-; These are the blocks of strings that are gathered in the EMIT-PROTO scan of
-; %a-lib.c.  They are later composed along with some boilerplate to produce
-; the %rebol.h file.
-;
-lib-struct-fields: make block! 50
-struct-call-macros: make block! 50
-undecorated-prototypes: make block! 50
-direct-call-macros: make block! 50
-table-init-items: make block! 50
-cwrap-items: make block! 50
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; PROCESS %a-lib.h TO PRODUCE A LIST OF DESCRIPTION OBJECTS FOR EACH API
+;;
+;; This leverages the prototype parser, which uses PARSE on C lexicals, and
+;; loads Rebol-structured data out of comments in the file.
+;;
+;; Currently only two files are searched for RL_API entries.  This makes it
+;; easier to track the order of the API routines and change them sparingly
+;; (such as by adding new routines to the end of the list, so as not to break
+;; binary compatibility with code built to the old ordered interface).
+;;
+;; !!! Having the C parser doesn't seem to buy us as much as it sounds, as
+;; this code has to parse out the types and parameter names.  Is there a way
+;; to hook it to get this information?
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+api-objects: make block! 50
+
+map-each-api: func [code [block!]] [
+    map-each api api-objects compose/only [
+        do in api (code) ;-- want API variable available when code is running 
+    ]
+]
 
 emit-proto: func [return: <void> proto] [
     header: proto-parser/data
@@ -53,7 +63,6 @@ emit-proto: func [return: <void> proto] [
         2 <= length of header
         set-word? header/1
     ] or [
-        print mold header
         fail [
             proto
             newline
@@ -62,135 +71,56 @@ emit-proto: func [return: <void> proto] [
     ]
 
     if header/2 != 'RL_API [return]
+    if not set-word? header/1 [
+        fail ["API declaration should be a SET-WORD!, not" (header/1)]
+    ]
 
-    ; Currently the only part of the comment header for the exports in
-    ; the %a-lib.c file that is paid attention to is the SET-WORD! that
-    ; mirrors the name of the function, and the RL_API word that comes
-    ; after it.  Anything else should just be comments.  But some day,
-    ; it could be a means of exposing documentation for the parameters.
-    ;
-    ; (This was an original intent of the comments in the %a-lib.c file,
-    ; though they parsed a specialized documentation format that did not
-    ; use Rebol syntax...the new idea is to always use Rebol syntax.)
+    paramlist: collect [
+        parse proto [
+            copy returns to "RL_" "RL_" copy name to "(" skip
+            ["void)" | some [ ;-- C void, or at least one parameter expected
+                [copy param to "," skip | copy param to ")" to end] (
+                    ;
+                    ; Separate type from parameter name.  Step backwards from
+                    ; the tail to find space, or non-letter/digit/underscore.
+                    ;
+                    trim/head/tail param
+                    identifier-chars: charset [
+                        #"A" - #"Z"
+                        #"a" - #"z"
+                        #"0" - #"9"
+                        #"_"
+                        ;-- #"." in variadics (but all va_list* in API defs)
+                    ]
+                    pos: back tail param
+                    while [find identifier-chars pos/1] [
+                        pos: back pos
+                    ]
+                    keep trim/tail copy/part param next pos ;-- TEXT! of type
+                    keep to word! next pos ;-- WORD! of the parameter name
+                )
+            ]]
+        ] or [
+            fail ["Couldn't extract API schema from prototype:" proto]
+        ]
+    ]
 
-    api-name: copy-as-text header/1
-    if proto-parser/proto.id != unspaced ["RL_" api-name] [
+    if (to set-word! name) != header/1 [ ;-- e.g. `//  rebRun: RL_API`
         fail [
-            "Name in comment header (" api-name ") isn't function name"
-            "minus RL_ prefix for" proto-parser/proto.id
+            "Name in comment header (" header/1 ") isn't C function name"
+            "minus RL_ prefix to match" (name)
         ]
     ]
 
-    pos.id: find proto "RL_"
-    fn.declarations: copy/part proto pos.id
-    pos.lparen: find pos.id "("
-    fn.name: copy/part pos.id pos.lparen
-    fn.name.upper: uppercase copy fn.name
-    fn.name.lower: lowercase copy find/tail fn.name "RL_"
-    fn.args: copy/part next pos.lparen back tail proto
-
-    append lib-struct-fields unspaced [
-        fn.declarations "(*" fn.name.lower ")" pos.lparen
-    ]
-
-    append undecorated-prototypes unspaced [
-        "EMSCRIPTEN_KEEPALIVE RL_API" space proto
-    ]
-
-    ; It's not possible to make a function pointer in a struct carry the no
-    ; return attribute.  So we have to go through an inline function.
+    ; Note: Cannot set object fields directly from PARSE, tried it :-(
+    ; https://github.com/rebol/rebol-issues/issues/2317
     ;
-    all [
-        block? :header/3
-        find header/3 #noreturn
-    ] then [
-        inline-proto: copy proto
-        replace inline-proto "RL_API" {}
-        replace inline-proto "RL_" {}
-
-        inline-args: unspaced collect [
-            parse inline-proto [
-                thru "("
-                any [
-                    [copy param thru "," | copy param to ")" to end] (
-                        ;
-                        ; We have the type and pointer decorations, basically
-                        ; just step backwards until we find something that's
-                        ; not a C identifier letter/digit/underscore
-                        ;
-                        identifier-chars: charset [
-                            #"A" - #"Z" #"a" - #"z" #"0" - #"9" #"_"
-                            #"." ;-- for variadics
-                        ]
-                        pos: back back tail param
-                        while [find identifier-chars pos/1] [
-                            pos: back pos
-                        ]
-                        keep next pos
-                    )
-                ]
-            ] or [
-                fail ["Couldn't extract args from prototype:" inline-proto]
-            ]
-        ]
-
-        if find inline-proto "va_list *vaptr" [
-            replace inline-proto "va_list *vaptr" "..."
-            parse inline-args [
-                some [copy next-to-last-arg: to "," skip]
-                to end
-            ]
-            replace inline-args "vaptr" "&va"
-
-            append direct-call-macros cscape {
-                ATTRIBUTE_NO_RETURN inline static $<Inline-Proto> {
-                    va_list va;
-                    va_start(va, ${Next-To-Last-Arg});
-                    $<Proto-Parser/Proto.Id>($<Inline-Args>);
-                    DEAD_END;
-                }
-            }
-
-            append struct-call-macros cscape {
-                ATTRIBUTE_NO_RETURN inline static $<Inline-Proto> {
-                    va_list va;
-                    va_start(va, ${Next-To-Last-Arg});
-                    RL->${fn.name.lower}($<Inline-Args>);
-                    DEAD_END;
-                }
-            }
-        ] else [
-            append direct-call-macros cscape {
-                ATTRIBUTE_NO_RETURN inline static $<Inline-Proto> {
-                    $<Proto-Parser/Proto.Id>($<Inline-Args>);
-                    DEAD_END;
-                }
-            }
-
-            append struct-call-macros cscape {
-                ATTRIBUTE_NO_RETURN inline static $<Inline-Proto> {
-                    RL->${fn.name.lower}($<Inline-Args>);
-                    DEAD_END;
-                }
-            }
-        ]
-    ] else [
-        ;-- alias version without the RL_ on it to just call the RL_ version
-        append direct-call-macros cscape {
-            #define $<Api-Name> $<Proto-Parser/Proto.Id>
-        }
-
-        append struct-call-macros cscape {
-            #define $<Api-Name> RL->${fn.name.lower}
-        }
-    ]
-
-    append table-init-items fn.name
-
-    append cwrap-items reduce [
-        fn.declarations
-        fn.name
-        fn.args
+    append api-objects make object! compose/only [
+        spec: try match block! third header ;-- Rebol metadata API comment
+        name: (ensure text! name)
+        returns: (ensure text! trim/tail returns)
+        paramlist: (ensure block! paramlist)
+        proto: (ensure text! proto)
     ]
 ]
 
@@ -202,19 +132,134 @@ process: func [file] [
     proto-parser/process data
 ]
 
-;-----------------------------------------------------------------------------
-;
-; Currently only two files are searched for RL_API entries.  This makes it
-; easier to track the order of the API routines and change them sparingly
-; (such as by adding new routines to the end of the list, so as not to break
-; binary compatibility with code built to the old ordered interface).
-
 src-dir: %../../src/core/
 
 process src-dir/a-lib.c
 process src-dir/f-extension.c ; !!! is there a reason to process this file?
 
-;-----------------------------------------------------------------------------
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; GENERATE LISTS USED TO BUILD REBOL.H
+;;
+;; For readability, the technique used is not to emit line-by-line, but to
+;; give a "big picture overview" of the header file.  It is substituted into
+;; like a conventional textual templating system.  So blocks are produced for
+;; long generated lists, and then spliced into slots in that "big picture"
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+extern-prototypes: map-each-api [
+    cscape/with
+        <- {EMSCRIPTEN_KEEPALIVE RL_API $<Proto>}
+        <- api
+]
+
+lib-struct-fields: map-each-api [
+    cfunc-params: if empty? paramlist [
+        "void"
+    ] else [
+        delimit map-each [type var] paramlist [
+            spaced [type var]
+        ] ", "
+    ]
+    cscape/with
+        <- {$<Returns> (*$<Name>)($<Cfunc-Params>)}
+        <- api
+]
+
+struct-call-inlines: make block! length of api-objects
+direct-call-inlines: make block! length of api-objects
+
+for-each api api-objects [do in api [
+    opt-va-start: _
+    if va-pos: try find paramlist "va_list *" [
+        assert ['vaptr first next va-pos]
+        assert ['p = first back va-pos]
+        assert ["const void *" = first back back va-pos]
+        opt-va-start: {va_list va; va_start(va, p);}
+    ]
+
+    wrapper-params: if empty? paramlist [
+        "void"
+    ] else [
+        delimit map-each [type var] paramlist [
+            if type = "va_list *" [
+                "..."
+            ] else [
+                spaced [type var]
+            ]
+        ] ", "
+    ]
+
+    proxied-args: delimit map-each [type var] paramlist [
+        if type = "va_list *" [
+            "&va" ;-- to produce vaptr
+        ] else [
+            to text! var
+        ]
+    ] ", "
+
+    if find spec #noreturn [
+        assert [returns = "void"]
+        opt-dead-end: "DEAD_END;"
+        opt-noreturn: "ATTRIBUTE_NO_RETURN"
+    ] else [
+        opt-dead-end: _
+        opt-noreturn: _
+    ]
+
+    opt-return: try if returns != "void" ["return"]
+
+    make-inline-proxy: func [
+        return: [text!]
+        internal [text!]
+    ][
+        cscape/with {
+            $<OPT-NORETURN>
+            inline static $<Returns> $<Name>_inline($<Wrapper-Params>) {
+                $<Opt-Va-Start>
+                $<opt-return> $<Internal>($<Proxied-Args>);
+                $<OPT-DEAD-END>
+            }
+        } reduce [api 'internal]
+    ]
+
+    append direct-call-inlines make-inline-proxy unspaced ["RL_" name]
+    append struct-call-inlines make-inline-proxy unspaced ["RL->" name]
+]]
+
+c89-macros: map-each-api [
+    cfunc-params: if empty? paramlist [
+        "void"
+    ] else [
+        delimit map-each [type var] paramlist [
+            spaced [type var]
+        ] ", "
+    ]
+    cscape/with
+        <- {#define $<Name> $<Name>_inline}
+        <- api
+]
+
+c99-or-c++11-macros: map-each-api [
+    if find paramlist 'vaptr [
+        cscape/with
+            <- {#define $<Name>(...) $<Name>_inline(__VA_ARGS__, rebEND)}
+            <- api
+    ] else [
+        cscape/with
+            <- {#define $<Name> $<Name>_inline}
+            <- api
+    ]
+]
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; GENERATE REBOL.H
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 e-lib: (make-emitter
     "Rebol External Library Interface" output-dir/rebol.h)
@@ -234,7 +279,7 @@ e-lib/emit {
     #endif
 
     #ifdef __cplusplus
-    extern "C" ^{
+    extern "C" {
     #endif
 
     /*
@@ -319,7 +364,7 @@ e-lib/emit {
      * provided in case defining `nullptr` is not an option--for some reason.
      */
     #define rebNull \
-        cast(REBVAL*, 0)
+        ((REBVAL*)0)
 
     /*
      * Since a C nullptr (pointer cast of 0) is used to represent the Rebol
@@ -335,10 +380,14 @@ e-lib/emit {
      * this simple 2 byte string does the trick!
      */
     #define rebEND \
-        "\x80"
+        ((const void*)"\x80")
 
     /*
-     * Function entry points for reb-lib (used for MACROS below):
+     * Function entry points for reb-lib.  Formulating this way allows the
+     * interface structure to be passed from an EXE to a DLL, then the DLL
+     * can call into the EXE (which is not generically possible via linking).
+     *
+     * For convenience, calls to RL->xxx are wrapped in inline functions:
      */
     typedef struct rebol_ext_api {
         $[Lib-Struct-Fields];
@@ -346,30 +395,78 @@ e-lib/emit {
 
     #ifdef REB_EXT /* can't direct call into EXE, must go through interface */
         /*
-         * The macros below will require this base pointer:
+         * The inline functions below will require this base pointer:
          */
-        extern RL_LIB *RL;  // is passed to the RX_Init() function
+        extern RL_LIB *RL; /* is passed to the RX_Init() function */
 
         /*
-         * Macros to access reb-lib functions (from non-linked extensions):
+         * Inlines to access reb-lib functions (from non-linked extensions):
          */
 
-        $[Struct-Call-Macros]
+        $[Struct-Call-Inlines]
 
     #else /* ...calling Rebol as DLL, or code built into the EXE itself */
         /*
-         * Undecorated prototypes, don't call with this name directly
+         * Extern prototypes for RL_XXX, don't call these functions directly.
+         * They use vaptr instead of `...`, and may not do all the proper
+         * exception/longjmp handling needed.
          */
 
-        $[Undecorated-Prototypes];
+        $[Extern-Prototypes];
 
         /*
-         * Use these macros for consistency with extension code naming
+         * rebXXX_inline functions which do the work of 
          */
 
-        $[Direct-Call-Macros]
+        $[Direct-Call-Inlines]
 
-    #endif // REB_EXT
+    #endif /* !REB_EXT */
+
+    /*
+     * C's variadic interface is very low-level, as a thin wrapper over the
+     * stack memory of a function call.  So va_start() and va_end() aren't
+     * really function calls...in fact, va_end() is usually a no-op.
+     *
+     * The simplicity is an advantage for optimization, but unsafe!  Type
+     * checking is non-existent, and there is no protocol for knowing how
+     * many items are in a va_list.  The libRebol API uses rebEND to signal
+     * termination, but it is awkward and easy to forget.
+     *
+     * C89 offers no real help, but C99 (and C++11 onward) standardize an
+     * interface for variadic macros:
+     *
+     * https://stackoverflow.com/questions/4786649/
+     *
+     * These macros can transform variadic input in such a way that a rebEND
+     * may be automatically placed on the tail of a call.  If rebEND is used
+     * explicitly, this gives a harmless but slightly inefficient repetition.
+     */
+    #ifdef REBOL_IMPLICIT_END
+
+      #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+        /* C99 or above */
+      #elif defined(__cplusplus) && __cplusplus >= 201103L
+        /* C++11 or above, if following the standard (VS2017 does not) */
+      #elif defined (CPLUSPLUS_11)
+        /* Custom C++11 or above flag, e.g. to override Visual Studio's lie */
+      #else
+        #error "REBOL_IMPLICIT_END only works in C99 or C+++11 (and later)"
+      #endif
+
+        $[C99-Or-C++11-Macros]
+
+    #else /* !REBOL_IMPLICIT_END */
+
+        /*
+         * !!! Some kind of C++ variadic trick using template recursion could
+         * check to make sure you used a rebEND under this interface, when
+         * building the C89-targeting code under C++11 and beyond.  TBD.
+         */
+
+        $[C89-Macros]
+
+    #endif /* !REBOL_IMPLICIT_END */
+
 
     /***********************************************************************
      *
@@ -413,16 +510,25 @@ e-lib/emit {
         cast(t *, rebMalloc(sizeof(t) * (n)))
 
     #ifdef __cplusplus
-    ^}
+    }
     #endif
 }
 
 e-lib/write-emitted
 
-;-----------------------------------------------------------------------------
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; GENERATE TMP-REB-LIB-TABLE.INC
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 e-table: (make-emitter
     "REBOL Interface Table Singleton" output-dir/tmp-reb-lib-table.inc)
+
+table-init-items: map-each-api [
+    unspaced ["RL_" name]
+]
 
 e-table/emit {
     RL_LIB Ext_Lib = {
@@ -432,65 +538,103 @@ e-table/emit {
 
 e-table/write-emitted
 
-arg-to-js: func [s [text!]][
-    return case [
-        parse s [thru "char" some space "*" to end] ["'string'"]
-        find s "*" ["'number'"]
-        find s "[" ["'array'"]
-        parse/case s [
-            any space opt ["const" some space]
-            [ "REBCNT" | "REBOOL" | "REBDEC"
-            | "REBI64" | "REBRXT" | "REBUNI"
-            | "int" | "long" |"unsigned"
-            ]
-            to END
-        ] ["'number'"]
-        parse s ["void" any space] ["null"]
-        default [to-tag s]
-    ]
-]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; GENERATE REB-LIB.JS
+;;
+;; !!! What should this file be called?  rebol.js isn't a good fit.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 e-cwrap: (make-emitter
     "C-Wraps" output-dir/reb-lib.js
 )
 
-map-names: [
-    "rebMoldAlloc" "rebMold"
-    "rebSpellingOfAlloc" "rebSpellingOf"
-    _ "rebDo" ;skip rebDo
+to-js-type: func [
+    return: [<opt> text!]
+    s [text!] "C type as string"
+][
+    case [
+        ; APIs dealing with `char *` means UTF-8 bytes.  While C must memory
+        ; manage such strings (at the moment), the JavaScript wrapping assumes
+        ; input parameters should be JS strings that are turned into temp
+        ; UTF-8 on the emscripten heap (freed after the call).  Returned
+        ; `char *` should be turned into JS GC'd strings, then freed.
+        ;
+        ; !!! These APIs can also return nulls.  rebSpell("second [{a}]") is
+        ; now null, as a way of doing passthru on failures.
+        ;
+        s = "char *" ["'string'"]
+
+        ; Other pointer types aren't strings.  `unsigned char *` is a byte
+        ; array, and should perhaps use ArrayBuffer.  But for now, just assume
+        ; anyone working with bytes is okay calling emscripten API functions
+        ; directly (e.g. see getValue(), setValue() for peeking and poking).
+        ;
+        ; !!! It would be nice if REBVAL* could be type safe in the API and
+        ; maybe have some kind of .toString() method, so that it would mold
+        ; automatically?  Maybe wrap the emscripten number in an object?
+        ;
+        find s "*" ["'number'"]
+
+        ; !!! There are currently no APIs that deal in arrays directly
+        ;
+        find s "[" ["'array'"]
+
+        ; !!! JavaScript has a Boolean type...figure out how to use correctly
+        ;
+        s = "bool" ["'Boolean'"]
+
+        ; !!! JavaScript does not differentiate numeric types, though it does
+        ; have a BigInt, which should be considered when bignum is added:
+        ;
+        ; https://developers.google.com/web/updates/2018/05/bigint
+        ;
+        find/case [
+            "int"
+            "unsigned int"
+            "double"
+            "long"
+            "int64_t"
+            "uint32_t"
+            "uintptr_t"
+            "size_t"
+            "REBRXT"
+        ] s ["'number'"]
+
+        ; JavaScript has undefined as what `function() {return;}` returns.
+        ; The differences between undefined and null are subtle and easy to
+        ; get wrong, but a void-returning function should map to undefined.
+        ;
+        parse s ["void" any space] ["undefined"]
+    ]
 ]
 
-for-each [result RL_name args] cwrap-items [
-    args: split args ","
-    result: arg-to-js result
-    parse RL_Name ["RL_" copy rebName to end] or [fail]
-
-    if find/skip (next map-names) rebName 2 [
-        print ["Skipping" rebName]
-        continue
-    ]
-    line: unspaced [
-        rebName " = Module.cwrap('"
-        RL_name "', "
-        either result = "'string'" ["'number'"][result] ", ["
-        delimit
-            map-each x args [arg-to-js x]
-            ", "
-        "]);"
-    ]
-    if find line "<" [
-        e-cwrap/emit {
-            // Unknown type: <...> -- $<Line>
-        }
-    ] else [
-        e-cwrap/emit {
-            $<Line>
-        }
+map-each-api [
+    js-returns: to-js-type returns else [
+        fail ["No JavaScript return mapping for type" returns]
     ]
 
-    if not (find/skip map-names rebName 2) [continue] 
-    ;; emit JS variant
-    js-name: map-names/:rebName
+    js-param-types: collect [
+        for-each [type var] paramlist [
+            keep to-js-type type else [
+                fail ["No JavaScript argument mapping for type" type]
+            ]
+        ]
+    ]
+
+    e-cwrap/emit cscape/with {
+        $<Name> = Module.cwrap(
+            'RL_$<Name>',
+            $<Js-Returns>, [
+                $(Js-Param-Types),
+            ]
+        );
+    } api
+
+    ; !!! Needs fixing...
+comment [
     for-next args [args/1: unspaced ["x" index of args]]
     args: delimit args ","
     line: unspaced [
@@ -507,6 +651,8 @@ for-each [result RL_name args] cwrap-items [
             $<Line>
         }
     ]
+]
+
 ]
 
 e-cwrap/emit {
