@@ -52,17 +52,18 @@ maybe: enfix func [
     ]
 
     case [
-        null? :optional []
-
-        set-word? target [set target :optional]
+        set-word? target [
+            if null? :optional [return get target]
+            set target :optional
+        ]
 
         set-path? target [
-            ;
-            ; If a SET-PATH!, it may contain a GROUP!.  SET does not accept
-            ; that due to potential side-effects, so use a REDUCE.  See also:
+            ; If a SET-PATH!, it may contain a GROUP!.  SET/GET don't accept
+            ; that due to potential side-effects, so use REDUCE.  See also:
             ;
             ; https://github.com/rebol/rebol-issues/issues/2275
             ;
+            if null? :optional [return do compose [(as get-path! target)]]
             do compose/only [(target) quote (:optional)]
         ]
     ]

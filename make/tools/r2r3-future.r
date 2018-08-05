@@ -438,4 +438,36 @@ or: enfix function [
 ]
 
 ;-- make COPY obey "blank in, null out"
-copy: chain [:copy | :opt]
+copy: chain [:lib/copy | :opt]
+
+; Old MAYBE was a very early implementation of MATCH...nowhere near as good as
+; it is in modern Ren-C.  It returned BLANK! on failure, so adjust it for the
+; new NULL world... can be used on limited things like TRY MATCH BLOCK! FOO
+;
+match: chain [:lib/maybe | :opt]
+
+; New MAYBE definition runs all right in older Ren-Cs
+;
+maybe: enfix func [
+    return: [<opt> any-value!]
+    'target [set-word! set-path!]
+    optional [<opt> any-value!]
+    <local> gotten
+][
+    case [
+        set-word? target [
+            if null? :optional [return get target]
+            set target :optional
+        ]
+
+        set-path? target [
+            if null? :optional [return do compose [(as get-path! target)]]
+            do compose/only [(target) quote (:optional)]
+        ]
+    ]
+]
+
+; Doesn't have any magic powers in the old Ren-C, but still helpful for
+; showing args that span multiple lines.
+;
+set quote <- func [x [<end> any-value!]] [:x]
