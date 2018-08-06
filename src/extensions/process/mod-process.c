@@ -1997,7 +1997,7 @@ static REBNATIVE(set_env)
   #ifdef TO_WINDOWS
     WCHAR *key_wide = rebSpellW(variable, rebEND);
     WCHAR *val_wide = rebSpellW("opt ensure [text! blank!]", value, rebEND);
-    
+
     // val may be NULL if blank! input, which will unset the envionment var
 
     if (not SetEnvironmentVariable(key_wide, val_wide))

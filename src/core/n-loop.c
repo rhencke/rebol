@@ -523,7 +523,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 j++;
             }
             else if (IS_VECTOR(data)) {
-                Set_Vector_Value(var, series, index);
+                Get_Vector_At(var, series, index);
             }
             else if (IS_MAP(data)) {
                 //
