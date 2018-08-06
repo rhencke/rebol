@@ -63,22 +63,31 @@
 // Addressing that is an ongoing process.
 //
 
-
+#define REB_DEF // kernel definitions and structs
 #include "reb-config.h"
 
-// Internal configuration:
-#define REB_DEF                 // kernel definitions and structs
-#define STACK_MIN   4000        // data stack increment size
-#define STACK_LIMIT 400000      // data stack max (6.4MB)
-#define MIN_COMMON 10000        // min size of common buffer
-#define MAX_COMMON 100000       // max size of common buffer (shrink trigger)
-#define MAX_NUM_LEN 64          // As many numeric digits we will accept on input
-#define MAX_EXPAND_LIST 5       // number of series-1 in Prior_Expand list
-#define UNICODE_CASES 0x2E00    // size of unicode folding table
-#define HAS_SHA1                // allow it
-#define HAS_MD5                 // allow it
 
-#include <stdlib.h>
+//=//// INCLUDE EXTERNAL API /////////////////////////////////////////////=//
+//
+// Historically, Rebol source did not include the external library, because it
+// was assumed the core would never want to use the less-privileged and higher
+// overhead API.  However, libRebol now operates on REBVAL* directly (though
+// opaque to clients).  It has many conveniences, and is the preferred way to
+// work with isolated values that need indefinite duration.
+//
+#include <stdlib.h> // size_t and other types used in rebol.h
+#include "pstdint.h" // polyfill <stdint.h> for pre-C99/C++11 compilers
+#include "pstdbool.h" // polyfill <stdbool.h> for pre-C99/C++11 compilers
+#if !defined(REBOL_IMPLICIT_END)
+    #define REBOL_EXPLICIT_END // ensure core compiles with pre-C99/C++11
+#endif
+#include "rebol.h"
+
+
+//=//// STANDARD DEPENDENCIES FOR CORE ////////////////////////////////////=//
+
+#include "reb-c.h"
+
 #include <stdarg.h> // va_list, va_arg()...
 #include <string.h>
 #include <setjmp.h>
@@ -144,20 +153,16 @@
 #endif
 
 
-// The %reb-c.h file includes something like C99's <stdint.h> for setting up
-// a basis for concrete data type sizes.  It also contains some other helpful
-// macros and tools for C programming, and added checks when building as C++.
-//
-#include "reb-c.h"
-
-
-// Historically, Rebol source did not include the external library, because it
-// was assumed the core would never want to use the less-privileged and higher
-// overhead API.  However, libRebol now operates on REBVAL* directly (though
-// opaque to clients).  It has many conveniences, and is the preferred way to
-// work with isolated values that need indefinite duration.
-//
-#include "rebol.h"
+// Internal configuration:
+#define STACK_MIN   4000        // data stack increment size
+#define STACK_LIMIT 400000      // data stack max (6.4MB)
+#define MIN_COMMON 10000        // min size of common buffer
+#define MAX_COMMON 100000       // max size of common buffer (shrink trigger)
+#define MAX_NUM_LEN 64          // As many numeric digits we will accept on input
+#define MAX_EXPAND_LIST 5       // number of series-1 in Prior_Expand list
+#define UNICODE_CASES 0x2E00    // size of unicode folding table
+#define HAS_SHA1                // allow it
+#define HAS_MD5                 // allow it
 
 
 // This does all the forward definitions that are necessary for the compiler

@@ -33,6 +33,9 @@
 
 #include "sys-core.h"
 #include "sys-ext.h"
+
+#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
+
 #include "tmp-mod-bmp-first.h"
 
 //**********************************************************************

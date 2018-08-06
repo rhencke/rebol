@@ -33,8 +33,10 @@
 
 #include "sys-core.h"
 #include "sys-ext.h"
-#include "tmp-mod-gif-first.h"
 
+#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
+
+#include "tmp-mod-gif-first.h"
 
 #define MAX_STACK_SIZE  4096
 #define NULL_CODE       (-1)

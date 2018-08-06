@@ -47,9 +47,13 @@
 
 #include "reb-config.h"
 
-#include "reb-c.h"
+#include <stdlib.h> // size_t and other types used in rebol.h
+#include "pstdint.h" // polyfill <stdint.h> for pre-C99/C++11 compilers
+#include "pstdbool.h" // polyfill <stdbool.h> for pre-C99/C++11 compilers
+#if !defined(REBOL_IMPLICIT_END)
+    #define REBOL_EXPLICIT_END // ensure core compiles with pre-C99/C++11
+#endif
 #include "rebol.h"
-#include "reb-defs.h"
 
 #include "tmp-constants.h" // need the extern definitions
 
@@ -83,7 +87,7 @@ const char * const Esc_Names[] = {
     "null"
 };
 
-const REBYTE Esc_Codes[] = {
+const unsigned char Esc_Codes[] = {
     // Must match enum REBOL_Esc_Codes!
     10,     // line
     9,      // tab
@@ -96,7 +100,7 @@ const REBYTE Esc_Codes[] = {
 };
 
 // Zen Point on naming cues: was "Month_Lengths", but said 29 for Feb! --@HF
-const REBYTE Month_Max_Days[12] = {
+const unsigned char Month_Max_Days[12] = {
     31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
 };
 

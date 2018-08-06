@@ -51,43 +51,30 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
+#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
+
 #include "tmp-mod-lodepng-first.h"
 
 
 //=//// CUSTOM SERIES-BACKED MEMORY ALLOCATOR /////////////////////////////=//
 //
-// LodePNG allows for a custom allocator, but it assumes the pointer it is
-// given is where it will write data...so it can't be given something like
-// a REBSER* which needs BIN_HEAD() or BIN_AT() to dereference it.  But we
-// would like to avoid the busywork of copying data between malloc()'d buffers
-// and REBSER data which can be given into userspace.
+// LodePNG allows for a custom allocator.  %lodepng.h contains prototypes for
+// these 3 functions, and expects them to be defined somewhere if you
+// `#define LODEPNG_NO_COMPILE_ALLOCATORS` (set in %lodepng/make-spec.reb)
 //
-// A trick is used here where a series is allocated that is slightly larger
-// than the requested data size...just large enough to put a pointer to the
-// series itself at the head of the memory.  Then, the memory right after
-// that pointer is given back to LodePNG.  The series pointer can then be
-// found again by subtracting sizeof(REBSER*) from the client pointer.
-//
-// lodepng contains prototypes for these functions, and expects them to
-// be defined somewhere if you #define LODEPNG_NO_COMPILE_ALLOCATORS
-// (this is specified in the extension compiler flag settings)
+// Use rebMalloc(), because the memory can be later rebRepossess()'d into a
+// Rebol BINARY! value without making a new buffer and copying.
 //
 //=////////////////////////////////////////////////////////////////////////=//
 
 void* lodepng_malloc(size_t size)
-{
-    return rebMalloc(size);
-}
+  { return rebMalloc(size); }
 
 void* lodepng_realloc(void* ptr, size_t new_size)
-{
-    return rebRealloc(ptr, new_size);
-}
+  { return rebRealloc(ptr, new_size); }
 
 void lodepng_free(void* ptr)
-{
-    rebFree(ptr);
-}
+  { rebFree(ptr); }
 
 
 //=//// HOOKS TO REUSE REBOL'S ZLIB ///////////////////////////////////////=//
@@ -97,7 +84,8 @@ void lodepng_free(void* ptr)
 // LodePNG not to compile its own copy, and pass function pointers to do
 // the compression and decompression in via the LodePNGState.
 //
-// Hence when lodepng.c is compiled, we must #define LODEPNG_NO_COMPILE_ZLIB
+// Hence when lodepng.c is compiled, we `#define LODEPNG_NO_COMPILE_ZLIB`
+// (set in %lodepng/make-spec.reb)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 

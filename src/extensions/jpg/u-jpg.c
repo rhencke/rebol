@@ -15,28 +15,9 @@ extern void jpeg_info(char *buffer, int nbytes, int *w, int *h);
 extern void jpeg_load(char *buffer, int nbytes, char *output);
 
 
-// !!! In R3-Alpha, it was possible to write a codec that was not dependent on
-// the RL_API in %reb-host.h (or the "internal API", which didn't exist
-// formally but was effectively what you got by including %sys-core.h).
-// Instead the interface to the codec was abstract to the byte-level, which
-// meant Rebol types had to be proxied into "pure" C types, the codec would
-// run and then proxy back into Rebol types again.
-//
-// Ren-C does not force all extension code to Rebol to include everything
-// (such as the definition of the full Reb_Value struct and all its
-// dependencies) but extensions or plugins are expected to be linked to
-// the RL_API.  This covers many things, such as transferring managed platform
-// independent strings back and forth, etc.
-//
-// These routines seem to be of somewhat old origin in the 90s.  Although
-// the main code has not been retrofitted to use REBINTs or REBOOLs or things
-// from %reb-c.h, it does depend on TO_PIXEL_COLOR to get the pixel bits
-// right across platforms, as well as needing a stable 32-bit integer type
-// from u32.  If the code were sync'd, then it may be updated by someone
-// else to not need these dependencies...and %reb-host.h inclusion could
-// be moved to the bottom of the file.
-//
-#include "reb-c.h"
+#include "pstdint.h" // for uint32_t
+
+#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
 
 
 /*

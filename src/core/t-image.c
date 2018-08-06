@@ -31,6 +31,8 @@
 
 #include "sys-core.h"
 
+#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
+
 #define CLEAR_IMAGE(p, x, y) \
     memset(p, 0, x * y * sizeof(uint32_t))
 

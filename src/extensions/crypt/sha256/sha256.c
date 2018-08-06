@@ -15,7 +15,7 @@
 /*************************** HEADER FILES ***************************/
 #include <stdlib.h>
 #include <memory.h>
-#include "reb-c.h" // used for #include of <stdint.h> or proxy
+#include "pstdint.h" // polyfill of <stdint.h> for pre-C99/pre-C++11
 #include "sha256.h"
 
 /****************************** MACROS ******************************/

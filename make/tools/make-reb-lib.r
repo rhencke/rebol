@@ -4,7 +4,7 @@ REBOL [
     File: %make-reb-lib.r
     Rights: {
         Copyright 2012 REBOL Technologies
-        Copyright 2012-2017 Rebol Open Source Contributors
+        Copyright 2012-2018 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -265,7 +265,23 @@ e-lib: (make-emitter
     "Rebol External Library Interface" output-dir/rebol.h)
 
 e-lib/emit {
-    #include <stdarg.h> /* needed for va_start() in inline functions */
+    /*
+     * The goal is to make it possible that the only include file one needs
+     * to make a simple Rebol library client is `#include "rebol.h"`.  Yet
+     * pre-C99 or pre-C++11 compilers will need `#define REBOL_EXPLICIT_END`
+     * since variadic macros don't work.  They will also need shims for
+     * stdint.h and stdbool.h included.
+     */
+    #include <stdlib.h> /* for size_t */
+    #include <stdarg.h> /* for va_list, va_start() in inline functions */
+    #if !defined(_PSTDINT_H_INCLUDED) && !defined(REBOL_NO_STDINT)
+        #include <stdint.h> /* for uintptr_t, int64_t, etc. */
+    #endif
+    #if !defined(_PSTDBOOL_H_INCLUDED) && !defined(REBOL_NO_STDBOOL)
+        #if !defined(__cplusplus)
+            #include <stdbool.h> /* for bool, true, false (if C99) */
+        #endif
+    #endif
 
     #ifdef TO_EMSCRIPTEN
         /*
@@ -441,7 +457,7 @@ e-lib/emit {
      * may be automatically placed on the tail of a call.  If rebEND is used
      * explicitly, this gives a harmless but slightly inefficient repetition.
      */
-    #ifdef REBOL_IMPLICIT_END
+    #if !defined(REBOL_EXPLICIT_END)
 
       #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
         /* C99 or above */
@@ -450,12 +466,12 @@ e-lib/emit {
       #elif defined (CPLUSPLUS_11)
         /* Custom C++11 or above flag, e.g. to override Visual Studio's lie */
       #else
-        #error "REBOL_IMPLICIT_END only works in C99 or C+++11 (and later)"
+        #error "REBOL_EXPLICIT_END must be used prior to C99 or C+++11"
       #endif
 
         $[C99-Or-C++11-Macros]
 
-    #else /* !REBOL_IMPLICIT_END */
+    #else /* REBOL_EXPLICIT_END */
 
         /*
          * !!! Some kind of C++ variadic trick using template recursion could
@@ -465,7 +481,7 @@ e-lib/emit {
 
         $[C89-Macros]
 
-    #endif /* !REBOL_IMPLICIT_END */
+    #endif /* REBOL_EXPLICIT_END */
 
 
     /***********************************************************************

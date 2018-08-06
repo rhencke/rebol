@@ -27,12 +27,20 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 
-#include <stddef.h> // size_t and other definitions API use
-
+// don't define REB_DEF, so it assumes non-core API pattern
+// (e.g. calls APIs via struct, RL->rebXXX(), vs. directly as RL_rebXXX())
+//
 #include "reb-config.h"
 
-#include "reb-c.h"
-#include "rebol.h" // libRebol, "external" API
+#include <stdlib.h> // size_t and other types used in rebol.h
+#include "pstdint.h" // polyfill <stdint.h> for pre-C99/C++11 compilers
+#include "pstdbool.h" // polyfill <stdbool.h> for pre-C99/C++11 compilers
+#if !defined(REBOL_IMPLICIT_END)
+    #define REBOL_EXPLICIT_END // ensure core compiles with pre-C99/C++11
+#endif
+#include "rebol.h"
+
+#include "reb-c.h" // API should only require <stdbool.h> and <stdint.h>
 
 struct rebol_devreq;
 typedef struct rebol_devreq REBREQ;

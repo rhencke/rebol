@@ -44,75 +44,130 @@
 //
 
 
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// EXPECTS <stdint.h> OR "pstdint.h" SHIM INCLUDED ///////////////////=//
 //
-// CPLUSPLUS_11
+// Rebol's initial design targeted C89 and old-ish compilers on a variety of
+// systems.  A comment here said:
 //
-//=////////////////////////////////////////////////////////////////////////=//
+//     "One of the biggest flaws in the C language was not
+//      to indicate bitranges of integers. So, we do that here.
+//      You cannot 'abstractly remove' the range of a number.
+//      It is a critical part of its definition."
 //
-// Because the goal of Ren-C is ultimately to be built with C, the C++ build
-// is just for static analysis and debug checks.  This means there's not much
-// value in trying to tailor reduced versions of the checks to old ANSI C++98
-// compilers, so the "C++ build" is an "at least C++11 build".
+// Once C99 arrived, the file <stdint.h> offered several basic types, and
+// basically covered the needs:
 //
-// Besides being a little less verbose to use, it allows override when using
-// with Microsoft Visual Studio via a command line definition.  For some
-// reason they didn't bump the version number from 1997, even by MSVC 2017!!!
+// http://en.cppreference.com/w/c/types/integer
 //
-#if defined(__cplusplus) && __cplusplus >= 201103L
-    #define CPLUSPLUS_11
-#endif
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// FEATURE TESTING AND ATTRIBUTE MACROS
+// The code was changed to use either the C99 types -or- a portable shim that
+// could mimic the types (with the same names) on older compilers.  It should
+// be included before %reb-c.h is included.
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Feature testing macros __has_builtin() and __has_feature() were originally
-// a Clang extension, but GCC added support for them.  If compiler doesn't
-// have them, default all features unavailable.
+// Note: INT32_MAX and INT32_C can be missing in C++ builds on some older
+// compilers without __STDC_LIMIT_MACROS and __STDC_CONSTANT_MACROS:
 //
-// http://clang.llvm.org/docs/LanguageExtensions.html#feature-checking-macros
+// https://sourceware.org/bugzilla/show_bug.cgi?id=15366
 //
-// Similarly, the __attribute__ feature is not in the C++ standard and only
-// available in some compilers.  Even compilers that have __attribute__ may
-// have different individual attributes available on a case-by-case basis.
+// You can run into this since pstdint.h falls back on stdint.h if it
+// thinks it can.  Put those on the command line if needed.
 //
-//=////////////////////////////////////////////////////////////////////////=//
+// !!! One aspect of pstdint.h is that it considers 64-bit "optional".
+// Some esoteric platforms may have a more hidden form of 64-bit support,
+// e.g. this case from R3-Alpha for "Windows VC6 nonstandard typing":
 //
-// Note: Placing the attribute after the prototype seems to lead to
-// complaints, and technically there is a suggestion you may only define
-// attributes on prototypes--not definitions:
+//     #ifdef WEIRD_INT_64
+//         typedef _int64 i64;
+//         typedef unsigned _int64 u64;
+//         #define I64_C(c) c ## I64
+//         #define U64_C(c) c ## U64
+//     #endif
 //
-// http://stackoverflow.com/q/23917031/211160
-//
-// Putting the attribute *before* the prototype seems to allow it on both the
-// prototype and definition in gcc, however.
+// If %pstdint.h isn't trying hard enough for an unsupported platform of
+// interest to get 64-bit integers, then patches should be made there.
 //
 
-#ifndef __has_builtin
-    #define __has_builtin(x) 0
-#endif
 
-#ifndef __has_feature
-    #define __has_feature(x) 0
-#endif
+//=//// EXPECTS <stdbool.h> OR "pstdbool.h" SHIM INCLUDED /////////////////=//
+//
+// It's better than what was previously used, a (REBOOL)cast_of_expression.
+// And it makes it much safer to use ordinary `&` operations to test for
+// flags, more succinctly even:
+//
+//     REBOOL b = GET_FLAG(flags, SOME_FLAG_ORDINAL);
+//     REBOOL b = !GET_FLAG(flags, SOME_FLAG_ORDINAL);
+//
+// vs.
+//
+//     REBOOL b = did (flags & SOME_FLAG_BITWISE); // 3 fewer chars
+//     REBOOL b = not (flags & SOME_FLAG_BITWISE); // 4 fewer chars
+//
+// (Bitwise vs. ordinal also permits initializing options by just |'ing them.)
 
-#ifdef __GNUC__
-    #define GCC_VERSION_AT_LEAST(m, n) \
-        (__GNUC__ > (m) || (__GNUC__ == (m) && __GNUC_MINOR__ >= (n)))
+#ifdef __cplusplus
+  #if defined(_MSC_VER)
+    #include <iso646.h> // MSVC doesn't have `and`, `not`, etc. w/o this
+  #else
+    // legitimate compilers define them, they're even in the C++98 standard!
+  #endif
 #else
-    #define GCC_VERSION_AT_LEAST(m, n) 0
+    // Since the C90 standard of C, iso646.h has been defined:
+    //
+    // https://en.wikipedia.org/wiki/C_alternative_tokens
+    //
+    // ...but TCC doesn't ship with it, and maybe other C's don't either.  The
+    // issue isn't so much the file, as it is agreeing on the 11 macros, so
+    // just define them here.
+    //
+    #define and &&
+    #define and_eq &=
+    #define bitand &
+    #define bitor |
+    #define compl ~
+    #define not !
+    #define not_eq !=
+    #define or ||
+    #define or_eq |=
+    #define xor ^
+    #define xor_eq ^=
+#endif
+
+// A 12th macro: http://blog.hostilefork.com/did-programming-opposite-of-not/
+//
+#define did !!
+
+typedef bool REBOOL;
+
+// !!! Historically Rebol used TRUE and FALSE uppercase macros, but so long
+// as C99 has added bool to the language, there's not much point in being
+// compatible with codebases that have `char* true = "Spandau";` or similar
+// in them.  So Rebol can use `true` and `false`, but there are still a lot
+// of instances of TRUE and FALSE, which will be removed when convenient (a
+// time that won't cause many merge conflicts).
+
+#if (defined(FALSE) && (!FALSE)) && (defined(TRUE) && TRUE)
+    #if defined(TO_WINDOWS) && !((FALSE == 0) && (TRUE == 1))
+        //
+        // The Windows API specifically mandates the value of TRUE as 1.
+        // If you are compiling on Windows with something that has
+        // predefined the constant as some other value, it will be
+        // inconsistent...and won't work out.
+        //
+        #error "Compiler's FALSE != 0 or TRUE != 1, invalid for Win32"
+    #else
+        // Outside of Win32, assume any C truthy/falsey definition that
+        // the compiler favors is all right.
+    #endif
+#elif !defined(FALSE) && !defined(TRUE)
+    #define FALSE false
+    #define TRUE true
+#else
+    #error "TRUE and FALSE are defined but are not their logic meanings"
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// INCLUDE TYPE_TRAITS IN C++11 AND ABOVE
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// TYPE_TRAITS IN C++11 AND ABOVE ///////////////////////////////////=//
 //
 // One of the most powerful tools you can get from allowing a C codebase to
 // compile as C++ comes from type_traits:
@@ -131,11 +186,7 @@
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// STATIC ASSERT FOR CHECKING COMPILE-TIME CONDITIONS IN C
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// STATIC ASSERT FOR C ///////////////////////////////////////////////=//
 //
 // Some conditions can be checked at compile-time, instead of deferred to a
 // runtime assert.  This macro triggers an error message at compile time.
@@ -158,11 +209,7 @@
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// CONDITIONAL C++ NAME MANGLING MACROS
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// CONDITIONAL C++ NAME MANGLING MACROS //////////////////////////////=//
 //
 // When linking C++ code, different functions with the same name need to be
 // discerned by the types of their parameters.  This means their name is
@@ -200,11 +247,7 @@
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// CASTING MACROS
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// CASTING MACROS ////////////////////////////////////////////////////=//
 //
 // The following code and explanation is from "Casts for the Masses (in C)":
 //
@@ -291,11 +334,7 @@
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// nullptr SHIM FOR C, C++98
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// nullptr SHIM FOR C, C++98 /////////////////////////////////////////=//
 //
 // The C language definition allows compilers to simply define NULL as 0.
 // This creates ambiguity in C++ when one overloading of a function takes an
@@ -357,11 +396,7 @@
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// NOOP a.k.a. VOID GENERATOR
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NOOP a.k.a. VOID GENERATOR ////////////////////////////////////////=//
 //
 // Creating a void value conveniently is useful for a few reasons.  One is
 // that it can serve as a NO-OP and suppress a compiler warning you might
@@ -381,65 +416,7 @@
 #define fallthrough NOOP // clarifies intent in switch() statements
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// <stdint.h> INCLUDE -OR- SHIM FOR PRE-C99 COMPILERS THAT DON'T HAVE IT
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Rebol's initial design targeted C89 and old-ish compilers on a variety of
-// systems.  A comment here said:
-//
-//     "One of the biggest flaws in the C language was not
-//      to indicate bitranges of integers. So, we do that here.
-//      You cannot 'abstractly remove' the range of a number.
-//      It is a critical part of its definition."
-//
-// Once C99 arrived, the file <stdint.h> offered several basic types, and
-// basically covered the needs:
-//
-// http://en.cppreference.com/w/c/types/integer
-//
-// The code was changed to use either the C99 types -or- a portable shim that
-// could mimic the types (with the same names) on older compilers.
-//
-
-#if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-    #include <stdint.h> // It's C99 or above, use as-is
-#elif defined (CPLUSPLUS_11)
-    #include <stdint.h> // should also work in conforming C++11 (or later)
-#else
-    #include "pstdint.h" // use "portable" standard int, by Paul Hsieh et al.
-
-    // Note: INT32_MAX and INT32_C can be missing in C++ builds on some older
-    // compilers without __STDC_LIMIT_MACROS and __STDC_CONSTANT_MACROS:
-    //
-    // https://sourceware.org/bugzilla/show_bug.cgi?id=15366
-    //
-    // You can run into this since pstdint.h falls back on stdint.h if it
-    // thinks it can.  Put those on the command line if needed.
-
-    // !!! One aspect of pstdint.h is that it considers 64-bit "optional".
-    // Some esoteric platforms may have a more hidden form of 64-bit support,
-    // e.g. this case from R3-Alpha for "Windows VC6 nonstandard typing":
-    //
-    //     #ifdef WEIRD_INT_64
-    //         typedef _int64 i64;
-    //         typedef unsigned _int64 u64;
-    //         #define I64_C(c) c ## I64
-    //         #define U64_C(c) c ## U64
-    //     #endif
-    //
-    // If %pstdint.h isn't trying hard enough for an unsupported platform of
-    // interest to get 64-bit integers, then patches should be made there.
-#endif
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// ALIGNMENT SIZE
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// ALIGNMENT SIZE ////////////////////////////////////////////////////=//
 //
 // Data alignment is a complex topic, which has to do with the fact that the
 // following kind of assignment can be slowed down or fail entirely on
@@ -473,125 +450,7 @@
     (((s) + (a) - 1) & ~((a) - 1)) // !!! this macro not used anywhere ATM
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// BOOLEAN DEFINITION
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// 0 is defined in C as "conditionally false", while all non-zero things are
-// considered "conditionally true".  Yet the language standard mandates that
-// comparison operators (==, !=, >, <, etc) will return either 0 or 1, and
-// the C++ language standard defines conversion of its built-in boolean type
-// to an integral value as either 0 or 1.
-//
-// This could be exploited by optimized code *IF* it could truly trust a true
-// "boolean" is exactly 0 or 1. But unfortunately, C only standardized an
-// actual boolean type in C99 with <stdbool.h>.  Older compilers have to use
-// integral types for booleans, and may wind up in situations like this:
-//
-//     #define REBOOL int
-//     int My_Optimized_Function(REBOOL logic) {
-//         return logic << 4; // should be 16 if logic is TRUE, 0 if FALSE
-//     }
-//     int zero_or_sixteen = My_Optimized_Function(flags & SOME_BIT_FLAG);
-//
-// This code shims in a definition of bool as 0 or 1 for older compilers.
-// It's better than what was previously used, a (REBOOL)cast_of_expression.
-// And it makes it much safer to use ordinary `&` operations to test for
-// flags, more succinctly even:
-//
-//     REBOOL b = GET_FLAG(flags, SOME_FLAG_ORDINAL);
-//     REBOOL b = !GET_FLAG(flags, SOME_FLAG_ORDINAL);
-//
-// vs.
-//
-//     REBOOL b = did (flags & SOME_FLAG_BITWISE); // 3 fewer chars
-//     REBOOL b = not (flags & SOME_FLAG_BITWISE); // 4 fewer chars
-//
-// (Bitwise vs. ordinal also permits initializing options by just |'ing them.)
-
-#ifdef __cplusplus
-    // bool, true, and false defined in the language since the beginning
-
-  #if defined(_MSC_VER)
-    #include <iso646.h> // MSVC doesn't have `and`, `not`, etc. w/o this
-  #else
-    // legitimate compilers define them, they're even in the C++98 standard!
-  #endif
-#else
-  #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L // C99 or later
-    #include <stdbool.h>
-  #else
-    #if !defined(true)
-        #define true 1
-    #endif
-    #if !defined(false)
-        #define false 0
-    #endif
-    typedef int_fast8_t bool; // fastest type that can represent 8-bits
-  #endif
-
-    // Since the C90 standard of C, iso646.h has been defined:
-    //
-    // https://en.wikipedia.org/wiki/C_alternative_tokens
-    //
-    // ...but TCC doesn't ship with it, and maybe other C's don't either.  The
-    // issue isn't so much the file, as it is agreeing on the 11 macros, so
-    // just define them here.
-    //
-    #define and &&
-    #define and_eq &=
-    #define bitand &
-    #define bitor |
-    #define compl ~
-    #define not !
-    #define not_eq !=
-    #define or ||
-    #define or_eq |=
-    #define xor ^
-    #define xor_eq ^=
-#endif
-
-// A 12th macro: http://blog.hostilefork.com/did-programming-opposite-of-not/
-//
-#define did !!
-
-typedef bool REBOOL;
-
-// !!! Historically Rebol used TRUE and FALSE uppercase macros, but so long
-// as C99 has added bool to the language, there's not much point in being
-// compatible with codebases that have `char* true = "Spandau";` or similar
-// in them.  So Rebol can use `true` and `false`, but there are still a lot
-// of instances of TRUE and FALSE, which will be removed when convenient (a
-// time that won't cause many merge conflicts).
-
-#if (defined(FALSE) && (!FALSE)) && (defined(TRUE) && TRUE)
-    #if defined(TO_WINDOWS) && !((FALSE == 0) && (TRUE == 1))
-        //
-        // The Windows API specifically mandates the value of TRUE as 1.
-        // If you are compiling on Windows with something that has
-        // predefined the constant as some other value, it will be
-        // inconsistent...and won't work out.
-        //
-        #error "Compiler's FALSE != 0 or TRUE != 1, invalid for Win32"
-    #else
-        // Outside of Win32, assume any C truthy/falsey definition that
-        // the compiler favors is all right.
-    #endif
-#elif !defined(FALSE) && !defined(TRUE)
-    #define FALSE false
-    #define TRUE true
-#else
-    #error "TRUE and FALSE are defined but are not their logic meanings"
-#endif
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// C FUNCTION TYPE (__cdecl)
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// C FUNCTION TYPE (__cdecl) /////////////////////////////////////////=//
 //
 // Note that you *CANNOT* cast something like a `void *` to (or from) a
 // function pointer.  Pointers to functions are not guaranteed to be the same
@@ -617,68 +476,7 @@ typedef bool REBOOL;
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// UNREACHABLE CODE ANNOTATIONS
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Because Rebol uses `longjmp` and `exit` there are cases where a function
-// might look like not all paths return a value, when those paths actually
-// aren't supposed to return at all.  For instance:
-//
-//     int foo(int x) {
-//         if (x < 1020)
-//             return x + 304;
-//         fail ("x is too big"); // compiler may warn about no return value
-//     }
-//
-// One way of annotating to say this is okay is on the caller, with DEAD_END:
-//
-//     int foo(int x) {
-//         if (x < 1020)
-//             return x + 304;
-//         fail ("x is too big");
-//         DEAD_END; // our warning-suppression macro for applicable compilers
-//     }
-//
-// DEAD_END is just a no-op in compilers that don't have the feature of
-// suppressing the warning--which can often mean they don't have the warning
-// in the first place.
-//
-// Another macro we define is ATTRIBUTE_NO_RETURN.  This can be put on the
-// declaration site of a function like `fail()` itself, so the callsites don't
-// need to be changed.  As with DEAD_END it degrades into a no-op in compilers
-// that don't support it.
-//
-
-#if defined(__clang__) || GCC_VERSION_AT_LEAST(2, 5)
-    #define ATTRIBUTE_NO_RETURN __attribute__ ((noreturn))
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
-    #define ATTRIBUTE_NO_RETURN _Noreturn
-#elif defined(_MSC_VER)
-    #define ATTRIBUTE_NO_RETURN __declspec(noreturn)
-#else
-    #define ATTRIBUTE_NO_RETURN
-#endif
-
-#if __has_builtin(__builtin_unreachable) || GCC_VERSION_AT_LEAST(4, 5)
-    #define DEAD_END __builtin_unreachable()
-#elif defined(_MSC_VER)
-    __declspec(noreturn) static inline void msvc_unreachable(void) {
-        while (TRUE) { }
-    }
-    #define DEAD_END msvc_unreachable()
-#else
-    #define DEAD_END
-#endif
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// TESTING IF A NUMBER IS FINITE
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// TESTING IF A NUMBER IS FINITE /////////////////////////////////////=//
 //
 // C89 and C++98 had no standard way of testing for if a number was finite or
 // not.  Windows and POSIX came up with their own methods.  Finally it was
@@ -705,11 +503,7 @@ typedef bool REBOOL;
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// MEMORY POISONING and POINTER TRASHING
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// MEMORY POISONING and POINTER TRASHING /////////////////////////////=//
 //
 // If one wishes to indicate a region of memory as being "off-limits", modern
 // tools like Address Sanitizer allow instrumented builds to augment reads
@@ -802,11 +596,7 @@ typedef bool REBOOL;
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// MARK UNUSED VARIABLES
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// MARK UNUSED VARIABLES /////////////////////////////////////////////=//
 //
 // Used in coordination with the `-Wunused-variable` setting of the compiler.
 // While a simple cast to void is what people usually use for this purpose,
@@ -921,11 +711,7 @@ typedef bool REBOOL;
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// BYTE-ORDER SENSITIVE BIT FLAGS & MASKING
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// BYTE-ORDER SENSITIVE BIT FLAGS & MASKING //////////////////////////=//
 //
 // These macros are for purposefully arranging bit flags with respect to the
 // "leftmost" and "rightmost" bytes of the underlying platform, when encoding
@@ -1064,11 +850,7 @@ typedef bool REBOOL;
 // features that might be taken advantage of when that storage is available.
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// MIN AND MAX
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// MIN AND MAX ///////////////////////////////////////////////////////=//
 //
 // The standard definition in C for MIN and MAX uses preprocessor macros, and
 // this has fairly notorious problems of double-evaluating anything with
@@ -1086,11 +868,7 @@ typedef bool REBOOL;
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// BYTE STRINGS VS UNENCODED CHARACTER STRINGS
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// BYTE STRINGS VS UNENCODED CHARACTER STRINGS ///////////////////////=//
 //
 // Use these when you semantically are talking about unsigned characters as
 // bytes.  For instance: if you want to count unencoded chars in 'char *' us
@@ -1173,68 +951,4 @@ typedef bool REBOOL;
             s_cast(dest), cs_cast(src), MAX(max - len - 1, 0)
         ));
     }
-#endif
-
-
-// Global pixel format setup for REBOL image!, image loaders, color handling,
-// tuple! conversions etc.  The graphics compositor code should rely on this
-// setting(and do specific conversions if needed)
-//
-// TO_RGBA_COLOR always returns 32bit RGBA value, converts R,G,B,A
-// components to native RGBA order
-//
-// TO_PIXEL_COLOR must match internal image! datatype byte order, converts
-// R,G,B,A components to native image format
-//
-// C_R, C_G, C_B, C_A Maps color components to correct byte positions for
-// image! datatype byte order
-
-#ifdef ENDIAN_BIG // ARGB pixel format on big endian systems
-    #define TO_RGBA_COLOR(r,g,b,a) \
-        (cast(uint32_t, (r)) << 24 \
-        | cast(uint32_t, (g)) << 16 \
-        | cast(uint32_t, (b)) << 8 \
-        | cast(uint32_t, (a)))
-
-    #define C_A 0
-    #define C_R 1
-    #define C_G 2
-    #define C_B 3
-
-    #define TO_PIXEL_COLOR(r,g,b,a) \
-        (cast(uint32_t, (a)) << 24 \
-        | cast(uint32_t, (r)) << 16 \
-        | cast(uint32_t, (g)) << 8 \
-        | cast(uint32_t, (b)))
-#else
-    #define TO_RGBA_COLOR(r,g,b,a) \
-        (cast(uint32_t, (a)) << 24 \
-        | cast(uint32_t, (b)) << 16 \
-        | cast(uint32_t, (g)) << 8 \
-        | cast(uint32_t, (r)))
-
-    #ifdef TO_ANDROID_ARM // RGBA pixel format on Android
-        #define C_R 0
-        #define C_G 1
-        #define C_B 2
-        #define C_A 3
-
-        #define TO_PIXEL_COLOR(r,g,b,a) \
-            (cast(uint32_t, (a)) << 24 \
-            | cast(uint32_t, (b)) << 16 \
-            | cast(uint32_t, (g)) << 8 \
-            | cast(uint32_t, (r)))
-
-    #else // BGRA pixel format on Windows
-        #define C_B 0
-        #define C_G 1
-        #define C_R 2
-        #define C_A 3
-
-        #define TO_PIXEL_COLOR(r,g,b,a) \
-            (cast(uint32_t, (a)) << 24 \
-            | cast(uint32_t, (r)) << 16 \
-            | cast(uint32_t, (g)) << 8 \
-            | cast(uint32_t, (b)))
-    #endif
 #endif
