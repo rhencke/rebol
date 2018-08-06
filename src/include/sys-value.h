@@ -123,7 +123,7 @@
     #endif
 
     inline static void Set_Track_Payload_Extra_Debug(
-        struct Reb_Cell *c,
+        RELVAL *c,
         const char *file,
         int line
     ){
@@ -541,7 +541,7 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     (NODE_FLAG_NODE | NODE_FLAG_CELL)
 
 inline static void Prep_Non_Stack_Cell_Core(
-    struct Reb_Cell *c
+    RELVAL *c
 
   #if defined(DEBUG_TRACK_CELLS)
   , const char *file
@@ -568,7 +568,7 @@ inline static void Prep_Non_Stack_Cell_Core(
     (NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_STACK | CELL_FLAG_NOT_END)
 
 inline static void Prep_Stack_Cell_Core(
-    struct Reb_Cell *c
+    RELVAL *c
 
   #if defined(DEBUG_TRACK_CELLS)
   , const char *file

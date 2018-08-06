@@ -425,7 +425,7 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
             | SERIES_FLAG_FIXED_SIZE
     );
     TRASH_POINTER_IF_DEBUG(copy->link_private.keysource); // needs update
-    copy->content = stub->content;
+    memcpy(&copy->content, &stub->content, sizeof(union Reb_Series_Content));
     copy->misc_private.meta = nullptr; // let stub have the meta
         
     REBVAL *rootvar = cast(REBVAL*, copy->content.dynamic.data);

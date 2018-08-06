@@ -706,14 +706,13 @@ struct Reb_Gob_Payload {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  VALUE CELL DEFINITION (`struct Reb_Cell`)
+//  VALUE CELL DEFINITION (`struct Reb_Value` or `struct Reb_Relative_Value`)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Each value cell has a header, "extra", and payload.  Having the header come
-// first is taken advantage of by the trick for allowing a single uintptr_t
-// value (32-bit on 32 bit builds, 64-bit on 64-bit builds) to be examined to
-// determine if a value is an END marker or not.
+// first is taken advantage of by the byte-order-sensitive macros to be
+// differentiated from UTF-8 strings, etc. (See: Detect_Rebol_Pointer())
 //
 // Conceptually speaking, one might think of the "extra" as being part of
 // the payload.  But it is broken out into a separate union.  This is because
@@ -732,9 +731,6 @@ struct Reb_Gob_Payload {
 // quantity requires things like REBDEC to have 64-bit alignment.  At time of
 // writing, this is necessary for the "C-to-Javascript" emscripten build to
 // work.  It's also likely preferred by x86.
-//
-// (Note: The reason why error-causing alignments were ever possible at all
-// was due to a #pragma pack(4) that was used in R3-Alpha...Ren-C removed it.)
 //
 
 union Reb_Value_Extra {
@@ -857,22 +853,56 @@ union Reb_Value_Payload {
     struct Reb_Deferred_Payload deferred; // used with REB_0_DEFERRED
 };
 
-struct Reb_Cell
-{
-    struct Reb_Header header;
-    union Reb_Value_Extra extra;
-    union Reb_Value_Payload payload;
+#ifdef CPLUSPLUS_11
+    struct Reb_Relative_Value
+#else
+    struct Reb_Value
+#endif
+    {
+        struct Reb_Header header;
+        union Reb_Value_Extra extra;
+        union Reb_Value_Payload payload;
 
-  #if defined(DEBUG_TRACK_EXTEND_CELLS)
-    //
-    // Lets you preserve the tracking info even if the cell has a payload.
-    // This doubles the cell size, but can be a very helpful debug option.
-    //
-    struct Reb_Track_Payload track;
-    uintptr_t tick; // stored in the Reb_Value_Extra for basic tracking
-    uintptr_t touch; // see TOUCH_CELL(), also pads out to 4 * sizeof(void*)
-  #endif
-};
+      #if defined(DEBUG_TRACK_EXTEND_CELLS)
+        //
+        // Lets you preserve the tracking info even if the cell has a payload.
+        // This doubles the cell size, but can be a very helpful debug option.
+        //
+        struct Reb_Track_Payload track;
+        uintptr_t tick; // stored in the Reb_Value_Extra for basic tracking
+        uintptr_t touch; // see TOUCH_CELL(), pads out to 4 * sizeof(void*)
+      #endif
+
+      #ifdef CPLUSPLUS_11
+        //
+        // Overwriting one cell with another can't be done with a direct
+        // assignment, such as `*dest = *src;`  Cells contain formatting bits
+        // that must be preserved, and some flag bits shouldn't be copied.
+        // (See: CELL_MASK_PRESERVE)
+        //
+        // Also, copying needs to be sensitive to the target slot.  If that
+        // slot is at a higher stack level than the source (or persistent in
+        // an array) then special handling is necessary to make sure any stack
+        // constrained pointers are "reified" and visible to the GC.
+        //
+        // Goal is that the mechanics are managed with low-level C, so the
+        // C++ build gives errors on bit copy.  Use functions instead.
+        // (See: Move_Value(), Blit_Cell(), Derelativize())
+        //
+        // Note: It is annoying that this means any structure that embeds a
+        // value cell cannot be assigned.  However, `struct Reb_Value` must
+        // be the type exported in both C and C++ under the same name and
+        // bit patterns.  Pretty much any attempt to work around this and
+        // create a base class that works in C too (e.g. Reb_Cell) would wind
+        // up violating strict aliasing.  Think *very hard* before changing!
+        //
+      public:
+        Reb_Relative_Value () = default;
+      private:
+        Reb_Relative_Value (Reb_Relative_Value const & other) = delete;
+        void operator= (Reb_Relative_Value const &rhs) = delete;
+      #endif
+    };
 
 
 // To help speed up VAL_TYPE_Debug, we push the trash flag into the farthest
@@ -926,70 +956,25 @@ struct Reb_Cell
 //
 
 #ifdef CPLUSPLUS_11
-    //
-    // Since a RELVAL may be either specific or relative, there's not a whole
-    // lot to check in the C++ build.  However, it does disable bitwise
-    // copying or assignment...one must use Derelativize() or Blit_Cell().
-    //
-    struct Reb_Relative_Value : public Reb_Cell
+    static_assert(
+        std::is_standard_layout<struct Reb_Relative_Value>::value,
+        "C++ RELVAL must match C layout: http://stackoverflow.com/a/7189821/"
+    );
+
+    struct Reb_Value : public Reb_Relative_Value
     {
-        // In C++11, it is now formally legal to add constructors to types
-        // without interfering with their "standard layout" properties, or
-        // making them uncopyable with memcpy(), etc.  For the rules, see:
-        //
-        //     http://stackoverflow.com/a/7189821/211160
-        //
-        // No required functionality should be implemented via the constructor
-        // as the C build must have the same feature set as the C++ one.
-        // But optional debug features can be added.  (Since most REBVAL* are
-        // produced by casts using KNOWN(), it's not clear exactly what use
-        // those would be.)
-        //
-        Reb_Relative_Value () = default;
-        ~Reb_Relative_Value () = default;
-
-        // Overwriting one RELVAL* with another RELVAL* cannot be done with
-        // a direct assignment, such as `*dest = *src;`
-        //
-        // Note that "= delete" only works in C++11.  We'd run into trouble
-        // if we tried to just make the copy constructor private, because
-        // there'd have to be a public constructor candidate...and we can't
-        // have any constructors in this class.
-    private:
-        Reb_Relative_Value (Reb_Relative_Value const & other) = delete;
-        void operator= (Reb_Relative_Value const &rhs) = delete;
-    };
-
-
-    // Reb_Specific_Value inherits from Reb_Relative_Value in C++, and hence
-    // you can pass a REBVAL to any function that takes a RELVAL, but not
-    // vice-versa.
-    //
-    struct Reb_Specific_Value : public Reb_Relative_Value {
-    #if !defined(NDEBUG)
-        //
-        // See notes in Reb_Relative_Value about the legality of putting some
-        // kind of cell hookpoint here.  For now, just make sure the cell was
-        // initialized with valid bits at some point.
-        //
-        Reb_Specific_Value () = default;
-        ~Reb_Specific_Value () {
+      #if !defined(NDEBUG)
+        Reb_Value () = default;
+        ~Reb_Value () {
             assert(this->header.bits & (NODE_FLAG_NODE | NODE_FLAG_CELL));
         }
-
-        // Overwriting one REBVAL* with another REBVAL* cannot be done with
-        // a direct assignment, such as `*dest = *src;`  Instead one is
-        // supposed to use `Move_Value(dest, src);` because the copying needs
-        // to be sensitive to the nature of the target slot.  If that slot
-        // is at a higher stack level than the source (or persistent in an
-        // array) then special handling is necessary to make sure any stack
-        // constrained pointers are "reified" 
-        //
-    private:
-        Reb_Specific_Value (Reb_Specific_Value const & other) = delete;
-        void operator= (Reb_Specific_Value const &rhs) = delete;
-    #endif
+      #endif
     };
+
+    static_assert(
+        std::is_standard_layout<struct Reb_Value>::value,
+        "C++ REBVAL must match C layout: http://stackoverflow.com/a/7189821/"
+    );
 
     // Some operations that run on sequences of arrays and values do not
     // let ordinary END markers stop them from moving on to the next slice

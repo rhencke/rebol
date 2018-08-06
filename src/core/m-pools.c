@@ -847,7 +847,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
         size_old = SER_TOTAL(s);
     }
     else {
-        content_old = s->content; // may be raw bits
+        memcpy(&content_old, &s->content, sizeof(union Reb_Series_Content));
         data_old = cast(char*, &content_old);
     }
 
@@ -938,9 +938,10 @@ void Swap_Series_Content(REBSER* a, REBSER* b)
     REBCNT a_len = SER_LEN(a);
     REBCNT b_len = SER_LEN(b);
 
-    union Reb_Series_Content a_content = a->content;
-    a->content = b->content;
-    b->content = a_content;
+    union Reb_Series_Content a_content;
+    memcpy(&a_content, &a->content, sizeof(union Reb_Series_Content));
+    memcpy(&a->content, &b->content, sizeof(union Reb_Series_Content));
+    memcpy(&b->content, &a_content, sizeof(union Reb_Series_Content));
 
     SET_SERIES_LEN(a, b_len);
     SET_SERIES_LEN(b, a_len);
@@ -990,7 +991,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         size_old = SER_TOTAL(s);
     }
     else {
-        content_old = s->content;
+        memcpy(&content_old, &s->content, sizeof(union Reb_Series_Content));
         data_old = cast(char*, &content_old);
     }
 

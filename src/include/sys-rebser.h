@@ -615,17 +615,12 @@ union Reb_Series_Content {
     //
     // (See CELL_FLAG_NOT_END and NODE_FLAG_CELL for how this is done.)
     //
-    // We do not use a RELVAL here, because it would rule out making simple
-    // assignments of one series's content to another, as the assignment
-    // operator is disabled in the C++ build.  But the value may be relative
-    // or specific.
-    //
     // !!! This is made as a union in order to allow easier insights into the
     // data content when it is UTF-8.
     //
     union {
-        struct Reb_Cell values[1];
-        char utf8[sizeof(struct Reb_Cell)];
+        RELVAL values[1];
+        char utf8[sizeof(RELVAL)];
     } fixed;
 };
 

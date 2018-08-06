@@ -109,23 +109,17 @@ typedef struct rebol_mem_pool REBPOL;
 typedef struct Reb_Node REBNOD;
 
 
-//=//// REBOL VALUES //////////////////////////////////////////////////////=//
+//=//// RELATIVE VALUES ///////////////////////////////////////////////////=//
 //
-// Note that in the C build, %rebol.h forward-declares `struct Reb_Cell` and
-// then #defines REBVAL to that.  But in the C++11 build, it defines REBVAL
-// as `struct Reb_Specific_Value;`
-//
-// !!! Because the type is ultimately opaque to libRebol clients, and the
-// API calls are via pointers to `extern "C"` functions, the distinction
-// should not matter there.  It should only matter when code is built against
-// the internal API.
+// Note that in the C build, %rebol.h forward-declares `struct Reb_Value` and
+// then #defines REBVAL to that.
 //
 #if !defined(CPLUSPLUS_11)
     #define RELVAL \
-        struct Reb_Cell // same as REBVAL, no checking in C build
+        struct Reb_Value // same as REBVAL, no checking in C build
 
     #define const_RELVAL_NO_END_PTR \
-        const struct Reb_Cell * // no extra checking in C build
+        const struct Reb_Value * // no extra checking in C build
 #else
     struct Reb_Relative_Value; // won't implicitly downcast to REBVAL
     #define RELVAL \

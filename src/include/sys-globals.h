@@ -251,18 +251,18 @@ TVAR REBSER *Trace_Buffer;  // Holds backtrace lines
 // byte.  So their payload and extra fields can be used for other things
 // (e.g. where other quantities above are looked for)
 //
-PVAR struct Reb_Cell PG_R_FALSE;
-PVAR struct Reb_Cell PG_R_TRUE;
-PVAR struct Reb_Cell PG_R_VOID;
-PVAR struct Reb_Cell PG_R_BLANK;
-PVAR struct Reb_Cell PG_R_BAR;
-PVAR struct Reb_Cell PG_R_REDO_CHECKED;
-PVAR struct Reb_Cell PG_R_REDO_UNCHECKED;
-PVAR struct Reb_Cell PG_R_REEVALUATE_CELL;
-PVAR struct Reb_Cell PG_R_REEVALUATE_CELL_ONLY;
-PVAR struct Reb_Cell PG_R_INVISIBLE;
-PVAR struct Reb_Cell PG_R_REFERENCE;
-PVAR struct Reb_Cell PG_R_IMMEDIATE;
-PVAR struct Reb_Cell PG_R_UNHANDLED;
-PVAR struct Reb_Cell PG_R_END;
-PVAR struct Reb_Cell PG_R_THROWN;
+PVAR RELVAL PG_R_FALSE;
+PVAR RELVAL PG_R_TRUE;
+PVAR RELVAL PG_R_VOID;
+PVAR RELVAL PG_R_BLANK;
+PVAR RELVAL PG_R_BAR;
+PVAR RELVAL PG_R_REDO_CHECKED;
+PVAR RELVAL PG_R_REDO_UNCHECKED;
+PVAR RELVAL PG_R_REEVALUATE_CELL;
+PVAR RELVAL PG_R_REEVALUATE_CELL_ONLY;
+PVAR RELVAL PG_R_INVISIBLE;
+PVAR RELVAL PG_R_REFERENCE;
+PVAR RELVAL PG_R_IMMEDIATE;
+PVAR RELVAL PG_R_UNHANDLED;
+PVAR RELVAL PG_R_END;
+PVAR RELVAL PG_R_THROWN;

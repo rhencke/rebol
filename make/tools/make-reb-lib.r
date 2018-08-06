@@ -307,17 +307,12 @@ e-lib/emit {
     #define RL_UPD $<ver/3>
 
     /*
-     * As far as most libRebol clients are concerned, a REBVAL is a black box.
-     * However, the internal code also includes %rebol.h, so the definition
-     * has to line up with what is actually used when building as C++ vs. not.
+     * The API can be used by the core on value cell pointers that are in
+     * stable locations guarded by GC (e.g. frame argument or output cells).
+     * Since the core uses REBVAL*, it must be accurate (not just a void*)
      */
-    #if !defined(CPLUSPLUS_11)
-        struct Reb_Cell;
-        #define REBVAL struct Reb_Cell
-    #else
-        struct Reb_Specific_Value;
-        #define REBVAL struct Reb_Specific_Value
-    #endif
+    struct Reb_Value;
+    #define REBVAL struct Reb_Value
 
     /*
      * `wchar_t` is a pre-Unicode abstraction, whose size varies per-platform

@@ -271,23 +271,6 @@ Special internal defines used by RT, not Host-Kit developers:
 #endif
 
 
-//=//// CPLUSPLUS_11 PREPROCESSOR DEFINE //////////////////////////////////=//
-//
-// Because the goal of Ren-C is ultimately to be built with C, the C++ build
-// is just for static analysis and debug checks.  This means there's not much
-// value in trying to tailor reduced versions of the checks to old ANSI C++98
-// compilers, so the "C++ build" is an "at least C++11 build".
-//
-// Besides being a little less verbose to use, testing via a #define allows
-// override when using with Microsoft Visual Studio via a command line
-// definition.  For some reason they didn't bump the version number from 1997
-// (even by MSVC 2017!!!)
-//
-#if defined(__cplusplus) && __cplusplus >= 201103L
-    #define CPLUSPLUS_11
-#endif
-
-
 //=//// FEATURE TESTING AND ATTRIBUTE MACROS //////////////////////////////=//
 //
 // Feature testing macros __has_builtin() and __has_feature() were originally
