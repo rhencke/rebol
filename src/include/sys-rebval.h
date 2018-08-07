@@ -264,10 +264,10 @@
 //
 // With these definitions:
 //
-//     struct Foo_Type { struct Reb_Header header; int x; }
+//     struct Foo_Type { union Reb_Header header; int x; }
 //     struct Foo_Type *foo = ...;
 //
-//     struct Bar_Type { struct Reb_Header header; float x; }
+//     struct Bar_Type { union Reb_Header header; float x; }
 //     struct Bar_Type *bar = ...;
 //
 // This C code:
@@ -276,7 +276,7 @@
 //
 // ...is actually different *semantically* from this code:
 //
-//     struct Reb_Header *alias = &foo->header;
+//     union Reb_Header *alias = &foo->header;
 //     alias->bits = 1020;
 //
 // The first is considered as not possibly able to affect the header in a
@@ -285,7 +285,7 @@
 //
 // The second case, by forcing access through a generic aliasing pointer,
 // will cause the optimizer to realize all bets are off for any type which
-// might contain a `struct Reb_Header`.
+// might contain a `union Reb_Header`.
 //
 // This is an important point to know, with certain optimizations of writing
 // headers through one type and then reading them through another.  That
@@ -296,7 +296,7 @@
 // keyword exists in C99: https://en.wikipedia.org/wiki/Restrict )
 //
 inline static void Init_Endlike_Header(
-    struct Reb_Header *alias,
+    union Reb_Header *alias,
     uintptr_t bits
 ){
     // Endlike headers have the leading bits `10` so they don't look like a
@@ -844,7 +844,7 @@ union Reb_Value_Payload {
     struct Reb_Value
 #endif
     {
-        struct Reb_Header header;
+        union Reb_Header header;
         union Reb_Value_Extra extra;
         union Reb_Value_Payload payload;
 

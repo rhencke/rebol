@@ -900,7 +900,7 @@ struct Reb_Series {
     // The remaining bits are free, and used to hold SYM values for those
     // words that have them.
     //
-    struct Reb_Header header;
+    union Reb_Header header;
 
     // The `link` field is generally used for pointers to something that
     // when updated, all references to this series would want to be able
@@ -938,7 +938,7 @@ struct Reb_Series {
     // interesting added caching feature or otherwise that would use
     // it, while not making any feature specifically require a 64-bit CPU.
     //
-    struct Reb_Header info;
+    union Reb_Header info;
 
     // This is the second pointer-sized piece of series data that is used
     // for various purposes.  It is similar to ->link, however at some points

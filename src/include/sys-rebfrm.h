@@ -434,7 +434,7 @@ struct Reb_Frame {
     // giving natives an enumerable single-cell slot if they need it.
     // See Init_Endlike_Header()
     //
-    struct Reb_Header flags;
+    union Reb_Header flags;
 
     // `prior`
     //

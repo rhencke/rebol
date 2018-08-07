@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -47,7 +47,7 @@
 // But a more compelling case is the usage through the API, so variadic
 // combinations of strings and values can be intermixed, as in:
 //
-//     rebRun("poke", series, "1", value, END) 
+//     rebRun("poke", series, "1", value)
 //
 // Internally, the ability to discern these types helps certain structures or
 // arrangements from having to find a place to store a kind of "flavor" bit
@@ -58,9 +58,102 @@
 //
 
 
+//=//// TYPE-PUNNING BITFIELD DEBUG HELPER (GCC LITTLE-ENDIAN ONLY) ///////=//
+//
+// Disengaged union states are used to give alternative debug views into
+// the header bits.  This is called type punning, and it can't be relied
+// on (endianness, undefined behavior)--purely for GDB watchlists!
+//
+// https://en.wikipedia.org/wiki/Type_punning
+//
+// Because the watchlist often orders the flags alphabetically, name them so
+// it will sort them in order.  Note that these flags can get out of date
+// easily, so sync with %rebser.h or %rebval.h if they do...and double check
+// against the FLAG_BIT_LEFT(xx) numbers if anything seems fishy.
+//
+#if !defined(NDEBUG) && GCC_VERSION_AT_LEAST(7, 0) && ENDIAN_LITTLE
+    struct Reb_Series_Header_Pun {
+        int _07_cell_always_false:1;
+        int _06_stack:1;
+        int _05_root:1;
+        int _04_transient:1;
+        int _03_marked:1;
+        int _02_managed:1;
+        int _01_free:1;
+        int _00_node_always_true:1;
+
+        int _15_unused:1;
+        int _14_unused:1;
+        int _13_has_dynamic:1;
+        int _12_is_array:1;
+        int _11_power_of_two:1;
+        int _10_utf8_string:1;
+        int _09_fixed_size:1;
+        int _08_not_end_always_true:1;
+
+        int _23_array_unused:1;
+        int _22_array_tail_newline;
+        int _21_array_unused:1;
+        int _20_array_pairlist:1;
+        int _19_array_varlist:1;
+        int _18_array_paramlist:1;
+        int _17_array_nulleds_legal:1;
+        int _16_array_file_line:1;
+    }__attribute__((packed));
+
+    struct Reb_Info_Header_Pun {
+        int _07_cell_always_false:1;
+        int _06_frozen:1;
+        int _05_hold:1;
+        int _04_protected:1;
+        int _03_black:1;
+        int _02_unused:1;
+        int _01_free_always_false:1;
+        int _00_node_always_true:1;
+
+        unsigned int _08to15_wide:8;
+
+        unsigned int _16to23_len_if_non_dynamic:8;
+
+        int _31_unused:1;
+        int _30_unused:1;
+        int _29_api_release:1;
+        int _28_shared_keylist:1;
+        int _27_string_canon:1;
+        int _26_frame_failed:1;
+        int _25_inaccessible:1;
+        int _24_auto_locked:1;
+    }__attribute__((packed));
+
+    struct Reb_Value_Header_Pun {
+        int _07_cell_always_true:1;
+        int _06_stack:1;
+        int _05_root:1;
+        int _04_transient:1;
+        int _03_marked:1;
+        int _02_managed:1;
+        int _01_free:1;
+        int _00_node_always_true:1;
+
+        unsigned int _08to15_kind:8;
+
+        int _23_unused:1;
+        int _22_eval_flip:1;
+        int _21_enfixed:1;
+        int _20_unevaluated:1;
+        int _19_newline_before:1;
+        int _18_falsey:1;
+        int _17_thrown:1;
+        int _16_protected:1;
+
+        unsigned int _24to31_type_specific_bits:8;
+    }__attribute__((packed));
+#endif
+
+
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  NODE HEADER a.k.a `struct Reb_Header` (for REBVAL and REBSER uses)
+//  NODE HEADER a.k.a `union Reb_Header` (for REBVAL and REBSER uses)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -81,7 +174,7 @@
 // able to signal the IS_END() test for REBVAL.  See Init_Endlike_Header()
 //
 
-struct Reb_Header {
+union Reb_Header {
     //
     // unsigned integer that's the size of a platform pointer (e.g. 32-bits on
     // 32 bit platforms and 64-bits on 64 bit machines).  See macros like
@@ -92,6 +185,16 @@ struct Reb_Header {
     // unused bits are currently in weird byte positions.
     //
     uintptr_t bits;
+
+  #if !defined(NDEBUG)
+    char bytes_pun[4];
+
+    #if GCC_VERSION_AT_LEAST(7, 0) && ENDIAN_LITTLE
+        struct Reb_Series_Header_Pun series_pun;
+        struct Reb_Value_Header_Pun value_pun;
+        struct Reb_Info_Header_Pun info_pun;
+    #endif
+  #endif
 };
 
 
@@ -326,7 +429,7 @@ struct Reb_Header {
 //
 
 struct Reb_Node {
-    struct Reb_Header header; // leftmost byte FREED_SERIES_BYTE if free
+    union Reb_Header header; // leftmost byte FREED_SERIES_BYTE if free
 
     struct Reb_Node *next_if_free; // if not free, entire node is available
 

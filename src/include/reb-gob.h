@@ -156,7 +156,7 @@ typedef struct {
 
 
 struct rebol_gob {
-    struct Reb_Header header;
+    union Reb_Header header;
 
     uint32_t state;       // state flags
 
