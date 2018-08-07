@@ -126,7 +126,7 @@ inline static void RESET_ARRAY(REBARR *a) {
 }
 
 inline static void TERM_SERIES(REBSER *s) {
-    if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY))
+    if (IS_SER_ARRAY(s))
         TERM_ARRAY_LEN(ARR(s), SER_LEN(s));
     else
         memset(SER_AT_RAW(SER_WIDE(s), s, SER_LEN(s)), 0, SER_WIDE(s));
@@ -233,13 +233,10 @@ inline static void Prep_Array(REBARR *a) {
 inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     const REBCNT wide = sizeof(REBVAL);
 
-    REBSER *s = Make_Series_Node(SERIES_FLAG_ARRAY | flags);
+    REBSER *s = Make_Series_Node(flags);
     Init_Endlike_Header(&s->info, FLAG_WIDE_BYTE_OR_0(0));
 
-    if (
-        (flags & SERIES_FLAG_HAS_DYNAMIC) // inlining will constant fold
-        or (capacity > 1)
-    ){
+    if (capacity > 1 or (flags & SERIES_FLAG_HAS_DYNAMIC)) {
         capacity += 1; // account for cell needed for terminator (END)
 
         // Don't pay for oversize check unless dynamic.  It means the node
@@ -561,7 +558,7 @@ inline static REBOOL Splices_Into_Type_Without_Only(
         ASSERT_SERIES_MANAGED(SER(array))
 
     static inline void ASSERT_SERIES(REBSER *s) {
-        if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY))
+        if (IS_SER_ARRAY(s))
             Assert_Array_Core(ARR(s));
         else
             Assert_Series_Core(s);

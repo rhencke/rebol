@@ -194,7 +194,7 @@ void* Probe_Core_Debug(
             Probe_Print_Helper(p, "REBWCHAR-Size Series", file, line);
             Mold_Text_Series_At(mo, s, 0); // not necessarily TEXT!
         }
-        else if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
+        else if (IS_SER_ARRAY(s)) {
             if (GET_SER_FLAG(s, ARRAY_FLAG_VARLIST)) {
                 Probe_Print_Helper(p, "Context Varlist", file, line);
                 Probe_Molded_Value(CTX_ARCHETYPE(CTX(s)));

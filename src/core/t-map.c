@@ -276,7 +276,7 @@ void Expand_Hash(REBSER *ser)
         fail (Error_Size_Limit_Raw(temp));
     }
 
-    assert(NOT_SER_FLAG(ser, SERIES_FLAG_ARRAY));
+    assert(not IS_SER_ARRAY(ser));
     Remake_Series(
         ser,
         pnum + 1,

@@ -724,7 +724,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
         SER_SUB_BIAS(s, delta);
 
       #if !defined(NDEBUG)
-        if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
+        if (IS_SER_ARRAY(s)) {
             //
             // When the bias region was marked, it was made "unsettable" if
             // this was a debug build.  Now that the memory is included in
@@ -771,7 +771,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
         TERM_SERIES(s);
 
       #if !defined(NDEBUG)
-        if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
+        if (IS_SER_ARRAY(s)) {
             //
             // The opened up area needs to be set to "settable" trash in the
             // debug build.  This takes care of making "unsettable" values
@@ -860,7 +860,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
         fail (Error_No_Memory((len_old + delta + x) * wide));
 
     assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
-    if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY))
+    if (IS_SER_ARRAY(s))
         Prep_Array(ARR(s));
 
     // If necessary, add series to the recently expanded list
@@ -911,10 +911,7 @@ void Swap_Series_Content(REBSER* a, REBSER* b)
     // lifetime of that string node, there's not really any reasonable case
     // for mutating an array node into a non-array or vice versa.
     //
-    assert(
-        GET_SER_FLAG(a, SERIES_FLAG_ARRAY)
-        == GET_SER_FLAG(b, SERIES_FLAG_ARRAY)
-    );
+    assert(IS_SER_ARRAY(a) == IS_SER_ARRAY(b));
 
     // There are bits in the ->info and ->header which pertain to the content,
     // which includes whether the series is dynamic or if the data lives in
@@ -1009,7 +1006,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         fail (Error_No_Memory((units + 1) * wide));
     }
     assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
-    if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY))
+    if (IS_SER_ARRAY(s))
         Prep_Array(ARR(s));
 
     if (preserve) {
@@ -1026,7 +1023,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
     } else
         s->content.dynamic.len = 0;
 
-    if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY))
+    if (IS_SER_ARRAY(s))
         TERM_ARRAY_LEN(ARR(s), SER_LEN(s));
     else
         TERM_SEQUENCE(s);
@@ -1095,7 +1092,7 @@ void Decay_Series(REBSER *s)
         // singular array that happened to contain a handle, otherwise, as
         // opposed to the specific singular made for the handle's GC awareness)
 
-        if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
+        if (IS_SER_ARRAY(s)) {
             RELVAL *v = ARR_HEAD(ARR(s));
             if (NOT_END(v) and VAL_TYPE_RAW(v) == REB_HANDLE) {
                 if (v->extra.singular == ARR(s)) {
@@ -1556,7 +1553,7 @@ REBU64 Inspect_Series(REBOOL show)
 
             tot_size += SER_TOTAL_IF_DYNAMIC(s); // else 0
 
-            if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
+            if (IS_SER_ARRAY(s)) {
                 blks++;
                 blk_size += SER_TOTAL_IF_DYNAMIC(s);
             }

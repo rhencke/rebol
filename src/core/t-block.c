@@ -1073,7 +1073,7 @@ void Assert_Array_Core(REBARR *a)
     //
     Assert_Series_Core(SER(a));
 
-    if (NOT_SER_FLAG(a, SERIES_FLAG_ARRAY))
+    if (not IS_SER_ARRAY(a))
         panic (a);
 
     RELVAL *item = ARR_HEAD(a);

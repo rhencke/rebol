@@ -293,7 +293,7 @@ static void Print_Parse_Index(REBFRM *f) {
         P_TYPE,
         P_INPUT,
         P_POS,
-        GET_SER_FLAG(P_INPUT, SERIES_FLAG_ARRAY)
+        IS_SER_ARRAY(P_INPUT)
             ? P_INPUT_SPECIFIER
             : SPECIFIED
     );
@@ -992,7 +992,7 @@ static REBIXO To_Thru_Non_Block_Rule(
         return SER_LEN(P_INPUT);
     }
 
-    if (GET_SER_FLAG(P_INPUT, SERIES_FLAG_ARRAY)) {
+    if (IS_SER_ARRAY(P_INPUT)) {
         //
         // FOR ARRAY INPUT WITH NON-BLOCK RULES, USE Find_In_Array()
         //
@@ -1165,7 +1165,7 @@ static REBIXO To_Thru_Non_Block_Rule(
 //
 static REBIXO Do_Eval_Rule(REBFRM *f)
 {
-    if (NOT_SER_FLAG(P_INPUT, SERIES_FLAG_ARRAY)) // can't be an ANY-STRING!
+    if (not IS_SER_ARRAY(P_INPUT)) // can't be an ANY-STRING!
         fail (Error_Parse_Rule());
 
     if (IS_END(P_RULE))
@@ -1852,7 +1852,7 @@ REBNATIVE(subparse)
                     break; }
 
                 case SYM_QUOTE: {
-                    if (NOT_SER_FLAG(P_INPUT, SERIES_FLAG_ARRAY))
+                    if (not IS_SER_ARRAY(P_INPUT))
                         fail (Error_Parse_Rule()); // see #2253
 
                     if (FRM_AT_END(f))
@@ -1891,7 +1891,7 @@ REBNATIVE(subparse)
                     // parse ["aa"] [into ["a" "a"]] ; is legal
                     // parse "aa" [into ["a" "a"]] ; is not...already "into"
                     //
-                    if (NOT_SER_FLAG(P_INPUT, SERIES_FLAG_ARRAY))
+                    if (not IS_SER_ARRAY(P_INPUT))
                         fail (Error_Parse_Rule());
 
                     RELVAL *into = ARR_AT(ARR(P_INPUT), P_POS);
@@ -1992,7 +1992,7 @@ REBNATIVE(subparse)
             else {
                 // Parse according to datatype
 
-                if (GET_SER_FLAG(P_INPUT, SERIES_FLAG_ARRAY))
+                if (IS_SER_ARRAY(P_INPUT))
                     i = Parse_Array_One_Rule(f, rule);
                 else
                     i = Parse_String_One_Rule(f, rule);
@@ -2114,7 +2114,7 @@ REBNATIVE(subparse)
                     );
                 }
                 else if (flags & PF_SET) {
-                    if (GET_SER_FLAG(P_INPUT, SERIES_FLAG_ARRAY)) {
+                    if (IS_SER_ARRAY(P_INPUT)) {
                         if (count != 0)
                             Derelativize(
                                 Sink_Var_May_Fail(
@@ -2147,7 +2147,7 @@ REBNATIVE(subparse)
                     // See notes in PARSE native on handling of SYM_RETURN
                     //
                     DECLARE_LOCAL (captured);
-                    if (GET_SER_FLAG(P_INPUT, SERIES_FLAG_ARRAY)) {
+                    if (IS_SER_ARRAY(P_INPUT)) {
                         Init_Any_Array(
                             captured,
                             P_TYPE,
@@ -2229,7 +2229,7 @@ REBNATIVE(subparse)
                         rule = evaluated;
                     }
 
-                    if (GET_SER_FLAG(P_INPUT, SERIES_FLAG_ARRAY)) {
+                    if (IS_SER_ARRAY(P_INPUT)) {
                         DECLARE_LOCAL (specified);
                         Derelativize(specified, rule, P_RULE_SPECIFIER);
 

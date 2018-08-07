@@ -256,7 +256,7 @@ inline static void EXPAND_SERIES_TAIL(REBSER *s, REBCNT delta) {
 //
 
 inline static void TERM_SEQUENCE(REBSER *s) {
-    assert(NOT_SER_FLAG(s, SERIES_FLAG_ARRAY));
+    assert(not IS_SER_ARRAY(s));
     memset(SER_AT_RAW(SER_WIDE(s), s, SER_LEN(s)), 0, SER_WIDE(s));
 }
 
@@ -385,12 +385,12 @@ static inline void Flip_Series_To_White(REBSER *s) {
 //
 
 inline static void Freeze_Sequence(REBSER *s) { // there is no unfreeze!
-    assert(NOT_SER_FLAG(s, SERIES_FLAG_ARRAY)); // use Deep_Freeze_Array
+    assert(not IS_SER_ARRAY(s)); // use Deep_Freeze_Array
     SET_SER_INFO(s, SERIES_INFO_FROZEN);
 }
 
 inline static REBOOL Is_Series_Frozen(REBSER *s) {
-    assert(NOT_SER_FLAG(s, SERIES_FLAG_ARRAY)); // use Is_Array_Deeply_Frozen
+    assert(not IS_SER_ARRAY(s)); // use Is_Array_Deeply_Frozen
     return GET_SER_INFO(s, SERIES_INFO_FROZEN);
 }
 
@@ -491,7 +491,7 @@ inline static REBSER *VAL_SERIES(const RELVAL *v) {
 }
 
 inline static void INIT_VAL_SERIES(RELVAL *v, REBSER *s) {
-    assert(NOT_SER_FLAG(s, SERIES_FLAG_ARRAY));
+    assert(not IS_SER_ARRAY(s));
     assert(IS_SERIES_MANAGED(s));
     v->payload.any_series.series = s;
 }
@@ -702,7 +702,7 @@ inline static REBSER *Make_Series_Core(
     REBYTE wide,
     REBFLGS flags
 ){
-    assert(not (flags & (SERIES_FLAG_ARRAY | ARRAY_FLAG_FILE_LINE)));
+    assert(not (flags & (ARRAY_FLAG_FILE_LINE)));
 
     if (cast(REBU64, capacity) * wide > INT32_MAX)
         fail (Error_No_Memory(cast(REBU64, capacity) * wide));

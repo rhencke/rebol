@@ -84,7 +84,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         case SYM_FILE: {
             REBSER *s = VAL_SERIES(value);
-            if (ALL_SER_FLAGS(s, SERIES_FLAG_ARRAY | ARRAY_FLAG_FILE_LINE)) {
+            if (IS_SER_ARRAY(s) and GET_SER_FLAG(s, ARRAY_FLAG_FILE_LINE)) {
                 //
                 // !!! How to tell whether it's a URL! or a FILE! ?
                 //
@@ -99,7 +99,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         case SYM_LINE: {
             REBSER *s = VAL_SERIES(value);
-            if (ALL_SER_FLAGS(s, SERIES_FLAG_ARRAY | ARRAY_FLAG_FILE_LINE)) {
+            if (IS_SER_ARRAY(s) and GET_SER_FLAG(s, ARRAY_FLAG_FILE_LINE)) {
                 Init_Integer(D_OUT, MISC(s).line);
                 return D_OUT;
             }

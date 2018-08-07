@@ -385,7 +385,7 @@ REBNATIVE(destroy_struct_storage)
     FFI_INCLUDE_PARAMS_OF_DESTROY_STRUCT_STORAGE;
 
     REBSER *data = ARG(struct)->payload.structure.data;
-    if (NOT_SER_FLAG(data, SERIES_FLAG_ARRAY))
+    if (not IS_SER_ARRAY(data))
         fail (Error_No_External_Storage_Raw());
 
     RELVAL *handle = ARR_HEAD(ARR(data));

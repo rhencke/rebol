@@ -172,7 +172,7 @@ void Clonify_Values_Len_Managed(
                 series = SER(CTX_VARLIST(VAL_CONTEXT(v)));
             }
             else {
-                if (GET_SER_FLAG(VAL_SERIES(v), SERIES_FLAG_ARRAY)) {
+                if (IS_SER_ARRAY(VAL_SERIES(v))) {
                     REBSPC *derived = Derive_Specifier(specifier, v);
                     series = SER(
                         Copy_Array_At_Extra_Shallow(

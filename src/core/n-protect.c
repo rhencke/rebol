@@ -111,7 +111,7 @@ void Protect_Series(REBSER *s, REBCNT index, REBFLGS flags)
         CLEAR_SER_INFO(s, SERIES_INFO_PROTECTED);
     }
 
-    if (NOT_SER_FLAG(s, SERIES_FLAG_ARRAY) or not (flags & PROT_DEEP))
+    if (not IS_SER_ARRAY(s) or not (flags & PROT_DEEP))
         return;
 
     Flip_Series_To_Black(s); // recursion protection

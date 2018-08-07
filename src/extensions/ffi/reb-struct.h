@@ -277,7 +277,7 @@ inline static REBCNT STU_OFFSET(REBSTU *stu) {
 
 inline static REBYTE *VAL_STRUCT_DATA_HEAD(const RELVAL *v) {
     REBSER *data = v->payload.structure.data;
-    if (NOT_SER_FLAG(data, SERIES_FLAG_ARRAY))
+    if (not IS_SER_ARRAY(data))
         return BIN_HEAD(data);
 
     RELVAL *handle = ARR_HEAD(ARR(data));
@@ -298,7 +298,7 @@ inline static REBYTE *VAL_STRUCT_DATA_AT(const RELVAL *v) {
 
 inline static REBCNT VAL_STRUCT_DATA_LEN(const RELVAL *v) {
     REBSER *data = v->payload.structure.data;
-    if (NOT_SER_FLAG(data, SERIES_FLAG_ARRAY))
+    if (not IS_SER_ARRAY(data))
         return BIN_LEN(data);
 
     RELVAL *handle = ARR_HEAD(ARR(data));
@@ -312,7 +312,7 @@ inline static REBCNT STU_DATA_LEN(REBSTU *stu) {
 
 inline static REBOOL VAL_STRUCT_INACCESSIBLE(const RELVAL *v) {
     REBSER *data = v->payload.structure.data;
-    if (NOT_SER_FLAG(data, SERIES_FLAG_ARRAY))
+    if (not IS_SER_ARRAY(data))
         return FALSE; // it's not "external", so never inaccessible
 
     RELVAL *handle = ARR_HEAD(ARR(data));

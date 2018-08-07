@@ -88,7 +88,7 @@ void Append_Series(REBSER *s, const void *data, REBCNT len)
     REBCNT len_old = SER_LEN(s);
     REBYTE wide = SER_WIDE(s);
 
-    assert(NOT_SER_FLAG(s, SERIES_FLAG_ARRAY));
+    assert(not IS_SER_ARRAY(s));
 
     EXPAND_SERIES_TAIL(s, len);
     memcpy(SER_DATA_RAW(s) + (wide * len_old), data, wide * len);
@@ -135,19 +135,15 @@ void Append_Values_Len(REBARR *a, const REBVAL *head, REBCNT len)
 // to the importance of stating one's intentions specifically
 // about semantics when copying an array.
 //
-REBSER *Copy_Sequence_Core(REBSER *original, REBFLGS flags)
+REBSER *Copy_Sequence_Core(REBSER *s, REBFLGS flags)
 {
-    assert(NOT_SER_FLAG(original, SERIES_FLAG_ARRAY));
+    assert(not IS_SER_ARRAY(s));
 
-    REBCNT len = SER_LEN(original);
-    REBSER *copy = Make_Series_Core(len + 1, SER_WIDE(original), flags);
+    REBCNT len = SER_LEN(s);
+    REBSER *copy = Make_Series_Core(len + 1, SER_WIDE(s), flags);
 
-    memcpy(
-        SER_DATA_RAW(copy),
-        SER_DATA_RAW(original),
-        len * SER_WIDE(original)
-    );
-    TERM_SEQUENCE_LEN(copy, SER_LEN(original));
+    memcpy(SER_DATA_RAW(copy), SER_DATA_RAW(s), len * SER_WIDE(s));
+    TERM_SEQUENCE_LEN(copy, SER_LEN(s));
     return copy;
 }
 
@@ -162,18 +158,18 @@ REBSER *Copy_Sequence_Core(REBSER *original, REBFLGS flags)
 // greater detail needed when expressing intent for Rebol Arrays.
 //
 REBSER *Copy_Sequence_At_Len_Extra(
-    REBSER *original,
+    REBSER *s,
     REBCNT index,
     REBCNT len,
     REBCNT extra
 ){
-    assert(NOT_SER_FLAG(original, SERIES_FLAG_ARRAY));
+    assert(not IS_SER_ARRAY(s));
 
-    REBSER *copy = Make_Series(len + 1 + extra, SER_WIDE(original));
+    REBSER *copy = Make_Series(len + 1 + extra, SER_WIDE(s));
     memcpy(
         SER_DATA_RAW(copy),
-        SER_DATA_RAW(original) + index * SER_WIDE(original),
-        (len + 1) * SER_WIDE(original)
+        SER_DATA_RAW(s) + index * SER_WIDE(s),
+        (len + 1) * SER_WIDE(s)
     );
     TERM_SEQUENCE_LEN(copy, len);
     return copy;
@@ -303,7 +299,7 @@ void Unbias_Series(REBSER *s, REBOOL keep)
 //
 void Reset_Sequence(REBSER *s)
 {
-    assert(NOT_SER_FLAG(s, SERIES_FLAG_ARRAY));
+    assert(not IS_SER_ARRAY(s));
     if (GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)) {
         Unbias_Series(s, FALSE);
         s->content.dynamic.len = 0;
@@ -398,7 +394,7 @@ REBYTE *Reset_Buffer(REBSER *buf, REBCNT len)
 //
 void Assert_Series_Term_Core(REBSER *s)
 {
-    if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
+    if (IS_SER_ARRAY(s)) {
         //
         // END values aren't canonized to zero bytes, check IS_END explicitly
         //

@@ -165,18 +165,11 @@
     FLAG_LEFT_BIT(11)
 
 
-//=//// SERIES_FLAG_ARRAY /////////////////////////////////////////////////=//
+//=//// SERIES_FLAG_12 ////////////////////////////////////////////////////=//
 //
-// Indicates that this is a series of REBVAL value cells, and suitable for
-// using as the payload of an ANY-ARRAY! value.  When a series carries this
-// bit, then if it's also NODE_FLAG_MANAGED the garbage collector will process
-// its transitive closure to make sure all the values it contains (and the
-// values its references contain) do not have series GC'd out from under them.
+// Reclaimed.
 //
-// Note: R3-Alpha used `SER_WIDE(s) == sizeof(REBVAL)` for this, but the bit
-// allows series of items that aren't REBVAL, just incidentally the same size.
-//
-#define SERIES_FLAG_ARRAY \
+#define SERIES_FLAG_12 \
     FLAG_LEFT_BIT(12)
 
 
@@ -417,7 +410,7 @@
 // The "width" is the size of the individual elements in the series.  For an
 // ANY-ARRAY this is always 0, to indicate IS_END() for arrays of length 0-1
 // (singulars) which can be held completely in the content bits before the
-// ->info field.  Hence this is also used for IS_ARRAY_SERIES()
+// ->info field.  Hence this is also used for IS_SER_ARRAY()
 
 #define FLAG_WIDE_BYTE_OR_0(wide) \
     FLAG_SECOND_BYTE(wide)
@@ -1039,13 +1032,14 @@ struct Reb_Array {
         );
 
         if (base)
+            assert(WIDE_BYTE_OR_0(reinterpret_cast<REBSER*>(p)) == 0);
             assert(
                 (reinterpret_cast<REBSER*>(p)->header.bits & (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY
+                    NODE_FLAG_NODE
                         | NODE_FLAG_FREE
                         | NODE_FLAG_CELL
                 )) == (
-                    NODE_FLAG_NODE | SERIES_FLAG_ARRAY
+                    NODE_FLAG_NODE
                 )
            );
 
@@ -1121,6 +1115,9 @@ inline static REBOOL ALL_SER_INFOS(
     CLEAR_SER_INFO((s), (f))
 
 
+#define IS_SER_ARRAY(s) \
+    (WIDE_BYTE_OR_0(SER(s)) == 0)
+
 // These are series implementation details that should not be used by most
 // code.  But in order to get good inlining, they have to be in the header
 // files (of the *internal* API, not of libRebol).  Generally avoid it.
@@ -1139,7 +1136,7 @@ inline static REBYTE SER_WIDE(REBSER *s) {
     //
     REBYTE wide = WIDE_BYTE_OR_0(s);
     if (wide == 0) {
-        assert(GET_SER_FLAG(s, SERIES_FLAG_ARRAY));
+        assert(IS_SER_ARRAY(s));
         return sizeof(REBVAL);
     }
     return wide;
@@ -1159,7 +1156,7 @@ inline static REBCNT SER_REST(REBSER *s) {
     if (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
         return s->content.dynamic.rest;
 
-    if (s->header.bits & SERIES_FLAG_ARRAY)
+    if (IS_SER_ARRAY(s))
         return 2; // includes info bits acting as trick "terminator"
 
     assert(sizeof(s->content) % SER_WIDE(s) == 0);

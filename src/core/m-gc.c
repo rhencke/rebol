@@ -161,7 +161,7 @@ static inline void Unmark_Rebser(REBSER *rebser) {
 static void Queue_Mark_Array_Subclass_Deep(REBARR *a)
 {
   #if !defined(NDEBUG)
-    if (NOT_SER_FLAG(a, SERIES_FLAG_ARRAY))
+    if (not IS_SER_ARRAY(a))
         panic (a);
   #endif
 
@@ -250,7 +250,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     }
     else {
         assert(IS_VARARGS(v));
-        assert(binding->header.bits & SERIES_FLAG_ARRAY);
+        assert(IS_SER_ARRAY(binding));
         assert(NOT_SER_FLAG(binding, SERIES_FLAG_HAS_DYNAMIC)); // singular
     }
   #endif
@@ -662,7 +662,7 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         //
         // Note this may be a singular array handle, or it could be a BINARY!
         //
-        if (GET_SER_FLAG(v->payload.structure.data, SERIES_FLAG_ARRAY))
+        if (IS_SER_ARRAY(v->payload.structure.data))
             Queue_Mark_Singular_Array(ARR(v->payload.structure.data));
         else
             Mark_Rebser_Only(v->payload.structure.data);
@@ -757,7 +757,7 @@ static void Propagate_All_GC_Marks(void)
         // For a lighter check, make sure it's marked as a value-bearing array
         // and that it hasn't been freed.
         //
-        assert(GET_SER_FLAG(a, SERIES_FLAG_ARRAY));
+        assert(IS_SER_ARRAY(a));
         assert(not IS_FREE_NODE(SER(a)));
     #endif
 
@@ -1034,7 +1034,7 @@ static void Mark_Root_Series(void)
                 Queue_Mark_Opt_Value_Deep(PAIRING_KEY(paired));
             }
 
-            if (s->header.bits & SERIES_FLAG_ARRAY) {
+            if (IS_SER_ARRAY(s)) {
                 if (s->header.bits & (NODE_FLAG_MANAGED | NODE_FLAG_STACK))
                     continue; // BLOCK!, Mark_Frame_Stack_Deep() etc. mark it
 
@@ -1158,7 +1158,7 @@ static void Mark_Guarded_Nodes(void)
         else { // a series
             assert(node->header.bits & NODE_FLAG_MANAGED);
             REBSER *s = cast(REBSER*, node);
-            if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY))
+            if (IS_SER_ARRAY(s))
                 Queue_Mark_Array_Subclass_Deep(ARR(s));
             else
                 Mark_Rebser_Only(s);
