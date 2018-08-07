@@ -172,49 +172,48 @@ void* Probe_Core_Debug(
 
         ASSERT_SERIES(s); // if corrupt, gives better info than a print crash
 
-        if (GET_SER_FLAG(s, ARRAY_FLAG_VARLIST)) {
-            Probe_Print_Helper(p, "Context Varlist", file, line);
-            Probe_Molded_Value(CTX_ARCHETYPE(CTX(s)));
+        // This routine is also a little catalog of the outlying series
+        // types in terms of sizing, just to know what they are.
+
+        if (SER_WIDE(s) == sizeof(REBYTE)) {
+            Probe_Print_Helper(p, "Byte-Size Series", file, line);
+
+            // !!! Duplication of code in MF_Binary
+            //
+            const REBOOL brk = (BIN_LEN(s) > 32);
+            REBSER *enbased = Encode_Base16(BIN_HEAD(s), BIN_LEN(s), brk);
+            Append_Unencoded(mo->series, "#{");
+            Append_Utf8_Utf8(
+                mo->series,
+                cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased)
+            );
+            Append_Unencoded(mo->series, "}");
+            Free_Unmanaged_Series(enbased);
         }
-        else {
-            // This routine is also a little catalog of the outlying series
-            // types in terms of sizing, just to know what they are.
-
-            if (SER_WIDE(s) == sizeof(REBYTE)) {
-                Probe_Print_Helper(p, "Byte-Size Series", file, line);
-
-                // !!! Duplication of code in MF_Binary
-                //
-                const REBOOL brk = (BIN_LEN(s) > 32);
-                REBSER *enbased = Encode_Base16(BIN_HEAD(s), BIN_LEN(s), brk);
-                Append_Unencoded(mo->series, "#{");
-                Append_Utf8_Utf8(
-                    mo->series,
-                    cs_cast(BIN_HEAD(enbased)), BIN_LEN(enbased)
-                );
-                Append_Unencoded(mo->series, "}");
-                Free_Unmanaged_Series(enbased);
+        else if (SER_WIDE(s) == sizeof(REBUNI)) {
+            Probe_Print_Helper(p, "REBWCHAR-Size Series", file, line);
+            Mold_Text_Series_At(mo, s, 0); // not necessarily TEXT!
+        }
+        else if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
+            if (GET_SER_FLAG(s, ARRAY_FLAG_VARLIST)) {
+                Probe_Print_Helper(p, "Context Varlist", file, line);
+                Probe_Molded_Value(CTX_ARCHETYPE(CTX(s)));
             }
-            else if (SER_WIDE(s) == sizeof(REBUNI)) {
-                Probe_Print_Helper(p, "REBWCHAR-Size Series", file, line);
-                Mold_Text_Series_At(mo, s, 0); // not necessarily TEXT!
-            }
-            else if (GET_SER_FLAG(s, SERIES_FLAG_ARRAY)) {
+            else {
                 Probe_Print_Helper(p, "Array", file, line);
                 Mold_Array_At(mo, ARR(s), 0, "[]"); // not necessarily BLOCK!
             }
-            else if (s == PG_Canons_By_Hash) {
-                printf("can't probe PG_Canons_By_Hash (TBD: add probing)\n");
-                panic (s);
-            }
-            else if (s == GC_Guarded) {
-                printf("can't probe GC_Guarded (TBD: add probing)\n");
-                panic (s);
-            }
-            else
-                panic (s);
-
         }
+        else if (s == PG_Canons_By_Hash) {
+            printf("can't probe PG_Canons_By_Hash (TBD: add probing)\n");
+            panic (s);
+        }
+        else if (s == GC_Guarded) {
+            printf("can't probe GC_Guarded (TBD: add probing)\n");
+            panic (s);
+        }
+        else
+            panic (s);
         break; }
 
     case DETECTED_AS_FREED_SERIES:

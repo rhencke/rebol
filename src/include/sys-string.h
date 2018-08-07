@@ -380,6 +380,17 @@ inline static REBSER *Make_Sized_String_UTF8(const char *utf8, size_t size)
 inline static REBINT Hash_String(REBSTR *str)
     { return Hash_UTF8(cb_cast(STR_HEAD(str)), STR_SIZE(str)); }
 
+inline static REBINT First_Hash_Candidate_Slot(
+    REBCNT *skip_out,
+    REBCNT hash,
+    REBCNT num_slots
+){
+    *skip_out = (hash & 0x0000FFFF) % num_slots;
+    if (*skip_out == 0)
+        *skip_out = 1;
+    return (hash & 0x00FFFF00) % num_slots;
+}
+
 
 //
 // Copy helpers

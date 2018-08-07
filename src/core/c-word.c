@@ -121,53 +121,55 @@ static void Expand_Word_Table(void)
     // The only full list of canon words available is the old hash table.
     // Hold onto it while creating the new hash table.
 
-    REBCNT old_size = SER_LEN(PG_Canons_By_Hash);
+    REBCNT old_num_slots = SER_LEN(PG_Canons_By_Hash);
     REBSTR* *old_canons_by_hash = SER_HEAD(REBSER*, PG_Canons_By_Hash);
 
-    REBCNT new_size = Get_Hash_Prime(old_size + 1);
-    if (new_size == 0) {
+    REBCNT num_slots = Get_Hash_Prime(old_num_slots + 1);
+    if (num_slots == 0) { // larger than hash prime table
         DECLARE_LOCAL (temp);
-        Init_Integer(temp, old_size + 1);
+        Init_Integer(temp, old_num_slots + 1);
         fail (Error_Size_Limit_Raw(temp));
     }
 
     assert(SER_WIDE(PG_Canons_By_Hash) == sizeof(REBSTR*));
 
     REBSER *ser = Make_Series_Core(
-        new_size, sizeof(REBSTR*), SERIES_FLAG_POWER_OF_2
+        num_slots, sizeof(REBSTR*), SERIES_FLAG_POWER_OF_2
     );
     Clear_Series(ser);
-    SET_SERIES_LEN(ser, new_size);
+    SET_SERIES_LEN(ser, num_slots);
 
     // Rehash all the symbols:
 
     REBSTR **new_canons_by_hash = SER_HEAD(REBSER*, ser);
 
-    REBCNT n;
-    for (n = 0; n != old_size; ++n) {
-        REBSTR *canon = old_canons_by_hash[n];
-
-        if (canon == NULL) continue;
+    REBCNT old_slot;
+    for (old_slot = 0; old_slot != old_num_slots; ++old_slot) {
+        REBSTR *canon = old_canons_by_hash[old_slot];
+        if (not canon)
+            continue;
 
         if (canon == DELETED_CANON) { // clean out any deleted canon entries
             --PG_Num_Canon_Slots_In_Use;
-        #if !defined(NDEBUG)
+          #if !defined(NDEBUG)
             --PG_Num_Canon_Deleteds; // keep track for shutdown assert
-        #endif
+          #endif
             continue;
         }
 
-        REBINT hash = Hash_String(canon);
-        REBINT skip = (hash & 0x0000FFFF) % new_size;
-        if (skip == 0) skip = 1;
-        hash = (hash & 0x00FFFF00) % new_size;
+        REBCNT skip;
+        REBCNT slot = First_Hash_Candidate_Slot(
+            &skip,
+            Hash_String(canon),
+            num_slots
+        );
 
-        while (new_canons_by_hash[hash] != NULL) {
-            hash += skip;
-            if (hash >= cast(REBINT, new_size))
-                hash -= new_size;
+        while (new_canons_by_hash[slot]) { // skip occupied slots
+            slot += skip;
+            if (slot >= num_slots)
+                slot -= num_slots;
         }
-        new_canons_by_hash[hash] = canon;
+        new_canons_by_hash[slot] = canon;
     }
 
     Free_Unmanaged_Series(PG_Canons_By_Hash);
@@ -209,89 +211,66 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
 
     REBSTR* *canons_by_hash = SER_HEAD(REBSER*, PG_Canons_By_Hash);
 
-    // Calculate the starting hash slot to try--and the amount to skip to by
-    // each time a slot is found that is occupied by a non-match.
-    //
-    REBCNT hash = Hash_UTF8(utf8, size);
-    REBCNT skip = (hash & 0x0000FFFF) % num_slots;
-    if (skip == 0)
-        skip = 1;
-    hash = (hash & 0x00FFFF00) % num_slots;
+    REBCNT skip; // how many slots to skip when occupied candidates found
+    REBCNT slot = First_Hash_Candidate_Slot(
+        &skip,
+        Hash_UTF8(utf8, size),
+        num_slots
+    );
 
-    REBSTR **deleted_slot = NULL;
 
     // The hash table only indexes the canon form of each spelling.  So when
     // testing a slot to see if it's a match (or a collision that needs to
     // be skipped to try again) the search uses a comparison that is
-    // case-insensitive...and returns a value > 0 for a match.
+    // case-insensitive...but reports if synonyms via > 0 results.
     //
-    // However, the result also indicates whether it was an *exact* match, by
-    // returning 0 if it is.
-    //
+    REBSTR **deleted_slot = nullptr;
     REBSTR* canon;
-    while ((canon = canons_by_hash[hash]) != NULL) {
+    while ((canon = canons_by_hash[slot])) {
         if (canon == DELETED_CANON) {
-            deleted_slot = &canons_by_hash[hash];
-            hash += skip;
-            if (hash >= num_slots)
-                hash -= num_slots;
-            continue;
+            deleted_slot = &canons_by_hash[slot];
+            goto next_candidate_slot;
         }
 
         assert(GET_SER_INFO(canon, STRING_INFO_CANON));
 
-        // Compare_UTF8 returns 0 when the spelling is a case-sensitive match,
-        // and is the exact interning to return.
-        //
-        REBINT cmp = Compare_UTF8(cb_cast(STR_HEAD(canon)), utf8, size);
+        REBINT cmp;
+        cmp = Compare_UTF8(cb_cast(STR_HEAD(canon)), utf8, size);
         if (cmp == 0)
-            return canon;
-
-        if (cmp < 0) {
-            //
-            // Compare_UTF8 returns less than zero when the canon value in the
-            // slot isn't the same at all.  Since it's not a match, skip ahead
-            // to the next candidate slot--wrapping around if necessary
-            //
-            hash += skip;
-            if (hash >= num_slots)
-                hash -= num_slots;
-            continue;
-        }
+            return canon; // was a case-sensitive match
+        if (cmp < 0)
+            goto next_candidate_slot; // wasn't an alternate casing
 
         // The > 0 result means that the canon word that was found is an
         // alternate casing ("synonym") for the string we're interning.  The
         // synonyms are attached to the canon form with a circularly linked
         // list.  Walk the list to see if any of the synonyms are a match.
         //
-        REBSTR *synonym = LINK(canon).synonym;
+        REBSTR *synonym;
+        synonym = LINK(canon).synonym;
         while (synonym != canon) {
             assert(NOT_SER_INFO(synonym, STRING_INFO_CANON));
 
-            // Exact match for a synonym also means no new allocation needed.
-            //
             cmp = Compare_UTF8(cb_cast(STR_HEAD(synonym)), utf8, size);
             if (cmp == 0)
-                return synonym;
+                return synonym; // exact spelling match means no new interning
 
-            // Comparison should at least be a synonym, if in this list.
-            // Keep checking for an exact match until a cycle is found.
-            //
-            assert(cmp > 0);
-            synonym = LINK(synonym).synonym;
+            assert(cmp > 0); // should be at least a synonym if in this list
+            synonym = LINK(synonym).synonym; // check until cycle is found
         }
 
-        // If none of the synonyms matched, then this case variation needs
-        // to get its own interning, and point to the canon found.
+        goto new_interning; // no synonyms matched, make new synonym for canon
 
-        assert(canon != NULL);
-        goto new_interning; // break loop, make a new synonym
+      next_candidate_slot:; // https://en.wikipedia.org/wiki/Linear_probing
+
+        slot += skip;
+        if (slot >= num_slots)
+            slot -= num_slots;
     }
 
-    // normal loop fallthrough at canon == NULL - make a new canon form
-    assert(canon == NULL);
+    assert(not canon); // loop exits when it finds a vacant canon slot
 
-new_interning: ; // semicolon needed for statement
+  new_interning:;
 
     // If possible, the allocation should be fit into a REBSER node with no
     // separate allocation.  Because automatically doing this is a new
@@ -309,20 +288,15 @@ new_interning: ; // semicolon needed for statement
     memcpy(BIN_HEAD(intern), utf8, size);
     TERM_BIN_LEN(intern, size);
 
-    if (canon == NULL) {
-        //
-        // There was no canon symbol found, so this interning will be canon.
-        // Add it to the hash table and mark it, reuse deleted slot (if any)
-        //
+    if (not canon) { // no canon found, so this interning must become canon
         if (deleted_slot) {
-            *deleted_slot = intern; // slot "usage" count stays constant
-
-        #if !defined(NDEBUG)
-            --PG_Num_Canon_Deleteds;
-        #endif
+            *deleted_slot = intern; // reuse the deleted slot
+          #if !defined(NDEBUG)
+            --PG_Num_Canon_Deleteds; // note slot "usage" count stays constant
+          #endif
         }
         else {
-            canons_by_hash[hash] = intern;
+            canons_by_hash[slot] = intern;
             ++PG_Num_Canon_Slots_In_Use;
         }
 
@@ -403,18 +377,19 @@ void GC_Kill_Interning(REBSTR *intern)
     REBCNT num_slots = SER_LEN(PG_Canons_By_Hash);
     REBSTR* *canons_by_hash = SER_HEAD(REBSER*, PG_Canons_By_Hash);
 
-    REBCNT hash = Hash_String(intern);
-    REBCNT skip = (hash & 0x0000FFFF) % num_slots;
-    if (skip == 0)
-        skip = 1;
-    hash = (hash & 0x00FFFF00) % num_slots;
+    REBCNT skip;
+    REBCNT slot = First_Hash_Candidate_Slot(
+        &skip,
+        Hash_String(intern),
+        num_slots
+    );
 
     // We *will* find the canon form in the hash table.
     //
-    while (canons_by_hash[hash] != intern) {
-        hash += skip;
-        if (hash >= num_slots)
-            hash -= num_slots;
+    while (canons_by_hash[slot] != intern) {
+        slot += skip;
+        if (slot >= num_slots)
+            slot -= num_slots;
     }
 
     if (synonym != intern) {
@@ -426,7 +401,7 @@ void GC_Kill_Interning(REBSTR *intern)
     #ifdef SLOW_INTERN_HASH_DOUBLE_CHECK
         assert(hash == Hash_String(synonym));
     #endif
-        canons_by_hash[hash] = synonym;
+        canons_by_hash[slot] = synonym;
         SET_SER_INFO(synonym, STRING_INFO_CANON);
         MISC(synonym).bind_index.low = 0;
         MISC(synonym).bind_index.high = 0;
@@ -435,12 +410,12 @@ void GC_Kill_Interning(REBSTR *intern)
         // This canon form must be removed from the hash table.  Ripple the
         // collision slots back until a NULL is found, to reduce search times.
         //
-        REBCNT previous_hash = hash;
-        while (canons_by_hash[hash] != NULL) {
-            hash += skip;
-            if (hash >= num_slots)
-                hash -= num_slots;
-            canons_by_hash[previous_hash] = canons_by_hash[hash];
+        REBCNT previous_slot = slot;
+        while (canons_by_hash[slot]) {
+            slot += skip;
+            if (slot >= num_slots)
+                slot -= num_slots;
+            canons_by_hash[previous_slot] = canons_by_hash[slot];
         }
 
         // Signal that the hash slot is "deleted" via a special pointer.
@@ -449,7 +424,7 @@ void GC_Kill_Interning(REBSTR *intern)
         //
         // http://stackoverflow.com/a/279812/211160
         //
-        canons_by_hash[previous_hash] = DELETED_CANON;
+        canons_by_hash[previous_slot] = DELETED_CANON;
 
     #if !defined(NDEBUG)
         ++PG_Num_Canon_Deleteds; // total use same (PG_Num_Canons_Or_Deleteds)
@@ -542,7 +517,7 @@ void Startup_Interning(void)
 void Startup_Symbols(REBARR *words)
 {
     PG_Symbol_Canons = Make_Series_Core(
-        ARR_LEN(words) + 1, // extra NULL at head for SYM_0
+        1 + ARR_LEN(words), // 1 + => extra trash at head for SYM_0
         sizeof(REBSTR*),
         SERIES_FLAG_FIXED_SIZE // can't ever add more SYM_XXX lookups
     );
@@ -570,12 +545,9 @@ void Startup_Symbols(REBARR *words)
 
         REBSTR *name = canon;
         do {
-            // The low 8 bits of the header are reserved for flags, including
-            // those common between REBSER nodes and REBVALs.  The high 8 bits
-            // are used for the size if the series has no dynamic content,
-            // and reserved otherwise.  So the shifted-left-by-8 16 bits of
-            // the header are free for the symbol number (could probably use
-            // less than 16 bits, but 8 is insufficient, length %words.r > 256)
+            // Symbol series store symbol number in the header's 2nd uint16_t.
+            // Could probably use less than 16 bits, but 8 is insufficient.
+            // (length %words.r > 256)
             //
             assert(SECOND_UINT16(name->header) == 0);
             SECOND_UINT16(name->header) = sym;
@@ -586,10 +558,9 @@ void Startup_Symbols(REBARR *words)
     }
 
     *SER_AT(REBSTR*, PG_Symbol_Canons, cast(REBCNT, sym)) = NULL; // terminate
-    sym = cast(REBSYM, cast(REBCNT, sym) + 1);
 
-    SET_SERIES_LEN(PG_Symbol_Canons, cast(REBCNT, sym));
-    assert(SER_LEN(PG_Symbol_Canons) == ARR_LEN(words) + 1);
+    SET_SERIES_LEN(PG_Symbol_Canons, 1 + cast(REBCNT, sym));
+    assert(SER_LEN(PG_Symbol_Canons) == 1 + ARR_LEN(words));
 
     // Do some sanity checks.  !!! Fairly critical, is debug-only appropriate?
 
