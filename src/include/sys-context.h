@@ -75,7 +75,7 @@
 //
 inline static REBVAL *CTX_ARCHETYPE(REBCTX *c) {
     REBSER *varlist = SER(CTX_VARLIST(c));
-    if (NOT_SER_FLAG(varlist, SERIES_FLAG_HAS_DYNAMIC))
+    if (not IS_SER_DYNAMIC(varlist))
         return cast(REBVAL*, &varlist->content.fixed);
 
     // If a context has its data freed, it must be converted into non-dynamic
@@ -419,17 +419,21 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     // etc.--use constant assignments and only copy the remaining fields.
     //
     REBSER *copy = Make_Series_Node(
-        SERIES_MASK_CONTEXT // includes dynamic, applies to stolen content
+        SERIES_MASK_CONTEXT
             | SERIES_FLAG_STACK
             | SERIES_FLAG_FIXED_SIZE
     );
-    Init_Endlike_Header(&copy->info, FLAG_WIDE_BYTE_OR_0(0));
+    Init_Endlike_Header(
+        &copy->info,
+        FLAG_WIDE_BYTE_OR_0(0) // indicates array
+            | FLAG_LEN_BYTE_OR_255(255) // indicates dynamic (varlist rule)
+    );
     TRASH_POINTER_IF_DEBUG(copy->link_private.keysource); // needs update
     memcpy(&copy->content, &stub->content, sizeof(union Reb_Series_Content));
     copy->misc_private.meta = nullptr; // let stub have the meta
-        
+
     REBVAL *rootvar = cast(REBVAL*, copy->content.dynamic.data);
-        
+
     // Convert the old varlist that had outstanding references into a
     // singular "stub", holding only the CTX_ARCHETYPE.  This is needed
     // for the ->binding to allow Derelativize(), see SPC_BINDING().
@@ -438,12 +442,11 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     // those marking failure are asked to do so manually to the stub
     // after this returns (hence they need to cache the varlist first).
     //
-    stub->header.bits &= ~SERIES_FLAG_HAS_DYNAMIC;
     Init_Endlike_Header(
         &stub->info,
         SERIES_INFO_INACCESSIBLE // args memory now "stolen" by copy
             | FLAG_WIDE_BYTE_OR_0(0) // width byte is 0 for array series
-            | FLAG_LEN_BYTE_OR_255(1) // no HAS_DYNAMIC bit, this is length
+            | FLAG_LEN_BYTE_OR_255(1) // not dynamic any more, new len is 1
     );
 
     REBVAL *single = cast(REBVAL*, &stub->content.fixed);

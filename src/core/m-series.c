@@ -186,7 +186,7 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
 {
     if (len <= 0) return;
 
-    REBOOL is_dynamic = GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC);
+    REBOOL is_dynamic = IS_SER_DYNAMIC(s);
     REBCNT len_old = SER_LEN(s);
 
     REBCNT start = index * SER_WIDE(s);
@@ -300,7 +300,7 @@ void Unbias_Series(REBSER *s, REBOOL keep)
 void Reset_Sequence(REBSER *s)
 {
     assert(not IS_SER_ARRAY(s));
-    if (GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)) {
+    if (IS_SER_DYNAMIC(s)) {
         Unbias_Series(s, FALSE);
         s->content.dynamic.len = 0;
         TERM_SEQUENCE(s);
@@ -318,7 +318,7 @@ void Reset_Sequence(REBSER *s)
 //
 void Reset_Array(REBARR *a)
 {
-    if (GET_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC))
+    if (IS_SER_DYNAMIC(a))
         Unbias_Series(SER(a), FALSE);
     TERM_ARRAY_LEN(a, 0);
 }
@@ -334,7 +334,7 @@ void Clear_Series(REBSER *s)
 {
     assert(!Is_Series_Read_Only(s));
 
-    if (GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)) {
+    if (IS_SER_DYNAMIC(s)) {
         Unbias_Series(s, FALSE);
         CLEAR(s->content.dynamic.data, SER_REST(s) * SER_WIDE(s));
     }
@@ -353,7 +353,7 @@ void Clear_Series(REBSER *s)
 //
 void Resize_Series(REBSER *s, REBCNT size)
 {
-    if (GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)) {
+    if (IS_SER_DYNAMIC(s)) {
         s->content.dynamic.len = 0;
         Unbias_Series(s, TRUE);
     }

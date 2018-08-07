@@ -129,10 +129,10 @@ static inline void Mark_Rebser_Only(REBSER *s)
         panic (s);
     }
     if (GET_SER_INFO((s), SERIES_INFO_INACCESSIBLE))
-        assert(NOT_SER_FLAG((s), SERIES_FLAG_HAS_DYNAMIC));
+        assert(not IS_SER_DYNAMIC(s));
   #endif
 
-    (s)->header.bits |= NODE_FLAG_MARKED; // may be already set
+    s->header.bits |= NODE_FLAG_MARKED; // may be already set
 }
 
 static inline void Unmark_Rebser(REBSER *rebser) {
@@ -251,7 +251,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     else {
         assert(IS_VARARGS(v));
         assert(IS_SER_ARRAY(binding));
-        assert(NOT_SER_FLAG(binding, SERIES_FLAG_HAS_DYNAMIC)); // singular
+        assert(not IS_SER_DYNAMIC(binding)); // singular
     }
   #endif
 
@@ -284,7 +284,7 @@ inline static void Queue_Mark_Singular_Array(REBARR *a) {
         ))
     );
 
-    assert(NOT_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC));
+    assert(not IS_SER_DYNAMIC(a));
 
     // While it would be tempting to just go ahead and try to queue the
     // ARR_SINGLE() value here, that could keep recursing if that value had
@@ -984,7 +984,7 @@ static void Mark_Root_Series(void)
                 // from the C stack, only this visit should be marking it.
                 //
                 assert(not (s->header.bits & NODE_FLAG_MARKED));
-                assert(not (s->header.bits & SERIES_FLAG_HAS_DYNAMIC));
+                assert(not IS_SER_DYNAMIC(s));
                 assert(
                     not LINK(s).owner
                     or LINK(s).owner->header.bits & NODE_FLAG_MANAGED

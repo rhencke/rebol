@@ -29,14 +29,14 @@
 
 
 // A context's varlist is always allocated dynamically, in order to speed
-// up variable access--no need to test SERIES_FLAG_HAS_DYNAMIC to find them.
+// up variable access--no need to test LEN_BYTE_OR_255 for 255.
 //
 // !!! Ideally this would carry a flag to tell a GC "shrinking" process not
 // to reclaim the dynamic memory to make a singular cell...but that flag
 // can't be SERIES_FLAG_FIXED_SIZE, because most varlists can expand.
 //
 #define SERIES_MASK_CONTEXT \
-    (NODE_FLAG_NODE | SERIES_FLAG_HAS_DYNAMIC | ARRAY_FLAG_VARLIST)
+    (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC | ARRAY_FLAG_VARLIST)
 
 
 struct Reb_Context {

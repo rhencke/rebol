@@ -493,11 +493,15 @@ inline static void Push_Action(
     REBSER *s;
     if (not f->varlist) { // usually means first action call in the REBFRM
         s = Make_Series_Node(
-            SERIES_MASK_CONTEXT // includes dynamic flag, for allocation below
+            SERIES_MASK_CONTEXT
                 | SERIES_FLAG_STACK
                 | SERIES_FLAG_FIXED_SIZE // FRAME!s don't expand ATM
         );
-        Init_Endlike_Header(&s->info, FLAG_WIDE_BYTE_OR_0(0));
+        Init_Endlike_Header(
+            &s->info,
+            FLAG_WIDE_BYTE_OR_0(0) // signals array
+            | FLAG_LEN_BYTE_OR_255(255) // signals dynamic
+        );
         s->link_private.keysource = NOD(f); // maps varlist back to f
         s->misc_private.meta = nullptr; // GC will sees this
         f->varlist = ARR(s);

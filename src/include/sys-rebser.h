@@ -173,17 +173,21 @@
     FLAG_LEFT_BIT(12)
 
 
-//=//// SERIES_FLAG_HAS_DYNAMIC ///////////////////////////////////////////=//
+//=//// SERIES_FLAG_ALWAYS_DYNAMIC ////////////////////////////////////////=//
 //
-// Indicates that this series has a dynamically allocated portion.  If it does
-// not, then its data pointer is the address of the embedded value inside of
-// it, and that the length is stored in the rightmost byte of the header
-// bits (of which this is one bit).
+// The optimization which uses small series will fit the data into the series
+// node if it is small enough.  But doing this requires a test on SER_LEN()
+// and SER_DATA_RAW() to see if the small optimization is in effect.  Some
+// code is more interested in the performance gained by being able to assume
+// where to look for the data pointer and the length (e.g. paramlists and
+// context varlists/keylists).  Passing this flag into series creation
+// routines will avoid creating the shortened form.
 //
-// This bit will be flipped if a series grows.  (In the future it should also
-// be flipped when the series shrinks, but no shrinking in the GC yet.)
+// Note: Currently SERIES_INFO_INACCESSIBLE overrides this, but does not
+// remove the flag...e.g. there can be inaccessible contexts that carry the
+// SERIES_FLAG_ALWAYS_DYNAMIC bit but no longer have an allocation.
 //
-#define SERIES_FLAG_HAS_DYNAMIC \
+#define SERIES_FLAG_ALWAYS_DYNAMIC \
     FLAG_LEFT_BIT(13)
 
 
@@ -425,6 +429,13 @@
 // be used for something else there.  (Or a special value like 255 could be
 // used to indicate dynamic/non-dynamic series, which might speed up SER_LEN()
 // and other bit fiddling operations vs. SERIES_INFO_HAS_DYNAMIC).
+//
+// 255 indicates that this series has a dynamically allocated portion.  If it
+// is another value, then it's the length of content which is found directly
+// in the series node's embedded Reb_Series_Content.
+//
+// (See also: SERIES_FLAG_ALWAYS_DYNAMIC to prevent creating embedded data.)
+//
 
 #define FLAG_LEN_BYTE_OR_255(len) \
     FLAG_THIRD_BYTE(len)
@@ -618,17 +629,18 @@ union Reb_Series_Content {
     //
     struct Reb_Series_Dynamic dynamic;
 
-    // If not SERIES_FLAG_HAS_DYNAMIC, 0 or 1 length arrays can be held in
+    // If LEN_BYTE_OR_255() != 255, 0 or 1 length arrays can be held in
     // the series node.  This trick is accomplished via "implicit termination"
     // in the ->info bits that come directly after ->content.  For how this is
     // done, see Init_Endlike_Header()
     //
-    // !!! This is made as a union in order to allow easier insights into the
-    // data content when it is UTF-8.
-    //
     union {
         RELVAL values[1];
-        char utf8[sizeof(RELVAL)];
+
+      #if !defined(NDEBUG) // https://en.wikipedia.org/wiki/Type_punning
+        char utf8_pun[sizeof(RELVAL)]; // debug watchlist insight into UTF-8
+        REBUNI ucs2_pun[sizeof(RELVAL)/sizeof(REBUNI)]; // wchar_t insight
+      #endif
     } fixed;
 };
 
@@ -1118,6 +1130,9 @@ inline static REBOOL ALL_SER_INFOS(
 #define IS_SER_ARRAY(s) \
     (WIDE_BYTE_OR_0(SER(s)) == 0)
 
+#define IS_SER_DYNAMIC(s) \
+    (LEN_BYTE_OR_255(SER(s)) == 255)
+
 // These are series implementation details that should not be used by most
 // code.  But in order to get good inlining, they have to be in the header
 // files (of the *internal* API, not of libRebol).  Generally avoid it.
@@ -1148,12 +1163,12 @@ inline static REBYTE SER_WIDE(REBSER *s) {
 //
 
 inline static REBCNT SER_BIAS(REBSER *s) {
-    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    assert(IS_SER_DYNAMIC(s));
     return cast(REBCNT, ((s)->content.dynamic.bias >> 16) & 0xffff);
 }
 
 inline static REBCNT SER_REST(REBSER *s) {
-    if (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
+    if (LEN_BYTE_OR_255(s) == 255)
         return s->content.dynamic.rest;
 
     if (IS_SER_ARRAY(s))
@@ -1166,18 +1181,18 @@ inline static REBCNT SER_REST(REBSER *s) {
 #define MAX_SERIES_BIAS 0x1000
 
 inline static void SER_SET_BIAS(REBSER *s, REBCNT bias) {
-    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    assert(IS_SER_DYNAMIC(s));
     s->content.dynamic.bias =
         (s->content.dynamic.bias & 0xffff) | (bias << 16);
 }
 
 inline static void SER_ADD_BIAS(REBSER *s, REBCNT b) {
-    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    assert(IS_SER_DYNAMIC(s));
     s->content.dynamic.bias += b << 16;
 }
 
 inline static void SER_SUB_BIAS(REBSER *s, REBCNT b) {
-    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    assert(IS_SER_DYNAMIC(s));
     s->content.dynamic.bias -= b << 16;
 }
 
@@ -1186,7 +1201,7 @@ inline static size_t SER_TOTAL(REBSER *s) {
 }
 
 inline static size_t SER_TOTAL_IF_DYNAMIC(REBSER *s) {
-    if (NOT_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC))
+    if (not IS_SER_DYNAMIC(s))
         return 0;
     return SER_TOTAL(s);
 }

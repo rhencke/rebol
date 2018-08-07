@@ -294,7 +294,7 @@ REBCTX *Copy_Context_Shallow_Extra(REBCTX *src, REBCNT extra) {
         varlist = Copy_Array_Extra_Shallow(
             CTX_VARLIST(src), SPECIFIED, extra
         );
-        SET_SER_FLAG(varlist, ARRAY_FLAG_VARLIST);
+        SET_SER_FLAGS(varlist, SERIES_MASK_CONTEXT);
 
         dest = CTX(varlist);
 

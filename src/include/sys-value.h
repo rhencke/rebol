@@ -536,6 +536,9 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
 #define CELL_MASK_NON_STACK \
     (NODE_FLAG_NODE | NODE_FLAG_CELL)
 
+#define CELL_MASK_NON_STACK_END \
+    (CELL_MASK_NON_STACK | FLAG_KIND_BYTE(REB_0)) // same, but more explicit
+
 inline static void Prep_Non_Stack_Cell_Core(
     RELVAL *c
 
@@ -1727,8 +1730,7 @@ inline static void INIT_BINDING(RELVAL *v, void *p) {
             binding->header.bits & ARRAY_FLAG_VARLIST // specific
             or binding->header.bits & ARRAY_FLAG_PARAMLIST // relative
             or (
-                IS_VARARGS(v)
-                and not (SER(binding)->header.bits & SERIES_FLAG_HAS_DYNAMIC)
+                IS_VARARGS(v) and not IS_SER_DYNAMIC(binding)
             ) // varargs from MAKE VARARGS! [...], else is a varlist
         );
     }

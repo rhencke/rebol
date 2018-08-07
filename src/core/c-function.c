@@ -1038,9 +1038,12 @@ REBACT *Make_Action(
 //
 REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
 {
-    REBARR *varlist = Alloc_Singular(
-        ARRAY_FLAG_VARLIST | SERIES_FLAG_STACK | NODE_FLAG_MANAGED
-    );
+    // Since passing SERIES_MASK_CONTEXT includes SERIES_FLAG_ALWAYS_DYNAMIC,
+    // don't pass it in to the allocation...it needs to be set, but will be
+    // overridden by SERIES_INFO_INACCESSIBLE.
+    //
+    REBARR *varlist = Alloc_Singular(SERIES_FLAG_STACK | NODE_FLAG_MANAGED);
+    SET_SER_FLAGS(varlist, SERIES_MASK_CONTEXT);
     SET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE);
     MISC(varlist).meta = nullptr;
 

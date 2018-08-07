@@ -71,11 +71,8 @@ inline static RELVAL *ARR_TAIL(REBARR *a)
 inline static RELVAL *ARR_LAST(REBARR *a)
     { return SER_LAST(RELVAL, cast(REBSER*, a)); }
 
-// If you know something is a singular array, there's no need to check the
-// SERIES_FLAG_HAS_DYNAMIC as you would in a generic ARR_HEAD.
-//
 inline static RELVAL *ARR_SINGLE(REBARR *a) {
-    assert(NOT_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC));
+    assert(not IS_SER_DYNAMIC(a)); // singular test avoided in release build
     return cast(RELVAL*, &SER(a)->content.fixed);
 }
 
@@ -89,7 +86,7 @@ inline static REBARR *Singular_From_Cell(const RELVAL *v) {
             - offsetof(struct Reb_Series, content)
         )
     );
-    assert(NOT_SER_FLAG(singular, SERIES_FLAG_HAS_DYNAMIC));
+    assert(not IS_SER_DYNAMIC(singular));
     return singular;
 }
 
@@ -183,7 +180,7 @@ inline static void Deep_Freeze_Array(REBARR *a) {
 // they do not know about the ->rest
 //
 inline static void Prep_Array(REBARR *a) {
-    assert(GET_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC));
+    assert(IS_SER_DYNAMIC(a));
 
     REBCNT n;
 
@@ -234,9 +231,11 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     const REBCNT wide = sizeof(REBVAL);
 
     REBSER *s = Make_Series_Node(flags);
-    Init_Endlike_Header(&s->info, FLAG_WIDE_BYTE_OR_0(0));
 
-    if (capacity > 1 or (flags & SERIES_FLAG_HAS_DYNAMIC)) {
+    if (
+        (flags & SERIES_FLAG_ALWAYS_DYNAMIC) // inlining will constant fold
+        or capacity > 1
+    ){
         capacity += 1; // account for cell needed for terminator (END)
 
         // Don't pay for oversize check unless dynamic.  It means the node
@@ -245,7 +244,10 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
         if (cast(REBU64, capacity) * wide > INT32_MAX)
             fail (Error_No_Memory(cast(REBU64, capacity) * wide));
 
-        SET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC); // caller sets
+        // Did_Series_Data_Alloc() expects LEN_BYTE=255 (signals dynamic)
+        //
+        Init_Endlike_Header(&s->info, FLAG_LEN_BYTE_OR_255(255));
+
         if (not Did_Series_Data_Alloc(s, capacity))
             fail (Error_No_Memory(capacity * wide));
 
@@ -255,12 +257,17 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
         PG_Reb_Stats->Series_Memory += capacity * wide;
       #endif
 
-        TERM_ARRAY_LEN(cast(REBARR*, s), 0); // (non-dynamic auto-terminated)
+        TERM_ARRAY_LEN(cast(REBARR*, s), 0); // explicit termination
     }
     else {
-        s->content.fixed.values[0].header.bits =
-            CELL_MASK_NON_STACK | FLAG_WIDE_BYTE_OR_0(0);
+        s->content.fixed.values[0].header.bits = CELL_MASK_NON_STACK_END;
         TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<make>>", 0);
+
+        Init_Endlike_Header(
+            &s->info,
+            FLAG_WIDE_BYTE_OR_0(0) // implicit termination
+            | FLAG_LEN_BYTE_OR_255(0)
+        );
     }
 
     // It is more efficient if you know a series is going to become managed to
@@ -350,6 +357,7 @@ inline static REBARR *Make_Array_For_Copy(
 // For `flags`, be sure to consider if you need SERIES_FLAG_FILE_LINE.
 //
 inline static REBARR *Alloc_Singular(REBFLGS flags) {
+    assert(not (flags & SERIES_FLAG_ALWAYS_DYNAMIC));
     REBARR *a = Make_Array_Core(1, flags | SERIES_FLAG_FIXED_SIZE);
     LEN_BYTE_OR_255(SER(a)) = 1; // non-dynamic length (defaulted to 0)
     return a;

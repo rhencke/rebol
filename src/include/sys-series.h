@@ -134,15 +134,14 @@
 //
 
 inline static REBCNT SER_LEN(REBSER *s) {
-    return (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
-        ? s->content.dynamic.len
-        : LEN_BYTE_OR_255(s);
+    REBYTE len_byte = LEN_BYTE_OR_255(s);
+    return len_byte == 255 ? s->content.dynamic.len : len_byte;
 }
 
 inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
     assert(NOT_SER_FLAG(s, SERIES_FLAG_STACK));
 
-    if (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
+    if (LEN_BYTE_OR_255(s) == 255)
         s->content.dynamic.len = len;
     else {
         assert(len < sizeof(s->content));
@@ -163,7 +162,7 @@ inline static REBYTE *SER_DATA_RAW(REBSER *s) {
     //
     assert(not (s->info.bits & SERIES_INFO_INACCESSIBLE));
 
-    return (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
+    return LEN_BYTE_OR_255(s) == 255
         ? cast(REBYTE*, s->content.dynamic.data)
         : cast(REBYTE*, &s->content);
 }
@@ -190,7 +189,7 @@ inline static REBYTE *SER_AT_RAW(REBYTE w, REBSER *s, REBCNT i) {
   #endif
 
     return ((w) * (i)) + ( // v-- inlining of SER_DATA_RAW
-        (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
+        (LEN_BYTE_OR_255(s) == 255)
             ? cast(REBYTE*, s->content.dynamic.data)
             : cast(REBYTE*, &s->content)
         );
@@ -616,7 +615,7 @@ inline static REBOOL Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
     // no shrinking process that will pare it back to fit completely inside
     // the REBSER node.
     //
-    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)); // caller sets
+    assert(IS_SER_DYNAMIC(s)); // caller sets
 
     REBYTE wide = SER_WIDE(s);
     assert(wide != 0);
@@ -702,7 +701,7 @@ inline static REBSER *Make_Series_Core(
     REBYTE wide,
     REBFLGS flags
 ){
-    assert(not (flags & (ARRAY_FLAG_FILE_LINE)));
+    assert(not (flags & ARRAY_FLAG_FILE_LINE));
 
     if (cast(REBU64, capacity) * wide > INT32_MAX)
         fail (Error_No_Memory(cast(REBU64, capacity) * wide));
@@ -720,7 +719,7 @@ inline static REBSER *Make_Series_Core(
         | FLAG_WIDE_BYTE_OR_0(wide);
 
     if (
-        (flags & SERIES_FLAG_HAS_DYNAMIC) // inlining will constant fold
+        (flags & SERIES_FLAG_ALWAYS_DYNAMIC) // inlining will constant fold
         or (capacity * wide > sizeof(s->content))
     ){
         //
@@ -728,7 +727,7 @@ inline static REBSER *Make_Series_Core(
         // capacity given back as the ->rest may be larger than the requested
         // size, because the memory pool reports the full rounded allocation.
 
-        SET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC); // alloc caller sets
+        LEN_BYTE_OR_255(s) = 255; // alloc caller sets
         if (not Did_Series_Data_Alloc(s, capacity))
             fail (Error_No_Memory(capacity * wide));
 

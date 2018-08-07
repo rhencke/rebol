@@ -34,7 +34,7 @@ struct Reb_Action {
 };
 
 
-// Includes SERIES_FLAG_DYNAMIC because an action's paramlist is always
+// Includes SERIES_FLAG_ALWAYS_DYNAMIC because an action's paramlist is always
 // allocated dynamically, in order to make access to the archetype and the
 // parameters faster than ARR_AT().  See code for ACT_PARAM(), etc.
 //
@@ -43,7 +43,7 @@ struct Reb_Action {
 // for function composition expand them either at this time.
 //
 #define SERIES_MASK_ACTION \
-    (NODE_FLAG_NODE | SERIES_FLAG_HAS_DYNAMIC | SERIES_FLAG_FIXED_SIZE \
+    (NODE_FLAG_NODE | SERIES_FLAG_ALWAYS_DYNAMIC | SERIES_FLAG_FIXED_SIZE \
         | ARRAY_FLAG_PARAMLIST)
 
 

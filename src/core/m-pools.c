@@ -477,7 +477,7 @@ REBNOD *Try_Find_Containing_Node_Debug(const void *p)
                 continue;
             }
 
-            if (NOT_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)) {
+            if (not IS_SER_DYNAMIC(s)) {
                 if (
                     p >= cast(void*, &s->content)
                     && p < cast(void*, &s->content + 1)
@@ -712,7 +712,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 
     REBYTE wide = SER_WIDE(s);
 
-    const REBOOL was_dynamic = GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC);
+    const REBOOL was_dynamic = IS_SER_DYNAMIC(s);
 
     if (was_dynamic and index == 0 and SER_BIAS(s) >= delta) {
 
@@ -854,12 +854,12 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     // The new series will *always* be dynamic, because it would not be
     // expanding if a fixed size allocation was sufficient.
 
-    SET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC); // series alloc caller sets
+    LEN_BYTE_OR_255(s) = 255; // series alloc caller sets
     SET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
     if (not Did_Series_Data_Alloc(s, len_old + delta + x))
         fail (Error_No_Memory((len_old + delta + x) * wide));
 
-    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    assert(IS_SER_DYNAMIC(s));
     if (IS_SER_ARRAY(s))
         Prep_Array(ARR(s));
 
@@ -916,32 +916,20 @@ void Swap_Series_Content(REBSER* a, REBSER* b)
     // There are bits in the ->info and ->header which pertain to the content,
     // which includes whether the series is dynamic or if the data lives in
     // the node itself, the width (right 8 bits), etc.  Note that the length
-    // of non-dynamic series lives in the header.
+    // of non-dynamic series lives in the info.
 
-    REBYTE a_wide = WIDE_BYTE_OR_0(a);
+    REBYTE a_wide = WIDE_BYTE_OR_0(a); // indicates array if 0
     WIDE_BYTE_OR_0(a) = WIDE_BYTE_OR_0(b);
     WIDE_BYTE_OR_0(b) = a_wide;
 
-    REBOOL a_has_dynamic = GET_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC);
-    if (GET_SER_FLAG(b, SERIES_FLAG_HAS_DYNAMIC))
-        SET_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC);
-    else
-        CLEAR_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC);
-    if (a_has_dynamic)
-        SET_SER_FLAG(b, SERIES_FLAG_HAS_DYNAMIC);
-    else
-        CLEAR_SER_FLAG(b, SERIES_FLAG_HAS_DYNAMIC);
-
-    REBCNT a_len = SER_LEN(a);
-    REBCNT b_len = SER_LEN(b);
+    REBYTE a_len = LEN_BYTE_OR_255(a); // indicates dynamic if 255
+    LEN_BYTE_OR_255(a) = LEN_BYTE_OR_255(b);
+    LEN_BYTE_OR_255(b) = a_len;
 
     union Reb_Series_Content a_content;
     memcpy(&a_content, &a->content, sizeof(union Reb_Series_Content));
     memcpy(&a->content, &b->content, sizeof(union Reb_Series_Content));
     memcpy(&b->content, &a_content, sizeof(union Reb_Series_Content));
-
-    SET_SERIES_LEN(a, b_len);
-    SET_SERIES_LEN(b, a_len);
 }
 
 
@@ -970,7 +958,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
 
     assert(NOT_SER_FLAG(s, SERIES_FLAG_FIXED_SIZE));
 
-    REBOOL was_dynamic = GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC);
+    REBOOL was_dynamic = IS_SER_DYNAMIC(s);
 
     REBINT bias_old;
     REBINT size_old;
@@ -999,13 +987,13 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
     // a REBSER.  All series code needs a general audit, so that should be one
     // of the things considered.
 
-    SET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC); // series alloc caller sets
+    LEN_BYTE_OR_255(s) = 255; // series alloc caller sets
     if (not Did_Series_Data_Alloc(s, units + 1)) {
         // Put series back how it was (there may be extant references)
         s->content.dynamic.data = cast(char*, data_old);
         fail (Error_No_Memory((units + 1) * wide));
     }
-    assert(GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC));
+    assert(IS_SER_DYNAMIC(s));
     if (IS_SER_ARRAY(s))
         Prep_Array(ARR(s));
 
@@ -1049,7 +1037,7 @@ void Decay_Series(REBSER *s)
         if (Prior_Expand[n] == s) Prior_Expand[n] = 0;
     }
 
-    if (GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)) {
+    if (IS_SER_DYNAMIC(s)) {
         REBYTE wide = SER_WIDE(s);
         REBCNT bias = SER_BIAS(s);
         REBCNT total = (bias + SER_REST(s)) * wide;
@@ -1078,7 +1066,7 @@ void Decay_Series(REBSER *s)
             ? INT32_MAX
             : tmp;
 
-        CLEAR_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC);
+        LEN_BYTE_OR_255(s) = 1; // !!! is this right?
     }
     else {
         // Special GC processing for HANDLE! when the handle is implemented as
@@ -1329,7 +1317,7 @@ REBCNT Check_Memory_Debug(void)
             if (GET_SER_FLAG(s, NODE_FLAG_CELL))
                 continue; // a pairing
 
-            if (NOT_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC))
+            if (not IS_SER_DYNAMIC(s))
                 continue; // data lives in the series node itself
 
             if (SER_REST(s) == 0)
@@ -1442,7 +1430,7 @@ void Dump_Series_In_Pool(REBCNT pool_id)
             if (
                 pool_id == UNKNOWN
                 or (
-                    GET_SER_FLAG(s, SERIES_FLAG_HAS_DYNAMIC)
+                    IS_SER_DYNAMIC(s)
                     and pool_id == FIND_POOL(SER_TOTAL(s))
                 )
             ){
