@@ -133,11 +133,10 @@
 // "content", there's room for a length in the node.
 //
 
-
 inline static REBCNT SER_LEN(REBSER *s) {
     return (s->header.bits & SERIES_FLAG_HAS_DYNAMIC)
         ? s->content.dynamic.len
-        : THIRD_BYTE(s->info);
+        : LEN_BYTE_OR_255(s);
 }
 
 inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
@@ -147,8 +146,7 @@ inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
         s->content.dynamic.len = len;
     else {
         assert(len < sizeof(s->content));
-        THIRD_BYTE(s->info) = len;
-        assert(SER_LEN(s) == len); // !!! is this an over-protective assert?
+        LEN_BYTE_OR_255(s) = len;
     }
 }
 
@@ -556,8 +554,7 @@ inline static REBYTE *VAL_RAW_DATA_AT(const RELVAL *v) {
 // is a particularly efficient default state, so separating the dynamic
 // allocation into a separate routine is not a huge cost.
 //
-inline static REBSER *Make_Series_Node(REBYTE wide, REBFLGS flags) {
-    assert(wide != 0);
+inline static REBSER *Make_Series_Node(REBFLGS flags) {
     assert(not (flags & NODE_FLAG_CELL));
 
     REBSER *s = cast(REBSER*, Make_Node(SER_POOL));
@@ -566,17 +563,18 @@ inline static REBSER *Make_Series_Node(REBYTE wide, REBFLGS flags) {
 
     // Out of the 8 platform pointers that comprise a series node, only 3
     // actually need to be initialized to get a functional non-dynamic
-    // series or array of length 0!  See %rebser.h for an explanation, and
-    // Init_Endlike_Header() for why we can't just say `s->info.bits = ...`
-    //
-    // Note that the optimizer *should* be able to fold together additional
-    // bits for the infos in immediately subsequent SET_SER_INFO() calls.
+    // series or array of length 0!  Two are set here, the third should be
+    // set by the caller...see Init_Endlike_Header() for why the caller
+    // should not just say `s->info.bits = ...`
     //
     s->header.bits = NODE_FLAG_NODE | flags | SERIES_FLAG_8_IS_TRUE; // #1
     TRASH_POINTER_IF_DEBUG(LINK(s).trash); // #2
-    s->content.fixed.values[0].header.bits = CELL_MASK_NON_STACK_END; // #3
-    TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<make>>", 0); // #4-#6
-    Init_Endlike_Header(&s->info, FLAG_FOURTH_BYTE(wide)); // #7
+  #if !defined(NDEBUG)
+    memset(&s->content.fixed, 0xBD, sizeof(s->content)); // #3 - #6
+  #endif
+  #if !defined(NDEBUG)
+    memset(&s->info, 0xAE, sizeof(s->info)); // #7, caller sets SER_WIDE()
+  #endif
     TRASH_POINTER_IF_DEBUG(MISC(s).trash); // #8
 
     // Note: This series will not participate in management tracking!
@@ -709,7 +707,17 @@ inline static REBSER *Make_Series_Core(
     if (cast(REBU64, capacity) * wide > INT32_MAX)
         fail (Error_No_Memory(cast(REBU64, capacity) * wide));
 
-    REBSER *s = Make_Series_Node(wide, flags);
+    // Ordinary series nodes do not need their info bits to conform to the
+    // rules of Init_Endlike_Header, so plain assignment can be used with a
+    // non-zero second byte.  However, it obeys the fixed info bits for now.
+    // (It technically doesn't need to.)
+    //
+    REBSER *s = Make_Series_Node(flags);
+    s->info.bits =
+        SERIES_INFO_0_IS_TRUE
+        // not SERIES_INFO_1_IS_FALSE
+        // not SERIES_INFO_7_IS_FALSE
+        | FLAG_WIDE_BYTE_OR_0(wide);
 
     if (
         (flags & SERIES_FLAG_HAS_DYNAMIC) // inlining will constant fold

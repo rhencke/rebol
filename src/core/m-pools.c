@@ -921,9 +921,9 @@ void Swap_Series_Content(REBSER* a, REBSER* b)
     // the node itself, the width (right 8 bits), etc.  Note that the length
     // of non-dynamic series lives in the header.
 
-    REBYTE a_wide = SER_WIDE(a);
-    SER_SET_WIDE(a, SER_WIDE(b));
-    SER_SET_WIDE(b, a_wide);
+    REBYTE a_wide = WIDE_BYTE_OR_0(a);
+    WIDE_BYTE_OR_0(a) = WIDE_BYTE_OR_0(b);
+    WIDE_BYTE_OR_0(b) = a_wide;
 
     REBOOL a_has_dynamic = GET_SER_FLAG(a, SERIES_FLAG_HAS_DYNAMIC);
     if (GET_SER_FLAG(b, SERIES_FLAG_HAS_DYNAMIC))
@@ -995,7 +995,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         data_old = cast(char*, &content_old);
     }
 
-    SER_SET_WIDE(s, wide);
+    WIDE_BYTE_OR_0(s) = wide;
     s->header.bits |= flags;
 
     // !!! Currently the remake won't make a series that fits in the size of
@@ -1265,7 +1265,7 @@ void Assert_Pointer_Detection_Working(void)
     uintptr_t cell_flag = NODE_FLAG_CELL;
     assert(FIRST_BYTE(cell_flag) == 0x1);
     uintptr_t protected_flag = CELL_FLAG_PROTECTED;
-    assert(SECOND_BYTE(protected_flag) == 0x40);
+    assert(THIRD_BYTE(protected_flag) == 0x80);
 
     assert(Detect_Rebol_Pointer("") == DETECTED_AS_UTF8);
     assert(Detect_Rebol_Pointer("asdf") == DETECTED_AS_UTF8);
@@ -1281,8 +1281,9 @@ void Assert_Pointer_Detection_Working(void)
     // form of trashing than TRASH_CELL_IF_DEBUG().
     //
     DECLARE_LOCAL (freed_cell);
-    freed_cell->header.bits = NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
-        | CELL_FLAG_NOT_END;
+    freed_cell->header.bits =
+        NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
+        | FLAG_KIND_BYTE(REB_MAX_PLUS_TWO_TRASH);
     assert(Detect_Rebol_Pointer(freed_cell) == DETECTED_AS_FREED_CELL);
 
     DECLARE_LOCAL (end_cell);

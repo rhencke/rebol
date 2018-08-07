@@ -103,7 +103,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     if (C_STACK_OVERFLOWING(&f))
         Fail_Stack_Overflow();
 
-    assert(not (f->flags.bits & CELL_FLAG_NOT_END));
+    assert(SECOND_BYTE(f->flags) == 0); // END signal
     assert(not (f->flags.bits & NODE_FLAG_CELL));
 
     // Though we can protect the value written into the target pointer 'out'

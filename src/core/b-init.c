@@ -154,22 +154,19 @@ static void Assert_Basics(void)
     // reading, so there's little danger of hitting this unless there's
     // a big change.
     //
-    assert(REB_MAX_PLUS_ONE_TRASH < 256);
+    assert(REB_MAX_PLUS_TWO_TRASH < 256);
 
     // Make sure tricks for "internal END markers" are lined up as expected.
     //
-    assert(SERIES_FLAG_8_IS_TRUE == CELL_FLAG_NOT_END);
     assert(
         SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE
         and SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE
         and SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL
-        and SERIES_INFO_8_IS_FALSE == CELL_FLAG_NOT_END
     );
     assert(
         DO_FLAG_0_IS_TRUE == NODE_FLAG_NODE
         and DO_FLAG_1_IS_FALSE == NODE_FLAG_FREE
         and DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL
-        and DO_FLAG_8_IS_FALSE == CELL_FLAG_NOT_END
     );
 }
 

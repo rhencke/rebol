@@ -49,7 +49,7 @@
 
 #include "sys-core.h"
 
-#if !defined(NDEBUG) || defined(DEBUG_COUNT_TICKS)
+#if defined(DEBUG_COUNT_TICKS) && defined(DEBUG_HAS_PROBE)
 
 //
 //  Dump_Frame_Location: C

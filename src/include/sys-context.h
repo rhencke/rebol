@@ -419,11 +419,11 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     // etc.--use constant assignments and only copy the remaining fields.
     //
     REBSER *copy = Make_Series_Node(
-        sizeof(REBVAL),
         SERIES_MASK_CONTEXT // includes dynamic, applies to stolen content
             | SERIES_FLAG_STACK
             | SERIES_FLAG_FIXED_SIZE
     );
+    Init_Endlike_Header(&copy->info, FLAG_WIDE_BYTE_OR_0(0));
     TRASH_POINTER_IF_DEBUG(copy->link_private.keysource); // needs update
     memcpy(&copy->content, &stub->content, sizeof(union Reb_Series_Content));
     copy->misc_private.meta = nullptr; // let stub have the meta
@@ -442,14 +442,13 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     Init_Endlike_Header(
         &stub->info,
         SERIES_INFO_INACCESSIBLE // args memory now "stolen" by copy
-            | FLAG_THIRD_BYTE(1) // no HAS_DYNAMIC bit, this is length
-            | FLAG_FOURTH_BYTE(sizeof(REBVAL)) // fourth byte is width
+            | FLAG_WIDE_BYTE_OR_0(0) // width byte is 0 for array series
+            | FLAG_LEN_BYTE_OR_255(1) // no HAS_DYNAMIC bit, this is length
     );
 
     REBVAL *single = cast(REBVAL*, &stub->content.fixed);
     single->header.bits =
-        NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_NOT_END
-        | HEADERIZE_KIND(REB_FRAME);
+        NODE_FLAG_NODE | NODE_FLAG_CELL | FLAG_KIND_BYTE(REB_FRAME);
     INIT_BINDING(single, VAL_BINDING(rootvar));
     single->payload.any_context.varlist = ARR(stub);
     TRASH_POINTER_IF_DEBUG(single->payload.any_context.phase);

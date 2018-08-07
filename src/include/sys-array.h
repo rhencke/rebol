@@ -233,7 +233,8 @@ inline static void Prep_Array(REBARR *a) {
 inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     const REBCNT wide = sizeof(REBVAL);
 
-    REBSER *s = Make_Series_Node(wide, SERIES_FLAG_ARRAY | flags);
+    REBSER *s = Make_Series_Node(SERIES_FLAG_ARRAY | flags);
+    Init_Endlike_Header(&s->info, FLAG_WIDE_BYTE_OR_0(0));
 
     if (
         (flags & SERIES_FLAG_HAS_DYNAMIC) // inlining will constant fold
@@ -259,7 +260,11 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
 
         TERM_ARRAY_LEN(cast(REBARR*, s), 0); // (non-dynamic auto-terminated)
     }
-
+    else {
+        s->content.fixed.values[0].header.bits =
+            CELL_MASK_NON_STACK | FLAG_WIDE_BYTE_OR_0(0);
+        TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<make>>", 0);
+    }
 
     // It is more efficient if you know a series is going to become managed to
     // create it in the managed state.  But be sure no evaluations are called
@@ -349,7 +354,7 @@ inline static REBARR *Make_Array_For_Copy(
 //
 inline static REBARR *Alloc_Singular(REBFLGS flags) {
     REBARR *a = Make_Array_Core(1, flags | SERIES_FLAG_FIXED_SIZE);
-    THIRD_BYTE(SER(a)->info) = 1; // non-dynamic length (defaulted to 0)
+    LEN_BYTE_OR_255(SER(a)) = 1; // non-dynamic length (defaulted to 0)
     return a;
 }
 

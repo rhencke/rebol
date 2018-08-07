@@ -194,9 +194,9 @@ enum Reb_Pointer_Detect {
 };
 
 inline static enum Reb_Pointer_Detect Detect_Rebol_Pointer(const void *p) {
-    const REBYTE *bp = cast(const REBYTE*, p);
+    const REBYTE* bp = cast(const REBYTE*, p);
 
-    switch (*bp >> 4) { // switch on the left 4 bits of the byte
+    switch (bp[0] >> 4) { // switch on the left 4 bits of the byte
     case 0:
     case 1:
     case 2:
@@ -211,21 +211,21 @@ inline static enum Reb_Pointer_Detect Detect_Rebol_Pointer(const void *p) {
     // valid starting points for a UTF-8 string)
 
     case 8: // 0xb1000
-        if (not (bp[1] & 0x80))
+        if (bp[1] == REB_0)
             return DETECTED_AS_END; // may be end cell or "endlike" header
         if (bp[0] & 0x1)
             return DETECTED_AS_CELL; // unmanaged
         return DETECTED_AS_SERIES; // unmanaged
 
     case 9: // 0xb1001
-        if (not (bp[1] & 0x80))
+        if (bp[1] == REB_0)
             return DETECTED_AS_END; // has to be an "endlike" header
         assert(bp[0] & 0x1); // marked and unmanaged, must be a cell
         return DETECTED_AS_CELL;
 
     case 10: // 0b1010
     case 11: // 0b1011
-        if (not (bp[1] & 0x80))
+        if (bp[1] == REB_0)
             return DETECTED_AS_END;
         if (bp[0] & 0x1)
             return DETECTED_AS_CELL; // managed, marked if `case 11`

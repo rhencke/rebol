@@ -213,7 +213,6 @@
 // an arbitrary REBSER tested for ARRAY_FLAG_VARLIST might alias with a
 // UTF-8 symbol string whose symbol number uses that bit (!).
 //
-#define GENERAL_ARRAY_BIT (GENERAL_SERIES_BIT + 8)
 
 
 //=//// ARRAY_FLAG_FILE_LINE //////////////////////////////////////////////=//
@@ -228,7 +227,7 @@
 // ->misc and ->link fields for caching purposes in strings.
 //
 #define ARRAY_FLAG_FILE_LINE \
-    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 0)
+    FLAG_LEFT_BIT(16)
 
 
 //=//// ARRAY_FLAG_NULLEDS_LEGAL //////////////////////////////////////////=//
@@ -243,7 +242,7 @@
 // case are used to represent unset variables.
 //
 #define ARRAY_FLAG_NULLEDS_LEGAL \
-    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 1)
+    FLAG_LEFT_BIT(17)
 
 
 //=//// ARRAY_FLAG_PARAMLIST //////////////////////////////////////////////=//
@@ -252,7 +251,7 @@
 // ACTION! (the first element will be a canon value of the function)
 //
 #define ARRAY_FLAG_PARAMLIST \
-    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 2)
+    FLAG_LEFT_BIT(18)
 
 
 //=//// ARRAY_FLAG_VARLIST ////////////////////////////////////////////////=//
@@ -265,7 +264,7 @@
 // See notes on REBCTX for further details about what a context is.
 //
 #define ARRAY_FLAG_VARLIST \
-    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 3)
+    FLAG_LEFT_BIT(19)
 
 
 //=//// ARRAY_FLAG_PAIRLIST ///////////////////////////////////////////////=//
@@ -274,15 +273,15 @@
 // series also has a hashlist linked to in the series node.
 //
 #define ARRAY_FLAG_PAIRLIST \
-    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 4)
+    FLAG_LEFT_BIT(20)
 
 
-//=//// ARRAY_FLAG_5 /////////////////////////////////////////////////////=//
+//=//// ARRAY_FLAG_21 /////////////////////////////////////////////////////=//
 //
 // Not used as of yet.
 //
-#define ARRAY_FLAG_5 \
-    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 5)
+#define ARRAY_FLAG_21 \
+    FLAG_LEFT_BIT(21)
 
 
 //=//// ARRAY_FLAG_TAIL_NEWLINE ///////////////////////////////////////////=//
@@ -295,7 +294,7 @@
 // tail of an array.
 //
 #define ARRAY_FLAG_TAIL_NEWLINE \
-    FLAG_LEFT_BIT(GENERAL_ARRAY_BIT + 6)
+    FLAG_LEFT_BIT(22)
 
 
 // ^-- STOP ARRAY FLAGS AT FLAG_LEFT_BIT(31) --^
@@ -306,7 +305,7 @@
 // be used for anything but optimizations.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(GENERAL_ARRAY_BIT + 6 < 32, "ARRAY_FLAG_XXX too high");
+    static_assert(22 < 32, "ARRAY_FLAG_XXX too high");
 #endif
 
 
@@ -411,7 +410,37 @@
 
 
 #define SERIES_INFO_7_IS_FALSE FLAG_LEFT_BIT(7) // NOT(NODE_FLAG_CELL)
-#define SERIES_INFO_8_IS_FALSE FLAG_LEFT_BIT(8) // NOT(CELL_FLAG_NOT_END)
+
+
+//=//// BITS 8-15 ARE FOR SER_WIDE() //////////////////////////////////////=//
+
+// The "width" is the size of the individual elements in the series.  For an
+// ANY-ARRAY this is always 0, to indicate IS_END() for arrays of length 0-1
+// (singulars) which can be held completely in the content bits before the
+// ->info field.  Hence this is also used for IS_ARRAY_SERIES()
+
+#define FLAG_WIDE_BYTE_OR_0(wide) \
+    FLAG_SECOND_BYTE(wide)
+
+#define WIDE_BYTE_OR_0(s) \
+    SECOND_BYTE((s)->info.bits)
+
+
+//=//// BITS 16-23 ARE SER_LEN() FOR NON-DYNAMIC SERIES ///////////////////=//
+
+// There is currently no usage of this byte for dynamic series, so it could
+// be used for something else there.  (Or a special value like 255 could be
+// used to indicate dynamic/non-dynamic series, which might speed up SER_LEN()
+// and other bit fiddling operations vs. SERIES_INFO_HAS_DYNAMIC).
+
+#define FLAG_LEN_BYTE_OR_255(len) \
+    FLAG_THIRD_BYTE(len)
+
+#define const_LEN_BYTE_OR_255(s) \
+    const_THIRD_BYTE((s)->info)
+
+#define LEN_BYTE_OR_255(s) \
+    THIRD_BYTE((s)->info)
 
 
 //=//// SERIES_INFO_AUTO_LOCKED ///////////////////////////////////////////=//
@@ -426,7 +455,7 @@
 // !!! The file-line feature is pending.
 //
 #define SERIES_INFO_AUTO_LOCKED \
-    FLAG_LEFT_BIT(9)
+    FLAG_LEFT_BIT(24)
 
 
 //=//// SERIES_INFO_INACCESSIBLE //////////////////////////////////////////=//
@@ -444,7 +473,7 @@
 // stack and dynamic values+locals).  These are potential things to look at.
 //
 #define SERIES_INFO_INACCESSIBLE \
-    FLAG_LEFT_BIT(10)
+    FLAG_LEFT_BIT(25)
 
 
 //=//// FRAME_INFO_FAILED /////////////////////////////////////////////////=//
@@ -461,7 +490,7 @@
 // for granted that it will GC things.
 //
 #define FRAME_INFO_FAILED \
-    FLAG_LEFT_BIT(11)
+    FLAG_LEFT_BIT(26)
 
 
 //=//// STRING_INFO_CANON /////////////////////////////////////////////////=//
@@ -476,7 +505,7 @@
 // holding an index during binding.
 //
 #define STRING_INFO_CANON \
-    FLAG_LEFT_BIT(12)
+    FLAG_LEFT_BIT(27)
 
 
 //=//// SERIES_INFO_SHARED_KEYLIST ////////////////////////////////////////=//
@@ -492,7 +521,7 @@
 // the GC would have to clean up.
 //
 #define SERIES_INFO_SHARED_KEYLIST \
-    FLAG_LEFT_BIT(13)
+    FLAG_LEFT_BIT(28)
 
 
 //=//// SERIES_INFO_API_RELEASE ///////////////////////////////////////////=//
@@ -506,17 +535,16 @@
 // contention for bits may become an issue in the future.
 //
 #define SERIES_INFO_API_RELEASE \
-    FLAG_LEFT_BIT(14)
+    FLAG_LEFT_BIT(29)
 
 
-// ^-- STOP AT FLAG_LEFT_BIT(15) --^
+// ^-- STOP AT FLAG_LEFT_BIT(31) --^
 //
-// The rightmost 16 bits of the series info is used to store an 8 bit length
-// for non-dynamic series and an 8 bit width of the series.  So the info
-// flags need to stop at FLAG_LEFT_BIT(15).
+// While 64-bit systems have another 32-bits available in the header, core
+// functionality shouldn't require using them...only optimization features.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(14 < 16, "SERIES_INFO_XXX too high");
+    static_assert(29 < 32, "SERIES_INFO_XXX too high");
 #endif
 
 
@@ -535,8 +563,8 @@
 //
 // `info` is not the start of a "Rebol Node" (REBNODE, e.g. either a REBSER or
 // a REBVAL cell).  But in the singular case it is positioned right where
-// the next cell after the embedded cell *would* be.  Hence the bit in the
-// info corresponding to CELL_FLAG_NOT_END is clear, making it conform to the
+// the next cell after the embedded cell *would* be.  Hence the second byte
+// in the info corresponding to VAL_TYPE() is 0, making it conform to the
 // "terminating array" pattern.  To lower the risk of this implicit terminator
 // being accidentally overwritten (which would corrupt link and misc), the
 // bit corresponding to NODE_FLAG_CELL is clear.
@@ -599,9 +627,8 @@ union Reb_Series_Content {
 
     // If not SERIES_FLAG_HAS_DYNAMIC, 0 or 1 length arrays can be held in
     // the series node.  This trick is accomplished via "implicit termination"
-    // in the ->info bits that come directly after ->content.
-    //
-    // (See CELL_FLAG_NOT_END and NODE_FLAG_CELL for how this is done.)
+    // in the ->info bits that come directly after ->content.  For how this is
+    // done, see Init_Endlike_Header()
     //
     // !!! This is made as a union in order to allow easier insights into the
     // data content when it is UTF-8.
@@ -902,10 +929,10 @@ struct Reb_Series {
     // even if it is not using a dynamic allocation.
     //
     // It is purposefully positioned in the structure directly after the
-    // ->content field, because it has CELL_FLAG_NOT_END clear.  Hence it
-    // appears to terminate an array of values if the content is not dynamic.
-    // Yet NODE_FLAG_CELL is set to false, so it is not a writable location
-    // (an "implicit terminator").
+    // ->content field, because its second byte is '\0' when the series is
+    // an array.  Hence it appears to terminate an array of values if the
+    // content is not dynamic.  Yet NODE_FLAG_CELL is set to false, so it is
+    // not a writable location (an "implicit terminator").
     //
     // !!! Only 32-bits are used on 64-bit platforms.  There could be some
     // interesting added caching feature or otherwise that would use
@@ -1105,11 +1132,19 @@ inline static REBOOL ALL_SER_INFOS(
 
 #define MAX_SERIES_WIDE 0x100
 
-#define SER_WIDE(s) \
-    FOURTH_BYTE((s)->info)
+inline static REBYTE SER_WIDE(REBSER *s) {
+    //
+    // Arrays use 0 width as a strategic choice, so that the second byte of
+    // the ->info flags is 0.  See Init_Endlike_Header() for why.
+    //
+    REBYTE wide = WIDE_BYTE_OR_0(s);
+    if (wide == 0) {
+        assert(GET_SER_FLAG(s, SERIES_FLAG_ARRAY));
+        return sizeof(REBVAL);
+    }
+    return wide;
+}
 
-#define SER_SET_WIDE(s,w) \
-    (FOURTH_BYTE((s)->info) = w)
 
 //
 // Bias is empty space in front of head:

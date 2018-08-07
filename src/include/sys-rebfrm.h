@@ -139,7 +139,14 @@
 
 
 #define DO_FLAG_7_IS_FALSE FLAG_LEFT_BIT(7) // NOT(NODE_FLAG_CELL)
-#define DO_FLAG_8_IS_FALSE FLAG_LEFT_BIT(8) // NOT(CELL_FLAG_NOT_END)
+
+
+//=//// BITS 8-15 ARE 0 FOR END SIGNAL ////////////////////////////////////=//
+
+// The flags are resident in the frame after the frame's cell.  In order to
+// let the cell act like a terminated array (if one needs that), the flags
+// have the byte for the IS_END() signal set to 0.  This sacrifices some
+// flags, and may or may not be worth it for the feature.
 
 
 //=//// DO_FLAG_FULFILLING_SET ////////////////////////////////////////////=//
@@ -148,7 +155,7 @@
 // noticing when a frame is being used to fulfill a SET-WORD! or a SET-PATH!
 //
 #define DO_FLAG_FULFILLING_SET \
-    FLAG_LEFT_BIT(9)
+    FLAG_LEFT_BIT(16)
 
 
 //=//// DO_FLAG_EXPLICIT_EVALUATE /////////////////////////////////////////=//
@@ -165,7 +172,7 @@
 // !!! This feature is in the process of being designed.
 //
 #define DO_FLAG_EXPLICIT_EVALUATE \
-    FLAG_LEFT_BIT(10)
+    FLAG_LEFT_BIT(17)
 
 
 //=//// DO_FLAG_NO_LOOKAHEAD //////////////////////////////////////////////=//
@@ -181,7 +188,7 @@
 // adds this flag to its argument gathering call.
 //
 #define DO_FLAG_NO_LOOKAHEAD \
-    FLAG_LEFT_BIT(11)
+    FLAG_LEFT_BIT(18)
 
 
 //=//// DO_FLAG_NATIVE_12 /////////////////////////////////////////////////=//
@@ -189,7 +196,7 @@
 // Recovered...
 //
 #define DO_FLAG_12 \
-    FLAG_LEFT_BIT(12)
+    FLAG_LEFT_BIT(19)
 
 
 //=//// DO_FLAG_NO_PATH_GROUPS ////////////////////////////////////////////=//
@@ -198,7 +205,7 @@
 // It prevents GET of a PATH! from running GROUP!s.
 //
 #define DO_FLAG_NO_PATH_GROUPS \
-    FLAG_LEFT_BIT(13)
+    FLAG_LEFT_BIT(20)
 
 
 //=//// DO_FLAG_SET_PATH_ENFIXED //////////////////////////////////////////=//
@@ -212,7 +219,7 @@
 // a frame used with SET-PATH! semantics to make its final assignment enfix.
 //
 #define DO_FLAG_SET_PATH_ENFIXED \
-    FLAG_LEFT_BIT(14)
+    FLAG_LEFT_BIT(21)
 
 
 //=//// DO_FLAG_VALUE_IS_INSTRUCTION //////////////////////////////////////=//
@@ -231,7 +238,7 @@
 // duration that f->value points into the singular array's data.
 //
 #define DO_FLAG_VALUE_IS_INSTRUCTION \
-    FLAG_LEFT_BIT(15)
+    FLAG_LEFT_BIT(22)
 
 
 //=//// DO_FLAG_PUSH_PATH_REFINEMENTS /////////////////////////////////////=//
@@ -247,7 +254,7 @@
 // step, vs needing to make an intermediate ACTION!.
 //
 #define DO_FLAG_PUSH_PATH_REFINEMENTS \
-    FLAG_LEFT_BIT(16)
+    FLAG_LEFT_BIT(23)
 
 
 //=//// DO_FLAG_BARRIER_HIT ///////////////////////////////////////////////=//
@@ -264,7 +271,7 @@
 // get a later argument fulfilled.
 //
 #define DO_FLAG_BARRIER_HIT \
-    FLAG_LEFT_BIT(17)
+    FLAG_LEFT_BIT(24)
 
 
 //=//// DO_FLAG_FULLY_SPECIALIZED /////////////////////////////////////////=//
@@ -276,7 +283,7 @@
 // will be no further argument gathered at the callsite, nulls are as-is.
 //
 #define DO_FLAG_FULLY_SPECIALIZED \
-    FLAG_LEFT_BIT(18)
+    FLAG_LEFT_BIT(25)
 
 
 //=//// DO_FLAG_NO_RESIDUE ////////////////////////////////////////////////=//
@@ -296,7 +303,7 @@
 // which it would need to reach either an END or another `||`.
 //
 #define DO_FLAG_NO_RESIDUE \
-    FLAG_LEFT_BIT(19)
+    FLAG_LEFT_BIT(26)
 
 
 #if !defined(NDEBUG)
@@ -311,7 +318,7 @@
 //
 
 #define DO_FLAG_FINAL_DEBUG \
-    FLAG_LEFT_BIT(20)
+    FLAG_LEFT_BIT(27)
 
 #endif
 
@@ -322,7 +329,7 @@
 // information in a platform aligned position of the frame.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(20 < 32, "DO_FLAG_XXX too high");
+    static_assert(27 < 32, "DO_FLAG_XXX too high");
 #endif
 
 

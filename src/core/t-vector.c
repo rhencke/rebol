@@ -243,7 +243,7 @@ void Set_Vector_Row(REBSER *ser, const REBVAL *blk) // !!! can not be BLOCK!?
 {
     REBCNT idx = VAL_INDEX(blk);
     REBCNT len = VAL_LEN_AT(blk);
-    
+
     if (IS_BLOCK(blk)) {
         RELVAL *val = VAL_ARRAY_AT(blk);
 

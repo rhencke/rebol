@@ -186,11 +186,16 @@ inline static REBVAL *Init_Reference(
 ){
     RESET_VAL_HEADER(out, REB_0_REFERENCE);
     out->payload.reference.cell = cell;
-    INIT_BINDING(out, specifier);
+    out->payload.reference.specifier = specifier;
     return cast(REBVAL*, out);
 }
 
 inline static RELVAL *VAL_REFERENCE(const RELVAL *v) {
     assert(VAL_TYPE(v) == REB_0_REFERENCE);
-    return v->payload.reference.cell; // Use VAL_SPECIFIER() to get specifier
+    return v->payload.reference.cell;
+}
+
+inline static REBSPC *VAL_REFERENCE_SPECIFIER(const RELVAL *v) {
+    assert(VAL_TYPE(v) == REB_0_REFERENCE);
+    return v->payload.reference.specifier;
 }

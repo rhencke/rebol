@@ -70,38 +70,17 @@
 //
 
 
-// v-- BEGIN GENERAL CELL BITS HERE, second byte in the header
+#define FLAG_KIND_BYTE(kind) \
+    FLAG_SECOND_BYTE(kind)
+
+#define const_KIND_BYTE(v) \
+    const_SECOND_BYTE((v)->header)
+
+#define KIND_BYTE(v) \
+    SECOND_BYTE((v)->header)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  CELL_FLAG_NOT_END (eighth from the left bit)
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// If clear, it means this header should signal the termination of an array
-// of REBVAL, as in `for (; NOT_END(value); ++value) {}` loops.  In this
-// sense it means the header is functioning much like a null-terminator for
-// C strings.
-//
-// *** This bit being clear does not necessarily mean the header is sitting at
-// the head of a full REBVAL-sized slot! ***
-//
-// Some data structures punctuate arrays of REBVALs with a Reb_Header that
-// has the CELL_FLAG_NOT_END bit clear, -but- the NODE_FLAG_CELL bit clear.
-// This is fine as the terminator for a finite number of REBVAL cells, but
-// can only be read with IS_END()/NOT_END() with no other operations legal.
-//
-// It's only valid to overwrite end markers when NODE_FLAG_CELL is set.
-//
-// !!! The reason this is in the negative sense is so that rebEnd can be
-// defined as a string literal "\x80", where the second byte is implicitly
-// a NUL terminator 0 byte.
-//
-#define CELL_FLAG_NOT_END \
-    FLAG_LEFT_BIT(8)
-
-#define CELL_BYTE_END 0x00 // put in the second byte by SET_END()
+// v-- BEGIN GENERAL CELL BITS HERE, third byte in the header
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -123,9 +102,7 @@
 // shared NODE_FLAG_PROTECTED in common.)
 
 #define CELL_FLAG_PROTECTED \
-    FLAG_LEFT_BIT(9)
-
-#define CELL_BYTE_PROTECTED_END 0x40 // second byte if both protected and end
+    FLAG_LEFT_BIT(16)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -156,7 +133,7 @@
 //     }
 //
 #define VALUE_FLAG_THROWN \
-    FLAG_LEFT_BIT(10)
+    FLAG_LEFT_BIT(17)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -182,7 +159,7 @@
 // reclaim the bit for a "higher purpose".
 //
 #define VALUE_FLAG_FALSEY \
-    FLAG_LEFT_BIT(11)
+    FLAG_LEFT_BIT(18)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -206,7 +183,7 @@
 // representing paths with newlines in them may be needed.
 //
 #define VALUE_FLAG_NEWLINE_BEFORE \
-    FLAG_LEFT_BIT(12)
+    FLAG_LEFT_BIT(19)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -232,7 +209,7 @@
 // That has a lot of impact for the new user experience.
 //
 #define VALUE_FLAG_UNEVALUATED \
-    FLAG_LEFT_BIT(13)
+    FLAG_LEFT_BIT(20)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -252,7 +229,7 @@
 //
 
 #define VALUE_FLAG_ENFIXED \
-    FLAG_LEFT_BIT(14)
+    FLAG_LEFT_BIT(21)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -270,14 +247,18 @@
 //
 
 #define VALUE_FLAG_EVAL_FLIP \
-    FLAG_LEFT_BIT(15)
+    FLAG_LEFT_BIT(22)
 
 
+// v-- BEGIN PER-TYPE CUSTOM BITS HERE, fourth byte in the header
 
-// v-- BEGIN TYPE SPECIFIC BITS HERE, third byte in the header
+#define const_CUSTOM_BYTE(v) \
+    const_FOURTH_BYTE((v)->header)
 
+#define CUSTOM_BYTE(v) \
+    FOURTH_BYTE((v)->header)
 
-#define TYPE_SPECIFIC_BIT (GENERAL_CELL_BIT + 8)
+#define TYPE_SPECIFIC_BIT (24)
 
 
 //
@@ -320,13 +301,13 @@ inline static void Init_Endlike_Header(
 ){
     // Endlike headers have the leading bits `10` so they don't look like a
     // UTF-8 string.  This makes them look like an "in use node", and they
-    // of course have CELL_FLAG_NOT_END clear.  They don't have NODE_FLAG_CELL
+    // of course have the second byte clear.  They don't have NODE_FLAG_CELL
     // set, however, which prevents value writes to them.
     //
     assert(
         0 == (bits & (
             NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
-            | CELL_FLAG_NOT_END
+            | FLAG_SECOND_BYTE(255)
         ))
     );
     alias->bits = bits | NODE_FLAG_NODE;
@@ -590,6 +571,10 @@ struct Reb_Varargs_Payload {
 };
 
 
+#define REB_MAX_PLUS_ONE_INTERNAL \
+    cast(enum Reb_Kind, REB_MAX + 1)
+
+
 // Rebol doesn't have a REFERENCE! datatype, but this is used to let path
 // dispatch return information pointing at a cell that can be used to either
 // read it or write to it, depending on the need.  Because it contains an
@@ -597,10 +582,10 @@ struct Reb_Varargs_Payload {
 // in some array and could be relocated.  So it must be written to immediately
 // or converted into an extraction of the cell's value.
 //
-#define REB_0_REFERENCE REB_0
+#define REB_0_REFERENCE REB_MAX_PLUS_ONE_INTERNAL
 struct Reb_Reference_Payload {
     RELVAL *cell;
-    // specifier is kept in the extra->binding portion of the value
+    REBSPC *specifier;
 };
 
 
@@ -611,7 +596,7 @@ struct Reb_Reference_Payload {
 // in order to revisit them and fill them in more efficiently.  This special
 // payload is used along with a singly linked list via extra.next_partial
 //
-#define REB_0_PARTIAL REB_0
+#define REB_0_PARTIAL REB_MAX_PLUS_ONE_INTERNAL
 
 #define PARTIAL_FLAG_IN_USE \
     FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT)
@@ -631,7 +616,7 @@ struct Reb_Partial_Payload {
 // slot will need to be type checked.  Remember the state of the enumeration
 // at the moment of deferral in the frame's cell in order to return to it.
 //
-#define REB_0_DEFERRED REB_0
+#define REB_0_DEFERRED REB_MAX_PLUS_ONE_INTERNAL
 struct Reb_Deferred_Payload {
     const RELVAL *param;
     REBVAL *refine;
@@ -909,7 +894,7 @@ union Reb_Value_Payload {
 // right value bit...on a 32-bit architecture, this is going to be the 24th
 // flag...pushing up against the rightmost 8-bits used for the value's type.
 // We still don't completely reserve it...it's just used for REB_BLANK and
-// REB_MAX_PLUS_ONE_TRASH, but any other types that use this flag would
+// REB_MAX_PLUS_TWO_TRASH, but any other types that use this flag would
 // have their VAL_TYPE() a little slower in the debug build.
 //
 #if defined(NDEBUG)
@@ -920,14 +905,11 @@ union Reb_Value_Payload {
 #endif
 
 #if defined(DEBUG_TRASH_MEMORY)
-    #define REB_MAX_PLUS_ONE_TRASH \
-        (REB_MAX + 1) // used in the debug build to help identify trash nodes
+    #define REB_MAX_PLUS_TWO_TRASH \
+        (REB_MAX + 2) // used in the debug build to help identify trash nodes
 #else
-    #define REB_MAX_PLUS_ONE_TRASH 0
+    #define REB_MAX_PLUS_TWO_TRASH 0
 #endif
-
-#define HEADERIZE_KIND(kind) \
-    FLAG_FOURTH_BYTE(kind)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -1005,7 +987,7 @@ union Reb_Value_Payload {
             // The static checking only affects IS_END(), there's no
             // compile-time check that can determine if an END is assigned.
             //
-            assert(not rhs or (rhs->header.bits & CELL_FLAG_NOT_END));
+            assert(not rhs or (SECOND_BYTE(rhs->header) != REB_0));
 
             p = rhs;
             return rhs;

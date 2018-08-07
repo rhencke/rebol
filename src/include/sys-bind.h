@@ -71,7 +71,7 @@
     }
 
     inline static REBSPC *VAL_SPECIFIER(const REBVAL *v) {
-        assert(VAL_TYPE(v) == REB_0_REFERENCE or ANY_ARRAY(v));
+        assert(ANY_ARRAY(v));
         if (not v->extra.binding)
             return SPECIFIED;
 

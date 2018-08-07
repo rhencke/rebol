@@ -225,7 +225,7 @@ REB_R Do_Vararg_Op_May_Throw(
             // Note: Eval_Step_In_Subframe_Throws() is not needed here because
             // this is a single use frame, whose state can be overwritten.
             //
-            if (Eval_Step_In_Frame_Throws(out, f_temp)) {
+            if (Eval_Step_In_Frame_Throws(SET_END(out), f_temp)) {
                 Abort_Frame(f_temp);
                 return R_THROWN;
             }
@@ -310,7 +310,7 @@ REB_R Do_Vararg_Op_May_Throw(
         case PARAM_CLASS_NORMAL: {
             DECLARE_FRAME (child);
             if (Eval_Step_In_Subframe_Throws(
-                out,
+                SET_END(out),
                 f,
                 DO_FLAG_FULFILLING_ARG,
                 child
@@ -323,7 +323,7 @@ REB_R Do_Vararg_Op_May_Throw(
         case PARAM_CLASS_TIGHT: {
             DECLARE_FRAME (child);
             if (Eval_Step_In_Subframe_Throws(
-                out,
+                SET_END(out),
                 f,
                 DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD,
                 child
@@ -339,9 +339,13 @@ REB_R Do_Vararg_Op_May_Throw(
 
         case PARAM_CLASS_SOFT_QUOTE:
             if (IS_QUOTABLY_SOFT(f->value)) {
-                if (Eval_Value_Core_Throws(out, f->value, f->specifier))
+                if (Eval_Value_Core_Throws(
+                    SET_END(out),
+                    f->value,
+                    f->specifier
+                )){
                     return R_THROWN;
-
+                }
                 Fetch_Next_In_Frame(f);
             }
             else // not a soft-"exception" case, quote ordinarily

@@ -1439,7 +1439,9 @@ REB_R PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             DECLARE_LOCAL (specific);
             if (VAL_TYPE(pvs->out) == REB_0_REFERENCE)
                 Derelativize(
-                    specific, VAL_REFERENCE(pvs->out), VAL_SPECIFIER(pvs->out)
+                    specific,
+                    VAL_REFERENCE(pvs->out),
+                    VAL_REFERENCE_SPECIFIER(pvs->out)
                 );
             else
                 Move_Value(specific, pvs->out);

@@ -227,7 +227,9 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             pvs->deferred = cast(REBVAL*, VAL_REFERENCE(pvs->out));
 
             Derelativize(
-                pvs->out, VAL_REFERENCE(pvs->out), VAL_SPECIFIER(pvs->out)
+                pvs->out,
+                VAL_REFERENCE(pvs->out),
+                VAL_REFERENCE_SPECIFIER(pvs->out)
             );
             if (GET_VAL_FLAG(pvs->deferred, VALUE_FLAG_ENFIXED))
                 SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
@@ -630,7 +632,11 @@ REBNATIVE(pick)
         break;
 
     case R_0A_REFERENCE:
-        Derelativize(D_OUT, VAL_REFERENCE(D_OUT), VAL_SPECIFIER(D_OUT));
+        Derelativize(
+            D_OUT,
+            VAL_REFERENCE(D_OUT),
+            VAL_REFERENCE_SPECIFIER(D_OUT)
+        );
         return D_OUT;
 
     case R_0C_UNHANDLED:

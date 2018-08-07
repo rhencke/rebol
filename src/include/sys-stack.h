@@ -74,7 +74,7 @@ inline static REBVAL *DS_AT(REBDSP d) {
     REBVAL *at = KNOWN(ARR_HEAD(DS_Array) + d);
     assert(
         ((at->header.bits & NODE_FLAG_CELL) and d <= (DSP + 1))
-        or (not (at->header.bits & CELL_FLAG_NOT_END) and d == (DSP + 1))
+        or (not (SECOND_BYTE(at->header) != REB_0 and d == (DSP + 1)))
     );
     return at;
 }

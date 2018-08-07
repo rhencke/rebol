@@ -76,10 +76,9 @@
 //
 // https://en.wikipedia.org/wiki/UTF-8#Codepage_layout
 //
-// There are also applications of Reb_Header as an "implicit terminator".
-// Such header patterns don't actually start valid REBNODs, but have a bit
-// pattern able to signal the IS_END() test for REBVAL.  See notes on
-// CELL_FLAG_NOT_END and NODE_FLAG_CELL.
+// There are applications of Reb_Header as an "implicit terminator".  Such
+// header patterns don't actually start valid REBNODs, but have a bit pattern
+// able to signal the IS_END() test for REBVAL.  See Init_Endlike_Header()
 //
 
 struct Reb_Header {
@@ -286,8 +285,8 @@ struct Reb_Header {
 // is `sizeof(REBVAL)`.
 //
 // In the debug build, it provides safety for all value writing routines,
-// including avoiding writing over "implicit END markers" (which have
-// CELL_FLAG_NOT_END clear, but backed only by `sizeof(struct Reb_Header)`.
+// including avoiding writing over "implicit END markers".  For details, see
+// Init_Endlike_Header().
 //
 // In the release build, it distinguishes "pairing" nodes (holders for two
 // REBVALs in the same pool as ordinary REBSERs) from an ordinary REBSER node.
@@ -302,11 +301,6 @@ struct Reb_Header {
 #define NODE_FLAG_CELL \
     FLAG_LEFT_BIT(7)
 
-
-// v-- BEGIN GENERAL CELL AND SERIES BITS WITH THIS INDEX
-
-#define GENERAL_CELL_BIT 8
-#define GENERAL_SERIES_BIT 8
 
 
 // There are two special invalid bytes in UTF8 which have a leading "110"

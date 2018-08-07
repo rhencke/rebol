@@ -493,11 +493,11 @@ inline static void Push_Action(
     REBSER *s;
     if (not f->varlist) { // usually means first action call in the REBFRM
         s = Make_Series_Node(
-            sizeof(REBVAL),
             SERIES_MASK_CONTEXT // includes dynamic flag, for allocation below
                 | SERIES_FLAG_STACK
                 | SERIES_FLAG_FIXED_SIZE // FRAME!s don't expand ATM
         );
+        Init_Endlike_Header(&s->info, FLAG_WIDE_BYTE_OR_0(0));
         s->link_private.keysource = NOD(f); // maps varlist back to f
         s->misc_private.meta = nullptr; // GC will sees this
         f->varlist = ARR(s);
@@ -520,17 +520,15 @@ inline static void Push_Action(
     f->rootvar = cast(REBVAL*, s->content.dynamic.data);
     f->rootvar->header.bits =
         NODE_FLAG_NODE | NODE_FLAG_CELL | NODE_FLAG_STACK
-        | CELL_FLAG_NOT_END
         | CELL_FLAG_PROTECTED // cell payload/binding tweaked, not by user
-        | HEADERIZE_KIND(REB_FRAME);
+        | FLAG_KIND_BYTE(REB_FRAME);
     f->rootvar->payload.any_context.varlist = f->varlist;
 
   sufficient_allocation:
 
     s->content.dynamic.len = num_args + 1;
     RELVAL *tail = ARR_TAIL(f->varlist);
-    tail->header.bits = NODE_FLAG_STACK // no CELL_FLAG_NOT_END
-        | HEADERIZE_KIND(REB_MAX_PLUS_ONE_TRASH);
+    tail->header.bits = NODE_FLAG_STACK | FLAG_KIND_BYTE(REB_0);
     TRACK_CELL_IF_DEBUG(tail, __FILE__, __LINE__);
 
     f->arg = f->rootvar + 1;
@@ -623,8 +621,8 @@ inline static void Drop_Action(REBFRM *f) {
         CLEAR_SER_INFOS(f->varlist, SERIES_INFO_HOLD);
         assert(0 == (SER(f->varlist)->info.bits & ~( // <- note bitwise not
             SERIES_INFO_0_IS_TRUE // parallels NODE_FLAG_NODE
-            | FLAG_THIRD_BYTE(255) // mask out non-dynamic-len (it's dynamic)
-            | FLAG_FOURTH_BYTE(255) // mask out wide (sizeof(REBVAL))
+            | FLAG_WIDE_BYTE_OR_0(0) // don't mask out wide (0 for arrays))
+            | FLAG_LEN_BYTE_OR_255(255) // mask out non-dynamic-len (dynamic)
         )));
     }
 
