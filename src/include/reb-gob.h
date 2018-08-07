@@ -158,7 +158,7 @@ typedef struct {
 struct rebol_gob {
     struct Reb_Header header;
 
-    REBCNT state;       // state flags
+    uint32_t state;       // state flags
 
 #ifdef REB_DEF
     REBSER *pane;       // List of child GOBs

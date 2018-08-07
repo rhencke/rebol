@@ -63,7 +63,7 @@ void MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         //
         // -1234567890x-1234567890
         //
-        REBCNT size;
+        REBSIZ size;
         REBYTE *bp = Analyze_String_For_Scan(&size, arg, VAL_LEN_AT(arg));
 
         if (NULL == Scan_Pair(out, bp, size))

@@ -51,7 +51,7 @@
 
 #define IS_DIGIT(c) ((c) >= '0' && (c) <= '9')
 
-#define MASK32(i) (REBCNT)(i)
+#define MASK32(i) (uint32_t)(i)
 
 #define two_to_32 4294967296.0
 #define two_to_32l 4294967296.0l
@@ -62,7 +62,7 @@ static const deci deci_one = {1u, 0u, 0u, 0u, 0};
 static const deci deci_minus_one = {1u, 0u, 0u, 1u, 0};
 /* end of deci constants */
 
-static const REBCNT min_int64_t_as_deci[] = {0u, 0x80000000u, 0u};
+static const uint32_t min_int64_t_as_deci[] = {0u, 0x80000000u, 0u};
 
 /*
     Compare significand a and significand b;
@@ -70,22 +70,22 @@ static const REBCNT min_int64_t_as_deci[] = {0u, 0x80000000u, 0u};
     0 means a = b;
     1 means a > b;
 */
-inline static REBINT m_cmp(REBINT n, const REBCNT a[], const REBCNT b[]) {
-    REBINT i;
+inline static int32_t m_cmp(int32_t n, const uint32_t a[], const uint32_t b[]) {
+    int32_t i;
     for (i = n - 1; i >= 0; i--)
         if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
     return 0;
 }
 
-inline static REBOOL m_is_zero(REBINT n, const REBCNT a[]) {
-    REBINT i;
+inline static REBOOL m_is_zero(int32_t n, const uint32_t a[]) {
+    int32_t i;
     for (i = 0; (i < n) and (a[i] == 0); i++)
         NOOP;
     return i == n;
 }
 
 /* unnormalized powers of ten */
-static const REBCNT P[][3] = {
+static const uint32_t P[][3] = {
     {1u, 0u, 0u},                           /* 1e0 */
     {10u, 0u, 0u},                          /* 1e1 */
     {100u, 0u, 0u},                         /* 1e2 */
@@ -116,22 +116,22 @@ static const REBCNT P[][3] = {
 };
 
 /* 1e26 as double significand */
-static const REBCNT P26[] = {3825205248u, 3704098002u, 5421010u, 0u, 0u, 0u};
+static const uint32_t P26[] = {3825205248u, 3704098002u, 5421010u, 0u, 0u, 0u};
 /* 1e26 - 1 */
-static const REBCNT P26_1[] = {3825205247u, 3704098002u, 5421010u};
+static const uint32_t P26_1[] = {3825205247u, 3704098002u, 5421010u};
 
 /*
     Computes max decimal shift left for nonzero significand a with length 3;
     using double arithmetic;
 */
-inline static REBINT max_shift_left(const REBCNT a[]) {
-    REBINT i;
-    i = (REBINT)(log10((a[2] * two_to_32 + a[1]) * two_to_32 + a[0]) + 0.5);
+inline static int32_t max_shift_left(const uint32_t a[]) {
+    int32_t i;
+    i = (int32_t)(log10((a[2] * two_to_32 + a[1]) * two_to_32 + a[0]) + 0.5);
     return m_cmp (3, P[i], a) <= 0 ? 25 - i : 26 - i;
 }
 
 /* limits for "double significand" right shift */
-static const REBCNT Q[][6] = {
+static const uint32_t Q[][6] = {
     {3892314107u, 2681241660u, 54210108u, 0u, 0u, 0u},                      /* 1e27-5e0 */
     {268435406u, 1042612833u, 542101086u, 0u, 0u, 0u},                      /* 1e28-5e1 */
     {2684354060u, 1836193738u, 1126043566u, 1u, 0u, 0u},                    /* 1e29-5e2 */
@@ -164,10 +164,10 @@ static const REBCNT Q[][6] = {
     Computes minimal decimal shift right for "double significand" with
     length 6 to fit length 3, using double arithmetic.
 */
-inline static REBINT min_shift_right(const REBCNT a[6]) {
-    REBINT i;
+inline static int32_t min_shift_right(const uint32_t a[6]) {
+    int32_t i;
     if (m_cmp (6, a, P26) < 0) return 0;
-    i = (REBINT) (log10 (
+    i = (int32_t) (log10 (
         ((((a[5] * two_to_32 + a[4]) * two_to_32 + a[3]) * two_to_32 + a[2]) * two_to_32 + a[1]) * two_to_32 + a[0]
     ) + 0.5);
     if (i == 26) return 1;
@@ -196,11 +196,11 @@ deci deci_abs(deci a) {
     a must be "large enough" to contain the sum;
     using 64-bit arithmetic;
 */
-inline static void m_add_1(REBCNT *a, const REBCNT b) {
+inline static void m_add_1(uint32_t *a, const uint32_t b) {
     REBU64 c = (REBU64) b;
     while (c) {
         c += (REBU64) *a;
-        *(a++) = (REBCNT)c;
+        *(a++) = (uint32_t)c;
         c >>= 32;
     }
 }
@@ -209,7 +209,7 @@ inline static void m_add_1(REBCNT *a, const REBCNT b) {
     Subtracts unsigned 32-bit value b from significand a;
     using 64-bit arithmetic;
 */
-inline static void m_subtract_1(REBCNT *a, const REBCNT b) {
+inline static void m_subtract_1(uint32_t *a, const uint32_t b) {
     REBI64 c = - (REBI64) b;
     while (c) {
         c += 0xffffffffu + (REBI64)*a + 1;
@@ -222,15 +222,15 @@ inline static void m_subtract_1(REBCNT *a, const REBCNT b) {
     Adds significand b to significand a yielding sum s;
     using 64-bit arithmetic;
 */
-inline static void m_add(REBINT n, REBCNT s[], const REBCNT a[], const REBCNT b[]) {
+inline static void m_add(int32_t n, uint32_t s[], const uint32_t a[], const uint32_t b[]) {
     REBU64 c = (REBU64) 0;
-    REBINT i;
+    int32_t i;
     for (i = 0; i < n; i++) {
         c += (REBU64) a[i] + (REBU64) b[i];
         s[i] = MASK32(c);
         c >>= 32;
     }
-    s[n] = (REBCNT)c;
+    s[n] = (uint32_t)c;
 }
 
 /*
@@ -238,29 +238,29 @@ inline static void m_add(REBINT n, REBCNT s[], const REBCNT a[], const REBCNT b[
     returns carry flag to signal whether the result is negative;
     using 64-bit arithmetic;
 */
-inline static REBINT m_subtract(
-    REBINT n,
-    REBCNT d[],
-    const REBCNT a[],
-    const REBCNT b[]
+inline static int32_t m_subtract(
+    int32_t n,
+    uint32_t d[],
+    const uint32_t a[],
+    const uint32_t b[]
 ){
     REBU64 c = (REBU64) 1;
-    REBINT i;
+    int32_t i;
     for (i = 0; i < n; i++) {
         c += (REBU64) 0xffffffffu + (REBU64) a[i] - (REBU64) b[i];
         d[i] = MASK32(c);
         c >>= 32;
     }
-    return (REBINT) c - 1;
+    return (int32_t) c - 1;
 }
 
 /*
     Negates significand a;
     using 64-bit arithmetic;
 */
-inline static void m_negate(REBINT n, REBCNT a[]) {
+inline static void m_negate(int32_t n, uint32_t a[]) {
     REBU64 c = (REBU64) 1;
-    REBINT i;
+    int32_t i;
     for (i = 0; i < n; i++) {
         c += (REBU64) 0xffffffffu - (REBU64) a[i];
         a[i] = MASK32(c);
@@ -273,15 +273,15 @@ inline static void m_negate(REBINT n, REBCNT a[]) {
     p and a may be the same;
     using 64-bit arithmetic;
 */
-inline static void m_multiply_1(REBINT n, REBCNT p[], const REBCNT a[], REBCNT b) {
-    REBINT j;
+inline static void m_multiply_1(int32_t n, uint32_t p[], const uint32_t a[], uint32_t b) {
+    int32_t j;
     REBU64 f = b, g = (REBU64) 0;
     for (j = 0; j < n; j++) {
         g += f * (REBU64) a[j];
         p[j] = MASK32(g);
         g >>= 32;
     }
-    p[n] = (REBCNT) g;
+    p[n] = (uint32_t) g;
 }
 
 /*
@@ -289,8 +289,8 @@ inline static void m_multiply_1(REBINT n, REBCNT p[], const REBCNT a[], REBCNT b
     a must be longer than the complete result;
     n is the initial length of a;
 */
-inline static void dsl(REBINT n, REBCNT a[], REBINT shift) {
-    REBINT shift1;
+inline static void dsl(int32_t n, uint32_t a[], int32_t shift) {
+    int32_t shift1;
     for (; shift > 0; shift -= shift1) {
         shift1 = 9 <= shift ? 9 : shift;
         m_multiply_1 (n, a, a, P[shift1][0]);
@@ -303,15 +303,15 @@ inline static void dsl(REBINT n, REBCNT a[], REBINT shift) {
     using 64-bit arithmetic;
 */
 inline static void m_multiply(
-    REBCNT p[/* n + m */],
-    REBINT n,
-    const REBCNT a[],
-    REBINT m,
-    const REBCNT b[]
+    uint32_t p[/* n + m */],
+    int32_t n,
+    const uint32_t a[],
+    int32_t m,
+    const uint32_t b[]
 ){
-    REBINT i, j;
+    int32_t i, j;
     REBU64 f, g;
-    memset (p, 0, (n + m) * sizeof (REBCNT));
+    memset (p, 0, (n + m) * sizeof (uint32_t));
     for (i = 0; i < m; i++) {
         f = (REBU64) b[i];
         g = (REBU64) 0;
@@ -320,7 +320,7 @@ inline static void m_multiply(
             p[i + j] = MASK32(g);
             g >>= 32;
         }
-        m_add_1 (p + i + j, (REBCNT) g);
+        m_add_1 (p + i + j, (uint32_t) g);
     }
 }
 
@@ -330,15 +330,15 @@ inline static void m_multiply(
     b must be nonzero!
     using 64-bit arithmetic;
 */
-inline static REBCNT m_divide_1(REBINT n, REBCNT q[], const REBCNT a[], REBCNT b) {
-    REBINT i;
+inline static uint32_t m_divide_1(int32_t n, uint32_t q[], const uint32_t a[], uint32_t b) {
+    int32_t i;
     REBU64 f = 0, g = b;
     for (i = n - 1; i >= 0; i--) {
         f = (f << 32) + (REBU64) a[i];
-        q[i] = (REBCNT)(f / g);
+        q[i] = (uint32_t)(f / g);
         f %= g;
     }
-    return (REBCNT) f;
+    return (uint32_t) f;
 }
 
 /*
@@ -349,9 +349,9 @@ inline static REBCNT m_divide_1(REBINT n, REBCNT q[], const REBCNT a[], REBCNT b
     2 - exactly half of the least significant unit truncated
     3 - more than half of the least significant unit truncated
 */
-inline static void dsr(REBINT n, REBCNT a[], REBINT shift, REBINT *t_flag) {
-    REBCNT remainder, divisor;
-    REBINT shift1;
+inline static void dsr(int32_t n, uint32_t a[], int32_t shift, int32_t *t_flag) {
+    uint32_t remainder, divisor;
+    int32_t shift1;
     for (; shift > 0; shift -= shift1) {
         shift1 = 9 <= shift ? 9 : shift;
         remainder = m_divide_1 (n, a, a, divisor = P[shift1][0]);
@@ -368,16 +368,16 @@ inline static void dsr(REBINT n, REBCNT a[], REBINT shift, REBINT *t_flag) {
     ta and tb are truncate flags like above;
 */
 inline static void make_comparable(
-    REBCNT a[4],
-    REBINT *ea,
-    REBINT *ta,
-    REBCNT b[4],
-    REBINT *eb,
-    REBINT *tb
+    uint32_t a[4],
+    int32_t *ea,
+    int32_t *ta,
+    uint32_t b[4],
+    int32_t *eb,
+    int32_t *tb
 ){
-    REBCNT *c;
-    REBINT *p;
-    REBINT shift, shift1;
+    uint32_t *c;
+    int32_t *p;
+    int32_t shift, shift1;
 
     /* set truncate flags to zero */
     *ta = 0;
@@ -417,7 +417,7 @@ inline static void make_comparable(
     if (shift > 26) {
         /* significand underflow */
         if (!m_is_zero (3, b)) *tb = 1;
-        memset (b, 0, 3 * sizeof (REBCNT));
+        memset (b, 0, 3 * sizeof (uint32_t));
         *eb = *ea;
         return;
     }
@@ -426,11 +426,11 @@ inline static void make_comparable(
 }
 
 REBOOL deci_is_equal(deci a, deci b) {
-    REBINT ea = a.e, eb = b.e, ta, tb;
+    int32_t ea = a.e, eb = b.e, ta, tb;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
-    REBCNT sa[4];
-    REBCNT sb[4];
+    uint32_t sa[4];
+    uint32_t sb[4];
 
     sa[0] = a.m0;
     sa[1] = a.m1;
@@ -455,11 +455,11 @@ REBOOL deci_is_equal(deci a, deci b) {
 }
 
 REBOOL deci_is_lesser_or_equal(deci a, deci b) {
-    REBINT ea = a.e, eb = b.e, ta, tb;
+    int32_t ea = a.e, eb = b.e, ta, tb;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
-    REBCNT sa[4];
-    REBCNT sb[4];
+    uint32_t sa[4];
+    uint32_t sb[4];
 
     sa[0] = a.m0;
     sa[1] = a.m1;
@@ -490,12 +490,12 @@ REBOOL deci_is_lesser_or_equal(deci a, deci b) {
 
 deci deci_add(deci a, deci b) {
     deci c;
-    REBCNT sc[4];
-    REBINT ea = a.e, eb = b.e, ta, tb, tc, test;
+    uint32_t sc[4];
+    int32_t ea = a.e, eb = b.e, ta, tb, tc, test;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
-    REBCNT sa[4];
-    REBCNT sb[4];
+    uint32_t sa[4];
+    uint32_t sb[4];
 
     sa[0] = a.m0;
     sa[1] = a.m1;
@@ -561,19 +561,19 @@ deci int_to_deci(REBI64 a) {
     deci c;
     c.e = 0;
     if (0 <= a) c.s = 0; else {c.s = 1; a = -a;}
-    c.m0 = (REBCNT)a;
-    c.m1 = (REBCNT)(a >> 32);
+    c.m0 = (uint32_t)a;
+    c.m1 = (uint32_t)(a >> 32);
     c.m2 = 0;
     return c;
 }
 
 /* using 64-bit arithmetic */
 REBI64 deci_to_int(const deci a) {
-    REBINT ta;
+    int32_t ta;
     REBI64 result;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
-    REBCNT sa[4];
+    uint32_t sa[4];
 
     sa[0] = a.m0;
     sa[1] = a.m1;
@@ -629,8 +629,8 @@ deci decimal_to_deci(REBDEC a) {
 
     result.s = s;
     result.m2 = 0;
-    result.m1 = (REBCNT)(d >> 32);
-    result.m0 = (REBCNT)d;
+    result.m1 = (uint32_t)(d >> 32);
+    result.m0 = (uint32_t)d;
     result.e = 0;
 
     return deci_ldexp(result, e);
@@ -642,7 +642,7 @@ deci decimal_to_deci(REBDEC a) {
     ta is a truncate flag as described above;
     *f is supposed to be in range [-128; 127];
 */
-inline static void m_ldexp(REBCNT a[4], REBINT *f, REBINT e, REBINT ta) {
+inline static void m_ldexp(uint32_t a[4], int32_t *f, int32_t e, int32_t ta) {
     /* take care of zero significand */
     if (m_is_zero (3, a)) {
         *f = 0;
@@ -659,7 +659,7 @@ inline static void m_ldexp(REBCNT a[4], REBINT *f, REBINT e, REBINT ta) {
     if (*f < -128) {
         if (*f < -154) {
             /* underflow */
-            memset (a, 0, 3 * sizeof (REBCNT));
+            memset (a, 0, 3 * sizeof (uint32_t));
             *f = 0;
             return;
         }
@@ -680,11 +680,11 @@ inline static void m_ldexp(REBCNT a[4], REBINT *f, REBINT e, REBINT ta) {
 }
 
 /* Calculates a * (10 ** e); returns zero when underflow occurs */
-deci deci_ldexp(deci a, REBINT e) {
-    REBINT f = a.e;
+deci deci_ldexp(deci a, int32_t e) {
+    int32_t f = a.e;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
-    REBCNT sa[4];
+    uint32_t sa[4];
 
     sa[0] = a.m0;
     sa[1] = a.m1;
@@ -714,8 +714,8 @@ deci deci_ldexp(deci a, REBINT e) {
 /* truncate a to obtain a multiple of b */
 deci deci_truncate(deci a, deci b) {
     deci c;
-    REBCNT sa[3];
-    REBINT ta = 0;
+    uint32_t sa[3];
+    int32_t ta = 0;
 
     c = deci_mod (a, b);
     /* negate c */
@@ -729,8 +729,8 @@ deci deci_truncate(deci a, deci b) {
 /* round a away from zero to obtain a multiple of b */
 deci deci_away(deci a, deci b) {
     deci c;
-    REBCNT sa[3];
-    REBINT ta = 0;
+    uint32_t sa[3];
+    int32_t ta = 0;
 
     c = deci_mod (a, b);
     if (!deci_is_zero (c)) {
@@ -748,8 +748,8 @@ deci deci_away(deci a, deci b) {
 /* round a down to obtain a multiple of b */
 deci deci_floor(deci a, deci b) {
     deci c;
-    REBCNT sa[3];
-    REBINT ta = 0;
+    uint32_t sa[3];
+    int32_t ta = 0;
 
     c = deci_mod (a, b);
     /* negate c */
@@ -768,8 +768,8 @@ deci deci_floor(deci a, deci b) {
 /* round a up to obtain a multiple of b */
 deci deci_ceil(deci a, deci b) {
     deci c;
-    REBCNT sa[3];
-    REBINT ta = 0;
+    uint32_t sa[3];
+    int32_t ta = 0;
 
     c = deci_mod (a, b);
     /* negate c */
@@ -788,8 +788,8 @@ deci deci_ceil(deci a, deci b) {
 /* round a half even to obtain a multiple of b */
 deci deci_half_even(deci a, deci b) {
     deci c, d, e, f;
-    REBCNT sa[3];
-    REBINT ta = 0;
+    uint32_t sa[3];
+    int32_t ta = 0;
     REBOOL g;
 
     c = deci_mod (a, b);
@@ -823,8 +823,8 @@ deci deci_half_even(deci a, deci b) {
 /* round a half away from zero to obtain a multiple of b */
 deci deci_half_away(deci a, deci b) {
     deci c, d;
-    REBCNT sa[3];
-    REBINT ta = 0;
+    uint32_t sa[3];
+    int32_t ta = 0;
 
     c = deci_mod (a, b);
 
@@ -850,8 +850,8 @@ deci deci_half_away(deci a, deci b) {
 /* round a half truncate to obtain a multiple of b */
 deci deci_half_truncate(deci a, deci b) {
     deci c, d;
-    REBCNT sa[3];
-    REBINT ta = 0;
+    uint32_t sa[3];
+    int32_t ta = 0;
 
     c = deci_mod (a, b);
 
@@ -877,8 +877,8 @@ deci deci_half_truncate(deci a, deci b) {
 /* round a half up to obtain a multiple of b */
 deci deci_half_ceil(deci a, deci b) {
     deci c, d;
-    REBCNT sa[3];
-    REBINT ta = 0;
+    uint32_t sa[3];
+    int32_t ta = 0;
 
     c = deci_mod (a, b);
 
@@ -929,8 +929,8 @@ deci deci_half_ceil(deci a, deci b) {
 /* round a half down to obtain a multiple of b */
 deci deci_half_floor(deci a, deci b) {
     deci c, d;
-    REBCNT sa[3];
-    REBINT ta = 0;
+    uint32_t sa[3];
+    int32_t ta = 0;
 
     c = deci_mod (a, b);
 
@@ -980,12 +980,12 @@ deci deci_half_floor(deci a, deci b) {
 
 deci deci_multiply(const deci a, const deci b) {
     deci c;
-    REBCNT sc[7];
-    REBINT shift, tc = 0, e, f = 0;
+    uint32_t sc[7];
+    int32_t shift, tc = 0, e, f = 0;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
-    REBCNT sa[3];
-    REBCNT sb[3];
+    uint32_t sa[3];
+    uint32_t sb[3];
 
     sa[0] = a.m0;
     sa[1] = a.m1;
@@ -1028,17 +1028,17 @@ deci deci_multiply(const deci a, const deci b) {
 #define MAX_M 3
 
 inline static void m_divide(
-    REBCNT q[/* n - m + 1 */],
-    REBCNT r[/* m */],
-    const REBINT n,
-    const REBCNT a[/* n */],
-    const REBINT m,
-    const REBCNT b[/* m */]
+    uint32_t q[/* n - m + 1 */],
+    uint32_t r[/* m */],
+    const int32_t n,
+    const uint32_t a[/* n */],
+    const int32_t m,
+    const uint32_t b[/* m */]
 ){
-    REBCNT c[MAX_N + 1], d[MAX_M + 1], e[MAX_M + 1];
-    REBCNT bm = b[m - 1];
+    uint32_t c[MAX_N + 1], d[MAX_M + 1], e[MAX_M + 1];
+    uint32_t bm = b[m - 1];
     REBU64 cm, dm;
-    REBINT i, j, k;
+    int32_t i, j, k;
 
     if (m <= 1) {
         // Note: the test here used to be `if (m == 1)` but gcc 4.9.2 would
@@ -1060,7 +1060,7 @@ inline static void m_divide(
     j = 31;
     while (i < j) {
         k = (i + j + 1) / 2;
-        if ((REBCNT)(1 << k) <= bm) i = k; else j = k - 1;
+        if ((uint32_t)(1 << k) <= bm) i = k; else j = k - 1;
     }
 
     /* shift the dividend to the left */
@@ -1079,13 +1079,13 @@ inline static void m_divide(
         cm = ((REBU64) c[j + m] << 32) + (REBU64) c[j + m - 1];
         cm /= dm;
         if (cm > 0xffffffffu) cm = 0xffffffffu;
-        m_multiply_1 (m, e, d, (REBCNT) cm);
+        m_multiply_1 (m, e, d, (uint32_t) cm);
         if (m_subtract (m + 1, c + j, c + j, e)) {
             /* the quotient is off by one */
             cm--;
             m_add (m, c + j, c + j, d);
         }
-        q[j] = (REBCNT) cm;
+        q[j] = (uint32_t) cm;
     }
 
     /* shift the remainder back to the right */
@@ -1096,15 +1096,15 @@ inline static void m_divide(
 
 /* uses double arithmetic */
 deci deci_divide(deci a, deci b) {
-    REBINT e = a.e - b.e, f = 0;
+    int32_t e = a.e - b.e, f = 0;
     deci c;
     double a_dbl, b_dbl, l10;
-    REBINT shift, na, nb, tc;
-    REBCNT q[] = {0, 0, 0, 0, 0, 0}, r[4];
+    int32_t shift, na, nb, tc;
+    uint32_t q[] = {0, 0, 0, 0, 0, 0}, r[4];
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
-    REBCNT sa[6];
-    REBCNT sb[4];
+    uint32_t sa[6];
+    uint32_t sb[4];
 
     sa[0] = a.m0;
     sa[1] = a.m1;
@@ -1135,12 +1135,12 @@ deci deci_divide(deci a, deci b) {
     a_dbl = (a.m2 * two_to_32 + a.m1) * two_to_32 + a.m0;
     b_dbl = (b.m2 * two_to_32 + b.m1) * two_to_32 + b.m0;
     l10 = log10 (a_dbl);
-    shift = (REBINT)ceil (25.5 + log10(b_dbl) - l10);
+    shift = (int32_t)ceil (25.5 + log10(b_dbl) - l10);
     dsl (3, sa, shift);
     e -= shift;
 
     /* count radix 2 ** 32 digits of the shifted significand sa */
-    na = (REBINT)ceil ((l10 + shift) * 0.10381025296523 + 0.5);
+    na = (int32_t)ceil ((l10 + shift) * 0.10381025296523 + 0.5);
     if (sa[na - 1] == 0) na--;
 
     nb = b.m2 ? 3 : (b.m1 ? 2 : 1);
@@ -1172,8 +1172,8 @@ deci deci_divide(deci a, deci b) {
 
 #define MAX_NB 7
 
-inline static REBINT m_to_string(REBYTE *s, REBCNT n, const REBCNT a[]) {
-    REBCNT r, b[MAX_NB];
+inline static int32_t m_to_string(REBYTE *s, uint32_t n, const uint32_t a[]) {
+    uint32_t r, b[MAX_NB];
     REBYTE v[10 * MAX_NB + 1], *vmax, *k;
 
     /* finds the first nonzero radix 2 ** 32 "digit" */
@@ -1186,7 +1186,7 @@ inline static REBINT m_to_string(REBYTE *s, REBCNT n, const REBCNT a[]) {
     }
 
     /* copy a to preserve it */
-    memcpy (b, a, n * sizeof (REBCNT));
+    memcpy (b, a, n * sizeof (uint32_t));
 
     k = vmax = v + 10 * MAX_NB;
     *k = '\0';
@@ -1207,10 +1207,10 @@ REBINT deci_to_string(
     const REBYTE point
 ){
     REBYTE *s = string;
-    REBINT j, e;
+    int32_t j, e;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
-    REBCNT sa[3];
+    uint32_t sa[3];
 
     sa[0] = a.m0;
     sa[1] = a.m1;
@@ -1268,13 +1268,13 @@ REBINT deci_to_string(
 }
 
 deci deci_mod(deci a, deci b) {
-    REBCNT sc[] = {10u, 0, 0};
-    REBCNT p[6]; /* for multiplication results */
-    REBINT e, nb;
+    uint32_t sc[] = {10u, 0, 0};
+    uint32_t p[6]; /* for multiplication results */
+    int32_t e, nb;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
-    REBCNT sa[3];
-    REBCNT sb[4];
+    uint32_t sa[3];
+    uint32_t sb[4];
 
     sa[0] = a.m0;
     sa[1] = a.m1;
@@ -1333,13 +1333,13 @@ deci deci_mod(deci a, deci b) {
 deci string_to_deci(const REBYTE *s, const REBYTE **endptr) {
     const REBYTE *a = s;
     deci b = {0, 0, 0, 0, 0};
-    REBCNT sb[] = {0, 0, 0, 0}; /* significand */
-    REBINT f = 0, e = 0; /* exponents */
-    REBINT fp = 0; /* full precision flag */
-    REBINT dp = 0; /* decimal point encountered */
-    REBINT tb = 0; /* truncate flag */
-    REBINT d; /* digit */
-    REBINT es = 1; /* exponent sign */
+    uint32_t sb[] = {0, 0, 0, 0}; /* significand */
+    int32_t f = 0, e = 0; /* exponents */
+    int32_t fp = 0; /* full precision flag */
+    int32_t dp = 0; /* decimal point encountered */
+    int32_t tb = 0; /* truncate flag */
+    int32_t d; /* digit */
+    int32_t es = 1; /* exponent sign */
 
     /* sign */
     if ('+' == *a) a++; else if ('-' == *a) {
@@ -1442,9 +1442,9 @@ deci binary_to_deci(const REBYTE s[12]) {
     /* this looks like the only way, since the order of bits in bitsets is compiler-dependent */
     d.s = s[0] >> 7;
     d.e = s[0] << 1 | s[1] >> 7;
-    d.m2 = (REBCNT)(s[1] << 1) << 15 | (REBCNT)s[2] << 8 | s[3];
-    d.m1 = (REBCNT)s[4] << 24 | (REBCNT)s[5] << 16 | (REBCNT)s[6] << 8 | s[7];
-    d.m0 = (REBCNT)s[8] << 24 | (REBCNT)s[9] << 16 | (REBCNT)s[10] << 8 | s[11];
+    d.m2 = (uint32_t)(s[1] << 1) << 15 | (uint32_t)s[2] << 8 | s[3];
+    d.m1 = (uint32_t)s[4] << 24 | (uint32_t)s[5] << 16 | (uint32_t)s[6] << 8 | s[7];
+    d.m0 = (uint32_t)s[8] << 24 | (uint32_t)s[9] << 16 | (uint32_t)s[10] << 8 | s[11];
     /* validity checks */
     if (d.m2 >= 5421010u) {
         if (d.m1 >= 3704098002u) {

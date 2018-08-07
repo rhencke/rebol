@@ -1461,7 +1461,7 @@ inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
 //
 
 #define MAX_TUPLE \
-    ((sizeof(REBCNT) * 2) - 1) // for same properties on 64-bit and 32-bit
+    ((sizeof(uint32_t) * 2) - 1) // for same properties on 64-bit and 32-bit
 
 #define VAL_TUPLE(v) \
     ((v)->payload.tuple.tuple + 1)

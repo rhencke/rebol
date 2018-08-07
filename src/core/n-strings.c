@@ -187,7 +187,7 @@ REBNATIVE(checksum)
             // integer via CHECKSUM.  Perhaps (?) to generate a value that
             // could be used by Rebol2, as it only had 32-bit signed INTEGER!.
             //
-            REBINT crc32 = cast(REBINT, crc32_z(0L, data, len));
+            REBINT crc32 = cast(int32_t, crc32_z(0L, data, len));
             return Init_Integer(D_OUT, crc32);
         }
 

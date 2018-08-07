@@ -43,18 +43,18 @@
 #define BitSet(byte,bit)  (((byte) & (bit)) == (bit))
 #define LSBFirstOrder(x,y)  (((y) << 8) | (x))
 
-static REBINT   interlace_rate[4] = { 8, 8, 4, 2 },
+static int32_t   interlace_rate[4] = { 8, 8, 4, 2 },
                 interlace_start[4] = { 0, 4, 2, 1 };
 
 
 #ifdef COMP_IMAGES
 // Because graphics.c is not included, we must have a copy here.
-void Chrom_Key_Alpha(REBVAL *v,REBCNT col,REBINT blitmode) {
+void Chrom_Key_Alpha(REBVAL *v,uint32_t col,int32_t blitmode) {
     REBOOL found=FALSE;
     int i;
-    REBCNT *p;
+    uint32_t *p;
 
-    p=(REBCNT *)VAL_IMAGE_HEAD(v);
+    p=(uint32_t *)VAL_IMAGE_HEAD(v);
     i=VAL_IMAGE_WIDTH(v)*VAL_IMAGE_HEIGHT(v);
     switch(blitmode) {
         case BLIT_MODE_COLOR:
@@ -83,17 +83,17 @@ void Chrom_Key_Alpha(REBVAL *v,REBCNT col,REBINT blitmode) {
 //
 // Perform LZW decompression.
 //
-void Decode_LZW(REBCNT *data, REBYTE **cpp, REBYTE *colortab, REBINT w, REBINT h, REBOOL interlaced)
+void Decode_LZW(uint32_t *data, REBYTE **cpp, REBYTE *colortab, int32_t w, int32_t h, REBOOL interlaced)
 {
     REBYTE  *cp = *cpp;
     REBYTE  *rp;
-    REBINT  available, clear, code_mask, code_size, end_of_info, in_code;
-    REBINT  old_code, bits, code, count, x, y, data_size, row, i;
-    REBCNT  *dp, datum;
+    int32_t  available, clear, code_mask, code_size, end_of_info, in_code;
+    int32_t  old_code, bits, code, count, x, y, data_size, row, i;
+    uint32_t  *dp, datum;
     short   *prefix;
     REBYTE  first, *pixel_stack, *suffix, *top_stack;
 
-    suffix = ALLOC_N(REBYTE,
+    suffix = rebAllocN(REBYTE,
         MAX_STACK_SIZE * (sizeof(REBYTE) + sizeof(REBYTE) + sizeof(short))
     );
     pixel_stack = suffix + MAX_STACK_SIZE;
@@ -200,14 +200,11 @@ void Decode_LZW(REBCNT *data, REBYTE **cpp, REBYTE *colortab, REBINT w, REBINT h
     }
     *cpp = cp + count + 1;
 
-    FREE_N(REBYTE,
-        MAX_STACK_SIZE * (sizeof(REBYTE) + sizeof(REBYTE) + sizeof(short)),
-        suffix
-    );
+    rebFree(suffix);
 }
 
 
-static REBOOL Has_Valid_GIF_Header(REBYTE *data, REBCNT len) {
+static REBOOL Has_Valid_GIF_Header(REBYTE *data, uint32_t len) {
     if (len < 5)
         return FALSE;
 
@@ -235,7 +232,7 @@ REBNATIVE(identify_gif_q)
     GIF_INCLUDE_PARAMS_OF_IDENTIFY_GIF_Q;
 
     REBYTE *data = VAL_BIN_AT(ARG(data));
-    REBCNT len = VAL_LEN_AT(ARG(data));
+    uint32_t len = VAL_LEN_AT(ARG(data));
 
     // Assume signature matching is good enough (will get a fail() on
     // decode if it's a false positive).
@@ -259,16 +256,16 @@ REBNATIVE(decode_gif)
     GIF_INCLUDE_PARAMS_OF_DECODE_GIF;
 
     REBYTE *data = VAL_BIN_AT(ARG(data));
-    REBCNT len = VAL_LEN_AT(ARG(data));
+    uint32_t len = VAL_LEN_AT(ARG(data));
 
     if (not Has_Valid_GIF_Header(data, len))
         fail (Error_Bad_Media_Raw());
 
-    REBINT  w, h;
-    REBINT  transparency_index;
+    int32_t  w, h;
+    int32_t  transparency_index;
     REBYTE  c, *global_colormap, *colormap;
-    REBCNT  global_colors, local_colormap;
-    REBCNT  colors;
+    uint32_t  global_colors, local_colormap;
+    uint32_t  colors;
     REBOOL  interlaced;
 
     REBYTE *cp = data;
@@ -285,7 +282,7 @@ REBNATIVE(decode_gif)
     cp += 13;
     transparency_index = -1;
 
-    REBDSP dsp_orig = DSP; // push each image frame found in the GIF file
+    REBVAL *frames = rebRun("copy []", rebEND);
 
     for (;;) {
         if (cp >= end) break;
@@ -339,37 +336,36 @@ REBNATIVE(decode_gif)
 
         REBSER *ser = Make_Image(w, h, TRUE);
 
-        REBCNT *dp = cast(REBCNT*, IMG_DATA(ser));
+        uint32_t *dp = cast(uint32_t*, IMG_DATA(ser));
 
         Decode_LZW(dp, &cp, colormap, w, h, interlaced);
 
         if(transparency_index >= 0) {
             REBYTE *p=colormap+3*transparency_index;
             UNUSED(p);
-            ///Chroma_Key_Alpha(Temp_Value, (REBCNT)(p[2]|(p[1]<<8)|(p[0]<<16)), BLIT_MODE_COLOR);
+            ///Chroma_Key_Alpha(Temp_Value, (uint32_t)(p[2]|(p[1]<<8)|(p[0]<<16)), BLIT_MODE_COLOR);
         }
 
-        DS_PUSH_TRASH;
-        Init_Image(DS_TOP, ser);
+        DECLARE_LOCAL (image);
+        Init_Image(image, ser);
+        rebElide("append", frames, image, rebEND);
     }
 
-    if (dsp_orig + 1 == DSP) {
-        //
-        // If 1 image, return as a single value
-        //
-        // !!! Should formats that can act as containers always be a block?
-        //
-        assert(IS_IMAGE(DS_TOP));
-        Move_Value(D_OUT, DS_TOP);
-        DS_DROP;
-    }
-    else {
-        // If 0 or more than one image, return a BLOCK!.
-        //
-        Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
-    }
+    // If 0 images, raise an error
+    // If 1 image, return as a single value
+    // If multiple images, return in a BLOCK!
+    //
+    // !!! Should formats that can act as containers always return a BLOCK!?
+    //
+    REBVAL *result = rebRun("case [",
+        "empty?", frames, "[FAIL {No frames found in GIF}]",
+        "length of", frames, "= 1", "[first", frames, "]",
+        "default [", frames, "]"
+    "]", rebEND);
 
-    return D_OUT;
+    rebRelease(frames);
+
+    return result;
 }
 
 

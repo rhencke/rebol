@@ -586,18 +586,6 @@ struct Reb_Series_Dynamic {
     // 16 info bits are likely available if needed for dynamic series.
     //
     REBCNT bias;
-
-#if defined(__LP64__) || defined(__LLP64__)
-    //
-    // The Reb_Series_Dynamic is used in Reb_Series inside of a union with a
-    // REBVAL.  On 64-bit machines this will leave one unused 32-bit slot
-    // (which will couple with the previous REBCNT) and one naturally aligned
-    // 64-bit pointer.  These could be used for some enhancement that would
-    // be available per-dynamic-REBSER on 64-bit architectures.
-    //
-    REBCNT unused_32;
-    void *unused_64;
-#endif
 };
 
 

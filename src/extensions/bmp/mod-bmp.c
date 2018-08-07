@@ -185,8 +185,8 @@ void Map_Bytes(void *dstp, const REBYTE **srcp, const char *map) {
                 while ((cast(uintptr_t, dst) & 3) != 0)
                     dst++;
             }
-            *((REBCNT *)dst) = *((const REBCNT *)src);
-            dst += sizeof(REBCNT);
+            *((uint32_t *)dst) = *((const uint32_t *)src);
+            dst += sizeof(uint32_t);
             src += 4;
             break;
         }
@@ -209,9 +209,9 @@ void Map_Bytes(void *dstp, const REBYTE **srcp, const char *map) {
                 while (((unsigned long)dst)&3)
                     dst++;
             }
-            *((REBCNT *)dst) = src[0]|(src[1]<<8)|
+            *((uint32_t *)dst) = src[0]|(src[1]<<8)|
                     (src[2]<<16)|(src[3]<<24);
-            dst += sizeof(REBCNT);
+            dst += sizeof(uint32_t);
             src += 4;
             break;
         }
@@ -242,8 +242,8 @@ void Unmap_Bytes(void *srcp, REBYTE **dstp, const char *map) {
                 while((cast(uintptr_t, src) & 3) != 0)
                     src++;
             }
-            *((REBCNT *)dst) = *((REBCNT *)src);
-            src += sizeof(REBCNT);
+            *((uint32_t *)dst) = *((uint32_t *)src);
+            src += sizeof(uint32_t);
             dst += 4;
             break;
         }
@@ -266,9 +266,9 @@ void Unmap_Bytes(void *srcp, REBYTE **dstp, const char *map) {
                 while (((unsigned long)src)&3)
                     src++;
             }
-            *((REBCNT *)dst) = src[0]|(src[1]<<8)|
+            *((uint32_t *)dst) = src[0]|(src[1]<<8)|
                     (src[2]<<16)|(src[3]<<24);
-            src += sizeof(REBCNT);
+            src += sizeof(uint32_t);
             dst += 4;
             break;
         }
@@ -278,7 +278,7 @@ void Unmap_Bytes(void *srcp, REBYTE **dstp, const char *map) {
 }
 
 
-static REBOOL Has_Valid_BITMAPFILEHEADER(const REBYTE *data, REBCNT len) {
+static REBOOL Has_Valid_BITMAPFILEHEADER(const REBYTE *data, uint32_t len) {
     if (len < sizeof(BITMAPFILEHEADER))
         return FALSE;
 
@@ -306,7 +306,7 @@ REBNATIVE(identify_bmp_q)
     BMP_INCLUDE_PARAMS_OF_IDENTIFY_BMP_Q;
 
     const REBYTE *data = VAL_BIN_AT(ARG(data));
-    REBCNT len = VAL_LEN_AT(ARG(data));
+    uint32_t len = VAL_LEN_AT(ARG(data));
 
     // Assume signature matching is good enough (will get a fail() on
     // decode if it's a false positive).
@@ -329,14 +329,14 @@ REBNATIVE(decode_bmp)
     BMP_INCLUDE_PARAMS_OF_DECODE_BMP;
 
     const REBYTE *data = VAL_BIN_AT(ARG(data));
-    REBCNT len = VAL_LEN_AT(ARG(data));
+    uint32_t len = VAL_LEN_AT(ARG(data));
 
     if (not Has_Valid_BITMAPFILEHEADER(data, len))
         fail (Error_Bad_Media_Raw());
 
-    REBINT              i, j, x, y, c;
-    REBINT              colors, compression, bitcount;
-    REBINT              w, h;
+    int32_t              i, j, x, y, c;
+    int32_t              colors, compression, bitcount;
+    int32_t              w, h;
     BITMAPINFOHEADER    bmih;
     BITMAPCOREHEADER    bmch;
     RGBQUADPTR          color;
@@ -399,7 +399,7 @@ REBNATIVE(decode_bmp)
 
     REBSER *ser = Make_Image(w, h, TRUE);
 
-    REBCNT *dp = cast(REBCNT *, IMG_DATA(ser));
+    uint32_t *dp = cast(uint32_t *, IMG_DATA(ser));
 
     dp += w * h - w;
 
@@ -570,14 +570,14 @@ REBNATIVE(encode_bmp)
 {
     BMP_INCLUDE_PARAMS_OF_ENCODE_BMP;
 
-    REBINT i, y;
+    int32_t i, y;
     REBYTE *cp, *v;
-    REBCNT *dp;
+    uint32_t *dp;
     BITMAPFILEHEADER bmfh;
     BITMAPINFOHEADER bmih;
 
-    REBINT w = VAL_IMAGE_WIDE(ARG(image));
-    REBINT h = VAL_IMAGE_HIGH(ARG(image));
+    int32_t w = VAL_IMAGE_WIDE(ARG(image));
+    int32_t h = VAL_IMAGE_HIGH(ARG(image));
 
     memset(&bmfh, 0, sizeof(bmfh));
     bmfh.bfType[0] = 'B';
@@ -604,7 +604,7 @@ REBNATIVE(encode_bmp)
     bmih.biClrImportant = 0;
     Unmap_Bytes(&bmih, &cp, mapBITMAPINFOHEADER);
 
-    dp = cast(REBCNT *, VAL_IMAGE_BITS(ARG(image)));
+    dp = cast(uint32_t *, VAL_IMAGE_BITS(ARG(image)));
     dp += w * h - w;
 
     for (y = 0; y<h; y++) {

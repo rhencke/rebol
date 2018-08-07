@@ -145,10 +145,7 @@ REBINT Compute_CRC24(REBYTE *str, REBCNT len)
 //
 // Return a case insensitive hash value for the string.
 //
-// !!! Review taking size_t for size instead of REBCNT, but Back_Scan_UTF8
-// needs to be changed.
-//
-REBINT Hash_UTF8(const REBYTE *utf8, REBCNT size)
+REBINT Hash_UTF8(const REBYTE *utf8, REBSIZ size)
 {
     REBINT hash =
         cast(REBINT, size) + cast(REBINT, cast(REBYTE, LO_CASE(*utf8)));

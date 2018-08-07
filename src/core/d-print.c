@@ -170,10 +170,10 @@ void Debug_String_No_Newline(const REBYTE *utf8, REBSIZ size)
     GC_Disabled = TRUE;
 
   #ifdef DEBUG_STDIO_OK
-    printf("%.*s", size, utf8); // https://stackoverflow.com/a/2239571
+    printf("%.*s", cast(int, size), utf8); // https://stackoverflow.com/a/2239571
     fflush(stdout);
   #else
-    Prin_OS_String(utf8, size, OPT_ENC_0);
+    Prin_OS_String(utf8, cast(int, size), OPT_ENC_0);
   #endif
 
     assert(GC_Disabled == TRUE);

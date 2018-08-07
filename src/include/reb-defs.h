@@ -67,9 +67,13 @@ typedef unsigned char REBYTE; // don't change to uint8_t, see note
 // machines, and a possible loss of performance for forcing a platform to use
 // a specific size int (instead of deferring to C's generic `int`).
 //
-typedef int32_t REBINT; // 32 bit signed integer
-typedef uint32_t REBCNT; // 32 bit (counting number, length in "units")
-typedef uint32_t REBSIZ; // 32 bit (size in bytes)
+// Hence Ren-C switches to using indexes that are provided by <stdint.h> (or
+// the stub "pstdint.h") that are deemed by the compiler to be the fastest
+// representation for 32-bit integers...even if that might be larger.
+//
+typedef int_fast32_t REBINT; // series index, signed, at *least* 32 bits
+typedef uint_fast32_t REBCNT; // series length, unsigned, at *least* 32 bits
+typedef size_t REBSIZ; // 32 bit (size in bytes)
 typedef int64_t REBI64; // 64 bit integer
 typedef uint64_t REBU64; // 64 bit unsigned integer
 typedef float REBD32; // 32 bit decimal

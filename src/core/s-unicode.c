@@ -772,12 +772,12 @@ REBYTE *Check_UTF8(REBYTE *utf8, size_t size)
 // Prescans source for null, and will not return code point 0.
 //
 // If failure due to insufficient data or malformed bytes, then NULL is
-// returned (len is not advanced).
+// returned (size is not decremented).
 //
 const REBYTE *Back_Scan_UTF8_Char_Core(
     unsigned long *out, // "UTF32" is defined as unsigned long above
     const REBYTE *bp,
-    REBCNT *len
+    REBSIZ *size
 ) {
     *out = 0;
 
@@ -785,8 +785,8 @@ const REBYTE *Back_Scan_UTF8_Char_Core(
     REBCNT trail = trailingBytesForUTF8[*source];
 
     // Check that we have enough valid source bytes:
-    if (len) {
-        if (trail + 1 > *len)
+    if (size) {
+        if (trail + 1 > *size)
             return NULL;
     }
     else if (trail != 0) {
@@ -821,8 +821,8 @@ const REBYTE *Back_Scan_UTF8_Char_Core(
     if (*out >= UNI_SUR_HIGH_START && *out <= UNI_SUR_LOW_END)
         return NULL;
 
-    if (len)
-        *len -= trail;
+    if (size)
+        *size -= trail;
 
     // !!! Original implementation used 0 as a return value to indicate a
     // decoding failure.  However, 0 is a legal UTF8 codepoint, and also

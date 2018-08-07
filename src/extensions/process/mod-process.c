@@ -1607,9 +1607,9 @@ REBNATIVE(call)
     // These are initialized to avoid a "possibly uninitialized" warning.
     //
     char *os_output = NULL;
-    REBCNT output_len = 0;
+    uint32_t output_len = 0;
     char *os_err = NULL;
-    REBCNT err_len = 0;
+    uint32_t err_len = 0;
 
     REBINT r = OS_Create_Process(
         frame_,

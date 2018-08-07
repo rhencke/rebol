@@ -78,7 +78,7 @@ void MAKE_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
     case REB_BINARY: {
         const REBYTE *bp = VAL_BIN_HEAD(arg);
-        REBCNT len = VAL_LEN_AT(arg);
+        REBSIZ len = VAL_LEN_AT(arg);
         if (len == 0) goto bad_make;
         if (*bp <= 0x80) {
             if (len != 1)

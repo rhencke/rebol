@@ -596,7 +596,7 @@ void Shutdown_Interning(void)
         //
         printf(
             "!!! %d leaked canons found in shutdown\n",
-            PG_Num_Canon_Slots_In_Use - PG_Num_Canon_Deleteds
+            cast(int, PG_Num_Canon_Slots_In_Use - PG_Num_Canon_Deleteds)
         );
         printf("!!! LIKELY rebUnmanage() without a rebRelease() in API\n");
 

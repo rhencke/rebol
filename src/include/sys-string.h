@@ -349,10 +349,10 @@ inline static void SET_ANY_CHAR(REBSER *s, REBCNT n, REBUNI c) {
 inline static const REBYTE *Back_Scan_UTF8_Char(
     REBUNI *out,
     const REBYTE *bp,
-    REBCNT *len
+    REBSIZ *size
 ){
     unsigned long ch; // "UTF32" is defined as unsigned long
-    const REBYTE *bp_new = Back_Scan_UTF8_Char_Core(&ch, bp, len);
+    const REBYTE *bp_new = Back_Scan_UTF8_Char_Core(&ch, bp, size);
     if (bp_new and ch > 0xFFFF)
         fail (Error_Codepoint_Too_High_Raw(rebInteger(ch)));
     *out = cast(REBUNI, ch);

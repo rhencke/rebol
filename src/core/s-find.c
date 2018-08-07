@@ -237,10 +237,10 @@ REBINT Compare_String_Vals(const RELVAL *v1, const RELVAL *v2, REBOOL uncase)
 //
 // Used for: WORD comparison.
 //
-REBINT Compare_UTF8(const REBYTE *s1, const REBYTE *s2, REBCNT l2)
+REBINT Compare_UTF8(const REBYTE *s1, const REBYTE *s2, REBSIZ l2)
 {
     REBUNI c1, c2;
-    REBCNT l1 = LEN_BYTES(s1);
+    REBSIZ l1 = LEN_BYTES(s1);
     REBINT result = 0;
 
     for (; l1 > 0 && l2 > 0; s1++, s2++, l1--, l2--) {

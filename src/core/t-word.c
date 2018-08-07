@@ -192,18 +192,18 @@ REB_R PD_Word(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             if (n < 0)
                 return nullptr;
 
-            REBCNT len = SER_LEN(str);
+            REBSIZ size = SER_LEN(str);
             const REBYTE *bp = cb_cast(STR_HEAD(str));
             REBUNI c;
             do {
-                if (len == 0)
+                if (size == 0)
                     return nullptr; // character asked for is past end
 
                 if (*bp < 0x80)
                     c = *bp;
                 else
-                    bp = Back_Scan_UTF8_Char(&c, bp, &len);
-                --len;
+                    bp = Back_Scan_UTF8_Char(&c, bp, &size);
+                --size;
                 ++bp;
             } while (n-- != 0);
 
@@ -250,7 +250,7 @@ REBTYPE(Word)
                     ++len;
                 else {
                     REBUNI uni;
-                    if ((bp = Back_Scan_UTF8_Char(&uni, bp, &len)) == NULL)
+                    if ((bp = Back_Scan_UTF8_Char(&uni, bp, &size)) == NULL)
                         fail (Error_Bad_Utf8_Raw());
                     ++len;
                }
