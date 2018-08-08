@@ -567,6 +567,9 @@ to-js-type: func [
     s [text!] "C type as string"
 ][
     case [
+        ; Varargs pointers need special processing...
+        s = "va_list *" ["va_ptr"]
+
         ; APIs dealing with `char *` means UTF-8 bytes.  While C must memory
         ; manage such strings (at the moment), the JavaScript wrapping assumes
         ; input parameters should be JS strings that are turned into temp
@@ -635,70 +638,60 @@ map-each-api [
         ]
     ]
 
-    e-cwrap/emit cscape/with {
-        $<Name> = Module.cwrap(
-            'RL_$<Name>',
-            $<Js-Returns>, [
-                $(Js-Param-Types),
-            ]
-        );
-    } api
+    if find js-param-types "va_ptr" [
+        if 2 < length of js-param-types [
+            print cscape/with
+            "!!!^/!!! WARNING!^/!!!^/!!! Skipping mixed variadic function $<Name>^/!!!"
+            api
+            continue
+        ]
+        e-cwrap/emit cscape/with {
+            $<Name> = function() {
+                var argc = arguments.length;
+                var stack = stackSave();
+                var va = allocate(4 * (argc+1), '', ALLOC_STACK);
+                var a, i, l, p;
+                for (i=0; i < argc; i++) {
+                    a = arguments[i];
+                    switch (typeof a) {
+                    case 'string':
+                        l = lengthBytesUTF8(a) + 4;
+                        l = l&~3
+                        p = allocate(l, '', ALLOC_STACK);
+                        stringToUTF8(a, p, l);
+                        break;
+                    case 'number':
+                        p = a;
+                        break;
+                    default:
+                        throw new Error("Invalid type!");
+                    }
+                    HEAP32[(va>>2)+i] = p;
+                }
 
-    ; !!! Needs fixing...
-comment [
-    for-next args [args/1: unspaced ["x" index of args]]
-    args: delimit args ","
-    line: unspaced [
-        js-name " = function(" args
-        ") {var p = " rebName "(" args
-        "); var s = Pointer_stringify(p); rebFree(p); return s};"
-    ]
-    if find line "<" [
-        e-cwrap/emit {
-            // Unknown type: <...> -- $<Line>
-        }
-    ] else [
-        e-cwrap/emit {
-            $<Line>
-        }
-    ]
-]
+                // !!! There's no rebEnd() API now, it's just a 2-byte sequence at an
+                // address; how to do this better?  See rebEND definition.
+                //
+                p = allocate(4, '', ALLOC_STACK);
+                setValue(p, -127, 'i8') // 0x80
+                setValue(p + 1, 0, 'i8') // 0x00
+                HEAP32[(va>>2)+argc] = p;
 
-]
-
-e-cwrap/emit {
-    rebRun = function() {
-        var argc = arguments.length;
-        var va = allocate(4 * (argc+1), '', ALLOC_STACK);
-        var a, i, l, p;
-        for (i=0; i < argc; i++) {
-            a = arguments[i];
-            switch (typeof a) {
-            case 'string':
-                l = lengthBytesUTF8(a) + 4;
-                l = l&~3
-                p = allocate(l, '', ALLOC_STACK);
-                stringToUTF8(a, p, l);
-                break;
-            case 'number':
-                p = a;
-                break;
-            default:
-                throw new Error("Invalid type!");
+                a = _RL_$<Name>(HEAP32[va>>2], va+4);
+                stackRestore(stack);
+                return a;
             }
-            HEAP32[(va>>2)+i] = p;
-        }
-
-        // !!! There's no rebEnd() API now, it's just a 2-byte sequence at an
-        // address; how to do this better?  See rebEND definition.
-        //
-        p = allocate(2, '', ALLOC_STACK);
-        setValue(p, 'i8', -127) // 0x80
-        setValue(p + 1, 'i8', 0) // 0x00
-        HEAP32[(va>>2)+argc] = p;
-
-        return _RL_rebRun(HEAP32[va>>2], va+4);
-    }
-}
+        } api
+    ] else [
+        e-cwrap/emit cscape/with {
+            $<Name> = Module.cwrap(
+                'RL_$<Name>',
+                $<Js-Returns>, [
+                    $(Js-Param-Types),
+                ]
+            );
+        } api
+    ]
+]
 
 e-cwrap/write-emitted
