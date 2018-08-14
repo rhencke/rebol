@@ -83,11 +83,7 @@
 // v-- BEGIN GENERAL CELL BITS HERE, third byte in the header
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  CELL_FLAG_PROTECTED
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// CELL_FLAG_PROTECTED ///////////////////////////////////////////////=//
 //
 // Values can carry a user-level protection bit.  The bit is not copied by
 // Move_Value(), and hence reading a protected value and writing it to
@@ -100,16 +96,12 @@
 // (Series, having more than one kind of protection, put those bits in the
 // "info" so they can all be checked at once...otherwise there might be a
 // shared NODE_FLAG_PROTECTED in common.)
-
+//
 #define CELL_FLAG_PROTECTED \
     FLAG_LEFT_BIT(16)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  VALUE_FLAG_THROWN
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// VALUE_FLAG_THROWN /////////////////////////////////////////////////=//
 //
 // This is how a REBVAL signals that it is a "throw" (e.g. a RETURN, BREAK,
 // CONTINUE or generic THROW signal).
@@ -136,14 +128,10 @@
     FLAG_LEFT_BIT(17)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// VALUE_FLAG_FALSEY /////////////////////////////////////////////////=//
 //
-//  VALUE_FLAG_FALSEY
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// This flag is used as a quick cache on BLANK! or LOGIC! false values.
-// These are the only two values that return true from the NOT native
+// This flag is used as a quick cache on NULL, BLANK! or LOGIC! false values.
+// These are the only three values that return true from the NOT native
 // (a.k.a. "conditionally false").  All other types return true from TO-LOGIC
 // or its synonym, "DID".
 //
@@ -162,11 +150,7 @@
     FLAG_LEFT_BIT(18)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  VALUE_FLAG_NEWLINE_BEFORE
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// VALUE_FLAG_NEWLINE_BEFORE /////////////////////////////////////////=//
 //
 // When the array containing a value with this flag set is molding, that will
 // output a new line *before* molding the value.  This flag works in tandem
@@ -186,11 +170,7 @@
     FLAG_LEFT_BIT(19)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  VALUE_FLAG_UNEVALUATED
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// VALUE_FLAG_UNEVALUATED ////////////////////////////////////////////=//
 //
 // Some functions wish to be sensitive to whether or not their argument came
 // as a literal in source or as a product of an evaluation.  While all values
@@ -212,11 +192,7 @@
     FLAG_LEFT_BIT(20)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  VALUE_FLAG_ENFIXED
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// VALUE_FLAG_ENFIXED ////////////////////////////////////////////////=//
 //
 // In R3-Alpha and Rebol2, there was a special kind of function known as an
 // OP! which would acquire its first argument from the left hand side.  In
@@ -227,25 +203,19 @@
 // This bit is not copied by Move_Value.  As a result, if you say something
 // like `foo: :+`, foo will contain the non-enfixed form of the function.
 //
-
 #define VALUE_FLAG_ENFIXED \
     FLAG_LEFT_BIT(21)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// VALUE_FLAG_EVAL_FLIP //////////////////////////////////////////////=//
 //
-//  VALUE_FLAG_EVAL_FLIP
+// This is a bit which should not be present on cells in user-exposed arrays.
 //
-//=////////////////////////////////////////////////////////////////////////=//
+// If a DO is happening with DO_FLAG_EXPLICIT_EVALUATE, only values which
+// carry this bit will override it.  It may be the case that the flag on a
+// value would signal a kind of quoting to suppress evaluation in ordinary
+// evaluation (without DO_FLAG_EXPLICIT_EVALUATE), hence it is a "flip" bit.
 //
-// !!! Highly experimental feature that may not want to be implemented as
-// a value flag.  If a DO is happening with DO_FLAG_EXPLICIT_EVALUATE, only
-// values which carry this bit will override it.  It may be the case that the
-// flag on a value would signal a kind of quoting to suppress evaluation in
-// ordinary evaluation (without DO_FLAG_EXPLICIT_EVALUATE), hence it is being
-// tested as a "flip" bit.
-//
-
 #define VALUE_FLAG_EVAL_FLIP \
     FLAG_LEFT_BIT(22)
 
@@ -261,56 +231,27 @@
 #define TYPE_SPECIFIC_BIT (24)
 
 
+// Endlike headers have the second byte clear (to pass the IS_END() test).
+// But they also have leading bits `10` so they don't look like a UTF-8
+// string, and don't have NODE_FLAG_CELL set to prevents writing to them.
 //
-// With these definitions:
+// !!! One must be careful in reading and writing bits initialized via
+// different structure types.  As it is, setting and testing for ends is done
+// with `unsigned char*` access of a whole byte, so it is safe...but there
+// are nuances to be aware of:
 //
-//     struct Foo_Type { union Reb_Header header; int x; }
-//     struct Foo_Type *foo = ...;
+// https://stackoverflow.com/q/51846048
 //
-//     struct Bar_Type { union Reb_Header header; float x; }
-//     struct Bar_Type *bar = ...;
-//
-// This C code:
-//
-//     foo->header.bits = 1020;
-//
-// ...is actually different *semantically* from this code:
-//
-//     union Reb_Header *alias = &foo->header;
-//     alias->bits = 1020;
-//
-// The first is considered as not possibly able to affect the header in a
-// Bar_Type.  It only is seen as being able to influence the header in other
-// Foo_Type instances.
-//
-// The second case, by forcing access through a generic aliasing pointer,
-// will cause the optimizer to realize all bets are off for any type which
-// might contain a `union Reb_Header`.
-//
-// This is an important point to know, with certain optimizations of writing
-// headers through one type and then reading them through another.  That
-// trick is used for "implicit termination", see documentation of IS_END().
-//
-// (Note that this "feature" of writing through pointers actually slows
-// things down.  Desire to control this behavior is why the `restrict`
-// keyword exists in C99: https://en.wikipedia.org/wiki/Restrict )
-//
-inline static void Init_Endlike_Header(
-    union Reb_Header *alias,
-    uintptr_t bits
-){
-    // Endlike headers have the leading bits `10` so they don't look like a
-    // UTF-8 string.  This makes them look like an "in use node", and they
-    // of course have the second byte clear.  They don't have NODE_FLAG_CELL
-    // set, however, which prevents value writes to them.
-    //
+inline static union Reb_Header Endlike_Header(uintptr_t bits) {
     assert(
         0 == (bits & (
             NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
             | FLAG_SECOND_BYTE(255)
         ))
     );
-    alias->bits = bits | NODE_FLAG_NODE;
+    union Reb_Header h;
+    h.bits = bits | NODE_FLAG_NODE;
+    return h;
 }
 
 

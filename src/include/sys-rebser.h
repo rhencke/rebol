@@ -316,14 +316,7 @@
 // bits.  These are the info bits, which are more likely to be changed over
 // the lifetime of the series--defaulting to FALSE.
 //
-// See Init_Endlike_Header() for why the bits are chosen the way they are.
-// 4 are reserved, this means that the Reb_Series->info field can function as
-// an implicit END for Reb_Series->content, as well as be distinguished from
-// a REBVAL*, a REBSER*, or a UTF8 string.
-//
-// Review: Due to the Init_Endlike_Header trick, it might be safer with the
-// aliasing to make the info contain the properties that *don't* change over
-// the lifetime of the series.  (?)
+// See Endlike_Header() for why the reserved bits are chosen the way they are.
 //
 
 #define SERIES_INFO_0_IS_TRUE FLAG_LEFT_BIT(0) // NODE_FLAG_NODE
@@ -632,7 +625,7 @@ union Reb_Series_Content {
     // If LEN_BYTE_OR_255() != 255, 0 or 1 length arrays can be held in
     // the series node.  This trick is accomplished via "implicit termination"
     // in the ->info bits that come directly after ->content.  For how this is
-    // done, see Init_Endlike_Header()
+    // done, see Endlike_Header()
     //
     union {
         RELVAL values[1];
@@ -1147,7 +1140,7 @@ inline static REBOOL ALL_SER_INFOS(
 inline static REBYTE SER_WIDE(REBSER *s) {
     //
     // Arrays use 0 width as a strategic choice, so that the second byte of
-    // the ->info flags is 0.  See Init_Endlike_Header() for why.
+    // the ->info flags is 0.  See Endlike_Header() for why.
     //
     REBYTE wide = WIDE_BYTE_OR_0(s);
     if (wide == 0) {

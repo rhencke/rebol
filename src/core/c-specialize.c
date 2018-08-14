@@ -1052,10 +1052,7 @@ REBOOL Make_Invocation_Frame_Throws(
     // it is desired that any voids encountered be processed as if they are
     // not specialized...and gather at the callsite if necessary.
     //
-    Init_Endlike_Header(
-        &f->flags,
-        DO_FLAG_GOTO_PROCESS_ACTION
-    );
+    f->flags = Endlike_Header(DO_FLAG_GOTO_PROCESS_ACTION);
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);

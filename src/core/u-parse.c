@@ -190,7 +190,7 @@ static REBOOL Subparse_Throws(
     f->source.index = VAL_INDEX(rules) + 1;
     f->source.pending = f->value + 1;
 
-    Init_Endlike_Header(&f->flags, 0); // implicitly terminate f->cell
+    f->flags = Endlike_Header(0); // implicitly terminate f->cell
 
     Push_Frame_Core(f); // checks for C stack overflow
     Reuse_Varlist_If_Available(f);

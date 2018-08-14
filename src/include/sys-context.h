@@ -418,14 +418,13 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     // SERIES_INFO_HOLD put on by Enter_Native(), or NODE_FLAG_MANAGED,
     // etc.--use constant assignments and only copy the remaining fields.
     //
-    REBSER *copy = Make_Series_Node(
+    REBSER *copy = Alloc_Series_Node(
         SERIES_MASK_CONTEXT
             | SERIES_FLAG_STACK
             | SERIES_FLAG_FIXED_SIZE
     );
-    Init_Endlike_Header(
-        &copy->info,
-        FLAG_WIDE_BYTE_OR_0(0) // indicates array
+    copy->info = Endlike_Header(
+        FLAG_WIDE_BYTE_OR_0(0) // implicit termination, and indicates array
             | FLAG_LEN_BYTE_OR_255(255) // indicates dynamic (varlist rule)
     );
     TRASH_POINTER_IF_DEBUG(copy->link_private.keysource); // needs update
@@ -442,8 +441,7 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     // those marking failure are asked to do so manually to the stub
     // after this returns (hence they need to cache the varlist first).
     //
-    Init_Endlike_Header(
-        &stub->info,
+    stub->info = Endlike_Header(
         SERIES_INFO_INACCESSIBLE // args memory now "stolen" by copy
             | FLAG_WIDE_BYTE_OR_0(0) // width byte is 0 for array series
             | FLAG_LEN_BYTE_OR_255(1) // not dynamic any more, new len is 1

@@ -171,7 +171,7 @@
 //
 // There are applications of Reb_Header as an "implicit terminator".  Such
 // header patterns don't actually start valid REBNODs, but have a bit pattern
-// able to signal the IS_END() test for REBVAL.  See Init_Endlike_Header()
+// able to signal the IS_END() test for REBVAL.  See Endlike_Header()
 //
 
 union Reb_Header {
@@ -198,35 +198,22 @@ union Reb_Header {
 };
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  NODE_FLAG_NODE (leftmost bit)
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NODE_FLAG_NODE (leftmost bit) /////////////////////////////////////=//
 //
 // For the sake of simplicity, the leftmost bit in a node is always one.  This
 // is because every UTF-8 string starting with a bit pattern 10xxxxxxx in the
 // first byte is invalid.
 //
-// Warning: Previous attempts to multiplex this with an information-bearing
-// bit were tricky, and wound up ultimately paying for a fixed bit in some
-// other situations.  Better to sacrifice the bit and keep it straightforward.
-//
 #define NODE_FLAG_NODE \
     FLAG_LEFT_BIT(0)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  NODE_FLAG_FREE (second-leftmost bit)
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NODE_FLAG_FREE (second-leftmost bit) //////////////////////////////=//
 //
 // The second-leftmost bit will be 0 for all Reb_Header in the system that
 // are "valid".  This completes the plan of making sure all REBVAL and REBSER
-// that are usable will start with the bit pattern 10xxxxxx, hence not be
-// confused with a string...since that always indicates an invalid leading
-// byte in UTF-8.
+// that are usable will start with the bit pattern 10xxxxxx, which always
+// indicates an invalid leading byte in UTF-8.
 //
 // The exception are freed nodes, but they use 11000000 and 110000001 for
 // freed REBSER nodes and "freed" value nodes (trash).  These are the bytes
@@ -238,11 +225,7 @@ union Reb_Header {
     FLAG_LEFT_BIT(1)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  NODE_FLAG_MANAGED (third-leftmost bit)
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NODE_FLAG_MANAGED (third-leftmost bit) ////////////////////////////=//
 //
 // The GC-managed bit is used on series to indicate that its lifetime is
 // controlled by the garbage collector.  If this bit is not set, then it is
@@ -262,14 +245,10 @@ union Reb_Header {
     FLAG_LEFT_BIT(2)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NODE_FLAG_MARKED (fourth-leftmost bit) ////////////////////////////=//
 //
-//  NODE_FLAG_MARKED (fourth-leftmost bit)
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// This flag is used by the mark-and-sweep of the garbage collector, and
-// should not be referenced outside of %m-gc.c.
+// On series nodes, this flag is used by the mark-and-sweep of the garbage
+// collector, and should not be referenced outside of %m-gc.c.
 //
 // See `SERIES_INFO_BLACK` for a generic bit available to other routines
 // that wish to have an arbitrary marker on series (for things like
@@ -307,11 +286,7 @@ union Reb_Header {
 #define OUT_MARKED_STALE NODE_FLAG_MARKED
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  NODE_FLAG_TRANSIENT (fifth-leftmost bit)
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NODE_FLAG_TRANSIENT (fifth-leftmost bit) //////////////////////////=//
 //
 // The "TRANSIENT" flag is currently used only by node cells, and only in
 // the data stack.  The concept is that data stack cells are so volatile that
@@ -326,11 +301,7 @@ union Reb_Header {
 #define CELL_FLAG_TRANSIENT NODE_FLAG_TRANSIENT
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  NODE_FLAG_ROOT (sixth-leftmost bit)
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NODE_FLAG_ROOT (sixth-leftmost bit) ///////////////////////////////=//
 //
 // Means the node should be treated as a root for GC purposes.  If the node
 // also has NODE_FLAG_CELL, that means the cell must live in a "pairing"
@@ -343,12 +314,7 @@ union Reb_Header {
     FLAG_LEFT_BIT(5)
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  NODE_FLAG_STACK (seventh-leftmost bit)
-//  aliased as CELL_FLAG_STACK and SERIES_FLAG_STACK
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NODE_FLAG_STACK (seventh-leftmost bit) ////////////////////////////=//
 //
 // When writing to a value cell, it is sometimes necessary to know how long
 // that cell will "be alive".  This is important if there is some stack-based
@@ -378,18 +344,14 @@ union Reb_Header {
 #define SERIES_FLAG_STACK NODE_FLAG_STACK
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  NODE_FLAG_CELL (eighth-leftmost bit)
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// NODE_FLAG_CELL (eighth-leftmost bit) //////////////////////////////=//
 //
 // If this bit is set in the header, it indicates the slot the header is for
 // is `sizeof(REBVAL)`.
 //
 // In the debug build, it provides safety for all value writing routines,
 // including avoiding writing over "implicit END markers".  For details, see
-// Init_Endlike_Header().
+// Endlike_Header().
 //
 // In the release build, it distinguishes "pairing" nodes (holders for two
 // REBVALs in the same pool as ordinary REBSERs) from an ordinary REBSER node.
@@ -403,7 +365,6 @@ union Reb_Header {
 //
 #define NODE_FLAG_CELL \
     FLAG_LEFT_BIT(7)
-
 
 
 // There are two special invalid bytes in UTF8 which have a leading "110"

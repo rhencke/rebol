@@ -215,7 +215,7 @@ inline static void Push_Frame_Core(REBFRM *f)
 // Pretend the input source has ended; used with DO_FLAG_GOTO_PROCESS_ACTION.
 //
 inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
-    Init_Endlike_Header(&f->flags, flags);
+    f->flags = Endlike_Header(flags);
 
     f->source.index = 0;
     f->source.vaptr = nullptr;
@@ -251,7 +251,7 @@ inline static void Push_Frame_At(
     REBSPC *specifier,
     REBFLGS flags
 ){
-    Init_Endlike_Header(&f->flags, flags);
+    f->flags = Endlike_Header(flags);
 
     f->gotten = nullptr; // tells Eval_Core() it must fetch for REB_WORD, etc.
     SET_FRAME_VALUE(f, ARR_AT(array, index));
@@ -757,7 +757,7 @@ inline static REBOOL Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
     assert(f->eval_type == REB_SET_WORD or f->eval_type == REB_SET_PATH);
 
     REBFLGS prior_flags = f->flags.bits;
-    Init_Endlike_Header(&f->flags, flags);
+    f->flags = Endlike_Header(flags);
 
     REBDSP prior_dsp_orig = f->dsp_orig;
 
@@ -823,7 +823,7 @@ inline static REBOOL Eval_Step_In_Subframe_Throws(
     TRASH_POINTER_IF_DEBUG(higher->gotten);
   #endif
 
-    Init_Endlike_Header(&child->flags, flags);
+    child->flags = Endlike_Header(flags);
 
     // One case in which child->prior on this push may not be equal to the
     // higher frame passed in is variadics.  The frame making the call to
@@ -869,7 +869,7 @@ inline static REBIXO Eval_Array_At_Core(
     REBFLGS flags // DO_FLAG_TO_END, DO_FLAG_EXPLICIT_EVALUATE, etc.
 ){
     DECLARE_FRAME (f);
-    Init_Endlike_Header(&f->flags, flags); // SET_FRAME_VALUE() *could* use
+    f->flags = Endlike_Header(flags); // SET_FRAME_VALUE() *could* use
 
     f->source.vaptr = nullptr;
     f->source.array = array;
@@ -1022,7 +1022,7 @@ inline static REBIXO Eval_Va_Core(
     REBFLGS flags
 ){
     DECLARE_FRAME (f);
-    Init_Endlike_Header(&f->flags, flags); // read by Set_Frame_Detected_Fetch
+    f->flags = Endlike_Header(flags); // read by Set_Frame_Detected_Fetch
 
     f->source.index = TRASHED_INDEX; // avoids warning in release build
     f->source.array = nullptr;

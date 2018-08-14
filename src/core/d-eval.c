@@ -268,11 +268,6 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     assert(IS_FRAME(f->rootvar));
     assert(f->arg == f->rootvar + 1);
 
-    // ACTION!s with no args will have ends in the first position of their
-    // paramlist, which may come from Init_Endlike_Header() and not be cells.
-    //
-    assert(IS_END(f->special) or (f->special->header.bits & NODE_FLAG_CELL));
-
     // DECLARE_FRAME() starts out f->cell as valid GC-visible bits, and as
     // it's used for various temporary purposes it should remain valid.  But
     // its contents could be anything, based on that temporary purpose.  Help

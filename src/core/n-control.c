@@ -467,8 +467,7 @@ REBNATIVE(match)
         f->arg = f->rootvar + 1;
         f->special = f->arg;
 
-        Init_Endlike_Header(
-            &f->flags,
+        f->flags = Endlike_Header(
             DO_FLAG_GOTO_PROCESS_ACTION | DO_FLAG_FULLY_SPECIALIZED
         );
 

@@ -70,7 +70,7 @@
 //
 #define DO_MASK_NONE 0
 
-// See Init_Endlike_Header() for why these are chosen the way they are.  This
+// See Endlike_Header() for why these are chosen the way they are.  This
 // means that the Reb_Frame->flags field can function as an implicit END for
 // Reb_Frame->cell, as well as be distinguished from a REBVAL*, a REBSER*, or
 // a UTF8 string.
@@ -432,7 +432,7 @@ struct Reb_Frame {
     // These are DO_FLAG_XXX or'd together--see their documentation above.
     // A Reb_Header is used so that it can implicitly terminate `cell`,
     // giving natives an enumerable single-cell slot if they need it.
-    // See Init_Endlike_Header()
+    // See Endlike_Header()
     //
     union Reb_Header flags;
 

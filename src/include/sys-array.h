@@ -219,7 +219,7 @@ inline static void Prep_Array(REBARR *a) {
     // avoids writing the unwritable locations by checking for END first.
     //
     RELVAL *ultimate = ARR_AT(a, SER(a)->content.dynamic.rest - 1);
-    Init_Endlike_Header(&ultimate->header, 0);
+    ultimate->header = Endlike_Header(0);
     TRACK_CELL_IF_DEBUG(ultimate, __FILE__, __LINE__);
 }
 
@@ -230,7 +230,7 @@ inline static void Prep_Array(REBARR *a) {
 inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     const REBCNT wide = sizeof(REBVAL);
 
-    REBSER *s = Make_Series_Node(flags);
+    REBSER *s = Alloc_Series_Node(flags);
 
     if (
         (flags & SERIES_FLAG_ALWAYS_DYNAMIC) // inlining will constant fold
@@ -246,7 +246,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
 
         // Did_Series_Data_Alloc() expects LEN_BYTE=255 (signals dynamic)
         //
-        Init_Endlike_Header(&s->info, FLAG_LEN_BYTE_OR_255(255));
+        s->info = Endlike_Header(FLAG_LEN_BYTE_OR_255(255));
 
         if (not Did_Series_Data_Alloc(s, capacity))
             fail (Error_No_Memory(capacity * wide));
@@ -263,10 +263,9 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
         s->content.fixed.values[0].header.bits = CELL_MASK_NON_STACK_END;
         TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<make>>", 0);
 
-        Init_Endlike_Header(
-            &s->info,
+        s->info = Endlike_Header(
             FLAG_WIDE_BYTE_OR_0(0) // implicit termination
-            | FLAG_LEN_BYTE_OR_255(0)
+                | FLAG_LEN_BYTE_OR_255(0)
         );
     }
 

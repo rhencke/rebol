@@ -1122,7 +1122,7 @@ void GC_Kill_Series(REBSER *s)
         Decay_Series(s);
 
   #if !defined(NDEBUG)
-    s->info.bits = 0; // makes it look like width is 0
+    s->info.bits = FLAG_WIDE_BYTE_OR_0(77); // corrupt SER_WIDE()
   #endif
 
     TRASH_POINTER_IF_DEBUG(MISC(s).trash);
@@ -1242,8 +1242,8 @@ void Manage_Series(REBSER *s)
 //  Assert_Pointer_Detection_Working: C
 //
 // Check the conditions that are required for Detect_Rebol_Pointer() and
-// Init_Endlike_Header() to work, and throw some sample cases at it to make
-// sure they give the right answer.
+// Endlike_Header() to work, and throw some sample cases at it to make sure
+// they give the right answer.
 //
 void Assert_Pointer_Detection_Working(void)
 {
@@ -1279,11 +1279,10 @@ void Assert_Pointer_Detection_Working(void)
     assert(Detect_Rebol_Pointer(END_NODE) == DETECTED_AS_END);
     assert(Detect_Rebol_Pointer(rebEND) == DETECTED_AS_END);
 
-    // It's not generally known that an Init_Endlike_Header() header will
-    // not be managed.  But the canon END_NODE is not managed, and end cells
-    // can be either managed or unmanaged...but by default, not.
+    // An Endlike_Header() can use the NODE_FLAG_MANAGED bit however it wants.
+    // But the canon END_NODE is not managed, which was once used for a trick
+    // of using it vs. nullptr...but that trick isn't being used right now.
     //
-    assert(not (end_cell->header.bits & NODE_FLAG_MANAGED));
     assert(not (END_NODE->header.bits & NODE_FLAG_MANAGED));
 
     REBSER *series = Make_Series(1, sizeof(char));

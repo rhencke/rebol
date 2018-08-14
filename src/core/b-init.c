@@ -751,7 +751,7 @@ static REBARR *Startup_Actions(REBARR *boot_actions)
 //
 static void Startup_End_Node(void)
 {
-    Init_Endlike_Header(&PG_End_Node.header, 0); // mutate to read-only end
+    PG_End_Node.header = Endlike_Header(0); // no NODE_FLAG_CELL, R/O
     TRACK_CELL_IF_DEBUG(&PG_End_Node, __FILE__, __LINE__);
     assert(IS_END(END_NODE)); // sanity check that it took
 }

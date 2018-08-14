@@ -553,7 +553,7 @@ inline static REBYTE *VAL_RAW_DATA_AT(const RELVAL *v) {
 // is a particularly efficient default state, so separating the dynamic
 // allocation into a separate routine is not a huge cost.
 //
-inline static REBSER *Make_Series_Node(REBFLGS flags) {
+inline static REBSER *Alloc_Series_Node(REBFLGS flags) {
     assert(not (flags & NODE_FLAG_CELL));
 
     REBSER *s = cast(REBSER*, Make_Node(SER_POOL));
@@ -561,17 +561,14 @@ inline static REBSER *Make_Series_Node(REBFLGS flags) {
         SET_SIGNAL(SIG_RECYCLE);
 
     // Out of the 8 platform pointers that comprise a series node, only 3
-    // actually need to be initialized to get a functional non-dynamic
-    // series or array of length 0!  Two are set here, the third should be
-    // set by the caller...see Init_Endlike_Header() for why the caller
-    // should not just say `s->info.bits = ...`
+    // actually need to be initialized to get a functional non-dynamic series
+    // or array of length 0!  Two are set here, the third (info) should be
+    // set by the caller.
     //
     s->header.bits = NODE_FLAG_NODE | flags | SERIES_FLAG_8_IS_TRUE; // #1
     TRASH_POINTER_IF_DEBUG(LINK(s).trash); // #2
   #if !defined(NDEBUG)
     memset(&s->content.fixed, 0xBD, sizeof(s->content)); // #3 - #6
-  #endif
-  #if !defined(NDEBUG)
     memset(&s->info, 0xAE, sizeof(s->info)); // #7, caller sets SER_WIDE()
   #endif
     TRASH_POINTER_IF_DEBUG(MISC(s).trash); // #8
@@ -706,12 +703,12 @@ inline static REBSER *Make_Series_Core(
     if (cast(REBU64, capacity) * wide > INT32_MAX)
         fail (Error_No_Memory(cast(REBU64, capacity) * wide));
 
-    // Ordinary series nodes do not need their info bits to conform to the
-    // rules of Init_Endlike_Header, so plain assignment can be used with a
+    // Non-array series nodes do not need their info bits to conform to the
+    // rules of Endlike_Header(), so plain assignment can be used with a
     // non-zero second byte.  However, it obeys the fixed info bits for now.
     // (It technically doesn't need to.)
     //
-    REBSER *s = Make_Series_Node(flags);
+    REBSER *s = Alloc_Series_Node(flags);
     s->info.bits =
         SERIES_INFO_0_IS_TRUE
         // not SERIES_INFO_1_IS_FALSE
