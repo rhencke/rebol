@@ -316,11 +316,18 @@ e-types/emit {
      * Their ordering is for supporting certain optimizations, such as being
      * able to quickly check if a type IS_BINDABLE().  When types are added,
      * or removed, the numbers must shuffle around to preserve invariants.
+     *
+     * REB_MAX and beyond should not be used to index into arrays of types,
+     * as there are no corresponding DATATYPE!s for them.  But the values are
+     * used for out-of-band purposes, which should be kept in consideration.
      */
     enum Reb_Kind {
-        REB_0 = 0, /* reserved for internal purposes...not a "type" */
+        REB_0 = 0, /* reserved for internal array termination signal */
         $[Rebs],
-        REB_MAX
+        REB_MAX, /* one past valid types, does double duty as NULL signal */
+        REB_MAX_PLUS_ONE, /* used for internal markings and algorithms */
+        REB_MAX_PLUS_TWO, /* used to indicate trash in the debug build */
+        REB_MAX_PLUS_MAX
     };
 }
 e-types/emit newline
@@ -332,9 +339,6 @@ e-types/emit {
      * These routines are based on VAL_TYPE(), which does much more checking
      * than VAL_TYPE_RAW() in the debug build.  In some commonly called
      * routines, it may be worth it to use the less checked version.
-     *
-     * Note: There's no IS_0() test for REB_0.  Usages alias it and test
-     * against the alias for clarity, e.g. `VAL_TYPE(v) == REB_0_PARTIAL`
      */
 }
 e-types/emit newline

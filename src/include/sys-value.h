@@ -228,7 +228,7 @@
 
         assert(v->header.bits & TRASH_FLAG_UNREADABLE_IF_DEBUG);
 
-        if (VAL_TYPE_RAW(v) == REB_MAX_PLUS_TWO_TRASH) {
+        if (VAL_TYPE_RAW(v) == REB_T_TRASH) {
             printf("VAL_TYPE() called on trash cell\n");
             panic_at (v, file, line);
         }
@@ -577,8 +577,11 @@ inline static void Prep_Stack_Cell_Core(
   #ifdef DEBUG_MEMORY_ALIGN
     ALIGN_CHECK_CELL_EVIL_MACRO(c, file, line);
   #endif
-
-    c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_MAX_PLUS_TWO_TRASH);
+  #ifdef DEBUG_TRASH_MEMORY
+    c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_T_TRASH);
+  #else
+    c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_0);
+  #endif
     TRACK_CELL_IF_DEBUG(cast(RELVAL*, c), file, line);
 }
 
@@ -629,7 +632,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
         v->header.bits &= CELL_MASK_PERSIST;
         v->header.bits |=
             TRASH_FLAG_UNREADABLE_IF_DEBUG
-            | FLAG_KIND_BYTE(REB_MAX_PLUS_TWO_TRASH);
+            | FLAG_KIND_BYTE(REB_T_TRASH);
 
         TRACK_CELL_IF_DEBUG(v, file, line);
     }
@@ -639,7 +642,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 
     inline static REBOOL IS_TRASH_DEBUG(const RELVAL *v) {
         assert(v->header.bits & NODE_FLAG_CELL);
-        return VAL_TYPE_RAW(v) == REB_MAX_PLUS_TWO_TRASH;
+        return VAL_TYPE_RAW(v) == REB_T_TRASH;
     }
 #else
     #define TRASH_CELL_IF_DEBUG(v) \
@@ -827,17 +830,16 @@ inline static RELVAL *REL(REBVAL *v) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Rebol's null is a transient evaluation product (e.g. result of `do []`).
-// It is also a signal for "soft failure", e.g. `find [a b] 'c` is null,
-// hence they are conditionally false.  But null isn't an "ANY-VALUE!", and
-// can't be stored in BLOCK!s that are seen by the user--nor can it be
-// assigned to variables.
+// Rebol's null is a transient evaluation product.  It is used as a signal for
+// "soft failure", e.g. `find [a b] 'c` is null, hence they are conditionally
+// false.  But null isn't an "ANY-VALUE!", and can't be stored in BLOCK!s that
+// are seen by the user--nor can it be assigned to variables.
 //
 // The libRebol API takes advantage of this by actually using C's concept of
 // a null pointer to directly represent the optional state.  By promising this
 // is the case, clients of the API can write `if (value)` or `if (!value)`
-// and be sure that there's not some nonzero address of a "null-valued cell"
-// they have to make an `isRebolNull()` API call on.
+// and be sure that there's not some nonzero address of a "null-valued cell".
+// So there is no `isRebolNull()` API.
 //
 // But that's the API.  Internal to Rebol, cells are the currency used, and
 // if they are to represent an "optional" value, there must be a special
@@ -845,11 +847,6 @@ inline static RELVAL *REL(REBVAL *v) {
 // are called "nulled cells" and marked by means of their VAL_TYPE(), but they
 // use REB_MAX--because that is one past the range of valid REB_XXX values
 // in the enumeration created for the actual types.
-//
-// !!! Not using REB_0 for this has a historical reason, in trying to find
-// bugs and pin down invariants in R3-Alpha, a zero bit pattern could happen
-// more commonly on accident.  So 0 was "reserved" for uses that wouldn't
-// come up in common practice.
 //
 
 #define REB_MAX_NULLED \
@@ -1237,16 +1234,12 @@ inline static REBOOL VAL_LOGIC(const RELVAL *v) {
 // Ren-C.  The unimplemented UTYPE! user-defined type concept was removed
 // for simplification, pending a broader review of what was needed.
 //
-// %words.r is arranged so that symbols for types are at the start
-// Although REB_0 is 0 and the 0 REBCNT used for symbol IDs is reserved
-// for "no symbol"...this is okay, because void is not a value type and
-// should not have a symbol.
+// %words.r is arranged so symbols for types are at the start of the enum.
+// Note REB_0 is not a type, which lines up with SYM_0 used for symbol IDs as
+// "no symbol".  Also, NULL is not a value type, and is at REB_MAX past the
+// end of the list.
 //
-// !!! Consider the naming once all legacy TYPE? calls have been converted
-// to TYPE-OF.  TYPE! may be a better name, though possibly KIND! would be
-// better if user types suggest that TYPE-OF can potentially return some
-// kind of context (might TYPE! be an ANY-CONTEXT!, with properties like
-// MIN-VALUE and MAX-VALUE, for instance).
+// !!! Consider renaming (or adding a synonym) to just TYPE!
 //
 
 #define VAL_TYPE_KIND(v) \

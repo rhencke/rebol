@@ -262,7 +262,7 @@ const char RM_TRACE_PARSE_INPUT[] = "Parse input: %s";
 // set, and if it were doing a set then to write the value to set into the
 // target cell.  That means it had to keep track of a pointer to a cell vs.
 // putting the bits of the cell into the output.  This is now done with a
-// special REB_0_REFERENCE type which holds in its payload a RELVAL and a
+// special REB_X_REFERENCE type which holds in its payload a RELVAL and a
 // specifier, which is enough to be able to do either a read or a write,
 // depending on the need.
 //

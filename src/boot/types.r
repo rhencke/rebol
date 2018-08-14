@@ -147,7 +147,7 @@ REBOL [
 
 [name       class       path    make    mold     typesets]
 
-; Note: REB_0 is reserved for internal purposes and not a "type"
+; Note: 0 is reserved for an array terminator (REB_0), and not a "type"
 
 ; There is only one "invokable" type in Ren-C, and it takes the name ACTION!
 ; instead of the name FUNCTION!: https://forum.rebol.info/t/596

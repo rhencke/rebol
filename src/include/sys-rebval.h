@@ -571,10 +571,6 @@ struct Reb_Varargs_Payload {
 };
 
 
-#define REB_MAX_PLUS_ONE_INTERNAL \
-    cast(enum Reb_Kind, REB_MAX + 1)
-
-
 // Rebol doesn't have a REFERENCE! datatype, but this is used to let path
 // dispatch return information pointing at a cell that can be used to either
 // read it or write to it, depending on the need.  Because it contains an
@@ -582,7 +578,7 @@ struct Reb_Varargs_Payload {
 // in some array and could be relocated.  So it must be written to immediately
 // or converted into an extraction of the cell's value.
 //
-#define REB_0_REFERENCE REB_MAX_PLUS_ONE_INTERNAL
+#define REB_X_REFERENCE REB_MAX_PLUS_ONE
 struct Reb_Reference_Payload {
     RELVAL *cell;
     REBSPC *specifier;
@@ -596,7 +592,7 @@ struct Reb_Reference_Payload {
 // in order to revisit them and fill them in more efficiently.  This special
 // payload is used along with a singly linked list via extra.next_partial
 //
-#define REB_0_PARTIAL REB_MAX_PLUS_ONE_INTERNAL
+#define REB_X_PARTIAL REB_MAX_PLUS_ONE
 
 #define PARTIAL_FLAG_IN_USE \
     FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT)
@@ -616,7 +612,7 @@ struct Reb_Partial_Payload {
 // slot will need to be type checked.  Remember the state of the enumeration
 // at the moment of deferral in the frame's cell in order to return to it.
 //
-#define REB_0_DEFERRED REB_MAX_PLUS_ONE_INTERNAL
+#define REB_X_DEFERRED REB_MAX_PLUS_ONE
 struct Reb_Deferred_Payload {
     const RELVAL *param;
     REBVAL *refine;
@@ -756,7 +752,7 @@ union Reb_Value_Extra {
     //
     REBNOD* binding;
 
-    // See REB_0_PARTIAL.
+    // See REB_X_PARTIAL.
     //
     REBVAL *next_partial; // links to next potential partial refinement arg
 
@@ -833,9 +829,9 @@ union Reb_Value_Payload {
 
     // Internal-only payloads for cells that use 0 as the VAL_TYPE()
     //
-    struct Reb_Reference_Payload reference; // used with REB_0_REFERENCE
-    struct Reb_Partial_Payload partial; // used with REB_0_PARTIAL
-    struct Reb_Deferred_Payload deferred; // used with REB_0_DEFERRED
+    struct Reb_Reference_Payload reference; // used with REB_X_REFERENCE
+    struct Reb_Partial_Payload partial; // used with REB_X_PARTIAL
+    struct Reb_Deferred_Payload deferred; // used with REB_X_DEFERRED
 };
 
 #ifdef CPLUSPLUS_11
@@ -894,21 +890,17 @@ union Reb_Value_Payload {
 // right value bit...on a 32-bit architecture, this is going to be the 24th
 // flag...pushing up against the rightmost 8-bits used for the value's type.
 // We still don't completely reserve it...it's just used for REB_BLANK and
-// REB_MAX_PLUS_TWO_TRASH, but any other types that use this flag would
-// have their VAL_TYPE() a little slower in the debug build.
+// REB_T_TRASH, but any other types that use this flag would have their
+// VAL_TYPE() a little slower in the debug build.
 //
-#if defined(NDEBUG)
-    #define TRASH_FLAG_UNREADABLE_IF_DEBUG 0
-#else
+#if !defined(NDEBUG)
     #define TRASH_FLAG_UNREADABLE_IF_DEBUG \
         FLAG_LEFT_BIT(23)
 #endif
 
 #if defined(DEBUG_TRASH_MEMORY)
-    #define REB_MAX_PLUS_TWO_TRASH \
-        (REB_MAX + 2) // used in the debug build to help identify trash nodes
-#else
-    #define REB_MAX_PLUS_TWO_TRASH 0
+    #define REB_T_TRASH \
+        REB_MAX_PLUS_TWO // used in debug build to help identify trash nodes
 #endif
 
 

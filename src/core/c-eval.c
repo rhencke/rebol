@@ -203,7 +203,7 @@ inline static REBOOL In_Unspecialized_Mode(REBFRM *f) {
 
 // Typechecking has to be broken out into a subroutine because it is not
 // always the case that one is typechecking the current argument.  See the
-// documentation on REB_0_DEFERRED for why.
+// documentation on REB_X_DEFERRED for why.
 //
 // It's called "Finalize" because in addition to checking, any other handling
 // that an argument needs once being put into a frame is handled.  VARARGS!,
@@ -319,7 +319,7 @@ inline static void Finalize_Current_Arg(REBFRM *f) {
 // the first paramlist parameter.
 //
 // Despite being implemented less elegantly than it should be, this is an
-// improtant feature, since it's how `case [true [a] default [b]]` gets the
+// important feature, since it's how `case [true [a] default [b]]` gets the
 // enfixed DEFAULT function to realize the left side is a BLOCK! and not
 // either a SET-WORD! or a SET-PATH!, so it <skip>s the opportunity to hard
 // quote it and defers execution...in this case, meaning it won't run at all.
@@ -360,8 +360,8 @@ inline static void Seek_First_Param(REBFRM *f, REBACT *action) {
 //     may move during arbitrary evaluation, and that includes cells on the
 //     expandable data stack.  It also usually can't write a function argument
 //     cell, because that could expose an unfinished calculation during this
-//     Eval_Core() through its FRAME!...though a Eval_Core(f) must write f's *own*
-//     arg slots to fulfill them.
+//     Eval_Core() through its FRAME!...though a Eval_Core(f) must write f's
+//     *own* arg slots to fulfill them.
 //
 //     f->value
 //     Pre-fetched first value to execute (cannot be an END marker)
@@ -1194,7 +1194,7 @@ reevaluate:;
             //
             assert(not IS_POINTER_TRASH_DEBUG(f->deferred));
             if (f->deferred) {
-                assert(VAL_TYPE(&f->cell) == REB_0_DEFERRED);
+                assert(VAL_TYPE(&f->cell) == REB_X_DEFERRED);
 
                 // The GC's understanding of how far to protect parameters is
                 // based on how far f->param has gotten.  Yet we've advanced
@@ -1228,7 +1228,7 @@ reevaluate:;
                 // subframe processing, so it can still provide context for
                 // typechecking the argument (it wasn't previously checked).
                 //
-                assert(VAL_TYPE(&f->cell) == REB_0_DEFERRED);
+                assert(VAL_TYPE(&f->cell) == REB_X_DEFERRED);
                 Finalize_Arg(
                     f,
                     f->cell.payload.deferred.param,
@@ -1452,7 +1452,7 @@ reevaluate:;
                 // We deferred typechecking, but still need to do it...
                 // f->cell holds the necessary context for typechecking
                 //
-                assert(VAL_TYPE(&f->cell) == REB_0_DEFERRED);
+                assert(VAL_TYPE(&f->cell) == REB_X_DEFERRED);
                 Finalize_Arg(
                     f,
                     f->cell.payload.deferred.param,
@@ -2639,7 +2639,7 @@ post_switch:;
 
         f->prior->deferred = f->prior->arg; // see deferred comments in REBFRM
 
-        RESET_VAL_HEADER(&f->prior->cell, REB_0_DEFERRED);
+        RESET_VAL_HEADER(&f->prior->cell, REB_X_DEFERRED);
         f->prior->cell.payload.deferred.param = f->prior->param;
         f->prior->cell.payload.deferred.refine = f->prior->refine;
 

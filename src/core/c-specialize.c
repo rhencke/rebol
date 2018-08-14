@@ -346,7 +346,7 @@ REBCTX *Make_Context_For_Action(
 //
 #define FINALIZE_REFINE_IF_FULFILLED \
     assert(evoked != refine or evoked->payload.partial.dsp == 0); \
-    if (VAL_TYPE(refine) == REB_0_PARTIAL) { \
+    if (VAL_TYPE(refine) == REB_X_PARTIAL) { \
         if (not GET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG)) { \
             if (refine->payload.partial.dsp != 0) \
                 Init_Blank(DS_AT(refine->payload.partial.dsp)); /* full! */ \
@@ -389,7 +389,7 @@ REBOOL Specialize_Action_Throws(
     // position. (This takes into account any we are adding "virtually", from
     // the current DSP down to the lowest_ordered_dsp).
     //
-    // Note that REB_0_PARTIAL can't be used in slots yet, because the GC
+    // Note that REB_X_PARTIAL can't be used in slots yet, because the GC
     // will be able to see this frame (code runs bound into it).
     //
     REBCTX *exemplar = Make_Context_For_Action_Int_Partials(
@@ -452,7 +452,7 @@ REBOOL Specialize_Action_Throws(
     REBVAL *rootkey = CTX_ROOTKEY(exemplar);
 
     // Build up the paramlist for the specialized function on the stack.
-    // The same walk used for that is used to link and process REB_0_PARTIAL
+    // The same walk used for that is used to link and process REB_X_PARTIAL
     // arguments for whether they become fully specialized or not.
 
     REBDSP dsp_paramlist = DSP;
@@ -498,7 +498,7 @@ REBOOL Specialize_Action_Throws(
                 else
                     last_partial->extra.next_partial = refine;
 
-                RESET_VAL_CELL(refine, REB_0_PARTIAL, 0);
+                RESET_VAL_CELL(refine, REB_X_PARTIAL, 0);
                 refine->payload.partial.dsp = partial_dsp;
                 refine->payload.partial.index = index;
                 TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
@@ -554,7 +554,7 @@ REBOOL Specialize_Action_Throws(
             goto specialized_arg;
         }
 
-        if (VAL_TYPE(refine) == REB_0_PARTIAL) {
+        if (VAL_TYPE(refine) == REB_X_PARTIAL) {
             if (IS_NULLED(arg)) { // we *know* it's not completely fulfilled
                 SET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG);
                 goto unspecialized_arg;
@@ -600,7 +600,7 @@ REBOOL Specialize_Action_Throws(
         // But code run for the specialization may have set the refinement
         // to true without setting all its arguments.
         //
-        // Unlike with the REB_0_PARTIAL cases, we have no ordering info
+        // Unlike with the REB_X_PARTIAL cases, we have no ordering info
         // besides "after all of those", we can only do that *once*.
 
         if (evoked)
@@ -613,7 +613,7 @@ REBOOL Specialize_Action_Throws(
         else
             last_partial->extra.next_partial = refine;
 
-        RESET_VAL_CELL(refine, REB_0_PARTIAL, PARTIAL_FLAG_IN_USE);
+        RESET_VAL_CELL(refine, REB_X_PARTIAL, PARTIAL_FLAG_IN_USE);
         refine->payload.partial.dsp = 0; // no ordered position on stack
         refine->payload.partial.index = index - (arg - refine);
         TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
@@ -668,7 +668,7 @@ REBOOL Specialize_Action_Throws(
     rootparam->payload.action.paramlist = paramlist;
 
     // PARAM_CLASS_REFINEMENT slots which started partially specialized (or
-    // unspecialized) in the exemplar now all contain REB_0_PARTIAL, but we
+    // unspecialized) in the exemplar now all contain REB_X_PARTIAL, but we
     // must now convert these transitional placeholders to...
     //
     // * VOID! -- Unspecialized, BUT in traversal order before a partial
@@ -701,7 +701,7 @@ REBOOL Specialize_Action_Throws(
 
     REBVAL *partial = first_partial;
     while (partial) {
-        assert(VAL_TYPE(partial) == REB_0_PARTIAL);
+        assert(VAL_TYPE(partial) == REB_X_PARTIAL);
         REBVAL *next_partial = partial->extra.next_partial; // overwritten
 
         if (NOT_VAL_FLAG(partial, PARTIAL_FLAG_IN_USE)) {

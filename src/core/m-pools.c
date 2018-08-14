@@ -1265,11 +1265,13 @@ void Assert_Pointer_Detection_Working(void)
     // build.  It could also become useful if one wanted a more "serious"
     // form of trashing than TRASH_CELL_IF_DEBUG().
     //
+  #ifdef DEBUG_TRASH_MEMORY
     DECLARE_LOCAL (freed_cell);
     freed_cell->header.bits =
         NODE_FLAG_NODE | NODE_FLAG_FREE | NODE_FLAG_CELL
-        | FLAG_KIND_BYTE(REB_MAX_PLUS_TWO_TRASH);
+        | FLAG_KIND_BYTE(REB_T_TRASH);
     assert(Detect_Rebol_Pointer(freed_cell) == DETECTED_AS_FREED_CELL);
+  #endif
 
     DECLARE_LOCAL (end_cell);
     SET_END(end_cell);

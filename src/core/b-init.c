@@ -154,7 +154,8 @@ static void Assert_Basics(void)
     // reading, so there's little danger of hitting this unless there's
     // a big change.
     //
-    assert(REB_MAX_PLUS_TWO_TRASH < 256);
+    assert(REB_MAX < 64);
+    assert(REB_MAX_PLUS_MAX < 256); // limit 
 
     // Make sure tricks for "internal END markers" are lined up as expected.
     //
@@ -254,7 +255,7 @@ static void Startup_Sys(REBARR *boot_sys) {
 //
 // Note the type enum starts at 1 (REB_ACTION), given that REB_0 is used
 // for special purposes and not correspond to a user-visible type.  REB_MAX is
-// used for void, and also not value type.  Hence the total number of types is
+// used for NULL, and also not value type.  Hence the total number of types is
 // REB_MAX - 1.
 //
 static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)

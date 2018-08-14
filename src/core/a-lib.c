@@ -133,6 +133,7 @@ void *RL_rebMalloc(size_t size)
             + 1, // for termination (even BINARY! has this, review necessity)
         sizeof(REBYTE), // rebRepossess() only creates binary series ATM
         SERIES_FLAG_DONT_RELOCATE // direct data pointer is being handed back!
+            | SERIES_FLAG_ALWAYS_DYNAMIC // rebRepossess() needs bias field
     );
 
     REBYTE *ptr = BIN_HEAD(s) + ALIGN_SIZE;

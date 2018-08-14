@@ -1246,7 +1246,7 @@ static void Mark_Frame_Stack_Deep(void)
         // DECLARE_FRAME sets it up and no one is supposed to trash it.
         //
         if (NOT_END(&f->cell)) {
-            if (VAL_TYPE_RAW(&f->cell) == REB_0_DEFERRED)
+            if (VAL_TYPE_RAW(&f->cell) == REB_X_DEFERRED)
                 assert(
                     not IS_POINTER_TRASH_DEBUG(f->deferred)
                     and f->deferred

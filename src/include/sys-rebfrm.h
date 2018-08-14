@@ -712,7 +712,7 @@ struct Reb_Frame {
     // that cell is re-dispatched with DO_FLAG_POST_SWITCH to give the
     // impression that the AND had "tightly" taken the argument all along.
     //
-    // !!! Since the deferral process pokes a REB_0_DEFERRED into the frame's
+    // !!! Since the deferral process pokes a REB_X_DEFERRED into the frame's
     // cell to save the argument positioning, it could use the VAL_TYPE_RAW()
     // of that cell to cue that deferment is in progress, and store the
     // pointer to the deferred argument in the cell's `extra`.  That would

@@ -136,7 +136,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             break; // nothing left to do, have to take the dispatcher's word
 
         case R_0A_REFERENCE: { // dispatcher wants us to set *if* at end of path
-            assert(VAL_TYPE(pvs->out) == REB_0_REFERENCE);
+            assert(VAL_TYPE(pvs->out) == REB_X_REFERENCE);
             Move_Value(VAL_REFERENCE(pvs->out), pvs->special);
 
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED) {
@@ -218,7 +218,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             break;
 
         case R_0A_REFERENCE:
-            assert(VAL_TYPE(pvs->out) == REB_0_REFERENCE);
+            assert(VAL_TYPE(pvs->out) == REB_X_REFERENCE);
 
             // Save the reference location in case the next update turns out
             // to be R_IMMEDIATE, and we need it.  Not actually KNOWN() but
