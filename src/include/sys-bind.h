@@ -323,6 +323,194 @@ inline static REBNOD *SPC_BINDING(REBSPC *specifier)
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
+//  VARIABLE ACCESS
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// When a word is bound to a context by an index, it becomes a means of
+// reading and writing from a persistent storage location.  We use "variable"
+// or just VAR to refer to REBVAL slots reached via binding in this way.
+// More narrowly, a VAR that represents an argument to a function invocation
+// may be called an ARG (and an ARG's "persistence" is only as long as that
+// function call is on the stack).
+//
+// All variables can be put in a CELL_FLAG_PROTECTED state.  This is a flag
+// on the variable cell itself--not the key--so different instances of
+// the same object sharing the keylist don't all have to be protected just
+// because one instance is.  This is not one of the flags included in the
+// CELL_MASK_COPIED, so it shouldn't be able to leak out of the varlist.
+//
+// The Get_Opt_Var_May_Fail() function takes the conservative default that
+// only const access is needed.  A const pointer to a REBVAL is given back
+// which may be inspected, but the contents not modified.  While a bound
+// variable that is not currently set will return a REB_MAX_NULLED value,
+// Get_Opt_Var_May_Fail() on an *unbound* word will raise an error.
+//
+// Get_Mutable_Var_May_Fail() offers a parallel facility for getting a
+// non-const REBVAL back.  It will fail if the variable is either unbound
+// -or- marked with OPT_TYPESET_LOCKED to protect against modification.
+//
+
+
+// Get the word--variable--value. (Generally, use the macros like
+// GET_VAR or GET_MUTABLE_VAR instead of this).  This routine is
+// called quite a lot and so attention to performance is important.
+//
+// Coded assuming most common case is to give an error on unbounds, and
+// that only read access is requested (so no checking on protection)
+//
+// Due to the performance-critical nature of this routine, it is declared
+// as inline so that locations using it can avoid overhead in invocation.
+//
+inline static REBCTX *Get_Var_Context(
+    const RELVAL *any_word,
+    REBSPC *specifier
+){
+    assert(ANY_WORD(any_word));
+
+    REBCTX *context;
+
+    REBNOD *binding = VAL_BINDING(any_word);
+    assert(binding); // caller should check so context won't be null
+    
+    if (binding->header.bits & ARRAY_FLAG_VARLIST) {
+
+        // SPECIFIC BINDING: The context the word is bound to is explicitly
+        // contained in the `any_word` REBVAL payload.  Extract it, but check
+        // to see if there is an override via "DERIVED BINDING", e.g.:
+        //
+        //    o1: make object [a: 10 f: method [] [print a]]
+        //    o2: make o1 [a: 20]
+        //
+        // O2 doesn't copy F's body, but its copy of the ACTION! cell in o2/f
+        // gets its ->binding to point at O2 instead of O1.  When o2/f runs,
+        // the frame stores that pointer, and we take it into account when
+        // looking up `a` here, instead of using a's stored binding directly.
+
+        context = CTX(binding); // start with stored binding
+
+        if (specifier == SPECIFIED) {
+            //
+            // Lookup must be determined solely from bits in the value
+            //
+        }
+        else {
+            REBNOD *f_binding = SPC_BINDING(specifier); // can't fail()
+            if (f_binding and Is_Overriding_Context(context, CTX(f_binding))) {
+                //
+                // The specifier binding overrides--because what's happening 
+                // is that this cell came from a METHOD's body, where the
+                // particular ACTION! value cell triggering it held a binding
+                // of a more derived version of the object to which the
+                // instance in the method body refers.
+                //
+                context = CTX(f_binding);
+            }
+        }
+    }
+    else {
+        assert(binding->header.bits & ARRAY_FLAG_PARAMLIST);
+
+        // RELATIVE BINDING: The word was made during a deep copy of the block
+        // that was given as a function's body, and stored a reference to that
+        // ACTION! as its binding.  To get a variable for the word, we must
+        // find the right function call on the stack (if any) for the word to
+        // refer to (the FRAME!)
+
+      #if !defined(NDEBUG)
+        if (specifier == SPECIFIED) {
+            printf("Get_Context_Core on relative value without specifier\n");
+            panic (any_word);
+        }
+      #endif
+
+        context = CTX(specifier);
+        assert(binding == NOD(VAL_ACTION(CTX_ROOTKEY(context))));
+    }
+
+  #ifdef DEBUG_BINDING_NAME_MATCH // this is expensive, and hasn't happened
+    assert(
+        VAL_WORD_CANON(any_word)
+        == VAL_KEY_CANON(CTX_KEY(context, VAL_WORD_INDEX(any_word))));
+  #endif
+
+    return context;
+}
+
+static inline const REBVAL *Get_Opt_Var_May_Fail(
+    const RELVAL *any_word,
+    REBSPC *specifier
+){
+    if (not VAL_BINDING(any_word))
+        fail (Error_Not_Bound_Raw(const_KNOWN(any_word)));
+
+    REBCTX *c = Get_Var_Context(any_word, specifier);
+    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE))
+        fail (Error_No_Relative_Core(any_word));
+
+    return CTX_VAR(c, VAL_WORD_INDEX(any_word));
+}
+
+static inline const REBVAL *Try_Get_Opt_Var(
+    const RELVAL *any_word,
+    REBSPC *specifier
+){
+    if (not VAL_BINDING(any_word))
+        return nullptr;
+
+    REBCTX *c = Get_Var_Context(any_word, specifier);
+    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE))
+        return nullptr;
+
+    return CTX_VAR(c, VAL_WORD_INDEX(any_word));
+}
+
+inline static void Move_Opt_Var_May_Fail(
+    REBVAL *out,
+    const RELVAL *any_word,
+    REBSPC *specifier
+){
+    Move_Value(out, Get_Opt_Var_May_Fail(any_word, specifier));
+}
+
+static inline REBVAL *Get_Mutable_Var_May_Fail(
+    const RELVAL *any_word,
+    REBSPC *specifier
+){
+    if (not VAL_BINDING(any_word))
+        fail (Error_Not_Bound_Raw(const_KNOWN(any_word)));
+
+    REBCTX *context = Get_Var_Context(any_word, specifier);
+
+    // A context can be permanently frozen (`lock obj`) or temporarily
+    // protected, e.g. `protect obj | unprotect obj`.  A native will
+    // use SERIES_FLAG_HOLD on a FRAME! context in order to prevent
+    // setting values to types with bit patterns the C might crash on.
+    //
+    // Lock bits are all in SER->info and checked in the same instruction.
+    //
+    FAIL_IF_READ_ONLY_CONTEXT(context);
+
+    REBVAL *var = CTX_VAR(context, VAL_WORD_INDEX(any_word));
+
+    // The PROTECT command has a finer-grained granularity for marking
+    // not just contexts, but individual fields as protected.
+    //
+    if (GET_VAL_FLAG(var, CELL_FLAG_PROTECTED)) {
+        DECLARE_LOCAL (unwritable);
+        Init_Word(unwritable, VAL_WORD_SPELLING(unwritable));
+        fail (Error_Protected_Word_Raw(unwritable));
+    }
+
+    return var;
+}
+
+#define Sink_Var_May_Fail(any_word,specifier) \
+    SINK(Get_Mutable_Var_May_Fail(any_word, specifier))
+
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
 //  COPYING RELATIVE VALUES TO SPECIFIC
 //
 //=////////////////////////////////////////////////////////////////////////=//
@@ -340,7 +528,7 @@ inline static REBNOD *SPC_BINDING(REBSPC *specifier)
 // Interface designed to line up with Move_Value()
 //
 // !!! At the moment, there is a fair amount of overlap in this code with
-// Get_Var_Core().  One of them resolves a value's real binding and then
+// Get_Context_Core().  One of them resolves a value's real binding and then
 // fetches it, while the other resolves a value's real binding but then stores
 // that back into another value without fetching it.  This suggests sharing
 // a mechanic between both...TBD.
@@ -438,203 +626,6 @@ inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
     if (flip)
         SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
 }
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  VARIABLE ACCESS
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// When a word is bound to a context by an index, it becomes a means of
-// reading and writing from a persistent storage location.  We use "variable"
-// or just VAR to refer to REBVAL slots reached via binding in this way.
-// More narrowly, a VAR that represents an argument to a function invocation
-// may be called an ARG (and an ARG's "persistence" is only as long as that
-// function call is on the stack).
-//
-// All variables can be put in a CELL_FLAG_PROTECTED state.  This is a flag
-// on the variable cell itself--not the key--so different instances of
-// the same object sharing the keylist don't all have to be protected just
-// because one instance is.  This is not one of the flags included in the
-// CELL_MASK_COPIED, so it shouldn't be able to leak out of the varlist.
-//
-// The Get_Opt_Var_May_Fail() function takes the conservative default that
-// only const access is needed.  A const pointer to a REBVAL is given back
-// which may be inspected, but the contents not modified.  While a bound
-// variable that is not currently set will return a REB_MAX_NULLED value,
-// Get_Opt_Var_May_Fail() on an *unbound* word will raise an error.
-//
-// Get_Mutable_Var_May_Fail() offers a parallel facility for getting a
-// non-const REBVAL back.  It will fail if the variable is either unbound
-// -or- marked with OPT_TYPESET_LOCKED to protect against modification.
-//
-
-
-enum {
-    GETVAR_READ_ONLY = 0,
-    GETVAR_MUTABLE = 1 << 0,
-    GETVAR_NULLPTR_IF_UNAVAILABLE = 1 << 1
-};
-
-
-// Get the word--variable--value. (Generally, use the macros like
-// GET_VAR or GET_MUTABLE_VAR instead of this).  This routine is
-// called quite a lot and so attention to performance is important.
-//
-// Coded assuming most common case is to give an error on unbounds, and
-// that only read access is requested (so no checking on protection)
-//
-// Due to the performance-critical nature of this routine, it is declared
-// as inline so that locations using it can avoid overhead in invocation.
-//
-inline static REBVAL *Get_Var_Core(
-    const RELVAL *any_word,
-    REBSPC *specifier,
-    REBFLGS flags
-){
-    assert(ANY_WORD(any_word));
-
-    REBCTX *context;
-
-    REBNOD *binding = VAL_BINDING(any_word);
-    if (not binding) {
-
-        // UNBOUND: No variable location to retrieve.
-
-        if (flags & GETVAR_NULLPTR_IF_UNAVAILABLE)
-            return nullptr;
-
-        DECLARE_LOCAL (unbound);
-        Init_Word(unbound, VAL_WORD_SPELLING(any_word));
-        fail (Error_Not_Bound_Raw(unbound));
-    }
-    else if (binding->header.bits & ARRAY_FLAG_VARLIST) {
-
-        // SPECIFIC BINDING: The context the word is bound to is explicitly
-        // contained in the `any_word` REBVAL payload.  Extract it, but check
-        // to see if there is an override via "DERIVED BINDING", e.g.:
-        //
-        //    o1: make object [a: 10 f: method [] [print a]]
-        //    o2: make o1 [a: 20]
-        //
-        // O2 doesn't copy F's body, but its copy of the ACTION! cell in o2/f
-        // gets its ->binding to point at O2 instead of O1.  When o2/f runs,
-        // the frame stores that pointer, and we take it into account when
-        // looking up `a` here, instead of using a's stored binding directly.
-
-        context = CTX(binding); // start with stored binding
-
-        if (specifier == SPECIFIED) {
-            //
-            // Lookup must be determined solely from bits in the value
-            //
-        }
-        else {
-            REBNOD *f_binding = SPC_BINDING(specifier); // can't fail()
-            if (f_binding and Is_Overriding_Context(context, CTX(f_binding))) {
-                //
-                // The specifier binding overrides--because what's happening 
-                // is that this cell came from a METHOD's body, where the
-                // particular ACTION! value cell triggering it held a binding
-                // of a more derived version of the object to which the
-                // instance in the method body refers.
-                //
-                context = CTX(f_binding);
-            }
-        }
-    }
-    else {
-        assert(binding->header.bits & ARRAY_FLAG_PARAMLIST);
-
-        // RELATIVE BINDING: The word was made during a deep copy of the block
-        // that was given as a function's body, and stored a reference to that
-        // ACTION! as its binding.  To get a variable for the word, we must
-        // find the right function call on the stack (if any) for the word to
-        // refer to (the FRAME!)
-
-      #if !defined(NDEBUG)
-        if (specifier == SPECIFIED) {
-            printf("Get_Var_Core on relative value without specifier\n");
-            panic (any_word);
-        }
-      #endif
-
-        context = CTX(specifier);
-        assert(binding == NOD(VAL_ACTION(CTX_ROOTKEY(context))));
-    }
-
-    if (GET_SER_INFO(context, SERIES_INFO_INACCESSIBLE)) {
-        if (flags & GETVAR_NULLPTR_IF_UNAVAILABLE)
-            return nullptr;
-
-        fail (Error_No_Relative_Core(any_word));
-    }
-
-    REBCNT i = VAL_WORD_INDEX(any_word);
-    REBVAL *var = CTX_VAR(context, i);
-
-  #ifdef DEBUG_BINDING_NAME_MATCH // this is expensive, and hasn't happened
-    assert(VAL_WORD_CANON(any_word) == VAL_KEY_CANON(CTX_KEY(context, i)));
-  #endif
-
-    if (flags & GETVAR_MUTABLE) {
-        //
-        // A context can be permanently frozen (`lock obj`) or temporarily
-        // protected, e.g. `protect obj | unprotect obj`.  A native will
-        // use SERIES_FLAG_HOLD on a FRAME! context in order to prevent
-        // setting values to types with bit patterns the C might crash on.
-        //
-        // Lock bits are all in SER->info and checked in the same instruction.
-        //
-        FAIL_IF_READ_ONLY_CONTEXT(context);
-
-        // The PROTECT command has a finer-grained granularity for marking
-        // not just contexts, but individual fields as protected.
-        //
-        if (GET_VAL_FLAG(var, CELL_FLAG_PROTECTED)) {
-            DECLARE_LOCAL (unwritable);
-            Derelativize(unwritable, any_word, specifier);
-            fail (Error_Protected_Word_Raw(unwritable));
-        }
-    }
-
-    return var;
-}
-
-static inline const REBVAL *Get_Opt_Var_May_Fail(
-    const RELVAL *any_word,
-    REBSPC *specifier
-) {
-    return Get_Var_Core(any_word, specifier, GETVAR_READ_ONLY);
-}
-
-static inline const REBVAL *Try_Get_Opt_Var(
-    const RELVAL *any_word,
-    REBSPC *specifier
-) {
-    return Get_Var_Core(
-        any_word, specifier, GETVAR_READ_ONLY | GETVAR_NULLPTR_IF_UNAVAILABLE
-    );
-}
-
-inline static void Move_Opt_Var_May_Fail(
-    REBVAL *out,
-    const RELVAL *any_word,
-    REBSPC *specifier
-) {
-    Move_Value(out, Get_Var_Core(any_word, specifier, GETVAR_READ_ONLY));
-}
-
-static inline REBVAL *Get_Mutable_Var_May_Fail(
-    const RELVAL *any_word,
-    REBSPC *specifier
-) {
-    return Get_Var_Core(any_word, specifier, GETVAR_MUTABLE);
-}
-
-#define Sink_Var_May_Fail(any_word,specifier) \
-    SINK(Get_Mutable_Var_May_Fail(any_word, specifier))
 
 
 //=////////////////////////////////////////////////////////////////////////=//

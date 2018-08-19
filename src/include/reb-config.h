@@ -427,7 +427,7 @@ Special internal defines used by RT, not Host-Kit developers:
 
     // This check is for making sure that an ANY-WORD! that has a binding has
     // a spelling that matches the key it is bound to.  It was checked in
-    // Get_Var_Core() but is a slow check that hasn't really ever had a
+    // Get_Context_Core() but is a slow check that hasn't really ever had a
     // problem.  Disabling it for now, to improve debug build performance.
   #if 0
     #define DEBUG_BINDING_NAME_MATCH
