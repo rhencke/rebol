@@ -287,7 +287,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
         assert(arg->header.bits == prep);
         Init_Nulled(arg);
         if (opt_binder) {
-            if (NOT_VAL_FLAG(param, TYPESET_FLAG_UNBINDABLE))
+            if (not Is_Param_Unbindable(param))
                 Add_Binder_Index(opt_binder, canon, index);
         }
         continue;
@@ -429,7 +429,7 @@ REBOOL Specialize_Action_Throws(
         RELVAL *key = CTX_KEYS_HEAD(exemplar);
         REBVAL *var = CTX_VARS_HEAD(exemplar);
         for (; NOT_END(key); ++key, ++var) {
-            if (GET_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
+            if (Is_Param_Unbindable(key))
                 continue; // !!! is this flag still relevant?
             if (GET_VAL_FLAG(var, ARG_MARKED_CHECKED))
                 continue; // may be refinement from stack, now specialized out
@@ -641,7 +641,7 @@ REBOOL Specialize_Action_Throws(
         // !!! If argument was previously specialized, should have been type
         // checked already... don't type check again (?)
         //
-        if (GET_VAL_FLAG(param, TYPESET_FLAG_VARIADIC))
+        if (Is_Param_Variadic(param))
             fail ("Cannot currently SPECIALIZE variadic arguments.");
 
         if (not TYPE_CHECK(param, VAL_TYPE(arg)))
@@ -966,7 +966,7 @@ REB_R Block_Dispatcher(REBFRM *f)
         REBARR *body_array = Copy_And_Bind_Relative_Deep_Managed(
             KNOWN(block),
             ACT_PARAMLIST(FRM_PHASE(f)),
-            TS_ANY_WORD
+            TS_WORD
         );
 
         // Preserve file and line information from the original, if present.
@@ -1305,9 +1305,8 @@ REBNATIVE(does)
     RELVAL *alias = rootkey + 1;
     for (; NOT_END(param); ++param, ++alias) {
         Move_Value(alias, param);
-        SET_VAL_FLAGS(
-            alias, TYPESET_FLAG_HIDDEN | TYPESET_FLAG_UNBINDABLE
-        );
+        TYPE_SET(alias, REB_TS_HIDDEN);
+        TYPE_SET(alias, REB_TS_UNBINDABLE);
     }
 
     TERM_ARRAY_LEN(facade, num_slots);

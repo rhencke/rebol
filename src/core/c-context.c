@@ -229,7 +229,7 @@ REBVAL *Append_Context(
     REBVAL *key = SINK(ARR_LAST(keylist)); // !!! non-dynamic, could optimize
     Init_Typeset(
         key,
-        ALL_64,
+        TS_VALUE, // !!! Currently not paid attention to
         opt_spelling ? opt_spelling : VAL_WORD_SPELLING(opt_any_word)
     );
     TERM_ARRAY_LEN(keylist, ARR_LEN(keylist));
@@ -507,7 +507,7 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL *head)
             if (cl->flags & COLLECT_AS_TYPESET)
                 Init_Typeset(
                     ARR_LAST(BUF_COLLECT),
-                    ~FLAGIT_KIND(REB_MAX_NULLED), // default is all but void
+                    TS_VALUE, // !!! Not used at the moment
                     VAL_WORD_SPELLING(v)
                 );
             else
@@ -583,12 +583,16 @@ REBARR *Collect_Keylist_Managed(
             // No prior or no SELF in prior, so we'll add it as the first key
             //
             RELVAL *self_key = ARR_AT(BUF_COLLECT, 1);
-            Init_Typeset(self_key, ALL_64, Canon(SYM_SELF));
+            Init_Typeset(
+                self_key,
+                TS_VALUE, // !!! Currently not paid attention to
+                Canon(SYM_SELF)
+            );
 
             // !!! See notes on the flags about why SELF is set hidden but
-            // not unbindable with TYPESET_FLAG_UNBINDABLE.
+            // not unbindable with REB_TS_UNBINDABLE.
             //
-            SET_VAL_FLAG(self_key, TYPESET_FLAG_HIDDEN);
+            TYPE_SET(self_key, REB_TS_HIDDEN);
 
             assert(cl->index == 1);
             Add_Binder_Index(&cl->binder, VAL_KEY_CANON(self_key), cl->index);
@@ -978,7 +982,7 @@ REBARR *Context_To_Array(REBCTX *context, REBINT mode)
 
     REBCNT n = 1;
     for (; NOT_END(key); n++, key++, var++) {
-        if (NOT_VAL_FLAG(key, TYPESET_FLAG_HIDDEN)) {
+        if (not Is_Param_Hidden(key)) {
             if (mode & 1) {
                 DS_PUSH_TRASH;
                 Init_Any_Word_Bound(
@@ -1313,7 +1317,7 @@ REBCNT Find_Canon_In_Context(REBCTX *context, REBSTR *canon, REBOOL always)
     REBCNT n;
     for (n = 1; n <= len; n++, key++) {
         if (canon == VAL_KEY_CANON(key)) {
-            if (GET_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE)) {
+            if (Is_Param_Unbindable(key)) {
                 if (not always)
                     return 0;
             }

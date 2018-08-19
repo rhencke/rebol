@@ -62,12 +62,14 @@ static void Protect_Key(REBCTX *context, REBCNT index, REBFLGS flags)
 
         REBVAL *key = CTX_KEY(context, index);
 
-        if (flags & PROT_SET)
-            SET_VAL_FLAGS(key, TYPESET_FLAG_HIDDEN | TYPESET_FLAG_UNBINDABLE);
-        else
-            CLEAR_VAL_FLAGS(
-                key, TYPESET_FLAG_HIDDEN | TYPESET_FLAG_UNBINDABLE
-            );
+        if (flags & PROT_SET) {
+            TYPE_SET(key, REB_TS_HIDDEN);
+            TYPE_SET(key, REB_TS_UNBINDABLE);
+        }
+        else {
+            TYPE_CLEAR(key, REB_TS_HIDDEN);
+            TYPE_CLEAR(key, REB_TS_UNBINDABLE);
+        }
     }
 }
 

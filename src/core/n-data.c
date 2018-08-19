@@ -142,11 +142,11 @@ REBNATIVE(bind)
 
     REBCNT flags = REF(only) ? BIND_0 : BIND_DEEP;
 
-    REBU64 bind_types = TS_ANY_WORD;
+    REBU64 bind_types = TS_WORD;
 
     REBU64 add_midstream_types;
     if (REF(new)) {
-        add_midstream_types = TS_ANY_WORD;
+        add_midstream_types = TS_WORD;
     }
     else if (REF(set)) {
         add_midstream_types = FLAGIT_KIND(REB_SET_WORD);

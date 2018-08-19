@@ -635,8 +635,7 @@ REBCTX *Alloc_Context_From_Map(REBMAP *map)
             // that function specs did.)
             Init_Typeset(
                 key,
-                // all types except void
-                ~FLAGIT_KIND(REB_MAX_NULLED),
+                TS_OPT_VALUE, // !!! Not used at the moment
                 VAL_WORD_SPELLING(mval)
             );
             ++key;

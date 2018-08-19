@@ -492,6 +492,9 @@ enum {
 };
 
 
+#define ALL_BITS \
+    ((REBCNT)(-1))
+
 enum {
     BEL =   7,
     BS  =   8,

@@ -484,9 +484,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 );
             }
             else if (ANY_CONTEXT(data)) {
-                if (GET_VAL_FLAG(
-                    VAL_CONTEXT_KEY(data, index), TYPESET_FLAG_HIDDEN
-                )) {
+                if (Is_Param_Hidden(VAL_CONTEXT_KEY(data, index))) {
                     // Do not evaluate this iteration
                     index++;
                     goto skip_hidden;

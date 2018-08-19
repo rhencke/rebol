@@ -74,12 +74,12 @@ static REBOOL Equal_Context(const RELVAL *val, const RELVAL *arg)
         //
         // Hidden vars shouldn't affect the comparison.
         //
-        if (GET_VAL_FLAG(key1, TYPESET_FLAG_HIDDEN)) {
+        if (Is_Param_Hidden(key1)) {
             key1++; var1++;
             if (IS_END(key1)) break;
             goto no_advance;
         }
-        if (GET_VAL_FLAG(key2, TYPESET_FLAG_HIDDEN)) {
+        if (Is_Param_Hidden(key2)) {
             key2++; var2++;
             if (IS_END(key2)) break;
             goto no_advance;
@@ -109,11 +109,11 @@ static REBOOL Equal_Context(const RELVAL *val, const RELVAL *arg)
     // they don't line up.
     //
     for (; NOT_END(key1); key1++, var1++) {
-        if (NOT_VAL_FLAG(key1, TYPESET_FLAG_HIDDEN))
+        if (not Is_Param_Hidden(key1))
             return FALSE;
     }
     for (; NOT_END(key2); key2++, var2++) {
-        if (NOT_VAL_FLAG(key2, TYPESET_FLAG_HIDDEN))
+        if (not Is_Param_Hidden(key2))
             return FALSE;
     }
 
@@ -178,7 +178,9 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
             //
             EXPAND_SERIES_TAIL(SER(BUF_COLLECT), 1);
             Init_Typeset(
-                ARR_LAST(BUF_COLLECT), ALL_64, VAL_WORD_SPELLING(word)
+                ARR_LAST(BUF_COLLECT),
+                TS_VALUE, // !!! Currently ignored
+                VAL_WORD_SPELLING(word)
             );
         }
         if (IS_END(word + 1))
@@ -218,7 +220,7 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
             goto collect_end;
         }
 
-        if (GET_VAL_FLAG(key, TYPESET_FLAG_HIDDEN)) {
+        if (Is_Param_Hidden(key)) {
             error = Error_Hidden_Raw();
             goto collect_end;
         }
@@ -634,7 +636,7 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         REBVAL *var = CTX_VARS_HEAD(c);
         REBOOL had_output = FALSE;
         for (; NOT_END(key); key++, var++) {
-            if (NOT_VAL_FLAG(key, TYPESET_FLAG_HIDDEN)) {
+            if (not Is_Param_Hidden(key)) {
                 had_output = TRUE;
                 Emit(mo, "N: V\n", VAL_KEY_SPELLING(key), var);
             }
@@ -682,7 +684,7 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     REBVAL *key = keys_head;
     REBVAL *var = vars_head;
     for (; NOT_END(key); ++key, ++var) {
-        if (GET_VAL_FLAG(key, TYPESET_FLAG_HIDDEN))
+        if (Is_Param_Hidden(key))
             continue;
         if (GET_VAL_FLAG(var, ARG_MARKED_CHECKED))
             continue; // specialized out, don't show
@@ -711,7 +713,7 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     var = vars_head;
 
     for (; NOT_END(key); var ? (++key, ++var) : ++key) {
-        if (GET_VAL_FLAG(key, TYPESET_FLAG_HIDDEN))
+        if (Is_Param_Hidden(key))
             continue;
         if (GET_VAL_FLAG(var, ARG_MARKED_CHECKED))
             continue; // specialized out, don't show

@@ -26,16 +26,12 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// A typeset is a collection of up to 62 of the REB_XXX types, implemented as
-// a 64-bit bitset.  The bits for REB_0 and REB_MAX_NULLED can be used for
-// special purposes, as these are not actual legal datatypes.
+// A typeset is a collection of REB_XXX types, implemented as a 64-bit bitset.
+// (Though user-defined types would clearly require a different approach to
+// typechecking, using a bitset for built-in types could still be used as an
+// optimization for common parameter cases.)
 //
-// !!! The limit of only being able to hold a set of 62 types is a temporary
-// one, as user-defined types will require a different approach.  Hence the
-// best way to look at the bitset for built-in types is as an optimization
-// for type-checking the common parameter cases.
-//
-// Though available to the user to manipulate directly as a TYPESET!, REBVALs
+// While available to the user to manipulate directly as a TYPESET!, cells
 // of this category have another use in describing the fields of objects
 // ("KEYS") or parameters of function frames ("PARAMS").  When used for that
 // purpose, they not only list the legal types...but also hold a symbol for
@@ -43,8 +39,13 @@
 // called an "unword", but they lack bindings and have more technically
 // in common with the evolving requirements of typesets.
 //
+// If values beyond REB_MAX (but still < 64) are used in the bitset, they are
+// "pseudotypes", which signal properties of the typeset when acting in a
+// paramlist or keylist.  REB_0 is also a pseduotype, as when the first bit
+// (for 0) is set in the typeset, that means it is "<end>-able".
+//
 // !!! At present, a TYPESET! created with MAKE TYPESET! cannot set the
-// internal symbol.  Nor can it set the extended flags, though that might
+// internal symbol.  Nor can it set the pseudotype flags, though that might
 // someday be allowed with a syntax like:
 //
 //      make typeset! [<hide> <quote> <protect> text! integer!]
@@ -68,6 +69,64 @@ inline static enum Reb_Kind KIND_FROM_SYM(REBSYM s) {
 inline static REBSTR *Get_Type_Name(const RELVAL *value)
     { return Canon(SYM_FROM_KIND(VAL_TYPE(value))); }
 
+
+
+//=//// TYPESET BITS //////////////////////////////////////////////////////=//
+//
+// Operations when typeset is done with a bitset (currently all typesets)
+
+#define VAL_TYPESET_BITS(v) ((v)->payload.typeset.bits)
+
+#define TYPE_CHECK(v,n) \
+    (did (VAL_TYPESET_BITS(v) & FLAGIT_KIND(n)))
+
+#define TYPE_SET(v,n) \
+    (VAL_TYPESET_BITS(v) |= FLAGIT_KIND(n))
+
+#define TYPE_CLEAR(v,n) \
+    (VAL_TYPESET_BITS(v) &= ~FLAGIT_KIND(n))
+
+#define EQUAL_TYPESET(v,w) \
+    (VAL_TYPESET_BITS(v) == VAL_TYPESET_BITS(w))
+
+// !!! R3-Alpha made frequent use of these predefined typesets.  In Ren-C
+// they have been called into question, as to exactly how copying mechanics
+// should work.
+ 
+#define TS_NOT_COPIED \
+    (FLAGIT_KIND(REB_IMAGE) \
+    | FLAGIT_KIND(REB_VECTOR) \
+    | FLAGIT_KIND(REB_PORT))
+
+#define TS_STD_SERIES \
+    (TS_SERIES & ~TS_NOT_COPIED)
+
+#define TS_SERIES_OBJ \
+    ((TS_SERIES | TS_CONTEXT) & ~TS_NOT_COPIED)
+
+#define TS_ARRAYS_OBJ \
+    ((TS_ARRAY | TS_CONTEXT) & ~TS_NOT_COPIED)
+
+#define TS_CLONE \
+    (TS_SERIES & ~TS_NOT_COPIED) // currently same as TS_NOT_COPIED
+
+
+//=//// PARAMETER CLASS ///////////////////////////////////////////////////=//
+//
+// R3-Alpha called parameter cells that were used to make keys "unwords", and
+// their VAL_TYPE() dictated their parameter behavior.  Ren-C saw them more
+// as being like TYPESET!s with an optional symbol, which made the code easier
+// to understand and less likely to crash, which would happen when the special
+// "unwords" fell into any context that would falsely interpret their bindings
+// as bitsets.
+//
+// Yet there needed to be a place to put the parameter's class.  So it is
+// packed in with the TYPESET_FLAG_XXX bits.
+//
+// Note: It was checked to see if giving the VAL_PARAM_CLASS() the entire byte
+// and not need to mask out the flags would make a difference, but performance
+// wasn't affected much.
+//
 
 enum Reb_Param_Class {
     //
@@ -166,19 +225,78 @@ enum Reb_Param_Class {
 #define PCLASS_NUM_BITS 3
 #define PCLASS_BYTE_MASK 0x07 // for 3 bits, 0x00000111
 
+inline static enum Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
+    assert(IS_TYPESET(v));
+    return cast(
+        enum Reb_Param_Class,
+        const_CUSTOM_BYTE(v)
+        /* (const_CUSTOM_BYTE(v) & PCLASS_BYTE_MASK) */ // resurrect if needed
+    );
+}
 
-#ifdef NDEBUG
-    #define TYPESET_FLAG(n) \
-        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
-#else
-    #define TYPESET_FLAG(n) \
-        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | FLAG_KIND_BYTE(REB_TYPESET))
-#endif
+inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
+    /* CUSTOM_BYTE(v) &= ~PCLASS_BYTE_MASK;
+    CUSTOM_BYTE(v) |= c; */ // can resurrect if needed
+    CUSTOM_BYTE(v) = c;
+}
 
+
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// TYPESET FLAGS and PSEUDOTYPES USED AS FLAGS
+//
+//=////////////////////////////////////////////////////////////////////////=//
+//
+// Typesets could use flags encoded as TYPESET_FLAG_XXX in the type-specific
+// flags byte of the header.  However, that gets somewhat cramped because
+// three of those bits are used for the PARAM_CLASS.
+//
+// Hence an alternative option is to use out-of-range of 1...REB_MAX datatypes
+// as "psuedo-types" in the typeset bits.
+//
+// !!! An experiment switched to using entirely pseudo-type bits, so there was
+// no sharing of the PARAM_CLASS byte, to see if that sped up VAL_PARAM_CLASS
+// to make a difference.  It was a somewhat minor speedup, so it has been
+// kept...but could be abandoned if having more bits were at issue.
+//
+
+// Endability is distinct from optional, and it means that a parameter is
+// willing to accept being at the end of the input.  This means either
+// an infix dispatch's left argument is missing (e.g. `do [+ 5]`) or an
+// ordinary argument hit the end (e.g. the trick used for `>> help` when
+// the arity is 1 usually as `>> help foo`)
+//
+#define REB_TS_ENDABLE REB_0
+#define Is_Param_Endable(v) \
+    TYPE_CHECK((v), REB_TS_ENDABLE)
+
+// Indicates that when this parameter is fulfilled, it will do so with a
+// value of type VARARGS!, that actually just holds a pointer to the frame
+// state and allows more arguments to be gathered at the callsite *while the
+// function body is running*.
+//
+// Note the important distinction, that a variadic parameter and taking
+// a VARARGS! type are different things.  (A function may accept a
+// variadic number of VARARGS! values, for instance.)
+//
+#define REB_TS_VARIADIC REB_MAX_PLUS_ONE
+#define Is_Param_Variadic(v) \
+    TYPE_CHECK((v), REB_TS_VARIADIC)
+
+// Skippability is used on quoted arguments to indicate that they are willing
+// to "pass" on something that isn't a matching type.  This gives an ability
+// that a variadic doesn't have, which is to make decisions about rejecting
+// a parameter *before* the function body runs.
+//
+#define REB_TS_SKIPPABLE REB_MAX_PLUS_TWO
+#define Is_Param_Skippable(v) \
+    TYPE_CHECK((v), REB_TS_SKIPPABLE)
 
 // Can't be reflected (set with PROTECT/HIDE) or local in spec as `foo:`
 //
-#define TYPESET_FLAG_HIDDEN TYPESET_FLAG(0)
+#define REB_TS_HIDDEN REB_MAX_PLUS_THREE
+#define Is_Param_Hidden(v) \
+    TYPE_CHECK((v), REB_TS_HIDDEN)
 
 // Can't be bound to beyond the current bindings.
 //
@@ -192,61 +310,33 @@ enum Reb_Param_Class {
 // solution to separate the property of bindability from visibility, as
 // the SELF solution shakes out--so that SELF may be hidden but bind.
 //
-#define TYPESET_FLAG_UNBINDABLE TYPESET_FLAG(1)
+#define REB_TS_UNBINDABLE REB_MAX_PLUS_FOUR
+#define Is_Param_Unbindable(v) \
+    TYPE_CHECK((v), REB_TS_UNBINDABLE)
 
-// Indicates that when this parameter is fulfilled, it will do so with a
-// value of type VARARGS!, that actually just holds a pointer to the frame
-// state and allows more arguments to be gathered at the callsite *while the
-// function body is running*.
-//
-// Note the important distinction, that a variadic parameter and taking
-// a VARARGS! type are different things.  (A function may accept a
-// variadic number of VARARGS! values, for instance.)
-//
-#define TYPESET_FLAG_VARIADIC TYPESET_FLAG(2)
 
-// Endability is distinct from optional, and it means that a parameter is
-// willing to accept being at the end of the input.  This means either
-// an infix dispatch's left argument is missing (e.g. `do [+ 5]`) or an
-// ordinary argument hit the end (e.g. the trick used for `>> help` when
-// the arity is 1 usually as `>> help foo`)
-//
-#define TYPESET_FLAG_ENDABLE TYPESET_FLAG(3)
-
-// Skippability is used on quoted arguments to indicate that they are willing
-// to "pass" on something that isn't a matching type.  This gives an ability
-// that a variadic doesn't have, which is to make decisions about rejecting
-// a parameter *before* the function body runs.
-//
-#define TYPESET_FLAG_SKIPPABLE TYPESET_FLAG(4)
-
+#ifdef NDEBUG
+    #define TYPESET_FLAG(n) \
+        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
+#else
+    #define TYPESET_FLAG(n) \
+        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | FLAG_KIND_BYTE(REB_TYPESET))
+#endif
 
 // ^-- STOP AT TYPESET_FLAG(4) --^
 //
 // The "mid" byte uses 3 bits to store the parameter class, leaving only 5
 // bits for typeset values.
 //
-// !!! If an extra flag is needed, a trick could be used like rethinking the
-// TYPESET_FLAG_ENDABLE as using the bit for REB_0 in the typeset itself.
+// !!! TYPESET_FLAG_XXX is not currently in use, only "pseudotype" flags are.
 //
 #ifdef CPLUSPLUS_11
-static_assert(3 < 8 - PCLASS_NUM_BITS, "TYPESET_FLAG_XXX too high");
+static_assert(0 < 8 - PCLASS_NUM_BITS, "TYPESET_FLAG_XXX too high");
 #endif
 
-// Operations when typeset is done with a bitset (currently all typesets)
 
-#define VAL_TYPESET_BITS(v) ((v)->payload.typeset.bits)
-
-#define TYPE_CHECK(v,n) \
-    (did (VAL_TYPESET_BITS(v) & FLAGIT_KIND(n)))
-
-#define TYPE_SET(v,n) \
-    ((VAL_TYPESET_BITS(v) |= FLAGIT_KIND(n)), NOOP)
-
-#define EQUAL_TYPESET(v,w) \
-    (VAL_TYPESET_BITS(v) == VAL_TYPESET_BITS(w))
-
-
+//=//// PARAMETER SYMBOL //////////////////////////////////////////////////=//
+//
 // Name should be NULL unless typeset in object keylist or func paramlist
 
 inline static void INIT_TYPESET_NAME(RELVAL *typeset, REBSTR *str) {
@@ -270,61 +360,3 @@ inline static OPT_REBSYM VAL_KEY_SYM(const RELVAL *typeset) {
 #define VAL_PARAM_SPELLING(p) VAL_KEY_SPELLING(p)
 #define VAL_PARAM_CANON(p) VAL_KEY_CANON(p)
 #define VAL_PARAM_SYM(p) VAL_KEY_SYM(p)
-
-inline static enum Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
-    assert(IS_TYPESET(v));
-    return cast(
-        enum Reb_Param_Class,
-        (const_CUSTOM_BYTE(v) & PCLASS_BYTE_MASK)
-    );
-}
-
-inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
-    CUSTOM_BYTE(v) &= ~PCLASS_BYTE_MASK;
-    CUSTOM_BYTE(v) |= c;
-}
-
-
-// Macros for defining full bit masks
-
-#define ALL_BITS \
-    ((REBCNT)(-1))
-
-#ifdef HAS_LL_CONSTS
-    #define ALL_64 \
-        ((REBU64)0xffffffffffffffffLL)
-#else
-    #define ALL_64 \
-        ((REBU64)0xffffffffffffffffL)
-#endif
-
-
-// !!! R3-Alpha made frequent use of these predefined typesets.  In Ren-C
-// they have been called into question, as to exactly how copying mechanics
-// should work...whether an ACTION! should be duplicated when an object
-// is made with one in its fields, for instance.
- 
-#define TS_NOT_COPIED \
-    (FLAGIT_KIND(REB_IMAGE) \
-    | FLAGIT_KIND(REB_VECTOR) \
-    | FLAGIT_KIND(REB_PORT))
-
-#define TS_STD_SERIES \
-    (TS_SERIES & ~TS_NOT_COPIED)
-
-#define TS_SERIES_OBJ \
-    ((TS_SERIES | TS_CONTEXT) & ~TS_NOT_COPIED)
-
-#define TS_ARRAYS_OBJ \
-    ((TS_ARRAY | TS_CONTEXT) & ~TS_NOT_COPIED)
-
-#define TS_CLONE \
-    (TS_SERIES & ~TS_NOT_COPIED) // currently same as TS_NOT_COPIED
-
-#define TS_ANY_WORD \
-    (FLAGIT_KIND(REB_WORD) \
-    | FLAGIT_KIND(REB_SET_WORD) \
-    | FLAGIT_KIND(REB_GET_WORD) \
-    | FLAGIT_KIND(REB_REFINEMENT) \
-    | FLAGIT_KIND(REB_LIT_WORD) \
-    | FLAGIT_KIND(REB_ISSUE))

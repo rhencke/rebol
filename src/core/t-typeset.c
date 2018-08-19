@@ -162,7 +162,7 @@ REBOOL Update_Typeset_Bits_Core(
             fail ("Invalid double-block in typeset");
 
         item = VAL_ARRAY_AT(item);
-        SET_VAL_FLAG(typeset, TYPESET_FLAG_VARIADIC);
+        TYPE_SET(typeset, REB_TS_VARIADIC);
     }
 
     for (; NOT_END(item); item++) {
@@ -189,7 +189,7 @@ REBOOL Update_Typeset_Bits_Core(
             // Notational convenience for variadic.
             // func [x [<...> integer!]] => func [x [[integer!]]]
             //
-            SET_VAL_FLAG(typeset, TYPESET_FLAG_VARIADIC);
+            TYPE_SET(typeset, REB_TS_VARIADIC);
         }
         else if (
             IS_BAR(item) || (keywords && IS_TAG(item) && (
@@ -201,7 +201,7 @@ REBOOL Update_Typeset_Bits_Core(
             //
             // func [x [<end> integer!]] => func [x [| integer!]]
             //
-            SET_VAL_FLAG(typeset, TYPESET_FLAG_ENDABLE);
+            TYPE_SET(typeset, REB_TS_ENDABLE);
         }
         else if (
             IS_BLANK(item) || (keywords && IS_TAG(item) && (
@@ -231,12 +231,11 @@ REBOOL Update_Typeset_Bits_Core(
             if (VAL_PARAM_CLASS(typeset) != PARAM_CLASS_HARD_QUOTE)
                 fail ("Only hard-quoted parameters are <skip>-able");
 
-            SET_VAL_FLAGS(
-                typeset,
-                TYPESET_FLAG_SKIPPABLE | TYPESET_FLAG_ENDABLE // skip->null
-            );
+            TYPE_SET(typeset, REB_TS_SKIPPABLE);
+            TYPE_SET(typeset, REB_TS_ENDABLE); // skip => null
         }
         else if (IS_DATATYPE(var)) {
+            assert(VAL_TYPE_KIND(var) != REB_0);
             TYPE_SET(typeset, VAL_TYPE_KIND(var));
         }
         else if (IS_TYPESET(var)) {

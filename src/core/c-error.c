@@ -905,7 +905,11 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
 
                 const REBVAL *arg = cast(const REBVAL*, p);
 
-                Init_Typeset(key, ALL_64, VAL_WORD_SPELLING(temp));
+                Init_Typeset(
+                    key,
+                    TS_VALUE, // !!! Currently not in use
+                    VAL_WORD_SPELLING(temp)
+                );
                 Move_Value(value, arg);
 
                 key++;
@@ -1100,7 +1104,7 @@ REBCTX *Error_Not_Varargs(
     const RELVAL *param,
     enum Reb_Kind kind
 ){
-    assert(GET_VAL_FLAG(param, TYPESET_FLAG_VARIADIC));
+    assert(Is_Param_Variadic(param));
     assert(kind != REB_VARARGS);
 
     // Since the "types accepted" are a lie (an [integer! <...>] takes

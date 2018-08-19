@@ -159,7 +159,7 @@ static void Schema_From_Block_May_Fail(
             break;
 
         case SYM_REBVAL:
-            Init_Typeset(param_out, ALL_64, NULL);
+            Init_Typeset(param_out, TS_VALUE, NULL);
             break;
 
         default:
@@ -1051,18 +1051,21 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
 
                 is_variadic = TRUE;
 
-                // Currently the rule is that if VARARGS! is itself a valid
-                // parameter type, then the varargs will not chain.  We want
-                // chaining as opposed to passing the parameter pack to the
-                // C code to process (it wouldn't know what to do with it)
+                // !!! Originally, a feature in VARARGS! was that they would
+                // "chain" by default, if VARARGS! was not explicitly added.
+                // This feature was removed, but may be re-added:
+                //
+                // https://github.com/metaeducation/ren-c/issues/801
+                //
+                // For that reason, varargs was not in the list by default.
                 //
                 DS_PUSH_TRASH;
                 Init_Typeset(
                     DS_TOP,
-                    ALL_64 & ~FLAGIT_KIND(REB_VARARGS),
+                    TS_VALUE & ~FLAGIT_KIND(REB_VARARGS),
                     Canon(SYM_VARARGS)
                 );
-                SET_VAL_FLAG(DS_TOP, TYPESET_FLAG_VARIADIC);
+                TYPE_SET(DS_TOP, REB_TS_VARIADIC);
                 INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_NORMAL);
             }
             else { // ordinary argument

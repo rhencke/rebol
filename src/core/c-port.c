@@ -354,7 +354,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     REBOOL ignoring = FALSE;
 
     for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
-        if (GET_VAL_FLAG(f->param, TYPESET_FLAG_HIDDEN))
+        if (Is_Param_Hidden(f->param))
             continue; // !!! is this still relevant?
         if (GET_VAL_FLAG(f->special, ARG_MARKED_CHECKED))
             continue; // a parameter that was "specialized out" of this phase

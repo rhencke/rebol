@@ -121,7 +121,7 @@ void Bind_Values_Core(
     REBCNT index = 1;
     REBVAL *key = CTX_KEYS_HEAD(context);
     for (; index <= CTX_LEN(context); key++, index++)
-        if (NOT_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
+        if (not Is_Param_Unbindable(key))
             Add_Binder_Index(&binder, VAL_KEY_CANON(key), index);
 
     Bind_Values_Inner_Loop(
@@ -132,7 +132,7 @@ void Bind_Values_Core(
 
     key = CTX_KEYS_HEAD(context);
     for (; NOT_END(key); key++)
-        if (NOT_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
+        if (not Is_Param_Unbindable(key))
             Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
 
     SHUTDOWN_BINDER(&binder);
@@ -489,7 +489,11 @@ void Virtual_Bind_Deep_To_New_Context(
     REBCNT index = 1;
     while (index <= num_vars) {
         if (IS_WORD(item)) {
-            Init_Typeset(key, ALL_64, VAL_WORD_SPELLING(item));
+            Init_Typeset(
+                key,
+                TS_VALUE, // !!! Currently not paid attention to
+                VAL_WORD_SPELLING(item)
+            );
 
             // !!! For loops, nothing should be able to be aware of this
             // synthesized variable until the loop code has initialized it
@@ -529,8 +533,13 @@ void Virtual_Bind_Deep_To_New_Context(
             // itself into the slot, and give it NODE_FLAG_MARKED...then
             // hide it from the context and binding.
             //
-            Init_Typeset(key, ALL_64, VAL_WORD_SPELLING(item));
-            SET_VAL_FLAGS(key, TYPESET_FLAG_HIDDEN | TYPESET_FLAG_UNBINDABLE);
+            Init_Typeset(
+                key,
+                TS_VALUE, // !!! Currently not paid attention to
+                VAL_WORD_SPELLING(item)
+            );
+            TYPE_SET(key, REB_TS_UNBINDABLE);
+            TYPE_SET(key, REB_TS_HIDDEN);
             Derelativize(var, item, specifier);
             SET_VAL_FLAGS(var, CELL_FLAG_PROTECTED | NODE_FLAG_MARKED);
 
@@ -602,7 +611,7 @@ void Virtual_Bind_Deep_To_New_Context(
         // duplicates.
         //
         Bind_Values_Inner_Loop(
-            &binder, VAL_ARRAY_AT(body_in_out), c, TS_ANY_WORD, 0, BIND_DEEP
+            &binder, VAL_ARRAY_AT(body_in_out), c, TS_WORD, 0, BIND_DEEP
         );
     }
 

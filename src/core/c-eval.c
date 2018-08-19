@@ -221,7 +221,7 @@ inline static void Finalize_Arg(
         // Consider Eval_Core() result for COMMENT in `do [1 + comment "foo"]`.
         // Should be no different from `do [1 +]`, when Eval_Core() gives END.
 
-        if (NOT_VAL_FLAG(param, TYPESET_FLAG_ENDABLE))
+        if (not Is_Param_Endable(param))
             fail (Error_No_Arg(f_state, param));
 
         Init_Endish_Nulled(arg);
@@ -279,7 +279,7 @@ inline static void Finalize_Arg(
             fail (Error_Bad_Refine_Revoke(param, arg));
     }
 
-    if (NOT_VAL_FLAG(param, TYPESET_FLAG_VARIADIC)) {
+    if (not Is_Param_Variadic(param)) {
         if (TYPE_CHECK(param, VAL_TYPE(arg))) {
             SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
             return;
@@ -313,7 +313,7 @@ inline static void Finalize_Current_Arg(REBFRM *f) {
 
 
 // !!! Somewhat hacky mechanism for getting the first argument of an action,
-// used when doing typechecks for TYPESET_FLAG_SKIPPABLE on functions that
+// used when doing typechecks for Is_Param_Skippable() on functions that
 // quote their first argument.  Must take into account specialization, as
 // that may have changed the first actual parameter to something other than
 // the first paramlist parameter.
@@ -551,7 +551,7 @@ reevaluate:;
                 //
 
                 Seek_First_Param(f, VAL_ACTION(current_gotten));
-                if (GET_VAL_FLAG(f->param, TYPESET_FLAG_SKIPPABLE))
+                if (Is_Param_Skippable(f->param))
                     if (not TYPE_CHECK(f->param, VAL_TYPE(f->value)))
                         goto give_up_forward_quote_priority;
 
@@ -622,7 +622,7 @@ reevaluate:;
             )
         )){
             Seek_First_Param(f, VAL_ACTION(f->gotten));
-            if (GET_VAL_FLAG(f->param, TYPESET_FLAG_SKIPPABLE))
+            if (Is_Param_Skippable(f->param))
                 if (not TYPE_CHECK(f->param, VAL_TYPE(current)))
                     goto give_up_backward_quote_priority;
 
@@ -975,7 +975,7 @@ reevaluate:;
                 );
 
                 if (f->arg != f->special) {
-                    assert(NOT_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC));
+                    assert(not Is_Param_Variadic(f->param));
 
                     Move_Value(f->arg, f->special); // won't copy the bit
                     SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
@@ -1033,7 +1033,7 @@ reevaluate:;
                     // slot which will react with TRUE to TAIL?, so feed it
                     // from the global empty array.
                     //
-                    if (GET_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC)) {
+                    if (Is_Param_Variadic(f->param)) {
                         RESET_VAL_HEADER_EXTRA(
                             f->arg,
                             REB_VARARGS,
@@ -1050,7 +1050,7 @@ reevaluate:;
                     // data in cases like `(1 + 2 | comment "hi")` => 3, but
                     // left enfix should treat that just like an end.
                     //
-                    if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
+                    if (not Is_Param_Endable(f->param))
                         fail (Error_No_Arg(f, f->param));
 
                     Init_Endish_Nulled(f->arg);
@@ -1086,7 +1086,7 @@ reevaluate:;
                     assert(GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
                   #endif
 
-                    // TYPESET_FLAG_SKIPPABLE accounted for in pre-lookback
+                    // Is_Param_Skippable() accounted for in pre-lookback
 
                     Move_Value(f->arg, f->out);
                     SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
@@ -1136,7 +1136,7 @@ reevaluate:;
                 // somewhat shady, as any evaluations happen *before* the
                 // TAKE on the VARARGS.  Experimental feature.
                 //
-                if (GET_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC)) {
+                if (Is_Param_Variadic(f->param)) {
                     REBARR *array1;
                     if (IS_END(f->arg))
                         array1 = EMPTY_ARRAY;
@@ -1167,7 +1167,7 @@ reevaluate:;
             // back to this call through a reified FRAME!, and are able to
             // consume additional arguments during the function run.
             //
-            if (GET_VAL_FLAG(f->param, TYPESET_FLAG_VARIADIC)) {
+            if (Is_Param_Variadic(f->param)) {
                 RESET_VAL_HEADER(f->arg, REB_VARARGS);
                 INIT_BINDING(f->arg, f->varlist); // frame-based VARARGS!
 
@@ -1249,7 +1249,7 @@ reevaluate:;
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE //////////////////////=//
 
             if (FRM_AT_END(f) or (f->flags.bits & DO_FLAG_BARRIER_HIT)) {
-                if (NOT_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE))
+                if (not Is_Param_Endable(f->param))
                     fail (Error_No_Arg(f, f->param));
 
                 Init_Endish_Nulled(f->arg);
@@ -1312,9 +1312,9 @@ reevaluate:;
     //=//// HARD QUOTED ARG-OR-REFINEMENT-ARG /////////////////////////////=//
 
             case PARAM_CLASS_HARD_QUOTE:
-                if (GET_VAL_FLAG(f->param, TYPESET_FLAG_SKIPPABLE)) {
+                if (Is_Param_Skippable(f->param)) {
                     if (not TYPE_CHECK(f->param, VAL_TYPE(f->value))) {
-                        assert(GET_VAL_FLAG(f->param, TYPESET_FLAG_ENDABLE));
+                        assert(Is_Param_Endable(f->param));
                         Init_Endish_Nulled(f->arg); // not DO_FLAG_BARRIER_HIT
                         SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                         goto continue_arg_loop;
@@ -2627,7 +2627,7 @@ post_switch:;
         GET_VAL_FLAG(f->gotten, ACTION_FLAG_DEFERS_LOOKBACK)
         and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
         and not f->prior->deferred
-        and NOT_VAL_FLAG(f->prior->param, TYPESET_FLAG_ENDABLE)
+        and not Is_Param_Endable(f->prior->param)
     ){
         assert(not (f->flags.bits & DO_FLAG_TO_END));
         assert(Is_Action_Frame_Fulfilling(f->prior));

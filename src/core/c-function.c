@@ -386,18 +386,17 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         //
         // Note there are currently two ways to get NULL: <opt> and <end>.
         // If the typeset bits contain REB_MAX_NULLED, that indicates <opt>.
-        // But the TYPESET_FLAG_ENDABLE indicates <end>.
+        // But Is_Param_Endable() indicates <end>.
         //
         DS_PUSH_TRASH;
         REBVAL *typeset = DS_TOP; // volatile if you DS_PUSH!
         Init_Typeset(
             typeset,
             (flags & MKF_ANY_VALUE)
-                ? ALL_64
-                : ALL_64 & ~(
+                ? TS_OPT_VALUE
+                : TS_VALUE & ~(
                     FLAGIT_KIND(REB_ACTION)
                     | FLAGIT_KIND(REB_VOID)
-                    | FLAGIT_KIND(REB_MAX_NULLED)
                 ),
             VAL_WORD_SPELLING(item) // don't canonize, see #2258
         );
@@ -522,7 +521,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // checks are on the input side, not the output.
             //
             DS_PUSH_TRASH;
-            Init_Typeset(DS_TOP, ALL_64, Canon(SYM_RETURN));
+            Init_Typeset(DS_TOP, TS_OPT_VALUE, Canon(SYM_RETURN));
             INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN);
             definitional_return_dsp = DSP;
 
@@ -910,7 +909,7 @@ REBACT *Make_Action(
             // First argument is not tight, and not specialized, so cache flag
             // to report that fact.
             //
-            if (first_arg and NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN)) {
+            if (first_arg and not Is_Param_Hidden(param)) {
                 SET_VAL_FLAG(rootparam, ACTION_FLAG_DEFERS_LOOKBACK);
                 first_arg = FALSE;
             }
@@ -923,13 +922,13 @@ REBACT *Make_Action(
             //
             // If first argument is tight, and not specialized, no flag needed
             //
-            if (first_arg and NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN))
+            if (first_arg and not Is_Param_Hidden(param))
                 first_arg = FALSE;
             break;
 
         case PARAM_CLASS_HARD_QUOTE:
             if (TYPE_CHECK(param, REB_MAX_NULLED))
-                fail ("Hard quoted function parameters cannot receive voids");
+                fail ("Hard quoted function parameters cannot receive nulls");
 
             goto quote_check; // avoid implicit fallthrough warning
 
@@ -937,7 +936,7 @@ REBACT *Make_Action(
 
         quote_check:;
 
-            if (first_arg and NOT_VAL_FLAG(param, TYPESET_FLAG_HIDDEN)) {
+            if (first_arg and not Is_Param_Hidden(param)) {
                 SET_VAL_FLAG(rootparam, ACTION_FLAG_QUOTES_FIRST_ARG);
                 first_arg = FALSE;
             }
@@ -1285,7 +1284,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
         copy = Copy_And_Bind_Relative_Deep_Managed(
             code, // new copy has locals bound relatively to the new action
             ACT_PARAMLIST(a),
-            TS_ANY_WORD
+            TS_WORD
         );
     }
 

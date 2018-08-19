@@ -148,14 +148,17 @@ static void Assert_Basics(void)
         panic ("bad structure alignment for internal array termination");
     }
 
-    // Void cells currently use REB_MAX for the type bits, and the debug
-    // build uses REB_MAX + 1 for signaling "trash".  At most 64 "Reb_Kind"
-    // types are used at the moment, yet the type is a byte for efficient
-    // reading, so there's little danger of hitting this unless there's
-    // a big change.
+    // While REB_MAX indicates the maximum user-visible type, there are a
+    // list of REB_MAX_PLUS_ONE, REB_MAX_PLUS_TWO, etc. values which are used
+    // for special internal states and flags.  Some of these are used in the
+    // KIND_BYTE() of value cells to mark their usage of alternate payloads
+    // during algorithmic transformations (e.g. specialization).  Others are
+    // used to squeeze extra bits for parameters into the 64-bits of typeset
+    // payload...since the "type-specific-bits" are used for parameter class.
     //
-    assert(REB_MAX < 64);
-    assert(REB_MAX_PLUS_MAX < 256); // limit 
+    // Some rethinking would be necessary if this number exceeds 64.
+    //
+    assert(REB_MAX_PLUS_MAX < 64);
 
     // Make sure tricks for "internal END markers" are lined up as expected.
     //

@@ -757,7 +757,7 @@ REBNATIVE(apply)
     REBVAL *key = CTX_KEYS_HEAD(exemplar);
     REBVAL *var = CTX_VARS_HEAD(exemplar);
     for (; NOT_END(key); key++, ++var) {
-        if (GET_VAL_FLAG(key, TYPESET_FLAG_UNBINDABLE))
+        if (Is_Param_Unbindable(key))
             continue; // shouldn't have been in the binder
         if (GET_VAL_FLAG(var, ARG_MARKED_CHECKED))
             continue; // was part of a specialization internal to the action

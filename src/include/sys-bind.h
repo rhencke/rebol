@@ -694,13 +694,13 @@ inline static REBSPC *Derive_Specifier(REBSPC *parent, const RELVAL *item) {
 //
 
 #define Bind_Values_Deep(values,context) \
-    Bind_Values_Core((values), (context), TS_ANY_WORD, 0, BIND_DEEP)
+    Bind_Values_Core((values), (context), TS_WORD, 0, BIND_DEEP)
 
 #define Bind_Values_All_Deep(values,context) \
-    Bind_Values_Core((values), (context), TS_ANY_WORD, TS_ANY_WORD, BIND_DEEP)
+    Bind_Values_Core((values), (context), TS_WORD, TS_WORD, BIND_DEEP)
 
 #define Bind_Values_Shallow(values, context) \
-    Bind_Values_Core((values), (context), TS_ANY_WORD, 0, BIND_0)
+    Bind_Values_Core((values), (context), TS_WORD, 0, BIND_0)
 
 // Gave this a complex name to warn of its peculiarities.  Calling with
 // just BIND_SET is shallow and tricky because the set words must occur
@@ -708,7 +708,7 @@ inline static REBSPC *Derive_Specifier(REBSPC *parent, const RELVAL *item) {
 //
 #define Bind_Values_Set_Midstream_Shallow(values, context) \
     Bind_Values_Core( \
-        (values), (context), TS_ANY_WORD, FLAGIT_KIND(REB_SET_WORD), BIND_0)
+        (values), (context), TS_WORD, FLAGIT_KIND(REB_SET_WORD), BIND_0)
 
 #define Unbind_Values_Deep(values) \
     Unbind_Values_Core((values), NULL, TRUE)

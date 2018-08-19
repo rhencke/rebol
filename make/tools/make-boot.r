@@ -327,6 +327,8 @@ e-types/emit {
         REB_MAX, /* one past valid types, does double duty as NULL signal */
         REB_MAX_PLUS_ONE, /* used for internal markings and algorithms */
         REB_MAX_PLUS_TWO, /* used to indicate trash in the debug build */
+        REB_MAX_PLUS_THREE, /* used for experimental typeset flag */
+        REB_MAX_PLUS_FOUR, /* also used for experimental typeset flag */
         REB_MAX_PLUS_MAX
     };
 }
@@ -362,13 +364,24 @@ e-types/emit trim/auto copy ensure text! types-header/macros
 
 e-types/emit {
     /*
-    ** TYPESET DEFINITIONS (e.g. TS_ANY_ARRAY or TS_ANY_STRING)
+    ** TYPESET DEFINITIONS (e.g. TS_ARRAY or TS_STRING)
     **
-    ** Note: User-facing typesets, such as ANY-VALUE!, do not include void
+    ** Note: User-facing typesets, such as ANY-VALUE!, do not include null
     ** (absence of a value), nor do they include the internal "REB_0" type.
     */
 
-    #define TS_VALUE ((FLAGIT_KIND(REB_MAX_NULLED) - 1) - FLAGIT_KIND(REB_0))
+    /*
+     * Subtract 1 to get mask for everything but REB_MAX_NULLED
+     * Subtract 1 again to take out REB_0 for END (signal for "endability")
+     */
+    #define TS_VALUE \
+        ((FLAGIT_KIND(REB_MAX) - 1) - 1)
+
+    /*
+     * Similar to TS_VALUE but accept NULL (as REB_MAX)
+     */
+    #define TS_OPT_VALUE \
+        (((FLAGIT_KIND(REB_MAX_NULLED + 1) - 1) - 1))
 }
 typeset-sets: copy []
 
@@ -391,7 +404,7 @@ for-each [ts types] typeset-sets [
     ]
     e-types/emit [flagits ts] {
         #define TS_${TS} ($<Delimit Flagits "|">)
-    }
+    } ;-- !!! TS_ANY_XXX is wordy, considering TS_XXX denotes a typeset
 ]
 
 e-types/write-emitted

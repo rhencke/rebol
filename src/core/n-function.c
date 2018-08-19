@@ -271,8 +271,13 @@ REBNATIVE(typechecker)
     INIT_BINDING(archetype, UNBOUND);
 
     REBVAL *param = Alloc_Tail_Array(paramlist);
-    Init_Typeset(param, ALL_64, Canon(SYM_VALUE));
+    Init_Typeset(
+        param,
+        TS_OPT_VALUE, // Allow null (e.g. <opt>), returns false
+        Canon(SYM_VALUE)
+    );
     INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_NORMAL);
+    assert(not Is_Param_Endable(param));
 
     LINK(paramlist).facade = paramlist;
 
@@ -437,7 +442,7 @@ REBNATIVE(adapt)
     REBARR *prelude = Copy_And_Bind_Relative_Deep_Managed(
         ARG(prelude),
         ACT_PARAMLIST(underlying),
-        TS_ANY_WORD
+        TS_WORD
     );
 
     // The paramlist needs to be unique to designate this function, but
@@ -733,7 +738,7 @@ REBNATIVE(variadic_q)
 
     REBVAL *param = VAL_ACT_PARAMS_HEAD(ARG(action));
     for (; NOT_END(param); ++param) {
-        if (GET_VAL_FLAG(param, TYPESET_FLAG_VARIADIC))
+        if (Is_Param_Variadic(param))
             return R_TRUE;
     }
 
