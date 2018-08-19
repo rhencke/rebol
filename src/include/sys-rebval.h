@@ -217,7 +217,16 @@
 // evaluation (without DO_FLAG_EXPLICIT_EVALUATE), hence it is a "flip" bit.
 //
 #define VALUE_FLAG_EVAL_FLIP \
-    FLAG_LEFT_BIT(22)
+    FLAG_LEFT_BIT(22) // IMPORTANT: Same bit as DO_FLAG_EXPLICIT_EVALUATE
+
+
+//=//// VALUE_FLAG_UNUSED_23 //////////////////////////////////////////////=//
+//
+// Currently available.  Possible use: HIDDEN bit, as the current situation of
+// PROTECT/HIDE being on keylists/paramlists means all instances are affected.
+//
+#define VALUE_FLAG_UNUSED_23 \
+    FLAG_LEFT_BIT(23)
 
 
 // v-- BEGIN PER-TYPE CUSTOM BITS HERE, fourth byte in the header

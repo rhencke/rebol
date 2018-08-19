@@ -132,12 +132,12 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
         Eval_Core_Expression_Checks_Debug(f); \
         if (Start_New_Expression_Throws(f)) \
             g; \
-        evaluating = not ((f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        eval_flag = (f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
 #else
     #define START_NEW_EXPRESSION_MAY_THROW(f,g) \
         if (Start_New_Expression_Throws(f)) \
             g; \
-        evaluating = not ((f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        eval_flag = (f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
 #endif
 
 
@@ -399,13 +399,13 @@ void Eval_Core(REBFRM * const f)
     //
     assert(f->dsp_orig <= DSP);
 
-    REBOOL evaluating; // set on every iteration (varargs do, EVAL/ONLY...)
+    uintptr_t eval_flag; // set each iteration (varargs do, EVAL/ONLY...)
 
     // Handling of deferred lookbacks may need to re-enter the frame and get
     // back to the processing it had put off.
     //
     if (f->flags.bits & DO_FLAG_POST_SWITCH) {
-        evaluating = not (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        eval_flag = f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
 
         // !!! Note EVAL-ENFIX does a crude workaround to preserve this check.
         //
@@ -423,7 +423,7 @@ void Eval_Core(REBFRM * const f)
     assert(not IS_TRASH_DEBUG(f->out));
 
     if (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION) {
-        evaluating = not (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        eval_flag = f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
         f->out->header.bits |= OUT_MARKED_STALE;
 
         assert(f->refine == ORDINARY_ARG); // APPLY infix not (yet?) supported
@@ -435,7 +435,7 @@ void Eval_Core(REBFRM * const f)
 do_next:;
 
     START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-    // ^-- resets local `evaluating` flag, `tick` count, Ctrl-C may abort
+    // ^-- resets local `eval_flag`, `tick` count, Ctrl-C may abort
 
     const RELVAL *current;
     const REBVAL *current_gotten;
@@ -466,25 +466,24 @@ do_next:;
     //
     current = Fetch_Next_In_Frame(f);
 
-reevaluate:;
+  reevaluate:;
 
     // ^-- doesn't advance expression index, so `eval x` starts with `eval`
-    // also EVAL/ONLY may change `evaluating` to FALSE for a cycle
+    // also EVAL/ONLY may change `eval_flag` to FALSE for a cycle
 
     UPDATE_TICK_DEBUG(current);
     // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
 
-    if (evaluating == GET_VAL_FLAG(current, VALUE_FLAG_EVAL_FLIP)) {
+    if (eval_flag ^ (current->header.bits & VALUE_FLAG_EVAL_FLIP)) {
         //
         // Either we're NOT evaluating and there's NO special exemption, or we
         // ARE evaluating and there IS A special exemption.  Treat this as
         // inert.
         //
-        // !!! This check is repeated in function argument fulfillment, and
-        // as this is new and experimental code it's not clear exactly what
-        // the consequences should be to lookahead.  There needs to be
-        // reconsideration now that evaluating-ness is a property that can
-        // be per-frame, per operation, and per-value.
+        // !!! This check is repeated in function argument fulfillment.
+        // It's not clear exactly what the consequences should be to
+        // lookahead.  There needs to be reconsideration now that evaluating
+        // is a property that can be per-frame, per operation, and per-value.
         //
         goto inert;
     }
@@ -510,7 +509,7 @@ reevaluate:;
     if (
         FRM_HAS_MORE(f)
         and IS_WORD(f->value)
-        and evaluating == NOT_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)
+        and not (eval_flag ^ (f->value->header.bits & VALUE_FLAG_EVAL_FLIP))
     ){
         // While the next item may be a WORD! that looks up to an enfixed
         // function, and it may want to quote what's on its left...there
@@ -1209,9 +1208,10 @@ reevaluate:;
                 --f->arg;
                 --f->special;
 
-                REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
-                if (not evaluating)
-                    flags |= DO_FLAG_EXPLICIT_EVALUATE;
+                REBFLGS flags =
+                    DO_FLAG_FULFILLING_ARG
+                    | DO_FLAG_POST_SWITCH
+                    | eval_flag;
 
                 DECLARE_FRAME (child); // capture DSP *now*
                 if (Eval_Step_In_Subframe_Throws(
@@ -1259,15 +1259,13 @@ reevaluate:;
 
     //=//// IF EVAL/ONLY SEMANTICS, TAKE NEXT ARG WITHOUT EVALUATION //////=//
 
-            if (
-                evaluating
-                == GET_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)
-            ){
+            if (eval_flag ^ (f->value->header.bits & VALUE_FLAG_EVAL_FLIP)) {
+                //
                 // Either we're NOT evaluating and there's NO special
                 // exemption, or we ARE evaluating and there IS A special
                 // exemption.  Treat this as if it's quoted.
                 //
-                Quote_Next_In_Frame(f->arg, f); // has VALUE_FLAG_UNEVALUATED
+                Quote_Next_In_Frame(f->arg, f);
                 Finalize_Current_Arg(f);
                 goto continue_arg_loop;
             }
@@ -1277,9 +1275,7 @@ reevaluate:;
    //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
             case PARAM_CLASS_NORMAL: {
-                REBFLGS flags = DO_FLAG_FULFILLING_ARG;
-                if (not evaluating)
-                    flags |= DO_FLAG_EXPLICIT_EVALUATE;
+                REBFLGS flags = DO_FLAG_FULFILLING_ARG | eval_flag;
 
                 DECLARE_FRAME (child); // capture DSP *now*
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
@@ -1297,9 +1293,10 @@ reevaluate:;
                 // act as `(square 1) + 2`, by not applying lookahead to see
                 // the `+` during the argument evaluation.
                 //
-                REBFLGS flags = DO_FLAG_NO_LOOKAHEAD | DO_FLAG_FULFILLING_ARG;
-                if (not evaluating)
-                    flags |= DO_FLAG_EXPLICIT_EVALUATE;
+                REBFLGS flags =
+                    DO_FLAG_NO_LOOKAHEAD
+                    | DO_FLAG_FULFILLING_ARG
+                    | eval_flag;
 
                 DECLARE_FRAME (child);
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
@@ -1680,11 +1677,11 @@ reevaluate:;
             goto redo_unchecked;
 
         case R_07_REEVALUATE_CELL:
-            evaluating = true; // unnecessary?
+            eval_flag = 0; // unnecessary?
             goto prep_for_reevaluate;
 
         case R_08_REEVALUATE_CELL_ONLY:
-            evaluating = false;
+            eval_flag = DO_FLAG_EXPLICIT_EVALUATE;
             goto prep_for_reevaluate;
 
         case R_09_INVISIBLE: {
@@ -1708,7 +1705,7 @@ reevaluate:;
                 Derelativize(&f->cell, f->value, f->specifier);
                 Fetch_Next_In_Frame(f);
 
-                evaluating = true; // unnecessary?
+                eval_flag = 0; // unnecessary?
                 goto prep_for_reevaluate;
             }
 
@@ -1890,7 +1887,7 @@ reevaluate:;
         // set the path *to* can have its own twist coming from the evaluator
         // flip bit and evaluator state.
         //
-        if (evaluating == GET_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)) {
+        if (eval_flag ^ (f->value->header.bits & VALUE_FLAG_EVAL_FLIP)) {
             //
             // Either we're NOT evaluating and there's NO special exemption,
             // or we ARE evaluating and there IS A special exemption.  Treat
@@ -1910,9 +1907,9 @@ reevaluate:;
             //
             DS_PUSH_RELVAL(current, f->specifier);
 
-            REBFLGS flags = DO_FLAG_FULFILLING_SET; // not DO_FLAG_TO_END
-            if (not evaluating)
-                flags |= DO_FLAG_EXPLICIT_EVALUATE;
+            REBFLGS flags = // not DO_FLAG_TO_END
+                DO_FLAG_FULFILLING_SET
+                | eval_flag;
 
             if (Eval_Step_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
                 DS_DROP;
@@ -2151,7 +2148,7 @@ reevaluate:;
         // set the path *to* can have its own twist coming from the evaluator
         // flip bit and evaluator state.
         //
-        if (evaluating == GET_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP)) {
+        if (eval_flag ^ (f->value->header.bits & VALUE_FLAG_EVAL_FLIP)) {
             //
             // Either we're NOT evaluating and there's NO special exemption,
             // or we ARE evaluating and there IS A special exemption.  Treat
@@ -2185,9 +2182,9 @@ reevaluate:;
             //
             DS_PUSH_RELVAL(current, f->specifier);
 
-            REBFLGS flags = DO_FLAG_FULFILLING_SET; // not DO_FLAG_TO_END
-            if (not evaluating)
-                flags |= DO_FLAG_EXPLICIT_EVALUATE;
+            REBFLGS flags =  // not DO_FLAG_TO_END
+                DO_FLAG_FULFILLING_SET
+                | eval_flag;
 
             if (Eval_Step_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
                 DS_DROP;
@@ -2399,9 +2396,9 @@ reevaluate:;
 // NULLED_CELL as an evaluation-already-accounted-for parameter to a function.
 //
 // The exception case is something like `eval ()`, which is the user
-// deliberately trying to invoke the evaluator on a void.  (Not to be confused
+// deliberately trying to invoke the evaluator on a null.  (Not to be confused
 // with `eval quote ()`, which is the evaluation of an empty GROUP!, which
-// produces void, and that's fine).  We choose to deliver an error in the void
+// produces void, and that's fine).  We choose to deliver an error in the null
 // case, which provides a consistency:
 //
 //     :foo/bar => pick foo 'bar (void if not present)
@@ -2410,7 +2407,7 @@ reevaluate:;
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_MAX_NULLED:
-        if (evaluating == GET_VAL_FLAG(current, VALUE_FLAG_EVAL_FLIP)) {
+        if (eval_flag ^ (current->header.bits & VALUE_FLAG_EVAL_FLIP)) {
             Init_Nulled(f->out); // it's inert, treat as okay
         }
         else {
@@ -2490,7 +2487,7 @@ post_switch:;
             goto finished; // only want 1 EVALUATE of work, so stop evaluating
 
         START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-        // ^-- resets evaluating + tick, corrupts f->out, Ctrl-C may abort
+        // ^-- resets eval_flag + tick, corrupts f->out, Ctrl-C may abort
 
         UPDATE_TICK_DEBUG(nullptr);
         // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
@@ -2556,7 +2553,7 @@ post_switch:;
         }
         else {
             START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-            // ^-- resets evaluating + tick, corrupts f->out, Ctrl-C may abort
+            // ^-- resets eval_flag + tick, corrupts f->out, Ctrl-C may abort
 
             UPDATE_TICK_DEBUG(nullptr);
             // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v

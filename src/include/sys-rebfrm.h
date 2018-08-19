@@ -158,23 +158,6 @@
     FLAG_LEFT_BIT(16)
 
 
-//=//// DO_FLAG_EXPLICIT_EVALUATE /////////////////////////////////////////=//
-//
-// Sometimes a DO operation has already calculated values, and does not want
-// to interpret them again.  e.g. the call to the function wishes to use a
-// precalculated WORD! value, and not look up that word as a variable.  This
-// is common when calling Rebol functions from C code when the parameters are
-// known (also present in what R3-Alpha called "APPLY/ONLY")
-//
-// Special escaping operations must be used in order to get evaluation
-// behavior.
-//
-// !!! This feature is in the process of being designed.
-//
-#define DO_FLAG_EXPLICIT_EVALUATE \
-    FLAG_LEFT_BIT(17)
-
-
 //=//// DO_FLAG_NO_LOOKAHEAD //////////////////////////////////////////////=//
 //
 // Infix functions may (depending on the #tight or non-tight parameter
@@ -188,7 +171,7 @@
 // adds this flag to its argument gathering call.
 //
 #define DO_FLAG_NO_LOOKAHEAD \
-    FLAG_LEFT_BIT(18)
+    FLAG_LEFT_BIT(17)
 
 
 //=//// DO_FLAG_NATIVE_12 /////////////////////////////////////////////////=//
@@ -196,7 +179,7 @@
 // Recovered...
 //
 #define DO_FLAG_12 \
-    FLAG_LEFT_BIT(19)
+    FLAG_LEFT_BIT(18)
 
 
 //=//// DO_FLAG_NO_PATH_GROUPS ////////////////////////////////////////////=//
@@ -205,7 +188,7 @@
 // It prevents GET of a PATH! from running GROUP!s.
 //
 #define DO_FLAG_NO_PATH_GROUPS \
-    FLAG_LEFT_BIT(20)
+    FLAG_LEFT_BIT(19)
 
 
 //=//// DO_FLAG_SET_PATH_ENFIXED //////////////////////////////////////////=//
@@ -219,7 +202,7 @@
 // a frame used with SET-PATH! semantics to make its final assignment enfix.
 //
 #define DO_FLAG_SET_PATH_ENFIXED \
-    FLAG_LEFT_BIT(21)
+    FLAG_LEFT_BIT(20)
 
 
 //=//// DO_FLAG_VALUE_IS_INSTRUCTION //////////////////////////////////////=//
@@ -238,7 +221,22 @@
 // duration that f->value points into the singular array's data.
 //
 #define DO_FLAG_VALUE_IS_INSTRUCTION \
-    FLAG_LEFT_BIT(22)
+    FLAG_LEFT_BIT(21)
+
+
+//=//// DO_FLAG_EXPLICIT_EVALUATE /////////////////////////////////////////=//
+//
+// Sometimes a DO operation has already calculated values, and does not want
+// to interpret them again.  e.g. the call to the function wishes to use a
+// precalculated WORD! value, and not look up that word as a variable.  This
+// is common when calling Rebol functions from C code when the parameters are
+// known (also present in what R3-Alpha called "APPLY/ONLY")
+//
+// Special escaping operations must be used in order to get evaluation
+// behavior.
+//
+#define DO_FLAG_EXPLICIT_EVALUATE \
+    FLAG_LEFT_BIT(22) // IMPORTANT: Same bit as VALUE_FLAG_EVAL_FLIP
 
 
 //=//// DO_FLAG_PUSH_PATH_REFINEMENTS /////////////////////////////////////=//
