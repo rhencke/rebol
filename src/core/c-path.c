@@ -124,7 +124,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
     Fetch_Next_In_Frame(pvs); // may be at end
 
-    if (FRM_AT_END(pvs) and pvs->eval_type == REB_SET_PATH) {
+    if (IS_END(pvs->value) and pvs->eval_type == REB_SET_PATH) {
         const REBVAL *opt_setval = pvs->special;
         assert(opt_setval != NULL);
 
@@ -214,7 +214,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             // while they still have memory of what the struct and variable
             // are (which would be lost in this protocol otherwise).
             //
-            assert(FRM_AT_END(pvs));
+            assert(IS_END(pvs->value));
             break;
 
         case R_0A_REFERENCE:
@@ -260,8 +260,8 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             pvs->opt_label = VAL_WORD_SPELLING(pvs->refine);
     }
 
-    if (FRM_AT_END(pvs))
-        return FALSE; // did not throw
+    if (IS_END(pvs->value))
+        return false; // did not throw
 
     return Next_Path_Throws(pvs);
 }
@@ -328,7 +328,7 @@ REBOOL Eval_Path_Throws_Core(
         flags
     );
 
-    if (FRM_AT_END(pvs))
+    if (IS_END(pvs->value))
         fail ("Cannot dispatch empty path");
 
     pvs->eval_type = kind;
@@ -400,7 +400,7 @@ REBOOL Eval_Path_Throws_Core(
 
     Fetch_Next_In_Frame(pvs);
 
-    if (FRM_AT_END(pvs)) {
+    if (IS_END(pvs->value)) {
         // If it was a single element path, return the value rather than
         // try to dispatch it (would cause a crash at time of writing)
         //
@@ -409,9 +409,9 @@ REBOOL Eval_Path_Throws_Core(
     else {
         if (Next_Path_Throws(pvs))
             goto return_thrown;
-    }
 
-    assert(FRM_AT_END(pvs));
+        assert(IS_END(pvs->value));
+    }
 
     if (opt_setval) {
         // If SET then we don't return anything

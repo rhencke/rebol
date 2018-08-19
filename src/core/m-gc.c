@@ -939,7 +939,7 @@ static void Reify_Any_C_Valist_Frames(void)
 
     REBFRM *f = FS_TOP;
     for (; f != FS_BOTTOM; f = f->prior) {
-        if (not FRM_AT_END(f) and FRM_IS_VALIST(f)) {
+        if (NOT_END(f->value) and FRM_IS_VALIST(f)) {
             const REBOOL truncated = TRUE;
             Reify_Va_To_Array_In_Frame(f, truncated);
         }
@@ -1210,7 +1210,7 @@ static void Mark_Frame_Stack_Deep(void)
         // will stay on the stack while the zero-arity function is running.
         // The array still might be used in an error, so can't GC it.
         //
-        if (FRM_HAS_MORE(f)) {
+        if (NOT_END(f->value)) {
             if (Is_Api_Value(f->value)) {
                 //
                 // An API value cell may have been rebRelease'd(), via the

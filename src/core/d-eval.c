@@ -70,7 +70,7 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
         PROBE(dump);
     }
 
-    if (FRM_AT_END(f)) {
+    if (IS_END(f->value)) {
         printf("...then Dump_Frame_Location() is at end of array\n");
         if (not current and not f->value) { // well, that wasn't informative
             if (not f->prior)
@@ -163,7 +163,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
 
     //=//// ^-- ABOVE CHECKS *ALWAYS* APPLY ///////////////////////////////=//
 
-    if (FRM_AT_END(f))
+    if (IS_END(f->value))
         return;
 
     if (NOT_END(f->out) and THROWN(f->out))
@@ -181,8 +181,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
             and (IS_WORD(f->value) or IS_ACTION(f->value))
         );
 
-    assert(f->value);
-    assert(FRM_HAS_MORE(f));
+    assert(NOT_END(f->value));
     assert(not THROWN(f->value));
     assert(f->value != f->out);
 
@@ -362,7 +361,7 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     Eval_Core_Shared_Checks_Debug(f);
 
-    if (not FRM_AT_END(f) and not FRM_IS_VALIST(f)) {
+    if (NOT_END(f->value) and not FRM_IS_VALIST(f)) {
         if (f->source.index > ARR_LEN(f->source.array)) {
             assert(
                 (f->source.pending != NULL and IS_END(f->source.pending))
@@ -373,7 +372,7 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     }
 
     if (f->flags.bits & DO_FLAG_TO_END)
-        assert(THROWN(f->out) or FRM_AT_END(f));
+        assert(THROWN(f->out) or IS_END(f->value));
 
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`
     // (as opposed to `do [1 + ()]`).  Hence Eval_Core() offers the distinction

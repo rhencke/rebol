@@ -48,7 +48,7 @@ REBOOL Reduce_To_Stack_Throws(
     DECLARE_FRAME (f);
     Push_Frame(f, any_array);
 
-    while (not FRM_AT_END(f)) {
+    while (NOT_END(f->value)) {
         REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
 
         if (Eval_Step_In_Frame_Throws(out, f)) {
@@ -225,7 +225,7 @@ REBOOL Compose_To_Stack_Throws(
         f, VAL_ARRAY(any_array), VAL_INDEX(any_array), specifier, DO_MASK_NONE
     );
 
-    while (FRM_HAS_MORE(f)) {
+    while (NOT_END(f->value)) {
         if (not ANY_ARRAY(f->value)) { // non-arrays don't substitute/recurse
             DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
             Fetch_Next_In_Frame(f);

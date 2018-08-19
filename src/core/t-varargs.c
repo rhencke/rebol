@@ -52,10 +52,8 @@ inline static REB_R Vararg_Op_If_No_Advance(
     REBSPC *specifier,
     enum Reb_Param_Class pclass
 ){
-    if (opt_look == NULL)
+    if (IS_END(opt_look))
         return R_For_Vararg_End(op); // exhausted
-
-    assert(NOT_END(opt_look));
 
     if (IS_BAR(opt_look)) {
         //
@@ -182,7 +180,7 @@ REB_R Do_Vararg_Op_May_Throw(
         r = Vararg_Op_If_No_Advance(
             out,
             op,
-            IS_END(shared) ? NULL : VAL_ARRAY_AT(shared), // NULL is protocol
+            IS_END(shared) ? END_NODE : VAL_ARRAY_AT(shared),
             IS_END(shared) ? SPECIFIED : VAL_SPECIFIER(shared),
             pclass
         );
@@ -231,7 +229,7 @@ REB_R Do_Vararg_Op_May_Throw(
             }
 
             if (
-                FRM_AT_END(f_temp)
+                IS_END(f_temp->value)
                 or (f_temp->flags.bits & DO_FLAG_BARRIER_HIT)
             ){
                 SET_END(shared);
@@ -293,8 +291,8 @@ REB_R Do_Vararg_Op_May_Throw(
             out,
             op,
             (f->flags.bits & DO_FLAG_BARRIER_HIT)
-                ? NULL
-                : f->value, // NULL if FRM_AT_END()
+                ? END_NODE
+                : f->value, // might be END
             f->specifier,
             pclass
         );
@@ -657,7 +655,7 @@ void MF_Varargs(REB_MOLD *mo, const RELVAL *v, REBOOL form) {
     else if (Is_Frame_Style_Varargs_Maybe_Null(&f, v)) {
         if (f == NULL)
             Append_Unencoded(mo->series, "!!!");
-        else if (FRM_AT_END(f) or (f->flags.bits & DO_FLAG_BARRIER_HIT))
+        else if (IS_END(f->value) or (f->flags.bits & DO_FLAG_BARRIER_HIT))
             Append_Unencoded(mo->series, "[]");
         else if (pclass == PARAM_CLASS_HARD_QUOTE) {
             Append_Unencoded(mo->series, "[");

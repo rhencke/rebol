@@ -94,14 +94,8 @@ inline static REBOOL FRM_IS_VALIST(REBFRM *f) {
     return f->source.vaptr != NULL;
 }
 
-#define FRM_AT_END(f) \
-    ((f)->value == NULL)
-
-#define FRM_HAS_MORE(f) \
-    ((f)->value != NULL)
-
 inline static REBARR *FRM_ARRAY(REBFRM *f) {
-    assert(FRM_AT_END(f) or not FRM_IS_VALIST(f));
+    assert(IS_END(f->value) or not FRM_IS_VALIST(f));
     return f->source.array;
 }
 
@@ -112,7 +106,7 @@ inline static REBARR *FRM_ARRAY(REBFRM *f) {
 // to accurately present any errors.
 //
 inline static REBCNT FRM_INDEX(REBFRM *f) {
-    if (FRM_AT_END(f))
+    if (IS_END(f->value))
         return ARR_LEN(f->source.array);
 
     assert(not FRM_IS_VALIST(f));
@@ -265,14 +259,15 @@ inline static int FRM_LINE(REBFRM *f) {
 #define D_PROTECT_X(v)      PROTECT_FRM_X(frame_, (v))
 
 inline static REBOOL Is_Action_Frame(REBFRM *f) {
-    if (f->eval_type == REB_ACTION) {
+    if (f->original != nullptr) {
         //
         // Do not count as a function frame unless its gotten to the point
         // of pushing arguments.
         //
-        return f->original != nullptr;
+        assert(f->eval_type == REB_ACTION);
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
 // While a function frame is fulfilling its arguments, the `f->param` will
@@ -288,7 +283,7 @@ inline static REBOOL Is_Action_Frame_Fulfilling(REBFRM *f)
 
 
 inline static void Get_Frame_Label_Or_Blank(REBVAL *out, REBFRM *f) {
-    assert(f->eval_type == REB_ACTION);
+    assert(Is_Action_Frame(f));
     if (f->opt_label != NULL)
         Init_Word(out, f->opt_label); // invoked via WORD! or PATH!
     else
@@ -296,7 +291,7 @@ inline static void Get_Frame_Label_Or_Blank(REBVAL *out, REBFRM *f) {
 }
 
 inline static const char* Frame_Label_Or_Anonymous_UTF8(REBFRM *f) {
-    assert(f->eval_type == REB_ACTION);
+    assert(Is_Action_Frame(f));
     if (f->opt_label != NULL)
         return STR_HEAD(f->opt_label);
     return "[anonymous]";
@@ -304,11 +299,7 @@ inline static const char* Frame_Label_Or_Anonymous_UTF8(REBFRM *f) {
 
 inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
     assert(IS_END(f->gotten)); // is fetched f->value, we'd be invalidating it!
-
-    if (IS_END(value))
-        f->value = NULL;
-    else
-        f->value = value;
+    f->value = value;
 }
 
 
@@ -319,13 +310,9 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// These accessors are designed to make it convenient for natives written in
-// C to access their arguments and refinements.  (They are what is behind the
-// implementation of the INCLUDE_PARAMS_OF_XXX macros that are used in
-// natives.)
-//
-// They capture the implicit Reb_Frame* passed to every REBNATIVE ('frame_')
-// and read the information out cleanly, like this:
+// These accessors are what is behind the INCLUDE_PARAMS_OF_XXX macros that
+// are used in natives.  They capture the implicit Reb_Frame* passed to every
+// REBNATIVE ('frame_') and read the information out cleanly, like this:
 //
 //     PARAM(1, foo);
 //     REFINE(2, bar);
@@ -372,7 +359,7 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
         ACT_PARAM(FRM_PHASE(frame_), (p_##name)) /* a TYPESET! */
 
     #define REF(name) \
-        (not IS_BLANK(ARG(name)))
+        (not IS_BLANK(ARG(name))) /* should be faster than IS_FALSEY() */
 #else
     struct Native_Param {
         int num;

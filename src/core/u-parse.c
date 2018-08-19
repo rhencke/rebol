@@ -98,7 +98,7 @@
     Fetch_Next_In_Frame(f)
 
 #define FETCH_TO_BAR_MAYBE_END(f) \
-    while (FRM_HAS_MORE(f) and not IS_BAR(P_RULE)) \
+    while (NOT_END(f->value) and not IS_BAR(P_RULE)) \
         { FETCH_NEXT_RULE_MAYBE_END(f); }
 
 
@@ -229,7 +229,7 @@ static REBOOL Subparse_Throws(
 
     Drop_Action(f);
 
-    Drop_Frame_Core(f); // may not be FRM_AT_END(f)
+    Drop_Frame_Core(f); // may not be IS_END(f->value)
 
     if (r == R_THROWN) {
         assert(THROWN(out));
@@ -304,7 +304,7 @@ static void Print_Parse_Index(REBFRM *f) {
     // !!! Or does PARSE adjust to ensure it never is past the end, e.g.
     // when seeking a position given in a variable or modifying?
     //
-    if (FRM_AT_END(f)) {
+    if (IS_END(f->value)) {
         if (P_POS >= SER_LEN(P_INPUT))
             Debug_Fmt("[]: ** END **");
         else
@@ -1356,7 +1356,7 @@ REBNATIVE(subparse)
     REBINT mincount = 1; // min pattern count
     REBINT maxcount = 1; // max pattern count
 
-    while (FRM_HAS_MORE(f)) {
+    while (NOT_END(f->value)) {
         //
         // The rule in the block of rules can be literal, while the "real
         // rule" we want to process is the result of a variable fetched from
@@ -1582,7 +1582,7 @@ REBNATIVE(subparse)
 
                     case SYM_IF: {
                         FETCH_NEXT_RULE_MAYBE_END(f);
-                        if (FRM_AT_END(f))
+                        if (IS_END(f->value))
                             fail (Error_Parse_End());
 
                         if (not IS_GROUP(P_RULE))
@@ -1773,7 +1773,7 @@ REBNATIVE(subparse)
             mincount = maxcount = Int32s(const_KNOWN(rule), 0);
 
             FETCH_NEXT_RULE_MAYBE_END(f);
-            if (FRM_AT_END(f))
+            if (IS_END(f->value))
                 fail (Error_Parse_End());
 
             rule = Get_Parse_Value(save, P_RULE, P_RULE_SPECIFIER);
@@ -1782,7 +1782,7 @@ REBNATIVE(subparse)
                 maxcount = Int32s(const_KNOWN(rule), 0);
 
                 FETCH_NEXT_RULE_MAYBE_END(f);
-                if (FRM_AT_END(f))
+                if (IS_END(f->value))
                     fail (Error_Parse_End());
 
                 rule = Get_Parse_Value(save, P_RULE, P_RULE_SPECIFIER);
@@ -1833,7 +1833,7 @@ REBNATIVE(subparse)
 
                 case SYM_TO:
                 case SYM_THRU: {
-                    if (FRM_AT_END(f))
+                    if (IS_END(f->value))
                         fail (Error_Parse_End());
 
                     if (!subrule) { // capture only on iteration #1
@@ -1855,7 +1855,7 @@ REBNATIVE(subparse)
                     if (not IS_SER_ARRAY(P_INPUT))
                         fail (Error_Parse_Rule()); // see #2253
 
-                    if (FRM_AT_END(f))
+                    if (IS_END(f->value))
                         fail (Error_Parse_End());
 
                     if (!subrule) { // capture only on iteration #1
@@ -1875,7 +1875,7 @@ REBNATIVE(subparse)
                 }
 
                 case SYM_INTO: {
-                    if (FRM_AT_END(f))
+                    if (IS_END(f->value))
                         fail (Error_Parse_End());
 
                     if (!subrule) {
@@ -2066,7 +2066,7 @@ REBNATIVE(subparse)
             if (P_POS == NOT_FOUND) {
                 if (flags & PF_THEN) {
                     FETCH_TO_BAR_MAYBE_END(f);
-                    if (FRM_HAS_MORE(f))
+                    if (NOT_END(f->value))
                         FETCH_NEXT_RULE_MAYBE_END(f);
                 }
             }
@@ -2183,7 +2183,7 @@ REBNATIVE(subparse)
                     count = (flags & PF_INSERT) ? 0 : count;
                     REBOOL only = false;
 
-                    if (FRM_AT_END(f))
+                    if (IS_END(f->value))
                         fail (Error_Parse_End());
 
                     if (IS_WORD(P_RULE)) { // check for ONLY flag
@@ -2192,7 +2192,7 @@ REBNATIVE(subparse)
                         case SYM_ONLY:
                             only = true;
                             FETCH_NEXT_RULE_MAYBE_END(f);
-                            if (FRM_AT_END(f))
+                            if (IS_END(f->value))
                                 fail (Error_Parse_End());
                             break;
 
@@ -2306,7 +2306,7 @@ REBNATIVE(subparse)
             // options later in the block to consider separated by |.
 
             FETCH_TO_BAR_MAYBE_END(f);
-            if (FRM_AT_END(f)) // no alternate rule
+            if (IS_END(f->value)) // no alternate rule
                 return Init_Blank(D_OUT);
 
             // Jump to the alternate rule and reset input

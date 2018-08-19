@@ -486,7 +486,7 @@ detect_again:;
         //
         // We're at the end of the variadic input, so end of the line.
         //
-        f->value = nullptr;
+        f->value = END_NODE;
         TRASH_POINTER_IF_DEBUG(f->source.pending);
 
         // The va_end() is taken care of here, or if there is a throw/fail it
@@ -528,7 +528,7 @@ detect_again:;
 // signal that the vaptr (if any) should be consulted next.
 //
 inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
-    assert(FRM_HAS_MORE(f)); // caller should test this first
+    assert(NOT_END(f->value)); // caller should test this first
 
   #ifdef STRESS_EXPIRED_FETCH
     TRASH_CELL_IF_DEBUG(f->stress);
@@ -536,11 +536,11 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
   #endif
 
     // We are changing f->value, and thus by definition any f->gotten value
-    // will be invalid.  It might be "wasteful" to always set this to null,
+    // will be invalid.  It might be "wasteful" to always set this to END,
     // especially if it's going to be overwritten with the real fetch...but
     // at a source level, having every call to Fetch_Next_In_Frame have to
     // explicitly set f->gotten to null is overkill.  Could be split into
-    // a version that just trashes f->gotten in the debug build vs. null.
+    // a version that just trashes f->gotten in the debug build vs. END.
     //
     f->gotten = END_NODE;
 
@@ -574,7 +574,7 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
         TRASH_POINTER_IF_DEBUG(f->source.vaptr); // shouldn't look at again
 
         lookback = f->value;
-        f->value = nullptr;
+        f->value = END_NODE;
         TRASH_POINTER_IF_DEBUG(f->source.pending);
 
         ++f->source.index; // for consistency in index termination state
@@ -624,7 +624,7 @@ inline static void Abort_Frame(REBFRM *f) {
     // Abort_Frame() handles any work that wouldn't be done done naturally by
     // feeding a frame to its natural end.
     // 
-    if (FRM_AT_END(f))
+    if (IS_END(f->value))
         goto pop;
 
     if (FRM_IS_VALIST(f)) {
@@ -649,7 +649,7 @@ inline static void Abort_Frame(REBFRM *f) {
         // any faster...they're usually reified into an array anyway, so
         // the frame processing the array will take the other branch.
 
-        while (not FRM_AT_END(f)) {
+        while (NOT_END(f->value)) {
             const RELVAL *dummy = Fetch_Next_In_Frame(f);
             UNUSED(dummy);
         }
@@ -690,7 +690,7 @@ inline static void Drop_Frame_Core(REBFRM *f) {
 
 inline static void Drop_Frame(REBFRM *f)
 {
-    assert(FRM_AT_END(f));
+    assert(IS_END(f->value));
 
   #if defined(DEBUG_BALANCE_STATE)
     //
@@ -837,7 +837,7 @@ inline static REBOOL Eval_Step_In_Subframe_Throws(
     Drop_Frame_Core(child);
 
     assert(
-        FRM_AT_END(child)
+        IS_END(child->value)
         or FRM_IS_VALIST(child)
         or higher->source.index != child->source.index
         or THROWN(out)
@@ -878,13 +878,13 @@ inline static REBIXO Eval_Array_At_Core(
         SET_FRAME_VALUE(f, opt_first);
         f->source.index = index;
         f->source.pending = ARR_AT(array, index);
-        assert(not FRM_AT_END(f));
+        assert(NOT_END(f->value));
     }
     else {
         SET_FRAME_VALUE(f, ARR_AT(array, index));
         f->source.index = index + 1;
         f->source.pending = f->value + 1;
-        if (FRM_AT_END(f))
+        if (IS_END(f->value))
             return END_FLAG;
     }
 
@@ -943,14 +943,14 @@ inline static void Reify_Va_To_Array_In_Frame(
         Init_Word(DS_TOP, Canon(SYM___OPTIMIZED_OUT__));
     }
 
-    if (FRM_HAS_MORE(f)) {
+    if (NOT_END(f->value)) {
         assert(f->source.pending == END_NODE);
 
         do {
             // may be void.  Preserve VALUE_FLAG_EVAL_FLIP flag.
             DS_PUSH_RELVAL_KEEP_EVAL_FLIP(f->value, f->specifier);
             Fetch_Next_In_Frame(f);
-        } while (FRM_HAS_MORE(f));
+        } while (NOT_END(f->value));
 
         if (truncated)
             f->source.index = 2; // skip the --optimized-out--
@@ -1031,7 +1031,7 @@ inline static REBIXO Eval_Va_Core(
     f->gotten = END_NODE; // SET_FRAME_VALUE() asserts this is end
     if (opt_first) {
         Set_Frame_Detected_Fetch(f, opt_first);
-        assert(not FRM_AT_END(f));
+        assert(NOT_END(f->value));
     }
     else {
       #if !defined(NDEBUG)
@@ -1046,7 +1046,7 @@ inline static REBIXO Eval_Va_Core(
         f->value = junk;
       #endif
         Fetch_Next_In_Frame(f);
-        if (FRM_AT_END(f))
+        if (IS_END(f->value))
             return END_FLAG;
     }
 
@@ -1065,11 +1065,11 @@ inline static REBIXO Eval_Va_Core(
         (flags & DO_FLAG_TO_END) // not just an EVALUATE, but a full DO
         or (f->out->header.bits & OUT_MARKED_STALE) // just ELIDEs and COMMENTs
     ){
-        assert(FRM_AT_END(f));
+        assert(IS_END(f->value));
         return END_FLAG;
     }
 
-    if ((flags & DO_FLAG_NO_RESIDUE) and not FRM_AT_END(f))
+    if ((flags & DO_FLAG_NO_RESIDUE) and NOT_END(f->value))
         fail (Error_Apply_Too_Many_Raw());
 
     return VA_LIST_FLAG; // frame may be at end, next call might just END_FLAG

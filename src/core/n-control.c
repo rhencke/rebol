@@ -480,7 +480,7 @@ REBNATIVE(match)
         if (THROWN(D_CELL))
             return D_CELL;
 
-        assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
+        assert(IS_END(f->value)); // we started at END_FLAG, can only throw
 
         if (IS_VOID(D_CELL))
             fail (Error_Void_Conditional_Raw());
@@ -565,7 +565,7 @@ REBNATIVE(all)
 
     Init_Nulled(D_OUT); // default return result
 
-    while (FRM_HAS_MORE(f)) {
+    while (NOT_END(f->value)) {
         if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return D_OUT;
@@ -600,7 +600,7 @@ REBNATIVE(any)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(block));
 
-    while (FRM_HAS_MORE(f)) {
+    while (NOT_END(f->value)) {
         if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return D_OUT;
@@ -638,7 +638,7 @@ REBNATIVE(none)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(block));
 
-    while (FRM_HAS_MORE(f)) {
+    while (NOT_END(f->value)) {
         if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return D_OUT;
@@ -670,7 +670,7 @@ static REB_R Case_Choose_Core(
 
     Init_Nulled(out); // default return result
 
-    while (FRM_HAS_MORE(f)) {
+    while (NOT_END(f->value)) {
 
         // Perform 1 EVALUATE's worth of evaluation on a "condition" to test
         // Will consume any pending "invisibles" (COMMENT, ELIDE, DUMP...)
@@ -685,7 +685,7 @@ static REB_R Case_Choose_Core(
         //     case [1 > 2 [...] 3 > 4 [...] 10 + 20] = 30
         //     choose [1 > 2 (literal group) 3 > 4 <tag> 10 + 20] = 30
         //
-        if (FRM_AT_END(f)) {
+        if (IS_END(f->value)) {
             Drop_Frame(f);
             return cell;
         }
@@ -852,7 +852,7 @@ REBNATIVE(switch)
 
     Init_Nulled(D_OUT); // used for "fallout"
 
-    while (FRM_HAS_MORE(f)) {
+    while (NOT_END(f->value)) {
         //
         // If a branch is seen at this point, it doesn't correspond to any
         // condition to match.  If no more tests are run, let it suppress the
@@ -910,7 +910,7 @@ REBNATIVE(switch)
         // Skip ahead to try and find a block, to treat as code for the match
 
         while (true) {
-            if (FRM_AT_END(f)) {
+            if (IS_END(f->value)) {
                 Drop_Frame(f);
                 return D_OUT; // last test "falls out", might be void
             }
@@ -987,7 +987,7 @@ REBNATIVE(default)
 
     if (IS_NULLED(target)) { // e.g. `case [... default [...]]`
         UNUSED(ARG(look));
-        if (not FRM_AT_END(frame_)) // !!! shortcut using variadic for now
+        if (NOT_END(frame_->value)) // !!! shortcut using variadic for now
             fail ("DEFAULT usage with no left hand side must be at <end>");
 
         if (Do_Branch_Throws(D_OUT, ARG(branch)))

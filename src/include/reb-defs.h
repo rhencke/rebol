@@ -121,17 +121,10 @@ typedef struct Reb_Node REBNOD;
 #if !defined(CPLUSPLUS_11)
     #define RELVAL \
         struct Reb_Value // same as REBVAL, no checking in C build
-
-    #define const_RELVAL_NO_END_PTR \
-        const struct Reb_Value * // no extra checking in C build
 #else
     struct Reb_Relative_Value; // won't implicitly downcast to REBVAL
     #define RELVAL \
         struct Reb_Relative_Value // *might* be IS_RELATIVE()
-
-    struct const_Reb_Relative_Value_No_End_Ptr;
-    #define const_RELVAL_NO_END_PTR \
-        struct const_Reb_Relative_Value_No_End_Ptr // stops END assignments
 #endif
 
 

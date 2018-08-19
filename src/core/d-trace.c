@@ -127,7 +127,7 @@ void Traced_Eval_Hook(REBFRM * const f)
     // There are a lot of invariants checked on entry to Eval_Core(), but this is
     // a simple one that is important enough to mirror here.
     //
-    assert(FRM_HAS_MORE(f) or (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION));
+    assert(NOT_END(f->value) or (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION));
 
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level) {
@@ -225,7 +225,7 @@ void Traced_Eval_Hook(REBFRM * const f)
             return;
         }
 
-        if (THROWN(f->out) or FRM_AT_END(f)) {
+        if (THROWN(f->out) or IS_END(f->value)) {
             //
             // If we get here, that means the initial request was for a DO
             // to END but we distorted it into stepwise.  We don't restore

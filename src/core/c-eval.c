@@ -432,7 +432,7 @@ void Eval_Core(REBFRM * const f)
 
     f->eval_type = VAL_TYPE(f->value);
 
-do_next:;
+  do_next:;
 
     START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
     // ^-- resets local `eval_flag`, `tick` count, Ctrl-C may abort
@@ -507,8 +507,7 @@ do_next:;
     // edge case.
     //
     if (
-        FRM_HAS_MORE(f)
-        and IS_WORD(f->value)
+        VAL_TYPE_RAW(f->value) == REB_WORD // END would be REB_0
         and not (eval_flag ^ (f->value->header.bits & VALUE_FLAG_EVAL_FLIP))
     ){
         // While the next item may be a WORD! that looks up to an enfixed
@@ -657,7 +656,7 @@ do_next:;
     switch (f->eval_type) {
 
     case REB_0:
-        panic ("REB_0 encountered in Eval_Core"); // internal type, never DO it
+        panic ("REB_0 encountered in Eval_Core"); // current is never END
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
@@ -884,7 +883,7 @@ do_next:;
 
                 --ordered; // not lucky: if in use, this is out of order
 
-            unspecialized_refinement_must_pickup: // only fulfill on 2nd pass
+              unspecialized_refinement_must_pickup: // only fulfill on 2nd pass
 
                 for (; ordered != DS_AT(f->dsp_orig); --ordered) {
                     if (VAL_STORED_CANON(ordered) != param_canon)
@@ -1246,7 +1245,7 @@ do_next:;
 
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE //////////////////////=//
 
-            if (FRM_AT_END(f) or (f->flags.bits & DO_FLAG_BARRIER_HIT)) {
+            if (IS_END(f->value) or (f->flags.bits & DO_FLAG_BARRIER_HIT)) {
                 if (not Is_Param_Endable(f->param))
                     fail (Error_No_Arg(f, f->param));
 
@@ -1401,7 +1400,7 @@ do_next:;
         //
         if (DSP != f->dsp_orig and IS_ISSUE(DS_TOP)) {
 
-        next_pickup:;
+          next_pickup:;
 
             assert(IS_ISSUE(DS_TOP));
 
@@ -1436,7 +1435,7 @@ do_next:;
             goto process_args_for_pickup_or_to_end;
         }
 
-    arg_loop_and_any_pickups_done:;
+      arg_loop_and_any_pickups_done:;
 
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
@@ -1465,12 +1464,12 @@ do_next:;
     //
     //==////////////////////////////////////////////////////////////////==//
 
-    redo_unchecked:;
+      redo_unchecked:;
 
         assert(IS_END(f->param));
         // refine can be anything.
         assert(
-            FRM_AT_END(f)
+            IS_END(f->value)
             or FRM_IS_VALIST(f)
             or IS_VALUE_IN_ARRAY_DEBUG(f->source.array, f->value)
         );
@@ -1535,7 +1534,7 @@ do_next:;
             if (not THROWN(f->out))
                 goto dispatch_completed;
 
-        out_is_thrown:;
+          out_is_thrown:;
 
             if (IS_ACTION(f->out)) {
                 if (
@@ -1698,7 +1697,7 @@ do_next:;
             //
             if (
                 (f->out->header.bits & OUT_MARKED_STALE)
-                and not FRM_AT_END(f)
+                and NOT_END(f->value)
             ){
                 Derelativize(&f->cell, f->value, f->specifier);
                 Fetch_Next_In_Frame(f);
@@ -1709,7 +1708,7 @@ do_next:;
 
             goto skip_output_check; }
 
-        prep_for_reevaluate:
+          prep_for_reevaluate:
 
             current = &f->cell;
             f->eval_type = VAL_TYPE(current);
@@ -1737,7 +1736,7 @@ do_next:;
 
         default: {
             // can be any cell--including thrown value
-            // !!! main focus here is auto-handling API cells, add that!
+            // API cells are auto-released
             //
             assert(r->header.bits & NODE_FLAG_CELL);
             Move_Value(f->out, r);
@@ -1753,7 +1752,7 @@ do_next:;
             break; }
         }
 
-    dispatch_completed:;
+      dispatch_completed:;
 
     //==////////////////////////////////////////////////////////////////==//
     //
@@ -1771,7 +1770,7 @@ do_next:;
         Do_After_Action_Checks_Debug(f);
       #endif
 
-    skip_output_check:;
+      skip_output_check:;
 
         // If we have functions pending to run on the outputs, then do so.
         //
@@ -1874,7 +1873,7 @@ do_next:;
     case REB_SET_WORD:
         assert(IS_SET_WORD(current));
 
-        if (FRM_AT_END(f)) {
+        if (IS_END(f->value)) {
             DECLARE_LOCAL (specific);
             Derelativize(specific, current, f->specifier);
             fail (Error_Need_Value_Raw(specific)); // `do [a:]` is illegal
@@ -2005,8 +2004,7 @@ do_next:;
                 goto finished;
             if (IS_END(f->out)) {
                 f->flags.bits |= DO_FLAG_BARRIER_HIT;
-                if (not FRM_AT_END(f))
-                    f->eval_type = VAL_TYPE(f->value);
+                f->eval_type = VAL_TYPE_RAW(f->value); // may be END
                 goto finished;
             }
             f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // (1) "evaluates"
@@ -2028,7 +2026,7 @@ do_next:;
                 goto finished;
             }
             if (IS_END(&f->cell)) {
-                if (FRM_AT_END(f))
+                if (IS_END(f->value))
                     goto finished; // stale f->out (possibly end) is result
 
                 f->eval_type = VAL_TYPE(f->value);
@@ -2135,7 +2133,7 @@ do_next:;
     case REB_SET_PATH: {
         assert(IS_SET_PATH(current));
 
-        if (FRM_AT_END(f)) {
+        if (IS_END(f->value)) {
             DECLARE_LOCAL (specific);
             Derelativize(specific, current, f->specifier);
             fail (Error_Need_Value_Raw(specific)); // `do [a/b:]` is illegal
@@ -2342,17 +2340,16 @@ do_next:;
             //
             // May be fulfilling a variadic argument (or an argument to an
             // argument of a variadic, etc.)  Let this appear to give back
-            // an END...though if the frame is not FRM_AT_END() then it has
+            // an END...though if the frame is not at an END then it has
             // more potential evaluation after the current action invocation.
             //
             assert(f->out->header.bits & OUT_MARKED_STALE);
-            if (FRM_HAS_MORE(f))
-                f->eval_type = VAL_TYPE(f->value);
+            f->eval_type = VAL_TYPE_RAW(f->value); // may be an END
             f->flags.bits |= DO_FLAG_BARRIER_HIT;
             goto finished;
         }
 
-        if (FRM_AT_END(f))
+        if (IS_END(f->value))
             goto finished; // let stale output (possibly end) be the result
 
         f->eval_type = VAL_TYPE(f->value);
@@ -2426,7 +2423,7 @@ do_next:;
         panic (current);
     }
 
-    if (FRM_AT_END(f))
+    if (IS_END(f->value))
         goto finished;
 
     //==////////////////////////////////////////////////////////////////==//
@@ -2655,14 +2652,14 @@ post_switch:;
     Fetch_Next_In_Frame(f); // advances f->value
     goto process_action;
 
-abort_action:;
+  abort_action:;
 
     assert(THROWN(f->out));
 
     Drop_Action(f);
     DS_DROP_TO(f->dsp_orig); // any unprocessed refinements or chains on stack
 
-finished:;
+  finished:;
 
     // The unevaluated flag is meaningless outside of arguments to functions.
 
@@ -2679,5 +2676,5 @@ finished:;
   #endif
 
     // All callers must inspect for THROWN(f->out), and most should also
-    // inspect for FRM_AT_END(f)
+    // inspect for IS_END(f->value)
 }

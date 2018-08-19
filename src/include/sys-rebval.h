@@ -899,40 +899,4 @@ union Reb_Value_Payload {
         std::is_standard_layout<struct Reb_Value>::value,
         "C++ REBVAL must match C layout: http://stackoverflow.com/a/7189821/"
     );
-
-    // Some operations that run on sequences of arrays and values do not
-    // let ordinary END markers stop them from moving on to the next slice
-    // in the sequence.  Since they've already done an IS_END() test before
-    // fetching their value, it makes sense for them to choose null as their
-    // value for when the final END is seen...to help avoid accidents with
-    // leaking intermediate ends.  If a value slot is being assigned through
-    // such a process, it helps to have an added layer of static analysis
-    // to assure it's never tested for end.
-    //
-    struct const_Reb_Relative_Value_No_End_Ptr {
-        const Reb_Relative_Value *p;
-
-        const_Reb_Relative_Value_No_End_Ptr () {}
-        const_Reb_Relative_Value_No_End_Ptr (const Reb_Relative_Value *p)
-            : p (p) {}
-
-        operator const Reb_Relative_Value* () { return p; }
-        explicit operator Reb_Relative_Value* () {
-            return const_cast<Reb_Relative_Value*>(p);
-        }
-
-        const Reb_Relative_Value* operator-> () { return p; } 
-
-        const_Reb_Relative_Value_No_End_Ptr operator= (
-            const Reb_Relative_Value *rhs
-        ){
-            // The static checking only affects IS_END(), there's no
-            // compile-time check that can determine if an END is assigned.
-            //
-            assert(not rhs or (SECOND_BYTE(rhs->header) != REB_0));
-
-            p = rhs;
-            return rhs;
-        }
-    };
 #endif

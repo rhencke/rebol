@@ -128,7 +128,7 @@ REBNATIVE(eval_enfix)
         fail ("EVAL-ENFIX is not made to support MAKE VARARGS! [...] rest");
     }
 
-    if (FRM_AT_END(f)) // no PATH! yet...
+    if (IS_END(f->value)) // no PATH! yet...
         fail ("ME and MY hit end of input");
 
     DECLARE_FRAME (child); // capture DSP *now*, before any refinements push
@@ -301,7 +301,7 @@ REBNATIVE(do)
         DECLARE_FRAME (child);
         REBFLGS flags = 0;
         Init_Void(D_OUT);
-        while (not FRM_AT_END(f)) {
+        while (NOT_END(f->value)) {
             if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
                 return D_OUT;
         }
@@ -414,7 +414,7 @@ REBNATIVE(do)
         if (THROWN(f->out))
             return f->out; // prohibits recovery from exits
 
-        assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
+        assert(IS_END(f->value)); // we started at END_FLAG, can only throw
 
         return f->out; }
 
@@ -540,7 +540,7 @@ REBNATIVE(evaluate)
         //
         DECLARE_FRAME (child);
         REBFLGS flags = 0;
-        if (FRM_AT_END(f))
+        if (IS_END(f->value))
             return nullptr;
 
         if (Eval_Step_In_Subframe_Throws(SET_END(D_CELL), f, flags, child))
@@ -818,6 +818,6 @@ REBNATIVE(apply)
     if (THROWN(f->out))
         return f->out;
 
-    assert(FRM_AT_END(f)); // we started at END_FLAG, can only throw
+    assert(IS_END(f->value)); // we started at END_FLAG, can only throw
     return D_OUT;
 }
