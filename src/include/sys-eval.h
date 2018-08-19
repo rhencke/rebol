@@ -222,7 +222,7 @@ inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
     f->source.array = EMPTY_ARRAY; // for setting HOLD flag in Push_Frame
     TRASH_POINTER_IF_DEBUG(f->source.pending);
     //
-    f->gotten = nullptr;
+    f->gotten = END_NODE;
     SET_FRAME_VALUE(f, END_NODE);
     f->specifier = SPECIFIED;
 
@@ -253,7 +253,7 @@ inline static void Push_Frame_At(
 ){
     f->flags = Endlike_Header(flags);
 
-    f->gotten = nullptr; // tells Eval_Core() it must fetch for REB_WORD, etc.
+    f->gotten = END_NODE; // Eval_Core() must fetch for REB_WORD, etc.
     SET_FRAME_VALUE(f, ARR_AT(array, index));
 
     f->source.vaptr = nullptr;
@@ -542,7 +542,7 @@ inline static const RELVAL *Fetch_Next_In_Frame(REBFRM *f) {
     // explicitly set f->gotten to null is overkill.  Could be split into
     // a version that just trashes f->gotten in the debug build vs. null.
     //
-    f->gotten = nullptr;
+    f->gotten = END_NODE;
 
     const RELVAL *lookback;
 
@@ -873,7 +873,7 @@ inline static REBIXO Eval_Array_At_Core(
 
     f->source.vaptr = nullptr;
     f->source.array = array;
-    f->gotten = nullptr; // SET_FRAME_VALUE() asserts this is null
+    f->gotten = END_NODE; // SET_FRAME_VALUE() asserts this is an end
     if (opt_first) {
         SET_FRAME_VALUE(f, opt_first);
         f->source.index = index;
@@ -1028,7 +1028,7 @@ inline static REBIXO Eval_Va_Core(
     f->source.array = nullptr;
     f->source.vaptr = vaptr;
     f->source.pending = END_NODE; // signal next fetch comes from va_list
-    f->gotten = nullptr; // SET_FRAME_VALUE() asserts this is null
+    f->gotten = END_NODE; // SET_FRAME_VALUE() asserts this is end
     if (opt_first) {
         Set_Frame_Detected_Fetch(f, opt_first);
         assert(not FRM_AT_END(f));

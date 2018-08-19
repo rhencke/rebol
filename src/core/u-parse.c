@@ -181,7 +181,7 @@ static REBOOL Subparse_Throws(
     SET_END(out);
     f->out = out;
 
-    f->gotten = nullptr;
+    f->gotten = END_NODE;
     SET_FRAME_VALUE(f, VAL_ARRAY_AT(rules)); // not an END due to test above
     f->specifier = Derive_Specifier(rules_specifier, rules);
 

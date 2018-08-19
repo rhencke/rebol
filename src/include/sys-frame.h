@@ -303,7 +303,7 @@ inline static const char* Frame_Label_Or_Anonymous_UTF8(REBFRM *f) {
 }
 
 inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
-    assert(not f->gotten); // is fetched f->value, we'd be invalidating it!
+    assert(IS_END(f->gotten)); // is fetched f->value, we'd be invalidating it!
 
     if (IS_END(value))
         f->value = NULL;
