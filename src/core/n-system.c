@@ -390,10 +390,8 @@ REBNATIVE(c_debug_break_at)
 //
 //  "Break at next evaluation point (only use when running under C debugger)"
 //
-//      return: [<opt> any-value!]
+//      return: []
 //          {Invisibly returns what the expression to the right would have}
-//      :value [<end> any-value!]
-//          {The head cell of the code to evaluate after the break happens}
 //  ]
 //
 REBNATIVE(c_debug_break)
@@ -401,31 +399,17 @@ REBNATIVE(c_debug_break)
     INCLUDE_PARAMS_OF_C_DEBUG_BREAK;
 
   #if !defined(NDEBUG) && defined(DEBUG_COUNT_TICKS)
-    TG_Break_At_Tick = frame_->tick + 1;
-
-    // C-DEBUG-BREAK wants to appear invisible to the evaluator, so you can
-    // use it at any position (like PROBE).  But unlike PROBE, it doesn't want
-    // an evaluated argument...because that would defeat the purpose:
+    //
+    // For instance with:
     //
     //    print c-debug-break mold value
     //
-    // You would like the break to happen *before* the MOLD, not after it's
-    // happened and been passed as an argument!)
+    // Queue it so the break happens right before the MOLD, not after it
+    // happened and has been passed as an argument.
     //
-    // So we take a hard quoted parameter and then reuse the same mechanic
-    // that EVAL does.  However, the evaluator is picky about voids...and will
-    // assert if it ever is asked to "evaluate" one.  So squash the request
-    // to evaluate if it's a void.
-    //
-    Move_Value(D_CELL, ARG(value));
-    if (IS_NULLED(D_CELL))
-        SET_VAL_FLAG(D_CELL, VALUE_FLAG_EVAL_FLIP);
-
-    return R_REEVALUATE_CELL;
-
+    TG_Break_At_Tick = frame_->tick + 1;
+    return R_INVISIBLE;
   #else
-    UNUSED(ARG(value));
-
     fail (Error_Debug_Only_Raw());
   #endif
 }

@@ -1993,12 +1993,11 @@ reevaluate:;
         REBCNT index = VAL_INDEX(current); // index may not be @ head
         REBSPC *derived = Derive_Specifier(f->specifier, current);
 
-        if (f->flags.bits & DO_FLAG_FULFILLING_ARG) {
+        if (IS_END(f->out)) {
             //
             // No need for a temporary cell...we know we're starting from an
             // END cell so determining if the GROUP! is invisible is easy.
             //
-            assert(IS_END(f->out));
             REBIXO indexor = Eval_Array_At_Core(
                 f->out,
                 nullptr, // opt_first (null means nothing, not nulled cell)
