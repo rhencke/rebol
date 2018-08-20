@@ -80,6 +80,7 @@ WITH_TCC?= no
 STATIC?= no
 CONFIG?=default-config.r
 ODBC_REQUIRES_LTDL?= no
+TARGET?= top
 
 NUM_JOBS?=8
 
@@ -106,7 +107,7 @@ top: makefile
 	$(MAKE) prep
 	$(MAKE) folders
 	echo "Going to build with $(NUM_JOBS) jobs"
-	$(MAKE) -j $(NUM_JOBS) top
+	$(MAKE) -j $(NUM_JOBS) $(TARGET)
 
 # .FORCE is a file assumed to not exist, and is an idiom in makefiles to have
 # a null "phony target" you can use as a dependency for a target representing
