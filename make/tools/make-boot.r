@@ -321,7 +321,11 @@ e-types/emit {
      * as there are no corresponding DATATYPE!s for them.  But the values are
      * used for out-of-band purposes, which should be kept in consideration.
      */
+  #ifdef CPLUSPLUS_11
+    enum Reb_Kind : int_fast8_t {
+  #else
     enum Reb_Kind {
+  #endif
         REB_0 = 0, /* reserved for internal array termination signal */
         $[Rebs],
         REB_MAX, /* one past valid types, does double duty as NULL signal */
@@ -330,8 +334,12 @@ e-types/emit {
         REB_MAX_PLUS_THREE, /* used for experimental typeset flag */
         REB_MAX_PLUS_FOUR, /* also used for experimental typeset flag */
         REB_MAX_PLUS_MAX
+  #ifdef CPLUSPLUS_11
     };
-}
+  #else
+    };
+  #endif
+} ;-- weird close brace thing needed to pair braces inside string literal
 e-types/emit newline
 
 e-types/emit {
