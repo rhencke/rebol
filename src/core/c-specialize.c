@@ -1031,7 +1031,7 @@ REBOOL Make_Invocation_Frame_Throws(
             " being simulated from a BLOCK! (e.g. MAKE VARARGS! [...])"
         );
 
-    assert(parent->eval_type == REB_ACTION);
+    assert(Is_Action_Frame(parent));
 
     // Slip the REBFRM a dsp_orig which may be lower than the DSP captured by
     // DECLARE_FRAME().  This way, it will see any pushes done during a
@@ -1052,7 +1052,8 @@ REBOOL Make_Invocation_Frame_Throws(
     // it is desired that any voids encountered be processed as if they are
     // not specialized...and gather at the callsite if necessary.
     //
-    f->flags = Endlike_Header(DO_FLAG_GOTO_PROCESS_ACTION);
+    f->flags = Endlike_Header(DO_MASK_NONE);
+    f->eval_type = REB_E_GOTO_PROCESS_ACTION;
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);

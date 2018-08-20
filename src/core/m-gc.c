@@ -1191,8 +1191,7 @@ static void Mark_Frame_Stack_Deep(void)
     REBFRM *f = FS_TOP;
 
     while (true) { // mark all frames (even FS_BOTTOM)
-        assert(f->eval_type <= REB_MAX_NULLED);
-
+        //
         // Should have taken care of reifying all the VALIST on the stack
         // earlier in the recycle process (don't want to create new arrays
         // once the recycling has started...)

@@ -65,6 +65,27 @@
 // *without* evaluation.  This introduced EVAL/ONLY.
 
 
+// f->eval_type is initialized with either the type of f->value, or a
+// "pseudotype" value above REB_MAX, which indicates a desire to jump to a
+// mode inside the evaluator.
+//
+
+// Used to indicate that the Eval_Core code is being jumped into directly to
+// process an ACTION!, in a varlist that has already been set up.
+//
+#define REB_E_GOTO_PROCESS_ACTION \
+    REB_MAX_PLUS_ONE
+
+// This jump allows a deferred lookback to compensate for the lack of the
+// evaluator's ability to (easily) be psychic about when it is gathering the
+// last argument of a function.  It allows re-entery to argument gathering at
+// the point after the switch() statement, with a preloaded f->out.
+//
+#define REB_E_POST_SWITCH \
+    REB_MAX_PLUS_TWO
+
+
+
 // The default for Eval_Core() operation is just a single EVALUATE, where args
 // to functions are evaluated (vs. quoted), and lookahead is enabled.
 //
@@ -96,14 +117,11 @@
     FLAG_LEFT_BIT(2)
 
 
-//=//// DO_FLAG_POST_SWITCH ///////////////////////////////////////////////=//
+//=//// DO_FLAG_UNUSED_3 //////////////////////////////////////////////////=//
 //
-// This flag allows a deferred lookback to compensate for the lack of the
-// evaluator's ability to (easily) be psychic about when it is gathering the
-// last argument of a function.  It allows re-entery to argument gathering at
-// the point after the switch() statement, with a preloaded f->out.
+// Reclaimed.
 //
-#define DO_FLAG_POST_SWITCH \
+#define DO_FLAG_UNUSED_3 \
     FLAG_LEFT_BIT(3)
 
 
@@ -118,12 +136,11 @@
     FLAG_LEFT_BIT(4)
 
 
-//=//// DO_FLAG_GOTO_PROCESS_ACTION ///////////////////////////////////////=//
+//=//// DO_FLAG_UNUSED_5 //////////////////////////////////////////////////=//
 //
-// Used to indicate that the Eval_Core code is being jumped into directly to
-// process an ACTION!, in a varlist that has already been set up.
+// Reclaimed.
 //
-#define DO_FLAG_GOTO_PROCESS_ACTION \
+#define DO_FLAG_UNUSED_5 \
     FLAG_LEFT_BIT(5)
 
 
@@ -436,10 +453,9 @@ struct Reb_Frame {
 
     // `prior`
     //
-    // The prior call frame (may be NULL if this is the topmost stack call).
-    //
-    // !!! Should there always be a known "top stack level" so prior does
-    // not ever have to be tested for NULL from within Eval_Core?
+    // The prior call frame.  This never needs to be checked against nullptr,
+    // because the bottom of the stack is FS_BOTTOM which is allocated at
+    // startup and never used to run code.
     //
     struct Reb_Frame *prior;
 

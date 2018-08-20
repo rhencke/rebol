@@ -36,15 +36,15 @@
 //
 // NOTES:
 //
-// * Eval_Core() is a very long routine.  That is largely on purpose, because it
+// * Eval_Core() is a long routine.  That is largely on purpose, because it
 //   doesn't contain repeated portions.  If it were broken into functions that
 //   would add overhead for little benefit, and prevent interesting tricks
 //   and optimizations.  Note that it is separated into sections, and
 //   the invariants in each section are made clear with comments and asserts.
 //
 // * The evaluator only moves forward, and it consumes exactly one element
-//   from the input at a time.  This input must be locked read-only for the
-//   duration of the execution.  At the moment it can be an array tracked by
+//   from the input at a time.  Input is held read-only (SERIES_INFO_HOLD) for
+//   the duration of execution.  At the moment it can be an array tracked by
 //   index and incrementation, or it may be a C va_list which tracks its own
 //   position on each fetch through a forward-only iterator.
 //
@@ -91,7 +91,7 @@
 // wants to preface the call by dumping the frame, and postfix it by showing
 // the evaluative result.
 //
-// This adds one level of function cost into every dispatch--but well worth it
+// This adds one level of C function into every dispatch--but well worth it
 // for the functionality.  Note also that R3-Alpha had `if (Trace_Flags)`
 // in the main loop before and after function dispatch, which was more costly
 // and much less flexible.  Nevertheless, sneaky lower-level-than-C tricks
@@ -143,7 +143,7 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 
 #ifdef DEBUG_COUNT_TICKS
     //
-    // Macro for same stack level as Eval_Core when debugging at TICK_BREAKPOINT
+    // Macro for same stack level as Eval_Core when debugging TICK_BREAKPOINT
     //
     #define UPDATE_TICK_DEBUG(cur) \
         do { \
@@ -404,7 +404,7 @@ void Eval_Core(REBFRM * const f)
     // Handling of deferred lookbacks may need to re-enter the frame and get
     // back to the processing it had put off.
     //
-    if (f->flags.bits & DO_FLAG_POST_SWITCH) {
+    if (f->eval_type == REB_E_POST_SWITCH) {
         eval_flag = f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
 
         // !!! Note EVAL-ENFIX does a crude workaround to preserve this check.
@@ -412,8 +412,7 @@ void Eval_Core(REBFRM * const f)
         assert(f->prior->deferred);
 
         assert(NOT_END(f->out));
-        f->flags.bits &= ~DO_FLAG_POST_SWITCH; // !!! unnecessary?
-        goto post_switch;
+        goto post_switch; // updates f->eval_type
     }
 
     // When Eval_Core() is entered, the out slot may be preserved.  If it is,
@@ -422,15 +421,15 @@ void Eval_Core(REBFRM * const f)
     //
     assert(not IS_TRASH_DEBUG(f->out));
 
-    if (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION) {
+    if (f->eval_type == REB_E_GOTO_PROCESS_ACTION) {
         eval_flag = f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
         f->out->header.bits |= OUT_MARKED_STALE;
 
         assert(f->refine == ORDINARY_ARG); // APPLY infix not (yet?) supported
-        goto process_action;
+        goto process_action; // !!!! um...I think updates f->eval_type?
     }
 
-    f->eval_type = VAL_TYPE(f->value);
+    assert(f->eval_type == VAL_TYPE(f->value));
 
   do_next:;
 
@@ -703,10 +702,10 @@ void Eval_Core(REBFRM * const f)
         // expression from values that come after the invocation point.  But
         // not all parameters will consume arguments for all calls.
 
-    process_action:; // Note: Also jumped to by the redo_checked code
+      process_action:; // Note: Also jumped to by the redo_checked code
 
       #if !defined(NDEBUG)
-        assert(f->eval_type == REB_ACTION); // set by Begin_Action()
+        assert(f->original); // set by Begin_Action()
         Do_Process_Action_Checks_Debug(f);
       #endif
 
@@ -718,7 +717,7 @@ void Eval_Core(REBFRM * const f)
 
         f->doing_pickups = false;
 
-    process_args_for_pickup_or_to_end:;
+      process_args_for_pickup_or_to_end:;
 
         for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
             enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
@@ -1207,12 +1206,11 @@ void Eval_Core(REBFRM * const f)
 
                 REBFLGS flags =
                     DO_FLAG_FULFILLING_ARG
-                    | DO_FLAG_POST_SWITCH
                     | eval_flag;
 
                 DECLARE_FRAME (child); // capture DSP *now*
-                if (Eval_Step_In_Subframe_Throws(
-                    f->deferred, // old f->arg preload for DO_FLAG_POST_SWITCH
+                if (Eval_Post_Switch_In_Subframe_Throws(
+                    f->deferred, // old f->arg preload
                     f,
                     flags,
                     child
@@ -1859,25 +1857,17 @@ void Eval_Core(REBFRM * const f)
 // be maintained.
 //
 // Recursion into Eval_Core() is used, but a new frame is not created.  So
-// it reuses `f` with a lighter-weight approach.  Eval_Step_Mid_Frame_Throws()
+// it reuses `f` with a lighter-weight approach, gathering state only on the
+// data stack (which provides GC protection).  Eval_Step_Mid_Frame_Throws()
 // has remarks on how this is done.
-//
-// !!! Note that `10 = 5 + 5` would be an error due to lookahead suppression
-// from `=`, so it reads as `(10 = 5) + 5`.  However `10 = x: 5 + 5` will not
-// be an error, as the SET-WORD! causes a recursion in the evaluator.  This
-// is unusual, but there are advantages to seeing SET-WORD! as a kind of
-// single-arity function.
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_SET_WORD:
         assert(IS_SET_WORD(current));
 
-        if (IS_END(f->value)) {
-            DECLARE_LOCAL (specific);
-            Derelativize(specific, current, f->specifier);
-            fail (Error_Need_Value_Raw(specific)); // `do [a:]` is illegal
-        }
+        if (IS_END(f->value)) // `do [a:]` is illegal
+            fail (Error_Need_Value_Core(current, f->specifier));
 
         // The SET-WORD! was deemed active otherwise we wouldn't have entered
         // the switch for it.  But the right hand side f->value we're going to
@@ -2133,11 +2123,8 @@ void Eval_Core(REBFRM * const f)
     case REB_SET_PATH: {
         assert(IS_SET_PATH(current));
 
-        if (IS_END(f->value)) {
-            DECLARE_LOCAL (specific);
-            Derelativize(specific, current, f->specifier);
-            fail (Error_Need_Value_Raw(specific)); // `do [a/b:]` is illegal
-        }
+        if (IS_END(f->value)) // `do [a/b:]` is illegal
+            fail (Error_Need_Value_Core(current, f->specifier));
 
         // The SET-PATH! was deemed active otherwise we wouldn't have entered
         // the switch for it.  But the right hand side f->value we're going to
@@ -2385,31 +2372,24 @@ void Eval_Core(REBFRM * const f)
 //
 // [NULL]
 //
-// NULL is not an ANY-VALUE!, and nulled cells are not allowed in ANY-ARRAY!
-// exposed to the user.  So usually, a DO shouldn't be able to see them,
-// unless they are un-evaluated...e.g. `Apply_Only_Throws()` passes in a
-// NULLED_CELL as an evaluation-already-accounted-for parameter to a function.
+// NULLs are not an ANY-VALUE!.  Usually a DO shouldn't be able to see them.
+// An exception is in API calls, such as `rebRun("null?", some_null)`.  That
+// is legal due to VALUE_FLAG_EVAL_FLIP, which avoids "double evaluation",
+// and is used by the API when constructing runs of values from C va_args.
 //
-// The exception case is something like `eval ()`, which is the user
-// deliberately trying to invoke the evaluator on a null.  (Not to be confused
-// with `eval quote ()`, which is the evaluation of an empty GROUP!, which
-// produces void, and that's fine).  We choose to deliver an error in the null
-// case, which provides a consistency:
+// Another way the evaluator can see NULL is EVAL, such as `eval first []`.
+// An error is given there, for consistency:
 //
-//     :foo/bar => pick foo 'bar (void if not present)
+//     :foo/bar => pick foo 'bar (null if not present)
 //     foo/bar => eval :foo/bar (should be an error if not present)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_MAX_NULLED:
-        if (eval_flag ^ (current->header.bits & VALUE_FLAG_EVAL_FLIP)) {
+        if (eval_flag ^ (current->header.bits & VALUE_FLAG_EVAL_FLIP))
             Init_Nulled(f->out); // it's inert, treat as okay
-        }
-        else {
-            // must be EVAL, so the value must be living in the frame cell
-            //
+        else
             fail (Error_Evaluate_Null_Raw());
-        }
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//

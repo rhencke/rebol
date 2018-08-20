@@ -81,8 +81,6 @@ inline static REBVAL *CTX_ARCHETYPE(REBCTX *c) {
     // If a context has its data freed, it must be converted into non-dynamic
     // form if it wasn't already (e.g. if it wasn't a FRAME!)
     //
-    if (GET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE))
-        panic (varlist);
     assert(NOT_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE));
     return cast(REBVAL*, varlist->content.dynamic.data);
 }
@@ -147,10 +145,8 @@ inline static REBFRM *CTX_FRAME_IF_ON_STACK(REBCTX *c) {
     assert(NOT_SER_INFO(CTX_VARLIST(c), SERIES_INFO_INACCESSIBLE));
     assert(IS_FRAME(CTX_ARCHETYPE(c)));
 
-    // Note: inlining of Is_Action_Frame() to break dependency
-    //
     REBFRM *f = FRM(keysource);
-    assert(f->eval_type == REB_ACTION and f->original != NULL);
+    assert(f->original); // inline Is_Action_Frame() to break dependency
     return f;
 }
 

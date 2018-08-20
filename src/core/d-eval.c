@@ -324,7 +324,6 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
 //  Do_After_Action_Checks_Debug: C
 //
 void Do_After_Action_Checks_Debug(REBFRM *f) {
-    assert(f->eval_type == REB_ACTION);
     assert(NOT_END(f->out));
     assert(not THROWN(f->out));
 

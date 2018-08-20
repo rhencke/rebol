@@ -127,7 +127,7 @@ void Traced_Eval_Hook(REBFRM * const f)
     // There are a lot of invariants checked on entry to Eval_Core(), but this is
     // a simple one that is important enough to mirror here.
     //
-    assert(NOT_END(f->value) or (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION));
+    assert(NOT_END(f->value) or (f->eval_type == REB_E_GOTO_PROCESS_ACTION));
 
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level) {
@@ -145,7 +145,7 @@ void Traced_Eval_Hook(REBFRM * const f)
 
     while (TRUE) {
         if (not (
-            (f->flags.bits & DO_FLAG_GOTO_PROCESS_ACTION) // only value is END
+            (f->eval_type == REB_E_GOTO_PROCESS_ACTION) // only value is END
             or IS_ACTION(f->value)
             or (Trace_Flags & TRACE_FLAG_FUNCTION)
         )){

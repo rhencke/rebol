@@ -820,7 +820,8 @@ REBVAL *RL_rebRescue(
     f->out = m_cast(REBVAL*, END_NODE); // should not be written
 
     REBSTR *opt_label = NULL;
-    Push_Frame_At_End(f, DO_FLAG_GOTO_PROCESS_ACTION); // not FULLY_SPECIALIZED
+    Push_Frame_At_End(f, DO_MASK_NONE); // not FULLY_SPECIALIZED
+    f->eval_type = REB_E_GOTO_PROCESS_ACTION;
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);

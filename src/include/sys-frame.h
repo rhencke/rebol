@@ -264,7 +264,6 @@ inline static REBOOL Is_Action_Frame(REBFRM *f) {
         // Do not count as a function frame unless its gotten to the point
         // of pushing arguments.
         //
-        assert(f->eval_type == REB_ACTION);
         return true;
     }
     return false;
@@ -427,7 +426,6 @@ inline static void Begin_Action(
     REBSTR *opt_label,
     REBVAL *mode // LOOKBACK_ARG or ORDINARY_ARG or END
 ){
-    f->eval_type = REB_ACTION; // must set here, frame label fetch requires it
     assert(not f->original);
     f->original = FRM_PHASE_OR_DUMMY(f);
 
