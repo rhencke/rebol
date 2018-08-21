@@ -649,7 +649,7 @@ map-each-api [
             $<Name> = function() {
                 var argc = arguments.length;
                 var stack = stackSave();
-                var va = allocate(4 * (argc+1), '', ALLOC_STACK);
+                var va = allocate(4 * (argc + 1 + 1), '', ALLOC_STACK);
                 var a, i, l, p;
                 for (i=0; i < argc; i++) {
                     a = arguments[i];
@@ -669,15 +669,23 @@ map-each-api [
                     HEAP32[(va>>2)+i] = p;
                 }
 
-                // !!! There's no rebEnd() API now, it's just a 2-byte sequence at an
-                // address; how to do this better?  See rebEND definition.
+                // There's no rebEnd() API now.  It's a 2-byte sequence, but
+                // must live at some address.
                 //
-                p = allocate(4, '', ALLOC_STACK);
-                setValue(p, -127, 'i8') // 0x80
-                setValue(p + 1, 0, 'i8') // 0x00
-                HEAP32[(va>>2)+argc] = p;
+                // !!! Find a way to do this that doesn't leak; adding it as
+                // some global in the rebStartup/rebShutdown?
+                //
+                var rebEnd = _malloc(2);
+                setValue(rebEnd, -127, 'i8'); // 0x80
+                setValue(rebEnd + 1, 0, 'i8'); // 0x00
+                HEAP32[(va>>2) + argc] = rebEnd;
 
-                a = _RL_$<Name>(HEAP32[va>>2], va+4);
+                // va + 4 is where the first vararg is, must pass as *address*
+                // Just put the address on the heap after the rebEND
+                //
+                HEAP32[(va>>2) + (argc + 1)] = va + 4;
+
+                a = _RL_$<Name>(HEAP32[va>>2], va + 4 * (argc + 1));
                 stackRestore(stack);
                 return a;
             }
