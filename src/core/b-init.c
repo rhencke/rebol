@@ -912,7 +912,7 @@ static void Init_System_Object(
 
     // Create the system object from the sysobj block (defined in %sysobj.r)
     //
-    REBCTX *system = Make_Selfish_Context_Detect(
+    REBCTX *system = Make_Selfish_Context_Detect_Managed(
         REB_OBJECT, // type
         spec_head, // scan for toplevel set-words
         NULL // parent

@@ -98,10 +98,9 @@ REBTYPE(Datatype)
             // wants to give back an object.  Combine the array with the
             // standard object that mirrors its field order.
             //
-            REBCTX *context = Copy_Context_Shallow(
+            REBCTX *context = Copy_Context_Shallow_Managed(
                 VAL_CONTEXT(Get_System(SYS_STANDARD, STD_TYPE_SPEC))
             );
-            MANAGE_ARRAY(CTX_VARLIST(context));
 
             assert(CTX_TYPE(context) == REB_OBJECT);
 

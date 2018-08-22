@@ -259,12 +259,12 @@ REBVAL *Append_Context(
 
 
 //
-//  Copy_Context_Shallow_Extra: C
+//  Copy_Context_Shallow_Extra_Managed: C
 //
 // Makes a copy of a context.  If no extra storage space is requested, then
 // the same keylist will be used.
 //
-REBCTX *Copy_Context_Shallow_Extra(REBCTX *src, REBCNT extra) {
+REBCTX *Copy_Context_Shallow_Extra_Managed(REBCTX *src, REBCNT extra) {
     assert(GET_SER_FLAG(src, ARRAY_FLAG_VARLIST));
     ASSERT_ARRAY_MANAGED(CTX_KEYLIST(src));
 
@@ -279,6 +279,7 @@ REBCTX *Copy_Context_Shallow_Extra(REBCTX *src, REBCNT extra) {
             CTX_VARLIST(src),
             SPECIFIED,
             SERIES_MASK_CONTEXT // includes assurance of non-dynamic
+                | NODE_FLAG_MANAGED
         );
 
         dest = CTX(varlist);
@@ -288,20 +289,26 @@ REBCTX *Copy_Context_Shallow_Extra(REBCTX *src, REBCNT extra) {
         INIT_CTX_KEYLIST_SHARED(dest, CTX_KEYLIST(src));
     }
     else {
-        REBARR *keylist = Copy_Array_Extra_Shallow(
-            CTX_KEYLIST(src), SPECIFIED, extra
+        REBARR *keylist = Copy_Array_At_Extra_Shallow(
+            CTX_KEYLIST(src),
+            0,
+            SPECIFIED,
+            extra,
+            NODE_FLAG_MANAGED
         );
-        varlist = Copy_Array_Extra_Shallow(
-            CTX_VARLIST(src), SPECIFIED, extra
+        varlist = Copy_Array_At_Extra_Shallow(
+            CTX_VARLIST(src),
+            0,
+            SPECIFIED,
+            extra,
+            SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
         );
-        SET_SER_FLAGS(varlist, SERIES_MASK_CONTEXT);
 
         dest = CTX(varlist);
 
         LINK(keylist).ancestor = CTX_KEYLIST(src);
 
         INIT_CTX_KEYLIST_UNIQUE(dest, keylist);
-        MANAGE_ARRAY(CTX_KEYLIST(dest));
     }
 
     CTX_ARCHETYPE(dest)->payload.any_context.varlist = CTX_VARLIST(dest);
@@ -759,7 +766,7 @@ void Rebind_Context_Deep(
 
 
 //
-//  Make_Selfish_Context_Detect: C
+//  Make_Selfish_Context_Detect_Managed: C
 //
 // Create a context by detecting top-level set-words in an array of values.
 // So if the values were the contents of the block `[a: 10 b: 20]` then the
@@ -780,7 +787,7 @@ void Rebind_Context_Deep(
 // nuance that is expected of the generators, which will have an equivalent
 // to `<with> return` to suppress it.
 //
-REBCTX *Make_Selfish_Context_Detect(
+REBCTX *Make_Selfish_Context_Detect_Managed(
     enum Reb_Kind kind,
     const RELVAL *head,
     REBCTX *opt_parent
@@ -794,10 +801,11 @@ REBCTX *Make_Selfish_Context_Detect(
     );
 
     REBCNT len = ARR_LEN(keylist);
-
-    // Make a context of same size as keylist (END already accounted for)
-    //
-    REBARR *varlist = Make_Array_Core(len, SERIES_MASK_CONTEXT);
+    REBARR *varlist = Make_Array_Core(
+        len,
+        SERIES_MASK_CONTEXT
+            | NODE_FLAG_MANAGED // Note: Rebind below requires managed context
+    );
     TERM_ARRAY_LEN(varlist, len);
     MISC(varlist).meta = NULL; // clear meta object (GC sees this)
 
@@ -870,22 +878,6 @@ REBCTX *Make_Selfish_Context_Detect(
     assert(CTX_KEY_SYM(context, self_index) == SYM_SELF);
     Move_Value(CTX_VAR(context, self_index), CTX_ARCHETYPE(context));
 
-    // We manage the context because binding in the Rebind operation below
-    // does not allow the binding into an unmanaged context.
-    //
-    MANAGE_ARRAY(CTX_VARLIST(context));
-
-    // !!! In Ren-C, the idea that functions are rebound when a context is
-    // inherited is being deprecated.  It simply isn't viable for objects
-    // with N methods to have those N methods permanently cloned in the
-    // copies and have their bodies rebound to the new object.  A more
-    // conventional method of `this->method()` access is needed with
-    // cooperation from the evaluator, and that is slated to be `/method`
-    // as a practical use of paths that implicitly start from "wherever
-    // you dispatched from"
-    //
-    // Temporarily the old behavior is kept, so we deep copy and rebind.
-    //
     if (opt_parent)
         Rebind_Context_Deep(opt_parent, context, NULL); // NULL=no more binds
 
@@ -900,7 +892,7 @@ REBCTX *Make_Selfish_Context_Detect(
 
 
 //
-//  Construct_Context: C
+//  Construct_Context_Managed: C
 //
 // Construct an object without evaluation.
 // Parent can be null. Values are rebound.
@@ -923,19 +915,19 @@ REBCTX *Make_Selfish_Context_Detect(
 // !!! Because this is a work in progress, set-words would be gathered if
 // they were used as values, so they are not currently permitted.
 //
-REBCTX *Construct_Context(
+REBCTX *Construct_Context_Managed(
     enum Reb_Kind kind,
     RELVAL *head, // !!! Warning: modified binding
     REBSPC *specifier,
     REBCTX *opt_parent
 ) {
-    REBCTX *context = Make_Selfish_Context_Detect(
+    REBCTX *context = Make_Selfish_Context_Detect_Managed(
         kind, // type
         head, // values to scan for toplevel set-words
         opt_parent // parent
     );
 
-    if (head == NULL)
+    if (not head)
         return context;
 
     Bind_Values_Shallow(head, context);
@@ -1018,14 +1010,14 @@ REBARR *Context_To_Array(REBCTX *context, REBINT mode)
 
 
 //
-//  Merge_Contexts_Selfish: C
+//  Merge_Contexts_Selfish_Managed: C
 //
 // Create a child context from two parent contexts. Merge common fields.
 // Values from the second parent take precedence.
 //
 // Deep copy and rebind the child.
 //
-REBCTX *Merge_Contexts_Selfish(REBCTX *parent1, REBCTX *parent2)
+REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
 {
     if (parent2 != NULL) {
         assert(CTX_TYPE(parent1) == CTX_TYPE(parent2));
@@ -1080,7 +1072,11 @@ REBCTX *Merge_Contexts_Selfish(REBCTX *parent1, REBCTX *parent2)
     else
         LINK(keylist).ancestor = CTX_KEYLIST(parent1);
 
-    REBARR *varlist = Make_Array_Core(ARR_LEN(keylist), SERIES_MASK_CONTEXT);
+    REBARR *varlist = Make_Array_Core(
+        ARR_LEN(keylist),
+        SERIES_MASK_CONTEXT
+            | NODE_FLAG_MANAGED // rebind below requires managed context
+    );
     MISC(varlist).meta = NULL; // GC sees this, it must be initialized
 
     REBCTX *merged = CTX(varlist);
@@ -1130,10 +1126,6 @@ REBCTX *Merge_Contexts_Selfish(REBCTX *parent1, REBCTX *parent2)
         CTX_LEN(merged),
         TS_CLONE
     );
-
-    // Currently can't use a context as a binding target unless it's managed
-    //
-    MANAGE_ARRAY(varlist);
 
     // Rebind the child
     //

@@ -658,10 +658,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     REBCTX *meta = nullptr;
 
-    if (has_description or has_types or has_notes) {
-        meta = Copy_Context_Shallow(VAL_CONTEXT(Root_Action_Meta));
-        MANAGE_ARRAY(CTX_VARLIST(meta));
-    }
+    if (has_description or has_types or has_notes)
+        meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(Root_Action_Meta));
 
     MISC(paramlist).meta = meta;
 
@@ -681,7 +679,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     if (has_types) {
         REBARR *types_varlist = Make_Array_Core(
             num_slots,
-            SERIES_MASK_CONTEXT
+            SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
         );
         MISC(types_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(types_varlist), paramlist);
@@ -731,7 +729,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
 
         TERM_ARRAY_LEN(types_varlist, num_slots);
-        MANAGE_ARRAY(types_varlist);
 
         Init_Any_Context(
             CTX_VAR(meta, STD_ACTION_META_PARAMETER_TYPES),
@@ -745,7 +742,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     if (has_notes) {
         REBARR *notes_varlist = Make_Array_Core(
             num_slots,
-            SERIES_MASK_CONTEXT
+            SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
         );
         MISC(notes_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(notes_varlist), paramlist);
@@ -794,7 +791,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
 
         TERM_ARRAY_LEN(notes_varlist, num_slots);
-        MANAGE_ARRAY(notes_varlist);
 
         Init_Frame(
             CTX_VAR(meta, STD_ACTION_META_PARAMETER_NOTES),

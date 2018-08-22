@@ -683,8 +683,8 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
     // Create a new port using ACCEPT
 
     REBCTX *listener = CTX(req->port_ctx);
-    REBCTX *connection = Copy_Context_Shallow(listener);
-    MANAGE_ARRAY(CTX_VARLIST(connection));
+    REBCTX *connection = Copy_Context_Shallow_Managed(listener);
+    PUSH_GC_GUARD(connection);
 
     Init_Blank(CTX_VAR(connection, STD_PORT_DATA)); // just to be sure.
     Init_Blank(CTX_VAR(connection, STD_PORT_STATE)); // just to be sure.
@@ -715,6 +715,8 @@ DEVICE_CMD Accept_Socket(REBREQ *req)
         CTX_ARCHETYPE(connection), // will GC protect during run
         rebEND
     );
+
+    DROP_GC_GUARD(connection);
 
     // We've added the new PORT! for the connection, but the client has to
     // find out about it and get an `accept` event.  Signal that.

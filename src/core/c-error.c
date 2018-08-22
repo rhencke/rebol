@@ -544,7 +544,7 @@ REBOOL Make_Error_Object_Throws(
         // be inconsistent with a Rebol system error, an error will be
         // raised later in the routine.
 
-        error = Merge_Contexts_Selfish(root_error, VAL_CONTEXT(arg));
+        error = Merge_Contexts_Selfish_Managed(root_error, VAL_CONTEXT(arg));
         vars = ERR_VARS(error);
     }
     else if (IS_BLOCK(arg)) {
@@ -554,7 +554,7 @@ REBOOL Make_Error_Object_Throws(
         // Bind and do an evaluation step (as with MAKE OBJECT! with A_MAKE
         // code in REBTYPE(Context) and code in REBNATIVE(construct))
 
-        error = Make_Selfish_Context_Detect(
+        error = Make_Selfish_Context_Detect_Managed(
             REB_ERROR, // type
             VAL_ARRAY_AT(arg), // values to scan for toplevel set-words
             root_error // parent
@@ -587,7 +587,7 @@ REBOOL Make_Error_Object_Throws(
         //
         // Minus the message, this is the default state of root_error.
 
-        error = Copy_Context_Shallow(root_error);
+        error = Copy_Context_Shallow_Managed(root_error);
 
         vars = ERR_VARS(error);
         assert(IS_BLANK(&vars->code));
@@ -830,7 +830,7 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
         // If there are no arguments, we don't need to make a new keylist...
         // just a new varlist to hold this instance's settings.
 
-        error = Copy_Context_Shallow(root_error);
+        error = Copy_Context_Shallow_Managed(root_error);
     }
     else {
         // !!! See remarks on how the modern way to handle this may be to
@@ -843,7 +843,7 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
         // Should the error be well-formed, we'll need room for the new
         // expected values *and* their new keys in the keylist.
         //
-        error = Copy_Context_Shallow_Extra(root_error, expected_args);
+        error = Copy_Context_Shallow_Extra_Managed(root_error, expected_args);
 
         // Fix up the tail first so CTX_KEY and CTX_VAR don't complain
         // in the debug build that they're accessing beyond the error length
@@ -935,15 +935,6 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
     Move_Value(&vars->type, type);
 
     Set_Location_Of_Error(error, FS_TOP);
-
-    // !!! We create errors and then fail() on them without ever putting them
-    // into a REBVAL.  This means that if left unmanaged, they would count as
-    // manual memory that the fail() needed to clean up...but the fail()
-    // plans on reporting this error (!).  In these cases the GC doesn't run
-    // but the cleanup does, so for now manage the error in the hopes it
-    // will be used up quickly.
-    //
-    MANAGE_ARRAY(CTX_VARLIST(error));
     return error;
 }
 
@@ -1410,7 +1401,7 @@ REBCTX *Startup_Errors(REBARR *boot_errors)
     }
   #endif
 
-    REBCTX *catalog = Construct_Context(
+    REBCTX *catalog = Construct_Context_Managed(
         REB_OBJECT,
         ARR_HEAD(boot_errors),
         SPECIFIED, // we're confident source array isn't in a function body
@@ -1422,7 +1413,7 @@ REBCTX *Startup_Errors(REBARR *boot_errors)
     //
     REBVAL *val;
     for (val = CTX_VAR(catalog, SELFISH(1)); NOT_END(val); val++) {
-        REBCTX *error = Construct_Context(
+        REBCTX *error = Construct_Context_Managed(
             REB_OBJECT,
             VAL_ARRAY_HEAD(val),
             SPECIFIED, // source array not in a function body

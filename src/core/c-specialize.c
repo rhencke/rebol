@@ -786,7 +786,7 @@ REBOOL Specialize_Action_Throws(
 
     REBVAL *example = Get_System(SYS_STANDARD, STD_SPECIALIZED_META);
 
-    REBCTX *meta = Copy_Context_Shallow(VAL_CONTEXT(example));
+    REBCTX *meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(example));
 
     Init_Nulled(CTX_VAR(meta, STD_SPECIALIZED_META_DESCRIPTION)); // default
     Move_Value(
@@ -801,7 +801,6 @@ REBOOL Specialize_Action_Throws(
             opt_specializee_name
         );
 
-    MANAGE_ARRAY(CTX_VARLIST(meta));
     MISC(paramlist).meta = meta;
 
     REBARR *facade = CTX_KEYLIST(exemplar);

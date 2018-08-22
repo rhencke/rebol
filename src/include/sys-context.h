@@ -264,9 +264,9 @@ static inline REBVAL *Init_Any_Context(
     Extra_Init_Any_Context_Checks_Debug(kind, c);
   #endif
     UNUSED(kind);
-    ENSURE_ARRAY_MANAGED(CTX_VARLIST(c));
-    Move_Value(out, CTX_ARCHETYPE(c));
-    return KNOWN(out);
+    assert(IS_ARRAY_MANAGED(CTX_VARLIST(c)));
+    assert(IS_ARRAY_MANAGED(CTX_KEYLIST(c)));
+    return Move_Value(out, CTX_ARCHETYPE(c));
 }
 
 #define Init_Object(out,c) \
@@ -289,8 +289,8 @@ static inline REBVAL *Init_Any_Context(
 // compiler, rather than add an extra layer of function call.
 //
 
-#define Copy_Context_Shallow(src) \
-    Copy_Context_Shallow_Extra((src), 0)
+#define Copy_Context_Shallow_Managed(src) \
+    Copy_Context_Shallow_Extra_Managed((src), 0)
 
 // Returns true if the keylist had to be changed to make it unique.
 //

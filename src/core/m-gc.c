@@ -1041,18 +1041,24 @@ static void Mark_Root_Series(void)
                 // This means someone did something like Make_Array() and then
                 // ran an evaluation before referencing it somewhere from the
                 // root set.
-
-                // !!! Because the array is "under construction", and also
-                // not managed, we can't Queue_Array_Subclass_Deep().  If it's
-                // the varlist of a context...for example, the keylist might
-                // not be made and trying to mark it could fail.  For the
-                // moment, limit it to just marking the cells in the array...
-                // not tending to the LINK() or MISC() which could be trash.
-                // However, if it ever got a usermode/source array with the
-                // file and line set in LINK() and MISC(), it would have to
-                // mark that.  Notice if any such array ever comes up.
+                
+                // Only plain arrays are supported as unmanaged across
+                // evaluations, because REBCTX and REBACT and REBMAP are too
+                // complex...they must be managed before evaluations happen.
+                // Manage and use PUSH_GC_GUARD and DROP_GC_GUARD on them.
                 //
-                assert(not (s->header.bits & ARRAY_FLAG_FILE_LINE));
+                assert(not ANY_SER_FLAGS(
+                    s,
+                    ARRAY_FLAG_VARLIST
+                        | ARRAY_FLAG_PARAMLIST
+                        | ARRAY_FLAG_PAIRLIST
+                ));
+
+                // Note: Arrays which are using their LINK() or MISC() for
+                // other purposes than file and line will not be marked here!
+                //
+                if (GET_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
+                    LINK(s).file->header.bits |= NODE_FLAG_MARKED;
 
                 RELVAL *item = ARR_HEAD(cast(REBARR*, s));
                 for (; NOT_END(item); ++item)

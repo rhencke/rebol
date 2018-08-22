@@ -164,9 +164,11 @@ REBNATIVE(load_extension_helper)
                 }
             }
         }
-        context = Copy_Context_Shallow(std_ext_ctx);
+        context = Copy_Context_Shallow_Managed(std_ext_ctx);
         Move_Value(CTX_VAR(context, STD_EXTENSION_LIB_BASE), lib);
         Move_Value(CTX_VAR(context, STD_EXTENSION_LIB_FILE), path);
+
+        PUSH_GC_GUARD(context);
 
         CFUNC *RX_Init = OS_FIND_FUNCTION(VAL_LIBRARY_FD(lib), "RX_Init");
         if (RX_Init == NULL) {
@@ -180,6 +182,8 @@ REBNATIVE(load_extension_helper)
             OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
             fail(Error_Extension_Init_Raw(path));
         }
+
+        DROP_GC_GUARD(context);
     }
     else {
         assert(IS_HANDLE(ARG(path_or_handle)));
@@ -188,7 +192,10 @@ REBNATIVE(load_extension_helper)
             fail(Error_Bad_Extension_Raw(handle));
 
         INIT_CFUNC RX_Init = cast(INIT_CFUNC, VAL_HANDLE_CFUNC(handle));
-        context = Copy_Context_Shallow(std_ext_ctx);
+        context = Copy_Context_Shallow_Managed(std_ext_ctx);
+
+        PUSH_GC_GUARD(context);
+
         if (
             RX_Init(
                 CTX_VAR(context, STD_EXTENSION_SCRIPT),
@@ -197,6 +204,8 @@ REBNATIVE(load_extension_helper)
         ){
             fail(Error_Extension_Init_Raw(handle));
         }
+
+        DROP_GC_GUARD(context);
     }
 
     return Init_Object(D_OUT, context);

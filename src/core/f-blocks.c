@@ -166,9 +166,9 @@ void Clonify_Values_Len_Managed(
             //
             REBSER *series;
             if (ANY_CONTEXT(v)) {
-                assert(not IS_FRAME(v)); // !!! Don't exist yet...
-                v->payload.any_context.varlist =
-                    CTX_VARLIST(Copy_Context_Shallow(VAL_CONTEXT(v)));
+                v->payload.any_context.varlist = CTX_VARLIST(
+                    Copy_Context_Shallow_Managed(VAL_CONTEXT(v))
+                );
                 series = SER(CTX_VARLIST(VAL_CONTEXT(v)));
             }
             else {

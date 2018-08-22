@@ -484,7 +484,7 @@ REBNATIVE(lock)
             Init_Any_Context(
                 D_OUT,
                 VAL_TYPE(v),
-                Copy_Context_Core(VAL_CONTEXT(v), TS_STD_SERIES)
+                Copy_Context_Core_Managed(VAL_CONTEXT(v), TS_STD_SERIES)
             );
         }
         else if (ANY_SERIES(v)) {

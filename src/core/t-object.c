@@ -318,7 +318,7 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
         Init_Object(
             out,
-            Construct_Context(
+            Construct_Context_Managed(
                 REB_OBJECT,
                 VAL_ARRAY_AT(VAL_ARRAY_AT(arg) + 1),
                 VAL_SPECIFIER(arg),
@@ -350,7 +350,7 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // what will be responsibility of the generators, just to
         // get "completely fake SELF" out of index slot [0]
         //
-        REBCTX *context = Make_Selfish_Context_Detect(
+        REBCTX *context = Make_Selfish_Context_Detect_Managed(
             kind, // type
             END_NODE, // values to scan for toplevel set-words (empty)
             NULL // parent
@@ -539,13 +539,14 @@ REBNATIVE(set_meta)
 // have to be touched up to ensure consistency of the rootval and the
 // relevant ->link and ->misc fields in the series node.
 //
-REBCTX *Copy_Context_Core(REBCTX *original, REBU64 types)
+REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
 {
     assert(NOT_SER_INFO(original, SERIES_INFO_INACCESSIBLE));
 
-    REBARR *original_array = NULL; // may not be an array
     REBARR *varlist = Make_Array_For_Copy(
-        CTX_LEN(original) + 1, SERIES_FLAGS_NONE, original_array
+        CTX_LEN(original) + 1,
+        SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED,
+        nullptr // original_array, N/A because LINK()/MISC() used otherwise
     );
     REBVAL *dest = KNOWN(ARR_HEAD(varlist)); // all context vars are SPECIFIED
 
@@ -856,7 +857,11 @@ REBTYPE(Context)
         else
             types = 0;
 
-        Init_Any_Context(D_OUT, VAL_TYPE(value), Copy_Context_Core(c, types));
+        Init_Any_Context(
+            D_OUT,
+            VAL_TYPE(value),
+            Copy_Context_Core_Managed(c, types)
+        );
         return D_OUT; }
 
     case SYM_SELECT:
@@ -979,7 +984,7 @@ REBNATIVE(construct)
     if (REF(only)) {
         Init_Object(
             D_OUT,
-            Construct_Context(
+            Construct_Context_Managed(
                 REB_OBJECT,
                 VAL_ARRAY_AT(body),
                 VAL_SPECIFIER(body),
@@ -1004,7 +1009,7 @@ REBNATIVE(construct)
         // order to make an appropriately sized context.  Then
         // we put it into an object in D_OUT to GC protect it.
         //
-        context = Make_Selfish_Context_Detect(
+        context = Make_Selfish_Context_Detect_Managed(
             target, // type
             // scan for toplevel set-words
             IS_BLANK(body)
@@ -1038,7 +1043,7 @@ REBNATIVE(construct)
         // be selfish should not be hardcoded in the C, but part of
         // the generator choice by the person doing the derivation.
         //
-        context = Merge_Contexts_Selfish(parent, VAL_CONTEXT(body));
+        context = Merge_Contexts_Selfish_Managed(parent, VAL_CONTEXT(body));
         return Init_Object(D_OUT, context);
     }
 

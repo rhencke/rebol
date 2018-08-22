@@ -93,7 +93,8 @@ void Query_File_Or_Dir(REBVAL *out, REBVAL *port, struct devreq_file *file)
     if (not example or not IS_OBJECT(example))
         fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
 
-    REBCTX *info = Copy_Context_Shallow(VAL_CONTEXT(example));
+    REBCTX *info = Copy_Context_Shallow_Managed(VAL_CONTEXT(example));
+    PUSH_GC_GUARD(info);
 
     Init_Word(
         CTX_VAR(info, STD_FILE_INFO_TYPE),
@@ -108,6 +109,7 @@ void Query_File_Or_Dir(REBVAL *out, REBVAL *port, struct devreq_file *file)
     assert(IS_FILE(file->path));
     Move_Value(CTX_VAR(info, STD_FILE_INFO_NAME), file->path);
 
+    DROP_GC_GUARD(info);
     Init_Object(out, info);
 }
 

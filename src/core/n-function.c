@@ -367,11 +367,10 @@ REBNATIVE(chain)
     // GET-WORD!s in the block.  Consider for the future.
     //
     REBVAL *std_meta = Get_System(SYS_STANDARD, STD_CHAINED_META);
-    REBCTX *meta = Copy_Context_Shallow(VAL_CONTEXT(std_meta));
+    REBCTX *meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(std_meta));
     Init_Nulled(CTX_VAR(meta, STD_CHAINED_META_DESCRIPTION)); // default
     Init_Block(CTX_VAR(meta, STD_CHAINED_META_CHAINEES), chainees);
     Init_Nulled(CTX_VAR(meta, STD_CHAINED_META_CHAINEE_NAMES));
-    MANAGE_ARRAY(CTX_VARLIST(meta));
     MISC(paramlist).meta = meta; // must initialize before Make_Action
 
     REBACT *chain = Make_Action(
@@ -460,7 +459,7 @@ REBNATIVE(adapt)
 
     REBVAL *example = Get_System(SYS_STANDARD, STD_ADAPTED_META);
 
-    REBCTX *meta = Copy_Context_Shallow(VAL_CONTEXT(example));
+    REBCTX *meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(example));
     Init_Nulled(CTX_VAR(meta, STD_ADAPTED_META_DESCRIPTION)); // default
     Move_Value(CTX_VAR(meta, STD_ADAPTED_META_ADAPTEE), adaptee);
     if (opt_adaptee_name == NULL)
@@ -471,7 +470,6 @@ REBNATIVE(adapt)
             opt_adaptee_name
         );
 
-    MANAGE_ARRAY(CTX_VARLIST(meta));
     MISC(paramlist).meta = meta;
 
     REBACT *adaptation = Make_Action(
@@ -560,7 +558,7 @@ REBNATIVE(enclose)
 
     REBVAL *example = Get_System(SYS_STANDARD, STD_ENCLOSED_META);
 
-    REBCTX *meta = Copy_Context_Shallow(VAL_CONTEXT(example));
+    REBCTX *meta = Copy_Context_Shallow_Managed(VAL_CONTEXT(example));
     Init_Nulled(CTX_VAR(meta, STD_ENCLOSED_META_DESCRIPTION)); // default
     Move_Value(CTX_VAR(meta, STD_ENCLOSED_META_INNER), inner);
     if (opt_inner_name == NULL)
@@ -579,7 +577,6 @@ REBNATIVE(enclose)
             opt_outer_name
         );
 
-    MANAGE_ARRAY(CTX_VARLIST(meta));
     MISC(paramlist).meta = meta;
 
     REBACT *enclosure = Make_Action(
