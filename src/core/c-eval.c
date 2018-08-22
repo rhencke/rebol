@@ -63,11 +63,10 @@
     // On the command-line, you can also request to break at a particular tick
     // using the `--breakpoint NNN` option.
     //
-    // Notice also that in debug builds, `REBSER.tick` carries this value.
     // *Plus* you can get the initialization tick for nulled cells, BLANK!s,
     // LOGIC!s, and most end markers by looking at the `track` payload of
-    // the REBVAL cell.  And series contain the `REBSER.tick` where they were
-    // created as well.
+    // the REBVAL cell.  Series contain the `REBSER.tick` where they were
+    // created as well.  See also TOUCH_SERIES() and TOUCH_CELL().
     //
     //      *** DON'T COMMIT THIS v-- KEEP IT AT ZERO! ***
     #define TICK_BREAKPOINT        0

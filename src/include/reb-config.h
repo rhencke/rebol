@@ -451,11 +451,6 @@ Special internal defines used by RT, not Host-Kit developers:
         // explicitly...only Address Sanitizer can be detected here.
         //
         #define DEBUG_SERIES_ORIGINS
-
-        // The chunk stack has some bigger checks which are good to have on
-        // when it's being modified.
-        //
-        #define DEBUG_CHUNK_STACK
     #endif
 
     // !!! Due to the massive change of UTF8-Everywhere, it motivates some

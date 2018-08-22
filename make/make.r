@@ -644,7 +644,7 @@ switch user-config/optimize [
     #[false] 'false 'no 'off 0 [
         app-config/optimization: false
     ]
-    1 2 3 4 "s" "z" 's 'z [
+    1 2 3 4 "s" "z" "g" 's 'z 'g [
         app-config/optimization: user-config/optimize
     ]
 ]

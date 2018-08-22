@@ -64,12 +64,6 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
         PROBE(dump);
     }
 
-    if (f->value) {
-        Derelativize(dump, f->value, f->specifier);
-        printf("Dump_Frame_Location() next\n");
-        PROBE(dump);
-    }
-
     if (IS_END(f->value)) {
         printf("...then Dump_Frame_Location() is at end of array\n");
         if (not current and not f->value) { // well, that wasn't informative
@@ -82,6 +76,10 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
         }
     }
     else {
+        Derelativize(dump, f->value, f->specifier);
+        printf("Dump_Frame_Location() next\n");
+        PROBE(dump);
+
         printf("Dump_Frame_Location() rest\n");
 
         if (FRM_IS_VALIST(f)) {

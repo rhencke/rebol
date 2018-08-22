@@ -525,7 +525,7 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
     if (IS_NULLED(v)) {
         //
-        // Voids should only be molded out in debug scenarios, but this still
+        // NULLs should only be molded out in debug scenarios, but this still
         // happens a lot, e.g. PROBE() of context arrays when they have unset
         // variables.  This happens so often in debug builds, in fact, that a
         // debug_break() here would be very annoying (the method used for
@@ -534,8 +534,8 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     #ifdef NDEBUG
         panic (v);
     #else
-        printf("!!! Request to MOLD or FORM a void value !!!\n");
-        Append_Unencoded(s, "!!!void!!!");
+        printf("!!! Request to MOLD or FORM a NULL !!!\n");
+        Append_Unencoded(s, "!!!null!!!");
         return;
     #endif
     }

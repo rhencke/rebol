@@ -569,7 +569,7 @@ deci int_to_deci(REBI64 a) {
 
 /* using 64-bit arithmetic */
 REBI64 deci_to_int(const deci a) {
-    int32_t ta;
+    int32_t ta = 0;
     REBI64 result;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)

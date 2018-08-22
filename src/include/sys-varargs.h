@@ -83,8 +83,8 @@ inline static REBOOL Is_Block_Style_Varargs(
     assert(IS_VARARGS(vararg));
 
     if (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST) {
-        TRASH_POINTER_IF_DEBUG(*shared_out);
-        return FALSE; // it's an ordinary vararg, representing a FRAME!
+        *shared_out = nullptr; // avoid compiler warning in -Og build
+        return false; // it's an ordinary vararg, representing a FRAME!
     }
 
     // Came from MAKE VARARGS! on some random block, hence not implicitly
@@ -98,7 +98,7 @@ inline static REBOOL Is_Block_Style_Varargs(
         or (IS_BLOCK(*shared_out) and ARR_LEN(array1) == 1)
     );
 
-    return TRUE;
+    return true;
 }
 
 
@@ -109,7 +109,7 @@ inline static REBOOL Is_Frame_Style_Varargs_Maybe_Null(
     assert(IS_VARARGS(vararg));
 
     if (not (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)) {
-        TRASH_POINTER_IF_DEBUG(*f);
+        *f = nullptr; // avoid compiler warning in -Og build
         return false; // it's a block varargs, made via MAKE VARARGS!
     }
 
@@ -126,9 +126,9 @@ inline static REBOOL Is_Frame_Style_Varargs_May_Fail(
     const RELVAL *vararg
 ){
     if (not Is_Frame_Style_Varargs_Maybe_Null(f, vararg))
-        return FALSE;
+        return false;
 
-    if (*f == NULL)
+    if (not *f)
         fail (Error_Frame_Not_On_Stack_Raw());
 
     return TRUE;
