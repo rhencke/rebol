@@ -669,15 +669,6 @@ map-each-api [
                     HEAP32[(va>>2)+i] = p;
                 }
 
-                // There's no rebEnd() API now.  It's a 2-byte sequence, but
-                // must live at some address.
-                //
-                // !!! Find a way to do this that doesn't leak; adding it as
-                // some global in the rebStartup/rebShutdown?
-                //
-                var rebEnd = _malloc(2);
-                setValue(rebEnd, -127, 'i8'); // 0x80
-                setValue(rebEnd + 1, 0, 'i8'); // 0x00
                 HEAP32[(va>>2) + argc] = rebEnd;
 
                 // va + 4 is where the first vararg is, must pass as *address*
@@ -701,5 +692,14 @@ map-each-api [
         } api
     ]
 ]
-
+e-cwrap/emit {
+    rebInit = function() {
+        _RL_rebInit();
+        // There's no rebEnd() API now.  It's a 2-byte sequence, but
+        // must live at some address.
+        rebEnd = _malloc(2);
+        setValue(rebEnd, -127, 'i8'); // 0x80
+        setValue(rebEnd + 1, 0, 'i8'); // 0x00
+    }
+}
 e-cwrap/write-emitted
