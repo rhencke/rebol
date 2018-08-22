@@ -131,7 +131,7 @@ REBNATIVE(eval_enfix)
     if (IS_END(f->value)) // no PATH! yet...
         fail ("ME and MY hit end of input");
 
-    DECLARE_FRAME (child); // capture DSP *now*, before any refinements push
+    DECLARE_SUBFRAME (child, f); // saves DSP before refinement push
 
     const REBOOL push_refinements = true;
     REBSTR *opt_label;
@@ -298,7 +298,7 @@ REBNATIVE(do)
         // the varargs came from.  It's still on the stack, and we don't want
         // to disrupt its state.  Use a subframe.
         //
-        DECLARE_FRAME (child);
+        DECLARE_SUBFRAME (child, f);
         REBFLGS flags = 0;
         Init_Void(D_OUT);
         while (NOT_END(f->value)) {
@@ -377,7 +377,7 @@ REBNATIVE(do)
         // data is stolen from the copy.  This allows for efficient reuse of
         // the context's memory in the cases where a copy isn't needed.
 
-        DECLARE_FRAME (f);
+        DECLARE_END_FRAME (f);
         f->out = D_OUT;
         Push_Frame_At_End(f, DO_FLAG_FULLY_SPECIALIZED);
         f->eval_type = REB_E_GOTO_PROCESS_ACTION;
@@ -536,7 +536,7 @@ REBNATIVE(evaluate)
         // the varargs came from.  It's still on the stack, and we don't want
         // to disrupt its state.  Use a subframe.
         //
-        DECLARE_FRAME (child);
+        DECLARE_SUBFRAME (child, f);
         REBFLGS flags = 0;
         if (IS_END(f->value))
             return nullptr;
@@ -695,7 +695,7 @@ REBNATIVE(apply)
 
     REBVAL *applicand = ARG(applicand);
 
-    DECLARE_FRAME (f); // captures f->dsp
+    DECLARE_END_FRAME (f); // captures f->dsp
     f->out = D_OUT;
 
     // Argument can be a literal action (APPLY :APPEND) or a WORD!/PATH!.

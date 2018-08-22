@@ -98,8 +98,8 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
         Init_Any_Series_At_Core(
             dump,
             REB_BLOCK,
-            SER(f->source.array),
-            cast(REBCNT, f->source.index),
+            SER(f->source->array),
+            cast(REBCNT, f->source->index),
             f->specifier
         );
         PROBE(dump);
@@ -127,17 +127,17 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
 
     assert(not (f->flags.bits & DO_FLAG_FINAL_DEBUG));
 
-    if (f->source.array) {
-        assert(not IS_POINTER_TRASH_DEBUG(f->source.array));
+    if (f->source->array) {
+        assert(not IS_POINTER_TRASH_DEBUG(f->source->array));
         assert(
-            f->source.index != TRASHED_INDEX
-            and f->source.index != END_FLAG_PRIVATE // ...special case use!
-            and f->source.index != THROWN_FLAG_PRIVATE // ...don't use these
-            and f->source.index != VA_LIST_FLAG_PRIVATE // ...usually...
+            f->source->index != TRASHED_INDEX
+            and f->source->index != END_FLAG_PRIVATE // ...special case use!
+            and f->source->index != THROWN_FLAG_PRIVATE // ...don't use these
+            and f->source->index != VA_LIST_FLAG_PRIVATE // ...usually...
         ); // END, THROWN, VA_LIST only used by wrappers
     }
     else
-        assert(f->source.index == TRASHED_INDEX);
+        assert(f->source->index == TRASHED_INDEX);
 
     // If this fires, it means that Flip_Series_To_White was not called an
     // equal number of times after Flip_Series_To_Black, which means that
@@ -361,12 +361,12 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     Eval_Core_Shared_Checks_Debug(f);
 
     if (NOT_END(f->value) and not FRM_IS_VALIST(f)) {
-        if (f->source.index > ARR_LEN(f->source.array)) {
+        if (f->source->index > ARR_LEN(f->source->array)) {
             assert(
-                (f->source.pending != NULL and IS_END(f->source.pending))
+                (f->source->pending != NULL and IS_END(f->source->pending))
                 or THROWN(f->out)
             );
-            assert(f->source.index == ARR_LEN(f->source.array) + 1);
+            assert(f->source->index == ARR_LEN(f->source->array) + 1);
         }
     }
 

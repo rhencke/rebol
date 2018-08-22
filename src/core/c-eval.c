@@ -1225,7 +1225,7 @@ void Eval_Core(REBFRM * const f)
                     DO_FLAG_FULFILLING_ARG
                     | eval_flag;
 
-                DECLARE_FRAME (child); // capture DSP *now*
+                DECLARE_SUBFRAME (child, f); // capture DSP *now*
                 if (Eval_Post_Switch_In_Subframe_Throws(
                     f->deferred, // old f->arg preload
                     f,
@@ -1276,7 +1276,7 @@ void Eval_Core(REBFRM * const f)
             case PARAM_CLASS_NORMAL: {
                 REBFLGS flags = DO_FLAG_FULFILLING_ARG | eval_flag;
 
-                DECLARE_FRAME (child); // capture DSP *now*
+                DECLARE_SUBFRAME (child, f); // capture DSP *now*
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
                 if (Eval_Step_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
@@ -1297,7 +1297,7 @@ void Eval_Core(REBFRM * const f)
                     | DO_FLAG_FULFILLING_ARG
                     | eval_flag;
 
-                DECLARE_FRAME (child);
+                DECLARE_SUBFRAME (child, f);
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
                 if (Eval_Step_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
@@ -1473,7 +1473,7 @@ void Eval_Core(REBFRM * const f)
         assert(
             IS_END(f->value)
             or FRM_IS_VALIST(f)
-            or IS_VALUE_IN_ARRAY_DEBUG(f->source.array, f->value)
+            or IS_VALUE_IN_ARRAY_DEBUG(f->source->array, f->value)
         );
 
       #ifdef DEBUG_UNREADABLE_BLANKS

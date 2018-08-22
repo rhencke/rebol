@@ -1081,7 +1081,6 @@ REBOOL Make_Invocation_Frame_Throws(
     //
     assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
 
-    parent->source = f->source;
     parent->value = f->value;
     parent->gotten = f->gotten;
     assert(parent->specifier == f->specifier); // !!! can't change?

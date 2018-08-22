@@ -90,13 +90,12 @@ static inline void CATCH_THROWN(REBVAL *arg_out, REBVAL *thrown) {
 
 
 inline static REBOOL FRM_IS_VALIST(REBFRM *f) {
-    assert(not IS_POINTER_TRASH_DEBUG(f->source.vaptr));
-    return f->source.vaptr != NULL;
+    return f->source->vaptr != nullptr;
 }
 
 inline static REBARR *FRM_ARRAY(REBFRM *f) {
     assert(IS_END(f->value) or not FRM_IS_VALIST(f));
-    return f->source.array;
+    return f->source->array;
 }
 
 // !!! Though the evaluator saves its `index`, the index is not meaningful
@@ -107,16 +106,16 @@ inline static REBARR *FRM_ARRAY(REBFRM *f) {
 //
 inline static REBCNT FRM_INDEX(REBFRM *f) {
     if (IS_END(f->value))
-        return ARR_LEN(f->source.array);
+        return ARR_LEN(f->source->array);
 
     assert(not FRM_IS_VALIST(f));
-    return f->source.index - 1;
+    return f->source->index - 1;
 }
 
 inline static REBCNT FRM_EXPR_INDEX(REBFRM *f) {
     assert(not FRM_IS_VALIST(f));
     return f->expr_index == END_FLAG
-        ? ARR_LEN((f)->source.array)
+        ? ARR_LEN((f)->source->array)
         : f->expr_index - 1;
 }
 
@@ -129,13 +128,13 @@ inline static REBSTR* FRM_FILE(REBFRM *f) {
     // be kept as a UTF-8 string inside the frame without needing interning
     // as a series.  But for now, just signal that it came from C code.
     //
-    if (not f->source.array)
+    if (not f->source->array)
         return nullptr;
 
-    if (NOT_SER_FLAG(f->source.array, ARRAY_FLAG_FILE_LINE))
+    if (NOT_SER_FLAG(f->source->array, ARRAY_FLAG_FILE_LINE))
         return nullptr;
 
-    return LINK(f->source.array).file;
+    return LINK(f->source->array).file;
 }
 
 inline static const char* FRM_FILE_UTF8(REBFRM *f) {
@@ -148,13 +147,13 @@ inline static const char* FRM_FILE_UTF8(REBFRM *f) {
 }
 
 inline static int FRM_LINE(REBFRM *f) {
-    if (not f->source.array)
+    if (not f->source->array)
         return 0;
 
-    if (NOT_SER_FLAG(f->source.array, ARRAY_FLAG_FILE_LINE))
+    if (NOT_SER_FLAG(f->source->array, ARRAY_FLAG_FILE_LINE))
         return 0;
 
-    return MISC(SER(f->source.array)).line;
+    return MISC(SER(f->source->array)).line;
 }
 
 #define FRM_OUT(f) \

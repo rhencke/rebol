@@ -239,8 +239,8 @@ REB_R Do_Vararg_Op_May_Throw(
                 // be ready to use again we're throwing it away, and need to
                 // effectively "undo the prefetch" by taking it down by 1.
                 //
-                assert(f_temp->source.index > 0);
-                VAL_INDEX(shared) = f_temp->source.index - 1; // all sharings
+                assert(f_temp->source->index > 0);
+                VAL_INDEX(shared) = f_temp->source->index - 1; // all sharings
             }
 
             Drop_Frame(f_temp);
@@ -306,7 +306,7 @@ REB_R Do_Vararg_Op_May_Throw(
         //
         switch (pclass) {
         case PARAM_CLASS_NORMAL: {
-            DECLARE_FRAME (child);
+            DECLARE_SUBFRAME (child, f);
             if (Eval_Step_In_Subframe_Throws(
                 SET_END(out),
                 f,
@@ -319,7 +319,7 @@ REB_R Do_Vararg_Op_May_Throw(
             break; }
 
         case PARAM_CLASS_TIGHT: {
-            DECLARE_FRAME (child);
+            DECLARE_FRAME_CORE (child, f->source);
             if (Eval_Step_In_Subframe_Throws(
                 SET_END(out),
                 f,

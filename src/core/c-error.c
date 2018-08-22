@@ -481,7 +481,7 @@ void Set_Location_Of_Error(
     //
     f = where;
     for (; f != FS_BOTTOM; f = f->prior) {
-        if (not f->source.array) {
+        if (not f->source->array) {
             //
             // !!! We currently skip any calls from C (e.g. rebRun()) and look
             // for calls from Rebol files for the file and line.  However,
@@ -490,13 +490,13 @@ void Set_Location_Of_Error(
             //
             continue;
         }
-        if (NOT_SER_FLAG(f->source.array, ARRAY_FLAG_FILE_LINE))
+        if (NOT_SER_FLAG(f->source->array, ARRAY_FLAG_FILE_LINE))
             continue;
         break;
     }
     if (f != FS_BOTTOM) {
-        REBSTR *file = LINK(f->source.array).file;
-        REBLIN line = MISC(f->source.array).line;
+        REBSTR *file = LINK(f->source->array).file;
+        REBLIN line = MISC(f->source->array).line;
 
         REBSYM file_sym = STR_SYMBOL(file);
         if (file_sym != SYM___ANONYMOUS__)

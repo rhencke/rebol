@@ -209,6 +209,7 @@ TVAR uintptr_t TG_Stack_Limit;    // Limit address for CPU stack.
 //
 TVAR REBFRM *TG_Top_Frame;
 TVAR REBFRM *TG_Bottom_Frame;
+TVAR struct Reb_Frame_Source TG_Frame_Source_End;
 
 
 // When Drop_Frame() happens, it may have an allocated varlist REBARR that

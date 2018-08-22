@@ -1196,13 +1196,13 @@ static void Mark_Frame_Stack_Deep(void)
         // earlier in the recycle process (don't want to create new arrays
         // once the recycling has started...)
         //
-        assert(not f->source.vaptr or IS_POINTER_TRASH_DEBUG(f->source.vaptr));
+        assert(not f->source->vaptr or IS_POINTER_TRASH_DEBUG(f->source->vaptr));
 
-        // Note: f->source.pending should either live in f->source.array, or
+        // Note: f->source->pending should either live in f->source->array, or
         // it may be trash (e.g. if it's an apply).  GC can ignore it.
         //
-        if (f->source.array)
-            Queue_Mark_Array_Deep(f->source.array);
+        if (f->source->array)
+            Queue_Mark_Array_Deep(f->source->array);
 
         // END is possible, because the frame could be sitting at the end of
         // a block when a function runs, e.g. `do [zero-arity]`.  That frame
@@ -1223,7 +1223,7 @@ static void Mark_Frame_Stack_Deep(void)
             else if (f->flags.bits & DO_FLAG_VALUE_IS_INSTRUCTION)
                 Queue_Mark_Singular_Array(Singular_From_Cell(f->value));
             else
-                Queue_Mark_Value_Deep(f->value);
+                Queue_Mark_Opt_Value_Deep(f->value);
 
             // Note that f->gotten is explicitly *not* marked alive, because
             // f->value keeps it alive by reference in its binding.  This

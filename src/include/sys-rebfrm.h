@@ -486,7 +486,10 @@ struct Reb_Frame {
     // conditions require the va_list to be converted to an array, see notes
     // on Reify_Va_To_Array_In_Frame().)
     //
-    struct Reb_Frame_Source source;
+    // Since frames may share source information, this needs to be done with
+    // a dereference.
+    //
+    struct Reb_Frame_Source *source;
 
     // `specifier`
     //
@@ -807,12 +810,24 @@ struct Reb_Frame {
 // signal to users of the frame that they can't be assured of any particular
 // value between evaluations; it's not cleared.
 //
-#define DECLARE_FRAME(name) \
+
+#define DECLARE_FRAME_CORE(name, source_ptr) \
     REBFRM name##struct; \
+    name##struct.source = (source_ptr); \
     REBFRM * const name = &name##struct; \
     Prep_Stack_Cell(&name->cell); \
     Init_Unreadable_Blank(&name->cell); \
     name->dsp_orig = DSP;
+
+#define DECLARE_FRAME(name) \
+    struct Reb_Frame_Source name##source; \
+    DECLARE_FRAME_CORE(name, &name##source)
+
+#define DECLARE_END_FRAME(name) \
+    DECLARE_FRAME_CORE(name, &TG_Frame_Source_End)
+
+#define DECLARE_SUBFRAME(name, parent) \
+    DECLARE_FRAME_CORE(name, (parent)->source)
 
 
 #define FS_TOP (TG_Top_Frame + 0) // avoid assign to FS_TOP via + 0

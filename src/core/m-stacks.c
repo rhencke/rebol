@@ -95,11 +95,17 @@ void Startup_Frame_Stack(void)
     TG_Top_Frame = TG_Bottom_Frame = nullptr;
   #endif
 
+    TG_Frame_Source_End.index = 0;
+    TG_Frame_Source_End.vaptr = nullptr;
+    TG_Frame_Source_End.array = EMPTY_ARRAY; // for HOLD flag in Push_Frame
+    TRASH_POINTER_IF_DEBUG(TG_Frame_Source_End.pending);
+
     REBFRM *f = ALLOC(REBFRM); // needs dynamic allocation
     Prep_Stack_Cell(&f->cell);
     Init_Unreadable_Blank(&f->cell);
 
     f->out = m_cast(REBVAL*, END_NODE); // should not be written
+    f->source = &TG_Frame_Source_End;
     Push_Frame_At_End(f, DO_MASK_NONE);
     f->eval_type = REB_E_GOTO_PROCESS_ACTION;
 

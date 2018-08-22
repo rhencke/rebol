@@ -816,7 +816,7 @@ REBVAL *RL_rebRescue(
     // so it has to be an "action frame".  Improve mechanic later, but for
     // now pretend to be applying a dummy native.
     //
-    DECLARE_FRAME (f);
+    DECLARE_END_FRAME (f);
     f->out = m_cast(REBVAL*, END_NODE); // should not be written
 
     REBSTR *opt_label = NULL;

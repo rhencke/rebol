@@ -185,10 +185,10 @@ static REBOOL Subparse_Throws(
     SET_FRAME_VALUE(f, VAL_ARRAY_AT(rules)); // not an END due to test above
     f->specifier = Derive_Specifier(rules_specifier, rules);
 
-    f->source.vaptr = NULL;
-    f->source.array = VAL_ARRAY(rules);
-    f->source.index = VAL_INDEX(rules) + 1;
-    f->source.pending = f->value + 1;
+    f->source->vaptr = nullptr;
+    f->source->array = VAL_ARRAY(rules);
+    f->source->index = VAL_INDEX(rules) + 1;
+    f->source->pending = f->value + 1;
 
     f->flags = Endlike_Header(0); // implicitly terminate f->cell
 
