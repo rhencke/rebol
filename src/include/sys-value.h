@@ -201,7 +201,7 @@
         // inline this function, and makes *no* optimizations.  Using no
         // stack space e.g. no locals) is ideal.
 
-        if (VAL_TYPE_RAW(v) == REB_0) {
+        if (VAL_TYPE_RAW(v) == REB_0_END) {
             printf("VAL_TYPE() called on END marker\n");
             panic_at (v, file, line);
         }
@@ -692,7 +692,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     ){
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
-        SECOND_BYTE(v->header) = REB_0; // only thing done in release build
+        SECOND_BYTE(v->header) = REB_0_END; // only line in release build
 
         TRACK_CELL_IF_DEBUG(v, file, line);
         return cast(REBVAL*, v);
@@ -702,14 +702,14 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
         SET_END_Debug((v), __FILE__, __LINE__)
 #else
     inline static REBVAL *SET_END(RELVAL *v) {
-        SECOND_BYTE(v->header) = 0; // needs to be a prepared cell
+        SECOND_BYTE(v->header) = REB_0_END; // needs to be a prepared cell
         return cast(REBVAL*, v);
     }
 #endif
 
 #ifdef NDEBUG
     #define IS_END(p) \
-        (cast(const REBYTE*, p)[1] == REB_0)
+        (cast(const REBYTE*, p)[1] == REB_0_END)
 #else
     inline static REBOOL IS_END_Debug(
         const void *p, // may not have NODE_FLAG_CELL, may be short as 2 bytes
@@ -721,7 +721,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
             panic_at(p, file, line);
         }
 
-        if (cast(const REBYTE*, p)[1] == REB_0)
+        if (cast(const REBYTE*, p)[1] == REB_0_END)
             return true;
 
         if (not (cast(const REBYTE*, p)[0] & 0x01)) { // e.g. NODE_FLAG_CELL

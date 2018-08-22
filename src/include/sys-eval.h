@@ -259,20 +259,11 @@ inline static void Push_Frame_At(
 
     f->specifier = specifier;
 
-    // The goal of pushing a frame is to reuse it for several sequential
-    // operations, when not using DO_FLAG_TO_END.  This is found in operations
-    // like ANY and ALL, or anything that needs to do additional processing
-    // beyond a plain DO.  Each time those operations run, they can set the
-    // output to a new location, and Eval_Step_In_Frame_Throws() will call into
-    // Eval_Core() and properly configure the eval_type.
+    // Frames are pushed to reuse for several sequential operations like
+    // ANY, ALL, CASE, REDUCE.  It is allowed to change the output cell for
+    // each evaluation.  But the GC expects initialized bits in the output
+    // slot at all times; use an unwritable END until the first eval call.
     //
-    // But to make the frame safe for Recycle() in-between the calls to
-    // Eval_Step_In_Frame_Throws(), the eval_type and output cannot be left as
-    // uninitialized bits.  So start with an unwritable END, and then
-    // each evaluation will canonize the eval_type to REB_0 in-between.
-    // (Eval_Core() does not do this, but the wrappers that need it do.)
-    //
-    f->eval_type = REB_0;
     f->out = m_cast(REBVAL*, END_NODE);
 
     Push_Frame_Core(f);
@@ -668,7 +659,7 @@ inline static void Drop_Frame_Core(REBFRM *f) {
 
 inline static void Drop_Frame(REBFRM *f)
 {
-    assert(IS_END(f->value));
+    assert(IS_END(f->value) or THROWN(f->out));
 
   #if defined(DEBUG_BALANCE_STATE)
     //
@@ -679,7 +670,6 @@ inline static void Drop_Frame(REBFRM *f)
     ASSERT_STATE_BALANCED(&f->state);
   #endif
 
-    assert(f->eval_type == REB_0);
     Drop_Frame_Core(f);
 }
 
@@ -693,7 +683,6 @@ inline static REBOOL Eval_Step_In_Frame_Throws(
     REBVAL *out,
     REBFRM *f
 ){
-    assert(f->eval_type == REB_0); // see notes in Push_Frame_At()
     assert(not (f->flags.bits & (DO_FLAG_TO_END | DO_FLAG_NO_LOOKAHEAD)));
     uintptr_t prior_flags = f->flags.bits;
 
@@ -701,13 +690,6 @@ inline static REBOOL Eval_Step_In_Frame_Throws(
     f->dsp_orig = DSP;
     f->eval_type = VAL_TYPE(f->value);
     (*PG_Eval)(f); // should already be pushed
-
-    // Since Eval_Core() currently makes no guarantees about the state of
-    // f->eval_type when an operation is over, restore it to a benign REB_0
-    // so that a GC between calls to Eval_Step_In_Frame_Throws() doesn't think
-    // it has to protect the frame as another running type.
-    //
-    f->eval_type = REB_0;
 
     // The & on the following line is purposeful.  See Init_Endlike_Header.
     // DO_FLAG_NO_LOOKAHEAD may be set by an operation like ELIDE.
@@ -886,7 +868,7 @@ inline static REBIXO Eval_Array_At_Core(
         f->source->index = index + 1;
         f->source->pending = f->value + 1;
         f->eval_type = VAL_TYPE_RAW(f->value);
-        if (f->eval_type == REB_0)
+        if (f->eval_type == REB_0_END)
             return END_FLAG;
     }
 
@@ -1029,7 +1011,7 @@ inline static REBIXO Eval_Va_Core(
     f->gotten = END_NODE; // SET_FRAME_VALUE() asserts this is end
     if (opt_first) {
         Set_Frame_Detected_Fetch(f, opt_first);
-        assert(NOT_END(f->value));
+        f->eval_type = VAL_TYPE(f->value);
     }
     else {
       #if !defined(NDEBUG)
@@ -1044,7 +1026,8 @@ inline static REBIXO Eval_Va_Core(
         f->value = junk;
       #endif
         Fetch_Next_In_Frame(f);
-        if (IS_END(f->value))
+        f->eval_type = VAL_TYPE_RAW(f->value);
+        if (f->eval_type == REB_0_END)
             return END_FLAG;
     }
 
@@ -1053,7 +1036,6 @@ inline static REBIXO Eval_Va_Core(
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
-    f->eval_type = VAL_TYPE(f->value);
     (*PG_Eval)(f);
     Drop_Frame_Core(f); // will va_end() if not reified during evaluation
 

@@ -670,7 +670,7 @@ void Eval_Core(REBFRM * const f)
 
     switch (f->eval_type) {
 
-    case REB_0:
+    case REB_0_END:
         goto finished; // e.g. an END was hit
 
 //==//////////////////////////////////////////////////////////////////////==//

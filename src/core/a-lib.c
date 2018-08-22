@@ -543,7 +543,7 @@ const void *RL_rebEval(const REBVAL *v)
     Enter_Api();
 
     if (IS_NULLED(v))
-        fail ("Cannot pass voids to rebEval()");
+        fail ("Cannot pass NULL to rebEval()");
 
     REBARR *instruction = Alloc_Instruction();
     RELVAL *single = ARR_SINGLE(instruction);
@@ -834,7 +834,13 @@ REBVAL *RL_rebRescue(
     REBVAL *result = (*dangerous)(opaque);
 
     Drop_Action(f);
-    Drop_Frame_Core(f); // f->eval_type may not be REB_0
+
+    // !!! To abstract how the system deals with exception handling, the
+    // rebRescue() routine started being used in lieu of PUSH_TRAP/DROP_TRAP
+    // internally to the system.  Some of these system routines accumulate
+    // stack state, so Drop_Frame_Core() must be used.
+    //
+    Drop_Frame_Core(f);
 
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 

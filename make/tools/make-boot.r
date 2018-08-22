@@ -326,7 +326,8 @@ e-types/emit {
   #else
     enum Reb_Kind {
   #endif
-        REB_0 = 0, /* reserved for internal array termination signal */
+        REB_0 = 0, /* reserved for internal purposes */
+        REB_0_END = 0, /* ...one application is array termination cells... */
         $[Rebs],
         REB_MAX, /* one past valid types, does double duty as NULL signal */
         REB_MAX_PLUS_ONE, /* used for internal markings and algorithms */

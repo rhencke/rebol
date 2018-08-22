@@ -474,7 +474,7 @@ REBNATIVE(match)
 
         (*PG_Eval)(f);
 
-        Drop_Frame_Core(f); // !!! Drop_Frame() asserts f->eval_type as REB_0
+        Drop_Frame(f);
 
         if (THROWN(D_CELL))
             return D_CELL;

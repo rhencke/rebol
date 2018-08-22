@@ -407,7 +407,7 @@ REBNATIVE(do)
 
         (*PG_Eval)(f);
 
-        Drop_Frame_Core(f);
+        Drop_Frame(f);
 
         if (THROWN(f->out))
             return f->out; // prohibits recovery from exits
@@ -812,7 +812,7 @@ REBNATIVE(apply)
 
     (*PG_Eval)(f);
 
-    Drop_Frame_Core(f);
+    Drop_Frame(f);
 
     if (THROWN(f->out))
         return f->out;
