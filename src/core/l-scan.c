@@ -1056,9 +1056,7 @@ acquisition_loop:
                 Ensure_Value_Immutable(DS_TOP, locker);
             }
 
-            // See notes on why we do not free `a` here, but let the GC
-            // take care of it...(for now)
-
+            Free_Instruction(instruction);
             break; }
 
         case DETECTED_AS_UTF8: {

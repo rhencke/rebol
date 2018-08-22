@@ -545,14 +545,7 @@ const void *RL_rebEval(const REBVAL *v)
     if (IS_NULLED(v))
         fail ("Cannot pass voids to rebEval()");
 
-    // !!! The intent for the long term is that these rebEval() instructions
-    // not tax the garbage collector and be freed as they are encountered
-    // while traversing the va_list.  Right now an assert would trip if we
-    // tried that.  It's a good assert in general, so rather than subvert it
-    // the instructions are just GC managed for now.
-    //
-    REBARR *instruction = Alloc_Singular(NODE_FLAG_MANAGED);
-
+    REBARR *instruction = Alloc_Instruction();
     RELVAL *single = ARR_SINGLE(instruction);
     Move_Value(single, v);
 
@@ -588,10 +581,7 @@ const void *RL_rebUneval(const REBVAL *v)
 {
     Enter_Api();
 
-    // !!! See notes in rebEval() about why these are currently GC'd
-    //
-    REBARR *instruction = Alloc_Singular(NODE_FLAG_MANAGED);
-
+    REBARR *instruction = Alloc_Instruction();
     RELVAL *single = ARR_SINGLE(instruction);
     if (not v) {
         //
@@ -628,9 +618,6 @@ const void *RL_rebUneval(const REBVAL *v)
 // they are seen (or even if they are not seen, if there is a failure on that
 // call it will still process the va_list in order to release these handles)
 //
-// It is returned as a const void *, in order to discourage using these
-// anywhere besides as an argument to a variadic API like rebRun().
-//
 const void *RL_rebR(REBVAL *v)
 {
     if (not Is_Api_Value(v))
@@ -641,7 +628,7 @@ const void *RL_rebR(REBVAL *v)
         fail ("Cannot apply rebR() more than once to the same API value");
 
     SET_SER_INFO(a, SERIES_INFO_API_RELEASE);
-    return v;
+    return v; // returned as const void* to discourage use outside variadics
 }
 
 

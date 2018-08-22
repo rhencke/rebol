@@ -530,7 +530,7 @@ REBNATIVE(set_meta)
 
 
 //
-//  Copy_Context_Core: C
+//  Copy_Context_Core_Managed: C
 //
 // Copying a generic context is not as simple as getting the original varlist
 // and duplicating that.  For instance, a "live" FRAME! context (e.g. one

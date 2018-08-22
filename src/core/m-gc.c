@@ -1041,7 +1041,7 @@ static void Mark_Root_Series(void)
                 // This means someone did something like Make_Array() and then
                 // ran an evaluation before referencing it somewhere from the
                 // root set.
-                
+
                 // Only plain arrays are supported as unmanaged across
                 // evaluations, because REBCTX and REBACT and REBMAP are too
                 // complex...they must be managed before evaluations happen.

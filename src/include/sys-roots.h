@@ -84,3 +84,31 @@ inline static void Free_Value(REBVAL *v)
     GC_Kill_Series(SER(a));
 }
 
+
+// "Instructions" are singular arrays; they are intended to be used directly
+// with a variadic API call, and will be freed automatically by an enumeration
+// to the va_end() point--whether there is an error, throw, or completion.
+//
+// They are not GC managed, in order to avoid taxing the garbage collector
+// (and tripping assert mechanisms).  So they can leak if used incorrectly.
+//
+// Instructions should be returned as a const void *, in order to discourage
+// using these anywhere besides as arguments to a variadic API like rebRun().
+//
+inline static REBARR *Alloc_Instruction(void) {
+    REBSER *s = Alloc_Series_Node(
+        SERIES_FLAG_FIXED_SIZE // not tracked as stray manual, but unmanaged
+    );
+    s->info = Endlike_Header(
+        FLAG_WIDE_BYTE_OR_0(0) // signals array, also implicit terminator
+            | FLAG_LEN_BYTE_OR_255(1) // signals singular
+    );
+    s->content.fixed.values[0].header.bits = CELL_MASK_NON_STACK_END;
+    TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<instruction>>", 0);
+    return ARR(s);
+}
+
+inline static void Free_Instruction(REBARR *instruction) {
+    assert(WIDE_BYTE_OR_0(SER(instruction)) == 0);
+    Free_Node(SER_POOL, instruction);
+}

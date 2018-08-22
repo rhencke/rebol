@@ -308,15 +308,8 @@ inline static const RELVAL *Set_Frame_Detected_Fetch(REBFRM *f, const void *p)
         lookback = &f->cell;
         f->flags.bits &= ~DO_FLAG_VALUE_IS_INSTRUCTION;
 
-        // Ideally we would free the singular array here, but since the free
-        // would occur during a Eval_Core() it would appear to be happening
-        // outside of a checkpoint.  It's an important enough assert to
-        // not disable lightly just for this case, so the instructions
-        // are managed for now...but the intention is to free them as
-        // they are encountered.  For now, just unreadable-blank it.
-        //
-        /* Free_Unmanaged_Array(Singular_From_Cell(f->value)); */
-        Init_Unreadable_Blank(m_cast(RELVAL*, cast(const RELVAL*, f->value)));
+        TRASH_CELL_IF_DEBUG(m_cast(RELVAL*, cast(const RELVAL*, f->value)));
+        Free_Instruction(Singular_From_Cell(f->value));
     }
     else
         lookback = f->value;
@@ -419,16 +412,8 @@ detect_again:;
         assert(GET_SER_FLAG(f->source->array, ARRAY_FLAG_NULLEDS_LEGAL));
         break; }
 
-    case DETECTED_AS_SERIES: {
-        //
-        // Currently the only kind of series we handle here are the
-        // result of the rebEval() instruction, which is assumed to only
-        // provide a value and then be automatically freed.  (The system
-        // exposes EVAL the primitive but not a generalized EVAL bit on
-        // values, so this is a hack to make rebRun() slightly more
-        // palatable.)
-        //
-        REBARR *eval = ARR(m_cast(void*, p));
+    case DETECTED_AS_SERIES: { // "instructions" like rebEval(), rebUneval()
+        REBARR *instruction = ARR(m_cast(void*, p));
 
         // !!! The initial plan was to move the value into the frame cell and
         // free the instruction array here.  That can't work because the
@@ -445,7 +430,7 @@ detect_again:;
         //
         // (That all is done at the top of this routine.)
         //
-        f->value = ARR_SINGLE(eval);
+        f->value = ARR_SINGLE(instruction);
         f->flags.bits |= DO_FLAG_VALUE_IS_INSTRUCTION;
         break; }
 
