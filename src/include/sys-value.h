@@ -132,8 +132,10 @@
         c->track.line = line;
 
         #ifdef DEBUG_COUNT_TICKS
-            c->tick = TG_Tick;
+            c->extra.tick = c->tick = TG_Tick;
             c->touch = 0;
+        #else
+            c->extra.tick = 1; // unreadable blank needs for debug payload
         #endif
       #else // in space that is overwritten for cells that fill in payloads 
         c->payload.track.file = file;
@@ -141,15 +143,25 @@
           
         #ifdef DEBUG_COUNT_TICKS
             c->extra.tick = TG_Tick;
+        #else
+            c->extra.tick = 1; // unreadable blank needs for debug payload
         #endif
       #endif
     }
 
     #define TRACK_CELL_IF_DEBUG(c,file,line) \
         Set_Track_Payload_Extra_Debug((c), (file), (line))
+
+#elif !defined(NDEBUG)
+
+    #define TRACK_CELL_IF_DEBUG(c,file,line) \
+        ((c)->extra.tick = 1) // unreadable blank needs for debug payload
+
 #else
+
     #define TRACK_CELL_IF_DEBUG(c,file,line) \
         NOOP
+
 #endif
 
 
@@ -196,54 +208,64 @@
     inline static enum Reb_Kind VAL_TYPE_Debug(
         const RELVAL *v, const char *file, int line
     ){
-        // VAL_TYPE is called *a lot*, and this makes it a great place to do
+        // VAL_TYPE is called *a lot*, so that makes it a great place to do
         // sanity checks in the debug build.  But a debug build will not
         // inline this function, and makes *no* optimizations.  Using no
-        // stack space e.g. no locals) is ideal.
-
-        if (VAL_TYPE_RAW(v) == REB_0_END) {
-            printf("VAL_TYPE() called on END marker\n");
-            panic_at (v, file, line);
-        }
+        // stack space e.g. no locals) is ideal.  (If -Og "debug" optimization
+        // is used, that should actually be able to be fast, since it isn't
+        // needing to keep an actual local around to display.)
 
         if (
             (v->header.bits & (
                 NODE_FLAG_CELL
                 | NODE_FLAG_FREE
-                | TRASH_FLAG_UNREADABLE_IF_DEBUG
+                | VALUE_FLAG_FALSEY // all the "bad" types are also falsey
             )) == NODE_FLAG_CELL
         ){
-            return VAL_TYPE_RAW(v);
+            return VAL_TYPE_RAW(v); // majority of calls hopefully return here
         }
 
+        // Could be a LOGIC! false, blank, or NULL bit pattern in bad cell
+        //
         if (not (v->header.bits & NODE_FLAG_CELL)) {
             printf("VAL_TYPE() called on non-cell\n");
             panic_at (v, file, line);
         }
-
         if (v->header.bits & NODE_FLAG_FREE) {
             printf("VAL_TYPE() called on invalid cell--marked FREE\n");
             panic_at (v, file, line);
         }
 
-        assert(v->header.bits & TRASH_FLAG_UNREADABLE_IF_DEBUG);
+        // Cell is good, so let the good cases pass through
+        //
+        if (VAL_TYPE_RAW(v) == REB_MAX)
+            return REB_MAX;
+        if (VAL_TYPE_RAW(v) == REB_LOGIC)
+            return REB_LOGIC;
 
+        // Unreadable blank is signified in the Extra by a negative tick
+        //
+        if (VAL_TYPE_RAW(v) == REB_BLANK) {
+            if (v->extra.tick < 0) {
+                printf("VAL_TYPE() called on unreadable BLANK!\n");
+                panic_at (v, file, line);
+            }
+            return REB_BLANK;
+        }
+
+        // Special messages for END and trash (as these are common)
+        //
+        if (VAL_TYPE_RAW(v) == REB_0_END) {
+            printf("VAL_TYPE() called on END marker\n");
+            panic_at (v, file, line);
+        }
         if (VAL_TYPE_RAW(v) == REB_T_TRASH) {
             printf("VAL_TYPE() called on trash cell\n");
             panic_at (v, file, line);
         }
 
-        if (VAL_TYPE_RAW(v) == REB_BLANK) {
-            printf("VAL_TYPE() called on unreadable BLANK!\n");
-            panic_at (v, file, line);
-        }
-
-        // Hopefully rare case... some other type that is using the same
-        // 24th-from-the-left bit as TRASH_FLAG_UNREADABLE_IF_DEBUG, and it's
-        // set, but doesn't mean the type is actually unreadable.  Avoid
-        // making this a common case, as it slows the debug build.
-        // 
-        return VAL_TYPE_RAW(v);
+        printf("non-RAW VAL_TYPE() called on pseudotype (or garbage)");
+        panic_at (v, file, line);
     }
 
     #define VAL_TYPE(v) \
@@ -578,7 +600,8 @@ inline static void Prep_Stack_Cell_Core(
     ALIGN_CHECK_CELL_EVIL_MACRO(c, file, line);
   #endif
   #ifdef DEBUG_TRASH_MEMORY
-    c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_T_TRASH);
+    c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_T_TRASH)
+        | VALUE_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
   #else
     c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_0);
   #endif
@@ -630,9 +653,8 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
         v->header.bits &= CELL_MASK_PERSIST;
-        v->header.bits |=
-            TRASH_FLAG_UNREADABLE_IF_DEBUG
-            | FLAG_KIND_BYTE(REB_T_TRASH);
+        v->header.bits |= FLAG_KIND_BYTE(REB_T_TRASH)
+            | VALUE_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
 
         TRACK_CELL_IF_DEBUG(v, file, line);
     }
@@ -693,6 +715,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
         SECOND_BYTE(v->header) = REB_0_END; // only line in release build
+        v->header.bits |= VALUE_FLAG_FALSEY; // speeds VAL_TYPE_Debug() check
 
         TRACK_CELL_IF_DEBUG(v, file, line);
         return cast(REBVAL*, v);
@@ -1038,9 +1061,17 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
     RESET_VAL_CELL((v), REB_BLANK, VALUE_FLAG_FALSEY)
 
 #ifdef DEBUG_UNREADABLE_BLANKS
-    #define Init_Unreadable_Blank(v) \
-        RESET_VAL_CELL((v), REB_BLANK, \
-            VALUE_FLAG_FALSEY | TRASH_FLAG_UNREADABLE_IF_DEBUG)
+    inline static REBVAL *Init_Unreadable_Blank_Debug(
+        RELVAL *out, const char *file, int line
+    ){
+        RESET_VAL_CELL_Debug(out, REB_BLANK, VALUE_FLAG_FALSEY, file, line);
+        assert(out->extra.tick > 0);
+        out->extra.tick = -out->extra.tick;
+        return KNOWN(out);
+    }
+
+    #define Init_Unreadable_Blank(out) \
+        Init_Unreadable_Blank_Debug((out), __FILE__, __LINE__)
 
     inline static REBOOL IS_BLANK_RAW(const RELVAL *v) {
         return VAL_TYPE_RAW(v) == REB_BLANK;
@@ -1048,8 +1079,8 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
 
     inline static REBOOL IS_UNREADABLE_DEBUG(const RELVAL *v) {
         if (VAL_TYPE_RAW(v) != REB_BLANK)
-            return FALSE;
-        return did (v->header.bits & TRASH_FLAG_UNREADABLE_IF_DEBUG);
+            return false;
+        return v->extra.tick < 0;
     }
 
     // "Sinking" a value is like trashing it in the debug build at the moment
@@ -1082,7 +1113,7 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
             RESET_VAL_HEADER_EXTRA_Core(
                 v,
                 REB_BLANK,
-                VALUE_FLAG_FALSEY | TRASH_FLAG_UNREADABLE_IF_DEBUG,
+                VALUE_FLAG_FALSEY,
                 file,
                 line
             );
@@ -1090,12 +1121,14 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
             RESET_VAL_HEADER_EXTRA(
                 v,
                 REB_BLANK,
-                VALUE_FLAG_FALSEY | TRASH_FLAG_UNREADABLE_IF_DEBUG
+                VALUE_FLAG_FALSEY
             );
           #endif
         }
 
         TRACK_CELL_IF_DEBUG(v, file, line);
+        assert(v->extra.tick > 0);
+        v->extra.tick = -v->extra.tick;
 
         return cast(REBVAL*, v); // used by SINK, but not TRASH_CELL_IF_DEBUG
     }

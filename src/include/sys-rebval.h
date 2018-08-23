@@ -135,16 +135,12 @@
 // (a.k.a. "conditionally false").  All other types return true from TO-LOGIC
 // or its synonym, "DID".
 //
+// (It is also placed on END cells and TRASH cells, to speed up the VAL_TYPE()
+// check for finding illegal types...by only checking falsey types.)
+//
 // Because of this cached bit, LOGIC! does not need to store any data in its
 // payload... its data of being true or false is already covered by this
 // header bit.
-//
-// !!! Since tests for conditional truth or falsehood are extremely common
-// (not just in IF and EITHER, but in CASE and ANY and many other constructs),
-// it seems like a good optimization.  But it is a cache and could be done
-// with a slightly more expensive test.  Given the scarcity of header bits in
-// the modern codebase, this optimization may need to be sacrificed to
-// reclaim the bit for a "higher purpose".
 //
 #define VALUE_FLAG_FALSEY \
     FLAG_LEFT_BIT(18)
@@ -735,13 +731,19 @@ union Reb_Value_Extra {
     //
     REBARR *singular;
 
-    struct Reb_Chunk *prev_chunk; // used by REB_0_CHUNK
-    struct Reb_Chunker *next_chunker; // used by REB_0_CHUNKER
-
-  #if defined(DEBUG_TRACK_CELLS) && !defined(DEBUG_TRACK_EXTEND_CELLS)
-    #ifdef DEBUG_COUNT_TICKS
-        uintptr_t tick; // Reb_Track_Payload not big enough for a tick too
-    #endif
+  #if !defined(NDEBUG)
+    //
+    // Reb_Track_Payload is not big enough for a tick as well as a file and a
+    // line number, so it's put here.  It's included in all debug builds,
+    // not just those which have DEBUG_TRACK_CELLS...because it is used to
+    // implement a distinct state for unreadable blanks.  It will simply be
+    // a -1 for unreadable blanks, and a +1 for ordinary ones if there is
+    // no tick available, otherwise it will be the negative value of the
+    // tick if unreadable.  This keeps from stealing a header bit, as well
+    // as avoiding the variations which could occur if the VAL_TYPE() was
+    // changed between debug and release builds.
+    //
+    intptr_t tick;
   #endif
 };
 
@@ -835,18 +837,6 @@ union Reb_Value_Payload {
       #endif
     };
 
-
-// To help speed up VAL_TYPE_Debug, we push the trash flag into the farthest
-// right value bit...on a 32-bit architecture, this is going to be the 24th
-// flag...pushing up against the rightmost 8-bits used for the value's type.
-// We still don't completely reserve it...it's just used for REB_BLANK and
-// REB_T_TRASH, but any other types that use this flag would have their
-// VAL_TYPE() a little slower in the debug build.
-//
-#if !defined(NDEBUG)
-    #define TRASH_FLAG_UNREADABLE_IF_DEBUG \
-        FLAG_LEFT_BIT(23)
-#endif
 
 #if defined(DEBUG_TRASH_MEMORY)
     #define REB_T_TRASH \

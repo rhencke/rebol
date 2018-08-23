@@ -154,13 +154,16 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 #ifdef DEBUG_COUNT_TICKS
     //
     // Macro for same stack level as Eval_Core when debugging TICK_BREAKPOINT
+    // Note that it uses a *signed* maximum due to the needs of the unreadable
+    // blank, which doesn't want to steal a bit for its unreadable state...
+    // so it negates the sign of the unsigned tick for unreadability.
     //
     #define UPDATE_TICK_DEBUG(cur) \
         do { \
-            if (TG_Tick < UINTPTR_MAX) /* avoid rollover (may be 32-bit!) */ \
+            if (TG_Tick < INTPTR_MAX) /* avoid rollover (may be 32-bit!) */ \
                 tick = f->tick = ++TG_Tick; \
             else \
-                tick = f->tick = UINTPTR_MAX; \
+                tick = f->tick = INTPTR_MAX; /* unsigned tick, signed max */ \
             if ( \
                 (TG_Break_At_Tick != 0 and tick >= TG_Break_At_Tick) \
                 or tick == TICK_BREAKPOINT \
