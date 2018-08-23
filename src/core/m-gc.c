@@ -270,9 +270,6 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
     }
 }
 
-
-static void Queue_Mark_Opt_Value_Deep(const RELVAL *v);
-
 // A singular array, if you know it to be singular, can be marked a little
 // faster by avoiding a queue step for the array node or walk.
 //
@@ -296,14 +293,17 @@ inline static void Queue_Mark_Singular_Array(REBARR *a) {
 
 
 //
-//  Queue_Mark_Opt_Value_Deep: C
+//  Queue_Mark_Opt_End_Cell_Deep: C
 //
-// This queues *optional* values, which may include nulled cells.  If a slot is
-// not supposed to allow a void, use Queue_Mark_Value_Deep()
+// If a slot is not supposed to allow END, use Queue_Mark_Opt_Value_Deep()
+// If a slot allows neither END nor NULLED cells, use Queue_Mark_Value_Deep()
 //
-static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
+static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 {
     assert(not in_mark);
+  #if !defined(NDEBUG)
+    in_mark = TRUE;
+  #endif
 
     // If this happens, it means somehow Recycle() got called between
     // when an `if (Do_XXX_Throws())` branch was taken and when the throw
@@ -311,28 +311,15 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
     //
     assert(not (v->header.bits & VALUE_FLAG_THROWN));
 
-  #if defined(DEBUG_UNREADABLE_BLANKS)
-    if (IS_UNREADABLE_DEBUG(v))
-        return;
-  #endif
-
-  #if !defined(NDEBUG)
-    in_mark = TRUE;
-  #endif
-
     // This switch is done via contiguous REB_XXX values, in order to
     // facilitate use of a "jump table optimization":
     //
     // http://stackoverflow.com/questions/17061967/c-switch-and-jump-tables
     //
-    enum Reb_Kind kind = VAL_TYPE(v);
+    enum Reb_Kind kind = VAL_TYPE_RAW(v); // Note: unreadable BLANK!s are ok
     switch (kind) {
-    case REB_0:
-        //
-        // Should not be possible, REB_0 instances should not exist or
-        // be filtered out by caller.
-        //
-        panic (v);
+    case REB_0_END:
+        break; // use Queue_Mark_Opt_Value_Deep() if END would be a bug
 
     case REB_ACTION: {
         REBACT *a = VAL_ACTION(v);
@@ -682,32 +669,28 @@ static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
         break;
 
     case REB_MAX_NULLED:
-        //
-        // Not an actual ANY-VALUE! "value", just a nulled cell.  Instead of
-        // this "Opt"ional routine, use Queue_Mark_Value_Deep() on slots
-        // that should not be void.
-        //
-        break;
+        break; // use Queue_Mark_Value_Deep() if NULLED would be a bug
 
     default:
         panic (v);
     }
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     in_mark = FALSE;
-#endif
+  #endif
+}
+
+inline static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
+{
+    assert(NOT_END(v)); // can be NULLED, just not END
+    Queue_Mark_Opt_End_Cell_Deep(v);
 }
 
 inline static void Queue_Mark_Value_Deep(const RELVAL *v)
 {
-#if !defined(NDEBUG)
-    //
-    // Note: IS_NULLED() would trip on unreadable blanks, which is okay for GC
-    //
-    if (VAL_TYPE_RAW(v) == REB_MAX_NULLED)
-        panic (v);
-#endif
-    Queue_Mark_Opt_Value_Deep(v);
+    assert(NOT_END(v));
+    assert(VAL_TYPE_RAW(v) != REB_MAX_NULLED); // Note: Unreadable blanks ok
+    Queue_Mark_Opt_End_Cell_Deep(v);
 }
 
 
@@ -1014,10 +997,9 @@ static void Mark_Root_Series(void)
                 else // note that Mark_Frame_Stack_Deep() will mark the owner
                     s->header.bits |= NODE_FLAG_MARKED;
 
-                RELVAL *v = ARR_SINGLE(ARR(s));
-                if (NOT_END(v)) // Eval_Core() might target API cells, uses END
-                    Queue_Mark_Opt_Value_Deep(v);
-
+                // Note: Eval_Core() might target API cells, uses END
+                //
+                Queue_Mark_Opt_End_Cell_Deep(ARR_SINGLE(ARR(s)));
                 continue;
             }
 
@@ -1158,8 +1140,7 @@ static void Mark_Guarded_Nodes(void)
             //
             // !!! What if someone tried to GC_GUARD a managed paired REBSER?
             //
-            if (NOT_END(cast(REBVAL*, node)))
-                Queue_Mark_Opt_Value_Deep(cast(REBVAL*, node));
+            Queue_Mark_Opt_End_Cell_Deep(cast(REBVAL*, node));
         }
         else { // a series
             assert(node->header.bits & NODE_FLAG_MANAGED);
@@ -1244,8 +1225,7 @@ static void Mark_Frame_Stack_Deep(void)
             Queue_Mark_Context_Deep(CTX(f->specifier));
         }
 
-        if (NOT_END(f->out)) // never NULL, always initialized bit pattern
-            Queue_Mark_Opt_Value_Deep(f->out);
+        Queue_Mark_Opt_End_Cell_Deep(f->out); // END legal, but not nullptr
 
         // Frame temporary cell should always contain initialized bits, as
         // DECLARE_FRAME sets it up and no one is supposed to trash it.
@@ -1276,12 +1256,9 @@ static void Mark_Frame_Stack_Deep(void)
         // refine and special can be used to GC protect an arbitrary
         // value while a function is running, currently.  (A more
         // important purpose may come up...)
-
-        if (NOT_END(f->refine))
-            Queue_Mark_Opt_Value_Deep(f->refine);
-
-        if (NOT_END(f->special))
-            Queue_Mark_Opt_Value_Deep(f->special);
+        //
+        Queue_Mark_Opt_End_Cell_Deep(f->refine);
+        Queue_Mark_Opt_End_Cell_Deep(f->special);
 
         if (f->varlist and GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
             //
@@ -1330,17 +1307,13 @@ static void Mark_Frame_Stack_Deep(void)
 
             if (param == f->param) {
                 //
-                // If a GC can happen while this frame is on the stack in a
-                // function call, that means it's evaluating.  So when param
-                // and f->param match, that means we know this slot is the
-                // output slot for some other frame.  Hence it is protected by
-                // that output slot, and it also may be an END, which is not
-                // legal for any other slots.  We won't be needing to mark it.
+                // When param and f->param match, that means that arg is the
+                // output slot for some other frame's f->out.  Let that frame
+                // do the marking (which tolerates END, an illegal state for
+                // prior arg slots we've visited...unless deferred!)
 
                 // If we're not doing "pickups" then the cell slots after
                 // this one have not been initialized, not even to trash.
-                // (Unless the args are living in a varlist, in which case
-                // protecting them here is a duplicate anyway)
                 //
                 if (not f->doing_pickups)
                     break;
@@ -1352,7 +1325,12 @@ static void Mark_Frame_Stack_Deep(void)
                 continue;
             }
 
-            Queue_Mark_Opt_Value_Deep(arg);
+            // Filling in a deferred argument may mean Eval_Core() has to
+            // write END markers into a cell that's behind the current param,
+            // so that's a case where an END might be seen.
+            //
+            assert(NOT_END(arg) or arg == f->deferred);
+            Queue_Mark_Opt_End_Cell_Deep(arg);
         }
 
       propagate_and_continue:;

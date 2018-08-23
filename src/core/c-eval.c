@@ -1177,33 +1177,21 @@ void Eval_Core(REBFRM * const f)
 
     //=//// START BY HANDLING ANY DEFERRED ENFIX PROCESSING //////////////=//
 
-            // `if 10 and 20` starts by filling the first arg slot with 10,
-            // because AND has a "non-tight" (normal) left hand argument.
-            // Were `if 10` a complete expression, it would allow that.
+            // `if 10 and (20) [...]` starts by filling IF's `condition` slot
+            // with 10, because AND has a "non-tight" (normal) left hand
+            // argument.  Were `if 10` a complete expression, that's allowed.
             //
-            // But now we're consuming another argument at  the callsite, so
-            // by definition `if 10` wasn't finished.  We kept a `f->deferred`
-            // field that points at the previously filled f->arg slot.  So we
-            // can re-enter a sub-frame and give the IF's `condition` slot a
-            // second chance to run the enfix processing it put off before,
-            // this time using the 10 as the AND's left-hand argument.
+            // But now we're consuming another argument at the callsite, e.g.
+            // the `branch`.  So by definition `if 10` wasn't finished.
             //
-            assert(not IS_POINTER_TRASH_DEBUG(f->deferred));
+            // We kept a `f->deferred` field that points at the previously
+            // filled f->arg slot.  So we can re-enter a sub-frame and give
+            // the IF's `condition` slot a second chance to run the enfix
+            // processing it put off before, this time using the 10 as AND's
+            // left-hand argument.
+            //
             if (f->deferred) {
                 assert(VAL_TYPE(&f->cell) == REB_X_DEFERRED);
-
-                // The GC's understanding of how far to protect parameters is
-                // based on how far f->param has gotten.  Yet we've advanced
-                // f->param and f->arg, with END in arg, but are rewinding
-                // time so that a previous parameter is being filled.  Back
-                // off f->param one unit... it may not actually go to the
-                // parameter before the current, but if f->doing_pickups this
-                // will be okay (all cells at least prep'd w/initialized bits)
-                // and if we're not, then it will be aligned with f->deferred
-                //
-                --f->param;
-                --f->arg;
-                --f->special;
 
                 REBFLGS flags =
                     DO_FLAG_FULFILLING_ARG
@@ -1211,7 +1199,7 @@ void Eval_Core(REBFRM * const f)
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
                 if (Eval_Step_In_Subframe_Throws(
-                    f->deferred, // old f->arg preload
+                    f->deferred, // preload previous f->arg as left enfix
                     f,
                     flags | DO_FLAG_POST_SWITCH,
                     child
@@ -1232,14 +1220,11 @@ void Eval_Core(REBFRM * const f)
                     f->cell.payload.deferred.refine
                 );
 
+                // GC only allows the ordinarily-invalid REB_X_DEFERRED
+                // (> REB_MAX) while f->deferred is non-nullptr.
+                //
                 Init_Unreadable_Blank(&f->cell);
                 f->deferred = nullptr;
-
-                // Compensate for the param and arg change earlier.
-                //
-                ++f->param;
-                ++f->arg;
-                ++f->special;
             }
 
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE //////////////////////=//
