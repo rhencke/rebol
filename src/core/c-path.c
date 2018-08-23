@@ -569,7 +569,7 @@ REBCTX *Resolve_Path(const REBVAL *path, REBCNT *index_out)
 //  {Perform a path picking operation, same as `:(:location)/(:picker)`}
 //
 //      return: [<opt> any-value!]
-//          {Picked value, or void if picker can't fulfill the request}
+//          {Picked value, or null if picker can't fulfill the request}
 //      location [any-value!]
 //      picker [any-value!]
 //          {Index offset, symbol, or other value to use as index}

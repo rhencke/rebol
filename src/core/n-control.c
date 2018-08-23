@@ -725,7 +725,7 @@ static REB_R Case_Choose_Core(
                 return out; // preserving `cell` to pass to an arity-1 ACTION!
             }
 
-            f->gotten = END_NODE; // can't hold onto cache, running user code
+            f->gotten = nullptr; // can't hold onto cache, running user code
 
             if (IS_BLOCK(out)) {
                 if (Do_Any_Array_At_Throws(out, out)) { // out=any_array legal

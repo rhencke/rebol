@@ -143,7 +143,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     //
     assert(TG_Num_Black_Series == 0);
 
-    if (NOT_END(f->gotten)) {
+    if (f->gotten) {
         assert(IS_WORD(f->value));
         assert(Get_Opt_Var_May_Fail(f->value, f->specifier) == f->gotten);
     }
@@ -201,7 +201,7 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
     //
     assert(
         IS_POINTER_TRASH_DEBUG(f->prior->gotten)
-        or IS_END(f->prior->gotten)
+        or not f->prior->gotten
     );
 
   #if defined(DEBUG_UNREADABLE_BLANKS)

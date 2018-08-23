@@ -91,9 +91,9 @@ inline static REB_R Vararg_Op_If_No_Advance(
         // and the rules apply.  Note the raw check is faster, no need to
         // separately test for IS_END()
 
-        const REBVAL *child_gotten = Get_Opt_Var_Or_End(opt_look, specifier);
+        const REBVAL *child_gotten = Try_Get_Opt_Var(opt_look, specifier);
 
-        if (VAL_TYPE_RAW(child_gotten) == REB_ACTION) { // END would be REB_0
+        if (child_gotten and VAL_TYPE(child_gotten) == REB_ACTION) {
             if (GET_VAL_FLAG(child_gotten, VALUE_FLAG_ENFIXED)) {
                 if (
                     pclass == PARAM_CLASS_TIGHT
@@ -315,7 +315,7 @@ REB_R Do_Vararg_Op_May_Throw(
             )){
                 return R_THROWN;
             }
-            f->gotten = END_NODE; // cache must be forgotten...
+            f->gotten = nullptr; // cache must be forgotten...
             break; }
 
         case PARAM_CLASS_TIGHT: {
@@ -328,7 +328,7 @@ REB_R Do_Vararg_Op_May_Throw(
             )){
                 return R_THROWN;
             }
-            f->gotten = END_NODE; // cache must be forgotten...
+            f->gotten = nullptr; // cache must be forgotten...
             break; }
 
         case PARAM_CLASS_HARD_QUOTE:

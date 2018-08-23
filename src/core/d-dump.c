@@ -315,8 +315,8 @@ REBNATIVE(dump)
     PROBE(v);
     printf("=> ");
     if (IS_WORD(v)) {
-        const REBVAL *var = Get_Opt_Var_Or_End(v, SPECIFIED);
-        if (IS_END(var)) {
+        const REBVAL *var = Try_Get_Opt_Var(v, SPECIFIED);
+        if (not var) {
             PROBE("\\unbound\\");
         }
         else if (IS_NULLED(var)) {

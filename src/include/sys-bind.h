@@ -451,16 +451,16 @@ static inline const REBVAL *Get_Opt_Var_May_Fail(
     return CTX_VAR(c, VAL_WORD_INDEX(any_word));
 }
 
-static inline const REBVAL *Get_Opt_Var_Or_End(
+static inline const REBVAL *Try_Get_Opt_Var(
     const RELVAL *any_word,
     REBSPC *specifier
 ){
     if (not VAL_BINDING(any_word))
-        return END_NODE;
+        return nullptr;
 
     REBCTX *c = Get_Var_Context(any_word, specifier);
     if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE))
-        return END_NODE;
+        return nullptr;
 
     return CTX_VAR(c, VAL_WORD_INDEX(any_word));
 }

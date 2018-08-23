@@ -444,7 +444,7 @@ void Eval_Core(REBFRM * const f)
         }
 
         current = KNOWN(&f->cell);
-        current_gotten = END_NODE;
+        current_gotten = nullptr;
         eval_type = VAL_TYPE(current);
 
         f->flags.bits &= ~DO_FLAG_REEVALUATE_CELL;
@@ -514,18 +514,15 @@ void Eval_Core(REBFRM * const f)
     if (not EVALUATING(f->value))
         goto give_up_backward_quote_priority;
 
-    assert(IS_END(f->gotten)); // Fetch_Next_In_Frame() cleared it
-    f->gotten = Get_Opt_Var_Or_End(f->value, f->specifier);
-
-    if (VAL_TYPE_RAW(f->gotten) != REB_ACTION) // END would be REB_0
+    assert(not f->gotten); // Fetch_Next_In_Frame() cleared it
+    f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
+    if (not f->gotten or NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED))
         goto give_up_backward_quote_priority;
 
-    if (not ALL_VAL_FLAGS(
-        f->gotten,
-        VALUE_FLAG_ENFIXED | ACTION_FLAG_QUOTES_FIRST_ARG
-    )){
+    // It's known to be an ACTION! since only actions can be enfix...
+    //
+    if (NOT_VAL_FLAG(f->gotten, ACTION_FLAG_QUOTES_FIRST_ARG))
         goto give_up_backward_quote_priority;
-    }
 
     // It's a backward quoter!  But...before allowing it to try, first give an
     // operation on the left which quotes to the right priority.  So:
@@ -543,15 +540,16 @@ void Eval_Core(REBFRM * const f)
     //     foo: ('quote) => [print quote]
 
     if (eval_type == REB_WORD and EVALUATING(current)) {
-        if (IS_END(current_gotten))
-            current_gotten = Get_Opt_Var_Or_End(current, f->specifier);
+        if (not current_gotten)
+            current_gotten = Try_Get_Opt_Var(current, f->specifier);
         else
             assert(
-                current_gotten == Get_Opt_Var_Or_End(current, f->specifier)
+                current_gotten == Try_Get_Opt_Var(current, f->specifier)
             );
 
         if (
-            VAL_TYPE_RAW(current_gotten) == REB_ACTION // END is REB_0
+            current_gotten
+            and IS_ACTION(current_gotten)
             and NOT_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
             and GET_VAL_FLAG(current_gotten, ACTION_FLAG_QUOTES_FIRST_ARG)
         ){
@@ -592,10 +590,11 @@ void Eval_Core(REBFRM * const f)
             REBSPC *derived = Derive_Specifier(f->specifier, current);
 
             RELVAL *path_at = VAL_ARRAY_AT(current);
-            const REBVAL *var_at = Get_Opt_Var_Or_End(path_at, derived);
+            const REBVAL *var_at = Try_Get_Opt_Var(path_at, derived);
 
             if (
-                VAL_TYPE_RAW(var_at) == REB_ACTION // END would be REB_0
+                var_at
+                and IS_ACTION(var_at)
                 and NOT_VAL_FLAG(var_at, VALUE_FLAG_ENFIXED)
                 and GET_VAL_FLAG(var_at, ACTION_FLAG_QUOTES_FIRST_ARG)
             ){
@@ -1501,7 +1500,7 @@ void Eval_Core(REBFRM * const f)
         // fetches that were done for lookahead are potentially invalidated
         // by every function call.
         //
-        f->gotten = END_NODE;
+        f->gotten = nullptr;
 
         // Cases should be in enum order for jump-table optimization
         // (R_FALSE first, R_TRUE second, etc.)
@@ -1696,7 +1695,7 @@ void Eval_Core(REBFRM * const f)
 
             current = &f->cell;
             eval_type = VAL_TYPE(current);
-            current_gotten = END_NODE;
+            current_gotten = nullptr;
 
             // The f->gotten (if any) was the fetch for f->value, not what we
             // just put in current.  We conservatively clear this cache:
@@ -1706,7 +1705,7 @@ void Eval_Core(REBFRM * const f)
             // might be possible to finesse use of this cache and clear it
             // only if such cases occur, but for now don't take chances.
             //
-            assert(IS_END(f->gotten));
+            assert(not f->gotten);
 
             Drop_Action(f);
             goto reevaluate; // we don't move index!
@@ -1806,7 +1805,7 @@ void Eval_Core(REBFRM * const f)
         if (not EVALUATING(current))
             goto inert;
 
-        if (IS_END(current_gotten))
+        if (not current_gotten)
             current_gotten = Get_Opt_Var_May_Fail(current, f->specifier);
 
         if (IS_ACTION(current_gotten)) { // before IS_NULLED() is common case
@@ -1951,7 +1950,7 @@ void Eval_Core(REBFRM * const f)
         // The f->gotten we fetched for lookahead could become invalid when
         // we run the arbitrary code here.  Have to lose the cache.
         //
-        f->gotten = END_NODE;
+        f->gotten = nullptr;
 
         assert(f->out->header.bits & OUT_MARKED_STALE);
 
@@ -2420,8 +2419,8 @@ post_switch:;
     // First things first, we fetch the WORD! (if not previously fetched) so
     // we can see if it looks up to any kind of ACTION! at all.
 
-    if (IS_END(f->gotten))
-        f->gotten = Get_Opt_Var_Or_End(f->value, f->specifier);
+    if (not f->gotten)
+        f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
     else {
         // !!! a particularly egregious hack in EVAL-ENFIX lets us simulate
         // enfix for a function whose value is not enfix.  This means the
@@ -2430,7 +2429,7 @@ post_switch:;
         // if f->deferred is precisely equal to BLANK_VALUE.
         //
         assert(
-            f->gotten == Get_Opt_Var_Or_End(f->value, f->specifier)
+            f->gotten == Try_Get_Opt_Var(f->value, f->specifier)
             or (f->prior->deferred == BLANK_VALUE) // !!! hack
         );
     }
@@ -2445,8 +2444,8 @@ post_switch:;
     // unbound word).  It'll be an error, but that code path raises it for us.
 
     if (
-        VAL_TYPE_RAW(f->gotten) != REB_ACTION // END would be REB_0
-        or NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED)
+        not f->gotten
+        or NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED) // only ACTIONs have it
     ){
       lookback_quote_too_late:; // run as if starting new expression
 
@@ -2459,7 +2458,8 @@ post_switch:;
         }
 
         if (
-            VAL_TYPE_RAW(f->gotten) == REB_ACTION // END would be REB_0
+            f->gotten
+            and IS_ACTION(f->gotten)
             and GET_VAL_FLAG(f->gotten, ACTION_FLAG_INVISIBLE)
         ){
             // Even if not EVALUATE, we do not want START_NEW_EXPRESSION on
