@@ -130,13 +130,11 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
     #define START_NEW_EXPRESSION_MAY_THROW(f,g) \
         Eval_Core_Expression_Checks_Debug(f); \
         if (Start_New_Expression_Throws(f)) \
-            g; \
-        eval_flag = (f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
+            g;
 #else
     #define START_NEW_EXPRESSION_MAY_THROW(f,g) \
         if (Start_New_Expression_Throws(f)) \
-            g; \
-        eval_flag = (f)->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
+            g;
 #endif
 
 // Either we're NOT evaluating and there's NO special exemption, or we ARE
@@ -144,11 +142,9 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 //
 // (Note: DO_FLAG_EXPLICIT_EVALUATE is same bit as VALUE_FLAG_EVAL_FLIP)
 //
-#define NOT_EVALUATING(v) \
-    (eval_flag ^ ((v)->header.bits & VALUE_FLAG_EVAL_FLIP))
-
 #define EVALUATING(v) \
-    (not NOT_EVALUATING(v))
+    ((f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE) \
+        == ((v)->header.bits & VALUE_FLAG_EVAL_FLIP))
 
 
 #ifdef DEBUG_COUNT_TICKS
@@ -403,13 +399,19 @@ void Eval_Core(REBFRM * const f)
     REBTCK tick = f->tick = TG_Tick; // snapshot start tick
   #endif
 
-    // The `eval_flag` indicates the VALUE_FLAG_EVAL_FLIP bit state that a
-    // value would need to be evaluative under the current evaluation step.
-    //
-    uintptr_t eval_flag; // assigned/updated by START_NEW_EXPRESSION_MAY_THROW
-
     assert(DSP >= f->dsp_orig); // REDUCE accrues, APPLY adds refinements, >=
     assert(not IS_TRASH_DEBUG(f->out)); // all invisibles preserves output
+
+    // Caching VAL_TYPE_RAW(f->value) in a local can make a slight performance
+    // difference, though how much depends on what the optimizer figures out.
+    // Either way, it's useful to have handy in the debugger.
+    //
+    enum Reb_Kind eval_type;
+
+    const REBVAL *current_gotten;
+    TRASH_POINTER_IF_DEBUG(current_gotten);
+    const RELVAL *current;
+    TRASH_POINTER_IF_DEBUG(current);
 
     // Given how the evaluator is written, it's inevitable that there will
     // have to be a test for points to `goto` before running normal eval.
@@ -419,36 +421,42 @@ void Eval_Core(REBFRM * const f)
     // to fold along in a switch) seem to only make it slower.  Using flags
     // and testing them together as a group seems the fastest option.
     //
-    if (f->flags.bits & (DO_FLAG_POST_SWITCH | DO_FLAG_PROCESS_ACTION)) {
-        eval_flag = f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
-
+    if (f->flags.bits & (
+        DO_FLAG_POST_SWITCH
+        | DO_FLAG_PROCESS_ACTION
+        | DO_FLAG_REEVALUATE_CELL
+    )){
         if (f->flags.bits & DO_FLAG_POST_SWITCH) {
             assert(f->prior->deferred); // !!! EVAL-ENFIX crudely preserves it
             assert(NOT_END(f->out));
 
-            f->flags.bits &= ~DO_FLAG_POST_SWITCH; // !!! necessary?
+            f->flags.bits &= ~DO_FLAG_POST_SWITCH;
             goto post_switch;
         }
 
-        assert(f->refine == ORDINARY_ARG); // APPLY infix not (yet?) supported
+        if (f->flags.bits & DO_FLAG_PROCESS_ACTION) {
+            assert(f->refine == ORDINARY_ARG); // !!! should APPLY do enfix?
 
-        f->out->header.bits |= OUT_MARKED_STALE;
+            f->out->header.bits |= OUT_MARKED_STALE;
 
-        f->flags.bits &= ~DO_FLAG_PROCESS_ACTION; // !!! necessary?
-        goto process_action;
+            f->flags.bits &= ~DO_FLAG_PROCESS_ACTION;
+            goto process_action;
+        }
+
+        current = KNOWN(&f->cell);
+        current_gotten = END_NODE;
+        eval_type = VAL_TYPE(current);
+
+        f->flags.bits &= ~DO_FLAG_REEVALUATE_CELL;
+        goto reevaluate;
     }
 
-    // Caching VAL_TYPE_RAW(f->value) in a local can make a slight performance
-    // difference, though how much depends on what the optimizer figures out.
-    // Either way, it's useful to have handy in the debugger.
-    //
-    enum Reb_Kind eval_type; // goto crosses init
     eval_type = VAL_TYPE_RAW(f->value);
 
   do_next:;
 
     START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-    // ^-- resets local `eval_flag`, `tick` count, Ctrl-C may abort
+    // ^-- resets local `tick` count, Ctrl-C may abort
 
     // We attempt to reuse any lookahead fetching done with Get_Var.  In the
     // general case, this is not going to be possible, e.g.:
@@ -466,7 +474,6 @@ void Eval_Core(REBFRM * const f)
     // !!! Review how often gotten has hits vs. misses, and what the benefit
     // of the feature actually is.
     //
-    const REBVAL *current_gotten; // goto crosses init
     current_gotten = f->gotten;
 
     // Most calls to Fetch_Next_In_Frame() are no longer interested in the
@@ -475,7 +482,6 @@ void Eval_Core(REBFRM * const f)
     // taken when one is interested in that data, because it may have to be
     // moved.  So current is returned from Fetch_Next_In_Frame().
     //
-    const RELVAL *current; // goto crosses init
     current = Fetch_Next_In_Frame(f);
 
     UPDATE_TICK_DEBUG(current);
@@ -486,7 +492,6 @@ void Eval_Core(REBFRM * const f)
   reevaluate:;
 
     // ^-- doesn't advance expression index, so `eval x` starts with `eval`
-    // also EVAL/ONLY may change `eval_flag` to FALSE for a cycle
 
     UPDATE_TICK_DEBUG(current);
     // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
@@ -506,7 +511,7 @@ void Eval_Core(REBFRM * const f)
     if (VAL_TYPE_RAW(f->value) != REB_WORD) // END would be REB_0
         goto give_up_backward_quote_priority;
 
-    if (NOT_EVALUATING(f->value))
+    if (not EVALUATING(f->value))
         goto give_up_backward_quote_priority;
 
     assert(IS_END(f->gotten)); // Fetch_Next_In_Frame() cleared it
@@ -671,7 +676,7 @@ void Eval_Core(REBFRM * const f)
     case REB_ACTION: {
         assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED)); // WORD!/PATH! only
 
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         REBSTR *opt_label = nullptr; // not invoked through a word, "nameless"
@@ -735,7 +740,6 @@ void Eval_Core(REBFRM * const f)
             if (
                 not f->doing_pickups
                 and f->special != f->arg
-                and f->param != LOOKBACK_ARG
             ){
                 Prep_Stack_Cell(f->arg); // improve...
             }
@@ -1204,7 +1208,7 @@ void Eval_Core(REBFRM * const f)
 
                 REBFLGS flags =
                     DO_FLAG_FULFILLING_ARG
-                    | eval_flag;
+                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
                 if (Eval_Step_In_Subframe_Throws(
@@ -1255,7 +1259,8 @@ void Eval_Core(REBFRM * const f)
    //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
             case PARAM_CLASS_NORMAL: {
-                REBFLGS flags = DO_FLAG_FULFILLING_ARG | eval_flag;
+                REBFLGS flags = DO_FLAG_FULFILLING_ARG
+                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
@@ -1276,7 +1281,7 @@ void Eval_Core(REBFRM * const f)
                 REBFLGS flags =
                     DO_FLAG_NO_LOOKAHEAD
                     | DO_FLAG_FULFILLING_ARG
-                    | eval_flag;
+                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
                 DECLARE_SUBFRAME (child, f);
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
@@ -1657,12 +1662,10 @@ void Eval_Core(REBFRM * const f)
             goto redo_unchecked;
 
         case R_07_REEVALUATE_CELL:
-            eval_flag = 0; // unnecessary?
             goto prep_for_reevaluate;
 
-        case R_08_REEVALUATE_CELL_ONLY:
-            eval_flag = DO_FLAG_EXPLICIT_EVALUATE;
-            goto prep_for_reevaluate;
+        case R_08_REEVALUATE_CELL_ONLY: // reusable
+            fail ("EVAL/ONLY feature now uses alternative mechanism");
 
         case R_09_INVISIBLE: {
             assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
@@ -1684,8 +1687,6 @@ void Eval_Core(REBFRM * const f)
             ){
                 Derelativize(&f->cell, f->value, f->specifier);
                 Fetch_Next_In_Frame(f);
-
-                eval_flag = 0; // unnecessary?
                 goto prep_for_reevaluate;
             }
 
@@ -1802,7 +1803,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_WORD:
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         if (IS_END(current_gotten))
@@ -1852,7 +1853,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_SET_WORD: {
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         if (IS_END(f->value)) // `do [a:]` is illegal
@@ -1867,7 +1868,7 @@ void Eval_Core(REBFRM * const f)
 
         REBFLGS flags =
             DO_FLAG_FULFILLING_SET
-            | eval_flag;
+            | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
         if (Eval_Step_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
             DS_DROP;
@@ -1892,7 +1893,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_GET_WORD:
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         Move_Opt_Var_May_Fail(f->out, current, f->specifier);
@@ -1909,7 +1910,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_LIT_WORD:
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         Derelativize(f->out, current, f->specifier);
@@ -1944,7 +1945,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_GROUP: {
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         // The f->gotten we fetched for lookahead could become invalid when
@@ -2015,7 +2016,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_PATH: {
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         REBSTR *opt_label;
@@ -2092,7 +2093,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_SET_PATH: {
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         if (IS_END(f->value)) // `do [a/b:]` is illegal
@@ -2107,7 +2108,7 @@ void Eval_Core(REBFRM * const f)
 
         REBFLGS flags =
             DO_FLAG_FULFILLING_SET
-            | eval_flag;
+            | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
         if (Eval_Step_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
             DS_DROP;
@@ -2161,7 +2162,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_GET_PATH:
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         if (Get_Path_Throws_Core(f->out, current, f->specifier))
@@ -2182,7 +2183,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_LIT_PATH:
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         Derelativize(f->out, current, f->specifier);
@@ -2265,7 +2266,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_BAR:
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         assert(f->out->header.bits & OUT_MARKED_STALE);
@@ -2299,7 +2300,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_LIT_BAR:
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         Init_Bar(f->out);
@@ -2314,7 +2315,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_VOID:
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         fail ("VOID! cells cannot be evaluated");
@@ -2337,7 +2338,7 @@ void Eval_Core(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
     case REB_MAX_NULLED:
-        if (NOT_EVALUATING(current))
+        if (not EVALUATING(current))
             goto inert;
 
         fail (Error_Evaluate_Null_Raw());
@@ -2407,7 +2408,7 @@ post_switch:;
     if (eval_type == REB_0_END)
         goto finished; // hitting end is common, avoid do_next's switch()
 
-    if (eval_type != REB_WORD or NOT_EVALUATING(f->value)) {
+    if (eval_type != REB_WORD or not EVALUATING(f->value)) {
         if (not (f->flags.bits & DO_FLAG_TO_END))
             goto finished; // only want 1 EVALUATE of work, so stop evaluating
 
@@ -2470,7 +2471,7 @@ post_switch:;
         }
         else {
             START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-            // ^-- resets eval_flag + tick, corrupts f->out, Ctrl-C may abort
+            // ^-- resets local tick, corrupts f->out, Ctrl-C may abort
 
             UPDATE_TICK_DEBUG(nullptr);
             // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v

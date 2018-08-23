@@ -60,23 +60,33 @@ REBNATIVE(eval)
 
     UNUSED(ARG(expressions)); // EVAL only *acts* variadic, uses R_REEVALUATE
 
-    // The REEVALUATE instructions explicitly understand that the value to
-    // do reevaluation of is held in the frame's f->cell.  (It would be unsafe
-    // to evaluate something held in f->out.)
-    //
-    Move_Value(D_CELL, ARG(value));
-
-    if (REF(only)) {
+    if (not REF(only)) {
         //
-        // We're going to tell the evaluator to switch into a "non-evaluating"
-        // mode.  But we still want the eval cell itself to be treated
-        // evaluatively despite that.  So flip its special evaluator bit.
+        // The evaluator has specific support for retriggering evaluation
+        // from the frame's cell...so take advantage of that without making
+        // a new frame.
         //
-        SET_VAL_FLAG(D_CELL, VALUE_FLAG_EVAL_FLIP);
-        return R_REEVALUATE_CELL_ONLY;
+        Move_Value(D_CELL, ARG(value));
+        return R_REEVALUATE_CELL;
     }
 
-    return R_REEVALUATE_CELL;
+    // See notes on DO_FLAG_REEVALUATE_CELL for why this is no longer offered
+    // as a R_REEVALUATE_CELL_ONLY dispatcher return value.  Hence, subframes
+    // must be used instead.
+    //
+    DECLARE_SUBFRAME (child, frame_);
+    Move_Value(&child->cell, ARG(value));
+    child->cell.header.bits ^= VALUE_FLAG_EVAL_FLIP;
+    if (Eval_Step_In_Subframe_Throws(
+        D_OUT,
+        frame_,
+        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_REEVALUATE_CELL,
+        child
+    )){
+        return D_OUT;
+    }
+
+    return D_OUT;
 }
 
 

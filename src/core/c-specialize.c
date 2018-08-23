@@ -1252,7 +1252,9 @@ REBNATIVE(does)
         SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED); // is inaccessible
         f->varlist = nullptr; // just let it GC, for now
 
-        Drop_Frame(f);
+        // May not be at end or thrown, e.g. (x: does quote y x = 'y)
+        //
+        Drop_Frame_Core(f);
 
         // The exemplar may or may not be managed as of yet.  We want it
         // managed, but Push_Action() does not use ordinary series creation to

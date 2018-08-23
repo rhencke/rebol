@@ -97,11 +97,20 @@
     FLAG_LEFT_BIT(2)
 
 
-//=//// DO_FLAG_UNUSED_3 //////////////////////////////////////////////////=//
+//=//// DO_FLAG_REEVALUATE_CELL ///////////////////////////////////////////=//
 //
-// Reclaimed.
+// Function dispatchers have a special return value used by EVAL, which tells
+// it to use the frame's cell as the head of the next evaluation (before
+// what f->value would have ordinarily run.)  It used to have another mode
+// which was able to request the frame to change its DO_FLAG_EXPLICIT_EVALUATE
+// state for the duration of the next evaluation...a feature that was used
+// by EVAL/ONLY.  The somewhat obscure feature was used to avoid needing to
+// make a new frame to do that, but raised several questions about semantics.
 //
-#define DO_FLAG_UNUSED_3 \
+// This allows EVAL/ONLY to be implemented by entering a new subframe with
+// new flags, and may have other purposes as well.
+//
+#define DO_FLAG_REEVALUATE_CELL \
     FLAG_LEFT_BIT(3)
 
 

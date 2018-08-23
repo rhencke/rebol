@@ -233,8 +233,8 @@ TVAR struct Reb_State *Saved_State; // Saved state for Catch (CPU state, etc.)
 //-- Evaluation variables:
 TVAR REBI64 Eval_Cycles;    // Total evaluation counter (upward)
 TVAR REBI64 Eval_Limit;     // Evaluation limit (set by secure)
-TVAR REBINT Eval_Count;     // Evaluation counter (downward)
-TVAR REBCNT Eval_Dose;      // Evaluation counter reset value
+TVAR int_fast32_t Eval_Count;     // Evaluation counter (downward)
+TVAR uint_fast32_t Eval_Dose;      // Evaluation counter reset value
 TVAR REBFLGS Eval_Sigmask;   // Masking out signal flags
 
 TVAR REBFLGS Trace_Flags;    // Trace flag
