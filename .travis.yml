@@ -357,9 +357,11 @@ matrix:
       osx_image: xcode9.3beta
       language: c
       env:
-        - CONFIG=emscripten.r
+        - CONFIG=emscripten-debug.r
         - OS_ID=0.16.2
         - DEBUG=asserts
+        - OPTIMIZE=z
+        - TARGET=libr3.js
         - STANDARD=c
         - RIGOROUS=no
         - STATIC=no
@@ -601,9 +603,9 @@ script:
     #
     - |
       if [[ -z ${TCC} ]]; then
-          make -f makefile.boot CONFIG="configs/${CONFIG}" NUM_JOBS=${MAKE_JOBS} REBOL_TOOL=${REBOL_TOOL} STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="${GIT_COMMIT}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${FFI} WITH_TCC="no" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} ${TARGET}
+          make -f makefile.boot CONFIG="configs/${CONFIG}" NUM_JOBS=${MAKE_JOBS} REBOL_TOOL=${REBOL_TOOL} STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="${GIT_COMMIT}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${FFI} WITH_TCC="no" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET}
       else
-          make -f makefile.boot CONFIG="configs/${CONFIG}" NUM_JOBS=${MAKE_JOBS} REBOL_TOOL=${REBOL_TOOL} STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="${GIT_COMMIT}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${FFI} WITH_TCC="%${PWD}/tcc/${TCC}" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} ${TARGET}
+          make -f makefile.boot CONFIG="configs/${CONFIG}" NUM_JOBS=${MAKE_JOBS} REBOL_TOOL=${REBOL_TOOL} STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="${GIT_COMMIT}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${FFI} WITH_TCC="%${PWD}/tcc/${TCC}" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET}
       fi
 
     # take a look at the preprocess header file
@@ -680,7 +682,7 @@ script:
     #
     # Note: -z tests if a variable is undefined
     #
-    - NEW_NAME=${OS_ID}/r3-${GIT_COMMIT_SHORT}
+    - NEW_NAME=r3-${GIT_COMMIT_SHORT}
     - if [[ "${DEBUG}" != "none" ]]; then NEW_NAME+="-debug"; fi
     - |
       if [[ "${STANDARD}" = "c++" || "${STANDARD}" = "c++0x" || "${STANDARD}" = "c++11" || "${STANDARD}" = "c++14" || "${STANDARD}" = "c++17" ]]; then
@@ -695,16 +697,16 @@ script:
     - mkdir ${OS_ID}
     - |
       if [[ -e "r3.exe" ]]; then
-           mv r3.exe ${NEW_NAME}.exe;
+           mv r3.exe ${OS_ID}/${NEW_NAME}.exe;
       fi
       if [[ -e "r3" ]]; then
-           mv r3 ${NEW_NAME};
+           mv r3 ${OS_ID}/${NEW_NAME};
       fi
-      if [[ -e "r3.js" ]]; then
-           mv r3.js ${NEW_NAME}.js;
+      if [[ -e "libr3.js" ]]; then
+           mv libr3.js ${OS_ID}/lib${NEW_NAME}.js;
       fi
-      if [[ -e "r3.wasm" ]]; then
-           mv r3.wasm ${NEW_NAME}.wasm;
+      if [[ -e "libr3.wasm" ]]; then
+           mv libr3.wasm ${OS_ID}/lib${NEW_NAME}.wasm;
       fi
 
     # Return whether the build succeeded or not to Travis.  If this succeeded 
