@@ -931,7 +931,7 @@ REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             // were used to generate the PAIR!.  There should be some
             // overall solution to facilitating this kind of need.
             //
-            if (pvs->eval_type == REB_SET_PATH && IS_PAIR(pvs->out)) {
+            if (pvs->path_type == REB_SET_PATH && IS_PAIR(pvs->out)) {
                 //
                 // !!! Adding to the reasons that this is dodgy, the picker
                 // can be pointing to a temporary memory cell, and when

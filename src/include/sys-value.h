@@ -333,7 +333,7 @@
     //
     #define CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(flags) \
         enum Reb_Kind category = cast(enum Reb_Kind, SECOND_BYTE(flags)); \
-        assert(kind <= REB_MAX + 1); /* REB_0 is end, REB_MAX is null */ \
+        assert(kind < REB_MAX_PLUS_MAX); /* see REB_MAX_PLUS_MAX */ \
         if (category != REB_0) { \
             if (kind != category) { \
                 if (category == REB_WORD) \

@@ -124,7 +124,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
     Fetch_Next_In_Frame(pvs); // may be at end
 
-    if (IS_END(pvs->value) and pvs->eval_type == REB_SET_PATH) {
+    if (IS_END(pvs->value) and pvs->path_type == REB_SET_PATH) {
         const REBVAL *opt_setval = pvs->special;
         assert(opt_setval != NULL);
 
@@ -200,7 +200,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
         else switch (const_FIRST_BYTE(r->header)) {
 
         case R_09_INVISIBLE:
-            assert(pvs->eval_type == REB_SET_PATH);
+            assert(pvs->path_type == REB_SET_PATH);
             if (
                 dispatcher != Path_Dispatch[REB_STRUCT]
                 and dispatcher != Path_Dispatch[REB_GOB]
@@ -331,7 +331,7 @@ REBOOL Eval_Path_Throws_Core(
     if (IS_END(pvs->value))
         fail ("Cannot dispatch empty path");
 
-    pvs->eval_type = kind;
+    pvs->path_type = kind;
 
     // Push_Frame_At sets the output to the global unwritable END cell, so we
     // have to wait for this point to set to the output cell we want.

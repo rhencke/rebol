@@ -124,11 +124,6 @@ void Trace_Error(const REBVAL *value)
 //
 void Traced_Eval_Hook(REBFRM * const f)
 {
-    // There are a lot of invariants checked on entry to Eval_Core(), but this is
-    // a simple one that is important enough to mirror here.
-    //
-    assert(NOT_END(f->value) or (f->eval_type == REB_E_GOTO_PROCESS_ACTION));
-
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level) {
         Eval_Core(f); // don't apply tracing (REPL uses this to hide)
@@ -145,8 +140,7 @@ void Traced_Eval_Hook(REBFRM * const f)
 
     while (TRUE) {
         if (not (
-            (f->eval_type == REB_E_GOTO_PROCESS_ACTION) // only value is END
-            or IS_ACTION(f->value)
+            VAL_TYPE_RAW(f->value) == REB_ACTION
             or (Trace_Flags & TRACE_FLAG_FUNCTION)
         )){
             // If a caller reuses a frame (as we are doing by single-stepping),

@@ -808,7 +808,6 @@ REBVAL *RL_rebRescue(
 
     REBSTR *opt_label = NULL;
     Push_Frame_At_End(f, DO_MASK_NONE); // not FULLY_SPECIALIZED
-    f->eval_type = REB_E_GOTO_PROCESS_ACTION;
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);

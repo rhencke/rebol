@@ -212,7 +212,7 @@ inline static void Push_Frame_Core(REBFRM *f)
   #endif
 }
 
-// Pretend the input source has ended; used with REB_E_GOTO_PROCESS_ACTION.
+// Pretend the input source has ended; used with REB_E_PROCESS_ACTION.
 //
 inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
     f->flags = Endlike_Header(flags);
@@ -688,7 +688,6 @@ inline static REBOOL Eval_Step_In_Frame_Throws(
 
     f->out = out;
     f->dsp_orig = DSP;
-    f->eval_type = VAL_TYPE(f->value);
     (*PG_Eval)(f); // should already be pushed
 
     // The & on the following line is purposeful.  See Init_Endlike_Header.
@@ -715,28 +714,17 @@ inline static REBOOL Eval_Step_In_Frame_Throws(
 // !!! Review how much cheaper this actually is than making a new frame.
 //
 inline static REBOOL Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
-    assert(f->eval_type == REB_SET_WORD or f->eval_type == REB_SET_PATH);
-
     REBFLGS prior_flags = f->flags.bits;
     f->flags = Endlike_Header(flags);
 
     REBDSP prior_dsp_orig = f->dsp_orig;
 
     f->dsp_orig = DSP;
-    f->eval_type = VAL_TYPE(f->value);
     (*PG_Eval)(f); // should already be pushed
 
-    // The & on the following line is purposeful.  See Init_Endlike_Header.
-    //
-    (&f->flags)->bits = prior_flags; // e.g. restore DO_FLAG_TO_END
+    f->flags.bits = prior_flags; // e.g. restore DO_FLAG_TO_END
     
     f->dsp_orig = prior_dsp_orig;
-
-    // Note: f->eval_type will have changed, but it should not matter to
-    // REB_SET_WORD or REB_SET_PATH, which will either continue executing
-    // the frame and fetch a new eval_type (if DO_FLAG_TO_END) else return
-    // with no guarantee about f->eval_type.
-
     return THROWN(f->out);
 }
 
@@ -752,7 +740,7 @@ inline static REBOOL Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 // Future investigation could attack the problem again and see if there is
 // any common case that actually offered an advantage to optimize for here.
 //
-inline static REBOOL Eval_Step_In_Subframe_Throws_Core(
+inline static REBOOL Eval_Step_In_Subframe_Throws(
     REBVAL *out,
     REBFRM *higher, // may not be direct parent (not child->prior upon push!)
     REBFLGS flags,
@@ -796,7 +784,7 @@ inline static REBOOL Eval_Step_In_Subframe_Throws_Core(
     //
     Push_Frame_Core(child);
     Reuse_Varlist_If_Available(child);
-    (*PG_Eval)(child); // eval_type should be set
+    (*PG_Eval)(child);
     Drop_Frame_Core(child);
 
     assert(
@@ -816,26 +804,6 @@ inline static REBOOL Eval_Step_In_Subframe_Throws_Core(
         higher->flags.bits |= DO_FLAG_BARRIER_HIT;
 
     return THROWN(out);
-}
-
-inline static REBOOL Eval_Step_In_Subframe_Throws(
-    REBVAL *out,
-    REBFRM *higher, // may not be direct parent (not child->prior upon push!)
-    REBFLGS flags,
-    REBFRM *child // dsp_orig preload, refinements can be on stack
-){
-    child->eval_type = VAL_TYPE(higher->value);
-    return Eval_Step_In_Subframe_Throws_Core(out, higher, flags, child);
-}
-
-inline static REBOOL Eval_Post_Switch_In_Subframe_Throws(
-    REBVAL *out,
-    REBFRM *higher, // may not be direct parent (not child->prior upon push!)
-    REBFLGS flags,
-    REBFRM *child // dsp_orig preload, refinements can be on stack
-){
-    child->eval_type = REB_E_POST_SWITCH;
-    return Eval_Step_In_Subframe_Throws_Core(out, higher, flags, child);
 }
 
 
@@ -861,14 +829,12 @@ inline static REBIXO Eval_Array_At_Core(
         f->source->index = index;
         f->source->pending = ARR_AT(array, index);
         assert(NOT_END(f->value));
-        f->eval_type = VAL_TYPE(f->value);
     }
     else {
         SET_FRAME_VALUE(f, ARR_AT(array, index));
         f->source->index = index + 1;
         f->source->pending = f->value + 1;
-        f->eval_type = VAL_TYPE_RAW(f->value);
-        if (f->eval_type == REB_0_END)
+        if (IS_END(f->value))
             return END_FLAG;
     }
 
@@ -1011,7 +977,7 @@ inline static REBIXO Eval_Va_Core(
     f->gotten = END_NODE; // SET_FRAME_VALUE() asserts this is end
     if (opt_first) {
         Set_Frame_Detected_Fetch(f, opt_first);
-        f->eval_type = VAL_TYPE(f->value);
+        assert(NOT_END(f->value));
     }
     else {
       #if !defined(NDEBUG)
@@ -1026,8 +992,7 @@ inline static REBIXO Eval_Va_Core(
         f->value = junk;
       #endif
         Fetch_Next_In_Frame(f);
-        f->eval_type = VAL_TYPE_RAW(f->value);
-        if (f->eval_type == REB_0_END)
+        if (IS_END(f->value))
             return END_FLAG;
     }
 

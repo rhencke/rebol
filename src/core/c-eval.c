@@ -99,9 +99,9 @@
 REB_R Dispatcher_Core(REBFRM * const f) {
     //
     // Callers can "lie" to make the dispatch a no-op by substituting the
-    // DEFER-0 native in the frame, even though it doesn't match the args,
+    // "Dummy" native in the frame, even though it doesn't match the args,
     // in order to build the frame of a function without running it.  This
-    // is one of the few places tolerant of the lie, so don't call FRM_PHASE()
+    // is one of the few places tolerant of the lie...hence _OR_DUMMY()
     //
     return ACT_DISPATCHER(FRM_PHASE_OR_DUMMY(f))(f);
 }
@@ -400,23 +400,52 @@ void Eval_Core(REBFRM * const f)
     REBTCK tick = f->tick = TG_Tick; // snapshot start tick
   #endif
 
-    assert(DSP >= f->dsp_orig); // REDUCE accrues, APPLY adds refinements, >=
-    assert(not IS_TRASH_DEBUG(f->out)); // all invisibles preserves output
-
-  do_next:;
-
     // The `eval_flag` indicates the VALUE_FLAG_EVAL_FLIP bit state that a
     // value would need to be evaluative under the current evaluation step.
     //
     uintptr_t eval_flag; // assigned/updated by START_NEW_EXPRESSION_MAY_THROW
 
-    // Most calls to Fetch_Next_In_Frame() are no longer interested in the
-    // cell backing the pointer that used to be in f->value (this is enforced
-    // by a rigorous test in STRESS_EXPIRED_FETCH).  Special care must be
-    // taken when one is interested in that data, because it may have to be
-    // moved.  So current is returned from Fetch_Next_In_Frame().
+    assert(DSP >= f->dsp_orig); // REDUCE accrues, APPLY adds refinements, >=
+    assert(not IS_TRASH_DEBUG(f->out)); // all invisibles preserves output
+
+    // Given how the evaluator is written, it's inevitable that there will
+    // have to be a test for points to `goto` before running normal eval.
+    // This cost is paid on every entry to Eval_Core().
     //
-    const RELVAL *current;
+    // Trying alternatives (such as a synthetic REB_XXX type to signal it,
+    // to fold along in a switch) seem to only make it slower.  Using flags
+    // and testing them together as a group seems the fastest option.
+    //
+    if (f->flags.bits & (DO_FLAG_POST_SWITCH | DO_FLAG_PROCESS_ACTION)) {
+        eval_flag = f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
+
+        if (f->flags.bits & DO_FLAG_POST_SWITCH) {
+            assert(f->prior->deferred); // !!! EVAL-ENFIX crudely preserves it
+            assert(NOT_END(f->out));
+
+            f->flags.bits &= ~DO_FLAG_POST_SWITCH; // !!! necessary?
+            goto post_switch;
+        }
+
+        assert(f->refine == ORDINARY_ARG); // APPLY infix not (yet?) supported
+
+        f->out->header.bits |= OUT_MARKED_STALE;
+
+        f->flags.bits &= ~DO_FLAG_PROCESS_ACTION; // !!! necessary?
+        goto process_action;
+    }
+
+    // Caching VAL_TYPE_RAW(f->value) in a local can make a slight performance
+    // difference, though how much depends on what the optimizer figures out.
+    // Either way, it's useful to have handy in the debugger.
+    //
+    enum Reb_Kind eval_type; // goto crosses init
+    eval_type = VAL_TYPE_RAW(f->value);
+
+  do_next:;
+
+    START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
+    // ^-- resets local `eval_flag`, `tick` count, Ctrl-C may abort
 
     // We attempt to reuse any lookahead fetching done with Get_Var.  In the
     // general case, this is not going to be possible, e.g.:
@@ -434,44 +463,64 @@ void Eval_Core(REBFRM * const f)
     // !!! Review how often gotten has hits vs. misses, and what the benefit
     // of the feature actually is.
     //
-    const REBVAL *current_gotten;
+    const REBVAL *current_gotten; // goto crosses init
+    current_gotten = f->gotten;
 
-    // Caller is responsible for initializing f->eval_type, which is either
-    // the type of f->value -or- a "pseudotype" value (> REB_MAX) which is
-    // used to `goto` a place in the middle of Eval_Core() upon entry.
+    // Most calls to Fetch_Next_In_Frame() are no longer interested in the
+    // cell backing the pointer that used to be in f->value (this is enforced
+    // by a rigorous test in STRESS_EXPIRED_FETCH).  Special care must be
+    // taken when one is interested in that data, because it may have to be
+    // moved.  So current is returned from Fetch_Next_In_Frame().
     //
-    // The reason for folding this into the f->eval_type is because as
-    // branching goes, the type of f->value is something that always has to be
-    // checked anyway.  So if a state is only per-entry for Eval_Core() and
-    // doesn't have to persist across evaluations, eval_type is better than a
-    // DO_FLAG_XXX.
+    const RELVAL *current; // goto crosses init
+    current = Fetch_Next_In_Frame(f);
+
+    UPDATE_TICK_DEBUG(current);
+    // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
+
+    assert(eval_type != REB_0_END and eval_type == VAL_TYPE_RAW(current));
+
+  reevaluate:;
+
+    // ^-- doesn't advance expression index, so `eval x` starts with `eval`
+    // also EVAL/ONLY may change `eval_flag` to FALSE for a cycle
+
+    UPDATE_TICK_DEBUG(current);
+    // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
+
+    //==////////////////////////////////////////////////////////////////==//
     //
-    switch (f->eval_type) {
-      case REB_0:
-        //
-        // Though optimizing DO [] isn't terribly important, it's expected
-        // that a whole stack frame isn't made for that case.
-        //
-        panic ("Frame entered with f->eval_type == 0");
+    // LOOKAHEAD TO ENABLE ENFIXED FUNCTIONS THAT QUOTE THEIR LEFT ARG
+    //
+    //==////////////////////////////////////////////////////////////////==//
 
-      case REB_E_POST_SWITCH: // deferred lookbacks re-enter frame
-        eval_flag = f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
+    // Ren-C has an additional lookahead step *before* an evaluation in order
+    // to take care of this scenario.  To do this, it pre-emptively feeds the
+    // frame one unit that f->value is the *next* value, and a local variable
+    // called "current" holds the current head of the expression that the
+    // main switch would process.
 
-        assert(f->prior->deferred); // !!! EVAL-ENFIX crudely preserves this
-        assert(NOT_END(f->out));
-        goto post_switch; // updates f->eval_type
+    if (VAL_TYPE_RAW(f->value) != REB_WORD) // END would be REB_0
+        goto give_up_backward_quote_priority;
 
-      case REB_E_GOTO_PROCESS_ACTION:
-        eval_flag = f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE;
+    if (NOT_EVALUATING(f->value))
+        goto give_up_backward_quote_priority;
 
-        f->out->header.bits |= OUT_MARKED_STALE;
-        assert(f->refine == ORDINARY_ARG); // APPLY infix not (yet?) supported
-        goto process_action; // updates f->eval_type
+    assert(IS_END(f->gotten)); // Fetch_Next_In_Frame() cleared it
+    f->gotten = Get_Opt_Var_Or_End(f->value, f->specifier);
 
-    // There is a lookahead step before the main switch() which checks to
-    // see if the *next* value is a WORD! or PATH!, to allow it to quote
-    // backwards if it does.  But first give an operation on the left
-    // which quotes on the right priority.  This means something like:
+    if (VAL_TYPE_RAW(f->gotten) != REB_ACTION) // END would be REB_0
+        goto give_up_backward_quote_priority;
+
+    if (not ALL_VAL_FLAGS(
+        f->gotten,
+        VALUE_FLAG_ENFIXED | ACTION_FLAG_QUOTES_FIRST_ARG
+    )){
+        goto give_up_backward_quote_priority;
+    }
+
+    // It's a backward quoter!  But...before allowing it to try, first give an
+    // operation on the left which quotes to the right priority.  So:
     //
     //     foo: quote => [print quote]
     //
@@ -479,23 +528,13 @@ void Eval_Core(REBFRM * const f)
     //
     //     foo: (quote =>) [print quote]
     //
-    // This is a good argument for not making enfixed operations
-    // that hard-quote things that can dispatch functions.  A
-    // soft-quote would give more flexibility to override the
-    // left hand side's precedence, e.g. the user writes:
+    // This is a good argument for not making enfixed operations that
+    // hard-quote things that can dispatch functions.  A soft-quote would give
+    // more flexibility to override the left hand side's precedence:
     //
     //     foo: ('quote) => [print quote]
 
-      case REB_WORD:
-        START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-        // ^-- resets local `eval_flag`, `tick` count, Ctrl-C may abort
-
-        current_gotten = f->gotten;
-        current = Fetch_Next_In_Frame(f);
-
-        if (NOT_EVALUATING(current))
-            goto give_up_forward_quote_priority; // no point getting variable
-
+    if (eval_type == REB_WORD and EVALUATING(current)) {
         if (IS_END(current_gotten))
             current_gotten = Get_Opt_Var_Or_End(current, f->specifier);
         else
@@ -516,32 +555,26 @@ void Eval_Core(REBFRM * const f)
             goto give_up_backward_quote_priority;
         }
         goto give_up_forward_quote_priority;
+    }
 
-    // !!! Words aren't the only way that functions can be dispatched,
-    // one can also use paths.  It gets tricky here, because path GETs
-    // are dodgier than word fetches.  Not only can it have GROUP!s and
-    // have side effects to "examining" what it looks up to, but there are
-    // other implications.
-    //
-    // As a temporary workaround to make HELP/DOC DEFAULT work, where
-    // DEFAULT hard quotes left, we have to recognize that path as a
-    // function call which quotes its first argument...so splice in some
-    // handling here that peeks at the head of the path and sees if it
-    // applies.  Note this is very brittle, and can be broken as easily as
-    // saying `o: make object! [h: help]` and then `o/h/doc default`.
-    //
-    // There are ideas on the table for how to remedy this long term.
-    // For now, see comments in the WORD branch above for more details.
-
-      case REB_PATH:
-        START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-        // ^-- resets local `eval_flag`, `tick` count, Ctrl-C may abort
-        current_gotten = f->gotten;
-        current = Fetch_Next_In_Frame(f);
-
-        if (NOT_EVALUATING(current))
-            goto give_up_forward_quote_priority; // no point getting path
-
+    if (eval_type == REB_PATH and EVALUATING(current)) {
+        //
+        // !!! Words aren't the only way that functions can be dispatched,
+        // one can also use paths.  It gets tricky here, because path GETs
+        // are dodgier than word fetches.  Not only can it have GROUP!s and
+        // have side effects to "examining" what it looks up to, but there are
+        // other implications.
+        //
+        // As a temporary workaround to make HELP/DOC DEFAULT work, where
+        // DEFAULT hard quotes left, we have to recognize that path as a
+        // function call which quotes its first argument...so splice in some
+        // handling here that peeks at the head of the path and sees if it
+        // applies.  Note this is very brittle, and can be broken as easily as
+        // saying `o: make object! [h: help]` and then `o/h/doc default`.
+        //
+        // There are ideas on the table for how to remedy this long term.
+        // For now, see comments in the WORD branch above for more details.
+        //
         if (
             VAL_LEN_AT(current) > 0
             and IS_WORD(VAL_ARRAY_AT(current))
@@ -562,98 +595,42 @@ void Eval_Core(REBFRM * const f)
             }
         }
         goto give_up_forward_quote_priority;
+    }
 
-
-    // A literal ACTION! in a BLOCK! may also forward quote
-
-      case REB_ACTION:
-        START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-        // ^-- resets local `eval_flag`, `tick` count, Ctrl-C may abort
-        current_gotten = nullptr; // not used...but silence compiler warning
-        current = Fetch_Next_In_Frame(f);
-
-        if (NOT_EVALUATING(current))
-            goto give_up_forward_quote_priority;
-
+    if (eval_type == REB_ACTION and EVALUATING(current)) {
+        //
+        // A literal ACTION! in a BLOCK! may also forward quote
+        //
         assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED)); // not WORD!/PATH!
         if (GET_VAL_FLAG(current, ACTION_FLAG_QUOTES_FIRST_ARG))
             goto give_up_backward_quote_priority;
-
-        goto give_up_forward_quote_priority;
-
-      default:
-        assert(f->eval_type == VAL_TYPE(f->value));
-        START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-        // ^-- resets local `eval_flag`, `tick` count, Ctrl-C may abort
-        current_gotten = nullptr; // not used...but silence compiler warning
-        current = Fetch_Next_In_Frame(f);
-        goto give_up_forward_quote_priority;
     }
 
-  give_up_forward_quote_priority:;
+  give_up_forward_quote_priority:
 
-  reevaluate:;
+    // Okay, right quoting left wins out!  But if its parameter is <skip>able,
+    // let it voluntarily opt out of it the type doesn't match its interests.
 
-    // ^-- doesn't advance expression index, so `eval x` starts with `eval`
-    // also EVAL/ONLY may change `eval_flag` to FALSE for a cycle
+    Seek_First_Param(f, VAL_ACTION(f->gotten));
+    if (Is_Param_Skippable(f->param))
+        if (not TYPE_CHECK(f->param, VAL_TYPE(current)))
+            goto give_up_backward_quote_priority;
 
-    UPDATE_TICK_DEBUG(current);
-    // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
+    Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
+    Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
 
-    //==////////////////////////////////////////////////////////////////==//
+    // Lookback args are fetched from f->out, then copied into an arg
+    // slot.  Put the backwards quoted value into f->out, and in the
+    // debug build annotate it with the unevaluated flag, to indicate
+    // the lookback value was quoted, for some double-check tests.
     //
-    // LOOKAHEAD TO ENABLE ENFIXED FUNCTIONS THAT QUOTE THEIR LEFT ARG
-    //
-    //==////////////////////////////////////////////////////////////////==//
+    Derelativize(f->out, current, f->specifier); // lookback in f->out
+  #if !defined(NDEBUG)
+    SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+  #endif
 
-    // Ren-C has an additional lookahead step *before* an evaluation in order
-    // to take care of this scenario.  To do this, it pre-emptively feeds the
-    // frame one unit that f->value is the *next* value, and a local variable
-    // called "current" holds the current head of the expression that the
-    // switch will be processing.
-
-    // !!! We never want to do infix processing if the args aren't evaluating
-    // (e.g. arguments in a va_list from a C function calling into Rebol)
-    // But this is distinct from DO_FLAG_NO_LOOKAHEAD (which Apply_Only also
-    // sets), which really controls the after lookahead step.  Consider this
-    // edge case.
-    //
-    if (
-        VAL_TYPE_RAW(f->value) == REB_WORD // END would be REB_0
-        and EVALUATING(f->value)
-    ){
-        assert(IS_END(f->gotten)); // Fetch_Next_In_Frame() cleared it
-        f->gotten = Get_Opt_Var_Or_End(f->value, f->specifier);
-
-        if (
-            VAL_TYPE_RAW(f->gotten) == REB_ACTION // END would be REB_0
-            and ALL_VAL_FLAGS(
-                f->gotten,
-                VALUE_FLAG_ENFIXED | ACTION_FLAG_QUOTES_FIRST_ARG
-            )
-        ){
-            Seek_First_Param(f, VAL_ACTION(f->gotten));
-            if (Is_Param_Skippable(f->param))
-                if (not TYPE_CHECK(f->param, VAL_TYPE(current)))
-                    goto give_up_backward_quote_priority;
-
-            Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
-            Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
-
-            // Lookback args are fetched from f->out, then copied into an arg
-            // slot.  Put the backwards quoted value into f->out, and in the
-            // debug build annotate it with the unevaluated flag, to indicate
-            // the lookback value was quoted, for some double-check tests.
-            //
-            Derelativize(f->out, current, f->specifier); // lookback in f->out
-          #if !defined(NDEBUG)
-            SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
-          #endif
-
-            Fetch_Next_In_Frame(f); // skip the WORD! that invoked the action
-            goto process_action;
-        }
-    }
+    Fetch_Next_In_Frame(f); // skip the WORD! that invoked the action
+    goto process_action;
 
   give_up_backward_quote_priority:;
 
@@ -668,10 +645,12 @@ void Eval_Core(REBFRM * const f)
     //
     // http://stackoverflow.com/questions/17061967/c-switch-and-jump-tables
 
-    switch (f->eval_type) {
+    assert(eval_type == VAL_TYPE_RAW(current));
+
+    switch (eval_type) {
 
     case REB_0_END:
-        goto finished; // e.g. an END was hit
+        goto finished;
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
@@ -1225,10 +1204,10 @@ void Eval_Core(REBFRM * const f)
                     | eval_flag;
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
-                if (Eval_Post_Switch_In_Subframe_Throws(
+                if (Eval_Step_In_Subframe_Throws(
                     f->deferred, // old f->arg preload
                     f,
-                    flags,
+                    flags | DO_FLAG_POST_SWITCH,
                     child
                 )){
                     Move_Value(f->out, f->deferred);
@@ -1712,7 +1691,7 @@ void Eval_Core(REBFRM * const f)
           prep_for_reevaluate:
 
             current = &f->cell;
-            f->eval_type = VAL_TYPE(current);
+            eval_type = VAL_TYPE(current);
             current_gotten = END_NODE;
 
             // The f->gotten (if any) was the fetch for f->value, not what we
@@ -1995,7 +1974,6 @@ void Eval_Core(REBFRM * const f)
                 goto finished;
             if (IS_END(f->out)) {
                 f->flags.bits |= DO_FLAG_BARRIER_HIT;
-                f->eval_type = VAL_TYPE_RAW(f->value); // may be END
                 goto finished;
             }
             f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // (1) "evaluates"
@@ -2017,10 +1995,9 @@ void Eval_Core(REBFRM * const f)
                 goto finished;
             }
             if (IS_END(&f->cell)) {
-                if (IS_END(f->value))
-                    goto finished; // stale f->out (possibly end) is result
-
-                f->eval_type = VAL_TYPE(f->value);
+                eval_type = VAL_TYPE_RAW(f->value);
+                if (eval_type == REB_0_END)
+                    goto finished;
                 goto do_next; // quickly process next item, no infix test
             }
 
@@ -2062,10 +2039,6 @@ void Eval_Core(REBFRM * const f)
             // late in the current scheme...since the lookahead step only
             // honors WORD!.  PATH! support is expected for the future, but
             // requires overhaul of the R3-Alpha path implementation.
-            //
-            // Note this error must come *before* Push_Action(), as fail()
-            // expects f->param to be valid for f->eval_type = REB_ACTION,
-            // and Push_Action() trashes that.
             //
             if (ANY_VAL_FLAGS(
                 f->out,
@@ -2302,15 +2275,13 @@ void Eval_Core(REBFRM * const f)
             // more potential evaluation after the current action invocation.
             //
             assert(f->out->header.bits & OUT_MARKED_STALE);
-            f->eval_type = VAL_TYPE_RAW(f->value); // may be an END
             f->flags.bits |= DO_FLAG_BARRIER_HIT;
             goto finished;
         }
 
-        if (IS_END(f->value))
-            goto finished; // let stale output (possibly end) be the result
-
-        f->eval_type = VAL_TYPE(f->value);
+        eval_type = VAL_TYPE_RAW(f->value);
+        if (eval_type == REB_0_END)
+            goto finished;
         goto do_next; // quickly process next item, no infix test needed
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2379,9 +2350,6 @@ void Eval_Core(REBFRM * const f)
         panic (current);
     }
 
-    if (IS_END(f->value))
-        goto finished;
-
     //==////////////////////////////////////////////////////////////////==//
     //
     // END MAIN SWITCH STATEMENT
@@ -2423,8 +2391,6 @@ post_switch:;
 
     assert(IS_POINTER_TRASH_DEBUG(f->deferred));
 
-    f->eval_type = VAL_TYPE_RAW(f->value); // REB_0 for END
-
 //=//// IF NOT A WORD!, IT DEFINITELY STARTS A NEW EXPRESSION /////////////=//
 
     // !!! Our lookahead step currently only works with WORD!, but it should
@@ -2433,15 +2399,14 @@ post_switch:;
     // you use a PATH! and look up to an enfixed word or "invisible" result
     // function, that's an error (or should be).
 
-    if (f->eval_type != REB_WORD or NOT_EVALUATING(f->value)) {
+    eval_type = VAL_TYPE_RAW(f->value);
+
+    if (eval_type == REB_0_END)
+        goto finished; // hitting end is common, avoid do_next's switch()
+
+    if (eval_type != REB_WORD or NOT_EVALUATING(f->value)) {
         if (not (f->flags.bits & DO_FLAG_TO_END))
             goto finished; // only want 1 EVALUATE of work, so stop evaluating
-
-        START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
-        // ^-- resets eval_flag + tick, corrupts f->out, Ctrl-C may abort
-
-        UPDATE_TICK_DEBUG(nullptr);
-        // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
 
         goto do_next;
     }

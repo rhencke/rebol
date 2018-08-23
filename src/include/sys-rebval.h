@@ -777,7 +777,7 @@ union Reb_Value_Payload {
     struct Reb_Context_Payload any_context;
     struct Reb_Varargs_Payload varargs;
 
-    // Internal-only payloads for cells that use 0 as the VAL_TYPE()
+    // Internal-only payloads for cells that use > REB_MAX as the VAL_TYPE()
     //
     struct Reb_Reference_Payload reference; // used with REB_X_REFERENCE
     struct Reb_Partial_Payload partial; // used with REB_X_PARTIAL

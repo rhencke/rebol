@@ -65,26 +65,6 @@
 // *without* evaluation.  This introduced EVAL/ONLY.
 
 
-// f->eval_type is initialized with either the type of f->value, or a
-// "pseudotype" value above REB_MAX, which indicates a desire to jump to a
-// mode inside the evaluator.
-//
-
-// Used to indicate that the Eval_Core code is being jumped into directly to
-// process an ACTION!, in a varlist that has already been set up.
-//
-#define REB_E_GOTO_PROCESS_ACTION \
-    REB_MAX_PLUS_ONE
-
-// This jump allows a deferred lookback to compensate for the lack of the
-// evaluator's ability to (easily) be psychic about when it is gathering the
-// last argument of a function.  It allows re-entery to argument gathering at
-// the point after the switch() statement, with a preloaded f->out.
-//
-#define REB_E_POST_SWITCH \
-    REB_MAX_PLUS_TWO
-
-
 
 // The default for Eval_Core() operation is just a single EVALUATE, where args
 // to functions are evaluated (vs. quoted), and lookahead is enabled.
@@ -136,11 +116,14 @@
     FLAG_LEFT_BIT(4)
 
 
-//=//// DO_FLAG_UNUSED_5 //////////////////////////////////////////////////=//
+//=//// DO_FLAG_POST_SWITCH ///////////////////////////////////////////////=//
 //
-// Reclaimed.
+// This jump allows a deferred lookback to compensate for the lack of the
+// evaluator's ability to (easily) be psychic about when it is gathering the
+// last argument of a function.  It allows re-entery to argument gathering at
+// the point after the switch() statement, with a preloaded f->out.
 //
-#define DO_FLAG_UNUSED_5 \
+#define DO_FLAG_POST_SWITCH \
     FLAG_LEFT_BIT(5)
 
 
@@ -191,11 +174,12 @@
     FLAG_LEFT_BIT(17)
 
 
-//=//// DO_FLAG_NATIVE_12 /////////////////////////////////////////////////=//
+//=//// DO_FLAG_PROCESS_ACTION ////////////////////////////////////////////=//
 //
-// Recovered...
+// Used to indicate that the Eval_Core code is being jumped into directly to
+// process an ACTION!, in a varlist that has already been set up.
 //
-#define DO_FLAG_12 \
+#define DO_FLAG_PROCESS_ACTION \
     FLAG_LEFT_BIT(18)
 
 
@@ -338,11 +322,6 @@
 #endif
 
 
-// Currently the rightmost two bytes of the Reb_Frame->flags are not used,
-// so the flags could theoretically go up to 31.  It could hold something
-// like the ->eval_type, but performance is probably better to put such
-// information in a platform aligned position of the frame.
-//
 #ifdef CPLUSPLUS_11
     static_assert(27 < 32, "DO_FLAG_XXX too high");
 #endif
@@ -531,22 +510,12 @@ struct Reb_Frame {
     //
     uintptr_t expr_index;
 
-    // `eval_type`
+    // `path_type`
     //
-    // This is the enumerated type upon which the evaluator's main switch
-    // statement is driven, to indicate what the frame is actually doing.
-    // e.g. REB_ACTION means "running a function".
+    // Formerly "eval_type", now only used by path dispatch.  This should
+    // probably be done another way.
     //
-    // It may not always tell the whole story due to frame reuse--a running
-    // state may have stored enough information to not worry about a recursion
-    // overwriting it.  See Eval_Step_Mid_Frame_Throws() for that case.
-    //
-    // Additionally, the actual dispatch may not have started, so if a fail()
-    // or other operation occurs it may not be able to assume that eval_type
-    // of REB_ACTION implies that the arguments have been pushed yet.
-    // See Is_Action_Frame() for notes on this detection.
-    //
-    enum Reb_Kind eval_type;
+    enum Reb_Kind path_type;
 
     // `gotten`
     //

@@ -135,11 +135,6 @@ REBNATIVE(stats)
 //
 void Measured_Eval_Hook(REBFRM * const f)
 {
-    // There are a lot of invariants checked on entry to Eval_Core(), but this
-    // is a simple one that is important enough to mirror here.
-    //
-    assert(NOT_END(f->value) or f->eval_type == REB_E_GOTO_PROCESS_ACTION);
-
     // In order to measure single steps, we convert a DO_FLAG_TO_END request
     // into a sequence of EVALUATE operations, and loop them.
     //

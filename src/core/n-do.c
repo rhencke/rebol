@@ -187,11 +187,11 @@ REBNATIVE(eval_enfix)
     assert(IS_POINTER_TRASH_DEBUG(FS_TOP->deferred));
     FS_TOP->deferred = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
 
-    REBFLGS flags = DO_FLAG_FULFILLING_ARG;
-    if (Eval_Post_Switch_In_Subframe_Throws(D_OUT, f, flags, child))
+    REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
+    if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
         return D_OUT;
 
-    FS_TOP->deferred = nullptr;
+    TRASH_POINTER_IF_DEBUG(FS_TOP->deferred);
 
     return D_OUT;
 }
@@ -379,8 +379,10 @@ REBNATIVE(do)
 
         DECLARE_END_FRAME (f);
         f->out = D_OUT;
-        Push_Frame_At_End(f, DO_FLAG_FULLY_SPECIALIZED);
-        f->eval_type = REB_E_GOTO_PROCESS_ACTION;
+        Push_Frame_At_End(
+            f,
+            DO_FLAG_FULLY_SPECIALIZED | DO_FLAG_PROCESS_ACTION
+        );
 
         assert(CTX_KEYS_HEAD(c) == ACT_FACADE_HEAD(phase));
         f->param = CTX_KEYS_HEAD(c);
@@ -782,8 +784,7 @@ REBNATIVE(apply)
         return D_CELL;
     }
 
-    Push_Frame_At_End(f, DO_MASK_NONE);
-    f->eval_type = REB_E_GOTO_PROCESS_ACTION;
+    Push_Frame_At_End(f, DO_FLAG_PROCESS_ACTION);
 
     if (REF(opt))
         f->deferred = nullptr; // needed if !(DO_FLAG_FULLY_SPECIALIZED)

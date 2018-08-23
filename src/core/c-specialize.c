@@ -1051,8 +1051,7 @@ REBOOL Make_Invocation_Frame_Throws(
     // it is desired that any voids encountered be processed as if they are
     // not specialized...and gather at the callsite if necessary.
     //
-    f->flags = Endlike_Header(DO_MASK_NONE);
-    f->eval_type = REB_E_GOTO_PROCESS_ACTION;
+    f->flags = Endlike_Header(DO_MASK_NONE | DO_FLAG_PROCESS_ACTION);
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
@@ -1253,7 +1252,7 @@ REBNATIVE(does)
         SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED); // is inaccessible
         f->varlist = nullptr; // just let it GC, for now
 
-        Drop_Frame_Core(f); // f->eval_type isn't REB_0, may not be FRM_END
+        Drop_Frame(f);
 
         // The exemplar may or may not be managed as of yet.  We want it
         // managed, but Push_Action() does not use ordinary series creation to

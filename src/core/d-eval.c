@@ -144,7 +144,7 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     assert(TG_Num_Black_Series == 0);
 
     if (NOT_END(f->gotten)) {
-        assert(IS_WORD(f->value)); // may not match eval_type at this point
+        assert(IS_WORD(f->value));
         assert(Get_Opt_Var_May_Fail(f->value, f->specifier) == f->gotten);
     }
 
@@ -168,16 +168,6 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
         return;
 
     //=//// v-- BELOW CHECKS ONLY APPLY IN EXITS CASE WITH MORE CODE //////=//
-
-    // The eval_type is expected to be calculated already.  Should match
-    // f->value, with special exemption for optimized lookback calls
-    // coming from Eval_Step_In_Subframe_Throws()
-    //
-    if (f->eval_type != VAL_TYPE(f->value))
-        assert(
-            f->eval_type == REB_ACTION
-            and (IS_WORD(f->value) or IS_ACTION(f->value))
-        );
 
     assert(NOT_END(f->value));
     assert(not THROWN(f->value));
