@@ -1668,10 +1668,10 @@ REB_R Encloser_Dispatcher(REBFRM *f)
     rootvar->payload.any_context.phase = VAL_ACTION(inner);
     INIT_BINDING(rootvar, VAL_BINDING(inner));
 
-    Init_Frame(&f->cell, c); // user may DO this, or not...
+    Init_Frame(FRM_CELL(f), c); // user may DO this, or not...
 
     const REBOOL fully = true;
-    if (Apply_Only_Throws(f->out, fully, outer, KNOWN(&f->cell), rebEND))
+    if (Apply_Only_Throws(f->out, fully, outer, FRM_CELL(f), rebEND))
         return f->out;
 
     return f->out;

@@ -103,8 +103,8 @@ inline static REBARR *Alloc_Instruction(void) {
         FLAG_WIDE_BYTE_OR_0(0) // signals array, also implicit terminator
             | FLAG_LEN_BYTE_OR_255(1) // signals singular
     );
-    s->content.fixed.values[0].header.bits = CELL_MASK_NON_STACK_END;
-    TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<instruction>>", 0);
+    SER_CELL(s)->header.bits = CELL_MASK_NON_STACK_END;
+    TRACK_CELL_IF_DEBUG(SER_CELL(s), "<<instruction>>", 0);
     return ARR(s);
 }
 

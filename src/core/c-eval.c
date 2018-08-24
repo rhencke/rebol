@@ -443,7 +443,7 @@ void Eval_Core(REBFRM * const f)
             goto process_action;
         }
 
-        current = KNOWN(&f->cell);
+        current = FRM_CELL(f);
         current_gotten = nullptr;
         eval_type = VAL_TYPE(current);
 
@@ -1191,7 +1191,7 @@ void Eval_Core(REBFRM * const f)
             // left-hand argument.
             //
             if (f->deferred) {
-                assert(VAL_TYPE(&f->cell) == REB_X_DEFERRED);
+                assert(VAL_TYPE(FRM_CELL(f)) == REB_X_DEFERRED);
 
                 REBFLGS flags =
                     DO_FLAG_FULFILLING_ARG
@@ -1212,18 +1212,18 @@ void Eval_Core(REBFRM * const f)
                 // subframe processing, so it can still provide context for
                 // typechecking the argument (it wasn't previously checked).
                 //
-                assert(VAL_TYPE(&f->cell) == REB_X_DEFERRED);
+                assert(VAL_TYPE(FRM_CELL(f)) == REB_X_DEFERRED);
                 Finalize_Arg(
                     f,
-                    f->cell.payload.deferred.param,
+                    FRM_CELL(f)->payload.deferred.param,
                     f->deferred,
-                    f->cell.payload.deferred.refine
+                    FRM_CELL(f)->payload.deferred.refine
                 );
 
                 // GC only allows the ordinarily-invalid REB_X_DEFERRED
                 // (> REB_MAX) while f->deferred is non-nullptr.
                 //
-                Init_Unreadable_Blank(&f->cell);
+                Init_Unreadable_Blank(FRM_CELL(f));
                 f->deferred = nullptr;
             }
 
@@ -1418,14 +1418,14 @@ void Eval_Core(REBFRM * const f)
                 // We deferred typechecking, but still need to do it...
                 // f->cell holds the necessary context for typechecking
                 //
-                assert(VAL_TYPE(&f->cell) == REB_X_DEFERRED);
+                assert(VAL_TYPE(FRM_CELL(f)) == REB_X_DEFERRED);
                 Finalize_Arg(
                     f,
-                    f->cell.payload.deferred.param,
+                    FRM_CELL(f)->payload.deferred.param,
                     f->deferred,
-                    f->cell.payload.deferred.refine
+                    FRM_CELL(f)->payload.deferred.refine
                 );
-                Init_Unreadable_Blank(&f->cell);
+                Init_Unreadable_Blank(FRM_CELL(f));
             }
             TRASH_POINTER_IF_DEBUG(f->deferred);
         }
@@ -1669,7 +1669,7 @@ void Eval_Core(REBFRM * const f)
                 (f->out->header.bits & OUT_MARKED_STALE)
                 and NOT_END(f->value)
             ){
-                Derelativize(&f->cell, f->value, f->specifier);
+                Derelativize(FRM_CELL(f), f->value, f->specifier);
                 Fetch_Next_In_Frame(f);
                 goto prep_for_reevaluate;
             }
@@ -1678,7 +1678,7 @@ void Eval_Core(REBFRM * const f)
 
           prep_for_reevaluate:
 
-            current = &f->cell;
+            current = FRM_CELL(f);
             eval_type = VAL_TYPE(current);
             current_gotten = nullptr;
 
@@ -1745,7 +1745,7 @@ void Eval_Core(REBFRM * const f)
         while (DSP != f->dsp_orig) {
             assert(IS_ACTION(DS_TOP));
 
-            Move_Value(&f->cell, f->out);
+            Move_Value(FRM_CELL(f), f->out);
 
             // Data stack values cannot be used directly in an apply, because
             // the evaluator uses DS_PUSH, which could relocate the stack
@@ -1758,7 +1758,7 @@ void Eval_Core(REBFRM * const f)
                 f->out,
                 true, // fully = true
                 fun,
-                NULLIZE(KNOWN(&f->cell)), // nulled cell => nullptr for API
+                NULLIZE(FRM_CELL(f)), // nulled cell => nullptr for API
                 rebEND
             )){
                 goto abort_action;
@@ -1971,7 +1971,7 @@ void Eval_Core(REBFRM * const f)
             // that would show up as having the stale bit.
             //
             REBIXO indexor = Eval_Array_At_Core(
-                SET_END(&f->cell),
+                SET_END(FRM_CELL(f)),
                 nullptr, // opt_first (null means nothing, not nulled cell)
                 array,
                 index,
@@ -1979,17 +1979,17 @@ void Eval_Core(REBFRM * const f)
                 DO_FLAG_TO_END
             );
             if (indexor == THROWN_FLAG) {
-                Move_Value(f->out, KNOWN(&f->cell));
+                Move_Value(f->out, FRM_CELL(f));
                 goto finished;
             }
-            if (IS_END(&f->cell)) {
+            if (IS_END(FRM_CELL(f))) {
                 eval_type = VAL_TYPE_RAW(f->value);
                 if (eval_type == REB_0_END)
                     goto finished;
                 goto do_next; // quickly process next item, no infix test
             }
 
-            Move_Value(f->out, KNOWN(&f->cell)); // no VALUE_FLAG_UNEVALUATED
+            Move_Value(f->out, FRM_CELL(f)); // no VALUE_FLAG_UNEVALUATED
         }
         break; }
 
@@ -2107,7 +2107,7 @@ void Eval_Core(REBFRM * const f)
         // Eval_Path_Throws take a VAL_ARRAY, index, and kind.  By moving
         // it into the f->cell, it is guaranteed garbage collected.
         //
-        Move_Value(&f->cell, DS_TOP);
+        Move_Value(FRM_CELL(f), DS_TOP);
         DS_DROP;
 
         // !!! Due to the way this is currently designed, throws need to
@@ -2118,7 +2118,7 @@ void Eval_Core(REBFRM * const f)
 
         if (Set_Path_Throws_Core(
             temp, // output location if thrown
-            &f->cell, // still holding SET-PATH! we got in
+            FRM_CELL(f), // still holding SET-PATH! we got in
             SPECIFIED, // current derelativized when pushed to DS_TOP
             f->out // value to set (already in f->out)
         )){
@@ -2538,9 +2538,9 @@ post_switch:;
 
         f->prior->deferred = f->prior->arg; // see deferred comments in REBFRM
 
-        RESET_VAL_HEADER(&f->prior->cell, REB_X_DEFERRED);
-        f->prior->cell.payload.deferred.param = f->prior->param;
-        f->prior->cell.payload.deferred.refine = f->prior->refine;
+        RESET_VAL_HEADER(FRM_CELL(f->prior), REB_X_DEFERRED);
+        FRM_CELL(f->prior)->payload.deferred.param = f->prior->param;
+        FRM_CELL(f->prior)->payload.deferred.refine = f->prior->refine;
 
         // Leave the enfix operator pending in the frame, and it's up to the
         // parent frame to decide whether to use DO_FLAG_POST_SWITCH to jump

@@ -75,8 +75,8 @@ REBNATIVE(eval)
     // must be used instead.
     //
     DECLARE_SUBFRAME (child, frame_);
-    Move_Value(&child->cell, ARG(value));
-    child->cell.header.bits ^= VALUE_FLAG_EVAL_FLIP;
+    Move_Value(FRM_CELL(child), ARG(value));
+    FRM_CELL(child)->header.bits ^= VALUE_FLAG_EVAL_FLIP;
     if (Eval_Step_In_Subframe_Throws(
         D_OUT,
         frame_,

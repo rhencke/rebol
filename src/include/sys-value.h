@@ -27,13 +27,10 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // This file provides basic accessors for value types.  Because these
-// accessors operate on REBVAL (or RELVAL) pointers, the inline functions need
-// the complete struct definition available from all the payload types.
+// accessors dereference REBVAL (or RELVAL) pointers, the inline functions
+// need the complete struct definition available from all the payload types.
 //
 // See notes in %sys-rebval.h for the definition of the REBVAL structure.
-//
-// An attempt is made to group the accessors in sections.  Some functions are
-// defined in %c-value.c for the sake of the grouping.
 //
 // While some REBVALs are in C stack variables, most reside in the allocated
 // memory block for a Rebol series.  The memory block for a series can be
@@ -50,10 +47,8 @@
 // stack variable's payload, and then DROP_GC_GUARD() when the protection
 // is not needed.  (You must always drop the most recently pushed guard.)
 //
-// For a means of creating a temporary array of GC-protected REBVALs, see
-// the "chunk stack" in %sys-stack.h.  This is used when building function
-// argument frames, which means that the REBVAL* arguments to a function
-// accessed via ARG() will be stable as long as the function is running.
+// Function invocations keep their arguments in FRAME!s, which can be accessed
+// via ARG() and have stable addresses as long as the function is running.
 //
 
 
@@ -177,29 +172,16 @@
 // parameter).  If there were more types, they couldn't be flagged in a
 // typeset that fit in a REBVAL under that constraint.
 //
-// VAL_TYPE() should obviously not be called on uninitialized memory.  But
-// it should also not be called on an END marker, as those markers only
-// guarantee the low bit as having Rebol-readable-meaning.  In debug builds,
-// this is asserted by VAL_TYPE_Debug.
+// !!! A full header byte is used, to simplify masking and hopefully offer
+// a speedup.  Larger values could be used for some purposes, but they could
+// not be put in typesets as written.
 //
+
+#define VAL_TYPE_RAW(v) \
+    cast(enum Reb_Kind, const_KIND_BYTE(v))
 
 #define FLAGIT_KIND(t) \
     (cast(REBU64, 1) << (t)) // makes a 64-bit bitflag
-
-
-// While inline vs. macro doesn't usually matter much, debug builds won't
-// inline this, and it's called *ALL* the time.  Since it doesn't repeat its
-// argument, it's not worth it to make it a function for slowdown caused.
-// Also, don't bother checking using the `cast()` template in C++.
-//
-// !!! Technically this is wasting two bits in the header, because there are
-// only 64 types that fit in a type bitset.  Yet the sheer commonness of
-// this operation makes bit masking expensive...and choosing the number of
-// types based on what fits in a 64-bit mask is not necessarily the most
-// future-proof concept in the first place.  Use a full byte for speed.
-//
-#define VAL_TYPE_RAW(v) \
-    cast(enum Reb_Kind, const_KIND_BYTE(v))
 
 #ifdef NDEBUG
     #define VAL_TYPE(v) \
@@ -680,7 +662,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 //
 // Historically Rebol arrays were always one value longer than their maximum
 // content, and this final slot was used for a REBVAL type called END!.
-// Like a null terminator in a C string, it was possible to start from one
+// Like a '\0' terminator in a C string, it was possible to start from one
 // point in the series and traverse to find the end marker without needing
 // to look at the length (though the length in the series header is maintained
 // in sync, also).
@@ -689,15 +671,6 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 // it's not a requirement for the byte sequence containing the end byte be
 // the full size of a cell.  The type byte (which is 0 for an END) lives in
 // the second byte, hence two bytes are sufficient to indicate a terminator.
-//
-// VAL_TYPE() and many other operations will panic if they are used on an END
-// cell.  Yet the special unwritable system value END is the size of a REBVAL,
-// but does not carry NODE_FLAG_CELL.  Since it is a node, it can be more
-// useful to return from routines that return REBVAL* than a null, because it
-// can have its header dereferenced to check its type in a single test...
-// as VAL_TYPE_OR_0() will return REB_0 for the system END marker.  (It's
-// actually possible if you're certain you have a NODE_FLAG_CELL to know that
-// the type of an end marker is REB_0, but one can rarely exploit that.)
 //
 
 #define END_NODE \
@@ -772,10 +745,9 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 // Some value types use their `->extra` field in order to store a pointer to
 // a REBNOD which constitutes their notion of "binding".
 //
-// At time of writing, this can be either a pointer to EMPTY_ARRAY (which
-// indicates UNBOUND), or to a function's paramlist (which indicates a
-// relative binding), or to a context's varlist (which indicates a specific
-// binding.)
+// This can be null (which indicates unbound), to a function's paramlist
+// (which indicates a relative binding), or to a context's varlist (which
+// indicates a specific binding.)
 //
 // The ordering of %types.r is chosen specially so that all bindable types
 // are at lower values than the unbindable types.
@@ -825,14 +797,6 @@ inline static const REBVAL *const_KNOWN(const RELVAL *v) {
 inline static REBVAL *KNOWN(RELVAL *v) {
     assert(IS_END(v) or IS_SPECIFIC(v)); // END for KNOWN(ARR_HEAD()), etc.
     return cast(REBVAL*, v);
-}
-
-inline static const RELVAL *const_REL(const REBVAL *v) {
-    return cast(const RELVAL*, v); // cast w/input restricted to REBVAL
-}
-
-inline static RELVAL *REL(REBVAL *v) {
-    return cast(RELVAL*, v); // cast w/input restricted to REBVAL
 }
 
 

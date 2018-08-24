@@ -89,12 +89,10 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
     // Calculate the "picker" into the GC guarded cell.
     //
-    assert(pvs->refine == &pvs->cell);
+    assert(pvs->refine == FRM_CELL(pvs));
 
     if (IS_GET_WORD(pvs->value)) { // e.g. object/:field
-        Move_Opt_Var_May_Fail(
-            SINK(&pvs->cell), pvs->value, pvs->specifier
-        );
+        Move_Opt_Var_May_Fail(FRM_CELL(pvs), pvs->value, pvs->specifier);
     }
     else if (IS_GROUP(pvs->value)) { // object/(expr) case:
         if (pvs->flags.bits & DO_FLAG_NO_PATH_GROUPS)
@@ -102,17 +100,17 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
         REBSPC *derived = Derive_Specifier(pvs->specifier, pvs->value);
         if (Do_At_Throws(
-            SINK(&pvs->cell),
+            FRM_CELL(pvs),
             VAL_ARRAY(pvs->value),
             VAL_INDEX(pvs->value),
             derived
         )) {
-            Move_Value(pvs->out, KNOWN(&pvs->cell));
+            Move_Value(pvs->out, FRM_CELL(pvs));
             return TRUE;
         }
     }
     else { // object/word and object/value case:
-        Derelativize(&pvs->cell, pvs->value, pvs->specifier);
+        Derelativize(FRM_CELL(pvs), pvs->value, pvs->specifier);
     }
 
     // Disallow voids from being used in path dispatch.  This rule seems like

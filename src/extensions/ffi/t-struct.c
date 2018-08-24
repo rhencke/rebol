@@ -194,10 +194,8 @@ static REBOOL Get_Struct_Var(REBVAL *out, REBSTU *stu, const REBVAL *word)
             REBCNT dimension = FLD_DIMENSION(field);
             REBARR *array = Make_Array(dimension);
             REBCNT n;
-            for (n = 0; n < dimension; ++n) {
-                REBVAL *dest = SINK(ARR_AT(array, n));
-                get_scalar(dest, stu, field, n);
-            }
+            for (n = 0; n < dimension; ++n)
+                get_scalar(SINK(ARR_AT(array, n)), stu, field, n);
             TERM_ARRAY_LEN(array, dimension);
             Init_Block(out, array);
         }
@@ -273,10 +271,8 @@ REBARR *Struct_To_Array(REBSTU *stu)
             //
             REBARR *init = Make_Array(dimension);
             REBCNT n;
-            for (n = 0; n < dimension; n ++) {
-                REBVAL *dest = SINK(ARR_AT(init, n));
-                get_scalar(dest, stu, field, n);
-            }
+            for (n = 0; n < dimension; n ++)
+                get_scalar(SINK(ARR_AT(init, n)), stu, field, n);
             TERM_ARRAY_LEN(init, dimension);
             Init_Block(Alloc_Tail_Array(typespec), init);
         }

@@ -260,8 +260,8 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
         TERM_ARRAY_LEN(cast(REBARR*, s), 0); // explicit termination
     }
     else {
-        s->content.fixed.values[0].header.bits = CELL_MASK_NON_STACK_END;
-        TRACK_CELL_IF_DEBUG(&s->content.fixed.values[0], "<<make>>", 0);
+        SER_CELL(s)->header.bits = CELL_MASK_NON_STACK_END;
+        TRACK_CELL_IF_DEBUG(SER_CELL(s), "<<make>>", 0);
 
         s->info = Endlike_Header(
             FLAG_WIDE_BYTE_OR_0(0) // implicit termination

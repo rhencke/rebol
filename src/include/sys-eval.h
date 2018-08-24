@@ -289,14 +289,14 @@ inline static const RELVAL *Set_Frame_Detected_Fetch(REBFRM *f, const void *p)
 {
     const RELVAL *lookback;
     if (f->flags.bits & DO_FLAG_VALUE_IS_INSTRUCTION) { // see flag notes
-        Move_Value(&f->cell, const_KNOWN(f->value));
+        Move_Value(FRM_CELL(f), const_KNOWN(f->value));
 
         // Flag is not copied, but is it necessary to set it on the lookback,
         // or has the flag already been extracted to a local in Eval_Core()?
         //
-        SET_VAL_FLAG(&f->cell, VALUE_FLAG_EVAL_FLIP);
+        SET_VAL_FLAG(FRM_CELL(f), VALUE_FLAG_EVAL_FLIP);
 
-        lookback = &f->cell;
+        lookback = FRM_CELL(f);
         f->flags.bits &= ~DO_FLAG_VALUE_IS_INSTRUCTION;
 
         TRASH_CELL_IF_DEBUG(m_cast(RELVAL*, cast(const RELVAL*, f->value)));

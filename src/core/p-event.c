@@ -90,10 +90,7 @@ REBVAL *Append_Event(void)
     }
     TERM_ARRAY_LEN(VAL_ARRAY(state), VAL_LEN_HEAD(state) + 1);
 
-    REBVAL *value = SINK(ARR_LAST(VAL_ARRAY(state)));
-    Init_Blank(value);
-
-    return value;
+    return Init_Blank(ARR_LAST(VAL_ARRAY(state)));
 }
 
 

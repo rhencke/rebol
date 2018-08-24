@@ -213,11 +213,11 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
 
     // Make sure `cell` is reset in debug build if not doing a `reevaluate`
     // (once this was used by EVAL the native, but now it's used by rebEval()
-    // at the API level, which currently sets `f->value = &f->cell;`)
+    // at the API level, which currently sets `f->value = FRM_CELL(f);`)
     //
     #if !defined(NDEBUG)
-        if (f->value != &f->cell)
-            Init_Unreadable_Blank(&f->cell);
+        if (f->value != FRM_CELL(f))
+            Init_Unreadable_Blank(FRM_CELL(f));
     #endif
   #endif
 
@@ -270,7 +270,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     // function in the release build, to avoid paying for the initialization.
     //
   #if !defined(NDEBUG)
-    Init_Unreadable_Blank(&f->cell); // DECLARE_FRAME() requires GC safe
+    Init_Unreadable_Blank(FRM_CELL(f)); // DECLARE_FRAME() requires GC safe
   #endif
 
     // See FRM_PHASE() for why it's not allowed when dummy is the dispatcher

@@ -346,15 +346,11 @@ static REBNATIVE(resume)
 
     if (REF(with)) {
         Init_Logic(ARR_AT(instruction, RESUME_INST_MODE), FALSE); // don't DO
-        Move_Value(
-            SINK(ARR_AT(instruction, RESUME_INST_PAYLOAD)), ARG(value)
-        );
+        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(value));
     }
     else if (REF(do)) {
         Init_Logic(ARR_AT(instruction, RESUME_INST_MODE), TRUE); // DO value
-        Move_Value(
-            SINK(ARR_AT(instruction, RESUME_INST_PAYLOAD)), ARG(code)
-        );
+        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(code));
     }
     else {
         Init_Blank(ARR_AT(instruction, RESUME_INST_MODE)); // use default

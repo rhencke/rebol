@@ -628,6 +628,11 @@ union Reb_Series_Content {
     // done, see Endlike_Header()
     //
     union {
+        // Due to strict aliasing requirements, this has to be a RELVAL to
+        // read cell data.  Unfortunately this means Reb_Series_Content can't
+        // be copied by simple assignment, because in the C++ build it is
+        // disallowed to say (`*value1 = *value2;`).  Use memcpy().
+        //
         RELVAL values[1];
 
       #if !defined(NDEBUG) // https://en.wikipedia.org/wiki/Type_punning
@@ -636,6 +641,9 @@ union Reb_Series_Content {
       #endif
     } fixed;
 };
+
+#define SER_CELL(s) \
+    (&(s)->content.fixed.values[0]) // unchecked ARR_SINGLE(), used for init
 
 
 union Reb_Series_Link {
