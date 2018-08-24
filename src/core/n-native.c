@@ -60,6 +60,22 @@ enum {
 }; // for the ACT_DETAILS() array of a user native
 
 
+// COMPILE replaces &Pending_Native_Dispatcher that user natives start with,
+// so the dispatcher alone can't be usd to detect them.  ACTION_FLAG_XXX are
+// in too short of a supply to give them their own flag.  Other natives put
+// their source in ACT_DETAILS [0] and their context in ACT_DETAILS [1], so
+// for the moment just assume if the source is text it's a user native.
+//
+bool Is_User_Native(const RELVAL *action) {
+    if (NOT_VAL_FLAG(action, ACTION_FLAG_NATIVE))
+        return false;
+
+    REBARR *details = ACT_DETAILS(VAL_ACTION(action));
+    assert(ARR_LEN(details) >= 2); // ACTION_FLAG_NATIVE needs source+context
+    return IS_TEXT(ARR_AT(details, IDX_NATIVE_SOURCE));
+}
+
+
 //
 // libtcc provides the following functions:
 //
@@ -148,7 +164,7 @@ static REBCTX* add_path(
     enum REBOL_Errors err_code
 ) {
     if (path) {
-        if (IS_FILE(path) || IS_TEXT(path)) {
+        if (IS_FILE(path) or IS_TEXT(path)) {
             if (do_add_path(state, path, add) < 0)
                 return Error(err_code, path);
         }
@@ -166,14 +182,14 @@ static REBCTX* add_path(
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 
 static void cleanup(const REBVAL *val)
 {
     TCCState *state = VAL_HANDLE_POINTER(TCCState, val);
-    assert(state != NULL);
+    assert(state != nullptr);
     tcc_delete(state);
 }
 
@@ -190,25 +206,18 @@ static void cleanup(const REBVAL *val)
 //
 REB_R Pending_Native_Dispatcher(REBFRM *f) {
     REBACT *phase = FRM_PHASE(f);
-
-    REBARR *array = Make_Array(1);
-    Append_Value(array, ACT_ARCHETYPE(phase));
-
-    DECLARE_LOCAL (natives);
-    Init_Block(natives, array);
-
     assert(ACT_DISPATCHER(phase) == &Pending_Native_Dispatcher);
+
+    REBVAL *action = ACT_ARCHETYPE(phase); // this action's value
 
     // !!! With this as an extension and with binding advancements, this
     // should be able to use the string "compile" and trust it to bind to the
     // extension module's COMPILE.
     //
-    rebElide(rebEval(NAT_VALUE(compile)), natives, rebEND); // may fail
-
     // Today's COMPILE doesn't return a result on success (just fails on
     // errors), but if it changes to return one consider what to do with it.
     //
-    assert(IS_NULLED(f->out));
+    rebElide(rebEval(NAT_VALUE(compile)), "[", action, "]", rebEND);
 
     // Now that it's compiled, it should have replaced the dispatcher with a
     // function pointer that lives in the TCC_State.  Use REDO, and don't
@@ -258,12 +267,20 @@ REBNATIVE(make_native)
     REBACT *native = Make_Action(
         Make_Paramlist_Managed_May_Fail(ARG(spec), MKF_MASK_NONE),
         &Pending_Native_Dispatcher, // will be replaced e.g. by COMPILE
-        NULL, // no facade (use paramlist)
-        NULL, // no specialization exemplar (or inherited exemplar)
+        nullptr, // no facade (use paramlist)
+        nullptr, // no specialization exemplar (or inherited exemplar)
         IDX_NATIVE_MAX // details capacity [source module linkname tcc_state]
     );
 
+    // When coding to the internal API, it's easy to make a mistake and call
+    // into something that evaluates without having GC protection on array
+    // elements when operating by index like this.  Pre-fill them.
+    //
     REBARR *details = ACT_DETAILS(native);
+    int idx;
+    for (idx = 0; idx < IDX_NATIVE_MAX; ++idx)
+        Init_Unreadable_Blank(ARR_AT(details, idx));
+    TERM_ARRAY_LEN(details, IDX_NATIVE_MAX);
 
     if (Is_Series_Frozen(VAL_SERIES(source)))
         Move_Value(ARR_AT(details, IDX_NATIVE_SOURCE), source); // no copy
@@ -303,7 +320,7 @@ REBNATIVE(make_native)
         //
         // Note: This repeats some work in ENBASE.
 
-        REBCNT len = 2 + (sizeof(REBACT*) * 2);
+        unsigned int len = 2 + (sizeof(REBACT*) * 2);
         REBSER *ser = Make_Unicode(len);
         REBARR *paramlist = ACT_PARAMLIST(native); // unique for this action!
         const char *src = cast(const char*, &paramlist);
@@ -314,7 +331,7 @@ REBNATIVE(make_native)
         *dest = '_';
         ++dest;
 
-        REBCNT n = 0;
+        unsigned int n = 0;
         while (n < sizeof(REBACT*)) {
             Form_Hex2_Uni(dest, *src); // terminates each time
             ++src;
@@ -328,15 +345,7 @@ REBNATIVE(make_native)
 
     Init_Blank(ARR_AT(details, IDX_NATIVE_TCC_STATE)); // no TCC_State, yet...
 
-    // We need to remember this is a user native, because we won't over the
-    // long run be able to tell it is when the dispatcher is replaced with an
-    // arbitrary compiled function pointer!
-    //
-    SET_VAL_FLAGS(
-        ACT_ARCHETYPE(native),
-        ACTION_FLAG_NATIVE | ACTION_FLAG_USER_NATIVE
-    );
-
+    SET_VAL_FLAGS(ACT_ARCHETYPE(native), ACTION_FLAG_NATIVE);
     return Init_Action_Unbound(D_OUT, native);
   #endif
 }
@@ -381,16 +390,16 @@ REBNATIVE(compile)
   #else
     REBVAL *natives = ARG(natives);
 
-    REBOOL debug = FALSE; // !!! not implemented yet
+    bool debug = false; // !!! not implemented yet
 
     if (VAL_LEN_AT(ARG(natives)) == 0)
         fail (Error_Tcc_Empty_Spec_Raw());
 
-    RELVAL *inc = NULL;
-    RELVAL *lib = NULL;
-    RELVAL *libdir = NULL;
-    RELVAL *options = NULL;
-    RELVAL *rundir = NULL;
+    RELVAL *inc = nullptr;
+    RELVAL *lib = nullptr;
+    RELVAL *libdir = nullptr;
+    RELVAL *options = nullptr;
+    RELVAL *rundir = nullptr;
 
     REBSPC *specifier = VAL_SPECIFIER(ARG(flags));
 
@@ -416,7 +425,7 @@ REBNATIVE(compile)
                 break;
 
             case SYM_DEBUG:
-                debug = TRUE;
+                debug = true;
                 break;
 
             case SYM_OPTIONS:
@@ -507,7 +516,7 @@ REBNATIVE(compile)
         }
 
         if (IS_ACTION(var)) {
-            assert(GET_VAL_FLAG(var, ACTION_FLAG_USER_NATIVE));
+            assert(Is_User_Native(var));
 
             // Remember this function, because we're going to need to come
             // back and fill in its dispatcher and TCC_State after the
@@ -524,7 +533,7 @@ REBNATIVE(compile)
             Append_Unencoded(mo->series, "(REBFRM *frame_)\n{\n");
 
             REBVAL *param = VAL_ACT_PARAMS_HEAD(var);
-            REBCNT num = 1;
+            unsigned int num = 1;
             for (; NOT_END(param); ++param) {
                 REBSTR *spelling = VAL_PARAM_SPELLING(param);
 
@@ -552,7 +561,7 @@ REBNATIVE(compile)
                     break;
 
                 default:
-                    assert(FALSE);
+                    assert(false);
                 }
             }
             if (num != 1)
@@ -571,7 +580,7 @@ REBNATIVE(compile)
             Append_Unencoded(mo->series, "\n");
         }
         else {
-            assert(FALSE);
+            assert(false);
         }
     }
 
@@ -600,7 +609,7 @@ REBNATIVE(compile)
         rebFree(options_utf8);
     }
 
-    REBCTX *err = NULL;
+    REBCTX *err = nullptr;
 
     if ((err = add_path(state, inc, tcc_add_include_path, RE_TCC_INCLUDE)))
         fail (err);
@@ -620,13 +629,13 @@ REBNATIVE(compile)
     // this uses `tcc_add_symbol()` to work the same way on Windows/Linux/OSX
     //
     const struct rebol_sym_data_t *sym_data = &rebol_sym_data[0];
-    for (; sym_data->name != NULL; ++sym_data) {
+    for (; sym_data->name != nullptr; ++sym_data) {
         if (tcc_add_symbol(state, sym_data->name, sym_data->data) < 0)
             fail (Error_Tcc_Relocate_Raw());
     }
 
     const struct rebol_sym_cfunc_t *sym_cfunc = &rebol_sym_cfuncs[0];
-    for (; sym_cfunc->name != NULL; ++sym_cfunc) {
+    for (; sym_cfunc->name != nullptr; ++sym_cfunc) {
         // ISO C++ forbids casting between pointer-to-function and
         // pointer-to-object, use memcpy to circumvent.
         void *ptr;
@@ -638,7 +647,7 @@ REBNATIVE(compile)
 
     // Add symbols in libtcc1, to avoid bundling with libtcc1.a
     const void **sym = &r3_libtcc1_symbols[0];
-    for (; *sym != NULL; sym += 2) {
+    for (; *sym != nullptr; sym += 2) {
         if (tcc_add_symbol(state, cast(const char*, *sym), *(sym + 1)) < 0)
             fail (Error_Tcc_Relocate_Raw());
     }
@@ -671,9 +680,7 @@ REBNATIVE(compile)
     //
     while (DSP != dsp_orig) {
         REBVAL *var = DS_TOP;
-
-        assert(IS_ACTION(var));
-        assert(GET_VAL_FLAG(var, ACTION_FLAG_USER_NATIVE));
+        assert(IS_ACTION(var) and Is_User_Native(var));
 
         REBARR *details = VAL_ACT_DETAILS(var);
         REBVAL *linkname = KNOWN(ARR_AT(details, IDX_NATIVE_LINKNAME));

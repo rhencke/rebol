@@ -182,13 +182,7 @@ inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
 //
 #define ACTION_FLAG_NATIVE ACTION_FLAG(4)
 
-// The COMPILE-NATIVES command wants to operate on user natives, and be able
-// to recompile unchanged natives as part of a unit even after they were
-// initially compiled.  But since that replaces their dispatcher with an
-// arbitrary function, they can't be recognized to know they have the specific
-// body structure of a user native.  So this flag is used.
-//
-#define ACTION_FLAG_USER_NATIVE ACTION_FLAG(5)
+#define ACTION_FLAG_UNUSED_5 ACTION_FLAG(5)
 
 // This flag is set when the native (e.g. extensions) can be unloaded
 //

@@ -1107,7 +1107,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 
         REBVAL *example;
         REBCNT real_body_index;
-        if (GET_ACT_FLAG(a, ACTION_FLAG_VOIDER)) {
+        if (ACT_DISPATCHER(a) == &Voider_Dispatcher) {
             example = Get_System(SYS_STANDARD, STD_PROC_BODY);
             real_body_index = 4;
         }
