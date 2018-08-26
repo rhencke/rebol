@@ -168,6 +168,8 @@ inline static void Push_Frame_Core(REBFRM *f)
     f->original = nullptr;
 
     TRASH_POINTER_IF_DEBUG(f->deferred);
+    TRASH_POINTER_IF_DEBUG(f->deferred_param);
+    TRASH_POINTER_IF_DEBUG(f->deferred_refine);
 
     TRASH_POINTER_IF_DEBUG(f->opt_label);
   #if defined(DEBUG_FRAME_LABELS)

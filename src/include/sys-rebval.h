@@ -557,19 +557,6 @@ struct Reb_Partial_Payload {
 };
 
 
-// Enfix processing for "non-tight" (normal) arguments may have to revisit
-// an argument slot to fill it in.  But it may be that the argument gathering
-// loop then finishes, indicating no need for re-entry.  At which point, the
-// slot will need to be type checked.  Remember the state of the enumeration
-// at the moment of deferral in the frame's cell in order to return to it.
-//
-#define REB_X_DEFERRED REB_MAX_PLUS_ONE
-struct Reb_Deferred_Payload {
-    const RELVAL *param;
-    REBVAL *refine;
-};
-
-
 // Handles hold a pointer and a size...which allows them to stand-in for
 // a binary REBSER.
 //
@@ -788,7 +775,6 @@ union Reb_Value_Payload {
     //
     struct Reb_Reference_Payload reference; // used with REB_X_REFERENCE
     struct Reb_Partial_Payload partial; // used with REB_X_PARTIAL
-    struct Reb_Deferred_Payload deferred; // used with REB_X_DEFERRED
 };
 
 #ifdef CPLUSPLUS_11

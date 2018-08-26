@@ -212,7 +212,7 @@ inline static REBOOL In_Unspecialized_Mode(REBFRM *f) {
 
 // Typechecking has to be broken out into a subroutine because it is not
 // always the case that one is typechecking the current argument.  See the
-// documentation on REB_X_DEFERRED for why.
+// documentation on REBFRM.deferred for why.
 //
 // It's called "Finalize" because in addition to checking, any other handling
 // that an argument needs once being put into a frame is handled.  VARARGS!,
@@ -1191,8 +1191,6 @@ void Eval_Core(REBFRM * const f)
             // left-hand argument.
             //
             if (f->deferred) {
-                assert(VAL_TYPE(FRM_CELL(f)) == REB_X_DEFERRED);
-
                 REBFLGS flags =
                     DO_FLAG_FULFILLING_ARG
                     | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
@@ -1208,23 +1206,16 @@ void Eval_Core(REBFRM * const f)
                     goto abort_action;
                 }
 
-                // This frame's cell shouldn't have been disturbed by the
-                // subframe processing, so it can still provide context for
-                // typechecking the argument (it wasn't previously checked).
-                //
-                assert(VAL_TYPE(FRM_CELL(f)) == REB_X_DEFERRED);
                 Finalize_Arg(
                     f,
-                    FRM_CELL(f)->payload.deferred.param,
+                    f->deferred_param,
                     f->deferred,
-                    FRM_CELL(f)->payload.deferred.refine
+                    f->deferred_refine
                 );
 
-                // GC only allows the ordinarily-invalid REB_X_DEFERRED
-                // (> REB_MAX) while f->deferred is non-nullptr.
-                //
-                Init_Unreadable_Blank(FRM_CELL(f));
                 f->deferred = nullptr;
+                TRASH_POINTER_IF_DEBUG(f->deferred_param);
+                TRASH_POINTER_IF_DEBUG(f->deferred_refine);
             }
 
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE //////////////////////=//
@@ -1416,16 +1407,15 @@ void Eval_Core(REBFRM * const f)
             if (f->deferred) {
                 //
                 // We deferred typechecking, but still need to do it...
-                // f->cell holds the necessary context for typechecking
                 //
-                assert(VAL_TYPE(FRM_CELL(f)) == REB_X_DEFERRED);
                 Finalize_Arg(
                     f,
-                    FRM_CELL(f)->payload.deferred.param,
+                    f->deferred_param,
                     f->deferred,
-                    FRM_CELL(f)->payload.deferred.refine
+                    f->deferred_refine
                 );
-                Init_Unreadable_Blank(FRM_CELL(f));
+                TRASH_POINTER_IF_DEBUG(f->deferred_param);
+                TRASH_POINTER_IF_DEBUG(f->deferred_refine);
             }
             TRASH_POINTER_IF_DEBUG(f->deferred);
         }
@@ -2536,10 +2526,8 @@ post_switch:;
         assert(f->out == f->prior->arg);
 
         f->prior->deferred = f->prior->arg; // see deferred comments in REBFRM
-
-        RESET_VAL_HEADER(FRM_CELL(f->prior), REB_X_DEFERRED);
-        FRM_CELL(f->prior)->payload.deferred.param = f->prior->param;
-        FRM_CELL(f->prior)->payload.deferred.refine = f->prior->refine;
+        f->prior->deferred_param = f->prior->param;
+        f->prior->deferred_refine = f->prior->refine;
 
         // Leave the enfix operator pending in the frame, and it's up to the
         // parent frame to decide whether to use DO_FLAG_POST_SWITCH to jump
