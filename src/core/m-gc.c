@@ -1229,8 +1229,11 @@ static void Mark_Frame_Stack_Deep(void)
 
         // Frame temporary cell should always contain initialized bits, as
         // DECLARE_FRAME sets it up and no one is supposed to trash it.
+        // However, path dispatch uses REB_X_REFERENCE cells, so be tolerant
+        // of that particular case.
         //
-        Queue_Mark_Opt_End_Cell_Deep(FRM_CELL(f));
+        if (VAL_TYPE_RAW(FRM_CELL(f)) != REB_X_REFERENCE)
+            Queue_Mark_Opt_End_Cell_Deep(FRM_CELL(f));
 
         if (not Is_Action_Frame(f)) {
             //

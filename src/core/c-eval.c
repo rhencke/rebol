@@ -1833,28 +1833,19 @@ void Eval_Core(REBFRM * const f)
         if (IS_END(f->value)) // `do [a:]` is illegal
             fail (Error_Need_Value_Core(current, f->specifier));
 
-        // f->value is guarded implicitly by the frame, but `current` is a
-        // transient local pointer that might be to a va_list REBVAL* that
-        // has already been fetched.  The bits will stay live until
-        // va_end(), but a GC wouldn't see it.
-        //
-        DS_PUSH_RELVAL(current, f->specifier);
+        // Note: We are evaluating here and there is nothing guaranteeing that
+        // `current` didn't come from a va_list and has no other references in
+        // the system.  Hence, all REBVAL* which make it into the evaluator
+        // must be GC-protected by some means.
 
-        REBFLGS flags =
-            DO_FLAG_FULFILLING_SET
-            | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
-
-        if (Eval_Step_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
-            DS_DROP;
+        REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
             goto finished;
-        }
 
         if (IS_NULLED_OR_VOID(f->out))
-            fail (Error_Need_Value_Raw(DS_TOP));
+            fail (Error_Need_Value_Core(current, f->specifier));
 
-        Move_Value(Sink_Var_May_Fail(DS_TOP, SPECIFIED), f->out);
-
-        DS_DROP;
+        Move_Value(Sink_Var_May_Fail(current, f->specifier), f->out);
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2072,46 +2063,31 @@ void Eval_Core(REBFRM * const f)
         if (IS_END(f->value)) // `do [a/b:]` is illegal
             fail (Error_Need_Value_Core(current, f->specifier));
 
-        // f->value is guarded implicitly by the frame, but `current` is a
-        // transient local pointer that might be to a va_list REBVAL* that
-        // has already been fetched.  The bits will stay live until
-        // va_end(), but a GC wouldn't see it.
-        //
-        DS_PUSH_RELVAL(current, f->specifier);
+        // Note: We are evaluating here and there is nothing guaranteeing that
+        // `current` didn't come from a va_list and has no other references in
+        // the system.  Hence, all REBVAL* which make it into the evaluator
+        // must be GC-protected by some means.
 
-        REBFLGS flags =
-            DO_FLAG_FULFILLING_SET
-            | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        assert(current != FRM_CELL(f)); // would be overwritten
 
-        if (Eval_Step_Mid_Frame_Throws(f, flags)) { // light reuse of `f`
-            DS_DROP;
+        REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
             goto finished;
-        }
 
         if (IS_NULLED_OR_VOID(f->out))
-            fail (Error_Need_Value_Raw(DS_TOP));
+            fail (Error_Need_Value_Core(current, f->specifier));
 
-        // The path cannot be executed directly from the data stack, so
-        // it has to be popped.  This could be changed by making the core
-        // Eval_Path_Throws take a VAL_ARRAY, index, and kind.  By moving
-        // it into the f->cell, it is guaranteed garbage collected.
-        //
-        Move_Value(FRM_CELL(f), DS_TOP);
-        DS_DROP;
-
-        // !!! Due to the way this is currently designed, throws need to
-        // be written to a location distinct from the path and also
-        // distinct from the value being set.  Review.
-        //
-        DECLARE_LOCAL (temp);
-
-        if (Set_Path_Throws_Core(
-            temp, // output location if thrown
-            FRM_CELL(f), // still holding SET-PATH! we got in
-            SPECIFIED, // current derelativized when pushed to DS_TOP
-            f->out // value to set (already in f->out)
+        if (Eval_Path_Throws_Core(
+            FRM_CELL(f), // output if thrown, used as scratch space otherwise
+            NULL, // not requesting symbol means refinements not allowed
+            VAL_ARRAY(current),
+            VAL_INDEX(current),
+            f->specifier,
+            f->out,
+            DO_MASK_NONE // evaluating GROUP!s ok
         )){
-            fail (Error_No_Catch_For_Throw(temp));
+            Move_Value(f->out, FRM_CELL(f));
+            goto finished;
         }
 
         assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));

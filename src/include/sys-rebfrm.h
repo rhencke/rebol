@@ -158,12 +158,9 @@
 // flags, and may or may not be worth it for the feature.
 
 
-//=//// DO_FLAG_FULFILLING_SET ////////////////////////////////////////////=//
+//=//// DO_FLAG_UNUSED_16 /////////////////////////////////////////////////=//
 //
-// Similar to DO_FLAG_FULFILLING_ARG, this allows evaluator sensitivity to
-// noticing when a frame is being used to fulfill a SET-WORD! or a SET-PATH!
-//
-#define DO_FLAG_FULFILLING_SET \
+#define DO_FLAG_UNUSED_16 \
     FLAG_LEFT_BIT(16)
 
 

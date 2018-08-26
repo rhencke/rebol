@@ -713,20 +713,15 @@ inline static REBOOL Eval_Step_In_Frame_Throws(
 // the SET-WORD! needs to be put back in place before returning, so that the
 // set knows where to write.  The caller handles this with the data stack.
 //
-// !!! Review how much cheaper this actually is than making a new frame.
-//
 inline static REBOOL Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
+    assert(f->dsp_orig == DSP);
+
     REBFLGS prior_flags = f->flags.bits;
     f->flags = Endlike_Header(flags);
 
-    REBDSP prior_dsp_orig = f->dsp_orig;
-
-    f->dsp_orig = DSP;
     (*PG_Eval)(f); // should already be pushed
 
-    f->flags.bits = prior_flags; // e.g. restore DO_FLAG_TO_END
-    
-    f->dsp_orig = prior_dsp_orig;
+    f->flags.bits = prior_flags; // e.g. restore DO_FLAG_TO_END    
     return THROWN(f->out);
 }
 

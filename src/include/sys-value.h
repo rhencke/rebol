@@ -1735,6 +1735,7 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
 {
     assert(out != v); // usually a sign of a mistake; not worth supporting
     assert(NOT_END(v)); // SET_END() is the only way to write an end
+    assert(VAL_TYPE_RAW(v) <= REB_MAX_NULLED); // don't move pseudotypes
 
     ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);
 

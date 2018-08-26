@@ -287,12 +287,12 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 // vetted very heavily by Ren-C, and needs a review and overhaul.
 //
 REBOOL Eval_Path_Throws_Core(
-    REBVAL *out,
+    REBVAL *out, // if opt_setval, this is only used to return a thrown value
     REBSTR **label_out,
     REBARR *array,
     REBCNT index,
     REBSPC *specifier,
-    const REBVAL *opt_setval,
+    const REBVAL *opt_setval, // Note: may be the same as out!
     REBFLGS flags
 ){
     if (flags & DO_FLAG_SET_PATH_ENFIXED)
@@ -469,13 +469,7 @@ return_not_thrown:
         *label_out = pvs->opt_label;
 
     Abort_Frame(pvs);
-
-#if !defined(NDEBUG)
-    if (opt_setval)
-        TRASH_CELL_IF_DEBUG(out);
-    else
-        assert(not THROWN(out));
-#endif
+    assert(not THROWN(out));
     return FALSE;
 
 return_thrown:
