@@ -717,7 +717,7 @@ void Eval_Core(REBFRM * const f)
         TRASH_POINTER_IF_DEBUG(current); // shouldn't be used below
         TRASH_POINTER_IF_DEBUG(current_gotten);
 
-        f->doing_pickups = false;
+        f->flags.bits &= ~DO_FLAG_DOING_PICKUPS;
 
       process_args_for_pickup_or_to_end:;
 
@@ -737,7 +737,7 @@ void Eval_Core(REBFRM * const f)
             // initialization work, but it's in progress to do this more
             // subtly so that the frame can be left formatted as non-stack.
             if (
-                not f->doing_pickups
+                not (f->flags.bits & DO_FLAG_DOING_PICKUPS)
                 and f->special != f->arg
             ){
                 Prep_Stack_Cell(f->arg); // improve...
@@ -758,7 +758,7 @@ void Eval_Core(REBFRM * const f)
     //=//// A /REFINEMENT ARG /////////////////////////////////////////////=//
 
             // Refinements are checked first for a reason.  This is to
-            // short-circuit based on the `doing_pickups` flag before redoing
+            // short-circuit based on DO_FLAG_DOING_PICKUPS before redoing
             // fulfillments on arguments that have already been handled.
             //
             // Pickups are needed because the "visitation order" of the
@@ -781,7 +781,7 @@ void Eval_Core(REBFRM * const f)
             // REFINEMENT! words (e.g. /B and /C above) on the data stack.
 
             if (pclass == PARAM_CLASS_REFINEMENT) {
-                if (f->doing_pickups) {
+                if (f->flags.bits & DO_FLAG_DOING_PICKUPS) {
                     if (DSP != f->dsp_orig)
                         goto next_pickup;
 
@@ -1403,7 +1403,7 @@ void Eval_Core(REBFRM * const f)
             assert(VAL_PARAM_CLASS(f->param - 1) == PARAM_CLASS_REFINEMENT);
 
             DS_DROP;
-            f->doing_pickups = true;
+            f->flags.bits |= DO_FLAG_DOING_PICKUPS;
             goto process_args_for_pickup_or_to_end;
         }
 

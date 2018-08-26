@@ -314,6 +314,19 @@
     FLAG_LEFT_BIT(26)
 
 
+//=//// DO_FLAG_DOING_PICKUPS /////////////////////////////////////////////=//
+//
+// If an ACTION! is invoked through a path and uses refinements in a different
+// order from how they appear in the frame's parameter definition, then the
+// arguments at the callsite can't be gathered in sequence.  Revisiting them
+// will be necessary.  This flag is set while they are revisited, which is
+// important not only for Eval_Core() to know, but also the GC...since it
+// means it must protect *all* of the arguments--not just up thru f->param.
+//
+#define DO_FLAG_DOING_PICKUPS \
+    FLAG_LEFT_BIT(27)
+
+
 #if !defined(NDEBUG)
 
 //=//// DO_FLAG_FINAL_DEBUG ///////////////////////////////////////////////=//
@@ -326,13 +339,13 @@
 //
 
 #define DO_FLAG_FINAL_DEBUG \
-    FLAG_LEFT_BIT(27)
+    FLAG_LEFT_BIT(28)
 
 #endif
 
 
 #ifdef CPLUSPLUS_11
-    static_assert(27 < 32, "DO_FLAG_XXX too high");
+    static_assert(28 < 32, "DO_FLAG_XXX too high");
 #endif
 
 
@@ -677,7 +690,6 @@ struct Reb_Frame {
     // foo/(1 + 2) it would be 3.
     //
     REBVAL *refine;
-    REBOOL doing_pickups; // want to encode
 
     // `deferred`
     //
