@@ -1384,8 +1384,11 @@ void TO_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  PD_Struct: C
 //
-REB_R PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Struct(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     REBSTU *stu = VAL_STRUCT(pvs->out);
     if (!IS_WORD(picker))
         return R_UNHANDLED;
@@ -1433,7 +1436,7 @@ REB_R PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             }
 
             DECLARE_LOCAL (specific);
-            if (VAL_TYPE(pvs->out) == REB_X_REFERENCE)
+            if (VAL_TYPE(pvs->out) == REB_R_REFERENCE)
                 Derelativize(
                     specific,
                     VAL_REFERENCE(pvs->out),

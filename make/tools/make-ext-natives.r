@@ -343,7 +343,7 @@ e1/emit {
 
     #undef REBNATIVE
     #define REBNATIVE(n) \
-        REB_R N_${MOD}_##n(REBFRM *frame_)
+        const REBVAL *N_${MOD}_##n(REBFRM *frame_)
 }
 e1/emit newline
 

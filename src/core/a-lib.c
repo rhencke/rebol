@@ -633,6 +633,16 @@ const void *RL_rebR(REBVAL *v)
 
 
 //
+//  rebVoid: RL_API
+//
+REBVAL *RL_rebVoid(void)
+{
+    Enter_Api();
+    return Init_Void(Alloc_Value());
+}
+
+
+//
 //  rebBlank: RL_API
 //
 REBVAL *RL_rebBlank(void)

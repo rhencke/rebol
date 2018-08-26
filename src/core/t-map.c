@@ -365,8 +365,11 @@ REBCNT Find_Map_Entry(
 //
 //  PD_Map: C
 //
-REB_R PD_Map(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Map(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     assert(IS_MAP(pvs->out));
 
     if (opt_setval != NULL)
@@ -789,7 +792,7 @@ REBTYPE(Map)
         );
 
         if (VAL_WORD_SYM(verb) == SYM_FIND)
-            return IS_NULLED(D_OUT) ? nullptr : R_BAR;
+            return IS_NULLED(D_OUT) ? nullptr : BAR_VALUE;
 
         return D_OUT; }
 

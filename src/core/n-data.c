@@ -541,7 +541,7 @@ REBNATIVE(try)
     INCLUDE_PARAMS_OF_TRY;
 
     if (IS_NULLED_OR_VOID(ARG(optional)))
-        return R_BLANK;
+        return BLANK_VALUE;
 
     return ARG(optional);
 }
@@ -977,7 +977,7 @@ REBNATIVE(free)
     FAIL_IF_READ_ONLY_SERIES(s);
 
     Decay_Series(s);
-    return R_VOID; // !!! Should it return the freed, not-useful value?
+    return VOID_VALUE; // !!! Should it return the freed, not-useful value?
 }
 
 
@@ -1005,7 +1005,7 @@ REBNATIVE(free_q)
     else if (ANY_SERIES(v))
         s = v->payload.any_series.series; // VAL_SERIES fails if freed
     else
-        return R_FALSE;
+        return FALSE_VALUE;
 
     return R_FROM_BOOL(GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE));
 }
@@ -1275,10 +1275,8 @@ REBNATIVE(quote)
 
     REBVAL *v = ARG(value);
 
-    if (REF(soft) and IS_QUOTABLY_SOFT(v)) {
-        Move_Value(D_CELL, v);
-        return R_REEVALUATE_CELL; // EVAL's mechanic lets us reuse this frame
-    }
+    if (REF(soft) and IS_QUOTABLY_SOFT(v))
+        fail ("QUOTE/SOFT not currently implemented, should clone EVAL");
 
     Move_Value(D_OUT, v);
     SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);

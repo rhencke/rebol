@@ -1407,8 +1407,11 @@ void Poke_Image_Fail_If_Read_Only(
 //
 //  PD_Image: C
 //
-REB_R PD_Image(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Image(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     if (opt_setval != NULL) {
         Poke_Image_Fail_If_Read_Only(pvs->out, picker, opt_setval);
         return R_INVISIBLE;

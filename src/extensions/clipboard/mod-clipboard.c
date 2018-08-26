@@ -49,8 +49,11 @@
 // could track whether it's "open" or not, but the details of what is needed
 // depends on the development of a coherent port model.
 //
-static REB_R Clipboard_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
-{
+static const REBVAL *Clipboard_Actor(
+    REBFRM *frame_,
+    REBVAL *port,
+    REBVAL *verb
+){
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     switch (VAL_WORD_SYM(verb)) {
@@ -97,7 +100,7 @@ static REB_R Clipboard_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             if (last_error != NO_ERROR)
                 rebFail_OS (last_error);
 
-            return R_BLANK;
+            return BLANK_VALUE;
         }
 
         if (not OpenClipboard(NULL))

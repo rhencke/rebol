@@ -144,7 +144,7 @@ REBNATIVE(reduce)
         return D_OUT;
 
     if (REF(try))
-        return R_BLANK;
+        return BLANK_VALUE;
 
     return nullptr; // let caller worry about whether to error on nulls
 }

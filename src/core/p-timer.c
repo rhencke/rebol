@@ -47,7 +47,7 @@
 //
 //  Timer_Actor: C
 //
-static REB_R Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static const REBVAL *Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
@@ -82,7 +82,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         break; }
 
     case SYM_ON_WAKE_UP:
-        return R_BAR;
+        return BAR_VALUE;
 
     // Normal block actions done on events:
     case SYM_POKE:
@@ -101,7 +101,7 @@ static REB_R Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         Move_Value(&save_port, D_ARG(1)); // save for return
         Move_Value(D_ARG(1), state);
 
-        REB_R r = T_Block(ds, verb);
+        const REBVAL *r = T_Block(ds, verb);
         SET_SIGNAL(SIG_EVENT_PORT);
         if (
             verb == SYM_INSERT

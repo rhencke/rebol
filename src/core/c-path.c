@@ -39,8 +39,11 @@
 // In order to avoid having to pay for a check for NULL in the path dispatch
 // table for types with no path dispatch, a failing handler is in the slot.
 //
-REB_R PD_Fail(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Fail(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     UNUSED(pvs);
     UNUSED(picker);
     UNUSED(opt_setval);
@@ -55,8 +58,11 @@ REB_R PD_Fail(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
 // As a temporary workaround for not having real user-defined types, an
 // extension can overtake an "unhooked" type slot to provide behavior.
 //
-REB_R PD_Unhooked(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Unhooked(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     UNUSED(pvs);
     UNUSED(picker);
     UNUSED(opt_setval);
@@ -123,24 +129,29 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     Fetch_Next_In_Frame(pvs); // may be at end
 
     if (IS_END(pvs->value) and PVS_IS_SET_PATH(pvs)) {
-        REB_R r = dispatcher(pvs, pvs->refine, PVS_OPT_SETVAL(pvs));
-        switch (const_FIRST_BYTE(r->header)) {
-        case R_09_INVISIBLE: // dispatcher assigned target with opt_setval
+        const REBVAL *r = dispatcher(pvs, pvs->refine, PVS_OPT_SETVAL(pvs));
+
+        switch (VAL_TYPE_RAW(r)) {
+
+        case REB_0_END: // unhandled
+            assert(r == END_NODE); // shouldn't be other ends
+            fail (Error_Bad_Path_Poke_Raw(pvs->refine));
+
+        case REB_R_INVISIBLE: // dispatcher assigned target with opt_setval
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED)
                 fail ("Path setting was not via an enfixable reference");
             break; // nothing left to do, have to take the dispatcher's word
 
-        case R_0A_REFERENCE: { // dispatcher wants us to set *if* at end of path
-            assert(VAL_TYPE(pvs->out) == REB_X_REFERENCE);
-            Move_Value(VAL_REFERENCE(pvs->out), pvs->special);
+        case REB_R_REFERENCE: { // dispatcher wants a set *if* at end of path
+            Move_Value(VAL_REFERENCE(r), PVS_OPT_SETVAL(pvs));
 
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED) {
-                assert(IS_ACTION(pvs->special));
-                SET_VAL_FLAG(VAL_REFERENCE(pvs->out), VALUE_FLAG_ENFIXED);
+                assert(IS_ACTION(PVS_OPT_SETVAL(pvs)));
+                SET_VAL_FLAG(VAL_REFERENCE(r), VALUE_FLAG_ENFIXED);
             }
             break; }
 
-        case R_0B_IMMEDIATE: {
+        case REB_R_IMMEDIATE: {
             //
             // Imagine something like:
             //
@@ -165,9 +176,6 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             Move_Value(pvs->deferred, pvs->out);
             break; }
 
-        case R_0C_UNHANDLED:
-            fail (Error_Bad_Path_Poke_Raw(pvs->refine));
-
         default:
             //
             // Something like a generic D_OUT.  We could in theory take those
@@ -181,7 +189,12 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     else {
         const REBVAL *opt_setval = NULL;
 
-        REB_R r = dispatcher(pvs, pvs->refine, opt_setval);
+        const REBVAL *r = dispatcher(pvs, pvs->refine, opt_setval);
+
+        if (r and r != END_NODE) {
+            assert(r->header.bits & NODE_FLAG_CELL);
+            /* assert(not (r->header.bits & NODE_FLAG_ROOT)); */
+        }
 
         pvs->deferred = NULL; // clear status of the deferred
 
@@ -192,9 +205,12 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
         else if (not r) {
             Init_Nulled(pvs->out);
         }
-        else switch (const_FIRST_BYTE(r->header)) {
+        else switch (VAL_TYPE_RAW(r)) {
 
-        case R_09_INVISIBLE:
+        case REB_0_END:
+            fail (Error_Bad_Path_Pick_Raw(pvs->refine));
+
+        case REB_R_INVISIBLE:
             assert(PVS_IS_SET_PATH(pvs));
             if (
                 dispatcher != Path_Dispatch[REB_STRUCT]
@@ -212,33 +228,24 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             assert(IS_END(pvs->value));
             break;
 
-        case R_0A_REFERENCE:
-            assert(VAL_TYPE(pvs->out) == REB_X_REFERENCE);
-
+        case REB_R_REFERENCE:
+            //
             // Save the reference location in case the next update turns out
             // to be R_IMMEDIATE, and we need it.  Not actually KNOWN() but
             // we are only going to use it as a sink for data...if we use it.
             //
-            pvs->deferred = cast(REBVAL*, VAL_REFERENCE(pvs->out));
+            pvs->deferred = cast(REBVAL*, VAL_REFERENCE(r));
 
             Derelativize(
                 pvs->out,
-                VAL_REFERENCE(pvs->out),
-                VAL_REFERENCE_SPECIFIER(pvs->out)
+                VAL_REFERENCE(r),
+                VAL_REFERENCE_SPECIFIER(r)
             );
             if (GET_VAL_FLAG(pvs->deferred, VALUE_FLAG_ENFIXED))
                 SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
             break;
 
-        case R_03_BLANK:
-            Init_Blank(pvs->out);
-            break;
-
-        case R_0C_UNHANDLED:
-            fail (Error_Bad_Path_Pick_Raw(pvs->refine));
-
         default:
-            assert(r->header.bits & NODE_FLAG_CELL);
             assert(not THROWN(r));
             Move_Value(pvs->out, r);
         }
@@ -250,7 +257,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     // be captured the first time the function is seen, otherwise it would
     // capture the last refinement's name, so check label for non-NULL.
     //
-    if (IS_ACTION(pvs->out) and IS_WORD(pvs->refine)) {
+    if (IS_ACTION(pvs->out) and VAL_TYPE_RAW(pvs->refine) == REB_WORD) {
         if (not pvs->opt_label)
             pvs->opt_label = VAL_WORD_SPELLING(pvs->refine);
     }
@@ -603,25 +610,26 @@ REBNATIVE(pick)
     REBPEF dispatcher = Path_Dispatch[VAL_TYPE(location)];
     assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
 
-    REB_R r = dispatcher(pvs, ARG(picker), NULL);
+    const REBVAL *r = dispatcher(pvs, ARG(picker), NULL);
     if (not r)
         return r;
 
-    switch (const_FIRST_BYTE(r->header)) {
-    case R_09_INVISIBLE:
+    switch (VAL_TYPE_RAW(r)) {
+    case REB_0_END:
+        assert(r == END_NODE);
+        fail (Error_Bad_Path_Pick_Raw(ARG(picker)));
+
+    case REB_R_INVISIBLE:
         assert(FALSE); // only SETs should do this
         break;
 
-    case R_0A_REFERENCE:
+    case REB_R_REFERENCE:
         Derelativize(
             D_OUT,
-            VAL_REFERENCE(D_OUT),
-            VAL_REFERENCE_SPECIFIER(D_OUT)
+            VAL_REFERENCE(r),
+            VAL_REFERENCE_SPECIFIER(r)
         );
         return D_OUT;
-
-    case R_0C_UNHANDLED:
-        fail (Error_Bad_Path_Pick_Raw(ARG(picker)));
 
     default:
         break;
@@ -690,17 +698,18 @@ REBNATIVE(poke)
     REBPEF dispatcher = Path_Dispatch[VAL_TYPE(location)];
     assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
 
-    REB_R r = dispatcher(pvs, ARG(picker), ARG(value));
-    switch (const_FIRST_BYTE(r->header)) {
-    case R_09_INVISIBLE: // is saying it did the write already
-        break;
-
-    case R_0A_REFERENCE: // wants us to write it
-        Move_Value(VAL_REFERENCE(D_OUT), ARG(value));
-        break;
-
-    case R_0C_UNHANDLED:
+    const REBVAL *r = dispatcher(pvs, ARG(picker), ARG(value));
+    switch (VAL_TYPE_RAW(r)) {
+    case REB_0_END:
+        assert(r == END_NODE);
         fail (Error_Bad_Path_Poke_Raw(ARG(picker)));
+
+    case REB_R_INVISIBLE: // is saying it did the write already
+        break;
+
+    case REB_R_REFERENCE: // wants us to write it
+        Move_Value(VAL_REFERENCE(r), ARG(value));
+        break;
 
     default:
         assert(FALSE); // shouldn't happen, complain in the debug build

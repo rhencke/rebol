@@ -543,8 +543,11 @@ void Shuffle_Block(REBVAL *value, REBOOL secure)
 //     PD_Set_Path
 //     PD_Lit_Path
 //
-REB_R PD_Array(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Array(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     REBINT n;
 
     if (IS_INTEGER(picker) or IS_DECIMAL(picker)) { // #2312
@@ -606,13 +609,11 @@ REB_R PD_Array(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     if (opt_setval)
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(pvs->out));
 
-    Init_Reference(
-        pvs->out,
+    return Init_Reference(
+        FRM_CELL(pvs),
         VAL_ARRAY_AT_HEAD(pvs->out, n),
         VAL_SPECIFIER(pvs->out)
     );
-
-    return R_REFERENCE;
 }
 
 
@@ -727,11 +728,10 @@ REBTYPE(Array)
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     // Common operations for any series type (length, head, etc.)
-    {
-        REB_R r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
-        if (r != R_UNHANDLED)
-            return r;
-    }
+    //
+    const REBVAL *r = Try_Series_Common_Action(frame_, verb);
+    if (r)
+        return r;
 
     // NOTE: Partial1() used below can mutate VAL_INDEX(value), be aware :-/
     //

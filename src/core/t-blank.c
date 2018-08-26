@@ -111,8 +111,11 @@ void MF_Unit(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 // or GET, we indicate no result with void.  (Ordinary path selection will
 // treat this as an error.)
 //
-REB_R PD_Blank(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Blank(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     UNUSED(picker);
     UNUSED(pvs);
 

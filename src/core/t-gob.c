@@ -912,8 +912,11 @@ void TO_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  PD_Gob: C
 //
-REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Gob(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     REBGOB *gob = VAL_GOB(pvs->out);
     REBCNT index;
     REBCNT tail;
@@ -960,13 +963,13 @@ REB_R PD_Gob(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     }
 
     if (IS_INTEGER(picker)) {
-        if (!GOB_PANE(gob)) return R_BLANK;
+        if (!GOB_PANE(gob)) return BLANK_VALUE;
 
         tail = GOB_PANE(gob) ? GOB_LEN(gob) : 0;
         index = VAL_GOB_INDEX(pvs->out);
         index += Int32(picker) - 1;
 
-        if (index >= tail) return R_BLANK;
+        if (index >= tail) return BLANK_VALUE;
 
         gob = *GOB_AT(gob, index);
         RESET_VAL_HEADER(pvs->out, REB_GOB);

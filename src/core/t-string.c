@@ -588,8 +588,11 @@ static void Sort_String(
 //
 //  PD_String: C
 //
-REB_R PD_String(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_String(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     REBSER *ser = VAL_SERIES(pvs->out);
 
     // Note: There was some more careful management of overflow here in the
@@ -1195,11 +1198,10 @@ REBTYPE(String)
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     // Common operations for any series type (length, head, etc.)
-    {
-        REB_R r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
-        if (r != R_UNHANDLED)
-            return r;
-    }
+    //
+    const REBVAL *r = Try_Series_Common_Action(frame_, verb);
+    if (r)
+        return r;
 
     // Common setup code for all actions:
     //

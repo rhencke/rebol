@@ -405,8 +405,11 @@ void TO_Event(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  PD_Event: C
 //
-REB_R PD_Event(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Event(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     if (IS_WORD(picker)) {
         if (opt_setval == NULL) {
             if (!Get_Event_Var(

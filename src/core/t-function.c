@@ -323,8 +323,11 @@ REBTYPE(Action)
 // (see WORD_FLAG_PARTIAL_REFINE).  But the processing for REB_PATH in
 // Eval_Core() does not need to...it operates off of the stack values directly.
 //
-REB_R PD_Action(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Action(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     UNUSED(opt_setval);
 
     assert(IS_ACTION(pvs->out));

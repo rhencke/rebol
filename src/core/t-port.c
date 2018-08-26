@@ -103,7 +103,7 @@ void TO_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 // ports do this, as some have their own interpretation of APPEND.  It's
 // hacky, but still not as bad as it was.  Review.
 //
-REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
+const REBVAL *Retrigger_Append_As_Write(REBFRM *frame_) {
     INCLUDE_PARAMS_OF_APPEND;
 
     // !!! Something like `write/append %foo.txt "data"` knows to convert
@@ -177,7 +177,7 @@ REBTYPE(Port)
             break;
 
         // Once handled SYM_REFLECT here by delegating to T_Context(), but
-        // common reflectors now in Context_Common_Action_Maybe_Unhandled()
+        // common reflectors now in Context_Common_Action_Or_End()
 
         default:
             break;
@@ -189,8 +189,8 @@ REBTYPE(Port)
 
     REBVAL *port = D_ARG(1);
 
-    REB_R r = Context_Common_Action_Maybe_Unhandled(frame_, verb);
-    if (r != R_UNHANDLED)
+    const REBVAL *r = Try_Context_Common_Action(frame_, verb);
+    if (r)
         return r;
 
     return Do_Port_Action(frame_, port, verb);

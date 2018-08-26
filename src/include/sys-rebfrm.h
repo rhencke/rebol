@@ -814,7 +814,7 @@ struct Reb_Frame {
 // PG_Dispatcher for usage.
 //
 typedef void (*REBDOF)(REBFRM * const);
-typedef REB_R (*REBDSF)(REBFRM * const);
+typedef const REBVAL* (*REBDSF)(REBFRM * const);
 
 
 //=////////////////////////////////////////////////////////////////////////=//

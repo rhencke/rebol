@@ -599,7 +599,7 @@ static void ffi_to_rebol(
 //
 //  Routine_Dispatcher: C
 //
-REB_R Routine_Dispatcher(REBFRM *f)
+const REBVAL *Routine_Dispatcher(REBFRM *f)
 {
     REBRIN *rin = ACT_DETAILS(FRM_PHASE(f));
 
@@ -634,12 +634,19 @@ REB_R Routine_Dispatcher(REBFRM *f)
         // FFI argument series.
         //
         do {
-            REB_R r = Do_Vararg_Op_May_Throw(f->out, vararg, VARARG_OP_TAKE);
+            const REBVAL *r = Do_Vararg_Op_May_Throw(
+                f->out,
+                vararg,
+                VARARG_OP_TAKE
+            );
 
-            if (r == R_THROWN)
-                return f->out;
-            if (r == R_END)
+            if (IS_END(r)) {
+                assert(r == END_NODE);
                 break;
+            }
+
+            if (THROWN(r))
+                return r;
             assert(r == f->out);
 
             DS_PUSH(f->out);

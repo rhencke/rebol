@@ -471,8 +471,11 @@ void Poke_Time_Immediate(
 //
 //  PD_Time: C
 //
-REB_R PD_Time(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Time(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     if (opt_setval) {
         //
         // Returning R_IMMEDIATE means that we aren't actually changing a
@@ -635,10 +638,10 @@ REBTYPE(Time)
         switch (sym) {
 
         case SYM_ODD_Q:
-            return ((SECS_FROM_NANO(secs) & 1) != 0) ? R_TRUE : R_FALSE;
+            return ((SECS_FROM_NANO(secs) & 1) != 0) ? TRUE_VALUE : FALSE_VALUE;
 
         case SYM_EVEN_Q:
-            return ((SECS_FROM_NANO(secs) & 1) == 0) ? R_TRUE : R_FALSE;
+            return ((SECS_FROM_NANO(secs) & 1) == 0) ? TRUE_VALUE : FALSE_VALUE;
 
         case SYM_NEGATE:
             secs = -secs;

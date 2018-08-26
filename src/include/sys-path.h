@@ -177,7 +177,7 @@ inline static void Set_Path_Core(
 //
 // References are an internal type, used transiently to communicate a cell
 // location via a cell.  They are not robust enough for userspace, so they
-// use the internal REB_X_REFERENCE type and currently only appear in the
+// use the internal REB_R_REFERENCE type and currently only appear in the
 // path dispatch code.
 //
 
@@ -186,18 +186,18 @@ inline static REBVAL *Init_Reference(
     RELVAL *cell,
     REBSPC *specifier
 ){
-    RESET_VAL_HEADER(out, REB_X_REFERENCE);
+    RESET_VAL_HEADER(out, REB_R_REFERENCE);
     out->payload.reference.cell = cell;
     out->payload.reference.specifier = specifier;
     return cast(REBVAL*, out);
 }
 
 inline static RELVAL *VAL_REFERENCE(const RELVAL *v) {
-    assert(VAL_TYPE(v) == REB_X_REFERENCE);
+    assert(VAL_TYPE_RAW(v) == REB_R_REFERENCE);
     return v->payload.reference.cell;
 }
 
 inline static REBSPC *VAL_REFERENCE_SPECIFIER(const RELVAL *v) {
-    assert(VAL_TYPE(v) == REB_X_REFERENCE);
+    assert(VAL_TYPE_RAW(v) == REB_R_REFERENCE);
     return v->payload.reference.specifier;
 }

@@ -1823,7 +1823,7 @@ REBNATIVE(sleep)
     usleep(msec * 1000);
 #endif
 
-    return R_VOID;
+    return VOID_VALUE;
 }
 
 #if defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
@@ -2455,7 +2455,7 @@ static REBNATIVE(send_signal)
 
     kill_process(VAL_INT32(ARG(pid)), VAL_INT32(ARG(signal)));
 
-    return R_VOID;
+    return VOID_VALUE;
 }
 #endif // defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
 

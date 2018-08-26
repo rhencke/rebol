@@ -282,7 +282,7 @@ REBTYPE(Money)
         REBINT result = 1 & cast(REBINT, deci_to_int(VAL_MONEY_AMOUNT(val)));
         if (VAL_WORD_SYM(verb) == SYM_EVEN_Q)
             result = not result;
-        return result ? R_TRUE : R_FALSE; }
+        return result ? TRUE_VALUE : FALSE_VALUE; }
 
     default:
         fail (Error_Illegal_Action(REB_MONEY, verb));

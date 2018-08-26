@@ -80,7 +80,7 @@ static void Query_Net(REBVAL *out, REBVAL *port, struct devreq_net *sock)
 //
 //  Transport_Actor: C
 //
-static REB_R Transport_Actor(
+static const REBVAL *Transport_Actor(
     REBFRM *frame_,
     REBVAL *port,
     REBVAL *verb,
@@ -115,7 +115,7 @@ static REB_R Transport_Actor(
 
             switch (property) {
             case SYM_OPEN_Q:
-                return R_FALSE;
+                return FALSE_VALUE;
 
             default:
                 break;
@@ -254,7 +254,7 @@ static REB_R Transport_Actor(
         else if (sock->command == RDC_WRITE) {
             Init_Blank(port_data); // Write is done.
         }
-        return R_BAR; }
+        return BAR_VALUE; }
 
     case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;
@@ -487,7 +487,7 @@ static REB_R Transport_Actor(
 //
 //  TCP_Actor: C
 //
-static REB_R TCP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static const REBVAL *TCP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     return Transport_Actor(frame_, port, verb, TRANSPORT_TCP);
 }
@@ -496,7 +496,7 @@ static REB_R TCP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 //
 //  UDP_Actor: C
 //
-static REB_R UDP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static const REBVAL *UDP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     return Transport_Actor(frame_, port, verb, TRANSPORT_UDP);
 }

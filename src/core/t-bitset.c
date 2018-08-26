@@ -522,8 +522,11 @@ REBOOL Check_Bits(REBSER *bset, const REBVAL *val, REBOOL uncased)
 //
 //  PD_Bitset: C
 //
-REB_R PD_Bitset(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Bitset(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     REBSER *ser = VAL_SERIES(pvs->out);
 
     if (opt_setval == NULL) {
@@ -631,7 +634,7 @@ REBTYPE(Bitset)
 
         if (not Check_Bits(VAL_SERIES(value), arg, REF(case)))
             return nullptr;
-        return R_BAR;
+        return BAR_VALUE;
     }
 
     case SYM_COMPLEMENT:

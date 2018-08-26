@@ -631,8 +631,11 @@ void Poke_Vector_Fail_If_Read_Only(
 //
 // Path dispatch acts like PICK for GET-PATH! and POKE for SET-PATH!
 //
-REB_R PD_Vector(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Vector(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     if (opt_setval) {
         Poke_Vector_Fail_If_Read_Only(pvs->out, picker, opt_setval);
         return R_INVISIBLE;
@@ -652,11 +655,10 @@ REBTYPE(Vector)
     REBSER *ser;
 
     // Common operations for any series type (length, head, etc.)
-    {
-        REB_R r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
-        if (r != R_UNHANDLED)
-            return r;
-    }
+    //
+    const REBVAL *r = Try_Series_Common_Action(frame_, verb);
+    if (r)
+        return r;
 
     REBSER *vect = VAL_SERIES(value);
 

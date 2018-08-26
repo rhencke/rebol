@@ -204,6 +204,7 @@
                 | VALUE_FLAG_FALSEY // all the "bad" types are also falsey
             )) == NODE_FLAG_CELL
         ){
+            assert(VAL_TYPE_RAW(v) <= REB_MAX);
             return VAL_TYPE_RAW(v); // majority of calls hopefully return here
         }
 
@@ -220,8 +221,8 @@
 
         // Cell is good, so let the good cases pass through
         //
-        if (VAL_TYPE_RAW(v) == REB_MAX)
-            return REB_MAX;
+        if (VAL_TYPE_RAW(v) == REB_MAX_NULLED)
+            return REB_MAX_NULLED;
         if (VAL_TYPE_RAW(v) == REB_LOGIC)
             return REB_LOGIC;
 
@@ -230,6 +231,9 @@
         if (VAL_TYPE_RAW(v) == REB_BLANK) {
             if (v->extra.tick < 0) {
                 printf("VAL_TYPE() called on unreadable BLANK!\n");
+              #ifdef DEBUG_COUNT_TICKS
+                printf("Was made on tick: %d\n", cast(int, -v->extra.tick));
+              #endif
                 panic_at (v, file, line);
             }
             return REB_BLANK;
@@ -824,9 +828,6 @@ inline static REBVAL *KNOWN(RELVAL *v) {
 // use REB_MAX--because that is one past the range of valid REB_XXX values
 // in the enumeration created for the actual types.
 //
-
-#define REB_MAX_NULLED \
-    REB_MAX // there is no NULL! datatype, use REB_MAX
 
 #define NULLED_CELL \
     c_cast(const REBVAL*, &PG_Nulled_Cell[0])

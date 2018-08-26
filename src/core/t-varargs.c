@@ -36,7 +36,7 @@
 
 
 #define R_For_Vararg_End(op) \
-    ((op) == VARARG_OP_TAIL_Q ? R_TRUE : R_END)
+    ((op) == VARARG_OP_TAIL_Q ? TRUE_VALUE : END_NODE)
 
 
 // Some VARARGS! are generated from a block with no frame, while others
@@ -45,7 +45,7 @@
 // prelude which sees if it can answer the current query just from looking one
 // unit ahead.
 //
-inline static REB_R Vararg_Op_If_No_Advance(
+inline static const REBVAL *Vararg_Op_If_No_Advance(
     REBVAL *out,
     enum Reb_Vararg_Op op,
     const RELVAL *opt_look, // the first value in the varargs input
@@ -63,13 +63,13 @@ inline static REB_R Vararg_Op_If_No_Advance(
         //
         if (pclass == PARAM_CLASS_HARD_QUOTE) {
             if (op == VARARG_OP_TAIL_Q)
-                return R_FALSE;
+                return FALSE_VALUE;
             if (op == VARARG_OP_FIRST) {
                 Init_Bar(out);
                 return out;
             }
             assert(op == VARARG_OP_TAKE);
-            return R_UNHANDLED; // advance frame/array to consume BAR!
+            return nullptr; // advance frame/array to consume BAR!
         }
 
         return R_For_Vararg_End(op); // simulate exhaustion for non hard quote
@@ -109,7 +109,7 @@ inline static REB_R Vararg_Op_If_No_Advance(
     // actual END--are all taken care of, so we're not "at the TAIL?"
     //
     if (op == VARARG_OP_TAIL_Q)
-        return R_FALSE;
+        return FALSE_VALUE;
 
     if (op == VARARG_OP_FIRST) {
         if (pclass != PARAM_CLASS_HARD_QUOTE)
@@ -121,7 +121,7 @@ inline static REB_R Vararg_Op_If_No_Advance(
         return out; // only a lookahead, no need to advance
     }
 
-    return R_UNHANDLED; // must advance, may need to create a frame to do so
+    return nullptr; // must advance, may need to create a frame to do so
 }
 
 
@@ -138,15 +138,15 @@ inline static REB_R Vararg_Op_If_No_Advance(
 // check the result, and if an error is delivered it will use the name of
 // the parameter symbol in the fail() message.
 //
-// If op is VARARG_OP_TAIL_Q, then it will return R_TRUE or R_FALSE, and
-// this case cannot return R_THROWN.
+// If op is VARARG_OP_TAIL_Q, then it will return TRUE_VALUE or FALSE_VALUE,
+// and this case cannot return a thrown value.
 //
-// For other ops, it will return R_END if at the end of variadic input,
+// For other ops, it will return END_NODE if at the end of variadic input,
 // or D_OUT if there is a value.
 //
-// If an evaluation is involved, then R_THROWN is possibly returned.
+// If an evaluation is involved, then a thrown value is possibly returned.
 //
-REB_R Do_Vararg_Op_May_Throw(
+const REBVAL *Do_Vararg_Op_May_Throw(
     REBVAL *out,
     RELVAL *vararg,
     enum Reb_Vararg_Op op
@@ -162,7 +162,7 @@ REB_R Do_Vararg_Op_May_Throw(
 
     REBVAL *arg; // for updating VALUE_FLAG_UNEVALUATED
 
-    REB_R r;
+    const REBVAL *r;
     REBFRM *opt_vararg_frame;
 
     REBFRM *f;
@@ -185,7 +185,7 @@ REB_R Do_Vararg_Op_May_Throw(
             pclass
         );
 
-        if (r != R_UNHANDLED)
+        if (r)
             goto type_check_and_return;
 
         if (GET_VAL_FLAG(vararg, VARARGS_FLAG_ENFIXED)) {
@@ -225,7 +225,7 @@ REB_R Do_Vararg_Op_May_Throw(
             //
             if (Eval_Step_In_Frame_Throws(SET_END(out), f_temp)) {
                 Abort_Frame(f_temp);
-                return R_THROWN;
+                return out;
             }
 
             if (
@@ -257,7 +257,7 @@ REB_R Do_Vararg_Op_May_Throw(
                 if (Eval_Value_Core_Throws(
                     out, VAL_ARRAY_AT(shared), VAL_SPECIFIER(shared)
                 )){
-                    return R_THROWN;
+                    return out;
                 }
             }
             else { // not a soft-"exception" case, quote ordinarily
@@ -297,7 +297,7 @@ REB_R Do_Vararg_Op_May_Throw(
             pclass
         );
 
-        if (r != R_UNHANDLED)
+        if (r)
             goto type_check_and_return;
 
         // Note that evaluative cases here need Eval_Step_In_Subframe_Throws(),
@@ -313,7 +313,7 @@ REB_R Do_Vararg_Op_May_Throw(
                 DO_FLAG_FULFILLING_ARG,
                 child
             )){
-                return R_THROWN;
+                return out;
             }
             f->gotten = nullptr; // cache must be forgotten...
             break; }
@@ -326,7 +326,7 @@ REB_R Do_Vararg_Op_May_Throw(
                 DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD,
                 child
             )){
-                return R_THROWN;
+                return out;
             }
             f->gotten = nullptr; // cache must be forgotten...
             break; }
@@ -342,7 +342,7 @@ REB_R Do_Vararg_Op_May_Throw(
                     f->value,
                     f->specifier
                 )){
-                    return R_THROWN;
+                    return out;
                 }
                 Fetch_Next_In_Frame(f);
             }
@@ -360,12 +360,14 @@ REB_R Do_Vararg_Op_May_Throw(
     r = out;
 
 type_check_and_return:
-    if (r == R_END)
-        return R_END;
+    if (IS_END(r)) {
+        assert(r == END_NODE);
+        return r;
+    }
 
     if (r != out) {
         assert(op == VARARG_OP_TAIL_Q);
-        assert(r == R_TRUE or r == R_FALSE);
+        assert(r == TRUE_VALUE or r == FALSE_VALUE);
         return r;
     }
 
@@ -455,8 +457,11 @@ void TO_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 // Implements the PICK* operation.
 //
-REB_R PD_Varargs(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Varargs(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     UNUSED(opt_setval);
 
     if (not IS_INTEGER(picker))
@@ -468,11 +473,16 @@ REB_R PD_Varargs(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     DECLARE_LOCAL (location);
     Move_Value(location, pvs->out);
 
-    REB_R r = Do_Vararg_Op_May_Throw(pvs->out, location, VARARG_OP_FIRST);
-    if (r == R_THROWN)
-        assert(FALSE); // VARARG_OP_FIRST can't throw
-    else if (r == R_END)
+    const REBVAL *r = Do_Vararg_Op_May_Throw(
+        pvs->out,
+        location,
+        VARARG_OP_FIRST
+    );
+    if (IS_END(r)) {
+        assert(r == END_NODE);
         Init_Endish_Nulled(pvs->out);
+    } else if (THROWN(r))
+        assert(FALSE); // VARARG_OP_FIRST can't throw
     else
         assert(r == pvs->out);
 
@@ -500,9 +510,12 @@ REBTYPE(Varargs)
 
         switch (property) {
         case SYM_TAIL_Q: {
-            REBVAL *out = NULL; // won't write to `out`
-            REB_R r = Do_Vararg_Op_May_Throw(out, value, VARARG_OP_TAIL_Q);
-            assert(r == R_TRUE || r == R_FALSE); // cannot throw
+            const REBVAL *r = Do_Vararg_Op_May_Throw(
+                nullptr, // won't write to `out`
+                value,
+                VARARG_OP_TAIL_Q
+            );
+            assert(r == TRUE_VALUE or r == FALSE_VALUE); // cannot throw
             return r; }
 
         default:
@@ -521,9 +534,15 @@ REBTYPE(Varargs)
             fail (Error_Varargs_Take_Last_Raw());
 
         if (not REF(part)) {
-            REB_R r = Do_Vararg_Op_May_Throw(D_OUT, value, VARARG_OP_TAKE);
-            if (r == R_END)
+            const REBVAL *r = Do_Vararg_Op_May_Throw(
+                D_OUT,
+                value,
+                VARARG_OP_TAKE
+            );
+            if (IS_END(r)) {
+                assert(r == END_NODE);
                 Init_Endish_Nulled(D_OUT);
+            }
             else
                 assert(r == D_OUT);
             return D_OUT;
@@ -544,12 +563,18 @@ REBTYPE(Varargs)
             fail (Error_Invalid(ARG(limit)));
 
         while (limit-- > 0) {
-            REB_R r = Do_Vararg_Op_May_Throw(D_OUT, value, VARARG_OP_TAKE);
+            const REBVAL *r = Do_Vararg_Op_May_Throw(
+                D_OUT,
+                value,
+                VARARG_OP_TAKE
+            );
 
-            if (r == R_THROWN)
-                return D_OUT;
-            if (r == R_END)
+            if (IS_END(r)) {
+                assert(r == END_NODE);
                 break;
+            }
+            if (THROWN(r))
+                return r;
             assert(r == D_OUT);
 
             DS_PUSH(D_OUT);

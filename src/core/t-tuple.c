@@ -256,8 +256,11 @@ void Poke_Tuple_Immediate(
 //
 //  PD_Tuple: C
 //
-REB_R PD_Tuple(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Tuple(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     if (opt_setval) {
         //
         // Returning R_IMMEDIATE means it is up to the caller to decide if

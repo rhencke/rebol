@@ -167,7 +167,8 @@ inline static void Push_Frame_Core(REBFRM *f)
     //
     f->original = nullptr;
 
-    TRASH_POINTER_IF_DEBUG(f->deferred);
+    if (not (f->flags.bits & DO_FLAG_REEVALUATE_CELL))
+        TRASH_POINTER_IF_DEBUG(f->deferred);
     TRASH_POINTER_IF_DEBUG(f->deferred_param);
     TRASH_POINTER_IF_DEBUG(f->deferred_refine);
 
@@ -788,6 +789,7 @@ inline static REBOOL Eval_Step_In_Subframe_Throws(
         IS_END(child->value)
         or FRM_IS_VALIST(child)
         or old_index != child->source->index
+        or (flags & DO_FLAG_REEVALUATE_CELL)
         or THROWN(out)
     );
 

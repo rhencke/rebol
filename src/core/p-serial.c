@@ -36,7 +36,7 @@
 //
 //  Serial_Actor: C
 //
-static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
@@ -60,7 +60,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
             switch (property) {
             case SYM_OPEN_Q:
-                return R_FALSE;
+                return FALSE_VALUE;
 
             default:
                 break; }
@@ -172,7 +172,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return R_TRUE;
+            return TRUE_VALUE;
 
         default:
             break;
@@ -282,7 +282,7 @@ static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         else if (req->command == RDC_WRITE) {
             Init_Blank(data);  // Write is done.
         }
-        return R_BAR; }
+        return BAR_VALUE; }
 
     case SYM_CLOSE:
         if (req->flags & RRF_OPEN) {

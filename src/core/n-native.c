@@ -204,7 +204,7 @@ static void cleanup(const REBVAL *val)
 // However, as a convenience, calling a pending user native will trigger a
 // simple COMPILE for just that one function, using default options.
 //
-REB_R Pending_Native_Dispatcher(REBFRM *f) {
+const REBVAL *Pending_Native_Dispatcher(REBFRM *f) {
     REBACT *phase = FRM_PHASE(f);
     assert(ACT_DISPATCHER(phase) == &Pending_Native_Dispatcher);
 
@@ -528,7 +528,7 @@ REBNATIVE(compile)
             RELVAL *source = ARR_AT(details, IDX_NATIVE_SOURCE);
             RELVAL *linkname = ARR_AT(details, IDX_NATIVE_LINKNAME);
 
-            Append_Unencoded(mo->series, "REB_R ");
+            Append_Unencoded(mo->series, "const REBVAL *");
             Append_Utf8_String(mo->series, linkname, VAL_LEN_AT(linkname));
             Append_Unencoded(mo->series, "(REBFRM *frame_)\n{\n");
 

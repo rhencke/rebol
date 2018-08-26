@@ -243,10 +243,10 @@ REBTYPE(Char)
         break;
 
     case SYM_EVEN_Q:
-        return (cast(REBUNI, ~chr) & 1) ? R_TRUE : R_FALSE;
+        return (cast(REBUNI, ~chr) & 1) ? TRUE_VALUE : FALSE_VALUE;
 
     case SYM_ODD_Q:
-        return (chr & 1) ? R_TRUE : R_FALSE;
+        return (chr & 1) ? TRUE_VALUE : FALSE_VALUE;
 
     case SYM_RANDOM: {
         INCLUDE_PARAMS_OF_RANDOM;

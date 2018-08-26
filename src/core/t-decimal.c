@@ -472,14 +472,14 @@ REBTYPE(Decimal)
     case SYM_EVEN_Q:
         d1 = fabs(fmod(d1, 2.0));
         if (d1 < 0.5 || d1 >= 1.5)
-            return R_TRUE;
-        return R_FALSE;
+            return TRUE_VALUE;
+        return FALSE_VALUE;
 
     case SYM_ODD_Q:
         d1 = fabs(fmod(d1, 2.0));
         if (d1 < 0.5 || d1 >= 1.5)
-            return R_FALSE;
-        return R_TRUE;
+            return FALSE_VALUE;
+        return TRUE_VALUE;
 
     case SYM_ROUND: {
         INCLUDE_PARAMS_OF_ROUND;

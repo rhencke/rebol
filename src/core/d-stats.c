@@ -181,7 +181,7 @@ enum {
 // In order to actually be accurate, it would need some way to subtract out
 // its own effect on the timing of functions above on the stack.
 //
-REB_R Measured_Dispatcher_Hook(REBFRM * const f)
+const REBVAL *Measured_Dispatcher_Hook(REBFRM * const f)
 {
     REBMAP *m = VAL_MAP(Root_Stats_Map);
 
@@ -206,7 +206,8 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
         // being studied for starters...of just counting.
     }
 
-    REB_R r = Dispatcher_Core(f);
+    const REBVAL *r = Dispatcher_Core(f);
+    assert(r->header.bits & NODE_FLAG_CELL);
 
     if (is_last_phase) {
         //
@@ -293,49 +294,23 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
         if (not r) {
             // null
         }
-        else switch (const_FIRST_BYTE(r->header)) {
-        case R_00_FALSE:
-            break;
-
-        case R_01_TRUE:
-            break;
-
-        case R_02_VOID:
-            break;
-
-        case R_03_BLANK:
-            break;
-
-        case R_04_BAR:
-            break;
-
-        case R_05_REDO_CHECKED:
+        else switch (VAL_TYPE_RAW(r)) {
+        case REB_R_REDO:
             assert(FALSE); // shouldn't be possible for final phase
             break;
 
-        case R_06_REDO_UNCHECKED:
-            assert(FALSE); // shouldn't be possible for final phase
+        case REB_R_INVISIBLE:
             break;
 
-        case R_07_REEVALUATE_CELL:
-            break;
-
-        case R_08_REEVALUATE_CELL_ONLY:
-            break;
-
-        case R_09_INVISIBLE:
-            break;
-
-        case R_0A_REFERENCE:
-        case R_0B_IMMEDIATE:
-        case R_0C_UNHANDLED:
-        case R_0D_END:
+        case REB_R_REFERENCE:
+        case REB_R_IMMEDIATE:
             assert(FALSE); // internal use only, shouldn't be returned
             break;
 
         default:
-            assert(r->header.bits & NODE_FLAG_CELL);
             // may be thrown, may not be
+            assert(NOT_END(r));
+            assert(VAL_TYPE_RAW(r) < REB_MAX_PLUS_MAX);
             break;
         }
     }
@@ -415,7 +390,7 @@ REBNATIVE(callgrind)
     default:
         fail ("Currently CALLGRIND only supports ON and OFF");
     }
-    return R_VOID;
+    return VOID_VALUE;
   #else
     UNUSED(ARG(instruction));
     fail ("This executable wasn't compiled with INCLUDE_CALLGRIND_NATIVE");

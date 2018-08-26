@@ -425,14 +425,14 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
 // NOTE: stack must already be setup correctly for action, and
 // the caller must cleanup the stack.
 //
-REB_R Do_Port_Action(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+const REBVAL *Do_Port_Action(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     FAIL_IF_BAD_PORT(port);
 
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *actor = CTX_VAR(ctx, STD_PORT_ACTOR);
 
-    REB_R r;
+    const REBVAL *r;
 
     // If actor is a HANDLE!, it should be a PAF
     //

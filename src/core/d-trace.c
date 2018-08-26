@@ -243,7 +243,7 @@ void Traced_Eval_Hook(REBFRM * const f)
 // This is the function which is swapped in for Dispatcher_Core when tracing
 // isenabled.
 //
-REB_R Traced_Dispatcher_Hook(REBFRM * const f)
+const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
 {
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level)
@@ -271,7 +271,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
     //
     REBOOL last_phase = (ACT_UNDERLYING(phase) == phase);
 
-    REB_R r = Dispatcher_Core(f);
+    const REBVAL *r = Dispatcher_Core(f);
 
     // When you HIJACK a function with an incompatible frame, it can REDO
     // even on what looks like the "last phase" because it is wiring in a new
@@ -279,8 +279,11 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
     // exposed vs. skipped as "not the last phase" (e.g. the function with
     // this frame's label will still be running, not running under a new name)
     //
-    if (r == R_REDO_CHECKED)
-        last_phase = false;
+    if (VAL_TYPE_RAW(r) == REB_R_REDO) {
+        const REBOOL checked = NOT_VAL_FLAG(r, VALUE_FLAG_FALSEY));
+        if (not checked)
+            last_phase = false;
+    }
 
     if (last_phase) {
         //
@@ -316,59 +319,18 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         else if (not r) {
             Debug_Fmt("\\\\null\\\\\n"); // displays as "\\null\\"
         }
-        else switch (const_FIRST_BYTE(r->header)) {
+        else switch (VAL_TYPE_RAW(r)) {
 
-        case R_00_FALSE:
-            Debug_Values(FALSE_VALUE, 1, 50);
+        case REB_0_END:
+            assert(FALSE);
             break;
 
-        case R_01_TRUE:
-            Debug_Values(TRUE_VALUE, 1, 50);
-            break;
-
-        case R_02_VOID:
-            Debug_Values(VOID_VALUE, 1, 50);
-            break;
-
-        case R_03_BLANK:
-            Debug_Values(BLANK_VALUE, 1, 50);
-            break;
-
-        case R_04_BAR:
-            Debug_Values(BAR_VALUE, 1, 50);
-            break;
-
-        case R_05_REDO_CHECKED:
-            assert(FALSE); // accounted for as not being final phase above
-            break;
-
-        case R_06_REDO_UNCHECKED:
-            assert(FALSE); // shouldn't be possible for final phase
-            break;
-
-        case R_07_REEVALUATE_CELL:
-            //
-            // !!! It's EVAL, should we print f->out ?
-            //
-            Debug_Fmt("\\\\reevaluate\\\\\n"); // displays as "\\reevalaute\\"
-            break;
-
-        case R_08_REEVALUATE_CELL_ONLY:
-            //
-            // !!! It's EVAL/ONLY, should we print f->out ?
-            //
-            Debug_Fmt("\\\\reevaluate\\\\\n"); // displays as "\\reevaluate\\"
-            break;
-
-        case R_09_INVISIBLE:
+        case REB_R_INVISIBLE:
             Debug_Fmt("\\\\invisible\\\\\n"); // displays as "\\invisible\\"
             break;
 
-        case R_0A_REFERENCE:
-        case R_0B_IMMEDIATE:
-        case R_0C_UNHANDLED:
-        case R_0D_END:
-        case R_0E_THROWN:
+        case REB_R_REFERENCE:
+        case REB_R_IMMEDIATE:
             assert(FALSE); // internal use only, shouldn't be returned
             break;
 

@@ -58,33 +58,25 @@ REBNATIVE(eval)
 {
     INCLUDE_PARAMS_OF_EVAL;
 
-    UNUSED(ARG(expressions)); // EVAL only *acts* variadic, uses R_REEVALUATE
-
-    if (not REF(only)) {
-        //
-        // The evaluator has specific support for retriggering evaluation
-        // from the frame's cell...so take advantage of that without making
-        // a new frame.
-        //
-        Move_Value(D_CELL, ARG(value));
-        return R_REEVALUATE_CELL;
-    }
-
-    // See notes on DO_FLAG_REEVALUATE_CELL for why this is no longer offered
-    // as a R_REEVALUATE_CELL_ONLY dispatcher return value.  Hence, subframes
-    // must be used instead.
+    // EVAL only *acts* variadic, but uses DO_FLAG_REEVALUATE_CELL
     //
+    UNUSED(ARG(expressions));
+
     DECLARE_SUBFRAME (child, frame_);
-    Move_Value(FRM_CELL(child), ARG(value));
-    FRM_CELL(child)->header.bits ^= VALUE_FLAG_EVAL_FLIP;
-    if (Eval_Step_In_Subframe_Throws(
-        D_OUT,
-        frame_,
-        DO_FLAG_EXPLICIT_EVALUATE | DO_FLAG_REEVALUATE_CELL,
-        child
-    )){
-        return D_OUT;
+
+    // We need a way to slip the value through to the evaluator.  Can't run
+    // it from the frame's cell.  Pass it by way deferred.
+    //
+    child->deferred = ARG(value);
+
+    REBFLGS flags = DO_FLAG_REEVALUATE_CELL;
+    if (REF(only)) {
+        flags |= DO_FLAG_EXPLICIT_EVALUATE;
+        ARG(value)->header.bits ^= VALUE_FLAG_EVAL_FLIP;
     }
+
+    if (Eval_Step_In_Subframe_Throws(D_OUT, frame_, flags, child))
+        return D_OUT;
 
     return D_OUT;
 }

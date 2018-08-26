@@ -198,29 +198,27 @@ typedef void (*MOLD_CFUNC)(REB_MOLD *mo, const RELVAL *v, REBOOL form);
 // These definitions are needed in %sys-rebval.h, and can't be put in
 // %sys-rebact.h because that depends on Reb_Array, which depends on
 // Reb_Series, which depends on values... :-/
-//
-typedef const REBVAL* REB_R;
 
 // C function implementing a native ACTION!
 //
-typedef REB_R (*REBNAT)(REBFRM *frame_);
+typedef const REBVAL* (*REBNAT)(REBFRM *frame_);
 #define REBNATIVE(n) \
-    REB_R N_##n(REBFRM *frame_)
+    const REBVAL* N_##n(REBFRM *frame_)
 
 // Type-Action-Function: implementing a "verb" ACTION! for a particular
 // type (or class of types).
 //
-typedef REB_R (*REBTAF)(REBFRM *frame_, REBVAL *verb);
+typedef const REBVAL* (*REBTAF)(REBFRM *frame_, REBVAL *verb);
 #define REBTYPE(n) \
-    REB_R T_##n(REBFRM *frame_, REBVAL *verb)
+    const REBVAL* T_##n(REBFRM *frame_, REBVAL *verb)
 
 // Port-Action-Function: for implementing "verb" ACTION!s on a PORT! class
 // 
-typedef REB_R (*REBPAF)(REBFRM *frame_, REBVAL *port, REBVAL *verb);
+typedef const REBVAL* (*REBPAF)(REBFRM *frame_, REBVAL *port, REBVAL *verb);
 
 // Path evaluator function
 //
-typedef REB_R (*REBPEF)(
+typedef const REBVAL* (*REBPEF)(
     REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval
 );
 

@@ -128,7 +128,7 @@ REBNATIVE(continue)
 //
 //  Loop_Series_Common: C
 //
-static REB_R Loop_Series_Common(
+static const REBVAL *Loop_Series_Common(
     REBVAL *out,
     REBVAL *var, // Must not be movable from context expansion, see #2274
     const REBVAL *body,
@@ -212,7 +212,7 @@ static REB_R Loop_Series_Common(
 //
 //  Loop_Integer_Common: C
 //
-static REB_R Loop_Integer_Common(
+static const REBVAL *Loop_Integer_Common(
     REBVAL *out,
     REBVAL *var, // Must not be movable from context expansion, see #2274
     const REBVAL *body,
@@ -275,7 +275,7 @@ static REB_R Loop_Integer_Common(
 //
 //  Loop_Number_Common: C
 //
-static REB_R Loop_Number_Common(
+static const REBVAL *Loop_Number_Common(
     REBVAL *out,
     REBVAL *var, // Must not be movable from context expansion, see #2274
     const REBVAL *body,
@@ -364,7 +364,7 @@ static REB_R Loop_Number_Common(
 // likely be factored in a better way...pushing more per-native code into the
 // natives themselves.
 //
-static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
+static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 {
     INCLUDE_PARAMS_OF_FOR_EACH;
 
@@ -671,7 +671,7 @@ skip_hidden: ;
             return nullptr;
 
         if (IS_END(D_CELL))
-            return R_BAR; // all evaluations opted out
+            return BAR_VALUE; // all evaluations opted out
 
         return D_CELL;
     }
@@ -1336,7 +1336,7 @@ REBNATIVE(loop)
 
     if (IS_FALSEY(ARG(count))) {
         assert(IS_LOGIC(ARG(count))); // is false...opposite of infinite loop
-        return R_VOID;
+        return VOID_VALUE;
     }
 
     Init_Void(D_OUT); // result if body never runs
@@ -1418,7 +1418,7 @@ REBNATIVE(repeat)
 
     REBI64 n = VAL_INT64(value);
     if (n < 1) // Loop_Integer from 1 to 0 with bump of 1 is infinite
-        return R_VOID; // void if loop condition never runs
+        return VOID_VALUE; // void if loop condition never runs
 
     return Loop_Integer_Common(
         D_OUT, var, ARG(body), 1, VAL_INT64(value), 1
@@ -1428,7 +1428,7 @@ REBNATIVE(repeat)
 
 // Common code for UNTIL & UNTIL-NOT (same frame param layout)
 //
-inline static REB_R Until_Core(REBFRM *frame_, REBOOL trigger)
+inline static const REBVAL *Until_Core(REBFRM *frame_, REBOOL trigger)
 {
     INCLUDE_PARAMS_OF_UNTIL;
 
@@ -1506,7 +1506,7 @@ REBNATIVE(until_not)
 
 // Common code for WHILE & WHILE-NOT (same frame param layout)
 //
-inline static REB_R While_Core(REBFRM *frame_, REBOOL trigger)
+inline static const REBVAL *While_Core(REBFRM *frame_, REBOOL trigger)
 {
     INCLUDE_PARAMS_OF_WHILE;
 

@@ -141,7 +141,7 @@ REBNATIVE(either)
 // This routine is just for basic efficiency behind constructs like ELSE
 // that want to avoid frame creation overhead.  So BLOCK! just means typeset.
 //
-inline static REB_R Either_Test_Core(
+inline static const REBVAL *Either_Test_Core(
     REBVAL *cell, // GC-safe temp cell
     REBVAL *test, // modified
     const REBVAL *arg
@@ -178,7 +178,7 @@ inline static REB_R Either_Test_Core(
             SPECIFIED,
             push_refinements
         )){
-            return R_THROWN;
+            return cell;
         }
 
         assert(lowest_ordered_dsp == DSP); // would have made specialization
@@ -201,7 +201,7 @@ inline static REB_R Either_Test_Core(
             NULLIZE(arg), // convert nulled cells to C nullptr for API
             rebEND
         )){
-            return R_THROWN;
+            return cell;
         }
 
         if (IS_VOID(cell))
@@ -234,16 +234,16 @@ inline static REB_R Either_Test_Core(
 
             if (IS_DATATYPE(var)) {
                 if (VAL_TYPE_KIND(var) == VAL_TYPE(arg))
-                    return R_TRUE;
+                    return TRUE_VALUE;
             }
             else if (IS_TYPESET(var)) {
                 if (TYPE_CHECK(var, VAL_TYPE(arg)))
-                    return R_TRUE;
+                    return TRUE_VALUE;
             }
             else
                 fail (Error_Invalid_Type(VAL_TYPE(var)));
         }
-        return R_FALSE; }
+        return FALSE_VALUE; }
 
     default:
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
@@ -273,14 +273,16 @@ REBNATIVE(either_test)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST;
 
-    REB_R r = Either_Test_Core(D_OUT, ARG(test), ARG(arg));
-    if (r == R_THROWN)
+    const REBVAL *r = Either_Test_Core(D_OUT, ARG(test), ARG(arg));
+    if (r == D_OUT) {
+        assert(THROWN(r));
         return D_OUT;
+    }
 
-    if (r == R_TRUE)
+    if (r == TRUE_VALUE)
         return ARG(arg);
 
-    assert(r == R_FALSE);
+    assert(r == FALSE_VALUE);
 
     if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(arg)))
         return D_OUT;
@@ -493,7 +495,7 @@ REBNATIVE(match)
 
         if (IS_TRUTHY(D_CELL)) {
             if (IS_FALSEY(D_OUT))
-                return R_BAR;
+                return BAR_VALUE;
             return D_OUT;
         }
 
@@ -517,30 +519,29 @@ either_test:;
     VAL_TYPESET_BITS(varpar) |= FLAGIT_KIND(REB_MAX_NULLED);
     INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_NORMAL); // !!! hack
 
-    REB_R r = Do_Vararg_Op_May_Throw(D_OUT, ARG(args), VARARG_OP_TAKE);
+    const REBVAL *r = Do_Vararg_Op_May_Throw(D_OUT, ARG(args), VARARG_OP_TAKE);
+    if (r == END_NODE)
+        fail ("Frame hack is written to need argument!");
+
+    if (THROWN(r))
+        return r;
+
+    assert(r == D_OUT);
 
     INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_HARD_QUOTE);
     VAL_TYPESET_BITS(varpar) &= ~FLAGIT_KIND(REB_MAX_NULLED);
 
-    if (r == R_THROWN)
-        return R_THROWN;
-
-    if (r == R_END)
-        fail ("Frame hack is written to need argument!");
-
-    assert(r == D_OUT);
-
     r = Either_Test_Core(D_CELL, test, D_OUT);
-    if (r == R_THROWN)
-        return R_THROWN;
+    if (THROWN(r))
+        return r;
 
-    if (r == R_TRUE) {
+    if (r == TRUE_VALUE) {
         if (IS_FALSEY(D_OUT)) // see above for why false match not passed thru
-            return R_BAR;
+            return BAR_VALUE;
         return D_OUT;
     }
 
-    assert(r == R_FALSE);
+    assert(r == FALSE_VALUE);
     return nullptr;
 }
 
@@ -651,14 +652,14 @@ REBNATIVE(none)
     }
 
     Drop_Frame(f);
-    return R_BAR; // "synthetic" truthy that doesn't suggest LOGIC! on failure
+    return BAR_VALUE; // "synthetic" truthy that doesn't suggest LOGIC! on failure
 }
 
 
 // Shared code for CASE (which runs BLOCK! clauses as code) and CHOOSE (which
 // returns values as-is, e.g. `choose [true [print "hi"]]` => `[print "hi]`
 //
-static REB_R Case_Choose_Core(
+static const REBVAL *Case_Choose_Core(
     REBVAL *out,
     REBVAL *cell, // scratch "D_CELL", must be GC safe
     REBVAL *block, // "choices" or "cases", must be GC safe

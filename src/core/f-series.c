@@ -34,13 +34,16 @@
 #define THE_SIGN(v) ((v < 0) ? -1 : (v > 0) ? 1 : 0)
 
 //
-//  Series_Common_Action_Maybe_Unhandled: C
+//  Try_Series_Common_Action: C
 //
 // This routine is called to handle actions on ANY-SERIES! that can be taken
 // care of without knowing what specific kind of series it is.  So generally
 // index manipulation, and things like LENGTH/etc.
 //
-REB_R Series_Common_Action_Maybe_Unhandled(
+// If nullptr is returned, that means there was no common action...it does
+// not represent a NULL Rebol state.  Use NULLED_CELL for the latter here.
+//
+const REBVAL *Try_Series_Common_Action(
     REBFRM *frame_,
     REBVAL *verb
 ){
@@ -95,7 +98,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 );
                 return D_OUT;
             }
-            return nullptr; }
+            return NULLED_CELL; }
 
         case SYM_LINE: {
             REBSER *s = VAL_SERIES(value);
@@ -103,7 +106,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
                 Init_Integer(D_OUT, MISC(s).line);
                 return D_OUT;
             }
-            return nullptr; }
+            return NULLED_CELL; }
 
         default:
             break;
@@ -153,12 +156,12 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
         if (i > cast(REBI64, tail)) {
             if (REF(only))
-                return nullptr;
+                return NULLED_CELL;
             i = cast(REBI64, tail); // past tail clips to tail if not /ONLY
         }
         else if (i < 0) {
             if (REF(only))
-                return nullptr;
+                return NULLED_CELL;
             i = 0; // past head clips to head if not /ONLY
         }
 
@@ -186,7 +189,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
     case SYM_INTERSECT: {
         if (IS_BINARY(value))
-            return R_UNHANDLED; // !!! use bitwise math, for now
+            return nullptr; // !!! unhandled; use bitwise math, for now
 
         INCLUDE_PARAMS_OF_INTERSECT;
 
@@ -207,7 +210,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
     case SYM_UNION: {
         if (IS_BINARY(value))
-            return R_UNHANDLED; // !!! use bitwise math, for now
+            return nullptr; // !!! unhandled; use bitwise math, for now
 
         INCLUDE_PARAMS_OF_UNION;
 
@@ -228,7 +231,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 
     case SYM_DIFFERENCE: {
         if (IS_BINARY(value))
-            return R_UNHANDLED; // !!! use bitwise math, for now
+            return nullptr; // !!! unhandled; use bitwise math, for now
 
         INCLUDE_PARAMS_OF_DIFFERENCE;
 
@@ -251,7 +254,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
         break;
     }
 
-    return R_UNHANDLED; // not a common operation, not handled
+    return nullptr; // not a common operation, uhandled (not NULLED_CELL!)
 }
 
 

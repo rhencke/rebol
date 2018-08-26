@@ -833,6 +833,34 @@ static void Init_Root_Vars(void)
     Init_Void(&PG_Void_Value[0]);
     TRASH_CELL_IF_DEBUG(&PG_Void_Value[1]);
 
+    Prep_Non_Stack_Cell(&PG_R_Invisible[0]);
+    Prep_Non_Stack_Cell(&PG_R_Invisible[1]);
+    RESET_VAL_HEADER(&PG_R_Invisible[0], REB_R_INVISIBLE);
+    TRASH_CELL_IF_DEBUG(&PG_R_Invisible[1]);
+
+    Prep_Non_Stack_Cell(&PG_R_Immediate[0]);
+    Prep_Non_Stack_Cell(&PG_R_Immediate[1]);
+    RESET_VAL_HEADER(&PG_R_Immediate[0], REB_R_IMMEDIATE);
+    TRASH_CELL_IF_DEBUG(&PG_R_Immediate[1]);
+
+    Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked[0]);
+    Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked[1]);
+    RESET_VAL_HEADER_EXTRA(
+        &PG_R_Redo_Unchecked[0],
+        REB_R_REDO,
+        VALUE_FLAG_FALSEY // understood by Eval_Core() as "unchecked"
+    );
+    TRASH_CELL_IF_DEBUG(&PG_R_Redo_Unchecked[1]);
+
+    Prep_Non_Stack_Cell(&PG_R_Redo_Checked[0]);
+    Prep_Non_Stack_Cell(&PG_R_Redo_Checked[1]);
+    RESET_VAL_HEADER_EXTRA(
+        &PG_R_Redo_Checked[0],
+        REB_R_REDO,
+        0 // no VALUE_FLAG_FALSEY is understood by Eval_Core() as "checked"
+    );
+    TRASH_CELL_IF_DEBUG(&PG_R_Redo_Checked[1]);
+
     REBSER *locker = nullptr;
 
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);
@@ -859,22 +887,6 @@ static void Init_Root_Vars(void)
     // rely on a usermode stats module.
     //
     Root_Stats_Map = Init_Map(Alloc_Value(), Make_Map(10));
-
-    PG_R_FALSE.header.bits = FLAG_FIRST_BYTE(0);
-    PG_R_TRUE.header.bits = FLAG_FIRST_BYTE(1);
-    PG_R_VOID.header.bits = FLAG_FIRST_BYTE(2);
-    PG_R_BLANK.header.bits = FLAG_FIRST_BYTE(3);
-    PG_R_BAR.header.bits = FLAG_FIRST_BYTE(4);
-    PG_R_REDO_CHECKED.header.bits = FLAG_FIRST_BYTE(5);
-    PG_R_REDO_UNCHECKED.header.bits = FLAG_FIRST_BYTE(6);
-    PG_R_REEVALUATE_CELL.header.bits = FLAG_FIRST_BYTE(7);
-    PG_R_REEVALUATE_CELL_ONLY.header.bits = FLAG_FIRST_BYTE(8);
-    PG_R_INVISIBLE.header.bits = FLAG_FIRST_BYTE(9);
-    PG_R_REFERENCE.header.bits = FLAG_FIRST_BYTE(10);
-    PG_R_IMMEDIATE.header.bits = FLAG_FIRST_BYTE(11);
-    PG_R_UNHANDLED.header.bits = FLAG_FIRST_BYTE(12);
-    PG_R_END.header.bits = FLAG_FIRST_BYTE(13);
-    PG_R_THROWN.header.bits = FLAG_FIRST_BYTE(14);
 }
 
 static void Shutdown_Root_Vars(void)

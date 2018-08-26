@@ -842,7 +842,7 @@ REBCNT Find_Param_Index(REBARR *paramlist, REBSTR *spelling)
 // Create an archetypal form of a function, given C code implementing a
 // dispatcher that will be called by Eval_Core.  Dispatchers are of the form:
 //
-//     REB_R Dispatcher(REBFRM *f) {...}
+//     const REBVAL *Dispatcher(REBFRM *f) {...}
 //
 // The REBACT returned is "archetypal" because individual REBVALs which hold
 // the same REBACT may differ in a per-REBVAL "binding".  (This is how one
@@ -1366,7 +1366,7 @@ REBTYPE(Fail)
 //
 // https://en.wikipedia.org/wiki/Multiple_dispatch
 //
-REB_R Type_Action_Dispatcher(REBFRM *f)
+const REBVAL *Type_Action_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
 
@@ -1388,7 +1388,7 @@ REB_R Type_Action_Dispatcher(REBFRM *f)
 // it sounds, because you can make fast stub actions that only cost if they
 // are HIJACK'd (e.g. ASSERT is done this way).
 //
-REB_R Null_Dispatcher(REBFRM *f)
+const REBVAL *Null_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE_OR_DUMMY(f));
     assert(VAL_LEN_AT(ARR_HEAD(details)) == 0);
@@ -1403,7 +1403,7 @@ REB_R Null_Dispatcher(REBFRM *f)
 //
 // Analogue to Null_Dispatcher() for `func [return: <void> ...] []`.
 //
-REB_R Void_Dispatcher(REBFRM *f)
+const REBVAL *Void_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     assert(VAL_LEN_AT(ARR_HEAD(details)) == 0);
@@ -1419,7 +1419,7 @@ REB_R Void_Dispatcher(REBFRM *f)
 //
 // Dispatcher used by TYPECHECKER generator for when argument is a datatype.
 //
-REB_R Datatype_Checker_Dispatcher(REBFRM *f)
+const REBVAL *Datatype_Checker_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *datatype = ARR_HEAD(details);
@@ -1434,7 +1434,7 @@ REB_R Datatype_Checker_Dispatcher(REBFRM *f)
 //
 // Dispatcher used by TYPECHECKER generator for when argument is a typeset.
 //
-REB_R Typeset_Checker_Dispatcher(REBFRM *f)
+const REBVAL *Typeset_Checker_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *typeset = ARR_HEAD(details);
@@ -1451,7 +1451,7 @@ REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 // (whose body is a block that runs through DO []).  There is no return type
 // checking done on these simple functions.
 //
-REB_R Unchecked_Dispatcher(REBFRM *f)
+const REBVAL *Unchecked_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *body = ARR_HEAD(details);
@@ -1471,7 +1471,7 @@ REB_R Unchecked_Dispatcher(REBFRM *f)
 // Pushing that code into the dispatcher means there's no need to do flag
 // testing in the main loop.
 //
-REB_R Voider_Dispatcher(REBFRM *f)
+const REBVAL *Voider_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *body = ARR_HEAD(details);
@@ -1492,7 +1492,7 @@ REB_R Voider_Dispatcher(REBFRM *f)
 // correct.  (Note that natives do not get this type checking, and they
 // probably shouldn't pay for it except in the debug build.)
 //
-REB_R Returner_Dispatcher(REBFRM *f)
+const REBVAL *Returner_Dispatcher(REBFRM *f)
 {
     REBACT *phase = FRM_PHASE(f);
     REBARR *details = ACT_DETAILS(phase);
@@ -1525,7 +1525,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
 // doesn't disrupt the chain of evaluation any more than if the call were not
 // there.  (The call can have side effects, however.)
 //
-REB_R Elider_Dispatcher(REBFRM *f)
+const REBVAL *Elider_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
 
@@ -1553,7 +1553,7 @@ REB_R Elider_Dispatcher(REBFRM *f)
 // This is a specialized version of Elider_Dispatcher() for when the body of
 // a function is empty.  This helps COMMENT and functions like it run faster.
 //
-REB_R Commenter_Dispatcher(REBFRM *f)
+const REBVAL *Commenter_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *body = ARR_HEAD(details);
@@ -1576,7 +1576,7 @@ REB_R Commenter_Dispatcher(REBFRM *f)
 // and a "shim" is needed...since something like an ADAPT or SPECIALIZE
 // or a MAKE FRAME! might depend on the existing paramlist shape.
 //
-REB_R Hijacker_Dispatcher(REBFRM *f)
+const REBVAL *Hijacker_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *hijacker = ARR_HEAD(details);
@@ -1596,7 +1596,7 @@ REB_R Hijacker_Dispatcher(REBFRM *f)
 //
 // Dispatcher used by ADAPT.
 //
-REB_R Adapter_Dispatcher(REBFRM *f)
+const REBVAL *Adapter_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     assert(ARR_LEN(details) == 2);
@@ -1623,6 +1623,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
 
     FRM_PHASE(f) = VAL_ACTION(adaptee);
     FRM_BINDING(f) = VAL_BINDING(adaptee);
+
     return R_REDO_CHECKED; // the redo will use the updated phase/binding
 }
 
@@ -1632,7 +1633,7 @@ REB_R Adapter_Dispatcher(REBFRM *f)
 //
 // Dispatcher used by ENCLOSE.
 //
-REB_R Encloser_Dispatcher(REBFRM *f)
+const REBVAL *Encloser_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     assert(ARR_LEN(details) == 2);
@@ -1683,7 +1684,7 @@ REB_R Encloser_Dispatcher(REBFRM *f)
 //
 // Dispatcher used by CHAIN.
 //
-REB_R Chainer_Dispatcher(REBFRM *f)
+const REBVAL *Chainer_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     REBARR *pipeline = VAL_ARRAY(ARR_HEAD(details));

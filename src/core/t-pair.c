@@ -182,8 +182,11 @@ void Min_Max_Pair(REBVAL *out, const REBVAL *a, const REBVAL *b, REBOOL maxed)
 //
 //  PD_Pair: C
 //
-REB_R PD_Pair(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Pair(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     REBINT n = 0;
     REBDEC dec;
 

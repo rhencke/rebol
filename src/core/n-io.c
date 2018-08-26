@@ -154,7 +154,7 @@ REBNATIVE(write_stdout)
         DROP_GC_GUARD(temp);
     }
 
-    return R_VOID;
+    return VOID_VALUE;
 }
 
 
@@ -537,8 +537,8 @@ REBNATIVE(wake_up)
         //
         DECLARE_LOCAL (verb);
         Init_Word(verb, Canon(SYM_ON_WAKE_UP));
-        REB_R r = Do_Port_Action(frame_, ARG(port), verb);
-        assert(r == R_BAR);
+        const REBVAL *r = Do_Port_Action(frame_, ARG(port), verb);
+        assert(r == BAR_VALUE);
         UNUSED(r);
     }
 

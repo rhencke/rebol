@@ -516,8 +516,8 @@ REBTYPE(Integer)
         // falls through
     case SYM_ODD_Q:
         if (num & 1)
-            return R_TRUE;
-        return R_FALSE;
+            return TRUE_VALUE;
+        return FALSE_VALUE;
 
     case SYM_ROUND: {
         INCLUDE_PARAMS_OF_ROUND;

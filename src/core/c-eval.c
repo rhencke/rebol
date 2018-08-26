@@ -96,7 +96,7 @@
 // and much less flexible.  Nevertheless, sneaky lower-level-than-C tricks
 // might be used to patch the machine code and avoid cost when not hooked.
 //
-REB_R Dispatcher_Core(REBFRM * const f) {
+const REBVAL *Dispatcher_Core(REBFRM * const f) {
     //
     // Callers can "lie" to make the dispatch a no-op by substituting the
     // "Dummy" native in the frame, even though it doesn't match the args,
@@ -443,7 +443,8 @@ void Eval_Core(REBFRM * const f)
             goto process_action;
         }
 
-        current = FRM_CELL(f);
+        current = f->deferred;
+        TRASH_POINTER_IF_DEBUG(f->deferred);
         current_gotten = nullptr;
         eval_type = VAL_TYPE(current);
 
@@ -483,9 +484,6 @@ void Eval_Core(REBFRM * const f)
     // moved.  So current is returned from Fetch_Next_In_Frame().
     //
     current = Fetch_Next_In_Frame(f);
-
-    UPDATE_TICK_DEBUG(current);
-    // v-- This is the TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
 
     assert(eval_type != REB_0_END and eval_type == VAL_TYPE_RAW(current));
 
@@ -1478,20 +1476,20 @@ void Eval_Core(REBFRM * const f)
         f->gotten = nullptr;
 
         // Cases should be in enum order for jump-table optimization
-        // (R_FALSE first, R_TRUE second, etc.)
+        // (FALSE_VALUE first, TRUE_VALUE second, etc.)
         //
         // The dispatcher may push functions to the data stack which will be
         // used to process the return result after the switch.
         //
-        REB_R r; // initialization would be skipped by gotos
+        const REBVAL *r; // initialization would be skipped by gotos
         r = (*PG_Dispatcher)(f); // default just calls FRM_PHASE(f)
 
         if (r == f->out) {
             //
             // This is the most common result, and taking it out of the
             // switch improves performance.  `Init_Void(D_OUT); return D_OUT`
-            // will thus always be faster than `return R_VOID`, which in
-            // turn will be faster than `return VOID_CELL` (copies full cell)
+            // will thus always be faster than `return VOID_CELL`...though
+            // due to the switch below, it's actually not *that* slow.
             //
             if (not THROWN(f->out))
                 goto dispatch_completed;
@@ -1587,128 +1585,130 @@ void Eval_Core(REBFRM * const f)
             //
             Init_Nulled(f->out);
         }
-        else switch (const_FIRST_BYTE(r->header)) {
+        else {
+            assert(r->header.bits & NODE_FLAG_CELL);
 
-        case R_00_FALSE:
-            Init_Logic(f->out, false);
-            break;
-
-        case R_01_TRUE:
-            Init_Logic(f->out, true);
-            break;
-
-        case R_02_VOID:
-            Init_Void(f->out);
-            break;
-
-        case R_03_BLANK:
-            Init_Blank(f->out);
-            break;
-
-        case R_04_BAR:
-            Init_Bar(f->out);
-            break;
-
-        case R_05_REDO_CHECKED:
-
-        redo_checked:
-
-            f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
-            f->arg = FRM_ARGS_HEAD(f);
-            f->special = f->arg;
-            f->refine = ORDINARY_ARG; // no gathering, but need for assert
-            assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
-            SET_END(f->out);
-            f->out->header.bits |= OUT_MARKED_STALE;
-            assert(IS_POINTER_TRASH_DEBUG(f->deferred));
-            goto process_action;
-
-        case R_06_REDO_UNCHECKED:
-            //
-            // This instruction represents the idea that it is desired to
-            // run the f->phase again.  The dispatcher may have changed the
-            // value of what f->phase is, for instance.
-            //
-            assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
-            SET_END(f->out);
-            f->out->header.bits |= OUT_MARKED_STALE;
-            assert(IS_POINTER_TRASH_DEBUG(f->deferred));
-            goto redo_unchecked;
-
-        case R_07_REEVALUATE_CELL:
-            goto prep_for_reevaluate;
-
-        case R_08_REEVALUATE_CELL_ONLY: // reusable
-            fail ("EVAL/ONLY feature now uses alternative mechanism");
-
-        case R_09_INVISIBLE: {
-            assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
-
-            // !!! Ideally we would check that f->out hadn't changed, but
-            // that would require saving the old value somewhere...
-
-            // If an invisible is at the start of a frame and there's nothing
-            // after it, it has to retrigger until it finds something (or
-            // until it hits the end of the frame).
-            //
-            //     do [comment "a" 1] => 1
-            //
-            // Use same mechanic as EVAL by loading next item.
-            //
-            if (
-                (f->out->header.bits & OUT_MARKED_STALE)
-                and NOT_END(f->value)
-            ){
-                Derelativize(FRM_CELL(f), f->value, f->specifier);
-                Fetch_Next_In_Frame(f);
-                goto prep_for_reevaluate;
+            if (THROWN(r)) {
+                assert(NOT_VAL_FLAG(r, NODE_FLAG_ROOT)); // no API throwns
+                Move_Value(f->out, r); // debug checks <= REB_MAX, not END
+                goto out_is_thrown;
             }
 
-            goto skip_output_check; }
+            switch (VAL_TYPE_RAW(r)) {
 
-          prep_for_reevaluate:
+            case REB_0_END: // not used as a signal here, to catch mistakes
+                assert(!"Dispatcher returned an END cell");
+                break;
 
-            current = FRM_CELL(f);
-            eval_type = VAL_TYPE(current);
-            current_gotten = nullptr;
+            case REB_LOGIC:
+                Init_Logic(f->out, VAL_LOGIC(r));
+                break;
 
-            // The f->gotten (if any) was the fetch for f->value, not what we
-            // just put in current.  We conservatively clear this cache:
-            // assume for instance that f->value is a WORD! that looks up to
-            // a value which is in f->gotten, and then f->cell contains a
-            // zero-arity function which changes the value of that word.  It
-            // might be possible to finesse use of this cache and clear it
-            // only if such cases occur, but for now don't take chances.
-            //
-            assert(not f->gotten);
+            case REB_VOID:
+                Init_Void(f->out);
+                break;
 
-            Drop_Action(f);
-            goto reevaluate; // we don't move index!
+            case REB_BLANK:
+                Init_Blank(f->out);
+                break;
 
-        case R_0A_REFERENCE:
-        case R_0B_IMMEDIATE:
-        case R_0C_UNHANDLED: // internal use only, shouldn't be returned
-        case R_0D_END:
-            assert(false);
-            break;
+            case REB_BAR:
+                Init_Bar(f->out);
+                break;
 
-        default: {
-            // can be any cell--including thrown value
-            // API cells are auto-released
-            //
-            assert(r->header.bits & NODE_FLAG_CELL);
-            Move_Value(f->out, r);
+            case REB_R_REDO:
+                //
+                // This instruction represents the idea that it is desired to
+                // run the f->phase again.  The dispatcher may have changed the
+                // value of what f->phase is, for instance.
+
+                if (GET_VAL_FLAG(r, VALUE_FLAG_FALSEY)) { // unchecked redo
+                    assert(
+                        not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE)
+                    );
+                    SET_END(f->out);
+                    f->out->header.bits |= OUT_MARKED_STALE;
+                    assert(IS_POINTER_TRASH_DEBUG(f->deferred));
+                    goto redo_unchecked;
+                }
+
+            redo_checked:
+
+                assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
+                SET_END(f->out);
+                f->out->header.bits |= OUT_MARKED_STALE;
+                assert(IS_POINTER_TRASH_DEBUG(f->deferred));
+
+                f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
+                f->arg = FRM_ARGS_HEAD(f);
+                f->special = f->arg;
+                f->refine = ORDINARY_ARG; // no gathering, but need for assert
+                goto process_action;
+
+            case REB_R_INVISIBLE: {
+                assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
+
+                // !!! Ideally we would check that f->out hadn't changed, but
+                // that would require saving the old value somewhere...
+
+                // If an invisible is at the start of a frame and nothing is
+                // after it, it has to retrigger until it finds something (or
+                // until it hits the end of the frame).
+                //
+                //     do [comment "a" 1] => 1
+                //
+                // Use same mechanic as EVAL by loading next item.
+                //
+                if (
+                    (f->out->header.bits & OUT_MARKED_STALE)
+                    and NOT_END(f->value)
+                ){
+                    Derelativize(FRM_CELL(f), f->value, f->specifier);
+                    Fetch_Next_In_Frame(f);
+                    goto prep_for_reevaluate;
+                }
+
+                goto skip_output_check; }
+
+              prep_for_reevaluate:
+
+                current = FRM_CELL(f);
+                eval_type = VAL_TYPE(current);
+                current_gotten = nullptr;
+
+                // The f->gotten (if any) was the fetch for f->value, not what
+                // was just put in current.  Conservatively clear this cache:
+                // assume for instance that f->value is a WORD! that looks up
+                // to a value which is in f->gotten, and then f->cell contains
+                // a zero-arity function which changes the value of that word.
+                // Might be possible to finesse use of this cache and clear it
+                // only if such cases occur, but for now don't take chances.
+                //
+                assert(not f->gotten);
+
+                Drop_Action(f);
+                goto reevaluate; // we don't move index!
+
+            case REB_R_REFERENCE:
+            case REB_R_IMMEDIATE: // internal use only, ACTION!s don't use
+                assert(false);
+                break;
+
+            default: {
+                // can be any cell--including thrown value
+                // API cells are auto-released
+                //
+                Move_Value(f->out, r);
+                break; }
+            }
+
             if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) {
                 assert(not THROWN(r)); // API values can't be thrown
                 assert(not IS_NULLED(r)); // API values can't be null
                 if (NOT_VAL_FLAG(r, NODE_FLAG_MANAGED))
                     rebRelease(r);
-                break;
             }
-            if (THROWN(f->out))
-                goto out_is_thrown;
-            break; }
-        }
+      }
 
       dispatch_completed:;
 

@@ -346,7 +346,7 @@ REBCTX *Make_Context_For_Action(
 //
 #define FINALIZE_REFINE_IF_FULFILLED \
     assert(evoked != refine or evoked->payload.partial.dsp == 0); \
-    if (VAL_TYPE(refine) == REB_X_PARTIAL) { \
+    if (VAL_TYPE_RAW(refine) == REB_X_PARTIAL) { \
         if (not GET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG)) { \
             if (refine->payload.partial.dsp != 0) \
                 Init_Blank(DS_AT(refine->payload.partial.dsp)); /* full! */ \
@@ -554,7 +554,7 @@ REBOOL Specialize_Action_Throws(
             goto specialized_arg;
         }
 
-        if (VAL_TYPE(refine) == REB_X_PARTIAL) {
+        if (VAL_TYPE_RAW(refine) == REB_X_PARTIAL) {
             if (IS_NULLED(arg)) { // we *know* it's not completely fulfilled
                 SET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG);
                 goto unspecialized_arg;
@@ -701,7 +701,7 @@ REBOOL Specialize_Action_Throws(
 
     REBVAL *partial = first_partial;
     while (partial) {
-        assert(VAL_TYPE(partial) == REB_X_PARTIAL);
+        assert(VAL_TYPE_RAW(partial) == REB_X_PARTIAL);
         REBVAL *next_partial = partial->extra.next_partial; // overwritten
 
         if (NOT_VAL_FLAG(partial, PARTIAL_FLAG_IN_USE)) {
@@ -844,7 +844,7 @@ REBOOL Specialize_Action_Throws(
 // this does is change the phase and binding to match the function that this
 // layer was specializing.
 //
-REB_R Specializer_Dispatcher(REBFRM *f)
+const REBVAL *Specializer_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
 
@@ -853,6 +853,7 @@ REB_R Specializer_Dispatcher(REBFRM *f)
 
     FRM_PHASE(f) = exemplar->payload.any_context.phase;
     FRM_BINDING(f) = VAL_BINDING(exemplar);
+
     return R_REDO_UNCHECKED; // redo uses the updated phase and binding
 }
 
@@ -932,7 +933,7 @@ REBNATIVE(specialize)
 // (Luckily these copies are often not needed, such as when the DOES is not
 // used in a method... -AND- it only needs to be made once.)
 //
-REB_R Block_Dispatcher(REBFRM *f)
+const REBVAL *Block_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *block = ARR_HEAD(details);

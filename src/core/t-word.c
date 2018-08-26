@@ -182,8 +182,11 @@ void MF_Word(REB_MOLD *mo, const RELVAL *v, REBOOL form) {
 // adds support for picking characters out of the UTF-8 data of a word
 // (eventually all strings will be "UTF-8 Everywhere")
 //
-REB_R PD_Word(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Word(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     REBSTR *str = VAL_WORD_SPELLING(pvs->out);
 
     if (not opt_setval) { // PICK-ing

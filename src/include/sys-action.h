@@ -34,8 +34,23 @@
 // stack, and can be viewed as a context using a FRAME!.
 //
 
-inline static REB_R R_FROM_BOOL(REBOOL b)
-  { return b ? R_TRUE : R_FALSE; }
+inline static const REBVAL *R_FROM_BOOL(bool b)
+  { return b ? TRUE_VALUE : FALSE_VALUE; }
+
+#define R_IMMEDIATE \
+    cast(const REBVAL*, &PG_R_Immediate)
+
+#define R_INVISIBLE \
+    cast(const REBVAL*, &PG_R_Invisible)
+
+#define R_REDO_UNCHECKED \
+    cast(const REBVAL*, &PG_R_Redo_Unchecked)
+
+#define R_REDO_CHECKED \
+    cast(const REBVAL*, &PG_R_Redo_Checked)
+
+#define R_UNHANDLED \
+    END_NODE
 
 inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     assert(GET_SER_FLAG(&a->paramlist, ARRAY_FLAG_PARAMLIST));

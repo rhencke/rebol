@@ -855,8 +855,11 @@ void Pick_Or_Poke_Date(
 //
 //  PD_Date: C
 //
-REB_R PD_Date(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Date(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     if (opt_setval != NULL) {
         //
         // Updates pvs->out; R_IMMEDIATE means path dispatch will write it
@@ -943,10 +946,10 @@ REBTYPE(Date)
     else {
         switch (sym) {
         case SYM_EVEN_Q:
-            return ((~day) & 1) == 0 ? R_TRUE : R_FALSE;
+            return ((~day) & 1) == 0 ? TRUE_VALUE : FALSE_VALUE;
 
         case SYM_ODD_Q:
-            return (day & 1) == 0 ? R_TRUE : R_FALSE;
+            return (day & 1) == 0 ? TRUE_VALUE : FALSE_VALUE;
 
         case SYM_RANDOM: {
             INCLUDE_PARAMS_OF_RANDOM;

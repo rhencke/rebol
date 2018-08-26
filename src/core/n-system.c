@@ -280,7 +280,7 @@ REBNATIVE(check)
         ASSERT_ARRAY(VAL_ACT_DETAILS(value));
     }
 
-    return R_TRUE;
+    return TRUE_VALUE;
 #endif
 }
 
@@ -408,6 +408,7 @@ REBNATIVE(c_debug_break)
     // happened and has been passed as an argument.
     //
     TG_Break_At_Tick = frame_->tick + 1;
+
     return R_INVISIBLE;
   #else
     fail (Error_Debug_Only_Raw());

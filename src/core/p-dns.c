@@ -35,7 +35,7 @@
 //
 //  DNS_Actor: C
 //
-static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static const REBVAL *DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
@@ -173,7 +173,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         return port; }
 
     case SYM_ON_WAKE_UP:
-        return R_BAR;
+        return BAR_VALUE;
 
     default:
         break;

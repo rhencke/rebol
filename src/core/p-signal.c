@@ -146,7 +146,7 @@ static int sig_word_num(REBSTR *canon)
 //
 //  Signal_Actor: C
 //
-static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBREQ *req = Ensure_Port_State(port, RDI_SIGNAL);
     struct devreq_posix_signal *signal = DEVREQ_POSIX_SIGNAL(req);
@@ -164,7 +164,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
             switch (property) {
             case SYM_OPEN_Q:
-                return R_FALSE;
+                return FALSE_VALUE;
 
             default:
                 break;
@@ -232,7 +232,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return R_TRUE;
+            return TRUE_VALUE;
 
         default:
             break;
@@ -252,7 +252,7 @@ static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 update(signal, len, arg);
             }
         }
-        return R_BAR; }
+        return BAR_VALUE; }
 
     case SYM_READ: {
         // This device is opened on the READ:

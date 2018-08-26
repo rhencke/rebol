@@ -100,6 +100,11 @@ PVAR REBVAL PG_False_Value[2];
 PVAR REBVAL PG_True_Value[2];
 PVAR REBVAL PG_Void_Value[2];
 
+PVAR REBVAL PG_R_Invisible[2]; // has "pseudotype" REB_R_INVISIBLE
+PVAR REBVAL PG_R_Immediate[2]; // has "pseudotype" REB_R_IMMEDIATE
+PVAR REBVAL PG_R_Redo_Unchecked[2]; // "pseudotype" REB_R_REDO + FALSEY flag
+PVAR REBVAL PG_R_Redo_Checked[2]; // "pseudotype" REB_R_REDO + no FALSEY flag
+
 // These are root variables which used to be described in %root.r and kept
 // alive by keeping that array alive.  Now they are API handles, kept alive
 // by the same mechanism they use.  This means they can be initialized at
@@ -145,7 +150,7 @@ PVAR REBACT *PG_Dummy_Action;
 // single step debugging, etc.
 //
 PVAR REBDOF PG_Eval; // Evaluator (takes REBFRM, returns void)
-PVAR REBDSF PG_Dispatcher; // Dispatcher (takes REBFRM, returns REB_R)
+PVAR REBDSF PG_Dispatcher; // Dispatcher (takes REBFRM, returns REBVAL*)
 
 
 /***********************************************************************
@@ -242,28 +247,3 @@ TVAR REBINT Trace_Level;    // Trace depth desired
 TVAR REBINT Trace_Depth;    // Tracks trace indentation
 TVAR REBCNT Trace_Limit;    // Backtrace buffering limit
 TVAR REBSER *Trace_Buffer;  // Holds backtrace lines
-
-
-// Though only the first byte of these value cells are used, they must be
-// declared on RELVAL pointer boundaries for alignment reasons.  A char string
-// might be on an any byte.
-//
-// That means these cells are basically all wasted space besides that first
-// byte.  So their payload and extra fields can be used for other things
-// (e.g. where other quantities above are looked for)
-//
-PVAR RELVAL PG_R_FALSE;
-PVAR RELVAL PG_R_TRUE;
-PVAR RELVAL PG_R_VOID;
-PVAR RELVAL PG_R_BLANK;
-PVAR RELVAL PG_R_BAR;
-PVAR RELVAL PG_R_REDO_CHECKED;
-PVAR RELVAL PG_R_REDO_UNCHECKED;
-PVAR RELVAL PG_R_REEVALUATE_CELL;
-PVAR RELVAL PG_R_REEVALUATE_CELL_ONLY;
-PVAR RELVAL PG_R_INVISIBLE;
-PVAR RELVAL PG_R_REFERENCE;
-PVAR RELVAL PG_R_IMMEDIATE;
-PVAR RELVAL PG_R_UNHANDLED;
-PVAR RELVAL PG_R_END;
-PVAR RELVAL PG_R_THROWN;

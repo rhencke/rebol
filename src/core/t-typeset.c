@@ -402,7 +402,7 @@ REBTYPE(Typeset)
             fail (Error_Invalid(arg));
 
         if (TYPE_CHECK(val, VAL_TYPE_KIND(arg)))
-            return R_BAR;
+            return BAR_VALUE;
 
         return nullptr;
 

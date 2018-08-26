@@ -327,9 +327,10 @@ e-types/emit {
     enum Reb_Kind {
   #endif
         REB_0 = 0, /* reserved for internal purposes */
-        REB_0_END = 0, /* ...one application is array termination cells... */
+        REB_0_END = REB_0, /* ...most commonly array termination cells... */
         $[Rebs],
         REB_MAX, /* one past valid types, does double duty as NULL signal */
+        REB_MAX_NULLED = REB_MAX,
         REB_MAX_PLUS_ONE, /* used for internal markings and algorithms */
         REB_MAX_PLUS_TWO, /* used to indicate trash in the debug build */
         REB_MAX_PLUS_THREE, /* used for experimental typeset flag */
@@ -941,7 +942,7 @@ e-boot/emit {
     EXTERN_C const REBYTE Native_Specs[];
 
     /*
-     * Raw C function pointers for natives, take REBFRM* and return REB_R.
+     * Raw C function pointers for natives, take REBFRM* and return REBVAL*.
      */
     EXTERN_C const REBCNT Num_Natives;
     EXTERN_C const REBNAT Native_C_Funcs[];

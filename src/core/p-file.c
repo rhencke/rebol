@@ -273,7 +273,7 @@ static void Set_Seek(struct devreq_file *file, REBVAL *arg)
 //
 // Internal port handler for files.
 //
-static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
@@ -613,11 +613,11 @@ static REB_R File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             assert(result != NULL);
             if (rebDid("error?", result, rebEND)) {
                 rebRelease(result); // !!! R3-Alpha returned blank on error
-                return R_FALSE;
+                return FALSE_VALUE;
             }
             rebRelease(result); // ignore result
         }
-        return R_TRUE; }
+        return TRUE_VALUE; }
 
     case SYM_SKIP: {
         INCLUDE_PARAMS_OF_SKIP;

@@ -416,8 +416,11 @@ void TO_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  PD_Context: C
 //
-REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
-{
+const REBVAL *PD_Context(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
     REBCTX *c = VAL_CONTEXT(pvs->out);
 
     if (not IS_WORD(picker))
@@ -436,9 +439,7 @@ REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
             fail (Error_Protected_Word_Raw(picker));
     }
 
-    Init_Reference(pvs->out, CTX_VAR(c, n), SPECIFIED);
-
-    return R_REFERENCE;
+    return Init_Reference(FRM_CELL(pvs), CTX_VAR(c, n), SPECIFIED);
 }
 
 
@@ -743,13 +744,16 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
 
 //
-//  Context_Common_Action_Maybe_Unhandled: C
+//  Try_Context_Common_Action: C
 //
-// Similar to Series_Common_Action_Maybe_Unhandled.  Introduced because PORT!
-// wants to act like a context for some things, but if you ask an ordinary
-// object if it's OPEN? it doesn't know how to do that.
+// Similar to Try_Series_Common_Action().  Introduced because PORT! wants to
+// act like a context for some things, but if you ask an ordinary object if
+// it's OPEN? it doesn't know how to do that.
 //
-REB_R Context_Common_Action_Maybe_Unhandled(
+// Note that returning nullptr means not handled.  Use NULLED_CELL here to
+// indicate a Rebol NULL state.
+//
+const REBVAL *Try_Context_Common_Action(
     REBFRM *frame_,
     REBVAL *verb
 ){
@@ -792,7 +796,7 @@ REB_R Context_Common_Action_Maybe_Unhandled(
         break;
     }
 
-    return R_UNHANDLED; // not a common operation, not handled
+    return nullptr; // not a common operation, not handled (not NULLED_CELL!)
 }
 
 
@@ -803,8 +807,8 @@ REB_R Context_Common_Action_Maybe_Unhandled(
 //
 REBTYPE(Context)
 {
-    REB_R r = Context_Common_Action_Maybe_Unhandled(frame_, verb);
-    if (r != R_UNHANDLED)
+    const REBVAL *r = Try_Context_Common_Action(frame_, verb);
+    if (r)
         return r;
 
     REBVAL *value = D_ARG(1);
@@ -865,7 +869,7 @@ REBTYPE(Context)
             return nullptr;
 
         if (VAL_WORD_SYM(verb) == SYM_FIND)
-            return R_BAR; // synthesizing TRUE would obscure non-LOGIC! result
+            return BAR_VALUE; // synthesizing TRUE would obscure non-LOGIC! result
 
         return CTX_VAR(c, n);
     }

@@ -46,9 +46,9 @@ REBNATIVE(and_q)
     INCLUDE_PARAMS_OF_AND_Q;
 
     if (IS_TRUTHY(ARG(value1)) && IS_TRUTHY(ARG(value2)))
-        return R_TRUE;
+        return TRUE_VALUE;
 
-    return R_FALSE;
+    return FALSE_VALUE;
 }
 
 
@@ -66,9 +66,9 @@ REBNATIVE(nor_q)
     INCLUDE_PARAMS_OF_NOR_Q;
 
     if (IS_FALSEY(ARG(value1)) && IS_FALSEY(ARG(value2)))
-        return R_TRUE;
+        return TRUE_VALUE;
 
-    return R_FALSE;
+    return FALSE_VALUE;
 }
 
 
@@ -459,12 +459,12 @@ REBTYPE(Logic)
             return nullptr;
         }
         if (Random_Int(REF(secure)) & 1)
-            return R_TRUE;
-        return R_FALSE; }
+            return TRUE_VALUE;
+        return FALSE_VALUE; }
 
     default:
         fail (Error_Illegal_Action(REB_LOGIC, verb));
     }
 
-    return val1 ? R_TRUE : R_FALSE;
+    return val1 ? TRUE_VALUE : FALSE_VALUE;
 }
