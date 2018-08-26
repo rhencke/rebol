@@ -280,7 +280,7 @@ const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
     // this frame's label will still be running, not running under a new name)
     //
     if (VAL_TYPE_RAW(r) == REB_R_REDO) {
-        const REBOOL checked = NOT_VAL_FLAG(r, VALUE_FLAG_FALSEY));
+        const REBOOL checked = NOT_VAL_FLAG(r, VALUE_FLAG_FALSEY);
         if (not checked)
             last_phase = false;
     }
