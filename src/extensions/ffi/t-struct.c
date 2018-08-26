@@ -1415,7 +1415,7 @@ REB_R PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
         // a similar technique used by PD_Gob)
         //
         if (
-            pvs->path_type == REB_SET_PATH
+            PVS_IS_SET_PATH(pvs)
             && IS_BLOCK(pvs->out)
             && IS_END(pvs->value + 1)
         ) {

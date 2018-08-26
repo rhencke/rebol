@@ -122,11 +122,8 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
     Fetch_Next_In_Frame(pvs); // may be at end
 
-    if (IS_END(pvs->value) and pvs->path_type == REB_SET_PATH) {
-        const REBVAL *opt_setval = pvs->special;
-        assert(opt_setval != NULL);
-
-        REB_R r = dispatcher(pvs, pvs->refine, opt_setval);
+    if (IS_END(pvs->value) and PVS_IS_SET_PATH(pvs)) {
+        REB_R r = dispatcher(pvs, pvs->refine, PVS_OPT_SETVAL(pvs));
         switch (const_FIRST_BYTE(r->header)) {
         case R_09_INVISIBLE: // dispatcher assigned target with opt_setval
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED)
@@ -198,7 +195,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
         else switch (const_FIRST_BYTE(r->header)) {
 
         case R_09_INVISIBLE:
-            assert(pvs->path_type == REB_SET_PATH);
+            assert(PVS_IS_SET_PATH(pvs));
             if (
                 dispatcher != Path_Dispatch[REB_STRUCT]
                 and dispatcher != Path_Dispatch[REB_GOB]
@@ -254,7 +251,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     // capture the last refinement's name, so check label for non-NULL.
     //
     if (IS_ACTION(pvs->out) and IS_WORD(pvs->refine)) {
-        if (pvs->opt_label == NULL)
+        if (not pvs->opt_label)
             pvs->opt_label = VAL_WORD_SPELLING(pvs->refine);
     }
 
@@ -292,14 +289,14 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 REBOOL Eval_Path_Throws_Core(
     REBVAL *out,
     REBSTR **label_out,
-    enum Reb_Kind kind,
     REBARR *array,
     REBCNT index,
     REBSPC *specifier,
     const REBVAL *opt_setval,
     REBFLGS flags
 ){
-    assert(kind == REB_PATH or kind == REB_SET_PATH or kind == REB_GET_PATH);
+    if (flags & DO_FLAG_SET_PATH_ENFIXED)
+        assert(opt_setval); // doesn't make any sense for GET-PATH! or PATH!
 
     // Paths that start with inert values do not evaluate.  So `/foo/bar` has
     // a REFINEMENT! at its head, and it will just be inert.  This also
@@ -308,8 +305,8 @@ REBOOL Eval_Path_Throws_Core(
     // would be #"o".
     //
     if (ANY_INERT(ARR_AT(array, index))) {
-        if (kind != REB_PATH)
-            fail ("Can't evaluate GET-PATH! or SET_PATH! with inert head");
+        if (opt_setval)
+            fail ("Can't perform SET_PATH! on path with inert head");
         Init_Any_Array_At(out, REB_PATH, array, index);
         return FALSE;
     }
@@ -318,18 +315,10 @@ REBOOL Eval_Path_Throws_Core(
 
     pvs->refine = KNOWN(&pvs->cell);
 
-    Push_Frame_At(
-        pvs,
-        array,
-        index,
-        specifier,
-        flags
-    );
+    Push_Frame_At(pvs, array, index, specifier, flags);
 
     if (IS_END(pvs->value))
         fail ("Cannot dispatch empty path");
-
-    pvs->path_type = kind;
 
     // Push_Frame_At sets the output to the global unwritable END cell, so we
     // have to wait for this point to set to the output cell we want.
@@ -342,7 +331,7 @@ REBOOL Eval_Path_Throws_Core(
     // None of the values passed in can live on the data stack, because
     // they might be relocated during the path evaluation process.
     //
-    assert(opt_setval == NULL or not IN_DATA_STACK_DEBUG(opt_setval));
+    assert(opt_setval or not IN_DATA_STACK_DEBUG(opt_setval));
 
     // Not robust for reusing passed in value as the output
     assert(out != opt_setval);
@@ -476,13 +465,13 @@ REBOOL Eval_Path_Throws_Core(
     }
 
 return_not_thrown:
-    if (label_out != NULL)
+    if (label_out)
         *label_out = pvs->opt_label;
 
     Abort_Frame(pvs);
 
 #if !defined(NDEBUG)
-    if (kind == REB_SET_PATH)
+    if (opt_setval)
         TRASH_CELL_IF_DEBUG(out);
     else
         assert(not THROWN(out));

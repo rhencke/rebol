@@ -73,6 +73,12 @@
 // been updated during investigation of what was being done.
 //
 
+#define PVS_OPT_SETVAL(pvs) \
+    pvs->special
+
+#define PVS_IS_SET_PATH(pvs) \
+    (PVS_OPT_SETVAL(pvs) != nullptr)
+
 
 inline static REBOOL Get_Path_Throws_Core(
     REBVAL *out,
@@ -82,7 +88,6 @@ inline static REBOOL Get_Path_Throws_Core(
     return Eval_Path_Throws_Core(
         out,
         NULL, // not requesting symbol means refinements not allowed
-        REB_GET_PATH,
         VAL_ARRAY(any_path),
         VAL_INDEX(any_path),
         Derive_Specifier(specifier, any_path),
@@ -102,7 +107,6 @@ inline static void Get_Path_Core(
     if (Eval_Path_Throws_Core(
         out,
         NULL, // not requesting symbol means refinements not allowed
-        REB_GET_PATH,
         VAL_ARRAY(any_path),
         VAL_INDEX(any_path),
         Derive_Specifier(specifier, any_path),
@@ -125,7 +129,6 @@ inline static REBOOL Set_Path_Throws_Core(
     return Eval_Path_Throws_Core(
         out,
         NULL, // not requesting symbol means refinements not allowed
-        REB_SET_PATH,
         VAL_ARRAY(any_path),
         VAL_INDEX(any_path),
         Derive_Specifier(specifier, any_path),
@@ -155,7 +158,6 @@ inline static void Set_Path_Core(
     if (Eval_Path_Throws_Core(
         out,
         NULL, // not requesting symbol means refinements not allowed
-        REB_SET_PATH,
         VAL_ARRAY(any_path),
         VAL_INDEX(any_path),
         Derive_Specifier(specifier, any_path),

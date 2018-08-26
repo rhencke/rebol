@@ -2007,7 +2007,6 @@ void Eval_Core(REBFRM * const f)
         if (Eval_Path_Throws_Core(
             f->out,
             &opt_label, // requesting says we run functions (not GET-PATH!)
-            REB_PATH,
             VAL_ARRAY(current),
             VAL_INDEX(current),
             Derive_Specifier(f->specifier, current),

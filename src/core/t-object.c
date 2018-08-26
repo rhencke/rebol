@@ -426,17 +426,8 @@ REB_R PD_Context(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval)
     const REBOOL always = FALSE;
     REBCNT n = Find_Canon_In_Context(c, VAL_WORD_CANON(picker), always);
 
-    if (n == 0) {
-        //
-        // !!! The logic for allowing a GET-PATH! to be void if it's the last
-        // lookup that fails here is hacked in, but desirable for parity
-        // with the behavior of GET-WORD!
-        //
-        if (pvs->path_type == REB_GET_PATH and IS_END(pvs->value))
-            return nullptr;
-
-        return R_UNHANDLED;
-    }
+    if (n == 0)
+        return nullptr;
 
     if (opt_setval) {
         FAIL_IF_READ_ONLY_CONTEXT(c);

@@ -532,13 +532,6 @@ struct Reb_Frame {
     //
     uintptr_t expr_index;
 
-    // `path_type`
-    //
-    // Formerly "eval_type", now only used by path dispatch.  This should
-    // probably be done another way.
-    //
-    enum Reb_Kind path_type;
-
     // `gotten`
     //
     // There is a lookahead step to see if the next item in an array is a

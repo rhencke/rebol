@@ -1737,7 +1737,6 @@ REBOOL Get_If_Word_Or_Path_Throws(
         if (Eval_Path_Throws_Core(
             out,
             opt_name_out, // requesting says we run functions (not GET-PATH!)
-            REB_PATH,
             VAL_ARRAY(v),
             VAL_INDEX(v),
             derived,
