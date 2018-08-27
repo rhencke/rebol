@@ -524,7 +524,7 @@ REBNATIVE(set_at_pointer)
     REBVAL *cell = cast(REBVAL*, cast(intptr_t, VAL_INT64(ARG(target))));
     Move_Value(cell, v);
 
-    return ARG(value); // Don't return `cell` directly (would rebRelease())
+    RETURN (ARG(value)); // Returning cell would rebRelease()
 }
 
 

@@ -1338,7 +1338,7 @@ REBNATIVE(close_statement)
         rebRelease(hstmt_value);
     }
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 

@@ -46,9 +46,9 @@ REBNATIVE(and_q)
     INCLUDE_PARAMS_OF_AND_Q;
 
     if (IS_TRUTHY(ARG(value1)) && IS_TRUTHY(ARG(value2)))
-        return TRUE_VALUE;
+        return Init_True(D_OUT);
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }
 
 
@@ -66,9 +66,9 @@ REBNATIVE(nor_q)
     INCLUDE_PARAMS_OF_NOR_Q;
 
     if (IS_FALSEY(ARG(value1)) && IS_FALSEY(ARG(value2)))
-        return TRUE_VALUE;
+        return Init_True(D_OUT);
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }
 
 
@@ -85,7 +85,10 @@ REBNATIVE(nand_q)
 {
     INCLUDE_PARAMS_OF_NAND_Q;
 
-    return R_FROM_BOOL(IS_TRUTHY(ARG(value1)) and IS_TRUTHY(ARG(value2)));
+    return Init_Logic(
+        D_OUT,
+        IS_TRUTHY(ARG(value1)) and IS_TRUTHY(ARG(value2))
+    );
 }
 
 
@@ -103,7 +106,7 @@ REBNATIVE(did_q)
 {
     INCLUDE_PARAMS_OF_DID_Q;
 
-    return R_FROM_BOOL(IS_TRUTHY(ARG(value)));
+    return Init_Logic(D_OUT, IS_TRUTHY(ARG(value)));
 }
 
 
@@ -123,7 +126,7 @@ REBNATIVE(did)
 {
     INCLUDE_PARAMS_OF_DID;
 
-    return R_FROM_BOOL(IS_TRUTHY(ARG(optional)));
+    return Init_Logic(D_OUT, IS_TRUTHY(ARG(optional)));
 }
 
 
@@ -141,7 +144,7 @@ REBNATIVE(not_q)
 {
     INCLUDE_PARAMS_OF_NOT_Q;
 
-    return R_FROM_BOOL(IS_FALSEY(ARG(value)));
+    return Init_Logic(D_OUT, IS_FALSEY(ARG(value)));
 }
 
 
@@ -159,7 +162,7 @@ REBNATIVE(not)
 {
     INCLUDE_PARAMS_OF_NOT;
 
-    return R_FROM_BOOL(IS_FALSEY(ARG(optional)));
+    return Init_Logic(D_OUT, IS_FALSEY(ARG(optional)));
 }
 
 
@@ -176,7 +179,10 @@ REBNATIVE(or_q)
 {
     INCLUDE_PARAMS_OF_OR_Q;
 
-    return R_FROM_BOOL(IS_TRUTHY(ARG(value1)) or IS_TRUTHY(ARG(value2)));
+    return Init_Logic(
+        D_OUT,
+        IS_TRUTHY(ARG(value1)) or IS_TRUTHY(ARG(value2))
+    );
 }
 
 
@@ -195,7 +201,10 @@ REBNATIVE(xor_q)
 
     // Note: no boolean ^^ in C; check unequal
     //
-    return R_FROM_BOOL(IS_TRUTHY(ARG(value1)) != IS_TRUTHY(ARG(value2)));
+    return Init_Logic(
+        D_OUT,
+        IS_TRUTHY(ARG(value1)) != IS_TRUTHY(ARG(value2))
+    );
 }
 
 
@@ -224,7 +233,7 @@ REBNATIVE(and)
 
     if (IS_GROUP(right)) { // result should be LOGIC!
         if (IS_FALSEY(left))
-            return Init_Logic(D_OUT, false); // no need to evaluate right
+            return Init_False(D_OUT); // no need to evaluate right
 
         if (Do_Any_Array_At_Throws(D_OUT, right))
             return D_OUT;
@@ -270,7 +279,7 @@ REBNATIVE(or)
 
     if (IS_GROUP(right)) { // result should be LOGIC!
         if (IS_TRUTHY(left))
-            return Init_Logic(D_OUT, true); // no need to evaluate right
+            return Init_True(D_OUT); // no need to evaluate right
 
         if (Do_Any_Array_At_Throws(D_OUT, right))
             return D_OUT;
@@ -281,7 +290,7 @@ REBNATIVE(or)
     assert(IS_BLOCK(right)); // any-value! result, or null
 
     if (IS_TRUTHY(left))
-        return left; // no need to evaluate right
+        RETURN (left); // no need to evaluate right
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
         return D_OUT;
@@ -335,7 +344,7 @@ REBNATIVE(xor)
     if (IS_TRUTHY(right))
         return nullptr;
 
-    return left;
+    RETURN (left);
 }
 
 
@@ -371,10 +380,10 @@ void MAKE_Logic(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         )
         || (IS_MONEY(arg) && deci_is_zero(VAL_MONEY_AMOUNT(arg)))
     ) {
-        Init_Logic(out, FALSE);
+        Init_False(out);
     }
     else
-        Init_Logic(out, TRUE);
+        Init_True(out);
 }
 
 
@@ -421,29 +430,25 @@ void MF_Logic(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 //
 REBTYPE(Logic)
 {
-    REBOOL val1 = VAL_LOGIC(D_ARG(1));
-    REBOOL val2;
+    bool b1 = VAL_LOGIC(D_ARG(1));
+    bool b2;
 
     switch (VAL_WORD_SYM(verb)) {
 
     case SYM_INTERSECT:
-        val2 = Math_Arg_For_Logic(D_ARG(2));
-        val1 = (val1 and val2);
-        break;
+        b2 = Math_Arg_For_Logic(D_ARG(2));
+        return Init_Logic(D_OUT, b1 and b2);
 
     case SYM_UNION:
-        val2 = Math_Arg_For_Logic(D_ARG(2));
-        val1 = (val1 or val2);
-        break;
+        b2 = Math_Arg_For_Logic(D_ARG(2));
+        return Init_Logic(D_OUT, b1 or b2);
 
     case SYM_DIFFERENCE:
-        val2 = Math_Arg_For_Logic(D_ARG(2));
-        val1 = (val1 != val2);
-        break;
+        b2 = Math_Arg_For_Logic(D_ARG(2));
+        return Init_Logic(D_OUT, b1 != b2);
 
     case SYM_COMPLEMENT:
-        val1 = not val1;
-        break;
+        return Init_Logic(D_OUT, not b1);
 
     case SYM_RANDOM: {
         INCLUDE_PARAMS_OF_RANDOM;
@@ -455,16 +460,14 @@ REBTYPE(Logic)
 
         if (REF(seed)) {
             // random/seed false restarts; true randomizes
-            Set_Random(val1 ? cast(REBINT, OS_DELTA_TIME(0)) : 1);
+            Set_Random(b1 ? cast(REBINT, OS_DELTA_TIME(0)) : 1);
             return nullptr;
         }
         if (Random_Int(REF(secure)) & 1)
-            return TRUE_VALUE;
-        return FALSE_VALUE; }
+            return Init_True(D_OUT);
+        return Init_False(D_OUT); }
 
     default:
         fail (Error_Illegal_Action(REB_LOGIC, verb));
     }
-
-    return val1 ? TRUE_VALUE : FALSE_VALUE;
 }

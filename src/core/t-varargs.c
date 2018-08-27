@@ -35,8 +35,12 @@
 #include "sys-core.h"
 
 
-#define R_For_Vararg_End(op) \
-    ((op) == VARARG_OP_TAIL_Q ? TRUE_VALUE : END_NODE)
+inline static void Init_For_Vararg_End(REBVAL *out, enum Reb_Vararg_Op op) {
+    if (op == VARARG_OP_TAIL_Q)
+        Init_True(out);
+    else
+        SET_END(out);
+}
 
 
 // Some VARARGS! are generated from a block with no frame, while others
@@ -45,15 +49,17 @@
 // prelude which sees if it can answer the current query just from looking one
 // unit ahead.
 //
-inline static const REBVAL *Vararg_Op_If_No_Advance(
+inline static bool Vararg_Op_If_No_Advance_Handled(
     REBVAL *out,
     enum Reb_Vararg_Op op,
     const RELVAL *opt_look, // the first value in the varargs input
     REBSPC *specifier,
     enum Reb_Param_Class pclass
 ){
-    if (IS_END(opt_look))
-        return R_For_Vararg_End(op); // exhausted
+    if (IS_END(opt_look)) {
+        Init_For_Vararg_End(out, op); // exhausted
+        return true;
+    }
 
     if (IS_BAR(opt_look)) {
         //
@@ -62,17 +68,20 @@ inline static const REBVAL *Vararg_Op_If_No_Advance(
         // unless they have a *really* good reason to do otherwise)
         //
         if (pclass == PARAM_CLASS_HARD_QUOTE) {
-            if (op == VARARG_OP_TAIL_Q)
-                return FALSE_VALUE;
+            if (op == VARARG_OP_TAIL_Q) {
+                Init_False(out);
+                return true;
+            }
             if (op == VARARG_OP_FIRST) {
                 Init_Bar(out);
-                return out;
+                return true;
             }
             assert(op == VARARG_OP_TAKE);
-            return nullptr; // advance frame/array to consume BAR!
+            return false; // advance frame/array to consume BAR!
         }
 
-        return R_For_Vararg_End(op); // simulate exhaustion for non hard quote
+        Init_For_Vararg_End(out, op); // simulate exhaustion on non hard quote
+        return true;
     }
 
     if (
@@ -99,7 +108,8 @@ inline static const REBVAL *Vararg_Op_If_No_Advance(
                     pclass == PARAM_CLASS_TIGHT
                     or GET_VAL_FLAG(child_gotten, ACTION_FLAG_DEFERS_LOOKBACK)
                 ){
-                    return R_For_Vararg_End(op);
+                    Init_For_Vararg_End(out, op);
+                    return true;
                 }
             }
         }
@@ -108,8 +118,10 @@ inline static const REBVAL *Vararg_Op_If_No_Advance(
     // The odd circumstances which make things simulate END--as well as an
     // actual END--are all taken care of, so we're not "at the TAIL?"
     //
-    if (op == VARARG_OP_TAIL_Q)
-        return FALSE_VALUE;
+    if (op == VARARG_OP_TAIL_Q) {
+        Init_False(out);
+        return true;
+    }
 
     if (op == VARARG_OP_FIRST) {
         if (pclass != PARAM_CLASS_HARD_QUOTE)
@@ -118,15 +130,15 @@ inline static const REBVAL *Vararg_Op_If_No_Advance(
         Derelativize(out, opt_look, specifier);
         SET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED);
 
-        return out; // only a lookahead, no need to advance
+        return true; // only a lookahead, no need to advance
     }
 
-    return nullptr; // must advance, may need to create a frame to do so
+    return false; // must advance, may need to create a frame to do so
 }
 
 
 //
-//  Do_Vararg_Op_May_Throw: C
+//  Do_Vararg_Op_May_Throw_Or_End: C
 //
 // Service routine for working with a VARARGS!.  Supports TAKE-ing or just
 // returning whether it's at the end or not.  The TAKE is not actually a
@@ -146,15 +158,12 @@ inline static const REBVAL *Vararg_Op_If_No_Advance(
 //
 // If an evaluation is involved, then a thrown value is possibly returned.
 //
-const REBVAL *Do_Vararg_Op_May_Throw(
+void Do_Vararg_Op_May_Throw_Or_End(
     REBVAL *out,
     RELVAL *vararg,
     enum Reb_Vararg_Op op
 ){
-  #if !defined(NDEBUG)
-    if (op != VARARG_OP_TAIL_Q)
-        TRASH_CELL_IF_DEBUG(out);
-  #endif
+    TRASH_CELL_IF_DEBUG(out);
 
     const RELVAL *param = Param_For_Varargs_Maybe_Null(vararg);
     enum Reb_Param_Class pclass =
@@ -162,7 +171,6 @@ const REBVAL *Do_Vararg_Op_May_Throw(
 
     REBVAL *arg; // for updating VALUE_FLAG_UNEVALUATED
 
-    const REBVAL *r;
     REBFRM *opt_vararg_frame;
 
     REBFRM *f;
@@ -177,16 +185,15 @@ const REBVAL *Do_Vararg_Op_May_Throw(
         opt_vararg_frame = NULL;
         arg = NULL; // no corresponding varargs argument either
 
-        r = Vararg_Op_If_No_Advance(
+        if (Vararg_Op_If_No_Advance_Handled(
             out,
             op,
             IS_END(shared) ? END_NODE : VAL_ARRAY_AT(shared),
             IS_END(shared) ? SPECIFIED : VAL_SPECIFIER(shared),
             pclass
-        );
-
-        if (r)
+        )){
             goto type_check_and_return;
+        }
 
         if (GET_VAL_FLAG(vararg, VARARGS_FLAG_ENFIXED)) {
             //
@@ -202,7 +209,6 @@ const REBVAL *Do_Vararg_Op_May_Throw(
             if (GET_VAL_FLAG(single, VALUE_FLAG_UNEVALUATED))
                 SET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED); // not auto-copied
             SET_END(shared);
-            r = out;
             goto type_check_and_return;
         }
 
@@ -225,7 +231,7 @@ const REBVAL *Do_Vararg_Op_May_Throw(
             //
             if (Eval_Step_In_Frame_Throws(SET_END(out), f_temp)) {
                 Abort_Frame(f_temp);
-                return out;
+                return;
             }
 
             if (
@@ -257,7 +263,7 @@ const REBVAL *Do_Vararg_Op_May_Throw(
                 if (Eval_Value_Core_Throws(
                     out, VAL_ARRAY_AT(shared), VAL_SPECIFIER(shared)
                 )){
-                    return out;
+                    return;
                 }
             }
             else { // not a soft-"exception" case, quote ordinarily
@@ -287,7 +293,7 @@ const REBVAL *Do_Vararg_Op_May_Throw(
         opt_vararg_frame = f;
         arg = FRM_ARG(f, vararg->payload.varargs.param_offset + 1);
 
-        r = Vararg_Op_If_No_Advance(
+        if (Vararg_Op_If_No_Advance_Handled(
             out,
             op,
             (f->flags.bits & DO_FLAG_BARRIER_HIT)
@@ -295,10 +301,9 @@ const REBVAL *Do_Vararg_Op_May_Throw(
                 : f->value, // might be END
             f->specifier,
             pclass
-        );
-
-        if (r)
+        )){
             goto type_check_and_return;
+        }
 
         // Note that evaluative cases here need Eval_Step_In_Subframe_Throws(),
         // because a function is running and the frame state can't be
@@ -313,7 +318,7 @@ const REBVAL *Do_Vararg_Op_May_Throw(
                 DO_FLAG_FULFILLING_ARG,
                 child
             )){
-                return out;
+                return;
             }
             f->gotten = nullptr; // cache must be forgotten...
             break; }
@@ -326,7 +331,7 @@ const REBVAL *Do_Vararg_Op_May_Throw(
                 DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD,
                 child
             )){
-                return out;
+                return;
             }
             f->gotten = nullptr; // cache must be forgotten...
             break; }
@@ -342,7 +347,7 @@ const REBVAL *Do_Vararg_Op_May_Throw(
                     f->value,
                     f->specifier
                 )){
-                    return out;
+                    return;
                 }
                 Fetch_Next_In_Frame(f);
             }
@@ -357,18 +362,14 @@ const REBVAL *Do_Vararg_Op_May_Throw(
     else
         panic ("Malformed VARARG cell");
 
-    r = out;
+  type_check_and_return:;
 
-type_check_and_return:
-    if (IS_END(r)) {
-        assert(r == END_NODE);
-        return r;
-    }
+    if (IS_END(out))
+        return;
 
-    if (r != out) {
-        assert(op == VARARG_OP_TAIL_Q);
-        assert(r == TRUE_VALUE or r == FALSE_VALUE);
-        return r;
+    if (op == VARARG_OP_TAIL_Q) {
+        assert(IS_LOGIC(out));
+        return;
     }
 
     assert(not THROWN(out)); // should have returned above
@@ -394,7 +395,7 @@ type_check_and_return:
             CLEAR_VAL_FLAG(arg, VALUE_FLAG_UNEVALUATED);
     }
 
-    return out; // may be at end now, but reflect that at *next* call
+    // may be at end now, but reflect that at *next* call
 }
 
 
@@ -473,18 +474,16 @@ const REBVAL *PD_Varargs(
     DECLARE_LOCAL (location);
     Move_Value(location, pvs->out);
 
-    const REBVAL *r = Do_Vararg_Op_May_Throw(
+    Do_Vararg_Op_May_Throw_Or_End(
         pvs->out,
         location,
         VARARG_OP_FIRST
     );
-    if (IS_END(r)) {
-        assert(r == END_NODE);
+    if (IS_END(pvs->out)) {
         Init_Endish_Nulled(pvs->out);
-    } else if (THROWN(r))
+    }
+    else if (THROWN(pvs->out))
         assert(FALSE); // VARARG_OP_FIRST can't throw
-    else
-        assert(r == pvs->out);
 
     return pvs->out;
 }
@@ -510,13 +509,14 @@ REBTYPE(Varargs)
 
         switch (property) {
         case SYM_TAIL_Q: {
-            const REBVAL *r = Do_Vararg_Op_May_Throw(
-                nullptr, // won't write to `out`
+            Do_Vararg_Op_May_Throw_Or_End(
+                D_OUT,
                 value,
                 VARARG_OP_TAIL_Q
             );
-            assert(r == TRUE_VALUE or r == FALSE_VALUE); // cannot throw
-            return r; }
+            assert(not THROWN(D_OUT));
+            assert(IS_LOGIC(D_OUT));
+            return D_OUT; }
 
         default:
             break;
@@ -534,17 +534,13 @@ REBTYPE(Varargs)
             fail (Error_Varargs_Take_Last_Raw());
 
         if (not REF(part)) {
-            const REBVAL *r = Do_Vararg_Op_May_Throw(
+            Do_Vararg_Op_May_Throw_Or_End(
                 D_OUT,
                 value,
                 VARARG_OP_TAKE
             );
-            if (IS_END(r)) {
-                assert(r == END_NODE);
-                Init_Endish_Nulled(D_OUT);
-            }
-            else
-                assert(r == D_OUT);
+            if (IS_END(D_OUT))
+                return Init_Endish_Nulled(D_OUT);
             return D_OUT;
         }
 
@@ -563,20 +559,16 @@ REBTYPE(Varargs)
             fail (Error_Invalid(ARG(limit)));
 
         while (limit-- > 0) {
-            const REBVAL *r = Do_Vararg_Op_May_Throw(
+            Do_Vararg_Op_May_Throw_Or_End(
                 D_OUT,
                 value,
                 VARARG_OP_TAKE
             );
 
-            if (IS_END(r)) {
-                assert(r == END_NODE);
+            if (IS_END(D_OUT))
                 break;
-            }
-            if (THROWN(r))
-                return r;
-            assert(r == D_OUT);
-
+            if (THROWN(D_OUT))
+                return D_OUT;
             DS_PUSH(D_OUT);
         }
 

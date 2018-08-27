@@ -59,7 +59,7 @@ REBNATIVE(identify_jpeg_q)
 
     // Handle JPEG error throw:
     if (setjmp(jpeg_state)) {
-        return FALSE_VALUE;
+        return Init_False(D_OUT);
     }
 
     REBYTE *data = VAL_BIN_AT(ARG(data));
@@ -67,7 +67,7 @@ REBNATIVE(identify_jpeg_q)
 
     int w, h;
     jpeg_info(s_cast(data), len, &w, &h); // may longjmp above
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 

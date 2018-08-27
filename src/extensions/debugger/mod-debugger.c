@@ -345,11 +345,11 @@ static REBNATIVE(resume)
     REBARR *instruction = Make_Array(RESUME_INST_MAX);
 
     if (REF(with)) {
-        Init_Logic(ARR_AT(instruction, RESUME_INST_MODE), FALSE); // don't DO
+        Init_False(ARR_AT(instruction, RESUME_INST_MODE)); // don't DO
         Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(value));
     }
     else if (REF(do)) {
-        Init_Logic(ARR_AT(instruction, RESUME_INST_MODE), TRUE); // DO value
+        Init_True(ARR_AT(instruction, RESUME_INST_MODE)); // DO value
         Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(code));
     }
     else {

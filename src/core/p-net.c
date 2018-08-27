@@ -115,7 +115,7 @@ static const REBVAL *Transport_Actor(
 
             switch (property) {
             case SYM_OPEN_Q:
-                return FALSE_VALUE;
+                return Init_False(D_OUT);
 
             default:
                 break;
@@ -167,7 +167,7 @@ static const REBVAL *Transport_Actor(
                     rebJumps("FAIL", l_result, rebEND);
                 rebRelease(l_result); // ignore result
 
-                return port;
+                RETURN (port);
             }
             else if (IS_TUPLE(arg)) { // Host IP specified:
                 DEVREQ_NET(sock)->remote_port =
@@ -194,7 +194,7 @@ static const REBVAL *Transport_Actor(
             break; }
 
         case SYM_CLOSE:
-            return port;
+            RETURN (port);
 
         case SYM_ON_WAKE_UP:  // allowed after a close
             break;
@@ -227,7 +227,8 @@ static const REBVAL *Transport_Actor(
             //
             // Connect for clients, bind for servers:
             //
-            return R_FROM_BOOL (
+            return Init_Logic(
+                D_OUT,
                 (sock->state & (RSM_CONNECT | RSM_BIND)) != 0
             );
 
@@ -254,7 +255,7 @@ static const REBVAL *Transport_Actor(
         else if (sock->command == RDC_WRITE) {
             Init_Blank(port_data); // Write is done.
         }
-        return BAR_VALUE; }
+        return Init_Bar(D_OUT); }
 
     case SYM_READ: {
         INCLUDE_PARAMS_OF_READ;
@@ -413,7 +414,7 @@ static const REBVAL *Transport_Actor(
         }
 
         Init_Blank(CTX_VAR(ctx, STD_PORT_DATA));
-        return port; }
+        RETURN (port); }
 
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
@@ -454,7 +455,7 @@ static const REBVAL *Transport_Actor(
 
             sock->flags &= ~RRF_OPEN;
         }
-        return port; }
+        RETURN (port); }
 
     case SYM_OPEN: {
         REBVAL *result = OS_DO_DEVICE(sock, RDC_CONNECT);
@@ -474,7 +475,7 @@ static const REBVAL *Transport_Actor(
             //
             rebRelease(result); // ignore result
         }
-        return port; }
+        RETURN (port); }
 
     default:
         break;

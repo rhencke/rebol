@@ -331,9 +331,9 @@ REBNATIVE(running_q)
     REBFRM *f = CTX_FRAME_MAY_FAIL(frame_ctx);
 
     if (Is_Action_Frame_Fulfilling(f))
-        return FALSE_VALUE;
+        return Init_False(D_OUT);
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 
@@ -354,7 +354,7 @@ REBNATIVE(pending_q)
     REBFRM *f = CTX_FRAME_MAY_FAIL(frame_ctx);
 
     if (Is_Action_Frame_Fulfilling(f))
-        return TRUE_VALUE;
+        return Init_True(D_OUT);
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }

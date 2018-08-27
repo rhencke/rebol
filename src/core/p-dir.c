@@ -176,7 +176,7 @@ static const REBVAL *Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             return Init_Integer(D_OUT, len); }
 
         case SYM_OPEN_Q:
-            return R_FROM_BOOL(IS_BLOCK(state));
+            return Init_Logic(D_OUT, IS_BLOCK(state));
 
         default:
             break;
@@ -240,7 +240,7 @@ static const REBVAL *Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         if (VAL_WORD_SYM(verb) != SYM_CREATE)
             Init_Blank(state);
 
-        return port; }
+        RETURN (port); }
 
     case SYM_RENAME: {
         INCLUDE_PARAMS_OF_RENAME;
@@ -262,7 +262,7 @@ static const REBVAL *Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         }
 
         rebRelease(result); // ignore result
-        return port; }
+        RETURN (port); }
 
     case SYM_DELETE: {
         Init_Blank(state);
@@ -280,7 +280,7 @@ static const REBVAL *Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         }
 
         rebRelease(result); // ignore result
-        return port; }
+        RETURN (port); }
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -306,11 +306,11 @@ static const REBVAL *Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         Init_Dir_Path(&dir, path, POL_READ);
         Init_Block(state, Read_Dir_May_Fail(&dir));
-        return port; }
+        RETURN (port); }
 
     case SYM_CLOSE:
         Init_Blank(state);
-        return port;
+        RETURN (port);
 
     case SYM_QUERY: {
         Init_Blank(state);

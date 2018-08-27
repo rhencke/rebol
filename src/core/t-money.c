@@ -270,9 +270,7 @@ REBTYPE(Money)
             }
             if (IS_INTEGER(scale)) {
                 REBI64 i64 = deci_to_int(VAL_MONEY_AMOUNT(D_OUT));
-                RESET_VAL_HEADER(D_OUT, REB_INTEGER);
-                VAL_INT64(D_OUT) = i64;
-                return D_OUT;
+                return Init_Integer(D_OUT, i64);
             }
         }
         break; }
@@ -282,7 +280,7 @@ REBTYPE(Money)
         REBINT result = 1 & cast(REBINT, deci_to_int(VAL_MONEY_AMOUNT(val)));
         if (VAL_WORD_SYM(verb) == SYM_EVEN_Q)
             result = not result;
-        return result ? TRUE_VALUE : FALSE_VALUE; }
+        return Init_Logic(D_OUT, result != 0); }
 
     default:
         fail (Error_Illegal_Action(REB_MONEY, verb));

@@ -154,7 +154,7 @@ REBNATIVE(write_stdout)
         DROP_GC_GUARD(temp);
     }
 
-    return VOID_VALUE;
+    return Init_Void(D_OUT);
 }
 
 
@@ -241,9 +241,15 @@ REBNATIVE(new_line_q)
     RELVAL *item = VAL_ARRAY_AT(pos);
 
     if (NOT_END(item))
-        return R_FROM_BOOL(GET_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE));
+        return Init_Logic(
+            D_OUT,
+            GET_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE)
+        );
 
-    return R_FROM_BOOL(GET_SER_FLAG(VAL_ARRAY(pos), ARRAY_FLAG_TAIL_NEWLINE));
+    return Init_Logic(
+        D_OUT,
+        GET_SER_FLAG(VAL_ARRAY(pos), ARRAY_FLAG_TAIL_NEWLINE)
+    );
 }
 
 
@@ -538,7 +544,7 @@ REBNATIVE(wake_up)
         DECLARE_LOCAL (verb);
         Init_Word(verb, Canon(SYM_ON_WAKE_UP));
         const REBVAL *r = Do_Port_Action(frame_, ARG(port), verb);
-        assert(r == BAR_VALUE);
+        assert(IS_BAR(r));
         UNUSED(r);
     }
 
@@ -555,7 +561,7 @@ REBNATIVE(wake_up)
             woke_up = FALSE;
     }
 
-    return R_FROM_BOOL(woke_up);
+    return Init_Logic(D_OUT, woke_up);
 }
 
 
@@ -731,5 +737,5 @@ REBNATIVE(change_dir)
 
     Move_Value(current_path, arg);
 
-    return ARG(path);
+    RETURN (ARG(path));
 }

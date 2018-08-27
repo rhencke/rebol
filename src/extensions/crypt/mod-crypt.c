@@ -725,7 +725,7 @@ static REBNATIVE(decloak)
         REF(with)
     );
 
-    return ARG(data);
+    RETURN (ARG(data));
 }
 
 
@@ -754,7 +754,7 @@ static REBNATIVE(encloak)
         REF(with)
     );
 
-    return ARG(data);
+    RETURN (ARG(data));
 }
 
 

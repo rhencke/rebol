@@ -280,7 +280,7 @@ REBNATIVE(check)
         ASSERT_ARRAY(VAL_ACT_DETAILS(value));
     }
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 #endif
 }
 

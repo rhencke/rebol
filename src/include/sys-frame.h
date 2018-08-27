@@ -255,6 +255,9 @@ inline static int FRM_LINE(REBFRM *f) {
 #define D_ARGC      FRM_NUM_ARGS(frame_)    // count of args+refinements/args
 #define D_ARG(n)    FRM_ARG(frame_, (n))    // pass 1 for first arg
 
+#define RETURN(v) \
+    return Move_Value(D_OUT, (v));
+
 #define D_PROTECT_X(v)      PROTECT_FRM_X(frame_, (v))
 
 inline static REBOOL Is_Action_Frame(REBFRM *f) {

@@ -656,8 +656,8 @@ REBTYPE(Vector)
 
     // Common operations for any series type (length, head, etc.)
     //
-    const REBVAL *r = Try_Series_Common_Action(frame_, verb);
-    if (r)
+    const REBVAL *r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
+    if (r != R_UNHANDLED)
         return r;
 
     REBSER *vect = VAL_SERIES(value);

@@ -68,7 +68,7 @@ REBNATIVE(ascii_q)
 {
     INCLUDE_PARAMS_OF_ASCII_Q;
 
-    return R_FROM_BOOL(Check_Char_Range(ARG(value), 0x7f));
+    return Init_Logic(D_OUT, Check_Char_Range(ARG(value), 0x7f));
 }
 
 
@@ -84,7 +84,7 @@ REBNATIVE(latin1_q)
 {
     INCLUDE_PARAMS_OF_LATIN1_Q;
 
-    return R_FROM_BOOL(Check_Char_Range(ARG(value), 0xff));
+    return Init_Logic(D_OUT, Check_Char_Range(ARG(value), 0xff));
 }
 
 
@@ -177,13 +177,13 @@ REBNATIVE(bind)
         // Bind a single word
 
         if (Try_Bind_Word(context, v))
-            return v;
+            RETURN (v);
 
         // not in context, bind/new means add it if it's not.
         //
         if (REF(new) or (IS_SET_WORD(v) and REF(set))) {
             Append_Context(context, v, NULL);
-            return v;
+            RETURN (v);
         }
 
         fail (Error_Not_In_Context_Raw(v));
@@ -370,7 +370,7 @@ REBNATIVE(value_q)
 {
     INCLUDE_PARAMS_OF_VALUE_Q;
 
-    return R_FROM_BOOL(ANY_VALUE(ARG(optional)));
+    return Init_Logic(D_OUT, ANY_VALUE(ARG(optional)));
 }
 
 
@@ -396,7 +396,7 @@ REBNATIVE(unbind)
     else
         Unbind_Values_Core(VAL_ARRAY_AT(word), NULL, REF(deep));
 
-    return word;
+    RETURN (word);
 }
 
 
@@ -541,9 +541,9 @@ REBNATIVE(try)
     INCLUDE_PARAMS_OF_TRY;
 
     if (IS_NULLED_OR_VOID(ARG(optional)))
-        return BLANK_VALUE;
+        return Init_Blank(D_OUT);
 
-    return ARG(optional);
+    RETURN (ARG(optional));
 }
 
 
@@ -564,7 +564,7 @@ REBNATIVE(opt)
     if (IS_BLANK(ARG(optional)) or IS_VOID(ARG(optional)))
         return nullptr;
 
-    return ARG(optional);
+    RETURN (ARG(optional));
 }
 
 
@@ -628,7 +628,7 @@ REBNATIVE(in)
     // Special form: IN object block
     if (IS_BLOCK(word) or IS_GROUP(word)) {
         Bind_Values_Deep(VAL_ARRAY_HEAD(word), context);
-        return word;
+        RETURN (word);
     }
 
     REBCNT index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), FALSE);
@@ -680,7 +680,7 @@ REBNATIVE(resolve)
         REF(extend)
     );
 
-    return ARG(target);
+    RETURN (ARG(target));
 }
 
 
@@ -821,7 +821,7 @@ REBNATIVE(set)
             fail (Error_Invalid_Core(target, target_specifier));
     }
 
-    return ARG(value);
+    RETURN (ARG(value));
 }
 
 
@@ -880,14 +880,14 @@ REBNATIVE(enfixed_q)
         const REBVAL *var = Get_Opt_Var_May_Fail(source, SPECIFIED);
 
         assert(NOT_VAL_FLAG(var, VALUE_FLAG_ENFIXED) or IS_ACTION(var));
-        return R_FROM_BOOL(GET_VAL_FLAG(var, VALUE_FLAG_ENFIXED));
+        return Init_Logic(D_OUT, GET_VAL_FLAG(var, VALUE_FLAG_ENFIXED));
     }
     else {
         assert(ANY_PATH(source));
 
         Get_Path_Core(D_CELL, source, SPECIFIED);
         assert(NOT_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED) or IS_ACTION(D_CELL));
-        return R_FROM_BOOL(GET_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED));
+        return Init_Logic(D_OUT, GET_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED));
     }
 }
 
@@ -915,7 +915,7 @@ REBNATIVE(semiquoted_q)
 
     const REBVAL *var = Get_Opt_Var_May_Fail(ARG(parameter), SPECIFIED);
 
-    return R_FROM_BOOL(GET_VAL_FLAG(var, VALUE_FLAG_UNEVALUATED));
+    return Init_Logic(D_OUT, GET_VAL_FLAG(var, VALUE_FLAG_UNEVALUATED));
 }
 
 
@@ -977,7 +977,7 @@ REBNATIVE(free)
     FAIL_IF_READ_ONLY_SERIES(s);
 
     Decay_Series(s);
-    return VOID_VALUE; // !!! Should it return the freed, not-useful value?
+    return Init_Void(D_OUT); // !!! Should it return the freed, not-useful value?
 }
 
 
@@ -1005,9 +1005,9 @@ REBNATIVE(free_q)
     else if (ANY_SERIES(v))
         s = v->payload.any_series.series; // VAL_SERIES fails if freed
     else
-        return FALSE_VALUE;
+        return Init_False(D_OUT);
 
-    return R_FROM_BOOL(GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE));
+    return Init_Logic(D_OUT, GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE));
 }
 
 
@@ -1193,7 +1193,7 @@ REBNATIVE(aliases_q)
 {
     INCLUDE_PARAMS_OF_ALIASES_Q;
 
-    return R_FROM_BOOL(VAL_SERIES(ARG(value1)) == VAL_SERIES(ARG(value2)));
+    return Init_Logic(D_OUT, VAL_SERIES(ARG(value1)) == VAL_SERIES(ARG(value2)));
 }
 
 
@@ -1229,7 +1229,7 @@ REBNATIVE(set_q)
 {
     INCLUDE_PARAMS_OF_SET_Q;
 
-    return R_FROM_BOOL(Is_Set(ARG(location)));
+    return Init_Logic(D_OUT, Is_Set(ARG(location)));
 }
 
 
@@ -1247,7 +1247,7 @@ REBNATIVE(unset_q)
 {
     INCLUDE_PARAMS_OF_UNSET_Q;
 
-    return R_FROM_BOOL(not Is_Set(ARG(location)));
+    return Init_Logic(D_OUT, not Is_Set(ARG(location)));
 }
 
 
@@ -1315,7 +1315,7 @@ REBNATIVE(null_q)
 {
     INCLUDE_PARAMS_OF_NULL_Q;
 
-    return R_FROM_BOOL(IS_NULLED(ARG(optional)));
+    return Init_Logic(D_OUT, IS_NULLED(ARG(optional)));
 }
 
 
@@ -1336,7 +1336,7 @@ REBNATIVE(nothing_q)
 {
     INCLUDE_PARAMS_OF_NOTHING_Q;
 
-    return R_FROM_BOOL(IS_BLANK(ARG(value)) or IS_NULLED(ARG(value)));
+    return Init_Logic(D_OUT, IS_BLANK(ARG(value)) or IS_NULLED(ARG(value)));
 }
 
 
@@ -1357,5 +1357,8 @@ REBNATIVE(something_q)
 {
     INCLUDE_PARAMS_OF_SOMETHING_Q;
 
-    return R_FROM_BOOL(not (IS_BLANK(ARG(value)) or IS_NULLED(ARG(value))));
+    return Init_Logic(
+        D_OUT,
+        not (IS_BLANK(ARG(value)) or IS_NULLED(ARG(value)))
+    );
 }

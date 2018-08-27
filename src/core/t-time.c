@@ -638,10 +638,10 @@ REBTYPE(Time)
         switch (sym) {
 
         case SYM_ODD_Q:
-            return ((SECS_FROM_NANO(secs) & 1) != 0) ? TRUE_VALUE : FALSE_VALUE;
+            return Init_Logic(D_OUT, (SECS_FROM_NANO(secs) & 1) != 0);
 
         case SYM_EVEN_Q:
-            return ((SECS_FROM_NANO(secs) & 1) == 0) ? TRUE_VALUE : FALSE_VALUE;
+            return Init_Logic(D_OUT, (SECS_FROM_NANO(secs) & 1) == 0);
 
         case SYM_NEGATE:
             secs = -secs;

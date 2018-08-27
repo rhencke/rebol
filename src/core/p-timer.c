@@ -82,7 +82,7 @@ static const REBVAL *Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         break; }
 
     case SYM_ON_WAKE_UP:
-        return BAR_VALUE;
+        return Init_Bar(D_OUT);
 
     // Normal block actions done on events:
     case SYM_POKE:
@@ -116,7 +116,7 @@ static const REBVAL *Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     case SYM_CLEAR:
         RESET_ARRAY(state);
         Eval_Signals &= ~SIG_EVENT_PORT;
-        return port;
+        RETURN (port);
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -129,7 +129,7 @@ static const REBVAL *Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             // "stays queued"
             // !!! or stays queued means it's pending?
         }
-        return port; }
+        RETURN (port); }
 
     default:
         break;

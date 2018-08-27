@@ -60,7 +60,7 @@ static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
             switch (property) {
             case SYM_OPEN_Q:
-                return FALSE_VALUE;
+                return Init_False(D_OUT);
 
             default:
                 break; }
@@ -150,10 +150,10 @@ static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
             req->flags |= RRF_OPEN;
-            return port; }
+            RETURN (port); }
 
         case SYM_CLOSE:
-            return port;
+            RETURN (port);
 
         default:
             fail (Error_On_Port(RE_NOT_OPEN, port, -12));
@@ -172,7 +172,7 @@ static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return TRUE_VALUE;
+            return Init_True(D_OUT);
 
         default:
             break;
@@ -225,7 +225,7 @@ static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         }
         printf("\n");
 #endif
-        return port; }
+        RETURN (port); }
 
     case SYM_WRITE: {
         INCLUDE_PARAMS_OF_WRITE;
@@ -264,7 +264,7 @@ static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         //
         OS_DO_DEVICE_SYNC(req, RDC_WRITE);
 
-        return port; }
+        RETURN (port); }
 
     case SYM_ON_WAKE_UP: {
         // Update the port object after a READ or WRITE operation.
@@ -282,7 +282,7 @@ static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         else if (req->command == RDC_WRITE) {
             Init_Blank(data);  // Write is done.
         }
-        return BAR_VALUE; }
+        return Init_Bar(D_OUT); }
 
     case SYM_CLOSE:
         if (req->flags & RRF_OPEN) {
@@ -290,7 +290,7 @@ static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
             req->flags &= ~RRF_OPEN;
         }
-        return port;
+        RETURN (port);
 
     default:
         break;

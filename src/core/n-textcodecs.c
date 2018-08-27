@@ -157,7 +157,7 @@ REBNATIVE(identify_text_q)
 
     UNUSED(ARG(data)); // see notes on decode-text
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 
@@ -295,7 +295,7 @@ REBNATIVE(identify_utf16le_q)
     //
     UNUSED(ARG(data));
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 
@@ -380,7 +380,7 @@ REBNATIVE(identify_utf16be_q)
     //
     UNUSED(ARG(data));
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 

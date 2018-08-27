@@ -135,7 +135,7 @@ REBNATIVE(reduce)
     // !!! Should the error be more "reduce-specific" if args were required?
 
     if (ANY_INERT(value)) // don't bother with the evaluation
-        return value;
+        RETURN (value);
 
     if (Eval_Value_Throws(D_OUT, value))
         return D_OUT;
@@ -144,7 +144,7 @@ REBNATIVE(reduce)
         return D_OUT;
 
     if (REF(try))
-        return BLANK_VALUE;
+        return Init_Blank(D_OUT);
 
     return nullptr; // let caller worry about whether to error on nulls
 }

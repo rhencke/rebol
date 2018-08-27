@@ -58,7 +58,7 @@ static const REBVAL *DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return R_FROM_BOOL(did (sock->flags & RRF_OPEN));
+            return Init_Logic(D_OUT, did (sock->flags & RRF_OPEN));
 
         default:
             break;
@@ -166,14 +166,14 @@ static const REBVAL *DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         }
 
         OS_DO_DEVICE_SYNC(sock, RDC_OPEN);
-        return port; }
+        RETURN (port); }
 
     case SYM_CLOSE: {
         OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
-        return port; }
+        RETURN (port); }
 
     case SYM_ON_WAKE_UP:
-        return BAR_VALUE;
+        return Init_Bar(D_OUT);
 
     default:
         break;

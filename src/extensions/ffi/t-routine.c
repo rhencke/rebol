@@ -634,20 +634,16 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
         // FFI argument series.
         //
         do {
-            const REBVAL *r = Do_Vararg_Op_May_Throw(
+            Do_Vararg_Op_May_Throw_Or_End(
                 f->out,
                 vararg,
                 VARARG_OP_TAKE
             );
 
-            if (IS_END(r)) {
-                assert(r == END_NODE);
+            if (IS_END(f->out))
                 break;
-            }
-
-            if (THROWN(r))
-                return r;
-            assert(r == f->out);
+            if (THROWN(f->out))
+                return f->out;
 
             DS_PUSH(f->out);
             SET_END(f->out); // expected by Do_Vararg_Op

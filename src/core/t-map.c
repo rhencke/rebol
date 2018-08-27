@@ -740,7 +740,7 @@ REBTYPE(Map)
             return Init_Block(D_OUT, Map_To_Array(map, 0));
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(Length_Map(map) == 0);
+            return Init_Logic(D_OUT, Length_Map(map) == 0);
 
         default:
             break;
@@ -810,7 +810,7 @@ REBTYPE(Map)
         );
         UNUSED(n);
 
-        return ARG(value); }
+        RETURN (ARG(value)); }
 
     case SYM_INSERT:
     case SYM_APPEND: {

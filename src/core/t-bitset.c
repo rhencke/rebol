@@ -530,10 +530,8 @@ const REBVAL *PD_Bitset(
     REBSER *ser = VAL_SERIES(pvs->out);
 
     if (opt_setval == NULL) {
-        if (Check_Bits(ser, picker, FALSE)) {
-            Init_Logic(pvs->out, TRUE);
-            return pvs->out;
-        }
+        if (Check_Bits(ser, picker, FALSE))
+            return Init_True(pvs->out);
         return nullptr; // !!! Red false on out of range, R3-Alpha NONE! (?)
     }
 
@@ -598,7 +596,7 @@ REBTYPE(Bitset)
 
         case SYM_TAIL_Q:
             // Necessary to make EMPTY? work:
-            return R_FROM_BOOL(VAL_LEN_HEAD(value) == 0);
+            return Init_Logic(D_OUT, VAL_LEN_HEAD(value) == 0);
 
         default:
             break;
@@ -634,7 +632,7 @@ REBTYPE(Bitset)
 
         if (not Check_Bits(VAL_SERIES(value), arg, REF(case)))
             return nullptr;
-        return BAR_VALUE;
+        return Init_Bar(D_OUT);
     }
 
     case SYM_COMPLEMENT:

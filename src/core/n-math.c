@@ -409,7 +409,7 @@ REBNATIVE(shift)
         }
     }
 
-    return ARG(value);
+    RETURN (ARG(value));
 }
 
 
@@ -569,9 +569,9 @@ REBNATIVE(equal_q)
     INCLUDE_PARAMS_OF_EQUAL_Q;
 
     if (Compare_Modify_Values(ARG(value1), ARG(value2), 0))
-        return TRUE_VALUE;
+        return Init_True(D_OUT);
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }
 
 
@@ -590,9 +590,9 @@ REBNATIVE(not_equal_q)
     INCLUDE_PARAMS_OF_NOT_EQUAL_Q;
 
     if (Compare_Modify_Values(ARG(value1), ARG(value2), 0))
-        return FALSE_VALUE;
+        return Init_False(D_OUT);
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 
@@ -611,9 +611,9 @@ REBNATIVE(strict_equal_q)
     INCLUDE_PARAMS_OF_STRICT_EQUAL_Q;
 
     if (Compare_Modify_Values(ARG(value1), ARG(value2), 1))
-        return TRUE_VALUE;
+        return Init_True(D_OUT);
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }
 
 
@@ -632,9 +632,9 @@ REBNATIVE(strict_not_equal_q)
     INCLUDE_PARAMS_OF_STRICT_NOT_EQUAL_Q;
 
     if (Compare_Modify_Values(ARG(value1), ARG(value2), 1))
-        return FALSE_VALUE;
+        return Init_False(D_OUT);
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 
@@ -662,15 +662,15 @@ REBNATIVE(same_q)
     REBVAL *value2 = ARG(value2);
 
     if (VAL_TYPE(value1) != VAL_TYPE(value2))
-        return FALSE_VALUE; // can't be "same" value if not same type
+        return Init_False(D_OUT); // can't be "same" value if not same type
 
     if (IS_BITSET(value1)) {
         //
         // BITSET! only has a series, no index.
         //
         if (VAL_SERIES(value1) != VAL_SERIES(value2))
-            return FALSE_VALUE;
-        return TRUE_VALUE;
+            return Init_False(D_OUT);
+        return Init_True(D_OUT);
     }
 
     if (ANY_SERIES(value1) || IS_IMAGE(value1)) {
@@ -678,10 +678,10 @@ REBNATIVE(same_q)
         // ANY-SERIES! can only be the same if pointers and indices match.
         //
         if (VAL_SERIES(value1) != VAL_SERIES(value2))
-            return FALSE_VALUE;
+            return Init_False(D_OUT);
         if (VAL_INDEX(value1) != VAL_INDEX(value2))
-            return FALSE_VALUE;
-        return TRUE_VALUE;
+            return Init_False(D_OUT);
+        return Init_True(D_OUT);
     }
 
     if (ANY_CONTEXT(value1)) {
@@ -689,8 +689,8 @@ REBNATIVE(same_q)
         // ANY-CONTEXT! are the same if the varlists match.
         //
         if (VAL_CONTEXT(value1) != VAL_CONTEXT(value2))
-            return FALSE_VALUE;
-        return TRUE_VALUE;
+            return Init_False(D_OUT);
+        return Init_True(D_OUT);
     }
 
     if (IS_MAP(value1)) {
@@ -698,8 +698,8 @@ REBNATIVE(same_q)
         // MAP! will be the same if the map pointer matches.
         //
         if (VAL_MAP(value1) != VAL_MAP(value2))
-            return FALSE_VALUE;
-        return TRUE_VALUE;
+            return Init_False(D_OUT);
+        return Init_True(D_OUT);
     }
 
     if (ANY_WORD(value1)) {
@@ -707,10 +707,10 @@ REBNATIVE(same_q)
         // ANY-WORD! must match in binding as well as be otherwise equal.
         //
         if (VAL_WORD_SPELLING(value1) != VAL_WORD_SPELLING(value2))
-            return FALSE_VALUE;
+            return Init_False(D_OUT);
         if (VAL_BINDING(value1) != VAL_BINDING(value2))
-            return FALSE_VALUE;
-        return TRUE_VALUE;
+            return Init_False(D_OUT);
+        return Init_True(D_OUT);
     }
 
     if (IS_DECIMAL(value1) || IS_PERCENT(value1)) {
@@ -723,10 +723,10 @@ REBNATIVE(same_q)
                 &VAL_DECIMAL(value1), &VAL_DECIMAL(value2), sizeof(REBDEC)
             ) == 0
         ){
-            return TRUE_VALUE;
+            return Init_True(D_OUT);
         }
 
-        return FALSE_VALUE;
+        return Init_False(D_OUT);
     }
 
     if (IS_MONEY(value1)) {
@@ -741,16 +741,16 @@ REBNATIVE(same_q)
         // == false
         //
         if (deci_is_same(VAL_MONEY_AMOUNT(value1), VAL_MONEY_AMOUNT(value2)))
-            return TRUE_VALUE;
-        return FALSE_VALUE;
+            return Init_True(D_OUT);
+        return Init_False(D_OUT);
     }
 
     // For other types, just fall through to strict equality comparison
     //
     if (Compare_Modify_Values(value1, value2, 1))
-        return TRUE_VALUE;
+        return Init_True(D_OUT);
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }
 
 
@@ -768,9 +768,9 @@ REBNATIVE(lesser_q)
     INCLUDE_PARAMS_OF_LESSER_Q;
 
     if (Compare_Modify_Values(ARG(value1), ARG(value2), -1))
-        return FALSE_VALUE;
+        return Init_False(D_OUT);
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 
@@ -788,9 +788,9 @@ REBNATIVE(equal_or_lesser_q)
     INCLUDE_PARAMS_OF_EQUAL_OR_LESSER_Q;
 
     if (Compare_Modify_Values(ARG(value1), ARG(value2), -2))
-        return FALSE_VALUE;
+        return Init_False(D_OUT);
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 
@@ -808,9 +808,9 @@ REBNATIVE(greater_q)
     INCLUDE_PARAMS_OF_GREATER_Q;
 
     if (Compare_Modify_Values(ARG(value1), ARG(value2), -2))
-        return TRUE_VALUE;
+        return Init_True(D_OUT);
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }
 
 
@@ -828,9 +828,9 @@ REBNATIVE(greater_or_equal_q)
     INCLUDE_PARAMS_OF_GREATER_OR_EQUAL_Q;
 
     if (Compare_Modify_Values(ARG(value1), ARG(value2), -1))
-        return TRUE_VALUE;
+        return Init_True(D_OUT);
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }
 
 
@@ -918,9 +918,9 @@ REBNATIVE(negative_q)
     SET_ZEROED(zero, VAL_TYPE(ARG(number)));
 
     if (Compare_Modify_Values(ARG(number), zero, -1))
-        return FALSE_VALUE;
+        return Init_False(D_OUT);
 
-    return TRUE_VALUE;
+    return Init_True(D_OUT);
 }
 
 
@@ -940,9 +940,9 @@ REBNATIVE(positive_q)
     SET_ZEROED(zero, VAL_TYPE(ARG(number)));
 
     if (Compare_Modify_Values(ARG(number), zero, -2))
-        return TRUE_VALUE;
+        return Init_True(D_OUT);
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }
 
 
@@ -965,7 +965,7 @@ REBNATIVE(zero_q)
         SET_ZEROED(zero, type);
 
         if (Compare_Modify_Values(ARG(value), zero, 1))
-            return TRUE_VALUE;
+            return Init_True(D_OUT);
     }
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }

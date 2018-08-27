@@ -1823,7 +1823,7 @@ REBNATIVE(sleep)
     usleep(msec * 1000);
 #endif
 
-    return VOID_VALUE;
+    return Init_Void(D_OUT);
 }
 
 #if defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
@@ -2284,7 +2284,7 @@ static REBNATIVE(set_uid)
     PROCESS_INCLUDE_PARAMS_OF_SET_UID;
 
     if (setuid(VAL_INT32(ARG(uid))) >= 0)
-        return ARG(uid);
+        RETURN (ARG(uid));
 
     switch (errno) {
     case EINVAL:
@@ -2321,7 +2321,7 @@ static REBNATIVE(set_euid)
     PROCESS_INCLUDE_PARAMS_OF_SET_EUID;
 
     if (seteuid(VAL_INT32(ARG(euid))) >= 0)
-        return ARG(euid);
+        RETURN (ARG(euid));
 
     switch (errno) {
     case EINVAL:
@@ -2358,7 +2358,7 @@ static REBNATIVE(set_gid)
     PROCESS_INCLUDE_PARAMS_OF_SET_GID;
 
     if (setgid(VAL_INT32(ARG(gid))) >= 0)
-        return ARG(gid);
+        RETURN (ARG(gid));
 
     switch (errno) {
     case EINVAL:
@@ -2395,7 +2395,7 @@ static REBNATIVE(set_egid)
     PROCESS_INCLUDE_PARAMS_OF_SET_EGID;
 
     if (setegid(VAL_INT32(ARG(egid))) >= 0)
-        return ARG(egid);
+        RETURN (ARG(egid));
 
     switch (errno) {
     case EINVAL:
@@ -2455,7 +2455,7 @@ static REBNATIVE(send_signal)
 
     kill_process(VAL_INT32(ARG(pid)), VAL_INT32(ARG(signal)));
 
-    return VOID_VALUE;
+    return Init_Void(D_OUT);
 }
 #endif // defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
 

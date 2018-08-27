@@ -430,14 +430,14 @@ REBTYPE(Tuple)
                 v = 0;
             *vp = cast(REBYTE, v);
         }
-        goto ret_value;
+        RETURN (value);
     }
 
     // !!!! merge with SWITCH below !!!
     if (sym == SYM_COMPLEMENT) {
         for (; len > 0; len--, vp++)
             *vp = cast(REBYTE, ~*vp);
-        goto ret_value;
+        RETURN (value);
     }
     if (sym == SYM_RANDOM) {
         INCLUDE_PARAMS_OF_RANDOM;
@@ -453,7 +453,7 @@ REBTYPE(Tuple)
             if (*vp)
                 *vp = cast(REBYTE, Random_Int(REF(secure)) % (1 + *vp));
         }
-        goto ret_value;
+        RETURN (value);
     }
 
     switch (sym) {
@@ -493,7 +493,7 @@ REBTYPE(Tuple)
                 vp[i] = a;
             }
         }
-        goto ret_value; }
+        RETURN (value); }
 /*
   poke_it:
         a = Get_Num_From_Arg(arg);
@@ -512,7 +512,7 @@ REBTYPE(Tuple)
         if (v > 255)
             v = 255;
         vp[a-1] = v;
-        goto ret_value;
+        RETURN (value);
 */
 
     default:
@@ -520,8 +520,4 @@ REBTYPE(Tuple)
     }
 
     fail (Error_Illegal_Action(REB_TUPLE, verb));
-
-ret_value:
-    Move_Value(D_OUT, value);
-    return D_OUT;
 }

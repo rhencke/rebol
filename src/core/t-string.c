@@ -1192,15 +1192,12 @@ REBTYPE(String)
     REBVAL *v = D_ARG(1);
     assert(IS_BINARY(v) || ANY_STRING(v));
 
-    REBSER *ser;
-    TRASH_POINTER_IF_DEBUG(ser); // `goto return_ser;` will return this
-
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     // Common operations for any series type (length, head, etc.)
     //
-    const REBVAL *r = Try_Series_Common_Action(frame_, verb);
-    if (r)
+    const REBVAL *r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
+    if (r != R_UNHANDLED)
         return r;
 
     // Common setup code for all actions:
@@ -1264,7 +1261,7 @@ REBTYPE(String)
                 REF(dup) ? Int32(ARG(count)) : 1
             );
         }
-        break; }
+        RETURN (v); }
 
     //-- Search:
     case SYM_SELECT:
@@ -1352,7 +1349,7 @@ REBTYPE(String)
             else
                 str_to_char(v, v, ret);
         }
-        break; }
+        RETURN (v); }
 
     case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
@@ -1389,7 +1386,7 @@ REBTYPE(String)
             return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
         }
 
-        ser = VAL_SERIES(v);
+        REBSER *ser = VAL_SERIES(v);
         index = VAL_INDEX(v);
 
         // if no /PART, just return value, else return string
@@ -1422,7 +1419,7 @@ REBTYPE(String)
             else
                 TERM_SEQUENCE_LEN(VAL_SERIES(v), cast(REBCNT, index));
         }
-        break; }
+        RETURN (v); }
 
     //-- Creation:
 
@@ -1441,11 +1438,12 @@ REBTYPE(String)
         UNUSED(REF(part));
         REBINT len = Partial(v, 0, ARG(limit)); // Can modify value index.
 
+        REBSER *ser;
         if (IS_BINARY(v))
             ser = Copy_Sequence_At_Len(VAL_SERIES(v), VAL_INDEX(v), len);
         else
             ser = Copy_String_At_Len(v, len);
-        goto return_ser; }
+        return Init_Any_Series(D_OUT, VAL_TYPE(v), ser); }
 
     //-- Bitwise:
 
@@ -1461,15 +1459,16 @@ REBTYPE(String)
         if (VAL_INDEX(arg) > VAL_LEN_HEAD(arg))
             VAL_INDEX(arg) = VAL_LEN_HEAD(arg);
 
-        ser = Xandor_Binary(verb, v, arg);
-        goto return_ser; }
+        return Init_Any_Series(
+            D_OUT,
+            VAL_TYPE(v),
+            Xandor_Binary(verb, v, arg)); }
 
     case SYM_COMPLEMENT: {
         if (not IS_BINARY(v))
             fail (Error_Invalid(v));
 
-        ser = Complement_Binary(v);
-        goto return_ser; }
+        return Init_Any_Series(D_OUT, VAL_TYPE(v), Complement_Binary(v)); }
 
     // Arithmetic operations are allowed on BINARY!, because it's too limiting
     // to not allow `#{4B} + 1` => `#{4C}`.  Allowing the operations requires
@@ -1550,8 +1549,7 @@ REBTYPE(String)
                 }
             }
         }
-        Move_Value(D_OUT, v);
-        return D_OUT; }
+        RETURN (v); }
 
     //-- Special actions:
 
@@ -1565,7 +1563,7 @@ REBTYPE(String)
 
         if (index < tail && VAL_INDEX(arg) < VAL_LEN_HEAD(arg))
             swap_chars(v, arg);
-        break; }
+        RETURN (v); }
 
     case SYM_REVERSE: {
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(v));
@@ -1577,7 +1575,7 @@ REBTYPE(String)
             else
                 reverse_string(v, len);
         }
-        break; }
+        RETURN (v); }
 
     case SYM_SORT: {
         INCLUDE_PARAMS_OF_SORT;
@@ -1603,7 +1601,7 @@ REBTYPE(String)
             ARG(limit),   // (void if not /PART)
             REF(reverse)
         );
-        break; }
+        RETURN (v); }
 
     case SYM_RANDOM: {
         INCLUDE_PARAMS_OF_RANDOM;
@@ -1636,11 +1634,10 @@ REBTYPE(String)
             if (index >= tail)
                 return nullptr;
             index += (REBCNT)Random_Int(REF(secure)) % (tail - index);
-            if (IS_BINARY(v)) { // same as PICK
-                Init_Integer(D_OUT, *VAL_BIN_AT_HEAD(v, index));
-            }
-            else
-                str_to_char(D_OUT, v, index);
+            if (IS_BINARY(v)) // same as PICK
+                return Init_Integer(D_OUT, *VAL_BIN_AT_HEAD(v, index));
+
+            str_to_char(D_OUT, v, index);
             return D_OUT;
         }
 
@@ -1648,23 +1645,16 @@ REBTYPE(String)
             fail ("UTF-8 Everywhere: String shuffle temporarily unavailable");
 
         Shuffle_String(v, REF(secure));
-        break; }
+        RETURN (v); }
 
     default:
         // Let the port system try the action, e.g. OPEN %foo.txt
         //
         if ((IS_FILE(v) or IS_URL(v)))
             return T_Port(frame_, verb);
-
-        fail (Error_Illegal_Action(VAL_TYPE(v), verb));
     }
 
-    Move_Value(D_OUT, v);
-    return D_OUT;
-
-return_ser:
-    Init_Any_Series(D_OUT, VAL_TYPE(v), ser);
-    return D_OUT;
+    fail (Error_Illegal_Action(VAL_TYPE(v), verb));
 }
 
 

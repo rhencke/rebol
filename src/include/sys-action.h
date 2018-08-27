@@ -34,9 +34,6 @@
 // stack, and can be viewed as a context using a FRAME!.
 //
 
-inline static const REBVAL *R_FROM_BOOL(bool b)
-  { return b ? TRUE_VALUE : FALSE_VALUE; }
-
 #define R_IMMEDIATE \
     cast(const REBVAL*, &PG_R_Immediate)
 

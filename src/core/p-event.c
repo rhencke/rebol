@@ -169,7 +169,7 @@ static const REBVAL *Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         break; }
 
     case SYM_ON_WAKE_UP:
-        return BAR_VALUE;
+        return Init_Bar(D_OUT);
 
     // Normal block actions done on events:
     case SYM_POKE:
@@ -209,7 +209,7 @@ static const REBVAL *Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     case SYM_CLEAR:
         TERM_ARRAY_LEN(VAL_ARRAY(state), 0);
         CLR_SIGNAL(SIG_EVENT_PORT);
-        return port;
+        RETURN (port);
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -244,7 +244,7 @@ static const REBVAL *Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 rebRelease(result); // ignore result
             }
         }
-        return port; }
+        RETURN (port); }
 
     case SYM_CLOSE: {
         OS_ABORT_DEVICE(req);
@@ -254,7 +254,7 @@ static const REBVAL *Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         // free req!!!
         req->flags &= ~RRF_OPEN;
         req = NULL;
-        return port; }
+        RETURN (port); }
 
     case SYM_FIND:
         break; // !!! R3-Alpha said "add it" (e.g. unimplemented)

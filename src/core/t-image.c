@@ -1027,10 +1027,10 @@ REBTYPE(Image)
             break;
 
         case SYM_HEAD_Q:
-            return R_FROM_BOOL(index == 0);
+            return Init_Logic(D_OUT, index == 0);
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(index >= tail);
+            return Init_Logic(D_OUT, index >= tail);
 
         case SYM_XY:
             SET_PAIR(

@@ -2408,7 +2408,7 @@ REBNATIVE(parse)
     if (VAL_UNT32(D_OUT) < VAL_LEN_HEAD(ARG(input)))
         return nullptr;
 
-    return BAR_VALUE; // use BAR! to avoid suggesting that failing gives #[false]
+    return Init_Bar(D_OUT); // avoids suggesting that failing gives #[false]
 }
 
 

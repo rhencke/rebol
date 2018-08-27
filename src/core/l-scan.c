@@ -2251,12 +2251,12 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
                 case SYM_FALSE:
                     DS_PUSH_TRASH;
-                    Init_Logic(DS_TOP, FALSE);
+                    Init_False(DS_TOP);
                     break;
 
                 case SYM_TRUE:
                     DS_PUSH_TRASH;
-                    Init_Logic(DS_TOP, TRUE);
+                    Init_True(DS_TOP);
                     break;
 
                 case SYM_VOID:

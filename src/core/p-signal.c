@@ -164,7 +164,7 @@ static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
             switch (property) {
             case SYM_OPEN_Q:
-                return FALSE_VALUE;
+                return Init_False(D_OUT);
 
             default:
                 break;
@@ -207,7 +207,7 @@ static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             OS_DO_DEVICE_SYNC(req, RDC_OPEN);
 
             if (VAL_WORD_SYM(verb) == SYM_OPEN)
-                return port;
+                RETURN (port);
 
             assert((req->flags & RRF_OPEN) and VAL_WORD_SYM(verb) == SYM_READ);
             break; } // fallthrough
@@ -232,7 +232,7 @@ static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return TRUE_VALUE;
+            return Init_True(D_OUT);
 
         default:
             break;
@@ -252,7 +252,7 @@ static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 update(signal, len, arg);
             }
         }
-        return BAR_VALUE; }
+        return Init_Bar(D_OUT); }
 
     case SYM_READ: {
         // This device is opened on the READ:
@@ -278,11 +278,11 @@ static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         update(signal, len, arg);
         Free_Unmanaged_Series(ser);
-        return port; }
+        RETURN (port); }
 
     case SYM_CLOSE: {
         OS_DO_DEVICE_SYNC(req, RDC_CLOSE);
-        return port; }
+        RETURN (port); }
 
     case SYM_OPEN:
         fail (Error_Already_Open_Raw(port));

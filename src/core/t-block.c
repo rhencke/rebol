@@ -727,8 +727,8 @@ REBTYPE(Array)
 
     // Common operations for any series type (length, head, etc.)
     //
-    const REBVAL *r = Try_Series_Common_Action(frame_, verb);
-    if (r)
+    const REBVAL *r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
+    if (r != R_UNHANDLED)
         return r;
 
     // NOTE: Partial1() used below can mutate VAL_INDEX(value), be aware :-/
@@ -980,7 +980,7 @@ REBTYPE(Array)
                 Blit_Cell(back, &temp);
             }
         }
-        return D_ARG(1);
+        RETURN (D_ARG(1));
     }
 
     case SYM_SORT: {

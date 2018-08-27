@@ -196,22 +196,18 @@ REBNATIVE(make)
         REBDSP dsp_orig = DSP;
 
         do {
-            const REBVAL *r = Do_Vararg_Op_May_Throw(
+            Do_Vararg_Op_May_Throw_Or_End(
                 D_OUT,
                 arg,
                 VARARG_OP_TAKE
             );
 
-            if (IS_END(r)) {
-                assert(r == END_NODE);
+            if (IS_END(D_OUT))
                 break;
-            }
-            if (THROWN(r)) {
-                assert(r == D_OUT);
+            if (THROWN(D_OUT)) {
                 DS_DROP_TO(dsp_orig);
-                return r;
+                return D_OUT;
             }
-            assert(r == D_OUT);
 
             DS_PUSH(D_OUT);
         } while (TRUE);
@@ -300,8 +296,8 @@ REBTYPE(Unhooked)
 // or perhaps things like PORT! that wish to act like a series).  This
 // suggests a need for a kind of hierarchy of handling.
 //
-// The series common code is in Series_Common_Action_Or_End(), but that is
-// only called from series.  Handle a few extra cases here.
+// The series common code is in Series_Common_Action_Maybe_Unhandled(), but
+// that is only called from series.  Handle a few extra cases here.
 //
 const REBVAL *Reflect_Core(REBFRM *frame_)
 {

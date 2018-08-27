@@ -788,7 +788,7 @@ REBNATIVE(map_event)
         SET_EVENT_XY(val, ROUND_TO_INT(xy.x), ROUND_TO_INT(xy.y));
     }
 
-    return ARG(event);
+    RETURN (ARG(event));
 }
 
 
@@ -963,13 +963,13 @@ const REBVAL *PD_Gob(
     }
 
     if (IS_INTEGER(picker)) {
-        if (!GOB_PANE(gob)) return BLANK_VALUE;
+        if (!GOB_PANE(gob)) return Init_Blank(pvs->out);
 
         tail = GOB_PANE(gob) ? GOB_LEN(gob) : 0;
         index = VAL_GOB_INDEX(pvs->out);
         index += Int32(picker) - 1;
 
-        if (index >= tail) return BLANK_VALUE;
+        if (index >= tail) return Init_Blank(pvs->out);
 
         gob = *GOB_AT(gob, index);
         RESET_VAL_HEADER(pvs->out, REB_GOB);
@@ -1031,13 +1031,13 @@ REBTYPE(Gob)
             goto set_index;
 
         case SYM_HEAD_Q:
-            return R_FROM_BOOL(index == 0);
+            return Init_Logic(D_OUT, index == 0);
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(index >= tail);
+            return Init_Logic(D_OUT, index >= tail);
 
         case SYM_PAST_Q:
-            return R_FROM_BOOL(index > tail);
+            return Init_Logic(D_OUT, index > tail);
 
         case SYM_INDEX:
             Init_Integer(D_OUT, index + 1);
@@ -1220,8 +1220,7 @@ REBTYPE(Gob)
             *GOB_AT(gob, tail-index-1) = *GOB_AT(gob, index);
             *GOB_AT(gob, index) = ngob;
         }
-        Move_Value(D_OUT, D_ARG(1));
-        return D_OUT;
+        RETURN (D_ARG(1));
 
     default:
         break;

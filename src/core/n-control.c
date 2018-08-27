@@ -133,7 +133,7 @@ REBNATIVE(either)
 }
 
 
-//  Either_Test_Core: C
+//  Either_Test_Core_May_Throw: C
 //
 // Note: There was an idea of turning the `test` BLOCK! into some kind of
 // dialect.  That was later supplanted by idea of MATCH...which bridges with
@@ -141,8 +141,8 @@ REBNATIVE(either)
 // This routine is just for basic efficiency behind constructs like ELSE
 // that want to avoid frame creation overhead.  So BLOCK! just means typeset.
 //
-inline static const REBVAL *Either_Test_Core(
-    REBVAL *cell, // GC-safe temp cell
+inline static void Either_Test_Core_May_Throw(
+    REBVAL *out, // GC-safe output cell
     REBVAL *test, // modified
     const REBVAL *arg
 ){
@@ -155,7 +155,8 @@ inline static const REBVAL *Either_Test_Core(
         // "testing the test" on a fixed value.  Allow literal blocks (e.g.
         // use IS_TRUTHY() instead of IS_CONDITIONAL_TRUE())
         //
-        return R_FROM_BOOL(VAL_LOGIC(test) == IS_TRUTHY(arg)); }
+        Init_Logic(out, VAL_LOGIC(test) == IS_TRUTHY(arg));
+        return; }
 
     case REB_WORD:
     case REB_PATH: {
@@ -172,19 +173,19 @@ inline static const REBVAL *Either_Test_Core(
         REBSTR *opt_label = NULL;
         REBDSP lowest_ordered_dsp = DSP;
         if (Get_If_Word_Or_Path_Throws(
-            cell,
+            out,
             &opt_label,
             test,
             SPECIFIED,
             push_refinements
         )){
-            return cell;
+            return;
         }
 
         assert(lowest_ordered_dsp == DSP); // would have made specialization
         UNUSED(lowest_ordered_dsp);
 
-        Move_Value(test, cell);
+        Move_Value(test, out);
 
         if (not IS_ACTION(test))
             fail ("EITHER-TEST only takes WORD! and PATH! for ACTION! vars");
@@ -195,25 +196,28 @@ inline static const REBVAL *Either_Test_Core(
     handle_action:;
 
         if (Apply_Only_Throws(
-            cell,
+            out,
             TRUE, // `fully` (ensure argument consumed)
             test,
             NULLIZE(arg), // convert nulled cells to C nullptr for API
             rebEND
         )){
-            return cell;
+            return;
         }
 
-        if (IS_VOID(cell))
+        if (IS_VOID(out))
             fail (Error_Void_Conditional_Raw());
 
-        return R_FROM_BOOL(IS_TRUTHY(cell)); }
+        Init_Logic(out, IS_TRUTHY(out));
+        return; }
 
     case REB_DATATYPE: {
-        return R_FROM_BOOL(VAL_TYPE_KIND(test) == VAL_TYPE(arg)); }
+        Init_Logic(out, VAL_TYPE_KIND(test) == VAL_TYPE(arg));
+        return; }
 
     case REB_TYPESET: {
-        return R_FROM_BOOL(TYPE_CHECK(test, VAL_TYPE(arg))); }
+        Init_Logic(out, TYPE_CHECK(test, VAL_TYPE(arg)));
+        return; }
 
     case REB_BLOCK: {
         RELVAL *item = VAL_ARRAY_AT(test);
@@ -233,17 +237,22 @@ inline static const REBVAL *Either_Test_Core(
                     : item;
 
             if (IS_DATATYPE(var)) {
-                if (VAL_TYPE_KIND(var) == VAL_TYPE(arg))
-                    return TRUE_VALUE;
+                if (VAL_TYPE_KIND(var) == VAL_TYPE(arg)) {
+                    Init_True(out);
+                    return;
+                }
             }
             else if (IS_TYPESET(var)) {
-                if (TYPE_CHECK(var, VAL_TYPE(arg)))
-                    return TRUE_VALUE;
+                if (TYPE_CHECK(var, VAL_TYPE(arg))) {
+                    Init_True(out);
+                    return;
+                }
             }
             else
                 fail (Error_Invalid_Type(VAL_TYPE(var)));
         }
-        return FALSE_VALUE; }
+        Init_False(out);
+        return; }
 
     default:
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
@@ -273,16 +282,12 @@ REBNATIVE(either_test)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST;
 
-    const REBVAL *r = Either_Test_Core(D_OUT, ARG(test), ARG(arg));
-    if (r == D_OUT) {
-        assert(THROWN(r));
+    Either_Test_Core_May_Throw(D_OUT, ARG(test), ARG(arg));
+    if (THROWN(D_OUT))
         return D_OUT;
-    }
 
-    if (r == TRUE_VALUE)
-        return ARG(arg);
-
-    assert(r == FALSE_VALUE);
+    if (VAL_LOGIC(D_OUT))
+        RETURN (ARG(arg));
 
     if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(arg)))
         return D_OUT;
@@ -308,7 +313,7 @@ REBNATIVE(else)
     INCLUDE_PARAMS_OF_ELSE; // faster than EITHER-TEST specialized w/`VALUE?`
 
     if (not IS_NULLED(ARG(optional))) // Note: VOID!s are crucially non-NULL
-        return ARG(optional);
+        RETURN (ARG(optional));
 
     if (Do_Branch_With_Throws(D_OUT, ARG(branch), NULLED_CELL))
         return D_OUT;
@@ -367,7 +372,7 @@ REBNATIVE(also)
     if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(optional)))
         return D_OUT;
 
-    return ARG(optional); // just passing thru the input
+    RETURN (ARG(optional)); // just passing thru the input
 }
 
 
@@ -480,7 +485,7 @@ REBNATIVE(match)
         Drop_Frame(f);
 
         if (THROWN(D_CELL))
-            return D_CELL;
+            RETURN (D_CELL);
 
         assert(IS_END(f->value)); // we started at END_FLAG, can only throw
 
@@ -495,7 +500,7 @@ REBNATIVE(match)
 
         if (IS_TRUTHY(D_CELL)) {
             if (IS_FALSEY(D_OUT))
-                return BAR_VALUE;
+                return Init_Bar(D_OUT);
             return D_OUT;
         }
 
@@ -519,29 +524,26 @@ either_test:;
     VAL_TYPESET_BITS(varpar) |= FLAGIT_KIND(REB_MAX_NULLED);
     INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_NORMAL); // !!! hack
 
-    const REBVAL *r = Do_Vararg_Op_May_Throw(D_OUT, ARG(args), VARARG_OP_TAKE);
-    if (r == END_NODE)
+    Do_Vararg_Op_May_Throw_Or_End(D_OUT, ARG(args), VARARG_OP_TAKE);
+    if (IS_END(D_OUT))
         fail ("Frame hack is written to need argument!");
 
-    if (THROWN(r))
-        return r;
-
-    assert(r == D_OUT);
+    if (THROWN(D_OUT))
+        return D_OUT;
 
     INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_HARD_QUOTE);
     VAL_TYPESET_BITS(varpar) &= ~FLAGIT_KIND(REB_MAX_NULLED);
 
-    r = Either_Test_Core(D_CELL, test, D_OUT);
-    if (THROWN(r))
-        return r;
+    Either_Test_Core_May_Throw(D_CELL, test, D_OUT);
+    if (THROWN(D_CELL))
+        RETURN (D_CELL);
 
-    if (r == TRUE_VALUE) {
+    if (VAL_LOGIC(D_CELL)) {
         if (IS_FALSEY(D_OUT)) // see above for why false match not passed thru
-            return BAR_VALUE;
+            return Init_Bar(D_OUT);
         return D_OUT;
     }
 
-    assert(r == FALSE_VALUE);
     return nullptr;
 }
 
@@ -652,14 +654,14 @@ REBNATIVE(none)
     }
 
     Drop_Frame(f);
-    return BAR_VALUE; // "synthetic" truthy that doesn't suggest LOGIC! on failure
+    return Init_Bar(D_OUT); // "synthetic" truthy that doesn't suggest LOGIC! on failure
 }
 
 
 // Shared code for CASE (which runs BLOCK! clauses as code) and CHOOSE (which
 // returns values as-is, e.g. `choose [true [print "hi"]]` => `[print "hi]`
 //
-static const REBVAL *Case_Choose_Core(
+static void Case_Choose_Core_May_Throw(
     REBVAL *out,
     REBVAL *cell, // scratch "D_CELL", must be GC safe
     REBVAL *block, // "choices" or "cases", must be GC safe
@@ -678,7 +680,8 @@ static const REBVAL *Case_Choose_Core(
 
         if (Eval_Step_In_Frame_Throws(cell, f)) {
             Abort_Frame(f);
-            return cell;
+            Move_Value(out, cell);
+            return;
         }
 
         // The last condition will "fall out" if there is no branch/choice:
@@ -688,7 +691,8 @@ static const REBVAL *Case_Choose_Core(
         //
         if (IS_END(f->value)) {
             Drop_Frame(f);
-            return cell;
+            Move_Value(out, cell);
+            return;
         }
 
         if (IS_CONDITIONAL_FALSE(cell)) { // not a matching condition
@@ -702,7 +706,8 @@ static const REBVAL *Case_Choose_Core(
             //
             if (Eval_Step_In_Frame_Throws(cell, f)) {
                 Abort_Frame(f);
-                return cell; // preserving `out` value (may be previous match)
+                Move_Value(out, cell);
+                return; // preserving `out` value (may be previous match)
             }
 
             // Maintain symmetry with IF's typechecking of non-taken branches:
@@ -723,7 +728,7 @@ static const REBVAL *Case_Choose_Core(
         else {
             if (Eval_Step_In_Frame_Throws(out, f)) {
                 Abort_Frame(f);
-                return out; // preserving `cell` to pass to an arity-1 ACTION!
+                return; // preserving `cell` to pass to an arity-1 ACTION!
             }
 
             f->gotten = nullptr; // can't hold onto cache, running user code
@@ -731,14 +736,14 @@ static const REBVAL *Case_Choose_Core(
             if (IS_BLOCK(out)) {
                 if (Do_Any_Array_At_Throws(out, out)) { // out=any_array legal
                     Abort_Frame(f);
-                    return out;
+                    return;
                 }
             }
             else if (IS_ACTION(out)) {
                 Move_Value(block, out); // couldn't evaluate into arg directly
                 if (Do_Branch_With_Throws(out, block, cell)) {
                     Abort_Frame(f);
-                    return out;
+                    return;
                 }
             } else
                 fail (Error_Invalid_Core(out, f->specifier));
@@ -748,12 +753,11 @@ static const REBVAL *Case_Choose_Core(
 
         if (not all) {
             Abort_Frame(f);
-            return out;
+            return;
         }
     }
 
     Drop_Frame(f);
-    return out;
 }
 
 
@@ -774,8 +778,14 @@ REBNATIVE(case)
 {
     INCLUDE_PARAMS_OF_CASE;
 
-    const REBOOL choose = FALSE;
-    return Case_Choose_Core(D_OUT, D_CELL, ARG(cases), REF(all), choose);
+    Case_Choose_Core_May_Throw(
+        D_OUT,
+        D_CELL,
+        ARG(cases),
+        REF(all),
+        false // not a CHOOSE (plain CASE)
+    );
+    return D_OUT;
 }
 
 
@@ -788,24 +798,27 @@ REBNATIVE(case)
 //          "Last matched choice value, or void if no choices matched"
 //      choices [block!]
 //          "Evaluate all choices (do not stop at first TRUTHY? choice)"
-//      /all
+//      /all ;-- see note
 //          "Return the value for the last matched choice (instead of first)"
 //  ]
 //
 REBNATIVE(choose)
+//
+// Note: The choose can't be run backwards, only forwards.  So implementation
+// means that "/LAST" really can only be done as an /ALL, there's no way to
+// go backwards in the block and get a Rebol-coherent answer.  Calling it /ALL
+// instead of /LAST helps reinforce that *all the conditions* are evaluated.
 {
     INCLUDE_PARAMS_OF_CHOOSE;
 
-    // The choose can't be run backwards, only forwards.  So implementation
-    // means that "/LAST" really can only be done as an /ALL, there's no way
-    // to go backwards in the block and get a Rebol-coherent answer.  Calling
-    // it /ALL instead of /LAST helps reinforce that *all the conditions*
-    // will be evaluated.
-    //
-    const REBOOL all = REF(all);
-
-    const REBOOL choose = true;
-    return Case_Choose_Core(D_OUT, D_CELL, ARG(choices), all, choose);
+    Case_Choose_Core_May_Throw(
+        D_OUT,
+        D_CELL,
+        ARG(choices),
+        REF(all),
+        true // do a CHOOSE (as opposed to a CASE)
+    );
+    return D_OUT;
 }
 
 

@@ -736,10 +736,10 @@ REBNATIVE(variadic_q)
     REBVAL *param = VAL_ACT_PARAMS_HEAD(ARG(action));
     for (; NOT_END(param); ++param) {
         if (Is_Param_Variadic(param))
-            return TRUE_VALUE;
+            return Init_True(D_OUT);
     }
 
-    return FALSE_VALUE;
+    return Init_False(D_OUT);
 }
 
 

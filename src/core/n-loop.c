@@ -671,9 +671,9 @@ skip_hidden: ;
             return nullptr;
 
         if (IS_END(D_CELL))
-            return BAR_VALUE; // all evaluations opted out
+            return Init_Bar(D_OUT); // all evaluations opted out
 
-        return D_CELL;
+        RETURN (D_CELL);
     }
 
     DEAD_END; // all branches handled in enum switch
@@ -1336,7 +1336,7 @@ REBNATIVE(loop)
 
     if (IS_FALSEY(ARG(count))) {
         assert(IS_LOGIC(ARG(count))); // is false...opposite of infinite loop
-        return VOID_VALUE;
+        return Init_Void(D_OUT);
     }
 
     Init_Void(D_OUT); // result if body never runs
@@ -1418,7 +1418,7 @@ REBNATIVE(repeat)
 
     REBI64 n = VAL_INT64(value);
     if (n < 1) // Loop_Integer from 1 to 0 with bump of 1 is infinite
-        return VOID_VALUE; // void if loop condition never runs
+        return Init_Void(D_OUT); // void if loop condition never runs
 
     return Loop_Integer_Common(
         D_OUT, var, ARG(body), 1, VAL_INT64(value), 1
@@ -1514,7 +1514,7 @@ inline static const REBVAL *While_Core(REBFRM *frame_, REBOOL trigger)
 
     do {
         if (Do_Branch_Throws(D_CELL, ARG(condition)))
-            return D_CELL; // don't look for break/continue in the *condition*
+            RETURN (D_CELL); // don't see break/continue in the *condition*
 
         if (IS_VOID(D_CELL))
             fail (Error_Void_Conditional_Raw()); // neither truthy nor falsey

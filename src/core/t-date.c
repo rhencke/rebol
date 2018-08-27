@@ -946,10 +946,10 @@ REBTYPE(Date)
     else {
         switch (sym) {
         case SYM_EVEN_Q:
-            return ((~day) & 1) == 0 ? TRUE_VALUE : FALSE_VALUE;
+            return Init_Logic(D_OUT, ((~day) & 1) == 0);
 
         case SYM_ODD_Q:
-            return (day & 1) == 0 ? TRUE_VALUE : FALSE_VALUE;
+            return Init_Logic(D_OUT, (day & 1) == 0);
 
         case SYM_RANDOM: {
             INCLUDE_PARAMS_OF_RANDOM;

@@ -475,7 +475,7 @@ REBNATIVE(meta_of)
     if (not meta)
         return nullptr;
 
-    return CTX_ARCHETYPE(meta);
+    RETURN (CTX_ARCHETYPE(meta));
 }
 
 
@@ -519,7 +519,7 @@ REBNATIVE(set_meta)
     if (not meta)
         return nullptr;
 
-    return CTX_ARCHETYPE(meta);
+    RETURN (CTX_ARCHETYPE(meta));
 }
 
 
@@ -746,16 +746,13 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 
 
 //
-//  Try_Context_Common_Action: C
+//  Context_Common_Action_Maybe_Unhandled: C
 //
-// Similar to Try_Series_Common_Action().  Introduced because PORT! wants to
-// act like a context for some things, but if you ask an ordinary object if
-// it's OPEN? it doesn't know how to do that.
+// Similar to Series_Common_Action_Maybe_Unhandled().  Introduced because
+// PORT! wants to act like a context for some things, but if you ask an
+// ordinary object if it's OPEN? it doesn't know how to do that.
 //
-// Note that returning nullptr means not handled.  Use NULLED_CELL here to
-// indicate a Rebol NULL state.
-//
-const REBVAL *Try_Context_Common_Action(
+const REBVAL *Context_Common_Action_Maybe_Unhandled(
     REBFRM *frame_,
     REBVAL *verb
 ){
@@ -798,7 +795,7 @@ const REBVAL *Try_Context_Common_Action(
         break;
     }
 
-    return nullptr; // not a common operation, not handled (not NULLED_CELL!)
+    return R_UNHANDLED;
 }
 
 
@@ -809,8 +806,8 @@ const REBVAL *Try_Context_Common_Action(
 //
 REBTYPE(Context)
 {
-    const REBVAL *r = Try_Context_Common_Action(frame_, verb);
-    if (r)
+    const REBVAL *r = Context_Common_Action_Maybe_Unhandled(frame_, verb);
+    if (r != R_UNHANDLED)
         return r;
 
     REBVAL *value = D_ARG(1);
@@ -871,9 +868,9 @@ REBTYPE(Context)
             return nullptr;
 
         if (VAL_WORD_SYM(verb) == SYM_FIND)
-            return BAR_VALUE; // synthesizing TRUE would obscure non-LOGIC! result
+            return Init_Bar(D_OUT); // TRUE would obscure non-LOGIC! result
 
-        return CTX_VAR(c, n);
+        RETURN (CTX_VAR(c, n));
     }
 
     default:
@@ -1024,7 +1021,7 @@ REBNATIVE(construct)
             Bind_Values_Deep(VAL_ARRAY_AT(body), context);
 
             if (Do_Any_Array_At_Throws(D_CELL, body))
-                return D_CELL; // body evaluation result ignored unless thrown
+                RETURN (D_CELL); // evaluation result ignored unless thrown
         }
 
         return D_OUT;

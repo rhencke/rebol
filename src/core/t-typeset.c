@@ -402,7 +402,7 @@ REBTYPE(Typeset)
             fail (Error_Invalid(arg));
 
         if (TYPE_CHECK(val, VAL_TYPE_KIND(arg)))
-            return BAR_VALUE;
+            return Init_Bar(D_OUT);
 
         return nullptr;
 
@@ -423,15 +423,15 @@ REBTYPE(Typeset)
             assert(VAL_WORD_SYM(verb) == SYM_DIFFERENCE);
             VAL_TYPESET_BITS(val) ^= VAL_TYPESET_BITS(arg);
         }
-        Move_Value(D_OUT, D_ARG(1));
-        return D_OUT;
+        RETURN (val);
 
     case SYM_COMPLEMENT:
         VAL_TYPESET_BITS(val) = ~VAL_TYPESET_BITS(val);
-        Move_Value(D_OUT, D_ARG(1));
-        return D_OUT;
+        RETURN (val);
 
     default:
-        fail (Error_Illegal_Action(REB_TYPESET, verb));
+        break;
     }
+
+    fail (Error_Illegal_Action(REB_TYPESET, verb));
 }

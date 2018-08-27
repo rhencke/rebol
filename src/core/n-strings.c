@@ -875,7 +875,7 @@ REBNATIVE(deline)
 
     TERM_UNI_LEN(s, len_head);
 
-    return ARG(string);
+    RETURN (ARG(string));
 }
 
 
@@ -922,7 +922,7 @@ REBNATIVE(enline)
     }
 
     if (delta == 0)
-        return ARG(string); // nothing to do
+        RETURN (ARG(string)); // nothing to do
 
     EXPAND_SERIES_TAIL(ser, delta);
 
@@ -950,7 +950,7 @@ REBNATIVE(enline)
         --len;
     }
 
-    return ARG(string);
+    RETURN (ARG(string));
 }
 
 

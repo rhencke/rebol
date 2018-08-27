@@ -1185,6 +1185,12 @@ inline static REBOOL IS_TRUTHY(const RELVAL *v) {
         Init_Logic_Debug((out), (b), __FILE__, __LINE__)
 #endif
 
+#define Init_True(out) \
+    Init_Logic((out), true)
+
+#define Init_False(out) \
+    Init_Logic((out), false)
+
 
 // Although a BLOCK! value is true, some constructs are safer by not allowing
 // literal blocks.  e.g. `if [x] [print "this is not safe"]`.  The evaluated

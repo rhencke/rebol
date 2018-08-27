@@ -134,7 +134,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
         switch (VAL_TYPE_RAW(r)) {
 
         case REB_0_END: // unhandled
-            assert(r == END_NODE); // shouldn't be other ends
+            assert(r == R_UNHANDLED); // shouldn't be other ends
             fail (Error_Bad_Path_Poke_Raw(PVS_PICKER(pvs)));
 
         case REB_R_INVISIBLE: // dispatcher assigned target with opt_setval
@@ -612,7 +612,7 @@ REBNATIVE(pick)
 
     switch (VAL_TYPE_RAW(r)) {
     case REB_0_END:
-        assert(r == END_NODE);
+        assert(r == R_UNHANDLED);
         fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
 
     case REB_R_INVISIBLE:
@@ -697,7 +697,7 @@ REBNATIVE(poke)
     const REBVAL *r = dispatcher(pvs, PVS_PICKER(pvs), ARG(value));
     switch (VAL_TYPE_RAW(r)) {
     case REB_0_END:
-        assert(r == END_NODE);
+        assert(r == R_UNHANDLED);
         fail (Error_Bad_Path_Poke_Raw(PVS_PICKER(pvs)));
 
     case REB_R_INVISIBLE: // is saying it did the write already
@@ -712,5 +712,5 @@ REBNATIVE(poke)
         fail (Error_Invalid(PVS_PICKER(pvs))); // raise error in release build
     }
 
-    return ARG(value); // return the value we got in
+    RETURN (ARG(value)); // return the value we got in
 }

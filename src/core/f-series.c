@@ -34,16 +34,13 @@
 #define THE_SIGN(v) ((v < 0) ? -1 : (v > 0) ? 1 : 0)
 
 //
-//  Try_Series_Common_Action: C
+//  Series_Common_Action_Maybe_Unhandled: C
 //
 // This routine is called to handle actions on ANY-SERIES! that can be taken
 // care of without knowing what specific kind of series it is.  So generally
 // index manipulation, and things like LENGTH/etc.
 //
-// If nullptr is returned, that means there was no common action...it does
-// not represent a NULL Rebol state.  Use NULLED_CELL for the latter here.
-//
-const REBVAL *Try_Series_Common_Action(
+const REBVAL *Series_Common_Action_Maybe_Unhandled(
     REBFRM *frame_,
     REBVAL *verb
 ){
@@ -77,13 +74,13 @@ const REBVAL *Try_Series_Common_Action(
             return D_OUT;
 
         case SYM_HEAD_Q:
-            return R_FROM_BOOL(index == 0);
+            return Init_Logic(D_OUT, index == 0);
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(index >= tail);
+            return Init_Logic(D_OUT, index >= tail);
 
         case SYM_PAST_Q:
-            return R_FROM_BOOL(index > tail);
+            return Init_Logic(D_OUT, index > tail);
 
         case SYM_FILE: {
             REBSER *s = VAL_SERIES(value);
@@ -98,15 +95,13 @@ const REBVAL *Try_Series_Common_Action(
                 );
                 return D_OUT;
             }
-            return NULLED_CELL; }
+            return nullptr; }
 
         case SYM_LINE: {
             REBSER *s = VAL_SERIES(value);
-            if (IS_SER_ARRAY(s) and GET_SER_FLAG(s, ARRAY_FLAG_FILE_LINE)) {
-                Init_Integer(D_OUT, MISC(s).line);
-                return D_OUT;
-            }
-            return NULLED_CELL; }
+            if (IS_SER_ARRAY(s) and GET_SER_FLAG(s, ARRAY_FLAG_FILE_LINE))
+                return Init_Integer(D_OUT, MISC(s).line);
+            return nullptr; }
 
         default:
             break;
@@ -156,17 +151,17 @@ const REBVAL *Try_Series_Common_Action(
 
         if (i > cast(REBI64, tail)) {
             if (REF(only))
-                return NULLED_CELL;
+                return nullptr;
             i = cast(REBI64, tail); // past tail clips to tail if not /ONLY
         }
         else if (i < 0) {
             if (REF(only))
-                return NULLED_CELL;
+                return nullptr;
             i = 0; // past head clips to head if not /ONLY
         }
 
         VAL_INDEX(value) = cast(REBCNT, i);
-        return value; }
+        RETURN (value); }
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
@@ -185,17 +180,17 @@ const REBVAL *Try_Series_Common_Action(
         if (index < tail and len != 0)
             Remove_Series(VAL_SERIES(value), VAL_INDEX(value), len);
 
-        return value; }
+        RETURN (value); }
 
     case SYM_INTERSECT: {
         if (IS_BINARY(value))
-            return nullptr; // !!! unhandled; use bitwise math, for now
+            return R_UNHANDLED; // !!! unhandled; use bitwise math, for now
 
         INCLUDE_PARAMS_OF_INTERSECT;
 
         UNUSED(ARG(value1)); // covered by value
 
-        Init_Any_Series(
+        return Init_Any_Series(
             D_OUT,
             VAL_TYPE(value),
             Make_Set_Operation_Series(
@@ -205,18 +200,17 @@ const REBVAL *Try_Series_Common_Action(
                 REF(case),
                 REF(skip) ? Int32s(ARG(size), 1) : 1
             )
-        );
-        return D_OUT; }
+        ); }
 
     case SYM_UNION: {
         if (IS_BINARY(value))
-            return nullptr; // !!! unhandled; use bitwise math, for now
+            return R_UNHANDLED; // !!! unhandled; use bitwise math, for now
 
         INCLUDE_PARAMS_OF_UNION;
 
         UNUSED(ARG(value1)); // covered by value
 
-        Init_Any_Series(
+        return Init_Any_Series(
             D_OUT,
             VAL_TYPE(value),
             Make_Set_Operation_Series(
@@ -226,18 +220,17 @@ const REBVAL *Try_Series_Common_Action(
                 REF(case),
                 REF(skip) ? Int32s(ARG(size), 1) : 1
             )
-        );
-        return D_OUT; }
+        ); }
 
     case SYM_DIFFERENCE: {
         if (IS_BINARY(value))
-            return nullptr; // !!! unhandled; use bitwise math, for now
+            return R_UNHANDLED; // !!! unhandled; use bitwise math, for now
 
         INCLUDE_PARAMS_OF_DIFFERENCE;
 
         UNUSED(ARG(value1)); // covered by value
 
-        Init_Any_Series(
+        return Init_Any_Series(
             D_OUT,
             VAL_TYPE(value),
             Make_Set_Operation_Series(
@@ -247,14 +240,13 @@ const REBVAL *Try_Series_Common_Action(
                 REF(case),
                 REF(skip) ? Int32s(ARG(size), 1) : 1
             )
-        );
-        return D_OUT; }
+        ); }
 
     default:
         break;
     }
 
-    return nullptr; // not a common operation, uhandled (not NULLED_CELL!)
+    return R_UNHANDLED; // not a common operation, uhandled (not NULLED_CELL!)
 }
 
 

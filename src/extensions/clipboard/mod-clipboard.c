@@ -67,7 +67,7 @@ static const REBVAL *Clipboard_Actor(
 
         switch (property) {
         case SYM_OPEN_Q:
-            return R_FROM_BOOL(TRUE); // !!! does it need "port state"?  :-/
+            return Init_Logic(D_OUT, true); // !!! need "port state"?  :-/
 
         default:
             break;
@@ -100,7 +100,7 @@ static const REBVAL *Clipboard_Actor(
             if (last_error != NO_ERROR)
                 rebFail_OS (last_error);
 
-            return BLANK_VALUE;
+            return Init_Blank(D_OUT);
         }
 
         if (not OpenClipboard(NULL))
@@ -219,7 +219,7 @@ static const REBVAL *Clipboard_Actor(
 
         assert(h_check == h);
 
-        return port; }
+        RETURN (port); }
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -240,13 +240,13 @@ static const REBVAL *Clipboard_Actor(
 
         // !!! Currently just ignore (it didn't do anything)
 
-        return port; }
+        RETURN (port); }
 
     case SYM_CLOSE: {
 
         // !!! Currently just ignore (it didn't do anything)
 
-        return port; }
+        RETURN (port); }
 
     default:
         break;

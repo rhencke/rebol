@@ -317,24 +317,24 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         case SYM_HEAD:
             file->index = 0;
             req->modes |= RFM_RESEEK;
-            return port;
+            RETURN (port);
 
         case SYM_TAIL:
             file->index = file->size;
             req->modes |= RFM_RESEEK;
-            return port;
+            RETURN (port);
 
         case SYM_HEAD_Q:
-            return R_FROM_BOOL(file->index == 0);
+            return Init_Logic(D_OUT, file->index == 0);
 
         case SYM_TAIL_Q:
-            return R_FROM_BOOL(file->index >= file->size);
+            return Init_Logic(D_OUT, file->index >= file->size);
 
         case SYM_PAST_Q:
-            return R_FROM_BOOL(file->index > file->size);
+            return Init_Logic(D_OUT, file->index > file->size);
 
         case SYM_OPEN_Q:
-            return R_FROM_BOOL(did (req->flags & RRF_OPEN));
+            return Init_Logic(D_OUT, did (req->flags & RRF_OPEN));
 
         default:
             break;
@@ -455,7 +455,7 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             rebRelease(result);
         }
 
-        return port; }
+        RETURN (port); }
 
     case SYM_OPEN: {
         INCLUDE_PARAMS_OF_OPEN;
@@ -479,7 +479,7 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         Open_File_Port(port, file, path);
 
-        return port; }
+        RETURN (port); }
 
     case SYM_COPY: {
         INCLUDE_PARAMS_OF_COPY;
@@ -515,7 +515,7 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
             rebRelease(result); // ignore error
         }
-        return port; }
+        RETURN (port); }
 
     case SYM_DELETE: {
         INCLUDE_PARAMS_OF_DELETE;
@@ -532,7 +532,7 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             rebJumps("FAIL", result, rebEND);
 
         rebRelease(result); // ignore result
-        return port; }
+        RETURN (port); }
 
     case SYM_RENAME: {
         INCLUDE_PARAMS_OF_RENAME;
@@ -550,7 +550,7 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             rebJumps("FAIL", result, rebEND);
         rebRelease(result); // ignore result
 
-        return ARG(from); }
+        RETURN (ARG(from)); }
 
     case SYM_CREATE: {
         if (not (req->flags & RRF_OPEN)) {
@@ -571,7 +571,7 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         // !!! should it leave file open???
 
-        return port; }
+        RETURN (port); }
 
     case SYM_QUERY: {
         INCLUDE_PARAMS_OF_QUERY;
@@ -613,11 +613,11 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             assert(result != NULL);
             if (rebDid("error?", result, rebEND)) {
                 rebRelease(result); // !!! R3-Alpha returned blank on error
-                return FALSE_VALUE;
+                return Init_False(D_OUT);
             }
             rebRelease(result); // ignore result
         }
-        return TRUE_VALUE; }
+        return Init_True(D_OUT); }
 
     case SYM_SKIP: {
         INCLUDE_PARAMS_OF_SKIP;
@@ -627,7 +627,7 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         file->index += Get_Num_From_Arg(ARG(offset));
         req->modes |= RFM_RESEEK;
-        return port; }
+        RETURN (port); }
 
     case SYM_CLEAR: {
         // !! check for write enabled?
@@ -636,7 +636,7 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         req->length = 0;
 
         OS_DO_DEVICE_SYNC(req, RDC_WRITE);
-        return port; }
+        RETURN (port); }
 
     default:
         break;

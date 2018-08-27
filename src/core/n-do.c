@@ -144,7 +144,7 @@ REBNATIVE(eval_enfix)
         f->specifier,
         push_refinements
     )){
-        return D_CELL;
+        RETURN (D_CELL);
     }
 
     // !!! If we were to give an error on using ME with non-enfix or MY with
@@ -475,7 +475,7 @@ REBNATIVE(evaluate)
         );
 
         if (indexor == THROWN_FLAG)
-            return D_CELL;
+            RETURN (D_CELL);
 
         if (indexor == END_FLAG or IS_END(D_CELL))
             return nullptr; // no disruption of output result
@@ -529,7 +529,7 @@ REBNATIVE(evaluate)
             if (not IS_NULLED(var))
                 Move_Value(Sink_Var_May_Fail(var, SPECIFIED), source);
 
-            return source; // original VARARGS! will have an updated position
+            RETURN (source); // original VARARGS! will have updated position
         }
 
         REBFRM *f;
@@ -546,7 +546,7 @@ REBNATIVE(evaluate)
             return nullptr;
 
         if (Eval_Step_In_Subframe_Throws(SET_END(D_CELL), f, flags, child))
-            return D_CELL;
+            RETURN (D_CELL);
 
         if (IS_END(D_CELL))
             return nullptr;
@@ -554,7 +554,7 @@ REBNATIVE(evaluate)
         if (not IS_NULLED(var))
             Move_Value(Sink_Var_May_Fail(var, SPECIFIED), D_CELL);
 
-        return source; } // original VARARGS! will have an updated position
+        RETURN (source); } // original VARARGS! will have an updated position
 
     default:
         panic (source);
@@ -582,7 +582,7 @@ REBNATIVE(sync_invisibles)
     if (VAL_LEN_AT(ARG(source)) == 0)
         return nullptr;
 
-    return ARG(source);
+    RETURN (ARG(source));
 }
 
 
@@ -783,7 +783,7 @@ REBNATIVE(apply)
 
     if (threw) {
         Free_Unmanaged_Array(CTX_VARLIST(stolen)); // could TG_Reuse it
-        return D_CELL;
+        RETURN (D_CELL);
     }
 
     Push_Frame_At_End(f, DO_FLAG_PROCESS_ACTION);

@@ -189,8 +189,8 @@ REBTYPE(Port)
 
     REBVAL *port = D_ARG(1);
 
-    const REBVAL *r = Try_Context_Common_Action(frame_, verb);
-    if (r)
+    const REBVAL *r = Context_Common_Action_Maybe_Unhandled(frame_, verb);
+    if (r != R_UNHANDLED)
         return r;
 
     return Do_Port_Action(frame_, port, verb);

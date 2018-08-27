@@ -316,12 +316,12 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
 static void Startup_True_And_False(void)
 {
     REBVAL *true_value = Append_Context(Lib_Context, 0, Canon(SYM_TRUE));
-    Init_Logic(true_value, true);
+    Init_True(true_value);
     assert(VAL_LOGIC(true_value) == true);
     assert(IS_TRUTHY(true_value));
 
     REBVAL *false_value = Append_Context(Lib_Context, 0, Canon(SYM_FALSE));
-    Init_Logic(false_value, false);
+    Init_False(false_value);
     assert(VAL_LOGIC(false_value) == false);
     assert(IS_FALSEY(false_value));
 }
@@ -820,12 +820,12 @@ static void Init_Root_Vars(void)
 
     Prep_Non_Stack_Cell(&PG_False_Value[0]);
     Prep_Non_Stack_Cell(&PG_False_Value[1]);
-    Init_Logic(&PG_False_Value[0], false);
+    Init_False(&PG_False_Value[0]);
     TRASH_CELL_IF_DEBUG(&PG_False_Value[1]);
 
     Prep_Non_Stack_Cell(&PG_True_Value[0]);
     Prep_Non_Stack_Cell(&PG_True_Value[1]);
-    Init_Logic(&PG_True_Value[0], true);
+    Init_True(&PG_True_Value[0]);
     TRASH_CELL_IF_DEBUG(&PG_True_Value[1]);
 
     Prep_Non_Stack_Cell(&PG_Void_Value[0]);

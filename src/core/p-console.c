@@ -52,7 +52,7 @@ static const REBVAL *Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         switch (property) {
         case SYM_OPEN_Q:
-            return R_FROM_BOOL(did (req->flags & RRF_OPEN));
+            return Init_Logic(D_OUT, did (req->flags & RRF_OPEN));
 
         default:
             break;
@@ -102,12 +102,12 @@ static const REBVAL *Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
     case SYM_OPEN: {
         req->flags |= RRF_OPEN;
-        return port; }
+        RETURN (port); }
 
     case SYM_CLOSE:
         req->flags &= ~RRF_OPEN;
         //OS_DO_DEVICE(req, RDC_CLOSE);
-        return port;
+        RETURN (port);
 
     default:
         break;
