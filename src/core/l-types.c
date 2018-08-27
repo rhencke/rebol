@@ -388,9 +388,10 @@ REBNATIVE(of)
     // fit the type action dispatcher rule... dispatch item in first arg,
     // property in the second.
     //
-    Move_Value(D_CELL, ARG(property));
+    DECLARE_LOCAL (temp);
+    Move_Value(temp, ARG(property));
     Move_Value(ARG(property), ARG(value));
-    Move_Value(ARG(value), D_CELL);
+    Move_Value(ARG(value), temp);
 
     return Reflect_Core(frame_);
 }

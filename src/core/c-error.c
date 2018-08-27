@@ -77,10 +77,10 @@ void Assert_State_Balanced_Debug(
 ){
     if (s->dsp != DSP) {
         printf(
-            "DS_PUSH()x%lu without DS_POP/DS_DROP\n",
-            cast(unsigned long, DSP - s->dsp)
+            "DS_PUSH()x%d without DS_POP/DS_DROP\n",
+            cast(int, DSP - s->dsp)
         );
-        panic_at (NULL, file, line);
+        panic_at (nullptr, file, line);
     }
 
     assert(s->frame == FS_TOP);

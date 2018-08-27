@@ -172,7 +172,14 @@ void Shutdown_Frame_Stack(void)
 
     REBFRM *f = FS_TOP;
     Drop_Action(f);
-    Drop_Frame_Core(f);
+
+    // There's a Catch-22 on checking the balanced state for outstanding
+    // manual series allocations, e.g. it can't check *before* the mold buffer
+    // is freed because it would look like it was a leaked series, but it
+    // can't check *after* because the mold buffer balance check would crash.
+    //
+    Drop_Frame_Core(f); // can't be Drop_Frame() or Drop_Frame_Unbalanced()
+
     assert(not FS_TOP);
     FREE(REBFRM, f);
 

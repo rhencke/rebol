@@ -169,8 +169,8 @@ REBTYPE(Port)
             // are going to read the D_ARG(1) slot *implicitly* regardless of
             // what value points to.
             //
-            MAKE_Port(D_CELL, REB_PORT, D_ARG(1)); // can't eval into D_OUT
-            Move_Value(D_ARG(1), D_CELL);
+            MAKE_Port(D_OUT, REB_PORT, D_ARG(1));
+            Move_Value(D_ARG(1), D_OUT);
             break; }
 
         case SYM_ON_WAKE_UP:

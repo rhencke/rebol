@@ -230,8 +230,7 @@ static REBOOL Subparse_Throws(
     UNUSED(r);
 
     Drop_Action(f);
-
-    Drop_Frame_Core(f); // may not be IS_END(f->value)
+    Drop_Frame(f);
 
     if (THROWN(out)) {
         //

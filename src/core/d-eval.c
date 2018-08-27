@@ -117,8 +117,8 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     // The state isn't actually guaranteed to balance overall until a frame
     // is completely dropped.  This is because a frame may be reused over
     // multiple calls by something like REDUCE or FORM, accumulating items
-    // on the data stack or mold stack/etc.  See Drop_Frame_Core() for the
-    // actual balance check.
+    // on the data stack or mold stack/etc.  See Drop_Frame() for the actual
+    // balance check.
 
     assert(f == FS_TOP);
     assert(DSP == f->dsp_orig);
@@ -205,28 +205,12 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
     );
 
   #if defined(DEBUG_UNREADABLE_BLANKS)
-    //
-    // Once a throw is started, no new expressions may be evaluated until
-    // that throw gets handled.
-    //
-    assert(IS_UNREADABLE_DEBUG(&TG_Thrown_Arg));
-
-    // Make sure `cell` is reset in debug build if not doing a `reevaluate`
-    // (once this was used by EVAL the native, but now it's used by rebEval()
-    // at the API level, which currently sets `f->value = FRM_CELL(f);`)
-    //
-    #if !defined(NDEBUG)
-        if (f->value != FRM_CELL(f))
-            Init_Unreadable_Blank(FRM_CELL(f));
-    #endif
+    assert(IS_UNREADABLE_DEBUG(&TG_Thrown_Arg)); // no evals between throws
+    Init_Unreadable_Blank(FRM_CELL(f)); // cell available as scratch space
   #endif
 
-    // Trash call variables in debug build to make sure they're not reused.
-    // Note that this call frame will *not* be seen by the GC unless it gets
-    // chained in via a function execution, so it's okay to put "non-GC safe"
-    // trash in at this point...though by the time of that call, they must
-    // hold valid values.
-
+    // Trash fields that GC won't be seeing unless Is_Action_Frame()
+    //
     TRASH_POINTER_IF_DEBUG(f->param);
     TRASH_POINTER_IF_DEBUG(f->arg);
     TRASH_POINTER_IF_DEBUG(f->special);

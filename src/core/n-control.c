@@ -467,7 +467,8 @@ REBNATIVE(match)
 
         Move_Value(D_OUT, first_arg); // steal first argument before call
 
-        f->out = D_CELL;
+        DECLARE_LOCAL (temp);
+        f->out = SET_END(temp);
 
         f->rootvar = CTX_ARCHETYPE(CTX(f->varlist));
         f->param = ACT_FACADE_HEAD(VAL_ACTION(test));
@@ -484,12 +485,12 @@ REBNATIVE(match)
 
         Drop_Frame(f);
 
-        if (THROWN(D_CELL))
-            RETURN (D_CELL);
+        if (THROWN(temp))
+            RETURN (temp);
 
         assert(IS_END(f->value)); // we started at END_FLAG, can only throw
 
-        if (IS_VOID(D_CELL))
+        if (IS_VOID(temp))
             fail (Error_Void_Conditional_Raw());
 
         // We still have the first argument from the filter call in D_OUT.
@@ -498,7 +499,7 @@ REBNATIVE(match)
         // won't do so if the argument was falsey, as that is misleading.
         // Instead it passes a BAR! back.
 
-        if (IS_TRUTHY(D_CELL)) {
+        if (IS_TRUTHY(temp)) {
             if (IS_FALSEY(D_OUT))
                 return Init_Bar(D_OUT);
             return D_OUT;
@@ -534,11 +535,12 @@ either_test:;
     INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_HARD_QUOTE);
     VAL_TYPESET_BITS(varpar) &= ~FLAGIT_KIND(REB_MAX_NULLED);
 
-    Either_Test_Core_May_Throw(D_CELL, test, D_OUT);
-    if (THROWN(D_CELL))
-        RETURN (D_CELL);
+    DECLARE_LOCAL (temp);
+    Either_Test_Core_May_Throw(temp, test, D_OUT);
+    if (THROWN(temp))
+        RETURN (temp);
 
-    if (VAL_LOGIC(D_CELL)) {
+    if (VAL_LOGIC(temp)) {
         if (IS_FALSEY(D_OUT)) // see above for why false match not passed thru
             return Init_Bar(D_OUT);
         return D_OUT;
@@ -663,7 +665,7 @@ REBNATIVE(none)
 //
 static void Case_Choose_Core_May_Throw(
     REBVAL *out,
-    REBVAL *cell, // scratch "D_CELL", must be GC safe
+    REBVAL *cell, // scratch cell, must be GC safe
     REBVAL *block, // "choices" or "cases", must be GC safe
     REBOOL all,
     REBOOL choose // do not evaluate branches, just "choose" them
@@ -778,13 +780,17 @@ REBNATIVE(case)
 {
     INCLUDE_PARAMS_OF_CASE;
 
+    DECLARE_LOCAL (cell);
+    SET_END(cell);
+    PUSH_GC_GUARD(cell);
     Case_Choose_Core_May_Throw(
         D_OUT,
-        D_CELL,
+        cell,
         ARG(cases),
         REF(all),
         false // not a CHOOSE (plain CASE)
     );
+    DROP_GC_GUARD(cell);
     return D_OUT;
 }
 
@@ -811,13 +817,17 @@ REBNATIVE(choose)
 {
     INCLUDE_PARAMS_OF_CHOOSE;
 
+    DECLARE_LOCAL (cell);
+    SET_END(cell);
+    PUSH_GC_GUARD(cell);
     Case_Choose_Core_May_Throw(
         D_OUT,
-        D_CELL,
+        cell,
         ARG(choices),
         REF(all),
         true // do a CHOOSE (as opposed to a CASE)
     );
+    DROP_GC_GUARD(cell);
     return D_OUT;
 }
 
@@ -915,8 +925,7 @@ REBNATIVE(switch)
         // which equality is determined--and why it has to mutate.
         //
         // !!! A branch composed into the switch cases block may want to see
-        // the un-mutated condition value, in which case this should not
-        // be changing D_CELL
+        // the un-mutated condition value.
 
         if (!Compare_Modify_Values(ARG(value), D_OUT, REF(strict) ? 1 : 0))
             continue;

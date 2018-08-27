@@ -439,6 +439,38 @@ REBNATIVE(collect_words)
 }
 
 
+inline static void Get_Opt_Polymorphic_May_Fail(
+    REBVAL *out,
+    const RELVAL *v,
+    REBSPC *specifier
+){
+    if (IS_BAR(v)) {
+        //
+        // `a: 10 | b: 20 | get [a | b]` will give back `[10 | 20]`.
+        // While seemingly not a very useful feature standalone, this
+        // compatibility with SET could come in useful so that blocks
+        // don't have to be rearranged to filter out BAR!s.
+        //
+        Init_Bar(out);
+    }
+    else if (IS_BLANK(v)) {
+        Init_Nulled(out); // may be turned to blank after loop, or error
+    }
+    else if (ANY_WORD(v)) {
+        Move_Opt_Var_May_Fail(out, v, specifier);
+    }
+    else if (ANY_PATH(v)) {
+        //
+        // `get 'foo/bar` acts as `:foo/bar`
+        // except Get_Path_Core() doesn't allow GROUP!s in the PATH!
+        //
+        Get_Path_Core(out, v, specifier);
+    }
+    else
+        fail (Error_Invalid_Core(v, specifier));
+}
+
+
 //
 //  get: native [
 //
@@ -457,72 +489,163 @@ REBNATIVE(get)
 {
     INCLUDE_PARAMS_OF_GET;
 
-    RELVAL *source;
-    REBVAL *dest;
-    REBSPC *specifier;
+    REBVAL *source = ARG(source);
 
-    REBARR *results;
-
-    if (IS_BLOCK(ARG(source))) {
-        source = VAL_ARRAY_AT(ARG(source));
-        specifier = VAL_SPECIFIER(ARG(source));
-
-        results = Make_Array(VAL_LEN_AT(ARG(source)));
-        TERM_ARRAY_LEN(results, VAL_LEN_AT(ARG(source)));
-        dest = SINK(ARR_HEAD(results));
-    }
-    else {
-        // Move the argument into the single cell in the frame if it's not a
-        // block, so the same enumeration-up-to-an-END marker can work on it
-        // as for handling a block of items.
-        //
-        Move_Value(D_CELL, ARG(source));
-        source = D_CELL;
-        specifier = SPECIFIED;
-        dest = D_OUT;
-        results = NULL; // wasteful but avoids maybe-used-uninitalized warning
+    if (not IS_BLOCK(source)) {
+        Get_Opt_Polymorphic_May_Fail(D_OUT, source, SPECIFIED);
+        if (IS_NULLED(D_OUT) and REF(try))
+            Init_Blank(D_OUT);
+        return D_OUT;
     }
 
-    DECLARE_LOCAL (get_path_hack); // runs prep code, don't put inside loop
+    REBARR *results = Make_Array(VAL_LEN_AT(source));
+    REBVAL *dest = SINK(ARR_HEAD(results));
+    RELVAL *item = VAL_ARRAY_AT(source);
 
-    for (; NOT_END(source); ++source, ++dest) {
-        if (IS_BAR(source)) {
-            //
-            // `a: 10 | b: 20 | get [a | b]` will give back `[10 | 20]`.
-            // While seemingly not a very useful feature standalone, this
-            // compatibility with SET could come in useful so that blocks
-            // don't have to be rearranged to filter out BAR!s.
-            //
-            Init_Bar(dest);
-        }
-        else if (IS_BLANK(source)) {
-            Init_Nulled(dest); // may be turned to blank after loop, or error
-        }
-        else if (ANY_WORD(source)) {
-            Move_Opt_Var_May_Fail(dest, source, specifier);
-        }
-        else if (ANY_PATH(source)) {
-            //
-            // `get 'foo/bar` acts like `:foo/bar`
-            // Get_Path_Core() will raise an error if there are any GROUP!s.
-            //
-            Get_Path_Core(dest, source, specifier);
-        }
-
-        if (IS_NULLED(dest)) {
+    for (; NOT_END(item); ++item, ++dest) {
+        Get_Opt_Polymorphic_May_Fail(dest, item, VAL_SPECIFIER(source));
+        if (IS_NULLED(dest)) { // can't put nulls in blocks
             if (REF(try))
                 Init_Blank(dest);
-            else {
-                if (IS_BLOCK(ARG(source))) // can't put voids in blocks
-                    fail (Error_No_Value_Core(source, specifier));
-            }
+            else
+                fail (Error_No_Value_Core(item, VAL_SPECIFIER(source)));
         }
     }
 
-    if (IS_BLOCK(ARG(source)))
-        Init_Block(D_OUT, results);
+    TERM_ARRAY_LEN(results, VAL_LEN_AT(source));
+    return Init_Block(D_OUT, results);
+}
 
-    return D_OUT;
+
+inline static void Set_Opt_Polymorphic_May_Fail(
+    const RELVAL *target,
+    REBSPC *target_specifier,
+    const RELVAL *value,
+    REBSPC *value_specifier,
+    bool enfix
+){
+    if (enfix and not IS_ACTION(value))
+        fail ("Attempt to SET/ENFIX on a non-ACTION!");
+
+    if (IS_BAR(target)) {
+        //
+        // Just skip it, e.g. `set [a | b] [1 2 3]` sets a to 1, and b
+        // to 3, but drops the 2.  This functionality was achieved
+        // initially with blanks, but with setting in particular there
+        // are cases of `in obj 'word` which give back blank if the word
+        // is not there, so it leads to too many silent errors.
+    }
+    else if (ANY_WORD(target)) {
+        REBVAL *var = Sink_Var_May_Fail(target, target_specifier);
+        Derelativize(var, value, value_specifier);
+        if (enfix)
+            SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
+    }
+    else if (ANY_PATH(target)) {
+        DECLARE_LOCAL (specific);
+        Derelativize(specific, value, value_specifier);
+
+        // `set 'foo/bar 1` acts as `foo/bar: 1`
+        // Set_Path_Core() will raise an error if there are any GROUP!s
+        //
+        // Though you can't dispatch enfix from a path (at least not at
+        // present), the flag tells it to enfix a word in a context, or
+        // it will error if that's not what it looks up to.
+        //
+        Set_Path_Core(target, target_specifier, specific, enfix);
+    }
+    else
+        fail (Error_Invalid_Core(target, target_specifier));
+}
+
+
+//
+//  set: native [
+//
+//  {Sets a word, path, or block of words and paths to specified value(s).}
+//
+//      return: [<opt> any-value!]
+//          {Will be the values set to, or void if any set values are void}
+//      target [any-word! any-path! block!]
+//          {Word or path, or block of words and paths}
+//      value [<opt> any-value!]
+//          "Value or block of values"
+//      /single "If target and value are blocks, set each to the same value"
+//      /some "blank values (or values past end of block) are not set."
+//      /enfix "ACTION! calls through this word get first arg from left"
+//      /opt "If value is null, then consider this to be an UNSET operation"
+//  ]
+//
+REBNATIVE(set)
+//
+// R3-Alpha and Red let you write `set [a b] 10`, since the thing you were
+// setting to was not a block, would assume you meant to set all the values to
+// that.  BUT since you can set things to blocks, this has the problem of
+// `set [a b] [10]` being treated differently, which can bite you if you
+// `set [a b] value` for some generic value.
+//
+// Hence by default without /SINGLE, blocks are supported only as:
+//
+//     >> set [a b] [1 2]
+//     >> print a
+//     1
+//     >> print b
+//     2
+{
+    INCLUDE_PARAMS_OF_SET;
+
+    REBVAL *target = ARG(target);
+    REBVAL *value = ARG(value);
+
+    if (IS_NULLED_OR_VOID(value) and not REF(opt))
+        fail (Error_Need_Value_Raw(target));
+
+    if (not IS_BLOCK(target)) {
+        assert(ANY_WORD(target) or ANY_PATH(target));
+
+        Set_Opt_Polymorphic_May_Fail(
+            target,
+            SPECIFIED,
+            IS_BLANK(value) and REF(some) ? NULLED_CELL : value,
+            SPECIFIED,
+            REF(enfix)
+        );
+
+        RETURN (value);
+    }
+
+    const RELVAL *item = VAL_ARRAY_AT(target);
+
+    const RELVAL *v;
+    if (IS_BLOCK(value) and not REF(single))
+        v = VAL_ARRAY_AT(value);
+    else
+        v = value;
+
+    for (
+        ;
+        NOT_END(item);
+        ++item, (REF(single) or IS_END(v)) ? NOOP : (++v, NOOP)
+     ){
+        if (REF(some)) {
+            if (IS_END(v))
+                break; // won't be setting any further values
+            if (IS_BLANK(v))
+                continue; // /SOME means treat blanks as no-ops
+        }
+
+        Set_Opt_Polymorphic_May_Fail(
+            item,
+            VAL_SPECIFIER(target),
+            IS_END(v) ? BLANK_VALUE : v, // R3-Alpha/Red blank after END
+            (IS_BLOCK(value) and not REF(single))
+                ? VAL_SPECIFIER(value)
+                : SPECIFIED,
+            REF(enfix)
+        );
+    }
+
+    RETURN (ARG(value));
 }
 
 
@@ -685,147 +808,6 @@ REBNATIVE(resolve)
 
 
 //
-//  set: native [
-//
-//  {Sets a word, path, or block of words and paths to specified value(s).}
-//
-//      return: [<opt> any-value!]
-//          {Will be the values set to, or void if any set values are void}
-//      target [any-word! any-path! block!]
-//          {Word or path, or block of words and paths}
-//      value [<opt> any-value!]
-//          "Value or block of values"
-//      /single "If target and value are blocks, set each to the same value"
-//      /some "blank values (or values past end of block) are not set."
-//      /enfix "ACTION! calls through this word get first arg from left"
-//      /opt "If value is null, then consider this to be an UNSET operation"
-//  ]
-//
-REBNATIVE(set)
-//
-// Blocks are supported as:
-//
-//     >> set [a b] [1 2]
-//     >> print a
-//     1
-//     >> print b
-//     2
-{
-    INCLUDE_PARAMS_OF_SET;
-
-    const RELVAL *value;
-    REBSPC *value_specifier;
-
-    const RELVAL *target;
-    REBSPC *target_specifier;
-
-    REBOOL single;
-    if (IS_BLOCK(ARG(target))) {
-        //
-        // R3-Alpha and Red let you write `set [a b] 10`, since the thing
-        // you were setting to was not a block, would assume you meant to set
-        // all the values to that.  BUT since you can set things to blocks,
-        // this has a bad characteristic of `set [a b] [10]` being treated
-        // differently, which can bite you if you `set [a b] value` for some
-        // generic value.
-        //
-        if (IS_BLOCK(ARG(value)) and not REF(single)) {
-            //
-            // There is no need to check values for voidness in this case,
-            // since arrays cannot contain voids.
-            //
-            value = VAL_ARRAY_AT(ARG(value));
-            value_specifier = VAL_SPECIFIER(ARG(value));
-            single = FALSE;
-        }
-        else {
-            value = ARG(value);
-            value_specifier = SPECIFIED;
-            single = TRUE;
-        }
-
-        target = VAL_ARRAY_AT(ARG(target));
-        target_specifier = VAL_SPECIFIER(ARG(target));
-    }
-    else {
-        Move_Value(D_CELL, ARG(target));
-        target = D_CELL;
-        target_specifier = SPECIFIED;
-
-        // Use the fact that D_CELL is implicitly terminated so that the
-        // loop below can share code between `set [a b] x` and `set a x`, by
-        // incrementing the target pointer and hitting an END marker
-        //
-        assert(ANY_WORD(target) or ANY_PATH(target) or IS_BAR(target));
-
-        value = ARG(value);
-        value_specifier = SPECIFIED;
-        single = TRUE;
-    }
-
-    DECLARE_LOCAL (set_path_hack); // runs prep code, don't put inside loop
-
-    for (
-        ;
-        NOT_END(target);
-        ++target, (single or IS_END(value)) ? NOOP : (++value, NOOP)
-     ){
-        if (REF(some)) {
-            if (IS_END(value))
-                break; // won't be setting any further values
-            if (IS_BLANK(value))
-                continue;
-        }
-
-        if (REF(enfix) and not IS_ACTION(ARG(value)))
-            fail ("Attempt to SET/ENFIX on a non-function");
-
-        if (IS_NULLED_OR_VOID(ARG(value)) and not REF(opt))
-            fail (Error_Need_Value_Core(target, target_specifier));
-
-        if (IS_BAR(target)) {
-            //
-            // Just skip it, e.g. `set [a | b] [1 2 3]` sets a to 1, and b
-            // to 3, but drops the 2.  This functionality was achieved
-            // initially with blanks, but with setting in particular there
-            // are cases of `in obj 'word` which give back blank if the word
-            // is not there, so it leads to too many silent errors.
-        }
-        else if (ANY_WORD(target)) {
-            REBVAL *var = Sink_Var_May_Fail(target, target_specifier);
-            Derelativize(
-                var,
-                IS_END(value) ? BLANK_VALUE : value,
-                value_specifier
-            );
-            if (REF(enfix))
-                SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
-        }
-        else if (ANY_PATH(target)) {
-            DECLARE_LOCAL (specific);
-            if (IS_END(value))
-                Init_Blank(specific);
-            else
-                Derelativize(specific, value, value_specifier);
-
-            // `set 'foo/bar 1` acts as `foo/bar: 1`
-            // Set_Path_Core() will raise an error if there are any GROUP!s
-            //
-            // Though you can't dispatch enfix from a path (at least not at
-            // present), the flag tells it to enfix a word in a context, or
-            // it will error if that's not what it looks up to.
-            //
-            Set_Path_Core(target, target_specifier, specific, REF(enfix));
-        }
-        else
-            fail (Error_Invalid_Core(target, target_specifier));
-    }
-
-    RETURN (ARG(value));
-}
-
-
-//
 //  unset: native [
 //
 //  {Unsets the value of a word (in its current context.)}
@@ -885,9 +867,10 @@ REBNATIVE(enfixed_q)
     else {
         assert(ANY_PATH(source));
 
-        Get_Path_Core(D_CELL, source, SPECIFIED);
-        assert(NOT_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED) or IS_ACTION(D_CELL));
-        return Init_Logic(D_OUT, GET_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED));
+        DECLARE_LOCAL (temp);
+        Get_Path_Core(temp, source, SPECIFIED);
+        assert(NOT_VAL_FLAG(temp, VALUE_FLAG_ENFIXED) or IS_ACTION(temp));
+        return Init_Logic(D_OUT, GET_VAL_FLAG(temp, VALUE_FLAG_ENFIXED));
     }
 }
 

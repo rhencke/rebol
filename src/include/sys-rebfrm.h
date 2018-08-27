@@ -431,12 +431,15 @@ struct Reb_Frame {
     //
     // `cell`
     //
-    // * This is where the EVAL instruction stores the temporary item that it
-    //   splices into the evaluator feed, e.g. for `eval (first [x:]) 10 + 20`
-    //   would be the storage for the `x:` SET-WORD! during the addition.
+    // The frame's cell is used for different purposes.  PARSE uses it as a
+    // scratch storage space.  Path evaluation uses it as where the calculated
+    // "picker" goes (so if `foo/(1 + 2)`, the 3 would be stored there to be
+    // used to pick the next value in the chain).
     //
-    // * While a function is running, it is free to use it as a GC-safe spot,
-    //   which is also implicitly terminated.  See D_CELL.
+    // Eval_Core() uses it to implement the SHOVE() operation, which requires
+    // a calculated ACTION! value (including its binding) to have a stable
+    // location which f->gotten can point to during arbitrary left-hand-side
+    // evaluations.
     //
     RELVAL cell; // can't be REBVAL in C++ build
 

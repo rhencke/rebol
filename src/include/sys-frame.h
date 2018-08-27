@@ -210,19 +210,6 @@ inline static int FRM_LINE(REBFRM *f) {
 #define FRM_DSP_ORIG(f) \
     ((f)->dsp_orig + 0) // prevent assignment via this macro
 
-// `arg` is in use to point at the arguments during evaluation, and `param`
-// may hold a SET-WORD! or SET-PATH! available for a lookback to quote.
-// But during evaluations, `refine` is free.
-//
-// Since the GC is aware of the pointers, it can protect whatever refine is
-// pointing at.  This can be useful for routines that have a local
-// memory cell.  This does not require a push or a pop of anything--it only
-// protects as long as the native is running.  (This trick is available to
-// the dispatchers as well.)
-//
-#define PROTECT_FRM_X(f,v) \
-    ((f)->refine = (v))
-
 
 // ARGS is the parameters and refinements
 // 1-based indexing into the arglist (0 slot is for FRAME! value)
@@ -251,14 +238,11 @@ inline static int FRM_LINE(REBFRM *f) {
 //
 #define D_FRAME     frame_
 #define D_OUT       FRM_OUT(frame_)         // GC-safe slot for output value
-#define D_CELL      FRM_CELL(frame_)        // GC-safe cell if > 1 argument
 #define D_ARGC      FRM_NUM_ARGS(frame_)    // count of args+refinements/args
 #define D_ARG(n)    FRM_ARG(frame_, (n))    // pass 1 for first arg
 
 #define RETURN(v) \
     return Move_Value(D_OUT, (v));
-
-#define D_PROTECT_X(v)      PROTECT_FRM_X(frame_, (v))
 
 inline static REBOOL Is_Action_Frame(REBFRM *f) {
     if (f->original != nullptr) {

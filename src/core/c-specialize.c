@@ -1255,7 +1255,7 @@ REBNATIVE(does)
 
         // May not be at end or thrown, e.g. (x: does quote y x = 'y)
         //
-        Drop_Frame_Core(f);
+        Drop_Frame(f);
 
         // The exemplar may or may not be managed as of yet.  We want it
         // managed, but Push_Action() does not use ordinary series creation to

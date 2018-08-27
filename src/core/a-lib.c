@@ -847,9 +847,9 @@ REBVAL *RL_rebRescue(
     // !!! To abstract how the system deals with exception handling, the
     // rebRescue() routine started being used in lieu of PUSH_TRAP/DROP_TRAP
     // internally to the system.  Some of these system routines accumulate
-    // stack state, so Drop_Frame_Core() must be used.
+    // stack state, so Drop_Frame_Unbalanced() must be used.
     //
-    Drop_Frame_Core(f);
+    Drop_Frame_Unbalanced(f);
 
     DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
 

@@ -1020,8 +1020,9 @@ REBNATIVE(construct)
             //
             Bind_Values_Deep(VAL_ARRAY_AT(body), context);
 
-            if (Do_Any_Array_At_Throws(D_CELL, body))
-                RETURN (D_CELL); // evaluation result ignored unless thrown
+            DECLARE_LOCAL (temp);
+            if (Do_Any_Array_At_Throws(temp, body))
+                RETURN (temp); // evaluation result ignored unless thrown
         }
 
         return D_OUT;

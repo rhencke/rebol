@@ -141,7 +141,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     // reading and writing overlapping locations.  So unless a function is
     // in the argument fulfillment stage (before the variables or frame are
     // accessible by user code), it's not legal to write directly into an
-    // argument slot.  :-/  Note the availability of a frame's D_CELL.
+    // argument slot.  :-/
     //
   #if !defined(NDEBUG)
     REBFRM *ftemp = FS_TOP;
@@ -660,20 +660,27 @@ inline static void Drop_Frame_Core(REBFRM *f) {
     TG_Top_Frame = f->prior;
 }
 
-inline static void Drop_Frame(REBFRM *f)
-{
-    assert(IS_END(f->value) or THROWN(f->out));
-
+inline static void Drop_Frame_Unbalanced(REBFRM *f) {
   #if defined(DEBUG_BALANCE_STATE)
     //
     // To keep from slowing down the debug build too much, Eval_Core() doesn't
     // check this every cycle, just on drop.  But if it's hard to find which
     // exact cycle caused the problem, see BALANCE_CHECK_EVERY_EVALUATION_STEP
     //
+    f->state.dsp = DSP; // e.g. Reduce_To_Stack_Throws() doesn't want check
+    f->state.mold_buf_len = SER_LEN(MOLD_BUF); // REMOVE-EACH accumulates
     ASSERT_STATE_BALANCED(&f->state);
   #endif
-
     Drop_Frame_Core(f);
+}
+
+inline static void Drop_Frame(REBFRM *f)
+{
+    if (f->flags.bits & DO_FLAG_TO_END)
+        assert(IS_END(f->value) or THROWN(f->out));
+
+    assert(DSP == f->dsp_orig); // Drop_Frame_Core() does not check
+    Drop_Frame_Unbalanced(f);
 }
 
 
@@ -783,7 +790,7 @@ inline static REBOOL Eval_Step_In_Subframe_Throws(
     Push_Frame_Core(child);
     Reuse_Varlist_If_Available(child);
     (*PG_Eval)(child);
-    Drop_Frame_Core(child);
+    Drop_Frame(child);
 
     assert(
         IS_END(child->value)
@@ -843,7 +850,7 @@ inline static REBIXO Eval_Array_At_Core(
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
     (*PG_Eval)(f);
-    Drop_Frame_Core(f);
+    Drop_Frame(f);
 
     if (THROWN(f->out))
         return THROWN_FLAG;
@@ -1001,7 +1008,7 @@ inline static REBIXO Eval_Va_Core(
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
     (*PG_Eval)(f);
-    Drop_Frame_Core(f); // will va_end() if not reified during evaluation
+    Drop_Frame(f); // will va_end() if not reified during evaluation
 
     if (THROWN(f->out))
         return THROWN_FLAG;

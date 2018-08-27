@@ -77,7 +77,7 @@ REBOOL Reduce_To_Stack_Throws(
         }
     }
 
-    Drop_Frame_Core(f); // Drop_Frame() would assert about stack accumulation
+    Drop_Frame_Unbalanced(f); // Drop_Frame() asserts on accumulation
     return FALSE;
 }
 
@@ -333,7 +333,7 @@ REBOOL Compose_To_Stack_Throws(
         Fetch_Next_In_Frame(f);
     }
 
-    Drop_Frame_Core(f); // Drop_Frame() would check for no stack accumulation
+    Drop_Frame_Unbalanced(f); // Drop_Frame() asesrts on stack accumulation
     return false;
 }
 

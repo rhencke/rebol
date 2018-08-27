@@ -137,39 +137,40 @@ REBNATIVE(eval_enfix)
 
     const REBOOL push_refinements = true;
     REBSTR *opt_label;
+    DECLARE_LOCAL (temp);
     if (Get_If_Word_Or_Path_Throws(
-        D_CELL,
+        temp,
         &opt_label,
         f->value,
         f->specifier,
         push_refinements
     )){
-        RETURN (D_CELL);
+        RETURN (temp);
     }
 
-    // !!! If we were to give an error on using ME with non-enfix or MY with
-    // non-prefix, we'd need to know the fetched enfix state.  At the moment,
-    // Get_If_Word_Or_Path_Throws() does not pass back that information.  But
-    // if PATH! is going to do enfix dispatch, it should be addressed then.
-    //
-    f->gotten = D_CELL;
-
-    if (not IS_ACTION(f->gotten))
+    if (not IS_ACTION(temp))
         fail ("ME and MY only work if right hand WORD! is an ACTION!");
-
-    DECLARE_LOCAL (word);
 
     // Here we do something devious.  We subvert the system by setting
     // f->gotten to an enfixed version of the function even if it is
     // not enfixed.  This lets us slip in a first argument to a function
     // *as if* it were enfixed, e.g. `series: my next`.
     //
+    SET_VAL_FLAG(temp, VALUE_FLAG_ENFIXED);
+    PUSH_GC_GUARD(temp);
+    f->gotten = temp;
+
+    // !!! If we were to give an error on using ME with non-enfix or MY with
+    // non-prefix, we'd need to know the fetched enfix state.  At the moment,
+    // Get_If_Word_Or_Path_Throws() does not pass back that information.  But
+    // if PATH! is going to do enfix dispatch, it should be addressed then.
+    //
     UNUSED(REF(prefix));
-    SET_VAL_FLAG(D_CELL, VALUE_FLAG_ENFIXED);
 
     // Since enfix dispatch only works for words (for the moment), we lie
     // and use the label found in path processing as a word.
     //
+    DECLARE_LOCAL (word);
     Init_Word(word, opt_label);
     f->value = word;
 
@@ -190,11 +191,14 @@ REBNATIVE(eval_enfix)
     FS_TOP->u.defer.arg = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
 
     REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
-    if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
+    if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child)) {
+        DROP_GC_GUARD(temp);
         return D_OUT;
+    }
 
     TRASH_POINTER_IF_DEBUG(FS_TOP->u.defer.arg);
 
+    DROP_GC_GUARD(temp);
     return D_OUT;
 }
 
@@ -465,8 +469,9 @@ REBNATIVE(evaluate)
 
     case REB_BLOCK:
     case REB_GROUP: {
+        DECLARE_LOCAL (temp);
         REBIXO indexor = Eval_Array_At_Core(
-            SET_END(D_CELL), // use END to distinguish residual non-values
+            SET_END(temp), // use END to distinguish residual non-values
             nullptr, // opt_head
             VAL_ARRAY(source),
             VAL_INDEX(source),
@@ -475,15 +480,15 @@ REBNATIVE(evaluate)
         );
 
         if (indexor == THROWN_FLAG)
-            RETURN (D_CELL);
+            RETURN (temp);
 
-        if (indexor == END_FLAG or IS_END(D_CELL))
+        if (indexor == END_FLAG or IS_END(temp))
             return nullptr; // no disruption of output result
 
-        assert(NOT_VAL_FLAG(D_CELL, VALUE_FLAG_UNEVALUATED));
+        assert(NOT_VAL_FLAG(temp, VALUE_FLAG_UNEVALUATED));
 
         if (not IS_NULLED(var))
-            Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), D_CELL);
+            Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), temp);
 
         Move_Value(D_OUT, source);
         VAL_INDEX(D_OUT) = cast(REBCNT, indexor) - 1; // was one past
@@ -501,8 +506,9 @@ REBNATIVE(evaluate)
             // array during execution, there will be problems if it is TAKE'n
             // or DO'd while this operation is in progress.
             //
+            DECLARE_LOCAL (temp);
             REBIXO indexor = Eval_Array_At_Core(
-                SET_END(D_CELL),
+                SET_END(temp),
                 nullptr, // opt_head (interpreted as nothing, not nulled cell)
                 VAL_ARRAY(position),
                 VAL_INDEX(position),
@@ -521,7 +527,7 @@ REBNATIVE(evaluate)
                 return D_OUT;
             }
 
-            if (indexor == END_FLAG or IS_END(D_CELL)) {
+            if (indexor == END_FLAG or IS_END(temp)) {
                 SET_END(position); // convention for shared data at end point
                 return nullptr;
             }
@@ -545,14 +551,15 @@ REBNATIVE(evaluate)
         if (IS_END(f->value))
             return nullptr;
 
-        if (Eval_Step_In_Subframe_Throws(SET_END(D_CELL), f, flags, child))
-            RETURN (D_CELL);
+        DECLARE_LOCAL (temp);
+        if (Eval_Step_In_Subframe_Throws(SET_END(temp), f, flags, child))
+            RETURN (temp);
 
-        if (IS_END(D_CELL))
+        if (IS_END(temp))
             return nullptr;
 
         if (not IS_NULLED(var))
-            Move_Value(Sink_Var_May_Fail(var, SPECIFIED), D_CELL);
+            Move_Value(Sink_Var_May_Fail(var, SPECIFIED), temp);
 
         RETURN (source); } // original VARARGS! will have an updated position
 
@@ -770,7 +777,8 @@ REBNATIVE(apply)
     // Run the bound code, ignore evaluative result (unless thrown)
     //
     PUSH_GC_GUARD(exemplar);
-    REBOOL threw = Do_Any_Array_At_Throws(D_CELL, ARG(def));
+    DECLARE_LOCAL (temp);
+    REBOOL threw = Do_Any_Array_At_Throws(temp, ARG(def));
     DROP_GC_GUARD(exemplar);
 
     assert(CTX_KEYS_HEAD(exemplar) == ACT_FACADE_HEAD(VAL_ACTION(applicand)));
@@ -783,7 +791,7 @@ REBNATIVE(apply)
 
     if (threw) {
         Free_Unmanaged_Array(CTX_VARLIST(stolen)); // could TG_Reuse it
-        RETURN (D_CELL);
+        RETURN (temp);
     }
 
     Push_Frame_At_End(f, DO_FLAG_PROCESS_ACTION);
