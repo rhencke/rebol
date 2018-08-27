@@ -65,9 +65,9 @@ REBNATIVE(eval)
     DECLARE_SUBFRAME (child, frame_);
 
     // We need a way to slip the value through to the evaluator.  Can't run
-    // it from the frame's cell.  Pass it by way deferred.
+    // it from the frame's cell.
     //
-    child->deferred = ARG(value);
+    child->u.reval.value = ARG(value);
 
     REBFLGS flags = DO_FLAG_REEVALUATE_CELL;
     if (REF(only)) {
@@ -186,14 +186,14 @@ REBNATIVE(eval_enfix)
     // this frame...so when it asserts about "f->prior->deferred" it means
     // the frame of EVAL-ENFIX that is invoking it.
     //
-    assert(IS_POINTER_TRASH_DEBUG(FS_TOP->deferred));
-    FS_TOP->deferred = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
+    assert(IS_POINTER_TRASH_DEBUG(FS_TOP->u.defer.arg));
+    FS_TOP->u.defer.arg = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
 
     REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
     if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
         return D_OUT;
 
-    TRASH_POINTER_IF_DEBUG(FS_TOP->deferred);
+    TRASH_POINTER_IF_DEBUG(FS_TOP->u.defer.arg);
 
     return D_OUT;
 }
@@ -789,7 +789,7 @@ REBNATIVE(apply)
     Push_Frame_At_End(f, DO_FLAG_PROCESS_ACTION);
 
     if (REF(opt))
-        f->deferred = nullptr; // needed if !(DO_FLAG_FULLY_SPECIALIZED)
+        f->u.defer.arg = nullptr; // needed if !(DO_FLAG_FULLY_SPECIALIZED)
     else {
         //
         // If nulls are taken literally as null arguments, then no arguments
@@ -811,7 +811,7 @@ REBNATIVE(apply)
     FRM_BINDING(f) = VAL_BINDING(applicand);
 
     Begin_Action(f, opt_label, ORDINARY_ARG);
-    assert(IS_POINTER_TRASH_DEBUG(f->deferred)); // Eval_Core() sanity checks
+    assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg)); // Eval_Core() checks
 
     (*PG_Eval)(f);
 

@@ -93,12 +93,8 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     REBPEF dispatcher = Path_Dispatch[VAL_TYPE(pvs->out)];
     assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
 
-    // Calculate the "picker" into the GC guarded cell.
-    //
-    assert(pvs->refine == FRM_CELL(pvs));
-
     if (IS_GET_WORD(pvs->value)) { // e.g. object/:field
-        Move_Opt_Var_May_Fail(FRM_CELL(pvs), pvs->value, pvs->specifier);
+        Move_Opt_Var_May_Fail(PVS_PICKER(pvs), pvs->value, pvs->specifier);
     }
     else if (IS_GROUP(pvs->value)) { // object/(expr) case:
         if (pvs->flags.bits & DO_FLAG_NO_PATH_GROUPS)
@@ -106,36 +102,40 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 
         REBSPC *derived = Derive_Specifier(pvs->specifier, pvs->value);
         if (Do_At_Throws(
-            FRM_CELL(pvs),
+            PVS_PICKER(pvs),
             VAL_ARRAY(pvs->value),
             VAL_INDEX(pvs->value),
             derived
         )) {
-            Move_Value(pvs->out, FRM_CELL(pvs));
+            Move_Value(pvs->out, PVS_PICKER(pvs));
             return TRUE;
         }
     }
     else { // object/word and object/value case:
-        Derelativize(FRM_CELL(pvs), pvs->value, pvs->specifier);
+        Derelativize(PVS_PICKER(pvs), pvs->value, pvs->specifier);
     }
 
     // Disallow voids from being used in path dispatch.  This rule seems like
     // common sense for safety, and also corresponds to voids being illegal
     // to use in SELECT.
     //
-    if (IS_NULLED(pvs->refine))
+    if (IS_NULLED(PVS_PICKER(pvs)))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
     Fetch_Next_In_Frame(pvs); // may be at end
 
     if (IS_END(pvs->value) and PVS_IS_SET_PATH(pvs)) {
-        const REBVAL *r = dispatcher(pvs, pvs->refine, PVS_OPT_SETVAL(pvs));
+        const REBVAL *r = dispatcher(
+            pvs,
+            PVS_PICKER(pvs),
+            PVS_OPT_SETVAL(pvs)
+        );
 
         switch (VAL_TYPE_RAW(r)) {
 
         case REB_0_END: // unhandled
             assert(r == END_NODE); // shouldn't be other ends
-            fail (Error_Bad_Path_Poke_Raw(pvs->refine));
+            fail (Error_Bad_Path_Poke_Raw(PVS_PICKER(pvs)));
 
         case REB_R_INVISIBLE: // dispatcher assigned target with opt_setval
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED)
@@ -143,11 +143,11 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             break; // nothing left to do, have to take the dispatcher's word
 
         case REB_R_REFERENCE: { // dispatcher wants a set *if* at end of path
-            Move_Value(VAL_REFERENCE(r), PVS_OPT_SETVAL(pvs));
+            Move_Value(pvs->u.ref.cell, PVS_OPT_SETVAL(pvs));
 
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED) {
                 assert(IS_ACTION(PVS_OPT_SETVAL(pvs)));
-                SET_VAL_FLAG(VAL_REFERENCE(r), VALUE_FLAG_ENFIXED);
+                SET_VAL_FLAG(pvs->u.ref.cell, VALUE_FLAG_ENFIXED);
             }
             break; }
 
@@ -163,17 +163,17 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             // picking material, it only has the copied value in pvs->out.
             //
             // If we had a reference before we called in, we saved it in
-            // pvs->deferred.  So in the example case of `month/year:`, that
+            // pvs->u.ref.  So in the example case of `month/year:`, that
             // would be the CTX_VAR() where month was found initially, and so
             // we write the updated bits from pvs->out there.
 
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED)
                 fail ("Can't enfix a write into an immediate value");
 
-            if (pvs->deferred == NULL)
+            if (not pvs->u.ref.cell)
                 fail ("Can't update temporary immediate value via SET-PATH!");
 
-            Move_Value(pvs->deferred, pvs->out);
+            Move_Value(pvs->u.ref.cell, pvs->out);
             break; }
 
         default:
@@ -187,16 +187,18 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
         TRASH_POINTER_IF_DEBUG(pvs->special);
     }
     else {
-        const REBVAL *opt_setval = NULL;
+        pvs->u.ref.cell = nullptr; // clear status of the reference
 
-        const REBVAL *r = dispatcher(pvs, pvs->refine, opt_setval);
+        const REBVAL *r = dispatcher(
+            pvs,
+            PVS_PICKER(pvs),
+            nullptr // no opt_setval, GET-PATH! or a SET-PATH! not at the end
+        );
 
         if (r and r != END_NODE) {
             assert(r->header.bits & NODE_FLAG_CELL);
             /* assert(not (r->header.bits & NODE_FLAG_ROOT)); */
         }
-
-        pvs->deferred = NULL; // clear status of the deferred
 
         if (r == pvs->out) {
             if (THROWN(pvs->out))
@@ -208,7 +210,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
         else switch (VAL_TYPE_RAW(r)) {
 
         case REB_0_END:
-            fail (Error_Bad_Path_Pick_Raw(pvs->refine));
+            fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
 
         case REB_R_INVISIBLE:
             assert(PVS_IS_SET_PATH(pvs));
@@ -229,20 +231,16 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             break;
 
         case REB_R_REFERENCE:
-            //
-            // Save the reference location in case the next update turns out
-            // to be R_IMMEDIATE, and we need it.  Not actually KNOWN() but
-            // we are only going to use it as a sink for data...if we use it.
-            //
-            pvs->deferred = cast(REBVAL*, VAL_REFERENCE(r));
-
             Derelativize(
                 pvs->out,
-                VAL_REFERENCE(r),
-                VAL_REFERENCE_SPECIFIER(r)
+                pvs->u.ref.cell,
+                pvs->u.ref.specifier
             );
-            if (GET_VAL_FLAG(pvs->deferred, VALUE_FLAG_ENFIXED))
+            if (GET_VAL_FLAG(pvs->u.ref.cell, VALUE_FLAG_ENFIXED))
                 SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
+
+            // Leave the pvs->u.ref as-is in case the next update turns out
+            // to be R_IMMEDIATE, and it is needed.
             break;
 
         default:
@@ -257,9 +255,9 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     // be captured the first time the function is seen, otherwise it would
     // capture the last refinement's name, so check label for non-NULL.
     //
-    if (IS_ACTION(pvs->out) and VAL_TYPE_RAW(pvs->refine) == REB_WORD) {
+    if (IS_ACTION(pvs->out) and IS_WORD(PVS_PICKER(pvs))) {
         if (not pvs->opt_label)
-            pvs->opt_label = VAL_WORD_SPELLING(pvs->refine);
+            pvs->opt_label = VAL_WORD_SPELLING(PVS_PICKER(pvs));
     }
 
     if (IS_END(pvs->value))
@@ -320,8 +318,6 @@ REBOOL Eval_Path_Throws_Core(
 
     DECLARE_FRAME (pvs);
 
-    pvs->refine = KNOWN(&pvs->cell);
-
     Push_Frame_At(pvs, array, index, specifier, flags);
 
     if (IS_END(pvs->value))
@@ -335,17 +331,15 @@ REBOOL Eval_Path_Throws_Core(
 
     REBDSP dsp_orig = DSP;
 
-    // None of the values passed in can live on the data stack, because
-    // they might be relocated during the path evaluation process.
-    //
-    assert(opt_setval or not IN_DATA_STACK_DEBUG(opt_setval));
+    assert(
+        not opt_setval
+        or not IN_DATA_STACK_DEBUG(opt_setval) // evaluation might relocate it
+    );
+    assert(out != opt_setval and out != PVS_PICKER(pvs));
 
-    // Not robust for reusing passed in value as the output
-    assert(out != opt_setval);
+    pvs->special = opt_setval; // a.k.a. PVS_OPT_SETVAL()
+    assert(PVS_OPT_SETVAL(pvs) == opt_setval);
 
-    // Initialize REBPVS -- see notes in %sys-do.h
-    //
-    pvs->special = opt_setval;
     pvs->opt_label = NULL;
 
     // Seed the path evaluation process by looking up the first item (to
@@ -356,19 +350,19 @@ REBOOL Eval_Path_Throws_Core(
         // Remember the actual location of this variable, not just its value,
         // in case we need to do R_IMMEDIATE writeback (e.g. month/day: 1)
         //
-        pvs->deferred = Get_Mutable_Var_May_Fail(pvs->value, pvs->specifier);
+        pvs->u.ref.cell = Get_Mutable_Var_May_Fail(pvs->value, pvs->specifier);
 
-        Move_Value(pvs->out, pvs->deferred);
+        Move_Value(pvs->out, KNOWN(pvs->u.ref.cell));
 
         if (IS_ACTION(pvs->out)) {
-            if (GET_VAL_FLAG(pvs->deferred, VALUE_FLAG_ENFIXED))
+            if (GET_VAL_FLAG(pvs->u.ref.cell, VALUE_FLAG_ENFIXED))
                 SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
 
             pvs->opt_label = VAL_WORD_SPELLING(pvs->value);
         }
     }
     else if (IS_GROUP(pvs->value)) {
-        pvs->deferred = NULL; // nowhere to R_IMMEDIATE write back to
+        pvs->u.ref.cell = nullptr; // nowhere to R_IMMEDIATE write back to
 
         if (pvs->flags.bits & DO_FLAG_NO_PATH_GROUPS)
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
@@ -384,7 +378,7 @@ REBOOL Eval_Path_Throws_Core(
         }
     }
     else {
-        pvs->deferred = NULL; // nowhere to R_IMMEDIATE write back to
+        pvs->u.ref.cell = nullptr; // nowhere to R_IMMEDIATE write back to
 
         Derelativize(pvs->out, pvs->value, pvs->specifier);
     }
@@ -458,7 +452,7 @@ REBOOL Eval_Path_Throws_Core(
             // pushes to the stack itself, hence may move it on expansion.)
             //
             if (Specialize_Action_Throws(
-                pvs->refine, // set to pvs cell
+                PVS_PICKER(pvs),
                 pvs->out,
                 pvs->opt_label,
                 NULL, // opt_def
@@ -467,7 +461,7 @@ REBOOL Eval_Path_Throws_Core(
                 panic ("REFINE-only specializations should not THROW");
             }
 
-            Move_Value(pvs->out, pvs->refine);
+            Move_Value(pvs->out, PVS_PICKER(pvs));
         }
     }
 
@@ -589,19 +583,21 @@ REBNATIVE(pick)
     }
 
     DECLARE_FRAME (pvs);
+    pvs->flags = Endlike_Header(DO_MASK_NONE);
 
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;
 
     // !!! Sometimes path dispatchers check the item to see if it's at the
     // end of the path.  The entire thing needs review.  In the meantime,
-    // take advantage of the implicit termination of the frame cell.
+    // take advantage of the implicit termination of frame cells.
     //
-    Move_Value(D_CELL, ARG(picker));
-    assert(IS_END(D_CELL + 1));
-    pvs->refine = D_CELL;
+    // This frame's cell will be the picker slot for the pvs (it uses prior)
+    //
+    Move_Value(PVS_PICKER(pvs), ARG(picker));
+    assert(IS_END(PVS_PICKER(pvs) + 1));
 
-    pvs->value = D_CELL;
+    pvs->value = END_NODE;
     pvs->specifier = SPECIFIED;
 
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
@@ -610,14 +606,14 @@ REBNATIVE(pick)
     REBPEF dispatcher = Path_Dispatch[VAL_TYPE(location)];
     assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
 
-    const REBVAL *r = dispatcher(pvs, ARG(picker), NULL);
+    const REBVAL *r = dispatcher(pvs, PVS_PICKER(pvs), NULL);
     if (not r)
         return r;
 
     switch (VAL_TYPE_RAW(r)) {
     case REB_0_END:
         assert(r == END_NODE);
-        fail (Error_Bad_Path_Pick_Raw(ARG(picker)));
+        fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
 
     case REB_R_INVISIBLE:
         assert(FALSE); // only SETs should do this
@@ -626,8 +622,8 @@ REBNATIVE(pick)
     case REB_R_REFERENCE:
         Derelativize(
             D_OUT,
-            VAL_REFERENCE(r),
-            VAL_REFERENCE_SPECIFIER(r)
+            pvs->u.ref.cell,
+            pvs->u.ref.specifier
         );
         return D_OUT;
 
@@ -675,6 +671,7 @@ REBNATIVE(poke)
     }
 
     DECLARE_FRAME (pvs);
+    pvs->flags = Endlike_Header(DO_MASK_NONE);
 
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;
@@ -685,11 +682,10 @@ REBNATIVE(poke)
     // and needs a review.  In the meantime, take advantage of the implicit
     // termination of the frame cell.
     //
-    Move_Value(D_CELL, ARG(picker));
-    assert(IS_END(D_CELL + 1));
-    pvs->refine = D_CELL;
+    Move_Value(PVS_PICKER(pvs), ARG(picker));
+    assert(IS_END(PVS_PICKER(pvs) + 1));
 
-    pvs->value = D_CELL;
+    pvs->value = END_NODE;
     pvs->specifier = SPECIFIED;
 
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
@@ -698,22 +694,22 @@ REBNATIVE(poke)
     REBPEF dispatcher = Path_Dispatch[VAL_TYPE(location)];
     assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
 
-    const REBVAL *r = dispatcher(pvs, ARG(picker), ARG(value));
+    const REBVAL *r = dispatcher(pvs, PVS_PICKER(pvs), ARG(value));
     switch (VAL_TYPE_RAW(r)) {
     case REB_0_END:
         assert(r == END_NODE);
-        fail (Error_Bad_Path_Poke_Raw(ARG(picker)));
+        fail (Error_Bad_Path_Poke_Raw(PVS_PICKER(pvs)));
 
     case REB_R_INVISIBLE: // is saying it did the write already
         break;
 
     case REB_R_REFERENCE: // wants us to write it
-        Move_Value(VAL_REFERENCE(r), ARG(value));
+        Move_Value(pvs->u.ref.cell, ARG(value));
         break;
 
     default:
         assert(FALSE); // shouldn't happen, complain in the debug build
-        fail (Error_Invalid(ARG(picker))); // raise error in release build
+        fail (Error_Invalid(PVS_PICKER(pvs))); // raise error in release build
     }
 
     return ARG(value); // return the value we got in

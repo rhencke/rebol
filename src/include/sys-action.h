@@ -49,6 +49,9 @@ inline static const REBVAL *R_FROM_BOOL(bool b)
 #define R_REDO_CHECKED \
     cast(const REBVAL*, &PG_R_Redo_Checked)
 
+#define R_REFERENCE \
+    cast(const REBVAL*, &PG_R_Reference)
+
 #define R_UNHANDLED \
     END_NODE
 

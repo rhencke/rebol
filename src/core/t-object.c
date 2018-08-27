@@ -439,7 +439,9 @@ const REBVAL *PD_Context(
             fail (Error_Protected_Word_Raw(picker));
     }
 
-    return Init_Reference(FRM_CELL(pvs), CTX_VAR(c, n), SPECIFIED);
+    pvs->u.ref.cell = CTX_VAR(c, n);
+    pvs->u.ref.specifier = SPECIFIED;
+    return R_REFERENCE;
 }
 
 

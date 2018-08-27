@@ -104,6 +104,7 @@ PVAR REBVAL PG_R_Invisible[2]; // has "pseudotype" REB_R_INVISIBLE
 PVAR REBVAL PG_R_Immediate[2]; // has "pseudotype" REB_R_IMMEDIATE
 PVAR REBVAL PG_R_Redo_Unchecked[2]; // "pseudotype" REB_R_REDO + FALSEY flag
 PVAR REBVAL PG_R_Redo_Checked[2]; // "pseudotype" REB_R_REDO + no FALSEY flag
+PVAR REBVAL PG_R_Reference[2]; // "pseudotype" REB_R_REFERENCE
 
 // These are root variables which used to be described in %root.r and kept
 // alive by keeping that array alive.  Now they are API handles, kept alive

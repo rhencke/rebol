@@ -399,7 +399,7 @@
 #endif
 
 #define NOT_VAL_FLAG(v,f) \
-    cast(REBOOL, not GET_VAL_FLAG((v), (f)))
+    (not GET_VAL_FLAG((v), (f)))
 
 
 //=////////////////////////////////////////////////////////////////////////=//

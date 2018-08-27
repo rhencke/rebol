@@ -401,6 +401,7 @@ void Eval_Core(REBFRM * const f)
 
     assert(DSP >= f->dsp_orig); // REDUCE accrues, APPLY adds refinements, >=
     assert(not IS_TRASH_DEBUG(f->out)); // all invisibles preserves output
+    assert(f->out != FRM_CELL(f)); // overwritten by temporary calculations
 
     // Caching VAL_TYPE_RAW(f->value) in a local can make a slight performance
     // difference, though how much depends on what the optimizer figures out.
@@ -427,7 +428,7 @@ void Eval_Core(REBFRM * const f)
         | DO_FLAG_REEVALUATE_CELL
     )){
         if (f->flags.bits & DO_FLAG_POST_SWITCH) {
-            assert(f->prior->deferred); // !!! EVAL-ENFIX crudely preserves it
+            assert(f->prior->u.defer.arg); // !!! EVAL-ENFIX crudely preserves
             assert(NOT_END(f->out));
 
             f->flags.bits &= ~DO_FLAG_POST_SWITCH;
@@ -443,8 +444,8 @@ void Eval_Core(REBFRM * const f)
             goto process_action;
         }
 
-        current = f->deferred;
-        TRASH_POINTER_IF_DEBUG(f->deferred);
+        current = f->u.reval.value;
+        TRASH_POINTER_IF_DEBUG(f->u.defer.arg); // same memory location
         current_gotten = nullptr;
         eval_type = VAL_TYPE(current);
 
@@ -1182,38 +1183,37 @@ void Eval_Core(REBFRM * const f)
             // But now we're consuming another argument at the callsite, e.g.
             // the `branch`.  So by definition `if 10` wasn't finished.
             //
-            // We kept a `f->deferred` field that points at the previously
-            // filled f->arg slot.  So we can re-enter a sub-frame and give
-            // the IF's `condition` slot a second chance to run the enfix
-            // processing it put off before, this time using the 10 as AND's
-            // left-hand argument.
+            // We kept a `f->defer` field that points at the previous filled
+            // slot.  So we can re-enter a sub-frame and give the IF's
+            // `condition` slot a second chance to run the enfix processing it
+            // put off before, this time using the 10 as AND's left-hand arg.
             //
-            if (f->deferred) {
+            if (f->u.defer.arg) {
                 REBFLGS flags =
                     DO_FLAG_FULFILLING_ARG
                     | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
                 if (Eval_Step_In_Subframe_Throws(
-                    f->deferred, // preload previous f->arg as left enfix
+                    f->u.defer.arg, // preload previous f->arg as left enfix
                     f,
                     flags | DO_FLAG_POST_SWITCH,
                     child
                 )){
-                    Move_Value(f->out, f->deferred);
+                    Move_Value(f->out, f->u.defer.arg);
                     goto abort_action;
                 }
 
                 Finalize_Arg(
                     f,
-                    f->deferred_param,
-                    f->deferred,
-                    f->deferred_refine
+                    f->u.defer.param,
+                    f->u.defer.arg,
+                    f->u.defer.refine
                 );
 
-                f->deferred = nullptr;
-                TRASH_POINTER_IF_DEBUG(f->deferred_param);
-                TRASH_POINTER_IF_DEBUG(f->deferred_refine);
+                f->u.defer.arg = nullptr;
+                TRASH_POINTER_IF_DEBUG(f->u.defer.param);
+                TRASH_POINTER_IF_DEBUG(f->u.defer.refine);
             }
 
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE //////////////////////=//
@@ -1327,8 +1327,8 @@ void Eval_Core(REBFRM * const f)
                 or not (f->flags.bits & DO_FLAG_FULLY_SPECIALIZED) // ...this!
             );
 
-            assert(not IS_POINTER_TRASH_DEBUG(f->deferred));
-            if (f->deferred)
+            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
+            if (f->u.defer.arg)
                 continue; // don't do typechecking on this *yet*...
 
             Finalize_Arg(f, f->param, f->arg, f->refine);
@@ -1401,21 +1401,21 @@ void Eval_Core(REBFRM * const f)
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
         if (not In_Typecheck_Mode(f)) { // was fulfilling...
-            assert(not IS_POINTER_TRASH_DEBUG(f->deferred));
-            if (f->deferred) {
+            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
+            if (f->u.defer.arg) {
                 //
                 // We deferred typechecking, but still need to do it...
                 //
                 Finalize_Arg(
                     f,
-                    f->deferred_param,
-                    f->deferred,
-                    f->deferred_refine
+                    f->u.defer.param,
+                    f->u.defer.arg,
+                    f->u.defer.refine
                 );
-                TRASH_POINTER_IF_DEBUG(f->deferred_param);
-                TRASH_POINTER_IF_DEBUG(f->deferred_refine);
+                TRASH_POINTER_IF_DEBUG(f->u.defer.param);
+                TRASH_POINTER_IF_DEBUG(f->u.defer.refine);
             }
-            TRASH_POINTER_IF_DEBUG(f->deferred);
+            TRASH_POINTER_IF_DEBUG(f->u.defer.arg);
         }
 
     //==////////////////////////////////////////////////////////////////==//
@@ -1628,7 +1628,7 @@ void Eval_Core(REBFRM * const f)
                     );
                     SET_END(f->out);
                     f->out->header.bits |= OUT_MARKED_STALE;
-                    assert(IS_POINTER_TRASH_DEBUG(f->deferred));
+                    assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
                     goto redo_unchecked;
                 }
 
@@ -1637,7 +1637,7 @@ void Eval_Core(REBFRM * const f)
                 assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
                 SET_END(f->out);
                 f->out->header.bits |= OUT_MARKED_STALE;
-                assert(IS_POINTER_TRASH_DEBUG(f->deferred));
+                assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
 
                 f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
                 f->arg = FRM_ARGS_HEAD(f);
@@ -2342,7 +2342,7 @@ void Eval_Core(REBFRM * const f)
 
 post_switch:;
 
-    assert(IS_POINTER_TRASH_DEBUG(f->deferred));
+    assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
 
 //=//// IF NOT A WORD!, IT DEFINITELY STARTS A NEW EXPRESSION /////////////=//
 
@@ -2376,11 +2376,11 @@ post_switch:;
         // enfix for a function whose value is not enfix.  This means the
         // value in f->gotten isn't the fetched function, but the function
         // plus a VALUE_FLAG_ENFIXED.  We discern this hacky case by noting
-        // if f->deferred is precisely equal to BLANK_VALUE.
+        // if f->u.defer.arg is precisely equal to BLANK_VALUE.
         //
         assert(
             f->gotten == Try_Get_Opt_Var(f->value, f->specifier)
-            or (f->prior->deferred == BLANK_VALUE) // !!! hack
+            or (f->prior->u.defer.arg == BLANK_VALUE) // !!! hack
         );
     }
 
@@ -2491,7 +2491,7 @@ post_switch:;
     if (
         GET_VAL_FLAG(f->gotten, ACTION_FLAG_DEFERS_LOOKBACK)
         and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-        and not f->prior->deferred
+        and not f->prior->u.defer.arg
         and not Is_Param_Endable(f->prior->param)
     ){
         assert(not (f->flags.bits & DO_FLAG_TO_END));
@@ -2501,9 +2501,9 @@ post_switch:;
         //
         assert(f->out == f->prior->arg);
 
-        f->prior->deferred = f->prior->arg; // see deferred comments in REBFRM
-        f->prior->deferred_param = f->prior->param;
-        f->prior->deferred_refine = f->prior->refine;
+        f->prior->u.defer.arg = f->prior->arg; // see defer comments in REBFRM
+        f->prior->u.defer.param = f->prior->param;
+        f->prior->u.defer.refine = f->prior->refine;
 
         // Leave the enfix operator pending in the frame, and it's up to the
         // parent frame to decide whether to use DO_FLAG_POST_SWITCH to jump

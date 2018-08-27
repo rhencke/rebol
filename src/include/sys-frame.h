@@ -533,7 +533,7 @@ inline static void Push_Action(
     //
     f->special = ACT_SPECIALTY_HEAD(act);
 
-    f->deferred = nullptr;
+    f->u.defer.arg = nullptr;
 
     FRM_PHASE(f) = act;
     FRM_BINDING(f) = binding;

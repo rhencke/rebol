@@ -591,15 +591,7 @@ struct Reb_Partial_Payload {
 // generalized design.
 //
 #define REB_R_REFERENCE REB_MAX_PLUS_THREE
-struct Reb_Reference_Payload {
-    //
-    // Because it contains an actual cell pointer, it's not a durable value...
-    // as that cell lives in some array and could be relocated.  So it must be
-    // written to immediately or converted into an extraction of the value.
-    //
-    RELVAL *cell;
-    REBSPC *specifier;
-};
+
 
 // This is used in path dispatch, signifying that a SET-PATH! assignment
 // resulted in the updating of an immediate expression in pvs->out, meaning
@@ -824,7 +816,6 @@ union Reb_Value_Payload {
 
     // Internal-only payloads for cells that use > REB_MAX as the VAL_TYPE()
     //
-    struct Reb_Reference_Payload reference; // used with REB_R_REFERENCE
     struct Reb_Partial_Payload partial; // used with REB_X_PARTIAL
 };
 
@@ -932,3 +923,10 @@ union Reb_Value_Payload {
         "C++ REBVAL must match C layout: http://stackoverflow.com/a/7189821/"
     );
 #endif
+
+
+// !!! Consider a more sophisticated macro/template, like in DEBUG_CHECK_CASTS
+// though this is good enough for many usages for now.
+
+#define VAL(p) \
+    cast(const RELVAL*, (p))

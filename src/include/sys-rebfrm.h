@@ -681,6 +681,7 @@ struct Reb_Frame {
     //
     REBVAL *refine;
 
+  union {
     // `deferred`
     //
     // The deferred pointer is used to mark an argument cell which *might*
@@ -709,9 +710,25 @@ struct Reb_Frame {
     // that cell is re-dispatched with DO_FLAG_POST_SWITCH to give the
     // impression that the AND had "tightly" taken the argument all along.
     //
-    REBVAL *deferred;
-    const RELVAL *deferred_param;
-    REBVAL *deferred_refine;
+    struct {
+        REBVAL *arg;
+        const RELVAL *param;
+        REBVAL *refine;
+    } defer;
+
+    // References are used by path dispatch.
+    //
+    struct {
+        RELVAL *cell;
+        REBSPC *specifier;
+    } ref;
+
+    // Used to slip cell to reevaluate into Eval_Core()
+    //
+    struct {
+        const REBVAL *value;
+    } reval;
+  } u;
 
    #if defined(DEBUG_COUNT_TICKS)
     //

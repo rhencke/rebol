@@ -861,6 +861,11 @@ static void Init_Root_Vars(void)
     );
     TRASH_CELL_IF_DEBUG(&PG_R_Redo_Checked[1]);
 
+    Prep_Non_Stack_Cell(&PG_R_Reference[0]);
+    Prep_Non_Stack_Cell(&PG_R_Reference[1]);
+    RESET_VAL_HEADER(&PG_R_Reference[0], REB_R_REFERENCE);
+    TRASH_CELL_IF_DEBUG(&PG_R_Reference[1]);
+
     REBSER *locker = nullptr;
 
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);

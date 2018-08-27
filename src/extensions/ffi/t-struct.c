@@ -1430,7 +1430,7 @@ const REBVAL *PD_Struct(
             Move_Value(sel_orig, picker);
             PUSH_GC_GUARD(sel_orig);
 
-            if (Next_Path_Throws(pvs)) { // updates pvs->out, pvs->refine
+            if (Next_Path_Throws(pvs)) { // updates pvs->out, PVS_PICKER()
                 DROP_GC_GUARD(sel_orig);
                 fail (Error_No_Catch_For_Throw(pvs->out)); // !!! Review
             }
@@ -1439,13 +1439,13 @@ const REBVAL *PD_Struct(
             if (VAL_TYPE(pvs->out) == REB_R_REFERENCE)
                 Derelativize(
                     specific,
-                    VAL_REFERENCE(pvs->out),
-                    VAL_REFERENCE_SPECIFIER(pvs->out)
+                    pvs->u.ref.cell,
+                    pvs->u.ref.specifier
                 );
             else
                 Move_Value(specific, pvs->out);
 
-            if (!Set_Struct_Var(stu, sel_orig, pvs->refine, specific))
+            if (!Set_Struct_Var(stu, sel_orig, PVS_PICKER(pvs), specific))
                 return R_UNHANDLED;
 
             DROP_GC_GUARD(sel_orig);

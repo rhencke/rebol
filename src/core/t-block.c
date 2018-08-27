@@ -609,11 +609,9 @@ const REBVAL *PD_Array(
     if (opt_setval)
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(pvs->out));
 
-    return Init_Reference(
-        FRM_CELL(pvs),
-        VAL_ARRAY_AT_HEAD(pvs->out, n),
-        VAL_SPECIFIER(pvs->out)
-    );
+    pvs->u.ref.cell = VAL_ARRAY_AT_HEAD(pvs->out, n);
+    pvs->u.ref.specifier = VAL_SPECIFIER(pvs->out);
+    return R_REFERENCE;
 }
 
 
