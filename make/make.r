@@ -452,7 +452,7 @@ replace help-topics/usage "HELP-TOPICS" ;\
     form append map-each x help-topics [either text? x ['|] [x]] 'all
 
 help: function [topic [text! blank!]] [
-    topic: attempt [to-word topic]
+    topic: try attempt [to-word topic]
     print ""
     case [
         topic = 'all [
@@ -460,7 +460,7 @@ help: function [topic [text! blank!]] [
                 print msg
             ]
         ]
-        msg: select help-topics topic [
+        msg: try select help-topics topic [
             print msg
         ]
         default [print help-topics/usage]
@@ -471,7 +471,7 @@ help: function [topic [text! blank!]] [
 if commands [
     for-next commands [
         if find ["-h" "-help" "--help"] first commands [
-            help second commands quit
+            help try second commands quit
         ]
     ]
 ]
