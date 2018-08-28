@@ -173,6 +173,16 @@ inline static int FRM_LINE(REBFRM *f) {
 #define FRM_CELL(f) \
     cast(REBVAL*, &(f)->cell)
 
+#define FRM_SHOVE(f) \
+    cast(REBVAL*, &(f)->shove)
+
+inline static bool Is_Frame_Gotten_Shoved(REBFRM *f) {
+    if (f->gotten != FRM_SHOVE(f))
+        return false;
+    assert(GET_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED));
+    return true; // see REBNATIVE(shove)
+}
+
 #define FRM_PRIOR(f) \
     ((f)->prior + 0) // prevent assignment via this macro
 
@@ -496,9 +506,13 @@ inline static void Push_Action(
         NODE_FLAG_NODE | NODE_FLAG_CELL | NODE_FLAG_STACK
         | CELL_FLAG_PROTECTED // cell payload/binding tweaked, not by user
         | FLAG_KIND_BYTE(REB_FRAME);
+    TRACK_CELL_IF_DEBUG(f->rootvar, __FILE__, __LINE__);
     f->rootvar->payload.any_context.varlist = f->varlist;
 
   sufficient_allocation:
+
+    f->rootvar->payload.any_context.phase = act; // FRM_PHASE() (can be dummy)
+    f->rootvar->extra.binding = binding; // FRM_BINDING()
 
     s->content.dynamic.len = num_args + 1;
     RELVAL *tail = ARR_TAIL(f->varlist);
@@ -521,9 +535,6 @@ inline static void Push_Action(
     f->special = ACT_SPECIALTY_HEAD(act);
 
     f->u.defer.arg = nullptr;
-
-    FRM_PHASE(f) = act;
-    FRM_BINDING(f) = binding;
 
     assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
     assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
@@ -554,7 +565,7 @@ inline static void Drop_Action(REBFRM *f) {
         // therefore useless.  It served a purpose by being non-null during
         // the call, however, up to this moment.
         //
-        if (GET_SER_INFO(f->varlist, NODE_FLAG_MANAGED))
+        if (GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED))
             f->varlist = nullptr; // references exist, let a new one alloc
         else {
             // This node could be reused vs. calling Make_Node() on the next

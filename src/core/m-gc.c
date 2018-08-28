@@ -1198,10 +1198,26 @@ static void Mark_Frame_Stack_Deep(void)
         //
         Queue_Mark_Opt_End_Cell_Deep(f->value);
 
-        // f_gotten shouldn't need be marked, because it fetched via f_value
-        // and so would be kept alive by it.  Operations should be careful to
-        // nullptr it--however--anytime they run code that could change the
-        // state of the system.  Make sure it's in sync if it is set.
+        // If f->gotten is set, it usually shouldn't need markeding because
+        // it's fetched via f->value and so would be kept alive by it.  Any
+        // code that a frame runs that might disrupt that relationship so it
+        // would fetch differently should have meant clearing f->gotten.
+        //
+        // However, the SHOVE operation is special, and puts an enfix ACTION!
+        // into the frame's `shove` cell and points f->gotten to that.  It
+        // needs to be marked here.
+        //
+        if (not f->gotten)
+            NOOP;
+        else if (f->gotten == FRM_SHOVE(f)) {
+            assert(GET_VAL_FLAG(FRM_SHOVE(f), VALUE_FLAG_ENFIXED));
+            Queue_Mark_Value_Deep(FRM_SHOVE(f));
+        }
+        else
+            assert(
+                IS_POINTER_TRASH_DEBUG(f->gotten)
+                or f->gotten == Try_Get_Opt_Var(f->value, f->specifier)
+            );
 
         if (
             f->specifier != SPECIFIED

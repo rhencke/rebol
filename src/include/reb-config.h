@@ -378,6 +378,7 @@ Special internal defines used by RT, not Host-Kit developers:
     #endif
 
     #define DEBUG_HAS_PROBE
+    #define DEBUG_MONITOR_SERIES
     #define DEBUG_COUNT_TICKS
     #define DEBUG_FRAME_LABELS
     #define DEBUG_UNREADABLE_BLANKS

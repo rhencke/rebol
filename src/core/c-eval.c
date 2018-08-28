@@ -527,6 +527,65 @@ void Eval_Core(REBFRM * const f)
     if (not f->gotten or NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED))
         goto give_up_backward_quote_priority;
 
+    // SHOVE says it quotes its left argument, even if it doesn't know that
+    // is what it ultimately wants...because it wants a shot at its most
+    // aggressive scenario.  Once it finds out the enfixee wants normal or
+    // tight, though, it could get in trouble.
+    //
+    if (VAL_ACTION(f->gotten) == NAT_ACTION(shove)) {
+        Fetch_Next_In_Frame(nullptr, f);
+        if (IS_END(f->value))
+            goto finished; // proposed behavior, drop out result...
+
+        Prep_Stack_Cell(FRM_SHOVE(f));
+
+        REBSTR *opt_label = nullptr;
+        if (IS_WORD(f->value) or IS_PATH(f->value)) {
+            //
+            // We've only got one shot for the value.  If we don't push the
+            // refinements here, we'll lose them.  Start by biting the
+            // bullet and letting it synthesize a specialization (?)
+            //
+            if (Get_If_Word_Or_Path_Throws(
+                FRM_SHOVE(f),
+                &opt_label,
+                f->value,
+                f->specifier,
+                false // ok, crazypants, don't push refinements (?)
+            )){
+                Move_Value(f->out, FRM_SHOVE(f));
+                goto finished;
+            }
+        }
+        else if (IS_GROUP(f->value)) {
+            REBIXO indexor = Eval_Array_At_Core(
+                SET_END(FRM_SHOVE(f)),
+                nullptr, // opt_first (null means nothing, not nulled cell)
+                VAL_ARRAY(f->value),
+                VAL_INDEX(f->value),
+                Derive_Specifier(f->specifier, f->value),
+                DO_FLAG_TO_END
+            );
+            if (indexor == THROWN_FLAG) {
+                Move_Value(f->out, FRM_SHOVE(f));
+                goto finished;
+            }
+            if (IS_END(FRM_SHOVE(f))) // !!! need SHOVE frame for type error
+                fail ("GROUP! passed to SHOVE did not evaluate to content");
+        }
+        else if (IS_ACTION(f->value)) {
+            Move_Value(FRM_SHOVE(f), const_KNOWN(f->value));
+        }
+        else
+            fail ("SHOVE only accepts WORD!, PATH!, GROUP!, or ACTION!");
+
+        // Even if the function isn't enfix, say it is.  This permits things
+        // like `5 + 5 -> subtract 7` to give 3.
+        //
+        SET_VAL_FLAG(FRM_SHOVE(f), VALUE_FLAG_ENFIXED);
+        f->gotten = FRM_SHOVE(f);
+    }
+
     // It's known to be an ACTION! since only actions can be enfix...
     //
     if (NOT_VAL_FLAG(f->gotten, ACTION_FLAG_QUOTES_FIRST_ARG))
@@ -1203,6 +1262,14 @@ void Eval_Core(REBFRM * const f)
                     | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
+
+                if (Is_Frame_Gotten_Shoved(f)) {
+                    Prep_Stack_Cell(FRM_SHOVE(child));
+                    Move_Value(FRM_SHOVE(child), f->gotten);
+                    SET_VAL_FLAG(FRM_SHOVE(child), VALUE_FLAG_ENFIXED);
+                    f->gotten = FRM_SHOVE(child);
+                }
+
                 if (Eval_Step_In_Subframe_Throws(
                     f->u.defer.arg, // preload previous f->arg as left enfix
                     f,
@@ -1477,18 +1544,11 @@ void Eval_Core(REBFRM * const f)
         //
         /*assert(f->out->header.bits & (CELL_FLAG_STACK | NODE_FLAG_ROOT)); */
 
-        // Running arbitrary native code can manipulate the bindings or cache
-        // of a variable.  It's very conservative to say this, but any word
-        // fetches that were done for lookahead are potentially invalidated
-        // by every function call.
-        //
-        f->gotten = nullptr;
+        if (not Is_Frame_Gotten_Shoved(f))
+            f->gotten = nullptr; // arbitrary code changes fetched variables
 
-        // Cases should be in enum order for jump-table optimization
-        // (FALSE_VALUE first, TRUE_VALUE second, etc.)
-        //
-        // The dispatcher may push functions to the data stack which will be
-        // used to process the return result after the switch.
+        // Note that the dispatcher may push ACTION! values to the data stack
+        // which are used to process the return result after the switch.
         //
         const REBVAL *r; // initialization would be skipped by gotos
         r = (*PG_Dispatcher)(f); // default just calls FRM_PHASE(f)
@@ -1872,10 +1932,8 @@ void Eval_Core(REBFRM * const f)
         if (not EVALUATING(current))
             goto inert;
 
-        // The f->gotten we fetched for lookahead could become invalid when
-        // we run the arbitrary code here.  Have to lose the cache.
-        //
-        f->gotten = nullptr;
+        if (not Is_Frame_Gotten_Shoved(f))
+            f->gotten = nullptr; // arbitrary code changes fetched variables
 
         assert(f->out->header.bits & OUT_MARKED_STALE);
 
@@ -1969,7 +2027,7 @@ void Eval_Core(REBFRM * const f)
                 f->out,
                 ACTION_FLAG_INVISIBLE | VALUE_FLAG_ENFIXED
             )){
-                fail ("ENFIX/INVISIBLE dispatch w/PATH! not yet supported");
+                fail ("Use `->` to shove left enfix operands into PATH!s");
             }
 
             Push_Action(f, VAL_ACTION(f->out), VAL_BINDING(f->out));
@@ -2304,11 +2362,21 @@ post_switch:;
 
 //=//// IF NOT A WORD!, IT DEFINITELY STARTS A NEW EXPRESSION /////////////=//
 
-    // !!! Our lookahead step currently only works with WORD!, but it should
-    // be retrofitted in the future to support PATH! dispatch also (for both
-    // enfix and invisible/comment-like behaviors).  But in the meantime, if
-    // you use a PATH! and look up to an enfixed word or "invisible" result
-    // function, that's an error (or should be).
+    // For long-pondered technical reasons, only WORD! is able to dispatch
+    // enfix.  If it's necessary to dispatch an enfix function via path, then
+    // a word must be used to do it, e.g. `x: -> lib/method [...] [...]`.
+    // That word can be an action with a variadic left argument, that can
+    // decide what parameter convention to use to the left based on what it
+    // sees to the right.
+
+    if (Is_Frame_Gotten_Shoved(f)) {
+        //
+        // Tried to SHOVE, and didn't hit a situation like `add -> + 1`.  So
+        // now the shoving process falls through, as in `10 -> + 1`.
+        //
+        assert(NOT_VAL_FLAG(f->gotten, ACTION_FLAG_QUOTES_FIRST_ARG));
+        goto post_switch_shove_gotten;
+    }
 
     eval_type = VAL_TYPE_RAW(f->value);
 
@@ -2352,8 +2420,8 @@ post_switch:;
     // unbound word).  It'll be an error, but that code path raises it for us.
 
     if (
-        not f->gotten
-        or NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED) // only ACTIONs have it
+        not f->gotten // note that only ACTIONs have VALUE_FLAG_ENFIXED
+        or NOT_VAL_FLAG(VAL(f->gotten), VALUE_FLAG_ENFIXED)
     ){
       lookback_quote_too_late:; // run as if starting new expression
 
@@ -2367,8 +2435,8 @@ post_switch:;
 
         if (
             f->gotten
-            and IS_ACTION(f->gotten)
-            and GET_VAL_FLAG(f->gotten, ACTION_FLAG_INVISIBLE)
+            and IS_ACTION(VAL(f->gotten))
+            and GET_VAL_FLAG(VAL(f->gotten), ACTION_FLAG_INVISIBLE)
         ){
             // Even if not EVALUATE, we do not want START_NEW_EXPRESSION on
             // "invisible" functions.  e.g. `do [1 + 2 comment "hi"]` should
@@ -2403,18 +2471,6 @@ post_switch:;
 
 //=//// IT'S A WORD ENFIXEDLY TIED TO A FUNCTION (MAY BE "INVISIBLE") /////=//
 
-    if (
-        (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
-        and NOT_VAL_FLAG(f->gotten, ACTION_FLAG_INVISIBLE)
-    ){
-        // Don't do enfix lookahead if asked *not* to look.  See the
-        // PARAM_CLASS_TIGHT parameter convention for the use of this, as
-        // well as it being set if DO_FLAG_TO_END wants to clear out the
-        // invisibles at this frame level before returning.
-        //
-        goto finished;
-    }
-
     if (GET_VAL_FLAG(f->gotten, ACTION_FLAG_QUOTES_FIRST_ARG)) {
         //
         // Left-quoting by enfix needs to be done in the lookahead before an
@@ -2428,6 +2484,26 @@ post_switch:;
         // left.  Start a new expression and let it error if that's not ok.
         //
         goto lookback_quote_too_late;
+    }
+
+  post_switch_shove_gotten: // assert(!ACTION_FLAG_QUOTES_FIRST_ARG) pre-goto
+
+    if (
+        (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
+        and NOT_VAL_FLAG(f->gotten, ACTION_FLAG_INVISIBLE)
+    ){
+        // Don't do enfix lookahead if asked *not* to look.  See the
+        // PARAM_CLASS_TIGHT parameter convention for the use of this, as
+        // well as it being set if DO_FLAG_TO_END wants to clear out the
+        // invisibles at this frame level before returning.
+        //
+        if (Is_Frame_Gotten_Shoved(f)) {
+            Prep_Stack_Cell(FRM_SHOVE(f->prior));
+            Move_Value(FRM_SHOVE(f->prior), f->gotten);
+            SET_VAL_FLAGS(FRM_SHOVE(f->prior), VALUE_FLAG_ENFIXED);
+            f->gotten = FRM_SHOVE(f->prior);
+        }
+        goto finished;
     }
 
     // !!! Once checked `not f->deferred` because it only deferred once:
@@ -2461,6 +2537,13 @@ post_switch:;
         f->prior->u.defer.param = f->prior->param;
         f->prior->u.defer.refine = f->prior->refine;
 
+        if (Is_Frame_Gotten_Shoved(f)) {
+            Prep_Stack_Cell(FRM_SHOVE(f->prior));
+            Move_Value(FRM_SHOVE(f->prior), f->gotten);
+            SET_VAL_FLAG(FRM_SHOVE(f->prior), VALUE_FLAG_ENFIXED);
+            f->gotten = FRM_SHOVE(f->prior);
+        }
+
         // Leave the enfix operator pending in the frame, and it's up to the
         // parent frame to decide whether to use DO_FLAG_POST_SWITCH to jump
         // back in and finish fulfilling this arg or not.  If it does resume
@@ -2476,7 +2559,18 @@ post_switch:;
     // the f->out value and get it into the new function's frame.
 
     Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
-    Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
+
+    if (IS_WORD(f->value))
+        Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
+    else {
+        // Should be a SHOVE.  There needs to be a way to telegraph the label
+        // on the value if it was a PATH! to here.
+        //
+        assert(Is_Frame_Gotten_Shoved(f));
+        assert(IS_PATH(f->value) or IS_GROUP(f->value) or IS_ACTION(f->value));
+        REBSTR *opt_label = nullptr;
+        Begin_Action(f, opt_label, LOOKBACK_ARG);
+    }
 
     Fetch_Next_In_Frame(nullptr, f); // advances f->value
     goto process_action;

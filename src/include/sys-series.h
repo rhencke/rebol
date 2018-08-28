@@ -122,6 +122,15 @@
 #endif
 
 
+#if defined(DEBUG_MONITOR_SERIES)
+    inline static void MONITOR_SERIES(void *p) {
+        printf("Adding monitor to %p on tick #%d\n", p, cast(int, TG_Tick));
+        fflush(stdout);
+        SET_SER_INFO(p, SERIES_INFO_MONITOR_DEBUG);
+    }
+#endif
+
+
 //
 // The mechanics of the macros that get or set the length of a series are a
 // little bit complicated.  This is due to the optimization that allows data

@@ -76,3 +76,42 @@
 
     ([_ "hi"] = any [false blank lefty "hi"])
 ]
+
+
+; -> is the "SHOVE" operation.  It lets any ACTION!...including one dispatched
+; from PATH!, receive its first argument from the left.  It uses the parameter
+; conventions of that argument.
+
+; NORMAL parameter
+;
+(9 = (1 + 2 -> multiply 3))
+(9 = (add 1 2 -> multiply 3))
+(9 = (add 1 2 -> (:multiply) 3))
+
+; #TIGHT parameter
+;
+(9 = 1 + 2 -> * 3)
+(7 = add 1 2 -> * 3)
+(7 = add 1 2 -> (:*) 3)
+
+; :HARD-QUOTE parameter
+(
+    x: _
+    x: -> default [10 + 20]
+    x: -> default [1000000]
+    x = 30
+)
+
+; SHOVE should be able to handle refinements and contexts.
+[
+    (did obj: make object! [
+        magic: enfix func [#a #b /minus] [
+            either minus [a - b] [a + b]
+        ]
+    ])
+
+    (error? trap [1 obj/magic 2])
+
+    (3 = 1 -> obj/magic 2)
+    (-1 = 1 -> obj/magic/minus 2)
+]

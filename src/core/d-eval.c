@@ -143,11 +143,6 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     //
     assert(TG_Num_Black_Series == 0);
 
-    if (f->gotten) {
-        assert(IS_WORD(f->value));
-        assert(Get_Opt_Var_May_Fail(f->value, f->specifier) == f->gotten);
-    }
-
     // We only have a label if we are in the middle of running a function,
     // and if we're not running a function then f->original should be null.
     //
@@ -204,9 +199,15 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
         or not f->prior->gotten
     );
 
+    if (f->gotten) {
+        if (not Is_Frame_Gotten_Shoved(f)) {
+            assert(IS_WORD(f->value));
+            assert(Try_Get_Opt_Var(f->value, f->specifier) == f->gotten);
+        }
+    }
+
   #if defined(DEBUG_UNREADABLE_BLANKS)
     assert(IS_UNREADABLE_DEBUG(&TG_Thrown_Arg)); // no evals between throws
-    Init_Unreadable_Blank(FRM_CELL(f)); // cell available as scratch space
   #endif
 
     // Trash fields that GC won't be seeing unless Is_Action_Frame()
@@ -238,24 +239,6 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
 
     assert(IS_FRAME(f->rootvar));
     assert(f->arg == f->rootvar + 1);
-
-    // DECLARE_FRAME() starts out f->cell as valid GC-visible bits, and as
-    // it's used for various temporary purposes it should remain valid.  But
-    // its contents could be anything, based on that temporary purpose.  Help
-    // hint functions not to try to read from it before they overwrite it with
-    // their own content.
-    //
-    // !!! Allowing the release build to "leak" temporary cell state to
-    // natives may be bad, and there are advantages to being able to count on
-    // this being an END.  However, unless one wants to get in the habit of
-    // zeroing out all temporary state for "security" reasons then clients who
-    // call Eval_Step_In_Frame() would be able to see it anyway.  For now, do
-    // the more performant thing and leak whatever is in f->cell to the
-    // function in the release build, to avoid paying for the initialization.
-    //
-  #if !defined(NDEBUG)
-    Init_Unreadable_Blank(FRM_CELL(f)); // DECLARE_FRAME() requires GC safe
-  #endif
 
     // See FRM_PHASE() for why it's not allowed when dummy is the dispatcher
     //
@@ -331,6 +314,15 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
 //
 void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     Eval_Core_Shared_Checks_Debug(f);
+
+    if (f->gotten) {
+        if (f->gotten == FRM_SHOVE(f->prior))
+            assert(GET_VAL_FLAG(FRM_SHOVE(f->prior), VALUE_FLAG_ENFIXED));
+        else {
+            assert(IS_WORD(f->value));
+            assert(Try_Get_Opt_Var(f->value, f->specifier) == f->gotten);
+        }
+    }
 
     if (NOT_END(f->value) and not FRM_IS_VALIST(f)) {
         if (f->source->index > ARR_LEN(f->source->array)) {

@@ -1667,9 +1667,22 @@ const REBVAL *Encloser_Dispatcher(REBFRM *f)
     //
     REBVAL *rootvar = CTX_ARCHETYPE(c);
     rootvar->payload.any_context.phase = VAL_ACTION(inner);
-    INIT_BINDING(rootvar, VAL_BINDING(inner));
+    INIT_BINDING_MAY_MANAGE(rootvar, VAL_BINDING(inner));
 
-    Init_Frame(FRM_CELL(f), c); // user may DO this, or not...
+    Move_Value(FRM_CELL(f), rootvar); // user may DO this, or not...
+
+    // We don't actually know how long the frame we give back is going to
+    // live, or who it might be given to.  And it may contain things like
+    // bindings in a RETURN or a VARARGS! which are to the old varlist, which
+    // may not be managed...and so when it goes off the stack it might try
+    // and think that since nothing managed it then it can be freed.  Go
+    // ahead and mark it managed--even though it's dead--so that returning
+    // won't free it if there are outstanding references.
+    //
+    // Note that since varlists aren't added to the manual series list, the
+    // bit must be tweaked vs. using ENSURE_ARRAY_MANAGED.
+    //
+    SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
 
     const REBOOL fully = true;
     if (Apply_Only_Throws(f->out, fully, outer, FRM_CELL(f), rebEND))

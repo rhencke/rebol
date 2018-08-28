@@ -81,6 +81,7 @@ inline static void Free_Value(REBVAL *v)
     assert(Is_Api_Value(v));
 
     REBARR *a = Singular_From_Cell(v);
+    TRASH_CELL_IF_DEBUG(ARR_SINGLE(a));
     GC_Kill_Series(SER(a));
 }
 

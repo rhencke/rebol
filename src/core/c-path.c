@@ -588,14 +588,7 @@ REBNATIVE(pick)
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;
 
-    // !!! Sometimes path dispatchers check the item to see if it's at the
-    // end of the path.  The entire thing needs review.  In the meantime,
-    // take advantage of the implicit termination of frame cells.
-    //
-    // This frame's cell will be the picker slot for the pvs (it uses prior)
-    //
     Move_Value(PVS_PICKER(pvs), ARG(picker));
-    assert(IS_END(PVS_PICKER(pvs) + 1));
 
     pvs->value = END_NODE;
     pvs->specifier = SPECIFIED;
@@ -676,14 +669,7 @@ REBNATIVE(poke)
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;
 
-    // !!! Sometimes the path mechanics do the writes for a poke inside their
-    // dispatcher, vs. delegating via R_REFERENCE.  They check to see if
-    // the current pvs->value is at the end.  All of path dispatch was ad hoc
-    // and needs a review.  In the meantime, take advantage of the implicit
-    // termination of the frame cell.
-    //
     Move_Value(PVS_PICKER(pvs), ARG(picker));
-    assert(IS_END(PVS_PICKER(pvs) + 1));
 
     pvs->value = END_NODE;
     pvs->specifier = SPECIFIED;

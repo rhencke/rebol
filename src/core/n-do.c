@@ -83,6 +83,40 @@ REBNATIVE(eval)
 
 
 //
+//  shove: enfix native [
+//
+//  {Shove a left hand parameter into an ACTION!, effectively making it enfix}
+//
+//      return: [<opt> any-value!]
+//          "REVIEW: How might this handle shoving enfix invisibles?"
+//      :left [<...> <end> any-value!]
+//          "Requests parameter convention based on enfixee's first argument"
+//      :enfixee [<end> word! path! group! action!]
+//          "Needs ACTION!...but WORD!s fetched, PATH!s/GROUP!s evaluated"
+//      :args [<...> <end> any-value!]
+//          "Will handle args the way the enfixee expects"
+//  ]
+//
+REBNATIVE(shove)
+{
+    INCLUDE_PARAMS_OF_SHOVE;
+
+    UNUSED(ARG(left));
+    UNUSED(ARG(enfixee));
+    UNUSED(ARG(args));
+
+    // !!! It's nice to imagine the system evolving to where actions this odd
+    // could be written generically vs. being hardcoded in the evaluator.
+    // But for now it is too "meta", and Eval_Core() detects NAT_ACTION(shove)
+    // when used as enfix...and implements the functionality there.
+    //
+    // Only way this native would be called would be if it were not enfixed.
+
+    fail ("SHOVE may only be run as an ENFIX operation");
+}
+
+
+//
 //  eval-enfix: native [
 //
 //  {Service routine for implementing ME (needs review/generalization)}

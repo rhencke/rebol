@@ -358,8 +358,6 @@
 // distinct.  SERIES_INFO_PROTECTED is a protection on a series itself--which
 // ends up affecting all values with that series in the payload.
 //
-// Note: Same bit as NODE_FLAG_ROOT, should not be relevant.
-//
 #define SERIES_INFO_PROTECTED \
     FLAG_LEFT_BIT(4)
 
@@ -375,8 +373,6 @@
 // It will be released when the execution is finished, which distinguishes it
 // from SERIES_INFO_FROZEN, which will never be reset, as long as it lives...
 //
-// Note: Same bit as NODE_FLAG_SPECIAL, should not be relevant.
-// 
 #define SERIES_INFO_HOLD \
     FLAG_LEFT_BIT(5)
 
@@ -545,13 +541,25 @@
     FLAG_LEFT_BIT(30)
 
 
+#ifdef DEBUG_MONITOR_SERIES
+
+    //=//// SERIES_INFO_MONITOR_DEBUG /////////////////////////////////////=//
+    //
+    // Simple feature for tracking when a series gets freed or otherwise
+    // messed with.  Setting this bit on it asks for a notice.
+    //
+    #define SERIES_INFO_MONITOR_DEBUG \
+        FLAG_LEFT_BIT(31)
+#endif
+
+
 // ^-- STOP AT FLAG_LEFT_BIT(31) --^
 //
 // While 64-bit systems have another 32-bits available in the header, core
 // functionality shouldn't require using them...only optimization features.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(30 < 32, "SERIES_INFO_XXX too high");
+    static_assert(31 < 32, "SERIES_INFO_XXX too high");
 #endif
 
 
