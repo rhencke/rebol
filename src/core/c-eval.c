@@ -351,6 +351,15 @@ inline static void Seek_First_Param(REBFRM *f, REBACT *action) {
 }
 
 
+#ifdef DEBUG_EXPIRED_LOOKBACK
+    #define CURRENT_CHANGES_IF_FETCH_NEXT \
+        (f->fake_lookback != nullptr)
+#else
+    #define CURRENT_CHANGES_IF_FETCH_NEXT \
+        (current == FRM_CELL(f))
+#endif
+
+
 //
 //  Eval_Core: C
 //
@@ -480,11 +489,11 @@ void Eval_Core(REBFRM * const f)
 
     // Most calls to Fetch_Next_In_Frame() are no longer interested in the
     // cell backing the pointer that used to be in f->value (this is enforced
-    // by a rigorous test in STRESS_EXPIRED_FETCH).  Special care must be
+    // by a rigorous test in DEBUG_EXPIRED_LOOKBACK).  Special care must be
     // taken when one is interested in that data, because it may have to be
     // moved.  So current is returned from Fetch_Next_In_Frame().
     //
-    current = Fetch_Next_In_Frame(f);
+    Fetch_Next_In_Frame(&current, f);
 
     assert(eval_type != REB_0_END and eval_type == VAL_TYPE_RAW(current));
 
@@ -635,7 +644,7 @@ void Eval_Core(REBFRM * const f)
     SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
   #endif
 
-    Fetch_Next_In_Frame(f); // skip the WORD! that invoked the action
+    Fetch_Next_In_Frame(nullptr, f); // skip the WORD! that invoked the action
     goto process_action;
 
   give_up_backward_quote_priority:;
@@ -1289,7 +1298,7 @@ void Eval_Core(REBFRM * const f)
             case PARAM_CLASS_SOFT_QUOTE:
                 if (IS_BAR(f->value)) { // BAR! stops a soft quote
                     f->flags.bits |= DO_FLAG_BARRIER_HIT;
-                    Fetch_Next_In_Frame(f);
+                    Fetch_Next_In_Frame(nullptr, f);
                     SET_END(f->arg);
                     Finalize_Current_Arg(f);
                     goto continue_arg_loop;
@@ -1306,7 +1315,7 @@ void Eval_Core(REBFRM * const f)
                     goto abort_action;
                 }
 
-                Fetch_Next_In_Frame(f);
+                Fetch_Next_In_Frame(nullptr, f);
                 break;
 
             default:
@@ -1632,43 +1641,26 @@ void Eval_Core(REBFRM * const f)
             // !!! Ideally we would check that f->out hadn't changed, but
             // that would require saving the old value somewhere...
 
-            // If an invisible is at the start of a frame and nothing is
-            // after it, it has to retrigger until it finds something (or
-            // until it hits the end of the frame).
-            //
-            //     do [comment "a" 1] => 1
-            //
-            // Use same mechanic as EVAL by loading next item.
-            //
             if (
-                (f->out->header.bits & OUT_MARKED_STALE)
-                and NOT_END(f->value)
+                not (f->out->header.bits & OUT_MARKED_STALE)
+                or IS_END(f->value)
             ){
-                Derelativize(FRM_CELL(f), f->value, f->specifier);
-                Fetch_Next_In_Frame(f);
-                goto prep_for_reevaluate;
+                goto skip_output_check;
             }
 
-            goto skip_output_check; }
-
-          prep_for_reevaluate:;
-
-            current = FRM_CELL(f);
-            eval_type = VAL_TYPE(current);
-            current_gotten = nullptr;
-
-            // The f->gotten (if any) was the fetch for f->value, not what
-            // was just put in current.  Conservatively clear this cache:
-            // assume for instance that f->value is a WORD! that looks up
-            // to a value which is in f->gotten, and then f->cell contains
-            // a zero-arity function which changes the value of that word.
-            // Might be possible to finesse use of this cache and clear it
-            // only if such cases occur, but for now don't take chances.
+            // If an invisible is at the start of a frame and nothing is
+            // after it, it has to retrigger until it finds something (or
+            // until it hits the end of the frame).  It should not do a
+            // START_NEW_EXPRESSION()...the expression index doesn't update.
             //
-            assert(not f->gotten);
+            //     do [comment "a" 1] => 1
+
+            current_gotten = f->gotten;
+            Fetch_Next_In_Frame(&current, f);
+            eval_type = VAL_TYPE(current);
 
             Drop_Action(f);
-            goto reevaluate; // we don't move index!
+            goto reevaluate; }
 
         default:
             assert(!"Invalid pseudotype returned from action dispatcher");
@@ -1797,14 +1789,17 @@ void Eval_Core(REBFRM * const f)
         if (IS_END(f->value)) // `do [a:]` is illegal
             fail (Error_Need_Value_Core(current, f->specifier));
 
-        // Note: We are evaluating here and there is nothing guaranteeing that
-        // `current` didn't come from a va_list and has no other references in
-        // the system.  Hence, all REBVAL* which make it into the evaluator
-        // must be GC-protected by some means.
-
         REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
-        if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
-            goto finished;
+
+        if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
+            DECLARE_SUBFRAME(child, f);
+            if (Eval_Step_In_Subframe_Throws(f->out, f, flags, child))
+                goto finished;
+        }
+        else {
+            if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
+                goto finished;
+        }
 
         if (IS_NULLED_OR_VOID(f->out))
             fail (Error_Need_Value_Core(current, f->specifier));
@@ -1905,10 +1900,8 @@ void Eval_Core(REBFRM * const f)
             );
             if (indexor == THROWN_FLAG)
                 goto finished;
-            if (IS_END(f->out)) {
-                f->flags.bits |= DO_FLAG_BARRIER_HIT;
+            if (GET_VAL_FLAG(f->out, OUT_MARKED_STALE))
                 goto finished;
-            }
             f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // (1) "evaluates"
         }
         else {
@@ -2027,16 +2020,17 @@ void Eval_Core(REBFRM * const f)
         if (IS_END(f->value)) // `do [a/b:]` is illegal
             fail (Error_Need_Value_Core(current, f->specifier));
 
-        // Note: We are evaluating here and there is nothing guaranteeing that
-        // `current` didn't come from a va_list and has no other references in
-        // the system.  Hence, all REBVAL* which make it into the evaluator
-        // must be GC-protected by some means.
-
-        assert(current != FRM_CELL(f)); // would be overwritten
-
         REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
-        if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
-            goto finished;
+
+        if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
+            DECLARE_SUBFRAME(child, f);
+            if (Eval_Step_In_Subframe_Throws(f->out, f, flags, child))
+                goto finished;
+        }
+        else {
+            if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
+                goto finished;
+        }
 
         if (IS_NULLED_OR_VOID(f->out))
             fail (Error_Need_Value_Core(current, f->specifier));
@@ -2391,10 +2385,8 @@ post_switch:;
             // v-- The TICK_BREAKPOINT or C-DEBUG-BREAK landing spot --v
         }
 
-        current = f->value;
         current_gotten = f->gotten; // if nullptr, the word will error
-
-        Fetch_Next_In_Frame(f);
+        Fetch_Next_In_Frame(&current, f);
 
         // Were we to jump to the REB_WORD switch case here, LENGTH would
         // cause an error in the expression below:
@@ -2486,7 +2478,7 @@ post_switch:;
     Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
     Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
 
-    Fetch_Next_In_Frame(f); // advances f->value
+    Fetch_Next_In_Frame(nullptr, f); // advances f->value
     goto process_action;
 
   abort_action:;

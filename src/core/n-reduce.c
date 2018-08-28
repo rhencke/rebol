@@ -228,7 +228,7 @@ REBOOL Compose_To_Stack_Throws(
     while (NOT_END(f->value)) {
         if (not ANY_ARRAY(f->value)) { // non-arrays don't substitute/recurse
             DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
-            Fetch_Next_In_Frame(f);
+            Fetch_Next_In_Frame(nullptr, f);
             continue;
         }
 
@@ -330,7 +330,7 @@ REBOOL Compose_To_Stack_Throws(
             DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
         }
 
-        Fetch_Next_In_Frame(f);
+        Fetch_Next_In_Frame(nullptr, f);
     }
 
     Drop_Frame_Unbalanced(f); // Drop_Frame() asesrts on stack accumulation

@@ -122,7 +122,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
     if (IS_NULLED(PVS_PICKER(pvs)))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
-    Fetch_Next_In_Frame(pvs); // may be at end
+    Fetch_Next_In_Frame(nullptr, pvs); // may be at end
 
     if (IS_END(pvs->value) and PVS_IS_SET_PATH(pvs)) {
         const REBVAL *r = dispatcher(
@@ -386,7 +386,7 @@ REBOOL Eval_Path_Throws_Core(
     if (IS_NULLED(pvs->out))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
-    Fetch_Next_In_Frame(pvs);
+    Fetch_Next_In_Frame(nullptr, pvs);
 
     if (IS_END(pvs->value)) {
         // If it was a single element path, return the value rather than

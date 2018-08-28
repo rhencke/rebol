@@ -102,13 +102,17 @@ inline static REBARR *Alloc_Instruction(void) {
     s->info = Endlike_Header(
         FLAG_WIDE_BYTE_OR_0(0) // signals array, also implicit terminator
             | FLAG_LEN_BYTE_OR_255(1) // signals singular
+            | SERIES_INFO_API_INSTRUCTION
+            | SERIES_INFO_API_RELEASE
     );
-    SER_CELL(s)->header.bits = CELL_MASK_NON_STACK_END;
+    SER_CELL(s)->header.bits =
+        CELL_MASK_NON_STACK_END | NODE_FLAG_ROOT;
     TRACK_CELL_IF_DEBUG(SER_CELL(s), "<<instruction>>", 0);
     return ARR(s);
 }
 
 inline static void Free_Instruction(REBARR *instruction) {
     assert(WIDE_BYTE_OR_0(SER(instruction)) == 0);
+    TRASH_CELL_IF_DEBUG(ARR_SINGLE(instruction));
     Free_Node(SER_POOL, instruction);
 }

@@ -699,7 +699,7 @@ static void Case_Choose_Core_May_Throw(
 
         if (IS_CONDITIONAL_FALSE(cell)) { // not a matching condition
             if (choose) {
-                Fetch_Next_In_Frame(f); // skip next item, whatever it is
+                Fetch_Next_In_Frame(nullptr, f); // skip next, whatever it is
                 continue;
             }
 
@@ -725,7 +725,7 @@ static void Case_Choose_Core_May_Throw(
 
         if (choose) {
             Derelativize(out, f->value, f->specifier); // null not possible
-            Fetch_Next_In_Frame(f); // keep matching if /ALL
+            Fetch_Next_In_Frame(nullptr, f); // keep matching if /ALL
         }
         else {
             if (Eval_Step_In_Frame_Throws(out, f)) {
@@ -884,7 +884,7 @@ REBNATIVE(switch)
         //
         if (IS_BLOCK(f->value)) {
             Init_Nulled(D_OUT);
-            Fetch_Next_In_Frame(f);
+            Fetch_Next_In_Frame(nullptr, f);
             continue;
         }
 
@@ -941,7 +941,7 @@ REBNATIVE(switch)
                 break;
             if (IS_ACTION(f->value))
                 goto action_not_supported; // literal action
-            Fetch_Next_In_Frame(f);
+            Fetch_Next_In_Frame(nullptr, f);
         }
 
         if (Do_At_Throws( // it's a match, so run the BLOCK!
@@ -961,7 +961,7 @@ REBNATIVE(switch)
             return D_OUT;
         }
 
-        Fetch_Next_In_Frame(f); // keep matching if /ALL
+        Fetch_Next_In_Frame(nullptr, f); // keep matching if /ALL
     }
 
     Drop_Frame(f);

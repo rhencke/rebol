@@ -349,7 +349,7 @@ void Do_Vararg_Op_May_Throw_Or_End(
                 )){
                     return;
                 }
-                Fetch_Next_In_Frame(f);
+                Fetch_Next_In_Frame(nullptr, f);
             }
             else // not a soft-"exception" case, quote ordinarily
                 Quote_Next_In_Frame(out, f);

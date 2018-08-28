@@ -94,12 +94,22 @@
 
 #define P_CELL FRM_CELL(f)
 
-#define FETCH_NEXT_RULE_MAYBE_END(f) \
-    Fetch_Next_In_Frame(f)
+// !!! R3-Alpha's PARSE code long predated frames, and was retrofitted to use
+// them as an experiment in Ren-C.  If it followed the rules of frames, then
+// what is seen in a lookback is only good for *one* unit of time and may be
+// invalid after that.  It takes several observations and goes back expecting
+// a word to be in the same condition, so it can't use opt_lookback yet.
+//
+#define FETCH_NEXT_RULE_KEEP_LAST(opt_lookback,f) \
+    *opt_lookback = P_RULE; \
+    Fetch_Next_In_Frame(nullptr, (f))
 
-#define FETCH_TO_BAR_MAYBE_END(f) \
+#define FETCH_NEXT_RULE(f) \
+    Fetch_Next_In_Frame(nullptr, (f))
+
+#define FETCH_TO_BAR_OR_END(f) \
     while (NOT_END(f->value) and not IS_BAR(P_RULE)) \
-        { FETCH_NEXT_RULE_MAYBE_END(f); }
+        { FETCH_NEXT_RULE(f); }
 
 
 //
@@ -190,7 +200,7 @@ static REBOOL Subparse_Throws(
     f->source->index = VAL_INDEX(rules) + 1;
     f->source->pending = f->value + 1;
 
-    f->flags = Endlike_Header(0); // implicitly terminate f->cell
+    f->flags = Endlike_Header(DO_FLAG_PARSE_FRAME); // terminates f->cell
 
     Push_Frame_Core(f); // checks for C stack overflow
     Reuse_Varlist_If_Available(f);
@@ -1245,7 +1255,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     // advance the position, but it should.
     //
     REBIXO n = Parse_Array_One_Rule(f, rule);
-    FETCH_NEXT_RULE_MAYBE_END(f);
+    FETCH_NEXT_RULE(f);
 
     // Restore the input series to what it was before parsing the temporary
     // (this restores P_POS, since it's just an alias for the input's index)
@@ -1443,12 +1453,12 @@ REBNATIVE(subparse)
                         // falls through
                     case SYM_SOME:
                         maxcount = INT32_MAX;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         continue;
 
                     case SYM_OPT:
                         mincount = 0;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         continue;
 
                     case SYM_COPY:
@@ -1458,7 +1468,7 @@ REBNATIVE(subparse)
                         flags |= PF_SET;
                         // falls through
                     set_or_copy_pre_rule:
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
 
                         if (not (IS_WORD(P_RULE) or IS_SET_WORD(P_RULE))) {
                             DECLARE_LOCAL (bad_var);
@@ -1472,40 +1482,39 @@ REBNATIVE(subparse)
                             fail (Error_Parse_Command_Raw(keyword));
                         }
 
-                        set_or_copy_word = P_RULE;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE_KEEP_LAST(&set_or_copy_word, f);
                         continue;
 
                     case SYM_NOT:
                         flags |= PF_NOT;
                         flags ^= PF_NOT2;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         continue;
 
                     case SYM_AND:
                     case SYM_AHEAD:
                         flags |= PF_AHEAD;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         continue;
 
                     case SYM_THEN:
                         flags |= PF_THEN;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         continue;
 
                     case SYM_REMOVE:
                         flags |= PF_REMOVE;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         continue;
 
                     case SYM_INSERT:
                         flags |= PF_INSERT;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         goto post_match_processing;
 
                     case SYM_CHANGE:
                         flags |= PF_CHANGE;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         continue;
 
                     // There are two RETURNs: one is a matching form, so with
@@ -1519,7 +1528,7 @@ REBNATIVE(subparse)
                     // happens to be, e.g. 'parse data [return ("abc")]'
 
                     case SYM_RETURN:
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         if (IS_GROUP(P_RULE)) {
                             DECLARE_LOCAL (evaluated);
                             if (Do_At_Throws(
@@ -1576,12 +1585,12 @@ REBNATIVE(subparse)
 
                     case SYM_FAIL:
                         P_POS = NOT_FOUND;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         goto post_match_processing;
 
                     case SYM_IF: {
-                        FETCH_NEXT_RULE_MAYBE_END(f);
-                        if (IS_END(f->value))
+                        FETCH_NEXT_RULE(f);
+                        if (IS_END(P_RULE))
                             fail (Error_Parse_End());
 
                         if (not IS_GROUP(P_RULE))
@@ -1599,7 +1608,7 @@ REBNATIVE(subparse)
                             return P_OUT;
                         }
 
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
 
                         if (IS_TRUTHY(condition))
                             continue;
@@ -1613,7 +1622,7 @@ REBNATIVE(subparse)
 
                     case SYM__Q_Q:
                         Print_Parse_Index(f);
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                         continue;
 
                     default: //the list above should be exhaustive
@@ -1640,7 +1649,7 @@ REBNATIVE(subparse)
                         Sink_Var_May_Fail(P_RULE, P_RULE_SPECIFIER),
                         P_INPUT_VALUE
                     );
-                    FETCH_NEXT_RULE_MAYBE_END(f);
+                    FETCH_NEXT_RULE(f);
                     continue;
                 }
 
@@ -1670,7 +1679,7 @@ REBNATIVE(subparse)
                     if (flags == 0)
                         begin = P_POS;
 
-                    FETCH_NEXT_RULE_MAYBE_END(f);
+                    FETCH_NEXT_RULE(f);
                     continue;
                 }
 
@@ -1710,7 +1719,7 @@ REBNATIVE(subparse)
                 // Nothing left to do after storing the parse position in the
                 // path location...continue.
                 //
-                FETCH_NEXT_RULE_MAYBE_END(f);
+                FETCH_NEXT_RULE(f);
                 continue;
             }
             else if (IS_GET_PATH(P_RULE)) {
@@ -1728,7 +1737,7 @@ REBNATIVE(subparse)
                     fail (Error_Parse_Series_Raw(save));
 
                 Set_Parse_Series(f, save);
-                FETCH_NEXT_RULE_MAYBE_END(f);
+                FETCH_NEXT_RULE(f);
                 continue;
             }
             else {
@@ -1762,7 +1771,7 @@ REBNATIVE(subparse)
             // ignore evaluated if it's not THROWN?
 
             if (P_POS > SER_LEN(P_INPUT)) P_POS = SER_LEN(P_INPUT);
-            FETCH_NEXT_RULE_MAYBE_END(f);
+            FETCH_NEXT_RULE(f);
             continue;
         }
 
@@ -1771,8 +1780,8 @@ REBNATIVE(subparse)
             flags |= PF_WHILE;
             mincount = maxcount = Int32s(const_KNOWN(rule), 0);
 
-            FETCH_NEXT_RULE_MAYBE_END(f);
-            if (IS_END(f->value))
+            FETCH_NEXT_RULE(f);
+            if (IS_END(P_RULE))
                 fail (Error_Parse_End());
 
             rule = Get_Parse_Value(save, P_RULE, P_RULE_SPECIFIER);
@@ -1780,7 +1789,7 @@ REBNATIVE(subparse)
             if (IS_INTEGER(rule)) {
                 maxcount = Int32s(const_KNOWN(rule), 0);
 
-                FETCH_NEXT_RULE_MAYBE_END(f);
+                FETCH_NEXT_RULE(f);
                 if (IS_END(f->value))
                     fail (Error_Parse_End());
 
@@ -1799,7 +1808,7 @@ REBNATIVE(subparse)
         // The index is advanced and stored in a temp variable i until
         // the entire rule has been satisfied.
 
-        FETCH_NEXT_RULE_MAYBE_END(f);
+        FETCH_NEXT_RULE(f);
 
         begin = P_POS;// input at beginning of match section
 
@@ -1839,7 +1848,7 @@ REBNATIVE(subparse)
                         subrule = Get_Parse_Value(
                             save, P_RULE, P_RULE_SPECIFIER
                         );
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                     }
 
                     REBOOL is_thru = (cmd == SYM_THRU);
@@ -1857,10 +1866,8 @@ REBNATIVE(subparse)
                     if (IS_END(f->value))
                         fail (Error_Parse_End());
 
-                    if (!subrule) { // capture only on iteration #1
-                        subrule = P_RULE;
-                        FETCH_NEXT_RULE_MAYBE_END(f);
-                    }
+                    if (not subrule) // capture only on iteration #1
+                        FETCH_NEXT_RULE_KEEP_LAST(&subrule, f);
 
                     RELVAL *cmp = ARR_AT(ARR(P_INPUT), P_POS);
 
@@ -1881,7 +1888,7 @@ REBNATIVE(subparse)
                         subrule = Get_Parse_Value(
                             save, P_RULE, P_RULE_SPECIFIER
                         );
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                        FETCH_NEXT_RULE(f);
                     }
 
                     if (not IS_BLOCK(subrule))
@@ -2065,9 +2072,9 @@ REBNATIVE(subparse)
 
             if (P_POS == NOT_FOUND) {
                 if (flags & PF_THEN) {
-                    FETCH_TO_BAR_MAYBE_END(f);
-                    if (NOT_END(f->value))
-                        FETCH_NEXT_RULE_MAYBE_END(f);
+                    FETCH_TO_BAR_OR_END(f);
+                    if (NOT_END(P_RULE))
+                        FETCH_NEXT_RULE(f);
                 }
             }
             else {
@@ -2191,8 +2198,8 @@ REBNATIVE(subparse)
                         switch (cmd) {
                         case SYM_ONLY:
                             only = true;
-                            FETCH_NEXT_RULE_MAYBE_END(f);
-                            if (IS_END(f->value))
+                            FETCH_NEXT_RULE(f);
+                            if (IS_END(P_RULE))
                                 fail (Error_Parse_End());
                             break;
 
@@ -2206,7 +2213,7 @@ REBNATIVE(subparse)
 
                     // new value...comment said "CHECK FOR QUOTE!!"
                     rule = Get_Parse_Value(save, P_RULE, P_RULE_SPECIFIER);
-                    FETCH_NEXT_RULE_MAYBE_END(f);
+                    FETCH_NEXT_RULE(f);
 
                     // If a GROUP!, then execute it first.  See #1279
                     //
@@ -2305,13 +2312,13 @@ REBNATIVE(subparse)
             // If a rule fails but "falls through", there may still be other
             // options later in the block to consider separated by |.
 
-            FETCH_TO_BAR_MAYBE_END(f);
-            if (IS_END(f->value)) // no alternate rule
+            FETCH_TO_BAR_OR_END(f);
+            if (IS_END(P_RULE)) // no alternate rule
                 return Init_Blank(D_OUT);
 
             // Jump to the alternate rule and reset input
             //
-            FETCH_NEXT_RULE_MAYBE_END(f);
+            FETCH_NEXT_RULE(f);
             P_POS = begin = start;
         }
 

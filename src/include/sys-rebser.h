@@ -535,13 +535,23 @@
     FLAG_LEFT_BIT(29)
 
 
+//=//// SERIES_INFO_API_INSTRUCTION ///////////////////////////////////////=//
+//
+// Rather than have LINK() and MISC() fields used to distinguish an API
+// handle like an INTEGER! from something like a rebEval(), a flag helps
+// keep those free for different purposes.
+//
+#define SERIES_INFO_API_INSTRUCTION \
+    FLAG_LEFT_BIT(30)
+
+
 // ^-- STOP AT FLAG_LEFT_BIT(31) --^
 //
 // While 64-bit systems have another 32-bits available in the header, core
 // functionality shouldn't require using them...only optimization features.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(29 < 32, "SERIES_INFO_XXX too high");
+    static_assert(30 < 32, "SERIES_INFO_XXX too high");
 #endif
 
 

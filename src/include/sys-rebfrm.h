@@ -212,22 +212,14 @@
     FLAG_LEFT_BIT(20)
 
 
-//=//// DO_FLAG_VALUE_IS_INSTRUCTION //////////////////////////////////////=//
+//=//// DO_FLAG_PARSE_FRAME ///////////////////////////////////////////////=//
 //
-// If variadic processing of rebRun() comes across a rebEval() instruction,
-// it is responsible for freeing it.  It can't be freed on the cycle it is
-// used, because f->value still point at the singular cell in the instruction.
-// It can only be freed on the subsequent cycle...*but* the lookahead process
-// wants to fetch and still have access to the old value...while possibly
-// latching onto a new rebEval() simultaneously.
+// This flag is set when a REBFRM* is being used to hold the state of the
+// PARSE stack.  One application of knowing this is that PARSE wasn't really
+// written to use frames, and doesn't follow the same rules as the evaluator;
+// so the debugging checks have to be more lax;
 //
-// To make the cell data available for lookback, it copies the content of
-// f->value into the frame's temporary cell in this case.  This flag signals
-// the need to make this copy and return it as an updated lookback pointer,
-// as well as a signal to the GC to preserve the pointed into array for the
-// duration that f->value points into the singular array's data.
-//
-#define DO_FLAG_VALUE_IS_INSTRUCTION \
+#define DO_FLAG_PARSE_FRAME \
     FLAG_LEFT_BIT(21)
 
 
@@ -780,13 +772,19 @@ struct Reb_Frame {
     struct Reb_State state;
   #endif
 
-  #if defined(STRESS_EXPIRED_FETCH)
+  #if defined(DEBUG_EXPIRED_LOOKBACK)
     //
-    // The contract for Fetch_Next_In_Frame is that it will return a pointer
-    // to a cell with equivalent data to what used to be in f->value, but
-    // that might not be f->value.  For all practical purposes, one is to
-    // assume that the f->value pointer died after the fetch.  To help
-    // stress this invariant, frames will forcibly expire REBVAL cells.
+    // On each call to Fetch_Next_In_Frame, it's possible to ask it to give
+    // a pointer to a cell with equivalent data to what was previously in
+    // f->value, but that might not be f->value.  So for all practical
+    // purposes, one is to assume that the f->value pointer died after the
+    // fetch.  If clients are interested in doing "lookback" and examining
+    // two values at the same time (or doing a GC and expecting to still
+    // have the old f->current work), then they must not use the old f->value
+    // but request the lookback pointer from Fetch_Next_In_Frame().
+    //
+    // To help stress this invariant, frames will forcibly expire REBVAL
+    // cells, handing out disposable lookback pointers on each eval.
     //
     // !!! Test currently leaks on shutdown, review how to not leak.
     //

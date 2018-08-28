@@ -1196,27 +1196,12 @@ static void Mark_Frame_Stack_Deep(void)
         // will stay on the stack while the zero-arity function is running.
         // The array still might be used in an error, so can't GC it.
         //
-        if (NOT_END(f->value)) {
-            if (Is_Api_Value(f->value)) {
-                //
-                // An API value cell may have been rebRelease'd(), via the
-                // SERIES_INFO_API_RELEASE mechanic.  But the cell must be
-                // kept alive so long as the frame holds onto it.  There may
-                // be a way to do this by rebRelease-ing the previous value
-                // on each advancement, but for now this is easier to see.
-                //
-                Queue_Mark_Singular_Array(Singular_From_Cell(f->value));
-            }
-            else if (f->flags.bits & DO_FLAG_VALUE_IS_INSTRUCTION)
-                Queue_Mark_Singular_Array(Singular_From_Cell(f->value));
-            else
-                Queue_Mark_Opt_Value_Deep(f->value);
+        Queue_Mark_Opt_End_Cell_Deep(f->value);
 
-            // Note that f->gotten is explicitly *not* marked alive, because
-            // f->value keeps it alive by reference in its binding.  This
-            // might need to be rethought if it becomes a cache to where a
-            // path resolves...
-        }
+        // f_gotten shouldn't need be marked, because it fetched via f_value
+        // and so would be kept alive by it.  Operations should be careful to
+        // nullptr it--however--anytime they run code that could change the
+        // state of the system.  Make sure it's in sync if it is set.
 
         if (
             f->specifier != SPECIFIED
@@ -1229,12 +1214,8 @@ static void Mark_Frame_Stack_Deep(void)
 
         // Frame temporary cell should always contain initialized bits, as
         // DECLARE_FRAME sets it up and no one is supposed to trash it.
-        // However, path dispatch uses REB_R_REFERENCE cells, so be tolerant
-        // of that particular case.
         //
-        enum Reb_Kind cell_kind = VAL_TYPE_RAW(FRM_CELL(f));
-        if (cell_kind != REB_R_REFERENCE and cell_kind != REB_R_REDO)
-            Queue_Mark_Opt_End_Cell_Deep(FRM_CELL(f));
+        Queue_Mark_Opt_End_Cell_Deep(FRM_CELL(f));
 
         if (not Is_Action_Frame(f)) {
             //
