@@ -344,7 +344,7 @@ redescribe: function [
                 fail [{PARAMETER-NOTES in META-OF is not a FRAME!} notes]
             ]
 
-            if :value <> action-of notes [
+            if :value <> action of notes [
                 fail [{PARAMETER-NOTES in META-OF frame mismatch} notes]
             ]
         ]

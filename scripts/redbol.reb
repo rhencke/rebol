@@ -117,7 +117,7 @@ any-object?: emulate [:any-context?]
 blankify-refinement-args: helper [
     function [return: <void> f [frame!]] [
         seen-refinement: false
-        for-each w (words of action-of f) [
+        for-each w (words of action of f) [
             case [
                 refinement? w [
                     seen-refinement: true

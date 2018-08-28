@@ -81,8 +81,8 @@ console!: make object! [
             ; can examine the condition and branch for instance)
             ;
             if focus-frame [
-                if label-of focus-frame [
-                    write-stdout unspaced [label-of focus-frame ":"]
+                if label of focus-frame [
+                    write-stdout unspaced [label of focus-frame ":"]
                 ]
                 write-stdout unspaced ["|" focus-level "|"]
             ]

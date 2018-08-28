@@ -52,7 +52,6 @@ poke
 
 enfix
 native
-action
 self
 blank
 true
@@ -91,7 +90,9 @@ title
 binding
 file
 line
-function
+action
+near
+label
 
 value ; used by TYPECHECKER to name the argument of the generated function
 

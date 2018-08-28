@@ -66,8 +66,8 @@ backtrace*: function [
     stack: collect [while [f: parent-of f] [
         if not pending? f [
             if first-frame and (any [
-                action-of f = :pause
-                action-of f = :breakpoint
+                action of f = :pause
+                action of f = :breakpoint
             ])[
                 ; Omitting breakpoints from the list entirely presents a
                 ; skewed picture of what's going on.  But giving them
@@ -100,7 +100,7 @@ backtrace*: function [
                 ]
             ] else [
                 assert [action? :level]
-                if action-of f <> :level [
+                if action of f <> :level [
                     continue
                 ]
             ]
@@ -121,9 +121,8 @@ backtrace*: function [
                     ;
                     ; !!! Review arbitrary symbolic choices.
                     ;
-                    keep [
-                        * ;-- put on own line
-                    ]
+                    keep/line []
+                    keep [*]
                 ]
 
                 break
@@ -134,7 +133,7 @@ backtrace*: function [
             ;
             ; If we were fetching a single stack level, then our result will
             ; be a FRAME! (which can be queried for further properties via
-            ; `near-of`, `label-of`, `action-of`, etc.)
+            ; `near of`, `label of`, `action of`, etc.)
             ;
             return f
         ]
@@ -143,11 +142,11 @@ backtrace*: function [
         ; "loaded" name for the refinement?
         ;
         if brief [
-            keep label-of f ;-- may be BLANK!
+            keep (label of f else [<anonymous>])
             continue
         ]
 
-        keep/only near-of f
+        keep/only near of f
 
         ; If building a backtrace, we just keep accumulating results as long
         ; as there are stack levels left and the limit hasn't been hit.
@@ -157,6 +156,7 @@ backtrace*: function [
         ; add it after the props so it will show up before, and give it
         ; the newline break marker.
         ;
+        keep/line []
         if pending? f [
             ;
             ; You cannot (or should not) switch to inspect a pending frame,
@@ -171,13 +171,9 @@ backtrace*: function [
             ; dealings with the arguments, however (for instance: not having
             ; to initialize not-yet-filled args could be one thing).
             ;
-            keep [
-                * ;-- keep the newline marker
-            ]
+            keep [*]
         ] else [
-            keep compose [
-                (number) ;-- keep the newline marker
-            ]
+            keep number
         ]
     ]]
 

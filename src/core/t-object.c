@@ -817,9 +817,59 @@ REBTYPE(Context)
 
     switch (VAL_WORD_SYM(verb)) {
 
-    case SYM_REFLECT:
-        // should be handled by the common handler
-        break;
+    case SYM_REFLECT: {
+        REBSYM sym = VAL_WORD_SYM(arg);
+        if (VAL_TYPE(value) != REB_FRAME)
+            break;
+
+        REBFRM *f = CTX_FRAME_MAY_FAIL(c);
+
+        switch (sym) {
+          case SYM_FILE: {
+            REBSTR *file = FRM_FILE(f);
+            if (not file)
+                return nullptr;
+            return Init_Word(D_OUT, file); }
+
+          case SYM_LINE: {
+            REBLIN line = FRM_LINE(f);
+            if (line == 0)
+                return nullptr;
+            return Init_Integer(D_OUT, line); }
+
+          case SYM_LABEL: {
+            if (not f->opt_label)
+                return nullptr;
+            return Init_Word(D_OUT, f->opt_label); }
+
+          case SYM_NEAR:
+            return Init_Near_For_Frame(D_OUT, f);
+
+          case SYM_ACTION: {
+            return Init_Action_Maybe_Bound(
+                D_OUT,
+                value->payload.any_context.phase, // archetypal, so no binding
+                value->extra.binding // e.g. where to return for a RETURN
+            ); }
+
+          case SYM_PARENT: {
+            //
+            // Only want action frames (though `pending? = true` ones count).
+            //
+            REBFRM *parent = f;
+            while ((parent = parent->prior) != FS_BOTTOM) {
+                if (Is_Action_Frame(parent)) {
+                    REBCTX* ctx_parent = Context_For_Frame_May_Manage(parent);
+                    RETURN (CTX_ARCHETYPE(ctx_parent));
+                }
+            }
+            return nullptr; }
+
+          default:
+            break;
+        }
+        fail (Error_Cannot_Reflect(VAL_TYPE(value), arg)); }
+
 
     case SYM_APPEND:
         FAIL_IF_READ_ONLY_CONTEXT(c);
