@@ -13,7 +13,7 @@ optimize: "z"
 
 ldflags: reduce [
     unspaced ["-O" optimize]
-    unspaced [{-s 'ASSERTIONS=} either debug [1] [0] {'}]
+    unspaced [{-s 'ASSERTIONS=} either debug = 'none [0] [1] {'}]
     {-s 'EXTRA_EXPORTED_RUNTIME_METHODS=["ccall", "cwrap"]'}
     {--post-js prep/include/reb-lib.js}
 ]
