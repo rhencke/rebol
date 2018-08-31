@@ -83,7 +83,7 @@ matrix:
         - STANDARD=c++14
         - RIGOROUS=no
         - STATIC=no
-        - FFI="dynamic"
+        - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="no"
 
     # OSX x64, debug, clang
@@ -102,7 +102,7 @@ matrix:
         - STANDARD=c99
         - RIGOROUS=no
         - STATIC=no
-        - FFI="dynamic"
+        - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="no"
 
     # OSX x64, release, clang++
@@ -131,7 +131,7 @@ matrix:
         - STANDARD=c
         - RIGOROUS=no
         - STATIC=no
-        - FFI="dynamic"
+        - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="no"
 
     # Linux x86, release, gcc
@@ -154,7 +154,7 @@ matrix:
         - STATIC=yes
         - TCC=i386-tcc
         - ARCH_CFLAGS=-m32
-        - FFI="dynamic"
+        - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="yes"
       addons:
         apt:
@@ -180,7 +180,7 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=tcc
-        - FFI="dynamic"
+        - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="no"
         - ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-3.4
         - ASAN_OPTIONS=symbolize=1
@@ -204,7 +204,7 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=tcc
-        - FFI="dynamic"
+        - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="no"
       addons:
         apt:
@@ -241,7 +241,7 @@ matrix:
         - STATIC=yes
         - HOST=i686-w64-mingw32
         - ARCH_CFLAGS=-m32
-        - FFI="dynamic"
+        - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="no"
       addons:
         apt:
@@ -267,7 +267,7 @@ matrix:
         - TCC=x86_64-win32-tcc
         - TCC_CPP_EXTRA_FLAGS='-I../external/tcc/win32/include -DPVAR=TVAR -DTVAR="extern __attribute__((dllimport))"'
         - HOST=x86_64-w64-mingw32
-        - FFI="dynamic"
+        - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="no"
       addons:
         apt:
@@ -302,7 +302,7 @@ matrix:
         - TCC=x86_64-win32-tcc
         - TCC_CPP_EXTRA_FLAGS='-I../external/tcc/win32/include -DPVAR=TVAR -DTVAR="extern __attribute__((dllimport))"'
         - HOST=x86_64-w64-mingw32
-        - FFI="dynamic"
+        - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="no"
       addons:
         apt:
@@ -325,7 +325,7 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - HOST=arm-eabi
-        - FFI="no"
+        - WITH_FFI="no"
         - ODBC_REQUIRES_LTDL="no"
 
     # Android5, release, gcc
@@ -342,7 +342,7 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - HOST=arm-eabi
-        - FFI="no"
+        - WITH_FFI="no"
         - ODBC_REQUIRES_LTDL="no"
         - TCC="arm-tcc"
         - ARCH_CFLAGS="-DANDROID -DTCC_ARM_EABI -DTCC_ARM_VFP -DTCC_ARM_HARDFLOAT"
@@ -365,7 +365,7 @@ matrix:
         - STANDARD=c
         - RIGOROUS=no
         - STATIC=no
-        - FFI="no"
+        - WITH_FFI="no"
         - ODBC_REQUIRES_LTDL="no"
 
 
@@ -457,7 +457,7 @@ script:
           # check cflags and libs
           ${PKGCONFIG} --cflags libffi
           ${PKGCONFIG} --libs libffi
-      elif [[ -z ${FFI} || ${FFI} != "no" ]]; then
+      elif [[ -z ${WITH_FFI} || ${WITH_FFI} != "no" ]]; then
           # Build libffi
           mkdir build
           cd external/libffi
@@ -605,11 +605,11 @@ script:
     #
     - |
       if [[ -z ${TCC} ]]; then
-          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="{${GIT_COMMIT}}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${FFI} WITH_TCC="no" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET} CONFIG="configs/${CONFIG}" makefile
+          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="{${GIT_COMMIT}}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${WITH_FFI} WITH_TCC="no" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET} CONFIG="configs/${CONFIG}" makefile
           make clean prep folders
           make -j ${MAKE_JOBS} ${TARGET}
       else
-          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="{${GIT_COMMIT}}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${FFI} WITH_TCC="%${PWD}/tcc/${TCC}" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET} CONFIG="configs/${CONFIG}" makefile
+          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="{${GIT_COMMIT}}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${WITH_FFI} WITH_TCC="%${PWD}/tcc/${TCC}" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET} CONFIG="configs/${CONFIG}" makefile
           make clean prep folders
           make -j ${MAKE_JOBS} ${TARGET}
       fi
