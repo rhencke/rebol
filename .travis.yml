@@ -367,7 +367,7 @@ matrix:
         - STATIC=no
         - WITH_FFI="no"
         - ODBC_REQUIRES_LTDL="no"
-
+        - EXTRA="extensions: -"
 
 # The install step occurs before the `script:` step runs.  The language that
 # was specified in the `matrix:` entry for each instance will guide certain
@@ -590,7 +590,7 @@ script:
           # we do not apply it to any of the binaries which are uploaded to s3
           # -- not even debug ones.
           #
-          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" RIGOROUS="${RIGOROUS}" DEBUG=sanitize OPTIMIZE=2 STATIC=no ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} CONFIG="configs/${CONFIG}" makefile
+          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" RIGOROUS="${RIGOROUS}" DEBUG=sanitize OPTIMIZE=2 STATIC=no ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} CONFIG="configs/${CONFIG}" ${EXTRA} makefile
           make clean prep folders
           make -j ${MAKE_JOBS} ${TARGET}
 
@@ -605,11 +605,11 @@ script:
     #
     - |
       if [[ -z ${TCC} ]]; then
-          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="{${GIT_COMMIT}}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${WITH_FFI} WITH_TCC="no" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET} CONFIG="configs/${CONFIG}" makefile
+          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="{${GIT_COMMIT}}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${WITH_FFI} WITH_TCC="no" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET} CONFIG="configs/${CONFIG}" ${EXTRA} makefile
           make clean prep folders
           make -j ${MAKE_JOBS} ${TARGET}
       else
-          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="{${GIT_COMMIT}}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${WITH_FFI} WITH_TCC="%${PWD}/tcc/${TCC}" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET} CONFIG="configs/${CONFIG}" makefile
+          ${REBOL_TOOL} make.r STANDARD="${STANDARD}" OS_ID="${OS_ID}" DEBUG="${DEBUG}" GIT_COMMIT="{${GIT_COMMIT}}" RIGOROUS="${RIGOROUS}" STATIC="${STATIC}" WITH_FFI=${WITH_FFI} WITH_TCC="%${PWD}/tcc/${TCC}" ODBC_REQUIRES_LTDL=${ODBC_REQUIRES_LTDL} TARGET=${TARGET} CONFIG="configs/${CONFIG}" ${EXTRA} makefile
           make clean prep folders
           make -j ${MAKE_JOBS} ${TARGET}
       fi

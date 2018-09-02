@@ -7,21 +7,32 @@ os-id: _
 ; nmake: Generate an NMake file for CL
 target: 'execution
 
-extensions: [
-    ;[+|-|*] ext [modules]
-    ;- uuid _
-    ;* png _ ;[Lodepng]
+extensions: make map! [
+    ; NAME VALUE
+    ; VALUE: one of
+    ; + builtin
+    ; - disabled
+    ; * dynamic
+    ; [modules] dynamic with selected modules
 
     ; FFI and ODBC have dependencies outside of what's available on a stock
     ; standard C compiler with POSIX or Win32.  Disable these extensions by
     ; default.  (Review the general policy for default inclusions.)
-    ;
-    - FFI _
-    - ODBC _
-
     ; Clipboard is only implemented in Windows at the moment.
-    ;
-    - Clipboard _
+
+    BMP + 
+    Clipboard -
+    Crypt + 
+    Debugger + 
+    FFI -
+    GIF + 
+    JPG + 
+    Locale + 
+    ODBC -
+    PNG + 
+    Process + 
+    UUID + 
+    View +
 ]
 
 rebol-tool: _ ; fallback value if system/options/boot fails

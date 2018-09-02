@@ -43,31 +43,24 @@ for-each [name value] options [
             user-config: make user-config load to-file value
         ]
         'EXTENSIONS [
+            ; [+|-|*] [NAME {+|-|*|[modules]}]... 
             use [ext-file user-ext][
-                any [
-                    exists? ext-file: to file! value
-                    exists? ext-file: to file! tools-dir/(value)
-                ] then [
-                    user-ext: make object! load ext-file
-                    all [
-                        find words-of user-ext 'extensions
-                        block? user-ext/extensions
-                    ] or [
-                        fail [
-                            "Malformed extension selection file"
-                            "it needs to be 'EXTENSIONS: []'" (mold user-ext)
-                        ]
+                user-ext: load value
+                if word? user-ext [user-ext: reduce [user-ext]]
+                if not block? user-ext [
+                    fail [
+                        "Selected extensions must be a block, not"
+                        (type of user-ext)
                     ]
-                    user-config/extensions: user-ext/extensions
-                ] else [
-                    user-ext: load value
-                    if not block? user-ext [
-                        fail [
-                            "Selected extensions must be a block, not"
-                            (type of user-ext)
-                        ]
+                ]
+                if find [+ - *] user-ext/1 [
+                    value: take user-ext
+                    for-each name user-config/extensions [
+                        user-config/extensions/:name: value
                     ]
-                    user-config/extensions: user-ext
+                ]
+                for-each [name value] user-ext [
+                    user-config/extensions/:name: value
                 ]
             ]
         ]
@@ -432,15 +425,21 @@ LIST:^/
     ]
 
 'extensions unspaced [{=== EXTENSIONS ===^/
-    "[FLAG NAME MODULE ...]"^/
+    [FLAG] [ NAME {FLAG|[MODULES]} ... ]^/
 FLAG:
+    + => builtin
     - => disable
-    * => dynamic
-    + => builtin (default)^/
-NAME:
+    * => dynamic^/
+NOTE: 1st 'anonymous' FLAG, if present, set the default^/
+NAME: one of
     }
     indent delimit extension-names " | "
     {^/
+EXAMPLES:
+    extensions: +
+    => enable all extensions as builtin
+    extensions: "- gif + jpg * png [lodepng]"
+    => disable all extensions but gif (builtin),jpg and png (dynamic)^/ 
 CURRENT VALUE:
     }
     indent mold user-config/extensions
@@ -1203,7 +1202,11 @@ pthread: make rebmake/ext-dynamic-class [
 ;extensions
 builtin-extensions: copy available-extensions
 dynamic-extensions: make block! 8
-for-each [action name modules] user-config/extensions [
+assert [map? user-config/extensions]
+for-each name user-config/extensions [
+    action: user-config/extensions/:name
+    modules: _
+    if block? action [modules: action action: '*]
     switch action [
         '+ [; builtin
             ;pass, default action
