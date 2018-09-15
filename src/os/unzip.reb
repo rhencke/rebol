@@ -264,7 +264,7 @@ ctx-zip: context [
             root: %./
         ]
 
-        source: compose [(source)]
+        source: to block! source
         for-next source [
             name: source/1
             no-modes: (url? root/:name) or (dir? root/:name)
@@ -282,8 +282,8 @@ ctx-zip: context [
             date: now ;; !!! Each file gets a slightly later compression date?
 
             ; is next one data or filename?
-            data: if match [file! url!] :source/2 [
-                if #"/" = last name [ ;; why not `dir?` ?
+            data: if match [file! url! blank!] try :source/2 [
+                if dir? name [
                     copy #{}
                 ] else [
                     if not no-modes [
@@ -446,7 +446,7 @@ ctx-zip: context [
                                 make-dir/deep where/:name
                             ]
                         ][
-                            set [path file] split-path name
+                            set [path: file:] split-path name
                             if not exists? where/:path [
                                 make-dir/deep where/:path
                             ]
