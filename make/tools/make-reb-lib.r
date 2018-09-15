@@ -669,7 +669,7 @@ map-each-api [
                     HEAP32[(va>>2)+i] = p;
                 }
 
-                HEAP32[(va>>2) + argc] = rebEnd;
+                HEAP32[(va>>2) + argc] = rebEND;
 
                 // va + 4 is where the first vararg is, must pass as *address*
                 // Just put the address on the heap after the rebEND
@@ -693,13 +693,41 @@ map-each-api [
     ]
 ]
 e-cwrap/emit {
-    rebInit = function() {
-        _RL_rebInit();
-        // There's no rebEnd() API now.  It's a 2-byte sequence, but
-        // must live at some address.
-        rebEnd = _malloc(2);
-        setValue(rebEnd, -127, 'i8'); // 0x80
-        setValue(rebEnd + 1, 0, 'i8'); // 0x00
+    rebStartup = function() {
+        _RL_rebStartup();
+
+        /* rebEND is a 2-byte sequence that must live at some address */
+        rebEND = _malloc(2);
+        setValue(rebEND, -127, 'i8'); // 0x80
+        setValue(rebEND + 1, 0, 'i8'); // 0x00
+    }
+
+    /*
+     * JS-NATIVE has a spec which is a Rebol block (like FUNC) but a body that
+     * is a TEXT! of JavaScript code.  For efficiency, that text is made into
+     * a function one time (as opposed to EVAL'd each time).  The function is
+     * saved in this map, where the key is a stringification of the heap
+     * pointer that identifies the ACTION!.
+     */
+
+    var RL_JS_NATIVES = {};
+
+    RL_Register = function(id, fn) {
+        if (id in RL_JS_NATIVES)
+            console.log("Already registered " + id + " in JS_NATIVES table");
+        RL_JS_NATIVES[id] = fn;
+    }
+
+    RL_Dispatch = function(id) {
+        if (!(id in RL_JS_NATIVES))
+            console.log("Can't dispatch " + id + " in JS_NATIVES table");
+        RL_JS_NATIVES[id]();
+    }
+
+    RL_Unregister = function(id) {
+        if (!(id in RL_JS_NATIVES))
+            console.log("Can't delete " + id + " in JS_NATIVES table");
+        delete RL_JS_NATIVES[id];
     }
 }
 e-cwrap/write-emitted

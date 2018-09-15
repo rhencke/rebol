@@ -11,6 +11,29 @@ toolset: [
 
 optimize: "z"
 
+extensions: make map! [
+    BMP -
+    Clipboard -
+    Crypt -
+    Debugger -
+    FFI -
+    GIF -
+    JavaScript +
+    JPG -
+    Locale -
+    ODBC -
+    PNG -
+    Process -
+    UUID -
+    View -
+    ZeroMQ -
+]
+
+cflags: reduce [
+    {-DDEBUG_STDIO_OK}
+    {-DDEBUG_HAS_PROBE}
+]
+
 ldflags: reduce [
     unspaced ["-O" optimize]
     unspaced [{-s 'ASSERTIONS=} either debug = 'none [0] [1] {'}]

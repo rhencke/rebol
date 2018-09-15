@@ -26,6 +26,7 @@ extensions: make map! [
     Debugger + 
     FFI -
     GIF + 
+    JavaScript -
     JPG + 
     Locale + 
     ODBC -

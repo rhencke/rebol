@@ -485,6 +485,48 @@ void RL_rebShutdown(bool clean)
 
 
 //
+//  rebArg: RL_API
+//
+// !!! When code is being used to look up arguments of a function, exactly
+// how that will work is being considered:
+//
+// https://forum.rebol.info/t/817
+// https://forum.rebol.info/t/820
+//
+// For the moment, this routine specifically accesses arguments of the most
+// recent ACTION! on the stack.
+//
+REBVAL *RL_rebArg(const void *p, va_list *vaptr)
+{
+    REBFRM *f = FS_TOP;
+    REBACT *act = FRM_PHASE(f);
+
+    // !!! Currently the JavaScript wrappers do not do the right thing for
+    // taking just a `const char*`, so this falsely is a variadic to get the
+    // JavaScript string proxying.
+    //
+    const char *name = cast(const char*, p);
+    const void *p2 = va_arg(*vaptr, const void*);
+    if (Detect_Rebol_Pointer(p2) != DETECTED_AS_END)
+        fail ("rebArg() isn't actually variadic, it's arity-1");
+
+    REBSTR *spelling = Intern_UTF8_Managed(
+        cb_cast(name),
+        LEN_BYTES(cb_cast(name))
+    );
+
+    REBVAL *param = ACT_PARAMS_HEAD(act);
+    REBVAL *arg = FRM_ARGS_HEAD(f);
+    for (; NOT_END(param); ++param, ++arg) {
+        if (SAME_STR(VAL_PARAM_SPELLING(param), spelling))
+            return Move_Value(Alloc_Value(), arg);
+    }
+
+    fail ("Unknown rebArg(...) name.");
+}
+
+
+//
 //  rebRun: RL_API
 //
 // C variadic function which calls the evaluator on multiple pointers.
