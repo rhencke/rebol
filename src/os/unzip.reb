@@ -282,7 +282,7 @@ ctx-zip: context [
             date: now ;; !!! Each file gets a slightly later compression date?
 
             ; is next one data or filename?
-            data: if match [file! url!] try :source/2 [
+            data: if match [file! url!] :source/2 [
                 if #"/" = last name [ ;; why not `dir?` ?
                     copy #{}
                 ] else [
@@ -404,7 +404,7 @@ ctx-zip: context [
 
                         data: copy/part data compressed-size
                         if error? trap [
-                            data: inflate/limit data uncompressed-size
+                            data: inflate/max data uncompressed-size
                         ][
                             info "^- -> failed [deflate]^/"
                             throw blank
