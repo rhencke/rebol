@@ -39,34 +39,8 @@
 
 #include "sys-core.h"
 
-#include "reb-evtypes.h"
-
 #include "sys-ext.h"
 
-//(*call)(int cmd, RXIFRM *args);
-
-typedef struct rxi_cmd_context {
-    void *envr;     // for holding a reference to your environment
-    REBARR *block;  // block being evaluated
-    REBCNT index;   // 0-based index of current command in block
-} REBCEC;
-
-typedef int (*RXICAL)(int cmd, const REBVAL *frame, REBCEC *ctx);
-
-typedef struct reb_ext {
-    RXICAL call;                // Call(function) entry point
-    void *dll;                  // DLL library "handle"
-    int  index;                 // Index in extension table
-    int  object;                // extension object reference
-} REBEXT;
-
-// !!!! The list below should not be hardcoded, but until someone
-// needs a lot of extensions, it will do fine.
-REBEXT Ext_List[64];
-REBCNT Ext_Next = 0;
-
-
-typedef REBYTE *(INFO_CFUNC)(REBINT opts, void *lib);
 
 //
 // Just an ID for the handler

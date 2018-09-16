@@ -29,8 +29,6 @@ extensions: either any-string? :args/EXTENSIONS [split args/EXTENSIONS #":"][[]]
 e: (make-emitter
     "Boot Modules" output-dir/include/tmp-boot-extensions.h)
 
-remove-each ext extensions [empty? ext] ;SPLIT in r3-a111 gives an empty "" at the end
-
 for-each ext extensions [
     e/emit 'ext {
         DECLARE_EXT_INIT(${Ext});
@@ -41,8 +39,8 @@ e/emit newline
 
 cfuncs: collect [
     for-each ext extensions [
-        keep cscape/with {cast(CFUNC*, EXT_INIT(${Ext}))} 'ext
-        keep cscape/with {cast(CFUNC*, EXT_QUIT(${Ext}))} 'ext
+        keep cscape/with {cast(CFUNC*, RX_INIT_NAME(${Ext}))} 'ext
+        keep cscape/with {cast(CFUNC*, RX_QUIT_NAME(${Ext}))} 'ext
     ]
 ]
 
