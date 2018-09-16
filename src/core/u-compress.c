@@ -220,7 +220,7 @@ unsigned char *Compress_Alloc_Core(
     //
     assert(buf_size >= strm.total_out);
     if (buf_size - strm.total_out > 1024)
-        output = cast(REBYTE*, rebRealloc(output, strm.avail_out));
+        output = cast(REBYTE*, rebRealloc(output, strm.total_out));
 
     deflateEnd(&strm);
     return output; // done last (so strm variables can be read up to end)
