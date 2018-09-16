@@ -57,7 +57,7 @@ size-of: size?: func [
     target [file! url!]
 ][
     all [
-        target: attempt [info? target]
+        target: try attempt [info? target]
         target/size
     ]
 ]
@@ -67,7 +67,7 @@ modified?: func [
     target [file! url!]
 ][
     all [
-        target: attempt [info? target]
+        target: try attempt [info? target]
         target/date
     ]
 ]

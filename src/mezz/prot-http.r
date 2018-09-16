@@ -321,7 +321,7 @@ check-response: function [port] [
                 <- to-integer/unsigned headers/content-length
         ]
         if headers/last-modified [
-            info/date: attempt [idate-to-date headers/last-modified]
+            info/date: try attempt [idate-to-date headers/last-modified]
         ]
         remove/part conn/data d2
         state/state: 'reading-data

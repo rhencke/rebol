@@ -244,7 +244,7 @@ load-header: function [
 
         case [
             find hdr/options 'compress [ ; script encoded only
-                rest: attempt [gunzip first rest] or [
+                rest: try attempt [gunzip first rest] or [
                     return 'bad-compress
                 ]
             ]

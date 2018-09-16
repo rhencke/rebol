@@ -822,7 +822,7 @@ module: func [
     ;
     if block? :spec [
         unbind/deep spec
-        spec: attempt [construct/only system/standard/header :spec]
+        spec: try attempt [construct/only system/standard/header :spec]
     ]
 
     ; Historically, the Name: and Type: fields would tolerate either LIT-WORD!
