@@ -662,21 +662,22 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         Pre_Mold(mo, v); // #[block! part
 
         Append_Utf8_Codepoint(mo->series, '[');
-        Mold_Array_At(mo, VAL_ARRAY(v), 0, 0);
+        Mold_Array_At(mo, VAL_ARRAY(v), 0, "[]");
         Post_Mold(mo, v);
         Append_Utf8_Codepoint(mo->series, ']');
     }
     else {
         const char *sep;
 
-        switch(VAL_TYPE(v)) {
+        enum Reb_Kind kind = VAL_TYPE(v);
+        switch(kind) {
         case REB_BLOCK:
             if (GET_MOLD_FLAG(mo, MOLD_FLAG_ONLY)) {
                 CLEAR_MOLD_FLAG(mo, MOLD_FLAG_ONLY); // only top level
                 sep = "\000\000";
             }
             else
-                sep = 0;
+                sep = "[]";
             break;
 
         case REB_GROUP:
@@ -700,7 +701,13 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, REBOOL form)
             sep = NULL;
         }
 
-        Mold_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), sep);
+        if (VAL_LEN_AT(v) == 0 and sep[0] == '/')
+            Append_Utf8_Codepoint(mo->series, '/'); // 0-arity path is `/`
+        else {
+            Mold_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), sep);
+            if (VAL_LEN_AT(v) == 1 and sep [0] == '/')
+                Append_Utf8_Codepoint(mo->series, '/'); // 1-arity path `foo/`
+        }
 
         if (VAL_TYPE(v) == REB_SET_PATH)
             Append_Utf8_Codepoint(mo->series, ':');

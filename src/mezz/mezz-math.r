@@ -144,7 +144,7 @@ math: function [
 
     <static>
 
-    slash (to-lit-word first [ / ])
+    slash (quote /)
 
     expr-val (_)
 

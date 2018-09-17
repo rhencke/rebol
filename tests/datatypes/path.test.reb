@@ -199,3 +199,11 @@
         42 = reduce to-path [bl q/w e/r]
     ]
 )
+
+; / is a length 0 PATH! in Ren-C
+(type of quote / = path!)
+(length of quote / = 0)
+
+; foo/ is a length 1 PATH! in Ren-C
+(type of quote foo/ = path!)
+(length of quote foo/ = 1)

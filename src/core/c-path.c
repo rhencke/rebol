@@ -700,3 +700,38 @@ REBNATIVE(poke)
 
     RETURN (ARG(value)); // return the value we got in
 }
+
+
+//
+//  path-0: enfix native [
+//
+//  {Temporary native in lieu of PD_Xxx() dispatch so `/` performs division}
+//
+//      #left [<opt> any-value!]
+//      #right [<opt> any-value!]
+//  ]
+//
+REBNATIVE(path_0)
+{
+    INCLUDE_PARAMS_OF_PATH_0;
+
+    REBVAL *left = ARG(left);
+    REBVAL *right = ARG(right);
+
+    // !!! Somewhat whimsically, this goes ahead and guesses at a possible
+    // behavior for "dividing" strings using SPLIT.  This is a placeholder
+    // for the idea that the left hand type gets to dispatch a choice of
+    // what it means, as with ordinary path dispatch.
+    //
+    // Uses the /INTO refinement so that `"abcdef" / 2` divides the string
+    // into two pieces, as opposed to pieces of length 2.
+    //
+    if (ANY_STRING(left) or ANY_ARRAY(left))
+        return rebRun("split/into", left, right, rebEND);
+
+    // Note: DIVIDE is historically a "type action", so technically it is the
+    // left hand side type which gets to pick the behavior--consistent with
+    // the plan for how 0-length paths would work.
+    //
+    return rebRun("divide", left, right, rebEND);
+}

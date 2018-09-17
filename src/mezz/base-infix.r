@@ -48,15 +48,21 @@ r3-alpha-quote: func [:spelling [word! text!]] [
 ]
 
 
-; Make top-level words (note: / is added by %b-init.c as an "odd word")
+; Make top-level words
 ;
-+: -: *: _
++: -: *: and+: or+: xor+: _
 
 for-each [math-op function-name] [
     +       add
     -       subtract
     *       multiply
-    /       divide ;-- !!! may become pathing operator (which also divides)
+
+    ; / is a 0-arity PATH! in Ren-C.  While "pathing" with a number on the
+    ; left acts as division, it has slight differences.
+
+    and+    intersect
+    or+     union
+    xor+    difference
 ][
     ; Ren-C's infix math obeys the "tight" parameter convention of R3-Alpha.
     ; But since the prefix functions themselves have normal parameters, this
@@ -69,29 +75,12 @@ for-each [math-op function-name] [
     ; mechanism will eventually generalized to do any rewriting of convention
     ; one wants (e.g. to switch one parameter from normal to quoted).
     ;
+    ; Note: TIGHTEN currently changes all normal parameters to #tight, which
+    ; which for the set operations creates an awkward looking /SKIP's SIZE.
+    ;
     set/enfix math-op (tighten get function-name)
 ]
 
-
-; Make top-level words
-;
-and+: or+: xor+: _
-
-for-each [set-op function-name] [
-    and+    intersect
-    or+     union
-    xor+    difference
-][
-    ; The enfixed versions of the set operations currently can't take any
-    ; refinements, so we go ahead and specialize them out.  (It's also the
-    ; case that TIGHTEN currently changes all normal parameters to #tight,
-    ; which creates an awkward looking /SKIP's SIZE.
-    ;
-    set/enfix set-op (tighten specialize function-name [
-        case: false
-        skip: false
-    ])
-]
 
 
 ; Make top-level words for things not added by %b-init.c

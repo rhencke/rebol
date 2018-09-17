@@ -594,6 +594,7 @@ inline static void Drop_Action(REBFRM *f) {
                 NOD(ACT_FACADE(f->original)) // degrade keysource from f
             )
         );
+        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
         LINK(f->varlist).keysource = NOD(f);
     }
     else {

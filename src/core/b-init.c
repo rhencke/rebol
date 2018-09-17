@@ -424,13 +424,11 @@ static void Add_Lib_Keys_R3Alpha_Cant_Make(void)
 
         "<>", // not equal (the chosen meaning, as opposed to "empty tag")
 
-        "->", // no current meaning
+        "->", // enfix path op, "SHOVE": https://trello.com/c/Kg9A45b5
         "<-", // Non-null implicit GROUP! begin, e.g. `7 = 1 + <- 2 * 3`
 
         "|>", // Evaluate to next single expression, but do ones afterward
         "<|", // Evaluate to previous expression, but do rest (like ALSO)
-
-        "/",
 
         NULL
     };

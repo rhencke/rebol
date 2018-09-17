@@ -149,15 +149,19 @@
 ; This tests the NEAR positioning, though really only a few elements of
 ; the array are mirrored into the error.  This happens to go to the limit of
 ; 3, and shows that the infix expression start was known to the error.
+;
+; !!! This used to use `/` instead of divide, but because `/` is now a zero
+; length path it actually retriggers divide inside the path dispatcher, so
+; that complicated the error delivery.  Review.
 (
-    e1: trap [1 / 0]
-    e2: trap [2 / 0]
+    e1: trap [divide 1 0]
+    e2: trap [divide 2 0]
 
     did all [
         e1/id = 'zero-divide
         e2/id = 'zero-divide
-        [1 / 0] = copy/part e1/near 3
-        [2 / 0] = copy/part e2/near 3
+        [divide 1 0] = copy/part e1/near 3
+        [divide 2 0] = copy/part e2/near 3
         e1 <> e2
     ]
 )

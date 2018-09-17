@@ -342,7 +342,7 @@ matrix:
         - HOST=arm-eabi
         - WITH_FFI="no"
         - ODBC_REQUIRES_LTDL="no"
-        - EXTENSIONS="Crypt +" # !!! EXTENSIONS="" doesn't work (?)
+        - EXTENSIONS=""
 
     # Android5, release, gcc
     #
@@ -360,7 +360,7 @@ matrix:
         - HOST=arm-eabi
         - WITH_FFI="no"
         - ODBC_REQUIRES_LTDL="no"
-        - EXTENSIONS="Crypt +" # !!! EXTENSIONS="" doesn't work (?)
+        - EXTENSIONS=""
         - TCC="arm-tcc"
         - ARCH_CFLAGS="-DANDROID -DTCC_ARM_EABI -DTCC_ARM_VFP -DTCC_ARM_HARDFLOAT"
       addons:

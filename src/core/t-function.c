@@ -140,7 +140,7 @@ void MF_Action(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     // drops types)
     //
     REBARR *words_list = List_Func_Words(v, TRUE); // show pure locals
-    Mold_Array_At(mo, words_list, 0, 0);
+    Mold_Array_At(mo, words_list, 0, "[]");
     Free_Unmanaged_Array(words_list);
 
     // !!! Previously, ACTION! would mold the body out.  This created a large

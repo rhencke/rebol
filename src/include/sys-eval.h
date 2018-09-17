@@ -232,6 +232,7 @@ inline static void UPDATE_EXPRESSION_START(REBFRM *f) {
 }
 
 inline static void Reuse_Varlist_If_Available(REBFRM *f) {
+    assert(IS_POINTER_TRASH_DEBUG(f->varlist));
     if (not TG_Reuse)
         f->varlist = nullptr;
     else {
@@ -1066,3 +1067,30 @@ inline static REBOOL Eval_Value_Core_Throws(
 
 #define Eval_Value_Throws(out,value) \
     Eval_Value_Core_Throws((out), (value), SPECIFIED)
+
+
+// The evaluator accepts API handles back from action dispatchers, and the
+// path evaluator accepts them from path dispatch.  This code does common
+// checking used by both, which includes automatic release of the handle
+// so the dispatcher can write things like `return rebRun(...);` and not
+// encounter a leak.
+//
+inline static void Handle_Api_Dispatcher_Result(REBFRM *f, const REBVAL* r) {
+    assert(not THROWN(r)); // only f->out can return thrown cells
+
+  #if !defined(NDEBUG)
+    if (NOT_VAL_FLAG(r, NODE_FLAG_ROOT)) {
+        printf("dispatcher returned non-API value not in D_OUT\n");
+        printf("during ACTION!: %s\n", f->label_utf8);
+        printf("`return D_OUT;` or use `RETURN (non_api_cell);`\n");
+        panic(r);
+    }
+  #endif
+
+    if (IS_NULLED(r))
+        assert(!"Dispatcher returned nulled cell, not C nullptr for API use");
+
+    Move_Value(f->out, r);
+    if (NOT_VAL_FLAG(r, NODE_FLAG_MANAGED))
+        rebRelease(r);
+}

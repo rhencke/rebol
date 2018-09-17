@@ -1246,12 +1246,15 @@ static void Mark_Frame_Stack_Deep(void)
         if (f->opt_label) // will be null if no symbol
             Mark_Rebser_Only(f->opt_label);
 
-        // refine and special can be used to GC protect an arbitrary
-        // value while a function is running, currently.  (A more
-        // important purpose may come up...)
+        // refine and special can be used to GC protect an arbitrary value
+        // while a function is running, currently.  nullptr is permitted as
+        // well for flexibility (e.g. path frames use nullptr to indicate no
+        // set value on a path)
         //
-        Queue_Mark_Opt_End_Cell_Deep(f->refine);
-        Queue_Mark_Opt_End_Cell_Deep(f->special);
+        if (f->refine)
+            Queue_Mark_Opt_End_Cell_Deep(f->refine);
+        if (f->special)
+            Queue_Mark_Opt_End_Cell_Deep(f->special);
 
         if (f->varlist and GET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)) {
             //

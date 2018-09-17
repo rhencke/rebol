@@ -652,7 +652,7 @@ void Eval_Core(REBFRM * const f)
             VAL_LEN_AT(current) > 0
             and IS_WORD(VAL_ARRAY_AT(current))
         ){
-            assert(IS_END(current_gotten)); // no caching for paths
+            assert(not current_gotten); // no caching for paths
 
             REBSPC *derived = Derive_Specifier(f->specifier, current);
 
@@ -1648,21 +1648,7 @@ void Eval_Core(REBFRM * const f)
             Init_Nulled(f->out);
         }
         else if (VAL_TYPE_RAW(r) <= REB_MAX) { // should be an API value
-          #if !defined(NDEBUG)
-            if (NOT_VAL_FLAG(r, NODE_FLAG_ROOT)) {
-                printf("dispatcher returned non-API value not in D_OUT\n");
-                printf("during ACTION!: %s\n", f->label_utf8);
-                printf("`return D_OUT;` or use `RETURN (non_api_cell);`\n");
-                panic(r);
-            }
-          #endif
-
-            assert(not IS_NULLED(r)); // API uses nullptr, not nulled cells
-            assert(not THROWN(r)); // only f->out can return thrown cells
-
-            Move_Value(f->out, r);
-            if (NOT_VAL_FLAG(r, NODE_FLAG_MANAGED))
-                rebRelease(r);
+            Handle_Api_Dispatcher_Result(f, r);
         }
         else switch (VAL_TYPE_RAW(r)) { // it's a "pseudotype" instruction
 
@@ -1998,6 +1984,16 @@ void Eval_Core(REBFRM * const f)
     case REB_PATH: {
         if (not EVALUATING(current))
             goto inert;
+
+        // Length-0 paths look like `/`, and do a special dispatch (currently
+        // hacked up to just act as the DIVIDE native, but ultimtely would
+        // be another form of dispatch based on the left type...and numbers
+        // would use this for division).  This dispatch happens after the
+        // switch statement along with enfix, so if we see it here that means
+        // there was nothing to the left.
+        //
+        if (VAL_LEN_AT(current) == 0)
+            fail ("Empty path must have left argument for 'split' behavior");
 
         REBSTR *opt_label;
         if (Eval_Path_Throws_Core(
@@ -2382,6 +2378,34 @@ post_switch:;
 
     if (eval_type == REB_0_END)
         goto finished; // hitting end is common, avoid do_next's switch()
+
+    if (eval_type == REB_PATH) {
+        if (
+            VAL_LEN_AT(f->value) != 0
+            or (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
+            or not EVALUATING(f->value)
+        ){
+            if (not (f->flags.bits & DO_FLAG_TO_END))
+                goto finished; // just 1 step of work, so stop evaluating
+            goto do_next;
+        }
+
+        // We had something like `5 + 5 / 2 + 3`.  This is a special form of
+        // path dispatch tentatively called "path splitting" (as opposed to
+        // `a/b` which is "path picking").  For the moment, this is not
+        // handled as a parameterization to the PD_Xxx() functions, nor is it
+        // a separate dispatch like PS_Xxx()...but it just performs division
+        // compatibly with history.
+
+        REBNOD *binding = nullptr;
+        Push_Action(f, NAT_ACTION(path_0), binding);
+
+        REBSTR *opt_label = nullptr;
+        Begin_Action(f, opt_label, LOOKBACK_ARG);
+
+        Fetch_Next_In_Frame(nullptr, f); // advances f->value
+        goto process_action;
+    }
 
     if (eval_type != REB_WORD or not EVALUATING(f->value)) {
         if (not (f->flags.bits & DO_FLAG_TO_END))

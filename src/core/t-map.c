@@ -407,7 +407,7 @@ const REBVAL *PD_Map(
     if (IS_NULLED(val)) // zombie entry, means unused
         return nullptr;
 
-    return val;
+    return Move_Value(pvs->out, val); // RETURN (...) uses `frame_`, not `pvs`
 }
 
 

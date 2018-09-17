@@ -838,7 +838,7 @@ REBNATIVE(zmq_poll)
     int i;
     for (i = 0; i < nitems; ++i) {
         REBVAL *socket = rebRun( // !!! GROUP! needed for MATCH quirk
-            "(match handle! pick", spec, rebI(i * 2), ") else [", 
+            "(match handle! pick", spec, rebI(i * 2), ") else [",
                 "fail {Expected HANDLE! in spec position}",
             "]");
         pollitems[i].socket = VAL_HANDLE_VOID_POINTER(socket);

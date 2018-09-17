@@ -1200,7 +1200,7 @@ acquisition_loop:
                 fail (Error_Syntax(ss));
             }
             ss->end = cp;
-            ss->token = TOKEN_WORD;
+            ss->token = TOKEN_PATH;
             return;
 
         case LEX_DELIMIT_END:
@@ -1955,6 +1955,28 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             break;
 
         case TOKEN_LIT:
+            //
+            // !!! Special-case hack added for '/ ... a better answer would
+            // be needed here to properly handle comments/tabs/etc.  Hacks for
+            // :/ and :/ are purposefully omitted, in the event that SET-PATH!
+            // and GET-PATH! are replaced by SET/GET variants of other types.
+            //
+            if (
+                len == 1 and bp[1] == '/' and ep == bp + 1
+                and (bp[2] == '\0' or bp[2] == ' ' or bp[2] == '\n')
+            ){
+                ++ss->begin;
+                ++bp;
+                ++ep;
+                DS_PUSH_TRASH;
+                Init_Any_Array(
+                    DS_TOP,
+                    ss->token == TOKEN_LIT ? REB_LIT_PATH : REB_GET_PATH,
+                    Make_Array(0)
+                );
+                break;
+            }
+            fallthrough;
         case TOKEN_GET:
             if (ep[-1] == ':') {
                 if (len == 1 or ss->mode_char != '/')
@@ -1963,14 +1985,14 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 --ss->end;
             }
             bp++;
-            // falls through
+            fallthrough;
         case TOKEN_SET:
             len--;
             if (ss->mode_char == '/' and ss->token == TOKEN_SET) {
                 ss->token = TOKEN_WORD; // will be a PATH_SET
                 ss->end--;  // put ':' back on end but not beginning
             }
-            // falls through
+            fallthrough;
         case TOKEN_WORD: {
             if (len == 0) {
                 --bp;
@@ -2013,6 +2035,14 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             break; }
 
         case TOKEN_PATH:
+            if (ss->mode_char != '/') {
+                //
+                // If not in the process of scanning a path, this is a 0
+                // element path, so push it.
+                //
+                DS_PUSH_TRASH;
+                Init_Path(DS_TOP, Make_Array(0));
+            }
             break;
 
         case TOKEN_BLOCK_END: {
@@ -2336,31 +2366,36 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             //
             // We're noticing a path was actually starting with the token
             // that just got pushed, so it should be a part of that path.
-            // So when `mode_char` is '/', it needs to steal this last one
-            // pushed item from us...as it's the head of the path it couldn't
-            // see coming in the future.
-
-        #if !defined(NDEBUG)
-            REBDSP dsp_check = DSP;
-        #endif
 
             ++ss->begin;
-            REBARR *array = Scan_Child_Array(ss, '/');
 
-        #if !defined(NDEBUG)
-            assert(DSP == dsp_check - 1); // should only take one!
-        #endif
+            REBARR *array;
+            if (
+                *ss->begin == '\0' // `foo/`
+                or IS_LEX_ANY_SPACE(*ss->begin) // `foo/ bar`
+                or *ss->begin == ';' // `foo/;--bar`
+            ){
+                array = Make_Array_Core(
+                    1,
+                    NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE
+                );
+                Append_Value(array, DS_TOP);
+                DS_DROP;
+            }
+            else {
+              #if !defined(NDEBUG)
+                REBDSP dsp_check = DSP;
+              #endif
 
-            if (ss->begin == NULL) {
-                //
-                // Something like trying to scan "*/", where there was no more
-                // input to be had (begin is set to NULL, with the debug build
-                // setting end to trash, to help catch this case)
-                //
-                ss->begin = bp;
-                ss->end = ep + 1; // include the slash in error
-                ss->token = TOKEN_PATH;
-                fail (Error_Syntax(ss));
+                // When `mode_char` is '/', the scan needs to steal the last
+                // pushed item from us...as it's the head of the path it
+                // couldn't see coming in the future.
+
+                array = Scan_Child_Array(ss, '/');
+
+              #if !defined(NDEBUG)
+                assert(DSP == dsp_check - 1); // should only take one!
+              #endif
             }
 
             DS_PUSH_TRASH; // now push a path to take the stolen token's place
@@ -2370,13 +2405,13 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 CHANGE_VAL_TYPE_BITS(ARR_HEAD(array), REB_WORD);
             }
             else if (IS_GET_WORD(ARR_HEAD(array))) {
-                if (*ss->end == ':')
+                if (ss->begin and *ss->end == ':')
                     fail (Error_Syntax(ss));
                 RESET_VAL_HEADER(DS_TOP, REB_GET_PATH);
                 CHANGE_VAL_TYPE_BITS(ARR_HEAD(array), REB_WORD);
             }
             else {
-                if (*ss->end == ':') {
+                if (ss->begin and *ss->end == ':') {
                     RESET_VAL_HEADER(DS_TOP, REB_SET_PATH);
                     ss->begin = ++ss->end;
                 }

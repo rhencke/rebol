@@ -345,9 +345,6 @@ void Mold_Array_At(
     REBCNT index,
     const char *sep
 ) {
-    if (sep == NULL)
-        sep = "[]";
-
     // Recursion check:
     if (Find_Pointer_In_Series(TG_Mold_Stack, a) != NOT_FOUND) {
         Emit(mo, "C...C", sep[0], sep[1]);

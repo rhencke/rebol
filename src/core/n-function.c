@@ -552,7 +552,14 @@ REBNATIVE(enclose)
         SPECIFIED,
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
-    ARR_HEAD(paramlist)->payload.action.paramlist = paramlist;
+    REBVAL *rootparam = KNOWN(ARR_HEAD(paramlist));
+    rootparam->payload.action.paramlist = paramlist;
+
+    // !!! We don't want to inherit the flags of the original action, such
+    // as ACTION_FLAG_NATIVE.  For now just clear out all the type-specific
+    // bits and let Make_Action() cache the flags it needs.
+    //
+    CUSTOM_BYTE(rootparam) = 0;
 
     // See %sysobj.r for `enclosed-meta:` object template
 

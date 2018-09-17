@@ -53,7 +53,10 @@ for-each [name value] options [
                         (type of user-ext)
                     ]
                 ]
-                if not empty? user-ext and (find [+ - *] user-ext/1) [
+                all [
+                    not empty? user-ext
+                    find [+ - *] user-ext/1
+                ] then [
                     value: take user-ext
                     for-each name user-config/extensions [
                         user-config/extensions/:name: value
