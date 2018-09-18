@@ -65,6 +65,18 @@
 
 #include "sys-core.h"
 
+// Building Rebol as a library may still entail a desire to ship that library
+// with built-in extensions (e.g. building libr3.js wants to have JavaScript
+// natives as an extension).  So there is no meaning to "built-in extensions"
+// for a library otherwise...as every client will be making their own EXE, and
+// there's no way to control their build process from Rebol's build process.
+//
+// Hence, the generated header for boot extensions is included here--to allow
+// clients to get access to those extensions through an API.
+//
+#include "sys-ext.h"
+#include "tmp-boot-extensions.h"
+
 
 // "Linkage back to HOST functions. Needed when we compile as a DLL
 // in order to use the OS_* macro functions."
@@ -353,12 +365,12 @@ void Shutdown_Api(void)
 // default host operation.  It is expected that the OS_XXX functions will
 // eventually disappear completely.
 //
-void RL_rebStartup(const void *lib)
+void RL_rebStartup(void)
 {
     if (Host_Lib)
         panic ("rebStartup() called when it's already started");
 
-    Host_Lib = cast(const REBOL_HOST_LIB*, lib);
+    Host_Lib = &Host_Lib_Init;
 
     if (Host_Lib->size < HOST_LIB_SIZE)
         panic ("Host-lib wrong size");
@@ -371,13 +383,69 @@ void RL_rebStartup(const void *lib)
 
 
 //
-//  rebInit: RL_API
+//  rebBuiltinExtensions: RL_API
 //
-// Initialize the REBOL interpreter with Host_Lib_Init
+// The config file used by %make.r marks extensions to be built into the
+// executable (`+`), built as a dynamic library (`*`), or not built at
+// all (`-`).  Each of the options marked with + has a C function for
+// startup and shutdown.
 //
-void RL_rebInit(void)
+// rebStartup() should not initialize these extensions, because it might not
+// be the right ordering.  Command-line processing or other code that uses
+// Rebol may need to make decisions on when to initialize them.  So this
+// function merely returns the built-in extensions, which can be loaded with
+// the LOAD-EXTENSION function.
+//
+REBVAL *RL_rebBuiltinExtensions(void)
 {
-    rebStartup(&Host_Lib_Init);
+    // Convert an {Init, Quit} C function array to a [handle! handle!] ARRAY!
+
+    REBCNT n = sizeof(Boot_Extensions) / sizeof(CFUNC*);
+    assert(n % 2 == 0);
+
+    REBARR *arr = Make_Array(n);
+    REBCNT i;
+    for (i = 0; i != n; i += 2) {
+        Init_Handle_Managed_Cfunc(
+            Alloc_Tail_Array(arr),
+            Boot_Extensions[i],
+            0, // length, currently unused
+            &cleanup_extension_init_handler
+        );
+
+        Init_Handle_Managed_Cfunc(
+            Alloc_Tail_Array(arr),
+            Boot_Extensions[i + 1],
+            0, // length, currently unused
+            &cleanup_extension_quit_handler
+        );
+    }
+    return Init_Block(Alloc_Value(), arr);
+}
+
+
+//
+//  rebShutdownExtensions: C
+//
+// Call QUIT functions of boot extensions in the reversed order
+//
+// Note that this function does not call unload-extension, that is why it is
+// called SHUTDOWN instead of UNLOAD, because it's only supposed to be called
+// when the interpreter is shutting down, at which point, unloading an
+// extension is not necessary.
+//
+// Plus, there is not an elegant way to call unload-extension on each of boot
+// extensions: boot extensions are passed to host-start as a block, and there
+// is no host-shutdown function which would be an ideal place for such things.
+//
+void rebShutdownExtensions(REBVAL *extensions)
+{
+    UNUSED(extensions); // !!! for now assume extensions = Boot_Extensions
+
+    REBCNT n = sizeof(Boot_Extensions) / sizeof(CFUNC*);
+    for (; n > 1; n -= 2) {
+        cast(QUIT_CFUNC, Boot_Extensions[n - 1])();
+    }
 }
 
 

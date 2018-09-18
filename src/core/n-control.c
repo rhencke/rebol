@@ -656,7 +656,7 @@ REBNATIVE(none)
     }
 
     Drop_Frame(f);
-    return Init_Bar(D_OUT); // "synthetic" truthy that doesn't suggest LOGIC! on failure
+    return Init_Bar(D_OUT); // truthy, but doesn't suggest LOGIC! on failure
 }
 
 

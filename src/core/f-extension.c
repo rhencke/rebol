@@ -43,17 +43,18 @@
 
 
 //
-// Just an ID for the handler
+//  cleanup_extension_init_handler: C
 //
-static void cleanup_extension_init_handler(const REBVAL *val)
-{
-    UNUSED(val);
-}
+void cleanup_extension_init_handler(const REBVAL *v)
+  { UNUSED(v); } // cleanup CFUNC* just serves as an ID for the HANDLE!
 
-static void cleanup_extension_quit_handler(const REBVAL *val)
-{
-    UNUSED(val);
-}
+
+//
+//  cleanup_extension_quit_handler: C
+//
+void cleanup_extension_quit_handler(const REBVAL *v)
+  { UNUSED(v); } // cleanup CFUNC* just serves as an ID for the HANDLE!
+
 
 //
 //  load-extension-helper: native [
@@ -296,57 +297,6 @@ REBARR *Make_Extension_Module_Array(
 
     TERM_ARRAY_LEN(arr, 3);
     return arr;
-}
-
-
-//
-//  Prepare_Boot_Extensions: C
-//
-// Convert an {Init, Quit} C function array to a [handle! handle!] ARRAY!
-//
-REBVAL *Prepare_Boot_Extensions(CFUNC **funcs, REBCNT n)
-{
-    assert(n % 2 == 0);
-
-    REBARR *arr = Make_Array(n);
-    REBCNT i;
-    for (i = 0; i != n; i += 2) {
-        Init_Handle_Managed_Cfunc(
-            Alloc_Tail_Array(arr),
-            funcs[i],
-            0, // length, currently unused
-            &cleanup_extension_init_handler
-        );
-
-        Init_Handle_Managed_Cfunc(
-            Alloc_Tail_Array(arr),
-            funcs[i + 1],
-            0, // length, currently unused
-            &cleanup_extension_quit_handler
-        );
-    }
-    return Init_Block(Alloc_Value(), arr);
-}
-
-
-//
-//  Shutdown_Boot_Extensions: C
-//
-// Call QUIT functions of boot extensions in the reversed order
-//
-// Note that this function does not call unload-extension, that is why it is
-// called SHUTDOWN instead of UNLOAD, because it's only supposed to be called
-// when the interpreter is shutting down, at which point, unloading an extension
-// is not necessary. Plus, there is not an elegant way to call unload-extension
-// on each of boot extensions: boot extensions are passed to host-start as a
-// block, and there is no host-shutdown function which would be an ideal place
-// to such things.
-//
-void Shutdown_Boot_Extensions(CFUNC **funcs, REBCNT n)
-{
-    for (; n > 1; n -= 2) {
-        cast(QUIT_CFUNC, funcs[n - 1])();
-    }
 }
 
 

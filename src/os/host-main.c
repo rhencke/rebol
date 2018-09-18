@@ -78,9 +78,6 @@
 
 #include "sys-core.h"
 #include "sys-ext.h"
-#include "tmp-boot-extensions.h"
-
-EXTERN_C REBOL_HOST_LIB Host_Lib_Init;
 
 
 // Initialization done by rebStartup() is intended to be as basic as possible
@@ -353,7 +350,7 @@ int main(int argc, char *argv_ansi[])
     //
     Disable_Ctrl_C();
 
-    rebStartup(&Host_Lib_Init);
+    rebStartup();
 
     // With interpreter startup done, we want to turn the platform-dependent
     // argument strings into a block of Rebol strings as soon as possible.
@@ -473,12 +470,10 @@ int main(int argc, char *argv_ansi[])
     // executable (`+`), built as a dynamic library (`*`), or not built at
     // all (`-`).  Each of the options marked with + has a C function for
     // startup and shutdown, which we convert into HANDLE!s to be suitable
-    // to pass into the Rebol startup code.
+    // to pass into the Rebol startup code--which chooses the actual moment
+    // to call LOAD-EXTENSION on them.
     //
-    REBVAL *extensions = Prepare_Boot_Extensions(
-        Boot_Extensions,
-        sizeof(Boot_Extensions) / sizeof(CFUNC*)
-    );
+    REBVAL *extensions = rebBuiltinExtensions();
 
     // While some people may think that argv[0] in C contains the path to
     // the running executable, this is not necessarily the case.  The actual
@@ -518,7 +513,6 @@ int main(int argc, char *argv_ansi[])
 
     // References in the `result` BLOCK! keep the underlying series alive now
     //
-    rebRelease(extensions);
     rebRelease(argv_block);
 
     // The DO and APPLY hooks are used to implement things like tracing
@@ -642,10 +636,8 @@ int main(int argc, char *argv_ansi[])
     // because marking native stubs as "missing" for safe errors if they
     // are called is not necessary, since the whole system is exiting.)
     //
-    Shutdown_Boot_Extensions(
-        Boot_Extensions,
-        sizeof(Boot_Extensions) / sizeof(CFUNC*)
-    );
+    rebShutdownExtensions(extensions);
+    rebRelease(extensions);
 
     OS_QUIT_DEVICES(0);
 

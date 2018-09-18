@@ -113,13 +113,13 @@ static void zfree(void *opaque, void *addr)
 //
 static REBCTX *Error_Compression(const z_stream *strm, int ret)
 {
-    // rebMalloc() fails vs. returning NULL, so as long as zalloc() is used
+    // rebMalloc() fails vs. returning nullptr, so as long as zalloc() is used
     // then Z_MEM_ERROR should never happen.
     //
     assert(ret != Z_MEM_ERROR);
 
     DECLARE_LOCAL (arg);
-    if (strm->msg != NULL)
+    if (strm->msg)
         Init_Text(arg, Make_String_UTF8(strm->msg));
     else
         Init_Integer(arg, ret);
@@ -153,19 +153,19 @@ unsigned char *Compress_Alloc_Core(
         // the compression side, but might as well be consistent.
     }
     else switch (STR_SYMBOL(envelope)) {
-    case SYM_NONE:
+      case SYM_NONE:
         window_bits = window_bits_zlib_raw;
         break;
 
-    case SYM_ZLIB:
+      case SYM_ZLIB:
         window_bits = window_bits_zlib;
         break;
 
-    case SYM_GZIP:
+      case SYM_GZIP:
         window_bits = window_bits_gzip;
         break;
 
-    default:
+      default:
         assert(FALSE); // release build keeps default
     }
 
@@ -257,23 +257,23 @@ unsigned char *Decompress_Alloc_Core(
         // is compressed with GZIP, so it's a Catch-22 otherwise.
     }
     else switch (STR_SYMBOL(envelope)) {
-    case SYM_NONE:
+      case SYM_NONE:
         window_bits = window_bits_zlib_raw;
         break;
 
-    case SYM_ZLIB:
+      case SYM_ZLIB:
         window_bits = window_bits_zlib;
         break;
 
-    case SYM_GZIP:
+      case SYM_GZIP:
         window_bits = window_bits_gzip;
         break;
 
-    case SYM_DETECT:
+      case SYM_DETECT:
         window_bits = window_bits_detect_zlib_gzip;
         break;
 
-    default:
+      default:
         assert(FALSE); // fall through with default in release build
     }
 
