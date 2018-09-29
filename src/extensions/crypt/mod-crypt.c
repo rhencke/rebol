@@ -430,6 +430,9 @@ static REBNATIVE(dh_compute_key)
 
     DH_compute_key(&dh_ctx);
 
+    rebRelease(p);
+    rebRelease(priv_key);
+
     return rebRepossess(dh_ctx.k, dh_ctx.len);
 }
 
