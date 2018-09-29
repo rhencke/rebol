@@ -63,7 +63,7 @@ disable-user-includes: function [
     close-include (charset {">})
 ] [
     include-rule: composeII [
-        ((stdio ?? [open-include copy name "stdio.h" close-include |]))
+        ((if stdio [[open-include copy name "stdio.h" close-include |]]))
         {"} copy name to {"}
     ]
 

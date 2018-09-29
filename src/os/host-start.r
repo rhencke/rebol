@@ -210,7 +210,7 @@ host-script-pre-load: function [
 ][
     ; Print out the script info
     boot-print [
-        (is-module ?? "Module:" !! "Script:") select hdr 'title
+        (if is-module ["Module:"] else ["Script:"]) select hdr 'title
             "Version:" opt select hdr 'version
             "Date:" opt select hdr 'date
     ]

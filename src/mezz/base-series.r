@@ -332,7 +332,7 @@ trim: function [
     ]
 
     line-start-rule: compose/deep [
-        remove [(indent ?? [1 indent] !! 'any) rule]
+        remove [(if indent [[1 indent]] else ['any]) rule]
     ]
 
     parse series [

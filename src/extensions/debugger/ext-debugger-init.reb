@@ -55,7 +55,7 @@ backtrace*: function [
             ]
             max-rows: frames + 1 ; + 1 for ellipsis
         ]
-    ] !! 20 ; On an 80x25 terminal leaves room to type afterward
+    ] else [20] ; On an 80x25 terminal leaves room to type afterward
 
     row: 0 ; row we're on (incl. pending frames and maybe ellipsis)
     number: 0 ; level label number in the loop (no pending frames)

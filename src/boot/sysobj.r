@@ -175,7 +175,7 @@ standard: construct [] [
     func-body: [
         return: make action! [
             [{Returns a value from an action} value [<opt> <end> any-value!]]
-            [unwind/with (binding of 'return) end? 'value ?? void !! :value]
+            [unwind/with (binding of 'return) either end? 'value [] [:value]]
         ] #BODY
     ]
 
@@ -184,7 +184,7 @@ standard: construct [] [
     proc-body: [
         return: make action! [
             [{Returns a value from an action} value [<opt> <end> any-value!]]
-            [unwind/with (binding of 'return) end? 'value ?? void !! :value]
+            [unwind/with (binding of 'return) either end? 'value [] [:value]]
         ] #BODY
         void
     ]

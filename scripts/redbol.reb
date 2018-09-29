@@ -196,8 +196,8 @@ function: emulate [
         ;
         function compose [
             (optify spec)
-            (with ?? <in>) (:object) ;-- <in> replaces functionality of /WITH
-            (extern ?? <with>) (:words) ;-- <with> took over what /EXTERN was
+            (if with [<in>]) (:object) ;-- <in> replaces /WITH
+            (if extern [<with>]) (:words) ;-- <with> replaces /EXTERN
             ;-- <local> exit, picked up since using FUNCTION as generator
         ] compose [
             blankify-refinement-args binding of 'return
@@ -216,8 +216,6 @@ to-local-file: emulate [:file-to-local]
 to-rebol-file: emulate [:local-to-file]
 
 why?: emulate [does [lib/why]] ;-- not exported yet, :why not bound
-
-??: emulate [:dump]
 
 null: emulate [
     #"^@" ; NUL in Ren-C https://en.wikipedia.org/wiki/Null_character
@@ -431,7 +429,7 @@ try: emulate [
         /except {TRAP/WITH is better: https://trello.com/c/IbnfBaLI}
         code [block! action!]
     ][
-        trap/(except ?? 'with !! _) block :code
+        trap/(try if except [/with]) block :code
     ]
 ]
 
@@ -478,7 +476,7 @@ parse: emulate [
             blank! [split input charset reduce [tab space CR LF]]
             text! [split input to-bitset rules]
         ] else [
-            parse/(case_PARSE ?? 'case !! _) input rules
+            parse/(try if case_PARSE [/case]) input rules
         ]
     ]
 ]

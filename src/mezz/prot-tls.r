@@ -212,7 +212,7 @@ parse-asn: function [
                 if zero? size [
                     keep/only/line compose/deep [
                         (tag) [
-                            (constructed ?? "constructed" !! "primitive")
+                            (either constructed ["constructed"] ["primitive"])
                             (index)
                             (size)
                             _
@@ -230,7 +230,7 @@ parse-asn: function [
                         val: copy/part data size
                         keep/only/line compose/deep/only [
                             (tag) [
-                                (constructed ?? "constructed" !! "primitive")
+                                (either constructed ["constructed"] ["primitive"])
                                 (index)
                                 (size)
                                 (either constructed [parse-asn val] [val])
@@ -495,7 +495,7 @@ finished: function [
     ctx [object!]
 ][
     ctx/seq-num-w: 0
-    who-finished: ctx/server? ?? "server finished" !! "client finished"
+    who-finished: if ctx/server? ["server finished"] else ["client finished"]
 
     return join-all [
         #{14}       ; protocol message type (20=Finished)
@@ -516,12 +516,14 @@ encrypt-data: function [
     /type
     msg-type [binary!] "application data is default"
 ][
+    msg-type: default [#{17}]
+
     data: join-all [
         data
         ; MAC code
         mac: checksum/method/key join-all [
             to-bin ctx/seq-num-w 8              ; sequence number (64-bit int)
-            if type [msg-type] !! #{17}         ; msg type
+            msg-type                            ; msg type
             ctx/version                         ; version
             to-bin length of data 2             ; msg content length
             data                                ; msg content
@@ -677,7 +679,7 @@ parse-messages: function [
         if proto/type = #alert [
             if proto/messages/1 > 1 [
                 ; fatal alert level
-                fail [select alert-descriptions data/2 !! "unknown"]
+                fail [select alert-descriptions data/2 else ["unknown"]]
             ]
         ]
         update-read-state ctx proto/type
@@ -687,8 +689,10 @@ parse-messages: function [
         #alert [
             append result reduce [
                 context [
-                    level: pick [warning fatal] data/1 !! 'unknown
-                    description: select alert-descriptions data/2 !! "unknown"
+                    level: pick [warning fatal] data/1 else ['unknown]
+                    description: select alert-descriptions data/2 else [
+                        "unknown"
+                    ]
                 ]
             ]
         ]
@@ -698,7 +702,7 @@ parse-messages: function [
                 msg-type: try select message-types data/1
 
                 update-read-state ctx (
-                    ctx/encrypted? ?? #encrypted-handshake !! msg-type
+                    if ctx/encrypted? [#encrypted-handshake] else [msg-type]
                 )
 
                 len: to-integer/unsigned copy/part at data 2 3

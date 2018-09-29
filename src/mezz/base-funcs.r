@@ -757,7 +757,7 @@ has: func [
     /only
         "Values are kept as-is"
 ][
-    construct/(only ?? 'only !! _) [] body
+    construct/(try if only [/only]) [] body
 ]
 
 method: enfix func [

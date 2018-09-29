@@ -162,7 +162,7 @@ replace: function [
         any-array? :pattern [length of :pattern]
     ]
 
-    while [pos: try find/(case_REPLACE ?? 'case !! _) target :pattern] [
+    while [pos: try find/(try if case_REPLACE [/case]) target :pattern] [
         ; apply replacement if function, or drops pos if not
         ; the parens quarantine function invocation to maximum arity of 1
         (value: replacement pos)
@@ -330,7 +330,7 @@ reword: function [
                         ;
                         append/part out a b
 
-                        v: select/(case_REWORD ?? 'case !! _) values keyword-match
+                        v: select/(try if case_REWORD [/case]) values keyword-match
                         append out case [
                             action? :v [v :keyword-match]
                             block? :v [do :v]
@@ -359,7 +359,7 @@ reword: function [
         (append out a)
     ]
 
-    parse/(case_REWORD ?? 'case !! _) source rule or [
+    parse/(try if case_REWORD [case]) source rule or [
         fail "Unexpected error in REWORD's parse rule, should not happen."
     ]
 
@@ -452,7 +452,7 @@ alter: func [
         append series :value
         return true
     ]
-    if remove (find/(case_ALTER ?? 'case !! _) series :value) [
+    if remove (find/(try if case_ALTER [/case]) series :value) [
         append series :value
         return true
     ]

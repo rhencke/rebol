@@ -312,7 +312,11 @@ start-console: function [
     ] else [
        loud-print [
             space space
-            proto-skin/is-loaded ?? {Loaded skin} !! {Skin does not exist}
+            if proto-skin/is-loaded [
+                {Loaded skin}
+            ] else [
+                {Skin does not exist}
+            ]
             "-" skin-file
             spaced [
                 "(CONSOLE" (proto-skin/was-updated ?! {not}) "updated)"

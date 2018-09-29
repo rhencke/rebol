@@ -335,14 +335,14 @@ const REBVAL *PD_Action(
     if (IS_BLANK(picker)) {
         //
         // Leave the function value as-is, and continue processing.  This
-        // enables things like `append/(only ?? 'only !! _)/dup`...
+        // enables things like `append/(either only [/only] [_])/dup`...
         //
         // Note this feature doesn't have obvious applications to refinements
         // that take arguments...only ones that don't.  Use "revoking" to
         // pass void as arguments to a refinement that is always present
         // in that case.
         //
-        // Null might seem more convenient, e.g. `append/(only ?? 'only)/dup`,
+        // Null might seem more convenient, for `append/(if only [/only])/dup`
         // however it is disallowed to use nulls at the higher level path
         // protocol.  This is probably for the best.
         //

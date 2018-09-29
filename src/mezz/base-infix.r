@@ -123,39 +123,6 @@ for-each [comparison-op function-name] compose [
 ]
 
 
-; https://trello.com/c/J7jLQPY5
-
-??: enfix func [
-    {If TO-LOGIC of the left is true, return right value, otherwise null}
-
-    return: [<opt> any-value!]
-    left [<opt> any-value!]
-    right [<opt> any-value!]
-][
-    if :left [:right] ;-- will voidify result if right is null
-]
-
-!!: enfix func [
-    {If left isn't null, return it, else return value on the right}
-
-    return: [<opt> any-value!]
-    left [<opt> any-value!]
-    right [<opt> any-value!]
-][
-    :left else [:right] ;-- will *not* voidify result if right is null
-]
-
-?!: enfix func [ ;-- name suggests shorthand of `left ?? () !! right`
-    {If TO LOGIC! of the left is false, return right value, otherwise null}
-
-    return: [<opt> any-value!]
-    left [<opt> any-value!]
-    right [<opt> any-value!]
-][
-    if-not :left [:right] ;-- will voidify result if right is null
-]
-
-
 ; The -- and ++ operators were deemed too "C-like", so ME was created to allow
 ; `some-var: me + 1` or `some-var: me / 2` in a generic way.
 ;

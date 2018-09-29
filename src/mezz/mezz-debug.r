@@ -153,7 +153,8 @@ net-trace: function [
     either val [
         hijack 'net-log func [txt /C /S][
             print [
-                (c ?? "C:") (s ?? "S:") either block? txt [spaced txt] [txt]
+                (if c ["C:"]) (if s ["S:"])
+                    either block? txt [spaced txt] [txt]
             ]
             txt
         ]
