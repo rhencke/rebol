@@ -1976,8 +1976,10 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 );
                 break;
             }
-            fallthrough;
+            goto token_get;
+
         case TOKEN_GET:
+        token_get:
             if (ep[-1] == ':') {
                 if (len == 1 or ss->mode_char != '/')
                     fail (Error_Syntax(ss));
@@ -1985,15 +1987,19 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 --ss->end;
             }
             bp++;
-            fallthrough;
+            goto token_set;
+
         case TOKEN_SET:
+        token_set:
             len--;
             if (ss->mode_char == '/' and ss->token == TOKEN_SET) {
                 ss->token = TOKEN_WORD; // will be a PATH_SET
                 ss->end--;  // put ':' back on end but not beginning
             }
-            fallthrough;
+            goto token_word;
+
         case TOKEN_WORD: {
+        token_word:
             if (len == 0) {
                 --bp;
                 fail (Error_Syntax(ss));

@@ -444,8 +444,10 @@ REBNATIVE(wait)
                 break;
         }
         if (IS_END(val)) {
-            if (n == 0)
+            if (n == 0) {
+                Free_Unmanaged_Array(ports);
                 return nullptr; // has no pending ports!
+            }
             timeout = ALL_BITS; // no timeout provided
         }
     }
