@@ -359,7 +359,7 @@ reword: function [
         (append out a)
     ]
 
-    parse/(try if case_REWORD [case]) source rule or [
+    parse/(try if case_REWORD [/case]) source rule or [
         fail "Unexpected error in REWORD's parse rule, should not happen."
     ]
 
