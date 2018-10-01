@@ -446,21 +446,23 @@ client-hello: function [
             differs from the normal TLS method of having a variable-length
             field, but it is used for compatibility with TLS before extensions
             were defined."
-
-            This TLS client does not support any extensions, but lies since
-            some servers will disconnect if they don't think you can check
-            their certificates correctly.  Hence we say we have hashes that
-            we may not actually have...but since we don't check certificates
-            at this point, it's just to keep the server from hanging up.
         }
-      ExtensionsLength: ; !!! Length field not mentioned in RFC (?)
+      ExtensionsLength:
         #{00 00}                    ; filled in later
       Extensions:
+    ]
+
+    ; Some servers will disconnect if they don't think you can check the
+    ; digital signatures in their certificates correctly.  Hence we say we
+    ; have hashes that we may not actually have.  Since we don't check
+    ; certificates yet, it just keeps the server from hanging up.
+    ; 
+    emit ctx [
         #{00 0d}                    ; signature_algorithms (13)
-      sigs_and_length:
-        #{00 00}                    ; length included (filled in later)
+      extension_length:
+        #{00 00}                    ; total length (filled in after)
       signatures_length:
-        #{00 00}                    ; just signatures (filled in later)
+        #{00 00}                    ; just signatures (filled in after)
       signature_algorithms:
         #{06 01}                    ; rsa_pkcs1_sha512
         #{06 02}                    ; SHA512 DSA
@@ -478,14 +480,56 @@ client-hello: function [
         #{02 02}                    ; SHA1 DSA
         #{02 03}                    ; ecdsa_sha1
     ]
+    change extension_length (to-bin (length of signatures_length) 2)
+    change signatures_length (to-bin (length of signature_algorithms) 2)
+
+    ; https://en.wikipedia.org/wiki/Server_Name_Indication
+    ; Sending the server name you're trying to connect to allows the same host
+    ; to serve certificates for multiple domains.  While not technically a
+    ; required part of TLS protocol, the widespread use of this in browsers
+    ; means there are https servers which will hang up on ClientHello messages
+    ; that don't include this extension.
+    ;
+    if text? ctx/host-name [
+        server-name-bin: to binary! ctx/host-name
+        emit ctx [
+            #{00 00}                    ; extension type (server_name=0)
+          extension_length:
+            #{00 00}                    ; total length (filled in after)
+          list_length:
+            #{00 00}                    ; name list length (filled in after)
+          list_item_1:
+            #{00}                       ; server name type (host_name=0)
+            to-bin (length of server-name-bin) 2 ; server name length
+            server-name-bin             ; server name
+        ]
+        change extension_length (to-bin (length of list_length) 2)
+        change list_length (to-bin (length of list_item_1) 2)
+    ]
+
+    ; These extensions are commonly sent by OpenSSL or browsers, so turning
+    ; them on might be a good first step with a server rejecting ClientHello
+    ; that seems to work in curl/wget.
+    ;
+    comment [
+        emit ctx [
+            #{00 0b 00 04 03 00 01 02} ;-- ec_point_formats
+
+            #{00 23 00 00} ;-- SessionTicket TLS
+
+            #{00 0f 00 01 01} ;-- heartbeat
+
+            #{00 0a 00 1c 00 1a 00 17 00 19 00 1c 00
+             1b 00 18 00 1a 00 16 00 0e 00 0d 00 0b 00 0c 00
+             09 00 0a} ;-- supported_groups
+        ]
+    ]
 
     ; update the embedded lengths to correct values
     ;
     change fragment-length (to-bin (length of Handshake) 2)
     change message-length (to-bin (length of ClientHello) 3)
     change ExtensionsLength (to-bin (length of Extensions) 2)
-    change sigs_and_length (to-bin (length of signatures_length) 2)
-    change signatures_length (to-bin (length of signature_algorithms) 2)
 
     append ctx/handshake-messages Handshake
 ]
@@ -970,7 +1014,10 @@ parse-messages: function [
                                     (msg-content: my skip compression-method-length)
                                 ]
 
-                            assert [tail? msg-content]
+                            ; !!! After this point is responses based on the
+                            ; extensions we asked for.  We should check to be
+                            ; sure only extensions we asked for come back in
+                            ; this list...but punt on that check for now.
                         ]
 
                         ctx/suite: select cipher-suites msg-obj/suite-id else [
@@ -1589,6 +1636,9 @@ sys/make-scheme [
                 fail make-tls-error "Missing host address"
             ]
 
+            ; This creates the `ctx:` object mentioned throughout the code
+            ; (the port state is passed in as a parameter with that name)
+            ;
             port/state: context [
                 data-buffer: make binary! 32000
                 port-data: make binary! 32000
@@ -1603,7 +1653,10 @@ sys/make-scheme [
                     ]
                 ]
 
-                server?: false
+                server?: false ; !!! server role of protocol not yet written
+
+                ; Used by https://en.wikipedia.org/wiki/Server_Name_Indication
+                host-name: port/spec/host
 
                 mode: _
 
