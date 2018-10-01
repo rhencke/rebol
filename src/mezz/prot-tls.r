@@ -145,7 +145,7 @@ emit: function [
                 set code/1 tail ctx/msg ;-- save position
                 code: my next
             ] else [
-                code: evaluate/set code 'result
+                code: evaluate/set code 'result else [break]
                 append ctx/msg ensure binary! result
             ]
         ]
@@ -438,12 +438,54 @@ client-hello: function [
         }
         #{01}                       ; compression method length
         #{00}                       ; no compression
+
+        comment {
+            "The presence of extensions can be detected by determining whether
+            there are bytes following the compression_methods at the end of
+            the ClientHello.  Note that this method of detecting optional data
+            differs from the normal TLS method of having a variable-length
+            field, but it is used for compatibility with TLS before extensions
+            were defined."
+
+            This TLS client does not support any extensions, but lies since
+            some servers will disconnect if they don't think you can check
+            their certificates correctly.  Hence we say we have hashes that
+            we may not actually have...but since we don't check certificates
+            at this point, it's just to keep the server from hanging up.
+        }
+      ExtensionsLength: ; !!! Length field not mentioned in RFC (?)
+        #{00 00}                    ; filled in later
+      Extensions:
+        #{00 0d}                    ; signature_algorithms (13)
+      sigs_and_length:
+        #{00 00}                    ; length included (filled in later)
+      signatures_length:
+        #{00 00}                    ; just signatures (filled in later)
+      signature_algorithms:
+        #{06 01}                    ; rsa_pkcs1_sha512
+        #{06 02}                    ; SHA512 DSA
+        #{06 03}                    ; ecdsa_secp521r1_sha512
+        #{05 01}                    ; rsa_pkcs1_sha384
+        #{05 02}                    ; SHA384 DSA
+        #{05 03}                    ; ecdsa_secp384r1_sha384
+        #{04 01}                    ; rsa_pkcs1_sha256
+        #{04 02}                    ; SHA256 DSA
+        #{04 03}                    ; ecdsa_secp256r1_sha256
+        #{03 01}                    ; SHA224 RSA
+        #{03 02}                    ; SHA224 DSA
+        #{03 03}                    ; SHA224 ECDSA
+        #{02 01}                    ; rsa_pkcs1_sha1
+        #{02 02}                    ; SHA1 DSA
+        #{02 03}                    ; ecdsa_sha1
     ]
 
     ; update the embedded lengths to correct values
     ;
     change fragment-length (to-bin (length of Handshake) 2)
     change message-length (to-bin (length of ClientHello) 3)
+    change ExtensionsLength (to-bin (length of Extensions) 2)
+    change sigs_and_length (to-bin (length of signatures_length) 2)
+    change signatures_length (to-bin (length of signature_algorithms) 2)
 
     append ctx/handshake-messages Handshake
 ]
