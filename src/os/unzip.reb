@@ -267,11 +267,16 @@ ctx-zip: context [
         source: to block! source
         for-next source [
             name: source/1
-            no-modes: (url? root/:name) or (dir? root/:name)
+            root+name: if find "\/" name/1 [
+                if verbose [print ["Warning: absolute path" name]]
+                name
+            ] else [root/:name]
+
+            no-modes: (url? root+name) or (dir? root+name)
 
             if deep and (dir? name) [
                 name: dirize name
-                files: ensure block! read root/:name
+                files: ensure block! read root+name
                 for-each file files [
                     append source name/:file
                 ]
@@ -287,9 +292,9 @@ ctx-zip: context [
                     copy #{}
                 ] else [
                     if not no-modes [
-                        date: modified? root/:name
+                        date: modified? root+name
                     ]
-                    read root/:name
+                    read root+name
                 ]
             ] else [
                 first (source: next source)
