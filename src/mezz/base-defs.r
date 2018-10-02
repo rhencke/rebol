@@ -273,7 +273,7 @@ print: func [
             form :value
         ]
 
-        eval_PRINT or (semiquoted? 'value) [
+        eval_PRINT or [semiquoted? 'value] [
             spaced value
         ]
 

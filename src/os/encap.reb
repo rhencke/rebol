@@ -1313,7 +1313,7 @@ encap: function [
 
     ; !!! Currently only test the extraction for single-file, easier.
     ;
-    if single-script and (embed != extracted: get-encap out-rebol-path) [
+    if single-script and [embed != extracted: get-encap out-rebol-path] [
         print ["Test extraction size:" length of extracted]
         print ["Embedded bytes" mold embed]
         print ["Extracted bytes" mold extracted]

@@ -79,7 +79,7 @@ const REBVAL *JavaScript_Dispatcher(REBFRM *f)
 void cleanup_js_native(const REBVAL *v) {
     uintptr_t id = cast(uintptr_t, VAL_HANDLE_POINTER(REBARR*, v));
     assert(id < UINT_MAX);
-    
+
     EM_ASM_({
         RL_Unregister($0);
     }, id);

@@ -344,8 +344,8 @@ fix-win32-path: func [
 
     all [
         any [
-            (#"A" <= drive) and (#"Z" >= drive)
-            (#"a" <= drive) and (#"z" >= drive)
+            (#"A" <= drive) and [#"Z" >= drive]
+            (#"a" <= drive) and [#"z" >= drive]
         ]
         #":" = colon
     ] then [

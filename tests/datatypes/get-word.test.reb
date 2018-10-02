@@ -14,13 +14,13 @@
 
 [#1477 (
     e: trap [load ":/"]
-    error? e and (e/id = 'scan-invalid)
+    error? e and [e/id = 'scan-invalid]
 )]
 (
     e: trap [load "://"]
-    error? e and (e/id = 'scan-invalid)
+    error? e and [e/id = 'scan-invalid]
 )
 (
     e: trap [load ":///"]
-    error? e and (e/id = 'scan-invalid)
+    error? e and [e/id = 'scan-invalid]
 )

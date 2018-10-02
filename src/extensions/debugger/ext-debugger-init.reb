@@ -65,10 +65,10 @@ backtrace*: function [
 
     stack: collect [while [f: parent-of f] [
         if not pending? f [
-            if first-frame and (any [
+            if first-frame and [any [
                 action of f = :pause
                 action of f = :breakpoint
-            ])[
+            ]][
                 ; Omitting breakpoints from the list entirely presents a
                 ; skewed picture of what's going on.  But giving them
                 ; "index 1" means that inspecting the frame you're actually

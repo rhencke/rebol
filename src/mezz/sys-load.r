@@ -294,7 +294,7 @@ load: function [
     ; Note that IMPORT has its own loader, and does not use LOAD directly.
     ; /type with anything other than 'extension disables extension loading.
 
-    if header and (self/all) [
+    if header and [self/all] [
         fail "Cannot use /ALL and /HEADER refinements together"
     ]
 
@@ -487,7 +487,7 @@ do-needs: function [
     ; Temporary object to collect exports of "mixins" (private modules).
     ; Don't bother if returning all the modules in a block, or if in user mode.
     ;
-    if no-user and (not block) [
+    if no-user and [not block] [
         mixins: make object! 0 ;-- Minimal length since it may persist later
     ]
 
@@ -659,7 +659,7 @@ load-module: function [
 
             ; If no further processing is needed, shortcut return
 
-            if not version and (any [delay module? :mod]) [
+            if not version and [any [delay module? :mod]] [
                 return reduce/try [source | if module? :mod [mod]]
             ]
         ]
@@ -793,7 +793,7 @@ load-module: function [
         name: :hdr/name
     ]
 
-    if not no-lib and (not word? :name) [ ; requires name for full import
+    if not no-lib and [not word? :name] [ ; requires name for full import
         ; Unnamed module can't be imported to lib, so /no-lib here
         no-lib: true  ; Still not /no-lib in IMPORT
 
@@ -855,12 +855,12 @@ load-module: function [
         mod: _ ; don't need/want the block reference now
     ]
 
-    if version and (ver > modver) [
+    if version and [ver > modver] [
         cause-error 'syntax 'needs reduce [name ver]
     ]
 
     ; If no further processing is needed, shortcut return
-    if (not override?) and (any [mod delay]) [return reduce [name mod]]
+    if (not override?) and [any [mod delay]] [return reduce [name mod]]
 
     ; If /delay, save the intermediate form
     if delay [
@@ -893,7 +893,7 @@ load-module: function [
         ]
     ]
 
-    if not no-lib and (override?) [
+    if not no-lib and [override?] [
         if pos [
             pos/2: mod ; replace delayed module
         ] else [

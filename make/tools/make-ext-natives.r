@@ -300,7 +300,7 @@ for-next native-list [
 
     any [
         'native = native-list/2
-        path? native-list/2 and ('native = first native-list/2)
+        path? native-list/2 and ['native = first native-list/2]
     ] then [
         assert [set-word? native-list/1]
         (emit-include-params-macro/ext e1

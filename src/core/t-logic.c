@@ -218,7 +218,7 @@ REBNATIVE(xor_q)
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "Quoted expression, evaluated unless left is blank or FALSE"
-//          [group! block!]
+//          [block!] ; !!! temp, just block!
 //  ]
 //
 REBNATIVE(and)
@@ -244,15 +244,12 @@ REBNATIVE(and)
     assert(IS_BLOCK(right)); // any-value! result, or null
 
     if (IS_FALSEY(left))
-        return nullptr; // no need to evaluate right
+        RETURN (left); // no need to evaluate right, preserve falsey value
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
         return D_OUT;
 
-    if (IS_FALSEY(D_OUT))
-        return nullptr;
-
-    return D_OUT; // preserve the exact truthy value
+    return D_OUT; // preserve the exact truthy or falsey value
 }
 
 
@@ -265,7 +262,7 @@ REBNATIVE(and)
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "Quoted expression, evaluated only if left is blank or FALSE"
-//          [group! block!]
+//          [block!] ; !!! temp, just block
 //  ]
 REBNATIVE(or)
 {
@@ -295,10 +292,7 @@ REBNATIVE(or)
     if (Do_Any_Array_At_Throws(D_OUT, right))
         return D_OUT;
 
-    if (IS_TRUTHY(D_OUT))
-        return D_OUT; // preserve the exact truthy value
-
-    return nullptr;
+    return D_OUT; // preserve the exact truthy or falsey value
 }
 
 
@@ -312,7 +306,7 @@ REBNATIVE(or)
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "Quoted expression, must be always evaluated as well"
-//          [group! block!]
+//          [block!] ; !!! temp, just block
 //  ]
 //
 REBNATIVE(xor)
@@ -336,13 +330,13 @@ REBNATIVE(xor)
 
     if (IS_FALSEY(left)) {
         if (IS_FALSEY(right))
-            return nullptr;
+            return Init_False(D_OUT); // default to logic false if both false
 
         return right;
     }
 
     if (IS_TRUTHY(right))
-        return nullptr;
+        return Init_False(D_OUT); // default to logic false if both true
 
     RETURN (left);
 }

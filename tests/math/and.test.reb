@@ -53,25 +53,24 @@
 (error? trap [arccosine -1.1])
 
 
-; If BLOCK! is used for the right clause, the result is forced to either a
-; BLANK! or the last evaluated truthy ANY-VALUE!.  If a GROUP! is used for
-; the right clause, the result is forced to LOGIC!
+; If BLOCK! is used for the right clause, it is short circuit.  The first
+; falsey value is returned on failure, and the last truthy value on success.
 ;
-(false and (false) = false)
-(false and (true) = false)
-(true and (false) = false)
-(true and (true) = true)
+(false and [false] = false)
+(false and [true] = false)
+(true and [false] = false)
+(true and [true] = true)
 (
     x: 1020
     did all [
-        true and (x: _) = false
+        true and [x: _] = _
         x = _
     ]
 )
 (
     x: _
     did all [
-        true and (x: 304) = true
+        true and [x: 304] = 304
         x = 304
     ]
 )
@@ -85,31 +84,30 @@
 (
     x: 1020
     did all [
-        <truthy> and [x: _] = null
+        <truthy> and [x: _] = _
         x = _
     ]
 )
 
 
-; If BLOCK! is used for the right clause, the result is forced to either a
-; BLANK! or the last evaluated truthy ANY-VALUE!.  If a GROUP! is used for
-; the right clause, the result is forced to LOGIC!
+; If BLOCK! is used for the right clause, it is short circuit.  The first
+; falsey value is returned on failure, and the last truthy value on success.
 ;
-(false or (false) = false)
-(false or (true) = true)
-(true or (false) = true)
-(true or (true) = true)
+(false or [false] = false)
+(false or [true] = true)
+(true or [false] = true)
+(true or [true] = true)
 (
     x: 1020
     did all [
-        false or [x: _] = null
+        false or [x: _] = _
         x = _
     ]
 )
 (
     x: _
     did all [
-        false or (x: 304) = true
+        false or [x: 304] = 304
         x = 304
     ]
 )
@@ -123,7 +121,7 @@
 (
     x: 1020
     did all [
-        _ or (x: true) = true
+        _ or [x: true] = true
         x = true
     ]
 )

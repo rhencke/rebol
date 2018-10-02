@@ -30,13 +30,13 @@
 )
 (
     e: trap [copy/part tail [1] -2147483649]
-    error? e and (e/id = 'out-of-range)
+    error? e and [e/id = 'out-of-range]
 )
 (
     e: trap [[1] = copy/part tail of [1] -9223372036854775808]
-    error? e and (e/id = 'out-of-range)
+    error? e and [e/id = 'out-of-range]
 )
 (
     e: trap [[] = copy/part [] 9223372036854775807]
-    error? e and (e/id = 'out-of-range)
+    error? e and [e/id = 'out-of-range]
 )

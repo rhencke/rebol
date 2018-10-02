@@ -1245,7 +1245,7 @@ REBNATIVE(unset_q)
 //          [any-value!]
 //      /soft {Evaluate if a GROUP!, GET-WORD!, or GET-PATH!}
 //  ][
-//      if* soft and (match [group! get-word! get-path!] :value) [
+//      if soft and [match [group! get-word! get-path!] :value] [
 //          eval value
 //      ] else [
 //          :value ;-- also sets unevaluated bit, how could a user do so?

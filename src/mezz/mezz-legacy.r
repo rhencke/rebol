@@ -29,7 +29,7 @@ procmaker: function [
     generator collect [
         pending: [return: <void>]
         try-inject-return: func [item [<opt> any-value!]] [
-            if pending and (not text? :item) [
+            if pending and [not text? :item] [
                 keep was pending: _
             ]
         ]

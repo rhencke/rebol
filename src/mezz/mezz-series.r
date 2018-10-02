@@ -416,14 +416,14 @@ extract: func [
             cause-error 'Script 'invalid-arg reduce [pos]
         ]
         out: make (type of series) len * length of pos
-        if not default_EXTRACT and (any-string? out) [value: copy ""]
+        if not default_EXTRACT and [any-string? out] [value: copy ""]
         for-skip series width [for-next pos [
             val: pick series pos/1 else [value]
             append/only out :val
         ]]
     ] else [
         out: make (type of series) len
-        if not default_EXTRACT and (any-string? out) [value: copy ""]
+        if not default_EXTRACT and [any-string? out] [value: copy ""]
         for-skip series width [
             val: pick series pos else [value]
             append/only out :val
@@ -583,7 +583,7 @@ split: function [
         [block! integer! char! bitset! text! tag!]
     /into "If dlm is integer, split in n pieces (vs. pieces of length n)"
 ][
-    if block? dlm and (parse dlm [some integer!]) [
+    if block? dlm and [parse dlm [some integer!]] [
         return map-each len dlm [
             if len <= 0 [
                 series: skip series negate len
@@ -650,7 +650,9 @@ split: function [
         switch type of dlm [
             bitset! [did find dlm try last series]
             char! [dlm = last series]
-            text! [(find series dlm) and (empty? find/last/tail series dlm)]
+            text! [
+                (did find series dlm) and [empty? find/last/tail series dlm]
+            ]
             block! [false]
         ] and [
             add-fill-val

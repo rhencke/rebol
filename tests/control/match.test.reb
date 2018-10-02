@@ -52,7 +52,7 @@
 
         set* quote result: do f ;-- can't access f/arg after the DO
 
-        if not :arg and (not null? :result) [
+        if not :arg and [not null? :result] [
             return '| ;-- BAR! if matched a falsey type
         ]
         :result ;-- return null if no match, else truthy result

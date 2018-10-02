@@ -329,7 +329,7 @@ default: enfix function [
     if unset? 'target [return do :branch] ;-- `case [... default [...]]`
     either all [
         value? set* quote gotten: get target
-        only or (not blank? :gotten)
+        only or [not blank? :gotten]
     ][
         :gotten ;; so that `x: y: default z` leads to `x = y`
     ][

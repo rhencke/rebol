@@ -73,7 +73,7 @@ disable-user-includes: function [
             any space {include}
             some space include-rule to end
         ] then [
-            if inline and (pos: try find headers to file! name) [
+            if inline and [pos: try find headers to file! name] [
                 change/part line-iter (read/lines join-all [path-zlib name]) 1 
                 take pos
             ] else [
@@ -85,7 +85,7 @@ disable-user-includes: function [
         ] 
     ]
 
-    if inline and (not empty? headers) [
+    if inline and [not empty? headers] [
         fail [
             {Not all headers inlined by make-zlib:} (mold headers) LF
             {If we inline a header, should happen once and only once for each}

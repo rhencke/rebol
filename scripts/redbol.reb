@@ -156,7 +156,7 @@ optify: helper [
                 :item = [any-type!] [
                     [<opt> any-value!]
                 ]
-                block? :item and (find item 'unset!) [
+                block? :item and [find item 'unset!] [
                     replace (copy item) 'unset! <opt>
                 ]
                 default [:item]
@@ -336,7 +336,7 @@ get: emulate [
         ][
             get source
         ]
-        if not any_GET and (null? :result) [
+        if not any_GET and [null? :result] [
             fail "Legacy GET won't get an unset variable without /ANY"
         ]
         return :result
@@ -407,7 +407,7 @@ do: emulate [
 
 to: emulate [
     adapt 'to [
-        if :value = group! and (find any-word! type) [
+        if :value = group! and [find any-word! type] [
             value: "paren!" ;-- make TO WORD! GROUP! give back "paren!"
         ]
         if any-array? :type [
@@ -439,7 +439,7 @@ default: emulate [
         'word [word! set-word! lit-word!]
         value
     ][
-        if unset? word or (blank? get word) [
+        if unset? word or [blank? get word] [
             set word :value
         ] else [
             :value
