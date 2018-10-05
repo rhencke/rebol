@@ -790,7 +790,7 @@ REBNATIVE(dehex)
             REBUNI decoded;
             if (scan[0] < 0x80) {
                 decoded = scan[0];
-                next = &scan[1];
+                next = &scan[0]; // last byte is only byte (see Back_Scan)
             }
             else {
                 next = Back_Scan_UTF8_Char(&decoded, scan, &scan_size);
