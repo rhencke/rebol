@@ -247,3 +247,30 @@
     ('| = do [| left-hard*])
     (null? do [left-hard*])
 ]
+
+; GROUP!s with no content act as invisible
+(
+    x: <unchanged>
+    did all [
+        'need-value = (trap [<discarded> x: ()])/id
+        x = <unchanged>
+    ]
+)(
+    x: <unchanged>
+    did all [
+        'need-value = (trap [<discarded> x: comment "hi"])/id
+        x = <unchanged>
+    ]
+)(
+    obj: make object! [x: <unchanged>]
+    did all [
+        'need-value = (trap [<discarded> obj/x: comment "hi"])/id
+        obj/x = <unchanged>
+    ]
+)(
+    obj: make object! [x: <unchanged>]
+    did all [
+        'need-value = (trap [<discarded> obj/x: ()])/id
+        obj/x = <unchanged>
+    ]
+)

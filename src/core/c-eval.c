@@ -1837,6 +1837,8 @@ void Eval_Core(REBFRM * const f)
 
         REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
+        Init_Void(f->out); // `1 x: comment "hi"` shouldn't set x to 1!
+
         if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
             DECLARE_SUBFRAME(child, f);
             if (Eval_Step_In_Subframe_Throws(f->out, f, flags, child))
@@ -2075,6 +2077,8 @@ void Eval_Core(REBFRM * const f)
             fail (Error_Need_Value_Core(current, f->specifier));
 
         REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+
+        Init_Void(f->out); // `1 o/x: comment "hi"` shouldn't set o/x to 1!
 
         if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
             DECLARE_SUBFRAME(child, f);
