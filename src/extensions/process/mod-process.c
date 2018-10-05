@@ -382,9 +382,11 @@ int OS_Create_Process(
         // command to cmd.exe needs to be surrounded by quotes to preserve the inner quotes
         const WCHAR *sh = L"cmd.exe /C \"";
 
-        REBCNT len = wcslen(sh) + wcslen(call) + 3;
+        REBCNT len = wcslen(sh) + wcslen(call)
+            + 1 // terminal quote mark
+            + 1; // NUL terminator
 
-        cmd = rebAllocN(WCHAR, len);
+        cmd = cast(WCHAR*, malloc(sizeof(WCHAR) * len));
         cmd[0] = L'\0';
         wcscat(cmd, sh);
         wcscat(cmd, call);
@@ -394,7 +396,7 @@ int OS_Create_Process(
         // CreateProcess might write to this memory
         // Duplicate it to be safe
 
-        cmd = _wcsdup(call); // !!! guaranteed OS_FREE can release this?
+        cmd = _wcsdup(call); // uses malloc()
     }
 
     PROCESS_INFORMATION pi;
@@ -411,7 +413,7 @@ int OS_Create_Process(
         &pi // process information
     );
 
-    rebFree(cmd);
+    free(cmd);
 
     *pid = pi.dwProcessId;
 
