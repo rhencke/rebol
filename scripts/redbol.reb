@@ -310,7 +310,7 @@ set: emulate [
 
         apply 'set [
             target: either any-context? target [words of target] [target]
-            value: :value
+            set* (quote value:) :value
             some: some
             opt: set_ANY
         ]
@@ -371,7 +371,7 @@ do: emulate [
 
         if next_DO [
             if args [fail "Can't use DO/NEXT with ARGS"]
-            source: evaluate :source quote result:
+            source: evaluate/set :source quote result:
             if var [set var source] ;-- DO/NEXT put the *position* in the var
             return :result ;-- DO/NEXT returned the *evaluative result*
         ]
@@ -509,14 +509,14 @@ compose: emulate [
             not block? value [:value]
             into [
                 insert out apply 'compose [
-                    value: :value
+                    set* (quote value:) :value
                     deep: deep
                     only: only
                 ]
             ]
         ] else [
             apply 'compose [
-                value: :value
+                set* (quote value:) :value
                 deep: deep
                 only: only
             ]
@@ -568,7 +568,7 @@ repend: emulate [
         ;
         apply 'append/part/dup [
             series: series
-            value: block? :value and [reduce :value] !! :value
+            value: block? :value and [reduce :value] or [:value]
             if part [limit: :limit]
             only: only
             if dup [count: :count]
