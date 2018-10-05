@@ -1020,6 +1020,9 @@ REBNATIVE(as)
     case REB_PATH:
     case REB_LIT_PATH:
     case REB_GET_PATH:
+        if (new_kind == VAL_TYPE(v))
+            RETURN (v); // no-op
+
         if (not ANY_ARRAY(v))
             goto bad_cast;
         break;
@@ -1029,7 +1032,9 @@ REBNATIVE(as)
     case REB_FILE:
     case REB_URL:
     case REB_EMAIL: {
-        //
+        if (new_kind == VAL_TYPE(v))
+            RETURN (v); // no-op
+
         // !!! Until UTF-8 Everywhere, turning ANY-WORD! into an ANY-STRING!
         // means it has to be UTF-8 decoded into REBUNI (UCS-2).  We do that
         // but make sure it is locked, so that when it does give access to
@@ -1078,7 +1083,9 @@ REBNATIVE(as)
     case REB_LIT_WORD:
     case REB_ISSUE:
     case REB_REFINEMENT: {
-        //
+        if (new_kind == VAL_TYPE(v))
+            RETURN (v); // no-op
+
         // !!! Until UTF-8 Everywhere, turning ANY-STRING! into an ANY-WORD!
         // means you have to have an interning of it.
         //
@@ -1124,7 +1131,9 @@ REBNATIVE(as)
         break; }
 
     case REB_BINARY: {
-        //
+        if (new_kind == VAL_TYPE(v))
+            RETURN (v); // no-op
+
         // !!! A locked BINARY! shouldn't (?) complain if it exposes a
         // REBSTR holding UTF-8 data, even prior to the UTF-8 conversion.
         //
@@ -1151,7 +1160,6 @@ REBNATIVE(as)
         fail (v); }
 
     bad_cast:;
-
     default:
         // all applicable types should be handled above
         fail (Error_Bad_Cast_Raw(v, ARG(type)));
