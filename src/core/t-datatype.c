@@ -69,7 +69,7 @@ void TO_Datatype(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 //
 //  MF_Datatype: C
 //
-void MF_Datatype(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Datatype(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     REBSTR *name = Canon(VAL_TYPE_SYM(v));
     if (form)

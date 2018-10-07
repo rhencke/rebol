@@ -166,8 +166,8 @@ void Prin_OS_String(const REBYTE *utf8, REBSIZ size, REBFLGS opts)
 //
 void Debug_String_No_Newline(const REBYTE *utf8, REBSIZ size)
 {
-    REBOOL disabled = GC_Disabled;
-    GC_Disabled = TRUE;
+    bool disabled = GC_Disabled;
+    GC_Disabled = true;
 
   #ifdef DEBUG_STDIO_OK
     printf("%.*s", cast(int, size), utf8); // https://stackoverflow.com/a/2239571
@@ -176,7 +176,7 @@ void Debug_String_No_Newline(const REBYTE *utf8, REBSIZ size)
     Prin_OS_String(utf8, cast(int, size), OPT_ENC_0);
   #endif
 
-    assert(GC_Disabled == TRUE);
+    assert(GC_Disabled);
     GC_Disabled = disabled;
 }
 
@@ -286,8 +286,8 @@ void Debug_Values(const RELVAL *value, REBCNT count, REBCNT limit)
 //
 void Debug_Buf_No_Newline(const char *fmt, va_list *vaptr)
 {
-    REBOOL disabled = GC_Disabled;
-    GC_Disabled = TRUE;
+    bool disabled = GC_Disabled;
+    GC_Disabled = true;
 
     DECLARE_MOLD (mo);
     Push_Mold(mo);
@@ -300,7 +300,7 @@ void Debug_Buf_No_Newline(const char *fmt, va_list *vaptr)
 
     Drop_Mold(mo);
 
-    assert(GC_Disabled == TRUE);
+    assert(GC_Disabled);
     GC_Disabled = disabled;
 }
 

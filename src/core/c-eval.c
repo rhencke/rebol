@@ -107,7 +107,7 @@ const REBVAL *Dispatcher_Core(REBFRM * const f) {
 }
 
 
-static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
+static inline bool Start_New_Expression_Throws(REBFRM *f) {
     assert(Eval_Count >= 0);
     if (--Eval_Count == 0) {
         //
@@ -201,11 +201,11 @@ static inline REBOOL Start_New_Expression_Throws(REBFRM *f) {
 // e.g. `IS_NULLED(f->special)` can only match the other two cases.
 //
 
-inline static REBOOL In_Typecheck_Mode(REBFRM *f) {
+inline static bool In_Typecheck_Mode(REBFRM *f) {
     return f->special == f->arg;
 }
 
-inline static REBOOL In_Unspecialized_Mode(REBFRM *f) {
+inline static bool In_Unspecialized_Mode(REBFRM *f) {
     return f->special == f->param;
 }
 

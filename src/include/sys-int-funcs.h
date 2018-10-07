@@ -47,7 +47,7 @@
     #define REB_I32_ADD_OF(x, y, sum) \
         __builtin_sadd_overflow((x), (y), (sum))
 #else
-    REBOOL reb_i32_add_overflow(int32_t x, int32_t y, int *sum);
+    bool reb_i32_add_overflow(int32_t x, int32_t y, int *sum);
     #define REB_I32_ADD_OF(x, y, sum) \
         reb_i32_add_overflow((x), (y), (sum))
 #endif
@@ -56,7 +56,7 @@
     #define REB_U32_ADD_OF(x, y, sum) \
         __builtin_uadd_overflow((x), (y), (sum))
 #else
-    REBOOL reb_u32_add_overflow(uint32_t x, uint32_t y, unsigned int *sum);
+    bool reb_u32_add_overflow(uint32_t x, uint32_t y, unsigned int *sum);
     #define REB_U32_ADD_OF(x, y, sum) \
         reb_u32_add_overflow((x), (y), (sum))
 #endif
@@ -70,7 +70,7 @@
             __builtin_saddll_overflow((x), (y), (sum))
     #endif
 #else
-    REBOOL reb_i64_add_overflow(int64_t x, int64_t y, int64_t *sum);
+    bool reb_i64_add_overflow(int64_t x, int64_t y, int64_t *sum);
     #define REB_I64_ADD_OF(x, y, sum) \
         reb_i64_add_overflow((x), (y), (sum))
 #endif
@@ -84,7 +84,7 @@
             __builtin_uaddll_overflow((x), (y), (sum))
     #endif
 #else
-    REBOOL reb_u64_add_overflow(uint64_t x, uint64_t y, uint64_t *sum);
+    bool reb_u64_add_overflow(uint64_t x, uint64_t y, uint64_t *sum);
     #define REB_U64_ADD_OF(x, y, sum) \
         reb_u64_add_overflow((x), (y), (sum))
 #endif
@@ -93,7 +93,7 @@
     #define REB_I32_SUB_OF(x, y, diff) \
         __builtin_ssub_overflow((x), (y), (diff))
 #else
-    REBOOL reb_i32_sub_overflow(int32_t x, int32_t y, int32_t *diff);
+    bool reb_i32_sub_overflow(int32_t x, int32_t y, int32_t *diff);
     #define REB_I32_SUB_OF(x, y, diff) \
         reb_i32_sub_overflow((x), (y), (diff))
 #endif
@@ -109,7 +109,7 @@
             __builtin_ssubll_overflow((x), (y), (diff))
     #endif
 #else
-    REBOOL reb_i64_sub_overflow(int64_t x, int64_t y, int64_t *diff);
+    bool reb_i64_sub_overflow(int64_t x, int64_t y, int64_t *diff);
     #define REB_I64_SUB_OF(x, y, diff) \
         reb_i64_sub_overflow((x), (y), (diff))
 #endif
@@ -118,7 +118,7 @@
     #define REB_I32_MUL_OF(x, y, prod) \
         __builtin_smul_overflow((x), (y), (prod))
 #else
-    REBOOL reb_i32_mul_overflow(int32_t x, int32_t y, int32_t *prod);
+    bool reb_i32_mul_overflow(int32_t x, int32_t y, int32_t *prod);
     #define REB_I32_MUL_OF(x, y, prod) \
         reb_i32_mul_overflow((x), (y), (prod))
 #endif
@@ -127,7 +127,7 @@
     #define REB_U32_MUL_OF(x, y, prod) \
         __builtin_umul_overflow((x), (y), (prod))
 #else
-    REBOOL reb_u32_mul_overflow(uint32_t x, uint32_t y, uint32_t *prod);
+    bool reb_u32_mul_overflow(uint32_t x, uint32_t y, uint32_t *prod);
     #define REB_U32_MUL_OF(x, y, prod) \
         reb_u32_mul_overflow((x), (y), (prod))
 #endif
@@ -146,12 +146,12 @@
     #else
         // presumably __LLP64__ or __LP32__
         //
-        REBOOL reb_i64_mul_overflow(int64_t x, int64_t y, int64_t *prod);
+        bool reb_i64_mul_overflow(int64_t x, int64_t y, int64_t *prod);
         #define REB_I64_MUL_OF(x, y, prod) \
             reb_i64_mul_overflow((x), (y), cast(long long*, prod))
     #endif
 #else
-    REBOOL reb_i64_mul_overflow(int64_t x, int64_t y, int64_t *prod);
+    bool reb_i64_mul_overflow(int64_t x, int64_t y, int64_t *prod);
     #define REB_I64_MUL_OF(x, y, prod) \
         reb_i64_mul_overflow((x), (y), (prod))
 #endif
@@ -166,7 +166,7 @@
         #define REB_U64_MUL_OF(x, y, prod) __builtin_umulll_overflow((x), (y), (prod))
     #endif
 #else
-    REBOOL reb_u64_mul_overflow(uint64_t x, uint64_t y, uint64_t *prod);
+    bool reb_u64_mul_overflow(uint64_t x, uint64_t y, uint64_t *prod);
     #define REB_U64_MUL_OF(x, y, prod) \
         reb_u64_mul_overflow((x), (y), (prod))
 #endif

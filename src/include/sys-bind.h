@@ -106,7 +106,7 @@
 // is at MAKE-time, o3 put its binding into any functions bound to o2 or o1,
 // thus getting its overriding behavior.
 //
-inline static REBOOL Is_Overriding_Context(REBCTX *stored, REBCTX *override)
+inline static bool Is_Overriding_Context(REBCTX *stored, REBCTX *override)
 {
     REBNOD *stored_source = LINK(stored).keysource;
     REBNOD *temp = LINK(override).keysource;
@@ -123,13 +123,13 @@ inline static REBOOL Is_Overriding_Context(REBCTX *stored, REBCTX *override)
     // wind up overriding words bound to FRAME!s, even though not "derived".
     //
     if (stored_source->header.bits & ARRAY_FLAG_PARAMLIST)
-        return FALSE;
+        return false;
     if (temp->header.bits & ARRAY_FLAG_PARAMLIST)
-        return FALSE;
+        return false;
 
-    while (TRUE) {
+    while (true) {
         if (temp == stored_source)
-            return TRUE;
+            return true;
 
         if (NOD(LINK(temp).ancestor) == temp)
             break;
@@ -137,7 +137,7 @@ inline static REBOOL Is_Overriding_Context(REBCTX *stored, REBCTX *override)
         temp = NOD(LINK(temp).ancestor);
     }
 
-    return FALSE;
+    return false;
 }
 
 
@@ -149,7 +149,7 @@ enum {
 
 
 struct Reb_Binder {
-    REBOOL high;
+    bool high;
   #if !defined(NDEBUG)
     REBCNT count;
   #endif
@@ -160,15 +160,15 @@ struct Reb_Binder {
     // get an INIT_BINDER() and SHUTDOWN_BINDER() pair called on it, which
     // would leave lingering binding values on REBSER nodes.
     //
-    REBOOL initialized;
-    Reb_Binder () { initialized = FALSE; }
-    ~Reb_Binder () { assert(initialized == FALSE); }
+    bool initialized;
+    Reb_Binder () { initialized = false; }
+    ~Reb_Binder () { assert(not initialized); }
   #endif
 };
 
 
 inline static void INIT_BINDER(struct Reb_Binder *binder) {
-    binder->high = TRUE; // !!! what about `did (SPORADICALLY(2))` to test?
+    binder->high = true; // !!! what about `did (SPORADICALLY(2))` to test?
 
   #if !defined(NDEBUG)
     binder->count = 0;
@@ -185,7 +185,7 @@ inline static void SHUTDOWN_BINDER(struct Reb_Binder *binder) {
     assert(binder->count == 0);
 
     #ifdef CPLUSPLUS_11
-        binder->initialized = FALSE;
+        binder->initialized = false;
     #endif
   #endif
 
@@ -195,7 +195,7 @@ inline static void SHUTDOWN_BINDER(struct Reb_Binder *binder) {
 
 // Tries to set the binder index, but return false if already there.
 //
-inline static REBOOL Try_Add_Binder_Index(
+inline static bool Try_Add_Binder_Index(
     struct Reb_Binder *binder,
     REBSTR *canon,
     REBINT index
@@ -204,19 +204,19 @@ inline static REBOOL Try_Add_Binder_Index(
     assert(GET_SER_INFO(canon, STRING_INFO_CANON));
     if (binder->high) {
         if (MISC(canon).bind_index.high != 0)
-            return FALSE;
+            return false;
         MISC(canon).bind_index.high = index;
     }
     else {
         if (MISC(canon).bind_index.low != 0)
-            return FALSE;
+            return false;
         MISC(canon).bind_index.low = index;
     }
 
   #if !defined(NDEBUG)
     ++binder->count;
   #endif
-    return TRUE;
+    return true;
 }
 
 
@@ -225,7 +225,7 @@ inline static void Add_Binder_Index(
     REBSTR *canon,
     REBINT index
 ){
-    REBOOL success = Try_Add_Binder_Index(binder, canon, index);
+    bool success = Try_Add_Binder_Index(binder, canon, index);
     assert(success);
     UNUSED(success);
 }
@@ -621,7 +621,7 @@ inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
     REBSPC *specifier
 ){
     DS_PUSH_TRASH;
-    REBOOL flip = GET_VAL_FLAG(v, VALUE_FLAG_EVAL_FLIP);
+    bool flip = GET_VAL_FLAG(v, VALUE_FLAG_EVAL_FLIP);
     Derelativize(DS_TOP, v, specifier);
     if (flip)
         SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
@@ -702,5 +702,5 @@ inline static REBSPC *Derive_Specifier(REBSPC *parent, const RELVAL *item) {
         (values), (context), TS_WORD, FLAGIT_KIND(REB_SET_WORD), BIND_0)
 
 #define Unbind_Values_Deep(values) \
-    Unbind_Values_Core((values), NULL, TRUE)
+    Unbind_Values_Core((values), nullptr, true)
 

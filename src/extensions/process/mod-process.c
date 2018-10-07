@@ -154,7 +154,7 @@ int OS_Create_Process(
     const WCHAR *call,
     int argc,
     const WCHAR * argv[],
-    REBOOL flag_wait,
+    bool flag_wait,
     uint64_t *pid,
     int *exit_code,
     char *input,
@@ -175,7 +175,7 @@ int OS_Create_Process(
         fail ("'argv[]'-style launching not implemented on Windows CALL");
 
   #ifdef GET_IS_NT_FLAG // !!! Why was this here?
-    REBOOL is_NT;
+    bool is_NT;
     OSVERSIONINFO info;
     GetVersionEx(&info);
     is_NT = info.dwPlatformId >= VER_PLATFORM_WIN32_NT;
@@ -730,8 +730,8 @@ input_error:
 
 #else // !defined(TO_WINDOWS), so POSIX, LINUX, OS X, etc.
 
-static inline REBOOL Open_Pipe_Fails(int pipefd[2]) {
-#ifdef USE_PIPE2_NOT_PIPE
+static inline bool Open_Pipe_Fails(int pipefd[2]) {
+  #ifdef USE_PIPE2_NOT_PIPE
     //
     // NOTE: pipe() is POSIX, but pipe2() is Linux-specific.  With pipe() it
     // takes an additional call to fcntl() to request non-blocking behavior,
@@ -748,31 +748,31 @@ static inline REBOOL Open_Pipe_Fails(int pipefd[2]) {
     // for later Linuxes known to have it (and O_CLOEXEC).
     //
     if (pipe2(pipefd, O_CLOEXEC))
-        return TRUE;
-#else
+        return true;
+  #else
     if (pipe(pipefd) < 0)
-        return TRUE;
+        return true;
     int direction; // READ=0, WRITE=1
     for (direction = 0; direction < 2; ++direction) {
         int oldflags = fcntl(pipefd[direction], F_GETFD);
         if (oldflags < 0)
-            return TRUE;
+            return true;
         if (fcntl(pipefd[direction], F_SETFD, oldflags | FD_CLOEXEC) < 0)
-            return TRUE;
+            return true;
     }
-#endif
-    return FALSE;
+  #endif
+    return false;
 }
 
-static inline REBOOL Set_Nonblocking_Fails(int fd) {
+static inline bool Set_Nonblocking_Fails(int fd) {
     int oldflags;
     oldflags = fcntl(fd, F_GETFL);
     if (oldflags < 0)
-        return TRUE;
+        return true;
     if (fcntl(fd, F_SETFL, oldflags | O_NONBLOCK) < 0)
-        return TRUE;
+        return true;
 
-    return FALSE;
+    return false;
 }
 
 
@@ -796,7 +796,7 @@ int OS_Create_Process(
     const char *call,
     int argc,
     const char* argv[],
-    REBOOL flag_wait, // distinct from REF(wait)
+    bool flag_wait, // distinct from REF(wait)
     uint64_t *pid,
     int *exit_code,
     char *input,
@@ -1023,7 +1023,7 @@ child_error: ;
             // Nothing we can do, but need to stop compiler warning
             // (cast to void is insufficient for warn_unused_result)
             //
-            assert(FALSE);
+            assert(false);
         }
         exit(EXIT_FAILURE); /* get here only when exec fails */
     }
@@ -1350,8 +1350,8 @@ cleanup:
         // Shouldn't be here, as the current behavior is keeping waiting when
         // child is stopped
         //
-        assert(FALSE);
-        if (info != NULL)
+        assert(false);
+        if (info)
             free(info);
         fail (Error(RE_EXT_PROCESS_CHILD_STOPPED, rebEND));
     }
@@ -1506,7 +1506,7 @@ REBNATIVE(call)
     UNUSED(REF(output));
     UNUSED(REF(error));
 
-    REBOOL flag_wait;
+    bool flag_wait;
     if (
         REF(wait)
         or (
@@ -1515,10 +1515,10 @@ REBNATIVE(call)
             or IS_TEXT(ARG(err)) or IS_BINARY(ARG(err))
         ) // I/O redirection implies /WAIT
     ){
-        flag_wait = TRUE;
+        flag_wait = true;
     }
     else
-        flag_wait = FALSE;
+        flag_wait = false;
 
     // We synthesize the argc and argv from the "command", and in the process
     // we do dynamic allocations of argc strings through the API.  These need

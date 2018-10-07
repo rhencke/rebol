@@ -166,7 +166,7 @@ unsigned char *Compress_Alloc_Core(
         break;
 
       default:
-        assert(FALSE); // release build keeps default
+        assert(false); // release build keeps default
     }
 
     // compression level can be a value from 1 to 9, or Z_DEFAULT_COMPRESSION
@@ -274,7 +274,7 @@ unsigned char *Decompress_Alloc_Core(
         break;
 
       default:
-        assert(FALSE); // fall through with default in release build
+        assert(false); // fall through with default in release build
     }
 
     int ret_init = inflateInit2(&strm, window_bits);

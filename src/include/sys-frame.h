@@ -50,7 +50,7 @@
 // will occur exactly once (when it is caught).
 //
 
-inline static REBOOL THROWN(const RELVAL *v) {
+inline static bool THROWN(const RELVAL *v) {
     assert(v->header.bits & NODE_FLAG_CELL);
 
     if (v->header.bits & VALUE_FLAG_THROWN) {
@@ -89,7 +89,7 @@ static inline void CATCH_THROWN(REBVAL *arg_out, REBVAL *thrown) {
 //=////////////////////////////////////////////////////////////////////////=//
 
 
-inline static REBOOL FRM_IS_VALIST(REBFRM *f) {
+inline static bool FRM_IS_VALIST(REBFRM *f) {
     return f->source->vaptr != nullptr;
 }
 
@@ -254,7 +254,7 @@ inline static bool Is_Frame_Gotten_Shoved(REBFRM *f) {
 #define RETURN(v) \
     return Move_Value(D_OUT, (v));
 
-inline static REBOOL Is_Action_Frame(REBFRM *f) {
+inline static bool Is_Action_Frame(REBFRM *f) {
     if (f->original != nullptr) {
         //
         // Do not count as a function frame unless its gotten to the point
@@ -270,7 +270,7 @@ inline static REBOOL Is_Action_Frame(REBFRM *f) {
 // `f->param` will *not* be a typeset when the function is actually in the
 // process of running.  (So no need to set/clear/test another "mode".)
 //
-inline static REBOOL Is_Action_Frame_Fulfilling(REBFRM *f)
+inline static bool Is_Action_Frame_Fulfilling(REBFRM *f)
 {
     assert(Is_Action_Frame(f));
     return NOT_END(f->param);
@@ -364,7 +364,7 @@ inline static void SET_FRAME_VALUE(REBFRM *f, const RELVAL* value) {
 
     struct Native_Refine {
         int num;
-        REBOOL used_cache; // for inspecting in watchlist
+        bool used_cache; // for inspecting in watchlist
         REBVAL *arg; // for inspecting in watchlist
     };
 

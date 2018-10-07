@@ -339,7 +339,7 @@
 // Flip_Series_White(), etc.  These let native routines engage in marking
 // and unmarking nodes without potentially wrecking the garbage collector by
 // reusing NODE_FLAG_MARKED.  Purposes could be for recursion protection or
-// other features, to avoid having to make a map from REBSER to REBOOL.
+// other features, to avoid having to make a map from REBSER to bool.
 //
 // Note: Same bit as NODE_FLAG_MARKED, interesting but irrelevant.
 //
@@ -883,7 +883,7 @@ union Reb_Series_Misc {
     // to affect all values, it has to be stored somewhere that all
     // REBVALs would see a change--hence the field is in the series.
     //
-    REBOOL negated;
+    bool negated;
 
     // used for IMAGE!
     //
@@ -1096,7 +1096,7 @@ struct Reb_Array {
 #define ANY_SER_FLAGS(s,f) \
     (did (SER(s)->header.bits & (f)))
 
-inline static REBOOL ALL_SER_FLAGS(
+inline static bool ALL_SER_FLAGS(
     void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
     REBFLGS f
 ){
@@ -1129,7 +1129,7 @@ inline static REBOOL ALL_SER_FLAGS(
 #define ANY_SER_INFOS(s,f) \
     (did (SER(s)->info.bits & (f)))
 
-inline static REBOOL ALL_SER_INFOS(
+inline static bool ALL_SER_INFOS(
     void *s, // to allow REBARR*, REBCTX*, REBACT*... SER(s) checks
     REBFLGS f
 ){

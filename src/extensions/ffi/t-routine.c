@@ -484,13 +484,13 @@ static uintptr_t arg_to_ffi(
         //
         // structs should be processed above by the HANDLE! case, not WORD!
         //
-        assert(FALSE);
+        assert(false);
     case SYM_VOID:
         //
         // can't return a meaningful offset for "void"--it's only valid for
         // return types, so caller should check and not try to pass it in.
         //
-        assert(FALSE);
+        assert(false);
     default:
         fail (Error_Invalid(arg));
     }
@@ -585,9 +585,9 @@ static void ffi_to_rebol(
         break;
 
     case SYM_VOID:
-        assert(FALSE); // not covered by generic routine.
+        assert(false); // not covered by generic routine.
     default:
-        assert(FALSE);
+        assert(false);
         //
         // !!! Was reporting Error_Invalid_Arg on uninitialized `out`
         //
@@ -647,7 +647,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
 
             DS_PUSH(f->out);
             SET_END(f->out); // expected by Do_Vararg_Op
-        } while (TRUE);
+        } while (true);
 
         // !!! The Atronix va_list interface required a type to be specified
         // for each argument--achieving what you would get if you used a
@@ -1037,7 +1037,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     PUSH_GC_GUARD(ret_schema);
 
     REBCNT num_fixed = 0; // number of fixed (non-variadic) arguments
-    REBOOL is_variadic = false; // default to not being variadic
+    bool is_variadic = false; // default to not being variadic
 
     RELVAL *item = VAL_ARRAY_AT(ffi_spec);
     for (; NOT_END(item); ++item) {
@@ -1052,7 +1052,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 if (is_variadic)
                     fail ("FFI: Duplicate ... indicating variadic");
 
-                is_variadic = TRUE;
+                is_variadic = true;
 
                 // !!! Originally, a feature in VARARGS! was that they would
                 // "chain" by default, if VARARGS! was not explicitly added.

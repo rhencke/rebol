@@ -131,10 +131,10 @@ REBNATIVE(make)
         //
         // Or perhaps not use make at all, but some other operation.
         //
-        assert(FALSE);
+        assert(false);
     }
     else if (IS_EVENT(type)) {
-        assert(FALSE); // ^-- same for events (?)
+        assert(false); // ^-- same for events (?)
     }
 #endif
 
@@ -210,7 +210,7 @@ REBNATIVE(make)
             }
 
             DS_PUSH(D_OUT);
-        } while (TRUE);
+        } while (true);
 
         return Init_Any_Array(D_OUT, kind, Pop_Stack_Values(dsp_orig));
     }
@@ -452,7 +452,7 @@ const REBYTE *Scan_Hex(
 // We don't allow a %00 in files, urls, email, etc... so
 // a return of 0 is used to indicate an error.
 //
-REBOOL Scan_Hex2(REBUNI *out, const void *p, REBOOL unicode)
+bool Scan_Hex2(REBUNI *out, const void *p, bool unicode)
 {
     REBUNI c1;
     REBUNI c2;
@@ -470,16 +470,16 @@ REBOOL Scan_Hex2(REBUNI *out, const void *p, REBOOL unicode)
     REBYTE lex1 = Lex_Map[c1];
     REBYTE d1 = lex1 & LEX_VALUE;
     if (lex1 < LEX_WORD || (d1 == 0 && lex1 < LEX_NUMBER))
-        return FALSE;
+        return false;
 
     REBYTE lex2 = Lex_Map[c2];
     REBYTE d2 = lex2 & LEX_VALUE;
     if (lex2 < LEX_WORD || (d2 == 0 && lex2 < LEX_NUMBER))
-        return FALSE;
+        return false;
 
     *out = cast(REBUNI, (d1 << 4) + d2);
 
-    return TRUE;
+    return true;
 }
 
 
@@ -506,13 +506,13 @@ const REBYTE *Scan_Dec_Buf(
     if (*cp == '+' || *cp == '-')
         *bp++ = *cp++;
 
-    REBOOL digit_present = FALSE;
+    bool digit_present = false;
     while (IS_LEX_NUMBER(*cp) || *cp == '\'') {
         if (*cp != '\'') {
             *bp++ = *cp++;
             if (bp >= be)
                 return NULL;
-            digit_present = TRUE;
+            digit_present = true;
         }
         else
             ++cp;
@@ -530,7 +530,7 @@ const REBYTE *Scan_Dec_Buf(
             *bp++ = *cp++;
             if (bp >= be)
                 return NULL;
-            digit_present = TRUE;
+            digit_present = true;
         }
         else
             ++cp;
@@ -544,7 +544,7 @@ const REBYTE *Scan_Dec_Buf(
         if (bp >= be)
             return NULL;
 
-        digit_present = FALSE;
+        digit_present = false;
 
         if (*cp == '-' || *cp == '+') {
             *bp++ = *cp++;
@@ -556,7 +556,7 @@ const REBYTE *Scan_Dec_Buf(
             *bp++ = *cp++;
             if (bp >= be)
                 return NULL;
-            digit_present = TRUE;
+            digit_present = true;
         }
 
         if (not digit_present)
@@ -577,7 +577,7 @@ const REBYTE *Scan_Decimal(
     REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
     const REBYTE *cp,
     REBCNT len,
-    REBOOL dec_only
+    bool dec_only
 ) {
     TRASH_CELL_IF_DEBUG(out);
 
@@ -591,12 +591,12 @@ const REBYTE *Scan_Decimal(
     if (*cp == '+' || *cp == '-')
         *ep++ = *cp++;
 
-    REBOOL digit_present = FALSE;
+    bool digit_present = false;
 
     while (IS_LEX_NUMBER(*cp) || *cp == '\'') {
         if (*cp != '\'') {
             *ep++ = *cp++;
-            digit_present = TRUE;
+            digit_present = true;
         }
         else
             ++cp;
@@ -610,7 +610,7 @@ const REBYTE *Scan_Decimal(
     while (IS_LEX_NUMBER(*cp) || *cp == '\'') {
         if (*cp != '\'') {
             *ep++ = *cp++;
-            digit_present = TRUE;
+            digit_present = true;
         }
         else
             ++cp;
@@ -621,14 +621,14 @@ const REBYTE *Scan_Decimal(
 
     if (*cp == 'E' || *cp == 'e') {
         *ep++ = *cp++;
-        digit_present = FALSE;
+        digit_present = false;
 
         if (*cp == '-' || *cp == '+')
             *ep++ = *cp++;
 
         while (IS_LEX_NUMBER(*cp)) {
             *ep++ = *cp++;
-            digit_present = TRUE;
+            digit_present = true;
         }
 
         if (not digit_present)
@@ -692,7 +692,7 @@ const REBYTE *Scan_Integer(
 
     REBYTE *bp = buf;
 
-    REBOOL neg = FALSE;
+    bool neg = false;
 
     REBINT num = cast(REBINT, len);
 
@@ -700,7 +700,7 @@ const REBYTE *Scan_Integer(
     if (*cp == '-') {
         *bp++ = *cp++;
         --num;
-        neg = TRUE;
+        neg = true;
     }
     else if (*cp == '+') {
         ++cp;
@@ -872,7 +872,7 @@ const REBYTE *Scan_Date(
             return_NULL;
 
         for (num = 0; num < 12; num++) {
-            if (!Compare_Bytes(cb_cast(Month_Names[num]), cp, size, TRUE))
+            if (!Compare_Bytes(cb_cast(Month_Names[num]), cp, size, true))
                 break;
         }
         month = num + 1;
@@ -1028,7 +1028,7 @@ end_date:
     // This step used to be skipped if tz was 0, but now that is a
     // state distinguished from "not having a time zone"
     //
-    Adjust_Date_Zone(out, TRUE);
+    Adjust_Date_Zone(out, true);
 
     return cp;
 }
@@ -1094,16 +1094,16 @@ const REBYTE *Scan_Email(
 
     REBCNT num_chars = 0;
 
-    REBOOL found_at = FALSE;
+    bool found_at = false;
     for (; len > 0; len--) {
         if (*cp == '@') {
             if (found_at)
                 return_NULL;
-            found_at = TRUE;
+            found_at = true;
         }
 
         if (*cp == '%') {
-            const REBOOL unicode = FALSE;
+            const bool unicode = false;
             REBUNI ch;
             if (len <= 2 || !Scan_Hex2(&ch, cp + 1, unicode))
                 return_NULL;
@@ -1324,7 +1324,7 @@ const REBYTE *Scan_Any(
     //
     // http://blog.hostilefork.com/death-to-carriage-return/
     //
-    REBOOL crlf_to_lf = TRUE;
+    bool crlf_to_lf = true;
 
     REBSER *s = Append_UTF8_May_Fail(NULL, cs_cast(cp), num_bytes, crlf_to_lf);
     Init_Any_Series(out, type, s);
@@ -1367,7 +1367,7 @@ REBNATIVE(scan_net_header)
     REBYTE *start;
     REBINT len;
 
-    while (TRUE) {
+    while (true) {
         // Scan valid word:
         if (IS_LEX_WORD(*cp)) {
             start = cp;

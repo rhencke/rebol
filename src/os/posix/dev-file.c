@@ -123,7 +123,7 @@ static int Is_Dir(const char *path_utf8, const char *name_utf8)
 }
 
 
-static REBOOL Seek_File_64(struct devreq_file *file)
+static bool Seek_File_64(struct devreq_file *file)
 {
     // Performs seek and updates index value. TRUE on success.
 
@@ -141,11 +141,11 @@ static REBOOL Seek_File_64(struct devreq_file *file)
     }
 
     if (result < 0)
-        return FALSE; // errno should still be good for caller to use
+        return false; // errno should still be good for caller to use
 
     file->index = result;
 
-    return TRUE;
+    return true;
 }
 
 

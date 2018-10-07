@@ -76,7 +76,7 @@
 #define VARARGS_FLAG_ENFIXED VARARGS_FLAG(0)
 
 
-inline static REBOOL Is_Block_Style_Varargs(
+inline static bool Is_Block_Style_Varargs(
     REBVAL **shared_out,
     const RELVAL *vararg
 ){
@@ -102,36 +102,36 @@ inline static REBOOL Is_Block_Style_Varargs(
 }
 
 
-inline static REBOOL Is_Frame_Style_Varargs_Maybe_Null(
-    REBFRM **f,
+inline static bool Is_Frame_Style_Varargs_Maybe_Null(
+    REBFRM **f_out,
     const RELVAL *vararg
 ){
     assert(IS_VARARGS(vararg));
 
     if (not (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)) {
-        *f = nullptr; // avoid compiler warning in -Og build
+        *f_out = nullptr; // avoid compiler warning in -Og build
         return false; // it's a block varargs, made via MAKE VARARGS!
     }
 
     // "Ordinary" case... use the original frame implied by the VARARGS!
     // (so long as it is still live on the stack)
 
-    *f = CTX_FRAME_IF_ON_STACK(CTX(vararg->extra.binding));
+    *f_out = CTX_FRAME_IF_ON_STACK(CTX(vararg->extra.binding));
     return true;
 }
 
 
-inline static REBOOL Is_Frame_Style_Varargs_May_Fail(
-    REBFRM **f,
+inline static bool Is_Frame_Style_Varargs_May_Fail(
+    REBFRM **f_out,
     const RELVAL *vararg
 ){
-    if (not Is_Frame_Style_Varargs_Maybe_Null(f, vararg))
+    if (not Is_Frame_Style_Varargs_Maybe_Null(f_out, vararg))
         return false;
 
-    if (not *f)
+    if (not *f_out)
         fail (Error_Frame_Not_On_Stack_Raw());
 
-    return TRUE;
+    return true;
 }
 
 

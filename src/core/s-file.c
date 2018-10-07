@@ -57,10 +57,10 @@ REBSER *To_REBOL_Path(const RELVAL *string, REBFLGS flags)
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    REBOOL lead_slash = FALSE; // did we restart to insert a leading slash?
-    REBOOL saw_colon = FALSE; // have we hit a ':' yet?
-    REBOOL saw_slash = FALSE; // have we hit a '/' yet?
-    REBOOL last_was_slash = FALSE; // was last character appended a slash?
+    bool lead_slash = false; // did we restart to insert a leading slash?
+    bool saw_colon = false; // have we hit a ':' yet?
+    bool saw_slash = false; // have we hit a '/' yet?
+    bool last_was_slash = false; // was last character appended a slash?
 
 restart:;
     REBCHR(const *) up = VAL_UNI_AT(string);
@@ -86,11 +86,11 @@ restart:;
                 //
                 TERM_SEQUENCE_LEN(mo->series, mo->start); // drop mold so far
                 Append_Utf8_Codepoint(mo->series, '/'); // insert a /
-                lead_slash = TRUE; // don't do this the second time around
+                lead_slash = true; // don't do this the second time around
                 goto restart;
             }
 
-            saw_colon = TRUE;
+            saw_colon = true;
 
             Append_Utf8_Codepoint(mo->series, '/'); // replace : with a /
 
@@ -114,11 +114,11 @@ restart:;
                 continue; // Collapse multiple / or \ to a single slash
 
             c = '/';
-            last_was_slash = TRUE;
-            saw_slash = TRUE;
+            last_was_slash = true;
+            saw_slash = true;
         }
         else
-            last_was_slash = FALSE;
+            last_was_slash = false;
 
         Append_Utf8_Codepoint(mo->series, c);
     }

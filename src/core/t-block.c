@@ -352,11 +352,11 @@ REBCNT Find_In_Array(
 
 
 struct sort_flags {
-    REBOOL cased;
-    REBOOL reverse;
+    bool cased;
+    bool reverse;
     REBCNT offset;
     REBVAL *comparator;
-    REBOOL all; // !!! not used?
+    bool all; // !!! not used?
 };
 
 
@@ -391,7 +391,7 @@ static int Compare_Val_Custom(void *arg, const void *v1, const void *v2)
 {
     struct sort_flags *flags = cast(struct sort_flags*, arg);
 
-    const REBOOL fully = TRUE; // error if not all arguments consumed
+    const bool fully = true; // error if not all arguments consumed
 
     DECLARE_LOCAL (result);
     if (Apply_Only_Throws(
@@ -446,12 +446,12 @@ static int Compare_Val_Custom(void *arg, const void *v1, const void *v2)
 //
 static void Sort_Block(
     REBVAL *block,
-    REBOOL ccase,
+    bool ccase,
     REBVAL *skipv,
     REBVAL *compv,
     REBVAL *part,
-    REBOOL all,
-    REBOOL rev
+    bool all,
+    bool rev
 ) {
     struct sort_flags flags;
     flags.cased = ccase;
@@ -501,7 +501,7 @@ static void Sort_Block(
 //
 //  Shuffle_Block: C
 //
-void Shuffle_Block(REBVAL *value, REBOOL secure)
+void Shuffle_Block(REBVAL *value, bool secure)
 {
     REBCNT n;
     REBCNT k;
@@ -638,19 +638,19 @@ RELVAL *Pick_Block(REBVAL *out, const REBVAL *block, const REBVAL *picker)
 //
 //  MF_Array: C
 //
-void MF_Array(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Array(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     if (form && (IS_BLOCK(v) || IS_GROUP(v))) {
         Form_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), 0);
         return;
     }
 
-    REBOOL all;
+    bool all;
     if (VAL_INDEX(v) == 0) { // "&& VAL_TYPE(v) <= REB_LIT_PATH" commented out
         //
         // Optimize when no index needed
         //
-        all = FALSE;
+        all = false;
     }
     else
         all = GET_MOLD_FLAG(mo, MOLD_FLAG_ALL);

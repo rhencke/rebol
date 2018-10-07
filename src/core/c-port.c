@@ -78,10 +78,10 @@ REBREQ *Ensure_Port_State(REBVAL *port, REBCNT device)
 //
 //  Pending_Port: C
 //
-// Return TRUE if port value is pending a signal.
+// Return true if port value is pending a signal.
 // Not valid for all ports - requires request struct!!!
 //
-REBOOL Pending_Port(REBVAL *port)
+bool Pending_Port(REBVAL *port)
 {
     REBVAL *state;
     REBREQ *req;
@@ -91,10 +91,10 @@ REBOOL Pending_Port(REBVAL *port)
         if (IS_BINARY(state)) {
             req = cast(REBREQ*, VAL_BIN_HEAD(state));
             if (not (req->flags & RRF_PENDING))
-                return FALSE;
+                return false;
         }
     }
-    return TRUE;
+    return true;
 }
 
 
@@ -106,7 +106,7 @@ REBOOL Pending_Port(REBVAL *port)
 //      0 for nothing to do
 //      1 for wait is satisifed
 //
-REBINT Awake_System(REBARR *ports, REBOOL only)
+REBINT Awake_System(REBARR *ports, bool only)
 {
     // Get the system port object:
     REBVAL *port = Get_System(SYS_PORTS, PORTS_SYSTEM);
@@ -156,7 +156,7 @@ REBINT Awake_System(REBARR *ports, REBOOL only)
     DECLARE_LOCAL (result);
     if (Apply_Only_Throws(
         result,
-        TRUE,
+        true, // fully
         only ? awake_only : awake,
         port,
         tmp,
@@ -182,11 +182,11 @@ REBINT Awake_System(REBARR *ports, REBOOL only)
 //     out is LOGIC! TRUE when port action happened, or FALSE for timeout
 //     if a throw happens, out will be the thrown value and returns TRUE
 //
-REBOOL Wait_Ports_Throws(
+bool Wait_Ports_Throws(
     REBVAL *out,
     REBARR *ports,
     REBCNT timeout,
-    REBOOL only
+    bool only
 ){
     REBI64 base = OS_DELTA_TIME(0);
     REBCNT time;
@@ -204,7 +204,7 @@ REBOOL Wait_Ports_Throws(
 
             Move_Value(out, NAT_VALUE(halt));
             CONVERT_NAME_TO_THROWN(out, NULLED_CELL);
-            return TRUE;
+            return true; // thrown
         }
 
         if (GET_SIGNAL(SIG_INTERRUPT)) {
@@ -213,14 +213,14 @@ REBOOL Wait_Ports_Throws(
             if (PG_Breakpoint_Hook == NULL)
                 fail (Error_Host_No_Breakpoint_Raw());
 
-            const REBOOL interrupted = TRUE;
+            const bool interrupted = true;
             const REBVAL*default_value = NULLED_CELL;
-            const REBOOL do_default = FALSE;
+            const bool do_default = false;
 
             if ((*PG_Breakpoint_Hook)(
                 out, interrupted, default_value, do_default
             )){
-                return TRUE; // thrown
+                return true; // thrown
             }
 
             if (not IS_NULLED(out)) {
@@ -238,7 +238,7 @@ REBOOL Wait_Ports_Throws(
         // Process any waiting events:
         if ((ret = Awake_System(ports, only)) > 0) {
             Move_Value(out, TRUE_VALUE); // port action happened
-            return FALSE; // not thrown
+            return false; // not thrown
         }
 
         // If activity, use low wait time, otherwise increase it:
@@ -273,7 +273,7 @@ REBOOL Wait_Ports_Throws(
     //Print("dt: %d", time);
 
     Move_Value(out, FALSE_VALUE); // timeout;
-    return FALSE; // not thrown
+    return false; // not thrown
 }
 
 
@@ -333,7 +333,7 @@ void Sieve_Ports(REBARR *ports)
 //     foo: func [a /b c] [...]  =>  bar: func [/b d e] [...]
 //                    foo/b 1 2  =>  bar/b 1 2
 //
-REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
+bool Redo_Action_Throws(REBFRM *f, REBACT *run)
 {
     REBARR *code_array = Make_Array(FRM_NUM_ARGS(f)); // max, e.g. no refines
     RELVAL *code = ARR_HEAD(code_array);
@@ -351,7 +351,7 @@ REBOOL Redo_Action_Throws(REBFRM *f, REBACT *run)
     f->arg = FRM_ARGS_HEAD(f);
     f->special = ACT_SPECIALTY_HEAD(FRM_PHASE(f));
 
-    REBOOL ignoring = FALSE;
+    bool ignoring = false;
 
     for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
         if (Is_Param_Hidden(f->param))
@@ -453,7 +453,7 @@ const REBVAL *Do_Port_Action(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     n = Find_Canon_In_Context(
         VAL_CONTEXT(actor),
         VAL_WORD_CANON(verb),
-        FALSE // !always
+        false // !always
     );
 
     REBVAL *action;

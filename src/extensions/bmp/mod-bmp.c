@@ -151,7 +151,7 @@ typedef RGBQUAD *RGBQUADPTR;
 
 //**********************************************************************
 
-static REBOOL longaligned(void) {
+static bool longaligned(void) {
     static char filldata[] = {0,0,1,1,1,1};
     struct {
         unsigned short a;
@@ -159,8 +159,9 @@ static REBOOL longaligned(void) {
     } a;
     memset(&a, '\0', sizeof(a));
     memcpy(&a, filldata, 6);
-    if (a.b != 0x01010101) return TRUE;
-    return FALSE;
+    if (a.b != 0x01010101)
+        return true;
+    return false;
 }
 
 void Map_Bytes(void *dstp, const REBYTE **srcp, const char *map) {
@@ -278,17 +279,17 @@ void Unmap_Bytes(void *srcp, REBYTE **dstp, const char *map) {
 }
 
 
-static REBOOL Has_Valid_BITMAPFILEHEADER(const REBYTE *data, uint32_t len) {
+static bool Has_Valid_BITMAPFILEHEADER(const REBYTE *data, uint32_t len) {
     if (len < sizeof(BITMAPFILEHEADER))
-        return FALSE;
+        return false;
 
     BITMAPFILEHEADER bmfh;
     Map_Bytes(&bmfh, &data, mapBITMAPFILEHEADER);
 
     if (bmfh.bfType[0] != 'B' || bmfh.bfType[1] != 'M')
-        return FALSE;
+        return false;
 
-    return TRUE;
+    return true;
 }
 
 
@@ -397,7 +398,7 @@ REBNATIVE(decode_bmp)
     if (bmfh.bfOffBits != cast(DWORD, cp - data))
         cp = data + bmfh.bfOffBits;
 
-    REBSER *ser = Make_Image(w, h, TRUE);
+    REBSER *ser = Make_Image(w, h, true);
 
     uint32_t *dp = cast(uint32_t *, IMG_DATA(ser));
 

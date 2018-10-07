@@ -256,7 +256,7 @@ const REBVAL *Series_Common_Action_Maybe_Unhandled(
 // Compare two arrays and return the difference of the first
 // non-matching value.
 //
-REBINT Cmp_Array(const RELVAL *sval, const RELVAL *tval, REBOOL is_case)
+REBINT Cmp_Array(const RELVAL *sval, const RELVAL *tval, bool is_case)
 {
     RELVAL *s = VAL_ARRAY_AT(sval);
     RELVAL *t = VAL_ARRAY_AT(tval);
@@ -309,9 +309,9 @@ diff_of_ends:
 //
 // Compare two values and return the difference.
 //
-// is_case TRUE for case sensitive compare
+// is_case should be true for case sensitive compare
 //
-REBINT Cmp_Value(const RELVAL *s, const RELVAL *t, REBOOL is_case)
+REBINT Cmp_Value(const RELVAL *s, const RELVAL *t, bool is_case)
 {
     REBDEC  d1, d2;
 
@@ -449,7 +449,7 @@ REBCNT Find_In_Array_Simple(REBARR *array, REBCNT index, const RELVAL *target)
     RELVAL *value = ARR_HEAD(array);
 
     for (; index < ARR_LEN(array); index++) {
-        if (0 == Cmp_Value(value + index, target, FALSE))
+        if (0 == Cmp_Value(value + index, target, false))
             return index;
     }
 

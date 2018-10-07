@@ -585,7 +585,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         REBVAL *name = KNOWN(item);
         ++item;
 
-        REBOOL enfix;
+        bool enfix;
         if (IS_WORD(item) and VAL_WORD_SYM(item) == SYM_ENFIX) {
             enfix = true;
             ++item;
@@ -595,7 +595,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
 
         // See if it's being invoked with NATIVE or NATIVE/BODY
         //
-        REBOOL has_body;
+        bool has_body;
         if (IS_WORD(item)) {
             if (VAL_WORD_SYM(item) != SYM_NATIVE)
                 panic (item);
@@ -1107,7 +1107,7 @@ void Startup_Task(void)
     //
     // https://github.com/kripken/emscripten/issues/5410
     //
-    REBOOL Guess_If_Stack_Grows_Up(int *p) {
+    bool Guess_If_Stack_Grows_Up(int *p) {
         int i;
         if (not p)
             return Guess_If_Stack_Grows_Up(&i); // RECURSION: avoids inlining
@@ -1586,7 +1586,7 @@ void Shutdown_Core(void)
 
     Shutdown_Frame_Stack();
 
-    const REBOOL shutdown = true; // go ahead and free all managed series
+    const bool shutdown = true; // go ahead and free all managed series
     Recycle_Core(shutdown, NULL);
 
     Shutdown_Mold();

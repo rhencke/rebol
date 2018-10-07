@@ -91,15 +91,15 @@
     struct OPT_REBSYM { // can only be converted to REBSYM, no comparisons
         enum REBOL_Symbols n;
         OPT_REBSYM (const REBSYM& sym);
-        REBOOL operator==(enum REBOL_Symbols other) const {
+        bool operator==(enum REBOL_Symbols other) const {
             return n == other;
         }
-        REBOOL operator!=(enum REBOL_Symbols other) const {
+        bool operator!=(enum REBOL_Symbols other) const {
             return n != other;
         }
 
-        REBOOL operator==(OPT_REBSYM &&other) const;
-        REBOOL operator!=(OPT_REBSYM &&other) const;
+        bool operator==(OPT_REBSYM &&other) const;
+        bool operator!=(OPT_REBSYM &&other) const;
 
         operator unsigned int() const {
             return cast(unsigned int, n);
@@ -114,31 +114,31 @@
         operator unsigned int() const {
             return cast(unsigned int, n);
         }
-        REBOOL operator>=(enum REBOL_Symbols other) const {
+        bool operator>=(enum REBOL_Symbols other) const {
             assert(other != SYM_0);
             return n >= other;
         }
-        REBOOL operator<=(enum REBOL_Symbols other) const {
+        bool operator<=(enum REBOL_Symbols other) const {
             assert(other != SYM_0);
             return n <= other;
         }
-        REBOOL operator>(enum REBOL_Symbols other) const {
+        bool operator>(enum REBOL_Symbols other) const {
             assert(other != SYM_0);
             return n > other;
         }
-        REBOOL operator<(enum REBOL_Symbols other) const {
+        bool operator<(enum REBOL_Symbols other) const {
             assert(other != SYM_0);
             return n < other;
         }
-        REBOOL operator==(enum REBOL_Symbols other) const {
+        bool operator==(enum REBOL_Symbols other) const {
             return n == other;
         }
-        REBOOL operator!=(enum REBOL_Symbols other) const {
+        bool operator!=(enum REBOL_Symbols other) const {
             return n != other;
         }
-        REBOOL operator==(REBSYM &other) const; // could be SYM_0!
+        bool operator==(REBSYM &other) const; // could be SYM_0!
         void operator!=(REBSYM &other) const; // could be SYM_0!
-        REBOOL operator==(const OPT_REBSYM &other) const; // could be SYM_0!
+        bool operator==(const OPT_REBSYM &other) const; // could be SYM_0!
         void operator!=(const OPT_REBSYM &other) const; // could be SYM_0!
     };
 
@@ -148,7 +148,7 @@
     typedef enum REBOL_Symbols OPT_REBSYM; // act sameas REBSYM in C build
 #endif
 
-inline static REBOOL SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
+inline static bool SAME_SYM_NONZERO(REBSYM a, REBSYM b) {
     assert(a != SYM_0 and b != SYM_0);
     return cast(REBCNT, a) == cast(REBCNT, b);
 }
@@ -191,9 +191,9 @@ inline static REBSTR *Canon(REBSYM sym) {
     return *SER_AT(REBSTR*, PG_Symbol_Canons, cast(REBCNT, sym));
 }
 
-inline static REBOOL SAME_STR(REBSTR *s1, REBSTR *s2) {
+inline static bool SAME_STR(REBSTR *s1, REBSTR *s2) {
     if (s1 == s2)
-        return TRUE; // !!! does this check speed things up or not?
+        return true; // !!! does this check speed things up or not?
     return STR_CANON(s1) == STR_CANON(s2); // canon check, quite fast
 }
 
@@ -366,13 +366,13 @@ inline static const REBYTE *Back_Scan_UTF8_Char(
 
 inline static REBSER *Make_String_UTF8(const char *utf8)
 {
-    const REBOOL crlf_to_lf = FALSE;
+    const bool crlf_to_lf = false;
     return Append_UTF8_May_Fail(NULL, utf8, strsize(utf8), crlf_to_lf);
 }
 
 inline static REBSER *Make_Sized_String_UTF8(const char *utf8, size_t size)
 {
-    const REBOOL crlf_to_lf = FALSE;
+    const bool crlf_to_lf = false;
     return Append_UTF8_May_Fail(NULL, utf8, size, crlf_to_lf);
 }
 
@@ -417,7 +417,7 @@ inline static REBSER *Copy_Sequence_At_Len(
 // in ASCII range and fixed size.  If this is the case, different algorithms
 // might be applied, for instance a standard C qsort() to sort the characters.
 //
-inline static REBOOL Is_String_ASCII(const RELVAL *str) {
+inline static bool Is_String_ASCII(const RELVAL *str) {
     UNUSED(str);
-    return FALSE; // currently all strings are 16-bit REBUNI characters
+    return false; // currently all strings are 16-bit REBUNI characters
 }

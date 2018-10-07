@@ -153,8 +153,8 @@ void* Probe_Core_Debug(
     DECLARE_MOLD (mo);
     Push_Mold(mo);
 
-    REBOOL was_disabled = GC_Disabled;
-    GC_Disabled = TRUE;
+    bool was_disabled = GC_Disabled;
+    GC_Disabled = true;
 
     if (not p) {
 
@@ -180,7 +180,7 @@ void* Probe_Core_Debug(
 
             // !!! Duplication of code in MF_Binary
             //
-            const REBOOL brk = (BIN_LEN(s) > 32);
+            const bool brk = (BIN_LEN(s) > 32);
             REBSER *enbased = Encode_Base16(BIN_HEAD(s), BIN_LEN(s), brk);
             Append_Unencoded(mo->series, "#{");
             Append_Utf8_Utf8(
@@ -240,7 +240,7 @@ void* Probe_Core_Debug(
 
     Drop_Mold(mo);
 
-    assert(GC_Disabled == TRUE);
+    assert(GC_Disabled);
     GC_Disabled = was_disabled;
 
     return m_cast(void*, p); // must be cast back to const if source was const

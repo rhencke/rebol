@@ -188,7 +188,7 @@ static void Read_File_Port(
 //
 //  Write_File_Port: C
 //
-static void Write_File_Port(struct devreq_file *file, REBVAL *data, REBCNT len, REBOOL lines)
+static void Write_File_Port(struct devreq_file *file, REBVAL *data, REBCNT len, bool lines)
 {
     REBSER *ser;
     REBREQ *req = AS_REBREQ(file);
@@ -354,16 +354,16 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         // Handle the READ %file shortcut case, where the FILE! has been
         // converted into a PORT! but has not been opened yet.
 
-        REBOOL opened;
+        bool opened;
         if (req->flags & RRF_OPEN)
-            opened = FALSE; // was already open
+            opened = false; // was already open
         else {
             REBCNT nargs = AM_OPEN_READ;
             if (REF(seek))
                 nargs |= AM_OPEN_SEEK;
             Setup_File(file, nargs, path);
             Open_File_Port(port, file, path);
-            opened = TRUE; // had to be opened (shortcut case)
+            opened = true; // had to be opened (shortcut case)
         }
 
         if (REF(seek))
@@ -409,12 +409,12 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         // Handle the WRITE %file shortcut case, where the FILE! is converted
         // to a PORT! but it hasn't been opened yet.
 
-        REBOOL opened;
+        bool opened;
         if (req->flags & RRF_OPEN) {
             if (not (req->modes & RFM_WRITE))
                 fail (Error_Read_Only_Raw(path));
 
-            opened = FALSE; // already open
+            opened = false; // already open
         }
         else {
             REBCNT nargs = AM_OPEN_WRITE;
@@ -424,7 +424,7 @@ static const REBVAL *File_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 nargs |= AM_OPEN_NEW;
             Setup_File(file, nargs, path);
             Open_File_Port(port, file, path);
-            opened = TRUE;
+            opened = true;
         }
 
         if (REF(append)) {

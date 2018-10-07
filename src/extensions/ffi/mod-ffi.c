@@ -265,7 +265,7 @@ REBNATIVE(wrap_callback)
     if (status != FFI_OK)
         fail ("FFI: Couldn't prep closure");
 
-    REBOOL check = TRUE; // avoid "conditional expression is constant"
+    bool check = true; // avoid "conditional expression is constant"
     if (check && sizeof(void*) != sizeof(CFUNC*))
         fail ("FFI does not work when void* size differs from CFUNC* size");
 

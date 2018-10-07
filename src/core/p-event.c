@@ -240,7 +240,7 @@ static const REBVAL *Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 if (rebDid("error?", result, rebEND))
                     rebJumps("FAIL", result, rebEND);
 
-                assert(FALSE); // !!! can this happen?
+                assert(false); // !!! can this happen?
                 rebRelease(result); // ignore result
             }
         }

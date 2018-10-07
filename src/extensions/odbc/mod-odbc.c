@@ -97,7 +97,7 @@ typedef struct {
     SQLLEN length;
     SQLSMALLINT precision;
     SQLSMALLINT nullable;
-    REBOOL is_unsigned;
+    bool is_unsigned;
 } COLUMN; // For describing columns
 
 
@@ -658,10 +658,10 @@ SQLRETURN ODBC_DescribeResults(
             fail (Error_ODBC_Stmt(hstmt));
 
         if (numeric_attribute == SQL_TRUE)
-            column->is_unsigned = TRUE;
+            column->is_unsigned = true;
         else {
             assert(numeric_attribute == SQL_FALSE);
-            column->is_unsigned = FALSE;
+            column->is_unsigned = false;
         }
 
         // Note: There was an "UnCamelCasing" distortion of the column names
@@ -876,9 +876,9 @@ REBNATIVE(insert_odbc)
         "else [fail {Empty array passed for SQL dialect}]", rebEND
     );
 
-    REBOOL use_cache = FALSE;
+    bool use_cache = false;
 
-    REBOOL get_catalog = rebDid(
+    bool get_catalog = rebDid(
         "word? <- match [word! text!]", value, "else [",
             "fail {SQL dialect must start with WORD! or STRING! value}"
         "]", rebEND
@@ -1262,7 +1262,7 @@ REBNATIVE(update_odbc)
 
     SQLRETURN rc;
 
-    REBOOL access = rebDid(ARG(access), rebEND);
+    bool access = rebDid(ARG(access), rebEND);
     rc = SQLSetConnectAttr(
         hdbc,
         SQL_ATTR_ACCESS_MODE,
@@ -1275,7 +1275,7 @@ REBNATIVE(update_odbc)
     if (rc != SQL_SUCCESS and rc != SQL_SUCCESS_WITH_INFO)
         fail (Error_ODBC_Dbc(hdbc));
 
-    REBOOL commit = rebDid(ARG(commit), rebEND);
+    bool commit = rebDid(ARG(commit), rebEND);
     rc = SQLSetConnectAttr(
         hdbc,
         SQL_ATTR_AUTOCOMMIT,

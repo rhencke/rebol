@@ -314,7 +314,7 @@ inline static void TERM_SEQUENCE_LEN(REBSER *s, REBCNT len) {
 // reachable by the GC, it will raise an alert.)
 //
 
-inline static REBOOL IS_SERIES_MANAGED(REBSER *s) {
+inline static bool IS_SERIES_MANAGED(REBSER *s) {
     return did (s->header.bits & NODE_FLAG_MANAGED);
 }
 
@@ -363,11 +363,11 @@ inline static void ENSURE_SERIES_MANAGED(REBSER *s) {
 // are and asserts it's 0 by the time each evaluation ends, to ensure balance.
 //
 
-static inline REBOOL Is_Series_Black(REBSER *s) {
+static inline bool Is_Series_Black(REBSER *s) {
     return GET_SER_INFO(s, SERIES_INFO_BLACK);
 }
 
-static inline REBOOL Is_Series_White(REBSER *s) {
+static inline bool Is_Series_White(REBSER *s) {
     return NOT_SER_INFO(s, SERIES_INFO_BLACK);
 }
 
@@ -397,12 +397,12 @@ inline static void Freeze_Sequence(REBSER *s) { // there is no unfreeze!
     SET_SER_INFO(s, SERIES_INFO_FROZEN);
 }
 
-inline static REBOOL Is_Series_Frozen(REBSER *s) {
+inline static bool Is_Series_Frozen(REBSER *s) {
     assert(not IS_SER_ARRAY(s)); // use Is_Array_Deeply_Frozen
     return GET_SER_INFO(s, SERIES_INFO_FROZEN);
 }
 
-inline static REBOOL Is_Series_Read_Only(REBSER *s) { // may be temporary...
+inline static bool Is_Series_Read_Only(REBSER *s) { // may be temporary...
     return ANY_SER_INFOS(
         s, SERIES_INFO_FROZEN | SERIES_INFO_HOLD | SERIES_INFO_PROTECTED
     );
@@ -615,7 +615,7 @@ inline static REBCNT FIND_POOL(size_t size) {
 // This routine can thus be used for an initial construction or an operation
 // like expansion.
 //
-inline static REBOOL Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
+inline static bool Did_Series_Data_Alloc(REBSER *s, REBCNT length) {
     //
     // Currently once a series becomes dynamic, it never goes back.  There is
     // no shrinking process that will pare it back to fit completely inside

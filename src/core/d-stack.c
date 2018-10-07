@@ -106,7 +106,7 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
         //
         // Traversing a C va_arg, so reify into a (truncated) array.
         //
-        const REBOOL truncated = TRUE;
+        const bool truncated = true;
         Reify_Va_To_Array_In_Frame(f, truncated);
     }
 
@@ -202,16 +202,16 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
 //
 //  Is_Context_Running_Or_Pending: C
 //
-REBOOL Is_Context_Running_Or_Pending(REBCTX *frame_ctx)
+bool Is_Context_Running_Or_Pending(REBCTX *frame_ctx)
 {
     REBFRM *f = CTX_FRAME_IF_ON_STACK(frame_ctx);
-    if (f == NULL)
-        return FALSE;
+    if (not f)
+        return false;
 
     if (Is_Action_Frame_Fulfilling(f))
-        return FALSE;
+        return false;
 
-    return TRUE;
+    return true;
 }
 
 

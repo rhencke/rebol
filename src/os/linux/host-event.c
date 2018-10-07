@@ -55,7 +55,7 @@ REBEVT *RL_Find_Event (REBINT model, REBINT type);
 
 typedef struct rebcmp_ctx REBCMP_CTX;
 void rebcmp_blit_region(REBCMP_CTX* ctx, Region reg);
-//void rebcmp_compose_region(REBCMP_CTX* ctx, REBGOB* winGob, REBGOB* gob, XRectangle *rect, REBOOL only);
+//void rebcmp_compose_region(REBCMP_CTX* ctx, REBGOB* winGob, REBGOB* gob, XRectangle *rect, bool only);
 #define GOB_HWIN(gob)   ((host_window_t*)Find_Window(gob))
 
 #define GOB_COMPOSITOR(gob) (Find_Compositor(gob)) //gets handle to window's compositor
@@ -187,7 +187,7 @@ void X_Finish_Resizing()
     int i = 0;
     for (i = 0; i < MAX_WINDOWS; i ++) {
         if (resize_events[i] != NULL) {
-            Resize_Window(resize_events[i], TRUE);
+            Resize_Window(resize_events[i], true);
         } else {
             break; /* end of the array */
         }

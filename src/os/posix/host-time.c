@@ -159,7 +159,7 @@ REBVAL *OS_Get_Time(void)
     struct timeval tv;
     struct timezone * const tz_ptr = NULL; // obsolete
     if (gettimeofday(&tv, tz_ptr) != 0)
-        assert(FALSE); // should fail(), but not currently included
+        rebJumps("fail {gettimeofday() returned 0}", rebEND);
 
     // tv.tv_sec is the time in seconds 1 January 1970, 00:00:00 UTC
     // (epoch-1970).  It does not account for the time zone.  In POSIX, these

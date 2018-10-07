@@ -50,13 +50,13 @@
 #endif
 
 
-inline static REBOOL IS_WORD_UNBOUND(const RELVAL *v) {
+inline static bool IS_WORD_UNBOUND(const RELVAL *v) {
     assert(ANY_WORD(v));
     return v->extra.binding == nullptr;
 }
 
 #define IS_WORD_BOUND(v) \
-    cast(REBOOL, not IS_WORD_UNBOUND(v))
+    cast(bool, not IS_WORD_UNBOUND(v))
 
 inline static REBSTR *VAL_WORD_SPELLING(const RELVAL *v) {
     assert(ANY_WORD(v));

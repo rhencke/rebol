@@ -483,7 +483,7 @@ const REBVAL *PD_Varargs(
         Init_Endish_Nulled(pvs->out);
     }
     else if (THROWN(pvs->out))
-        assert(FALSE); // VARARG_OP_FIRST can't throw
+        assert(false); // VARARG_OP_FIRST can't throw
 
     return pvs->out;
 }
@@ -614,7 +614,7 @@ REBINT CT_Varargs(const RELVAL *a, const RELVAL *b, REBINT mode)
 // has reached its end, or if the frame the varargs is attached to is no
 // longer on the stack.
 //
-void MF_Varargs(REB_MOLD *mo, const RELVAL *v, REBOOL form) {
+void MF_Varargs(REB_MOLD *mo, const RELVAL *v, bool form) {
     UNUSED(form);
 
     Pre_Mold(mo, v);  // #[varargs! or make varargs!
@@ -685,7 +685,7 @@ void MF_Varargs(REB_MOLD *mo, const RELVAL *v, REBOOL form) {
             Append_Unencoded(mo->series, "[...]");
     }
     else
-        assert(FALSE);
+        assert(false);
 
     Append_Utf8_Codepoint(mo->series, ']');
 

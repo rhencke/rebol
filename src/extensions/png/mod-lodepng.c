@@ -271,7 +271,7 @@ REBNATIVE(decode_png)
     // besides LCT_RGBA, if it's truly necessary to use a different internal
     // format than what it gives back.
     //
-    REBSER *image = Make_Image(width, height, TRUE);
+    REBSER *image = Make_Image(width, height, true);
     unsigned char *src = image_bytes;
     REBYTE *dest = SER_DATA_RAW(image);
     REBCNT index;
@@ -349,7 +349,7 @@ REBNATIVE(encode_png)
     //
     REBYTE *image_bytes = SER_DATA_RAW(VAL_SERIES(image));
 
-    REBOOL check = TRUE; // avoid "conditional expression is constant" warning
+    bool check = true; // avoid "conditional expression is constant" warning
     REBYTE *reordered;
     if (check && C_R == 0 && C_G == 1 && C_B == 2 && C_A == 3)
         reordered = NULL;

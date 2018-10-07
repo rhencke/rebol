@@ -53,10 +53,14 @@
 const REBYTE *Grab_Int(const REBYTE *cp, REBINT *val)
 {
     REBINT value = 0;
-    REBOOL neg = FALSE;
+    bool neg = false;
 
-    if (*cp == '-') cp++, neg = TRUE;
-    else if (*cp == '+') cp++;
+    if (*cp == '-') {
+        ++cp;
+        neg = true;
+    }
+    else if (*cp == '+')
+        ++cp;
 
     while (*cp >= '0' && *cp <= '9') {
         value = (value * 10) + (*cp - '0');

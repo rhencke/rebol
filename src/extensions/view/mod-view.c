@@ -96,7 +96,7 @@
 // !!! This was around saying it was "used to detect modal non-OS dialogs".
 // The usage was in the Rebol_Window_Proc() in Atronix's R3 code.
 //
-REBOOL osDialogOpen = FALSE;
+bool osDialogOpen = false;
 
 #define MAX_FILE_REQ_BUF (16*1024)
 
@@ -133,7 +133,7 @@ REBNATIVE(request_file_p)
 
     REBCTX *error = NULL;
 
-    osDialogOpen = TRUE;
+    osDialogOpen = true;
 
   #ifdef TO_WINDOWS
     OPENFILENAME ofn;
@@ -493,7 +493,7 @@ REBNATIVE(request_file_p)
     error = Error_User("REQUEST-FILE only on GTK and Windows at this time");
   #endif
 
-    osDialogOpen = FALSE;
+    osDialogOpen = false;
 
     // The error is broken out this way so that any allocated strings can
     // be freed before the failure.
@@ -534,19 +534,19 @@ int CALLBACK ReqDirCallbackProc(
 
     const WCHAR* dir = cast(WCHAR*, lpData);
 
-    static REBOOL inited = FALSE;
+    static bool inited = false;
     switch (uMsg) {
     case BFFM_INITIALIZED:
-        if (dir != NULL)
+        if (dir)
             SendMessage(hWnd, BFFM_SETSELECTION, TRUE, cast(LPARAM, dir));
         SetForegroundWindow(hWnd);
-        inited = TRUE;
+        inited = true;
         break;
 
     case BFFM_SELCHANGED:
-        if (inited && dir != NULL) {
+        if (inited and dir) {
             SendMessage(hWnd, BFFM_SETSELECTION, TRUE, cast(LPARAM, dir));
-            inited = FALSE;
+            inited = false;
         }
         break;
     }
@@ -631,9 +631,9 @@ REBNATIVE(request_dir_p)
     else
         bi.lParam = cast(LPARAM, NULL);
 
-    osDialogOpen = TRUE;
+    osDialogOpen = true;
     LPCITEMIDLIST pFolder = SHBrowseForFolder(&bi);
-    osDialogOpen = FALSE;
+    osDialogOpen = false;
 
     WCHAR folder[MAX_PATH];
     if (pFolder == NULL)

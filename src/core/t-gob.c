@@ -98,7 +98,7 @@ REBINT Cmp_Gob(const RELVAL *g1, const RELVAL *g2)
 //
 //  Set_Pair: C
 //
-static REBOOL Set_Pair(REBXYF *pair, const REBVAL *val)
+static bool Set_Pair(REBXYF *pair, const REBVAL *val)
 {
     if (IS_PAIR(val)) {
         pair->x = VAL_PAIR_X(val);
@@ -111,9 +111,9 @@ static REBOOL Set_Pair(REBXYF *pair, const REBVAL *val)
         pair->x = pair->y = (REBD32)VAL_DECIMAL(val);
     }
     else
-        return FALSE;
+        return false;
 
-    return TRUE;
+    return true;
 }
 
 
@@ -170,7 +170,7 @@ static void Insert_Gobs(
     const RELVAL *arg,
     REBCNT index,
     REBCNT len,
-    REBOOL change
+    bool change
 ) {
     REBGOB **ptr;
     REBCNT n, count;
@@ -363,7 +363,7 @@ static void Set_Gob_Flag(REBGOB *gob, REBSTR *name)
 //
 //  Set_GOB_Var: C
 //
-static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
+static bool Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
 {
     switch (VAL_WORD_SYM(word)) {
     case SYM_OFFSET:
@@ -381,8 +381,10 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
             GOB_CONTENT(gob) = VAL_SERIES(val);
 //          if (!VAL_IMAGE_TRANSP(val)) SET_GOB_OPAQUE(gob);
         }
-        else if (IS_BLANK(val)) SET_GOB_TYPE(gob, GOBT_NONE);
-        else return FALSE;
+        else if (IS_BLANK(val))
+            SET_GOB_TYPE(gob, GOBT_NONE);
+        else
+            return false;
         break;
 
     case SYM_DRAW:
@@ -391,8 +393,10 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
             SET_GOB_TYPE(gob, GOBT_DRAW);
             GOB_CONTENT(gob) = VAL_SERIES(val);
         }
-        else if (IS_BLANK(val)) SET_GOB_TYPE(gob, GOBT_NONE);
-        else return FALSE;
+        else if (IS_BLANK(val))
+            SET_GOB_TYPE(gob, GOBT_NONE);
+        else
+            return false;
         break;
 
     case SYM_TEXT:
@@ -405,8 +409,10 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
             SET_GOB_TYPE(gob, GOBT_STRING);
             GOB_CONTENT(gob) = VAL_SERIES(val);
         }
-        else if (IS_BLANK(val)) SET_GOB_TYPE(gob, GOBT_NONE);
-        else return FALSE;
+        else if (IS_BLANK(val))
+            SET_GOB_TYPE(gob, GOBT_NONE);
+        else
+            return false;
         break;
 
     case SYM_EFFECT:
@@ -415,8 +421,10 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
             SET_GOB_TYPE(gob, GOBT_EFFECT);
             GOB_CONTENT(gob) = VAL_SERIES(val);
         }
-        else if (IS_BLANK(val)) SET_GOB_TYPE(gob, GOBT_NONE);
-        else return FALSE;
+        else if (IS_BLANK(val))
+            SET_GOB_TYPE(gob, GOBT_NONE);
+        else
+            return false;
         break;
 
     case SYM_COLOR:
@@ -434,14 +442,14 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
         if (GOB_PANE(gob)) Clear_Series(GOB_PANE(gob));
         if (IS_BLOCK(val))
             Insert_Gobs(
-                gob, VAL_ARRAY_AT(val), 0, VAL_ARRAY_LEN_AT(val), FALSE
+                gob, VAL_ARRAY_AT(val), 0, VAL_ARRAY_LEN_AT(val), false
             );
         else if (IS_GOB(val))
-            Insert_Gobs(gob, val, 0, 1, FALSE);
+            Insert_Gobs(gob, val, 0, 1, false);
         else if (IS_BLANK(val))
             gob->pane = 0;
         else
-            return FALSE;
+            return false;
         break;
 
     case SYM_ALPHA:
@@ -472,11 +480,13 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
         }
         else if (IS_BLANK(val))
             SET_GOB_TYPE(gob, GOBT_NONE);
-        else return FALSE;
+        else
+            return false;
         break;
 
     case SYM_FLAGS:
-        if (IS_WORD(val)) Set_Gob_Flag(gob, VAL_WORD_SPELLING(val));
+        if (IS_WORD(val))
+            Set_Gob_Flag(gob, VAL_WORD_SPELLING(val));
         else if (IS_BLOCK(val)) {
             //clear only flags defined by words
             REBINT i;
@@ -493,13 +503,13 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
         if (IS_GOB(val))
             GOB_TMP_OWNER(gob) = VAL_GOB(val);
         else
-            return FALSE;
+            return false;
         break;
 
     default:
-            return FALSE;
+        return false;
     }
-    return TRUE;
+    return true;
 }
 
 
@@ -509,7 +519,7 @@ static REBOOL Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
 // !!! Things like this Get_GOB_Var routine could be replaced with ordinary
 // OBJECT!-style access if GOB! was an ANY-CONTEXT.
 //
-static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
+static bool Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
 {
     switch (VAL_WORD_SYM(word)) {
 
@@ -526,7 +536,7 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
             // image
         }
         else
-            return FALSE;
+            return false;
         break;
 
     case SYM_DRAW:
@@ -535,7 +545,7 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
             Init_Block(val, ARR(GOB_CONTENT(gob)));
         }
         else
-            return FALSE;
+            return false;
         break;
 
     case SYM_TEXT:
@@ -546,7 +556,7 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
             Init_Text(val, GOB_CONTENT(gob));
         }
         else
-            return FALSE;
+            return false;
         break;
 
     case SYM_EFFECT:
@@ -554,7 +564,7 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
             Init_Block(val, ARR(GOB_CONTENT(gob)));
         }
         else
-            return FALSE;
+            return false;
         break;
 
     case SYM_COLOR:
@@ -562,7 +572,7 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
             Set_Tuple_Pixel((REBYTE*)&GOB_CONTENT(gob), val);
         }
         else
-            return FALSE;
+            return false;
         break;
 
     case SYM_ALPHA:
@@ -601,7 +611,7 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
             Init_Integer(val, cast(intptr_t, GOB_DATA(gob)));
         }
         else
-            return FALSE;
+            return false;
         break;
 
     case SYM_FLAGS:
@@ -609,9 +619,9 @@ static REBOOL Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
         break;
 
     default:
-        return FALSE;
+        return false;
     }
-    return TRUE;
+    return true;
 }
 
 
@@ -985,7 +995,7 @@ const REBVAL *PD_Gob(
 //
 //  MF_Gob: C
 //
-void MF_Gob(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Gob(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 
@@ -1101,7 +1111,7 @@ REBTYPE(Gob)
             fail (Error_Not_Done_Raw());
         }
 
-        Insert_Gobs(gob, arg, index, 1, FALSE);
+        Insert_Gobs(gob, arg, index, 1, false);
         if (VAL_WORD_SYM(verb) == SYM_POKE) {
             Move_Value(D_OUT, arg);
             return D_OUT;
@@ -1138,7 +1148,7 @@ REBTYPE(Gob)
         else
             fail (Error_Unexpected_Type(REB_GOB, VAL_TYPE(arg)));
 
-        Insert_Gobs(gob, arg, index, len, FALSE);
+        Insert_Gobs(gob, arg, index, len, false);
 
         Move_Value(D_OUT, val);
         return D_OUT; }

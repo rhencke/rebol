@@ -38,7 +38,7 @@
 REBINT CT_Map(const RELVAL *a, const RELVAL *b, REBINT mode)
 {
     if (mode < 0) return -1;
-    return 0 == Cmp_Array(a, b, FALSE);
+    return 0 == Cmp_Array(a, b, false);
 }
 
 
@@ -99,7 +99,7 @@ REBINT Find_Key_Hashed(
     const RELVAL *key, // !!! assumes key is followed by value(s) via ++
     REBSPC *specifier,
     REBCNT wide,
-    REBOOL cased,
+    bool cased,
     REBYTE mode
 ){
     // Hashlists store a indexes into the actual data array, of where the
@@ -156,10 +156,10 @@ REBINT Find_Key_Hashed(
         while ((n = indexes[slot]) != 0) {
             RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
             if (VAL_TYPE(k) == VAL_TYPE(key)) {
-                if (0 == Compare_String_Vals(k, key, FALSE))
+                if (0 == Compare_String_Vals(k, key, false))
                     FOUND_EXACT;
                 else if (not cased and not IS_BINARY(key))
-                    if (0 == Compare_String_Vals(k, key, TRUE))
+                    if (0 == Compare_String_Vals(k, key, true))
                         FOUND_SYNONYM;
             }
             if (wide > 1 && IS_NULLED(k + 1) && zombie_slot == -1)
@@ -175,10 +175,10 @@ REBINT Find_Key_Hashed(
         while ((n = indexes[slot]) != 0) {
             RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
             if (VAL_TYPE(k) == VAL_TYPE(key)) {
-                if (0 == Cmp_Value(k, key, TRUE))
+                if (0 == Cmp_Value(k, key, true))
                     FOUND_EXACT;
                 else if (not cased)
-                    if (IS_CHAR(k) && 0 == Cmp_Value(k, key, FALSE))
+                    if (IS_CHAR(k) && 0 == Cmp_Value(k, key, false))
                         FOUND_SYNONYM; // CHAR! is only non-STRING!/WORD! case
             }
             if (wide > 1 && IS_NULLED(k + 1) && zombie_slot == -1)
@@ -233,7 +233,7 @@ static void Rehash_Map(REBMAP *map)
     REBCNT n;
 
     for (n = 0; n < ARR_LEN(pairlist); n += 2, key += 2) {
-        const REBOOL cased = TRUE; // cased=TRUE is always fine
+        const bool cased = true; // cased=true is always fine
 
         if (IS_NULLED(key + 1)) {
             //
@@ -303,7 +303,7 @@ REBCNT Find_Map_Entry(
     REBSPC *key_specifier,
     const RELVAL *val,
     REBSPC *val_specifier,
-    REBOOL cased // case-sensitive if true
+    bool cased // case-sensitive if true
 ) {
     assert(not IS_NULLED(key));
 
@@ -382,7 +382,7 @@ const REBVAL *PD_Map(
     // the operation tentatively named PUT should be used if a map is to
     // distinguish multiple casings of the same key.
     //
-    const REBOOL cased = FALSE;
+    const bool cased = false;
 
     REBINT n = Find_Map_Entry(
         VAL_MAP(pvs->out),
@@ -438,7 +438,7 @@ static void Append_Map(
             specifier,
             item + 1,
             specifier,
-            TRUE
+            true
         );
 
         item += 2;
@@ -659,7 +659,7 @@ REBCTX *Alloc_Context_From_Map(REBMAP *map)
 //
 //  MF_Map: C
 //
-void MF_Map(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Map(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     REBMAP *m = VAL_MAP(v);
 
@@ -861,7 +861,7 @@ REBTYPE(Map)
 
         Move_Value(D_OUT, val);
         Find_Map_Entry(
-            map, ARG(key), SPECIFIED, NULLED_CELL, SPECIFIED, TRUE
+            map, ARG(key), SPECIFIED, NULLED_CELL, SPECIFIED, true
         );
         return D_OUT; }
 

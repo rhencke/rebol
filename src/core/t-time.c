@@ -62,7 +62,7 @@ void Split_Time(REBI64 t, REB_TIMEF *tf)
 // issue, as previous code falsely tried to judge the sign
 // of tf->h, which is always positive.)
 //
-REBI64 Join_Time(REB_TIMEF *tf, REBOOL neg)
+REBI64 Join_Time(REB_TIMEF *tf, bool neg)
 {
     REBI64 t;
 
@@ -80,17 +80,17 @@ const REBYTE *Scan_Time(REBVAL *out, const REBYTE *cp, REBCNT len)
     TRASH_CELL_IF_DEBUG(out);
     cast(void, len); // !!! should len be paid attention to?
 
-    REBOOL neg;
+    bool neg;
     if (*cp == '-') {
         ++cp;
-        neg = TRUE;
+        neg = true;
     }
     else if (*cp == '+') {
         ++cp;
-        neg = FALSE;
+        neg = false;
     }
     else
-        neg = FALSE;
+        neg = false;
 
     if (*cp == '-' || *cp == '+')
         return NULL; // small hole: --1:23
@@ -186,7 +186,7 @@ const REBYTE *Scan_Time(REBVAL *out, const REBYTE *cp, REBCNT len)
 //
 //  MF_Time: C
 //
-void MF_Time(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Time(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form); // no difference between MOLD and FORM at this time
 
@@ -268,14 +268,14 @@ void MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         if (not IS_INTEGER(item))
             goto no_time;
 
-        REBOOL neg;
+        bool neg;
         REBI64 i = Int32(item);
         if (i < 0) {
             i = -i;
-            neg = TRUE;
+            neg = true;
         }
         else
-            neg = FALSE;
+            neg = false;
 
         REBI64 secs = i * 3600;
         if (secs > MAX_SECONDS)
@@ -464,7 +464,7 @@ void Poke_Time_Immediate(
         fail (Error_Invalid(picker));
     }
 
-    VAL_NANO(value) = Join_Time(&tf, FALSE);
+    VAL_NANO(value) = Join_Time(&tf, false);
 }
 
 

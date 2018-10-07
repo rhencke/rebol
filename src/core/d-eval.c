@@ -89,7 +89,7 @@ void Dump_Frame_Location(const RELVAL *current, REBFRM *f)
             // are trapping with TICK_BREAKPOINT or C-DEBUG-BREAK was
             // specifically related to va_list frame processing.
             //
-            const REBOOL truncated = TRUE;
+            const bool truncated = true;
             Reify_Va_To_Array_In_Frame(f, truncated);
         }
 
@@ -226,7 +226,7 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
     // debug build.  It should be able to handle it at any time.
     //
     if (FRM_IS_VALIST(f) and SPORADICALLY(50)) {
-        const REBOOL truncated = TRUE;
+        const bool truncated = true;
         Reify_Va_To_Array_In_Frame(f, truncated);
     }
 }

@@ -504,7 +504,7 @@ REBNATIVE(enbase)
     }
 
     REBSER *enbased;
-    const REBOOL brk = FALSE;
+    const bool brk = false;
     switch (base) {
     case 64:
         enbased = Encode_Base64(bp, size, brk);
@@ -782,7 +782,7 @@ REBNATIVE(dehex)
         // to decode what we've got.
         //
         if (scan_size > 0 and (c != '%' or scan_size == 4)) {
-            assert(i == len ? (c == '\0') : TRUE);
+            assert(i != len or c == '\0');
 
         decode_codepoint:
             scan[scan_size] = '\0';
@@ -1124,8 +1124,8 @@ REBNATIVE(lowercase)
 {
     INCLUDE_PARAMS_OF_LOWERCASE;
 
-    UNUSED(REF(part)); // checked by if limit is void
-    Change_Case(D_OUT, ARG(string), ARG(limit), FALSE);
+    UNUSED(REF(part)); // checked by if limit is null
+    Change_Case(D_OUT, ARG(string), ARG(limit), false);
     return D_OUT;
 }
 
@@ -1147,7 +1147,7 @@ REBNATIVE(uppercase)
     INCLUDE_PARAMS_OF_UPPERCASE;
 
     UNUSED(REF(part)); // checked by if limit is void
-    Change_Case(D_OUT, ARG(string), ARG(limit), TRUE);
+    Change_Case(D_OUT, ARG(string), ARG(limit), true);
     return D_OUT;
 }
 

@@ -138,12 +138,12 @@ REBNATIVE(recycle)
     INCLUDE_PARAMS_OF_RECYCLE;
 
     if (REF(off)) {
-        GC_Disabled = TRUE;
+        GC_Disabled = true;
         return nullptr;
     }
 
     if (REF(on)) {
-        GC_Disabled = FALSE;
+        GC_Disabled = false;
         TG_Ballast = TG_Max_Ballast;
     }
 
@@ -153,7 +153,7 @@ REBNATIVE(recycle)
     }
 
     if (REF(torture)) {
-        GC_Disabled = FALSE;
+        GC_Disabled = false;
         TG_Ballast = 0;
     }
 
@@ -167,7 +167,7 @@ REBNATIVE(recycle)
         fail (Error_Debug_Only_Raw());
       #else
         REBSER *sweeplist = Make_Series(100, sizeof(REBNOD*));
-        count = Recycle_Core(FALSE, sweeplist);
+        count = Recycle_Core(false, sweeplist);
         assert(count == SER_LEN(sweeplist));
 
         REBCNT index = 0;
@@ -179,7 +179,7 @@ REBNATIVE(recycle)
 
         Free_Unmanaged_Series(sweeplist);
 
-        REBCNT recount = Recycle_Core(FALSE, NULL);
+        REBCNT recount = Recycle_Core(false, NULL);
         assert(recount == count);
       #endif
     }

@@ -353,7 +353,7 @@ void Mold_Array_At(
 
     Push_Pointer_To_Series(TG_Mold_Stack, a);
 
-    REBOOL indented = FALSE;
+    bool indented = false;
 
     if (sep[1])
         Append_Utf8_Codepoint(mo->series, sep[0]);
@@ -363,7 +363,7 @@ void Mold_Array_At(
         if (GET_VAL_FLAG(item, VALUE_FLAG_NEWLINE_BEFORE)) {
            if (not indented and (sep[1] != '\0')) {
                 ++mo->indent;
-                indented = TRUE;
+                indented = true;
             }
 
             New_Indented_Line(mo);
@@ -438,7 +438,7 @@ void Form_Array_At(
 //
 //  MF_Fail: C
 //
-void MF_Fail(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Fail(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 
@@ -464,7 +464,7 @@ void MF_Fail(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 //
 //  MF_Unhooked: C
 //
-void MF_Unhooked(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Unhooked(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(mo);
     UNUSED(form);
@@ -481,7 +481,7 @@ void MF_Unhooked(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 //
 // Mold or form any value to string series tail.
 //
-void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     REBSER *s = mo->series;
     assert(SER_WIDE(s) == sizeof(REBYTE));
@@ -554,7 +554,7 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 //
 // Form a value based on the mold opts provided.
 //
-REBSER *Copy_Mold_Or_Form_Value(const RELVAL *v, REBFLGS opts, REBOOL form)
+REBSER *Copy_Mold_Or_Form_Value(const RELVAL *v, REBFLGS opts, bool form)
 {
     DECLARE_MOLD (mo);
     mo->opts = opts;
@@ -577,7 +577,7 @@ REBSER *Copy_Mold_Or_Form_Value(const RELVAL *v, REBFLGS opts, REBOOL form)
 //
 // Note only the last interstitial is considered a candidate for delimiting.
 //
-REBOOL Form_Reduce_Throws(
+bool Form_Reduce_Throws(
     REBVAL *out,
     REBARR *array,
     REBCNT index,
@@ -600,13 +600,13 @@ REBOOL Form_Reduce_Throws(
     DECLARE_FRAME (f);
     Push_Frame_At(f, array, index, specifier, DO_MASK_NONE);
 
-    REBOOL pending = FALSE;
+    bool pending = false;
 
     while (NOT_END(f->value)) {
         if (Eval_Step_In_Frame_Throws(out, f)) {
             Drop_Mold(mo);
             Abort_Frame(f);
-            return TRUE;
+            return true;
         }
 
         if (IS_NULLED(out) or (IS_TEXT(out) and VAL_LEN_AT(out) == 0))
@@ -622,7 +622,7 @@ REBOOL Form_Reduce_Throws(
 
         if (IS_CHAR(out)) {
             Append_Utf8_Codepoint(mo->series, VAL_CHAR(out));
-            pending = FALSE;
+            pending = false;
         }
         else if (IS_NULLED(delimiter)) // checked as empty text above
             Form_Value(mo, out);
@@ -631,7 +631,7 @@ REBOOL Form_Reduce_Throws(
                 Form_Value(mo, delimiter);
 
             Form_Value(mo, out);
-            pending = TRUE;
+            pending = true;
         }
     }
 
@@ -639,7 +639,7 @@ REBOOL Form_Reduce_Throws(
 
     Drop_Frame(f);
 
-    return FALSE;
+    return false;
 }
 
 
@@ -665,7 +665,7 @@ REBSER *Form_Tight_Block(const REBVAL *blk)
 //
 void Push_Mold(REB_MOLD *mo)
 {
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     //
     // If some kind of Debug_Fmt() happens while this Push_Mold is happening,
     // it will lead to a recursion.  It's necessary to look at the stack in
@@ -678,14 +678,14 @@ void Push_Mold(REB_MOLD *mo)
     // (hence "lower than Debug_Fmt") that would be an improvement.
     //
     assert(!TG_Pushing_Mold);
-    TG_Pushing_Mold = TRUE;
+    TG_Pushing_Mold = true;
 
     // Sanity check that if they set a limit it wasn't 0.  (Perhaps over the
     // long term it would be okay, but for now we'll consider it a mistake.)
     //
     if (GET_MOLD_FLAG(mo, MOLD_FLAG_LIMIT))
         assert(mo->limit != 0);
-#endif
+  #endif
 
     // Set by DECLARE_MOLD/pops so you don't same `mo` twice w/o popping.
     // Is assigned even in debug build, scanner uses to determine if pushed.
@@ -749,9 +749,9 @@ void Push_Mold(REB_MOLD *mo)
             mo->digits = MAX_DIGITS;
     }
 
-#if !defined(NDEBUG)
-    TG_Pushing_Mold = FALSE;
-#endif
+  #if !defined(NDEBUG)
+    TG_Pushing_Mold = false;
+  #endif
 }
 
 
@@ -872,7 +872,7 @@ REBSER *Pop_Molded_Binary(REB_MOLD *mo)
 // information in the mold has done its job and Pop_Molded_String() is not
 // required, just call this to drop back to the state of the last push.
 //
-void Drop_Mold_Core(REB_MOLD *mo, REBOOL not_pushed_ok)
+void Drop_Mold_Core(REB_MOLD *mo, bool not_pushed_ok)
 {
     // The tokenizer can often identify tokens to load by their start and end
     // pointers in the UTF8 data it is loading alone.  However, scanning

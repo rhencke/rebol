@@ -36,7 +36,7 @@
 // Return a block of function words, unbound.
 // Note: skips 0th entry.
 //
-REBARR *List_Func_Words(const RELVAL *func, REBOOL pure_locals)
+REBARR *List_Func_Words(const RELVAL *func, bool pure_locals)
 {
     REBARR *array = Make_Array(VAL_ACT_NUM_PARAMS(func));
     REBVAL *param = VAL_ACT_PARAMS_HEAD(func);
@@ -74,7 +74,7 @@ REBARR *List_Func_Words(const RELVAL *func, REBOOL pure_locals)
             break;
 
         default:
-            assert(FALSE);
+            assert(false);
             DEAD_END;
         }
 
@@ -192,13 +192,13 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     DS_PUSH(EMPTY_BLOCK); // param_types[0] (to be OBJECT! canon value, if any)
     DS_PUSH(EMPTY_STRING); // param_notes[0] (holds description, then canon)
 
-    REBOOL has_description = FALSE;
-    REBOOL has_types = FALSE;
-    REBOOL has_notes = FALSE;
+    bool has_description = false;
+    bool has_types = false;
+    bool has_notes = false;
 
     enum Reb_Spec_Mode mode = SPEC_MODE_NORMAL;
 
-    REBOOL refinement_seen = FALSE;
+    bool refinement_seen = false;
 
     const RELVAL *value = VAL_ARRAY_AT(spec);
 
@@ -230,9 +230,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             }
 
             if (DS_TOP == DS_AT(dsp_orig + 3))
-                has_description = TRUE;
+                has_description = true;
             else
-                has_notes = TRUE;
+                has_notes = true;
 
             continue;
         }
@@ -240,15 +240,15 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     //=//// TOP-LEVEL SPEC TAGS LIKE <local>, <with> etc. /////////////////=//
 
         if (IS_TAG(item) and (flags & MKF_KEYWORDS)) {
-            if (0 == Compare_String_Vals(item, Root_With_Tag, TRUE)) {
+            if (0 == Compare_String_Vals(item, Root_With_Tag, true)) {
                 mode = SPEC_MODE_WITH;
                 continue;
             }
-            else if (0 == Compare_String_Vals(item, Root_Local_Tag, TRUE)) {
+            else if (0 == Compare_String_Vals(item, Root_Local_Tag, true)) {
                 mode = SPEC_MODE_LOCAL;
                 continue;
             }
-            else if (0 == Compare_String_Vals(item, Root_Void_Tag, TRUE)) {
+            else if (0 == Compare_String_Vals(item, Root_Void_Tag, true)) {
                 header_bits |= ACTION_FLAG_VOIDER; // use Voider_Dispatcher()
 
                 // Fake as if they said [void!] !!! make more efficient
@@ -344,7 +344,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                     fail (Error_Refinement_Arg_Opt_Raw());
             }
 
-            has_types = TRUE;
+            has_types = true;
             continue;
         }
 
@@ -459,7 +459,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             break;
 
         case REB_REFINEMENT:
-            refinement_seen = TRUE;
+            refinement_seen = true;
             INIT_VAL_PARAM_CLASS(typeset, PARAM_CLASS_REFINEMENT);
 
             // !!! The typeset bits of a refinement are not currently used.
@@ -875,7 +875,7 @@ REBACT *Make_Action(
     // argument is.  But again, we're only interested in specialization's
     // removal of *non-refinement* arguments.
 
-    REBOOL first_arg = TRUE;
+    bool first_arg = true;
 
     REBVAL *param = KNOWN(rootparam) + 1;
     for (; NOT_END(param); ++param) {
@@ -897,7 +897,7 @@ REBACT *Make_Action(
             // hit before hitting any basic args, so not a brancher, and not
             // a candidate for deferring lookback arguments.
             //
-            first_arg = FALSE;
+            first_arg = false;
             break;
 
         case PARAM_CLASS_NORMAL:
@@ -907,7 +907,7 @@ REBACT *Make_Action(
             //
             if (first_arg and not Is_Param_Hidden(param)) {
                 SET_VAL_FLAG(rootparam, ACTION_FLAG_DEFERS_LOOKBACK);
-                first_arg = FALSE;
+                first_arg = false;
             }
             break;
 
@@ -919,7 +919,7 @@ REBACT *Make_Action(
             // If first argument is tight, and not specialized, no flag needed
             //
             if (first_arg and not Is_Param_Hidden(param))
-                first_arg = FALSE;
+                first_arg = false;
             break;
 
         case PARAM_CLASS_HARD_QUOTE:
@@ -934,12 +934,12 @@ REBACT *Make_Action(
 
             if (first_arg and not Is_Param_Hidden(param)) {
                 SET_VAL_FLAG(rootparam, ACTION_FLAG_QUOTES_FIRST_ARG);
-                first_arg = FALSE;
+                first_arg = false;
             }
             break;
 
         default:
-            assert(FALSE);
+            assert(false);
         }
     }
 
@@ -1684,7 +1684,7 @@ const REBVAL *Encloser_Dispatcher(REBFRM *f)
     //
     SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED);
 
-    const REBOOL fully = true;
+    const bool fully = true;
     if (Apply_Only_Throws(f->out, fully, outer, FRM_CELL(f), rebEND))
         return f->out;
 
@@ -1735,12 +1735,12 @@ const REBVAL *Chainer_Dispatcher(REBFRM *f)
 // If push_refinements is used, then it avoids intermediate specializations...
 // e.g. `specialize 'append/dup [part: true]` can be done with one FRAME!.
 //
-REBOOL Get_If_Word_Or_Path_Throws(
+bool Get_If_Word_Or_Path_Throws(
     REBVAL *out,
     REBSTR **opt_name_out,
     const RELVAL *v,
     REBSPC *specifier,
-    REBOOL push_refinements
+    bool push_refinements
 ) {
     if (IS_WORD(v)) {
         *opt_name_out = VAL_WORD_SPELLING(v);
@@ -1759,7 +1759,7 @@ REBOOL Get_If_Word_Or_Path_Throws(
                 ? DO_FLAG_PUSH_PATH_REFINEMENTS // pushed in reverse order
                 : DO_MASK_NONE
         )){
-            return TRUE;
+            return true;
         }
     }
     else {
@@ -1767,6 +1767,6 @@ REBOOL Get_If_Word_Or_Path_Throws(
         Derelativize(out, v, specifier);
     }
 
-    return FALSE;
+    return false;
 }
 

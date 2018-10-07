@@ -319,7 +319,7 @@ inline static void Deep_Freeze_Context(REBCTX *c) {
     Uncolor_Array(CTX_VARLIST(c));
 }
 
-inline static REBOOL Is_Context_Deeply_Frozen(REBCTX *c) {
+inline static bool Is_Context_Deeply_Frozen(REBCTX *c) {
     return GET_SER_INFO(c, SERIES_INFO_FROZEN);
 }
 
@@ -388,11 +388,11 @@ inline static void FAIL_IF_BAD_PORT(REBVAL *port) {
 // It's helpful to show when a test for a native port actor is being done,
 // rather than just having the code say IS_HANDLE().
 //
-inline static REBOOL Is_Native_Port_Actor(const REBVAL *actor) {
+inline static bool Is_Native_Port_Actor(const REBVAL *actor) {
     if (IS_HANDLE(actor))
-        return TRUE;
+        return true;
     assert(IS_OBJECT(actor));
-    return FALSE;
+    return false;
 }
 
 

@@ -138,10 +138,10 @@ void Measured_Eval_Hook(REBFRM * const f)
     // In order to measure single steps, we convert a DO_FLAG_TO_END request
     // into a sequence of EVALUATE operations, and loop them.
     //
-    REBOOL was_do_to_end = did (f->flags.bits & DO_FLAG_TO_END);
+    bool was_do_to_end = did (f->flags.bits & DO_FLAG_TO_END);
     f->flags.bits &= ~DO_FLAG_TO_END;
 
-    while (TRUE) {
+    while (true) {
         Eval_Core(f);
 
         if (not was_do_to_end or THROWN(f->out) or IS_END(f->value))
@@ -186,12 +186,12 @@ const REBVAL *Measured_Dispatcher_Hook(REBFRM * const f)
     REBMAP *m = VAL_MAP(Root_Stats_Map);
 
     REBACT *phase = FRM_PHASE(f);
-    REBOOL is_first_phase = (phase == f->original);
+    bool is_first_phase = (phase == f->original);
 
     // We can only tell if it's the last phase *before* the apply; because if
     // we check *after* it may change to become the last and need R_REDO_XXX.
     //
-    REBOOL is_last_phase = (ACT_UNDERLYING(phase) == phase);
+    bool is_last_phase = (ACT_UNDERLYING(phase) == phase);
 
     if (is_first_phase) {
         //
@@ -215,7 +215,7 @@ const REBVAL *Measured_Dispatcher_Hook(REBFRM * const f)
         // is being skipped for starters, just to increment a count of how
         // many times the function gets called.
 
-        const REBOOL cased = FALSE;
+        const bool cased = false;
         REBINT n = Find_Map_Entry(
             m,
             ACT_ARCHETYPE(f->original),
@@ -296,7 +296,7 @@ const REBVAL *Measured_Dispatcher_Hook(REBFRM * const f)
         }
         else switch (VAL_TYPE_RAW(r)) {
         case REB_R_REDO:
-            assert(FALSE); // shouldn't be possible for final phase
+            assert(false); // shouldn't be possible for final phase
             break;
 
         case REB_R_INVISIBLE:
@@ -304,7 +304,7 @@ const REBVAL *Measured_Dispatcher_Hook(REBFRM * const f)
 
         case REB_R_REFERENCE:
         case REB_R_IMMEDIATE:
-            assert(FALSE); // internal use only, shouldn't be returned
+            assert(false); // internal use only, shouldn't be returned
             break;
 
         default:

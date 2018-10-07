@@ -40,10 +40,10 @@ struct rebol_mold {
 };
 
 #define Drop_Mold_If_Pushed(mo) \
-    Drop_Mold_Core((mo), TRUE)
+    Drop_Mold_Core((mo), true)
 
 #define Drop_Mold(mo) \
-    Drop_Mold_Core((mo), FALSE)
+    Drop_Mold_Core((mo), false)
 
 #define Pop_Molded_String(mo) \
     Pop_Molded_String_Core((mo), UNKNOWN)
@@ -52,16 +52,16 @@ struct rebol_mold {
     Pop_Molded_String_Core((mo), (len))
 
 #define Mold_Value(mo,v) \
-    Mold_Or_Form_Value((mo), (v), FALSE)
+    Mold_Or_Form_Value((mo), (v), false)
 
 #define Form_Value(mo,v) \
-    Mold_Or_Form_Value((mo), (v), TRUE)
+    Mold_Or_Form_Value((mo), (v), true)
 
 #define Copy_Mold_Value(v,opts) \
-    Copy_Mold_Or_Form_Value((v), (opts), FALSE)
+    Copy_Mold_Or_Form_Value((v), (opts), false)
 
 #define Copy_Form_Value(v,opts) \
-    Copy_Mold_Or_Form_Value((v), (opts), TRUE)
+    Copy_Mold_Or_Form_Value((v), (opts), true)
 
 // Modes allowed by FORM
 enum {

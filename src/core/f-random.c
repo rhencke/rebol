@@ -125,7 +125,7 @@ static REBI64 ran_arr_cycle(void)
 //
 // Return random integer. Secure uses SHA1 for better safety.
 //
-REBI64 Random_Int(REBOOL secure)
+REBI64 Random_Int(bool secure)
 {
     REBI64 tmp;
     tmp = ran_arr_next();
@@ -146,7 +146,7 @@ REBI64 Random_Int(REBOOL secure)
 //
 //  Random_Range: C
 //
-REBI64 Random_Range(REBI64 r, REBOOL secure)
+REBI64 Random_Range(REBI64 r, bool secure)
 {
     if (r == 0)
         return 0;
@@ -173,7 +173,7 @@ REBI64 Random_Range(REBI64 r, REBOOL secure)
 //
 //  Random_Dec: C
 //
-REBDEC Random_Dec(REBDEC r, REBOOL secure)
+REBDEC Random_Dec(REBDEC r, bool secure)
 {
     REBDEC t, s;
     t = secure ? 5.4210108624275222e-20 /* 2^-64 */ :  2.1684043449710089e-19 /* 2^-62 */;

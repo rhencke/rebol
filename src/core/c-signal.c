@@ -76,7 +76,7 @@
 // breakpoints.  The RESUME instruction is able to execute code with /DO,
 // and that code may escape from a debug interrupt signal (like Ctrl-C).
 //
-REBOOL Do_Signals_Throws(REBVAL *out)
+bool Do_Signals_Throws(REBVAL *out)
 {
     // !!! When it was the case that the only way Do_Signals_Throws would run
     // due to the Eval_Count reaching the end of an Eval_Dose, this way of
@@ -90,7 +90,7 @@ REBOOL Do_Signals_Throws(REBVAL *out)
 
     Eval_Count = Eval_Dose;
 
-    REBOOL thrown = FALSE;
+    bool thrown = false;
 
     // The signal mask allows the system to disable processing of some
     // signals.  It defaults to ALL_BITS, but during signal processing
@@ -128,7 +128,7 @@ REBOOL Do_Signals_Throws(REBVAL *out)
 
         Move_Value(out, NAT_VALUE(halt));
         CONVERT_NAME_TO_THROWN(out, NULLED_CELL);
-        return TRUE; // thrown
+        return true; // thrown
     }
 
     if (filtered_sigs & SIG_INTERRUPT) {
@@ -148,14 +148,14 @@ REBOOL Do_Signals_Throws(REBVAL *out)
         //
         Eval_Sigmask = saved_mask;
 
-        const REBOOL interrupted = TRUE;
+        const bool interrupted = true;
         const REBVAL *default_value = NULLED_CELL;
-        const REBOOL do_default = FALSE;
+        const bool do_default = false;
 
         if ((*PG_Breakpoint_Hook)(
             out, interrupted, default_value, do_default
         )){
-            return TRUE; // threw
+            return true; // threw
         }
 
         // !!! What to do with something like a Ctrl-C-based breakpoint
@@ -169,7 +169,7 @@ REBOOL Do_Signals_Throws(REBVAL *out)
             fail ("Interrupt-based debug session used RESUME/WITH");
 
         SET_END(out);
-        return FALSE;
+        return false;
     }
 
     Eval_Sigmask = saved_mask;

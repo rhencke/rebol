@@ -298,7 +298,7 @@
             SET_VAL_FLAG_cplusplus<f>(v)
         
         template <uintptr_t f>
-        inline static REBOOL GET_VAL_FLAG_cplusplus(const RELVAL *v) {
+        inline static bool GET_VAL_FLAG_cplusplus(const RELVAL *v) {
             static_assert(
                 f and (f & (f - 1)) == 0, // only one bit is set
                 "use ANY_VAL_FLAGS() or ALL_VAL_FLAGS() to test multiple bits"
@@ -349,7 +349,7 @@
                 else if (category == REB_OBJECT) \
                     assert(ANY_CONTEXT_KIND(kind)); \
                 else \
-                    assert(FALSE); \
+                    assert(false); \
             } \
             SECOND_BYTE(flags) = 0; \
         } \
@@ -366,19 +366,19 @@
         v->header.bits |= f;
     }
 
-    inline static REBOOL GET_VAL_FLAG(const RELVAL *v, uintptr_t f) {
+    inline static bool GET_VAL_FLAG(const RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         return did (v->header.bits & f);
     }
 
-    inline static REBOOL ANY_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
+    inline static bool ANY_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         return (v->header.bits & f) != 0;
     }
 
-    inline static REBOOL ALL_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
+    inline static bool ALL_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
         enum Reb_Kind kind = VAL_TYPE_RAW(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         return (v->header.bits & f) == f;
@@ -648,7 +648,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     #define TRASH_CELL_IF_DEBUG(v) \
         Set_Trash_Debug((v), __FILE__, __LINE__)
 
-    inline static REBOOL IS_TRASH_DEBUG(const RELVAL *v) {
+    inline static bool IS_TRASH_DEBUG(const RELVAL *v) {
         assert(v->header.bits & NODE_FLAG_CELL);
         return VAL_TYPE_RAW(v) == REB_T_TRASH;
     }
@@ -711,7 +711,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     #define IS_END(p) \
         (cast(const REBYTE*, p)[1] == REB_0_END)
 #else
-    inline static REBOOL IS_END_Debug(
+    inline static bool IS_END_Debug(
         const void *p, // may not have NODE_FLAG_CELL, may be short as 2 bytes
         const char *file,
         int line
@@ -763,7 +763,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 // An ANY-ARRAY! in the deep copy of a function body must be relative also to
 // the same function if it contains any instances of such relative words.
 //
-inline static REBOOL IS_RELATIVE(const RELVAL *v) {
+inline static bool IS_RELATIVE(const RELVAL *v) {
     if (Not_Bindable(v) or not v->extra.binding)
         return false; // INTEGER! and other types are inherently "specific"
     return GET_SER_FLAG(v->extra.binding, ARRAY_FLAG_PARAMLIST);
@@ -776,11 +776,11 @@ inline static REBOOL IS_RELATIVE(const RELVAL *v) {
     // be specific, so the call is likely in error).  In the C build, they
     // are the same type so there will be no error.
     //
-    REBOOL IS_RELATIVE(const REBVAL *v);
+    bool IS_RELATIVE(const REBVAL *v);
 #endif
 
 #define IS_SPECIFIC(v) \
-    cast(REBOOL, not IS_RELATIVE(v))
+    cast(bool, not IS_RELATIVE(v))
 
 inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
     assert(IS_RELATIVE(v));
@@ -1038,11 +1038,11 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
     #define Init_Unreadable_Blank(out) \
         Init_Unreadable_Blank_Debug((out), __FILE__, __LINE__)
 
-    inline static REBOOL IS_BLANK_RAW(const RELVAL *v) {
+    inline static bool IS_BLANK_RAW(const RELVAL *v) {
         return VAL_TYPE_RAW(v) == REB_BLANK;
     }
 
-    inline static REBOOL IS_UNREADABLE_DEBUG(const RELVAL *v) {
+    inline static bool IS_UNREADABLE_DEBUG(const RELVAL *v) {
         if (VAL_TYPE_RAW(v) != REB_BLANK)
             return false;
         return v->extra.tick < 0;
@@ -1150,7 +1150,7 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
 #define TRUE_VALUE \
     c_cast(const REBVAL*, &PG_True_Value[0])
 
-inline static REBOOL IS_TRUTHY(const RELVAL *v) {
+inline static bool IS_TRUTHY(const RELVAL *v) {
     if (GET_VAL_FLAG(v, VALUE_FLAG_FALSEY))
         return false;
     if (IS_VOID(v))
@@ -1163,13 +1163,13 @@ inline static REBOOL IS_TRUTHY(const RELVAL *v) {
 
 
 #ifdef NDEBUG
-    inline static REBVAL *Init_Logic(RELVAL *out, REBOOL b) {
+    inline static REBVAL *Init_Logic(RELVAL *out, bool b) {
         RESET_VAL_CELL(out, REB_LOGIC, b ? 0 : VALUE_FLAG_FALSEY);
         return KNOWN(out);
     }
 #else
     inline static REBVAL *Init_Logic_Debug(
-        RELVAL *out, REBOOL b, const char *file, int line
+        RELVAL *out, bool b, const char *file, int line
     ){
         RESET_VAL_CELL_Debug(
             out,
@@ -1198,7 +1198,7 @@ inline static REBOOL IS_TRUTHY(const RELVAL *v) {
 // evaluations safe would be limiting, e.g. `foo: any [false-thing []]`...
 // So ANY and ALL use IS_TRUTHY() directly
 //
-inline static REBOOL IS_CONDITIONAL_TRUE(const REBVAL *v) {
+inline static bool IS_CONDITIONAL_TRUE(const REBVAL *v) {
     if (GET_VAL_FLAG(v, VALUE_FLAG_FALSEY))
         return false;
     if (IS_VOID(v))
@@ -1211,7 +1211,7 @@ inline static REBOOL IS_CONDITIONAL_TRUE(const REBVAL *v) {
 #define IS_CONDITIONAL_FALSE(v) \
     (not IS_CONDITIONAL_TRUE(v))
 
-inline static REBOOL VAL_LOGIC(const RELVAL *v) {
+inline static bool VAL_LOGIC(const RELVAL *v) {
     assert(IS_LOGIC(v));
     return NOT_VAL_FLAG((v), VALUE_FLAG_FALSEY);
 }
@@ -1792,7 +1792,7 @@ inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
         else
             out_depth = 1; // !!! need to find out's stack level
 
-        REBOOL smarts_enabled = false; 
+        bool smarts_enabled = false; 
         if (smarts_enabled and out_depth >= bind_depth)
             return; // binding will outlive `out`, don't manage
 

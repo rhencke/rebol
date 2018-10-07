@@ -146,7 +146,7 @@ void Bind_Values_Core(
 // bound to a particular target (if target is NULL, then all
 // words will be unbound regardless of their VAL_WORD_CONTEXT).
 //
-void Unbind_Values_Core(RELVAL *head, REBCTX *context, REBOOL deep)
+void Unbind_Values_Core(RELVAL *head, REBCTX *context, bool deep)
 {
     RELVAL *v = head;
     for (; NOT_END(v); ++v) {
@@ -157,7 +157,7 @@ void Unbind_Values_Core(RELVAL *head, REBCTX *context, REBOOL deep)
             Unbind_Any_Word(v);
         }
         else if (ANY_ARRAY(v) and deep)
-            Unbind_Values_Core(VAL_ARRAY_AT(v), context, TRUE);
+            Unbind_Values_Core(VAL_ARRAY_AT(v), context, true);
     }
 }
 
@@ -170,7 +170,7 @@ void Unbind_Values_Core(RELVAL *head, REBCTX *context, REBOOL deep)
 //
 REBCNT Try_Bind_Word(REBCTX *context, REBVAL *word)
 {
-    REBCNT n = Find_Canon_In_Context(context, VAL_WORD_CANON(word), FALSE);
+    REBCNT n = Find_Canon_In_Context(context, VAL_WORD_CANON(word), false);
     if (n != 0) {
         INIT_BINDING(word, context); // binding may have been relative before
         INIT_WORD_INDEX(word, n);
@@ -182,8 +182,9 @@ REBCNT Try_Bind_Word(REBCTX *context, REBVAL *word)
 //
 //  Bind_Relative_Inner_Loop: C
 //
-// Recursive function for relative function word binding.  Returns TRUE if
-// any relative bindings were made.
+// Recursive function for relative function word binding.
+//
+// !!! Should this return true if any relative bindings were made?
 //
 static void Bind_Relative_Inner_Loop(
     struct Reb_Binder *binder,
@@ -409,15 +410,15 @@ void Virtual_Bind_Deep_To_New_Context(
 
     const RELVAL *item;
     REBSPC *specifier;
-    REBOOL rebinding;
+    bool rebinding;
     if (IS_BLOCK(spec)) {
         item = VAL_ARRAY_AT(spec);
         specifier = VAL_SPECIFIER(spec);
 
-        rebinding = FALSE;
+        rebinding = false;
         for (; NOT_END(item); ++item) {
             if (IS_WORD(item))
-                rebinding = TRUE;
+                rebinding = true;
             else if (not IS_LIT_WORD(item)) {
                 //
                 // Better to fail here, because if we wait until we're in

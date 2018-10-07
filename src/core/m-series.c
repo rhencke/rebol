@@ -186,7 +186,7 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
 {
     if (len <= 0) return;
 
-    REBOOL is_dynamic = IS_SER_DYNAMIC(s);
+    bool is_dynamic = IS_SER_DYNAMIC(s);
     REBCNT len_old = SER_LEN(s);
 
     REBCNT start = index * SER_WIDE(s);
@@ -236,7 +236,7 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
                 if ((start = SER_BIAS(s)) != 0) {
                     // If more than half biased:
                     if (start >= MAX_SERIES_BIAS or start > SER_REST(s))
-                        Unbias_Series(s, TRUE);
+                        Unbias_Series(s, true);
                 }
             }
         }
@@ -272,7 +272,7 @@ void Remove_Series(REBSER *s, REBCNT index, REBINT len)
 //
 // Reset series bias.
 //
-void Unbias_Series(REBSER *s, REBOOL keep)
+void Unbias_Series(REBSER *s, bool keep)
 {
     REBCNT len = SER_BIAS(s);
     if (len == 0)
@@ -301,7 +301,7 @@ void Reset_Sequence(REBSER *s)
 {
     assert(not IS_SER_ARRAY(s));
     if (IS_SER_DYNAMIC(s)) {
-        Unbias_Series(s, FALSE);
+        Unbias_Series(s, false);
         s->content.dynamic.len = 0;
         TERM_SEQUENCE(s);
     }
@@ -319,7 +319,7 @@ void Reset_Sequence(REBSER *s)
 void Reset_Array(REBARR *a)
 {
     if (IS_SER_DYNAMIC(a))
-        Unbias_Series(SER(a), FALSE);
+        Unbias_Series(SER(a), false);
     TERM_ARRAY_LEN(a, 0);
 }
 
@@ -335,7 +335,7 @@ void Clear_Series(REBSER *s)
     assert(!Is_Series_Read_Only(s));
 
     if (IS_SER_DYNAMIC(s)) {
-        Unbias_Series(s, FALSE);
+        Unbias_Series(s, false);
         CLEAR(s->content.dynamic.data, SER_REST(s) * SER_WIDE(s));
     }
     else
@@ -355,7 +355,7 @@ void Resize_Series(REBSER *s, REBCNT size)
 {
     if (IS_SER_DYNAMIC(s)) {
         s->content.dynamic.len = 0;
-        Unbias_Series(s, TRUE);
+        Unbias_Series(s, true);
     }
     else
         SET_SERIES_LEN(s, 0);
@@ -380,7 +380,7 @@ REBYTE *Reset_Buffer(REBSER *buf, REBCNT len)
         panic ("buffer not yet allocated");
 
     SET_SERIES_LEN(buf, 0);
-    Unbias_Series(buf, TRUE);
+    Unbias_Series(buf, true);
     Expand_Series(buf, 0, len); // sets new tail
 
     return SER_DATA_RAW(buf);

@@ -262,10 +262,6 @@ Special internal defines used by RT, not Host-Kit developers:
 // Amiga hardware is dated 5-Mar-2011
 
 #ifdef TO_AMIGA
-    //
-    // Note to anyone porting to Amiga: it has BOOL which could be used
-    // for REBOOL
-    //
     #define HAS_SMART_CONSOLE
     #define NO_DL_LIB
 #endif

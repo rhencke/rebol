@@ -103,7 +103,7 @@ REBVAL *OS_Get_Current_Dir(void)
 // Set the current directory to local path. Return FALSE
 // on failure.
 //
-REBOOL OS_Set_Current_Dir(const REBVAL *path)
+bool OS_Set_Current_Dir(const REBVAL *path)
 {
     char *path_utf8 = rebSpell("file-to-local/full", path, rebEND);
 

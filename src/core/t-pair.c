@@ -142,7 +142,7 @@ REBINT Cmp_Pair(const RELVAL *t1, const RELVAL *t2)
 //
 //  Min_Max_Pair: C
 //
-void Min_Max_Pair(REBVAL *out, const REBVAL *a, const REBVAL *b, REBOOL maxed)
+void Min_Max_Pair(REBVAL *out, const REBVAL *a, const REBVAL *b, bool maxed)
 {
     // !!! This used to use REBXYF (a structure containing "X" and "Y" as
     // floats).  It's not clear why floats would be preferred here, and
@@ -267,7 +267,7 @@ static void Get_Math_Arg_For_Pair(
 //
 //  MF_Pair: C
 //
-void MF_Pair(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Pair(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form); // currently no distinction between MOLD and FORM
 

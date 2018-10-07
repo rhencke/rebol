@@ -354,7 +354,7 @@ REBNATIVE(unprotect)
 //
 //  Is_Value_Immutable: C
 //
-REBOOL Is_Value_Immutable(const RELVAL *v) {
+bool Is_Value_Immutable(const RELVAL *v) {
     if (
         IS_BLANK(v)
         || IS_BAR(v)
@@ -363,7 +363,7 @@ REBOOL Is_Value_Immutable(const RELVAL *v) {
         || ANY_WORD(v)
         || IS_ACTION(v) // paramlist is identity, hash
     ){
-        return TRUE;
+        return true;
     }
 
     if (ANY_ARRAY(v))
@@ -375,7 +375,7 @@ REBOOL Is_Value_Immutable(const RELVAL *v) {
     if (ANY_SERIES(v))
         return Is_Series_Frozen(VAL_SERIES(v));
 
-    return FALSE;
+    return false;
 }
 
 

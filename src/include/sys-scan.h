@@ -249,7 +249,7 @@ typedef struct rebol_scan_state {
     // *before* that value.  Hence when a newline is seen, it means the *next*
     // value to be scanned will receive the flag.
     //
-    REBOOL newline_pending;
+    bool newline_pending;
 
     REBFLGS opts;
     enum Reb_Token token;

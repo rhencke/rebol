@@ -147,7 +147,7 @@ inline static void TERM_SERIES(REBSER *s) {
 // Locking
 //
 
-inline static REBOOL Is_Array_Deeply_Frozen(REBARR *a) {
+inline static bool Is_Array_Deeply_Frozen(REBARR *a) {
     return GET_SER_INFO(a, SERIES_INFO_FROZEN);
 
     // should be frozen all the way down (can only freeze arrays deeply)
@@ -537,7 +537,7 @@ inline static RELVAL *VAL_ARRAY_TAIL(const RELVAL *v) {
 // This rule influences the behavior of TO conversions as well:
 // https://forum.rebol.info/t/justifiable-asymmetry-to-on-block/751
 //
-inline static REBOOL Splices_Into_Type_Without_Only(
+inline static bool Splices_Into_Type_Without_Only(
     enum Reb_Kind array_kind,
     const REBVAL *arg
 ){

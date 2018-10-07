@@ -474,7 +474,7 @@ void Partial1(
     const REBVAL *limit,
     REBCNT *span // 32-bit, see #853
 ){
-    REBOOL is_series = ANY_SERIES(value);
+    bool is_series = ANY_SERIES(value);
 
     if (IS_NULLED(limit)) { // use current length of the target value
         if (!is_series) {

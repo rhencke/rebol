@@ -541,7 +541,7 @@ REBNATIVE(compile)
                 switch (pclass) {
                 case PARAM_CLASS_LOCAL:
                 case PARAM_CLASS_RETURN:
-                    assert(FALSE); // natives shouldn't generally use these...
+                    assert(false); // natives shouldn't generally use these...
                     break;
 
                 case PARAM_CLASS_REFINEMENT:

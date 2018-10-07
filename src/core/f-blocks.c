@@ -230,7 +230,7 @@ void Clonify_Values_Len_Managed(
             // objects, and one must filter in the hijacking's body if one
             // wants to take more specific action.
             //
-            assert(FALSE);
+            assert(false);
         }
         else {
             // The value is not on our radar as needing to be processed,

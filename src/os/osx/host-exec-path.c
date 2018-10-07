@@ -33,7 +33,7 @@
 #include <string.h>
 #include <assert.h>
 
-// Should include <mach-o/dyld.h>, but it conflicts with reb-c.h because both defined TRUE and FALSE
+// Should include <mach-o/dyld.h> ?
 #ifdef __cplusplus
 extern "C"
 #endif

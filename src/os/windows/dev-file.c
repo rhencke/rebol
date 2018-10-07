@@ -48,7 +48,7 @@
 **
 ***********************************************************************/
 
-static REBOOL Seek_File_64(struct devreq_file *file)
+static bool Seek_File_64(struct devreq_file *file)
 {
     // Performs seek and updates index value.
 
@@ -73,12 +73,12 @@ static REBOOL Seek_File_64(struct devreq_file *file)
     if (result == INVALID_SET_FILE_POINTER) {
         DWORD last_error = GetLastError();
         if (last_error != NO_ERROR)
-            return FALSE; // GetLastError() should still hold the error
+            return true; // GetLastError() should still hold the error
     }
 
     file->index = (cast(int64_t, highint) << 32) + result;
 
-    return 1;
+    return false;
 }
 
 
@@ -138,7 +138,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
     WIN32_FIND_DATA info;
     memset(&info, 0, sizeof(info)); // got_info avoids use if uninitialized
 
-    bool got_info = FALSE;
+    bool got_info = false;
 
     WCHAR *cp = NULL;
 
@@ -156,7 +156,7 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
         if (h == INVALID_HANDLE_VALUE)
             rebFail_OS (GetLastError());
 
-        got_info = TRUE;
+        got_info = true;
         dir_req->requestee.handle = h;
         dir_req->flags &= ~RRF_DONE;
         cp = info.cFileName;
@@ -179,12 +179,12 @@ static int Read_Directory(struct devreq_file *dir, struct devreq_file *file)
             dir_req->flags |= RRF_DONE; // no more file_reqs
             return DR_DONE;
         }
-        got_info = TRUE;
+        got_info = true;
         cp = info.cFileName;
     }
 
     if (not got_info) {
-        assert(FALSE); // see above for why this R3-Alpha code had a "hole"
+        assert(false); // see above for why this R3-Alpha code had a "hole"
         rebJumps(
             "FAIL {%dev-clipboard: NOT(got_info), please report}",
             rebEND
@@ -415,7 +415,7 @@ DEVICE_CMD Write_File(REBREQ *req)
 
         req->actual = 0; // count actual bytes written as we go along
 
-        while (TRUE) {
+        while (true) {
             while (end < req->length && req->common.data[end] != '\n')
                 ++end;
             DWORD total_bytes;
@@ -490,7 +490,7 @@ DEVICE_CMD Query_File(REBREQ *req)
     //
     WCHAR *path_wide = rebSpellW("file-to-local/full", file->path, rebEND);
 
-    REBOOL success = GetFileAttributesEx(
+    BOOL success = GetFileAttributesEx(
         path_wide, GetFileExInfoStandard, &info
     );
 
@@ -529,7 +529,7 @@ DEVICE_CMD Create_File(REBREQ *req)
     );
 
     LPSECURITY_ATTRIBUTES lpSecurityAttributes = NULL;
-    REBOOL success = CreateDirectory(path_wide, lpSecurityAttributes);
+    BOOL success = CreateDirectory(path_wide, lpSecurityAttributes);
 
     rebFree(path_wide);
 
@@ -558,7 +558,7 @@ DEVICE_CMD Delete_File(REBREQ *req)
         rebEND // leave tail slash on for directory removal
     );
 
-    REBOOL success;
+    BOOL success;
     if (req->modes & RFM_DIR)
         success = RemoveDirectory(path_wide);
     else
@@ -594,7 +594,7 @@ DEVICE_CMD Rename_File(REBREQ *req)
         rebEND
     );
 
-    REBOOL success = MoveFile(from_wide, to_wide);
+    BOOL success = MoveFile(from_wide, to_wide);
 
     rebFree(to_wide);
     rebFree(from_wide);

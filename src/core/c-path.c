@@ -85,7 +85,7 @@ const REBVAL *PD_Unhooked(
 // writing GOB x and y coordinates) are intended to be revisited after this
 // code gets more reorganized.
 //
-REBOOL Next_Path_Throws(REBPVS *pvs)
+bool Next_Path_Throws(REBPVS *pvs)
 {
     if (IS_NULLED(pvs->out))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
@@ -108,7 +108,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
             derived
         )) {
             Move_Value(pvs->out, PVS_PICKER(pvs));
-            return TRUE;
+            return true; // thrown
         }
     }
     else { // object/word and object/value case:
@@ -291,7 +291,7 @@ REBOOL Next_Path_Throws(REBPVS *pvs)
 // !!! Path evaluation is one of the parts of R3-Alpha that has not been
 // vetted very heavily by Ren-C, and needs a review and overhaul.
 //
-REBOOL Eval_Path_Throws_Core(
+bool Eval_Path_Throws_Core(
     REBVAL *out, // if opt_setval, this is only used to return a thrown value
     REBSTR **label_out,
     REBARR *array,
@@ -313,7 +313,7 @@ REBOOL Eval_Path_Throws_Core(
         if (opt_setval)
             fail ("Can't perform SET_PATH! on path with inert head");
         Init_Any_Array_At(out, REB_PATH, array, index);
-        return FALSE;
+        return false;
     }
 
     DECLARE_FRAME (pvs);
@@ -465,19 +465,18 @@ REBOOL Eval_Path_Throws_Core(
         }
     }
 
-return_not_thrown:
+  return_not_thrown:;
     if (label_out)
         *label_out = pvs->opt_label;
 
     Abort_Frame(pvs);
     assert(not THROWN(out));
-    return FALSE;
+    return false;
 
-return_thrown:
+  return_thrown:;
     Abort_Frame(pvs);
-
     assert(THROWN(out));
-    return TRUE;
+    return true; // thrown
 }
 
 
@@ -530,7 +529,7 @@ REBCTX *Resolve_Path(const REBVAL *path, REBCNT *index_out)
 
     while (ANY_CONTEXT(var) and IS_WORD(picker)) {
         REBCNT i = Find_Canon_In_Context(
-            VAL_CONTEXT(var), VAL_WORD_CANON(picker), FALSE
+            VAL_CONTEXT(var), VAL_WORD_CANON(picker), false
         );
         ++picker;
         if (IS_END(picker)) {
@@ -609,7 +608,7 @@ REBNATIVE(pick)
         fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
 
     case REB_R_INVISIBLE:
-        assert(FALSE); // only SETs should do this
+        assert(false); // only SETs should do this
         break;
 
     case REB_R_REFERENCE:
@@ -694,7 +693,7 @@ REBNATIVE(poke)
         break;
 
     default:
-        assert(FALSE); // shouldn't happen, complain in the debug build
+        assert(false); // shouldn't happen, complain in the debug build
         fail (Error_Invalid(PVS_PICKER(pvs))); // raise error in release build
     }
 

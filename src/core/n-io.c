@@ -178,7 +178,7 @@ REBNATIVE(new_line)
 {
     INCLUDE_PARAMS_OF_NEW_LINE;
 
-    REBOOL mark = VAL_LOGIC(ARG(mark));
+    bool mark = VAL_LOGIC(ARG(mark));
     REBVAL *pos = ARG(position);
     REBARR *a = VAL_ARRAY(pos);
 
@@ -331,7 +331,7 @@ REBNATIVE(now)
             || REF(weekday)
             || REF(yearday)
         ){
-            const REBOOL to_utc = FALSE;
+            const bool to_utc = false;
             Adjust_Date_Zone(D_OUT, to_utc); // Add timezone, adjust date/time
         }
     }
@@ -550,17 +550,17 @@ REBNATIVE(wake_up)
         UNUSED(r);
     }
 
-    REBOOL woke_up = TRUE; // start by assuming success
+    bool woke_up = true; // start by assuming success
 
     REBVAL *awake = CTX_VAR(ctx, STD_PORT_AWAKE);
     if (IS_ACTION(awake)) {
-        const REBOOL fully = TRUE; // error if not all arguments consumed
+        const bool fully = true; // error if not all arguments consumed
 
         if (Apply_Only_Throws(D_OUT, fully, awake, ARG(event), rebEND))
             fail (Error_No_Catch_For_Throw(D_OUT));
 
         if (not (IS_LOGIC(D_OUT) and VAL_LOGIC(D_OUT)))
-            woke_up = FALSE;
+            woke_up = false;
     }
 
     return Init_Logic(D_OUT, woke_up);
@@ -731,7 +731,7 @@ REBNATIVE(change_dir)
 
         Check_Security(Canon(SYM_FILE), POL_EXEC, arg);
 
-        REBOOL success = OS_SET_CURRENT_DIR(arg);
+        bool success = OS_SET_CURRENT_DIR(arg);
 
         if (not success)
             fail (Error_Invalid(arg));

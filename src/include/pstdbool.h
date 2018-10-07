@@ -42,4 +42,11 @@
         typedef int_fast8_t bool; // fastest type that can represent 8-bits
     #endif
   #endif
+
+  #ifdef TO_AMIGA
+    //
+    // Note to anyone porting to Amiga: it has BOOL which could be used
+    // for a bool shim
+    //
+  #endif
 #endif

@@ -76,7 +76,7 @@ void MAKE_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // use signed logic by default (use TO-INTEGER/UNSIGNED to force
         // unsigned interpretation or error if that doesn't make sense)
 
-        Value_To_Int64(out, arg, FALSE);
+        Value_To_Int64(out, arg, false);
     }
 }
 
@@ -92,7 +92,7 @@ void TO_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     // use signed logic by default (use TO-INTEGER/UNSIGNED to force
     // unsigned interpretation or error if that doesn't make sense)
 
-    Value_To_Int64(out, arg, FALSE);
+    Value_To_Int64(out, arg, false);
 }
 
 
@@ -101,7 +101,7 @@ void TO_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 // Interpret `value` as a 64-bit integer and return it in `out`.
 //
-// If `no_sign` is TRUE then use that to inform an ambiguous conversion
+// If `no_sign` is true then use that to inform an ambiguous conversion
 // (e.g. TO-INTEGER/UNSIGNED #{FF} is 255 instead of -1).  However, it
 // won't contradict the sign of unambiguous source.  So the string "-1"
 // will raise an error if you try to convert it unsigned.  (For this,
@@ -113,7 +113,7 @@ void TO_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 // If a type is added or removed, update REBNATIVE(to_integer)'s spec
 //
-void Value_To_Int64(REBVAL *out, const REBVAL *value, REBOOL no_sign)
+void Value_To_Int64(REBVAL *out, const REBVAL *value, bool no_sign)
 {
     // !!! Code extracted from REBTYPE(Integer)'s A_MAKE and A_TO cases
     // Use SWITCH instead of IF chain? (was written w/ANY_STR test)
@@ -159,7 +159,7 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, REBOOL no_sign)
 
         REBYTE *bp = VAL_BIN_AT(value);
         REBCNT n = VAL_LEN_AT(value);
-        REBOOL negative;
+        bool negative;
         REBINT fill;
 
     #if !defined(NDEBUG)
@@ -192,7 +192,7 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, REBOOL no_sign)
         // default signedness interpretation to high-bit of first byte, but
         // override if the function was called with `no_sign`
         //
-        negative = no_sign ? FALSE : (*bp >= 0x80);
+        negative = no_sign ? false : (*bp >= 0x80);
 
         // Consume any leading 0x00 bytes (or 0xFF if negative)
         //
@@ -290,7 +290,7 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, REBOOL no_sign)
             || memchr(bp, 'E', size)
         ){
             DECLARE_LOCAL (d);
-            if (Scan_Decimal(d, bp, size, TRUE)) {
+            if (Scan_Decimal(d, bp, size, true)) {
                 if (
                     VAL_DECIMAL(d) < INT64_MAX
                     && VAL_DECIMAL(d) >= INT64_MIN
@@ -311,7 +311,7 @@ void Value_To_Int64(REBVAL *out, const REBVAL *value, REBOOL no_sign)
         //
         // Rebol's choice is that no integer is uniquely representative of
         // "falsehood" condition, e.g. `if 0 [print "this prints"]`.  So to
-        // say TO FALSE is 0 would be disingenuous.
+        // say TO LOGIC! 0 is FALSE would be disingenuous.
         //
         fail (Error_Bad_Make(REB_INTEGER, value));
     }
@@ -358,7 +358,7 @@ REBNATIVE(to_integer)
 //
 //  MF_Integer: C
 //
-void MF_Integer(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Integer(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 

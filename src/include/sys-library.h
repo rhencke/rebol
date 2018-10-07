@@ -35,7 +35,7 @@ inline static void *LIB_FD(REBLIB *l) {
     return LINK(l).fd; // file descriptor
 }
 
-inline static REBOOL IS_LIB_CLOSED(REBLIB *l) {
+inline static bool IS_LIB_CLOSED(REBLIB *l) {
     return LINK(l).fd == NULL;
 }
 

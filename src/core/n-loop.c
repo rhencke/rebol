@@ -170,7 +170,7 @@ static const REBVAL *Loop_Series_Common(
     // FOR loop.  (R3-Alpha used the sign of the bump, which meant it did not
     // have a clear plan for what to do with 0.)
     //
-    const REBOOL counting_up = (s < end); // equal checked above
+    const bool counting_up = (s < end); // equal checked above
     if ((counting_up and bump <= 0) or (not counting_up and bump >= 0))
         return out; // avoid infinite loops
 
@@ -247,7 +247,7 @@ static const REBVAL *Loop_Integer_Common(
     // FOR loop.  (R3-Alpha used the sign of the bump, which meant it did not
     // have a clear plan for what to do with 0.)
     //
-    const REBOOL counting_up = (start < end); // equal checked above
+    const bool counting_up = (start < end); // equal checked above
     if ((counting_up and bump <= 0) or (not counting_up and bump >= 0))
         return nullptr; // avoid infinite loops
 
@@ -331,7 +331,7 @@ static const REBVAL *Loop_Number_Common(
 
     // As per #1993, see notes in Loop_Integer_Common()
     //
-    const REBOOL counting_up = (s < e); // equal checked above
+    const bool counting_up = (s < e); // equal checked above
     if ((counting_up and b <= 0) or (not counting_up and b >= 0))
         return Init_Void(out); // avoid infinite loop, void if body never runs
 
@@ -574,7 +574,7 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
             if (not Catching_Break_Or_Continue(D_OUT, &stop)) {
                 // A non-loop throw, we should be bubbling up
-                threw = TRUE;
+                threw = true;
                 break;
             }
 
@@ -1026,7 +1026,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
     //
     SET_SER_INFO(res->series, SERIES_INFO_HOLD);
 
-    bool stop = FALSE;
+    bool stop = false;
     REBCNT index = res->start; // declare here, avoid longjmp clobber warnings
 
     REBCNT len = SER_LEN(res->series); // temp read-only, this won't change
@@ -1279,7 +1279,7 @@ REBNATIVE(map_each)
 //      return: [<opt> any-value!]
 //          {Last body result, or null if BREAK}
 //      count [any-number! logic! blank!]
-//          "Repetitions (true loops infinitely, FALSE? doesn't run)"
+//          "Repetitions (true loops infinitely, false doesn't run)"
 //      body [block! action!]
 //          "Block to evaluate or action to run."
 //  ]

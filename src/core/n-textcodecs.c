@@ -98,11 +98,11 @@ int Decode_UTF16_Negative_If_ASCII(
     REBUNI *dst,
     const REBYTE *src,
     REBCNT len,
-    REBOOL little_endian,
-    REBOOL crlf_to_lf
+    bool little_endian,
+    bool crlf_to_lf
 ){
-    REBOOL expect_lf = FALSE;
-    REBOOL ascii = TRUE;
+    bool expect_lf = false;
+    bool ascii = true;
     uint32_t ch;
     REBUNI *start = dst;
 
@@ -121,11 +121,11 @@ int Decode_UTF16_Negative_If_ASCII(
             // Skip CR, but add LF (even if missing)
             //
             if (expect_lf && ch != LF) {
-                expect_lf = FALSE;
+                expect_lf = false;
                 *dst++ = LF;
             }
             if (ch == CR) {
-                expect_lf = TRUE;
+                expect_lf = true;
                 continue;
             }
         }
@@ -133,7 +133,7 @@ int Decode_UTF16_Negative_If_ASCII(
         // !!! "check for surrogate pair" ??
 
         if (ch > 127)
-            ascii = FALSE;
+            ascii = false;
 
         *dst++ = cast(REBUNI, ch);
     }
@@ -219,7 +219,7 @@ static void Encode_Utf16_Core(
     REBVAL *out,
     REBCHR(const *) data,
     REBCNT len,
-    REBOOL little_endian
+    bool little_endian
 ){
     REBCHR(const *) cp = data;
 
@@ -260,12 +260,12 @@ static void Decode_Utf16_Core(
     REBVAL *out,
     const REBYTE *data,
     REBCNT len,
-    REBOOL little_endian
+    bool little_endian
 ){
     REBSER *ser = Make_Unicode(len); // 2x too big (?)
 
     REBINT size = Decode_UTF16_Negative_If_ASCII(
-        UNI_HEAD(ser), data, len, little_endian, FALSE
+        UNI_HEAD(ser), data, len, little_endian, false
     );
     if (size < 0) // ASCII
         size = -size;
@@ -315,7 +315,7 @@ REBNATIVE(decode_utf16le)
     REBYTE *data = VAL_BIN_AT(ARG(data));
     REBCNT len = VAL_LEN_AT(ARG(data));
 
-    const REBOOL little_endian = TRUE;
+    const bool little_endian = true;
 
     Decode_Utf16_Core(D_OUT, data, len, little_endian);
 
@@ -348,7 +348,7 @@ REBNATIVE(encode_utf16le)
     // !!! Should probably by default add a byte order mark, but given this
     // is weird "userspace" encoding it should be an option to the codec.
 
-    const REBOOL little_endian = TRUE;
+    const bool little_endian = true;
     Encode_Utf16_Core(
         D_OUT,
         VAL_UNI_AT(ARG(text)),
@@ -400,7 +400,7 @@ REBNATIVE(decode_utf16be)
     REBYTE *data = VAL_BIN_AT(ARG(data));
     REBCNT len = VAL_LEN_AT(ARG(data));
 
-    const REBOOL little_endian = FALSE;
+    const bool little_endian = false;
 
     Decode_Utf16_Core(D_OUT, data, len, little_endian);
 
@@ -430,7 +430,7 @@ REBNATIVE(encode_utf16be)
 {
     INCLUDE_PARAMS_OF_ENCODE_UTF16BE;
 
-    const REBOOL little_endian = FALSE;
+    const bool little_endian = false;
 
     // !!! Should probably by default add a byte order mark, but given this
     // is weird "userspace" encoding it should be an option to the codec.

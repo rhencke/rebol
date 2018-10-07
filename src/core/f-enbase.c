@@ -384,7 +384,7 @@ const REBYTE *Decode_Binary(
 //
 // Base2 encode a range of arbitrary bytes into a byte-sized ASCII series.
 //
-REBSER *Encode_Base2(const REBYTE *src, REBCNT len, REBOOL brk)
+REBSER *Encode_Base2(const REBYTE *src, REBCNT len, bool brk)
 {
     // Account for binary digits, lines, and extra syntax ("slop factor")
     //
@@ -427,7 +427,7 @@ REBSER *Encode_Base2(const REBYTE *src, REBCNT len, REBOOL brk)
 //
 // Base16 encode a range of arbitrary bytes into a byte-sized ASCII series.
 //
-REBSER *Encode_Base16(const REBYTE *src, REBCNT len, REBOOL brk)
+REBSER *Encode_Base16(const REBYTE *src, REBCNT len, bool brk)
 {
     // Account for hex digits, lines, and extra syntax ("slop factor")
     //
@@ -465,7 +465,7 @@ REBSER *Encode_Base16(const REBYTE *src, REBCNT len, REBOOL brk)
 //
 // Base64 encode a range of arbitrary bytes into a byte-sized ASCII series.
 //
-REBSER *Encode_Base64(const REBYTE *src, REBCNT len, REBOOL brk)
+REBSER *Encode_Base64(const REBYTE *src, REBCNT len, bool brk)
 {
     // Account for base64 digits, lines, and extra syntax ("slop factor")
     //

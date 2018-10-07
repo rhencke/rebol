@@ -169,7 +169,7 @@ REBNATIVE(eval_enfix)
 
     DECLARE_SUBFRAME (child, f); // saves DSP before refinement push
 
-    const REBOOL push_refinements = true;
+    const bool push_refinements = true;
     REBSTR *opt_label;
     DECLARE_LOCAL (temp);
     if (Get_If_Word_Or_Path_Throws(
@@ -361,7 +361,7 @@ REBNATIVE(do)
 
         UNUSED(REF(args)); // detected via `value? :arg`
 
-        const REBOOL fully = TRUE; // error if not all arguments consumed
+        const bool fully = true; // error if not all arguments consumed
         if (Apply_Only_Throws(
             D_OUT,
             fully,
@@ -812,7 +812,7 @@ REBNATIVE(apply)
     //
     PUSH_GC_GUARD(exemplar);
     DECLARE_LOCAL (temp);
-    REBOOL threw = Do_Any_Array_At_Throws(temp, ARG(def));
+    bool threw = Do_Any_Array_At_Throws(temp, ARG(def));
     DROP_GC_GUARD(exemplar);
 
     assert(CTX_KEYS_HEAD(exemplar) == ACT_FACADE_HEAD(VAL_ACTION(applicand)));

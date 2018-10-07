@@ -153,18 +153,17 @@ REBVAL *OS_Get_Current_Dir(void)
 //
 //  OS_Set_Current_Dir: C
 //
-// Set the current directory to local path. Return FALSE
-// on failure.
+// Set the current directory to local path.  Return false on failure.
 //
-REBOOL OS_Set_Current_Dir(const REBVAL *path)
+bool OS_Set_Current_Dir(const REBVAL *path)
 {
     WCHAR *path_wide = rebSpellW("file-to-local/full", path, rebEND);
 
-    REBOOL success = did SetCurrentDirectory(path_wide);
+    BOOL success = SetCurrentDirectory(path_wide);
 
     rebFree(path_wide);
 
-    return success;
+    return success == TRUE;
 }
 
 

@@ -31,7 +31,7 @@
 #include "sys-core.h"
 
 
-static REBOOL Check_Char_Range(const REBVAL *val, REBINT limit)
+static bool Check_Char_Range(const REBVAL *val, REBINT limit)
 {
     if (IS_CHAR(val))
         return not (VAL_CHAR(val) > limit);
@@ -49,10 +49,10 @@ static REBOOL Check_Char_Range(const REBVAL *val, REBINT limit)
         up = NEXT_CHR(&c, up);
 
         if (c > limit)
-            return FALSE;
+            return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 
@@ -281,7 +281,7 @@ REBNATIVE(use)
 //
 //  Did_Get_Binding_Of: C
 //
-REBOOL Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
+bool Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
 {
     switch (VAL_TYPE(v)) {
     case REB_ACTION: {
@@ -361,7 +361,7 @@ REBOOL Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
 //
 //  value?: native [
 //
-//  "Test if an optional cell contains a value (e.g. `value? ()` is FALSE)"
+//  "Test if an optional cell contains a value (e.g. `value? null` is FALSE)"
 //
 //      optional [<opt> any-value!]
 //  ]
@@ -728,7 +728,7 @@ REBNATIVE(in)
                 if (IS_OBJECT(v)) {
                     REBCTX *context = VAL_CONTEXT(v);
                     REBCNT index = Find_Canon_In_Context(
-                        context, VAL_WORD_CANON(word), FALSE
+                        context, VAL_WORD_CANON(word), false
                     );
                     if (index != 0)
                         return Init_Any_Word_Bound(
@@ -754,7 +754,7 @@ REBNATIVE(in)
         RETURN (word);
     }
 
-    REBCNT index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), FALSE);
+    REBCNT index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), false);
     if (index == 0)
         return nullptr;
 
@@ -1195,7 +1195,7 @@ REBNATIVE(aliases_q)
 //     SET? 'OBJECT/NON-MEMBER/XXX -> will error
 //     SET? 'DATE/MONTH -> is true, even though not a variable resolution
 //
-inline static REBOOL Is_Set(const REBVAL *location)
+inline static bool Is_Set(const REBVAL *location)
 {
     if (ANY_WORD(location))
         return ANY_VALUE(Get_Opt_Var_May_Fail(location, SPECIFIED));

@@ -30,7 +30,7 @@
 
 #include "sys-core.h"
 
-static REBOOL Same_Action(const RELVAL *a1, const RELVAL *a2)
+static bool Same_Action(const RELVAL *a1, const RELVAL *a2)
 {
     assert(IS_ACTION(a1) && IS_ACTION(a2));
 
@@ -45,7 +45,7 @@ static REBOOL Same_Action(const RELVAL *a1, const RELVAL *a2)
         return VAL_BINDING(a1) == VAL_BINDING(a2);
     }
 
-    return FALSE;
+    return false;
 }
 
 
@@ -126,7 +126,7 @@ void TO_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  MF_Action: C
 //
-void MF_Action(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Action(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 
@@ -139,7 +139,7 @@ void MF_Action(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     // functions temporarily uses the word list as a substitute (which
     // drops types)
     //
-    REBARR *words_list = List_Func_Words(v, TRUE); // show pure locals
+    REBARR *words_list = List_Func_Words(v, true); // show pure locals
     Mold_Array_At(mo, words_list, 0, "[]");
     Free_Unmanaged_Array(words_list);
 
@@ -232,7 +232,7 @@ REBTYPE(Action)
             return nullptr; }
 
         case SYM_WORDS:
-            Init_Block(D_OUT, List_Func_Words(value, FALSE)); // no locals
+            Init_Block(D_OUT, List_Func_Words(value, false)); // no locals
             return D_OUT;
 
         case SYM_BODY:

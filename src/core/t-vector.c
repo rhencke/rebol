@@ -54,8 +54,8 @@ void Get_Vector_At(RELVAL *out, REBSER *vec, REBCNT n)
 {
     REBYTE *data = SER_DATA_RAW(vec);
 
-    REBOOL non_integer = (MISC(vec).vect_info.non_integer == 1);
-    REBOOL sign = (MISC(vec).vect_info.sign == 1);
+    bool non_integer = (MISC(vec).vect_info.non_integer == 1);
+    bool sign = (MISC(vec).vect_info.sign == 1);
     REBCNT bits = MISC(vec).vect_info.bits;
 
     if (non_integer) {
@@ -127,8 +127,8 @@ static void Set_Vector_At_Core(
 ){
     REBYTE *data = SER_DATA_RAW(vec);
 
-    REBOOL non_integer = (MISC(vec).vect_info.non_integer == 1);
-    REBOOL sign = (MISC(vec).vect_info.sign == 1);
+    bool non_integer = (MISC(vec).vect_info.non_integer == 1);
+    bool sign = (MISC(vec).vect_info.sign == 1);
     REBCNT bits = MISC(vec).vect_info.bits;
 
     if (non_integer) {
@@ -306,8 +306,8 @@ REBINT Compare_Vector(const RELVAL *v1, const RELVAL *v2)
     REBSER *ser1 = VAL_SERIES(v1);
     REBSER *ser2 = VAL_SERIES(v2);
 
-    REBOOL non_integer1 = (MISC(ser1).vect_info.non_integer == 1);
-    REBOOL non_integer2 = (MISC(ser2).vect_info.non_integer == 1);
+    bool non_integer1 = (MISC(ser1).vect_info.non_integer == 1);
+    bool non_integer2 = (MISC(ser2).vect_info.non_integer == 1);
     if (non_integer1 != non_integer2)
         fail (Error_Not_Same_Type_Raw()); // !!! is this error necessary?
 
@@ -339,7 +339,7 @@ REBINT Compare_Vector(const RELVAL *v1, const RELVAL *v2)
 // extracting into values.  This could use REBYTE* access to get a similar
 // effect if it were a priority.  Extract and reinsert REBVALs for now.
 //
-void Shuffle_Vector(REBVAL *vect, REBOOL secure)
+void Shuffle_Vector(REBVAL *vect, bool secure)
 {
     REBSER *ser = VAL_SERIES(vect);
     REBCNT idx = VAL_INDEX(vect);
@@ -365,8 +365,8 @@ void Shuffle_Vector(REBVAL *vect, REBOOL secure)
 //  Make_Vector: C
 //
 static REBSER *Make_Vector(
-    REBOOL non_integer, // if true, it's a float/decimal, not integral
-    REBOOL sign, // signed or unsigned
+    bool non_integer, // if true, it's a float/decimal, not integral
+    bool sign, // signed or unsigned
     REBINT dims, // number of dimensions
     REBCNT bits, // number of bits per unit (8, 16, 32, 64)
     REBINT len
@@ -405,7 +405,7 @@ static REBSER *Make_Vector(
 //           size:       integer units
 //           init:        block of values
 //
-REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
+bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
 {
     const RELVAL *item = head;
 
@@ -416,49 +416,49 @@ REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
         // integer values.
     }
 
-    REBOOL sign;
+    bool sign;
     if (IS_WORD(item) && VAL_WORD_SYM(item) == SYM_UNSIGNED) {
-        sign = FALSE;
+        sign = false;
         ++item;
     }
     else
-        sign = TRUE; // default to signed, not unsigned
+        sign = true; // default to signed, not unsigned
 
-    REBOOL non_integer;
+    bool non_integer;
     if (IS_WORD(item)) {
         if (SAME_SYM_NONZERO(VAL_WORD_SYM(item), SYM_FROM_KIND(REB_INTEGER)))
-            non_integer = FALSE;
+            non_integer = false;
         else if (
             SAME_SYM_NONZERO(VAL_WORD_SYM(item), SYM_FROM_KIND(REB_DECIMAL))
         ){
-            non_integer = TRUE;
+            non_integer = true;
             if (not sign)
-                return FALSE; // C doesn't have unsigned floating points
+                return false; // C doesn't have unsigned floating points
         }
         else
-            return FALSE;
+            return false;
         ++item;
     }
     else
-        non_integer = FALSE; // default to integer, not floating point
+        non_integer = false; // default to integer, not floating point
 
     REBCNT bits;
     if (not IS_INTEGER(item))
-        return FALSE; // bit size required, no defaulting
+        return false; // bit size required, no defaulting
 
     bits = Int32(item);
     ++item;
 
     if (non_integer && (bits == 8 || bits == 16))
-        return FALSE; // C doesn't have 8 or 16 bit floating points
+        return false; // C doesn't have 8 or 16 bit floating points
 
     if (not (bits == 8 or bits == 16 or bits == 32 or bits == 64))
-        return FALSE;
+        return false;
 
     REBCNT size;
     if (NOT_END(item) && IS_INTEGER(item)) {
         if (Int32(item) < 0)
-            return FALSE;
+            return false;
         size = Int32(item);
         ++item;
     }
@@ -471,7 +471,7 @@ REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
     if (NOT_END(item) and (IS_BLOCK(item) or IS_BINARY(item))) {
         REBCNT len = VAL_LEN_AT(item);
         if (IS_BINARY(item) and not non_integer)
-            return FALSE;
+            return false;
         if (len > size)
             size = len;
         iblk = const_KNOWN(item);
@@ -489,7 +489,7 @@ REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
         index = 0; // default index offset inside returned REBVAL to 0
 
     if (NOT_END(item))
-        return FALSE;
+        return false;
 
     // !!! Dims appears to be part of unfinished work on multidimensional
     // vectors, which along with the rest of this should be storing in a
@@ -498,14 +498,14 @@ REBOOL Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
     REBINT dims = 1;
 
     REBSER *vect = Make_Vector(non_integer, sign, dims, bits, size);
-    if (vect == NULL)
-        return FALSE;
+    if (not vect)
+        return false;
 
     if (iblk != NULL)
         Set_Vector_Row(vect, iblk);
 
     Init_Any_Series_At(out, REB_VECTOR, vect, index);
-    return TRUE;
+    return true;
 }
 
 
@@ -520,8 +520,8 @@ void MAKE_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         if (size < 0)
             goto bad_make;
 
-        const REBOOL non_integer = FALSE;
-        const REBOOL sign = TRUE;
+        const bool non_integer = false;
+        const bool sign = true;
         const REBINT dims = 1;
         REBSER *ser = Make_Vector(non_integer, sign, dims, 32, size);
         Init_Vector(out, ser);
@@ -725,7 +725,7 @@ REBTYPE(Vector)
 //
 //  MF_Vector: C
 //
-void MF_Vector(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Vector(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     REBSER *vect = VAL_SERIES(v);
 
@@ -739,8 +739,8 @@ void MF_Vector(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         n = VAL_INDEX(v);
     }
 
-    REBOOL non_integer = (MISC(vect).vect_info.non_integer == 1);
-    REBOOL sign = (MISC(vect).vect_info.sign == 1);
+    bool non_integer = (MISC(vect).vect_info.non_integer == 1);
+    bool sign = (MISC(vect).vect_info.sign == 1);
     REBCNT bits = MISC(vect).vect_info.bits;
 
     if (not form) {

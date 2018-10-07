@@ -68,7 +68,7 @@ void TO_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *data) {
 //
 //  MF_Unit: C
 //
-void MF_Unit(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Unit(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form); // no distinction between MOLD and FORM
 
@@ -208,7 +208,7 @@ REBINT CT_Handle(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MF_Handle: C
 //
-void MF_Handle(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Handle(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     // Value has no printable form, so just print its name.
 

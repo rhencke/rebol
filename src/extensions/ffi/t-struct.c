@@ -162,7 +162,7 @@ static void get_scalar(
         break;
 
     default:
-        assert(FALSE);
+        assert(false);
         fail ("Unknown FFI type indicator");
     }
 }
@@ -171,7 +171,7 @@ static void get_scalar(
 //
 //  Get_Struct_Var: C
 //
-static REBOOL Get_Struct_Var(REBVAL *out, REBSTU *stu, const REBVAL *word)
+static bool Get_Struct_Var(REBVAL *out, REBSTU *stu, const REBVAL *word)
 {
     REBARR *fieldlist = STU_FIELDLIST(stu);
 
@@ -202,10 +202,10 @@ static REBOOL Get_Struct_Var(REBVAL *out, REBSTU *stu, const REBVAL *word)
         else
             get_scalar(out, stu, field, 0);
 
-        return TRUE;
+        return true;
     }
 
-    return FALSE; // word not found in struct's field symbols
+    return false; // word not found in struct's field symbols
 }
 
 
@@ -289,7 +289,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
 }
 
 
-void MF_Struct(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Struct(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 
@@ -303,10 +303,10 @@ void MF_Struct(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 }
 
 
-static REBOOL same_fields(REBARR *tgt_fieldlist, REBARR *src_fieldlist)
+static bool same_fields(REBARR *tgt_fieldlist, REBARR *src_fieldlist)
 {
     if (ARR_LEN(tgt_fieldlist) != ARR_LEN(src_fieldlist))
-        return FALSE;
+        return false;
 
     RELVAL *tgt_item = ARR_HEAD(tgt_fieldlist);
     RELVAL *src_item = ARR_HEAD(src_fieldlist);
@@ -320,37 +320,37 @@ static REBOOL same_fields(REBARR *tgt_fieldlist, REBARR *src_fieldlist)
                 FLD_FIELDLIST(tgt_field),
                 FLD_FIELDLIST(src_field)
             )){
-                return FALSE;
+                return false;
             }
 
         if (!SAME_SYM_NONZERO(
             FLD_TYPE_SYM(tgt_field),
             FLD_TYPE_SYM(src_field)
         )){
-            return FALSE;
+            return false;
         }
 
         if (FLD_IS_ARRAY(tgt_field)) {
             if (!FLD_IS_ARRAY(src_field))
-                return FALSE;
+                return false;
 
             if (FLD_DIMENSION(tgt_field) != FLD_DIMENSION(src_field))
-                return FALSE;
+                return false;
         }
 
         if (FLD_OFFSET(tgt_field) != FLD_OFFSET(src_field))
-            return FALSE;
+            return false;
 
         assert(FLD_WIDE(tgt_field) == FLD_WIDE(src_field));
     }
 
     assert(IS_END(tgt_item));
 
-    return TRUE;
+    return true;
 }
 
 
-static REBOOL assign_scalar_core(
+static bool assign_scalar_core(
     REBYTE *data_head,
     REBCNT offset,
     REBFLD *field,
@@ -374,7 +374,7 @@ static REBOOL assign_scalar_core(
 
         memcpy(data, VAL_STRUCT_DATA_AT(val), FLD_WIDE(field));
 
-        return TRUE;
+        return true;
     }
 
     // All other types take numbers
@@ -481,15 +481,15 @@ static REBOOL assign_scalar_core(
         break;
 
     default:
-        assert(FALSE);
-        return FALSE;
+        assert(!"unknown FLD_TYPE_SYM()");
+        return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 
-inline static REBOOL assign_scalar(
+inline static bool assign_scalar(
     REBSTU *stu,
     REBFLD *field,
     REBCNT n,
@@ -504,7 +504,7 @@ inline static REBOOL assign_scalar(
 //
 //  Set_Struct_Var: C
 //
-static REBOOL Set_Struct_Var(
+static bool Set_Struct_Var(
     REBSTU *stu,
     const REBVAL *word,
     const REBVAL *elem,
@@ -522,34 +522,34 @@ static REBOOL Set_Struct_Var(
         if (FLD_IS_ARRAY(field)) {
             if (elem == NULL) { // set the whole array
                 if (!IS_BLOCK(val))
-                    return FALSE;
+                    return false;
 
                 REBCNT dimension = FLD_DIMENSION(field);
                 if (dimension != VAL_LEN_AT(val))
-                    return FALSE;
+                    return false;
 
                 REBCNT n = 0;
                 for(n = 0; n < dimension; ++n) {
                     if (!assign_scalar(
                         stu, field, n, KNOWN(VAL_ARRAY_AT_HEAD(val, n))
                     )) {
-                        return FALSE;
+                        return false;
                     }
                 }
             }
             else { // set only one element
                 if (!IS_INTEGER(elem) || VAL_INT32(elem) != 1)
-                    return FALSE;
+                    return false;
 
                 return assign_scalar(stu, field, 0, val);
             }
-            return TRUE;
+            return true;
         }
 
         return assign_scalar(stu, field, 0, val);
     }
 
-    return FALSE;
+    return false;
 }
 
 
@@ -1158,16 +1158,16 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         // Must be a word or a set-word, with set-words initializing
 
-        REBOOL expect_init;
+        bool expect_init;
         if (IS_SET_WORD(item)) {
-            expect_init = TRUE;
+            expect_init = true;
             if (raw_addr) {
                 // initialization is not allowed for raw memory struct
                 fail (Error_Invalid_Core(item, VAL_SPECIFIER(arg)));
             }
         }
         else if (IS_WORD(item))
-            expect_init = FALSE;
+            expect_init = false;
         else
             fail (Error_Invalid_Type(VAL_TYPE(item)));
 

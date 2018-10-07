@@ -87,7 +87,7 @@ void Make_Thrown_Unwind_Value(
             fail (Error_Invalid_Exit_Raw());
 
         REBFRM *f = frame->prior;
-        for (; TRUE; f = f->prior) {
+        for (; true; f = f->prior) {
             if (f == FS_BOTTOM)
                 fail (Error_Invalid_Exit_Raw());
 
@@ -108,7 +108,7 @@ void Make_Thrown_Unwind_Value(
         assert(IS_ACTION(level));
 
         REBFRM *f = frame->prior;
-        for (; TRUE; f = f->prior) {
+        for (; true; f = f->prior) {
             if (f == FS_BOTTOM)
                 fail (Error_Invalid_Exit_Raw());
 
@@ -408,7 +408,7 @@ REBNATIVE(adapt)
     REBVAL *adaptee = ARG(adaptee);
 
     REBSTR *opt_adaptee_name;
-    const REBOOL push_refinements = FALSE;
+    const bool push_refinements = false;
     if (Get_If_Word_Or_Path_Throws(
         D_OUT,
         &opt_adaptee_name,
@@ -512,7 +512,7 @@ REBNATIVE(enclose)
 
     REBVAL *inner = ARG(inner);
     REBSTR *opt_inner_name;
-    const REBOOL push_refinements = FALSE;
+    const bool push_refinements = false;
     if (Get_If_Word_Or_Path_Throws(
         D_OUT,
         &opt_inner_name,
@@ -627,7 +627,7 @@ REBNATIVE(hijack)
     INCLUDE_PARAMS_OF_HIJACK;
 
     REBSTR *opt_victim_name;
-    const REBOOL push_refinements = FALSE;
+    const bool push_refinements = false;
     if (Get_If_Word_Or_Path_Throws(
         D_OUT,
         &opt_victim_name,

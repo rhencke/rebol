@@ -70,7 +70,7 @@ void Init_Crypto(void)
         // routine is designed, and it appears that in some cases
         // a zero initialization worked in the past.  Assert in the
         // debug build but continue silently otherwise.
-        assert(FALSE);
+        assert(false);
         gCryptProv = 0;
     }
 #else
@@ -78,7 +78,7 @@ void Init_Crypto(void)
     if (rng_fd == -1) {
         // We don't crash the release client now, but we will later
         // if they try to generate random numbers
-        assert(FALSE);
+        assert(false);
     }
 #endif
 }
@@ -629,11 +629,11 @@ static REBYTE seed_str[SEED_LEN] = {
 // The key (kp) is passed as a REBVAL or REBYTE (when klen is !0).
 //
 static void Cloak(
-    REBOOL decode,
+    bool decode,
     REBYTE *cp,
     REBCNT dlen,
     const REBVAL *key,
-    REBOOL as_is
+    bool as_is
 ){
     REBYTE src[20];
     REBYTE dst[20];
@@ -662,7 +662,7 @@ static void Cloak(
         INT_TO_STR(VAL_INT64(key), dst);
         kp = dst;
         klen = LEN_BYTES(dst);
-        as_is = FALSE;
+        as_is = false;
         break;
 
     default:
@@ -721,7 +721,7 @@ static REBNATIVE(decloak)
     CRYPT_INCLUDE_PARAMS_OF_DECLOAK;
 
     Cloak(
-        TRUE,
+        true,
         VAL_BIN_AT(ARG(data)),
         VAL_LEN_AT(ARG(data)),
         ARG(key),
@@ -750,7 +750,7 @@ static REBNATIVE(encloak)
     CRYPT_INCLUDE_PARAMS_OF_ENCLOAK;
 
     Cloak(
-        FALSE,
+        false,
         VAL_BIN_AT(ARG(data)),
         VAL_LEN_AT(ARG(data)),
         ARG(key),

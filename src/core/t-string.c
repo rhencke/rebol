@@ -223,7 +223,7 @@ static REBCNT find_string(
         }
     }
     else if (IS_BINARY(target)) {
-        const REBOOL uncase = FALSE;
+        const bool uncase = false;
         return Find_Byte_Str(
             series,
             start,
@@ -337,7 +337,7 @@ static REBSER *Make_Binary_BE64(const REBVAL *arg)
 }
 
 
-static REBSER *make_binary(const REBVAL *arg, REBOOL make)
+static REBSER *make_binary(const REBVAL *arg, bool make)
 {
     REBSER *ser;
 
@@ -453,7 +453,7 @@ void MAKE_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *def) {
     }
 
     if (kind == REB_BINARY)
-        ser = make_binary(def, TRUE);
+        ser = make_binary(def, true);
     else
         ser = MAKE_TO_String_Common(def);
 
@@ -475,7 +475,7 @@ void TO_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     REBSER *ser;
     if (kind == REB_BINARY)
-        ser = make_binary(arg, FALSE);
+        ser = make_binary(arg, false);
     else
         ser = MAKE_TO_String_Common(arg);
 
@@ -539,11 +539,11 @@ static int Compare_Chr(void *thunk, const void *v1, const void *v2)
 //
 static void Sort_String(
     REBVAL *string,
-    REBOOL ccase,
+    bool ccase,
     REBVAL *skipv,
     REBVAL *compv,
     REBVAL *part,
-    REBOOL rev
+    bool rev
 ){
     // !!! System appears to boot without a sort of a string.  A different
     // method will be needed for UTF-8... qsort() cannot work with variable
@@ -696,7 +696,7 @@ const REBVAL *PD_String(
         // !!! Would be nice if there was a better way of doing this that didn't
         // involve reaching into mo.start and mo.series.
         //
-        const REBOOL crlf_to_lf = FALSE;
+        const bool crlf_to_lf = false;
         Append_UTF8_May_Fail(
             copy, // dst
             cs_cast(BIN_AT(mo->series, mo->start + skip)), // src
@@ -857,7 +857,7 @@ REBYTE *Form_Uni_Hex(REBYTE *out, REBCNT n)
 //
 // For now just preserve what was there, but do it as UTF8 bytes.
 //
-REBYTE *Emit_Uni_Char(REBYTE *bp, REBUNI chr, REBOOL parened)
+REBYTE *Emit_Uni_Char(REBYTE *bp, REBUNI chr, bool parened)
 {
     // !!! The UTF-8 "Byte Order Mark" is an insidious thing which is not
     // necessary for UTF-8, not recommended by the Unicode standard, and
@@ -1081,7 +1081,7 @@ static void Mold_Tag(REB_MOLD *mo, const RELVAL *v)
 //
 //  MF_Binary: C
 //
-void MF_Binary(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Binary(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 
@@ -1094,18 +1094,18 @@ void MF_Binary(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     switch (Get_System_Int(SYS_OPTIONS, OPTIONS_BINARY_BASE, 16)) {
     default:
     case 16: {
-        const REBOOL brk = (len > 32);
+        const bool brk = (len > 32);
         enbased = Encode_Base16(VAL_BIN_AT(v), len, brk);
         break; }
 
     case 64: {
-        const REBOOL brk = (len > 64);
+        const bool brk = (len > 64);
         Append_Unencoded(mo->series, "64");
         enbased = Encode_Base64(VAL_BIN_AT(v), len, brk);
         break; }
 
     case 2: {
-        const REBOOL brk = (len > 8);
+        const bool brk = (len > 8);
         Append_Utf8_Codepoint(mo->series, '2');
         enbased = Encode_Base2(VAL_BIN_AT(v), len, brk);
         break; }
@@ -1125,7 +1125,7 @@ void MF_Binary(REB_MOLD *mo, const RELVAL *v, REBOOL form)
 //
 //  MF_String: C
 //
-void MF_String(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_String(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     REBSER *s = mo->series;
 
@@ -1519,7 +1519,7 @@ REBTYPE(String)
 
         while (amount != 0) {
             REBCNT wheel = VAL_LEN_HEAD(v) - 1;
-            while (TRUE) {
+            while (true) {
                 REBYTE *b = VAL_BIN_AT_HEAD(v, wheel);
                 if (amount > 0) {
                     if (*b == 255) {

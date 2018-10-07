@@ -82,7 +82,7 @@ void TO_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  MF_Library: C
 //
-void MF_Library(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Library(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 

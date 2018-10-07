@@ -82,7 +82,7 @@ backtrace*: function [
             ]
         ]
 
-        first-frame: FALSE
+        first-frame: false
 
         row: me + 1
 

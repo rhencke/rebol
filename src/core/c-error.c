@@ -142,7 +142,7 @@ void Assert_State_Balanced_Debug(
 //  Trapped_Helper: C
 //
 // This do the work of responding to a longjmp.  (Hence it is run when setjmp
-// returns TRUE.)  Its job is to safely recover from a sudden interruption,
+// returns true.)  Its job is to safely recover from a sudden interruption,
 // though the list of things which can be safely recovered from is finite.
 //
 // (Among the countless things that are not handled automatically would be a
@@ -195,7 +195,7 @@ void Trapped_Helper(struct Reb_State *s)
     // that does happen... and can land on the right comment.  But if there's
     // a fail of some kind, the flag for the warning needs to be cleared.
     //
-    TG_Pushing_Mold = FALSE;
+    TG_Pushing_Mold = false;
   #endif
 
     SET_SERIES_LEN(TG_Mold_Stack, s->mold_loop_tail);
@@ -240,7 +240,7 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
     // Helpful for debugging boot, before command line parameters are parsed.
     //
     if (PG_Probe_Failures) {
-        static REBOOL probing = FALSE;
+        static bool probing = false;
 
         if (p == cast(void*, VAL_CONTEXT(Root_Stackoverflow_Error))) {
             printf("PROBE(Stack Overflow): mold in PROBE would recurse\n");
@@ -251,9 +251,9 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
             panic (p);
         }
         else {
-            probing = TRUE;
+            probing = true;
             PROBE(p);
-            probing = FALSE;
+            probing = false;
         }
     }
   #endif
@@ -380,7 +380,7 @@ const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
 
     // Get context of object representing the elements of the category itself
     if (not IS_OBJECT(CTX_VAR(categories, SELFISH(n + 1)))) {
-        assert(FALSE);
+        assert(false);
         return NULL;
     }
 
@@ -394,7 +394,7 @@ const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
 
     // Sanity check CODE: field of category object
     if (not IS_INTEGER(CTX_VAR(category, SELFISH(1)))) {
-        assert(FALSE);
+        assert(false);
         return NULL;
     }
     assert(
@@ -405,7 +405,7 @@ const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
     // Sanity check TYPE: field of category object
     // !!! Same spelling as what we set in VAL_WORD_SYM(type_out))?
     if (not IS_TEXT(CTX_VAR(category, SELFISH(2)))) {
-        assert(FALSE);
+        assert(false);
         return NULL;
     }
 
@@ -513,7 +513,7 @@ void Set_Location_Of_Error(
 // Creates an error object from arg and puts it in value.
 // The arg can be a string or an object body block.
 //
-// Returns TRUE if a THROWN() value is made during evaluation.
+// Returns true if a THROWN() value is made during evaluation.
 //
 // This function is called by MAKE ERROR!.  Note that most often
 // system errors from %errors.r are thrown by C code using
@@ -526,7 +526,7 @@ void Set_Location_Of_Error(
 // maps out the existing landscape so that if it is to be changed
 // then it can be seen exactly what is changing.
 //
-REBOOL Make_Error_Object_Throws(
+bool Make_Error_Object_Throws(
     REBVAL *out, // output location **MUST BE GC SAFE**!
     const REBVAL *arg
 ) {
@@ -571,7 +571,7 @@ REBOOL Make_Error_Object_Throws(
         DECLARE_LOCAL (evaluated);
         if (Do_Any_Array_At_Throws(evaluated, arg)) {
             Move_Value(out, evaluated);
-            return TRUE;
+            return true;
         }
 
         vars = ERR_VARS(error);
@@ -697,9 +697,9 @@ REBOOL Make_Error_Object_Throws(
                 Init_Integer(&vars->code,
                     code
                     + Find_Canon_In_Context(
-                        error, VAL_WORD_CANON(&vars->id), FALSE
+                        error, VAL_WORD_CANON(&vars->id), false
                     )
-                    - Find_Canon_In_Context(error, Canon(SYM_TYPE), FALSE)
+                    - Find_Canon_In_Context(error, Canon(SYM_TYPE), false)
                     - 1
                 );
             }
@@ -760,7 +760,7 @@ REBOOL Make_Error_Object_Throws(
     Set_Location_Of_Error(error, FS_TOP);
 
     Init_Error(out, error);
-    return FALSE;
+    return false;
 }
 
 
@@ -1392,12 +1392,12 @@ REBCTX *Startup_Errors(REBARR *boot_errors)
     if (env_probe_failures != NULL and atoi(env_probe_failures) != 0) {
         printf(
             "**\n"
-            "** R3_PROBE_FAILURES is TRUE in environment variable!\n"
+            "** R3_PROBE_FAILURES is nonzero in environment variable!\n"
             "** Rather noisy, but helps for debugging the boot process...\n"
             "**\n"
         );
         fflush(stdout);
-        PG_Probe_Failures = TRUE;
+        PG_Probe_Failures = true;
     }
   #endif
 
@@ -1614,12 +1614,12 @@ static void Mold_Value_Limit(REB_MOLD *mo, RELVAL *v, REBCNT len)
 //
 //  MF_Error: C
 //
-void MF_Error(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Error(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     // Protect against recursion. !!!!
     //
     if (not form) {
-        MF_Context(mo, v, FALSE);
+        MF_Context(mo, v, false);
         return;
     }
 

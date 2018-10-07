@@ -441,7 +441,7 @@ REBVAL *Init_Map(RELVAL *out, REBMAP *map)
 //
 // Note: hash array contents (indexes) are 1-based!
 //
-REBSER *Hash_Block(const REBVAL *block, REBCNT skip, REBOOL cased)
+REBSER *Hash_Block(const REBVAL *block, REBCNT skip, bool cased)
 {
     REBCNT n;
     REBSER *hashlist;
@@ -458,7 +458,7 @@ REBSER *Hash_Block(const REBVAL *block, REBCNT skip, REBOOL cased)
         return hashlist;
 
     n = VAL_INDEX(block);
-    while (TRUE) {
+    while (true) {
         REBCNT skip_index = skip;
 
         REBCNT hash = Find_Key_Hashed(

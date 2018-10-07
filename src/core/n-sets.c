@@ -41,7 +41,7 @@ REBSER *Make_Set_Operation_Series(
     const REBVAL *val1,
     const REBVAL *val2,
     REBFLGS flags,
-    REBOOL cased,
+    bool cased,
     REBCNT skip
 ){
     assert(ANY_SERIES(val1));
@@ -87,7 +87,7 @@ REBSER *Make_Set_Operation_Series(
         i += VAL_LEN_AT(val2);
 
     REBINT h = 1; // used for both logic true/false and hash check
-    REBOOL first_pass = TRUE; // are we in the first pass over the series?
+    bool first_pass = true; // are we in the first pass over the series?
     REBSER *out_ser;
 
     if (ANY_ARRAY(val1)) {
@@ -157,8 +157,9 @@ REBSER *Make_Set_Operation_Series(
             if (flags & SOP_FLAG_CHECK)
                 Free_Unmanaged_Series(hser);
 
-            if (!first_pass) break;
-            first_pass = FALSE;
+            if (not first_pass)
+                break;
+            first_pass = false;
 
             // Iterate over second series?
             //
@@ -229,8 +230,9 @@ REBSER *Make_Set_Operation_Series(
                 }
             }
 
-            if (!first_pass) break;
-            first_pass = FALSE;
+            if (not first_pass)
+                break;
+            first_pass = false;
 
             // Iterate over second series?
             //
@@ -251,7 +253,7 @@ REBSER *Make_Set_Operation_Series(
         // All binaries use "case-sensitive" comparison (e.g. each byte
         // is treated distinctly)
         //
-        cased = TRUE;
+        cased = true;
 
         // ask mo->series to have at least `i` capacity beyond mo->start
         //
@@ -304,8 +306,9 @@ REBSER *Make_Set_Operation_Series(
                 }
             }
 
-            if (!first_pass) break;
-            first_pass = FALSE;
+            if (not first_pass)
+                break;
+            first_pass = false;
 
             // Iterate over second series?
             //

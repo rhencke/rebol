@@ -51,7 +51,7 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
 
     REBDSP dsp_orig = DSP;
 
-    while (TRUE) {
+    while (true) {
         OS_DO_DEVICE_SYNC(req, RDC_READ);
 
         if (req->flags & RRF_DONE)
@@ -73,7 +73,7 @@ static REBARR *Read_Dir_May_Fail(struct devreq_file *dir)
 
     // !!! This is some kind of error tolerance, review what it is for.
     //
-    REBOOL enabled = FALSE;
+    bool enabled = false;
     if (enabled
         and (
             NOT_FOUND != Find_Str_Char(

@@ -303,7 +303,7 @@ REBSER *Append_UTF8_May_Fail(
     REBSER *dst,
     const char *utf8,
     size_t size,
-    REBOOL crlf_to_lf
+    bool crlf_to_lf
 ){
     // This routine does not just append bytes blindly because:
     //
@@ -322,7 +322,7 @@ REBSER *Append_UTF8_May_Fail(
     REBUNI *up = UNI_HEAD(temp);
     const REBYTE *src = cb_cast(utf8);
 
-    REBOOL all_ascii = TRUE;
+    bool all_ascii = true;
 
     REBCNT num_codepoints = 0;
 
@@ -334,7 +334,7 @@ REBSER *Append_UTF8_May_Fail(
             if (src == NULL)
                 fail (Error_Bad_Utf8_Raw());
 
-            all_ascii = FALSE;
+            all_ascii = false;
         }
         else if (ch == CR && crlf_to_lf) {
             if (src[1] == LF)

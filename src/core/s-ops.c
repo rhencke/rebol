@@ -34,15 +34,16 @@
 //
 //  All_Bytes_ASCII: C
 //
-// Returns TRUE if byte string does not use upper code page
+// Returns true if byte string does not use upper code page
 // (e.g. no 128-255 characters)
 //
-REBOOL All_Bytes_ASCII(REBYTE *bp, REBCNT len)
+bool All_Bytes_ASCII(REBYTE *bp, REBCNT len)
 {
     for (; len > 0; len--, bp++)
-        if (*bp >= 0x80) return FALSE;
+        if (*bp >= 0x80)
+            return false;
 
-    return TRUE;
+    return true;
 }
 
 
@@ -293,7 +294,7 @@ REBSER *Complement_Binary(REBVAL *value)
 // Randomize a string. Return a new string series.
 // Handles both BYTE and UNICODE strings.
 //
-void Shuffle_String(REBVAL *value, REBOOL secure)
+void Shuffle_String(REBVAL *value, bool secure)
 {
     REBCNT n;
     REBCNT k;
@@ -336,7 +337,7 @@ void Trim_Tail(REBSER *src, REBYTE chr)
 //
 // Common code for string case handling.
 //
-void Change_Case(REBVAL *out, REBVAL *val, REBVAL *part, REBOOL upper)
+void Change_Case(REBVAL *out, REBVAL *val, REBVAL *part, bool upper)
 {
     REBCNT len;
     REBCNT n;

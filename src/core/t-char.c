@@ -139,11 +139,11 @@ static REBINT Math_Arg_For_Char(REBVAL *arg, REBVAL *verb)
 //
 //  MF_Char: C
 //
-void MF_Char(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Char(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     REBSER *out = mo->series;
 
-    REBOOL parened = GET_MOLD_FLAG(mo, MOLD_FLAG_ALL);
+    bool parened = GET_MOLD_FLAG(mo, MOLD_FLAG_ALL);
     REBUNI chr = VAL_CHAR(v);
 
     REBCNT tail = SER_LEN(out);

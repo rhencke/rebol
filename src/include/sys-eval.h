@@ -62,7 +62,7 @@
 
 // !!! Find a better place for this!
 //
-inline static REBOOL IS_QUOTABLY_SOFT(const RELVAL *v) {
+inline static bool IS_QUOTABLY_SOFT(const RELVAL *v) {
     return IS_GROUP(v) or IS_GET_WORD(v) or IS_GET_PATH(v);
 }
 
@@ -348,7 +348,7 @@ inline static void Set_Frame_Detected_Fetch(
 
     } else switch (Detect_Rebol_Pointer(p)) {
 
-    case DETECTED_AS_UTF8: {
+      case DETECTED_AS_UTF8: {
         REBDSP dsp_orig = DSP;
 
         SCAN_STATE ss;
@@ -437,7 +437,7 @@ inline static void Set_Frame_Detected_Fetch(
         assert(GET_SER_FLAG(f->source->array, ARRAY_FLAG_NULLEDS_LEGAL));
         break; }
 
-    case DETECTED_AS_SERIES: { // "instructions" like rebEval(), rebUneval()
+      case DETECTED_AS_SERIES: { // "instructions" like rebEval(), rebUneval()
         REBARR *instruction = ARR(m_cast(void*, p));
 
         // The instruction should be unmanaged, and will be freed on the next
@@ -449,10 +449,10 @@ inline static void Set_Frame_Detected_Fetch(
         f->value = ARR_SINGLE(instruction);
         break; }
 
-    case DETECTED_AS_FREED_SERIES:
+      case DETECTED_AS_FREED_SERIES:
         panic (p);
 
-    case DETECTED_AS_CELL: {
+      case DETECTED_AS_CELL: {
         const REBVAL *cell = cast(const REBVAL*, p);
         if (IS_NULLED(cell))
             fail ("NULLED cell leaked to API, see NULLIZE() in C sources");
@@ -469,8 +469,8 @@ inline static void Set_Frame_Detected_Fetch(
             )
         );
         break; }
-        
-    case DETECTED_AS_END: {
+
+      case DETECTED_AS_END: {
         //
         // We're at the end of the variadic input, so end of the line.
         //
@@ -493,11 +493,11 @@ inline static void Set_Frame_Detected_Fetch(
         f->source->index = 0;
         break; }
 
-    case DETECTED_AS_FREED_CELL:
+      case DETECTED_AS_FREED_CELL:
         panic (p);
 
-    default:
-        assert(FALSE);
+      default:
+        assert(false);
     }
 }
 
@@ -706,7 +706,7 @@ inline static void Drop_Frame(REBFRM *f)
 // several successive operations on an array, without creating a new frame
 // each time.
 //
-inline static REBOOL Eval_Step_In_Frame_Throws(
+inline static bool Eval_Step_In_Frame_Throws(
     REBVAL *out,
     REBFRM *f
 ){
@@ -738,7 +738,7 @@ inline static REBOOL Eval_Step_In_Frame_Throws(
 // the SET-WORD! needs to be put back in place before returning, so that the
 // set knows where to write.  The caller handles this with the data stack.
 //
-inline static REBOOL Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
+inline static bool Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
     assert(f->dsp_orig == DSP);
 
     REBFLGS prior_flags = f->flags.bits;
@@ -769,7 +769,7 @@ inline static REBOOL Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 // Future investigation could attack the problem again and see if there is
 // any common case that actually offered an advantage to optimize for here.
 //
-inline static REBOOL Eval_Step_In_Subframe_Throws(
+inline static bool Eval_Step_In_Subframe_Throws(
     REBVAL *out,
     REBFRM *higher, // may not be direct parent (not child->prior upon push!)
     REBFLGS flags,
@@ -904,7 +904,7 @@ inline static REBIXO Eval_Array_At_Core(
 //
 inline static void Reify_Va_To_Array_In_Frame(
     REBFRM *f,
-    REBOOL truncated
+    bool truncated
 ) {
     REBDSP dsp_orig = DSP;
 
@@ -1045,7 +1045,7 @@ inline static REBIXO Eval_Va_Core(
 }
 
 
-inline static REBOOL Eval_Value_Core_Throws(
+inline static bool Eval_Value_Core_Throws(
     REBVAL *out,
     const RELVAL *value, // e.g. a BLOCK! here would just evaluate to itself!
     REBSPC *specifier

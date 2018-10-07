@@ -168,7 +168,7 @@ inline static void Either_Test_Core_May_Throw(
         // and gathering the refinements on the stack, but a bit more work
         // for an uncommon case...revisit later.
         //
-        const REBOOL push_refinements = FALSE;
+        const bool push_refinements = false;
 
         REBSTR *opt_label = NULL;
         REBDSP lowest_ordered_dsp = DSP;
@@ -197,7 +197,7 @@ inline static void Either_Test_Core_May_Throw(
 
         if (Apply_Only_Throws(
             out,
-            TRUE, // `fully` (ensure argument consumed)
+            true, // `fully` (ensure argument consumed)
             test,
             NULLIZE(arg), // convert nulled cells to C nullptr for API
             rebEND
@@ -428,7 +428,7 @@ REBNATIVE(match)
             &opt_label,
             test,
             SPECIFIED,
-            TRUE // push_refinements
+            true // push_refinements
         )){
             return D_OUT;
         }
@@ -667,8 +667,8 @@ static void Case_Choose_Core_May_Throw(
     REBVAL *out,
     REBVAL *cell, // scratch cell, must be GC safe
     REBVAL *block, // "choices" or "cases", must be GC safe
-    REBOOL all,
-    REBOOL choose // do not evaluate branches, just "choose" them
+    bool all,
+    bool choose // do not evaluate branches, just "choose" them
 ){
     DECLARE_FRAME (f);
     Push_Frame(f, block); // array GC safe now, can re-use `block` cell
@@ -1035,7 +1035,7 @@ REBNATIVE(default)
     if (IS_NULLED(D_OUT))
         fail ("DEFAULT came back NULL"); // !!! Review--what about BLANK!
 
-    const REBOOL enfix = false;
+    const bool enfix = false;
     if (IS_SET_WORD(target))
         Move_Value(Sink_Var_May_Fail(target, SPECIFIED), D_OUT);
     else {
@@ -1178,7 +1178,7 @@ was_caught:
             //
             if (Apply_Only_Throws(
                 D_OUT,
-                FALSE, // do not alert if handler doesn't consume all args
+                false, // do not alert if handler doesn't consume all args
                 handler,
                 NULLIZE(thrown_arg), // convert nulled cells to NULL for API
                 NULLIZE(thrown_name), // convert nulled cells to NULL for API

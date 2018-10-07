@@ -77,7 +77,7 @@ inline static int32_t m_cmp(int32_t n, const uint32_t a[], const uint32_t b[]) {
     return 0;
 }
 
-inline static REBOOL m_is_zero(int32_t n, const uint32_t a[]) {
+inline static bool m_is_zero(int32_t n, const uint32_t a[]) {
     int32_t i;
     for (i = 0; (i < n) and (a[i] == 0); i++)
         NOOP;
@@ -175,7 +175,7 @@ inline static int32_t min_shift_right(const uint32_t a[6]) {
 }
 
 /* Finds out if deci a is zero */
-REBOOL deci_is_zero(const deci a) {
+bool deci_is_zero(const deci a) {
     return (a.m0 == 0) and (a.m1 == 0) and (a.m2 == 0);
 }
 
@@ -425,7 +425,7 @@ inline static void make_comparable(
     *eb = *ea;
 }
 
-REBOOL deci_is_equal(deci a, deci b) {
+bool deci_is_equal(deci a, deci b) {
     int32_t ea = a.e, eb = b.e, ta, tb;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
@@ -449,12 +449,12 @@ REBOOL deci_is_equal(deci a, deci b) {
     else if ((tb == 3) || ((tb == 2) && (sb[0] % 2 == 1))) m_add_1 (sb, 1);
 
     if (m_cmp(3, sa, sb) != 0)
-        return FALSE;
+        return false;
 
     return (a.s == b.s) or m_is_zero(3, sa);
 }
 
-REBOOL deci_is_lesser_or_equal(deci a, deci b) {
+bool deci_is_lesser_or_equal(deci a, deci b) {
     int32_t ea = a.e, eb = b.e, ta, tb;
 
     // Must be compile-time const for '= {...}' style init (-Wc99-extensions)
@@ -472,7 +472,7 @@ REBOOL deci_is_lesser_or_equal(deci a, deci b) {
     sb[3] = 0;
 
     if (a.s && !b.s)
-        return TRUE;
+        return true;
     if (!a.s && b.s)
         return m_is_zero(3, sa) and m_is_zero(3, sb);
 
@@ -790,7 +790,7 @@ deci deci_half_even(deci a, deci b) {
     deci c, d, e, f;
     uint32_t sa[3];
     int32_t ta = 0;
-    REBOOL g;
+    bool g;
 
     c = deci_mod (a, b);
 
@@ -1426,7 +1426,7 @@ deci deci_sign(deci a) {
     if (a.s) return deci_minus_one; else return deci_one;
 }
 
-REBOOL deci_is_same(deci a, deci b) {
+bool deci_is_same(deci a, deci b) {
     if (deci_is_zero (a)) return deci_is_zero (b);
     return (
         (a.m0 == b.m0)

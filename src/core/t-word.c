@@ -60,7 +60,7 @@ REBINT CT_Word(const RELVAL *a, const RELVAL *b, REBINT mode)
         return 1;
     }
     else {
-        diff = Compare_Word(a, b, FALSE);
+        diff = Compare_Word(a, b, false);
         if (mode == -1) e = diff >= 0;
         else e = diff > 0;
     }
@@ -129,7 +129,7 @@ void TO_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  MF_Word: C
 //
-void MF_Word(REB_MOLD *mo, const RELVAL *v, REBOOL form) {
+void MF_Word(REB_MOLD *mo, const RELVAL *v, bool form) {
     UNUSED(form); // no difference between MOLD and FORM at this time
 
     REBSTR *spelling = VAL_WORD_SPELLING(v);

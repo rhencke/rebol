@@ -153,14 +153,14 @@ inline static REBSTR *FLD_NAME(REBFLD *f) {
     return VAL_WORD_SPELLING(FLD_AT(f, IDX_FIELD_NAME));
 }
 
-inline static REBOOL FLD_IS_STRUCT(REBFLD *f) {
+inline static bool FLD_IS_STRUCT(REBFLD *f) {
     if (IS_BLOCK(FLD_AT(f, IDX_FIELD_TYPE)))
-        return TRUE;
+        return true;
 
     // Only top level struct schemas may have NULL names
     //
     assert(FLD_NAME(f) != NULL);
-    return FALSE;
+    return false;
 }
 
 inline static REBSYM FLD_TYPE_SYM(REBFLD *f) {
@@ -169,7 +169,7 @@ inline static REBSYM FLD_TYPE_SYM(REBFLD *f) {
         // We could return SYM_STRUCT_X for structs, but it's probably better
         // to have callers test FLD_IS_STRUCT() separately for clarity.
         //
-        assert(FALSE);
+        assert(false);
         return SYM_STRUCT_X;
     }
 
@@ -182,11 +182,11 @@ inline static REBARR *FLD_FIELDLIST(REBFLD *f) {
     return VAL_ARRAY(FLD_AT(f, IDX_FIELD_TYPE));
 }
 
-inline static REBOOL FLD_IS_ARRAY(REBFLD *f) {
+inline static bool FLD_IS_ARRAY(REBFLD *f) {
     if (IS_BLANK(FLD_AT(f, IDX_FIELD_DIMENSION)))
-        return FALSE;
+        return false;
     assert(IS_INTEGER(FLD_AT(f, IDX_FIELD_DIMENSION)));
-    return TRUE;
+    return true;
 }
 
 inline static REBCNT FLD_DIMENSION(REBFLD *f) {
@@ -310,16 +310,16 @@ inline static REBCNT STU_DATA_LEN(REBSTU *stu) {
     return VAL_STRUCT_DATA_LEN(STU_VALUE(stu));
 }
 
-inline static REBOOL VAL_STRUCT_INACCESSIBLE(const RELVAL *v) {
+inline static bool VAL_STRUCT_INACCESSIBLE(const RELVAL *v) {
     REBSER *data = v->payload.structure.data;
     if (not IS_SER_ARRAY(data))
-        return FALSE; // it's not "external", so never inaccessible
+        return false; // it's not "external", so never inaccessible
 
     RELVAL *handle = ARR_HEAD(ARR(data));
     if (VAL_HANDLE_LEN(handle) != 0)
-        return FALSE; // !!! TBD: double check size is correct for mem block
+        return false; // !!! TBD: double check size is correct for mem block
     
-    return TRUE;
+    return true;
 }
 
 #define VAL_STRUCT_FIELDLIST(v) \
@@ -406,14 +406,14 @@ inline static CFUNC *RIN_CFUNC(REBRIN *r)
 inline static ffi_abi RIN_ABI(REBRIN *r)
     { return cast(ffi_abi, VAL_INT32(RIN_AT(r, IDX_ROUTINE_ABI))); }
 
-inline static REBOOL RIN_IS_CALLBACK(REBRIN *r) {
+inline static bool RIN_IS_CALLBACK(REBRIN *r) {
     if (IS_ACTION(RIN_AT(r, IDX_ROUTINE_ORIGIN)))
-        return TRUE;
+        return true;
     assert(
         IS_LIBRARY(RIN_AT(r, IDX_ROUTINE_ORIGIN))
         || IS_BLANK(RIN_AT(r, IDX_ROUTINE_ORIGIN))
     );
-    return FALSE;
+    return false;
 }
 
 inline static ffi_closure* RIN_CLOSURE(REBRIN *r) {
@@ -450,7 +450,7 @@ inline static ffi_type** RIN_ARG_FFTYPES(REBRIN *r) {
     return VAL_HANDLE_POINTER(ffi_type*, RIN_AT(r, IDX_ROUTINE_ARG_FFTYPES));
 }
 
-inline static REBOOL RIN_IS_VARIADIC(REBRIN *r)
+inline static bool RIN_IS_VARIADIC(REBRIN *r)
     { return VAL_LOGIC(RIN_AT(r, IDX_ROUTINE_IS_VARIADIC)); }
 
 
@@ -477,10 +477,10 @@ extern const REBVAL *PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *
 extern REBINT CT_Struct(const RELVAL *a, const RELVAL *b, REBINT mode);
 extern void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
 extern void TO_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
-extern void MF_Struct(REB_MOLD *mo, const RELVAL *v, REBOOL form);
+extern void MF_Struct(REB_MOLD *mo, const RELVAL *v, bool form);
 
 extern const REBVAL *Routine_Dispatcher(REBFRM *f);
 
-inline static REBOOL IS_ACTION_RIN(const RELVAL *v)
+inline static bool IS_ACTION_RIN(const RELVAL *v)
     { return VAL_ACT_DISPATCHER(v) == &Routine_Dispatcher; }
 

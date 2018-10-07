@@ -94,7 +94,7 @@ REBNATIVE(trap)
     if (not REF(with))
         return error;
 
-    REBOOL handler_threw = Do_Branch_With_Throws(D_OUT, ARG(handler), error);
+    bool handler_threw = Do_Branch_With_Throws(D_OUT, ARG(handler), error);
     rebRelease(error); // Note: auto-released if fail() while handler runs
     UNUSED(handler_threw);
 

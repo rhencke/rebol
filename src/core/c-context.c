@@ -122,7 +122,7 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
 //
 // Returns whether or not the expansion invalidated existing keys.
 //
-REBOOL Expand_Context_Keylist_Core(REBCTX *context, REBCNT delta)
+bool Expand_Context_Keylist_Core(REBCTX *context, REBCNT delta)
 {
     REBARR *keylist = CTX_KEYLIST(context);
 
@@ -161,11 +161,11 @@ REBOOL Expand_Context_Keylist_Core(REBCTX *context, REBCNT delta)
         MANAGE_ARRAY(copy);
         INIT_CTX_KEYLIST_UNIQUE(context, copy);
 
-        return TRUE;
+        return true;
     }
 
     if (delta == 0)
-        return FALSE;
+        return false;
 
     // INIT_CTX_KEYLIST_UNIQUE was used to set this keylist in the
     // context, and no INIT_CTX_KEYLIST_SHARED was used by another context
@@ -174,7 +174,7 @@ REBOOL Expand_Context_Keylist_Core(REBCTX *context, REBCNT delta)
     Extend_Series(SER(keylist), delta);
     TERM_ARRAY_LEN(keylist, ARR_LEN(keylist));
 
-    return FALSE;
+    return false;
 }
 
 
@@ -429,7 +429,7 @@ void Collect_End(struct Reb_Collector *cl)
 void Collect_Context_Keys(
     struct Reb_Collector *cl,
     REBCTX *context,
-    REBOOL check_dups // check for duplicates (otherwise assume unique)
+    bool check_dups // check for duplicates (otherwise assume unique)
 ){
     assert(cl->flags & COLLECT_AS_TYPESET);
 
@@ -583,7 +583,7 @@ REBARR *Collect_Keylist_Managed(
                 0 == (*self_index_out = Find_Canon_In_Context(
                     prior,
                     Canon(SYM_SELF),
-                    TRUE
+                    true
                 ))
             )
         ) {
@@ -619,7 +619,7 @@ REBARR *Collect_Keylist_Managed(
     // Setup binding table with existing words, no need to check duplicates
     //
     if (prior)
-        Collect_Context_Keys(cl, prior, FALSE);
+        Collect_Context_Keys(cl, prior, false);
 
     // Scan for words, adding them to BUF_COLLECT and bind table:
     Collect_Inner_Loop(cl, head);
@@ -1042,12 +1042,12 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
     // Setup binding table and BUF_COLLECT with parent1 words.  Don't bother
     // checking for duplicates, buffer is empty.
     //
-    Collect_Context_Keys(&collector, parent1, FALSE);
+    Collect_Context_Keys(&collector, parent1, false);
 
     // Add parent2 words to binding table and BUF_COLLECT, and since we know
     // BUF_COLLECT isn't empty then *do* check for duplicates.
     //
-    Collect_Context_Keys(&collector, parent2, TRUE);
+    Collect_Context_Keys(&collector, parent2, true);
 
     // Collect_Keys_End() terminates, but Collect_Context_Inner_Loop() doesn't.
     //
@@ -1138,7 +1138,7 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
 
     // We should have gotten a SELF in the results, one way or another.
     //
-    REBCNT self_index = Find_Canon_In_Context(merged, Canon(SYM_SELF), TRUE);
+    REBCNT self_index = Find_Canon_In_Context(merged, Canon(SYM_SELF), true);
     assert(self_index != 0);
     assert(CTX_KEY_SYM(merged, self_index) == SYM_SELF);
     Move_Value(CTX_VAR(merged, self_index), CTX_ARCHETYPE(merged));
@@ -1157,8 +1157,8 @@ void Resolve_Context(
     REBCTX *target,
     REBCTX *source,
     REBVAL *only_words,
-    REBOOL all,
-    REBOOL expand
+    bool all,
+    bool expand
 ) {
     FAIL_IF_READ_ONLY_CONTEXT(target);
 
@@ -1213,7 +1213,7 @@ void Resolve_Context(
         if (n > 0)
             Expand_Context(target, n);
         else
-            expand = FALSE;
+            expand = false;
     }
 
     // Maps a word to its value index in the source context.
@@ -1299,7 +1299,7 @@ void Resolve_Context(
 // Search a context looking for the given canon symbol.  Return the index or
 // 0 if not found.
 //
-REBCNT Find_Canon_In_Context(REBCTX *context, REBSTR *canon, REBOOL always)
+REBCNT Find_Canon_In_Context(REBCTX *context, REBSTR *canon, bool always)
 {
     assert(GET_SER_INFO(canon, STRING_INFO_CANON));
 
@@ -1330,7 +1330,7 @@ REBCNT Find_Canon_In_Context(REBCTX *context, REBSTR *canon, REBOOL always)
 //
 REBVAL *Select_Canon_In_Context(REBCTX *context, REBSTR *canon)
 {
-    const REBOOL always = FALSE;
+    const bool always = false;
     REBCNT n = Find_Canon_In_Context(context, canon, always);
     if (n == 0)
         return NULL;

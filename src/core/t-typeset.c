@@ -148,7 +148,7 @@ void Init_Typeset(RELVAL *value, REBU64 bits, REBSTR *opt_name)
 // will act as WORD!.  Also, is essentially having "keywords" and should be
 // reviewed to see if anything actually used it.
 //
-REBOOL Update_Typeset_Bits_Core(
+bool Update_Typeset_Bits_Core(
     RELVAL *typeset,
     const RELVAL *head,
     REBSPC *specifier
@@ -179,11 +179,11 @@ REBOOL Update_Typeset_Bits_Core(
         // use them.  Since this code is shared by both, it may or may not
         // set typeset flags as a parameter.  Default to always for now.
         //
-        const REBOOL keywords = TRUE;
+        const bool keywords = true;
 
         if (
             keywords && IS_TAG(item) && (
-                0 == Compare_String_Vals(item, Root_Ellipsis_Tag, TRUE)
+                0 == Compare_String_Vals(item, Root_Ellipsis_Tag, true)
             )
         ) {
             // Notational convenience for variadic.
@@ -193,7 +193,7 @@ REBOOL Update_Typeset_Bits_Core(
         }
         else if (
             IS_BAR(item) || (keywords && IS_TAG(item) && (
-                0 == Compare_String_Vals(item, Root_End_Tag, TRUE)
+                0 == Compare_String_Vals(item, Root_End_Tag, true)
             ))
         ) {
             // A BAR! in a typeset spec for functions indicates a tolerance
@@ -205,7 +205,7 @@ REBOOL Update_Typeset_Bits_Core(
         }
         else if (
             IS_BLANK(item) || (keywords && IS_TAG(item) && (
-                0 == Compare_String_Vals(item, Root_Opt_Tag, TRUE)
+                0 == Compare_String_Vals(item, Root_Opt_Tag, true)
             ))
         ) {
             // A BLANK! in a typeset spec for functions indicates a willingness
@@ -226,7 +226,7 @@ REBOOL Update_Typeset_Bits_Core(
         }
         else if (
             keywords && IS_TAG(item) &&
-                0 == Compare_String_Vals(item, Root_Skip_Tag, TRUE)
+                0 == Compare_String_Vals(item, Root_Skip_Tag, true)
         ){
             if (VAL_PARAM_CLASS(typeset) != PARAM_CLASS_HARD_QUOTE)
                 fail ("Only hard-quoted parameters are <skip>-able");
@@ -245,7 +245,7 @@ REBOOL Update_Typeset_Bits_Core(
             fail (Error_Invalid_Core(item, specifier));
     }
 
-    return TRUE;
+    return true;
 }
 
 
@@ -324,7 +324,7 @@ REBARR *Typeset_To_Array(const REBVAL *tset)
 //
 //  MF_Typeset: C
 //
-void MF_Typeset(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Typeset(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     REBINT n;
 
@@ -358,7 +358,7 @@ void MF_Typeset(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         // REVIEW: should detect when a lot of types are active and condense
         // only if the number of types is unreasonable (often for keys/params)
         //
-        if (TRUE) {
+        if (true) {
             Append_Unencoded(mo->series, "...");
             goto skip_types;
         }

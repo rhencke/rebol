@@ -34,7 +34,7 @@
 //
 // Reduce array from the index position specified in the value.
 //
-REBOOL Reduce_To_Stack_Throws(
+bool Reduce_To_Stack_Throws(
     REBVAL *out,
     REBVAL *any_array,
     REBFLGS flags
@@ -49,12 +49,12 @@ REBOOL Reduce_To_Stack_Throws(
     Push_Frame(f, any_array);
 
     while (NOT_END(f->value)) {
-        REBOOL line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
+        bool line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
 
         if (Eval_Step_In_Frame_Throws(out, f)) {
             DS_DROP_TO(dsp_orig);
             Abort_Frame(f);
-            return TRUE;
+            return true;
         }
 
         if (out->header.bits & OUT_MARKED_STALE)
@@ -78,7 +78,7 @@ REBOOL Reduce_To_Stack_Throws(
     }
 
     Drop_Frame_Unbalanced(f); // Drop_Frame() asserts on accumulation
-    return FALSE;
+    return false;
 }
 
 
@@ -210,13 +210,13 @@ static inline const RELVAL *Match_For_Compose(
 // an array also offers more options for avoiding that intermediate if the
 // caller wants to add part or all of the popped data to an existing array.
 //
-REBOOL Compose_To_Stack_Throws(
+bool Compose_To_Stack_Throws(
     REBVAL *out, // if return result is true, will hold the thrown value
     const RELVAL *any_array, // the template
     REBSPC *specifier, // specifier for relative any_array value
     const REBVAL *pattern, // e.g. ()->(match this), [([])]->[([match this])]
-    REBOOL deep, // recurse into sub-blocks
-    REBOOL only // pattern matches that return blocks are kept as blocks
+    bool deep, // recurse into sub-blocks
+    bool only // pattern matches that return blocks are kept as blocks
 ){
     REBDSP dsp_orig = DSP;
 

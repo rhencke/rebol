@@ -138,7 +138,7 @@ void Traced_Eval_Hook(REBFRM * const f)
     //
     uintptr_t saved_flags = f->flags.bits;
 
-    while (TRUE) {
+    while (true) {
         if (not (
             VAL_TYPE_RAW(f->value) == REB_ACTION
             or (Trace_Flags & TRACE_FLAG_FUNCTION)
@@ -176,7 +176,7 @@ void Traced_Eval_Hook(REBFRM * const f)
                     Debug_Fmt_(" : \\\\null\\\\"); // displays as "\\null\\"
                 }
                 else if (IS_ACTION(var)) {
-                    const REBOOL locals = FALSE;
+                    const bool locals = false;
                     const char *type_utf8 = STR_HEAD(Get_Type_Name(var));
                     DECLARE_LOCAL (words);
                     Init_Block(words, List_Func_Words(var, locals));
@@ -269,7 +269,7 @@ const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
     // We can only tell if it's the last phase *before* the apply, because if
     // we check *after* it may change to become the last and need R_REDO_XXX.
     //
-    REBOOL last_phase = (ACT_UNDERLYING(phase) == phase);
+    bool last_phase = (ACT_UNDERLYING(phase) == phase);
 
     const REBVAL *r = Dispatcher_Core(f);
 
@@ -280,7 +280,7 @@ const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
     // this frame's label will still be running, not running under a new name)
     //
     if (VAL_TYPE_RAW(r) == REB_R_REDO) {
-        const REBOOL checked = NOT_VAL_FLAG(r, VALUE_FLAG_FALSEY);
+        const bool checked = NOT_VAL_FLAG(r, VALUE_FLAG_FALSEY);
         if (not checked)
             last_phase = false;
     }
@@ -322,7 +322,7 @@ const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
         else switch (VAL_TYPE_RAW(r)) {
 
         case REB_0_END:
-            assert(FALSE);
+            assert(false);
             break;
 
         case REB_R_INVISIBLE:
@@ -331,7 +331,7 @@ const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
 
         case REB_R_REFERENCE:
         case REB_R_IMMEDIATE:
-            assert(FALSE); // internal use only, shouldn't be returned
+            assert(false); // internal use only, shouldn't be returned
             break;
 
         default: {

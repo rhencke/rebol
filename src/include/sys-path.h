@@ -82,7 +82,7 @@
 #define PVS_PICKER(pvs) \
     FRM_CELL(pvs)
 
-inline static REBOOL Get_Path_Throws_Core(
+inline static bool Get_Path_Throws_Core(
     REBVAL *out,
     const RELVAL *any_path,
     REBSPC *specifier
@@ -120,7 +120,7 @@ inline static void Get_Path_Core(
 }
 
 
-inline static REBOOL Set_Path_Throws_Core(
+inline static bool Set_Path_Throws_Core(
     REBVAL *out,
     const RELVAL *any_path,
     REBSPC *specifier,
@@ -144,7 +144,7 @@ inline static void Set_Path_Core(
     const RELVAL *any_path,
     REBSPC *specifier,
     const REBVAL *setval,
-    REBOOL enfix
+    bool enfix
 ){
     assert(ANY_PATH(any_path)); // *could* work on ANY_ARRAY(), actually
 

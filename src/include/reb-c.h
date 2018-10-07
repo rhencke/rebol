@@ -91,20 +91,25 @@
 
 //=//// EXPECTS <stdbool.h> OR "pstdbool.h" SHIM INCLUDED /////////////////=//
 //
-// It's better than what was previously used, a (REBOOL)cast_of_expression.
+// It's better than what was previously used, a (bool)cast_of_expression.
 // And it makes it much safer to use ordinary `&` operations to test for
 // flags, more succinctly even:
 //
-//     REBOOL b = GET_FLAG(flags, SOME_FLAG_ORDINAL);
-//     REBOOL b = !GET_FLAG(flags, SOME_FLAG_ORDINAL);
+//     bool b = GET_FLAG(flags, SOME_FLAG_ORDINAL);
+//     bool b = !GET_FLAG(flags, SOME_FLAG_ORDINAL);
 //
 // vs.
 //
-//     REBOOL b = did (flags & SOME_FLAG_BITWISE); // 3 fewer chars
-//     REBOOL b = not (flags & SOME_FLAG_BITWISE); // 4 fewer chars
+//     bool b = did (flags & SOME_FLAG_BITWISE); // 3 fewer chars
+//     bool b = not (flags & SOME_FLAG_BITWISE); // 4 fewer chars
 //
 // (Bitwise vs. ordinal also permits initializing options by just |'ing them.)
-
+//
+// !!! Historically Rebol used TRUE and FALSE uppercase macros, but so long
+// as C99 has added bool to the language, there's not much point in being
+// compatible with codebases that have `char* true = "Spandau";` or similar
+// in them.  So Rebol can use `true` and `false.
+//
 #ifdef __cplusplus
   #if defined(_MSC_VER)
     #include <iso646.h> // MSVC doesn't have `and`, `not`, etc. w/o this
@@ -136,35 +141,6 @@
 // A 12th macro: http://blog.hostilefork.com/did-programming-opposite-of-not/
 //
 #define did !!
-
-typedef bool REBOOL;
-
-// !!! Historically Rebol used TRUE and FALSE uppercase macros, but so long
-// as C99 has added bool to the language, there's not much point in being
-// compatible with codebases that have `char* true = "Spandau";` or similar
-// in them.  So Rebol can use `true` and `false`, but there are still a lot
-// of instances of TRUE and FALSE, which will be removed when convenient (a
-// time that won't cause many merge conflicts).
-
-#if (defined(FALSE) && (!FALSE)) && (defined(TRUE) && TRUE)
-    #if defined(TO_WINDOWS) && !((FALSE == 0) && (TRUE == 1))
-        //
-        // The Windows API specifically mandates the value of TRUE as 1.
-        // If you are compiling on Windows with something that has
-        // predefined the constant as some other value, it will be
-        // inconsistent...and won't work out.
-        //
-        #error "Compiler's FALSE != 0 or TRUE != 1, invalid for Win32"
-    #else
-        // Outside of Win32, assume any C truthy/falsey definition that
-        // the compiler favors is all right.
-    #endif
-#elif !defined(FALSE) && !defined(TRUE)
-    #define FALSE false
-    #define TRUE true
-#else
-    #error "TRUE and FALSE are defined but are not their logic meanings"
-#endif
 
 
 //=//// CPLUSPLUS_11 PREPROCESSOR DEFINE //////////////////////////////////=//
@@ -576,14 +552,14 @@ typedef bool REBOOL;
         }
 
         template<class T>
-        inline static REBOOL IS_POINTER_TRASH_DEBUG(T* p) {
+        inline static bool IS_POINTER_TRASH_DEBUG(T* p) {
             return (
                 p == reinterpret_cast<T*>(static_cast<uintptr_t>(0xDECAFBAD))
             );
         }
 
         template<class T>
-        inline static REBOOL IS_CFUNC_TRASH_DEBUG(T* p) {
+        inline static bool IS_CFUNC_TRASH_DEBUG(T* p) {
             return (
                 p == reinterpret_cast<T*>(static_cast<uintptr_t>(0xDECAFBAD))
             );

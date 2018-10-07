@@ -169,7 +169,7 @@ STD_TERM *Init_Terminal(void)
     term->residue = cast(unsigned char*, malloc(sizeof(char) * TERM_BUF_LEN));
     term->residue[0] = 0;
 
-    Term_Initialized = TRUE;
+    Term_Initialized = true;
 
     return term;
 }
@@ -207,7 +207,7 @@ void Quit_Terminal(STD_TERM *term)
 //  Read_Bytes_Interrupted: C
 //
 // Read the next "chunk" of data into the terminal buffer.  If it gets
-// interrupted then return TRUE, else FALSE.
+// interrupted then return true, else false.
 //
 // Note that The read of bytes might end up getting only part of an encoded
 // UTF-8 character.  But it's known how many bytes are expected from the
@@ -236,7 +236,7 @@ static bool Read_Bytes_Interrupted(STD_TERM *term, unsigned char *buf, int len)
     else {
         if ((len = read(0, buf, len)) < 0) {
             if (errno == EINTR)
-                return TRUE; // Ctrl-C or similar, see sigaction()/SIGINT
+                return true; // Ctrl-C or similar, see sigaction()/SIGINT
 
             WRITE_STR("\r\nI/O terminated\r\n");
             Quit_Terminal(term); // something went wrong
@@ -246,7 +246,7 @@ static bool Read_Bytes_Interrupted(STD_TERM *term, unsigned char *buf, int len)
 
     buf[len] = '\0';
 
-    return FALSE; // not interrupted, note we could return `len` if needed
+    return false; // not interrupted, note we could return `len` if needed
 }
 
 
@@ -758,7 +758,7 @@ restart:;
                     Unrecognized_Key_Sequence(cp - 2);
                     goto restart;
                 }
-                Delete_Char(term, FALSE);
+                Delete_Char(term, false);
                 ++cp; // remove 3, the ~ is consumed after the switch
                 break;
 
@@ -813,7 +813,7 @@ restart:;
                 break;
 
               case '\0':
-                assert(FALSE); // plain escape handled earlier for clarity
+                assert(false); // plain escape handled earlier for clarity
                 goto unrecognized;
 
               unrecognized:;
@@ -832,30 +832,32 @@ restart:;
         // https://ss64.com/bash/syntax-keyboard.html
         //
         switch (*cp) {
-        case BS: // backspace (C0)
-        case DEL: // delete (C0)
-            Delete_Char(term, TRUE);
+          case BS: // backspace (C0)
+          case DEL: // delete (C0)
+            Delete_Char(term, true);
             break;
 
-        case CR: // carriage return (C0)
+          case CR: // carriage return (C0)
             if (cp[1] == LF)
                 ++cp; // disregard the CR character, else treat as LF
-            /* falls through */
-        case LF: // line feed (C0)
+            goto line_feed;
+
+          line_feed:;
+          case LF: // line feed (C0)
             WRITE_STR("\r\n");
             Store_Line(term);
             ++cp;
             goto line_end_reached;
 
-        case 1: // CTRL-A, Beginning of Line (bash)
+          case 1: // CTRL-A, Beginning of Line (bash)
             Home_Line(term);
             break;
 
-        case 2: // CTRL-B, Backward One Character (bash)
+          case 2: // CTRL-B, Backward One Character (bash)
             Move_Cursor(term, -1);
             break;
 
-        case 3: // CTRL-C, Interrupt (ANSI, <signal.h> is standard C)
+          case 3: // CTRL-C, Interrupt (ANSI, <signal.h> is standard C)
             //
             // It's theoretically possible to clear the termios `c_lflag` ISIG
             // in order to receive literal Ctrl-C, but we don't want to get
@@ -867,7 +869,7 @@ restart:;
                 rebEND
             );
 
-        case 4: // CTRL-D, Synonym for Cancel Input (Windows Terminal Garbage)
+          case 4: // CTRL-D, Synonym for Cancel Input (Windows Terminal Garbage)
             //
             // !!! In bash this is "Delete Character Under the Cursor".  But
             // the Windows Terminal forces our hands to not use Escape for
@@ -882,21 +884,21 @@ restart:;
             // much manual code as this POSIX version does.
             //
           #if 0
-            Delete_Char(term, FALSE);
+            Delete_Char(term, false);
             break
           #else
             goto return_blank;
           #endif
 
-        case 5: // CTRL-E, End of Line (bash)
+          case 5: // CTRL-E, End of Line (bash)
             End_Line(term);
             break;
 
-        case 6: // CTRL-F, Forward One Character (bash)
+          case 6: // CTRL-F, Forward One Character (bash)
             Move_Cursor(term, 1);
             break;
 
-        default:
+          default:
             Unrecognized_Key_Sequence(cp);
             goto restart;
         }

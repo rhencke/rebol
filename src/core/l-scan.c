@@ -542,7 +542,7 @@ const REBYTE *Scan_Item_Push_Mold(
             c = '/';
         }
         else if (c == '%') { // Accept %xx encoded char:
-            const REBOOL unicode = FALSE;
+            const bool unicode = false;
             if (!Scan_Hex2(&c, bp + 1, unicode))
                 return NULL;
             bp += 2;
@@ -807,7 +807,7 @@ static REBCNT Prescan_Token(SCAN_STATE *ss)
     while (IS_LEX_SPACE(*cp)) cp++;
     ss->begin = cp;
 
-    while (TRUE) {
+    while (true) {
         switch (GET_LEX_CLASS(*cp)) {
 
         case LEX_CLASS_DELIMIT:
@@ -996,7 +996,7 @@ acquisition_loop:
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
 
             if (ss->newline_pending) {
-                ss->newline_pending = FALSE;
+                ss->newline_pending = false;
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
 
@@ -1047,7 +1047,7 @@ acquisition_loop:
             }
 
             if (ss->newline_pending) {
-                ss->newline_pending = FALSE;
+                ss->newline_pending = false;
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
 
@@ -1763,7 +1763,7 @@ void Init_Va_Scan_State_Core(
     ss->start_line = ss->line = line;
     ss->file = file;
 
-    ss->newline_pending = FALSE;
+    ss->newline_pending = false;
 
     ss->opts = 0;
 
@@ -1804,7 +1804,7 @@ void Init_Scan_State(
 
     ss->start_line = ss->line = line;
 
-    ss->newline_pending = FALSE;
+    ss->newline_pending = false;
 
     ss->file = file;
     ss->opts = 0;
@@ -1843,7 +1843,7 @@ static REBINT Scan_Head(SCAN_STATE *ss)
     const REBYTE *cp = ss->begin;
     REBCNT count = ss->line;
 
-    while (TRUE) {
+    while (true) {
         while (IS_LEX_SPACE(*cp)) cp++; /* skip white space */
         switch (*cp) {
         case '[':
@@ -1910,7 +1910,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
     if (C_STACK_OVERFLOWING(&mo))
         Fail_Stack_Overflow();
 
-    const REBOOL just_once = did (ss->opts & SCAN_FLAG_NEXT);
+    const bool just_once = did (ss->opts & SCAN_FLAG_NEXT);
     if (just_once)
         ss->opts &= ~SCAN_FLAG_NEXT; // e.g. recursion loads one entire BLOCK!
 
@@ -1932,7 +1932,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         switch (ss->token) {
 
         case TOKEN_NEWLINE:
-            ss->newline_pending = TRUE;
+            ss->newline_pending = true;
             ss->line_head = ep;
             continue;
 
@@ -2103,7 +2103,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 fail (Error_Syntax(ss));
 
             DS_PUSH_TRASH;
-            if (ep != Scan_Decimal(DS_TOP, bp, len, FALSE))
+            if (ep != Scan_Decimal(DS_TOP, bp, len, false))
                 fail (Error_Syntax(ss));
 
             if (bp[len - 1] == '%') {
@@ -2452,7 +2452,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         // whole array...not the first element of it).
         //
         if (ss->newline_pending) {
-            ss->newline_pending = FALSE;
+            ss->newline_pending = false;
             SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
         }
 
@@ -2552,7 +2552,7 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char)
     //
     child.start_line = ss->line;
     child.start_line_head = ss->line_head;
-    child.newline_pending = FALSE;
+    child.newline_pending = false;
     child.opts &= ~(SCAN_FLAG_NULLEDS_LEGAL | SCAN_FLAG_NEXT);
 
     // The way that path scanning works is that after one item has been
@@ -2608,7 +2608,7 @@ static REBARR *Scan_Child_Array(SCAN_STATE *ss, REBYTE mode_char)
 //
 static REBARR *Scan_Full_Array(SCAN_STATE *ss, REBYTE mode_char)
 {
-    REBOOL saved_only = did (ss->opts & SCAN_FLAG_ONLY);
+    bool saved_only = did (ss->opts & SCAN_FLAG_ONLY);
     ss->opts &= ~SCAN_FLAG_ONLY;
 
     REBARR *array = Scan_Child_Array(ss, mode_char);

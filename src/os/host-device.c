@@ -102,7 +102,7 @@ static int Poll_Default(REBDEV *dev)
     // The default polling function for devices.
     // Retries pending requests. Return TRUE if status changed.
 
-    REBOOL change = FALSE;
+    bool change = false;
 
     REBREQ **prior = &dev->pending;
     REBREQ *req;
@@ -118,14 +118,14 @@ static int Poll_Default(REBDEV *dev)
             *prior = req->next;
             req->next = 0;
             req->flags &= ~RRF_PENDING;
-            change = TRUE;
+            change = true;
         }
         else {
             assert(result == DR_PEND);
 
             prior = &req->next;
             if (req->flags & RRF_ACTIVE)
-                change = TRUE;
+                change = true;
         }
     }
 
@@ -287,7 +287,7 @@ REBVAL *OS_Do_Device(REBREQ *req, int command)
     if (dev->pending)
         Detach_Request(&dev->pending, req); // often a no-op
 
-    return rebLogic(TRUE);
+    return rebLogic(true);
 }
 
 

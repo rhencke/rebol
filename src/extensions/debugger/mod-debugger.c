@@ -92,11 +92,11 @@ static REBNATIVE(init_debugger)
 
 // Forward-definition so that BREAKPOINT and RESUME can call it
 //
-REBOOL Do_Breakpoint_Throws(
+bool Do_Breakpoint_Throws(
     REBVAL *out,
-    REBOOL interrupted, // Ctrl-C (as opposed to a BREAKPOINT)
+    bool interrupted, // Ctrl-C (as opposed to a BREAKPOINT)
     const REBVAL *default_value,
-    REBOOL do_default
+    bool do_default
 );
 
 
@@ -115,9 +115,9 @@ static REBNATIVE(breakpoint)
 {
     if (Do_Breakpoint_Throws(
         D_OUT,
-        FALSE, // not a Ctrl-C, it's an actual BREAKPOINT
+        false, // not a Ctrl-C, it's an actual BREAKPOINT
         NULLED_CELL, // default result if RESUME does not override
-        FALSE // !execute (don't try to evaluate the NULLED_CELL)
+        false // !execute (don't try to evaluate the NULLED_CELL)
     )){
         return D_OUT;
     }
@@ -153,9 +153,9 @@ static REBNATIVE(pause)
 
     if (Do_Breakpoint_Throws(
         D_OUT,
-        FALSE, // not a Ctrl-C, it's an actual BREAKPOINT
+        false, // not a Ctrl-C, it's an actual BREAKPOINT
         ARG(code), // default result if RESUME does not override
-        TRUE // execute (run the GROUP! as code, don't return as-is)
+        true // execute (run the GROUP! as code, don't return as-is)
     )){
         return D_OUT;
     }
@@ -186,10 +186,10 @@ static REBNATIVE(pause)
 REBFRM *Frame_For_Stack_Level(
     REBCNT *number_out,
     const REBVAL *level,
-    REBOOL skip_current
+    bool skip_current
 ) {
     REBFRM *frame = FS_TOP;
-    REBOOL first = TRUE;
+    bool first = true;
     REBINT num = 0;
 
     if (IS_INTEGER(level)) {
@@ -227,7 +227,7 @@ REBFRM *Frame_For_Stack_Level(
             continue;
         }
 
-        REBOOL pending = Is_Action_Frame_Fulfilling(frame);
+        bool pending = Is_Action_Frame_Fulfilling(frame);
         if (not pending) {
             if (first) {
                 REBACT *phase = FRM_PHASE(frame);
@@ -241,7 +241,7 @@ REBFRM *Frame_For_Stack_Level(
                     if (IS_INTEGER(level) && num == VAL_INT32(level))
                         goto return_maybe_set_number_out;
                     else {
-                        first = FALSE;
+                        first = false;
                         continue;
                     }
                 }
@@ -251,9 +251,10 @@ REBFRM *Frame_For_Stack_Level(
             }
         }
 
-        first = FALSE;
+        first = false;
 
-        if (pending) continue;
+        if (pending)
+            continue;
 
         if (IS_INTEGER(level) && num == VAL_INT32(level))
             goto return_maybe_set_number_out;
@@ -372,7 +373,7 @@ static REBNATIVE(resume)
         // `level` is currently allowed to be anything that backtrace can
         // handle (integers, functions for most recent call, literal FRAME!)
 
-        if (!(frame = Frame_For_Stack_Level(NULL, ARG(level), TRUE)))
+        if (!(frame = Frame_For_Stack_Level(NULL, ARG(level), true)))
             fail (Error_Invalid(ARG(level)));
 
         // !!! It's possible to specify a context to return at which is
@@ -436,9 +437,9 @@ static REBNATIVE(resume)
 // This hook is registered with the core as the function that gets called
 // when a breakpoint triggers.
 //
-// There are only two options for leaving the hook.  One is to return TRUE
+// There are only two options for leaving the hook.  One is to return true
 // and thus signal a QUIT, where `instruction` is the value to quit /WITH.
-// The other choice is to return FALSE, where `instruction` is a purposefully
+// The other choice is to return false, where `instruction` is a purposefully
 // constructed "resume instruction".
 //
 // (Note: See remarks in the implementation of `REBNATIVE(resume)` for the
@@ -460,9 +461,9 @@ static REBNATIVE(resume)
 // Note that RESUME/DO provides a loophole, where it's possible to run code
 // that performs a THROW or FAIL which is not trapped by the sandbox.
 //
-REBOOL Host_Breakpoint_Quitting_Hook(
+bool Host_Breakpoint_Quitting_Hook(
     REBVAL *instruction_out,
-    REBOOL interrupted
+    bool interrupted
 ){
     UNUSED(interrupted); // not passed to the REPL, should it be?
 
@@ -475,7 +476,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
     DECLARE_LOCAL (level);
     Init_Integer(level, 1);
 
-    if (Frame_For_Stack_Level(NULL, level, FALSE) != NULL)
+    if (Frame_For_Stack_Level(NULL, level, false) != NULL)
         HG_Stack_Level = 1;
     else
         HG_Stack_Level = 0; // Happens if you just type "breakpoint"
@@ -497,7 +498,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
 
     PUSH_GC_GUARD(frame);
 
-    while (TRUE) {
+    while (true) {
     loop:
         //
         // When we're stopped at a breakpoint, then the REPL has a modality to
@@ -507,12 +508,12 @@ REBOOL Host_Breakpoint_Quitting_Hook(
 
         Init_Integer(level, HG_Stack_Level);
 
-        REBFRM *f = Frame_For_Stack_Level(NULL, level, FALSE);
+        REBFRM *f = Frame_For_Stack_Level(NULL, level, false);
         assert(f != NULL);
 
         Init_Frame(frame, Context_For_Frame_May_Manage(f));
 
-        const REBOOL fully = TRUE; // error if not all arguments consumed
+        const bool fully = true; // error if not all arguments consumed
 
         // Generally speaking, we do not want the trace level to apply to the
         // REPL execution itself.
@@ -596,7 +597,7 @@ REBOOL Host_Breakpoint_Quitting_Hook(
                 // It would be frustrating if the system did not respond
                 // to QUIT and forced you to do `resume/with [quit]`.  So
                 // this is *not* caught, rather signaled to the calling core
-                // by returning TRUE from the hook.
+                // by returning true from the hook.
                 //
                 DROP_TRAP_SAME_STACKLEVEL_AS_PUSH(&state);
                 CATCH_THROWN(instruction_out, instruction_out);
@@ -639,7 +640,7 @@ cleanup_and_return:
     // but conveyed here through `last_failed`, which has already been
     // dynamically allocated to avoid the warning.
     //
-    REBOOL quitting = VAL_LOGIC(*last_failed);
+    bool quitting = VAL_LOGIC(*last_failed);
     free(m_cast(REBVAL**, last_failed)); // pointer to mutable in free(), C++
     assert(THROWN(instruction_out) || quitting);
     return quitting;
@@ -659,11 +660,11 @@ cleanup_and_return:
 // simulate a return /AT a function *further up the stack*.  (This may be
 // switched to a feature of a "step out" command at some point.)
 //
-REBOOL Do_Breakpoint_Throws(
+bool Do_Breakpoint_Throws(
     REBVAL *out,
-    REBOOL interrupted, // Ctrl-C (as opposed to a BREAKPOINT)
+    bool interrupted, // Ctrl-C (as opposed to a BREAKPOINT)
     const REBVAL *default_value,
-    REBOOL do_default
+    bool do_default
 ){
     const REBVAL *target = BLANK_VALUE;
 
@@ -673,7 +674,7 @@ REBOOL Do_Breakpoint_Throws(
     // inadvertent FAILs or THROWs occur during the interactive session.
     // Only a conscious call of RESUME speaks the protocol to break the loop.
     //
-    while (TRUE) {
+    while (true) {
         struct Reb_State state;
         REBCTX *error;
 
@@ -712,17 +713,17 @@ REBOOL Do_Breakpoint_Throws(
         DECLARE_LOCAL (inst);
         if (Host_Breakpoint_Quitting_Hook(inst, interrupted)) {
             //
-            // If a breakpoint hook returns TRUE that means it wants to quit.
+            // If a breakpoint hook returns true that means it wants to quit.
             // The value should be the /WITH value (as in QUIT/WITH), so
             // not actually a "resume instruction" in this case.
             //
             assert(!THROWN(inst));
             Move_Value(out, NAT_VALUE(quit));
             CONVERT_NAME_TO_THROWN(out, inst);
-            return TRUE; // TRUE = threw
+            return true; // threw
         }
 
-        // If a breakpoint handler returns FALSE, then it should have passed
+        // If a breakpoint handler returns false, then it should have passed
         // back a "resume instruction" triggered by a call like:
         //
         //     resume/do [fail "This is how to fail from a breakpoint"]
@@ -735,7 +736,7 @@ REBOOL Do_Breakpoint_Throws(
         // Decode and process the "resume instruction"
 
         #if !defined(NDEBUG)
-            REBOOL found = FALSE;
+            bool found = false;
         #endif
 
         assert(THROWN(inst) && IS_ACTION(inst));
@@ -786,7 +787,7 @@ REBOOL Do_Breakpoint_Throws(
                 //
                 Move_Value(out, resume_native);
                 CONVERT_NAME_TO_THROWN(out, inst);
-                return TRUE; // TRUE = thrown
+                return true; // threw
             }
 
             // If the frame were the one we were looking for, it would be
@@ -800,7 +801,7 @@ REBOOL Do_Breakpoint_Throws(
                 // need to retransmit.
                 //
             #if !defined(NDEBUG)
-                found = TRUE;
+                found = true;
             #endif
                 break;
             }
@@ -836,7 +837,7 @@ REBOOL Do_Breakpoint_Throws(
                 // Just act as if the BREAKPOINT call itself threw
                 //
                 Move_Value(out, temp);
-                return TRUE; // TRUE = thrown
+                return true; // threw
             }
 
             // Ordinary evaluation result...
@@ -864,7 +865,7 @@ return_default:
             // to add support for DO-ing at the receiving point.
             //
             Move_Value(out, temp);
-            return TRUE; // TRUE = thrown
+            return true; // threw
         }
     }
     else
@@ -883,7 +884,7 @@ return_temp:
     // they can do so just as well as ACTION! can.
     //
     Make_Thrown_Unwind_Value(out, target, temp, NULL);
-    return TRUE; // TRUE = thrown
+    return true; // threw
 }
 
 
@@ -904,7 +905,7 @@ static REBNATIVE(backtrace_index)
 
     REBCNT number;
 
-    if (Frame_For_Stack_Level(&number, ARG(level), TRUE))
+    if (Frame_For_Stack_Level(&number, ARG(level), true))
         return Init_Integer(D_OUT, number);
 
     return nullptr;
@@ -966,10 +967,10 @@ static REBNATIVE(debug)
     if (IS_INTEGER(value) || IS_FRAME(value) || IS_ACTION(value)) {
         REBFRM *frame;
 
-        // We pass TRUE here to account for an extra stack level... the one
+        // We pass true here to account for an extra stack level... the one
         // added by DEBUG itself, which presumably should not count.
         //
-        if (!(frame = Frame_For_Stack_Level(&HG_Stack_Level, value, TRUE)))
+        if (!(frame = Frame_For_Stack_Level(&HG_Stack_Level, value, true)))
             fail (Error_Invalid(value));
 
         Init_Near_For_Frame(D_OUT, frame);

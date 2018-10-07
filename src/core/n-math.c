@@ -58,7 +58,7 @@ enum {SINE, COSINE, TANGENT};
 // Convert integer arg, if present, to decimal and convert to radians
 // if necessary.  Clip ranges for correct REBOL behavior.
 //
-static REBDEC Trig_Value(const REBVAL *value, REBOOL radians, REBCNT which)
+static REBDEC Trig_Value(const REBVAL *value, bool radians, REBCNT which)
 {
     REBDEC dval = AS_DECIMAL(value);
 
@@ -85,7 +85,7 @@ static REBDEC Trig_Value(const REBVAL *value, REBOOL radians, REBCNT which)
 //
 //  Arc_Trans: C
 //
-static void Arc_Trans(REBVAL *out, const REBVAL *value, REBOOL radians, REBCNT kind)
+static void Arc_Trans(REBVAL *out, const REBVAL *value, bool radians, REBCNT kind)
 {
     REBDEC dval = AS_DECIMAL(value);
     if (kind != TANGENT and (dval < -1 || dval > 1))
@@ -851,7 +851,7 @@ REBNATIVE(maximum)
     const REBVAL *value2 = ARG(value2);
 
     if (IS_PAIR(value1) || IS_PAIR(value2)) {
-        Min_Max_Pair(D_OUT, value1, value2, TRUE);
+        Min_Max_Pair(D_OUT, value1, value2, true);
     }
     else {
         DECLARE_LOCAL (coerced1);
@@ -885,7 +885,7 @@ REBNATIVE(minimum)
     const REBVAL *value2 = ARG(value2);
 
     if (IS_PAIR(ARG(value1)) || IS_PAIR(ARG(value2))) {
-        Min_Max_Pair(D_OUT, ARG(value1), ARG(value2), FALSE);
+        Min_Max_Pair(D_OUT, ARG(value1), ARG(value2), false);
     }
     else {
         DECLARE_LOCAL (coerced1);

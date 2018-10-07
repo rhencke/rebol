@@ -708,11 +708,11 @@ ConversionResult ConvertUTF8toUTF32 (
 //
 //  Legal_UTF8_Char: C
 //
-// Returns TRUE if char is legal.
+// Returns true if char is legal.
 //
 // !!! Not currently used.
 //
-REBOOL Legal_UTF8_Char(const REBYTE *str, REBCNT len)
+bool Legal_UTF8_Char(const REBYTE *str, REBCNT len)
 {
     return did isLegalUTF8Sequence(str, str + len); // different Boolean
 }

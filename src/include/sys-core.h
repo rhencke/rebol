@@ -257,7 +257,7 @@
 
 #if defined(NDEBUG) || !defined(DEBUG_COUNT_TICKS)
     #define SPORADICALLY(modulus) \
-        FALSE
+        false
 #else
     #define SPORADICALLY(modulus) \
         (TG_Tick % modulus == 0)
@@ -315,10 +315,10 @@ typedef struct rebol_stats {
 
 //-- Options of various kinds:
 typedef struct rebol_opts {
-    REBOOL  watch_recycle;
-    REBOOL  watch_series;
-    REBOOL  watch_expand;
-    REBOOL  crash_dump;
+    bool  watch_recycle;
+    bool  watch_series;
+    bool  watch_expand;
+    bool  crash_dump;
 } REB_OPTS;
 
 
@@ -364,16 +364,16 @@ enum {
 
 // Breakpoint hook callback, signature:
 //
-//     REBOOL Do_Breakpoint_Throws(
+//     bool Do_Breakpoint_Throws(
 //         REBVAL *out,
-//         REBOOL interrupted, // Ctrl-C (as opposed to a BREAKPOINT)
+//         bool interrupted, // Ctrl-C (as opposed to a BREAKPOINT)
 //         const REBVAL *default_value,
-//         REBOOL do_default
+//         bool do_default
 //      );
 //
 // Typically, the handler will be set up to dispatch back into the REPL.
 //
-typedef REBOOL (*REBBRK)(REBVAL *, REBOOL, const REBVAL*, REBOOL);
+typedef bool (*REBBRK)(REBVAL *, bool, const REBVAL*, bool);
 
 
 // Flags used for Protect functions

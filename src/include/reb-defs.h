@@ -192,7 +192,7 @@ typedef void (*TO_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
 //
 struct rebol_mold;
 typedef struct rebol_mold REB_MOLD;
-typedef void (*MOLD_CFUNC)(REB_MOLD *mo, const RELVAL *v, REBOOL form);
+typedef void (*MOLD_CFUNC)(REB_MOLD *mo, const RELVAL *v, bool form);
 
 
 // These definitions are needed in %sys-rebval.h, and can't be put in

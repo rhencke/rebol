@@ -52,7 +52,7 @@ void MAKE_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     assert(kind == REB_PORT);
     UNUSED(kind);
 
-    const REBOOL fully = TRUE; // error if not all arguments consumed
+    const bool fully = true; // error if not all arguments consumed
 
     REBVAL *make_port_helper = CTX_VAR(Sys_Context, SYS_CTX_MAKE_PORT_P);
     assert(IS_ACTION(make_port_helper));

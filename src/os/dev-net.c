@@ -95,28 +95,29 @@ static void Get_Local_IP(struct devreq_net *sock)
     sock->local_port = ntohs(sa.sin_port);
 }
 
-static REBOOL Set_Sock_Options(SOCKET sock)
+static bool Set_Sock_Options(SOCKET sock)
 {
-    // Prevent sendmsg/write raising SIGPIPE the TCP socket is closed:
+  #if defined(SO_NOSIGPIPE)
+    //
+    // Prevent sendmsg/write raising SIGPIPE if the TCP socket is closed:
     // https://stackoverflow.com/q/108183/
-#if defined(SO_NOSIGPIPE)
+    //
     int on = 1;
     if (setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on)) < 0) {
-        return FALSE;
+        return false;
     }
-#endif
+  #endif
 
     // Set non-blocking mode. Return TRUE if no error.
-#ifdef FIONBIO
+  #ifdef FIONBIO
     unsigned long mode = 1;
-    return not IOCTL(sock, FIONBIO, &mode);
-#else
+    return IOCTL(sock, FIONBIO, &mode) == 0;
+  #else
     int flags;
     flags = fcntl(sock, F_GETFL, 0);
     flags |= O_NONBLOCK;
-    //else flags &= ~O_NONBLOCK;
     return fcntl(sock, F_SETFL, flags) >= 0;
-#endif
+  #endif
 }
 
 

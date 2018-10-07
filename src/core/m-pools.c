@@ -233,7 +233,7 @@ void Startup_Pools(REBINT scale)
     if (PG_Always_Malloc) {
         printf(
             "**\n" \
-            "** R3_ALWAYS_MALLOC is TRUE in environment variable!\n" \
+            "** R3_ALWAYS_MALLOC is nonzero in environment variable!\n" \
             "** (Or hardcoded PG_Always_Malloc = true in initialization)\n" \
             "** Memory allocations aren't pooled, expect slowness...\n" \
             "**\n"
@@ -713,7 +713,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 
     REBYTE wide = SER_WIDE(s);
 
-    const REBOOL was_dynamic = IS_SER_DYNAMIC(s);
+    const bool was_dynamic = IS_SER_DYNAMIC(s);
 
     if (was_dynamic and index == 0 and SER_BIAS(s) >= delta) {
 
@@ -947,7 +947,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
     //
     assert((flags & ~(NODE_FLAG_NODE | SERIES_FLAG_POWER_OF_2)) == 0);
 
-    REBOOL preserve = did (flags & NODE_FLAG_NODE);
+    bool preserve = did (flags & NODE_FLAG_NODE);
 
     REBCNT len_old = SER_LEN(s);
     REBYTE wide_old = SER_WIDE(s);
@@ -959,7 +959,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
 
     assert(NOT_SER_FLAG(s, SERIES_FLAG_FIXED_SIZE));
 
-    REBOOL was_dynamic = IS_SER_DYNAMIC(s);
+    bool was_dynamic = IS_SER_DYNAMIC(s);
 
     REBINT bias_old;
     REBINT size_old;
@@ -1347,7 +1347,7 @@ REBCNT Check_Memory_Debug(void)
 
             ++pool_free_nodes;
 
-            REBOOL found = FALSE;
+            bool found = false;
             seg = Mem_Pools[pool_num].segs;
             for (; seg != NULL; seg = seg->next) {
                 if (
@@ -1362,7 +1362,7 @@ REBCNT Check_Memory_Debug(void)
                         panic (node);
                     }
 
-                    found = TRUE;
+                    found = true;
                 }
             }
 
@@ -1504,7 +1504,7 @@ void Dump_Pools(void)
 // users".  Its purpose is to calculate the total amount of memory currently
 // in use by series, but it could also print out a breakdown of categories.
 //
-REBU64 Inspect_Series(REBOOL show)
+REBU64 Inspect_Series(bool show)
 {
     REBCNT segs = 0;
     REBCNT tot = 0;

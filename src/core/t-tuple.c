@@ -121,7 +121,7 @@ void MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
             fail (arg); // valid even for UTF-8
         VAL_TUPLE_LEN(out) = size;
         for (alen = 0; alen < size; alen++) {
-            const REBOOL unicode = FALSE;
+            const bool unicode = false;
             REBUNI ch;
             if (!Scan_Hex2(&ch, ap, unicode))
                 fail (Error_Invalid(arg));
@@ -278,7 +278,7 @@ const REBVAL *PD_Tuple(
 //
 //  MF_Tuple: C
 //
-void MF_Tuple(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Tuple(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 

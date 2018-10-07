@@ -32,7 +32,7 @@
 
 
 
-static REBOOL Equal_Context(const RELVAL *val, const RELVAL *arg)
+static bool Equal_Context(const RELVAL *val, const RELVAL *arg)
 {
     REBCTX *f1;
     REBCTX *f2;
@@ -44,14 +44,16 @@ static REBOOL Equal_Context(const RELVAL *val, const RELVAL *arg)
     // ERROR! and OBJECT! may both be contexts, for instance, but they will
     // not compare equal just because their keys and fields are equal
     //
-    if (VAL_TYPE(arg) != VAL_TYPE(val)) return FALSE;
+    if (VAL_TYPE(arg) != VAL_TYPE(val))
+        return false;
 
     f1 = VAL_CONTEXT(val);
     f2 = VAL_CONTEXT(arg);
 
     // Short circuit equality: `same?` objects always equal
     //
-    if (f1 == f2) return TRUE;
+    if (f1 == f2)
+        return true;
 
     // We can't short circuit on unequal frame lengths alone, because hidden
     // fields of objects (notably `self`) do not figure into the `equal?`
@@ -87,21 +89,21 @@ static REBOOL Equal_Context(const RELVAL *val, const RELVAL *arg)
 
         // Do ordinary comparison of the typesets
         //
-        if (Cmp_Value(key1, key2, FALSE) != 0)
-            return FALSE;
+        if (Cmp_Value(key1, key2, false) != 0)
+            return false;
 
         // The typesets contain a symbol as well which must match for
         // objects to consider themselves to be equal (but which do not
         // count in comparison of the typesets)
         //
         if (VAL_KEY_CANON(key1) != VAL_KEY_CANON(key2))
-            return FALSE;
+            return false;
 
         // !!! A comment here said "Use Compare_Modify_Values();"...but it
         // doesn't... it calls Cmp_Value (?)
         //
-        if (Cmp_Value(var1, var2, FALSE) != 0)
-            return FALSE;
+        if (Cmp_Value(var1, var2, false) != 0)
+            return false;
     }
 
     // Either key1 or key2 is at the end here, but the other might contain
@@ -110,14 +112,14 @@ static REBOOL Equal_Context(const RELVAL *val, const RELVAL *arg)
     //
     for (; NOT_END(key1); key1++, var1++) {
         if (not Is_Param_Hidden(key1))
-            return FALSE;
+            return false;
     }
     for (; NOT_END(key2); key2++, var2++) {
         if (not Is_Param_Hidden(key2))
-            return FALSE;
+            return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 
@@ -125,7 +127,7 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
 {
     // Can be a word:
     if (ANY_WORD(arg)) {
-        if (0 == Find_Canon_In_Context(context, VAL_WORD_CANON(arg), TRUE)) {
+        if (0 == Find_Canon_In_Context(context, VAL_WORD_CANON(arg), true)) {
             Expand_Context(context, 1); // copy word table also
             Append_Context(context, 0, VAL_WORD_SPELLING(arg));
             // default of Append_Context is that arg's value is void
@@ -157,7 +159,7 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
     // Setup binding table with obj words.  Binding table is empty so don't
     // bother checking for duplicates.
     //
-    Collect_Context_Keys(&collector, context, FALSE);
+    Collect_Context_Keys(&collector, context, false);
 
     // Examine word/value argument block
 
@@ -426,7 +428,7 @@ const REBVAL *PD_Context(
     if (not IS_WORD(picker))
         return R_UNHANDLED;
 
-    const REBOOL always = FALSE;
+    const bool always = false;
     REBCNT n = Find_Canon_In_Context(c, VAL_WORD_CANON(picker), always);
 
     if (n == 0)
@@ -600,7 +602,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
 //
 //  MF_Context: C
 //
-void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Context(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     REBSER *out = mo->series;
 
@@ -629,10 +631,10 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
         //
         REBVAL *key = CTX_KEYS_HEAD(c);
         REBVAL *var = CTX_VARS_HEAD(c);
-        REBOOL had_output = FALSE;
+        bool had_output = false;
         for (; NOT_END(key); key++, var++) {
             if (not Is_Param_Hidden(key)) {
-                had_output = TRUE;
+                had_output = true;
                 Emit(mo, "N: V\n", VAL_KEY_SPELLING(key), var);
             }
         }
@@ -675,7 +677,7 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     REBVAL *keys_head = CTX_KEYS_HEAD(c);
     REBVAL *vars_head = CTX_VARS_HEAD(VAL_CONTEXT(v));
 
-    REBOOL first = TRUE;
+    bool first = true;
     REBVAL *key = keys_head;
     REBVAL *var = vars_head;
     for (; NOT_END(key); ++key, ++var) {
@@ -685,7 +687,7 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, REBOOL form)
             continue; // specialized out, don't show
 
         if (first)
-            first = FALSE;
+            first = false;
         else
             Append_Utf8_Codepoint(out, ' ');
 
@@ -913,7 +915,7 @@ REBTYPE(Context)
         if (not IS_WORD(arg))
             return nullptr;
 
-        REBCNT n = Find_Canon_In_Context(c, VAL_WORD_CANON(arg), FALSE);
+        REBCNT n = Find_Canon_In_Context(c, VAL_WORD_CANON(arg), false);
         if (n == 0)
             return nullptr;
 

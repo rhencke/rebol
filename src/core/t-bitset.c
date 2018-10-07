@@ -32,11 +32,11 @@
 
 #define MAX_BITSET 0x7fffffff
 
-static inline REBOOL BITS_NOT(REBSER *s) {
+static inline bool BITS_NOT(REBSER *s) {
     return MISC(s).negated;
 }
 
-static inline void INIT_BITS_NOT(REBSER *s, REBOOL negated) {
+static inline void INIT_BITS_NOT(REBSER *s, bool negated) {
     MISC(s).negated = negated;
 }
 
@@ -70,7 +70,7 @@ REBSER *Make_Bitset(REBCNT len)
     ser = Make_Binary(len);
     Clear_Series(ser);
     SET_SERIES_LEN(ser, len);
-    INIT_BITS_NOT(ser, FALSE);
+    INIT_BITS_NOT(ser, false);
 
     return ser;
 }
@@ -79,7 +79,7 @@ REBSER *Make_Bitset(REBCNT len)
 //
 //  MF_Bitset: C
 //
-void MF_Bitset(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Bitset(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form); // all bitsets are "molded" at this time
 
@@ -90,7 +90,7 @@ void MF_Bitset(REB_MOLD *mo, const RELVAL *v, REBOOL form)
     if (BITS_NOT(s))
         Append_Unencoded(mo->series, "[not bits ");
 
-    MF_Binary(mo, v, FALSE); // FALSE = mold, don't form
+    MF_Binary(mo, v, false); // false = mold, don't form
 
     if (BITS_NOT(s))
         Append_Utf8_Codepoint(mo->series, ']');
@@ -129,7 +129,7 @@ void MAKE_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         return;
     }
 
-    Set_Bits(ser, arg, TRUE);
+    Set_Bits(ser, arg, true);
 }
 
 
@@ -207,18 +207,20 @@ REBINT Find_Max_Bit(const RELVAL *val)
 //
 //  Check_Bit: C
 //
-// Check bit indicated. Returns TRUE if set.
-// If uncased is TRUE, try to match either upper or lower case.
+// Check bit indicated. Returns true if set.
+// If uncased is true, try to match either upper or lower case.
 //
-REBOOL Check_Bit(REBSER *bset, REBCNT c, REBOOL uncased)
+bool Check_Bit(REBSER *bset, REBCNT c, bool uncased)
 {
     REBCNT i, n = c;
     REBCNT tail = SER_LEN(bset);
-    REBOOL flag = FALSE;
+    bool flag = false;
 
     if (uncased) {
-        if (n >= UNICODE_CASES) uncased = FALSE; // no need to check
-        else n = LO_CASE(c);
+        if (n >= UNICODE_CASES)
+            uncased = false; // no need to check
+        else
+            n = LO_CASE(c);
     }
 
     // Check lowercase char:
@@ -230,7 +232,7 @@ retry:
     // Check uppercase if needed:
     if (uncased && !flag) {
         n = UP_CASE(c);
-        uncased = FALSE;
+        uncased = false;
         goto retry;
     }
 
@@ -246,7 +248,7 @@ retry:
 //
 // Set/clear a single bit. Expand if needed.
 //
-void Set_Bit(REBSER *bset, REBCNT n, REBOOL set)
+void Set_Bit(REBSER *bset, REBCNT n, bool set)
 {
     REBCNT i = n >> 3;
     REBCNT tail = SER_LEN(bset);
@@ -272,21 +274,21 @@ void Set_Bit(REBSER *bset, REBCNT n, REBOOL set)
 //
 // Set/clear bits indicated by strings and chars and ranges.
 //
-REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
+bool Set_Bits(REBSER *bset, const REBVAL *val, bool set)
 {
     FAIL_IF_READ_ONLY_SERIES(bset);
 
     if (IS_CHAR(val)) {
         Set_Bit(bset, VAL_CHAR(val), set);
-        return TRUE;
+        return true;
     }
 
     if (IS_INTEGER(val)) {
         REBCNT n = Int32s(val, 0);
         if (n > MAX_BITSET)
-            return FALSE;
+            return false;
         Set_Bit(bset, n, set);
-        return TRUE;
+        return true;
     }
 
     if (IS_BINARY(val)) {
@@ -296,7 +298,7 @@ REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
         for (; i != VAL_LEN_HEAD(val); i++)
             Set_Bit(bset, bp[i], set);
 
-        return TRUE;
+        return true;
     }
 
     if (ANY_STRING(val)) {
@@ -308,7 +310,7 @@ REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
             Set_Bit(bset, c, set);
         }
 
-        return TRUE;
+        return true;
     }
 
     if (!ANY_ARRAY(val))
@@ -321,7 +323,7 @@ REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
         && IS_WORD(item)
         && VAL_WORD_SYM(item) == SYM_NOT
     ){
-        INIT_BITS_NOT(bset, TRUE);
+        INIT_BITS_NOT(bset, true);
         item++;
     }
 
@@ -356,7 +358,7 @@ REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
         case REB_INTEGER: {
             REBCNT n = Int32s(KNOWN(item), 0);
             if (n > MAX_BITSET)
-                return FALSE;
+                return false;
             if (
                 NOT_END(item + 1)
                 && IS_WORD(item + 1)
@@ -390,10 +392,11 @@ REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
 
         case REB_WORD: {
             // Special: BITS #{000...}
-            if (!IS_WORD(item) || VAL_WORD_SYM(item) != SYM_BITS)
-                return FALSE;
+            if (not IS_WORD(item) or VAL_WORD_SYM(item) != SYM_BITS)
+                return false;
             item++;
-            if (!IS_BINARY(item)) return FALSE;
+            if (not IS_BINARY(item))
+                return false;
             REBCNT n = VAL_LEN_AT(item);
             REBUNI c = SER_LEN(bset);
             if (n >= c) {
@@ -404,11 +407,11 @@ REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
             break; }
 
         default:
-            return FALSE;
+            return false;
         }
     }
 
-    return TRUE;
+    return true;
 }
 
 
@@ -416,9 +419,9 @@ REBOOL Set_Bits(REBSER *bset, const REBVAL *val, REBOOL set)
 //  Check_Bits: C
 //
 // Check bits indicated by strings and chars and ranges.
-// If uncased is TRUE, try to match either upper or lower case.
+// If uncased is true, try to match either upper or lower case.
 //
-REBOOL Check_Bits(REBSER *bset, const REBVAL *val, REBOOL uncased)
+bool Check_Bits(REBSER *bset, const REBVAL *val, bool uncased)
 {
     if (IS_CHAR(val))
         return Check_Bit(bset, VAL_CHAR(val), uncased);
@@ -431,8 +434,8 @@ REBOOL Check_Bits(REBSER *bset, const REBVAL *val, REBOOL uncased)
         REBYTE *bp = VAL_BIN_HEAD(val);
         for (; i != VAL_LEN_HEAD(val); ++i)
             if (Check_Bit(bset, bp[i], uncased))
-                return TRUE;
-        return FALSE;
+                return true;
+        return false;
     }
 
     if (ANY_STRING(val)) {
@@ -442,10 +445,10 @@ REBOOL Check_Bits(REBSER *bset, const REBVAL *val, REBOOL uncased)
             REBUNI c;
             up = NEXT_CHR(&c, up);
             if (Check_Bit(bset, c, uncased))
-                return TRUE;
+                return true;
         }
 
-        return FALSE;
+        return false;
     }
 
     if (!ANY_ARRAY(val))
@@ -468,19 +471,20 @@ REBOOL Check_Bits(REBSER *bset, const REBVAL *val, REBOOL uncased)
                         fail (Error_Past_End_Raw());
                     for (; c <= n; c++)
                         if (Check_Bit(bset, c, uncased))
-                            return TRUE;
+                            return true;
                 }
                 else
                     fail (Error_Invalid_Core(item, VAL_SPECIFIER(val)));
             }
             else
                 if (Check_Bit(bset, c, uncased))
-                    return TRUE;
+                    return true;
             break; }
 
         case REB_INTEGER: {
             REBCNT n = Int32s(KNOWN(item), 0);
-            if (n > 0xffff) return FALSE;
+            if (n > 0xffff)
+                return false;
             if (IS_WORD(item + 1) && VAL_WORD_SYM(item + 1) == SYM_HYPHEN) {
                 REBUNI c = n;
                 item += 2;
@@ -490,14 +494,14 @@ REBOOL Check_Bits(REBSER *bset, const REBVAL *val, REBOOL uncased)
                         fail (Error_Past_End_Raw());
                     for (; c <= n; c++)
                         if (Check_Bit(bset, c, uncased))
-                            return TRUE;
+                            return true;
                 }
                 else
                     fail (Error_Invalid_Core(item, VAL_SPECIFIER(val)));
             }
             else
                 if (Check_Bit(bset, n, uncased))
-                    return TRUE;
+                    return true;
             break; }
 
         case REB_BINARY:
@@ -508,14 +512,14 @@ REBOOL Check_Bits(REBSER *bset, const REBVAL *val, REBOOL uncased)
         case REB_TAG:
 //      case REB_ISSUE:
             if (Check_Bits(bset, KNOWN(item), uncased))
-                return TRUE;
+                return true;
             break;
 
         default:
             fail (Error_Invalid_Type(VAL_TYPE(item)));
         }
     }
-    return FALSE;
+    return false;
 }
 
 
@@ -530,7 +534,7 @@ const REBVAL *PD_Bitset(
     REBSER *ser = VAL_SERIES(pvs->out);
 
     if (opt_setval == NULL) {
-        if (Check_Bits(ser, picker, FALSE))
+        if (Check_Bits(ser, picker, false))
             return Init_True(pvs->out);
         return nullptr; // !!! Red false on out of range, R3-Alpha NONE! (?)
     }
@@ -644,11 +648,11 @@ REBTYPE(Bitset)
 
     case SYM_APPEND:  // Accepts: #"a" "abc" [1 - 10] [#"a" - #"z"] etc.
     case SYM_INSERT: {
-        REBOOL diff;
+        bool diff;
         if (BITS_NOT(VAL_SERIES(value)))
-            diff = FALSE;
+            diff = false;
         else
-            diff = TRUE;
+            diff = true;
 
         if (not Set_Bits(VAL_SERIES(value), arg, diff))
             fail (Error_Invalid(arg));
@@ -666,7 +670,7 @@ REBTYPE(Bitset)
         if (not REF(part))
             fail (Error_Missing_Arg_Raw());
 
-        if (not Set_Bits(VAL_SERIES(value), ARG(limit), FALSE))
+        if (not Set_Bits(VAL_SERIES(value), ARG(limit), false))
             fail (ARG(limit));
 
         goto return_bitset; }

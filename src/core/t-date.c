@@ -85,7 +85,7 @@ REBINT CT_Date(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MF_Date: C
 //
-void MF_Date(REB_MOLD *mo, const RELVAL *v_orig, REBOOL form)
+void MF_Date(REB_MOLD *mo, const RELVAL *v_orig, bool form)
 {
     // We don't want to modify the incoming date value we are molding,
     // so we make a copy that we can tweak during the emit process
@@ -104,7 +104,7 @@ void MF_Date(REB_MOLD *mo, const RELVAL *v_orig, REBOOL form)
     }
 
     if (GET_VAL_FLAG(v, DATE_FLAG_HAS_ZONE)) {
-        const REBOOL to_utc = FALSE;
+        const bool to_utc = false;
         Adjust_Date_Zone(v, to_utc);
     }
 
@@ -340,7 +340,7 @@ static REBDAT Normalize_Date(REBINT day, REBINT month, REBINT year, REBINT tz)
 // Adjust date and time for the timezone.
 // The result should be used for output, not stored.
 //
-void Adjust_Date_Zone(REBVAL *d, REBOOL to_utc)
+void Adjust_Date_Zone(REBVAL *d, bool to_utc)
 {
     if (NOT_VAL_FLAG(d, DATE_FLAG_HAS_ZONE))
         return;
@@ -525,7 +525,7 @@ void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         VAL_DATE(out) = Normalize_Date(day, month, year, tz);
         VAL_NANO(out) = secs;
 
-        const REBOOL to_utc = TRUE;
+        const bool to_utc = true;
         Adjust_Date_Zone(out, to_utc);
         return;
     }
@@ -610,7 +610,7 @@ void Pick_Or_Poke_Date(
                 Init_Nulled(opt_out);
             else {
                 Move_Value(opt_out, v); // want v's adjusted VAL_NANO()
-                Adjust_Date_Zone(opt_out, FALSE);
+                Adjust_Date_Zone(opt_out, false);
                 RESET_VAL_HEADER(opt_out, REB_TIME); // clears date flags
             }
             break;
@@ -632,7 +632,7 @@ void Pick_Or_Poke_Date(
         case SYM_DATE: {
             Move_Value(opt_out, v);
 
-            const REBOOL to_utc = FALSE;
+            const bool to_utc = false;
             Adjust_Date_Zone(opt_out, to_utc); // !!! necessary?
 
             CLEAR_VAL_FLAGS(opt_out, DATE_FLAG_HAS_TIME | DATE_FLAG_HAS_ZONE);
@@ -651,7 +651,7 @@ void Pick_Or_Poke_Date(
             Move_Value(opt_out, v);
             SET_VAL_FLAG(opt_out, DATE_FLAG_HAS_ZONE);
             INIT_VAL_ZONE(opt_out, 0);
-            const REBOOL to_utc = TRUE;
+            const bool to_utc = true;
             Adjust_Date_Zone(opt_out, to_utc);
             break; }
 
@@ -790,7 +790,7 @@ void Pick_Or_Poke_Date(
             REB_TIMEF time;
             Split_Time(secs, &time);
             time.h = Int_From_Date_Arg(opt_poke);
-            secs = Join_Time(&time, FALSE);
+            secs = Join_Time(&time, false);
             break; }
 
         case SYM_MINUTE: {
@@ -802,7 +802,7 @@ void Pick_Or_Poke_Date(
             REB_TIMEF time;
             Split_Time(secs, &time);
             time.m = Int_From_Date_Arg(opt_poke);
-            secs = Join_Time(&time, FALSE);
+            secs = Join_Time(&time, false);
             break; }
 
         case SYM_SECOND: {
@@ -823,7 +823,7 @@ void Pick_Or_Poke_Date(
                 time.n = cast(REBINT,
                     (VAL_DECIMAL(opt_poke) - time.s) * SEC_SEC);
             }
-            secs = Join_Time(&time, FALSE);
+            secs = Join_Time(&time, false);
             break; }
 
         default:
@@ -846,7 +846,7 @@ void Pick_Or_Poke_Date(
         if (secs != 0)
             VAL_NANO(v) = secs;
 
-        const REBOOL to_utc = TRUE;
+        const bool to_utc = true;
         Adjust_Date_Zone(v, to_utc);
     }
 }
@@ -959,7 +959,7 @@ REBTYPE(Date)
             if (REF(only))
                 fail (Error_Bad_Refines_Raw());
 
-            const REBOOL secure = REF(secure);
+            const bool secure = REF(secure);
 
             if (REF(seed)) {
                 //

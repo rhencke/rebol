@@ -69,26 +69,27 @@ REBINT Cmp_Event(const RELVAL *t1, const RELVAL *t2)
 //
 //  Set_Event_Var: C
 //
-static REBOOL Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
+static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
 {
     RELVAL *arg;
     REBINT n;
 
     switch (VAL_WORD_SYM(word)) {
     case SYM_TYPE:
-        if (!IS_WORD(val) && !IS_LIT_WORD(val)) return FALSE;
+        if (!IS_WORD(val) && !IS_LIT_WORD(val))
+            return false;
         arg = Get_System(SYS_VIEW, VIEW_EVENT_TYPES);
         if (IS_BLOCK(arg)) {
             REBSTR *w = VAL_WORD_CANON(val);
             for (n = 0, arg = VAL_ARRAY_HEAD(arg); NOT_END(arg); arg++, n++) {
                 if (IS_WORD(arg) && VAL_WORD_CANON(arg) == w) {
                     VAL_EVENT_TYPE(event) = n;
-                    return TRUE;
+                    return true;
                 }
             }
             fail (Error_Invalid(val));
         }
-        return FALSE;
+        return false;
 
     case SYM_PORT:
         if (IS_PORT(val)) {
@@ -101,7 +102,9 @@ static REBOOL Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val
         }
         else if (IS_BLANK(val)) {
             VAL_EVENT_MODEL(event) = EVM_GUI;
-        } else return FALSE;
+        }
+        else
+            return false;
         break;
 
     case SYM_WINDOW:
@@ -111,7 +114,7 @@ static REBOOL Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val
             VAL_EVENT_SER(event) = cast(REBSER*, VAL_GOB(val));
             break;
         }
-        return FALSE;
+        return false;
 
     case SYM_OFFSET:
         if (IS_PAIR(val)) {
@@ -121,7 +124,8 @@ static REBOOL Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val
                 Float_Int16(VAL_PAIR_Y(val))
             );
         }
-        else return FALSE;
+        else
+            return false;
         break;
 
     case SYM_KEY:
@@ -140,24 +144,27 @@ static REBOOL Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val
                         break;
                     }
                 }
-                if (IS_END(arg)) return FALSE;
+                if (IS_END(arg))
+                    return false;
                 break;
             }
-            return FALSE;
+            return false;
         }
-        else return FALSE;
+        else
+            return false;
         break;
 
     case SYM_CODE:
         if (IS_INTEGER(val)) {
             VAL_EVENT_DATA(event) = VAL_INT32(val);
         }
-        else return FALSE;
+        else
+            return false;
         break;
 
     case SYM_FLAGS: {
         if (not IS_BLOCK(val))
-            return FALSE;
+            return false;
 
         VAL_EVENT_FLAGS(event) &= ~(EVF_DOUBLE | EVF_CONTROL | EVF_SHIFT);
 
@@ -186,10 +193,10 @@ static REBOOL Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val
         break; }
 
     default:
-        return FALSE;
+        return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 
@@ -224,7 +231,7 @@ void Set_Event_Vars(REBVAL *evt, RELVAL *blk, REBSPC *specifier)
 //
 //  Get_Event_Var: C
 //
-static REBOOL Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
+static bool Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
 {
     switch (STR_SYMBOL(name)) {
     case SYM_TYPE: {
@@ -240,7 +247,7 @@ static REBOOL Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
             );
             break;
         }
-        return FALSE; }
+        return false; }
 
     case SYM_PORT: {
         // Most events are for the GUI:
@@ -275,7 +282,7 @@ static REBOOL Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
                 break;
             }
         }
-        return FALSE; }
+        return false; }
 
     case SYM_OFFSET: {
         if (VAL_EVENT_TYPE(v) == EVT_KEY || VAL_EVENT_TYPE(v) == EVT_KEY_UP)
@@ -299,7 +306,7 @@ static REBOOL Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
                 );
                 break;
             }
-            return FALSE;
+            return false;
         }
         Init_Char(out, n);
         break; }
@@ -358,14 +365,14 @@ static REBOOL Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
         break; }
 
     default:
-        return FALSE;
+        return false;
     }
 
-    return TRUE;
+    return true;
 
-is_blank:
+  is_blank:;
     Init_Blank(out);
-    return TRUE;
+    return true;
 }
 
 
@@ -446,7 +453,7 @@ REBTYPE(Event)
 //
 //  MF_Event: C
 //
-void MF_Event(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Event(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 

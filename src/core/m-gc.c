@@ -107,7 +107,7 @@ static void Mark_Devices_Deep(void);
 
 
 #ifndef NDEBUG
-    static REBOOL in_mark = FALSE; // needs to be per-GC thread
+    static bool in_mark = false; // needs to be per-GC thread
 #endif
 
 #define ASSERT_NO_GC_MARKS_PENDING() \
@@ -302,7 +302,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 {
     assert(not in_mark);
   #if !defined(NDEBUG)
-    in_mark = TRUE;
+    in_mark = true;
   #endif
 
     // If this happens, it means somehow Recycle() got called between
@@ -676,7 +676,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     }
 
   #if !defined(NDEBUG)
-    in_mark = FALSE;
+    in_mark = false;
   #endif
 }
 
@@ -923,7 +923,7 @@ static void Reify_Any_C_Valist_Frames(void)
     REBFRM *f = FS_TOP;
     for (; f != FS_BOTTOM; f = f->prior) {
         if (NOT_END(f->value) and FRM_IS_VALIST(f)) {
-            const REBOOL truncated = TRUE;
+            const bool truncated = true;
             Reify_Va_To_Array_In_Frame(f, truncated);
         }
     }
@@ -1538,7 +1538,7 @@ REBCNT Fill_Sweeplist(REBSER *sweeplist)
 // to be a series whose width is sizeof(REBSER*), and it will be filled with
 // the list of series that *would* be recycled.
 //
-REBCNT Recycle_Core(REBOOL shutdown, REBSER *sweeplist)
+REBCNT Recycle_Core(bool shutdown, REBSER *sweeplist)
 {
     // Ordinarily, it should not be possible to spawn a recycle during a
     // recycle.  But when debug code is added into the recycling code, it
@@ -1561,21 +1561,18 @@ REBCNT Recycle_Core(REBOOL shutdown, REBSER *sweeplist)
         return 0;
     }
 
-#if !defined(NDEBUG)
-    GC_Recycling = TRUE;
-#endif
+  #if !defined(NDEBUG)
+    GC_Recycling = true;
+  #endif
 
     ASSERT_NO_GC_MARKS_PENDING();
-
     Reify_Any_C_Valist_Frames();
 
-
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     PG_Reb_Stats->Recycle_Counter++;
     PG_Reb_Stats->Recycle_Series = Mem_Pools[SER_POOL].free;
-
     PG_Reb_Stats->Mark_Count = 0;
-#endif
+  #endif
 
     // WARNING: This terminates an existing open block.  This could be a
     // problem if code is building a new value at the tail, but has not yet
@@ -1685,9 +1682,9 @@ REBCNT Recycle_Core(REBOOL shutdown, REBSER *sweeplist)
 
     ASSERT_NO_GC_MARKS_PENDING();
 
-#if !defined(NDEBUG)
-    GC_Recycling = FALSE;
-#endif
+  #if !defined(NDEBUG)
+    GC_Recycling = false;
+  #endif
 
     return count;
 }
@@ -1702,18 +1699,18 @@ REBCNT Recycle(void)
 {
     // Default to not passing the `shutdown` flag.
     //
-    REBCNT n = Recycle_Core(FALSE, NULL);
+    REBCNT n = Recycle_Core(false, NULL);
 
-#ifdef DOUBLE_RECYCLE_TEST
+  #ifdef DOUBLE_RECYCLE_TEST
     //
     // If there are two recycles in a row, then the second should not free
     // any additional series that were not freed by the first.  (It also
     // shouldn't crash.)  This is an expensive check, but helpful to try if
     // it seems a GC left things in a bad state that crashed a later GC.
     //
-    REBCNT n2 = Recycle_Core(FALSE, NULL);
+    REBCNT n2 = Recycle_Core(false, NULL);
     assert(n2 == 0);
-#endif
+  #endif
 
     return n;
 }
@@ -1980,7 +1977,7 @@ static void Queue_Mark_Event_Deep(const RELVAL *value)
         VAL_EVENT_TYPE(value) == EVT_DROP_FILE
         and (VAL_EVENT_FLAGS(value) & EVF_COPIED)
     ){
-        assert(FALSE);
+        assert(false);
         Queue_Mark_Array_Deep(ARR(VAL_EVENT_SER(m_cast(RELVAL*, value))));
     }
 

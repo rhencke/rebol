@@ -369,7 +369,7 @@ REBCTX *Make_Context_For_Action(
 // pushed in the *reverse* order of their invocation, so append/dup/part
 // has /DUP at DS_TOP, and /PART under it.  List stops at lowest_ordered_dsp.
 //
-REBOOL Specialize_Action_Throws(
+bool Specialize_Action_Throws(
     REBVAL *out,
     REBVAL *specializee,
     REBSTR *opt_specializee_name,
@@ -440,7 +440,7 @@ REBOOL Specialize_Action_Throws(
         // Run block and ignore result (unless it is thrown)
         //
         PUSH_GC_GUARD(exemplar);
-        REBOOL threw = Do_Any_Array_At_Throws(out, opt_def);
+        bool threw = Do_Any_Array_At_Throws(out, opt_def);
         DROP_GC_GUARD(exemplar);
 
         if (threw) {
@@ -1009,7 +1009,7 @@ const REBVAL *Block_Dispatcher(REBFRM *f)
 // frame from feeding forward a VARARGS! parameter, which is a bit like being
 // able to call EVALUATE via Eval_Core() yet introspect the evaluator step.
 //
-REBOOL Make_Invocation_Frame_Throws(
+bool Make_Invocation_Frame_Throws(
     REBVAL *out, // in case there is a throw
     REBFRM *f,
     REBVAL **first_arg_ptr, // returned so that MATCH can steal it

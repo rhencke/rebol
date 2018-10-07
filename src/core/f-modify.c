@@ -73,7 +73,7 @@ REBCNT Modify_Array(
     //   so there's no element after the last item, but TAIL_NEWLINE is set
     //   on the inserted array.
     //
-    REBOOL tail_newline = did (flags & AM_LINE);
+    bool tail_newline = did (flags & AM_LINE);
     REBINT ilen;
 
     // Check /PART, compute LEN:
@@ -94,7 +94,7 @@ REBCNT Modify_Array(
                 );
             }
             else if (ilen == 0)
-                tail_newline = FALSE;
+                tail_newline = false;
             else
                 tail_newline = GET_VAL_FLAG(
                     tail_cell,
@@ -132,7 +132,7 @@ REBCNT Modify_Array(
     // in that array there is also the chance that there's a newline tail flag
     // on the target, and the insertion is at the end.
     //
-    REBOOL head_newline =
+    bool head_newline =
         (dst_idx == ARR_LEN(dst_arr))
         and GET_SER_FLAG(dst_arr, ARRAY_FLAG_TAIL_NEWLINE);
 
@@ -249,7 +249,7 @@ REBCNT Modify_Binary(
     REBCNT src_idx = 0;
     REBCNT src_len;
     REBSER *src_ser;
-    REBOOL needs_free;
+    bool needs_free;
     if (IS_INTEGER(src_val)) {
         REBI64 i = VAL_INT64(src_val);
         if (i > 255 || i < 0)
@@ -258,12 +258,12 @@ REBCNT Modify_Binary(
         src_ser = Make_Binary(1);
         *BIN_HEAD(src_ser) = cast(REBYTE, i);
         TERM_BIN_LEN(src_ser, 1);
-        needs_free = TRUE;
+        needs_free = true;
         limit = -1;
     }
     else if (IS_BLOCK(src_val)) {
         src_ser = Join_Binary(src_val, limit); // NOTE: shared FORM buffer
-        needs_free = FALSE;
+        needs_free = false;
         limit = -1;
     }
     else if (IS_CHAR(src_val)) {
@@ -278,7 +278,7 @@ REBCNT Modify_Binary(
             src_ser,
             Encode_UTF8_Char(BIN_HEAD(src_ser), VAL_CHAR(src_val))
         );
-        needs_free = TRUE;
+        needs_free = true;
         limit = -1;
     }
     else if (ANY_STRING(src_val)) {
@@ -287,12 +287,12 @@ REBCNT Modify_Binary(
             src_ser = Make_UTF8_From_Any_String(src_val, limit);
         else
             src_ser = Make_UTF8_From_Any_String(src_val, len_at);
-        needs_free = TRUE;
+        needs_free = true;
         limit = -1;
     }
     else if (IS_BINARY(src_val)) {
         src_ser = NULL;
-        needs_free = FALSE;
+        needs_free = false;
     }
     else
         fail (Error_Invalid(src_val));
@@ -305,7 +305,7 @@ REBCNT Modify_Binary(
         src_ser = VAL_SERIES(src_val);
         src_idx = VAL_INDEX(src_val);
         src_len = VAL_LEN_AT(src_val);
-        assert(needs_free == FALSE);
+        assert(needs_free == false);
     }
 
     if (limit >= 0)
@@ -317,7 +317,7 @@ REBCNT Modify_Binary(
     if (dst_ser == src_ser) {
         assert(!needs_free);
         src_ser = Copy_Sequence_At_Len(src_ser, src_idx, src_len);
-        needs_free = TRUE;
+        needs_free = true;
         src_idx = 0;
     }
 
@@ -392,18 +392,18 @@ REBCNT Modify_String(
     REBCNT src_idx = 0;
     REBSER *src_ser;
     REBCNT src_len;
-    REBOOL needs_free;
+    bool needs_free;
     if (IS_CHAR(src_val)) {
         src_ser = Make_Series_Codepoint(VAL_CHAR(src_val));
         src_len = SER_LEN(src_ser);
 
-        needs_free = TRUE;
+        needs_free = true;
     }
     else if (IS_BLOCK(src_val)) {
         src_ser = Form_Tight_Block(src_val);
         src_len = SER_LEN(src_ser);
 
-        needs_free = TRUE;
+        needs_free = true;
     }
     else if (
         ANY_STRING(src_val)
@@ -413,13 +413,13 @@ REBCNT Modify_String(
         src_idx = VAL_INDEX(src_val);
         src_len = VAL_LEN_AT(src_val);
 
-        needs_free = FALSE;
+        needs_free = false;
     }
     else {
         src_ser = Copy_Form_Value(src_val, 0);
         src_len = SER_LEN(src_ser);
 
-        needs_free = TRUE;
+        needs_free = true;
     }
 
     if (limit >= 0)
@@ -432,7 +432,7 @@ REBCNT Modify_String(
     if (dst_ser == src_ser) {
         assert(!needs_free);
         src_ser = Copy_Sequence_At_Len(src_ser, src_idx, src_len);
-        needs_free = TRUE;
+        needs_free = true;
         src_idx = 0;
     }
 

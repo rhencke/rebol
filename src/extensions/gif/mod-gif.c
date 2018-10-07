@@ -50,7 +50,7 @@ static int32_t   interlace_rate[4] = { 8, 8, 4, 2 },
 #ifdef COMP_IMAGES
 // Because graphics.c is not included, we must have a copy here.
 void Chrom_Key_Alpha(REBVAL *v,uint32_t col,int32_t blitmode) {
-    REBOOL found=FALSE;
+    bool found=false;
     int i;
     uint32_t *p;
 
@@ -60,14 +60,14 @@ void Chrom_Key_Alpha(REBVAL *v,uint32_t col,int32_t blitmode) {
         case BLIT_MODE_COLOR:
             for(;i>0;i--,p++) {
                 if(*p==col) {
-                    found=TRUE;
+                    found=true;
                     *p=col|0xff000000;
                 }
             }
         case BLIT_MODE_LUMA:
             for(;i>0;i--,p++) {
                 if(BRIGHT(((REBRGB *)p))<=col) {
-                    found=TRUE;
+                    found=true;
                     *p|=0xff000000;
                 }
             }
@@ -83,7 +83,7 @@ void Chrom_Key_Alpha(REBVAL *v,uint32_t col,int32_t blitmode) {
 //
 // Perform LZW decompression.
 //
-void Decode_LZW(uint32_t *data, REBYTE **cpp, REBYTE *colortab, int32_t w, int32_t h, REBOOL interlaced)
+void Decode_LZW(uint32_t *data, REBYTE **cpp, REBYTE *colortab, int32_t w, int32_t h, bool interlaced)
 {
     REBYTE  *cp = *cpp;
     REBYTE  *rp;
@@ -204,17 +204,17 @@ void Decode_LZW(uint32_t *data, REBYTE **cpp, REBYTE *colortab, int32_t w, int32
 }
 
 
-static REBOOL Has_Valid_GIF_Header(REBYTE *data, uint32_t len) {
+static bool Has_Valid_GIF_Header(REBYTE *data, uint32_t len) {
     if (len < 5)
-        return FALSE;
+        return false;
 
     if (strncmp(cast(char*, data), "GIF87", 5) == 0)
-        return TRUE;
+        return true;
 
     if (strncmp(cast(char*, data), "GIF89", 5) == 0)
-        return TRUE;
+        return true;
 
-    return FALSE;
+    return false;
 }
 
 
@@ -266,7 +266,7 @@ REBNATIVE(decode_gif)
     REBYTE  c, *global_colormap, *colormap;
     uint32_t  global_colors, local_colormap;
     uint32_t  colors;
-    REBOOL  interlaced;
+    bool  interlaced;
 
     REBYTE *cp = data;
     REBYTE *end = data + len;
@@ -334,7 +334,7 @@ REBNATIVE(decode_gif)
         }
         cp += 9;
 
-        REBSER *ser = Make_Image(w, h, TRUE);
+        REBSER *ser = Make_Image(w, h, true);
 
         uint32_t *dp = cast(uint32_t*, IMG_DATA(ser));
 

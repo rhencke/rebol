@@ -158,8 +158,8 @@ inline static REBSYM VAL_CMD(const RELVAL *v) {
 // evaluate directly into their output slot at this time (except the top
 // level parse), because most of them are framed to return other values.
 //
-static REBOOL Subparse_Throws(
-    REBOOL *interrupted_out,
+static bool Subparse_Throws(
+    bool *interrupted_out,
     REBVAL *out,
     RELVAL *input,
     REBSPC *input_specifier,
@@ -181,9 +181,9 @@ static REBOOL Subparse_Throws(
     // with no items advanced.
     //
     if (VAL_INDEX(rules) >= VAL_LEN_HEAD(rules)) {
-        *interrupted_out = FALSE;
+        *interrupted_out = false;
         Init_Integer(out, VAL_INDEX(input));
-        return FALSE;
+        return false;
     }
 
     DECLARE_FRAME (f);
@@ -259,23 +259,23 @@ static REBOOL Subparse_Throws(
             if (VAL_ACTION(out) == NAT_ACTION(parse_reject)) {
                 CATCH_THROWN(out, out);
                 assert(IS_BLANK(out));
-                *interrupted_out = TRUE;
-                return FALSE;
+                *interrupted_out = true;
+                return false;
             }
 
             if (VAL_ACTION(out) == NAT_ACTION(parse_accept)) {
                 CATCH_THROWN(out, out);
                 assert(IS_INTEGER(out));
-                *interrupted_out = TRUE;
-                return FALSE;
+                *interrupted_out = true;
+                return false;
             }
         }
 
-        return TRUE;
+        return true;
     }
 
-    *interrupted_out = FALSE;
-    return FALSE;
+    *interrupted_out = false;
+    return false;
 }
 
 
@@ -508,7 +508,7 @@ static REBIXO Parse_String_One_Rule(REBFRM *f, const RELVAL *rule) {
         // This parses a sub-rule block.  It may throw, and it may mutate the
         // input series.
         //
-        REBOOL interrupted;
+        bool interrupted;
         if (Subparse_Throws(
             &interrupted,
             P_CELL,
@@ -620,7 +620,7 @@ static REBIXO Parse_Array_One_Rule_Core(
         return END_FLAG;
 
     case REB_LIT_PATH:
-        if (IS_PATH(item) and Cmp_Array(item, rule, FALSE) == 0)
+        if (IS_PATH(item) and Cmp_Array(item, rule, false) == 0)
             return pos + 1;
         return END_FLAG;
 
@@ -652,7 +652,7 @@ static REBIXO Parse_Array_One_Rule_Core(
         // has to be based on the result that comes back in P_OUT.
         //
         REBCNT pos_before = P_POS;
-        REBOOL interrupted;
+        bool interrupted;
 
         P_POS = pos; // modify input position
 
@@ -717,7 +717,7 @@ inline static REBIXO Parse_Array_One_Rule(REBFRM *f, const RELVAL *rule) {
 static REBIXO To_Thru_Block_Rule(
     REBFRM *f,
     const RELVAL *rule_block,
-    REBOOL is_thru
+    bool is_thru
 ) {
     DECLARE_LOCAL (cell); // holds evaluated rules (use frame cell instead?)
 
@@ -818,7 +818,7 @@ static REBIXO To_Thru_Block_Rule(
                             BIN_AT(P_INPUT, pos),
                             VAL_BIN_AT(rule),
                             len,
-                            FALSE
+                            false
                         )) {
                             if (is_thru) pos += len;
                             goto found;
@@ -970,7 +970,7 @@ found:
 static REBIXO To_Thru_Non_Block_Rule(
     REBFRM *f,
     const RELVAL *rule,
-    REBOOL is_thru
+    bool is_thru
 ) {
     assert(not IS_BLOCK(rule));
 
@@ -1626,7 +1626,7 @@ REBNATIVE(subparse)
                         continue;
 
                     default: //the list above should be exhaustive
-                        assert(FALSE);
+                        assert(false);
                     }
                 }
                 // Any other cmd must be a match command, so proceed...
@@ -1851,7 +1851,7 @@ REBNATIVE(subparse)
                         FETCH_NEXT_RULE(f);
                     }
 
-                    REBOOL is_thru = (cmd == SYM_THRU);
+                    bool is_thru = (cmd == SYM_THRU);
 
                     if (IS_BLOCK(subrule))
                         i = To_Thru_Block_Rule(f, subrule, is_thru);
@@ -1910,7 +1910,7 @@ REBNATIVE(subparse)
                         break;
                     }
 
-                    REBOOL interrupted;
+                    bool interrupted;
                     if (Subparse_Throws(
                         &interrupted,
                         P_CELL,
@@ -1964,7 +1964,7 @@ REBNATIVE(subparse)
                 }
             }
             else if (IS_BLOCK(rule)) {
-                REBOOL interrupted;
+                bool interrupted;
                 if (Subparse_Throws(
                     &interrupted,
                     P_CELL,
@@ -2188,7 +2188,7 @@ REBNATIVE(subparse)
 
                 if (flags & (PF_INSERT | PF_CHANGE)) {
                     count = (flags & PF_INSERT) ? 0 : count;
-                    REBOOL only = false;
+                    bool only = false;
 
                     if (IS_END(f->value))
                         fail (Error_Parse_End());
@@ -2360,7 +2360,7 @@ REBNATIVE(parse)
         );
     }
 
-    REBOOL interrupted;
+    bool interrupted;
     if (Subparse_Throws(
         &interrupted,
         D_OUT,

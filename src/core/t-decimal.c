@@ -92,7 +92,7 @@ static char *gcvt(double value, int digits, char *buffer)
     }
 */
 
-REBOOL almost_equal(REBDEC a, REBDEC b, REBCNT max_diff) {
+bool almost_equal(REBDEC a, REBDEC b, REBCNT max_diff) {
     union {REBDEC d; REBI64 i;} ua, ub;
     REBI64 int_diff;
 
@@ -258,34 +258,18 @@ void TO_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  Eq_Decimal: C
 //
-REBOOL Eq_Decimal(REBDEC a, REBDEC b)
+bool Eq_Decimal(REBDEC a, REBDEC b)
 {
     return almost_equal(a, b, 10);
-#ifdef older
-    REBDEC d = (COEF * a) - (COEF * b);
-    static volatile REBDEC c, e;
-    c = b + d; // These are stored in variables to avoid 80bit
-    e = a - d; // intermediate math, which creates problems.
-    if ((c - b) == 0.0 && (e - a) == 0.0) return TRUE;
-    return FALSE;
-#endif
 }
 
 
 //
 //  Eq_Decimal2: C
 //
-REBOOL Eq_Decimal2(REBDEC a, REBDEC b)
+bool Eq_Decimal2(REBDEC a, REBDEC b)
 {
     return almost_equal(a, b, 0);
-#ifdef older
-    REBI64 d;
-    if (a == b) return TRUE;
-    d = *(REBU64*)&a - *(REBU64*)&b;
-    if (d < 0) d = ~d;
-    if (d <= EQ_RANGE) return TRUE;
-    return FALSE;
-#endif
 }
 
 
@@ -313,7 +297,7 @@ REBINT CT_Decimal(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 // Notice this covers both DECIMAL! and PERCENT!
 //
-void MF_Decimal(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Decimal(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form);
 

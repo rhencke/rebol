@@ -396,13 +396,13 @@ void TO_Logic(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 }
 
 
-static inline REBOOL Math_Arg_For_Logic(REBVAL *arg)
+static inline bool Math_Arg_For_Logic(REBVAL *arg)
 {
     if (IS_LOGIC(arg))
         return VAL_LOGIC(arg);
 
     if (IS_BLANK(arg))
-        return FALSE;
+        return false;
 
     fail (Error_Unexpected_Type(REB_LOGIC, VAL_TYPE(arg)));
 }
@@ -411,7 +411,7 @@ static inline REBOOL Math_Arg_For_Logic(REBVAL *arg)
 //
 //  MF_Logic: C
 //
-void MF_Logic(REB_MOLD *mo, const RELVAL *v, REBOOL form)
+void MF_Logic(REB_MOLD *mo, const RELVAL *v, bool form)
 {
     UNUSED(form); // currently no distinction between MOLD and FORM
 

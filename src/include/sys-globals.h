@@ -78,11 +78,11 @@ PVAR REBI64 PG_Boot_Time;   // Counter when boot started
 PVAR REB_OPTS *Reb_Opts;
 
 #ifdef DEBUG_HAS_PROBE
-    PVAR REBOOL PG_Probe_Failures; // helpful especially for boot errors & panics
+    PVAR bool PG_Probe_Failures; // helpful especially for boot errors & panics
 #endif
 
 #ifndef NDEBUG
-    PVAR REBOOL PG_Always_Malloc;   // For memory-related troubleshooting
+    PVAR bool PG_Always_Malloc;   // For memory-related troubleshooting
 #endif
 
 // These are some canon BLANK, TRUE, and FALSE values (and nulled/end cells).
@@ -171,9 +171,9 @@ TVAR REBI64 TG_Max_Ballast;
 
 //-- Memory and GC:
 TVAR REBPOL *Mem_Pools;     // Memory pool array
-TVAR REBOOL GC_Recycling;    // True when the GC is in a recycle
+TVAR bool GC_Recycling;    // True when the GC is in a recycle
 TVAR REBINT GC_Ballast;     // Bytes allocated to force automatic GC
-TVAR REBOOL GC_Disabled;      // TRUE when RECYCLE/OFF is run
+TVAR bool GC_Disabled;      // true when RECYCLE/OFF is run
 TVAR REBSER *GC_Guarded; // A stack of GC protected series and values
 PVAR REBSER *GC_Mark_Stack; // Series pending to mark their reachables as live
 TVAR REBSER **Prior_Expand; // Track prior series expansions (acceleration)
@@ -188,7 +188,7 @@ TVAR REBSER *TG_Mold_Buf; // temporary UTF8 buffer - used mainly by mold
 TVAR REBSER *GC_Manuals;    // Manually memory managed (not by GC)
 
 #if !defined(OS_STACK_GROWS_UP) && !defined(OS_STACK_GROWS_DOWN)
-    TVAR REBOOL TG_Stack_Grows_Up; // Will be detected via questionable method
+    TVAR bool TG_Stack_Grows_Up; // Will be detected via questionable method
 #endif
 TVAR uintptr_t TG_Stack_Limit;    // Limit address for CPU stack.
 
@@ -233,7 +233,7 @@ TVAR REBVAL *DS_Movable_Top;
 TVAR struct Reb_State *Saved_State; // Saved state for Catch (CPU state, etc.)
 
 #if !defined(NDEBUG)
-    TVAR REBOOL TG_Pushing_Mold; // Push_Mold should not directly recurse
+    TVAR bool TG_Pushing_Mold; // Push_Mold should not directly recurse
 #endif
 
 //-- Evaluation variables:
