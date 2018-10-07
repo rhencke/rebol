@@ -2912,11 +2912,10 @@ const REBYTE *Scan_Issue(REBVAL *out, const REBYTE *cp, REBCNT len)
     REBCNT l = len;
     while (l > 0) {
         switch (GET_LEX_CLASS(*bp)) {
-
-        case LEX_CLASS_DELIMIT:
+          case LEX_CLASS_DELIMIT:
             return NULL; // will trigger error
 
-        case LEX_CLASS_SPECIAL: { // Flag all but first special char
+          case LEX_CLASS_SPECIAL: { // Flag all but first special char
             REBCNT c = GET_LEX_VALUE(*bp);
             if (
                 LEX_SPECIAL_APOSTROPHE != c
@@ -2930,9 +2929,11 @@ const REBYTE *Scan_Issue(REBVAL *out, const REBYTE *cp, REBCNT len)
             ){
                 return NULL; // will trigger error
             }}
-            // fallthrough
-        case LEX_CLASS_WORD:
-        case LEX_CLASS_NUMBER:
+            goto lex_word_or_number;
+
+          lex_word_or_number:;
+          case LEX_CLASS_WORD:
+          case LEX_CLASS_NUMBER:
             bp++;
             l--;
             break;

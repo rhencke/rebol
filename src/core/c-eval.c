@@ -723,7 +723,7 @@ void Eval_Core(REBFRM * const f)
 
     switch (eval_type) {
 
-    case REB_0_END:
+      case REB_0_END:
         goto finished;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -739,7 +739,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_ACTION: {
+      case REB_ACTION: {
         assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED)); // WORD!/PATH! only
 
         if (not EVALUATING(current))
@@ -753,7 +753,7 @@ void Eval_Core(REBFRM * const f)
         if (NOT_VAL_FLAG(current, ACTION_FLAG_INVISIBLE))
             SET_END(f->out); // clear out previous result
 
-        fallthrough; }
+        goto process_action; }
 
     //==////////////////////////////////////////////////////////////////==//
     //
@@ -937,7 +937,7 @@ void Eval_Core(REBFRM * const f)
 
     //=//// UNSPECIALIZED REFINEMENT SLOT (no consumption) ////////////////=//
 
-            unspecialized_refinement:
+              unspecialized_refinement:;
 
                 if (f->dsp_orig == DSP) // no refinements left on stack
                     goto unused_refinement;
@@ -950,7 +950,7 @@ void Eval_Core(REBFRM * const f)
 
                 --ordered; // not lucky: if in use, this is out of order
 
-              unspecialized_refinement_must_pickup: // only fulfill on 2nd pass
+              unspecialized_refinement_must_pickup:; // fulfill on 2nd pass
 
                 for (; ordered != DS_AT(f->dsp_orig); --ordered) {
                     if (VAL_STORED_CANON(ordered) != param_canon)
@@ -997,19 +997,19 @@ void Eval_Core(REBFRM * const f)
             // refinement pickups ending prevents double-doing this work.
 
             switch (pclass) {
-            case PARAM_CLASS_LOCAL:
+              case PARAM_CLASS_LOCAL:
                 Init_Nulled(f->arg); // !!! f->special?
                 SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
-            case PARAM_CLASS_RETURN:
+              case PARAM_CLASS_RETURN:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
                 Move_Value(f->arg, NAT_VALUE(return)); // !!! f->special?
                 INIT_BINDING(f->arg, f->varlist);
                 SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
-            default:
+              default:
                 break;
             }
 
@@ -1128,19 +1128,19 @@ void Eval_Core(REBFRM * const f)
                 // !!! See notes on potential semantics problem below.
 
                 switch (pclass) {
-                case PARAM_CLASS_NORMAL:
+                  case PARAM_CLASS_NORMAL:
                     Move_Value(f->arg, f->out);
                     if (GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED))
                         SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
                     break;
 
-                case PARAM_CLASS_TIGHT:
+                  case PARAM_CLASS_TIGHT:
                     Move_Value(f->arg, f->out);
                     if (GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED))
                         SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
                     break;
 
-                case PARAM_CLASS_HARD_QUOTE:
+                  case PARAM_CLASS_HARD_QUOTE:
                   #if !defined(NDEBUG)
                     //
                     // Only in debug builds, the before-switch lookahead sets
@@ -1155,7 +1155,7 @@ void Eval_Core(REBFRM * const f)
                     SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
                     break;
 
-                case PARAM_CLASS_SOFT_QUOTE:
+                  case PARAM_CLASS_SOFT_QUOTE:
                   #if !defined(NDEBUG)
                     //
                     // Only in debug builds, the before-switch lookahead sets
@@ -1183,7 +1183,7 @@ void Eval_Core(REBFRM * const f)
                     }
                     break;
 
-                default:
+                  default:
                     assert(false);
                 }
 
@@ -1307,7 +1307,7 @@ void Eval_Core(REBFRM * const f)
 
    //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
-            case PARAM_CLASS_NORMAL: {
+              case PARAM_CLASS_NORMAL: {
                 REBFLGS flags = DO_FLAG_FULFILLING_ARG
                     | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
@@ -1319,7 +1319,7 @@ void Eval_Core(REBFRM * const f)
                 }
                 break; }
 
-            case PARAM_CLASS_TIGHT: {
+              case PARAM_CLASS_TIGHT: {
                 //
                 // PARAM_CLASS_NORMAL does "normal" normal infix lookahead,
                 // e.g. `square 1 + 2` would pass 3 to single-arity `square`.
@@ -1342,7 +1342,7 @@ void Eval_Core(REBFRM * const f)
 
     //=//// HARD QUOTED ARG-OR-REFINEMENT-ARG /////////////////////////////=//
 
-            case PARAM_CLASS_HARD_QUOTE:
+              case PARAM_CLASS_HARD_QUOTE:
                 if (Is_Param_Skippable(f->param)) {
                     if (not TYPE_CHECK(f->param, VAL_TYPE(f->value))) {
                         assert(Is_Param_Endable(f->param));
@@ -1362,7 +1362,7 @@ void Eval_Core(REBFRM * const f)
 
     //=//// SOFT QUOTED ARG-OR-REFINEMENT-ARG  ////////////////////////////=//
 
-            case PARAM_CLASS_SOFT_QUOTE:
+              case PARAM_CLASS_SOFT_QUOTE:
                 if (IS_BAR(f->value)) { // BAR! stops a soft quote
                     f->flags.bits |= DO_FLAG_BARRIER_HIT;
                     Fetch_Next_In_Frame(nullptr, f);
@@ -1385,7 +1385,7 @@ void Eval_Core(REBFRM * const f)
                 Fetch_Next_In_Frame(nullptr, f);
                 break;
 
-            default:
+              default:
                 assert(false);
             }
 
@@ -1651,8 +1651,7 @@ void Eval_Core(REBFRM * const f)
             Handle_Api_Dispatcher_Result(f, r);
         }
         else switch (VAL_TYPE_RAW(r)) { // it's a "pseudotype" instruction
-
-        case REB_R_REDO:
+          case REB_R_REDO:
             //
             // This instruction represents the idea that it is desired to
             // run the f->phase again.  The dispatcher may have changed the
@@ -1681,7 +1680,7 @@ void Eval_Core(REBFRM * const f)
             f->refine = ORDINARY_ARG; // no gathering, but need for assert
             goto process_action;
 
-        case REB_R_INVISIBLE: {
+          case REB_R_INVISIBLE: {
             assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
 
             // !!! Ideally we would check that f->out hadn't changed, but
@@ -1708,7 +1707,7 @@ void Eval_Core(REBFRM * const f)
             Drop_Action(f);
             goto reevaluate; }
 
-        default:
+          default:
             assert(!"Invalid pseudotype returned from action dispatcher");
         }
 
@@ -1778,7 +1777,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_WORD:
+      case REB_WORD:
         if (not EVALUATING(current))
             goto inert;
 
@@ -1828,7 +1827,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_SET_WORD: {
+      case REB_SET_WORD: {
         if (not EVALUATING(current))
             goto inert;
 
@@ -1864,7 +1863,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_GET_WORD:
+      case REB_GET_WORD:
         if (not EVALUATING(current))
             goto inert;
 
@@ -1881,7 +1880,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_LIT_WORD:
+      case REB_LIT_WORD:
         if (not EVALUATING(current))
             goto inert;
 
@@ -1916,7 +1915,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_GROUP: {
+      case REB_GROUP: {
         if (not EVALUATING(current))
             goto inert;
 
@@ -1983,7 +1982,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_PATH: {
+      case REB_PATH: {
         if (not EVALUATING(current))
             goto inert;
 
@@ -2069,7 +2068,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_SET_PATH: {
+      case REB_SET_PATH: {
         if (not EVALUATING(current))
             goto inert;
 
@@ -2126,7 +2125,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_GET_PATH:
+      case REB_GET_PATH:
         if (not EVALUATING(current))
             goto inert;
 
@@ -2147,7 +2146,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_LIT_PATH:
+      case REB_LIT_PATH:
         if (not EVALUATING(current))
             goto inert;
 
@@ -2162,28 +2161,28 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_BLOCK:
+      case REB_BLOCK:
         //
-    case REB_BINARY:
-    case REB_TEXT:
-    case REB_FILE:
-    case REB_EMAIL:
-    case REB_URL:
-    case REB_TAG:
+      case REB_BINARY:
+      case REB_TEXT:
+      case REB_FILE:
+      case REB_EMAIL:
+      case REB_URL:
+      case REB_TAG:
         //
-    case REB_BITSET:
-    case REB_IMAGE:
-    case REB_VECTOR:
+      case REB_BITSET:
+      case REB_IMAGE:
+      case REB_VECTOR:
         //
-    case REB_MAP:
+      case REB_MAP:
         //
-    case REB_VARARGS:
+      case REB_VARARGS:
         //
-    case REB_OBJECT:
-    case REB_FRAME:
-    case REB_MODULE:
-    case REB_ERROR:
-    case REB_PORT:
+      case REB_OBJECT:
+      case REB_FRAME:
+      case REB_MODULE:
+      case REB_ERROR:
+      case REB_PORT:
         goto inert;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2192,29 +2191,29 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_BLANK:
+      case REB_BLANK:
         //
-    case REB_LOGIC:
-    case REB_INTEGER:
-    case REB_DECIMAL:
-    case REB_PERCENT:
-    case REB_MONEY:
-    case REB_CHAR:
-    case REB_PAIR:
-    case REB_TUPLE:
-    case REB_TIME:
-    case REB_DATE:
+      case REB_LOGIC:
+      case REB_INTEGER:
+      case REB_DECIMAL:
+      case REB_PERCENT:
+      case REB_MONEY:
+      case REB_CHAR:
+      case REB_PAIR:
+      case REB_TUPLE:
+      case REB_TIME:
+      case REB_DATE:
         //
-    case REB_DATATYPE:
-    case REB_TYPESET:
+      case REB_DATATYPE:
+      case REB_TYPESET:
         //
-    case REB_GOB:
-    case REB_EVENT:
-    case REB_HANDLE:
-    case REB_STRUCT:
-    case REB_LIBRARY:
+      case REB_GOB:
+      case REB_EVENT:
+      case REB_HANDLE:
+      case REB_STRUCT:
+      case REB_LIBRARY:
 
-    inert:;
+      inert:;
 
         Derelativize(f->out, current, f->specifier);
         SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
@@ -2230,7 +2229,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_BAR:
+      case REB_BAR:
         if (not EVALUATING(current))
             goto inert;
 
@@ -2264,7 +2263,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_LIT_BAR:
+      case REB_LIT_BAR:
         if (not EVALUATING(current))
             goto inert;
 
@@ -2279,7 +2278,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_VOID:
+      case REB_VOID:
         if (not EVALUATING(current))
             goto inert;
 
@@ -2302,7 +2301,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    case REB_MAX_NULLED:
+      case REB_MAX_NULLED:
         if (not EVALUATING(current))
             goto inert;
 
@@ -2315,7 +2314,7 @@ void Eval_Core(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    default:
+      default:
         panic (current);
     }
 
@@ -2356,7 +2355,7 @@ void Eval_Core(REBFRM * const f)
     //
     // So this post-switch step is where all of it happens, and it's tricky!
 
-post_switch:;
+  post_switch:;
 
     assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
 
@@ -2514,7 +2513,7 @@ post_switch:;
         goto lookback_quote_too_late;
     }
 
-  post_switch_shove_gotten: // assert(!ACTION_FLAG_QUOTES_FIRST_ARG) pre-goto
+  post_switch_shove_gotten:; // assert(!ACTION_FLAG_QUOTES_FIRST_ARG) pre-goto
 
     if (
         (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)

@@ -706,11 +706,12 @@ restart:;
             cp += 2; // skip ESC and '['
 
             switch (*cp) {
-
-            case 'A': // up arrow (VT100)
+              case 'A': // up arrow (VT100)
                 term->hist -= 2;
-                /* fallthrough */
-            case 'B': { // down arrow (VT100)
+                goto down_arrow;
+
+              down_arrow:;
+              case 'B': { // down arrow (VT100)
                 int len = term->end;
 
                 ++term->hist;
@@ -726,15 +727,15 @@ restart:;
                 Show_Line(term, len - 1); // len < 0 (stay at end)
                 break; }
 
-            case 'D': // left arrow (VT100)
+              case 'D': // left arrow (VT100)
                 Move_Cursor(term, -1);
                 break;
 
-            case 'C': // right arrow (VT100)
+              case 'C': // right arrow (VT100)
                 Move_Cursor(term, 1);
                 break;
 
-            case '1': // home (CSI) or higher function keys (VT220)
+              case '1': // home (CSI) or higher function keys (VT220)
                 if (cp[1] != '~') {
                     Unrecognized_Key_Sequence(cp - 2);
                     goto restart;
@@ -743,7 +744,7 @@ restart:;
                 ++cp; // remove 1, the ~ is consumed after the switch
                 break;
 
-            case '4': // end (CSI)
+              case '4': // end (CSI)
                 if (cp[1] != '~') {
                     Unrecognized_Key_Sequence(cp - 2);
                     goto restart;
@@ -752,7 +753,7 @@ restart:;
                 ++cp; // remove 4, the ~ is consumed after the switch
                 break;
 
-            case '3': // delete (CSI)
+              case '3': // delete (CSI)
                 if (cp[1] != '~') {
                     Unrecognized_Key_Sequence(cp - 2);
                     goto restart;
@@ -761,19 +762,19 @@ restart:;
                 ++cp; // remove 3, the ~ is consumed after the switch
                 break;
 
-            case 'H': // home (VT100)
+              case 'H': // home (VT100)
                 Home_Line(term);
                 break;
 
-            case 'F': // end !!! (in what standard?)
+              case 'F': // end !!! (in what standard?)
                 End_Line(term);
                 break;
 
-            case 'J': // erase to end of screen (VT100)
+              case 'J': // erase to end of screen (VT100)
                 Clear_Line(term);
                 break;
 
-            default:
+              default:
                 Unrecognized_Key_Sequence(cp - 2);
                 goto restart;
             }
@@ -791,7 +792,7 @@ restart:;
             ++cp;
 
             switch (*cp) {
-            case 'H':   // !!! "home" (in what standard??)
+              case 'H':   // !!! "home" (in what standard??)
               #if !defined(NDEBUG)
                 rebJumps(
                     "FAIL {ESC H: please report your system info}",
@@ -801,7 +802,7 @@ restart:;
                 Home_Line(term);
                 break;
 
-            case 'F':   // !!! "end" (in what standard??)
+              case 'F':   // !!! "end" (in what standard??)
               #if !defined(NDEBUG)
                 rebJumps(
                     "FAIL {ESC F: please report your system info}",
@@ -811,10 +812,12 @@ restart:;
                 End_Line(term);
                 break;
 
-            case '\0':
+              case '\0':
                 assert(FALSE); // plain escape handled earlier for clarity
-                /* fallthrough */
-            default:
+                goto unrecognized;
+
+              unrecognized:;
+              default:
                 Unrecognized_Key_Sequence(cp - 1);
                 goto restart;
             }

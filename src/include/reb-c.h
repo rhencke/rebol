@@ -415,14 +415,6 @@ typedef bool REBOOL;
 
 //=//// NOOP a.k.a. VOID GENERATOR ////////////////////////////////////////=//
 //
-// Creating a void value conveniently is useful for a few reasons.  One is
-// that it can serve as a NO-OP and suppress a compiler warning you might
-// get if you try to use just ';' to do it.  Another is that there is a
-// difference between C and C++ in parenthesized expressions, where
-// '(foo(), bar())' will return the result of bar in C++ but not in C.
-// So such a macro could be written as '(foo(), bar(), NOOP)' to avoid
-// leaking the result.
-//
 // VOID would be a more purposeful name, but Windows headers define that
 // for the type (as used in types like LPVOID)
 //
@@ -430,7 +422,6 @@ typedef bool REBOOL;
     #define NOOP \
         ((void)(0))
 #endif
-#define fallthrough NOOP // clarifies intent in switch() statements
 
 
 //=//// ALIGNMENT SIZE ////////////////////////////////////////////////////=//

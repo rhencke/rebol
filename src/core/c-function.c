@@ -926,7 +926,7 @@ REBACT *Make_Action(
             if (TYPE_CHECK(param, REB_MAX_NULLED))
                 fail ("Hard quoted function parameters cannot receive nulls");
 
-            goto quote_check; // avoid implicit fallthrough warning
+            goto quote_check;
 
         case PARAM_CLASS_SOFT_QUOTE:
 
