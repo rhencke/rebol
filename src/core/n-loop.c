@@ -1259,8 +1259,8 @@ REBNATIVE(remove_each)
 //          {Collected block (BREAK/WITH can add a final result to block)}
 //      'vars [word! block!]
 //          "Word or block of words to set each time (local)"
-//      data [block! vector!]
-//          "The series to traverse"
+//      data [any-series! blank!]
+//          "The series to traverse, blank to opt out"
 //      body [block!]
 //          "Block to evaluate each time"
 //  ]
