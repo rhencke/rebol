@@ -129,6 +129,15 @@ static void cleanup_rc4_ctx(const REBVAL *v)
 //  ]
 //
 static REBNATIVE(rc4)
+//
+// !!! RC4 was originally included for use with TLS.  However, the insecurity
+// of RC4 led the IETF to prohibit RC4 for TLS use in 2015:
+//
+// https://tools.ietf.org/html/rfc7465
+//
+// So it is not in use at the moment.  It isn't much code, but could probably
+// be moved to its own extension so it could be selected to build in or not,
+// which is how cryptography methods should probably be done.
 {
     CRYPT_INCLUDE_PARAMS_OF_RC4;
 

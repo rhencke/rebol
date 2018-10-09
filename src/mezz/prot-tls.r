@@ -87,18 +87,15 @@ bytes-to-version: reverse copy version-to-bytes
 ; length of `verify_data` is part of the cipher spec, with 12 as default for
 ; the specs in the RFC.  The table should probably encode these choices.
 ;
+; RC4-based cipher suites present in the original implementation are removed
+; from the negotiation list based on a 2015 ruling from the IETF:
+;
+; https://tools.ietf.org/html/rfc7465
+;
 cipher-suites: [
     ; <key> crypt@ #hash
     ; !!! Using terminal-@ because bootstrap older Rebols can't have leading @
 
-    #{00 04} [
-        TLS_RSA_WITH_RC4_128_MD5
-        <rsa> rc4@ [size 16] #md5 [size 16]
-    ]
-    #{00 05} [
-        TLS_RSA_WITH_RC4_128_SHA
-        <rsa> rc4@ [size 16] #sha1 [size 20]
-    ]
     #{00 2F} [
         TLS_RSA_WITH_AES_128_CBC_SHA
         <rsa> aes@ [size 16 block 16 iv 16] #sha1 [size 20]
@@ -768,10 +765,6 @@ encrypt-data: function [
     ]
 
     switch ctx/crypt-method [
-        rc4@ [
-            ctx/encrypt-stream: default [rc4/key ctx/client-crypt-key]
-            rc4/stream ctx/encrypt-stream data
-        ]
         aes@ [
             ctx/encrypt-stream: default [
                 aes/key ctx/client-crypt-key ctx/client-iv
@@ -806,10 +799,6 @@ decrypt-data: function [
     data [binary!]
 ][
     switch ctx/crypt-method [
-        rc4@ [
-            ctx/decrypt-stream: default [rc4/key ctx/server-crypt-key]
-            rc4/stream ctx/decrypt-stream data
-        ]
         aes@ [
             ctx/decrypt-stream: default [
                 aes/key/decrypt ctx/server-crypt-key ctx/server-iv
@@ -1400,29 +1389,7 @@ tls-init: function [
     ctx/seq-num-w: 0
     ctx/mode: _
     ctx/encrypted?: false
-
-    if not ctx/suite [
-        ;-- Seems to always be blank?
-    ] else [
-        print "** Tell @HostileFork if you see this, ever **"
-        wait 5
-        switch ctx/crypt-method [
-            rc4@ [
-                ctx/encrypt-stream: default [
-                    rc4/stream ctx/encrypt-stream blank
-                ]
-                ctx/decrypt-stream: default [
-                    rc4/stream ctx/decrypt-stream blank
-                ]
-            ]
-
-            aes@ [
-                ;-- nothing was here
-            ]
-        ] else [
-            fail ["Unsupported TLS crypt-method" ctx/crypt-method]
-        ]
-    ]
+    assert [not ctx/suite]
 ]
 
 
@@ -1767,14 +1734,6 @@ sys/make-scheme [
             ;
             if port/state/suite [
                 switch port/state/crypt-method [
-                    rc4@ [
-                        if port/state/encrypt-stream [
-                            port/state/encrypt-stream: _ ;-- will be GC'd
-                        ]
-                        if port/state/decrypt-stream [
-                            port/state/decrypt-stream: _ ;-- will be GC'd
-                        ]
-                    ]
                     aes@ [
                         if port/state/encrypt-stream [
                             port/state/encrypt-stream: _ ;-- will be GC'd
