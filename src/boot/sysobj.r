@@ -148,7 +148,6 @@ options: construct [] [  ; Options supplied to REBOL during startup
     ; Legacy Behaviors Options (paid attention to only by debug builds)
 
     forever-64-bit-ints: false
-    break-with-overrides: false
     unlocked-source: false
 ]
 

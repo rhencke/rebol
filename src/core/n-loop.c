@@ -56,14 +56,15 @@ bool Catching_Break_Or_Continue(REBVAL *val, bool *stop)
         return false;
 
     if (VAL_ACT_DISPATCHER(val) == &N_break) {
-        *stop = true; // was BREAK or BREAK/WITH
-        CATCH_THROWN(val, val); // will be void if no /WITH was used
+        *stop = true; // was BREAK (causes loops to always return NULL)
+        CATCH_THROWN(val, val);
+        assert(IS_NULLED(val)); // no /WITH refinement
         return true;
     }
 
     if (VAL_ACT_DISPATCHER(val) == &N_continue) {
         *stop = false; // was CONTINUE or CONTINUE/WITH
-        CATCH_THROWN(val, val); // will be void if no /WITH was used
+        CATCH_THROWN(val, val); // will be null if no /WITH was used
         return true;
     }
 
@@ -74,25 +75,21 @@ bool Catching_Break_Or_Continue(REBVAL *val, bool *stop)
 //
 //  break: native [
 //
-//  {Exit the current iteration of a loop and stop iterating further.}
+//  {Exit the current iteration of a loop and stop iterating further}
 //
-//      /with
-//          {Act as if loop body finished current evaluation with a value}
-//      value [any-value!]
 //  ]
 //
 REBNATIVE(break)
 //
 // BREAK is implemented via a THROWN() value that bubbles up through
 // the stack.  It uses the value of its own native function as the
-// name of the throw, like `throw/name value :break`.
+// name of the throw, like `throw/name null :break`.
 {
     INCLUDE_PARAMS_OF_BREAK;
 
     Move_Value(D_OUT, NAT_VALUE(break));
 
-    UNUSED(REF(with)); // value will be void if no refinement provided
-    CONVERT_NAME_TO_THROWN(D_OUT, ARG(value));
+    CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
 
     return D_OUT;
 }
@@ -615,27 +612,6 @@ skip_hidden: ;
         return D_OUT;
     }
 
-    // Note: This finalization will be run by finished loops as well as
-    // interrupted ones.  So:
-    //
-    //    map-each x [1 2 3 4] [if x = 3 [break]] => [1 2]
-    //
-    //    map-each x [1 2 3 4] [if x = 3 [break/with "A"]] => [1 2 "A"]
-    //
-    //    every x [1 3 6 12] [if x = 6 [break/with 7] even? x] => 7
-    //
-    // This provides the most flexibility in the loop's processing, because
-    // "override" logic already exists in the form of CATCH & THROW.
-
-#if !defined(NDEBUG)
-    if (LEGACY(OPTIONS_BREAK_WITH_OVERRIDES)) {
-        // In legacy R3-ALPHA, BREAK without a provided value did *not*
-        // override the result.  It returned the partial results.
-        if (stop and NOT_END(D_OUT))
-            return D_OUT;
-    }
-#endif
-
     switch (mode) {
     case LOOP_FOR_EACH:
         if (stop)
@@ -643,7 +619,17 @@ skip_hidden: ;
         return D_OUT;
 
     case LOOP_MAP_EACH:
-        UNUSED(stop); // !!! MAP-EACH historically kept the remainder
+        if (stop) {
+            // While R3-Alpha's MAP-EACH would keep the remainder on BREAK,
+            // protocol in Ren-C means BREAK gives NULL.  If the remainder is
+            // to be kept, this must be done by manually CONTINUE-ing for the
+            // remaining elements or returning NULL from the body, but letting
+            // the enumeration finish.
+            //
+            DS_DROP_TO(dsp_orig);
+            return nullptr;
+        }
+
         return Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
     }
 
@@ -903,6 +889,7 @@ struct Remove_Each_State {
     REBVAL *out;
     REBVAL *data;
     REBSER *series;
+    bool stopped; // e.g. a BREAK ran
     const REBVAL *body;
     REBCTX *context;
     REBCNT start;
@@ -917,8 +904,21 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
     assert(GET_SER_INFO(res->series, SERIES_INFO_HOLD));
     CLEAR_SER_INFO(res->series, SERIES_INFO_HOLD);
 
+    // If there was a BREAK, we return NULL to indicate that as part of
+    // the loop protocol.  This prevents giving back a return value of
+    // how many removals there were, so we don't do the removals.
+
     REBCNT count = 0;
     if (ANY_ARRAY(res->data)) {
+        if (res->stopped) { // cleanup markers, don't do removals
+            RELVAL *temp = VAL_ARRAY_AT(res->data);
+            for (; NOT_END(temp); ++temp) {
+                if (GET_VAL_FLAG(temp, NODE_FLAG_MARKED))
+                    CLEAR_VAL_FLAG(temp, NODE_FLAG_MARKED);
+            }
+            return 0;
+        }
+
         REBCNT len = VAL_LEN_HEAD(res->data);
 
         RELVAL *dest = VAL_ARRAY_AT(res->data);
@@ -954,8 +954,12 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         assert(len == VAL_LEN_HEAD(res->data));
     }
     else if (IS_BINARY(res->data)) {
-        //
-        // If there was a BREAK, THROW, or fail() we need the remaining data
+        if (res->stopped) { // leave data unchanged
+            Drop_Mold(res->mo);
+            return 0;
+        }
+
+        // If there was a THROW, or fail() we need the remaining data
         //
         REBCNT orig_len = VAL_LEN_HEAD(res->data);
         assert(res->start <= orig_len);
@@ -984,6 +988,10 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
     }
     else {
         assert(ANY_STRING(res->data));
+        if (res->stopped) { // leave data unchanged
+            Drop_Mold(res->mo);
+            return 0;
+        }
 
         // If there was a BREAK, THROW, or fail() we need the remaining data
         //
@@ -1026,11 +1034,10 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
     //
     SET_SER_INFO(res->series, SERIES_INFO_HOLD);
 
-    bool stop = false;
     REBCNT index = res->start; // declare here, avoid longjmp clobber warnings
 
     REBCNT len = SER_LEN(res->series); // temp read-only, this won't change
-    while (index < len and not stop) {
+    while (index < len) {
         assert(res->start == index);
 
         REBVAL *var = CTX_VAR(res->context, 1); // not movable, see #2274
@@ -1062,14 +1069,18 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
         }
 
         if (Do_Branch_Throws(res->out, res->body)) {
-            if (not Catching_Break_Or_Continue(res->out, &stop)) {
+            if (not Catching_Break_Or_Continue(res->out, &res->stopped)) {
                 assert(THROWN(res->out)); // how caller knows it threw
                 return NULL; // we'll bubble it up, but will also finalize
             }
 
-            if (stop) {
+            if (res->stopped) {
                 //
-                // BREAK - res->out may not be void if /WITH refinement used
+                // BREAK; this means we will return nullptr and not run any
+                // removals (we couldn't report how many if we did)
+                //
+                assert(res->start < len);
+                return NULL;
             }
             else {
                 // CONTINUE - res->out may not be void if /WITH refinement used
@@ -1116,19 +1127,10 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
         }
     }
 
-    // We get here on normal completion or a BREAK
-    // THROW will return above
+    // We get here on normal completion
+    // THROW and BREAK will return above
 
-    // Finalize may need to process residual data in the case of BREAK
-    // It knows this based on res.start < len
-    //
-    assert((stop and res->start <= len) or (not stop and res->start == len));
-
-    if (stop) {
-        //
-        // !!! Should the return conventions of REMOVE-EACH honor the
-        // "loop protocol" where a broken loop returns BLANK!?
-    }
+    assert(not res->stopped and res->start == len);
 
     return NULL;
 }
@@ -1139,8 +1141,8 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
 //
 //  {Removes values for each block that returns true.}
 //
-//      return: [integer!]
-//          {Number of removed series items}
+//      return: [<opt> integer!]
+//          {Number of removed series items, or null if BREAK}
 //      'vars [word! block!]
 //          "Word or block of words to set each time (local)"
 //      data [any-series!]
@@ -1233,6 +1235,8 @@ REBNATIVE(remove_each)
     SET_END(D_OUT); // will be tested for THROWN() to signal a throw happened
     res.out = D_OUT;
 
+    res.stopped = false; // will be set to true if there is a BREAK
+
     REBVAL *error = rebRescue(cast(REBDNG*, &Remove_Each_Core), &res);
 
     // Currently, if a fail() happens during the iteration, any removals
@@ -1242,6 +1246,9 @@ REBNATIVE(remove_each)
 
     if (error)
         rebJumps("FAIL", error, rebEND);
+
+    if (res.stopped)
+        return nullptr;
 
     if (THROWN(res.out))
         return D_OUT;

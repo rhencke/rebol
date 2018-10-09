@@ -16,21 +16,31 @@
     ]
     block = [1 4]
 )
+
+; !!! REMOVE-EACH currently has no effect on BREAK.  This is because as part
+; of the loop protocol, it returns NULL and thus cannot return the number
+; of removed elements.
 (
     block: copy [1 2 3 4]
     remove-each i block [
         if i = 3 [break]
         true
     ]
-    block = [3 4]
+    block = [1 2 3 4]
 )
 (
     block: copy [1 2 3 4]
+    returned-null: false
     remove-each i block [
-        if i = 3 [break/with true]
-        false
+        if i = 3 [break]
+        i = 2
+    ] else [
+        returned-null: true
     ]
-    block = [1 2 4]
+    did all [
+        block = [1 2 3 4]
+        returned-null = true
+    ]
 )
 (
     block: copy [1 2 3 4]
@@ -72,11 +82,17 @@
 )
 (
     string: copy "1234"
+    returned-null: false
     remove-each i string [
         if i = #"3" [break]
         true
+    ] else [
+        returned-null: true
     ]
-    string = "34"
+    did all [
+        string = "1234" comment {not changed if BREAK}
+        returned-null = true
+    ]
 )
 (
     string: copy "1234"
@@ -110,11 +126,17 @@
 )
 (
     binary: copy #{01020304}
+    returned-null: false
     remove-each i binary [
         if i = 3 [break]
         true
+    ] else [
+        returned-null: true
     ]
-    binary = #{0304}
+    did all [
+        binary = #{01020304} comment {Not changed with BREAK}
+        returned-null = true
+    ]
 )
 (
     binary: copy #{01020304}
