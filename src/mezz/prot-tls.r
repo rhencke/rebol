@@ -456,7 +456,7 @@ client-hello: function [
     ; digital signatures in their certificates correctly.  Hence we say we
     ; have hashes that we may not actually have.  Since we don't check
     ; certificates yet, it just keeps the server from hanging up.
-    ; 
+    ;
     emit ctx [
         #{00 0d}                    ; signature_algorithms (13)
       extension_length:
@@ -921,7 +921,7 @@ parse-messages: function [
 
         change data decrypt-data ctx data
         debug ["decrypting..."]
-        
+
         if ctx/block-size [
             ; deal with padding in CBC mode
             data: copy/part data (
@@ -987,7 +987,7 @@ parse-messages: function [
                         msg-obj: context [
                             type: msg-type
                             length: len
-                            
+
                             version: server-version
 
                             server-random: copy/part msg-content 32

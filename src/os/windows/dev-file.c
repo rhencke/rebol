@@ -73,12 +73,12 @@ static bool Seek_File_64(struct devreq_file *file)
     if (result == INVALID_SET_FILE_POINTER) {
         DWORD last_error = GetLastError();
         if (last_error != NO_ERROR)
-            return true; // GetLastError() should still hold the error
+            return false; // GetLastError() should still hold the error
     }
 
     file->index = (cast(int64_t, highint) << 32) + result;
 
-    return false;
+    return true;
 }
 
 
