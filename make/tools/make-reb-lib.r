@@ -645,40 +645,56 @@ map-each-api [
             api
             continue
         ]
+        return-code: switch js-returns [
+          "'string'" [
+            ;
+            ; If `char *` is returned, it was rebAlloc'd and needs to be freed
+            ; if it is to be converted into a JavaScript string
+            ;
+            {var js_str = UTF8ToString(a)
+            rebFree(a)
+            return js_str}
+          ]
+          ; !!! Doing return and argument transformation needs more work!
+          ; See suggestions: https://forum.rebol.info/t/817
+          default [
+            {return a}
+          ]
+        ]
         e-cwrap/emit cscape/with {
             $<Name> = function() {
-                var argc = arguments.length;
-                var stack = stackSave();
-                var va = allocate(4 * (argc + 1 + 1), '', ALLOC_STACK);
-                var a, i, l, p;
+                var argc = arguments.length
+                var stack = stackSave()
+                var va = allocate(4 * (argc + 1 + 1), '', ALLOC_STACK)
+                var a, i, l, p
                 for (i=0; i < argc; i++) {
-                    a = arguments[i];
+                    a = arguments[i]
                     switch (typeof a) {
-                    case 'string':
-                        l = lengthBytesUTF8(a) + 4;
-                        l = l&~3
-                        p = allocate(l, '', ALLOC_STACK);
-                        stringToUTF8(a, p, l);
-                        break;
-                    case 'number':
-                        p = a;
-                        break;
-                    default:
-                        throw new Error("Invalid type!");
+                      case 'string':
+                        l = lengthBytesUTF8(a) + 4
+                        l = l & ~3
+                        p = allocate(l, '', ALLOC_STACK)
+                        stringToUTF8(a, p, l) // !!! leak
+                        break
+                      case 'number':
+                        p = a
+                        break
+                      default:
+                        throw Error("Invalid type!")
                     }
-                    HEAP32[(va>>2)+i] = p;
+                    HEAP32[(va>>2) + i] = p
                 }
 
-                HEAP32[(va>>2) + argc] = rebEND;
+                HEAP32[(va>>2) + argc] = rebEND
 
                 // va + 4 is where the first vararg is, must pass as *address*
                 // Just put the address on the heap after the rebEND
                 //
-                HEAP32[(va>>2) + (argc + 1)] = va + 4;
+                HEAP32[(va>>2) + (argc + 1)] = va + 4
 
-                a = _RL_$<Name>(HEAP32[va>>2], va + 4 * (argc + 1));
-                stackRestore(stack);
-                return a;
+                a = _RL_$<Name>(HEAP32[va>>2], va + 4 * (argc + 1))
+                stackRestore(stack)
+                $<Return-Code>
             }
         } api
     ] else [
@@ -688,18 +704,18 @@ map-each-api [
                 $<Js-Returns>, [
                     $(Js-Param-Types),
                 ]
-            );
+            )
         } api
     ]
 ]
 e-cwrap/emit {
     rebStartup = function() {
-        _RL_rebStartup();
+        _RL_rebStartup()
 
         /* rebEND is a 2-byte sequence that must live at some address */
-        rebEND = _malloc(2);
-        setValue(rebEND, -127, 'i8'); // 0x80
-        setValue(rebEND + 1, 0, 'i8'); // 0x00
+        rebEND = _malloc(2)
+        setValue(rebEND, -127, 'i8') // 0x80
+        setValue(rebEND + 1, 0, 'i8') // 0x00
     }
 
     /*
@@ -714,20 +730,20 @@ e-cwrap/emit {
 
     RL_Register = function(id, fn) {
         if (id in RL_JS_NATIVES)
-            console.log("Already registered " + id + " in JS_NATIVES table");
-        RL_JS_NATIVES[id] = fn;
+            console.log("Already registered " + id + " in JS_NATIVES table")
+        RL_JS_NATIVES[id] = fn
     }
 
     RL_Dispatch = function(id) {
         if (!(id in RL_JS_NATIVES))
-            console.log("Can't dispatch " + id + " in JS_NATIVES table");
-        RL_JS_NATIVES[id]();
+            console.log("Can't dispatch " + id + " in JS_NATIVES table")
+        RL_JS_NATIVES[id]()
     }
 
     RL_Unregister = function(id) {
         if (!(id in RL_JS_NATIVES))
-            console.log("Can't delete " + id + " in JS_NATIVES table");
-        delete RL_JS_NATIVES[id];
+            console.log("Can't delete " + id + " in JS_NATIVES table")
+        delete RL_JS_NATIVES[id]
     }
 }
 e-cwrap/write-emitted
