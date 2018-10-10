@@ -8,10 +8,6 @@ toolset: [
     link %link.exe
 ]
 
-extensions: [
-    ;* UUID _
-]
-
 with-ffi: [
     definitions: ["FFI_BUILDING"] ;the prebuilt library is static
     includes: [%../external/ffi-prebuilt/msvc/lib64/libffi-3.2.1/include]

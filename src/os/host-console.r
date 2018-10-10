@@ -319,7 +319,7 @@ start-console: function [
             ]
             "-" skin-file
             spaced [
-                "(CONSOLE" (proto-skin/was-updated ?! {not}) "updated)"
+                "(CONSOLE" (if not proto-skin/was-updated [{not}]) "updated)"
             ]
         ]
     ]
