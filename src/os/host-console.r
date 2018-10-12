@@ -148,7 +148,7 @@ console!: make object! [
     ]
 
     print-warning:  func [s] [print [warning reduce s]]
-    print-error:    func [e [error!]] [print e]
+    print-error:    func [e [error!]] [print [e]]
 
     print-halted: func [] [
         print "[interrupted by Ctrl-C or HALT instruction]"
@@ -495,7 +495,7 @@ host-console: function [
         if object? system/console [
             emit [system/console/print-error ((:result))]
         ] else [
-            emit [print ((:result))]
+            emit [print [((:result))]]
         ]
         if find directives #die-if-error [
             return <die>
