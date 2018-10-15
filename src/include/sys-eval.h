@@ -996,7 +996,7 @@ inline static REBIXO Eval_Va_Core(
     f->source->vaptr = vaptr;
     f->source->pending = END_NODE; // signal next fetch comes from va_list
 
-  #if !defined(NDEBUG)
+  #if defined(DEBUG_UNREADABLE_BLANKS)
     //
     // We reuse logic in Fetch_Next_In_Frame() and Set_Frame_Detected_Fetch()
     // but the previous f->value will be tested for NODE_FLAG_ROOT.
@@ -1007,16 +1007,13 @@ inline static REBIXO Eval_Va_Core(
     f->value = BLANK_VALUE; // less informative but faster to initialize
   #endif
 
-    if (opt_first) {
-        f->value = VOID_VALUE;
+    if (opt_first)
         Set_Frame_Detected_Fetch(nullptr, f, opt_first);
-        assert(NOT_END(f->value));
-    }
-    else {
+    else
         Fetch_Next_In_Frame(nullptr, f);
-        if (IS_END(f->value))
-            return END_FLAG;
-    }
+
+    if (IS_END(f->value))
+        return END_FLAG;
 
     f->out = out;
     f->specifier = SPECIFIED; // relative values not allowed in va_lists

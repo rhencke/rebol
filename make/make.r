@@ -597,7 +597,11 @@ switch user-config/debug [
         ;
         app-config/debug: off
     ]
-    'symbols [
+    'symbols [ ; No asserts, just symbols.
+        app-config/debug: on
+        append app-config/definitions ["NDEBUG"]
+    ]
+    'normal [
         cfg-symbols: true
         app-config/debug: on
     ]
