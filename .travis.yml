@@ -376,7 +376,7 @@ matrix:
       env:
         - CONFIG=emscripten.r
         - OS_ID=0.16.2
-        - DEBUG=asserts
+        - DEBUG=none
         - OPTIMIZE=z
         - TARGET=libr3.js
         - STANDARD=c
