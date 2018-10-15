@@ -24,29 +24,8 @@ acos: :arccosine/radians
 asin: :arcsine/radians
 atan: :arctangent/radians
 
-
-mod: function [
-    "Compute a nonnegative remainder of A divided by B."
-    a [any-number! money! time!]
-    b [any-number! money! time!]
-        "Must be nonzero."
-][
-    ; This function tries to find the remainder that is "almost non-negative"
-    ; Example: 0.15 - 0.05 - 0.1 // 0.1 is negative,
-    ; but it is "almost" zero, i.e. "almost non-negative"
-
-    ; Compute the smallest non-negative remainder
-    all [negative? r: remainder a b | r: r + b]
-    ; Use abs a for comparisons
-    a: abs a
-    ; If r is "almost" b (i.e. negligible compared to b), the
-    ; result will be r - b. Otherwise the result will be r
-    either all [(a + r) = (a + b) | positive? (r + r) - b] [r - b] [r]
-]
-
-
 modulo: function [
-    {Wrapper for MOD that handles errors like REMAINDER.}
+    "Compute a nonnegative remainder of A divided by B."
     return:
         {Negligible values (compared to A and B) are rounded to zero}
     a [any-number! money! time!]
@@ -55,16 +34,21 @@ modulo: function [
 ] [
     ; Coerce B to a type compatible with A
     any [any-number? a  b: make a b]
+    b: abs b
 
-    ; Get the "accurate" MOD value
-    r: mod a abs b
+    ; Compute the smallest non-negative remainder
+    if negative? r: remainder a b [r: r + b]
+    ; Use abs a for comparisons
+    a: abs a
+    ; If r is "almost" b, return 0.
+    if (a + r) = (a + b) [return 0]
 
-    ; If the MOD result is "near zero", w.r.t. A and B, return 0--the
-    ; "expected" result.  Otherwise, return the result we got from MOD.
-    ;
-    any [(a - r) = a | (r + b) = b] then [make r 0] else [r]
+    ; If the result is "near zero", w.r.t. A or B, return 0
+    either any [(a - r) = a | (b + r) = b]
+    [0] [r]
 ]
 
+mod: enfix tighten :modulo
 
 sign-of: func [
     "Returns sign of number as 1, 0, or -1 (to use as multiplier)."
