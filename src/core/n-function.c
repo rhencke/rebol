@@ -854,7 +854,7 @@ REBNATIVE(tighten)
     // on the source and target are the same, and it preserves relative
     // value information (rarely what you meant, but it's meant here).
     //
-    REBVAL *src = KNOWN(ARR_HEAD(ACT_DETAILS(original)));
+    RELVAL *src = ARR_HEAD(ACT_DETAILS(original));
     RELVAL *dest = ARR_HEAD(ACT_DETAILS(tightened));
     for (; NOT_END(src); ++src, ++dest)
         Blit_Cell(dest, src);

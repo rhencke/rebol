@@ -317,13 +317,11 @@ static void Startup_True_And_False(void)
 {
     REBVAL *true_value = Append_Context(Lib_Context, 0, Canon(SYM_TRUE));
     Init_True(true_value);
-    assert(VAL_LOGIC(true_value) == true);
-    assert(IS_TRUTHY(true_value));
+    assert(IS_TRUTHY(true_value) and VAL_LOGIC(true_value) == true);
 
     REBVAL *false_value = Append_Context(Lib_Context, 0, Canon(SYM_FALSE));
     Init_False(false_value);
-    assert(VAL_LOGIC(false_value) == false);
-    assert(IS_FALSEY(false_value));
+    assert(IS_FALSEY(false_value) and VAL_LOGIC(false_value) == false);
 }
 
 
