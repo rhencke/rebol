@@ -935,7 +935,7 @@ pe-format: context [
             last-section-by-phy-offset/physical-offset
             + last-section-by-phy-offset/physical-size
 
-        assert [zero? new-section-offset // PE-optional-header/file-alignment]
+        assert [zero? new-section-offset mod PE-optional-header/file-alignment]
 
         ; Set image size, must be a multiple of SECTION-ALIGNMENT
         ;
@@ -975,7 +975,7 @@ pe-format: context [
         ]
 
         assert [
-            zero? (length of section-data) // PE-optional-header/file-alignment
+            zero? (length of section-data) mod PE-optional-header/file-alignment
         ]
 
         ; add the section

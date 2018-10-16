@@ -1094,19 +1094,24 @@ acquisition_loop:
         case LEX_DELIMIT_SPACE:
             panic ("Prescan_Token did not skip whitespace");
 
+        delimit_comment:;
         case LEX_DELIMIT_SEMICOLON:     /* ; begin comment */
             while (not ANY_CR_LF_END(*cp))
                 ++cp;
             if (*cp == '\0')
                 --cp;             /* avoid passing EOF  */
-            if (*cp == LF) goto line_feed;
-            /* fall thru  */
+            if (*cp == LF)
+                goto delimit_line_feed;
+            goto delimit_return;
+
+        delimit_return:;
         case LEX_DELIMIT_RETURN:
             if (cp[1] == LF)
                 ++cp;
-            /* fall thru */
+            goto delimit_line_feed;
+
+        delimit_line_feed:;
         case LEX_DELIMIT_LINEFEED:
-        line_feed:
             ss->line++;
             ss->end = cp + 1;
             ss->token = TOKEN_NEWLINE;
@@ -1165,11 +1170,17 @@ acquisition_loop:
             fail (Error_Extra(ss, '}'));
 
 
-        // /SLASH
+        // /REFINEMENT, or //-style comment
 
         case LEX_DELIMIT_SLASH:
-            while (*cp != '\0' and *cp == '/')
+            assert(*cp == '/');
+            ++cp;
+            if (*cp == '/') {
+                if (ss->mode_char == '/') // don't allow `a///b` to be `a/`
+                    fail (Error_Extra(ss, '/'));
                 ++cp;
+                goto delimit_comment; // Ren-C adds `//` as a form of comment
+            }
             if (
                 IS_LEX_WORD_OR_NUMBER(*cp)
                 or *cp == '+'
