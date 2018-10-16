@@ -1747,18 +1747,6 @@ bool Get_If_Word_Or_Path_Throws(
         Move_Opt_Var_May_Fail(out, v, specifier);
     }
     else if (IS_PATH(v)) {
-        //
-        // !!! Hack: just return DIVIDE if it's a zero-length PATH!.  This
-        // makes things like `x: 1 x: me / 2` work.
-        //
-        if (VAL_LEN_AT(v) == 0) {
-            *opt_name_out = nullptr;
-            REBVAL *divide = rebRun(":divide", rebEND);
-            Move_Value(out, divide);
-            rebRelease(divide);
-            return false;
-        }
-
         REBSPC *derived = Derive_Specifier(specifier, v);
         if (Eval_Path_Throws_Core(
             out,

@@ -303,6 +303,17 @@ bool Eval_Path_Throws_Core(
     if (flags & DO_FLAG_SET_PATH_ENFIXED)
         assert(opt_setval); // doesn't make any sense for GET-PATH! or PATH!
 
+    // Treat a 0-length PATH! as if it gives back an ACTION! which does "what
+    // a zero length path would do", e.g. an analogue to division (though in
+    // the future, types might define this some other way.)
+    //
+    if (IS_END(ARR_AT(array, index))) {
+        if (label_out)
+            *label_out = nullptr;
+        Move_Value(out, NAT_VALUE(path_0));
+        return false;
+    }
+
     // Paths that start with inert values do not evaluate.  So `/foo/bar` has
     // a REFINEMENT! at its head, and it will just be inert.  This also
     // means that `/foo/1` is inert, as opposed to #"o".  Note that this
@@ -319,9 +330,7 @@ bool Eval_Path_Throws_Core(
     DECLARE_FRAME (pvs);
 
     Push_Frame_At(pvs, array, index, specifier, flags);
-
-    if (IS_END(pvs->value))
-        fail ("Cannot dispatch empty path");
+    assert(NOT_END(pvs->value)); // tested 0-length path previously
 
     // Push_Frame_At sets the output to the global unwritable END cell, so we
     // have to wait for this point to set to the output cell we want.
