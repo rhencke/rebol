@@ -25,27 +25,23 @@ asin: :arcsine/radians
 atan: :arctangent/radians
 
 modulo: function [
-    "Compute a nonnegative remainder of A divided by B."
-    return:
-        {Negligible values (compared to A and B) are rounded to zero}
+    "Compute a remainder of A divided by B with the sign of B."
     a [any-number! money! time!]
     b [any-number! money! time!]
-        "Absolute value will be used"
-] [
-    ; Coerce B to a type compatible with A
-    any [any-number? a  b: make a b]
-    b: abs b
+        "Must be nonzero."
+][
+    ; This function tries to find the remainder that is "almost non-negative"
+    ; Example: 0.15 - 0.05 - 0.1 // 0.1 is negative,
+    ; but it is "almost" zero, i.e. "almost non-negative"
 
-    ; Compute the smallest non-negative remainder
-    if negative? r: remainder a b [r: r + b]
+    ; Compute the smallest remainder with the same sign as b
+    r: remainder a b
+    if sign? r = negate sign? b [r: r + b]
     ; Use abs a for comparisons
     a: abs a
-    ; If r is "almost" b, return 0.
-    if (a + r) = (a + b) [return 0]
-
-    ; If the result is "near zero", w.r.t. A or B, return 0
-    either any [(a - r) = a | (b + r) = b]
-    [0] [r]
+    ; If r is "almost" b (i.e. negligible compared to b), the
+    ; result will be r - b. Otherwise the result will be r
+    either all [(a + r) = (a + b) | positive? (r + r) - b] [r - b] [r]
 ]
 
 mod: enfix tighten :modulo
