@@ -160,7 +160,6 @@
 %math/log-2.test.reb
 %math/log-e.test.reb
 %math/mod.test.reb
-%math/modulo.test.reb
 %math/multiply.test.reb
 %math/negate.test.reb
 %math/negativeq.test.reb
@@ -218,7 +217,6 @@
 %series/unique.test.reb
 %string/checksum.test.reb
 %string/compress.test.reb
-%string/decloak.test.reb
 %string/decode.test.reb
 %string/encode.test.reb
 %string/decompress.test.reb
