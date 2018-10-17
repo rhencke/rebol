@@ -1426,18 +1426,53 @@ inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
 #define MAX_TUPLE \
     ((sizeof(uint32_t) * 2) - 1) // for same properties on 64-bit and 32-bit
 
-#define VAL_TUPLE(v) \
-    ((v)->payload.tuple.tuple + 1)
+#if !defined(CPLUSPLUS_11)
+    #define VAL_TUPLE(v) \
+        ((v)->payload.tuple.tuple + 1)
 
-#define VAL_TUPLE_LEN(v) \
-    ((v)->payload.tuple.tuple[0])
+    #define VAL_TUPLE_DATA(v) \
+        ((v)->payload.tuple.tuple)
 
-#define VAL_TUPLE_DATA(v) \
-    ((v)->payload.tuple.tuple)
+    #define VAL_TUPLE_LEN(v) \
+        ((v)->payload.tuple.tuple[0])
+#else
+    // C++ build can give const-correctness so you don't change read-only data
 
-inline static REBVAL *SET_TUPLE(RELVAL *out, const void *data) {
+    inline static const REBYTE *VAL_TUPLE(const RELVAL *v) {
+        assert(IS_TUPLE(v));
+        return v->payload.tuple.tuple + 1;
+    }
+
+    inline static REBYTE *VAL_TUPLE(RELVAL *v) {
+        assert(IS_TUPLE(v));
+        return v->payload.tuple.tuple + 1;
+    }
+
+    inline static const REBYTE *VAL_TUPLE_DATA(const RELVAL *v) {
+        assert(IS_TUPLE(v));
+        return v->payload.tuple.tuple;
+    }
+
+    inline static REBYTE *VAL_TUPLE_DATA(RELVAL *v) {
+        assert(IS_TUPLE(v));
+        return v->payload.tuple.tuple;
+    }
+
+    inline static REBYTE VAL_TUPLE_LEN(const RELVAL *v) {
+        assert(IS_TUPLE(v));
+        return v->payload.tuple.tuple[0];
+    }
+
+    inline static REBYTE &VAL_TUPLE_LEN(RELVAL *v) {
+        assert(IS_TUPLE(v));
+        return v->payload.tuple.tuple[0];
+    }
+#endif
+
+
+inline static REBVAL *Init_Tuple(RELVAL *out, const REBYTE *data) {
     RESET_VAL_HEADER(out, REB_TUPLE);
-    memcpy(VAL_TUPLE_DATA(out), data, sizeof(VAL_TUPLE_DATA(out)));
+    memcpy(VAL_TUPLE_DATA(out), data, sizeof(out->payload.tuple.tuple));
     return cast(REBVAL*, out);
 }
 

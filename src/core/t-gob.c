@@ -569,7 +569,7 @@ static bool Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
 
     case SYM_COLOR:
         if (GOB_TYPE(gob) == GOBT_COLOR) {
-            Set_Tuple_Pixel((REBYTE*)&GOB_CONTENT(gob), val);
+            Init_Tuple_From_Pixel(val, cast(REBYTE*, &GOB_CONTENT(gob)));
         }
         else
             return false;

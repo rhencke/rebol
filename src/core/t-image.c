@@ -265,7 +265,6 @@ void Reset_Height(REBVAL *value)
 //
 void Set_Pixel_Tuple(REBYTE *dp, const REBVAL *tuple)
 {
-    // Tuple to pixel.
     const REBYTE *tup = VAL_TUPLE(tuple);
 
     dp[C_R] = tup[0];
@@ -279,20 +278,19 @@ void Set_Pixel_Tuple(REBYTE *dp, const REBVAL *tuple)
 
 
 //
-//  Set_Tuple_Pixel: C
+//  Init_Tuple_From_Pixel: C
 //
-void Set_Tuple_Pixel(REBYTE *dp, REBVAL *tuple)
+void Init_Tuple_From_Pixel(REBVAL *out, const REBYTE *dp)
 {
-    // Pixel to tuple.
-    REBYTE *tup = VAL_TUPLE(tuple);
-
-    RESET_VAL_HEADER(tuple, REB_TUPLE);
-    VAL_TUPLE_LEN(tuple) = 4;
+    RESET_VAL_HEADER(out, REB_TUPLE);
+    REBYTE *tup = VAL_TUPLE(out);
+    VAL_TUPLE_LEN(out) = 4;
     tup[0] = dp[C_R];
     tup[1] = dp[C_G];
     tup[2] = dp[C_B];
     tup[3] = dp[C_A];
 }
+
 
 //
 //  Fill_Line: C
@@ -1287,7 +1285,7 @@ void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
     }
 
     if (Adjust_Image_Pick_Index_Is_Valid(&index, value, picker))
-        Set_Tuple_Pixel(QUAD_SKIP(series, index), out);
+        Init_Tuple_From_Pixel(out, QUAD_SKIP(series, index));
     else
         Init_Nulled(out);
 }

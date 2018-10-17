@@ -557,7 +557,7 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 Init_Integer(var, (REBI64)(BIN_HEAD(series)[index]));
             }
             else if (IS_IMAGE(data)) {
-                Set_Tuple_Pixel(BIN_AT(series, index), var);
+                Init_Tuple_From_Pixel(var, BIN_AT(series, index));
             }
             else {
                 assert(ANY_STRING(data));
