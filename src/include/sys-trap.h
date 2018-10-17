@@ -106,7 +106,26 @@
 // a parameter as 'volatile', but that is implementation-defined.
 // It is best to use a new variable if you encounter such a warning.
 //
-#ifdef HAS_POSIX_SIGNAL
+#if defined(__MINGW64__) && (__GNUC__ < 5)
+    //
+    // 64-bit builds made by MinGW in the 4.x range have an unfortunate bug in
+    // the setjmp/longjmp mechanic, which causes hangs for reasons that are
+    // seemingly random, like "using -O0 optimizations instead of -O2":
+    //
+    // https://sourceforge.net/p/mingw-w64/bugs/406/
+    //
+    // Bending to the bugs of broken compilers is usually not interesting, but
+    // the Travis CI cross-platform builds on Linux targeting Windows were set
+    // up on this old version--which otherwise is a good test the codebase
+    // hasn't picked up dependencies that are too "modern".
+
+    #define SET_JUMP(s) \
+        __builtin_setjmp(s)
+
+    #define LONG_JUMP(s,v) \
+        __builtin_longjmp((s), (v))
+
+#elif defined(HAS_POSIX_SIGNAL)
     #define SET_JUMP(s) \
         sigsetjmp((s), 1)
 

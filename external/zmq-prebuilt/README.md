@@ -119,6 +119,9 @@ The makefile needed a few tweaks, with these things added to the link line.
 
 Also, `-lwsock32` had to be removed when `-lws2_32` was added.
 
+NOTE: A bug was found related to setjmp when building 64-bit code on this old
+MinGW, which had to be patched around.  See SET_JUMP and LONG_JUMP macros.
+
 
 ## NEXT STEP: CONTINUOUS INTEGRATION ##
 
