@@ -1599,9 +1599,6 @@ inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
 #define IMG_HIGH(s) \
     (MISC(s).area.high)
 
-#define IMG_DATA(s) \
-    SER_DATA_RAW(s)
-
 #define VAL_IMAGE_HEAD(v) \
     QUAD_HEAD(VAL_SERIES(v))
 
@@ -1610,9 +1607,6 @@ inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
 
 #define VAL_IMAGE_DATA(v) \
     QUAD_SKIP(VAL_SERIES(v), VAL_INDEX(v))
-
-#define VAL_IMAGE_BITS(v) \
-    cast(REBCNT*, VAL_IMAGE_HEAD(v))
 
 #define VAL_IMAGE_WIDE(v) \
     (IMG_WIDE(VAL_SERIES(v)))
@@ -1625,16 +1619,6 @@ inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
 
 #define Init_Image(out,s) \
     Init_Any_Series((out), REB_IMAGE, (s));
-
-//tuple to image! pixel order bytes
-#define TO_PIXEL_TUPLE(t) \
-    TO_PIXEL_COLOR(VAL_TUPLE(t)[0], VAL_TUPLE(t)[1], VAL_TUPLE(t)[2], \
-        VAL_TUPLE_LEN(t) > 3 ? VAL_TUPLE(t)[3] : 0xff)
-
-//tuple to RGBA bytes
-#define TO_COLOR_TUPLE(t) \
-    TO_RGBA_COLOR(VAL_TUPLE(t)[0], VAL_TUPLE(t)[1], VAL_TUPLE(t)[2], \
-        VAL_TUPLE_LEN(t) > 3 ? VAL_TUPLE(t)[3] : 0xff)
 
 
 //=////////////////////////////////////////////////////////////////////////=//

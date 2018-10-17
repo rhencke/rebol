@@ -51,8 +51,6 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
-
 #include "tmp-mod-lodepng-first.h"
 
 
@@ -255,31 +253,21 @@ REBNATIVE(decode_png)
     //
     // https://github.com/lvandeve/lodepng/issues/17
     //
-    // !!! We don't currently rebRepossess() the data as a BINARY! to use
-    // directly for the image data for two reasons.  The series backing
-    // Make_Image() needs to be wide=sizeof(u32), and fiddling it would take
-    // to get that to work is not clearly better than having IMAGE! use a
-    // byte-sized series.
+    // !!! We don't currently rebRepossess() the data as a BINARY! because the
+    // series backing Make_Image() needs to be wide=sizeof(u32), and fiddling
+    // it would take to get that to work is not clearly better than having
+    // IMAGE! use a byte-sized series.  Changing it to a user-defined type
+    // that is built up from a BINARY! and a PAIR! is a future agenda item.
     //
-    // The other reason is that is seems the pixel format used by LodePNG may
-    // not be the same as Rebol's format, so the data has to be rewritten.
-    // Review both points, as for large images you don't want to make a copy.
-    // If IMAGE! were a user-defined / extension type, it would make sense
-    // for it to be built on top of BINARY! (and a PAIR! for size...)
-    //
-    // !!! It may be worth it to tweak LodePNG with new output formats
-    // besides LCT_RGBA, if it's truly necessary to use a different internal
-    // format than what it gives back.
-    //
-    REBSER *image = Make_Image(width, height, true);
+    REBSER *image = Make_Image(width, height);
     unsigned char *src = image_bytes;
     REBYTE *dest = SER_DATA_RAW(image);
     REBCNT index;
     for (index = 0; index < width * height; ++index) {
-        dest[C_R] = src[0];
-        dest[C_G] = src[1];
-        dest[C_B] = src[2];
-        dest[C_A] = src[3];
+        dest[0] = src[0];
+        dest[1] = src[1];
+        dest[2] = src[2];
+        dest[3] = src[3];
         dest += 4;
         src += 4;
     }
@@ -340,50 +328,20 @@ REBNATIVE(encode_png)
     REBCNT width = VAL_IMAGE_WIDE(image);
     REBCNT height = VAL_IMAGE_HIGH(image);
 
-    // !!! Rebol's internal byte ordering for images seems to vary according
-    // to platform.  This seems like a pretty bad idea vs. using a standard
-    // byte ordering (byte-based access need not worry about endianness).
-    // Ideally Rebol would use a format compatible with LodePNG's RGBA order,
-    // but if not then it LodePNG should be patched to write the alternate
-    // format as an alternative to LCT_RGBA, to avoid this copy.
-    //
     REBYTE *image_bytes = SER_DATA_RAW(VAL_SERIES(image));
-
-    bool check = true; // avoid "conditional expression is constant" warning
-    REBYTE *reordered;
-    if (check && C_R == 0 && C_G == 1 && C_B == 2 && C_A == 3)
-        reordered = NULL;
-    else {
-        reordered = rebAllocN(REBYTE, width * height * 4);
-
-        REBYTE *src = image_bytes;
-        REBYTE *dest = reordered;
-        REBCNT index;
-        for (index = 0; index < width * height; ++index) {
-            dest[0] = src[C_R];
-            dest[1] = src[C_G];
-            dest[2] = src[C_B];
-            dest[3] = src[C_A];
-            src += 4;
-            dest += 4;
-        }
-    }
 
     size_t encoded_size;
     REBYTE *encoded_bytes = NULL;
     unsigned error = lodepng_encode(
         &encoded_bytes,
         &encoded_size,
-        reordered != NULL ? reordered : image_bytes,
+        image_bytes,
         width,
         height,
         &state
     );
 
     lodepng_state_cleanup(&state);
-
-    if (reordered != NULL)
-        rebFree(reordered); // !!! Wasteful if we had to make this...
 
     if (error != 0)
         fail (lodepng_error_text(error));

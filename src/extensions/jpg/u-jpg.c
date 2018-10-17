@@ -17,8 +17,6 @@ extern void jpeg_load(char *buffer, int nbytes, char *output);
 
 #include "pstdint.h" // for uint32_t
 
-#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
-
 
 /*
  * jdatasrc.c
@@ -276,28 +274,35 @@ void jpeg_load( char *buffer, int nbytes, char *output )
   // convert 3 byte values into four byte ones
   for ( i=0; i<cinfo.image_height; i++ ) {
     unsigned char   *cp;
-    uinteger32  *dp;
+    unsigned char   *dp;
 
     cp = (unsigned char *)(output + cinfo.image_width * 3);
-    dp = ( uinteger32 * )output + cinfo.image_width;
+    dp = (unsigned char *)(output + cinfo.image_width * 4);
     output = ( char * )dp;
     for ( j=0; j<cinfo.image_width; j++ ) {
         cp -= 3;
-        *--dp = TO_PIXEL_COLOR(cp[ 0 ], cp[ 1 ], cp[ 2 ], 0xff);
+        *--dp = 0xff; // opaque alpha (going in reverse rgba order...)
+        *--dp = cp[2]; // blue
+        *--dp = cp[1]; // green
+        *--dp = cp[0]; // red
     }
   }
   else
   // convert 1 byte value into four byte ones
     for ( i=0; i<cinfo.image_height; i++ ) {
       unsigned char *cp;
-      uinteger32    *dp, c;
+      unsigned char *dp;
+      unsigned char c;
 
       cp = (unsigned char *)(output + cinfo.image_width);
-      dp = ( uinteger32 * )output + cinfo.image_width;
+      dp = (unsigned char *)(output + cinfo.image_width * 4);
       output = ( char * )dp;
       for ( j=0; j<cinfo.image_width; j++ ) {
         c = *--cp;
-        *--dp = TO_PIXEL_COLOR(c, c, c, 0xff);
+        *--dp = 0xff; // opaque alpha (going in reverse rgba order...)
+        *--dp = c; // blue
+        *--dp = c; // green
+        *--dp = c; // red
       }
     }
 

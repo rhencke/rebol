@@ -34,8 +34,6 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
-
 #include "tmp-mod-gif-first.h"
 
 #define MAX_STACK_SIZE  4096
@@ -83,13 +81,14 @@ void Chrom_Key_Alpha(REBVAL *v,uint32_t col,int32_t blitmode) {
 //
 // Perform LZW decompression.
 //
-void Decode_LZW(uint32_t *data, REBYTE **cpp, REBYTE *colortab, int32_t w, int32_t h, bool interlaced)
+void Decode_LZW(REBYTE *data, REBYTE **cpp, REBYTE *colortab, int32_t w, int32_t h, bool interlaced)
 {
     REBYTE  *cp = *cpp;
     REBYTE  *rp;
     int32_t  available, clear, code_mask, code_size, end_of_info, in_code;
     int32_t  old_code, bits, code, count, x, y, data_size, row, i;
-    uint32_t  *dp, datum;
+    REBYTE *dp;
+    uint32_t datum;
     short   *prefix;
     REBYTE  first, *pixel_stack, *suffix, *top_stack;
 
@@ -187,7 +186,10 @@ void Decode_LZW(uint32_t *data, REBYTE **cpp, REBYTE *colortab, int32_t w, int32
             }
             top_stack--;
             rp = colortab + 3 * *top_stack;
-            *dp++ = TO_PIXEL_COLOR(rp[0], rp[1], rp[2], 0xff);
+            *dp++ = rp[0]; // red
+            *dp++ = rp[1]; // green
+            *dp++ = rp[2]; // blue
+            *dp++ = 0xff; // alpha
             x++;
         }
         if (interlaced) {
@@ -195,7 +197,7 @@ void Decode_LZW(uint32_t *data, REBYTE **cpp, REBYTE *colortab, int32_t w, int32
             if (row >= h) {
                 row = interlace_start[++i];
             }
-            dp = data + row * w;
+            dp = data + ((row * w) * 4);
         }
     }
     *cpp = cp + count + 1;
@@ -334,9 +336,9 @@ REBNATIVE(decode_gif)
         }
         cp += 9;
 
-        REBSER *ser = Make_Image(w, h, true);
+        REBSER *ser = Make_Image(w, h);
 
-        uint32_t *dp = cast(uint32_t*, IMG_DATA(ser));
+        REBYTE *dp = QUAD_HEAD(ser);
 
         Decode_LZW(dp, &cp, colormap, w, h, interlaced);
 

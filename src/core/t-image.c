@@ -31,19 +31,16 @@
 
 #include "sys-core.h"
 
-#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
-
-#define CLEAR_IMAGE(p, x, y) \
-    memset(p, 0, x * y * sizeof(uint32_t))
-
-#define RESET_IMAGE(p, l) \
-    do { \
-        uint32_t *start = cast(uint32_t*, p); /* !!! Review using bytes! */ \
-        uint32_t *stop = start + l; \
-        while (start < stop) \
-            *start++ = 0xff000000; /* opaque alpha, R=G=B as 0 for black */ \
-    } while(0)
-
+inline static void RESET_IMAGE(REBYTE *p, REBCNT num_pixels) {
+    REBYTE *start = p;
+    REBYTE *stop = start + (num_pixels * 4);
+    while (start < stop) {
+        *start++ = 0; // red
+        *start++ = 0; // green
+        *start++ = 0; // blue
+        *start++ = 0xff; // opaque alpha, R=G=B as 0 means black pixel
+    }
+}
 
 //
 //  CT_Image: C
@@ -83,7 +80,7 @@ void Copy_Image_Value(REBVAL *out, const REBVAL *arg, REBINT len)
     if (w == 0)
         h = 0;
 
-    REBSER *series = Make_Image(w, h, true);
+    REBSER *series = Make_Image(w, h);
     Init_Image(out, series);
     memcpy(VAL_IMAGE_HEAD(out), VAL_IMAGE_DATA(arg), w * h * 4);
 }
@@ -104,7 +101,7 @@ void MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         //
         // make image! [] (or none)
         //
-        Init_Image(out, Make_Image(0, 0, true));
+        Init_Image(out, Make_Image(0, 0));
     }
     else if (IS_PAIR(arg)) {
         //
@@ -114,7 +111,7 @@ void MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         REBINT h = VAL_PAIR_Y_INT(arg);
         w = MAX(w, 0);
         h = MAX(h, 0);
-        Init_Image(out, Make_Image(w, h, true));
+        Init_Image(out, Make_Image(w, h));
     }
     else if (IS_BLOCK(arg)) {
         //
@@ -128,12 +125,12 @@ void MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         REBINT h = VAL_PAIR_Y_INT(item);
         if (w < 0 || h < 0) goto bad_make;
 
-        REBSER *img = Make_Image(w, h, false);
+        REBSER *img = Make_Image(w, h);
         if (!img) goto bad_make;
 
         Init_Image(out, img);
 
-        REBYTE *ip = IMG_DATA(img); // image pointer
+        REBYTE *ip = QUAD_HEAD(img); // image pointer
         REBCNT size = w * h;
 
         ++item;
@@ -164,11 +161,13 @@ void MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
             }
         }
         else if (IS_TUPLE(item)) {
-            Fill_Rect(cast(REBCNT*, ip), TO_PIXEL_TUPLE(item), w, w, h, true);
+            REBYTE pixel[4];
+            Set_Pixel_Tuple(pixel, item);
+            Fill_Rect(ip, pixel, w, w, h, true);
             ++item;
             if (IS_INTEGER(item)) {
                 Fill_Alpha_Rect(
-                    cast(REBCNT*, ip), cast(REBYTE, VAL_INT32(item)), w, w, h
+                    ip, cast(REBYTE, VAL_INT32(item)), w, w, h
                 );
     //          VAL_IMAGE_TRANSP(value)=VITT_ALPHA;
                 ++item;
@@ -233,10 +232,10 @@ void TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         REBINT h = diff / w;
         if (w * h < diff) h++; // partial line
 
-        REBSER *series = Make_Image(w, h, true);
+        REBSER *series = Make_Image(w, h);
         Init_Image(out, series);
         Bin_To_RGBA(
-            IMG_DATA(series),
+            QUAD_HEAD(series),
             w * h,
             VAL_BIN_AT(arg),
             VAL_LEN_AT(arg) / 4,
@@ -263,55 +262,65 @@ void Reset_Height(REBVAL *value)
 //
 //  Set_Pixel_Tuple: C
 //
-void Set_Pixel_Tuple(REBYTE *dp, const REBVAL *tuple)
+void Set_Pixel_Tuple(REBYTE *dp, const RELVAL *tuple)
 {
     const REBYTE *tup = VAL_TUPLE(tuple);
-
-    dp[C_R] = tup[0];
-    dp[C_G] = tup[1];
-    dp[C_B] = tup[2];
+    dp[0] = tup[0]; // red
+    dp[1] = tup[1]; // green
+    dp[2] = tup[2]; // blue
     if (VAL_TUPLE_LEN(tuple) > 3)
-        dp[C_A] = tup[3];
+        dp[3] = tup[3]; // alpha
     else
-        dp[C_A] = 0xff;
+        dp[3] = 0xff; // default alpha to opaque
 }
 
 
 //
 //  Init_Tuple_From_Pixel: C
 //
-void Init_Tuple_From_Pixel(REBVAL *out, const REBYTE *dp)
+REBVAL *Init_Tuple_From_Pixel(RELVAL *out, const REBYTE *dp)
 {
     RESET_VAL_HEADER(out, REB_TUPLE);
     REBYTE *tup = VAL_TUPLE(out);
     VAL_TUPLE_LEN(out) = 4;
-    tup[0] = dp[C_R];
-    tup[1] = dp[C_G];
-    tup[2] = dp[C_B];
-    tup[3] = dp[C_A];
+    tup[0] = dp[0]; // red
+    tup[1] = dp[1]; // green
+    tup[2] = dp[2]; // blue
+    tup[3] = dp[3]; // alpha
+    return cast(REBVAL*, out);
 }
 
 
 //
 //  Fill_Line: C
 //
-void Fill_Line(REBCNT *ip, REBCNT color, REBCNT len, bool only)
+void Fill_Line(REBYTE *ip, const REBYTE pixel[4], REBCNT len, bool only)
 {
-    if (only) {// only RGB, do not touch Alpha
-        color &= 0xffffff;
-        for (; len > 0; len--, ip++) *ip = (*ip & 0xff000000) | color;
-    } else
-        for (; len > 0; len--) *ip++ = color;
+    for (; len > 0; len--) {
+        *ip++ = pixel[0]; // red
+        *ip++ = pixel[1]; // green
+        *ip++ = pixel[2]; // blue
+        if (only)
+            ++ip; // only RGB, don't change alpha...just skip it
+        else
+            *ip++ = pixel[3]; // alpha
+    }
 }
 
 
 //
 //  Fill_Rect: C
 //
-void Fill_Rect(REBCNT *ip, REBCNT color, REBCNT w, REBINT dupx, REBINT dupy, bool only)
-{
-    for (; dupy > 0; dupy--, ip += w)
-        Fill_Line(ip, color, dupx, only);
+void Fill_Rect(
+    REBYTE *ip,
+    const REBYTE pixel[4],
+    REBCNT w,
+    REBINT dupx,
+    REBINT dupy,
+    bool only
+){
+    for (; dupy > 0; dupy--, ip += (w * 4))
+        Fill_Line(ip, pixel, dupx, only);
 }
 
 
@@ -321,45 +330,54 @@ void Fill_Rect(REBCNT *ip, REBCNT color, REBCNT w, REBINT dupx, REBINT dupy, boo
 void Fill_Alpha_Line(REBYTE *rgba, REBYTE alpha, REBINT len)
 {
     for (; len > 0; len--, rgba += 4)
-        rgba[C_A] = alpha;
+        rgba[3] = alpha;
 }
 
 
 //
 //  Fill_Alpha_Rect: C
 //
-void Fill_Alpha_Rect(REBCNT *ip, REBYTE alpha, REBINT w, REBINT dupx, REBINT dupy)
+void Fill_Alpha_Rect(REBYTE *ip, REBYTE alpha, REBINT w, REBINT dupx, REBINT dupy)
 {
-    for (; dupy > 0; dupy--, ip += w)
-        Fill_Alpha_Line((REBYTE *)ip, alpha, dupx);
+    for (; dupy > 0; dupy--, ip += (w * 4))
+        Fill_Alpha_Line(ip, alpha, dupx);
 }
 
 
 //
 //  Find_Color: C
 //
-REBCNT *Find_Color(REBCNT *ip, REBCNT color, REBCNT len, bool only)
-{
-    if (only) { // only RGB, do not touch Alpha
-        for (; len > 0; len--, ip++)
-            if (color == (*ip & 0x00ffffff)) return ip;
-    } else {
-        for (; len > 0; len--, ip++)
-            if (color == *ip) return ip;
+REBYTE *Find_Color(
+    REBYTE *ip,
+    const REBYTE pixel[4],
+    REBCNT len,
+    bool only
+){
+    for (; len > 0; len--, ip += 4) {
+        if (ip[0] != pixel[0])
+            continue; // red not equal
+        if (ip[1] != pixel[1])
+            continue; // green not equal
+        if (ip[2] != pixel[2])
+            continue; // blue not equal
+        if (not only and ip[3] != pixel[3])
+            continue; // paying attention to alpha, and not equal
+        return ip;
     }
-    return 0;
+    return nullptr;
 }
 
 
 //
 //  Find_Alpha: C
 //
-REBCNT *Find_Alpha(REBCNT *ip, REBCNT alpha, REBCNT len)
+REBYTE *Find_Alpha(REBYTE *ip, REBYTE alpha, REBCNT len)
 {
-    for (; len > 0; len--, ip++) {
-        if (alpha == (*ip >> 24)) return ip;
+    for (; len > 0; len--, ip += 4) {
+        if (alpha == ip[3])
+            return ip; // alpha equal in rgba[3]
     }
-    return 0;
+    return nullptr;
 }
 
 
@@ -368,20 +386,19 @@ REBCNT *Find_Alpha(REBCNT *ip, REBCNT alpha, REBCNT len)
 //
 void RGB_To_Bin(REBYTE *bin, REBYTE *rgba, REBINT len, bool alpha)
 {
-    // Convert internal image (integer) to RGB/A order binary string:
     if (alpha) {
         for (; len > 0; len--, rgba += 4, bin += 4) {
-            bin[0] = rgba[C_R];
-            bin[1] = rgba[C_G];
-            bin[2] = rgba[C_B];
-            bin[3] = rgba[C_A];
+            bin[0] = rgba[0];
+            bin[1] = rgba[1];
+            bin[2] = rgba[2];
+            bin[3] = rgba[3];
         }
     } else {
         // Only the RGB part:
         for (; len > 0; len--, rgba += 4, bin += 3) {
-            bin[0] = rgba[C_R];
-            bin[1] = rgba[C_G];
-            bin[2] = rgba[C_B];
+            bin[0] = rgba[0];
+            bin[1] = rgba[1];
+            bin[2] = rgba[2];
         }
     }
 }
@@ -390,15 +407,16 @@ void RGB_To_Bin(REBYTE *bin, REBYTE *rgba, REBINT len, bool alpha)
 //
 //  Bin_To_RGB: C
 //
-void Bin_To_RGB(REBYTE *rgba, REBCNT size, REBYTE *bin, REBCNT len)
+void Bin_To_RGB(REBYTE *rgba, REBCNT size, const REBYTE *bin, REBCNT len)
 {
-    if (len > size) len = size; // avoid over-run
+    if (len > size)
+        len = size; // avoid over-run
 
-    // Convert RGB binary string to internal image (integer), no alpha:
     for (; len > 0; len--, rgba += 4, bin += 3) {
-        rgba[C_R] = bin[0];
-        rgba[C_G] = bin[1];
-        rgba[C_B] = bin[2];
+        rgba[0] = bin[0]; // red
+        rgba[1] = bin[1]; // green
+        rgba[2] = bin[2]; // blue
+        // don't touch alpha of destination
     }
 }
 
@@ -406,16 +424,21 @@ void Bin_To_RGB(REBYTE *rgba, REBCNT size, REBYTE *bin, REBCNT len)
 //
 //  Bin_To_RGBA: C
 //
-void Bin_To_RGBA(REBYTE *rgba, REBCNT size, REBYTE *bin, REBINT len, bool only)
-{
+void Bin_To_RGBA(
+    REBYTE *rgba,
+    REBCNT size,
+    const REBYTE *bin,
+    REBINT len,
+    bool only
+){
     if (len > (REBINT)size) len = size; // avoid over-run
 
-    // Convert from RGBA format to internal image (integer):
     for (; len > 0; len--, rgba += 4, bin += 4) {
-        rgba[C_R] = bin[0];
-        rgba[C_G] = bin[1];
-        rgba[C_B] = bin[2];
-        if (!only) rgba[C_A] = bin[3];
+        rgba[0] = bin[0]; // red
+        rgba[1] = bin[1]; // green
+        rgba[2] = bin[2]; // blue
+        if (not only)
+            rgba[3] = bin[3]; // write alpha of destination if requested
     }
 }
 
@@ -426,7 +449,7 @@ void Bin_To_RGBA(REBYTE *rgba, REBCNT size, REBYTE *bin, REBINT len, bool only)
 void Alpha_To_Bin(REBYTE *bin, REBYTE *rgba, REBINT len)
 {
     for (; len > 0; len--, rgba += 4)
-        *bin++ = rgba[C_A];
+        *bin++ = rgba[3];
 }
 
 
@@ -438,7 +461,7 @@ void Bin_To_Alpha(REBYTE *rgba, REBCNT size, REBYTE *bin, REBINT len)
     if (len > (REBINT)size) len = size; // avoid over-run
 
     for (; len > 0; len--, rgba += 4)
-        rgba[C_A] = *bin++;
+        rgba[3] = *bin++;
 }
 
 
@@ -478,10 +501,10 @@ void Tuples_To_RGBA(REBYTE *rgba, REBCNT size, REBVAL *blk, REBCNT len)
 
     for (; len > 0; len--, rgba += 4, blk++) {
         bin = VAL_TUPLE(blk);
-        rgba[C_R] = bin[0];
-        rgba[C_G] = bin[1];
-        rgba[C_B] = bin[2];
-        rgba[C_A] = bin[3];
+        rgba[0] = bin[0];
+        rgba[1] = bin[1];
+        rgba[2] = bin[2];
+        rgba[3] = bin[3];
     }
 }
 
@@ -493,10 +516,10 @@ void Image_To_RGBA(REBYTE *rgba, REBYTE *bin, REBINT len)
 {
     // Convert from internal image (integer) to RGBA binary order:
     for (; len > 0; len--, rgba += 4, bin += 4) {
-        bin[0] = rgba[C_R];
-        bin[1] = rgba[C_G];
-        bin[2] = rgba[C_B];
-        bin[3] = rgba[C_A];
+        bin[0] = rgba[0];
+        bin[1] = rgba[1];
+        bin[2] = rgba[2];
+        bin[3] = rgba[3];
     }
 }
 
@@ -532,9 +555,7 @@ void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
         REBYTE* pixel = cast(REBYTE*, data++);
         if ((len % 10) == 0)
             *bp++ = LF;
-        bp = Form_RGB_Utf8(
-            bp, TO_RGBA_COLOR(pixel[C_R], pixel[C_G], pixel[C_B], pixel[C_A])
-        );
+        bp = Form_RGB_Utf8(bp, pixel);
     }
 
     // Output Alpha channel, if it has one:
@@ -578,21 +599,26 @@ REBSER *Make_Image_Binary(const REBVAL *image)
 //
 //  Make_Image: C
 //
-// Allocate and initialize an image.
-// If error is true, throw error on bad size.
-// Return zero on oversized image.
+// Creates WxH image, black pixels, all opaque.
 //
-REBSER *Make_Image(REBCNT w, REBCNT h, bool error)
+REBSER *Make_Image(REBCNT w, REBCNT h)
 {
-    if (w > 0xFFFF || h > 0xFFFF) {
-        if (error)
-            fail (Error_Size_Limit_Raw(Datatype_From_Kind(REB_IMAGE)));
-        return NULL;
-    }
+    // !!! Temporary size storage limit for images, applicable only because
+    // the size is poked into a hidden location of the REBSER node.  This
+    // will not be a problem when stored in a separate PAIR!
+    //
+    if (w > 0xFFFF || h > 0xFFFF)
+        fail (Error_Size_Limit_Raw(Datatype_From_Kind(REB_IMAGE)));
 
-    REBSER *img = Make_Series(w * h + 1, sizeof(uint32_t));
-    SET_SERIES_LEN(img, w * h);
-    RESET_IMAGE(SER_DATA_RAW(img), SER_LEN(img)); //length in 'pixels'
+    // Series is created with 4-byte elements.  One reason for this is so that
+    // the common series mechanics (for handling things like NEXT or BACK)
+    // will move in pixel-size units.  So long as IMAGE! is implemented with
+    // the common series routines, this will be necessary--it should change
+    // when it becomes a user defined type with a PAIR! and a BINARY!.
+    //
+    REBSER *img = Make_Series(w * h + 1, 4);
+    SET_SERIES_LEN(img, (w * h));
+    RESET_IMAGE(SER_DATA_RAW(img), (w * h)); // length in 'pixels'
     IMG_WIDE(img) = w;
     IMG_HIGH(img) = h;
     return img;
@@ -602,14 +628,14 @@ REBSER *Make_Image(REBCNT w, REBCNT h, bool error)
 //
 //  Clear_Image: C
 //
-// Clear image data.
+// Clear image data (sets R=G=B=A to 0)
 //
 void Clear_Image(REBVAL *img)
 {
     REBCNT w = VAL_IMAGE_WIDE(img);
     REBCNT h = VAL_IMAGE_HIGH(img);
     REBYTE *p = VAL_IMAGE_HEAD(img);
-    CLEAR_IMAGE(p, w, h);
+    memset(p, 0, w * h * 4);
 }
 
 
@@ -772,16 +798,18 @@ REBVAL *Modify_Image(REBFRM *frame_, REBVAL *verb)
                 fail (Error_Out_Of_Range(arg));
             if (IS_PAIR(count)) // rectangular fill
                 Fill_Alpha_Rect(
-                    cast(REBCNT*, ip), cast(REBYTE, arg_int), w, dupx, dupy
+                    ip, cast(REBYTE, arg_int), w, dupx, dupy
                 );
             else
                 Fill_Alpha_Line(ip, cast(REBYTE, arg_int), dup);
         }
         else if (IS_TUPLE(arg)) { // RGB
+            REBYTE pixel[4];
+            Set_Pixel_Tuple(pixel, arg);
             if (IS_PAIR(count)) // rectangular fill
-                Fill_Rect((REBCNT *)ip, TO_PIXEL_TUPLE(arg), w, dupx, dupy, only);
+                Fill_Rect(ip, pixel, w, dupx, dupy, only);
             else
-                Fill_Line((REBCNT *)ip, TO_PIXEL_TUPLE(arg), dup, only);
+                Fill_Line(ip, pixel, dup, only);
         }
     } else if (IS_IMAGE(arg)) {
         Copy_Rect_Data(value, x, y, partx, party, arg, 0, 0); // dst dx dy w h src sx sy
@@ -826,8 +854,8 @@ void Find_Image(REBFRM *frame_)
     REBVAL  *arg = ARG(value);
     REBCNT  index = VAL_INDEX(value);
     REBCNT  tail = VAL_LEN_HEAD(value);
-    REBCNT  *ip = (REBCNT *)VAL_IMAGE_DATA(value); // NOTE ints not bytes
-    REBCNT  *p;
+    REBYTE *ip = VAL_IMAGE_DATA(value); // NOTE ints not bytes
+    REBYTE *p;
     REBINT  n;
 
     REBCNT len = tail - index;
@@ -860,7 +888,10 @@ void Find_Image(REBFRM *frame_)
             only = true;
         else
             only = (VAL_TUPLE_LEN(arg) < 4);
-        p = Find_Color(ip, TO_PIXEL_TUPLE(arg), len, only);
+
+        REBYTE pixel[4];
+        Set_Pixel_Tuple(pixel, arg);
+        p = Find_Color(ip, pixel, len, only);
     }
     else if (IS_INTEGER(arg)) {
         n = VAL_INT32(arg);
@@ -868,15 +899,15 @@ void Find_Image(REBFRM *frame_)
         p = Find_Alpha(ip, n, len);
     }
     else if (IS_IMAGE(arg)) {
-        p = 0;
+        p = nullptr;
     }
     else if (IS_BINARY(arg)) {
-        p = 0;
+        p = nullptr;
     }
     else
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
 
-    if (p == 0) {
+    if (not p) {
         Init_Nulled(D_OUT);
         return;
     }
@@ -884,7 +915,8 @@ void Find_Image(REBFRM *frame_)
     // Post process the search (failure or apply /match and /tail):
 
     Move_Value(D_OUT, value);
-    n = (REBCNT)(p - (REBCNT *)VAL_IMAGE_HEAD(value));
+    assert((p - VAL_IMAGE_HEAD(value)) % 4 == 0);
+    n = cast(REBCNT, (p - VAL_IMAGE_HEAD(value)) / 4);
     if (REF(match)) {
         if (n != cast(REBINT, index)) {
             Init_Nulled(D_OUT);
@@ -908,14 +940,13 @@ void Find_Image(REBFRM *frame_)
 //
 bool Image_Has_Alpha(const REBVAL *v)
 {
-    REBCNT *p = cast(REBCNT*, VAL_IMAGE_HEAD(v));
+    REBYTE *p = VAL_IMAGE_HEAD(v);
 
     int i = VAL_IMAGE_WIDE(v) * VAL_IMAGE_HIGH(v);
-    for(; i > 0; i--) {
-        if (~*p++ & 0xff000000)
+    for(; i > 0; i--, p += 4) {
+        if (p[3] != 0) // non-zero (e.g. non-transparent) alpha component
             return true;
     }
-
     return false;
 }
 
@@ -923,11 +954,18 @@ bool Image_Has_Alpha(const REBVAL *v)
 //
 //  Copy_Rect_Data: C
 //
-void Copy_Rect_Data(REBVAL *dst, REBINT dx, REBINT dy, REBINT w, REBINT h, REBVAL *src, REBINT sx, REBINT sy)
-{
-    REBCNT  *sbits, *dbits;
-
-    if (w <= 0 || h <= 0) return;
+void Copy_Rect_Data(
+    REBVAL *dst,
+    REBINT dx,
+    REBINT dy,
+    REBINT w,
+    REBINT h,
+    const REBVAL *src,
+    REBINT sx,
+    REBINT sy
+){
+    if (w <= 0 || h <= 0)
+        return;
 
     // Clip at edges:
     if (dx + w > VAL_IMAGE_WIDE(dst))
@@ -935,12 +973,16 @@ void Copy_Rect_Data(REBVAL *dst, REBINT dx, REBINT dy, REBINT w, REBINT h, REBVA
     if (dy + h > VAL_IMAGE_HIGH(dst))
         h = VAL_IMAGE_HIGH(dst) - dy;
 
-    sbits = VAL_IMAGE_BITS(src) + sy * VAL_IMAGE_WIDE(src) + sx;
-    dbits = VAL_IMAGE_BITS(dst) + dy * VAL_IMAGE_WIDE(dst) + dx;
+    const REBYTE *sbits =
+        VAL_IMAGE_HEAD(src)
+        + (sy * VAL_IMAGE_WIDE(src) + sx) * 4;
+    REBYTE *dbits =
+        VAL_IMAGE_HEAD(dst)
+        + (dy * VAL_IMAGE_WIDE(dst) + dx) * 4;
     while (h--) {
         memcpy(dbits, sbits, w*4);
-        sbits += VAL_IMAGE_WIDE(src);
-        dbits += VAL_IMAGE_WIDE(dst);
+        sbits += VAL_IMAGE_WIDE(src) * 4;
+        dbits += VAL_IMAGE_WIDE(dst) * 4;
     }
 }
 
@@ -950,16 +992,20 @@ void Copy_Rect_Data(REBVAL *dst, REBINT dx, REBINT dy, REBINT w, REBINT h, REBVA
 //
 static REBSER *Complement_Image(REBVAL *value)
 {
-    REBCNT *img = (REBCNT*) VAL_IMAGE_DATA(value);
-    REBCNT *out;
+    REBYTE *img = VAL_IMAGE_DATA(value);
     REBINT len = VAL_IMAGE_LEN(value);
-    REBSER *ser;
+    REBSER *ser = Make_Image(
+        VAL_IMAGE_WIDE(value),
+        VAL_IMAGE_HIGH(value)
+    );
+    REBYTE *out = QUAD_HEAD(ser);
 
-    ser = Make_Image(VAL_IMAGE_WIDE(value), VAL_IMAGE_HIGH(value), true);
-    out = (REBCNT*) IMG_DATA(ser);
-
-    for (; len > 0; len --) *out++ = ~ *img++;
-
+    for (; len > 0; len --) {
+        *out++ = ~ *img++; // copy complemented red
+        *out++ = ~ *img++; // copy complemented green
+        *out++ = ~ *img++; // copy complemented blue
+        *out++ = ~ *img++; // copy complemented alpha !!! Is this intended?
+    }
     return ser;
 }
 
@@ -1186,7 +1232,7 @@ REBTYPE(Image)
             } else len = diff = 0; // avoid div zero
             w = MIN(w, index - diff); // img-width - x-pos
             h = MIN(h, (int)(VAL_IMAGE_HIGH(value) - len)); // img-high - y-pos
-            series = Make_Image(w, h, true);
+            series = Make_Image(w, h);
             Init_Image(D_OUT, series);
             Copy_Rect_Data(D_OUT, 0, 0, w, h, value, diff, len);
 //          VAL_IMAGE_TRANSP(D_OUT) = VAL_IMAGE_TRANSP(value);
@@ -1323,20 +1369,21 @@ void Poke_Image_Fail_If_Read_Only(
 
         case SYM_RGB:
             if (IS_TUPLE(poke)) {
-                Fill_Line(
-                    cast(REBCNT*, src), TO_PIXEL_TUPLE(poke), len, true
-                );
-            } else if (IS_INTEGER(poke)) {
+                REBYTE pixel[4];
+                Set_Pixel_Tuple(pixel, poke);
+                Fill_Line(src, pixel, len, true);
+            }
+            else if (IS_INTEGER(poke)) {
                 REBINT byte = VAL_INT32(poke);
                 if (byte < 0 || byte > 255)
                     fail (Error_Out_Of_Range(poke));
 
-                Fill_Line(
-                    cast(REBCNT*, src),
-                    TO_PIXEL_COLOR(byte, byte, byte, 0xFF),
-                    len,
-                    true
-                );
+                REBYTE pixel[4];
+                pixel[0] = byte; // red
+                pixel[1] = byte; // green
+                pixel[2] = byte; // blue
+                pixel[3] = 0xFF; // opaque alpha
+                Fill_Line(src, pixel, len, true);
             }
             else if (IS_BINARY(poke)) {
                 Bin_To_RGB(

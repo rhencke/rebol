@@ -34,8 +34,6 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "pixel-hack.h" // https://github.com/metaeducation/ren-c/issues/756
-
 #include "tmp-mod-bmp-first.h"
 
 //**********************************************************************
@@ -398,11 +396,11 @@ REBNATIVE(decode_bmp)
     if (bmfh.bfOffBits != cast(DWORD, cp - data))
         cp = data + bmfh.bfOffBits;
 
-    REBSER *ser = Make_Image(w, h, true);
+    REBSER *ser = Make_Image(w, h);
 
-    uint32_t *dp = cast(uint32_t *, IMG_DATA(ser));
+    REBYTE *dp = QUAD_HEAD(ser);
 
-    dp += w * h - w;
+    dp += (w * h - w) * 4;
 
     c = 0xDECAFBAD; // should be overwritten, but avoid uninitialized warning
     x = 0xDECAFBAD; // should be overwritten, but avoid uninitialized warning
@@ -419,7 +417,10 @@ REBNATIVE(decode_bmp)
                         c = *cp++ & 0xff;
                     }
                     color = &ctab[(c&x) != 0];
-                    *dp++ = TO_PIXEL_COLOR(color->rgbRed, color->rgbGreen, color->rgbBlue, 0xff);
+                    *dp++ = color->rgbRed;
+                    *dp++ = color->rgbGreen;
+                    *dp++ = color->rgbBlue;
+                    *dp++ = 0xff; // opaque alpha
                     x >>= 1;
                 }
                 i = (w+7) / 8;
@@ -437,7 +438,10 @@ REBNATIVE(decode_bmp)
                         goto bad_table_error;
                     }
                     color = &ctab[x];
-                    *dp++ = TO_PIXEL_COLOR(color->rgbRed, color->rgbGreen, color->rgbBlue, 0xff);
+                    *dp++ = color->rgbRed;
+                    *dp++ = color->rgbGreen;
+                    *dp++ = color->rgbBlue;
+                    *dp++ = 0xff; // opaque alpha
                 }
                 i = (w+1) / 2;
                 break;
@@ -449,13 +453,19 @@ REBNATIVE(decode_bmp)
                         goto bad_table_error;
                     }
                     color = &ctab[c];
-                    *dp++ = TO_PIXEL_COLOR(color->rgbRed, color->rgbGreen, color->rgbBlue, 0xff);
+                    *dp++ = color->rgbRed;
+                    *dp++ = color->rgbGreen;
+                    *dp++ = color->rgbBlue;
+                    *dp++ = 0xff; // opaque alpha
                 }
                 break;
 
             case 24:
                 for (i = 0; i<w; i++) {
-                    *dp++ = TO_PIXEL_COLOR(cp[2], cp[1], cp[0], 0xff);
+                    *dp++ = cp[2]; // red
+                    *dp++ = cp[1]; // green
+                    *dp++ = cp[0]; // blue
+                    *dp++ = 0xff; // opaque alpha
                     cp += 3;
                 }
                 i = w * 3;
@@ -489,7 +499,10 @@ REBNATIVE(decode_bmp)
                         }
                         else
                             color = &ctab[x&0x0f];
-                        *dp++ = TO_PIXEL_COLOR(color->rgbRed, color->rgbGreen, color->rgbBlue, 0xff);
+                        *dp++ = color->rgbRed;
+                        *dp++ = color->rgbGreen;
+                        *dp++ = color->rgbBlue;
+                        *dp++ = 0xff; // opaque alpha
                     }
                     j = (c+1) / 2;
                     while (j++%2)
@@ -505,7 +518,10 @@ REBNATIVE(decode_bmp)
                             color = &ctab[x&0x0f];
                         else
                             color = &ctab[x>>4];
-                        *dp++ = TO_PIXEL_COLOR(color->rgbRed, color->rgbGreen, color->rgbBlue, 0xff);
+                        *dp++ = color->rgbRed;
+                        *dp++ = color->rgbGreen;
+                        *dp++ = color->rgbBlue;
+                        *dp++ = 0xff; // opaque alpha
                     }
                 }
             }
@@ -526,7 +542,10 @@ REBNATIVE(decode_bmp)
                     for (j = 0; j<c; j++) {
                         x = *cp++ & 0xff;
                         color = &ctab[x];
-                        *dp++ = TO_PIXEL_COLOR(color->rgbRed, color->rgbGreen, color->rgbBlue, 0xff);
+                        *dp++ = color->rgbRed;
+                        *dp++ = color->rgbGreen;
+                        *dp++ = color->rgbBlue;
+                        *dp++ = 0xff; // opaque alpha
                     }
                     while (j++ % 2)
                         cp++;
@@ -535,7 +554,10 @@ REBNATIVE(decode_bmp)
                     x = *cp++ & 0xff;
                     for (j = 0; j<c; j++) {
                         color = &ctab[x];
-                        *dp++ = TO_PIXEL_COLOR(color->rgbRed, color->rgbGreen, color->rgbBlue, 0xff);
+                        *dp++ = color->rgbRed;
+                        *dp++ = color->rgbGreen;
+                        *dp++ = color->rgbBlue;
+                        *dp++ = 0xff; // opaque alpha
                     }
                 }
             }
@@ -544,7 +566,7 @@ REBNATIVE(decode_bmp)
         default:
             goto bad_encoding_error;
         }
-        dp -= 2 * w;
+        dp -= (2 * w) * 4;
     }
 
     Init_Image(D_OUT, ser);
@@ -572,8 +594,6 @@ REBNATIVE(encode_bmp)
     BMP_INCLUDE_PARAMS_OF_ENCODE_BMP;
 
     int32_t i, y;
-    REBYTE *cp, *v;
-    uint32_t *dp;
     BITMAPFILEHEADER bmfh;
     BITMAPINFOHEADER bmih;
 
@@ -588,7 +608,7 @@ REBNATIVE(encode_bmp)
 
     // Create binary string:
     REBSER *bin = Make_Binary(bmfh.bfSize);
-    cp = BIN_HEAD(bin);
+    REBYTE *cp = BIN_HEAD(bin);
     Unmap_Bytes(&bmfh, &cp, mapBITMAPFILEHEADER);
 
     memset(&bmih, 0, sizeof(bmih));
@@ -605,21 +625,27 @@ REBNATIVE(encode_bmp)
     bmih.biClrImportant = 0;
     Unmap_Bytes(&bmih, &cp, mapBITMAPINFOHEADER);
 
-    dp = cast(uint32_t *, VAL_IMAGE_BITS(ARG(image)));
-    dp += w * h - w;
+    REBYTE *dp = VAL_IMAGE_HEAD(ARG(image)) + ((w * h - w) * 4);
 
     for (y = 0; y<h; y++) {
         for (i = 0; i<w; i++) {
-            v = (REBYTE*)dp++;
-            cp[0] = v[C_B];
-            cp[1] = v[C_G];
-            cp[2] = v[C_R];
-            cp += 3;
+            //
+            // BMP files are written out in bytes as Blue, Green, Red.  `bgra`
+            // was the only BMP subformat that supported transparency, so this
+            // likely contributed to the popularity of this order.  However
+            // dp[3] alpha component is ignored in this code.
+            //
+            cp[0] = dp[2]; // first is blue (rgba[2])
+            cp[1] = dp[1]; // second is green (rgba[1])
+            cp[2] = dp[0]; // third is red (rgba[0])
+            // ignore dp[3] alpha
+            cp += 3; // rgb
+            dp += 4; // rgba
         }
         i = w * 3;
         while (i++ % 4)
             *cp++ = 0;
-        dp -= 2 * w;
+        dp -= (2 * w) * 4;
     }
 
     TERM_BIN_LEN(bin, bmfh.bfSize);

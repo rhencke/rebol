@@ -95,8 +95,8 @@ REBNATIVE(decode_jpeg)
     int w, h;
     jpeg_info(s_cast(data), len, &w, &h); // may longjmp above
 
-    REBSER *ser = Make_Image(w, h, true);
-    jpeg_load(s_cast(data), len, cast(char*, IMG_DATA(ser)));
+    REBSER *ser = Make_Image(w, h);
+    jpeg_load(s_cast(data), len, cast(char*, QUAD_HEAD(ser)));
 
     return Init_Image(D_OUT, ser);
 }

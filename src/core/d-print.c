@@ -429,26 +429,17 @@ REBYTE *Form_Hex_Esc(REBYTE *bp, REBYTE b)
 //
 // Convert 24 bit RGB to xxxxxx format.
 //
-REBYTE *Form_RGB_Utf8(REBYTE *bp, REBCNT val)
+REBYTE *Form_RGB_Utf8(REBYTE *utf8, const REBYTE *dp)
 {
-#ifdef ENDIAN_LITTLE
-    bp[0] = Hex_Digits[(val >>  4) & 0xf];
-    bp[1] = Hex_Digits[val & 0xf];
-    bp[2] = Hex_Digits[(val >> 12) & 0xf];
-    bp[3] = Hex_Digits[(val >>  8) & 0xf];
-    bp[4] = Hex_Digits[(val >> 20) & 0xf];
-    bp[5] = Hex_Digits[(val >> 16) & 0xf];
-#else
-    bp[0] = Hex_Digits[(val >>  28) & 0xf];
-    bp[1] = Hex_Digits[(val >> 24) & 0xf];
-    bp[2] = Hex_Digits[(val >> 20) & 0xf];
-    bp[3] = Hex_Digits[(val >> 16) & 0xf];
-    bp[4] = Hex_Digits[(val >> 12) & 0xf];
-    bp[5] = Hex_Digits[(val >>  8) & 0xf];
-#endif
-    bp[6] = 0;
+    utf8[0] = Hex_Digits[(dp[0] >> 4) & 0xf];
+    utf8[1] = Hex_Digits[dp[0] & 0xf];
+    utf8[2] = Hex_Digits[(dp[1] >> 4) & 0xf];
+    utf8[3] = Hex_Digits[dp[1] & 0xf];
+    utf8[4] = Hex_Digits[(dp[2] >> 4) & 0xf];
+    utf8[5] = Hex_Digits[dp[2] & 0xf];
+    utf8[6] = '\0';
 
-    return bp + 6;
+    return utf8 + 6;
 }
 
 
