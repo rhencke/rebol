@@ -733,6 +733,9 @@ script:
       if [[ -e "libr3.wasm" ]]; then
            mv libr3.wasm ${OS_ID}/lib${NEW_NAME}.wasm;
       fi
+      if [[ -e "libr3.bytecode" ]]; then
+           mv libr3.bytecode ${OS_ID}/lib${NEW_NAME}.bytecode;
+      fi
 
     # Return whether the build succeeded or not to Travis.  If this succeeded 
     # then the deploy step to S3 will run
