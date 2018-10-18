@@ -597,7 +597,7 @@ reform: emulate [:spaced]
 
 print: emulate [
     func [
-        return: <void!>
+        return: <void>
         value [any-value!] ;-- Ren-C only takes TEXT!, BLOCK!, BLANK!
     ][
         write-stdout case [
