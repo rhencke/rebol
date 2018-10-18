@@ -2339,8 +2339,8 @@ REBNATIVE(subparse)
 //          [<opt> any-value!]
 //      input "Input series to parse (blank input just returns null)"
 //          [blank! any-series!]
-//      rules "Rules to parse by (TEXT! and BLANK!/none! are deprecated)"
-//          [block! text! blank!]
+//      rules "Rules to parse by"
+//          [block!]
 //      /case "Uses case-sensitive comparison"
 //  ]
 //
@@ -2352,13 +2352,6 @@ REBNATIVE(parse)
 
     if (IS_BLANK(ARG(input)))
         return nullptr; // "blank in, null out" convention
-
-    if (IS_BLANK(rules) or IS_TEXT(rules)) { // give helpful error, for now
-        fail (
-            "R3-Alpha eliminated 'simple' PARSE in favor of SPLIT, so use"
-            " that instead of passing BLANK! or TEXT! as a PARSE rule."
-        );
-    }
 
     bool interrupted;
     if (Subparse_Throws(

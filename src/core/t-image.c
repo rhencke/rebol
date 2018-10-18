@@ -972,7 +972,7 @@ static void Make_Complemented_Image(REBVAL *out, const REBVAL *value)
     REBINT len = VAL_IMAGE_LEN_AT(value);
 
     Make_Image(out, VAL_IMAGE_WIDE(value), VAL_IMAGE_HIGH(value));
-    
+
     REBYTE *dp = VAL_IMAGE_HEAD(out);
     for (; len > 0; len --) {
         *dp++ = ~ *img++; // copy complemented red

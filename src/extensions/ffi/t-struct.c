@@ -103,8 +103,8 @@ static void get_scalar(
 
     if (STU_INACCESSIBLE(stu)) {
         //
-        // !!! This just gets void with no error...that seems like a bad idea,
-        // if the data is truly inaccessible.
+        // !!! Not giving an error seems like a bad idea, if the data is
+        // truly inaccessible.
         //
         Init_Nulled(out);
         return;

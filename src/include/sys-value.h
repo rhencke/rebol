@@ -101,7 +101,7 @@
 //
 // In the debug build, "Trash" cells (NODE_FLAG_FREE) can use their payload to
 // store where and when they were initialized.  This also applies to some
-// datatypes like BLANK!, BAR!, LOGIC!, or void--since they only use their
+// datatypes like BLANK!, BAR!, LOGIC!, or VOID!--since they only use their
 // header bits, they can also use the payload for this in the debug build.
 //
 // (Note: The release build does not canonize unused bits of payloads, so
@@ -881,28 +881,20 @@ inline static const REBVAL *NULLIZE(const REBVAL *cell)
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Voids are the the result given by PROCEDURE calls, and unlike NULL it *is*
-// a value...however a somewhat unfriendly one.  While NULLs are falsey, voids
-// are *neither* truthy nor falsey, but like NULL they can't be casually
-// assigned via a SET-WORD!, SET-PATH!, or SET.  Though a void can be put in
-// an array (a NULL can't) if the evaluator comes across a void cell in an
+// Void! results are the default for `do []`, and unlike NULL a void! *is*
+// a value...however a somewhat unfriendly one.  While NULLs are falsey, void!
+// is *neither* truthy nor falsey.  But like NULL they can't be casually
+// assigned via a SET-WORD!, SET-PATH!, or SET.  Though a void! can be put in
+// an array (a NULL can't) if the evaluator comes across a void! cell in an
 // array, it will trigger an error.
 //
-// Voids also come into play in what is known as "voidification" of NULLs.
+// Void! also comes into play in what is known as "voidification" of NULLs.
 // Loops wish to reserve NULL as the return result if there is a BREAK, and
 // conditionals like IF and SWITCH want to reserve NULL to mean there was no
 // branch taken.  So when branches or loop bodies produce null, they need
-// to be converted to some ANY-VALUE!.  (Or raise an error, but raising an
-// error would disllow `if true [if false [...]]`, which seems bad!)
+// to be converted to some ANY-VALUE!.
 //
-// Early on in Ren-C this was done by converting NULL to BLANK!, a process
-// called "blankification".  But blanks are "friendly"...which meant that
-// `either condition [a] [b]` mismatched `if condition [a] else [b]` in a
-// way that could be hard to diagnose, since the truthy branch in the IF case
-// could silently convert nulls to blank.  Because voids are "unfriendly" and
-// rarer, auto-voidifying nulls is a lesser evil than auto-blankifying them.
-//
-// The console doesn't print anything for void evaluation results by default,
+// The console doesn't print anything for void! evaluation results by default,
 // so that routines like HELP won't have additional output than what they
 // print out.
 //
@@ -993,7 +985,7 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Blank values are a kind of "reified" null/void, and you can convert
+// Blank! values are a kind of "reified" null/void!, and you can convert
 // between them using TRY and OPT:
 //
 //     >> try ()
@@ -1008,7 +1000,7 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
 // type, BLANK! also carries a header bit that can be checked for conditional
 // falsehood, to save on needing to separately test the type.
 //
-// In the debug build, it is possible to make an "unreadable" blank.  This
+// In the debug build, it is possible to make an "unreadable" blank!.  This
 // will behave neutrally as far as the garbage collector is concerned, so
 // it can be used as a placeholder for a value that will be filled in at
 // some later time--spanning an evaluation.  But if the special IS_UNREADABLE

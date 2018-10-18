@@ -111,9 +111,9 @@ console!: make object! [
             ]
 
             void? :v [
-                ; This is what a procedure returns, and since it's what comes
-                ; back from HELP and other such functions it's best that the
-                ; console not print anything in response.
+                ; Actions that by contract return no information return void.
+                ; Since it's what comes back from things like HELP it's best
+                ; that the console not print anything in response.
             ]
 
             free? :v [

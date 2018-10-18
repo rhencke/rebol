@@ -314,14 +314,18 @@ inline static union Reb_Header Endlike_Header(uintptr_t bits) {
 // `Reb_Track_Payload` is the value payload in debug builds for any REBVAL
 // whose VAL_TYPE() doesn't need any information beyond the header.  This
 // offers a chance to inject some information into the payload to help
-// know where the value originated.  It is used by voids (and void trash),
-// NONE!, LOGIC!, and BAR!.
+// know where the value originated.  It is used by NULL cells, VOID!, BLANK!,
+// LOGIC!, and BAR!.
 //
 // In addition to the file and line number where the assignment was made,
 // the "tick count" of the DO loop is also saved.  This means that it can
 // be possible in a repro case to find out which evaluation step produced
 // the value--and at what place in the source.  Repro cases can be set to
 // break on that tick count, if it is deterministic.
+//
+// If tracking information is desired for all cell types, that means the cell
+// size has to be increased.  See DEBUG_TRACK_EXTEND_CELLS for this setting,
+// which can be useful in extreme debugging cases.
 //
 
 #if defined(DEBUG_TRACK_CELLS)
@@ -785,7 +789,7 @@ union Reb_Value_Extra {
 union Reb_Value_Payload {
 
   #if defined(DEBUG_TRACK_CELLS) && !defined(DEBUG_TRACK_EXTEND_CELLS)
-    struct Reb_Track_Payload track; // in void/trash, BLANK!, LOGIC!, BAR!
+    struct Reb_Track_Payload track; // NULL, VOID!, BLANK!, LOGIC!, BAR!
   #endif
 
     REBUNI character; // It's CHAR! (for now), but 'char' is a C keyword

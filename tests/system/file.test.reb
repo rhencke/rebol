@@ -166,13 +166,4 @@
             loaded = data
         ]
     )
-
-    ;-- This gave an error in R3-Alpha:
-    ;-- ** Script error: save does not allow none! for its method argument
-    ;
-    ;[(save/header/compress blank data [
-    ;    title: "my code" options: [compress]
-    ;] blank) = #{
-    ;    ???
-    ;}]
 ]

@@ -61,15 +61,15 @@
     block = [3 4]
 )
 (
-    b-was-void: false
+    b-was-null: false
 
     block: copy [1 2 3 4 5]
     remove-each [a b] block [
         if a = 5 [
-            b-was-void: null? :b
+            b-was-null: null? :b
         ]
     ]
-    b-was-void
+    b-was-null
 )
 
 ; STRING!
@@ -105,15 +105,15 @@
     string = "34"
 )
 (
-    b-was-void: false
+    b-was-null: false
 
     string: copy "12345"
     remove-each [a b] string [
         if a = #"5" [
-            b-was-void: null? :b
+            b-was-null: null? :b
         ]
     ]
-    b-was-void
+    b-was-null
 )
 
 ; BINARY!
@@ -149,13 +149,13 @@
     binary = #{0304}
 )
 (
-    b-was-void: false
+    b-was-null: false
 
     binary: copy #{0102030405}
     remove-each [a b] binary [
         if a = 5 [
-            b-was-void: null? :b
+            b-was-null: null? :b
         ]
     ]
-    b-was-void
+    b-was-null
 )

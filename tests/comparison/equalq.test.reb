@@ -504,8 +504,12 @@
 ; object! different words
 (not equal? make object! [a: 1] make object! [b: 1])
 (not equal? make object! [a: 1] make object! [])
+
 ; object! complex structural equivalence
-(
+; Slight differences.
+; Structural equality requires equality of the object's fields.
+;
+[#1133 (
     a-value: has/only [
         a: 1 b: 1.0 c: $1 d: 1%
         e: [a 'a :a a: /a #"a" #{00}]
@@ -519,12 +523,7 @@
         g: :a/b/(c: 'd/e/f)/(b/d: [:f/g h/i])
     ]
     equal? a-value b-value
-)
-; object! complex structural equivalence
-; Slight differences.
-; object! structural equivalence verified
-; Structural equality requires equality of the object's fields.
-[#1133 (
+)(
     a-value: has/only [
         a: 1 b: 1.0 c: $1 d: 1%
         e: [a 'a :a a: /a #"a" #{00}]
@@ -543,10 +542,7 @@
         not null? for-each [w v] a-value [
             if not test :v select b-value w [break]
         ]
-)]
-; object! structural equivalence verified
-; Structural equality requires equality of the object's fields.
-(
+)(
     a-value: has/only [
         a: 1 b: 1.0 c: $1 d: 1%
         e: [a 'a :a a: /a #"a" #{00}]
@@ -565,31 +561,39 @@
         not null? for-each [w v] a-value [
             if not test :v select b-value w [break]
         ]
-)
-; void! comparison fails
-(equal? void void)
-; basic comparison with unset first argument fails
-(not-equal? void blank)
-; basic comparison with unset second argument fails
-(not-equal? blank void)
-; unset! symmetry
-(equal? equal? blank (void) equal? void blank)
-; unset! symmetry
-; Fails on R2 because there is no structural comparison of objects.
-; basic comparison with unset first argument succeeds with = op
-; Code in R3 mezzanines depends on this.
-(not (void = blank))
-; basic comparison with unset first argument succeeds with != op
-; Code in R3 mezzanines depends on this.
-(void <> blank)
-; basic comparison with unset second argument fails with = op
-(not (blank = void))
-; basic comparison with unset second argument fails with != op
-(blank != (void))
-(void = (void))
-(not ((void) != void))
-; unset! symmetry with =
-(equal? (blank = void) ((void) = blank))
+)]
+
+; VOID is legal to test with equality (as is UNSET! in R3-Alpha/Red)
+[
+    (equal? void void)
+    (not-equal? void blank)
+    (not-equal? blank void)
+    (equal? (equal? blank void) (equal? void blank))
+    (not (void = blank))
+    (void <> blank)
+    (not (blank = void))
+    (blank != void)
+    (void = void)
+    (not (void != void))
+    (equal? (blank = void) (void = blank))
+]
+
+; NULL is legal to test with equality (as is UNSET! in R3-Alpha/Red)
+[
+    (equal? null null)
+    (not-equal? null blank)
+    (not-equal? blank null)
+    (equal? (equal? blank null) (equal? null blank))
+    (not (null = blank))
+    (null <> blank)
+    (not (blank = null))
+    (blank != null)
+    (null = null)
+    (not (null != null))
+    (equal? (blank = null) (null = blank))
+]
+
+
 ; error! reflexivity
 ; Evaluates (trap [1 / 0]) to get error! value.
 (

@@ -84,7 +84,7 @@
     ][
         get 'x
     ][
-        (void)
+        void
     ]
 )
 (
@@ -104,7 +104,7 @@
     ][
         return get 'x
     ][
-        (void)
+        void
     ]
 )
 (

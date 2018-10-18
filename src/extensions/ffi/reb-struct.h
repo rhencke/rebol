@@ -216,7 +216,7 @@ inline static ffi_type* SCHEMA_FFTYPE(const RELVAL *schema) {
     }
 
     // Avoid creating a "VOID" type in order to not give the illusion of
-    // void parameters being legal.  The NONE! return type is handled
+    // void parameters being legal.  The BLANK! return type is handled
     // exclusively by the return value, to prevent potential mixups.
     //
     assert(IS_WORD(schema));

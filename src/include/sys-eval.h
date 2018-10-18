@@ -919,7 +919,7 @@ inline static void Reify_Va_To_Array_In_Frame(
         assert(f->source->pending == END_NODE);
 
         do {
-            // may be void.  Preserve VALUE_FLAG_EVAL_FLIP flag.
+            // may be a NULLED cell.  Preserve VALUE_FLAG_EVAL_FLIP flag.
             DS_PUSH_RELVAL_KEEP_EVAL_FLIP(f->value, f->specifier);
             Fetch_Next_In_Frame(nullptr, f);
         } while (NOT_END(f->value));

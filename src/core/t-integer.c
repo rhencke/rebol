@@ -58,7 +58,7 @@ void MAKE_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // it refuses to say TO FALSE is 0.  MAKE has shades of meaning
         // that are more "dialected", e.g. MAKE BLOCK! 10 creates a block
         // with capacity 10 and not literally `[10]` (or a block with ten
-        // NONE! values in it).  Under that liberal umbrella it decides
+        // BLANK! values in it).  Under that liberal umbrella it decides
         // that it will make an integer 0 out of FALSE due to it having
         // fewer seeming "rules" than TO would.
 

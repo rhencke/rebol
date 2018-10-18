@@ -7,6 +7,6 @@
     remove head of a
     2 == index? a
 )
-[#1611 ; Allow INDEX? to take blank as an argument, return void
+[#1611
     (null? index of blank)
 ]

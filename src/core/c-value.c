@@ -45,9 +45,10 @@
 // it can find it).  This will allow those using Address Sanitizer or
 // Valgrind to know a bit more about where the value came from.
 //
-// Additionally, if it happens to be a void or trash, LOGIC!, BAR!, or NONE!
-// it will dump out where the initialization happened if that information
-// was stored.
+// Additionally, if it happens to be NULLED, VOID!, LOGIC!, BAR!, BLANK!, or
+// a trash cell, it will dump out where the initialization happened if that
+// information was stored.  (See DEBUG_TRACK_EXTEND_CELLS for more intense
+// debugging scenarios, which track all cell types, but at greater cost.)
 //
 ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
     fflush(stdout);

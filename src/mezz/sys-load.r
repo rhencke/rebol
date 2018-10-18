@@ -394,11 +394,11 @@ load: function [
     ]
 
     ;-- Bind code to user context:
-    if not any [
-        'unbound = ftype ;-- may be void
+    not any [
+        'unbound = ftype
         'module = select hdr 'type
         find try get 'hdr/options 'unbound
-    ][
+    ] then [
         data: intern data
     ]
 

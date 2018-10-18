@@ -53,9 +53,9 @@
 // REBNATIVE(resume))
 //
 enum {
-    RESUME_INST_MODE = 0,   // FALSE if /WITH, TRUE if /DO, NONE! if default
+    RESUME_INST_MODE = 0,   // FALSE if /WITH, TRUE if /DO, BLANK! if default
     RESUME_INST_PAYLOAD,    // code block to /DO or value of /WITH
-    RESUME_INST_TARGET,     // unwind target, NONE! to return from breakpoint
+    RESUME_INST_TARGET,     // unwind target, BLANK! to return from breakpoint
     RESUME_INST_MAX
 };
 
@@ -167,10 +167,10 @@ static REBNATIVE(pause)
 //
 //  Frame_For_Stack_Level: C
 //
-// Level can be a void, an INTEGER!, an ANY-ACTION!, or a FRAME!.  If
-// level is void then it means give whatever the first call found is.
+// Level can be NULLED, an INTEGER!, an ANY-ACTION!, or a FRAME!.  If level is
+// NULLED then it means give whatever the first call found is.
 //
-// Returns NULL if the given level number does not correspond to a running
+// Returns nullptr if the given level number does not correspond to a running
 // function on the stack.
 //
 // Can optionally give back the index number of the stack level (counting
@@ -193,12 +193,8 @@ REBFRM *Frame_For_Stack_Level(
     REBINT num = 0;
 
     if (IS_INTEGER(level)) {
-        if (VAL_INT32(level) < 0) {
-            //
-            // !!! fail() here, or just return NULL?
-            //
-            return NULL;
-        }
+        if (VAL_INT32(level) < 0)
+            return nullptr; // !!! better to fail() here?
     }
 
     // We may need to skip some number of frames, if there have been stack
@@ -285,7 +281,7 @@ REBFRM *Frame_For_Stack_Level(
 
     // Didn't find it...
     //
-    return NULL;
+    return nullptr;
 
 return_maybe_set_number_out:
     if (number_out)

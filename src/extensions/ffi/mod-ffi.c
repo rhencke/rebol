@@ -500,7 +500,7 @@ REBNATIVE(get_at_pointer)
 //  {Set the contents of a cell, e.g. one returned by ALLOC-VALUE-POINTER}
 //
 //      return: [<opt> any-value!]
-//          {Will be the value set to, or void if the set values is void}
+//          {Will be the value set to, or NULL if the set value is NULL}
 //      target [integer!]
 //          {A pointer to a Rebol value}
 //      value [<opt> any-value!]

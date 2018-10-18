@@ -1313,7 +1313,7 @@ REBNATIVE(null_q)
 //
 //  nothing?: native/body [
 //
-//  "Returns TRUE if argument is either a NONE! or no value is passed in"
+//  "Returns TRUE if argument is either a BLANK! or NULL"
 //
 //      value [<opt> any-value!]
 //  ][
@@ -1327,6 +1327,8 @@ REBNATIVE(nothing_q)
 {
     INCLUDE_PARAMS_OF_NOTHING_Q;
 
+    // !!! Should VOID! be considered "nothing" also?
+    //
     return Init_Logic(D_OUT, IS_BLANK(ARG(value)) or IS_NULLED(ARG(value)));
 }
 
@@ -1334,7 +1336,7 @@ REBNATIVE(nothing_q)
 //
 //  something?: native/body [
 //
-//  "Returns TRUE if a value is passed in and it isn't a NONE!"
+//  "Returns TRUE if a value is passed in and it isn't NULL or a BLANK!"
 //
 //      value [<opt> any-value!]
 //  ][

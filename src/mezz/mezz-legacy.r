@@ -151,7 +151,7 @@ prin: function [
 rejoin: function [
     "Reduces and joins a block of values."
     return: [any-series!]
-        "Will be the type of the first non-void series produced by evaluation"
+        "Will be the type of the first non-null series produced by evaluation"
     block [block!]
         "Values to reduce and join together"
 ][

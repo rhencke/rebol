@@ -50,7 +50,7 @@ extend: func [
 join-all: function [
     "Reduces and appends a block of values together."
     return: [<opt> any-series!]
-        "Will be the type of the first non-void series produced by evaluation"
+        "Will be the type of the first non-null series produced by evaluation"
     block [block!]
         "Values to join together"
     <local> position base
@@ -136,7 +136,7 @@ replace: function [
     ; had no access to source (?).  Correct answer is likely to fix FIND:
     ;
     ;    >> find "abcdef" <cde>
-    ;    >> == "cdef" ; should probably be NONE!
+    ;    >> == "cdef" ; should probably be null
     ;
     ;    >> find "ab<cde>f" <cde>
     ;    == "cde>f" ; should be "<cde>f"

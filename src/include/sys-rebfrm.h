@@ -691,7 +691,7 @@ struct Reb_Frame {
     //
     // Because of how this lays out, IS_TRUTHY() can be used to determine if
     // an argument should be type checked normally...while IS_FALSEY() means
-    // that the arg's bits must be set to void.
+    // that the arg must be a NULL.
     //
     // In path processing, ->refine points to the soft-quoted product of the
     // current path item (the "picker").  So on the second step of processing

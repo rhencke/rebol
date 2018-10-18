@@ -352,6 +352,10 @@
 // Rather than introduce a "new" abstraction or macro, this adds a shim of
 // C++11's `nullptr` to C++98, and a simple macro to C.
 //
+// This also means that NULL can be used in comments for the Rebol concept,
+// as opposed to the C idea (though NULLED may be clearer, depending on
+// context).  Either way, when discussing C's "0 pointer", say `nullptr`.
+//
 
 #if defined(CPLUSPLUS_11) //...or above
     //

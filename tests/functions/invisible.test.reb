@@ -49,7 +49,7 @@
     1 = do [1 elide "a"]
 )
 (
-    (void) = do [elide "a"]
+    void = do [elide "a"]
 )
 
 (
@@ -104,7 +104,7 @@
 )
 
 (
-    (void) = do [end]
+    void = do [end]
 )
 (
     3 = do [1 + 2 end 10 + 20 | 100 + 200]

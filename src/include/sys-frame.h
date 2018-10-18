@@ -36,7 +36,7 @@
 //
 // All THROWN values have two parts: the REBVAL arg being thrown and
 // a REBVAL indicating the /NAME of a labeled throw.  (If the throw was
-// created with plain THROW instead of THROW/NAME then its name is NONE!).
+// created with plain THROW instead of THROW/NAME then its name is null).
 // You cannot fit both values into a single value's bits of course, but
 // since only one THROWN() value is supposed to exist on the stack at a
 // time the arg part is stored off to the side when one is produced

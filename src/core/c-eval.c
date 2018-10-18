@@ -245,9 +245,9 @@ inline static void Finalize_Arg(
     assert(
         refine == ORDINARY_ARG // check arg type
         or refine == LOOKBACK_ARG // check arg type
-        or refine == ARG_TO_UNUSED_REFINEMENT // ensure arg void
-        or refine == ARG_TO_REVOKED_REFINEMENT // ensure arg void
-        or IS_REFINEMENT(refine) // ensure arg not void
+        or refine == ARG_TO_UNUSED_REFINEMENT // ensure arg null
+        or refine == ARG_TO_REVOKED_REFINEMENT // ensure arg null
+        or IS_REFINEMENT(refine) // ensure arg not null
     );
 
     if (IS_NULLED(arg)) {
