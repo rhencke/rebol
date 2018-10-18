@@ -336,9 +336,10 @@ REBNATIVE(decode_gif)
         }
         cp += 9;
 
-        REBSER *ser = Make_Image(w, h);
+        DECLARE_LOCAL (image);
+        Make_Image(image, w, h);
 
-        REBYTE *dp = QUAD_HEAD(ser);
+        REBYTE *dp = VAL_IMAGE_HEAD(image);
 
         Decode_LZW(dp, &cp, colormap, w, h, interlaced);
 
@@ -348,8 +349,6 @@ REBNATIVE(decode_gif)
             ///Chroma_Key_Alpha(Temp_Value, (uint32_t)(p[2]|(p[1]<<8)|(p[0]<<16)), BLIT_MODE_COLOR);
         }
 
-        DECLARE_LOCAL (image);
-        Init_Image(image, ser);
         rebElide("append", frames, image, rebEND);
     }
 

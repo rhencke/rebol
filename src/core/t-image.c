@@ -64,7 +64,7 @@ REBINT CT_Image(const RELVAL *a, const RELVAL *b, REBINT mode)
 void Copy_Image_Value(REBVAL *out, const REBVAL *arg, REBINT len)
 {
     len = MAX(len, 0); // no negatives
-    len = MIN(len, cast(REBINT, VAL_IMAGE_LEN(arg)));
+    len = MIN(len, cast(REBINT, VAL_IMAGE_LEN_AT(arg)));
 
     REBINT w = VAL_IMAGE_WIDE(arg);
     w = MAX(w, 1);
@@ -80,9 +80,8 @@ void Copy_Image_Value(REBVAL *out, const REBVAL *arg, REBINT len)
     if (w == 0)
         h = 0;
 
-    REBSER *series = Make_Image(w, h);
-    Init_Image(out, series);
-    memcpy(VAL_IMAGE_HEAD(out), VAL_IMAGE_DATA(arg), w * h * 4);
+    Make_Image(out, w, h);
+    memcpy(VAL_IMAGE_HEAD(out), VAL_IMAGE_AT(arg), w * h * 4);
 }
 
 
@@ -95,13 +94,13 @@ void MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         //
         // make image! img
         //
-        Copy_Image_Value(out, arg, VAL_IMAGE_LEN(arg));
+        Copy_Image_Value(out, arg, VAL_IMAGE_LEN_AT(arg));
     }
     else if (IS_BLANK(arg) || (IS_BLOCK(arg) && VAL_ARRAY_LEN_AT(arg) == 0)) {
         //
         // make image! [] (or none)
         //
-        Init_Image(out, Make_Image(0, 0));
+        Make_Image(out, 0, 0);
     }
     else if (IS_PAIR(arg)) {
         //
@@ -111,7 +110,7 @@ void MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         REBINT h = VAL_PAIR_Y_INT(arg);
         w = MAX(w, 0);
         h = MAX(h, 0);
-        Init_Image(out, Make_Image(w, h));
+        Make_Image(out, w, h);
     }
     else if (IS_BLOCK(arg)) {
         //
@@ -125,12 +124,9 @@ void MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         REBINT h = VAL_PAIR_Y_INT(item);
         if (w < 0 || h < 0) goto bad_make;
 
-        REBSER *img = Make_Image(w, h);
-        if (!img) goto bad_make;
+        Make_Image(out, w, h);
 
-        Init_Image(out, img);
-
-        REBYTE *ip = QUAD_HEAD(img); // image pointer
+        REBYTE *ip = VAL_IMAGE_HEAD(out); // image pointer
         REBCNT size = w * h;
 
         ++item;
@@ -211,7 +207,7 @@ void TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     UNUSED(kind);
 
     if (IS_IMAGE(arg)) {
-        Copy_Image_Value(out, arg, VAL_IMAGE_LEN(arg));
+        Copy_Image_Value(out, arg, VAL_IMAGE_LEN_AT(arg));
     }
     else if (IS_GOB(arg)) {
         REBVAL *image = OS_GOB_TO_IMAGE(arg);
@@ -232,10 +228,9 @@ void TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         REBINT h = diff / w;
         if (w * h < diff) h++; // partial line
 
-        REBSER *series = Make_Image(w, h);
-        Init_Image(out, series);
+        Make_Image(out, w, h);
         Bin_To_RGBA(
-            QUAD_HEAD(series),
+            VAL_IMAGE_HEAD(out),
             w * h,
             VAL_BIN_AT(arg),
             VAL_LEN_AT(arg) / 4,
@@ -510,52 +505,29 @@ void Tuples_To_RGBA(REBYTE *rgba, REBCNT size, REBVAL *blk, REBCNT len)
 
 
 //
-//  Image_To_RGBA: C
-//
-void Image_To_RGBA(REBYTE *rgba, REBYTE *bin, REBINT len)
-{
-    // Convert from internal image (integer) to RGBA binary order:
-    for (; len > 0; len--, rgba += 4, bin += 4) {
-        bin[0] = rgba[0];
-        bin[1] = rgba[1];
-        bin[2] = rgba[2];
-        bin[3] = rgba[3];
-    }
-}
-
-#ifdef NEED_ARGB_TO_BGR
-REBCNT ARGB_To_BGR(REBCNT i)
-{
-    return
-        ((i & 0x00ff0000) >> 16) | // red
-        ((i & 0x0000ff00)) |       // green
-        ((i & 0x000000ff) << 16);  // blue
-}
-#endif
-
-
-//
 //  Mold_Image_Data: C
 //
 // Output RGB image data, and then alpha channel (if it has one)
 //
 void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
 {
-    REBCNT size = VAL_IMAGE_LEN(value); // # pixels (from index to tail)
-    REBCNT *data = cast(REBCNT*, VAL_IMAGE_DATA(value));
+    REBCNT num_pixels = VAL_IMAGE_LEN_AT(value); // # from index to tail
+    const REBYTE *rgba = VAL_IMAGE_AT(value);
 
     Emit(mold, "IxI #{", VAL_IMAGE_WIDE(value), VAL_IMAGE_HIGH(value));
 
     // !!! Actually accurate?
     //
-    REBYTE *bp = Prep_Mold_Overestimated(mold, (size * 6) + (size / 10) + 1);
+    REBYTE *bp = Prep_Mold_Overestimated(
+        mold,
+        (num_pixels * 6) + (num_pixels / 10) + 1
+    );
 
-    REBCNT len;
-    for (len = 0; len < size; len++) {
-        REBYTE* pixel = cast(REBYTE*, data++);
-        if ((len % 10) == 0)
+    REBCNT i;
+    for (i = 0; i < num_pixels; ++i, rgba += 4) {
+        if ((i % 10) == 0)
             *bp++ = LF;
-        bp = Form_RGB_Utf8(bp, pixel);
+        bp = Form_RGB_Utf8(bp, rgba);
     }
 
     // Output Alpha channel, if it has one:
@@ -565,13 +537,16 @@ void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
 
         // !!! Actually accurate?
         //
-        bp = Prep_Mold_Overestimated(mold, (size * 2) + (size / 10) + 1);
+        bp = Prep_Mold_Overestimated(
+            mold,
+            (num_pixels * 2) + (num_pixels / 10) + 1
+        );
 
-        data = cast(REBCNT*, VAL_IMAGE_DATA(value));
-        for (len = 0; len < size; len++) {
-            if ((len % 10) == 0)
+        rgba = VAL_IMAGE_AT(value);
+        for (i = 0; i < num_pixels; ++i, rgba += 4) {
+            if ((i % 10) == 0)
                 *bp++ = LF;
-            bp = Form_Hex2_UTF8(bp, *data++ >> 24);
+            bp = Form_Hex2_UTF8(bp, rgba[3]); // alpha
         }
     }
 
@@ -586,13 +561,11 @@ void Mold_Image_Data(const REBVAL *value, REB_MOLD *mold)
 //
 REBSER *Make_Image_Binary(const REBVAL *image)
 {
-    REBSER *ser;
-    REBINT len;
-    len =  VAL_IMAGE_LEN(image) * 4;
-    ser = Make_Binary(len);
-    SET_SERIES_LEN(ser, len);
-    Image_To_RGBA(VAL_IMAGE_DATA(image), QUAD_HEAD(ser), VAL_IMAGE_LEN(image));
-    return ser;
+    size_t size = VAL_IMAGE_LEN_AT(image) * 4;
+    REBSER *bin = Make_Binary(size);
+    SET_SERIES_LEN(bin, size);
+    memcpy(BIN_HEAD(bin), VAL_IMAGE_AT(image), size);
+    return bin;
 }
 
 
@@ -601,7 +574,7 @@ REBSER *Make_Image_Binary(const REBVAL *image)
 //
 // Creates WxH image, black pixels, all opaque.
 //
-REBSER *Make_Image(REBCNT w, REBCNT h)
+void Make_Image(REBVAL *out, REBCNT w, REBCNT h)
 {
     // !!! Temporary size storage limit for images, applicable only because
     // the size is poked into a hidden location of the REBSER node.  This
@@ -618,10 +591,13 @@ REBSER *Make_Image(REBCNT w, REBCNT h)
     //
     REBSER *img = Make_Series(w * h + 1, 4);
     SET_SERIES_LEN(img, (w * h));
+
     RESET_IMAGE(SER_DATA_RAW(img), (w * h)); // length in 'pixels'
+
     IMG_WIDE(img) = w;
     IMG_HIGH(img) = h;
-    return img;
+
+    Init_Any_Series(out, REB_IMAGE, img);
 }
 
 
@@ -854,7 +830,7 @@ void Find_Image(REBFRM *frame_)
     REBVAL  *arg = ARG(value);
     REBCNT  index = VAL_INDEX(value);
     REBCNT  tail = VAL_LEN_HEAD(value);
-    REBYTE *ip = VAL_IMAGE_DATA(value); // NOTE ints not bytes
+    REBYTE *ip = VAL_IMAGE_AT(value);
     REBYTE *p;
     REBINT  n;
 
@@ -988,25 +964,22 @@ void Copy_Rect_Data(
 
 
 //
-//  Complement_Image: C
+//  Make_Complemented_Image: C
 //
-static REBSER *Complement_Image(REBVAL *value)
+static void Make_Complemented_Image(REBVAL *out, const REBVAL *value)
 {
-    REBYTE *img = VAL_IMAGE_DATA(value);
-    REBINT len = VAL_IMAGE_LEN(value);
-    REBSER *ser = Make_Image(
-        VAL_IMAGE_WIDE(value),
-        VAL_IMAGE_HIGH(value)
-    );
-    REBYTE *out = QUAD_HEAD(ser);
+    REBYTE *img = VAL_IMAGE_AT(value);
+    REBINT len = VAL_IMAGE_LEN_AT(value);
 
+    Make_Image(out, VAL_IMAGE_WIDE(value), VAL_IMAGE_HIGH(value));
+    
+    REBYTE *dp = VAL_IMAGE_HEAD(out);
     for (; len > 0; len --) {
-        *out++ = ~ *img++; // copy complemented red
-        *out++ = ~ *img++; // copy complemented green
-        *out++ = ~ *img++; // copy complemented blue
-        *out++ = ~ *img++; // copy complemented alpha !!! Is this intended?
+        *dp++ = ~ *img++; // copy complemented red
+        *dp++ = ~ *img++; // copy complemented green
+        *dp++ = ~ *img++; // copy complemented blue
+        *dp++ = ~ *img++; // copy complemented alpha !!! Is this intended?
     }
-    return ser;
 }
 
 
@@ -1099,7 +1072,8 @@ REBTYPE(Image)
         break; }
 
     case SYM_COMPLEMENT:
-        return Init_Image(D_OUT, Complement_Image(value));
+        Make_Complemented_Image(D_OUT, value);
+        return D_OUT;
 
     case SYM_SKIP:
     case SYM_AT:
@@ -1232,8 +1206,7 @@ REBTYPE(Image)
             } else len = diff = 0; // avoid div zero
             w = MIN(w, index - diff); // img-width - x-pos
             h = MIN(h, (int)(VAL_IMAGE_HIGH(value) - len)); // img-high - y-pos
-            series = Make_Image(w, h);
-            Init_Image(D_OUT, series);
+            Make_Image(D_OUT, w, h);
             Copy_Rect_Data(D_OUT, 0, 0, w, h, value, diff, len);
 //          VAL_IMAGE_TRANSP(D_OUT) = VAL_IMAGE_TRANSP(value);
             return D_OUT;
@@ -1242,7 +1215,7 @@ REBTYPE(Image)
 
 makeCopy:
         // Src image is arg.
-        len = VAL_IMAGE_LEN(arg);
+        len = VAL_IMAGE_LEN_AT(arg);
 makeCopy2:
         Copy_Image_Value(D_OUT, arg, len);
         return D_OUT; }
@@ -1292,13 +1265,11 @@ inline static bool Adjust_Image_Pick_Index_Is_Valid(
 //
 void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
 {
-    REBSER *series = VAL_SERIES(value);
-
     REBINT index = cast(REBINT, VAL_INDEX(value));
     REBINT len = VAL_LEN_HEAD(value) - index;
     len = MAX(len, 0);
 
-    REBYTE *src = VAL_IMAGE_DATA(value);
+    REBYTE *src = VAL_IMAGE_AT(value);
 
     if (IS_WORD(picker)) {
         switch (VAL_WORD_SYM(picker)) {
@@ -1313,14 +1284,14 @@ void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
         case SYM_RGB: {
             REBSER *nser = Make_Binary(len * 3);
             SET_SERIES_LEN(nser, len * 3);
-            RGB_To_Bin(QUAD_HEAD(nser), src, len, false);
+            RGB_To_Bin(BIN_HEAD(nser), src, len, false);
             Init_Binary(out, nser);
             break; }
 
         case SYM_ALPHA: {
             REBSER *nser = Make_Binary(len);
             SET_SERIES_LEN(nser, len);
-            Alpha_To_Bin(QUAD_HEAD(nser), src, len);
+            Alpha_To_Bin(BIN_HEAD(nser), src, len);
             Init_Binary(out, nser);
             break; }
 
@@ -1331,7 +1302,7 @@ void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
     }
 
     if (Adjust_Image_Pick_Index_Is_Valid(&index, value, picker))
-        Init_Tuple_From_Pixel(out, QUAD_SKIP(series, index));
+        Init_Tuple_From_Pixel(out, VAL_IMAGE_AT_HEAD(value, index));
     else
         Init_Nulled(out);
 }
@@ -1352,7 +1323,7 @@ void Poke_Image_Fail_If_Read_Only(
     REBINT len = VAL_LEN_HEAD(value) - index;
     len = MAX(len, 0);
 
-    REBYTE *src = VAL_IMAGE_DATA(value);
+    REBYTE *src = VAL_IMAGE_AT(value);
 
     if (IS_WORD(picker)) {
         switch (VAL_WORD_SYM(picker)) {
@@ -1427,7 +1398,7 @@ void Poke_Image_Fail_If_Read_Only(
         fail (Error_Out_Of_Range(picker));
 
     if (IS_TUPLE(poke)) { // set whole pixel
-        Set_Pixel_Tuple(QUAD_SKIP(series, index), poke);
+        Set_Pixel_Tuple(VAL_IMAGE_AT_HEAD(value, index), poke);
         return;
     }
 
@@ -1446,8 +1417,8 @@ void Poke_Image_Fail_If_Read_Only(
     else
         fail (Error_Out_Of_Range(poke));
 
-    REBCNT *dp = cast(REBCNT*, QUAD_SKIP(series, index));
-    *dp = (*dp & 0xffffff) | (alpha << 24);
+    REBYTE *dp = VAL_IMAGE_AT_HEAD(value, index);
+    dp[3] = alpha;
 }
 
 

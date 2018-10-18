@@ -396,9 +396,9 @@ REBNATIVE(decode_bmp)
     if (bmfh.bfOffBits != cast(DWORD, cp - data))
         cp = data + bmfh.bfOffBits;
 
-    REBSER *ser = Make_Image(w, h);
+    Make_Image(D_OUT, w, h);
 
-    REBYTE *dp = QUAD_HEAD(ser);
+    REBYTE *dp = VAL_IMAGE_HEAD(D_OUT);
 
     dp += (w * h - w) * 4;
 
@@ -569,7 +569,6 @@ REBNATIVE(decode_bmp)
         dp -= (2 * w) * 4;
     }
 
-    Init_Image(D_OUT, ser);
     return D_OUT;
 
 bit_len_error:

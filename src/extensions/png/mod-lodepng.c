@@ -259,9 +259,9 @@ REBNATIVE(decode_png)
     // IMAGE! use a byte-sized series.  Changing it to a user-defined type
     // that is built up from a BINARY! and a PAIR! is a future agenda item.
     //
-    REBSER *image = Make_Image(width, height);
+    Make_Image(D_OUT, width, height);
     unsigned char *src = image_bytes;
-    REBYTE *dest = SER_DATA_RAW(image);
+    REBYTE *dest = VAL_IMAGE_HEAD(D_OUT);
     REBCNT index;
     for (index = 0; index < width * height; ++index) {
         dest[0] = src[0];
@@ -273,7 +273,7 @@ REBNATIVE(decode_png)
     }
     rebFree(image_bytes); // !!! would have been nicer to rebRepossess()
 
-    return Init_Image(D_OUT, image);
+    return D_OUT;
 }
 
 

@@ -1569,60 +1569,6 @@ inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  IMAGE!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// !!! Ren-C's primary goals are to research and pin down fundamentals, where
-// things like IMAGE! would be an extension through a user-defined type
-// vs. being in the core.  The R3-Alpha code has been kept compiling here
-// due to its usage in R3-GUI.
-//
-
-// QUAD=(Red, Green, Blue, Alpha)
-
-#define QUAD_LEN(s) \
-    SER_LEN(s)
-
-#define QUAD_HEAD(s) \
-    SER_DATA_RAW(s)
-
-#define QUAD_SKIP(s,n) \
-    (QUAD_HEAD(s) + ((n) * 4))
-
-#define QUAD_TAIL(s) \
-    (QUAD_HEAD(s) + (QUAD_LEN(s) * 4))
-
-#define IMG_WIDE(s) \
-    (MISC(s).area.wide)
-
-#define IMG_HIGH(s) \
-    (MISC(s).area.high)
-
-#define VAL_IMAGE_HEAD(v) \
-    QUAD_HEAD(VAL_SERIES(v))
-
-#define VAL_IMAGE_TAIL(v) \
-    QUAD_SKIP(VAL_SERIES(v), VAL_LEN_HEAD(v))
-
-#define VAL_IMAGE_DATA(v) \
-    QUAD_SKIP(VAL_SERIES(v), VAL_INDEX(v))
-
-#define VAL_IMAGE_WIDE(v) \
-    (IMG_WIDE(VAL_SERIES(v)))
-
-#define VAL_IMAGE_HIGH(v) \
-    (IMG_HIGH(VAL_SERIES(v)))
-
-#define VAL_IMAGE_LEN(v) \
-    VAL_LEN_AT(v)
-
-#define Init_Image(out,s) \
-    Init_Any_Series((out), REB_IMAGE, (s));
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
 //  GOB! Graphic Object
 //
 //=////////////////////////////////////////////////////////////////////////=//
