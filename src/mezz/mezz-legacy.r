@@ -17,38 +17,6 @@ REBOL [
 ]
 
 
-; Note: PROC and PROCEDURE not in R3-Alpha.  They were Ren-C-isms, and people
-; were forced to use them before the existence of `return: <void>`.  It is
-; unlikely they will be retained long-term, but kept for the moment.
-;
-procmaker: function [
-    {https://forum.rebol.info/t/method-and-the-argument-against-procedure/710}
-    return: [action!]
-    generator [action!] spec [block!] body [block!]
-][
-    generator collect [
-        pending: [return: <void>]
-        try-inject-return: func [item [<opt> any-value!]] [
-            if pending and [not text? :item] [
-                keep was pending: _
-            ]
-        ]
-        for-each item spec [
-            try-inject-return :item
-            keep/only :item
-        ]
-        try-inject-return null ;-- in case spec was empty or all TEXT!
-        keep [leave:] ;-- define local
-    ] compose [
-        leave: :return ;-- `return: <void>` makes RETURN 0-arity
-        (body)
-    ]
-]
-proc: specialize 'procmaker [generator: :func]
-procedure: specialize 'procmaker [generator: :function]
-unset 'procmaker
-
-
 ; CONSTRUCT (arity 2) and HAS (arity 1) have arisen as the OBJECT!-making
 ; routines, parallel to FUNCTION (arity 2) and DOES (arity 1).  By not being
 ; nouns like CONTEXT and OBJECT, they free up those words for other usages.
