@@ -210,18 +210,6 @@ REBI64 Int64s(const REBVAL *val, REBINT sign)
 
 
 //
-//  Int8u: C
-//
-REBINT Int8u(const REBVAL *val)
-{
-    if (VAL_INT64(val) > 255 or VAL_INT64(val) < 0)
-        fail (Error_Out_Of_Range(val));
-
-    return VAL_INT32(val);
-}
-
-
-//
 //  Datatype_From_Kind: C
 //
 // Returns the specified datatype value from the system context.
@@ -431,7 +419,7 @@ void Extra_Init_Action_Checks_Debug(REBACT *a) {
 //
 //  Part_Len_Core: C
 //
-// When a function that takes a series also takes a /PART argument, this
+// When an ACTION! that takes a series also takes a /PART argument, this
 // determines if the position for the part is before or after the series
 // position.  If it is before (e.g. a negative integer limit was passed in,
 // or a prior position) the series value will be updated to the earlier
@@ -483,7 +471,7 @@ static REBCNT Part_Len_Core(
     }
 
     assert(len >= 0);
-    assert(VAL_LEN_HEAD(series) >= len);
+    assert(VAL_LEN_HEAD(series) >= cast(REBCNT, len));
     return cast(REBCNT, len);
 }
 
@@ -515,7 +503,7 @@ REBCNT Part_Tail_May_Modify_Index(REBVAL *series, const REBVAL *limit)
 
 
 //
-//  Append_Insert_Part_Len_May_Modify_Index: C
+//  Part_Len_Append_Insert_May_Modify_Index: C
 //
 // This is for the specific cases of INSERT and APPEND interacting with /PART:
 //
@@ -530,7 +518,7 @@ REBCNT Part_Tail_May_Modify_Index(REBVAL *series, const REBVAL *limit)
 //
 // https://github.com/rebol/rebol-issues/issues/1570
 //
-REBCNT Append_Insert_Part_Len_May_Modify_Index(
+REBCNT Part_Len_Append_Insert_May_Modify_Index(
     REBVAL *value,
     const REBVAL *limit
 ){
@@ -543,18 +531,7 @@ REBCNT Append_Insert_Part_Len_May_Modify_Index(
     if (IS_INTEGER(limit) or IS_DECIMAL(limit))
         return Part_Len_Core(value, limit);
 
-    fail ("Invalid /PART specified for non-series CHANGE argument");
-}
-
-
-//
-//  Clip_Int: C
-//
-int Clip_Int(int val, int mini, int maxi)
-{
-    if (val < mini) val = mini;
-    else if (val > maxi) val = maxi;
-    return val;
+    fail ("Invalid /PART specified for non-series APPEND/INSERT argument");
 }
 
 

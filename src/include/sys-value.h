@@ -1301,11 +1301,23 @@ inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
     return cast(REBVAL*, out);
 }
 
-#define VAL_INT32(v) \
-    cast(REBINT, VAL_INT64(v))
+inline static int32_t VAL_INT32(const RELVAL *v) {
+    if (VAL_INT64(v) > INT32_MAX or VAL_INT64(v) < INT32_MIN)
+        fail (Error_Out_Of_Range(const_KNOWN(v)));
+    return cast(int32_t, VAL_INT64(v));
+}
 
-#define VAL_UNT32(v) \
-    cast(REBCNT, VAL_INT64(v))
+inline static uint32_t VAL_UINT32(const RELVAL *v) {
+    if (VAL_INT64(v) < 0 or VAL_INT64(v) > UINT32_MAX)
+        fail (Error_Out_Of_Range(const_KNOWN(v)));
+    return cast(uint32_t, VAL_INT64(v));
+}
+
+inline static REBYTE VAL_UINT8(const RELVAL *v) {
+    if (VAL_INT64(v) > 255 or VAL_INT64(v) < 0)
+        fail (Error_Out_Of_Range(const_KNOWN(v)));
+    return cast(REBYTE, VAL_INT32(v));
+}
 
 
 //=////////////////////////////////////////////////////////////////////////=//

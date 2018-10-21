@@ -1930,8 +1930,7 @@ REBNATIVE(subparse)
                         i = END_FLAG;
                     }
                     else {
-                        assert(IS_INTEGER(P_CELL));
-                        if (VAL_UNT32(P_CELL) != VAL_LEN_HEAD(into))
+                        if (VAL_UINT32(P_CELL) != VAL_LEN_HEAD(into))
                             i = END_FLAG;
                         else
                             i = P_POS + 1;
@@ -2399,12 +2398,10 @@ REBNATIVE(parse)
     if (IS_BLANK(D_OUT))
         return nullptr;
 
-    assert(IS_INTEGER(D_OUT));
-
     // If the match rules all completed, but the parse position didn't end
     // at (or beyond) the tail of the input series, the parse also failed.
     //
-    if (VAL_UNT32(D_OUT) < VAL_LEN_HEAD(ARG(input)))
+    if (VAL_UINT32(D_OUT) < VAL_LEN_HEAD(ARG(input)))
         return nullptr;
 
     return Init_Bar(D_OUT); // avoids suggesting that failing gives #[false]

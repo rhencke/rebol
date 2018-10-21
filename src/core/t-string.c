@@ -1225,7 +1225,7 @@ REBTYPE(String)
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
             len = Part_Len_May_Modify_Index(v, ARG(limit));
         else
-            len = Append_Insert_Part_Len_May_Modify_Index(arg, ARG(limit));
+            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(limit));
 
         REBFLGS flags = 0;
         if (REF(part))

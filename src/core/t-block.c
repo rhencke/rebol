@@ -847,7 +847,7 @@ REBTYPE(Array)
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
             len = Part_Len_May_Modify_Index(value, ARG(limit));
         else
-            len = Append_Insert_Part_Len_May_Modify_Index(arg, ARG(limit));
+            len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(limit));
 
         FAIL_IF_READ_ONLY_ARRAY(array);
         REBCNT index = VAL_INDEX(value);

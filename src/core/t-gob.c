@@ -453,7 +453,7 @@ static bool Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
         break;
 
     case SYM_ALPHA:
-        GOB_ALPHA(gob) = Clip_Int(Int32(val), 0, 255);
+        GOB_ALPHA(gob) = VAL_UINT8(val); // !!! "clip" instead of range error?
         break;
 
     case SYM_DATA:
