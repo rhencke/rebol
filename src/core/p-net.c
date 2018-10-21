@@ -45,35 +45,34 @@ enum Transport_Types {
 //
 static void Query_Net(REBVAL *out, REBVAL *port, struct devreq_net *sock)
 {
-    REBCTX *ctx = VAL_CONTEXT(port);
-    REBVAL *std_info = In_Object(ctx, STD_PORT_SCHEME, STD_SCHEME_INFO, 0);
+    REBVAL *info = rebRun(
+        "copy ensure object! (", port , ")/scheme/info", rebEND
+    ); // shallow copy
 
-    if (not std_info or not IS_OBJECT(std_info))
-        fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
-
-    REBCTX *info = Copy_Context_Shallow_Managed(VAL_CONTEXT(std_info));
+    REBCTX *ctx = VAL_CONTEXT(info);
 
     Set_Tuple(
-        CTX_VAR(info, STD_NET_INFO_LOCAL_IP),
+        CTX_VAR(ctx, STD_NET_INFO_LOCAL_IP),
         cast(REBYTE*, &sock->local_ip),
         4
     );
     Init_Integer(
-        CTX_VAR(info, STD_NET_INFO_LOCAL_PORT),
+        CTX_VAR(ctx, STD_NET_INFO_LOCAL_PORT),
         sock->local_port
     );
 
     Set_Tuple(
-        CTX_VAR(info, STD_NET_INFO_REMOTE_IP),
+        CTX_VAR(ctx, STD_NET_INFO_REMOTE_IP),
         cast(REBYTE*, &sock->remote_ip),
         4
     );
     Init_Integer(
-        CTX_VAR(info, STD_NET_INFO_REMOTE_PORT),
+        CTX_VAR(ctx, STD_NET_INFO_REMOTE_PORT),
         sock->remote_port
     );
 
-    Init_Object(out, info);
+    Move_Value(out, info);
+    rebRelease(info);
 }
 
 

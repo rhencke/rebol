@@ -88,29 +88,27 @@ void Query_File_Or_Dir(REBVAL *out, REBVAL *port, struct devreq_file *file)
 {
     REBREQ *req = AS_REBREQ(file);
 
-    REBCTX *ctx = VAL_CONTEXT(port);
-    REBVAL *example = In_Object(ctx, STD_PORT_SCHEME, STD_SCHEME_INFO, 0);
-    if (not example or not IS_OBJECT(example))
-        fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
+    REBVAL *info = rebRun(
+        "copy ensure object! (", port , ")/scheme/info", rebEND
+    ); // shallow copy
 
-    REBCTX *info = Copy_Context_Shallow_Managed(VAL_CONTEXT(example));
-    PUSH_GC_GUARD(info);
+    REBCTX *ctx = VAL_CONTEXT(info);
 
     Init_Word(
-        CTX_VAR(info, STD_FILE_INFO_TYPE),
+        CTX_VAR(ctx, STD_FILE_INFO_TYPE),
         (req->modes & RFM_DIR) ? Canon(SYM_DIR) : Canon(SYM_FILE)
     );
-    Init_Integer(CTX_VAR(info, STD_FILE_INFO_SIZE), file->size);
+    Init_Integer(CTX_VAR(ctx, STD_FILE_INFO_SIZE), file->size);
 
     REBVAL *timestamp = OS_FILE_TIME(file);
-    Move_Value(CTX_VAR(info, STD_FILE_INFO_DATE), timestamp);
+    Move_Value(CTX_VAR(ctx, STD_FILE_INFO_DATE), timestamp);
     rebRelease(timestamp);
 
     assert(IS_FILE(file->path));
-    Move_Value(CTX_VAR(info, STD_FILE_INFO_NAME), file->path);
+    Move_Value(CTX_VAR(ctx, STD_FILE_INFO_NAME), file->path);
 
-    DROP_GC_GUARD(info);
-    Init_Object(out, info);
+    Move_Value(out, info);
+    rebRelease(info);
 }
 
 

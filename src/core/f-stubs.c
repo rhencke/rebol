@@ -260,37 +260,6 @@ REBVAL *Type_Of(const RELVAL *value)
 
 
 //
-//  In_Object: C
-//
-// Get value from nested list of objects. List is null terminated.
-// Returns object value, else returns 0 if not found.
-//
-REBVAL *In_Object(REBCTX *base, ...)
-{
-    REBVAL *context = NULL;
-    REBCNT n;
-    va_list va;
-
-    va_start(va, base);
-    while ((n = va_arg(va, REBCNT))) {
-        if (n > CTX_LEN(base)) {
-            va_end(va);
-            return NULL;
-        }
-        context = CTX_VAR(base, n);
-        if (!ANY_CONTEXT(context)) {
-            va_end(va);
-            return NULL;
-        }
-        base = VAL_CONTEXT(context);
-    }
-    va_end(va);
-
-    return context;
-}
-
-
-//
 //  Get_System: C
 //
 // Return a second level object field of the system object.
@@ -504,7 +473,7 @@ static REBCNT Part_Len_Core(
         VAL_INDEX(series) -= cast(REBCNT, len);
     }
 
-    if (cast(REBCNT, len) != len) {
+    if (len > UINT32_MAX) {
         //
         // Tests had `[1] = copy/part tail [1] -2147483648`, where trying to
         // do `len = -len` couldn't make a positive 32-bit version of that
