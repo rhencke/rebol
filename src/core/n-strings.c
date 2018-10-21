@@ -160,12 +160,12 @@ REBNATIVE(checksum)
     INCLUDE_PARAMS_OF_CHECKSUM;
 
     REBVAL *arg = ARG(data);
-    REBYTE *data = VAL_RAW_DATA_AT(arg);
-    REBCNT wide = SER_WIDE(VAL_SERIES(arg));
-    REBCNT len = 0;
 
-    UNUSED(REF(part)); // checked by if limit is void
-    Partial1(arg, ARG(limit), &len);
+    REBCNT len = Part_Len_May_Modify_Index(arg, ARG(limit));
+    UNUSED(REF(part)); // checked by if limit is nulled
+
+    REBYTE *data = VAL_RAW_DATA_AT(arg); // after Partial() in case of change
+    REBCNT wide = SER_WIDE(VAL_SERIES(arg));
 
     REBSYM sym;
     if (REF(method)) {
@@ -317,9 +317,8 @@ REBNATIVE(deflate)
 
     REBVAL *data = ARG(data);
 
-    REBCNT len;
-    Partial1(data, ARG(limit), &len);
-    UNUSED(PAR(part)); // checked by if limit is void
+    REBCNT len = Part_Len_May_Modify_Index(data, ARG(limit));
+    UNUSED(PAR(part)); // checked by if limit is nulled
 
     REBSIZ size;
     REBYTE *bp;
@@ -392,9 +391,9 @@ REBNATIVE(inflate)
     else
         max = -1;
 
-    REBCNT len; // measured in bytes (length of a BINARY!)
-    Partial1(data, ARG(limit), &len);
-    UNUSED(REF(part)); // checked by if limit is void
+    // v-- measured in bytes (length of a BINARY!)
+    REBCNT len = Part_Len_May_Modify_Index(data, ARG(limit));
+    UNUSED(REF(part)); // checked by if limit is nulled
 
     REBSTR *envelope = nullptr;
     if (not REF(envelope)) {
@@ -1146,7 +1145,7 @@ REBNATIVE(uppercase)
 {
     INCLUDE_PARAMS_OF_UPPERCASE;
 
-    UNUSED(REF(part)); // checked by if limit is void
+    UNUSED(REF(part)); // checked by if limit is nulled
     Change_Case(D_OUT, ARG(string), ARG(limit), true);
     return D_OUT;
 }

@@ -715,7 +715,6 @@ REBTYPE(Map)
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     REBMAP *map = VAL_MAP(val);
-    REBCNT tail;
 
     switch (VAL_WORD_SYM(verb)) {
 
@@ -823,27 +822,28 @@ REBTYPE(Map)
 
         if (REF(only))
             fail (Error_Bad_Refines_Raw());
-
         if (REF(line))
             fail (Error_Bad_Refines_Raw());
+        if (REF(dup)) {
+            UNUSED(ARG(count));
+            fail (Error_Bad_Refines_Raw());
+        }
 
         if (not IS_BLOCK(arg))
             fail (Error_Invalid(val));
-        Move_Value(D_OUT, val);
-        if (REF(dup)) {
-            if (Int32(ARG(count)) <= 0) break;
-        }
 
-        UNUSED(REF(part));
-        Partial1(arg, ARG(limit), &tail);
+        REBCNT len = Part_Len_May_Modify_Index(arg, ARG(limit));
+        UNUSED(REF(part)); // detected by if limit is nulled
+
         Append_Map(
             map,
             VAL_ARRAY(arg),
             VAL_INDEX(arg),
             VAL_SPECIFIER(arg),
-            tail
+            len
         );
-        return D_OUT; }
+
+        return Init_Map(D_OUT, map); }
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;

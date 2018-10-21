@@ -175,7 +175,12 @@ const REBVAL *Series_Common_Action_Maybe_Unhandled(
 
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(value));
 
-        REBINT len = REF(part) ? Partial(value, 0, ARG(limit)) : 1;
+        REBINT len;
+        if (REF(part))
+            len = Part_Len_May_Modify_Index(value, ARG(limit));
+        else
+            len = 1;
+
         index = cast(REBINT, VAL_INDEX(value));
         if (index < tail and len != 0)
             Remove_Series(VAL_SERIES(value), VAL_INDEX(value), len);

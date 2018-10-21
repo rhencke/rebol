@@ -339,9 +339,6 @@ void Trim_Tail(REBSER *src, REBYTE chr)
 //
 void Change_Case(REBVAL *out, REBVAL *val, REBVAL *part, bool upper)
 {
-    REBCNT len;
-    REBCNT n;
-
     Move_Value(out, val);
 
     if (IS_CHAR(val)) {
@@ -357,12 +354,11 @@ void Change_Case(REBVAL *out, REBVAL *val, REBVAL *part, bool upper)
 
     FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(val));
 
-    len = Partial(val, 0, part);
-    n = VAL_INDEX(val);
-    len += n;
+    REBCNT len = Part_Len_May_Modify_Index(val, part);
+    REBCNT n = 0;
 
     if (VAL_BYTE_SIZE(val)) {
-        REBYTE *bp = VAL_BIN_HEAD(val);
+        REBYTE *bp = VAL_BIN_AT(val);
         if (upper)
             for (; n != len; n++)
                 bp[n] = cast(REBYTE, UP_CASE(bp[n]));
@@ -371,7 +367,7 @@ void Change_Case(REBVAL *out, REBVAL *val, REBVAL *part, bool upper)
                 bp[n] = cast(REBYTE, LO_CASE(bp[n]));
         }
     } else {
-        REBUNI *up = VAL_UNI_HEAD(val);
+        REBUNI *up = VAL_UNI_AT(val);
         if (upper) {
             for (; n != len; n++) {
                 if (up[n] < UNICODE_CASES)

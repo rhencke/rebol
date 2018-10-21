@@ -472,9 +472,7 @@ static void Sort_Block(
         flags.offset = 0;
     }
 
-    // Determine length of sort:
-    REBCNT len;
-    Partial1(block, part, &len);
+    REBCNT len = Part_Len_May_Modify_Index(block, part); // length of sort
     if (len <= 1)
         return;
 
@@ -738,10 +736,7 @@ REBTYPE(Array)
     if (r != R_UNHANDLED)
         return r;
 
-    // NOTE: Partial1() used below can mutate VAL_INDEX(value), be aware :-/
-    //
     REBARR *array = VAL_ARRAY(value);
-    REBCNT index = VAL_INDEX(value);
     REBSPC *specifier = VAL_SPECIFIER(value);
 
     switch (VAL_WORD_SYM(verb)) {
@@ -753,21 +748,18 @@ REBTYPE(Array)
         if (REF(deep))
             fail (Error_Bad_Refines_Raw());
 
-        REBCNT len;
-
         FAIL_IF_READ_ONLY_ARRAY(array);
 
+        REBCNT len;
         if (REF(part)) {
-            Partial1(value, ARG(limit), &len);
+            len = Part_Len_May_Modify_Index(value, ARG(limit));
             if (len == 0)
                 goto return_empty_block;
-
-            assert(VAL_LEN_HEAD(value) >= len);
         }
         else
             len = 1;
 
-        index = VAL_INDEX(value); // /part can change index
+        REBCNT index = VAL_INDEX(value); // Partial() can change index
 
         if (REF(last))
             index = VAL_LEN_HEAD(value) - len;
@@ -801,11 +793,10 @@ REBTYPE(Array)
 
         REBINT len = ANY_ARRAY(arg) ? VAL_ARRAY_LEN_AT(arg) : 1;
 
-        REBCNT limit;
-        if (REF(part))
-            Partial1(value, ARG(limit), &limit);
-        else
-            limit = VAL_LEN_HEAD(value);
+        REBCNT limit = Part_Tail_May_Modify_Index(value, ARG(limit));
+        UNUSED(REF(part)); // checked by if limit is nulled
+
+        REBCNT index = VAL_INDEX(value);
 
         REBFLGS flags = (
             (REF(only) ? AM_FIND_ONLY : 0)
@@ -852,19 +843,14 @@ REBTYPE(Array)
         UNUSED(PAR(series));
         UNUSED(PAR(value));
 
-        // Length of target (may modify index): (arg can be anything)
-        //
-        REBCNT len;
-        Partial1(
-            (VAL_WORD_SYM(verb) == SYM_CHANGE)
-                ? value
-                : arg,
-            ARG(limit),
-            &len
-        );
+        REBCNT len; // length of target
+        if (VAL_WORD_SYM(verb) == SYM_CHANGE)
+            len = Part_Len_May_Modify_Index(value, ARG(limit));
+        else
+            len = Append_Insert_Part_Len_May_Modify_Index(arg, ARG(limit));
 
         FAIL_IF_READ_ONLY_ARRAY(array);
-        index = VAL_INDEX(value);
+        REBCNT index = VAL_INDEX(value);
 
         REBFLGS flags = 0;
         if (
@@ -893,6 +879,7 @@ REBTYPE(Array)
 
     case SYM_CLEAR: {
         FAIL_IF_READ_ONLY_ARRAY(array);
+        REBCNT index = VAL_INDEX(value);
         if (index < VAL_LEN_HEAD(value)) {
             if (index == 0) Reset_Array(array);
             else {
@@ -912,11 +899,10 @@ REBTYPE(Array)
         UNUSED(PAR(value));
 
         REBU64 types = 0;
-        REBCNT tail = 0;
-
+        REBCNT tail = Part_Tail_May_Modify_Index(value, ARG(limit));
         UNUSED(REF(part));
-        Partial1(value, ARG(limit), &tail); // may change VAL_INDEX
-        tail += VAL_INDEX(value);
+
+        REBCNT index = VAL_INDEX(value);
 
         if (REF(deep))
             types |= REF(types) ? 0 : TS_STD_SERIES;
@@ -930,7 +916,7 @@ REBTYPE(Array)
 
         REBARR *copy = Copy_Array_Core_Managed(
             array,
-            VAL_INDEX(value), // at
+            index, // at
             specifier,
             tail, // tail
             0, // extra
@@ -948,6 +934,8 @@ REBTYPE(Array)
 
         FAIL_IF_READ_ONLY_ARRAY(array);
         FAIL_IF_READ_ONLY_ARRAY(VAL_ARRAY(arg));
+
+        REBCNT index = VAL_INDEX(value);
 
         if (
             index < VAL_LEN_HEAD(value)
@@ -967,8 +955,7 @@ REBTYPE(Array)
     }
 
     case SYM_REVERSE: {
-        REBCNT len;
-        Partial1(value, D_ARG(3), &len);
+        REBCNT len = Part_Len_May_Modify_Index(value, D_ARG(3));
 
         FAIL_IF_READ_ONLY_ARRAY(array);
 
@@ -1017,6 +1004,8 @@ REBTYPE(Array)
         INCLUDE_PARAMS_OF_RANDOM;
 
         UNUSED(PAR(value));
+
+        REBCNT index = VAL_INDEX(value);
 
         if (REF(seed))
             fail (Error_Bad_Refines_Raw());

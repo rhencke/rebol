@@ -460,145 +460,121 @@ void Extra_Init_Action_Checks_Debug(REBACT *a) {
 
 
 //
-//  Partial1: C
+//  Part_Len_Core: C
 //
-// Process the /PART (or /SKIP) and other length modifying arguments.
+// When a function that takes a series also takes a /PART argument, this
+// determines if the position for the part is before or after the series
+// position.  If it is before (e.g. a negative integer limit was passed in,
+// or a prior position) the series value will be updated to the earlier
+// position, so that a positive length for the partial region is returned.
 //
-// Adjusts the value's index if necessary, and returns the length indicated.
-// Hence if a negative limit is passed in, it will adjust value to the
-// position that negative limit would seek to...and save the length of
-// the span to get to the original index.
-//
-void Partial1(
-    REBVAL *value, // Note: Might be modified, see above!
-    const REBVAL *limit,
-    REBCNT *span // 32-bit, see #853
+static REBCNT Part_Len_Core(
+    REBVAL *series, // this is the series whose index may be modified
+    const REBVAL *limit // /PART (number, position in value, or NULLED cell)
 ){
-    bool is_series = ANY_SERIES(value);
-
-    if (IS_NULLED(limit)) { // use current length of the target value
-        if (!is_series) {
-            *span = 1;
-        }
-        else if (VAL_INDEX(value) >= VAL_LEN_HEAD(value)) {
-            *span = 0;
-        }
-        else {
-            *span = (VAL_LEN_HEAD(value) - VAL_INDEX(value));
-        }
-        return;
-    }
+    if (IS_NULLED(limit)) // limit is nulled when /PART refinement unused
+        return VAL_LEN_AT(series); // leave index alone, use plain length
 
     REBI64 len;
     if (IS_INTEGER(limit) or IS_DECIMAL(limit))
-        len = Int32(limit); // will error if out of range; see #853
+        len = Int32(limit); // may be positive or negative
     else {
+        assert(ANY_SERIES(limit)); // must be same series (same series, even)
         if (
-            not is_series
-            or VAL_TYPE(value) != VAL_TYPE(limit)
-            or VAL_SERIES(value) != VAL_SERIES(limit)
+            VAL_TYPE(series) != VAL_TYPE(limit) // !!! should AS be tolerated?
+            or VAL_SERIES(series) != VAL_SERIES(limit)
         ){
             fail (Error_Invalid_Part_Raw(limit));
         }
 
-        len = cast(REBINT, VAL_INDEX(limit)) - cast(REBINT, VAL_INDEX(value));
-
+        len = cast(REBINT, VAL_INDEX(limit)) - cast(REBINT, VAL_INDEX(series));
     }
-
-    if (is_series) {
-        // Restrict length to the size available:
-        if (len >= 0) {
-            REBCNT maxlen = VAL_LEN_AT(value);
-            if (len > cast(REBINT, maxlen))
-                len = maxlen;
-        }
-        else {
-            len = -len;
-            if (len > cast(REBINT, VAL_INDEX(value)))
-                len = VAL_INDEX(value);
-            assert(len >= 0);
-            VAL_INDEX(value) -= cast(REBCNT, len);
-        }
-    }
-
-    assert(len >= 0);
-    *span = cast(REBCNT, len);
-}
-
-
-//
-//  Partial: C
-//
-// Args:
-//     aval: target value
-//     bval: argument to modify target (optional)
-//     lval: length value (or blank)
-//
-// Determine the length of a /PART value. It can be:
-//     1. integer or decimal
-//     2. relative to A value (bval is null)
-//     3. relative to B value
-//
-// NOTE: Can modify the value's index!
-// The result can be negative. ???
-//
-REBINT Partial(REBVAL *aval, REBVAL *bval, REBVAL *lval)
-{
-    REBVAL *val;
-    REBINT len;
-    REBINT maxlen;
-
-    // If lval is unset, use the current len of the target value:
-    if (IS_NULLED(lval)) {
-        val = (bval and ANY_SERIES(bval)) ? bval : aval;
-        if (VAL_INDEX(val) >= VAL_LEN_HEAD(val))
-            return 0;
-        return (VAL_LEN_HEAD(val) - VAL_INDEX(val));
-    }
-
-    if (IS_INTEGER(lval) or IS_DECIMAL(lval)) {
-        len = Int32(lval);
-        val = bval;
-    }
-    else {
-        // So, lval must be relative to aval or bval series:
-        if (
-            VAL_TYPE(aval) == VAL_TYPE(lval)
-            and VAL_SERIES(aval) == VAL_SERIES(lval)
-        ){
-            val = aval;
-        }
-        else if (
-            bval
-            and VAL_TYPE(bval) == VAL_TYPE(lval)
-            and VAL_SERIES(bval) == VAL_SERIES(lval)
-        ){
-            val = bval;
-        }
-        else
-            fail (Error_Invalid_Part_Raw(lval));
-
-        len = cast(REBINT, VAL_INDEX(lval)) - cast(REBINT, VAL_INDEX(val));
-    }
-
-    if (val == NULL)
-        val = aval;
 
     // Restrict length to the size available
     //
     if (len >= 0) {
-        maxlen = cast(REBINT, VAL_LEN_AT(val));
+        REBINT maxlen = cast(REBINT, VAL_LEN_AT(series));
         if (len > maxlen)
             len = maxlen;
     }
     else {
         len = -len;
-        if (len > cast(REBINT, VAL_INDEX(val)))
-            len = cast(REBINT, VAL_INDEX(val));
-        VAL_INDEX(val) -= cast(REBCNT, len);
+        if (len > cast(REBINT, VAL_INDEX(series)))
+            len = cast(REBINT, VAL_INDEX(series));
+        VAL_INDEX(series) -= cast(REBCNT, len);
     }
 
-    return len;
+    if (cast(REBCNT, len) != len) {
+        //
+        // Tests had `[1] = copy/part tail [1] -2147483648`, where trying to
+        // do `len = -len` couldn't make a positive 32-bit version of that
+        // negative value.  For now, use REBI64 to do the calculation.
+        //
+        fail ("Length out of range for /PART refinement");
+    }
+
+    assert(len >= 0);
+    assert(VAL_LEN_HEAD(series) >= len);
+    return cast(REBCNT, len);
+}
+
+
+//
+//  Part_Len_May_Modify_Index: C
+//
+// This is the common way of normalizing a series with a position against a
+// /PART limit, so that the series index points to the beginning of the
+// subsetted range and gives back a length to the end of that subset.
+//
+REBCNT Part_Len_May_Modify_Index(REBVAL *series, const REBVAL *limit) {
+    assert(ANY_SERIES(series));
+    return Part_Len_Core(series, limit);
+}
+
+
+//
+//  Part_Tail_May_Modify_Index: C
+//
+// Simple variation that instead of returning the length, returns the absolute
+// tail position in the series of the partial sequence.
+//
+REBCNT Part_Tail_May_Modify_Index(REBVAL *series, const REBVAL *limit)
+{
+    REBCNT len = Part_Len_May_Modify_Index(series, limit);
+    return len + VAL_INDEX(series); // uses the possibly-updated index
+}
+
+
+//
+//  Append_Insert_Part_Len_May_Modify_Index: C
+//
+// This is for the specific cases of INSERT and APPEND interacting with /PART:
+//
+// https://github.com/rebol/rebol-issues/issues/2096
+//
+// It captures behavior that in R3-Alpha was done in "Partial1()", as opposed
+// to the "Partial()" routine...which allows for the use of an integer
+// length limit even when the change argument is not a series.
+//
+// Note: the calculation for CHANGE is done based on the series being changed,
+// not the properties of the argument:
+//
+// https://github.com/rebol/rebol-issues/issues/1570
+//
+REBCNT Append_Insert_Part_Len_May_Modify_Index(
+    REBVAL *value,
+    const REBVAL *limit
+){
+    if (ANY_SERIES(value))
+        return Part_Len_Core(value, limit);
+
+    if (IS_NULLED(limit))
+        return 1;
+
+    if (IS_INTEGER(limit) or IS_DECIMAL(limit))
+        return Part_Len_Core(value, limit);
+
+    fail ("Invalid /PART specified for non-series CHANGE argument");
 }
 
 

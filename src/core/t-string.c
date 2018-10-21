@@ -553,14 +553,13 @@ static void Sort_String(
     if (not IS_NULLED(compv))
         fail (Error_Bad_Refine_Raw(compv)); // !!! didn't seem to be supported (?)
 
-    REBCNT len;
     REBCNT skip = 1;
     REBCNT size = 1;
     REBCNT thunk = 0;
 
-    // Determine length of sort:
-    len = Partial(string, 0, part);
-    if (len <= 1) return;
+    REBCNT len = Part_Len_May_Modify_Index(string, part); // length of sort
+    if (len <= 1)
+        return;
 
     // Skip factor:
     if (not IS_NULLED(skipv)) {
@@ -1222,12 +1221,11 @@ REBTYPE(String)
             // !!! Doesn't pay attention...all string appends are /ONLY
         }
 
-        REBINT len;
-        Partial1(
-            (VAL_WORD_SYM(verb) == SYM_CHANGE) ? v : arg,
-            ARG(limit),
-            cast(REBCNT*, &len)
-        );
+        REBCNT len; // length of target
+        if (VAL_WORD_SYM(verb) == SYM_CHANGE)
+            len = Part_Len_May_Modify_Index(v, ARG(limit));
+        else
+            len = Append_Insert_Part_Len_May_Modify_Index(arg, ARG(limit));
 
         REBFLGS flags = 0;
         if (REF(part))
@@ -1315,11 +1313,11 @@ REBTYPE(String)
         }
 
         if (REF(part))
-            tail = Partial(v, 0, ARG(limit));
+            tail = Part_Tail_May_Modify_Index(v, ARG(limit));
 
         REBCNT skip;
         if (REF(skip))
-            skip = Partial(v, 0, ARG(size));
+            skip = Part_Len_May_Modify_Index(v, ARG(size));
         else
             skip = 1;
 
@@ -1363,7 +1361,7 @@ REBTYPE(String)
 
         REBINT len;
         if (REF(part)) {
-            len = Partial(v, 0, ARG(limit));
+            len = Part_Len_May_Modify_Index(v, ARG(limit));
             if (len == 0)
                 return Init_Any_Series(D_OUT, VAL_TYPE(v), Make_Binary(0));
         } else
@@ -1435,8 +1433,8 @@ REBTYPE(String)
             fail (Error_Bad_Refines_Raw());
         }
 
-        UNUSED(REF(part));
-        REBINT len = Partial(v, 0, ARG(limit)); // Can modify value index.
+        REBINT len = Part_Len_May_Modify_Index(v, ARG(limit));
+        UNUSED(REF(part)); // checked by if limit is nulled
 
         REBSER *ser;
         if (IS_BINARY(v))
@@ -1568,7 +1566,7 @@ REBTYPE(String)
     case SYM_REVERSE: {
         FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(v));
 
-        REBINT len = Partial(v, 0, D_ARG(3));
+        REBINT len = Part_Len_May_Modify_Index(v, D_ARG(3));
         if (len > 0) {
             if (IS_BINARY(v))
                 reverse_binary(v, len);
