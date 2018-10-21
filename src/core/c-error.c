@@ -1648,7 +1648,7 @@ void MF_Error(REB_MOLD *mo, const RELVAL *v, bool form)
     REBVAL *where = KNOWN(&vars->where);
     if (
         not IS_BLANK(where)
-        and (not IS_BLOCK(where) and VAL_LEN_AT(where) == 0)
+        and not (IS_BLOCK(where) and VAL_LEN_AT(where) == 0)
     ){
         Append_Utf8_Codepoint(mo->series, '\n');
         Append_Unencoded(mo->series, RM_ERROR_WHERE);
