@@ -354,7 +354,7 @@ static bool Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
             // string series when seen here.  This flips a bit to say the
             // conversion has been done.  Review this implementation.
             //
-            REBVAL *writable = m_cast(REBVAL*, const_KNOWN(v));
+            REBVAL *writable = m_cast(REBVAL*, KNOWN(v));
 
             VAL_EVENT_SER(writable) = Copy_Bytes(cast(REBYTE*, str), -1);
             VAL_EVENT_FLAGS(writable) |= EVF_COPIED;

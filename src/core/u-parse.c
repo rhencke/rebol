@@ -988,7 +988,7 @@ static REBIXO To_Thru_Non_Block_Rule(
         // !!! Negative numbers get cast to large integers, needs error!
         // But also, should there be an option for relative addressing?
         //
-        REBCNT i = cast(REBCNT, Int32(const_KNOWN(rule))) - (is_thru ? 0 : 1);
+        REBCNT i = cast(REBCNT, Int32(rule)) - (is_thru ? 0 : 1);
         if (i > SER_LEN(P_INPUT))
             return SER_LEN(P_INPUT);
         return i;
@@ -1778,7 +1778,7 @@ REBNATIVE(subparse)
         // Counter? 123
         if (IS_INTEGER(rule)) { // Specify count or range count
             flags |= PF_WHILE;
-            mincount = maxcount = Int32s(const_KNOWN(rule), 0);
+            mincount = maxcount = Int32s(rule, 0);
 
             FETCH_NEXT_RULE(f);
             if (IS_END(P_RULE))
@@ -1787,7 +1787,7 @@ REBNATIVE(subparse)
             rule = Get_Parse_Value(save, P_RULE, P_RULE_SPECIFIER);
 
             if (IS_INTEGER(rule)) {
-                maxcount = Int32s(const_KNOWN(rule), 0);
+                maxcount = Int32s(rule, 0);
 
                 FETCH_NEXT_RULE(f);
                 if (IS_END(f->value))

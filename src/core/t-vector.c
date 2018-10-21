@@ -474,7 +474,7 @@ bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
             return false;
         if (len > size)
             size = len;
-        iblk = const_KNOWN(item);
+        iblk = KNOWN(item);
         ++item;
     }
     else

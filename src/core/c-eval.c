@@ -574,7 +574,7 @@ void Eval_Core(REBFRM * const f)
                 fail ("GROUP! passed to SHOVE did not evaluate to content");
         }
         else if (IS_ACTION(f->value)) {
-            Move_Value(FRM_SHOVE(f), const_KNOWN(f->value));
+            Move_Value(FRM_SHOVE(f), KNOWN(f->value));
         }
         else
             fail ("SHOVE only accepts WORD!, PATH!, GROUP!, or ACTION!");

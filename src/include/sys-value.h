@@ -793,15 +793,22 @@ inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
 //
 // Use for: "invalid conversion from 'Reb_Value*' to 'Reb_Specific_Value*'"
 
-inline static const REBVAL *const_KNOWN(const RELVAL *v) {
-    assert(IS_END(v) or IS_SPECIFIC(v)); // END for KNOWN(ARR_HEAD()), etc.
-    return cast(const REBVAL*, v);
-}
+#if !defined(__cplusplus) // poorer protection in C, loses constness
+    inline static REBVAL *KNOWN(const RELVAL *v) {
+        assert(IS_END(v) or IS_SPECIFIC(v));
+        return m_cast(REBVAL*, c_cast(RELVAL*, v));
+    }
+#else
+    inline static const REBVAL *KNOWN(const RELVAL *v) {
+        assert(IS_END(v) or IS_SPECIFIC(v)); // END for KNOWN(ARR_HEAD()), etc.
+        return cast(const REBVAL*, v);
+    }
 
-inline static REBVAL *KNOWN(RELVAL *v) {
-    assert(IS_END(v) or IS_SPECIFIC(v)); // END for KNOWN(ARR_HEAD()), etc.
-    return cast(REBVAL*, v);
-}
+    inline static REBVAL *KNOWN(RELVAL *v) {
+        assert(IS_END(v) or IS_SPECIFIC(v)); // END for KNOWN(ARR_HEAD()), etc.
+        return cast(REBVAL*, v);
+    }
+#endif
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -1303,19 +1310,19 @@ inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
 
 inline static int32_t VAL_INT32(const RELVAL *v) {
     if (VAL_INT64(v) > INT32_MAX or VAL_INT64(v) < INT32_MIN)
-        fail (Error_Out_Of_Range(const_KNOWN(v)));
+        fail (Error_Out_Of_Range(KNOWN(v)));
     return cast(int32_t, VAL_INT64(v));
 }
 
 inline static uint32_t VAL_UINT32(const RELVAL *v) {
     if (VAL_INT64(v) < 0 or VAL_INT64(v) > UINT32_MAX)
-        fail (Error_Out_Of_Range(const_KNOWN(v)));
+        fail (Error_Out_Of_Range(KNOWN(v)));
     return cast(uint32_t, VAL_INT64(v));
 }
 
 inline static REBYTE VAL_UINT8(const RELVAL *v) {
     if (VAL_INT64(v) > 255 or VAL_INT64(v) < 0)
-        fail (Error_Out_Of_Range(const_KNOWN(v)));
+        fail (Error_Out_Of_Range(KNOWN(v)));
     return cast(REBYTE, VAL_INT32(v));
 }
 

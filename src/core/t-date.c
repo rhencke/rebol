@@ -91,7 +91,7 @@ void MF_Date(REB_MOLD *mo, const RELVAL *v_orig, bool form)
     // so we make a copy that we can tweak during the emit process
 
     DECLARE_LOCAL (v);
-    Move_Value(v, const_KNOWN(v_orig));
+    Move_Value(v, KNOWN(v_orig));
 
     if (
         VAL_MONTH(v) == 0
@@ -511,7 +511,7 @@ void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
                 tz = cast(REBINT, VAL_NANO(item) / (ZONE_MINS * MIN_SEC));
                 if (tz < -MAX_ZONE || tz > MAX_ZONE)
-                    fail (Error_Out_Of_Range(const_KNOWN(item)));
+                    fail (Error_Out_Of_Range(KNOWN(item)));
                 ++item;
             }
         }

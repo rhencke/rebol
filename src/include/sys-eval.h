@@ -327,7 +327,7 @@ inline static void Set_Frame_Detected_Fetch(
         //
         // The FRM_CELL(f) is used as the GC-safe location proxied to.
         //
-        Move_Value(FRM_CELL(f), const_KNOWN(f->value));
+        Move_Value(FRM_CELL(f), KNOWN(f->value));
         if (GET_VAL_FLAG(f->value, VALUE_FLAG_EVAL_FLIP))
             SET_VAL_FLAG(FRM_CELL(f), VALUE_FLAG_EVAL_FLIP);
         *opt_lookback = FRM_CELL(f);

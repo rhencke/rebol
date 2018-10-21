@@ -442,7 +442,7 @@ static inline const REBVAL *Get_Opt_Var_May_Fail(
     REBSPC *specifier
 ){
     if (not VAL_BINDING(any_word))
-        fail (Error_Not_Bound_Raw(const_KNOWN(any_word)));
+        fail (Error_Not_Bound_Raw(KNOWN(any_word)));
 
     REBCTX *c = Get_Var_Context(any_word, specifier);
     if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE))
@@ -478,7 +478,7 @@ static inline REBVAL *Get_Mutable_Var_May_Fail(
     REBSPC *specifier
 ){
     if (not VAL_BINDING(any_word))
-        fail (Error_Not_Bound_Raw(const_KNOWN(any_word)));
+        fail (Error_Not_Bound_Raw(KNOWN(any_word)));
 
     REBCTX *context = Get_Var_Context(any_word, specifier);
 
@@ -652,7 +652,7 @@ inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
 
 inline static REBSPC *Derive_Specifier(REBSPC *parent, const RELVAL *item) {
     if (IS_SPECIFIC(item))
-        return VAL_SPECIFIER(const_KNOWN(item));;
+        return VAL_SPECIFIER(KNOWN(item));;
     return parent;
 }
 

@@ -392,7 +392,7 @@ REBCNT Milliseconds_From_Value(const RELVAL *v) {
     }
 
     if (msec < 0)
-        fail (Error_Out_Of_Range(const_KNOWN(v)));
+        fail (Error_Out_Of_Range(KNOWN(v)));
 
     return cast(REBCNT, msec);
 }

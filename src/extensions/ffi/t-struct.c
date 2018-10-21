@@ -1470,8 +1470,8 @@ const REBVAL *PD_Struct(
 REBINT Cmp_Struct(const RELVAL *s, const RELVAL *t)
 {
     REBINT n = VAL_STRUCT_FIELDLIST(s) - VAL_STRUCT_FIELDLIST(t);
-    fail_if_non_accessible(const_KNOWN(s));
-    fail_if_non_accessible(const_KNOWN(t));
+    fail_if_non_accessible(KNOWN(s));
+    fail_if_non_accessible(KNOWN(t));
     if (n != 0) {
         return n;
     }

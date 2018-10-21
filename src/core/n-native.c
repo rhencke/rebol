@@ -132,7 +132,7 @@ static int do_add_path(
     // Converts FILE! to a local path, or assumes TEXT! is already local
     //
     char *local_utf8 = rebSpell(
-        "file-to-local/pass/full ensure [file! text!]", const_KNOWN(path),
+        "file-to-local/pass/full ensure [file! text!]", KNOWN(path),
         rebEND
     );
     int ret = add(state, local_utf8);
@@ -149,7 +149,7 @@ static void do_set_path(
     // Converts FILE! to a local path, or assumes TEXT! is already local
     //
     char *local_utf8 = rebSpell(
-        "file-to-local/pass/full ensure [file! text!]", const_KNOWN(path),
+        "file-to-local/pass/full ensure [file! text!]", KNOWN(path),
         rebEND
     );
     set(state, local_utf8);
@@ -522,7 +522,7 @@ REBNATIVE(compile)
             // back and fill in its dispatcher and TCC_State after the
             // compilation...
             //
-            DS_PUSH(const_KNOWN(var));
+            DS_PUSH(KNOWN(var));
 
             REBARR *details = VAL_ACT_DETAILS(var);
             RELVAL *source = ARR_AT(details, IDX_NATIVE_SOURCE);
@@ -601,10 +601,7 @@ REBNATIVE(compile)
     tcc_set_error_func(state, opaque, tcc_error_report);
 
     if (options) {
-        char *options_utf8 = rebSpell(
-            const_KNOWN(options),
-            rebEND
-        );
+        char *options_utf8 = rebSpell(KNOWN(options), rebEND);
         tcc_set_options(state, options_utf8);
         rebFree(options_utf8);
     }

@@ -97,7 +97,7 @@ REBINT Int32(const RELVAL *val)
     return VAL_INT32(val);
 
 out_of_range:
-    fail (Error_Out_Of_Range(const_KNOWN(val)));
+    fail (Error_Out_Of_Range(KNOWN(val)));
 }
 
 
@@ -139,7 +139,7 @@ REBINT Int32s(const RELVAL *val, REBINT sign)
     }
 
 out_of_range:
-    fail (Error_Out_Of_Range(const_KNOWN(val)));
+    fail (Error_Out_Of_Range(KNOWN(val)));
 }
 
 

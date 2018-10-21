@@ -1093,7 +1093,7 @@ void Decay_Series(REBSER *s)
                     // !!! Would a no-op cleaner be more efficient for those?
                     //
                     if (MISC(s).cleaner)
-                        (MISC(s).cleaner)(const_KNOWN(v));
+                        (MISC(s).cleaner)(KNOWN(v));
                 }
             }
         }
