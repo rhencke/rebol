@@ -1044,7 +1044,7 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
 
 
 #define Init_Logic(out,b) \
-    RESET_CELL_EXTRA(out, REB_LOGIC, (b) ? 0 : VALUE_FLAG_FALSEY)
+    RESET_CELL_EXTRA((out), REB_LOGIC, (b) ? 0 : VALUE_FLAG_FALSEY)
 
 #define Init_True(out) \
     Init_Logic((out), true)
@@ -1483,10 +1483,11 @@ inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
     }
 #endif
 
-inline static void SET_GOB(RELVAL *v, REBGOB *g) {
-    RESET_CELL(v, REB_GOB);
-    VAL_GOB(v) = g;
-    VAL_GOB_INDEX(v) = 0;
+inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
+    RESET_CELL(out, REB_GOB);
+    VAL_GOB(out) = g;
+    VAL_GOB_INDEX(out) = 0;
+    return KNOWN(out);
 }
 
 

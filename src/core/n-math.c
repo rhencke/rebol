@@ -915,7 +915,7 @@ REBNATIVE(negative_q)
     INCLUDE_PARAMS_OF_NEGATIVE_Q;
 
     DECLARE_LOCAL (zero);
-    SET_ZEROED(zero, VAL_TYPE(ARG(number)));
+    Init_Zeroed_Hack(zero, VAL_TYPE(ARG(number)));
 
     if (Compare_Modify_Values(ARG(number), zero, -1))
         return Init_False(D_OUT);
@@ -937,7 +937,7 @@ REBNATIVE(positive_q)
     INCLUDE_PARAMS_OF_POSITIVE_Q;
 
     DECLARE_LOCAL (zero);
-    SET_ZEROED(zero, VAL_TYPE(ARG(number)));
+    Init_Zeroed_Hack(zero, VAL_TYPE(ARG(number)));
 
     if (Compare_Modify_Values(ARG(number), zero, -2))
         return Init_True(D_OUT);
@@ -962,7 +962,7 @@ REBNATIVE(zero_q)
 
     if (type >= REB_INTEGER and type <= REB_TIME) {
         DECLARE_LOCAL (zero);
-        SET_ZEROED(zero, type);
+        Init_Zeroed_Hack(zero, type);
 
         if (Compare_Modify_Values(ARG(value), zero, 1))
             return Init_True(D_OUT);

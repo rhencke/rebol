@@ -59,26 +59,28 @@ inline static REBVAL *PAIRING_KEY(REBVAL *paired) {
 #define VAL_PAIR_Y_INT(v) \
     ROUND_TO_INT(VAL_PAIR_Y(v))
 
-inline static void SET_PAIR(RELVAL *v, float x, float y) {
-    RESET_CELL(v, REB_PAIR);
-    v->payload.pair = Alloc_Pairing();
-    Init_Decimal(PAIRING_KEY((v)->payload.pair), x);
-    Init_Decimal((v)->payload.pair, y);
-    Manage_Pairing((v)->payload.pair);
+inline static REBVAL *Init_Pair(RELVAL *out, float x, float y) {
+    RESET_CELL(out, REB_PAIR);
+    out->payload.pair = Alloc_Pairing();
+    Init_Decimal(PAIRING_KEY(out->payload.pair), x);
+    Init_Decimal(out->payload.pair, y);
+    Manage_Pairing(out->payload.pair);
+    return KNOWN(out);
 }
 
-inline static void SET_ZEROED(RELVAL *v, enum Reb_Kind kind) {
+inline static REBVAL *Init_Zeroed_Hack(RELVAL *out, enum Reb_Kind kind) {
     //
-    // !!! SET_ZEROED is a capturing of a dodgy behavior of R3-Alpha,
-    // which was to assume that clearing the payload of a value and then
-    // setting the header made it the `zero?` of that type.  Review uses.
+    // !!! This captures of a dodgy behavior of R3-Alpha, which was to assume
+    // that clearing the payload of a value and then setting the header made
+    // it the `zero?` of that type.  Review uses.
     //
     if (kind == REB_PAIR) {
-        SET_PAIR(v, 0, 0); // !!! inefficient, performs allocation, review
+        Init_Pair(out, 0, 0); // !!! inefficient, performs allocation, review
     }
     else {
-        RESET_CELL(v, kind);
-        CLEAR(&v->extra, sizeof(union Reb_Value_Extra));
-        CLEAR(&v->payload, sizeof(union Reb_Value_Payload));
+        RESET_CELL(out, kind);
+        CLEAR(&out->extra, sizeof(union Reb_Value_Extra));
+        CLEAR(&out->payload, sizeof(union Reb_Value_Payload));
     }
+    return KNOWN(out);
 }

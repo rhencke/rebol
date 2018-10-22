@@ -104,13 +104,12 @@ REBNATIVE(as_pair)
     REBVAL *x = ARG(x);
     REBVAL *y = ARG(y);
 
-    SET_PAIR(
+    return Init_Pair(
         D_OUT,
         IS_INTEGER(x) ? VAL_INT64(x) : VAL_DECIMAL(x),
         IS_INTEGER(y) ? VAL_INT64(y) : VAL_DECIMAL(y)
     );
-
-    return D_OUT;
+;
 }
 
 

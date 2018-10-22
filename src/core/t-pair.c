@@ -107,7 +107,7 @@ void MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     else
         goto bad_make;
 
-    SET_PAIR(out, x, y);
+    Init_Pair(out, x, y);
     return;
 
 bad_make:
@@ -173,9 +173,9 @@ void Min_Max_Pair(REBVAL *out, const REBVAL *a, const REBVAL *b, bool maxed)
         fail (Error_Invalid(b));
 
     if (maxed)
-        SET_PAIR(out, MAX(ax, bx), MAX(ay, by));
+        Init_Pair(out, MAX(ax, bx), MAX(ay, by));
     else
-        SET_PAIR(out, MIN(ax, bx), MIN(ay, by));
+        Init_Pair(out, MIN(ax, bx), MIN(ay, by));
 }
 
 
@@ -307,51 +307,38 @@ REBTYPE(Pair)
 
     switch (VAL_WORD_SYM(verb)) {
 
-    case SYM_COPY: {
-        goto setPair;
-    }
+    case SYM_COPY:
+        return Init_Pair(D_OUT, x1, y1);
 
     case SYM_ADD:
         Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
-        x1 += x2;
-        y1 += y2;
-        goto setPair;
+        return Init_Pair(D_OUT, x1 + x2, y1 + y2);
 
     case SYM_SUBTRACT:
         Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
-        x1 -= x2;
-        y1 -= y2;
-        goto setPair;
+        return Init_Pair(D_OUT, x1 - y2, y1 - y2);
 
     case SYM_MULTIPLY:
         Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
-        x1 *= x2;
-        y1 *= y2;
-        goto setPair;
+        return Init_Pair(D_OUT, x1 * x2, y1 * y2);
 
     case SYM_DIVIDE:
+        Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
+        if (x2 == 0 or y2 == 0)
+            fail (Error_Zero_Divide_Raw());
+        return Init_Pair(D_OUT, x1 / x2, y1 / y2);
+
     case SYM_REMAINDER:
         Get_Math_Arg_For_Pair(&x2, &y2, D_ARG(2), verb);
-        if (x2 == 0 || y2 == 0) fail (Error_Zero_Divide_Raw());
-        if (VAL_WORD_SYM(verb) == SYM_DIVIDE) {
-            x1 /= x2;
-            y1 /= y2;
-        }
-        else {
-            x1 = cast(REBDEC, fmod(x1, x2));
-            y1 = cast(REBDEC, fmod(y1, y2));
-        }
-        goto setPair;
+        if (x2 == 0 or y2 == 0)
+            fail (Error_Zero_Divide_Raw());
+        return Init_Pair(D_OUT, fmod(x1, x2), fmod(y1, y2));
 
     case SYM_NEGATE:
-        x1 = -x1;
-        y1 = -y1;
-        goto setPair;
+        return Init_Pair(D_OUT, -x1, -y1);
 
     case SYM_ABSOLUTE:
-        if (x1 < 0) x1 = -x1;
-        if (y1 < 0) y1 = -y1;
-        goto setPair;
+        return Init_Pair(D_OUT, x1 < 0 ? -x1 : x1, y1 < 0 ? -y1 : y1);
 
     case SYM_ROUND: {
         INCLUDE_PARAMS_OF_ROUND;
@@ -368,21 +355,21 @@ REBTYPE(Pair)
             | (REF(half_ceiling) ? RF_HALF_CEILING : 0)
         );
 
-        if (REF(to)) {
-            x1 = Round_Dec(x1, flags, Dec64(ARG(scale)));
-            y1 = Round_Dec(y1, flags, Dec64(ARG(scale)));
-        }
-        else {
-            x1 = Round_Dec(x1, flags | RF_TO, 1.0L);
-            y1 = Round_Dec(y1, flags | RF_TO, 1.0L);
-        }
-        goto setPair; }
+        if (REF(to))
+            return Init_Pair(
+                D_OUT,
+                Round_Dec(x1, flags, Dec64(ARG(scale))),
+                Round_Dec(y1, flags, Dec64(ARG(scale)))
+            );
+
+        return Init_Pair(
+            D_OUT,
+            Round_Dec(x1, flags | RF_TO, 1.0L),
+            Round_Dec(y1, flags | RF_TO, 1.0L)
+        ); }
 
     case SYM_REVERSE:
-        x2 = x1;
-        x1 = y1;
-        y1 = x2;
-        goto setPair;
+        return Init_Pair(D_OUT, y1, x1);
 
     case SYM_RANDOM: {
         INCLUDE_PARAMS_OF_RANDOM;
@@ -394,18 +381,16 @@ REBTYPE(Pair)
         if (REF(seed))
             fail (Error_Bad_Refines_Raw());
 
-        x1 = cast(REBDEC, Random_Range(cast(REBINT, x1), REF(secure)));
-        y1 = cast(REBDEC, Random_Range(cast(REBINT, y1), REF(secure)));
-        goto setPair; }
+        return Init_Pair(
+            D_OUT,
+            Random_Range(cast(REBINT, x1), REF(secure)),
+            Random_Range(cast(REBINT, y1), REF(secure))
+        ); }
 
     default:
         break;
     }
 
     fail (Error_Illegal_Action(REB_PAIR, verb));
-
-setPair:
-    SET_PAIR(D_OUT, x1, y1);
-    return D_OUT;
 }
 

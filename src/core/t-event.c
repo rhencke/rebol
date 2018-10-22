@@ -231,85 +231,76 @@ void Set_Event_Vars(REBVAL *evt, RELVAL *blk, REBSPC *specifier)
 //
 //  Get_Event_Var: C
 //
-static bool Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
+// Will return BLANK! if the variable is not available.
+//
+static REBVAL *Get_Event_Var(RELVAL *out, const RELVAL *v, REBSTR *name)
 {
     switch (STR_SYMBOL(name)) {
     case SYM_TYPE: {
         if (VAL_EVENT_TYPE(v) == 0)
-            goto is_blank;
+            return Init_Blank(out);
 
         REBVAL *arg = Get_System(SYS_VIEW, VIEW_EVENT_TYPES);
         if (IS_BLOCK(arg) && VAL_LEN_HEAD(arg) >= EVT_MAX) {
-            Derelativize(
+            return Derelativize(
                 out,
                 VAL_ARRAY_AT_HEAD(arg, VAL_EVENT_TYPE(v)),
                 VAL_SPECIFIER(arg)
             );
-            break;
         }
-        return false; }
+        return Init_Blank(out); }
 
     case SYM_PORT: {
-        // Most events are for the GUI:
-        if (IS_EVENT_MODEL(v, EVM_GUI)) {
-            Move_Value(out, Get_System(SYS_VIEW, VIEW_EVENT_PORT));
-        }
-        // Event holds a port:
-        else if (IS_EVENT_MODEL(v, EVM_PORT)) {
-            Init_Port(out, CTX(VAL_EVENT_SER(v)));
-        }
-        // Event holds an object:
-        else if (IS_EVENT_MODEL(v, EVM_OBJECT)) {
-            Init_Object(out, CTX(VAL_EVENT_SER(v)));
-        }
-        else if (IS_EVENT_MODEL(v, EVM_CALLBACK)) {
-            Move_Value(out, Get_System(SYS_PORTS, PORTS_CALLBACK));
-        }
-        else { // Event holds the IO-Request, which has the PORT:
-            assert(IS_EVENT_MODEL(v, EVM_DEVICE));
-            REBREQ *req = VAL_EVENT_REQ(v);
-            if (not req or not req->port_ctx)
-                goto is_blank;
-            Init_Port(out, CTX(req->port_ctx));
-        }
-        break; }
+        if (IS_EVENT_MODEL(v, EVM_GUI)) // "most events are for the GUI"
+            return Move_Value(out, Get_System(SYS_VIEW, VIEW_EVENT_PORT));
+
+        if (IS_EVENT_MODEL(v, EVM_PORT))
+            return Init_Port(out, CTX(VAL_EVENT_SER(v)));
+
+        if (IS_EVENT_MODEL(v, EVM_OBJECT))
+            return Init_Object(out, CTX(VAL_EVENT_SER(v)));
+
+        if (IS_EVENT_MODEL(v, EVM_CALLBACK))
+            return Move_Value(out, Get_System(SYS_PORTS, PORTS_CALLBACK));
+
+        assert(IS_EVENT_MODEL(v, EVM_DEVICE)); // holds IO request w/PORT!
+        REBREQ *req = VAL_EVENT_REQ(v);
+        if (not req or not req->port_ctx)
+            return Init_Blank(out);
+
+        return Init_Port(out, CTX(req->port_ctx)); }
 
     case SYM_WINDOW:
     case SYM_GOB: {
         if (IS_EVENT_MODEL(v, EVM_GUI)) {
-            if (VAL_EVENT_SER(v)) {
-                SET_GOB(out, cast(REBGOB*, VAL_EVENT_SER(v)));
-                break;
-            }
+            if (VAL_EVENT_SER(v))
+                return Init_Gob(out, cast(REBGOB*, VAL_EVENT_SER(v)));
         }
-        return false; }
+        return Init_Blank(out); }
 
     case SYM_OFFSET: {
         if (VAL_EVENT_TYPE(v) == EVT_KEY || VAL_EVENT_TYPE(v) == EVT_KEY_UP)
-            goto is_blank;
-        SET_PAIR(out, VAL_EVENT_X(v), VAL_EVENT_Y(v));
-        break; }
+            return Init_Blank(out);
+        return Init_Pair(out, VAL_EVENT_X(v), VAL_EVENT_Y(v)); }
 
     case SYM_KEY: {
         if (VAL_EVENT_TYPE(v) != EVT_KEY && VAL_EVENT_TYPE(v) != EVT_KEY_UP)
-            goto is_blank;
+            return Init_Blank(out);
 
         REBINT n = VAL_EVENT_DATA(v); // key-words in top 16, char in lower 16
         if (n & 0xffff0000) {
             REBVAL *arg = Get_System(SYS_VIEW, VIEW_EVENT_KEYS);
             n = (n >> 16) - 1;
             if (IS_BLOCK(arg) && n < cast(REBINT, VAL_LEN_HEAD(arg))) {
-                Derelativize(
+                return Derelativize(
                     out,
                     VAL_ARRAY_AT_HEAD(arg, n),
                     VAL_SPECIFIER(arg)
                 );
-                break;
             }
-            return false;
+            return Init_Blank(out);
         }
-        Init_Char(out, n);
-        break; }
+        return Init_Char(out, n); }
 
     case SYM_FLAGS:
         if (
@@ -326,23 +317,20 @@ static bool Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
             if (VAL_EVENT_FLAGS(v) & EVF_SHIFT)
                 Init_Word(Alloc_Tail_Array(array), Canon(SYM_SHIFT));
 
-            Init_Block(out, array);
+            return Init_Block(out, array);
         }
-        else
-            Init_Blank(out);
-        break;
+        return Init_Blank(out);
 
     case SYM_CODE: {
         if (VAL_EVENT_TYPE(v) != EVT_KEY && VAL_EVENT_TYPE(v) != EVT_KEY_UP)
-            goto is_blank;
+            return Init_Blank(out);
         REBINT n = VAL_EVENT_DATA(v); // key-words in top 16, char in lower 16
-        Init_Integer(out, n);
-        break; }
+        return Init_Integer(out, n); }
 
     case SYM_DATA: {
         // Event holds a file string:
         if (VAL_EVENT_TYPE(v) != EVT_DROP_FILE)
-            goto is_blank;
+            return Init_Blank(out);
 
         if (not (VAL_EVENT_FLAGS(v) & EVF_COPIED)) {
             void *str = VAL_EVENT_SER(v);
@@ -361,18 +349,11 @@ static bool Get_Event_Var(REBVAL *out, const RELVAL *v, REBSTR *name)
 
             free(str);
         }
-        Init_File(out, VAL_EVENT_SER(v));
-        break; }
+        return Init_File(out, VAL_EVENT_SER(v)); }
 
     default:
-        return false;
+        return Init_Blank(out);
     }
-
-    return true;
-
-  is_blank:;
-    Init_Blank(out);
-    return true;
 }
 
 
@@ -419,9 +400,9 @@ const REBVAL *PD_Event(
 ){
     if (IS_WORD(picker)) {
         if (opt_setval == NULL) {
-            if (!Get_Event_Var(
+            if (IS_BLANK(Get_Event_Var(
                 pvs->out, pvs->out, VAL_WORD_CANON(picker)
-            )){
+            ))){
                 return R_UNHANDLED;
             }
 

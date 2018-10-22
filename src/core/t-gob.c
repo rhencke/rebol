@@ -290,7 +290,7 @@ static REBARR *Pane_To_Array(REBGOB *gob, REBCNT index, REBINT len)
     val = KNOWN(ARR_HEAD(array));
     gp = GOB_HEAD(gob);
     for (; len > 0; len--, val++, gp++) {
-        SET_GOB(val, *gp);
+        Init_Gob(val, *gp);
     }
     assert(IS_END(val));
 
@@ -517,109 +517,78 @@ static bool Set_GOB_Var(REBGOB *gob, const REBVAL *word, const REBVAL *val)
 // !!! Things like this Get_GOB_Var routine could be replaced with ordinary
 // OBJECT!-style access if GOB! was an ANY-CONTEXT.
 //
-static bool Get_GOB_Var(REBGOB *gob, const REBVAL *word, REBVAL *val)
+static REBVAL *Get_GOB_Var(RELVAL *out, REBGOB *gob, const REBVAL *word)
 {
     switch (VAL_WORD_SYM(word)) {
+      case SYM_OFFSET:
+        return Init_Pair(out, GOB_X(gob), GOB_Y(gob));
 
-    case SYM_OFFSET:
-        SET_PAIR(val, GOB_X(gob), GOB_Y(gob));
-        break;
+      case SYM_SIZE:
+        return Init_Pair(out, GOB_W(gob), GOB_H(gob));
 
-    case SYM_SIZE:
-        SET_PAIR(val, GOB_W(gob), GOB_H(gob));
-        break;
+      case SYM_IMAGE:
+        if (GOB_TYPE(gob) == GOBT_IMAGE)
+            fail ("Support for GOBT_IMAGE seems to be missing.");
+        return Init_Blank(out);
 
-    case SYM_IMAGE:
-        if (GOB_TYPE(gob) == GOBT_IMAGE) {
-            // image
-        }
-        else
-            return false;
-        break;
+      case SYM_DRAW:
+        if (GOB_TYPE(gob) == GOBT_DRAW)
+            return Init_Block(out, ARR(GOB_CONTENT(gob)));
+        return Init_Blank(out);
 
-    case SYM_DRAW:
-        if (GOB_TYPE(gob) == GOBT_DRAW) {
-            // !!! comment said "compiler optimizes" the init "calls below" (?)
-            Init_Block(val, ARR(GOB_CONTENT(gob)));
-        }
-        else
-            return false;
-        break;
+      case SYM_TEXT:
+        if (GOB_TYPE(gob) == GOBT_TEXT)
+            return Init_Block(out, ARR(GOB_CONTENT(gob)));
+        if (GOB_TYPE(gob) == GOBT_STRING)
+            return Init_Text(out, GOB_CONTENT(gob));
+        return Init_Blank(out);
 
-    case SYM_TEXT:
-        if (GOB_TYPE(gob) == GOBT_TEXT) {
-            Init_Block(val, ARR(GOB_CONTENT(gob)));
-        }
-        else if (GOB_TYPE(gob) == GOBT_STRING) {
-            Init_Text(val, GOB_CONTENT(gob));
-        }
-        else
-            return false;
-        break;
+      case SYM_EFFECT:
+        if (GOB_TYPE(gob) == GOBT_EFFECT)
+            return Init_Block(out, ARR(GOB_CONTENT(gob)));
+        return Init_Blank(out);
 
-    case SYM_EFFECT:
-        if (GOB_TYPE(gob) == GOBT_EFFECT) {
-            Init_Block(val, ARR(GOB_CONTENT(gob)));
-        }
-        else
-            return false;
-        break;
-
-    case SYM_COLOR:
+      case SYM_COLOR:
         if (GOB_TYPE(gob) == GOBT_COLOR) {
-            Init_Tuple_From_Pixel(val, cast(REBYTE*, &GOB_CONTENT(gob)));
+            return Init_Tuple_From_Pixel(
+                out,
+                cast(REBYTE*, &GOB_CONTENT(gob))
+            );
         }
-        else
-            return false;
-        break;
+        return Init_Blank(out);
 
-    case SYM_ALPHA:
-        Init_Integer(val, GOB_ALPHA(gob));
-        break;
+      case SYM_ALPHA:
+        return Init_Integer(out, GOB_ALPHA(gob));
 
-    case SYM_PANE:
+      case SYM_PANE:
         if (GOB_PANE(gob))
-            Init_Block(val, Pane_To_Array(gob, 0, -1));
-        else
-            Init_Block(val, Make_Array(0));
-        break;
+            return Init_Block(out, Pane_To_Array(gob, 0, -1));
+        return Init_Block(out, Make_Array(0));
 
-    case SYM_PARENT:
-        if (GOB_PARENT(gob)) {
-            SET_GOB(val, GOB_PARENT(gob));
-        }
-        else
-            Init_Blank(val);
-        break;
+      case SYM_PARENT:
+        if (GOB_PARENT(gob))
+            return Init_Gob(out, GOB_PARENT(gob));
+        return Init_Blank(out);
 
-    case SYM_DATA:
-        if (GOB_DTYPE(gob) == GOBD_OBJECT) {
-            Init_Object(val, CTX(GOB_DATA(gob)));
-        }
-        else if (GOB_DTYPE(gob) == GOBD_BLOCK) {
-            Init_Block(val, ARR(GOB_DATA(gob)));
-        }
-        else if (GOB_DTYPE(gob) == GOBD_STRING) {
-            Init_Text(val, GOB_DATA(gob));
-        }
-        else if (GOB_DTYPE(gob) == GOBD_BINARY) {
-            Init_Binary(val, GOB_DATA(gob));
-        }
-        else if (GOB_DTYPE(gob) == GOBD_INTEGER) {
-            Init_Integer(val, cast(intptr_t, GOB_DATA(gob)));
-        }
-        else
-            return false;
-        break;
+      case SYM_DATA:
+        if (GOB_DTYPE(gob) == GOBD_OBJECT)
+            return Init_Object(out, CTX(GOB_DATA(gob)));
+        if (GOB_DTYPE(gob) == GOBD_BLOCK)
+            return Init_Block(out, ARR(GOB_DATA(gob)));
+        if (GOB_DTYPE(gob) == GOBD_STRING)
+            return Init_Text(out, GOB_DATA(gob));
+        if (GOB_DTYPE(gob) == GOBD_BINARY)
+            return Init_Binary(out, GOB_DATA(gob));
+        if (GOB_DTYPE(gob) == GOBD_INTEGER)
+            return Init_Integer(out, cast(intptr_t, GOB_DATA(gob)));
+        return Init_Blank(out);
 
-    case SYM_FLAGS:
-        Init_Block(val, Gob_Flags_To_Array(gob));
-        break;
+      case SYM_FLAGS:
+        return Init_Block(out, Gob_Flags_To_Array(gob));
 
-    default:
-        return false;
+      default:
+        return Init_Blank(out);
     }
-    return true;
 }
 
 
@@ -660,19 +629,17 @@ static void Set_GOB_Vars(REBGOB *gob, const RELVAL *blk, REBSPC *specifier)
 static REBARR *Gob_To_Array(REBGOB *gob)
 {
     REBARR *array = Make_Array(10);
-    REBVAL *val;
     REBSYM words[] = {SYM_OFFSET, SYM_SIZE, SYM_ALPHA, SYM_0};
     REBVAL *vals[6];
-    REBINT n = 0;
-    REBVAL *val1;
 
+    REBINT n;
     for (n = 0; words[n] != SYM_0; ++n) {
-        val = Init_Set_Word(Alloc_Tail_Array(array), Canon(words[n]));
+        Init_Set_Word(Alloc_Tail_Array(array), Canon(words[n]));
         vals[n] = Init_Blank(Alloc_Tail_Array(array));
     }
 
-    SET_PAIR(vals[0], GOB_X(gob), GOB_Y(gob));
-    SET_PAIR(vals[1], GOB_W(gob), GOB_H(gob));
+    Init_Pair(vals[0], GOB_X(gob), GOB_Y(gob));
+    Init_Pair(vals[1], GOB_W(gob), GOB_H(gob));
     Init_Integer(vals[2], GOB_ALPHA(gob));
 
     if (!GOB_TYPE(gob)) return array;
@@ -700,30 +667,11 @@ static REBARR *Gob_To_Array(REBGOB *gob)
             fail ("Unknown GOB! type");
         }
 
-        val1 = Init_Set_Word(Alloc_Tail_Array(array), Canon(sym));
-        val = KNOWN(Alloc_Tail_Array(array));
-
-        if (!Get_GOB_Var(gob, val1, val))
-            Init_Blank(val);
+        REBVAL *name = Init_Set_Word(Alloc_Tail_Array(array), Canon(sym));
+        Get_GOB_Var(Alloc_Tail_Array(array), gob, name); // BLANK! if not set
     }
 
     return array;
-}
-
-
-//
-//  Return_Gob_Pair: C
-//
-static void Return_Gob_Pair(REBVAL *out, REBGOB *gob, REBD32 x, REBD32 y)
-{
-    REBARR *blk = Make_Array(2);
-    Init_Block(out, blk);
-
-    SET_GOB(Alloc_Tail_Array(blk), gob);
-
-    REBVAL *val = RESET_CELL(Alloc_Tail_Array(blk), REB_PAIR);
-    VAL_PAIR_X(val) = x;
-    VAL_PAIR_Y(val) = y;
 }
 
 
@@ -800,8 +748,10 @@ REBNATIVE(map_event)
 //
 //  map-gob-offset: native [
 //
-//  {Translate gob and offset to deepest gob and offset in it, return as block}
+//  {Translate gob and offset to deepest gob and offset in it}
 //
+//      return: [block!]
+//          "[GOB! PAIR!] 2-element block"
 //      gob [gob!]
 //          "Starting object"
 //      xy [pair!]
@@ -813,6 +763,9 @@ REBNATIVE(map_event)
 REBNATIVE(map_gob_offset)
 {
     INCLUDE_PARAMS_OF_MAP_GOB_OFFSET;
+    UNUSED(ARG(gob));
+    UNUSED(ARG(xy));
+    UNUSED(REF(reverse));
 
     REBGOB *gob = VAL_GOB(ARG(gob));
     REBD32 xo = VAL_PAIR_X(ARG(xy));
@@ -833,15 +786,18 @@ REBNATIVE(map_gob_offset)
     else {
         REBXYF xy;
         xy.x = VAL_PAIR_X(ARG(xy));
+        xy.x = VAL_DECIMAL(ARG(xy)->payload.pair + 1);
         xy.y = VAL_PAIR_Y(ARG(xy));
         gob = Map_Gob_Inner(gob, &xy);
         xo = xy.x;
         yo = xy.y;
     }
 
-    Return_Gob_Pair(D_OUT, gob, xo, yo);
+    REBARR *blk = Make_Array(2);
+    Init_Gob(Alloc_Tail_Array(blk), gob);
+    Init_Pair(Alloc_Tail_Array(blk), xo, yo);
 
-    return D_OUT;
+    return Init_Block(D_OUT, blk);
 }
 
 
@@ -896,7 +852,7 @@ void MAKE_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     else
         Extend_Gob_Core(gob, arg);
 
-    SET_GOB(out, gob);
+    Init_Gob(out, gob);
 }
 
 
@@ -928,7 +884,7 @@ const REBVAL *PD_Gob(
 
     if (IS_WORD(picker)) {
         if (opt_setval == NULL) {
-            if (!Get_GOB_Var(gob, picker, pvs->out))
+            if (IS_BLANK(Get_GOB_Var(pvs->out, gob, picker)))
                 return R_UNHANDLED;
 
             // !!! Comment here said: "Check for SIZE/X: types of cases".

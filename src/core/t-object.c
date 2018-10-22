@@ -987,8 +987,7 @@ REBNATIVE(construct)
             fail (Error_Bad_Make(REB_GOB, body));
 
         Extend_Gob_Core(gob, body);
-        SET_GOB(D_OUT, gob);
-        return D_OUT;
+        return Init_Gob(D_OUT, gob);
     }
     else if (IS_EVENT(spec)) {
         //

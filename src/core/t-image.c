@@ -1052,12 +1052,11 @@ REBTYPE(Image)
             return Init_Logic(D_OUT, index >= tail);
 
         case SYM_XY:
-            SET_PAIR(
+            return Init_Pair(
                 D_OUT,
                 index % VAL_IMAGE_WIDE(value),
                 index / VAL_IMAGE_WIDE(value)
             );
-            return D_OUT;
 
         case SYM_INDEX:
             return Init_Integer(D_OUT, index + 1);
@@ -1274,7 +1273,7 @@ void Pick_Image(REBVAL *out, const REBVAL *value, const REBVAL *picker)
     if (IS_WORD(picker)) {
         switch (VAL_WORD_SYM(picker)) {
         case SYM_SIZE:
-            SET_PAIR(
+            Init_Pair(
                 out,
                 VAL_IMAGE_WIDE(value),
                 VAL_IMAGE_HIGH(value)
