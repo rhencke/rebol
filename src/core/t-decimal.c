@@ -117,21 +117,21 @@ bool almost_equal(REBDEC a, REBDEC b, REBCNT max_diff) {
 //
 REBVAL *Init_Decimal_Bits(RELVAL *out, const REBYTE *bp)
 {
-    RESET_VAL_HEADER(out, REB_DECIMAL);
+    RESET_CELL(out, REB_DECIMAL);
 
     REBYTE *dp = cast(REBYTE*, &VAL_DECIMAL(out));
 
-#ifdef ENDIAN_LITTLE
+  #ifdef ENDIAN_LITTLE
     REBCNT n;
     for (n = 0; n < 8; ++n)
         dp[n] = bp[7 - n];
-#elif defined(ENDIAN_BIG)
+  #elif defined(ENDIAN_BIG)
     REBCNT n;
     for (n = 0; n < 8; ++n)
         dp[n] = bp[n];
-#else
+  #else
     #error "Unsupported CPU endian"
-#endif
+  #endif
 
     return KNOWN(out);
 }
@@ -186,8 +186,8 @@ void MAKE_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         if (VAL_LEN_AT(arg) < 8)
             fail (Error_Invalid(arg));
 
-        Init_Decimal_Bits(out, VAL_BIN_AT(arg));
-        RESET_VAL_HEADER(out, kind);
+        Init_Decimal_Bits(out, VAL_BIN_AT(arg)); // makes REB_DECIMAL
+        RESET_VAL_HEADER(out, kind); // override type if REB_PERCENT
         d = VAL_DECIMAL(out);
         break;
 
@@ -237,7 +237,7 @@ dont_divide_if_percent:
     if (!FINITE(d))
         fail (Error_Overflow_Raw());
 
-    RESET_VAL_HEADER(out, kind);
+    RESET_CELL(out, kind);
     VAL_DECIMAL(out) = d;
     return;
 
@@ -534,7 +534,7 @@ setDec:
     if (not FINITE(d1))
         fail (Error_Overflow_Raw());
 
-    RESET_VAL_HEADER(D_OUT, type);
+    RESET_CELL(D_OUT, type);
     VAL_DECIMAL(D_OUT) = d1;
 
     return D_OUT;

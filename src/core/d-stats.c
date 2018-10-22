@@ -60,7 +60,7 @@ REBNATIVE(stats)
     INCLUDE_PARAMS_OF_STATS;
 
     if (REF(timer)) {
-        RESET_VAL_HEADER(D_OUT, REB_TIME);
+        RESET_CELL(D_OUT, REB_TIME);
         VAL_NANO(D_OUT) = OS_DELTA_TIME(PG_Boot_Time) * 1000;
         return D_OUT;
     }
@@ -83,7 +83,7 @@ REBNATIVE(stats)
         if (IS_OBJECT(D_OUT)) {
             REBVAL *stats = VAL_CONTEXT_VAR(D_OUT, 1);
 
-            RESET_VAL_HEADER(stats, REB_TIME);
+            RESET_CELL(stats, REB_TIME);
             VAL_NANO(stats) = OS_DELTA_TIME(PG_Boot_Time) * 1000;
             stats++;
             Init_Integer(stats, Eval_Cycles + Eval_Dose - Eval_Count);

@@ -127,11 +127,12 @@ void Shutdown_Typesets(void)
 // Name should be set when a typeset is being used as a function parameter
 // specifier, or as a key in an object.
 //
-void Init_Typeset(RELVAL *value, REBU64 bits, REBSTR *opt_name)
+REBVAL *Init_Typeset(RELVAL *out, REBU64 bits, REBSTR *opt_name)
 {
-    RESET_VAL_HEADER(value, REB_TYPESET);
-    INIT_TYPESET_NAME(value, opt_name);
-    VAL_TYPESET_BITS(value) = bits;
+    RESET_CELL(out, REB_TYPESET);
+    INIT_TYPESET_NAME(out, opt_name);
+    VAL_TYPESET_BITS(out) = bits;
+    return cast(REBVAL*, out);
 }
 
 
@@ -290,8 +291,6 @@ void TO_Typeset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REBARR *Typeset_To_Array(const REBVAL *tset)
 {
-    REBARR *block;
-    REBVAL *value;
     REBINT n;
     REBINT size = 0;
 
@@ -299,22 +298,21 @@ REBARR *Typeset_To_Array(const REBVAL *tset)
         if (TYPE_CHECK(tset, cast(enum Reb_Kind, n))) size++;
     }
 
-    block = Make_Array(size);
+    REBARR *block = Make_Array(size);
 
     // Convert bits to types:
     for (n = 0; n < REB_MAX; n++) {
         if (TYPE_CHECK(tset, cast(enum Reb_Kind, n))) {
-            value = Alloc_Tail_Array(block);
             if (n == 0) {
                 //
                 // !!! A BLANK! value is currently supported in typesets to
                 // indicate that they take optional values.  This may wind up
                 // as a feature of MAKE ACTION! only.
                 //
-                Init_Blank(value);
+                Init_Blank(Alloc_Tail_Array(block));
             }
             else
-                Init_Datatype(value, cast(enum Reb_Kind, n));
+                Init_Datatype(Alloc_Tail_Array(block), cast(enum Reb_Kind, n));
         }
     }
     return block;

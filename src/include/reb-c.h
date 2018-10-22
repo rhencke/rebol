@@ -357,12 +357,17 @@
 // context).  Either way, when discussing C's "0 pointer", say `nullptr`.
 //
 
-#if defined(CPLUSPLUS_11) //...or above
+#if !defined(__cplusplus)
+    //
+    // Plain C, nullptr is not a keyword.
+    //
+    #define nullptr cast(void*, 0)
+
+#elif defined(CPLUSPLUS_11) //...or above
     //
     // nullptr included: http://en.cppreference.com/w/cpp/language/nullptr
     //
-#elif defined(__cplusplus)
-    //
+#else
     // C++98 shim from "Effective C++": https://stackoverflow.com/a/44517878
     //
     // Note: Some "newer old" C++ compilers had awareness that nullptr would
@@ -386,10 +391,6 @@
        void operator&() const;    /* Can't take address of nullptr */
 
     } nullptr = {};               /* and whose name is nullptr     */
-#else
-    // Plain C, nullptr is not a keyword.
-    //
-    #define nullptr cast(void*, 0)
 #endif
 
 

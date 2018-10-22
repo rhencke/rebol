@@ -118,7 +118,7 @@ static void Add_Event_XY(REBGOB *gob, REBINT id, REBINT xy, REBINT flags)
 {
     REBVAL *e = Append_Event(); // sets signal, null if no room in series
     if (e) {
-        RESET_VAL_HEADER(e, REB_EVENT);
+        RESET_CELL(e, REB_EVENT);
         e->payload.event.model = EVM_GUI;
         e->extra.eventee.ser = gob;
         e->payload.event.type = id;
@@ -157,7 +157,7 @@ static void Add_Event_Key(REBGOB *gob, REBINT id, REBINT key, REBINT flags)
 {
     REBVAL *e = Append_Event(); // sets signal, null if no room in series
     if (e) {
-        RESET_VAL_HEADER(e, REB_EVENT);
+        RESET_CELL(e, REB_EVENT);
         e->payload.event.model = EVM_GUI;
         e->extra.eventee.ser = gob;
         e->payload.event.type = id;

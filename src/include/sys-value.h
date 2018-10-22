@@ -502,7 +502,7 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     // used if the intent is to preserve the payload and extra, and is
     // wasteful if you're just going to overwrite them immediately afterward.
     //
-    inline static REBVAL *RESET_VAL_CELL_Debug(
+    inline static REBVAL *RESET_CELL_EXTRA_Debug(
         RELVAL *out,
         enum Reb_Kind kind,
         uintptr_t extra,
@@ -519,12 +519,15 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
         return cast(REBVAL*, out);
     }
 
-    #define RESET_VAL_CELL(out,kind,extra) \
-        RESET_VAL_CELL_Debug((out), (kind), (extra), __FILE__, __LINE__)
+    #define RESET_CELL_EXTRA(out,kind,extra) \
+        RESET_CELL_EXTRA_Debug((out), (kind), (extra), __FILE__, __LINE__)
 #else
-    #define RESET_VAL_CELL(out,kind,extra) \
+    #define RESET_CELL_EXTRA(out,kind,extra) \
        RESET_VAL_HEADER_EXTRA((out), (kind), (extra))
 #endif
+
+#define RESET_CELL(out,kind) \
+    RESET_CELL_EXTRA((out), (kind), 0)
 
 
 // This is another case where the debug build doesn't inline functions, and
@@ -842,36 +845,16 @@ inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
 #define IS_NULLED(v) \
     (VAL_TYPE(v) == REB_MAX_NULLED)
 
-#ifdef NDEBUG
-    inline static REBVAL *Init_Nulled(RELVAL *out) {
-        RESET_VAL_CELL(out, REB_MAX_NULLED, VALUE_FLAG_FALSEY);
-        return KNOWN(out);
-    }
-#else
-    inline static REBVAL *Init_Nulled_Debug(
-        RELVAL *out, const char *file, int line
-    ){
-        RESET_VAL_CELL_Debug(
-            out,
-            REB_MAX_NULLED,
-            VALUE_FLAG_FALSEY,
-            file,
-            line
-        );
-        return KNOWN(out);
-    }
-
-    #define Init_Nulled(out) \
-        Init_Nulled_Debug((out), __FILE__, __LINE__)
-#endif
+#define Init_Nulled(out) \
+    RESET_CELL_EXTRA((out), REB_MAX_NULLED, VALUE_FLAG_FALSEY)
 
 // !!! A theory was that the "evaluated" flag would help a function that took
 // both <opt> and <end>, which are converted to nulls, distinguish what kind
 // of null it is.  This may or may not be a good idea, but unevaluating it
 // here just to make a note of the concept, and tag it via the callsites.
 //
-#define Init_Endish_Nulled(v) \
-    RESET_VAL_CELL((v), REB_MAX_NULLED, \
+#define Init_Endish_Nulled(out) \
+    RESET_CELL_EXTRA((out), REB_MAX_NULLED, \
         VALUE_FLAG_FALSEY | VALUE_FLAG_UNEVALUATED)
 
 // To help ensure full nulled cells don't leak to the API, the variadic
@@ -909,22 +892,8 @@ inline static const REBVAL *NULLIZE(const REBVAL *cell)
 #define VOID_VALUE \
     c_cast(const REBVAL*, &PG_Void_Value[0])
 
-#ifdef NDEBUG
-    inline static REBVAL *Init_Void(RELVAL *out) {
-        RESET_VAL_CELL(out, REB_VOID, 0);
-        return KNOWN(out);
-    }
-#else
-    inline static REBVAL *Init_Void_Debug(
-        RELVAL *out, const char *file, int line
-    ){
-        RESET_VAL_CELL_Debug(out, REB_VOID, 0, file, line);
-        return KNOWN(out);
-    }
-
-    #define Init_Void(out) \
-        Init_Void_Debug((out), __FILE__, __LINE__)
-#endif
+#define Init_Void(out) \
+    RESET_CELL((out), REB_VOID)
 
 inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
     if (IS_NULLED(cell))
@@ -953,37 +922,11 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
 #define BAR_VALUE \
     c_cast(const REBVAL*, &PG_Bar_Value[0])
 
-#ifdef NDEBUG
-    inline static REBVAL *Init_Bar(RELVAL *out) {
-        RESET_VAL_CELL(out, REB_BAR, 0);
-        return KNOWN(out);
-    }
+#define Init_Bar(out) \
+    RESET_CELL((out), REB_BAR);
 
-    inline static REBVAL *Init_Lit_Bar(RELVAL *out) {
-        RESET_VAL_CELL(out, REB_LIT_BAR, 0);
-        return KNOWN(out);
-    }
-#else
-    inline static REBVAL *Init_Bar_Debug(
-        RELVAL *out, const char *file, int line
-    ){
-        RESET_VAL_CELL_Debug(out, REB_BAR, 0, file, line);
-        return KNOWN(out);
-    }
-
-    #define Init_Bar(out) \
-        Init_Bar_Debug((out), __FILE__, __LINE__)
-
-    inline static REBVAL *Init_Lit_Bar_Debug(
-        RELVAL *out, const char *file, int line
-    ){
-        RESET_VAL_CELL_Debug(out, REB_LIT_BAR, 0, file, line);
-        return KNOWN(out);
-    }
-
-    #define Init_Lit_Bar(out) \
-        Init_Lit_Bar_Debug((out), __FILE__, __LINE__)
-#endif
+#define Init_Lit_Bar(out) \
+    RESET_CELL((out), REB_LIT_BAR);
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -1022,13 +965,13 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
     c_cast(const REBVAL*, &PG_Blank_Value[0])
 
 #define Init_Blank(v) \
-    RESET_VAL_CELL((v), REB_BLANK, VALUE_FLAG_FALSEY)
+    RESET_CELL_EXTRA((v), REB_BLANK, VALUE_FLAG_FALSEY)
 
 #ifdef DEBUG_UNREADABLE_BLANKS
     inline static REBVAL *Init_Unreadable_Blank_Debug(
         RELVAL *out, const char *file, int line
     ){
-        RESET_VAL_CELL_Debug(out, REB_BLANK, VALUE_FLAG_FALSEY, file, line);
+        RESET_CELL_EXTRA_Debug(out, REB_BLANK, VALUE_FLAG_FALSEY, file, line);
         assert(out->extra.tick > 0);
         out->extra.tick = -out->extra.tick;
         return KNOWN(out);
@@ -1047,64 +990,6 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
         return v->extra.tick < 0;
     }
 
-    // "Sinking" a value is like trashing it in the debug build at the moment
-    // of knowing that it will ultimately be overwritten.  This avoids
-    // any accidental usage of the target cell's contents before the overwrite
-    // winds up happening.
-    //
-    // It's slightly different than "trashing", because if the node was valid
-    // before, then it would have been safe for the GC to visit.  So this
-    // doesn't break that invariant...if the node was invalid it stays
-    // invalid, but if it was valid it is turned into an unreadable blank,
-    // which overwrites all the cell fields (with tracking info) and will
-    // trigger errors through VAL_TYPE() if it's used.
-    //
-    inline static REBVAL *Sink_Debug(
-        RELVAL *v
-
-      #if defined(DEBUG_TRACK_CELLS) || defined(DEBUG_CELL_WRITABILITY)
-      , const char *file
-      , int line
-      #endif
-    ){
-        ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
-
-        if (IS_TRASH_DEBUG(v)) {
-            // already trash, don't need to mess with the header
-        }
-        else {
-          #ifdef DEBUG_CELL_WRITABILITY
-            RESET_VAL_HEADER_EXTRA_Core(
-                v,
-                REB_BLANK,
-                VALUE_FLAG_FALSEY,
-                file,
-                line
-            );
-          #else
-            RESET_VAL_HEADER_EXTRA(
-                v,
-                REB_BLANK,
-                VALUE_FLAG_FALSEY
-            );
-          #endif
-        }
-
-        TRACK_CELL_IF_DEBUG(v, file, line);
-        assert(v->extra.tick > 0);
-        v->extra.tick = -v->extra.tick;
-
-        return cast(REBVAL*, v); // used by SINK, but not TRASH_CELL_IF_DEBUG
-    }
-
-    #if defined(DEBUG_TRACK_CELLS) || defined(DEBUG_CELL_WRITABILITY)
-        #define SINK(v) \
-            Sink_Debug((v), __FILE__, __LINE__)
-    #else
-        #define SINK(v) \
-            Sink_Debug(v)
-    #endif
-
     #define ASSERT_UNREADABLE_IF_DEBUG(v) \
         assert(IS_UNREADABLE_DEBUG(v))
 
@@ -1122,9 +1007,6 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
 
     #define ASSERT_READABLE_IF_DEBUG(v) \
         NOOP
-
-    #define SINK(v) \
-        cast(REBVAL*, (v))
 #endif
 
 
@@ -1161,28 +1043,8 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
     (not IS_TRUTHY(v))
 
 
-#ifdef NDEBUG
-    inline static REBVAL *Init_Logic(RELVAL *out, bool b) {
-        RESET_VAL_CELL(out, REB_LOGIC, b ? 0 : VALUE_FLAG_FALSEY);
-        return KNOWN(out);
-    }
-#else
-    inline static REBVAL *Init_Logic_Debug(
-        RELVAL *out, bool b, const char *file, int line
-    ){
-        RESET_VAL_CELL_Debug(
-            out,
-            REB_LOGIC,
-            b ? 0 : VALUE_FLAG_FALSEY,
-            file,
-            line
-        );
-        return KNOWN(out);
-    }
-
-    #define Init_Logic(out,b) \
-        Init_Logic_Debug((out), (b), __FILE__, __LINE__)
-#endif
+#define Init_Logic(out,b) \
+    RESET_CELL_EXTRA(out, REB_LOGIC, (b) ? 0 : VALUE_FLAG_FALSEY)
 
 #define Init_True(out) \
     Init_Logic((out), true)
@@ -1253,7 +1115,7 @@ inline static bool VAL_LOGIC(const RELVAL *v) {
     ((v)->payload.character)
 
 inline static REBVAL *Init_Char(RELVAL *out, REBUNI uni) {
-    RESET_VAL_HEADER(out, REB_CHAR);
+    RESET_CELL(out, REB_CHAR);
     VAL_CHAR(out) = uni;
     return cast(REBVAL*, out);
 }
@@ -1302,9 +1164,8 @@ inline static REBVAL *Init_Char(RELVAL *out, REBUNI uni) {
 #endif
 
 inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
-    RESET_VAL_HEADER(out, REB_INTEGER);
+    RESET_CELL(out, REB_INTEGER);
     out->payload.integer = i64;
-    UNUSED(out->extra.binding);
     return cast(REBVAL*, out);
 }
 
@@ -1361,13 +1222,13 @@ inline static REBYTE VAL_UINT8(const RELVAL *v) {
 #endif
 
 inline static REBVAL *Init_Decimal(RELVAL *out, REBDEC d) {
-    RESET_VAL_HEADER(out, REB_DECIMAL);
+    RESET_CELL(out, REB_DECIMAL);
     out->payload.decimal = d;
     return cast(REBVAL*, out);
 }
 
 inline static REBVAL *Init_Percent(RELVAL *out, REBDEC d) {
-    RESET_VAL_HEADER(out, REB_PERCENT);
+    RESET_CELL(out, REB_PERCENT);
     out->payload.decimal = d;
     return cast(REBVAL*, out);
 }
@@ -1405,7 +1266,7 @@ inline static deci VAL_MONEY_AMOUNT(const RELVAL *v) {
 }
 
 inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
-    RESET_VAL_HEADER(out, REB_MONEY);
+    RESET_CELL(out, REB_MONEY);
     out->extra.m0 = amount.m0;
     out->payload.money.m1 = amount.m1;
     out->payload.money.m2 = amount.m2;
@@ -1482,7 +1343,7 @@ inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
 
 
 inline static REBVAL *Init_Tuple(RELVAL *out, const REBYTE *data) {
-    RESET_VAL_HEADER(out, REB_TUPLE);
+    RESET_CELL(out, REB_TUPLE);
     memcpy(VAL_TUPLE_DATA(out), data, sizeof(out->payload.tuple.tuple));
     return cast(REBVAL*, out);
 }
@@ -1623,7 +1484,7 @@ inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
 #endif
 
 inline static void SET_GOB(RELVAL *v, REBGOB *g) {
-    RESET_VAL_HEADER(v, REB_GOB);
+    RESET_CELL(v, REB_GOB);
     VAL_GOB(v) = g;
     VAL_GOB_INDEX(v) = 0;
 }

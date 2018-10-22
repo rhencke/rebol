@@ -52,7 +52,7 @@ void MAKE_Datatype(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     if (sym == SYM_0 || sym > SYM_FROM_KIND(REB_MAX))
         fail (Error_Bad_Make(kind, arg));
 
-    RESET_VAL_HEADER(out, REB_DATATYPE);
+    RESET_CELL(out, REB_DATATYPE);
     VAL_TYPE_KIND(out) = KIND_FROM_SYM(sym);
     VAL_TYPE_SPEC(out) = 0;
 }

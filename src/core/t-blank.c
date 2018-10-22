@@ -61,7 +61,7 @@ void MAKE_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 //
 void TO_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *data) {
     UNUSED(data);
-    RESET_VAL_HEADER(out, kind);
+    RESET_CELL(out, kind);
 }
 
 

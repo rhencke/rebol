@@ -125,8 +125,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
         SERIES_MASK_CONTEXT
     );
 
-    REBVAL *rootvar = SINK(ARR_HEAD(varlist));
-    RESET_VAL_HEADER(rootvar, REB_FRAME);
+    REBVAL *rootvar = RESET_CELL(ARR_HEAD(varlist), REB_FRAME);
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = VAL_ACTION(action);
     INIT_BINDING(rootvar, VAL_BINDING(action));
@@ -498,7 +497,7 @@ bool Specialize_Action_Throws(
                 else
                     last_partial->extra.next_partial = refine;
 
-                RESET_VAL_CELL(refine, REB_X_PARTIAL, 0);
+                RESET_CELL(refine, REB_X_PARTIAL);
                 refine->payload.partial.dsp = partial_dsp;
                 refine->payload.partial.index = index;
                 TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
@@ -613,7 +612,7 @@ bool Specialize_Action_Throws(
         else
             last_partial->extra.next_partial = refine;
 
-        RESET_VAL_CELL(refine, REB_X_PARTIAL, PARTIAL_FLAG_IN_USE);
+        RESET_CELL_EXTRA(refine, REB_X_PARTIAL, PARTIAL_FLAG_IN_USE);
         refine->payload.partial.dsp = 0; // no ordered position on stack
         refine->payload.partial.index = index - (arg - refine);
         TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
@@ -1158,8 +1157,7 @@ REBNATIVE(does)
         SERIES_MASK_ACTION
     );
 
-    REBVAL *archetype = Alloc_Tail_Array(paramlist);
-    RESET_VAL_HEADER(archetype, REB_ACTION);
+    REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
     archetype->payload.action.paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
     TERM_ARRAY_LEN(paramlist, 1);
@@ -1299,8 +1297,10 @@ REBNATIVE(does)
         num_slots,
         SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST // [0] slot isn't archetype
     );
-    REBVAL *rootkey = SINK(ARR_HEAD(facade));
-    Init_Action_Unbound(rootkey, ACT_UNDERLYING(unspecialized));
+    REBVAL *rootkey = Init_Action_Unbound(
+        ARR_HEAD(facade),
+        ACT_UNDERLYING(unspecialized)
+    );
 
     REBVAL *param = ACT_FACADE_HEAD(unspecialized);
     RELVAL *alias = rootkey + 1;
@@ -1325,8 +1325,7 @@ REBNATIVE(does)
         1 // details array capacity
     );
 
-    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(doer));
-    Init_Frame(body, exemplar);
+    Init_Frame(Alloc_Tail_Array(ACT_DETAILS(doer)), exemplar);
 
     return Init_Action_Unbound(D_OUT, doer);
 }

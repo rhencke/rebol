@@ -90,8 +90,7 @@ REBCTX *Alloc_Context_Core(enum Reb_Kind kind, REBCNT capacity, REBFLGS flags)
     // varlist[0] is a value instance of the OBJECT!/MODULE!/PORT!/ERROR! we
     // are building which contains this context.
 
-    REBVAL *rootvar = Alloc_Tail_Array(varlist);
-    RESET_VAL_HEADER(rootvar, kind);
+    REBVAL *rootvar = RESET_CELL(Alloc_Tail_Array(varlist), kind);
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = nullptr;
     INIT_BINDING(rootvar, UNBOUND);
@@ -226,12 +225,12 @@ REBVAL *Append_Context(
     // also check that redundant keys aren't getting added here.
     //
     EXPAND_SERIES_TAIL(SER(keylist), 1);
-    REBVAL *key = SINK(ARR_LAST(keylist)); // !!! non-dynamic, could optimize
-    Init_Typeset(
-        key,
+    REBVAL *key = Init_Typeset(
+        ARR_LAST(keylist), // !!! non-dynamic, could optimize
         TS_VALUE, // !!! Currently not paid attention to
         opt_spelling ? opt_spelling : VAL_WORD_SPELLING(opt_any_word)
     );
+    UNUSED(key);
     TERM_ARRAY_LEN(keylist, ARR_LEN(keylist));
 
     // Add a slot to the var list
@@ -589,9 +588,8 @@ REBARR *Collect_Keylist_Managed(
         ) {
             // No prior or no SELF in prior, so we'll add it as the first key
             //
-            RELVAL *self_key = ARR_AT(BUF_COLLECT, 1);
-            Init_Typeset(
-                self_key,
+            RELVAL *self_key = Init_Typeset(
+                ARR_AT(BUF_COLLECT, 1),
                 TS_VALUE, // !!! Currently not paid attention to
                 Canon(SYM_SELF)
             );
@@ -837,8 +835,7 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
 
     // context[0] is an instance value of the OBJECT!/PORT!/ERROR!/MODULE!
     //
-    REBVAL *var = SINK(ARR_HEAD(varlist));
-    RESET_VAL_HEADER(var, kind);
+    REBVAL *var = RESET_CELL(ARR_HEAD(varlist), kind);
     var->payload.any_context.varlist = varlist;
     var->payload.any_context.phase = NULL;
     INIT_BINDING(var, UNBOUND);
@@ -1087,8 +1084,7 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
     // the parent was an ERROR! so will the child be.  This is a new idea,
     // so review consequences.
     //
-    REBVAL *rootvar = SINK(ARR_HEAD(varlist));
-    RESET_VAL_HEADER(rootvar, CTX_TYPE(parent1));
+    REBVAL *rootvar = RESET_CELL(ARR_HEAD(varlist), CTX_TYPE(parent1));
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = NULL;
     INIT_BINDING(rootvar, UNBOUND);

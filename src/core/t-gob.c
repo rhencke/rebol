@@ -287,7 +287,7 @@ static REBARR *Pane_To_Array(REBGOB *gob, REBCNT index, REBINT len)
 
     array = Make_Array(len);
     TERM_ARRAY_LEN(array, len);
-    val = SINK(ARR_HEAD(array));
+    val = KNOWN(ARR_HEAD(array));
     gp = GOB_HEAD(gob);
     for (; len > 0; len--, val++, gp++) {
         SET_GOB(val, *gp);
@@ -307,10 +307,8 @@ static REBARR *Gob_Flags_To_Array(REBGOB *gob)
 
     REBINT i;
     for (i = 0; Gob_Flag_Words[i].sym != SYM_0; ++i) {
-        if (GET_GOB_FLAG(gob, Gob_Flag_Words[i].flags)) {
-            REBVAL *val = Alloc_Tail_Array(array);
-            Init_Word(val, Canon(Gob_Flag_Words[i].sym));
-        }
+        if (GET_GOB_FLAG(gob, Gob_Flag_Words[i].flags))
+            Init_Word(Alloc_Tail_Array(array), Canon(Gob_Flag_Words[i].sym));
     }
 
     return array;
@@ -669,10 +667,8 @@ static REBARR *Gob_To_Array(REBGOB *gob)
     REBVAL *val1;
 
     for (n = 0; words[n] != SYM_0; ++n) {
-        val = Alloc_Tail_Array(array);
-        Init_Set_Word(val, Canon(words[n]));
-        vals[n] = Alloc_Tail_Array(array);
-        Init_Blank(vals[n]);
+        val = Init_Set_Word(Alloc_Tail_Array(array), Canon(words[n]));
+        vals[n] = Init_Blank(Alloc_Tail_Array(array));
     }
 
     SET_PAIR(vals[0], GOB_X(gob), GOB_Y(gob));
@@ -682,9 +678,6 @@ static REBARR *Gob_To_Array(REBGOB *gob)
     if (!GOB_TYPE(gob)) return array;
 
     if (GOB_CONTENT(gob)) {
-        val1 = Alloc_Tail_Array(array);
-        val = Alloc_Tail_Array(array);
-
         REBSYM sym;
         switch (GOB_TYPE(gob)) {
         case GOBT_COLOR:
@@ -706,7 +699,10 @@ static REBARR *Gob_To_Array(REBGOB *gob)
         default:
             fail ("Unknown GOB! type");
         }
-        Init_Set_Word(val1, Canon(sym));
+
+        val1 = Init_Set_Word(Alloc_Tail_Array(array), Canon(sym));
+        val = KNOWN(Alloc_Tail_Array(array));
+
         if (!Get_GOB_Var(gob, val1, val))
             Init_Blank(val);
     }
@@ -725,8 +721,7 @@ static void Return_Gob_Pair(REBVAL *out, REBGOB *gob, REBD32 x, REBD32 y)
 
     SET_GOB(Alloc_Tail_Array(blk), gob);
 
-    REBVAL *val = Alloc_Tail_Array(blk);
-    RESET_VAL_HEADER(val, REB_PAIR);
+    REBVAL *val = RESET_CELL(Alloc_Tail_Array(blk), REB_PAIR);
     VAL_PAIR_X(val) = x;
     VAL_PAIR_Y(val) = y;
 }
@@ -982,7 +977,7 @@ const REBVAL *PD_Gob(
         if (index >= tail) return Init_Blank(pvs->out);
 
         gob = *GOB_AT(gob, index);
-        RESET_VAL_HEADER(pvs->out, REB_GOB);
+        RESET_CELL(pvs->out, REB_GOB);
         VAL_GOB(pvs->out) = gob;
         VAL_GOB_INDEX(pvs->out) = 0;
         return pvs->out;
@@ -1196,7 +1191,7 @@ REBTYPE(Gob)
             return nullptr;
 
         if (!REF(part)) { // just one value
-            RESET_VAL_HEADER(D_OUT, REB_GOB);
+            RESET_CELL(D_OUT, REB_GOB);
             VAL_GOB(D_OUT) = *GOB_AT(gob, index);
             VAL_GOB_INDEX(D_OUT) = 0;
             Remove_Gobs(gob, index, 1);
@@ -1239,7 +1234,7 @@ REBTYPE(Gob)
     fail (Error_Illegal_Action(REB_GOB, verb));
 
 set_index:
-    RESET_VAL_HEADER(D_OUT, REB_GOB);
+    RESET_CELL(D_OUT, REB_GOB);
     VAL_GOB(D_OUT) = gob;
     VAL_GOB_INDEX(D_OUT) = index;
     return D_OUT;

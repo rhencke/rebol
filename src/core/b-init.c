@@ -278,7 +278,7 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
         assert(n < REB_MAX);
 
         REBVAL *value = Append_Context(Lib_Context, KNOWN(word), NULL);
-        RESET_VAL_HEADER(value, REB_DATATYPE);
+        RESET_CELL(value, REB_DATATYPE);
         VAL_TYPE_KIND(value) = cast(enum Reb_Kind, n);
         VAL_TYPE_SPEC(value) = VAL_ARRAY(ARR_AT(boot_typespecs, n - 1));
 
@@ -367,11 +367,17 @@ REBNATIVE(action)
 
     REBARR *details = ACT_DETAILS(action);
 
-    REBVAL *body = Alloc_Tail_Array(details);
-    Init_Word(body, VAL_WORD_CANON(ARG(verb)));
+    REBVAL *body = Init_Word(
+        Alloc_Tail_Array(details),
+        VAL_WORD_CANON(ARG(verb))
+    );
+    UNUSED(body);
 
-    REBVAL *context = Alloc_Tail_Array(details);
-    Init_Object(context, Lib_Context);
+    REBVAL *context = Init_Object(
+        Alloc_Tail_Array(details),
+        Lib_Context
+    );
+    UNUSED(context);
 
     // A lookback quoting function that quotes a SET-WORD! on its left is
     // responsible for setting the value if it wants it to change since the
@@ -645,23 +651,27 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         // If a user-equivalent body was provided, we save it in the native's
         // REBVAL for later lookup.
         //
-        REBVAL *body = Alloc_Tail_Array(details);
+        REBVAL *body;
         if (has_body) {
             if (not IS_BLOCK(item))
                 panic (item);
 
-            Move_Value(body, KNOWN(item)); // !!! handle relative?
+            body = Move_Value(
+                Alloc_Tail_Array(details),
+                KNOWN(item) // !!! handle relative?
+            );
             ++item;
         }
         else
-            Init_Blank(body);
+            body = Init_Blank(Alloc_Tail_Array(details));
+        UNUSED(body);
 
         // When code in the core calls APIs like `rebRun()`, it consults the
         // stack and looks to see where the native function that is running
         // says its "module" is.  For natives, we default to Lib_Context.
         //
-        REBVAL *context = Alloc_Tail_Array(details);
-        Init_Object(context, Lib_Context);
+        REBVAL *context = Init_Object(Alloc_Tail_Array(details), Lib_Context);
+        UNUSED(context);
 
         Prep_Non_Stack_Cell(&Natives[n]);
         Init_Action_Unbound(&Natives[n], act);
@@ -673,8 +683,7 @@ static REBARR *Startup_Natives(REBARR *boot_natives)
         if (enfix)
             SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
 
-        REBVAL *catalog_item = Alloc_Tail_Array(catalog);
-        Move_Value(catalog_item, name);
+        REBVAL *catalog_item = Move_Value(Alloc_Tail_Array(catalog), name);
         CHANGE_VAL_TYPE_BITS(catalog_item, REB_WORD);
 
         if (VAL_WORD_SYM(name) == SYM_ACTION)
@@ -831,17 +840,17 @@ static void Init_Root_Vars(void)
 
     Prep_Non_Stack_Cell(&PG_R_Invisible[0]);
     Prep_Non_Stack_Cell(&PG_R_Invisible[1]);
-    RESET_VAL_HEADER(&PG_R_Invisible[0], REB_R_INVISIBLE);
+    RESET_CELL(&PG_R_Invisible[0], REB_R_INVISIBLE);
     TRASH_CELL_IF_DEBUG(&PG_R_Invisible[1]);
 
     Prep_Non_Stack_Cell(&PG_R_Immediate[0]);
     Prep_Non_Stack_Cell(&PG_R_Immediate[1]);
-    RESET_VAL_HEADER(&PG_R_Immediate[0], REB_R_IMMEDIATE);
+    RESET_CELL(&PG_R_Immediate[0], REB_R_IMMEDIATE);
     TRASH_CELL_IF_DEBUG(&PG_R_Immediate[1]);
 
     Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked[0]);
     Prep_Non_Stack_Cell(&PG_R_Redo_Unchecked[1]);
-    RESET_VAL_HEADER_EXTRA(
+    RESET_CELL_EXTRA(
         &PG_R_Redo_Unchecked[0],
         REB_R_REDO,
         VALUE_FLAG_FALSEY // understood by Eval_Core() as "unchecked"
@@ -850,7 +859,7 @@ static void Init_Root_Vars(void)
 
     Prep_Non_Stack_Cell(&PG_R_Redo_Checked[0]);
     Prep_Non_Stack_Cell(&PG_R_Redo_Checked[1]);
-    RESET_VAL_HEADER_EXTRA(
+    RESET_CELL_EXTRA(
         &PG_R_Redo_Checked[0],
         REB_R_REDO,
         0 // no VALUE_FLAG_FALSEY is understood by Eval_Core() as "checked"
@@ -859,7 +868,7 @@ static void Init_Root_Vars(void)
 
     Prep_Non_Stack_Cell(&PG_R_Reference[0]);
     Prep_Non_Stack_Cell(&PG_R_Reference[1]);
-    RESET_VAL_HEADER(&PG_R_Reference[0], REB_R_REFERENCE);
+    RESET_CELL(&PG_R_Reference[0], REB_R_REFERENCE);
     TRASH_CELL_IF_DEBUG(&PG_R_Reference[1]);
 
     REBSER *locker = nullptr;

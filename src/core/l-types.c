@@ -1182,10 +1182,10 @@ const REBYTE *Scan_Pair(
     if (*ep != 'x' && *ep != 'X')
         return_NULL;
 
-    RESET_VAL_HEADER(out, REB_PAIR);
+    RESET_CELL(out, REB_PAIR);
     out->payload.pair = Alloc_Pairing();
-    RESET_VAL_HEADER(out->payload.pair, REB_DECIMAL);
-    RESET_VAL_HEADER(PAIRING_KEY(out->payload.pair), REB_DECIMAL);
+    RESET_CELL(out->payload.pair, REB_DECIMAL);
+    RESET_CELL(PAIRING_KEY(out->payload.pair), REB_DECIMAL);
 
     VAL_PAIR_X(out) = cast(float, atof(cast(char*, &buf[0]))); //n;
     ep++;
@@ -1237,7 +1237,7 @@ const REBYTE *Scan_Tuple(
     if (size < 3)
         size = 3;
 
-    RESET_VAL_HEADER(out, REB_TUPLE);
+    RESET_CELL(out, REB_TUPLE);
     VAL_TUPLE_LEN(out) = cast(REBYTE, size);
 
     REBYTE *tp = VAL_TUPLE(out);
@@ -1398,7 +1398,9 @@ REBNATIVE(scan_net_header)
                 // Does it already use a block?
                 if (IS_BLOCK(item + 1)) {
                     // Block of values already exists:
-                    val = Alloc_Tail_Array(VAL_ARRAY(item + 1));
+                    val = Init_Unreadable_Blank(
+                        Alloc_Tail_Array(VAL_ARRAY(item + 1))
+                    );
                 }
                 else {
                     // Create new block for values:
@@ -1408,8 +1410,7 @@ REBNATIVE(scan_net_header)
                         item + 1, // prior value
                         SPECIFIED // no relative values added
                     );
-                    val = Alloc_Tail_Array(array);
-                    Init_Unreadable_Blank(val); // for Init_Block
+                    val = Init_Unreadable_Blank(Alloc_Tail_Array(array));
                     Init_Block(item + 1, array);
                 }
                 break;
@@ -1418,7 +1419,7 @@ REBNATIVE(scan_net_header)
 
         if (IS_END(item)) { // didn't break, add space for new word/value
             Init_Set_Word(Alloc_Tail_Array(result), name);
-            val = Alloc_Tail_Array(result);
+            val = Init_Unreadable_Blank(Alloc_Tail_Array(result));
         }
 
         while (IS_LEX_SPACE(*cp)) cp++;

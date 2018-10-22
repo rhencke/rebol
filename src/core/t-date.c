@@ -398,7 +398,7 @@ void Subtract_Date(REBVAL *d1, REBVAL *d2, REBVAL *result)
     else
         t2 = 0L;
 
-    RESET_VAL_HEADER(result, REB_TIME);
+    RESET_CELL(result, REB_TIME);
     VAL_NANO(result) = (t1 - t2) + (cast(REBI64, diff) * TIME_IN_DAY);
 }
 
@@ -889,7 +889,7 @@ REBTYPE(Date)
 
     REBSYM sym = VAL_WORD_SYM(verb);
 
-    RESET_VAL_HEADER(D_OUT, REB_DATE); // so we can set flags on it
+    RESET_CELL(D_OUT, REB_DATE); // so we can set flags on it
 
     REBDAT date = VAL_DATE(val);
     REBCNT day = VAL_DAY(val) - 1;
@@ -1068,7 +1068,7 @@ REBNATIVE(make_date_ymdsnz)
 {
     INCLUDE_PARAMS_OF_MAKE_DATE_YMDSNZ;
 
-    RESET_VAL_HEADER(D_OUT, REB_DATE);
+    RESET_CELL(D_OUT, REB_DATE);
     VAL_YEAR(D_OUT) = VAL_INT32(ARG(year));
     VAL_MONTH(D_OUT) = VAL_INT32(ARG(month));
     VAL_DAY(D_OUT) = VAL_INT32(ARG(day));

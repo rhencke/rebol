@@ -248,7 +248,7 @@ REBTYPE(Action)
             // that symbol out before giving it back.
             //
             REBVAL *param = VAL_ACT_PARAMS_HEAD(value);
-            REBVAL *typeset = SINK(ARR_HEAD(copy));
+            REBVAL *typeset = KNOWN(ARR_HEAD(copy));
             for (; NOT_END(param); param++, typeset++) {
                 assert(VAL_PARAM_SPELLING(param) != NULL);
                 Move_Value(typeset, param);

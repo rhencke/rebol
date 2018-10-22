@@ -521,7 +521,7 @@ static void ffi_to_rebol(
         );
         memcpy(SER_HEAD(REBYTE, data), ffi_rvalue, FLD_WIDE(top));
 
-        RESET_VAL_HEADER(out, REB_STRUCT);
+        RESET_CELL(out, REB_STRUCT);
         out->payload.structure.stu = stu;
         out->payload.structure.data = data;
         out->extra.struct_offset = 0;
@@ -912,7 +912,7 @@ static void callback_dispatcher_core(struct Reb_Callback_Invocation *inv)
 
     REBCNT i;
     for (i = 0; i != inv->cif->nargs; ++i, ++elem)
-        ffi_to_rebol(SINK(elem), RIN_ARG_SCHEMA(inv->rin, i), inv->args[i]);
+        ffi_to_rebol(elem, RIN_ARG_SCHEMA(inv->rin, i), inv->args[i]);
 
     TERM_ARRAY_LEN(code, 1 + inv->cif->nargs);
     MANAGE_ARRAY(code); // DO requires managed arrays (guarded while running)
@@ -1129,8 +1129,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
 
     // Now fill in the canon value of the paramlist so it is an actual REBACT
     //
-    RELVAL *rootparam = ARR_HEAD(paramlist);
-    RESET_VAL_HEADER(rootparam, REB_ACTION);
+    REBVAL *rootparam = RESET_CELL(ARR_HEAD(paramlist), REB_ACTION);
     rootparam->payload.action.paramlist = paramlist;
     INIT_BINDING(rootparam, UNBOUND);
 

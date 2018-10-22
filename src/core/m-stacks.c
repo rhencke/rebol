@@ -117,8 +117,7 @@ void Startup_Frame_Stack(void)
     LINK(paramlist).facade = paramlist;
     MISC(paramlist).meta = nullptr;
 
-    RELVAL *archetype = ARR_HEAD(paramlist);
-    RESET_VAL_HEADER(archetype, REB_ACTION);
+    REBVAL *archetype = RESET_CELL(ARR_HEAD(paramlist), REB_ACTION);
     archetype->extra.binding = UNBOUND;
     archetype->payload.action.paramlist = paramlist;
     TERM_ARRAY_LEN(paramlist, 1);
@@ -135,8 +134,11 @@ void Startup_Frame_Stack(void)
     // source.  The user shouldn't get PG_Dummy_Action in their hands to ask
     // for SOURCE of, but still, the Null_Dispatcher() has asserts.
     //
-    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(PG_Dummy_Action));
-    Init_Block(body, EMPTY_ARRAY);
+    REBVAL *body = Init_Block(
+        Alloc_Tail_Array(ACT_DETAILS(PG_Dummy_Action)),
+        EMPTY_ARRAY
+    );
+    UNUSED(body);
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);

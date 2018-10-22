@@ -393,11 +393,13 @@ REBARR *Copy_Rerelativized_Array_Deep_Managed(
 //
 // Note: Updates the termination and tail.
 //
-REBVAL *Alloc_Tail_Array(REBARR *a)
+RELVAL *Alloc_Tail_Array(REBARR *a)
 {
     EXPAND_SERIES_TAIL(SER(a), 1);
     TERM_ARRAY_LEN(a, ARR_LEN(a));
-    return SINK(ARR_LAST(a));
+    RELVAL *last = ARR_LAST(a);
+    TRASH_CELL_IF_DEBUG(last); // !!! was an END marker, good enough?
+    return last;
 }
 
 

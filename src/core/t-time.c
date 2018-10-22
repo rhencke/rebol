@@ -535,7 +535,7 @@ REBTYPE(Time)
                 if (secs2 == 0)
                     fail (Error_Zero_Divide_Raw());
                 //secs /= secs2;
-                RESET_VAL_HEADER(D_OUT, REB_DECIMAL);
+                RESET_CELL(D_OUT, REB_DECIMAL);
                 VAL_DECIMAL(D_OUT) = cast(REBDEC, secs) / cast(REBDEC, secs2);
                 return D_OUT;
 
@@ -719,7 +719,7 @@ REBTYPE(Time)
 
 fixTime:
 setTime:
-    RESET_VAL_HEADER(D_OUT, REB_TIME);
+    RESET_CELL(D_OUT, REB_TIME);
     VAL_NANO(D_OUT) = secs;
     return D_OUT;
 }

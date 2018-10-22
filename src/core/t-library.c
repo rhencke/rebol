@@ -60,7 +60,7 @@ void MAKE_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         fail (Error_Bad_Make(REB_LIBRARY, arg));
 
     REBARR *singular = Alloc_Singular(NODE_FLAG_MANAGED);
-    RESET_VAL_HEADER(ARR_SINGLE(singular), REB_LIBRARY);
+    RESET_CELL(ARR_SINGLE(singular), REB_LIBRARY);
     ARR_SINGLE(singular)->payload.library.singular = singular;
 
     LINK(singular).fd = fd;

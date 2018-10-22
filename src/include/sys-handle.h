@@ -128,7 +128,7 @@ inline static REBVAL *Init_Handle_Simple(
     void *pointer,
     uintptr_t length
 ){
-    RESET_VAL_HEADER(out, REB_HANDLE);
+    RESET_CELL(out, REB_HANDLE);
     out->extra.singular = NULL;
     out->payload.handle.data.pointer = pointer;
     out->payload.handle.length = length;
@@ -171,8 +171,7 @@ inline static void Init_Handle_Managed_Common(
     // effectively update all instances...since the bits live in the shared
     // series component.
     //
-    TRASH_CELL_IF_DEBUG(out);
-    RESET_VAL_HEADER(out, REB_HANDLE);
+    RESET_CELL(out, REB_HANDLE);
     out->extra.singular = singular;
     TRASH_POINTER_IF_DEBUG(out->payload.handle.data.pointer);
 }
@@ -187,7 +186,7 @@ inline static REBVAL *Init_Handle_Managed(
 
     // Leave the non-singular cfunc as trash; clients should not be using
     //
-    RESET_VAL_HEADER(out, REB_HANDLE);
+    RESET_VAL_HEADER_EXTRA(out, REB_HANDLE, 0);
 
     RESET_VAL_HEADER(ARR_HEAD(out->extra.singular), REB_HANDLE);
     ARR_HEAD(out->extra.singular)->payload.handle.data.pointer = pointer;

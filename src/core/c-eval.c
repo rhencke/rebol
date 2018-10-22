@@ -1231,7 +1231,7 @@ void Eval_Core(REBFRM * const f)
             // consume additional arguments during the function run.
             //
             if (Is_Param_Variadic(f->param)) {
-                RESET_VAL_HEADER(f->arg, REB_VARARGS);
+                RESET_CELL(f->arg, REB_VARARGS);
                 INIT_BINDING(f->arg, f->varlist); // frame-based VARARGS!
 
                 Finalize_Current_Arg(f); // sets VARARGS! offset and facade

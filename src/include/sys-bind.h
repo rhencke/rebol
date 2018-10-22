@@ -505,8 +505,14 @@ static inline REBVAL *Get_Mutable_Var_May_Fail(
     return var;
 }
 
-#define Sink_Var_May_Fail(any_word,specifier) \
-    SINK(Get_Mutable_Var_May_Fail(any_word, specifier))
+inline static REBVAL *Sink_Var_May_Fail(
+    const RELVAL *any_word,
+    REBSPC *specifier
+){
+    REBVAL *var = Get_Mutable_Var_May_Fail(any_word, specifier);
+    TRASH_CELL_IF_DEBUG(var);
+    return var;
+}
 
 
 //=////////////////////////////////////////////////////////////////////////=//

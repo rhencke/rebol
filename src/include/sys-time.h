@@ -122,9 +122,10 @@
 #define TIME_IN_DAY \
     SEC_TIME(cast(REBI64, SECS_IN_DAY))
 
-inline static void Init_Time_Nanoseconds(RELVAL *v, REBI64 nanoseconds) {
-    RESET_VAL_HEADER(v, REB_TIME);
+inline static REBVAL *Init_Time_Nanoseconds(RELVAL *v, REBI64 nanoseconds) {
+    RESET_CELL(v, REB_TIME);
     VAL_NANO(v) = nanoseconds;
+    return cast(REBVAL*, v);
 }
 
 

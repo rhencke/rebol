@@ -425,7 +425,7 @@ void MAKE_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         else
             Move_Value(ARR_SINGLE(array1), arg);
 
-        RESET_VAL_HEADER(out, REB_VARARGS);
+        RESET_CELL(out, REB_VARARGS);
         out->payload.varargs.facade = nullptr;
         UNUSED(out->payload.varargs.param_offset); // trashes in C++11 build
         INIT_BINDING(out, array1);

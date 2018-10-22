@@ -265,14 +265,12 @@ REBNATIVE(typechecker)
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );
 
-    REBVAL *archetype = Alloc_Tail_Array(paramlist);
-    RESET_VAL_HEADER(archetype, REB_ACTION);
+    REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
     archetype->payload.action.paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
 
-    REBVAL *param = Alloc_Tail_Array(paramlist);
-    Init_Typeset(
-        param,
+    REBVAL *param = Init_Typeset(
+        Alloc_Tail_Array(paramlist),
         TS_OPT_VALUE, // Allow null (e.g. <opt>), returns false
         Canon(SYM_VALUE)
     );
@@ -292,9 +290,7 @@ REBNATIVE(typechecker)
         NULL, // no specialization exemplar (or inherited exemplar)
         1 // details array capacity
     );
-
-    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(typechecker));
-    Move_Value(body, type);
+    Move_Value(Alloc_Tail_Array(ACT_DETAILS(typechecker)), type);
 
     return Init_Action_Unbound(D_OUT, typechecker);
 }
@@ -380,9 +376,7 @@ REBNATIVE(chain)
         ACT_EXEMPLAR(VAL_ACTION(first)), // same exemplar as first action
         1 // details array capacity
     );
-
-    REBVAL *body = Alloc_Tail_Array(ACT_DETAILS(chain));
-    Init_Block(body, chainees); // used by Chainer_Dispatcher
+    Init_Block(Alloc_Tail_Array(ACT_DETAILS(chain)), chainees);
 
     Init_Action_Unbound(out, chain);
     return out;
@@ -482,8 +476,7 @@ REBNATIVE(adapt)
 
     REBARR *details = ACT_DETAILS(adaptation);
 
-    REBVAL *block = Alloc_Tail_Array(details);
-    RESET_VAL_HEADER(block, REB_BLOCK);
+    REBVAL *block = RESET_CELL(Alloc_Tail_Array(details), REB_BLOCK);
     INIT_VAL_ARRAY(block, prelude);
     VAL_INDEX(block) = 0;
     INIT_BINDING(block, underlying); // relative binding

@@ -77,13 +77,12 @@ static void get_scalar(
         //
         REBSTU *sub_stu = Alloc_Singular(NODE_FLAG_MANAGED);
         LINK(sub_stu).schema = field;
-        REBVAL *single = SINK(ARR_SINGLE(sub_stu));
+        REBVAL *single = RESET_CELL(ARR_SINGLE(sub_stu), REB_STRUCT);
 
         // In this case the structure lives at an offset inside another.
         //
         // Note: The original code allowed this for STU_INACCESSIBLE(stu).
         //
-        RESET_VAL_HEADER(single, REB_STRUCT);
         single->payload.structure.stu = sub_stu;
 
         // The parent data may be a singular array for a HANDLE! or a BINARY!
@@ -195,7 +194,7 @@ static bool Get_Struct_Var(REBVAL *out, REBSTU *stu, const REBVAL *word)
             REBARR *array = Make_Array(dimension);
             REBCNT n;
             for (n = 0; n < dimension; ++n)
-                get_scalar(SINK(ARR_AT(array, n)), stu, field, n);
+                get_scalar(ARR_AT(array, n), stu, field, n);
             TERM_ARRAY_LEN(array, dimension);
             Init_Block(out, array);
         }
@@ -272,7 +271,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
             REBARR *init = Make_Array(dimension);
             REBCNT n;
             for (n = 0; n < dimension; n ++)
-                get_scalar(SINK(ARR_AT(init, n)), stu, field, n);
+                get_scalar(ARR_AT(init, n), stu, field, n);
             TERM_ARRAY_LEN(init, dimension);
             Init_Block(Alloc_Tail_Array(typespec), init);
         }
@@ -1354,7 +1353,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     MANAGE_ARRAY(schema);
     LINK(stu).schema = schema;
 
-    RESET_VAL_HEADER(out, REB_STRUCT);
+    RESET_CELL(out, REB_STRUCT);
     out->payload.structure.stu = stu;
     if (raw_addr) {
         out->payload.structure.data

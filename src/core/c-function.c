@@ -101,8 +101,7 @@ REBARR *List_Func_Typesets(REBVAL *func)
     for (; NOT_END(typeset); typeset++) {
         assert(IS_TYPESET(typeset));
 
-        REBVAL *value = Alloc_Tail_Array(array);
-        Move_Value(value, typeset);
+        REBVAL *value = Move_Value(Alloc_Tail_Array(array), typeset);
 
         // !!! It's already a typeset, but this will clear out the header
         // bits.  This may not be desirable over the long run (what if
@@ -389,9 +388,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // But Is_Param_Endable() indicates <end>.
         //
         DS_PUSH_TRASH;
-        REBVAL *typeset = DS_TOP; // volatile if you DS_PUSH!
-        Init_Typeset(
-            typeset,
+        REBVAL *typeset = Init_Typeset(
+            DS_TOP, // volatile if you DS_PUSH!
             (flags & MKF_ANY_VALUE)
                 ? TS_OPT_VALUE
                 : TS_VALUE & ~(
@@ -572,12 +570,15 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     LINK(paramlist).facade = paramlist;
 
     if (true) {
-        RELVAL *dest = ARR_HEAD(paramlist); // canon function value
-        RESET_VAL_HEADER(dest, REB_ACTION);
-        SET_VAL_FLAGS(dest, header_bits);
-        dest->payload.action.paramlist = paramlist;
-        INIT_BINDING(dest, UNBOUND);
-        ++dest;
+        REBVAL *canon = RESET_CELL_EXTRA(
+            ARR_HEAD(paramlist),
+            REB_ACTION,
+            header_bits
+        );
+        canon->payload.action.paramlist = paramlist;
+        INIT_BINDING(canon, UNBOUND);
+
+        REBVAL *dest = canon + 1;
 
         // We want to check for duplicates and a Binder can be used for that
         // purpose--but note that a fail() cannot happen while binders are
@@ -684,13 +685,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         MISC(types_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(types_varlist), paramlist);
 
-        REBVAL *dest = SINK(ARR_HEAD(types_varlist)); // "rootvar"
-        RESET_VAL_HEADER(dest, REB_FRAME);
-        dest->payload.any_context.varlist = types_varlist; // canon FRAME!
-        dest->payload.any_context.phase = ACT(paramlist);
-        INIT_BINDING(dest, UNBOUND);
+        REBVAL *rootvar = RESET_CELL(ARR_HEAD(types_varlist), REB_FRAME);
+        rootvar->payload.any_context.varlist = types_varlist; // canon FRAME!
+        rootvar->payload.any_context.phase = ACT(paramlist);
+        INIT_BINDING(rootvar, UNBOUND);
 
-        ++dest;
+        REBVAL *dest = rootvar + 1;
 
         REBVAL *src = DS_AT(dsp_orig + 2);
         src += 3;
@@ -747,13 +747,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         MISC(notes_varlist).meta = NULL; // GC sees this, must initialize
         INIT_CTX_KEYLIST_SHARED(CTX(notes_varlist), paramlist);
 
-        REBVAL *dest = SINK(ARR_HEAD(notes_varlist)); // "rootvar"
-        RESET_VAL_HEADER(dest, REB_FRAME);
-        dest->payload.any_context.varlist = notes_varlist; // canon FRAME!
-        dest->payload.any_context.phase = ACT(paramlist);
-        INIT_BINDING(dest, UNBOUND);
+        REBVAL *rootvar = RESET_CELL(ARR_HEAD(notes_varlist), REB_FRAME);
+        rootvar->payload.any_context.varlist = notes_varlist; // canon FRAME!
+        rootvar->payload.any_context.phase = ACT(paramlist);
+        INIT_BINDING(rootvar, UNBOUND);
 
-        ++dest;
+        REBVAL *dest = rootvar + 1;
 
         REBVAL *src = DS_AT(dsp_orig + 3);
         src += 3;
@@ -1042,8 +1041,7 @@ REBCTX *Make_Expired_Frame_Ctx_Managed(REBACT *a)
     SET_SER_INFO(varlist, SERIES_INFO_INACCESSIBLE);
     MISC(varlist).meta = nullptr;
 
-    RELVAL *rootvar = ARR_SINGLE(varlist);
-    RESET_VAL_HEADER(rootvar, REB_FRAME);
+    RELVAL *rootvar = RESET_CELL(ARR_SINGLE(varlist), REB_FRAME);
     rootvar->payload.any_context.varlist = varlist;
     rootvar->payload.any_context.phase = a;
     INIT_BINDING(rootvar, UNBOUND); // !!! is a binding relevant?
@@ -1284,8 +1282,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
         );
     }
 
-    RELVAL *body = Alloc_Tail_Array(ACT_DETAILS(a));
-    RESET_VAL_HEADER(body, REB_BLOCK); // Init_Block() assumes specific values
+    RELVAL *body = RESET_CELL(Alloc_Tail_Array(ACT_DETAILS(a)), REB_BLOCK);
     INIT_VAL_ARRAY(body, copy);
     VAL_INDEX(body) = 0;
     INIT_BINDING(body, a); // Record that block is relative to a function

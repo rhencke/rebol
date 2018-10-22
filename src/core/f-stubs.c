@@ -307,7 +307,7 @@ REBVAL *Init_Any_Series_At_Core(
         ASSERT_SERIES_TERM(series); // doesn't apply to image/vector
     }
 
-    RESET_VAL_HEADER(out, type);
+    RESET_CELL(out, type);
     out->payload.any_series.series = series;
     VAL_INDEX(out) = index;
     INIT_BINDING(out, binding);
@@ -333,7 +333,7 @@ void Set_Tuple(REBVAL *value, REBYTE *bytes, REBCNT len)
 {
     REBYTE *bp;
 
-    RESET_VAL_HEADER(value, REB_TUPLE);
+    RESET_CELL(value, REB_TUPLE);
     VAL_TUPLE_LEN(value) = (REBYTE)len;
     for (bp = VAL_TUPLE(value); len > 0; len--)
         *bp++ = *bytes++;

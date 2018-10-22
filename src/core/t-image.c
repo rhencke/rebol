@@ -275,7 +275,7 @@ void Set_Pixel_Tuple(REBYTE *dp, const RELVAL *tuple)
 //
 REBVAL *Init_Tuple_From_Pixel(RELVAL *out, const REBYTE *dp)
 {
-    RESET_VAL_HEADER(out, REB_TUPLE);
+    RESET_CELL(out, REB_TUPLE);
     REBYTE *tup = VAL_TUPLE(out);
     VAL_TUPLE_LEN(out) = 4;
     tup[0] = dp[0]; // red

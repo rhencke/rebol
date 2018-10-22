@@ -98,7 +98,7 @@ void MAKE_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         fail (Error_Bad_Make(REB_MONEY, arg));
     }
 
-    RESET_VAL_HEADER(out, REB_MONEY);
+    assert(IS_MONEY(out));
 }
 
 
@@ -264,7 +264,7 @@ REBTYPE(Money)
         if (REF(to)) {
             if (IS_DECIMAL(scale) or IS_PERCENT(scale)) {
                 REBDEC dec = deci_to_decimal(VAL_MONEY_AMOUNT(D_OUT));
-                RESET_VAL_HEADER(D_OUT, VAL_TYPE(scale));
+                RESET_CELL(D_OUT, VAL_TYPE(scale));
                 VAL_DECIMAL(D_OUT) = dec;
                 return D_OUT;
             }

@@ -554,7 +554,7 @@ REBARR *Map_To_Array(REBMAP *map, REBINT what)
     // Copy entries to new block:
     //
     REBARR *array = Make_Array(count * ((what == 0) ? 2 : 1));
-    REBVAL *dest = SINK(ARR_HEAD(array));
+    REBVAL *dest = KNOWN(ARR_HEAD(array));
     REBVAL *val = KNOWN(ARR_HEAD(MAP_PAIRLIST(map)));
     for (; NOT_END(val); val += 2) {
         assert(NOT_END(val + 1));

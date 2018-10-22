@@ -123,14 +123,12 @@ inline static REBVAL *Init_Any_Word(
     enum Reb_Kind kind,
     REBSTR *spelling
 ){
-    RESET_VAL_HEADER(out, kind);
-
+    RESET_CELL(out, kind);
     out->payload.any_word.spelling = spelling;
     INIT_BINDING(out, UNBOUND);
   #if !defined(NDEBUG)
     out->payload.any_word.index = 0; // index not heeded if no binding
   #endif
-
     return KNOWN(out);
 }
 
@@ -161,12 +159,10 @@ inline static REBVAL *Init_Any_Word_Bound(
     REBCTX *context,
     REBCNT index
 ) {
-    RESET_VAL_HEADER(out, type);
-
+    RESET_CELL(out, type);
     out->payload.any_word.spelling = spelling;
     INIT_BINDING(out, context);
     INIT_WORD_INDEX(out, index);
-
     return KNOWN(out);
 }
 
