@@ -724,7 +724,7 @@ static void handle_expose(XEvent *ev, REBGOB *gob)
             wingob = GOB_PARENT(wingob);
 
         //check if it is really open
-        if (!IS_WINDOW(wingob) || !GET_GOB_STATE(wingob, GOBS_OPEN)) return;
+        if (!IS_WINDOW(wingob) || !GET_GOB_FLAG(wingob, GOBS_OPEN)) return;
 
         void *compositor = GOB_COMPOSITOR(gob);
         assert (compositor != NULL);
@@ -813,8 +813,8 @@ void Dispatch_Event(XEvent *ev)
             if (ev->xfocus.mode != NotifyWhileGrabbed) {
                 //RL_Print ("FocusIn, type = %d, window = %x\n", ev->xfocus.type, ev->xfocus.window);
                 gob = Find_Gob_By_Window(ev->xfocus.window);
-                if (gob && !GET_GOB_STATE(gob, GOBS_ACTIVE)) {
-                    SET_GOB_STATE(gob, GOBS_ACTIVE);
+                if (gob && !GET_GOB_FLAG(gob, GOBS_ACTIVE)) {
+                    SET_GOB_FLAG(gob, GOBS_ACTIVE);
                     Add_Event_XY(gob, EVT_ACTIVE, 0, 0);
                 }
             }
@@ -823,8 +823,8 @@ void Dispatch_Event(XEvent *ev)
             if (ev->xfocus.mode != NotifyWhileGrabbed) {
                 //RL_Print ("FocusOut, type = %d, window = %x\n", ev->xfocus.type, ev->xfocus.window);
                 gob = Find_Gob_By_Window(ev->xfocus.window);
-                if (gob && GET_GOB_STATE(gob, GOBS_ACTIVE)) {
-                    CLR_GOB_STATE(gob, GOBS_ACTIVE);
+                if (gob && GET_GOB_FLAG(gob, GOBS_ACTIVE)) {
+                    CLR_GOB_FLAG(gob, GOBS_ACTIVE);
                     Add_Event_XY(gob, EVT_INACTIVE, 0, 0);
                 }
             }
@@ -837,8 +837,8 @@ void Dispatch_Event(XEvent *ev)
                 if (hw != NULL) {
                     rebFree(hw);
                 }
-                CLR_GOB_STATE(gob, GOBS_OPEN);
-                CLR_GOB_STATE(gob, GOBS_ACTIVE);
+                CLR_GOB_FLAG(gob, GOBS_OPEN);
+                CLR_GOB_FLAG(gob, GOBS_ACTIVE);
                 Free_Window(gob);
             }
             break;

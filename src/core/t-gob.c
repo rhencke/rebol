@@ -197,7 +197,7 @@ static void Insert_Gobs(
                 if (GOB_PARENT(VAL_GOB(val)) == gob) {
                     i = Find_Gob(gob, VAL_GOB(val));
                     if (i > 0 && i == (REBINT)index-1) { // a no-op
-                        SET_GOB_STATE(VAL_GOB(val), GOBS_NEW);
+                        SET_GOB_FLAG(VAL_GOB(val), GOBS_NEW);
                         return;
                     }
                 }
@@ -246,7 +246,7 @@ static void Insert_Gobs(
                 fail ("GOB! not expected to have parent");
             *ptr++ = VAL_GOB(val);
             GOB_PARENT(VAL_GOB(val)) = gob;
-            SET_GOB_STATE(VAL_GOB(val), GOBS_NEW);
+            SET_GOB_FLAG(VAL_GOB(val), GOBS_NEW);
         }
     }
 }

@@ -95,11 +95,12 @@
 static void Queue_Mark_Event_Deep(const RELVAL *value);
 
 #define IS_GOB_MARK(g) \
-    GET_GOB_FLAG((g), GOBF_MARK)
+    (did ((g)->header.bits & NODE_FLAG_MARKED))
 #define MARK_GOB(g) \
-    SET_GOB_FLAG((g), GOBF_MARK)
+    ((g)->header.bits |= NODE_FLAG_MARKED)
 #define UNMARK_GOB(g) \
-    CLR_GOB_FLAG((g), GOBF_MARK)
+    ((g)->header.bits &= ~NODE_FLAG_MARKED)
+
 static void Queue_Mark_Gob_Deep(REBGOB *gob);
 static REBCNT Sweep_Gobs(void);
 

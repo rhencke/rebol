@@ -497,10 +497,13 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
 
 #ifdef DEBUG_TRACK_CELLS
     //
-    // VAL_RESET is a variant of RESET_VAL_HEADER_EXTRA that actually
+    // RESET_CELL_EXTRA is a variant of RESET_VAL_HEADER_EXTRA that actually
     // overwrites the payload with tracking information.  It should not be
-    // used if the intent is to preserve the payload and extra, and is
-    // wasteful if you're just going to overwrite them immediately afterward.
+    // used if the intent is to preserve the payload and extra.
+    //
+    // (Because of DEBUG_TRACK_EXTEND_CELLS, it's not necessarily a waste
+    // even if you overwrite the Payload/Extra immediately afterward; it also
+    // corrupts the data to help ensure all relevant fields are overwritten.)
     //
     inline static REBVAL *RESET_CELL_EXTRA_Debug(
         RELVAL *out,
@@ -535,11 +538,11 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
 // Run the risk of repeating macro args to speed up this critical check.
 //
 #define ALIGN_CHECK_CELL_EVIL_MACRO(c,file,line) \
-    if (cast(uintptr_t, (c)) % sizeof(REBI64) != 0) { \
+    if (cast(uintptr_t, (c)) % ALIGN_SIZE != 0) { \
         printf( \
             "Cell address %p not aligned to %d bytes\n", \
             cast(const void*, (c)), \
-            cast(int, sizeof(REBI64)) \
+            cast(int, ALIGN_SIZE) \
         ); \
         panic_at ((c), file, line); \
     }

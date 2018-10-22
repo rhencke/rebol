@@ -26,99 +26,56 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// GOBs are lower-level graphics object used by the compositing
-// and rendering system. Because a GUI can contain thousands of
-// GOBs, they are designed and structured to be simple and small.
-// Note that GOBs are also used for windowing.
+// GOBs are lower-level graphics object used by the compositing and rendering
+// system of the /View system of R3-Alpha.  They represented either individual
+// pieces of a GUI control (panes and their children) or top-level windows
+// themselves.
 //
-// GOBs are allocated from a special pool and
-// are accounted for by the standard garbage collector.
+// Because a GUI could contain thousands of GOBs, it was believed that they
+// could not be implemented as ordinary OBJECT!s.  Instead they were made as
+// small fixed-size objects (somewhat parallel to REBSER) which held pointers
+// to dynamic series data, like pane lists or associated user data.  Because
+// they held pointers to Rebol nodes, they had to have custom behavior in
+// the garbage collector--meaning they shipped as part of the core, despite
+// that there was no GUI in R3-Alpha's core open-source release.
+//
+// !!! Ren-C aims to find a way to wedge GOBs into the user-defined type
+// system, where no custom GC behavior is needed.  This would likely involve
+// making them more OBJECT!-like, while possibly allowing the series node
+// of the object to carry capacity for additional fixed bits in the array
+// used for the varlist, without needing another allocation.
 //
 
-// We accept GOB for the moment in Core, but not view in general...
-// Ultimatley GOB represents a category of Ren/C external items that
-// can participate with the system and its GC but are not part of core.
-//
-// Atronix repository included host-view.h while rebol open source didn't
 
-// #include "host-view.h"
-
-// These are GOB attribute and option flags.  They may need to be declared
-// using the same method as node flags, so long as they are using their own
-// memory pool.  (This is not the long term plan.)
-
-#define GOBF_0_IS_TRUE \
-    FLAG_LEFT_BIT(0) // aligns with NODE_FLAG_NODE
-
-#define GOBF_1_IS_FALSE \
-    FLAG_LEFT_BIT(1) // aligns with NODE_FLAG_FREE
-
-#define GOBF_MARK \
-    FLAG_LEFT_BIT(2)
-
-#define GOBF_TOP \
-    FLAG_LEFT_BIT(3) // Top level (window or output image)
-
-#define GOBF_WINDOW \
-    FLAG_LEFT_BIT(4) // Window (parent is OS window reference)
-
-#define GOBF_OPAQUE \
-    FLAG_LEFT_BIT(5) // Has no alpha
-
-#define GOBF_STATIC \
-    FLAG_LEFT_BIT(6) // Does not change
-    
-#define GOBF_HIDDEN \
-    FLAG_LEFT_BIT(7) // Is hidden (e.g. hidden window)
-
-#define GOBF_RESIZE \
-    FLAG_LEFT_BIT(8) // Can be resized
-
-#define GOBF_NO_TITLE \
-    FLAG_LEFT_BIT(9) // Has window title
-
-#define GOBF_NO_BORDER \
-    FLAG_LEFT_BIT(10) // Has no window border
-
-#define GOBF_DROPABLE \
-    FLAG_LEFT_BIT(11) // Let window receive drag and drop
-
-#define GOBF_TRANSPARENT \
-    FLAG_LEFT_BIT(12) // Window is in transparent mode
-
-#define GOBF_POPUP \
-    FLAG_LEFT_BIT(13) // Window is a popup (with owner window)
-
-#define GOBF_MODAL \
-    FLAG_LEFT_BIT(14) // Modal event filtering
-
-#define GOBF_ON_TOP \
-    FLAG_LEFT_BIT(15) // The window is always on top
-
-#define GOBF_ACTIVE \
-    FLAG_LEFT_BIT(16) // Window is active
-
-#define GOBF_MINIMIZE \
-    FLAG_LEFT_BIT(17) // Window is minimized
-
-#define GOBF_MAXIMIZE \
-    FLAG_LEFT_BIT(18) // Window is maximized
-
-#define GOBF_RESTORE \
-    FLAG_LEFT_BIT(19) // Window is restored
-
-#define GOBF_FULLSCREEN \
-    FLAG_LEFT_BIT(20) // Window is fullscreen
-
-#if defined(CPLUSPLUS_11)
-    static_assert(20 < 32, "GOBF_XXX too high"); // 32 bits on 32 bit platform
-#endif
-
-
-enum GOB_STATE {        // GOB state flags
+enum GOB_FLAGS {
+    //
+    // !!! These were "GOB state flags".  Despite there being only 3 of them,
+    // they were previously in a different place than the "GOB flags".
+    //
     GOBS_OPEN = 1 << 0, // Window is open
     GOBS_ACTIVE = 1 << 1, // Window is active
-    GOBS_NEW = 1 << 2 // Gob is new to pane (old-offset, old-size wrong)
+    GOBS_NEW = 1 << 2, // Gob is new to pane (old-offset, old-size wrong)
+
+    // These were just generically "GOB flags"
+    //
+    GOBF_TOP = 1 << 3, // Top level (window or output image)
+    GOBF_WINDOW = 1 << 4, // Window (parent is OS window reference)
+    GOBF_OPAQUE = 1 << 5, // Has no alpha
+    GOBF_STATIC = 1 << 6, // Does not change
+    GOBF_HIDDEN = 1 << 7, // Is hidden (e.g. hidden window)
+    GOBF_RESIZE = 1 << 8, // Can be resized
+    GOBF_NO_TITLE = 1 << 9, // Has window title
+    GOBF_NO_BORDER = 1 << 10, // Has no window border
+    GOBF_DROPABLE = 1 << 11, // [sic] Let window receive drag and drop
+    GOBF_TRANSPARENT = 1 << 12, // Window is in transparent mode
+    GOBF_POPUP = 1 << 13, // Window is a popup (with owner window)
+    GOBF_MODAL = 1 << 14, // Modal event filtering
+    GOBF_ON_TOP = 1 << 15, // The window is always on top
+    GOBF_ACTIVE = 1 << 16, // Window is active
+    GOBF_MINIMIZE = 1 << 17, // Window is minimized
+    GOBF_MAXIMIZE = 1 << 18, // Window is maximized
+    GOBF_RESTORE = 1 << 19, // Window is restored
+    GOBF_FULLSCREEN = 1 << 20 // Window is fullscreen
 };
 
 enum GOB_TYPES {        // Types of content
@@ -158,7 +115,7 @@ typedef struct {
 struct rebol_gob {
     union Reb_Header header;
 
-    uint32_t state;       // state flags
+    uint32_t flags; // GOBF_XXX flags and GOBS_XXX state flags
 
 #ifdef REB_DEF
     REBSER *pane;       // List of child GOBs
@@ -232,21 +189,14 @@ typedef struct gob_window {             // Maps gob to window
 #define GOB_WO_INT(g)   ROUND_TO_INT((g)->old_size.x)
 #define GOB_HO_INT(g)   ROUND_TO_INT((g)->old_size.y)
 
-#define CLEAR_GOB_STATE(g) ((g)->state = 0)
 
 #define SET_GOB_FLAG(g,f) \
-    cast(void, (g)->header.bits |= (f))
+    cast(void, (g)->flags |= (f))
 #define GET_GOB_FLAG(g,f) \
-    (did ((g)->header.bits & (f)))
+    (did ((g)->flags & (f)))
 #define CLR_GOB_FLAG(g,f) \
-    cast(void, (g)->header.bits &= ~(f))
+    cast(void, (g)->flags &= ~(f))
 
-#define SET_GOB_STATE(g,f) \
-    cast(void, (g)->state |= (f))
-#define GET_GOB_STATE(g,f) \
-    (did ((g)->state & (f)))
-#define CLR_GOB_STATE(g,f) \
-    cast(void, (g)->state &= ~(f))
 
 #define GOB_ALPHA(g)        ((g)->alpha)
 #define GOB_TYPE(g)         ((g)->ctype)
