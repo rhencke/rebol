@@ -418,14 +418,18 @@ REBTYPE(Decimal)
                 goto setDec;
 
             case SYM_POWER:
-                if (d1 == 0)
-                    goto setDec;
                 if (d2 == 0) {
+                    //
+                    // This means `power 0 0` is 1.0, despite it not being
+                    // defined.  It's a pretty general programming consensus:
+                    //
+                    // https://rosettacode.org/wiki/Zero_to_the_zero_power
+                    //
                     d1 = 1.0;
                     goto setDec;
                 }
-                //if (d1 < 0 && d2 < 1 && d2 != -1)
-                //  fail (Error_Positive_Raw());
+                if (d1 == 0)
+                    goto setDec;
                 d1 = pow(d1, d2);
                 goto setDec;
 

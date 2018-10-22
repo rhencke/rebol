@@ -169,10 +169,7 @@
 //
 // This is essentially an embedded query language for types, allowing one to
 // create compile-time errors for any C construction that isn't being used
-// in the way one might want.  While some static analysis tools for C offer
-// their own plugins for such checks, the prevalance of the C++ standard
-// and compilers that implement it make it a perfect tool for checking a C
-// codebase on the fly to see if it follows certain rules.
+// in the way one might want.
 //
 #ifdef CPLUSPLUS_11
     #include <type_traits>
@@ -733,7 +730,7 @@
 //
 // * bitfields arranged in a `union` with integers have no layout guarantee
 // * `#pragma pack` is not standard C98 or C99...nor is any #pragma
-// * `char[4]` or `char[8]` targets don't usuall assigned in one instruction
+// * `char[4]` or `char[8]` targets don't usually assign in one instruction
 //
 
 #define PLATFORM_BITS \
