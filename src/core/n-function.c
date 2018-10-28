@@ -290,7 +290,7 @@ REBNATIVE(typechecker)
         NULL, // no specialization exemplar (or inherited exemplar)
         1 // details array capacity
     );
-    Move_Value(Alloc_Tail_Array(ACT_DETAILS(typechecker)), type);
+    Move_Value(ARR_HEAD(ACT_DETAILS(typechecker)), type);
 
     return Init_Action_Unbound(D_OUT, typechecker);
 }
@@ -376,10 +376,9 @@ REBNATIVE(chain)
         ACT_EXEMPLAR(VAL_ACTION(first)), // same exemplar as first action
         1 // details array capacity
     );
-    Init_Block(Alloc_Tail_Array(ACT_DETAILS(chain)), chainees);
+    Init_Block(ARR_HEAD(ACT_DETAILS(chain)), chainees);
 
-    Init_Action_Unbound(out, chain);
-    return out;
+    return Init_Action_Unbound(out, chain);
 }
 
 
@@ -476,12 +475,12 @@ REBNATIVE(adapt)
 
     REBARR *details = ACT_DETAILS(adaptation);
 
-    REBVAL *block = RESET_CELL(Alloc_Tail_Array(details), REB_BLOCK);
+    REBVAL *block = RESET_CELL(ARR_AT(details, 0), REB_BLOCK);
     INIT_VAL_ARRAY(block, prelude);
     VAL_INDEX(block) = 0;
     INIT_BINDING(block, underlying); // relative binding
 
-    Append_Value(details, adaptee);
+    Move_Value(ARR_AT(details, 1), adaptee);
 
     return Init_Action_Unbound(D_OUT, adaptation);
 }
@@ -588,8 +587,8 @@ REBNATIVE(enclose)
     );
 
     REBARR *details = ACT_DETAILS(enclosure);
-    Append_Value(details, inner);
-    Append_Value(details, outer);
+    Move_Value(ARR_AT(details, 0), inner);
+    Move_Value(ARR_AT(details, 1), outer);
 
     return Init_Action_Unbound(D_OUT, enclosure);
 }

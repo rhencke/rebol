@@ -943,9 +943,11 @@ REBACT *Make_Action(
     }
 
     // "details" for an action is an array of cells which can be anything
-    // the dispatcher understands it to be, by contract.
+    // the dispatcher understands it to be, by contract.  Terminate it
+    // at the given length implicitly.
 
     REBARR *details = Make_Array_Core(details_capacity, NODE_FLAG_MANAGED);
+    TERM_ARRAY_LEN(details, details_capacity);
 
     rootparam->payload.action.details = details;
 
@@ -1171,7 +1173,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
         return;
     }
 
-    if (ACT_DISPATCHER(a) == &Type_Action_Dispatcher) {
+    if (ACT_DISPATCHER(a) == &Generic_Dispatcher) {
         REBVAL *verb = KNOWN(ARR_HEAD(details));
         assert(IS_WORD(verb));
         Move_Value(out, verb);
@@ -1282,7 +1284,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
         );
     }
 
-    RELVAL *body = RESET_CELL(Alloc_Tail_Array(ACT_DETAILS(a)), REB_BLOCK);
+    RELVAL *body = RESET_CELL(ARR_HEAD(ACT_DETAILS(a)), REB_BLOCK);
     INIT_VAL_ARRAY(body, copy);
     VAL_INDEX(body) = 0;
     INIT_BINDING(body, a); // Record that block is relative to a function
@@ -1344,13 +1346,13 @@ REBTYPE(Fail)
 
 
 //
-//  Type_Action_Dispatcher: C
+//  Generic_Dispatcher: C
 //
-// A "type action" is what R3-Alpha/Rebol2 had just called "actions" (until
-// Ren-C took that as the umbrella term for all "invokables").  This kind of
-// dispatch is based on the first argument's type, with the idea being a
-// single C function for the type has a switch() statement in it and can
-// handle many different such actions for that type.
+// A "generic" is what R3-Alpha/Rebol2 had called "ACTION!" (until Ren-C took
+// that as the umbrella term for all "invokables").  This kind of dispatch is
+// based on the first argument's type, with the idea being a single C function
+// for the type has a switch() statement in it and can handle many different
+// such actions for that type.
 //
 // (e.g. APPEND copy [a b c] [d] would look at the type of the first argument,
 // notice it was a BLOCK!, and call the common C function for arrays with an
@@ -1362,8 +1364,9 @@ REBTYPE(Fail)
 // flexible idea for user-defined types, vs. this very limited concept.
 //
 // https://en.wikipedia.org/wiki/Multiple_dispatch
+// https://en.wikipedia.org/wiki/Generic_function
 //
-const REBVAL *Type_Action_Dispatcher(REBFRM *f)
+const REBVAL *Generic_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
 
@@ -1406,8 +1409,7 @@ const REBVAL *Void_Dispatcher(REBFRM *f)
     assert(VAL_LEN_AT(ARR_HEAD(details)) == 0);
     UNUSED(details);
 
-    Init_Void(f->out);
-    return f->out;
+    return Init_Void(f->out);
 }
 
 
@@ -1421,8 +1423,11 @@ const REBVAL *Datatype_Checker_Dispatcher(REBFRM *f)
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *datatype = ARR_HEAD(details);
     assert(IS_DATATYPE(datatype));
-    Init_Logic(f->out, VAL_TYPE(FRM_ARG(f, 1)) == VAL_TYPE_KIND(datatype));
-    return f->out;
+
+    return Init_Logic(
+        f->out,
+        VAL_TYPE(FRM_ARG(f, 1)) == VAL_TYPE_KIND(datatype)
+    );
 }
 
 
@@ -1436,8 +1441,8 @@ const REBVAL *Typeset_Checker_Dispatcher(REBFRM *f)
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *typeset = ARR_HEAD(details);
     assert(IS_TYPESET(typeset));
-    Init_Logic(f->out, TYPE_CHECK(typeset, VAL_TYPE(FRM_ARG(f, 1))));
-    return f->out;
+
+    return Init_Logic(f->out, TYPE_CHECK(typeset, VAL_TYPE(FRM_ARG(f, 1))));
 }
 
 
@@ -1477,8 +1482,7 @@ const REBVAL *Voider_Dispatcher(REBFRM *f)
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
         return f->out;
 
-    Init_Void(f->out);
-    return f->out;
+    return Init_Void(f->out);
 }
 
 

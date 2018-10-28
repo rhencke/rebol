@@ -1387,7 +1387,7 @@ REBCTX *Error_On_Port(REBCNT errnum, REBVAL *port, REBINT err_code)
 //
 // Create error objects and error type objects
 //
-REBCTX *Startup_Errors(REBARR *boot_errors)
+REBCTX *Startup_Errors(const REBVAL *boot_errors)
 {
   #ifdef DEBUG_HAS_PROBE
     const char *env_probe_failures = getenv("R3_PROBE_FAILURES");
@@ -1403,10 +1403,11 @@ REBCTX *Startup_Errors(REBARR *boot_errors)
     }
   #endif
 
+    assert(VAL_INDEX(boot_errors) == 0);
     REBCTX *catalog = Construct_Context_Managed(
         REB_OBJECT,
-        ARR_HEAD(boot_errors),
-        SPECIFIED, // we're confident source array isn't in a function body
+        VAL_ARRAY_AT(boot_errors),
+        VAL_SPECIFIER(boot_errors),
         NULL
     );
 

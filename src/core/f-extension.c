@@ -338,7 +338,7 @@ REBNATIVE(load_native)
         dispatcher, // unique
         NULL, // no facade (use paramlist)
         NULL, // no specialization exemplar (or inherited exemplar)
-        2 // details array capacity
+        IDX_NATIVE_MAX // details array capacity
     );
 
     SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_NATIVE);
@@ -347,12 +347,10 @@ REBNATIVE(load_native)
 
     REBARR *details = ACT_DETAILS(native);
 
-    REBVAL *body;
     if (REF(body))
-        Move_Value(Alloc_Tail_Array(details), ARG(code));
+        Move_Value(ARR_AT(details, IDX_NATIVE_BODY), ARG(code));
     else
-        Init_Blank(Alloc_Tail_Array(details)); // signal no body provided
-    UNUSED(body);
+        Init_Blank(ARR_AT(details, IDX_NATIVE_BODY)); // no body provided
 
     // !!! Ultimately extensions should all have associated modules known
     // about here.  That should be where rebXXX() APIs do their binding, and
@@ -361,8 +359,7 @@ REBNATIVE(load_native)
     // insulate the modules from user context changes.  (Note that R3-Alpha
     // modules would bind modules direct to lib w/o the Isolate option...)
     //
-    REBVAL *context = Init_Object(Alloc_Tail_Array(details), Lib_Context);
-    UNUSED(context);
+    Init_Object(ARR_AT(details, IDX_NATIVE_CONTEXT), Lib_Context);
 
     return Init_Action_Unbound(D_OUT, native);
 }

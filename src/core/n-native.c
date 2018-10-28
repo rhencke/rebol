@@ -51,13 +51,16 @@
 
 #if defined(WITH_TCC)
 
-enum {
-    IDX_NATIVE_SOURCE = 0, // text string source code of native (for SOURCE)
-    IDX_NATIVE_CONTEXT = 1, // rebRun()/etc. bind here (and lib) when running
-    IDX_NATIVE_LINKNAME = 2, // generated if the native doesn't specify
-    IDX_NATIVE_TCC_STATE = 3, // will be a BLANK! until COMPILE happens
-    IDX_NATIVE_MAX
-}; // for the ACT_DETAILS() array of a user native
+// for the ACT_DETAILS() array of a user native
+
+#define IDX_TCC_NATIVE_LINKNAME \
+    IDX_NATIVE_MAX // generated if the native doesn't specify
+
+#define IDX_TCC_NATIVE_STATE \
+    IDX_TCC_NATIVE_LINKNAME + 1 // will be a BLANK! until COMPILE happens
+
+#define IDX_TCC_NATIVE_MAX \
+    (IDX_TCC_NATIVE_STATE + 1)
 
 
 // COMPILE replaces &Pending_Native_Dispatcher that user natives start with,
@@ -72,7 +75,7 @@ bool Is_User_Native(const RELVAL *action) {
 
     REBARR *details = ACT_DETAILS(VAL_ACTION(action));
     assert(ARR_LEN(details) >= 2); // ACTION_FLAG_NATIVE needs source+context
-    return IS_TEXT(ARR_AT(details, IDX_NATIVE_SOURCE));
+    return IS_TEXT(ARR_AT(details, IDX_NATIVE_BODY));
 }
 
 
@@ -269,24 +272,16 @@ REBNATIVE(make_native)
         &Pending_Native_Dispatcher, // will be replaced e.g. by COMPILE
         nullptr, // no facade (use paramlist)
         nullptr, // no specialization exemplar (or inherited exemplar)
-        IDX_NATIVE_MAX // details capacity [source module linkname tcc_state]
+        IDX_TCC_NATIVE_MAX // details len [source module linkname tcc_state]
     );
 
-    // When coding to the internal API, it's easy to make a mistake and call
-    // into something that evaluates without having GC protection on array
-    // elements when operating by index like this.  Pre-fill them.
-    //
     REBARR *details = ACT_DETAILS(native);
-    int idx;
-    for (idx = 0; idx < IDX_NATIVE_MAX; ++idx)
-        Init_Unreadable_Blank(ARR_AT(details, idx));
-    TERM_ARRAY_LEN(details, IDX_NATIVE_MAX);
 
     if (Is_Series_Frozen(VAL_SERIES(source)))
-        Move_Value(ARR_AT(details, IDX_NATIVE_SOURCE), source); // no copy
+        Move_Value(ARR_AT(details, IDX_NATIVE_BODY), source); // no copy
     else {
         Init_Text(
-            ARR_AT(details, IDX_NATIVE_SOURCE),
+            ARR_AT(details, IDX_NATIVE_BODY),
             Copy_String_At_Len(source, -1) // might change before COMPILE call
         );
     }
@@ -304,10 +299,10 @@ REBNATIVE(make_native)
         REBVAL *name = ARG(name);
 
         if (Is_Series_Frozen(VAL_SERIES(name)))
-            Move_Value(ARR_AT(details, IDX_NATIVE_LINKNAME), name);
+            Move_Value(ARR_AT(details, IDX_TCC_NATIVE_LINKNAME), name);
         else {
             Init_Text(
-                ARR_AT(details, IDX_NATIVE_LINKNAME),
+                ARR_AT(details, IDX_TCC_NATIVE_LINKNAME),
                 Copy_String_At_Len(name, -1)
             );
         }
@@ -340,10 +335,10 @@ REBNATIVE(make_native)
         }
         TERM_UNI_LEN(ser, len);
 
-        Init_Text(ARR_AT(details, IDX_NATIVE_LINKNAME), ser);
+        Init_Text(ARR_AT(details, IDX_TCC_NATIVE_LINKNAME), ser);
     }
 
-    Init_Blank(ARR_AT(details, IDX_NATIVE_TCC_STATE)); // no TCC_State, yet...
+    Init_Blank(ARR_AT(details, IDX_TCC_NATIVE_STATE)); // no TCC_State, yet...
 
     SET_VAL_FLAGS(ACT_ARCHETYPE(native), ACTION_FLAG_NATIVE);
     return Init_Action_Unbound(D_OUT, native);
@@ -525,8 +520,8 @@ REBNATIVE(compile)
             DS_PUSH(KNOWN(var));
 
             REBARR *details = VAL_ACT_DETAILS(var);
-            RELVAL *source = ARR_AT(details, IDX_NATIVE_SOURCE);
-            RELVAL *linkname = ARR_AT(details, IDX_NATIVE_LINKNAME);
+            RELVAL *source = ARR_AT(details, IDX_NATIVE_BODY);
+            RELVAL *linkname = ARR_AT(details, IDX_TCC_NATIVE_LINKNAME);
 
             Append_Unencoded(mo->series, "const REBVAL *");
             Append_Utf8_String(mo->series, linkname, VAL_LEN_AT(linkname));
@@ -680,7 +675,7 @@ REBNATIVE(compile)
         assert(IS_ACTION(var) and Is_User_Native(var));
 
         REBARR *details = VAL_ACT_DETAILS(var);
-        REBVAL *linkname = KNOWN(ARR_AT(details, IDX_NATIVE_LINKNAME));
+        REBVAL *linkname = KNOWN(ARR_AT(details, IDX_TCC_NATIVE_LINKNAME));
 
         char *name_utf8 = rebSpell("ensure text!", linkname, rebEND);
         void *sym = tcc_get_symbol(state, name_utf8);
@@ -696,7 +691,7 @@ REBNATIVE(compile)
         memcpy(&c_func, &sym, sizeof(c_func));
 
         ACT_DISPATCHER(VAL_ACTION(var)) = c_func;
-        Move_Value(ARR_AT(details, IDX_NATIVE_TCC_STATE), handle);
+        Move_Value(ARR_AT(details, IDX_TCC_NATIVE_STATE), handle);
 
         DS_DROP;
     }

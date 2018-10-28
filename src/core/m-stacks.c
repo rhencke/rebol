@@ -134,11 +134,7 @@ void Startup_Frame_Stack(void)
     // source.  The user shouldn't get PG_Dummy_Action in their hands to ask
     // for SOURCE of, but still, the Null_Dispatcher() has asserts.
     //
-    REBVAL *body = Init_Block(
-        Alloc_Tail_Array(ACT_DETAILS(PG_Dummy_Action)),
-        EMPTY_ARRAY
-    );
-    UNUSED(body);
+    Init_Block(ARR_HEAD(ACT_DETAILS(PG_Dummy_Action)), EMPTY_ARRAY);
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);

@@ -71,7 +71,7 @@ print [proto-count "natives"]
 print " "
 
 
-print "------ Generate tmp-actions.r"
+print "------ Generate tmp-generics.r"
 
 clear output-buffer
 
@@ -93,7 +93,7 @@ append output-buffer {REBOL [
 
 boot-types: load src-dir/boot/types.r
 
-append output-buffer mold/only load src-dir/boot/actions.r
+append output-buffer mold/only load src-dir/boot/generics.r
 
 append output-buffer unspaced [
     newline
@@ -101,4 +101,4 @@ append output-buffer unspaced [
     newline
 ]
 
-write-if-changed output-dir/boot/tmp-actions.r output-buffer
+write-if-changed output-dir/boot/tmp-generics.r output-buffer

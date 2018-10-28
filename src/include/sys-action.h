@@ -74,6 +74,13 @@ inline static REBARR *ACT_PARAMLIST(REBACT *a) {
 #define ACT_DETAILS(a) \
     ACT_ARCHETYPE(a)->payload.action.details
 
+// These are indices into the details array agreed upon by actions which have
+// the ACTION_FLAG_NATIVE set.
+//
+#define IDX_NATIVE_BODY 0 // text string source code of native (for SOURCE)
+#define IDX_NATIVE_CONTEXT 1 // libRebol binds strings here (and lib)
+#define IDX_NATIVE_MAX (IDX_NATIVE_CONTEXT + 1)
+
 inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
     assert(n != 0 and n < ARR_LEN(ACT_PARAMLIST(a)));
     return SER_AT(REBVAL, SER(ACT_PARAMLIST(a)), n);

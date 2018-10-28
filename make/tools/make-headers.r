@@ -343,15 +343,15 @@ e-params: (make-emitter
     "PARAM() and REFINE() Automatic Macros"
     output-dir/include/tmp-paramlists.h)
 
-action-list: load output-dir/boot/tmp-actions.r
+generic-list: load output-dir/boot/tmp-generics.r
 
-; Search file for definition.  Will be `action-name: action [paramlist]`
+; Search file for definition.  Will be `generic-name: generic [paramlist]`
 ;
-for-next action-list [
-    if 'action = pick action-list 2 [
-        assert [set-word? action-list/1]
+for-next generic-list [
+    if 'generic = pick generic-list 2 [
+        assert [set-word? generic-list/1]
         (emit-include-params-macro
-            e-params (to-word action-list/1) (action-list/3))
+            e-params (to-word generic-list/1) (generic-list/3))
         e-params/emit newline
     ]
 ]

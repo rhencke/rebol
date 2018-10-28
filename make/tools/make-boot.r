@@ -82,7 +82,7 @@ Licensed under the Apache License, Version 2.0
 sections: [
     boot-types
     boot-words
-    boot-actions
+    boot-generics
     boot-natives
     boot-typespecs
     boot-errors
@@ -159,7 +159,7 @@ pds: collect [
             '* [keep cscape/with {/* $<T/Name> */ PD_Unhooked} [t]]
             default [
                 ; !!! Today's PORT! path dispatches through context although
-                ; that isn't its technical "class" for responding to actions.
+                ; that isn't its technical "class" for responding to generics.
                 ;
                 proper: propercase-of t/path
                 keep cscape/with {/* $<T/Name> */ PD_$<Proper>} [proper t]
@@ -484,8 +484,8 @@ syms: collect [
 
     for-each word wordlist [add-word word]
 
-    boot-actions: load boot/tmp-actions.r
-    for-each item boot-actions [
+    boot-generics: load boot/tmp-generics.r
+    for-each item boot-generics [
         if set-word? :item [
             add-word/skip-if-duplicate to-word item ;-- maybe in %words.r
         ]
@@ -517,7 +517,7 @@ e-symbols/emit {
     };
 }
 
-print [n "words + actions"]
+print [n "words + generics"]
 
 e-symbols/write-emitted
 

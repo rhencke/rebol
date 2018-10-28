@@ -824,7 +824,7 @@ bool Specialize_Action_Throws(
     // that binding has to be UNBOUND).  It also remembers the original
     // action in the phase, so Specializer_Dispatcher() knows what to call.
     //
-    RELVAL *body = Alloc_Tail_Array(ACT_DETAILS(specialized));
+    RELVAL *body = ARR_HEAD(ACT_DETAILS(specialized));
     Move_Value(body, CTX_ARCHETYPE(exemplar));
     INIT_BINDING(body, VAL_BINDING(specializee));
     body->payload.any_context.phase = unspecialized;
@@ -1186,7 +1186,7 @@ REBNATIVE(does)
         // Block_Dispatcher() *may* copy at an indeterminate time, so to keep
         // things invariant we have to lock it.
         //
-        RELVAL *body = Alloc_Tail_Array(ACT_DETAILS(doer));
+        RELVAL *body = ARR_HEAD(ACT_DETAILS(doer));
         REBSER *locker = NULL;
         Ensure_Value_Immutable(specializee, locker);
         Move_Value(body, specializee);
@@ -1325,7 +1325,7 @@ REBNATIVE(does)
         1 // details array capacity
     );
 
-    Init_Frame(Alloc_Tail_Array(ACT_DETAILS(doer)), exemplar);
+    Init_Frame(ARR_HEAD(ACT_DETAILS(doer)), exemplar);
 
     return Init_Action_Unbound(D_OUT, doer);
 }

@@ -38,6 +38,8 @@ datatypes
 ; !!! Kept for functionality of #[none] in the loader for <r3-legacy>
 none
 
+generic ;-- used in boot, see %generics.r
+
 ; The PICK action was killed in favor of a native that uses the same logic
 ; as path processing.  Code still remains for processing PICK, and ports or
 ; other mechanics may wind up using it...or path dispatch itself may be
@@ -370,7 +372,7 @@ gzip
 detect
 
 ; REFLECT needs a SYM_XXX values at the moment, because it uses the dispatcher
-; Type_Action_Dispatcher() vs. there being a separate one just for REFLECT.
+; Generic_Dispatcher() vs. there being a separate one just for REFLECT.
 ; But it's not a type action, it's a native in order to be faster and also
 ; because it wants to accept nulls for TYPE OF () => null
 ;

@@ -44,12 +44,13 @@
 
 #include <emscripten.h>
 
-enum {
-    IDX_NATIVE_SOURCE = 0, // text string source code of native (for SOURCE)
-    IDX_NATIVE_CONTEXT = 1, // rebRun()/etc. bind here (and lib) when running
-    IDX_NATIVE_HANDLE = 2, // handle gives hookpoint for GC of table entry
-    IDX_NATIVE_MAX
-}; // for the ACT_DETAILS() array of a javascript native
+// for the ACT_DETAILS() array of a javascript native
+
+#define IDX_JS_NATIVE_HANDLE \
+    IDX_NATIVE_MAX // handle gives hookpoint for GC of table entry
+
+#define IDX_JS_NATIVE_MAX
+    (IDX_JS_NATIVE_HANDLE + 1)
 
 
 //
@@ -180,24 +181,16 @@ REBACT *Make_JavaScript_Action_Common(
             : &JavaScript_Native_Dispatcher,
         nullptr, // no facade (use paramlist)
         nullptr, // no specialization exemplar (or inherited exemplar)
-        IDX_NATIVE_MAX // details capacity [source module linkname tcc_state]
+        IDX_JS_NATIVE_MAX // details len [source module linkname tcc_state]
     );
 
-    // When coding to the internal API, it's easy to make a mistake and call
-    // into something that evaluates without having GC protection on array
-    // elements when operating by index like this.  Pre-fill them.
-    //
     REBARR *details = ACT_DETAILS(action);
-    int idx;
-    for (idx = 0; idx < IDX_NATIVE_MAX; ++idx)
-        Init_Unreadable_Blank(ARR_AT(details, idx));
-    TERM_ARRAY_LEN(details, IDX_NATIVE_MAX);
 
     if (Is_Series_Frozen(VAL_SERIES(source)))
-        Move_Value(ARR_AT(details, IDX_NATIVE_SOURCE), source); // no copy
+        Move_Value(ARR_AT(details, IDX_NATIVE_BODY), source); // no copy
     else {
         Init_Text(
-            ARR_AT(details, IDX_NATIVE_SOURCE),
+            ARR_AT(details, IDX_NATIVE_BODY),
             Copy_String_At_Len(source, -1) // might change
         );
     }
@@ -258,7 +251,7 @@ REBACT *Make_JavaScript_Action_Common(
     );
 
     Init_Handle_Managed(
-        ARR_AT(details, IDX_NATIVE_HANDLE),
+        ARR_AT(details, IDX_JS_NATIVE_HANDLE),
         ACT_PARAMLIST(action),
         0,
         &cleanup_js_native
