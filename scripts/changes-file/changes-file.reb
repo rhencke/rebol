@@ -168,7 +168,7 @@ notable?: function [
             | skip
         ]
     ]
-    unless empty? cc [append c compose/only [cc: (cc)]]
+    if not empty? cc [append c compose/only [cc: (cc)]]
 
     ;; if find commit in our cherry-pick map then apply logic / meta info
     if did cherry-value: select cherry-pick c/commit [
@@ -178,7 +178,7 @@ notable?: function [
         ]
 
         ;; so must be block?
-        unless block? cherry-value [
+        if not block? cherry-value [
             fail {Invalid rule in cherry-pick-map.reb}
         ]
 
@@ -198,7 +198,7 @@ notable?: function [
     if {* } = copy/part text 2 [return true]
 
     ;; If CureCode then it is notable
-    unless empty? cc [return true]
+    if not empty? cc [return true]
 
     ;; this not a notable change
     false
@@ -326,7 +326,7 @@ make-changes-file: function [
 
         ;; ### Category (type)
         for-each type (words of release/changes) [
-            unless empty? release/changes/:type [
+            if not empty? release/changes/:type [
                 write-line [{### } type]
 
                 ;; - Change

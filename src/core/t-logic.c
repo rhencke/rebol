@@ -211,14 +211,14 @@ REBNATIVE(xor_q)
 //
 //  and: enfix native [
 //
-//  {Short-circuit boolean AND, with mode to pass thru non-LOGIC! values}
+//  {Boolean AND, with short-circuit mode if right hand side is BLOCK!}
 //
-//      return: "LOGIC! if right is GROUP!, else right value or null"
+//      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
-//      :right "Quoted expression, evaluated unless left is blank or FALSE"
-//          [block!] ; !!! temp, just block!
+//      :right "If BLOCK!, evaluated only if TO LOGIC! of LEFT is true"
+//          [block! group!]
 //  ]
 //
 REBNATIVE(and)
@@ -231,20 +231,13 @@ REBNATIVE(and)
     if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
         fail ("left hand side of AND should not be literal block");
 
-    if (IS_GROUP(right)) { // result should be LOGIC!
-        if (IS_FALSEY(left))
-            return Init_False(D_OUT); // no need to evaluate right
-
-        if (Do_Any_Array_At_Throws(D_OUT, right))
-            return D_OUT;
-
-        return Init_Logic(D_OUT, IS_TRUTHY(D_OUT));
+    if (IS_FALSEY(left)) {
+        if (IS_GROUP(right)) { // no need to evaluate right if BLOCK!
+            if (Do_Any_Array_At_Throws(D_OUT, right))
+                return D_OUT;
+        }
+        RETURN (left); // preserve falsey value
     }
-
-    assert(IS_BLOCK(right)); // any-value! result, or null
-
-    if (IS_FALSEY(left))
-        RETURN (left); // no need to evaluate right, preserve falsey value
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
         return D_OUT;
@@ -255,14 +248,14 @@ REBNATIVE(and)
 
 //  or: enfix native [
 //
-//  {Short-circuit boolean OR, with mode to pass thru non-LOGIC! values}
+//  {Boolean OR, with short-circuit mode if right hand side is BLOCK!}
 //
-//      return: "LOGIC! if right is GROUP!, truthy left/right value, or null"
+//      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
-//      :right "Quoted expression, evaluated only if left is blank or FALSE"
-//          [block!] ; !!! temp, just block
+//      :right "If BLOCK!, evaluated only if TO LOGIC! of LEFT is false"
+//          [block! group!]
 //  ]
 REBNATIVE(or)
 {
@@ -274,20 +267,13 @@ REBNATIVE(or)
     if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
         fail ("left hand side of OR should not be literal block");
 
-    if (IS_GROUP(right)) { // result should be LOGIC!
-        if (IS_TRUTHY(left))
-            return Init_True(D_OUT); // no need to evaluate right
-
-        if (Do_Any_Array_At_Throws(D_OUT, right))
-            return D_OUT;
-
-        return Init_Logic(D_OUT, IS_TRUTHY(D_OUT));
+    if (IS_TRUTHY(left)) {
+        if (IS_GROUP(right)) { // no need to evaluate right if BLOCK!
+            if (Do_Any_Array_At_Throws(D_OUT, right))
+                return D_OUT;
+        }
+        RETURN (left);
     }
-
-    assert(IS_BLOCK(right)); // any-value! result, or null
-
-    if (IS_TRUTHY(left))
-        RETURN (left); // no need to evaluate right
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
         return D_OUT;
@@ -297,16 +283,48 @@ REBNATIVE(or)
 
 
 //
-//  xor: enfix native [
+//  unless: enfix native [
 //
-//  {Boolean XOR, with mode to pass thru non-LOGIC! values}
+//  {Variant of non-short-circuit OR which favors the right-hand side result}
 //
-//      return: "LOGIC! if right is GROUP!, else left or right or null"
+//      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
 //      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
-//      :right "Quoted expression, must be always evaluated as well"
-//          [block!] ; !!! temp, just block
+//      :right "Expression that's also always evaluated (can't short circuit)"
+//          [group!]
+//  ]
+//
+REBNATIVE(unless)
+{
+    INCLUDE_PARAMS_OF_UNLESS;
+
+    REBVAL *left = ARG(left);
+
+    if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
+        fail ("left hand side of UNLESS should not be literal block");
+
+    if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated
+        return D_OUT;
+
+    if (IS_TRUTHY(D_OUT))
+        return D_OUT;
+
+    RETURN (left); // preserve the exact truthy or falsey value
+}
+
+
+//
+//  xor: enfix native [
+//
+//  {Boolean XOR}
+//
+//      return: "Conditionally true value, or LOGIC! false for failure case"
+//          [<opt> any-value!]
+//      left "Expression which will always be evaluated"
+//          [<opt> any-value!]
+//      :right "Expression that's also always evaluated (can't short circuit)"
+//          [group!]
 //  ]
 //
 REBNATIVE(xor)
@@ -322,11 +340,6 @@ REBNATIVE(xor)
         return D_OUT;
 
     REBVAL *right = D_OUT;
-
-    if (IS_GROUP(right)) // result should be LOGIC!
-        return Init_Logic(D_OUT, IS_TRUTHY(left) != IS_TRUTHY(right));
-
-    assert(IS_BLOCK(right)); // any-value! result, or null
 
     if (IS_FALSEY(left)) {
         if (IS_FALSEY(right))

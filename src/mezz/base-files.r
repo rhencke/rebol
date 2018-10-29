@@ -127,11 +127,7 @@ make-dir: func [
             remove back tail of path ; trailing slash
         ]
     ][
-        ; !!! Changing this to `path unless find/last/tail path slash` should
-        ; work, but seems to cause a problem.  Review why when time permits.
-        ;
-        end: any [find/last/tail path slash path]
-
+        end: find/last/tail path slash else [path]
         insert dirs copy end
         clear end
     ]

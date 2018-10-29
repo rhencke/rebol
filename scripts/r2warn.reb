@@ -149,13 +149,13 @@ unless: checked-enfix [
     function [
         {Returns left hand side, unless the right hand side is a value}
 
-        return: [any-value!]
+        return: [<opt> any-value!]
         left [<end> any-value!]
-        right [<opt> any-value! <...>]
+        :right [any-value! <...>]
         :look [any-value! <...>]
     ][
         set* quote right: take* right
-        if unset? 'left or [block? first look] [
+        if unset? 'left or [not group? right] or [block? first look] [
             fail/where [
                 "UNLESS has been repurposed in Ren-C as an infix operator"
                 "which defaults to the left hand side, unless the right"
@@ -169,7 +169,7 @@ unless: checked-enfix [
             ] 'look
         ]
 
-        :right else [:left]
+        (do as block! right) or [:left]
     ]
 ]
 

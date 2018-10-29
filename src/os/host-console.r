@@ -107,7 +107,7 @@ console!: make object! [
                 ; to print after an "==".  It could use invalid forms, e.g.
                 ; "== \\null\\" or just go with a comment.
                 ;
-                print ";-- null"
+                print "// null"
             ]
 
             void? :v [
@@ -429,10 +429,12 @@ host-console: function [
     ; BLOCK! code execution represents an instruction sent by the console to
     ; itself.  Some #directives may be at the head of these blocks.
     ;
-    directives: [] unless if block? prior [
+    directives: if block? prior [
         collect [
             parse prior [some [set i: issue! (keep i)]]
         ]
+    ] else [
+        []
     ]
 
     ; QUIT handling (uncaught THROW/NAME with the name as the QUIT ACTION!)

@@ -452,6 +452,6 @@ rebsource: context [
         return: [file!]
         file [file!]
     ][
-        copy %"" unless find/last file "."
+        find/last file "." else [copy %""]
     ]
 ]

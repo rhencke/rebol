@@ -481,16 +481,6 @@ default*: enfix redescribe [
 semiquote: specialize 'identity [quote: true]
 
 
-unless: enfix func [
-    {Returns the left hand side, unless the right hand side is something}
-
-    return: [any-value!]
-    left [any-value!] ;-- should null be allowed here?
-    right [<opt> any-value!]
-][
-    :right else [:left]
-]
-
 skip*: redescribe [
     {Variant of SKIP that returns BLANK! instead of clipping to series bounds}
 ](

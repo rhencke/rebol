@@ -72,7 +72,7 @@ dump-obj: function [
                     set? 'val
                     either text? :pat [
                         either wild [
-                            tail? (pat unless find/any/match str pat)
+                            tail? (find/any/match str pat else [pat])
                         ][
                             find str pat
                         ]
@@ -522,28 +522,32 @@ help: function [
     adaptee: try ensure* action! select meta 'adaptee
     chainees: try ensure* block! select meta 'chainees
 
-    classification: {an action!} unless case [
+    classification: case [
         :specializee [
-            {a specialized action!} unless if original-name [
+            either original-name [
                 spaced [{a specialization of} original-name]
+            ][
+                {a specialized ACTION!}
             ]
         ]
 
         :adaptee [
-            {an adapted action!} unless if original-name [
+            either original-name [
                 spaced [{an adaptation of} original-name]
+            ][
+                {an adapted ACTION!}
             ]
         ]
 
-        :chainees [
-            {a chained action!}
-        ]
+        :chainees [{a chained ACTION!}]
+    ] else [
+        {an ACTION!}
     ]
 
     print-newline
 
     print "DESCRIPTION:"
-    print unspaced [space4 "(undocumented)" unless opt fields/description]
+    print unspaced [space4 fields/description or ["(undocumented)"]]
     print unspaced [
         space4 spaced [(uppercase mold topic) {is} classification]
     ]

@@ -83,35 +83,32 @@ sync-op: function [port body] [
     ]
 ]
 
-read-sync-awake: function [event [event!]] [
-    false unless switch event/type [
+read-sync-awake: function [return: [logic!] event [event!]] [
+    switch event/type [
         'connect
         'ready [
             do-request event/port
             false
         ]
-        'done [
-            true
-        ]
-        'close [
-            true
-        ]
+        'done [true]
+        'close [true]
         'error [
             error: event/port/state/error
             event/port/state/error: _
             fail error
         ]
+        default [false]
     ]
 ]
 
-http-awake: function [event] [
+http-awake: function [return: [logic!] event [event!]] [
     port: event/port
     http-port: port/locals
     state: http-port/state
     if action? :http-port/awake [state/awake: :http-port/awake]
     awake: :state/awake
 
-    true unless switch event/type [
+    switch event/type [
         'read [
             awake make event! [type: 'read port: http-port]
             check-response http-port
@@ -122,7 +119,10 @@ http-awake: function [event] [
             read port
             false
         ]
-        'lookup [open port false]
+        'lookup [
+            open port
+            false
+        ]
         'connect [
             state/state: 'ready
             awake make event! [type: 'connect port: http-port]
@@ -156,6 +156,7 @@ http-awake: function [event] [
             close http-port
             res
         ]
+        default [true]
     ]
 ]
 

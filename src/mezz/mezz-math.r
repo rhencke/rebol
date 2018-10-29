@@ -57,9 +57,10 @@ sign-of: func [
     "Returns sign of number as 1, 0, or -1 (to use as multiplier)."
     number [any-number! money! time!]
 ][
-    0 unless case [
+    case [
         positive? number [1]
         negative? number [-1]
+        default [0]
     ]
 ]
 
