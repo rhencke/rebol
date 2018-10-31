@@ -171,13 +171,6 @@ usage: function [
     }
 ]
 
-boot-welcome:
-{Welcome to Rebol.  For more information please type in the commands below:
-
-  HELP    - For starting information
-  ABOUT   - Information about your Rebol
-  CHANGES - What's different about this version}
-
 license: function [
     "Prints the REBOL/core license agreement."
     return: <void>
@@ -202,17 +195,13 @@ host-script-pre-load: function [
 
 
 host-start: function [
-    "Called by HOST-CONSOLE.  Loads extras, handles args, security, scripts."
+    "Usermode command-line processing: handles args, security, scripts"
 
     argv {Raw command line argument block received by main() as STRING!s}
         [block!]
-    emit {HOST-CONSOLE emit function}
-        [action!]
-    return {HOST-CONSOLE hooked return function, use for returning}
-        [action!]
     <with>
     host-start host-prot ;-- unset when finished with them
-    about usage why license echo upgrade ;-- exported to lib, see notes
+    about usage license ;-- exported to lib, see notes
     <static>
         o (system/options) ;-- shorthand since options are often read/written
 ][
@@ -232,10 +221,89 @@ host-start: function [
         ;
         about: (ensure action! :about)
         usage: (ensure action! :usage)
-        why: (ensure action! :why)
         license: (ensure action! :license)
-        echo: (ensure action! :echo)
-        upgrade: (ensure action! :upgrade)
+    ]
+
+    ; We hook the RETURN function so that it actually returns an instruction
+    ; that the code can build up from multiple EMIT statements.
+
+    instruction: copy []
+
+    emit: function [
+        {Builds up sandboxed code to submit to C, hooked RETURN will finalize}
+
+        item "ISSUE! directive, TEXT! comment, ((composed)) code BLOCK!"
+            [block! issue! text!]
+        <with> instruction
+    ][
+        really switch type of item [
+            issue! [
+                if not empty? instruction [append/line instruction '|]
+                insert instruction item
+            ]
+            text! [
+                append/line instruction compose [comment (item)]
+            ]
+            block! [
+                if not empty? instruction [append/line instruction '|]
+                append/line instruction composeII/deep/only item
+            ]
+        ]
+    ]
+
+    return: function [
+        {Hooked RETURN function which finalizes any gathered EMIT lines}
+
+        state "Describes the RESULT that the next call to HOST-CONSOLE gets"
+            [integer! tag! group! datatype!]
+        <with> instruction prior
+        <local> return-to-c (:return) ;-- capture HOST-CONSOLE's RETURN
+    ][
+        switch state [
+            <start-console> [
+                ;-- Done actually via #start-console, but we return something
+            ]
+            <prompt> [
+                emit [system/console/print-gap]
+                emit [system/console/print-prompt]
+                emit [reduce [
+                    system/console/input-hook
+                ]] ;-- gather first line (or BLANK!), put in BLOCK!
+            ]
+            <halt> [
+                emit [halt]
+                emit [fail {^-- Shouldn't get here, due to HALT}]
+            ]
+            <die> [
+                emit [quit/with 1] ;-- catch-all bash code for general errors
+                emit [fail {^-- Shouldn't get here, due to QUIT}]
+            ]
+            <bad> [
+                emit #no-unskin-if-error
+                emit [print ((mold uneval prior))]
+                emit [fail ["Bad REPL continuation:" ((uneval result))]]
+            ]
+        ] then [
+            return-to-c instruction
+        ]
+
+        return-to-c switch type of state [
+            integer! [ ;-- just tells the calling C loop to exit() process
+                assert [empty? instruction]
+                state
+            ]
+            datatype! [ ;-- type assertion, how to enforce this?
+                emit spaced ["^-- Result should be" an state]
+                instruction
+            ]
+            group! [ ;-- means "submit user code"
+                assert [empty? instruction]
+                state
+            ]
+            default [
+                emit [fail [{Bad console instruction:} ((mold state))]]
+            ]
+        ]
     ]
 
     ; The core presumes no built-in I/O ability in the release build, hence
@@ -303,16 +371,6 @@ host-start: function [
     loud-print "Loading boot extensions..."
     for-each collation builtin-extensions [
         load-extension collation
-    ]
-
-    ; !!! The debugger is a work in progress.  But the design attempts to make
-    ; it an optional extension which doesn't need to be built into the EXE,
-    ; and can be loaded dynamically into any Rebol-based binary.  But it has
-    ; to spawn a console, and since the console is userspace and may vary
-    ; between EXEs...it has to be told where that function is.
-    ;
-    if find system/contexts/user 'init-debugger [
-        system/contexts/user/init-debugger :host-console
     ]
 
     ; helper functions
@@ -787,7 +845,7 @@ comment [
         return <unreachable>
     ]
 
-    emit [start-console]
+    emit #start-console
 
-    return <prompt>
+    return <start-console>
 ]

@@ -1,8 +1,13 @@
 REBOL [
-    System: "REBOL [R3] Language Interpreter and Run-time Environment"
-    Title: "Host Console (Rebol's Read-Eval-Print-Loop, ie. REPL)"
+    Title: "Console Extension (Rebol's Read-Eval-Print-Loop, ie. REPL)"
+
+    Name: console
+    Type: extension
+
+    Options: [extension delay]
+
     Rights: {
-        Copyright 2016-2017 Rebol Open Source Contributors
+        Copyright 2016-2018 Rebol Open Source Contributors
         REBOL is a trademark of REBOL Technologies
     }
     License: {
@@ -42,6 +47,28 @@ REBOL [
         implemented in Rebol as well.
      }
 ]
+
+boot-print: redescribe [
+    "Prints during boot when not quiet."
+](
+    ;; !!! Duplicates code in %host-start.r, where this isn't exported.
+    enclose 'print func [f] [if not system/options/quiet [do f]]
+)
+
+loud-print: redescribe [
+    "Prints during boot when verbose."
+](
+    ;; !!! Duplicates code in %host-start.r, where this isn't exported.
+    enclose 'print func [f] [if system/options/verbose [do f]]
+)
+
+boot-welcome:
+{Welcome to Rebol.  For more information please type in the commands below:
+
+  HELP    - For starting information
+  ABOUT   - Information about your Rebol
+  CHANGES - What's different about this version}
+
 
 ; Define console! object for skinning - stub for elsewhere?
 ;
@@ -326,7 +353,7 @@ start-console: function [
 ]
 
 
-host-console: function [
+ext-console-impl: function [
     {Rebol ACTION! that is called from C in a loop to implement the console}
 
     return: "Code submission for C caller to run in a sandbox, or exit status"
@@ -334,7 +361,7 @@ host-console: function [
     prior "BLOCK! or GROUP! that last invocation of HOST-CONSOLE requested"
         [blank! block! group!]
     result "Result from evaluating PRIOR in a 1-element BLOCK!, or error/null"
-        [<opt> any-value!]
+        [<opt> block! error!]
 ][
     ; We hook the RETURN function so that it actually returns an instruction
     ; that the code can build up from multiple EMIT statements.
@@ -348,7 +375,7 @@ host-console: function [
             [block! issue! text!]
         <with> instruction
     ][
-        really switch type of item [
+        switch type of item [
             issue! [
                 if not empty? instruction [append/line instruction '|]
                 insert instruction item
@@ -360,6 +387,7 @@ host-console: function [
                 if not empty? instruction [append/line instruction '|]
                 append/line instruction composeII/deep/only item
             ]
+            fail
         ]
     ]
 
@@ -415,15 +443,19 @@ host-console: function [
         ]
     ]
 
-    if not prior [ ;-- First call, do startup and command-line processing
+    if not prior [
         ;
-        ; !!! We get some properties passed from the C main() as a BLOCK! in
-        ; result.  These should probably be injected into the environment
-        ; somehow instead.
+        ; !!! This was the first call before, and it would do some startup.
+        ; Now it's probably reasonable to assume if there's anything to be
+        ; done on a first call (printing notice of "you broke into debug" or
+        ; something like that) then whoever broke into the REPL takes
+        ; care of that.
         ;
-        assert [block? result | length of result = 1]
-        set [argv:] result
-        return (host-start argv :emit :return)
+        assert [unset? 'result]
+        if unset? 'system/console or [not system/console] [
+            emit [start-console]
+        ]
+        return <prompt>
     ]
 
     ; BLOCK! code execution represents an instruction sent by the console to
@@ -433,6 +465,11 @@ host-console: function [
         if block? prior [
             parse prior [some [set i: issue! (keep i)]]
         ]
+    ]
+
+    if find directives #start-console [
+        emit [start-console]
+        return <prompt>
     ]
 
     ; QUIT handling (uncaught THROW/NAME with the name as the QUIT ACTION!)
@@ -448,7 +485,7 @@ host-console: function [
         result/id = 'no-catch
         :result/arg2 = :QUIT ;; name
     ] then [
-        return <- switch type of :result/arg1 [
+        return switch type of :result/arg1 [
             null [0] ;-- plain QUIT, no /WITH, call that success
 
             blank! [0] ;-- consider blank also to be success
@@ -456,8 +493,8 @@ host-console: function [
             integer! [result/arg1] ;-- Note: may be too big for status range
 
             error! [1] ;-- !!! integer error mapping deprecated
-        ] else [
-            1 ;-- generic error code
+
+            default [1] ;-- generic error code
         ]
     ]
 
@@ -828,4 +865,36 @@ echo: function [
             ensure-echo-on
         ]
     ]
+]
+
+
+; !!! It should likely be the case that the namespace for the user natives in
+; an extension would be shared with the Rebol code for a module, but there's
+; also a likely need to be able to have several source-level Rebol files
+; (and possibly several independent modules) in an extension.  This hasn't
+; been completely hammered out yet.
+;
+; As a result, for the C code in %mod-console.c to be able to find the Rebol
+; entry point for its mechanics, we export it to lib.  But this needs a much
+; better solution.
+;
+append lib compose [ext-console-impl: (:ext-console-impl)]
+
+; !!! The whole host startup/console is currently very manually loaded
+; into its own isolated context by the C startup code.  This way, changes
+; to functions the console loop depends on (like PRINT or INPUT) that the
+; user makes will not break the console's functionality.  It would be
+; better if it used the module system, but since it doesn't, it does not
+; have a place to put "exports" to lib or user.  We'd like people to be
+; able to access the ABOUT, WHY, and USAGE functions... so export them
+; here to LIB.  Again--this should be done by making this a module!
+;
+append lib compose [
+    ;
+    ;-- These must be <with>'d to be exported, otherwise the ABOUT: in
+    ;-- the object key would be gathered as a local.
+    ;
+    why: (ensure action! :why)
+    echo: (ensure action! :echo)
+    upgrade: (ensure action! :upgrade)
 ]

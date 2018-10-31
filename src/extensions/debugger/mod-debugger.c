@@ -69,26 +69,6 @@ enum {
 extern REBCNT HG_Stack_Level;
 REBCNT HG_Stack_Level = 1;
 
-const REBVAL *HG_Host_Repl = NULL; // needs to be a GC-protecting reference
-
-
-//
-//  export init-debugger: native [
-//
-//  {Tell the debugger what action to use as a REPL.}
-//
-//      return: [<opt>]
-//      console [action!]
-//  ]
-//
-REBNATIVE(init_debugger)
-{
-    DEBUGGER_INCLUDE_PARAMS_OF_INIT_DEBUGGER;
-
-    HG_Host_Repl = ACT_ARCHETYPE(VAL_ACTION(ARG(console)));
-    return nullptr;
-}
-
 
 // Forward-definition so that BREAKPOINT and RESUME can call it
 //
@@ -519,11 +499,13 @@ bool Host_Breakpoint_Quitting_Hook(
         Trace_Level = 0;
         Trace_Depth = 0;
 
+        assert(!"NEEDS REVIEW AFTER CHANGE: how to parameterize console?");
+
         DECLARE_LOCAL (code);
         if (Apply_Only_Throws(
             code, // where return value of HOST-REPL is saved
             fully,
-            HG_Host_Repl, // HOST-REPL function to run
+            nullptr, // !!! Was CONSOLE function
             instruction_out, // last-result (void on first run through loop)
             *last_failed, // TRUE, FALSE, BLANK! on first run, BAR! if HALT
             level, // focus-level

@@ -22,6 +22,7 @@ extensions: make map! [
 
     BMP + 
     Clipboard -
+    Console +
     Crypt + 
     Debugger + 
     FFI -

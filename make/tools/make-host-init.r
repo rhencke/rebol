@@ -93,18 +93,16 @@ load-files: function [
     data
 ]
 
-host-start: load-files [
+host-code: load-files [
     %encap.reb
     %unzip.reb
     %host-start.r
-    %host-console.r
 ]
 
-; script evaluates to the HOST-CONSOLE.  This is the userspace handler that is
-; called in a loop.  By protocol it knows if it's being called for the first
-; time, and hence is the generalized entry point.
+; `do host-code` evaluates to the HOST-START function, so it is easily found
+; as the result of running the code in %host-main.c
 ;
-append host-start [:host-console]
+append host-code [:host-start]
 
 file-base: has load %../../make/tools/file-base.r
 
@@ -118,6 +116,6 @@ for-each file file-base/prot-files [
     append host-protocols compose/only [(spec) (contents)]
 ]
 
-insert host-start compose/only [host-prot: (host-protocols)]
+insert host-code compose/only [host-prot: (host-protocols)]
 
-write-c-file output-dir/os/tmp-host-start.inc host-start
+write-c-file output-dir/os/tmp-host-start.inc host-code

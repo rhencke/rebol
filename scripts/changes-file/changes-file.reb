@@ -171,7 +171,7 @@ notable?: function [
     if not empty? cc [append c compose/only [cc: (cc)]]
 
     ;; if find commit in our cherry-pick map then apply logic / meta info
-    if did cherry-value: select cherry-pick c/commit [
+    if cherry-value: select cherry-pick c/commit [
         switch cherry-value [
             'yes  [return true]       ;; This is a notable change so use (as-is)
             'no   [return false]      ;; NOT notable so skip
