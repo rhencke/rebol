@@ -210,27 +210,11 @@ bool Wait_Ports_Throws(
         if (GET_SIGNAL(SIG_INTERRUPT)) {
             CLR_SIGNAL(SIG_INTERRUPT);
 
-            if (PG_Breakpoint_Hook == NULL)
-                fail (Error_Host_No_Breakpoint_Raw());
-
-            const bool interrupted = true;
-            const REBVAL*default_value = NULLED_CELL;
-            const bool do_default = false;
-
-            if ((*PG_Breakpoint_Hook)(
-                out, interrupted, default_value, do_default
-            )){
-                return true; // thrown
-            }
-
-            if (not IS_NULLED(out)) {
-                //
-                // !!! Same as above... if `resume/with 10` is to have any
-                // meaning then there must be a way to deliver that result
-                // up the stack.
-                //
-                fail ("Cannot deliver non-void result from Wait_Ports()");
-            }
+            // !!! If implemented, this would allow triggering a breakpoint
+            // with a keypress.  This needs to be thought out a bit more,
+            // but may not involve much more than running `BREAKPOINT`.
+            //
+            fail ("BREAKPOINT from SIG_INTERRUPT not currently implemented");
         }
 
         REBINT ret;

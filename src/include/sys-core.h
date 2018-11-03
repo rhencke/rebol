@@ -362,20 +362,6 @@ enum {
 };
 
 
-// Breakpoint hook callback, signature:
-//
-//     bool Do_Breakpoint_Throws(
-//         REBVAL *out,
-//         bool interrupted, // Ctrl-C (as opposed to a BREAKPOINT)
-//         const REBVAL *default_value,
-//         bool do_default
-//      );
-//
-// Typically, the handler will be set up to dispatch back into the REPL.
-//
-typedef bool (*REBBRK)(REBVAL *, bool, const REBVAL*, bool);
-
-
 // Flags used for Protect functions
 //
 enum {

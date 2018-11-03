@@ -199,9 +199,12 @@ static REBVAL *Run_Sandboxed_Code(REBVAL *group_or_block) {
 //
 //  {Runs an instance of a customizable Read-Eval-Print Loop}
 //
-//      return: [<opt> any-value!]
-//      /provoke
-//      provocation [block! group!]
+//      return: "Integer if QUIT result, path if RESUME instruction"
+//          [integer! path!]
+//      /provoke "Give the console some code to run before taking user input"
+//      provocation "Block must return a console state, group is cancellable"
+//          [block! group!]
+//      /resumable "Allow RESUME instruction (will return a PATH!)"
 //  ]
 //
 REBNATIVE(console)
@@ -211,6 +214,9 @@ REBNATIVE(console)
 // little bit of injected information like telling you the current stack
 // level it's focused on.  How that's going to work is still pretty up
 // in the air.
+//
+// What it will return will be either an exit code (INTEGER!), a signal for
+// cancellation (BLANK!), or a debugging instruction (BLOCK!).
 {
     CONSOLE_INCLUDE_PARAMS_OF_CONSOLE;
 
@@ -253,7 +259,7 @@ REBNATIVE(console)
         code = rebBlank();
 
     while (true) {
-       /* assert(not ctrl_c_enabled); // not while HOST-CONSOLE is on the stack */
+       assert(not ctrl_c_enabled); // not while HOST-CONSOLE is on the stack
 
     recover:;
 
@@ -269,6 +275,7 @@ REBNATIVE(console)
                 "ext-console-impl", // action! that takes 2 args, run it
                 rebUneval(code), // group!/block! executed prior (or blank!)
                 rebUneval(result), // prior result in a block, or error/null
+                rebR(rebLogic(REF(resumable))),
             "]", rebEND
         );
 
@@ -301,6 +308,11 @@ REBNATIVE(console)
       provoked:;
         if (rebDid("integer?", code, rebEND))
             break; // when HOST-CONSOLE returns INTEGER! it means an exit code
+
+        if (rebDid("path?", code, rebEND)) {
+            assert(REF(resumable));
+            break;
+        }
 
         bool is_console_instruction = rebDid("block?", code, rebEND);
 
@@ -346,10 +358,113 @@ REBNATIVE(console)
         }
     }
 
-    int exit_status = rebUnboxInteger(rebR(code), rebEND);
+    // Exit code is now an INTEGER! or a resume instruction PATH!
 
     if (was_ctrl_c_enabled)
         Enable_Ctrl_C();
 
-    return rebInteger(exit_status); // http://stackoverflow.com/q/1101957/
+    return code; // http://stackoverflow.com/q/1101957/
+}
+
+
+// Index values for the properties in a "resume instruction" (see notes on
+// REBNATIVE(resume))
+//
+enum {
+    RESUME_INST_MODE = 0,   // FALSE if /WITH, TRUE if /DO, BLANK! if default
+    RESUME_INST_PAYLOAD,    // code block to /DO or value of /WITH
+    RESUME_INST_TARGET,     // unwind target, BLANK! to return from breakpoint
+    RESUME_INST_MAX
+};
+
+
+//
+//  export resume: native [
+//
+//  {Resume after a breakpoint, can evaluate code in the breaking context.}
+//
+//      /with
+//          "Return the given value as return value from BREAKPOINT"
+//      value [any-value!]
+//          "Value to use"
+//      /do
+//          "Evaluate given code as return value from BREAKPOINT"
+//      code [block!]
+//          "Code to evaluate"
+//  ]
+//
+REBNATIVE(resume)
+//
+// The CONSOLE makes a wall to prevent arbitrary THROWs and FAILs from ending
+// a level of interactive inspection.  But RESUME is special, and makes a very
+// specific instruction (with a throw /NAME of the RESUME native) to signal a
+// desire to end the interactive session.
+//
+// When the BREAKPOINT native gets control back from CONSOLE, it interprets
+// and executes the instruction.  This offers the additional benefit that
+// each host doesn't have to rewrite interpretation in the hook--they only
+// need to recognize a RESUME throw and pass the argument back.
+//
+// !!! Initially, this supported /AT:
+//
+//      /at
+//          "Return from another call up stack besides the breakpoint"
+//      level [frame! action! integer!]
+//          "Stack level to target in unwinding (can be BACKTRACE #)"
+//
+// While an interesting feature, it's not currently a priority.
+{
+    CONSOLE_INCLUDE_PARAMS_OF_RESUME;
+
+    if (REF(with) && REF(do)) {
+        //
+        // /WITH and /DO both dictate a default return result, (/DO evaluates
+        // and /WITH does not)  They are mutually exclusive.
+        //
+        fail (Error_Bad_Refines_Raw());
+    }
+
+    // We don't actually want to run the code for a /DO here.  If we tried
+    // to run code from this stack level--and it failed or threw without
+    // some special protocol--we'd stay stuck in the breakpoint's sandbox.
+    //
+    // The /DO code we received needs to actually be run by the host's
+    // breakpoint hook, once it knows that non-local jumps to above the break
+    // level (throws, returns, fails) actually intended to be "resuming".
+
+    REBARR *instruction = Make_Arr(RESUME_INST_MAX);
+
+    if (REF(with)) {
+        Init_False(ARR_AT(instruction, RESUME_INST_MODE)); // don't DO
+        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(value));
+    }
+    else if (REF(do)) {
+        Init_True(ARR_AT(instruction, RESUME_INST_MODE)); // DO value
+        Move_Value(ARR_AT(instruction, RESUME_INST_PAYLOAD), ARG(code));
+    }
+    else {
+        Init_Blank(ARR_AT(instruction, RESUME_INST_MODE)); // use default
+        Init_Blank(ARR_AT(instruction, RESUME_INST_PAYLOAD));
+    }
+
+    // For /AT feature, currently not supported
+    //
+    Init_Blank(ARR_AT(instruction, RESUME_INST_TARGET));
+
+    TERM_ARRAY_LEN(instruction, RESUME_INST_MAX);
+
+    // We put the resume instruction into a PATH! just to make it a little
+    // bit more unusual than a BLOCK!.  More hardened approaches might put
+    // a special symbol as a "magic number" or somehow version the protocol,
+    // but for now we'll assume that the only decoder is BREAKPOINT and it
+    // will be kept in sync.
+    //
+    DECLARE_LOCAL (cell);
+    Init_Path(cell, instruction);
+
+    // Throw the instruction with the name of the RESUME function
+    //
+    Init_Action_Maybe_Bound(D_OUT, FRM_PHASE(frame_), FRM_BINDING(frame_));
+    CONVERT_NAME_TO_THROWN(D_OUT, cell);
+    return D_OUT;
 }

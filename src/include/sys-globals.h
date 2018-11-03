@@ -143,8 +143,6 @@ PVAR REBVAL *Root_Stackoverflow_Error; // made in advance, avoids extra calls
 // when implemented that way. Needs research!!!!
 PVAR REBFLGS Eval_Signals;   // Signal flags
 
-PVAR REBBRK PG_Breakpoint_Hook; // hook called to spawn the debugger
-
 // The "dummy" action is used in frames which are marked as being action
 // frames because they need a varlist, that don't actually execute.
 //

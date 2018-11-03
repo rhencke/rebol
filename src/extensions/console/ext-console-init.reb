@@ -357,11 +357,13 @@ ext-console-impl: function [
     {Rebol ACTION! that is called from C in a loop to implement the console}
 
     return: "Code submission for C caller to run in a sandbox, or exit status"
-        [block! group! integer!] ;-- Note: RETURN is hooked/overridden!!!
+        [block! group! integer! path!] ;-- Note: RETURN is hooked below!!!
     prior "BLOCK! or GROUP! that last invocation of HOST-CONSOLE requested"
         [blank! block! group!]
     result "Result from evaluating PRIOR in a 1-element BLOCK!, or error/null"
         [<opt> block! error!]
+    resumable "Is the RESUME function allowed to exit this console"
+        [logic!]
 ][
     ; We hook the RETURN function so that it actually returns an instruction
     ; that the code can build up from multiple EMIT statements.
@@ -395,7 +397,7 @@ ext-console-impl: function [
         {Hooked RETURN function which finalizes any gathered EMIT lines}
 
         state "Describes the RESULT that the next call to HOST-CONSOLE gets"
-            [integer! tag! group! datatype!]
+            [integer! tag! group! datatype! path!]
         <with> instruction prior
         <local> return-to-c (:return) ;-- capture HOST-CONSOLE's RETURN
     ][
@@ -434,6 +436,10 @@ ext-console-impl: function [
                 instruction
             ]
             group! [ ;-- means "submit user code"
+                assert [empty? instruction]
+                state
+            ]
+            path! [ ;-- means "resume instruction"
                 assert [empty? instruction]
                 state
             ]
@@ -521,6 +527,24 @@ ext-console-impl: function [
         emit #unskin-if-halt
         emit [system/console/print-halted]
         return <prompt>
+    ]
+
+    ; RESUME handling (uncaught THROW/NAME with the name as RESUME ACTION!)
+    ;
+    all [
+        error? :result
+        result/id = 'no-catch
+        :result/arg2 = :RESUME ;; name
+    ] then [
+        assert [path? :result/arg1]
+        if not resumable [
+            e: make error! "Can't RESUME top-level CONSOLE (use QUIT to exit)"
+            e/near: result/near
+            e/where: result/where
+            emit [system/console/print-error ((e))]
+            return <prompt>
+        ]
+        return :result/arg1
     ]
 
     if error? :result [ ;-- all other errors

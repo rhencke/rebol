@@ -7,7 +7,9 @@ REBOL [
 
     Description: {
         The goal of the debugger in Ren-C is to be mostly usermode code, and
-        to rely on leveraging exposure of the FRAME! datatype.
+        to rely on leveraging exposure of the FRAME! datatype.  One of the
+        concepts involved in that is that things like mappings of integers
+        to frames is all part of the userspace code's responsibility.
 
         Original code was in C, but is being migrated out.
     }
@@ -17,7 +19,7 @@ REBOL [
 backtrace*: function [
     "Backtrace to find a specific FRAME!, or other queried property."
 
-    return: [block! frame!]
+    return: [<opt> block! frame!]
         "Nothing if printing, if specific level a frame! else block"
     start [frame!]
         "Where to consider the trace point as starting from"
@@ -45,17 +47,18 @@ backtrace*: function [
     ]
 
     ; The "frames" from /LIMIT, plus one (for ellipsis)
+    ; Default 20, as on an 80x25 terminal leaves room to type afterward
     ;
-    max-rows: if limit [
+    max-rows: 20 unless (limit and [
         if blank? frames [
-            max-rows: 99999 ; no limit--as many frames as possible
+            99999 ; as many frames as possible
         ] else [
             if frames < 0 [
                 fail ["Invalid limit of frames" frames]
             ]
-            max-rows: frames + 1 ; + 1 for ellipsis
+            frames + 1 ; add one for ellipsis
         ]
-    ] else [20] ; On an 80x25 terminal leaves room to type afterward
+    ])
 
     row: 0 ; row we're on (incl. pending frames and maybe ellipsis)
     number: 0 ; level label number in the loop (no pending frames)
@@ -63,7 +66,16 @@ backtrace*: function [
 
     f: start
 
-    stack: collect [while [f: parent-of f] [
+    stack: collect [while [f: try parent of f] [
+        if action of f = :console [
+            ;
+            ; For now, just skip any CONSOLE frames in the list.  It might
+            ; be better to show them in some circumstances, but really they
+            ; just clog up the backtrace.
+            ;
+            continue
+        ]
+
         if not pending? f [
             if first-frame and [any [
                 action of f = :pause
@@ -156,7 +168,6 @@ backtrace*: function [
         ; add it after the props so it will show up before, and give it
         ; the newline break marker.
         ;
-        keep/line []
         if pending? f [
             ;
             ; You cannot (or should not) switch to inspect a pending frame,
@@ -175,14 +186,14 @@ backtrace*: function [
         ] else [
             keep number
         ]
+
+        keep/line []
     ]]
 
     ; If we ran out of stack levels before finding the single one requested
-    ; via /AT, return a blank
+    ; via /AT, return null
     ;
-    ; !!! Would it be better to give an error?
-    ;
-    if get-frame [return _]
+    if get-frame [return null]
 
     ; Return accumulated backtrace otherwise, in the reverse order pushed
     ;
@@ -198,3 +209,14 @@ backtrace: function [
     stack: backtrace* binding of 'return _
     print mold/only stack
 ]
+
+
+debug: function [
+    {Dialect for interactive debugging, see documentation for details}
+    'value [<opt> integer! frame! action! block!]
+        {Stack level to inspect or dialect block, or enter debug mode}
+][
+    fail "Native DEBUG function hasn't been re-implemented in usermode yet"
+]
+
+sys/export [backtrace debug]

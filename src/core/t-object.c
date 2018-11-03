@@ -854,12 +854,16 @@ REBTYPE(Context)
             //
             // Only want action frames (though `pending? = true` ones count).
             //
+            assert(FRM_PHASE_OR_DUMMY(f) != PG_Dummy_Action); // not exposed
             REBFRM *parent = f;
             while ((parent = parent->prior) != FS_BOTTOM) {
-                if (Is_Action_Frame(parent)) {
-                    REBCTX* ctx_parent = Context_For_Frame_May_Manage(parent);
-                    RETURN (CTX_ARCHETYPE(ctx_parent));
-                }
+                if (not Is_Action_Frame(parent))
+                    continue;
+                if (FRM_PHASE_OR_DUMMY(parent) == PG_Dummy_Action)
+                    continue;
+
+                REBCTX* ctx_parent = Context_For_Frame_May_Manage(parent);
+                RETURN (CTX_ARCHETYPE(ctx_parent));
             }
             return nullptr; }
 
