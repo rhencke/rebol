@@ -955,25 +955,57 @@ REBTYPE(Array)
     }
 
     case SYM_REVERSE: {
-        REBCNT len = Part_Len_May_Modify_Index(value, D_ARG(3));
-
         FAIL_IF_READ_ONLY_ARRAY(array);
 
-        if (len != 0) {
+        REBCNT len = Part_Len_May_Modify_Index(value, D_ARG(3));
+        if (len == 0)
+            RETURN (D_ARG(1)); // !!! do 1-element reversals update newlines?
+
+        RELVAL *front = VAL_ARRAY_AT(value);
+        RELVAL *back = front + len - 1;
+
+        // We must reverse the sense of the newline markers as well, #2326
+        // Elements that used to be the *end* of lines now *start* lines.
+        // So really this just means taking newline pointers that were
+        // on the next element and putting them on the previous element.
+
+        bool line_back;
+        if (back == ARR_LAST(array)) // !!! review tail newline handling
+            line_back = GET_SER_FLAG(array, ARRAY_FLAG_TAIL_NEWLINE);
+        else
+            line_back = GET_VAL_FLAG(back + 1, VALUE_FLAG_NEWLINE_BEFORE);
+
+        for (len /= 2; len > 0; --len, ++front, --back) {
+            bool line_front = GET_VAL_FLAG(
+                front + 1,
+                VALUE_FLAG_NEWLINE_BEFORE
+            );
+
+            RELVAL temp;
+            temp.header = front->header;
+            temp.extra = front->extra;
+            temp.payload = front->payload;
+
+            // When we move the back cell to the front position, it gets the
+            // newline flag based on the flag state that was *after* it.
             //
-            // RELVAL bits may be copied from slots within the same array
+            Blit_Cell(front, back);
+            if (line_back)
+                SET_VAL_FLAG(front, VALUE_FLAG_NEWLINE_BEFORE);
+            else
+                CLEAR_VAL_FLAG(front, VALUE_FLAG_NEWLINE_BEFORE);
+
+            // We're pushing the back pointer toward the front, so the flag
+            // that was on the back will be the after for the next blit.
             //
-            RELVAL *front = VAL_ARRAY_AT(value);
-            RELVAL *back = front + len - 1;
-            for (len /= 2; len > 0; --len, ++front, --back) {
-                RELVAL temp;
-                temp.header = front->header;
-                temp.payload = front->payload;
-                temp.extra = front->extra;
-                Blit_Cell(front, back);
-                Blit_Cell(back, &temp);
-            }
+            line_back = GET_VAL_FLAG(back, VALUE_FLAG_NEWLINE_BEFORE);
+            Blit_Cell(back, &temp);
+            if (line_front)
+                SET_VAL_FLAG(back, VALUE_FLAG_NEWLINE_BEFORE);
+            else
+                CLEAR_VAL_FLAG(back, VALUE_FLAG_NEWLINE_BEFORE);
         }
+
         RETURN (D_ARG(1));
     }
 
