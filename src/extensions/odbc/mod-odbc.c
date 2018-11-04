@@ -146,7 +146,7 @@ REBCTX *Error_ODBC(SQLSMALLINT handleType, SQLHANDLE handle) {
         rebRelease(temp);
     }
 
-    return Error(RE_USER, string, rebEND);
+    return Error(SYM_0, SYM_0, string, rebEND);
 }
 
 #define Error_ODBC_Stmt(hstmt) \

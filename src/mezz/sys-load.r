@@ -524,8 +524,6 @@ load-ext-module: function [
         [binary!]
     cfuncs "Native function implementation array"
         [handle!]
-    error-base "error base for the module" ;; !!! Deprecated, will be deleted
-        [integer! blank!]
     /unloadable
     /no-lib
     /no-user
@@ -535,14 +533,6 @@ load-ext-module: function [
 
     mod: make module! (length of code) / 2
     set-meta mod hdr
-    if errors: try find code to set-word! 'errors [
-        eo: construct make object! [
-            code: error-base
-            type: lowercase spaced [hdr/name "error"]
-        ] second errors
-        append system/catalog/errors reduce [to set-word! hdr/name eo]
-        remove/part errors 2
-    ]
 
     bind/only/set code mod
     bind hdr/exports mod
@@ -1075,11 +1065,10 @@ load-extension: function [
     ext/script: 'done ;-- clear the startup script to save memory
     ext/header: take code
 
-    ext/modules: map-each [spec cfuncs error-base] ext/modules [
+    ext/modules: map-each [spec cfuncs] ext/modules [
         apply 'load-ext-module [
             source: gunzip spec
             cfuncs: cfuncs
-            error-base: error-base
             unloadable: true
             no-user: no-user
             no-lib: no-lib

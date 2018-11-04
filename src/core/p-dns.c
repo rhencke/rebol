@@ -112,7 +112,7 @@ static const REBVAL *DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 sock->common.data = VAL_BIN_HEAD(arg);
         }
         else
-            fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
+            fail (Error_On_Port(SYM_INVALID_SPEC, port, -10));
 
         OS_DO_DEVICE_SYNC(sock, RDC_READ);
 
@@ -121,7 +121,7 @@ static const REBVAL *DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
     case SYM_PICK: { // FIRST - return result
         if (not (sock->flags & RRF_OPEN))
-            fail (Error_On_Port(RE_NOT_OPEN, port, -12));
+            fail (Error_On_Port(SYM_NOT_OPEN, port, -12));
 
      pick:
         len = Get_Num_From_Arg(arg); // Position

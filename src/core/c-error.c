@@ -352,81 +352,39 @@ REBCNT Stack_Depth(void)
 
 
 //
-//  Find_Error_For_Code: C
+//  Find_Error_For_Sym: C
 //
-// Find the id word, the error type (category) word, and the error
-// message template block-or-string for a given error number.
+// This scans the data which is loaded into the boot file from %errors.r.
+// It finds the error type (category) word, and the error message template
+// block-or-string for a given error ID.
 //
-// This scans the data which is loaded into the boot file by
-// processing %errors.r
+// This once used numeric error IDs.  Now that the IDs are symbol-based, a
+// linear search has to be used...though a MAP! could/should be used.
 //
-// If the message is not found, return NULL.  Will not write to
-// `id_out` or `type_out` unless returning a non-NULL pointer.
+// If the message is not found, return nullptr.
 //
-const REBVAL *Find_Error_For_Code(REBVAL *id_out, REBVAL *type_out, REBCNT code)
+const REBVAL *Find_Error_For_Sym(enum Reb_Symbol id_sym)
 {
-    REBCNT n;
+    REBSTR *id_canon = Canon(id_sym);
 
-    // See %errors.r for the list of data which is loaded into the boot
-    // file as objects for the "error catalog"
-    //
     REBCTX *categories = VAL_CONTEXT(Get_System(SYS_CATALOG, CAT_ERRORS));
     assert(CTX_KEY_SYM(categories, 1) == SYM_SELF);
 
-    // Find the correct catalog category
-    n = code / RE_CATEGORY_SIZE; // 0 for Special, 1 for Internal...
-    if (SELFISH(n + 1) > CTX_LEN(categories)) // 1-based, not 0 based
-        return NULL;
+    REBCNT ncat = SELFISH(1);
+    for (; ncat <= CTX_LEN(categories); ++ncat) {
+        REBCTX *category = VAL_CONTEXT(CTX_VAR(categories, ncat));
 
-    // Get context of object representing the elements of the category itself
-    if (not IS_OBJECT(CTX_VAR(categories, SELFISH(n + 1)))) {
-        assert(false);
-        return NULL;
+        REBCNT n = SELFISH(1);
+        for (; n <= CTX_LEN(category); ++n) {
+            if (SAME_STR(CTX_KEY_SPELLING(category, n), id_canon)) {
+                REBVAL *message = CTX_VAR(category, n);
+                assert(IS_BLOCK(message) or IS_TEXT(message));
+                return message;
+            }
+        }
     }
 
-    REBCTX *category = VAL_CONTEXT(CTX_VAR(categories, SELFISH(n + 1)));
-    assert(CTX_KEY_SYM(category, 1) == SYM_SELF);
-
-    // Find the correct template in the catalog category (see %errors.r)
-    n = code % RE_CATEGORY_SIZE; // 0-based order within category
-    if (SELFISH(n + 2) > CTX_LEN(category)) // 1-based (CODE: TYPE:)
-        return NULL;
-
-    // Sanity check CODE: field of category object
-    if (not IS_INTEGER(CTX_VAR(category, SELFISH(1)))) {
-        assert(false);
-        return NULL;
-    }
-    assert(
-        (code / RE_CATEGORY_SIZE) * RE_CATEGORY_SIZE
-        == cast(REBCNT, VAL_INT32(CTX_VAR(category, SELFISH(1))))
-    );
-
-    // Sanity check TYPE: field of category object
-    // !!! Same spelling as what we set in VAL_WORD_SYM(type_out))?
-    if (not IS_TEXT(CTX_VAR(category, SELFISH(2)))) {
-        assert(false);
-        return NULL;
-    }
-
-    REBVAL *message = CTX_VAR(category, SELFISH(n + 3));
-
-    // Error message template must be string or block
-    assert(IS_BLOCK(message) or IS_TEXT(message));
-
-    // Success! Write category word from the category list context key sym,
-    // and specific error ID word from the context key sym within category
-    //
-    Init_Word(
-        type_out,
-        CTX_KEY_SPELLING(categories, SELFISH((code / RE_CATEGORY_SIZE) + 1))
-    );
-    Init_Word(
-        id_out,
-        CTX_KEY_SPELLING(category, SELFISH((code % RE_CATEGORY_SIZE) + 3))
-    );
-
-    return message;
+    return nullptr;
 }
 
 
@@ -592,7 +550,6 @@ bool Make_Error_Object_Throws(
         error = Copy_Context_Shallow_Managed(root_error);
 
         vars = ERR_VARS(error);
-        assert(IS_BLANK(&vars->code));
         assert(IS_BLANK(&vars->type));
         assert(IS_BLANK(&vars->id));
 
@@ -610,60 +567,12 @@ bool Make_Error_Object_Throws(
     // traffic cones to make it easy to pick and choose what parts to excise
     // or tighten in an error enhancement upgrade.
 
-    if (IS_INTEGER(&vars->code)) {
-        assert(VAL_INT32(&vars->code) != RE_USER); // not real code, use blank
-
-        // Users can make up anything for error codes allocated to them,
-        // but Rebol's historical default is to "own" error codes less
-        // than RE_USER.  If a code is used in the sub-RE_USER range then
-        // make sure any id or type provided do not conflict.
-
-        if (not IS_BLANK(&vars->message)) // assume a MESSAGE: is wrong
-            fail (Error_Invalid_Error_Raw(arg));
-
-        DECLARE_LOCAL (id);
-        DECLARE_LOCAL (type);
-        const REBVAL *message = Find_Error_For_Code(
-            id,
-            type,
-            cast(REBCNT, VAL_INT32(&vars->code))
-        );
-
-        if (message == NULL)
-            fail (Error_Invalid_Error_Raw(arg));
-
-        Move_Value(&vars->message, message);
-
-        if (!IS_BLANK(&vars->id)) {
-            if (
-                not IS_WORD(&vars->id)
-                or VAL_WORD_CANON(&vars->id) != VAL_WORD_CANON(id)
-            ){
-                fail (Error_Invalid_Error_Raw(arg));
-            }
-        }
-        Move_Value(&vars->id, id); // binding and case normalized
-
-        if (not IS_BLANK(&vars->type)) {
-            if (
-                not IS_WORD(&vars->id)
-                or VAL_WORD_CANON(&vars->type) != VAL_WORD_CANON(type)
-            ){
-                fail (Error_Invalid_Error_Raw(arg));
-            }
-        }
-        Move_Value(&vars->type, type); // binding and case normalized
-
-        // !!! TBD: Check that all arguments were provided!
-    }
-    else if (IS_WORD(&vars->type) and IS_WORD(&vars->id)) {
+    if (IS_WORD(&vars->type) and IS_WORD(&vars->id)) {
         // If there was no CODE: supplied but there was a TYPE: and ID: then
         // this may overlap a combination used by Rebol where we wish to
         // fill in the code.  (No fast lookup for this, must search.)
 
         REBCTX *categories = VAL_CONTEXT(Get_System(SYS_CATALOG, CAT_ERRORS));
-
-        assert(IS_BLANK(&vars->code));
 
         // Find correct category for TYPE: (if any)
         REBVAL *category
@@ -672,15 +581,6 @@ bool Make_Error_Object_Throws(
         if (category) {
             assert(IS_OBJECT(category));
             assert(CTX_KEY_SYM(VAL_CONTEXT(category), 1) == SYM_SELF);
-            assert(CTX_KEY_SYM(VAL_CONTEXT(category), SELFISH(1)) == SYM_CODE);
-            assert(IS_INTEGER(VAL_CONTEXT_VAR(category, SELFISH(1))));
-
-            REBCNT code = cast(REBCNT,
-                VAL_INT32(VAL_CONTEXT_VAR(category, SELFISH(1)))
-            );
-
-            assert(CTX_KEY_SYM(VAL_CONTEXT(category), SELFISH(2)) == SYM_TYPE);
-            assert(IS_TEXT(VAL_CONTEXT_VAR(category, SELFISH(2))));
 
             // Find correct message for ID: (if any)
 
@@ -695,15 +595,6 @@ bool Make_Error_Object_Throws(
                     fail (Error_Invalid_Error_Raw(arg));
 
                 Move_Value(&vars->message, message);
-
-                Init_Integer(&vars->code,
-                    code
-                    + Find_Canon_In_Context(
-                        error, VAL_WORD_CANON(&vars->id), false
-                    )
-                    - Find_Canon_In_Context(error, Canon(SYM_TYPE), false)
-                    - 1
-                );
             }
             else {
                 // At the moment, we don't let the user make a user-ID'd
@@ -720,31 +611,20 @@ bool Make_Error_Object_Throws(
 
                 fail (Error_Invalid_Error_Raw(CTX_ARCHETYPE(error)));
             }
-            assert(IS_INTEGER(&vars->code));
         }
         else {
             // The type and category picked did not overlap any existing one
-            // so let it be a user error.
-            //
-            assert(IS_BLANK(&vars->code));
-            Init_Blank(&vars->code);
+            // so let it be a user error (?)
         }
     }
     else {
-        // It's either a user-created error or otherwise.  It may
-        // have bad ID, TYPE, or message fields, or a completely
-        // strange code #.  The question of how non-standard to
+        // It's either a user-created error or otherwise.  It may have bad ID,
+        // TYPE, or message fields.  The question of how non-standard to
         // tolerate is an open one.
 
-        // For now we just write blank into the error code field, if that was
-        // not already there.
-
-        if (not IS_BLANK(&vars->code))
-            fail (Error_Invalid_Error_Raw(CTX_ARCHETYPE(error)));
-
-        // !!! Because we will experience crashes in the molding logic,
-        // we put some level of requirement besides "code # not 0".
-        // This is conservative logic and not good for general purposes.
+        // !!! Because we will experience crashes in the molding logic, we put
+        // some level of requirements.  This is conservative logic and not
+        // good for general purposes.
 
         if (not (
             (IS_WORD(&vars->id) or IS_BLANK(&vars->id))
@@ -780,22 +660,23 @@ bool Make_Error_Object_Throws(
 // %errors.r has not been loaded).  Hence the caller can assume it will
 // regain control to properly call va_end with no longjmp to skip it.
 //
-REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
-{
-    assert(code != 0);
-
+REBCTX *Make_Error_Managed_Core(
+    enum Reb_Symbol cat_sym,
+    enum Reb_Symbol id_sym,
+    va_list *vaptr
+){
     if (PG_Boot_Phase < BOOT_ERRORS) { // no STD_ERROR or template table yet
-    #if !defined(NDEBUG)
+      #if !defined(NDEBUG)
         printf(
-            "fail() before object table initialized, code = %d\n",
-            cast(int, code)
+            "fail() before errors initialized, cat_sym = %d, id_sym = %d\n",
+            cast(int, cat_sym),
+            cast(int, id_sym)
         );
-    #endif
+      #endif
 
-        DECLARE_LOCAL (code_value);
-        Init_Integer(code_value, code);
-
-        panic (code_value);
+        DECLARE_LOCAL (id_value);
+        Init_Integer(id_value, cast(int, id_sym));
+        panic (id_value);
     }
 
     REBCTX *root_error = VAL_CONTEXT(Get_System(SYS_STANDARD, STD_ERROR));
@@ -803,15 +684,24 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
     DECLARE_LOCAL (id);
     DECLARE_LOCAL (type);
     const REBVAL *message;
-    if (code == RE_USER) {
+    if (cat_sym == SYM_0 and id_sym == SYM_0) {
         Init_Blank(id);
         Init_Blank(type);
         message = va_arg(*vaptr, const REBVAL*);
     }
-    else
-        message = Find_Error_For_Code(id, type, code);
+    else {
+        assert(cat_sym != SYM_0 and id_sym != SYM_0);
+        Init_Word(type, Canon(cat_sym));
+        Init_Word(id, Canon(id_sym));
 
-    assert(message != NULL);
+        // Assume that error IDs are unique across categories (this is checked
+        // by %make-boot.r).  If they were not, then this linear search could
+        // not be used.
+        //
+        message = Find_Error_For_Sym(id_sym);
+    }
+
+    assert(message);
 
     REBCNT expected_args = 0;
     if (IS_BLOCK(message)) { // GET-WORD!s in template should match va_list
@@ -927,11 +817,6 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
     //
     ERROR_VARS *vars = ERR_VARS(error);
 
-    if (code == RE_USER)
-        assert(IS_BLANK(&vars->code)); // no error number
-    else
-        Init_Integer(&vars->code, code);
-
     Move_Value(&vars->message, message);
     Move_Value(&vars->id, id);
     Move_Value(&vars->type, type);
@@ -945,9 +830,9 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
 //  Error: C
 //
 // This variadic function takes a number of REBVAL* arguments appropriate for
-// the error number passed.  It is commonly used with fail():
+// the error category and ID passed.  It is commonly used with fail():
 //
-//     fail (Error(RE_SOMETHING, arg1, arg2, ...));
+//     fail (Error(SYM_CATEGORY, SYM_SOMETHING, arg1, arg2, ...));
 //
 // Note that in C, variadic functions don't know how many arguments they were
 // passed.  Make_Error_Managed_Core() knows how many arguments are in an
@@ -962,21 +847,25 @@ REBCTX *Make_Error_Managed_Core(REBCNT code, va_list *vaptr)
 //
 //     fail (Error_Something(arg1, thing_processed_to_make_arg2));
 //
-// But to make variadic calls *slightly* safer, a caller can pass rebEND
-// after the last argument for a double-check that won't try reading invalid
-// memory if too few arguments are given:
-//
-//     fail (Error(RE_SOMETHING, arg1, arg2, rebEND));
-//
-REBCTX *Error(REBCNT num, ... /* REBVAL *arg1, REBVAL *arg2, ... */)
-{
+REBCTX *Error(
+    int cat_sym,
+    int id_sym, // can't be enum Reb_Symbol, see note below
+    ... /* REBVAL *arg1, REBVAL *arg2, ... */
+){
     va_list va;
-    REBCTX *error;
 
-    va_start(va, num);
-    error = Make_Error_Managed_Core(num, &va);
+    // Note: if id_sym is enum, triggers: "passing an object that undergoes
+    // default argument promotion to 'va_start' has undefined behavior"
+    //
+    va_start(va, id_sym);
+
+    REBCTX *error = Make_Error_Managed_Core(
+        cast(enum Reb_Symbol, cat_sym),
+        cast(enum Reb_Symbol, id_sym),
+        &va
+    );
+
     va_end(va);
-
     return error;
 }
 
@@ -991,7 +880,7 @@ REBCTX *Error(REBCNT num, ... /* REBVAL *arg1, REBVAL *arg2, ... */)
 REBCTX *Error_User(const char *utf8) {
     DECLARE_LOCAL (message);
     Init_Text(message, Make_String_UTF8(utf8));
-    return Error(RE_USER, message, rebEND);
+    return Error(SYM_0, SYM_0, message, rebEND);
 }
 
 
@@ -1364,7 +1253,7 @@ REBCTX *Error_Cannot_Reflect(enum Reb_Kind type, const REBVAL *arg)
 //
 //  Error_On_Port: C
 //
-REBCTX *Error_On_Port(REBCNT errnum, REBVAL *port, REBINT err_code)
+REBCTX *Error_On_Port(enum Reb_Symbol id_sym, REBVAL *port, REBINT err_code)
 {
     FAIL_IF_BAD_PORT(port);
 
@@ -1378,7 +1267,7 @@ REBCTX *Error_On_Port(REBCNT errnum, REBVAL *port, REBINT err_code)
     DECLARE_LOCAL (err_code_value);
     Init_Integer(err_code_value, err_code);
 
-    return Error(errnum, val, err_code_value, rebEND);
+    return Error(SYM_ACCESS, id_sym, val, err_code_value, rebEND);
 }
 
 
@@ -1488,7 +1377,7 @@ const REBYTE *Security_Policy(REBSTR *spelling, const REBVAL *name)
     const REBVAL *policy = Get_System(SYS_STATE, STATE_POLICIES);
     const REBYTE *flags;
     REBCNT len;
-    REBCNT errcode = RE_SECURITY_ERROR;
+    enum Reb_Symbol errcode = SYM_SECURITY_ERROR;
 
     if (!IS_OBJECT(policy)) goto error;
 
@@ -1535,7 +1424,7 @@ const REBYTE *Security_Policy(REBSTR *spelling, const REBVAL *name)
     }
 
     if (!flags) {
-        errcode = RE_SECURITY;
+        errcode = SYM_SECURITY;
         policy = name ? name : 0;
 
     error:
@@ -1545,7 +1434,7 @@ const REBYTE *Security_Policy(REBSTR *spelling, const REBVAL *name)
             Init_Word(temp, spelling);
             policy = temp;
         }
-        fail (Error(errcode, policy));
+        fail (Error(SYM_SECURITY, errcode, policy));
     }
 
     return flags;
@@ -1583,20 +1472,6 @@ void Check_Security(REBSTR *sym, REBCNT policy, REBVAL *value)
 {
     const REBYTE *flags = Security_Policy(sym, value);
     Trap_Security(flags[policy], sym, value);
-}
-
-
-//
-//  Find_Next_Error_Base_Code: C
-//
-// Find in system/catalog/errors the next error base (used by extensions)
-//
-REBINT Find_Next_Error_Base_Code(void)
-{
-    REBCTX * categories = VAL_CONTEXT(Get_System(SYS_CATALOG, CAT_ERRORS));
-    if (CTX_LEN(categories) > RE_USER / RE_CATEGORY_SIZE)
-        fail (Error_Out_Of_Error_Numbers_Raw());
-    return (CTX_LEN(categories) - 1) * RE_CATEGORY_SIZE;
 }
 
 

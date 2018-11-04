@@ -35,19 +35,9 @@ config: config-system try get 'args/OS_ID
 
 first-rebol-commit: "19d4f969b4f5c1536f24b023991ec11ee6d5adfb"
 
-either args/GIT_COMMIT = "unknown" [
-    ;
-    ; !!! If we used blank here, then R3-Alpha would render it as the word
-    ; "none" which is not defined during the execution of %sysobj.r, so by
-    ; using '_ it will act as a WORD! in R3-Alpha, and render as _.
-    ;
-    ; 
-    git-commit: either word? first [_] [
-        '_ ;-- R3-Alpha is being used for bootstrap
-    ][
-        _ ;-- Ren-C is being used for bootstrap
-    ]
-][
+if args/GIT_COMMIT = "unknown" [
+    git-commit: _
+] else [
     git-commit: args/GIT_COMMIT
     if (length of git-commit) != (length of first-rebol-commit) [
         print ["GIT_COMMIT should be a full hash, e.g." first-rebol-commit]
@@ -128,6 +118,40 @@ build: context [features: [help-strings]]
 ;init-build-objects/platform platform
 ;platform-data: platforms/:platform
 ;build: platform-data/builds/:product
+
+
+;----------------------------------------------------------------------------
+;
+; %tmp-symbols.h - Symbol Numbers
+;
+;----------------------------------------------------------------------------
+
+e-symbols: make-emitter "Symbol Numbers" inc/tmp-symbols.h
+
+syms: copy []
+sym-n: 1
+
+boot-words: copy []
+add-sym: function [
+    {Add SYM_XXX to enumeration}
+    return: [<opt> integer!]
+    word [word!]
+    /exists "return ID of existing SYM_XXX constant if already exists"
+    <with> sym-n
+][
+    if pos: try find boot-words word [
+        if exists [return index of pos]
+        fail ["Duplicate word specified" word]
+    ]
+
+    append syms cscape/with {/* $<Word> */ SYM_${WORD} = $<sym-n>} [sym-n word]
+    sym-n: sym-n + 1
+
+    append boot-words word
+    return null
+]
+
+; Several different sections add to the symbol constants, types are first...
 
 
 type-table: load %types.r
@@ -240,7 +264,7 @@ e-dispatch/emit {
      * VALUE DISPATCHERS: e.g. for `append value x` or `select value y`
      */
     REBTAF Value_Dispatch[REB_MAX] = {
-        NULL, /* REB_0 */
+        nullptr, /* REB_0 */
         $(Tafs),
     };
 
@@ -248,7 +272,7 @@ e-dispatch/emit {
      * PATH DISPATCHERS: for `a/b`, `:a/b`, `a/b:`, `pick a b`, `poke a b`
      */
     REBPEF Path_Dispatch[REB_MAX] = {
-        NULL, /* REB_0 */
+        nullptr, /* REB_0 */
         $(Pds),
     };
 
@@ -256,7 +280,7 @@ e-dispatch/emit {
      * MAKE DISPATCHERS: for `make datatype def`
      */
     MAKE_CFUNC Make_Dispatch[REB_MAX] = {
-        NULL, /* REB_0 */
+        nullptr, /* REB_0 */
         $(Makes),
     };
 
@@ -264,7 +288,7 @@ e-dispatch/emit {
      * TO DISPATCHERS: for `to datatype value`
      */
     TO_CFUNC To_Dispatch[REB_MAX] = {
-        NULL, /* REB_0 */
+        nullptr, /* REB_0 */
         $(Tos),
     };
 
@@ -272,7 +296,7 @@ e-dispatch/emit {
      * MOLD DISPATCHERS: for `mold value`
      */
     MOLD_CFUNC Mold_Or_Form_Dispatch[REB_MAX] = {
-        NULL, /* REB_0 */
+        nullptr, /* REB_0 */
         $(Mfs),
     };
 
@@ -280,7 +304,7 @@ e-dispatch/emit {
      * COMPARISON DISPATCHERS, to support GREATER?, EQUAL?, LESSER?...
      */
     REBCTF Compare_Types[REB_MAX] = {
-        NULL, /* REB_0 */
+        nullptr, /* REB_0 */
         $(Cts),
     };
 }
@@ -303,9 +327,15 @@ rebs: collect [
         ensure word! t/name
         ensure word! t/class
 
+        assert [sym-n == n] ;-- SYM_XXX should equal REB_XXX value
+        add-sym to-word unspaced [ensure word! t/name "!"]
         keep cscape/with {REB_${T/NAME} = $<n>} [n t]
         n: n + 1
     ]
+]
+
+for-each-record t type-table [
+    
 ]
 
 e-types/emit {
@@ -447,79 +477,29 @@ e-version/emit newline
 e-version/write-emitted
 
 
-;----------------------------------------------------------------------------
-;
-; %tmp-symbols.h - Symbol Numbers
-;
-;----------------------------------------------------------------------------
 
-e-symbols: make-emitter "Symbol Numbers" inc/tmp-symbols.h
+;-- Add SYM_XXX constants for the words in %words.r
 
-syms: collect [
-    n: 1
+wordlist: load %words.r
+replace wordlist '*port-modes* load %modes.r
+for-each word wordlist [add-sym word]
 
-    boot-words: copy [] ;-- MAP! in R3-Alpha is unreliable
-    add-word: func [
-        word
-        /skip-if-duplicate
-    ][
-        if find boot-words word [
-            if skip-if-duplicate [return blank]
-            fail ["Duplicate word specified" word]
-        ]
 
-        keep cscape/with {/* $<Word> */ SYM_${WORD} = $<n>} [n word]
-        n: n + 1
+;-- Add SYM_XXX constants for generics (e.g. SYM_APPEND, etc.)
+;-- This allows C switch() statements to process them efficiently
 
-        append boot-words word
-        return blank
-    ]
+first-generic-sym: sym-n
 
-    for-each-record t type-table [
-        add-word to-word unspaced [ensure word! t/name "!"]
-    ]
-
-    wordlist: load %words.r
-    replace wordlist '*port-modes* load %modes.r
-
-    for-each word wordlist [add-word word]
-
-    boot-generics: load boot/tmp-generics.r
-    for-each item boot-generics [
-        if set-word? :item [
-            add-word/skip-if-duplicate to-word item ;-- maybe in %words.r
+boot-generics: load boot/tmp-generics.r
+for-each item boot-generics [
+    if set-word? :item [
+        if first-generic-sym < (add-sym/exists to-word item else [0]) [
+            fail ["Duplicate generic found:" item]
         ]
     ]
 ]
 
-e-symbols/emit {
-    /*
-     * CONSTANTS FOR BUILT-IN SYMBOLS: e.g. SYM_THRU or SYM_INTEGER_X
-     *
-     * ANY-WORD! uses internings of UTF-8 character strings.  An arbitrary
-     * number of these are created at runtime, and can be garbage collected
-     * when no longer in use.  But a pre-determined set of internings are
-     * assigned small integer "SYM" compile-time-constants, to be used in
-     * switch() for efficiency in the core.
-     *
-     * Datatypes are given symbol numbers at the start of the list, so that
-     * their SYM_XXX values will be identical to their REB_XXX values.
-     *
-     * Note: SYM_0 is not a symbol of the string "0".  It's the "SYM" constant
-     * that is returned for any interning that *does not have* a compile-time
-     * constant assigned to it.  Since VAL_WORD_SYM() will return SYM_0 for
-     * all user (and extension) defined words, don't try to check equality
-     * with `VAL_WORD_SYM(word1) == VAL_WORD_SYM(word2)`.
-     */
-    enum REBOL_Symbols {
-        SYM_0 = 0,
-        $(Syms),
-    };
-}
 
-print [n "words + generics"]
-
-e-symbols/write-emitted
 
 ;----------------------------------------------------------------------------
 ;
@@ -648,7 +628,7 @@ e-event/write-emitted
 
 ;-- Error Structure ----------------------------------------------------------
 
-e-errnums: make-emitter "Error Structure and Constants" inc/tmp-errnums.h
+e-errfuncs: make-emitter "Error structure and functions" inc/tmp-error-funcs.h
 
 fields: collect [
     keep {RELVAL self}
@@ -661,7 +641,7 @@ fields: collect [
     ]
 ]
 
-e-errnums/emit {
+e-errfuncs/emit {
     /*
      * STANDARD ERROR STRUCTURE
      */
@@ -670,114 +650,74 @@ e-errnums/emit {
     } ERROR_VARS;
 }
 
-res: collect [
-    boot-errors: load %errors.r
-
-    id-list: make block! 200
-
-    for-each [category info] boot-errors [
-        all [
-            (quote code:) == info/1
-            integer? info/2
-            (quote type:) == info/3
-            text? info/4
-        ] or [
-            fail ["%errors.r" category "not [code: INTEGER! type: TEXT! ...]"]
-        ]
-
-        code: info/2
-
-        new-section: true
-        for-each [key val] skip info 4 [
-            if not set-word? key [
-                fail ["Non SET-WORD! key in %errors.r:" key]
-            ]
-
-            id: to-word key
-            if find (extract id-list 2) id [
-                fail ["DUPLICATE id in %errors.r:" id]
-            ]
-
-            append id-list reduce [id val]
-
-            if new-section [
-                keep cscape/with
-                    {/* $<mold val> */ RE_${ID} = $<code>} [code id val]
-                new-section: false
-            ] else [
-                keep cscape/with {/* $<mold val> */ RE_${ID}} [id val]
-            ]
-
-            code: code + 1
-        ]
-    ]
-]
-
-e-errnums/emit {
-    enum REBOL_Errors {
-        $(Res),
-    };
-
-    #define RE_USER INT32_MAX /* Hardcoded, update in %make-boot.r */
-    #define RE_CATEGORY_SIZE 1000 /* Hardcoded, update in %make-boot.r */
-}
-
-e-errnums/write-emitted
-
-;-------------------------------------------------------------------------
-
-e-errfuncs: make-emitter "Error functions" inc/tmp-error-funcs.h
-
 e-errfuncs/emit {
     /*
      * The variadic Error() function must be passed the exact right number of
      * fully resolved REBVAL* that the error spec specifies.  This is easy
-     * to get wrong in C, since variadics aren't checked.
+     * to get wrong in C, since variadics aren't checked.  Also, the category
+     * symbol needs to be right for the error ID.
      * 
      * These are inline function stubs made for each "raw" error in %errors.r.
-     * They that should not add overhead in release builds, but help catch
-     * mistakes at compile time.
+     * They shouldn't add overhead in release builds, but help catch mistakes
+     * at compile time.
      */
 }
 
-for-each [id val] id-list [
-    ;
-    ; Errors can be no-arg TEXT!, or a BLOCK! with N GET-WORD! substitutions
-    ;
-    arity: 0
-    if block? val [
-        parse val [
-            any [get-word! (arity: arity + 1) | skip]
-        ]
-    ]
+first-error-sym: sym-n
 
-    ; Camel Case and make legal for C (e.g. "not-found*" => "Not_Found_P")
-    ;
-    f-name: uppercase/part to-c-name id 1
-    parse f-name [
-        any [#"_" w: (uppercase/part w 1) | skip]
-    ]
+boot-errors: load %errors.r
 
-    if arity = 0 [
-        params: ["void"] ;-- In C, f(void) has a distinct meaning from f()
-        args: ["rebEND"]
-    ] else [
-        params: collect [
-            repeat i arity [keep unspaced ["const REBVAL *arg" i]]
-        ]
-        args: collect [
-            repeat i arity [keep unspaced ["arg" i]]
-            keep "rebEND"
-        ]
-    ]
+for-each [sw-cat list] boot-errors [
+    cat: to word! ensure set-word! sw-cat
+    ensure block! list
 
-    e-errfuncs/emit [f-name params id args val] {
-        /* $<Mold Val> */
-        static inline REBCTX *Error_${F-Name}_Raw($<Delimit Params ", ">) {
-            return Error(RE_${ID}, $<Delimit Args ", ">);
+    add-sym to word! cat ;-- category might incidentally exist as SYM_XXX
+
+    for-each [sw-id t-message] list [
+        id: to word! ensure set-word! sw-id
+        message: t-message
+
+        ;-- Add a SYM_XXX constant for the error's ID word
+
+        if first-error-sym < (add-sym/exists id else [0]) [
+            fail ["Duplicate error ID found:" id]
+        ]
+
+        arity: 0
+        if block? message [ ;-- can have N GET-WORD! substitution slots
+            parse message [any [get-word! (arity: arity + 1) | skip]]
+        ] else [
+            ensure text! message ;-- textual message, no arguments
+        ]
+
+        ; Camel Case and make legal for C (e.g. "not-found*" => "Not_Found_P")
+        ;
+        f-name: uppercase/part to-c-name id 1
+        parse f-name [
+            any ["_" w: (uppercase/part w 1) | skip]
+        ]
+
+        if arity = 0 [
+            params: ["void"] ;-- In C, f(void) has a distinct meaning from f()
+            args: ["rebEND"]
+        ] else [
+            params: collect [
+                repeat i arity [keep unspaced ["const REBVAL *arg" i]]
+            ]
+            args: collect [
+                repeat i arity [keep unspaced ["arg" i]]
+                keep "rebEND"
+            ]
+        ]
+
+        e-errfuncs/emit [message cat id f-name params args] {
+            /* $<Mold Message> */
+            static inline REBCTX *Error_${F-Name}_Raw($<Delimit Params ", ">) {
+                return Error(SYM_${CAT}, SYM_${ID}, $<Delimit Args ", ">);
+            }
         }
-    }
-    e-errfuncs/emit newline
+        e-errfuncs/emit newline
+    ]
 ]
 
 e-errfuncs/write-emitted
@@ -964,3 +904,45 @@ e-boot/emit {
 ;-------------------
 
 e-boot/write-emitted
+
+
+;-----------------------------------------------------------------------------
+; EMIT SYMBOLS
+;-----------------------------------------------------------------------------
+
+e-symbols/emit {
+    /*
+     * CONSTANTS FOR BUILT-IN SYMBOLS: e.g. SYM_THRU or SYM_INTEGER_X
+     *
+     * ANY-WORD! uses internings of UTF-8 character strings.  An arbitrary
+     * number of these are created at runtime, and can be garbage collected
+     * when no longer in use.  But a pre-determined set of internings are
+     * assigned small integer "SYM" compile-time-constants, to be used in
+     * switch() for efficiency in the core.
+     *
+     * Datatypes are given symbol numbers at the start of the list, so that
+     * their SYM_XXX values will be identical to their REB_XXX values.
+     *
+     * The file %words.r contains a list of spellings that are given ID
+     * numbers recognized by the core.
+     *
+     * Errors raised by the core are identified by the symbol number of their
+     * ID (there are no fixed-integer values for these errors as R3-Alpha
+     * tried to do with RE_XXX numbers, which fluctuated and were of dubious
+     * benefit when symbol comparison is available).
+     *
+     * Note: SYM_0 is not a symbol of the string "0".  It's the "SYM" constant
+     * that is returned for any interning that *does not have* a compile-time
+     * constant assigned to it.  Since VAL_WORD_SYM() will return SYM_0 for
+     * all user (and extension) defined words, don't try to check equality
+     * with `VAL_WORD_SYM(word1) == VAL_WORD_SYM(word2)`.
+     */
+    enum Reb_Symbol {
+        SYM_0 = 0,
+        $(Syms),
+    };
+}
+
+print [n "words + generics + errors"]
+
+e-symbols/write-emitted

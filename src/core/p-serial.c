@@ -65,7 +65,7 @@ static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             default:
                 break; }
 
-            fail (Error_On_Port(RE_NOT_OPEN, port, -12)); }
+            fail (Error_On_Port(SYM_NOT_OPEN, port, -12)); }
 
         case SYM_OPEN: {
             REBVAL *serial_path = Obj_Value(spec, STD_PORT_SPEC_SERIAL_PATH);
@@ -156,7 +156,7 @@ static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             RETURN (port);
 
         default:
-            fail (Error_On_Port(RE_NOT_OPEN, port, -12));
+            fail (Error_On_Port(SYM_NOT_OPEN, port, -12));
         }
     }
 

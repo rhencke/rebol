@@ -1469,7 +1469,7 @@ void Startup_Core(void)
     assert(DSP == 0 and FS_TOP == FS_BOTTOM);
 
     REBVAL *error = rebRescue(cast(REBDNG*, &Startup_Mezzanine), boot);
-    if (error != NULL) {
+    if (error) {
         //
         // There is theoretically some level of error recovery that could
         // be done here.  e.g. the evaluator works, it just doesn't have
@@ -1485,13 +1485,7 @@ void Startup_Core(void)
         // !!! If halt cannot be handled cleanly, it should be set up so
         // that the user isn't even *able* to request a halt at this boot
         // phase.
-
-      #ifdef RETURN_ERRORS_FROM_INIT_CORE
-        REBCNT err_num = VAL_ERR_NUM(error);
-        Shutdown_Core(); // In good enough state to shutdown cleanly by now
-        return err_num;
-      #endif
-
+        //
         panic (error);
     }
 

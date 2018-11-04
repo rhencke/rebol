@@ -704,7 +704,7 @@ static REBCTX *Error_Syntax(SCAN_STATE *ss) {
         )
     );
 
-    REBCTX *error = Error(RE_SCAN_INVALID, token_name, token_text, rebEND);
+    REBCTX *error = Error_Scan_Invalid_Raw(token_name, token_text);
     Update_Error_Near_For_Line(error, ss->line, ss->line_head);
     return error;
 }
@@ -724,7 +724,7 @@ static REBCTX *Error_Missing(SCAN_STATE *ss, char wanted) {
     DECLARE_LOCAL (expected);
     Init_Text(expected, Make_Series_Codepoint(wanted));
 
-    REBCTX *error = Error(RE_SCAN_MISSING, expected, rebEND);
+    REBCTX *error = Error_Scan_Missing_Raw(expected);
     Update_Error_Near_For_Line(error, ss->start_line, ss->start_line_head);
     return error;
 }
@@ -739,7 +739,7 @@ static REBCTX *Error_Extra(SCAN_STATE *ss, char seen) {
     DECLARE_LOCAL (unexpected);
     Init_Text(unexpected, Make_Series_Codepoint(seen));
 
-    REBCTX *error = Error(RE_SCAN_EXTRA, unexpected, rebEND);
+    REBCTX *error = Error_Scan_Extra_Raw(unexpected);
     Update_Error_Near_For_Line(error, ss->line, ss->line_head);
     return error;
 }
@@ -755,12 +755,7 @@ static REBCTX *Error_Extra(SCAN_STATE *ss, char seen) {
 // only pointed out the location of the start token.
 //
 static REBCTX *Error_Mismatch(SCAN_STATE *ss, char wanted, char seen) {
-    REBCTX *error = Error(
-        RE_SCAN_MISMATCH,
-        rebChar(wanted),
-        rebChar(seen),
-        rebEND
-    );
+    REBCTX *error = Error_Scan_Mismatch_Raw(rebChar(wanted), rebChar(seen));
     Update_Error_Near_For_Line(error, ss->start_line, ss->start_line_head);
     return error;
 }

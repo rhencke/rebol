@@ -399,11 +399,7 @@ void TO_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     }
 
     if (kind == REB_OBJECT) {
-        if (IS_ERROR(arg)) {
-            if (VAL_ERR_NUM(arg) < 100)
-                fail (Error_Invalid(arg));
-        }
-
+        //
         // !!! Contexts hold canon values now that are typed, this init
         // will assert--a TO conversion would thus need to copy the varlist
         //

@@ -120,7 +120,7 @@ static const REBVAL *Transport_Actor(
                 break;
             }
 
-            fail (Error_On_Port(RE_NOT_OPEN, port, -12)); }
+            fail (Error_On_Port(SYM_NOT_OPEN, port, -12)); }
 
         case SYM_OPEN: {
             REBVAL *arg = Obj_Value(spec, STD_PORT_SPEC_NET_HOST);
@@ -189,7 +189,7 @@ static const REBVAL *Transport_Actor(
                 goto open_socket_actions;
             }
             else
-                fail (Error_On_Port(RE_INVALID_SPEC, port, -10));
+                fail (Error_On_Port(SYM_INVALID_SPEC, port, -10));
             break; }
 
         case SYM_CLOSE:
@@ -199,7 +199,7 @@ static const REBVAL *Transport_Actor(
             break;
 
         default:
-            fail (Error_On_Port(RE_NOT_OPEN, port, -12));
+            fail (Error_On_Port(SYM_NOT_OPEN, port, -12));
         }
     }
 
@@ -278,7 +278,7 @@ static const REBVAL *Transport_Actor(
             not (sock->modes & RST_UDP)
             and not (sock->state & RSM_CONNECT)
         ){
-            fail (Error_On_Port(RE_NOT_CONNECTED, port, -15));
+            fail (Error_On_Port(SYM_NOT_CONNECTED, port, -15));
         }
 
         // Setup the read buffer (allocate a buffer if needed):
@@ -346,7 +346,7 @@ static const REBVAL *Transport_Actor(
             not (sock->modes & RST_UDP)
             and not (sock->state & RSM_CONNECT)
         ){
-            fail (Error_On_Port(RE_NOT_CONNECTED, port, -15));
+            fail (Error_On_Port(SYM_NOT_CONNECTED, port, -15));
         }
 
         // Determine length. Clip /PART to size of string if needed.

@@ -95,7 +95,6 @@ native-list: load unsorted-buffer
 
 native-spec: make object! [
     spec: _
-    errors: _
     platforms: _
     name: _
 ]
@@ -103,7 +102,6 @@ native-spec: make object! [
 native-specs: copy []
 
 spec: _
-errors: _
 platforms: _
 n-name: _
 n-spec: _
@@ -127,7 +125,6 @@ native-list-rule: [
                 append native-specs make native-spec compose/only [
                     name: (to lit-word! n-name)
                     spec: (copy n-spec)
-                    errors: (try copy errors)
                     platforms: (try copy platforms)
                 ]
             ]
@@ -135,13 +132,8 @@ native-list-rule: [
             n-name: w
             n-spec: spec
             spec: _
-            errors: _
             platforms: _
         )
-            |
-        remove [
-            quote new-errors: set errors block!
-        ]
             |
         remove [
             quote platforms: set platforms block!
@@ -160,14 +152,12 @@ if not blank? n-name [
     append native-specs make native-spec compose/only [
         name: (to lit-word! n-name)
         spec: (copy n-spec)
-        errors: (try copy errors)
         platforms: (try copy platforms)
     ]
 ]
 
 clear native-list
 export-list: copy []
-error-list: copy []
 num-native: 0
 for-each native native-specs [
     ;dump native
@@ -199,7 +189,6 @@ for-each native native-specs [
     if all [path? first native/spec | find first native/spec 'export] [
         append export-list to word! native/name
     ]
-    if not blank? native/errors [append error-list native/errors]
     append native-list reduce [to set-word! native/name]
     append native-list native/spec
 ]
@@ -209,11 +198,6 @@ spec: compose/deep/only [
     REBOL [
         name: (to word! m-name)
         exports: (export-list)
-    ]
-]
-if not empty? error-list [
-    append spec compose/only [
-        errors: (error-list)
     ]
 ]
 append spec native-list
@@ -258,12 +242,9 @@ either num-native = 0 [ ;-- C++ doesn't support 0-length arrays
 
 e2/emit {
     int Module_Init_${Mod}(RELVAL *out) {
-        Ext_${Mod}_Error_Base = Find_Next_Error_Base_Code();
-        assert(Ext_${Mod}_Error_Base > 0);
         REBARR *arr = Make_Extension_Module_Array(
             Ext_Native_Specs_${Mod}, EXT_NAT_COMPRESSED_SIZE_${MOD},
-            Ext_Native_C_Funcs_${Mod}, EXT_NUM_NATIVES_${MOD},
-            Ext_${Mod}_Error_Base
+            Ext_Native_C_Funcs_${Mod}, EXT_NUM_NATIVES_${MOD}
         );
         if (!IS_BLOCK(out))
             Init_Block(out, arr);
@@ -323,41 +304,5 @@ e1/emit {
         const REBVAL *N_${MOD}_##n(REBFRM *frame_)
 }
 e1/emit newline
-
-
-e1/emit {
-    /*
-    ** EXTENSION-DEFINED ERRORS
-    */
-
-    static REBINT Ext_${Mod}_Error_Base;
-}
-
-if not empty? error-list [
-    errs: collect [
-        for-each [key val] error-list [
-            if not set-word? key [
-                fail ["key (" mold key ") must be a set-word!"]
-            ]
-            key: to word! key
-            keep cscape/with {RE_EXT_ENUM_${MOD}_${KEY}} [mod key]
-        ]
-    ]
-
-    e1/emit {
-        enum Ext_${Mod}_Errors {
-            $(Errs),
-        };
-    }
-]
-
-e1/emit newline
-for-each [key val] error-list [
-    key: to-word key
-    e1/emit 'key {
-        #define RE_EXT_${MOD}_${KEY} \
-            (Ext_${Mod}_Error_Base + RE_EXT_ENUM_${MOD}_${KEY})
-    }
-]
 
 e1/write-emitted

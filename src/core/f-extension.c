@@ -275,11 +275,10 @@ REBARR *Make_Extension_Module_Array(
     const REBYTE spec[],
     REBCNT len,
     REBNAT impl[],
-    REBCNT n,
-    REBCNT error_base
+    REBCNT n
 ) {
-    // the array will be like [spec C_func error_base/none]
-    REBARR *arr = Make_Array(3);
+    // the array will be like [spec C_func]
+    REBARR *arr = Make_Array(2);
 
     Init_Binary(ARR_AT(arr, 0), Copy_Bytes(spec, len));
 
@@ -290,12 +289,7 @@ REBARR *Make_Extension_Module_Array(
         &cleanup_module_handler
     );
 
-    if (error_base == 0)
-        Init_Blank(ARR_AT(arr, 2));
-    else
-        Init_Integer(ARR_AT(arr, 2), error_base);
-
-    TERM_ARRAY_LEN(arr, 3);
+    TERM_ARRAY_LEN(arr, 2);
     return arr;
 }
 

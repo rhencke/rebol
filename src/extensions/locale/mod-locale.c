@@ -52,9 +52,6 @@
 //          Language*: Full localized primary name of the language
 //          Territory*: Full localized name of the country/region}
 //  ]
-//  new-errors: [
-//      invalid-category: [{Invalid locale category:} :arg1]
-//  ]
 //
 REBNATIVE(locale)
 //
@@ -142,8 +139,6 @@ REBNATIVE(locale)
 //      category [word!]
 //      value [text!]
 //  ]
-//  new-errors: [
-//  ]
 //
 REBNATIVE(setlocale)
 {
@@ -173,7 +168,9 @@ REBNATIVE(setlocale)
     rebRelease(map);
 
     if (cat == -1)
-        fail (Error(RE_EXT_LOCALE_INVALID_CATEGORY, ARG(category), rebEND));
+        rebJumps(
+            "fail [{Invalid locale category:}", ARG(category), "]", rebEND
+        );
 
     char *value_utf8 = rebSpell(ARG(value), rebEND);
     const char *result = setlocale(cat, value_utf8);

@@ -1901,7 +1901,7 @@ void RL_rebFail_OS(int errnum)
         REBVAL *message = rebTextW(lpMsgBuf);
         LocalFree(lpMsgBuf);
 
-        error = Error(RE_USER, message, END_NODE);
+        error = Error(SYM_0, SYM_0, message, END_NODE);
     }
   #else
     // strerror() is not thread-safe, but strerror_r is. Unfortunately, at

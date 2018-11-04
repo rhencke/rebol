@@ -172,6 +172,12 @@
 #include "reb-defs.h"
 
 
+// Small integer symbol IDs, e.g. SYM_THRU or SYM_ON, for built-in words so
+// that they can be used in C switch() statements.
+//
+#include "tmp-symbols.h"
+
+
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // #INCLUDE THE AUTO-GENERATED FUNCTION PROTOTYPES FOR THE INTERNAL API
@@ -187,12 +193,6 @@
 // See %make/make-headers.r for the generation of this list.
 //
 #include "tmp-internals.h"
-
-
-// Small integer symbol IDs, e.g. SYM_THRU or SYM_ON, for built-in words so
-// that they can be used in C switch() statements.
-//
-#include "tmp-symbols.h"
 
 
 // Rebol versioning information, basically 5 numbers for a tuple.
@@ -539,7 +539,6 @@ extern void reb_qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp);
 #include "tmp-paramlists.h"
 
 #include "tmp-boot.h"
-#include "tmp-errnums.h"
 #include "tmp-sysobj.h"
 #include "tmp-sysctx.h"
 

@@ -143,7 +143,27 @@ void Append_OS_Str(REBVAL *dest, const void *src, REBINT len)
 #define BUF_SIZE_CHUNK 4096
 
 
+ATTRIBUTE_NO_RETURN
+inline static void Fail_Permission_Denied(void) {
+    rebJumps("fail {The process does not have enough permission}", rebEND);
+}
+
+ATTRIBUTE_NO_RETURN
+inline static void Fail_No_Process(const REBVAL *arg) {
+    rebJumps("fail [{The target process (group) does not exist:}",
+        arg, "]", rebEND);
+}
+
+
 #ifdef TO_WINDOWS
+
+ATTRIBUTE_NO_RETURN
+inline static void Fail_Terminate_Failed(DWORD err) { // from GetLastError()
+    rebJumps(
+        "fail [{Terminate failed with error number:}", rebI(err), "]", rebEND
+    );
+}
+
 //
 //  OS_Create_Process: C
 //
@@ -1353,7 +1373,7 @@ cleanup:
         assert(false);
         if (info)
             free(info);
-        fail (Error(RE_EXT_PROCESS_CHILD_STOPPED, rebEND));
+        rebJumps("fail {Child process is stopped}", rebEND);
     }
     else {
         non_errno_ret = -2048; //randomly picked
@@ -1394,14 +1414,13 @@ stdin_pipe_err:
     //
 
     if (non_errno_ret > 0) {
-        fail (Error(
-            RE_EXT_PROCESS_CHILD_TERMINATED_BY_SIGNAL,
-            rebInteger(non_errno_ret),
-            rebEND
-        ));
+        rebJumps(
+            "fail [{Child process is terminated by signal:}",
+                rebI(non_errno_ret), rebEND
+        );
     }
     else if (non_errno_ret < 0)
-        fail ("Unknown error happened in CALL");
+        rebJumps("fail {Unknown error happened in CALL}");
 
     return ret;
 }
@@ -1435,9 +1454,6 @@ stdin_pipe_err:
 //          "Redirects stderr to err"
 //      err [text! binary! file! blank!]
 //  ]
-//  new-errors: [
-//      child-terminated-by-signal: ["Child process is terminated by signal:" :arg1]
-//      child-stopped: ["Child process is stopped"]
 //  ]
 //
 REBNATIVE(call)
@@ -1819,17 +1835,17 @@ REBNATIVE(sleep)
 
     REBCNT msec = Milliseconds_From_Value(ARG(duration));
 
-#ifdef TO_WINDOWS
+  #ifdef TO_WINDOWS
     Sleep(msec);
-#else
+  #else
     usleep(msec * 1000);
-#endif
+  #endif
 
     return Init_Void(D_OUT);
 }
 
 #if defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
-static void kill_process(REBINT pid, REBINT signal);
+static void kill_process(pid_t pid, int signal);
 #endif
 
 //
@@ -1841,33 +1857,29 @@ static void kill_process(REBINT pid, REBINT signal);
 //      pid [integer!]
 //          {The process ID}
 //  ]
-//  new-errors: [
-//      terminate-failed: ["terminate failed with error number:" :arg1]
-//      permission-denied: ["The process does not have enough permission"]
-//      no-process: ["The target process (group) does not exist:" :arg1]
-//  ]
 //
 static REBNATIVE(terminate)
 {
     PROCESS_INCLUDE_PARAMS_OF_TERMINATE;
 
-#ifdef TO_WINDOWS
+  #ifdef TO_WINDOWS
+
     if (GetCurrentProcessId() == cast(DWORD, VAL_INT32(ARG(pid))))
         fail ("Use QUIT or EXIT-REBOL to terminate current process, instead");
 
-    REBINT err = 0;
+    DWORD err = 0;
     HANDLE ph = OpenProcess(PROCESS_TERMINATE, FALSE, VAL_INT32(ARG(pid)));
     if (ph == NULL) {
         err = GetLastError();
         switch (err) {
-        case ERROR_ACCESS_DENIED:
-            fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
-        case ERROR_INVALID_PARAMETER:
-            fail (Error(RE_EXT_PROCESS_NO_PROCESS, ARG(pid), rebEND));
-        default:
-            fail (Error(
-                RE_EXT_PROCESS_TERMINATE_FAILED, rebInteger(err), rebEND
-            ));
+          case ERROR_ACCESS_DENIED:
+            Fail_Permission_Denied();
+
+          case ERROR_INVALID_PARAMETER:
+            Fail_No_Process(ARG(pid));
+
+          default:
+            Fail_Terminate_Failed(err);
         }
     }
 
@@ -1879,12 +1891,15 @@ static REBNATIVE(terminate)
     err = GetLastError();
     CloseHandle(ph);
     switch (err) {
-    case ERROR_INVALID_HANDLE:
-        fail (Error(RE_EXT_PROCESS_NO_PROCESS, ARG(pid), rebEND));
-    default:
-        fail (Error(RE_EXT_PROCESS_TERMINATE_FAILED, rebInteger(err), rebEND));
+      case ERROR_INVALID_HANDLE:
+        Fail_No_Process(ARG(pid));
+
+      default:
+        Fail_Terminate_Failed(err);
     }
-#elif defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
+
+  #elif defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
+
     if (getpid() == VAL_INT32(ARG(pid))) {
         // signal is not as reliable for this purpose
         // it's caught in host-main.c as to stop the evaluation
@@ -1892,10 +1907,13 @@ static REBNATIVE(terminate)
     }
     kill_process(VAL_INT32(ARG(pid)), SIGTERM);
     return nullptr;
-#else
+
+  #else
+
     UNUSED(frame_);
     fail ("terminate is not implemented for this platform");
-#endif
+
+  #endif
 }
 
 
@@ -2172,6 +2190,7 @@ static REBNATIVE(list_env)
 
 
 #if defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
+
 //
 //  get-pid: native [
 //
@@ -2209,7 +2228,6 @@ static REBNATIVE(get_uid)
 }
 
 
-
 //
 //  get-euid: native [
 //
@@ -2227,13 +2245,13 @@ static REBNATIVE(get_euid)
     return rebInteger(geteuid());
 }
 
+
 //
 //  get-gid: native [
 //
 //  "Get real group ID of the process"
 //
 //      return: [integer!]
-//
 //  ]
 //  platforms: [linux android posix osx]
 //
@@ -2243,7 +2261,6 @@ static REBNATIVE(get_gid)
 
     return rebInteger(getgid());
 }
-
 
 
 //
@@ -2264,7 +2281,6 @@ static REBNATIVE(get_egid)
 }
 
 
-
 //
 //  set-uid: native [
 //
@@ -2274,10 +2290,6 @@ static REBNATIVE(get_egid)
 //          [integer!]
 //      uid {The effective user ID}
 //          [integer!]
-//  ]
-//  new-errors: [
-//      invalid-uid: ["User id is invalid or not supported:" :arg1]
-//      set-uid-failed: ["set-uid failed with error number:" :arg1]
 //  ]
 //  platforms: [linux android posix osx]
 //
@@ -2289,17 +2301,16 @@ static REBNATIVE(set_uid)
         RETURN (ARG(uid));
 
     switch (errno) {
-    case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_UID, ARG(uid), rebEND));
+      case EINVAL:
+        fail (Error_Invalid(ARG(uid)));
 
-    case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
+      case EPERM:
+        Fail_Permission_Denied();
 
-    default:
-        fail (Error(RE_EXT_PROCESS_SET_UID_FAILED, rebInteger(errno), rebEND));
+      default:
+        rebFail_OS(errno);
     }
 }
-
 
 
 //
@@ -2312,10 +2323,6 @@ static REBNATIVE(set_uid)
 //      euid "The effective user ID"
 //          [integer!]
 //  ]
-//  new-errors: [
-//      invalid-euid: ["user id is invalid or not supported:" :arg1]
-//      set-euid-failed: ["set-euid failed with error number:" :arg1]
-//  ]
 //  platforms: [linux android posix osx]
 //
 static REBNATIVE(set_euid)
@@ -2326,17 +2333,16 @@ static REBNATIVE(set_euid)
         RETURN (ARG(euid));
 
     switch (errno) {
-    case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_EUID, ARG(euid), rebEND));
+      case EINVAL:
+        fail (Error_Invalid(ARG(euid)));
 
-    case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
+      case EPERM:
+        Fail_Permission_Denied();
 
-    default:
-        fail (Error(RE_EXT_PROCESS_SET_EUID_FAILED, rebInteger(errno), rebEND));
+      default:
+        rebFail_OS(errno);
     }
 }
-
 
 
 //
@@ -2349,10 +2355,6 @@ static REBNATIVE(set_euid)
 //      gid "The effective group ID"
 //          [integer!]
 //  ]
-//  new-errors: [
-//      invalid-gid: ["group id is invalid or not supported:" :arg1]
-//      set-gid-failed: ["set-gid failed with error number:" :arg1]
-//  ]
 //  platforms: [linux android posix osx]
 //
 static REBNATIVE(set_gid)
@@ -2363,17 +2365,16 @@ static REBNATIVE(set_gid)
         RETURN (ARG(gid));
 
     switch (errno) {
-    case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_GID, ARG(gid), rebEND));
+      case EINVAL:
+        fail (Error_Invalid(ARG(gid)));
 
-    case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
+      case EPERM:
+        Fail_Permission_Denied();
 
-    default:
-        fail (Error(RE_EXT_PROCESS_SET_GID_FAILED, rebInteger(errno), rebEND));
+      default:
+        rebFail_OS(errno);
     }
 }
-
 
 
 //
@@ -2386,10 +2387,6 @@ static REBNATIVE(set_gid)
 //      egid "The effective group ID"
 //          [integer!]
 //  ]
-//  new-errors: [
-//      invalid-egid: ["group id is invalid or not supported:" :arg1]
-//      set-egid-failed: ["set-egid failed with error number:" :arg1]
-//  ]
 //  platforms: [linux android posix osx]
 //
 static REBNATIVE(set_egid)
@@ -2400,36 +2397,37 @@ static REBNATIVE(set_egid)
         RETURN (ARG(egid));
 
     switch (errno) {
-    case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_EGID, ARG(egid), rebEND));
+      case EINVAL:
+        fail (Error_Invalid(ARG(egid)));
 
-    case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
+      case EPERM:
+        Fail_Permission_Denied();
 
-    default:
-        fail (Error(RE_EXT_PROCESS_SET_EGID_FAILED, rebInteger(errno), rebEND));
+      default:
+        rebFail_OS(errno);
     }
 }
 
 
-
-static void kill_process(REBINT pid, REBINT signal)
+static void kill_process(pid_t pid, int signal)
 {
     if (kill(pid, signal) >= 0)
         return; // success
 
     switch (errno) {
-    case EINVAL:
-        fail (Error(RE_EXT_PROCESS_INVALID_SIGNAL, rebInteger(signal), rebEND));
+      case EINVAL:
+        rebJumps(
+            "fail [{Invalid signal number:}", rebI(signal), "]", rebEND
+        );
 
-    case EPERM:
-        fail (Error(RE_EXT_PROCESS_PERMISSION_DENIED, rebEND));
+      case EPERM:
+        Fail_Permission_Denied();
 
-    case ESRCH:
-        fail (Error(RE_EXT_PROCESS_NO_PROCESS, rebInteger(pid), rebEND));
+      case ESRCH:
+        Fail_No_Process(rebInteger(pid)); // failure releases integer handle
 
-    default:
-        fail (Error(RE_EXT_PROCESS_SEND_SIGNAL_FAILED, rebInteger(errno), rebEND));
+      default:
+        rebFail_OS(errno);
     }
 }
 
@@ -2445,22 +2443,20 @@ static void kill_process(REBINT pid, REBINT signal)
 //      signal [integer!]
 //          {The signal number}
 //  ]
-//  new-errors: [
-//      invalid-signal: ["An invalid signal is specified:" :arg1]
-//      send-signal-failed: ["send-signal failed with error number:" :arg1]
-//  ]
 //  platforms: [linux android posix osx]
 //
 static REBNATIVE(send_signal)
 {
     PROCESS_INCLUDE_PARAMS_OF_SEND_SIGNAL;
 
-    kill_process(VAL_INT32(ARG(pid)), VAL_INT32(ARG(signal)));
+    // !!! Is called `send-signal` but only seems to call kill (?)
+    //
+    kill_process(rebUnboxInteger(ARG(pid)), rebUnboxInteger(ARG(signal)));
 
     return Init_Void(D_OUT);
 }
-#endif // defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
 
+#endif // defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
 
 
 #include "tmp-mod-process-last.h"

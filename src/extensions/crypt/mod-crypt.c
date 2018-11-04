@@ -123,10 +123,6 @@ static void cleanup_rc4_ctx(const REBVAL *v)
 //      data [binary!]
 //          "Data to encrypt/decrypt."
 //  ]
-//  new-errors: [
-//      key-or-stream-required: {Refinement /key or /stream has to be present}
-//      invalid-rc4-context: [{Not a RC4 context:} :arg1]
-//  ]
 //
 static REBNATIVE(rc4)
 //
@@ -145,7 +141,7 @@ static REBNATIVE(rc4)
         REBVAL *data = ARG(data);
 
         if (VAL_HANDLE_CLEANER(ARG(ctx)) != cleanup_rc4_ctx)
-            fail (Error(RE_EXT_CRYPT_INVALID_RC4_CONTEXT, ARG(ctx), rebEND));
+            rebJumps("fail [{Not a RC4 Context:}", ARG(ctx), "]", rebEND);
 
         RC4_CTX *rc4_ctx = VAL_HANDLE_POINTER(RC4_CTX, ARG(ctx));
 
@@ -174,7 +170,7 @@ static REBNATIVE(rc4)
         return Init_Handle_Managed(D_OUT, rc4_ctx, 0, &cleanup_rc4_ctx);
     }
 
-    fail (Error(RE_EXT_CRYPT_KEY_OR_STREAM_REQUIRED, rebEND));
+    rebJumps("fail {Refinement /key or /stream has to be present}", rebEND);
 }
 
 
@@ -189,13 +185,6 @@ static REBNATIVE(rc4)
 //         "Decrypts the data (default is to encrypt)"
 //      /private
 //         "Uses an RSA private key (default is a public key)"
-//  ]
-//  new-errors: [
-//      invalid-key-field: [{Unrecognized field in the key object:} :arg1]
-//      invalid-key-data: [{Invalid data in the key object:} :arg1 {for} :arg2]
-//      invalid-key: [{No valid key in the object:} :obj]
-//      decryption-failure: [{Failed to decrypt:} :arg1]
-//      encryption-failure: [{Failed to encrypt:} :arg1]
 //  ]
 //
 static REBNATIVE(rsa)
@@ -307,8 +296,10 @@ static REBNATIVE(rsa)
             bi_free(rsa_ctx->bi_ctx, data_bi);
             RSA_free(rsa_ctx);
 
-            rebFree(crypted);
-            fail (Error(RE_EXT_CRYPT_DECRYPTION_FAILURE, ARG(data), rebEND));
+            rebFree(crypted); // would free automatically due to failure...
+            rebJumps(
+                "fail [{Failed to decrypt:}", ARG(data), "]", rebEND
+            );
         }
 
         assert(result == binary_len); // was this true?
@@ -326,8 +317,10 @@ static REBNATIVE(rsa)
             bi_free(rsa_ctx->bi_ctx, data_bi);
             RSA_free(rsa_ctx);
 
-            rebFree(crypted);
-            fail (Error(RE_EXT_CRYPT_ENCRYPTION_FAILURE, ARG(data), rebEND));
+            rebFree(crypted); // would free automatically due to failure...
+            rebJumps(
+                "fail [{Failed to encrypt:}", ARG(data), "]", rebEND
+            );
         }
 
         // !!! any invariant here?
@@ -474,10 +467,6 @@ static void cleanup_aes_ctx(const REBVAL *v)
 //      /decrypt
 //          "Use the crypt-key for decryption (default is to encrypt)"
 //  ]
-//  new-errors: [
-//      invalid-aes-context: [{Not a AES context:} :arg1]
-//      invalid-aes-key-length: [{AES key length has to be 16 or 32:} :arg1]
-//  ]
 //
 static REBNATIVE(aes)
 {
@@ -485,7 +474,9 @@ static REBNATIVE(aes)
 
     if (REF(stream)) {
         if (VAL_HANDLE_CLEANER(ARG(ctx)) != cleanup_aes_ctx)
-            fail (Error(RE_EXT_CRYPT_INVALID_AES_CONTEXT, ARG(ctx), rebEND));
+            rebJumps(
+                "fail [{Not a AES context:}", ARG(ctx), "]", rebEND
+            );
 
         AES_CTX *aes_ctx = VAL_HANDLE_POINTER(AES_CTX, ARG(ctx));
 
@@ -554,7 +545,10 @@ static REBNATIVE(aes)
         if (len != 128 and len != 256) {
             DECLARE_LOCAL (i);
             Init_Integer(i, len);
-            fail (Error(RE_EXT_CRYPT_INVALID_AES_KEY_LENGTH, i, rebEND));
+            rebJumps(
+                "fail [{AES key length has to be 16 or 32, not:}",
+                    rebI(len), "]", rebEND
+            );
         }
 
         AES_CTX *aes_ctx = ALLOC_ZEROFILL(AES_CTX);
@@ -572,7 +566,7 @@ static REBNATIVE(aes)
         return Init_Handle_Managed(D_OUT, aes_ctx, 0, &cleanup_aes_ctx);
     }
 
-    fail (Error(RE_EXT_CRYPT_KEY_OR_STREAM_REQUIRED, rebEND));
+    rebJumps("fail {Refinement /key or /stream has to be present}", rebEND);
 }
 
 

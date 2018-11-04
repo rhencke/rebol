@@ -170,7 +170,7 @@ static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
                 break;
             }
 
-            fail (Error_On_Port(RE_NOT_OPEN, port, -12)); }
+            fail (Error_On_Port(SYM_NOT_OPEN, port, -12)); }
 
         case SYM_READ:
         case SYM_OPEN: {
@@ -219,7 +219,7 @@ static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
             break; // fallthrough (allowed after a close)
 
         default:
-            fail (Error_On_Port(RE_NOT_OPEN, port, -12));
+            fail (Error_On_Port(SYM_NOT_OPEN, port, -12));
         }
     }
 

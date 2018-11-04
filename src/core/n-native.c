@@ -164,12 +164,12 @@ static REBCTX* add_path(
     TCCState *state,
     const RELVAL *path,
     int (*add)(TCCState *, const char *),
-    enum REBOL_Errors err_code
+    REBSYM err_id_sym
 ) {
     if (path) {
         if (IS_FILE(path) or IS_TEXT(path)) {
             if (do_add_path(state, path, add) < 0)
-                return Error(err_code, path);
+                return Error(SYM_TCC, err_id_sym, path);
         }
         else {
             assert(IS_BLOCK(path));
@@ -177,10 +177,10 @@ static REBCTX* add_path(
             RELVAL *item;
             for (item = VAL_ARRAY_AT(path); NOT_END(item); ++item) {
                 if (not IS_FILE(item) and not IS_TEXT(item))
-                    return Error(err_code, item);
+                    return Error(SYM_TCC, err_id_sym, item);
 
                 if (do_add_path(state, item, add) < 0)
-                    return Error(err_code, item);
+                    return Error(SYM_TCC, err_id_sym, item);
             }
         }
     }
@@ -603,7 +603,7 @@ REBNATIVE(compile)
 
     REBCTX *err = nullptr;
 
-    if ((err = add_path(state, inc, tcc_add_include_path, RE_TCC_INCLUDE)))
+    if ((err = add_path(state, inc, tcc_add_include_path, SYM_TCC_INCLUDE)))
         fail (err);
 
     if (tcc_set_output_type(state, TCC_OUTPUT_MEMORY) < 0)
@@ -645,12 +645,12 @@ REBNATIVE(compile)
     }
 
     if ((err = add_path(
-        state, libdir, tcc_add_library_path, RE_TCC_LIBRARY_PATH
+        state, libdir, tcc_add_library_path, SYM_TCC_LIBRARY_PATH
     ))) {
         fail (err);
     }
 
-    if ((err = add_path(state, lib, tcc_add_library, RE_TCC_LIBRARY)))
+    if ((err = add_path(state, lib, tcc_add_library, SYM_TCC_LIBRARY)))
         fail(err);
 
     if (rundir)

@@ -89,12 +89,12 @@
     struct REBSYM;
 
     struct OPT_REBSYM { // can only be converted to REBSYM, no comparisons
-        enum REBOL_Symbols n;
+        enum Reb_Symbol n;
         OPT_REBSYM (const REBSYM& sym);
-        bool operator==(enum REBOL_Symbols other) const {
+        bool operator==(enum Reb_Symbol other) const {
             return n == other;
         }
-        bool operator!=(enum REBOL_Symbols other) const {
+        bool operator!=(enum Reb_Symbol other) const {
             return n != other;
         }
 
@@ -107,33 +107,33 @@
     };
 
     struct REBSYM { // acts like a REBOL_Symbol with no OPT_REBSYM compares
-        enum REBOL_Symbols n;
+        enum Reb_Symbol n;
         REBSYM () {}
-        REBSYM (int n) : n (cast(enum REBOL_Symbols, n)) {}
+        REBSYM (int n) : n (cast(enum Reb_Symbol, n)) {}
         REBSYM (OPT_REBSYM opt_sym) : n (opt_sym.n) {}
         operator unsigned int() const {
             return cast(unsigned int, n);
         }
-        bool operator>=(enum REBOL_Symbols other) const {
+        bool operator>=(enum Reb_Symbol other) const {
             assert(other != SYM_0);
             return n >= other;
         }
-        bool operator<=(enum REBOL_Symbols other) const {
+        bool operator<=(enum Reb_Symbol other) const {
             assert(other != SYM_0);
             return n <= other;
         }
-        bool operator>(enum REBOL_Symbols other) const {
+        bool operator>(enum Reb_Symbol other) const {
             assert(other != SYM_0);
             return n > other;
         }
-        bool operator<(enum REBOL_Symbols other) const {
+        bool operator<(enum Reb_Symbol other) const {
             assert(other != SYM_0);
             return n < other;
         }
-        bool operator==(enum REBOL_Symbols other) const {
+        bool operator==(enum Reb_Symbol other) const {
             return n == other;
         }
-        bool operator!=(enum REBOL_Symbols other) const {
+        bool operator!=(enum Reb_Symbol other) const {
             return n != other;
         }
         bool operator==(REBSYM &other) const; // could be SYM_0!
@@ -144,8 +144,8 @@
 
     inline OPT_REBSYM::OPT_REBSYM(const REBSYM &sym) : n (sym.n) {}
 #else
-    typedef enum REBOL_Symbols REBSYM;
-    typedef enum REBOL_Symbols OPT_REBSYM; // act sameas REBSYM in C build
+    typedef enum Reb_Symbol REBSYM;
+    typedef enum Reb_Symbol OPT_REBSYM; // act sameas REBSYM in C build
 #endif
 
 inline static bool SAME_SYM_NONZERO(REBSYM a, REBSYM b) {

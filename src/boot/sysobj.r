@@ -256,7 +256,6 @@ standard: construct [] [
     ; like FILE and LINE would not conflict with parameters.
     ;
     error: construct [] [
-        code: _
         type: _
         id: _
         message: _ ; a BLOCK! template with arg substitution or just a STRING!
