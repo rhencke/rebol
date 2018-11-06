@@ -2,7 +2,6 @@ REBOL []
 
 name: 'UUID
 source: %uuid/ext-uuid.c
-init: %uuid/ext-uuid-init.reb
 modules: [
     [
         name: 'UUID

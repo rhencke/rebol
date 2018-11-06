@@ -2,7 +2,6 @@ REBOL []
 
 name: 'Clipboard
 source: %clipboard/ext-clipboard.c
-init: %clipboard/ext-clipboard-init.reb
 modules: [
     [
         name: 'Clipboard

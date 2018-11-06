@@ -1520,17 +1520,20 @@ vars: reduce [
 prep: make rebmake/entry-class [
     target: 'prep ; phony target
     commands: compose [
-        (unspaced [{$(REBOL) } tools-dir/make-natives.r])
-        (unspaced [{$(REBOL) } tools-dir/make-headers.r])
-        (unspaced [{$(REBOL) } tools-dir/make-boot.r { OS_ID=} system-config/id { GIT_COMMIT=$(GIT_COMMIT)}])
-        (unspaced [{$(REBOL) } tools-dir/make-host-init.r])
-        (unspaced [{$(REBOL) } tools-dir/make-os-ext.r])
-        (unspaced [{$(REBOL) } tools-dir/make-reb-lib.r])
-        (
-            cmds: make block! 8
+        (spaced [{$(REBOL)} tools-dir/make-natives.r])
+        (spaced [{$(REBOL)} tools-dir/make-headers.r])
+        (spaced [
+            {$(REBOL)} tools-dir/make-boot.r
+                unspaced [{OS_ID=} system-config/id]
+                {GIT_COMMIT=$(GIT_COMMIT)}
+        ])
+        (spaced [{$(REBOL)} tools-dir/make-host-init.r])
+        (spaced [{$(REBOL)} tools-dir/make-os-ext.r])
+        (spaced [{$(REBOL)} tools-dir/make-reb-lib.r])
+        (collect [
             for-each ext all-extensions [
                 for-each mod ext/modules [
-                    append cmds spaced [
+                    keep spaced [
                         {$(REBOL)}
                         tools-dir/make-ext-natives.r
                         unspaced [{MODULE=} mod/name]
@@ -1548,22 +1551,16 @@ prep: make rebmake/entry-class [
                         unspaced [{OS_ID=} system-config/id]
                     ]
                 ]
-                if ext/init [
-                    append cmds unspaced [
-                        {$(REBOL) } tools-dir/make-ext-init.r { SRC=} %extensions/ ext/init
-                    ]
+            ]
+        ])
+        (spaced [
+            {$(REBOL)} tools-dir/make-boot-ext-header.r
+                unspaced [{EXTENSIONS=}
+                    delimit map-each ext builtin-extensions [
+                        to text! ext/name
+                    ] #":"
                 ]
-            ]
-            cmds
-        )
-        (
-            unspaced [
-                {$(REBOL) } tools-dir/make-boot-ext-header.r { EXTENSIONS=}
-                delimit map-each ext builtin-extensions [
-                    to text! ext/name
-                ] #":"
-            ]
-        )
+        ])
         (
             if cfg-tcc [
                 sys-core-i: make rebmake/object-file-class [

@@ -5,7 +5,6 @@ source: %ffi/ext-ffi.c
 includes: cfg-ffi/includes
 cflags: cfg-ffi/cflags
 definitions: cfg-ffi/definitions
-init: %ffi/ext-ffi-init.reb
 modules: [
     [
         name: 'FFI

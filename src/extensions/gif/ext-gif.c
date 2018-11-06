@@ -30,19 +30,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-static const REBYTE script_bytes[] =
-"REBOL ["
-    "Title: \"GIF Codec Extension\"\n"
-    "name: 'GIF\n"
-    "type: 'Extension\n"
-    "version: 1.0.0\n"
-    "license: {Apache 2.0}\n"
-"]\n"
-"sys/register-codec* 'gif %.gif\n"
-    "get in import 'gif 'identify-gif?\n"
-    "get in import 'gif 'decode-gif\n"
-    "_" // currently no GIF encoder
-;
+#include "tmp-ext-gif-init.inc"
 
 #define MODULE_INCLUDE_DECLARATION_ONLY
 #include "tmp-mod-gif-last.h"

@@ -1,7 +1,6 @@
 REBOL []
 
 inp: %iso3166.txt
-init: %ext-locale-init.reb
 cnt: read inp
 if #{EFBBBF} = to binary! copy/part cnt 3 [ ;UTF8 BOM
     cnt: skip cnt 3

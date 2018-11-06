@@ -35,7 +35,7 @@
 #define MODULE_INCLUDE_DECLARATION_ONLY
 #include "tmp-mod-odbc-last.h"
 
-DEFINE_EXT_INIT_COMPRESSED(ODBC, //name of the extension
+DEFINE_EXT_INIT(ODBC, //name of the extension
     script_bytes, // REBOL script for the extension in the source form
     {
         // init all modules in this extension

@@ -2,7 +2,6 @@ REBOL []
 
 name: 'View
 source: %view/ext-view.c
-init: %view/ext-view-init.reb
 modules: [
     [
         name: 'View

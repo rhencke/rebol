@@ -2,7 +2,6 @@ REBOL []
 
 name: 'ODBC
 source: %odbc/ext-odbc.c
-init: %odbc/ext-odbc-init.reb
 modules: [
     [
         name: 'ODBC

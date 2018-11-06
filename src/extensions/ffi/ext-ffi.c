@@ -39,7 +39,7 @@
 
 #include "reb-struct.h"
 
-DEFINE_EXT_INIT_COMPRESSED(FFI, //name of the extension
+DEFINE_EXT_INIT(FFI, //name of the extension
     script_bytes, // REBOL script for the extension in the source form
     {
         // init all modules in this extension

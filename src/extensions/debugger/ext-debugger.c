@@ -38,7 +38,7 @@ void Shutdown_Debugger(void);
 #define MODULE_INCLUDE_DECLARATION_ONLY
 #include "tmp-mod-debugger-last.h"
 
-DEFINE_EXT_INIT_COMPRESSED(Debugger, //name of the extension
+DEFINE_EXT_INIT(Debugger, //name of the extension
     script_bytes, // REBOL script for the extension in the source form
     {
         // init all modules in this extension

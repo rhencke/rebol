@@ -2,7 +2,6 @@ REBOL []
 
 name: 'Debugger
 source: %debugger/ext-debugger.c
-init: %debugger/ext-debugger-init.reb
 modules: [
     [
         name: 'Debugger

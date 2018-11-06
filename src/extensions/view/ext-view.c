@@ -37,7 +37,7 @@
 #define MODULE_INCLUDE_DECLARATION_ONLY
 #include "tmp-mod-view-last.h"
 
-DEFINE_EXT_INIT_COMPRESSED(View, //name of the extension
+DEFINE_EXT_INIT(View, //name of the extension
     script_bytes, // REBOL script for the extension in the source form
     {
         // init all modules in this extension

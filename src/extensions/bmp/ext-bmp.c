@@ -30,19 +30,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-static const REBYTE script_bytes[] =
-"REBOL ["
-    "Title: \"BMP Codec Extension\"\n"
-    "name: 'BMP\n"
-    "type: 'Extension\n"
-    "version: 1.0.0\n"
-    "license: {Apache 2.0}\n"
-"]\n"
-"sys/register-codec* 'bmp %.bmp\n"
-    "get in import 'bmp 'identify-bmp?\n"
-    "get in import 'bmp 'decode-bmp\n"
-    "get in import 'bmp 'encode-bmp\n"
-;
+#include "tmp-ext-bmp-init.inc"
 
 #define MODULE_INCLUDE_DECLARATION_ONLY
 #include "tmp-mod-bmp-last.h"

@@ -2,7 +2,6 @@ REBOL []
 
 name: 'ZeroMQ
 source: %zeromq/ext-zeromq.c
-init: %zeromq/ext-zeromq-init.reb
 modules: [
     [
         name: 'ZeroMQ

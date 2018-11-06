@@ -3,7 +3,6 @@ REBOL []
 name: 'Crypt
 loadable: no ;tls depends on this, so it has to be builtin
 source: %crypt/ext-crypt.c
-init: %crypt/ext-crypt-init.reb
 modules: [
     [
         name: 'Crypt

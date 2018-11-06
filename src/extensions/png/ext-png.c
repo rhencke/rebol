@@ -30,19 +30,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-static const REBYTE script_bytes[] =
-"REBOL ["
-    "Title: \"PNG Codec Extension\"\n"
-    "name: 'PNG\n"
-    "type: 'Extension\n"
-    "version: 1.0.0\n"
-    "license: {Apache 2.0}\n"
-"]\n"
-"sys/register-codec* 'png %.png\n"
-    "get in import 'lodepng 'identify-png?\n"
-    "get in import 'lodepng 'decode-png\n"
-    "get in import 'lodepng 'encode-png\n"
-;
+#include "tmp-ext-lodepng-init.inc"
 
 #define MODULE_INCLUDE_DECLARATION_ONLY
 #include "tmp-mod-lodepng-last.h"

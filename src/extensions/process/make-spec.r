@@ -2,7 +2,6 @@ REBOL []
 
 name: 'Process
 source: %process/ext-process.c
-init: %process/ext-process-init.reb
 modules: [
     [
         name: 'Process

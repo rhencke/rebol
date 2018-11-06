@@ -30,5 +30,8 @@ modules: [
                 <msc:/wd5045> ;-- https://stackoverflow.com/q/50399940
             ]
         ]
+        includes: [
+            %prep/extensions/jpg
+        ]
     ]
 ]

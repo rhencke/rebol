@@ -35,7 +35,18 @@ do %systems.r
 do %common-parsers.r
 do %native-emitters.r ; for emit-include-params-macro
 
+
+; !!! We put the modules .h files and the .inc file for the initialization
+; code into the %prep/<name-of-extension> directory, which is added to the
+; include path for the build of the extension
+
 args: parse-args system/options/args
+src: fix-win32-path to file! :args/SRC
+set [in-dir file-name] split-path src
+output-dir: system/options/path/prep/:in-dir
+insert src %../../src/
+mkdir/deep output-dir
+
 
 config: config-system try get 'args/OS_ID
 
@@ -48,14 +59,12 @@ c-src: join-of %../../src/ fix-win32-path to file! ensure text! args/SRC
 
 print ["building" m-name "from" c-src]
 
-output-dir: system/options/path/prep
-mkdir/deep output-dir/include
 
 e1: (make-emitter "Module C Header File Preface"
-    ensure file! join-all [output-dir/include/tmp-mod- l-m-name %-first.h])
+    ensure file! join-all [output-dir/tmp-mod- l-m-name %-first.h])
 
 e2: (make-emitter "Module C Header File Epilogue"
-    ensure file! join-all [output-dir/include/tmp-mod- l-m-name %-last.h])
+    ensure file! join-all [output-dir/tmp-mod- l-m-name %-last.h])
 
 
 verbose: false
@@ -306,3 +315,41 @@ e1/emit {
 e1/emit newline
 
 e1/write-emitted
+
+
+script-name: copy c-src
+replace script-name ".c" "-init.reb"
+replace script-name "mod" "ext"
+
+inc-name: copy file-name
+replace inc-name ".c" "-init.inc"
+replace inc-name "mod" "ext"
+
+dest: join-of output-dir join-of %tmp- inc-name
+
+print unspaced ["--- Make Extension Init Code from " script-name " ---"]
+
+write-c-file: function [
+    return: <void>
+    c-file
+    r-file
+][
+    e: make-emitter "Ext custom init code" c-file
+
+    data: read r-file
+    compressed: gzip data
+
+    e/emit 'r-file {
+        /*
+         * Gzip compression of $<R-File>
+         * Originally $<length of data> bytes
+         */
+        static const REBYTE script_bytes[$<length of compressed>] = {
+            $<Binary-To-C Compressed>
+        };
+    }
+
+    e/write-emitted
+]
+
+write-c-file dest script-name

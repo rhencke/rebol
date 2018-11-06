@@ -67,13 +67,6 @@ typedef int (*QUIT_CFUNC)(void);
 #define DEFINE_EXT_INIT(ext_name,script_bytes,code) \
     EXT_API int RX_INIT_NAME(ext_name)(REBVAL *script, REBVAL *out) { \
         code \
-        Init_Binary(script, Copy_Bytes(script_bytes, sizeof(script_bytes) - 1)); \
-        return 0;\
-    }
-
-#define DEFINE_EXT_INIT_COMPRESSED(ext_name,script_bytes,code) \
-    EXT_API int RX_INIT_NAME(ext_name)(REBVAL *script, REBVAL *out) { \
-        code \
         /* binary does not have a \0 terminator */ \
         size_t utf8_size; \
         const int max = -1; \

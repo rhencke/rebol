@@ -27,6 +27,9 @@ modules: [
             ;
             "LODEPNG_NO_COMPILE_CPP"
         ]
+        includes: [
+            %prep/extensions/png
+        ]
         depends: [
             [
                 %png/lodepng.c

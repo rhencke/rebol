@@ -2,7 +2,6 @@ REBOL []
 
 name: 'Locale
 source: %locale/ext-locale.c
-init: %locale/ext-locale-init.reb
 modules: [
     [
         name: 'Locale

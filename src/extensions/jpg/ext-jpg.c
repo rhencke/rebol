@@ -30,19 +30,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-static const REBYTE script_bytes[] =
-"REBOL [\n"
-    "Title: {JPG Codec Extension}\n"
-    "name: 'JPG\n"
-    "type: 'Extension\n"
-    "version: 1.0.0\n"
-    "license: {Apache 2.0}\n"
-"]\n"
-"sys/register-codec* 'jpeg [%.jpg %jpeg]\n"
-    "get in import 'jpg 'identify-jpeg?\n"
-    "get in import 'jpg 'decode-jpeg\n"
-    "_\n" // currently no JPG encoder
-;
+#include "tmp-ext-jpg-init.inc"
 
 #define MODULE_INCLUDE_DECLARATION_ONLY
 #include "tmp-mod-jpg-last.h"

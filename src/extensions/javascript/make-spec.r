@@ -2,7 +2,6 @@ REBOL []
 
 name: 'JavaScript
 source: %javascript/ext-javascript.c
-init: %javascript/ext-javascript-init.reb
 modules: [
     [
         name: 'JavaScript
