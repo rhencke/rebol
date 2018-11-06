@@ -113,7 +113,7 @@ speed?: function [
             ]
             calc: [(length of tmp) * 10 / secs / 1900]
         ][
-            repeat n 40 [
+            count-up n 40 [
                 change/dup tmp to-char n 500'000
             ]
             calc: [(length of tmp) * 40 / secs / 1024 / 1024]

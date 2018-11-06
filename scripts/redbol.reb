@@ -932,7 +932,7 @@ cloaker: helper [function [ ;-- specialized as CLOAK and DECLOAK
 
     if not with [ ;-- hash key (only up to first 20 bytes?)
         src: make binary! 20
-        repeat i 20 [
+        count-up i 20 [
             append src key/(1 + modulo (i - 1) klen)
         ]
 

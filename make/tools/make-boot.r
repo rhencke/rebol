@@ -702,10 +702,10 @@ for-each [sw-cat list] boot-errors [
             args: ["rebEND"]
         ] else [
             params: collect [
-                repeat i arity [keep unspaced ["const REBVAL *arg" i]]
+                count-up i arity [keep unspaced ["const REBVAL *arg" i]]
             ]
             args: collect [
-                repeat i arity [keep unspaced ["arg" i]]
+                count-up i arity [keep unspaced ["arg" i]]
                 keep "rebEND"
             ]
         ]

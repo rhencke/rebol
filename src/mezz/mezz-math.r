@@ -103,7 +103,7 @@ factorial: func [n [integer!] <local> res] [
     if n < 2 [return 1]
     res: 1
     ; should avoid doing the loop for i = 1...
-    repeat i n [res: res * i]
+    count-up i n [res: res * i]
 ]
 
 

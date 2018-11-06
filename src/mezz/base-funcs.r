@@ -30,6 +30,18 @@ assert: func [
     ; there was no idea of a "debug mode"
 ]
 
+so: enfix func [
+    {Postfix assertion which won't keep running if left expression is false}
+
+    return: <void>
+    condition "Condition to test (voids are treated as false)"
+        [<opt> any-value!]
+][
+    if not opt condition [
+        fail/where ["Postfix 'SO assertion' failed"] 'condition
+    ]
+]
+
 maybe: enfix func [
     "Set word or path to a default value if that value is a value"
 
@@ -587,6 +599,24 @@ for-back: redescribe [
     "Evaluates a block for each position until the start, using BACK to skip"
 ](
     specialize 'for-skip [skip: -1]
+)
+
+count-up: redescribe [
+    "Loop the body, setting a word from 1 up to the end value given"
+](
+    specialize 'for [start: 1 | bump: 1]
+)
+
+count-down: redescribe [
+    "Loop the body, setting a word from the end value given down to 1"
+](
+    specialize adapt 'for [
+        start: end
+        end: 1
+    ][
+        start: <overwritten-with-end>
+        bump: -1
+    ]
 )
 
 

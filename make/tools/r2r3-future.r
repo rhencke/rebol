@@ -486,3 +486,14 @@ print: func [
 ]
 
 print-newline: specialize 'write-stdout [value: newline]
+
+so: enfix func [ ;-- https://trello.com/c/RiHjvysQ
+    return: <void>
+    condition [<opt> any-value!]
+][
+    if not opt condition [
+        fail/where ["Postfix 'SO assertion' failed"] 'condition
+    ]
+]
+
+count-up: :repeat ;-- https://forum.rebol.info/t/892
