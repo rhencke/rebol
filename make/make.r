@@ -186,28 +186,13 @@ gen-obj: func [
     ]
 ]
 
-module-class: make object! [
-    class-name: 'module-class
-    name: _
-    depends: _
-    source: _ ;main script
-
-    includes: _
-    definitions: _
-    cflags: _
-
-    searches: _
-    libraries: _
-    ldflags: _
-]
-
 extension-class: make object! [
     class-name: 'extension-class
     name: _
     loadable: yes ;can be loaded at runtime
     modules: _
-    source: _
-    init: _ ;init-script
+    source: _ ; main script
+    depends: _ ; additional C files compiled in
     requires: _ ; it might require other extensions
 
     includes: _
@@ -223,40 +208,31 @@ extension-class: make object! [
     visited: false
 ]
 
-available-modules: copy []
-
 available-extensions: copy []
 
 parse-ext-build-spec: function [
     spec [block!]
 ][
-    ext-body: copy []
-    parse spec [
-        any [
-            quote options: into [
-                any [
-                    word! block! opt text! set config: group!
-                    | end
-                    | (print "wrong format for options") return false
-                ]
+    ext: make extension-class spec
+
+    if set? 'ext/options [
+        ensure block! ext/options
+        parse ext/options [
+            any [
+                word! block! opt text! set config: group!
+                | end
+                | (print "wrong format for options") return false
             ]
-            | quote modules: set modules block!
-            | set n: set-word! set v: skip (append ext-body reduce [n v])
+        ] or [
+            fail ["Could not parse extension build spec" mold spec]
         ]
-    ] or [
-        print ["Failed to parse extension build spec" mold spec]
-        return _
+
+        if set? 'config [
+            do as block! config ;-- some old Ren-Cs disallowed DO of GROUP!
+        ]
     ]
 
-    if set? 'config [
-        do as block! config ;-- some old Ren-Cs disallowed DO of GROUP!
-    ]
-
-    append ext-body compose/only [
-        modules: (map-each m modules [make module-class m])
-    ]
-
-    make extension-class ext-body
+    return ext
 ]
 
 ; Discover extensions:
@@ -1319,7 +1295,7 @@ process-module: func [
     s
     ret
 ][
-    assert [mod/class-name = 'module-class]
+    assert [mod/class-name = 'extension-class]
     assert-no-blank-inside mod/includes
     assert-no-blank-inside mod/definitions
     assert-no-blank-inside mod/depends
@@ -1367,11 +1343,10 @@ process-module: func [
                         lib
                     ]
                     default [
-                        dump [
+                        fail [
                             "unrecognized module library" lib
                             "in module" mod
                         ]
-                        fail "unrecognized module library"
                     ]
                 ]
             ]
@@ -1386,59 +1361,66 @@ process-module: func [
     ret
 ]
 
+
 ext-objs: make block! 8
 for-each ext builtin-extensions [
     mod-obj: _
-    for-each mod ext/modules [
-        ;
-        ; extract object-library, because an object-library can't depend on
-        ; another object-library
-        ;
-        if all [block? mod/depends
-            not empty? mod/depends][
-            append ext-objs map-each s mod/depends [
-                if all [
-                    object? s
-                    s/class-name = 'object-library-class
-                ][
-                    s
-                ]
+
+    ; extract object-library, because an object-library can't depend on
+    ; another object-library
+    ;
+    all [
+        block? ext/depends
+        not empty? ext/depends
+    ] then [
+        append ext-objs map-each s ext/depends [
+            if all [
+                object? s
+                s/class-name = 'object-library-class
+            ][
+                s
             ]
         ]
-
-        append ext-objs mod-obj: process-module mod
-        if mod-obj/libraries [
-            assert-no-blank-inside mod-obj/libraries
-            append app-config/libraries mod-obj/libraries
-        ]
-
-        if mod/searches [
-            assert-no-blank-inside mod/searches
-            append app-config/searches mod/searches
-        ]
-
-        if mod/ldflags [
-            if block? mod/ldflags [assert-no-blank-inside mod/ldflags]
-            append app-config/ldflags mod/ldflags
-        ]
-
-        ; Modify module properties
-        add-project-flags/I/D/c/O/g mod-obj
-            app-config/includes
-            join-of ["REB_API"] app-config/definitions
-            app-config/cflags
-            app-config/optimization
-            app-config/debug
     ]
-    if ext/source [
-        append any [all [mod-obj mod-obj/depends] ext-objs] gen-obj/dir/I/D/F
-            ext/source
-            src-dir/extensions/%
-            opt ext/includes
-            opt ext/definitions
-            opt ext/cflags
+
+    append ext-objs mod-obj: process-module ext
+    if mod-obj/libraries [
+        assert-no-blank-inside mod-obj/libraries
+        append app-config/libraries mod-obj/libraries
     ]
+
+    if ext/searches [
+        assert-no-blank-inside ext/searches
+        append app-config/searches ext/searches
+    ]
+
+    if ext/ldflags [
+        if block? ext/ldflags [assert-no-blank-inside ext/ldflags]
+        append app-config/ldflags ext/ldflags
+    ]
+
+    ; Modify module properties
+    add-project-flags/I/D/c/O/g mod-obj
+        app-config/includes
+        join-of ["REB_API"] app-config/definitions
+        app-config/cflags
+        app-config/optimization
+        app-config/debug
+
+    ; The file which contains the RX_Init() and RX_Quit() functions
+    ext-init-source: case [
+        block? ext/source [copy first find ext/source file!]
+        file? ext/source [copy ext/source]
+    ]
+    replace ext-init-source "mod-" "ext-"
+    append any [all [mod-obj mod-obj/depends] ext-objs] gen-obj/dir/I/D/F
+        ext-init-source
+        src-dir/extensions/%
+        opt ext/includes
+        opt ext/definitions
+        opt ext/cflags
 ]
+
 
 ; Reorder builtin-extensions by their dependency
 calculate-sequence: function [
@@ -1500,6 +1482,7 @@ vars: reduce [
 
 prep: make rebmake/entry-class [
     target: 'prep ; phony target
+
     commands: collect-lines [
         keep [{$(REBOL)} tools-dir/make-natives.r]
         keep [{$(REBOL)} tools-dir/make-headers.r]
@@ -1512,16 +1495,14 @@ prep: make rebmake/entry-class [
         keep [{$(REBOL)} tools-dir/make-reb-lib.r]
 
         for-each ext all-extensions [
-            for-each mod ext/modules [
-                keep [{$(REBOL)} tools-dir/make-ext-natives.r
-                    unspaced [{MODULE=} mod/name]
-                    unspaced [{SRC=} {extensions/} case [
-                        file? mod/source [mod/source]
-                        block? mod/source [first find mod/source file!]
-                        fail "mod/source must be BLOCK! or FILE!"
-                    ]]
-                    unspaced [{OS_ID=} system-config/id]
-                ]
+            keep [{$(REBOL)} tools-dir/make-ext-natives.r
+                unspaced [{MODULE=} ext/name]
+                unspaced [{SRC=extensions/} case [
+                    file? ext/source [ext/source]
+                    block? ext/source [first find ext/source file!]
+                    fail "ext/source must be BLOCK! or FILE!"
+                ]]
+                unspaced [{OS_ID=} system-config/id]
             ]
         ]
 

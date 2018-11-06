@@ -51,7 +51,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-lodepng-first.h"
+#include "tmp-mod-png-first.h"
 
 
 //=//// CUSTOM SERIES-BACKED MEMORY ALLOCATOR /////////////////////////////=//
@@ -150,7 +150,7 @@ static unsigned rebol_zlib_compress(
 //
 REBNATIVE(identify_png_q)
 {
-    LODEPNG_INCLUDE_PARAMS_OF_IDENTIFY_PNG_Q;
+    PNG_INCLUDE_PARAMS_OF_IDENTIFY_PNG_Q;
 
     LodePNGState state;
     lodepng_state_init(&state);
@@ -203,7 +203,7 @@ REBNATIVE(identify_png_q)
 //
 REBNATIVE(decode_png)
 {
-    LODEPNG_INCLUDE_PARAMS_OF_DECODE_PNG;
+    PNG_INCLUDE_PARAMS_OF_DECODE_PNG;
 
     LodePNGState state;
     lodepng_state_init(&state);
@@ -288,7 +288,7 @@ REBNATIVE(decode_png)
 //
 REBNATIVE(encode_png)
 {
-    LODEPNG_INCLUDE_PARAMS_OF_ENCODE_PNG;
+    PNG_INCLUDE_PARAMS_OF_ENCODE_PNG;
 
     REBVAL *image = ARG(image);
 
@@ -355,4 +355,4 @@ REBNATIVE(encode_png)
 }
 
 
-#include "tmp-mod-lodepng-last.h"
+#include "tmp-mod-png-last.h"

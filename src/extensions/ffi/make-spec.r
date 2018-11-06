@@ -1,30 +1,23 @@
 REBOL []
 
 name: 'FFI
-source: %ffi/ext-ffi.c
-includes: cfg-ffi/includes
-cflags: cfg-ffi/cflags
-definitions: cfg-ffi/definitions
-modules: [
-    [
-        name: 'FFI
-        source: %ffi/mod-ffi.c
-        depends: [
-            %ffi/t-struct.c
-            %ffi/t-routine.c
-        ]
-        includes: join-of [%prep/extensions/ffi] opt cfg-ffi/includes
-        definitions: cfg-ffi/definitions
-        cflags: cfg-ffi/cflags
-        searches: cfg-ffi/searches
-        ldflags: cfg-ffi/ldflags
-        libraries: cfg-ffi/libraries
-        ; Currently the libraries are specified by the USER-CONFIG/WITH-FFI
-        ; until that logic is moved to something here.  So if you are going
-        ; to build the FFI module, you need to also set WITH-FFI (though
-        ; setting WITH-FFI alone will not get you the module)
-    ]
+source: %ffi/mod-ffi.c
+depends: [
+    %ffi/t-struct.c
+    %ffi/t-routine.c
 ]
+includes: [join-of [%prep/extensions/ffi] opt cfg-ffi/includes]
+definitions: [cfg-ffi/definitions]
+cflags: [cfg-ffi/cflags]
+searches: [cfg-ffi/searches]
+ldflags: [cfg-ffi/ldflags]
+
+; Currently the libraries are specified by the USER-CONFIG/WITH-FFI
+; until that logic is moved to something here.  So if you are going
+; to build the FFI module, you need to also set WITH-FFI (though
+; setting WITH-FFI alone will not get you the module)
+;
+libraries: [cfg-ffi/libraries]
 
 options: [
     with-ffi [block! word! logic! blank!] (
