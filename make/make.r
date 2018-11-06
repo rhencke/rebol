@@ -1015,33 +1015,6 @@ case [
     ]
 ]
 
-assert-no-blank-inside: func [
-    return: <void>
-    block [block! blank!]
-    <local> e
-][
-    if blank? block [return]
-
-    for-each e block [
-        if blank? e [
-            dump block
-            fail "No blanks allowed"
-        ]
-    ]
-]
-
-write-stdout "Sanity checking on user config .."
-;add user settings
-for-each word [definitions includes cflags libraries ldflags][
-    assert-no-blank-inside get in user-config word
-]
-append app-config/definitions opt user-config/definitions
-append app-config/includes opt user-config/includes
-append app-config/cflags opt user-config/cflags
-append app-config/libraries opt user-config/libraries
-append app-config/ldflags opt user-config/ldflags
-write-stdout "..Good"
-print-newline
 
 ;add system settings
 add-app-def: adapt specialize :append [series: app-config/definitions] [
@@ -1079,9 +1052,7 @@ add-app-ldflags: adapt specialize :append [series: app-config/ldflags] [
 ]
 
 write-stdout "Sanity checking on system config.."
-for-each word [definitions cflags libraries ldflags][
-    assert-no-blank-inside get in system-config word
-]
+; !!! TBD: checks
 add-app-def copy system-config/definitions
 add-app-cflags copy system-config/cflags
 add-app-lib copy system-config/libraries
@@ -1090,11 +1061,7 @@ write-stdout "..Good"
 print-newline
 
 write-stdout "Sanity checking on app config.."
-assert-no-blank-inside app-config/definitions
-assert-no-blank-inside app-config/includes
-assert-no-blank-inside app-config/cflags
-assert-no-blank-inside app-config/libraries
-assert-no-blank-inside app-config/ldflags
+; !!! TBD: checks
 write-stdout "..Good"
 print-newline
 
@@ -1258,7 +1225,6 @@ add-project-flags: func [
     ]
 
     if D [
-        assert-no-blank-inside definitions
         if block? project/definitions [
             append project/definitions definitions
         ] else [
@@ -1268,7 +1234,6 @@ add-project-flags: func [
     ]
 
     if I [
-        assert-no-blank-inside includes
         if block? project/includes [
             append project/includes includes
         ] else [
@@ -1277,7 +1242,6 @@ add-project-flags: func [
         ]
     ]
     if c [
-        assert-no-blank-inside cflags
         if block? project/cflags [
             append project/cflags cflags
         ] else [
@@ -1296,11 +1260,6 @@ process-module: func [
     ret
 ][
     assert [mod/class-name = 'extension-class]
-    assert-no-blank-inside mod/includes
-    assert-no-blank-inside mod/definitions
-    assert-no-blank-inside mod/depends
-    if block? mod/libraries [assert-no-blank-inside mod/libraries]
-    if block? mod/cflags [assert-no-blank-inside mod/cflags]
     ret: make rebmake/object-library-class [
         name: mod/name
         depends: map-each s (append reduce [mod/source] opt mod/depends) [
@@ -1385,17 +1344,14 @@ for-each ext builtin-extensions [
 
     append ext-objs mod-obj: process-module ext
     if mod-obj/libraries [
-        assert-no-blank-inside mod-obj/libraries
         append app-config/libraries mod-obj/libraries
     ]
 
     if ext/searches [
-        assert-no-blank-inside ext/searches
         append app-config/searches ext/searches
     ]
 
     if ext/ldflags [
-        if block? ext/ldflags [assert-no-blank-inside ext/ldflags]
         append app-config/ldflags ext/ldflags
     ]
 
@@ -1495,7 +1451,7 @@ prep: make rebmake/entry-class [
         keep [{$(REBOL)} tools-dir/make-reb-lib.r]
 
         for-each ext all-extensions [
-            keep [{$(REBOL)} tools-dir/make-ext-natives.r
+            keep [{$(REBOL)} tools-dir/prep-extension.r
                 unspaced [{MODULE=} ext/name]
                 unspaced [{SRC=extensions/} case [
                     file? ext/source [ext/source]
@@ -1646,12 +1602,10 @@ for-each ext dynamic-extensions [
         append ext-includes app-config/includes
 
         if mod/ldflags [
-            assert-no-blank-inside mod/ldflags
             append ext-ldflags mod/ldflags
         ]
 
         if mod/includes [
-            assert-no-blank-inside mod/includes
             append ext-includes mod/includes
         ]
 
