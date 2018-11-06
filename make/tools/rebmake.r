@@ -151,8 +151,8 @@ platform-class: make object! [
     archive-suffix: _ ;static library
     obj-suffix: _
 
-    gen-cmd-create:
-    gen-cmd-delete:
+    gen-cmd-create: _
+    gen-cmd-delete: _
     gen-cmd-strip: _
 ]
 
@@ -287,7 +287,7 @@ set-target-platform: func [
 ]
 
 project-class: make object! [
-    class-name: 'project-class
+    class: #project
     name: _
     id: _
     type: _ ; dynamic, static, object or application
@@ -317,23 +317,23 @@ project-class: make object! [
 ]
 
 solution-class: make project-class [
-    class-name: 'solution-class
+    class: #solution
 ]
 
 ext-dynamic-class: make object! [
-    class-name: 'ext-dynamic-class
+    class: #dynamic-extension
     output: _
     flags: _ ;static?
 ]
 
 ext-static-class: make object! [
-    class-name: 'ext-static-class
+    class: #static-extension
     output: _
     flags: _ ;static?
 ]
 
 application-class: make project-class [
-    class-name: 'application-class
+    class: #application
     type: 'application
     generated?: false
 
@@ -357,7 +357,7 @@ application-class: make project-class [
 ]
 
 dynamic-library-class: make project-class [
-    class-name: 'dynamic-library-class
+    class: #dynamic-library
     type: 'dynamic
     generated?: false
     linker: _
@@ -382,13 +382,18 @@ dynamic-library-class: make project-class [
     ]
 ]
 
+; !!! This is an "object library" class which seems to be handled in some of
+; the same switches as #static-library.  But there is no static-library-class
+; for some reason, despite several #static-library switches.  What is the
+; reasoning behind this?
+;
 object-library-class: make project-class [
-    class-name: 'object-library-class
+    class: #object-library
     type: 'object
 ]
 
 compiler-class: make object! [
-    class-name: 'compiler-class
+    class: #compiler
     name: _
     id: _ ;flag prefix
     version: _
@@ -682,7 +687,7 @@ cl: make compiler-class [
 ]
 
 linker-class: make object! [
-    class-name: 'linker-class
+    class: #linker
     name: _
     id: _ ;flag prefix
     version: _
@@ -757,8 +762,8 @@ ld: make linker-class [
         return: [<opt> text!]
         dep [object!]
     ][
-        opt switch dep/class-name [
-            'object-file-class [
+        opt switch dep/class [
+            #object-file [
                 comment [ ;-- !!! This was commented out, why?
                     if find words-of dep 'depends [
                         for-each ddep dep/depends [
@@ -768,7 +773,7 @@ ld: make linker-class [
                 ]
                 file-to-local dep/output
             ]
-            'ext-dynamic-class [
+            #dynamic-extension [
                 either tag? dep/output [
                     if lib: filter-flag dep/output id [
                         unspaced ["-l" lib]
@@ -780,24 +785,23 @@ ld: make linker-class [
                     ]
                 ]
             ]
-            'ext-static-class [
+            #static-extension [
                 file-to-local dep/output
             ]
-            'object-library-class [
+            #object-library [
                 spaced map-each ddep dep/depends [
                     file-to-local ddep/output
                 ]
             ]
-            'application-class [
-                ;pass
+            #application [
+                _
             ]
-            'var-class [
-                ;pass
+            #variable [
+                _
             ]
-            'entry-class [
-                ;pass
+            #entry [
+                _
             ]
-
             default [
                 dump dep
                 fail "unrecognized dependency"
@@ -869,36 +873,29 @@ llvm-link: make linker-class [
         return: [<opt> text!]
         dep [object!]
     ][
-        opt switch dep/class-name [
-            'object-file-class [
-                comment [ ;-- !!! This was commented out, why?
-                    if find words-of dep 'depends [
-                        for-each ddep dep/depends [
-                            dump ddep
-                        ]
-                    ]
-                ]
+        opt switch dep/class [
+            #object-file [
                 file-to-local dep/output
             ]
-            'ext-dynamic-class [
-                ;ignored
+            #dynamic-extension [
+                _
             ]
-            'ext-static-class [
-                ;ignored
+            #static-extension [
+                _
             ]
-            'object-library-class [
+            #object-library [
                 spaced map-each ddep dep/depends [
                     file-to-local ddep/output
                 ]
             ]
-            'application-class [
-                ;pass
+            #application [
+                _
             ]
-            'var-class [
-                ;pass
+            #variable [
+                _
             ]
-            'entry-class [
-                ;pass
+            #entry [
+                _
             ]
             default [
                 dump dep
@@ -959,18 +956,11 @@ link: make linker-class [
         return: [<opt> text!]
         dep [object!]
     ][
-        opt switch dep/class-name [
-            'object-file-class [
-                comment [ ;-- !!! This was commented out, why?
-                    if find words-of dep 'depends [
-                        for-each ddep dep/depends [
-                            dump ddep
-                        ]
-                    ]
-                ]
+        opt switch dep/class [
+            #object-file [
                 file-to-local to-file dep/output
             ]
-            'ext-dynamic-class [
+            #dynamic-extension [
                 comment [import file] ;-- static property is ignored
 
                 either tag? dep/output [
@@ -984,22 +974,22 @@ link: make linker-class [
                     ]
                 ]
             ]
-            'ext-static-class [
+            #static-extension [
                 file-to-local dep/output
             ]
-            'object-library-class [
+            #object-library [
                 spaced map-each ddep dep/depends [
                     file-to-local to-file ddep/output
                 ]
             ]
-            'application-class [
+            #application [
                 file-to-local any [dep/implib join-of dep/basename ".lib"]
             ]
-            'var-class [
-                ;pass
+            #variable [
+                _
             ]
-            'entry-class [
-                ;pass
+            #entry [
+                _
             ]
             default [
                 dump dep
@@ -1010,7 +1000,7 @@ link: make linker-class [
 ]
 
 strip-class: make object! [
-    class-name: 'linker-class
+    class: #strip
     name: _
     id: _ ;flag prefix
     exec-file: _
@@ -1044,7 +1034,7 @@ strip: make strip-class [
 
 ; includes/definitions/cflags will be inherited from its immediately ancester
 object-file-class: make object! [
-    class-name: 'object-file-class
+    class: #object-file
     compiler: _
     cflags: _
     definitions: _
@@ -1103,23 +1093,19 @@ object-file-class: make object! [
     ][
         assert [
             find [
-                application-class
-                dynamic-library-class
-                static-library-class
-                object-library-class
-            ] parent/class-name
+                #application
+                #dynamic-library
+                #static-library
+                #object-library
+            ] parent/class
         ]
 
         make entry-class [
             target: output
             depends: append-of either depends [depends][[]] source
-            commands: reduce [command/I/D/F/O/g/(try all [
-                any [
-                    PIC
-                    parent/class-name = 'dynamic-library-class
-                ]
-                'PIC
-            ])
+            commands: reduce [command/I/D/F/O/g/(
+                try if (PIC or [parent/class = #dynamic-library]) ['PIC]
+            )
                 opt parent/includes
                 opt parent/definitions
                 opt parent/cflags
@@ -1131,7 +1117,7 @@ object-file-class: make object! [
 ]
 
 entry-class: make object! [
-    class-name: 'entry-class
+    class: #entry
     id: _
     target:
     depends:
@@ -1140,55 +1126,55 @@ entry-class: make object! [
 ]
 
 var-class: make object! [
-    class-name: 'var-class
-    name:
+    class: #variable
+    name: _
     value: _
     default: _
     generated?: false
 ]
 
 cmd-create-class: make object! [
-    class-name: 'cmd-create-class
+    class: #cmd-create
     file: _
 ]
 
 cmd-delete-class: make object! [
-    class-name: 'cmd-delete-class
+    class: #cmd-delete
     file: _
 ]
 
 cmd-strip-class: make object! [
-    class-name: 'cmd-strip-class
+    class: #cmd-strip
     file: _
     options: _
     strip: _
 ]
 
 generator-class: make object! [
-    class-name: 'generator-class
+    class: #generator
 
     vars: make map! 128
 
-    gen-cmd-create:
-    gen-cmd-delete:
+    gen-cmd-create: _
+    gen-cmd-delete: _
     gen-cmd-strip: _
 
     gen-cmd: method [
         return: [text!]
         cmd [object!]
     ][
-        switch cmd/class-name [
-            'cmd-create-class [
+        switch cmd/class [
+            #cmd-create [
                 apply any [:gen-cmd-create :target-platform/gen-cmd-create] compose [cmd: (cmd)]
             ]
-            'cmd-delete-class [
+            #cmd-delete [
                 apply any [:gen-cmd-delete :target-platform/gen-cmd-delete] compose [cmd: (cmd)]
             ]
-            'cmd-strip-class [
+            #cmd-strip [
                 apply any [:gen-cmd-strip :target-platform/gen-cmd-strip] compose [cmd: (cmd)]
             ]
 
-            fail ["Unknown cmd class:" cmd/class-name]
+            fail ["Unknown cmd class:" cmd/class]
         ]
     ]
 
@@ -1206,8 +1192,8 @@ generator-class: make object! [
         if object? cmd [
             assert [
                 find [
-                    cmd-create-class cmd-delete-class cmd-strip-class
-                ] cmd/class-name
+                    #cmd-create #cmd-delete #cmd-strip
+                ] cmd/class
             ]
             cmd: gen-cmd cmd
         ]
@@ -1244,7 +1230,7 @@ generator-class: make object! [
 
         if find words-of solution 'depends [
             for-each dep solution/depends [
-                if dep/class-name = 'var-class [
+                if dep/class = #variable [
                     append vars reduce [
                         dep/name
                         any [
@@ -1280,26 +1266,26 @@ generator-class: make object! [
         project [object!]
     ][
         if not suffix: find reduce [
-            'application-class target-platform/exe-suffix
-            'dynamic-library-class target-platform/dll-suffix
-            'static-library-class target-platform/archive-suffix
-            'object-library-class target-platform/archive-suffix
-            'object-file-class target-platform/obj-suffix
-        ] project/class-name [return]
+            #application target-platform/exe-suffix
+            #dynamic-library target-platform/dll-suffix
+            #static-library target-platform/archive-suffix
+            #object-library target-platform/archive-suffix
+            #object-file target-platform/obj-suffix
+        ] project/class [return]
 
         suffix: second suffix
 
         case [
             blank? project/output [
-                switch project/class-name [
-                    'object-file-class [
+                switch project/class [
+                    #object-file [
                         project/output: copy project/source
                     ]
-                    'object-library-class [
+                    #object-library [
                         project/output: to text! project/name
                     ]
 
-                    fail ["Unexpected project class:" (project/class-name)]
+                    fail ["Unexpected project class:" (project/class)]
                 ]
                 if output-ext: find/last project/output #"." [
                     remove output-ext
@@ -1331,12 +1317,12 @@ generator-class: make object! [
     ][
         ;print ["Setting outputs for:"]
         ;dump project
-        switch project/class-name [
-            'application-class
-            'dynamic-library-class
-            'static-library-class
-            'solution-class
-            'object-library-class [
+        switch project/class [
+            #application
+            #dynamic-library
+            #static-library
+            #solution
+            #object-library [
                 if project/generated? [return]
                 setup-output project
                 project/generated?: true
@@ -1344,8 +1330,7 @@ generator-class: make object! [
                     setup-outputs dep
                 ]
             ]
-
-            'object-file-class [
+            #object-file [
                 setup-output project
             ]
             default [
@@ -1368,11 +1353,11 @@ makefile: make generator-class [
             [text!]
         entry [object!]
     ][
-        newlined collect-lines [switch entry/class-name [
+        newlined collect-lines [switch entry/class [
 
             ;; Makefile variable, defined on a line by itself
             ;;
-            'var-class [
+            #variable [
                 keep either entry/default [
                     [entry/name either nmake? ["="]["?="] entry/default]
                 ][
@@ -1380,7 +1365,7 @@ makefile: make generator-class [
                 ]
             ]
 
-            'entry-class [
+            #entry [
                 ;;
                 ;; First line in a makefile entry is the target followed by
                 ;; a colon and a list of dependencies.  Usually the target is
@@ -1401,14 +1386,14 @@ makefile: make generator-class [
                         fail ["Unknown entry/target type" entry/target]
                     ]
                     for-each w (ensure [block! blank!] entry/depends) [
-                        switch w/class-name [
-                            'var-class [
+                        switch w/class [
+                            #variable [
                                 keep ["$(" w/name ")"]
                             ]
-                            'entry-class [
+                            #entry [
                                 keep w/target
                             ]
-                            'ext-dynamic-class 'ext-static-class [
+                            #dynamic-extension #static-extension [
                                 ; only contribute to command line
                             ]
                         ] else [
@@ -1432,7 +1417,7 @@ makefile: make generator-class [
                 ]
             ]
 
-            fail ["Unrecognized entry class:" entry/class-name]
+            fail ["Unrecognized entry class:" entry/class]
         ] keep ""] ;-- final keep just adds an extra newline
 
         ;; !!! Adding an extra newline here unconditionally means variables
@@ -1455,62 +1440,63 @@ makefile: make generator-class [
         for-each dep project/depends [
             if not object? dep [continue]
             ;dump dep
-            if not find [ext-dynamic-class ext-static-class] dep/class-name [
+            if not find [#dynamic-extension #static-extension] dep/class [
                 either dep/generated? [
                     continue
                 ][
                     dep/generated?: true
                 ]
             ]
-            switch dep/class-name [
-                'application-class
-                'dynamic-library-class
-                'static-library-class [
+            switch dep/class [
+                #application
+                #dynamic-library
+                #static-library [
                     objs: make block! 8
                     ;dump dep
                     for-each obj dep/depends [
                         ;dump obj
-                        if obj/class-name = 'object-library-class [
+                        if obj/class = #object-library [
                             append objs obj/depends
                         ]
                     ]
                     append buf gen-rule make entry-class [
                         target: dep/output
                         depends: join-of objs map-each ddep dep/depends [
-                            if ddep/class-name <> 'object-library-class [ddep]
+                            if ddep/class <> #object-library [ddep]
                         ]
                         commands: append reduce [dep/command] opt dep/post-build-commands
                     ]
                     emit buf dep
                 ]
-
-                'object-library-class [
-                    ;assert [dep/class-name != 'object-library-class] ;No nested object-library-class allowed
+                #object-library [
+                    comment [
+                        ; !!! Said "No nested object-library-class allowed"
+                        ; but was commented out (?)
+                        assert [dep/class != #object-library]
+                    ]
                     for-each obj dep/depends [
-                        assert [obj/class-name = 'object-file-class]
+                        assert [obj/class = #object-file]
                         if not obj/generated? [
                             obj/generated?: true
-                            append buf gen-rule obj/gen-entries/(try all [project/class-name = 'dynamic-library-class 'PIC]) dep
+                            append buf gen-rule obj/gen-entries/(try all [
+                                project/class = #dynamic-library
+                                'PIC
+                            ]) dep
                         ]
                     ]
                 ]
-
-                'object-file-class [
-                    ;print ["generate object rule"]
+                #object-file [
                     append buf gen-rule dep/gen-entries project
                 ]
-
-                'entry-class 'var-class [
+                #entry #variable [
                     append buf gen-rule dep
                 ]
-
-                'ext-dynamic-class 'ext-static-class [
-                    ;pass
+                #dynamic-extension #static-extension [
+                    _
                 ]
-
                 default [
                     dump dep
-                    fail ["unrecognized project type:" dep/class-name]
+                    fail ["unrecognized project type:" dep/class]
                 ]
             ]
         ]
@@ -1522,7 +1508,7 @@ makefile: make generator-class [
         solution [object!]
     ][
         buf: make binary! 2048
-        assert [solution/class-name = 'solution-class]
+        assert [solution/class = #solution]
 
         prepare solution
 
@@ -1574,11 +1560,11 @@ Execution: make generator-class [
         target [object!]
         /cwd dir [file!]
     ][
-        switch target/class-name [
-            'var-class [
-                ;pass: already been taken care of by PREPARE
+        switch target/class [
+            #variable [
+                _ ;-- already been taken care of by PREPARE
             ]
-            'entry-class [
+            #entry [
                 if all [
                     not word? target/target 
                     ; so you can use words for "phony" targets
@@ -1613,19 +1599,18 @@ Execution: make generator-class [
 
         prepare project
 
-        if not find [ext-dynamic-class ext-static-class] project/class-name [
+        if not find [#dynamic-extension #static-extension] project/class [
             if project/generated? [return]
             project/generated?: true
         ]
 
-        switch project/class-name [
-            'application-class
-            'dynamic-library-class
-            'static-library-class [
+        switch project/class [
+            #application
+            #dynamic-library
+            #static-library [
                 objs: make block! 8
                 for-each obj project/depends [
-                    ;dump obj
-                    if obj/class-name = 'object-library-class [
+                    if obj/class = #object-library [
                         append objs obj/depends
                     ]
                 ]
@@ -1638,40 +1623,36 @@ Execution: make generator-class [
                     commands: reduce [project/command]
                 ]
             ]
-
-            'object-library-class [
+            #object-library [
                 for-each obj project/depends [
-                    assert [obj/class-name = 'object-file-class]
+                    assert [obj/class = #object-file]
                     if not obj/generated? [
                         obj/generated?: true
-                        run-target obj/gen-entries/(try all [p-project/class-name = 'dynamic-library-class 'PIC]) project
+                        run-target obj/gen-entries/(try all [
+                            p-project/class = #dynamic-library
+                            'PIC
+                        ]) project
                     ]
                 ]
             ]
-
-            'object-file-class [
-                ;print ["generate object rule"]
+            #object-file [
                 assert [parent]
                 run-target project/gen-entries p-project
             ]
-
-            'entry-class 'var-class [
+            #entry #variable [
                 run-target project
             ]
-
-            'ext-dynamic-class 'ext-static-class [
-                ;pass
+            #dynamic-extension #static-extension [
+                _
             ]
-
-            'solution-class [
+            #solution [
                 for-each dep project/depends [
                     run dep
                 ]
             ]
-
             default [
                 dump project
-                fail ["unrecognized project type:" project/class-name]
+                fail ["unrecognized project type:" project/class]
             ]
         ]
     ]
@@ -1679,7 +1660,7 @@ Execution: make generator-class [
 
 visual-studio: make generator-class [
     solution-format-version: "12.00"
-    tools-version: "15.00"
+    tools-version: "15.0" ;-- "15.00" warns in 'Detailed' MSBuild output
     target-win-version: "10.0.10586.0"
     platform-tool-set: "v141"
     platform: cpu: "x64"
@@ -1744,7 +1725,11 @@ visual-studio: make generator-class [
         buf
         project [object!]
     ][
-        project-name: either project/class-name = 'entry-class [project/target][project/name]
+        project-name: if project/class = #entry [
+            project/target
+        ] else [
+            project/name
+        ]
         append buf unspaced [
             {Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "} to text! project-name {",}
             {"} project-name {.vcxproj", "} project/id {"} newline
@@ -1755,11 +1740,11 @@ visual-studio: make generator-class [
         depends: make block! 8
         for-each dep project/depends [
             if find [
-                object-library-class
-                dynamic-library-class
-                static-library-class
-                application-class
-            ] dep/class-name [
+                #object-library
+                #dynamic-library
+                #static-library
+                #application
+            ] dep/class [
                 ;print ["adding" mold dep]
                 append depends dep
             ]
@@ -1867,7 +1852,11 @@ visual-studio: make generator-class [
         output-dir [file!] {Solution directory}
         project [object!]
     ][
-        project-name: either project/class-name = 'entry-class [project/target][project/name]
+        project-name: if project/class = #entry [
+            project/target
+        ] else [
+            project/name
+        ]
         if project/generated? [
             print ["project" project-name "was already generated"]
             return
@@ -1879,23 +1868,23 @@ visual-studio: make generator-class [
         ;print mold project
 
         either find [
-            dynamic-library-class
-            static-library-class
-            application-class
-            object-library-class
-            entry-class
-        ] project/class-name [
+            #dynamic-library
+            #static-library
+            #application
+            #object-library
+            #entry
+        ] project/class [
             project/id: take uuid-pool
         ][
             dump project
-            fail ["unsupported project:" (project/class-name)]
+            fail ["unsupported project:" (project/class)]
         ]
 
         config: unspaced [build-type {|} platform]
         project-dir: unspaced [project-name ".dir\" build-type "\"]
 
         searches: make text! 1024
-        if project/class-name <> 'entry-class [
+        if project/class <> #entry [
             inc: make text! 1024
             for-each i project/includes [
                 if i: filter-flag i "msc" [
@@ -1915,10 +1904,10 @@ visual-studio: make generator-class [
 
             lib: make text! 1024
             for-each d project/depends [
-                switch d/class-name [
-                    'ext-dynamic-class
-                    'ext-static-class
-                    'static-library-class [
+                switch d/class [
+                    #dynamic-extension
+                    #static-extension
+                    #static-library [
                         if ext: filter-flag d/output "msc" [
                             append lib unspaced [
                                 ext
@@ -1927,7 +1916,7 @@ visual-studio: make generator-class [
                             ]
                         ]
                     ]
-                    'application-class [
+                    #application [
                         append lib unspaced [any [d/implib unspaced [d/basename ".lib"]] ";"]
                         append searches unspaced [
                             unspaced [d/name ".dir\" build-type] ";"
@@ -1939,7 +1928,7 @@ visual-studio: make generator-class [
                 remove back tail-of lib ;move the trailing ";"
             ]
 
-            if find [dynamic-library-class application-class] project/class-name [
+            if find [#dynamic-library #application] project/class [
                 for-each s project/searches [
                     if s: filter-flag s "msc" [
                         append searches unspaced [file-to-local s ";"]
@@ -1967,7 +1956,7 @@ visual-studio: make generator-class [
   <PropertyGroup Label="Globals">
     <ProjectGUID>} project/id {</ProjectGUID>
     <WindowsTargetPlatformVersion>} target-win-version {</WindowsTargetPlatformVersion>}
-    either project/class-name = 'entry-class [
+    either project/class = #entry [
         unspaced [ {
     <RootNameSpace>} project-name {</RootNameSpace>}
         ]
@@ -1981,12 +1970,12 @@ visual-studio: make generator-class [
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
-  <ConfigurationType>} switch project/class-name [
-      'static-library-class 'object-library-class ["StaticLibrary"]
-      'dynamic-library-class ["DynamicLibrary"]
-      'application-class ["Application"]
-      'entry-class ["Utility"]
-      fail ["Unsupported project class:" (project/class-name)]
+  <ConfigurationType>} switch project/class [
+      #static-library #object-library ["StaticLibrary"]
+      #dynamic-library ["DynamicLibrary"]
+      #application ["Application"]
+      #entry ["Utility"]
+      fail ["Unsupported project class:" (project/class)]
 ] {</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>Unicode</CharacterSet>
@@ -2001,7 +1990,7 @@ visual-studio: make generator-class [
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
     <PropertyGroup>}
-    if project/class-name != 'entry-class [
+    if project/class != #entry [
         unspaced [ {
       <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
       <OutDir>} project-dir {</OutDir>
@@ -2013,7 +2002,7 @@ visual-studio: make generator-class [
     </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>}
-    if project/class-name <> 'entry-class [
+    if project/class <> #entry [
         unspaced [ {
       <AdditionalIncludeDirectories>} inc {</AdditionalIncludeDirectories>
       <AssemblerListingLocation>} build-type {/</AssemblerListingLocation>}
@@ -2047,7 +2036,7 @@ visual-studio: make generator-class [
   ] {
     </ClCompile>}
     case [
-        find [dynamic-library-class application-class] project/class-name [
+        find [#dynamic-library #application] project/class [
             unspaced [ {
     <Link>
       <AdditionalOptions> /machine:} cpu { %(AdditionalOptions)</AdditionalOptions>
@@ -2067,7 +2056,7 @@ visual-studio: make generator-class [
     </Link>}
             ]
         ]
-        find [static-library-class object-library-class] project/class-name [
+        find [#static-library #object-library] project/class [
             unspaced [ {
     <Lib>
       <AdditionalOptions> /machine:} cpu { %(AdditionalOptions)</AdditionalOptions>
@@ -2075,7 +2064,7 @@ visual-studio: make generator-class [
             ]
         ]
         all [
-            find [entry-class] project/class-name
+            #entry = project/class
             project/commands
         ][
             unspaced [ {
@@ -2102,8 +2091,8 @@ visual-studio: make generator-class [
 } use [o sources collected][
     sources: make text! 1024
     for-each o project/depends [
-        case [
-            o/class-name = 'object-file-class [
+        switch o/class [
+            #object-file [
                 append sources unspaced [
                     {    <ClCompile Include="} o/source {" >^/}
                     use [compile-as][
@@ -2174,8 +2163,9 @@ visual-studio: make generator-class [
                     ]
                     {    </ClCompile>^/}
                 ]
-            ] ;object-file-class
-            o/class-name = 'object-library-class [
+            ]
+
+            #object-library [
                 for-each f o/depends [
                     append sources unspaced [
                         {    <Object Include="} f/output {" />^/}
@@ -2225,7 +2215,7 @@ visual-studio: make generator-class [
         /x86
     ][
         buf: make binary! 2048
-        assert [solution/class-name = 'solution-class]
+        assert [solution/class = #solution]
 
         prepare solution
 
@@ -2243,12 +2233,12 @@ visual-studio: make generator-class [
         projects: make block! 8
         for-each dep solution/depends [
             if find [
-                dynamic-library-class
-                static-library-class
-                object-library-class
-                application-class
-                entry-class
-            ] dep/class-name [
+                #dynamic-library
+                #static-library
+                #object-library
+                #application
+                #entry
+            ] dep/class [
                 append projects dep
             ]
         ]

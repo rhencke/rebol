@@ -187,7 +187,7 @@ gen-obj: func [
 ]
 
 extension-class: make object! [
-    class-name: 'extension-class
+    class: #extension
     name: _
     loadable: yes ;can be loaded at runtime
     modules: _
@@ -1217,11 +1217,11 @@ add-project-flags: func [
 ][
     assert [
         find [
-            dynamic-library-class
-            object-library-class
-            static-library-class
-            application-class
-        ] project/class-name
+            #dynamic-library
+            #object-library
+            #static-library
+            #application
+        ] project/class
     ]
 
     if D [
@@ -1259,23 +1259,18 @@ process-module: func [
     s
     ret
 ][
-    assert [mod/class-name = 'extension-class]
+    assert [mod/class = #extension]
     ret: make rebmake/object-library-class [
         name: mod/name
         depends: map-each s (append reduce [mod/source] opt mod/depends) [
             case [
-                any [file? s block? s][
+                match [file! block!] s [
                     gen-obj/dir s src-dir/extensions/%
                 ]
-                all [object? s
-                    find [
-                        object-library-class
-                        object-file-class
-                    ] s/class-name
-                ][
+                object? s and [find [#object-library #object-file] s/class] [
                     s
-                    ;object-library-class has already been taken care of above
-                    ;if s/class-name = 'object-file-class [s]
+                    ; #object-library has already been taken care of above
+                    ; if s/class = #object-library [s]
                 ]
                 default [
                     dump s
@@ -1292,12 +1287,8 @@ process-module: func [
                             output: lib
                         ]
                     ]
-                    all [
-                        object? lib
-                        find [
-                            ext-dynamic-class
-                            ext-static-class
-                        ] lib/class-name
+                    object? lib and [
+                        find [#dynamic-extension #static-extension] lib/class
                     ][
                         lib
                     ]
@@ -1333,12 +1324,7 @@ for-each ext builtin-extensions [
         not empty? ext/depends
     ] then [
         append ext-objs map-each s ext/depends [
-            if all [
-                object? s
-                s/class-name = 'object-library-class
-            ][
-                s
-            ]
+            all [object? s | s/class = #object-library] then [s]
         ]
     ]
 
@@ -1503,11 +1489,11 @@ add-new-obj-folders: function [
     obj
 ][
     for-each lib objs [
-        switch lib/class-name [
-            'object-file-class [
+        switch lib/class [
+            #object-file [
                 lib: reduce [lib]
             ]
-            'object-library-class [
+            #object-library [
                 lib: lib/depends
             ]
             default [

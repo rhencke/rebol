@@ -44,8 +44,8 @@ options: [
                         ]
                     ]
                     all [
-                            object? lib
-                            find [ext-dynamic-class ext-static-class] lib/class-name
+                        object? lib
+                        find [#dynamic-extension #static-extension] lib/class
                     ][
                         lib
                     ]
