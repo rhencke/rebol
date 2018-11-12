@@ -33,7 +33,7 @@
 //
 
 #include "sys-core.h"
-#include "sys-ext.h"
+
 #include "tmp-mod-jpg.h"
 
 // These routines live in %u-jpg.c, which doesn't depend on %sys-core.h, but

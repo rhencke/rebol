@@ -49,7 +49,6 @@
 #include "lodepng.h"
 
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-mod-png.h"
 

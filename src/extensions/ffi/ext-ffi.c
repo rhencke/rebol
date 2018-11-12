@@ -28,36 +28,25 @@
 // ==================================================================
 //
 #include "sys-core.h"
-#include "sys-ext.h"
-
 
 #include "tmp-ext-ffi-init.inc"
 
-
 #include "reb-struct.h"
 
-DEFINE_EXT_INIT(FFI, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        int init = CALL_MODULE_INIT(FFI);
-        if (init < 0) return init;
+DECLARE_MODULE_INIT(FFI)
+{
+    Hook_Datatype(
+        REB_STRUCT,
+        &T_Struct,
+        &PD_Struct,
+        &CT_Struct,
+        &MAKE_Struct,
+        &TO_Struct,
+        &MF_Struct
+    );
+}
 
-        Hook_Datatype(
-            REB_STRUCT,
-            &T_Struct,
-            &PD_Struct,
-            &CT_Struct,
-            &MAKE_Struct,
-            &TO_Struct,
-            &MF_Struct
-        );
-    }
-)
-
-DEFINE_EXT_QUIT(FFI,
+DECLARE_MODULE_QUIT(FFI)
 {
     Unhook_Datatype(REB_STRUCT);
-    return CALL_MODULE_QUIT(FFI);
 }
-)

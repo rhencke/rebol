@@ -28,21 +28,13 @@
 // ==================================================================
 //
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-ext-process-init.inc"
 
-DEFINE_EXT_INIT(Process, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        int init = CALL_MODULE_INIT(Process);
-        if (init < 0) return init;
-    }
-)
-
-DEFINE_EXT_QUIT(Process,
+DECLARE_MODULE_INIT(Process)
 {
-    return CALL_MODULE_QUIT(Process);
 }
-)
+
+DECLARE_MODULE_QUIT(Process)
+{
+}

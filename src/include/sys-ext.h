@@ -64,38 +64,20 @@ typedef int (*QUIT_CFUNC)(void);
 #define DECLARE_EXT_INIT(ext_name) \
     EXT_API int RX_INIT_NAME(ext_name)(REBVAL *header, REBVAL *out)
 
-#define DEFINE_EXT_INIT(ext_name,script_bytes,code) \
-    EXT_API int RX_INIT_NAME(ext_name)(REBVAL *script, REBVAL *out) { \
-        code \
-        /* binary does not have a \0 terminator */ \
-        size_t utf8_size; \
-        const int max = -1; \
-        void *utf8 = rebGunzipAlloc( \
-            &utf8_size, script_bytes, sizeof(script_bytes), max \
-        ); \
-        REBVAL *bin = rebRepossess(utf8, utf8_size); \
-        Move_Value(script, bin); \
-        rebRelease(bin); /* should just return the BINARY! REBVAL* */ \
-        return 0;\
-    }
-
 #define DECLARE_EXT_QUIT(ext_name) \
     EXT_API int RX_QUIT_NAME(ext_name)(void)
-
-#define DEFINE_EXT_QUIT(ext_name,code) \
-    EXT_API int RX_QUIT_NAME(ext_name)(void) code
 
 
 //=//// MODULE MACROS /////////////////////////////////////////////////////=//
 
 #define DECLARE_MODULE_INIT(mod_name) \
-    int Module_Init_##mod_name(REBVAL* out)
+    void Module_Init_##mod_name(void)
 
 #define CALL_MODULE_INIT(mod_name) \
-    Module_Init_##mod_name(out)
+    Module_Init_##mod_name()
 
 #define DECLARE_MODULE_QUIT(mod_name) \
-    int Module_Quit_##mod_name(void)
+    void Module_Quit_##mod_name(void)
 
 #define CALL_MODULE_QUIT(mod_name) \
     Module_Quit_##mod_name()

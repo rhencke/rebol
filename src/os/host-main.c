@@ -77,7 +77,6 @@
 
 
 #include "sys-core.h"
-#include "sys-ext.h"
 
 
 // Initialization done by rebStartup() is intended to be as basic as possible

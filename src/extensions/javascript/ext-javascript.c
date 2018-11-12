@@ -28,22 +28,13 @@
 //
 
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-ext-javascript-init.inc"
 
-DEFINE_EXT_INIT(JavaScript, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        int init = CALL_MODULE_INIT(JavaScript);
-        if (init < 0) return init;
-    }
-)
+DECLARE_MODULE_INIT(JavaScript)
+{
+}
 
-DEFINE_EXT_QUIT(
-    JavaScript,
-    {
-        return CALL_MODULE_QUIT(JavaScript);
-    }
-)
+DECLARE_MODULE_QUIT(JavaScript)
+{
+}

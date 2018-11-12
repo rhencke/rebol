@@ -28,21 +28,13 @@
 // ==================================================================
 //
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-ext-odbc-init.inc"
 
-DEFINE_EXT_INIT(ODBC, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        int init = CALL_MODULE_INIT(ODBC);
-        if (init < 0) return init;
-    }
-)
-
-DEFINE_EXT_QUIT(ODBC,
+DECLARE_MODULE_INIT(ODBC)
 {
-    return CALL_MODULE_QUIT(ODBC);
 }
-)
+
+DECLARE_MODULE_QUIT(ODBC)
+{
+}

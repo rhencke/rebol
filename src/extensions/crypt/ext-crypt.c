@@ -35,19 +35,12 @@
 void Init_Crypto(void);
 void Shutdown_Crypto(void);
 
-DEFINE_EXT_INIT(Crypt, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        Init_Crypto();
-        int init = CALL_MODULE_INIT(Crypt);
-        if (init < 0) return init;
-    }
-)
+DECLARE_MODULE_INIT(Crypt)
+{
+    Init_Crypto();
+}
 
-DEFINE_EXT_QUIT(Crypt,
+DECLARE_MODULE_QUIT(Crypt)
 {
     Shutdown_Crypto();
-    return CALL_MODULE_QUIT(Crypt);
 }
-)

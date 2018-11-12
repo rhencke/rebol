@@ -27,32 +27,15 @@
 //
 // ==================================================================
 //
+
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-ext-png-init.inc"
 
-DEFINE_EXT_INIT(PNG, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        int init = CALL_MODULE_INIT(PNG);
-        if (init < 0)
-            return init; // ?
-
-        // As written must fall through to work!
-
-    }
-)
-
-DEFINE_EXT_QUIT(PNG,
+DECLARE_MODULE_INIT(PNG)
 {
-    int ret = 0;
-
-    int r = CALL_MODULE_QUIT(PNG);
-    if (r != 0) ret = r;
-
-    return ret;
 }
-)
 
+DECLARE_MODULE_QUIT(PNG)
+{
+}

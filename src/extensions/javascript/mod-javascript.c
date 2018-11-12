@@ -36,7 +36,6 @@
 //
 
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-mod-javascript.h"
 

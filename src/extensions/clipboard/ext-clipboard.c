@@ -32,17 +32,10 @@
 
 #include "tmp-ext-clipboard-init.inc"
 
-DEFINE_EXT_INIT(Clipboard, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        int init = CALL_MODULE_INIT(Clipboard);
-        if (init < 0) return init;
-    }
-)
-
-DEFINE_EXT_QUIT(Clipboard,
+DECLARE_MODULE_INIT(Clipboard)
 {
-    return CALL_MODULE_QUIT(Clipboard);
 }
-)
+
+DECLARE_MODULE_QUIT(Clipboard)
+{
+}

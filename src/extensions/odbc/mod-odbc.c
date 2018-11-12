@@ -52,7 +52,6 @@
 #endif
 
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-mod-odbc.h"
 

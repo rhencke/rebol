@@ -35,19 +35,12 @@
 void Init_Debugger(void);
 void Shutdown_Debugger(void);
 
-DEFINE_EXT_INIT(Debugger, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        Init_Debugger();
-        int init = CALL_MODULE_INIT(Debugger);
-        if (init < 0) return init;
-    }
-)
+DECLARE_MODULE_INIT(Debugger)
+{
+    Init_Debugger();
+}
 
-DEFINE_EXT_QUIT(Debugger,
+DECLARE_MODULE_QUIT(Debugger)
 {
     Shutdown_Debugger();
-    return CALL_MODULE_QUIT(Debugger);
 }
-)

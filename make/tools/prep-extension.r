@@ -229,6 +229,8 @@ native-forward-decls: collect [
 
 
 e1/emit {
+    #include "sys-ext.h" /* for things like DECLARE_MODULE_INIT() */
+
     /*
     ** INCLUDE_PARAMS_OF MACROS: DEFINING PARAM(), REF(), ARG()
     */
@@ -266,6 +268,12 @@ e1/emit {
      * FORWARD-DECLARE REBNATIVE FUNCTION PROTOTYPES
      */
     $[Native-Forward-Decls];
+
+    /*
+     * FORWARD-DECLARE MODULE STARTUP AND SHUTDOWN FUNCTIONS
+     */
+    DECLARE_MODULE_INIT(${Mod});
+    DECLARE_MODULE_QUIT(${Mod});
 }
 e1/emit newline
 
@@ -315,7 +323,19 @@ e/emit {
         nullptr /* Note: C++ doesn't allow 0 length arrays, null ensures 1 */
     };
 
-    int Module_Init_${Mod}(RELVAL *out) {
+    EXT_API int RX_INIT_NAME(${Mod})(REBVAL *script, REBVAL *out) {
+        /* binary does not have a \0 terminator */
+        size_t utf8_size;
+        const int max = -1;
+        void *utf8 = rebGunzipAlloc( \
+            &utf8_size, script_bytes, sizeof(script_bytes), max
+        );
+        REBVAL *bin = rebRepossess(utf8, utf8_size);
+        Move_Value(script, bin);
+        rebRelease(bin); /* should just return the BINARY! REBVAL* */
+
+        CALL_MODULE_INIT(${Mod});
+
         REBARR *arr = Make_Extension_Module_Array(
             Ext_Native_Specs_${Mod}, EXT_NAT_COMPRESSED_SIZE_${MOD},
             Ext_Native_C_Funcs_${Mod}, EXT_NUM_NATIVES_${MOD}
@@ -330,10 +350,12 @@ e/emit {
             );
             Free_Unmanaged_Array(arr);
         }
+
         return 0;
     }
 
-    int Module_Quit_${Mod}(void) {
+    EXT_API int RX_QUIT_NAME(${Mod})(void) {
+        CALL_MODULE_QUIT(${Mod});
         return 0;
     }
 }

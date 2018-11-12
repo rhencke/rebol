@@ -32,18 +32,10 @@
 
 #include "tmp-ext-bmp-init.inc"
 
-DEFINE_EXT_INIT(BMP, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        int init = CALL_MODULE_INIT(BMP);
-        if (init < 0) return init;
-    }
-)
-
-DEFINE_EXT_QUIT(BMP,
+DECLARE_MODULE_INIT(BMP)
 {
-    return CALL_MODULE_QUIT(BMP);
 }
-)
 
+DECLARE_MODULE_QUIT(BMP)
+{
+}

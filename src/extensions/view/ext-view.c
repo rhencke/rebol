@@ -27,22 +27,15 @@
 //
 // ==================================================================
 //
+
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-ext-view-init.inc"
 
-DEFINE_EXT_INIT(View, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        int init = CALL_MODULE_INIT(View);
-        if (init < 0) return init;
-    }
-)
-
-DEFINE_EXT_QUIT(View,
+DECLARE_MODULE_INIT(View)
 {
-    return CALL_MODULE_QUIT(View);
 }
-)
+
+DECLARE_MODULE_QUIT(View)
+{
+}

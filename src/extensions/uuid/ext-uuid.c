@@ -27,22 +27,15 @@
 //
 // ==================================================================
 //
+
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-ext-uuid-init.inc"
 
-DEFINE_EXT_INIT(UUID, //name of the extension
-    script_bytes, // REBOL script for the extension in the source form
-    {
-        // init all modules in this extension
-        int init = CALL_MODULE_INIT(UUID);
-        if (init < 0) return init;
-    }
-)
-
-DEFINE_EXT_QUIT(UUID,
+DECLARE_MODULE_INIT(UUID)
 {
-    return CALL_MODULE_QUIT(UUID);
 }
-)
+
+DECLARE_MODULE_QUIT(UUID)
+{
+}

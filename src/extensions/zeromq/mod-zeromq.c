@@ -63,7 +63,6 @@
 #define REBOL_IMPLICIT_END
 
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "tmp-mod-zeromq.h"
 
