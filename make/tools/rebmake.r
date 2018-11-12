@@ -44,11 +44,9 @@ default-linker: _
 default-strip: _
 target-platform: _
 
-map-files-to-local: func [
+map-files-to-local: function [
     return: [block!]
     files [file! block!]
-    <local>
-    f
 ][
     if not block? files [files: reduce [files]]
     map-each f files [
@@ -691,9 +689,8 @@ linker-class: make object! [
     name: _
     id: _ ;flag prefix
     version: _
-    link: method [
+    link: method [][
         return: <void>
-    ][
     ]
     commands: method [
         return: [<opt> block!]
@@ -702,9 +699,11 @@ linker-class: make object! [
         searches [block! blank!]
         ldflags [block! any-string! blank!]
     ][
+        ... ;-- overridden
     ]
-
-    check: does []
+    check: does [
+        ... ;-- overridden
+    ]
 ]
 
 ld: make linker-class [
@@ -1661,7 +1660,7 @@ Execution: make generator-class [
 visual-studio: make generator-class [
     solution-format-version: "12.00"
     tools-version: "15.0" ;-- "15.00" warns in 'Detailed' MSBuild output
-    target-win-version: "10.0.10586.0"
+    target-win-version: "10.0.17134.0" ;-- should autodetect
     platform-tool-set: "v141"
     platform: cpu: "x64"
     build-type: "Release"
@@ -1862,23 +1861,22 @@ visual-studio: make generator-class [
             return
         ]
 
-        ;print ["Generating project file for" project-name]
+        print ["Generating project file for" project-name]
 
         project/generated?: true
-        ;print mold project
 
-        either find [
+        if not find [
             #dynamic-library
             #static-library
             #application
             #object-library
             #entry
         ] project/class [
-            project/id: take uuid-pool
-        ][
             dump project
             fail ["unsupported project:" (project/class)]
         ]
+
+        project/id: take uuid-pool
 
         config: unspaced [build-type {|} platform]
         project-dir: unspaced [project-name ".dir\" build-type "\"]
@@ -1945,7 +1943,7 @@ visual-studio: make generator-class [
         ]
 
         xml: unspaced [
-            {<?xml version="1.0" encoding="UTF-8"?>
+            {<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="} tools-version {" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="} config {">
@@ -1989,17 +1987,17 @@ visual-studio: make generator-class [
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-    <PropertyGroup>}
-    if project/class != #entry [
-        unspaced [ {
-      <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
-      <OutDir>} project-dir {</OutDir>
-      <IntDir>} project-dir {</IntDir>
-      <TargetName>} project/basename {</TargetName>
-      <TargetExt>} select [static ".lib" object ".lib" dynamic ".dll" application ".exe"] project/type {</TargetExt>}
-        ]
-    ] {
-    </PropertyGroup>
+  <PropertyGroup>}
+  if project/class != #entry [
+      unspaced [ {
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir>} project-dir {</OutDir>
+    <IntDir>} project-dir {</IntDir>
+    <TargetName>} project/basename {</TargetName>
+    <TargetExt>} select [static ".lib" object ".lib" dynamic ".dll" application ".exe"] project/type {</TargetExt>}
+    ]
+  ] {
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>}
     if project/class <> #entry [
@@ -2023,7 +2021,8 @@ visual-studio: make generator-class [
       <RuntimeLibrary>MultiThreaded} if build-type = "debug" ["Debug"] {DLL</RuntimeLibrary>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <WarningLevel>Level3</WarningLevel>
-      <TreatWarningAsError></TreatWarningAsError>
+      <TreatWarningAsError>
+      </TreatWarningAsError>
       <PreprocessorDefinitions>} def {</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <AdditionalOptions>}
@@ -2094,7 +2093,7 @@ visual-studio: make generator-class [
         switch o/class [
             #object-file [
                 append sources unspaced [
-                    {    <ClCompile Include="} o/source {" >^/}
+                    {    <ClCompile Include="} o/source {">^/}
                     use [compile-as][
                         all [
                             block? o/cflags
@@ -2230,16 +2229,17 @@ visual-studio: make generator-class [
         ;print ["vars:" mold vars]
 
         ; Project section
-        projects: make block! 8
-        for-each dep solution/depends [
-            if find [
-                #dynamic-library
-                #static-library
-                #object-library
-                #application
-                #entry
-            ] dep/class [
-                append projects dep
+        projects: collect [
+            for-each dep solution/depends [
+                if find [
+                    #dynamic-library
+                    #static-library
+                    #object-library
+                    #application
+                    #entry
+                ] dep/class [
+                    keep dep
+                ]
             ]
         ]
 

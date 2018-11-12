@@ -524,7 +524,6 @@ do-redirect: func [
         switch new-uri/scheme [
             'https [append new-uri [port-id: 443]]
             'http [append new-uri [port-id: 80]]
-        ] else [
             fail ["Unknown scheme:" new-uri/scheme]
         ]
     ]

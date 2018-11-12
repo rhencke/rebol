@@ -1329,17 +1329,10 @@ for-each ext builtin-extensions [
     ]
 
     append ext-objs mod-obj: process-module ext
-    if mod-obj/libraries [
-        append app-config/libraries mod-obj/libraries
-    ]
 
-    if ext/searches [
-        append app-config/searches ext/searches
-    ]
-
-    if ext/ldflags [
-        append app-config/ldflags ext/ldflags
-    ]
+    append app-config/libraries opt mod-obj/libraries
+    append app-config/searches opt ext/searches
+    append app-config/ldflags opt ext/ldflags
 
     ; Modify module properties
     add-project-flags/I/D/c/O/g mod-obj
@@ -1439,9 +1432,9 @@ prep: make rebmake/entry-class [
         for-each ext all-extensions [
             keep [{$(REBOL)} tools-dir/prep-extension.r
                 unspaced [{MODULE=} ext/name]
-                unspaced [{SRC=extensions/} case [
-                    file? ext/source [ext/source]
-                    block? ext/source [first find ext/source file!]
+                unspaced [{SRC=extensions/} switch type of ext/source [
+                    file! [ext/source]
+                    block! [first find ext/source file!]
                     fail "ext/source must be BLOCK! or FILE!"
                 ]]
                 unspaced [{OS_ID=} system-config/id]
@@ -1517,14 +1510,9 @@ for-each file os-file-block [
     ; For better or worse, original R3-Alpha didn't use FILE! in %file-base.r
     ; for filenames.  Note that `+` markers should be removed by this point.
     ;
-    assert [any [word? file | path? file]]
-    file: join-of %objs/ file
-    assert [file? file]
-
-    path: first split-path file
-    if not find folders path [
-        append folders path
-    ]
+    file: join-of %objs/ (ensure [word! path!] file)
+    path: first split-path (ensure file! file)
+    find folders path or [append folders path]
 ]
 add-new-obj-folders ext-objs folders
 
@@ -1587,13 +1575,8 @@ for-each ext dynamic-extensions [
         append ext-libs opt mod-obj/libraries
         append ext-includes app-config/includes
 
-        if mod/ldflags [
-            append ext-ldflags mod/ldflags
-        ]
-
-        if mod/includes [
-            append ext-includes mod/includes
-        ]
+        append ext-ldflags opt mod/ldflags
+        append ext-includes opt mod/includes
 
         ; Modify module properties
         add-project-flags/I/D/c/O/g mod-obj
