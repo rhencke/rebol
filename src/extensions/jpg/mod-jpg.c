@@ -34,7 +34,7 @@
 
 #include "sys-core.h"
 #include "sys-ext.h"
-#include "tmp-mod-jpg-first.h"
+#include "tmp-mod-jpg.h"
 
 // These routines live in %u-jpg.c, which doesn't depend on %sys-core.h, but
 // has a minor dependency on %reb-c.h
@@ -100,5 +100,3 @@ REBNATIVE(decode_jpeg)
 
     return D_OUT;
 }
-
-#include "tmp-mod-jpg-last.h"

@@ -30,12 +30,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-
 #include "tmp-ext-process-init.inc"
-
-
-#define MODULE_INCLUDE_DECLARATION_ONLY
-#include "tmp-mod-process-last.h"
 
 DEFINE_EXT_INIT(Process, //name of the extension
     script_bytes, // REBOL script for the extension in the source form

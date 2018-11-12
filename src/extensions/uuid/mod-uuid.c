@@ -46,7 +46,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-uuid-first.h"
+#include "tmp-mod-uuid.h"
 
 
 //
@@ -57,7 +57,7 @@
 //      return: [binary!]
 //  ]
 //
-static REBNATIVE(generate)
+REBNATIVE(generate)
 {
     UUID_INCLUDE_PARAMS_OF_GENERATE;
 
@@ -124,7 +124,3 @@ static REBNATIVE(generate)
 
     return D_OUT;
 }
-
-
-
-#include "tmp-mod-uuid-last.h"

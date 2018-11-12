@@ -38,7 +38,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-javascript-first.h"
+#include "tmp-mod-javascript.h"
 
 #include <limits.h> // for UINT_MAX
 
@@ -312,6 +312,3 @@ REBNATIVE(js_awaiter)
 
     return Init_Action_Unbound(D_OUT, awaiter);
 }
-
-
-#include "tmp-mod-javascript-last.h"

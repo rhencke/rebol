@@ -54,7 +54,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-odbc-first.h"
+#include "tmp-mod-odbc.h"
 
 
 #include <sql.h>
@@ -1391,6 +1391,3 @@ REBNATIVE(close_connection)
 
     return rebLogic(true);
 }
-
-
-#include "tmp-mod-odbc-last.h"

@@ -56,7 +56,7 @@ modernize-action: function [
     body [block!]
 ][
     blankers: copy []
-    spec: collect [
+    spec: collect-block [
         iterate spec [
             ;
             ; Find ANY-WORD!s (args/locals)

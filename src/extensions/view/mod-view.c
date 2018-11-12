@@ -90,7 +90,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-view-first.h"
+#include "tmp-mod-view.h"
 
 
 // !!! This was around saying it was "used to detect modal non-OS dialogs".
@@ -664,6 +664,3 @@ REBNATIVE(request_dir_p)
 
     return D_OUT;
 }
-
-
-#include "tmp-mod-view-last.h"

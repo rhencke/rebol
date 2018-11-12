@@ -73,7 +73,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-process-first.h"
+#include "tmp-mod-process.h"
 
 
 // !!! %mod-process.c is now the last file that uses this cross platform OS
@@ -1858,7 +1858,7 @@ static void kill_process(pid_t pid, int signal);
 //          {The process ID}
 //  ]
 //
-static REBNATIVE(terminate)
+REBNATIVE(terminate)
 {
     PROCESS_INCLUDE_PARAMS_OF_TERMINATE;
 
@@ -1928,7 +1928,7 @@ static REBNATIVE(terminate)
 //          [text! word!]
 //  ]
 //
-static REBNATIVE(get_env)
+REBNATIVE(get_env)
 //
 // !!! Prescriptively speaking, it is typically considered a bad idea to treat
 // an empty string environment variable as different from an unset one:
@@ -2016,7 +2016,7 @@ static REBNATIVE(get_env)
 //          "Value to set the variable to, or NULL to unset it"
 //  ]
 //
-static REBNATIVE(set_env)
+REBNATIVE(set_env)
 {
     PROCESS_INCLUDE_PARAMS_OF_SET_ENV;
 
@@ -2109,7 +2109,7 @@ static REBNATIVE(set_env)
 //      ; No arguments
 //  ]
 //
-static REBNATIVE(list_env)
+REBNATIVE(list_env)
 {
     PROCESS_INCLUDE_PARAMS_OF_LIST_ENV;
 
@@ -2195,7 +2195,7 @@ static REBNATIVE(list_env)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(get_pid)
+REBNATIVE(get_pid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_PID;
 
@@ -2214,7 +2214,7 @@ static REBNATIVE(get_pid)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(get_uid)
+REBNATIVE(get_uid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_UID;
 
@@ -2232,7 +2232,7 @@ static REBNATIVE(get_uid)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(get_euid)
+REBNATIVE(get_euid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_EUID;
 
@@ -2249,7 +2249,7 @@ static REBNATIVE(get_euid)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(get_gid)
+REBNATIVE(get_gid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_UID;
 
@@ -2267,7 +2267,7 @@ static REBNATIVE(get_gid)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(get_egid)
+REBNATIVE(get_egid)
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_EUID;
 
@@ -2287,7 +2287,7 @@ static REBNATIVE(get_egid)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(set_uid)
+REBNATIVE(set_uid)
 {
     PROCESS_INCLUDE_PARAMS_OF_SET_UID;
 
@@ -2319,7 +2319,7 @@ static REBNATIVE(set_uid)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(set_euid)
+REBNATIVE(set_euid)
 {
     PROCESS_INCLUDE_PARAMS_OF_SET_EUID;
 
@@ -2351,7 +2351,7 @@ static REBNATIVE(set_euid)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(set_gid)
+REBNATIVE(set_gid)
 {
     PROCESS_INCLUDE_PARAMS_OF_SET_GID;
 
@@ -2383,7 +2383,7 @@ static REBNATIVE(set_gid)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(set_egid)
+REBNATIVE(set_egid)
 {
     PROCESS_INCLUDE_PARAMS_OF_SET_EGID;
 
@@ -2439,7 +2439,7 @@ static void kill_process(pid_t pid, int signal)
 //  ]
 //  platforms: [linux android posix osx]
 //
-static REBNATIVE(send_signal)
+REBNATIVE(send_signal)
 {
     PROCESS_INCLUDE_PARAMS_OF_SEND_SIGNAL;
 
@@ -2451,6 +2451,3 @@ static REBNATIVE(send_signal)
 }
 
 #endif // defined(TO_LINUX) || defined(TO_ANDROID) || defined(TO_POSIX) || defined(TO_OSX)
-
-
-#include "tmp-mod-process-last.h"

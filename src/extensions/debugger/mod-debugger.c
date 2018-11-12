@@ -46,7 +46,7 @@
 
 #include "sys-core.h"
 
-#include "tmp-mod-debugger-first.h"
+#include "tmp-mod-debugger.h"
 
 
 // Index values for the properties in a "resume instruction" (see notes on
@@ -81,7 +81,7 @@ const REBVAL *HG_Host_Repl = NULL; // needs to be a GC-protecting reference
 //      console [action!]
 //  ]
 //
-static REBNATIVE(init_debugger)
+REBNATIVE(init_debugger)
 {
     DEBUGGER_INCLUDE_PARAMS_OF_INIT_DEBUGGER;
 
@@ -109,7 +109,7 @@ bool Do_Breakpoint_Throws(
 //          {Returns nothing, not even void ("invisible", like COMMENT)}
 //  ]
 //
-static REBNATIVE(breakpoint)
+REBNATIVE(breakpoint)
 //
 // !!! Need definition to test for N_DEBUGGER_breakpoint function
 {
@@ -145,7 +145,7 @@ static REBNATIVE(breakpoint)
 //          "Run the given code if breakpoint does not override"
 //  ]
 //
-static REBNATIVE(pause)
+REBNATIVE(pause)
 //
 // !!! Need definition to test for N_DEBUGGER_pause function
 {
@@ -309,7 +309,7 @@ return_maybe_set_number_out:
 //          "Stack level to target in unwinding (can be BACKTRACE #)"
 //  ]
 //
-static REBNATIVE(resume)
+REBNATIVE(resume)
 //
 // The host breakpoint hook makes a wall to prevent arbitrary THROWs and
 // FAILs from ending the interactive inspection.  But RESUME is special, and
@@ -895,7 +895,7 @@ return_temp:
 //          {The action or frame to get an index for}
 //  ]
 //
-static REBNATIVE(backtrace_index)
+REBNATIVE(backtrace_index)
 {
     DEBUGGER_INCLUDE_PARAMS_OF_BACKTRACE_INDEX;
 
@@ -938,7 +938,7 @@ void Shutdown_Debugger(void)
 //
 //  ]
 //
-static REBNATIVE(debug)
+REBNATIVE(debug)
 //
 // The DEBUG command modifies state that is specific to controlling variables
 // and behaviors in the REPL.  At the moment, all it does is change which
@@ -991,5 +991,3 @@ modify_with_confidence:
 
     return nullptr;
 }
-
-#include "tmp-mod-debugger-last.h"

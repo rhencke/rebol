@@ -34,7 +34,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-gif-first.h"
+#include "tmp-mod-gif.h"
 
 #define MAX_STACK_SIZE  4096
 #define NULL_CODE       (-1)
@@ -368,6 +368,3 @@ REBNATIVE(decode_gif)
 
     return result;
 }
-
-
-#include "tmp-mod-gif-last.h"

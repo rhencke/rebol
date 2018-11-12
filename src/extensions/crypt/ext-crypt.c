@@ -35,9 +35,6 @@
 void Init_Crypto(void);
 void Shutdown_Crypto(void);
 
-#define MODULE_INCLUDE_DECLARATION_ONLY
-#include "tmp-mod-crypt-last.h"
-
 DEFINE_EXT_INIT(Crypt, //name of the extension
     script_bytes, // REBOL script for the extension in the source form
     {

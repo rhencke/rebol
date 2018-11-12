@@ -39,7 +39,7 @@
 #include "sys-ext.h"
 
 
-#include "tmp-mod-clipboard-first.h"
+#include "tmp-mod-clipboard.h"
 
 
 //
@@ -269,5 +269,3 @@ REBNATIVE(get_clipboard_actor_handle)
     Make_Port_Actor_Handle(D_OUT, &Clipboard_Actor);
     return D_OUT;
 }
-
-#include "tmp-mod-clipboard-last.h"

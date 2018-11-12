@@ -32,9 +32,6 @@
 
 #include "tmp-ext-gif-init.inc"
 
-#define MODULE_INCLUDE_DECLARATION_ONLY
-#include "tmp-mod-gif-last.h"
-
 DEFINE_EXT_INIT(GIF, //name of the extension
     script_bytes, // REBOL script for the extension in the source form
     {

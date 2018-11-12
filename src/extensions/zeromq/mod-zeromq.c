@@ -65,7 +65,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-zeromq-first.h"
+#include "tmp-mod-zeromq.h"
 
 
 
@@ -949,6 +949,3 @@ REBNATIVE(zmq_equal_q) {
 
     return rebLogic(h1 == h2);
 }
-
-
-#include "tmp-mod-zeromq-last.h"

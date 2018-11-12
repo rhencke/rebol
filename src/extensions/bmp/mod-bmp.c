@@ -34,7 +34,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-bmp-first.h"
+#include "tmp-mod-bmp.h"
 
 //**********************************************************************
 
@@ -650,6 +650,3 @@ REBNATIVE(encode_bmp)
     TERM_BIN_LEN(bin, bmfh.bfSize);
     return Init_Binary(D_OUT, bin);
 }
-
-
-#include "tmp-mod-bmp-last.h"

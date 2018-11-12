@@ -31,7 +31,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-ffi-first.h"
+#include "tmp-mod-ffi.h"
 
 #include "reb-struct.h"
 
@@ -526,6 +526,3 @@ REBNATIVE(set_at_pointer)
 
     RETURN (ARG(value)); // Returning cell would rebRelease()
 }
-
-
-#include "tmp-mod-ffi-last.h"

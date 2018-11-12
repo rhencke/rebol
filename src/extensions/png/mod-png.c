@@ -51,7 +51,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-png-first.h"
+#include "tmp-mod-png.h"
 
 
 //=//// CUSTOM SERIES-BACKED MEMORY ALLOCATOR /////////////////////////////=//
@@ -353,6 +353,3 @@ REBNATIVE(encode_png)
     //
     return rebRepossess(encoded_bytes, encoded_size);
 }
-
-
-#include "tmp-mod-png-last.h"

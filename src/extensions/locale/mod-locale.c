@@ -40,7 +40,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-#include "tmp-mod-locale-first.h"
+#include "tmp-mod-locale.h"
 
 
 //
@@ -181,5 +181,3 @@ REBNATIVE(setlocale)
 
     return rebText(result);
 }
-
-#include "tmp-mod-locale-last.h"

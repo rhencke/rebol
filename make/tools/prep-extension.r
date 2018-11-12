@@ -61,10 +61,7 @@ print ["building" m-name "from" c-src]
 
 
 e1: (make-emitter "Module C Header File Preface"
-    ensure file! join-all [output-dir/tmp-mod- l-m-name %-first.h])
-
-e2: (make-emitter "Module C Header File Epilogue"
-    ensure file! join-all [output-dir/tmp-mod- l-m-name %-last.h])
+    ensure file! join-all [output-dir/tmp-mod- l-m-name %.h])
 
 
 verbose: false
@@ -209,71 +206,26 @@ spec: compose/deep/only [
 ]
 append spec native-list
 
-data: to-binary mold spec
-compressed: gzip data
+specs-compressed: gzip (specs-uncompressed: to-binary mold spec)
 
-e2/emit {
-    int Module_Init_${Mod}(RELVAL *out);
-    int Module_Quit_${Mod}(void);
-    
-    #if !defined(MODULE_INCLUDE_DECLARATION_ONLY)
-    
-    #define EXT_NUM_NATIVES_${MOD} $<num-native>
-    #define EXT_NAT_COMPRESSED_SIZE_${MOD} $<length of data>
-    
-    const REBYTE Ext_Native_Specs_${Mod}[EXT_NAT_COMPRESSED_SIZE_${MOD}] = {
-        $<Binary-To-C Compressed>
-    };
-}
 
-either num-native = 0 [ ;-- C++ doesn't support 0-length arrays
-    e2/emit {
-        REBNAT *Ext_Native_C_Funcs_${Mod} = NULL;
-    }
-][
-    names: collect [
-        for-each item native-list [
-            if set-word? item [
-                item: to word! item
-                keep cscape/with {N_${MOD}_${Item}} 'item
-            ]
+names: collect [
+    for-each item native-list [
+        if set-word? item [
+            item: to word! item
+            keep cscape/with {N_${MOD}_${Item}} 'item
         ]
     ]
-
-    e2/emit {
-        REBNAT Ext_Native_C_Funcs_${Mod}[EXT_NUM_NATIVES_${MOD}] = {
-            $(Names),
-        };
-    }
 ]
 
-e2/emit {
-    int Module_Init_${Mod}(RELVAL *out) {
-        REBARR *arr = Make_Extension_Module_Array(
-            Ext_Native_Specs_${Mod}, EXT_NAT_COMPRESSED_SIZE_${MOD},
-            Ext_Native_C_Funcs_${Mod}, EXT_NUM_NATIVES_${MOD}
-        );
-        if (!IS_BLOCK(out))
-            Init_Block(out, arr);
-        else {
-            Append_Values_Len(
-                VAL_ARRAY(out),
-                KNOWN(ARR_HEAD(arr)),
-                ARR_LEN(arr)
-            );
-            Free_Unmanaged_Array(arr);
-        }
-        return 0;
-    }
-
-    int Module_Quit_${Mod}(void) {
-        return 0;
-    }
-
-    #endif // MODULE_INCLUDE_DECLARATION_ONLY
-}
-
-e2/write-emitted
+native-forward-decls: collect [
+    for-each item native-list [
+        if set-word? item [
+            item: to word! item
+            keep cscape/with {REBNATIVE(${Item})} 'item
+        ]
+    ]
+]
 
 
 e1/emit {
@@ -309,6 +261,11 @@ e1/emit {
     #undef REBNATIVE
     #define REBNATIVE(n) \
         REBVAL *N_${MOD}_##n(REBFRM *frame_)
+
+    /*
+     * FORWARD-DECLARE REBNATIVE FUNCTION PROTOTYPES
+     */
+    $[Native-Forward-Decls];
 }
 e1/emit newline
 
@@ -319,35 +276,66 @@ script-name: copy c-src
 replace script-name ".c" "-init.reb"
 replace script-name "mod" "ext"
 
+; === [{Make Extension Init Code from} script-name] ===
+
 inc-name: copy file-name
 replace inc-name ".c" "-init.inc"
 replace inc-name "mod" "ext"
 
 dest: join-of output-dir join-of %tmp- inc-name
 
-print unspaced ["--- Make Extension Init Code from " script-name " ---"]
+e: make-emitter "Ext custom init code" dest
 
-write-c-file: function [
-    return: <void>
-    c-file
-    r-file
-][
-    e: make-emitter "Ext custom init code" c-file
+script-compressed: gzip (script-uncompressed: read script-name)
 
-    data: read r-file
-    compressed: gzip data
+e/emit {
+    #include "tmp-mod-${mod}.h" /* for REBNATIVE() forward decls */
 
-    e/emit 'r-file {
-        /*
-         * Gzip compression of $<R-File>
-         * Originally $<length of data> bytes
-         */
-        static const REBYTE script_bytes[$<length of compressed>] = {
-            $<Binary-To-C Compressed>
-        };
+    /*
+     * Gzip compression of $<Script-Name>
+     * Originally $<length of script-uncompressed> bytes
+     */
+    static const REBYTE script_bytes[$<length of script-compressed>] = {
+        $<Binary-To-C Script-Compressed>
+    };
+
+    #define EXT_NUM_NATIVES_${MOD} $<num-native>
+    #define EXT_NAT_COMPRESSED_SIZE_${MOD} $<length of specs-compressed>
+    
+    /*
+     * Gzip compression of native specs
+     * Originally $<length of specs-uncompressed> bytes
+     */
+    const REBYTE Ext_Native_Specs_${Mod}[EXT_NAT_COMPRESSED_SIZE_${MOD}] = {
+        $<Binary-To-C Specs-Compressed>
+    };
+
+    REBNAT Ext_Native_C_Funcs_${Mod}[EXT_NUM_NATIVES_${MOD} + 1] = {
+        $[Names],
+        nullptr /* Note: C++ doesn't allow 0 length arrays, null ensures 1 */
+    };
+
+    int Module_Init_${Mod}(RELVAL *out) {
+        REBARR *arr = Make_Extension_Module_Array(
+            Ext_Native_Specs_${Mod}, EXT_NAT_COMPRESSED_SIZE_${MOD},
+            Ext_Native_C_Funcs_${Mod}, EXT_NUM_NATIVES_${MOD}
+        );
+        if (!IS_BLOCK(out))
+            Init_Block(out, arr);
+        else {
+            Append_Values_Len(
+                VAL_ARRAY(out),
+                KNOWN(ARR_HEAD(arr)),
+                ARR_LEN(arr)
+            );
+            Free_Unmanaged_Array(arr);
+        }
+        return 0;
     }
 
-    e/write-emitted
-]
+    int Module_Quit_${Mod}(void) {
+        return 0;
+    }
+}
 
-write-c-file dest script-name
+e/write-emitted

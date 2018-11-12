@@ -55,7 +55,7 @@
 
 #include "sha256/sha256.h" // depends on %reb-c.h for u8, u32, u64
 
-#include "tmp-mod-crypt-first.h"
+#include "tmp-mod-crypt.h"
 
 //
 //  Init_Crypto: C
@@ -124,7 +124,7 @@ static void cleanup_rc4_ctx(const REBVAL *v)
 //          "Data to encrypt/decrypt."
 //  ]
 //
-static REBNATIVE(rc4)
+REBNATIVE(rc4)
 //
 // !!! RC4 was originally included for use with TLS.  However, the insecurity
 // of RC4 led the IETF to prohibit RC4 for TLS use in 2015:
@@ -187,7 +187,7 @@ static REBNATIVE(rc4)
 //         "Uses an RSA private key (default is a public key)"
 //  ]
 //
-static REBNATIVE(rsa)
+REBNATIVE(rsa)
 {
     CRYPT_INCLUDE_PARAMS_OF_RSA;
 
@@ -344,7 +344,7 @@ static REBNATIVE(rsa)
 //         "(modified) Diffie-Hellman object, with generator(g) / modulus(p)"
 //  ]
 //
-static REBNATIVE(dh_generate_key)
+REBNATIVE(dh_generate_key)
 {
     CRYPT_INCLUDE_PARAMS_OF_DH_GENERATE_KEY;
 
@@ -403,7 +403,7 @@ static REBNATIVE(dh_generate_key)
 //          "Peer's public key"
 //  ]
 //
-static REBNATIVE(dh_compute_key)
+REBNATIVE(dh_compute_key)
 {
     CRYPT_INCLUDE_PARAMS_OF_DH_COMPUTE_KEY;
 
@@ -468,7 +468,7 @@ static void cleanup_aes_ctx(const REBVAL *v)
 //          "Use the crypt-key for decryption (default is to encrypt)"
 //  ]
 //
-static REBNATIVE(aes)
+REBNATIVE(aes)
 {
     CRYPT_INCLUDE_PARAMS_OF_AES;
 
@@ -612,6 +612,3 @@ REBNATIVE(sha256)
     sha256_final(&ctx, buf);
     return rebRepossess(buf, SHA256_BLOCK_SIZE);
 }
-
-
-#include "tmp-mod-crypt-last.h"

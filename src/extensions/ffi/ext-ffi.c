@@ -34,9 +34,6 @@
 #include "tmp-ext-ffi-init.inc"
 
 
-#define MODULE_INCLUDE_DECLARATION_ONLY
-#include "tmp-mod-ffi-last.h"
-
 #include "reb-struct.h"
 
 DEFINE_EXT_INIT(FFI, //name of the extension

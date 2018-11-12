@@ -30,12 +30,7 @@
 #include "sys-core.h"
 #include "sys-ext.h"
 
-
 #include "tmp-ext-locale-init.inc"
-
-
-#define MODULE_INCLUDE_DECLARATION_ONLY
-#include "tmp-mod-locale-last.h"
 
 DEFINE_EXT_INIT(Locale, //name of the extension
     script_bytes, // REBOL script for the extension in the source form
