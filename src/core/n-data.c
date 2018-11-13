@@ -596,8 +596,12 @@ REBNATIVE(set)
     REBVAL *target = ARG(target);
     REBVAL *value = ARG(value);
 
-    if (IS_NULLED_OR_VOID(value) and not REF(opt))
-        fail (Error_Need_Value_Raw(target));
+    if (not REF(opt)) {
+        if (IS_NULLED(value))
+            fail (Error_Need_Non_Null_Raw(target));
+        if (IS_VOID(value))
+            fail (Error_Need_Non_Void_Raw(target));
+    }
 
     if (not IS_BLOCK(target)) {
         assert(ANY_WORD(target) or ANY_PATH(target));

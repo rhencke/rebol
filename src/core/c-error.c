@@ -885,9 +885,21 @@ REBCTX *Error_User(const char *utf8) {
 
 
 //
-//  Error_Need_Value_Core: C
+//  Error_Need_Non_End_Core: C
 //
-REBCTX *Error_Need_Value_Core(const RELVAL *target, REBSPC *specifier) {
+REBCTX *Error_Need_Non_End_Core(const RELVAL *target, REBSPC *specifier) {
+    assert(IS_SET_WORD(target) or IS_SET_PATH(target));
+
+    DECLARE_LOCAL (specific);
+    Derelativize(specific, target, specifier);
+    return Error_Need_Non_End_Raw(specific);
+}
+
+
+//
+//  Error_Need_Non_Void_Core: C
+//
+REBCTX *Error_Need_Non_Void_Core(const RELVAL *target, REBSPC *specifier) {
     //
     // SET calls this, and doesn't work on just SET-WORD! and SET-PATH!
     //
@@ -895,7 +907,7 @@ REBCTX *Error_Need_Value_Core(const RELVAL *target, REBSPC *specifier) {
 
     DECLARE_LOCAL (specific);
     Derelativize(specific, target, specifier);
-    return Error_Need_Value_Raw(specific);
+    return Error_Need_Non_Void_Raw(specific);
 }
 
 

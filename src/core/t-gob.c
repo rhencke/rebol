@@ -610,13 +610,13 @@ static void Set_GOB_Vars(REBGOB *gob, const RELVAL *blk, REBSPC *specifier)
             fail (Error_Unexpected_Type(REB_SET_WORD, VAL_TYPE(var)));
 
         if (IS_END(blk))
-            fail (Error_Need_Value_Raw(var));
+            fail (Error_Need_Non_End_Raw(var));
 
         Derelativize(val, blk, specifier);
         ++blk;
 
         if (IS_SET_WORD(val))
-            fail (Error_Need_Value_Raw(var));
+            fail (Error_Need_Non_End_Raw(var));
 
         if (!Set_GOB_Var(gob, var, val))
             fail (Error_Bad_Field_Set_Raw(var, Type_Of(val)));

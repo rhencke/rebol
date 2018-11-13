@@ -83,7 +83,9 @@ Syntax: [
 
 Script: [
     no-value:           [:arg1 {has no value}]
-    need-value:         [:arg1 {needs a value (use TRY, DID, ELSE, or SET*)}]
+    need-non-void:      [:arg1 {can't be VOID! (use TRY, OPT, or SET*)}]
+    need-non-null:      [:arg1 {needs a value, can't be null (or use SET*)}]
+    need-non-end:       [{end was reached while trying to set} :arg1]
     not-bound:          [:arg1 {word is not bound to a context}]
     no-relative:        [:arg1 {word is bound relative to context not on stack}]
     not-in-context:     [:arg1 {is not in the specified context}]

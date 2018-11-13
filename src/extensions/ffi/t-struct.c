@@ -1001,7 +1001,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
 
         REBVAL *fld_val = spec_item + 1;
         if (IS_END(fld_val))
-            fail (Error_Need_Value_Raw(fld_val));
+            fail (Error_Need_Non_End_Raw(fld_val));
 
         REBARR *fieldlist = VAL_STRUCT_FIELDLIST(ret);
         RELVAL *item = ARR_HEAD(fieldlist);

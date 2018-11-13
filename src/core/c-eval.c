@@ -1832,7 +1832,7 @@ void Eval_Core(REBFRM * const f)
             goto inert;
 
         if (IS_END(f->value)) // `do [a:]` is illegal
-            fail (Error_Need_Value_Core(current, f->specifier));
+            fail (Error_Need_Non_End_Core(current, f->specifier));
 
         REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
@@ -1848,8 +1848,10 @@ void Eval_Core(REBFRM * const f)
                 goto finished;
         }
 
-        if (IS_NULLED_OR_VOID(f->out))
-            fail (Error_Need_Value_Core(current, f->specifier));
+        // Nulled cells are allowed: https://forum.rebol.info/t/895/4
+        //
+        if (IS_VOID(f->out))
+            fail (Error_Need_Non_Void_Core(current, f->specifier));
 
         Move_Value(Sink_Var_May_Fail(current, f->specifier), f->out);
         break; }
@@ -2073,7 +2075,7 @@ void Eval_Core(REBFRM * const f)
             goto inert;
 
         if (IS_END(f->value)) // `do [a/b:]` is illegal
-            fail (Error_Need_Value_Core(current, f->specifier));
+            fail (Error_Need_Non_End_Core(current, f->specifier));
 
         REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
 
@@ -2089,8 +2091,10 @@ void Eval_Core(REBFRM * const f)
                 goto finished;
         }
 
-        if (IS_NULLED_OR_VOID(f->out))
-            fail (Error_Need_Value_Core(current, f->specifier));
+        // Nulled cells are allowed: https://forum.rebol.info/t/895/4
+        //
+        if (IS_VOID(f->out))
+            fail (Error_Need_Non_Void_Core(current, f->specifier));
 
         if (Eval_Path_Throws_Core(
             FRM_CELL(f), // output if thrown, used as scratch space otherwise
