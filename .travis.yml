@@ -168,7 +168,7 @@ matrix:
           packages:
             - gcc-multilib
             - unixodbc-dev:i386 # for ODBC extension
-            - libzmq3-dev:i386 # for ZeroMQ extension
+            # - libzmq3-dev:i386 # ZeroMQ:i386 stopped installing in Nov-2018
             - texinfo # for makeinfo, required to build FFI
 
     # Linux x64, debug, g++
