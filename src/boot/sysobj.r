@@ -374,20 +374,6 @@ standard: construct [] [
             _
     ]
 
-    extension: construct [] [
-        header:     ; extension hader: name, version, etc.
-        script:     ; script to run after the extension is loaded. Could be
-                    ; text! (uncompressed code) or binary! (compressed code).
-                    ; Could be folded into "header", because it's only used to
-                    ; pass script from the extension to LOAD-EXTENSION, and
-                    ; cleared once the extensino is loaded. But keeping it
-                    ; separate makes its purpose clear...
-        lib-base:   ; handle to DLL
-        lib-file:   ; file name loaded
-        modules:
-            _
-    ]
-
     stats: construct [] [ ; port stats
         timer:      ; timer (nanos)
         evals:      ; evaluations

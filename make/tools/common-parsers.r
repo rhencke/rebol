@@ -227,7 +227,23 @@ proto-parser: context [
                 lines: attempt [decode-lines lines {//} { }]
                 data: load-until-blank lines
                 data: attempt [
-                    if set-word? first data/1 [
+                    ;
+                    ; !!! The recognition of Rebol-styled comment headers
+                    ; originally looked for SET-WORD!, but the syntax for
+                    ; doing export uses a WORD! (EXPORT) before the SET-WORD!
+                    ;
+                    ; http://www.rebol.net/r3blogs/0300.html
+                    ;
+                    ; It's hacky to just throw it in here, but the general
+                    ; consensus is that the build process needs to be made
+                    ; much simpler.  It really should be going by seeing it
+                    ; is a REBNATIVE() vs. worrying too much about the text
+                    ; pattern in the comment being detected.
+                    ;
+                    if any [
+                        set-word? first data/1
+                        'export = first data/1
+                    ][
                         notes: data/2
                         data/1
                     ]

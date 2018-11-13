@@ -101,7 +101,7 @@ bool osDialogOpen = false;
 
 
 //
-//  request-file*: native/export [
+//  export request-file*: native [
 //
 //  {Asks user to select file(s) and returns full file path(s)}
 //
@@ -555,7 +555,7 @@ int CALLBACK ReqDirCallbackProc(
 
 
 //
-//  request-dir*: native/export [
+//  export request-dir*: native [
 //
 //  "Asks user to select a directory and returns it as file path"
 //

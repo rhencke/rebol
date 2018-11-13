@@ -7,6 +7,6 @@ REBOL [
 ]
 
 sys/register-codec* 'png %.png
-    get in import 'png 'identify-png?
-    get in import 'png 'decode-png
-    get in import 'png 'encode-png
+    :identify-png?
+    :decode-png
+    :encode-png

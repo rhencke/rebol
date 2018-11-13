@@ -74,8 +74,7 @@
 // Hence, the generated header for boot extensions is included here--to allow
 // clients to get access to those extensions through an API.
 //
-#include "sys-ext.h"
-#include "tmp-boot-extensions.h"
+#include "tmp-boot-extensions.inc"
 
 #ifdef TO_JAVASCRIPT
     //
@@ -407,54 +406,20 @@ void RL_rebStartup(void)
 //
 REBVAL *RL_rebBuiltinExtensions(void)
 {
-    // Convert an {Init, Quit} C function array to a [handle! handle!] ARRAY!
+    // Call the generator functions for each builtin extension to get back
+    // all the collated information that would be needed to initialize and
+    // use the extension (but don't act on the information yet!)
 
-    REBCNT n = sizeof(Boot_Extensions) / sizeof(CFUNC*);
-    assert(n % 2 == 0);
-
-    REBARR *arr = Make_Arr(n);
+    REBARR *list = Make_Arr(NUM_BUILTIN_EXTENSIONS);
     REBCNT i;
-    for (i = 0; i != n; i += 2) {
-        Init_Handle_Managed_Cfunc(
-            Alloc_Tail_Array(arr),
-            Boot_Extensions[i],
-            0, // length, currently unused
-            &cleanup_extension_init_handler
-        );
-
-        Init_Handle_Managed_Cfunc(
-            Alloc_Tail_Array(arr),
-            Boot_Extensions[i + 1],
-            0, // length, currently unused
-            &cleanup_extension_quit_handler
-        );
+    for (i = 0; i != NUM_BUILTIN_EXTENSIONS; ++i) {
+        COLLATE_CFUNC *collator = Builtin_Extension_Collators[i];
+        REBVAL *details = (*collator)();
+        assert(IS_BLOCK(details) and VAL_LEN_AT(details) == IDX_COLLATOR_MAX);
+        Move_Value(Alloc_Tail_Array(list), details);
+        rebRelease(details);
     }
-    return Init_Block(Alloc_Value(), arr);
-}
-
-
-//
-//  rebShutdownExtensions: C
-//
-// Call QUIT functions of boot extensions in the reversed order
-//
-// Note that this function does not call unload-extension, that is why it is
-// called SHUTDOWN instead of UNLOAD, because it's only supposed to be called
-// when the interpreter is shutting down, at which point, unloading an
-// extension is not necessary.
-//
-// Plus, there is not an elegant way to call unload-extension on each of boot
-// extensions: boot extensions are passed to host-start as a block, and there
-// is no host-shutdown function which would be an ideal place for such things.
-//
-void rebShutdownExtensions(REBVAL *extensions)
-{
-    UNUSED(extensions); // !!! for now assume extensions = Boot_Extensions
-
-    REBCNT n = sizeof(Boot_Extensions) / sizeof(CFUNC*);
-    for (; n > 1; n -= 2) {
-        cast(QUIT_CFUNC, Boot_Extensions[n - 1])();
-    }
+    return Init_Block(Alloc_Value(), list);
 }
 
 

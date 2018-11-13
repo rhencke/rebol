@@ -303,10 +303,9 @@ host-start: function [
     ; can be influenced by command line parameters as well.
     ;
     loud-print "Loading boot extensions..."
-    for-each [init quit] boot-exts [
-        load-extension ensure handle! init
+    for-each collation boot-exts [
+        load-extension collation
     ]
-    set 'boot-exts 'done ; only once
 
     ; !!! The debugger is a work in progress.  But the design attempts to make
     ; it an optional extension which doesn't need to be built into the EXE,

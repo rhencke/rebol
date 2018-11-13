@@ -103,7 +103,7 @@ static ffi_abi Abi_From_Word(const REBVAL *word) {
 
 
 //
-//  make-routine: native/export [
+//  export make-routine: native [
 //
 //  {Create a bridge for interfacing with arbitrary C code in a DLL}
 //
@@ -170,7 +170,7 @@ REBNATIVE(make_routine)
 
 
 //
-//  make-routine-raw: native/export [
+//  export make-routine-raw: native [
 //
 //  {Create a bridge for interfacing with a C function, by pointer}
 //
@@ -217,7 +217,7 @@ REBNATIVE(make_routine_raw)
 
 
 //
-//  wrap-callback: native/export [
+//  export wrap-callback: native [
 //
 //  {Wrap an ACTION! so it can be called by raw C code via a memory address.}
 //
@@ -289,7 +289,7 @@ REBNATIVE(wrap_callback)
 
 
 //
-//  addr-of: native/export [
+//  export addr-of: native [
 //
 //  {Get the memory address of an FFI STRUCT! or routine/callback}
 //
@@ -334,7 +334,7 @@ REBNATIVE(addr_of) {
 
 
 //
-//  make-similar-struct: native/export [
+//  export make-similar-struct: native [
 //
 //  "Create a STRUCT! that reuses the underlying spec of another STRUCT!"
 //
@@ -411,7 +411,7 @@ REBNATIVE(destroy_struct_storage)
 
 
 //
-//  alloc-value-pointer: native/export [
+//  export alloc-value-pointer: native [
 //
 //  {Persistently allocate a cell that can be referenced from FFI routines}
 //
@@ -435,7 +435,7 @@ REBNATIVE(alloc_value_pointer)
 
 
 //
-//  free-value-pointer: native/export [
+//  export free-value-pointer: native [
 //
 //  {Free a cell that was allocated by ALLOC-VALUE-POINTER}
 //
@@ -464,7 +464,7 @@ REBNATIVE(free_value_pointer)
 
 
 //
-//  get-at-pointer: native/export [
+//  export get-at-pointer: native [
 //
 //  {Get the contents of a cell, e.g. one returned by ALLOC-VALUE-POINTER}
 //
@@ -494,7 +494,7 @@ REBNATIVE(get_at_pointer)
 
 
 //
-//  set-at-pointer: native/export [
+//  export set-at-pointer: native [
 //
 //  {Set the contents of a cell, e.g. one returned by ALLOC-VALUE-POINTER}
 //

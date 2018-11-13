@@ -73,7 +73,7 @@ const REBVAL *HG_Host_Repl = NULL; // needs to be a GC-protecting reference
 
 
 //
-//  init-debugger: native/export [
+//  export init-debugger: native [
 //
 //  {Tell the debugger what action to use as a REPL.}
 //
@@ -101,7 +101,7 @@ bool Do_Breakpoint_Throws(
 
 
 //
-//  breakpoint: native/export [
+//  export breakpoint: native [
 //
 //  "Signal breakpoint to the host, but do not participate in evaluation"
 //
@@ -135,7 +135,7 @@ REBNATIVE(breakpoint)
 
 
 //
-//  pause: native/export [
+//  export pause: native [
 //
 //  "Pause in the debugger before running the provided code"
 //
@@ -291,7 +291,7 @@ return_maybe_set_number_out:
 
 
 //
-//  resume: native/export [
+//  export resume: native [
 //
 //  {Resume after a breakpoint, can evaluate code in the breaking context.}
 //
@@ -885,7 +885,7 @@ return_temp:
 
 
 //
-//  backtrace-index: native/export [
+//  export backtrace-index: native [
 //
 //  "Get the index of a given frame or function as BACKTRACE shows it"
 //
@@ -929,7 +929,7 @@ void Shutdown_Debugger(void)
 
 
 //
-//  debug: native/export [
+//  export debug: native [
 //
 //  {Dialect for interactive debugging, see documentation for details}
 //

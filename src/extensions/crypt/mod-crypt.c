@@ -107,7 +107,7 @@ static void cleanup_rc4_ctx(const REBVAL *v)
 
 
 //
-//  rc4: native/export [
+//  export rc4: native [
 //
 //  "Encrypt/decrypt data (modifies) using RC4 algorithm."
 //
@@ -175,7 +175,7 @@ REBNATIVE(rc4)
 
 
 //
-//  rsa: native/export [
+//  export rsa: native [
 //
 //  "Encrypt/decrypt data using the RSA algorithm."
 //
@@ -334,7 +334,7 @@ REBNATIVE(rsa)
 
 
 //
-//  dh-generate-key: native/export [
+//  export dh-generate-key: native [
 //
 //  "Update DH object with new DH private/public key pair."
 //
@@ -391,7 +391,7 @@ REBNATIVE(dh_generate_key)
 
 
 //
-//  dh-compute-key: native/export [
+//  export dh-compute-key: native [
 //
 //  "Computes key from a private/public key pair and the peer's public key."
 //
@@ -447,7 +447,7 @@ static void cleanup_aes_ctx(const REBVAL *v)
 
 
 //
-//  aes: native/export [
+//  export aes: native [
 //
 //  "Encrypt/decrypt data using AES algorithm."
 //
@@ -571,7 +571,7 @@ REBNATIVE(aes)
 
 
 //
-//  sha256: native/export [
+//  export sha256: native [
 //
 //  {Calculate a SHA256 hash value from binary data.}
 //

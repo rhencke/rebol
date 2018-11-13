@@ -43,7 +43,7 @@
 
 
 //
-//  locale: native/export [
+//  export locale: native [
 //      "Get locale specific information"
 //      category [word!]
 //          {Language: English name of the language,
@@ -130,7 +130,7 @@ REBNATIVE(locale)
 
 
 //
-//  setlocale: native/export [
+//  export setlocale: native [
 //
 //  {Set/Get current locale, just a simple wrapper around C version}
 //

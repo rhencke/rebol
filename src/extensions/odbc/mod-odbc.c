@@ -186,7 +186,7 @@ static void cleanup_henv(const REBVAL *v) {
 
 
 //
-//  open-connection: native/export [
+//  export open-connection: native [
 //
 //      return: [logic!]
 //          {Always true if success}
@@ -291,7 +291,7 @@ REBNATIVE(open_connection)
 
 
 //
-//  open-statement: native/export [
+//  export open-statement: native [
 //
 //      return: [logic!]
 //      connection [object!]
@@ -829,7 +829,7 @@ SQLRETURN ODBC_BindColumns(
 
 
 //
-//  insert-odbc: native/export [
+//  export insert-odbc: native [
 //
 //  {Executes SQL statements (prepare on first pass, executes conservatively)}
 //
@@ -1173,7 +1173,7 @@ REBVAL *ODBC_Column_To_Rebol_Value(COLUMN *col) {
 
 
 //
-//  copy-odbc: native/export [
+//  export copy-odbc: native [
 //
 //      return: [block!]
 //          {Result-set block of row blocks for selects and catalog functions}
@@ -1238,7 +1238,7 @@ REBNATIVE(copy_odbc)
 
 
 //
-//  update-odbc: native/export [
+//  export update-odbc: native [
 //
 //      connection [object!]
 //      access [logic!]
@@ -1292,7 +1292,7 @@ REBNATIVE(update_odbc)
 
 
 //
-//  close-statement: native/export [
+//  export close-statement: native [
 //
 //      return: [logic!]
 //      statement [object!]
@@ -1342,7 +1342,7 @@ REBNATIVE(close_statement)
 
 
 //
-//  close-connection: native/export [
+//  export close-connection: native [
 //
 //      return: [logic!]
 //      connection [object!]

@@ -357,6 +357,7 @@ iterate generic-list [
 native-list: load output-dir/boot/tmp-natives.r
 parse native-list [
     some [
+        opt 'export
         set name: set-word! (name: to-word name)
         opt 'enfix
         ['native | and path! into ['native to end]]

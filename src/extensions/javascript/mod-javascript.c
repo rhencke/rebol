@@ -262,7 +262,7 @@ REBACT *Make_JavaScript_Action_Common(
 
 
 //
-//  js-native: native/export [
+//  export js-native: native [
 //
 //  {Create ACTION! from JavaScript code}
 //
@@ -288,7 +288,7 @@ REBNATIVE(js_native)
 
 
 //
-//  js-awaiter: native/export [
+//  export js-awaiter: native [
 //
 //  {Create ACTION! from JavaScript code, won't return until resolve() called}
 //

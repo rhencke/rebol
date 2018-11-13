@@ -29,8 +29,7 @@
 #if defined(EXT_DLL)
     //
     // EXT_DLL being defined indicates an "external extension".  Its entry
-    // and shutdown functions have predictable names (RX_Init() and RX_Quit())
-    // and are exported from the DLL.
+    // point has a predictable name of RX_Init() exported from the DLL.
 
   #if defined(REB_EXE)
     #define EXT_API EXTERN_C API_IMPORT // Hosting Rebol is an EXE
@@ -40,32 +39,50 @@
 
     // Just ignore the extension name parameter
     //
-    #define RX_INIT_NAME(ext_name) RX_Init
-    #define RX_QUIT_NAME(ext_name) RX_Quit
+    #define RX_COLLATE_NAME(ext_name) RX_Collate
 #else
     // If EXT_DLL is not defined, this is a "built-in extension".  It is
-    // part of the exe or lib, and its startup and shutdown functions must be
-    // distinguished by name from other extensions that are built-in.
+    // part of the exe or lib, and its loader function must be distinguished
+    // by name from other extensions that are built-in.
+    //
+    // !!! This could also be done with some kind of numbering scheme (UUID?)
+    // by the build process, but given that name collisions in Rebol cause
+    // other problems the idea of not colliding with extension filenames
+    // is par for the course.
 
     #define EXT_API EXTERN_C
 
     // *Don't* ignore the extension name parameter
     //
-    #define RX_INIT_NAME(ext_name) RX_Init_##ext_name
-    #define RX_QUIT_NAME(ext_name) RX_Quit_##ext_name
+    #define RX_COLLATE_NAME(ext_name) RX_Collate_##ext_name
 #endif
 
-typedef int (*INIT_CFUNC)(REBVAL*, REBVAL*);
-typedef int (*QUIT_CFUNC)(void);
-
+// The init function does not actually decompress any of the script or spec
+// code, make any natives, or run any startup.  It just returns an aggregate
+// of all the information that would be needed to make the extension module.
+//
+// !!! This aggregate may become an ACTION! as opposed to an array of handle
+// values, but this is a work in progress.
+//
+#ifdef TO_WINDOWS
+    typedef REBVAL *(__cdecl COLLATE_CFUNC)(void);
+#else
+    typedef REBVAL *(COLLATE_CFUNC)(void);
+#endif
 
 //=//// EXTENSION MACROS //////////////////////////////////////////////////=//
 
-#define DECLARE_EXT_INIT(ext_name) \
-    EXT_API int RX_INIT_NAME(ext_name)(REBVAL *header, REBVAL *out)
+#define DECLARE_EXT_COLLATE(ext_name) \
+    EXT_API REBVAL *RX_COLLATE_NAME(ext_name)(void)
 
-#define DECLARE_EXT_QUIT(ext_name) \
-    EXT_API int RX_QUIT_NAME(ext_name)(void)
+// !!! Currently used for just a BLOCK!, but may become ACT_DETAILS()
+//
+#define IDX_COLLATOR_INIT 0
+#define IDX_COLLATOR_QUIT 1
+#define IDX_COLLATOR_SCRIPT 2
+#define IDX_COLLATOR_SPECS 3
+#define IDX_COLLATOR_DISPATCHERS 4
+#define IDX_COLLATOR_MAX 5
 
 
 //=//// MODULE MACROS /////////////////////////////////////////////////////=//

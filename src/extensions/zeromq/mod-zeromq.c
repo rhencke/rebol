@@ -80,7 +80,7 @@ ATTRIBUTE_NO_RETURN static void fail_ZeroMQ(void) {
 
 
 //
-//  zmq-init: native/export [ ;; >= 0MQ 2.0.7
+//  export zmq-init: native [ ;; >= 0MQ 2.0.7
 //
 //  {Initialise 0MQ context}
 //
@@ -101,7 +101,7 @@ REBNATIVE(zmq_init) {
 
 
 //
-//  zmq-term: native/export [
+//  export zmq-term: native [
 //
 //  {Terminate 0MQ context}
 //
@@ -123,7 +123,7 @@ REBNATIVE(zmq_term) {
 
 
 //
-//  zmq-msg-alloc: native/export [
+//  export zmq-msg-alloc: native [
 //
 //  {Allocate memory for a 0MQ message object}
 //
@@ -144,7 +144,7 @@ REBNATIVE(zmq_msg_alloc) {
 
 
 //
-//  zmq-msg-free: native/export [
+//  export zmq-msg-free: native [
 //
 //  {Free the memory previously allocated for a 0MQ message object}
 //
@@ -162,7 +162,7 @@ REBNATIVE(zmq_msg_free) {
 
 
 //
-//  zmq-msg-init: native/export [
+//  export zmq-msg-init: native [
 //
 //  {Initialise empty 0MQ message}
 //
@@ -184,7 +184,7 @@ REBNATIVE(zmq_msg_init) {
 
 
 //
-//  zmq-msg-init-size: native/export [
+//  export zmq-msg-init-size: native [
 //
 //  {Initialise 0MQ message of a specified size}
 //
@@ -213,7 +213,7 @@ void free_msg_data(void *data, void *hint) {
 }
 
 //
-//  zmq-msg-init-data: native/export [
+//  export zmq-msg-init-data: native [
 //
 //  {Initialise 0MQ message with (a copy of) supplied data}
 //
@@ -251,7 +251,7 @@ REBNATIVE(zmq_msg_init_data) {
 
 
 //
-//  zmq-msg-close: native/export [
+//  export zmq-msg-close: native [
 //
 //  {Release 0MQ message}
 //
@@ -273,7 +273,7 @@ REBNATIVE(zmq_msg_close) {
 
 
 //
-//  zmq-msg-data: native/export [
+//  export zmq-msg-data: native [
 //
 //  {Retrieve a copy of a message's content as a BINARY!}
 //
@@ -294,7 +294,7 @@ REBNATIVE(zmq_msg_data) {
 
 
 //
-//  zmq-msg-size: native/export [
+//  export zmq-msg-size: native [
 //
 //  {Retrieve message content size in bytes}
 //
@@ -314,7 +314,7 @@ REBNATIVE(zmq_msg_size) {
 
 
 //
-//  zmq-msg-copy: native/export [
+//  export zmq-msg-copy: native [
 //
 //  {Copy content of a message to another message}
 //
@@ -338,7 +338,7 @@ REBNATIVE(zmq_msg_copy) {
 
 
 //
-//  zmq-msg-move: native/export [
+//  export zmq-msg-move: native [
 //
 //  {Move content of a message to another message}
 //
@@ -362,7 +362,7 @@ REBNATIVE(zmq_msg_move) {
 
 
 //
-//  zmq-socket: native/export [
+//  export zmq-socket: native [
 //
 //  {Create 0MQ socket}
 //
@@ -401,7 +401,7 @@ REBNATIVE(zmq_socket) {
 
 
 //
-//  zmq-close: native/export [
+//  export zmq-close: native [
 //
 //  {Close 0MQ socket}
 //
@@ -519,7 +519,7 @@ static REBVAL *Make_Sockopts_Table(void) {
 
 
 //
-//  zmq-setsockopt: native/export [
+//  export zmq-setsockopt: native [
 //
 //  {Set 0MQ socket options}
 //
@@ -586,7 +586,7 @@ REBNATIVE(zmq_setsockopt) {
 
 
 //
-//  zmq-getsockopt: native/export [
+//  export zmq-getsockopt: native [
 //
 //  {Get 0MQ socket options}
 //
@@ -673,7 +673,7 @@ REBNATIVE(zmq_getsockopt) {
 
 
 //
-//  zmq-bind: native/export [
+//  export zmq-bind: native [
 //
 //  {Accept connections on a socket}
 //
@@ -699,7 +699,7 @@ REBNATIVE(zmq_bind) {
 
 
 //
-//  zmq-connect: native/export [
+//  export zmq-connect: native [
 //
 //  {Connect a socket}
 //
@@ -725,7 +725,7 @@ REBNATIVE(zmq_connect) {
 
 
 //
-//  zmq-send: native/export [
+//  export zmq-send: native [
 //
 //  {Send a message on a socket}
 //
@@ -763,7 +763,7 @@ REBNATIVE(zmq_send) {
 
 
 //
-//  zmq-recv: native/export [
+//  export zmq-recv: native [
 //
 //  {Receive a message from a socket}
 //
@@ -798,7 +798,7 @@ REBNATIVE(zmq_recv) {
 
 
 //
-//  zmq-poll: native/export [
+//  export zmq-poll: native [
 //
 //  {Input/output multiplexing}
 //
@@ -877,7 +877,7 @@ REBNATIVE(zmq_poll)
 
 
 //
-//  zmq-proxy: native/export [
+//  export zmq-proxy: native [
 //
 //  {Start built-in 0MQ proxy in the current application thread}
 //
@@ -909,7 +909,7 @@ REBNATIVE(zmq_proxy) {
 
 
 //
-//  zmq-version: native/export [
+//  export zmq-version: native [
 //
 //  {Report 0MQ library version}
 //
@@ -931,7 +931,7 @@ REBNATIVE(zmq_version) {
 
 
 //
-//  zmq-equal?: native/export [
+//  export zmq-equal?: native [
 //
 //  {Returns TRUE if two 0MQ handle! values are equal (Workaround Bug #1868)}
 //

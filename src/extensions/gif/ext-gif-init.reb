@@ -7,6 +7,6 @@ REBOL [
 ]
 
 sys/register-codec* 'gif %.gif
-    get in import 'gif 'identify-gif?
-    get in import 'gif 'decode-gif
+    :identify-gif?
+    :decode-gif
     _ ;-- currently no GIF encoder

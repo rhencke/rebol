@@ -7,6 +7,6 @@ REBOL [
 ]
 
 sys/register-codec* 'bmp %.bmp
-    get in import 'bmp 'identify-bmp?
-    get in import 'bmp 'decode-bmp
-    get in import 'bmp 'encode-bmp
+    :identify-bmp?
+    :decode-bmp
+    :encode-bmp

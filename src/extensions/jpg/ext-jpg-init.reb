@@ -7,6 +7,6 @@ REBOL [
 ]
 
 sys/register-codec* 'jpeg [%.jpg %jpeg]
-    get in import 'jpg 'identify-jpeg?
-    get in import 'jpg 'decode-jpeg
+    :identify-jpeg?
+    :decode-jpeg
     _ ;-- currently no JPG encoder

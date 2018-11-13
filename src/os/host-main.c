@@ -630,12 +630,14 @@ int main(int argc, char *argv_ansi[])
 
     int exit_status = rebUnboxInteger(rebR(code), rebEND);
 
-    // This calls the QUIT functions of the extensions loaded at boot, in the
-    // reverse order of initialization.  (It does not call unload-extension,
-    // because marking native stubs as "missing" for safe errors if they
-    // are called is not necessary, since the whole system is exiting.)
+    // !!! Note: This used to call "rebShutdownExtensions", but things are
+    // changing so that Rebol code does all the extension initialization,
+    // and hence it should likely do all the extension shutdown.  All the
+    // binary does is offer up an API for the "collated" raw extensions that
+    // are located in the file (it might be able to do this with DLLs that
+    // have been encapped into the executable also, if it extracted them
+    // to temporary directories)
     //
-    rebShutdownExtensions(extensions);
     rebRelease(extensions);
 
     OS_QUIT_DEVICES(0);

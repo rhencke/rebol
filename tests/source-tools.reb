@@ -205,6 +205,7 @@ rebsource: context [
                     ]
 
                     parse proto-parser/data [
+                        opt 'export
                         set name: set-word! (name: to-word name)
                         opt 'enfix
                         ['native | ahead path! into ['native to end]]

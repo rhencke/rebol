@@ -1428,7 +1428,7 @@ stdin_pipe_err:
 
 
 //
-//  call: native/export [
+//  export call: native [
 //
 //  "Run another program; return immediately (unless /WAIT)."
 //
@@ -1713,7 +1713,7 @@ REBNATIVE(call)
 
 
 //
-//  get-os-browsers: native/export [
+//  export get-os-browsers: native [
 //
 //  "Ask the OS or registry what command(s) to use for starting a browser."
 //
@@ -1808,7 +1808,7 @@ REBNATIVE(get_os_browsers)
 
 
 //
-//  sleep: native/export [
+//  export sleep: native [
 //
 //  "Use system sleep to wait a certain amount of time (doesn't use PORT!s)."
 //
@@ -1917,7 +1917,7 @@ REBNATIVE(terminate)
 
 
 //
-//  get-env: native/export [
+//  export get-env: native [
 //
 //  {Returns the value of an OS environment variable (for current process).}
 //
@@ -2003,7 +2003,7 @@ REBNATIVE(get_env)
 
 
 //
-//  set-env: native/export [
+//  export set-env: native [
 //
 //  {Sets value of operating system environment variable for current process.}
 //
@@ -2101,7 +2101,7 @@ REBNATIVE(set_env)
 
 
 //
-//  list-env: native/export [
+//  export list-env: native [
 //
 //  {Returns a map of OS environment variables (for current process).}
 //

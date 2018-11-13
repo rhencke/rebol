@@ -20,6 +20,15 @@ REBOL [
         the EXE itself.  Hence, features like scanning the C comments for
         native specifications is reused.
     }
+    Notes: {
+        Currently the build process does not distinguish between an extension
+        that wants to use just "rebol.h" and one that depends on "sys-core.h"
+        Hence it includes things like ARG() and REF() macros, which access
+        frame internals that do not currently go through the libRebol API.
+
+        It should be possible to build an extension that does not use the
+        internal API at all, as well as one that does, so that needs review.
+    }
 ]
 
 do %bootstrap-shim.r
@@ -99,117 +108,129 @@ proto-parser/process source.text
 native-list: load unsorted-buffer
 ;print ["*** specs:" mold native-list]
 
-native-spec: make object! [
+natdef: make object! [
+    export: _
     spec: _
     platforms: _
     name: _
 ]
 
-native-specs: copy []
+; === PARSE NATIVES INTO NATIVE-DEFINITION OBJECTS, CHECKING FOR VALIDITY ===
 
-spec: _
-platforms: _
-n-name: _
-n-spec: _
-native-list-rule: [
-    while [
-        set w set-word! copy spec [
+native-defs: try collect [
+    native-rule: [
+        (
+            n-export: _
+            n-spec: _
+            n-platforms: _
+            n-name: _
+            n-spec: _
+        )
+        ['export (n-export: true) | (n-export: false)]
+        set n-name set-word! copy n-spec [
             'native block!
                 |
             'native/body 2 block!
-                |
-            [
-                'native/export block!
-                    |
-                'native/export/body 2 block!
-                    |
-                'native/body/export 2 block!
+        ]
+        opt [quote platforms: set n-platforms block!]
+        (
+            keep make natdef compose/only [
+                export: (n-export)
+                name: (to lit-word! n-name)
+                spec: (n-spec) ;-- includes NATIVE or NATIVE/BODY
+                platforms: (try copy n-platforms)
             ]
-        ](
-            if not blank? n-name [
-                ;dump n-name
-                append native-specs make native-spec compose/only [
-                    name: (to lit-word! n-name)
-                    spec: (copy n-spec)
-                    platforms: (try copy platforms)
-                ]
-            ]
-
-            n-name: w
-            n-spec: spec
-            spec: _
-            platforms: _
         )
-            |
-        remove [
-            quote platforms: set platforms block!
+    ]
+
+    parse native-list [any native-rule] or [
+        fail [
+            "Malformed native found in extension specs" mold native-list
         ]
     ]
 ]
 
-parse native-list native-list-rule or [
-    fail [
-        "failed to parse" mold native-list
-    ]
-]
+; === REBUILD NATIVE LIST JUST FOR WHAT APPLIES TO THIS PLATFORM ===
 
-if not blank? n-name [
-    ;dump n-name
-    append native-specs make native-spec compose/only [
-        name: (to lit-word! n-name)
-        spec: (copy n-spec)
-        platforms: (try copy platforms)
-    ]
-]
+; !!! This re-creation of the native list is a little silly (e.g. turning
+; export into a LOGIC! and back into the word EXPORT again, and turning
+; the name from a SET-WORD! to a WORD! and back to a SET-WORD! again).  But
+; it was how the initial extension mechanism was written.  Review.
 
 clear native-list
-export-list: copy []
-num-native: 0
-for-each native native-specs [
-    ;dump native
-    if not blank? native/platforms [
-        supported?: false
+
+num-natives: 0
+for-each native native-defs [
+    catch [
+        if blank? native/platforms [
+            throw true ;-- no PLATFORM: in def means it's on all platforms
+        ]
         for-each plat native/platforms [
             case [
                 word? plat [; could be os-base or os-name
                     if find reduce [config/os-name config/os-base] plat [
-                        supported?: true
-                        break
+                        throw true
                     ]
                 ]
                 path? plat [; os-base/os-name format
                     if plat = as path! reduce [config/os-base config/os-name][
-                        supported?: true
-                        break
+                        throw true
                     ]
                 ]
                 fail ["Unrecognized platform spec:" mold plat]
             ]
         ]
-        if not supported? [continue]
-    ]
+        null ;-- not needed in newer Ren-C (CATCH w/no throw is NULL)
+    ] else [
+        continue ;-- not supported
+    ] 
 
-    num-native: num-native + 1
-    if all [path? first native/spec | find first native/spec 'export] [
-        append export-list to word! native/name
+    num-natives: num-natives + 1
+
+    if native/export [
+        append native-list 'export
+
+        ; !!! This used to add to an "export-list" in the header of a module
+        ; whose source was entirely generated.  The idea was that there could
+        ; also be some attached user-written Rebol code as a "script", that
+        ; provided any usermode functions and definitions that were to ship
+        ; inside of the extension.
+        ;
+        ; Now the "script" *is* the module definition, edited by the user.
+        ; It would be technically possible to inject header information into
+        ; that definition as part of the build process, to add to its already
+        ; existing "Exports: []" section.
+        ;
+        ; But for the moment, the system uses "internal magic" to get the
+        ; native specs paired up with their corresponding CFUNC pointers thatis
+        ; are embedded in a C-style array inside of a HANDLE!.  Since that
+        ; internal magic does not inject the specs into that user-written
+        ; module, it goes ahead and pays attention to the EXPORT word as
+        ; well, in the style proposed here:
+        ;
+        ; http://www.rebol.net/r3blogs/0300.html
+        ;
+        comment [
+            append export-list to word! native/name
+            ...
+            compose/only [
+                Module [
+                    Name: ...
+                    Exports: (export-list)
+                ]
+            ]
+        ]
     ]
     append native-list reduce [to set-word! native/name]
     append native-list native/spec
 ]
 
 ;print ["specs:" mold native-list]
-spec: compose/deep/only [
-    REBOL [
-        name: (to word! m-name)
-        exports: (export-list)
-    ]
-]
-append spec native-list
 
-specs-compressed: gzip (specs-uncompressed: to-binary mold spec)
+specs-compressed: gzip (specs-uncompressed: to-binary mold/only native-list)
 
 
-names: collect [
+names: try collect [
     for-each item native-list [
         if set-word? item [
             item: to word! item
@@ -218,7 +239,7 @@ names: collect [
     ]
 ]
 
-native-forward-decls: collect [
+native-forward-decls: try collect [
     for-each item native-list [
         if set-word? item [
             item: to word! item
@@ -238,8 +259,8 @@ e1/emit {
 e1/emit newline
 
 iterate native-list [
+    if native-list/1 = 'export [native-list: next native-list]
     if tail? next native-list [break]
-
     any [
         'native = native-list/2
         path? native-list/2 and ['native = first native-list/2]
@@ -255,22 +276,26 @@ iterate native-list [
 
 e1/emit {
     /*
-    ** REDEFINE REBNATIVE MACRO LOCALLY TO INCLUDE EXTENSION NAME
-    **
-    ** This avoids name collisions with the core, or with other extensions.
-    **/
-
+     * Redefine REBNATIVE macro locally to include extension name.
+     * This avoids name collisions with the core, or with other extensions.
+     */
     #undef REBNATIVE
     #define REBNATIVE(n) \
         REBVAL *N_${MOD}_##n(REBFRM *frame_)
 
     /*
-     * FORWARD-DECLARE REBNATIVE FUNCTION PROTOTYPES
+     * Forward-declare REBNATIVE() dispatcher prototypes
      */
     $[Native-Forward-Decls];
 
     /*
-     * FORWARD-DECLARE MODULE STARTUP AND SHUTDOWN FUNCTIONS
+     * Forward-declare module's C startup and shutdown functions.
+     *
+     * !!! These would likely be better done as natives, and a generic feature
+     * of modules to specify an ON-LOAD and ON-UNLOAD hook (though arguably,
+     * the ON-LOAD hook is just the act of running the module body the first
+     * time through...)  That way any module could even supply a usermode
+     * action to run when it unloads.
      */
     DECLARE_MODULE_INIT(${Mod});
     DECLARE_MODULE_QUIT(${Mod});
@@ -300,63 +325,51 @@ e/emit {
     #include "tmp-mod-${mod}.h" /* for REBNATIVE() forward decls */
 
     /*
-     * Gzip compression of $<Script-Name>
+     * Gzip compression of $<Script-Name> (no \0 terminator in array)
      * Originally $<length of script-uncompressed> bytes
      */
-    static const REBYTE script_bytes[$<length of script-compressed>] = {
+    static const REBYTE script_compressed[$<length of script-compressed>] = {
         $<Binary-To-C Script-Compressed>
     };
-
-    #define EXT_NUM_NATIVES_${MOD} $<num-native>
-    #define EXT_NAT_COMPRESSED_SIZE_${MOD} $<length of specs-compressed>
     
     /*
-     * Gzip compression of native specs
+     * Gzip compression of native specs (no \0 terminator in array)
      * Originally $<length of specs-uncompressed> bytes
      */
-    const REBYTE Ext_Native_Specs_${Mod}[EXT_NAT_COMPRESSED_SIZE_${MOD}] = {
+    static const REBYTE specs_compressed[$<length of specs-compressed>] = {
         $<Binary-To-C Specs-Compressed>
     };
 
-    REBNAT Ext_Native_C_Funcs_${Mod}[EXT_NUM_NATIVES_${MOD} + 1] = {
+    /*
+     * Pointers to function dispatchers for natives (in same order as the
+     * order of native specs after being loaded).
+     */
+    static REBNAT native_dispatchers[$<num-natives> + 1] = {
         $[Names],
-        nullptr /* Note: C++ doesn't allow 0 length arrays, null ensures 1 */
+        nullptr /* just here to ensure > 0 length array (C++ requirement) */
     };
 
-    EXT_API int RX_INIT_NAME(${Mod})(REBVAL *script, REBVAL *out) {
-        /* binary does not have a \0 terminator */
-        size_t utf8_size;
-        const int max = -1;
-        void *utf8 = rebGunzipAlloc( \
-            &utf8_size, script_bytes, sizeof(script_bytes), max
+    /*
+     * Hook called by the core to gather all the details of the extension up
+     * so the system can process it.  This hook doesn't decompress any of the
+     * code itself or run any initialization routines--this allows for
+     * deferred loading.  While that's not particularly useful for DLLs (why
+     * load the DLL unless you're going to initialize the extension?) it can
+     * be useful for built-in extensions in EXEs or libraries, so a list can
+     * be available in the binary but only load individual ones on demand.
+     *
+     * !!! At the moment this code returns a BLOCK!, though having it return
+     * an ACTION! which can initialize or shutdown the extension as a black
+     * box or interface could provide more flexibility for arbitrary future
+     * extension implementations.
+     */
+    EXT_API REBVAL *RX_COLLATE_NAME(${Mod})(void) {
+        return rebCollateExtension_internal(
+            &Module_Init_${Mod}, &Module_Quit_${Mod},
+            script_compressed, sizeof(script_compressed),
+            specs_compressed, sizeof(specs_compressed),
+            native_dispatchers, $<num-natives>
         );
-        REBVAL *bin = rebRepossess(utf8, utf8_size);
-        Move_Value(script, bin);
-        rebRelease(bin); /* should just return the BINARY! REBVAL* */
-
-        CALL_MODULE_INIT(${Mod});
-
-        REBARR *arr = Make_Extension_Module_Array(
-            Ext_Native_Specs_${Mod}, EXT_NAT_COMPRESSED_SIZE_${MOD},
-            Ext_Native_C_Funcs_${Mod}, EXT_NUM_NATIVES_${MOD}
-        );
-        if (!IS_BLOCK(out))
-            Init_Block(out, arr);
-        else {
-            Append_Values_Len(
-                VAL_ARRAY(out),
-                KNOWN(ARR_HEAD(arr)),
-                ARR_LEN(arr)
-            );
-            Free_Unmanaged_Array(arr);
-        }
-
-        return 0;
-    }
-
-    EXT_API int RX_QUIT_NAME(${Mod})(void) {
-        CALL_MODULE_QUIT(${Mod});
-        return 0;
     }
 }
 

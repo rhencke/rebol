@@ -25,6 +25,7 @@ emit-native-proto: function [
     all [
         block? proto-parser/data
         parse proto-parser/data [
+            opt 'export
             set name: set-word!
             opt 'enfix
             ['native | and path! into ['native to end]]
@@ -41,7 +42,7 @@ emit-native-proto: function [
             [
                 end
             |
-                ; currently extensions add NEW-ERRORS, etc.
+                ; currently extensions add PLATFORMS:, etc.
                 ; Ideally this should be checked here for being valid
                 ;
                 to end

@@ -519,50 +519,44 @@ do-needs: function [
 ]
 
 
-load-ext-module: function [
-    source "UTF-8 source for the Rebol portion ({Rebol [Type: 'extension...})"
+load-extension-helper: function [
+    {Called by LOAD-EXTENSION native to do usermode module processing}
+
+    return: <void>
+    mod "Module preloaded with natives (but nothing else)"
+        [module!]
+    native-exports "Bound words for the natives that were marked with EXPORT"
+        [block!]
+    source "Source for the Rebol portion ({Rebol [Type: 'extension...})"
         [binary!]
-    cfuncs "Native function implementation array"
-        [handle!]
+    lib "Library the extension lives in (blank if built-in)"
+        [library! blank!]
+    path "Path to the library file (blank if built-in)"
+        [file! blank!]
     /unloadable
     /no-lib
     /no-user
 ][
     code: load/header source
     hdr: ensure [object! blank!] take code
-
-    mod: make module! (length of code) / 2
     set-meta mod hdr
 
-    bind/only/set code mod
+    ; !!! Binding remains one of the big puzzles of Rebol, and this is an
+    ; awkward implementation of it.  This routine should be merged with
+    ; LOAD-MODULE, and they should do binding the same way.
+    ;
+    bind/only/set code mod ;-- gathers set words to add to module
+    bind code mod ;-- now make sure all references are set
+
+    if unset? 'hdr/exports [
+        append hdr compose/only [ ;-- see #2344, can't assign `hdr/exports:`
+            exports: (native-exports)
+        ]
+    ] else [
+        append hdr/exports native-exports
+    ]
     bind hdr/exports mod
 
-    ; The module code contains invocations of NATIVE, which we bind to a
-    ; an action just for this module, as a specialization of LOAD-NATIVE.
-    ;
-    bind code construct [native] composeII/deep [
-        native: function [
-            return: [action!]
-            spec [block!]
-            /export "this refinement is ignored here"
-            /body
-            code "Equivalent rebol code"
-                [block!]
-            <static>
-            index (-1)
-        ][
-            index: index + 1
-            return apply 'load-native [
-                spec: spec
-                cfuncs: ((cfuncs))
-                index: index
-                set* quote code: get 'code ;-- !!! review RE:null changes
-                unloadable: ((unloadable))
-            ]
-        ]
-    ]
-
-    if w: in mod 'words [protect/hide w]
     do code
 
     if hdr/name [
@@ -590,8 +584,6 @@ load-ext-module: function [
             ]
         ]
     ]
-
-    return mod
 ]
 
 
@@ -1032,88 +1024,4 @@ import: function [
 ]
 
 
-load-extension: function [
-    file "DLL file, or handle to C init function (for builtin extensions)"
-        [file! handle!]
-    /no-user "Do not export to the user context"
-    /no-lib "Do not export to the lib context"
-][
-    if locked? ext: load-extension-helper file [
-        return ext ;-- already loaded
-    ]
-
-    code: case [
-        text? ext/script [
-            comment [load/header ext/script]
-            fail [
-                "Previously the TEXT!/BINARY! distinction for EXT/SCRIPT"
-                "cued LOAD-EXTENSION whether to decompress or not.  But that"
-                "presumed you could take UTF-8 source code and put it in a"
-                "STRING! series.  Until UTF-8 everywhere, STRING!s are all"
-                "wide series.  So decompression is done in the C code, and"
-                "we presume EXT/SCRIPT is BINARY! decompressed UTF-8 source."
-            ]
-        ]
-        binary? ext/script [
-            load/header comment [gunzip] ext/script
-        ]
-    ]
-    else [
-        fail "EXT/SCRIPT not set by extension (should not be possible!)"
-    ]
-
-    ext/script: 'done ;-- clear the startup script to save memory
-    ext/header: take code
-
-    ext/modules: map-each [spec cfuncs] ext/modules [
-        apply 'load-ext-module [
-            source: gunzip spec
-            cfuncs: cfuncs
-            unloadable: true
-            no-user: no-user
-            no-lib: no-lib
-        ]
-    ]
-
-    ext/header/type: default ['extension]
-
-    append system/extensions ext
-
-    ;run the startup script
-    do code
-
-    lock ext/header
-    lock ext
-
-    return ext
-]
-
-
-unload-extension: function [
-    return: <void>
-    ext [object!] "extension object"
-][
-    if not locked? ext [
-        fail "Extension is not locked"
-    ]
-
-    if not match [library! file!] ext/lib-base [
-        fail "Can't unload a builtin extension"
-    ]
-
-    remove find system/extensions ext
-    for-each m ext/modules [
-        remove/part back find system/modules m 2
-        ;print ["words of m:" words of m]
-        for-each w words of m [
-            v: get w
-            if action? :v [
-                unload-native/relax :v ;; !!! Should only unload if sure :-/
-            ]
-        ]
-    ]
-    unload-extension-helper ext
-]
-
-
-export [load import load-extension unload-extension]
+export [load import]

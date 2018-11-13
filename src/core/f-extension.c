@@ -8,7 +8,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2017 Rebol Open Source Contributors
+// Copyright 2012-2018 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information.
@@ -57,203 +57,253 @@ void cleanup_extension_quit_handler(const REBVAL *v)
 
 
 //
-//  load-extension-helper: native [
+//  load-extension: native [
 //
-//  "Low level extension module loader (for DLLs)."
+//  "Extension module loader (for DLLs or built-in extensions)"
 //
-//      path-or-handle [file! handle!]
-//          "Path to the extension file or handle to a builtin extension"
+//      return: [module!]
+//      where "Path to extension file or block of builtin extension details"
+//          [file! block!] ;-- !!! Should it take a LIBRARY! instead?
+//      /no-user "Do not export to the user context"
+//      /no-lib "Do not export to the lib context"
 //  ]
 //
-REBNATIVE(load_extension_helper)
-//
-// Low level extension loader:
-//
-// 1. Opens the DLL for the extension
-// 2. Calls RX_Init() to initialize and get its definition header (REBOL)
-// 3. Creates a extension object and returns it
-// 4. REBOL code then uses that object to define the extension module
-//    including natives, data, exports, etc.
-//
-// Each extension is defined as DLL with:
-//
-// RX_Init() - init anything needed
-// optional RX_Quit() - cleanup anything needed
+REBNATIVE(load_extension)
+// !!! It is not ideal that this code be all written as C, as it is really
+// kind of a variation of LOAD-MODULE and will have to repeat a lot of work.
 {
-    INCLUDE_PARAMS_OF_LOAD_EXTENSION_HELPER;
+    INCLUDE_PARAMS_OF_LOAD_EXTENSION;
 
-    REBCTX *std_ext_ctx = VAL_CONTEXT(Get_System(SYS_STANDARD, STD_EXTENSION));
-    REBCTX *context;
+    DECLARE_LOCAL (lib);
+    SET_END(lib);
+    PUSH_GC_GUARD(lib);
 
-    if (IS_FILE(ARG(path_or_handle))) {
-        REBVAL *path = ARG(path_or_handle);
+    DECLARE_LOCAL (path);
+    SET_END(path);
+    PUSH_GC_GUARD(path);
+
+    // See IDX_COLLATOR_MAX for collated block contents, which include init
+    // and shutdown functions, as well as native specs and Rebol script
+    // source, plus the REBNAT functions for each native.
+    //
+    REBARR *details;
+
+    if (IS_BLOCK(ARG(where))) { // It's one of rebBuiltinExtensions()
+        Init_Blank(lib);
+        Init_Blank(path);
+        details = VAL_ARRAY(ARG(where)); // already "collated"
+    }
+    else { // It's a DLL, must locate and call its RX_Collate() function
+        assert(IS_FILE(ARG(where)));
 
         //Check_Security(SYM_EXTENSION, POL_EXEC, val);
 
-        DECLARE_LOCAL (lib);
-        MAKE_Library(lib, REB_LIBRARY, path);
+        MAKE_Library(lib, REB_LIBRARY, ARG(where));
 
-        // check if it's reloading an existing extension
-        REBVAL *loaded_exts = CTX_VAR(VAL_CONTEXT(Root_System), SYS_EXTENSIONS);
-        if (IS_BLOCK(loaded_exts)) {
-            RELVAL *item = VAL_ARRAY_HEAD(loaded_exts);
-            for (; NOT_END(item); ++item) {
-                //
-                // do some sanity checking, just to avoid crashing if
-                // system/extensions was messed up
+        // !!! This code used to check for loading an already loaded
+        // extension.  It looked in an "extensions list", but now that the
+        // extensions are modules really this should just be the same as
+        // looking in the modules list.  Such code should be in usermode
+        // (very awkward in C).  The only unusual C bit was:
+        //
+        //     // found the existing extension, decrease the reference
+        //     // added by MAKE_library
+        //     //
+        //     OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
+        //
 
-                if (not IS_OBJECT(item)) {
-                    DECLARE_LOCAL (bad);
-                    Derelativize(bad, item, VAL_SPECIFIER(loaded_exts));
-                    fail(Error_Bad_Extension_Raw(bad));
-                }
-
-                REBCTX *item_ctx = VAL_CONTEXT(item);
-                if (
-                    CTX_LEN(item_ctx) <= STD_EXTENSION_LIB_BASE
-                    or (
-                        CTX_KEY_SPELLING(std_ext_ctx, STD_EXTENSION_LIB_BASE)
-                        != CTX_KEY_SPELLING(item_ctx, STD_EXTENSION_LIB_BASE)
-                    )
-                ){
-                    DECLARE_LOCAL (bad);
-                    Derelativize(bad, item, VAL_SPECIFIER(loaded_exts));
-                    fail(Error_Bad_Extension_Raw(bad));
-                }
-                else {
-                    if (IS_BLANK(CTX_VAR(item_ctx, STD_EXTENSION_LIB_BASE)))
-                        continue; //builtin extension
-                }
-
-                assert(IS_LIBRARY(CTX_VAR(item_ctx, STD_EXTENSION_LIB_BASE)));
-
-                if (
-                    VAL_LIBRARY_FD(CTX_VAR(item_ctx, STD_EXTENSION_LIB_BASE))
-                    == VAL_LIBRARY_FD(lib)
-                ){
-                    // found the existing extension, decrease the reference
-                    // added by MAKE_library
-
-                    OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
-                    return KNOWN(item);
-                }
-            }
-        }
-        context = Copy_Context_Shallow_Managed(std_ext_ctx);
-        Move_Value(CTX_VAR(context, STD_EXTENSION_LIB_BASE), lib);
-        Move_Value(CTX_VAR(context, STD_EXTENSION_LIB_FILE), path);
-
-        PUSH_GC_GUARD(context);
-
-        CFUNC *RX_Init = OS_FIND_FUNCTION(VAL_LIBRARY_FD(lib), "RX_Init");
-        if (RX_Init == NULL) {
+        CFUNC *collator = OS_FIND_FUNCTION(VAL_LIBRARY_FD(lib), "RX_Collate");
+        if (not collator) {
             OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
-            fail(Error_Bad_Extension_Raw(path));
+            fail (Error_Bad_Extension_Raw(ARG(where)));
         }
 
-        // Call its RX_Init function for header and code body:
-        if (cast(INIT_CFUNC, RX_Init)(CTX_VAR(context, STD_EXTENSION_SCRIPT),
-            CTX_VAR(context, STD_EXTENSION_MODULES)) < 0) {
-            OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
-            fail(Error_Extension_Init_Raw(path));
+        REBVAL *details_block = (*cast(COLLATE_CFUNC*, collator))();
+        assert(IS_BLOCK(details_block));
+        details = VAL_ARRAY(details_block);
+        rebRelease(details_block);
+    }
+
+    assert(ARR_LEN(details) == IDX_COLLATOR_MAX);
+    PUSH_GC_GUARD(details);
+
+    // !!! In the initial design, extensions were distinct from modules, and
+    // could in fact load several different modules from the same DLL.  But
+    // that confused matters in terms of whether there was any requirement
+    // for the user to know what an "extension" was.
+    //
+    // It's not necessarily ideal to have this code written entirely as C,
+    // but the way it was broken up into a mix of usermode and native calls
+    // in the original extension model was very twisty and was a barrier
+    // to enhancement.  So trying a monolithic rewrite for starters.
+
+    REBVAL *init_handle = KNOWN(ARR_AT(details, IDX_COLLATOR_INIT));
+    REBVAL *quit_handle = KNOWN(ARR_AT(details, IDX_COLLATOR_QUIT));
+    REBVAL *script_compressed = KNOWN(ARR_AT(details, IDX_COLLATOR_SCRIPT));
+    REBVAL *specs_compressed = KNOWN(ARR_AT(details, IDX_COLLATOR_SPECS));
+    REBVAL *dispatchers_handle = KNOWN(ARR_AT(details, IDX_COLLATOR_DISPATCHERS));
+
+    REBCNT num_natives = VAL_HANDLE_LEN(dispatchers_handle);
+    REBNAT *dispatchers = VAL_HANDLE_POINTER(REBNAT, dispatchers_handle);
+
+    size_t specs_size;
+    REBYTE *specs_utf8 = Decompress_Alloc_Core(
+        &specs_size,
+        VAL_HANDLE_POINTER(REBYTE, specs_compressed),
+        VAL_HANDLE_LEN(specs_compressed),
+        -1, // max
+        Canon(SYM_GZIP)
+    );
+
+    REBARR *specs = Scan_UTF8_Managed(
+        Canon(SYM___ANONYMOUS__), // !!! Name of DLL if available?
+        specs_utf8,
+        specs_size
+    );
+    rebFree(specs_utf8);
+    PUSH_GC_GUARD(specs);
+
+    // !!! Specs have datatypes in them which are looked up via Get_Var().
+    // This is something that raises questions, but go ahead and bind them
+    // into lib for the time being (don't add any new words).
+    //
+    Bind_Values_Deep(ARR_HEAD(specs), Lib_Context);
+
+    // Some of the things being tacked on here (like the DLL info etc.) should
+    // reside in the META OF portion, vs. being in-band in the module itself.
+    // For the moment, go ahead and bind the code to its own copy of lib.
+
+    // !!! used to use STD_EXT_CTX, now this would go in META OF
+
+    REBCTX *module_ctx = Alloc_Context_Core(
+        REB_MODULE,
+        80,
+        NODE_FLAG_MANAGED // !!! Is GC guard unnecessary due to references?
+    );
+    DECLARE_LOCAL (module);
+    Init_Any_Context(module, REB_MODULE, module_ctx);
+    PUSH_GC_GUARD(module);
+
+    REBDSP dsp_orig = DSP; // for accumulating exports
+
+    RELVAL *item = ARR_HEAD(specs);
+    REBCNT i;
+    for (i = 0; i < num_natives; ++i) {
+        //
+        // Initial extension mechanism had an /export refinement on native.
+        // Change that to be a prefix you can use so it looks more like a
+        // normal module export...also Make_Native() doesn't understand it
+        //
+        bool is_export;
+        if (IS_WORD(item) and VAL_WORD_SYM(item) == SYM_EXPORT) {
+            is_export = true;
+            ++item;
         }
+        else
+            is_export = false;
 
-        DROP_GC_GUARD(context);
-    }
-    else {
-        assert(IS_HANDLE(ARG(path_or_handle)));
-        REBVAL *handle = ARG(path_or_handle);
-        if (VAL_HANDLE_CLEANER(handle) != cleanup_extension_init_handler)
-            fail(Error_Bad_Extension_Raw(handle));
+        RELVAL *name = item;
+        if (not IS_SET_WORD(name))
+            panic (name);
 
-        INIT_CFUNC RX_Init = cast(INIT_CFUNC, VAL_HANDLE_CFUNC(handle));
-        context = Copy_Context_Shallow_Managed(std_ext_ctx);
-
-        PUSH_GC_GUARD(context);
-
-        if (
-            RX_Init(
-                CTX_VAR(context, STD_EXTENSION_SCRIPT),
-                CTX_VAR(context, STD_EXTENSION_MODULES)
-            ) < 0
-        ){
-            fail(Error_Extension_Init_Raw(handle));
-        }
-
-        DROP_GC_GUARD(context);
-    }
-
-    return Init_Object(D_OUT, context);
-}
-
-
-//
-//  unload-extension-helper: native [
-//
-//  "Unload an extension"
-//
-//      return: [void!]
-//      ext [object!]
-//          "The extension to be unloaded"
-//      /cleanup
-//      cleaner [handle!]
-//          "The RX_Quit pointer for the builtin extension"
-//  ]
-//
-REBNATIVE(unload_extension_helper)
-{
-    INCLUDE_PARAMS_OF_UNLOAD_EXTENSION_HELPER;
-
-    REBCTX *std = VAL_CONTEXT(Get_System(SYS_STANDARD, STD_EXTENSION));
-    REBCTX *context = VAL_CONTEXT(ARG(ext));
-
-    if (
-        (CTX_LEN(context) <= STD_EXTENSION_LIB_BASE)
-        or (
-            CTX_KEY_CANON(context, STD_EXTENSION_LIB_BASE)
-            != CTX_KEY_CANON(std, STD_EXTENSION_LIB_BASE)
-        )
-    ){
-        fail (Error_Invalid(ARG(ext)));
-    }
-
-    int ret;
-    if (!REF(cleanup)) {
-        REBVAL *lib = CTX_VAR(context, STD_EXTENSION_LIB_BASE);
-        if (not IS_LIBRARY(lib))
-            fail (Error_Invalid(ARG(ext)));
-
-        if (IS_LIB_CLOSED(VAL_LIBRARY(lib)))
-            fail (Error_Bad_Library_Raw());
-
-        QUIT_CFUNC quitter = cast(
-            QUIT_CFUNC, OS_FIND_FUNCTION(VAL_LIBRARY_FD(lib), "RX_Quit")
+        // We want to create the native from the spec and naming, and make
+        // sure its details know that its a "member" of this module.  That
+        // means API calls while the native is on the stack will bind text
+        // content into the module...so if you override APPEND locally that
+        // will be the APPEND that is used by default.
+        //
+        REBVAL *native = Make_Native(
+            &item, // gets advanced/incremented
+            SPECIFIED,
+            dispatchers[i],
+            module
         );
 
-        if (quitter == NULL)
-            ret = 0;
-        else
-            ret = quitter();
+        // !!! Unloading is a feature that was entertained in the original
+        // extension model, but support was sketchy.  So unloading is not
+        // currently enabled, but mark the native with an "unloadable" flag
+        // if it's in a DLL...as a reminder to revisit the issue.
+        //
+        if (not IS_BLANK(lib))
+            SET_VAL_FLAG(
+                ACT_ARCHETYPE(VAL_ACTION(native)),
+                ACTION_FLAG_UNLOADABLE_NATIVE
+            );
 
-        OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
+        // !!! The mechanics of exporting is something modules do and have to
+        // get right.  We shouldn't recreate that process here, just gather
+        // the list of the exports and pass it to the module code.
+        //
+        if (is_export) {
+            DS_PUSH_TRASH;
+            Init_Word(DS_TOP, VAL_WORD_SPELLING(name));
+            if (0 == Try_Bind_Word(module_ctx, DS_TOP))
+                panic ("Couldn't bind word just added -- problem");
+        }
     }
-    else {
-        if (VAL_HANDLE_CLEANER(ARG(cleaner)) != cleanup_extension_quit_handler)
-            fail (Error_Invalid(ARG(cleaner)));
 
-        QUIT_CFUNC quitter = cast(QUIT_CFUNC, VAL_HANDLE_CFUNC(ARG(cleaner)));
-        assert(quitter != NULL);
+    REBARR *exports_arr = Pop_Stack_Values(dsp_orig);
+    DECLARE_LOCAL (exports);
+    Init_Block(exports, exports_arr);
+    PUSH_GC_GUARD(exports);
 
-        ret = quitter();
-    }
+    // Now we have an empty context that has natives in it.  Ultimately what
+    // we want is to run the init code for a module.
 
-    if (ret < 0) {
-        DECLARE_LOCAL (i);
-        Init_Integer(i, ret);
-        fail (Error_Fail_To_Quit_Extension_Raw(i));
-    }
+    size_t script_size;
+    void *script_utf8 = rebGunzipAlloc(
+        &script_size,
+        VAL_HANDLE_POINTER(REBYTE, script_compressed),
+        VAL_HANDLE_LEN(script_compressed),
+        -1 // max
+    );
+    REBVAL *script_bin = rebRepossess(script_utf8, script_size);
 
-    return Init_Void(D_OUT);
+    // Registering the natives shouldn't depend on calling the C portion of
+    // the module init.  But calling the natives might, and the script code
+    // can run the natives since we registered them and bound to them.
+    //
+    // !!! Really, if the module has any init code, couldn't that just be
+    // one of the registered natives?  Isn't registering and quitting a
+    // thing usermode modules might want to do, something on load and unload?
+    // Otherwise we run into weird questions of "how are errors delivered"
+    // as a separate question vs. the error delivery of any other bit of
+    // code that fails in `script`, stuff like that.
+    //
+    CFUNC *init = VAL_HANDLE_CFUNC(init_handle);
+    (*init)();
+
+    // Module loading mechanics are supposed to be mostly done in usermode,
+    // so try and honor that.  This means everything about whether the module
+    // gets isolated and such.  It's not sorted out yet, because extensions
+    // didn't really run through the full module system...but pretend it does
+    // do that here.
+    //
+    rebElide(
+        "sys/load-extension-helper",
+            module, exports, rebR(script_bin), lib, path,
+    rebEND);
+
+    // !!! If these were the right refinements that should be tunneled through
+    // they'd be tunneled here, but isn't this part of the module's spec?
+    //
+    UNUSED(REF(no_user));
+    UNUSED(REF(no_lib));
+
+    DROP_GC_GUARD(exports);
+    DROP_GC_GUARD(module);
+    DROP_GC_GUARD(specs);
+    DROP_GC_GUARD(details);
+    DROP_GC_GUARD(path);
+    DROP_GC_GUARD(lib);
+
+    // !!! Somehow the quit information needs to be kept, but might this be
+    // a more general question of modules having exit code?  Could that be
+    // stored in the header as an "on-unload" and run as a native?
+    //
+    UNUSED(quit_handle);
+
+    return Init_Any_Context(D_OUT, REB_MODULE, module_ctx);
 }
 
 
@@ -267,105 +317,12 @@ static void cleanup_module_handler(const REBVAL *val)
 
 
 //
-//  Make_Extension_Module_Array: C
-//
-// Make an extension module array for being loaded later
-//
-REBARR *Make_Extension_Module_Array(
-    const REBYTE spec[],
-    REBCNT len,
-    REBNAT impl[],
-    REBCNT n
-) {
-    // the array will be like [spec C_func]
-    REBARR *arr = Make_Arr(2);
-
-    Init_Binary(ARR_AT(arr, 0), Copy_Bytes(spec, len));
-
-    Init_Handle_Managed(
-        ARR_AT(arr, 1),
-        impl, // It's a *pointer to function pointer*, not a function pointer
-        n,
-        &cleanup_module_handler
-    );
-
-    TERM_ARRAY_LEN(arr, 2);
-    return arr;
-}
-
-
-//
-//  load-native: native [
-//
-//  "Load a native from a built-in extension"
-//
-//      return: "Action created from the native C function"
-//          [action!]
-//      spec "spec of the native"
-//          [block!]
-//      cfuncs "a handle returned from RX_Init_ of the extension"
-//          [handle!]
-//      index "Index of the native"
-//          [integer!]
-//      /body "Provide a user-equivalent body"
-//      code [block!]
-//      /unloadable "Can be unloaded later (when extension is unloaded)"
-//  ]
-//
-REBNATIVE(load_native)
-{
-    INCLUDE_PARAMS_OF_LOAD_NATIVE;
-
-    if (VAL_HANDLE_CLEANER(ARG(cfuncs)) != cleanup_module_handler)
-        fail ("HANDLE! passed to LOAD-NATIVE did not come from RX_Init");
-
-    REBI64 index = VAL_INT64(ARG(index));
-    if (index < 0 or cast(uintptr_t, index) >= VAL_HANDLE_LEN(ARG(cfuncs)))
-        fail ("Index of native is outside range specified by RX_Init");
-
-    REBNAT dispatcher = VAL_HANDLE_POINTER(REBNAT, ARG(cfuncs))[index];
-    REBACT *native = Make_Action(
-        Make_Paramlist_Managed_May_Fail(
-            ARG(spec),
-            MKF_KEYWORDS | MKF_FAKE_RETURN
-        ),
-        dispatcher, // unique
-        nullptr, // no underlying action (use paramlist)
-        nullptr, // no specialization exemplar (or inherited exemplar)
-        IDX_NATIVE_MAX // details array capacity
-    );
-
-    SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_NATIVE);
-    if (REF(unloadable))
-        SET_VAL_FLAG(ACT_ARCHETYPE(native), ACTION_FLAG_UNLOADABLE_NATIVE);
-
-    REBARR *details = ACT_DETAILS(native);
-
-    if (REF(body))
-        Move_Value(ARR_AT(details, IDX_NATIVE_BODY), ARG(code));
-    else
-        Init_Blank(ARR_AT(details, IDX_NATIVE_BODY)); // no body provided
-
-    // !!! Ultimately extensions should all have associated modules known
-    // about here.  That should be where rebXXX() APIs do their binding, and
-    // they should be isolated.  For the moment, use the lib context.
-    // This runs risk of contamination if they aren't careful...but it should
-    // insulate the modules from user context changes.  (Note that R3-Alpha
-    // modules would bind modules direct to lib w/o the Isolate option...)
-    //
-    Init_Object(ARR_AT(details, IDX_NATIVE_CONTEXT), Lib_Context);
-
-    return Init_Action_Unbound(D_OUT, native);
-}
-
-
-//
 //  Unloaded_Dispatcher: C
 //
 // This will be the dispatcher for the natives in an extension after the
 // extension is unloaded.
 //
-static REB_R Unloaded_Dispatcher(REBFRM *f)
+static const REBVAL *Unloaded_Dispatcher(REBFRM *f)
 {
     UNUSED(f);
 
@@ -374,47 +331,122 @@ static REB_R Unloaded_Dispatcher(REBFRM *f)
 
 
 //
-//  unload-native: native [
+//  unload-extension: native [
 //
-//  "Unload a native when the containing extension is unloaded"
+//  "Unload an extension"
 //
 //      return: [void!]
-//      native "The native function to be unloaded"
-//          [action!]
-//      /relax "Don't error if it's not actually unloadable (REVIEW!)"
+//      ext [object!]
+//          "The extension to be unloaded"
+//      /cleanup
+//      cleaner [handle!]
+//          "The RX_Quit pointer for the builtin extension"
 //  ]
 //
-REBNATIVE(unload_native)
+REBNATIVE(unload_extension)
 {
-    INCLUDE_PARAMS_OF_UNLOAD_NATIVE;
+    UNUSED(frame_);
+    UNUSED(Unloaded_Dispatcher);
+    UNUSED(cleanup_module_handler);
 
-    REBACT *action = VAL_ACTION(ARG(native));
-    if (not GET_ACT_FLAG(action, ACTION_FLAG_UNLOADABLE_NATIVE)) {
-        if (REF(relax)) {
-            //
-            // !!! Under the "OneAction" policy, there is no usermode visible
-            // way to distinguish an unloadable native from a user function.
-            // There could be a property written onto functions with META-OF,
-            // but the system doesn't prohibit users from tweaking that, so
-            // it isn't currently reliable.
-            //
-            // In this case, it should probably be rethought to where the
-            // loading process remembers a list of natives it loaded, instead
-            // of trying to unload every function.  But as a general premise,
-            // even though the evaluator only cares about one ACTION! as an
-            // interface, things like SOURCE or UNLOAD-NATIVE will have
-            // specific interactions with sublcasses based on the dispatcher.
-            // For minimal invasiveness right now, the /RELAX refinement just
-            // documents the issue in the unloading process.
-            //
-            return Init_Void(D_OUT);
-        }
+    fail ("Unloading extensions is currently not supported");
 
-        fail (Error_Non_Unloadable_Native_Raw(ARG(native)));
-    }
+    // !!! The initial extension model had support for not just loading an
+    // extension from a DLL, but also unloading it.  It raises a lot of
+    // questions that are somewhat secondary to any known use cases, and the
+    // semantics of the system were not pinned down well enough to support it.
+    //
+    // But one important feature it did achieve was that if an extension
+    // initialized something (perhaps e.g. initializing memory) then calling
+    // code to free that memory (or release whatever API/resource it was
+    // holding) is necessary.
+    //
+    // HOWEVER: modules that are written entirely in usermode may want some
+    // shutdown code too (closing files or network connections, or if using
+    // FFI maybe needing to make some FFI close calls.  So a better model of
+    // "extension shutdown" would build on a mechanism that would work for
+    // any MODULE!...registering its interest with an ACTION! that may be one
+    // of its natives, or even just usermode code.
+    //
+    // Hence the mechanics from the initial extension shutdown (which called
+    // CFUNC entry points in the DLL) have been removed.  There's also a lot
+    // of other murky areas--like how to disconnect REBNATIVEs from CFUNC
+    // dispatchers that have been unloaded...a mechanism was implemented here,
+    // but it was elaborate and made it hard to modify and improve the system
+    // while still not having clear semantics.  (If an extension is unloaded
+    // and reloaded again, should old ACTION! values work again?  If so, how
+    // would this deal with a recompiled extension which might have changed
+    // the parameters--thus breaking any specializations, etc?)
+    //
+    // Long story short: the extension model is currently in a simpler state
+    // to bring it into alignment with the module system, so that both can
+    // be improved together.  The most important feature to add for both is
+    // some kind of "finalizer".
 
-    ACT_DISPATCHER(action) = &Unloaded_Dispatcher;
-    return Init_Void(D_OUT);
+    // Note: The mechanical act of unloading a DLL involved these calls.
+    /*
+        if (not IS_LIBRARY(lib))
+            fail (Error_Invalid(ARG(ext)));
+
+        if (IS_LIB_CLOSED(VAL_LIBRARY(lib)))
+            fail (Error_Bad_Library_Raw());
+
+        OS_CLOSE_LIBRARY(VAL_LIBRARY_FD(lib));
+    */
+}
+
+
+//
+//  rebCollateExtension_internal: C
+//
+// This routine gathers information which can be called to bring an extension
+// to life.  It does not itself decompress any of the data it is given, or run
+// any startup code.  This allows extensions which are built into an
+// executable to do deferred loading.
+//
+// !!! For starters, this just returns an array of the values...but this is
+// the same array that would be used as the ACT_DETAILS() of an action.  So
+// it could return a generator ACTION!.
+//
+// !!! It may be desirable to separate out the module header and go ahead and
+// get that loaded as part of this process, in order to allow queries of the
+// dependencies and other information.  That might suggest returning a block
+// with an OBJECT! header and an ACTION! to run to do the load?  Or maybe
+// a HANDLE! which can be passed as a module body with a spec?
+//
+// !!! If a DLL gets loaded, it's possible these pointers could be unloaded
+// if the information were not used immediately or it otherwise was not run.
+// This has to be considered in the unloading mechanics.
+//
+REBVAL *rebCollateExtension_internal(
+    CFUNC* init_func,
+    CFUNC* quit_func,
+    const REBYTE script_compressed[], REBCNT script_compressed_len,
+    const REBYTE specs_compressed[], REBCNT specs_compressed_len,
+    REBNAT dispatchers[], REBCNT dispatchers_len
+) {
+
+    REBARR *a = Make_Arr(IDX_COLLATOR_MAX); // details
+    Init_Handle_Cfunc(ARR_AT(a, IDX_COLLATOR_INIT), init_func, 0);
+    Init_Handle_Cfunc(ARR_AT(a, IDX_COLLATOR_QUIT), quit_func, 0);
+    Init_Handle_Simple(
+        ARR_AT(a, IDX_COLLATOR_SCRIPT),
+        m_cast(REBYTE*, script_compressed), // !!! by contract, don't change!
+        script_compressed_len
+    );
+    Init_Handle_Simple(
+        ARR_AT(a, IDX_COLLATOR_SPECS),
+        m_cast(REBYTE*, specs_compressed), // !!! by contract, don't change!
+        specs_compressed_len
+    );
+    Init_Handle_Simple(
+        ARR_AT(a, IDX_COLLATOR_DISPATCHERS),
+        dispatchers,
+        dispatchers_len
+    );
+    TERM_ARRAY_LEN(a, IDX_COLLATOR_MAX);
+
+    return Init_Block(Alloc_Value(), a);
 }
 
 

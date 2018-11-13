@@ -514,6 +514,135 @@ static void Shutdown_Action_Meta_Shim(void) {
 
 
 //
+//  Make_Native: C
+//
+// Reused function in Startup_Natives() as well as extensions loading natives,
+// which can be parameterized with a different context in which to look up
+// bindings by deafault in the API when that native is on the stack.
+//
+// Each entry should be one of these forms:
+//
+//    some-name: native [spec content]
+//
+//    some-name: native/body [spec content] [equivalent user code]
+//
+// It is optional to put ENFIX between the SET-WORD! and the spec.
+//
+// If more refinements are added, this will have to get more sophisticated.
+//
+// Though the manual building of this table is not as "nice" as running the
+// evaluator, the evaluator makes comparisons against native values.  Having
+// all natives loaded fully before ever running Eval_Core_Throws() helps with
+// stability and invariants...also there's "state" in keeping track of which
+// native index is being loaded, which is non-obvious.  But these issues
+// could be addressed (e.g. by passing the native index number / DLL in).
+//
+REBVAL *Make_Native(
+    RELVAL **item, // the item will be advanced as necessary
+    REBSPC *specifier,
+    REBNAT dispatcher,
+    REBVAL *module
+){
+    assert(specifier == SPECIFIED); // currently a requirement
+
+    // Get the name the native will be started at with in Lib_Context
+    //
+    if (not IS_SET_WORD(*item))
+        panic (*item);
+
+    REBVAL *name = KNOWN(*item);
+    ++*item;
+
+    bool enfix;
+    if (IS_WORD(*item) and VAL_WORD_SYM(*item) == SYM_ENFIX) {
+        enfix = true;
+        ++*item;
+    }
+    else
+        enfix = false;
+
+    // See if it's being invoked with NATIVE or NATIVE/BODY
+    //
+    bool has_body;
+    if (IS_WORD(*item)) {
+        if (VAL_WORD_SYM(*item) != SYM_NATIVE)
+            panic (*item);
+        has_body = false;
+    }
+    else {
+        if (
+            not IS_PATH(*item)
+            or VAL_LEN_HEAD(*item) != 2
+            or not IS_WORD(ARR_HEAD(VAL_ARRAY(*item)))
+            or VAL_WORD_SYM(ARR_HEAD(VAL_ARRAY(*item))) != SYM_NATIVE
+            or not IS_WORD(ARR_AT(VAL_ARRAY(*item), 1))
+            or VAL_WORD_SYM(ARR_AT(VAL_ARRAY(*item), 1)) != SYM_BODY
+        ){
+            panic (*item);
+        }
+        has_body = true;
+    }
+    ++*item;
+
+    REBVAL *spec = KNOWN(*item);
+    ++*item;
+    if (not IS_BLOCK(spec))
+        panic (spec);
+
+    // With the components extracted, generate the native and add it to
+    // the Natives table.  The associated C function is provided by a
+    // table built in the bootstrap scripts, `Native_C_Funcs`.
+
+    // We only want to check the return type in the debug build.  In the
+    // release build, we want to have as few argument slots as possible...
+    // especially to get the optimization for 1 argument to go in the cell
+    // and not need to push arguments.
+    //
+    REBFLGS flags = MKF_KEYWORDS | MKF_FAKE_RETURN;
+
+    REBACT *act = Make_Action(
+        Make_Paramlist_Managed_May_Fail(KNOWN(spec), flags),
+        dispatcher, // "dispatcher" is unique to this "native"
+        nullptr, // no underlying action (use paramlist)
+        nullptr, // no specialization exemplar (or inherited exemplar)
+        IDX_NATIVE_MAX // details array capacity
+    );
+
+    SET_VAL_FLAG(ACT_ARCHETYPE(act), ACTION_FLAG_NATIVE);
+
+    REBARR *details = ACT_DETAILS(act);
+
+    // If a user-equivalent body was provided, we save it in the native's
+    // REBVAL for later lookup.
+    //
+    if (has_body) {
+        if (not IS_BLOCK(*item))
+            panic (*item);
+
+        Derelativize(ARR_AT(details, IDX_NATIVE_BODY), *item, specifier);
+        ++*item;
+    }
+    else
+        Init_Blank(ARR_AT(details, IDX_NATIVE_BODY));
+
+    // When code in the core calls APIs like `rebRun()`, it consults the
+    // stack and looks to see where the native function that is running
+    // says its "module" is.  For natives, we default to Lib_Context.
+    //
+    Move_Value(ARR_AT(details, IDX_NATIVE_CONTEXT), module);
+
+    // Append the native to the module under the name given.
+    //
+    REBVAL *var = Append_Context(VAL_CONTEXT(module), name, 0);
+    Init_Action_Unbound(var, act);
+    if (enfix)
+        SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
+
+    return var;
+}
+
+
+//
 //  Startup_Natives: C
 //
 // Create native functions.  In R3-Alpha this would go as far as actually
@@ -561,115 +690,23 @@ static REBARR *Startup_Natives(const REBVAL *boot_natives)
         if (n >= Num_Natives)
             panic (item);
 
-        // Each entry should be one of these forms:
-        //
-        //    some-name: native [spec content]
-        //
-        //    some-name: native/body [spec content] [equivalent user code]
-        //
-        // If more refinements are added, this code will have to be made
-        // more sophisticated.
-        //
-        // Though the manual building of this table is not as nice as running
-        // the evaluator, the evaluator makes comparisons against native
-        // values.  Having all natives loaded fully before ever running
-        // Eval_Core_Throws() helps with stability and invariants.
-
-        // Get the name the native will be started at with in Lib_Context
-        //
-        if (not IS_SET_WORD(item))
-            panic (item);
-
         REBVAL *name = KNOWN(item);
-        ++item;
+        assert(IS_SET_WORD(name));
 
-        bool enfix;
-        if (IS_WORD(item) and VAL_WORD_SYM(item) == SYM_ENFIX) {
-            enfix = true;
-            ++item;
-        }
-        else
-            enfix = false;
-
-        // See if it's being invoked with NATIVE or NATIVE/BODY
-        //
-        bool has_body;
-        if (IS_WORD(item)) {
-            if (VAL_WORD_SYM(item) != SYM_NATIVE)
-                panic (item);
-            has_body = false;
-        }
-        else {
-            if (
-                not IS_PATH(item)
-                or VAL_LEN_HEAD(item) != 2
-                or not IS_WORD(ARR_HEAD(VAL_ARRAY(item)))
-                or VAL_WORD_SYM(ARR_HEAD(VAL_ARRAY(item))) != SYM_NATIVE
-                or not IS_WORD(ARR_AT(VAL_ARRAY(item), 1))
-                or VAL_WORD_SYM(ARR_AT(VAL_ARRAY(item), 1)) != SYM_BODY
-            ){
-                panic (item);
-            }
-            has_body = true;
-        }
-        ++item;
-
-        REBVAL *spec = KNOWN(item);
-        ++item;
-        if (not IS_BLOCK(spec))
-            panic (spec);
-
-        // With the components extracted, generate the native and add it to
-        // the Natives table.  The associated C function is provided by a
-        // table built in the bootstrap scripts, `Native_C_Funcs`.
-
-        // We only want to check the return type in the debug build.  In the
-        // release build, we want to have as few argument slots as possible...
-        // especially to get the optimization for 1 argument to go in the cell
-        // and not need to push arguments.
-        //
-        REBFLGS flags = MKF_KEYWORDS | MKF_FAKE_RETURN;
-
-        REBACT *act = Make_Action(
-            Make_Paramlist_Managed_May_Fail(KNOWN(spec), flags),
-            Native_C_Funcs[n], // "dispatcher" is unique to this "native"
-            nullptr, // no underlying action (use paramlist)
-            nullptr, // no specialization exemplar (or inherited exemplar)
-            IDX_NATIVE_MAX // details array capacity
+        REBVAL *native = Make_Native(
+            &item,
+            specifier,
+            Native_C_Funcs[n],
+            CTX_ARCHETYPE(Lib_Context)
         );
 
-        SET_VAL_FLAG(ACT_ARCHETYPE(act), ACTION_FLAG_NATIVE);
-
-        REBARR *details = ACT_DETAILS(act);
-
-        // If a user-equivalent body was provided, we save it in the native's
-        // REBVAL for later lookup.
+        // While the lib context natives can be overwritten, the system
+        // currently depends on having a permanent list of the natives that
+        // does not change, see uses via NAT_VALUE() and NAT_ACT().
         //
-        if (has_body) {
-            if (not IS_BLOCK(item))
-                panic (item);
-
-            Derelativize(ARR_AT(details, IDX_NATIVE_BODY), item, specifier);
-            ++item;
-        }
-        else
-            Init_Blank(ARR_AT(details, IDX_NATIVE_BODY));
-
-        // When code in the core calls APIs like `rebRun()`, it consults the
-        // stack and looks to see where the native function that is running
-        // says its "module" is.  For natives, we default to Lib_Context.
-        //
-        Init_Object(ARR_AT(details, IDX_NATIVE_CONTEXT), Lib_Context);
-
         Prep_Non_Stack_Cell(&Natives[n]);
-        Init_Action_Unbound(&Natives[n], act);
-
-        // Append the native to the Lib_Context under the name given.
-        //
-        REBVAL *var = Append_Context(Lib_Context, name, 0);
-        Init_Action_Unbound(var, act);
-        if (enfix)
-            SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
+        Move_Value(&Natives[n], native); // Note: Loses enfixedness (!)
+        SET_VAL_FLAG(&Natives[n], CELL_FLAG_PROTECTED);
 
         REBVAL *catalog_item = Move_Value(Alloc_Tail_Array(catalog), name);
         CHANGE_VAL_TYPE_BITS(catalog_item, REB_WORD);

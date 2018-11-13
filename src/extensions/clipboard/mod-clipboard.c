@@ -257,7 +257,7 @@ static REB_R Clipboard_Actor(
 
 
 //
-//  get-clipboard-actor-handle: native/export [
+//  export get-clipboard-actor-handle: native [
 //
 //  {Retrieve handle to the native actor for clipboard}
 //
