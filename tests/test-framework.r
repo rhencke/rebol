@@ -177,16 +177,16 @@ make object! compose [
                                 (
                                     parse value [
                                         "succeeded"
-                                        (successes: successes + 1)
+                                        (successes: me + 1)
                                             |
                                         "failed"
-                                        (test-failures: test-failures + 1)
+                                        (test-failures: me + 1)
                                             |
                                         "crashed"
-                                        (crashes: crashes + 1)
+                                        (crashes: me + 1)
                                             |
                                         "skipped"
-                                        (skipped: skipped + 1)
+                                        (skipped: me + 1)
                                             |
                                         (fail "invalid test result")
                                     ]

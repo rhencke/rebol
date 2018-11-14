@@ -60,7 +60,7 @@ decode-key-value-text: function [
 
     meta: copy []
 
-    if not parse text data-fields [
+    parse text data-fields or [
         fail [
             {Expected key value format on line} (text-line-of position)
             {and lines must end with newline.}
@@ -127,7 +127,7 @@ proto-parser: context [
     data: _
     eoh: _ ; End of file header.
 
-    process: func [text] [parse text grammar/rule]
+    process: func [return: <void> text] [parse text grammar/rule]
 
     grammar: context bind [
 
@@ -182,26 +182,10 @@ proto-parser: context [
                 ; EMIT-PROTO doesn't want to see extra whitespace (such as
                 ; when individual parameters are on their own lines).
                 ;
-                ; !!! A feature allowing the RL_API to comment the arguments
-                ; to an API with line comments on the individual C parameters
-                ; might be interesting.
-                ;
                 parse proto collapse-whitespace
                 proto: trim proto
-
-                ; !!! Some EMIT-PROTO hooks were checking this themselves and
-                ; then doing nothing if they couldn't find a left paren.  Not
-                ; clear why they were doing that, so assert just in case.
-                ;
                 assert [find proto "("]
 
-                ; Our parsing is all C-based, so EMIT-PROTO clients should not
-                ; be accepting C++-style prototypes for no-argument functions.
-                ;
-                ; !!! Theoretically a prototype could be a zero-argument macro
-                ; that expands into something which did have arguments.  Could
-                ; there be a purpose for that?
-                ;
                 if find proto "()" [
                     print [
                         proto
@@ -227,50 +211,35 @@ proto-parser: context [
         doubleslashed-lines: [copy lines some ["//" thru newline]]
 
         is-fileheader: parsing-at position [
-            either all [
+            try all [
                 lines: attempt [decode-lines lines {//} { }]
                 parse lines [copy data to {=///} to end]
                 data: attempt [load-until-blank trim/auto data]
                 data: attempt [
-                    either set-word? first data/1 [data/1][blank]
+                    if set-word? first data/1 [data/1]
                 ]
-            ][
                 position ; Success.
-            ][
-                blank
             ]
         ]
 
         is-intro: parsing-at position [
-            either all [
+            try all [
                 lines: attempt [decode-lines lines {//} { }]
                 data: load-until-blank lines
                 data: attempt [
-                    either set-word? first data/1 [
+                    if set-word? first data/1 [
                         notes: data/2
                         data/1
-                    ][
-                        blank
                     ]
                 ]
-            ][
                 position ; Success.
-            ][
-                blank
             ]
         ]
 
-
-        ; With types being able to be parameterized macros, then function
-        ; prototypes can look like:
+        ; http://blog.hostilefork.com/kinda-smart-pointers-in-c/
         ;
         ;     TYPEMACRO(*) Some_Function(TYPEMACRO(const *) value, ...)
         ;     { ...
-        ;
-        ; !!! Matching the parentheses strings that exist in the code
-        ; explicitly is a maybe-temporary hack.  Though as the pattern being
-        ; looked for is a preprocessor trick, it's outside the C spec so
-        ; anything will be "hacky".
         ;
         typemacro-parentheses: [
             "(*)" | "(const *)"

@@ -1264,7 +1264,7 @@ generator-class: make object! [
         stop: false
         while [not stop][
             stop: true
-            if not parse cmd [
+            parse cmd [
                 while [
                     change [
                         [
@@ -1274,7 +1274,7 @@ generator-class: make object! [
                     ] val
                     | skip
                 ]
-            ][
+            ] or [
                 fail ["failed to do var substitution:" cmd]
             ]
         ]
@@ -1900,10 +1900,10 @@ visual-studio: make generator-class [
         while [not tail? ldflags] [
             ;dump ldflags/1
             if i: try filter-flag ldflags/1 "msc" [
-                if parse i [
+                parse i [
                     "/stack:"
                     copy size: some digit
-                ][
+                ] then [
                     remove ldflags
                     return size
                 ]
@@ -1920,10 +1920,10 @@ visual-studio: make generator-class [
         while [not tail? ldflags] [
             ;dump ldflags/1
             if i: try filter-flag ldflags/1 "msc" [
-                if parse i [
+                parse i [
                     "/subsystem:"
                     copy subsystem: to end
-                ][
+                ] then [
                     remove ldflags
                     return subsystem
                 ]

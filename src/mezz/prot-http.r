@@ -26,8 +26,8 @@ REBOL [
 
 digit: charset [#"0" - #"9"]
 alpha: charset [#"a" - #"z" #"A" - #"Z"]
-idate-to-date: function [date [text!]] [
-    either parse date [
+idate-to-date: function [return: [date!] date [text!]] [
+    parse date [
         5 skip
         copy day: 2 digit
         space
@@ -38,12 +38,11 @@ idate-to-date: function [date [text!]] [
         copy time: to space
         space
         copy zone: to end
-    ][
-        if zone = "GMT" [zone: copy "+0"]
-        to date! unspaced [day "-" month "-" year "/" time zone]
-    ][
-        blank
+    ] or [
+        fail ["Invalid idate:" date]
     ]
+    if zone = "GMT" [zone: copy "+0"]
+    to date! unspaced [day "-" month "-" year "/" time zone]
 ]
 
 sync-op: function [port body] [
@@ -552,63 +551,72 @@ do-redirect: func [
     ]
 ]
 
-check-data: function [port] [
+check-data: function [
+    return: [logic! event!]
+    port [port!]
+][
     state: port/state
     headers: state/info/headers
     conn: state/connection
+
     res: false
+    awaken-wait-loop: does [
+        not res so res: true ;-- prevent timeout when reading big data
+    ]
+
     case [
         headers/transfer-encoding = "chunked" [
             data: conn/data
-            ;clear the port data only at the beginning of the request --Richard
-            port/data: default [make binary! length of data]
+            port/data: default [ ;-- only clear at request start
+                make binary! length of data
+            ]
             out: port/data
-            until [
-                either parse data [
-                    copy chunk-size some hex-digits thru crlfbin mk1: to end
-                ] [
-                    ; The chunk size is in the byte stream as ASCII chars
-                    ; forming a hex string.  ISSUE! can decode that.
-                    chunk-size: (
-                        to-integer/unsigned to issue! to text! chunk-size
-                    )
 
-                    either chunk-size = 0 [
-                        if parse mk1 [
-                            crlfbin (trailer: "") to end | copy trailer to crlf2bin to end
-                        ] [
-                            trailer: has/only trailer
-                            append headers body-of trailer
-                            state/state: 'ready
-                            res: state/awake make event! [type: 'custom port: port code: 0]
-                            clear data
+            while [parse data [
+                copy chunk-size some hex-digits thru crlfbin mk1: to end
+            ]][
+                ; The chunk size is in the byte stream as ASCII chars
+                ; forming a hex string.  ISSUE! can decode that.
+                chunk-size: (
+                    to-integer/unsigned to issue! to text! chunk-size
+                )
+
+                if chunk-size = 0 [
+                    parse mk1 [
+                        crlfbin (trailer: "") to end
+                            |
+                        copy trailer to crlf2bin to end
+                    ] then [
+                        trailer: has/only trailer
+                        append headers body-of trailer
+                        state/state: 'ready
+                        res: state/awake make event! [
+                            type: 'custom
+                            port: port
+                            code: 0
                         ]
-                        true
-                    ] [
-                        either parse mk1 [
-                            chunk-size skip mk2: crlfbin to end
-                        ] [
-                            insert/part tail of out mk1 mk2
-                            remove/part data skip mk2 2
-                            empty? data
-                        ] [
-                            true
-                        ]
+                        clear data
                     ]
-                ] [
-                    true
+                    break
+                ]
+                else [
+                    parse mk1 [chunk-size skip mk2: crlfbin to end] or [
+                        break
+                    ]
+
+                    insert/part tail of out mk1 mk2
+                    remove/part data skip mk2 2
+                    empty? data
                 ]
             ]
+
             if state/state <> 'ready [
-                ;
-                ; Awaken WAIT loop to prevent timeout when reading big data.
-                ;
-                res: true
+                awaken-wait-loop
             ]
         ]
         integer? headers/content-length [
             port/data: conn/data
-            either headers/content-length <= length of port/data [
+            if headers/content-length <= length of port/data [
                 state/state: 'ready
                 conn/data: make binary! 32000
                 res: state/awake make event! [
@@ -616,20 +624,15 @@ check-data: function [port] [
                     port: port
                     code: 0
                 ]
-            ][
-                ; Awaken WAIT loop to prevent timeout when reading big data.
-                ;
-                res: true
+            ] else [
+                awaken-wait-loop
             ]
         ]
     ] else [
         port/data: conn/data
-        either state/info/response-parsed = 'ok [
-            ;
-            ; Awaken WAIT loop to prevent timeout when reading big data.
-            ;
-            res: true
-        ][
+        if state/info/response-parsed = 'ok [
+            awaken-wait-loop
+        ] else [
             ; On other response than OK read all data asynchronously
             ; (assuming the data are small).
             ;
@@ -637,7 +640,7 @@ check-data: function [port] [
         ]
     ]
 
-    res
+    return res
 ]
 
 hex-digits: charset "1234567890abcdefABCDEF"

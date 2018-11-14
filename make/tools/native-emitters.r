@@ -22,7 +22,7 @@ emit-native-proto: function [
 ][
     line: try text-line-of proto-parser/parse.position
 
-    if all [
+    all [
         block? proto-parser/data
         parse proto-parser/data [
             set name: set-word!
@@ -47,7 +47,7 @@ emit-native-proto: function [
                 to end
             ]
         ]
-    ][
+    ] then [
         append case [
             ;
             ; could do tests here to create special buffer categories to

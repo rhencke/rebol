@@ -103,8 +103,8 @@ make-changes-block: function [
 parse-credits-for-authors: function [ 
     {Produces a block of author => [@github-name] mapping from CREDITS.md}
     ;; NB. used as switch in github-user-name func
-    credits-file [file!] {CREDITS.md file}
     return: [block!]
+    credits-file [file!] {CREDITS.md file}
 ][
     collect [
         keep [{Carl Sassenrath} [{@carls}]]

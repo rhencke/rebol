@@ -279,7 +279,7 @@ sys-globals.parser: context [
     parse.position: _
     id: _
 
-    process: func [text] [parse text grammar/rule]
+    process: func [return: <void> text] [parse text grammar/rule]
 
     grammar: context bind [
 

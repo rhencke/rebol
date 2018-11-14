@@ -23,7 +23,7 @@ decode-lines: function [
     pattern: compose/only [(line-prefix)]
     if not empty? indent [append pattern compose/only [opt (indent)]]
     line: [pos: pattern rest: (rest: remove/part pos rest) :rest thru newline]
-    if not parse text [any line] [
+    parse text [any line] or [
         fail [
             {Expected line} (try text-line-of text pos)
             {to begin with} (mold line-prefix)
