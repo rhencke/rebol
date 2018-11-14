@@ -110,10 +110,14 @@ array: func [
 
 
 replace: function [
-    "Replaces a search value with the replace value within the target series."
-    target  [any-series!] "Series to replace within (modified)"
+    {Replaces a search value with the replace value within the target series}
+
+    target "Series to replace within (modified)"
+        [any-series!]
     pattern "Value to be replaced (converted if necessary)"
+        [<opt> any-value!]
     replacement "Value to replace with (called each time if a function)"
+        [<opt> any-value!]
 
     ; !!! Note these refinments alias ALL, CASE, TAIL natives!
     /all "Replace all occurrences"
@@ -122,6 +126,8 @@ replace: function [
 
     ; Consider adding an /any refinement to use find/any, once that works.
 ][
+    if not set? 'pattern [return target]
+
     all_REPLACE: all
     all: :lib/all
     case_REPLACE: case
@@ -144,7 +150,7 @@ replace: function [
     ; Note that if a FORM actually happens inside of FIND, it could wind up
     ; happening repeatedly in the /ALL case if that happens.
 
-    len: case [
+    len: 1 unless (case [
         ; leave bitset patterns as-is regardless of target type, len = 1
         bitset? :pattern [1]
 
@@ -160,14 +166,24 @@ replace: function [
         ]
 
         any-array? :pattern [length of :pattern]
+    ])
 
-        default [1]
-    ]
+    while [pos: find/(try if case_REPLACE [/case]) target :pattern] [
+        either action? :replacement [
+            ;
+            ; If arity-0 action, value gets replacement and pos discarded
+            ; If arity-1 action, pos will be argument to replacement
+            ; If arity > 1, end of block will cause an error
+            ;
+            value: replacement pos
 
-    while [pos: try find/(try if case_REPLACE [/case]) target :pattern] [
-        ; apply replacement if function, or drops pos if not
-        ; the parens quarantine function invocation to maximum arity of 1
-        (value: replacement pos)
+            ; Note: ACTION! parameter couldn't be passed as enfix ("no such
+            ; thing as enfix actions, just bindings").  So REPLACEMENT can't
+            ; quote backwards and (for instance) fetch value...but it *could*
+            ; quote pos and find out it's called `pos` (for instance).
+        ][
+            value: :replacement ;-- inert value, might be null
+        ]
 
         target: change/part pos :value len
 

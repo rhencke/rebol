@@ -685,7 +685,7 @@ struct Reb_Frame {
     // * If EMPTY_BLOCK, it's an ordinary arg...and not a refinement.  It will
     //   be evaluated normally but is not involved with revocation.
     //
-    // * If EMPTY_STRING, the evaluator's next argument fulfillment is the
+    // * If EMPTY_TEXT, the evaluator's next argument fulfillment is the
     //   left-hand argument of a lookback operation.  After that fulfillment,
     //   it will be transitioned to EMPTY_BLOCK.
     //
@@ -889,7 +889,7 @@ typedef const REBVAL* (*REBDSF)(REBFRM * const);
 // * If EMPTY_BLOCK, it's an ordinary arg...and not a refinement.  It will
 //   be evaluated normally but is not involved with revocation.
 //
-// * If EMPTY_STRING, the evaluator's next argument fulfillment is the
+// * If EMPTY_TEXT, the evaluator's next argument fulfillment is the
 //   left-hand argument of a lookback operation.  After that fulfillment,
 //   it will be transitioned to EMPTY_BLOCK.
 //
@@ -925,7 +925,7 @@ typedef const REBVAL* (*REBDSF)(REBFRM * const);
     m_cast(REBVAL*, EMPTY_BLOCK)
 
 #define LOOKBACK_ARG \
-    m_cast(REBVAL*, EMPTY_STRING)
+    m_cast(REBVAL*, EMPTY_TEXT)
 
 
 #if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)

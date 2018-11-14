@@ -456,8 +456,11 @@ inline static REBARR* Copy_Array_At_Extra_Deep_Flags_Managed(
 #define EMPTY_ARRAY \
     PG_Empty_Array // Note: initialized from VAL_ARRAY(Root_Empty_Block)
 
-#define EMPTY_STRING \
-    Root_Empty_String
+#define EMPTY_TEXT \
+    Root_Empty_Text
+
+#define EMPTY_BINARY \
+    Root_Empty_Binary
 
 
 inline static void INIT_VAL_ARRAY(RELVAL *v, REBARR *a) {

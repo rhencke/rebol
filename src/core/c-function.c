@@ -178,7 +178,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     REBDSP definitional_return_dsp = 0;
 
-    // As we go through the spec block, we push TYPESET! BLOCK! STRING! triples.
+    // As we go through the spec block, we push TYPESET! BLOCK! TEXT! triples.
     // These will be split out into separate arrays after the process is done.
     // The first slot of the paramlist needs to be the function canon value,
     // while the other two first slots need to be rootkeys.  Get the process
@@ -189,7 +189,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     DS_PUSH_TRASH; // paramlist[0] will become ACT_ARCHETYPE()
     Init_Unreadable_Blank(DS_TOP);
     DS_PUSH(EMPTY_BLOCK); // param_types[0] (to be OBJECT! canon value, if any)
-    DS_PUSH(EMPTY_STRING); // param_notes[0] (holds description, then canon)
+    DS_PUSH(EMPTY_TEXT); // param_notes[0] (holds description, then canon)
 
     bool has_description = false;
     bool has_types = false;
@@ -367,13 +367,13 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
         REBSTR *canon = VAL_WORD_CANON(item);
 
-        // In rhythm of TYPESET! BLOCK! STRING! we want to be on a string spot
+        // In rhythm of TYPESET! BLOCK! TEXT! we want to be on a string spot
         // at the time of the push of each new typeset.
         //
         if (IS_TYPESET(DS_TOP))
             DS_PUSH(EMPTY_BLOCK);
         if (IS_BLOCK(DS_TOP))
-            DS_PUSH(EMPTY_STRING);
+            DS_PUSH(EMPTY_TEXT);
         assert(IS_TEXT(DS_TOP));
 
         // Non-annotated arguments disallow ACTION!, VOID! and NULL.  Not
@@ -491,12 +491,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
     }
 
-    // Go ahead and flesh out the TYPESET! BLOCK! STRING! triples.
+    // Go ahead and flesh out the TYPESET! BLOCK! TEXT! triples.
     //
     if (IS_TYPESET(DS_TOP))
         DS_PUSH(EMPTY_BLOCK);
     if (IS_BLOCK(DS_TOP))
-        DS_PUSH(EMPTY_STRING);
+        DS_PUSH(EMPTY_TEXT);
     assert((DSP - dsp_orig) % 3 == 0); // must be a multiple of 3
 
     // Definitional RETURN slots must have their argument value fulfilled with
@@ -524,7 +524,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             definitional_return_dsp = DSP;
 
             DS_PUSH(EMPTY_BLOCK);
-            DS_PUSH(EMPTY_STRING);
+            DS_PUSH(EMPTY_TEXT);
             // no need to move it--it's already at the tail position
         }
         else {

@@ -869,8 +869,11 @@ static void Init_Root_Vars(void)
     REBSER *nulled_uni = Make_Unicode(1);
     assert(CHR_CODE(UNI_AT(nulled_uni, 0)) == '\0');
     assert(UNI_LEN(nulled_uni) == 0);
-    Root_Empty_String = Init_Text(Alloc_Value(), nulled_uni);
-    Ensure_Value_Immutable(Root_Empty_String, locker);
+    Root_Empty_Text = Init_Text(Alloc_Value(), nulled_uni);
+    Ensure_Value_Immutable(Root_Empty_Text, locker);
+
+    Root_Empty_Binary = Init_Binary(Alloc_Value(), Make_Binary(0));
+    Ensure_Value_Immutable(Root_Empty_Binary, locker);
 
     Root_Space_Char = rebChar(' ');
     Root_Newline_Char = rebChar('\n');
@@ -890,17 +893,19 @@ static void Init_Root_Vars(void)
 static void Shutdown_Root_Vars(void)
 {
     rebRelease(Root_Stats_Map);
-    Root_Stats_Map = NULL;
+    Root_Stats_Map = nullptr;
 
     rebRelease(Root_Space_Char);
-    Root_Space_Char = NULL;
+    Root_Space_Char = nullptr;
     rebRelease(Root_Newline_Char);
-    Root_Newline_Char = NULL;
+    Root_Newline_Char = nullptr;
 
-    rebRelease(Root_Empty_String);
-    Root_Empty_String = NULL;
+    rebRelease(Root_Empty_Text);
+    Root_Empty_Text = nullptr;
     rebRelease(Root_Empty_Block);
-    Root_Empty_Block = NULL;
+    Root_Empty_Block = nullptr;
+    rebRelease(Root_Empty_Binary);
+    Root_Empty_Binary = nullptr;
 }
 
 

@@ -52,6 +52,8 @@
                 "]'"
             ])
         ] data
-        length of data > 500'000 and [find data "summary: {Initial commit}"]
+        length of data > 500'000 and [
+            did find data "summary: {Initial commit}"
+        ]
     ]
 )

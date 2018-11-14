@@ -53,6 +53,15 @@ REBCNT Modify_Array(
     const RELVAL *src_rel;
     REBSPC *specifier;
 
+    if (IS_NULLED(src_val) and sym == SYM_CHANGE) {
+        //
+        // Tweak requests to CHANGE to a null to be a deletion; basically
+        // what happens with an empty block.
+        //
+        flags |= AM_SPLICE;
+        src_val = EMPTY_BLOCK;
+    }
+
     if (IS_NULLED(src_val) or dups <= 0) {
         // If they are effectively asking for "no action" then all we have
         // to do is return the natural index result for the operation.
@@ -237,6 +246,15 @@ REBCNT Modify_Binary(
     else
         limit = -1;
 
+    if (IS_NULLED(src_val) and sym == SYM_CHANGE) {
+        //
+        // Tweak requests to CHANGE to a null to be a deletion; basically
+        // what happens with an empty binary.
+        //
+        flags |= AM_SPLICE;
+        src_val = EMPTY_BINARY;
+    }
+
     if (IS_NULLED(src_val) || limit == 0 || dups < 0)
         return sym == SYM_APPEND ? 0 : dst_idx;
 
@@ -379,6 +397,15 @@ REBCNT Modify_String(
         limit = dst_len; // should be non-negative
     else
         limit = -1;
+
+    if (IS_NULLED(src_val) and sym == SYM_CHANGE) {
+        //
+        // Tweak requests to CHANGE to a null to be a deletion; basically
+        // what happens with an empty string.
+        //
+        flags |= AM_SPLICE;
+        src_val = EMPTY_TEXT;
+    }
 
     if (IS_NULLED(src_val) || limit == 0 || dups < 0)
         return sym == SYM_APPEND ? 0 : dst_idx;

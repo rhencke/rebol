@@ -207,6 +207,7 @@
 %series/rejoin.test.reb
 %series/remove.test.reb
 %series/reverse.test.reb
+%series/replace.test.reb
 %series/select.test.reb
 %series/skip.test.reb
 %series/sort.test.reb
