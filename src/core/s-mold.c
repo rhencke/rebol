@@ -569,8 +569,10 @@ REBSER *Copy_Mold_Or_Form_Value(const RELVAL *v, REBFLGS opts, bool form)
 //  Form_Reduce_Throws: C
 //
 // Evaluates each item in a block and forms it, with an optional delimiter.
+// If all the items in the block are null, or no items are found, this will
+// return a nulled value.
 //
-// CHAR! suppress the delimiter logic.  Hence:
+// CHAR! suppresses the delimiter logic.  Hence:
 //
 //    >> delimit ["a" space "b" | () "c" newline "d" "e"] ":"
 //    == `"a b^/c^/d:e"
@@ -586,10 +588,10 @@ bool Form_Reduce_Throws(
 ){
     DECLARE_MOLD (mo);
 
-    // Mechanically, SPECIALIZE cannot be used with a null value.  And BLANK!
+    // !!! SPECIALIZE with null is still being worked out.  And BLANK!
     // may be being used for the string representation of a BLANK! (e.g.
     // `delimit ["a" "b" "c"] _` => `a_b_c`, which could be intended).  So
-    // an empty TEXT! can be used instead...convert it to a void though so
+    // an empty TEXT! can be used for nothing...convert it to a null though
     // it doesn't have to be tested as an empty string on each delimit.
     //
     if (IS_TEXT(delimiter) and VAL_LEN_AT(delimiter) == 0)
@@ -600,7 +602,8 @@ bool Form_Reduce_Throws(
     DECLARE_FRAME (f);
     Push_Frame_At(f, array, index, specifier, DO_MASK_NONE);
 
-    bool pending = false;
+    bool pending = false; // pending delimiter output, *if* more non-nulls
+    bool nothing = true; // no non-null elements have been processed
 
     while (NOT_END(f->value)) {
         if (Eval_Step_In_Frame_Throws(out, f)) {
@@ -609,16 +612,21 @@ bool Form_Reduce_Throws(
             return true;
         }
 
-        if (IS_NULLED(out) or (IS_TEXT(out) and VAL_LEN_AT(out) == 0))
-            continue; // opt-out
+        if (IS_NULLED(out))
+            continue; // opt-out and maybe keep option open to return NULL
 
         if (IS_BLANK(out))
             fail (
                 "Temp error: BLANK! encountered in Form_Reduce(...)!"
-                " For a time this meant invisible, but in the future it will"
-                " show up as an underscore.  Use null, or if you have a"
-                " value that may be BLANK! then OPT it to make it null if so."
+                " Meaning for this is in flux; it might print an underscore"
+                " or it might be nothing, use OPT to make a null if you want"
+                " it to vanish or explicitly use underscores for now."
             );
+
+        nothing = false;
+
+        if (IS_TEXT(out) and VAL_LEN_AT(out) == 0)
+            continue;
 
         if (IS_CHAR(out)) {
             Append_Utf8_Codepoint(mo->series, VAL_CHAR(out));
@@ -635,9 +643,12 @@ bool Form_Reduce_Throws(
         }
     }
 
-    Init_Text(out, Pop_Molded_String(mo));
-
     Drop_Frame(f);
+
+    if (nothing)
+        Init_Nulled(out);
+    else
+        Init_Text(out, Pop_Molded_String(mo));
 
     return false;
 }

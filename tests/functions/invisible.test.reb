@@ -252,25 +252,25 @@
 (
     x: <unchanged>
     did all [
-        'need-value = (trap [<discarded> x: ()])/id
+        'need-non-void = (trap [<discarded> x: ()])/id
         x = <unchanged>
     ]
 )(
     x: <unchanged>
     did all [
-        'need-value = (trap [<discarded> x: comment "hi"])/id
+        'need-non-void = (trap [<discarded> x: comment "hi"])/id
         x = <unchanged>
     ]
 )(
     obj: make object! [x: <unchanged>]
     did all [
-        'need-value = (trap [<discarded> obj/x: comment "hi"])/id
+        'need-non-void = (trap [<discarded> obj/x: comment "hi"])/id
         obj/x = <unchanged>
     ]
 )(
     obj: make object! [x: <unchanged>]
     did all [
-        'need-value = (trap [<discarded> obj/x: ()])/id
+        'need-non-void = (trap [<discarded> obj/x: ()])/id
         obj/x = <unchanged>
     ]
 )

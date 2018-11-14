@@ -262,9 +262,9 @@ print: func [
         [blank! text! block!]
 ][
     write-stdout switch type of line [
-        blank! [return null]
+        blank! [return null] ;-- don't print the newline
         text! [line]
-        block! [spaced line]
+        block! [try spaced line]
     ]
     write-stdout newline
     return

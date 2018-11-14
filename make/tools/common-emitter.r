@@ -89,14 +89,21 @@ cscape: function [
 
             if blank? sub [sub: "/* _ */"] ;-- replaced in post-phase
 
-            sub: switch mode [
-                #cname [to-c-name sub]
-                #unspaced [either block? sub [unspaced sub] [form sub]]
-                #delim [delimit sub unspaced [dlm newline]]
-                default [
-                    fail ["Invalid CSCAPE mode:" mode]
+            sub: opt switch mode [
+                #cname [
+                    if not all [text? sub | empty? sub] [
+                        to-c-name sub
+                    ]
                 ]
-            ]
+                #unspaced [
+                    either block? sub [unspaced sub] [form sub]
+                ]
+                #delim [
+                    delimit sub unspaced [dlm newline]
+                ]
+                fail ["Invalid CSCAPE mode:" mode]
+            ] else [""]
+
             case [
                 all [any-upper | not any-lower] [uppercase sub]
                 all [any-lower | not any-upper] [lowercase sub]

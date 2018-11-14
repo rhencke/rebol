@@ -101,7 +101,8 @@ static struct {
 //
 //  {Joins a block of values into TEXT! with delimiters.}
 //
-//      return: [text!]
+//      return: "Will be null if all block's contents are null"
+//          [<opt> text!]
 //      block [block!]
 //      delimiter [<opt> char! text!] ;-- should this accept ANY-VALUE!?
 //  ]

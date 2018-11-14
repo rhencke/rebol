@@ -186,19 +186,15 @@ for-each api api-objects [do in api [
         opt-va-start: {va_list va; va_start(va, p);}
     ]
 
-    wrapper-params: if empty? paramlist [
-        "void"
-    ] else [
-        delimit map-each [type var] paramlist [
-            if type = "va_list *" [
-                "..."
-            ] else [
-                spaced [type var]
-            ]
-        ] ", "
-    ]
+    wrapper-params: (delimit map-each [type var] paramlist [
+        if type = "va_list *" [
+            "..."
+        ] else [
+            spaced [type var]
+        ]
+    ] ", ") else ["void"]
 
-    proxied-args: delimit map-each [type var] paramlist [
+    proxied-args: try delimit map-each [type var] paramlist [
         if type = "va_list *" [
             "&va" ;-- to produce vaptr
         ] else [

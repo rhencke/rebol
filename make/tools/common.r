@@ -57,6 +57,13 @@ to-c-name: function [
     word "Either 'global or 'local (defaults global)"
     [word!]
 ][
+    all [
+        text? value
+        empty? value
+    ] then [
+        fail/where ["TO-C-NAME received empty input"] 'value
+    ]
+
     c-chars: charset [
         #"a" - #"z"
         #"A" - #"Z"

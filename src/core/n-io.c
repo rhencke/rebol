@@ -99,8 +99,8 @@ REBNATIVE(mold)
 //
 //  "Write text to standard output, or raw BINARY! (for control codes / CGI)"
 //
-//      return: [void!]
-//      value [text! char! binary!]
+//      return: [<opt> void!]
+//      value [blank! text! char! binary!]
 //          "Text to write, if a STRING! or CHAR! is converted to OS format"
 //  ]
 //
@@ -109,6 +109,9 @@ REBNATIVE(write_stdout)
     INCLUDE_PARAMS_OF_WRITE_STDOUT;
 
     REBVAL *v = ARG(value);
+
+    if (IS_BLANK(v))
+        return nullptr;
 
     if (IS_BINARY(v)) {
         //
