@@ -2102,6 +2102,10 @@ static REBNATIVE(set_env)
 //
 static REBNATIVE(list_env)
 {
+    PROCESS_INCLUDE_PARAMS_OF_LIST_ENV;
+
+    REBVAL *map = rebRun("make map! []", rebEND);
+
   #ifdef TO_WINDOWS
     //
     // Windows environment strings are sequential null-terminated strings,
@@ -2113,52 +2117,38 @@ static REBNATIVE(list_env)
 
     WCHAR *env = GetEnvironmentStrings();
 
-    REBCNT num_pairs = 0;
-    const WCHAR *key_equals_val = env;
     REBCNT len;
-    while ((len = wcslen(key_equals_val)) != 0) {
-        ++num_pairs;
-        key_equals_val += len + 1; // next
-    }
-
-    REBARR *array = Make_Array(num_pairs * 2); // we split the keys and values
-
-    key_equals_val = env;
+    const WCHAR *key_equals_val = env;
     while ((len = wcslen(key_equals_val)) != 0) {
         const WCHAR *eq_pos = wcschr(key_equals_val, '=');
 
-        REBVAL *key = rebLengthedTextW(
-            key_equals_val,
-            eq_pos - key_equals_val
-        );
-        REBVAL *val = rebLengthedTextW(
-            eq_pos + 1,
-            len - (eq_pos - key_equals_val) - 1
-        );
-        Append_Value(array, key);
-        Append_Value(array, val);
-        rebRelease(key);
-        rebRelease(val);
+        // "What are these strange =C: environment variables?"
+        // https://blogs.msdn.microsoft.com/oldnewthing/20100506-00/?p=14133
+        //
+        if (eq_pos == key_equals_val) {
+            key_equals_val += len + 1; // next
+            continue;
+        }
+
+        int key_len = eq_pos - key_equals_val;
+        REBVAL *key = rebLengthedTextW(key_equals_val, key_len);
+
+        int val_len = len - (eq_pos - key_equals_val) - 1;
+        REBVAL *val = rebLengthedTextW(eq_pos + 1, val_len);
+
+        rebElide("append", map, "[", rebR(key), rebR(val), "]", rebEND);
 
         key_equals_val += len + 1; // next
     }
 
     FreeEnvironmentStrings(env);
-
-    return Init_Map(D_OUT, Mutate_Array_Into_Map(array));
   #else
     // Note: 'environ' is an extern of a global found in <unistd.h>, and each
     // entry contains a `key=value` formatted string.
     //
     // https://stackoverflow.com/q/3473692/
     //
-    REBCNT num_pairs = 0;
-    REBCNT n;
-    for (n = 0; environ[n] != NULL; ++n)
-        ++num_pairs;
-
-    REBARR *array = Make_Array(num_pairs * 2); // we split the keys and values
-
+    int n;
     for (n = 0; environ[n] != NULL; ++n) {
         //
         // Note: it's safe to search for just a `=` byte, since the high bit
@@ -2170,22 +2160,17 @@ static REBNATIVE(list_env)
 
         REBCNT size = strlen(key_equals_val);
 
-        REBVAL *key = rebSizedText(
-            key_equals_val,
-            eq_pos - key_equals_val
-        );
-        REBVAL *val = rebSizedText(
-            eq_pos + 1,
-            size - (eq_pos - key_equals_val) - 1
-        );
-        Append_Value(array, key);
-        Append_Value(array, val);
-        rebRelease(key);
-        rebRelease(val);
-    }
+        int key_size = eq_pos - key_equals_val;
+        REBVAL *key = rebSizedText(key_equals_val, key_size);
 
-    return Init_Map(D_OUT, Mutate_Array_Into_Map(array));
+        int val_size = size - (eq_pos - key_equals_val) - 1;
+        REBVAL *val = rebSizedText(eq_pos + 1, val_size);
+
+        rebElide("append", map, "[", rebR(key), rebR(val), "]", rebEND);
+    }
   #endif
+
+    return map;
 }
 
 

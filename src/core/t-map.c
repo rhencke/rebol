@@ -577,32 +577,6 @@ REBARR *Map_To_Array(REBMAP *map, REBINT what)
 
 
 //
-//  Mutate_Array_Into_Map: C
-//
-// Convert existing array to a map.  The array is tested to make sure it is
-// not managed, hence it has not been put into any REBVALs that might use
-// a non-map-aware access to it.  (That would risk making changes to the
-// array that did not keep the hashes in sync.)
-//
-REBMAP *Mutate_Array_Into_Map(REBARR *a)
-{
-    REBCNT size = ARR_LEN(a);
-
-    // See note above--can't have this array be accessible via some ANY-BLOCK!
-    //
-    assert(not IS_ARRAY_MANAGED(a));
-
-    SET_SER_FLAG(a, ARRAY_FLAG_PAIRLIST);
-
-    REBMAP *map = MAP(a);
-    MAP_HASHLIST(map) = Make_Hash_Sequence(size);
-
-    Rehash_Map(map);
-    return map;
-}
-
-
-//
 //  Alloc_Context_From_Map: C
 //
 REBCTX *Alloc_Context_From_Map(REBMAP *map)
