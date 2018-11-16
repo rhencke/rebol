@@ -312,7 +312,19 @@ inline static void Finalize_Arg(
     // be quickly recovered, while using only a single slot in the REBVAL.
     //
     arg->payload.varargs.param_offset = arg - FRM_ARGS_HEAD(f_state);
-    arg->payload.varargs.facade = ACT_FACADE(FRM_PHASE(f_state));
+    if (FRM_PHASE_OR_DUMMY(f_state) == PG_Dummy_Action) {
+        //
+        // If the function is not going to be run immediately, it might be
+        // getting deferred just for capturing arguments before running (e.g.
+        // with `match even? x`) or it could be a means of generating a
+        // specialization to be used many times (`does dump var`).  The
+        // former case might have variadics work, the latter can't.  Let
+        // frame expiration or not be the judge later.
+        //
+        arg->payload.varargs.facade = ACT_FACADE(f_state->original);
+    }
+    else
+        arg->payload.varargs.facade = ACT_FACADE(FRM_PHASE(f_state));
     SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
 }
 
@@ -358,6 +370,43 @@ inline static void Seek_First_Param(REBFRM *f, REBACT *action) {
     #define CURRENT_CHANGES_IF_FETCH_NEXT \
         (current == FRM_CELL(f))
 #endif
+
+
+inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
+    REBACT *phase = FRM_PHASE_OR_DUMMY(f);
+    if (phase != PG_Dummy_Action)
+        if (GET_ACT_FLAG(phase, ACTION_FLAG_INVISIBLE)) {
+            if (not GET_ACT_FLAG(f->original, ACTION_FLAG_INVISIBLE))
+                fail ("All invisible action phases must be invisible");
+            return;
+        }
+
+    if (GET_ACT_FLAG(f->original, ACTION_FLAG_INVISIBLE))
+        return;
+
+  #ifdef DEBUG_UNREADABLE_BLANKS
+    //
+    // The f->out slot should be initialized well enough for GC safety.
+    // But in the debug build, if we're not running an invisible function
+    // set it to END here, to make sure the non-invisible function writes
+    // *something* to the output.
+    //
+    // END has an advantage because recycle/torture will catch cases of
+    // evaluating into movable memory.  But if END is always set, natives
+    // might *assume* it.  Fuzz it with unreadable blanks.
+    //
+    // !!! Should natives be able to count on f->out being END?  This was
+    // at one time the case, but this code was in one instance.
+    //
+    if (not GET_ACT_FLAG(FRM_PHASE_OR_DUMMY(f), ACTION_FLAG_INVISIBLE)) {
+        if (SPORADICALLY(2))
+            Init_Unreadable_Blank(f->out);
+        else
+            SET_END(f->out);
+        f->out->header.bits |= OUT_MARKED_STALE;
+    }
+  #endif
+}
 
 
 //
@@ -749,10 +798,7 @@ void Eval_Core(REBFRM * const f)
 
         Push_Action(f, VAL_ACTION(current), VAL_BINDING(current));
         Begin_Action(f, opt_label, ORDINARY_ARG);
-
-        if (NOT_VAL_FLAG(current, ACTION_FLAG_INVISIBLE))
-            SET_END(f->out); // clear out previous result
-
+        Expire_Out_Cell_Unless_Invisible(f);
         goto process_action; }
 
     //==////////////////////////////////////////////////////////////////==//
@@ -1038,7 +1084,16 @@ void Eval_Core(REBFRM * const f)
                 );
 
                 if (f->arg != f->special) {
-                    assert(not Is_Param_Variadic(f->param));
+                    //
+                    // Specializing with VARARGS! is generally not a good
+                    // idea unless that is an empty varargs...because each
+                    // call will consume from it.  Specializations you use
+                    // only once might make sense (?)
+                    //
+                    assert(
+                        not Is_Param_Variadic(f->param)
+                        or IS_VARARGS(f->special)
+                    );
 
                     Move_Value(f->arg, f->special); // won't copy the bit
                     SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
@@ -1187,10 +1242,7 @@ void Eval_Core(REBFRM * const f)
                     assert(false);
                 }
 
-                if (not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE)) {
-                    SET_END(f->out);
-                    f->out->header.bits |= OUT_MARKED_STALE;
-                }
+                Expire_Out_Cell_Unless_Invisible(f);
 
                 // Now that we've gotten the argument figured out, make a
                 // singular array to feed it to the variadic.
@@ -1510,26 +1562,9 @@ void Eval_Core(REBFRM * const f)
             or IS_VALUE_IN_ARRAY_DEBUG(f->source->array, f->value)
         );
 
-      #ifdef DEBUG_UNREADABLE_BLANKS
-        //
-        // The f->out slot should be initialized well enough for GC safety.
-        // But in the debug build, if we're not running an invisible function
-        // set it to END here, to make sure the non-invisible function writes
-        // *something* to the output.
-        //
-        // END has an advantage because recycle/torture will catch cases of
-        // evaluating into movable memory.  But if END is always set, natives
-        // might *assume* it.  Fuzz it with unreadable blanks.
-        //
-        if (not GET_ACT_FLAG(FRM_PHASE_OR_DUMMY(f), ACTION_FLAG_INVISIBLE)) {
-            assert(f->out->header.bits & OUT_MARKED_STALE);
-            if (SPORADICALLY(2))
-                Init_Unreadable_Blank(f->out);
-            else
-                SET_END(f->out);
-            f->out->header.bits |= OUT_MARKED_STALE;
-        }
-      #endif
+//        assert(f->out->header.bits & OUT_MARKED_STALE);
+        Expire_Out_Cell_Unless_Invisible(f);
+        assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
 
         // While you can't evaluate into an array cell (because it may move)
         // an evaluation is allowed to be performed into stable cells on the
@@ -1657,21 +1692,12 @@ void Eval_Core(REBFRM * const f)
             // run the f->phase again.  The dispatcher may have changed the
             // value of what f->phase is, for instance.
 
-            if (GET_VAL_FLAG(r, VALUE_FLAG_FALSEY)) { // unchecked redo
-                assert(
-                    not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE)
-                );
-                SET_END(f->out);
-                f->out->header.bits |= OUT_MARKED_STALE;
-                assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
+            if (GET_VAL_FLAG(r, VALUE_FLAG_FALSEY)) // R_REDO_UNCHECKED
                 goto redo_unchecked;
-            }
 
-          redo_checked:;
+          redo_checked:; // R_REDO_CHECKED
 
-            assert(not GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
-            SET_END(f->out);
-            f->out->header.bits |= OUT_MARKED_STALE;
+            Expire_Out_Cell_Unless_Invisible(f);
             assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
 
             f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
@@ -2038,8 +2064,7 @@ void Eval_Core(REBFRM * const f)
             // something that really should be made to work *when it can*.
             //
             Begin_Action(f, opt_label, ORDINARY_ARG);
-            SET_END(f->out); // loses enfix left hand side, invisible passthru
-            f->out->header.bits |= OUT_MARKED_STALE;
+            Expire_Out_Cell_Unless_Invisible(f);
             goto process_action;
         }
 

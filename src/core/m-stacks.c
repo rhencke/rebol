@@ -233,7 +233,13 @@ REBCTX *Get_Context_From_Stack(void)
     // (So don't call it from something like Returner_Dispatcher, where you
     // know for a fact it's a user function and not a native on the stack.)
     //
-    assert(GET_ACT_FLAG(phase, ACTION_FLAG_NATIVE));
+  #if !defined(NDEBUG)
+    if (not GET_ACT_FLAG(phase, ACTION_FLAG_NATIVE)) {
+        printf("!!! WARNING: calling API code from unsafe location\n");
+        printf("(only do this in special debugging scenarios...)\n");
+        return Lib_Context;
+    }
+  #endif
 
     REBARR *details = ACT_DETAILS(phase);
     REBVAL *context = KNOWN(ARR_AT(details, 1));

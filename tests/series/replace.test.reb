@@ -68,11 +68,11 @@
 ([3 0 4] = replace copy [3 0 4] null 1020)
 ([2 0 2 0] = replace/all copy [1 0 2 0 1 0 2 0] [1 0] null)
 ("34" = replace copy "304" "0" null)
-("304" = rplace copy "304" null "1020")
+("304" = replace copy "304" null "1020")
 ("2020" = replace/all copy "10201020" "10" null)
 (#{3040} = replace copy #{300040} #{00} null)
 (#{300040} = replace copy #{300040} null #{10002000})
-(#{20002000} = replace/all copy #{1000200010002000} #{1000})
+(#{20002000} = replace/all copy #{1000200010002000} #{1000} null)
 
 ; REPLACE/DEEP - /DEEP not (yet?) implemented in Ren-C
 

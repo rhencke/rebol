@@ -1613,12 +1613,18 @@ const REBVAL *Adapter_Dispatcher(REBFRM *f)
     // the paramlist of the *underlying* function--because that's what a
     // compatible frame gets pushed for.)
     //
+    // We can't do the prelude into f->out in the case that this is an
+    // adaptation of an invisible (e.g. DUMP).  Would be nice to use the frame
+    // spare cell but can't as Fetch_Next() uses it.
+
+    DECLARE_LOCAL (dummy);
     if (Do_At_Throws(
-        f->out,
+        dummy,
         VAL_ARRAY(prelude),
         VAL_INDEX(prelude),
         SPC(f->varlist)
     )){
+        Move_Value(f->out, dummy);
         return f->out;
     }
 
