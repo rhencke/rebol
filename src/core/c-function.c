@@ -38,7 +38,7 @@
 //
 REBARR *List_Func_Words(const RELVAL *func, bool pure_locals)
 {
-    REBARR *array = Make_Array(VAL_ACT_NUM_PARAMS(func));
+    REBARR *a = Make_Arr(VAL_ACT_NUM_PARAMS(func));
     REBVAL *param = VAL_ACT_PARAMS_HEAD(func);
 
     for (; NOT_END(param); param++) {
@@ -79,11 +79,11 @@ REBARR *List_Func_Words(const RELVAL *func, bool pure_locals)
         }
 
         Init_Any_Word(
-            Alloc_Tail_Array(array), kind, VAL_PARAM_SPELLING(param)
+            Alloc_Tail_Array(a), kind, VAL_PARAM_SPELLING(param)
         );
     }
 
-    return array;
+    return a;
 }
 
 
@@ -95,7 +95,7 @@ REBARR *List_Func_Words(const RELVAL *func, bool pure_locals)
 //
 REBARR *List_Func_Typesets(REBVAL *func)
 {
-    REBARR *array = Make_Array(VAL_ACT_NUM_PARAMS(func));
+    REBARR *array = Make_Arr(VAL_ACT_NUM_PARAMS(func));
     REBVAL *typeset = VAL_ACT_PARAMS_HEAD(func);
 
     for (; NOT_END(typeset); typeset++) {
@@ -559,7 +559,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Must make the function "paramlist" even if "empty", for identity.
     //
-    REBARR *paramlist = Make_Array_Core(num_slots, SERIES_MASK_ACTION);
+    REBARR *paramlist = Make_Arr_Core(num_slots, SERIES_MASK_ACTION);
 
     // In order to use this paramlist as a ->phase in a frame below, it must
     // have a valid facade so CTX_KEYLIST() will work.  The Make_Action()
@@ -678,7 +678,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Only make `parameter-types` if there were blocks in the spec
     //
     if (has_types) {
-        REBARR *types_varlist = Make_Array_Core(
+        REBARR *types_varlist = Make_Arr_Core(
             num_slots,
             SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
         );
@@ -740,7 +740,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Only make `parameter-notes` if there were strings (besides description)
     //
     if (has_notes) {
-        REBARR *notes_varlist = Make_Array_Core(
+        REBARR *notes_varlist = Make_Arr_Core(
             num_slots,
             SERIES_MASK_CONTEXT | NODE_FLAG_MANAGED
         );
@@ -946,7 +946,7 @@ REBACT *Make_Action(
     // the dispatcher understands it to be, by contract.  Terminate it
     // at the given length implicitly.
 
-    REBARR *details = Make_Array_Core(details_capacity, NODE_FLAG_MANAGED);
+    REBARR *details = Make_Arr_Core(details_capacity, NODE_FLAG_MANAGED);
     TERM_ARRAY_LEN(details, details_capacity);
 
     rootparam->payload.action.details = details;
@@ -1264,7 +1264,7 @@ REBACT *Make_Interpreted_Action_May_Fail(
 
         // Reusing EMPTY_ARRAY won't allow adding ARRAY_FLAG_FILE_LINE bits
         //
-        copy = Make_Array_Core(1, NODE_FLAG_MANAGED);
+        copy = Make_Arr_Core(1, NODE_FLAG_MANAGED);
     }
     else { // body not empty, pick dispatcher based on output disposition
 

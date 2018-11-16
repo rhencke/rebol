@@ -589,7 +589,7 @@ void Make_Image(REBVAL *out, REBCNT w, REBCNT h)
     // the common series routines, this will be necessary--it should change
     // when it becomes a user defined type with a PAIR! and a BINARY!.
     //
-    REBSER *img = Make_Series(w * h + 1, 4);
+    REBSER *img = Make_Ser(w * h + 1, 4);
     SET_SERIES_LEN(img, (w * h));
 
     RESET_IMAGE(SER_DATA_RAW(img), (w * h)); // length in 'pixels'

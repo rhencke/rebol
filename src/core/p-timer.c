@@ -60,7 +60,7 @@ static const REBVAL *Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     //
     REBVAL *state = CTX_VAR(ctx, STD_PORT_STATE);
     if (!IS_BLOCK(state))
-        Init_Block(state, Make_Array(127));
+        Init_Block(state, Make_Arr(127));
 
     switch (VAL_WORD_SYM(verb)) {
 

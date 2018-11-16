@@ -1219,7 +1219,7 @@ REBNATIVE(copy_odbc)
     //
     SQLULEN row = 0;
     while (row != num_rows and SQLFetch(hstmt) != SQL_NO_DATA) {
-        REBARR *record = Make_Array(num_columns);
+        REBARR *record = Make_Arr(num_columns);
 
         SQLSMALLINT col;
         for (col = 0; col < num_columns; ++col) {

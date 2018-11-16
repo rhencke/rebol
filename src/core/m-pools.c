@@ -301,7 +301,7 @@ void Startup_Pools(REBINT scale)
     // As a trick to keep this series from trying to track itself, say it's
     // managed, then sneak the flag off.
     //
-    GC_Manuals = Make_Series_Core(15, sizeof(REBSER *), NODE_FLAG_MANAGED);
+    GC_Manuals = Make_Ser_Core(15, sizeof(REBSER *), NODE_FLAG_MANAGED);
     CLEAR_SER_FLAG(GC_Manuals, NODE_FLAG_MANAGED);
 
     Prior_Expand = ALLOC_N(REBSER*, MAX_EXPAND_LIST);
@@ -1208,7 +1208,7 @@ void Free_Unmanaged_Series(REBSER *s)
 //
 //  Manage_Series: C
 //
-// If NODE_FLAG_MANAGED is not explicitly passed to Make_Series_Core, a
+// If NODE_FLAG_MANAGED is not explicitly passed to Make_Ser_Core, a
 // series will be manually memory-managed by default.  Thus, you don't need
 // to worry about the series being freed out from under you while building it,
 // and can call Free_Unmanaged_Series() on it if you are done with it.
@@ -1287,10 +1287,10 @@ void Assert_Pointer_Detection_Working(void)
     //
     assert(not (END_NODE->header.bits & NODE_FLAG_MANAGED));
 
-    REBSER *series = Make_Series(1, sizeof(char));
-    assert(Detect_Rebol_Pointer(series) == DETECTED_AS_SERIES);
-    Free_Unmanaged_Series(series);
-    assert(Detect_Rebol_Pointer(series) == DETECTED_AS_FREED_SERIES);
+    REBSER *ser = Make_Ser(1, sizeof(char));
+    assert(Detect_Rebol_Pointer(ser) == DETECTED_AS_SERIES);
+    Free_Unmanaged_Series(ser);
+    assert(Detect_Rebol_Pointer(ser) == DETECTED_AS_FREED_SERIES);
 }
 
 

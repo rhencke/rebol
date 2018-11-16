@@ -184,7 +184,7 @@ static const REBVAL *Transport_Actor(
                 //
                 Init_Block(
                     CTX_VAR(ctx, STD_PORT_CONNECTIONS),
-                    Make_Array(2)
+                    Make_Arr(2)
                 );
                 goto open_socket_actions;
             }

@@ -220,7 +220,7 @@ REBSER *Xandor_Binary(REBVAL *verb, REBVAL *value, REBVAL *arg)
         // Ordinary binary
         //
         series = Make_Binary(t2);
-        SET_SERIES_LEN(series, t2);
+        TERM_SEQUENCE_LEN(series, t2);
     }
 
     REBYTE *p2 = BIN_HEAD(series);
@@ -271,20 +271,17 @@ REBSER *Xandor_Binary(REBVAL *verb, REBVAL *value, REBVAL *arg)
 //
 REBSER *Complement_Binary(REBVAL *value)
 {
-    REBSER *series;
-    REBYTE *str = VAL_BIN_AT(value);
-    REBINT len = VAL_LEN_AT(value);
-    REBYTE *out;
+    const REBYTE *bp = VAL_BIN_AT(value);
+    REBCNT len = VAL_LEN_AT(value);
 
-    series = Make_Binary(len);
-    SET_SERIES_LEN(series, len);
-    out = BIN_HEAD(series);
-    for (; len > 0; len--) {
-        *out++ = ~(*str);
-        ++str;
-    }
+    REBSER *bin = Make_Binary(len);
+    TERM_SEQUENCE_LEN(bin, len);
 
-    return series;
+    REBYTE *dp = BIN_HEAD(bin);
+    for (; len > 0; len--, ++bp, ++dp)
+        *dp = ~(*bp);
+
+    return bin;
 }
 
 
@@ -412,7 +409,7 @@ REBARR *Split_Lines(const REBVAL *str)
     REBCHR(const *) up = start;
 
     if (i == len)
-        return Make_Array(0);
+        return Make_Arr(0);
 
     REBUNI c;
     up = NEXT_CHR(&c, up);

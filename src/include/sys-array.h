@@ -29,7 +29,7 @@
 // A "Rebol Array" is a series of REBVAL values which is terminated by an
 // END marker.  In R3-Alpha, the END marker was itself a full-sized REBVAL
 // cell...so code was allowed to write one cell past the capacity requested
-// when Make_Array() was called.  But this always had to be an END.
+// when Make_Arr() was called.  But this always had to be an END.
 //
 // In Ren-C, there is an implicit END marker just past the last cell in the
 // capacity.  Allowing a SET_END() on this position could corrupt the END
@@ -227,7 +227,7 @@ inline static void Prep_Array(REBARR *a) {
 // Make a series that is the right size to store REBVALs (and marked for the
 // garbage collector to look into recursively).  ARR_LEN() will be 0.
 //
-inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
+inline static REBARR *Make_Arr_Core(REBCNT capacity, REBFLGS flags) {
     const REBCNT wide = sizeof(REBVAL);
 
     REBSER *s = Alloc_Series_Node(flags);
@@ -273,7 +273,7 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     // create it in the managed state.  But be sure no evaluations are called
     // before it's made reachable by the GC, or use PUSH_GC_GUARD().
     //
-    // !!! Code duplicated in Make_Series_Core ATM.
+    // !!! Code duplicated in Make_Ser_Core ATM.
     //
     if (not (flags & NODE_FLAG_MANAGED)) { // most callsites const fold this
         if (SER_FULL(GC_Manuals))
@@ -307,17 +307,17 @@ inline static REBARR *Make_Array_Core(REBCNT capacity, REBFLGS flags) {
     return cast(REBARR*, s);
 }
 
-#define Make_Array(capacity) \
-    Make_Array_Core((capacity), ARRAY_FLAG_FILE_LINE)
+#define Make_Arr(capacity) \
+    Make_Arr_Core((capacity), ARRAY_FLAG_FILE_LINE)
 
 // !!! Currently, many bits of code that make copies don't specify if they are
 // copying an array to turn it into a paramlist or varlist, or to use as the
-// kind of array the use might see.  If we used plain Make_Array() then it
+// kind of array the use might see.  If we used plain Make_Arr() then it
 // would add a flag saying there were line numbers available, which may
 // compete with the usage of the ->misc and ->link fields of the series node
 // for internal arrays.
 //
-inline static REBARR *Make_Array_For_Copy(
+inline static REBARR *Make_Arr_For_Copy(
     REBCNT capacity,
     REBFLGS flags,
     REBARR *original
@@ -336,14 +336,14 @@ inline static REBARR *Make_Array_For_Copy(
     ){
         flags &= ~ARRAY_FLAG_FILE_LINE;
 
-        REBARR *a = Make_Array_Core(capacity, flags);
+        REBARR *a = Make_Arr_Core(capacity, flags);
         LINK(a).file = LINK(original).file;
         MISC(a).line = MISC(original).line;
         SET_SER_FLAG(a, ARRAY_FLAG_FILE_LINE);
         return a;
     }
 
-    return Make_Array_Core(capacity, flags);
+    return Make_Arr_Core(capacity, flags);
 }
 
 
@@ -357,7 +357,7 @@ inline static REBARR *Make_Array_For_Copy(
 //
 inline static REBARR *Alloc_Singular(REBFLGS flags) {
     assert(not (flags & SERIES_FLAG_ALWAYS_DYNAMIC));
-    REBARR *a = Make_Array_Core(1, flags | SERIES_FLAG_FIXED_SIZE);
+    REBARR *a = Make_Arr_Core(1, flags | SERIES_FLAG_FIXED_SIZE);
     LEN_BYTE_OR_255(SER(a)) = 1; // non-dynamic length (defaulted to 0)
     return a;
 }

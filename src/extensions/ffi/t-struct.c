@@ -191,12 +191,12 @@ static bool Get_Struct_Var(REBVAL *out, REBSTU *stu, const REBVAL *word)
             // pointer into these arrays?
             //
             REBCNT dimension = FLD_DIMENSION(field);
-            REBARR *array = Make_Array(dimension);
+            REBARR *arr = Make_Arr(dimension);
             REBCNT n;
             for (n = 0; n < dimension; ++n)
-                get_scalar(ARR_AT(array, n), stu, field, n);
-            TERM_ARRAY_LEN(array, dimension);
-            Init_Block(out, array);
+                get_scalar(ARR_AT(arr, n), stu, field, n);
+            TERM_ARRAY_LEN(arr, dimension);
+            Init_Block(out, arr);
         }
         else
             get_scalar(out, stu, field, 0);
@@ -231,7 +231,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
         DS_PUSH_TRASH;
         Init_Set_Word(DS_TOP, FLD_NAME(field)); // required name
 
-        REBARR *typespec = Make_Array(2); // required type
+        REBARR *typespec = Make_Arr(2); // required type
 
         if (FLD_IS_STRUCT(field)) {
             Init_Word(Alloc_Tail_Array(typespec), Canon(SYM_STRUCT_X));
@@ -268,7 +268,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
 
             // Initialization seems to be just another block after that (?)
             //
-            REBARR *init = Make_Array(dimension);
+            REBARR *init = Make_Arr(dimension);
             REBCNT n;
             for (n = 0; n < dimension; n ++)
                 get_scalar(ARR_AT(init, n), stu, field, n);
@@ -1092,7 +1092,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     // Though the schema is not managed, the MAKE process runs evaluations, so
     // the fields must be GC valid.
     //
-    REBFLD *schema = Make_Array(IDX_FIELD_MAX);
+    REBFLD *schema = Make_Arr(IDX_FIELD_MAX);
     Init_Unreadable_Blank(FLD_AT(schema, IDX_FIELD_TYPE)); // will fill in
     Init_Blank(FLD_AT(schema, IDX_FIELD_DIMENSION)); // not an array
     Init_Unreadable_Blank(FLD_AT(schema, IDX_FIELD_FFTYPE)); // will fill in
@@ -1146,7 +1146,7 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         // Add another field...although we don't manage the array (so it won't
         // get GC'd) we do run evaluations, so it must be GC-valid.
 
-        REBFLD *field = Make_Array(IDX_FIELD_MAX);
+        REBFLD *field = Make_Arr(IDX_FIELD_MAX);
         Init_Unreadable_Blank(FLD_AT(field, IDX_FIELD_TYPE));
         Init_Unreadable_Blank(FLD_AT(field, IDX_FIELD_DIMENSION));
         Init_Unreadable_Blank(FLD_AT(field, IDX_FIELD_FFTYPE));

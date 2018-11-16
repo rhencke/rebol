@@ -280,7 +280,7 @@ REBARR *Vector_To_Array(const REBVAL *vect)
     if (len <= 0)
         fail (Error_Invalid(vect));
 
-    REBARR *arr = Make_Array(len);
+    REBARR *arr = Make_Arr(len);
     RELVAL *dest = ARR_HEAD(arr);
     REBCNT n;
     for (n = VAL_INDEX(vect); n < VAL_LEN_HEAD(vect); ++n, ++dest)
@@ -377,7 +377,7 @@ static REBSER *Make_Vector(
     if (len > 0x7fffffff)
         fail ("vector size too big");
 
-    REBSER *s = Make_Series_Core(len + 1, bits / 8, SERIES_FLAG_POWER_OF_2);
+    REBSER *s = Make_Ser_Core(len + 1, bits / 8, SERIES_FLAG_POWER_OF_2);
     CLEAR(SER_DATA_RAW(s), (len * bits) / 8);
     SET_SERIES_LEN(s, len);
 

@@ -260,7 +260,7 @@ REBNATIVE(typechecker)
 
     REBVAL *type = ARG(type);
 
-    REBARR *paramlist = Make_Array_Core(
+    REBARR *paramlist = Make_Arr_Core(
         2,
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED
     );

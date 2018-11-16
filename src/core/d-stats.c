@@ -229,7 +229,7 @@ const REBVAL *Measured_Dispatcher_Hook(REBFRM * const f)
             //
             // There's no entry yet for this ACTION!, initialize one.
 
-            REBARR *a = Make_Array(IDX_STATS_MAX);
+            REBARR *a = Make_Arr(IDX_STATS_MAX);
             if (f->opt_label != NULL)
                 Init_Word(ARR_AT(a, IDX_STATS_SYMBOL), f->opt_label);
             else

@@ -154,7 +154,7 @@ void RL_rebEnterApi_internal(void) {
 //
 void *RL_rebMalloc(size_t size)
 {
-    REBSER *s = Make_Series_Core(
+    REBSER *s = Make_Ser_Core(
         ALIGN_SIZE // stores REBSER* (must be at least big enough for void*)
             + size // for the actual data capacity (may be 0...see notes)
             + 1, // for termination (even BINARY! has this, review necessity)
@@ -412,7 +412,7 @@ REBVAL *RL_rebBuiltinExtensions(void)
     REBCNT n = sizeof(Boot_Extensions) / sizeof(CFUNC*);
     assert(n % 2 == 0);
 
-    REBARR *arr = Make_Array(n);
+    REBARR *arr = Make_Arr(n);
     REBCNT i;
     for (i = 0; i != n; i += 2) {
         Init_Handle_Managed_Cfunc(
@@ -716,7 +716,7 @@ const void *RL_rebUneval(const REBVAL *v)
         Move_Value(single, NAT_VALUE(null));
     }
     else {
-        REBARR *a = Make_Array(2);
+        REBARR *a = Make_Arr(2);
         SET_SER_INFO(a, SERIES_INFO_HOLD);
         Move_Value(Alloc_Tail_Array(a), NAT_VALUE(quote));
         Move_Value(Alloc_Tail_Array(a), v);

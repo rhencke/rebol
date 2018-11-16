@@ -72,7 +72,7 @@ void MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         //
         // `make block! 10` => creates array with certain initial capacity
         //
-        Init_Any_Array(out, kind, Make_Array(Int32s(arg, 0)));
+        Init_Any_Array(out, kind, Make_Arr(Int32s(arg, 0)));
         return;
     }
     else if (IS_TEXT(arg)) {
@@ -727,7 +727,7 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 REBTYPE(Array)
 {
-    REBVAL *value = D_ARG(1);
+    REBVAL *array = D_ARG(1);
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
     // Common operations for any series type (length, head, etc.)
@@ -736,8 +736,8 @@ REBTYPE(Array)
     if (r != R_UNHANDLED)
         return r;
 
-    REBARR *array = VAL_ARRAY(value);
-    REBSPC *specifier = VAL_SPECIFIER(value);
+    REBARR *arr = VAL_ARRAY(array);
+    REBSPC *specifier = VAL_SPECIFIER(array);
 
     switch (VAL_WORD_SYM(verb)) {
 
@@ -748,37 +748,37 @@ REBTYPE(Array)
         if (REF(deep))
             fail (Error_Bad_Refines_Raw());
 
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY_ARRAY(arr);
 
         REBCNT len;
         if (REF(part)) {
-            len = Part_Len_May_Modify_Index(value, ARG(limit));
+            len = Part_Len_May_Modify_Index(array, ARG(limit));
             if (len == 0)
-                goto return_empty_block;
+                return Init_Block(D_OUT, Make_Arr(0)); // new empty block
         }
         else
             len = 1;
 
-        REBCNT index = VAL_INDEX(value); // Partial() can change index
+        REBCNT index = VAL_INDEX(array); // Partial() can change index
 
         if (REF(last))
-            index = VAL_LEN_HEAD(value) - len;
+            index = VAL_LEN_HEAD(array) - len;
 
-        if (index >= VAL_LEN_HEAD(value)) {
+        if (index >= VAL_LEN_HEAD(array)) {
             if (not REF(part))
                 return nullptr;
 
-            goto return_empty_block;
+            return Init_Block(D_OUT, Make_Arr(0)); // new empty block
         }
 
         if (REF(part))
             Init_Block(
-                D_OUT, Copy_Array_At_Max_Shallow(array, index, specifier, len)
+                D_OUT, Copy_Array_At_Max_Shallow(arr, index, specifier, len)
             );
         else
-            Derelativize(D_OUT, &ARR_HEAD(array)[index], specifier);
+            Derelativize(D_OUT, &ARR_HEAD(arr)[index], specifier);
 
-        Remove_Series(SER(array), index, len);
+        Remove_Series(SER(arr), index, len);
         return D_OUT;
     }
 
@@ -793,10 +793,10 @@ REBTYPE(Array)
 
         REBINT len = ANY_ARRAY(arg) ? VAL_ARRAY_LEN_AT(arg) : 1;
 
-        REBCNT limit = Part_Tail_May_Modify_Index(value, ARG(limit));
+        REBCNT limit = Part_Tail_May_Modify_Index(array, ARG(limit));
         UNUSED(REF(part)); // checked by if limit is nulled
 
-        REBCNT index = VAL_INDEX(value);
+        REBCNT index = VAL_INDEX(array);
 
         REBFLGS flags = (
             (REF(only) ? AM_FIND_ONLY : 0)
@@ -809,7 +809,7 @@ REBTYPE(Array)
         REBCNT skip = REF(skip) ? Int32s(ARG(size), 1) : 1;
 
         REBCNT ret = Find_In_Array(
-            array, index, limit, arg, len, flags, skip
+            arr, index, limit, arg, len, flags, skip
         );
 
         if (ret >= limit)
@@ -821,15 +821,15 @@ REBTYPE(Array)
         if (VAL_WORD_SYM(verb) == SYM_FIND) {
             if (REF(tail) || REF(match))
                 ret += len;
-            VAL_INDEX(value) = ret;
-            Move_Value(D_OUT, value);
+            VAL_INDEX(array) = ret;
+            Move_Value(D_OUT, array);
         }
         else {
             ret += len;
             if (ret >= limit)
                 return nullptr;
 
-            Derelativize(D_OUT, ARR_AT(array, ret), specifier);
+            Derelativize(D_OUT, ARR_AT(arr, ret), specifier);
         }
         return D_OUT;
     }
@@ -845,17 +845,17 @@ REBTYPE(Array)
 
         REBCNT len; // length of target
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
-            len = Part_Len_May_Modify_Index(value, ARG(limit));
+            len = Part_Len_May_Modify_Index(array, ARG(limit));
         else
             len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(limit));
 
-        FAIL_IF_READ_ONLY_ARRAY(array);
-        REBCNT index = VAL_INDEX(value);
+        FAIL_IF_READ_ONLY_ARRAY(arr);
+        REBCNT index = VAL_INDEX(array);
 
         REBFLGS flags = 0;
         if (
             not REF(only)
-            and Splices_Into_Type_Without_Only(VAL_TYPE(value), arg)
+            and Splices_Into_Type_Without_Only(VAL_TYPE(array), arg)
         ){
             flags |= AM_SPLICE;
         }
@@ -864,10 +864,10 @@ REBTYPE(Array)
         if (REF(line))
             flags |= AM_LINE;
 
-        Move_Value(D_OUT, value);
+        Move_Value(D_OUT, array);
         VAL_INDEX(D_OUT) = Modify_Array(
             VAL_WORD_SPELLING(verb),
-            array,
+            arr,
             index,
             arg,
             flags,
@@ -878,17 +878,16 @@ REBTYPE(Array)
     }
 
     case SYM_CLEAR: {
-        FAIL_IF_READ_ONLY_ARRAY(array);
-        REBCNT index = VAL_INDEX(value);
-        if (index < VAL_LEN_HEAD(value)) {
-            if (index == 0) Reset_Array(array);
+        FAIL_IF_READ_ONLY_ARRAY(arr);
+        REBCNT index = VAL_INDEX(array);
+        if (index < VAL_LEN_HEAD(array)) {
+            if (index == 0) Reset_Array(arr);
             else {
-                SET_END(ARR_AT(array, index));
-                SET_SERIES_LEN(VAL_SERIES(value), cast(REBCNT, index));
+                SET_END(ARR_AT(arr, index));
+                SET_SERIES_LEN(VAL_SERIES(array), cast(REBCNT, index));
             }
         }
-        Move_Value(D_OUT, value);
-        return D_OUT;
+        RETURN (array);
     }
 
     //-- Creation:
@@ -899,10 +898,10 @@ REBTYPE(Array)
         UNUSED(PAR(value));
 
         REBU64 types = 0;
-        REBCNT tail = Part_Tail_May_Modify_Index(value, ARG(limit));
+        REBCNT tail = Part_Tail_May_Modify_Index(array, ARG(limit));
         UNUSED(REF(part));
 
-        REBCNT index = VAL_INDEX(value);
+        REBCNT index = VAL_INDEX(array);
 
         if (REF(deep))
             types |= REF(types) ? 0 : TS_STD_SERIES;
@@ -915,7 +914,7 @@ REBTYPE(Array)
         }
 
         REBARR *copy = Copy_Array_Core_Managed(
-            array,
+            arr,
             index, // at
             specifier,
             tail, // tail
@@ -923,7 +922,7 @@ REBTYPE(Array)
             ARRAY_FLAG_FILE_LINE, // flags
             types // types to copy deeply
         );
-        return Init_Any_Array(D_OUT, VAL_TYPE(value), copy);
+        return Init_Any_Array(D_OUT, VAL_TYPE(array), copy);
     }
 
     //-- Special actions:
@@ -932,36 +931,36 @@ REBTYPE(Array)
         if (not ANY_ARRAY(arg))
             fail (Error_Invalid(arg));
 
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY_ARRAY(arr);
         FAIL_IF_READ_ONLY_ARRAY(VAL_ARRAY(arg));
 
-        REBCNT index = VAL_INDEX(value);
+        REBCNT index = VAL_INDEX(array);
 
         if (
-            index < VAL_LEN_HEAD(value)
+            index < VAL_LEN_HEAD(array)
             && VAL_INDEX(arg) < VAL_LEN_HEAD(arg)
         ){
             // RELVAL bits can be copied within the same array
             //
-            RELVAL *a = VAL_ARRAY_AT(value);
+            RELVAL *a = VAL_ARRAY_AT(array);
             RELVAL temp;
             temp.header = a->header;
             temp.payload = a->payload;
             temp.extra = a->extra;
-            Blit_Cell(VAL_ARRAY_AT(value), VAL_ARRAY_AT(arg));
+            Blit_Cell(VAL_ARRAY_AT(array), VAL_ARRAY_AT(arg));
             Blit_Cell(VAL_ARRAY_AT(arg), &temp);
         }
-        return D_ARG(1);
+        RETURN (array);
     }
 
     case SYM_REVERSE: {
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY_ARRAY(arr);
 
-        REBCNT len = Part_Len_May_Modify_Index(value, D_ARG(3));
+        REBCNT len = Part_Len_May_Modify_Index(array, D_ARG(3));
         if (len == 0)
-            RETURN (D_ARG(1)); // !!! do 1-element reversals update newlines?
+            RETURN (array); // !!! do 1-element reversals update newlines?
 
-        RELVAL *front = VAL_ARRAY_AT(value);
+        RELVAL *front = VAL_ARRAY_AT(array);
         RELVAL *back = front + len - 1;
 
         // We must reverse the sense of the newline markers as well, #2326
@@ -970,8 +969,8 @@ REBTYPE(Array)
         // on the next element and putting them on the previous element.
 
         bool line_back;
-        if (back == ARR_LAST(array)) // !!! review tail newline handling
-            line_back = GET_SER_FLAG(array, ARRAY_FLAG_TAIL_NEWLINE);
+        if (back == ARR_LAST(arr)) // !!! review tail newline handling
+            line_back = GET_SER_FLAG(arr, ARRAY_FLAG_TAIL_NEWLINE);
         else
             line_back = GET_VAL_FLAG(back + 1, VALUE_FLAG_NEWLINE_BEFORE);
 
@@ -1005,8 +1004,7 @@ REBTYPE(Array)
             else
                 CLEAR_VAL_FLAG(back, VALUE_FLAG_NEWLINE_BEFORE);
         }
-
-        RETURN (D_ARG(1));
+        RETURN (array);
     }
 
     case SYM_SORT: {
@@ -1017,10 +1015,10 @@ REBTYPE(Array)
         UNUSED(REF(skip)); // checks size as void
         UNUSED(REF(compare)); // checks comparator as void
 
-        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY_ARRAY(arr);
 
         Sort_Block(
-            value,
+            array,
             REF(case),
             ARG(size), // skip size (may be void if no /SKIP)
             ARG(comparator), // (may be void if no /COMPARE)
@@ -1028,8 +1026,7 @@ REBTYPE(Array)
             REF(all),
             REF(reverse)
         );
-        Move_Value(D_OUT, value);
-        return D_OUT;
+        RETURN (array);
     }
 
     case SYM_RANDOM: {
@@ -1037,21 +1034,21 @@ REBTYPE(Array)
 
         UNUSED(PAR(value));
 
-        REBCNT index = VAL_INDEX(value);
+        REBCNT index = VAL_INDEX(array);
 
         if (REF(seed))
             fail (Error_Bad_Refines_Raw());
 
         if (REF(only)) { // pick an element out of the array
-            if (index >= VAL_LEN_HEAD(value))
+            if (index >= VAL_LEN_HEAD(array))
                 return nullptr;
 
             Init_Integer(
                 ARG(seed),
-                1 + (Random_Int(REF(secure)) % (VAL_LEN_HEAD(value) - index))
+                1 + (Random_Int(REF(secure)) % (VAL_LEN_HEAD(array) - index))
             );
 
-            RELVAL *slot = Pick_Block(D_OUT, value, ARG(seed));
+            RELVAL *slot = Pick_Block(D_OUT, array, ARG(seed));
             if (IS_NULLED(D_OUT)) {
                 assert(slot);
                 UNUSED(slot);
@@ -1061,9 +1058,8 @@ REBTYPE(Array)
 
         }
 
-        Shuffle_Block(value, REF(secure));
-        Move_Value(D_OUT, value);
-        return D_OUT;
+        Shuffle_Block(array, REF(secure));
+        RETURN (array);
     }
 
     default:
@@ -1079,10 +1075,6 @@ REBTYPE(Array)
     // to see how it works.
 
     return T_Port(frame_, verb);
-
-  return_empty_block:
-
-    return Init_Block(D_OUT, Make_Array(0));
 }
 
 

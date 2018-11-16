@@ -34,21 +34,17 @@
 //
 //  Make_Binary: C
 //
-// Make a binary string series. For byte, C, and UTF8 strings.
-// Add 1 extra for terminator.
+// Make a byte series of length 0 with the given capacity.  The length will
+// be increased by one in order to allow for a null terminator.  Binaries are
+// given enough capacity to have a null terminator in case they are aliased
+// as UTF-8 data later, e.g. `as word! binary`, since it would be too late
+// to give them that capacity after-the-fact to enable this.
 //
-REBSER *Make_Binary(REBCNT length)
+REBSER *Make_Binary(REBCNT capacity)
 {
-    REBSER *series = Make_Series(length + 1, sizeof(REBYTE));
-
-    // !!! Clients seem to have different expectations of if `length` is
-    // total capacity (and the binary should be empty) or actually is
-    // specifically being preallocated at a fixed length.  Until this
-    // is straightened out, terminate for both possibilities.
-
-    BIN_HEAD(series)[length] = 0;
-    TERM_SEQUENCE(series);
-    return series;
+    REBSER *bin = Make_Ser(capacity + 1, sizeof(REBYTE));
+    TERM_SEQUENCE(bin);
+    return bin;
 }
 
 
@@ -58,18 +54,11 @@ REBSER *Make_Binary(REBCNT length)
 // Make a unicode string series. Used for internal strings.
 // Add 1 extra for terminator.
 //
-REBSER *Make_Unicode(REBCNT length)
+REBSER *Make_Unicode(REBCNT capacity)
 {
-    REBSER *series = Make_Series(length + 1, sizeof(REBUNI));
-
-    // !!! Clients seem to have different expectations of if `length` is
-    // total capacity (and the binary should be empty) or actually is
-    // specifically being preallocated at a fixed length.  Until this
-    // is straightened out, terminate for both possibilities.
-
-    UNI_HEAD(series)[length] = 0;
-    TERM_SEQUENCE(series);
-    return series;
+    REBSER *ser = Make_Ser(capacity + 1, sizeof(REBUNI));
+    TERM_SEQUENCE(ser);
+    return ser;
 }
 
 
@@ -205,11 +194,11 @@ REBSER *Append_Utf8_Codepoint(REBSER *dst, uint32_t codepoint)
 
 
 //
-//  Make_Series_Codepoint: C
+//  Make_Ser_Codepoint: C
 //
 // Create a string that holds a single codepoint.
 //
-REBSER *Make_Series_Codepoint(REBCNT codepoint)
+REBSER *Make_Ser_Codepoint(REBCNT codepoint)
 {
     assert(codepoint < (1 << 16));
 

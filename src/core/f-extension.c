@@ -278,7 +278,7 @@ REBARR *Make_Extension_Module_Array(
     REBCNT n
 ) {
     // the array will be like [spec C_func]
-    REBARR *arr = Make_Array(2);
+    REBARR *arr = Make_Arr(2);
 
     Init_Binary(ARR_AT(arr, 0), Copy_Bytes(spec, len));
 

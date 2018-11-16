@@ -398,7 +398,7 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         index = VAL_INDEX(data);
         if (index >= SER_LEN(series)) {
             if (mode == LOOP_MAP_EACH)
-                return Init_Block(D_OUT, Make_Array(0));
+                return Init_Block(D_OUT, Make_Arr(0));
             return D_OUT;
         }
     }

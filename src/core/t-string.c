@@ -291,7 +291,7 @@ static REBSER *MAKE_TO_String_Common(const REBVAL *arg)
     }
     // MAKE/TO <type> #"A"
     else if (IS_CHAR(arg)) {
-        ser = Make_Series_Codepoint(VAL_CHAR(arg));
+        ser = Make_Ser_Codepoint(VAL_CHAR(arg));
     }
     else
         ser = Copy_Form_Value(arg, MOLD_FLAG_TIGHT);

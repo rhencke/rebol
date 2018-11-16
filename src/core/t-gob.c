@@ -212,7 +212,7 @@ static void Insert_Gobs(
 
     // Create or expand the pane series:
     if (!GOB_PANE(gob)) {
-        GOB_PANE(gob) = Make_Series(count + 1, sizeof(REBGOB*));
+        GOB_PANE(gob) = Make_Ser(count + 1, sizeof(REBGOB*));
         SET_GOB_LEN(gob, count);
         index = 0;
 
@@ -278,23 +278,17 @@ static void Remove_Gobs(REBGOB *gob, REBCNT index, REBCNT len)
 //
 static REBARR *Pane_To_Array(REBGOB *gob, REBCNT index, REBINT len)
 {
-    REBARR *array;
-    REBGOB **gp;
-    REBVAL *val;
-
     if (len == -1 || (len + index) > GOB_LEN(gob)) len = GOB_LEN(gob) - index;
     if (len < 0) len = 0;
 
-    array = Make_Array(len);
-    TERM_ARRAY_LEN(array, len);
-    val = KNOWN(ARR_HEAD(array));
-    gp = GOB_HEAD(gob);
-    for (; len > 0; len--, val++, gp++) {
-        Init_Gob(val, *gp);
-    }
-    assert(IS_END(val));
+    REBARR *a = Make_Arr(len);
+    RELVAL *dest = ARR_HEAD(a);
+    REBGOB **gp = GOB_HEAD(gob);
+    for (; len > 0; len--, ++dest, ++gp)
+        Init_Gob(dest, *gp);
 
-    return array;
+    TERM_ARRAY_LEN(a, len);
+    return a;
 }
 
 
@@ -303,15 +297,15 @@ static REBARR *Pane_To_Array(REBGOB *gob, REBCNT index, REBINT len)
 //
 static REBARR *Gob_Flags_To_Array(REBGOB *gob)
 {
-    REBARR *array = Make_Array(3);
+    REBARR *a = Make_Arr(3);
 
     REBINT i;
     for (i = 0; Gob_Flag_Words[i].sym != SYM_0; ++i) {
         if (GET_GOB_FLAG(gob, Gob_Flag_Words[i].flags))
-            Init_Word(Alloc_Tail_Array(array), Canon(Gob_Flag_Words[i].sym));
+            Init_Word(Alloc_Tail_Array(a), Canon(Gob_Flag_Words[i].sym));
     }
 
-    return array;
+    return a;
 }
 
 
@@ -563,7 +557,7 @@ static REBVAL *Get_GOB_Var(RELVAL *out, REBGOB *gob, const REBVAL *word)
       case SYM_PANE:
         if (GOB_PANE(gob))
             return Init_Block(out, Pane_To_Array(gob, 0, -1));
-        return Init_Block(out, Make_Array(0));
+        return Init_Block(out, Make_Arr(0));
 
       case SYM_PARENT:
         if (GOB_PARENT(gob))
@@ -628,21 +622,21 @@ static void Set_GOB_Vars(REBGOB *gob, const RELVAL *blk, REBSPC *specifier)
 //
 static REBARR *Gob_To_Array(REBGOB *gob)
 {
-    REBARR *array = Make_Array(10);
+    REBARR *arr = Make_Arr(10);
     REBSYM words[] = {SYM_OFFSET, SYM_SIZE, SYM_ALPHA, SYM_0};
     REBVAL *vals[6];
 
     REBINT n;
     for (n = 0; words[n] != SYM_0; ++n) {
-        Init_Set_Word(Alloc_Tail_Array(array), Canon(words[n]));
-        vals[n] = Init_Blank(Alloc_Tail_Array(array));
+        Init_Set_Word(Alloc_Tail_Array(arr), Canon(words[n]));
+        vals[n] = Init_Blank(Alloc_Tail_Array(arr));
     }
 
     Init_Pair(vals[0], GOB_X(gob), GOB_Y(gob));
     Init_Pair(vals[1], GOB_W(gob), GOB_H(gob));
     Init_Integer(vals[2], GOB_ALPHA(gob));
 
-    if (!GOB_TYPE(gob)) return array;
+    if (!GOB_TYPE(gob)) return arr;
 
     if (GOB_CONTENT(gob)) {
         REBSYM sym;
@@ -667,11 +661,11 @@ static REBARR *Gob_To_Array(REBGOB *gob)
             fail ("Unknown GOB! type");
         }
 
-        REBVAL *name = Init_Set_Word(Alloc_Tail_Array(array), Canon(sym));
-        Get_GOB_Var(Alloc_Tail_Array(array), gob, name); // BLANK! if not set
+        REBVAL *name = Init_Set_Word(Alloc_Tail_Array(arr), Canon(sym));
+        Get_GOB_Var(Alloc_Tail_Array(arr), gob, name); // BLANK! if not set
     }
 
-    return array;
+    return arr;
 }
 
 
@@ -793,11 +787,11 @@ REBNATIVE(map_gob_offset)
         yo = xy.y;
     }
 
-    REBARR *blk = Make_Array(2);
-    Init_Gob(Alloc_Tail_Array(blk), gob);
-    Init_Pair(Alloc_Tail_Array(blk), xo, yo);
+    REBARR *arr = Make_Arr(2);
+    Init_Gob(Alloc_Tail_Array(arr), gob);
+    Init_Pair(Alloc_Tail_Array(arr), xo, yo);
 
-    return Init_Block(D_OUT, blk);
+    return Init_Block(D_OUT, arr);
 }
 
 

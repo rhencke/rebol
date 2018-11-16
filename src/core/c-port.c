@@ -144,11 +144,11 @@ REBINT Awake_System(REBARR *ports, bool only)
         // If we're using /ONLY, we need path AWAKE/ONLY to call.  (Ren-C's
         // va_list API does not support positionally-provided refinements.)
         //
-        REBARR *array = Make_Array(2);
-        Append_Value(array, awake);
-        Init_Word(Alloc_Tail_Array(array), Canon(SYM_ONLY));
+        REBARR *a = Make_Arr(2);
+        Append_Value(a, awake);
+        Init_Word(Alloc_Tail_Array(a), Canon(SYM_ONLY));
 
-        Init_Path(awake_only, array);
+        Init_Path(awake_only, a);
     }
 
     // Call the system awake function:
@@ -335,14 +335,14 @@ void Sieve_Ports(REBARR *ports)
 //
 bool Redo_Action_Throws(REBFRM *f, REBACT *run)
 {
-    REBARR *code_array = Make_Array(FRM_NUM_ARGS(f)); // max, e.g. no refines
-    RELVAL *code = ARR_HEAD(code_array);
+    REBARR *code_arr = Make_Arr(FRM_NUM_ARGS(f)); // max, e.g. no refines
+    RELVAL *code = ARR_HEAD(code_arr);
 
     // The first element of our path will be the ACTION!, followed by its
     // refinements...which in the worst case, all args will be refinements:
     //
-    REBARR *path_array = Make_Array(FRM_NUM_ARGS(f) + 1);
-    RELVAL *path = ARR_HEAD(path_array);
+    REBARR *path_arr = Make_Arr(FRM_NUM_ARGS(f) + 1);
+    RELVAL *path = ARR_HEAD(path_arr);
     Init_Action_Unbound(path, run); // !!! What if there's a binding?
     ++path;
 
@@ -388,12 +388,12 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
         ++code;
     }
 
-    TERM_ARRAY_LEN(code_array, code - ARR_HEAD(code_array));
-    MANAGE_ARRAY(code_array);
+    TERM_ARRAY_LEN(code_arr, code - ARR_HEAD(code_arr));
+    MANAGE_ARRAY(code_arr);
 
     DECLARE_LOCAL (first);
-    TERM_ARRAY_LEN(path_array, path - ARR_HEAD(path_array));
-    Init_Path(first, path_array);
+    TERM_ARRAY_LEN(path_arr, path - ARR_HEAD(path_arr));
+    Init_Path(first, path_arr);
     SET_VAL_FLAG(first, VALUE_FLAG_EVAL_FLIP); // make the PATH! invoke action
 
     // Invoke DO with the special mode requesting non-evaluation on all
@@ -402,7 +402,7 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
     REBIXO indexor = Eval_Array_At_Core(
         SET_END(f->out),
         first, // path not in array, will be "virtual" first element
-        code_array,
+        code_arr,
         0, // index
         SPECIFIED, // reusing existing REBVAL arguments, no relative values
         DO_FLAG_EXPLICIT_EVALUATE // DON'T double-evaluate arguments

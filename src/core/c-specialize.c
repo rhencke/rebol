@@ -120,7 +120,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     REBACT *act = VAL_ACTION(action);
 
     REBCNT num_slots = ACT_FACADE_NUM_PARAMS(act) + 1;
-    REBARR *varlist = Make_Array_Core(
+    REBARR *varlist = Make_Arr_Core(
         num_slots, // includes +1 for the CTX_ARCHETYPE() at [0]
         SERIES_MASK_CONTEXT
     );
@@ -301,7 +301,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     TERM_ARRAY_LEN(varlist, num_slots);
     MISC(varlist).meta = NULL; // GC sees this, we must initialize
 
-    // !!! Can't currently pass SERIES_FLAG_STACK into Make_Array_Core(),
+    // !!! Can't currently pass SERIES_FLAG_STACK into Make_Arr_Core(),
     // because TERM_ARRAY_LEN won't let it set stack array lengths.
     //
     if (prep & CELL_FLAG_STACK)
@@ -1152,7 +1152,7 @@ REBNATIVE(does)
 
     REBVAL *specializee = ARG(specializee);
 
-    REBARR *paramlist = Make_Array_Core(
+    REBARR *paramlist = Make_Arr_Core(
         1, // archetype only...DOES always makes function with no arguments
         SERIES_MASK_ACTION
     );
@@ -1293,7 +1293,7 @@ REBNATIVE(does)
     REBACT *unspecialized = VAL_ACTION(specializee);
 
     REBCNT num_slots = ACT_FACADE_NUM_PARAMS(unspecialized) + 1;
-    REBARR *facade = Make_Array_Core(
+    REBARR *facade = Make_Arr_Core(
         num_slots,
         SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST // [0] slot isn't archetype
     );

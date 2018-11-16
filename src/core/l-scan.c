@@ -722,7 +722,7 @@ static REBCTX *Error_Syntax(SCAN_STATE *ss) {
 //
 static REBCTX *Error_Missing(SCAN_STATE *ss, char wanted) {
     DECLARE_LOCAL (expected);
-    Init_Text(expected, Make_Series_Codepoint(wanted));
+    Init_Text(expected, Make_Ser_Codepoint(wanted));
 
     REBCTX *error = Error_Scan_Missing_Raw(expected);
     Update_Error_Near_For_Line(error, ss->start_line, ss->start_line_head);
@@ -737,7 +737,7 @@ static REBCTX *Error_Missing(SCAN_STATE *ss, char wanted) {
 //
 static REBCTX *Error_Extra(SCAN_STATE *ss, char seen) {
     DECLARE_LOCAL (unexpected);
-    Init_Text(unexpected, Make_Series_Codepoint(seen));
+    Init_Text(unexpected, Make_Ser_Codepoint(seen));
 
     REBCTX *error = Error_Scan_Extra_Raw(unexpected);
     Update_Error_Near_For_Line(error, ss->line, ss->line_head);
@@ -1978,7 +1978,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 Init_Any_Array(
                     DS_TOP,
                     ss->token == TOKEN_LIT ? REB_LIT_PATH : REB_GET_PATH,
-                    Make_Array(0)
+                    Make_Arr(0)
                 );
                 break;
             }
@@ -2053,7 +2053,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 // element path, so push it.
                 //
                 DS_PUSH_TRASH;
-                Init_Path(DS_TOP, Make_Array(0));
+                Init_Path(DS_TOP, Make_Arr(0));
             }
             break;
 
@@ -2381,17 +2381,17 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
             ++ss->begin;
 
-            REBARR *array;
+            REBARR *arr;
             if (
                 *ss->begin == '\0' // `foo/`
                 or IS_LEX_ANY_SPACE(*ss->begin) // `foo/ bar`
                 or *ss->begin == ';' // `foo/;--bar`
             ){
-                array = Make_Array_Core(
+                arr = Make_Arr_Core(
                     1,
                     NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE
                 );
-                Append_Value(array, DS_TOP);
+                Append_Value(arr, DS_TOP);
                 DS_DROP;
             }
             else {
@@ -2403,7 +2403,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 // pushed item from us...as it's the head of the path it
                 // couldn't see coming in the future.
 
-                array = Scan_Child_Array(ss, '/');
+                arr = Scan_Child_Array(ss, '/');
 
               #if !defined(NDEBUG)
                 assert(DSP == dsp_check - 1); // should only take one!
@@ -2414,13 +2414,13 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
             if (ss->token == TOKEN_LIT) {
                 RESET_VAL_HEADER(DS_TOP, REB_LIT_PATH);
-                CHANGE_VAL_TYPE_BITS(ARR_HEAD(array), REB_WORD);
+                CHANGE_VAL_TYPE_BITS(ARR_HEAD(arr), REB_WORD);
             }
-            else if (IS_GET_WORD(ARR_HEAD(array))) {
+            else if (IS_GET_WORD(ARR_HEAD(arr))) {
                 if (ss->begin and *ss->end == ':')
                     fail (Error_Syntax(ss));
                 RESET_VAL_HEADER(DS_TOP, REB_GET_PATH);
-                CHANGE_VAL_TYPE_BITS(ARR_HEAD(array), REB_WORD);
+                CHANGE_VAL_TYPE_BITS(ARR_HEAD(arr), REB_WORD);
             }
             else {
                 if (ss->begin and *ss->end == ':') {
@@ -2430,7 +2430,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 else
                     RESET_VAL_HEADER(DS_TOP, REB_PATH);
             }
-            INIT_VAL_ARRAY(DS_TOP, array);
+            INIT_VAL_ARRAY(DS_TOP, arr);
             VAL_INDEX(DS_TOP) = 0;
             ss->token = TOKEN_PATH;
         }

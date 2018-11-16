@@ -1354,7 +1354,7 @@ REBNATIVE(scan_net_header)
 {
     INCLUDE_PARAMS_OF_SCAN_NET_HEADER;
 
-    REBARR *result = Make_Array(10); // Just a guess at size (use STD_BUF?)
+    REBARR *result = Make_Arr(10); // Just a guess at size (use STD_BUF?)
 
     REBVAL *header = ARG(header);
     REBCNT index = VAL_INDEX(header);
@@ -1404,14 +1404,14 @@ REBNATIVE(scan_net_header)
                 }
                 else {
                     // Create new block for values:
-                    REBARR *array = Make_Array(2);
+                    REBARR *a = Make_Arr(2);
                     Derelativize(
-                        Alloc_Tail_Array(array),
+                        Alloc_Tail_Array(a),
                         item + 1, // prior value
                         SPECIFIED // no relative values added
                     );
-                    val = Init_Unreadable_Blank(Alloc_Tail_Array(array));
-                    Init_Block(item + 1, array);
+                    val = Init_Unreadable_Blank(Alloc_Tail_Array(a));
+                    Init_Block(item + 1, a);
                 }
                 break;
             }

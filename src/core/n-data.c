@@ -497,7 +497,7 @@ REBNATIVE(get)
         return D_OUT;
     }
 
-    REBARR *results = Make_Array(VAL_LEN_AT(source));
+    REBARR *results = Make_Arr(VAL_LEN_AT(source));
     REBVAL *dest = KNOWN(ARR_HEAD(results));
     RELVAL *item = VAL_ARRAY_AT(source);
 

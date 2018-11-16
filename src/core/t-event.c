@@ -306,18 +306,18 @@ static REBVAL *Get_Event_Var(RELVAL *out, const RELVAL *v, REBSTR *name)
         if (
             (VAL_EVENT_FLAGS(v) & (EVF_DOUBLE | EVF_CONTROL | EVF_SHIFT)) != 0
         ){
-            REBARR *array = Make_Array(3);
+            REBARR *arr = Make_Arr(3);
 
             if (VAL_EVENT_FLAGS(v) & EVF_DOUBLE)
-                Init_Word(Alloc_Tail_Array(array), Canon(SYM_DOUBLE));
+                Init_Word(Alloc_Tail_Array(arr), Canon(SYM_DOUBLE));
 
             if (VAL_EVENT_FLAGS(v) & EVF_CONTROL)
-                Init_Word(Alloc_Tail_Array(array), Canon(SYM_CONTROL));
+                Init_Word(Alloc_Tail_Array(arr), Canon(SYM_CONTROL));
 
             if (VAL_EVENT_FLAGS(v) & EVF_SHIFT)
-                Init_Word(Alloc_Tail_Array(array), Canon(SYM_SHIFT));
+                Init_Word(Alloc_Tail_Array(arr), Canon(SYM_SHIFT));
 
-            return Init_Block(out, array);
+            return Init_Block(out, arr);
         }
         return Init_Blank(out);
 

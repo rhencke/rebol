@@ -51,7 +51,7 @@ REBINT CT_Map(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 REBMAP *Make_Map(REBCNT capacity)
 {
-    REBARR *pairlist = Make_Array_Core(capacity * 2, ARRAY_FLAG_PAIRLIST);
+    REBARR *pairlist = Make_Arr_Core(capacity * 2, ARRAY_FLAG_PAIRLIST);
     LINK(pairlist).hashlist = Make_Hash_Sequence(capacity);
 
     return MAP(pairlist);
@@ -550,11 +550,9 @@ void TO_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 REBARR *Map_To_Array(REBMAP *map, REBINT what)
 {
     REBCNT count = Length_Map(map);
+    REBARR *a = Make_Arr(count * ((what == 0) ? 2 : 1));
 
-    // Copy entries to new block:
-    //
-    REBARR *array = Make_Array(count * ((what == 0) ? 2 : 1));
-    REBVAL *dest = KNOWN(ARR_HEAD(array));
+    REBVAL *dest = KNOWN(ARR_HEAD(a));
     REBVAL *val = KNOWN(ARR_HEAD(MAP_PAIRLIST(map)));
     for (; NOT_END(val); val += 2) {
         assert(NOT_END(val + 1));
@@ -570,9 +568,9 @@ REBARR *Map_To_Array(REBMAP *map, REBINT what)
         }
     }
 
-    TERM_ARRAY_LEN(array, cast(RELVAL*, dest) - ARR_HEAD(array));
+    TERM_ARRAY_LEN(a, cast(RELVAL*, dest) - ARR_HEAD(a));
     assert(IS_END(dest));
-    return array;
+    return a;
 }
 
 

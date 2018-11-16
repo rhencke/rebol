@@ -267,7 +267,7 @@ static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 
         arg = CTX_VAR(ctx, STD_PORT_DATA);
         if (!IS_BLOCK(arg))
-            Init_Block(arg, Make_Array(len));
+            Init_Block(arg, Make_Arr(len));
 
         len = req->actual;
 

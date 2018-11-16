@@ -286,36 +286,30 @@ void TO_Typeset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  Typeset_To_Array: C
 //
-// Converts typeset value to a block of datatypes.
-// No order is specified.
+// Converts typeset value to a block of datatypes, no order is guaranteed.
 //
 REBARR *Typeset_To_Array(const REBVAL *tset)
 {
+    REBDSP dsp_orig = DSP;
+
     REBINT n;
-    REBINT size = 0;
-
-    for (n = 0; n < REB_MAX; n++) {
-        if (TYPE_CHECK(tset, cast(enum Reb_Kind, n))) size++;
-    }
-
-    REBARR *block = Make_Array(size);
-
-    // Convert bits to types:
-    for (n = 0; n < REB_MAX; n++) {
+    for (n = 1; n < REB_MAX_NULLED; ++n) {
         if (TYPE_CHECK(tset, cast(enum Reb_Kind, n))) {
-            if (n == 0) {
+            DS_PUSH_TRASH;
+            if (n == REB_MAX_NULLED) {
                 //
                 // !!! A BLANK! value is currently supported in typesets to
                 // indicate that they take optional values.  This may wind up
                 // as a feature of MAKE ACTION! only.
                 //
-                Init_Blank(Alloc_Tail_Array(block));
+                Init_Blank(DS_TOP);
             }
             else
-                Init_Datatype(Alloc_Tail_Array(block), cast(enum Reb_Kind, n));
+                Init_Datatype(DS_TOP, cast(enum Reb_Kind, n));
         }
     }
-    return block;
+
+    return Pop_Stack_Values(dsp_orig);
 }
 
 

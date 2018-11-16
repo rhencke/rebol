@@ -421,7 +421,7 @@ REBCNT Modify_String(
     REBCNT src_len;
     bool needs_free;
     if (IS_CHAR(src_val)) {
-        src_ser = Make_Series_Codepoint(VAL_CHAR(src_val));
+        src_ser = Make_Ser_Codepoint(VAL_CHAR(src_val));
         src_len = SER_LEN(src_ser);
 
         needs_free = true;
