@@ -26,17 +26,18 @@ REBOL [
 
 c-break-debug: :c-debug-break ;-- easy to mix up
 
-??: probe: func [
+??: ;; shorthand form to use in debug sessions, not intended to be committed
+probe: func [
     {Debug print a molded value and returns that same value.}
-    return: [<opt> any-value!]
-        {Same as the input value.}
+
+    return: "Same as the input value"
+        [<opt> any-value!]
     value [<opt> any-value!]
-        {Value to display.}
 ][
     either set? 'value [
         write-stdout mold :value
     ][
-        write-stdout "!!! PROBE of void !!!!" ;-- MOLD won't take voids
+        write-stdout "// null" ;; MOLD won't take voids
     ]
     write-stdout newline
     :value

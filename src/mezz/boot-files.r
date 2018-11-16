@@ -36,13 +36,14 @@ REBOL [
     %mezz-types.r
     %mezz-func.r
     %mezz-debug.r
+    %mezz-dump.r
     %mezz-control.r
     %mezz-save.r
     %mezz-series.r
     %mezz-files.r
     %mezz-shell.r
     %mezz-math.r
-    %mezz-help.r ; move dump-obj!
+    %mezz-help.r ; depends on DUMP-OBJ in %mezz-dump.r
     %mezz-colors.r
     %mezz-tail.r
     %mezz-legacy.r
