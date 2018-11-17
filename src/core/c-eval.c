@@ -1589,7 +1589,8 @@ void Eval_Core(REBFRM * const f)
         r = (*PG_Dispatcher)(f); // default just calls FRM_PHASE(f)
 
         if (r == f->out) {
-            //
+            assert(not (f->out->header.bits & OUT_MARKED_STALE));
+
             // This is the most common result, and the only way to return a
             // THROWN() value.  Internal code should generally use this as
             // the method for returning...though `nullptr` is probably as

@@ -102,13 +102,21 @@ dumps: enfix function [
     return: [action!]
     :name [set-word!]
     :value "If issue, create non-specialized dumper...#on or #off by default"
-        [issue! text! integer! word! group! block!]
+        [issue! text! integer! word! set-word! set-path! group! block!]
+    extra "Optional variadic data for SET-WORD!, e.g. `dv: dump var: 1 + 2`"
+        [<opt> any-value! <...>]
 ][
     if issue? value [
         d: specialize 'dump [sigil: as text! name]
         if value <> #off [d #on] ;-- note: d hard quotes its argument
-        "got here"
     ] else [
+        ; Make it easy to declare and dump a variable at the same time.
+        ;
+        if match [set-word! set-path!] value [
+            evaluate/set extra value
+            value: either set-word? value [as word! value] [as path! value]
+        ]
+        
         ; No way to enable/disable full specializations unless there is
         ; another function or a refinement.  Go with wrapping and adding
         ; refinements for now.

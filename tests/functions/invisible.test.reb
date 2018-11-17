@@ -274,3 +274,6 @@
         obj/x = <unchanged>
     ]
 )
+
+(void? (if true [] else [<else>]))
+(void? (if true [comment <true-branch>] else [<else>]))

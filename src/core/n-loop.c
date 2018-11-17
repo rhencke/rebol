@@ -101,7 +101,7 @@ REBNATIVE(break)
 //  "Throws control back to top of loop for next iteration."
 //
 //      value "If provided, act as if loop body finished with this value"
-//          [<end> any-value!]
+//          [<end> <opt> any-value!]
 //  ]
 //
 REBNATIVE(continue)

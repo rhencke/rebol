@@ -871,6 +871,16 @@ inline static REBIXO Eval_Array_At_Core(
     if (THROWN(f->out))
         return THROWN_FLAG;
 
+    // Some operations which call Eval_Core() preload a value and want to know
+    // at the end of that operation if the value they get back is the same one
+    // they had put in.  This is conveyed by OUT_MARKED_STALE.  However, it is
+    // not legal to return a value with OUT_MARKED_STALE from dispatchers (you
+    // can return R_REDO or R_INIVISIBLE, but if a value is returned it can't
+    // have the bit).  Stale bit on void is set runnign `[]` or `[comment []]`
+    // here, so clear it off such that callers of this routine don't have to.
+    //
+    f->out->header.bits &= ~OUT_MARKED_STALE;
+
     assert(
         not (flags & DO_FLAG_TO_END)
         or f->source->index == ARR_LEN(array) + 1
