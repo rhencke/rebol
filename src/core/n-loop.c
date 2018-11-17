@@ -100,9 +100,8 @@ REBNATIVE(break)
 //
 //  "Throws control back to top of loop for next iteration."
 //
-//      /with
-//          {Act as if loop body finished current evaluation with a value}
-//      value [any-value!]
+//      value "If provided, act as if loop body finished with this value"
+//          [<end> any-value!]
 //  ]
 //
 REBNATIVE(continue)
@@ -114,9 +113,7 @@ REBNATIVE(continue)
     INCLUDE_PARAMS_OF_CONTINUE;
 
     Move_Value(D_OUT, NAT_VALUE(continue));
-
-    UNUSED(REF(with)); // value will be void if no refinement provided
-    CONVERT_NAME_TO_THROWN(D_OUT, ARG(value));
+    CONVERT_NAME_TO_THROWN(D_OUT, ARG(value)); // null if e.g. `do [continue]`
 
     return D_OUT;
 }

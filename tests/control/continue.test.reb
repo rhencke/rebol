@@ -17,3 +17,13 @@
 ]
 ; continue should not be caught by try
 (a: 1 loop 1 [a: error? trap [continue]] :a =? 1)
+
+; CONTINUE with a value pretends loop body finished with that result.
+
+(<result> = loop 1 [continue <result> <not-result>])
+(
+    [2 <big> <big>] = map-each x [1 2000 3000] [
+        if x > 1000 [continue <big>]
+        x + 1
+    ]
+)
