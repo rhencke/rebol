@@ -1562,7 +1562,6 @@ void Eval_Core(REBFRM * const f)
             or IS_VALUE_IN_ARRAY_DEBUG(f->source->array, f->value)
         );
 
-//        assert(f->out->header.bits & OUT_MARKED_STALE);
         Expire_Out_Cell_Unless_Invisible(f);
         assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
 
@@ -1951,8 +1950,6 @@ void Eval_Core(REBFRM * const f)
         if (not Is_Frame_Gotten_Shoved(f))
             f->gotten = nullptr; // arbitrary code changes fetched variables
 
-        assert(f->out->header.bits & OUT_MARKED_STALE);
-
         // Since current may be f->cell, extract properties to reuse it.
         //
         REBARR *array = VAL_ARRAY(current); // array of the GROUP!
@@ -2263,8 +2260,6 @@ void Eval_Core(REBFRM * const f)
         if (not EVALUATING(current))
             goto inert;
 
-        assert(f->out->header.bits & OUT_MARKED_STALE);
-
         if (f->flags.bits & DO_FLAG_FULFILLING_ARG) {
             //
             // May be fulfilling a variadic argument (or an argument to an
@@ -2272,7 +2267,6 @@ void Eval_Core(REBFRM * const f)
             // an END...though if the frame is not at an END then it has
             // more potential evaluation after the current action invocation.
             //
-            assert(f->out->header.bits & OUT_MARKED_STALE);
             f->flags.bits |= DO_FLAG_BARRIER_HIT;
             goto finished;
         }
@@ -2646,10 +2640,17 @@ void Eval_Core(REBFRM * const f)
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
         f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // may be an END cell
 
-  #if defined(DEBUG_STALE_ARGS) // see notes on flag definition
-    if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-        f->out->header.bits &= ~OUT_MARKED_STALE; // same as ARG_MARKED_CHECKED
-  #endif
+    // Most clients would prefer not to read the stale flag, and be burdened
+    // with clearing it (can't be present on frame output).  Also, argument
+    // fulfillment can't read it (ARG_MARKED_CHECKED and OUT_MARKED_STALE are
+    // the same bit)...but it doesn't need to, since it always starts END.
+    //
+    assert(not (
+        (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+        & (f->flags.bits & DO_FLAG_PRESERVE_STALE)
+    ));
+    if (not (f->flags.bits & DO_FLAG_PRESERVE_STALE))
+        f->out->header.bits &= ~OUT_MARKED_STALE;
 
   #if !defined(NDEBUG)
     Eval_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps

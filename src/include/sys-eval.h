@@ -98,7 +98,7 @@ inline static void Push_Frame_Core(REBFRM *f)
     // All calls to a Eval_Core() are assumed to happen at the same C stack
     // level for a pushed frame (though this is not currently enforced).
     // Hence it's sufficient to check for C stack overflow only once, e.g.
-    // not on each Eval_Step_In_Frame_Throws() for `reduce [a | b | ... | z]`.
+    // not on each Eval_Step_Throws() for `reduce [a | b | ... | z]`.
     //
     if (C_STACK_OVERFLOWING(&f))
         Fail_Stack_Overflow();
@@ -706,12 +706,45 @@ inline static void Drop_Frame(REBFRM *f)
 // several successive operations on an array, without creating a new frame
 // each time.
 //
-inline static bool Eval_Step_In_Frame_Throws(
+inline static bool Eval_Step_Throws(
     REBVAL *out,
     REBFRM *f
 ){
+    assert(IS_END(out));
+
     assert(not (f->flags.bits & (DO_FLAG_TO_END | DO_FLAG_NO_LOOKAHEAD)));
     uintptr_t prior_flags = f->flags.bits;
+
+    f->out = out;
+    f->dsp_orig = DSP;
+    (*PG_Eval)(f); // should already be pushed
+
+    // The & on the following line is purposeful.  See Init_Endlike_Header.
+    // DO_FLAG_NO_LOOKAHEAD may be set by an operation like ELIDE.
+    //
+    // Since this routine is used by BLOCK!-style varargs, it must retain
+    // knowledge of if BAR! was hit.
+    //
+    (&f->flags)->bits = prior_flags | (f->flags.bits & DO_FLAG_BARRIER_HIT);
+
+    return THROWN(out);
+}
+
+
+// Unlike Eval_Step_Throws() which relies on tests of IS_END() on out to
+// see if the end was reached, this expects the caller to preload the output
+// with some value, and then test OUT_MARKED_STALE to see if the only thing
+// run in the frame were invisibles (empty groups, comments) or nothing.
+//
+inline static bool Eval_Step_Maybe_Stale_Throws(
+    REBVAL *out,
+    REBFRM *f
+){
+    assert(NOT_END(out));
+
+    assert(not (f->flags.bits & (DO_FLAG_TO_END | DO_FLAG_NO_LOOKAHEAD)));
+    uintptr_t prior_flags = f->flags.bits;
+    f->flags.bits |= DO_FLAG_PRESERVE_STALE;
 
     f->out = out;
     f->dsp_orig = DSP;
@@ -870,16 +903,6 @@ inline static REBIXO Eval_Array_At_Core(
 
     if (THROWN(f->out))
         return THROWN_FLAG;
-
-    // Some operations which call Eval_Core() preload a value and want to know
-    // at the end of that operation if the value they get back is the same one
-    // they had put in.  This is conveyed by OUT_MARKED_STALE.  However, it is
-    // not legal to return a value with OUT_MARKED_STALE from dispatchers (you
-    // can return R_REDO or R_INIVISIBLE, but if a value is returned it can't
-    // have the bit).  Stale bit on void is set runnign `[]` or `[comment []]`
-    // here, so clear it off such that callers of this routine don't have to.
-    //
-    f->out->header.bits &= ~OUT_MARKED_STALE;
 
     assert(
         not (flags & DO_FLAG_TO_END)

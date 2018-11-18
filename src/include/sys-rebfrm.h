@@ -97,6 +97,32 @@
     FLAG_LEFT_BIT(2)
 
 
+//=//// DO_FLAG_PRESERVE_STALE ////////////////////////////////////////////=//
+//
+// The evaluator tags the output value while running with OUT_FLAG_STALE
+// to keep track of whether it can be valid input for an enfix operation.  So
+// when you do `[1 () + 2]`, there can be an error even though the `()`
+// vaporizes, as the 1 gets the flag..  If this bit weren't cleared, then
+// doing `[1 ()]` would return a stale 1 value, and stale values cannot be
+// the ->out result of an ACTION! dispatcher C function (checked by assert).
+//
+// Most callers of the core evaluator don't care about the stale bit.  But
+// some want to feed it with a value, and then tell whether the value they
+// fed in was overwritten--and this can't be done with just looking at the
+// value content itself.  e.g. preloading the output with `3` and then wanting
+// to differentiate running `[comment "no data"]` from `[1 + 2]`, to discern
+// if the preloaded 3 was overwritten or not.
+//
+// This DO_FLAG has the same bit position as OUT_FLAG_STALE, allowing it to
+// be bitwise-&'d out easily via masking with this bit.  This saves most
+// callers the trouble of clearing it (though it's not copied in Move_Value(),
+// it will be "sticky" to output cells returned by dispatchers, and it would
+// be irritating for every evaluator call to clear it.)
+//
+#define DO_FLAG_PRESERVE_STALE \
+    FLAG_LEFT_BIT(3) // same as OUT_FLAG_STALE (e.g. NODE_FLAG_MARKED)
+
+
 //=//// DO_FLAG_REEVALUATE_CELL ///////////////////////////////////////////=//
 //
 // Function dispatchers have a special return value used by EVAL, which tells
@@ -111,17 +137,6 @@
 // new flags, and may have other purposes as well.
 //
 #define DO_FLAG_REEVALUATE_CELL \
-    FLAG_LEFT_BIT(3)
-
-
-//=//// DO_FLAG_TOOK_FRAME_HOLD ///////////////////////////////////////////=//
-//
-// While R3-Alpha permitted modifications of an array while it was being
-// executed, Ren-C does not.  It takes a temporary read-only "hold" if the
-// source is not already read only, and sets it back when Eval_Core is
-// finished (or on errors).  See SERIES_INFO_HOLD for more about this.
-//
-#define DO_FLAG_TOOK_FRAME_HOLD \
     FLAG_LEFT_BIT(4)
 
 
@@ -158,9 +173,14 @@
 // flags, and may or may not be worth it for the feature.
 
 
-//=//// DO_FLAG_UNUSED_16 /////////////////////////////////////////////////=//
+//=//// DO_FLAG_TOOK_FRAME_HOLD ///////////////////////////////////////////=//
 //
-#define DO_FLAG_UNUSED_16 \
+// While R3-Alpha permitted modifications of an array while it was being
+// executed, Ren-C does not.  It takes a temporary read-only "hold" if the
+// source is not already read only, and sets it back when Eval_Core is
+// finished (or on errors).  See SERIES_INFO_HOLD for more about this.
+//
+#define DO_FLAG_TOOK_FRAME_HOLD \
     FLAG_LEFT_BIT(16)
 
 

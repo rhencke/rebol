@@ -51,14 +51,16 @@ bool Reduce_To_Stack_Throws(
     while (NOT_END(f->value)) {
         bool line = GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE);
 
-        if (Eval_Step_In_Frame_Throws(out, f)) {
+        if (Eval_Step_Throws(SET_END(out), f)) {
             DS_DROP_TO(dsp_orig);
             Abort_Frame(f);
             return true;
         }
 
-        if (out->header.bits & OUT_MARKED_STALE)
-            continue; // BAR!, empty GROUP!, code and it was just comments...
+        if (IS_END(out)) { // e.g. `reduce [comment "hi"]`
+            assert(IS_END(f->value));
+            break;
+        }
 
         if (IS_NULLED(out)) {
             if (flags & REDUCE_FLAG_TRY) {

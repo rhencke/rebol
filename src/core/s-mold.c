@@ -606,7 +606,7 @@ bool Form_Reduce_Throws(
     bool nothing = true; // no non-null elements have been processed
 
     while (NOT_END(f->value)) {
-        if (Eval_Step_In_Frame_Throws(out, f)) {
+        if (Eval_Step_Throws(SET_END(out), f)) {
             Drop_Mold(mo);
             Abort_Frame(f);
             return true;

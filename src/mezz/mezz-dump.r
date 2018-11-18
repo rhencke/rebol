@@ -116,7 +116,7 @@ dumps: enfix function [
             evaluate/set extra value
             value: either set-word? value [as word! value] [as path! value]
         ]
-        
+
         ; No way to enable/disable full specializations unless there is
         ; another function or a refinement.  Go with wrapping and adding
         ; refinements for now.

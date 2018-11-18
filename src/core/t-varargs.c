@@ -229,7 +229,7 @@ void Do_Vararg_Op_May_Throw_Or_End(
             // Note: Eval_Step_In_Subframe_Throws() is not needed here because
             // this is a single use frame, whose state can be overwritten.
             //
-            if (Eval_Step_In_Frame_Throws(SET_END(out), f_temp)) {
+            if (Eval_Step_Throws(SET_END(out), f_temp)) {
                 Abort_Frame(f_temp);
                 return;
             }

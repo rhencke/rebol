@@ -571,7 +571,7 @@ REBNATIVE(all)
     Init_Nulled(D_OUT); // default return result
 
     while (NOT_END(f->value)) {
-        if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
+        if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return D_OUT;
         }
@@ -580,6 +580,10 @@ REBNATIVE(all)
             Abort_Frame(f);
             return nullptr;
         }
+
+        // consider case of `all [true elide print "hi"]`
+        //
+        D_OUT->header.bits &= ~OUT_MARKED_STALE;
     }
 
     Drop_Frame(f);
@@ -605,8 +609,10 @@ REBNATIVE(any)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(block));
 
+    Init_Nulled(D_OUT); // default return result
+
     while (NOT_END(f->value)) {
-        if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
+        if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return D_OUT;
         }
@@ -615,6 +621,10 @@ REBNATIVE(any)
             Abort_Frame(f);
             return D_OUT;
         }
+
+        // consider case of `any [true elide print "hi"]`
+        //
+        D_OUT->header.bits &= ~OUT_MARKED_STALE;
     }
 
     Drop_Frame(f);
@@ -643,8 +653,10 @@ REBNATIVE(none)
     DECLARE_FRAME (f);
     Push_Frame(f, ARG(block));
 
+    Init_Nulled(D_OUT); // default return result
+
     while (NOT_END(f->value)) {
-        if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
+        if (Eval_Step_Maybe_Stale_Throws(D_OUT, f)) {
             Abort_Frame(f);
             return D_OUT;
         }
@@ -653,6 +665,10 @@ REBNATIVE(none)
             Abort_Frame(f);
             return nullptr;
         }
+
+        // consider case of `none [true elide print "hi"]`
+        //
+        D_OUT->header.bits &= ~OUT_MARKED_STALE;
     }
 
     Drop_Frame(f);
@@ -680,10 +696,15 @@ static void Case_Choose_Core_May_Throw(
         // Perform 1 EVALUATE's worth of evaluation on a "condition" to test
         // Will consume any pending "invisibles" (COMMENT, ELIDE, DUMP...)
 
-        if (Eval_Step_In_Frame_Throws(cell, f)) {
+        if (Eval_Step_Throws(SET_END(cell), f)) {
             Abort_Frame(f);
             Move_Value(out, cell);
             return;
+        }
+
+        if (IS_END(cell)) {
+            assert(IS_END(f->value));
+            break;
         }
 
         // The last condition will "fall out" if there is no branch/choice:
@@ -706,7 +727,7 @@ static void Case_Choose_Core_May_Throw(
             // Even if branch is being skipped, it gets an evaluation--like
             // how `if false (print "A" [print "B"])` prints A, but not B.
             //
-            if (Eval_Step_In_Frame_Throws(cell, f)) {
+            if (Eval_Step_Throws(SET_END(cell), f)) {
                 Abort_Frame(f);
                 Move_Value(out, cell);
                 return; // preserving `out` value (may be previous match)
@@ -728,7 +749,7 @@ static void Case_Choose_Core_May_Throw(
             Fetch_Next_In_Frame(nullptr, f); // keep matching if /ALL
         }
         else {
-            if (Eval_Step_In_Frame_Throws(out, f)) {
+            if (Eval_Step_Throws(SET_END(out), f)) {
                 Abort_Frame(f);
                 return; // preserving `cell` to pass to an arity-1 ACTION!
             }
@@ -908,9 +929,15 @@ REBNATIVE(switch)
         if (REF(quote))
             Quote_Next_In_Frame(D_OUT, f);
         else {
-            if (Eval_Step_In_Frame_Throws(D_OUT, f)) {
+            if (Eval_Step_Throws(SET_END(D_OUT), f)) {
                 Abort_Frame(f);
                 return D_OUT;
+            }
+
+            if (IS_END(D_OUT)) {
+                assert(IS_END(f->value));
+                Init_Nulled(D_OUT);
+                break;
             }
         }
 

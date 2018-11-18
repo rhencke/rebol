@@ -277,3 +277,7 @@
 
 (void? (if true [] else [<else>]))
 (void? (if true [comment <true-branch>] else [<else>]))
+
+(1 = all [1 elide <invisible>])
+(1 = any [1 elide <invisible>])
+([1] = reduce [1 elide <invisible>])
