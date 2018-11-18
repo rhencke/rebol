@@ -130,7 +130,7 @@ static const REBVAL *Loop_Series_Common(
     REBINT end,
     REBINT bump
 ){
-    Init_Void(out); // result if body never runs
+    Init_Blank(out); // result if body never runs
 
     // !!! This bounds incoming `end` inside the array.  Should it assert?
     //
@@ -157,7 +157,7 @@ static const REBVAL *Loop_Series_Common(
             if (stop)
                 return nullptr;
         }
-        return Voidify_If_Nulled(out); // null is reserved for BREAK
+        return Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
     }
 
     // As per #1993, start relative to end determines the "direction" of the
@@ -180,8 +180,7 @@ static const REBVAL *Loop_Series_Common(
             if (stop)
                 return nullptr;
         }
-        Voidify_If_Nulled(out); // null is reserved for BREAK
-
+        Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
         if (
             VAL_TYPE(var) != VAL_TYPE(start)
             or VAL_SERIES(var) != VAL_SERIES(start)
@@ -214,7 +213,7 @@ static const REBVAL *Loop_Integer_Common(
     REBI64 end,
     REBI64 bump
 ){
-    Init_Void(out); // result if body never runs
+    Init_Blank(out); // result if body never runs
 
     // A value cell exposed to the user is used to hold the state.  This means
     // if they change `var` during the loop, it affects the iteration.  Hence
@@ -234,7 +233,7 @@ static const REBVAL *Loop_Integer_Common(
             if (stop)
                 return nullptr;
         }
-        return Voidify_If_Nulled(out); // null is reserved for BREAK
+        return Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
     }
 
     // As per #1993, start relative to end determines the "direction" of the
@@ -253,7 +252,7 @@ static const REBVAL *Loop_Integer_Common(
             if (stop)
                 return nullptr;
         }
-        Voidify_If_Nulled(out); // null is reserved for BREAK
+        Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
 
         if (not IS_INTEGER(var))
             fail (Error_Invalid_Type(VAL_TYPE(var)));
@@ -277,7 +276,7 @@ static const REBVAL *Loop_Number_Common(
     REBVAL *end,
     REBVAL *bump
 ){
-    Init_Void(out); // result if body never runs
+    Init_Blank(out); // result if body never runs
 
     REBDEC s;
     if (IS_INTEGER(start))
@@ -320,14 +319,14 @@ static const REBVAL *Loop_Number_Common(
             if (stop)
                 return nullptr;
         }
-        return Voidify_If_Nulled(out); // null is reserved for BREAK
+        return Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
     }
 
     // As per #1993, see notes in Loop_Integer_Common()
     //
     const bool counting_up = (s < e); // equal checked above
     if ((counting_up and b <= 0) or (not counting_up and b >= 0))
-        return Init_Void(out); // avoid infinite loop, void if body never runs
+        return Init_Blank(out); // avoid infinite loop, blank means never ran
 
     while (counting_up ? *state <= e : *state >= e) {
         if (Do_Branch_Throws(out, body)) {
@@ -337,7 +336,7 @@ static const REBVAL *Loop_Number_Common(
             if (stop)
                 return nullptr;
         }
-        Voidify_If_Nulled(out); // null is reserved for BREAK
+        Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
 
         if (not IS_DECIMAL(var))
             fail (Error_Invalid_Type(VAL_TYPE(var)));
@@ -371,7 +370,7 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     bool stop = false;
     bool threw = false; // did a non-BREAK or non-CONTINUE throw occur
 
-    Init_Void(D_OUT); // result if body never runs (MAP-EACH gives [])
+    Init_Blank(D_OUT); // result if body never runs (MAP-EACH gives [])
 
     REBCTX *context;
     Virtual_Bind_Deep_To_New_Context(
@@ -578,7 +577,7 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
         switch (mode) {
         case LOOP_FOR_EACH:
-            Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
+            Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
             break;
 
         case LOOP_MAP_EACH:
@@ -740,7 +739,7 @@ REBNATIVE(for_skip)
     if (IS_BLANK(word))
         return nullptr; // blank in, null out (same result as BREAK)
 
-    Init_Void(D_OUT); // result if body never runs
+    Init_Blank(D_OUT); // result if body never runs
 
     // Note that variable addresses may move on context expansion, protect
     // status can change, etc.  It must be re-fetched on each loop.
@@ -794,7 +793,7 @@ REBNATIVE(for_skip)
                 return nullptr;
             }
         }
-        Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
+        Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
 
         // `var` must be refreshed each time arbitrary code runs, since the
         // context may expand and move the address, may get PROTECTed, etc.
@@ -1297,10 +1296,10 @@ REBNATIVE(loop)
 
     if (IS_FALSEY(ARG(count))) {
         assert(IS_LOGIC(ARG(count))); // is false...opposite of infinite loop
-        return Init_Void(D_OUT);
+        return Init_Blank(D_OUT);
     }
 
-    Init_Void(D_OUT); // result if body never runs
+    Init_Blank(D_OUT); // result if body never runs
 
     REBI64 count;
 
@@ -1324,7 +1323,7 @@ REBNATIVE(loop)
             if (stop)
                 return nullptr;
         }
-        Voidify_If_Nulled(D_OUT); // null is reserved for BREAK
+        Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
     }
 
     if (IS_LOGIC(ARG(count)))
@@ -1379,7 +1378,7 @@ REBNATIVE(repeat)
 
     REBI64 n = VAL_INT64(value);
     if (n < 1) // Loop_Integer from 1 to 0 with bump of 1 is infinite
-        return Init_Void(D_OUT); // void if loop condition never runs
+        return Init_Blank(D_OUT); // blank if loop condition never runs
 
     return Loop_Integer_Common(
         D_OUT, var, ARG(body), 1, VAL_INT64(value), 1
@@ -1489,7 +1488,7 @@ inline static void While_Core(
     bool trigger, // body keeps running so long as condition matches
     REBVAL *cell // GC-safe temporary cell
 ){
-    Init_Void(out); // result if body never runs
+    Init_Blank(out); // result if body never runs
 
     do {
         if (Do_Branch_Throws(cell, condition)) {
@@ -1512,7 +1511,7 @@ inline static void While_Core(
                 return;
             }
         }
-        Voidify_If_Nulled(out); // NULL is reserved for BREAK
+        Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
     } while (true);
 
     DEAD_END;

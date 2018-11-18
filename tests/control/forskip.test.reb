@@ -31,7 +31,7 @@
 (
     success: true
     x: "a"
-    for-skip x 1 [continue success: false]
+    for-skip x 1 [continue | success: false]
     success
 )
 ; zero repetition

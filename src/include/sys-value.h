@@ -904,6 +904,18 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
     return cell;
 }
 
+// Many loop constructs use BLANK! as a unique signal that the loop body
+// never ran, e.g. `for-each x [] [<unreturned>]` or `loop 0 [<unreturned>]`.
+// It's more valuable to have that signal be unique and have it be falsey
+// than it is to be able to return BLANK! from a loop, so blanks are voidified
+// alongside NULL (reserved for BREAKing)
+//
+inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
+    if (IS_NULLED(cell) or IS_BLANK(cell))
+        Init_Void(cell);
+    return cell;
+}
+
 
 //=////////////////////////////////////////////////////////////////////////=//
 //

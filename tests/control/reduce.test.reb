@@ -43,3 +43,11 @@
 (
     [a b c d c d e f] = flatten/deep [[a] [b [c d]] c d [e f]]
 )
+
+; Invisibles tests
+[
+    ([] = reduce [comment <ae>])
+    ([304 1020] = reduce [comment <AE> 300 + 4 1000 + 20])
+    ([304 1020] = reduce [300 + 4 comment <AE> 1000 + 20])
+    ([304 1020] = reduce [300 + 4 1000 + 20 comment <AE>])
+]

@@ -34,10 +34,21 @@
 ]
 
 ; check that BREAK is evaluated (and not CONTINUE):
-(foo: func [x y] [] a: 1 loop 2 [a: a + 1 foo break continue a: a + 10] :a =? 2)
+(
+    foo: func [x y] [] a: 1 loop 2 [
+        a: a + 1 foo (break) continue a: a + 10
+    ]
+    :a =? 2
+)
 
 ; check that BREAK is not evaluated (but CONTINUE is):
-(foo: func [x y] [] a: 1 loop 2 [a: a + 1 foo continue break a: a + 10] :a =? 3)
+; Note: CONTINUE is variadic and will take parameters if available, so there
+; has to be an expression barrier or otherwise.
+(
+    foo: func [x y] [] a: 1 loop 2 [
+        a: a + 1 foo (continue) break a: a + 10
+    ] :a =? 3
+)
 
 [#1535 #1535
     (loop 1 [words of break] true)

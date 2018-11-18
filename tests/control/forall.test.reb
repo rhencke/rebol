@@ -38,7 +38,7 @@
 (
     success: true
     x: "a"
-    for-next x [continue success: false]
+    for-next x [continue | success: false]
     success
 )
 ; zero repetition

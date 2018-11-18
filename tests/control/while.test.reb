@@ -9,7 +9,7 @@
     num: 0
     1 = while [num < 1] [num: num + 1]
 )]
-(void? while [false] [])
+(blank? while [false] [])
 ; zero repetition
 (
     success: true
@@ -48,7 +48,7 @@
 (
     success: true
     cycle?: true
-    while [cycle?] [cycle?: false continue success: false]
+    while [cycle?] [cycle?: false continue | success: false]
     success
 )
 (

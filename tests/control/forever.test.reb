@@ -12,7 +12,7 @@
 (
     success: true
     cycle?: true
-    forever [if cycle? [cycle?: false continue success: false] break]
+    forever [if cycle? [cycle?: false continue | success: false] break]
     success
 )
 ; Test that arity-1 return stops the loop

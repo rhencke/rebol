@@ -37,7 +37,7 @@
 ; continue cycle
 (
     success: true
-    for-each i [1] [continue success: false]
+    for-each i [1] [continue | success: false]
     success
 )
 ; zero repetition
