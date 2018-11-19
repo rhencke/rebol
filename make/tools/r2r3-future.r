@@ -504,3 +504,26 @@ count-up: :repeat ;-- https://forum.rebol.info/t/892
 delimit: chain [:delimit | function [x] [if x <> "" [x]]]
 unspaced: chain [:unspaced | function [x] [if x <> "" [x]]]
 spaced: chain [:spaced | function [x] [if x <> "" [x]]]
+
+; Loop control update: https://forum.rebol.info/t/609
+; First cut at it returned BLANK! on break, NULL on no loop run
+; Now returns NULL on break, BLANK! on no loop run
+;
+loop-resultify: func [return: [<opt> any-value!] x [<opt> any-value!]] [
+    case [
+        blank? :x [return null]
+        null? :x [return _]
+        :x = #blank-hack [return _]
+        default [:x]
+    ]
+]
+for-each: chain [:for-each | :loop-resultify]
+loop: chain [:loop | :loop-resultify]
+repeat: chain [:repeat | :loop-resultify]
+until: chain [:until | :loop-resultify]
+while: chain [:while | :loop-resultify]
+every: chain [
+    adapt :every [if empty? :data [return #blank-hack]]
+        |
+    :loop-resultify
+]

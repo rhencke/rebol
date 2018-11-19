@@ -33,8 +33,8 @@
 
 typedef enum {
     LOOP_FOR_EACH,
+    LOOP_EVERY,
     LOOP_MAP_EACH
-    // See LOOP_EVERY note: https://github.com/metaeducation/ren-c/issues/847
 } LOOP_MODE;
 
 
@@ -369,6 +369,7 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
     bool stop = false;
     bool threw = false; // did a non-BREAK or non-CONTINUE throw occur
+    bool no_falseys = true; // no conditionally false body evaluations
 
     Init_Blank(D_OUT); // result if body never runs (MAP-EACH gives [])
 
@@ -580,6 +581,10 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
             Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
             break;
 
+        case LOOP_EVERY:
+            no_falseys &= IS_TRUTHY(D_OUT);
+            break;
+
         case LOOP_MAP_EACH:
             // anything that's not null will be added to the result
             if (not IS_NULLED(D_OUT))
@@ -587,10 +592,8 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
             break;
         }
 
-        if (stop) {
-            Init_Nulled(D_OUT);
+        if (stop)
             break;
-        }
 
 skip_hidden: ;
     }
@@ -613,6 +616,13 @@ skip_hidden: ;
         if (stop)
             return nullptr;
         return D_OUT;
+
+    case LOOP_EVERY:
+        if (stop)
+            return nullptr;
+        if (no_falseys)
+            return D_OUT;
+        return Init_False(D_OUT);
 
     case LOOP_MAP_EACH:
         if (stop) {
@@ -862,6 +872,27 @@ REBNATIVE(forever)
 REBNATIVE(for_each)
 {
     return Loop_Each(frame_, LOOP_FOR_EACH);
+}
+
+
+//
+//  every: native [
+//
+//  {Iterate and return false if any previous body evaluations were false}
+//
+//      return: [<opt> any-value!]
+//          {null on BREAK, blank on empty, false or the last truthy value}
+//      'vars [word! block!]
+//          "Word or block of words to set each time (local)"
+//      data [any-series! any-context! map! blank! datatype!]
+//          "The series to traverse"
+//      body [block!]
+//          "Block to evaluate each time"
+//  ]
+//
+REBNATIVE(every)
+{
+    return Loop_Each(frame_, LOOP_EVERY);
 }
 
 

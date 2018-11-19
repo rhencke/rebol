@@ -98,6 +98,7 @@
 %control/do.test.reb
 %control/either.test.reb
 %control/else.test.reb
+%control/every.test.reb
 %control/for.test.reb
 %control/forall.test.reb
 %control/for-each.test.reb
