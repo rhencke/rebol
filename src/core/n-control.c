@@ -67,7 +67,7 @@ REBNATIVE(if)
 {
     INCLUDE_PARAMS_OF_IF;
 
-    if (IS_FALSEY(ARG(condition))) // fails on void
+    if (IS_CONDITIONAL_FALSE(ARG(condition))) // fails on void, literal blocks
         return nullptr;
 
     if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(condition)))
@@ -92,7 +92,7 @@ REBNATIVE(if_not)
 {
     INCLUDE_PARAMS_OF_IF_NOT;
 
-    if (IS_TRUTHY(ARG(condition))) // fails on void
+    if (IS_CONDITIONAL_TRUE(ARG(condition))) // fails on void, literal blocks
         return nullptr;
 
     if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(condition)))
@@ -121,7 +121,7 @@ REBNATIVE(either)
 
     if (Do_Branch_With_Throws(
         D_OUT,
-        IS_TRUTHY(ARG(condition)) // fails on void
+        IS_CONDITIONAL_TRUE(ARG(condition)) // fails on void, literal blocks
             ? ARG(true_branch)
             : ARG(false_branch),
         ARG(condition)
@@ -149,6 +149,12 @@ inline static void Either_Test_Core_May_Throw(
     switch (VAL_TYPE(test)) {
 
     case REB_LOGIC: { // test for "truthy" or "falsey"
+        //
+        // If this is the result of composing together a test with a literal,
+        // it may be the *test* that changes...so in effect, we could be
+        // "testing the test" on a fixed value.  Allow literal blocks (e.g.
+        // use IS_TRUTHY() instead of IS_CONDITIONAL_TRUE())
+        //
         Init_Logic(out, VAL_LOGIC(test) == IS_TRUTHY(arg));
         return; }
 
@@ -712,7 +718,7 @@ static void Case_Choose_Core_May_Throw(
             return;
         }
 
-        if (IS_FALSEY(cell)) { // not a matching condition, fails on void
+        if (IS_CONDITIONAL_FALSE(cell)) { // not a matching condition
             if (choose) {
                 Fetch_Next_In_Frame(nullptr, f); // skip next, whatever it is
                 continue;

@@ -1068,6 +1068,25 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
     Init_Logic((out), false)
 
 
+// Although a BLOCK! value is true, some constructs are safer by not allowing
+// literal blocks.  e.g. `if [x] [print "this is not safe"]`.  The evaluated
+// bit can let these instances be distinguished.  Note that making *all*
+// evaluations safe would be limiting, e.g. `foo: any [false-thing []]`...
+// So ANY and ALL use IS_TRUTHY() directly
+//
+inline static bool IS_CONDITIONAL_TRUE(const REBVAL *v) {
+    if (GET_VAL_FLAG(v, VALUE_FLAG_FALSEY))
+        return false;
+    if (IS_VOID(v))
+        fail (Error_Void_Conditional_Raw());
+    if (IS_BLOCK(v) and GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED))
+        fail (Error_Block_Conditional_Raw(v));
+    return true;
+}
+
+#define IS_CONDITIONAL_FALSE(v) \
+    (not IS_CONDITIONAL_TRUE(v))
+
 inline static bool VAL_LOGIC(const RELVAL *v) {
     assert(IS_LOGIC(v));
     return NOT_VAL_FLAG((v), VALUE_FLAG_FALSEY);
