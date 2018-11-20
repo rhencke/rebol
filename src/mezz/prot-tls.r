@@ -137,7 +137,7 @@ emit: function [
     <local> result
 ][
     if block? code [
-        while [code: try sync-invisibles code] [
+        while [code: sync-invisibles code] [
             if set-word? code/1 [
                 set code/1 tail ctx/msg ;-- save position
                 code: my next

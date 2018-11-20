@@ -85,7 +85,7 @@ decode: function [
         {The data to decode}
 ][
     all [
-        cod: try select system/codecs type
+        cod: select system/codecs type
         f: :cod/decode
         (data: f data)
     ] or [
@@ -108,7 +108,7 @@ encode: function [
     opts [block!]
 ][
     all [
-        cod: try select system/codecs type
+        cod: select system/codecs type
         f: :cod/encode
         (data: f data)
     ] or [

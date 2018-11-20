@@ -19,8 +19,8 @@ verify: function [
         {Conditions to check}
     <local> result
 ][
-    while [pos: try evaluate/set conditions 'result] [
-        if not try :result [
+    while [pos: evaluate/set conditions 'result] [
+        if not :result [
             ;
             ; including BAR!s in the failure report looks messy, skip them
             ;

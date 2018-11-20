@@ -30,7 +30,7 @@ clean-path: function [
             while [
                 all [
                     #"/" = first file
-                    f: try find/tail out #"/"
+                    f: find/tail out #"/"
                 ]
             ][
                 file: next file
@@ -194,7 +194,7 @@ list-dir: function [
     if r [l: true]
     if not l [l: make text! 62] ; approx width
 
-    if not (files: try attempt [read %./]) [
+    files: attempt [read %./] else [
         print ["Not found:" :path]
         change-dir save-dir
         return
@@ -272,7 +272,7 @@ to-relative-file: function [
     if text? file [ ; Local file
         comment [
             ; file-to-local drops trailing / in R2, not in R3
-            if tmp: try find/match file file-to-local what-dir [
+            if tmp: find/match file file-to-local what-dir [
                 file: next tmp
             ]
         ]

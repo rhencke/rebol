@@ -53,7 +53,7 @@ make-port*: function [
     ; Get the scheme definition:
     all [
         match [word! lit-word!] name
-        scheme: try get try in system/schemes as word! name
+        scheme: get try in system/schemes as word! name
     ] else [
         cause-error 'access 'no-scheme name
     ]
@@ -264,7 +264,7 @@ init-schemes: func [
 
             ; Are any of the requested ports awake?
             for-next ports [
-                if port: try find waked first ports [return true]
+                if port: find waked first ports [return true]
             ]
 
             false ; keep waiting

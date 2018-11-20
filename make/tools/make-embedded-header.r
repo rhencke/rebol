@@ -35,9 +35,8 @@ remove-macro: func [
     macro [any-string!]
     <local> pos-m inc eol
 ][
-    if not binary? macro [macro: to binary! macro]
-    pos-m: try find inp macro
-    if pos-m [
+    macro: to binary! macro
+    if pos-m: find inp macro [
         inc: find/reverse pos-m to binary! "#define"
         eol: find pos-m to binary! newline
         remove/part inc (index? eol) - (index? inc)

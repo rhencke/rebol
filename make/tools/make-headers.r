@@ -127,7 +127,7 @@ process-conditional: function [
     ;
     all [
         find/match directive "#endif"
-        position: try find/last tail-of emitter/buf-emit "#if"
+        position: find/last tail-of emitter/buf-emit "#if"
     ] then [
         rewrite-if-directives position
     ]

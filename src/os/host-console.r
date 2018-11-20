@@ -635,7 +635,7 @@ host-console: function [
         return <prompt>
     ]
 
-    if shortcut: try select system/console/shortcuts try first code [
+    if shortcut: select system/console/shortcuts try first code [
         ;
         ; Shortcuts like `q => [quit]`, `d => [dump]`
         ;

@@ -49,13 +49,14 @@ repo: context [
 spaced-tab: unspaced [space space space space]
 
 to-c-name: function [
-    {Take a Rebol value and transliterate it as a (likely) valid C identifier.}
+    {Take a Rebol value and transliterate it as a (likely) valid C identifier}
 
+    return: [text!]
     value "Will be converted to text (via UNSPACED if BLOCK!)"
         [text! block! word!]
     /scope "See C's rules: http://stackoverflow.com/questions/228783/"
-    word "Either 'global or 'local (defaults global)"
-    [word!]
+    where "Either #global or #local (defaults global)"
+        [issue!]
 ][
     all [
         text? value
@@ -71,11 +72,9 @@ to-c-name: function [
         #"_"
     ]
 
-    string: either block? :value [unspaced value][form value]
+    string: either block? :value [unspaced value] [form value]
 
     string: switch string [
-        ; Take care of special cases of singular symbols
-
         ; Used specifically by t-routine.c to make SYM_ELLIPSIS
         ;
         "..." [copy "ellipsis"]
@@ -128,63 +127,35 @@ to-c-name: function [
         ]
     ]
 
-    comment [
-        ; Don't worry about leading digits at the moment, because currently
-        ; the code will do a to-c-name transformation and then often prepend
-        ; something to it.
-
-        if find charset [#"0" - #"9"] string/1 [
+    repeat s string [
+        (head? s) and [find charset [#"0" - #"9"] s/1] and [
             fail ["identifier" string "starts with digit in to-c-name"]
         ]
-    ]
 
-    for-each char string [
-        if char = space [
-            ; !!! The way the callers seem to currently be written is to
-            ; sometimes throw "foo = 2" kinds of strings and expect them to
-            ; be converted to a "C string".  Only check the part up to the
-            ; first space for legitimacy then.  :-/
-            break
-        ]
-
-        if not find c-chars char [
+        find c-chars s/1 or [
             fail ["Non-alphanumeric or hyphen in" string "in to-c-name"]
         ]
     ]
 
-    if not scope [word: 'global] ; default to assuming global need
-
-    ; Easiest rule is just "never start a global identifier with underscore",
-    ; but we check the C rules.  Since currently this routine is sometimes
-    ; called to produce a partial name, it may not be a problem if that part
-    ; starts with an underscore if something legal will be prepended.  But
-    ; there are no instances of that need so better to plant awareness.
+    where: default [#global]
 
     case [
-        string/1 != "_" []
+        string/1 != "_" [<ok>]
 
-        word = 'global [
-            fail [
-                "global identifiers in C starting with underscore"
-                "are reserved for standard library usage"
+        where = 'global [
+            fail "global C ids starting with _ are reserved"
+        ]
+
+        where = 'local [
+            find charset [#"A" - #"Z"] string/2 then [
+                fail "local C ids starting with _ and uppercase are reserved"
             ]
         ]
 
-        word = 'local [
-            if find charset [#"A" - #"Z"] value/2 [
-                fail [
-                    "local identifiers in C starting with underscore and then"
-                    "a capital letter are reserved for standard library usage"
-                ]
-            ]
-        ]
-
-        default [
-            fail "scope word must be 'global or 'local"
-        ]
+        fail "/SCOPE must be #global or #local"
     ]
 
-    string
+    return string
 ]
 
 
@@ -293,11 +264,9 @@ find-record-unique: function [
             fail [{More than one table record matches} key {=} value]
         ]
 
-        result: rec
-
         ; Could break, but walk whole table to verify that it is well-formed.
     ]
-    opt result
+    return opt result
 ]
 
 
@@ -312,7 +281,7 @@ parse-args: function [
         name: _
         value: args/1
         case [
-            idx: try find value #"=" [; name=value
+            idx: find value #"=" [; name=value
                 name: to word! copy/part value (index of idx) - 1
                 value: copy next idx
             ]

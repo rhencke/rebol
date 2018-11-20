@@ -55,7 +55,7 @@ save: function [
     all [
         not header ; User wants to save value as script, not data file
         match [file! url!] where
-        type: try file-type? where
+        type: file-type? where
         type <> 'rebol ;-- handled by this routine, not by WRITE+ENCODE
     ] then [
         ; We have a codec.  Will check for valid type.
@@ -123,7 +123,7 @@ save: function [
     append data newline
 
     case/all [
-        tmp: try find header-data 'checksum [
+        tmp: find header-data 'checksum [
             ; Checksum uncompressed data, if requested
             change next tmp checksum/secure data: to-binary data
         ]

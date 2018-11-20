@@ -139,7 +139,7 @@ add-sym: function [
     /exists "return ID of existing SYM_XXX constant if already exists"
     <with> sym-n
 ][
-    if pos: try find boot-words word [
+    if pos: find boot-words word [
         if exists [return index of pos]
         fail ["Duplicate word specified" word]
     ]

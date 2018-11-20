@@ -235,7 +235,7 @@ make-emitter: function [
                 fail "WRITE-EMITTED needs NEWLINE as last character in buffer"
             ]
 
-            if tab-pos: try find buf-emit tab [
+            if tab-pos: find buf-emit tab [
                 probe skip tab-pos -100
                 fail "tab character passed to emit"
             ]

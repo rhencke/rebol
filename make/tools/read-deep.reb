@@ -53,9 +53,8 @@ read-deep: function [
 
     queue: compose [(root)]
 
-    while-not [tail? queue][
-        path: try taker queue ;-- Possible null
-        append result opt path
+    while-not [tail? queue] [
+        append result taker queue ;-- Possible null
     ]
 
     if not full [

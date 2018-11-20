@@ -52,35 +52,37 @@ exists?: func [
     select try attempt [query target] 'type
 ]
 
-size-of: size?: func [
+size-of: size?: function [
     {Returns the size of a file.}
+    return: [<opt> integer!]
     target [file! url!]
 ][
     all [
-        target: try attempt [info? target]
-        target/size
+        info: attempt [info? target] ;-- !!! Why not let the error report?
+        info/size
     ]
 ]
 
-modified?: func [
+modified?: function [
     {Returns the last modified date of a file.}
+    return: [<opt> date!]
     target [file! url!]
 ][
     all [
-        target: try attempt [info? target]
-        target/date
+        info: attempt [info? target] ;-- !!! Why not let the error report?
+        info/date
     ]
 ]
 
-suffix-of: func [
+suffix-of: function [
     "Return the file suffix of a filename or url. Else, null."
     return: [<opt> file!]
     path [file! url! text!]
 ][
     all [
-        path: try find/last path #"."
-        not find path #"/"
-        to file! path
+        pos: find/last path #"."
+        not find pos #"/"
+        to file! pos
     ]
 ]
 
@@ -181,14 +183,14 @@ script?: func [
     find-script source
 ]
 
-file-type?: func [
+file-type?: function [
     "Return the identifying word for a specific file type (or null)"
     return: [<opt> word!]
     file [file! url!]
 ][
     all [
-        file: try find system/options/file-types try suffix-of file
-        first try find file word!
+        pos: find system/options/file-types try suffix-of file
+        first try find pos word!
     ]
 ]
 

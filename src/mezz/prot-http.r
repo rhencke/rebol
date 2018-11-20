@@ -291,14 +291,14 @@ check-response: function [port] [
         not headers
         any [
             all [
-                d1: try find conn/data crlfbin
-                d2: try find/tail d1 crlf2bin
-                net-log/C "server using standard content separator of #{0D0A0D0A}"
+                d1: find conn/data crlfbin
+                d2: find/tail d1 crlf2bin
+                net-log/C "server standard content separator of #{0D0A0D0A}"
             ]
             all [
-                d1: try find conn/data #{0A}
-                d2: try find/tail d1 #{0A0A}
-                net-log/C "server using malformed line separator of #{0A0A}"
+                d1: find conn/data #{0A}
+                d2: find/tail d1 #{0A0A}
+                net-log/C "server malformed line separator of #{0A0A}"
             ]
         ]
     ] then [

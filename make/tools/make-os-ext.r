@@ -80,7 +80,7 @@ count: func [s c /local n] [
     if find ["()" "(void)"] s [return "()"]
     output-buffer: copy "(a"
     n: 1
-    while [s: try find/tail s c][
+    while [s: find/tail s c][
         adjoin output-buffer [#"," #"a" + n]
         n: n + 1
     ]

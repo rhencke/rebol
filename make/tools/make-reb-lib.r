@@ -179,7 +179,7 @@ for-each api api-objects [do in api [
     ]
 
     opt-va-start: _
-    if va-pos: try find paramlist "va_list *" [
+    if va-pos: find paramlist "va_list *" [
         assert ['vaptr first next va-pos]
         assert ['p = first back va-pos]
         assert ["const void *" = first back back va-pos]

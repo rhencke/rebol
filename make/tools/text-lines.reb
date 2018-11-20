@@ -30,7 +30,7 @@ decode-lines: function [
             {and end with newline.}
         ]
     ]
-    if pos: try back tail-of text [remove pos]
+    if pos: back tail-of text [remove pos]
     text
 ]
 

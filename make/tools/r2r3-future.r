@@ -378,7 +378,7 @@ method: enfix func [
     body [block!]
     <local> context
 ][
-    if not context: try binding of member [
+    context: binding of member else [
         fail [member "must be bound to an ANY-CONTEXT! to use METHOD"]
     ]
     ;-- Older Ren-C don't take OBJECT! literally with <in>

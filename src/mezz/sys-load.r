@@ -201,7 +201,7 @@ load-header: function [
     if 13 = rest/1 [rest: next rest] ; skip CR
     if 10 = rest/1 [rest: next rest | line: me + 1] ; skip LF
 
-    if integer? tmp: try select hdr 'length [
+    if integer? tmp: select hdr 'length [
         end: skip rest tmp
     ]
 
@@ -244,7 +244,7 @@ load-header: function [
 
         case [
             find hdr/options 'compress [ ; script encoded only
-                rest: try attempt [gunzip first rest] or [
+                rest: attempt [gunzip first rest] or [
                     return 'bad-compress
                 ]
             ]
@@ -562,7 +562,7 @@ load-ext-module: function [
         ]
     ]
 
-    if w: try in mod 'words [protect/hide w]
+    if w: in mod 'words [protect/hide w]
     do code
 
     if hdr/name [
@@ -682,7 +682,7 @@ load-module: function [
 
         module! [
             ; see if the same module is already in the list
-            if tmp: try find/skip next system/modules mod: source 2 [
+            if tmp: find/skip next system/modules mod: source 2 [
                 if as_LOAD_MODULE [
                     ; already imported
                     cause-error 'script 'bad-refine /as
@@ -1004,7 +1004,7 @@ import: function [
     case [
         any [
             no-user
-            not block? exports: try select hdr: meta-of mod 'exports
+            not block? exports: select hdr: meta-of mod 'exports
             empty? exports
         ][
             ; Do nothing if /no-user or no exports.

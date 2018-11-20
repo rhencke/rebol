@@ -356,7 +356,7 @@ host-start: function [
         return: [blank! file!]
             {Blank if not found}
     ][
-        get-env: try attempt [:system/modules/Process/get-env] or [
+        get-env: attempt [:system/modules/Process/get-env] or [
             loud-print [
                 "Interpreter not built with GET-ENV, can't detect HOME dir" LF
                 "(Build with Process extension enabled to address this)"

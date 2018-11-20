@@ -152,7 +152,7 @@ do*: function [
         ;
         all [
             match [file! url!] source
-            file: try find/last/tail source slash
+            file: find/last/tail source slash
         ] then [
             change-dir copy/part source file
         ]

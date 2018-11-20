@@ -131,7 +131,7 @@ rejoin: function [
     ;
     values: copy []
     pos: block
-    while [pos: try evaluate/set pos (quote evaluated:)][
+    while [pos: evaluate/set pos (quote evaluated:)][
         append/only values :evaluated
     ]
 
@@ -193,7 +193,7 @@ applique: function [
     params: words of :action
     using-args: true
 
-    while [block: try sync-invisibles block] [
+    while [block: sync-invisibles block] [
         block: if only [
             arg: block/1
             try next block

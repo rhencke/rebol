@@ -462,7 +462,7 @@ help: function [topic [text! blank!]] [
                 print msg
             ]
         ]
-        msg: try select help-topics topic [
+        msg: select help-topics topic [
             print msg
         ]
         default [print help-topics/usage]
@@ -1471,14 +1471,14 @@ calculate-sequence: function [
     seq: 0
     if word? ext/requires [ext/requires: reduce [ext/requires]]
     for-each req ext/requires [
-        invalid?: true
         for-each b builtin-extensions [
             if b/name = req [
-                seq: seq + either integer? b/sequence [b/sequence][calculate-sequence b]
-                invalid?: false
+                seq: seq + (
+                    (match integer! b/sequence) else [calculate-sequence b]
+                )
+                break
             ]
-        ]
-        if invalid? [
+        ] then [ ;-- didn't BREAK, so no match found
             fail ["unrecoginized dependency" req "for" ext/name]
         ]
     ]

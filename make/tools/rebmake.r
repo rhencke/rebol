@@ -169,6 +169,7 @@ posix: make platform-class [
     archive-suffix: ".a"
 
     gen-cmd-create: method [
+        return: [text!]
         cmd [object!]
     ][
         either dir? cmd/file [
@@ -179,20 +180,20 @@ posix: make platform-class [
     ]
 
     gen-cmd-delete: method [
+        return: [text!]
         cmd [object!]
     ][
         spaced ["rm -fr" cmd/file]
     ]
 
     gen-cmd-strip: method [
+        return: [text!]
         cmd [object!]
     ][
-        tool: try any [:cmd/strip :default-strip]
-        either :tool [
-            tool/commands/params cmd/file opt cmd/options
-        ][
-            ""
+        if tool: any [:cmd/strip :default-strip] [
+            return tool/commands/params cmd/file opt cmd/options
         ]
+        return ""
     ]
 ]
 
@@ -223,6 +224,7 @@ windows: make platform-class [
     archive-suffix: ".lib"
 
     gen-cmd-create: method [
+        return: [text!]
         cmd [object!]
     ][
         d: file-to-local cmd/file
@@ -234,6 +236,7 @@ windows: make platform-class [
         ]
     ]
     gen-cmd-delete: method [
+        return: [text!]
         cmd [object!]
     ][
         d: file-to-local cmd/file
@@ -246,10 +249,10 @@ windows: make platform-class [
     ]
 
     gen-cmd-strip: method [
+        return: [text!]
         cmd [object!]
     ][
-        ;not implemented
-        _
+        ...
     ]
 ]
 
@@ -482,7 +485,7 @@ gcc: make compiler-class [
             if D [
                 spaced [
                     map-each flg definitions [
-                        if flg: try filter-flag flg id [unspaced ["-D" flg]]
+                        if flg: filter-flag flg id [unspaced ["-D" flg]]
                     ]
                 ]
             ]
@@ -560,7 +563,7 @@ tcc: make compiler-class [
             if D [
                 spaced [
                     map-each flg definitions [
-                        if flg: try filter-flag flg id [unspaced ["-D" flg]]
+                        if flg: filter-flag flg id [unspaced ["-D" flg]]
                     ]
                 ]
             ]
@@ -640,7 +643,7 @@ cl: make compiler-class [
             ]
             if D [
                 spaced map-each flg definitions [
-                    if flg: try filter-flag flg id [unspaced ["/D" flg]]
+                    if flg: filter-flag flg id [unspaced ["/D" flg]]
                 ]
             ]
             if O [
@@ -787,7 +790,7 @@ ld: make linker-class [
             ]
             'ext-dynamic-class [
                 either tag? dep/output [
-                    if lib: try filter-flag dep/output id [
+                    if lib: filter-flag dep/output id [
                         unspaced ["-l" lib]
                     ]
                 ][
@@ -1331,7 +1334,7 @@ generator-class: make object! [
         return: <void>
         project [object!]
     ][
-        if not suffix: try find reduce [
+        if not suffix: find reduce [
             'application-class target-platform/exe-suffix
             'dynamic-library-class target-platform/dll-suffix
             'static-library-class target-platform/archive-suffix
@@ -1354,7 +1357,7 @@ generator-class: make object! [
                         fail ["Unexpected project class:" (project/class-name)]
                     ]
                 ]
-                if output-ext: try find/last project/output #"." [
+                if output-ext: find/last project/output #"." [
                     remove output-ext
                 ]
                 basename: project/output
@@ -1875,7 +1878,7 @@ visual-studio: make generator-class [
         cflags [block!]
     ][
         for-next cflags [
-            if i: try filter-flag cflags/1 "msc" [
+            if i: filter-flag cflags/1 "msc" [
                 case [
                     parse i ["/TP" to end] [
                         comment [remove cflags] ; extensions wouldn't get it
@@ -1899,7 +1902,7 @@ visual-studio: make generator-class [
         size: _
         while [not tail? ldflags] [
             ;dump ldflags/1
-            if i: try filter-flag ldflags/1 "msc" [
+            if i: filter-flag ldflags/1 "msc" [
                 parse i [
                     "/stack:"
                     copy size: some digit
@@ -1919,7 +1922,7 @@ visual-studio: make generator-class [
         subsystem: _
         while [not tail? ldflags] [
             ;dump ldflags/1
-            if i: try filter-flag ldflags/1 "msc" [
+            if i: filter-flag ldflags/1 "msc" [
                 parse i [
                     "/subsystem:"
                     copy subsystem: to end
@@ -1997,7 +2000,7 @@ visual-studio: make generator-class [
         if project/class-name <> 'entry-class [
             inc: make text! 1024
             for-each i project/includes [
-                if i: try filter-flag i "msc" [
+                if i: filter-flag i "msc" [
                     append inc unspaced [file-to-local i ";"]
                 ]
             ]
@@ -2005,7 +2008,7 @@ visual-studio: make generator-class [
 
             def: make text! 1024
             for-each d project/definitions [
-                if d: try filter-flag d "msc" [
+                if d: filter-flag d "msc" [
                     append def unspaced [d ";"]
                 ]
             ]
@@ -2018,7 +2021,7 @@ visual-studio: make generator-class [
                     'ext-dynamic-class
                     'ext-static-class
                     'static-library-class [
-                        if ext: try filter-flag d/output "msc" [
+                        if ext: filter-flag d/output "msc" [
                             append lib unspaced [
                                 ext
                                 if not ends-with? ext ".lib" [".lib"]
@@ -2040,7 +2043,7 @@ visual-studio: make generator-class [
 
             if find [dynamic-library-class application-class] project/class-name [
                 for-each s project/searches [
-                    if s: try filter-flag s "msc" [
+                    if s: filter-flag s "msc" [
                         append searches unspaced [file-to-local s ";"]
                     ]
                 ]
@@ -2213,7 +2216,7 @@ visual-studio: make generator-class [
                     use [compile-as][
                         all [
                             block? o/cflags
-                            compile-as: try find-compile-as o/cflags
+                            compile-as: find-compile-as o/cflags
                             unspaced [
                                 {        <CompileAs>} compile-as {</CompileAs>^/}
                             ]
@@ -2227,7 +2230,7 @@ visual-studio: make generator-class [
                     use [i o-inc][
                         o-inc: make text! 1024
                         for-each i o/includes [
-                            if i: try filter-flag i "msc" [
+                            if i: filter-flag i "msc" [
                                 append o-inc unspaced [file-to-local i ";"]
                             ]
                         ]
@@ -2241,7 +2244,7 @@ visual-studio: make generator-class [
                     use [d o-def][
                         o-def: make text! 1024
                         for-each d o/definitions [
-                            if d: try filter-flag d "msc" [
+                            if d: filter-flag d "msc" [
                                 append o-def unspaced [d ";"]
                             ]
                         ]
