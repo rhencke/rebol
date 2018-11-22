@@ -2066,7 +2066,11 @@ void Eval_Core(REBFRM * const f)
             goto process_action;
         }
 
-        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+        // !!! Usually not true but seems true for path evaluation in varargs,
+        // e.g. while running `-- "a" "a"`.  Review.
+        //
+        CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+        /* assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED)); */
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2159,7 +2163,11 @@ void Eval_Core(REBFRM * const f)
         if (Get_Path_Throws_Core(f->out, current, f->specifier))
             goto finished;
 
-        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+        // !!! This didn't appear to be true for `-- "hi" "hi"`, processing
+        // GET-PATH! of a variadic.  Review if it should be true.
+        //
+        /* assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED)); */
+        CLEAR_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//

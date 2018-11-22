@@ -233,7 +233,7 @@ REBNATIVE(new_line)
 //
 //  {Returns the state of the new-line marker within a block or group.}
 //
-//      position [block! group!] "Position to check marker"
+//      position [block! group! varargs!] "Position to check marker"
 //  ]
 //
 REBNATIVE(new_line_q)
@@ -241,7 +241,43 @@ REBNATIVE(new_line_q)
     INCLUDE_PARAMS_OF_NEW_LINE_Q;
 
     REBVAL *pos = ARG(position);
-    RELVAL *item = VAL_ARRAY_AT(pos);
+
+    REBARR *arr;
+    const RELVAL *item;
+
+    if (IS_VARARGS(pos)) {
+        REBFRM *f;
+        REBVAL *shared;
+        if (Is_Frame_Style_Varargs_May_Fail(&f, pos)) {
+            if (not f->source->array) {
+                //
+                // C va_args input to frame, as from the API, but not in the
+                // process of using string components which *might* have
+                // newlines.  Review edge cases, like:
+                //
+                //    REBVAL *new_line_q = rebRun(":new-line?");
+                //    bool case_one = rebDid("new-line?", "[\n]");
+                //    bool case_two = rebDid(new_line_q, "[\n]");
+                //
+                assert(f->source->index == TRASHED_INDEX);
+                return Init_Logic(D_OUT, false);
+            }
+
+            arr = f->source->array;
+            item = f->value;
+        }
+        else if (Is_Block_Style_Varargs(&shared, pos)) {
+            arr = VAL_ARRAY(shared);
+            item = VAL_ARRAY_AT(shared);
+        }
+        else
+            panic ("Bad VARARGS!");
+    }
+    else {
+        assert(IS_GROUP(pos) or IS_BLOCK(pos));
+        arr = VAL_ARRAY(pos);
+        item = VAL_ARRAY_AT(pos);
+    }
 
     if (NOT_END(item))
         return Init_Logic(
@@ -251,7 +287,7 @@ REBNATIVE(new_line_q)
 
     return Init_Logic(
         D_OUT,
-        GET_SER_FLAG(VAL_ARRAY(pos), ARRAY_FLAG_TAIL_NEWLINE)
+        GET_SER_FLAG(arr, ARRAY_FLAG_TAIL_NEWLINE)
     );
 }
 

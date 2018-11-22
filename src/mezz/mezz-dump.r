@@ -12,22 +12,19 @@ REBOL [
     }
 ]
 
-
 dump: function [
     {Show the name of a value or expressions with the value (See Also: --)}
 
     return: "Doesn't return anything, not even void (so like a COMMENT)"
         []
     :value [any-value!]
-    extra "Optional variadic data for SET-WORD!, e.g. `dump x: 1 + 2`"
-        [<opt> any-value! <...>]
+    :extra "Optional variadic data for SET-WORD!, e.g. `dump x: 1 + 2`"
+        [any-value! <...>]
     /prefix "Put a custom marker at the beginning of each output line"
     sigil [text!]
 
-    <static> enablements
+    <static> enablements (make map! [])
 ][
-    enablements: default [make map! []]
-
     print: adapt 'lib/print [
         if set? 'sigil [
             if select enablements sigil <> #on [return]
@@ -66,7 +63,7 @@ dump: function [
             issue! [
                 enablements/(sigil): item
             ]
-        ] else [
+
             fail/where [
                 "Item not TEXT!, INTEGER!, WORD!, PATH!, GROUP!:" :item
             ] 'value
@@ -96,6 +93,35 @@ dump: function [
     ]
 ]
 
+contains-newline: function [return: [logic!] pos [any-array!]] [
+    while [pos] [
+        any [
+            new-line? pos
+            any-array? :pos/1 and [contains-newline :pos/1]
+        ] then [return true]
+
+        pos: try next pos
+    ]
+    return false
+]
+
+dump-to-newline: adapt 'dump [
+    if not tail? extra [
+        ;
+        ; Mutate VARARGS! into a BLOCK!, with passed-in value at the head
+        ;
+        value: reduce [:value]
+        while [not new-line? extra and [not tail? extra]] [
+            append value extra/1
+            if any-array? :extra/1 and [contains-newline :extra/1] [
+                break
+            ]
+            take* extra
+        ]
+        extra: make varargs! [] ;-- don't allow more takes
+    ]
+]
+
 dumps: enfix function [
     {Fast generator for dumping function that uses assigned name for prefix}
 
@@ -107,7 +133,7 @@ dumps: enfix function [
         [<opt> any-value! <...>]
 ][
     if issue? value [
-        d: specialize 'dump [sigil: as text! name]
+        d: specialize 'dump-to-newline [sigil: as text! name]
         if value <> #off [d #on] ;-- note: d hard quotes its argument
     ] else [
         ; Make it easy to declare and dump a variable at the same time.
@@ -231,6 +257,36 @@ dump-obj: function [
                     newline
                 ]
             ]
+        ]
+    ]
+]
+
+; Invisible (like a comment) but takes data until end of line -or- end of
+; the input stream:
+;
+;     ** this 'is <commented> [out]
+;     print "This is not"
+;
+;     (** this 'is <commented> [out]) print "This is not"
+;
+;     ** this 'is (<commented>
+;       [out]
+;     ) print "This is not"
+;
+; Notice that if line breaks occur internal to an element on the line, that
+; is detected, and lets that element be the last commented element.
+;
+**: enfix function [
+    {Comment until end of line, or end of current BLOCK!/GROUP!}
+
+    return: []
+    left "Enfix required for 'fully invisible' enfix behavior (ignored)"
+        [<opt> <end> any-value!]
+    :args [any-value! <...>]
+][
+    while [not new-line? args and [value: take* args]] [
+        if any-array? :value and [contains-newline :value] [
+            return
         ]
     ]
 ]

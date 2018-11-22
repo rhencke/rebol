@@ -281,3 +281,8 @@
 (1 = all [1 elide <invisible>])
 (1 = any [1 elide <invisible>])
 ([1] = reduce [1 elide <invisible>])
+
+(304 = (1000 + 20 (** foo <baz> (bar)) 300 + 4))
+(304 = (1000 + 20 ** (
+    foo <baz> (bar)
+) 300 + 4))
