@@ -301,7 +301,13 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     if (GET_ACT_FLAG(phase, ACTION_FLAG_RETURN)) {
         REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
         assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
-        if (not TYPE_CHECK(typeset, VAL_TYPE(f->out))) {
+        if (
+            not TYPE_CHECK(typeset, VAL_TYPE(f->out))
+            and not (
+                GET_ACT_FLAG(phase, ACTION_FLAG_INVISIBLE)
+                and IS_NULLED(f->out) // this happens with `do [return]`
+            )
+        ){
             printf("Native code violated return type contract!\n");
             panic (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
         }

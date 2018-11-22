@@ -860,6 +860,10 @@ inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
     RESET_CELL_EXTRA((out), REB_MAX_NULLED, \
         VALUE_FLAG_FALSEY | VALUE_FLAG_UNEVALUATED)
 
+inline static bool IS_ENDISH_NULLED(const RELVAL *v) {
+    return IS_NULLED(v) and GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED);
+}
+
 // To help ensure full nulled cells don't leak to the API, the variadic
 // interface only accepts nullptr.  Any internal code with a REBVAL* that may
 // be a "nulled cell" must translate any such cells to nullptr.

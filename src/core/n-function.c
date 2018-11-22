@@ -206,6 +206,8 @@ REBNATIVE(return)
     //
     REBACT *target_fun = FRM_UNDERLYING(target_frame);
 
+    REBVAL *v = ARG(value);
+
     // Defininitional returns are "locals"--there's no argument type check.
     // So TYPESET! bits in the RETURN param are used for legal return types.
     //
@@ -213,34 +215,36 @@ REBNATIVE(return)
     assert(VAL_PARAM_CLASS(typeset) == PARAM_CLASS_RETURN);
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
-    REBVAL *value = ARG(value);
+    if (
+        GET_ACT_FLAG(target_fun, ACTION_FLAG_INVISIBLE)
+        and IS_ENDISH_NULLED(v)
+    ){
+        // The only legal way invisibles can use RETURN is with no argument.
+    }
+    else {
+        if (IS_ENDISH_NULLED(v))
+            Init_Void(v); // `do [return]` acts as `return void`
 
-    // If the <end> is reached and there is no argument, e.g. `do [return]`,
-    // interpret that as the same as if it was `return void`.  For why an
-    // unevaluated null signals this, see Init_Endish_Nulled()
-    //
-    if (IS_NULLED(value) and GET_VAL_FLAG(value, VALUE_FLAG_UNEVALUATED))
-        Init_Void(value);
-
-    // Check the type *NOW* instead of waiting and letting Eval_Core() check it.
-    // The reasoning is that this way, the error will indicate the callsite,
-    // e.g. the point where `return badly-typed-value` happened.
-    //
-    // !!! In the userspace formulation of this abstraction, it indicates that
-    // it's not RETURN's type signature that is constrained, as if it were
-    // then RETURN would be implicated in the error.  Instead, RETURN must
-    // take [<opt> any-value!] as its argument, and then do the error report
-    // itself...implicating the frame (in a way parallel to this native).
-    //
-    if (not TYPE_CHECK(typeset, VAL_TYPE(value)))
-        fail (Error_Bad_Return_Type(target_frame, VAL_TYPE(value)));
+        // Check type NOW instead of waiting and letting Eval_Core() check it.
+        // Reasoning is that this way, the error will indicate the callsite,
+        // e.g. the point where `return badly-typed-value` happened.
+        //
+        // !!! In the userspace formulation of this abstraction, it indicates
+        // it's not RETURN's type signature that is constrained, as if it were
+        // then RETURN would be implicated in the error.  Instead, RETURN must
+        // take [<opt> any-value!] as its argument, and then report the error
+        // itself...implicating the frame (in a way parallel to this native).
+        //
+        if (not TYPE_CHECK(typeset, VAL_TYPE(v)))
+            fail (Error_Bad_Return_Type(target_frame, VAL_TYPE(v)));
+    }
 
     assert(f_binding->header.bits & ARRAY_FLAG_VARLIST);
 
     Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
     INIT_BINDING_MAY_MANAGE(D_OUT, f_binding);
 
-    CONVERT_NAME_TO_THROWN(D_OUT, value);
+    CONVERT_NAME_TO_THROWN(D_OUT, v);
     return D_OUT;
 }
 
