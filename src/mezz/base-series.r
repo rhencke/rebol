@@ -216,6 +216,7 @@ trim: function [
             fail "Invalid refinements for TRIM of ANY-CONTEXT!"
         ]
         trimmed: make (type of series) collect [
+            keep []
             for-each [key val] series [
                 if something? :val [keep key]
             ]

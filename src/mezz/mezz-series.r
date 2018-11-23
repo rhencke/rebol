@@ -481,7 +481,8 @@ alter: func [
 collect-with: func [
     "Evaluate body, and return block of values collected via keep function."
 
-    return: [any-series!]
+    return: "result block, or null if no KEEPs (prevent nulls with KEEP [])"
+        [<opt> block!]
     'name [word! lit-word!]
         "Name to which keep function will be assigned (<local> if word!)"
     body [block!]
@@ -489,19 +490,22 @@ collect-with: func [
 
     <local> out keeper
 ][
-    out: make block! 16
+    ;-- Derive from APPEND to inherit /ONLY, /LINE, /DUP automatically
 
     keeper: specialize (
-        ;-- SPECIALIZE to inherit /ONLY, /LINE, /DUP from APPEND
+        ;-- SPECIALIZE in order to remove series argument
 
-        enclose 'append function [f [frame!]] [
-            ;-- ENCLOSE to alter return result
+        enclose 'append function [f [frame!] <with> out] [
+            ;-- ENCLOSE (vs. ADAPT) in order to alter return result
 
+            if not :f/value [return null] ;-- doesn't "count" as collected
+
+            f/series: out: default [make block! 16] ;-- won't return null now
             :f/value ;-- ELIDE leaves as result (F/VALUE invalid after DO F)
             elide do f
         ]
     )[
-        series: out
+        series: <replaced>
     ]
 
     either word? name [
@@ -515,7 +519,7 @@ collect-with: func [
         do body
     ]
 
-    out
+    :out
 ]
 
 
@@ -614,6 +618,7 @@ split: function [
     if tag? dlm [dlm: form dlm] ;-- reserve other strings for future meanings
 
     result: collect [
+        keep [] ;-- adds nothing, but guarantees non-null COLLECT result
         parse series <- if integer? dlm [
             size: dlm ;-- alias for readability in integer case
             if size < 1 [fail "Bad SPLIT size given:" size]

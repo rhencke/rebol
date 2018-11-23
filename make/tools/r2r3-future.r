@@ -527,3 +527,30 @@ every: chain [
         |
     :loop-resultify
 ]
+
+collect: function [
+    return: [<opt> block!]
+    body [block!]
+][
+    output: _
+    keeper: func [
+        return: [<opt> any-value!]
+        value [<opt> any-value!]
+        /only
+    ][
+        if null? :value [return null]
+        output: default [make block! 16]
+        append/(try all [only 'only]) output :value
+        :value
+    ]
+    eval func compose [keep [function!] <with> return] body :keeper
+    opt output
+]
+
+unless: enfix func [ ; https://forum.rebol.info/t/881
+    left [<opt> any-value!]
+    right [<opt> any-value!]
+][
+    if :right [:right]
+    :left
+]

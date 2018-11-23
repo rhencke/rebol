@@ -76,6 +76,7 @@ emit-proto: func [return: <void> proto] [
     ]
 
     paramlist: collect [
+        keep [] ;-- ensures result is non-null even if no params
         parse proto [
             copy returns to "RL_" "RL_" copy name to "(" skip
             ["void)" | some [ ;-- C void, or at least one parameter expected
@@ -645,7 +646,7 @@ map-each-api [
         fail ["No JavaScript return mapping for type" returns]
     ]
 
-    js-param-types: collect [
+    js-param-types: try collect [
         for-each [type var] paramlist [
             if type = "intptr_t" [ ;-- e.g. <promise>
                 keep "'number'"

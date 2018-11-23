@@ -80,7 +80,7 @@ backtrace*: function [
             ] else [
                 number: me + 1
             ]
-        ]
+        ] else [copy []]
 
         first-frame: false
 

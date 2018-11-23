@@ -183,6 +183,7 @@ dumps: enfix function [
 ;
 dump-obj: function [
     "Returns a block of information about an object or port."
+    return: [block!]
     obj [object! port!]
     /match "Include only those that match a string or datatype" pat
 ][
@@ -216,7 +217,9 @@ dump-obj: function [
     ]
 
     ; Search for matching strings:
-    collect [
+    return collect [
+        keep []
+
         wild: did all [set? 'pat | text? pat | find pat "*"]
 
         for-each [word val] obj [

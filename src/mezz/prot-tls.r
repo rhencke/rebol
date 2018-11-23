@@ -241,7 +241,7 @@ parse-asn: function [
     class: _
     tag: _
 
-    return collect [ for-next data [
+    return collect [ keep [] for-next data [
         byte: data/1
 
         switch mode [

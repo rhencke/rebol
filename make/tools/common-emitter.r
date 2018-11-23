@@ -44,7 +44,7 @@ cscape: function [
 ][
     string: trim/auto copy template
 
-    list: unique/case collect [
+    list: collect [
         parse string [(col: 0) any [
             [
                 (dlm: _)
@@ -66,11 +66,11 @@ cscape: function [
                 |
             skip (col: col + 1)
         ]]
-    ]
+    ] else [return string]
 
-    if empty? list [return string]
+    list: unique/case list
 
-    substitutions: collect [
+    substitutions: try collect [
         for-each item list [
             set [col: mode: expr: dlm:] item
 
@@ -87,22 +87,23 @@ cscape: function [
             ]
             sub: do code
 
-            if blank? sub [sub: "/* _ */"] ;-- replaced in post-phase
-
-            sub: opt switch mode [
-                #cname [
+            sub: case [
+                blank? sub ["/* _ */"] ;-- replaced in post-phase
+                mode = #cname [
                     if not all [text? sub | empty? sub] [
                         to-c-name sub
                     ]
                 ]
-                #unspaced [
+                mode = #unspaced [
                     either block? sub [unspaced sub] [form sub]
                 ]
-                #delim [
+                mode = #delim [
                     delimit sub unspaced [dlm newline]
                 ]
                 fail ["Invalid CSCAPE mode:" mode]
-            ] else [""]
+            ] or [
+                copy ""
+            ]
 
             case [
                 all [any-upper | not any-lower] [uppercase sub]
@@ -118,11 +119,13 @@ cscape: function [
             keep sub
         ]
     ]
-
-    string: reword/case/escape string substitutions ["${" "}"]
-    string: reword/case/escape string substitutions ["$<" ">"]
-    string: reword/case/escape string substitutions ["$(" ")"]
-    string: reword/case/escape string substitutions ["$[" "]"]
+    
+    if substitutions [
+        string: reword/case/escape string substitutions ["${" "}"]
+        string: reword/case/escape string substitutions ["$<" ">"]
+        string: reword/case/escape string substitutions ["$(" ")"]
+        string: reword/case/escape string substitutions ["$[" "]"]
+    ]
 
     ; BLANK! in CSCAPE tries to be "smart" about omitting the item from its
     ; surrounding context, including removing lines when blank output and

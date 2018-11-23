@@ -27,6 +27,8 @@ spec-of: function [
     ]
 
     return collect [
+        keep []
+
         keep/line ensure* text! any [
             select meta 'description
             select original-meta 'description

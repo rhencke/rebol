@@ -77,7 +77,7 @@ emit-include-params-macro: function [
     /ext ext-name
 ][
     n: 1
-    items: collect [
+    items: try collect [
         for-each item paramlist [
             if any [not any-word? item | set-word? item] [continue]
 
