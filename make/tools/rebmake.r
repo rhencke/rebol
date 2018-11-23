@@ -122,9 +122,7 @@ pkg-config: function [
             dlm: _
             opt: "--libs-only-other"
         ]
-        default [
-            fail ["Unsupported pkg-config word:" var]
-        ]
+        fail ["Unsupported pkg-config word:" var]
     ]
 
     x: run-command spaced reduce [pkg opt lib]
@@ -252,7 +250,8 @@ windows: make platform-class [
         return: [text!]
         cmd [object!]
     ][
-        ...
+        -- "Note: STRIP command not implemented for MSVC"
+        return ""
     ]
 ]
 
@@ -497,9 +496,8 @@ gcc: make compiler-class [
                     find ["s" "z" "g" 's 'z 'g] opt-level [
                         unspaced ["-O" opt-level]
                     ]
-                    default [
-                        fail ["unrecognized optimization level:" opt-level]
-                    ]
+
+                    fail ["unrecognized optimization level:" opt-level]
                 ]
             ]
             opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new
@@ -508,9 +506,8 @@ gcc: make compiler-class [
                     debug = true ["-g -g3"]
                     debug = false []
                     integer? debug [unspaced ["-g" debug]]
-                    default [
-                        fail ["unrecognized debug option:" debug]
-                    ]
+
+                    fail ["unrecognized debug option:" debug]
                 ]
             ]
             if all [F block? cflags][
@@ -572,9 +569,8 @@ tcc: make compiler-class [
                     opt-level = true ["-O2"]
                     opt-level = false ["-O0"]
                     integer? opt-level [unspaced ["-O" opt-level]]
-                    default [
-                        fail ["unknown optimization level" opt-level]
-                    ]
+
+                    fail ["unknown optimization level" opt-level]
                 ]
             ]
             opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new
@@ -583,9 +579,8 @@ tcc: make compiler-class [
                     debug = true ["-g"]
                     debug = false []
                     integer? debug [unspaced ["-g" debug]]
-                    default [
-                        fail ["unrecognized debug option:" debug]
-                    ]
+
+                    fail ["unrecognized debug option:" debug]
                 ]
             ]
             if all [F block? cflags][
@@ -669,9 +664,7 @@ cl: make compiler-class [
                     ]
                     debug = false []
                     
-                    default [
-                        fail ["unrecognized debug option:" debug]
-                    ]
+                    fail ["unrecognized debug option:" debug]
                 ]
             ]
             if all [F block? cflags][
@@ -1237,9 +1230,8 @@ generator-class: make object! [
             'cmd-strip-class [
                 apply any [:gen-cmd-strip :target-platform/gen-cmd-strip] compose [cmd: (cmd)]
             ]
-            default [
-                fail ["Unknown cmd class:" cmd/class-name]
-            ]
+
+            fail ["Unknown cmd class:" cmd/class-name]
         ]
     ]
 
@@ -1353,9 +1345,8 @@ generator-class: make object! [
                     'object-library-class [
                         project/output: to text! project/name
                     ]
-                    default [
-                        fail ["Unexpected project class:" (project/class-name)]
-                    ]
+
+                    fail ["Unexpected project class:" (project/class-name)]
                 ]
                 if output-ext: find/last project/output #"." [
                     remove output-ext
@@ -1512,9 +1503,7 @@ makefile: make generator-class [
                 ]
             ]
 
-            default [
-                fail ["Unrecognized entry class:" entry/class-name]
-            ]
+            fail ["Unrecognized entry class:" entry/class-name]
         ]
     ]
 
@@ -1946,9 +1935,8 @@ visual-studio: make generator-class [
             1 ["MinSpace"]
             2 ["MaxSpeed"]
             'x ["Full"]
-            default [
-                fail ["Unrecognized optimization level:" (optimization)]
-            ]
+
+            fail ["Unrecognized optimization level:" (optimization)]
         ]
     ]
 
@@ -2091,9 +2079,7 @@ visual-studio: make generator-class [
       'dynamic-library-class ["DynamicLibrary"]
       'application-class ["Application"]
       'entry-class ["Utility"]
-      default [
-          fail ["Unsupported project class:" (project/class-name)]
-      ]
+      fail ["Unsupported project class:" (project/class-name)]
 ] {</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>Unicode</CharacterSet>

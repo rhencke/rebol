@@ -749,9 +749,8 @@ comment [
             code: load/header/type main 'unbound
             true
         ]
-        default [
-            die "Bad embedded boot data (not a BLOCK! or a BINARY!)"
-        ]
+
+        die "Bad embedded boot data (not a BLOCK! or a BINARY!)"
     ] and [
         ;boot-print ["executing embedded script:" mold code]
         system/script: construct system/standard/script [

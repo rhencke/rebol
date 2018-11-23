@@ -56,9 +56,8 @@ options: [
                     ][
                         lib
                     ]
-                    default [
-                        fail ["Libraries can only be file! or static/dynamic library object, not" lib]
-                    ]
+
+                    fail ["Libraries can only be file! or static/dynamic library object, not" lib]
                 ]
             ]
         ][
@@ -90,11 +89,9 @@ options: [
                     ;pass
                 ]
 
-                default [
-                    fail [
-                        "WITH-FFI should be one of [dynamic static no]"
-                        "not" (user-config/with-ffi)
-                    ]
+                fail [
+                    "WITH-FFI should be one of [dynamic static no]"
+                    "not" (user-config/with-ffi)
                 ]
             ]
         ]

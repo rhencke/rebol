@@ -554,3 +554,5 @@ unless: enfix func [ ; https://forum.rebol.info/t/881
     if :right [:right]
     :left
 ]
+
+--: :dump

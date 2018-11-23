@@ -88,7 +88,7 @@ cscape: function [
             sub: do code
 
             sub: case [
-                blank? sub ["/* _ */"] ;-- replaced in post-phase
+                blank? sub [copy "/* _ */"] ;-- replaced in post-phase
                 mode = #cname [
                     if not all [text? sub | empty? sub] [
                         to-c-name sub
@@ -184,9 +184,9 @@ make-emitter: function [
 
     temporary: did any [temporary | parse stem ["tmp-" to end]]
 
-    is-c: did parse stem [[thru ".c" | thru ".h" | thru ".inc"] end]
+    is-c: did parse stem [thru [".c" | ".h" | ".inc"]]
 
-    is-js: did parse stem [thru ".js" end]
+    is-js: did parse stem [thru ".js"]
 
     e: make object! compose [
         ;
@@ -206,6 +206,7 @@ make-emitter: function [
             return: <void>
             :look [any-value! <...>]
             data [text! char! <...>]
+            <with> buf-emit
         ][
             context: _
             firstlook: first look
@@ -228,10 +229,10 @@ make-emitter: function [
             ]
         ]
 
-
         write-emitted: function [
             return: <void>
             /tabbed
+            <with> filename buf-emit
         ][
             if newline != last buf-emit [
                 probe skip (tail-of buf-emit) -100
@@ -253,12 +254,12 @@ make-emitter: function [
 
             ; For clarity/simplicity, emitters are not reused.
             ;
-            unset 'filename
-            unset 'buf-emit
+            filename: null
+            buf-emit: null
         ]
     ]
 
-    either any [is-c is-js] [
+    if (is-c or [is-js]) [
         e/emit 'return {
             /**********************************************************************
             **
@@ -289,7 +290,8 @@ make-emitter: function [
             ***********************************************************************/
         }
         e/emit newline
-    ][
+    ]
+    else [
         e/emit mold/only compose/deep [
             REBOL [
                 System: "REBOL [R3] Language Interpreter and Run-time Environment"
@@ -304,10 +306,8 @@ make-emitter: function [
                     Licensed under the Apache License, Version 2.0.
                     See: http://www.apache.org/licenses/LICENSE-2.0
                 }
-                (either temporary [
-                    compose [Note: {AUTO-GENERATED FILE - Do not modify.}]
-                ][
-                    []
+                (if temporary [
+                    [Note: {AUTO-GENERATED FILE - Do not modify.}]
                 ])
             ]
         ]

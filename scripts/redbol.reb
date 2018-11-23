@@ -830,7 +830,7 @@ foreach: emulate [
             position: data
             while-not [tail? position] compose [
                 (collect [
-                    every item vars [
+                    for-each item vars [
                         case [
                             set-word? item [
                                 keep compose [(item) position]
@@ -841,7 +841,6 @@ foreach: emulate [
                                     position: next position
                                 ]
                             ]
-                        ] else [
                             fail "non SET-WORD?/WORD? in FOREACH vars"
                         ]
                     ]
@@ -922,7 +921,7 @@ cloaker: helper [function [ ;-- specialized as CLOAK and DECLOAK
         integer! [key: to binary! to string! key] ;-- UTF-8 string conversion
         text! [key: to binary! key] ;-- UTF-8 encoding of string
         binary! []
-        default [fail]
+        fail
     ]
 
     klen: length of key

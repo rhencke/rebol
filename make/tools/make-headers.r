@@ -85,9 +85,7 @@ emit-proto: func [
         ; checked for the word NATIVE it would also have to look for paths
         ; like NATIVE/BODY
 
-        default [
-            fail "%make-headers.r only understands C functions"
-        ]
+        fail "%make-headers.r only understands C functions"
     ]
 
     if find prototypes proto [

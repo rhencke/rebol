@@ -37,7 +37,7 @@ for-each ext extensions [
 ]
 e/emit newline
 
-cfuncs: collect [
+cfuncs: try collect [
     for-each ext extensions [
         keep cscape/with {cast(CFUNC*, RX_INIT_NAME(${Ext}))} 'ext
         keep cscape/with {cast(CFUNC*, RX_QUIT_NAME(${Ext}))} 'ext

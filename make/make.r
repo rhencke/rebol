@@ -557,9 +557,7 @@ switch rebmake/default-compiler/name [
         ]
     ]
 
-    default [
-        fail ["Unrecognized compiler (gcc, clang or cl):" cc]
-    ]
+    fail ["Unrecognized compiler (gcc, clang or cl):" cc]
 ]
 
 all [set? 'cc-exec | cc-exec] then [
@@ -641,9 +639,7 @@ switch user-config/debug [
         append app-config/definitions ["INCLUDE_CALLGRIND_NATIVE"]
     ]
 
-    default [
-        fail ["unrecognized debug setting:" user-config/debug]
-    ]
+    fail ["unrecognized debug setting:" user-config/debug]
 ]
 
 switch user-config/optimize [
@@ -725,12 +721,10 @@ append app-config/cflags opt switch user-config/standard [
         ]
     ]
 
-    default [
-        fail [
-            "STANDARD should be one of"
-            "[c gnu89 gnu99 c99 c11 c++ c++11 c++14 c++17 c++latest]"
-            "not" (user-config/standard)
-        ]
+    fail [
+        "STANDARD should be one of"
+        "[c gnu89 gnu99 c99 c11 c++ c++11 c++14 c++17 c++latest]"
+        "not" (user-config/standard)
     ]
 ]
 
@@ -750,9 +744,7 @@ append app-config/definitions opt switch user-config/pre-vista [
         _
     ]
 
-    default [
-        fail ["PRE-VISTA [yes no \logic!\] not" (user-config/pre-vista)]
-    ]
+    fail ["PRE-VISTA [yes no \logic!\] not" (user-config/pre-vista)]
 ]
 
 cfg-rigorous: false
@@ -973,9 +965,7 @@ append app-config/cflags opt switch user-config/rigorous [
         _
     ]
 
-    default [
-        fail ["RIGOROUS [yes no \logic!\] not" (user-config/rigorous)]
-    ]
+    fail ["RIGOROUS [yes no \logic!\] not" (user-config/rigorous)]
 ]
 
 append app-config/ldflags opt switch user-config/static [
@@ -991,9 +981,7 @@ append app-config/ldflags opt switch user-config/static [
         ]
     ]
 
-    default [
-        fail ["STATIC must be yes, no or logic! not" (user-config/static)]
-    ]
+    fail ["STATIC must be yes, no or logic! not" (user-config/static)]
 ]
 
 ;TCC
@@ -1048,11 +1036,10 @@ case [
     find [no off false #[false] _] user-config/with-tcc [
         ;pass
     ]
-    default [
-        fail [
-            "WITH-TCC must be yes or no]"
-            "not" (user-config/with-tcc)
-        ]
+
+    fail [
+        "WITH-TCC must be yes or no]"
+        "not" (user-config/with-tcc)
     ]
 ]
 
@@ -1258,9 +1245,7 @@ for-each name user-config/extensions [
             ]
         ]
 
-        default [
-            fail ["Unrecognized extension action:" mold action]
-        ]
+        fail ["Unrecognized extension action:" mold action]
     ]
 ]
 
@@ -1544,9 +1529,7 @@ prep: make rebmake/entry-class [
                             block? mod/source [
                                 first find mod/source file!
                             ]
-                            default [
-                                fail "mod/source must be BLOCK! or FILE!"
-                            ]
+                            fail "mod/source must be BLOCK! or FILE!"
                         ]]
                         unspaced [{OS_ID=} system-config/id]
                     ]
