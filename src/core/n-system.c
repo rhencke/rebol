@@ -82,7 +82,7 @@ REBNATIVE(quit)
         CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
     }
 
-    return D_OUT;
+    return R_THROWN;
 }
 
 

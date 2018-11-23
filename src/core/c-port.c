@@ -440,7 +440,7 @@ const REBVAL *Do_Port_Action(REBFRM *frame_, REBVAL *port, REBVAL *verb)
     // it's some other kind of handle value this could crash.
     //
     if (Is_Native_Port_Actor(actor)) {
-        r = cast(REBPAF, VAL_HANDLE_CFUNC(actor))(frame_, port, verb);
+        r = cast(PORT_HOOK, VAL_HANDLE_CFUNC(actor))(frame_, port, verb);
         goto post_process_output;
     }
 
@@ -461,7 +461,7 @@ const REBVAL *Do_Port_Action(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         fail (Error_No_Port_Action_Raw(verb));
 
     if (Redo_Action_Throws(frame_, VAL_ACTION(action)))
-        return D_OUT;
+        return R_THROWN;
 
     r = D_OUT; // result should be in frame_->out
 
@@ -560,13 +560,13 @@ void Secure_Port(
 // various "action" verbs.
 //
 // In Ren-C, this distinction is taken care of such that when the actor is
-// a HANDLE!, it is assumed to be a pointer to a "REBPAF".  But since the
+// a HANDLE!, it is assumed to be a pointer to a "PORT_HOOK".  But since the
 // registration is done in user code, these handles have to be exposed to
 // that code.  In order to make this more distributed, each port action
 // function is exposed through a native that returns it.  This is the shared
-// routine used to make a handle out of a REBPAF.
+// routine used to make a handle out of a PORT_HOOK.
 //
-void Make_Port_Actor_Handle(REBVAL *out, REBPAF paf)
+void Make_Port_Actor_Handle(REBVAL *out, PORT_HOOK paf)
 {
     Init_Handle_Cfunc(out, cast(CFUNC*, paf), 0);
 }

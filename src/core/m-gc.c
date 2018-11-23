@@ -876,7 +876,7 @@ static void Propagate_All_GC_Marks(void)
             //
             // Voids are illegal in most arrays, but the varlist of a context
             // uses void values to denote that the variable is not set.  Also
-            // reified C va_lists as Eval_Core() sources can have them.
+            // reified C va_lists as Eval_Core_Throws() sources can have them.
             //
             if (
                 not IS_BLANK_RAW(v)
@@ -998,7 +998,7 @@ static void Mark_Root_Series(void)
                 else // note that Mark_Frame_Stack_Deep() will mark the owner
                     s->header.bits |= NODE_FLAG_MARKED;
 
-                // Note: Eval_Core() might target API cells, uses END
+                // Note: Eval_Core_Throws() might target API cells, uses END
                 //
                 Queue_Mark_Opt_End_Cell_Deep(ARR_SINGLE(ARR(s)));
                 continue;
@@ -1322,8 +1322,8 @@ static void Mark_Frame_Stack_Deep(void)
                 continue;
             }
 
-            // Filling in a deferred argument may mean Eval_Core() has to
-            // write END markers into a cell that's behind the current param,
+            // Filling in a deferred argument may mean Eval_Core_Throws() has
+            // to put END markers into a cell that's behind the current param,
             // so that's a case where an END might be seen.
             //
             assert(NOT_END(arg) or arg == f->u.defer.arg);

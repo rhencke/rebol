@@ -26,7 +26,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The primary routine that performs DO and EVALUATE is called Eval_Core().
+// The primary routine that performs DO and EVALUATE is Eval_Core_Throws().
 // It takes one parameter which holds the running state of the evaluator.
 // This state may be allocated on the C variable stack...and fail() is
 // written such that a longjmp up to a failure handler above it can run
@@ -95,8 +95,8 @@ inline static bool IS_QUOTABLY_SOFT(const RELVAL *v) {
 
 inline static void Push_Frame_Core(REBFRM *f)
 {
-    // All calls to a Eval_Core() are assumed to happen at the same C stack
-    // level for a pushed frame (though this is not currently enforced).
+    // All calls to a Eval_Core_Throws() are assumed to happen at the same C
+    // stack level for a pushed frame (though this is not currently enforced).
     // Hence it's sufficient to check for C stack overflow only once, e.g.
     // not on each Eval_Step_Throws() for `reduce [a | b | ... | z]`.
     //
@@ -252,7 +252,7 @@ inline static void Push_Frame_At(
 ){
     f->flags = Endlike_Header(flags);
 
-    f->gotten = nullptr; // Eval_Core() must fetch for REB_WORD, etc.
+    f->gotten = nullptr; // Eval_Core_Throws() must fetch for REB_WORD, etc.
     SET_FRAME_VALUE(f, ARR_AT(array, index));
 
     f->source->vaptr = nullptr;
@@ -313,7 +313,7 @@ inline static void Set_Frame_Detected_Fetch(
 
     if (opt_lookback) {
         //
-        // Eval_Core() is interested in the old f->value, but we're going to
+        // Eval_Core_Throws() is wants the old f->value, but we're going to
         // free it.  It has to be kept alive -and- kept safe from GC.  e.g.
         //
         //     REBVAL *word = rebRun("make word! {hello}");
@@ -680,7 +680,7 @@ inline static void Drop_Frame_Core(REBFRM *f) {
 inline static void Drop_Frame_Unbalanced(REBFRM *f) {
   #if defined(DEBUG_BALANCE_STATE)
     //
-    // To keep from slowing down the debug build too much, Eval_Core() doesn't
+    // To avoid slowing down the debug build a lot, Eval_Core_Throws() doesn't
     // check this every cycle, just on drop.  But if it's hard to find which
     // exact cycle caused the problem, see BALANCE_CHECK_EVERY_EVALUATION_STEP
     //
@@ -701,7 +701,7 @@ inline static void Drop_Frame(REBFRM *f)
 }
 
 
-// This is a very light wrapper over Eval_Core(), which is used with
+// This is a very light wrapper over Eval_Core_Throws(), which is used with
 // Push_Frame_At() for operations like ANY or REDUCE that wish to perform
 // several successive operations on an array, without creating a new frame
 // each time.
@@ -717,7 +717,7 @@ inline static bool Eval_Step_Throws(
 
     f->out = out;
     f->dsp_orig = DSP;
-    (*PG_Eval)(f); // should already be pushed
+    bool threw = (*PG_Eval_Throws)(f); // should already be pushed
 
     // The & on the following line is purposeful.  See Init_Endlike_Header.
     // DO_FLAG_NO_LOOKAHEAD may be set by an operation like ELIDE.
@@ -727,7 +727,7 @@ inline static bool Eval_Step_Throws(
     //
     (&f->flags)->bits = prior_flags | (f->flags.bits & DO_FLAG_BARRIER_HIT);
 
-    return THROWN(out);
+    return threw;
 }
 
 
@@ -748,7 +748,7 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
 
     f->out = out;
     f->dsp_orig = DSP;
-    (*PG_Eval)(f); // should already be pushed
+    bool threw = (*PG_Eval_Throws)(f); // should already be pushed
 
     // The & on the following line is purposeful.  See Init_Endlike_Header.
     // DO_FLAG_NO_LOOKAHEAD may be set by an operation like ELIDE.
@@ -758,11 +758,11 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
     //
     (&f->flags)->bits = prior_flags | (f->flags.bits & DO_FLAG_BARRIER_HIT);
 
-    return THROWN(out);
+    return threw;
 }
 
 
-// Slightly heavier wrapper over Eval_Core() than Eval_Step_In_Frame_Throws().
+// Bit heavier wrapper of Eval_Core_Throws() than Eval_Step_In_Frame_Throws().
 // It also reuses the frame...but has to clear and restore the frame's
 // flags.  It is currently used only by SET-WORD! and SET-PATH!.
 //
@@ -777,10 +777,10 @@ inline static bool Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
     REBFLGS prior_flags = f->flags.bits;
     f->flags = Endlike_Header(flags);
 
-    (*PG_Eval)(f); // should already be pushed
+    bool threw = (*PG_Eval_Throws)(f); // should already be pushed
 
     f->flags.bits = prior_flags; // e.g. restore DO_FLAG_TO_END    
-    return THROWN(f->out);
+    return threw;
 }
 
 
@@ -797,7 +797,7 @@ inline static bool Eval_Step_Mid_Frame_Throws(REBFRM *f, REBFLGS flags) {
 // slot as `1` unless you are sure there's no `+` or other enfixed operation.
 // Over time as the evaluator got more complicated, the redundant work and
 // conditional code paths showed a slight *slowdown* over just having an
-// inline straight-line function that built a frame and recursed Eval_Core().
+// inline function that built a frame and recursed Eval_Core_Throws().
 //
 // Future investigation could attack the problem again and see if there is
 // any common case that actually offered an advantage to optimize for here.
@@ -838,7 +838,7 @@ inline static bool Eval_Step_In_Subframe_Throws(
     //
     Push_Frame_Core(child);
     Reuse_Varlist_If_Available(child);
-    (*PG_Eval)(child);
+    (*PG_Eval_Throws)(child);
     Drop_Frame(child);
 
     assert(
@@ -898,10 +898,10 @@ inline static REBIXO Eval_Array_At_Core(
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
-    (*PG_Eval)(f);
+    bool threw = (*PG_Eval_Throws)(f);
     Drop_Frame(f);
 
-    if (THROWN(f->out))
+    if (threw)
         return THROWN_FLAG;
 
     assert(
@@ -1054,10 +1054,10 @@ inline static REBIXO Eval_Va_Core(
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
-    (*PG_Eval)(f);
+    bool threw = (*PG_Eval_Throws)(f);
     Drop_Frame(f); // will va_end() if not reified during evaluation
 
-    if (THROWN(f->out))
+    if (threw)
         return THROWN_FLAG;
 
     if (

@@ -34,23 +34,76 @@
 // stack, and can be viewed as a context using a FRAME!.
 //
 
-#define R_IMMEDIATE \
-    cast(const REBVAL*, &PG_R_Immediate)
 
+//=//// PSEUDOTYPES FOR RETURN VALUES /////////////////////////////////////=//
+//
+// An arbitrary cell pointer may be returned from a native--in which case it
+// will be checked to see if it is thrown and processed if it is, or checked
+// to see if it's an unmanaged API handle and released if it is...ultimately
+// putting the cell into f->out.
+//
+// However, pseudotypes can be used to indicate special instructions to the
+// evaluator.
+//
+
+// This signals that the evaluator is in a "thrown state".
+//
+#define R_THROWN \
+    cast(const REBVAL*, &PG_R_Thrown)
+
+// See ACTION_FLAG_INVISIBLE...this is what any function with that flag needs
+// to return.
+//
+// It is also used by path dispatch when it has taken performing a SET-PATH!
+// into its own hands, but doesn't want to bother saying to move the value
+// into the output slot...instead leaving that to the evaluator (as a
+// SET-PATH! should always evaluate to what was just set)
+//
 #define R_INVISIBLE \
     cast(const REBVAL*, &PG_R_Invisible)
 
+// If Eval_Core gets back an REB_R_REDO from a dispatcher, it will re-execute
+// the f->phase in the frame.  This function may be changed by the dispatcher
+// from what was originally called.
+//
+// If VALUE_FLAG_FALSEY is not set on the cell, then the types will be checked
+// again.  Note it is not safe to let arbitrary user code change values in a
+// frame from expected types, and then let those reach an underlying native
+// who thought the types had been checked.
+//
 #define R_REDO_UNCHECKED \
     cast(const REBVAL*, &PG_R_Redo_Unchecked)
 
 #define R_REDO_CHECKED \
     cast(const REBVAL*, &PG_R_Redo_Checked)
 
+
+// Path dispatch used to have a return value PE_SET_IF_END which meant that
+// the dispatcher itself should realize whether it was doing a path get or
+// set, and if it were doing a set then to write the value to set into the
+// target cell.  That means it had to keep track of a pointer to a cell vs.
+// putting the bits of the cell into the output.  This is now done with a
+// special REB_R_REFERENCE type which holds in its payload a RELVAL and a
+// specifier, which is enough to be able to do either a read or a write,
+// depending on the need.
+//
+// !!! See notes in %c-path.c of why the R3-Alpha path dispatch is hairier
+// than that.  It hasn't been addressed much in Ren-C yet, but needs a more
+// generalized design.
+//
 #define R_REFERENCE \
     cast(const REBVAL*, &PG_R_Reference)
 
+// This is used in path dispatch, signifying that a SET-PATH! assignment
+// resulted in the updating of an immediate expression in pvs->out, meaning
+// it will have to be copied back into whatever reference cell it had been in.
+//
+#define R_IMMEDIATE \
+    cast(const REBVAL*, &PG_R_Immediate)
+
 #define R_UNHANDLED \
     END_NODE
+
 
 inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     assert(GET_SER_FLAG(&a->paramlist, ARRAY_FLAG_PARAMLIST));

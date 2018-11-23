@@ -271,7 +271,7 @@ REBNATIVE(use)
     );
 
     if (Do_Any_Array_At_Throws(D_OUT, ARG(body)))
-        return D_OUT;
+        return R_THROWN;
 
     return D_OUT;
 }

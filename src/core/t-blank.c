@@ -43,10 +43,10 @@ REBINT CT_Unit(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Unit: C
 //
-// !!! MAKE is disallowed, with the general rule that a blank in will give
+// MAKE is disallowed, with the general rule that a blank in will give
 // a null out... for e.g. `make object! try select data spec else [...]`
 //
-void MAKE_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     UNUSED(out);
     fail (Error_Bad_Make(kind, arg));
 }
@@ -55,13 +55,11 @@ void MAKE_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 //
 //  TO_Unit: C
 //
-// While `to blank! "abc"` producing `_` is not particularly useful when
-// written out literally, it may be helpful if the type you're converting to
-// is stored in a variable, as a way of opting out of the conversion.
+// TO is disallowed, e.g. you can't TO convert an integer of 0 to a blank.
 //
-void TO_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *data) {
-    UNUSED(data);
-    RESET_CELL(out, kind);
+REB_R TO_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *data) {
+    UNUSED(out);
+    fail (Error_Bad_Make(kind, data));
 }
 
 

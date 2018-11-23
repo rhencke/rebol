@@ -90,8 +90,8 @@ bool Next_Path_Throws(REBPVS *pvs)
     if (IS_NULLED(pvs->out))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
-    REBPEF dispatcher = Path_Dispatch[VAL_TYPE(pvs->out)];
-    assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
+    PATH_HOOK hook = Path_Hooks[VAL_TYPE(pvs->out)];
+    assert(hook != nullptr); // &PD_Fail is used instead of NULL
 
     if (IS_GET_WORD(pvs->value)) { // e.g. object/:field
         Move_Opt_Var_May_Fail(PVS_PICKER(pvs), pvs->value, pvs->specifier);
@@ -125,7 +125,7 @@ bool Next_Path_Throws(REBPVS *pvs)
     Fetch_Next_In_Frame(nullptr, pvs); // may be at end
 
     if (IS_END(pvs->value) and PVS_IS_SET_PATH(pvs)) {
-        const REBVAL *r = dispatcher(
+        const REBVAL *r = hook(
             pvs,
             PVS_PICKER(pvs),
             PVS_OPT_SETVAL(pvs)
@@ -136,6 +136,9 @@ bool Next_Path_Throws(REBPVS *pvs)
         case REB_0_END: // unhandled
             assert(r == R_UNHANDLED); // shouldn't be other ends
             fail (Error_Bad_Path_Poke_Raw(PVS_PICKER(pvs)));
+
+        case REB_R_THROWN:
+            panic ("Path dispatch isn't allowed to throw, only GROUP!s");
 
         case REB_R_INVISIBLE: // dispatcher assigned target with opt_setval
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED)
@@ -189,7 +192,7 @@ bool Next_Path_Throws(REBPVS *pvs)
     else {
         pvs->u.ref.cell = nullptr; // clear status of the reference
 
-        const REBVAL *r = dispatcher(
+        const REBVAL *r = hook(
             pvs,
             PVS_PICKER(pvs),
             nullptr // no opt_setval, GET-PATH! or a SET-PATH! not at the end
@@ -201,22 +204,27 @@ bool Next_Path_Throws(REBPVS *pvs)
         }
 
         if (r == pvs->out) {
-            if (THROWN(pvs->out))
-                assert(!"Path dispatch isn't allowed to throw, only GROUP!s");
+            assert(not THROWN(pvs->out));
         }
         else if (not r) {
             Init_Nulled(pvs->out);
+        }
+        else if (VAL_TYPE_RAW(r) <= REB_MAX_NULLED) {
+            Handle_Api_Dispatcher_Result(pvs, r);
         }
         else switch (VAL_TYPE_RAW(r)) {
 
         case REB_0_END:
             fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
 
+        case REB_R_THROWN:
+            panic ("Path dispatch isn't allowed to throw, only GROUP!s");
+
         case REB_R_INVISIBLE:
             assert(PVS_IS_SET_PATH(pvs));
             if (
-                dispatcher != Path_Dispatch[REB_STRUCT]
-                and dispatcher != Path_Dispatch[REB_GOB]
+                hook != Path_Hooks[REB_STRUCT]
+                and hook != Path_Hooks[REB_GOB]
             ){
                 panic("SET-PATH! evaluation ran assignment before path end");
             }
@@ -244,8 +252,7 @@ bool Next_Path_Throws(REBPVS *pvs)
             break;
 
         default:
-            assert(not THROWN(r));
-            Move_Value(pvs->out, r);
+            panic ("REB_R value not supported for path dispatch");
         }
     }
 
@@ -414,8 +421,6 @@ bool Eval_Path_Throws_Core(
         // If SET then we don't return anything
         goto return_not_thrown;
     }
-
-    assert(!THROWN(out));
 
     if (dsp_orig != DSP) {
         //
@@ -604,10 +609,10 @@ REBNATIVE(pick)
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
     pvs->special = NULL;
 
-    REBPEF dispatcher = Path_Dispatch[VAL_TYPE(location)];
-    assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
+    PATH_HOOK hook = Path_Hooks[VAL_TYPE(location)];
+    assert(hook != nullptr); // &PD_Fail is used instead of null
 
-    const REBVAL *r = dispatcher(pvs, PVS_PICKER(pvs), NULL);
+    const REBVAL *r = hook(pvs, PVS_PICKER(pvs), NULL);
     if (not r)
         return r;
 
@@ -685,10 +690,10 @@ REBNATIVE(poke)
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
     pvs->special = ARG(value);
 
-    REBPEF dispatcher = Path_Dispatch[VAL_TYPE(location)];
-    assert(dispatcher != NULL); // &PD_Fail is used instead of NULL
+    PATH_HOOK hook = Path_Hooks[VAL_TYPE(location)];
+    assert(hook != NULL); // &PD_Fail is used instead of NULL
 
-    const REBVAL *r = dispatcher(pvs, PVS_PICKER(pvs), ARG(value));
+    const REBVAL *r = hook(pvs, PVS_PICKER(pvs), ARG(value));
     switch (VAL_TYPE_RAW(r)) {
     case REB_0_END:
         assert(r == R_UNHANDLED);

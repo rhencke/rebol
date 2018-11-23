@@ -88,7 +88,7 @@ void Copy_Image_Value(REBVAL *out, const REBVAL *arg, REBINT len)
 //
 //  MAKE_Image: C
 //
-void MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     if (IS_IMAGE(arg)) {
         //
@@ -191,7 +191,7 @@ void MAKE_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     else
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
 
-    return;
+    return out;
 
 bad_make:
     fail (Error_Bad_Make(kind, arg));
@@ -201,7 +201,7 @@ bad_make:
 //
 //  TO_Image: C
 //
-void TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_IMAGE);
     UNUSED(kind);
@@ -239,6 +239,8 @@ void TO_Image(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     }
     else
         fail (Error_Invalid_Type(VAL_TYPE(arg)));
+
+    return out;
 }
 
 

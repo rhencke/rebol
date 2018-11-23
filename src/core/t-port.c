@@ -47,7 +47,7 @@ REBINT CT_Port(const RELVAL *a, const RELVAL *b, REBINT mode)
 // Create a new port. This is done by calling the MAKE_PORT
 // function stored in the system/intrinsic object.
 //
-void MAKE_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_PORT);
     UNUSED(kind);
@@ -64,13 +64,15 @@ void MAKE_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     // !!! Shouldn't this be testing for !IS_PORT( ) ?
     if (IS_BLANK(out))
         fail (Error_Invalid_Spec_Raw(arg));
+
+    return out;
 }
 
 
 //
 //  TO_Port: C
 //
-void TO_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_PORT);
     UNUSED(kind);
@@ -85,7 +87,8 @@ void TO_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     //
     REBCTX *context = Copy_Context_Shallow_Managed(VAL_CONTEXT(arg));
     RESET_VAL_HEADER(CTX_ARCHETYPE(context), REB_PORT);
-    Init_Port(out, context);
+
+    return Init_Port(out, context);
 }
 
 
@@ -169,8 +172,10 @@ REBTYPE(Port)
             // are going to read the D_ARG(1) slot *implicitly* regardless of
             // what value points to.
             //
-            MAKE_Port(D_OUT, REB_PORT, D_ARG(1));
-            Move_Value(D_ARG(1), D_OUT);
+            const REBVAL *made = rebRun("make port!", D_ARG(1), rebEND);
+            assert(IS_PORT(made));
+            Move_Value(D_ARG(1), made);
+            rebRelease(made);
             break; }
 
         case SYM_ON_WAKE_UP:

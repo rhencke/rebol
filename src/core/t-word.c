@@ -71,7 +71,7 @@ REBINT CT_Word(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Word: C
 //
-void MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     if (ANY_WORD(arg)) {
         //
@@ -80,7 +80,7 @@ void MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         //
         Move_Value(out, arg);
         CHANGE_VAL_TYPE_BITS(out, kind);
-        return;
+        return out;
     }
 
     if (ANY_STRING(arg)) {
@@ -94,35 +94,37 @@ void MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         else {
             if (NULL == Scan_Any_Word(out, kind, bp, size))
                 fail (Error_Bad_Char_Raw(arg));
-            }
+        }
+        return out;
     }
     else if (IS_CHAR(arg)) {
         REBYTE buf[8];
         REBCNT len = Encode_UTF8_Char(&buf[0], VAL_CHAR(arg));
         if (NULL == Scan_Any_Word(out, kind, &buf[0], len))
             fail (Error_Bad_Char_Raw(arg));
+        return out;
     }
     else if (IS_DATATYPE(arg)) {
-        Init_Any_Word(out, kind, Canon(VAL_TYPE_SYM(arg)));
+        return Init_Any_Word(out, kind, Canon(VAL_TYPE_SYM(arg)));
     }
     else if (IS_LOGIC(arg)) {
-        Init_Any_Word(
+        return Init_Any_Word(
             out,
             kind,
             VAL_LOGIC(arg) ? Canon(SYM_TRUE) : Canon(SYM_FALSE)
         );
     }
-    else
-        fail (Error_Unexpected_Type(REB_WORD, VAL_TYPE(arg)));
+
+    fail (Error_Unexpected_Type(REB_WORD, VAL_TYPE(arg)));
 }
 
 
 //
 //  TO_Word: C
 //
-void TO_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Word(out, kind, arg);
+    return MAKE_Word(out, kind, arg);
 }
 
 

@@ -466,7 +466,7 @@ REBNATIVE(wait)
             ARG(value),
             REDUCE_MASK_NONE
         )){
-            return D_OUT;
+            return R_THROWN;
         }
 
         // !!! This takes the stack array and creates an unmanaged array from
@@ -524,7 +524,7 @@ REBNATIVE(wait)
 
     // Process port events [stack-move]:
     if (Wait_Ports_Throws(D_OUT, ports, timeout, REF(only)))
-        return D_OUT;
+        return R_THROWN;
 
     assert(IS_LOGIC(D_OUT));
 

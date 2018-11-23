@@ -360,27 +360,27 @@ static REBVAL *Get_Event_Var(RELVAL *out, const RELVAL *v, REBSTR *name)
 //
 //  MAKE_Event: C
 //
-void MAKE_Event(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Event(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     assert(kind == REB_EVENT);
     UNUSED(kind);
 
-    if (IS_BLOCK(arg)) {
-        RESET_CELL(out, REB_EVENT);
-        Set_Event_Vars(
-            out,
-            VAL_ARRAY_AT(arg),
-            VAL_SPECIFIER(arg)
-        );
-    }
-    else
+    if (not IS_BLOCK(arg))
         fail (Error_Unexpected_Type(REB_EVENT, VAL_TYPE(arg)));
+
+    RESET_CELL(out, REB_EVENT);
+    Set_Event_Vars(
+        out,
+        VAL_ARRAY_AT(arg),
+        VAL_SPECIFIER(arg)
+    );
+    return out;
 }
 
 
 //
 //  TO_Event: C
 //
-void TO_Event(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Event(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_EVENT);
     UNUSED(kind);

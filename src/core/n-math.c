@@ -469,8 +469,6 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
 {
     REBCNT ta = VAL_TYPE(a);
     REBCNT tb = VAL_TYPE(b);
-    REBCTF code;
-    REBINT result;
 
     if (ta != tb) {
         if (strictness == 1) return 0;
@@ -541,13 +539,19 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
         fail (Error_Invalid_Compare_Raw(Type_Of(a), Type_Of(b)));
     }
 
-    if (ta == REB_MAX_NULLED) return 1; // voids always equal
+    if (ta == REB_MAX_NULLED)
+        return 1; // nulls always equal
 
-compare:
+  compare:;
+
     // At this point, both args are of the same datatype.
-    if (!(code = Compare_Types[VAL_TYPE(a)])) return 0;
-    result = code(a, b, strictness);
-    if (result < 0) fail (Error_Invalid_Compare_Raw(Type_Of(a), Type_Of(b)));
+    COMPARE_HOOK hook = Compare_Hooks[VAL_TYPE(a)];
+    if (hook == nullptr)
+        return 0; // !!! Is this correct (?)
+
+    REBINT result = hook(a, b, strictness);
+    if (result < 0)
+        fail (Error_Invalid_Compare_Raw(Type_Of(a), Type_Of(b)));
     return result;
 }
 

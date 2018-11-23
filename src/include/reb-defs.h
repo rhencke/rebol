@@ -181,18 +181,24 @@ struct Reb_State;
 typedef uint_fast32_t REBDSP; // Note: 0 for empty stack ([0] entry is trash)
 
 
+// The REB_R type is a REBVAL* but with the idea that it is legal to hold
+// types like REB_R_THROWN, etc.  This helps document interface contract.
+//
+typedef const REBVAL *REB_R;
+
+
 //=//// DISPATCHERS ///////////////////////////////////////////////////////=//
 //
-typedef REBINT (*REBCTF)(const RELVAL *a, const RELVAL *b, REBINT s);
-typedef void (*MAKE_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
-typedef void (*TO_CFUNC)(REBVAL*, enum Reb_Kind, const REBVAL*);
+typedef REBINT (*COMPARE_HOOK)(const RELVAL *a, const RELVAL *b, REBINT s);
+typedef REB_R (*MAKE_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
+typedef REB_R (*TO_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
 
 
 //=//// MOLDING ///////////////////////////////////////////////////////////=//
 //
 struct rebol_mold;
 typedef struct rebol_mold REB_MOLD;
-typedef void (*MOLD_CFUNC)(REB_MOLD *mo, const RELVAL *v, bool form);
+typedef void (*MOLD_HOOK)(REB_MOLD *mo, const RELVAL *v, bool form);
 
 
 // These definitions are needed in %sys-rebval.h, and can't be put in
@@ -201,24 +207,24 @@ typedef void (*MOLD_CFUNC)(REB_MOLD *mo, const RELVAL *v, bool form);
 
 // C function implementing a native ACTION!
 //
-typedef const REBVAL* (*REBNAT)(REBFRM *frame_);
+typedef REB_R (*REBNAT)(REBFRM *frame_);
 #define REBNATIVE(n) \
-    const REBVAL* N_##n(REBFRM *frame_)
+    REB_R N_##n(REBFRM *frame_)
 
-// Type-Action-Function: implementing a "verb" ACTION! for a particular
+// Generic hooks: implementing a "verb" ACTION! for a particular
 // type (or class of types).
 //
-typedef const REBVAL* (*REBTAF)(REBFRM *frame_, REBVAL *verb);
+typedef REB_R (*GENERIC_HOOK)(REBFRM *frame_, REBVAL *verb);
 #define REBTYPE(n) \
-    const REBVAL* T_##n(REBFRM *frame_, REBVAL *verb)
+    REB_R T_##n(REBFRM *frame_, REBVAL *verb)
 
-// Port-Action-Function: for implementing "verb" ACTION!s on a PORT! class
-// 
-typedef const REBVAL* (*REBPAF)(REBFRM *frame_, REBVAL *port, REBVAL *verb);
+// Port hook: for implementing generic ACTION!s on a PORT! class
+//
+typedef REB_R (*PORT_HOOK)(REBFRM *frame_, REBVAL *port, REBVAL *verb);
 
 // Path evaluator function
 //
-typedef const REBVAL* (*REBPEF)(
+typedef REB_R (*PATH_HOOK)(
     REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval
 );
 
@@ -226,8 +232,8 @@ typedef const REBVAL* (*REBPEF)(
 //=//// VARIADIC OPERATIONS ///////////////////////////////////////////////=//
 //
 // These 3 operations are the current legal set of what can be done with a
-// VARARG!.  They integrate with Eval_Core()'s limitations in the prefetch
-// evaluator--such as to having one unit of lookahead.
+// VARARG!.  They integrate with Eval_Core_Throws()'s limitations in the
+// prefetch evaluator--such as to having one unit of lookahead.
 //
 // While it might seem natural for this to live in %sys-varargs.h, the enum
 // type is used by a function prototype in %tmp-internals.h...hence it must be

@@ -16,19 +16,9 @@
 (null = make integer! blank)
 (null = make object! blank)
 
-; TO BLANK! cannot follow the "blank in, null out" rule, because TO is a
-; "full spectrum" operation (like SELECT).
-;
-; (`append value-of-type-x value-of-type-y` is defined as being equivalent
-; to `append value-of-type-x (to type-y value-of-type-y)`, hence TO BLOCK!
-; of a BLANK! must be `[_]`.)
-;
-; The idea of making TO BLANK! of any type come back as BLANK! may not seem
-; too useful, but it might be, if writing `to target-type x` and one wants
-; to use `target-type: blank!` as a way of opting out.  Review.
-;
-(blank? to blank! blank)
-(blank = to blank! 1)
+(null? to blank! _) ;-- TO's universal protocol for blank 2nd argument
+(null? to _ 1) ;-- TO's universal protocol for blank 1st argument
+(error? trap [to blank! 1]) ;-- no other types allow "conversion" to blank
 
 ("_" = mold blank)
 [#1666 #1650 (

@@ -44,25 +44,25 @@ REBINT CT_Datatype(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Datatype: C
 //
-void MAKE_Datatype(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-    if (!IS_WORD(arg))
-        fail (Error_Bad_Make(kind, arg));
+REB_R MAKE_Datatype(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+    if (IS_WORD(arg)) {
+        REBSYM sym = VAL_WORD_SYM(arg);
+        if (sym == SYM_0 or sym >= SYM_FROM_KIND(REB_MAX))
+            goto bad_make;
 
-    REBSYM sym = VAL_WORD_SYM(arg);
-    if (sym == SYM_0 || sym > SYM_FROM_KIND(REB_MAX))
-        fail (Error_Bad_Make(kind, arg));
+        return Init_Datatype(out, KIND_FROM_SYM(sym));
+    }
 
-    RESET_CELL(out, REB_DATATYPE);
-    VAL_TYPE_KIND(out) = KIND_FROM_SYM(sym);
-    VAL_TYPE_SPEC(out) = 0;
+  bad_make:;
+    fail (Error_Bad_Make(kind, arg));
 }
 
 
 //
 //  TO_Datatype: C
 //
-void TO_Datatype(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-    MAKE_Datatype(out, kind, arg);
+REB_R TO_Datatype(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+    return MAKE_Datatype(out, kind, arg);
 }
 
 

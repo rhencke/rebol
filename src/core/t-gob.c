@@ -827,7 +827,7 @@ void Extend_Gob_Core(REBGOB *gob, const REBVAL *arg) {
 //
 //  MAKE_Gob: C
 //
-void MAKE_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_GOB);
     UNUSED(kind);
@@ -846,14 +846,14 @@ void MAKE_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     else
         Extend_Gob_Core(gob, arg);
 
-    Init_Gob(out, gob);
+    return Init_Gob(out, gob);
 }
 
 
 //
 //  TO_Gob: C
 //
-void TO_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_GOB);
     UNUSED(kind);

@@ -138,7 +138,7 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
 
 
 //
-//  Do_Vararg_Op_May_Throw_Or_End: C
+//  Do_Vararg_Op_Maybe_End_Throws: C
 //
 // Service routine for working with a VARARGS!.  Supports TAKE-ing or just
 // returning whether it's at the end or not.  The TAKE is not actually a
@@ -158,9 +158,9 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
 //
 // If an evaluation is involved, then a thrown value is possibly returned.
 //
-void Do_Vararg_Op_May_Throw_Or_End(
+bool Do_Vararg_Op_Maybe_End_Throws(
     REBVAL *out,
-    RELVAL *vararg,
+    const RELVAL *vararg,
     enum Reb_Vararg_Op op
 ){
     TRASH_CELL_IF_DEBUG(out);
@@ -231,7 +231,7 @@ void Do_Vararg_Op_May_Throw_Or_End(
             //
             if (Eval_Step_Throws(SET_END(out), f_temp)) {
                 Abort_Frame(f_temp);
-                return;
+                return true;
             }
 
             if (
@@ -263,7 +263,7 @@ void Do_Vararg_Op_May_Throw_Or_End(
                 if (Eval_Value_Core_Throws(
                     out, VAL_ARRAY_AT(shared), VAL_SPECIFIER(shared)
                 )){
-                    return;
+                    return true;
                 }
             }
             else { // not a soft-"exception" case, quote ordinarily
@@ -318,7 +318,7 @@ void Do_Vararg_Op_May_Throw_Or_End(
                 DO_FLAG_FULFILLING_ARG,
                 child
             )){
-                return;
+                return true;
             }
             f->gotten = nullptr; // cache must be forgotten...
             break; }
@@ -331,7 +331,7 @@ void Do_Vararg_Op_May_Throw_Or_End(
                 DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD,
                 child
             )){
-                return;
+                return true;
             }
             f->gotten = nullptr; // cache must be forgotten...
             break; }
@@ -347,7 +347,7 @@ void Do_Vararg_Op_May_Throw_Or_End(
                     f->value,
                     f->specifier
                 )){
-                    return;
+                    return true;
                 }
                 Fetch_Next_In_Frame(nullptr, f);
             }
@@ -365,14 +365,12 @@ void Do_Vararg_Op_May_Throw_Or_End(
   type_check_and_return:;
 
     if (IS_END(out))
-        return;
+        return false;
 
     if (op == VARARG_OP_TAIL_Q) {
         assert(IS_LOGIC(out));
-        return;
+        return false;
     }
-
-    assert(not THROWN(out)); // should have returned above
 
     if (param and not TYPE_CHECK(param, VAL_TYPE(out))) {
         //
@@ -395,14 +393,16 @@ void Do_Vararg_Op_May_Throw_Or_End(
             CLEAR_VAL_FLAG(arg, VALUE_FLAG_UNEVALUATED);
     }
 
-    // may be at end now, but reflect that at *next* call
+    // Note: may be at end now, but reflect that at *next* call
+
+    return false; // not thrown
 }
 
 
 //
 //  MAKE_Varargs: C
 //
-void MAKE_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_VARARGS);
     UNUSED(kind);
@@ -430,7 +430,7 @@ void MAKE_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         UNUSED(out->payload.varargs.param_offset); // trashes in C++11 build
         INIT_BINDING(out, array1);
 
-        return;
+        return out;
     }
 
     // !!! Permit FRAME! ?
@@ -442,7 +442,7 @@ void MAKE_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  TO_Varargs: C
 //
-void TO_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_VARARGS);
     UNUSED(kind);
@@ -474,16 +474,17 @@ const REBVAL *PD_Varargs(
     DECLARE_LOCAL (location);
     Move_Value(location, pvs->out);
 
-    Do_Vararg_Op_May_Throw_Or_End(
+    if (Do_Vararg_Op_Maybe_End_Throws(
         pvs->out,
         location,
         VARARG_OP_FIRST
-    );
-    if (IS_END(pvs->out)) {
-        Init_Endish_Nulled(pvs->out);
-    }
-    else if (THROWN(pvs->out))
+    )){
         assert(false); // VARARG_OP_FIRST can't throw
+        return R_THROWN;
+    }
+
+    if (IS_END(pvs->out))
+        Init_Endish_Nulled(pvs->out);
 
     return pvs->out;
 }
@@ -509,12 +510,14 @@ REBTYPE(Varargs)
 
         switch (property) {
         case SYM_TAIL_Q: {
-            Do_Vararg_Op_May_Throw_Or_End(
+            if (Do_Vararg_Op_Maybe_End_Throws(
                 D_OUT,
                 value,
                 VARARG_OP_TAIL_Q
-            );
-            assert(not THROWN(D_OUT));
+            )){
+                assert(false);
+                return R_THROWN;
+            }
             assert(IS_LOGIC(D_OUT));
             return D_OUT; }
 
@@ -534,11 +537,13 @@ REBTYPE(Varargs)
             fail (Error_Varargs_Take_Last_Raw());
 
         if (not REF(part)) {
-            Do_Vararg_Op_May_Throw_Or_End(
+            if (Do_Vararg_Op_Maybe_End_Throws(
                 D_OUT,
                 value,
                 VARARG_OP_TAKE
-            );
+            )){
+                return R_THROWN;
+            }
             if (IS_END(D_OUT))
                 return Init_Endish_Nulled(D_OUT);
             return D_OUT;
@@ -559,16 +564,15 @@ REBTYPE(Varargs)
             fail (Error_Invalid(ARG(limit)));
 
         while (limit-- > 0) {
-            Do_Vararg_Op_May_Throw_Or_End(
+            if (Do_Vararg_Op_Maybe_End_Throws(
                 D_OUT,
                 value,
                 VARARG_OP_TAKE
-            );
-
+            )){
+                return R_THROWN;
+            }
             if (IS_END(D_OUT))
                 break;
-            if (THROWN(D_OUT))
-                return D_OUT;
             DS_PUSH(D_OUT);
         }
 

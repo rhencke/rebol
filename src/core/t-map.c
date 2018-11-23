@@ -450,17 +450,16 @@ static void Append_Map(
 //
 //  MAKE_Map: C
 //
-void MAKE_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     if (ANY_NUMBER(arg)) {
-        REBMAP *map = Make_Map(Int32s(arg, 0));
-        Init_Map(out, map);
+        return Init_Map(out, Make_Map(Int32s(arg, 0)));
     }
     else {
         // !!! R3-Alpha TO of MAP! was like MAKE but wouldn't accept just
         // being given a size.
         //
-        TO_Map(out, kind, arg);
+        return TO_Map(out, kind, arg);
     }
 }
 
@@ -507,7 +506,7 @@ inline static REBMAP *Copy_Map(REBMAP *map, REBU64 types) {
 //
 //  TO_Map: C
 //
-void TO_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_MAP);
     UNUSED(kind);
@@ -524,7 +523,7 @@ void TO_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         REBMAP *map = Make_Map(len / 2); // [key value key value...] + END
         Append_Map(map, array, index, specifier, len);
         Rehash_Map(map);
-        Init_Map(out, map);
+        return Init_Map(out, map);
     }
     else if (IS_MAP(arg)) {
         //
@@ -535,10 +534,10 @@ void TO_Map(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         //
         REBU64 types = 0;
 
-        Init_Map(out, Copy_Map(VAL_MAP(arg), types));
+        return Init_Map(out, Copy_Map(VAL_MAP(arg), types));
     }
-    else
-        fail (Error_Invalid(arg));
+
+    fail (Error_Invalid(arg));
 }
 
 

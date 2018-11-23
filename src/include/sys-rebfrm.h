@@ -26,12 +26,12 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// The primary routine that handles DO and EVALUATE is called Eval_Core().  It
+// The primary routine that handles DO and EVALUATE is Eval_Core_Throws().  It
 // takes a single parameter which holds the running state of the evaluator.
 // This state may be allocated on the C variable stack.
 //
-// Eval_Core() is written such that a longjmp up to a failure handler above it
-// can run safely and clean up even though intermediate stacks have vanished.
+// Eval_Core_Throws() is written so that a longjmp to a failure handler above
+// it can do cleanup safely even though intermediate stacks have vanished.
 // This is because Push_Frame and Drop_Frame maintain an independent global
 // list of the frames in effect, so that the Fail_Core() routine can unwind
 // all the associated storage and structures for each frame.
@@ -66,8 +66,8 @@
 
 
 
-// The default for Eval_Core() operation is just a single EVALUATE, where args
-// to functions are evaluated (vs. quoted), and lookahead is enabled.
+// Default for Eval_Core_Throws() operation is just a single EVALUATE, where
+// args to functions are evaluated (vs. quoted), and lookahead is enabled.
 //
 #define DO_MASK_NONE 0
 
@@ -329,8 +329,8 @@
 // order from how they appear in the frame's parameter definition, then the
 // arguments at the callsite can't be gathered in sequence.  Revisiting them
 // will be necessary.  This flag is set while they are revisited, which is
-// important not only for Eval_Core() to know, but also the GC...since it
-// means it must protect *all* of the arguments--not just up thru f->param.
+// important not only for Eval_Core_Throws() to know, but also the GC...since
+// it means it must protect *all* of the arguments--not just up thru f->param.
 //
 #define DO_FLAG_DOING_PICKUPS \
     FLAG_LEFT_BIT(27)
@@ -344,7 +344,7 @@
 // flags, and if a frame's memory winds up getting reused (e.g. by successive
 // calls in a reduce) that code is responsible for resetting the DO_FLAG_XXX
 // each time.  To make sure this is the case, this is set on each exit from
-// Eval_Core() and then each entry checks to make sure it is not present.
+// Eval_Core_Throws(), and each entry checks to make sure it is not present.
 //
 
 #define DO_FLAG_FINAL_DEBUG \
@@ -426,7 +426,7 @@ struct Reb_Frame_Source {
     // This holds the index of the *next* item in the array to fetch as
     // f->value for processing.  It's invalid if the frame is for a C va_list.
     //
-    uintptr_t index;
+    REBCNT index;
 };
 
 
@@ -448,8 +448,8 @@ struct Reb_Frame {
     // "picker" goes (so if `foo/(1 + 2)`, the 3 would be stored there to be
     // used to pick the next value in the chain).
     //
-    // Eval_Core() uses it to implement the SHOVE() operation, which requires
-    // a calculated ACTION! value (including its binding) to have a stable
+    // Eval_Core_Throws() uses it to implement the SHOVE() operation, which
+    // needs a calculated ACTION! value (including binding) to have a stable
     // location which f->gotten can point to during arbitrary left-hand-side
     // evaluations.
     //
@@ -761,7 +761,7 @@ struct Reb_Frame {
         REBSPC *specifier;
     } ref;
 
-    // Used to slip cell to reevaluate into Eval_Core()
+    // Used to slip cell to re-evaluate into Eval_Core_Throws()
     //
     struct {
         const REBVAL *value;
@@ -842,7 +842,7 @@ struct Reb_Frame {
 //
 // Just to simplify matters, the frame cell is set to a bit pattern the GC
 // will accept.  It would need stack preparation anyway, and this simplifies
-// the invariant so that if a recycle happens before Eval_Core() gets to its
+// the invariant so if a recycle happens before Eval_Core_Throws() gets to its
 // body, it's always set to something.  Using an unreadable blank means we
 // signal to users of the frame that they can't be assured of any particular
 // value between evaluations; it's not cleared.
@@ -871,11 +871,11 @@ struct Reb_Frame {
 #define FS_BOTTOM (TG_Bottom_Frame + 0) // avoid assign to FS_BOTTOM via + 0
 
 
-// Hookable stepwise-evaluator and action dispatcher. See PG_Eval and
-// PG_Dispatcher for usage.
+// Hookable evaluator core function (see PG_Eval_Throws, Eval_Core_Throws())
+// Unlike a dispatcher, its result is always in the frame's ->out cell, and
+// the boolean result only tells you whether or not it threw.
 //
-typedef void (*REBDOF)(REBFRM * const);
-typedef const REBVAL* (*REBDSF)(REBFRM * const);
+typedef bool (*REBEVL)(REBFRM * const);
 
 
 //=////////////////////////////////////////////////////////////////////////=//

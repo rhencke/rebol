@@ -128,12 +128,12 @@ REBNATIVE(stats)
 
 
 //
-//  Measured_Eval_Hook: C
+//  Measured_Eval_Hook_Throws: C
 //
 // Putting in measurement for Eval_Core would interfere with measurements for
 // Dispatcher, as it would slow down the very functions that are being timed.
 //
-void Measured_Eval_Hook(REBFRM * const f)
+bool Measured_Eval_Hook_Throws(REBFRM * const f)
 {
     // In order to measure single steps, we convert a DO_FLAG_TO_END request
     // into a sequence of EVALUATE operations, and loop them.
@@ -141,15 +141,18 @@ void Measured_Eval_Hook(REBFRM * const f)
     bool was_do_to_end = did (f->flags.bits & DO_FLAG_TO_END);
     f->flags.bits &= ~DO_FLAG_TO_END;
 
+    bool threw;
     while (true) {
-        Eval_Core(f);
+        threw = Eval_Core_Throws(f);
 
-        if (not was_do_to_end or THROWN(f->out) or IS_END(f->value))
+        if (not was_do_to_end or IS_END(f->value))
             break;
     }
 
     if (was_do_to_end)
         f->flags.bits |= DO_FLAG_TO_END;
+
+    return threw;
 }
 
 
@@ -338,11 +341,11 @@ REBNATIVE(metrics)
     Check_Security(Canon(SYM_DEBUG), POL_READ, 0);
 
     if (VAL_LOGIC(mode)) {
-        //PG_Eval = &Measured_Eval_Hook;
+        //PG_Eval_Throws = &Measured_Eval_Hook_Throws;
         PG_Dispatcher = &Measured_Dispatcher_Hook;
     }
     else {
-        //PG_Eval = &Eval_Core;
+        //PG_Eval_Throws = &Eval_Core_Throws;
         PG_Dispatcher = &Dispatcher_Core;
     }
 

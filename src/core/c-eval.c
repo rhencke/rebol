@@ -26,7 +26,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// This file contains `Eval_Core()`, which is the central evaluator which
+// This file contains Eval_Core_Throws(), which is the central evaluator which
 // is behind DO.  It can execute single evaluation steps (e.g. EVALUATE/EVAL)
 // or it can run the array to the end of its content.  A flag controls that
 // behavior, and there are DO_FLAG_XXX for controlling other behaviors.
@@ -36,7 +36,7 @@
 //
 // NOTES:
 //
-// * Eval_Core() is a long routine.  That is largely on purpose, because it
+// * Eval_Core_Throws() is a long routine.  That is largely on purpose, as it
 //   doesn't contain repeated portions.  If it were broken into functions that
 //   would add overhead for little benefit, and prevent interesting tricks
 //   and optimizations.  Note that it is separated into sections, and
@@ -55,7 +55,7 @@
 #if defined(DEBUG_COUNT_TICKS)
     //
     // The evaluator `tick` should be visible in the C debugger watchlist as a
-    // local variable in Eval_Core() for each stack level.  So if a fail()
+    // local variable in Eval_Core_Throws() on each stack level.  So if fail()
     // happens at a deterministic moment in a run, capture the number from
     // the level of interest and recompile with it here to get a breakpoint
     // at that tick.
@@ -227,8 +227,8 @@ inline static void Finalize_Arg(
 ){
     if (IS_END(arg)) {
 
-        // Consider Eval_Core() result for COMMENT in `do [1 + comment "foo"]`.
-        // Should be no different from `do [1 +]`, when Eval_Core() gives END.
+        // This is a legal result for COMMENT in `do [1 + comment "foo"]`.
+        // No different from `do [1 +]`, where Eval_Core_Throws() gives END.
 
         if (not Is_Param_Endable(param))
             fail (Error_No_Arg(f_state, param));
@@ -410,7 +410,7 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 
 
 //
-//  Eval_Core: C
+//  Eval_Core_Throws: C
 //
 // While this routine looks very complex, it's actually not that difficult
 // to step through.  A lot of it is assertions, debug tracking, and comments.
@@ -428,8 +428,8 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 //     may move during arbitrary evaluation, and that includes cells on the
 //     expandable data stack.  It also usually can't write a function argument
 //     cell, because that could expose an unfinished calculation during this
-//     Eval_Core() through its FRAME!...though a Eval_Core(f) must write f's
-//     *own* arg slots to fulfill them.
+//     Eval_Core_Throws() through its FRAME!...though a Eval_Core_Throws(f)
+//     must write f's *own* arg slots to fulfill them.
 //
 //     f->value
 //     Pre-fetched first value to execute (cannot be an END marker)
@@ -451,8 +451,10 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // More detailed assertions of the preconditions, postconditions, and state
 // at each evaluation step are contained in %d-eval.c
 //
-void Eval_Core(REBFRM * const f)
+bool Eval_Core_Throws(REBFRM * const f)
 {
+    bool threw = false;
+
   #if defined(DEBUG_COUNT_TICKS)
     REBTCK tick = f->tick = TG_Tick; // snapshot start tick
   #endif
@@ -474,7 +476,7 @@ void Eval_Core(REBFRM * const f)
 
     // Given how the evaluator is written, it's inevitable that there will
     // have to be a test for points to `goto` before running normal eval.
-    // This cost is paid on every entry to Eval_Core().
+    // This cost is paid on every entry to Eval_Core_Throws().
     //
     // Trying alternatives (such as a synthetic REB_XXX type to signal it,
     // to fold along in a switch) seem to only make it slower.  Using flags
@@ -603,7 +605,7 @@ void Eval_Core(REBFRM * const f)
                 false // ok, crazypants, don't push refinements (?)
             )){
                 Move_Value(f->out, FRM_SHOVE(f));
-                goto finished;
+                goto return_thrown;
             }
         }
         else if (IS_GROUP(f->value)) {
@@ -617,7 +619,7 @@ void Eval_Core(REBFRM * const f)
             );
             if (indexor == THROWN_FLAG) {
                 Move_Value(f->out, FRM_SHOVE(f));
-                goto finished;
+                goto return_thrown;
             }
             if (IS_END(FRM_SHOVE(f))) // !!! need SHOVE frame for type error
                 fail ("GROUP! passed to SHOVE did not evaluate to content");
@@ -1589,16 +1591,26 @@ void Eval_Core(REBFRM * const f)
 
         if (r == f->out) {
             assert(not (f->out->header.bits & OUT_MARKED_STALE));
-
-            // This is the most common result, and the only way to return a
-            // THROWN() value.  Internal code should generally use this as
-            // the method for returning...though `nullptr` is probably as
-            // fast as `return Init_Nulled(D_OUT);` as it avoids the check
-            // of the thrown flag.
+            assert(not THROWN(f->out));
+        }
+        else if (not r) { // API and internal code can both return `nullptr`
+            Init_Nulled(f->out);
+        }
+        else if (VAL_TYPE_RAW(r) <= REB_MAX) { // should be an API value
+            Handle_Api_Dispatcher_Result(f, r);
+        }
+        else switch (VAL_TYPE_RAW(r)) { // it's a "pseudotype" instruction
             //
-            if (not THROWN(f->out))
-                goto dispatch_completed;
-
+            // !!! Thrown values used to be indicated with a bit on the value
+            // itself, but now it's conveyed through a return value.  This
+            // means typical return values don't have to run through a test
+            // for if they're thrown or not, but it means Eval_Core has to
+            // return a boolean to pass up the state.  It may not be much of
+            // a performance win either way, but recovering the bit in the
+            // values is a definite advantage--as header bits are scarce!
+            //
+          case REB_R_THROWN:
+            assert(THROWN(f->out));
             if (IS_ACTION(f->out)) {
                 if (
                     VAL_ACTION(f->out) == NAT_ACTION(unwind)
@@ -1678,14 +1690,7 @@ void Eval_Core(REBFRM * const f)
             // Stay THROWN and let stack levels above try and catch
             //
             goto abort_action;
-        }
-        else if (not r) { // API and internal code can both return `nullptr`
-            Init_Nulled(f->out);
-        }
-        else if (VAL_TYPE_RAW(r) <= REB_MAX) { // should be an API value
-            Handle_Api_Dispatcher_Result(f, r);
-        }
-        else switch (VAL_TYPE_RAW(r)) { // it's a "pseudotype" instruction
+
           case REB_R_REDO:
             //
             // This instruction represents the idea that it is desired to
@@ -1846,8 +1851,8 @@ void Eval_Core(REBFRM * const f)
 // SET-WORD!s before the value to assign is found.  Some kind of list needs to
 // be maintained.
 //
-// Recursion into Eval_Core() is used, but a new frame is not created.  So
-// it reuses `f` with a lighter-weight approach, gathering state only on the
+// Recursion into Eval_Core_Throws() is used, but a new frame is not created.
+// So it reuses `f` in a lighter-weight approach, gathering state only on the
 // data stack (which provides GC protection).  Eval_Step_Mid_Frame_Throws()
 // has remarks on how this is done.
 //
@@ -1867,11 +1872,11 @@ void Eval_Core(REBFRM * const f)
         if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
             DECLARE_SUBFRAME(child, f);
             if (Eval_Step_In_Subframe_Throws(f->out, f, flags, child))
-                goto finished;
+                goto return_thrown;
         }
         else {
             if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
-                goto finished;
+                goto return_thrown;
         }
 
         // Nulled cells are allowed: https://forum.rebol.info/t/895/4
@@ -1928,8 +1933,8 @@ void Eval_Core(REBFRM * const f)
 //
 // [GROUP!]
 //
-// If a GROUP! is seen then it generates another call into Eval_Core().  The
-// current frame is not reused, as the source array from which values are
+// If a GROUP! is seen then it generates another call into Eval_Core_Throws().
+// The current frame is not reused, as the source array from which values are
 // being gathered changes.
 //
 // Empty groups vaporize, as do ones that only consist of invisibles.
@@ -1970,7 +1975,7 @@ void Eval_Core(REBFRM * const f)
                 DO_FLAG_TO_END
             );
             if (indexor == THROWN_FLAG)
-                goto finished;
+                goto return_thrown;
             if (GET_VAL_FLAG(f->out, OUT_MARKED_STALE))
                 goto finished;
             f->out->header.bits &= ~VALUE_FLAG_UNEVALUATED; // (1) "evaluates"
@@ -1989,7 +1994,7 @@ void Eval_Core(REBFRM * const f)
             );
             if (indexor == THROWN_FLAG) {
                 Move_Value(f->out, FRM_CELL(f));
-                goto finished;
+                goto return_thrown;
             }
             if (IS_END(FRM_CELL(f))) {
                 eval_type = VAL_TYPE_RAW(f->value);
@@ -2032,7 +2037,7 @@ void Eval_Core(REBFRM * const f)
             nullptr, // `setval`: null means don't treat as SET-PATH!
             DO_FLAG_PUSH_PATH_REFINEMENTS
         )){
-            goto finished;
+            goto return_thrown;
         }
 
         if (IS_NULLED(f->out)) // need `:x/y` if `y` is unset
@@ -2111,11 +2116,11 @@ void Eval_Core(REBFRM * const f)
         if (CURRENT_CHANGES_IF_FETCH_NEXT) { // must use new frame
             DECLARE_SUBFRAME(child, f);
             if (Eval_Step_In_Subframe_Throws(f->out, f, flags, child))
-                goto finished;
+                goto return_thrown;
         }
         else {
             if (Eval_Step_Mid_Frame_Throws(f, flags)) // light reuse of `f`
-                goto finished;
+                goto return_thrown;
         }
 
         // Nulled cells are allowed: https://forum.rebol.info/t/895/4
@@ -2133,7 +2138,7 @@ void Eval_Core(REBFRM * const f)
             DO_MASK_NONE // evaluating GROUP!s ok
         )){
             Move_Value(f->out, FRM_CELL(f));
-            goto finished;
+            goto return_thrown;
         }
 
         assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
@@ -2161,7 +2166,7 @@ void Eval_Core(REBFRM * const f)
             goto inert;
 
         if (Get_Path_Throws_Core(f->out, current, f->specifier))
-            goto finished;
+            goto return_thrown;
 
         // !!! This didn't appear to be true for `-- "hi" "hi"`, processing
         // GET-PATH! of a variadic.  Review if it should be true.
@@ -2505,7 +2510,7 @@ void Eval_Core(REBFRM * const f)
             // evaluating to 3.
         }
         else {
-            START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
+            START_NEW_EXPRESSION_MAY_THROW(f, goto return_thrown);
             // ^-- resets local tick, corrupts f->out, Ctrl-C may abort
 
             UPDATE_TICK_DEBUG(nullptr);
@@ -2636,12 +2641,16 @@ void Eval_Core(REBFRM * const f)
 
   abort_action:;
 
-    assert(THROWN(f->out));
-
     Drop_Action(f);
     DS_DROP_TO(f->dsp_orig); // any unprocessed refinements or chains on stack
 
+  return_thrown:;
+
+    threw = true;
+
   finished:;
+
+    assert(THROWN(f->out) == threw);
 
     // The unevaluated flag is meaningless outside of arguments to functions.
 
@@ -2664,6 +2673,5 @@ void Eval_Core(REBFRM * const f)
     Eval_Core_Exit_Checks_Debug(f); // will get called unless a fail() longjmps
   #endif
 
-    // All callers must inspect for THROWN(f->out), and most should also
-    // inspect for IS_END(f->value)
+    return threw; // most callers should inspect for IS_END(f->value)
 }

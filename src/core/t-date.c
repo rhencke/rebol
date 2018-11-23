@@ -429,21 +429,19 @@ REBINT Cmp_Date(const RELVAL *d1, const RELVAL *d2)
 //
 //  MAKE_Date: C
 //
-void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     assert(kind == REB_DATE);
     UNUSED(kind);
 
-    if (IS_DATE(arg)) {
-        Move_Value(out, arg);
-        return;
-    }
+    if (IS_DATE(arg))
+        return Move_Value(out, arg);
 
     if (IS_TEXT(arg)) {
         REBSIZ size;
         REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_DATE);
         if (NULL == Scan_Date(out, bp, size))
             goto bad_make;
-        return;
+        return out;
     }
 
     if (ANY_ARRAY(arg) && VAL_ARRAY_LEN_AT(arg) >= 3) {
@@ -527,10 +525,10 @@ void MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         const bool to_utc = true;
         Adjust_Date_Zone(out, to_utc);
-        return;
+        return out;
     }
 
-bad_make:
+  bad_make:
     fail (Error_Bad_Make(REB_DATE, arg));
 }
 
@@ -538,8 +536,8 @@ bad_make:
 //
 //  TO_Date: C
 //
-void TO_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-    MAKE_Date(out, kind, arg);
+REB_R TO_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+    return MAKE_Date(out, kind, arg);
 }
 
 

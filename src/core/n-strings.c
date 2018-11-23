@@ -121,7 +121,7 @@ REBNATIVE(delimit)
         VAL_SPECIFIER(block),
         delimiter
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     return D_OUT;

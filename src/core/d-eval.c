@@ -27,7 +27,7 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Due to the length of Eval_Core() and how many debug checks it already has,
+// Due to the length of Eval_Core_Throws() and debug checks it already has,
 // some debug-only routines are separated out here.  (Note that these are in
 // addition to the checks already done by Push_Frame() and Drop_Frame() time)
 //
@@ -38,9 +38,9 @@
 //   might accidentally carry over from one step to another, so that there
 //   will be a crash instead of a casual reuse.
 //
-// * Eval_Core_Exit_Checks_Debug() runs if the Eval_Core() call makes it to the
-//   end without a fail() longjmping out from under it.  It also checks to
-//   make sure the state has balanced, and that the return result is
+// * Eval_Core_Exit_Checks_Debug() runs if the Eval_Core_Throws() call makes
+//   it to the end without a fail() longjmping out from under it.  It also
+//   checks to make sure the state has balanced, and that the return result is
 //   consistent with the state being returned.
 //
 // Because none of these routines are in the release build, they cannot have
@@ -344,8 +344,8 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
         assert(THROWN(f->out) or IS_END(f->value));
 
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`
-    // (as opposed to `do [1 + ()]`).  Hence Eval_Core() offers the distinction
-    // of END for a fully "invisible" evaluation, as opposed to void.  This
+    // (as opposed to `do [1 + ()]`).  Eval_Core_Throws() thus distinguishes
+    // an END for a fully "invisible" evaluation, as opposed to void.  This
     // distinction is only offered internally, at the moment.
     //
     if (NOT_END(f->out))

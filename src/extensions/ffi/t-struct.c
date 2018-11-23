@@ -1073,7 +1073,7 @@ void Init_Struct_Fields(REBVAL *ret, REBVAL *spec)
 //         ...
 //     ]
 //
-void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     assert(kind == REB_STRUCT);
     UNUSED(kind);
 
@@ -1368,15 +1368,17 @@ void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     out->extra.struct_offset = 0;
 
     Move_Value(ARR_HEAD(stu), out);
+
+    return out;
 }
 
 
 //
 //  TO_Struct: C
 //
-void TO_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Struct(out, kind, arg);
+    return MAKE_Struct(out, kind, arg);
 }
 
 

@@ -224,15 +224,14 @@ REBINT CT_Time(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Time: C
 //
-void MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_TIME);
     UNUSED(kind);
 
     switch (VAL_TYPE(arg)) {
     case REB_TIME: // just copy it (?)
-        Move_Value(out, arg);
-        return;
+        return Move_Value(out, arg);
 
     case REB_TEXT: { // scan using same decoding as LOAD would
         REBSIZ size;
@@ -241,14 +240,13 @@ void MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         if (Scan_Time(out, bp, size) == NULL)
             goto no_time;
 
-        return; }
+        return out; }
 
     case REB_INTEGER: // interpret as seconds
         if (VAL_INT64(arg) < -MAX_SECONDS || VAL_INT64(arg) > MAX_SECONDS)
             fail (Error_Out_Of_Range(arg));
 
-        Init_Time_Nanoseconds(out, VAL_INT64(arg) * SEC_SEC);
-        return;
+        return Init_Time_Nanoseconds(out, VAL_INT64(arg) * SEC_SEC);
 
     case REB_DECIMAL:
         if (
@@ -257,8 +255,7 @@ void MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         ){
             fail (Error_Out_Of_Range(arg));
         }
-        Init_Time_Nanoseconds(out, DEC_TO_SECS(VAL_DECIMAL(arg)));
-        return;
+        return Init_Time_Nanoseconds(out, DEC_TO_SECS(VAL_DECIMAL(arg)));
 
     case REB_BLOCK: { // [hh mm ss]
         if (VAL_ARRAY_LEN_AT(arg) > 3)
@@ -323,14 +320,13 @@ void MAKE_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         if (neg)
             nano = -nano;
 
-        Init_Time_Nanoseconds(out, nano);
-        return; }
+        return Init_Time_Nanoseconds(out, nano); }
 
-    default:
+      default:
         goto no_time;
     }
 
-no_time:
+  no_time:
     fail (Error_Bad_Make(REB_TIME, arg));
 }
 
@@ -338,9 +334,9 @@ no_time:
 //
 //  TO_Time: C
 //
-void TO_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Time(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Time(out, kind, arg);
+    return MAKE_Time(out, kind, arg);
 }
 
 

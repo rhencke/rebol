@@ -91,7 +91,7 @@ REBNATIVE(break)
 
     CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
 
-    return D_OUT;
+    return R_THROWN;
 }
 
 
@@ -115,7 +115,7 @@ REBNATIVE(continue)
     Move_Value(D_OUT, NAT_VALUE(continue));
     CONVERT_NAME_TO_THROWN(D_OUT, ARG(value)); // null if e.g. `do [continue]`
 
-    return D_OUT;
+    return R_THROWN;
 }
 
 
@@ -153,7 +153,7 @@ static const REBVAL *Loop_Series_Common(
         if (Do_Branch_Throws(out, body)) {
             bool stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return out;
+                return R_THROWN;
             if (stop)
                 return nullptr;
         }
@@ -176,7 +176,7 @@ static const REBVAL *Loop_Series_Common(
         if (Do_Branch_Throws(out, body)) {
             bool stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return out;
+                return R_THROWN;
             if (stop)
                 return nullptr;
         }
@@ -229,7 +229,7 @@ static const REBVAL *Loop_Integer_Common(
         if (Do_Branch_Throws(out, body)) {
             bool stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return out;
+                return R_THROWN;
             if (stop)
                 return nullptr;
         }
@@ -248,7 +248,7 @@ static const REBVAL *Loop_Integer_Common(
         if (Do_Branch_Throws(out, body)) {
             bool stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return out;
+                return R_THROWN;
             if (stop)
                 return nullptr;
         }
@@ -315,7 +315,7 @@ static const REBVAL *Loop_Number_Common(
         if (Do_Branch_Throws(out, body)) {
             bool stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return out;
+                return R_THROWN;
             if (stop)
                 return nullptr;
         }
@@ -332,7 +332,7 @@ static const REBVAL *Loop_Number_Common(
         if (Do_Branch_Throws(out, body)) {
             bool stop;
             if (not Catching_Break_Or_Continue(out, &stop))
-                return out;
+                return R_THROWN;
             if (stop)
                 return nullptr;
         }
@@ -608,7 +608,7 @@ skip_hidden: ;
         if (mode == LOOP_MAP_EACH)
             DS_DROP_TO(dsp_orig);
 
-        return D_OUT;
+        return R_THROWN;
     }
 
     switch (mode) {
@@ -795,7 +795,7 @@ REBNATIVE(for_skip)
             if (not Catching_Break_Or_Continue(D_OUT, &stop)) {
                 Move_Value(var, saved);
                 DROP_GC_GUARD(saved);
-                return D_OUT;
+                return R_THROWN;
             }
             if (stop) {
                 Move_Value(var, saved); // restore initial variable value
@@ -843,7 +843,7 @@ REBNATIVE(forever)
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
             bool stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
-                return D_OUT;
+                return R_THROWN;
             if (stop)
                 return nullptr;
         }
@@ -1052,7 +1052,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
 
 // See notes on Remove_Each_State
 //
-static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
+static REB_R Remove_Each_Core(struct Remove_Each_State *res)
 {
     // Set a bit saying we are iterating the series, which will disallow
     // mutations (including a nested REMOVE-EACH) until completion or failure.
@@ -1096,10 +1096,8 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
         }
 
         if (Do_Branch_Throws(res->out, res->body)) {
-            if (not Catching_Break_Or_Continue(res->out, &res->stopped)) {
-                assert(THROWN(res->out)); // how caller knows it threw
-                return NULL; // we'll bubble it up, but will also finalize
-            }
+            if (not Catching_Break_Or_Continue(res->out, &res->stopped))
+                return R_THROWN; // we'll bubble it up, but will also finalize
 
             if (res->stopped) {
                 //
@@ -1159,7 +1157,7 @@ static REBVAL *Remove_Each_Core(struct Remove_Each_State *res)
 
     assert(not res->stopped and res->start == len);
 
-    return NULL;
+    return nullptr;
 }
 
 
@@ -1264,21 +1262,25 @@ REBNATIVE(remove_each)
 
     res.stopped = false; // will be set to true if there is a BREAK
 
-    REBVAL *error = rebRescue(cast(REBDNG*, &Remove_Each_Core), &res);
+    REB_R r = rebRescue(cast(REBDNG*, &Remove_Each_Core), &res);
 
     // Currently, if a fail() happens during the iteration, any removals
     // which were indicated will be enacted before propagating failure.
     //
     REBCNT removals = Finalize_Remove_Each(&res);
 
-    if (error)
-        rebJumps("FAIL", error, rebEND);
+    if (r == R_THROWN)
+        return R_THROWN;
+
+    const REBVAL *error = r;
+
+    if (error) {
+        assert(IS_ERROR(r));
+        rebJumps("FAIL", r, rebEND);
+    }
 
     if (res.stopped)
         return nullptr;
-
-    if (THROWN(res.out))
-        return D_OUT;
 
     return Init_Integer(D_OUT, removals);
 }
@@ -1350,7 +1352,7 @@ REBNATIVE(loop)
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
             bool stop;
             if (not Catching_Break_Or_Continue(D_OUT, &stop))
-                return D_OUT;
+                return R_THROWN;
             if (stop)
                 return nullptr;
         }
@@ -1419,23 +1421,22 @@ REBNATIVE(repeat)
 
 // Common code for UNTIL & UNTIL-NOT (same frame param layout)
 //
-inline static void Until_Core(
-    REBVAL *out,
-    const REBVAL *body,
-    bool trigger // body keeps running so long as evaluation matches this
+inline static const REBVAL *Until_Core(
+    REBFRM *frame_,
+    bool trigger // body keeps running so until evaluation matches this
 ){
+    INCLUDE_PARAMS_OF_UNTIL;
+
     do {
 
     skip_check:;
 
-        if (Do_Branch_Throws(out, body)) {
+        if (Do_Branch_Throws(D_OUT, ARG(body))) {
             bool stop;
-            if (not Catching_Break_Or_Continue(out, &stop))
-                return;
-            if (stop) {
-                Init_Nulled(out);
-                return;
-            }
+            if (not Catching_Break_Or_Continue(D_OUT, &stop))
+                return R_THROWN;
+            if (stop)
+                return Init_Nulled(D_OUT);
 
             // UNTIL and UNTIL-NOT both follow the precedent that the way
             // a CONTINUE/WITH works is to act as if the loop body returned
@@ -1448,14 +1449,18 @@ inline static void Until_Core(
             // conditions must be true or false...and continue needs to work.
             // Hence it just means to continue either way.
             //
-            if (IS_NULLED(out))
+            if (IS_NULLED(D_OUT))
                 goto skip_check;
         }
         else { // didn't throw, see above about null difference from CONTINUE
-            if (IS_VOID(out))
+            if (IS_VOID(D_OUT))
                 fail (Error_Void_Conditional_Raw());
         }
-    } while (IS_TRUTHY(out) == trigger);
+
+        if (IS_TRUTHY(D_OUT) == trigger)
+            return D_OUT;
+
+    } while (true);
 }
 
 
@@ -1470,18 +1475,8 @@ inline static void Until_Core(
 //  ]
 //
 REBNATIVE(until)
-//
-// Note: There were wide-ranging debates on whether UNTIL should be arity-2 as
-// a parallel to WHILE.  In light of all the tradeoffs, it is kept this way.
 {
-    INCLUDE_PARAMS_OF_UNTIL;
-
-    Until_Core(
-        D_OUT,
-        ARG(body),
-        false // loop body runs so long as it IS_FALSEY()
-    );
-    return D_OUT;
+    return Until_Core(frame_, true); // run loop until result IS_TRUTHY()
 }
 
 
@@ -1499,50 +1494,51 @@ REBNATIVE(until_not)
 //
 // Faster than running NOT, and doesn't need groups for `until [...not (x =`
 {
-    INCLUDE_PARAMS_OF_UNTIL_NOT;
-
-    Until_Core(
-        D_OUT,
-        ARG(body),
-        true // loop body runs so long as it IS_TRUTHY()
-    );
-    return D_OUT;
+    return Until_Core(frame_, false); // run loop until result IS_FALSEY()
 }
 
 
 // Common code for WHILE & WHILE-NOT
 //
-inline static void While_Core(
-    REBVAL *out,
-    const REBVAL *condition,
-    const REBVAL *body,
-    bool trigger, // body keeps running so long as condition matches
-    REBVAL *cell // GC-safe temporary cell
+inline static const REBVAL *While_Core(
+    REBFRM *frame_,
+    bool trigger // body keeps running so long as condition matches
 ){
-    Init_Blank(out); // result if body never runs
+    INCLUDE_PARAMS_OF_WHILE;
+
+    DECLARE_LOCAL (cell); // unsafe to use ARG() slots as frame output cells
+    SET_END(cell);
+    PUSH_GC_GUARD(cell);
+
+    Init_Blank(D_OUT); // result if body never runs
 
     do {
-        if (Do_Branch_Throws(cell, condition)) {
-            Move_Value(out, cell);
-            return; // don't see BREAK/CONTINUE in the *condition*
+        if (Do_Branch_Throws(cell, ARG(condition))) {
+            Move_Value(D_OUT, cell);
+            DROP_GC_GUARD(cell);
+            return R_THROWN; // don't see BREAK/CONTINUE in the *condition*
         }
 
         if (IS_VOID(cell))
             fail (Error_Void_Conditional_Raw()); // neither truthy nor falsey
 
-        if (IS_TRUTHY(cell) != trigger)
-            return; // loop trigger didn't match, return last body result
+        if (IS_TRUTHY(cell) != trigger) {
+            DROP_GC_GUARD(cell);
+            return D_OUT; // trigger didn't match, return last body result
+        }
 
-        if (Do_Branch_With_Throws(out, body, cell)) {
+        if (Do_Branch_With_Throws(D_OUT, ARG(body), cell)) {
             bool stop;
-            if (not Catching_Break_Or_Continue(out, &stop))
-                return;
+            if (not Catching_Break_Or_Continue(D_OUT, &stop)) {
+                DROP_GC_GUARD(cell);
+                return R_THROWN;
+            }
             if (stop) {
-                Init_Nulled(out);
-                return;
+                DROP_GC_GUARD(cell);
+                return Init_Nulled(D_OUT);
             }
         }
-        Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
+        Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
     } while (true);
 
     DEAD_END;
@@ -1562,20 +1558,7 @@ inline static void While_Core(
 //
 REBNATIVE(while)
 {
-    INCLUDE_PARAMS_OF_WHILE;
-
-    DECLARE_LOCAL (cell);
-    SET_END(cell);
-    PUSH_GC_GUARD(cell);
-    While_Core(
-        D_OUT,
-        ARG(condition),
-        ARG(body),
-        true, // loop body runs so long as condition IS_TRUTHY()
-        cell
-    );
-    DROP_GC_GUARD(cell);
-    return D_OUT;
+    return While_Core(frame_, true); // run loop while condition IS_TRUTHY()
 }
 
 
@@ -1594,18 +1577,5 @@ REBNATIVE(while_not)
 //
 // Faster than running NOT, and doesn't need groups for `while [not (x =`
 {
-    INCLUDE_PARAMS_OF_WHILE_NOT;
-
-    DECLARE_LOCAL (cell);
-    SET_END(cell);
-    PUSH_GC_GUARD(cell);
-    While_Core(
-        D_OUT,
-        ARG(condition),
-        ARG(body),
-        false, // loop body runs so long as trigger IS_FALSEY()
-        cell
-    );
-    DROP_GC_GUARD(cell);
-    return D_OUT;
+    return While_Core(frame_, false); // run loop while condition IS_FALSEY()
 }

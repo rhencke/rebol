@@ -117,18 +117,16 @@ void Trace_Error(const REBVAL *value)
 
 
 //
-//  Traced_Eval_Hook: C
+//  Traced_Eval_Hook_Throws: C
 //
 // This is the function which is swapped in for Eval_Core when tracing is
 // enabled.
 //
-void Traced_Eval_Hook(REBFRM * const f)
+bool Traced_Eval_Hook_Throws(REBFRM * const f)
 {
     int depth = Eval_Depth() - Trace_Depth;
-    if (depth < 0 || depth >= Trace_Level) {
-        Eval_Core(f); // don't apply tracing (REPL uses this to hide)
-        return;
-    }
+    if (depth < 0 || depth >= Trace_Level)
+        return Eval_Core_Throws(f); // don't trace (REPL uses this to hide)
 
     if (depth > 10)
         depth = 10; // don't indent so far it goes off the screen
@@ -208,7 +206,7 @@ void Traced_Eval_Hook(REBFRM * const f)
             Debug_Line();
         }
 
-        Eval_Core(f);
+        bool threw = Eval_Core_Throws(f);
 
         if (not (saved_flags & DO_FLAG_TO_END)) {
             //
@@ -216,10 +214,10 @@ void Traced_Eval_Hook(REBFRM * const f)
             // wanting only a EVALUATE, then the original intent was actually
             // just an EVALUATE.  Return the frame state as-is.
             //
-            return;
+            return threw;
         }
 
-        if (THROWN(f->out) or IS_END(f->value)) {
+        if (threw or IS_END(f->value)) {
             //
             // If we get here, that means the initial request was for a DO
             // to END but we distorted it into stepwise.  We don't restore
@@ -228,7 +226,7 @@ void Traced_Eval_Hook(REBFRM * const f)
             // put back the DO_FLAG_TO_END.
             //
             f->flags.bits |= DO_FLAG_TO_END;
-            return;
+            return threw;
         }
 
         // keep looping (it was originally DO_FLAG_TO_END, which we are
@@ -294,13 +292,26 @@ const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
 
         if (r == f->out) {
 
-        process_out:;
+          process_out:;
 
-            if (not THROWN(f->out)) {
-                Debug_Values(f->out, 1, 50);
-                goto finished;
-            }
+            assert(not THROWN(f->out));
+            Debug_Values(f->out, 1, 50);
+        }
+        else if (r == nullptr) {
+            Debug_Fmt("// null\n");
+        }
+        if (VAL_TYPE_RAW(r) <= REB_MAX_NULLED) {
+            Handle_Api_Dispatcher_Result(f, r);
+            r = f->out;
+            goto process_out;
+        }
+        else switch (VAL_TYPE_RAW(r)) {
 
+        case REB_0_END:
+            assert(false);
+            break;
+
+        case REB_R_THROWN: {
             // The system guards against the molding or forming of thrown
             // values, which are actually a pairing of label + value.
             // "Catch" it temporarily, long enough to output it, then
@@ -315,15 +326,7 @@ const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
                 Debug_Fmt_("throw %30r, label %20r", arg, f->out);
 
             CONVERT_NAME_TO_THROWN(f->out, arg); // sets bit
-        }
-        else if (not r) {
-            Debug_Fmt("\\\\null\\\\\n"); // displays as "\\null\\"
-        }
-        else switch (VAL_TYPE_RAW(r)) {
-
-        case REB_0_END:
-            assert(false);
-            break;
+            break; }
 
         case REB_R_INVISIBLE:
             Debug_Fmt("\\\\invisible\\\\\n"); // displays as "\\invisible\\"
@@ -334,13 +337,9 @@ const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
             assert(false); // internal use only, shouldn't be returned
             break;
 
-        default: {
-            assert(r->header.bits & NODE_FLAG_CELL);
-            Move_Value(f->out, r);
-            goto process_out; }
+        default:
+            panic ("Unknown REB_R value received during trace hook");
         }
-
-        finished:;
     }
 
     return r;
@@ -380,7 +379,7 @@ REBNATIVE(trace)
         Trace_Level = Int32(mode);
 
     if (Trace_Level) {
-        PG_Eval = &Traced_Eval_Hook;
+        PG_Eval_Throws = &Traced_Eval_Hook_Throws;
         PG_Dispatcher = &Traced_Dispatcher_Hook;
 
         if (REF(function))
@@ -388,7 +387,7 @@ REBNATIVE(trace)
         Trace_Depth = Eval_Depth() - 1; // subtract current TRACE frame
     }
     else {
-        PG_Eval = &Eval_Core;
+        PG_Eval_Throws = &Eval_Core_Throws;
         PG_Dispatcher = &Dispatcher_Core;
     }
 

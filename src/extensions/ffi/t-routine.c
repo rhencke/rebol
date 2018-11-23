@@ -634,16 +634,16 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
         // FFI argument series.
         //
         do {
-            Do_Vararg_Op_May_Throw_Or_End(
+            if (Do_Vararg_Op_Maybe_End_Throws(
                 f->out,
                 vararg,
                 VARARG_OP_TAKE
-            );
+            )){
+                return R_THROWN;
+            }
 
             if (IS_END(f->out))
                 break;
-            if (THROWN(f->out))
-                return f->out;
 
             DS_PUSH(f->out);
             SET_END(f->out); // expected by Do_Vararg_Op
@@ -866,7 +866,6 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
 
     // Note: cannot "throw" a Rebol value across an FFI boundary.
 
-    assert(not THROWN(f->out));
     return f->out;
 }
 

@@ -48,15 +48,13 @@ REBINT CT_Tuple(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Tuple: C
 //
-void MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_TUPLE);
     UNUSED(kind);
 
-    if (IS_TUPLE(arg)) {
-        Move_Value(out, arg);
-        return;
-    }
+    if (IS_TUPLE(arg))
+        return Move_Value(out, arg);
 
     RESET_CELL(out, REB_TUPLE);
     REBYTE *vp = VAL_TUPLE(out);
@@ -74,9 +72,9 @@ void MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     if (IS_TEXT(arg) or IS_URL(arg)) {
         REBSIZ size;
         REBYTE *bp = Analyze_String_For_Scan(&size, arg, MAX_SCAN_TUPLE);
-        if (Scan_Tuple(out, bp, size) != NULL)
-            return;
-        fail (Error_Invalid(arg));
+        if (Scan_Tuple(out, bp, size) == NULL)
+            fail (Error_Invalid(arg));
+        return out;
     }
 
     if (ANY_ARRAY(arg)) {
@@ -105,7 +103,7 @@ void MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         VAL_TUPLE_LEN(out) = len;
 
         for (; len < MAX_TUPLE; len++) *vp++ = 0;
-        return;
+        return out;
     }
 
     REBCNT alen;
@@ -140,9 +138,9 @@ void MAKE_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         fail (Error_Invalid(arg));
 
     for (; alen < MAX_TUPLE; alen++) *vp++ = 0;
-    return;
+    return out;
 
-bad_make:
+  bad_make:
     fail (Error_Bad_Make(REB_TUPLE, arg));
 }
 
@@ -150,9 +148,9 @@ bad_make:
 //
 //  TO_Tuple: C
 //
-void TO_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Tuple(out, kind, arg);
+    return MAKE_Tuple(out, kind, arg);
 }
 
 

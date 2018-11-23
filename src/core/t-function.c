@@ -69,7 +69,7 @@ REBINT CT_Action(const RELVAL *a1, const RELVAL *a2, REBINT mode)
 //
 //     [[spec] [body]]
 //
-void MAKE_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_ACTION);
     UNUSED(kind);
@@ -101,7 +101,7 @@ void MAKE_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         MKF_ANY_VALUE
     );
 
-    Init_Action_Unbound(out, act);
+    return Init_Action_Unbound(out, act);
 }
 
 
@@ -112,7 +112,7 @@ void MAKE_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 // from a BLOCK!, e.g. `x: does [1 + y]`, so TO ACTION! of a block doesn't
 // need to do that (for instance).
 //
-void TO_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_ACTION);
     UNUSED(kind);
@@ -321,7 +321,7 @@ REBTYPE(Action)
 // instead is each step pushes a canonized word to the stack.  The processing
 // for GET-PATH! will--at the end--make a partially refined ACTION! value
 // (see WORD_FLAG_PARTIAL_REFINE).  But the processing for REB_PATH in
-// Eval_Core() does not need to...it operates off of the stack values directly.
+// Eval_Core_Throws() does not need to...it operates off stack values directly.
 //
 const REBVAL *PD_Action(
     REBPVS *pvs,

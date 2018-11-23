@@ -196,11 +196,11 @@ inline static bool Is_Frame_Gotten_Shoved(REBFRM *f) {
     // The C++ debug build adds a check that a frame is not uing a tricky
     // noop dispatcher, when access to the phase is gotten with FRM_PHASE().
     // This trick lets the sunk cost of calling a dispatcher be used instead
-    // of a separate flag checked on every evaluator cycle.  What it's for is
-    // so routines like `MAYBE PARSE "AAA" [SOME "A"]` can build the frame
-    // for parse without actually *running* PARSE yet...return from Eval_Core(),
-    // extract the first argument, and then call back into Eval_Core() to
-    // actually run the PARSE.
+    // of a separate flag checked on every evaluator cycle.  This is so that
+    // routines like `MAYBE PARSE "AAA" [SOME "A"]` can build the parse frame
+    // without actually *running* PARSE yet...return from Eval_Core_Throws(),
+    // extract the first argument, and then call back into Eval_Core_Throws()
+    // to actually run the PARSE.
     //
     // Any manipulations aware of this hack need to access the field directly.
     //
@@ -235,8 +235,6 @@ inline static bool Is_Frame_Gotten_Shoved(REBFRM *f) {
         assert(n != 0 and n <= FRM_NUM_ARGS(f));
 
         REBVAL *var = f->rootvar + n; // 1-indexed
-
-        assert(!THROWN(var));
         assert(not IS_RELATIVE(cast(RELVAL*, var)));
         return var;
     }

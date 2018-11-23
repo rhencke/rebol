@@ -48,7 +48,7 @@
 //
 //  MAKE_Fail: C
 //
-void MAKE_Fail(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Fail(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     UNUSED(out);
     UNUSED(kind);
@@ -65,7 +65,7 @@ void MAKE_Fail(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 // aren't ready yet as a general concept, this hook is overwritten in the
 // dispatch table when the extension loads.
 //
-void MAKE_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     UNUSED(out);
     UNUSED(arg);
@@ -138,92 +138,23 @@ REBNATIVE(make)
     }
 #endif
 
-    MAKE_CFUNC dispatcher = Make_Dispatch[kind];
-    if (dispatcher == NULL)
+    MAKE_HOOK hook = Make_Hooks[kind];
+    if (hook == nullptr)
         fail (Error_Bad_Make(kind, arg));
 
-    if (IS_VARARGS(arg)) {
-        //
-        // Converting a VARARGS! to an ANY-ARRAY! involves spooling those
-        // varargs to the end and making an array out of that.  It's not known
-        // how many elements that will be, so they're gathered to the data
-        // stack to find the size, then an array made.  Note that | will stop
-        // varargs gathering.
-        //
-        // !!! MAKE should likely not be allowed to THROW in the general
-        // case--especially if it is the implementation of construction
-        // syntax (arbitrary code should not run during LOAD).  Since
-        // vararg spooling may involve evaluation (e.g. to create an array)
-        // it may be a poor fit for the MAKE umbrella.
-        //
-        // Temporarily putting the code here so that the make dispatchers
-        // do not have to bubble up throws, but it is likely that this
-        // should not have been a MAKE operation in the first place.
-        //
-        // !!! This MAKE will be destructive to its input (the varargs will
-        // be fetched and exhausted).  That's not necessarily obvious, but
-        // with a TO conversion it would be even less obvious...
-        //
-        if (dispatcher != &MAKE_Array)
-            fail (Error_Bad_Make(kind, arg));
-
-        // If there's any chance that the argument could produce voids, we
-        // can't guarantee an array can be made out of it.
-        //
-        if (arg->payload.varargs.facade == NULL) {
-            //
-            // A vararg created from a block AND never passed as an argument
-            // so no typeset or quoting settings available.  Can't produce
-            // any voids, because the data source is a block.
-            //
-            assert(
-                NOT_SER_FLAG(
-                    arg->extra.binding, ARRAY_FLAG_VARLIST
-                )
-            );
-        }
-        else {
-            REBCTX *context = CTX(arg->extra.binding);
-            REBFRM *param_frame = CTX_FRAME_MAY_FAIL(context);
-
-            REBVAL *param = ACT_FACADE_HEAD(FRM_PHASE(param_frame))
-                + arg->payload.varargs.param_offset;
-
-            if (TYPE_CHECK(param, REB_MAX_NULLED))
-                fail (Error_Null_Vararg_Array_Raw());
-        }
-
-        REBDSP dsp_orig = DSP;
-
-        do {
-            Do_Vararg_Op_May_Throw_Or_End(
-                D_OUT,
-                arg,
-                VARARG_OP_TAKE
-            );
-
-            if (IS_END(D_OUT))
-                break;
-            if (THROWN(D_OUT)) {
-                DS_DROP_TO(dsp_orig);
-                return D_OUT;
-            }
-
-            DS_PUSH(D_OUT);
-        } while (true);
-
-        return Init_Any_Array(D_OUT, kind, Pop_Stack_Values(dsp_orig));
-    }
-
-    dispatcher(D_OUT, kind, arg); // may fail() or throw
-    return D_OUT; // may be thrown..
+    const REBVAL *r = hook(D_OUT, kind, arg); // might throw, fail...
+    if (r == R_THROWN)
+        return r;
+    if (r == nullptr or VAL_TYPE(r) != kind)
+        fail ("MAKE dispatcher did not return correct type");
+    return r; // may be D_OUT or an API handle
 }
 
 
 //
 //  TO_Fail: C
 //
-void TO_Fail(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Fail(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     UNUSED(out);
     UNUSED(kind);
@@ -236,7 +167,7 @@ void TO_Fail(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  TO_Unhooked: C
 //
-void TO_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     UNUSED(out);
     UNUSED(arg);
@@ -253,9 +184,9 @@ void TO_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  {Converts to a specified datatype, copying any underying data}
 //
-//      return: "VALUE converted to TYPE"
-//          [any-value!]
-//      type [datatype!]
+//      return: "VALUE converted to TYPE, null if type or value are blank"
+//          [<opt> any-value!]
+//      type [blank! datatype!]
 //      value [any-value!]
 //  ]
 //
@@ -264,14 +195,26 @@ REBNATIVE(to)
     INCLUDE_PARAMS_OF_TO;
 
     REBVAL *v = ARG(value);
+
+    if (IS_BLANK(ARG(type)) or IS_BLANK(v))
+        return nullptr; // blank in null out...works for either argument
+
     enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
 
-    TO_CFUNC dispatcher = To_Dispatch[new_kind];
-    if (not dispatcher)
+    TO_HOOK hook = To_Hooks[new_kind];
+    if (not hook)
         fail (Error_Invalid(v));
 
-    dispatcher(D_OUT, new_kind, v); // may fail();
-    return D_OUT;
+    const REBVAL *r = hook(D_OUT, new_kind, v); // may fail();
+    if (r == R_THROWN) {
+        assert(!"Illegal throw in TO conversion handler");
+        fail (Error_No_Catch_For_Throw(D_OUT));
+    }
+    if (r == nullptr or VAL_TYPE(r) != new_kind) {
+        assert(!"TO conversion did not return intended type");
+        fail (Error_Invalid_Type(VAL_TYPE(r)));
+    }
+    return r; // must be either D_OUT or an API handle
 }
 
 
@@ -333,10 +276,10 @@ const REBVAL *Reflect_Core(REBFRM *frame_)
     if (kind == REB_MAX_NULLED)
         fail ("NULL isn't valid for REFLECT, except for TYPE OF ()");
 
-    REBTAF subdispatch = Value_Dispatch[kind];
+    GENERIC_HOOK hook = Generic_Hooks[kind];
     DECLARE_LOCAL (verb);
     Init_Word(verb, Canon(SYM_REFLECT));
-    return subdispatch(frame_, verb);
+    return hook(frame_, verb);
 }
 
 

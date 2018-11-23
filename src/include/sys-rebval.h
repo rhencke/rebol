@@ -103,8 +103,13 @@
 
 //=//// VALUE_FLAG_THROWN /////////////////////////////////////////////////=//
 //
-// This is how a REBVAL signals that it is a "throw" (e.g. a RETURN, BREAK,
-// CONTINUE or generic THROW signal).
+// !!! This bit was historically a way of signaling a "throw" (e.g. a RETURN,
+// BREAK, CONTINUE, or generic THROW signal).  It is in the process of being
+// reclaimed...as it doesn't make very much sense to waste a scarce value
+// header bit for something that can only be set on one value in the system
+// at a time.  The reclamation is based on making sure the return results
+// from all functions carry the throw status unambiguously.  While that is
+// being worked out, the bit acts as an extra check.
 //
 // The bit being set does not mean the cell contains the thrown quantity
 // (e.g. it would not be the `1020` in `throw 1020`)  The evaluator thread
@@ -172,7 +177,7 @@
 // as a literal in source or as a product of an evaluation.  While all values
 // carry the bit, it is only guaranteed to be meaningful on arguments in
 // function frames...though it is valid on any result at the moment of taking
-// it from Eval_Core().
+// it from Eval_Core_Throws().
 //
 // It is in the negative sense because the act of requesting it is uncommon,
 // e.g. from the QUOTE operator.  So most Init_Blank() or other assignment
@@ -545,63 +550,6 @@ struct Reb_Partial_Payload {
     REBDSP dsp; // the DSP of this partial slot (if ordered on the stack)
     REBCNT index; // maps to the index of this parameter in the paramlist
 };
-
-
-//=//// PSEUDOTYPES FOR RETURN VALUES /////////////////////////////////////=//
-//
-// An arbitrary cell pointer may be returned from a native--in which case it
-// will be checked to see if it is thrown and processed if it is, or checked
-// to see if it's an unmanaged API handle and released if it is...ultimately
-// putting the cell into f->out.
-//
-// However, pseudotypes can be used to indicate special instructions to the
-// evaluator.
-//
-
-// If Eval_Core gets back an REB_R_REDO from a dispatcher, it will re-execute
-// the f->phase in the frame.  This function may be changed by the dispatcher
-// from what was originally called.
-//
-// If VALUE_FLAG_FALSEY is not set on the cell, then the types will be checked
-// again.  Note it is not safe to let arbitrary user code change values in a
-// frame from expected types, and then let those reach an underlying native
-// who thought the types had been checked.
-//
-#define REB_R_REDO REB_MAX_PLUS_ONE
-
-
-// See ACTION_FLAG_INVISIBLE...this is what any function with that flag needs
-// to return.
-//
-// It is also used by path dispatch when it has taken performing a SET-PATH!
-// into its own hands, but doesn't want to bother saying to move the value
-// into the output slot...instead leaving that to the evaluator (as a
-// SET-PATH! should always evaluate to what was just set)
-//
-#define REB_R_INVISIBLE REB_MAX_PLUS_TWO
-
-
-// Path dispatch used to have a return value PE_SET_IF_END which meant that
-// the dispatcher itself should realize whether it was doing a path get or
-// set, and if it were doing a set then to write the value to set into the
-// target cell.  That means it had to keep track of a pointer to a cell vs.
-// putting the bits of the cell into the output.  This is now done with a
-// special REB_R_REFERENCE type which holds in its payload a RELVAL and a
-// specifier, which is enough to be able to do either a read or a write,
-// depending on the need.
-//
-// !!! See notes in %c-path.c of why the R3-Alpha path dispatch is hairier
-// than that.  It hasn't been addressed much in Ren-C yet, but needs a more
-// generalized design.
-//
-#define REB_R_REFERENCE REB_MAX_PLUS_THREE
-
-
-// This is used in path dispatch, signifying that a SET-PATH! assignment
-// resulted in the updating of an immediate expression in pvs->out, meaning
-// it will have to be copied back into whatever reference cell it had been in.
-//
-#define REB_R_IMMEDIATE REB_MAX_PLUS_FOUR
 
 
 // Handles hold a pointer and a size...which allows them to stand-in for

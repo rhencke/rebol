@@ -140,7 +140,8 @@ REBVAL *Init_Decimal_Bits(RELVAL *out, const REBYTE *bp)
 //
 //  MAKE_Decimal: C
 //
-void MAKE_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+{
     REBDEC d;
 
     switch (VAL_TYPE(arg)) {
@@ -239,7 +240,7 @@ dont_divide_if_percent:
 
     RESET_CELL(out, kind);
     VAL_DECIMAL(out) = d;
-    return;
+    return out;
 
 bad_make:
     fail (Error_Bad_Make(kind, arg));
@@ -249,9 +250,9 @@ bad_make:
 //
 //  TO_Decimal: C
 //
-void TO_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Decimal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Decimal(out, kind, arg);
+    return MAKE_Decimal(out, kind, arg);
 }
 
 
@@ -360,7 +361,8 @@ REBTYPE(Decimal)
             Move_Value(D_OUT, D_ARG(2));
             Move_Value(D_ARG(2), D_ARG(1));
             Move_Value(D_ARG(1), D_OUT);
-            return Value_Dispatch[VAL_TYPE(D_ARG(1))](frame_, verb);
+            GENERIC_HOOK hook = Generic_Hooks[VAL_TYPE(D_ARG(1))];
+            return hook(frame_, verb);
         }
 
         // If the type of the second arg is something we can handle:

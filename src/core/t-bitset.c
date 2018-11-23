@@ -102,12 +102,10 @@ void MF_Bitset(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 //  MAKE_Bitset: C
 //
-void MAKE_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-#ifdef NDEBUG
-    UNUSED(kind);
-#else
+REB_R MAKE_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+{
     assert(kind == REB_BITSET);
-#endif
+    UNUSED(kind);
 
     REBINT len = Find_Max_Bit(arg);
 
@@ -122,22 +120,25 @@ void MAKE_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     REBSER *ser = Make_Bitset(len);
     Init_Bitset(out, ser);
 
-    if (IS_INTEGER(arg)) return; // allocated at a size, no contents.
+    if (IS_INTEGER(arg))
+        return out; // allocated at a size, no contents.
 
     if (IS_BINARY(arg)) {
         memcpy(BIN_HEAD(ser), VAL_BIN_AT(arg), len/8 + 1);
-        return;
+        return out;
     }
 
     Set_Bits(ser, arg, true);
+    return out;
 }
 
 
 //
 //  TO_Bitset: C
 //
-void TO_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-    MAKE_Bitset(out, kind, arg);
+REB_R TO_Bitset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+{
+    return MAKE_Bitset(out, kind, arg);
 }
 
 

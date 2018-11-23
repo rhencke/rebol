@@ -56,58 +56,54 @@ REBINT CT_Money(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Money: C
 //
-void MAKE_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_MONEY);
     UNUSED(kind);
 
     switch (VAL_TYPE(arg)) {
-    case REB_INTEGER:
-        Init_Money(out, int_to_deci(VAL_INT64(arg)));
-        break;
+      case REB_INTEGER:
+        return Init_Money(out, int_to_deci(VAL_INT64(arg)));
 
-    case REB_DECIMAL:
-    case REB_PERCENT:
-        Init_Money(out, decimal_to_deci(VAL_DECIMAL(arg)));
-        break;
+      case REB_DECIMAL:
+      case REB_PERCENT:
+        return Init_Money(out, decimal_to_deci(VAL_DECIMAL(arg)));
 
-    case REB_MONEY:
-        Move_Value(out, arg);
-        return;
+      case REB_MONEY:
+        return Move_Value(out, arg);
 
-    case REB_TEXT: {
+      case REB_TEXT: {
         REBYTE *bp = Analyze_String_For_Scan(NULL, arg, MAX_SCAN_MONEY);
 
         const REBYTE *end;
         Init_Money(out, string_to_deci(bp, &end));
         if (end == bp or *end != '\0')
             goto bad_make;
-        break; }
+        return out; }
 
 //      case REB_ISSUE:
-    case REB_BINARY:
+      case REB_BINARY:
         Bin_To_Money_May_Fail(out, arg);
-        break;
+        return out;
 
-    case REB_LOGIC:
-        Init_Money(out, int_to_deci(VAL_LOGIC(arg) ? 1 : 0));
-        break;
+      case REB_LOGIC:
+        return Init_Money(out, int_to_deci(VAL_LOGIC(arg) ? 1 : 0));
 
-    default:
-    bad_make:
-        fail (Error_Bad_Make(REB_MONEY, arg));
+      default:
+        break;
     }
 
-    assert(IS_MONEY(out));
+  bad_make:
+    fail (Error_Bad_Make(REB_MONEY, arg));
 }
 
 
 //
 //  TO_Money: C
 //
-void TO_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Money(out, kind, arg);
+    return MAKE_Money(out, kind, arg);
 }
 
 

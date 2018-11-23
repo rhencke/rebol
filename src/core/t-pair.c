@@ -49,15 +49,13 @@ REBINT CT_Pair(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Pair: C
 //
-void MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_PAIR);
     UNUSED(kind);
 
-    if (IS_PAIR(arg)) {
-        Move_Value(out, arg);
-        return;
-    }
+    if (IS_PAIR(arg))
+        return Move_Value(out, arg);
 
     if (IS_TEXT(arg)) {
         //
@@ -69,7 +67,7 @@ void MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         if (NULL == Scan_Pair(out, bp, size))
             goto bad_make;
 
-        return;
+        return out;
     }
 
     REBDEC x;
@@ -107,10 +105,9 @@ void MAKE_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     else
         goto bad_make;
 
-    Init_Pair(out, x, y);
-    return;
+    return Init_Pair(out, x, y);
 
-bad_make:
+  bad_make:
     fail (Error_Bad_Make(REB_PAIR, arg));
 }
 
@@ -118,9 +115,9 @@ bad_make:
 //
 //  TO_Pair: C
 //
-void TO_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Pair(out, kind, arg);
+    return MAKE_Pair(out, kind, arg);
 }
 
 

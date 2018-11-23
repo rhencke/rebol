@@ -407,7 +407,7 @@ static REBSER *make_binary(const REBVAL *arg, bool make)
 //
 //  MAKE_String: C
 //
-void MAKE_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *def) {
+REB_R MAKE_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *def) {
     REBSER *ser; // goto would cross initialization
 
     if (IS_INTEGER(def)) {
@@ -416,10 +416,9 @@ void MAKE_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *def) {
         // is semantically nebulous (round up, down?) and generally bad.
         //
         if (kind == REB_BINARY)
-            Init_Binary(out, Make_Binary(Int32s(def, 0)));
+            return Init_Binary(out, Make_Binary(Int32s(def, 0)));
         else
-            Init_Any_Series(out, kind, Make_Unicode(Int32s(def, 0)));
-        return;
+            return Init_Any_Series(out, kind, Make_Unicode(Int32s(def, 0)));
     }
     else if (IS_BLOCK(def)) {
         //
@@ -448,8 +447,7 @@ void MAKE_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *def) {
         if (i < 0 || i > cast(REBINT, VAL_LEN_AT(any_binstr)))
             goto bad_make;
 
-        Init_Any_Series_At(out, kind, VAL_SERIES(any_binstr), i);
-        return;
+        return Init_Any_Series_At(out, kind, VAL_SERIES(any_binstr), i);
     }
 
     if (kind == REB_BINARY)
@@ -460,10 +458,9 @@ void MAKE_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *def) {
     if (!ser)
         goto bad_make;
 
-    Init_Any_Series_At(out, kind, ser, 0);
-    return;
+    return Init_Any_Series_At(out, kind, ser, 0);
 
-bad_make:
+  bad_make:
     fail (Error_Bad_Make(kind, def));
 }
 
@@ -471,7 +468,7 @@ bad_make:
 //
 //  TO_String: C
 //
-void TO_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     REBSER *ser;
     if (kind == REB_BINARY)
@@ -482,7 +479,7 @@ void TO_String(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     if (ser == NULL)
         fail (Error_Invalid(arg));
 
-    Init_Any_Series(out, kind, ser);
+    return Init_Any_Series(out, kind, ser);
 }
 
 

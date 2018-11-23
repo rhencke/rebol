@@ -155,7 +155,7 @@ REBNATIVE(unwind)
     UNUSED(REF(with)); // implied by non-null value
 
     Make_Thrown_Unwind_Value(D_OUT, ARG(level), ARG(value), frame_);
-    return D_OUT;
+    return R_THROWN;
 }
 
 
@@ -225,8 +225,8 @@ REBNATIVE(return)
         if (IS_ENDISH_NULLED(v))
             Init_Void(v); // `do [return]` acts as `return void`
 
-        // Check type NOW instead of waiting and letting Eval_Core() check it.
-        // Reasoning is that this way, the error will indicate the callsite,
+        // Check type NOW instead of waiting and letting Eval_Core_Throws()
+        // check it.  Reasoning is that the error can indicate the callsite,
         // e.g. the point where `return badly-typed-value` happened.
         //
         // !!! In the userspace formulation of this abstraction, it indicates
@@ -245,7 +245,7 @@ REBNATIVE(return)
     INIT_BINDING_MAY_MANAGE(D_OUT, f_binding);
 
     CONVERT_NAME_TO_THROWN(D_OUT, v);
-    return D_OUT;
+    return R_THROWN;
 }
 
 
@@ -413,7 +413,7 @@ REBNATIVE(adapt)
         SPECIFIED,
         push_refinements
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -516,7 +516,7 @@ REBNATIVE(enclose)
         SPECIFIED,
         push_refinements
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -532,7 +532,7 @@ REBNATIVE(enclose)
         SPECIFIED,
         push_refinements
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -631,7 +631,7 @@ REBNATIVE(hijack)
         SPECIFIED,
         push_refinements
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -647,7 +647,7 @@ REBNATIVE(hijack)
         SPECIFIED,
         push_refinements
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     if (not IS_ACTION(D_OUT))

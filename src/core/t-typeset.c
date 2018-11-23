@@ -253,23 +253,21 @@ bool Update_Typeset_Bits_Core(
 //
 //  MAKE_Typeset: C
 //
-void MAKE_Typeset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Typeset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_TYPESET);
     UNUSED(kind);
 
-    if (IS_TYPESET(arg)) {
-        Move_Value(out, arg);
-        return;
-    }
+    if (IS_TYPESET(arg))
+        return Move_Value(out, arg);
 
     if (!IS_BLOCK(arg)) goto bad_make;
 
     Init_Typeset(out, 0, NULL);
     Update_Typeset_Bits_Core(out, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg));
-    return;
+    return out;
 
-bad_make:
+  bad_make:
     fail (Error_Bad_Make(REB_TYPESET, arg));
 }
 
@@ -277,9 +275,9 @@ bad_make:
 //
 //  TO_Typeset: C
 //
-void TO_Typeset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Typeset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Typeset(out, kind, arg);
+    return MAKE_Typeset(out, kind, arg);
 }
 
 

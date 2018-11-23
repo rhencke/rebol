@@ -119,7 +119,7 @@ static REBNATIVE(breakpoint)
         NULLED_CELL, // default result if RESUME does not override
         false // !execute (don't try to evaluate the NULLED_CELL)
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     // !!! Should use a more specific protocol (e.g. pass in END).  But also,
@@ -157,7 +157,7 @@ static REBNATIVE(pause)
         ARG(code), // default result if RESUME does not override
         true // execute (run the GROUP! as code, don't return as-is)
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     return D_OUT;
@@ -213,8 +213,8 @@ REBFRM *Frame_For_Stack_Level(
             // function as a candidate to target.
             //
             // !!! The inability to target a GROUP! by number is an artifact
-            // of implementation, in that there's no hook in Eval_Core() at
-            // the point of group evaluation to process the return.  The
+            // of implementation, in that there's no Eval_Core_Throws() hook
+            // at the point of group evaluation to process the return.  The
             // matter is different with a pending function call, because its
             // arguments are only partially processed--hence something
             // like a RESUME/AT or an EXIT/FROM would not know which array
@@ -423,7 +423,7 @@ static REBNATIVE(resume)
     //
     Init_Action_Maybe_Bound(D_OUT, FRM_PHASE(frame), FRM_BINDING(frame));
     CONVERT_NAME_TO_THROWN(D_OUT, cell);
-    return D_OUT;
+    return R_THROWN;
 }
 
 

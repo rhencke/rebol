@@ -158,41 +158,41 @@ type-table: load %types.r
 
 e-dispatch: make-emitter "Dispatchers" core/tmp-dispatchers.c
 
-tafs: collect [
+generic-hooks: collect [
     for-each-record t type-table [
         switch t/class [
             '* [
-                keep cscape/with {/* $<T/Name> */ T_Unhooked} [t]
+                keep cscape/with {T_Unhooked /* $<T/Name> */} [t]
             ]
             default [
                 keep cscape/with
-                    {/* $<T/Name> */ T_$<Propercase-Of t/class>} [t]
+                    {T_$<Propercase-Of t/class> /* $<T/Name> */} [t]
             ]
         ]
     ]
 ]
 
-pds: collect [
+path-hooks: collect [
     for-each-record t type-table [
         switch t/path [
-            '- [keep cscape/with {/* $<T/Name> */ PD_Fail} [t]]
+            '- [keep cscape/with {PD_Fail /* $<T/Name> */} [t]]
             '+ [
                 proper: propercase-of t/class
-                keep cscape/with {/* $<T/Name> */ PD_$<Proper>} [proper t]
+                keep cscape/with {PD_$<Proper> /* $<T/Name> */} [proper t]
             ]
-            '* [keep cscape/with {/* $<T/Name> */ PD_Unhooked} [t]]
+            '* [keep cscape/with {PD_Unhooked /* $<T/Name> */} [t]]
             default [
                 ; !!! Today's PORT! path dispatches through context although
                 ; that isn't its technical "class" for responding to generics.
                 ;
                 proper: propercase-of t/path
-                keep cscape/with {/* $<T/Name> */ PD_$<Proper>} [proper t]
+                keep cscape/with {PD_$<Proper> /* $<T/Name> */} [proper t]
             ]
         ]
     ]
 ]
 
-makes: collect [
+make-hooks: collect [
     for-each-record t type-table [
         switch t/make [
             '- [keep cscape/with {/* $<T/Name> */ MAKE_Fail} [t]]
@@ -201,30 +201,28 @@ makes: collect [
                 keep cscape/with {/* $<T/Name> */ MAKE_$<Proper>} [proper t]
             ]
             '* [keep cscape/with {/* $<T/Name> */ MAKE_Unhooked} [t]]
-            default [
-                fail "MAKE in %types.r should be, -, +, or *"
-            ]
+
+            fail "MAKE in %types.r should be, -, +, or *"
         ]
     ]
 ]
 
-tos: collect [
+to-hooks: collect [
     for-each-record t type-table [
         switch t/make [
             '- [keep cscape/with {/* $<T/Name> */ TO_Fail} [t]]
             '+ [
                 proper: propercase-of T/Class
-                keep cscape/with {/* $<T/Name> */ TO_$<Proper>} [proper t]
+                keep cscape/with {TO_$<Proper> /* $<T/Name> */} [proper t]
             ]
-            '* [keep cscape/with {/* $T/Name> */ TO_Unhooked} [t]]
-            default [
-                fail "TO in %types.r should be -, +, or *"
-            ]
+            '* [keep cscape/with {TO_Unhooked /* $T/Name> */} [t]]
+
+            fail "TO in %types.r should be -, +, or *"
         ]
     ]
 ]
 
-mfs: collect [
+mold-hooks: collect [
     for-each-record t type-table [
         switch t/mold [
             '- [keep cscape/with {/* $<T/Name> */ MF_Fail"} [t]]
@@ -240,19 +238,19 @@ mfs: collect [
                 ; and BINARY! has a different handler than strings
                 ;
                 proper: propercase-of t/mold
-                keep cscape/with {/* $<T/Name> */ MF_$<Proper>} [proper t]
+                keep cscape/with {MF_$<Proper> /* $<T/Name> */} [proper t]
             ]
         ]
     ]
 ]
 
-cts: collect [
+compare-hooks: collect [
     for-each-record t type-table [
         either t/class = '* [
-            keep cscape/with {/* $<T/Class> */ CT_Unhooked} [t]
+            keep cscape/with {CT_Unhooked /* $<T/Class> */} [t]
         ][
             proper: Propercase-Of T/Class
-            keep cscape/with {/* $<T/Class> */ CT_$<Proper>} [proper t]
+            keep cscape/with {CT_$<Proper> /* $<T/Class> */} [proper t]
         ]
     ]
 ]
@@ -261,51 +259,63 @@ e-dispatch/emit {
     #include "sys-core.h"
 
     /*
-     * VALUE DISPATCHERS: e.g. for `append value x` or `select value y`
+     * PER-TYPE GENERIC HOOKS: e.g. for `append value x` or `select value y`
+     *
+     * This is using the term in the sense of "generic functions":
+     * https://en.wikipedia.org/wiki/Generic_function
      */
-    REBTAF Value_Dispatch[REB_MAX] = {
+    GENERIC_HOOK Generic_Hooks[REB_MAX] = {
         nullptr, /* REB_0 */
-        $(Tafs),
+        $(Generic-Hooks),
     };
 
     /*
-     * PATH DISPATCHERS: for `a/b`, `:a/b`, `a/b:`, `pick a b`, `poke a b`
+     * PER-TYPE PATH HOOKS: for `a/b`, `:a/b`, `a/b:`, `pick a b`, `poke a b`
      */
-    REBPEF Path_Dispatch[REB_MAX] = {
+    PATH_HOOK Path_Hooks[REB_MAX] = {
         nullptr, /* REB_0 */
-        $(Pds),
+        $(Path-Hooks),
     };
 
     /*
-     * MAKE DISPATCHERS: for `make datatype def`
+     * PER-TYPE MAKE HOOKS: for `make datatype def`
+     *
+     * These functions must return a REBVAL* to the type they are making
+     * (either in the output cell given or an API cell)...or they can return
+     * R_THROWN if they throw.  (e.g. `make object! [return]` can throw)
      */
-    MAKE_CFUNC Make_Dispatch[REB_MAX] = {
+    MAKE_HOOK Make_Hooks[REB_MAX] = {
         nullptr, /* REB_0 */
-        $(Makes),
+        $(Make-Hooks),
     };
 
     /*
-     * TO DISPATCHERS: for `to datatype value`
+     * PER-TYPE TO HOOKS: for `to datatype value`
+     *
+     * These functions must return a REBVAL* to the type they are making
+     * (either in the output cell or an API cell).  They are NOT allowed to
+     * throw, and are not supposed to make use of any binding information in
+     * blocks they are passed...so no evaluations should be performed.
      */
-    TO_CFUNC To_Dispatch[REB_MAX] = {
+    TO_HOOK To_Hooks[REB_MAX] = {
         nullptr, /* REB_0 */
-        $(Tos),
+        $(To-Hooks),
     };
 
     /*
-     * MOLD DISPATCHERS: for `mold value`
+     * PER-TYPE MOLD HOOKS: for `mold value` and `form value`
      */
-    MOLD_CFUNC Mold_Or_Form_Dispatch[REB_MAX] = {
+    MOLD_HOOK Mold_Or_Form_Hooks[REB_MAX] = {
         nullptr, /* REB_0 */
-        $(Mfs),
+        $(Mold-Hooks),
     };
 
     /*
-     * COMPARISON DISPATCHERS, to support GREATER?, EQUAL?, LESSER?...
+     * PER-TYPE COMPARE HOOKS, to support GREATER?, EQUAL?, LESSER?...
      */
-    REBCTF Compare_Types[REB_MAX] = {
+    COMPARE_HOOK Compare_Hooks[REB_MAX] = {
         nullptr, /* REB_0 */
-        $(Cts),
+        $(Compare-Hooks),
     };
 }
 
@@ -361,10 +371,22 @@ e-types/emit {
         $[Rebs],
         REB_MAX, /* one past valid types, does double duty as NULL signal */
         REB_MAX_NULLED = REB_MAX,
+
         REB_MAX_PLUS_ONE, /* used for internal markings and algorithms */
+        REB_R_THROWN = REB_MAX_PLUS_ONE,
+
         REB_MAX_PLUS_TWO, /* used to indicate trash in the debug build */
+        REB_R_INVISIBLE = REB_MAX_PLUS_TWO,
+
         REB_MAX_PLUS_THREE, /* used for experimental typeset flag */
+        REB_R_REDO = REB_MAX_PLUS_THREE,
+
         REB_MAX_PLUS_FOUR, /* also used for experimental typeset flag */
+        REB_R_REFERENCE = REB_MAX_PLUS_FOUR,
+
+        REB_MAX_PLUS_FIVE,
+        REB_R_IMMEDIATE = REB_MAX_PLUS_FIVE,
+
         REB_MAX_PLUS_MAX
   #ifdef CPLUSPLUS_11
     };

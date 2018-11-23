@@ -116,7 +116,7 @@ REBNATIVE(reduce)
                 | (REF(try) ? REDUCE_FLAG_TRY : 0)
                 | (REF(opt) ? REDUCE_FLAG_OPT : 0)
         )){
-            return D_OUT;
+            return R_THROWN;
         }
 
         REBFLGS pop_flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
@@ -140,7 +140,7 @@ REBNATIVE(reduce)
         RETURN (value);
 
     if (Eval_Value_Throws(D_OUT, value))
-        return D_OUT;
+        return R_THROWN;
 
     if (not IS_NULLED(D_OUT))
         return D_OUT;
@@ -371,7 +371,7 @@ REBNATIVE(concoct)
         REF(deep),
         REF(only)
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;

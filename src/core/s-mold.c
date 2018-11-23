@@ -483,6 +483,8 @@ void MF_Unhooked(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
 {
+    assert(not THROWN(v)); // !!! Note: Thrown bit is being eliminated
+
     REBSER *s = mo->series;
     assert(SER_WIDE(s) == sizeof(REBYTE));
     ASSERT_SERIES_TERM(s);
@@ -505,28 +507,13 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
     #endif
     }
 
-    if (THROWN(v)) {
-        //
-        // !!! You do not want to see THROWN values leak into user awareness,
-        // as they are an implementation detail.  In the C code, a developer
-        // might explicitly PROBE() a thrown value, however.
-        //
-    #if defined(NDEBUG)
-        panic (v);
-    #else
-        printf("!!! Request to MOLD or FORM a THROWN() value !!!\n");
-        Append_Unencoded(s, "!!!THROWN(");
-        debug_break(); // don't crash if under a debugger, just "pause"
-    #endif
-    }
-
     if (IS_NULLED(v)) {
         //
         // NULLs should only be molded out in debug scenarios, but this still
         // happens a lot, e.g. PROBE() of context arrays when they have unset
         // variables.  This happens so often in debug builds, in fact, that a
         // debug_break() here would be very annoying (the method used for
-        // REB_0 and THROWN() items)
+        // REB_0 items)
         //
     #ifdef NDEBUG
         panic (v);
@@ -537,13 +524,9 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
     #endif
     }
 
-    MOLD_CFUNC dispatcher = Mold_Or_Form_Dispatch[VAL_TYPE(v)];
-    dispatcher(mo, v, form); // all types have a hook, even if it just fails
-
-#if !defined(NDEBUG)
-    if (THROWN(v))
-        Append_Unencoded(s, ")!!!"); // close the "!!!THROWN(" we started
-#endif
+    MOLD_HOOK hook = Mold_Or_Form_Hooks[VAL_TYPE(v)];
+    assert(hook != nullptr); // all types have a hook, even if it just fails
+    hook(mo, v, form);
 
     ASSERT_SERIES_TERM(s);
 }

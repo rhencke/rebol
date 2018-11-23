@@ -40,16 +40,14 @@
 // This is the code which is protected by the exception mechanism.  See the
 // rebRescue() API for more information.
 //
-static REBVAL *Trap_Dangerous(REBFRM *frame_) {
+static const REBVAL *Trap_Dangerous(REBFRM *frame_) {
     INCLUDE_PARAMS_OF_TRAP;
 
     UNUSED(REF(with));
     UNUSED(ARG(handler));
 
-    if (Do_Branch_Throws(D_OUT, ARG(code))) {
-        //
-        // returned value is tested for THROWN() status by caller
-    }
+    if (Do_Branch_Throws(D_OUT, ARG(code)))
+        return VOID_VALUE;
 
     return nullptr;
 }
@@ -77,9 +75,6 @@ REBNATIVE(trap)
     UNUSED(ARG(code)); // gets used by the above call, via the frame_ pointer
 
     if (not error) { // code didn't fail()
-        if (THROWN(D_OUT))
-            return D_OUT;
-
         if (IS_ERROR(D_OUT) and not REF(with))
             fail (
                 "TRAP'ped expressions are not allowed to evaluate to a"
@@ -89,6 +84,9 @@ REBNATIVE(trap)
         return D_OUT;
     }
 
+    if (IS_VOID(error)) // signal used to indicate a throw
+        return R_THROWN;
+
     assert(IS_ERROR(error));
 
     if (not REF(with))
@@ -96,7 +94,9 @@ REBNATIVE(trap)
 
     bool handler_threw = Do_Branch_With_Throws(D_OUT, ARG(handler), error);
     rebRelease(error); // Note: auto-released if fail() while handler runs
-    UNUSED(handler_threw);
+
+    if (handler_threw)
+        return R_THROWN;
 
     return D_OUT;
 }
@@ -135,14 +135,11 @@ REBNATIVE(entrap)
 {
     INCLUDE_PARAMS_OF_ENTRAP;
 
-    REBVAL *error = rebRescue(cast(REBDNG*, &Entrap_Dangerous), frame_);
+    REB_R error = rebRescue(cast(REBDNG*, &Entrap_Dangerous), frame_);
     UNUSED(ARG(code)); // gets used by the above call, via the frame_ pointer
 
     if (error)
         return error;
-
-    if (THROWN(D_OUT))
-        return D_OUT;
 
     return D_OUT;
 }

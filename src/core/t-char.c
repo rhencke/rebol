@@ -55,31 +55,29 @@ REBINT CT_Char(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Char: C
 //
-void MAKE_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_CHAR);
     UNUSED(kind);
 
-    REBUNI uni;
-
     switch(VAL_TYPE(arg)) {
     case REB_CHAR:
-        uni = VAL_CHAR(arg);
-        break;
+        return Init_Char(out, VAL_CHAR(arg));
 
     case REB_INTEGER:
-    case REB_DECIMAL:
-        {
+    case REB_DECIMAL: {
         REBINT n = Int32(arg);
-        if (n > MAX_UNI || n < 0) goto bad_make;
-        uni = n;
-        }
-        break;
+        if (n > MAX_UNI or n < 0)
+            goto bad_make;
+        return Init_Char(out, n); }
 
-    case REB_BINARY: {
+      case REB_BINARY: {
         const REBYTE *bp = VAL_BIN_HEAD(arg);
         REBSIZ len = VAL_LEN_AT(arg);
-        if (len == 0) goto bad_make;
+        if (len == 0)
+            goto bad_make;
+
+        REBUNI uni;
         if (*bp <= 0x80) {
             if (len != 1)
                 goto bad_make;
@@ -92,29 +90,28 @@ void MAKE_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
             if (!bp || len != 0) // must be valid UTF8 and consume all data
                 goto bad_make;
         }
-        break; }
+        return Init_Char(out, uni); }
 
-    case REB_TEXT:
+      case REB_TEXT:
         if (VAL_INDEX(arg) >= VAL_LEN_HEAD(arg))
             goto bad_make;
-        uni = GET_ANY_CHAR(VAL_SERIES(arg), VAL_INDEX(arg));
-        break;
+        return Init_Char(out, GET_ANY_CHAR(VAL_SERIES(arg), VAL_INDEX(arg)));
 
-    default:
-    bad_make:
-        fail (Error_Bad_Make(REB_CHAR, arg));
+      default:
+        break;
     }
 
-    Init_Char(out, uni);
+  bad_make:
+    fail (Error_Bad_Make(REB_CHAR, arg));
 }
 
 
 //
 //  TO_Char: C
 //
-void TO_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Char(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Char(out, kind, arg);
+    return MAKE_Char(out, kind, arg);
 }
 
 

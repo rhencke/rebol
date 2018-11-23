@@ -963,8 +963,6 @@ REBVAL *RL_rebRescue(
     if (not result)
         return nullptr; // null is considered a legal result
 
-    assert(not IS_NULLED(result)); // leaked non-API null
-
     // Analogous to how TRAP works, if you don't have a handler for the
     // error case then you can't return an ERROR!, since all errors indicate
     // a failure.
@@ -974,12 +972,16 @@ REBVAL *RL_rebRescue(
         return nullptr;
     }
 
+    if (not Is_Api_Value(result))
+        return result; // no proxying needed
+
+    assert(not IS_NULLED(result)); // leaked API nulled cell (not nullptr)
+
     // !!! We automatically proxy the ownership of any managed handles to the
     // caller.  Any other handles that leak out (e.g. via state) will not be
     // covered by this, and would have to be unmanaged.  Do another allocation
     // just for the sake of it.
 
-    assert(Is_Api_Value(result)); // !!! this could be relaxed if need be
     REBVAL *proxy = Move_Value(Alloc_Value(), result); // parent is not f
     rebRelease(result);
     return proxy;

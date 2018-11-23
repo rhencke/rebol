@@ -261,7 +261,7 @@ REBINT CT_Context(const RELVAL *a, const RELVAL *b, REBINT mode)
 // !!! MAKE functions currently don't have an explicit protocol for
 // thrown values.  So out just might be set as thrown.  Review.
 //
-void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     if (kind == REB_FRAME) {
         //
@@ -279,7 +279,7 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
             SPECIFIED,
             true // push_refinements, don't specialize ACTION! if PATH!
         )){
-            return; // !!! no explicit Throws() protocol, review
+            return out; // !!! no explicit Throws() protocol, review
         }
 
         if (not IS_ACTION(out))
@@ -295,8 +295,7 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // put /REFINEMENTs in refinement slots (instead of true/false/null)
         // to preserve the order of execution.
         //
-        Init_Frame(out, exemplar);
-        return;
+        return Init_Frame(out, exemplar);
     }
 
     if (kind == REB_OBJECT && IS_BLOCK(arg)) {
@@ -318,7 +317,7 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
         // !!! Spec block is currently ignored, but required.
 
-        Init_Object(
+        return Init_Object(
             out,
             Construct_Context_Managed(
                 REB_OBJECT,
@@ -327,8 +326,6 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
                 NULL // no parent
             )
         );
-
-        return;
     }
 
     // make error! [....]
@@ -338,9 +335,9 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     //
     if (kind == REB_ERROR) {
         if (Make_Error_Object_Throws(out, arg))
-            return; // !!! no explicit Throws() protocol, review
+            return R_THROWN;
 
-        return;
+        return out;
     }
 
     // `make object! 10` - currently not prohibited for any context type
@@ -367,16 +364,14 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         RESET_VAL_HEADER(CTX_ARCHETYPE(context), target);
         CTX_SPEC(context) = NULL;
         CTX_BODY(context) = NULL; */
-        Init_Any_Context(out, kind, context);
 
-        return;
+        return Init_Any_Context(out, kind, context);
     }
 
     // make object! map!
     if (IS_MAP(arg)) {
-        REBCTX *context = Alloc_Context_From_Map(VAL_MAP(arg));
-        Init_Any_Context(out, kind, context);
-        return;
+        REBCTX *c = Alloc_Context_From_Map(VAL_MAP(arg));
+        return Init_Any_Context(out, kind, c);
     }
 
     fail (Error_Bad_Make(kind, arg));
@@ -386,7 +381,7 @@ void MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  TO_Context: C
 //
-void TO_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     if (kind == REB_ERROR) {
         //
@@ -395,7 +390,7 @@ void TO_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         if (Make_Error_Object_Throws(out, arg))
             fail (Error_No_Catch_For_Throw(out));
 
-        return;
+        return out;
     }
 
     if (kind == REB_OBJECT) {
@@ -403,8 +398,7 @@ void TO_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         // !!! Contexts hold canon values now that are typed, this init
         // will assert--a TO conversion would thus need to copy the varlist
         //
-        Init_Object(out, VAL_CONTEXT(arg));
-        return;
+        return Init_Object(out, VAL_CONTEXT(arg));
     }
 
     fail (Error_Bad_Make(kind, arg));
@@ -1068,8 +1062,10 @@ REBNATIVE(construct)
             Bind_Values_Deep(VAL_ARRAY_AT(body), context);
 
             DECLARE_LOCAL (temp);
-            if (Do_Any_Array_At_Throws(temp, body))
-                RETURN (temp); // evaluation result ignored unless thrown
+            if (Do_Any_Array_At_Throws(temp, body)) {
+                Move_Value(D_OUT, temp);
+                return R_THROWN; // evaluation result ignored unless thrown
+            }
         }
 
         return D_OUT;

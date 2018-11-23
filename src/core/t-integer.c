@@ -47,7 +47,7 @@ REBINT CT_Integer(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Integer: C
 //
-void MAKE_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_INTEGER);
     UNUSED(kind);
@@ -78,13 +78,15 @@ void MAKE_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
         Value_To_Int64(out, arg, false);
     }
+
+    return out;
 }
 
 
 //
 //  TO_Integer: C
 //
-void TO_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_INTEGER);
     UNUSED(kind);
@@ -93,6 +95,7 @@ void TO_Integer(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     // unsigned interpretation or error if that doesn't make sense)
 
     Value_To_Int64(out, arg, false);
+    return out;
 }
 
 
@@ -406,12 +409,13 @@ REBTYPE(Integer)
             switch (VAL_WORD_SYM(verb)) {
             // Anything added to an integer is same as adding the integer:
             case SYM_ADD:
-            case SYM_MULTIPLY:
+            case SYM_MULTIPLY: {
                 // Swap parameter order:
                 Move_Value(D_OUT, val2);  // Use as temp workspace
                 Move_Value(val2, val);
                 Move_Value(val, D_OUT);
-                return Value_Dispatch[VAL_TYPE(val)](frame_, verb);
+                GENERIC_HOOK hook = Generic_Hooks[VAL_TYPE(val)];
+                return hook(frame_, verb); }
 
             // Only type valid to subtract from, divide into, is decimal/money:
             case SYM_SUBTRACT:

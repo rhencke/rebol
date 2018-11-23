@@ -106,7 +106,17 @@
 
     public:
         // Make sure you can't assign or compare from NOT_FOUND or UNKNOWN
+        // Also disable booleans, because it's easy to mix up a thrown bool
+        // in a place you meant to return a THROWN_FLAG.
         //
+        template<typename T> // https://stackoverflow.com/a/17842695
+        REBIXO (
+            T const &,
+            typename std::enable_if<
+                std::is_same<T, bool>::value
+            >::type* = nullptr
+        ) = delete;
+
         REBIXO (NOT_FOUND_t const &) = delete;
         void operator=(NOT_FOUND_t const &) = delete;
         bool operator==(NOT_FOUND_t const &rhs) const = delete;

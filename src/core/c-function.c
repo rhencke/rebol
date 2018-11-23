@@ -1375,8 +1375,8 @@ const REBVAL *Generic_Dispatcher(REBFRM *f)
     assert(IS_WORD(verb));
     assert(kind < REB_MAX);
 
-    REBTAF subdispatch = Value_Dispatch[kind];
-    return subdispatch(f, verb);
+    GENERIC_HOOK hook = Generic_Hooks[kind];
+    return hook(f, verb);
 }
 
 
@@ -1384,7 +1384,7 @@ const REBVAL *Generic_Dispatcher(REBFRM *f)
 //  Null_Dispatcher: C
 //
 // If you write `func [...] []` it uses this dispatcher instead of running
-// Eval_Core() on an empty block.  This is a more interesting optimization than
+// Eval_Core_Throws() on an empty block.  This serves more of a point than
 // it sounds, because you can make fast stub actions that only cost if they
 // are HIJACK'd (e.g. ASSERT is done this way).
 //
@@ -1460,7 +1460,7 @@ const REBVAL *Unchecked_Dispatcher(REBFRM *f)
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
-        return f->out;
+        return R_THROWN;
 
     return f->out;
 }
@@ -1480,7 +1480,7 @@ const REBVAL *Voider_Dispatcher(REBFRM *f)
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
-        return f->out;
+        return R_THROWN;
 
     return Init_Void(f->out);
 }
@@ -1502,7 +1502,7 @@ const REBVAL *Returner_Dispatcher(REBFRM *f)
     assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
 
     if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
-        return f->out;
+        return R_THROWN;
 
     REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
@@ -1541,7 +1541,7 @@ const REBVAL *Elider_Dispatcher(REBFRM *f)
 
     if (Do_At_Throws(dummy, VAL_ARRAY(body), 0, SPC(f->varlist))) {
         Move_Value(f->out, dummy); // can't return a local variable
-        return f->out;
+        return R_THROWN;
     }
 
     return R_INVISIBLE;
@@ -1586,7 +1586,7 @@ const REBVAL *Hijacker_Dispatcher(REBFRM *f)
     // transform the parameters we've gathered to be compatible with it.
     //
     if (Redo_Action_Throws(f, VAL_ACTION(hijacker)))
-        return f->out;
+        return R_THROWN;
 
     return f->out;
 }
@@ -1625,7 +1625,7 @@ const REBVAL *Adapter_Dispatcher(REBFRM *f)
         SPC(f->varlist)
     )){
         Move_Value(f->out, dummy);
-        return f->out;
+        return R_THROWN;
     }
 
     FRM_PHASE(f) = VAL_ACTION(adaptee);
@@ -1693,7 +1693,7 @@ const REBVAL *Encloser_Dispatcher(REBFRM *f)
 
     const bool fully = true;
     if (Apply_Only_Throws(f->out, fully, outer, FRM_CELL(f), rebEND))
-        return f->out;
+        return R_THROWN;
 
     return f->out;
 }

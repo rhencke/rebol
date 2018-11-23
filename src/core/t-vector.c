@@ -512,7 +512,7 @@ bool Make_Vector_Spec(REBVAL *out, const RELVAL *head, REBSPC *specifier)
 //
 //  MAKE_Vector: C
 //
-void MAKE_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     // CASE: make vector! 100
     if (IS_INTEGER(arg) || IS_DECIMAL(arg)) {
@@ -524,15 +524,12 @@ void MAKE_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
         const bool sign = true;
         const REBINT dims = 1;
         REBSER *ser = Make_Vector(non_integer, sign, dims, 32, size);
-        Init_Vector(out, ser);
-        return;
+        return Init_Vector(out, ser);
     }
 
-    TO_Vector(out, kind, arg); // may fail()
-    return;
+    return TO_Vector(out, kind, arg);
 
-bad_make:;
-
+  bad_make:;
     fail (Error_Bad_Make(kind, arg));
 }
 
@@ -540,11 +537,11 @@ bad_make:;
 //
 //  TO_Vector: C
 //
-void TO_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     if (IS_BLOCK(arg)) {
         if (Make_Vector_Spec(out, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg)))
-            return;
+            return out;
     }
     fail (Error_Bad_Make(kind, arg));
 }

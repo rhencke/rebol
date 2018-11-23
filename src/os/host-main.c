@@ -521,8 +521,8 @@ int main(int argc, char *argv_ansi[])
     // is supposed to be "invisible" and not show up on the stack...as if
     // it were part of the C codebase, even though it isn't written in C)
     //
-    REBDOF saved_eval_hook = PG_Eval;
-    REBDSF saved_dispatcher_hook = PG_Dispatcher;
+    REBEVL saved_eval_hook = PG_Eval_Throws;
+    REBNAT saved_dispatcher_hook = PG_Dispatcher;
 
     // !!! While the new mode of TRACE (and other code hooking function
     // execution) is covered by `saved_eval_hook/saved_apply_hook`, there
@@ -596,7 +596,7 @@ int main(int argc, char *argv_ansi[])
             //
             no_recover = false;
 
-            PG_Eval = saved_eval_hook;
+            PG_Eval_Throws = saved_eval_hook;
             PG_Dispatcher = saved_dispatcher_hook;
             Trace_Level = Save_Trace_Level;
             Trace_Depth = Save_Trace_Depth;
@@ -616,9 +616,9 @@ int main(int argc, char *argv_ansi[])
         // iteration of HOST-CONSOLE.  Same for Trace_Level seen by PARSE.
         //
         if (not is_console_instruction) {
-            saved_eval_hook = PG_Eval;
+            saved_eval_hook = PG_Eval_Throws;
             saved_dispatcher_hook = PG_Dispatcher;
-            PG_Eval = &Eval_Core;
+            PG_Eval_Throws = &Eval_Core_Throws;
             PG_Dispatcher = &Dispatcher_Core;
             Save_Trace_Level = Trace_Level;
             Save_Trace_Depth = Trace_Depth;

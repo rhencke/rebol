@@ -46,7 +46,7 @@ REBINT CT_Library(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Library: C
 //
-void MAKE_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R MAKE_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
     assert(kind == REB_LIBRARY);
     UNUSED(kind);
@@ -66,16 +66,16 @@ void MAKE_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     LINK(singular).fd = fd;
     MISC(singular).meta = NULL; // build from spec, e.g. arg?
 
-    Move_Value(out, KNOWN(ARR_HEAD(singular)));
+    return Move_Value(out, KNOWN(ARR_HEAD(singular)));
 }
 
 
 //
 //  TO_Library: C
 //
-void TO_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+REB_R TO_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    MAKE_Library(out, kind, arg);
+    return MAKE_Library(out, kind, arg);
 }
 
 

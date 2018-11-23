@@ -234,13 +234,13 @@ REBNATIVE(and)
     if (IS_FALSEY(left)) {
         if (IS_GROUP(right)) { // no need to evaluate right if BLOCK!
             if (Do_Any_Array_At_Throws(D_OUT, right))
-                return D_OUT;
+                return R_THROWN;
         }
         RETURN (left); // preserve falsey value
     }
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
-        return D_OUT;
+        return R_THROWN;
 
     return D_OUT; // preserve the exact truthy or falsey value
 }
@@ -270,13 +270,13 @@ REBNATIVE(or)
     if (IS_TRUTHY(left)) {
         if (IS_GROUP(right)) { // no need to evaluate right if BLOCK!
             if (Do_Any_Array_At_Throws(D_OUT, right))
-                return D_OUT;
+                return R_THROWN;
         }
         RETURN (left);
     }
 
     if (Do_Any_Array_At_Throws(D_OUT, right))
-        return D_OUT;
+        return R_THROWN;
 
     return D_OUT; // preserve the exact truthy or falsey value
 }
@@ -305,7 +305,7 @@ REBNATIVE(unless)
         fail ("left hand side of UNLESS should not be literal block");
 
     if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated
-        return D_OUT;
+        return R_THROWN;
 
     if (IS_TRUTHY(D_OUT))
         return D_OUT;
@@ -337,7 +337,7 @@ REBNATIVE(xor)
         fail ("left hand side of XOR should not be literal block");
 
     if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated
-        return D_OUT;
+        return R_THROWN;
 
     REBVAL *right = D_OUT;
 
@@ -368,7 +368,7 @@ REBINT CT_Logic(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MAKE_Logic: C
 //
-void MAKE_Logic(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R MAKE_Logic(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     assert(kind == REB_LOGIC);
     UNUSED(kind);
 
@@ -386,18 +386,18 @@ void MAKE_Logic(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             && (VAL_DECIMAL(arg) == 0.0)
         )
         || (IS_MONEY(arg) && deci_is_zero(VAL_MONEY_AMOUNT(arg)))
-    ) {
-        Init_False(out);
+    ){
+        return Init_False(out);
     }
-    else
-        Init_True(out);
+
+    return Init_True(out);
 }
 
 
 //
 //  TO_Logic: C
 //
-void TO_Logic(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
+REB_R TO_Logic(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     assert(kind == REB_LOGIC);
     UNUSED(kind);
 
@@ -405,7 +405,7 @@ void TO_Logic(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     // interpreter canon that all non-none non-logic-false values are
     // considered effectively "truth".
     //
-    Init_Logic(out, IS_TRUTHY(arg));
+    return Init_Logic(out, IS_TRUTHY(arg));
 }
 
 

@@ -2243,9 +2243,9 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             if (IS_KIND_SYM(sym)) {
                 enum Reb_Kind kind = KIND_FROM_SYM(sym);
 
-                MAKE_CFUNC dispatcher = Make_Dispatch[kind];
+                MAKE_HOOK hook = Make_Hooks[kind];
 
-                if (dispatcher == NULL or ARR_LEN(array) != 2) {
+                if (hook == NULL or ARR_LEN(array) != 2) {
                     DECLARE_LOCAL (temp);
                     Init_Block(temp, array);
                     fail (Error_Malconstruct_Raw(temp));
@@ -2263,7 +2263,15 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 PUSH_GC_GUARD(cell);
 
                 PUSH_GC_GUARD(array);
-                dispatcher(cell, kind, KNOWN(ARR_AT(array, 1))); // may fail()
+                const REBVAL *r = hook(cell, kind, KNOWN(ARR_AT(array, 1)));
+                if (r == R_THROWN) { // !!! good argument for not using MAKE
+                    assert(false);
+                    fail ("MAKE during construction syntax threw--illegal");
+                }
+                if (r != cell) { // !!! not yet supported
+                    assert(false);
+                    fail ("MAKE during construction syntax not out cell");
+                }
                 DROP_GC_GUARD(array);
 
                 DS_PUSH_TRASH;

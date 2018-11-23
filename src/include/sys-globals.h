@@ -105,6 +105,7 @@ PVAR REBVAL PG_R_Immediate[2]; // has "pseudotype" REB_R_IMMEDIATE
 PVAR REBVAL PG_R_Redo_Unchecked[2]; // "pseudotype" REB_R_REDO + FALSEY flag
 PVAR REBVAL PG_R_Redo_Checked[2]; // "pseudotype" REB_R_REDO + no FALSEY flag
 PVAR REBVAL PG_R_Reference[2]; // "pseudotype" REB_R_REFERENCE
+PVAR REBVAL PG_R_Thrown[2]; // has "pseudotype" REB_R_THROWN
 
 // These are root variables which used to be described in %root.r and kept
 // alive by keeping that array alive.  Now they are API handles, kept alive
@@ -151,8 +152,8 @@ PVAR REBACT *PG_Dummy_Action;
 // It is possible to swap out the evaluator for one that does tracing, or
 // single step debugging, etc.
 //
-PVAR REBDOF PG_Eval; // Evaluator (takes REBFRM, returns void)
-PVAR REBDSF PG_Dispatcher; // Dispatcher (takes REBFRM, returns REBVAL*)
+PVAR REBEVL PG_Eval_Throws; // Evaluator (takes REBFRM, returns void)
+PVAR REBNAT PG_Dispatcher; // Dispatcher (takes REBFRM, returns REBVAL*)
 
 
 /***********************************************************************

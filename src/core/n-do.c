@@ -76,7 +76,7 @@ REBNATIVE(eval)
     }
 
     if (Eval_Step_In_Subframe_Throws(D_OUT, frame_, flags, child))
-        return D_OUT;
+        return R_THROWN;
 
     return D_OUT;
 }
@@ -107,8 +107,8 @@ REBNATIVE(shove)
 
     // !!! It's nice to imagine the system evolving to where actions this odd
     // could be written generically vs. being hardcoded in the evaluator.
-    // But for now it is too "meta", and Eval_Core() detects NAT_ACTION(shove)
-    // when used as enfix...and implements the functionality there.
+    // But for now it is too "meta", and Eval_Core_Throws() detects
+    // NAT_ACTION(shove) when used as enfix...and implements it there.
     //
     // Only way this native would be called would be if it were not enfixed.
 
@@ -227,7 +227,7 @@ REBNATIVE(eval_enfix)
     REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
     if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child)) {
         DROP_GC_GUARD(temp);
-        return D_OUT;
+        return R_THROWN;
     }
 
     TRASH_POINTER_IF_DEBUG(FS_TOP->u.defer.arg);
@@ -290,7 +290,7 @@ REBNATIVE(do)
         );
 
         if (indexor == THROWN_FLAG)
-            return D_OUT;
+            return R_THROWN;
 
         assert(NOT_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED));
         return D_OUT; }
@@ -323,7 +323,7 @@ REBNATIVE(do)
                 // having BLANK! mean "thrown" may evolve into a convention.
                 //
                 Init_Unreadable_Blank(position);
-                return D_OUT;
+                return R_THROWN;
             }
 
             SET_END(position); // convention for shared data at end point
@@ -343,7 +343,7 @@ REBNATIVE(do)
         Init_Void(D_OUT);
         while (NOT_END(f->value)) {
             if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
-                return D_OUT;
+                return R_THROWN;
         }
 
         return D_OUT; }
@@ -371,7 +371,7 @@ REBNATIVE(do)
             REF(only) ? TRUE_VALUE : FALSE_VALUE,
             rebEND
         )){
-            return D_OUT;
+            return R_THROWN;
         }
         return D_OUT; }
 
@@ -402,7 +402,7 @@ REBNATIVE(do)
             fail (Error_Use_Eval_For_Eval_Raw());
 
         if (Eval_Value_Throws(D_OUT, source))
-            return D_OUT;
+            return R_THROWN;
         return D_OUT; }
 
     case REB_FRAME: {
@@ -447,12 +447,12 @@ REBNATIVE(do)
         REBSTR *opt_label = nullptr;
         Begin_Action(f, opt_label, ORDINARY_ARG);
 
-        (*PG_Eval)(f);
+        bool threw = (*PG_Eval_Throws)(f);
 
         Drop_Frame(f);
 
-        if (THROWN(f->out))
-            return f->out; // prohibits recovery from exits
+        if (threw)
+            return R_THROWN; // prohibits recovery from exits
 
         assert(IS_END(f->value)); // we started at END_FLAG, can only throw
 
@@ -513,8 +513,10 @@ REBNATIVE(evaluate)
             DO_MASK_NONE
         );
 
-        if (indexor == THROWN_FLAG)
-            RETURN (temp);
+        if (indexor == THROWN_FLAG) {
+            Move_Value(D_OUT, temp);
+            return R_THROWN;
+        }
 
         if (indexor == END_FLAG or IS_END(temp))
             return nullptr; // no disruption of output result
@@ -558,7 +560,7 @@ REBNATIVE(evaluate)
                 // having BLANK! mean "thrown" may evolve into a convention.
                 //
                 Init_Unreadable_Blank(position);
-                return D_OUT;
+                return R_THROWN;
             }
 
             if (indexor == END_FLAG or IS_END(temp)) {
@@ -617,8 +619,8 @@ REBNATIVE(sync_invisibles)
     INCLUDE_PARAMS_OF_SYNC_INVISIBLES;
 
     // !!! This hasn't been implemented yet.  It is probably best done as
-    // an adaptation of Eval_Core() with some kind of mode flag, and would take
-    // some redesign to do efficiently.
+    // an adaptation of Eval_Core_Throws() with some kind of mode flag, and
+    // would take some redesign to do efficiently.
 
     if (VAL_LEN_AT(ARG(source)) == 0)
         return nullptr;
@@ -695,7 +697,7 @@ REBNATIVE(redo)
     );
 
     // We need to cooperatively throw a restart instruction up to the level
-    // of the frame.  Use REDO as the label of the throw that Eval_Core() will
+    // of the frame.  Use REDO as the throw label that Eval_Core_Throws() will
     // identify for that behavior.
     //
     Move_Value(D_OUT, NAT_VALUE(redo));
@@ -703,10 +705,10 @@ REBNATIVE(redo)
 
     // The FRAME! contains its ->phase and ->binding, which should be enough
     // to restart the phase at the point of parameter checking.  Make that
-    // the actual value that Eval_Core() catches.
+    // the actual value that Eval_Core_Throws() catches.
     //
     CONVERT_NAME_TO_THROWN(D_OUT, restartee);
-    return D_OUT;
+    return R_THROWN;
 }
 
 
@@ -756,7 +758,7 @@ REBNATIVE(apply)
         SPECIFIED,
         true // push_refinements, don't specialize ACTION! on 'APPEND/ONLY/DUP
     )){
-        return D_OUT;
+        return R_THROWN;
     }
 
     if (not IS_ACTION(D_OUT))
@@ -812,7 +814,7 @@ REBNATIVE(apply)
     //
     PUSH_GC_GUARD(exemplar);
     DECLARE_LOCAL (temp);
-    bool threw = Do_Any_Array_At_Throws(temp, ARG(def));
+    bool def_threw = Do_Any_Array_At_Throws(temp, ARG(def));
     DROP_GC_GUARD(exemplar);
 
     assert(CTX_KEYS_HEAD(exemplar) == ACT_FACADE_HEAD(VAL_ACTION(applicand)));
@@ -823,7 +825,7 @@ REBNATIVE(apply)
     );
     LINK(stolen).keysource = NOD(f); // changes CTX_KEYS_HEAD result
 
-    if (threw) {
+    if (def_threw) {
         Free_Unmanaged_Array(CTX_VARLIST(stolen)); // could TG_Reuse it
         RETURN (temp);
     }
@@ -836,8 +838,8 @@ REBNATIVE(apply)
         //
         // If nulls are taken literally as null arguments, then no arguments
         // are gathered at the callsite, so the "ordering information"
-        // on the stack isn't needed.  Eval_Core() will just treat a slot
-        // with an INTEGER! for a refinement as if it were "true".
+        // on the stack isn't needed.  Eval_Core_Throws() will just treat a
+        // slot with an INTEGER! for a refinement as if it were "true".
         //
         f->flags.bits |= DO_FLAG_FULLY_SPECIALIZED;
         DS_DROP_TO(lowest_ordered_dsp); // zero refinements on stack, now
@@ -853,14 +855,14 @@ REBNATIVE(apply)
     FRM_BINDING(f) = VAL_BINDING(applicand);
 
     Begin_Action(f, opt_label, ORDINARY_ARG);
-    assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg)); // Eval_Core() checks
+    assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg)); // see Eval_Core_Throws()
 
-    (*PG_Eval)(f);
+    bool action_threw = (*PG_Eval_Throws)(f);
 
     Drop_Frame(f);
 
-    if (THROWN(f->out))
-        return f->out;
+    if (action_threw)
+        return R_THROWN;
 
     assert(IS_END(f->value)); // we started at END_FLAG, can only throw
     return D_OUT;

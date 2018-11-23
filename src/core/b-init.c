@@ -571,7 +571,7 @@ static REBARR *Startup_Natives(const REBVAL *boot_natives)
         // Though the manual building of this table is not as nice as running
         // the evaluator, the evaluator makes comparisons against native
         // values.  Having all natives loaded fully before ever running
-        // Eval_Core() helps with stability and invariants.
+        // Eval_Core_Throws() helps with stability and invariants.
 
         // Get the name the native will be started at with in Lib_Context
         //
@@ -826,6 +826,11 @@ static void Init_Root_Vars(void)
     Init_Void(&PG_Void_Value[0]);
     TRASH_CELL_IF_DEBUG(&PG_Void_Value[1]);
 
+    Prep_Non_Stack_Cell(&PG_R_Thrown[0]);
+    Prep_Non_Stack_Cell(&PG_R_Thrown[1]);
+    RESET_CELL(&PG_R_Thrown[0], REB_R_THROWN);
+    TRASH_CELL_IF_DEBUG(&PG_R_Thrown[1]);
+
     Prep_Non_Stack_Cell(&PG_R_Invisible[0]);
     Prep_Non_Stack_Cell(&PG_R_Invisible[1]);
     RESET_CELL(&PG_R_Invisible[0], REB_R_INVISIBLE);
@@ -841,7 +846,7 @@ static void Init_Root_Vars(void)
     RESET_CELL_EXTRA(
         &PG_R_Redo_Unchecked[0],
         REB_R_REDO,
-        VALUE_FLAG_FALSEY // understood by Eval_Core() as "unchecked"
+        VALUE_FLAG_FALSEY // understood by Eval_Core_Throws() as "unchecked"
     );
     TRASH_CELL_IF_DEBUG(&PG_R_Redo_Unchecked[1]);
 
@@ -850,7 +855,7 @@ static void Init_Root_Vars(void)
     RESET_CELL_EXTRA(
         &PG_R_Redo_Checked[0],
         REB_R_REDO,
-        0 // no VALUE_FLAG_FALSEY is understood by Eval_Core() as "checked"
+        0 // no VALUE_FLAG_FALSEY is taken by Eval_Core_Throws() as "checked"
     );
     TRASH_CELL_IF_DEBUG(&PG_R_Redo_Checked[1]);
 
@@ -1407,12 +1412,12 @@ void Startup_Core(void)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-    // Initialize eval handler to the default, Eval_Core(), and the dispatcher
-    // of an ACTION! handler to Dispatcher_Core().  These routines have no
+    // Initialize eval handler to the default, Eval_Core_Throws(), and ACTION!
+    // dispatcher handler to Dispatcher_Core().  These routines have no
     // tracing, no debug handling, etc.  If those features are needed, an
     // augmented function must be substituted.
     //
-    PG_Eval = &Eval_Core;
+    PG_Eval_Throws = &Eval_Core_Throws;
     PG_Dispatcher = &Dispatcher_Core;
 
     // boot->natives is from the automatically gathered list of natives found
