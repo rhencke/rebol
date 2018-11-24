@@ -1158,18 +1158,29 @@ void Assert_Array_Core(REBARR *a)
 
     if (IS_SER_DYNAMIC(a)) {
         REBCNT rest = SER_REST(SER(a));
+        assert(rest > 0 and rest > i);
 
-        assert(rest > 0 && rest > i);
         for (; i < rest - 1; ++i, ++item) {
-            if (not (item->header.bits & NODE_FLAG_CELL)) {
-                printf("Unwritable cell found in array rest capacity\n");
-                panic (a);
+            const bool unwritable = not (item->header.bits & NODE_FLAG_CELL);
+            if (GET_SER_FLAG(a, SERIES_FLAG_FIXED_SIZE)) {
+              #if !defined(NDEBUG)
+                if (not unwritable) {
+                    printf("Writable cell found in fixed-size array rest\n");
+                    panic (a);
+                }
+              #endif
+            }
+            else {
+                if (unwritable) {
+                    printf("Unwritable cell found in array rest capacity\n");
+                    panic (a);
+                }
             }
         }
         assert(item == ARR_AT(a, rest - 1));
 
         RELVAL *ultimate = ARR_AT(a, rest - 1);
-        if (NOT_END(ultimate) || (ultimate->header.bits & NODE_FLAG_CELL)) {
+        if (NOT_END(ultimate) or (ultimate->header.bits & NODE_FLAG_CELL)) {
             printf("Implicit termination/unwritable END missing from array\n");
             panic (a);
         }

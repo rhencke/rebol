@@ -517,6 +517,20 @@ inline static void Push_Action(
     tail->header.bits = NODE_FLAG_STACK | FLAG_KIND_BYTE(REB_0);
     TRACK_CELL_IF_DEBUG(tail, __FILE__, __LINE__);
 
+    // Current invariant for all arrays (including fixed size), last cell in
+    // the allocation is an end.
+    RELVAL *ultimate = ARR_AT(f->varlist, s->content.dynamic.rest - 1);
+    ultimate->header = Endlike_Header(0); // unreadable
+    TRACK_CELL_IF_DEBUG(ultimate, __FILE__, __LINE__);
+
+  #if !defined(NDEBUG)
+    RELVAL *prep = ultimate - 1;
+    for (; prep > tail; --prep) {
+        prep->header.bits = FLAG_KIND_BYTE(REB_T_TRASH); // unreadable
+        TRACK_CELL_IF_DEBUG(prep, __FILE__, __LINE__);
+    }
+  #endif
+
     f->arg = f->rootvar + 1;
 
     // Each layer of specialization of a function can only add specializations

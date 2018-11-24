@@ -98,20 +98,24 @@ inline static REBARR *Singular_From_Cell(const RELVAL *v) {
     SER_LEN(SER(a))
 
 
-// TERM_ARRAY_LEN sets the length and terminates the array, and to get around
-// the problem it checks to see if the length is the rest - 1.  Another
-// possibility would be to check to see if the cell was already marked with
-// END...however, that would require initialization of all cells in an array
-// up front, to legitimately examine the bits (and decisions on how to init)
+// Set length and also terminate.  This routine avoids conditionality in the
+// release build, which means it may overwrite a signal byte in a "read-only"
+// end (such as an Endlike_Header).  Not branching is presumed to perform
+// better, but cells that weren't ends already are writability checked.
+//
+// !!! Review if SERIES_FLAG_FIXED_SIZE should be calling this routine.  At
+// the moment, fixed size series merely can't expand, but it might be more
+// efficient if they didn't use any "appending" operators to get built.
 //
 inline static void TERM_ARRAY_LEN(REBARR *a, REBCNT len) {
-    REBCNT rest = SER_REST(SER(a));
-    assert(len < rest);
+    assert(len < SER_REST(SER(a)));
     SET_SERIES_LEN(SER(a), len);
-    if (len + 1 == rest)
-        assert(IS_END(ARR_TAIL(a)));
-    else
-        SET_END(ARR_TAIL(a));
+
+  #if !defined(NDEBUG)
+    if (NOT_END(ARR_AT(a, len)))
+        ASSERT_CELL_WRITABLE_EVIL_MACRO(ARR_AT(a, len), __FILE__, __LINE__);
+  #endif
+    SECOND_BYTE(ARR_AT(a, len)->header.bits) = REB_0_END;
 }
 
 inline static void SET_ARRAY_LEN_NOTERM(REBARR *a, REBCNT len) {
@@ -170,57 +174,76 @@ inline static void Deep_Freeze_Array(REBARR *a) {
 
 
 //
-// For REBVAL-valued-arrays, we mark as trash to mark the "settable" bit,
-// heeded by both SET_END() and RESET_HEADER().  See VALUE_FLAG_CELL comments
-// for why this is done.
+// REBVAL cells cannot be written to unless they carry VALUE_FLAG_CELL, and
+// have been "formatted" to convey their lifetime (stack or array).  This
+// helps debugging, but is also important information needed by Move_Value()
+// for deciding if the lifetime of a target cell requires the "reification"
+// of any temporary referenced structures into ones managed by the GC.
 //
-// Note that the "len" field of the series at prep time (its number of valid
-// elements as maintained by the client) will be 0.  As far as this layer is
-// concerned, we've given back `length` entries for the caller to manage...
-// they do not know about the ->rest
+// Performance-wise, the prep process requires writing one `uintptr_t`-sized
+// header field per cell.  For fully optimum efficiency, clients filling
+// arrays can initialize the bits as part of filling in cells vs. using
+// Prep_Array.  This is done by the evaluator when building the f->varlist for
+// a frame (it's walking the parameters anyway).  However, this is usually
+// not necessary--and sacrifices generality for code that wants to work just
+// as well on stack values and heap values.
 //
-inline static void Prep_Array(REBARR *a) {
+inline static void Prep_Array(
+    REBARR *a,
+    REBCNT capacity_plus_one // Expand_Series passes 0 on dynamic reallocation
+){
     assert(IS_SER_DYNAMIC(a));
 
-    REBCNT n;
+    RELVAL *prep = ARR_HEAD(a);
 
-    for (n = 0; n < ARR_LEN(a); n++)
-        Prep_Non_Stack_Cell(ARR_AT(a, n));
+    if (NOT_SER_FLAG(a, SERIES_FLAG_FIXED_SIZE)) {
+        //
+        // Expandable arrays prep all cells, including in the not-yet-used
+        // capacity.  Otherwise you'd waste time prepping cells on every
+        // expansion and un-prepping them on every shrink.
+        //
+        REBCNT n;
+        for (n = 0; n < SER(a)->content.dynamic.rest - 1; ++n, ++prep)
+            Prep_Non_Stack_Cell(prep);
+    }
+    else {
+        assert(capacity_plus_one != 0);
 
-    // !!! We should intentionally mark the overage range as not having
-    // NODE_FLAG_CELL in the debug build.  Then have the series go through
-    // an expansion to overrule it.
-    //
-    // That's complicated logic that is likely best done in the context of
-    // a simplifying review of the series mechanics themselves.  So
-    // for now we just use ordinary trash...which means we don't get
-    // as much potential debug warning as we might when writing into
-    // bias or tail capacity.
-    //
-    // !!! Also, should the release build do the NODE_FLAG_CELL setting
-    // up front, or only on expansions?
-    //
-    for(; n < SER(a)->content.dynamic.rest - 1; n++)
-        Prep_Non_Stack_Cell(ARR_AT(a, n));
+        REBCNT n;
+        for (n = 1; n < capacity_plus_one; ++n, ++prep)
+            Prep_Non_Stack_Cell(prep); // have to prep cells in useful capacity
 
-    // The convention is that the *last* cell in the allocated capacity
-    // is an unwritable end.  This may be located arbitrarily beyond the
-    // capacity the user requested, if a pool unit was used that was
-    // bigger than they asked for...but this will be used in expansion.
+        // If an array isn't expandable, let the release build not worry
+        // about the bits in the excess capacity.  But set them to trash in
+        // the debug build.
+        //
+        prep->header = Endlike_Header(0); // unwritable
+        TRACK_CELL_IF_DEBUG(prep, __FILE__, __LINE__);
+      #if !defined(NDEBUG)
+        while (n < SER(a)->content.dynamic.rest) { // no -1 (n is 1-based)
+            ++n;
+            ++prep;
+            prep->header.bits = FLAG_KIND_BYTE(REB_T_TRASH); // unreadable
+            TRACK_CELL_IF_DEBUG(prep, __FILE__, __LINE__);
+        }
+      #endif
+
+        // Currently, release build also puts an unreadable end at capacity.
+        // It may not be necessary, but doing it for now to have an easier
+        // invariant to work with.  Review.
+        //
+        prep = ARR_AT(a, SER(a)->content.dynamic.rest - 1);
+        // fallthrough
+    }
+
+    // Although currently all dynamically allocated arrays use a full REBVAL
+    // cell for the end marker, it could use everything except the second byte
+    // of the first `uintptr_t` (which must be zero to denote end).  To make
+    // sure no code depends on a full cell in the last location,  make it
+    // an unwritable end--to leave flexibility to use the rest of the cell.
     //
-    // Having an unwritable END in that spot paves the way for more forms
-    // of implicit termination.  In theory one should not need 5 cells
-    // to hold an array of length 4...the 5th header position can merely
-    // mark termination with the low bit clear.
-    //
-    // Currently only singular arrays exploit this, but since they exist
-    // they must be accounted for.  Because callers cannot write past the
-    // capacity they requested, they must use TERM_ARRAY_LEN(), which
-    // avoids writing the unwritable locations by checking for END first.
-    //
-    RELVAL *ultimate = ARR_AT(a, SER(a)->content.dynamic.rest - 1);
-    ultimate->header = Endlike_Header(0);
-    TRACK_CELL_IF_DEBUG(ultimate, __FILE__, __LINE__);
+    prep->header = Endlike_Header(0);
+    TRACK_CELL_IF_DEBUG(prep, __FILE__, __LINE__);
 }
 
 
@@ -238,26 +261,19 @@ inline static REBARR *Make_Arr_Core(REBCNT capacity, REBFLGS flags) {
     ){
         capacity += 1; // account for cell needed for terminator (END)
 
-        // Don't pay for oversize check unless dynamic.  It means the node
-        // that just got allocated may get GC'd/freed...that's insignificant.
-        //
-        if (cast(REBU64, capacity) * wide > INT32_MAX)
+        if (cast(REBU64, capacity) * wide > INT32_MAX) // too big
             fail (Error_No_Memory(cast(REBU64, capacity) * wide));
 
-        // Did_Series_Data_Alloc() expects LEN_BYTE=255 (signals dynamic)
-        //
-        s->info = Endlike_Header(FLAG_LEN_BYTE_OR_255(255));
-
-        if (not Did_Series_Data_Alloc(s, capacity))
+        s->info = Endlike_Header(FLAG_LEN_BYTE_OR_255(255)); // dynamic
+        if (not Did_Series_Data_Alloc(s, capacity)) // expects LEN_BYTE=255
             fail (Error_No_Memory(capacity * wide));
 
-        Prep_Array(ARR(s));
+        Prep_Array(ARR(s), capacity);
+        SET_END(ARR_HEAD(ARR(s)));
 
       #if !defined(NDEBUG)
         PG_Reb_Stats->Series_Memory += capacity * wide;
       #endif
-
-        TERM_ARRAY_LEN(cast(REBARR*, s), 0); // explicit termination
     }
     else {
         SER_CELL(s)->header.bits = CELL_MASK_NON_STACK_END;

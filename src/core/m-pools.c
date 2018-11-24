@@ -862,7 +862,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
 
     assert(IS_SER_DYNAMIC(s));
     if (IS_SER_ARRAY(s))
-        Prep_Array(ARR(s));
+        Prep_Array(ARR(s), 0); // capacity doesn't matter it will prep
 
     // If necessary, add series to the recently expanded list
     //
@@ -996,7 +996,7 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
     }
     assert(IS_SER_DYNAMIC(s));
     if (IS_SER_ARRAY(s))
-        Prep_Array(ARR(s));
+        Prep_Array(ARR(s), 0); // capacity doesn't matter, it will prep
 
     if (preserve) {
         // Preserve as much data as possible (if it was requested, some

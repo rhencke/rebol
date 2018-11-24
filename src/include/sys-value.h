@@ -423,19 +423,21 @@
     // risk of repeating macro arguments to speed up this critical test.
     //
     #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
-        if (not ((c)->header.bits & NODE_FLAG_CELL)) { \
-            printf("Non-cell passed to cell writing routine\n"); \
-            panic_at ((c), (file), (line)); \
-        } \
-        else if (not ((c)->header.bits & NODE_FLAG_NODE)) { \
-            printf("Non-node passed to cell writing routine\n"); \
-            panic_at ((c), (file), (line)); \
-        } else if (\
-            (c)->header.bits & (CELL_FLAG_PROTECTED | NODE_FLAG_FREE) \
-        ){ \
-            printf("Protected/free cell passed to writing routine\n"); \
-            panic_at ((c), (file), (line)); \
-        }
+        do { \
+            if (not ((c)->header.bits & NODE_FLAG_CELL)) { \
+                printf("Non-cell passed to cell writing routine\n"); \
+                panic_at ((c), (file), (line)); \
+            } \
+            else if (not ((c)->header.bits & NODE_FLAG_NODE)) { \
+                printf("Non-node passed to cell writing routine\n"); \
+                panic_at ((c), (file), (line)); \
+            } else if (\
+                (c)->header.bits & (CELL_FLAG_PROTECTED | NODE_FLAG_FREE) \
+            ){ \
+                printf("Protected/free cell passed to writing routine\n"); \
+                panic_at ((c), (file), (line)); \
+            } \
+        } while (0)
 #else
     #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
         NOOP
