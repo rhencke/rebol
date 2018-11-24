@@ -368,11 +368,11 @@ inline static REBCTX *Get_Var_Context(
 ){
     assert(ANY_WORD(any_word));
 
-    REBCTX *context;
-
     REBNOD *binding = VAL_BINDING(any_word);
     assert(binding); // caller should check so context won't be null
-    
+
+    REBCTX *c;
+
     if (binding->header.bits & ARRAY_FLAG_VARLIST) {
 
         // SPECIFIC BINDING: The context the word is bound to is explicitly
@@ -387,7 +387,7 @@ inline static REBCTX *Get_Var_Context(
         // the frame stores that pointer, and we take it into account when
         // looking up `a` here, instead of using a's stored binding directly.
 
-        context = CTX(binding); // start with stored binding
+        c = CTX(binding); // start with stored binding
 
         if (specifier == SPECIFIED) {
             //
@@ -396,7 +396,7 @@ inline static REBCTX *Get_Var_Context(
         }
         else {
             REBNOD *f_binding = SPC_BINDING(specifier); // can't fail()
-            if (f_binding and Is_Overriding_Context(context, CTX(f_binding))) {
+            if (f_binding and Is_Overriding_Context(c, CTX(f_binding))) {
                 //
                 // The specifier binding overrides--because what's happening 
                 // is that this cell came from a METHOD's body, where the
@@ -404,7 +404,7 @@ inline static REBCTX *Get_Var_Context(
                 // of a more derived version of the object to which the
                 // instance in the method body refers.
                 //
-                context = CTX(f_binding);
+                c = CTX(f_binding);
             }
         }
     }
@@ -424,17 +424,18 @@ inline static REBCTX *Get_Var_Context(
         }
       #endif
 
-        context = CTX(specifier);
-        assert(binding == NOD(VAL_ACTION(CTX_ROOTKEY(context))));
+        c = CTX(specifier);
+        assert(binding == NOD(VAL_ACTION(CTX_ROOTKEY(c))));
     }
 
   #ifdef DEBUG_BINDING_NAME_MATCH // this is expensive, and hasn't happened
     assert(
         VAL_WORD_CANON(any_word)
-        == VAL_KEY_CANON(CTX_KEY(context, VAL_WORD_INDEX(any_word))));
+        == VAL_KEY_CANON(CTX_KEY(c, VAL_WORD_INDEX(any_word))));
   #endif
 
-    return context;
+    FAIL_IF_INACCESSIBLE_CTX(c); // usually VAL_CONTEXT() checks, need to here
+    return c;
 }
 
 static inline const REBVAL *Get_Opt_Var_May_Fail(

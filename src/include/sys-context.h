@@ -207,16 +207,20 @@ inline static void FREE_CONTEXT(REBCTX *c) {
 // which permits the storage of associated KEYS and VARS.
 //
 
-inline static REBCTX *VAL_CONTEXT(const RELVAL *v) {
-    assert(ANY_CONTEXT(v));
-    assert(not v->payload.any_context.phase or VAL_TYPE(v) == REB_FRAME);
-    REBSER *s = SER(v->payload.any_context.varlist);
-    if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE)) {
-        if (CTX_TYPE(CTX(s)) == REB_FRAME)
+inline static void FAIL_IF_INACCESSIBLE_CTX(REBCTX *c) {
+    if (GET_SER_INFO(c, SERIES_INFO_INACCESSIBLE)) {
+        if (CTX_TYPE(c) == REB_FRAME)
             fail (Error_Do_Expired_Frame_Raw()); // !!! different error?
         fail (Error_Series_Data_Freed_Raw());
     }
-    return CTX(s);
+}
+
+inline static REBCTX *VAL_CONTEXT(const RELVAL *v) {
+    assert(ANY_CONTEXT(v));
+    assert(not v->payload.any_context.phase or VAL_TYPE(v) == REB_FRAME);
+    REBCTX *c = CTX(v->payload.any_context.varlist);
+    FAIL_IF_INACCESSIBLE_CTX(c);
+    return c;
 }
 
 inline static void INIT_VAL_CONTEXT(REBVAL *v, REBCTX *c) {

@@ -57,7 +57,7 @@ dump: function [
             ]
 
             group! [
-                print [mold item ":" | mold eval item]
+                print [unspaced [mold item ":"] | mold eval item]
             ]
 
             issue! [
@@ -112,7 +112,7 @@ dump-to-newline: adapt 'dump [
         ;
         value: reduce [:value]
         while [not new-line? extra and [not tail? extra]] [
-            append value extra/1
+            append/only value extra/1
             if any-array? :extra/1 and [contains-newline :extra/1] [
                 break
             ]

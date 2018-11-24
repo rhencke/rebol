@@ -232,7 +232,7 @@ make-emitter: function [
         write-emitted: function [
             return: <void>
             /tabbed
-            <with> filename buf-emit
+            <with> file buf-emit
         ][
             if newline != last buf-emit [
                 probe skip (tail-of buf-emit) -100
@@ -254,7 +254,7 @@ make-emitter: function [
 
             ; For clarity/simplicity, emitters are not reused.
             ;
-            filename: null
+            file: null
             buf-emit: null
         ]
     ]
