@@ -201,7 +201,7 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         // If there's any chance that the argument could produce nulls, we
         // can't guarantee an array can be made out of it.
         //
-        if (arg->payload.varargs.facade == NULL) {
+        if (not arg->payload.varargs.phase) {
             //
             // A vararg created from a block AND never passed as an argument
             // so no typeset or quoting settings available.  Can't produce
@@ -217,7 +217,7 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             REBCTX *context = CTX(arg->extra.binding);
             REBFRM *param_frame = CTX_FRAME_MAY_FAIL(context);
 
-            REBVAL *param = ACT_FACADE_HEAD(FRM_PHASE(param_frame))
+            REBVAL *param = ACT_PARAMS_HEAD(FRM_PHASE(param_frame))
                 + arg->payload.varargs.param_offset;
 
             if (TYPE_CHECK(param, REB_MAX_NULLED))

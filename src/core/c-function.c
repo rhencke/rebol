@@ -38,10 +38,13 @@
 //
 REBARR *List_Func_Words(const RELVAL *func, bool pure_locals)
 {
-    REBARR *a = Make_Arr(VAL_ACT_NUM_PARAMS(func));
-    REBVAL *param = VAL_ACT_PARAMS_HEAD(func);
+    REBDSP dsp_orig = DSP;
 
+    REBVAL *param = VAL_ACT_PARAMS_HEAD(func);
     for (; NOT_END(param); param++) {
+        if (Is_Param_Hidden(param)) // specialization hides parameters
+            continue;
+
         enum Reb_Kind kind;
 
         switch (VAL_PARAM_CLASS(param)) {
@@ -78,12 +81,11 @@ REBARR *List_Func_Words(const RELVAL *func, bool pure_locals)
             DEAD_END;
         }
 
-        Init_Any_Word(
-            Alloc_Tail_Array(a), kind, VAL_PARAM_SPELLING(param)
-        );
+        DS_PUSH_TRASH;
+        Init_Any_Word(DS_TOP, kind, VAL_PARAM_SPELLING(param));
     }
 
-    return a;
+    return Pop_Stack_Values(dsp_orig);
 }
 
 
@@ -561,14 +563,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     //
     REBARR *paramlist = Make_Arr_Core(num_slots, SERIES_MASK_ACTION);
 
-    // In order to use this paramlist as a ->phase in a frame below, it must
-    // have a valid facade so CTX_KEYLIST() will work.  The Make_Action()
-    // calls that provide facades all currently build the full function before
-    // trying to add any meta information that includes frames, so they do
-    // not have to do this.
-    //
-    LINK(paramlist).facade = paramlist;
-
     if (true) {
         REBVAL *canon = RESET_CELL_EXTRA(
             ARR_HEAD(paramlist),
@@ -855,7 +849,7 @@ REBCNT Find_Param_Index(REBARR *paramlist, REBSTR *spelling)
 REBACT *Make_Action(
     REBARR *paramlist,
     REBNAT dispatcher, // native C function called by Eval_Core
-    REBARR *opt_facade, // if provided, 0 element must be underlying function
+    REBACT *opt_underlying, // optional underlying function
     REBCTX *opt_exemplar, // if provided, should be consistent w/next level
     REBCNT details_capacity // desired capacity of the ACT_DETAILS() array
 ){
@@ -953,50 +947,32 @@ REBACT *Make_Action(
 
     MISC(details).dispatcher = dispatcher; // level of indirection, hijackable
 
-    // When this function is run, it needs to push a stack frame with a
-    // certain number of arguments, and do type checking and parameter class
-    // conventions based on that.  This frame must be compatible with the
-    // number of arguments expected by the underlying function, and must not
-    // allow any types to be passed to that underlying function it is not
-    // expecting (e.g. natives written to only take INTEGER! may crash if
-    // they get BLOCK!).  But beyond those constraints, the outer function
-    // may have new parameter classes through a "facade".  This facade is
-    // initially just the underlying function's paramlist, but may change.
-    //
-    if (opt_facade)
-        LINK(paramlist).facade = opt_facade;
+    assert(IS_POINTER_TRASH_DEBUG(LINK(paramlist).trash));
+
+    if (opt_underlying)
+        LINK(paramlist).underlying = opt_underlying;
     else {
         // To avoid NULL checking when a function is called and looking for
-        // the facade, just use the functions own paramlist if needed.  See
-        // notes in Make_Paramlist_Managed_May_Fail() on why this has to be
-        // pre-filled to avoid crashing on CTX_KEYLIST when making frames.
+        // underlying, just use the action's own paramlist if needed.
         //
-        assert(LINK(paramlist).facade == paramlist);
+        LINK(paramlist).underlying = ACT(paramlist);
     }
 
     if (not opt_exemplar) {
         //
-        // No exemplar is used as a cue to set the "specialty" to the facade,
+        // No exemplar is used as a cue to set the "specialty" to paramlist,
         // so that Push_Action() can assign f->special directly from it in
         // dispatch, and be equal to f->param.
         //
-        LINK(details).specialty = LINK(paramlist).facade;
+        LINK(details).specialty = paramlist;
     }
     else {
-        // Because a dispatcher can update the phase and swap in the next
-        // function with R_REDO_XXX, consistency checking isn't easily
-        // done on whether the exemplar is "compatible" (and there may be
-        // dispatcher forms which intentionally muck with the exemplar to
-        // be incompatible, but these don't exist yet.)  So just check it's
-        // compatible with the underlying frame.
-        //
-        // Base it off the facade since ACT_NUM_PARAMS(ACT_UNDERLYING())
-        // would assert, since the function we're making is incomplete..
+        // The parameters of the paramlist should line up with the slots of
+        // the exemplar (though some of these parameters may be hidden due to
+        // specialization, see REB_TS_HIDDEN).
         //
         assert(GET_SER_FLAG(opt_exemplar, NODE_FLAG_MANAGED));
-        assert(
-            CTX_LEN(opt_exemplar) == ARR_LEN(LINK(paramlist).facade) - 1
-        );
+        assert(CTX_LEN(opt_exemplar) == ARR_LEN(paramlist) - 1);
 
         LINK(details).specialty = CTX_VARLIST(opt_exemplar);
     }
@@ -1232,8 +1208,8 @@ REBACT *Make_Interpreted_Action_May_Fail(
     REBACT *a = Make_Action(
         Make_Paramlist_Managed_May_Fail(spec, mkf_flags),
         &Null_Dispatcher, // will be overwritten if non-[] body
-        NULL, // no facade (use paramlist)
-        NULL, // no specialization exemplar (or inherited exemplar)
+        nullptr, // no underlying action (use paramlist)
+        nullptr, // no specialization exemplar (or inherited exemplar)
         1 // details array capacity
     );
 
@@ -1609,10 +1585,6 @@ const REBVAL *Adapter_Dispatcher(REBFRM *f)
     // does throw--including a RETURN--that means the adapted function will
     // not be run.
     //
-    // (Note that when the adapter was created, the prelude code was bound to
-    // the paramlist of the *underlying* function--because that's what a
-    // compatible frame gets pushed for.)
-    //
     // We can't do the prelude into f->out in the case that this is an
     // adaptation of an invisible (e.g. DUMP).  Would be nice to use the frame
     // spare cell but can't as Fetch_Next() uses it.
@@ -1658,7 +1630,7 @@ const REBVAL *Encloser_Dispatcher(REBFRM *f)
     // user handles on it...so just take it.  Otherwise, "steal" its vars.
     //
     REBCTX *c = Steal_Context_Vars(CTX(f->varlist), NOD(FRM_PHASE(f)));
-    LINK(c).keysource = NOD(ACT_FACADE(VAL_ACTION(inner)));
+    LINK(c).keysource = NOD(VAL_ACTION(inner));
     CLEAR_SER_FLAG(c, SERIES_FLAG_STACK);
 
     assert(GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)); // look dead

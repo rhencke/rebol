@@ -729,21 +729,11 @@ union Reb_Series_Link {
     //
     REBARR *ancestor;
 
-    // The facade is a REBARR which is a proxy for the paramlist of the
-    // underlying frame which is pushed when a function is called.  For
-    // instance, if a specialization of APPEND provides the value to
-    // append, that removes a parameter from the paramlist.  So the
-    // specialization will not have the value.  However, the frame that
-    // needs to be pushed for the call ultimately needs to have the
-    // value--so it must be pushed.
+    // An underlying function is one whose frame is compatible with a
+    // derived function (e.g. the underlying function of a specialization or
+    // an adaptation).
     //
-    // Originally this was done just by caching the paramlist of the
-    // "underlying" function.  However, that can be limiting if one wants
-    // to constrain the types or change the parameter classes.  The facade
-    // *can* be the the paramlist of the underlying function, but it is
-    // not necessarily.
-    //
-    REBARR *facade;
+    REBACT *underlying;
 
     // For a *read-only* REBSTR, circularly linked list of othEr-CaSed string
     // forms.  It should be relatively quick to find the canon form on
@@ -763,7 +753,7 @@ union Reb_Series_Link {
 
     // REBACT uses this.  It can hold either the varlist of a frame containing
     // specialized values (e.g. an "exemplar"), with ARRAY_FLAG_VARLIST set.
-    // Or it can just hold the facade.  This speeds up Push_Action() because
+    // Or just hold the paramlist.  This speeds up Push_Action() because
     // if this were `REBCTX *exemplar;` then it would have to test it for null
     // explicitly to default f->special to f->param.
     //

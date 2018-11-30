@@ -463,8 +463,8 @@ inline static void Push_Action(
     REBACT *act,
     REBNOD *binding
 ){
-    f->param = ACT_FACADE_HEAD(act); // May have more params than `act`...!
-    REBCNT num_args = ACT_FACADE_NUM_PARAMS(act); // ...see notes on "facades"
+    f->param = ACT_PARAMS_HEAD(act); // Specializations hide some params...
+    REBCNT num_args = ACT_NUM_PARAMS(act); // ...so see REB_TS_HIDDEN
 
     // !!! Note: Should pick "smart" size when allocating varlist storage due
     // to potential reuse--but use exact size for *this* action, for now.
@@ -542,7 +542,7 @@ inline static void Push_Action(
     // f->special here will either equal f->param (to indicate normal argument
     // fulfillment) or the head of the "exemplar".  To speed this up, the
     // absence of a cached exemplar just means that the "specialty" holds the
-    // facade... this means no conditional code is needed here.
+    // paramlist... this means no conditional code is needed here.
     //
     f->special = ACT_SPECIALTY_HEAD(act);
 
@@ -603,7 +603,7 @@ inline static void Drop_Action(REBFRM *f) {
         f->varlist = CTX_VARLIST(
             Steal_Context_Vars(
                 CTX(f->varlist),
-                NOD(ACT_FACADE(f->original)) // degrade keysource from f
+                NOD(f->original) // degrade keysource from f
             )
         );
         assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));

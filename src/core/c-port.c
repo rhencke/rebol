@@ -347,7 +347,7 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
     ++path;
 
     assert(IS_END(f->param)); // okay to reuse, if it gets put back...
-    f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
+    f->param = ACT_PARAMS_HEAD(FRM_PHASE(f));
     f->arg = FRM_ARGS_HEAD(f);
     f->special = ACT_SPECIALTY_HEAD(FRM_PHASE(f));
 

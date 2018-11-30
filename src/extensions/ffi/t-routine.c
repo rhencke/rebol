@@ -1132,14 +1132,13 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     rootparam->payload.action.paramlist = paramlist;
     INIT_BINDING(rootparam, UNBOUND);
 
-    LINK(paramlist).facade = paramlist;
     MISC(paramlist).meta = nullptr;
 
     REBACT *action = Make_Action(
         paramlist,
         &Routine_Dispatcher,
-        NULL, // no facade (use paramlist)
-        NULL, // no specialization exemplar (or inherited exemplar)
+        nullptr, // no underlying action (use paramlist)
+        nullptr, // no specialization exemplar (or inherited exemplar)
         IDX_ROUTINE_MAX // details array len
     );
 

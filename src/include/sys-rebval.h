@@ -438,8 +438,9 @@ struct Reb_Action_Payload {
     // for the function can be found (although this value is archetypal, and
     // loses the `binding` property--which must be preserved other ways)
     //
-    // See LINK().facade for a description of how the paramlist's link field
-    // is used to calculate ACT_FACADE() and ACT_UNDERLYING().
+    // Paramlists may contain hidden fields, if they are specializations...
+    // because they have to have the right number of slots to line up with
+    // the frame of the underlying function.
     //
     // The `misc.meta` field of the paramlist holds a meta object (if any)
     // that describes the function.  This is read by help.
@@ -521,13 +522,7 @@ struct Reb_Varargs_Payload {
     //
     REBCNT param_offset;
 
-    // The "facade" (see ACT_FACADE) is a paramlist-shaped entity that may
-    // or may not be the actual paramlist of a function.  It allows for the
-    // ability of phases of functions to have modified typesets or parameter
-    // classes from those of the underlying frame.  This is where to look
-    // up the parameter by its offset.
-    //
-    REBARR *facade;
+    REBACT *phase; // where to look up parameter by its offset
 };
 
 

@@ -119,7 +119,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
     REBACT *act = VAL_ACTION(action);
 
-    REBCNT num_slots = ACT_FACADE_NUM_PARAMS(act) + 1;
+    REBCNT num_slots = ACT_NUM_PARAMS(act) + 1;
     REBARR *varlist = Make_Arr_Core(
         num_slots, // includes +1 for the CTX_ARCHETYPE() at [0]
         SERIES_MASK_CONTEXT
@@ -134,9 +134,9 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     // used for partial specializations into INTEGER! or null, depending
     // on whether that slot was actually specialized out.
 
-    const REBVAL *param = ACT_FACADE_HEAD(act);
+    const REBVAL *param = ACT_PARAMS_HEAD(act);
     REBVAL *arg = rootvar + 1;
-    const REBVAL *special = ACT_SPECIALTY_HEAD(act); // exemplar/facade head
+    const REBVAL *special = ACT_SPECIALTY_HEAD(act); // of exemplar/paramlist
 
     REBCNT index = 1; // used to bind REFINEMENT! values to parameter slots
 
@@ -144,7 +144,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     if (exemplar)
         assert(special == CTX_VARS_HEAD(exemplar));
     else
-        assert(special == ACT_FACADE_HEAD(act));
+        assert(special == ACT_PARAMS_HEAD(act));
 
     for (; NOT_END(param); ++param, ++arg, ++special, ++index) {
         arg->header.bits = prep;
@@ -307,7 +307,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
     if (prep & CELL_FLAG_STACK)
         SET_SER_FLAG(varlist, SERIES_FLAG_STACK);
 
-    INIT_CTX_KEYLIST_SHARED(CTX(varlist), ACT_FACADE(act));
+    INIT_CTX_KEYLIST_SHARED(CTX(varlist), ACT_PARAMLIST(act));
     return CTX(varlist);
 }
 
@@ -378,7 +378,7 @@ bool Specialize_Action_Throws(
     assert(out != specializee);
 
     struct Reb_Binder binder;
-    if (opt_def != NULL)
+    if (opt_def)
         INIT_BINDER(&binder);
 
     REBACT *unspecialized = VAL_ACTION(specializee);
@@ -574,7 +574,8 @@ bool Specialize_Action_Throws(
             if (evoked)
                 fail (Error_Ambiguous_Partial_Raw());
 
-            DS_DROP; // added at `unspecialized_but_may_evoke`, but drop it
+            // added at `unspecialized_but_may_evoke` unhidden, now hide it
+            TYPE_SET(DS_TOP, REB_TS_HIDDEN);
 
             evoked = refine; // gets reset to NULL if ends up fulfilled
             SET_VAL_FLAG(refine, PARTIAL_FLAG_IN_USE);
@@ -650,6 +651,12 @@ bool Specialize_Action_Throws(
 
     specialized_arg_no_typecheck:;
 
+        // Specialized-out arguments must still be in the parameter list,
+        // for enumeration in the evaluator to line up with the frame values
+        // of the underlying function.
+
+        DS_PUSH(param);
+        TYPE_SET(DS_TOP, REB_TS_HIDDEN);
         continue;
     }
 
@@ -802,22 +809,14 @@ bool Specialize_Action_Throws(
 
     MISC(paramlist).meta = meta;
 
-    REBARR *facade = CTX_KEYLIST(exemplar);
-
     REBACT *specialized = Make_Action(
         paramlist,
         &Specializer_Dispatcher,
-        facade, // use facade with specialized parameters flagged hidden
+        ACT_UNDERLYING(unspecialized), // same underlying action as this
         exemplar, // also provide a context of specialization values
         1 // details array capacity
     );
-
-    // We patch the facade of the unspecialized action in as the keylist
-    // for the frame.  When the frame is molded, it will now show the
-    // specialized keys and values (some of which may have been suppressed
-    // when the facade was being used as the keylist)
-    //
-    INIT_CTX_KEYLIST_SHARED(exemplar, ACT_FACADE(unspecialized));
+    assert(CTX_KEYLIST(exemplar) == ACT_PARAMLIST(unspecialized));
 
     // The "body" is the FRAME! value of the specialization.  It takes on the
     // binding we want to use (which we can't put in the exemplar archetype,
@@ -1152,20 +1151,19 @@ REBNATIVE(does)
 
     REBVAL *specializee = ARG(specializee);
 
-    REBARR *paramlist = Make_Arr_Core(
-        1, // archetype only...DOES always makes function with no arguments
-        SERIES_MASK_ACTION
-    );
-
-    REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
-    archetype->payload.action.paramlist = paramlist;
-    INIT_BINDING(archetype, UNBOUND);
-    TERM_ARRAY_LEN(paramlist, 1);
-
-    LINK(paramlist).facade = paramlist;
-    MISC(paramlist).meta = NULL; // REDESCRIBE can be used to add help
-
     if (IS_BLOCK(specializee)) {
+        REBARR *paramlist = Make_Arr_Core(
+            1, // archetype only...DOES always makes action with no arguments
+            SERIES_MASK_ACTION
+        );
+
+        REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
+        archetype->payload.action.paramlist = paramlist;
+        INIT_BINDING(archetype, UNBOUND);
+        TERM_ARRAY_LEN(paramlist, 1);
+
+        MISC(paramlist).meta = nullptr; // REDESCRIBE can be used to add help
+
         //
         // `does [...]` and `does do [...]` are not exactly the same.  The
         // generated ACTION! of the first form uses Block_Dispatcher() and
@@ -1178,8 +1176,8 @@ REBNATIVE(does)
         REBACT *doer = Make_Action(
             paramlist,
             &Block_Dispatcher, // **SEE COMMENTS**, not quite like plain DO!
-            NULL, // no facade (use paramlist)
-            NULL, // no specialization exemplar (or inherited exemplar)
+            nullptr, // no underlying action (use paramlist)
+            nullptr, // no specialization exemplar (or inherited exemplar)
             1 // details array capacity
         );
 
@@ -1242,9 +1240,9 @@ REBNATIVE(does)
             CTX(f->varlist),
             NOD(VAL_ACTION(specializee))
         );
-        LINK(exemplar).keysource = NOD(ACT_FACADE(VAL_ACTION(specializee)));
+        LINK(exemplar).keysource = NOD(VAL_ACTION(specializee));
         assert(
-            ACT_FACADE_NUM_PARAMS(VAL_ACTION(specializee))
+            ACT_NUM_PARAMS(VAL_ACTION(specializee))
             == CTX_LEN(exemplar)
         );
 
@@ -1292,27 +1290,25 @@ REBNATIVE(does)
 
     REBACT *unspecialized = VAL_ACTION(specializee);
 
-    REBCNT num_slots = ACT_FACADE_NUM_PARAMS(unspecialized) + 1;
-    REBARR *facade = Make_Arr_Core(
-        num_slots,
-        SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST // [0] slot isn't archetype
-    );
-    REBVAL *rootkey = Init_Action_Unbound(
-        ARR_HEAD(facade),
-        ACT_UNDERLYING(unspecialized)
-    );
+    REBCNT num_slots = ACT_NUM_PARAMS(unspecialized) + 1;
+    REBARR *paramlist = Make_Arr_Core(num_slots, SERIES_MASK_ACTION);
 
-    REBVAL *param = ACT_FACADE_HEAD(unspecialized);
-    RELVAL *alias = rootkey + 1;
+    RELVAL *archetype = RESET_CELL(ARR_HEAD(paramlist), REB_ACTION);
+    archetype->payload.action.paramlist = paramlist;
+    INIT_BINDING(archetype, UNBOUND);
+    TERM_ARRAY_LEN(paramlist, 1);
+
+    MISC(paramlist).meta = nullptr; // REDESCRIBE can be used to add help
+
+    REBVAL *param = ACT_PARAMS_HEAD(unspecialized);
+    RELVAL *alias = archetype + 1;
     for (; NOT_END(param); ++param, ++alias) {
         Move_Value(alias, param);
         TYPE_SET(alias, REB_TS_HIDDEN);
         TYPE_SET(alias, REB_TS_UNBINDABLE);
     }
 
-    TERM_ARRAY_LEN(facade, num_slots);
-    MANAGE_ARRAY(facade);
-
+    TERM_ARRAY_LEN(paramlist, num_slots);
     MANAGE_ARRAY(paramlist);
 
     // This code parallels Specialize_Action_Throws(), see comments there
@@ -1320,7 +1316,7 @@ REBNATIVE(does)
     REBACT *doer = Make_Action(
         paramlist,
         &Specializer_Dispatcher,
-        facade, // no facade, use paramlist
+        ACT_UNDERLYING(unspecialized), // common underlying action
         exemplar, // also provide a context of specialization values
         1 // details array capacity
     );

@@ -114,7 +114,6 @@ void Startup_Frame_Stack(void)
         1,
         NODE_FLAG_MANAGED | SERIES_MASK_ACTION
     );
-    LINK(paramlist).facade = paramlist;
     MISC(paramlist).meta = nullptr;
 
     REBVAL *archetype = RESET_CELL(ARR_HEAD(paramlist), REB_ACTION);
@@ -125,8 +124,8 @@ void Startup_Frame_Stack(void)
     PG_Dummy_Action = Make_Action(
         paramlist,
         &Null_Dispatcher,
-        NULL, // no facade (use paramlist)
-        NULL, // no specialization exemplar (or inherited exemplar)
+        nullptr, // no underlying action (use paramlist)
+        nullptr, // no specialization exemplar (or inherited exemplar)
         1 // details array capacity
     );
 

@@ -70,7 +70,7 @@
     ]
 )
 
-; HIJACK of a specialization (needs to notice facade has "hidden" params)
+; HIJACK of a specialization (needs to notice paramlist has "hidden" params)
 (
     two: func [a b] [a + b]
     one: specialize 'two [a: 10]

@@ -335,23 +335,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         REBVAL *archetype = ACT_ARCHETYPE(a);
         assert(ACT_PARAMLIST(a) == VAL_ACT_PARAMLIST(archetype));
         assert(ACT_DETAILS(a) == VAL_ACT_DETAILS(archetype));
-
-        // It would be prohibitive to do validity checks on the facade of
-        // a function on each call to ACT_FACADE, so it is checked here.
-        //
-        // Though a facade *may* be a paramlist, it could just be an array
-        // that *looks* like a paramlist, holding the underlying action the
-        // facade is "fronting for" in the head slot.  The facade must always
-        // hold the same number of parameters as the underlying action.
-        //
-        REBARR *facade = LINK(a).facade;
-        assert(IS_ACTION(ARR_HEAD(facade)));
-        REBARR *underlying = ARR_HEAD(facade)->payload.action.paramlist;
-        if (underlying != facade) {
-            assert(NOT_SER_FLAG(facade, ARRAY_FLAG_PARAMLIST));
-            assert(GET_SER_FLAG(underlying, ARRAY_FLAG_PARAMLIST));
-            assert(ARR_LEN(facade) == ARR_LEN(underlying));
-        }
       #endif
         break; }
 
@@ -538,12 +521,8 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         break;
 
     case REB_VARARGS: {
-        //
-        // Paramlist may be NULL if the varargs was a MAKE VARARGS! and hasn't
-        // been passed through any parameter.
-        //
-        if (v->payload.varargs.facade != NULL)
-            Queue_Mark_Action_Deep(ACT(v->payload.varargs.facade));
+        if (v->payload.varargs.phase) // null if came from MAKE VARARGS!
+            Queue_Mark_Action_Deep(v->payload.varargs.phase);
 
         Queue_Mark_Binding_Deep(v);
         break; }
@@ -759,14 +738,14 @@ static void Propagate_All_GC_Marks(void)
             REBARR *details = v->payload.action.details;
             Queue_Mark_Array_Deep(details);
 
-            REBARR *facade = LINK(a).facade;
-            Queue_Mark_Array_Subclass_Deep(facade);
+            REBACT *underlying = LINK(a).underlying;
+            Queue_Mark_Action_Deep(underlying);
 
             REBARR *specialty = LINK(details).specialty;
             if (GET_SER_FLAG(specialty, ARRAY_FLAG_VARLIST))
                 Queue_Mark_Context_Deep(CTX(specialty));
             else
-                assert(specialty == facade);
+                assert(specialty == a);
 
             REBCTX *meta = MISC(a).meta;
             if (meta)
@@ -805,12 +784,7 @@ static void Propagate_All_GC_Marks(void)
             else {
                 REBARR *keylist = ARR(keysource);
                 if (IS_FRAME(v)) {
-                    //
-                    // Keylist is the "facade", it may not be a paramlist but
-                    // it needs to be "paramlist shaped"...and the [0] element
-                    // has to be an ACTION!.
-                    //
-                    assert(IS_ACTION(ARR_HEAD(keylist)));
+                    assert(GET_SER_FLAG(keylist, ARRAY_FLAG_PARAMLIST));
 
                     // Frames use paramlists as their "keylist", there is no
                     // place to put an ancestor link.
@@ -1292,7 +1266,7 @@ static void Mark_Frame_Stack_Deep(void)
         if (phase == PG_Dummy_Action)
             param = ACT_PARAMS_HEAD(f->original); // no phases will run
         else
-            param = ACT_FACADE_HEAD(phase);
+            param = ACT_PARAMS_HEAD(phase);
 
         REBVAL *arg;
         for (arg = FRM_ARGS_HEAD(f); NOT_END(param); ++param, ++arg) {

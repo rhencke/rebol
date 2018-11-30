@@ -249,7 +249,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
     //=//// v-- BELOW CHECKS ONLY APPLY WHEN FRM_PHASE() is VALID ////////=//
 
     assert(GET_SER_FLAG(phase, ARRAY_FLAG_PARAMLIST));
-    if (f->param != ACT_FACADE_HEAD(phase)) {
+    if (f->param != ACT_PARAMS_HEAD(phase)) {
         //
         // !!! When you MAKE FRAME! 'APPEND/ONLY, it will create a frame
         // with a keylist that has /ONLY hidden.  But there's no new ACTION!

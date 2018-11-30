@@ -281,8 +281,6 @@ REBNATIVE(typechecker)
     INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_NORMAL);
     assert(not Is_Param_Endable(param));
 
-    LINK(paramlist).facade = paramlist;
-
     MISC(paramlist).meta = NULL; // !!! auto-generate info for HELP?
 
     REBACT *typechecker = Make_Action(
@@ -290,8 +288,8 @@ REBNATIVE(typechecker)
         IS_DATATYPE(type)
             ? &Datatype_Checker_Dispatcher
             : &Typeset_Checker_Dispatcher,
-        NULL, // no facade (use paramlist)
-        NULL, // no specialization exemplar (or inherited exemplar)
+        nullptr, // no underlying action (use paramlist)
+        nullptr, // no specialization exemplar (or inherited exemplar)
         1 // details array capacity
     );
     Move_Value(ARR_HEAD(ACT_DETAILS(typechecker)), type);
@@ -376,7 +374,7 @@ REBNATIVE(chain)
     REBACT *chain = Make_Action(
         paramlist,
         &Chainer_Dispatcher,
-        ACT_FACADE(VAL_ACTION(first)), // same interface as first action
+        ACT_UNDERLYING(VAL_ACTION(first)), // same underlying as first action
         ACT_EXEMPLAR(VAL_ACTION(first)), // same exemplar as first action
         1 // details array capacity
     );
@@ -420,27 +418,6 @@ REBNATIVE(adapt)
         fail (Error_Invalid(adaptee));
     Move_Value(adaptee, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
 
-    // For the binding to be correct, the indices that the words use must be
-    // the right ones for the frame pushed.  So if you adapt a specialization
-    // that has one parameter, and the function that underlies that has
-    // 10 parameters and the one parameter you're adapting to is it's 10th
-    // and not its 1st...that has to be taken into account.
-    //
-    // Hence you must bind relative to that deeper function...e.g. the function
-    // behind the frame of the specialization which gets pushed.
-    //
-    REBACT *underlying = ACT_UNDERLYING(VAL_ACTION(adaptee));
-
-    // !!! In a future branch it may be possible that specific binding allows
-    // a read-only input to be "viewed" with a relative binding, and no copy
-    // would need be made if input was R/O.  For now, we copy to relativize.
-    //
-    REBARR *prelude = Copy_And_Bind_Relative_Deep_Managed(
-        ARG(prelude),
-        ACT_PARAMLIST(underlying),
-        TS_WORD
-    );
-
     // The paramlist needs to be unique to designate this function, but
     // will be identical typesets to the original.  It's [0] element must
     // identify the function we're creating vs the original, however.
@@ -469,12 +446,24 @@ REBNATIVE(adapt)
 
     MISC(paramlist).meta = meta;
 
+    REBACT *underlying = ACT_UNDERLYING(VAL_ACTION(adaptee));
+
     REBACT *adaptation = Make_Action(
         paramlist,
         &Adapter_Dispatcher,
-        ACT_FACADE(VAL_ACTION(adaptee)), // same interface as adaptee
+        underlying, // same underlying as adaptee
         ACT_EXEMPLAR(VAL_ACTION(adaptee)), // same exemplar as adaptee
         2 // details array capacity => [prelude, adaptee]
+    );
+
+    // !!! In a future branch it may be possible that specific binding allows
+    // a read-only input to be "viewed" with a relative binding, and no copy
+    // would need be made if input was R/O.  For now, we copy to relativize.
+    //
+    REBARR *prelude = Copy_And_Bind_Relative_Deep_Managed(
+        ARG(prelude),
+        ACT_PARAMLIST(underlying), // relative bindings ALWAYS use underlying
+        TS_WORD
     );
 
     REBARR *details = ACT_DETAILS(adaptation);
@@ -585,7 +574,7 @@ REBNATIVE(enclose)
     REBACT *enclosure = Make_Action(
         paramlist,
         &Encloser_Dispatcher,
-        ACT_FACADE(VAL_ACTION(inner)), // same interface as inner
+        ACT_UNDERLYING(VAL_ACTION(inner)), // same underlying as inner
         ACT_EXEMPLAR(VAL_ACTION(inner)), // same exemplar as inner
         2 // details array capacity => [inner, outer]
     );
@@ -671,8 +660,11 @@ REBNATIVE(hijack)
         // reasonably common case, and especially common when putting the
         // originally hijacked function back.
 
-        LINK(victim_paramlist).facade = LINK(hijacker_paramlist).facade;
-        LINK(victim_details).specialty = LINK(hijacker_details).specialty;
+        LINK(victim_paramlist).underlying = LINK(hijacker_paramlist).underlying;
+        if (LINK(hijacker_details).specialty == hijacker_paramlist)
+            LINK(victim_details).specialty = victim_paramlist;
+        else
+            LINK(victim_details).specialty = LINK(hijacker_details).specialty;
 
         MISC(victim_details).dispatcher = MISC(hijacker_details).dispatcher;
 
@@ -806,41 +798,14 @@ REBNATIVE(tighten)
     // parameter specification to take effect--and that's not reflected in
     // the original paramlist, e.g. the one to which that block is bound.
     //
-    // So here's the clever part: functions allow you to offer a "facade"
-    // which is an array compatible with the original underlying function,
-    // but with stricter parameter types and different parameter classes.
-    // So just as the paramlist got transformed, transform the facade.
+    // This is why we pass the original in as the "underlying" function,
+    // which is used when the frame is being pushed.
     //
-    // It holds whatever function value in the [0] slot the original had,
-    // used for the identity of the "underlying function".  (In order to make
-    // this a real ACTION!'s paramlist, the paramlist in the [0] slot would
-    // have to be equal to the facade's pointer.)
-    //
-    REBARR *facade = Copy_Array_Shallow_Flags(
-        ACT_FACADE(original),
-        SPECIFIED, // no relative values in facades, either
-        (SERIES_MASK_ACTION & ~ARRAY_FLAG_PARAMLIST) // [0] isn't archetype
-            | NODE_FLAG_MANAGED
-    );
-    RELVAL *facade_param = ARR_AT(facade, 1);
-    for (; NOT_END(facade_param); ++facade_param) {
-        //
-        // !!! Technically we probably shouldn't be modifying the parameter
-        // classes of any arguments that were specialized out or otherwise
-        // not present in the original; but it shouldn't really matter.
-        // Once this function's layer has finished, the lower levels will
-        // refer to their own facades.
-        //
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(facade_param);
-        if (pclass == PARAM_CLASS_NORMAL)
-            INIT_VAL_PARAM_CLASS(facade_param, PARAM_CLASS_TIGHT);
-    }
-
     REBCNT details_len = ARR_LEN(ACT_DETAILS(original));
     REBACT *tightened = Make_Action(
         paramlist,
         ACT_DISPATCHER(original),
-        facade, // use the new, tightened facade
+        ACT_UNDERLYING(original), // !!! ^-- notes above may be outdated
         ACT_EXEMPLAR(original), // don't add to the original's specialization
         details_len // details array capacity
     );

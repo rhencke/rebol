@@ -321,10 +321,10 @@ inline static void Finalize_Arg(
         // former case might have variadics work, the latter can't.  Let
         // frame expiration or not be the judge later.
         //
-        arg->payload.varargs.facade = ACT_FACADE(f_state->original);
+        arg->payload.varargs.phase = f_state->original;
     }
     else
-        arg->payload.varargs.facade = ACT_FACADE(FRM_PHASE(f_state));
+        arg->payload.varargs.phase = FRM_PHASE(f_state);
     SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
 }
 
@@ -900,7 +900,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     if (DSP != f->dsp_orig)
                         goto next_pickup;
 
-                    f->param = END_NODE; // don't need f->param in facade
+                    f->param = END_NODE; // don't need f->param in paramlist
                     goto arg_loop_and_any_pickups_done;
                 }
 
@@ -1288,7 +1288,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 RESET_CELL(f->arg, REB_VARARGS);
                 INIT_BINDING(f->arg, f->varlist); // frame-based VARARGS!
 
-                Finalize_Current_Arg(f); // sets VARARGS! offset and facade
+                Finalize_Current_Arg(f); // sets VARARGS! offset and paramlist
                 goto continue_arg_loop;
             }
 
@@ -1705,7 +1705,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             Expire_Out_Cell_Unless_Invisible(f);
             assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
 
-            f->param = ACT_FACADE_HEAD(FRM_PHASE(f));
+            f->param = ACT_PARAMS_HEAD(FRM_PHASE(f));
             f->arg = FRM_ARGS_HEAD(f);
             f->special = f->arg;
             f->refine = ORDINARY_ARG; // no gathering, but need for assert

@@ -111,7 +111,7 @@ inline static bool Is_Overriding_Context(REBCTX *stored, REBCTX *override)
     REBNOD *stored_source = LINK(stored).keysource;
     REBNOD *temp = LINK(override).keysource;
 
-    // In a FRAME! the "keylist" is actually a paramlist, and the LINK.facade
+    // FRAME! "keylists" are actually paramlists, and the LINK.underlying
     // field is used in paramlists (precluding a LINK.ancestor).  Plus, since
     // frames are tied to a function they invoke, they cannot be expanded.
     // For now, deriving from FRAME! is just disabled.
@@ -425,7 +425,14 @@ inline static REBCTX *Get_Var_Context(
       #endif
 
         c = CTX(specifier);
-        assert(binding == NOD(VAL_ACTION(CTX_ROOTKEY(c))));
+
+        // The underlying function is used for all relative bindings.  If it
+        // were not, then the same function body could not be repurposed for
+        // dispatch e.g. in copied, hijacked, or adapted code, because the
+        // identity of the derived function would not match up with the body
+        // it intended to reuse.
+        //
+        assert(binding == NOD(ACT_UNDERLYING(VAL_ACTION(CTX_ROOTKEY(c)))));
     }
 
   #ifdef DEBUG_BINDING_NAME_MATCH // this is expensive, and hasn't happened
@@ -572,7 +579,20 @@ inline static REBVAL *Derelativize(
             panic (v);
         }
 
-        if (binding != NOD(VAL_ACTION(CTX_ROOTKEY(CTX(specifier))))) {
+        // The underlying function is always what's stored in the binding,
+        // and what is checked here.  If it were not, then hijackings or
+        // COPY'd actions, or adapted preludes, could not match up with the
+        // identity of the derived action put in the specifier--and would
+        // have to know how to make copies of any relativized action bodies.
+        //
+        // Despite the more general nature of the underlying action, a given
+        // relativization *should* be unambiguous, as arrays are only relative
+        // to one action at a time (each time arrays are copied derelativizes,
+        // such as when creating a new action using relative material, and
+        // then adding in the new relativism).
+        //
+        REBVAL *rootkey = CTX_ROOTKEY(CTX(specifier));
+        if (binding != NOD(ACT_UNDERLYING(VAL_ACTION(rootkey)))) {
             printf("Function mismatch in specific binding, expected:\n");
             PROBE(ACT_ARCHETYPE(ACT(binding)));
             printf("Panic on relative value\n");

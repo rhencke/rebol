@@ -146,46 +146,20 @@ inline static REBVAL *ACT_PARAM(REBACT *a, REBCNT n) {
     MISC(a).meta
 
 
-// *** These ACT_FACADE fetchers are called VERY frequently, so it is best
-// to keep them light (as the debug build does not inline).  Integrity checks
-// of the facades are deferred to the GC, see the REB_ACTION case in the
-// switch(), and don't turn these into inline functions without a really good
-// reason...and seeing the impact on the debug build!!! ***
 
-#define ACT_FACADE(a) \
-    LINK(a).facade
-
-#define ACT_FACADE_NUM_PARAMS(a) \
-    (cast(REBSER*, ACT_FACADE(a))->content.dynamic.len - 1)
-
-#define ACT_FACADE_HEAD(a) \
-    (cast(REBVAL*, cast(REBSER*, ACT_FACADE(a))->content.dynamic.data) + 1)
-
-// The concept of the "underlying" function is that which has the right
-// number of arguments for the frame to be built--and which has the actual
+// The concept of the "underlying" function is the one which has the actual
 // correct paramlist identity to use for binding in adaptations.
 //
-// So if you specialize a plain function with 2 arguments so it has just 1,
-// and then specialize the specialization so that it has 0, your call still
-// needs to be building a frame with 2 arguments.  Because that's what the
-// code that ultimately executes--after the specializations are peeled away--
-// will expect.
-//
-// And if you adapt an adaptation of a function, the keylist referred to in
+// e.g. if you adapt an adaptation of a function, the keylist referred to in
 // the frame has to be the one for the inner function.  Using the adaptation's
 // parameter list would write variables the adapted code wouldn't read.
 //
-// For efficiency, the underlying pointer can be derived from the "facade".
-// Though the facade may not be the underlying paramlist (it could have its
-// parameter types tweaked for the purposes of that composition), it will
-// always have an ACTION! value in its 0 slot as the underlying function.
-//
 #define ACT_UNDERLYING(a) \
-    ACT(ARR_HEAD(ACT_FACADE(a))->payload.action.paramlist)
+    (LINK(a).underlying)
 
 
 // An efficiency trick makes functions that do not have exemplars NOT store
-// nullptr in the LINK(info).specialty node in that case--instead the facade.
+// nullptr in the LINK(info).specialty node in that case--instead the params.
 // This makes Push_Action() slightly faster in assigning f->special.
 //
 inline static REBCTX *ACT_EXEMPLAR(REBACT *a) {

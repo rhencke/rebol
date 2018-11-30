@@ -673,8 +673,6 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, bool form)
     for (; NOT_END(key); ++key, ++var) {
         if (Is_Param_Hidden(key))
             continue;
-        if (GET_VAL_FLAG(var, ARG_MARKED_CHECKED))
-            continue; // specialized out, don't show
 
         if (first)
             first = false;
@@ -702,8 +700,6 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, bool form)
     for (; NOT_END(key); var ? (++key, ++var) : ++key) {
         if (Is_Param_Hidden(key))
             continue;
-        if (GET_VAL_FLAG(var, ARG_MARKED_CHECKED))
-            continue; // specialized out, don't show
 
         // Having the key mentioned in the spec and then not being assigned
         // a value in the body is how voids are denoted.
@@ -767,6 +763,18 @@ const REBVAL *Context_Common_Action_Maybe_Unhandled(
             return Init_Logic(D_OUT, CTX_LEN(c) == 0);
 
         case SYM_WORDS:
+            //
+            // !!! For FRAME!, it is desirable to know the parameter classes
+            // and to know what's a local vs. a refinement, etc.  This is
+            // the intersection of some "new" stuff with some crufty R3-Alpha
+            // reflection abilities.
+            //
+            if (IS_FRAME(value))
+                return Init_Block(
+                    D_OUT,
+                    List_Func_Words(ACT_ARCHETYPE(ACT(CTX_KEYLIST(c))), true)
+                );
+
             return Init_Block(D_OUT, Context_To_Array(c, 1));
 
         case SYM_VALUES:

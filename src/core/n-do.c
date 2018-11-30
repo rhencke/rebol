@@ -424,7 +424,7 @@ REBNATIVE(do)
             DO_FLAG_FULLY_SPECIALIZED | DO_FLAG_PROCESS_ACTION
         );
 
-        assert(CTX_KEYS_HEAD(c) == ACT_FACADE_HEAD(phase));
+        assert(CTX_KEYS_HEAD(c) == ACT_PARAMS_HEAD(phase));
         f->param = CTX_KEYS_HEAD(c);
         REBCTX *stolen = Steal_Context_Vars(c, NOD(phase));
         LINK(stolen).keysource = NOD(f); // changes CTX_KEYS_HEAD() result
@@ -804,7 +804,7 @@ REBNATIVE(apply)
     for (; NOT_END(key); key++, ++var) {
         if (Is_Param_Unbindable(key))
             continue; // shouldn't have been in the binder
-        if (GET_VAL_FLAG(var, ARG_MARKED_CHECKED))
+        if (Is_Param_Hidden(key))
             continue; // was part of a specialization internal to the action
         Remove_Binder_Index(&binder, VAL_KEY_CANON(key));
     }
@@ -817,11 +817,11 @@ REBNATIVE(apply)
     bool def_threw = Do_Any_Array_At_Throws(temp, ARG(def));
     DROP_GC_GUARD(exemplar);
 
-    assert(CTX_KEYS_HEAD(exemplar) == ACT_FACADE_HEAD(VAL_ACTION(applicand)));
+    assert(CTX_KEYS_HEAD(exemplar) == ACT_PARAMS_HEAD(VAL_ACTION(applicand)));
     f->param = CTX_KEYS_HEAD(exemplar);
     REBCTX *stolen = Steal_Context_Vars(
         exemplar,
-        NOD(ACT_FACADE(VAL_ACTION(applicand)))
+        NOD(VAL_ACTION(applicand))
     );
     LINK(stolen).keysource = NOD(f); // changes CTX_KEYS_HEAD result
 

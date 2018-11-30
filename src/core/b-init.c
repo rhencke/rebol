@@ -358,8 +358,8 @@ REBNATIVE(generic)
     REBACT *generic = Make_Action(
         Make_Paramlist_Managed_May_Fail(spec, flags),
         &Generic_Dispatcher,
-        NULL, // no facade (use paramlist)
-        NULL, // no specialization exemplar (or inherited exemplar)
+        nullptr, // no underlying action (use paramlist)
+        nullptr, // no specialization exemplar (or inherited exemplar)
         IDX_NATIVE_MAX // details array capacity
     );
 
@@ -631,8 +631,8 @@ static REBARR *Startup_Natives(const REBVAL *boot_natives)
         REBACT *act = Make_Action(
             Make_Paramlist_Managed_May_Fail(KNOWN(spec), flags),
             Native_C_Funcs[n], // "dispatcher" is unique to this "native"
-            NULL, // no facade (use paramlist)
-            NULL, // no specialization exemplar (or inherited exemplar)
+            nullptr, // no underlying action (use paramlist)
+            nullptr, // no specialization exemplar (or inherited exemplar)
             IDX_NATIVE_MAX // details array capacity
         );
 

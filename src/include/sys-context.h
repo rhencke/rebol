@@ -102,7 +102,7 @@ inline static REBARR *CTX_KEYLIST(REBCTX *c) {
     //
     REBVAL *archetype = CTX_ARCHETYPE(c);
     assert(VAL_TYPE_RAW(archetype) == REB_FRAME);
-    return LINK(archetype->payload.any_context.phase).facade;
+    return ACT_PARAMLIST(archetype->payload.any_context.phase);
 }
 
 static inline void INIT_CTX_KEYLIST_SHARED(REBCTX *c, REBARR *keylist) {

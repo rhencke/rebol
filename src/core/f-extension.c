@@ -330,8 +330,8 @@ REBNATIVE(load_native)
             MKF_KEYWORDS | MKF_FAKE_RETURN
         ),
         dispatcher, // unique
-        NULL, // no facade (use paramlist)
-        NULL, // no specialization exemplar (or inherited exemplar)
+        nullptr, // no underlying action (use paramlist)
+        nullptr, // no specialization exemplar (or inherited exemplar)
         IDX_NATIVE_MAX // details array capacity
     );
 

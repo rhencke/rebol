@@ -205,7 +205,7 @@ REBTYPE(Action)
         REBACT *proxy = Make_Action(
             proxy_paramlist,
             ACT_DISPATCHER(act),
-            ACT_FACADE(act), // can reuse the facade
+            ACT_UNDERLYING(act), // !!! ^-- see notes above RE: frame pushing
             ACT_EXEMPLAR(act), // not changing the specialization
             details_len // details array capacity
         );

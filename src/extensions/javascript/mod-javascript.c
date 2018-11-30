@@ -179,7 +179,7 @@ REBACT *Make_JavaScript_Action_Common(
         is_awaiter
             ? &JavaScript_Awaiter_Dispatcher
             : &JavaScript_Native_Dispatcher,
-        nullptr, // no facade (use paramlist)
+        nullptr, // no underlying action (use paramlist)
         nullptr, // no specialization exemplar (or inherited exemplar)
         IDX_JS_NATIVE_MAX // details len [source module linkname tcc_state]
     );

@@ -138,19 +138,15 @@ inline static bool Is_Frame_Style_Varargs_May_Fail(
 inline static const REBVAL *Param_For_Varargs_Maybe_Null(const RELVAL *v) {
     assert(IS_VARARGS(v));
 
-    REBVAL *param;
-    REBARR *facade = v->payload.varargs.facade;
-    if (facade == NULL) {
-        //
-        // A vararg created from a block AND never passed as an argument
-        // so no typeset or quoting settings available.  Treat as "normal"
-        // parameter.
-        //
-        assert(not (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST));
-        param = NULL; // doesn't correspond to a real varargs parameter
+    REBACT *phase = v->payload.varargs.phase;
+    if (phase) {
+        REBARR *paramlist = ACT_PARAMLIST(phase);
+        return KNOWN(ARR_AT(paramlist, v->payload.varargs.param_offset + 1));
     }
-    else
-        param = KNOWN(ARR_AT(facade, v->payload.varargs.param_offset + 1));
 
-    return param;
+    // A vararg created from a block AND never passed as an argument so no
+    // typeset or quoting settings available.  Treat as "normal" parameter.
+    //
+    assert(not (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST));
+    return nullptr;
 }
