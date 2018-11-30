@@ -86,7 +86,7 @@ REBARR *Copy_Array_At_Max_Shallow(
     if (index + max > ARR_LEN(original))
         max = ARR_LEN(original) - index;
 
-    REBARR *copy = Make_Arr_For_Copy(max + 1, flags, original);
+    REBARR *copy = Make_Arr_For_Copy(max, flags, original);
 
     REBCNT count = 0;
     const RELVAL *src = ARR_AT(original, index);
@@ -113,7 +113,7 @@ REBARR *Copy_Values_Len_Extra_Shallow_Core(
     REBCNT extra,
     REBFLGS flags
 ){
-    REBARR *a = Make_Arr_Core(len + extra + 1, flags);
+    REBARR *a = Make_Arr_Core(len + extra, flags);
 
     REBCNT count = 0;
     const RELVAL *src = head;
