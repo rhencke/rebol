@@ -163,8 +163,8 @@ console!: make object! [
     input-hook: func [
         {Receives line input, parse/transform, send back to CONSOLE eval}
 
-        return: "BLANK! if canceled, otherwise processed text line input"
-            [blank! text!]
+        return: "null if canceled, otherwise processed text line input"
+            [<opt> text!]
     ][
         input
     ]
@@ -376,8 +376,8 @@ host-console: function [
                 emit [system/console/print-gap]
                 emit [system/console/print-prompt]
                 emit [reduce [
-                    system/console/input-hook
-                ]] ;-- gather first line (or BLANK!), put in BLOCK!
+                    try system/console/input-hook
+                ]] ;-- gather first line (or null), put in BLOCK!
             ]
             <halt> [
                 emit [halt]

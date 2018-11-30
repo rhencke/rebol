@@ -42,7 +42,7 @@ The first character of the log file name, #"r" is common to all run-recover log 
 
 # Test File Format
 
-The test file format was originally designed by Carl Sassenrath to be Rebol compatible, and as simple as possible.  Here are some tests cases for the closure! datatype, notice that only some of them are marked as <r3only>, suggesting they are meant just for the R3 interpreter:
+The test file format was originally designed by Carl Sassenrath to be Rebol compatible, and as simple as possible.  Here are some tests cases for the closure! datatype, notice that only some of them are marked as `<r3only>`, suggesting they are meant just for the R3 interpreter:
 
     ; datatypes/closure.r
     (closure? closure [] ["OK"])

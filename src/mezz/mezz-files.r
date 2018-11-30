@@ -79,14 +79,17 @@ clean-path: function [
 input: function [
     {Inputs a line of text from the console. New-line character is removed.}
 
-    return: "Blank if the input was aborted via ESC"
-        [text! blank!]
-;   /hide "Mask input with a * character"
+    return: "Null if the input was aborted (via ESCAPE, Ctrl-D, etc.)"
+        [<opt> text!]
+
+    ; https://github.com/rebol/rebol-issues/issues/476#issuecomment-441417774
+    ;
+    ; /hide "Mask input with a * character"
 ][
-    if any [
-        not port? system/ports/input
-        not open? system/ports/input
-    ][
+    all [
+        port? system/ports/input
+        open? system/ports/input
+    ] or [
         system/ports/input: open [scheme: 'console]
     ]
 
@@ -101,16 +104,16 @@ input: function [
         halt
     ]
 
-    if all [
+    all [
         1 = length of data
         escape = to-char data/1
-    ][
+    ] then [
         ; Input Aborted (e.g. Ctrl-D on Windows, ESC on POSIX)--this does not
-        ; try and HALT the program overall, but gives the caller the chance
-        ; to process the BLANK! and realize it as distinct from the user
+        ; try and HALT the program overall like Ctrl-C, but gives the caller
+        ; the chance to process NULL and realize it as distinct from the user
         ; just hitting enter on an empty line (empty string)
         ;
-        return blank;
+        return null;
     ]
 
     line: to-text data

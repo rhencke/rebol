@@ -93,11 +93,11 @@ dump: function [
     ]
 ]
 
-contains-newline: function [return: [logic!] pos [any-array!]] [
+contains-newline: function [return: [logic!] pos [block! group!]] [
     while [pos] [
         any [
             new-line? pos
-            any-array? :pos/1 and [contains-newline :pos/1]
+            (match [block! group!] :pos/1) and [contains-newline :pos/1]
         ] then [return true]
 
         pos: try next pos
@@ -111,12 +111,12 @@ dump-to-newline: adapt 'dump [
         ; Mutate VARARGS! into a BLOCK!, with passed-in value at the head
         ;
         value: reduce [:value]
-        while [not new-line? extra and [not tail? extra]] [
+        while-not [new-line? extra or [tail? extra] or [bar? extra/1]] [
             append/only value extra/1
-            if any-array? :extra/1 and [contains-newline :extra/1] [
+            if (match [block! group!] :extra/1) and [contains-newline :extra/1] [
                 break
             ]
-            take* extra
+            take extra
         ]
         extra: make varargs! [] ;-- don't allow more takes
     ]

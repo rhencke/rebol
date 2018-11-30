@@ -55,6 +55,7 @@ if true = attempt [null? :some-undefined-thing] [
 ]
 
 print "== SHIMMING OLDER R3 TO MODERN LANGUAGE DEFINITIONS =="
+print "== THIS SHIM IS A LOT SLOWER THAN USING A CURRENT R3 BUILD =="
 
 ; NOTE: The slower these routines are, the slower the overall build will be.
 ; It's worth optimizing it as much as is reasonable.
