@@ -42,11 +42,11 @@ typedef enum {
 //  Catching_Break_Or_Continue: C
 //
 // Determines if a thrown value is either a break or continue.  If so, `val`
-// is mutated to become the throw's argument.  Sets `stop` flag if BREAK.
+// is mutated to become the throw's argument.  Sets `broke` flag if BREAK.
 //
 // Returning false means the throw was neither BREAK nor CONTINUE.
 //
-bool Catching_Break_Or_Continue(REBVAL *val, bool *stop)
+bool Catching_Break_Or_Continue(REBVAL *val, bool *broke)
 {
     assert(THROWN(val));
 
@@ -56,14 +56,14 @@ bool Catching_Break_Or_Continue(REBVAL *val, bool *stop)
         return false;
 
     if (VAL_ACT_DISPATCHER(val) == &N_break) {
-        *stop = true; // was BREAK (causes loops to always return NULL)
+        *broke = true; // was BREAK (causes loops to always return NULL)
         CATCH_THROWN(val, val);
         assert(IS_NULLED(val)); // no /WITH refinement
         return true;
     }
 
     if (VAL_ACT_DISPATCHER(val) == &N_continue) {
-        *stop = false; // was CONTINUE or CONTINUE/WITH
+        *broke = false; // was CONTINUE or CONTINUE/WITH
         CATCH_THROWN(val, val); // will be null if no /WITH was used
         return true;
     }
@@ -88,9 +88,7 @@ REBNATIVE(break)
     INCLUDE_PARAMS_OF_BREAK;
 
     Move_Value(D_OUT, NAT_VALUE(break));
-
     CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
-
     return R_THROWN;
 }
 
@@ -151,10 +149,10 @@ static const REBVAL *Loop_Series_Common(
     REBINT s = VAL_INDEX(start);
     if (s == end) {
         if (Do_Branch_Throws(out, body)) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(out, &stop))
+            bool broke;
+            if (not Catching_Break_Or_Continue(out, &broke))
                 return R_THROWN;
-            if (stop)
+            if (broke)
                 return nullptr;
         }
         return Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
@@ -174,10 +172,10 @@ static const REBVAL *Loop_Series_Common(
             : cast(REBINT, *state) >= end
     ){
         if (Do_Branch_Throws(out, body)) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(out, &stop))
+            bool broke;
+            if (not Catching_Break_Or_Continue(out, &broke))
                 return R_THROWN;
-            if (stop)
+            if (broke)
                 return nullptr;
         }
         Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
@@ -227,10 +225,10 @@ static const REBVAL *Loop_Integer_Common(
     //
     if (start == end) {
         if (Do_Branch_Throws(out, body)) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(out, &stop))
+            bool broke;
+            if (not Catching_Break_Or_Continue(out, &broke))
                 return R_THROWN;
-            if (stop)
+            if (broke)
                 return nullptr;
         }
         return Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
@@ -246,10 +244,10 @@ static const REBVAL *Loop_Integer_Common(
 
     while (counting_up ? *state <= end : *state >= end) {
         if (Do_Branch_Throws(out, body)) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(out, &stop))
+            bool broke;
+            if (not Catching_Break_Or_Continue(out, &broke))
                 return R_THROWN;
-            if (stop)
+            if (broke)
                 return nullptr;
         }
         Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
@@ -313,10 +311,10 @@ static const REBVAL *Loop_Number_Common(
     //
     if (s == e) {
         if (Do_Branch_Throws(out, body)) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(out, &stop))
+            bool broke;
+            if (not Catching_Break_Or_Continue(out, &broke))
                 return R_THROWN;
-            if (stop)
+            if (broke)
                 return nullptr;
         }
         return Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
@@ -330,10 +328,10 @@ static const REBVAL *Loop_Number_Common(
 
     while (counting_up ? *state <= e : *state >= e) {
         if (Do_Branch_Throws(out, body)) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(out, &stop))
+            bool broke;
+            if (not Catching_Break_Or_Continue(out, &broke))
                 return R_THROWN;
-            if (stop)
+            if (broke)
                 return nullptr;
         }
         Voidify_If_Nulled_Or_Blank(out); // null->BREAK, blank->empty
@@ -367,7 +365,7 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
     if (IS_BLANK(data))
         return nullptr; // blank in, void out (same result as BREAK)
 
-    bool stop = false;
+    bool broke = false;
     bool threw = false; // did a non-BREAK or non-CONTINUE throw occur
     bool no_falseys = true; // no conditionally false body evaluations
 
@@ -566,14 +564,14 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         assert(IS_END(key) and IS_END(pseudo_var));
 
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
-            if (not Catching_Break_Or_Continue(D_OUT, &stop)) {
+            if (not Catching_Break_Or_Continue(D_OUT, &broke)) {
                 // A non-loop throw, we should be bubbling up
                 threw = true;
                 break;
             }
 
             // Fall through and process the D_OUT (unset if no /WITH) for
-            // this iteration.  `stop` flag will be checked ater that.
+            // this iteration.  `broke` flag will be checked ater that.
         }
 
         switch (mode) {
@@ -592,7 +590,7 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
             break;
         }
 
-        if (stop)
+        if (broke)
             break;
 
 skip_hidden: ;
@@ -613,19 +611,19 @@ skip_hidden: ;
 
     switch (mode) {
     case LOOP_FOR_EACH:
-        if (stop)
+        if (broke)
             return nullptr;
         return D_OUT;
 
     case LOOP_EVERY:
-        if (stop)
+        if (broke)
             return nullptr;
         if (no_falseys)
             return D_OUT;
         return Init_False(D_OUT);
 
     case LOOP_MAP_EACH:
-        if (stop) {
+        if (broke) {
             // While R3-Alpha's MAP-EACH would keep the remainder on BREAK,
             // protocol in Ren-C means BREAK gives NULL.  If the remainder is
             // to be kept, this must be done by manually CONTINUE-ing for the
@@ -791,13 +789,13 @@ REBNATIVE(for_skip)
         }
 
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(D_OUT, &stop)) {
+            bool broke;
+            if (not Catching_Break_Or_Continue(D_OUT, &broke)) {
                 Move_Value(var, saved);
                 DROP_GC_GUARD(saved);
                 return R_THROWN;
             }
-            if (stop) {
+            if (broke) {
                 Move_Value(var, saved); // restore initial variable value
                 DROP_GC_GUARD(saved);
                 return nullptr;
@@ -824,27 +822,72 @@ REBNATIVE(for_skip)
 }
 
 
+
 //
-//  forever: native [
+//  stop: native [
 //
-//  "Evaluates a block endlessly, until an interrupting throw/error/break."
+//  {End the current iteration of CYCLE and return a value}
 //
-//      return: [<opt>]
-//          {Void if BREAK}
+//      value "If no argument is provided, assume VOID!"
+//          [<end> any-value!]
+//  ]
+//
+REBNATIVE(stop)
+//
+// Most loops are not allowed to explicitly return a value and stop looipng,
+// because that would make it impossible to tell from the outside whether
+// they'd requested a stop or if they'd naturally completed.  It would be
+// impossible to propagate a value-bearing break-like request to an aggregate
+// looping construct without invasively rebinding the break.
+//
+// CYCLE is different because it doesn't have any loop exit condition.  Hence
+// it responds to a STOP request, which lets it return any value.
+//
+{
+    INCLUDE_PARAMS_OF_STOP;
+
+    REBVAL *v = ARG(value);
+
+    Move_Value(D_OUT, NAT_VALUE(stop));
+    CONVERT_NAME_TO_THROWN(D_OUT, IS_NULLED(v) ? VOID_VALUE : v);
+    return R_THROWN;
+}
+
+
+//
+//  cycle: native [
+//
+//  "Evaluates a block endlessly, until a BREAK or a STOP is hit"
+//
+//      return: [<opt> any-value!]
+//          {Null if BREAK, or non-null value passed to STOP}
 //      body [block! action!]
 //          "Block or action to evaluate each time"
 //  ]
 //
-REBNATIVE(forever)
+REBNATIVE(cycle)
 {
-    INCLUDE_PARAMS_OF_FOREVER;
+    INCLUDE_PARAMS_OF_CYCLE;
 
     do {
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(D_OUT, &stop))
+            bool broke;
+            if (not Catching_Break_Or_Continue(D_OUT, &broke)) {
+                if (
+                    IS_ACTION(D_OUT)
+                    and VAL_ACT_DISPATCHER(D_OUT) == &N_stop
+                ){
+                    // See notes on STOP for why CYCLE is unique among loop
+                    // constructs, with a BREAK variant that returns a value.
+                    //
+                    CATCH_THROWN(D_OUT, D_OUT);
+                    assert(not IS_NULLED(D_OUT)); // reserved for BREAK!
+                    return D_OUT;
+                }
+
                 return R_THROWN;
-            if (stop)
+            }
+            if (broke)
                 return nullptr;
         }
         // No need to voidify result, it doesn't escape...
@@ -916,7 +959,7 @@ struct Remove_Each_State {
     REBVAL *out;
     REBVAL *data;
     REBSER *series;
-    bool stopped; // e.g. a BREAK ran
+    bool broke; // e.g. a BREAK ran
     const REBVAL *body;
     REBCTX *context;
     REBCNT start;
@@ -937,7 +980,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
 
     REBCNT count = 0;
     if (ANY_ARRAY(res->data)) {
-        if (res->stopped) { // cleanup markers, don't do removals
+        if (res->broke) { // cleanup markers, don't do removals
             RELVAL *temp = VAL_ARRAY_AT(res->data);
             for (; NOT_END(temp); ++temp) {
                 if (GET_VAL_FLAG(temp, NODE_FLAG_MARKED))
@@ -981,7 +1024,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
         assert(len == VAL_LEN_HEAD(res->data));
     }
     else if (IS_BINARY(res->data)) {
-        if (res->stopped) { // leave data unchanged
+        if (res->broke) { // leave data unchanged
             Drop_Mold(res->mo);
             return 0;
         }
@@ -1015,7 +1058,7 @@ static inline REBCNT Finalize_Remove_Each(struct Remove_Each_State *res)
     }
     else {
         assert(ANY_STRING(res->data));
-        if (res->stopped) { // leave data unchanged
+        if (res->broke) { // leave data unchanged
             Drop_Mold(res->mo);
             return 0;
         }
@@ -1096,10 +1139,10 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
         }
 
         if (Do_Branch_Throws(res->out, res->body)) {
-            if (not Catching_Break_Or_Continue(res->out, &res->stopped))
+            if (not Catching_Break_Or_Continue(res->out, &res->broke))
                 return R_THROWN; // we'll bubble it up, but will also finalize
 
-            if (res->stopped) {
+            if (res->broke) {
                 //
                 // BREAK; this means we will return nullptr and not run any
                 // removals (we couldn't report how many if we did)
@@ -1155,7 +1198,7 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
     // We get here on normal completion
     // THROW and BREAK will return above
 
-    assert(not res->stopped and res->start == len);
+    assert(not res->broke and res->start == len);
 
     return nullptr;
 }
@@ -1260,7 +1303,7 @@ REBNATIVE(remove_each)
     SET_END(D_OUT); // will be tested for THROWN() to signal a throw happened
     res.out = D_OUT;
 
-    res.stopped = false; // will be set to true if there is a BREAK
+    res.broke = false; // will be set to true if there is a BREAK
 
     REB_R r = rebRescue(cast(REBDNG*, &Remove_Each_Core), &res);
 
@@ -1279,7 +1322,7 @@ REBNATIVE(remove_each)
         rebJumps("FAIL", r, rebEND);
     }
 
-    if (res.stopped)
+    if (res.broke)
         return nullptr;
 
     return Init_Integer(D_OUT, removals);
@@ -1350,10 +1393,10 @@ REBNATIVE(loop)
 
     for (; count > 0; count--) {
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(D_OUT, &stop))
+            bool broke;
+            if (not Catching_Break_Or_Continue(D_OUT, &broke))
                 return R_THROWN;
-            if (stop)
+            if (broke)
                 return nullptr;
         }
         Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
@@ -1432,10 +1475,10 @@ inline static const REBVAL *Until_Core(
     skip_check:;
 
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(D_OUT, &stop))
+            bool broke;
+            if (not Catching_Break_Or_Continue(D_OUT, &broke))
                 return R_THROWN;
-            if (stop)
+            if (broke)
                 return Init_Nulled(D_OUT);
 
             // UNTIL and UNTIL-NOT both follow the precedent that the way
@@ -1528,12 +1571,12 @@ inline static const REBVAL *While_Core(
         }
 
         if (Do_Branch_With_Throws(D_OUT, ARG(body), cell)) {
-            bool stop;
-            if (not Catching_Break_Or_Continue(D_OUT, &stop)) {
+            bool broke;
+            if (not Catching_Break_Or_Continue(D_OUT, &broke)) {
                 DROP_GC_GUARD(cell);
                 return R_THROWN;
             }
-            if (stop) {
+            if (broke) {
                 DROP_GC_GUARD(cell);
                 return Init_Nulled(D_OUT);
             }

@@ -225,3 +225,11 @@ applique: function [
 
     do frame ;-- nulls are optionals
 ]
+
+
+; The name FOREVER likely dissuades its use, since many loops aren't intended
+; to run forever.  CYCLE gives similar behavior without suggesting the
+; permanence.  It also is unique among loop constructs by supporting a value
+; return via STOP, since it has no "normal" loop termination condition.
+;
+forever: :cycle

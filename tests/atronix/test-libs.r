@@ -1,6 +1,6 @@
 REBOL []
 recycle/torture
-forever [
+cycle [
     libs: make library! %./libs.so
     N_REPEAT: 10
     read-s10: make routine! compose [
