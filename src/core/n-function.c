@@ -827,3 +827,90 @@ REBNATIVE(tighten)
         VAL_BINDING(ARG(action)) // e.g. keep binding for `tighten 'return`
     );
 }
+
+
+
+REB_R N_Shot_Dispatcher(REBFRM *f)
+{
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    assert(ARR_LEN(details) == 1);
+
+    RELVAL *n = ARR_HEAD(details);
+    if (VAL_INT64(n) == 0)
+        return nullptr; // always return null once 0 is reached
+    --VAL_INT64(n);
+
+    REBVAL *code = FRM_ARG(f, 1);
+    if (Do_Branch_Throws(f->out, code))
+        return R_THROWN;
+
+    return Voidify_If_Nulled(f->out);
+}
+
+
+REB_R N_Upshot_Dispatcher(REBFRM *f)
+{
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    assert(ARR_LEN(details) == 1);
+
+    RELVAL *n = ARR_HEAD(details);
+    if (VAL_INT64(n) < 0) {
+        ++VAL_INT64(ARR_HEAD(details));
+        return nullptr; // return null until 0 is reached
+    }
+
+    REBVAL *code = FRM_ARG(f, 1);
+    if (Do_Branch_Throws(f->out, code))
+        return R_THROWN;
+
+    return Voidify_If_Nulled(f->out);
+}
+
+
+//
+//  n-shot: native [
+//
+//  {Create a DO variant that executes what it's given for N times}
+//
+//      n "Number of times to execute before being a no-op"
+//          [integer!]
+//  ]
+//
+REBNATIVE(n_shot)
+{
+    INCLUDE_PARAMS_OF_N_SHOT;
+
+    REBI64 n = VAL_INT64(ARG(n));
+
+    REBARR *paramlist = Make_Arr_Core(
+        2,
+        SERIES_MASK_ACTION | NODE_FLAG_MANAGED
+    );
+
+    REBVAL *archetype = RESET_CELL(Alloc_Tail_Array(paramlist), REB_ACTION);
+    archetype->payload.action.paramlist = paramlist;
+    INIT_BINDING(archetype, UNBOUND);
+
+    // !!! Should anything DO would accept be legal, as DOES would run?
+    //
+    REBVAL *param = Init_Typeset(
+        Alloc_Tail_Array(paramlist),
+        FLAGIT_KIND(REB_BLOCK) | FLAGIT_KIND(REB_ACTION),
+        Canon(SYM_VALUE) // SYM_CODE ?
+    );
+    INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_NORMAL);
+    assert(not Is_Param_Endable(param));
+
+    MISC(paramlist).meta = NULL; // !!! auto-generate info for HELP?
+
+    REBACT *n_shot = Make_Action(
+        paramlist,
+        n >= 0 ? &N_Shot_Dispatcher : &N_Upshot_Dispatcher,
+        nullptr, // no underlying action (use paramlist)
+        nullptr, // no specialization exemplar (or inherited exemplar)
+        1 // details array capacity
+    );
+    Init_Integer(ARR_HEAD(ACT_DETAILS(n_shot)), n);
+
+    return Init_Action_Unbound(D_OUT, n_shot);
+}

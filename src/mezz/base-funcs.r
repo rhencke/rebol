@@ -494,7 +494,7 @@ semiquote: specialize 'identity [quote: true]
 
 
 skip*: redescribe [
-    {Variant of SKIP that returns BLANK! instead of clipping to series bounds}
+    {Variant of SKIP that returns NULL instead of clipping to series bounds}
 ](
     specialize 'skip [only: true]
 )
@@ -567,16 +567,18 @@ really: func [
     :value
 ]
 
+oneshot: specialize 'n-shot [n: 1]
+upshot: specialize 'n-shot [n: -1]
 
 take: redescribe [
-    {Variant of TAKE* that will give an error if it can't take, vs. void}
+    {Variant of TAKE* that will give an error if it can't take, vs. null}
 ](
     chain [
         :take*
             |
         specialize 'else [
             branch: [
-                fail "Can't TAKE from series end (see TAKE* to get void)"
+                fail "Can't TAKE from series end (see TAKE* to get null)"
             ]
         ]
     ]
