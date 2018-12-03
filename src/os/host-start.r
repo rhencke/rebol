@@ -622,7 +622,7 @@ host-start: function [
     ; things could affect this, e.g. a complex userspace TRACE which was
     ; run during boot.
     ;
-    trap [c-debug-break-at/compensate 1000] ;-- fails in release build
+    attempt [c-debug-break-at/compensate 1000] ;-- fails in release build
 
     ; As long as there was no `--script` pased on the command line explicitly,
     ; the first item after the options is implicitly the script.
@@ -697,12 +697,12 @@ comment [
         elide (loud-print ["Checking for rebol.reb file in" o/bin])
         exists? o/bin/rebol.reb
     ] then [
-        trap/with [
+        trap [
             do o/bin/rebol.reb
             append o/loaded o/bin/rebol.reb
             loud-print ["Finished evaluating script:" o/bin/rebol.reb]
-        ] func [error] [
-            die/error "Error found in rebol.reb script" error
+        ] then lambda e [
+            die/error "Error found in rebol.reb script" e
         ]
     ]
 
@@ -715,12 +715,12 @@ comment [
         elide (loud-print ["Checking for user.reb file in" o/resources])
         exists? o/resources/user.reb
     ] then [
-        trap/with [
+        trap [
             do o/resources/user.reb
             append o/loaded o/resources/user.reb
             loud-print ["Finished evaluating script:" o/resources/user.reb]
-        ] func [error] [
-            die/error "Error found in user.reb script" error
+        ] then lambda e [
+            die/error "Error found in user.reb script" e
         ]
     ]
 

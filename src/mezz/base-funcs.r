@@ -584,12 +584,14 @@ take: redescribe [
     ]
 )
 
-attempt: redescribe [
+attempt: func [
     {Tries to evaluate a block and returns result or NULL on error.}
-](
-    ;-- REVIEW: Voidify nulls so they are the only way to get NULL, or not?
-    specialize 'trap [with: true | handler: [null]]
-)
+
+    return: [<opt> any-value!]
+    code [block! action!]
+][
+    trap [return do code] then [return null]
+]
 
 for-next: redescribe [
     "Evaluates a block for each position until the end, using NEXT to skip"
@@ -613,7 +615,7 @@ iterate-skip: redescribe [
 
         ; !!! https://github.com/rebol/rebol-issues/issues/2331
         comment [
-            trap/with [set* quote result: do f] func [e] [
+            trap [set* quote result: do f] then lambda e [
                 set* word saved
                 fail e
             ]

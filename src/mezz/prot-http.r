@@ -328,10 +328,10 @@ check-response: function [port] [
         if quote (txt) <> last body-of :net-log [ ; net-log is in active state
             print "Dumping Webserver headers and body"
             net-log/S info
-            trap/with [
+            trap [
                 body: to text! conn/data
                 dump body
-            ][
+            ] then [
                 print unspaced [
                     "S: " length of conn/data " binary bytes in buffer ..."
                 ]

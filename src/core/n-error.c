@@ -43,9 +43,6 @@
 static const REBVAL *Trap_Dangerous(REBFRM *frame_) {
     INCLUDE_PARAMS_OF_TRAP;
 
-    UNUSED(REF(with));
-    UNUSED(ARG(handler));
-
     if (Do_Branch_Throws(D_OUT, ARG(code)))
         return VOID_VALUE;
 
@@ -58,12 +55,9 @@ static const REBVAL *Trap_Dangerous(REBFRM *frame_) {
 //
 //  {Tries to DO a block, trapping raised errors}
 //
-//      return: "ERROR! if raised, else result (null if non-raised ERROR!)"
-//          [<opt> any-value!]
+//      return: "ERROR! if raised, else null"
+//          [<opt> error!]
 //      code "Code to execute and monitor"
-//          [block! action!]
-//      /with "Handle error case with more code"
-//      handler "If an arity-1 ACTION!, then it will be passed the ERROR!"
 //          [block! action!]
 //  ]
 //
@@ -73,32 +67,14 @@ REBNATIVE(trap)
 
     REBVAL *error = rebRescue(cast(REBDNG*, &Trap_Dangerous), frame_);
     UNUSED(ARG(code)); // gets used by the above call, via the frame_ pointer
-
-    if (not error) { // code didn't fail()
-        if (IS_ERROR(D_OUT) and not REF(with))
-            fail (
-                "TRAP'ped expressions are not allowed to evaluate to a"
-                " non-*raised* ERROR! unless a /WITH handler is provided"
-            );
-
-        return D_OUT;
-    }
+    if (not error)
+        return nullptr; // code didn't fail() or throw
 
     if (IS_VOID(error)) // signal used to indicate a throw
         return R_THROWN;
 
     assert(IS_ERROR(error));
-
-    if (not REF(with))
-        return error;
-
-    bool handler_threw = Do_Branch_With_Throws(D_OUT, ARG(handler), error);
-    rebRelease(error); // Note: auto-released if fail() while handler runs
-
-    if (handler_threw)
-        return R_THROWN;
-
-    return D_OUT;
+    return error;
 }
 
 

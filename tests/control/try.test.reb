@@ -20,16 +20,15 @@
     error? trap [f1]
     success
 )
-; testing TRAP/WITH
 [#822
-    (error? trap/with [make error! ""] [0])
+    (trap [make error! ""] then [<branch-not-run>] else [true])
 ]
-(trap/with [fail make error! ""] [true])
-(trap/with [1 / 0] :error?)
-(trap/with [1 / 0] func [e] [error? e])
-(trap/with [true] func [e] [false])
+(trap [fail make error! ""] then [true])
+(trap [1 / 0] then :error?)
+(trap [1 / 0] then func [e] [error? e])
+(trap [] then func [e] [<handler-not-run>] else [true])
 [#1514
-    (error? trap [trap/with [1 / 0] :add])
+    (error? trap [trap [1 / 0] then :add])
 ]
 
 [#1506 ((

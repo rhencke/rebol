@@ -28,10 +28,10 @@ browse*: function [
         ][
             location
         ]
-        trap/with [
+        trap [
             call/shell command ; don't use /WAIT
             return
-        ][
+        ] then [
             ;-- Just keep trying
         ]
     ]

@@ -80,5 +80,5 @@
     'file = exists? http://www.rebol.com/index.html
 )]
 
-(not error? trap [read http://example.com])
-(not error? trap [read https://example.com])
+(binary? read http://example.com)
+(binary? read https://example.com)

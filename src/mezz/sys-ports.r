@@ -354,11 +354,12 @@ init-schemes: func [
         spec: system/standard/port-spec-serial
         init: func [port <local> path speed] [
             if url? port/spec/ref [
-                parse port/spec/ref
-                    [thru #":" 0 2 slash copy path [to slash | end] skip copy speed to end]
-                if speed: trap [to-integer/unsigned speed] [
-                    port/spec/speed: speed
+                parse port/spec/ref [
+                    thru #":" 0 2 slash
+                    copy path [to slash | end] skip
+                    copy speed to end
                 ]
+                attempt [port/spec/speed: to-integer/unsigned speed]
                 port/spec/path: to file! path
             ]
             return

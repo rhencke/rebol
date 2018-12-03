@@ -246,7 +246,7 @@ start-console: function [
         o/resources
         exists? skin-file: join-of o/resources skin-file
     ] then [
-        trap/with [
+        trap [
             new-skin: do load skin-file
 
             ;; if loaded skin returns console! object then use as prototype
@@ -263,8 +263,8 @@ start-console: function [
             proto-skin/name: default ["loaded"]
             append o/loaded skin-file
 
-        ] func [error] [
-            skin-error: error       ;; show error later if --verbose
+        ] then lambda e [
+            skin-error: e       ;; show error later if --verbose
             proto-skin/name: "error"
         ]
     ]
@@ -583,7 +583,7 @@ host-console: function [
         return <prompt>
     ]
 
-    trap/with [
+    trap [
         ;
         ; Note that LOAD/ALL makes BLOCK! even for a single item,
         ; e.g. `load/all "word"` => `[word]`
@@ -591,7 +591,7 @@ host-console: function [
         code: load/all delimit result newline
         assert [block? code]
 
-    ] lambda error [
+    ] then lambda error [
         ;
         ; If loading the string gave back an error, check to see if it
         ; was the kind of error that comes from having partial input

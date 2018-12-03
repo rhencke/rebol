@@ -25,7 +25,7 @@ info?: function [
     if file? target [
         return query target
     ]
-    if error? trap [
+    trap [
         t: write target [HEAD]
         if only [return 'file]
         return make object! [
@@ -34,7 +34,7 @@ info?: function [
             date: t/3
             type: 'url
         ]
-    ][
+    ] then [
         return null
     ]
 ]
@@ -139,7 +139,7 @@ make-dir: func [
     for-each dir dirs [
         path: either empty? path [dir][path/:dir]
         append path slash
-        trap/with [make-dir path] func [e] [
+        trap [make-dir path] then lambda e [
             for-each dir created [attempt [delete dir]]
             fail e
         ]

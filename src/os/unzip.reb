@@ -408,9 +408,9 @@ ctx-zip: context [
                         ]
 
                         data: copy/part data compressed-size
-                        if error? trap [
+                        trap [
                             data: inflate/max data uncompressed-size
-                        ][
+                        ] then [
                             info "^- -> failed [deflate]^/"
                             throw blank
                         ]

@@ -1001,9 +1001,9 @@ pe-format: context [
         /header "Return only the section header"
         /data "Return only the section data"
     ][
-        trap/with [
+        trap [
             parse-exe exe-data
-        ][
+        ] then lambda err [
             ;print ["Failed to parse exe:" err]
             return _
         ]
@@ -1330,9 +1330,9 @@ get-encap: function [
     rebol-path [file!]
         {The executable to search for the encap information in}
 ][
-    trap/with [
+    trap [
         read/part rebol-path 1
-    ] func [e <with> return] [
+    ] then func [e <with> return] [
         print [e]
         print ["Can't check for embedded code in Rebol path:" rebol-path]
         return blank

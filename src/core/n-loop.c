@@ -56,15 +56,21 @@ bool Catching_Break_Or_Continue(REBVAL *val, bool *broke)
         return false;
 
     if (VAL_ACT_DISPATCHER(val) == &N_break) {
-        *broke = true; // was BREAK (causes loops to always return NULL)
+        *broke = true;
         CATCH_THROWN(val, val);
-        assert(IS_NULLED(val)); // no /WITH refinement
+        assert(IS_NULLED(val)); // BREAK must always return NULL
         return true;
     }
 
     if (VAL_ACT_DISPATCHER(val) == &N_continue) {
-        *broke = false; // was CONTINUE or CONTINUE/WITH
-        CATCH_THROWN(val, val); // will be null if no /WITH was used
+        //
+        // !!! Currently continue with no argument acts the same as asking
+        // for CONTINUE NULL (the form with an argument).  This makes sense
+        // in cases like MAP-EACH (one wants a continue to not add any value,
+        // as opposed to a void) but may not make sense for all cases.
+        //
+        *broke = false;
+        CATCH_THROWN(val, val);
         return true;
     }
 

@@ -37,14 +37,14 @@ make object! [
 
             ["{" | {"}] (
                 ; handle string using TRANSCODE
-                success: either error? trap [
+                success-rule: trap [
                     position: second transcode/next position
-                ] [
+                ] then [
                     [end skip]
-                ] [
+                ] else [
                     [:position]
                 ]
-            ) success
+            ) success-rule
                 |
             ["{" | {"}] :position break
                 |
@@ -87,20 +87,20 @@ make object! [
         current-dir: what-dir
         print ["file:" mold test-file]
 
-        either error? err: trap [
+        trap [
             if file? test-file [
                 test-file: clean-path test-file
                 change-dir first split-path test-file
             ]
             test-sources: get in load-testfile test-file 'contents
-        ][
+        ] then err => [
             ; probe err
             append collected-tests reduce [
                 test-file 'dialect {^/"failed, cannot read the file"^/}
             ]
             change-dir current-dir
             return
-        ][
+        ] else [
             change-dir current-dir
             append collected-tests test-file
         ]
@@ -122,9 +122,9 @@ make object! [
         any-wsp: [any [wsp emit-token]]
 
         single-value: parsing-at x [
-            if not error? trap [
+            trap [
                 set [value: next-position:] transcode/next x
-            ][
+            ] else [
                 type: in types 'val
                 next-position
             ]
@@ -220,7 +220,7 @@ make object! [
             {collect the logged results here (modified)}
         log-file [file!]
     ][
-        if error? trap [log-contents: read log-file] [
+        trap [log-contents: read log-file] then [
             fail ["Unable to read " mold log-file]
         ]
 
