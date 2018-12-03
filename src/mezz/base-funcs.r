@@ -622,6 +622,7 @@ iterate-skip: redescribe [
         ]
 
         do f
+        elide set* word saved
     ][
         series: <overwritten>
     ]
