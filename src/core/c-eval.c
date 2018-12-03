@@ -517,7 +517,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   do_next:;
 
-    START_NEW_EXPRESSION_MAY_THROW(f, goto finished);
+    START_NEW_EXPRESSION_MAY_THROW(f, goto return_thrown);
     // ^-- resets local `tick` count, Ctrl-C may abort
 
     // We attempt to reuse any lookahead fetching done with Get_Var.  In the
