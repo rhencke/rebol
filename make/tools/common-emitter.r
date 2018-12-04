@@ -44,25 +44,50 @@ cscape: function [
 ][
     string: trim/auto copy template
 
-    list: collect [
-        parse string [(col: 0) any [
-            [
-                (dlm: _)
+    ; As we process the string, we CHANGE any substitution expressions into
+    ; an INTEGER! for doing the replacements later with REWORD (and not
+    ; being ambiguous).
+    ;
+    num: 1
+    num-text: to text! num ;-- CHANGE won't take GROUP! to evaluate, #1279
 
-                "${" copy expr: to "}" skip (mode: #cname)
+    list: collect [
+        parse string [(col: 0) start: any [
+            [
+                (prefix: _ suffix: _) finish:
+
+                "${" change [copy expr: [to "}"]] num-text skip (
+                    mode: #cname
+                    pattern: unspaced ["${" num "}"]
+                )
                     |
-                "$<" copy expr: to ">" skip (mode: #unspaced)
+                "$<" change [copy expr: [to ">"]] num-text skip (
+                    mode: #unspaced
+                    pattern: unspaced ["$<" num ">"]
+                )
                     |
-                "$[" copy expr: to "]" skip (mode: #delim)
-                copy dlm: to newline
+                (prefix: copy/part start finish)
+                "$[" change [copy expr: [to "]"]] num-text skip (
+                    mode: #delimit
+                    pattern: unspaced ["$[" num "]"]
+                )
+                copy suffix: to newline
                     |
-                "$(" copy expr: to ")" skip (mode: #delim)
-                copy dlm: remove to newline
+                (prefix: copy/part start finish)
+                "$(" change [copy expr: [to ")"]] num-text skip (
+                    mode: #delimit
+                    pattern: unspaced ["$(" num ")"]
+                )
+                copy suffix: remove to newline
             ] (
-                keep/only compose [(col) (mode) (expr) (dlm)]
+                keep/only compose [
+                    (pattern) (col) (mode) (expr) (prefix) (suffix)
+                ]
+                num: num + 1
+                num-text: to text! num
             )
                 |
-            newline (col: 0)
+            newline (col: 0 prefix: _ suffix: _) start:
                 |
             skip (col: col + 1)
         ]]
@@ -72,11 +97,11 @@ cscape: function [
 
     substitutions: try collect [
         for-each item list [
-            set [col: mode: expr: dlm:] item
+            set [pattern: col: mode: expr: prefix: suffix:] item
 
             any-upper: did find/case expr charset [#"A" - #"Z"]
             any-lower: did find/case expr charset [#"a" - #"z"]
-            keep expr
+            keep pattern
 
             code: load/all expr
             if with [
@@ -97,8 +122,8 @@ cscape: function [
                 mode = #unspaced [
                     either block? sub [unspaced sub] [form sub]
                 ]
-                mode = #delim [
-                    delimit (unspaced [dlm newline]) sub 
+                mode = #delimit [
+                    delimit (unspaced [suffix newline]) sub
                 ]
                 fail ["Invalid CSCAPE mode:" mode]
             ] or [
@@ -113,18 +138,15 @@ cscape: function [
             ; If the substitution started at a certain column, make any line
             ; breaks continue at the same column.
             ;
-            indent: unspaced collect [keep newline | loop col [keep space]]
+            indent: unspaced collect [keep newline | keep prefix]
             replace/all sub newline indent
 
             keep sub
         ]
     ]
-    
-    if substitutions [
-        string: reword/case/escape string substitutions ["${" "}"]
-        string: reword/case/escape string substitutions ["$<" ">"]
-        string: reword/case/escape string substitutions ["$(" ")"]
-        string: reword/case/escape string substitutions ["$[" "]"]
+
+    for-each [pattern replacement] substitutions [
+        replace string pattern replacement
     ]
 
     ; BLANK! in CSCAPE tries to be "smart" about omitting the item from its
