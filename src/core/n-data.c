@@ -1314,6 +1314,26 @@ REBNATIVE(null_q)
 
 
 //
+//  voidify: native [
+//
+//  "Turn nulls into voids, passing through all other values"
+//
+//      return: [any-value!]
+//      optional [<opt> any-value!]
+//  ]
+//
+REBNATIVE(voidify)
+{
+    INCLUDE_PARAMS_OF_VOIDIFY;
+
+    if (IS_NULLED(ARG(optional)))
+        return Init_Void(D_OUT);
+
+    RETURN (ARG(optional));
+}
+
+
+//
 //  nothing?: native/body [
 //
 //  "Returns TRUE if argument is either a BLANK! or NULL"

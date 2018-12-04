@@ -69,7 +69,7 @@ inline static void CONVERT_NAME_TO_THROWN(REBVAL *name, const REBVAL *arg) {
     Move_Value(&TG_Thrown_Arg, arg);
 }
 
-static inline void CATCH_THROWN(REBVAL *arg_out, REBVAL *thrown) {
+static inline void CATCH_THROWN(RELVAL *arg_out, REBVAL *thrown) {
     //
     // Note: arg_out and thrown may be the same pointer
     //

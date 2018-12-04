@@ -215,7 +215,7 @@ proto-parser: context [
                 lines: attempt [decode-lines lines {//} { }]
                 parse lines [copy data to {=///} to end]
                 data: attempt [load-until-blank trim/auto data]
-                data: attempt [
+                data: try attempt [
                     if set-word? first data/1 [data/1]
                 ]
                 position ; Success.
@@ -226,7 +226,7 @@ proto-parser: context [
             try all [
                 lines: attempt [decode-lines lines {//} { }]
                 data: load-until-blank lines
-                data: attempt [
+                data: try attempt [
                     if set-word? first data/1 [
                         notes: data/2
                         data/1

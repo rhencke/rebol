@@ -423,13 +423,24 @@ to: emulate [
 ]
 
 try: emulate [
-    func [
+    function [
+        {See TRAP: https://trello.com/c/IbnfBaLI}
         return: [<opt> any-value!]
         block [block!]
-        /except {TRAP/WITH is better: https://trello.com/c/IbnfBaLI}
+        /except "Note TRAP doesn't take a handler...use THEN instead}
         code [block! action!]
     ][
-        trap/(try if except [/with]) block :code
+        trap [
+            result: do block
+        ] then err => [
+            case [
+                null? :code [err]
+                block? :code [do code]
+                action? :code [code err]
+            ]
+        ] else [
+            result
+        ]
     ]
 ]
 

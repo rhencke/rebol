@@ -587,10 +587,15 @@ take: redescribe [
 attempt: func [
     {Tries to evaluate a block and returns result or NULL on error.}
 
-    return: [<opt> any-value!]
+    return: "null on error, if code runs and produces null it becomes void"
+        [<opt> any-value!]
     code [block! action!]
 ][
-    trap [return do code] then [return null]
+    trap [
+        return voidify do code
+    ] then [
+        return null
+    ]
 ]
 
 for-next: redescribe [

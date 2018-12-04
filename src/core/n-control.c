@@ -1067,7 +1067,8 @@ REBNATIVE(default)
 //
 //  {Catches a throw from a block and returns its value.}
 //
-//      return: [<opt> any-value!]
+//      return: "Thrown value, or BLOCK! with value and name (if /NAME, /ANY)"
+//          [<opt> any-value!]
 //      block "Block to evaluate"
 //          [block!]
 //      /name "Catches a named throw" ;-- should it be called /named ?
@@ -1075,9 +1076,6 @@ REBNATIVE(default)
 //          [block! word! action! object!]
 //      /quit "Special catch for QUIT native"
 //      /any "Catch all throws except QUIT (can be used with /QUIT)"
-//      /with "Handle thrown case with code"
-//      handler "If action, the spec matches [value name]"
-//          [block! action!]
 //  ]
 //
 REBNATIVE(catch)
@@ -1093,56 +1091,47 @@ REBNATIVE(catch)
     if (REF(any) and REF(name))
         fail (Error_Bad_Refines_Raw());
 
-    if (Do_Any_Array_At_Throws(D_OUT, ARG(block))) {
-        if (REF(any) and not (
-            IS_ACTION(D_OUT)
-            and VAL_ACT_DISPATCHER(D_OUT) == &N_quit
-        )){
-            goto was_caught;
-        }
+    if (not Do_Any_Array_At_Throws(D_OUT, ARG(block)))
+        return nullptr; // no throw means just return null
 
-        if (REF(quit) and (
-            IS_ACTION(D_OUT)
-            and VAL_ACT_DISPATCHER(D_OUT) == &N_quit
-        )){
-            goto was_caught;
-        }
+    if (REF(any) and not (
+        IS_ACTION(D_OUT)
+        and VAL_ACT_DISPATCHER(D_OUT) == &N_quit
+    )){
+        goto was_caught;
+    }
 
-        if (REF(name)) {
+    if (REF(quit) and (
+        IS_ACTION(D_OUT)
+        and VAL_ACT_DISPATCHER(D_OUT) == &N_quit
+    )){
+        goto was_caught;
+    }
+
+    if (REF(name)) {
+        //
+        // We use equal? by way of Compare_Modify_Values, and re-use the
+        // refinement slots for the mutable space
+
+        REBVAL *temp1 = ARG(quit);
+        REBVAL *temp2 = ARG(any);
+
+        // !!! The reason we're copying isn't so the VALUE_FLAG_THROWN bit
+        // won't confuse the equality comparison...but would it have?
+
+        if (IS_BLOCK(ARG(names))) {
             //
-            // We use equal? by way of Compare_Modify_Values, and re-use the
-            // refinement slots for the mutable space
+            // Test all the words in the block for a match to catch
 
-            REBVAL *temp1 = ARG(quit);
-            REBVAL *temp2 = ARG(any);
-
-            // !!! The reason we're copying isn't so the VALUE_FLAG_THROWN bit
-            // won't confuse the equality comparison...but would it have?
-
-            if (IS_BLOCK(ARG(names))) {
+            RELVAL *candidate = VAL_ARRAY_AT(ARG(names));
+            for (; NOT_END(candidate); candidate++) {
                 //
-                // Test all the words in the block for a match to catch
+                // !!! Should we test a typeset for illegal name types?
+                //
+                if (IS_BLOCK(candidate))
+                    fail (Error_Invalid(ARG(names)));
 
-                RELVAL *candidate = VAL_ARRAY_AT(ARG(names));
-                for (; NOT_END(candidate); candidate++) {
-                    //
-                    // !!! Should we test a typeset for illegal name types?
-                    //
-                    if (IS_BLOCK(candidate))
-                        fail (Error_Invalid(ARG(names)));
-
-                    Derelativize(temp1, candidate, VAL_SPECIFIER(ARG(names)));
-                    Move_Value(temp2, D_OUT);
-
-                    // Return the THROW/NAME's arg if the names match
-                    // !!! 0 means equal?, but strict-equal? might be better
-                    //
-                    if (Compare_Modify_Values(temp1, temp2, 0))
-                        goto was_caught;
-                }
-            }
-            else {
-                Move_Value(temp1, ARG(names));
+                Derelativize(temp1, candidate, VAL_SPECIFIER(ARG(names)));
                 Move_Value(temp2, D_OUT);
 
                 // Return the THROW/NAME's arg if the names match
@@ -1153,64 +1142,40 @@ REBNATIVE(catch)
             }
         }
         else {
-            // Return THROW's arg only if it did not have a /NAME supplied
+            Move_Value(temp1, ARG(names));
+            Move_Value(temp2, D_OUT);
+
+            // Return the THROW/NAME's arg if the names match
+            // !!! 0 means equal?, but strict-equal? might be better
             //
-            if (IS_BLANK(D_OUT))
+            if (Compare_Modify_Values(temp1, temp2, 0))
                 goto was_caught;
         }
-
-        return R_THROWN; // throw name is in D_OUT, value is held task local
     }
-
-    return D_OUT;
-
-was_caught:
-    if (REF(with)) {
-        REBVAL *handler = ARG(handler);
-
-        // We again re-use the refinement slots, but this time as mutable
-        // space protected from GC for the handler's arguments
+    else {
+        // Return THROW's arg only if it did not have a /NAME supplied
         //
-        REBVAL *thrown_arg = ARG(any);
-        REBVAL *thrown_name = ARG(quit);
-
-        CATCH_THROWN(thrown_arg, D_OUT);
-        Move_Value(thrown_name, D_OUT); // THROWN bit cleared by CATCH_THROWN
-
-        if (IS_BLOCK(handler)) {
-            //
-            // There's no way to pass args to a block (so just DO it)
-            //
-            if (Do_Any_Array_At_Throws(D_OUT, ARG(handler)))
-                return R_THROWN;
-
-            return D_OUT;
-        }
-        else if (IS_ACTION(handler)) {
-            //
-            // This calls the function but only does an EVALUATE.  Hence the
-            // function might be arity 0, arity 1, or arity 2.  If it has
-            // greater arity it will process more arguments.
-            //
-            if (Apply_Only_Throws(
-                D_OUT,
-                false, // do not alert if handler doesn't consume all args
-                handler,
-                NULLIZE(thrown_arg), // convert nulled cells to NULL for API
-                NULLIZE(thrown_name), // convert nulled cells to NULL for API
-                rebEND
-            )){
-                return R_THROWN;
-            }
-
-            return D_OUT;
-        }
+        if (IS_BLANK(D_OUT))
+            goto was_caught;
     }
 
-    // If no handler, just return the caught thing
-    //
-    CATCH_THROWN(D_OUT, D_OUT);
+    return R_THROWN; // throw name is in D_OUT, value is held task local
 
+  was_caught:
+
+    if (REF(name) or REF(any)) {
+        REBARR *a = Make_Arr(2);
+
+        CATCH_THROWN(ARR_AT(a, 1), D_OUT); // thrown value--may be null!
+        Move_Value(ARR_AT(a, 0), D_OUT); // throw name (thrown bit clear)
+        if (IS_NULLED(ARR_AT(a, 1)))
+            TERM_ARRAY_LEN(a, 1); // trim out null value (illegal in block)
+        else
+            TERM_ARRAY_LEN(a, 2);
+        return Init_Block(D_OUT, a);
+    }
+
+    CATCH_THROWN(D_OUT, D_OUT); // thrown value
     return D_OUT;
 }
 

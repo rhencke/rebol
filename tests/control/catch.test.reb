@@ -8,21 +8,21 @@
     success
 )
 ; catch results
-(void? catch [])
-(void? catch [()])
-(error? catch [trap [1 / 0]])
-(1 = catch [1])
+(null? catch [])
+(null? catch [()])
+(error? catch [throw trap [1 / 0]])
+(1 = catch [throw 1])
 (void? catch [throw do []])
 (error? first catch [throw reduce [trap [1 / 0]]])
 (1 = catch [throw 1])
 ; catch/name results
-(void? catch/name [] 'catch)
-(void? catch/name [()] 'catch)
-(error? catch/name [trap [1 / 0]] 'catch)
-(1 = catch/name [1] 'catch)
-(void? catch/name [throw/name (void) 'catch] 'catch)
-(error? first catch/name [throw/name reduce [trap [1 / 0]] 'catch] 'catch)
-(1 = catch/name [throw/name 1 'catch] 'catch)
+(null? catch/name [] 'catch)
+(null? catch/name [()] 'catch)
+(null? catch/name [trap [1 / 0]] 'catch)
+(null? catch/name [1] 'catch)
+([catch #[void]] = catch/name [throw/name (void) 'catch] 'catch)
+(error? first second catch/name [throw/name reduce [trap [1 / 0]] 'catch] 'catch)
+([catch 1] = catch/name [throw/name 1 'catch] 'catch)
 ; recursive cases
 (
     num: 1

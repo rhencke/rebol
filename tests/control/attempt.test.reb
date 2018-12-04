@@ -15,9 +15,9 @@
 (null? loop 1 [attempt [break 2] 2])
 ; recursion
 (1 = attempt [attempt [1]])
-(null? attempt [attempt [1 / 0]])
+(void? attempt [attempt [1 / 0]])
 ; infinite recursion
 (
     blk: [attempt blk]
-    null? attempt blk
+    void? attempt blk
 )

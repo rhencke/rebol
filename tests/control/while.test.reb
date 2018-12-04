@@ -108,10 +108,10 @@
     cycle?: true
     1 = catch [while [if cycle? [throw 1] false] [cycle?: false]]
 )
-(1 = catch/name [cycle?: true while [cycle?] [throw/name 1 'a cycle?: false]] 'a)
+([a 1] = catch/name [cycle?: true while [cycle?] [throw/name 1 'a cycle?: false]] 'a)
 (  ; bug#1519
     cycle?: true
-    1 = catch/name [while [if cycle? [throw/name 1 'a] false] [cycle?: false]] 'a
+    [a 1] = catch/name [while [if cycle? [throw/name 1 'a] false] [cycle?: false]] 'a
 )
 ; Test that disarmed errors do not stop the loop and errors can be returned
 (

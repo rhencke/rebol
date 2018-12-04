@@ -77,23 +77,22 @@ do*: function [
 
     finalizer: func [
         value [<opt> any-value!]
-        name [any-value!] ;-- can be an ACTION!
+        /quit
         <with> return
     ][
+        quit_FINALIZER: quit
+        quit: :lib/quit
+
         ; Restore system/script and the dir if they were changed
 
         if original-script [system/script: original-script]
         if original-path [change-dir original-path]
 
-        either :name = :quit [
-            if only [
-                quit/with :value ;-- "rethrow" the QUIT if DO/ONLY
-            ]
-        ][
-            assert [:name = blank]
+        if quit_FINALIZER and [only] [
+            quit/with :value ;-- "rethrow" the QUIT if DO/ONLY
         ]
 
-        return :value ;-- returns from DO* not FINALIZER, due to <with> return
+        return :value ;-- returns from DO*, because of <with> return
     ]
 
     ; If a file is being mentioned as a DO location and the "current path"
@@ -129,15 +128,15 @@ do*: function [
         ;
         do-needs hdr  ; Load the script requirements
         intern code   ; Bind the user script
-        set* quote result: catch/quit/with [
+        catch/quit [
             ;
             ; The source string may have been mutable or immutable, but the
             ; loaded code is not locked for this case.  So this works:
             ;
             ;     do "append {abc} {de}"
             ;
-            do code ;-- !!! Might args be passed implicitly somehow?
-        ] :finalizer
+            set* quote result: do code ;-- !!! pass args implicitly?
+        ] then :finalizer/quit
     ] else [
         ; Otherwise we are in script mode.  When we run a script, the
         ; "current" directory is changed to the directory of that script.
@@ -180,19 +179,19 @@ do*: function [
 
         ; Eval the block or make the module, returned
         either is-module [ ; Import the module and set the var
-            result: import catch/quit/with [
-                module/mixin hdr code (opt do-needs/no-user hdr)
-            ] :finalizer
+            catch/quit [
+                result: import module/mixin hdr code (opt do-needs/no-user hdr)
+            ] then :finalizer/quit
         ][
             do-needs hdr  ; Load the script requirements
             intern code   ; Bind the user script
-            set* quote result: catch/quit/with [
-                do code
-            ] :finalizer
+            catch/quit [
+                set* quote result: do code
+            ] then :finalizer/quit
         ]
     ]
 
-    finalizer :result blank
+    finalizer :result
 ]
 
 export: func [

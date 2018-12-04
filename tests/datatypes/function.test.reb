@@ -233,14 +233,17 @@
 )
 ; THROW out leaves a "running" function in a "clean" state
 (
-    1 = catch [
-        f: func [x] [
-            either x = 1 [
-                catch [f 2]
-                x
-            ] [throw 1]
+    did all [
+        null? catch [
+            f: func [x] [
+                either x = 1 [
+                    catch [f 2]
+                    x
+                ] [throw 1]
+            ]
+            result: f 1
         ]
-        f 1
+        result = 1
     ]
 )
 
