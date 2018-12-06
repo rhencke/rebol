@@ -287,18 +287,6 @@ e1/emit {
      * Forward-declare REBNATIVE() dispatcher prototypes
      */
     $[Native-Forward-Decls];
-
-    /*
-     * Forward-declare module's C startup and shutdown functions.
-     *
-     * !!! These would likely be better done as natives, and a generic feature
-     * of modules to specify an ON-LOAD and ON-UNLOAD hook (though arguably,
-     * the ON-LOAD hook is just the act of running the module body the first
-     * time through...)  That way any module could even supply a usermode
-     * action to run when it unloads.
-     */
-    DECLARE_MODULE_INIT(${Mod});
-    DECLARE_MODULE_QUIT(${Mod});
 }
 e1/emit newline
 
@@ -312,8 +300,7 @@ replace script-name "mod" "ext"
 ; === [{Make Extension Init Code from} script-name] ===
 
 inc-name: copy file-name
-replace inc-name ".c" "-init.inc"
-replace inc-name "mod" "ext"
+replace inc-name ".c" "-init.c"
 
 dest: join-of output-dir join-of %tmp- inc-name
 
@@ -322,6 +309,8 @@ e: make-emitter "Ext custom init code" dest
 script-compressed: gzip (script-uncompressed: read script-name)
 
 e/emit {
+    #include "sys-core.h" /* !!! Could this just use "rebol.h"? */
+
     #include "tmp-mod-${mod}.h" /* for REBNATIVE() forward decls */
 
     /*
@@ -365,7 +354,6 @@ e/emit {
      */
     EXT_API REBVAL *RX_COLLATE_NAME(${Mod})(void) {
         return rebCollateExtension_internal(
-            &Module_Init_${Mod}, &Module_Quit_${Mod},
             script_compressed, sizeof(script_compressed),
             specs_compressed, sizeof(specs_compressed),
             native_dispatchers, $<num-natives>

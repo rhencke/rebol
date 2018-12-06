@@ -909,22 +909,36 @@ REBNATIVE(backtrace_index)
 
 
 //
-//  Init_Debugger: C
+//  register-breakpoint-hook: native [
 //
-void Init_Debugger(void)
+//  {!!! Register EXPERIMENTAL breakpoint hook}
+//
+//      return: [void!]
+//  ]
+//
+REBNATIVE(register_breakpoint_hook)
 {
-    // !!! Register EXPERIMENTAL breakpoint hook.
-    //
+    DEBUGGER_INCLUDE_PARAMS_OF_REGISTER_BREAKPOINT_HOOK;
+
     PG_Breakpoint_Hook = &Do_Breakpoint_Throws;
+    return Init_Void(D_OUT);
 }
 
 
 //
-//  Shutdown_Debugger: C
+//  unregister-breakpoint-hook: native [
 //
-void Shutdown_Debugger(void)
+//  {!!! Unregister EXPERIMENTAL breakpoint hook}
+//
+//      return: [void!]
+//  ]
+//
+REBNATIVE(unregister_breakpoint_hook)
 {
-    PG_Breakpoint_Hook = NULL;
+    DEBUGGER_INCLUDE_PARAMS_OF_UNREGISTER_BREAKPOINT_HOOK;
+
+    PG_Breakpoint_Hook = nullptr;
+    return Init_Void(D_OUT);
 }
 
 

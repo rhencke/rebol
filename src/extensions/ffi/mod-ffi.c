@@ -103,6 +103,53 @@ static ffi_abi Abi_From_Word(const REBVAL *word) {
 
 
 //
+//  register-struct-hooks: native [
+//
+//  {Make the STRUCT! datatype work with GENERIC actions, comparison ops, etc}
+//
+//      return: [void!]
+//  ]
+//
+REBNATIVE(register_struct_hooks)
+{
+    FFI_INCLUDE_PARAMS_OF_REGISTER_STRUCT_HOOKS;
+
+    // !!! See notes on Hook_Datatype for this poor-man's substitute for a
+    // coherent design of an extensible object system (as per Lisp's CLOS)
+    //
+    Hook_Datatype(
+        REB_STRUCT,
+        &T_Struct,
+        &PD_Struct,
+        &CT_Struct,
+        &MAKE_Struct,
+        &TO_Struct,
+        &MF_Struct
+    );
+
+    return Init_Void(D_OUT);
+}
+
+
+//
+//  unregister-struct-hooks: native [
+//
+//  {Remove behaviors for STRUCT! added by REGISTER-STRUCT-HOOKS}
+//
+//      return: [void!]
+//  ]
+//
+REBNATIVE(unregister_struct_hooks)
+{
+    FFI_INCLUDE_PARAMS_OF_UNREGISTER_STRUCT_HOOKS;
+
+    Unhook_Datatype(REB_STRUCT);
+
+    return Init_Void(D_OUT);
+}
+
+
+//
 //  export make-routine: native [
 //
 //  {Create a bridge for interfacing with arbitrary C code in a DLL}

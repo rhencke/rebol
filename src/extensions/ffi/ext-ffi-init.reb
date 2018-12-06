@@ -16,6 +16,10 @@ REBOL [
     }
 ]
 
+; !!! Should call UNREGISTER-STRUCT-HOOKS at some point (module finalizer?)
+;
+register-struct-hooks
+
 ffi-type-mappings: [
     void [<opt>]
 

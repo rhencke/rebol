@@ -77,24 +77,8 @@
 
 // !!! Currently used for just a BLOCK!, but may become ACT_DETAILS()
 //
-#define IDX_COLLATOR_INIT 0
-#define IDX_COLLATOR_QUIT 1
-#define IDX_COLLATOR_SCRIPT 2
-#define IDX_COLLATOR_SPECS 3
-#define IDX_COLLATOR_DISPATCHERS 4
-#define IDX_COLLATOR_MAX 5
+#define IDX_COLLATOR_SCRIPT 0
+#define IDX_COLLATOR_SPECS 1
+#define IDX_COLLATOR_DISPATCHERS 2
+#define IDX_COLLATOR_MAX 3
 
-
-//=//// MODULE MACROS /////////////////////////////////////////////////////=//
-
-#define DECLARE_MODULE_INIT(mod_name) \
-    void Module_Init_##mod_name(void)
-
-#define CALL_MODULE_INIT(mod_name) \
-    Module_Init_##mod_name()
-
-#define DECLARE_MODULE_QUIT(mod_name) \
-    void Module_Quit_##mod_name(void)
-
-#define CALL_MODULE_QUIT(mod_name) \
-    Module_Quit_##mod_name()

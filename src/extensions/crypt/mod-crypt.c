@@ -58,11 +58,18 @@
 #include "tmp-mod-crypt.h"
 
 //
-//  Init_Crypto: C
+//  init-crypto: native [
 //
-void Init_Crypto(void)
+//  {Initialize random number generators and OS-provided crypto services}
+//
+//      return: [void!]
+//  ]
+//
+REBNATIVE(init_crypto)
 {
-#ifdef TO_WINDOWS
+    CRYPT_INCLUDE_PARAMS_OF_INIT_CRYPTO;
+
+  #ifdef TO_WINDOWS
     if (!CryptAcquireContextW(
         &gCryptProv, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT
     )) {
@@ -73,29 +80,39 @@ void Init_Crypto(void)
         assert(false);
         gCryptProv = 0;
     }
-#else
+  #else
     rng_fd = open("/dev/urandom", O_RDONLY);
     if (rng_fd == -1) {
         // We don't crash the release client now, but we will later
         // if they try to generate random numbers
         assert(false);
     }
-#endif
+  #endif
+
+    return Init_Void(D_OUT);
 }
 
 
 //
-//  Shutdown_Crypto: C
+//  shutdown-crypto: native [
 //
-void Shutdown_Crypto(void)
+//  {Shut down random number generators and OS-provided crypto services}
+//
+//  ]
+//
+REBNATIVE(shutdown_crypto)
 {
-#ifdef TO_WINDOWS
+    CRYPT_INCLUDE_PARAMS_OF_SHUTDOWN_CRYPTO;
+
+  #ifdef TO_WINDOWS
     if (gCryptProv != 0)
         CryptReleaseContext(gCryptProv, 0);
-#else
+  #else
     if (rng_fd != -1)
         close(rng_fd);
-#endif
+  #endif
+
+    return Init_Void(D_OUT);
 }
 
 

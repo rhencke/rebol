@@ -1342,15 +1342,18 @@ for-each ext builtin-extensions [
         app-config/optimization
         app-config/debug
 
-    ; The file which contains the RX_Init() and RX_Quit() functions
-    ext-init-source: case [
-        block? ext/source [copy first find ext/source file!]
-        file? ext/source [copy ext/source]
+    ; %prep-extensions.r creates a temporary .c file which contains the
+    ; collated information for the module (compressed script and spec bytes,
+    ; array of dispatcher CFUNC pointers for the natives) and RX_Collate
+    ; function.  It is located in the %prep/ directory for the extension.
+    ;
+    ext-name-lower: lowercase copy to text! ext/name
+    ext-init-source: as file! unspaced [
+        "tmp-mod-" ext-name-lower "-init.c"
     ]
-    replace ext-init-source "mod-" "ext-"
     append any [all [mod-obj mod-obj/depends] ext-objs] gen-obj/dir/I/D/F
         ext-init-source
-        src-dir/extensions/%
+        unspaced ["prep/extensions/" ext-name-lower "/"]
         opt ext/includes
         opt ext/definitions
         opt ext/cflags

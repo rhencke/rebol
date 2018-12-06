@@ -6,6 +6,9 @@ REBOL [
     license: {Apache 2.0}
 ]
 
+; !!! This should also call SHUTDOWN-CRYPTO at some point (module finalizer?)
+;
+init-crypto
 
 hmac-sha256: function [
     {computes the hmac-sha256 for message m using key k}

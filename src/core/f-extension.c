@@ -188,8 +188,6 @@ REBNATIVE(load_extension)
     // in the original extension model was very twisty and was a barrier
     // to enhancement.  So trying a monolithic rewrite for starters.
 
-    REBVAL *init_handle = KNOWN(ARR_AT(details, IDX_COLLATOR_INIT));
-    REBVAL *quit_handle = KNOWN(ARR_AT(details, IDX_COLLATOR_QUIT));
     REBVAL *script_compressed = KNOWN(ARR_AT(details, IDX_COLLATOR_SCRIPT));
     REBVAL *specs_compressed = KNOWN(ARR_AT(details, IDX_COLLATOR_SPECS));
     REBVAL *dispatchers_handle = KNOWN(ARR_AT(details, IDX_COLLATOR_DISPATCHERS));
@@ -310,20 +308,6 @@ REBNATIVE(load_extension)
     );
     REBVAL *script_bin = rebRepossess(script_utf8, script_size);
 
-    // Registering the natives shouldn't depend on calling the C portion of
-    // the module init.  But calling the natives might, and the script code
-    // can run the natives since we registered them and bound to them.
-    //
-    // !!! Really, if the module has any init code, couldn't that just be
-    // one of the registered natives?  Isn't registering and quitting a
-    // thing usermode modules might want to do, something on load and unload?
-    // Otherwise we run into weird questions of "how are errors delivered"
-    // as a separate question vs. the error delivery of any other bit of
-    // code that fails in `script`, stuff like that.
-    //
-    CFUNC *init = VAL_HANDLE_CFUNC(init_handle);
-    (*init)();
-
     // Module loading mechanics are supposed to be mostly done in usermode,
     // so try and honor that.  This means everything about whether the module
     // gets isolated and such.  It's not sorted out yet, because extensions
@@ -348,11 +332,10 @@ REBNATIVE(load_extension)
     DROP_GC_GUARD(path);
     DROP_GC_GUARD(lib);
 
-    // !!! Somehow the quit information needs to be kept, but might this be
-    // a more general question of modules having exit code?  Could that be
-    // stored in the header as an "on-unload" and run as a native?
-    //
-    UNUSED(quit_handle);
+    // !!! If modules are to be "unloadable", they would need some kind of
+    // finalizer to clean up their resources.  There are shutdown actions
+    // defined in a couple of extensions, but no protocol by which the
+    // system will automatically call them on shutdown (yet)
 
     return Init_Any_Context(D_OUT, REB_MODULE, module_ctx);
 }
@@ -470,16 +453,12 @@ REBNATIVE(unload_extension)
 // This has to be considered in the unloading mechanics.
 //
 REBVAL *rebCollateExtension_internal(
-    CFUNC* init_func,
-    CFUNC* quit_func,
     const REBYTE script_compressed[], REBCNT script_compressed_len,
     const REBYTE specs_compressed[], REBCNT specs_compressed_len,
     REBNAT dispatchers[], REBCNT dispatchers_len
 ) {
 
     REBARR *a = Make_Arr(IDX_COLLATOR_MAX); // details
-    Init_Handle_Cfunc(ARR_AT(a, IDX_COLLATOR_INIT), init_func, 0);
-    Init_Handle_Cfunc(ARR_AT(a, IDX_COLLATOR_QUIT), quit_func, 0);
     Init_Handle_Simple(
         ARR_AT(a, IDX_COLLATOR_SCRIPT),
         m_cast(REBYTE*, script_compressed), // !!! by contract, don't change!
