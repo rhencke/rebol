@@ -1078,6 +1078,14 @@ append app-config/definitions reduce [
     unspaced ["TO_" uppercase replace/all to-text system-config/os-name "-" "_"]
 ]
 
+;; Add user settings
+;;
+append app-config/definitions opt user-config/definitions
+append app-config/includes opt user-config/includes
+append app-config/cflags opt user-config/cflags
+append app-config/libraries opt user-config/libraries
+append app-config/ldflags opt user-config/ldflags
+
 libr3-core: make rebmake/object-library-class [
     name: 'libr3-core
     definitions: join-of ["REB_API"] app-config/definitions
@@ -1310,7 +1318,6 @@ process-module: func [
 
     ret
 ]
-
 
 ext-objs: make block! 8
 for-each ext builtin-extensions [

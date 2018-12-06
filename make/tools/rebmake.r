@@ -1061,23 +1061,10 @@ object-file-class: make object! [
         /E {only preprocessing}
     ][
         cc: any [compiler default-compiler]
-        cc/command/I/D/F/O/g/(try all [PIC 'PIC])/(try all [E 'E]) output source
-            case [
-                all [I includes][join-of includes ex-includes]
-                I [ex-includes]
-                default [includes]
-            ]
-            case [
-                all [D definitions][join-of definitions ex-definitions]
-                D [ex-definitions]
-                default [definitions]
-            ]
-            case [
-                ;putting cflags after ex-cflags so that it has a chance to overwrite
-                all [F cflags][join-of ex-cflags cflags]
-                F [ex-cflags]
-                default [cflags]
-            ]
+        cc/command/I/D/F/O/g/(PIC)/(E) output source
+            <- compose [(opt includes) (if I [ex-includes])]
+            <- compose [(opt definitions) (if D [ex-definitions])]
+            <- compose [(if F [ex-cflags]) (opt cflags)] ;; ex-cflags override
 
             ; current setting overwrites /refinement
             ; because the refinements are inherited from the parent
