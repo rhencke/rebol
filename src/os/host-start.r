@@ -206,14 +206,12 @@ host-start: function [
 
     argv {Raw command line argument block received by main() as STRING!s}
         [block!]
-    boot-exts {Extensions (modules) loaded at boot}
-        [block! blank!]
     emit {HOST-CONSOLE emit function}
         [action!]
     return {HOST-CONSOLE hooked return function, use for returning}
         [action!]
     <with>
-    host-start host-prot boot-exts ;-- unset when finished with them
+    host-start host-prot ;-- unset when finished with them
     about usage why license echo upgrade ;-- exported to lib, see notes
     <static>
         o (system/options) ;-- shorthand since options are often read/written
@@ -303,7 +301,7 @@ host-start: function [
     ; can be influenced by command line parameters as well.
     ;
     loud-print "Loading boot extensions..."
-    for-each collation boot-exts [
+    for-each collation builtin-extensions [
         load-extension collation
     ]
 

@@ -65,17 +65,6 @@
 
 #include "sys-core.h"
 
-// Building Rebol as a library may still entail a desire to ship that library
-// with built-in extensions (e.g. building libr3.js wants to have JavaScript
-// natives as an extension).  So there is no meaning to "built-in extensions"
-// for a library otherwise...as every client will be making their own EXE, and
-// there's no way to control their build process from Rebol's build process.
-//
-// Hence, the generated header for boot extensions is included here--to allow
-// clients to get access to those extensions through an API.
-//
-#include "tmp-boot-extensions.inc"
-
 #ifdef TO_JAVASCRIPT
     //
     // !!! While most of the JavaScript-specific code is in the JavaScript
@@ -387,39 +376,6 @@ void RL_rebStartup(void)
         panic ("Host-lib wrong version/checksum");
 
     Startup_Core();
-}
-
-
-//
-//  rebBuiltinExtensions: RL_API
-//
-// The config file used by %make.r marks extensions to be built into the
-// executable (`+`), built as a dynamic library (`*`), or not built at
-// all (`-`).  Each of the options marked with + has a C function for
-// startup and shutdown.
-//
-// rebStartup() should not initialize these extensions, because it might not
-// be the right ordering.  Command-line processing or other code that uses
-// Rebol may need to make decisions on when to initialize them.  So this
-// function merely returns the built-in extensions, which can be loaded with
-// the LOAD-EXTENSION function.
-//
-REBVAL *RL_rebBuiltinExtensions(void)
-{
-    // Call the generator functions for each builtin extension to get back
-    // all the collated information that would be needed to initialize and
-    // use the extension (but don't act on the information yet!)
-
-    REBARR *list = Make_Arr(NUM_BUILTIN_EXTENSIONS);
-    REBCNT i;
-    for (i = 0; i != NUM_BUILTIN_EXTENSIONS; ++i) {
-        COLLATE_CFUNC *collator = Builtin_Extension_Collators[i];
-        REBVAL *details = (*collator)();
-        assert(IS_BLOCK(details) and VAL_LEN_AT(details) == IDX_COLLATOR_MAX);
-        Move_Value(Alloc_Tail_Array(list), details);
-        rebRelease(details);
-    }
-    return Init_Block(Alloc_Value(), list);
 }
 
 

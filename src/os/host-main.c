@@ -465,15 +465,6 @@ int main(int argc, char *argv_ansi[])
     if (rebNot("lib/action?", host_console, rebEND))
         rebJumps("lib/PANIC-VALUE", host_console, rebEND);
 
-    // The config file used by %make.r marks extensions to be built into the
-    // executable (`+`), built as a dynamic library (`*`), or not built at
-    // all (`-`).  Each of the options marked with + has a C function for
-    // startup and shutdown, which we convert into HANDLE!s to be suitable
-    // to pass into the Rebol startup code--which chooses the actual moment
-    // to call LOAD-EXTENSION on them.
-    //
-    REBVAL *extensions = rebBuiltinExtensions();
-
     // While some people may think that argv[0] in C contains the path to
     // the running executable, this is not necessarily the case.  The actual
     // method for getting the current executable path is OS-specific:
@@ -508,7 +499,7 @@ int main(int argc, char *argv_ansi[])
     // Note that `code`, and `result` have to be released each loop ATM.
     //
     REBVAL *code = rebBlank();
-    REBVAL *result = rebRun("[", argv_block, extensions, "]", rebEND);
+    REBVAL *result = rebRun("[", argv_block, "]", rebEND);
 
     // References in the `result` BLOCK! keep the underlying series alive now
     //
@@ -629,16 +620,6 @@ int main(int argc, char *argv_ansi[])
     rebRelease(host_console);
 
     int exit_status = rebUnboxInteger(rebR(code), rebEND);
-
-    // !!! Note: This used to call "rebShutdownExtensions", but things are
-    // changing so that Rebol code does all the extension initialization,
-    // and hence it should likely do all the extension shutdown.  All the
-    // binary does is offer up an API for the "collated" raw extensions that
-    // are located in the file (it might be able to do this with DLLs that
-    // have been encapped into the executable also, if it extracted them
-    // to temporary directories)
-    //
-    rebRelease(extensions);
 
     OS_QUIT_DEVICES(0);
 

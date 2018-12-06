@@ -421,9 +421,9 @@ host-console: function [
         ; result.  These should probably be injected into the environment
         ; somehow instead.
         ;
-        assert [block? result | length of result = 2]
-        set [argv: boot-exts:] result
-        return (host-start argv boot-exts :emit :return)
+        assert [block? result | length of result = 1]
+        set [argv:] result
+        return (host-start argv :emit :return)
     ]
 
     ; BLOCK! code execution represents an instruction sent by the console to
