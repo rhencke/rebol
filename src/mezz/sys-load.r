@@ -394,7 +394,7 @@ load: function [
     ]
 
     ;-- Bind code to user context:
-    not any [
+    none [
         'unbound = ftype
         'module = select hdr 'type
         find try get 'hdr/options 'unbound
