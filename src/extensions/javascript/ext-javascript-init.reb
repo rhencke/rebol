@@ -1,17 +1,16 @@
 REBOL [
-    title: "JavaScript Natives Usermode Support Code"
+    Title: "JavaScript Natives Usermode Support Code"
 
-    name: javascript
-    type: extension
+    Name: Javascript
+    Type: Module
+    Options: [isolate]
 
-    options: [extension delay]
+    Version: 0.1.0
+    Date: 15-Sep-2018
 
-    version: 0.1.0
-    date: 15-Sep-2018
+    Rights: "Copyright (C) 2018 Rebol Open Source Contributors"
 
-    rights:  "Copyright (C) 2018 Rebol Open Source Contributors"
-
-    license: {Apache 2.0}
+    License: {Apache 2.0}
 ]
 
 comment [

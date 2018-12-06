@@ -1,9 +1,10 @@
 REBOL [
     Title: "UUID Extension"
-    name: 'UUID
-    type: 'Extension
-    version: 1.0.0
-    license: {Apache 2.0}
+    Name: UUID
+    Type: Module
+    Options: [isolate]
+    Version: 1.0.0
+    License: {Apache 2.0}
 ]
 
 to-text: function [

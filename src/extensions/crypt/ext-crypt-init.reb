@@ -1,9 +1,10 @@
 REBOL [
     Title: "Crypt Extension"
-    name: 'Crypt
-    type: 'Extension
-    version: 1.0.0
-    license: {Apache 2.0}
+    Name: Crypt
+    Type: Module
+    Options: [isolate]
+    Version: 1.0.0
+    License: {Apache 2.0}
 ]
 
 ; !!! This should also call SHUTDOWN-CRYPTO at some point (module finalizer?)
@@ -69,8 +70,4 @@ dh-make-key: func [
 
 ; !!! Kludgey export mechanism; review correct approach for modules
 ;
-append lib compose [
-    hmac-sha256: (ensure action! :hmac-sha256)
-    rsa-make-key: (ensure action! :rsa-make-key)
-    dh-make-key: (ensure action! :dh-make-key)
-]
+sys/export [hmac-sha256 rsa-make-key dh-make-key]

@@ -1,18 +1,20 @@
 REBOL [
-    title: "ØMQ extension"
+    Title: "ØMQ extension"
 
-    name: ZeroMQ
-    type: extension
+    Name: ZeroMQ
+    Type: Module
 
-    options: [extension delay]
+    Options: [isolate]
 
-    version: 0.2.0
-    date: 24-01-2011
+    Version: 0.3.0
+    Date: 24-01-2011
 
-    author:  "Andreas Bolka"
-    rights:  "Copyright (C) 2011 Andreas Bolka <a AT bolka DOT at>"
+    Rights: [
+        "Copyright (C) 2011 Andreas Bolka <a AT bolka DOT at>"
+        "Copyright (C) 2018 Rebol Open Source Developers"
+    ]
 
-    license: {
+    License: {
         Licensed under the terms of the Apache License, Version 2.0
 
         The zmqext REBOL 3 extension uses the ØMQ library, the use of which is

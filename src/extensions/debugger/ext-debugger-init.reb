@@ -1,7 +1,8 @@
 REBOL [
     Title: "Debugger Extension"
-    Name: 'Debugger
-    Type: 'Extension
+    Name: Debugger
+    Type: Module
+    Options: [isolate]
     Version: 1.0.0
     License: {Apache 2.0}
 

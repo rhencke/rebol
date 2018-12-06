@@ -1,9 +1,10 @@
 REBOL [
     Title: {JPG Codec Extension}
-    name: 'JPG
-    type: 'Extension
-    version: 1.0.0
-    license: {Apache 2.0}
+    Name: JPG
+    Type: Module
+    Options: [isolate]
+    Version: 1.0.0
+    License: {Apache 2.0}
 ]
 
 sys/register-codec* 'jpeg [%.jpg %jpeg]

@@ -864,16 +864,17 @@ meth: enfix func [
 module: func [
     {Creates a new module.}
 
-    spec [block! object!]
-        "The header block of the module (modified)"
-    body [block!]
-        "The body block of the module (modified)"
-    /mixin
-        "Mix in words from other modules"
-    mixins [object!]
-        "Words collected into an object"
+    spec "The header block of the module (modified)"
+        [block! object!]
+    body "The body block of the module (modified)"
+        [block!]
+    /mixin "Mix in words from other modules"
+    mixins "Words collected into an object"
+        [object!]
+    /into "Add data to existing MODULE! context (vs making a new one)"
+    mod [module!]
 
-    <local> hidden w mod
+    <local> hidden w
 ][
     mixins: default [_]
 
@@ -927,7 +928,9 @@ module: func [
     ; In Ren-C, MAKE MODULE! acts just like MAKE OBJECT! due to the generic
     ; facility for SET-META.
 
-    mod: make module! 7 ; arbitrary starting size
+    mod: default [
+        make module! 7 ; arbitrary starting size
+    ]
 
     if find spec/options 'extension [
         append mod 'lib-base ; specific runtime values MUST BE FIRST
@@ -999,8 +1002,6 @@ module: func [
         ;
         if object? mixins [resolve mod mixins]
 
-        comment [resolve mod sys] ; no longer done -Carl
-
         resolve mod lib
     ][
         ; Only top level defined words are module variables.
@@ -1010,8 +1011,6 @@ module: func [
         ; The module shares system exported variables:
         ;
         bind body lib
-
-        comment [bind body sys] ; no longer done -Carl
 
         if object? mixins [bind body mixins]
     ]

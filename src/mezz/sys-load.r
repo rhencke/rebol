@@ -519,74 +519,6 @@ do-needs: function [
 ]
 
 
-load-extension-helper: function [
-    {Called by LOAD-EXTENSION native to do usermode module processing}
-
-    return: <void>
-    mod "Module preloaded with natives (but nothing else)"
-        [module!]
-    native-exports "Bound words for the natives that were marked with EXPORT"
-        [block!]
-    source "Source for the Rebol portion ({Rebol [Type: 'extension...})"
-        [binary!]
-    lib "Library the extension lives in (blank if built-in)"
-        [library! blank!]
-    path "Path to the library file (blank if built-in)"
-        [file! blank!]
-    /unloadable
-    /no-lib
-    /no-user
-][
-    code: load/header source
-    hdr: ensure [object! blank!] take code
-    set-meta mod hdr
-
-    ; !!! Binding remains one of the big puzzles of Rebol, and this is an
-    ; awkward implementation of it.  This routine should be merged with
-    ; LOAD-MODULE, and they should do binding the same way.
-    ;
-    bind/only/set code mod ;-- gathers set words to add to module
-    bind code mod ;-- now make sure all references are set
-
-    if unset? 'hdr/exports [
-        append hdr compose/only [ ;-- see #2344, can't assign `hdr/exports:`
-            exports: (native-exports)
-        ]
-    ] else [
-        append hdr/exports native-exports
-    ]
-    bind hdr/exports mod
-
-    do code
-
-    if hdr/name [
-        append system/modules reduce [hdr/name mod]
-    ]
-
-    any [
-        not module? mod
-        not block? select hdr 'exports
-        empty? hdr/exports
-    ] or [
-        if find hdr/options 'private [
-            ;
-            ; Private, so the EXPORTS must be added to user context to be seen
-            ;
-            if not no-user [
-                resolve/extend/only system/contexts/user mod hdr/exports
-            ]
-        ] else [
-            if not no-lib [
-                resolve/extend/only system/contexts/lib mod hdr/exports
-            ]
-            if not no-user [
-                resolve/extend/only system/contexts/user mod hdr/exports
-            ]
-        ]
-    ]
-]
-
-
 load-module: function [
     {Loads a module and inserts it into the system module list.}
 
@@ -600,6 +532,10 @@ load-module: function [
     /as "New name for the module (not valid for reloads)"
     name [word!]
     /delay "Delay module init until later (ignored if source is module!)"
+    /into "Load into an existing module (e.g. populated with some natives)"
+    existing [module!]
+    /exports "Add exports on top of those in the EXPORTS: section"
+    export-list [block!]
 ][
     as_LOAD_MODULE: :as
     as: :lib/as
@@ -641,8 +577,8 @@ load-module: function [
 
             ; If no further processing is needed, shortcut return
 
-            if not version and [any [delay module? :mod]] [
-                return reduce/try [source | if module? :mod [mod]]
+            if not version and [delay or [module? :mod]] [
+                return reduce [source (try match module! :mod)]
             ]
         ]
 
@@ -870,8 +806,19 @@ load-module: function [
         ensure object! hdr
         ensure block! code
 
+        if exports [
+            if unset? 'hdr/exports [
+                append hdr compose/only [exports: (export-list)]
+            ] else [
+                append exports hdr/exports
+                hdr/exports: export-list
+            ]
+        ]
+
         catch/quit [
-            mod: module/mixin hdr code (opt do-needs/no-user hdr)
+            mod: module/mixin/into hdr code (
+                opt do-needs/no-user hdr
+            ) :existing
         ]
     ]
 

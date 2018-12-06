@@ -39,8 +39,6 @@
 
 #include "sys-core.h"
 
-#include "sys-ext.h"
-
 // Building Rebol as a library may still entail a desire to ship that library
 // with built-in extensions (e.g. building libr3.js wants to have JavaScript
 // natives as an extension).  So there is no meaning to "built-in extensions"
@@ -315,9 +313,10 @@ REBNATIVE(load_extension)
     // do that here.
     //
     rebElide(
-        "sys/load-extension-helper",
-            module, exports, rebR(script_bin), lib, path,
+        "sys/load-module/into/exports", rebR(script_bin), module, exports,
     rebEND);
+
+    // !!! Ideally we would be passing the lib, path,
 
     // !!! If these were the right refinements that should be tunneled through
     // they'd be tunneled here, but isn't this part of the module's spec?

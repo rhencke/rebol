@@ -214,15 +214,10 @@ host-start: function [
     ; able to access the ABOUT, WHY, and USAGE functions... so export them
     ; here to LIB.  Again--this should be done by making this a module!
     ;
-    append lib compose [
-        ;
-        ;-- These must be <with>'d to be exported, otherwise the ABOUT: in
-        ;-- the object key would be gathered as a local.
-        ;
-        about: (ensure action! :about)
-        usage: (ensure action! :usage)
-        license: (ensure action! :license)
-    ]
+    ensure action! :license
+    ensure action! :about
+    ensure action! :usage
+    sys/export [about usage license]
 
     ; We hook the RETURN function so that it actually returns an instruction
     ; that the code can build up from multiple EMIT statements.

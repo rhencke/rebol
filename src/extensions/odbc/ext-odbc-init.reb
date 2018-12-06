@@ -1,40 +1,18 @@
 REBOL [
-    title: "ODBC Open Database Connectivity Scheme"
+    Title: "ODBC Open Database Connectivity Scheme"
 
-    name: odbc
-    type: extension
+    Name: ODBC
+    Type: Module
+    Options: [isolate]
 
-    options: [extension delay]
+    Version: 0.6.0
 
-    version: 0.6.0
-    date: 24-01-2011
+    Rights: [
+        "Copyright (C) 2010-2011 Christian Ensel" (MIT License)
+        "Copyright (C) 2017-2018 Rebol Open Source Developers" (Apache)
+    ]
 
-    author:  "Christian Ensel"
-    rights:  "Copyright (C) 2010-2011 Christian Ensel"
-
-    license: {
-    This software is provided 'as-is', without any express or implied warranty.
-    In no event will the author be held liable for any damages arising from the
-    use of this software.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-    }
+    License: {Apache 2.0}
 ]
 
 ; These are the native coded support routines that are needed to be built from

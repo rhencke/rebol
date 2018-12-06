@@ -51,7 +51,6 @@
 #undef IS_ERROR //winerror.h defines this, so undef it to avoid the warning
 #endif
 #include "sys-core.h"
-#include "sys-ext.h"
 
 #include "sha256/sha256.h" // depends on %reb-c.h for u8, u32, u64
 

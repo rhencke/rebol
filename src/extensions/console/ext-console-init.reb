@@ -2,9 +2,9 @@ REBOL [
     Title: "Console Extension (Rebol's Read-Eval-Print-Loop, ie. REPL)"
 
     Name: console
-    Type: extension
+    Type: Module
 
-    Options: [extension delay]
+    Options: [isolate] ;-- !!! said [extension delay], what for?
 
     Rights: {
         Copyright 2016-2018 Rebol Open Source Contributors

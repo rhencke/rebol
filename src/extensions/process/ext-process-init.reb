@@ -1,9 +1,10 @@
 REBOL [
-    Title: "CALL Extension"
-    name: 'Call
-    type: 'Extension
-    version: 1.0.0
-    license: {Apache 2.0}
+    Title: "Process Extension"
+    Name: Process
+    Type: Module
+    Options: [isolate]
+    Version: 1.0.0
+    License: {Apache 2.0}
 ]
 
 ; CALL is a native built by the C code, BROWSE depends on using that, as well
