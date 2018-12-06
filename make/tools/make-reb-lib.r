@@ -267,10 +267,10 @@ e-lib/emit {
      */
     #include <stdlib.h>  /* for size_t */
     #include <stdarg.h>  /* for va_list, va_start() in inline functions */
-    #if !defined(_PSTDINT_H_INCLUDED) && !defined(REBOL_NO_STDINT)
+    #if !defined(_PSTDINT_H_INCLUDED) && !defined(LIBREBOL_NO_STDINT)
         #include <stdint.h>  /* for uintptr_t, int64_t, etc. */
     #endif
-    #if !defined(_PSTDBOOL_H_INCLUDED) && !defined(REBOL_NO_STDBOOL)
+    #if !defined(_PSTDBOOL_H_INCLUDED) && !defined(LIBREBOL_NO_STDBOOL)
         #if !defined(__cplusplus)
             #include <stdbool.h>  /* for bool, true, false (if C99) */
         #endif
@@ -281,10 +281,64 @@ e-lib/emit {
          * EMSCRIPTEN_KEEPALIVE is a macro in emscripten.h used to export
          * a function.  We can't include emscripten.h here (it is incompatible
          * with DONT_INCLUDE_STDIO_H)
+         *
+         * !!! It's possible to specify a list of functions to the command
+         * line of emcc via a JSON-formatted file; producing this file during
+         * the generation process would be preferable to this attribute...so
+         * that %rebol.h be cleaner.
          */
         #define EMSCRIPTEN_KEEPALIVE __attribute__((used))
     #else
         #define EMSCRIPTEN_KEEPALIVE
+    #endif
+
+    /*
+     * !!! Needed by following two macros.
+     */
+    #ifndef __has_builtin
+        #define __has_builtin(x) 0
+    #endif
+    #if !defined(GCC_VERSION_AT_LEAST) /* !!! duplicated in %reb-config.h */
+        #ifdef __GNUC__
+            #define GCC_VERSION_AT_LEAST(m, n) \
+                (__GNUC__ > (m) || (__GNUC__ == (m) && __GNUC_MINOR__ >= (n)))
+        #else
+            #define GCC_VERSION_AT_LEAST(m, n) 0
+        #endif
+    #endif
+
+    /*
+     * !!! _Noreturn was introduced in C11, but prior to that (including C99)
+     * there was no standard way of doing it.  If we didn't mark APIs which
+     * don't return with this, there'd be warnings in the calling code.
+     */
+    #if !defined(ATTRIBUTE_NO_RETURN) /* !!! duplicated in %reb-config.h */
+        #if defined(__clang__) || GCC_VERSION_AT_LEAST(2, 5)
+            #define ATTRIBUTE_NO_RETURN __attribute__ ((noreturn))
+        #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+            #define ATTRIBUTE_NO_RETURN _Noreturn
+        #elif defined(_MSC_VER)
+            #define ATTRIBUTE_NO_RETURN __declspec(noreturn)
+        #else
+            #define ATTRIBUTE_NO_RETURN
+        #endif
+    #endif
+
+    /*
+     * !!! Same story for DEAD_END as for ATTRIBUTE_NO_RETURN.  Necessary to
+     * suppress spurious warnings.
+     */
+    #if !defined(DEAD_END) /* !!! duplicated in %reb-config.h */
+        #if __has_builtin(__builtin_unreachable) || GCC_VERSION_AT_LEAST(4, 5)
+            #define DEAD_END __builtin_unreachable()
+        #elif defined(_MSC_VER)
+            __declspec(noreturn) static inline void msvc_unreachable(void) {
+                while (1) { }
+            }
+            #define DEAD_END msvc_unreachable()
+        #else
+            #define DEAD_END
+        #endif
     #endif
 
     #ifdef __cplusplus
@@ -471,6 +525,18 @@ e-lib/emit {
         $[Struct-Call-Inlines]
 
     #else  /* ...calling Rebol as DLL, or code built into the EXE itself */
+
+        /*
+         * !!! The RL_API macro has to be defined for the external prototypes
+         * to compile.  Assume for now that if not defined via %reb-config.h,
+         * then it can be empty--though this will almost certainly need to
+         * be revisited (as it needs __dllimport and other such things on
+         * Windows, so those details will come up at some point)
+         */
+      #if !defined(RL_API)
+        #define RL_API
+      #endif
+
         /*
          * Extern prototypes for RL_XXX, don't call these functions directly.
          * They use vaptr instead of `...`, and may not do all the proper

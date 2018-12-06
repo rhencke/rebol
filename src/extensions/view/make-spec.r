@@ -32,7 +32,7 @@ libraries: _
         ; You would currently have to define USE_GTK_FILECHOOSER to get
         ; the common dialog code in REQUEST-FILE.
         ;
-        Linux [
+        'Linux [
             [%gtk-3 %gobject-2.0 %glib-2.0]
         ]
     ]

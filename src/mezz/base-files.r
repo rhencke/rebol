@@ -42,9 +42,11 @@ info?: function [
 exists?: func [
     {Returns the type of a file or URL if it exists, otherwise blank.}
     return: [<opt> word!]
-        "FILE, DIR, or null"
-    target [file! url!]
+        "FILE, DIR, or null" ;; should return LOGIC!, FILETYPE OF separate
+    target [file! url! blank!]
 ][
+    if blank? target [return null] ;; https://forum.rebol.info/t/954
+
     if url? target [
         return info?/only target
     ]

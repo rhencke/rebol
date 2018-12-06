@@ -1,37 +1,38 @@
 REBOL [
-    Title: {Initial test for user natives by @ShixinZeng}
+    Title: {Comparing User Native vs. Rebol Fibonacci Number Calculation}
+    Description: {
+        @ShixinZeng created this as an initial test to compare the performance
+        of a user native implementation of Fibonacci numbers, to an algorithm
+        written in the exact same style using Rebol.
+
+        It takes hundreds of CPU cycles to run a single step of Rebol, since
+        it is run by an interpreter.  But a line of C generally translates
+        into only a few instructions.  At time of writing, the TCC version is
+        about 50x faster than an -O2 release build running the Rebol version.
+    }
 ]
 
 c-fib: make-native [
     "nth Fibonacci Number"
     n [integer!]
 ]{
-    int n = rebUnboxInteger(ARG(n), rebEND);
+    int n = rebUnboxInteger(rebArgR("n"));
 
-    /* use `zero` and `one` to demonstrate providing constants via COMPILE */
-    if (n < zero) { return rebInteger(-1); }
-    if (n <= one) { return rebInteger(n); }
+    if (n < 0) { return rebInteger(-1); }
+    if (n <= 1) { return rebInteger(n); }
 
-    int i0 = zero;
-    int i1 = one;
-    while (n > one) {
+    int i0 = 0;
+    int i1 = 1;
+    while (n > 1) {
         int t = i1;
-        i1 = i1 + i0;
+        i1 = i0 + i1;
         i0 = t;
         --n;
     }
     return rebInteger(i1);
 }
 
-compile/options [
-    "const int zero = 0;"
-    "const int one = 1;"
-    c-fib
-] compose [
-    options "-nostdlib"
-]
-
-fib: func [
+rebol-fib: function [
     n [integer!]
 ][
     if n < 0 [return -1]
@@ -44,21 +45,35 @@ fib: func [
         i0: t
         n: n - 1
     ]
-    i1
+    return i1
 ]
 
-print ["c-fib 30:" c-r: c-fib 30]
-print ["fib 30:" r: fib 30]
-assert [r = c-r]
+compilables: [
+    {#include <stdio.h>}  ; test availability of C standard library
+    c-fib
+]
 
-if find system/options/args "bench" [
-    n-loop: 10000
+compile/inspect compilables  ; print out for verbose info
+compile compilables  ; does the actual compilation
 
-    c-t: delta-time [
-        loop n-loop [c-fib 30]
+print ["c-fib 30:" c: c-fib 30]
+print ["rebol-fib 30:" r: rebol-fib 30]
+
+assert [c = r]
+
+if not find system/options/args "nobench" [
+    n: 10000
+    print ["=== Running benchmark," n "iterations ==="]
+    print "(If you're using a debug build, this metric is affected)"
+
+    c: delta-time [
+        loop n [c-fib 30]
     ]
-    r-t: delta-time [
-        loop n-loop [fib 30]
+    r: delta-time [
+        loop n [rebol-fib 30]
     ]
-    print ["c-t:" c-t "r-t:" r-t "improvement:" r-t / c-t]
+
+    print ["C time:" c]
+    print ["Rebol time:" r]
+    print ["Improvement:" unspaced [to integer! (r / c) "x"]]
 ]

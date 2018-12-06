@@ -19,8 +19,6 @@ tools-dir: make-dir/tools
 change-dir output-dir: system/options/path 
 src-dir: append copy make-dir %../src
 src-dir: relative-to-path src-dir output-dir
-tcc-dir: append copy make-dir %../external/tcc
-tcc-dir: relative-to-path tcc-dir output-dir
 user-config: make object! load make-dir/default-config.r
 
 ;;;; PROCESS ARGS
@@ -203,9 +201,17 @@ extension-class: make object! [
     libraries: _
     ldflags: _
 
+    hook: _ ;; FILE! of extension-specific Rebol script to run during rebmake
+
     ;internal
     sequence: _ ; the sequence in which the extension should be loaded
     visited: false
+
+    directory: method [
+        return: [text!] ;; Should this be [file!]?
+    ][
+        lowercase to text! name ;; !!! Should remember where it was found
+    ]
 ]
 
 available-extensions: copy []
@@ -375,7 +381,7 @@ FILES IN %make/configs/ SUBFOLDER:^/
 'options unspaced [ {=== OPTIONS ===^/
 CURRENT VALUES:^/
     }
-    indent mold/only body-of user-config
+    indent mold/only body-of probe user-config
     {^/
 NOTES:^/
     - names are case-insensitive
@@ -965,65 +971,6 @@ append app-config/ldflags opt switch user-config/static [
     fail ["STATIC must be yes, no or logic! not" (user-config/static)]
 ]
 
-;TCC
-cfg-tcc: _
-case [
-    any [
-        file? user-config/with-tcc
-        find [yes on true #[true]] user-config/with-tcc
-    ][
-        tcc-rootdir: either file? user-config/with-tcc [
-            first split-path user-config/with-tcc
-        ][
-            tcc-dir/%
-        ]
-        cfg-tcc: make object! [
-            exec-file: join tcc-rootdir any [get-env "TCC" %tcc]
-            includes: reduce [tcc-dir]
-            searches: reduce [tcc-rootdir]
-            libraries: reduce [tcc-rootdir/libtcc1.a tcc-rootdir/libtcc.a]
-
-            ; extra cpp flags passed to tcc for preprocessing %sys-core.i
-            cpp-flags: try get-env "TCC_CPP_EXTRA_FLAGS"
-        ]
-        if block? cfg-tcc/libraries [
-            cfg-tcc/libraries: map-each lib cfg-tcc/libraries [
-                either file? lib [
-                    either rebmake/ends-with? lib ".a" [
-                        make rebmake/ext-static-class [
-                            output: lib
-                        ]
-                    ][
-                        make rebmake/ext-dynamic-class [
-                            output: lib
-                        ]
-                    ]
-                ][
-                    lib
-                ]
-            ]
-        ]
-
-        for-each word [includes searches libraries] [
-            append get in app-config word
-                opt get in cfg-tcc word
-        ]
-        append app-config/definitions [ {WITH_TCC} ]
-        append file-base/generated [
-            %tmp-symbols.c
-            %tmp-embedded-header.c
-        ]
-    ]
-    find [no off false #[false] _] user-config/with-tcc [
-        ;pass
-    ]
-
-    fail [
-        "WITH-TCC must be yes or no]"
-        "not" (user-config/with-tcc)
-    ]
-]
-
 
 ;add system settings
 add-app-def: adapt specialize :append [series: app-config/definitions] [
@@ -1456,6 +1403,23 @@ prep: make rebmake/entry-class [
                 ]]
                 unspaced [{OS_ID=} system-config/id]
             ]
+
+            if ext/hook [
+                ;
+                ; This puts a "per-extension" script into the commands to
+                ; run on prep.  It runs after the core prep, so that it can
+                ; assume things like %rebol.h are available.  (That is
+                ; necessary for things like the TCC extension being able to
+                ; compile in const data for the header, and tables of API
+                ; functions to make available with `tcc_add_symbol()`)
+                ;
+                hook-script: file-to-local/full (
+                    src-dir/extensions/(ext/directory)/(ext/hook)
+                )
+                keep [{$(REBOL)} hook-script
+                    unspaced [{OS_ID=} system-config/id]
+                ]
+            ]
         ]
 
         keep [{$(REBOL)} tools-dir/make-boot-ext-header.r
@@ -1464,24 +1428,6 @@ prep: make rebmake/entry-class [
                     to text! ext/name
                 ]
             ]
-        ]
-
-        if cfg-tcc [
-            sys-core-i: make rebmake/object-file-class [
-                compiler: make rebmake/tcc [
-                    exec-file: cfg-tcc/exec-file
-                ]
-                output: %prep/include/sys-core.i
-                source: src-dir/include/sys-core.h
-                definitions: join app-config/definitions [ {DEBUG_STDIO_OK} ]
-                includes: join app-config/includes [tcc-dir tcc-dir/include]
-                cflags: compose [
-                    {-dD} {-nostdlib}
-                    (opt cfg-ffi/cflags) (opt cfg-tcc/cpp-flags)
-                ]
-            ]
-            keep sys-core-i/command/E
-            keep [{$(REBOL)} tools-dir/make-embedded-header.r]
         ]
     ]
     depends: reduce [

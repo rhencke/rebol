@@ -76,6 +76,7 @@ extensions: make map! [
     ODBC -
     PNG -
     Process -
+    TCC -
     UUID -
     UTF -
     Vector -

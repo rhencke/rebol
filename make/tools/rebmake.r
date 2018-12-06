@@ -530,82 +530,13 @@ gcc: make compiler-class [
     ]
 ]
 
-tcc: make compiler-class [
+;; !!! In the original rebmake.r, tcc was a full copy of the GCC code, while
+;; clang was just `make gcc [name: 'clang]`.  TCC was not used as a compiler
+;; for Rebol itself--only to do some preprocessing of %sys-core.i, but this
+;; mechanism is no longer used (see %extensions/tcc/README.md)
+
+tcc: make gcc [
     name: 'tcc
-    id: "tcc"
-
-    ;; Note: For the initial implementation of user natives, TCC has to be run
-    ;; as a preprocessor for %sys-core.h, to expand its complicated inclusions
-    ;; into a single file which could be embedded into the executable.  The
-    ;; new plan is to only allow "rebol.h" in user natives, which would mean
-    ;; that TCC would not need to be run during the make process.  However,
-    ;; for the moment TCC is run to do this preprocessing even when it is not
-    ;; the compiler being used for the actual build of the interpreter.
-    ;;
-    command: method [
-        return: [text!]
-        output [file!]
-        source [file!]
-        /E {Preprocess}
-        /I includes
-        /D definitions
-        /F cflags
-        /O opt-level
-        /g debug
-        /PIC
-    ][
-        collect-text [
-            keep ("tcc" unless file-to-local/pass exec-file)
-            keep either E ["-E"]["-c"]
-
-            if PIC [keep "-fPIC"]
-            if I [
-                for-each inc (map-files-to-local includes) [
-                    keep ["-I" inc]
-                ]
-            ]
-            if D [
-                for-each flg definitions [
-                    keep ["-D" (filter-flag flg id else [continue])]
-                ]
-            ]
-            if O [
-                case [
-                    opt-level = true [keep "-O2"]
-                    opt-level = false [keep "-O0"]
-                    integer? opt-level [keep ["-O" opt-level]]
-
-                    fail ["unknown optimization level" opt-level]
-                ]
-            ]
-            if g [
-                case [
-                    debug = true [keep "-g"]
-                    debug = false []
-                    integer? debug [keep ["-g" debug]]
-
-                    fail ["unrecognized debug option:" debug]
-                ]
-            ]
-            if F [
-                for-each flg cflags [
-                    keep filter-flag flg id
-                ]
-            ]
-
-            keep "-o"
-            
-            output: file-to-local output
-
-            if (E or [ends-with? output target-platform/obj-suffix]) [
-                keep output
-            ] else [
-                keep [output target-platform/obj-suffix]
-            ]
-
-            keep file-to-local source
-        ]
-    ]
 ]
 
 clang: make gcc [

@@ -53,7 +53,7 @@ e: (make-emitter
     "Boot Modules" output-dir/include/tmp-boot-extensions.inc)
 
 e/emit {
-    #include "sys-ext.h" /* for COLLATE_CFUNC, DECLARE_EXT_COLLATE */
+    #include "sys-ext.h"
 
     DECLARE_EXT_COLLATE($[Extensions]);
 

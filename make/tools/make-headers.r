@@ -34,8 +34,6 @@ print "------ Building headers"
 
 e-funcs: make-emitter "Internal API" output-dir/include/tmp-internals.h
 
-e-syms: make-emitter "Function Symbols" output-dir/core/tmp-symbols.c
-
 prototypes: make block! 10000 ; MAP! is buggy in R3-Alpha
 
 emit-proto: func [
@@ -97,16 +95,6 @@ emit-proto: func [
     e-funcs/emit [proto the-file] {
         RL_API $<Proto>; /* $<The-File> */
     }
-
-    if "REBTYPE" = proto-parser/proto.id [
-        e-syms/emit [the-file proto-parser] {
-            /* $<The-File> */ SYM_CFUNC(T_$<Proto-Parser/Proto.Arg.1>),
-        }
-    ] else [
-        e-syms/emit [the-file proto-parser] {
-            /* $<The-File> */ SYM_CFUNC($<Proto-Parser/Proto.Id>),
-        }
-    ]
 ]
 
 process-conditional: function [
@@ -133,7 +121,6 @@ process-conditional: function [
 
 emit-directive: function [return: <void> directive] [
     process-conditional directive proto-parser/parse.position e-funcs
-    process-conditional directive proto-parser/parse.position e-syms
 ]
 
 process: function [
@@ -150,30 +137,6 @@ process: function [
 
 ;-------------------------------------------------------------------------
 
-e-syms/emit {
-    #include "sys-core.h"
-
-    /* Note that cast() macro causes problems here with clang for some reason.
-     *
-     * !!! Also, void pointers and function pointers are not guaranteed to be
-     * the same size, even if TCC assumes so for these symbol purposes.
-     */
-    #define SYM_CFUNC(x) {#x, (CFUNC*)(x)}
-    #define SYM_DATA(x) {#x, &x}
-
-    struct rebol_sym_cfunc_t {
-        const char *name;
-        CFUNC *cfunc;
-    };
-
-    struct rebol_sym_data_t {
-        const char *name;
-        void *data;
-    };
-
-    extern const struct rebol_sym_cfunc_t rebol_sym_cfuncs [];
-    const struct rebol_sym_cfunc_t rebol_sym_cfuncs [] = ^{
-}
 ;-- !!! Note the #ifdef conditional handling here is weird, and is based on
 ;-- the emitter state.  So it would take work to turn this into something
 ;-- that would collect the symbols and then insert them into the emitter
@@ -301,9 +264,14 @@ sys-globals.parser: context [
 
         declaration: [
             some [opt wsp [copy id identifier | not #";" punctuator] ] #";" thru newline (
-                e-syms/emit 'id {
-                    SYM_DATA($<Id>),
-                }
+                ;;
+                ;; !!! Not used now, but previously was for user natives:
+                ;;
+                ;; https://forum.rebol.info/t/952/3
+                ;;
+                ;; Keeping the PARSE rule in case it's useful, but if it
+                ;; causes problems before it gets used again then it is
+                ;; probably okay to mothball it to that forum thread.
             )
         ]
 
@@ -313,7 +281,12 @@ sys-globals.parser: context [
                 any [not newline c-pp-token]
             ] eol
             (
-                process-conditional data parse.position e-syms
+                ;; Here is where it would call processing of conditional data
+                ;; on the symbols.  This is how it would compensate for the
+                ;; preprocessor, so things that were #ifdef'd out would not
+                ;; make it into the list.
+                ;;
+                comment [process-conditional data parse.position e-syms]
             )
         ]
 
@@ -323,19 +296,9 @@ sys-globals.parser: context [
 
 ]
 
-e-syms/emit "^/    {NULL, NULL} //Terminator^/};"
-e-syms/emit "^/// Globals from sys-globals.h^/"
-e-syms/emit {
-extern const struct rebol_sym_data_t rebol_sym_data [];
-const struct rebol_sym_data_t rebol_sym_data [] = ^{^/}
 
 the-file: %sys-globals.h
 sys-globals.parser/process read/string %../include/sys-globals.h
-
-e-syms/emit "^/    {NULL, NULL} //Terminator^/};"
-e-syms/emit newline
-
-e-syms/write-emitted
 
 ;-------------------------------------------------------------------------
 
