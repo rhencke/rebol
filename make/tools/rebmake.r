@@ -339,14 +339,11 @@ application-class: make project-class [
     searches: _
     ldflags: _
 
-    link: meth [][
+    link: method [return: <void>] [
         linker/link output depends ldflags
     ]
 
-    command: meth [
-        <local>
-        ld
-    ][
+    command: method [return: [text!]] [
         ld: any [linker default-linker]
         ld/command
             output
@@ -365,11 +362,12 @@ dynamic-library-class: make project-class [
 
     searches: _
     ldflags: _
-    link: meth [][
+    link: method [return: <void>] [
         linker/link output depends ldflags
     ]
 
     command: method [
+        return: [text!]
         <with>
         default-linker
     ][
@@ -393,7 +391,8 @@ compiler-class: make object! [
     id: _ ;flag prefix
     version: _
     exec-file: _
-    compile: meth [
+    compile: method [
+        return: <void>
         output [file!]
         source [file!]
         include [file! block!]
@@ -402,7 +401,8 @@ compiler-class: make object! [
     ][
     ]
 
-    command: meth [
+    command: method [
+        return: [text!]
         output
         source
         includes
@@ -411,19 +411,19 @@ compiler-class: make object! [
     ][
     ]
     ;check if the compiler is available
-    check: method [path [any-string! blank!]] []
+    check: method [
+        return: [logic!]
+        path [any-string! blank!]
+    ][
+    ]
 ]
 
 gcc: make compiler-class [
     name: 'gcc
     id: "gnu"
     check: method [
+        return: [logic!]
         /exec path [file! blank!]
-        <local>
-        w
-        <with>
-        version
-        exec-file
         <static>
         digit (charset "0123456789")
     ][
@@ -449,7 +449,8 @@ gcc: make compiler-class [
         ]
     ]
 
-    command: meth [
+    command: method [
+        return: [text!]
         output [file! text!]
         source [file! text!]
         /I includes
@@ -459,9 +460,6 @@ gcc: make compiler-class [
         /g debug
         /PIC
         /E
-        <local>
-        flg
-        fs
     ][
         if file? output [output: file-to-local output]
         if file? source [source: file-to-local source]
@@ -531,7 +529,8 @@ tcc: make compiler-class [
     name: 'tcc
     id: "tcc"
 
-    command: meth [
+    command: method [
+        return: [text!]
         output
         source
         /E {Preprocess}
@@ -541,9 +540,6 @@ tcc: make compiler-class [
         /O opt-level
         /g debug
         /PIC
-        <local>
-        flg
-        fs
     ][
         spaced [
             any [exec-file "tcc"]
@@ -608,7 +604,8 @@ clang: make gcc [
 cl: make compiler-class [
     name: 'cl
     id: "msc" ;flag id
-    command: meth [
+    command: method [
+        return: [text!]
         output [file! text!]
         source
         /I includes
@@ -618,9 +615,6 @@ cl: make compiler-class [
         /g debug
         /PIC {Ignored for cl}
         /E
-        <local>
-        flg
-        fs
     ][
         spaced [
             case [
@@ -694,10 +688,12 @@ linker-class: make object! [
     name: _
     id: _ ;flag prefix
     version: _
-    link: meth [
+    link: method [
+        return: <void>
     ][
     ]
-    commands: meth [
+    commands: method [
+        return: [text! block!]
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
@@ -713,15 +709,13 @@ ld: make linker-class [
     version: _
     exec-file: _
     id: "gnu"
-    command: meth [
+    command: method [
+        return: [text!]
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
         ldflags [block! any-string! blank!]
         /dynamic
-        <local>
-        dep
-        suffix
     ][
         suffix: either dynamic [
             target-platform/dll-suffix
@@ -763,12 +757,9 @@ ld: make linker-class [
         ]
     ]
 
-    accept: meth [
+    accept: method [
         return: [<opt> text!]
         dep [object!]
-        <local>
-        ddep
-        lib
     ][
         opt switch dep/class-name [
             'object-file-class [
@@ -818,7 +809,8 @@ ld: make linker-class [
         ]
     ]
 
-    check: meth [
+    check: method [
+        return: [logic!]
         /exec path [file! blank!]
     ][
         version: copy ""
@@ -835,15 +827,13 @@ llvm-link: make linker-class [
     version: _
     exec-file: _
     id: "llvm"
-    command: meth [
+    command: method [
+        return: [text!]
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
         ldflags [block! any-string! blank!]
         /dynamic
-        <local>
-        dep
-        suffix
     ][
         suffix: either dynamic [
             target-platform/dll-suffix
@@ -885,12 +875,9 @@ llvm-link: make linker-class [
         ]
     ]
 
-    accept: meth [
+    accept: method [
         return: [<opt> text!]
         dep [object!]
-        <local>
-        ddep
-        lib
     ][
         opt switch dep/class-name [
             'object-file-class [
@@ -937,15 +924,13 @@ link: make linker-class [
     id: "msc"
     version: _
     exec-file: _
-    command: meth [
+    command: method [
+        return: [text!]
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
         ldflags [block! any-string! blank!]
         /dynamic
-        <local>
-        dep
-        suffix
     ][
         suffix: either dynamic [
             target-platform/dll-suffix
@@ -988,11 +973,9 @@ link: make linker-class [
         ]
     ]
 
-    accept: meth [
+    accept: method [
         return: [<opt> text! file!]
         dep [object!]
-        <local>
-        ddep
     ][
         opt switch dep/class-name [
             'object-file-class [
@@ -1051,10 +1034,9 @@ strip-class: make object! [
     exec-file: _
     options: _
     commands: method [
+        return: [text! block!]
         target [file!]
         /params flags [block! any-string! blank!]
-        <local>
-        flag
     ][
         spaced [
             case [
@@ -1101,11 +1083,12 @@ object-file-class: make object! [
     generated?: false
     depends: _
 
-    compile: meth [][
+    compile: method [return: <void>] [
         compiler/compile
     ]
 
-    command: meth [
+    command: method [
+        return: [text!]
         /I ex-includes
         /D ex-definitions
         /F ex-cflags
@@ -1113,7 +1096,6 @@ object-file-class: make object! [
         /g dbg
         /PIC ;Position Independent Code
         /E {only preprocessing}
-        <local> cc
     ][
         cc: any [compiler default-compiler]
         cc/command/I/D/F/O/g/(try all [PIC 'PIC])/(try all [E 'E]) output source
@@ -1140,11 +1122,10 @@ object-file-class: make object! [
             opt either g [either debug [debug][dbg]][debug]
     ]
 
-    gen-entries: meth [
+    gen-entries: method [
+        return: [object!]
         parent [object!]
         /PIC
-        <local>
-        args
     ][
         assert [
             find [
@@ -1217,7 +1198,8 @@ generator-class: make object! [
     gen-cmd-delete:
     gen-cmd-strip: _
 
-    gen-cmd: meth [
+    gen-cmd: method [
+        return: [text!]
         cmd [object!]
     ][
         switch cmd/class-name [
@@ -1236,8 +1218,8 @@ generator-class: make object! [
     ]
 
     reify: method [
-        "Substitute variables in the command with its value"
-        "will recursively substitue if the value has variables"
+        {Substitute variables in the command with its value}
+        {(will recursively substitute if the value has variables)}
 
         return: [<opt> object! any-string!]
         cmd [object! any-string!]
@@ -1279,8 +1261,6 @@ generator-class: make object! [
     prepare: method [
         return: <void>
         solution [object!]
-        <local>
-        dep
     ][
         if find words-of solution 'output [
             setup-outputs solution
@@ -1302,12 +1282,10 @@ generator-class: make object! [
         ]
     ]
 
-    flip-flag: meth [
+    flip-flag: method [
         return: <void>
         project [object!]
         to [logic!]
-        <local>
-        dep
     ][
         if all [
             find words-of project 'generated?
@@ -1375,8 +1353,6 @@ generator-class: make object! [
         {Set the output/implib for the project tree}
         return: <void>
         project [object!]
-        <local>
-        dep
     ][
         ;print ["Setting outputs for:"]
         ;dump project
@@ -1412,11 +1388,9 @@ makefile: make generator-class [
     gen-cmd-delete: :posix/gen-cmd-delete
     gen-cmd-strip: :posix/gen-cmd-strip
 
-    gen-rule: meth [
+    gen-rule: method [
+        return: [text!]
         entry [object!]
-        <local>
-        w
-        cmd
     ][
         switch entry/class-name [
             'var-class [
@@ -1502,16 +1476,11 @@ makefile: make generator-class [
         ]
     ]
 
-    emit: meth [
+    emit: method [
         return: <void>
         buf [binary!]
         project [object!]
         /parent parent-object
-        <local>
-        dep
-        obj
-        objs
-        suffix
     ][
         ;print ["emitting..."]
         ;dump project
@@ -1583,10 +1552,9 @@ makefile: make generator-class [
     ]
 
     generate: method [
+        return: <void>
         output [file!]
         solution [object!]
-        <with>
-        entry-class
     ][
         buf: make binary! 2048
         assert [solution/class-name = 'solution-class]
@@ -1636,12 +1604,10 @@ Execution: make generator-class [
     gen-cmd-delete: :host/gen-cmd-delete
     gen-cmd-strip: :host/gen-cmd-strip
 
-    run-target: meth [
+    run-target: method [
         return: <void>
         target [object!]
         /cwd dir [file!]
-        <local>
-        cmd
     ][
         switch target/class-name [
             'var-class [
@@ -1672,15 +1638,10 @@ Execution: make generator-class [
         ]
     ]
 
-    run: meth [
+    run: method [
         return: <void>
         project [object!]
         /parent p-project
-        <local>
-        dep
-        obj
-        objs
-        suffix
     ][
         ;dump project
         if not object? project [return]
@@ -1813,11 +1774,10 @@ visual-studio: make generator-class [
     ]
 
     emit: method [
+        return: "Dependencies?"
+            [block!]
         buf
         project [object!]
-        <local>
-        depends
-        dep
     ][
         project-name: either project/class-name = 'entry-class [project/target][project/name]
         append buf unspaced [
@@ -1855,7 +1815,7 @@ visual-studio: make generator-class [
             {EndProject} newline
         ]
 
-        depends
+        return depends
     ]
 
     find-compile-as: method [
@@ -1879,48 +1839,45 @@ visual-studio: make generator-class [
     ]
 
     find-stack-size: method [
-        ldflags [block!]
+        return: [<opt> text!]
+        ldflags [blank! block!]
         <static>
         digit (charset "0123456789")
     ][
-        size: _
-        while [not tail? ldflags] [
-            ;dump ldflags/1
-            if i: filter-flag ldflags/1 "msc" [
-                parse i [
-                    "/stack:"
-                    copy size: some digit
-                ] then [
-                    remove ldflags
-                    return size
-                ]
+        iterate ldflags [
+            i: filter-flag ldflags/1 "msc" else [continue]
+            parse i [
+                "/stack:"
+                copy size: some digit
+            ] then [
+                remove ldflags
+                return size
             ]
-            ldflags: next ldflags
         ]
-        size
+        return null
     ]
 
     find-subsystem: method [
-        ldflags [block!]
+        return: [<opt> text!]
+        ldflags [blank! block!]
     ][
-        subsystem: _
-        while [not tail? ldflags] [
-            ;dump ldflags/1
-            if i: filter-flag ldflags/1 "msc" [
-                parse i [
-                    "/subsystem:"
-                    copy subsystem: to end
-                ] then [
-                    remove ldflags
-                    return subsystem
-                ]
+        iterate ldflags [
+            i: filter-flag ldflags/1 "msc" else [continue]
+            parse i [
+                "/subsystem:"
+                copy subsystem: to end
+            ] then [
+                remove ldflags
+                probe subsystem
+                return subsystem
             ]
-            ldflags: next ldflags
         ]
-        subsystem
+        print "NULLIO!"
+        return null
     ]
 
-    find-optimization: meth [
+    find-optimization: method [
+        return: [text!]
         optimization
     ][
         switch optimization [
@@ -1935,7 +1892,8 @@ visual-studio: make generator-class [
         ]
     ]
 
-    find-optimization?: meth [
+    find-optimization?: method [
+        return: [logic!]
         optimization
     ][
         not find [0 _ no false off #[false]] optimization
@@ -1945,12 +1903,6 @@ visual-studio: make generator-class [
         return: <void>
         output-dir [file!] {Solution directory}
         project [object!]
-        <with>
-        build-type
-        cpu
-        platform
-        <local>
-        project-name
     ][
         project-name: either project/class-name = 'entry-class [project/target][project/name]
         if project/generated? [
@@ -2031,10 +1983,7 @@ visual-studio: make generator-class [
                     ]
                 ]
 
-                stack-size: try all [
-                    project/ldflags
-                    find-stack-size project/ldflags
-                ]
+                stack-size: try find-stack-size project/ldflags
             ]
 
             compile-as: try all [
@@ -2150,7 +2099,7 @@ visual-studio: make generator-class [
           unspaced [ {<StackReserveSize>} stack-size {</StackReserveSize>} ]
       ]
       {
-      <SubSystem>} opt either project/ldflags [find-subsystem project/ldflags]["Console"] {</SubSystem>
+      <SubSystem>} find-subsystem project/ldflags else ["Console"] {</SubSystem>
       <Version></Version>
     </Link>}
             ]
@@ -2307,17 +2256,10 @@ visual-studio: make generator-class [
     ]
 
     generate: method [
+        return: <void>
         output-dir [file!] {Solution directory}
         solution [object!]
         /x86
-        <with>
-        build-type
-        cpu
-        platform
-        <local>
-        dep
-        projects
-        vars
     ][
         buf: make binary! 2048
         assert [solution/class-name = 'solution-class]

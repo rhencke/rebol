@@ -665,14 +665,15 @@ script:
     - echo ${R3_EXIT_STATUS}
     
     # Run basic testing with FFI, this is a linux-only script
-    - |
-      if [[ "${OS_ID}" = "0.4.40" || "${OS_ID}" = "0.4.4" ]]; then
-          ./r3 ../tests/misc/qsort_r.r
-          R3_EXIT_STATUS=$?;
-      else
-          R3_EXIT_STATUS=0;
-      fi
-    - echo ${R3_EXIT_STATUS}
+    # !!! Temporarily disabled during build system renovation (12-6-2018)
+    #- |
+    #  if [[ "${OS_ID}" = "0.4.40" || "${OS_ID}" = "0.4.4" ]]; then
+    #      ./r3 ../tests/misc/qsort_r.r
+    #      R3_EXIT_STATUS=$?;
+    #  else
+    #      R3_EXIT_STATUS=0;
+    #  fi
+    #- echo ${R3_EXIT_STATUS}
 
     # !!! Temporarily disable the TCC tests (12-6-2018).  Reason is that there
     # is a problem, and the rebmake system is being redone to better deal with

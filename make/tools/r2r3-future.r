@@ -75,8 +75,17 @@ copy-as-text: :spelling-of
 ;
 null: :void
 null?: :void?
-unset 'void
-unset 'void?
+synthetic-void: lib/func [] [
+    fail/where "Fake VOID value found" 'return
+]
+void: lib/func [] [
+    return :synthetic-void
+]
+void?: lib/func [value [<opt> any-value!]] [
+    :value = :synthetic-void
+]
+void!: <synthetic-void-type>
+
 set*: :set ;-- used to allow nulls by default
 unset?: chain [:lib/set? | :lib/not]
 value?: :any-value?
@@ -99,7 +108,11 @@ try: :to-value
 
 ; https://forum.rebol.info/t/squaring-the-circle-of-length-and-length-of/385
 ;
-type-of: chain [:lib/type-of | :opt] ;-- type of null is now null
+type-of: function [optional [<opt> any-value!]] [
+    if unset? 'optional [return null] ;-- type of null is now null
+    if void? :optional [return void!] ;-- fake a void type
+    lib/type-of :optional
+]
 of: enfix function [
     return: [<opt> any-value!]
     'property [word!]
@@ -373,9 +386,26 @@ actionmaker: lib/function [
     body [block!]
 ][
     generator: either find spec [return: <void>] [
-        spec: replace copy spec [<void>] [] ;-- keep RETURN: as local
-        body: compose [return: :leave (body)]
-        either gather-locals [:lib/procedure] [:lib/proc]
+        spec: replace copy spec [return: <void>]
+            [return: [<opt> any-value!] real-return:]
+        body: compose [
+            real-return: :return
+            return: does [real-return void]
+            (body)
+        ]
+        chain [
+            either gather-locals [:lib/function] [:lib/func]
+                |
+            func [return: [action!] action [action!]] [
+                chain [
+                    :action
+                        |
+                    func [return: [action!] ignored [<opt> any-value!]] [
+                        void
+                    ]
+                ]
+            ]
+        ]
     ][
         either gather-locals [:lib/function] [:lib/func]
     ]
