@@ -498,7 +498,45 @@ copy: chain [:lib/copy | :opt]
 ; it is in modern Ren-C.  It returned BLANK! on failure, so adjust it for the
 ; new NULL world... can be used on limited things like TRY MATCH BLOCK! FOO
 ;
-match: chain [:lib/maybe | :opt]
+match: chain [
+    :lib/maybe
+        |
+    func [return: [<opt> any-value!] x [<opt> any-value!]] [
+        if null? :x [return void]
+        if blank? :x [return null]
+        return :x
+    ]
+]
+
+;; Fix ensure so it passes through blanks if BLANK! is specified in a test
+;;
+ensure: function [test arg [any-value!]] [
+    all [
+        blank? :arg
+        any [
+            :test = blank!
+            all [block? :test lib/find test 'blank!]
+            all [typeset? :test lib/find test blank!]
+        ]
+    ] then [
+        return _
+    ]
+    case* [
+        void? temp: match test :arg [
+            assert [any [blank? :arg | false? :arg]]
+            return :arg
+        ]
+        null? :temp [
+            fail/where [
+                "ENSURE expected arg to match" (test)
+            ] 'arg
+        ]
+        true [
+            assert [all [did :temp | :arg = :temp]]
+            :temp
+        ]
+    ]
+]
 
 ; New MAYBE definition runs all right in older Ren-Cs
 ;
@@ -568,6 +606,18 @@ delimit: function [ ;-- Note: order of parameters changed
 ]
 unspaced: specialize 'delimit [delimiter: _]
 spaced: specialize 'delimit [delimiter: space]
+newlined: chain [
+    adapt specialize 'delimit [delimiter: newline] [
+        if text? :value [
+            fail/where "NEWLINED on TEXT! semantics being debated" 'value
+        ]
+    ]
+        |
+    func [x [<opt> text!]] [
+        if unset? 'x [return null]
+        append x newline ;; final newline is POSIX standard, most useful
+    ]
+]
 
 ; Loop control update: https://forum.rebol.info/t/609
 ; First cut at it returned BLANK! on break, NULL on no loop run
@@ -611,11 +661,35 @@ collect: function [
     opt output
 ]
 
+collect-lines: adapt 'collect [ ;; https://forum.rebol.info/t/945/1
+    body: compose/only [
+        keep: adapt 'keep [value: spaced try :value]
+        (as group! body)
+    ]
+]
+
+collect-text: chain [ ;; https://forum.rebol.info/t/945/2
+    adapt 'collect [
+        body: compose/only [
+            keep [] ;; if it becomes empty block, CHAIN SPACED nulls it
+            keep: adapt 'keep [
+                any [null? :value block? :value text? :value blank? :value] else [
+                    fail/where [type of :value "to COLLECT-TEXT/KEEP"] 'value
+                ]
+                value: unspaced try :value
+            ]
+            (as group! body)
+        ]
+    ]
+        |
+    :spaced
+]
+
 unless: enfix func [ ; https://forum.rebol.info/t/881
     left [<opt> any-value!]
     right [<opt> any-value!]
 ][
-    if :right [:right]
+    if :right [return :right]
     :left
 ]
 

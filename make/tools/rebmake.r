@@ -189,7 +189,9 @@ posix: make platform-class [
         cmd [object!]
     ][
         if tool: any [:cmd/strip :default-strip] [
-            return tool/commands/params cmd/file opt cmd/options
+            b: ensure block! tool/commands/params cmd/file opt cmd/options
+            assert [1 = length of b]
+            return b/1
         ]
         return ""
     ]
@@ -431,7 +433,7 @@ gcc: make compiler-class [
         attempt [
             call/output reduce [exec-file: any [all [exec path] "gcc"] "--version"] version
             parse version [
-                {gcc (GCC) } 
+                {gcc (GCC)} space
                 copy major: some digit #"."
                 copy minor: some digit #"."
                 copy macro: some digit
@@ -451,8 +453,8 @@ gcc: make compiler-class [
 
     command: method [
         return: [text!]
-        output [file! text!]
-        source [file! text!]
+        output [file!]
+        source [file!]
         /I includes
         /D definitions
         /F cflags
@@ -461,66 +463,64 @@ gcc: make compiler-class [
         /PIC
         /E
     ][
-        if file? output [output: file-to-local output]
-        if file? source [source: file-to-local source]
-        spaced [
-            case [
-                file? exec-file [file-to-local exec-file]
-                exec-file [exec-file]
-                default [to text! name]
-            ]
-            either E ["-E"]["-c"]
+        collect-text [
+            keep (file-to-local/pass exec-file else [
+                to text! name ;; the "gcc" may get overridden as "g++"
+            ])
 
-            if PIC ["-fPIC"]
+            keep either E ["-E"]["-c"]
+
+            if PIC [
+                keep "-fPIC"
+            ]
             if I [
-                spaced [
-                    map-each inc (map-files-to-local includes) [
-                        unspaced ["-I" inc]
-                    ]
+                for-each inc (map-files-to-local includes) [
+                    keep ["-I" inc]
                 ]
             ]
             if D [
-                spaced [
-                    map-each flg definitions [
-                        if flg: filter-flag flg id [unspaced ["-D" flg]]
-                    ]
+                for-each flg definitions [
+                    keep ["-D" (filter-flag flg id else [continue])]
                 ]
             ]
             if O [
                 case [
-                    opt-level = true ["-O2"]
-                    opt-level = false ["-O0"]
-                    integer? opt-level [unspaced ["-O" opt-level]]
+                    opt-level = true [keep "-O2"]
+                    opt-level = false [keep "-O0"]
+                    integer? opt-level [keep ["-O" opt-level]]
                     find ["s" "z" "g" 's 'z 'g] opt-level [
-                        unspaced ["-O" opt-level]
+                        keep ["-O" opt-level]
                     ]
 
                     fail ["unrecognized optimization level:" opt-level]
                 ]
             ]
-            opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new
+            if g [
                 case [
-                    blank? debug [] ;FIXME: _ should be passed in at all
-                    debug = true ["-g -g3"]
+                    debug = true [keep "-g -g3"]
                     debug = false []
-                    integer? debug [unspaced ["-g" debug]]
+                    integer? debug [keep ["-g" debug]]
 
                     fail ["unrecognized debug option:" debug]
                 ]
             ]
-            if all [F block? cflags][
-                spaced map-each flg cflags [
-                    filter-flag flg id
+            if F [
+                for-each flg cflags [
+                    keep filter-flag flg id
                 ]
             ]
 
-            "-o" case [
-                E [output]
-                ends-with? output target-platform/obj-suffix [output]
-                default [unspaced [output target-platform/obj-suffix]]
+            keep "-o"
+
+            output: file-to-local output
+
+            if (E or [ends-with? output target-platform/obj-suffix]) [
+                keep output
+            ] else [
+                keep [output target-platform/obj-suffix]
             ]
 
-            source
+            keep file-to-local source
         ]
     ]
 ]
@@ -529,10 +529,18 @@ tcc: make compiler-class [
     name: 'tcc
     id: "tcc"
 
+    ;; Note: For the initial implementation of user natives, TCC has to be run
+    ;; as a preprocessor for %sys-core.h, to expand its complicated inclusions
+    ;; into a single file which could be embedded into the executable.  The
+    ;; new plan is to only allow "rebol.h" in user natives, which would mean
+    ;; that TCC would not need to be run during the make process.  However,
+    ;; for the moment TCC is run to do this preprocessing even when it is not
+    ;; the compiler being used for the actual build of the interpreter.
+    ;;
     command: method [
         return: [text!]
-        output
-        source
+        output [file!]
+        source [file!]
         /E {Preprocess}
         /I includes
         /D definitions
@@ -541,57 +549,56 @@ tcc: make compiler-class [
         /g debug
         /PIC
     ][
-        spaced [
-            any [exec-file "tcc"]
-            either E ["-E"]["-c"]
+        collect-text [
+            keep ("tcc" unless file-to-local/pass exec-file)
+            keep either E ["-E"]["-c"]
 
-            if PIC ["-fPIC"]
+            if PIC [keep "-fPIC"]
             if I [
-                spaced [
-                    map-each inc (map-files-to-local includes) [
-                        unspaced ["-I" inc]
-                    ]
+                for-each inc (map-files-to-local includes) [
+                    keep ["-I" inc]
                 ]
             ]
             if D [
-                spaced [
-                    map-each flg definitions [
-                        if flg: filter-flag flg id [unspaced ["-D" flg]]
-                    ]
+                for-each flg definitions [
+                    keep ["-D" (filter-flag flg id else [continue])]
                 ]
             ]
             if O [
                 case [
-                    opt-level = true ["-O2"]
-                    opt-level = false ["-O0"]
-                    integer? opt-level [unspaced ["-O" opt-level]]
+                    opt-level = true [keep "-O2"]
+                    opt-level = false [keep "-O0"]
+                    integer? opt-level [keep ["-O" opt-level]]
 
                     fail ["unknown optimization level" opt-level]
                 ]
             ]
-            opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new
+            if g [
                 case [
-                    blank? debug [] ;FIXME: _ should be passed in at all
-                    debug = true ["-g"]
+                    debug = true [keep "-g"]
                     debug = false []
-                    integer? debug [unspaced ["-g" debug]]
+                    integer? debug [keep ["-g" debug]]
 
                     fail ["unrecognized debug option:" debug]
                 ]
             ]
-            if all [F block? cflags][
-                spaced map-each flg cflags [
-                    filter-flag flg id
+            if F [
+                for-each flg cflags [
+                    keep filter-flag flg id
                 ]
             ]
 
-            "-o" case [
-                E [output]
-                ends-with? output target-platform/obj-suffix [output]
-                default [unspaced [output target-platform/obj-suffix]]
+            keep "-o"
+            
+            output: file-to-local output
+
+            if (E or [ends-with? output target-platform/obj-suffix]) [
+                keep output
+            ] else [
+                keep [output target-platform/obj-suffix]
             ]
 
-            source
+            keep file-to-local source
         ]
     ]
 ]
@@ -606,7 +613,7 @@ cl: make compiler-class [
     id: "msc" ;flag id
     command: method [
         return: [text!]
-        output [file! text!]
+        output [file!]
         source
         /I includes
         /D definitions
@@ -616,69 +623,59 @@ cl: make compiler-class [
         /PIC {Ignored for cl}
         /E
     ][
-        spaced [
-            case [
-                file? exec-file [file-to-local exec-file]
-                exec-file [exec-file]
-                default [{cl}]
-            ]
-            "/nologo" ; don't show startup banner
-            either E ["/P"]["/c"]
+        collect-text [
+            keep ("cl" unless file-to-local/pass exec-file)
+            keep "/nologo" ; don't show startup banner
+            keep either E ["/P"]["/c"]
 
             if I [
-                spaced map-each inc (map-files-to-local includes) [
-                    unspaced ["/I" inc]
+                for-each inc (map-files-to-local includes) [
+                    keep ["/I" inc]
                 ]
             ]
             if D [
-                spaced map-each flg definitions [
-                    if flg: filter-flag flg id [unspaced ["/D" flg]]
+                for-each flg definitions [
+                    keep ["/D" (filter-flag flg id else [continue])]
                 ]
             ]
             if O [
                 case [
-                    opt-level = true ["/O2"]
-                    all [
-                        opt-level
-                        not zero? opt-level
-                    ][
-                        unspaced ["/O" opt-level]
+                    opt-level = true [keep "/O2"]
+                    opt-level and [not zero? opt-level] [
+                        keep ["/O" opt-level]
                     ]
                 ]
             ]
-            opt if g [ ;-- "" doesn't vaporize in old Ren-C, _ doesn't in new 
-                ;print mold debug
+            if g [
                 case [
-                    blank? debug [] ;FIXME: _ shouldn't be passed in at all
                     any [
                         debug = true
                         integer? debug ;-- doesn't map to a CL option
                     ][
-                        "/Od /Zi"
+                        keep "/Od /Zi"
                     ]
                     debug = false []
                     
                     fail ["unrecognized debug option:" debug]
                 ]
             ]
-            if all [F block? cflags][
-                spaced map-each flg cflags [
-                    filter-flag flg id
+            if F [
+                for-each flg cflags [
+                    keep filter-flag flg id
                 ]
             ]
 
-            unspaced [
+            output: file-to-local output
+            keep unspaced [
                 either E ["/Fi"]["/Fo"]
-                case [
-                    E [output]
-                    ends-with? output target-platform/obj-suffix [output]
-                    default [
-                        unspaced [output target-platform/obj-suffix]
-                    ]
+                if (E or [ends-with? output target-platform/obj-suffix]) [
+                    output
+                ] else [
+                    unspaced [output target-platform/obj-suffix]
                 ]
             ]
 
-            either file? source [file-to-local source][source]
+            keep file-to-local/pass source
         ]
     ]
 ]
@@ -693,7 +690,7 @@ linker-class: make object! [
     ][
     ]
     commands: method [
-        return: [text! block!]
+        return: [block!]
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
@@ -705,6 +702,11 @@ linker-class: make object! [
 ]
 
 ld: make linker-class [
+    ;;
+    ;; Note that `gcc` is used as the ld executable by default.  There are
+    ;; some switches (such as -m32) which it seems `ld` does not recognize,
+    ;; even when processing a similar looking link line.
+    ;;
     name: 'ld
     version: _
     exec-file: _
@@ -722,37 +724,30 @@ ld: make linker-class [
         ][
             target-platform/exe-suffix
         ]
-        spaced [
-            case [
-                file? exec-file [file-to-local exec-file]
-                exec-file [exec-file]
-                default [{gcc}]
-            ]
+        collect-text [
+            keep ("gcc" unless file-to-local/pass exec-file)
+
+            if dynamic [keep "-shared"]
+
+            keep "-o"
             
-            if dynamic ["-shared"]
-            
-            "-o" file-to-local either ends-with? output suffix [
-                output
+            output: file-to-local output
+            either ends-with? output suffix [
+                keep output
             ][
-                unspaced [output suffix]
+                keep [output suffix]
             ]
 
-            if block? searches [
-                spaced [
-                    map-each search (map-files-to-local searches) [
-                        unspaced ["-L" search]
-                    ]
-                ]
+            for-each search (map-files-to-local searches) [
+                keep ["-L" search]
             ]
 
-            if block? ldflags [
-                spaced map-each flg ldflags [
-                    filter-flag flg id
-                ]
+            for-each flg ldflags [
+                keep filter-flag flg id
             ]
 
-            if block? depends [
-                spaced map-each dep depends [accept dep]
+            for-each dep depends [
+                keep accept dep
             ]
         ]
     ]
@@ -840,37 +835,32 @@ llvm-link: make linker-class [
         ][
             target-platform/exe-suffix
         ]
-        spaced [
-            case [
-                file? exec-file [file-to-local exec-file]
-                exec-file [exec-file]
-                default [{llvm-link}]
-            ]
-            "-o" file-to-local either ends-with? output suffix [
-                output
+
+        collect-text [
+            keep ("llvm-link" unless file-to-local/pass exec-file)
+
+            keep "-o"
+
+            output: file-to-local output
+            either ends-with? output suffix [
+                keep output
             ][
-                unspaced [output suffix]
+                keep [output suffix]
             ]
 
             ; llvm-link doesn't seem to deal with libraries
             comment [
-                if block? searches [
-                    spaced [
-                        map-each search (map-files-to-local searches) [
-                            unspaced ["-L" search]
-                        ]
-                    ]
+                for-each search (map-files-to-local searches) [
+                    keep ["-L" search]
                 ]
             ]
 
-            if block? ldflags [
-                spaced map-each flg ldflags [
-                    filter-flag flg id
-                ]
+            for-each flg ldflags [
+                keep filter-flag flg id
             ]
 
-            if block? depends [
-                spaced map-each dep depends [accept dep]
+            for-each dep depends [
+                keep accept dep
             ]
         ]
     ]
@@ -937,44 +927,36 @@ link: make linker-class [
         ][
             target-platform/exe-suffix
         ]
-        spaced [
-            case [
-                file? exec-file [file-to-local exec-file]
-                exec-file [exec-file]
-                default [{link}]
-            ]
-            "/NOLOGO"
-            if dynamic ["/DLL"]
-            unspaced [
-                "/OUT:" file-to-local either ends-with? output suffix [
+        collect-text [
+            keep (file-to-local/pass exec-file else [{link}])
+            keep "/NOLOGO"
+            if dynamic [keep "/DLL"]
+
+            output: file-to-local output
+            keep [
+                "/OUT:" either ends-with? output suffix [
                     output
                 ][
                     unspaced [output suffix]
                 ]
             ]
 
-            if block? searches [
-                spaced [
-                    map-each search (map-files-to-local searches) [
-                        unspaced ["/LIBPATH:" search]
-                    ]
-                ]
+            for-each search (map-files-to-local searches) [
+                keep ["/LIBPATH:" search]
             ]
 
-            if block? ldflags [
-                spaced map-each flg ldflags [
-                    filter-flag flg id
-                ]
+            for-each flg ldflags [
+                keep filter-flag flg id
             ]
 
-            if block? depends [
-                spaced map-each dep depends [opt accept dep]
+            for-each dep depends [
+                keep accept dep
             ]
         ]
     ]
 
     accept: method [
-        return: [<opt> text! file!]
+        return: [<opt> text!]
         dep [object!]
     ][
         opt switch dep/class-name [
@@ -1034,33 +1016,25 @@ strip-class: make object! [
     exec-file: _
     options: _
     commands: method [
-        return: [text! block!]
+        return: [block!]
         target [file!]
         /params flags [block! any-string! blank!]
     ][
-        spaced [
-            case [
-                file? exec-file [file-to-local exec-file]
-                exec-file [exec-file]
-                default [ {strip} ]
-            ]
-            if flags: any [
-                all [params flags]
-                options
-            ][
-                switch type of flags [
-                    block! [
-                        spaced map-each flag flags [
-                            filter-flag flag id
-                        ]
-                    ]
-                    text! [
-                        flags
+        reduce [collect-text [
+            keep ("strip" unless file-to-local/pass exec-file)
+            flags: default [options]
+            switch type of flags [
+                block! [
+                    for-each flag flags [
+                        keep filter-flag flag id
                     ]
                 ]
+                text! [
+                    keep flags
+                ]
             ]
-            file-to-local target
-        ]
+            keep file-to-local target
+        ]]
     ]
 ]
 
@@ -1139,7 +1113,7 @@ object-file-class: make object! [
         make entry-class [
             target: output
             depends: append-of either depends [depends][[]] source
-            commands: command/I/D/F/O/g/(try all [
+            commands: reduce [command/I/D/F/O/g/(try all [
                 any [
                     PIC
                     parent/class-name = 'dynamic-library-class
@@ -1151,6 +1125,7 @@ object-file-class: make object! [
                 opt parent/cflags
                 opt parent/optimization
                 opt parent/debug
+            ]
         ]
     ]
 ]
@@ -1287,10 +1262,10 @@ generator-class: make object! [
         project [object!]
         to [logic!]
     ][
-        if all [
+        all [
             find words-of project 'generated?
             to != project/generated?
-        ][
+        ] then [
             project/generated?: to
             if find words-of project 'depends [
                 for-each dep project/depends [
@@ -1389,91 +1364,81 @@ makefile: make generator-class [
     gen-cmd-strip: :posix/gen-cmd-strip
 
     gen-rule: method [
-        return: [text!]
+        return: "Possibly multi-line text for rule, with extra newline @ end"
+            [text!]
         entry [object!]
     ][
-        switch entry/class-name [
+        newlined collect-lines [switch entry/class-name [
+
+            ;; Makefile variable, defined on a line by itself
+            ;;
             'var-class [
-                unspaced [
-                    entry/name either entry/default [
-                        unspaced [either nmake? ["="]["?="] entry/default]
-                    ][
-                        unspaced ["=" entry/value]
-                    ]
-                    newline
+                keep either entry/default [
+                    [entry/name either nmake? ["="]["?="] entry/default]
+                ][
+                    [entry/name "=" entry/value]
                 ]
             ]
-            'entry-class [
-                unspaced [
-                    either file? entry/target [
-                        file-to-local entry/target
-                    ][
-                        entry/target
-                    ]
-                    either word? entry/target [": .PHONY"] [":"]
-                    space opt case [
-                        block? entry/depends [
-                            spaced map-each w entry/depends [
-                                opt switch w/class-name [
-                                    'var-class [
-                                        unspaced ["$(" w/name ")"]
-                                    ]
-                                    'entry-class [
-                                        w/target
-                                    ]
-                                    'ext-dynamic-class 'ext-static-class [
-                                        ;only contribute to the command line
-                                    ]
 
-                                    default [
-                                        case [
-                                            file? w [file-to-local w]
-                                            file? w/output [
-                                                file-to-local w/output
-                                            ]
-                                            default [
-                                                w/output
-                                            ]
-                                        ]
-                                    ]
-                                ]
+            'entry-class [
+                ;;
+                ;; First line in a makefile entry is the target followed by
+                ;; a colon and a list of dependencies.  Usually the target is
+                ;; a file path on disk, but it can also be a "phony" target
+                ;; that is just a word:
+                ;;
+                ;; https://stackoverflow.com/q/2145590/
+                ;;
+                keep collect-text [
+                    case [
+                        word? entry/target [ ;; like "clean" in `make clean`
+                            keep [entry/target ":"]
+                            keep ".PHONY"
+                        ]
+                        file? entry/target [
+                            keep [file-to-local entry/target ":"]
+                        ]
+                        fail ["Unknown entry/target type" entry/target]
+                    ]
+                    for-each w (ensure [block! blank!] entry/depends) [
+                        switch w/class-name [
+                            'var-class [
+                                keep ["$(" w/name ")"]
+                            ]
+                            'entry-class [
+                                keep w/target
+                            ]
+                            'ext-dynamic-class 'ext-static-class [
+                                ; only contribute to command line
+                            ]
+                        ] else [
+                            keep case [
+                                file? w [file-to-local w]
+                                file? w/output [file-to-local w/output]
+                                default [w/output]
                             ]
                         ]
-                        any-string? entry/depends [
-                            entry/depends
-                        ]
-                        blank? entry/depends [
-                        ]
-                        default [
-                            fail ["unrecognized depends for" entry entry/depends]
-                        ]
                     ]
-                    newline
-                    all [
-                        entry/commands
-                        not empty? entry/commands
-                    ] then [
-                        unspaced [
-                            "^-"
-                            either block? entry/commands [
-                                delimit "^/^-" map-each cmd entry/commands [
-                                    c: match text! cmd else [gen-cmd cmd]
-                                    if not empty? c [c]
-                                ]
-                            ][
-                                match text! entry/commands else [
-                                    gen-cmd entry/commands
-                                ]
-                            ]
-                            newline
-                        ]
-                    ]
-                    newline
+                ]
+
+                ;; After the line with its target and dependencies are the
+                ;; lines of shell code that run to build the target.  These
+                ;; may use escaped makefile variables that get substituted.
+                ;;
+                for-each cmd (ensure [block! blank!] entry/commands) [
+                    c: match text! cmd else [gen-cmd cmd] else [continue]
+                    if empty? c [continue] ;; !!! Review why this happens
+                    keep [tab c] ;; makefiles demand TAB codepoint :-(
                 ]
             ]
 
             fail ["Unrecognized entry class:" entry/class-name]
-        ]
+        ] keep ""] ;-- final keep just adds an extra newline
+
+        ;; !!! Adding an extra newline here unconditionally means variables
+        ;; in the makefile get spaced out, which isn't bad--but it wasn't done
+        ;; in the original rebmake.r.  This could be rethought to leave it
+        ;; to the caller to decide to add the spacing line or not
     ]
 
     emit: method [
@@ -1670,7 +1635,7 @@ Execution: make generator-class [
                 run-target make entry-class [
                     target: project/output
                     depends: join-of project/depends objs
-                    commands: project/command
+                    commands: reduce [project/command]
                 ]
             ]
 
@@ -2115,7 +2080,7 @@ visual-studio: make generator-class [
         ][
             unspaced [ {
     <PreBuildEvent>
-      <Command>} use [cmd][delimit "^M^/" map-each cmd project/commands [reify cmd]] {
+      <Command>} delimit newline map-each cmd project/commands [reify cmd] {
       </Command>
     </PreBuildEvent>}
             ]
@@ -2127,7 +2092,7 @@ visual-studio: make generator-class [
     ][
         unspaced [ {
     <PostBuildEvent>
-      <Command>} use [cmd][delimit "^M^/" map-each cmd project/post-build-commands [reify cmd]] {
+      <Command>} delimit newline map-each cmd project/post-build-commands [reify cmd] {
       </Command>
     </PostBuildEvent>}
         ]

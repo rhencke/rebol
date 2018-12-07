@@ -1503,64 +1503,53 @@ vars: reduce [
 
 prep: make rebmake/entry-class [
     target: 'prep ; phony target
-    commands: compose [
-        (spaced [{$(REBOL)} tools-dir/make-natives.r])
-        (spaced [{$(REBOL)} tools-dir/make-headers.r])
-        (spaced [
-            {$(REBOL)} tools-dir/make-boot.r
-                unspaced [{OS_ID=} system-config/id]
-                {GIT_COMMIT=$(GIT_COMMIT)}
-        ])
-        (spaced [{$(REBOL)} tools-dir/make-host-init.r])
-        (spaced [{$(REBOL)} tools-dir/make-os-ext.r])
-        (spaced [{$(REBOL)} tools-dir/make-reb-lib.r])
-        (collect [
-            for-each ext all-extensions [
-                for-each mod ext/modules [
-                    keep spaced [
-                        {$(REBOL)}
-                        tools-dir/make-ext-natives.r
-                        unspaced [{MODULE=} mod/name]
-                        unspaced [{SRC=extensions/} case [
-                            file? mod/source [
-                                mod/source
-                            ]
-                            block? mod/source [
-                                first find mod/source file!
-                            ]
-                            fail "mod/source must be BLOCK! or FILE!"
-                        ]]
-                        unspaced [{OS_ID=} system-config/id]
-                    ]
+    commands: collect-lines [
+        keep [{$(REBOL)} tools-dir/make-natives.r]
+        keep [{$(REBOL)} tools-dir/make-headers.r]
+        keep [{$(REBOL)} tools-dir/make-boot.r
+            unspaced [{OS_ID=} system-config/id]
+            {GIT_COMMIT=$(GIT_COMMIT)}
+        ]
+        keep [{$(REBOL)} tools-dir/make-host-init.r]
+        keep [{$(REBOL)} tools-dir/make-os-ext.r]
+        keep [{$(REBOL)} tools-dir/make-reb-lib.r]
+
+        for-each ext all-extensions [
+            for-each mod ext/modules [
+                keep [{$(REBOL)} tools-dir/make-ext-natives.r
+                    unspaced [{MODULE=} mod/name]
+                    unspaced [{SRC=} {extensions/} case [
+                        file? mod/source [mod/source]
+                        block? mod/source [first find mod/source file!]
+                        fail "mod/source must be BLOCK! or FILE!"
+                    ]]
+                    unspaced [{OS_ID=} system-config/id]
                 ]
             ]
-        ])
-        (spaced [
-            {$(REBOL)} tools-dir/make-boot-ext-header.r
-                unspaced [{EXTENSIONS=}
-                    delimit ":" map-each ext builtin-extensions [
-                        to text! ext/name
-                    ]
-                ]
-        ])
-        (
-            if cfg-tcc [
-                sys-core-i: make rebmake/object-file-class [
-                    compiler: make rebmake/tcc [
-                        exec-file: cfg-tcc/exec-file
-                    ]
-                    output: %prep/include/sys-core.i
-                    source: src-dir/include/sys-core.h
-                    definitions: join-of app-config/definitions [ {DEBUG_STDIO_OK} ]
-                    includes: append-of app-config/includes reduce [tcc-dir tcc-dir/include]
-                    cflags: append-of append-of [ {-dD} {-nostdlib} ] opt cfg-ffi/cflags opt cfg-tcc/cpp-flags
-                ]
-                reduce [
-                    sys-core-i/command/E
-                    unspaced [{$(REBOL) } tools-dir/make-embedded-header.r]
+        ]
+
+        keep [{$(REBOL)} tools-dir/make-boot-ext-header.r
+            unspaced [
+                {EXTENSIONS=} delimit ":" map-each ext builtin-extensions [
+                    to text! ext/name
                 ]
             ]
-        )
+        ]
+
+        if cfg-tcc [
+            sys-core-i: make rebmake/object-file-class [
+                compiler: make rebmake/tcc [
+                    exec-file: cfg-tcc/exec-file
+                ]
+                output: %prep/include/sys-core.i
+                source: src-dir/include/sys-core.h
+                definitions: join-of app-config/definitions [ {DEBUG_STDIO_OK} ]
+                includes: append-of app-config/includes reduce [tcc-dir tcc-dir/include]
+                cflags: append-of append-of [ {-dD} {-nostdlib} ] opt cfg-ffi/cflags opt cfg-tcc/cpp-flags
+            ]
+            keep sys-core-i/command/E
+            keep [{$(REBOL)} tools-dir/make-embedded-header.r]
+        ]
     ]
     depends: reduce [
         reb-tool
@@ -1766,13 +1755,14 @@ clean: make rebmake/entry-class [
 check: make rebmake/entry-class [
     target: 'check ; phony target
     depends: join-of dynamic-libs app
-    commands: append reduce [
-        make rebmake/cmd-strip-class [
+    commands: collect [
+        keep make rebmake/cmd-strip-class [
             file: join-of app/output opt rebmake/target-platform/exe-suffix
         ]
-    ] map-each s dynamic-libs [
-        make rebmake/cmd-strip-class [
-            file: join-of s/output opt rebmake/target-platform/dll-suffix
+        for-each s dynamic-libs [
+            keep make rebmake/cmd-strip-class [
+                file: join-of s/output opt rebmake/target-platform/dll-suffix
+            ]
         ]
     ]
 ]

@@ -541,13 +541,13 @@ collect-lines: adapt 'collect [ ;; https://forum.rebol.info/t/945/1
 collect-text: chain [ ;; https://forum.rebol.info/t/945/2
      adapt 'collect [
          body: compose/only [
-             keep []
+             keep [] ;; collect at least empty block, CHAIN SPACED nulls it
              keep: adapt specialize 'keep [
                  line: false | only: false | part: false
              ][
                  value: unspaced try :value
-            ]
-            (as group! body)
+             ]
+             (as group! body)
          ]
      ]
          |
