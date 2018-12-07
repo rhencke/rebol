@@ -109,3 +109,5 @@ make-callback: function [
 
     wrap-callback :safe args
 ]
+
+sys/export [make-callback]

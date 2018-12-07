@@ -611,9 +611,9 @@ REBNATIVE(wake_up)
 //
 //  {Converts a local system file path TEXT! to a Rebol FILE! path.}
 //
-//      return: [file!]
+//      return: [<opt> file!]
 //          {The returned value should be a valid natural FILE! literal}
-//      path [text! file!]
+//      path [text! file! blank!]
 //          {Path to convert (by default, only TEXT! for type safety)}
 //      /pass
 //          {Convert TEXT!, but pass thru FILE!, assuming it's canonized}
@@ -626,6 +626,8 @@ REBNATIVE(local_to_file)
     INCLUDE_PARAMS_OF_LOCAL_TO_FILE;
 
     REBVAL *path = ARG(path);
+    if (IS_BLANK(path))
+        return nullptr; // blank in, null out protocol
     if (IS_FILE(path)) {
         if (not REF(pass))
             fail ("LOCAL-TO-FILE only passes through FILE! if /PASS used");
@@ -652,9 +654,9 @@ REBNATIVE(local_to_file)
 //
 //  {Converts a Rebol FILE! path to TEXT! of the local system file path}
 //
-//      return: [text!]
+//      return: [<opt> text!]
 //          {A TEXT! like "\foo\bar" is not a "natural" FILE! %\foo\bar}
-//      path [file! text!]
+//      path [file! text! blank!]
 //          {Path to convert (by default, only FILE! for type safety)}
 //      /pass
 //          {Convert FILE!s, but pass thru TEXT!, assuming it's local}
@@ -671,6 +673,8 @@ REBNATIVE(file_to_local)
     INCLUDE_PARAMS_OF_FILE_TO_LOCAL;
 
     REBVAL *path = ARG(path);
+    if (IS_BLANK(path))
+        return nullptr; // blank in, null out protocol
     if (IS_TEXT(path)) {
         if (not REF(pass))
             fail ("FILE-TO-LOCAL only passes through STRING! if /PASS used");

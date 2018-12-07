@@ -223,19 +223,42 @@ choose: function [
     return null
 ]
 
-; Renamed, tightened, and extended with new features
-;
-file-to-local: :to-local-file
-local-to-file: :to-rebol-file
-unset 'to-local-file
-unset 'to-rebol-file
-
-
 ; https://forum.rebol.info/t/text-vs-string/612
 ;
 text!: (string!)
 text?: (:string?)
 to-text: (:to-string)
+
+
+; Renamed, tightened, and extended with new features
+;
+file-to-local: func [
+    return: [<opt> text!]
+    path [blank! file! text!]
+    /pass
+    /full
+][
+    if blank? path [return null]
+    if text? path [
+        if pass [return path]
+        fail/where "FILE-TO-LOCAL only accepts TEXT! if /PASS used" 'path
+    ]
+    lib/to-local-file/(either full ['full] [_]) path
+]
+local-to-file: func [
+    return: [<opt> file!]
+    path [blank! file! text!]
+    /pass
+][
+    if blank? path [return null]
+    if file? path [
+        if pass [return path]
+        fail/where "LOCAL-TO-FILE only accepts FILE! if /PASS used" 'path
+    ]
+    lib/to-rebol-file path
+]
+unset 'to-local-file
+unset 'to-rebol-file
 
 
 ; https://forum.rebol.info/t/reverting-until-and-adding-while-not-and-until-not/594
@@ -502,18 +525,19 @@ count-up: :repeat ;-- https://forum.rebol.info/t/892
 ; Approximations (can't override null return case with unspaced ["" ...])
 ; https://forum.rebol.info/t/904/2
 ;
-delimit: function [ ;-- Note: order of paramters changed
+delimit: function [ ;-- Note: order of parameters changed
     return: [<opt> text!]
-    delimiter [blank! text! block!]
-    line [block! blank!]
+    delimiter [text! char! blank!]
+    line [block! text! blank!]
 ][
     if blank? line [return null]
+    if text? line [return line]
     delimiter: default [""]
     x: lib/delimit line delimiter
     if x <> "" [x]
 ]
-unspaced: chain [:unspaced | function [x] [if x <> "" [x]]]
-spaced: chain [:spaced | function [x] [if x <> "" [x]]]
+unspaced: specialize 'delimit [delimiter: _]
+spaced: specialize 'delimit [delimiter: space]
 
 ; Loop control update: https://forum.rebol.info/t/609
 ; First cut at it returned BLANK! on break, NULL on no loop run
