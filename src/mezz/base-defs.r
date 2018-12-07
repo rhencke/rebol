@@ -129,6 +129,18 @@ bound?: chain [specialize 'reflect [property: 'binding] | :value?]
 
 unspaced: specialize 'delimit [delimiter: _]
 spaced: specialize 'delimit [delimiter: space]
+newlined: chain [
+    adapt specialize 'delimit [delimiter: newline] [
+        if text? :value [
+            fail/where "NEWLINED on TEXT! semantics being debated" 'value
+        ]
+    ]
+        |
+    func [t [<opt> text!]] [
+        if unset? 't [return null]
+        append t newline ;; Terminal newline is POSIX standard, more useful
+    ]
+]
 
 an: func [
     {Prepends the correct "a" or "an" to a string, based on leading character}

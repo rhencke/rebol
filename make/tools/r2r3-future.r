@@ -634,3 +634,8 @@ for-next: for-skip: for-back: func [dummy:] [
         https://forum.rebol.info/t/892
     ] 'dummy
 ]
+
+map-each: func [return: [<opt> block!] 'var data body] [
+    if blank? :data [return null]
+    lib/map-each :var :data :body
+]

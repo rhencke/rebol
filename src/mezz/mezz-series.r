@@ -529,6 +529,30 @@ collect-with: func [
 ;
 collect: specialize :collect-with [name: 'keep]
 
+collect-lines: adapt 'collect [ ;; https://forum.rebol.info/t/945/1
+    body: compose/only [
+        keep: adapt specialize 'keep [
+            line: true | only: false | part: false
+        ] [value: spaced try :value]
+        (as group! body)
+    ]
+]
+
+collect-text: chain [ ;; https://forum.rebol.info/t/945/2
+     adapt 'collect [
+         body: compose/only [
+             keep []
+             keep: adapt specialize 'keep [
+                 line: false | only: false | part: false
+             ][
+                 value: unspaced try :value
+            ]
+            (as group! body)
+         ]
+     ]
+         |
+     :spaced
+]
 
 format: function [
     "Format a string according to the format dialect."

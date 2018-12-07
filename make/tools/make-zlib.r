@@ -395,6 +395,6 @@ insert source-lines [
 
 insert source-lines make-warning-lines file-source {ZLIB aggregated source file}
 
-all-source: delimit LF source-lines
+all-source: newlined source-lines
 
 write join-all [path-source file-source] fix-const-char fix-kr all-source

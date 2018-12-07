@@ -1340,7 +1340,7 @@ generator-class: make object! [
                     copy project/output
                 ]
             ]
-            true [
+            default [
                 basename: project/output
                 project/output: join-of basename suffix
             ]
@@ -1868,11 +1868,9 @@ visual-studio: make generator-class [
                 copy subsystem: to end
             ] then [
                 remove ldflags
-                probe subsystem
                 return subsystem
             ]
         ]
-        print "NULLIO!"
         return null
     ]
 
