@@ -3,32 +3,32 @@
 ; operator that is siilar to a non-short-circuit OR, but prefers the right
 ; hand side's result:
 ;
-;     >> x: {default} unless (case [1 > 2 [{nope}] 3 > 4 [{not this either}]])
+;     >> x: {default} unless case [1 > 2 [{nope}] 3 > 4 [{not this either}]]
 ;     >> print x
 ;     default
 ;
-; !!! This may not wind up being kept:
+; Under its new design, it is likely this change is going to be kept:
 ;
 ; https://forum.rebol.info/t/hedging-on-unless-for-beta-one/881
 
 (
-    20 = (10 unless (20))
+    20 = (10 unless 20)
 )(
-    10 = (10 unless (_))
+    10 = (10 unless _)
 )(
-    10 = (10 unless (null))
+    10 = (10 unless null)
 )(
-    x: 10 + 20 unless (case [
+    x: 10 + 20 unless case [
         false [<no>]
         false [<nope>]
         false [<nada>]
-    ])
+    ]
     x = 30
 )(
-    x: 10 + 20 unless (case [
+    x: 10 + 20 unless case [
         false [<no>]
         true [<yip!>]
         false [<nada>]
-    ])
+    ]
     x = <yip!>
 )

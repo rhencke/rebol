@@ -150,7 +150,7 @@ replace: function [
     ; Note that if a FORM actually happens inside of FIND, it could wind up
     ; happening repeatedly in the /ALL case if that happens.
 
-    len: 1 unless (case [
+    len: 1 unless case [
         ; leave bitset patterns as-is regardless of target type, len = 1
         bitset? :pattern [1]
 
@@ -166,7 +166,7 @@ replace: function [
         ]
 
         any-array? :pattern [length of :pattern]
-    ])
+    ]
 
     while [pos: find/(try if case_REPLACE [/case]) target :pattern] [
         either action? :replacement [

@@ -283,38 +283,6 @@ REBNATIVE(or)
 
 
 //
-//  unless: enfix native [
-//
-//  {Variant of non-short-circuit OR which favors the right-hand side result}
-//
-//      return: "Conditionally true or false value (not coerced to LOGIC!)"
-//          [<opt> any-value!]
-//      left "Expression which will always be evaluated"
-//          [<opt> any-value!]
-//      :right "Expression that's also always evaluated (can't short circuit)"
-//          [group!]
-//  ]
-//
-REBNATIVE(unless)
-{
-    INCLUDE_PARAMS_OF_UNLESS;
-
-    REBVAL *left = ARG(left);
-
-    if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
-        fail ("left hand side of UNLESS should not be literal block");
-
-    if (Do_Any_Array_At_Throws(D_OUT, ARG(right))) // always evaluated
-        return R_THROWN;
-
-    if (IS_TRUTHY(D_OUT))
-        return D_OUT;
-
-    RETURN (left); // preserve the exact truthy or falsey value
-}
-
-
-//
 //  xor: enfix native [
 //
 //  {Boolean XOR}
@@ -352,6 +320,34 @@ REBNATIVE(xor)
         return Init_False(D_OUT); // default to logic false if both true
 
     RETURN (left);
+}
+
+
+//
+//  unless: enfix native [
+//
+//  {Variant of non-short-circuit OR which favors the right-hand side result}
+//
+//      return: "Conditionally true or false value (not coerced to LOGIC!)"
+//          [<opt> any-value!]
+//      left "Expression which will always be evaluated"
+//          [<opt> any-value!]
+//      right "Expression that's also always evaluated (can't short circuit)"
+//          [<opt> any-value!] ;-- not a literal GROUP! as with XOR
+//  ]
+//
+REBNATIVE(unless)
+//
+// Though this routine is similar to XOR, it is different enough in usage and
+// looks from AND/OR/XOR to warrant not needing XOR's protection (e.g. forcing
+// a GROUP! on the right hand side, prohibiting literal blocks on left)
+{
+    INCLUDE_PARAMS_OF_UNLESS;
+
+    if (IS_TRUTHY(ARG(right)))
+        RETURN (ARG(right));
+
+    RETURN (ARG(left)); // preserve the exact truthy or falsey value
 }
 
 
