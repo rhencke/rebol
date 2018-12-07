@@ -878,8 +878,8 @@ load-module: function [
         ensure object! hdr
         ensure block! code
 
-        mod: catch/quit [
-            module/mixin hdr code (opt do-needs/no-user hdr)
+        catch/quit [
+            mod: module/mixin hdr code (opt do-needs/no-user hdr)
         ]
     ]
 
