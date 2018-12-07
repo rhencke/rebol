@@ -98,7 +98,7 @@ cscape: function [
                     either block? sub [unspaced sub] [form sub]
                 ]
                 mode = #delim [
-                    delimit sub unspaced [dlm newline]
+                    delimit (unspaced [dlm newline]) sub 
                 ]
                 fail ["Invalid CSCAPE mode:" mode]
             ] or [

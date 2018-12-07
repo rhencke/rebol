@@ -436,7 +436,7 @@ FLAG:
 NOTE: 1st 'anonymous' FLAG, if present, set the default^/
 NAME: one of
     }
-    indent delimit extension-names " | "
+    indent delimit " | " extension-names
     {^/
 EXAMPLES:
     extensions: +
@@ -1538,9 +1538,9 @@ prep: make rebmake/entry-class [
         (spaced [
             {$(REBOL)} tools-dir/make-boot-ext-header.r
                 unspaced [{EXTENSIONS=}
-                    delimit map-each ext builtin-extensions [
+                    delimit ":" map-each ext builtin-extensions [
                         to text! ext/name
-                    ] #":"
+                    ]
                 ]
         ])
         (

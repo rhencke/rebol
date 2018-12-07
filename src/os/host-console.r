@@ -588,7 +588,7 @@ host-console: function [
         ; Note that LOAD/ALL makes BLOCK! even for a single item,
         ; e.g. `load/all "word"` => `[word]`
         ;
-        code: load/all delimit result newline
+        code: load/all delimit newline result
         assert [block? code]
 
     ] then lambda error [

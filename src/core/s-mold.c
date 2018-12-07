@@ -557,7 +557,7 @@ REBSER *Copy_Mold_Or_Form_Value(const RELVAL *v, REBFLGS opts, bool form)
 //
 // CHAR! suppresses the delimiter logic.  Hence:
 //
-//    >> delimit ["a" space "b" | () "c" newline "d" "e"] ":"
+//    >> delimit ":" ["a" space "b" | () "c" newline "d" "e"]
 //    == `"a b^/c^/d:e"
 //
 // Note only the last interstitial is considered a candidate for delimiting.
@@ -567,19 +567,15 @@ bool Form_Reduce_Throws(
     REBARR *array,
     REBCNT index,
     REBSPC *specifier,
-    const REBVAL *delimiter // may be IS_NULLED() (e.g. null)
+    const REBVAL *delimiter
 ){
+    if (IS_TEXT(delimiter)) {
+        if (VAL_LEN_AT(delimiter) == 0)
+            delimiter = BLANK_VALUE; // avoid repeating emptiness test in loop
+    } else
+        assert(IS_BLANK(delimiter) or IS_CHAR(delimiter));
+
     DECLARE_MOLD (mo);
-
-    // !!! SPECIALIZE with null is still being worked out.  And BLANK!
-    // may be being used for the string representation of a BLANK! (e.g.
-    // `delimit ["a" "b" "c"] _` => `a_b_c`, which could be intended).  So
-    // an empty TEXT! can be used for nothing...convert it to a null though
-    // it doesn't have to be tested as an empty string on each delimit.
-    //
-    if (IS_TEXT(delimiter) and VAL_LEN_AT(delimiter) == 0)
-        delimiter = NULLED_CELL;
-
     Push_Mold(mo);
 
     DECLARE_FRAME (f);
@@ -595,27 +591,19 @@ bool Form_Reduce_Throws(
             return true;
         }
 
-        if (IS_NULLED(out))
+        if (IS_NULLED(out) or IS_BLANK(out))
             continue; // opt-out and maybe keep option open to return NULL
-
-        if (IS_BLANK(out))
-            fail (
-                "Temp error: BLANK! encountered in Form_Reduce(...)!"
-                " Meaning for this is in flux; it might print an underscore"
-                " or it might be nothing, use OPT to make a null if you want"
-                " it to vanish or explicitly use underscores for now."
-            );
 
         nothing = false;
 
         if (IS_TEXT(out) and VAL_LEN_AT(out) == 0)
             continue;
 
-        if (IS_CHAR(out)) {
+        if (IS_CHAR(out)) { // not delimiting on CHAR! (e.g. space, newline)
             Append_Utf8_Codepoint(mo->series, VAL_CHAR(out));
             pending = false;
         }
-        else if (IS_NULLED(delimiter)) // checked as empty text above
+        else if (IS_BLANK(delimiter)) // may be detected empty text above
             Form_Value(mo, out);
         else {
             if (pending)

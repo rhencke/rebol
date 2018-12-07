@@ -56,7 +56,7 @@ repurposed: deprecated: func [block [block!]] [
     append block {Emulation of the old meanings available via %redbol.reb}
 
     return func [dummy:] compose/only [
-        fail/where (delimit block LF) 'dummy
+        fail/where (delimit LF block) 'dummy
     ]
 ]
 

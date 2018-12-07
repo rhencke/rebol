@@ -101,25 +101,32 @@ static struct {
 //
 //  {Joins a block of values into TEXT! with delimiters.}
 //
-//      return: "Will be null if all block's contents are null"
+//      return: "Null if blank input or block's contents are all null"
 //          [<opt> text!]
-//      block [block!]
-//      delimiter [<opt> char! text!] ;-- should this accept ANY-VALUE!?
+//      delimiter "Blank means no delimiter (same as empty string)"
+//          [blank! char! text!]
+//      line "Will be copied if already a text value"
+//          [blank! text! block!]
 //  ]
 //
 REBNATIVE(delimit)
 {
     INCLUDE_PARAMS_OF_DELIMIT;
 
-    REBVAL *block = ARG(block);
-    REBVAL *delimiter = ARG(delimiter);
+    REBVAL *line = ARG(line);
+    if (IS_BLANK(line))
+        return nullptr; // blank in, null out convention
+    if (IS_TEXT(line))
+        return rebRun("copy", line, rebEND); // !!! Review performance
+
+    assert(IS_BLOCK(line));
 
     if (Form_Reduce_Throws(
         D_OUT,
-        VAL_ARRAY(block),
-        VAL_INDEX(block),
-        VAL_SPECIFIER(block),
-        delimiter
+        VAL_ARRAY(line),
+        VAL_INDEX(line),
+        VAL_SPECIFIER(line),
+        ARG(delimiter)
     )){
         return R_THROWN;
     }

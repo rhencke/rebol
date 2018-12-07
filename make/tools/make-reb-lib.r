@@ -160,9 +160,9 @@ lib-struct-fields: map-each-api [
     cfunc-params: if empty? paramlist [
         "void"
     ] else [
-        delimit map-each [type var] paramlist [
+        delimit ", " map-each [type var] paramlist [
             spaced [type var]
-        ] ", "
+        ]
     ]
     cscape/with
         <- {$<Returns> (*$<Name>)($<Cfunc-Params>)}
@@ -187,21 +187,21 @@ for-each api api-objects [do in api [
         opt-va-start: {va_list va; va_start(va, p);}
     ]
 
-    wrapper-params: (delimit map-each [type var] paramlist [
+    wrapper-params: (delimit ", " map-each [type var] paramlist [
         if type = "va_list *" [
             "..."
         ] else [
             spaced [type var]
         ]
-    ] ", ") else ["void"]
+    ]) else ["void"]
 
-    proxied-args: try delimit map-each [type var] paramlist [
+    proxied-args: try delimit ", " map-each [type var] paramlist [
         if type = "va_list *" [
             "&va" ;-- to produce vaptr
         ] else [
             to text! var
         ]
-    ] ", "
+    ]
 
     if find spec #noreturn [
         assert [returns = "void"]
@@ -241,9 +241,9 @@ c89-macros: map-each-api [
     cfunc-params: if empty? paramlist [
         "void"
     ] else [
-        delimit map-each [type var] paramlist [
+        delimit ", " map-each [type var] paramlist [
             spaced [type var]
-        ] ", "
+        ]
     ]
     cscape/with
         <- {#define $<Name> $<Name>_inline}

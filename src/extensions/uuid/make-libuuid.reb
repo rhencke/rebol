@@ -152,9 +152,10 @@ for-each [file fix] files [
     data: to-text read url: join-of ROOT file
     target: join-of %libuuid/ (last split-path file)
 
-    print url
-    print ["->" target]
-    print []
+    print [
+        url LF
+        "->" target LF
+    ]
 
     if :fix [data: fix data] ;-- correct compiler warnings
 

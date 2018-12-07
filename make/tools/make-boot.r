@@ -465,7 +465,7 @@ for-each [ts types] typeset-sets [
         ]
     ]
     e-types/emit [flagits ts] {
-        #define TS_${TS} ($<Delimit Flagits "|">)
+        #define TS_${TS} ($<Delimit "|" Flagits>)
     } ;-- !!! TS_ANY_XXX is wordy, considering TS_XXX denotes a typeset
 ]
 
@@ -734,8 +734,8 @@ for-each [sw-cat list] boot-errors [
 
         e-errfuncs/emit [message cat id f-name params args] {
             /* $<Mold Message> */
-            static inline REBCTX *Error_${F-Name}_Raw($<Delimit Params ", ">) {
-                return Error(SYM_${CAT}, SYM_${ID}, $<Delimit Args ", ">);
+            static inline REBCTX *Error_${F-Name}_Raw($<Delimit ", " Params>) {
+                return Error(SYM_${CAT}, SYM_${ID}, $<Delimit ", " Args>);
             }
         }
         e-errfuncs/emit newline

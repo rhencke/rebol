@@ -280,9 +280,9 @@ fix-kr: function [
 
                 ;dump param-block
 
-                insert open-paren new-param: delimit (
+                insert open-paren new-param: delimit ",^/    " (
                     extract/index param-block 2 2
-                ) ",^/    "
+                )
                 insert open-paren "^/    "
 
                 length-diff: length-diff + length of new-param
@@ -395,6 +395,6 @@ insert source-lines [
 
 insert source-lines make-warning-lines file-source {ZLIB aggregated source file}
 
-all-source: delimit source-lines "^/"
+all-source: delimit LF source-lines
 
 write join-all [path-source file-source] fix-const-char fix-kr all-source

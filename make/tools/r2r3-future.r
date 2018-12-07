@@ -502,7 +502,16 @@ count-up: :repeat ;-- https://forum.rebol.info/t/892
 ; Approximations (can't override null return case with unspaced ["" ...])
 ; https://forum.rebol.info/t/904/2
 ;
-delimit: chain [:delimit | function [x] [if x <> "" [x]]]
+delimit: function [ ;-- Note: order of paramters changed
+    return: [<opt> text!]
+    delimiter [blank! text! block!]
+    line [block! blank!]
+][
+    if blank? line [return null]
+    delimiter: default [""]
+    x: lib/delimit line delimiter
+    if x <> "" [x]
+]
 unspaced: chain [:unspaced | function [x] [if x <> "" [x]]]
 spaced: chain [:spaced | function [x] [if x <> "" [x]]]
 

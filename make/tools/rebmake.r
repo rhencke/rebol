@@ -1475,24 +1475,19 @@ makefile: make generator-class [
                         ]
                     ]
                     newline
-                    if all [
+                    all [
                         entry/commands
                         not empty? entry/commands
-                    ][
+                    ] then [
                         unspaced [
                             "^-"
                             either block? entry/commands [
-                                delimit map-each cmd (map-each cmd entry/commands [
-                                    either text? cmd [
-                                        cmd
-                                    ][
-                                        gen-cmd cmd
-                                    ]
-                                ]) [if not empty? cmd [cmd]] "^/^-"
+                                delimit "^/^-" map-each cmd entry/commands [
+                                    c: match text! cmd else [gen-cmd cmd]
+                                    if not empty? c [c]
+                                ]
                             ][
-                                either text? entry/commands [
-                                    entry/commands
-                                ][
+                                match text! entry/commands else [
                                     gen-cmd entry/commands
                                 ]
                             ]
@@ -2173,7 +2168,7 @@ visual-studio: make generator-class [
         ][
             unspaced [ {
     <PreBuildEvent>
-      <Command>} use [cmd][delimit map-each cmd project/commands [reify cmd] "^M^/"] {
+      <Command>} use [cmd][delimit "^M^/" map-each cmd project/commands [reify cmd]] {
       </Command>
     </PreBuildEvent>}
             ]
@@ -2185,7 +2180,7 @@ visual-studio: make generator-class [
     ][
         unspaced [ {
     <PostBuildEvent>
-      <Command>} use [cmd][delimit map-each cmd project/post-build-commands [reify cmd] "^M^/"] {
+      <Command>} use [cmd][delimit "^M^/" map-each cmd project/post-build-commands [reify cmd]] {
       </Command>
     </PostBuildEvent>}
         ]

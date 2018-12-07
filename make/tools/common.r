@@ -393,6 +393,6 @@ relative-to-path: func [
     ]
     iterate base [base/1: %..]
     append base target
-    to-file delimit base "/"
+    to-file delimit "/" base
 ]
 

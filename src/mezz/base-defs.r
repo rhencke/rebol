@@ -127,7 +127,7 @@ back: specialize 'skip [
 
 bound?: chain [specialize 'reflect [property: 'binding] | :value?]
 
-unspaced: specialize 'delimit [delimiter: ""]
+unspaced: specialize 'delimit [delimiter: _]
 spaced: specialize 'delimit [delimiter: space]
 
 an: func [
@@ -262,16 +262,17 @@ print: func [
     line "Line of text or block to run SPACED on, blank prints nothing"
         [blank! text! block!]
 ][
-    write-stdout switch type of line [
-        blank! [return null] ;-- don't print the newline
-        text! [line]
-        block! [try spaced line]
-    ]
-    write-stdout newline
-    return
+    ; WRITE-STDOUT will return NULL if given a blank input, and SPACED will
+    ; return null if either the block given to it is all nulls or if it
+    ; gets a blank input.  `print []` is equivalent to `print _`, no newline.
+    ; To print a newline, use `print {}`.
+    ;
+    write-stdout try spaced line then [write-stdout newline]
 ]
 
-print-newline: specialize 'write-stdout [value: newline]
+print-newline: specialize 'write-stdout [ ;-- or use `print {}`
+    value: newline
+]
 
 
 decode-url: _ ; set in sys init
