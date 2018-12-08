@@ -286,7 +286,7 @@ dig-action-meta-fields: function [value [action!]] [
     underlying: try ensure* action! any [
         get 'meta/specializee
         get 'meta/adaptee
-        try all [block? :meta/chainees | first meta/chainees]
+        all [block? :meta/chainees | first meta/chainees]
     ]
 
     fields: try all [:underlying | dig-action-meta-fields :underlying]
@@ -296,7 +296,7 @@ dig-action-meta-fields: function [value [action!]] [
 
         child: make frame! :value
         for-each param child [
-            child/(param): maybe opt select parent param
+            child/(param): maybe select parent param
         ]
         return child
     ]
@@ -592,10 +592,9 @@ attempt: func [
     code [block! action!]
 ][
     trap [
-        return voidify do code
-    ] then [
-        return null
+        return do code ;; VOIDIFY of null avoids conflation, but is overkill
     ]
+    null ;; don't look at trapped error value, just return null
 ]
 
 for-next: redescribe [

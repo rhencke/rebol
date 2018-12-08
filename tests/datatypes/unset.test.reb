@@ -17,7 +17,7 @@
 (error? trap [set* quote a: null a])
 (not error? trap [set* 'a null])
 
-(not error? trap [set* quote a: void a])
+(error? trap [set* quote a: void a])
 (not error? trap [set* 'a void])
 
 (

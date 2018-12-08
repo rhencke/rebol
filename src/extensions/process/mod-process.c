@@ -1922,13 +1922,23 @@ static REBNATIVE(terminate)
 //
 //  {Returns the value of an OS environment variable (for current process).}
 //
-//      return: [text! blank!]
-//          {String the environment variable was set to, or blank if not set}
-//      variable [text! word!]
-//          {Name of variable to get (case-insensitive in Windows)}
+//      return: "String the variable was set to, or null if not set"
+//          [<opt> text!]
+//      variable "Name of variable to get (case-insensitive in Windows)"
+//          [text! word!]
 //  ]
 //
 static REBNATIVE(get_env)
+//
+// !!! Prescriptively speaking, it is typically considered a bad idea to treat
+// an empty string environment variable as different from an unset one:
+//
+// https://unix.stackexchange.com/q/27708/
+//
+// It might be worth it to require a refinement to treat empty strings in a
+// different way, or to return them as BLANK! instead of plain TEXT! so they
+// were falsey like nulls but might trigger awareness of their problematic
+// nature in some string routines.  Review.
 {
     PROCESS_INCLUDE_PARAMS_OF_GET_ENV;
 
@@ -1946,7 +1956,7 @@ static REBNATIVE(get_env)
     DWORD val_len_plus_one = GetEnvironmentVariable(key, NULL, 0);
     if (val_len_plus_one == 0) { // some failure...
         if (GetLastError() == ERROR_ENVVAR_NOT_FOUND)
-            Init_Blank(D_OUT);
+            Init_Nulled(D_OUT);
         else
             error = Error_User("Unknown error when requesting variable size");
     }
@@ -1971,7 +1981,7 @@ static REBNATIVE(get_env)
 
     const char* val = getenv(key);
     if (val == NULL) // key not present in environment
-        Init_Blank(D_OUT);
+        Init_Nulled(D_OUT);
     else {
         size_t size = strsize(val);
 

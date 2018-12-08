@@ -666,7 +666,10 @@ REBNATIVE(try)
 {
     INCLUDE_PARAMS_OF_TRY;
 
-    if (IS_NULLED_OR_VOID(ARG(optional)))
+    if (IS_VOID(ARG(optional)))
+        fail ("TRY cannot accept VOID! values");
+
+    if (IS_NULLED(ARG(optional)))
         return Init_Blank(D_OUT);
 
     RETURN (ARG(optional));
@@ -676,9 +679,9 @@ REBNATIVE(try)
 //
 //  opt: native [
 //
-//  {Convert blank/void to null, other values pass through (See Also: TRY)}
+//  {Convert blanks to nulls, pass through most other values (See Also: TRY)}
 //
-//      return: "null if input was BLANK! or VOID!, else original value"
+//      return: "null on blank, void if input was null, else original value"
 //          [<opt> any-value!]
 //      optional [<opt> any-value!]
 //  ]
@@ -687,7 +690,17 @@ REBNATIVE(opt)
 {
     INCLUDE_PARAMS_OF_OPT;
 
-    if (IS_BLANK(ARG(optional)) or IS_VOID(ARG(optional)))
+    if (IS_VOID(ARG(optional)))
+        fail ("OPT cannot accept VOID! values");
+
+    // !!! Experimental idea: opting a null gives you a void.  You generally
+    // don't put OPT on expressions you believe can be null, so this permits
+    // creating a likely error in those cases.  To get around it, OPT TRY
+    //
+    if (IS_NULLED(ARG(optional)))
+        return Init_Void(D_OUT);
+
+    if (IS_BLANK(ARG(optional)))
         return nullptr;
 
     RETURN (ARG(optional));

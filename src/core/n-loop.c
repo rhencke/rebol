@@ -835,10 +835,10 @@ REBNATIVE(for_skip)
 //
 //  stop: native [
 //
-//  {End the current iteration of CYCLE and return a value}
+//  {End the current iteration of CYCLE and return a value (nulls allowed)}
 //
 //      value "If no argument is provided, assume VOID!"
-//          [<end> any-value!]
+//          [<opt> <end> any-value!]
 //  ]
 //
 REBNATIVE(stop)
@@ -852,13 +852,20 @@ REBNATIVE(stop)
 // CYCLE is different because it doesn't have any loop exit condition.  Hence
 // it responds to a STOP request, which lets it return any value.
 //
+// Coupled with the unusualness of CYCLE, NULL is allowed to come from a STOP
+// request because it is given explicitly.  STOP NULL thus seems identical
+// to the outside to a BREAK.
 {
     INCLUDE_PARAMS_OF_STOP;
 
     REBVAL *v = ARG(value);
 
     Move_Value(D_OUT, NAT_VALUE(stop));
-    CONVERT_NAME_TO_THROWN(D_OUT, IS_NULLED(v) ? VOID_VALUE : v);
+    if (IS_ENDISH_NULLED(v))
+        CONVERT_NAME_TO_THROWN(D_OUT, VOID_VALUE); // `if true [stop]`
+    else
+        CONVERT_NAME_TO_THROWN(D_OUT, v); // `if true [stop ...]`
+
     return R_THROWN;
 }
 
@@ -890,8 +897,7 @@ REBNATIVE(cycle)
                     // constructs, with a BREAK variant that returns a value.
                     //
                     CATCH_THROWN(D_OUT, D_OUT);
-                    assert(not IS_NULLED(D_OUT)); // reserved for BREAK!
-                    return D_OUT;
+                    return D_OUT; // special case: null allowed (like break)
                 }
 
                 return R_THROWN;

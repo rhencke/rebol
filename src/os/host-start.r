@@ -195,8 +195,8 @@ host-script-pre-load: function [
     ; Print out the script info
     boot-print [
         (if is-module ["Module:"] else ["Script:"]) select hdr 'title
-            "Version:" opt select hdr 'version
-            "Date:" opt select hdr 'date
+            "Version:" select hdr 'version
+            "Date:" select hdr 'date
     ]
 ]
 
@@ -340,9 +340,11 @@ host-start: function [
         {Convert string path to absolute dir! path}
 
         return: "Blank if not found"
-            [blank! file!]
-        dir [text!]
+            [<opt> file!]
+        dir [blank! text!]
     ][
+        if blank? dir [return null]
+
         return all [
             not empty? dir
             exists? dir: clean-path/dir local-to-file dir
@@ -352,33 +354,29 @@ host-start: function [
 
     get-home-path: function [
         {Return HOME path (e.g. $HOME on *nix)}
-
-        return: [blank! file!]
-            {Blank if not found}
+        return: [<opt> file!]
     ][
         get-env: attempt [:system/modules/Process/get-env] or [
             loud-print [
                 "Interpreter not built with GET-ENV, can't detect HOME dir" LF
                 "(Build with Process extension enabled to address this)"
             ]
-            return blank
+            return null
         ]
 
-        return try <- get-env 'HOME or [
+        return to-dir try any [
+            get-env 'HOME
             all [
                 homedrive: get-env 'HOMEDRIVE
                 homepath: get-env 'HOMEPATH
                 join-of homedrive homepath
             ]
-        ] then lambda home [
-            to-dir home
         ]
     ]
 
     get-resources-path: function [
         {Return platform specific resources path.}
-        return: [blank! file!]
-            {Blank if not found}
+        return: [<opt> file!]
     ][
         ;; lives under systems/options/home
 
@@ -388,7 +386,7 @@ host-start: function [
             %.rebol/     ;; default *nix (covers Linux, MacOS (OS X) and Unix)
         ]
 
-        try all [exists? path | path]
+        return if exists? path [path]
     ]
 
     ; Set system/users/home (users HOME directory)
@@ -397,9 +395,9 @@ host-start: function [
     ; NB. Above can be overridden by --home option
     ; TBD - check perms are correct (SECURITY)
     all [
-        home-dir: get-home-path             ;; _ if doesn't exist
+        home-dir: try get-home-path
         system/user/home: o/home: home-dir
-        resources-dir: get-resources-path   ;; _ if doesn't exist
+        resources-dir: try get-resources-path
         o/resources: resources-dir
     ]
 

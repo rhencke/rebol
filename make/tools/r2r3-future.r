@@ -103,7 +103,10 @@ not: func [optional [<opt> any-value!]] compose/deep [
 
 ; https://forum.rebol.info/t/if-at-first-you-dont-select-try-try-again/589
 ;
-try: :to-value
+try: func [return: [any-value!] optional [<opt> any-value!]] [
+    if void? :optional [fail/where "Cannot TRY on a VOID!" 'optional]
+    to-value :optional
+]
 
 
 ; https://forum.rebol.info/t/squaring-the-circle-of-length-and-length-of/385

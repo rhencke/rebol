@@ -381,7 +381,7 @@ REBNATIVE(also)
 //
 //  {Check value using tests (match types, TRUE or FALSE, or filter action)}
 //
-//      return: "Input argument if it matched, otherwise null"
+//      return: "Input if it matched, otherwise null (void if falsey match)"
 //          [<opt> any-value!]
 //      'test "Typeset membership, LOGIC! to test for truth, filter function"
 //          [
@@ -497,11 +497,11 @@ REBNATIVE(match)
 
         // MATCH *wants* to pass through the argument on a match, but
         // won't do so if the argument was falsey, as that is misleading.
-        // Instead it passes a BAR! back.
+        // Instead it passes a VOID! back (test with `value?` or `null?`)
 
         if (IS_TRUTHY(temp)) {
             if (IS_FALSEY(D_OUT))
-                return Init_Bar(D_OUT);
+                return Init_Void(D_OUT);
             return D_OUT;
         }
 
@@ -540,7 +540,7 @@ either_test:;
 
     if (VAL_LOGIC(temp)) {
         if (IS_FALSEY(D_OUT)) // see above for why false match not passed thru
-            return Init_Bar(D_OUT);
+            return Init_Void(D_OUT);
         return D_OUT;
     }
 

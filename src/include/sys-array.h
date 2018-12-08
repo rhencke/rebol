@@ -560,6 +560,16 @@ inline static bool Splices_Into_Type_Without_Only(
     enum Reb_Kind array_kind,
     const REBVAL *arg
 ){
+    // !!! It's desirable for the system to make VOID! insertion "ornery".
+    // Requiring the use of /ONLY to put it into arrays may not be perfect,
+    // but it's at least something.  Having the check and error in this
+    // routine for the moment helps catch it on at least some functions that
+    // are similar to APPEND/INSERT/CHANGE in their concerns, and *have*
+    // an /ONLY option.
+    //
+    if (IS_VOID(arg))
+        fail ("VOID! cannot be put into arrays without using /ONLY");
+
     assert(ANY_ARRAY_KIND(array_kind));
     return IS_GROUP(arg)
         or IS_BLOCK(arg)

@@ -22,7 +22,7 @@
 (null = match 'odd? 20)
 (7 = match 'odd? 7)
 
-(bar? match blank! _)
+(void? match blank! _)
 (null = match blank! 10)
 (null = match blank! false)
 

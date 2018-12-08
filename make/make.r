@@ -343,11 +343,11 @@ targets: [
     ]
     'vs2017
     'visual-studio [
-        x86: try all [system-config/os-name = 'Windows-x86 'x86]
+        x86: try if system-config/os-name = 'Windows-x86 ['x86]
         rebmake/visual-studio/generate/(x86) %. solution
     ]
     'vs2015 [
-        x86: try all [system-config/os-name = 'Windows-x86 'x86]
+        x86: try if system-config/os-name = 'Windows-x86 ['x86]
         rebmake/vs2015/generate/(x86) %. solution
     ]
 ]

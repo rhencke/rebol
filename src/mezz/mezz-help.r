@@ -73,10 +73,10 @@ title-of: function [
 ][
     opt switch type of :value [
         action! [
-            all [
+            try all [
                 meta: try match object! meta-of :value
                 copy try match text! select meta 'description
-            ] ;-- may be null and get voidified, hence OPT
+            ]
         ]
 
         datatype! [
@@ -389,10 +389,10 @@ help: function [
     print-args: function [list /indent-words] [
         for-each param list [
             type: try ensure* block! (
-                opt select fields/parameter-types to-word param
+                select fields/parameter-types to-word param
             )
             note: try ensure* text! (
-                opt select fields/parameter-notes to-word param
+                select fields/parameter-notes to-word param
             )
 
             ;-- parameter name and type line

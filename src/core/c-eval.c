@@ -1837,8 +1837,11 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto process_action;
         }
 
-        if (IS_NULLED(current_gotten)) // need `:x` if `x` is unset
-            fail (Error_No_Value_Core(current, f->specifier));
+        if (IS_NULLED_OR_VOID(current_gotten)) { // need `:x` if `x` is unset
+            if (IS_NULLED(current_gotten))
+                fail (Error_No_Value_Core(current, f->specifier));
+            fail (Error_Need_Non_Void_Core(current, f->specifier));
+        }
 
         Move_Value(f->out, current_gotten); // no copy VALUE_FLAG_UNEVALUATED
         break;
@@ -2040,8 +2043,11 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto return_thrown;
         }
 
-        if (IS_NULLED(f->out)) // need `:x/y` if `y` is unset
-            fail (Error_No_Value_Core(current, f->specifier));
+        if (IS_NULLED_OR_VOID(f->out)) { // need `:x/y` if `y` is unset
+            if (IS_NULLED(f->out))
+                fail (Error_No_Value_Core(current, f->specifier));
+            fail (Error_Need_Non_Void_Core(current, f->specifier));
+        }
 
         if (IS_ACTION(f->out)) {
             //
