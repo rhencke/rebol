@@ -104,9 +104,9 @@ matrix:
         - STANDARD=c99
         - RIGOROUS=no
         - STATIC=no
-        - WITH_FFI="dynamic"
+        - WITH_FFI="no" # no FFI in this build
         - ODBC_REQUIRES_LTDL="no"
-        - EXTENSIONS="ODBC + ZeroMQ +"
+        - EXTENSIONS="" # No ODBC or ZeroMQ in this build
       # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
 
     # OSX x64, release, clang++
