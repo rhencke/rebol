@@ -128,7 +128,11 @@ back: specialize 'skip [
 bound?: chain [specialize 'reflect [property: 'binding] | :value?]
 
 unspaced: specialize 'delimit [delimiter: _]
+unspaced-text: chain [:unspaced | specialize 'else [branch: [copy ""]]]
+
 spaced: specialize 'delimit [delimiter: space]
+spaced-text: chain [:spaced | specialize 'else [branch: [copy ""]]]
+
 newlined: chain [
     adapt specialize 'delimit [delimiter: newline] [
         if text? :value [

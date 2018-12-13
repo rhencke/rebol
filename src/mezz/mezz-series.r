@@ -538,10 +538,15 @@ collect-lines: adapt 'collect [ ;; https://forum.rebol.info/t/945/1
     ]
 ]
 
+collect-block: chain [ ;; Gives empty block instead of null if no keeps
+    :collect
+        |
+    specialize 'else [branch: [copy []]]
+]
+
 collect-text: chain [ ;; https://forum.rebol.info/t/945/2
      adapt 'collect [
          body: compose/only [
-             keep [] ;; collect at least empty block, CHAIN SPACED nulls it
              keep: adapt specialize 'keep [
                  line: false | only: false | part: false
              ][
@@ -550,8 +555,12 @@ collect-text: chain [ ;; https://forum.rebol.info/t/945/2
              (as group! body)
          ]
      ]
-         |
-     :spaced
+        |
+    :try
+        |
+    :spaced
+        |
+    specialize 'else [branch: [copy ""]]
 ]
 
 format: function [
@@ -641,8 +650,7 @@ split: function [
 
     if tag? dlm [dlm: form dlm] ;-- reserve other strings for future meanings
 
-    result: collect [
-        keep [] ;-- adds nothing, but guarantees non-null COLLECT result
+    result: collect-block [
         parse series <- if integer? dlm [
             size: dlm ;-- alias for readability in integer case
             if size < 1 [fail "Bad SPLIT size given:" size]

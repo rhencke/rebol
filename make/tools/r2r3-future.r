@@ -674,7 +674,6 @@ collect-lines: adapt 'collect [ ;; https://forum.rebol.info/t/945/1
 collect-text: chain [ ;; https://forum.rebol.info/t/945/2
     adapt 'collect [
         body: compose/only [
-            keep [] ;; if it becomes empty block, CHAIN SPACED nulls it
             keep: adapt 'keep [
                 any [null? :value block? :value text? :value blank? :value] else [
                     fail/where [type of :value "to COLLECT-TEXT/KEEP"] 'value
@@ -685,7 +684,17 @@ collect-text: chain [ ;; https://forum.rebol.info/t/945/2
         ]
     ]
         |
+    :try
+        |
     :spaced
+        |
+    specialize 'else [branch: [copy ""]]
+]
+
+collect-block: chain [ ;; Gives empty block instead of null if no keeps
+    :collect
+        |
+    specialize 'else [branch: [copy []]]
 ]
 
 unless: enfix func [ ; https://forum.rebol.info/t/881
@@ -696,7 +705,12 @@ unless: enfix func [ ; https://forum.rebol.info/t/881
     :left
 ]
 
---: :dump
+--: func [:word] [
+    switch type of :word [
+        refinement! :word [print ["--" :word]]
+        default [dump (word)]
+    ]
+]
 
 iterate: func ['word body] compose [
     if blank? get word [return null]

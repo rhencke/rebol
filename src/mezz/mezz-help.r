@@ -27,8 +27,6 @@ spec-of: function [
     ]
 
     return collect [
-        keep []
-
         keep/line ensure* text! any [
             select meta 'description
             select original-meta 'description
@@ -280,7 +278,7 @@ help: function [
     ]
 
     if not action? :value [
-        print spaced collect [
+        print collect [
             keep [(uppercase mold topic) "is" an (mold type of :value)]
             if free? :value [
                 keep "that has been FREEd"

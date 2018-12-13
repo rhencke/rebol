@@ -75,8 +75,7 @@ emit-proto: func [return: <void> proto] [
         fail ["API declaration should be a SET-WORD!, not" (header/1)]
     ]
 
-    paramlist: collect [
-        keep [] ;-- ensures result is non-null even if no params
+    paramlist: collect-block [
         parse proto [
             copy returns to "RL_" "RL_" copy name to "(" skip
             ["void)" | some [ ;-- C void, or at least one parameter expected
