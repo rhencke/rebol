@@ -762,7 +762,7 @@ REBTYPE(Map)
         );
 
         if (VAL_WORD_SYM(verb) == SYM_FIND)
-            return IS_NULLED(D_OUT) ? nullptr : BAR_VALUE;
+            return IS_NULLED(D_OUT) ? nullptr : Init_Bar(D_OUT);
 
         return D_OUT; }
 
