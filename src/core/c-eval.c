@@ -1762,38 +1762,36 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       skip_output_check:;
 
-        // If we have functions pending to run on the outputs, then do so.
+        // If we have functions pending to run on the outputs (e.g. this was
+        // the result of a CHAIN) we can run those chained functions in the
+        // same REBFRM, for efficiency.
         //
         while (DSP != f->dsp_orig) {
-            assert(IS_ACTION(DS_TOP));
-
-            Move_Value(FRM_CELL(f), f->out);
-
-            // Data stack values cannot be used directly in an apply, because
-            // the evaluator uses DS_PUSH, which could relocate the stack
-            // and invalidate the pointer.
             //
-            DECLARE_LOCAL (fun);
-            Move_Value(fun, DS_TOP);
-
-            if (Apply_Only_Throws(
-                f->out,
-                true, // fully = true
-                fun,
-                NULLIZE(FRM_CELL(f)), // nulled cell => nullptr for API
-                rebEND
-            )){
-                goto abort_action;
-            }
-
+            // We want to keep the label that the function was invoked with,
+            // because the other phases in the chain are implementation
+            // details...and if there's an error, it should still show the
+            // name the user invoked the function with.  But we have to drop
+            // the action args, as the paramlist is likely be completely
+            // incompatible with this next chain step.
+            //
+            REBSTR *opt_label = f->opt_label;
+            Drop_Action(f);
+            Push_Action(f, VAL_ACTION(DS_TOP), VAL_BINDING(DS_TOP));
             DS_DROP;
+
+            // We use the same mechanism as enfix operations do...give the
+            // next chain step its first argument coming from f->out
+            //
+            // !!! One side effect of this is that unless CHAIN is changed
+            // to check, your chains can consume more than one argument.
+            // This might be interesting or it might be bugs waiting to
+            // happen, trying it out of curiosity for now.
+            //
+            Begin_Action(f, opt_label, LOOKBACK_ARG);
+            goto process_action;
         }
 
-        // !!! It would technically be possible to drop the arguments before
-        // running chains... and if the chained function were to run *in*
-        // this frame that could be even more optimal.  However, having the
-        // original function still on the stack helps make errors clearer.
-        //
         Drop_Action(f);
         break;
 

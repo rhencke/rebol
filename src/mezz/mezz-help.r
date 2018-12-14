@@ -15,6 +15,7 @@ REBOL [
 spec-of: function [
     {Generate a block which could be used as a "spec block" from an action.}
 
+    return: [block!]
     action [action!]
 ][
     meta: try match object! meta-of :action
@@ -26,7 +27,7 @@ spec-of: function [
         meta-of :adaptee
     ]
 
-    return collect [
+    return collect-block [
         keep/line ensure* text! any [
             select meta 'description
             select original-meta 'description

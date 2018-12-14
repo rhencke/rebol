@@ -20,7 +20,7 @@
     not find m 'a
 )]
 
-[did find make map! [foo 0] 'foo]
+(did find make map! [foo 0] 'foo)
 
 [#2293 (
     thing: copy/deep [a [b]]
