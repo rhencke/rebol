@@ -479,7 +479,7 @@ REBNATIVE(do)
 //          varargs! ;-- simulates as if frame! or block! is being executed
 //      ]
 //      /set "Store result in a variable (assuming something was evaluated)"
-//      var [any-word! blank!]
+//      var [any-word!]
 //          "If not blank, then a variable updated with new position"
 //  ]
 //
@@ -491,11 +491,6 @@ REBNATIVE(evaluate)
   #if !defined(NDEBUG)
     SET_VAL_FLAG(ARG(source), CELL_FLAG_PROTECTED);
   #endif
-
-    const REBVAL *var = ARG(var);
-    if (IS_BLANK(var))
-        var = NULLED_CELL;
-    UNUSED(REF(set)); // accounted for by checking var for nulled cell
 
     switch (VAL_TYPE(source)) {
     case REB_BLANK:
@@ -523,7 +518,7 @@ REBNATIVE(evaluate)
 
         assert(NOT_VAL_FLAG(temp, VALUE_FLAG_UNEVALUATED));
 
-        if (not IS_NULLED(var))
+        if (REF(set))
             Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), temp);
 
         Move_Value(D_OUT, source);
@@ -568,8 +563,8 @@ REBNATIVE(evaluate)
                 return nullptr;
             }
 
-            if (not IS_NULLED(var))
-                Move_Value(Sink_Var_May_Fail(var, SPECIFIED), source);
+            if (REF(set))
+                Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), source);
 
             RETURN (source); // original VARARGS! will have updated position
         }
@@ -594,8 +589,8 @@ REBNATIVE(evaluate)
         if (IS_END(temp))
             return nullptr;
 
-        if (not IS_NULLED(var))
-            Move_Value(Sink_Var_May_Fail(var, SPECIFIED), temp);
+        if (REF(set))
+            Move_Value(Sink_Var_May_Fail(ARG(var), SPECIFIED), temp);
 
         RETURN (source); } // original VARARGS! will have an updated position
 

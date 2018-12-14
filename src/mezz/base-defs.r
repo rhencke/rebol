@@ -127,7 +127,9 @@ back: specialize 'skip [
 
 bound?: chain [specialize 'reflect [property: 'binding] | :value?]
 
-unspaced: specialize 'delimit [delimiter: _]
+unspaced: adapt specialize 'delimit [delimiter: "!nulled!"][
+    delimiter: null ;-- workaround current limitation of null specializations
+]
 unspaced-text: chain [:unspaced | specialize 'else [branch: [copy ""]]]
 
 spaced: specialize 'delimit [delimiter: space]

@@ -683,7 +683,7 @@ REBNATIVE(try)
 //
 //      return: "null on blank, void if input was null, else original value"
 //          [<opt> any-value!]
-//      optional [<opt> any-value!]
+//      optional [<opt> <blank> any-value!]
 //  ]
 //
 REBNATIVE(opt)
@@ -699,9 +699,6 @@ REBNATIVE(opt)
     //
     if (IS_NULLED(ARG(optional)))
         return Init_Void(D_OUT);
-
-    if (IS_BLANK(ARG(optional)))
-        return nullptr;
 
     RETURN (ARG(optional));
 }
@@ -1013,11 +1010,11 @@ REBNATIVE(free_q)
 //
 //  as: native [
 //
-//  {Aliases the underlying data of one series to act as another of same class}
+//  {Aliases underlying data of one series to act as another of same class}
 //
 //      return: [<opt> any-series! any-word!]
 //      type [datatype!]
-//      value [blank! any-series! any-word!]
+//      value [<blank> any-series! any-word!]
 //  ]
 //
 REBNATIVE(as)
@@ -1025,9 +1022,6 @@ REBNATIVE(as)
     INCLUDE_PARAMS_OF_AS;
 
     REBVAL *v = ARG(value);
-    if (IS_BLANK(v))
-        return nullptr; // "blank in, null out" convention for non-modifiers
-
     enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
 
     switch (new_kind) {

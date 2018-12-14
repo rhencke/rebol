@@ -103,10 +103,10 @@ static struct {
 //
 //      return: "Null if blank input or block's contents are all null"
 //          [<opt> text!]
-//      delimiter "Blank means no delimiter (same as empty string)"
-//          [blank! char! text!]
+//      delimiter "Null means no delimiter (same as empty string)"
+//          [<opt> char! text!]
 //      line "Will be copied if already a text value"
-//          [blank! text! block!]
+//          [<blank> text! block!]
 //  ]
 //
 REBNATIVE(delimit)
@@ -114,8 +114,6 @@ REBNATIVE(delimit)
     INCLUDE_PARAMS_OF_DELIMIT;
 
     REBVAL *line = ARG(line);
-    if (IS_BLANK(line))
-        return nullptr; // blank in, null out convention
     if (IS_TEXT(line))
         return rebRun("copy", line, rebEND); // !!! Review performance
 

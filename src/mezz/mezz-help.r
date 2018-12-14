@@ -90,7 +90,7 @@ browse: function [
     "stub function for browse* in extensions/process/ext-process-init.reb"
 
     return: <void>
-    location [url! file! blank!]
+    location [<blank> url! file!]
 ][
     print "Browse needs redefining"
 ]

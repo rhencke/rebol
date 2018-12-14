@@ -314,6 +314,14 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 #define Is_Param_Unbindable(v) \
     TYPE_CHECK((v), REB_TS_UNBINDABLE)
 
+// Parameters can be marked such that if they are blank, the action will not
+// be run at all.  This is done via the `<blank>` annotation, which indicates
+// "handle blanks specially" (in contrast to BLANK!, which just means a
+// parameter can be passed in as a blank, and the function runs normally)
+//
+#define REB_TS_NOOP_IF_BLANK \
+    REB_MAX_PLUS_FIVE
+
 
 #ifdef NDEBUG
     #define TYPESET_FLAG(n) \
@@ -323,12 +331,12 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
         (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | FLAG_KIND_BYTE(REB_TYPESET))
 #endif
 
-// ^-- STOP AT TYPESET_FLAG(4) --^
-//
-// The "mid" byte uses 3 bits to store the parameter class, leaving only 5
-// bits for typeset values.
+
+// ^-- STOP AT TYPESET_FLAG(-1) (e.g. don't use them) --^
 //
 // !!! TYPESET_FLAG_XXX is not currently in use, only "pseudotype" flags are.
+// This is so a whole byte is taken for the parameter class, to make fetching
+// and setting it faster.
 //
 #ifdef CPLUSPLUS_11
 static_assert(0 < 8 - PCLASS_NUM_BITS, "TYPESET_FLAG_XXX too high");

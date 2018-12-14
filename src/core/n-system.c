@@ -320,7 +320,7 @@ int ceil_log2(unsigned long long x) {
 //  {Break at known evaluation point (only use when running under C debugger}
 //
 //      return: [<opt>]
-//      tick [integer! blank!]
+//      tick [<blank> integer!]
 //          {Get from PANIC, REBFRM.tick, REBSER.tick, REBVAL.extra.tick}
 //      /relative
 //          {TICK parameter represents a count relative to the current tick}

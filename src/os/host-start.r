@@ -339,12 +339,10 @@ host-start: function [
     to-dir: function [
         {Convert string path to absolute dir! path}
 
-        return: "Blank if not found"
+        return: "Null if not found"
             [<opt> file!]
-        dir [blank! text!]
+        dir [<blank> text!]
     ][
-        if blank? dir [return null]
-
         return all [
             not empty? dir
             exists? dir: clean-path/dir local-to-file dir

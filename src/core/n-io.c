@@ -100,7 +100,7 @@ REBNATIVE(mold)
 //  "Write text to standard output, or raw BINARY! (for control codes / CGI)"
 //
 //      return: [<opt> void!]
-//      value [blank! text! char! binary!]
+//      value [<blank> text! char! binary!]
 //          "Text to write, if a STRING! or CHAR! is converted to OS format"
 //  ]
 //
@@ -109,9 +109,6 @@ REBNATIVE(write_stdout)
     INCLUDE_PARAMS_OF_WRITE_STDOUT;
 
     REBVAL *v = ARG(value);
-
-    if (IS_BLANK(v))
-        return nullptr;
 
     if (IS_BINARY(v)) {
         //
@@ -613,7 +610,7 @@ REBNATIVE(wake_up)
 //
 //      return: [<opt> file!]
 //          {The returned value should be a valid natural FILE! literal}
-//      path [text! file! blank!]
+//      path [<blank> text! file!]
 //          {Path to convert (by default, only TEXT! for type safety)}
 //      /pass
 //          {Convert TEXT!, but pass thru FILE!, assuming it's canonized}
@@ -626,8 +623,6 @@ REBNATIVE(local_to_file)
     INCLUDE_PARAMS_OF_LOCAL_TO_FILE;
 
     REBVAL *path = ARG(path);
-    if (IS_BLANK(path))
-        return nullptr; // blank in, null out protocol
     if (IS_FILE(path)) {
         if (not REF(pass))
             fail ("LOCAL-TO-FILE only passes through FILE! if /PASS used");
@@ -656,7 +651,7 @@ REBNATIVE(local_to_file)
 //
 //      return: [<opt> text!]
 //          {A TEXT! like "\foo\bar" is not a "natural" FILE! %\foo\bar}
-//      path [file! text! blank!]
+//      path [<blank> file! text!]
 //          {Path to convert (by default, only FILE! for type safety)}
 //      /pass
 //          {Convert FILE!s, but pass thru TEXT!, assuming it's local}
@@ -673,8 +668,6 @@ REBNATIVE(file_to_local)
     INCLUDE_PARAMS_OF_FILE_TO_LOCAL;
 
     REBVAL *path = ARG(path);
-    if (IS_BLANK(path))
-        return nullptr; // blank in, null out protocol
     if (IS_TEXT(path)) {
         if (not REF(pass))
             fail ("FILE-TO-LOCAL only passes through STRING! if /PASS used");

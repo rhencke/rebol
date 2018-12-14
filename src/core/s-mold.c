@@ -571,9 +571,9 @@ bool Form_Reduce_Throws(
 ){
     if (IS_TEXT(delimiter)) {
         if (VAL_LEN_AT(delimiter) == 0)
-            delimiter = BLANK_VALUE; // avoid repeating emptiness test in loop
+            delimiter = NULLED_CELL; // avoid repeating emptiness test in loop
     } else
-        assert(IS_BLANK(delimiter) or IS_CHAR(delimiter));
+        assert(IS_NULLED(delimiter) or IS_CHAR(delimiter));
 
     DECLARE_MOLD (mo);
     Push_Mold(mo);
@@ -603,7 +603,7 @@ bool Form_Reduce_Throws(
             Append_Utf8_Codepoint(mo->series, VAL_CHAR(out));
             pending = false;
         }
-        else if (IS_BLANK(delimiter)) // may be detected empty text above
+        else if (IS_NULLED(delimiter)) // may be detected empty text above
             Form_Value(mo, out);
         else {
             if (pending)

@@ -84,9 +84,9 @@ REB_R MAKE_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //      return: [<opt> any-value!]
 //          {Constructed value, or NULL if BLANK! input}
-//      type [any-value!]
+//      type [<blank> any-value!]
 //          {The datatype -or- an examplar value of the type to construct}
-//      def [any-value!]
+//      def [<blank> any-value!]
 //          {Definition or size of the new value (binding may be modified)}
 //  ]
 //
@@ -109,9 +109,6 @@ REBNATIVE(make)
         kind = VAL_TYPE_KIND(type);
     else
         kind = VAL_TYPE(type);
-
-    if (IS_BLANK(arg) and kind != REB_BLANK) // errors below if kind == blank
-        return nullptr; // follows "blank in, null out" (Note that TO doesn't)
 
 #if !defined(NDEBUG)
     if (IS_GOB(type)) {
@@ -186,8 +183,8 @@ REB_R TO_Unhooked(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //      return: "VALUE converted to TYPE, null if type or value are blank"
 //          [<opt> any-value!]
-//      type [blank! datatype!]
-//      value [any-value!]
+//      type [<blank> datatype!]
+//      value [<blank> any-value!]
 //  ]
 //
 REBNATIVE(to)
@@ -195,10 +192,6 @@ REBNATIVE(to)
     INCLUDE_PARAMS_OF_TO;
 
     REBVAL *v = ARG(value);
-
-    if (IS_BLANK(ARG(type)) or IS_BLANK(v))
-        return nullptr; // blank in null out...works for either argument
-
     enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
 
     TO_HOOK hook = To_Hooks[new_kind];

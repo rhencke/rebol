@@ -256,7 +256,7 @@ static bool Subparse_Throws(
         if (IS_ACTION(out)) {
             if (VAL_ACTION(out) == NAT_ACTION(parse_reject)) {
                 CATCH_THROWN(out, out);
-                assert(IS_BLANK(out));
+                assert(IS_NULLED(out));
                 *interrupted_out = true;
                 return false;
             }
@@ -524,7 +524,7 @@ static REBIXO Parse_String_One_Rule(REBFRM *f, const RELVAL *rule) {
 
         // !!! ignore "interrupted"? (e.g. ACCEPT or REJECT ran)
 
-        if (IS_BLANK(P_CELL))
+        if (IS_NULLED(P_CELL))
             return END_FLAG;
 
         REBINT index = VAL_INT32(P_CELL);
@@ -675,7 +675,7 @@ static REBIXO Parse_Array_One_Rule_Core(
 
         P_POS = pos_before; // restore input position
 
-        if (IS_BLANK(P_CELL))
+        if (IS_NULLED(P_CELL))
             return END_FLAG;
 
         REBINT index = VAL_INT32(P_CELL);
@@ -1292,7 +1292,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
 //
 //  {Internal support function for PARSE (acts as variadic to consume rules)}
 //
-//      return: [integer! blank!]
+//      return: [<opt> integer!]
 //      input [any-series!]
 //      find-flags [integer!]
 //  ]
@@ -1582,7 +1582,7 @@ REBNATIVE(subparse)
                         // Similarly, this is a break/continue style "throw"
                         //
                         Move_Value(P_OUT, NAT_VALUE(parse_reject));
-                        CONVERT_NAME_TO_THROWN(P_OUT, BLANK_VALUE);
+                        CONVERT_NAME_TO_THROWN(P_OUT, NULLED_CELL);
                         return R_THROWN;
                     }
 
@@ -1929,7 +1929,7 @@ REBNATIVE(subparse)
 
                     // !!! ignore interrupted? (e.g. ACCEPT or REJECT ran)
 
-                    if (IS_BLANK(P_CELL)) {
+                    if (IS_NULLED(P_CELL)) {
                         i = END_FLAG;
                     }
                     else {
@@ -1982,7 +1982,7 @@ REBNATIVE(subparse)
 
                 // Non-breaking out of loop instances of match or not.
 
-                if (IS_BLANK(P_CELL))
+                if (IS_NULLED(P_CELL))
                     i = END_FLAG;
                 else {
                     assert(IS_INTEGER(P_CELL));
@@ -2316,7 +2316,7 @@ REBNATIVE(subparse)
 
             FETCH_TO_BAR_OR_END(f);
             if (IS_END(P_RULE)) // no alternate rule
-                return Init_Blank(D_OUT);
+                return Init_Nulled(D_OUT);
 
             // Jump to the alternate rule and reset input
             //
@@ -2339,10 +2339,10 @@ REBNATIVE(subparse)
 //
 //      return: "null if end not reached, BAR! if so, or RETURN value"
 //          [<opt> any-value!]
-//      input "Input series to parse (blank input just returns null)"
-//          [blank! any-series!]
+//      input "Input series to parse"
+//          [<blank> any-series!]
 //      rules "Rules to parse by"
-//          [block!]
+//          [<blank> block!]
 //      /case "Uses case-sensitive comparison"
 //  ]
 //
@@ -2351,9 +2351,6 @@ REBNATIVE(parse)
     INCLUDE_PARAMS_OF_PARSE;
 
     REBVAL *rules = ARG(rules);
-
-    if (IS_BLANK(ARG(input)))
-        return nullptr; // "blank in, null out" convention
 
     bool interrupted;
     if (Subparse_Throws(
@@ -2398,7 +2395,7 @@ REBNATIVE(parse)
 
     // Parse can fail if the match rule state can't process pending input.
     //
-    if (IS_BLANK(D_OUT))
+    if (IS_NULLED(D_OUT))
         return nullptr;
 
     // If the match rules all completed, but the parse position didn't end

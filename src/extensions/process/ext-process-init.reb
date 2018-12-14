@@ -14,10 +14,8 @@ browse*: function [
     "Open web browser to a URL or local file."
 
     return: <void>
-    location [url! file! blank!]
+    location [<blank> url! file!]
 ][
-    if blank? location [return]
-
     ; Note that GET-OS-BROWSERS uses the Windows registry convention of having
     ; %1 be what needs to be substituted.  This may not be ideal, it was just
     ; easy to do rather than have to add processing on the C side.  Review.

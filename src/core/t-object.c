@@ -443,7 +443,7 @@ REB_R PD_Context(
 //  {Get a reference to the "meta" context associated with a value.}
 //
 //      return: [<opt> any-context!]
-//      value [blank! action! any-context!]
+//      value [<blank> action! any-context!]
 //  ]
 //
 REBNATIVE(meta_of)
@@ -453,8 +453,6 @@ REBNATIVE(meta_of)
     INCLUDE_PARAMS_OF_META_OF;
 
     REBVAL *v = ARG(value);
-    if (IS_BLANK(v))
-        return nullptr;
 
     REBCTX *meta;
     if (IS_ACTION(v))

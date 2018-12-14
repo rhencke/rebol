@@ -646,7 +646,7 @@ restart:;
             // is in a way that a script can detect, and continue running:
             //
             //    print "Enter filename (ESC to return to main menu):"
-            //    if blank? filename: input [
+            //    if not filename: input [
             //       return 'go-to-main-menu
             //    ]
             //

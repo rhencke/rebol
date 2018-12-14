@@ -393,7 +393,7 @@ struct Loop_Each_State {
 // Returns nullptr or R_THROWN, where the relevant result is in les->out.
 // (That result may be IS_NULLED() if there was a break during the loop)
 //
-REBVAL *Loop_Each_Core(struct Loop_Each_State *les) {
+static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
 
     bool more_data = true;
     bool broke = false;
@@ -638,9 +638,6 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 {
     INCLUDE_PARAMS_OF_FOR_EACH; // MAP-EACH & EVERY must have same interface
 
-    if (IS_BLANK(ARG(data)))
-        return nullptr; // blank in, null out convention
-
     Init_Blank(D_OUT); // result if body never runs (MAP-EACH gives [])
 
     struct Loop_Each_State les;
@@ -882,9 +879,9 @@ REBNATIVE(for)
 //      'word "Variable set to each position in the series at skip distance"
 //          [word! lit-word! blank!]
 //      series "The series to iterate over"
-//          [any-series! blank!]
+//          [<blank> any-series!]
 //      skip "Number of positions to skip each time"
-//          [integer! blank!]
+//          [<blank> integer!]
 //      body "Code to evaluate each time"
 //          [block! action!]
 //  ]
@@ -894,10 +891,8 @@ REBNATIVE(for_skip)
     INCLUDE_PARAMS_OF_FOR_SKIP;
 
     REBVAL *series = ARG(series);
-    if (IS_BLANK(series) or IS_BLANK(ARG(skip)))
-        return nullptr; // blank in, null out (same result as BREAK)
 
-    Init_Blank(D_OUT); // result if body never runs
+    Init_Blank(D_OUT); // result if body never runs, like `while [null] [...]`
 
     REBINT skip = Int32(ARG(skip));
     if (skip == 0) {
@@ -1057,9 +1052,9 @@ REBNATIVE(cycle)
 //          {Last body result, or null if BREAK}
 //      'vars [word! lit-word! block!]
 //          "Word or block of words to set each time, no new var if LIT-WORD!"
-//      data [any-series! any-context! map! blank! datatype! action!]
-//          "The series to traverse, or action to evaluate each time"
-//      body [block!]
+//      data [<blank> any-series! any-context! map! datatype! action!]
+//          "The series to traverse"
+//      body [block! action!]
 //          "Block to evaluate each time"
 //  ]
 //
@@ -1078,9 +1073,9 @@ REBNATIVE(for_each)
 //          {null on BREAK, blank on empty, false or the last truthy value}
 //      'vars [word! block!]
 //          "Word or block of words to set each time (local)"
-//      data [any-series! any-context! map! action! blank! datatype!]
+//      data [<blank> any-series! any-context! map! datatype! action!]
 //          "The series to traverse"
-//      body [block!]
+//      body [block! action!]
 //          "Block to evaluate each time"
 //  ]
 //
@@ -1364,9 +1359,9 @@ static REB_R Remove_Each_Core(struct Remove_Each_State *res)
 //          {Number of removed series items, or null if BREAK}
 //      'vars [word! block!]
 //          "Word or block of words to set each time (local)"
-//      data [any-series!]
+//      data [<blank> any-series!]
 //          "The series to traverse (modified)" ; should BLANK! opt-out?
-//      body [block!]
+//      body [block! action!]
 //          "Block to evaluate (return TRUE to remove)"
 //  ]
 //
@@ -1487,8 +1482,8 @@ REBNATIVE(remove_each)
 //          {Collected block (BREAK/WITH can add a final result to block)}
 //      'vars [word! block!]
 //          "Word or block of words to set each time (local)"
-//      data [any-series! action! blank!]
-//          "The series to traverse, blank to opt out"
+//      data [<blank> any-series! action!]
+//          "The series to traverse"
 //      body [block!]
 //          "Block to evaluate each time"
 //  ]
@@ -1506,7 +1501,7 @@ REBNATIVE(map_each)
 //
 //      return: [<opt> any-value!]
 //          {Last body result, or null if BREAK}
-//      count [any-number! logic! blank!]
+//      count [<blank> any-number! logic!]
 //          "Repetitions (true loops infinitely, false doesn't run)"
 //      body [block! action!]
 //          "Block to evaluate or action to run."
@@ -1516,15 +1511,12 @@ REBNATIVE(loop)
 {
     INCLUDE_PARAMS_OF_LOOP;
 
-    if (IS_BLANK(ARG(count)))
-        return nullptr; // BLANK in, NULL out (same output as BREAK)
+    Init_Blank(D_OUT); // result if body never runs, like `while [null] [...]`
 
     if (IS_FALSEY(ARG(count))) {
         assert(IS_LOGIC(ARG(count))); // is false...opposite of infinite loop
-        return Init_Blank(D_OUT);
+        return D_OUT;
     }
-
-    Init_Blank(D_OUT); // result if body never runs
 
     REBI64 count;
 
@@ -1567,7 +1559,7 @@ REBNATIVE(loop)
 //          {Last body result or BREAK value}
 //      'word [word!]
 //          "Word to set each time"
-//      value [any-number! any-series! blank!]
+//      value [<blank> any-number! any-series!]
 //          "Maximum number or series to traverse"
 //      body [block!]
 //          "Block to evaluate each time"
@@ -1578,9 +1570,6 @@ REBNATIVE(repeat)
     INCLUDE_PARAMS_OF_REPEAT;
 
     REBVAL *value = ARG(value);
-
-    if (IS_BLANK(value))
-        return nullptr; // blank in, void out (same result as BREAK)
 
     if (IS_DECIMAL(value) or IS_PERCENT(value))
         Init_Integer(value, Int64(value));

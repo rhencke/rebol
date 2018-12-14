@@ -222,7 +222,7 @@ find: generic [
     {Searches for the position where a matching value is found}
     return: {position found, else blank (void if series is itself blank)}
         [<opt> any-series! blank! bar!]
-    series [any-series! any-context! map! gob! bitset! typeset! blank!]
+    series [<blank> any-series! any-context! map! gob! bitset! typeset!]
     value [any-value!]
     /part {Limits the search to a given length or position}
     limit [any-number! any-series! pair!]
@@ -239,7 +239,7 @@ find: generic [
 select: generic [
     {Searches for a value; returns the value that follows, else void.}
     return: [<opt> any-value!]
-    series [any-series! any-context! map! blank!]
+    series [<blank> any-series! any-context! map!]
     value [any-value!]
     /part {Limits the search to a given length or position}
     limit [any-number! any-series! pair!]
@@ -344,7 +344,7 @@ change: generic [
 
 remove: generic [
     {Removes element(s); returns same position.}
-    series [any-series! map! gob! port! bitset! blank!] {At position (modified)}
+    series [any-series! map! gob! port! bitset!] {At position (modified)}
     /part {Removes multiple elements or to a given position}
     limit [any-number! any-series! pair! char!]
     /map {Remove key from map}
@@ -353,7 +353,7 @@ remove: generic [
 
 clear: generic [
     {Removes elements from current position to tail; returns at new tail.}
-    series [any-series! port! map! gob! bitset! blank!] {At position (modified)}
+    series [any-series! port! map! gob! bitset!] {At position (modified)}
 ]
 
 swap: generic [
@@ -447,7 +447,7 @@ query: generic [
     return: [<opt> object!]
     target [port! file! url! block!]
     /mode "Get mode information"
-    field [word! blank!] "NONE will return valid modes for port type"
+    field [word! blank!] "blank will return valid modes for port type"
 ]
 
 modify: generic [

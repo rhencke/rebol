@@ -288,6 +288,12 @@ inline static void Finalize_Arg(
             fail (Error_Bad_Refine_Revoke(param, arg));
     }
 
+    if (IS_BLANK(arg) and TYPE_CHECK(param, REB_TS_NOOP_IF_BLANK)) {
+        SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+        FRM_PHASE_OR_DUMMY(f_state) = PG_Dummy_Action;
+        return;
+    }
+
     if (not Is_Param_Variadic(param)) {
         if (TYPE_CHECK(param, VAL_TYPE(arg))) {
             SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);

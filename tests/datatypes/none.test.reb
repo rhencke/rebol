@@ -8,10 +8,12 @@
     (blank = _)
 ]
 
-; MAKE of a BLANK! is not legal, and MAKE TARGET-TYPE BLANK follows the rule
-; of "blanks in, voids out"
+; MAKE of a BLANK! is not legal, but MAKE TARGET-TYPE BLANK follows the rule
+; of "blanks in, nulls out".  (If it tried to do a custom error at the moment,
+; that would lose the efficiency of the optimized handling where revoked
+; blanks don't run the functions body at all.)
 ;
-(error? trap [make blank! blank])
+(null = make blank! blank)
 (error? trap [make blank! [a b c]])
 (null = make integer! blank)
 (null = make object! blank)

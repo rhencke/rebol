@@ -675,7 +675,7 @@ host-console: function [
 why: function [
     "Explain the last error in more detail."
     return: <void>
-    'err [<end> word! path! error! blank!] "Optional error value"
+    'err [<end> word! path! error!] "Optional error value"
 ][
     err: default [system/state/last-error]
 

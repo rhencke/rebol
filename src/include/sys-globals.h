@@ -120,6 +120,7 @@ PVAR REBVAL *Root_With_Tag; // overrides locals gathering (can disable RETURN)
 PVAR REBVAL *Root_Ellipsis_Tag; // marks variadic argument <...>
 PVAR REBVAL *Root_Opt_Tag; // marks optional argument (can be NULL)
 PVAR REBVAL *Root_End_Tag; // marks endable argument (NULL if at end of input)
+PVAR REBVAL *Root_Blank_Tag; // marks that passing blank won't run the action
 PVAR REBVAL *Root_Local_Tag; // marks beginning of a list of "pure locals"
 PVAR REBVAL *Root_Skip_Tag; // marks a hard quote as "skippable" if wrong type
 

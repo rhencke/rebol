@@ -492,15 +492,15 @@ elf-format: context [
     ]
 
     get-embedding: function [
-        return: [binary! blank!]
+        return: [<opt> binary!]
         file [file!]
 
         <in> self
     ][
         header-data: read/part file 64 ; 64-bit size, 32-bit is smaller
 
-        if not parse header-data [(mode: 'read) header-rule to end] [
-            return blank
+        parse header-data [(mode: 'read) header-rule to end] or [
+            return null
         ]
 
         section-headers-data:
@@ -520,13 +520,13 @@ elf-format: context [
         ; Now that we have the string section, we can go through the
         ; section names and see if there's any match for an existing encap
         ;
-        if not section-index: (
+        section-index: (
             find-section
                 encap-section-name
                 section-headers-data
                 string-section-data
-        )[
-            return blank
+        ) or [
+            return null
         ]
 
         return read/seek/part file sh_offset sh_size
@@ -996,6 +996,7 @@ pe-format: context [
 
     find-section: function [
         "Find a section to the exe"
+        return: [<opt> binary!]
         exe-data [binary!]
         section-name [text!]
         /header "Return only the section header"
@@ -1005,7 +1006,7 @@ pe-format: context [
             parse-exe exe-data
         ] then lambda err [
             ;print ["Failed to parse exe:" err]
-            return _
+            return null
         ]
 
         ;check if there's section name conflicts
@@ -1018,7 +1019,7 @@ pe-format: context [
             ]
 
             ;fail ["Couldn't find the section" section-name]
-            return _
+            return null
         ]
 
         case [
@@ -1037,6 +1038,7 @@ pe-format: context [
     ]
 
     update-section: function [
+        return: [binary!]
         exe-data [binary!]
         section-name [text!]
         section-data [binary!]
@@ -1145,7 +1147,7 @@ pe-format: context [
 
     update-embedding: specialize 'update-section [section-name: encap-section-name]
     get-embedding: function [
-        return: [binary! blank!]
+        return: [<opt> binary!]
         file [file!]
     ][
         ;print ["Geting embedded from" mold file]
@@ -1209,7 +1211,7 @@ generic-format: context [
     ]
 
     get-embedding: function [
-        return: [binary! blank!]
+        return: [<opt> binary!]
         file [file!]
 
         <in> self
@@ -1218,7 +1220,7 @@ generic-format: context [
 
         test-sig: read/seek/part file (info/size - sig-length) sig-length
 
-        if test-sig != signature [return blank]
+        if test-sig != signature [return null]
 
         embed-size: to-integer/unsigned (
             read/seek/part file (info/size - sig-length - 8) 8

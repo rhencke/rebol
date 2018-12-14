@@ -157,23 +157,17 @@ bool Update_Typeset_Bits_Core(
     assert(IS_TYPESET(typeset));
     VAL_TYPESET_BITS(typeset) = 0;
 
-    const RELVAL *item = head;
-    if (NOT_END(item) && IS_BLOCK(item)) { // Double blocks signal variadic
-        if (NOT_END(item + 1))
-            fail ("Invalid double-block in typeset");
+    const RELVAL *maybe_word = head;
+    for (; NOT_END(maybe_word); ++maybe_word) {
+        const RELVAL *item;
 
-        item = VAL_ARRAY_AT(item);
-        TYPE_SET(typeset, REB_TS_VARIADIC);
-    }
-
-    for (; NOT_END(item); item++) {
-        const RELVAL *var = NULL;
-
-        if (IS_WORD(item))
-            var = Get_Opt_Var_May_Fail(item, specifier);
-
-        if (var == NULL)
-            var = item;
+        if (IS_WORD(maybe_word)) {
+            item = Get_Opt_Var_May_Fail(maybe_word, specifier);
+            if (not item)
+                fail (Error_No_Value_Core(maybe_word, specifier));
+        }
+        else
+            item = maybe_word; // wasn't variable
 
         // Though MAKE ACTION! at its lowest level attempts to avoid any
         // keywords, there are native-optimized function generators that do
@@ -181,66 +175,37 @@ bool Update_Typeset_Bits_Core(
         // set typeset flags as a parameter.  Default to always for now.
         //
         const bool keywords = true;
+        if (keywords and IS_TAG(item)) {
+            if (0 == Compare_String_Vals(item, Root_Ellipsis_Tag, true)) {
+                TYPE_SET(typeset, REB_TS_VARIADIC);
+            }
+            else if (0 == Compare_String_Vals(item, Root_End_Tag, true)) {
+                TYPE_SET(typeset, REB_TS_ENDABLE);
+            }
+            else if (0 == Compare_String_Vals(item, Root_Blank_Tag, true)) {
+                TYPE_SET(typeset, REB_TS_NOOP_IF_BLANK);
+            }
+            else if (0 == Compare_String_Vals(item, Root_Opt_Tag, true)) {
+                //
+                // !!! Review if this makes sense to allow with MAKE TYPESET!
+                // instead of just function specs.
+                //
+                TYPE_SET(typeset, REB_MAX_NULLED);
+            }
+            else if (0 == Compare_String_Vals(item, Root_Skip_Tag, true)) {
+                if (VAL_PARAM_CLASS(typeset) != PARAM_CLASS_HARD_QUOTE)
+                    fail ("Only hard-quoted parameters are <skip>-able");
 
-        if (
-            keywords && IS_TAG(item) && (
-                0 == Compare_String_Vals(item, Root_Ellipsis_Tag, true)
-            )
-        ) {
-            // Notational convenience for variadic.
-            // func [x [<...> integer!]] => func [x [[integer!]]]
-            //
-            TYPE_SET(typeset, REB_TS_VARIADIC);
+                TYPE_SET(typeset, REB_TS_SKIPPABLE);
+                TYPE_SET(typeset, REB_TS_ENDABLE); // skip => null
+            }
         }
-        else if (
-            IS_BAR(item) || (keywords && IS_TAG(item) && (
-                0 == Compare_String_Vals(item, Root_End_Tag, true)
-            ))
-        ) {
-            // A BAR! in a typeset spec for functions indicates a tolerance
-            // of endability.  Notational convenience:
-            //
-            // func [x [<end> integer!]] => func [x [| integer!]]
-            //
-            TYPE_SET(typeset, REB_TS_ENDABLE);
+        else if (IS_DATATYPE(item)) {
+            assert(VAL_TYPE_KIND(item) != REB_0);
+            TYPE_SET(typeset, VAL_TYPE_KIND(item));
         }
-        else if (
-            IS_BLANK(item) || (keywords && IS_TAG(item) && (
-                0 == Compare_String_Vals(item, Root_Opt_Tag, true)
-            ))
-        ) {
-            // A BLANK! in a typeset spec for functions indicates a willingness
-            // to take an optional.  (This was once done with the "UNSET!"
-            // datatype, but now that there isn't a user-exposed unset data
-            // type this is not done.)  Still, since REB_MAX_NULLED is available
-            // internally it is used in the type filtering here.
-            //
-            // func [x [<opt> integer!]] => func [x [_ integer!]]
-            //
-            // !!! As with BAR! for variadics, review if this makes sense to
-            // allow with `make typeset!` instead of just function specs.
-            // Note however that this is required for the legacy compatibility
-            // of ANY-TYPE!, which included UNSET! because it was a datatype
-            // in R3-Alpha and Rebol2.
-            //
-            TYPE_SET(typeset, REB_MAX_NULLED);
-        }
-        else if (
-            keywords && IS_TAG(item) &&
-                0 == Compare_String_Vals(item, Root_Skip_Tag, true)
-        ){
-            if (VAL_PARAM_CLASS(typeset) != PARAM_CLASS_HARD_QUOTE)
-                fail ("Only hard-quoted parameters are <skip>-able");
-
-            TYPE_SET(typeset, REB_TS_SKIPPABLE);
-            TYPE_SET(typeset, REB_TS_ENDABLE); // skip => null
-        }
-        else if (IS_DATATYPE(var)) {
-            assert(VAL_TYPE_KIND(var) != REB_0);
-            TYPE_SET(typeset, VAL_TYPE_KIND(var));
-        }
-        else if (IS_TYPESET(var)) {
-            VAL_TYPESET_BITS(typeset) |= VAL_TYPESET_BITS(var);
+        else if (IS_TYPESET(item)) {
+            VAL_TYPESET_BITS(typeset) |= VAL_TYPESET_BITS(item);
         }
         else
             fail (Error_Invalid_Core(item, specifier));

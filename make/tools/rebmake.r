@@ -415,7 +415,7 @@ compiler-class: make object! [
     ;check if the compiler is available
     check: method [
         return: [logic!]
-        path [any-string! blank!]
+        path [<blank> any-string!]
     ][
     ]
 ]
@@ -425,13 +425,14 @@ gcc: make compiler-class [
     id: "gnu"
     check: method [
         return: [logic!]
-        /exec path [file! blank!]
+        /exec path [file!]
         <static>
         digit (charset "0123456789")
     ][
         version: copy ""
         attempt [
-            call/output reduce [exec-file: any [all [exec path] "gcc"] "--version"] version
+            exec-file: path: default ["gcc"]
+            call/output reduce [path "--version"] version
             parse version [
                 {gcc (GCC)} space
                 copy major: some digit #"."
@@ -439,7 +440,7 @@ gcc: make compiler-class [
                 copy macro: some digit
                 to end
             ] then [
-                version: reduce [
+                version: reduce [ ;; !!!! It appears this is not used (?)
                     to integer! major
                     to integer! minor
                     to integer! macro
@@ -690,7 +691,7 @@ linker-class: make object! [
     ][
     ]
     commands: method [
-        return: [block!]
+        return: [<opt> block!]
         output [file!]
         depends [block! blank!]
         searches [block! blank!]
@@ -806,13 +807,12 @@ ld: make linker-class [
 
     check: method [
         return: [logic!]
-        /exec path [file! blank!]
+        /exec path [file!]
     ][
         version: copy ""
         ;attempt [
-            path: either exec [path]["gcc"]
+            exec-file: path: default ["gcc"]
             call/output reduce [path "--version"] version
-            exec-file: path
         ;]
     ]
 ]
@@ -1018,7 +1018,7 @@ strip-class: make object! [
     commands: method [
         return: [block!]
         target [file!]
-        /params flags [block! any-string! blank!]
+        /params flags [block! any-string!]
     ][
         reduce [collect-text [
             keep ("strip" unless file-to-local/pass exec-file)

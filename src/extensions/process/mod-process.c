@@ -1445,13 +1445,13 @@ stdin_pipe_err:
 //      /info
 //          "Returns process information object"
 //      /input
-//          "Redirects stdin to in"
+//          "Redirects stdin to in (if blank, /dev/null)"
 //      in [text! binary! file! blank!]
 //      /output
-//          "Redirects stdout to out"
+//          "Redirects stdout to out (if blank, /dev/null)"
 //      out [text! binary! file! blank!]
 //      /error
-//          "Redirects stderr to err"
+//          "Redirects stderr to err (if blank, /dev/null)"
 //      err [text! binary! file! blank!]
 //  ]
 //  ]
@@ -2008,11 +2008,12 @@ static REBNATIVE(get_env)
 //
 //  {Sets value of operating system environment variable for current process.}
 //
-//      return: [<opt>]
-//      variable [text! word!]
+//      return: "Returns same value passed in"
+//          [<opt> text!]
+//      variable [<blank> text! word!]
 //          "Variable to set (case-insensitive in Windows)"
-//      value [text! blank!]
-//          "Value to set the variable to, or a BLANK! to unset it"
+//      value [<opt> text!]
+//          "Value to set the variable to, or NULL to unset it"
 //  ]
 //
 static REBNATIVE(set_env)
@@ -2026,19 +2027,17 @@ static REBNATIVE(set_env)
 
   #ifdef TO_WINDOWS
     WCHAR *key_wide = rebSpellW(variable, rebEND);
-    WCHAR *val_wide = rebSpellW("opt ensure [text! blank!]", value, rebEND);
+    WCHAR *opt_val_wide = rebSpellW("ensure* [text!]", value, rebEND);
 
-    // val may be NULL if blank! input, which will unset the envionment var
-
-    if (not SetEnvironmentVariable(key_wide, val_wide))
+    if (not SetEnvironmentVariable(key_wide, opt_val_wide)) // null unsets
         fail ("environment variable couldn't be modified");
 
-    rebFree(val_wide);
+    rebFree(opt_val_wide);
     rebFree(key_wide);
   #else
     char *key_utf8 = rebSpell(variable, rebEND);
 
-    if (IS_BLANK(value)) {
+    if (IS_NULLED(value)) {
       #ifdef unsetenv
         if (unsetenv(key_utf8) == -1)
             fail ("unsetenv() couldn't unset environment variable");
@@ -2098,7 +2097,7 @@ static REBNATIVE(set_env)
     rebFree(key_utf8);
   #endif
 
-    return nullptr;
+    RETURN (ARG(value));
 }
 
 

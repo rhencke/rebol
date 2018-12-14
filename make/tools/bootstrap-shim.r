@@ -40,28 +40,58 @@ REBOL [
 ; specific other version if push came to shove, but it would be work for no
 ; obvious reward.)
 ;
-if e: trap [
+trap [
     func [i [<blank> integer!]] [...]
-][
+] or [
     QUIT
 ]
 
 print "== SHIMMING OLDER R3 TO MODERN LANGUAGE DEFINITIONS =="
 
 
-modernize-action [
+modernize-action: function [
+    "Account for the <blank> annotation as a usermode feature"
     return: [block!]
     spec [block!]
     body [block!]
 ][
-    ; !!! For now do nothing, but this will have to handle <blank> annotations
-    ; for the compatibility layer...
-    ;
+    blankers: copy []
+    spec: collect [
+        iterate spec [
+            ;
+            ; Find ANY-WORD!s (args/locals)
+            ;
+            if keep w: match any-word! spec/1 [
+                ;
+                ; Feed through any TEXT!s following the ANY-WORD!
+                ;
+                while [if (tail? spec: my next) [break] | text? spec/1] [
+                    keep/only spec/1
+                ]
+
+                ; Substitute BLANK! for any <blank> found, and save some code
+                ; to inject for that parameter to return null if it's blank
+                ;
+                if find (try match block! spec/1) <blank> [
+                    keep/only replace copy spec/1 <blank> 'blank!
+                    append blankers compose [
+                        if blank? (as get-word! w) [return null]
+                    ]
+                    continue
+                ]
+            ]
+            keep/only spec/1
+        ]
+    ]
+    body: compose [
+        (blankers)
+        (as group! body)
+    ]
     return reduce [spec body]
 ]
 
 func: adapt 'func [set [spec body] modernize-action spec body]
 function: adapt 'function [set [spec body] modernize-action spec body]
 
-meth: adapt 'meth [set [spec body] modernize-action spec body]
-method: adapt 'method [set [spec body] modernize-action spec body]
+meth: enfix adapt 'meth [set [spec body] modernize-action spec body]
+method: enfix adapt 'method [set [spec body] modernize-action spec body]
