@@ -140,3 +140,23 @@
         obj2/x = 4
     ]
 )]
+
+;-- ACTION!s are called repeatedly util NULL is returned
+
+(
+    make-one-thru-five: function [<static> count (0)] [
+        if count = 5 [return null]
+        return count: count + 1
+    ]
+    [10 20 30 40 50] = map-each i :make-one-thru-five [
+        i * 10
+    ]
+)(
+    make-one-thru-five: function [<static> count (0)] [
+        if count = 5 [return null]
+        return count: count + 1
+    ]
+    [[1 2] [3 4] [5]]  = map-each [a b] :make-one-thru-five [
+        compose [(:a) (:b)]
+    ]
+)

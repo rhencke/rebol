@@ -352,6 +352,30 @@ static const REBVAL *Loop_Number_Common(
 }
 
 
+// Virtual_Bind_To_New_Context() allows LIT-WORD! syntax to reuse an existing
+// variables binding:
+//
+//     x: 10
+//     for-each 'x [20 30 40] [...]
+//     ;-- The 10 will be overwritten, and x will be equal to 40, here
+//
+// It accomplishes this by putting a word into the "variable" slot, and having
+// a flag to indicate a dereference is necessary.
+//
+REBVAL *Real_Var_From_Pseudo(REBVAL *pseudo_var) {
+    if (NOT_VAL_FLAG(pseudo_var, VAR_MARKED_REUSE))
+        return pseudo_var;
+
+    // Note: these variables are fetched across running arbitrary user code.
+    // So the address cannot be cached...e.g. the object it lives in might
+    // expand and invalidate the location.  (The `context` for fabricated
+    // variables is locked at fixed size.)
+    //
+    assert(IS_LIT_WORD(pseudo_var));
+    return Get_Mutable_Var_May_Fail(pseudo_var, SPECIFIED);
+}
+
+
 //
 //  Loop_Each: C
 //
@@ -363,15 +387,15 @@ static const REBVAL *Loop_Number_Common(
 //
 static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 {
-    INCLUDE_PARAMS_OF_FOR_EACH;
+    INCLUDE_PARAMS_OF_FOR_EACH; // MAP-EACH & EVERY must have same interface
 
     REBVAL *data = ARG(data);
-    assert(not IS_NULLED(data));
 
     if (IS_BLANK(data))
         return nullptr; // blank in, void out (same result as BREAK)
 
-    bool broke = false;
+    bool broke = false; // a BREAK occurred while running the loop body
+    bool more_data = true; // set to false when no more data available
     bool threw = false; // did a non-BREAK or non-CONTINUE throw occur
     bool no_falseys = true; // no conditionally false body evaluations
 
@@ -394,213 +418,272 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
     REBSER *series;
     REBCNT index;
-    if (ANY_SERIES(data)) {
-        series = VAL_SERIES(data);
-        index = VAL_INDEX(data);
-        if (index >= SER_LEN(series)) {
-            if (mode == LOOP_MAP_EACH)
-                return Init_Block(D_OUT, Make_Arr(0));
-            return D_OUT;
-        }
-    }
-    else if (ANY_CONTEXT(data)) {
-        series = SER(CTX_VARLIST(VAL_CONTEXT(data)));
-        index = 1;
-    }
-    else if (IS_MAP(data)) {
-        series = VAL_SERIES(data);
+    REBCNT len;
+    if (IS_ACTION(data)) {
+        //
+        // The value is generated each time by calling the data action.
+        // Assign values to avoid compiler warnings.
+        //
+        series = nullptr;
         index = 0;
+        len = 0;
     }
-    else if (IS_DATATYPE(data)) {
-        //
-        // !!! Snapshotting the state is not particularly efficient.
-        // However, bulletproofing an enumeration of the system against
-        // possible GC would be difficult.  And this is really just a
-        // debug/instrumentation feature anyway.
-        //
-        switch (VAL_TYPE_KIND(data)) {
-        case REB_ACTION:
-            series = SER(Snapshot_All_Actions());
-            assert(NOT_SER_FLAG(series, NODE_FLAG_MANAGED)); // content marked
-            index = 0;
-            break;
-
-        default:
-            fail ("ACTION! is the only type with global enumeration");
+    else {
+        if (ANY_SERIES(data)) {
+            series = VAL_SERIES(data);
+            index = VAL_INDEX(data);
         }
+        else if (ANY_CONTEXT(data)) {
+            series = SER(CTX_VARLIST(VAL_CONTEXT(data)));
+            index = 1;
+        }
+        else if (IS_MAP(data)) {
+            series = VAL_SERIES(data);
+            index = 0;
+        }
+        else if (IS_DATATYPE(data)) {
+            //
+            // !!! Snapshotting the state is not particularly efficient.
+            // However, bulletproofing an enumeration of the system against
+            // possible GC would be difficult.  And this is really just a
+            // debug/instrumentation feature anyway.
+            //
+            switch (VAL_TYPE_KIND(data)) {
+            case REB_ACTION:
+                series = SER(Snapshot_All_Actions());
+                assert(NOT_SER_FLAG(series, NODE_FLAG_MANAGED));
+                index = 0;
+                break;
+
+            default:
+                fail ("ACTION! is the only type with global enumeration");
+            }
+        }
+        else if (IS_ACTION(data)) {
+            //
+            // No preparation necessary, action will be called each time.
+            //
+            index = 0; // still bumped each time, but ignored
+            series = nullptr;
+        }
+        else
+            panic ("Illegal type passed to Loop_Each()");
+
+        len = SER_LEN(series); // SERIES_INFO_HOLD, so length can't change
+        if (len == 0)
+            goto finished;
     }
-    else
-        panic ("Illegal type passed to Loop_Each()");
 
-    // Iterate over each value in the data series block:
-
-    REBCNT tail;
-    while (index < (tail = SER_LEN(series))) {
-        REBCNT i;
-        REBCNT j = 0;
-
-        REBVAL *key = CTX_KEY(context, 1);
+    do {
+        // Sub-loop: set variables.  This is a loop because blocks with
+        // multiple variables are allowed, e.g.
+        //
+        //      >> for-each [a b] [1 2 3 4] [-- a b]]
+        //      -- a: 1 b: 2
+        //      -- a: 3 b: 4
+        //
+        // ANY-CONTEXT! and MAP! allow one var (keys) or two vars (keys/vals)
+        //
         REBVAL *pseudo_var = CTX_VAR(context, 1);
+        for (; NOT_END(pseudo_var); ++pseudo_var) {
+            REBVAL *var = Real_Var_From_Pseudo(pseudo_var);
 
-        // Set the FOREACH loop variables from the series:
-        for (i = 1; NOT_END(key); i++, key++, pseudo_var++) {
+            // Even if data runs out, we could still have one last loop body
+            // incarnation to run...with some variables unset.  Null those
+            // variables here.
             //
-            // The "var" might have come from a LIT-WORD!, which means it
-            // wants us to write into an existing variable.  Note that since
-            // these variables are fetched across running arbitrary user
-            // code, the address cannot be cached...e.g. the object it lives
-            // in might expand and invalidate the location.  (The `context`
-            // for fabricated variables is locked at fixed size.)
+            //     >> for-each [x y] [1] [-- x y]
+            //     -- x: 1 y: // null
             //
-            REBVAL *var;
-            if (GET_VAL_FLAG(pseudo_var, VAR_MARKED_REUSE)) {
-                assert(IS_LIT_WORD(pseudo_var));
-                var = Get_Mutable_Var_May_Fail(pseudo_var, SPECIFIED);
-            } else
-                var = pseudo_var;
-
-            if (index >= tail) {
+            if (not more_data) {
                 Init_Nulled(var);
                 continue;
             }
 
-            if (ANY_ARRAY(data)) {
+            enum Reb_Kind kind = VAL_TYPE(data);
+            switch (kind) {
+              case REB_BLOCK:
+              case REB_GROUP:
+              case REB_PATH:
                 Derelativize(
                     var,
                     ARR_AT(ARR(series), index),
-                    VAL_SPECIFIER(data) // !!! always matches series?
+                    VAL_SPECIFIER(data)
                 );
-            }
-            else if (IS_DATATYPE(data)) {
+                if (++index == len)
+                    more_data = false;
+                break;
+
+              case REB_DATATYPE:
                 Derelativize(
                     var,
                     ARR_AT(ARR(series), index),
                     SPECIFIED // array generated via data stack, all specific
                 );
-            }
-            else if (ANY_CONTEXT(data)) {
-                if (Is_Param_Hidden(VAL_CONTEXT_KEY(data, index))) {
-                    // Do not evaluate this iteration
-                    index++;
-                    goto skip_hidden;
+                if (++index == len)
+                    more_data = false;
+                break;
+
+              case REB_OBJECT:
+              case REB_ERROR:
+              case REB_PORT:
+              case REB_MODULE:
+              case REB_FRAME: {
+                REBVAL *key;
+                REBVAL *val;
+                REBCNT bind_index;
+                while (true) { // find next non-hidden key (if any)
+                    key = VAL_CONTEXT_KEY(data, index);
+                    val = VAL_CONTEXT_VAR(data, index);
+                    bind_index = index;
+                    if (++index == len)
+                        more_data = false;
+                    if (not Is_Param_Hidden(key))
+                        break;
+                    if (not more_data)
+                        goto finished;
                 }
 
-                // Alternate between word and value parts of object:
-                if (j == 0) {
-                    Init_Any_Word_Bound(
-                        var,
-                        REB_WORD,
-                        CTX_KEY_SPELLING(VAL_CONTEXT(data), index),
-                        CTX(series),
-                        index
-                    );
-                    if (NOT_END(var + 1)) {
-                        // reset index for the value part
-                        index--;
-                    }
-                }
-                else if (j == 1) {
-                    Derelativize(
-                        var,
-                        ARR_AT(ARR(series), index),
-                        SPECIFIED // !!! it's a varlist
-                    );
-                }
-                else {
-                    // !!! Review this error (and this routine...)
-                    DECLARE_LOCAL (key_name);
-                    Init_Word(key_name, VAL_KEY_SPELLING(key));
+                Init_Any_Word_Bound( // key is typeset, user wants word
+                    var,
+                    REB_WORD,
+                    VAL_PARAM_SPELLING(key),
+                    CTX(series),
+                    bind_index
+                );
 
-                    fail (Error_Invalid(key_name));
+                if (CTX_LEN(context) == 1) {
+                    //
+                    // Only wanted the key (`for-each key obj [...]`)
                 }
-                j++;
-            }
-            else if (IS_VECTOR(data)) {
+                else if (CTX_LEN(context) == 2) {
+                    //
+                    // Want keys and values (`for-each key val obj [...]`)
+                    //
+                    ++pseudo_var;
+                    var = Real_Var_From_Pseudo(pseudo_var);
+                    Move_Value(var, val);
+                }
+                else
+                    fail ("Loop enumeration of contexts must be 1 or 2 vars");
+                break; }
+
+              case REB_VECTOR:
                 Get_Vector_At(var, series, index);
-            }
-            else if (IS_MAP(data)) {
-                //
-                // MAP! does not store RELVALs
-                //
-                REBVAL *val = KNOWN(ARR_AT(ARR(series), index | 1));
-                if (not IS_NULLED(val)) {
-                    if (j == 0) {
-                        Derelativize(
-                            var,
-                            ARR_AT(ARR(series), index & ~1),
-                            SPECIFIED // maps always specified
-                        );
+                if (++index == len)
+                    more_data = false;
+                break;
 
-                        if (IS_END(var + 1)) index++; // only words
-                    }
-                    else if (j == 1) {
-                        Derelativize(
-                            var,
-                            ARR_AT(ARR(series), index),
-                            SPECIFIED // maps always specified
-                        );
-                    }
-                    else {
-                        // !!! Review this error (and this routine...)
-                        DECLARE_LOCAL (key_name);
-                        Init_Word(key_name, VAL_KEY_SPELLING(key));
+              case REB_MAP: {
+                assert(index % 2 == 0); // should be on key slot
 
-                        fail (Error_Invalid(key_name));
-                    }
-                    j++;
+                REBVAL *key;
+                REBVAL *val;
+                while (true) { // pass over the unused map slots
+                    key = KNOWN(ARR_AT(ARR(series), index));
+                    val = KNOWN(ARR_AT(ARR(series), index + 1));
+                    index += 2;
+                    if (index == len)
+                        more_data = false;
+                    if (not IS_NULLED(val))
+                        break;
+                    if (not more_data)
+                        goto finished;
+                } while (IS_NULLED(val));
+
+                Move_Value(var, key);
+
+                if (CTX_LEN(context) == 1) {
+                    //
+                    // Only wanted the key (`for-each key map [...]`)
+                }
+                else if (CTX_LEN(context) == 2) {
+                    //
+                    // Want keys and values (`for-each key val map [...]`)
+                    //
+                    ++pseudo_var;
+                    var = Real_Var_From_Pseudo(pseudo_var);
+                    Move_Value(var, val);
+                }
+                else
+                    fail ("Loop enumeration of contexts must be 1 or 2 vars");
+
+                break; }
+
+              case REB_BINARY:
+                Init_Integer(var, cast(REBI64, BIN_HEAD(series)[index]));
+                if (++index == len)
+                    more_data = false;
+                break;
+
+              case REB_IMAGE:
+                Init_Tuple_From_Pixel(var, BIN_AT(series, index++));
+                if (++index == len)
+                    more_data = false;
+                break;
+
+              case REB_TEXT:
+              case REB_TAG:
+              case REB_FILE:
+              case REB_EMAIL:
+              case REB_URL:
+                Init_Char(var, GET_ANY_CHAR(series, index));
+                if (++index == len)
+                    more_data = false;
+                break;
+
+              case REB_ACTION: {
+                REBVAL *generated = rebRun(rebEval(data), rebEND);
+                if (generated) {
+                    Move_Value(var, generated);
+                    rebRelease(generated);
                 }
                 else {
-                    index += 2;
-                    goto skip_hidden;
+                    more_data = false; // any remaining vars must be unset
+                    if (pseudo_var == CTX_VARS_HEAD(context)) {
+                        //
+                        // If we don't have at least *some* of the variables
+                        // set for this body loop run, don't run the body.
+                        //
+                        goto finished;
+                    }
+                    Init_Nulled(var);
                 }
-            }
-            else if (IS_BINARY(data)) {
-                Init_Integer(var, (REBI64)(BIN_HEAD(series)[index]));
-            }
-            else if (IS_IMAGE(data)) {
-                Init_Tuple_From_Pixel(var, BIN_AT(series, index));
-            }
-            else {
-                assert(ANY_STRING(data));
-                Init_Char(var, GET_ANY_CHAR(series, index));
-            }
-            index++;
-        }
+                break; }
 
-        assert(IS_END(key) and IS_END(pseudo_var));
+              default:
+                panic ("Unsupported type");
+            }
+        }
 
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
             if (not Catching_Break_Or_Continue(D_OUT, &broke)) {
-                // A non-loop throw, we should be bubbling up
-                threw = true;
+                threw = true; // non-loop-related throw, bubble it up
                 break;
             }
-
-            // Fall through and process the D_OUT (unset if no /WITH) for
-            // this iteration.  `broke` flag will be checked ater that.
+            if (broke) {
+                assert(IS_NULLED(D_OUT));
+                break;
+            }
         }
 
         switch (mode) {
-        case LOOP_FOR_EACH:
+          case LOOP_FOR_EACH:
             Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
             break;
 
-        case LOOP_EVERY:
+          case LOOP_EVERY:
             no_falseys &= IS_TRUTHY(D_OUT);
             break;
 
-        case LOOP_MAP_EACH:
-            // anything that's not null will be added to the result
+          case LOOP_MAP_EACH:
             if (not IS_NULLED(D_OUT))
-                DS_PUSH(D_OUT);
+                DS_PUSH(D_OUT); // anything not null is added to the result
             break;
         }
+    } while (more_data and not broke);
 
-        if (broke)
-            break;
-
-skip_hidden: ;
-    }
+  finished:;
 
     if (IS_DATATYPE(data))
         Free_Unmanaged_Array(ARR(series)); // temporary array of all instances
@@ -616,19 +699,19 @@ skip_hidden: ;
     }
 
     switch (mode) {
-    case LOOP_FOR_EACH:
+      case LOOP_FOR_EACH:
         if (broke)
             return nullptr;
         return D_OUT;
 
-    case LOOP_EVERY:
+      case LOOP_EVERY:
         if (broke)
             return nullptr;
         if (no_falseys)
             return D_OUT;
         return Init_False(D_OUT);
 
-    case LOOP_MAP_EACH:
+      case LOOP_MAP_EACH:
         if (broke) {
             // While R3-Alpha's MAP-EACH would keep the remainder on BREAK,
             // protocol in Ren-C means BREAK gives NULL.  If the remainder is
@@ -921,8 +1004,8 @@ REBNATIVE(cycle)
 //          {Last body result, or null if BREAK}
 //      'vars [word! lit-word! block!]
 //          "Word or block of words to set each time, no new var if LIT-WORD!"
-//      data [any-series! any-context! map! blank! datatype!]
-//          "The series to traverse"
+//      data [any-series! any-context! map! blank! datatype! action!]
+//          "The series to traverse, or action to evaluate each time"
 //      body [block!]
 //          "Block to evaluate each time"
 //  ]
@@ -942,7 +1025,7 @@ REBNATIVE(for_each)
 //          {null on BREAK, blank on empty, false or the last truthy value}
 //      'vars [word! block!]
 //          "Word or block of words to set each time (local)"
-//      data [any-series! any-context! map! blank! datatype!]
+//      data [any-series! any-context! map! action! blank! datatype!]
 //          "The series to traverse"
 //      body [block!]
 //          "Block to evaluate each time"
@@ -1353,7 +1436,7 @@ REBNATIVE(remove_each)
 //          {Collected block (BREAK/WITH can add a final result to block)}
 //      'vars [word! block!]
 //          "Word or block of words to set each time (local)"
-//      data [any-series! blank!]
+//      data [any-series! action! blank!]
 //          "The series to traverse, blank to opt out"
 //      body [block!]
 //          "Block to evaluate each time"
