@@ -1426,7 +1426,7 @@ makefile: make generator-class [
                 ;; may use escaped makefile variables that get substituted.
                 ;;
                 for-each cmd (ensure [block! blank!] entry/commands) [
-                    c: match text! cmd else [gen-cmd cmd] else [continue]
+                    c: ((match text! cmd) else [gen-cmd cmd]) else [continue]
                     if empty? c [continue] ;; !!! Review why this happens
                     keep [tab c] ;; makefiles demand TAB codepoint :-(
                 ]

@@ -638,6 +638,9 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 {
     INCLUDE_PARAMS_OF_FOR_EACH; // MAP-EACH & EVERY must have same interface
 
+    if (IS_BLANK(ARG(data)))
+        return nullptr; // blank in, null out convention
+
     Init_Blank(D_OUT); // result if body never runs (MAP-EACH gives [])
 
     struct Loop_Each_State les;
@@ -705,13 +708,6 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
               default:
                 fail ("ACTION! is the only type with global enumeration");
             }
-        }
-        else if (IS_ACTION(les.data)) {
-            //
-            // No preparation necessary, action will be called each time.
-            //
-            les.data_ser = nullptr;
-            les.data_idx = 0; // still bumped each time, but ignored
         }
         else
             panic ("Illegal type passed to Loop_Each()");

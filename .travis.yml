@@ -142,13 +142,7 @@ matrix:
 
     # Linux x86, release, gcc
     #
-    # Note that this uses the older "precise" distribution, instead of the
-    # new default of "trusty".  In addition to providing some more build
-    # variations for testing, `libltdl-dev:i386` won't install on trusty.
-    # (also, gcc on Ubuntu 12.04 does not support sanitizers)
-    #
     - os: linux
-      dist: precise # see above
       sudo: required # "containers will be retired soon"
       language: c
       env:
@@ -161,13 +155,12 @@ matrix:
         - TCC=i386-tcc
         - ARCH_CFLAGS=-m32
         - WITH_FFI="dynamic"
-        - ODBC_REQUIRES_LTDL="yes"
-        - EXTENSIONS="ODBC +"
+        - EXTENSIONS="" # 32-bit version does not have ODBC or ZeroMQ
       addons:
         apt:
           packages:
             - gcc-multilib
-            - unixodbc-dev:i386 # for ODBC extension
+            # - unixodbc-dev:i386 # for ODBC extension; stopped installing
             # - libzmq3-dev:i386 # ZeroMQ:i386 stopped installing in Nov-2018
             - texinfo # for makeinfo, required to build FFI
 
@@ -203,7 +196,16 @@ matrix:
 
     # Linux x64, release, gcc
     #
+    # We try to create a bare-minimum Linux executable for bootstrap.  This
+    # has the least dependencies and run on the oldest systems.
+    #
+    # Note that this uses the older "precise" distribution, instead of the
+    # new default of "trusty".  In addition to providing some more build
+    # variations for testing, `libltdl-dev:i386` won't install on trusty.
+    # (also, gcc on Ubuntu 12.04 does not support sanitizers)
+    #
     - os: linux
+      dist: precise # old release (for lowest-common-denominator glibc)
       sudo: false # force new container-based infrastructure
       language: c
       env:
@@ -213,17 +215,12 @@ matrix:
         - STANDARD=gnu99
         - RIGOROUS=yes
         - STATIC=yes
-        - TCC=tcc
         - WITH_FFI="dynamic"
-        - ODBC_REQUIRES_LTDL="no"
-        - EXTENSIONS="ODBC + ZeroMQ +"
+        - EXTENSIONS="" # no ODBC, ZeroMQ, FFI dependencies
       addons:
         apt:
           packages:
-            - gcc-multilib
-            - unixodbc-dev # for ODBC extension
-            - libzmq3-dev # for ZeroMQ extension
-            - texinfo # for makeinfo, required to build FFI
+            - gcc-multilib # !!! what was this for?
 
     # Windows x86, release, gcc
     #
