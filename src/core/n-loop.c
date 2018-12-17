@@ -717,7 +717,7 @@ static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
             SET_SER_INFO(les.data_ser, SERIES_INFO_HOLD);
 
         les.data_len = SER_LEN(les.data_ser); // HOLD so length can't change
-        if (les.data_len == 0) {
+        if (les.data_idx >= les.data_len) {
             assert(IS_BLANK(D_OUT)); // result if loop body never runs
             r = nullptr;
             goto cleanup;
