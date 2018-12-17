@@ -405,21 +405,27 @@ matrix:
 install:
   - |
     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-      export REBOL_TOOL=./r3-linux-x64-368bd5a
+      export REBOL_TOOL=./r3-linux-x64-8994d23
     fi
 
   - |
     if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      export REBOL_TOOL=./r3-osx-x64-368bd5a-debug
+      export REBOL_TOOL=./r3-osx-x64-8994d23
 
-      # brew update should not be required, and adds extra time to the
-      # build...but an issue introduced in the Travis images circa October
-      # 2017 means it will fail if you don't.  If someday this isn't
-      # necessary, it should be removed.
+      # The Travis OS X images have brew preinstalled, but get old and out of
+      # sync with the package database.  This means brew has to update.  It's
+      # supposed to do this automatically, but circa 2017 it broke in some
+      # images due to the lack of a sufficiently up-to-date Ruby:
       #
       # https://github.com/travis-ci/travis-ci/issues/8552
       #
-      brew update
+      # But even if brew can update automatically, it generates an unsightly
+      # amount of output if it does so during a `brew install`.  So redirect
+      # the hundreds of lines to /dev/null to shorten the Travis log.
+      #
+      # https://github.com/Homebrew/legacy-homebrew/issues/35662
+      #
+      brew update > /dev/null
 
       brew install unixodbc # for ODBC extension
       brew install zmq # for ZeroMQ extension
@@ -438,9 +444,6 @@ install:
     fi
 
 script:
-    # Temporary--looking for llvm symbolizer
-    - ls /usr/lib
-
     # Nice to know what version of gcc this is
     - ${TOOLS}gcc --version
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export MAKE_JOBS=`nproc`; fi
@@ -589,12 +592,15 @@ script:
     # filename inference, as we always use Linux "r3-make" (not "r3-make.exe")
     # even when doing windows builds, since this is a cross-compilation.
     #
-    # As an extra step to test bootstrap ability, we make the 64-bit debug
-    # build go even further by doing another full build, but using the 
-    # just built r3 as its own r3-make.
+    # As an extra step to test bootstrap ability, if the build can be run on
+    # the Travis we are using...make the debug build go even further by doing
+    # another full build, but using the just built r3 as its own r3-make.
+    #
+    # !!! Should install 32-bit compatibility runtimes and run the x86 linux
+    # build in this duplicate way--if someone gets time to figure that out.
     #
     - |
-      if [[ ("${OS_ID}" = "0.4.40" || "${OS_ID}" = "0.2.40") && "${DEBUG}" != "none" ]]; then
+      if [[ ("${OS_ID}" = "0.4.40") && "${DEBUG}" != "none" ]]; then
           #
           # If building twice, don't specify GIT_COMMIT for the first build.
           # This means there's a test of the build process when one is not
@@ -693,8 +699,10 @@ script:
     - rm -f makefile*
     - rm -f Toolchain*
     - rm -f r3-make* #-f makes retval a success even when r3-make* doesn't exist
-    - rm r3-linux-x64-gbf237fc-static
-    - rm r3-osx-x64-gbf237fc
+    - rm r3-android-arm-8994d23
+    - rm r3-windows-x86-8994d23.exe
+    - rm r3-linux-x64-8994d23
+    - rm r3-osx-x64-8994d23
     - rm -f CMakeLists.txt
     - rm -rf tcc
     - ls

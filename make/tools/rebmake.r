@@ -252,7 +252,7 @@ windows: make platform-class [
         return: [text!]
         cmd [object!]
     ][
-        -- "Note: STRIP command not implemented for MSVC"
+        print "Note: STRIP command not implemented for MSVC"
         return ""
     ]
 ]
@@ -346,7 +346,7 @@ application-class: make project-class [
     ]
 
     command: method [return: [text!]] [
-        ld: any [linker default-linker]
+        ld: linker or [default-linker]
         ld/command
             output
             depends
@@ -373,7 +373,7 @@ dynamic-library-class: make project-class [
         <with>
         default-linker
     ][
-        l: any [linker default-linker]
+        l: linker or [default-linker]
         l/command/dynamic
             output
             depends

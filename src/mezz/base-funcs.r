@@ -818,7 +818,7 @@ once-bar: func [
 ;
 has: func [
     "Defines an object with just a body...no spec and no parent."
-    body [block!] ;-- !!! name checked as `body` vs `vars` by r2r3-future.r
+    body [block!]
         "Object words and values (bindings modified)"
     /only
         "Values are kept as-is"

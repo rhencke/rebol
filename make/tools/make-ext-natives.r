@@ -22,7 +22,7 @@ REBOL [
     }
 ]
 
-do %r2r3-future.r
+do %bootstrap-shim.r
 do %common.r
 do %common-emitter.r
 do %systems.r

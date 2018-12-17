@@ -1,7 +1,7 @@
 REBOL []
 
 ;;;; DO & IMPORT ;;;;
-do %tools/r2r3-future.r
+do %tools/bootstrap-shim.r
 do %tools/common.r
 do %tools/systems.r
 file-base: make object! load %tools/file-base.r
@@ -1002,7 +1002,7 @@ case [
             libraries: reduce [tcc-rootdir/libtcc1.a tcc-rootdir/libtcc.a]
 
             ; extra cpp flags passed to tcc for preprocessing %sys-core.i
-            cpp-flags: get-env "TCC_CPP_EXTRA_FLAGS"
+            cpp-flags: try get-env "TCC_CPP_EXTRA_FLAGS"
         ]
         if block? cfg-tcc/libraries [
             cfg-tcc/libraries: map-each lib cfg-tcc/libraries [
