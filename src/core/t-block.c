@@ -244,6 +244,21 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         return Init_Any_Array(out, kind, Pop_Stack_Values(dsp_orig));
     }
+    else if (IS_ACTION(arg)) {
+        //
+        // !!! Experimental behavior; if action can run as arity-0, then
+        // invoke it so long as it doesn't return null, collecting values.
+        //
+        REBDSP dsp_orig = DSP;
+        while (true) {
+            REBVAL *generated = rebRun(rebEval(arg), rebEND);
+            if (not generated)
+                break;
+            DS_PUSH(generated);
+            rebRelease(generated);
+        }
+        return Init_Any_Array(out, kind, Pop_Stack_Values(dsp_orig));
+    }
 
   bad_make:;
     fail (Error_Bad_Make(kind, arg));

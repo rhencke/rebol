@@ -40,3 +40,16 @@
     e: trap [[] = copy/part [] 9223372036854775807]
     error? e and [e/id = 'out-of-range]
 )
+
+;-- Making a block from an action will iterate the action until it gives null
+
+(
+    make-one-thru-five: function [<static> count (0)] [
+        if count = 5 [count: 0 return null]
+        return count: count + 1
+    ]
+    all [
+        [1 2 3 4 5] = make block! :make-one-thru-five
+        [1 2 3 4 5] = make block! :make-one-thru-five
+    ]
+)
