@@ -58,9 +58,6 @@ for-each [name value] options [
                     find [+ - *] user-ext/1
                 ] then [
                     value: take user-ext
-                    for-each name user-config/extensions [
-                        user-config/extensions/:name: value
-                    ]
                 ]
                 for-each [name value] user-ext [
                     user-config/extensions/:name: value

@@ -49,7 +49,7 @@
 #define IDX_JS_NATIVE_HANDLE \
     IDX_NATIVE_MAX // handle gives hookpoint for GC of table entry
 
-#define IDX_JS_NATIVE_MAX
+#define IDX_JS_NATIVE_MAX \
     (IDX_JS_NATIVE_HANDLE + 1)
 
 
@@ -58,7 +58,7 @@
 //
 // Called when the ACTION! produced by JS-NATIVE is run.
 //
-const REBVAL *JavaScript_Native_Dispatcher(REBFRM *f)
+REB_R JavaScript_Native_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     UNUSED(details);

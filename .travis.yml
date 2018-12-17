@@ -591,16 +591,15 @@ script:
     # We have to set REBOL_TOOL explicitly to circumvent the automatic r3-make
     # filename inference, as we always use Linux "r3-make" (not "r3-make.exe")
     # even when doing windows builds, since this is a cross-compilation.
-    #
+
     # As an extra step to test bootstrap ability, if the build can be run on
     # the Travis we are using...make the debug build go even further by doing
     # another full build, but using the just built r3 as its own r3-make.
-    #
-    # !!! Should install 32-bit compatibility runtimes and run the x86 linux
-    # build in this duplicate way--if someone gets time to figure that out.
+    # This will work on 64-bit OS X or Linux, and 32-bit if 32-bit support has
+    # been installed
     #
     - |
-      if [[ ("${OS_ID}" = "0.4.40") && "${DEBUG}" != "none" ]]; then
+      if [[("${DEBUG}" != "none") && (("${OS_ID}" = "0.4.40") || ("${OS_ID}" = "0.4.4") || ("${OS_ID}" = "0.2.40"))]]; then
           #
           # If building twice, don't specify GIT_COMMIT for the first build.
           # This means there's a test of the build process when one is not
@@ -617,7 +616,7 @@ script:
           make -j ${MAKE_JOBS} ${TARGET}
 
           mv r3 r3-make;
-          make clean;
+          make clean prep folders;
           export R3_ALWAYS_MALLOC=1
           export REBOL_TOOL=./r3-make
       fi
