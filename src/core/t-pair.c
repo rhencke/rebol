@@ -179,7 +179,7 @@ void Min_Max_Pair(REBVAL *out, const REBVAL *a, const REBVAL *b, bool maxed)
 //
 //  PD_Pair: C
 //
-const REBVAL *PD_Pair(
+REB_R PD_Pair(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

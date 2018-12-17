@@ -393,7 +393,7 @@ REB_R TO_Event(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  PD_Event: C
 //
-const REBVAL *PD_Event(
+REB_R PD_Event(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

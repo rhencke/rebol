@@ -527,7 +527,7 @@ bool Check_Bits(REBSER *bset, const REBVAL *val, bool uncased)
 //
 //  PD_Bitset: C
 //
-const REBVAL *PD_Bitset(
+REB_R PD_Bitset(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

@@ -207,7 +207,7 @@ static void cleanup(const REBVAL *val)
 // However, as a convenience, calling a pending user native will trigger a
 // simple COMPILE for just that one function, using default options.
 //
-const REBVAL *Pending_Native_Dispatcher(REBFRM *f) {
+REB_R Pending_Native_Dispatcher(REBFRM *f) {
     REBACT *phase = FRM_PHASE(f);
     assert(ACT_DISPATCHER(phase) == &Pending_Native_Dispatcher);
 

@@ -458,7 +458,7 @@ REB_R TO_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 // Implements the PICK* operation.
 //
-const REBVAL *PD_Varargs(
+REB_R PD_Varargs(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

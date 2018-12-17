@@ -1385,7 +1385,7 @@ REB_R TO_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  PD_Struct: C
 //
-const REBVAL *PD_Struct(
+REB_R PD_Struct(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

@@ -365,7 +365,7 @@ REBCNT Find_Map_Entry(
 //
 //  PD_Map: C
 //
-const REBVAL *PD_Map(
+REB_R PD_Map(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

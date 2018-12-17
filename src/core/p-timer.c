@@ -47,7 +47,7 @@
 //
 //  Timer_Actor: C
 //
-static const REBVAL *Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static REB_R Timer_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 

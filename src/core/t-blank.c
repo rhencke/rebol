@@ -109,7 +109,7 @@ void MF_Unit(REB_MOLD *mo, const RELVAL *v, bool form)
 // or GET, we indicate no result with void.  (Ordinary path selection will
 // treat this as an error.)
 //
-const REBVAL *PD_Blank(
+REB_R PD_Blank(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

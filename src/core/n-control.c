@@ -677,7 +677,7 @@ REBNATIVE(none)
 // Shared code for CASE (which runs BLOCK! clauses as code) and CHOOSE (which
 // returns values as-is, e.g. `choose [true [print "hi"]]` => `[print "hi]`
 //
-static const REBVAL *Case_Choose_Core_May_Throw(
+static REB_R Case_Choose_Core_May_Throw(
     REBFRM *frame_,
     bool choose // do not evaluate branches, just "choose" them
 ){

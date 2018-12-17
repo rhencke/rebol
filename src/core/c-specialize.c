@@ -847,7 +847,7 @@ bool Specialize_Action_Throws(
 // all this does is change the phase and binding to match the function this
 // layer was specializing.
 //
-const REBVAL *Specializer_Dispatcher(REBFRM *f)
+REB_R Specializer_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
 
@@ -936,7 +936,7 @@ REBNATIVE(specialize)
 // (Luckily these copies are often not needed, such as when the DOES is not
 // used in a method... -AND- it only needs to be made once.)
 //
-const REBVAL *Block_Dispatcher(REBFRM *f)
+REB_R Block_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     RELVAL *block = ARR_HEAD(details);

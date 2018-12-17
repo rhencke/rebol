@@ -36,7 +36,7 @@
 //
 //  Console_Actor: C
 //
-static const REBVAL *Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static REB_R Console_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
     REBREQ *req = Ensure_Port_State(port, RDI_STDIO);

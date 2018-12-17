@@ -49,7 +49,7 @@
 // could track whether it's "open" or not, but the details of what is needed
 // depends on the development of a coherent port model.
 //
-static const REBVAL *Clipboard_Actor(
+static REB_R Clipboard_Actor(
     REBFRM *frame_,
     REBVAL *port,
     REBVAL *verb

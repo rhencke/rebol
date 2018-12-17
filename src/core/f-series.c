@@ -40,7 +40,7 @@
 // care of without knowing what specific kind of series it is.  So generally
 // index manipulation, and things like LENGTH/etc.
 //
-const REBVAL *Series_Common_Action_Maybe_Unhandled(
+REB_R Series_Common_Action_Maybe_Unhandled(
     REBFRM *frame_,
     REBVAL *verb
 ){

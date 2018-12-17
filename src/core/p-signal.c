@@ -146,7 +146,7 @@ static int sig_word_num(REBSTR *canon)
 //
 //  Signal_Actor: C
 //
-static const REBVAL *Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static REB_R Signal_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBREQ *req = Ensure_Port_State(port, RDI_SIGNAL);
     struct devreq_posix_signal *signal = DEVREQ_POSIX_SIGNAL(req);

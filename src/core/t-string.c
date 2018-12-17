@@ -584,7 +584,7 @@ static void Sort_String(
 //
 //  PD_String: C
 //
-const REBVAL *PD_String(
+REB_R PD_String(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval
@@ -1192,7 +1192,7 @@ REBTYPE(String)
 
     // Common operations for any series type (length, head, etc.)
     //
-    const REBVAL *r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
+    REB_R r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
     if (r != R_UNHANDLED)
         return r;
 

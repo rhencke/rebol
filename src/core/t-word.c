@@ -184,7 +184,7 @@ void MF_Word(REB_MOLD *mo, const RELVAL *v, bool form) {
 // adds support for picking characters out of the UTF-8 data of a word
 // (eventually all strings will be "UTF-8 Everywhere")
 //
-const REBVAL *PD_Word(
+REB_R PD_Word(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

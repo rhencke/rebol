@@ -160,3 +160,31 @@
         compose [(:a) (:b)]
     ]
 )
+
+
+; Series being enumerated are locked during the FOR-EACH, and this lock
+; has to be released on THROWs or FAILs.
+
+(
+    block: copy [a b c]
+    all [
+        <thrown> = catch [
+            for-each item block [
+                throw <thrown>
+            ]
+        ]
+        [a b c 10] = append block 10
+    ]
+)(
+    block: copy [a b c]
+    all [
+        e: trap [
+            for-each item block [
+                append block <failure>
+            ]
+        ]
+        e/id = 'series-held
+        [a b c 10] = append block 10
+    ]
+)
+

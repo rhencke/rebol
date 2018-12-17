@@ -135,7 +135,7 @@ static void Init_Dir_Path(
 //
 // Internal port handler for file directories.
 //
-static const REBVAL *Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static REB_R Dir_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);

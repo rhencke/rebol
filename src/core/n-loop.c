@@ -126,7 +126,7 @@ REBNATIVE(continue)
 //
 //  Loop_Series_Common: C
 //
-static const REBVAL *Loop_Series_Common(
+static REB_R Loop_Series_Common(
     REBVAL *out,
     REBVAL *var, // Must not be movable from context expansion, see #2274
     const REBVAL *body,
@@ -209,7 +209,7 @@ static const REBVAL *Loop_Series_Common(
 //
 //  Loop_Integer_Common: C
 //
-static const REBVAL *Loop_Integer_Common(
+static REB_R Loop_Integer_Common(
     REBVAL *out,
     REBVAL *var, // Must not be movable from context expansion, see #2274
     const REBVAL *body,
@@ -272,7 +272,7 @@ static const REBVAL *Loop_Integer_Common(
 //
 //  Loop_Number_Common: C
 //
-static const REBVAL *Loop_Number_Common(
+static REB_R Loop_Number_Common(
     REBVAL *out,
     REBVAL *var, // Must not be movable from context expansion, see #2274
     const REBVAL *body,
@@ -376,103 +376,28 @@ REBVAL *Real_Var_From_Pseudo(REBVAL *pseudo_var) {
 }
 
 
+struct Loop_Each_State {
+    REBVAL *out; // where to write the output data (must be GC safe)
+    const REBVAL *body; // body to run on each loop iteration
+    LOOP_MODE mode; // FOR-EACH, MAP-EACH, EVERY
+    REBCTX *pseudo_vars_ctx; // vars made by Virtual_Bind_To_New_Context()
+    REBVAL *data; // the data argument passed in
+    REBSER *data_ser; // series data being enumerated (if applicable)
+    REBCNT data_idx; // index into the data for filling current variable
+    REBCNT data_len; // length of the data
+};
+
+// Isolation of central logic for FOR-EACH, MAP-EACH, and EVERY so that it
+// can be rebRescue()'d in case of failure (to remove SERIES_INFO_HOLD, etc.)
 //
-//  Loop_Each: C
+// Returns nullptr or R_THROWN, where the relevant result is in les->out.
+// (That result may be IS_NULLED() if there was a break during the loop)
 //
-// Common implementation code of FOR-EACH, MAP-EACH, and EVERY.
-//
-// !!! This routine has been slowly clarifying since R3-Alpha, and can
-// likely be factored in a better way...pushing more per-native code into the
-// natives themselves.
-//
-static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
-{
-    INCLUDE_PARAMS_OF_FOR_EACH; // MAP-EACH & EVERY must have same interface
+REBVAL *Loop_Each_Core(struct Loop_Each_State *les) {
 
-    REBVAL *data = ARG(data);
-
-    if (IS_BLANK(data))
-        return nullptr; // blank in, void out (same result as BREAK)
-
-    bool broke = false; // a BREAK occurred while running the loop body
-    bool more_data = true; // set to false when no more data available
-    bool threw = false; // did a non-BREAK or non-CONTINUE throw occur
-    bool no_falseys = true; // no conditionally false body evaluations
-
-    Init_Blank(D_OUT); // result if body never runs (MAP-EACH gives [])
-
-    REBCTX *context;
-    Virtual_Bind_Deep_To_New_Context(
-        ARG(body), // may be updated, will still be GC safe
-        &context,
-        ARG(vars)
-    );
-    Init_Object(ARG(vars), context); // keep GC safe
-
-    // Currently the data stack is only used by MAP-EACH to accumulate results
-    // but it's faster to just save it than test the loop mode.
-    //
-    REBDSP dsp_orig = DSP;
-
-    // Extract the series and index being enumerated, based on data type
-
-    REBSER *series;
-    REBCNT index;
-    REBCNT len;
-    if (IS_ACTION(data)) {
-        //
-        // The value is generated each time by calling the data action.
-        // Assign values to avoid compiler warnings.
-        //
-        series = nullptr;
-        index = 0;
-        len = 0;
-    }
-    else {
-        if (ANY_SERIES(data)) {
-            series = VAL_SERIES(data);
-            index = VAL_INDEX(data);
-        }
-        else if (ANY_CONTEXT(data)) {
-            series = SER(CTX_VARLIST(VAL_CONTEXT(data)));
-            index = 1;
-        }
-        else if (IS_MAP(data)) {
-            series = VAL_SERIES(data);
-            index = 0;
-        }
-        else if (IS_DATATYPE(data)) {
-            //
-            // !!! Snapshotting the state is not particularly efficient.
-            // However, bulletproofing an enumeration of the system against
-            // possible GC would be difficult.  And this is really just a
-            // debug/instrumentation feature anyway.
-            //
-            switch (VAL_TYPE_KIND(data)) {
-            case REB_ACTION:
-                series = SER(Snapshot_All_Actions());
-                assert(NOT_SER_FLAG(series, NODE_FLAG_MANAGED));
-                index = 0;
-                break;
-
-            default:
-                fail ("ACTION! is the only type with global enumeration");
-            }
-        }
-        else if (IS_ACTION(data)) {
-            //
-            // No preparation necessary, action will be called each time.
-            //
-            index = 0; // still bumped each time, but ignored
-            series = nullptr;
-        }
-        else
-            panic ("Illegal type passed to Loop_Each()");
-
-        len = SER_LEN(series); // SERIES_INFO_HOLD, so length can't change
-        if (len == 0)
-            goto finished;
-    }
+    bool more_data = true;
+    bool broke = false;
+    bool no_falseys = true; // not "all_truthy" because body *may* not run
 
     do {
         // Sub-loop: set variables.  This is a loop because blocks with
@@ -484,7 +409,7 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
         //
         // ANY-CONTEXT! and MAP! allow one var (keys) or two vars (keys/vals)
         //
-        REBVAL *pseudo_var = CTX_VAR(context, 1);
+        REBVAL *pseudo_var = CTX_VAR(les->pseudo_vars_ctx, 1);
         for (; NOT_END(pseudo_var); ++pseudo_var) {
             REBVAL *var = Real_Var_From_Pseudo(pseudo_var);
 
@@ -500,27 +425,27 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 continue;
             }
 
-            enum Reb_Kind kind = VAL_TYPE(data);
+            enum Reb_Kind kind = VAL_TYPE(les->data);
             switch (kind) {
               case REB_BLOCK:
               case REB_GROUP:
               case REB_PATH:
                 Derelativize(
                     var,
-                    ARR_AT(ARR(series), index),
-                    VAL_SPECIFIER(data)
+                    ARR_AT(ARR(les->data_ser), les->data_idx),
+                    VAL_SPECIFIER(les->data)
                 );
-                if (++index == len)
+                if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
 
               case REB_DATATYPE:
                 Derelativize(
                     var,
-                    ARR_AT(ARR(series), index),
+                    ARR_AT(ARR(les->data_ser), les->data_idx),
                     SPECIFIED // array generated via data stack, all specific
                 );
-                if (++index == len)
+                if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
 
@@ -533,10 +458,10 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 REBVAL *val;
                 REBCNT bind_index;
                 while (true) { // find next non-hidden key (if any)
-                    key = VAL_CONTEXT_KEY(data, index);
-                    val = VAL_CONTEXT_VAR(data, index);
-                    bind_index = index;
-                    if (++index == len)
+                    key = VAL_CONTEXT_KEY(les->data, les->data_idx);
+                    val = VAL_CONTEXT_VAR(les->data, les->data_idx);
+                    bind_index = les->data_idx;
+                    if (++les->data_idx == les->data_len)
                         more_data = false;
                     if (not Is_Param_Hidden(key))
                         break;
@@ -548,15 +473,15 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                     var,
                     REB_WORD,
                     VAL_PARAM_SPELLING(key),
-                    CTX(series),
+                    VAL_CONTEXT(les->data),
                     bind_index
                 );
 
-                if (CTX_LEN(context) == 1) {
+                if (CTX_LEN(les->pseudo_vars_ctx) == 1) {
                     //
                     // Only wanted the key (`for-each key obj [...]`)
                 }
-                else if (CTX_LEN(context) == 2) {
+                else if (CTX_LEN(les->pseudo_vars_ctx) == 2) {
                     //
                     // Want keys and values (`for-each key val obj [...]`)
                     //
@@ -569,21 +494,22 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 break; }
 
               case REB_VECTOR:
-                Get_Vector_At(var, series, index);
-                if (++index == len)
+                Get_Vector_At(var, les->data_ser, les->data_idx);
+                if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
 
               case REB_MAP: {
-                assert(index % 2 == 0); // should be on key slot
+                assert(les->data_idx % 2 == 0); // should be on key slot
 
                 REBVAL *key;
                 REBVAL *val;
                 while (true) { // pass over the unused map slots
-                    key = KNOWN(ARR_AT(ARR(series), index));
-                    val = KNOWN(ARR_AT(ARR(series), index + 1));
-                    index += 2;
-                    if (index == len)
+                    key = KNOWN(ARR_AT(ARR(les->data_ser), les->data_idx));
+                    ++les->data_idx;
+                    val = KNOWN(ARR_AT(ARR(les->data_ser), les->data_idx));
+                    ++les->data_idx;
+                    if (les->data_idx == les->data_len)
                         more_data = false;
                     if (not IS_NULLED(val))
                         break;
@@ -593,11 +519,11 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
 
                 Move_Value(var, key);
 
-                if (CTX_LEN(context) == 1) {
+                if (CTX_LEN(les->pseudo_vars_ctx) == 1) {
                     //
                     // Only wanted the key (`for-each key map [...]`)
                 }
-                else if (CTX_LEN(context) == 2) {
+                else if (CTX_LEN(les->pseudo_vars_ctx) == 2) {
                     //
                     // Want keys and values (`for-each key val map [...]`)
                     //
@@ -611,36 +537,38 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
                 break; }
 
               case REB_BINARY:
-                Init_Integer(var, cast(REBI64, BIN_HEAD(series)[index]));
-                if (++index == len)
+                Init_Integer(var, BIN_HEAD(les->data_ser)[les->data_idx]);
+                if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
 
-              case REB_IMAGE:
-                Init_Tuple_From_Pixel(var, BIN_AT(series, index++));
-                if (++index == len)
+              case REB_IMAGE: {
+                REBYTE *rgba = BIN_AT(les->data_ser, les->data_idx);
+                Init_Tuple_From_Pixel(var, rgba);
+                les->data_idx += 4;
+                if (les->data_idx == les->data_len)
                     more_data = false;
-                break;
+                break; }
 
               case REB_TEXT:
               case REB_TAG:
               case REB_FILE:
               case REB_EMAIL:
               case REB_URL:
-                Init_Char(var, GET_ANY_CHAR(series, index));
-                if (++index == len)
+                Init_Char(var, GET_ANY_CHAR(les->data_ser, les->data_idx));
+                if (++les->data_idx == les->data_len)
                     more_data = false;
                 break;
 
               case REB_ACTION: {
-                REBVAL *generated = rebRun(rebEval(data), rebEND);
+                REBVAL *generated = rebRun(rebEval(les->data), rebEND);
                 if (generated) {
                     Move_Value(var, generated);
                     rebRelease(generated);
                 }
                 else {
                     more_data = false; // any remaining vars must be unset
-                    if (pseudo_var == CTX_VARS_HEAD(context)) {
+                    if (pseudo_var == CTX_VARS_HEAD(les->pseudo_vars_ctx)) {
                         //
                         // If we don't have at least *some* of the variables
                         // set for this body loop run, don't run the body.
@@ -656,73 +584,213 @@ static const REBVAL *Loop_Each(REBFRM *frame_, LOOP_MODE mode)
             }
         }
 
-        if (Do_Branch_Throws(D_OUT, ARG(body))) {
-            if (not Catching_Break_Or_Continue(D_OUT, &broke)) {
-                threw = true; // non-loop-related throw, bubble it up
-                break;
-            }
+        if (Do_Branch_Throws(les->out, les->body)) {
+            if (not Catching_Break_Or_Continue(les->out, &broke))
+                return R_THROWN; // non-loop-related throw
+
             if (broke) {
-                assert(IS_NULLED(D_OUT));
-                break;
+                Init_Nulled(les->out);
+                return nullptr;
             }
         }
 
-        switch (mode) {
+        switch (les->mode) {
           case LOOP_FOR_EACH:
-            Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
+            Voidify_If_Nulled_Or_Blank(les->out); // null->BREAK, blank->empty
             break;
 
           case LOOP_EVERY:
-            no_falseys &= IS_TRUTHY(D_OUT);
+            no_falseys = no_falseys and IS_TRUTHY(les->out);
             break;
 
           case LOOP_MAP_EACH:
-            if (not IS_NULLED(D_OUT))
-                DS_PUSH(D_OUT); // anything not null is added to the result
+            if (IS_NULLED(les->out))
+                Init_Void(les->out); // nulled is used to signal breaking only
+            else
+                DS_PUSH(les->out); // anything not null is added to the result
             break;
         }
     } while (more_data and not broke);
 
   finished:;
 
-    if (IS_DATATYPE(data))
-        Free_Unmanaged_Array(ARR(series)); // temporary array of all instances
+    if (les->mode == LOOP_EVERY and not no_falseys)
+        Init_Logic(les->out, false);
 
-    if (threw) {
-        // a non-BREAK and non-CONTINUE throw overrides any other return
-        // result we might give (generic THROW, RETURN, QUIT, etc.)
+    // We use nullptr to signal the result is in out.  If we returned les->out
+    // it would be subject to the rebRescue() rules, and the loop could not
+    // return an ERROR! value normally.
+    //
+    return nullptr;
+}
 
+
+//
+//  Loop_Each: C
+//
+// Common implementation code of FOR-EACH, MAP-EACH, and EVERY.
+//
+// !!! This routine has been slowly clarifying since R3-Alpha, and can
+// likely be factored in a better way...pushing more per-native code into the
+// natives themselves.
+//
+static REB_R Loop_Each(REBFRM *frame_, LOOP_MODE mode)
+{
+    INCLUDE_PARAMS_OF_FOR_EACH; // MAP-EACH & EVERY must have same interface
+
+    Init_Blank(D_OUT); // result if body never runs (MAP-EACH gives [])
+
+    struct Loop_Each_State les;
+    les.mode = mode;
+    les.out = D_OUT;
+    les.data = ARG(data);
+    les.body = ARG(body);
+
+    Virtual_Bind_Deep_To_New_Context(
+        ARG(body), // may be updated, will still be GC safe
+        &les.pseudo_vars_ctx,
+        ARG(vars)
+    );
+    Init_Object(ARG(vars), les.pseudo_vars_ctx); // keep GC safe
+
+    // Currently the data stack is only used by MAP-EACH to accumulate results
+    // but it's faster to just save it than test the loop mode.
+    //
+    REBDSP dsp_orig = DSP;
+
+    // Extract the series and index being enumerated, based on data type
+
+    REB_R r;
+
+    bool took_hold;
+    if (IS_ACTION(les.data)) {
+        //
+        // The value is generated each time by calling the data action.
+        // Assign values to avoid compiler warnings.
+        //
+        les.data_ser = nullptr;
+        les.data_idx = 0;
+        les.data_len = 0;
+        took_hold = false;
+    }
+    else {
+        if (ANY_SERIES(les.data)) {
+            les.data_ser = VAL_SERIES(les.data);
+            les.data_idx = VAL_INDEX(les.data);
+        }
+        else if (ANY_CONTEXT(les.data)) {
+            les.data_ser = SER(CTX_VARLIST(VAL_CONTEXT(les.data)));
+            les.data_idx = 1;
+        }
+        else if (IS_MAP(les.data)) {
+            les.data_ser = VAL_SERIES(les.data);
+            les.data_idx = 0;
+        }
+        else if (IS_DATATYPE(les.data)) {
+            //
+            // !!! e.g. `for-each act action! [...]` enumerating the list of
+            // all actions in the system.  This is not something that it's
+            // safe to expose in a general sense (subverts hidden/protected
+            // information) but it's an experiment for helping with stats and
+            // debugging...as well as showing a case where the enumerated
+            // data has to be snapshotted and freed.
+            //
+            switch (VAL_TYPE_KIND(les.data)) {
+              case REB_ACTION:
+                les.data_ser = SER(Snapshot_All_Actions());
+                assert(NOT_SER_FLAG(les.data_ser, NODE_FLAG_MANAGED));
+                les.data_idx = 0;
+                break;
+
+              default:
+                fail ("ACTION! is the only type with global enumeration");
+            }
+        }
+        else if (IS_ACTION(les.data)) {
+            //
+            // No preparation necessary, action will be called each time.
+            //
+            les.data_ser = nullptr;
+            les.data_idx = 0; // still bumped each time, but ignored
+        }
+        else
+            panic ("Illegal type passed to Loop_Each()");
+
+        took_hold = NOT_SER_INFO(les.data_ser, SERIES_INFO_HOLD);
+        if (took_hold)
+            SET_SER_INFO(les.data_ser, SERIES_INFO_HOLD);
+
+        les.data_len = SER_LEN(les.data_ser); // HOLD so length can't change
+        if (les.data_len == 0) {
+            assert(IS_BLANK(D_OUT)); // result if loop body never runs
+            r = nullptr;
+            goto cleanup;
+        }
+    }
+
+    // If there is a fail() and we took a SERIES_INFO_HOLD, that hold needs
+    // to be released.  For this reason, the code has to trap errors.
+
+    r = rebRescue(cast(REBDNG*, &Loop_Each_Core), &les);
+
+    //=//// CLEANUPS THAT NEED TO BE DONE DESPITE ERROR, THROW, ETC. //////=//
+
+  cleanup:;
+
+    if (took_hold) // release read-only lock
+        CLEAR_SER_INFO(les.data_ser, SERIES_INFO_HOLD);
+
+    if (IS_DATATYPE(les.data))
+        Free_Unmanaged_Array(ARR(les.data_ser)); // temp array of instances
+
+    //=//// NOW FINISH UP /////////////////////////////////////////////////=//
+
+    if (r == R_THROWN) { // generic THROW/RETURN/QUIT (not BREAK/CONTINUE)
         if (mode == LOOP_MAP_EACH)
             DS_DROP_TO(dsp_orig);
-
         return R_THROWN;
     }
 
+    if (r) {
+        assert(IS_ERROR(r));
+        if (mode == LOOP_MAP_EACH)
+            DS_DROP_TO(dsp_orig);
+        rebJumps ("FAIL", rebR(r), rebEND);
+    }
+
+    // Otherwise, nullptr signals result in les.out (a.k.a. D_OUT)
+
     switch (mode) {
       case LOOP_FOR_EACH:
-        if (broke)
-            return nullptr;
+        //
+        // nulled output means there was a BREAK
+        // blank output means loop body never ran
+        // void means the last body evaluation returned null or blank
+        // any other value is the plain last body result
+        //
         return D_OUT;
 
       case LOOP_EVERY:
-        if (broke)
-            return nullptr;
-        if (no_falseys)
-            return D_OUT;
-        return Init_False(D_OUT);
+        //
+        // nulled output means there was a BREAK
+        // blank means body never ran (`_ = every x [] [<unused>]`)
+        // #[false] means loop ran, and at least one body result was "falsey"
+        // any other value is the last body result, and is truthy
+        // only illegal value here is void (would cause error if body gave it)
+        //
+        assert(not IS_VOID(D_OUT));
+        return D_OUT;
 
       case LOOP_MAP_EACH:
-        if (broke) {
-            // While R3-Alpha's MAP-EACH would keep the remainder on BREAK,
-            // protocol in Ren-C means BREAK gives NULL.  If the remainder is
-            // to be kept, this must be done by manually CONTINUE-ing for the
-            // remaining elements or returning NULL from the body, but letting
-            // the enumeration finish.
-            //
+        if (IS_NULLED(D_OUT)) { // e.g. there was a BREAK...*must* return null
             DS_DROP_TO(dsp_orig);
             return nullptr;
         }
 
+        // !!! MAP-EACH always returns a block except in cases of BREAK, but
+        // paralleling some changes to COLLECT, it may be better if the body
+        // never runs it returns blank (?)
+        //
         return Init_Block(D_OUT, Pop_Stack_Values(dsp_orig));
     }
 
@@ -851,14 +919,8 @@ REBNATIVE(for_skip)
     );
     Init_Object(ARG(word), context); // keep GC safe
 
-    REBVAL *slot = CTX_VAR(context, 1); // not movable, see #2274
-    REBVAL *var; // may be movable if LIT-WORD! binding used...
-    if (NOT_VAL_FLAG(slot, VAR_MARKED_REUSE))
-        var = slot;
-    else {
-        assert(IS_LIT_WORD(slot));
-        var = Sink_Var_May_Fail(slot, SPECIFIED);
-    }
+    REBVAL *pseudo_var = CTX_VAR(context, 1); // not movable, see #2274
+    REBVAL *var = Real_Var_From_Pseudo(pseudo_var);
     Move_Value(var, series);
 
     // Starting location when past end with negative skip:
@@ -896,12 +958,7 @@ REBNATIVE(for_skip)
         // refreshed each time arbitrary code runs, since the context may
         // expand and move the address, may get PROTECTed, etc.
         //
-        if (NOT_VAL_FLAG(slot, VAR_MARKED_REUSE))
-            var = slot;
-        else {
-            assert(IS_LIT_WORD(slot));
-            var = Get_Mutable_Var_May_Fail(slot, SPECIFIED);
-        }
+        var = Real_Var_From_Pseudo(pseudo_var);
 
         if (IS_NULLED(var))
             fail (Error_No_Value(ARG(word)));
@@ -926,7 +983,7 @@ REBNATIVE(for_skip)
 //
 REBNATIVE(stop)
 //
-// Most loops are not allowed to explicitly return a value and stop looipng,
+// Most loops are not allowed to explicitly return a value and stop looping,
 // because that would make it impossible to tell from the outside whether
 // they'd requested a stop or if they'd naturally completed.  It would be
 // impossible to propagate a value-bearing break-like request to an aggregate
@@ -1413,11 +1470,9 @@ REBNATIVE(remove_each)
     if (r == R_THROWN)
         return R_THROWN;
 
-    const REBVAL *error = r;
-
-    if (error) {
+    if (r) {
         assert(IS_ERROR(r));
-        rebJumps("FAIL", r, rebEND);
+        rebJumps("FAIL", rebR(r), rebEND);
     }
 
     if (res.broke)
@@ -1562,7 +1617,7 @@ REBNATIVE(repeat)
 
 // Common code for UNTIL & UNTIL-NOT (same frame param layout)
 //
-inline static const REBVAL *Until_Core(
+inline static REB_R Until_Core(
     REBFRM *frame_,
     bool trigger // body keeps running so until evaluation matches this
 ){
@@ -1641,7 +1696,7 @@ REBNATIVE(until_not)
 
 // Common code for WHILE & WHILE-NOT
 //
-inline static const REBVAL *While_Core(
+inline static REB_R While_Core(
     REBFRM *frame_,
     bool trigger // body keeps running so long as condition matches
 ){

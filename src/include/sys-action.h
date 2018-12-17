@@ -49,7 +49,7 @@
 // This signals that the evaluator is in a "thrown state".
 //
 #define R_THROWN \
-    cast(const REBVAL*, &PG_R_Thrown)
+    cast(REBVAL*, &PG_R_Thrown)
 
 // See ACTION_FLAG_INVISIBLE...this is what any function with that flag needs
 // to return.
@@ -60,7 +60,7 @@
 // SET-PATH! should always evaluate to what was just set)
 //
 #define R_INVISIBLE \
-    cast(const REBVAL*, &PG_R_Invisible)
+    cast(REBVAL*, &PG_R_Invisible)
 
 // If Eval_Core gets back an REB_R_REDO from a dispatcher, it will re-execute
 // the f->phase in the frame.  This function may be changed by the dispatcher
@@ -72,10 +72,10 @@
 // who thought the types had been checked.
 //
 #define R_REDO_UNCHECKED \
-    cast(const REBVAL*, &PG_R_Redo_Unchecked)
+    cast(REBVAL*, &PG_R_Redo_Unchecked)
 
 #define R_REDO_CHECKED \
-    cast(const REBVAL*, &PG_R_Redo_Checked)
+    cast(REBVAL*, &PG_R_Redo_Checked)
 
 
 // Path dispatch used to have a return value PE_SET_IF_END which meant that
@@ -92,17 +92,17 @@
 // generalized design.
 //
 #define R_REFERENCE \
-    cast(const REBVAL*, &PG_R_Reference)
+    cast(REBVAL*, &PG_R_Reference)
 
 // This is used in path dispatch, signifying that a SET-PATH! assignment
 // resulted in the updating of an immediate expression in pvs->out, meaning
 // it will have to be copied back into whatever reference cell it had been in.
 //
 #define R_IMMEDIATE \
-    cast(const REBVAL*, &PG_R_Immediate)
+    cast(REBVAL*, &PG_R_Immediate)
 
 #define R_UNHANDLED \
-    END_NODE
+    cast(REBVAL*, &PG_End_Node)
 
 
 inline static REBARR *ACT_PARAMLIST(REBACT *a) {

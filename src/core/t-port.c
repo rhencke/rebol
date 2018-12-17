@@ -106,7 +106,7 @@ REB_R TO_Port(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 // ports do this, as some have their own interpretation of APPEND.  It's
 // hacky, but still not as bad as it was.  Review.
 //
-const REBVAL *Retrigger_Append_As_Write(REBFRM *frame_) {
+REB_R Retrigger_Append_As_Write(REBFRM *frame_) {
     INCLUDE_PARAMS_OF_APPEND;
 
     // !!! Something like `write/append %foo.txt "data"` knows to convert
@@ -194,7 +194,7 @@ REBTYPE(Port)
 
     REBVAL *port = D_ARG(1);
 
-    const REBVAL *r = Context_Common_Action_Maybe_Unhandled(frame_, verb);
+    REB_R r = Context_Common_Action_Maybe_Unhandled(frame_, verb);
     if (r != R_UNHANDLED)
         return r;
 

@@ -853,7 +853,7 @@ void Pick_Or_Poke_Date(
 //
 //  PD_Date: C
 //
-const REBVAL *PD_Date(
+REB_R PD_Date(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

@@ -39,7 +39,7 @@
 // In order to avoid having to pay for a check for NULL in the path dispatch
 // table for types with no path dispatch, a failing handler is in the slot.
 //
-const REBVAL *PD_Fail(
+REB_R PD_Fail(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval
@@ -58,7 +58,7 @@ const REBVAL *PD_Fail(
 // As a temporary workaround for not having real user-defined types, an
 // extension can overtake an "unhooked" type slot to provide behavior.
 //
-const REBVAL *PD_Unhooked(
+REB_R PD_Unhooked(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval
@@ -612,7 +612,7 @@ REBNATIVE(pick)
     PATH_HOOK hook = Path_Hooks[VAL_TYPE(location)];
     assert(hook != nullptr); // &PD_Fail is used instead of null
 
-    const REBVAL *r = hook(pvs, PVS_PICKER(pvs), NULL);
+    REB_R r = hook(pvs, PVS_PICKER(pvs), NULL);
     if (not r)
         return r;
 
@@ -691,7 +691,7 @@ REBNATIVE(poke)
     pvs->special = ARG(value);
 
     PATH_HOOK hook = Path_Hooks[VAL_TYPE(location)];
-    assert(hook != NULL); // &PD_Fail is used instead of NULL
+    assert(hook); // &PD_Fail is used instead of nullptr
 
     const REBVAL *r = hook(pvs, PVS_PICKER(pvs), ARG(value));
     switch (VAL_TYPE_RAW(r)) {

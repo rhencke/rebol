@@ -96,7 +96,7 @@
 // and much less flexible.  Nevertheless, sneaky lower-level-than-C tricks
 // might be used to patch the machine code and avoid cost when not hooked.
 //
-const REBVAL *Dispatcher_Core(REBFRM * const f) {
+REB_R Dispatcher_Core(REBFRM * const f) {
     //
     // Callers can "lie" to make the dispatch a no-op by substituting the
     // "Dummy" native in the frame, even though it doesn't match the args,

@@ -79,7 +79,7 @@ static void Query_Net(REBVAL *out, REBVAL *port, struct devreq_net *sock)
 //
 //  Transport_Actor: C
 //
-static const REBVAL *Transport_Actor(
+static REB_R Transport_Actor(
     REBFRM *frame_,
     REBVAL *port,
     REBVAL *verb,
@@ -487,7 +487,7 @@ static const REBVAL *Transport_Actor(
 //
 //  TCP_Actor: C
 //
-static const REBVAL *TCP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static REB_R TCP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     return Transport_Actor(frame_, port, verb, TRANSPORT_TCP);
 }
@@ -496,7 +496,7 @@ static const REBVAL *TCP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 //
 //  UDP_Actor: C
 //
-static const REBVAL *UDP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static REB_R UDP_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     return Transport_Actor(frame_, port, verb, TRANSPORT_UDP);
 }

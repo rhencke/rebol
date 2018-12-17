@@ -965,11 +965,13 @@ REBVAL *RL_rebRescue(
 
     // Analogous to how TRAP works, if you don't have a handler for the
     // error case then you can't return an ERROR!, since all errors indicate
-    // a failure.
+    // a failure.  Use VAL_TYPE_RAW() as R_THROWN or other special things can
+    // be used internally.
     //
-    if (IS_ERROR(result)) {
-        rebRelease(result);
-        return nullptr;
+    if (VAL_TYPE_RAW(result) == REB_ERROR) {
+        if (Is_Api_Value(result))
+            rebRelease(result);
+        return rebVoid();
     }
 
     if (not Is_Api_Value(result))

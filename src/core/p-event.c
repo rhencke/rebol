@@ -132,7 +132,7 @@ REBVAL *Find_Last_Event(REBINT model, REBINT type)
 //
 // Internal port handler for events.
 //
-static const REBVAL *Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static REB_R Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
@@ -194,15 +194,14 @@ static const REBVAL *Event_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         Move_Value(save_port, D_ARG(1));
         Move_Value(D_ARG(1), state);
 
-        const REBVAL *r = T_Array(frame_, verb);
+        REB_R r = T_Array(frame_, verb);
         SET_SIGNAL(SIG_EVENT_PORT);
         if (
             VAL_WORD_SYM(verb) == SYM_INSERT
             || VAL_WORD_SYM(verb) == SYM_APPEND
             || VAL_WORD_SYM(verb) == SYM_REMOVE
         ){
-            Move_Value(D_OUT, save_port);
-            return D_OUT;
+            RETURN (save_port);
         }
         return r; }
 

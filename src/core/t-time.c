@@ -467,7 +467,7 @@ void Poke_Time_Immediate(
 //
 //  PD_Time: C
 //
-const REBVAL *PD_Time(
+REB_R PD_Time(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

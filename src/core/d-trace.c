@@ -241,7 +241,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
 // This is the function which is swapped in for Dispatcher_Core when tracing
 // isenabled.
 //
-const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
+REB_R Traced_Dispatcher_Hook(REBFRM * const f)
 {
     int depth = Eval_Depth() - Trace_Depth;
     if (depth < 0 || depth >= Trace_Level)
@@ -269,7 +269,7 @@ const REBVAL *Traced_Dispatcher_Hook(REBFRM * const f)
     //
     bool last_phase = (ACT_UNDERLYING(phase) == phase);
 
-    const REBVAL *r = Dispatcher_Core(f);
+    REB_R r = Dispatcher_Core(f);
 
     // When you HIJACK a function with an incompatible frame, it can REDO
     // even on what looks like the "last phase" because it is wiring in a new

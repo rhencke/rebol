@@ -142,7 +142,7 @@ REBNATIVE(make)
     if (hook == nullptr)
         fail (Error_Bad_Make(kind, arg));
 
-    const REBVAL *r = hook(D_OUT, kind, arg); // might throw, fail...
+    REB_R r = hook(D_OUT, kind, arg); // might throw, fail...
     if (r == R_THROWN)
         return r;
     if (r == nullptr or VAL_TYPE(r) != kind)
@@ -205,7 +205,7 @@ REBNATIVE(to)
     if (not hook)
         fail (Error_Invalid(v));
 
-    const REBVAL *r = hook(D_OUT, new_kind, v); // may fail();
+    REB_R r = hook(D_OUT, new_kind, v); // may fail();
     if (r == R_THROWN) {
         assert(!"Illegal throw in TO conversion handler");
         fail (Error_No_Catch_For_Throw(D_OUT));
@@ -242,7 +242,7 @@ REBTYPE(Unhooked)
 // The series common code is in Series_Common_Action_Maybe_Unhandled(), but
 // that is only called from series.  Handle a few extra cases here.
 //
-const REBVAL *Reflect_Core(REBFRM *frame_)
+REB_R Reflect_Core(REBFRM *frame_)
 {
     INCLUDE_PARAMS_OF_REFLECT;
 

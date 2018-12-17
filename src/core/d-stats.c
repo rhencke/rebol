@@ -184,7 +184,7 @@ enum {
 // In order to actually be accurate, it would need some way to subtract out
 // its own effect on the timing of functions above on the stack.
 //
-const REBVAL *Measured_Dispatcher_Hook(REBFRM * const f)
+REB_R Measured_Dispatcher_Hook(REBFRM * const f)
 {
     REBMAP *m = VAL_MAP(Root_Stats_Map);
 
@@ -209,7 +209,7 @@ const REBVAL *Measured_Dispatcher_Hook(REBFRM * const f)
         // being studied for starters...of just counting.
     }
 
-    const REBVAL *r = Dispatcher_Core(f);
+    REB_R r = Dispatcher_Core(f);
     assert(r->header.bits & NODE_FLAG_CELL);
 
     if (is_last_phase) {

@@ -591,7 +591,7 @@ void Shuffle_Block(REBVAL *value, bool secure)
 //     PD_Set_Path
 //     PD_Lit_Path
 //
-const REBVAL *PD_Array(
+REB_R PD_Array(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval
@@ -782,7 +782,7 @@ REBTYPE(Array)
 
     // Common operations for any series type (length, head, etc.)
     //
-    const REBVAL *r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
+    REB_R r = Series_Common_Action_Maybe_Unhandled(frame_, verb);
     if (r != R_UNHANDLED)
         return r;
 

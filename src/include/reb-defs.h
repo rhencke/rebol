@@ -184,7 +184,7 @@ typedef uint_fast32_t REBDSP; // Note: 0 for empty stack ([0] entry is trash)
 // The REB_R type is a REBVAL* but with the idea that it is legal to hold
 // types like REB_R_THROWN, etc.  This helps document interface contract.
 //
-typedef const REBVAL *REB_R;
+typedef REBVAL *REB_R;
 
 
 //=//// DISPATCHERS ///////////////////////////////////////////////////////=//

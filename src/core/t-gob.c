@@ -867,7 +867,7 @@ REB_R TO_Gob(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  PD_Gob: C
 //
-const REBVAL *PD_Gob(
+REB_R PD_Gob(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

@@ -254,7 +254,7 @@ void Poke_Tuple_Immediate(
 //
 //  PD_Tuple: C
 //
-const REBVAL *PD_Tuple(
+REB_R PD_Tuple(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

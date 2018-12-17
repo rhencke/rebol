@@ -408,7 +408,7 @@ REB_R TO_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  PD_Context: C
 //
-const REBVAL *PD_Context(
+REB_R PD_Context(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval
@@ -740,7 +740,7 @@ void MF_Context(REB_MOLD *mo, const RELVAL *v, bool form)
 // PORT! wants to act like a context for some things, but if you ask an
 // ordinary object if it's OPEN? it doesn't know how to do that.
 //
-const REBVAL *Context_Common_Action_Maybe_Unhandled(
+REB_R Context_Common_Action_Maybe_Unhandled(
     REBFRM *frame_,
     REBVAL *verb
 ){
@@ -806,7 +806,7 @@ const REBVAL *Context_Common_Action_Maybe_Unhandled(
 //
 REBTYPE(Context)
 {
-    const REBVAL *r = Context_Common_Action_Maybe_Unhandled(frame_, verb);
+    REB_R r = Context_Common_Action_Maybe_Unhandled(frame_, verb);
     if (r != R_UNHANDLED)
         return r;
 

@@ -1426,7 +1426,7 @@ void Poke_Image_Fail_If_Read_Only(
 //
 //  PD_Image: C
 //
-const REBVAL *PD_Image(
+REB_R PD_Image(
     REBPVS *pvs,
     const REBVAL *picker,
     const REBVAL *opt_setval

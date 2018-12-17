@@ -36,7 +36,7 @@
 //
 //  Serial_Actor: C
 //
-static const REBVAL *Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
+static REB_R Serial_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
 {
     REBCTX *ctx = VAL_CONTEXT(port);
     REBVAL *spec = CTX_VAR(ctx, STD_PORT_SPEC);
