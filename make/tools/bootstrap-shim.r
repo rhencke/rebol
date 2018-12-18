@@ -95,3 +95,12 @@ function: adapt 'function [set [spec body] modernize-action spec body]
 
 meth: enfix adapt 'meth [set [spec body] modernize-action spec body]
 method: enfix adapt 'method [set [spec body] modernize-action spec body]
+
+trim: adapt 'trim [ // there's a bug in TRIM/AUTO in 8994d23
+    if auto [
+        while [not tail? series and [series/1 = LF]] [
+            take series
+        ]
+    ]
+]
+

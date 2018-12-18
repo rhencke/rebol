@@ -393,9 +393,9 @@ e-lib/emit {
      *
      * To Rebol, the first bit being 1 means it's a Rebol node, the second
      * that it is not in the "free" state.  The lowest bit in the first byte
-     * clear indicates it doesn't point to a "cell".  With the second byte as
-     * a 0, this means the NOT_END bit (highest in second byte) is clear.  So
-     * this simple 2 byte string does the trick!
+     * clear indicates it doesn't point to a "cell".  The SECOND_BYTE() is
+     * where the VAL_TYPE() of a cell is usually stored, and this being 0
+     * indicates an END marker.
      */
     #define rebEND \
         ((const void*)"\x80")

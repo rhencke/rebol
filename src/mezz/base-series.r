@@ -325,6 +325,9 @@ trim: function [
     indent: _
     if auto [
         parse series [
+            ; Don't count empty lines, (e.g. trim/auto {^/^/^/    asdf})
+            remove [any LF]
+
             (indent: 0)
             s: some rule e:
             (indent: (index of e) - (index of s))

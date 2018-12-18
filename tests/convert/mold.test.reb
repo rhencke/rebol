@@ -113,3 +113,21 @@
     append/line block [d e f]
     mold block = {[^/    a b c^/    d e f^/]}
 )
+
+[#145 (
+    test-block: [a b c d e f]
+    set 'f func [
+        /local buff
+    ][
+        buff: copy ""
+        for-each val test-block [
+            loop 5000 [
+                append buff form reduce [reduce [<td> 'OK </td>] cr lf]
+            ]
+        ]
+        buff
+    ]
+    f
+    recycle
+    true
+)]
