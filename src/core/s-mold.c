@@ -569,11 +569,10 @@ bool Form_Reduce_Throws(
     REBSPC *specifier,
     const REBVAL *delimiter
 ){
-    if (IS_TEXT(delimiter)) {
-        if (VAL_LEN_AT(delimiter) == 0)
-            delimiter = NULLED_CELL; // avoid repeating emptiness test in loop
-    } else
-        assert(IS_NULLED(delimiter) or IS_CHAR(delimiter));
+    assert(
+        IS_NULLED(delimiter) or IS_BLANK(delimiter)
+        or IS_CHAR(delimiter) or IS_TEXT(delimiter)
+    );
 
     DECLARE_MOLD (mo);
     Push_Mold(mo);
@@ -582,7 +581,7 @@ bool Form_Reduce_Throws(
     Push_Frame_At(f, array, index, specifier, DO_MASK_NONE);
 
     bool pending = false; // pending delimiter output, *if* more non-nulls
-    bool nothing = true; // no non-null elements have been processed
+    bool nothing = true; // any elements seen so far have been null or blank
 
     while (NOT_END(f->value)) {
         if (Eval_Step_Throws(SET_END(out), f)) {
@@ -596,14 +595,11 @@ bool Form_Reduce_Throws(
 
         nothing = false;
 
-        if (IS_TEXT(out) and VAL_LEN_AT(out) == 0)
-            continue;
-
         if (IS_CHAR(out)) { // not delimiting on CHAR! (e.g. space, newline)
             Append_Utf8_Codepoint(mo->series, VAL_CHAR(out));
             pending = false;
         }
-        else if (IS_NULLED(delimiter)) // may be detected empty text above
+        else if (IS_NULLED(delimiter) or IS_BLANK(delimiter))
             Form_Value(mo, out);
         else {
             if (pending)
@@ -775,15 +771,13 @@ REBSER *Pop_Molded_String_Core(REB_MOLD *mo, REBCNT len)
     ASSERT_SERIES_TERM(mo->series);
     Throttle_Mold(mo);
 
-    assert(
-        (len == UNKNOWN) || (len <= SER_LEN(mo->series) - mo->start)
-    );
+    assert(SER_LEN(mo->series) >= mo->start);
+    if (len == UNKNOWN)
+        len = SER_LEN(mo->series) - mo->start;
 
     REBSER *result = Make_Sized_String_UTF8(
         cs_cast(BIN_AT(mo->series, mo->start)),
-        (len == UNKNOWN)
-            ? SER_LEN(mo->series) - mo->start
-            : len
+        len
     );
     assert(SER_WIDE(result) == sizeof(REBUNI));
 

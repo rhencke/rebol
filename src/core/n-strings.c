@@ -99,12 +99,11 @@ static struct {
 //
 //  delimit: native [
 //
-//  {Joins a block of values into TEXT! with delimiters.}
+//  {Joins a block of values into TEXT! with delimiters}
 //
 //      return: "Null if blank input or block's contents are all null"
 //          [<opt> text!]
-//      delimiter "Null means no delimiter (same as empty string)"
-//          [<opt> char! text!]
+//      delimiter [<opt> blank! char! text!]
 //      line "Will be copied if already a text value"
 //          [<blank> text! block!]
 //  ]
