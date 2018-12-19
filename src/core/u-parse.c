@@ -366,7 +366,7 @@ static const RELVAL *Get_Parse_Value(
     REBVAL *cell,
     const RELVAL *rule,
     REBSPC *specifier
-) {
+){
     if (IS_BAR(rule))
         return rule;
 
@@ -402,6 +402,48 @@ static const RELVAL *Get_Parse_Value(
 
 
 //
+//  Process_Group_For_Parse: C
+//
+// Historically a single group in PARSE ran code, discarding the value (with
+// a few exceptions when appearing in an argument position to a rule).  Ren-C
+// adds another behavior for when groups are "doubled", e.g. ((...)).  This
+// makes them act like a COMPOSE/ONLY that runs each time they are visited.
+//
+REB_R Process_Group_For_Parse(
+    REBFRM *f,
+    REBVAL *cell,
+    const RELVAL *group
+){
+    assert(IS_GROUP(group));
+    REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, group);
+
+    if (Do_At_Throws(cell, VAL_ARRAY(group), VAL_INDEX(group), derived))
+        return R_THROWN;
+
+    // !!! The input is not locked from modification by agents other than the
+    // PARSE's own REMOVE/etc.  This is a sketchy idea, but as long as it's
+    // allowed, each time arbitrary user code runs, rules have to be adjusted
+    //
+    if (P_POS > SER_LEN(P_INPUT))
+        P_POS = SER_LEN(P_INPUT);
+
+    if (
+        IS_NULLED(cell) // even for doubled groups, null evals are discarded
+        or not Is_Doubled_Group(group) // non-doubled groups always discard
+    ){
+        return R_INVISIBLE;
+    }
+
+    if (IS_GROUP(cell))
+        fail ("Doubled GROUP! eval returned GROUP!, re-evaluation disabled.");
+
+    if (IS_BAR(cell))
+        fail ("Doubled GROUP! eval returned BAR!...cannot be abstracted.");
+
+    return cell;
+}
+
+//
 //  Parse_String_One_Rule: C
 //
 // Match the next rule in the string ruleset.
@@ -427,6 +469,19 @@ static REBIXO Parse_String_One_Rule(REBFRM *f, const RELVAL *rule) {
 
     if (P_POS >= SER_LEN(P_INPUT))
         return END_FLAG;
+
+    if (IS_GROUP(rule)) {
+        rule = Process_Group_For_Parse(f, P_CELL, rule);
+        if (rule == R_THROWN) {
+            Move_Value(P_OUT, P_CELL);
+            return THROWN_FLAG;
+        }
+        if (rule == R_INVISIBLE) {
+            assert(P_POS <= SER_LEN(P_INPUT)); // !!! Process_Group ensures
+            return P_POS;
+        }
+        // was a doubled group ((...)), use result as rule
+    }
 
     switch (VAL_TYPE(rule)) {
     case REB_BLANK:
@@ -507,48 +562,29 @@ static REBIXO Parse_String_One_Rule(REBFRM *f, const RELVAL *rule) {
         // This parses a sub-rule block.  It may throw, and it may mutate the
         // input series.
         //
+        DECLARE_LOCAL (subresult);
         bool interrupted;
         if (Subparse_Throws(
             &interrupted,
-            P_CELL,
+            subresult,
             P_INPUT_VALUE,
             SPECIFIED,
             rule,
             P_RULE_SPECIFIER,
             P_FIND_FLAGS
         )) {
-            Move_Value(P_OUT, P_CELL);
+            Move_Value(P_OUT, subresult);
             return THROWN_FLAG;
         }
 
         // !!! ignore "interrupted"? (e.g. ACCEPT or REJECT ran)
 
-        if (IS_NULLED(P_CELL))
+        if (IS_NULLED(subresult))
             return END_FLAG;
 
-        REBINT index = VAL_INT32(P_CELL);
+        REBINT index = VAL_INT32(subresult);
         assert(index >= 0);
         return cast(REBCNT, index); }
-
-    case REB_GROUP: {
-        //
-        // This runs a GROUP! as code.  It may throw, but won't influence the
-        // input position...although it can change the input series.  :-/
-        // If the input series is shortened to make P_POS an invalid position,
-        // then truncate it to the end of series.
-        //
-        DECLARE_LOCAL (dummy);
-        REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, rule);
-        if (Do_At_Throws(
-            dummy,
-            VAL_ARRAY(rule),
-            VAL_INDEX(rule),
-            derived
-        )) {
-            Move_Value(P_OUT, dummy);
-            return THROWN_FLAG;
-        }
-        return MIN(P_POS, SER_LEN(P_INPUT)); } // !!! review truncation concept
 
     default:
         fail (Error_Parse_Rule());
@@ -601,6 +637,19 @@ static REBIXO Parse_Array_One_Rule_Core(
             return END_FLAG;
     }
 
+    if (IS_GROUP(rule)) {
+        rule = Process_Group_For_Parse(f, P_CELL, rule);
+        if (rule == R_THROWN) {
+            Move_Value(P_OUT, P_CELL);
+            return THROWN_FLAG;
+        }
+        if (rule == R_INVISIBLE) {
+            assert(pos <= ARR_LEN(array)); // !!! Process_Group ensures
+            return pos;
+        }
+        // was a doubled group ((...)), use result as rule
+    }
+
     switch (VAL_TYPE(rule)) {
     case REB_BLANK:
         return pos; // blank rules "match" but don't affect the parse position
@@ -625,26 +674,6 @@ static REBIXO Parse_Array_One_Rule_Core(
             return pos + 1;
         return END_FLAG;
 
-    case REB_GROUP: {
-        //
-        // If a GROUP! is hit then it is treated as a match and assumed that
-        // it should execute.  Although the rules series is protected from
-        // modification during the parse, the input series is not...so the
-        // index may have to be adjusted to keep it in the array bounds.
-        //
-        REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, rule);
-        DECLARE_LOCAL (dummy);
-        if (Do_At_Throws(
-            dummy,
-            VAL_ARRAY(rule),
-            VAL_INDEX(rule),
-            derived
-        )) {
-            Move_Value(P_OUT, dummy);
-            return THROWN_FLAG;
-        }
-        return MIN(pos, ARR_LEN(array)); } // may affect tail
-
     case REB_BLOCK: {
         //
         // Process a subrule.  The subrule will run in its own frame, so it
@@ -657,16 +686,17 @@ static REBIXO Parse_Array_One_Rule_Core(
 
         P_POS = pos; // modify input position
 
+        DECLARE_LOCAL (subresult);
         if (Subparse_Throws(
             &interrupted,
-            P_CELL,
+            subresult,
             P_INPUT_VALUE, // use input value with modified position
             SPECIFIED,
             rule,
             P_RULE_SPECIFIER,
             P_FIND_FLAGS
         )) {
-            Move_Value(P_OUT, P_CELL);
+            Move_Value(P_OUT, subresult);
             return THROWN_FLAG;
         }
 
@@ -674,10 +704,10 @@ static REBIXO Parse_Array_One_Rule_Core(
 
         P_POS = pos_before; // restore input position
 
-        if (IS_NULLED(P_CELL))
+        if (IS_NULLED(subresult))
             return END_FLAG;
 
-        REBINT index = VAL_INT32(P_CELL);
+        REBINT index = VAL_INT32(subresult);
         assert(index >= 0);
         return cast(REBCNT, index); }
 
@@ -723,26 +753,33 @@ static REBIXO To_Thru_Block_Rule(
 ) {
     DECLARE_LOCAL (cell); // holds evaluated rules (use frame cell instead?)
 
-    RELVAL *blk;
-
     REBCNT pos = P_POS;
     for (; pos <= SER_LEN(P_INPUT); ++pos) {
-        blk = VAL_ARRAY_HEAD(rule_block);
+        const RELVAL *blk = VAL_ARRAY_HEAD(rule_block);
         for (; NOT_END(blk); blk++) {
-            const RELVAL *rule = blk;
+            if (IS_BAR(blk))
+                fail (Error_Parse_Rule()); // !!! Shouldn't `TO [|]` succeed?
 
-            if (IS_BAR(rule))
-                fail (Error_Parse_Rule()); // !!! Shouldn't `TO [|]` succed?
+            const RELVAL *rule;
+            if (not IS_GROUP(blk))
+                rule = blk;
+            else {
+                rule = Process_Group_For_Parse(f, cell, blk);
+                if (rule == R_THROWN) {
+                    Move_Value(P_OUT, cell);
+                    return THROWN_FLAG;
+                }
+                if (rule == R_INVISIBLE)
+                    continue;
+            }
 
             if (IS_WORD(rule)) {
                 REBSYM cmd = VAL_CMD(rule);
 
                 if (cmd != SYM_0) {
                     if (cmd == SYM_END) {
-                        if (pos >= SER_LEN(P_INPUT)) {
-                            pos = SER_LEN(P_INPUT);
-                            goto found;
-                        }
+                        if (pos >= SER_LEN(P_INPUT))
+                            return SER_LEN(P_INPUT);
                         goto next_alternate_rule;
                     }
                     else if (cmd == SYM_QUOTE) {
@@ -751,20 +788,17 @@ static REBIXO To_Thru_Block_Rule(
                             fail (Error_Parse_Rule());
 
                         if (IS_GROUP(rule)) {
-                            REBSPC *derived = Derive_Specifier(
-                                P_RULE_SPECIFIER,
-                                rule
-                            );
-                            if (Do_At_Throws( // might GC
-                                cell,
-                                VAL_ARRAY(rule),
-                                VAL_INDEX(rule),
-                                derived
-                            )) {
+                            //
+                            // !!! Tentative plan is to try and make single
+                            // groups never produce a result that PARSE sees.
+                            //
+                            /* if (not Is_Doubled_Group(rule))
+                               fail ("QUOTE needs doubled GROUP! ((...))"); */
+                            rule = Process_Group_For_Parse(f, cell, rule);
+                            if (rule == R_THROWN) {
                                 Move_Value(P_OUT, cell);
                                 return THROWN_FLAG;
                             }
-                            rule = cell;
                         }
                     }
                     else
@@ -790,9 +824,10 @@ static REBIXO To_Thru_Block_Rule(
                 }
 
                 if (i != END_FLAG) {
-                    pos = cast(REBCNT, i);
-                    if (!is_thru) pos--; // passed it, so back up if only TO...
-                    goto found;
+                    pos = cast(REBCNT, i); // passed it, so back up if only TO
+                    if (is_thru)
+                        return pos; // don't back up
+                    return pos - 1; // back up
                 }
             }
             else if (P_TYPE == REB_BINARY) {
@@ -804,16 +839,18 @@ static REBIXO To_Thru_Block_Rule(
                         fail (Error_Parse_Rule());
 
                     if (ch1 == VAL_CHAR(rule)) {
-                        if (is_thru) ++pos;
-                        goto found;
+                        if (is_thru)
+                            return pos + 1;
+                        return pos;
                     }
                 }
                 else if (IS_BINARY(rule)) {
                     if (ch1 == *VAL_BIN_AT(rule)) {
                         REBCNT len = VAL_LEN_AT(rule);
                         if (len == 1) {
-                            if (is_thru) ++pos;
-                            goto found;
+                            if (is_thru)
+                                return pos + 1;
+                            return pos;
                         }
 
                         if (0 == Compare_Bytes(
@@ -822,8 +859,9 @@ static REBIXO To_Thru_Block_Rule(
                             len,
                             false
                         )) {
-                            if (is_thru) pos += len;
-                            goto found;
+                            if (is_thru)
+                                return pos + 1;
+                            return pos;
                         }
                     }
                 }
@@ -832,8 +870,9 @@ static REBIXO To_Thru_Block_Rule(
                         fail (Error_Parse_Rule());
 
                     if (ch1 == VAL_INT32(rule)) {
-                        if (is_thru) ++pos;
-                        goto found;
+                        if (is_thru)
+                            return pos + 1;
+                        return pos;
                     }
                 }
                 else
@@ -853,15 +892,17 @@ static REBIXO To_Thru_Block_Rule(
                     if (!P_HAS_CASE)
                         ch2 = UP_CASE(ch2);
                     if (ch == ch2) {
-                        if (is_thru) ++pos;
-                        goto found;
+                        if (is_thru)
+                            return pos + 1;
+                        return pos;
                     }
                 }
                 // bitset
                 else if (IS_BITSET(rule)) {
                     if (Check_Bit(VAL_SERIES(rule), ch, not P_HAS_CASE)) {
-                        if (is_thru) ++pos;
-                        goto found;
+                        if (is_thru)
+                            return pos + 1;
+                        return pos;
                     }
                 }
                 else if (IS_TAG(rule)) {
@@ -885,9 +926,9 @@ static REBIXO To_Thru_Block_Rule(
                         );
                         Free_Unmanaged_Series(formed);
                         if (i != NOT_FOUND) {
-                            pos = i;
-                            if (is_thru) pos += len;
-                            goto found;
+                            if (is_thru)
+                                return pos + len;
+                            return pos;
                         }
                     }
                 }
@@ -898,8 +939,9 @@ static REBIXO To_Thru_Block_Rule(
                     if (ch == ch2) {
                         REBCNT len = VAL_LEN_AT(rule);
                         if (len == 1) {
-                            if (is_thru) ++pos;
-                            goto found;
+                            if (is_thru)
+                                return pos + 1;
+                            return pos;
                         }
 
                         REBCNT i = Find_Str_Str(
@@ -915,54 +957,35 @@ static REBIXO To_Thru_Block_Rule(
                         );
 
                         if (i != NOT_FOUND) {
-                            pos = i;
-                            if (is_thru) pos += len;
-                            goto found;
+                            if (is_thru)
+                                return i + len;
+                            return i;
                         }
                     }
                 }
                 else if (IS_INTEGER(rule)) {
                     if (ch_unadjusted == cast(REBUNI, VAL_INT32(rule))) {
-                        if (is_thru) ++pos;
-                        goto found;
+                        if (is_thru)
+                            return pos + 1;
+                        return pos;
                     }
                 }
                 else
                     fail (Error_Parse_Rule());
             }
 
-        next_alternate_rule:; // alternates are BAR! separated `[a | b | c]`
-            blk++;
-            if (IS_END(blk))
-                break;
+          next_alternate_rule:; // alternates are BAR! separated `[a | b | c]`
 
-            if (IS_GROUP(blk)) // don't run GROUP!s in the failing rule
-                blk++;
-
-            if (IS_END(blk))
-                break;
-
-            if (not IS_BAR(blk))
-                fail (Error_Parse_Rule());
+            do {
+                ++blk;
+                if (IS_END(blk))
+                    goto next_input_position;
+            } while (not IS_BAR(blk));
         }
+
+      next_input_position:; // not matched yet, so keep trying to go THRU or TO
     }
     return END_FLAG;
-
-found:
-    if (NOT_END(blk + 1) and IS_GROUP(blk + 1)) {
-        DECLARE_LOCAL (dummy);
-        REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, rule_block);
-        if (Do_At_Throws(
-            dummy,
-            VAL_ARRAY(blk + 1),
-            VAL_INDEX(blk + 1),
-            derived
-        )) {
-            Move_Value(P_OUT, dummy);
-            return THROWN_FLAG;
-        }
-    }
-    return pos;
 }
 
 
@@ -1368,22 +1391,6 @@ REBNATIVE(subparse)
     REBINT maxcount = 1; // max pattern count
 
     while (NOT_END(f->value)) {
-        //
-        // The rule in the block of rules can be literal, while the "real
-        // rule" we want to process is the result of a variable fetched from
-        // that item.  If the code makes it to the iterated rule matching
-        // section, then rule should be set to something non-NULL by then...
-        //
-        const RELVAL *rule = NULL;
-
-        // Some rules that make it to the iterated rule section have a
-        // parameter.  For instance `3 into [some "a"]` will actually run
-        // the INTO `rule` 3 times with the `subrule` of `[some "a"]`.
-        // Because it is iterated it is only captured the first time through,
-        // so setting it to NULL indicates for such instructions that it
-        // has not been captured yet.
-        //
-        const RELVAL *subrule = NULL;
 
         /* Print_Parse_Index(f); */
         UPDATE_EXPRESSION_START(f);
@@ -1420,6 +1427,11 @@ REBNATIVE(subparse)
         // The input index is not advanced here, but may be changed by
         // a GET-WORD variable.
 
+    //=//// HANDLE BAR! FIRST... BEFORE GROUP! ////////////////////////////=//
+
+        // BAR!s cannot be abstracted.  If they could be, then you'd have to
+        // run all doubled groups `((...))` to find them in alternates lists.
+
         if (IS_BAR(P_RULE)) {
             //
             // If a BAR! is hit while processing any rules in the rules
@@ -1432,14 +1444,45 @@ REBNATIVE(subparse)
             return Init_Integer(P_OUT, P_POS);
         }
 
-        // If word, set-word, or get-word, process it:
-        if (VAL_TYPE(P_RULE) >= REB_WORD and VAL_TYPE(P_RULE) <= REB_GET_WORD) {
+        // The rule in the block of rules can be literal, while the "real
+        // rule" we want to process is the result of a variable fetched from
+        // that item.  If the code makes it to the iterated rule matching
+        // section, then rule should be set to something non-NULL by then...
+        //
+        const RELVAL *rule;
+        if (not IS_GROUP(P_RULE))
+            rule = P_RULE;
+        else {
+            rule = Process_Group_For_Parse(f, save, P_RULE);
+            if (rule == R_THROWN) {
+                Move_Value(P_OUT, save);
+                return R_THROWN;
+            }
+            if (rule == R_INVISIBLE) { // was a (...), or null-bearing ((...))
+                FETCH_NEXT_RULE(f); // ignore result and go on to next rule
+                continue;
+            }
+            // was a doubled GROUP!, e.g. ((...)), inject its result into
+            // the stream as a rule in its own right.
+            //
+            assert(IS_SPECIFIC(rule)); // can use w/P_RULE_SPECIFIER, harmless
+        }
 
-            REBSYM cmd = VAL_CMD(P_RULE);
+        // Some iterated rules have a parameter.  `3 into [some "a"]` will
+        // actually run the INTO `rule` 3 times with the `subrule` of
+        // `[some "a"]`.  Because it is iterated it is only captured the first
+        // time through, nullptr indicates it's not been captured yet.
+        //
+        const RELVAL *subrule = nullptr;
+
+        // If word, set-word, or get-word, process it:
+        if (VAL_TYPE(rule) >= REB_WORD and VAL_TYPE(rule) <= REB_GET_WORD) {
+
+            REBSYM cmd = VAL_CMD(rule);
             if (cmd != SYM_0) {
-                if (not IS_WORD(P_RULE)) { // COPY: :THRU ...
+                if (not IS_WORD(rule)) { // COPY: :THRU ...
                     DECLARE_LOCAL (non_word);
-                    Derelativize(non_word, P_RULE, P_RULE_SPECIFIER);
+                    Derelativize(non_word, rule, P_RULE_SPECIFIER);
                     fail (Error_Parse_Command_Raw(non_word));
                 }
 
@@ -1598,13 +1641,12 @@ REBNATIVE(subparse)
                     }
                 }
                 // Any other cmd must be a match command, so proceed...
-                rule = P_RULE;
             }
             else {
                 // It's not a PARSE command, get or set it
 
                 // word: - set a variable to the series at current index
-                if (IS_SET_WORD(P_RULE)) {
+                if (IS_SET_WORD(rule)) {
                     //
                     // !!! Review meaning of marking the parse in a slot that
                     // is a target of a rule, e.g. `thru pos: xxx` #
@@ -1614,7 +1656,7 @@ REBNATIVE(subparse)
                     // if (flags != 0) fail (Error_Parse_Rule());
 
                     Move_Value(
-                        Sink_Var_May_Fail(P_RULE, P_RULE_SPECIFIER),
+                        Sink_Var_May_Fail(rule, P_RULE_SPECIFIER),
                         P_INPUT_VALUE
                     );
                     FETCH_NEXT_RULE(f);
@@ -1622,10 +1664,10 @@ REBNATIVE(subparse)
                 }
 
                 // :word - change the index for the series to a new position
-                if (IS_GET_WORD(P_RULE)) {
+                if (IS_GET_WORD(rule)) {
                     DECLARE_LOCAL (temp);
-                    Move_Opt_Var_May_Fail(temp, P_RULE, P_RULE_SPECIFIER);
-                    if (!ANY_SERIES(temp)) { // #1263
+                    Move_Opt_Var_May_Fail(temp, rule, P_RULE_SPECIFIER);
+                    if (not ANY_SERIES(temp)) { // #1263
                         DECLARE_LOCAL (non_series);
                         Derelativize(non_series, P_RULE, P_RULE_SPECIFIER);
                         fail (Error_Parse_Series_Raw(non_series));
@@ -1652,36 +1694,34 @@ REBNATIVE(subparse)
                 }
 
                 // word - some other variable
-                if (IS_WORD(P_RULE)) {
-                    Move_Opt_Var_May_Fail(save, P_RULE, P_RULE_SPECIFIER);
-                    rule = save;
+                if (IS_WORD(rule)) {
+                    if (rule != save) {
+                        Move_Opt_Var_May_Fail(save, rule, P_RULE_SPECIFIER);
+                        rule = save;
+                    }
                     if (IS_NULLED(rule))
-                        fail (Error_No_Value_Core(P_RULE, P_RULE_SPECIFIER));
+                        fail (Error_No_Value_Core(rule, P_RULE_SPECIFIER));
                 }
                 else {
                     // rule can still be 'word or /word
-                    rule = P_RULE;
                 }
             }
         }
-        else if (ANY_PATH(P_RULE)) {
-            if (IS_PATH(P_RULE)) {
-                //
-                // !!! This evaluates GROUP!s.  Should it?
-                //
-                if (Get_Path_Throws_Core(save, P_RULE, P_RULE_SPECIFIER))
-                    fail (Error_No_Catch_For_Throw(save));
+        else if (ANY_PATH(rule)) {
+            if (IS_PATH(rule)) {
+                if (Get_Path_Throws_Core(save, rule, P_RULE_SPECIFIER)) {
+                    Move_Value(P_OUT, save);
+                    return R_THROWN;
+                }
 
                 rule = save;
             }
-            else if (IS_SET_PATH(P_RULE)) {
-                //
-                // !!! This evaluates GROUP!s.  Should it?
-                //
+            else if (IS_SET_PATH(rule)) {
                 if (Set_Path_Throws_Core(
-                    save, P_RULE, P_RULE_SPECIFIER, P_INPUT_VALUE
+                    save, rule, P_RULE_SPECIFIER, P_INPUT_VALUE
                 )){
-                    fail (Error_No_Catch_For_Throw(save));
+                    Move_Value(P_OUT, save);
+                    return R_THROWN;
                 }
 
                 // Nothing left to do after storing the parse position in the
@@ -1690,12 +1730,11 @@ REBNATIVE(subparse)
                 FETCH_NEXT_RULE(f);
                 continue;
             }
-            else if (IS_GET_PATH(P_RULE)) {
-                //
-                // !!! This evaluates GROUP!s.  Should it?
-                //
-                if (Get_Path_Throws_Core(save, P_RULE, P_RULE_SPECIFIER))
-                    fail (Error_No_Catch_For_Throw(save));
+            else if (IS_GET_PATH(rule)) {
+                if (Get_Path_Throws_Core(save, rule, P_RULE_SPECIFIER)) {
+                    Move_Value(P_OUT, save);
+                    return R_THROWN;
+                }
 
                 // !!! This allows the series to be changed, as per #1263,
                 // but note the positions being returned and checked aren't
@@ -1708,40 +1747,16 @@ REBNATIVE(subparse)
                 FETCH_NEXT_RULE(f);
                 continue;
             }
-            else {
-                assert(IS_LIT_PATH(P_RULE));
-                rule = P_RULE;
-            }
+            else
+                assert(IS_LIT_PATH(rule));
 
             if (P_POS > SER_LEN(P_INPUT))
                 P_POS = SER_LEN(P_INPUT);
         }
-        else {
-            rule = P_RULE;
-        }
 
         // All cases should have either set `rule` by this point or continued
         //
-        assert(rule != NULL and not IS_NULLED(rule));
-
-        if (IS_GROUP(rule)) {
-            DECLARE_LOCAL (evaluated);
-            REBSPC *derived = Derive_Specifier(P_RULE_SPECIFIER, rule);
-            if (Do_At_Throws( // might GC
-                evaluated,
-                VAL_ARRAY(rule),
-                VAL_INDEX(rule),
-                derived
-            )) {
-                Move_Value(P_OUT, evaluated);
-                return R_THROWN;
-            }
-            // ignore evaluated if it's not THROWN?
-
-            if (P_POS > SER_LEN(P_INPUT)) P_POS = SER_LEN(P_INPUT);
-            FETCH_NEXT_RULE(f);
-            continue;
-        }
+        assert(rule and not IS_NULLED(rule));
 
         // Counter? 123
         if (IS_INTEGER(rule)) { // Specify count or range count
@@ -1786,8 +1801,7 @@ REBNATIVE(subparse)
             if (IS_BLANK(rule)) // these type tests should be in a switch
                 break;
 
-            if (IS_BAR(rule))
-                fail (Error_Parse_Rule()); // !!! Is this possible?
+            assert(not IS_BAR(rule));
 
             REBIXO i; // temp index point
 

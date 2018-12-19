@@ -246,3 +246,18 @@
 (
     null? match parse "abc" ["a" "b" "d" end]
 )
+
+
+;; DOUBLED GROUPS
+;; Doubled groups inject their material into the PARSE, if it is not null.
+;; They act like a COMPOSE/ONLY that runs each time the GROUP! is passed.
+
+(did parse "aaabbb" [(([some "a"])) (([some "b"]))])
+(did parse "aaabbb" [(([some "a"])) ((if false [some "c"])) (([some "b"]))])
+(did parse "aaa" [(('some)) "a"])
+(not parse "aaa" [((1 + 1)) "a"])
+(did parse "aaa" [((1 + 2)) "a"])
+(
+    count: 0
+    did parse ["a" "aa" "aaa"] [some [into [((count: count + 1)) "a"]]]
+)

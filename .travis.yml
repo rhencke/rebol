@@ -80,33 +80,12 @@ matrix:
         - CONFIG=generic-c++.r
         - OS_ID=0.2.40
         - DEBUG=asserts
-        - STANDARD=c++14
+        - STANDARD=c++11
         - RIGOROUS=no
-        - STATIC=no
+        - STATIC=no # static linking switch not honored
         - WITH_FFI="dynamic"
         - ODBC_REQUIRES_LTDL="no"
         - EXTENSIONS="ODBC + ZeroMQ +"
-      # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
-
-    # OSX x64, debug, clang
-    #
-    # TCC currently doesn't quite support OSX yet
-    #
-    # !!! Also, does not honor GCC's static linking flag for libc.
-    #
-    - os: osx
-      osx_image: xcode9.1 # try a newer XCode (on OS X 10.12)
-      language: c
-      env:
-        - CONFIG=generic.r
-        - OS_ID=0.2.40
-        - DEBUG=asserts
-        - STANDARD=c99
-        - RIGOROUS=no
-        - STATIC=no
-        - WITH_FFI="no" # no FFI in this build
-        - ODBC_REQUIRES_LTDL="no"
-        - EXTENSIONS="" # No ODBC or ZeroMQ in this build
       # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
 
     # OSX x64, release, clang++
@@ -123,7 +102,26 @@ matrix:
     # however desirable to use pervasively.  So it's good to exercise them in
     # at least one build.
     #
-    # !!! Again, does not honor static linking switch.
+    - os: osx
+      osx_image: xcode9.1 # try a newer XCode (on OS X 10.12)
+      language: c
+      env:
+        - CONFIG=generic-c++.r
+        - OS_ID=0.2.40
+        - DEBUG=none # see notes, release C++ exercises cast() macros
+        - STANDARD=c++14
+        - RIGOROUS=no
+        - STATIC=no # static linking switch not honored
+        - WITH_FFI="no" # no FFI in this build
+        - ODBC_REQUIRES_LTDL="no"
+        - EXTENSIONS="ODBC + ZeroMQ +"
+      # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
+
+    # OSX x64, release, clang
+    #
+    # This is the minimum bootstrap executable, built on the oldest image
+    # (to get lowest common denominator library support).  To avoid dylib
+    # dependencies on things like ODBC and ZeroMQ, it doesn't include them.
     #
     - os: osx
       osx_image: xcode7.3 # try an older XCode and OS X image (OS X 10.11)
@@ -135,9 +133,9 @@ matrix:
         - STANDARD=c
         - RIGOROUS=no
         - STATIC=no
-        - WITH_FFI="dynamic"
+        - WITH_FFI="no"
         - ODBC_REQUIRES_LTDL="no"
-        - EXTENSIONS="ODBC + ZeroMQ +"
+        - EXTENSIONS="" # No ODBC or ZeroMQ in this build
       # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
 
     # Linux x86, release, gcc
