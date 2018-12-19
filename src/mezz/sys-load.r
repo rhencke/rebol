@@ -808,7 +808,7 @@ load-module: function [
 
         if exports [
             if unset? 'hdr/exports [
-                append hdr compose/only [exports: (export-list)]
+                append hdr compose [exports: ((export-list))]
             ] else [
                 append exports hdr/exports
                 hdr/exports: export-list

@@ -76,7 +76,7 @@ maybe: enfix func [
             ; https://github.com/rebol/rebol-issues/issues/2275
             ;
             if null? :optional [return do compose [(as get-path! target)]]
-            do compose/only [(target) quote (:optional)]
+            do compose [(target) quote ((:optional))]
         ]
     ]
 ]
@@ -220,8 +220,8 @@ function: func [
         any [
             set var: word! (other: _) opt set other: group! (
                 append exclusions var
-                append statics compose/only [
-                    (as set-word! var) (other)
+                append statics compose [
+                    (as set-word! var) ((other))
                 ]
             )
         ]
@@ -922,7 +922,7 @@ module: func [
         spec/version [tuple! blank!]
         spec/options [block! blank!]
     ][
-        do compose/only [ensure (types) (var)] ;-- names to show if fails
+        do compose [ensure ((types)) (var)] ;-- names to show if fails
     ]
 
     ; In Ren-C, MAKE MODULE! acts just like MAKE OBJECT! due to the generic

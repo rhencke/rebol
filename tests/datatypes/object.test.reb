@@ -120,7 +120,7 @@
             ; ...
             ; var-256: 256
             ;
-            keep compose/only [
+            keep compose [
                 (to set-word! unspaced ["var-" n]) (n)
             ]
         ]
@@ -131,15 +131,15 @@
             ; ...
             ; fun-256: method [] [var-1 + var-2 ... + var-256]
             ;
-            keep compose/only [
-                (to set-word! unspaced ["meth-" n]) method [] (collect [
+            keep compose [
+                (to set-word! unspaced ["meth-" n]) method [] ((collect [
                     keep 'var-1
                     repeat i n - 1 [
                         keep compose [
                             + (to word! unspaced ["var-" i + 1])
                         ]
                     ]
-                ])
+                ]))
             ]
         ]
     ]

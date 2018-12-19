@@ -530,11 +530,11 @@ collect-with: func [
 collect: specialize :collect-with [name: 'keep]
 
 collect-lines: adapt 'collect [ ;; https://forum.rebol.info/t/945/1
-    body: compose/only [
+    body: compose [
         keep: adapt specialize 'keep [
             line: true | only: false | part: false
         ] [value: spaced try :value]
-        (as group! body)
+        ((as group! body))
     ]
 ]
 
@@ -546,13 +546,13 @@ collect-block: chain [ ;; Gives empty block instead of null if no keeps
 
 collect-text: chain [ ;; https://forum.rebol.info/t/945/2
      adapt 'collect [
-         body: compose/only [
+         body: compose [
              keep: adapt specialize 'keep [
                  line: false | only: false | part: false
              ][
                  value: unspaced try :value
              ]
-             (as group! body)
+             ((as group! body))
          ]
      ]
         |

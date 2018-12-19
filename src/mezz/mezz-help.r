@@ -42,8 +42,8 @@ spec-of: function [
             select original-meta 'return-note
         ]
         if any [return-type return-note] [
-            keep compose/only [
-                return: (opt return-type) (opt return-note)
+            keep compose [
+                return: ((opt return-type)) (opt return-note)
             ]
         ]
 
@@ -57,8 +57,8 @@ spec-of: function [
         ]
 
         for-each param words of :action [
-            keep compose/only [
-                (param) (select types param) (select notes param)
+            keep compose [
+                (param) ((select types param)) (select notes param)
             ]
         ]
     ]
