@@ -622,7 +622,7 @@ void Clear_Image(REBVAL *img)
 //
 // Insert or change image
 //
-REBVAL *Modify_Image(REBFRM *frame_, REBVAL *verb)
+REB_R Modify_Image(REBFRM *frame_, REBVAL *verb)
 {
     INCLUDE_PARAMS_OF_INSERT; // currently must have same frame as CHANGE
 
@@ -811,7 +811,7 @@ REBVAL *Modify_Image(REBFRM *frame_, REBVAL *verb)
 
     if (sym == SYM_APPEND)
         VAL_INDEX(value) = 0;
-    return value;
+    RETURN (value);
 }
 
 
@@ -1154,10 +1154,14 @@ REBTYPE(Image)
     case SYM_APPEND:
     case SYM_INSERT:  // insert ser val /part len /only /dup count
     case SYM_CHANGE:  // change ser val /part len /only /dup count
+        if (IS_NULLED_OR_BLANK(arg)) {
+            if (sym == SYM_APPEND) // append returns head position
+                VAL_INDEX(value) = 0;
+            RETURN (value); // don't fail on read only if it would be a no-op
+        }
         FAIL_IF_READ_ONLY_SERIES(series);
-        value = Modify_Image(frame_, verb); // sets DS_OUT
-        Move_Value(D_OUT, value);
-        return D_OUT;
+
+        return Modify_Image(frame_, verb);
 
     case SYM_FIND:
         Find_Image(frame_); // sets DS_OUT

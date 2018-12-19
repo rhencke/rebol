@@ -917,7 +917,7 @@ inline static REBVAL *Voidify_If_Nulled(REBVAL *cell) {
 // alongside NULL (reserved for BREAKing)
 //
 inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
-    if (IS_NULLED(cell) or IS_BLANK(cell))
+    if (IS_NULLED_OR_BLANK(cell))
         Init_Void(cell);
     return cell;
 }

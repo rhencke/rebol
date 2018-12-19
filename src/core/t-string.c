@@ -1201,28 +1201,33 @@ REBTYPE(String)
     REBINT index = cast(REBINT, VAL_INDEX(v));
     REBINT tail = cast(REBINT, VAL_LEN_HEAD(v));
 
-    switch (VAL_WORD_SYM(verb)) {
-
-    //-- Modification:
-    case SYM_APPEND:
-    case SYM_INSERT:
-    case SYM_CHANGE: {
+    REBSYM sym = VAL_WORD_SYM(verb);
+    switch (sym) {
+      case SYM_APPEND:
+      case SYM_INSERT:
+      case SYM_CHANGE: {
         INCLUDE_PARAMS_OF_INSERT;
-
-        FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(v));
 
         UNUSED(PAR(series));
         UNUSED(PAR(value));
 
-        if (REF(only)) {
-            // !!! Doesn't pay attention...all string appends are /ONLY
-        }
+        UNUSED(REF(only)); // all strings appends are /ONLY...currently unused
 
         REBCNT len; // length of target
         if (VAL_WORD_SYM(verb) == SYM_CHANGE)
             len = Part_Len_May_Modify_Index(v, ARG(limit));
         else
             len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(limit));
+
+        // Note that while inserting or removing NULL is a no-op, CHANGE with
+        // a /PART can actually erase data.
+        //
+        if (IS_NULLED(arg) and len == 0) { // only nulls bypass write attempts
+            if (sym == SYM_APPEND) // append always returns head
+                VAL_INDEX(v) = 0;
+            RETURN (v); // don't fail on read only if it would be a no-op
+        }
+        FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(v));
 
         REBFLGS flags = 0;
         if (REF(part))

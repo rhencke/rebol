@@ -1070,6 +1070,9 @@ REBTYPE(Gob)
     case SYM_INSERT: {
         INCLUDE_PARAMS_OF_INSERT;
 
+        if (IS_NULLED_OR_BLANK(arg))
+            RETURN (val); // don't fail on read only if it would be a no-op
+
         UNUSED(PAR(series));
         UNUSED(PAR(value));
 
@@ -1095,8 +1098,7 @@ REBTYPE(Gob)
 
         Insert_Gobs(gob, arg, index, len, false);
 
-        Move_Value(D_OUT, val);
-        return D_OUT; }
+        return Move_Value(D_OUT, val); }
 
     case SYM_CLEAR:
         if (tail > index)

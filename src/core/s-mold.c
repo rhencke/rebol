@@ -590,7 +590,7 @@ bool Form_Reduce_Throws(
             return true;
         }
 
-        if (IS_NULLED(out) or IS_BLANK(out))
+        if (IS_NULLED_OR_BLANK(out))
             continue; // opt-out and maybe keep option open to return NULL
 
         nothing = false;
@@ -599,7 +599,7 @@ bool Form_Reduce_Throws(
             Append_Utf8_Codepoint(mo->series, VAL_CHAR(out));
             pending = false;
         }
-        else if (IS_NULLED(delimiter) or IS_BLANK(delimiter))
+        else if (IS_NULLED_OR_BLANK(delimiter))
             Form_Value(mo, out);
         else {
             if (pending)

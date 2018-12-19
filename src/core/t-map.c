@@ -786,6 +786,9 @@ REBTYPE(Map)
     case SYM_APPEND: {
         INCLUDE_PARAMS_OF_INSERT;
 
+        if (IS_NULLED_OR_BLANK(arg))
+            RETURN (val); // don't fail on read only if it would be a no-op
+
         FAIL_IF_READ_ONLY_ARRAY(MAP_PAIRLIST(map));
 
         UNUSED(PAR(series));
@@ -801,7 +804,7 @@ REBTYPE(Map)
         }
 
         if (not IS_BLOCK(arg))
-            fail (Error_Invalid(val));
+            fail (Error_Invalid(arg));
 
         REBCNT len = Part_Len_May_Modify_Index(arg, ARG(limit));
         UNUSED(REF(part)); // detected by if limit is nulled

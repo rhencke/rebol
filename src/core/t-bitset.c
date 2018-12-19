@@ -649,6 +649,11 @@ REBTYPE(Bitset)
 
     case SYM_APPEND:  // Accepts: #"a" "abc" [1 - 10] [#"a" - #"z"] etc.
     case SYM_INSERT: {
+        if (IS_NULLED_OR_BLANK(arg)) {
+            RETURN (value); // don't fail on read only if it would be a no-op
+        }
+        FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(value));
+
         bool diff;
         if (BITS_NOT(VAL_SERIES(value)))
             diff = false;

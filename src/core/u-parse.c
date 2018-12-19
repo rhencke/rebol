@@ -2184,11 +2184,13 @@ REBNATIVE(subparse)
                 }
 
                 if (flags & PF_REMOVE) {
+                    FAIL_IF_READ_ONLY_SERIES(P_INPUT);
                     if (count) Remove_Series(P_INPUT, begin, count);
                     P_POS = begin;
                 }
 
                 if (flags & (PF_INSERT | PF_CHANGE)) {
+                    FAIL_IF_READ_ONLY_SERIES(P_INPUT);
                     count = (flags & PF_INSERT) ? 0 : count;
                     bool only = false;
 

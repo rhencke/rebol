@@ -141,6 +141,18 @@ REBOL [
 
         #define IS_NULLED_OR_VOID(v) \
             IS_NULLED_OR_VOID_KIND(VAL_TYPE(v))
+
+        /*
+         * This is another kind of test that might have some way to speed up
+         * based on types or bits, or as an alternate to another speedup if
+         * it turns out to be more common
+         */
+        inline static bool IS_NULLED_OR_BLANK_KIND(enum Reb_Kind k) {
+            return k == REB_MAX_NULLED or k == REB_BLANK;
+        }
+
+        #define IS_NULLED_OR_BLANK(v) \
+            IS_NULLED_OR_BLANK_KIND(VAL_TYPE(v))
     }
 ]
 

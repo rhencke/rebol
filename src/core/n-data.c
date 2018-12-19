@@ -1359,7 +1359,7 @@ REBNATIVE(nothing_q)
 
     // !!! Should VOID! be considered "nothing" also?
     //
-    return Init_Logic(D_OUT, IS_BLANK(ARG(value)) or IS_NULLED(ARG(value)));
+    return Init_Logic(D_OUT, IS_NULLED_OR_BLANK(ARG(value)));
 }
 
 
@@ -1380,8 +1380,5 @@ REBNATIVE(something_q)
 {
     INCLUDE_PARAMS_OF_SOMETHING_Q;
 
-    return Init_Logic(
-        D_OUT,
-        not (IS_BLANK(ARG(value)) or IS_NULLED(ARG(value)))
-    );
+    return Init_Logic(D_OUT, not IS_NULLED_OR_BLANK(ARG(value)));
 }

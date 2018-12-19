@@ -873,15 +873,17 @@ REBTYPE(Context)
         fail (Error_Cannot_Reflect(VAL_TYPE(value), arg)); }
 
 
-    case SYM_APPEND:
+      case SYM_APPEND:
+        if (IS_NULLED_OR_BLANK(arg))
+            RETURN (value); // don't fail on read only if it would be a no-op
+
         FAIL_IF_READ_ONLY_CONTEXT(c);
         if (not IS_OBJECT(value) and not IS_MODULE(value))
             fail (Error_Illegal_Action(VAL_TYPE(value), verb));
         Append_To_Context(c, arg);
-        Move_Value(D_OUT, D_ARG(1));
-        return D_OUT;
+        RETURN (value);
 
-    case SYM_COPY: { // Note: words are not copied and bindings not changed!
+      case SYM_COPY: { // Note: words are not copied and bindings not changed!
         INCLUDE_PARAMS_OF_COPY;
 
         UNUSED(PAR(value));
@@ -903,15 +905,14 @@ REBTYPE(Context)
         else
             types = 0;
 
-        Init_Any_Context(
+        return Init_Any_Context(
             D_OUT,
             VAL_TYPE(value),
             Copy_Context_Core_Managed(c, types)
-        );
-        return D_OUT; }
+        ); }
 
-    case SYM_SELECT:
-    case SYM_FIND: {
+      case SYM_SELECT:
+      case SYM_FIND: {
         if (not IS_WORD(arg))
             return nullptr;
 
@@ -922,10 +923,9 @@ REBTYPE(Context)
         if (VAL_WORD_SYM(verb) == SYM_FIND)
             return Init_Bar(D_OUT); // TRUE would obscure non-LOGIC! result
 
-        RETURN (CTX_VAR(c, n));
-    }
+        RETURN (CTX_VAR(c, n)); }
 
-    default:
+      default:
         break;
     }
 

@@ -804,9 +804,9 @@ REBTYPE(Array)
     REBARR *arr = VAL_ARRAY(array);
     REBSPC *specifier = VAL_SPECIFIER(array);
 
-    switch (VAL_WORD_SYM(verb)) {
-
-    case SYM_TAKE_P: {
+    REBSYM sym = VAL_WORD_SYM(verb);
+    switch (sym) {
+      case SYM_TAKE_P: {
         INCLUDE_PARAMS_OF_TAKE_P;
 
         UNUSED(PAR(series));
@@ -844,13 +844,12 @@ REBTYPE(Array)
             Derelativize(D_OUT, &ARR_HEAD(arr)[index], specifier);
 
         Remove_Series(SER(arr), index, len);
-        return D_OUT;
-    }
+        return D_OUT; }
 
     //-- Search:
 
-    case SYM_FIND:
-    case SYM_SELECT: {
+      case SYM_FIND:
+      case SYM_SELECT: {
         INCLUDE_PARAMS_OF_FIND; // must be same as select
 
         UNUSED(PAR(series));
@@ -896,13 +895,12 @@ REBTYPE(Array)
 
             Derelativize(D_OUT, ARR_AT(arr, ret), specifier);
         }
-        return D_OUT;
-    }
+        return D_OUT; }
 
     //-- Modification:
-    case SYM_APPEND:
-    case SYM_INSERT:
-    case SYM_CHANGE: {
+      case SYM_APPEND:
+      case SYM_INSERT:
+      case SYM_CHANGE: {
         INCLUDE_PARAMS_OF_INSERT;
 
         UNUSED(PAR(series));
@@ -914,7 +912,16 @@ REBTYPE(Array)
         else
             len = Part_Len_Append_Insert_May_Modify_Index(arg, ARG(limit));
 
+        // Note that while inserting or removing NULL is a no-op, CHANGE with
+        // a /PART can actually erase data.
+        //
+        if (IS_NULLED(arg) and len == 0) { // only nulls bypass write attempts
+            if (sym == SYM_APPEND) // append always returns head
+                VAL_INDEX(array) = 0;
+            RETURN (array); // don't fail on read only if it would be a no-op
+        }
         FAIL_IF_READ_ONLY_ARRAY(arr);
+
         REBCNT index = VAL_INDEX(array);
 
         REBFLGS flags = 0;
@@ -939,10 +946,9 @@ REBTYPE(Array)
             len,
             REF(dup) ? Int32(ARG(count)) : 1
         );
-        return D_OUT;
-    }
+        return D_OUT; }
 
-    case SYM_CLEAR: {
+      case SYM_CLEAR: {
         FAIL_IF_READ_ONLY_ARRAY(arr);
         REBCNT index = VAL_INDEX(array);
         if (index < VAL_LEN_HEAD(array)) {
