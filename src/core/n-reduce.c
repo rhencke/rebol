@@ -152,51 +152,22 @@ REBNATIVE(reduce)
 }
 
 
-// R3-Alpha only COMPOSE'd GROUP!s.  This allows for more flexible choices,
-// by giving delimiter patterns for substitutions.
-//
-static inline const RELVAL *Match_For_Compose(
-    REBSPC **specifier_out,
-    const RELVAL *value,
-    const RELVAL *pattern,
-    REBSPC *specifier
-){
-    assert(IS_GROUP(pattern) or IS_BLOCK(pattern));
+bool Match_For_Compose(const RELVAL *group, const REBVAL *pattern) {
+    if (IS_NULLED(pattern))
+        return true;
 
-    if (VAL_TYPE(value) != VAL_TYPE(pattern))
-        return NULL;
+    if (VAL_LEN_AT(group) == 0) // you have a pattern, so leave `()` as-is
+        return false;
 
-    RELVAL *p = VAL_ARRAY_AT(pattern);
-    if (IS_END(p)) {
-        *specifier_out = Derive_Specifier(specifier, value);
-        return value; // e.g. () matching (a b c)
-    }
-
-    RELVAL *v = VAL_ARRAY_AT(value);
-    if (IS_END(v))
-        return NULL; // e.g. (()) can't match ()
-
-    if (not ANY_ARRAY(p) or NOT_END(p + 1)) {
-        //
-        // !!! Today's patterns are a bit limited, since there is no DO/PART
-        // the situation is: `[** you can't stop at a terminal sigil -> **]`
-        //
-        fail ("Bad CONCOCT Pattern, currently must be like (([()]))");
-    }
-
-    if (not ANY_ARRAY(v) or NOT_END(v + 1))
-        return NULL; // e.g. (()) can't match (() a b c)
-
-    // Due to the nature of the matching, cycles in this recursion *shouldn't*
-    // matter...if both the pattern and the value are cyclic, they'll still
-    // either match or not.
-    //
-    return Match_For_Compose(
-        specifier_out,
-        v,
-        p,
-        Derive_Specifier(specifier, v)
-    );
+    RELVAL *first = VAL_ARRAY_AT(group);
+    RELVAL *last = VAL_ARRAY_TAIL(group) - 1;
+    if (IS_BAR(first) != IS_BAR(last))
+        fail ("Pattern for COMPOSE must be on both ends of GROUP!");
+    if (not IS_BAR(first))
+        return false; // leave as-is
+    if (first == last) // e.g. (*), needs to be at least (* *)
+        fail ("Two patterns, not one, must appear used in COMPOSE of GROUP!");
+    return true;
 }
 
 
@@ -216,7 +187,7 @@ bool Compose_To_Stack_Throws(
     REBVAL *out, // if return result is true, will hold the thrown value
     const RELVAL *any_array, // the template
     REBSPC *specifier, // specifier for relative any_array value
-    const REBVAL *pattern, // e.g. ()->(match this), [([])]->[([match this])]
+    const REBVAL *pattern, // e.g. if '*, only match `(* ... *)`
     bool deep, // recurse into sub-blocks
     bool only // pattern matches that return blocks are kept as blocks
 ){
@@ -234,13 +205,32 @@ bool Compose_To_Stack_Throws(
             continue;
         }
 
+        bool splice = not only; // can force no splice if override via ((...))
+
         REBSPC *match_specifier;
-        const RELVAL *match = Match_For_Compose(
-            &match_specifier,
-            f->value,
-            pattern,
-            specifier
-        );
+        const RELVAL *match = nullptr;
+
+        if (not IS_GROUP(f->value)) {
+            //
+            // Don't compose at this level, but may need to walk deeply to
+            // find compositions inside it if /DEEP and it's an array
+        }
+        else {
+            if (Is_Doubled_Group(f->value)) { // non-spliced compose, if match
+                RELVAL *inner = VAL_ARRAY_AT(f->value);
+                if (Match_For_Compose(inner, pattern)) {
+                    splice = false;
+                    match = inner;
+                    match_specifier = Derive_Specifier(specifier, inner);
+                }
+            }
+            else { // plain compose, if match
+                if (Match_For_Compose(f->value, pattern)) {
+                    match = f->value;
+                    match_specifier = specifier;
+                }
+            }
+        }
 
         if (match) { // only f->value if pattern is just [] or (), else deeper
             REBIXO indexor = Eval_Array_At_Core(
@@ -263,7 +253,7 @@ bool Compose_To_Stack_Throws(
                 // compose [("nulls *vanish*!" null)] => []
                 // compose [(elide "so do 'empty' composes")] => []
             }
-            else if (not only and IS_BLOCK(out)) {
+            else if (splice and IS_BLOCK(out)) {
                 //
                 // compose [not-only ([a b]) merges] => [not-only a b merges]
 
@@ -341,25 +331,25 @@ bool Compose_To_Stack_Throws(
 
 
 //
-//  concoct: native [
+//  compose: native [
 //
-//  {Evaluates only contents of pattern-delimited expressions in an array}
+//  {Evaluates only contents of GROUP!-delimited expressions in an array}
 //
 //      return: [any-array!]
-//      :pattern "Pattern like (([()])), to recognize and do evaluations for"
-//          [group! block!]
+//      :pattern "Distinguish compose groups, e.g. [(plain) (* composed *)]"
+//          [<skip> lit-bar!]
 //      value "Array to use as the template for substitution"
 //          [any-array!]
 //      /deep "Compose deeply into nested arrays"
 //      /only "Insert arrays as single value (not as contents of array)"
 //  ]
 //
-REBNATIVE(concoct)
+REBNATIVE(compose)
 //
-// COMPOSE is a specialization of CONCOCT where the pattern is ()
-// COMPOSEII is a specialization of CONCOCT where the pattern is (())
+// Note: /INTO is intentionally no longer supported
+// https://forum.rebol.info/t/stopping-the-into-virus/705
 {
-    INCLUDE_PARAMS_OF_CONCOCT;
+    INCLUDE_PARAMS_OF_COMPOSE;
 
     REBDSP dsp_orig = DSP;
 
@@ -374,29 +364,18 @@ REBNATIVE(concoct)
         return R_THROWN;
     }
 
+    // The stack values contain N NEWLINE_BEFORE flags, and we need N + 1
+    // flags.  Borrow the one for the tail directly from the input REBARR.
+    //
     REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
     if (GET_SER_FLAG(VAL_ARRAY(ARG(value)), ARRAY_FLAG_TAIL_NEWLINE))
         flags |= ARRAY_FLAG_TAIL_NEWLINE;
 
-    Init_Any_Array(
+    return Init_Any_Array(
         D_OUT,
         VAL_TYPE(ARG(value)),
         Pop_Stack_Values_Core(dsp_orig, flags)
     );
-
-    // !!! An internal optimization may try to notice when you write
-    // `append x compose [...]` and avert generation of a temporary REBSER
-    // node and associated temporary storage, adding to `x` directly.  But
-    // /INTO is no longer a user-visible refinement:
-    //
-    // https://forum.rebol.info/t/stopping-the-into-virus/705
-    //
-    if (false) {
-        DECLARE_LOCAL (into);
-        Pop_Stack_Values_Into(into, dsp_orig);
-    }
-
-    return D_OUT;
 }
 
 

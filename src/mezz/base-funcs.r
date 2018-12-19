@@ -354,9 +354,12 @@ redescribe: function [
                 fail [{PARAMETER-NOTES in META-OF is not a FRAME!} notes]
             ]
 
-            if :value <> action of notes [
+          // !!! Getting error on equality test from expired frame...review
+          comment [
+            if not equal? :value (action of notes) [
                 fail [{PARAMETER-NOTES in META-OF frame mismatch} notes]
             ]
+          ]
         ]
     ]
 
@@ -447,11 +450,8 @@ redescribe: function [
 
 
 redescribe [
+    {Create an ACTION, implicity gathering SET-WORD!s as <local> by default}
 ] :function
-
-redescribe [
-    {Evaluates only the GROUP!s in an array of expressions.}
-] :compose
 
 
 zdeflate: redescribe [

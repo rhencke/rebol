@@ -44,11 +44,6 @@ probe: func [
 ]
 
 
-; COMPOSE specializes CONCOCT; add help via REDESCRIBE later
-;
-compose: specialize 'concoct [pattern: quote ()]
-composeII: specialize 'concoct [pattern: quote (())]
-
 ; Convenience helper for making enfixed functions
 
 set/enfix quote enfix: func [

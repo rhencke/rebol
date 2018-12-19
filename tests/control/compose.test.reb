@@ -55,19 +55,27 @@
     sum = 32768
 )
 
-
-; Beginning CONCOCT tests (Note: COMPOSE is a specialization of CONCOCT, so
-; it gets tested there too)
+; COMPOSE with implicit /ONLY-ing
 
 (
-    [(1 + 2) 3] = concoct (()) [(1 + 2) ((1 + 2))]
+    block: [a b c]
+    [plain: a b c only: [a b c]] = compose [plain: (block) only: ((block))]
 )
+
+; COMPOSE with pattern, beginning tests
+
 (
-    quote ([1 + 2] 3) = concoct [[]] quote ([1 + 2] [[1 + 2]])
+    [(1 + 2) 3] = compose '| [(1 + 2) (| 1 + 2 |)]
+)(
+    'a/(b)/3/c = compose '| 'a/(b)/(| 1 + 2 |)/c
+)(
+    [(a b c) [((d) 1 + 2)]] = compose/deep '| [(a (| 'b |) c) [((d) 1 + 2)]]
 )
+
 (
-    'a/(b)/3/c = concoct (()) 'a/(b)/((1 + 2))/c
-)
-(
-    [(a b c) [((d) 1 + 2)]] = concoct/deep (()) [(a (('b)) c) [((d) 1 + 2)]]
+    [(left alone) [c b a] c b a ((left alone))]
+    = compose '| [
+        (left alone) ((| reverse copy [a b c] |)) (| reverse copy [a b c] |)
+        ((left alone))
+    ]
 )
