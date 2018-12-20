@@ -253,6 +253,7 @@ elf-format: context [
                     index: index + 1
                 )
             ]
+            end
         ]
         return blank
     ]
@@ -369,6 +370,7 @@ elf-format: context [
             parse skip executable e_shoff + (section-index * e_shentsize) [
                 (sh_size: new-size)
                 (mode: 'write) section-header-rule
+                end
             ]
 
             ; Adjust all the program and section header offsets that are
@@ -612,23 +614,19 @@ pe-format: context [
 
         def: make block! 1
         group-rule: [
-            any [
-                set word set-word!
-                (find-a-word word)
-                | and block! into block-rule ;recursively look into the array
-                | skip
-            ]
+            set word set-word!
+            (find-a-word word)
+            | and block! into block-rule ;recursively look into the array
+            | skip
         ]
         block-rule: [
-            any [
-                and group! into group-rule
-                | and block! into block-rule
-                | ['copy | 'set] set word word! (find-a-word word)
-                | skip
-            ]
+            and group! into [any group-rule]
+            | and block! into [any block-rule]
+            | ['copy | 'set] set word word! (find-a-word word)
+            | skip
         ]
 
-        parse rule block-rule
+        parse rule [any block-rule end]
 
         ;dump def
         set name make object! append def _
@@ -785,6 +783,8 @@ pe-format: context [
         start-of-section-header:
         COFF-header/number-of-sections section-rule
         end-of-section-header:
+
+        ;-- !!! stop here, no END ?
     ]
     size-of-section-header: 40 ;size of one entry
 

@@ -125,8 +125,7 @@ enum parse_flags {
     PF_REMOVE = 1 << 6,
     PF_INSERT = 1 << 7,
     PF_CHANGE = 1 << 8,
-    PF_RETURN = 1 << 9,
-    PF_WHILE = 1 << 10
+    PF_WHILE = 1 << 9
 };
 
 
@@ -1520,40 +1519,6 @@ REBNATIVE(subparse)
                         FETCH_NEXT_RULE(f);
                         continue;
 
-                    // There are two RETURNs: one is a matching form, so with
-                    // 'parse data [return "abc"]' you are not asking to
-                    // return the literal string "abc" independent of input.
-                    // it will only return if "abc" matches.  This works for
-                    // a rule reference as well, such as 'return rule'.
-                    //
-                    // The second option is if you put the value in parens,
-                    // in which case it will just return whatever that value
-                    // happens to be, e.g. 'parse data [return ("abc")]'
-
-                    case SYM_RETURN:
-                        FETCH_NEXT_RULE(f);
-                        if (IS_GROUP(P_RULE)) {
-                            DECLARE_LOCAL (evaluated);
-                            if (Do_At_Throws(
-                                evaluated,
-                                VAL_ARRAY(P_RULE),
-                                VAL_INDEX(P_RULE),
-                                P_RULE_SPECIFIER
-                            )) {
-                                // If the group evaluation result gives a
-                                // THROW, BREAK, CONTINUE, etc then we'll
-                                // return that
-                                Move_Value(P_OUT, evaluated);
-                                return R_THROWN;
-                            }
-
-                            Move_Value(P_OUT, NAT_VALUE(parse));
-                            CONVERT_NAME_TO_THROWN(P_OUT, evaluated);
-                            return R_THROWN;
-                        }
-                        flags |= PF_RETURN;
-                        continue;
-
                     case SYM_ACCEPT:
                     case SYM_BREAK: {
                         //
@@ -2151,38 +2116,6 @@ REBNATIVE(subparse)
                     }
                 }
 
-                if (flags & PF_RETURN) {
-                    //
-                    // See notes in PARSE native on handling of SYM_RETURN
-                    //
-                    DECLARE_LOCAL (captured);
-                    if (IS_SER_ARRAY(P_INPUT)) {
-                        Init_Any_Array(
-                            captured,
-                            P_TYPE,
-                            Copy_Array_At_Max_Shallow(
-                                ARR(P_INPUT),
-                                begin,
-                                P_INPUT_SPECIFIER,
-                                count
-                            )
-                        );
-                    }
-                    else {
-                        DECLARE_LOCAL (begin_val);
-                        Init_Any_Series_At(begin_val, P_TYPE, P_INPUT, begin);
-                        Init_Any_Series(
-                            captured,
-                            P_TYPE,
-                            Copy_String_At_Len(begin_val, count)
-                        );
-                    }
-
-                    Move_Value(P_OUT, NAT_VALUE(parse));
-                    CONVERT_NAME_TO_THROWN(P_OUT, captured);
-                    return R_THROWN;
-                }
-
                 if (flags & PF_REMOVE) {
                     FAIL_IF_READ_ONLY_SERIES(P_INPUT);
                     if (count) Remove_Series(P_INPUT, begin, count);
@@ -2337,10 +2270,10 @@ REBNATIVE(subparse)
 //
 //  parse: native [
 //
-//  "Parses a series according to grammar rules and returns a result"
+//  "Parse series according to grammar rules, return last match position"
 //
-//      return: "null if end not reached, BAR! if so, or RETURN value"
-//          [<opt> any-value!]
+//      return: "null if rules failed, else terminal position of match"
+//          [<opt> any-series!]
 //      input "Input series to parse"
 //          [<blank> any-series!]
 //      rules "Rules to parse by"
@@ -2366,47 +2299,22 @@ REBNATIVE(parse)
         //
         // We always want "case-sensitivity" on binary bytes, vs. treating
         // as case-insensitive bytes for ASCII characters.
-    )) {
-        if (
-            IS_ACTION(D_OUT)
-            and NAT_ACTION(parse) == VAL_ACTION(D_OUT)
-        ){
-            // Note the difference:
-            //
-            //     parse "1020" [(return true) not-seen]
-            //     parse "0304" [return [some ["0" skip]]] not-seen]
-            //
-            // In the first, a parenthesized evaluation ran a `return`, which
-            // is aiming to return from a function using a THROWN().  In
-            // the second case parse interrupted *itself* with a THROWN_FLAG
-            // to evaluate the expression to the result "0304" from the
-            // matched pattern.
-            //
-            // When parse interrupts itself by throwing, it indicates so
-            // by using the throw name of its own REB_NATIVE-valued function.
-            // This handles that branch and catches the result value.
-            //
-            CATCH_THROWN(D_OUT, D_OUT);
-            return D_OUT;
-        }
+    )){
+        // Any PARSE-specific THROWs (where a PARSE directive jumped the
+        // stack) should be handled here.  However, RETURN was eliminated,
+        // in favor of enforcing a more clear return value protocol for PARSE
 
-        // All other throws should just bubble up uncaught.
-        //
         return R_THROWN;
     }
 
-    // Parse can fail if the match rule state can't process pending input.
-    //
     if (IS_NULLED(D_OUT))
         return nullptr;
 
-    // If the match rules all completed, but the parse position didn't end
-    // at (or beyond) the tail of the input series, the parse also failed.
-    //
-    if (VAL_UINT32(D_OUT) < VAL_LEN_HEAD(ARG(input)))
-        return nullptr;
-
-    return Init_Bar(D_OUT); // avoids suggesting that failing gives #[false]
+    REBCNT progress = VAL_UINT32(D_OUT);
+    assert(progress <= VAL_LEN_HEAD(ARG(input)));
+    Move_Value(D_OUT, ARG(input));
+    VAL_INDEX(D_OUT) = progress;
+    return D_OUT;
 }
 
 

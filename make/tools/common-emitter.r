@@ -90,7 +90,7 @@ cscape: function [
             newline (col: 0 prefix: _ suffix: _) start:
                 |
             skip (col: col + 1)
-        ]]
+        ]] end
     ] else [return string]
 
     list: unique/case list
@@ -173,6 +173,7 @@ cscape: function [
             (nonwhite: true)
             skip
         ]
+        end
     ]
 
     return string
@@ -206,9 +207,9 @@ make-emitter: function [
 
     temporary: did any [temporary | parse stem ["tmp-" to end]]
 
-    is-c: did parse stem [thru [".c" | ".h" | ".inc"]]
+    is-c: did parse stem [thru [".c" | ".h" | ".inc"] end]
 
-    is-js: did parse stem [thru ".js"]
+    is-js: did parse stem [thru ".js" end]
 
     e: make object! compose [
         ;

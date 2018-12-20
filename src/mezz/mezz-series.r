@@ -235,6 +235,7 @@ reword: function [
             parse delimiters [
                 set prefix delimiter-types
                 set suffix opt delimiter-types
+                end
             ] or [
                 fail ["Invalid /ESCAPE delimiter block" delimiters]
             ]
@@ -430,7 +431,7 @@ extract: func [
     ]
     if not index [pos: 1]
     if block? pos [
-        parse pos [some [any-number! | logic!]] or [
+        parse pos [some [any-number! | logic!] end] or [
             cause-error 'Script 'invalid-arg reduce [pos]
         ]
         out: make (type of series) len * length of pos
@@ -638,7 +639,7 @@ split: function [
         [block! integer! char! bitset! text! tag!]
     /into "If dlm is integer, split in n pieces (vs. pieces of length n)"
 ][
-    if block? dlm and [parse dlm [some integer!]] [
+    if block? dlm and [parse dlm [some integer! end]] [
         return map-each len dlm [
             if len <= 0 [
                 series: skip series negate len
@@ -665,7 +666,7 @@ split: function [
                     copy series to end (keep/only series)
                 ]
             ] else [
-                [any [copy series 1 size skip (keep/only series)]]
+                [any [copy series 1 size skip (keep/only series)] end]
             ]
         ] else [
             ; A block that is not all integers, e.g. not `[1 1 1]`, acts as a
@@ -677,6 +678,7 @@ split: function [
                 any [mk1: some [mk2: dlm break | skip] (
                     keep/only copy/part mk1 mk2
                 )]
+                end
             ]
         ]
     ]

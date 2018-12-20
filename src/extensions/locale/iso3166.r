@@ -45,6 +45,7 @@ parse cnt [
 
         "^/"
     ]
+    end
 ]
 
 init-code: to text! read init

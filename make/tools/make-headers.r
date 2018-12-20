@@ -277,7 +277,9 @@ sys-globals.parser: context [
     parse.position: _
     id: _
 
-    process: func [return: <void> text] [parse text grammar/rule]
+    process: func [return: <void> text] [
+        parse text grammar/rule ;-- Review: no END (return result unused?)
+    ]
 
     grammar: context bind [
 
@@ -368,6 +370,7 @@ parse native-list [
             e-params/emit newline
         )
     ]
+    end
 ] or [
     fail "Error processing native-list"
 ]

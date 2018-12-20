@@ -210,6 +210,7 @@ split-path: func [
             ]
             all [find [%. %..] pos: to file! pos insert tail of pos #"/"]
         )
+        end
     ]
     reduce [dir pos]
 ]

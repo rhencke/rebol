@@ -274,6 +274,7 @@ parse-write-dialect: func [port block <local> spec debug] [
             set block [any-string! | binary!] (spec/content: block)
             | (spec/content: blank)
         ]
+        end
     ]
 ]
 
@@ -380,6 +381,7 @@ check-response: function [port] [
                 ]
                 | (throw 'version-not-supported)
             ]
+            end
         ]
     ]
 

@@ -72,6 +72,8 @@ fix-randutils.c: func [
 
             | skip
         ]
+
+        end
     ]
 
     cnt
@@ -132,6 +134,8 @@ fix-gen_uuid.c: function [
 
             | skip
         ]
+
+        end
     ]
     cnt
 ]

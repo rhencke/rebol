@@ -707,7 +707,7 @@ for-each [sw-cat list] boot-errors [
 
         arity: 0
         if block? message [ ;-- can have N GET-WORD! substitution slots
-            parse message [any [get-word! (arity: arity + 1) | skip]]
+            parse message [any [get-word! (arity: arity + 1) | skip] end]
         ] else [
             ensure text! message ;-- textual message, no arguments
         ]
@@ -716,7 +716,7 @@ for-each [sw-cat list] boot-errors [
         ;
         f-name: uppercase/part to-c-name id 1
         parse f-name [
-            any ["_" w: (uppercase/part w 1) | skip]
+            any ["_" w: (uppercase/part w 1) | skip] end
         ]
 
         if arity = 0 [

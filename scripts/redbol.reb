@@ -472,6 +472,7 @@ also: emulate [
 parse: emulate [
     function [
         {Non-block rules replaced by SPLIT: https://trello.com/c/EiA56IMR}
+        return: [logic! block!]
         input [any-series!]
         rules [block! text! blank!]
         /case
@@ -487,7 +488,10 @@ parse: emulate [
             blank! [split input charset reduce [tab space CR LF]]
             text! [split input to-bitset rules]
         ] else [
-            parse/(try if case_PARSE [/case]) input rules
+            if not pos: parse/(try if case_PARSE [/case]) input rules [
+                return false
+            ]
+            return tail? pos
         ]
     ]
 ]

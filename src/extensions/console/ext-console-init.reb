@@ -469,7 +469,7 @@ ext-console-impl: function [
     ;
     directives: try collect [
         if block? prior [
-            parse prior [some [set i: issue! (keep i)]]
+            parse prior [some [set i: issue! (keep i)] end]
         ]
     ]
 

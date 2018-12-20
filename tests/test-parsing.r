@@ -201,7 +201,7 @@ make object! [
             position: (type: value: _)
         ]
 
-        rule: [any token]
+        rule: [any token end]
 
         parse test-sources rule or [
             append collected-tests reduce [
@@ -273,6 +273,7 @@ make object! [
                     |
                 :position
             ]
+            end
         ]
     ]
 ]

@@ -219,7 +219,7 @@ parse-ext-build-spec: function [
         ensure block! ext/options
         parse ext/options [
             any [
-                word! block! opt text! set config: group!
+                word! block! opt text! set config: group! end
                 | end
                 | (print "wrong format for options") return false
             ]
@@ -495,7 +495,7 @@ parse user-config/toolset [
         | pos: (
             if not tail? pos [fail ["failed to parset toolset at:" mold pos]]
         )
-    ]
+    ] end
 ]
 
 ; sanity checking the compiler and linker

@@ -481,7 +481,9 @@ for-each-system: function [
                 ]
             )
         ]
-    ] ]
+    ] end ] or [
+        fail "Couldn't parse systems.r table"
+    ]
 ]
 
 

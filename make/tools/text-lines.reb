@@ -23,7 +23,7 @@ decode-lines: function [
     pattern: compose/only [(line-prefix)]
     if not empty? indent [append pattern compose/only [opt (indent)]]
     line: [pos: pattern rest: (rest: remove/part pos rest) :rest thru newline]
-    parse text [any line] or [
+    parse text [any line end] or [
         fail [
             {Expected line} (try text-line-of text pos)
             {to begin with} (mold line-prefix)
@@ -50,6 +50,7 @@ encode-lines: func [
             thru newline pos:
             [newline (pos: insert pos line-prefix) | (pos: insert pos bol)] :pos
         ]
+        end
     ]
 
     ; Indent head if original text did not start with a newline.
@@ -110,6 +111,7 @@ lines-exceeding: function [ ;-- !!! Doesn't appear used, except in tests (?)
     parse text [
         any [bol: to newline eol: skip count-line]
         bol: skip to end eol: count-line
+        end
     ]
 
     opt line-list
@@ -136,6 +138,7 @@ text-line-of: function [
             advance
         ]
         advance
+        end
     ]
 
     if zero? line [return null]
@@ -164,6 +167,7 @@ text-location-of: function [
             advance
         ]
         advance
+        end
     ]
 
     if zero? line [line: _] else [

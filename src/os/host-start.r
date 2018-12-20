@@ -71,6 +71,7 @@ make-banner: function [
             ]
             (append append str s newline)
         ]
+        end
     ]
     return str
 ]

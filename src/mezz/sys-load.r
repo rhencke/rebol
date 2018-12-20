@@ -480,6 +480,7 @@ do-needs: function [
             set hash opt binary!
             (join mods [name vers hash])
         ]
+        end
     ] or [
         cause-error 'script 'invalid-arg here
     ]
@@ -646,6 +647,7 @@ load-module: function [
                         join data [mod ver if name [to word! name]]
                     )
                 ]
+                end
             ] or [
                 cause-error 'script 'invalid-arg tmp
             ]

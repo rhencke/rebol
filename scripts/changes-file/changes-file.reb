@@ -124,6 +124,7 @@ parse-credits-for-authors: function [
                 )
                 | skip
             ]
+            end
         ]
     ]
 ]
@@ -144,14 +145,14 @@ notable?: function [
 
     ;; Let try and categorise type of commit (default is 'Changed)
     category: 'Changed
-    parse text: c/summary [
+    parse text: c/summary [[
         opt "* "
           ["Add" | "-add"]           (category: 'Added)
         | ["Fix" | "Patch" | "-fix"] (category: 'Fixed)
         | ["remove" | "delete"]      (category: 'Removed)
         | "Deprecate"                (category: 'Deprecated)
         | "Security"                 (category: 'Security)
-    ]
+    ] end]
     append c compose [type: quote (category)]
 
     ;; record any bug#NNNN or CC (CureCode) found

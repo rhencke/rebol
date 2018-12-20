@@ -51,6 +51,7 @@ parse cnt [
 
         ["^/" | "^M"]
     ]
+    end
 ]
 
 init-code: to text! read init

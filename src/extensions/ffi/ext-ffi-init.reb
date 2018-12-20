@@ -86,6 +86,7 @@ make-callback: function [
     parse args [
         opt text!
         any [arg-rule | attr-rule]
+        end
     ] or [
         fail ["Unrecognized pattern in MAKE-CALLBACK function spec" args]
     ]
@@ -110,6 +111,7 @@ make-callback: function [
             remove [tag! some word!]
             | skip
         ]
+        end
     ]
 
     wrap-callback :safe args

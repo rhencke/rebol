@@ -101,6 +101,7 @@ make object! compose [
                     set 'dialect-failures (dialect-failures + 1)
                 )
             ]
+            end
         ]
     ]
 
@@ -201,7 +202,9 @@ make object! compose [
                             |
                         :position
                     ]
-                    end | (fail "do-recover log file parsing problem")
+                    end
+                ] or [
+                    fail "do-recover log file parsing problem"
                 ]
                 last-vector
                 test-sources: find/last/tail test-sources last-vector

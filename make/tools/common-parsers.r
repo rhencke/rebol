@@ -35,8 +35,9 @@ decode-key-value-text: function [
             data-field
             | newline
         ]
+        end
     ]
-            
+
     data-field: [
         data-field-name eof: [
             #" " to newline any [
@@ -110,7 +111,7 @@ load-until-blank: function [
 ]
 
 
-collapse-whitespace: [some [change some white-space space | skip]]
+collapse-whitespace: [some [change some white-space space | skip] end]
 bind collapse-whitespace c.lexical/grammar
 
 
@@ -127,7 +128,9 @@ proto-parser: context [
     data: _
     eoh: _ ; End of file header.
 
-    process: func [return: <void> text] [parse text grammar/rule]
+    process: func [return: <void> text] [
+        parse text [grammar/rule] ;-- Review: no END (return result unused?)
+    ]
 
     grammar: context bind [
 
@@ -301,6 +304,7 @@ rewrite-if-directives: function [
                 ] (rewritten: true) :position
                 | thru newline
             ]
+            end
         ]
         not rewritten
     ]

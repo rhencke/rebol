@@ -158,6 +158,8 @@ make-port*: function [
 
         ; optional bookmark
         opt ["#" copy s1 some path-char (emit tag s1)]
+
+        end
     ]
 
     decode-url: func ["Decode a URL according to rules of sys/*parse-url." url] [

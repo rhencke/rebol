@@ -144,6 +144,7 @@ math: function [
             ['+ (expr-op: 'add) | '- (expr-op: 'subtract)]
             term (expr-val: compose [(expr-op) (expr-val) (term-val)])
         ]
+        end
     ])
 
     term-val (_)

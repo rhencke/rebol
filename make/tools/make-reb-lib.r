@@ -100,6 +100,7 @@ emit-proto: func [return: <void> proto] [
                     keep to word! next pos ;-- WORD! of the parameter name
                 )
             ]]
+            end
         ] or [
             fail ["Couldn't extract API schema from prototype:" proto]
         ]
@@ -628,7 +629,7 @@ to-js-type: func [
         ; The differences between undefined and null are subtle and easy to
         ; get wrong, but a void-returning function should map to undefined.
         ;
-        parse s ["void" any space] ["undefined"]
+        parse s ["void" any space end] ["undefined"]
     ]
 ]
 

@@ -135,6 +135,7 @@ pkg-config: function [
                     append ret to file! item
                 )
             ]
+            end
         ]
         ret
     ][
@@ -1198,6 +1199,7 @@ generator-class: make object! [
                     ] val
                     | skip
                 ]
+                end
             ] or [
                 fail ["failed to do var substitution:" cmd]
             ]
@@ -1776,7 +1778,7 @@ visual-studio: make generator-class [
 
     find-stack-size: method [
         return: [<opt> text!]
-        ldflags [blank! block!]
+        ldflags [<blank> block!]
         <static>
         digit (charset "0123456789")
     ][
@@ -1785,6 +1787,7 @@ visual-studio: make generator-class [
             parse i [
                 "/stack:"
                 copy size: some digit
+                end
             ] then [
                 remove ldflags
                 return size
@@ -1795,7 +1798,7 @@ visual-studio: make generator-class [
 
     find-subsystem: method [
         return: [<opt> text!]
-        ldflags [blank! block!]
+        ldflags [<blank> block!]
     ][
         iterate ldflags [
             i: filter-flag ldflags/1 "msc" else [continue]
