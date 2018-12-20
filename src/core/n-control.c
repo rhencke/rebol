@@ -1039,7 +1039,62 @@ REBNATIVE(default)
         Move_Opt_Var_May_Fail(D_OUT, target, SPECIFIED);
     else {
         assert(IS_SET_PATH(target));
-        Get_Path_Core(D_OUT, target, SPECIFIED); // will fail() on GROUP!s
+
+        // We want to be able to default a path with groups in it, but don't
+        // want to double-evaluate.  In a userspace DEFAULT we would do
+        // COMPOSE on the PATH! and then use GET/HARD and SET/HARD.  To make
+        // a faster native we just do a more optimal version of that.
+        //
+        bool has_groups = false;
+        RELVAL *item = VAL_ARRAY_AT(target);
+        for (; NOT_END(item); ++item) {
+            if (IS_GROUP(item))
+                has_groups = true;
+        }
+        if (has_groups) {
+            REBARR *composed = Make_Arr(VAL_LEN_AT(target));
+            RELVAL *dest = ARR_HEAD(composed);
+            item = VAL_ARRAY_AT(target);
+            REBSPC *specifier = VAL_SPECIFIER(target);
+            for (; NOT_END(item); ++item, ++dest) {
+                if (not IS_GROUP(item))
+                    Derelativize(dest, item, VAL_SPECIFIER(target));
+                else {
+                    // !!! This only does GROUP!s, but if there are GET-WORD!
+                    // in the path the group evaluation could have side
+                    // effects that change them as they go.  That's a weird
+                    // edge case...not going to address it yet, as perhaps
+                    // GET-WORD! in paths aren't good anyway.
+                    //
+                    REBSPC *derived = Derive_Specifier(specifier, item);
+                    REBIXO indexor = Eval_Array_At_Core(
+                        Init_Void(D_OUT),
+                        nullptr,
+                        VAL_ARRAY(item),
+                        VAL_INDEX(item),
+                        derived,
+                        DO_FLAG_TO_END
+                    );
+                    if (indexor == THROWN_FLAG)
+                        return R_THROWN;
+                    Move_Value(dest, D_OUT);
+                }
+            }
+            TERM_ARRAY_LEN(composed, VAL_LEN_AT(target));
+            Init_Any_Array(target, REB_SET_PATH, composed);
+        }
+
+        if (Eval_Path_Throws_Core(
+            D_OUT,
+            NULL, // not requesting symbol means refinements not allowed
+            VAL_ARRAY(target),
+            VAL_INDEX(target),
+            VAL_SPECIFIER(target),
+            NULL, // not requesting value to set means it's a get
+            DO_FLAG_PATH_HARD_QUOTE // pre-COMPOSE'd, so GROUP!s are literal
+        )){
+            panic (D_OUT); // shouldn't be possible... no executions!
+        }
     }
 
     if (not IS_NULLED(D_OUT) and (not IS_BLANK(D_OUT) or REF(only)))
@@ -1048,15 +1103,22 @@ REBNATIVE(default)
     if (Do_Branch_Throws(D_OUT, ARG(branch)))
         return R_THROWN;
 
-    if (IS_NULLED(D_OUT))
-        fail ("DEFAULT came back NULL"); // !!! Review--what about BLANK!
-
-    const bool enfix = false;
     if (IS_SET_WORD(target))
         Move_Value(Sink_Var_May_Fail(target, SPECIFIED), D_OUT);
     else {
         assert(IS_SET_PATH(target));
-        Set_Path_Core(target, SPECIFIED, D_OUT, enfix);
+        DECLARE_LOCAL (dummy);
+        if (Eval_Path_Throws_Core(
+            dummy,
+            NULL, // not requesting symbol means refinements not allowed
+            VAL_ARRAY(target),
+            VAL_INDEX(target),
+            VAL_SPECIFIER(target),
+            D_OUT,
+            DO_FLAG_PATH_HARD_QUOTE // path precomposed, no double evaluating
+        )){
+            panic (dummy); // shouldn't be possible, no executions!
+        }
     }
     return D_OUT;
 }

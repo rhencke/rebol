@@ -96,7 +96,10 @@ bool Next_Path_Throws(REBPVS *pvs)
     if (IS_GET_WORD(pvs->value)) { // e.g. object/:field
         Move_Opt_Var_May_Fail(PVS_PICKER(pvs), pvs->value, pvs->specifier);
     }
-    else if (IS_GROUP(pvs->value)) { // object/(expr) case:
+    else if (
+        IS_GROUP(pvs->value) // object/(expr) case:
+        and not (pvs->flags.bits & DO_FLAG_PATH_HARD_QUOTE) // not precomposed
+    ){
         if (pvs->flags.bits & DO_FLAG_NO_PATH_GROUPS)
             fail ("GROUP! in PATH! used with GET or SET (use REDUCE/EVAL)");
 
@@ -377,7 +380,10 @@ bool Eval_Path_Throws_Core(
             pvs->opt_label = VAL_WORD_SPELLING(pvs->value);
         }
     }
-    else if (IS_GROUP(pvs->value)) {
+    else if (
+        IS_GROUP(pvs->value)
+        and not (pvs->flags.bits & DO_FLAG_PATH_HARD_QUOTE) // not precomposed
+    ){
         pvs->u.ref.cell = nullptr; // nowhere to R_IMMEDIATE write back to
 
         if (pvs->flags.bits & DO_FLAG_NO_PATH_GROUPS)

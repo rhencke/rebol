@@ -441,7 +441,8 @@ REBNATIVE(collect_words)
 inline static void Get_Opt_Polymorphic_May_Fail(
     REBVAL *out,
     const RELVAL *v,
-    REBSPC *specifier
+    REBSPC *specifier,
+    bool hard // should GROUP!s in paths not be evaluated
 ){
     if (IS_BAR(v)) {
         //
@@ -461,9 +462,20 @@ inline static void Get_Opt_Polymorphic_May_Fail(
     else if (ANY_PATH(v)) {
         //
         // `get 'foo/bar` acts as `:foo/bar`
-        // except Get_Path_Core() doesn't allow GROUP!s in the PATH!
+        // except GET doesn't allow GROUP!s in the PATH!, unless you use
+        // the `hard` option and it treats them literally
         //
-        Get_Path_Core(out, v, specifier);
+        if (Eval_Path_Throws_Core(
+            out,
+            NULL, // not requesting symbol means refinements not allowed
+            VAL_ARRAY(v),
+            VAL_INDEX(v),
+            Derive_Specifier(specifier, v),
+            NULL, // not requesting value to set means it's a get
+            hard ? DO_FLAG_PATH_HARD_QUOTE : DO_FLAG_NO_PATH_GROUPS
+        )){
+            panic (out); // shouldn't be possible... no executions!
+        }
     }
     else
         fail (Error_Invalid_Core(v, specifier));
@@ -476,10 +488,10 @@ inline static void Get_Opt_Polymorphic_May_Fail(
 //  {Gets the value of a word or path, or block of words/paths.}
 //
 //      return: [<opt> any-value!]
-//      source [blank! any-word! any-path! block!]
-//          {Word or path to get, or block of words or paths (blank is no-op)}
-//      /try
-//          {Return blank for variables that are unset}
+//      source "Word or path to get, or block of words or paths"
+//          [<blank> any-word! any-path! block!]
+//      /try "Return blank for variables that are unset" ;-- Is this good?
+//      /hard "Do not evaluate GROUP!s in PATH! (assume pre-COMPOSE'd)"
 //  ]
 //
 REBNATIVE(get)
@@ -489,9 +501,10 @@ REBNATIVE(get)
     INCLUDE_PARAMS_OF_GET;
 
     REBVAL *source = ARG(source);
+    bool hard = REF(hard);
 
     if (not IS_BLOCK(source)) {
-        Get_Opt_Polymorphic_May_Fail(D_OUT, source, SPECIFIED);
+        Get_Opt_Polymorphic_May_Fail(D_OUT, source, SPECIFIED, hard);
         if (IS_NULLED(D_OUT) and REF(try))
             Init_Blank(D_OUT);
         return D_OUT;
@@ -502,7 +515,7 @@ REBNATIVE(get)
     RELVAL *item = VAL_ARRAY_AT(source);
 
     for (; NOT_END(item); ++item, ++dest) {
-        Get_Opt_Polymorphic_May_Fail(dest, item, VAL_SPECIFIER(source));
+        Get_Opt_Polymorphic_May_Fail(dest, item, VAL_SPECIFIER(source), hard);
         if (IS_NULLED(dest)) { // can't put nulls in blocks
             if (REF(try))
                 Init_Blank(dest);
@@ -519,11 +532,12 @@ REBNATIVE(get)
 inline static void Set_Opt_Polymorphic_May_Fail(
     const RELVAL *target,
     REBSPC *target_specifier,
-    const RELVAL *value,
-    REBSPC *value_specifier,
-    bool enfix
+    const RELVAL *setval,
+    REBSPC *setval_specifier,
+    bool enfix,
+    bool hard
 ){
-    if (enfix and not IS_ACTION(value))
+    if (enfix and not IS_ACTION(setval))
         fail ("Attempt to SET/ENFIX on a non-ACTION!");
 
     if (IS_BAR(target)) {
@@ -536,22 +550,45 @@ inline static void Set_Opt_Polymorphic_May_Fail(
     }
     else if (ANY_WORD(target)) {
         REBVAL *var = Sink_Var_May_Fail(target, target_specifier);
-        Derelativize(var, value, value_specifier);
+        Derelativize(var, setval, setval_specifier);
         if (enfix)
             SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
     }
     else if (ANY_PATH(target)) {
         DECLARE_LOCAL (specific);
-        Derelativize(specific, value, value_specifier);
+        Derelativize(specific, setval, setval_specifier);
+        PUSH_GC_GUARD(specific);
 
         // `set 'foo/bar 1` acts as `foo/bar: 1`
-        // Set_Path_Core() will raise an error if there are any GROUP!s
+        // SET will raise an error if there are any GROUP!s, unless you use
+        // the hard option, in which case they are literal.
         //
         // Though you can't dispatch enfix from a path (at least not at
         // present), the flag tells it to enfix a word in a context, or
         // it will error if that's not what it looks up to.
         //
-        Set_Path_Core(target, target_specifier, specific, enfix);
+        REBFLGS flags = 0;
+        if (hard)
+            flags |= DO_FLAG_PATH_HARD_QUOTE;
+        else
+            flags |= DO_FLAG_NO_PATH_GROUPS;
+        if (enfix)
+            flags |= DO_FLAG_SET_PATH_ENFIXED;
+
+        DECLARE_LOCAL (dummy);
+        if (Eval_Path_Throws_Core(
+            dummy,
+            NULL, // not requesting symbol means refinements not allowed
+            VAL_ARRAY(target),
+            VAL_INDEX(target),
+            Derive_Specifier(target_specifier, target),
+            specific,
+            flags
+        )){
+            panic (dummy); // shouldn't be possible, no executions!
+        }
+
+        DROP_GC_GUARD(specific);
     }
     else
         fail (Error_Invalid_Core(target, target_specifier));
@@ -573,6 +610,7 @@ inline static void Set_Opt_Polymorphic_May_Fail(
 //      /some "blank values (or values past end of block) are not set."
 //      /enfix "ACTION! calls through this word get first arg from left"
 //      /opt "If value is null, then consider this to be an UNSET operation"
+//      /hard "Do not evaluate GROUP!s in PATH! (assume pre-COMPOSE'd)"
 //  ]
 //
 REBNATIVE(set)
@@ -611,7 +649,8 @@ REBNATIVE(set)
             SPECIFIED,
             IS_BLANK(value) and REF(some) ? NULLED_CELL : value,
             SPECIFIED,
-            REF(enfix)
+            REF(enfix),
+            REF(hard)
         );
 
         RETURN (value);
@@ -644,7 +683,8 @@ REBNATIVE(set)
             (IS_BLOCK(value) and not REF(single))
                 ? VAL_SPECIFIER(value)
                 : SPECIFIED,
-            REF(enfix)
+            REF(enfix),
+            REF(hard)
         );
     }
 

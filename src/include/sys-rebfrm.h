@@ -336,25 +336,35 @@
     FLAG_LEFT_BIT(27)
 
 
+//=//// DO_FLAG_PATH_HARD_QUOTE ///////////////////////////////////////////=//
+//
+// If a path has GROUP!s in it, operations like DEFAULT do not want to run
+// them twice...once on a get path and then on a set path.  This means the
+// path needs to be COMPOSEd and then use GET/HARD and SET/HARD.
+//
+#define DO_FLAG_PATH_HARD_QUOTE \
+    FLAG_LEFT_BIT(28)
+
+
 #if !defined(NDEBUG)
 
-//=//// DO_FLAG_FINAL_DEBUG ///////////////////////////////////////////////=//
-//
-// It is assumed that each run through a frame will re-initialize the do
-// flags, and if a frame's memory winds up getting reused (e.g. by successive
-// calls in a reduce) that code is responsible for resetting the DO_FLAG_XXX
-// each time.  To make sure this is the case, this is set on each exit from
-// Eval_Core_Throws(), and each entry checks to make sure it is not present.
-//
+    //=//// DO_FLAG_FINAL_DEBUG ///////////////////////////////////////////=//
+    //
+    // It's assumed that each run through a frame will re-initialize the do
+    // flags, and if a frame's memory winds up reused (e.g. by successive
+    // calls in a reduce) that code has to reset the DO_FLAG_XXX each time.
+    // To make sure this is the case, this is set on each exit from
+    // Eval_Core_Throws(), and each entry checks to ensure it is not present.
+    //
 
-#define DO_FLAG_FINAL_DEBUG \
-    FLAG_LEFT_BIT(28)
+    #define DO_FLAG_FINAL_DEBUG \
+        FLAG_LEFT_BIT(29)
 
 #endif
 
 
 #ifdef CPLUSPLUS_11
-    static_assert(28 < 32, "DO_FLAG_XXX too high");
+    static_assert(29 < 32, "DO_FLAG_XXX too high");
 #endif
 
 

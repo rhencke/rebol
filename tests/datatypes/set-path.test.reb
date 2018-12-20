@@ -39,3 +39,26 @@
     blk/:i: 2
     blk = [2]
 )]
+
+
+;; Typically SET and GET want to avoid evaluating GROUP!s in paths, but if
+;; but if you pre-compose them and use /HARD it allows it.  This enables
+;; functions like DEFAULT to avoid double-evaluation.
+(
+   counter: 0
+   obj: make object! [x: _]
+   obj/(counter: counter + 1 'x): default [<thing>]
+   did all [
+       obj/x = <thing>
+       counter = 1
+   ]
+)(
+    m: make map! 10
+    set/hard 'm/(1 + 2) <hard>
+    did all [
+        <hard> = pick m quote (1 + 2)
+        <hard> = get/hard 'm/(1 + 2)
+    ]
+)
+
+
