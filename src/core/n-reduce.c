@@ -232,7 +232,7 @@ bool Compose_To_Stack_Throws(
             }
         }
 
-        if (match) { // only f->value if pattern is just [] or (), else deeper
+        if (match) {
             REBIXO indexor = Eval_Array_At_Core(
                 Init_Nulled(out), // want empty () to vanish as a NULL would
                 nullptr, // no opt_first
@@ -270,6 +270,9 @@ bool Compose_To_Stack_Throws(
                     while (++push, NOT_END(push))
                         DS_PUSH_RELVAL(push, VAL_SPECIFIER(out));
                 }
+            }
+            else if (IS_VOID(out) and splice) {
+                fail ("Must use COMPOSE/ONLY to insert VOID! values");
             }
             else {
                 // compose [(1 + 2) inserts as-is] => [3 inserts as-is]

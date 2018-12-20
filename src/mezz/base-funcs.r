@@ -138,24 +138,22 @@ function: func [
     parse spec [any [
         <void> (append new-spec <void>)
     |
-        if (var) [
+        ((either var [[
             set var: any-word! (
                 append exclusions var ;-- exclude args/refines
                 append new-spec var
             )
-        |
+            |
             set other: [block! | text!] (
                 append/only new-spec other ;-- spec notes or data type blocks
             )
-        ]
-    |
-        if (not var) [
+        ]][[
             set var: set-word! ( ;-- locals legal anywhere
                 append exclusions var
                 append new-spec var
                 var: _
             )
-        ]
+        ]]))
     |
         other:
         group! (

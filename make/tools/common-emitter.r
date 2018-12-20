@@ -161,7 +161,18 @@ cscape: function [
             |
             newline
             [
-                if (did all [not nonwhite | removed])
+                // IF deleted in Ren-C, but ((...)) with logic not available
+                // in the bootstrap build.  Should be just:
+                //
+                //    ((did all [not nonwhite | removed]))
+                //
+                (go-on?: either all [not nonwhite | removed] [
+                    [accept]
+                ][
+                    [reject]
+                ])
+                go-on?
+
                 :start-line remove thru [newline | end]
                 |
                 skip

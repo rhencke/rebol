@@ -134,7 +134,7 @@ text-line-of: function [
     parse text [
         any [
             to newline cursor:
-            if (lesser? index of cursor idx)
+            ((lesser? index of cursor idx))
             advance
         ]
         advance

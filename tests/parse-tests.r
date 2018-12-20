@@ -254,10 +254,19 @@
 
 (did parse "aaabbb" [(([some "a"])) (([some "b"]))])
 (did parse "aaabbb" [(([some "a"])) ((if false [some "c"])) (([some "b"]))])
-(did parse "aaa" [(('some)) "a"])
-(not parse "aaa" [((1 + 1)) "a"])
-(did parse "aaa" [((1 + 2)) "a"])
+(did parse "aaa" [(('some)) "a" end])
+(not parse "aaa" [((1 + 1)) "a" end])
+(did parse "aaa" [((1 + 2)) "a" end])
 (
     count: 0
-    did parse ["a" "aa" "aaa"] [some [into [((count: count + 1)) "a"]]]
+    did parse ["a" "aa" "aaa"] [some [into [((count: count + 1)) "a"]] end]
 )
+
+
+;; LOGIC! BEHAVIOR
+;; A logic true acts as a no-op, while a logic false causes matches to fail
+;;
+(did parse "ab" ["a" true "b" end])
+(not parse "ab" ["a" false "b" end])
+(did parse "ab" ["a" ((1 = 1)) "b" end])
+(not parse "ab" ["a" ((1 = 2)) "b" end])

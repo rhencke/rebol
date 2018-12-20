@@ -177,16 +177,16 @@ then
 remove
 insert
 change
-if
 fail
 reject
 while
-return
 limit
 ??
 accept
 break
 ; ^--prep words above
+    if ;; removed: https://forum.rebol.info/t/968/7
+    return ;; removed: https://github.com/metaeducation/ren-c/pull/898
 ; v--match words below
 skip
 to
