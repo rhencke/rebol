@@ -183,8 +183,13 @@ bool Match_For_Compose(const RELVAL *group, const REBVAL *pattern) {
 // an array also offers more options for avoiding that intermediate if the
 // caller wants to add part or all of the popped data to an existing array.
 //
-bool Compose_To_Stack_Throws(
-    REBVAL *out, // if return result is true, will hold the thrown value
+// Returns R_UNHANDLED if the composed series is identical to the input, or
+// nullptr if there were compositions.  R_THROWN if there was a throw.  It
+// leaves the accumulated values for the current stack level, so the caller
+// can decide if it wants them or not, regardless of if any composes happened.
+//
+REB_R Compose_To_Stack_Core(
+    REBVAL *out, // if return result is R_THROWN, will hold the thrown value
     const RELVAL *any_array, // the template
     REBSPC *specifier, // specifier for relative any_array value
     const REBVAL *pattern, // e.g. if '*, only match `(* ... *)`
@@ -193,15 +198,17 @@ bool Compose_To_Stack_Throws(
 ){
     REBDSP dsp_orig = DSP;
 
+    bool changed = false;
+
     DECLARE_FRAME (f);
     Push_Frame_At(
         f, VAL_ARRAY(any_array), VAL_INDEX(any_array), specifier, DO_MASK_NONE
     );
 
-    while (NOT_END(f->value)) {
+    for (; NOT_END(f->value); Fetch_Next_In_Frame(nullptr, f)) {
+
         if (not ANY_ARRAY(f->value)) { // non-arrays don't substitute/recurse
             DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
-            Fetch_Next_In_Frame(nullptr, f);
             continue;
         }
 
@@ -245,7 +252,7 @@ bool Compose_To_Stack_Throws(
             if (indexor == THROWN_FLAG) {
                 DS_DROP_TO(dsp_orig);
                 Abort_Frame(f);
-                return true;
+                return R_THROWN;
             }
 
             if (IS_NULLED(out)) {
@@ -286,22 +293,38 @@ bool Compose_To_Stack_Throws(
           #ifdef DEBUG_UNREADABLE_BLANKS
             Init_Unreadable_Blank(out); // shouldn't leak temp eval to caller
           #endif
+
+            changed = true;
         }
         else if (deep) {
             // compose/deep [does [(1 + 2)] nested] => [does [3] nested]
 
             REBDSP dsp_deep = DSP;
-            if (Compose_To_Stack_Throws(
+            REB_R r = Compose_To_Stack_Core(
                 out,
                 f->value,
                 specifier,
                 pattern,
                 true, // deep (guaranteed true if we get here)
                 only
-            )){
+            );
+            
+            if (r == R_THROWN) {
                 DS_DROP_TO(dsp_orig); // drop to outer DSP (@ function start)
                 Abort_Frame(f);
-                return true;
+                return R_THROWN;
+            }
+
+            if (r == R_UNHANDLED) {
+                //
+                // To save on memory usage, Ren-C does not make copies of
+                // arrays that don't have some substitution under them.  This
+                // may be controlled by a switch if it turns out to be needed.
+                //
+                DS_DROP_TO(dsp_deep);
+                DS_PUSH_TRASH;
+                Derelativize(DS_TOP, f->value, specifier);
+                continue;
             }
 
             REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
@@ -318,18 +341,18 @@ bool Compose_To_Stack_Throws(
 
             if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
+
+            changed = true;
         }
         else {
             // compose [[(1 + 2)] (3 + 4)] => [[(1 + 2)] 7] ;-- non-deep
             //
             DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
         }
-
-        Fetch_Next_In_Frame(nullptr, f);
     }
 
-    Drop_Frame_Unbalanced(f); // Drop_Frame() asesrts on stack accumulation
-    return false;
+    Drop_Frame_Unbalanced(f); // Drop_Frame() asserts on stack accumulation
+    return changed ? nullptr : R_UNHANDLED;
 }
 
 
@@ -356,16 +379,26 @@ REBNATIVE(compose)
 
     REBDSP dsp_orig = DSP;
 
-    if (Compose_To_Stack_Throws(
+    REB_R r = Compose_To_Stack_Core(
         D_OUT,
         ARG(value),
         VAL_SPECIFIER(ARG(value)),
         ARG(pattern),
         REF(deep),
         REF(only)
-    )){
+    );
+    
+    if (r == R_THROWN)
         return R_THROWN;
+
+    if (r == R_UNHANDLED) {
+        //
+        // This is the signal that stack levels use to say nothing under them
+        // needed compose, so you can just use a copy (if you want).  COMPOSE
+        // always copies at least the outermost array, though.
     }
+    else
+        assert(r == nullptr); // normal result, changed
 
     // The stack values contain N NEWLINE_BEFORE flags, and we need N + 1
     // flags.  Borrow the one for the tail directly from the input REBARR.
