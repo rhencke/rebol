@@ -159,13 +159,12 @@ static void Eval_Core_Shared_Checks_Debug(REBFRM *f) {
     if (IS_END(f->value))
         return;
 
-    if (NOT_END(f->out) and THROWN(f->out))
+    if (NOT_END(f->out) and Is_Evaluator_Throwing_Debug())
         return;
 
     //=//// v-- BELOW CHECKS ONLY APPLY IN EXITS CASE WITH MORE CODE //////=//
 
     assert(NOT_END(f->value));
-    assert(not THROWN(f->value));
     assert(f->value != f->out);
 
     //=//// ^-- ADD CHECKS EARLIER THAN HERE IF THEY SHOULD ALWAYS RUN ////=//
@@ -206,9 +205,7 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
         }
     }
 
-  #if defined(DEBUG_UNREADABLE_BLANKS)
-    assert(IS_UNREADABLE_DEBUG(&TG_Thrown_Arg)); // no evals between throws
-  #endif
+    assert(not Is_Evaluator_Throwing_Debug()); // no evals between throws
 
     // Trash fields that GC won't be seeing unless Is_Action_Frame()
     //
@@ -280,7 +277,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
 //
 void Do_After_Action_Checks_Debug(REBFRM *f) {
     assert(NOT_END(f->out));
-    assert(not THROWN(f->out));
+    assert(not Is_Evaluator_Throwing_Debug());
 
     if (GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)) // e.g. ENCLOSE
         return;
@@ -333,15 +330,15 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     if (NOT_END(f->value) and not FRM_IS_VALIST(f)) {
         if (f->source->index > ARR_LEN(f->source->array)) {
             assert(
-                (f->source->pending != NULL and IS_END(f->source->pending))
-                or THROWN(f->out)
+                (f->source->pending and IS_END(f->source->pending))
+                or Is_Evaluator_Throwing_Debug()
             );
             assert(f->source->index == ARR_LEN(f->source->array) + 1);
         }
     }
 
     if (f->flags.bits & DO_FLAG_TO_END)
-        assert(THROWN(f->out) or IS_END(f->value));
+        assert(Is_Evaluator_Throwing_Debug() or IS_END(f->value));
 
     // We'd like `do [1 + comment "foo"]` to act identically to `do [1 +]`
     // (as opposed to `do [1 + ()]`).  Eval_Core_Throws() thus distinguishes
@@ -349,7 +346,10 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     // distinction is only offered internally, at the moment.
     //
     if (NOT_END(f->out))
-        assert(VAL_TYPE(f->out) <= REB_MAX_NULLED);
+        assert(
+            Is_Evaluator_Throwing_Debug()
+            or VAL_TYPE(f->out) <= REB_MAX_NULLED
+        );
 
     f->flags.bits |= DO_FLAG_FINAL_DEBUG;
 }

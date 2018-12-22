@@ -377,26 +377,22 @@
 //
 // * END_FLAG if end of series prohibited a full evaluation
 //
-// * THROWN_FLAG if the output is THROWN()--you MUST check!
+// * THROWN_FLAG if the output is Thrown--you MUST check!
 //
 // * ...or the next index position where one might continue evaluation
 //
 // ===========================((( IMPORTANT )))==============================
 //
 //      The THROWN_FLAG means your value does not represent a directly
-//      usable value, so you MUST check for it.  It signifies getting
-//      back a THROWN()--see notes in sys-value.h about what that means.
-//      If you don't know how to handle it, then at least do:
+//      usable value, so you MUST check for it.  See notes in %sys-frame.h
+//      about what that means.  If you don't know how to handle it, then at
+//      least do:
 //
 //              fail (Error_No_Catch_For_Throw(out));
 //
-//      If you *do* handle it, be aware it's a throw label with
-//      VALUE_FLAG_THROWN set in its header, and shouldn't leak to the
-//      rest of the system.
-//
 // ===========================================================================
 //
-// Note that THROWN() is not an indicator of an error, rather something that
+// Note that thrownness is not an indicator of an error, rather something that
 // ordinary language constructs might meaningfully want to process as they
 // bubble up the stack.  Some examples would be BREAK, RETURN, and QUIT.
 //

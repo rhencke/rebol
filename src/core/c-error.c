@@ -211,7 +211,7 @@ void Trapped_Helper(struct Reb_State *s)
 // that these failures interrupt code mid-stream, so if a Rebol function is
 // running it will not make it to the point of returning the result value.
 // This distinguishes the "fail" mechanic from the "throw" mechanic, which has
-// to bubble up a THROWN() value through D_OUT (used to implement BREAK,
+// to bubble up a thrown value through D_OUT (used to implement BREAK,
 // CONTINUE, RETURN, LEAVE, HALT...)
 //
 // The function will auto-detect if the pointer it is given is an ERROR!'s
@@ -315,11 +315,13 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
 
     Saved_State->error = error;
 
-    // If a THROWN() was being processed up the stack when the error was
-    // raised, then it had the thrown argument set.  Trash it in debug
-    // builds.  (The value will not be kept alive, it is not seen by GC)
+    // If a throw was being processed up the stack when the error was raised,
+    // then it had the thrown argument set.  Trash it in debug builds.  (The
+    // value will not be kept alive, it is not seen by GC)
     //
-    Init_Unreadable_Blank(&TG_Thrown_Arg);
+  #if !defined(NDEBUG)
+    SET_END(&TG_Thrown_Arg);
+  #endif
 
     LONG_JUMP(Saved_State->cpu_state, 1);
 }
@@ -470,10 +472,8 @@ void Set_Location_Of_Error(
 //
 //  Make_Error_Object_Throws: C
 //
-// Creates an error object from arg and puts it in value.
-// The arg can be a string or an object body block.
-//
-// Returns true if a THROWN() value is made during evaluation.
+// Creates an error object from arg and puts it in value.  The arg can be a
+// string or an object body block.  Evaluating the body may throw.
 //
 // This function is called by MAKE ERROR!.  Note that most often
 // system errors from %errors.r are thrown by C code using
@@ -1115,9 +1115,7 @@ REBCTX *Error_No_Value(const REBVAL *target) {
 REBCTX *Error_No_Catch_For_Throw(REBVAL *thrown)
 {
     DECLARE_LOCAL (arg);
-
-    assert(THROWN(thrown));
-    CATCH_THROWN(arg, thrown); // clears bit, thrown is now the /NAME
+    CATCH_THROWN(arg, thrown);
 
     return Error_No_Catch_Raw(arg, thrown);
 }

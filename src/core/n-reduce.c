@@ -214,7 +214,7 @@ REB_R Compose_To_Stack_Core(
 
         bool splice = not only; // can force no splice if override via ((...))
 
-        REBSPC *match_specifier;
+        REBSPC *match_specifier = nullptr;
         const RELVAL *match = nullptr;
 
         if (not IS_GROUP(f->value)) {

@@ -43,9 +43,7 @@ REBNATIVE(halt)
 {
     INCLUDE_PARAMS_OF_HALT;
 
-    Move_Value(D_OUT, NAT_VALUE(halt));
-    CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
-    return D_OUT;
+    return Init_Thrown_With_Label(D_OUT, NULLED_CELL, NAT_VALUE(halt));
 }
 
 
@@ -62,27 +60,21 @@ REBNATIVE(halt)
 //
 REBNATIVE(quit)
 //
-// QUIT is implemented via a THROWN() value that bubbles up through
-// the stack.  It uses the value of its own native function as the
-// name of the throw, like `throw/name value :quit`.
+// QUIT is implemented via a thrown signal that bubbles up through the stack.
+// It uses the value of its own native function as the name of the throw, like
+// `throw/name value :quit`.
 {
     INCLUDE_PARAMS_OF_QUIT;
 
-    Move_Value(D_OUT, NAT_VALUE(quit));
-
-    if (REF(with))
-        CONVERT_NAME_TO_THROWN(D_OUT, ARG(value));
-    else {
-        // Chosen to do it this way because returning to a calling script it
-        // will be no value by default, for parity with BREAK and EXIT without
-        // a /WITH.  Long view would have RETURN work this way too: CC#2241
-
-        // void translated to 0 if it gets caught for the shell, see #2241
-
-        CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
-    }
-
-    return R_THROWN;
+    // This returns VOID_VALUE if there is no arg, which means if it is caught
+    // by a script then that will seem like there was no return value.  This
+    // gives parity with things like RETURN w/no arg.
+    //
+    return Init_Thrown_With_Label(
+        D_OUT,
+        REF(with)? ARG(value) : VOID_VALUE,
+        NAT_VALUE(quit)
+    );
 }
 
 

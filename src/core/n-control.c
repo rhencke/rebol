@@ -1156,16 +1156,18 @@ REBNATIVE(catch)
     if (not Do_Any_Array_At_Throws(D_OUT, ARG(block)))
         return nullptr; // no throw means just return null
 
+    const REBVAL *label = VAL_THROWN_LABEL(D_OUT);
+
     if (REF(any) and not (
-        IS_ACTION(D_OUT)
-        and VAL_ACT_DISPATCHER(D_OUT) == &N_quit
+        IS_ACTION(label)
+        and VAL_ACT_DISPATCHER(label) == &N_quit
     )){
         goto was_caught;
     }
 
     if (REF(quit) and (
-        IS_ACTION(D_OUT)
-        and VAL_ACT_DISPATCHER(D_OUT) == &N_quit
+        IS_ACTION(label)
+        and VAL_ACT_DISPATCHER(label) == &N_quit
     )){
         goto was_caught;
     }
@@ -1177,9 +1179,6 @@ REBNATIVE(catch)
 
         REBVAL *temp1 = ARG(quit);
         REBVAL *temp2 = ARG(any);
-
-        // !!! The reason we're copying isn't so the VALUE_FLAG_THROWN bit
-        // won't confuse the equality comparison...but would it have?
 
         if (IS_BLOCK(ARG(names))) {
             //
@@ -1194,7 +1193,7 @@ REBNATIVE(catch)
                     fail (Error_Invalid(ARG(names)));
 
                 Derelativize(temp1, candidate, VAL_SPECIFIER(ARG(names)));
-                Move_Value(temp2, D_OUT);
+                Move_Value(temp2, label);
 
                 // Return the THROW/NAME's arg if the names match
                 // !!! 0 means equal?, but strict-equal? might be better
@@ -1205,7 +1204,7 @@ REBNATIVE(catch)
         }
         else {
             Move_Value(temp1, ARG(names));
-            Move_Value(temp2, D_OUT);
+            Move_Value(temp2, label);
 
             // Return the THROW/NAME's arg if the names match
             // !!! 0 means equal?, but strict-equal? might be better
@@ -1217,7 +1216,7 @@ REBNATIVE(catch)
     else {
         // Return THROW's arg only if it did not have a /NAME supplied
         //
-        if (IS_BLANK(D_OUT))
+        if (IS_BLANK(label))
             goto was_caught;
     }
 
@@ -1228,8 +1227,8 @@ REBNATIVE(catch)
     if (REF(name) or REF(any)) {
         REBARR *a = Make_Arr(2);
 
+        Move_Value(ARR_AT(a, 0), label); // throw name
         CATCH_THROWN(ARR_AT(a, 1), D_OUT); // thrown value--may be null!
-        Move_Value(ARR_AT(a, 0), D_OUT); // throw name (thrown bit clear)
         if (IS_NULLED(ARR_AT(a, 1)))
             TERM_ARRAY_LEN(a, 1); // trim out null value (illegal in block)
         else
@@ -1262,16 +1261,9 @@ REBNATIVE(throw)
 {
     INCLUDE_PARAMS_OF_THROW;
 
-    REBVAL *value = ARG(value);
-
-    if (REF(name))
-        Move_Value(D_OUT, ARG(name_value));
-    else {
-        // Blank values serve as representative of THROWN() means "no name"
-        //
-        Init_Blank(D_OUT);
-    }
-
-    CONVERT_NAME_TO_THROWN(D_OUT, value);
-    return R_THROWN;
+    return Init_Thrown_With_Label(
+        D_OUT,
+        ARG(value),
+        REF(name) ? ARG(name_value) : BLANK_VALUE // uses blank, not null
+    );
 }

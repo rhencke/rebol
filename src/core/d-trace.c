@@ -294,7 +294,6 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
 
           process_out:;
 
-            assert(not THROWN(f->out));
             Debug_Values(f->out, 1, 50);
         }
         else if (r == nullptr) {
@@ -325,7 +324,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
             else
                 Debug_Fmt_("throw %30r, label %20r", arg, f->out);
 
-            CONVERT_NAME_TO_THROWN(f->out, arg); // sets bit
+            Init_Thrown_With_Label(f->out, arg, f->out); // sets bit
             break; }
 
         case REB_R_INVISIBLE:

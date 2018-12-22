@@ -48,21 +48,22 @@ typedef enum {
 //
 bool Catching_Break_Or_Continue(REBVAL *val, bool *broke)
 {
-    assert(THROWN(val));
+    const REBVAL *label = VAL_THROWN_LABEL(val);
 
     // Throw /NAME-s used by CONTINUE and BREAK are the actual native
     // function values of the routines themselves.
-    if (not IS_ACTION(val))
+    //
+    if (not IS_ACTION(label))
         return false;
 
-    if (VAL_ACT_DISPATCHER(val) == &N_break) {
+    if (VAL_ACT_DISPATCHER(label) == &N_break) {
         *broke = true;
         CATCH_THROWN(val, val);
         assert(IS_NULLED(val)); // BREAK must always return NULL
         return true;
     }
 
-    if (VAL_ACT_DISPATCHER(val) == &N_continue) {
+    if (VAL_ACT_DISPATCHER(label) == &N_continue) {
         //
         // !!! Currently continue with no argument acts the same as asking
         // for CONTINUE NULL (the form with an argument).  This makes sense
@@ -87,15 +88,13 @@ bool Catching_Break_Or_Continue(REBVAL *val, bool *broke)
 //
 REBNATIVE(break)
 //
-// BREAK is implemented via a THROWN() value that bubbles up through
-// the stack.  It uses the value of its own native function as the
-// name of the throw, like `throw/name null :break`.
+// BREAK is implemented via a thrown signal that bubbles up through the stack. 
+// It uses the value of its own native function as the name of the throw,
+// like `throw/name null :break`.
 {
     INCLUDE_PARAMS_OF_BREAK;
 
-    Move_Value(D_OUT, NAT_VALUE(break));
-    CONVERT_NAME_TO_THROWN(D_OUT, NULLED_CELL);
-    return R_THROWN;
+    return Init_Thrown_With_Label(D_OUT, NULLED_CELL, NAT_VALUE(break));
 }
 
 
@@ -110,16 +109,17 @@ REBNATIVE(break)
 //
 REBNATIVE(continue)
 //
-// CONTINUE is implemented via a THROWN() value that bubbles up through
-// the stack.  It uses the value of its own native function as the
-// name of the throw, like `throw/name value :continue`.
+// CONTINUE is implemented via a thrown signal that bubbles up through the
+// stack.  It uses the value of its own native function as the name of the
+// throw, like `throw/name value :continue`.
 {
     INCLUDE_PARAMS_OF_CONTINUE;
 
-    Move_Value(D_OUT, NAT_VALUE(continue));
-    CONVERT_NAME_TO_THROWN(D_OUT, ARG(value)); // null if e.g. `do [continue]`
-
-    return R_THROWN;
+    return Init_Thrown_With_Label(
+        D_OUT,
+        ARG(value), // null if missing, e.g. `do [continue]`
+        NAT_VALUE(continue)
+    );
 }
 
 
@@ -989,15 +989,13 @@ REBNATIVE(stop)
 {
     INCLUDE_PARAMS_OF_STOP;
 
-    REBVAL *v = ARG(value);
-
-    Move_Value(D_OUT, NAT_VALUE(stop));
-    if (IS_ENDISH_NULLED(v))
-        CONVERT_NAME_TO_THROWN(D_OUT, VOID_VALUE); // `if true [stop]`
-    else
-        CONVERT_NAME_TO_THROWN(D_OUT, v); // `if true [stop ...]`
-
-    return R_THROWN;
+    return Init_Thrown_With_Label(
+        D_OUT,
+        IS_ENDISH_NULLED(ARG(value))
+            ? VOID_VALUE // `if true [stop]`
+            : ARG(value), // `if true [stop 5]`, etc.
+        NAT_VALUE(stop)
+    );
 }
 
 
@@ -1020,9 +1018,10 @@ REBNATIVE(cycle)
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
             bool broke;
             if (not Catching_Break_Or_Continue(D_OUT, &broke)) {
+                const REBVAL *label = VAL_THROWN_LABEL(D_OUT);
                 if (
-                    IS_ACTION(D_OUT)
-                    and VAL_ACT_DISPATCHER(D_OUT) == &N_stop
+                    IS_ACTION(label)
+                    and VAL_ACT_DISPATCHER(label) == &N_stop
                 ){
                     // See notes on STOP for why CYCLE is unique among loop
                     // constructs, with a BREAK variant that returns a value.
@@ -1446,7 +1445,6 @@ REBNATIVE(remove_each)
         Push_Mold(res.mo);
     }
 
-    SET_END(D_OUT); // will be tested for THROWN() to signal a throw happened
     res.out = D_OUT;
 
     res.broke = false; // will be set to true if there is a BREAK

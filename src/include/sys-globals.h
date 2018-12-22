@@ -162,6 +162,14 @@ PVAR REBNAT PG_Dispatcher; // Dispatcher (takes REBFRM, returns REBVAL*)
 ***********************************************************************/
 
 TVAR REBVAL TG_Thrown_Arg;  // Non-GC protected argument to THROW
+#if !defined(NDEBUG)
+    //
+    // For reasons explained in %sys-frame.h, the thrown label is typically
+    // stored in the output cell...but to make sure access goes through the
+    // VAL_THROWN_LABEL(), a global is used "SPORADICALLY()"
+    //
+    TVAR REBVAL TG_Thrown_Label_Debug;
+#endif
 
 // !!! These values were held in REBVALs for some reason in R3-Alpha, which
 // means that since they were INTEGER! they were signed 64-bit integers.  It

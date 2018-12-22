@@ -694,7 +694,7 @@ inline static void Drop_Frame_Unbalanced(REBFRM *f) {
 inline static void Drop_Frame(REBFRM *f)
 {
     if (f->flags.bits & DO_FLAG_TO_END)
-        assert(IS_END(f->value) or THROWN(f->out));
+        assert(IS_END(f->value) or Is_Evaluator_Throwing_Debug());
 
     assert(DSP == f->dsp_orig); // Drop_Frame_Core() does not check
     Drop_Frame_Unbalanced(f);
@@ -838,7 +838,7 @@ inline static bool Eval_Step_In_Subframe_Throws(
     //
     Push_Frame_Core(child);
     Reuse_Varlist_If_Available(child);
-    (*PG_Eval_Throws)(child);
+    bool threw = (*PG_Eval_Throws)(child);
     Drop_Frame(child);
 
     assert(
@@ -846,7 +846,7 @@ inline static bool Eval_Step_In_Subframe_Throws(
         or FRM_IS_VALIST(child)
         or old_index != child->source->index
         or (flags & DO_FLAG_REEVALUATE_CELL)
-        or THROWN(out)
+        or Is_Evaluator_Throwing_Debug()
     );
 
     // !!! Should they share a source instead of updating?
@@ -858,7 +858,7 @@ inline static bool Eval_Step_In_Subframe_Throws(
     if (child->flags.bits & DO_FLAG_BARRIER_HIT)
         higher->flags.bits |= DO_FLAG_BARRIER_HIT;
 
-    return THROWN(out);
+    return threw;
 }
 
 
@@ -1106,7 +1106,12 @@ inline static bool Eval_Value_Core_Throws(
 // encounter a leak.
 //
 inline static void Handle_Api_Dispatcher_Result(REBFRM *f, const REBVAL* r) {
-    assert(not THROWN(r)); // only f->out can return thrown cells
+    //
+    // !!! There is no protocol in place yet for the external API to throw,
+    // so that is something to think about.  At the moment, only f->out can
+    // hold thrown returns, and these API handles are elsewhere.
+    //
+    assert(not Is_Evaluator_Throwing_Debug());
 
   #if !defined(NDEBUG)
     if (NOT_VAL_FLAG(r, NODE_FLAG_ROOT)) {

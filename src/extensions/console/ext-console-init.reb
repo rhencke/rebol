@@ -492,9 +492,9 @@ ext-console-impl: function [
         :result/arg2 = :QUIT ;; name
     ] then [
         return switch type of :result/arg1 [
-            null [0] ;-- plain QUIT, no /WITH, call that success
-
-            blank! [0] ;-- consider blank also to be success
+            void! [0] ;-- plain QUIT, no /WITH, call that success
+            
+            logic! [either :result/arg1 [0] [1]] ;-- ay logic true is success
 
             integer! [result/arg1] ;-- Note: may be too big for status range
 

@@ -252,15 +252,16 @@ static bool Subparse_Throws(
         // or not found.  This returns the interrupted flag which is still
         // ignored by most callers, but makes that fact more apparent.
         //
-        if (IS_ACTION(out)) {
-            if (VAL_ACTION(out) == NAT_ACTION(parse_reject)) {
+        const REBVAL *label = VAL_THROWN_LABEL(out);
+        if (IS_ACTION(label)) {
+            if (VAL_ACTION(label) == NAT_ACTION(parse_reject)) {
                 CATCH_THROWN(out, out);
                 assert(IS_NULLED(out));
                 *interrupted_out = true;
                 return false;
             }
 
-            if (VAL_ACTION(out) == NAT_ACTION(parse_accept)) {
+            if (VAL_ACTION(label) == NAT_ACTION(parse_accept)) {
                 CATCH_THROWN(out, out);
                 assert(IS_INTEGER(out));
                 *interrupted_out = true;
@@ -468,8 +469,7 @@ static REBIXO Parse_One_Rule(
             Move_Value(P_OUT, P_CELL);
             return THROWN_FLAG;
         }
-        if (rule == R_INVISIBLE) {
-            fail ("This isn't legal...?");
+        if (rule == R_INVISIBLE) { // !!! Should this be legal?
             assert(pos <= SER_LEN(P_INPUT)); // !!! Process_Group ensures
             return pos;
         }
@@ -754,10 +754,8 @@ static REBIXO To_Thru_Block_Rule(
                     fail (Error_Parse_Rule());
 
                 REBIXO i = Parse_One_Rule(f, pos, rule);
-                if (i == THROWN_FLAG) {
-                    assert(THROWN(P_OUT));
+                if (i == THROWN_FLAG)
                     return THROWN_FLAG;
-                }
 
                 if (i != END_FLAG) {
                     pos = cast(REBCNT, i); // passed it, so back up if only TO
@@ -1231,10 +1229,8 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     Move_Value(P_INPUT_VALUE, saved_input);
     DROP_GC_GUARD(saved_input);
 
-    if (n == THROWN_FLAG) {
-        assert(THROWN(P_OUT));
+    if (n == THROWN_FLAG)
         return THROWN_FLAG;
-    }
 
     if (n == ARR_LEN(holder)) {
         //
@@ -1519,26 +1515,23 @@ REBNATIVE(subparse)
                         //
                         DECLARE_LOCAL (thrown_arg);
                         Init_Integer(thrown_arg, P_POS);
-                        Move_Value(P_OUT, NAT_VALUE(parse_accept));
+                        thrown_arg->extra.trash = thrown_arg; // see `trash`
 
-                        // Unfortunately, when the warnings are set all the
-                        // way high for uninitialized variable use, the
-                        // compiler may think this integer's binding will
-                        // be used by the Move_Value() inlined here.  Get
-                        // past that by initializing it.
-                        //
-                        thrown_arg->extra.trash = thrown_arg; // local trash
-
-                        CONVERT_NAME_TO_THROWN(P_OUT, thrown_arg);
-                        return R_THROWN; }
+                        return Init_Thrown_With_Label(
+                            P_OUT,
+                            thrown_arg,
+                            NAT_VALUE(parse_accept)
+                        ); }
 
                     case SYM_REJECT: {
                         //
                         // Similarly, this is a break/continue style "throw"
                         //
-                        Move_Value(P_OUT, NAT_VALUE(parse_reject));
-                        CONVERT_NAME_TO_THROWN(P_OUT, NULLED_CELL);
-                        return R_THROWN; }
+                        return Init_Thrown_With_Label(
+                            P_OUT,
+                            NULLED_CELL,
+                            NAT_VALUE(parse_reject)
+                        ); }
 
                     case SYM_FAIL: // deprecated... use LOGIC! false instead
                         P_POS = NOT_FOUND;

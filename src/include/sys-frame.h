@@ -28,57 +28,106 @@
 //
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  THROWN status
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// SIMULATED "THROWN" TYPE ///////////////////////////////////////////=//
 //
 // All THROWN values have two parts: the REBVAL arg being thrown and
 // a REBVAL indicating the /NAME of a labeled throw.  (If the throw was
-// created with plain THROW instead of THROW/NAME then its name is null).
-// You cannot fit both values into a single value's bits of course, but
-// since only one THROWN() value is supposed to exist on the stack at a
-// time the arg part is stored off to the side when one is produced
-// during an evaluation.  It must be processed before another evaluation
-// is performed, and if the GC or DO are ever given a value with a
-// THROWN() bit they will assert!
+// created with plain THROW instead of THROW/NAME then its name is blank).
 //
-// A reason to favor the name as "the main part" is that having the name
-// value ready-at-hand allows easy testing of it to see if it needs
-// to be passed on.  That happens more often than using the arg, which
-// will occur exactly once (when it is caught).
+// You cannot fit both values into a single value's bits of course.  One way
+// to approach the problem would be to create a new REB_THROWN type with
+// two fields (like a PAIR!).  But since there can only be one thrown value
+// in the system at a time, a more efficient trick is used instead.  The
+// throw label is kept in the output cell, with the arg put off to the side.
+//
+// There are important technical reasons for favoring the label in the output:
+//
+// * RETURN is implemented as a throw whose label is a FRAME!.  That FRAME!
+//   value can store either a REBFRM* which costs nothing extra, or a REBCTX*
+//   which requires "reifying" the frame and making it GC-visible.  Reifying
+//   would happen unconditionally if the frame is put into a global variable,
+//   but so long as the FRAME! value bubbles up no higher than the REBFRM*
+//   it points to, it can be used as-is.  With RETURN, it will be exactly the
+//   right lifetime--since the originating frame is right where it stops.
+//
+// * When various stack levels are checking for their interest in a thrown
+//   value, they look at the label...and if it's not what they want, they
+//   pass it on.  So the label is checked many times, while the arg is only
+//   caught once at its final location.
+//
+// Avoiding a separate REB_THROWN datatype involves ensuring that the entire
+// concept of "throw-ness" is threaded through the stack.  This is done with
+// the R_THROWN dispatcher result or bool-returning `XXX_Throws()` functions.
+// It creates some danger that a thrown value will be used accidentally as a
+// "normal" value.  This is tested in the debug build by `SPORADICALLY()`
+// putting an unreadable blank in the output slot and taking the reificaiton
+// hit of putting the label off to the side.
 //
 
-inline static bool THROWN(const RELVAL *v) {
-    assert(v->header.bits & NODE_FLAG_CELL);
-
-    if (v->header.bits & VALUE_FLAG_THROWN) {
-        assert(NOT_END(v)); // can't throw END, but allow THROWN() to test it
-        return true;
+#if !defined(NDEBUG)
+    inline static bool Is_Evaluator_Throwing_Debug(void) {
+        return NOT_END(&TG_Thrown_Arg);
     }
-    return false;
-}
+#endif
 
-inline static void CONVERT_NAME_TO_THROWN(REBVAL *name, const REBVAL *arg) {
-    assert(not THROWN(name));
-    SET_VAL_FLAG(name, VALUE_FLAG_THROWN);
+#if defined(NDEBUG)
+    #define VAL_THROWN_LABEL(thrown) \
+        (thrown)
+#else
+    inline static const REBVAL *VAL_THROWN_LABEL(const REBVAL *thrown) {
+        if (IS_END(&TG_Thrown_Label_Debug))
+            return thrown;
+        assert(IS_UNREADABLE_DEBUG(thrown));
+        return &TG_Thrown_Label_Debug;
+    }
+#endif
 
-    ASSERT_UNREADABLE_IF_DEBUG(&TG_Thrown_Arg);
+inline static REB_R Init_Thrown_With_Label(
+    REBVAL *out,
+    const REBVAL *arg,
+    const REBVAL *label // Note: is allowed to be same as `out`
+){
+  #if defined(NDEBUG)
+    if (out != label)
+        Move_Value(out, label);
+  #else
+    assert(IS_END(&TG_Thrown_Arg));
+    assert(IS_END(&TG_Thrown_Label_Debug));
+
+    // Help avoid accidental uses of thrown output as misunderstood plain
+    // outputs, by forcing thrown label access through VAL_THROWN_LABEL()...
+    // but still test the release code path half the time.  (Causes different
+    // reifications, but outside performance should still work the same.)
+    //
+    if (SPORADICALLY(2)) {
+        Move_Value(&TG_Thrown_Label_Debug, label);
+        Init_Unreadable_Blank(out);
+    }
+    else {
+        if (out != label)
+            Move_Value(out, label);
+    }
+  #endif
 
     Move_Value(&TG_Thrown_Arg, arg);
+    return R_THROWN; // for chaining to dispatcher output
 }
 
-static inline void CATCH_THROWN(RELVAL *arg_out, REBVAL *thrown) {
-    //
-    // Note: arg_out and thrown may be the same pointer
-    //
-    assert(THROWN(thrown));
-    CLEAR_VAL_FLAG(thrown, VALUE_FLAG_THROWN);
+static inline void CATCH_THROWN(
+    RELVAL *arg_out,
+    REBVAL *thrown // Note: may be same pointer as arg_out
+){
+  #if !defined(NDEBUG)
+    assert(NOT_END(&TG_Thrown_Arg));
+  #endif
 
-    ASSERT_READABLE_IF_DEBUG(&TG_Thrown_Arg);
+    UNUSED(thrown);
     Move_Value(arg_out, &TG_Thrown_Arg);
-    Init_Unreadable_Blank(&TG_Thrown_Arg);
+
+  #if !defined(NDEBUG)
+    SET_END(&TG_Thrown_Arg);
+    SET_END(&TG_Thrown_Label_Debug);
+  #endif
 }
 
 

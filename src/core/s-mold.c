@@ -483,8 +483,6 @@ void MF_Unhooked(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
 {
-    assert(not THROWN(v)); // !!! Note: Thrown bit is being eliminated
-
     REBSER *s = mo->series;
     assert(SER_WIDE(s) == sizeof(REBYTE));
     ASSERT_SERIES_TERM(s);

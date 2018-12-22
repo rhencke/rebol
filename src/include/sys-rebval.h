@@ -101,33 +101,9 @@
     FLAG_LEFT_BIT(16)
 
 
-//=//// VALUE_FLAG_THROWN /////////////////////////////////////////////////=//
+//=//// VALUE_FLAG_UNUSED_17 //////////////////////////////////////////////=//
 //
-// !!! This bit was historically a way of signaling a "throw" (e.g. a RETURN,
-// BREAK, CONTINUE, or generic THROW signal).  It is in the process of being
-// reclaimed...as it doesn't make very much sense to waste a scarce value
-// header bit for something that can only be set on one value in the system
-// at a time.  The reclamation is based on making sure the return results
-// from all functions carry the throw status unambiguously.  While that is
-// being worked out, the bit acts as an extra check.
-//
-// The bit being set does not mean the cell contains the thrown quantity
-// (e.g. it would not be the `1020` in `throw 1020`)  The evaluator thread
-// enters a modal "thrown state", and it's the state which holds the value.
-// It must be processed (or trigger an error) before another throw occurs.
-//
-// What the bit actually indicates is a cell containing the "label" or "name"
-// of the throw.  Having the label quickly available in the slot being bubbled
-// up makes it easy for recipients to decide if they are interested in throws
-// of that type or not--after which they can request the thrown value.
-//
-// Routines that can potentially return thrown values hint this by returning a
-// boolean and adopting the XXX_Throws() naming convention, making it harder
-// to forget to check for the condition, e.g.:
-//
-//     if (XXX_Throws()) {
-//        /* handling code */
-//     }
+// Slated for reclamation, likely as VALUE_FLAG_MUTABLE.
 //
 #define VALUE_FLAG_THROWN \
     FLAG_LEFT_BIT(17)

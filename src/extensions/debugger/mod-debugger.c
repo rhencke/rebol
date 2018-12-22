@@ -86,8 +86,7 @@ bool Do_Breakpoint_Throws(
     REBVAL *inst = rebRun("console/resumable", rebEND);
 
     if (IS_INTEGER(inst)) {
-        Move_Value(out, KNOWN(NAT_VALUE(quit)));
-        CONVERT_NAME_TO_THROWN(out, inst);
+        Init_Thrown_With_Label(out, inst, NAT_VALUE(quit));
         rebRelease(inst);
         return true;
     }

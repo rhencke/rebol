@@ -65,12 +65,13 @@ REBNATIVE(func)
 //
 //  Make_Thrown_Unwind_Value: C
 //
-// This routine will generate a THROWN() value that can be used to indicate
-// a desire to jump to a particular level in the stack with a value (or void)
-//
+// This routine generates a thrown signal that can be used to indicate a
+// desire to jump to a particular level in the stack with a return value.
 // It is used in the implementation of the UNWIND native.
 //
-void Make_Thrown_Unwind_Value(
+// See notes is %sys-frame.h about how there is no actual REB_THROWN type.
+//
+REB_R Init_Thrown_Unwind_Value(
     REBVAL *out,
     const REBVAL *level, // FRAME!, ACTION! (or INTEGER! relative to frame)
     const REBVAL *value,
@@ -125,7 +126,7 @@ void Make_Thrown_Unwind_Value(
         }
     }
 
-    CONVERT_NAME_TO_THROWN(out, value);
+    return Init_Thrown_With_Label(out, value, out);
 }
 
 
@@ -142,9 +143,9 @@ void Make_Thrown_Unwind_Value(
 //
 REBNATIVE(unwind)
 //
-// UNWIND is implemented via a THROWN() value that bubbles through the stack.
-// Using UNWIND's action REBVAL with a target `binding` field is the
-// protocol understood by Eval_Core to catch a throw itself.
+// UNWIND is implemented via a throw that bubbles through the stack.  Using
+// UNWIND's action REBVAL with a target `binding` field is the protocol
+// understood by Eval_Core to catch a throw itself.
 //
 // !!! Allowing to pass an INTEGER! to jump from a function based on its
 // BACKTRACE number is a bit low-level, and perhaps should be restricted to
@@ -154,8 +155,7 @@ REBNATIVE(unwind)
 
     UNUSED(REF(with)); // implied by non-null value
 
-    Make_Thrown_Unwind_Value(D_OUT, ARG(level), ARG(value), frame_);
-    return R_THROWN;
+    return Init_Thrown_Unwind_Value(D_OUT, ARG(level), ARG(value), frame_);
 }
 
 
@@ -244,8 +244,7 @@ REBNATIVE(return)
     Move_Value(D_OUT, NAT_VALUE(unwind)); // see also Make_Thrown_Unwind_Value
     INIT_BINDING_MAY_MANAGE(D_OUT, f_binding);
 
-    CONVERT_NAME_TO_THROWN(D_OUT, v);
-    return R_THROWN;
+    return Init_Thrown_With_Label(D_OUT, v, D_OUT);
 }
 
 

@@ -126,8 +126,7 @@ bool Do_Signals_Throws(REBVAL *out)
         CLR_SIGNAL(SIG_HALT);
         Eval_Sigmask = saved_mask;
 
-        Move_Value(out, NAT_VALUE(halt));
-        CONVERT_NAME_TO_THROWN(out, NULLED_CELL);
+        Init_Thrown_With_Label(out, NULLED_CELL, NAT_VALUE(halt));
         return true; // thrown
     }
 

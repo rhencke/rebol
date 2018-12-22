@@ -1132,7 +1132,12 @@ void Startup_Task(void)
     // seen by the GC.
     //
     Prep_Non_Stack_Cell(&TG_Thrown_Arg);
-    Init_Unreadable_Blank(&TG_Thrown_Arg);
+  #if !defined(NDEBUG)
+    SET_END(&TG_Thrown_Arg);
+
+    Prep_Non_Stack_Cell(&TG_Thrown_Label_Debug);
+    SET_END(&TG_Thrown_Label_Debug); // see notes, only used "SPORADICALLY()"
+  #endif
 
     Startup_Raw_Print();
     Startup_Scanner();

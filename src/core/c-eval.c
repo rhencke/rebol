@@ -1597,7 +1597,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         if (r == f->out) {
             assert(not (f->out->header.bits & OUT_MARKED_STALE));
-            assert(not THROWN(f->out));
         }
         else if (not r) { // API and internal code can both return `nullptr`
             Init_Nulled(f->out);
@@ -1615,12 +1614,12 @@ bool Eval_Core_Throws(REBFRM * const f)
             // a performance win either way, but recovering the bit in the
             // values is a definite advantage--as header bits are scarce!
             //
-          case REB_R_THROWN:
-            assert(THROWN(f->out));
-            if (IS_ACTION(f->out)) {
+          case REB_R_THROWN: {
+            const REBVAL *label = VAL_THROWN_LABEL(f->out);
+            if (IS_ACTION(label)) {
                 if (
-                    VAL_ACTION(f->out) == NAT_ACTION(unwind)
-                    and VAL_BINDING(f->out) == NOD(f->varlist)
+                    VAL_ACTION(label) == NAT_ACTION(unwind)
+                    and VAL_BINDING(label) == NOD(f->varlist)
                 ){
                     // Eval_Core catches unwinds to the current frame, so throws
                     // where the "/name" is the JUMP native with a binding to
@@ -1636,8 +1635,8 @@ bool Eval_Core_Throws(REBFRM * const f)
                     goto dispatch_completed;
                 }
                 else if (
-                    VAL_ACTION(f->out) == NAT_ACTION(redo)
-                    and VAL_BINDING(f->out) == NOD(f->varlist)
+                    VAL_ACTION(label) == NAT_ACTION(redo)
+                    and VAL_BINDING(label) == NOD(f->varlist)
                 ){
                     // This was issued by REDO, and should be a FRAME! with
                     // the phase and binding we are to resume with.
@@ -1695,7 +1694,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             // Stay THROWN and let stack levels above try and catch
             //
-            goto abort_action;
+            goto abort_action; }
 
           case REB_R_REDO:
             //
@@ -2660,7 +2659,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   finished:;
 
-    assert(THROWN(f->out) == threw);
+    assert(Is_Evaluator_Throwing_Debug() == threw);
 
     // The unevaluated flag is meaningless outside of arguments to functions.
 

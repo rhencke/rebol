@@ -461,9 +461,9 @@ REBNATIVE(resume)
     DECLARE_LOCAL (cell);
     Init_Path(cell, instruction);
 
-    // Throw the instruction with the name of the RESUME function
+    // Throw the instruction with the name of the RESUME function.  (Note:
+    // there is no NAT_VALUE() for extensions, yet)
     //
     Init_Action_Maybe_Bound(D_OUT, FRM_PHASE(frame_), FRM_BINDING(frame_));
-    CONVERT_NAME_TO_THROWN(D_OUT, cell);
-    return D_OUT;
+    return Init_Thrown_With_Label(D_OUT, cell, D_OUT);
 }

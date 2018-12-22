@@ -207,7 +207,6 @@ bool Next_Path_Throws(REBPVS *pvs)
         }
 
         if (r == pvs->out) {
-            assert(not THROWN(pvs->out));
         }
         else if (not r) {
             Init_Nulled(pvs->out);
@@ -490,12 +489,12 @@ bool Eval_Path_Throws_Core(
         *label_out = pvs->opt_label;
 
     Abort_Frame(pvs);
-    assert(not THROWN(out));
-    return false;
+    assert(not Is_Evaluator_Throwing_Debug());
+    return false; // not thrown
 
   return_thrown:;
     Abort_Frame(pvs);
-    assert(THROWN(out));
+    assert(Is_Evaluator_Throwing_Debug());
     return true; // thrown
 }
 

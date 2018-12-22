@@ -702,8 +702,7 @@ REBNATIVE(redo)
     // to restart the phase at the point of parameter checking.  Make that
     // the actual value that Eval_Core_Throws() catches.
     //
-    CONVERT_NAME_TO_THROWN(D_OUT, restartee);
-    return R_THROWN;
+    return Init_Thrown_With_Label(D_OUT, restartee, D_OUT);
 }
 
 
