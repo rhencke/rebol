@@ -1114,10 +1114,13 @@ REBCTX *Error_No_Value(const REBVAL *target) {
 //
 REBCTX *Error_No_Catch_For_Throw(REBVAL *thrown)
 {
+    DECLARE_LOCAL (label);
+    Move_Value(label, VAL_THROWN_LABEL(thrown));
+
     DECLARE_LOCAL (arg);
     CATCH_THROWN(arg, thrown);
 
-    return Error_No_Catch_Raw(arg, thrown);
+    return Error_No_Catch_Raw(arg, label);
 }
 
 
