@@ -493,7 +493,7 @@ ext-console-impl: function [
     ] then [
         return switch type of :result/arg1 [
             void! [0] ;-- plain QUIT, no /WITH, call that success
-            
+
             logic! [either :result/arg1 [0] [1]] ;-- ay logic true is success
 
             integer! [result/arg1] ;-- Note: may be too big for status range

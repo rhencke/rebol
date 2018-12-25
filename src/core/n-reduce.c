@@ -172,7 +172,7 @@ bool Match_For_Compose(const RELVAL *group, const REBVAL *pattern) {
 
 
 //
-//  Compose_To_Stack_Throws: C
+//  Compose_To_Stack_Core: C
 //
 // Use rules of composition to do template substitutions on values matching
 // `pattern` by evaluating those slots, leaving all other slots as is.
@@ -308,7 +308,7 @@ REB_R Compose_To_Stack_Core(
                 true, // deep (guaranteed true if we get here)
                 only
             );
-            
+
             if (r == R_THROWN) {
                 DS_DROP_TO(dsp_orig); // drop to outer DSP (@ function start)
                 Abort_Frame(f);
@@ -387,7 +387,7 @@ REBNATIVE(compose)
         REF(deep),
         REF(only)
     );
-    
+
     if (r == R_THROWN)
         return R_THROWN;
 

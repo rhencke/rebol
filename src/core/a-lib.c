@@ -1514,6 +1514,7 @@ intptr_t RL_rebPromise(const void *p, va_list *vaptr)
 
     f->source->index = TRASHED_INDEX; // avoids warning in release build
     f->source->array = nullptr;
+    f->source->took_hold = false;
     f->source->vaptr = vaptr;
     f->source->pending = END_NODE; // signal next fetch comes from va_list
 

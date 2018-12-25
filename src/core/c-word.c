@@ -569,6 +569,9 @@ void Startup_Symbols(REBARR *words)
 
     if (0 != strcmp("true", STR_HEAD(Canon(SYM_TRUE))))
         panic (Canon(SYM_TRUE));
+
+    if (0 != strcmp("open", STR_HEAD(Canon(SYM_OPEN))))
+        panic (Canon(SYM_OPEN));
 }
 
 

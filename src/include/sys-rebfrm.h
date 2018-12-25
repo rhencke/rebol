@@ -173,14 +173,11 @@
 // flags, and may or may not be worth it for the feature.
 
 
-//=//// DO_FLAG_TOOK_FRAME_HOLD ///////////////////////////////////////////=//
+//=//// DO_FLAG_UNUSED_16 /////////////////////////////////////////////////=//
 //
-// While R3-Alpha permitted modifications of an array while it was being
-// executed, Ren-C does not.  It takes a temporary read-only "hold" if the
-// source is not already read only, and sets it back when Eval_Core is
-// finished (or on errors).  See SERIES_INFO_HOLD for more about this.
+// Reclaimed bit.
 //
-#define DO_FLAG_TOOK_FRAME_HOLD \
+#define DO_FLAG_UNUSED_16 \
     FLAG_LEFT_BIT(16)
 
 
@@ -427,8 +424,14 @@ struct Reb_Frame_Source {
     //
     REBARR *array;
 
-    // `index`
+    // SERIES_INFO_HOLD is used to make a temporary read-only lock of an array
+    // while it is running.  Since the same array can wind up on multiple
+    // levels of the stack (e.g. recursive functions), the source must be
+    // connected with a bit saying whether it was the level that protected it,
+    // so it can know to release the hold when it's done.
     //
+    bool took_hold;
+
     // This holds the index of the *next* item in the array to fetch as
     // f->value for processing.  It's invalid if the frame is for a C va_list.
     //

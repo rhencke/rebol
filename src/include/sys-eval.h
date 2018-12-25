@@ -198,13 +198,15 @@ inline static void Push_Frame_Core(REBFRM *f)
         // But a GC might occur and "Reify" it, in which case the array
         // which is created will have a hold put on it to be released when
         // the frame is finished.
+        //
+        assert(not f->source->took_hold);
     }
     else {
         if (GET_SER_INFO(f->source->array, SERIES_INFO_HOLD))
             NOOP; // already temp-locked
         else {
             SET_SER_INFO(f->source->array, SERIES_INFO_HOLD);
-            f->flags.bits |= DO_FLAG_TOOK_FRAME_HOLD;
+            f->source->took_hold = true;
         }
     }
 
@@ -257,6 +259,7 @@ inline static void Push_Frame_At(
 
     f->source->vaptr = nullptr;
     f->source->array = array;
+    f->source->took_hold = false;
     f->source->index = index + 1;
     f->source->pending = f->value + 1;
 
@@ -344,6 +347,7 @@ inline static void Set_Frame_Detected_Fetch(
     if (not p) { // libRebol's null/<opt> (IS_NULLED prohibited below)
 
         f->source->array = nullptr;
+        f->source->took_hold = false;
         f->value = NULLED_CELL;
 
     } else switch (Detect_Rebol_Pointer(p)) {
@@ -432,6 +436,7 @@ inline static void Set_Frame_Detected_Fetch(
         f->value = ARR_HEAD(reified);
         f->source->pending = f->value + 1; // may be END
         f->source->array = reified;
+        f->source->took_hold = false;
         f->source->index = 1;
 
         assert(GET_SER_FLAG(f->source->array, ARRAY_FLAG_NULLEDS_LEGAL));
@@ -461,6 +466,7 @@ inline static void Set_Frame_Detected_Fetch(
         // it will be released on the *next* call (see top of function)
 
         f->source->array = nullptr;
+        f->source->took_hold = false;
         f->value = cell; // note that END is detected separately
         assert(
             not IS_RELATIVE(f->value) or (
@@ -490,6 +496,7 @@ inline static void Set_Frame_Detected_Fetch(
         // a way to present errors in context.  Fake an empty array for now.
         //
         f->source->array = EMPTY_ARRAY;
+        f->source->took_hold = false;
         f->source->index = 0;
         break; }
 
@@ -570,14 +577,14 @@ inline static void Fetch_Next_In_Frame(
 
         ++f->source->index; // for consistency in index termination state
 
-        if (f->flags.bits & DO_FLAG_TOOK_FRAME_HOLD) {
+        if (f->source->took_hold) {
             assert(GET_SER_INFO(f->source->array, SERIES_INFO_HOLD));
             CLEAR_SER_INFO(f->source->array, SERIES_INFO_HOLD);
 
             // !!! Future features may allow you to move on to another array.
             // If so, the "hold" bit would need to be reset like this.
             //
-            f->flags.bits &= ~DO_FLAG_TOOK_FRAME_HOLD;
+            f->source->took_hold = false;
         }
     }
     else {
@@ -619,7 +626,7 @@ inline static void Abort_Frame(REBFRM *f) {
         goto pop;
 
     if (FRM_IS_VALIST(f)) {
-        assert(not (f->flags.bits & DO_FLAG_TOOK_FRAME_HOLD));
+        assert(not f->source->took_hold);
 
         // Aborting valist frames is done by just feeding all the values
         // through until the end.  This is assumed to do any work, such
@@ -644,13 +651,14 @@ inline static void Abort_Frame(REBFRM *f) {
             Fetch_Next_In_Frame(nullptr, f);
     }
     else {
-        if (f->flags.bits & DO_FLAG_TOOK_FRAME_HOLD) {
+        if (f->source->took_hold) {
             //
             // The frame was either never variadic, or it was but got spooled
             // into an array by Reify_Va_To_Array_In_Frame()
             //
             assert(GET_SER_INFO(f->source->array, SERIES_INFO_HOLD));
             CLEAR_SER_INFO(f->source->array, SERIES_INFO_HOLD);
+            f->source->took_hold = false; // !!! unnecessary to clear it?
         }
     }
 
@@ -878,6 +886,8 @@ inline static REBIXO Eval_Array_At_Core(
 
     f->source->vaptr = nullptr;
     f->source->array = array;
+    f->source->took_hold = false;
+
     f->gotten = nullptr; // SET_FRAME_VALUE() asserts this is nullptr
     if (opt_first) {
         SET_FRAME_VALUE(f, opt_first);
@@ -983,8 +993,9 @@ inline static void Reify_Va_To_Array_In_Frame(
     // if we reused the empty array if dsp_orig == DSP, since someone else
     // might have a hold on it...not worth the complexity.) 
     //
+    assert(not f->source->took_hold);
     SET_SER_INFO(f->source->array, SERIES_INFO_HOLD);
-    f->flags.bits |= DO_FLAG_TOOK_FRAME_HOLD;
+    f->source->took_hold = true;
 
     if (truncated)
         SET_FRAME_VALUE(f, ARR_AT(f->source->array, 1)); // skip `--optimized--`
@@ -1026,6 +1037,7 @@ inline static REBIXO Eval_Va_Core(
 
     f->source->index = TRASHED_INDEX; // avoids warning in release build
     f->source->array = nullptr;
+    f->source->took_hold = false; // no hold until Reify_Va_To_Array_In_Frame
     f->source->vaptr = vaptr;
     f->source->pending = END_NODE; // signal next fetch comes from va_list
 

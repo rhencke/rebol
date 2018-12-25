@@ -88,7 +88,7 @@ bool Catching_Break_Or_Continue(REBVAL *val, bool *broke)
 //
 REBNATIVE(break)
 //
-// BREAK is implemented via a thrown signal that bubbles up through the stack. 
+// BREAK is implemented via a thrown signal that bubbles up through the stack.
 // It uses the value of its own native function as the name of the throw,
 // like `throw/name null :break`.
 {

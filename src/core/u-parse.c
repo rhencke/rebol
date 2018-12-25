@@ -196,6 +196,7 @@ static bool Subparse_Throws(
 
     f->source->vaptr = nullptr;
     f->source->array = VAL_ARRAY(rules);
+    f->source->took_hold = false;
     f->source->index = VAL_INDEX(rules) + 1;
     f->source->pending = f->value + 1;
 
@@ -926,7 +927,6 @@ static REBIXO To_Thru_Block_Rule(
 //
 //  To_Thru_Non_Block_Rule: C
 //
-// R3-Alpha distinguished the abilities of TO of a rule from 
 // There's a high-level split between block and non-block rule processing,
 // as blocks are the common case.
 //
