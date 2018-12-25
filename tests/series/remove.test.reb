@@ -1,6 +1,6 @@
 ; functions/series/remove.r
-([] = remove [])
-([] = head of remove [1])
+([] = remove mutable [])
+([] = head of remove mutable [1])
 
 ; bitset
 (

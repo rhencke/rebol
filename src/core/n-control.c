@@ -475,9 +475,9 @@ REBNATIVE(match)
         f->arg = f->rootvar + 1;
         f->special = f->arg;
 
-        f->flags = Endlike_Header(
-            DO_FLAG_FULLY_SPECIALIZED | DO_FLAG_PROCESS_ACTION
-        );
+        f->flags.bits = (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+            | DO_FLAG_FULLY_SPECIALIZED
+            | DO_FLAG_PROCESS_ACTION;
 
         Begin_Action(f, opt_label, ORDINARY_ARG);
 
@@ -992,7 +992,7 @@ REBNATIVE(switch)
 //
 //      return: "Former value or branch result, can only be null if no target"
 //          [<opt> any-value!]
-//     :target "Word or path which might be set--no target always branches"
+//      :target "Word or path which might be set--no target always branches"
 //          [<skip> set-word! set-path!]
 //      branch "If target not set already, this is evaluated and stored there"
 //          [block! action!]
@@ -1006,15 +1006,14 @@ REBNATIVE(switch)
 //          ]
 //          return do :branch
 //      ]
+//      if set-path? target [target: compose target]
 //      either all [
-//          value? set* quote gotten: get target
+//          value? set* quote gotten: get/hard target
 //          only or [not blank? :gotten]
 //      ][
 //          :gotten ;; so that `x: y: default z` leads to `x = y`
 //      ][
-//          set target <- do :branch else [
-//              fail ["DEFAULT for" target "came back NULL"]
-//          ]
+//          set/hard target do :branch
 //      ]
 //  ]
 //
@@ -1073,7 +1072,9 @@ REBNATIVE(default)
                         VAL_ARRAY(item),
                         VAL_INDEX(item),
                         derived,
-                        DO_FLAG_TO_END
+                        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+                            | DO_FLAG_TO_END
+                            | (frame_->flags.bits & DO_FLAG_CONST)
                     );
                     if (indexor == THROWN_FLAG)
                         return R_THROWN;

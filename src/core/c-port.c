@@ -380,7 +380,8 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
     SET_VAL_FLAG(first, VALUE_FLAG_EVAL_FLIP); // make the PATH! invoke action
 
     // Invoke DO with the special mode requesting non-evaluation on all
-    // args, as they were evaluated the first time around.
+    // args, as they were evaluated the first time around.  This will also
+    // prevent application of the const bit to the arguments at this level.
     //
     REBIXO indexor = Eval_Array_At_Core(
         SET_END(f->out),
@@ -388,8 +389,10 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
         code_arr,
         0, // index
         SPECIFIED, // reusing existing REBVAL arguments, no relative values
-        DO_FLAG_EXPLICIT_EVALUATE // DON'T double-evaluate arguments
-            | DO_FLAG_NO_RESIDUE // raise an error if all args not consumed
+        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+            | DO_FLAG_EXPLICIT_EVALUATE // DON'T double-evaluate arguments
+            | DO_FLAG_NO_RESIDUE // raise an error if all args not consume
+            | (f->flags.bits & DO_FLAG_CONST)
     );
 
     if (IS_END(f->out))

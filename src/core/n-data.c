@@ -1010,7 +1010,7 @@ REBNATIVE(free)
     REBSER *s = VAL_SERIES(v);
     if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
         fail ("Cannot FREE already freed series");
-    FAIL_IF_READ_ONLY_SERIES(s);
+    FAIL_IF_READ_ONLY_SERIES(v);
 
     Decay_Series(s);
     return Init_Void(D_OUT); // !!! Should it return the freed, not-useful value?
@@ -1098,7 +1098,9 @@ REBNATIVE(as)
                 STR_SIZE(spelling)
             );
             SET_SER_INFO(string, SERIES_INFO_FROZEN);
-            return Init_Any_Series(D_OUT, new_kind, string);
+            return Inherit_Const(
+                Init_Any_Series(D_OUT, new_kind, string), v
+            );
         }
 
         // !!! Similarly, until UTF-8 Everywhere, we can't actually alias
@@ -1109,7 +1111,7 @@ REBNATIVE(as)
                 cs_cast(VAL_BIN_AT(v)),
                 VAL_LEN_AT(v)
             );
-            if (Is_Value_Immutable(v))
+            if (Is_Value_Frozen(v))
                 SET_SER_INFO(string, SERIES_INFO_FROZEN);
             else {
                 // !!! Catch any cases of people who were trying to alias the
@@ -1120,7 +1122,9 @@ REBNATIVE(as)
                 //
                 Decay_Series(VAL_SERIES(v));
             }
-            return Init_Any_Series(D_OUT, new_kind, string);
+            return Inherit_Const(
+                Init_Any_Series(D_OUT, new_kind, string), v
+            );
         }
 
         if (not ANY_STRING(v))
@@ -1152,11 +1156,11 @@ REBNATIVE(as)
             REBSER *temp = Temp_UTF8_At_Managed(
                 &offset, &utf8_size, v, VAL_LEN_AT(v)
             );
-            return Init_Any_Word(
+            return Inherit_Const(Init_Any_Word(
                 D_OUT,
                 new_kind,
                 Intern_UTF8_Managed(BIN_AT(temp, offset), utf8_size)
-            );
+            ), v);
         }
 
         // !!! Since pre-UTF8-everywhere ANY-WORD! was saved in UTF-8 it would
@@ -1169,11 +1173,11 @@ REBNATIVE(as)
         //
         if (IS_BINARY(v)) {
             Freeze_Sequence(VAL_SERIES(v));
-            return Init_Any_Word(
+            return Inherit_Const(Init_Any_Word(
                 D_OUT,
                 new_kind,
                 Intern_UTF8_Managed(VAL_BIN_AT(v), VAL_LEN_AT(v))
-            );
+            ), v);
         }
 
         if (not ANY_WORD(v))
@@ -1188,8 +1192,10 @@ REBNATIVE(as)
         // REBSTR holding UTF-8 data, even prior to the UTF-8 conversion.
         //
         if (ANY_WORD(v)) {
-            assert(Is_Value_Immutable(v));
-            return Init_Binary(D_OUT, VAL_WORD_SPELLING(v));
+            assert(Is_Value_Frozen(v));
+            return Inherit_Const(
+                Init_Binary(D_OUT, VAL_WORD_SPELLING(v)), v
+            );
         }
 
         if (ANY_STRING(v)) {
@@ -1199,12 +1205,12 @@ REBNATIVE(as)
             // frees the string data if it's mutable, and if that's not
             // satisfactory you can make a copy before the AS.
             //
-            if (Is_Value_Immutable(v))
+            if (Is_Value_Frozen(v))
                 Freeze_Sequence(bin);
             else
                 Decay_Series(VAL_SERIES(v));
 
-            return Init_Binary(D_OUT, bin);
+            return Inherit_Const(Init_Binary(D_OUT, bin), v);
         }
 
         fail (v); }
@@ -1217,7 +1223,7 @@ REBNATIVE(as)
 
     Move_Value(D_OUT, v);
     CHANGE_VAL_TYPE_BITS(D_OUT, new_kind);
-    return D_OUT;
+    return Trust_Const(D_OUT);
 }
 
 

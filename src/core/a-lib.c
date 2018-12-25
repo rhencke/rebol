@@ -845,7 +845,7 @@ REBVAL *RL_rebRescue(
     f->out = m_cast(REBVAL*, END_NODE); // should not be written
 
     REBSTR *opt_label = NULL;
-    Push_Frame_At_End(f, DO_MASK_NONE); // not FULLY_SPECIALIZED
+    Push_Frame_At_End(f, DO_MASK_DEFAULT); // not FULLY_SPECIALIZED
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);
@@ -1596,7 +1596,9 @@ void RL_rebPromise_callback(intptr_t promise_id)
         arr,
         0, // index
         SPECIFIED,
-        DO_FLAG_TO_END | DO_FLAG_EXPLICIT_EVALUATE // was reified w/explicit
+        DO_MASK_DEFAULT
+            | DO_FLAG_TO_END
+            | DO_FLAG_EXPLICIT_EVALUATE // was reified w/explicit
     )){
         fail (Error_No_Catch_For_Throw(result)); // no need to release result
     }

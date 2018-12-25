@@ -182,6 +182,7 @@
 %math/zeroq.test.reb
 %misc/help.test.reb
 %reflectors/body-of.test.reb
+%secure/const.test.reb
 %secure/protect.test.reb
 %secure/unprotect.test.reb
 %series/append.test.reb

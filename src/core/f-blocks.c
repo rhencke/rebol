@@ -132,113 +132,91 @@ REBARR *Copy_Values_Len_Extra_Shallow_Core(
 
 
 //
-//  Clonify_Values_Len_Managed: C
+//  Clonify: C
 //
-// Update the first `len` elements of `head[]` to clone the series
-// embedded in them *if* they are in the given set of types (and
-// if "cloning" makes sense for them, e.g. they are not simple
-// scalars).  If the `deep` flag is set, recurse into subseries
-// and objects when that type is matched for clonifying.
+// Clone the series embedded in a value *if* it's in the given set of types
+// (and if "cloning" makes sense for them, e.g. they are not simple scalars).
 //
-// Note: The resulting clones will be managed.  The model for
-// lists only allows the topmost level to contain unmanaged
-// values...and we *assume* the values we are operating on here
-// live inside of an array.  (We also assume the source values
-// are in an array, and assert that they are managed.)
+// Note: The resulting clones will be managed.  The model for lists only
+// allows the topmost level to contain unmanaged values...and we *assume* the
+// values we are operating on here live inside of an array.
 //
-void Clonify_Values_Len_Managed(
-    RELVAL *head,
-    REBSPC *specifier,
-    REBCNT len,
+void Clonify(
+    REBVAL *v,
+    REBFLGS flags,
     REBU64 types
-) {
-    if (C_STACK_OVERFLOWING(&len))
+){
+    if (C_STACK_OVERFLOWING(&types))
         Fail_Stack_Overflow();
 
-    RELVAL *v = head;
-
-    REBCNT index;
-    for (index = 0; index < len; ++index, ++v) {
-        if (types & FLAGIT_KIND(VAL_TYPE(v)) & TS_SERIES_OBJ) {
-            //
-            // Objects and series get shallow copied at minimum
-            //
-            REBSER *series;
-            if (ANY_CONTEXT(v)) {
-                v->payload.any_context.varlist = CTX_VARLIST(
-                    Copy_Context_Shallow_Managed(VAL_CONTEXT(v))
-                );
-                series = SER(CTX_VARLIST(VAL_CONTEXT(v)));
-            }
-            else {
-                if (IS_SER_ARRAY(VAL_SERIES(v))) {
-                    REBSPC *derived = Derive_Specifier(specifier, v);
-                    series = SER(
-                        Copy_Array_At_Extra_Shallow(
-                            VAL_ARRAY(v),
-                            0, // !!! what if VAL_INDEX() is nonzero?
-                            derived,
-                            0,
-                            NODE_FLAG_MANAGED
-                        )
-                    );
-
-                    INIT_VAL_ARRAY(v, ARR(series)); // copies args
-
-                    // If it was relative, then copying with a specifier
-                    // means it isn't relative any more.
-                    //
-                    INIT_BINDING(v, UNBOUND);
-                }
-                else {
-                    series = Copy_Sequence_Core(
-                        VAL_SERIES(v),
-                        NODE_FLAG_MANAGED
-                    );
-                    INIT_VAL_SERIES(v, series);
-                }
-            }
-
-            // If we're going to copy deeply, we go back over the shallow
-            // copied series and "clonify" the values in it.
-            //
-            // Since we had to get rid of the relative bindings in the
-            // shallow copy, we can pass in SPECIFIED here...but the recursion
-            // in Clonify_Values will be threading through any updated
-            // specificity through to the new values.
-            //
-            if (types & FLAGIT_KIND(VAL_TYPE(v)) & TS_ARRAYS_OBJ) {
-                REBSPC *derived = Derive_Specifier(specifier, v);
-                Clonify_Values_Len_Managed(
-                     ARR_HEAD(ARR(series)),
-                     derived,
-                     VAL_LEN_HEAD(v),
-                     types
-                );
-            }
-        }
-        else if (
-            types & FLAGIT_KIND(VAL_TYPE(v)) & FLAGIT_KIND(REB_ACTION)
-        ){
-            // !!! While Ren-C has abandoned the concept of copying the body
-            // of functions (they are black boxes which may not *have* a
-            // body), it would still theoretically be possible to do what
-            // COPY does and make a function with a new and independently
-            // hijackable identity.  Assume for now it's better that the
-            // HIJACK of a method for one object will hijack it for all
-            // objects, and one must filter in the hijacking's body if one
-            // wants to take more specific action.
-            //
-            assert(false);
+    if (types & FLAGIT_KIND(VAL_TYPE(v)) & TS_SERIES_OBJ) {
+        //
+        // Objects and series get shallow copied at minimum
+        //
+        REBSER *series;
+        if (ANY_CONTEXT(v)) {
+            v->payload.any_context.varlist = CTX_VARLIST(
+                Copy_Context_Shallow_Managed(VAL_CONTEXT(v))
+            );
+            series = SER(CTX_VARLIST(VAL_CONTEXT(v)));
         }
         else {
-            // The value is not on our radar as needing to be processed,
-            // so leave it as-is.
+            if (IS_SER_ARRAY(VAL_SERIES(v))) {
+                series = SER(
+                    Copy_Array_At_Extra_Shallow(
+                        VAL_ARRAY(v),
+                        0, // !!! what if VAL_INDEX() is nonzero?
+                        VAL_SPECIFIER(v),
+                        0,
+                        NODE_FLAG_MANAGED
+                    )
+                );
+
+                INIT_VAL_ARRAY(v, ARR(series)); // copies args
+
+                // If it was relative, then copying with a specifier
+                // means it isn't relative any more.
+                //
+                INIT_BINDING(v, UNBOUND);
+            }
+            else {
+                series = Copy_Sequence_Core(
+                    VAL_SERIES(v),
+                    NODE_FLAG_MANAGED
+                );
+                INIT_VAL_SERIES(v, series);
+            }
         }
 
-        // Value shouldn't be relative after the above processing.
+        // If we're going to copy deeply, we go back over the shallow
+        // copied series and "clonify" the values in it.
         //
-        assert(not IS_RELATIVE(v));
+        if (types & FLAGIT_KIND(VAL_TYPE(v)) & TS_ARRAYS_OBJ) {
+            REBVAL *sub = KNOWN(ARR_HEAD(ARR(series)));
+            for (; NOT_END(sub); ++sub)
+                Clonify(sub, flags, types);
+        }
+    }
+    else if (
+        types & FLAGIT_KIND(VAL_TYPE(v)) & FLAGIT_KIND(REB_ACTION)
+    ){
+        // !!! While Ren-C has abandoned the concept of copying the body
+        // of functions (they are black boxes which may not *have* a
+        // body), it would still theoretically be possible to do what
+        // COPY does and make a function with a new and independently
+        // hijackable identity.  Assume for now it's better that the
+        // HIJACK of a method for one object will hijack it for all
+        // objects, and one must filter in the hijacking's body if one
+        // wants to take more specific action.
+        //
+        assert(false);
+    }
+    else {
+        // We're not copying the value, so inherit the const bit from the
+        // original value's point of view, if applicable.
+        //
+        if (NOT_VAL_FLAG(v, VALUE_FLAG_EXPLICITLY_MUTABLE))
+            v->header.bits |= (flags & ARRAY_FLAG_CONST_SHALLOW);
     }
 }
 
@@ -268,15 +246,15 @@ static REBARR *Copy_Array_Core_Managed_Inner_Loop(
     RELVAL *src = ARR_AT(original, index);
     RELVAL *dest = ARR_HEAD(copy);
     REBCNT count = 0;
-    for (; count < len; ++count, ++dest, ++src)
-        Derelativize(dest, src, specifier);
+    for (; count < len; ++count, ++dest, ++src) {
+        Clonify(
+            Derelativize(dest, src, specifier),
+            flags,
+            types
+        );
+    }
 
     TERM_ARRAY_LEN(copy, len);
-
-    if (types != 0)
-        Clonify_Values_Len_Managed(
-            ARR_HEAD(copy), SPECIFIED, ARR_LEN(copy), types
-        );
 
     return copy;
 }

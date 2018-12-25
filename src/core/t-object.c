@@ -425,7 +425,7 @@ REB_R PD_Context(
         return nullptr;
 
     if (opt_setval) {
-        FAIL_IF_READ_ONLY_CONTEXT(c);
+        FAIL_IF_READ_ONLY_CONTEXT(pvs->out);
 
         if (GET_VAL_FLAG(CTX_VAR(c, n), CELL_FLAG_PROTECTED))
             fail (Error_Protected_Word_Raw(picker));
@@ -547,8 +547,12 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
     // (might be in an array, or might be in the chunk stack for FRAME!)
     //
     REBVAL *src = CTX_VARS_HEAD(original);
-    for (; NOT_END(src); ++src, ++dest)
+    for (; NOT_END(src); ++src, ++dest) {
         Move_Var(dest, src); // keep VALUE_FLAG_ENFIXED, ARG_MARKED_CHECKED
+
+        REBFLGS flags = 0; // !!! Review
+        Clonify(dest, flags, types);
+    }
 
     TERM_ARRAY_LEN(varlist, CTX_LEN(original) + 1);
     SET_SER_FLAGS(varlist, SERIES_MASK_CONTEXT);
@@ -572,15 +576,6 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
         // Deep copy?  Shallow copy?  Just a reference to the same object?
         //
         MISC(varlist).meta = NULL;
-    }
-
-    if (types != 0) {
-        Clonify_Values_Len_Managed(
-            CTX_VARS_HEAD(copy),
-            SPECIFIED,
-            CTX_LEN(copy),
-            types
-        );
     }
 
     return copy;
@@ -877,7 +872,7 @@ REBTYPE(Context)
         if (IS_NULLED_OR_BLANK(arg))
             RETURN (value); // don't fail on read only if it would be a no-op
 
-        FAIL_IF_READ_ONLY_CONTEXT(c);
+        FAIL_IF_READ_ONLY_CONTEXT(value);
         if (not IS_OBJECT(value) and not IS_MODULE(value))
             fail (Error_Illegal_Action(VAL_TYPE(value), verb));
         Append_To_Context(c, arg);

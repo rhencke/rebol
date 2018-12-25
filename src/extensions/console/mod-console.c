@@ -338,6 +338,8 @@ REBNATIVE(console)
         // reason to fall back to the default skin).
         //
         Enable_Ctrl_C();
+        if (not is_console_instruction)
+            assert(GET_VAL_FLAG(code, VALUE_FLAG_CONST));
         result = rebRescue(cast(REBDNG*, &Run_Sandboxed_Code), code);
         Disable_Ctrl_C();
 

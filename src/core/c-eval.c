@@ -468,6 +468,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     assert(DSP >= f->dsp_orig); // REDUCE accrues, APPLY adds refinements, >=
     assert(not IS_TRASH_DEBUG(f->out)); // all invisibles preserves output
     assert(f->out != FRM_CELL(f)); // overwritten by temporary calculations
+    assert(f->flags.bits & DO_FLAG_DEFAULT_DEBUG); // must use DO_MASK_DEFAULT
 
     // Caching VAL_TYPE_RAW(f->value) in a local can make a slight performance
     // difference, though how much depends on what the optimizer figures out.
@@ -621,7 +622,10 @@ bool Eval_Core_Throws(REBFRM * const f)
                 VAL_ARRAY(f->value),
                 VAL_INDEX(f->value),
                 Derive_Specifier(f->specifier, f->value),
-                DO_FLAG_TO_END
+                (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+                    | DO_FLAG_TO_END
+                    | (f->flags.bits & DO_FLAG_CONST)
+                    | (f->value->header.bits & DO_FLAG_CONST)
             );
             if (indexor == THROWN_FLAG) {
                 Move_Value(f->out, FRM_SHOVE(f));
@@ -778,6 +782,19 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     assert(eval_type == VAL_TYPE_RAW(current));
 
+    if (not EVALUATING(current)) {
+        Derelativize(f->out, current, f->specifier);
+        SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+
+        // Unlike the `inert` branch, when we are not evaluating we do not
+        // inherit the `const` bits from the evaluation.  This is so that
+        // when you say things like `rebElide("append", block, "10");` in the
+        // API, it acts like `append block 10` instead of `append [] 10`,
+        // avoiding the consting of the variable.
+        //
+        goto post_switch;
+    }
+
     switch (eval_type) {
 
       case REB_0_END:
@@ -798,9 +815,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       case REB_ACTION: {
         assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED)); // WORD!/PATH! only
-
-        if (not EVALUATING(current))
-            goto inert;
 
         REBSTR *opt_label = nullptr; // not invoked through a word, "nameless"
 
@@ -1318,8 +1332,10 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             if (f->u.defer.arg) {
                 REBFLGS flags =
-                    DO_FLAG_FULFILLING_ARG
-                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+                    (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+                    | DO_FLAG_FULFILLING_ARG
+                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
+                    | (f->flags.bits & DO_FLAG_CONST);
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
 
@@ -1368,8 +1384,10 @@ bool Eval_Core_Throws(REBFRM * const f)
    //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
               case PARAM_CLASS_NORMAL: {
-                REBFLGS flags = DO_FLAG_FULFILLING_ARG
-                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+                REBFLGS flags = (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+                    | DO_FLAG_FULFILLING_ARG
+                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
+                    | (f->flags.bits & DO_FLAG_CONST);
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
@@ -1388,9 +1406,11 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // the `+` during the argument evaluation.
                 //
                 REBFLGS flags =
-                    DO_FLAG_NO_LOOKAHEAD
+                    (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+                    | DO_FLAG_NO_LOOKAHEAD
                     | DO_FLAG_FULFILLING_ARG
-                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
+                    | (f->flags.bits & DO_FLAG_CONST);
 
                 DECLARE_SUBFRAME (child, f);
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
@@ -1812,9 +1832,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_WORD:
-        if (not EVALUATING(current))
-            goto inert;
-
         if (not current_gotten)
             current_gotten = Get_Opt_Var_May_Fail(current, f->specifier);
 
@@ -1865,13 +1882,13 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_WORD: {
-        if (not EVALUATING(current))
-            goto inert;
-
         if (IS_END(f->value)) // `do [a:]` is illegal
             fail (Error_Need_Non_End_Core(current, f->specifier));
 
-        REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        REBFLGS flags =
+            (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+            | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
+            | (f->flags.bits & DO_FLAG_CONST);
 
         Init_Void(f->out); // `1 x: comment "hi"` shouldn't set x to 1!
 
@@ -1903,9 +1920,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GET_WORD:
-        if (not EVALUATING(current))
-            goto inert;
-
         Move_Opt_Var_May_Fail(f->out, current, f->specifier);
         assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break;
@@ -1920,9 +1934,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_LIT_WORD:
-        if (not EVALUATING(current))
-            goto inert;
-
         Derelativize(f->out, current, f->specifier);
         CHANGE_VAL_TYPE_BITS(f->out, REB_WORD);
         assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
@@ -1955,9 +1966,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GROUP: {
-        if (not EVALUATING(current))
-            goto inert;
-
         if (not Is_Frame_Gotten_Shoved(f))
             f->gotten = nullptr; // arbitrary code changes fetched variables
 
@@ -1978,7 +1986,10 @@ bool Eval_Core_Throws(REBFRM * const f)
                 array,
                 index,
                 derived,
-                DO_FLAG_TO_END
+                (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+                    | DO_FLAG_TO_END
+                    | (f->flags.bits & DO_FLAG_CONST)
+                    | (current->header.bits & DO_FLAG_CONST)
             );
             if (indexor == THROWN_FLAG)
                 goto return_thrown;
@@ -1996,7 +2007,10 @@ bool Eval_Core_Throws(REBFRM * const f)
                 array,
                 index,
                 derived,
-                DO_FLAG_TO_END
+                (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+                    | DO_FLAG_TO_END
+                    | (f->flags.bits & DO_FLAG_CONST)
+                    | (current->header.bits & DO_FLAG_CONST)
             );
             if (indexor == THROWN_FLAG) {
                 Move_Value(f->out, FRM_CELL(f));
@@ -2020,9 +2034,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_PATH: {
-        if (not EVALUATING(current))
-            goto inert;
-
+        //
         // Length-0 paths look like `/`, and do a special dispatch (currently
         // hacked up to just act as the DIVIDE native, but ultimtely would
         // be another form of dispatch based on the left type...and numbers
@@ -2112,13 +2124,13 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_SET_PATH: {
-        if (not EVALUATING(current))
-            goto inert;
-
         if (IS_END(f->value)) // `do [a/b:]` is illegal
             fail (Error_Need_Non_End_Core(current, f->specifier));
 
-        REBFLGS flags = (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE);
+        REBFLGS flags =
+            (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+            | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
+            | (f->flags.bits & DO_FLAG_CONST);
 
         Init_Void(f->out); // `1 o/x: comment "hi"` shouldn't set o/x to 1!
 
@@ -2144,7 +2156,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             VAL_INDEX(current),
             f->specifier,
             f->out,
-            DO_MASK_NONE // evaluating GROUP!s ok
+            DO_MASK_DEFAULT // evaluating GROUP!s ok
         )){
             Move_Value(f->out, FRM_CELL(f));
             goto return_thrown;
@@ -2171,9 +2183,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GET_PATH:
-        if (not EVALUATING(current))
-            goto inert;
-
         if (Get_Path_Throws_Core(f->out, current, f->specifier))
             goto return_thrown;
 
@@ -2191,17 +2200,20 @@ bool Eval_Core_Throws(REBFRM * const f)
 // We only set the type, in order to preserve the header bits... (there
 // currently aren't any for ANY-PATH!, but there might be someday.)
 //
-// !!! Aliases a REBSER under two value types, likely bad, see #2233
+// Note that this aliases a REBSER under two value types.  While once iffy,
+// it's now allowed with AS, so it is considered fair game.  See #2233
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_LIT_PATH:
-        if (not EVALUATING(current))
-            goto inert;
-
         Derelativize(f->out, current, f->specifier);
         CHANGE_VAL_TYPE_BITS(f->out, REB_PATH);
         assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+
+        // It should be an error if you say `append 'a/b/c 'd` without making
+        // the a/b/c mutable.
+        //
+        f->out->header.bits |= (f->flags.bits & DO_FLAG_CONST);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2262,10 +2274,22 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_STRUCT:
       case REB_LIBRARY:
 
-      inert:;
+      inert:; // SEE ALSO: Quote_Next_In_Frame()...similar behavior
 
         Derelativize(f->out, current, f->specifier);
-        SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
+        SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED); // VALUE_FLAG_INERT ??
+
+        // `rebRun("append", "[]", "10");` should error, passing on the const
+        // of the va_arg frame.  That is a case of a block with neutral bits
+        // (no const, no mutable), so the constness brought by the execution
+        // via DO-ing it should win.  But `rebRun("append", block, "10");`
+        // needs to get the mutability bits of that block, more like as if
+        // you had the plain Rebol code `append block 10`.  This is why the
+        // non-EVALUATING() case--which applies to non-text-scanned arguments
+        // in API calls--is checked before the switch.  So it does not
+        // run this line that only applies to "evaluated inert values".
+        //
+        f->out->header.bits |= (f->flags.bits & DO_FLAG_CONST);
         break;
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2279,9 +2303,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_BAR:
-        if (not EVALUATING(current))
-            goto inert;
-
         if (f->flags.bits & DO_FLAG_FULFILLING_ARG) {
             //
             // May be fulfilling a variadic argument (or an argument to an
@@ -2310,9 +2331,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_LIT_BAR:
-        if (not EVALUATING(current))
-            goto inert;
-
         Init_Bar(f->out);
         break;
 
@@ -2325,9 +2343,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_VOID:
-        if (not EVALUATING(current))
-            goto inert;
-
         fail ("VOID! cells cannot be evaluated");
 
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2348,9 +2363,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_MAX_NULLED:
-        if (not EVALUATING(current))
-            goto inert;
-
         fail (Error_Evaluate_Null_Raw());
 
 //==//////////////////////////////////////////////////////////////////////==//

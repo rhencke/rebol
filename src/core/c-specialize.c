@@ -1055,7 +1055,7 @@ bool Make_Invocation_Frame_Throws(
     // it is desired that any voids encountered be processed as if they are
     // not specialized...and gather at the callsite if necessary.
     //
-    f->flags = Endlike_Header(DO_MASK_NONE | DO_FLAG_PROCESS_ACTION);
+    f->flags.bits = DO_MASK_DEFAULT | DO_FLAG_PROCESS_ACTION;
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
@@ -1191,7 +1191,7 @@ REBNATIVE(does)
         //
         RELVAL *body = ARR_HEAD(ACT_DETAILS(doer));
         REBSER *locker = NULL;
-        Ensure_Value_Immutable(specializee, locker);
+        Ensure_Value_Frozen(specializee, locker);
         Move_Value(body, specializee);
 
         return Init_Action_Unbound(D_OUT, doer);

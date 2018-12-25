@@ -93,7 +93,7 @@
 )
 ; reflexivity for past-tail blocks
 (
-    a-value: tail of [1]
+    a-value: tail of mutable [1]
     clear head of a-value
     same? a-value a-value
 )

@@ -106,7 +106,7 @@ void Startup_Frame_Stack(void)
 
     f->out = m_cast(REBVAL*, END_NODE); // should not be written
     f->source = &TG_Frame_Source_End;
-    Push_Frame_At_End(f, DO_MASK_NONE);
+    Push_Frame_At_End(f, DO_MASK_DEFAULT);
 
     // It's too early to be using Make_Paramlist_Managed_May_Fail()
     //
@@ -344,8 +344,7 @@ void Pop_Stack_Values_Into(REBVAL *into, REBDSP dsp_start) {
     REBCNT len = DSP - dsp_start;
     REBVAL *values = KNOWN(ARR_AT(DS_Array, dsp_start + 1));
 
-    assert(ANY_ARRAY(into));
-    FAIL_IF_READ_ONLY_ARRAY(VAL_ARRAY(into));
+    FAIL_IF_READ_ONLY_ARRAY(into);
 
     VAL_INDEX(into) = Insert_Series(
         SER(VAL_ARRAY(into)),

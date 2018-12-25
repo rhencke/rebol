@@ -148,32 +148,6 @@ inline static void TERM_SERIES(REBSER *s) {
 
 
 //
-// Locking
-//
-
-inline static bool Is_Array_Deeply_Frozen(REBARR *a) {
-    return GET_SER_INFO(a, SERIES_INFO_FROZEN);
-
-    // should be frozen all the way down (can only freeze arrays deeply)
-}
-
-inline static void Deep_Freeze_Array(REBARR *a) {
-    Protect_Series(
-        SER(a),
-        0, // start protection at index 0
-        PROT_DEEP | PROT_SET | PROT_FREEZE
-    );
-    Uncolor_Array(a);
-}
-
-#define Is_Array_Shallow_Read_Only(a) \
-    Is_Series_Read_Only(a)
-
-#define FAIL_IF_READ_ONLY_ARRAY(a) \
-    FAIL_IF_READ_ONLY_SERIES(SER(a))
-
-
-//
 // REBVAL cells cannot be written to unless they carry VALUE_FLAG_CELL, and
 // have been "formatted" to convey their lifetime (stack or array).  This
 // helps debugging, but is also important information needed by Move_Value()

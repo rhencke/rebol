@@ -488,7 +488,7 @@ static inline REBVAL *Get_Mutable_Var_May_Fail(
     if (not VAL_BINDING(any_word))
         fail (Error_Not_Bound_Raw(KNOWN(any_word)));
 
-    REBCTX *context = Get_Var_Context(any_word, specifier);
+    REBCTX *ctx = Get_Var_Context(any_word, specifier);
 
     // A context can be permanently frozen (`lock obj`) or temporarily
     // protected, e.g. `protect obj | unprotect obj`.  A native will
@@ -497,9 +497,9 @@ static inline REBVAL *Get_Mutable_Var_May_Fail(
     //
     // Lock bits are all in SER->info and checked in the same instruction.
     //
-    FAIL_IF_READ_ONLY_CONTEXT(context);
+    FAIL_IF_READ_ONLY_SER(SER(CTX_VARLIST(ctx)));
 
-    REBVAL *var = CTX_VAR(context, VAL_WORD_INDEX(any_word));
+    REBVAL *var = CTX_VAR(ctx, VAL_WORD_INDEX(any_word));
 
     // The PROTECT command has a finer-grained granularity for marking
     // not just contexts, but individual fields as protected.

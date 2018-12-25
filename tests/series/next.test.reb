@@ -4,6 +4,6 @@
     same? tail of blk next blk
 )
 (
-    blk: tail of [1]
+    blk: tail of mutable [1]
     null? next blk
 )

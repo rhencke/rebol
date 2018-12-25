@@ -24,7 +24,7 @@
 (#{} == #[binary! #{}])
 ; access symmetry
 (
-    b: #{0b}
+    b: mutable #{0b}
     not error? trap [b/1: b/1]
 )
 [#42 (

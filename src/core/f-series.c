@@ -66,12 +66,12 @@ REB_R Series_Common_Action_Maybe_Unhandled(
         case SYM_HEAD:
             Move_Value(D_OUT, value);
             VAL_INDEX(D_OUT) = 0;
-            return D_OUT;
+            return Trust_Const(D_OUT);
 
         case SYM_TAIL:
             Move_Value(D_OUT, value);
             VAL_INDEX(D_OUT) = cast(REBCNT, tail);
-            return D_OUT;
+            return Trust_Const(D_OUT);
 
         case SYM_HEAD_Q:
             return Init_Logic(D_OUT, index == 0);
@@ -161,7 +161,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
         }
 
         VAL_INDEX(value) = cast(REBCNT, i);
-        RETURN (value); }
+        RETURN (Trust_Const(value)); }
 
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
@@ -173,7 +173,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
             fail (Error_Bad_Refines_Raw());
         }
 
-        FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(value));
+        FAIL_IF_READ_ONLY_SERIES(value);
 
         REBINT len;
         if (REF(part))

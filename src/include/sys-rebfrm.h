@@ -69,7 +69,14 @@
 // Default for Eval_Core_Throws() operation is just a single EVALUATE, where
 // args to functions are evaluated (vs. quoted), and lookahead is enabled.
 //
-#define DO_MASK_NONE 0
+#if defined(NDEBUG)
+    #define DO_MASK_DEFAULT \
+        DO_FLAG_CONST
+#else
+    #define DO_MASK_DEFAULT \
+        (DO_FLAG_CONST | DO_FLAG_DEFAULT_DEBUG)
+#endif
+
 
 // See Endlike_Header() for why these are chosen the way they are.  This
 // means that the Reb_Frame->flags field can function as an implicit END for
@@ -262,15 +269,16 @@ STATIC_ASSERT(DO_FLAG_EXPLICIT_EVALUATE == VALUE_FLAG_EVAL_FLIP);
 
 //=//// DO_FLAG_CONST /////////////////////////////////////////////////////=//
 //
-// CONST-ness is carried by values, not by arrays...and so calls into the
-// evaluator that pass arrays have to extract any relevant VALUE_FLAG_CONST
-// so it knows whether argument slots should be marked const or not, based
-// on the context of the executing array.
+// The user is able to flip the constness flag explicitly with the CONST and
+// MUTABLE functions explicitly.  However, if a frame is marked DO_FLAG_CONST,
+// the system imposes it's own constness as part of the "wave of evaluation"
+// it does.  While this wave starts out initially with frames demanding const
+// marking, if it ever gets flipped (as with DO/MUTABLE) it will have to
+// encounter an explicit CONST marking on a value before getting flipped back.
 //
-// Most of what happens is that the flag just gets piped through the frames,
-// so that when you see an item like a BLOCK!, the switch in %c-eval.c for
-// the inert items puts the const flag on that block--as it fills it into
-// a frame argument (or wherever).
+// (This behavior is designed to permit switching into a "mode" that is
+// compatible with Rebol2/Red behavior, where "source code" is not read-only
+// by default.)
 //
 #define DO_FLAG_CONST \
     FLAG_LEFT_BIT(22)
@@ -375,14 +383,25 @@ STATIC_ASSERT(DO_FLAG_CONST == VALUE_FLAG_CONST);
     // To make sure this is the case, this is set on each exit from
     // Eval_Core_Throws(), and each entry checks to ensure it is not present.
     //
-
     #define DO_FLAG_FINAL_DEBUG \
         FLAG_LEFT_BIT(30)
+
+    //=//// DO_FLAG_DEFAULT_DEBUG /////////////////////////////////////////=//
+    //
+    // It may be advantageous to have some bits set to true by default instead
+    // of false, so all evaluations should describe their settings relative
+    // to DO_MASK_DEFAULT, and purposefully mask out any truthy flags that
+    // apply by default they don't want (e.g. DO_FLAG_CONST, which is included
+    // to err on the side of caution).  The default mask includes this flag
+    // just so the evaluator can make sure DO_MASK_DEFAULT was used.
+    //
+    #define DO_FLAG_DEFAULT_DEBUG \
+        FLAG_LEFT_BIT(31)
 
 #endif
 
 
-STATIC_ASSERT(30 < 32); // otherwise DO_FLAG_XXX too high
+STATIC_ASSERT(31 < 32); // otherwise DO_FLAG_XXX too high
 
 
 

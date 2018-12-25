@@ -69,7 +69,7 @@ REBNATIVE(eval)
     //
     child->u.reval.value = ARG(value);
 
-    REBFLGS flags = DO_FLAG_REEVALUATE_CELL;
+    REBFLGS flags = DO_MASK_DEFAULT | DO_FLAG_REEVALUATE_CELL;
     if (REF(only)) {
         flags |= DO_FLAG_EXPLICIT_EVALUATE;
         ARG(value)->header.bits ^= VALUE_FLAG_EVAL_FLIP;
@@ -224,7 +224,10 @@ REBNATIVE(eval_enfix)
     assert(IS_POINTER_TRASH_DEBUG(FS_TOP->u.defer.arg));
     FS_TOP->u.defer.arg = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
 
-    REBFLGS flags = DO_FLAG_FULFILLING_ARG | DO_FLAG_POST_SWITCH;
+    REBFLGS flags = DO_MASK_DEFAULT
+        | DO_FLAG_FULFILLING_ARG
+        | DO_FLAG_POST_SWITCH;
+
     if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child)) {
         DROP_GC_GUARD(temp);
         return R_THROWN;
@@ -244,7 +247,7 @@ REBNATIVE(eval_enfix)
 //
 //      return: [<opt> any-value!]
 //      source [
-//          blank! ;-- useful for `do try ...` scenarios when no match
+//          <blank> ;-- opts out of the DO, returns null
 //          block! ;-- source code in block form
 //          group! ;-- same as block (or should it have some other nuance?)
 //          text! ;-- source code in text form
@@ -261,8 +264,7 @@ REBNATIVE(eval_enfix)
 //          {If value is a script, this will set its system/script/args}
 //      arg
 //          "Args passed to a script (normally a string)"
-//      /only
-//          "Don't catch QUIT (default behavior for BLOCK!)"
+//      /only "Don't catch QUIT (default behavior for BLOCK!)"
 //  ]
 //
 REBNATIVE(do)
@@ -275,27 +277,14 @@ REBNATIVE(do)
   #endif
 
     switch (VAL_TYPE(source)) {
-    case REB_BLANK:
-        return nullptr; // "blank in, null out" convention
-
-    case REB_BLOCK:
-    case REB_GROUP: {
-        REBIXO indexor = Eval_Array_At_Core(
-            Init_Void(D_OUT), // so `do []` matches up with `while [] [...]`
-            nullptr, // opt_head (interpreted as no head, not nulled cell)
-            VAL_ARRAY(source),
-            VAL_INDEX(source),
-            VAL_SPECIFIER(source),
-            DO_FLAG_TO_END
-        );
-
-        if (indexor == THROWN_FLAG)
+      case REB_BLOCK:
+      case REB_GROUP: {
+        if (Do_Any_Array_At_Throws(D_OUT, source))
             return R_THROWN;
-
         assert(NOT_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED));
         return D_OUT; }
 
-    case REB_VARARGS: {
+      case REB_VARARGS: {
         REBVAL *position;
         if (Is_Block_Style_Varargs(&position, source)) {
             //
@@ -306,16 +295,7 @@ REBNATIVE(do)
             // array during execution, there will be problems if it is TAKE'n
             // or DO'd while this operation is in progress.
             //
-            REBIXO indexor = Eval_Array_At_Core(
-                Init_Void(D_OUT),
-                nullptr, // opt_head (no head, not intepreted as nulled cell)
-                VAL_ARRAY(position),
-                VAL_INDEX(position),
-                VAL_SPECIFIER(source),
-                DO_FLAG_TO_END
-            );
-
-            if (indexor == THROWN_FLAG) {
+            if (Do_Any_Array_At_Throws(D_OUT, position)) {
                 //
                 // !!! A BLOCK! varargs doesn't technically need to "go bad"
                 // on a throw, since the block is still around.  But a FRAME!
@@ -339,7 +319,7 @@ REBNATIVE(do)
         // to disrupt its state.  Use a subframe.
         //
         DECLARE_SUBFRAME (child, f);
-        REBFLGS flags = 0;
+        REBFLGS flags = DO_MASK_DEFAULT;
         Init_Void(D_OUT);
         while (NOT_END(f->value)) {
             if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child))
@@ -348,11 +328,11 @@ REBNATIVE(do)
 
         return D_OUT; }
 
-    case REB_BINARY:
-    case REB_TEXT:
-    case REB_URL:
-    case REB_FILE:
-    case REB_TAG: {
+      case REB_BINARY:
+      case REB_TEXT:
+      case REB_URL:
+      case REB_FILE:
+      case REB_TAG: {
         //
         // See code called in system/intrinsic/do*
         //
@@ -375,7 +355,7 @@ REBNATIVE(do)
         }
         return D_OUT; }
 
-    case REB_ERROR:
+      case REB_ERROR:
         //
         // FAIL is the preferred operation for triggering errors, as it has
         // a natural behavior for blocks passed to construct readable messages
@@ -386,7 +366,7 @@ REBNATIVE(do)
         //
         fail (VAL_CONTEXT(source));
 
-    case REB_ACTION: {
+      case REB_ACTION: {
         //
         // Ren-C will only run arity 0 functions from DO, otherwise EVAL
         // must be used.  Look for the first non-local parameter to tell.
@@ -405,7 +385,7 @@ REBNATIVE(do)
             return R_THROWN;
         return D_OUT; }
 
-    case REB_FRAME: {
+      case REB_FRAME: {
         REBCTX *c = VAL_CONTEXT(source); // checks for INACCESSIBLE
         REBACT *phase = VAL_PHASE(source);
 
@@ -419,9 +399,16 @@ REBNATIVE(do)
 
         DECLARE_END_FRAME (f);
         f->out = D_OUT;
+        bool mutability = GET_VAL_FLAG(source, VALUE_FLAG_EXPLICITLY_MUTABLE);
         Push_Frame_At_End(
             f,
-            DO_FLAG_FULLY_SPECIALIZED | DO_FLAG_PROCESS_ACTION
+            (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+                | DO_FLAG_FULLY_SPECIALIZED
+                | DO_FLAG_PROCESS_ACTION
+                | (mutability ? 0 : (
+                    (FS_TOP->flags.bits & DO_FLAG_CONST)
+                    | (source->header.bits & DO_FLAG_CONST)
+                ))
         );
 
         assert(CTX_KEYS_HEAD(c) == ACT_PARAMS_HEAD(phase));
@@ -458,7 +445,7 @@ REBNATIVE(do)
 
         return f->out; }
 
-    default:
+      default:
         break;
     }
 
@@ -505,7 +492,7 @@ REBNATIVE(evaluate)
             VAL_ARRAY(source),
             VAL_INDEX(source),
             VAL_SPECIFIER(source),
-            DO_MASK_NONE
+            DO_MASK_DEFAULT
         );
 
         if (indexor == THROWN_FLAG) {
@@ -544,7 +531,7 @@ REBNATIVE(evaluate)
                 VAL_ARRAY(position),
                 VAL_INDEX(position),
                 VAL_SPECIFIER(source),
-                DO_MASK_NONE
+                DO_MASK_DEFAULT
             );
 
             if (indexor == THROWN_FLAG) {
@@ -578,7 +565,7 @@ REBNATIVE(evaluate)
         // to disrupt its state.  Use a subframe.
         //
         DECLARE_SUBFRAME (child, f);
-        REBFLGS flags = 0;
+        REBFLGS flags = DO_MASK_DEFAULT;
         if (IS_END(f->value))
             return nullptr;
 
@@ -824,7 +811,7 @@ REBNATIVE(apply)
         RETURN (temp);
     }
 
-    Push_Frame_At_End(f, DO_FLAG_PROCESS_ACTION);
+    Push_Frame_At_End(f, DO_MASK_DEFAULT | DO_FLAG_PROCESS_ACTION);
 
     if (REF(opt))
         f->u.defer.arg = nullptr; // needed if !(DO_FLAG_FULLY_SPECIALIZED)

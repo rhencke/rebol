@@ -279,7 +279,7 @@ inline static void Push_Frame_At(
 inline static void Push_Frame(REBFRM *f, const REBVAL *v)
 {
     Push_Frame_At(
-        f, VAL_ARRAY(v), VAL_INDEX(v), VAL_SPECIFIER(v), DO_MASK_NONE
+        f, VAL_ARRAY(v), VAL_INDEX(v), VAL_SPECIFIER(v), DO_MASK_DEFAULT
     );
 }
 
@@ -610,6 +610,13 @@ inline static void Fetch_Next_In_Frame(
 inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
     Derelativize(dest, f->value, f->specifier);
     SET_VAL_FLAG(dest, VALUE_FLAG_UNEVALUATED);
+
+    // SEE ALSO: The `inert:` branch in %c-eval.c, which is similar.  We
+    // want `append quote (a b c) 'd` to be an error, which means the quoting
+    // has to get the const flag if intended.
+    //
+    dest->header.bits |= (f->flags.bits & DO_FLAG_CONST);
+
     Fetch_Next_In_Frame(nullptr, f);
 }
 
@@ -1098,7 +1105,10 @@ inline static bool Eval_Value_Core_Throws(
         EMPTY_ARRAY,
         0, // start index (it's an empty array, there's no added processing)
         specifier,
-        DO_FLAG_TO_END
+        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+            | DO_FLAG_TO_END
+            | (FS_TOP->flags.bits & DO_FLAG_CONST)
+            | (value->header.bits & DO_FLAG_CONST)
     );
 
     if (IS_END(out))

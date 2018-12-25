@@ -5,7 +5,7 @@
 )
 ([] = compose [])
 (
-    blk: []
+    blk: mutable []
     append blk [trap [1 / 0]]
     blk = compose blk
 )

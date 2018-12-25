@@ -599,10 +599,10 @@ void Poke_Vector_Fail_If_Read_Only(
     REBVAL *value,
     const REBVAL *picker,
     const REBVAL *poke
-) {
-    REBSER *vect = VAL_SERIES(value);
-    FAIL_IF_READ_ONLY_SERIES(vect);
+){
+    FAIL_IF_READ_ONLY_SERIES(value);
 
+    REBSER *vect = VAL_SERIES(value);
     REBINT n;
     if (IS_INTEGER(picker) or IS_DECIMAL(picker)) // #2312
         n = Int32(picker);
@@ -703,7 +703,7 @@ REBTYPE(Vector)
         INCLUDE_PARAMS_OF_RANDOM;
         UNUSED(PAR(value));
 
-        FAIL_IF_READ_ONLY_SERIES(vect);
+        FAIL_IF_READ_ONLY_SERIES(value);
 
         if (REF(seed) || REF(only))
             fail (Error_Bad_Refines_Raw());

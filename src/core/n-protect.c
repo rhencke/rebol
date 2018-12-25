@@ -32,6 +32,97 @@
 
 
 //
+//  const: native [
+//
+//  {Return value whose access doesn't allow mutation to its argument}
+//
+//      return: [<opt> any-value!]
+//      value "Argument to change access to (can be locked or not)"
+//          [<opt> any-value!] ;-- INTEGER!, etc. someday
+//  ]
+//
+REBNATIVE(const) {
+    INCLUDE_PARAMS_OF_CONST;
+
+    REBVAL *v = ARG(value);
+    if (IS_NULLED(v))
+        return nullptr;
+
+    CLEAR_VAL_FLAG(v, VALUE_FLAG_EXPLICITLY_MUTABLE);
+    SET_VAL_FLAG(v, VALUE_FLAG_CONST);
+
+    RETURN (v);
+}
+
+
+//
+//  const?: native [
+//
+//  {Return if a value is a read-only view of its underlying data}
+//
+//      return: [logic!]
+//      value [any-series! any-context!]
+//  ]
+//
+REBNATIVE(const_q) {
+    INCLUDE_PARAMS_OF_CONST_Q;
+
+    // !!! Should this integrate the question of if the series is immutable,
+    // besides just if the value is *const*, specifically?  Knowing the flag
+    // is helpful for debugging at least.
+
+    return Init_Logic(D_OUT, GET_VAL_FLAG(ARG(value), VALUE_FLAG_CONST));
+}
+
+
+//
+//  mutable: native [
+//
+//  {Return value whose access allows mutation to its argument (if unlocked)}
+//
+//      return: [<opt> any-value!]
+//      value "Argument to change access to (errors if locked)"
+//          [<opt> any-value!] ;-- INTEGER!, etc. someday
+//  ]
+//
+REBNATIVE(mutable)
+{
+    INCLUDE_PARAMS_OF_MUTABLE;
+
+    REBVAL *v = ARG(value);
+    if (IS_NULLED(v))
+        return nullptr; // make it easier to pass through values
+
+    CLEAR_VAL_FLAG(v, VALUE_FLAG_CONST); // don't trip const test for readonly
+    if (ANY_SERIES(v) or ANY_CONTEXT(v))
+        FAIL_IF_READ_ONLY_SERIES(v);
+    SET_VAL_FLAG(v, VALUE_FLAG_EXPLICITLY_MUTABLE);
+
+    RETURN (v);
+}
+
+
+//
+//  mutable?: native [
+//
+//  {Return if a value is a writable view of its underlying data}
+//
+//      return: [logic!]
+//      value [any-series! any-context!]
+//  ]
+//
+REBNATIVE(mutable_q) {
+    INCLUDE_PARAMS_OF_MUTABLE_Q;
+
+    // !!! Should this integrate the question of if the series is immutable,
+    // besides just if the value is *const*, specifically?  Knowing the flag
+    // is helpful for debugging at least.
+
+    return Init_Logic(D_OUT, NOT_VAL_FLAG(ARG(value), VALUE_FLAG_CONST));
+}
+
+
+//
 //  Protect_Key: C
 //
 static void Protect_Key(REBCTX *context, REBCNT index, REBFLGS flags)
@@ -352,9 +443,14 @@ REBNATIVE(unprotect)
 
 
 //
-//  Is_Value_Immutable: C
+//  Is_Value_Frozen: C
 //
-bool Is_Value_Immutable(const RELVAL *v) {
+// "Frozen" is a stronger term here than "Immutable".  Mutable refers to the
+// mutable/const distinction, where a value being immutable doesn't mean its
+// series will never change in the future.  The frozen requirement is needed
+// in order to do things like use blocks as map keys, etc.
+//
+bool Is_Value_Frozen(const RELVAL *v) {
     if (
         IS_BLANK(v)
         || IS_BAR(v)
@@ -392,12 +488,12 @@ REBNATIVE(locked_q)
 {
     INCLUDE_PARAMS_OF_LOCKED_Q;
 
-    return Init_Logic(D_OUT, Is_Value_Immutable(ARG(value)));
+    return Init_Logic(D_OUT, Is_Value_Frozen(ARG(value)));
 }
 
 
 //
-//  Ensure_Value_Immutable: C
+//  Ensure_Value_Frozen: C
 //
 // !!! The concept behind `opt_locker` is that it might be able to give the
 // user more information about why data would be automatically locked, e.g.
@@ -406,8 +502,8 @@ REBNATIVE(locked_q)
 // moment, etc.  Just put a flag at the top level for now, since that is
 // "better than nothing", and revisit later in the design.
 //
-void Ensure_Value_Immutable(const RELVAL *v, REBSER *opt_locker) {
-    if (Is_Value_Immutable(v))
+void Ensure_Value_Frozen(const RELVAL *v, REBSER *opt_locker) {
+    if (Is_Value_Frozen(v))
         return;
 
     if (ANY_ARRAY(v)) {
@@ -500,7 +596,7 @@ REBNATIVE(lock)
     }
 
     REBSER *locker = NULL;
-    Ensure_Value_Immutable(D_OUT, locker);
+    Ensure_Value_Frozen(D_OUT, locker);
 
     return D_OUT;
 }

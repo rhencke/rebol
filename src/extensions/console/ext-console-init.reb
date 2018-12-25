@@ -718,17 +718,13 @@ ext-console-impl: function [
         insert code shortcut
     ]
 
-    ; There is a question of how it should be decided whether the code in the
-    ; CONSOLE should be locked as read-only or not.  It may be a configuration
-    ; switch, as it also may be an option for a module or a special type of
-    ; function which does not lock its source.
-    ;
-    lock code
-
     ; Run the "dialect hook", which can transform the completed code block
     ;
     emit #unskin-if-halt ;-- Ctrl-C during dialect hook is a problem
-    emit [as group! system/console/dialect-hook ((| code |))]
+    emit [
+        comment {not all users may want CONST result, review configurability}
+        const as group! system/console/dialect-hook ((| code |))
+    ]
     return group! ;-- a group RESULT should come back to HOST-CONSOLE
 ]
 

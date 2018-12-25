@@ -192,12 +192,10 @@
 //
 #ifdef CPLUSPLUS_11
     #define STATIC_ASSERT(cond) \
-        static_assert((cond), #cond)
+        static_assert((cond), #cond) // callsite has semicolon, see C trick
 #else
-    // https://stackoverflow.com/q/53923706
-    //
     #define STATIC_ASSERT(cond) \
-        struct StaticAssertSurrogate
+        struct GlobalScopeNoopTrick // https://stackoverflow.com/q/53923706
 #endif
 
 

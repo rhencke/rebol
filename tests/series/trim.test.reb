@@ -2,44 +2,53 @@
 
 ; refinement order
 [#83
-    (strict-equal? trim/all/with "a" "a" trim/with/all "a" "a")
+    (strict-equal?
+        trim/all/with mutable "a" "a"
+        trim/with/all mutable "a" "a"
+    )
 ]
 
 [#1948
-    ("foo^/" = trim "  foo ^/")
+    ("foo^/" = trim mutable "  foo ^/")
 ]
 
-(#{BFD3} = trim #{0000BFD30000})
-(#{10200304} = trim/with #{AEAEAE10200304BDBDBD} #{AEBD})
+(#{BFD3} = trim mutable #{0000BFD30000})
+(#{10200304} = trim/with mutable #{AEAEAE10200304BDBDBD} #{AEBD})
 
 ; Incompatible refinement errors.
-(error? trap [trim/auto/head {}])
-(error? trap [trim/auto/tail {}])
-(error? trap [trim/auto/lines {}])
-(error? trap [trim/auto/all {}])
-(error? trap [trim/all/head {}])
-(error? trap [trim/all/tail {}])
-(error? trap [trim/all/lines {}])
-(error? trap [trim/auto/with {} {*}])
-(error? trap [trim/head/with {} {*}])
-(error? trap [trim/tail/with {} {*}])
-(error? trap [trim/lines/with {} {*}])
+[
+    (did s: copy {})
 
-("a  ^/  b  " = trim/head "  a  ^/  b  ")
-("  a  ^/  b" = trim/tail "  a  ^/  b  ")
-("foo^/^/bar^/" = trim "  foo  ^/ ^/  bar  ^/  ^/  ")
-("foobar" = trim/all "  foo  ^/ ^/  bar  ^/  ^/  ")
-("foo bar" = trim/lines "  foo  ^/ ^/  bar  ^/  ^/  ")
-("x^/" = trim/auto "^/  ^/x^/")
-("x^/" = trim/auto "  ^/x^/")
-("x^/y^/ z^/" = trim/auto "  x^/ y^/   z^/")
-("x^/y" = trim/auto "^/^/  x^/  y")
+    (error? trap [trim/auto/head s])
+    (error? trap [trim/auto/tail s])
+    (error? trap [trim/auto/lines s])
+    (error? trap [trim/auto/all s])
+    (error? trap [trim/all/head s])
+    (error? trap [trim/all/tail s])
+    (error? trap [trim/all/lines s])
+    (error? trap [trim/auto/with s {*}])
+    (error? trap [trim/head/with s {*}])
+    (error? trap [trim/tail/with s {*}])
+    (error? trap [trim/lines/with s {*}])
 
-([a b] = trim [a b])
-([a b] = trim [a b _])
-([a b] = trim [_ a b _])
-([a _ b] = trim [_ a _ b _])
-([a b] = trim/all [_ a _ b _])
-([_ _ a _ b] = trim/tail [_ _ a _ b _ _])
-([a _ b _ _] = trim/head [_ _ a _ b _ _])
-([a _ b] = trim/head/tail [_ _ a _ b _ _])
+    (s = {})
+]
+
+("a  ^/  b  " = trim/head mutable "  a  ^/  b  ")
+("  a  ^/  b" = trim/tail mutable "  a  ^/  b  ")
+("foo^/^/bar^/" = trim mutable "  foo  ^/ ^/  bar  ^/  ^/  ")
+("foobar" = trim/all mutable "  foo  ^/ ^/  bar  ^/  ^/  ")
+("foo bar" = trim/lines mutable "  foo  ^/ ^/  bar  ^/  ^/  ")
+("x^/" = trim/auto mutable "^/  ^/x^/")
+("x^/" = trim/auto mutable "  ^/x^/")
+("x^/y^/ z^/" = trim/auto mutable "  x^/ y^/   z^/")
+("x^/y" = trim/auto mutable "^/^/  x^/  y")
+
+([a b] = trim mutable [a b])
+([a b] = trim mutable [a b _])
+([a b] = trim mutable [_ a b _])
+([a _ b] = trim mutable [_ a _ b _])
+([a b] = trim/all mutable [_ a _ b _])
+([_ _ a _ b] = trim/tail mutable [_ _ a _ b _ _])
+([a _ b _ _] = trim/head mutable [_ _ a _ b _ _])
+([a _ b] = trim/head/tail mutable [_ _ a _ b _ _])

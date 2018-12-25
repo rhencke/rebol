@@ -416,7 +416,7 @@ static REBVAL *Make_Locked_Tag(const char *utf8) { // helper
     RESET_VAL_HEADER(t, REB_TAG);
 
     REBSER *locker = nullptr;
-    Ensure_Value_Immutable(t, locker);
+    Ensure_Value_Frozen(t, locker);
     return t;
 }
 
@@ -479,7 +479,7 @@ static void Init_Action_Meta_Shim(void) {
     Root_Action_Meta = Init_Object(Alloc_Value(), meta);
 
     REBSER *locker = nullptr;
-    Ensure_Value_Immutable(Root_Action_Meta, locker);
+    Ensure_Value_Frozen(Root_Action_Meta, locker);
 
 }
 
@@ -881,7 +881,7 @@ static void Init_Root_Vars(void)
     REBSER *locker = nullptr;
 
     Root_Empty_Block = Init_Block(Alloc_Value(), PG_Empty_Array);
-    Ensure_Value_Immutable(Root_Empty_Block, locker);
+    Ensure_Value_Frozen(Root_Empty_Block, locker);
 
     // Note: rebText() can't run yet, review.
     //
@@ -889,10 +889,10 @@ static void Init_Root_Vars(void)
     assert(CHR_CODE(UNI_AT(nulled_uni, 0)) == '\0');
     assert(UNI_LEN(nulled_uni) == 0);
     Root_Empty_Text = Init_Text(Alloc_Value(), nulled_uni);
-    Ensure_Value_Immutable(Root_Empty_Text, locker);
+    Ensure_Value_Frozen(Root_Empty_Text, locker);
 
     Root_Empty_Binary = Init_Binary(Alloc_Value(), Make_Binary(0));
-    Ensure_Value_Immutable(Root_Empty_Binary, locker);
+    Ensure_Value_Frozen(Root_Empty_Binary, locker);
 
     Root_Space_Char = rebChar(' ');
     Root_Newline_Char = rebChar('\n');

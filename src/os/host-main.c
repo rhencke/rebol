@@ -311,7 +311,7 @@ int main(int argc, char *argv_ansi[])
     REBVAL *trapped = rebRun(
         "lib/entrap [",
             rebR(host_start), // action! that takes 2 args
-            rebR(argv_block),
+            "mutable", rebR(argv_block),
         "]", rebEND
     );
 

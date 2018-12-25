@@ -35,11 +35,12 @@
 //
 
 
-inline static bool Do_At_Throws(
+inline static bool Do_At_Mutability_Throws(
     REBVAL *out,
     REBARR *array,
     REBCNT index,
-    REBSPC *specifier
+    REBSPC *specifier,
+    bool mutability
 ){
     return THROWN_FLAG == Eval_Array_At_Core(
         Init_Void(out),
@@ -47,20 +48,40 @@ inline static bool Do_At_Throws(
         array,
         index,
         specifier,
-        DO_FLAG_TO_END
+        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+            | DO_FLAG_TO_END
+            | (mutability ? 0 : (FS_TOP->flags.bits & DO_FLAG_CONST))
     );
 }
+
+#define Do_At_Throws(out,array,index,specifier) \
+    Do_At_Mutability_Throws((out), (array), (index), (specifier), false)
 
 
 inline static bool Do_Any_Array_At_Throws(
     REBVAL *out,
     const REBVAL *any_array // Note: can be same pointer as `out`
 ){
-    return Do_At_Throws(
-        out,
+    // If the user said something like `do mutable load %data.reb`, then the
+    // value carries along with it a disablement of inheriting constness...
+    // even if the frame has it set.
+    //
+    bool mutability = GET_VAL_FLAG(any_array, VALUE_FLAG_EXPLICITLY_MUTABLE);
+
+    return THROWN_FLAG == Eval_Array_At_Core(
+        Init_Void(out),
+        nullptr, // opt_first (null indicates nothing, not nulled cell)
         VAL_ARRAY(any_array),
         VAL_INDEX(any_array),
-        VAL_SPECIFIER(any_array)
+        VAL_SPECIFIER(any_array),
+        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+            | DO_FLAG_TO_END
+            | (mutability ? 0 : (
+                (FS_TOP->flags.bits & DO_FLAG_CONST)
+                | (any_array->header.bits & DO_FLAG_CONST)
+            ))
+            // ^-- Even if you are using a DO MUTABLE, in deeper levels
+            // evaluating a const value flips the constification back on.
     );
 }
 
@@ -74,7 +95,10 @@ inline static bool Do_Va_Throws(
         Init_Void(out),
         opt_first,
         vaptr,
-        DO_FLAG_TO_END | DO_FLAG_EXPLICIT_EVALUATE
+        DO_MASK_DEFAULT
+            | DO_FLAG_TO_END
+            | DO_FLAG_EXPLICIT_EVALUATE
+            | (FS_TOP->flags.bits & DO_FLAG_CONST)
     );
 }
 
@@ -104,9 +128,12 @@ inline static bool Apply_Only_Throws(
         SET_END(out), // start at END to detect error if no eval product
         applicand_eval, // opt_first
         &va, // va_end() handled by Eval_Va_Core on success, fail, throw, etc.
-        DO_FLAG_EXPLICIT_EVALUATE
+        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+            | DO_FLAG_EXPLICIT_EVALUATE
             | DO_FLAG_NO_LOOKAHEAD
             | (fully ? DO_FLAG_NO_RESIDUE : 0)
+            | (FS_TOP->flags.bits & DO_FLAG_CONST)
+            | (applicand->header.bits & DO_FLAG_CONST)
     );
 
     if (IS_END(out))

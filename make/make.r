@@ -4,7 +4,7 @@ REBOL []
 do %tools/bootstrap-shim.r
 do %tools/common.r
 do %tools/systems.r
-file-base: make object! load %tools/file-base.r
+file-base: make object! mutable load %tools/file-base.r
 
 ; See notes on %rebmake.r for why it is not a module at this time, due to the
 ; need to have it inherit the shim behaviors of IF, CASE, FILE-TO-LOCAL, etc.
@@ -21,7 +21,7 @@ src-dir: append copy make-dir %../src
 src-dir: relative-to-path src-dir output-dir
 tcc-dir: append copy make-dir %../external/tcc
 tcc-dir: relative-to-path tcc-dir output-dir
-user-config: make object! load make-dir/default-config.r
+user-config: make object! mutable load make-dir/default-config.r
 
 ;;;; PROCESS ARGS
 ; args are:
@@ -45,7 +45,7 @@ for-each [name value] options [
         'EXTENSIONS [
             ; [+|-|*] [NAME {+|-|*|[modules]}]... 
             use [ext-file user-ext][
-                user-ext: load value
+                user-ext: mutable load value
                 if word? user-ext [user-ext: reduce [user-ext]]
                 if not block? user-ext [
                     fail [
@@ -66,13 +66,13 @@ for-each [name value] options [
         ]
         default [
             set in user-config (to-word replace/all to text! name #"_" #"-")
-                load value
+                mutable load value
         ]
     ]
 ]
 
 ; process commands
-if not empty? commands [user-config/target: load commands]
+if not empty? commands [user-config/target: mutable load commands]
 
 ;;;; MODULES & EXTENSIONS
 system-config: config-system user-config/os-id
@@ -181,8 +181,8 @@ gen-obj: func [
                 join-of %main/ (last ensure path! s)
             ] [s]
         cflags: either empty? flags [_] [flags]
-        definitions: (try get 'definitions)
-        includes: (try get 'includes)
+        definitions: (mutable try get 'definitions)
+        includes: (mutable try get 'includes)
     ]
 ]
 
@@ -228,7 +228,7 @@ parse-ext-build-spec: function [
         ]
 
         if set? 'config [
-            do as block! config ;-- some old Ren-Cs disallowed DO of GROUP!
+            do as block! mutable config ;-- old Ren-Cs disallowed DO of GROUP!
         ]
     ]
 
@@ -245,7 +245,7 @@ use [extension-dir entry][
             find read rejoin [extension-dir entry] %make-spec.r
         ] then [
             append available-extensions opt (
-                parse-ext-build-spec load rejoin [
+                parse-ext-build-spec mutable load rejoin [
                     extension-dir entry/make-spec.r
                 ]
             )

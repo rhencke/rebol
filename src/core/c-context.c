@@ -847,24 +847,16 @@ REBCTX *Make_Selfish_Context_Detect_Managed(
 
     if (opt_parent != NULL) {
         //
-        // Copy parent values (will have bits fixed by Clonify).
-        // None of these should be relative, because they came from object
-        // vars (that were not part of the deep copy of a function body)
+        // Copy parent values, and for values we copied that were blocks and
+        // strings, replace their series components with deep copies.
         //
         REBVAL *dest = CTX_VARS_HEAD(context);
         REBVAL *src = CTX_VARS_HEAD(opt_parent);
-        for (; NOT_END(src); ++dest, ++src)
-            Move_Var(dest, src);
-
-        // For values we copied that were blocks and strings, replace
-        // their series components with deep copies of themselves:
-        //
-        Clonify_Values_Len_Managed(
-            CTX_VARS_HEAD(context),
-            SPECIFIED,
-            CTX_LEN(context),
-            TS_CLONE
-        );
+        for (; NOT_END(src); ++dest, ++src) {
+            REBFLGS flags = 0; // !!! Review
+            Move_Value(dest, src);
+            Clonify(dest, flags, TS_CLONE);
+        }
     }
 
     // We should have a SELF key in all cases here.  Set it to be a copy of
@@ -1111,17 +1103,17 @@ REBCTX *Merge_Contexts_Selfish_Managed(REBCTX *parent1, REBCTX *parent2)
             &collector.binder, VAL_KEY_CANON(key)
         );
         assert(n != 0);
-        Move_Var(CTX_VAR(merged, n), value);
-    }
 
-    // Deep copy the child.  Context vars are REBVALs, already fully specified
-    //
-    Clonify_Values_Len_Managed(
-        CTX_VARS_HEAD(merged),
-        SPECIFIED,
-        CTX_LEN(merged),
-        TS_CLONE
-    );
+        // Deep copy the child.
+        // Context vars are REBVALs, already fully specified
+        //
+        REBFLGS flags = 0; // !!! Review
+        Clonify(
+            Move_Value(CTX_VAR(merged, n), value),
+            flags,
+            TS_CLONE
+        );
+    }
 
     // Rebind the child
     //
@@ -1156,7 +1148,7 @@ void Resolve_Context(
     bool all,
     bool expand
 ) {
-    FAIL_IF_READ_ONLY_CONTEXT(target);
+    FAIL_IF_READ_ONLY_SER(SER(CTX_VARLIST(target))); // !!! should heed CONST
 
     REBCNT i;
     if (IS_INTEGER(only_words)) { // Must be: 0 < i <= tail

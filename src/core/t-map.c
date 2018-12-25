@@ -338,7 +338,7 @@ REBCNT Find_Map_Entry(
     // changed, there'd be no notification to rehash the map.
     //
     REBSER *locker = SER(MAP_PAIRLIST(map));
-    Ensure_Value_Immutable(key, locker);
+    Ensure_Value_Frozen(key, locker);
 
     // Must set the value:
     if (n) {  // re-set it:
@@ -372,8 +372,8 @@ REB_R PD_Map(
 ){
     assert(IS_MAP(pvs->out));
 
-    if (opt_setval != NULL)
-        FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(pvs->out));
+    if (opt_setval)
+        FAIL_IF_READ_ONLY_SERIES(pvs->out);
 
     // Fetching and setting with path-based access is case-preserving for any
     // initial insertions.  However, the case-insensitivity means that all
@@ -486,17 +486,16 @@ inline static REBMAP *Copy_Map(REBMAP *map, REBU64 types) {
     //
     assert(ARR_LEN(copy) % 2 == 0); // should be [key value key value]...
 
-    RELVAL *key = ARR_HEAD(copy);
+    REBVAL *key = KNOWN(ARR_HEAD(copy)); // all keys/values are specified
     for (; NOT_END(key); key += 2) {
-        assert(Is_Value_Immutable(key)); // immutable key
+        assert(Is_Value_Frozen(key)); // immutable key
 
-        RELVAL *v = key + 1;
+        REBVAL *v = key + 1;
         if (IS_NULLED(v))
             continue; // "zombie" map element (not present)
 
-        // No plain Clonify_Value() yet, call on values with length of 1.
-        //
-        Clonify_Values_Len_Managed(v, SPECIFIED, 1, types);
+        REBFLGS flags = 0; // !!! Review
+        Clonify(v, flags, types);
     }
 
     return MAP(copy);
@@ -789,7 +788,7 @@ REBTYPE(Map)
         if (IS_NULLED_OR_BLANK(arg))
             RETURN (val); // don't fail on read only if it would be a no-op
 
-        FAIL_IF_READ_ONLY_ARRAY(MAP_PAIRLIST(map));
+        FAIL_IF_READ_ONLY_SER(SER(MAP_PAIRLIST(map)));
 
         UNUSED(PAR(series));
         UNUSED(PAR(value)); // handled as arg
@@ -822,7 +821,7 @@ REBTYPE(Map)
     case SYM_REMOVE: {
         INCLUDE_PARAMS_OF_REMOVE;
 
-        FAIL_IF_READ_ONLY_ARRAY(MAP_PAIRLIST(map));
+        FAIL_IF_READ_ONLY_SER(SER(MAP_PAIRLIST(map)));
 
         UNUSED(PAR(series));
 
@@ -863,7 +862,7 @@ REBTYPE(Map)
         return Init_Map(D_OUT, Copy_Map(map, types)); }
 
     case SYM_CLEAR:
-        FAIL_IF_READ_ONLY_ARRAY(MAP_PAIRLIST(map));
+        FAIL_IF_READ_ONLY_SER(SER(MAP_PAIRLIST(map)));
 
         Reset_Array(MAP_PAIRLIST(map));
 

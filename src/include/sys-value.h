@@ -1736,6 +1736,25 @@ inline static void Blit_Cell(RELVAL *out, const RELVAL *v)
 }
 
 
+// !!! Super primordial experimental `const` feature.  Concept is that various
+// operations have to be complicit (e.g. SELECT or FIND) in propagating the
+// constness from the input series to the output value.  const input always
+// gets you const output, but mutable input will get you const output if
+// the value itself is const (so it inherits).
+//
+inline static REBVAL *Inherit_Const(REBVAL *out, const RELVAL *influencer) {
+    out->header.bits |= (influencer->header.bits & VALUE_FLAG_CONST);
+    return out;
+}
+#define Trust_Const(value) \
+    (value) // just a marking to say the const is accounted for already
+
+inline static REBVAL *Const(REBVAL *v) {
+    SET_VAL_FLAG(v, VALUE_FLAG_CONST);
+    return v;
+}
+
+
 //
 // Rather than allow a REBVAL to be declared plainly as a local variable in
 // a C function, this macro provides a generic "constructor-like" hook.

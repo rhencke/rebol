@@ -273,14 +273,6 @@
     FLAG_LEFT_BIT(20)
 
 
-//=//// ARRAY_FLAG_21 /////////////////////////////////////////////////////=//
-//
-// Not used as of yet.
-//
-#define ARRAY_FLAG_21 \
-    FLAG_LEFT_BIT(21)
-
-
 //=//// ARRAY_FLAG_TAIL_NEWLINE ///////////////////////////////////////////=//
 //
 // The mechanics of how Rebol tracks newlines is that there is only one bit
@@ -291,7 +283,22 @@
 // tail of an array.
 //
 #define ARRAY_FLAG_TAIL_NEWLINE \
+    FLAG_LEFT_BIT(21)
+
+
+//=//// ARRAY_FLAG_CONST_SHALLOW /////////////////////////////////////////=//
+//
+// When a COPY is made of an ANY-ARRAY! that has VALUE_FLAG_CONST, the new
+// value shouldn't be const, as the goal of copying it is generally to modify.
+// However, if you don't copy it deeply, then mere copying should not be
+// giving write access to levels underneath it that would have been seen as
+// const if they were PICK'd out before.  This flag tells the copy operation
+// to mark any cells that are shallow references as const.  For convenience
+// it is the same bit as the const flag one would find in the value.
+//
+#define ARRAY_FLAG_CONST_SHALLOW \
     FLAG_LEFT_BIT(22)
+STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == VALUE_FLAG_CONST);
 
 
 // ^-- STOP ARRAY FLAGS AT FLAG_LEFT_BIT(31) --^

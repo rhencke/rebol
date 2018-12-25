@@ -1098,12 +1098,10 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
         }
 
         REBARR *real_body = VAL_ARRAY(body);
-        assert(GET_SER_INFO(real_body, SERIES_INFO_FROZEN));
 
         REBARR *maybe_fake_body;
         if (example == NULL) {
             maybe_fake_body = real_body;
-            assert(GET_SER_INFO(maybe_fake_body, SERIES_INFO_FROZEN));
         }
         else {
             // See %sysobj.r for STANDARD/FUNC-BODY and STANDARD/PROC-BODY
@@ -1113,7 +1111,6 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
                 VAL_SPECIFIER(example),
                 NODE_FLAG_MANAGED
             );
-            SET_SER_INFO(maybe_fake_body, SERIES_INFO_FROZEN);
 
             // Index 5 (or 4 in zero-based C) should be #BODY, a "real" body.
             // To give it the appearance of executing code in place, we use
@@ -1283,19 +1280,30 @@ REBACT *Make_Interpreted_Action_May_Fail(
         // function it doesn't work...trying to fix that.
     }
 
-    // All the series inside of a function body are "relatively bound".  This
-    // means that there's only one copy of the body, but the series handle
-    // is "viewed" differently based on which call it represents.  Though
-    // each of these views compares uniquely, there's only one series behind
-    // it...hence the series must be read only to keep modifying a view
-    // that seems to have one identity but then affecting another.
+    // Capture the mutability flag that was in effect when this action was
+    // created.  This allows the following to work:
     //
-  #if defined(NDEBUG)
-    Deep_Freeze_Array(VAL_ARRAY(body));
-  #else
-    if (not LEGACY(OPTIONS_UNLOCKED_SOURCE))
-        Deep_Freeze_Array(VAL_ARRAY(body));
-  #endif
+    //    >> do mutable [f: function [] [b: [1 2 3] clear b]]
+    //    >> f
+    //    == []
+    //
+    // So even though the invocation is outside the mutable section, we have
+    // a memory that it was created under those rules.  (It's better to do
+    // this based on the frame in effect than by looking at the CONST flag of
+    // the incoming body block, because otherwise ordinary Ren-C functions
+    // whose bodies were created from dynamic code would have mutable bodies
+    // by default--which is not a desirable consequence from merely building
+    // the body dynamically.)
+    //
+    // Note: besides the general concerns about mutability-by-default, when
+    // functions are allowed to modify their bodies with words relative to
+    // their frame, the words would refer to that specific recursion...and not
+    // get picked up by other recursions that see the common structure.  This
+    // means compatibility would be with the behavior of R3-Alpha CLOSURE,
+    // not with FUNCTION.
+    //
+    if (FS_TOP->flags.bits & DO_FLAG_CONST)
+        SET_VAL_FLAG(body, VALUE_FLAG_CONST); // Inherit_Const() needs REBVAL*
 
     return a;
 }
@@ -1422,6 +1430,32 @@ REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 }
 
 
+// Common behavior shared by dispatchers which execute on blocks of code.
+//
+inline static bool Interpreted_Dispatch_Throws(REBVAL *out, REBFRM *f)
+{
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    RELVAL *body = ARR_HEAD(details);
+    assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
+
+    // Whether the action body executes mutably is independent of the parent
+    // frame's mutability disposition (possible exception: const functions?)
+    // It depends on the mutability captured at the time of the action's
+    // creation.  This enables things like calling a module based on Rebol2
+    // expectations from modern Ren-C code.
+    //
+    bool mutability = NOT_VAL_FLAG(body, VALUE_FLAG_CONST);
+    return Do_At_Mutability_Throws(
+        out, // Note that elider_Dispatcher() does not overwrite f->out
+        VAL_ARRAY(body),
+        0,
+        SPC(f->varlist),
+        mutability
+    );
+}
+
+
+
 //
 //  Unchecked_Dispatcher: C
 //
@@ -1431,11 +1465,7 @@ REB_R Typeset_Checker_Dispatcher(REBFRM *f)
 //
 REB_R Unchecked_Dispatcher(REBFRM *f)
 {
-    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
-    RELVAL *body = ARR_HEAD(details);
-    assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
-
-    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
+    if (Interpreted_Dispatch_Throws(f->out, f))
         return R_THROWN;
 
     return f->out;
@@ -1451,11 +1481,7 @@ REB_R Unchecked_Dispatcher(REBFRM *f)
 //
 REB_R Voider_Dispatcher(REBFRM *f)
 {
-    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
-    RELVAL *body = ARR_HEAD(details);
-    assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
-
-    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
+    if (Interpreted_Dispatch_Throws(f->out, f))
         return R_THROWN;
 
     return Init_Void(f->out);
@@ -1471,15 +1497,10 @@ REB_R Voider_Dispatcher(REBFRM *f)
 //
 REB_R Returner_Dispatcher(REBFRM *f)
 {
-    REBACT *phase = FRM_PHASE(f);
-    REBARR *details = ACT_DETAILS(phase);
-
-    RELVAL *body = ARR_HEAD(details);
-    assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
-
-    if (Do_At_Throws(f->out, VAL_ARRAY(body), 0, SPC(f->varlist)))
+    if (Interpreted_Dispatch_Throws(f->out, f))
         return R_THROWN;
 
+    REBACT *phase = FRM_PHASE(f);
     REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
@@ -1504,19 +1525,14 @@ REB_R Returner_Dispatcher(REBFRM *f)
 //
 REB_R Elider_Dispatcher(REBFRM *f)
 {
-    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
-
-    RELVAL *body = ARR_HEAD(details);
-    assert(IS_BLOCK(body) and IS_RELATIVE(body) and VAL_INDEX(body) == 0);
-
     // !!! It would be nice to use the frame's spare "cell" for the thrownaway
     // result, but Fetch_Next code expects to use the cell.
     //
     DECLARE_LOCAL (dummy);
     SET_END(dummy);
 
-    if (Do_At_Throws(dummy, VAL_ARRAY(body), 0, SPC(f->varlist))) {
-        Move_Value(f->out, dummy); // can't return a local variable
+    if (Interpreted_Dispatch_Throws(dummy, f)) {
+        Move_Value(f->out, dummy);
         return R_THROWN;
     }
 
@@ -1590,11 +1606,13 @@ REB_R Adapter_Dispatcher(REBFRM *f)
     // spare cell but can't as Fetch_Next() uses it.
 
     DECLARE_LOCAL (dummy);
-    if (Do_At_Throws(
+    bool mutability = NOT_VAL_FLAG(prelude, VALUE_FLAG_CONST);
+    if (Do_At_Mutability_Throws(
         dummy,
         VAL_ARRAY(prelude),
         VAL_INDEX(prelude),
-        SPC(f->varlist)
+        SPC(f->varlist),
+        mutability
     )){
         Move_Value(f->out, dummy);
         return R_THROWN;
@@ -1734,9 +1752,9 @@ bool Get_If_Word_Or_Path_Throws(
             VAL_INDEX(v),
             derived,
             NULL, // `setval`: null means don't treat as SET-PATH!
-            push_refinements
+            DO_MASK_DEFAULT | (push_refinements
                 ? DO_FLAG_PUSH_PATH_REFINEMENTS // pushed in reverse order
-                : DO_MASK_NONE
+                : 0)
         )){
             return true;
         }

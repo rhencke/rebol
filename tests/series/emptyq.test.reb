@@ -1,7 +1,7 @@
 ; functions/series/emptyq.r
 (empty? [])
 (
-    blk: tail of [1]
+    blk: tail of mutable [1]
     clear head of blk
     empty? blk
 )

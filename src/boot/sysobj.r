@@ -74,8 +74,8 @@ state: construct [] [
     last-error: _ ; used by WHY?
 ]
 
-modules: [] ;loaded modules
-extensions: [] ;loaded extensions
+modules: copy [] ; Note: MUTABLE not in bootstrap build yet
+extensions: copy [] ; Note: MUTABLE not in bootstrap build yet
 
 codecs: make object! [[][]]
 

@@ -240,18 +240,21 @@ bool Next_Path_Throws(REBPVS *pvs)
             assert(IS_END(pvs->value));
             break;
 
-        case REB_R_REFERENCE:
+        case REB_R_REFERENCE: {
+            bool was_const = GET_VAL_FLAG(pvs->out, VALUE_FLAG_CONST);
             Derelativize(
                 pvs->out,
                 pvs->u.ref.cell,
                 pvs->u.ref.specifier
             );
+            if (was_const) // can't Inherit_Const(), flag would be overwritten
+                SET_VAL_FLAG(pvs->out, VALUE_FLAG_CONST);
             if (GET_VAL_FLAG(pvs->u.ref.cell, VALUE_FLAG_ENFIXED))
                 SET_VAL_FLAG(pvs->out, VALUE_FLAG_ENFIXED);
 
             // Leave the pvs->u.ref as-is in case the next update turns out
             // to be R_IMMEDIATE, and it is needed.
-            break;
+            break; }
 
         default:
             panic ("REB_R value not supported for path dispatch");
@@ -601,7 +604,7 @@ REBNATIVE(pick)
     }
 
     DECLARE_FRAME (pvs);
-    pvs->flags = Endlike_Header(DO_MASK_NONE);
+    pvs->flags.bits = DO_MASK_DEFAULT;
 
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;
@@ -622,23 +625,27 @@ REBNATIVE(pick)
         return r;
 
     switch (VAL_TYPE_RAW(r)) {
-    case REB_0_END:
+      case REB_0_END:
         assert(r == R_UNHANDLED);
         fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
 
-    case REB_R_INVISIBLE:
+      case REB_R_INVISIBLE:
         assert(false); // only SETs should do this
         break;
 
-    case REB_R_REFERENCE:
+      case REB_R_REFERENCE: {
+        assert(pvs->out == D_OUT);
+        bool was_const = GET_VAL_FLAG(D_OUT, VALUE_FLAG_CONST);
         Derelativize(
             D_OUT,
             pvs->u.ref.cell,
             pvs->u.ref.specifier
         );
-        return D_OUT;
+        if (was_const) // can't Inherit_Const(), flag would be overwritten
+            SET_VAL_FLAG(D_OUT, VALUE_FLAG_CONST);
+        return D_OUT; }
 
-    default:
+      default:
         break;
     }
 
@@ -682,7 +689,7 @@ REBNATIVE(poke)
     }
 
     DECLARE_FRAME (pvs);
-    pvs->flags = Endlike_Header(DO_MASK_NONE);
+    pvs->flags.bits = DO_MASK_DEFAULT;
 
     Move_Value(D_OUT, location);
     pvs->out = D_OUT;

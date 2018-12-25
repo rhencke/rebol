@@ -219,6 +219,8 @@ Math: [
 Access: [
     protected-word:     [{variable} :arg1 {locked by PROTECT (see UNPROTECT)}]
 
+    const-value:        [{value is CONST (see MUTABLE):} :arg1]
+
     series-protected:   {series read-only due to PROTECT (see UNPROTECT)}
     series-frozen:      {series is source or permanently locked, can't modify}
     series-held:        {series has temporary read-only hold for iteration}

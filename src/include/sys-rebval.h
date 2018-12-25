@@ -205,11 +205,23 @@
     FLAG_LEFT_BIT(22) // NOTE: Must be SAME BIT as DO_FLAG_CONST
 
 
-//=//// VALUE_FLAG_UNUSED_23 //////////////////////////////////////////////=//
+//=//// VALUE_FLAG_EXPLICITLY_MUTABLE /////////////////////////////////////=//
 //
-// Reserved for future use.
+// While it may seem that a mutable value would be merely one that did not
+// carry VALUE_FLAG_CONST, there's a need for a separate bit to indicate when
+// MUTABLE has been specified explicitly.  That way, evaluative situations
+// like `do mutable compose [...]` or `make object! mutable load ...` can
+// realize that they should switch into a mode which doesn't enforce const
+// by default--which it would ordinarily do.
 //
-#define VALUE_FLAG_UNUSED_23 \
+// If this flag did not exist, then to get the feature of disabled mutability
+// would require every such operation taking something like a /MUTABLE
+// refinement.  This moves the flexibility onto the values themselves.
+//
+// While CONST can be added by the system implicitly during an evaluation,
+// the MUTABLE flag should only be added by running MUTABLE.
+//
+#define VALUE_FLAG_EXPLICITLY_MUTABLE \
     FLAG_LEFT_BIT(23)
 
 

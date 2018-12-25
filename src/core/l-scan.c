@@ -997,7 +997,7 @@ acquisition_loop:
 
             if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
                 REBSER *locker = NULL;
-                Ensure_Value_Immutable(DS_TOP, locker);
+                Ensure_Value_Frozen(DS_TOP, locker);
             }
 
             if (Is_Api_Value(splice)) { // moved to DS_TOP, can release *now*
@@ -1048,7 +1048,7 @@ acquisition_loop:
 
             if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
                 REBSER *locker = NULL;
-                Ensure_Value_Immutable(DS_TOP, locker);
+                Ensure_Value_Frozen(DS_TOP, locker);
             }
 
             Free_Instruction(instruction);
@@ -2457,7 +2457,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
         if (ss->opts & SCAN_FLAG_LOCK_SCANNED) { // !!! for future use...?
             REBSER *locker = NULL;
-            Ensure_Value_Immutable(DS_TOP, locker);
+            Ensure_Value_Frozen(DS_TOP, locker);
         }
 
         // Set the newline on the new value, indicating molding should put a

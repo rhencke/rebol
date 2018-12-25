@@ -156,13 +156,6 @@ do*: function [
             change-dir copy/part source file
         ]
 
-        ; Also in script mode, the code is immutable by default.
-        ;
-        ; !!! Note that this does not currently protect the code from binding
-        ; changes, and it gets INTERNed below, or by "module/mixin" (?!)
-        ;
-        lock code
-
         ; Make the new script object
         original-script: system/script  ; and save old one
         system/script: construct system/standard/script [

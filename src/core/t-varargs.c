@@ -215,15 +215,17 @@ bool Do_Vararg_Op_Maybe_End_Throws(
         switch (pclass) {
         case PARAM_CLASS_NORMAL:
         case PARAM_CLASS_TIGHT: {
+            REBFLGS flags = DO_MASK_DEFAULT | DO_FLAG_FULFILLING_ARG;
+            if (pclass == PARAM_CLASS_TIGHT)
+                flags |= DO_FLAG_NO_LOOKAHEAD;
+
             DECLARE_FRAME (f_temp);
             Push_Frame_At(
                 f_temp,
                 VAL_ARRAY(shared),
                 VAL_INDEX(shared),
                 VAL_SPECIFIER(shared),
-                pclass == PARAM_CLASS_NORMAL
-                    ? DO_FLAG_FULFILLING_ARG
-                    : DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD
+                flags
             );
 
             // Note: Eval_Step_In_Subframe_Throws() is not needed here because
@@ -315,7 +317,8 @@ bool Do_Vararg_Op_Maybe_End_Throws(
             if (Eval_Step_In_Subframe_Throws(
                 SET_END(out),
                 f,
-                DO_FLAG_FULFILLING_ARG,
+                DO_MASK_DEFAULT
+                    | DO_FLAG_FULFILLING_ARG,
                 child
             )){
                 return true;

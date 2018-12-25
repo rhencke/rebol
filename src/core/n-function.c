@@ -63,7 +63,7 @@ REBNATIVE(func)
 
 
 //
-//  Make_Thrown_Unwind_Value: C
+//  Init_Thrown_Unwind_Value: C
 //
 // This routine generates a thrown signal that can be used to indicate a
 // desire to jump to a particular level in the stack with a return value.

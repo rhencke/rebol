@@ -200,7 +200,8 @@ static bool Subparse_Throws(
     f->source->index = VAL_INDEX(rules) + 1;
     f->source->pending = f->value + 1;
 
-    f->flags = Endlike_Header(DO_FLAG_PARSE_FRAME); // terminates f->cell
+    f->flags.bits = DO_MASK_DEFAULT // terminates f->cell
+        | DO_FLAG_PARSE_FRAME;
 
     Push_Frame_Core(f); // checks for C stack overflow
     Reuse_Varlist_If_Available(f);
@@ -1176,7 +1177,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
             ARR(P_INPUT),
             P_POS,
             P_INPUT_SPECIFIER,
-            DO_MASK_NONE
+            DO_MASK_DEFAULT
         );
         if (indexor == THROWN_FLAG) { // BREAK/RETURN/QUIT/THROW...
             Move_Value(P_OUT, P_CELL);
@@ -2075,13 +2076,13 @@ REBNATIVE(subparse)
                 }
 
                 if (flags & PF_REMOVE) {
-                    FAIL_IF_READ_ONLY_SERIES(P_INPUT);
+                    FAIL_IF_READ_ONLY_SERIES(P_INPUT_VALUE);
                     if (count) Remove_Series(P_INPUT, begin, count);
                     P_POS = begin;
                 }
 
                 if (flags & (PF_INSERT | PF_CHANGE)) {
-                    FAIL_IF_READ_ONLY_SERIES(P_INPUT);
+                    FAIL_IF_READ_ONLY_SERIES(P_INPUT_VALUE);
                     count = (flags & PF_INSERT) ? 0 : count;
                     bool only = false;
 

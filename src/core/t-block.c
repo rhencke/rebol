@@ -670,7 +670,7 @@ REB_R PD_Array(
     }
 
     if (opt_setval)
-        FAIL_IF_READ_ONLY_SERIES(VAL_SERIES(pvs->out));
+        FAIL_IF_READ_ONLY_SERIES(pvs->out);
 
     pvs->u.ref.cell = VAL_ARRAY_AT_HEAD(pvs->out, n);
     pvs->u.ref.specifier = VAL_SPECIFIER(pvs->out);
@@ -813,7 +813,7 @@ REBTYPE(Array)
         if (REF(deep))
             fail (Error_Bad_Refines_Raw());
 
-        FAIL_IF_READ_ONLY_ARRAY(arr);
+        FAIL_IF_READ_ONLY_ARRAY(array);
 
         REBCNT len;
         if (REF(part)) {
@@ -895,7 +895,7 @@ REBTYPE(Array)
 
             Derelativize(D_OUT, ARR_AT(arr, ret), specifier);
         }
-        return D_OUT; }
+        return Inherit_Const(D_OUT, array); }
 
     //-- Modification:
       case SYM_APPEND:
@@ -920,7 +920,7 @@ REBTYPE(Array)
                 VAL_INDEX(array) = 0;
             RETURN (array); // don't fail on read only if it would be a no-op
         }
-        FAIL_IF_READ_ONLY_ARRAY(arr);
+        FAIL_IF_READ_ONLY_ARRAY(array);
 
         REBCNT index = VAL_INDEX(array);
 
@@ -949,7 +949,7 @@ REBTYPE(Array)
         return D_OUT; }
 
       case SYM_CLEAR: {
-        FAIL_IF_READ_ONLY_ARRAY(arr);
+        FAIL_IF_READ_ONLY_ARRAY(array);
         REBCNT index = VAL_INDEX(array);
         if (index < VAL_LEN_HEAD(array)) {
             if (index == 0) Reset_Array(arr);
@@ -984,15 +984,24 @@ REBTYPE(Array)
                 types |= VAL_TYPESET_BITS(ARG(kinds));
         }
 
+        REBFLGS flags = ARRAY_FLAG_FILE_LINE;
+
+        // We shouldn't be returning a const value from the copy, but if the
+        // input value was const and we don't copy some types deeply, those
+        // types should retain the constness intended for them.
+        //
+        flags |= (array->header.bits & ARRAY_FLAG_CONST_SHALLOW);
+
         REBARR *copy = Copy_Array_Core_Managed(
             arr,
             index, // at
             specifier,
             tail, // tail
             0, // extra
-            ARRAY_FLAG_FILE_LINE, // flags
+            flags, // flags
             types // types to copy deeply
         );
+
         return Init_Any_Array(D_OUT, VAL_TYPE(array), copy);
     }
 
@@ -1002,8 +1011,8 @@ REBTYPE(Array)
         if (not ANY_ARRAY(arg))
             fail (Error_Invalid(arg));
 
-        FAIL_IF_READ_ONLY_ARRAY(arr);
-        FAIL_IF_READ_ONLY_ARRAY(VAL_ARRAY(arg));
+        FAIL_IF_READ_ONLY_ARRAY(array);
+        FAIL_IF_READ_ONLY_ARRAY(arg);
 
         REBCNT index = VAL_INDEX(array);
 
@@ -1025,7 +1034,7 @@ REBTYPE(Array)
     }
 
     case SYM_REVERSE: {
-        FAIL_IF_READ_ONLY_ARRAY(arr);
+        FAIL_IF_READ_ONLY_ARRAY(array);
 
         REBCNT len = Part_Len_May_Modify_Index(array, D_ARG(3));
         if (len == 0)
@@ -1086,7 +1095,7 @@ REBTYPE(Array)
         UNUSED(REF(skip)); // checks size as void
         UNUSED(REF(compare)); // checks comparator as void
 
-        FAIL_IF_READ_ONLY_ARRAY(arr);
+        FAIL_IF_READ_ONLY_ARRAY(array);
 
         Sort_Block(
             array,
@@ -1125,10 +1134,11 @@ REBTYPE(Array)
                 UNUSED(slot);
                 return nullptr;
             }
-            return D_OUT;
+            return Inherit_Const(D_OUT, array);
 
         }
 
+        FAIL_IF_READ_ONLY_ARRAY(array);
         Shuffle_Block(array, REF(secure));
         RETURN (array);
     }

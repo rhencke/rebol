@@ -1108,7 +1108,7 @@ REBTYPE(Image)
         return D_OUT;
 
     case SYM_CLEAR:
-        FAIL_IF_READ_ONLY_SERIES(series);
+        FAIL_IF_READ_ONLY_SERIES(value);
         if (index < tail) {
             SET_SERIES_LEN(VAL_SERIES(value), cast(REBCNT, index));
             Reset_Height(value);
@@ -1117,7 +1117,7 @@ REBTYPE(Image)
         return D_OUT;
 
     case SYM_REMOVE: {
-        FAIL_IF_READ_ONLY_SERIES(series);
+        FAIL_IF_READ_ONLY_SERIES(value);
 
         INCLUDE_PARAMS_OF_REMOVE;
 
@@ -1159,7 +1159,7 @@ REBTYPE(Image)
                 VAL_INDEX(value) = 0;
             RETURN (value); // don't fail on read only if it would be a no-op
         }
-        FAIL_IF_READ_ONLY_SERIES(series);
+        FAIL_IF_READ_ONLY_SERIES(value);
 
         return Modify_Image(frame_, verb);
 
@@ -1320,9 +1320,8 @@ void Poke_Image_Fail_If_Read_Only(
     REBVAL *value,
     const REBVAL *picker,
     const REBVAL *poke
-) {
-    REBSER *series = VAL_SERIES(value);
-    FAIL_IF_READ_ONLY_SERIES(series);
+){
+    FAIL_IF_READ_ONLY_SERIES(value);
 
     REBINT index = cast(REBINT, VAL_INDEX(value));
     REBINT len = VAL_LEN_HEAD(value) - index;

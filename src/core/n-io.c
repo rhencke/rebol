@@ -179,21 +179,18 @@ REBNATIVE(new_line)
     INCLUDE_PARAMS_OF_NEW_LINE;
 
     bool mark = VAL_LOGIC(ARG(mark));
+
     REBVAL *pos = ARG(position);
-    REBARR *a = VAL_ARRAY(pos);
-
-    FAIL_IF_READ_ONLY_ARRAY(a);
-
-    Move_Value(D_OUT, pos); // always returns the input position
+    FAIL_IF_READ_ONLY_ARRAY(pos);
 
     RELVAL *item = VAL_ARRAY_AT(pos);
 
     if (IS_END(item)) { // no value at tail to mark; use bit in array
         if (mark)
-            SET_SER_FLAG(a, ARRAY_FLAG_TAIL_NEWLINE);
+            SET_SER_FLAG(VAL_ARRAY(pos), ARRAY_FLAG_TAIL_NEWLINE);
         else
-            CLEAR_SER_FLAG(a, ARRAY_FLAG_TAIL_NEWLINE);
-        return D_OUT;
+            CLEAR_SER_FLAG(VAL_ARRAY(pos), ARRAY_FLAG_TAIL_NEWLINE);
+        RETURN (pos);
     }
 
     REBINT skip;
@@ -221,7 +218,7 @@ REBNATIVE(new_line)
             break;
     }
 
-    return D_OUT;
+    RETURN (pos);
 }
 
 

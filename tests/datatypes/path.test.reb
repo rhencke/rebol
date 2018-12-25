@@ -137,7 +137,7 @@
 ; recursive path
 (
     a: make object! []
-    path: 'a/a
+    path: mutable 'a/a
     change/only back tail of path path
     error? trap [do path]
     true

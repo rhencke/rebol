@@ -187,14 +187,6 @@ inline static REBSYM CTX_KEY_SYM(REBCTX *c, REBCNT n) {
     return STR_SYMBOL(CTX_KEY_SPELLING(c, n)); // should be same as canon
 }
 
-#define FAIL_IF_READ_ONLY_CONTEXT(c) \
-    FAIL_IF_READ_ONLY_ARRAY(CTX_VARLIST(c))
-
-inline static void FREE_CONTEXT(REBCTX *c) {
-    Free_Unmanaged_Array(CTX_KEYLIST(c));
-    Free_Unmanaged_Array(CTX_VARLIST(c));
-}
-
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
