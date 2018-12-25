@@ -101,14 +101,6 @@
     FLAG_LEFT_BIT(16)
 
 
-//=//// VALUE_FLAG_UNUSED_17 //////////////////////////////////////////////=//
-//
-// Slated for reclamation, likely as VALUE_FLAG_MUTABLE.
-//
-#define VALUE_FLAG_THROWN \
-    FLAG_LEFT_BIT(17)
-
-
 //=//// VALUE_FLAG_FALSEY /////////////////////////////////////////////////=//
 //
 // This flag is used as a quick cache on NULL, BLANK! or LOGIC! false values.
@@ -124,7 +116,7 @@
 // header bit.
 //
 #define VALUE_FLAG_FALSEY \
-    FLAG_LEFT_BIT(18)
+    FLAG_LEFT_BIT(17)
 
 
 //=//// VALUE_FLAG_NEWLINE_BEFORE /////////////////////////////////////////=//
@@ -144,7 +136,7 @@
 // representing paths with newlines in them may be needed.
 //
 #define VALUE_FLAG_NEWLINE_BEFORE \
-    FLAG_LEFT_BIT(19)
+    FLAG_LEFT_BIT(18)
 
 
 //=//// VALUE_FLAG_UNEVALUATED ////////////////////////////////////////////=//
@@ -166,7 +158,7 @@
 // That has a lot of impact for the new user experience.
 //
 #define VALUE_FLAG_UNEVALUATED \
-    FLAG_LEFT_BIT(20)
+    FLAG_LEFT_BIT(19)
 
 
 //=//// VALUE_FLAG_ENFIXED ////////////////////////////////////////////////=//
@@ -186,7 +178,7 @@
 // an ACTION_FLAG_XXX, testing for action-ness vs. just masking it out.
 //
 #define VALUE_FLAG_ENFIXED \
-    FLAG_LEFT_BIT(21)
+    FLAG_LEFT_BIT(20)
 
 
 //=//// VALUE_FLAG_EVAL_FLIP //////////////////////////////////////////////=//
@@ -199,16 +191,36 @@
 // evaluation (without DO_FLAG_EXPLICIT_EVALUATE), hence it is a "flip" bit.
 //
 #define VALUE_FLAG_EVAL_FLIP \
-    FLAG_LEFT_BIT(22) // IMPORTANT: Same bit as DO_FLAG_EXPLICIT_EVALUATE
+    FLAG_LEFT_BIT(21) // IMPORTANT: Same bit as DO_FLAG_EXPLICIT_EVALUATE
+
+
+//=//// VALUE_FLAG_CONST //////////////////////////////////////////////////=//
+//
+// A value that is CONST has read-only access to any series or data it points
+// to, regardless of whether that data is in a locked series or not.  It is
+// possible to get a mutable view on a const value by using MUTABLE, and a
+// const view on a mutable value with CONST.
+//
+#define VALUE_FLAG_CONST \
+    FLAG_LEFT_BIT(22) // NOTE: Must be SAME BIT as DO_FLAG_CONST
 
 
 //=//// VALUE_FLAG_UNUSED_23 //////////////////////////////////////////////=//
 //
-// Currently available.  Possible use: HIDDEN bit, as the current situation of
-// PROTECT/HIDE being on keylists/paramlists means all instances are affected.
+// Reserved for future use.
 //
 #define VALUE_FLAG_UNUSED_23 \
     FLAG_LEFT_BIT(23)
+
+
+// ^-- STOP BEFORE TYPE_SPECIFIC_BIT
+//
+// After 8 bits for node flags, 8 bits for the datatype, and 8 generic value
+// bits...there's only 8 more bits left on 32-bit platforms in the header.
+// Those are used for flags that are sensitive to the datatype.
+//
+#define TYPE_SPECIFIC_BIT (24)
+STATIC_ASSERT(23 < TYPE_SPECIFIC_BIT);
 
 
 // v-- BEGIN PER-TYPE CUSTOM BITS HERE, fourth byte in the header
@@ -218,8 +230,6 @@
 
 #define CUSTOM_BYTE(v) \
     FOURTH_BYTE((v)->header)
-
-#define TYPE_SPECIFIC_BIT (24)
 
 
 // Endlike headers have the second byte clear (to pass the IS_END() test).

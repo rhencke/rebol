@@ -357,14 +357,17 @@ e-types/emit {
      * able to quickly check if a type IS_BINDABLE().  When types are added,
      * or removed, the numbers must shuffle around to preserve invariants.
      *
-     * REB_MAX and beyond should not be used to index into arrays of types,
-     * as there are no corresponding DATATYPE!s for them.  But the values are
-     * used for out-of-band purposes, which should be kept in consideration.
+     * While REB_MAX indicates the maximum actual "DATATYPE!", there are a
+     * list of REB_MAX_PLUS_ONE, REB_MAX_PLUS_TWO, etc. values which are used
+     * for special internal states and flags.  Some of these are used in the
+     * KIND_BYTE() of value cells to mark their usage of alternate payloads
+     * during algorithmic transformations (e.g. specialization).  Others are
+     * used to signal special behaviors when returned from native dispatchers.
      */
   #ifdef CPLUSPLUS_11
-    enum Reb_Kind : int_fast8_t {
+    enum Reb_Kind : int_fast8_t ^{ /* C++11 has "typed enums" */
   #else
-    enum Reb_Kind {
+    enum Reb_Kind ^{
   #endif
         REB_0 = 0, /* reserved for internal purposes */
         REB_0_END = REB_0, /* ...most commonly array termination cells... */
@@ -388,12 +391,16 @@ e-types/emit {
         REB_R_IMMEDIATE = REB_MAX_PLUS_FIVE,
 
         REB_MAX_PLUS_MAX
-  #ifdef CPLUSPLUS_11
-    };
-  #else
-    };
-  #endif
-} ;-- weird close brace thing needed to pair braces inside string literal
+    ^};
+
+    /*
+     * While the VAL_TYPE() is a full byte, only 64 states can fit in the
+     * payload of a TYPESET! at the moment.  Some rethinking would be
+     * necessary if this number exceeds 64 (note some values beyond the
+     * real DATATYPE! values set special signal bits in parameter typesets.)
+     */
+    STATIC_ASSERT(REB_MAX_PLUS_MAX < 64);
+}
 e-types/emit newline
 
 e-types/emit {

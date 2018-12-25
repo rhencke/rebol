@@ -306,12 +306,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     in_mark = true;
   #endif
 
-    // If this happens, it means somehow Recycle() got called between
-    // when an `if (Do_XXX_Throws())` branch was taken and when the throw
-    // should have been caught up the stack (before any more calls made).
-    //
-    assert(not (v->header.bits & VALUE_FLAG_THROWN));
-
     // This switch is done via contiguous REB_XXX values, in order to
     // facilitate use of a "jump table optimization":
     //
@@ -1329,12 +1323,10 @@ static REBCNT Sweep_Series(void)
 
     // Optimization here depends on SWITCH of a bank of 4 bits.
     //
-    static_assert_c(
-        NODE_FLAG_MARKED == FLAG_LEFT_BIT(3) // 0x1 after right shift
-        and (NODE_FLAG_MANAGED == FLAG_LEFT_BIT(2)) // 0x2 after right shift
-        and (NODE_FLAG_FREE == FLAG_LEFT_BIT(1)) // 0x4 after right shift
-        and (NODE_FLAG_NODE == FLAG_LEFT_BIT(0)) // 0x8 after right shift
-    );
+    STATIC_ASSERT(NODE_FLAG_MARKED == FLAG_LEFT_BIT(3)); // 0x1 after shift
+    STATIC_ASSERT(NODE_FLAG_MANAGED == FLAG_LEFT_BIT(2)); // 0x2 after shift
+    STATIC_ASSERT(NODE_FLAG_FREE == FLAG_LEFT_BIT(1)); // 0x4 after shift
+    STATIC_ASSERT(NODE_FLAG_NODE == FLAG_LEFT_BIT(0)); // 0x8 after shift
 
     REBSEG *seg;
     for (seg = Mem_Pools[SER_POOL].segs; seg != NULL; seg = seg->next) {

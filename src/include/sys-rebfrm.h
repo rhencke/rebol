@@ -76,8 +76,11 @@
 // Reb_Frame->cell, as well as be distinguished from a REBVAL*, a REBSER*, or
 // a UTF8 string.
 //
-#define DO_FLAG_0_IS_TRUE FLAG_LEFT_BIT(0) // NODE_FLAG_NODE
-#define DO_FLAG_1_IS_FALSE FLAG_LEFT_BIT(1) // NOT(NODE_FLAG_FREE)
+#define DO_FLAG_0_IS_TRUE FLAG_LEFT_BIT(0) // IS a node
+STATIC_ASSERT(DO_FLAG_0_IS_TRUE == NODE_FLAG_NODE);
+
+#define DO_FLAG_1_IS_FALSE FLAG_LEFT_BIT(1) // is NOT free
+STATIC_ASSERT(DO_FLAG_1_IS_FALSE == NODE_FLAG_FREE);
 
 
 //=//// DO_FLAG_TO_END ////////////////////////////////////////////////////=//
@@ -162,7 +165,8 @@
     FLAG_LEFT_BIT(6)
 
 
-#define DO_FLAG_7_IS_FALSE FLAG_LEFT_BIT(7) // NOT(NODE_FLAG_CELL)
+#define DO_FLAG_7_IS_FALSE FLAG_LEFT_BIT(7) // is NOT a cell
+STATIC_ASSERT(DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 
 
 //=//// BITS 8-15 ARE 0 FOR END SIGNAL ////////////////////////////////////=//
@@ -229,17 +233,6 @@
     FLAG_LEFT_BIT(20)
 
 
-//=//// DO_FLAG_PARSE_FRAME ///////////////////////////////////////////////=//
-//
-// This flag is set when a REBFRM* is being used to hold the state of the
-// PARSE stack.  One application of knowing this is that PARSE wasn't really
-// written to use frames, and doesn't follow the same rules as the evaluator;
-// so the debugging checks have to be more lax;
-//
-#define DO_FLAG_PARSE_FRAME \
-    FLAG_LEFT_BIT(21)
-
-
 //=//// DO_FLAG_EXPLICIT_EVALUATE /////////////////////////////////////////=//
 //
 // Sometimes a DO operation has already calculated values, and does not want
@@ -252,23 +245,36 @@
 // behavior.
 //
 #define DO_FLAG_EXPLICIT_EVALUATE \
-    FLAG_LEFT_BIT(22) // IMPORTANT: Same bit as VALUE_FLAG_EVAL_FLIP
+    FLAG_LEFT_BIT(21)
+STATIC_ASSERT(DO_FLAG_EXPLICIT_EVALUATE == VALUE_FLAG_EVAL_FLIP);
 
 
-//=//// DO_FLAG_PUSH_PATH_REFINEMENTS /////////////////////////////////////=//
+//=//// DO_FLAG_PARSE_FRAME ///////////////////////////////////////////////=//
 //
-// It is technically possible to produce a new specialized ACTION! each
-// time you used a PATH!.  This is needed for `apdo: :append/dup/only` as a
-// method of partial specialization, but would be costly if just invoking
-// a specialization once.  So path dispatch can be asked to push the path
-// refinements in the reverse order of their invocation.
+// This flag is set when a REBFRM* is being used to hold the state of the
+// PARSE stack.  One application of knowing this is that PARSE wasn't really
+// written to use frames, and doesn't follow the same rules as the evaluator;
+// so the debugging checks have to be more lax;
 //
-// This mechanic is also used by SPECIALIZE, so that specializing refinements
-// in order via a path and values via a block of code can be done in one
-// step, vs needing to make an intermediate ACTION!.
+#define DO_FLAG_PARSE_FRAME \
+    FLAG_LEFT_BIT(22)
+
+
+//=//// DO_FLAG_CONST /////////////////////////////////////////////////////=//
 //
-#define DO_FLAG_PUSH_PATH_REFINEMENTS \
-    FLAG_LEFT_BIT(23)
+// CONST-ness is carried by values, not by arrays...and so calls into the
+// evaluator that pass arrays have to extract any relevant VALUE_FLAG_CONST
+// so it knows whether argument slots should be marked const or not, based
+// on the context of the executing array.
+//
+// Most of what happens is that the flag just gets piped through the frames,
+// so that when you see an item like a BLOCK!, the switch in %c-eval.c for
+// the inert items puts the const flag on that block--as it fills it into
+// a frame argument (or wherever).
+//
+#define DO_FLAG_CONST \
+    FLAG_LEFT_BIT(22)
+STATIC_ASSERT(DO_FLAG_CONST == VALUE_FLAG_CONST);
 
 
 //=//// DO_FLAG_BARRIER_HIT ///////////////////////////////////////////////=//
@@ -343,6 +349,22 @@
     FLAG_LEFT_BIT(28)
 
 
+//=//// DO_FLAG_PUSH_PATH_REFINEMENTS /////////////////////////////////////=//
+//
+// It is technically possible to produce a new specialized ACTION! each
+// time you used a PATH!.  This is needed for `apdo: :append/dup/only` as a
+// method of partial specialization, but would be costly if just invoking
+// a specialization once.  So path dispatch can be asked to push the path
+// refinements in the reverse order of their invocation.
+//
+// This mechanic is also used by SPECIALIZE, so that specializing refinements
+// in order via a path and values via a block of code can be done in one
+// step, vs needing to make an intermediate ACTION!.
+//
+#define DO_FLAG_PUSH_PATH_REFINEMENTS \
+    FLAG_LEFT_BIT(29)
+
+
 #if !defined(NDEBUG)
 
     //=//// DO_FLAG_FINAL_DEBUG ///////////////////////////////////////////=//
@@ -355,14 +377,12 @@
     //
 
     #define DO_FLAG_FINAL_DEBUG \
-        FLAG_LEFT_BIT(29)
+        FLAG_LEFT_BIT(30)
 
 #endif
 
 
-#ifdef CPLUSPLUS_11
-    static_assert(29 < 32, "DO_FLAG_XXX too high");
-#endif
+STATIC_ASSERT(30 < 32); // otherwise DO_FLAG_XXX too high
 
 
 

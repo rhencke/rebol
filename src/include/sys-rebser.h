@@ -319,8 +319,11 @@
 // See Endlike_Header() for why the reserved bits are chosen the way they are.
 //
 
-#define SERIES_INFO_0_IS_TRUE FLAG_LEFT_BIT(0) // NODE_FLAG_NODE
-#define SERIES_INFO_1_IS_FALSE FLAG_LEFT_BIT(1) // NOT(NODE_FLAG_FREE)
+#define SERIES_INFO_0_IS_TRUE FLAG_LEFT_BIT(0) // IS a node
+STATIC_ASSERT(SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE);
+
+#define SERIES_INFO_1_IS_FALSE FLAG_LEFT_BIT(1) // is NOT free
+STATIC_ASSERT(SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE);
 
 
 //=//// SERIES_INFO_2 /////////////////////////////////////////////////////=//
@@ -395,7 +398,8 @@
     FLAG_LEFT_BIT(6)
 
 
-#define SERIES_INFO_7_IS_FALSE FLAG_LEFT_BIT(7) // NOT(NODE_FLAG_CELL)
+#define SERIES_INFO_7_IS_FALSE FLAG_LEFT_BIT(7) // is NOT a cell
+STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
 
 
 //=//// BITS 8-15 ARE FOR SER_WIDE() //////////////////////////////////////=//
@@ -558,9 +562,7 @@
 // While 64-bit systems have another 32-bits available in the header, core
 // functionality shouldn't require using them...only optimization features.
 //
-#ifdef CPLUSPLUS_11
-    static_assert(31 < 32, "SERIES_INFO_XXX too high");
-#endif
+STATIC_ASSERT(31 < 32);
 
 
 //=////////////////////////////////////////////////////////////////////////=//

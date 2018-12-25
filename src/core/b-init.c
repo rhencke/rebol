@@ -147,31 +147,6 @@ static void Assert_Basics(void)
     ){
         panic ("bad structure alignment for internal array termination");
     }
-
-    // While REB_MAX indicates the maximum user-visible type, there are a
-    // list of REB_MAX_PLUS_ONE, REB_MAX_PLUS_TWO, etc. values which are used
-    // for special internal states and flags.  Some of these are used in the
-    // KIND_BYTE() of value cells to mark their usage of alternate payloads
-    // during algorithmic transformations (e.g. specialization).  Others are
-    // used to squeeze extra bits for parameters into the 64-bits of typeset
-    // payload...since the "type-specific-bits" are used for parameter class.
-    //
-    // Some rethinking would be necessary if this number exceeds 64.
-    //
-    assert(REB_MAX_PLUS_MAX < 64);
-
-    // Make sure tricks for "internal END markers" are lined up as expected.
-    //
-    assert(
-        SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE
-        and SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE
-        and SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL
-    );
-    assert(
-        DO_FLAG_0_IS_TRUE == NODE_FLAG_NODE
-        and DO_FLAG_1_IS_FALSE == NODE_FLAG_FREE
-        and DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL
-    );
 }
 
 

@@ -176,26 +176,28 @@
 #endif
 
 
-//=//// STATIC ASSERT FOR C ///////////////////////////////////////////////=//
+//=//// STATIC ASSERT /////////////////////////////////////////////////////=//
 //
 // Some conditions can be checked at compile-time, instead of deferred to a
 // runtime assert.  This macro triggers an error message at compile time.
-// `static_assert` is an arity-2 keyword in C++11 (which was expanded in
-// C++17 to have an arity-1 form).  This uses the name `static_assert_c` to
-// implement a poor-man's version of the arity-1 form in C, that only works
-// inside of function bodies.
+// `static_assert` is an arity-2 keyword in C++11 and can act as arity-1 in
+// C++17, for expedience we mock up an arity-1 form.
 //
-// !!! This was the one being used, but review if it's the best choice:
+// It's possible to hack up a static assert in C:
 //
 // http://stackoverflow.com/questions/3385515/static-assert-in-c
-// or http://stackoverflow.com/a/809465/211160
+//
+// But it's too limited, and since the code can (and should) be built as C++11
+// to test.  So just make it a no-op in the C build.
 //
 #ifdef CPLUSPLUS_11
-    #define static_assert_c(e) \
-        static_assert((e), "compile-time static assert failure")
+    #define STATIC_ASSERT(cond) \
+        static_assert((cond), #cond)
 #else
-    #define static_assert_c(e) \
-        do {(void)sizeof(char[1 - 2*!(e)]);} while(0)
+    // https://stackoverflow.com/q/53923706
+    //
+    #define STATIC_ASSERT(cond) \
+        struct StaticAssertSurrogate
 #endif
 
 

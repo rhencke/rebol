@@ -451,10 +451,10 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // RESET_VAL_HEADER clears out the header of *most* bits, setting it to a
-// new type.  The type takes up the full "rightmost" byte of the header,
-// despite the fact it only needs 6 bits.  However, the performance advantage
-// of not needing to mask to do VAL_TYPE() is worth it...also there may be a
-// use for 256 types (although type bitsets are only 64-bits at the moment)
+// new type.  The type takes up the full second byte of the header, despite
+// the fact it only needs 6 bits.  However, the performance advantage of not
+// needing to mask to do VAL_TYPE() is worth it...also there may be a use for
+// 256 types (although type bitsets are only 64-bits at the moment)
 //
 // The value is expected to already be "pre-formatted" with the NODE_FLAG_CELL
 // bit, so that is left as-is.  It is also expected that CELL_FLAG_STACK has
@@ -882,10 +882,9 @@ inline static const REBVAL *NULLIZE(const REBVAL *cell)
 //
 // Void! results are the default for `do []`, and unlike NULL a void! *is*
 // a value...however a somewhat unfriendly one.  While NULLs are falsey, void!
-// is *neither* truthy nor falsey.  But like NULL they can't be casually
-// assigned via a SET-WORD!, SET-PATH!, or SET.  Though a void! can be put in
-// an array (a NULL can't) if the evaluator comes across a void! cell in an
-// array, it will trigger an error.
+// is *neither* truthy nor falsey.  Though a void! can be put in an array (a
+// NULL can't) if the evaluator tries to run a void! cell in an array, it will
+// trigger an error.
 //
 // Void! also comes into play in what is known as "voidification" of NULLs.
 // Loops wish to reserve NULL as the return result if there is a BREAK, and
@@ -1040,7 +1039,7 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
 // A logic can be either true or false.  For purposes of optimization, logical
 // falsehood is indicated by one of the value option bits in the header--as
 // opposed to in the value payload.  This means it can be tested quickly, and
-// that a single check can test for both BLANK! and logic false.
+// that a single check can test for BLANK!, logic false, or nulled.
 //
 // Conditional truth and falsehood allows an interpretation where a BLANK!
 // is a "falsey" value as well.
