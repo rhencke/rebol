@@ -62,6 +62,8 @@ inline static bool Do_Any_Array_At_Throws(
     REBVAL *out,
     const REBVAL *any_array // Note: can be same pointer as `out`
 ){
+    assert(out != any_array); // Was legal at one time, but no longer
+
     // If the user said something like `do mutable load %data.reb`, then the
     // value carries along with it a disablement of inheriting constness...
     // even if the frame has it set.
