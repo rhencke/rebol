@@ -96,3 +96,11 @@
     append data/2/2 <success>
     data = [a [b [c <success>] <success>] <success>]
 )
+
+;; https://github.com/metaeducation/ren-c/issues/633
+;;
+(
+    e: trap [repeat x 1 [append foo: [] x]]
+    e/id = 'const-value
+)
+([1] = repeat x 1 [append foo: mutable [] x])

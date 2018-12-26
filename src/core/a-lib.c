@@ -429,7 +429,14 @@ long RL_rebTick(void)
 
 
 //
-//  rebArg: RL_API
+//  rebArgR: RL_API
+//
+// This is the version of getting an argument that does not require a release.
+// However, it is more optimal than `rebR(rebArg(...))`, because how it works
+// is by returning the actual REBVAL* to the argument in the frame.  It's not
+// good to have client code having those as handles--however--as they do not
+// follow the normal rules for lifetime, so rebArg() should be used if the
+// client really requires a REBVAL*.
 //
 // !!! When code is being used to look up arguments of a function, exactly
 // how that will work is being considered:
@@ -440,7 +447,7 @@ long RL_rebTick(void)
 // For the moment, this routine specifically accesses arguments of the most
 // recent ACTION! on the stack.
 //
-REBVAL *RL_rebArg(const void *p, va_list *vaptr)
+const void *RL_rebArgR(const void *p, va_list *vaptr)
 {
     REBFRM *f = FS_TOP;
     REBACT *act = FRM_PHASE(f);
@@ -463,10 +470,27 @@ REBVAL *RL_rebArg(const void *p, va_list *vaptr)
     REBVAL *arg = FRM_ARGS_HEAD(f);
     for (; NOT_END(param); ++param, ++arg) {
         if (SAME_STR(VAL_PARAM_SPELLING(param), spelling))
-            return Move_Value(Alloc_Value(), arg);
+            return arg;
     }
 
     fail ("Unknown rebArg(...) name.");
+}
+
+
+//
+//  rebArg: RL_API
+//
+// Wrapper over the more optimal rebArgR() call, which can be used to get
+// an "safer" API handle to the argument.
+//
+REBVAL *RL_rebArg(const void *p, va_list *vaptr)
+{
+    const void* argR = RL_rebArgR(p, vaptr);
+    if (not argR)
+        return nullptr;
+
+    REBVAL *arg = cast(REBVAL*, c_cast(void*, argR)); // sneaky, but we know!
+    return Move_Value(Alloc_Value(), arg); // don't give REBVAL* arg directly
 }
 
 
