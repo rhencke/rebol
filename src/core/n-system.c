@@ -307,6 +307,26 @@ int ceil_log2(unsigned long long x) {
 
 
 //
+//  c-debug-tick: native [
+//
+//  {Get the evaluator tick count (currently only available in debug builds)}
+//
+//      return: [<opt> integer!]
+// ]
+//
+REBNATIVE(c_debug_tick)
+{
+    INCLUDE_PARAMS_OF_C_DEBUG_TICK;
+
+  #if !defined(NDEBUG) && defined(DEBUG_COUNT_TICKS)
+    return Init_Integer(D_OUT, TG_Tick);
+  #else
+    return nullptr;
+  #endif
+}
+
+
+//
 //  c-debug-break-at: native [
 //
 //  {Break at known evaluation point (only use when running under C debugger}

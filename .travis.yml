@@ -613,6 +613,14 @@ script:
           make clean prep folders
           make -j ${MAKE_JOBS} ${TARGET}
 
+          # We do a simple HTTPS read test on the second build, but we can
+          # also do a check here when it has the address sanitizer, which may
+          # catch more problems.
+          #
+          ./r3 --do "print {Testing...} quit/with either find to-text read https://example.com {<h1>Example Domain</h1>} [0] [1]";
+          R3_EXIT_STATUS=$?;
+          echo ${R3_EXIT_STATUS}
+
           mv r3 r3-make;
           make clean prep folders;
           export R3_ALWAYS_MALLOC=1
