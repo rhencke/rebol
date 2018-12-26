@@ -1459,15 +1459,12 @@ inline static bool Interpreted_Dispatch_Throws(REBVAL *out, REBFRM *f)
 //
 //  Unchecked_Dispatcher: C
 //
-// This is the default MAKE ACTION! dispatcher for interpreted functions
-// (whose body is a block that runs through DO []).  There is no return type
-// checking done on these simple functions.
+// Runs block, then no typechecking (e.g. had no RETURN: [...] type spec)
 //
 REB_R Unchecked_Dispatcher(REBFRM *f)
 {
     if (Interpreted_Dispatch_Throws(f->out, f))
         return R_THROWN;
-
     return f->out;
 }
 
@@ -1475,15 +1472,12 @@ REB_R Unchecked_Dispatcher(REBFRM *f)
 //
 //  Voider_Dispatcher: C
 //
-// Variant of Unchecked_Dispatcher, except sets the output value to void.
-// Pushing that code into the dispatcher means there's no need to do flag
-// testing in the main loop.
+// Runs block, then overwrites result w/void (e.g. RETURN: <void>)
 //
 REB_R Voider_Dispatcher(REBFRM *f)
 {
-    if (Interpreted_Dispatch_Throws(f->out, f))
+    if (Interpreted_Dispatch_Throws(f->out, f)) // action body is a BLOCK!
         return R_THROWN;
-
     return Init_Void(f->out);
 }
 
@@ -1491,9 +1485,10 @@ REB_R Voider_Dispatcher(REBFRM *f)
 //
 //  Returner_Dispatcher: C
 //
-// Contrasts with the Unchecked_Dispatcher since it ensures the return type is
-// correct.  (Note that natives do not get this type checking, and they
-// probably shouldn't pay for it except in the debug build.)
+// Runs block, ensure type matches RETURN: [...] specification, else fail.
+//
+// Note: Natives get this check only in the debug build, but not here (their
+// dispatcher *is* the native!)  So the extra check is in Eval_Core_Throws().
 //
 REB_R Returner_Dispatcher(REBFRM *f)
 {
@@ -1505,8 +1500,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
     // Typeset bits for locals in frames are usually ignored, but the RETURN:
-    // local uses them for the return types of a "virtual" definitional return
-    // if the parameter is PARAM_CLASS_RETURN_1.
+    // local uses them for the return types of a function.
     //
     if (not TYPE_CHECK(typeset, VAL_TYPE(f->out)))
         fail (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
@@ -1518,10 +1512,8 @@ REB_R Returner_Dispatcher(REBFRM *f)
 //
 //  Elider_Dispatcher: C
 //
-// This is used by "invisible" functions (who in their spec say `return: []`).
-// The goal is to evaluate a function call in such a way that its presence
-// doesn't disrupt the chain of evaluation any more than if the call were not
-// there.  (The call can have side effects, however.)
+// Used by "invisible" functions (who in their spec say `RETURN: []`).  Runs
+// block but without changing any value already in f->out.
 //
 REB_R Elider_Dispatcher(REBFRM *f)
 {

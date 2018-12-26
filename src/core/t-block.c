@@ -1159,6 +1159,118 @@ REBTYPE(Array)
 }
 
 
+//
+//  blockify: native [
+//
+//  {If a value isn't already a BLOCK!, enclose it in a block, else return it}
+//
+//      return: [block!]
+//      value "NULL input will produce an empty block"
+//          [<opt> any-value!]
+//  ]
+//
+REBNATIVE(blockify)
+{
+    INCLUDE_PARAMS_OF_BLOCKIFY;
+
+    REBVAL *v = ARG(value);
+    if (IS_BLOCK(v))
+        RETURN (v);
+
+    REBARR *a = Make_Arr_Core(1, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE);
+    if (IS_NULLED(v)) {
+        // leave empty
+    } else {
+        Move_Value(ARR_HEAD(a), v);
+        TERM_ARRAY_LEN(a, 1);
+    }
+    return Init_Block(D_OUT, a);
+}
+
+
+//
+//  groupify: native [
+//
+//  {If a value isn't already a GROUP!, enclose it in a group, else return it}
+//
+//      return: [group!]
+//      value "NULL input will produce an empty group"
+//          [<opt> any-value!]
+//  ]
+//
+REBNATIVE(groupify)
+{
+    INCLUDE_PARAMS_OF_GROUPIFY;
+
+    REBVAL *v = ARG(value);
+    if (IS_GROUP(v))
+        RETURN (v);
+
+    REBARR *a = Make_Arr_Core(1, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE);
+    if (IS_NULLED(v)) {
+        // leave empty
+    } else {
+        Move_Value(ARR_HEAD(a), v);
+        TERM_ARRAY_LEN(a, 1);
+    }
+    return Init_Group(D_OUT, a);
+}
+
+
+//
+//  enblock: native [
+//
+//  {Enclose a value in a BLOCK!, even if it's already a block}
+//
+//      return: [block!]
+//      value "NULL input will produce an empty block"
+//          [<opt> any-value!]
+//  ]
+//
+REBNATIVE(enblock)
+{
+    INCLUDE_PARAMS_OF_ENBLOCK;
+
+    REBVAL *v = ARG(value);
+
+    REBARR *a = Make_Arr_Core(1, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE);
+    if (IS_NULLED(v)) {
+        // leave empty
+    } else {
+        Move_Value(ARR_HEAD(a), v);
+        TERM_ARRAY_LEN(a, 1);
+    }
+    return Init_Block(D_OUT, a);
+}
+
+
+//
+//  engroup: native [
+//
+//  {Enclose a value in a GROUP!, even if it's already a group}
+//
+//      return: [group!]
+//      value "NULL input will produce an empty group"
+//          [<opt> any-value!]
+//  ]
+//
+REBNATIVE(engroup)
+{
+    INCLUDE_PARAMS_OF_ENGROUP;
+
+    REBVAL *v = ARG(value);
+
+    REBARR *a = Make_Arr_Core(1, NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE);
+    if (IS_NULLED(v)) {
+        // leave empty
+    } else {
+        Move_Value(ARR_HEAD(a), v);
+        TERM_ARRAY_LEN(a, 1);
+    }
+    return Init_Group(D_OUT, a);
+}
+
+
 #if !defined(NDEBUG)
 
 //
