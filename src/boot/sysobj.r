@@ -74,16 +74,16 @@ state: construct [] [
     last-error: _ ; used by WHY?
 ]
 
-modules: copy [] ; Note: MUTABLE not in bootstrap build yet
-extensions: copy [] ; Note: MUTABLE not in bootstrap build yet
+modules: mutable []
+extensions: mutable []
 
 codecs: make object! [[][]]
 
 schemes: make object! [[][]]
 
 ports: construct [] [
-    wait-list: []   ; List of ports to add to 'wait
-    pump: []
+    wait-list: mutable [] ; List of ports to add to 'wait
+    pump: mutable []
     input:          ; Port for user input.
     output:         ; Port for user output
     system:         ; Port for system events
@@ -117,7 +117,7 @@ options: construct [] [  ; Options supplied to REBOL during startup
     home: _         ; Path of home directory
     resources: _    ; users resources directory (for %user.r, skins, modules etc)
     suppress: _     ; block of user --suppress items, eg [%rebol.r %user.r %console-skin.reb]
-    loaded: []      ; block with full paths to loaded start-up scripts
+    loaded: mutable [] ; block with full paths to loaded start-up scripts
     path: _         ; Where script was started or the startup dir
 
     current-path: _ ; Current URL! or FILE! path to use for relative lookups
@@ -581,7 +581,7 @@ user: construct [] [
    home:           ; The HOME environment variable
    words: _
    identity: construct [][email: smtp: pop3: esmtp-user: esmtp-pass: fqdn: _]
-   identities: []
+   identities: mutable []
 ]
 
 ;network: construct [] [
@@ -631,7 +631,7 @@ cgi: construct [] [ ; CGI environment variables
        remote-ident:
        Content-Type:           ; cap'd for email header
        content-length: _
-       other-headers: []
+       other-headers: mutable []
 ]
 ;   browser-type: 0
 
