@@ -178,7 +178,7 @@
 //
 
 #define VAL_TYPE_RAW(v) \
-    cast(enum Reb_Kind, const_KIND_BYTE(v))
+    cast(enum Reb_Kind, KIND_BYTE(v))
 
 #define FLAGIT_KIND(t) \
     (cast(REBU64, 1) << (t)) // makes a 64-bit bitflag
@@ -380,7 +380,7 @@ inline static enum Reb_Kind VAL_UNESCAPED_KIND(const RELVAL *v) {
                 else \
                     assert(false); \
             } \
-            SECOND_BYTE(flags) = 0; \
+            mutable_SECOND_BYTE(flags) = 0; \
         } \
 
     inline static void SET_VAL_FLAGS(RELVAL *v, uintptr_t f) {
@@ -647,7 +647,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     // Otherwise the value-specific flags might be misinterpreted.
     //
     ASSERT_CELL_WRITABLE_EVIL_MACRO(v, __FILE__, __LINE__);
-    KIND_BYTE(v) = kind;
+    mutable_KIND_BYTE(v) = kind;
 }
 
 
@@ -728,7 +728,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
     ){
         ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
-        SECOND_BYTE(v->header) = REB_0_END; // only line in release build
+        mutable_SECOND_BYTE(v->header) = REB_0_END; // release build behavior
         v->header.bits |= VALUE_FLAG_FALSEY; // speeds VAL_TYPE_Debug() check
 
         TRACK_CELL_IF_DEBUG(v, file, line);
@@ -739,7 +739,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
         SET_END_Debug((v), __FILE__, __LINE__)
 #else
     inline static REBVAL *SET_END(RELVAL *v) {
-        SECOND_BYTE(v->header) = REB_0_END; // needs to be a prepared cell
+        mutable_SECOND_BYTE(v->header) = REB_0_END; // must be a prepared cell
         return cast(REBVAL*, v);
     }
 #endif

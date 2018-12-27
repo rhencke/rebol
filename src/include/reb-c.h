@@ -796,40 +796,40 @@
 // aliasing exemption for character types.
 
 #define FIRST_BYTE(flags) \
-    ((unsigned char*)&(flags))[0]
-
-#define SECOND_BYTE(flags) \
-    ((unsigned char*)&(flags))[1]
-
-#define THIRD_BYTE(flags) \
-    ((unsigned char*)&(flags))[2]
-
-#define FOURTH_BYTE(flags) \
-    ((unsigned char*)&(flags))[3]
-
-#define const_FIRST_BYTE(flags) \
     ((const unsigned char*)&(flags))[0]
 
-#define const_SECOND_BYTE(flags) \
+#define SECOND_BYTE(flags) \
     ((const unsigned char*)&(flags))[1]
 
-#define const_THIRD_BYTE(flags) \
+#define THIRD_BYTE(flags) \
     ((const unsigned char*)&(flags))[2]
 
-#define const_FOURTH_BYTE(flags) \
+#define FOURTH_BYTE(flags) \
     ((const unsigned char*)&(flags))[3]
 
+#define mutable_FIRST_BYTE(flags) \
+    ((unsigned char*)&(flags))[0]
+
+#define mutable_SECOND_BYTE(flags) \
+    ((unsigned char*)&(flags))[1]
+
+#define mutable_THIRD_BYTE(flags) \
+    ((unsigned char*)&(flags))[2]
+
+#define mutable_FOURTH_BYTE(flags) \
+    ((unsigned char*)&(flags))[3]
+
 #define FIRST_UINT16(flags) \
-    ((uint16_t*)&(flags))[0]
-
-#define SECOND_UINT16(flags) \
-    ((uint16_t*)&(flags))[1]
-
-#define const_FIRST_UINT16(flags) \
     ((const uint16_t*)&(flags))[0]
 
-#define const_SECOND_UINT16(flags) \
+#define SECOND_UINT16(flags) \
     ((const uint16_t*)&(flags))[1]
+
+#define mutable_FIRST_UINT16(flags) \
+    ((uint16_t*)&(flags))[0]
+
+#define mutable_SECOND_UINT16(flags) \
+    ((uint16_t*)&(flags))[1]
 
 
 // !!! SECOND_UINT32 should be defined on 64-bit platforms, for any enhanced

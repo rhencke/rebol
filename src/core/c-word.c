@@ -332,7 +332,7 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         // words in C switch statements, the synonym inherits that number.
         //
         assert(SECOND_UINT16(intern->header) == 0);
-        SECOND_UINT16(intern->header) = STR_SYMBOL(canon);
+        mutable_SECOND_UINT16(intern->header) = STR_SYMBOL(canon);
     }
 
   #if !defined(NDEBUG)
@@ -550,7 +550,7 @@ void Startup_Symbols(REBARR *words)
             // (length %words.r > 256)
             //
             assert(SECOND_UINT16(name->header) == 0);
-            SECOND_UINT16(name->header) = sym;
+            mutable_SECOND_UINT16(name->header) = sym;
             assert(SAME_SYM_NONZERO(STR_SYMBOL(name), sym));
 
             name = LINK(name).synonym;

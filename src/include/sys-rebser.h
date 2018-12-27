@@ -422,6 +422,9 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
 #define WIDE_BYTE_OR_0(s) \
     SECOND_BYTE((s)->info.bits)
 
+#define mutable_WIDE_BYTE_OR_0(s) \
+    mutable_SECOND_BYTE((s)->info.bits)
+
 
 //=//// BITS 16-23 ARE SER_LEN() FOR NON-DYNAMIC SERIES ///////////////////=//
 
@@ -440,11 +443,11 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
 #define FLAG_LEN_BYTE_OR_255(len) \
     FLAG_THIRD_BYTE(len)
 
-#define const_LEN_BYTE_OR_255(s) \
-    const_THIRD_BYTE((s)->info)
-
 #define LEN_BYTE_OR_255(s) \
     THIRD_BYTE((s)->info)
+
+#define mutable_LEN_BYTE_OR_255(s) \
+    mutable_THIRD_BYTE((s)->info)
 
 
 //=//// SERIES_INFO_AUTO_LOCKED ///////////////////////////////////////////=//

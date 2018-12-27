@@ -543,7 +543,7 @@ REBNATIVE(enclose)
     // as ACTION_FLAG_NATIVE.  For now just clear out all the type-specific
     // bits and let Make_Action() cache the flags it needs.
     //
-    CUSTOM_BYTE(rootparam) = 0;
+    mutable_CUSTOM_BYTE(rootparam) = 0;
 
     // See %sysobj.r for `enclosed-meta:` object template
 

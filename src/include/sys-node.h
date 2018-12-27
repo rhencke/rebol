@@ -142,7 +142,7 @@ inline static void Free_Node(REBCNT pool_id, void *p)
 
     REBNOD *node = NOD(p);
 
-    FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
+    mutable_FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
 
     REBPOL *pool = &Mem_Pools[pool_id];
 

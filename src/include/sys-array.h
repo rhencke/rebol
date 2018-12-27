@@ -115,7 +115,7 @@ inline static void TERM_ARRAY_LEN(REBARR *a, REBCNT len) {
     if (NOT_END(ARR_AT(a, len)))
         ASSERT_CELL_WRITABLE_EVIL_MACRO(ARR_AT(a, len), __FILE__, __LINE__);
   #endif
-    SECOND_BYTE(ARR_AT(a, len)->header.bits) = REB_0_END;
+    mutable_SECOND_BYTE(ARR_AT(a, len)->header.bits) = REB_0_END;
 }
 
 inline static void SET_ARRAY_LEN_NOTERM(REBARR *a, REBCNT len) {
@@ -348,7 +348,7 @@ inline static REBARR *Make_Arr_For_Copy(
 inline static REBARR *Alloc_Singular(REBFLGS flags) {
     assert(not (flags & SERIES_FLAG_ALWAYS_DYNAMIC));
     REBARR *a = Make_Arr_Core(1, flags | SERIES_FLAG_FIXED_SIZE);
-    LEN_BYTE_OR_255(SER(a)) = 1; // non-dynamic length (defaulted to 0)
+    mutable_LEN_BYTE_OR_255(SER(a)) = 1; // non-dynamic length (default was 0)
     return a;
 }
 

@@ -435,7 +435,7 @@ void Fill_Pool(REBPOL *pool)
     }
 
     while (true) {
-        FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
+        mutable_FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
 
         if (--units == 0) {
             node->next_if_free = nullptr;
@@ -650,7 +650,7 @@ void Free_Unbiased_Series_Data(char *unbiased, REBCNT total)
         pool->first = node;
         pool->free++;
 
-        FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
+        mutable_FIRST_BYTE(node->header) = FREED_SERIES_BYTE;
     }
     else {
         FREE_N(char, total, unbiased);
@@ -855,7 +855,7 @@ void Expand_Series(REBSER *s, REBCNT index, REBCNT delta)
     // The new series will *always* be dynamic, because it would not be
     // expanding if a fixed size allocation was sufficient.
 
-    LEN_BYTE_OR_255(s) = 255; // series alloc caller sets
+    mutable_LEN_BYTE_OR_255(s) = 255; // series alloc caller sets
     SET_SER_FLAG(s, SERIES_FLAG_POWER_OF_2);
     if (not Did_Series_Data_Alloc(s, len_old + delta + x))
         fail (Error_No_Memory((len_old + delta + x) * wide));
@@ -920,12 +920,12 @@ void Swap_Series_Content(REBSER* a, REBSER* b)
     // of non-dynamic series lives in the info.
 
     REBYTE a_wide = WIDE_BYTE_OR_0(a); // indicates array if 0
-    WIDE_BYTE_OR_0(a) = WIDE_BYTE_OR_0(b);
-    WIDE_BYTE_OR_0(b) = a_wide;
+    mutable_WIDE_BYTE_OR_0(a) = WIDE_BYTE_OR_0(b);
+    mutable_WIDE_BYTE_OR_0(b) = a_wide;
 
     REBYTE a_len = LEN_BYTE_OR_255(a); // indicates dynamic if 255
-    LEN_BYTE_OR_255(a) = LEN_BYTE_OR_255(b);
-    LEN_BYTE_OR_255(b) = a_len;
+    mutable_LEN_BYTE_OR_255(a) = LEN_BYTE_OR_255(b);
+    mutable_LEN_BYTE_OR_255(b) = a_len;
 
     union Reb_Series_Content a_content;
     memcpy(&a_content, &a->content, sizeof(union Reb_Series_Content));
@@ -981,14 +981,14 @@ void Remake_Series(REBSER *s, REBCNT units, REBYTE wide, REBFLGS flags)
         data_old = cast(char*, &content_old);
     }
 
-    WIDE_BYTE_OR_0(s) = wide;
+    mutable_WIDE_BYTE_OR_0(s) = wide;
     s->header.bits |= flags;
 
     // !!! Currently the remake won't make a series that fits in the size of
     // a REBSER.  All series code needs a general audit, so that should be one
     // of the things considered.
 
-    LEN_BYTE_OR_255(s) = 255; // series alloc caller sets
+    mutable_LEN_BYTE_OR_255(s) = 255; // series alloc caller sets
     if (not Did_Series_Data_Alloc(s, units + 1)) {
         // Put series back how it was (there may be extant references)
         s->content.dynamic.data = cast(char*, data_old);
@@ -1067,7 +1067,7 @@ void Decay_Series(REBSER *s)
             ? INT32_MAX
             : tmp;
 
-        LEN_BYTE_OR_255(s) = 1; // !!! is this right?
+        mutable_LEN_BYTE_OR_255(s) = 1; // !!! is this right?
     }
     else {
         // Special GC processing for HANDLE! when the handle is implemented as

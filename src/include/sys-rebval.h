@@ -73,11 +73,11 @@
 #define FLAG_KIND_BYTE(kind) \
     FLAG_SECOND_BYTE(kind)
 
-#define const_KIND_BYTE(v) \
-    const_SECOND_BYTE((v)->header)
-
 #define KIND_BYTE(v) \
     SECOND_BYTE((v)->header)
+
+#define mutable_KIND_BYTE(v) \
+    mutable_SECOND_BYTE((v)->header)
 
 
 // v-- BEGIN GENERAL CELL BITS HERE, third byte in the header
@@ -237,11 +237,11 @@ STATIC_ASSERT(23 < TYPE_SPECIFIC_BIT);
 
 // v-- BEGIN PER-TYPE CUSTOM BITS HERE, fourth byte in the header
 
-#define const_CUSTOM_BYTE(v) \
-    const_FOURTH_BYTE((v)->header)
-
 #define CUSTOM_BYTE(v) \
     FOURTH_BYTE((v)->header)
+
+#define mutable_CUSTOM_BYTE(v) \
+    mutable_FOURTH_BYTE((v)->header)
 
 
 // Endlike headers have the second byte clear (to pass the IS_END() test).

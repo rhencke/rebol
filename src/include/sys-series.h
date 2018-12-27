@@ -154,7 +154,7 @@ inline static void SET_SERIES_LEN(REBSER *s, REBCNT len) {
         s->content.dynamic.len = len;
     else {
         assert(len < sizeof(s->content));
-        LEN_BYTE_OR_255(s) = len;
+        mutable_LEN_BYTE_OR_255(s) = len;
     }
 }
 
@@ -736,7 +736,7 @@ inline static REBSER *Make_Ser_Core(
         // capacity given back as the ->rest may be larger than the requested
         // size, because the memory pool reports the full rounded allocation.
 
-        LEN_BYTE_OR_255(s) = 255; // alloc caller sets
+        mutable_LEN_BYTE_OR_255(s) = 255; // alloc caller sets
         if (not Did_Series_Data_Alloc(s, capacity))
             fail (Error_No_Memory(capacity * wide));
 

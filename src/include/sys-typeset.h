@@ -229,15 +229,15 @@ inline static enum Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
     assert(IS_TYPESET(v));
     return cast(
         enum Reb_Param_Class,
-        const_CUSTOM_BYTE(v)
+        CUSTOM_BYTE(v)
         /* (const_CUSTOM_BYTE(v) & PCLASS_BYTE_MASK) */ // resurrect if needed
     );
 }
 
 inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
-    /* CUSTOM_BYTE(v) &= ~PCLASS_BYTE_MASK;
-    CUSTOM_BYTE(v) |= c; */ // can resurrect if needed
-    CUSTOM_BYTE(v) = c;
+    /* mutable_CUSTOM_BYTE(v) &= ~PCLASS_BYTE_MASK;
+    mutable_CUSTOM_BYTE(v) |= c; */ // can resurrect if needed
+    mutable_CUSTOM_BYTE(v) = c;
 }
 
 
