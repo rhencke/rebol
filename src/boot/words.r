@@ -379,6 +379,8 @@ detect
 ; because it wants to accept nulls for TYPE OF () => null
 ;
 reflect
+; type (provided by event)
+kind
 
 ; There was a special case in R3-Alpha for REBNATIVE(exclude) which wasn't an
 ; "ACTION!" (which meant no enum value) but it called a common routine that

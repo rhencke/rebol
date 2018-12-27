@@ -270,3 +270,16 @@
 (not parse "ab" ["a" false "b" end])
 (did parse "ab" ["a" ((1 = 1)) "b" end])
 (not parse "ab" ["a" ((1 = 2)) "b" end])
+
+
+;; LITERAL! BEHAVIOR
+;; Support for the new literal types
+;;
+(
+    parse [... [a b]] [to \[a b]]
+    == [[a b]]
+)(
+    did parse [... [a b]] [thru \[a b] end]
+)(
+    did parse [1 1 1] [some \1 end]
+)

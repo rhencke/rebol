@@ -259,6 +259,35 @@
 #endif
 
 
+inline static RELVAL *ARR_SINGLE(REBARR *a); // prototype needed
+
+#if !defined(__cplusplus)
+    inline static REBVAL *KNOWN(const RELVAL *v); // prototype needed
+
+    inline static REBVAL *VAL_UNESCAPED(const RELVAL *v) {
+        if (not IS_LITERAL(v))
+            return cast(REBVAL*, m_cast(RELVAL*, v));
+        return KNOWN(ARR_SINGLE(v->payload.literal.singular));
+    }
+#else
+    template<typename T>
+    inline static T *VAL_UNESCAPED(T *v) {
+        if (not IS_LITERAL(v))
+            return v;
+        return cast(T*, ARR_SINGLE(v->payload.literal.singular));
+    }
+#endif
+
+inline static enum Reb_Kind VAL_UNESCAPED_KIND(const RELVAL *v) {
+    //
+    // !!! The idea is this would be more complicated...the type byte modulo
+    // some amount, and all values over REB_MAX_PLUS_MAX would be literal.
+    // Implementation detail, just show it for now.
+    //
+    return VAL_TYPE(VAL_UNESCAPED(v));
+}
+
+
 //=////////////////////////////////////////////////////////////////////////=//
 //
 //  VALUE FLAGS

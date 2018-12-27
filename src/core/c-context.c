@@ -490,9 +490,10 @@ void Collect_Context_Keys(
 //
 static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL *head)
 {
-    const RELVAL *v = head;
-    for (; NOT_END(v); ++v) {
-        enum Reb_Kind kind = VAL_TYPE(v);
+    for (; NOT_END(head); ++head) {
+        enum Reb_Kind kind = VAL_UNESCAPED_KIND(head);
+        const RELVAL *v = VAL_UNESCAPED(head); // cell of `x` from `\\\x`
+
         if (ANY_WORD_KIND(kind)) {
             if (kind != REB_SET_WORD and not (cl->flags & COLLECT_ANY_WORD))
                 continue; // kind of word we're not interested in collecting

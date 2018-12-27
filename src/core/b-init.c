@@ -330,8 +330,23 @@ REBNATIVE(generic)
     //
     REBFLGS flags = MKF_KEYWORDS | MKF_FAKE_RETURN;
 
+    REBARR *paramlist = Make_Paramlist_Managed_May_Fail(spec, flags);
+
+    // !!! Some Generic_Dispatcher()s retrigger on a literal version of a
+    // type and do the same thing as to the plain version, on the thing that
+    // is inside the literal, but add escaping.
+    //
+    //     >> add (quote \\1) 2
+    //     == \\3
+    //
+    // Whether this makes any sense or not is decided by the generic code for
+    // LITERAL! at the moment.  It picks the few it thinks it can handle and
+    // does one thing or another with it.
+    //
+    TYPE_SET(ARR_AT(paramlist, 1), REB_LITERAL);
+
     REBACT *generic = Make_Action(
-        Make_Paramlist_Managed_May_Fail(spec, flags),
+        paramlist,
         &Generic_Dispatcher,
         nullptr, // no underlying action (use paramlist)
         nullptr, // no specialization exemplar (or inherited exemplar)

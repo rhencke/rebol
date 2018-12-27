@@ -26,6 +26,9 @@ REBOL [
 
 c-break-debug: :c-debug-break ;-- easy to mix up
 
+lit: :literal ;-- because it's shorter
+uneval: :literal ;-- because sometimes it helps capture *why* you're escaping
+
 ??: ;; shorthand form to use in debug sessions, not intended to be committed
 probe: func [
     {Debug print a molded value and returns that same value.}
@@ -93,16 +96,6 @@ end: func [
     :omit [any-value! <...>]
 ][
     while-not [tail? omit] [take omit]
-]
-
-uneval: func [
-    {Make expression that when evaluated, will produce the input}
-
-    return: {`(null)` if null, or `(quote ...)` where ... is passed-in cell}
-        [group!]
-    optional [<opt> any-value!]
-][
-    either null? :optional [quote (null)] [reduce quote ('quote :optional)]
 ]
 
 
@@ -230,6 +223,7 @@ eval func [
     bitset?:
     image?:
     vector?:
+    literal?:
     block?:
     group?:
     path?:

@@ -554,6 +554,10 @@ static REBIXO Parse_One_Rule(
         }
 
         switch (VAL_TYPE(rule)) {
+          case REB_LITERAL:
+            rule = Unliteralize(P_CELL, rule, P_RULE_SPECIFIER);
+            break; // fall through to direct match
+
           case REB_DATATYPE:
             if (VAL_TYPE(item) == VAL_TYPE_KIND(rule))
                 return pos + 1; // specific datatype match
@@ -975,11 +979,16 @@ static REBIXO To_Thru_Non_Block_Rule(
         // !!! This adjusts it to search for non-literal words, but are there
         // other considerations for how non-block rules act with array input?
         //
+        REBFLGS flags = P_HAS_CASE ? AM_FIND_CASE : 0;
         DECLARE_LOCAL (word);
         if (IS_LIT_WORD(rule)) {
             Derelativize(word, rule, P_RULE_SPECIFIER);
             CHANGE_VAL_TYPE_BITS(word, REB_WORD);
             rule = word;
+        }
+        else if (IS_LITERAL(rule)) { // make `\[foo bar]` match `[foo bar]`
+            rule = Unliteralize(word, rule, P_RULE_SPECIFIER);
+            flags |= AM_FIND_ONLY; // !!! Is this implied?
         }
 
         REBCNT i = Find_In_Array(
@@ -988,7 +997,7 @@ static REBIXO To_Thru_Non_Block_Rule(
             SER_LEN(P_INPUT),
             rule,
             1,
-            P_HAS_CASE ? AM_FIND_CASE : 0,
+            flags,
             1
         );
 

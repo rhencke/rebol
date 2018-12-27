@@ -370,6 +370,25 @@ typedef struct Reb_Tuple_Payload {
 } REBTUP;
 
 
+struct Reb_Literal_Payload {
+    //
+    // Fixed-size array that fits in a series node with no additional storage.
+    // It's necessary to create some storage outside the value--at least for
+    // some levels of depth--because the cell itself can't be big enough to
+    // hold any other cell (by definition!)
+    //
+    REBARR *singular;
+
+    // The depth is the number of backslashes, e.g. `\x` is a depth of 1,
+    // while `\\\x` is a depth of 3.  It is stored in the cell payload and not
+    // the MISC() or LINK() of the singular, so that when you add or remove
+    // lit levels to the same value a new series isn't required...all the
+    // information to account for the difference is in the cell.
+    //
+    REBCNT depth;
+};
+
+
 struct Reb_Series_Payload {
     //
     // `series` represents the actual physical underlying data, which is
@@ -754,6 +773,7 @@ union Reb_Value_Payload {
     // These use `specific` or `relative` in `binding`, based on IS_RELATIVE()
 
     struct Reb_Word_Payload any_word;
+    struct Reb_Literal_Payload literal;
     struct Reb_Series_Payload any_series;
     struct Reb_Action_Payload action;
     struct Reb_Context_Payload any_context;

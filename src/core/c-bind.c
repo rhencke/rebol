@@ -48,10 +48,12 @@ void Bind_Values_Inner_Loop(
     REBU64 bind_types, // !!! REVIEW: force word types low enough for 32-bit?
     REBU64 add_midstream_types,
     REBFLGS flags
-) {
-    RELVAL *v = head;
-    for (; NOT_END(v); ++v) {
-        REBU64 type_bit = FLAGIT_KIND(VAL_TYPE(v));
+){
+    for (; NOT_END(head); ++head) {
+        enum Reb_Kind kind = VAL_UNESCAPED_KIND(head);
+        RELVAL *v = VAL_UNESCAPED(head); // cell of `x` from `\\\x`
+
+        REBU64 type_bit = FLAGIT_KIND(kind);
 
         if (type_bit & bind_types) {
             REBSTR *canon = VAL_WORD_CANON(v);
@@ -192,10 +194,9 @@ static void Bind_Relative_Inner_Loop(
     REBARR *paramlist,
     REBU64 bind_types
 ) {
-    RELVAL *v = head;
-
-    for (; NOT_END(v); ++v) {
-        REBU64 type_bit = FLAGIT_KIND(VAL_TYPE(v));
+    for (; NOT_END(head); ++head) {
+        enum Reb_Kind kind = VAL_UNESCAPED_KIND(head);
+        RELVAL *v = VAL_UNESCAPED(head); // cell of `x` from `\\\x`
 
         // The two-pass copy-and-then-bind should have gotten rid of all the
         // relative values to other functions during the copy.
@@ -206,6 +207,7 @@ static void Bind_Relative_Inner_Loop(
         //
         assert(not IS_RELATIVE(v));
 
+        REBU64 type_bit = FLAGIT_KIND(kind);
         if (type_bit & bind_types) {
             REBINT n = Get_Binder_Index_Else_0(binder, VAL_WORD_CANON(v));
             if (n != 0) {

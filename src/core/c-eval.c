@@ -1791,8 +1791,22 @@ bool Eval_Core_Throws(REBFRM * const f)
         // the result of a CHAIN) we can run those chained functions in the
         // same REBFRM, for efficiency.
         //
+        // !!! There is also a feature where the LITERAL! dispatcher wants to
+        // run through ordinary dispatch for generic dispatch, but then add
+        // its level of "literality" to the output result.  Right now that's
+        // done by having it push a plain integer to the stack, saying how
+        // many levels of escaping to add to the output.  This is in the
+        // experimental phase, but would probably be done with a similar
+        // mechanism based on some information from any action's signature.
+        //
         while (DSP != f->dsp_orig) {
-            //
+            if (IS_INTEGER(DS_TOP)) {
+                if (not IS_NULLED(f->out))
+                    Init_Escaped(f->out, f->out, VAL_INT32(DS_TOP));
+                DS_DROP;
+                continue;
+            }
+
             // We want to keep the label that the function was invoked with,
             // because the other phases in the chain are implementation
             // details...and if there's an error, it should still show the
@@ -2025,6 +2039,16 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             Move_Value(f->out, FRM_CELL(f)); // no VALUE_FLAG_UNEVALUATED
         }
+        break; }
+
+//==//////////////////////////////////////////////////////////////////////==//
+//
+// [LITERAL!]
+//
+//==//////////////////////////////////////////////////////////////////////==//
+
+      case REB_LITERAL: {
+        Unliteralize(f->out, current, f->specifier);
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//

@@ -1524,6 +1524,13 @@ acquisition_loop:
             ss->token = TOKEN_MONEY;
             return;
 
+        case LEX_SPECIAL_BACKSLASH: // in Ren-C used for LITERAL!
+            while (*cp == '\\')
+                ++cp;
+            ss->end = cp;
+            ss->token = TOKEN_LITERAL;
+            return;
+
         default:
             ss->token = TOKEN_WORD;
             fail (Error_Syntax(ss));
@@ -1920,6 +1927,9 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
     if (just_once)
         ss->opts &= ~SCAN_FLAG_NEXT; // e.g. recursion loads one entire BLOCK!
 
+    REBCNT lit_depth = 0;
+
+  loop:
     while (
         Drop_Mold_If_Pushed(mo),
         Locate_Token_May_Push_Mold(mo, ss),
@@ -2029,6 +2039,22 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             if (ep != Scan_Issue(DS_TOP, bp + 1, len - 1))
                 fail (Error_Syntax(ss));
             break;
+
+        case TOKEN_LITERAL: {
+            if (lit_depth != 0) { // e.g. `\ \`, nothing seen since last one
+                DS_PUSH_TRASH;
+                Init_Literal_Nulled(DS_TOP, lit_depth);
+            }
+
+            lit_depth = ss->end - bp;
+            assert(lit_depth >= 1);
+            if (not ANY_CR_LF_END(*ss->begin)) // more to come...(maybe)
+                goto loop; // so wrap next value
+
+            DS_PUSH_TRASH;
+            Init_Literal_Nulled(DS_TOP, lit_depth);
+            lit_depth = 0;
+            goto loop; } // wrap next value
 
         case TOKEN_BLOCK_BEGIN:
         case TOKEN_GROUP_BEGIN: {
@@ -2443,6 +2469,15 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             ss->token = TOKEN_PATH;
         }
 
+        if (lit_depth > 0) {
+            //
+            // Transform the topmost value on the stack into a LITERAL!, to
+            // account for the `\\\` that was preceding it.
+            //
+            Init_Escaped(DS_TOP, KNOWN(DS_TOP), lit_depth);
+            lit_depth = 0;
+        }
+
         // If we get to this point, it means that the value came from UTF-8
         // source data--it was not "spliced" out of the variadic as a plain
         // value.  From the API's point of view, such runs of UTF-8 are
@@ -2482,8 +2517,14 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
     if (ss->mode_char == ']' or ss->mode_char == ')')
         fail (Error_Missing(ss, ss->mode_char));
 
-array_done:
+  array_done:;
+
     Drop_Mold_If_Pushed(mo);
+
+    if (lit_depth != 0) {
+        DS_PUSH_TRASH;
+        Init_Literal_Nulled(DS_TOP, lit_depth);
+    }
 
     // Note: ss->newline_pending may be true; used for ARRAY_FLAG_TAIL_NEWLINE
 

@@ -372,6 +372,14 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     #endif
         break; }
 
+    case REB_LITERAL: {
+        assert(v->payload.literal.depth > 0);
+        assert(v->extra.trash == nullptr); // may hold relative values...
+
+        REBARR *a = v->payload.literal.singular;
+        Queue_Mark_Singular_Array(a); // any extra efficiency possible here?
+        break; }
+
     case REB_PATH:
     case REB_SET_PATH:
     case REB_GET_PATH:

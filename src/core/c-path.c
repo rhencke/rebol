@@ -617,11 +617,12 @@ REBNATIVE(pick)
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
     pvs->special = NULL;
 
-    PATH_HOOK hook = Path_Hooks[VAL_TYPE(location)];
+  redo:;
+    PATH_HOOK hook = Path_Hooks[VAL_TYPE(D_OUT)];
     assert(hook != nullptr); // &PD_Fail is used instead of null
 
     REB_R r = hook(pvs, PVS_PICKER(pvs), NULL);
-    if (not r)
+    if (not r or r == pvs->out)
         return r;
 
     switch (VAL_TYPE_RAW(r)) {
@@ -645,8 +646,11 @@ REBNATIVE(pick)
             SET_VAL_FLAG(D_OUT, VALUE_FLAG_CONST);
         return D_OUT; }
 
+      case REB_R_REDO:
+        goto redo;
+
       default:
-        break;
+        panic ("Unsupported return value in Path Dispatcher");
     }
 
     return r;

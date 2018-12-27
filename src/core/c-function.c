@@ -1360,7 +1360,7 @@ REB_R Generic_Dispatcher(REBFRM *f)
     assert(kind < REB_MAX);
 
     GENERIC_HOOK hook = Generic_Hooks[kind];
-    return hook(f, verb);
+    return hook(f, verb); // note: LITERAL! will re-dispatch to Generic_Hooks
 }
 
 

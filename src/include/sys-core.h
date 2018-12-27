@@ -606,6 +606,8 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-frame.h"
 #include "sys-bind.h"
 
+#include "sys-literal.h" // depends on Derelativize() from %sys-bind.h
+
 #include "sys-protect.h"
 
 #include "sys-library.h"

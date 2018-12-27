@@ -152,22 +152,20 @@ REBNATIVE(reduce)
 }
 
 
-bool Match_For_Compose(const RELVAL *group, const REBVAL *pattern) {
-    if (IS_NULLED(pattern))
+bool Match_For_Compose(const RELVAL *group, const REBVAL *label) {
+    if (IS_NULLED(label))
         return true;
+
+    assert(IS_TAG(label));
 
     if (VAL_LEN_AT(group) == 0) // you have a pattern, so leave `()` as-is
         return false;
 
     RELVAL *first = VAL_ARRAY_AT(group);
-    RELVAL *last = VAL_ARRAY_TAIL(group) - 1;
-    if (IS_BAR(first) != IS_BAR(last))
-        fail ("Pattern for COMPOSE must be on both ends of GROUP!");
-    if (not IS_BAR(first))
-        return false; // leave as-is
-    if (first == last) // e.g. (*), needs to be at least (* *)
-        fail ("Two patterns, not one, must appear used in COMPOSE of GROUP!");
-    return true;
+    if (not IS_TAG(first))
+        return false;
+
+    return (CT_String(label, first, 1) > 0);
 }
 
 
@@ -192,7 +190,7 @@ REB_R Compose_To_Stack_Core(
     REBVAL *out, // if return result is R_THROWN, will hold the thrown value
     const RELVAL *any_array, // the template
     REBSPC *specifier, // specifier for relative any_array value
-    const REBVAL *pattern, // e.g. if '*, only match `(* ... *)`
+    const REBVAL *label, // e.g. if <*>, only match `(<*> ...)`
     bool deep, // recurse into sub-blocks
     bool only // pattern matches that return blocks are kept as blocks
 ){
@@ -212,8 +210,9 @@ REB_R Compose_To_Stack_Core(
     );
 
     for (; NOT_END(f->value); Fetch_Next_In_Frame(nullptr, f)) {
+        enum Reb_Kind kind = VAL_UNESCAPED_KIND(f->value); // notice `\\(...)`
 
-        if (not ANY_ARRAY(f->value)) { // non-arrays don't substitute/recurse
+        if (not ANY_ARRAY_KIND(kind)) { // won't substitute/recurse
             DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
             continue;
         }
@@ -223,26 +222,34 @@ REB_R Compose_To_Stack_Core(
         REBSPC *match_specifier = nullptr;
         const RELVAL *match = nullptr;
 
-        if (not IS_GROUP(f->value)) {
+        REBCNT escapes = VAL_ESCAPE_DEPTH(f->value);
+
+        if (kind != REB_GROUP) {
             //
             // Don't compose at this level, but may need to walk deeply to
             // find compositions inside it if /DEEP and it's an array
         }
-        else {
+        else if (escapes == 0) {
             if (Is_Doubled_Group(f->value)) { // non-spliced compose, if match
                 RELVAL *inner = VAL_ARRAY_AT(f->value);
-                if (Match_For_Compose(inner, pattern)) {
+                if (Match_For_Compose(inner, label)) {
                     splice = false;
                     match = inner;
                     match_specifier = Derive_Specifier(specifier, inner);
                 }
             }
             else { // plain compose, if match
-                if (Match_For_Compose(f->value, pattern)) {
+                if (Match_For_Compose(f->value, label)) {
                     match = f->value;
                     match_specifier = specifier;
                 }
             }
+        }
+        else { // all escaped groups just lose one level of their escaping
+            DS_PUSH_TRASH;
+            Unliteralize(DS_TOP, f->value, specifier);
+            changed = true;
+            continue;
         }
 
         if (match) {
@@ -250,7 +257,7 @@ REB_R Compose_To_Stack_Core(
                 Init_Nulled(out), // want empty () to vanish as a NULL would
                 nullptr, // no opt_first
                 VAL_ARRAY(match),
-                VAL_INDEX(match),
+                VAL_INDEX(match) + IS_NULLED(label) ? 0 : 1,
                 match_specifier,
                 (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
                     | DO_FLAG_TO_END
@@ -308,12 +315,13 @@ REB_R Compose_To_Stack_Core(
         else if (deep) {
             // compose/deep [does [(1 + 2)] nested] => [does [3] nested]
 
+            const RELVAL *unescaped = VAL_UNESCAPED(f->value);
             REBDSP dsp_deep = DSP;
             REB_R r = Compose_To_Stack_Core(
                 out,
-                f->value,
+                unescaped, // real array without the backslashes
                 specifier,
-                pattern,
+                label,
                 true, // deep (guaranteed true if we get here)
                 only
             );
@@ -337,16 +345,18 @@ REB_R Compose_To_Stack_Core(
             }
 
             REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
-            if (GET_SER_FLAG(VAL_ARRAY(f->value), ARRAY_FLAG_TAIL_NEWLINE))
+            if (GET_SER_FLAG(VAL_ARRAY(unescaped), ARRAY_FLAG_TAIL_NEWLINE))
                 flags |= ARRAY_FLAG_TAIL_NEWLINE;
 
             REBARR *popped = Pop_Stack_Values_Core(dsp_deep, flags);
             DS_PUSH_TRASH;
             Init_Any_Array(
                 DS_TOP,
-                VAL_TYPE(f->value),
+                kind,
                 popped // can't push and pop in same step, need this variable!
             );
+
+            Init_Escaped(DS_TOP, DS_TOP, escapes); // put back backslashes
 
             if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
@@ -371,8 +381,8 @@ REB_R Compose_To_Stack_Core(
 //  {Evaluates only contents of GROUP!-delimited expressions in an array}
 //
 //      return: [any-array!]
-//      :pattern "Distinguish compose groups, e.g. [(plain) (* composed *)]"
-//          [<skip> lit-bar!]
+//      :label "Distinguish compose groups, e.g. [(plain) (<*> composed)]"
+//          [<skip> tag!]
 //      value "Array to use as the template for substitution"
 //          [any-array!]
 //      /deep "Compose deeply into nested arrays"
@@ -392,7 +402,7 @@ REBNATIVE(compose)
         D_OUT,
         ARG(value),
         VAL_SPECIFIER(ARG(value)),
-        ARG(pattern),
+        ARG(label),
         REF(deep),
         REF(only)
     );

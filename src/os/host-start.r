@@ -228,7 +228,7 @@ host-start: function [
     emit: function [
         {Builds up sandboxed code to submit to C, hooked RETURN will finalize}
 
-        item "ISSUE! directive, TEXT! comment, (| composed |) code BLOCK!"
+        item "ISSUE! directive, TEXT! comment, (<*> composed) code BLOCK!"
             [block! issue! text!]
         <with> instruction
     ][
@@ -242,7 +242,7 @@ host-start: function [
             ]
             block! [
                 if not empty? instruction [append/line instruction '|]
-                append/line instruction compose/deep '| item
+                append/line instruction compose/deep <*> item
             ]
         ]
     ]
@@ -276,8 +276,8 @@ host-start: function [
             ]
             <bad> [
                 emit #no-unskin-if-error
-                emit [print (| mold uneval prior |)]
-                emit [fail ["Bad REPL continuation:" ((| uneval result |))]]
+                emit [print (<*> mold uneval prior)]
+                emit [fail ["Bad REPL continuation:" ((<*> uneval result))]]
             ]
         ] then [
             return-to-c instruction
@@ -297,7 +297,7 @@ host-start: function [
                 state
             ]
             default [
-                emit [fail [{Bad console instruction:} ((| mold state |))]]
+                emit [fail [{Bad console instruction:} ((<*> mold state))]]
             ]
         ]
     ]
@@ -544,7 +544,7 @@ host-start: function [
                 quit-when-done: default [true] ;-- override blank, not false
 
                 emit {Use /ONLY so that QUIT/WITH quits, vs. return DO value}
-                emit [do/only ((| param-or-die "DO" |))]
+                emit [do/only ((<*> param-or-die "DO"))]
             )
         |
             ["--halt" | "-h"] end (
@@ -831,7 +831,7 @@ comment [
     ;
     if file? o/script [
         emit {Use DO/ONLY so QUIT/WITH exits vs. being DO's return value}
-        emit [do/only/args ((| o/script |)) ((| script-args |))]
+        emit [do/only/args ((<*> o/script)) ((<*> script-args))]
     ]
 
     host-start: 'done

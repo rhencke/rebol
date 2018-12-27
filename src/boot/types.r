@@ -175,6 +175,10 @@ lit-word    word        +       +       +       word
 refinement  word        +       +       +       word
 issue       word        +       +       +       word
 
+; LITERAL! is a container for what may be a relative value, and have a binding
+;
+literal     literal     +       +       +       literal
+
 ; ANY-ARRAY!, order matters (and contiguous with ANY-SERIES below matters!)
 ;
 path        array       +       +       +       [series path array]

@@ -239,10 +239,10 @@ REB_R Reflect_Core(REBFRM *frame_)
 {
     INCLUDE_PARAMS_OF_REFLECT;
 
-    enum Reb_Kind kind = VAL_TYPE(ARG(value));
+    enum Reb_Kind kind = VAL_UNESCAPED_KIND(ARG(value));
 
     switch (VAL_WORD_SYM(ARG(property))) {
-    case SYM_0:
+      case SYM_0:
         //
         // If a word wasn't in %words.r, it has no integer SYM.  There is
         // no way for a built-in reflector to handle it...since they just
@@ -251,13 +251,30 @@ REB_R Reflect_Core(REBFRM *frame_)
         //
         fail (Error_Cannot_Reflect(kind, ARG(property)));
 
-    case SYM_TYPE:
+      case SYM_KIND: // simpler answer, low-level datatype (e.g. LITERAL!)
         if (kind == REB_MAX_NULLED)
-            return nullptr; // `() = type of ()`, `null = type of ()`
+            return nullptr;
+        return Init_Datatype(D_OUT, kind);
 
-        return Init_Datatype(D_OUT, kind);;
+      case SYM_TYPE: // higher order-answer, may build structured result
+        if (kind == REB_MAX_NULLED) // not a real "datatype"
+            Init_Nulled(D_OUT); // `() = type of ()`, `null = type of ()`
+        else
+            Init_Datatype(D_OUT, kind);
 
-    default:
+        // `type of quote \\\[a b c]` is `\\\#[block!]`.  Until datatypes get
+        // a firm literal notation, you can say `lit lit lit block!`
+        //
+        // If the escaping count of the value is zero, this returns it as is.
+        //
+        Init_Escaped(
+            D_OUT,
+            D_OUT, // input value pointer can be same as output
+            VAL_ESCAPE_DEPTH(ARG(value))
+        );
+        return D_OUT;
+
+      default:
         // !!! Are there any other universal reflectors?
         break;
     }
