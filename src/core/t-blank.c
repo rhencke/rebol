@@ -30,13 +30,79 @@
 
 #include "sys-core.h"
 
+
 //
-//  CT_Unit: C
+//  MF_Bar: C
 //
-REBINT CT_Unit(const RELVAL *a, const RELVAL *b, REBINT mode)
+void MF_Bar(REB_MOLD *mo, const RELVAL *v, bool form)
 {
-    if (mode >= 0) return (VAL_TYPE(a) == VAL_TYPE(b));
-    return -1;
+    UNUSED(form); // no distinction between MOLD and FORM
+    UNUSED(v);
+    Append_Unencoded(mo->series, "|");
+}
+
+
+//
+//  MF_Lit_bar: C
+//
+// !!! Will be deprecated with generic escaping, e.g. `\|`
+//
+void MF_Lit_bar(REB_MOLD *mo, const RELVAL *v, bool form)
+{
+    UNUSED(form); // no distinction between MOLD and FORM
+    UNUSED(v);
+    Append_Unencoded(mo->series, "'|");
+}
+
+
+//
+//  MF_Blank: C
+//
+void MF_Blank(REB_MOLD *mo, const RELVAL *v, bool form)
+{
+    UNUSED(form); // no distinction between MOLD and FORM
+    UNUSED(v);
+    Append_Unencoded(mo->series, "_");
+}
+
+
+//
+//  MF_Void: C
+//
+// !!! No literal notation for VOID! values has been decided.
+//
+void MF_Void(REB_MOLD *mo, const RELVAL *v, bool form)
+{
+    UNUSED(form); // no distinction between MOLD and FORM
+    UNUSED(v);
+    Append_Unencoded(mo->series, "#[void]");
+}
+
+
+//
+//  PD_Blank: C
+//
+// It is not possible to "poke" into a blank (and as an attempt at modifying
+// operation, it is not swept under the rug).  But if picking with GET-PATH!
+// or GET, we indicate no result with void.  (Ordinary path selection will
+// treat this as an error.)
+//
+// This could also be taken care of with special code in path dispatch, but
+// by putting it in a handler you only pay for the logic if you actually do
+// encounter a blank.
+//
+REB_R PD_Blank(
+    REBPVS *pvs,
+    const REBVAL *picker,
+    const REBVAL *opt_setval
+){
+    UNUSED(picker);
+    UNUSED(pvs);
+
+    if (opt_setval != NULL)
+        return R_UNHANDLED;
+
+    return nullptr;
 }
 
 
@@ -64,143 +130,69 @@ REB_R TO_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *data) {
 
 
 //
-//  MF_Unit: C
+//  CT_Unit: C
 //
-void MF_Unit(REB_MOLD *mo, const RELVAL *v, bool form)
+// Must have a comparison function, otherwise SORT would not work on arrays
+// with blanks or voids in them.
+//
+REBINT CT_Unit(const RELVAL *a, const RELVAL *b, REBINT mode)
 {
-    UNUSED(form); // no distinction between MOLD and FORM
-
-    switch (VAL_TYPE(v)) {
-    case REB_BAR:
-        Append_Unencoded(mo->series, "|");
-        break;
-
-    case REB_LIT_BAR:
-        Append_Unencoded(mo->series, "'|");
-        break;
-
-    case REB_BLANK:
-        Append_Unencoded(mo->series, "_");
-        break;
-
-    case REB_VOID:
-        //
-        // !!! VOID! values are new, and no literal notation for them has been
-        // decided yet.  One difference from things like BAR! and BLANK! is
-        // that they would not be amenable to use for "stringlike" purposes,
-        // as they are conditionally neither true nor false and can't be
-        // assigned directly via SET-WORD! or plain SET...so choosing a
-        // notation like ??? (or ?, or !) would be slippery.
-        //
-        Append_Unencoded(mo->series, "#[void]");
-        break;
-
-    default:
-        panic (v);
-    }
-}
-
-
-//
-//  PD_Blank: C
-//
-// It is not possible to "poke" into a blank (and as an attempt at modifying
-// operation, it is not swept under the rug).  But if picking with GET-PATH!
-// or GET, we indicate no result with void.  (Ordinary path selection will
-// treat this as an error.)
-//
-REB_R PD_Blank(
-    REBPVS *pvs,
-    const REBVAL *picker,
-    const REBVAL *opt_setval
-){
-    UNUSED(picker);
-    UNUSED(pvs);
-
-    if (opt_setval != NULL)
-        return R_UNHANDLED;
-
-    return nullptr;
+    if (mode >= 0) return (VAL_TYPE(a) == VAL_TYPE(b));
+    return -1;
 }
 
 
 //
 //  REBTYPE: C
 //
-// Asking to read a property of a BLANK! value is handled as a "light"
-// failure, in the sense that it just returns void.  Returning void instead
-// of blank helps establish error locality in chains of operations:
+// While generics like SELECT are able to dispatch on BLANK! and return NULL,
+// they do so by not running at all...see REB_TS_NOOP_IF_BLANK.
 //
-//     if not find select next first x [
-//        ;
-//        ; If blanks propagated too far, what actually went wrong, here?
-//        ; (reader might just assume it was the last FIND, but it could
-//        ; have been anything)
-//     ]
-//
-// Giving back void instead of an error means the situation can be handled
-// precisely with operations like ELSE or ALSO, or just converted to a BLANK!
-// to continue the chain.  Historically this conversion was done with TO-VALUE
-// but is proposed to use TRY.
+// The only operations
 //
 REBTYPE(Unit)
 {
-    REBVAL *val = D_ARG(1);
-    assert(not IS_NULLED(val));
+    REBVAL *unit = D_ARG(1);
 
     switch (VAL_WORD_SYM(verb)) {
-
-    // !!! The category of "non-mutating type actions" should be knowable via
-    // some meta information.  Any new such actions should get the behavior
-    // of returning void, while any mutating actions return errors.
-
-    case SYM_REFLECT: {
+      case SYM_REFLECT: {
         INCLUDE_PARAMS_OF_REFLECT;
-        UNUSED(ARG(value)); // covered by val above
+        UNUSED(ARG(value)); // taken care of by `unit` above.
 
-        // !!! If reflectors had specs the way actions do, it might be that
-        // the return type could be searched to see if void was an option,
-        // and that would mean it would be legal.  For now, carry over ad
-        // hoc things that R3-Alpha returned BLANK! for.
-
+        // !!! REFLECT cannot use REB_TS_NOOP_IF_BLANK, because of the special
+        // case of TYPE OF...where a BLANK! in needs to provide BLANK! the
+        // datatype out.  Also, there currently exist "reflectors" that
+        // return LOGIC!, e.g. TAIL?...and logic cannot blindly return null:
+        //
+        // https://forum.rebol.info/t/954
+        //
+        // So for the moment, we just ad-hoc return nullptr for some that
+        // R3-Alpha returned NONE! for.  Review.
+        //
         switch (VAL_WORD_SYM(ARG(property))) {
-        case SYM_INDEX:
-        case SYM_LENGTH:
+          case SYM_INDEX:
+          case SYM_LENGTH:
             return nullptr;
 
-        default:
-            break;
+          default: break;
         }
         break; }
 
-    case SYM_SELECT:
-    case SYM_FIND:
-    case SYM_COPY:
-    case SYM_SKIP:
-    case SYM_AT:
-        return nullptr;
-
-    default:
-        break;
+      case SYM_COPY: { // since `copy/deep [1 _ 2]` is legal, allow `copy _`
+        INCLUDE_PARAMS_OF_COPY;
+        if (REF(part)) {
+            UNUSED(ARG(limit));
+            fail (Error_Bad_Refines_Raw());
+        }
+        UNUSED(REF(deep));
+        UNUSED(REF(types));
+        UNUSED(ARG(kinds));
+        return Init_Blank(D_OUT); }
     }
 
-    fail (Error_Illegal_Action(VAL_TYPE(val), verb));
+    fail (Error_Illegal_Action(VAL_TYPE(unit), verb));
 }
 
-
-//
-//  CT_Handle: C
-//
-REBINT CT_Handle(const RELVAL *a, const RELVAL *b, REBINT mode)
-{
-    // Would it be meaningful to allow user code to compare HANDLE!?
-    //
-    UNUSED(a);
-    UNUSED(b);
-    UNUSED(mode);
-
-    fail ("Currently comparing HANDLE! types is not allowed.");
-}
 
 
 //
@@ -218,7 +210,25 @@ void MF_Handle(REB_MOLD *mo, const RELVAL *v, bool form)
 
 
 //
+//  CT_Handle: C
+//
+REBINT CT_Handle(const RELVAL *a, const RELVAL *b, REBINT mode)
+{
+    // Would it be meaningful to allow user code to compare HANDLE!?
+    //
+    UNUSED(a);
+    UNUSED(b);
+    UNUSED(mode);
+    fail ("Currently comparing HANDLE! types is not allowed.");
+}
+
+
+//
 // REBTYPE: C
+//
+// !!! Currently, in order to have a comparison function a datatype must also
+// have a dispatcher for generics, and the comparison is essential.  Hence
+// this cannot use a `-` in the %reb-types.r in lieu of this dummy function.
 //
 REBTYPE(Handle)
 {

@@ -158,102 +158,58 @@ type-table: load %types.r
 
 e-dispatch: make-emitter "Dispatchers" core/tmp-dispatchers.c
 
+hookname: func [
+    return: [text!]
+    t [object!] "type record (e.g. a row out of %types.r)"
+    column [word!] "which column we are deriving the hook's name based on"
+][
+    propercase-of switch ensure word! t/(column) [
+        '+ [t/name]         ; type has its own unique hook
+        '* [t/class]        ; type uses common hook for class
+        '? ['unhooked]      ; datatype provided by extension
+        '- ['fail]          ; service unavailable for type
+        default [
+            t/(column)      ; override with word in column
+        ]
+    ]
+]
+
 generic-hooks: collect [
     for-each-record t type-table [
-        switch t/class [
-            '* [
-                keep cscape/with {T_Unhooked /* $<T/Name> */} [t]
-            ]
-            default [
-                keep cscape/with
-                    {T_$<Propercase-Of t/class> /* $<T/Name> */} [t]
-            ]
-        ]
-    ]
-]
-
-path-hooks: collect [
-    for-each-record t type-table [
-        switch t/path [
-            '- [keep cscape/with {PD_Fail /* $<T/Name> */} [t]]
-            '+ [
-                proper: propercase-of t/class
-                keep cscape/with {PD_$<Proper> /* $<T/Name> */} [proper t]
-            ]
-            '* [keep cscape/with {PD_Unhooked /* $<T/Name> */} [t]]
-            default [
-                ; !!! Today's PORT! path dispatches through context although
-                ; that isn't its technical "class" for responding to generics.
-                ;
-                proper: propercase-of t/path
-                keep cscape/with {PD_$<Proper> /* $<T/Name> */} [proper t]
-            ]
-        ]
-    ]
-]
-
-make-hooks: collect [
-    for-each-record t type-table [
-        switch t/make [
-            '- [keep cscape/with {/* $<T/Name> */ MAKE_Fail} [t]]
-            '+ [
-                proper: propercase-of t/class
-                keep cscape/with {/* $<T/Name> */ MAKE_$<Proper>} [proper t]
-            ]
-            '* [keep cscape/with {/* $<T/Name> */ MAKE_Unhooked} [t]]
-
-            fail "MAKE in %types.r should be, -, +, or *"
-        ]
-    ]
-]
-
-to-hooks: collect [
-    for-each-record t type-table [
-        switch t/make [
-            '- [keep cscape/with {/* $<T/Name> */ TO_Fail} [t]]
-            '+ [
-                proper: propercase-of T/Class
-                keep cscape/with {TO_$<Proper> /* $<T/Name> */} [proper t]
-            ]
-            '* [keep cscape/with {TO_Unhooked /* $T/Name> */} [t]]
-
-            fail "TO in %types.r should be -, +, or *"
-        ]
-    ]
-]
-
-mold-hooks: collect [
-    for-each-record t type-table [
-        switch t/mold [
-            '- [keep cscape/with {/* $<T/Name> */ MF_Fail"} [t]]
-            '+ [
-                proper: propercase-of t/class
-                keep cscape/with {/* $<T/Name> */ MF_$<Proper>} [proper t]
-            ]
-            '* [keep cscape/with {/* $<T/Name> */ MF_Unhooked} [t]]
-            default [
-                ;
-                ; ERROR! may be a context, but it has its own special forming
-                ; beyond the class (falls through to ANY-CONTEXT! for mold),
-                ; and BINARY! has a different handler than strings
-                ;
-                proper: propercase-of t/mold
-                keep cscape/with {MF_$<Proper> /* $<T/Name> */} [proper t]
-            ]
-        ]
+        keep cscape/with {T_${Hookname T 'Class} /* $<T/Name> */} [t]
     ]
 ]
 
 compare-hooks: collect [
     for-each-record t type-table [
-        either t/class = '* [
-            keep cscape/with {CT_Unhooked /* $<T/Class> */} [t]
-        ][
-            proper: Propercase-Of T/Class
-            keep cscape/with {CT_$<Proper> /* $<T/Class> */} [proper t]
-        ]
+        keep cscape/with {CT_${Hookname T 'Class} /* $<T/Name> */} [t]
     ]
 ]
+
+path-hooks: collect [
+    for-each-record t type-table [
+        keep cscape/with {PD_${Hookname T 'Path} /* $<T/Name> */} [t]
+    ]
+]
+
+make-hooks: collect [
+    for-each-record t type-table [
+        keep cscape/with {MAKE_${Hookname T 'Make} /* $<T/Name> */} [t]
+    ]
+]
+
+to-hooks: collect [
+    for-each-record t type-table [
+        keep cscape/with {TO_${Hookname T 'Make} /* $<T/Name> */} [t]
+    ]
+]
+
+mold-hooks: collect [
+    for-each-record t type-table [
+        keep cscape/with {MF_${Hookname T 'Mold} /* $<T/Name> */} [t]
+    ]
+]
+
 
 e-dispatch/emit {
     #include "sys-core.h"
@@ -263,10 +219,30 @@ e-dispatch/emit {
      *
      * This is using the term in the sense of "generic functions":
      * https://en.wikipedia.org/wiki/Generic_function
+     *
+     * The current assumption (rightly or wrongly) is that the handler for
+     * a generic action (e.g. APPEND) doesn't need a special hook for a
+     * specific datatype, but that the class has a common function.  But note
+     * any behavior for a specific type can still be accomplished by testing
+     * the type passed into that common hook!
      */
     GENERIC_HOOK Generic_Hooks[REB_MAX] = {
         nullptr, /* REB_0 */
         $(Generic-Hooks),
+    };
+
+    /*
+     * PER-TYPE COMPARE HOOKS, to support GREATER?, EQUAL?, LESSER?...
+     *
+     * Every datatype should have a comparison function, because otherwise a
+     * block containing an instance of that type cannot SORT.  Like the
+     * generic dispatchers, compare hooks are done on a per-class basis, with
+     * no overrides for individual types (only if they are the only type in
+     * their class).
+     */
+    COMPARE_HOOK Compare_Hooks[REB_MAX] = {
+        nullptr, /* REB_0 */
+        $(Compare-Hooks),
     };
 
     /*
@@ -296,6 +272,11 @@ e-dispatch/emit {
      * (either in the output cell or an API cell).  They are NOT allowed to
      * throw, and are not supposed to make use of any binding information in
      * blocks they are passed...so no evaluations should be performed.
+     *
+     * !!! Note: It is believed in the future that MAKE would be constructor
+     * like and decided by the destination type, while TO would be "cast"-like
+     * and decided by the source type.  For now, the destination decides both,
+     * which means TO-ness and MAKE-ness are a bit too similar.
      */
     TO_HOOK To_Hooks[REB_MAX] = {
         nullptr, /* REB_0 */
@@ -304,18 +285,15 @@ e-dispatch/emit {
 
     /*
      * PER-TYPE MOLD HOOKS: for `mold value` and `form value`
+     *
+     * Note: ERROR! may be a context, but it has its own special FORM-ing
+     * beyond the class (falls through to ANY-CONTEXT! for mold), and BINARY!
+     * has a different handler than strings.  So not all molds are driven by
+     * their class entirely.
      */
     MOLD_HOOK Mold_Or_Form_Hooks[REB_MAX] = {
         nullptr, /* REB_0 */
         $(Mold-Hooks),
-    };
-
-    /*
-     * PER-TYPE COMPARE HOOKS, to support GREATER?, EQUAL?, LESSER?...
-     */
-    COMPARE_HOOK Compare_Hooks[REB_MAX] = {
-        nullptr, /* REB_0 */
-        $(Compare-Hooks),
     };
 }
 

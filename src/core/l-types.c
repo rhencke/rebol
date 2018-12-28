@@ -239,7 +239,8 @@ REB_R Reflect_Core(REBFRM *frame_)
 {
     INCLUDE_PARAMS_OF_REFLECT;
 
-    enum Reb_Kind kind = VAL_UNESCAPED_KIND(ARG(value));
+    REBVAL *v = ARG(value);
+    enum Reb_Kind kind = VAL_UNESCAPED_KIND(v);
 
     switch (VAL_WORD_SYM(ARG(property))) {
       case SYM_0:
@@ -254,7 +255,7 @@ REB_R Reflect_Core(REBFRM *frame_)
       case SYM_KIND: // simpler answer, low-level datatype (e.g. LITERAL!)
         if (kind == REB_MAX_NULLED)
             return nullptr;
-        return Init_Datatype(D_OUT, kind);
+        return Init_Datatype(D_OUT, VAL_TYPE(v));
 
       case SYM_TYPE: // higher order-answer, may build structured result
         if (kind == REB_MAX_NULLED) // not a real "datatype"
@@ -283,7 +284,7 @@ REB_R Reflect_Core(REBFRM *frame_)
     // but in general actions should not allow null first arguments...there's
     // no entry in the dispatcher table for them.
     //
-    if (kind == REB_MAX_NULLED)
+    if (kind == REB_MAX_NULLED) // including escaped nulls, `\\\\`
         fail ("NULL isn't valid for REFLECT, except for TYPE OF ()");
 
     GENERIC_HOOK hook = Generic_Hooks[kind];

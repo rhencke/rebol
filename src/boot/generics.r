@@ -197,9 +197,9 @@ even?: generic [
 
 skip: generic [
     {Returns the series forward or backward from the current position.}
-    return: [<opt> blank! any-series! gob! port!]
+    return: [<opt> any-series! gob! port!]
         {Input skipped by the given offset, clipped to head/tail if not /ONLY}
-    series [blank! any-series! gob! port!]
+    series [<blank> any-series! gob! port!]
     offset [any-number! logic! pair!]
     /only
         {Don't clip to the boundaries of the series (return blank if beyond)}
@@ -207,9 +207,9 @@ skip: generic [
 
 at: generic [
     {Returns the series at the specified index.}
-    return: [<opt> blank! any-series! gob! port!]
+    return: [<opt> any-series! gob! port!]
         {Input at the given index, clipped to head/tail if not /ONLY}
-    series [blank! any-series! gob! port!]
+    series [<blank> any-series! gob! port!]
     index [any-number! logic! pair!]
     /only
         {Don't clip to the boundaries of the series (return blank if beyond)}
@@ -221,7 +221,7 @@ at: generic [
 find: generic [
     {Searches for the position where a matching value is found}
     return: {position found, else blank (void if series is itself blank)}
-        [<opt> any-series! blank! bar!]
+        [<opt> any-series! bar!]
     series [<blank> any-series! any-context! map! gob! bitset! typeset!]
     value [any-value!]
     /part {Limits the search to a given length or position}
@@ -287,7 +287,7 @@ copy: generic [
 take*: generic [
     {Removes and returns one or more elements.}
     return: [<opt> any-value!]
-    series [any-series! port! gob! blank! varargs!] {At position (modified)}
+    series [any-series! port! gob! varargs!] {At position (modified)}
     /part {Specifies a length or end position}
     limit [any-number! any-series! pair! bar!]
     /deep {Also copies series values within the block}

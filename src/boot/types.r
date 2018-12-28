@@ -14,10 +14,22 @@ REBOL [
         This table is used to make C defines and intialization tables.
 
         name        - name of datatype (generates words)
-        class       - how type actions are dispatched (T_type), * is extension
-        path        - it supports various path forms (+ for same as typeclass)
-        make        - It can be made with #[datatype] method
+        class       - how type actions are dispatched (T_type)
+        path        - it supports various path forms
+        make        - it can be made with #[datatype] method
         typesets    - what typesets the type belongs to
+
+        What is in the table can be `+` to mean the method exists and has the
+        same name as the type (e.g. MF_Blank() if type is BLANK!)
+
+        If it is `*` then the method uses a common dispatcher for the type,
+        so (e.g. PD_Array()) even if the type is BLOCK!)
+
+        If it is `?` then the method is loaded dynamically by an extension, and
+        unavailable otherwise and uses e.g. T_Unhooked()
+
+        If it is `-` then it is not available at all, and will substitute with
+        an implementation that fails, e.g. CT_Fail()
 
         Note that if there is `somename` in the class column, that means you
         will find the ACTION! dispatch for that type in `REBTYPE(Somename)`.
@@ -168,12 +180,12 @@ action      action      +       +       +       -
 
 ; ANY-WORD!, order matters (tests like ANY_WORD use >= REB_WORD, <= REB_ISSUE)
 ;
-word        word        +       +       +       word
-set-word    word        +       +       +       word
-get-word    word        +       +       +       word
-lit-word    word        +       +       +       word
-refinement  word        +       +       +       word
-issue       word        +       +       +       word
+word        word        *       *       *       word
+set-word    word        *       *       *       word
+get-word    word        *       *       *       word
+lit-word    word        *       *       *       word
+refinement  word        *       *       *       word
+issue       word        *       *       *       word
 
 ; LITERAL! is a container for what may be a relative value, and have a binding
 ;
@@ -181,22 +193,22 @@ literal     literal     +       +       +       literal
 
 ; ANY-ARRAY!, order matters (and contiguous with ANY-SERIES below matters!)
 ;
-path        array       +       +       +       [series path array]
-set-path    array       +       +       +       [series path array]
-get-path    array       +       +       +       [series path array]
-lit-path    array       +       +       +       [series path array]
-group       array       +       +       +       [series array]
+path        array       *       *       *       [series path array]
+set-path    array       *       *       *       [series path array]
+get-path    array       *       *       *       [series path array]
+lit-path    array       *       *       *       [series path array]
+group       array       *       *       *       [series array]
 ; -- start of inert bindable types (that aren't refinement! and issue!)
-block       array       +       +       +       [series array]
+block       array       *       *       *       [series array]
 
 ; ANY-SERIES!, order matters (and contiguous with ANY-ARRAY above matters!)
 ;
-binary      string      +       +       binary  [series]
-text        string      +       +       +       [series string]
-file        string      +       +       +       [series string]
-email       string      +       +       +       [series string]
-url         string      +       +       +       [series string]
-tag         string      +       +       +       [series string]
+binary      string      *       *       +       [series]
+text        string      *       *       *       [series string]
+file        string      *       *       *       [series string]
+email       string      *       *       *       [series string]
+url         string      *       *       *       [series string]
+tag         string      *       *       *       [series string]
 
 bitset      bitset      +       +       +       -
 image       image       +       +       +       [series]
@@ -206,10 +218,10 @@ map         map         +       +       +       -
 
 varargs     varargs     +       +       +       -
 
-object      context     +       +       +       context
-frame       context     +       +       +       context
-module      context     +       +       +       context
-error       context     +       +       error   context
+object      context     *       *       *       context
+frame       context     *       *       *       context
+module      context     *       *       *       context
+error       context     *       *       +       context
 port        port        context +       context context
 
 ; ^-------- Everything above is a "bindable" type, see Is_Bindable() --------^
@@ -220,8 +232,8 @@ port        port        context +       context context
 
 logic       logic       -       +       +       -
 integer     integer     -       +       +       [number scalar]
-decimal     decimal     -       +       +       [number scalar]
-percent     decimal     -       +       +       [number scalar]
+decimal     decimal     -       *       *       [number scalar]
+percent     decimal     -       *       *       [number scalar]
 money       money       -       +       +       scalar
 char        char        -       +       +       scalar
 pair        pair        +       +       +       scalar
@@ -239,16 +251,16 @@ typeset     typeset     -       +       +       -
 gob         gob         +       +       +       -
 event       event       +       +       +       -
 handle      handle      -       -       +       -
-struct      *           *       *       *       -
+struct      ?           ?       ?       ?       -
 library     library     -       +       +       -
 
 ; "unit types" https://en.wikipedia.org/wiki/Unit_type
 
-blank       unit        blank   +       +       -
+blank       unit        +       -       +       -
 ; end of inert unbindable types
-bar         unit        -       +       +       -
-lit-bar     unit        -       +       +       -
-void        unit        -       +       +       -
+bar         unit        -       -       +       -
+lit-bar     unit        -       -       +       -
+void        unit        -       -       +       -
 
 ; Note that the "null?" state has no associated NULL! datatype.  Internally
 ; it uses REB_MAX, but like the REB_0 it stays off the type map.  It is
