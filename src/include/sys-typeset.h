@@ -352,17 +352,19 @@ inline static void INIT_TYPESET_NAME(RELVAL *typeset, REBSTR *str) {
     typeset->extra.key_spelling = str;
 }
 
-inline static REBSTR *VAL_KEY_SPELLING(const RELVAL *typeset) {
-    assert(IS_TYPESET(typeset));
-    return typeset->extra.key_spelling;
+inline static REBSTR *VAL_KEY_SPELLING(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_TYPESET);
+    return v->extra.key_spelling;
 }
 
-inline static REBSTR *VAL_KEY_CANON(const RELVAL *typeset) {
-    return STR_CANON(VAL_KEY_SPELLING(typeset));
+inline static REBSTR *VAL_KEY_CANON(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_TYPESET);
+    return STR_CANON(VAL_KEY_SPELLING(v));
 }
 
-inline static OPT_REBSYM VAL_KEY_SYM(const RELVAL *typeset) {
-    return STR_SYMBOL(VAL_KEY_SPELLING(typeset)); // mirrors canon's symbol
+inline static OPT_REBSYM VAL_KEY_SYM(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_TYPESET);
+    return STR_SYMBOL(VAL_KEY_SPELLING(v)); // mirrors canon's symbol
 }
 
 #define VAL_PARAM_SPELLING(p) VAL_KEY_SPELLING(p)

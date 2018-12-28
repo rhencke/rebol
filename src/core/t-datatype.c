@@ -34,7 +34,7 @@
 //
 //  CT_Datatype: C
 //
-REBINT CT_Datatype(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Datatype(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode >= 0) return (VAL_TYPE_KIND(a) == VAL_TYPE_KIND(b));
     return -1;
@@ -69,7 +69,7 @@ REB_R TO_Datatype(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 //
 //  MF_Datatype: C
 //
-void MF_Datatype(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Datatype(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     REBSTR *name = Canon(VAL_TYPE_SYM(v));
     if (form)

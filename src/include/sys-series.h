@@ -493,8 +493,12 @@ inline static void FAIL_IF_READ_ONLY_SER(REBSER *s) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 
-inline static REBSER *VAL_SERIES(const RELVAL *v) {
-    assert(ANY_SERIES(v) or IS_MAP(v) or IS_IMAGE(v)); // !!! gcc 5.4 -O2 bug
+inline static REBSER *VAL_SERIES(const REBCEL *v) {
+    assert(
+        ANY_SERIES_KIND(CELL_KIND(v))
+        or CELL_KIND(v) == REB_MAP
+        or CELL_KIND(v) == REB_IMAGE
+    ); // !!! Note: there was a problem here once, with a gcc 5.4 -O2 bug
     REBSER *s = v->payload.any_series.series;
     if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
@@ -513,12 +517,12 @@ inline static void INIT_VAL_SERIES(RELVAL *v, REBSER *s) {
 #else
     // allows an assert, but also lvalue: `VAL_INDEX(v) = xxx`
     //
-    inline static REBCNT & VAL_INDEX(RELVAL *v) { // C++ reference type
-        assert(ANY_SERIES(v));
+    inline static REBCNT & VAL_INDEX(REBCEL *v) { // C++ reference type
+        assert(ANY_SERIES_KIND(CELL_KIND(v)));
         return v->payload.any_series.index;
     }
-    inline static REBCNT VAL_INDEX(const RELVAL *v) {
-        assert(ANY_SERIES(v));
+    inline static REBCNT VAL_INDEX(const REBCEL *v) {
+        assert(ANY_SERIES_KIND(CELL_KIND(v)));
         return v->payload.any_series.index;
     }
 #endif
@@ -526,13 +530,13 @@ inline static void INIT_VAL_SERIES(RELVAL *v, REBSER *s) {
 #define VAL_LEN_HEAD(v) \
     SER_LEN(VAL_SERIES(v))
 
-inline static REBCNT VAL_LEN_AT(const RELVAL *v) {
+inline static REBCNT VAL_LEN_AT(const REBCEL *v) {
     if (VAL_INDEX(v) >= VAL_LEN_HEAD(v))
         return 0; // avoid negative index
     return VAL_LEN_HEAD(v) - VAL_INDEX(v); // take current index into account
 }
 
-inline static REBYTE *VAL_RAW_DATA_AT(const RELVAL *v) {
+inline static REBYTE *VAL_RAW_DATA_AT(const REBCEL *v) {
     return SER_AT_RAW(SER_WIDE(VAL_SERIES(v)), VAL_SERIES(v), VAL_INDEX(v));
 }
 

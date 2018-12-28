@@ -32,7 +32,7 @@
 
 
 
-static bool Equal_Context(const RELVAL *val, const RELVAL *arg)
+static bool Equal_Context(const REBCEL *val, const REBCEL *arg)
 {
     REBCTX *f1;
     REBCTX *f2;
@@ -44,7 +44,7 @@ static bool Equal_Context(const RELVAL *val, const RELVAL *arg)
     // ERROR! and OBJECT! may both be contexts, for instance, but they will
     // not compare equal just because their keys and fields are equal
     //
-    if (VAL_TYPE(arg) != VAL_TYPE(val))
+    if (CELL_KIND(arg) != CELL_KIND(val))
         return false;
 
     f1 = VAL_CONTEXT(val);
@@ -248,7 +248,7 @@ collect_end:
 //
 //  CT_Context: C
 //
-REBINT CT_Context(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Context(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode < 0) return -1;
     return Equal_Context(a, b) ? 1 : 0;
@@ -585,7 +585,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
 //
 //  MF_Context: C
 //
-void MF_Context(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     REBSER *out = mo->series;
 
@@ -755,20 +755,20 @@ REB_R Context_Common_Action_Maybe_Unhandled(
         case SYM_TAIL_Q: // !!! Should this be legal?
             return Init_Logic(D_OUT, CTX_LEN(c) == 0);
 
-        case SYM_WORDS:
-            //
+        case SYM_WORDS: {
+            if (not IS_FRAME(value))
+                return Init_Block(D_OUT, Context_To_Array(c, 1));
+
             // !!! For FRAME!, it is desirable to know the parameter classes
             // and to know what's a local vs. a refinement, etc.  This is
             // the intersection of some "new" stuff with some crufty R3-Alpha
             // reflection abilities.
             //
-            if (IS_FRAME(value))
-                return Init_Block(
-                    D_OUT,
-                    List_Func_Words(ACT_ARCHETYPE(ACT(CTX_KEYLIST(c))), true)
-                );
-
-            return Init_Block(D_OUT, Context_To_Array(c, 1));
+            const bool locals = true;
+            return Init_Block(
+                D_OUT,
+                Make_Action_Words_Arr(ACT(CTX_KEYLIST(c)), locals)
+            ); }
 
         case SYM_VALUES:
             return Init_Block(D_OUT, Context_To_Array(c, 2));

@@ -54,17 +54,17 @@ enum {
 //
 //  CT_String: C
 //
-REBINT CT_String(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_String(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     REBINT num;
 
-    if (IS_BINARY(a)) {
-        if (not IS_BINARY(b))
+    if (CELL_KIND(a) == REB_BINARY) {
+        if (CELL_KIND(b) != REB_BINARY)
             fail ("Can't compare binary to string, use AS STRING/BINARY!");
 
         num = Compare_Binary_Vals(a, b);
     }
-    else if (IS_BINARY(b))
+    else if (CELL_KIND(b) == REB_BINARY)
         fail ("Can't compare binary to string, use AS STRING!/BINARY!");
     else
         num = Compare_String_Vals(a, b, mode != 1);
@@ -1009,7 +1009,7 @@ void Mold_Text_Series_At(
 // wishes to preserve round-trip copy-and-paste from URL bars in browsers
 // to source and back.  Encoding concerns are handled elsewhere.
 //
-static void Mold_Url(REB_MOLD *mo, const RELVAL *v)
+static void Mold_Url(REB_MOLD *mo, const REBCEL *v)
 {
     REBSER *series = VAL_SERIES(v);
     REBCNT len = VAL_LEN_AT(v);
@@ -1025,7 +1025,7 @@ static void Mold_Url(REB_MOLD *mo, const RELVAL *v)
 }
 
 
-static void Mold_File(REB_MOLD *mo, const RELVAL *v)
+static void Mold_File(REB_MOLD *mo, const REBCEL *v)
 {
     REBSER *series = VAL_SERIES(v);
     REBCNT len = VAL_LEN_AT(v);
@@ -1061,7 +1061,7 @@ static void Mold_File(REB_MOLD *mo, const RELVAL *v)
 }
 
 
-static void Mold_Tag(REB_MOLD *mo, const RELVAL *v)
+static void Mold_Tag(REB_MOLD *mo, const REBCEL *v)
 {
     Append_Utf8_Codepoint(mo->series, '<');
 
@@ -1077,7 +1077,7 @@ static void Mold_Tag(REB_MOLD *mo, const RELVAL *v)
 //
 //  MF_Binary: C
 //
-void MF_Binary(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Binary(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 
@@ -1121,11 +1121,12 @@ void MF_Binary(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 //  MF_String: C
 //
-void MF_String(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_String(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     REBSER *s = mo->series;
 
-    assert(ANY_STRING(v));
+    enum Reb_Kind kind = CELL_KIND(v); // may be literal reusing the cell
+    assert(ANY_STRING_KIND(kind));
 
     // Special format for MOLD/ALL string series when not at head
     //
@@ -1139,7 +1140,7 @@ void MF_String(REB_MOLD *mo, const RELVAL *v, bool form)
     // The R3-Alpha forming logic was that every string type besides TAG!
     // would form with no delimiters, e.g. `form #foo` is just foo
     //
-    if (form and not IS_TAG(v)) {
+    if (form and kind != REB_TAG) {
         REBSIZ offset;
         REBSIZ size;
         REBSER *temp = Temp_UTF8_At_Managed(&offset, &size, v, VAL_LEN_AT(v));
@@ -1148,12 +1149,12 @@ void MF_String(REB_MOLD *mo, const RELVAL *v, bool form)
         return;
     }
 
-    switch (VAL_TYPE(v)) {
-    case REB_TEXT:
+    switch (kind) {
+      case REB_TEXT:
         Mold_Text_Series_At(mo, VAL_SERIES(v), VAL_INDEX(v));
         break;
 
-    case REB_FILE:
+      case REB_FILE:
         if (VAL_LEN_AT(v) == 0) {
             Append_Unencoded(s, "%\"\"");
             break;
@@ -1161,16 +1162,16 @@ void MF_String(REB_MOLD *mo, const RELVAL *v, bool form)
         Mold_File(mo, v);
         break;
 
-    case REB_EMAIL:
-    case REB_URL:
+      case REB_EMAIL:
+      case REB_URL:
         Mold_Url(mo, v);
         break;
 
-    case REB_TAG:
+      case REB_TAG:
         Mold_Tag(mo, v);
         break;
 
-    default:
+      default:
         panic (v);
     }
 }

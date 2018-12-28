@@ -575,8 +575,11 @@ extern void reb_qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp);
 
 #include "sys-node.h"
 
-#include "sys-value.h" // basic definitions that don't need series accessrors
-#include "sys-time.h"
+// Lives in %sys-bind.h, but needed for Move_Value() and Derelativize()
+//
+inline static void INIT_BINDING_MAY_MANAGE(REBCEL *out, REBNOD* binding);
+
+#include "sys-value.h" // basic definitions that don't need series accessors
 
 inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
     Eval_Signals |= f;
@@ -584,35 +587,33 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 }
 
 #include "sys-series.h"
-#include "sys-binary.h"
-#include "sys-string.h"
-#include "sys-typeset.h"
 
+#include "sys-binary.h" // BYTE_SIZE(), BIN_HEAD(), etc. used by strings
+#include "sys-string.h" // REBSYM needed for typeset datatype symbols
+#include "sys-typeset.h" // TS_XXX needed for array copying inline functions
 #include "sys-array.h"
 
-#include "sys-handle.h"
+#include "sys-literal.h" // requires singular arrays for cell storage
 
 #include "sys-action.h"
-#include "sys-context.h"
+#include "sys-context.h" // needs actions defined for FRAME! contexts
+
 #include "sys-word.h"
-
-#include "sys-pair.h"
-#include "sys-map.h"
-
-#include "sys-varargs.h"
+#include "sys-frame.h" // needs words for frame-label-returning helpers
 
 #include "sys-stack.h"
-
-#include "sys-frame.h"
-#include "sys-bind.h"
-
-#include "sys-literal.h" // depends on Derelativize() from %sys-bind.h
+#include "sys-bind.h" // does DS_PUSH and DS_TOP
 
 #include "sys-protect.h"
 
-#include "sys-library.h"
+#include "sys-time.h"
+#include "sys-handle.h"
+#include "sys-pair.h"
+#include "sys-map.h"
+#include "sys-varargs.h"
 
-#include "sys-image.h" // should be defined in an extension
+#include "sys-library.h" // maybe should be defined in an extension
+#include "sys-image.h" // definitely should be defined in an extension
 
 #include "host-lib.h"
 

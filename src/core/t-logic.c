@@ -354,7 +354,7 @@ REBNATIVE(unless)
 //
 //  CT_Logic: C
 //
-REBINT CT_Logic(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Logic(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode >= 0)  return (VAL_LOGIC(a) == VAL_LOGIC(b));
     return -1;
@@ -420,7 +420,7 @@ static inline bool Math_Arg_For_Logic(REBVAL *arg)
 //
 //  MF_Logic: C
 //
-void MF_Logic(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Logic(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // currently no distinction between MOLD and FORM
 

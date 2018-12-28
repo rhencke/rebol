@@ -50,21 +50,21 @@
 #endif
 
 
-inline static bool IS_WORD_UNBOUND(const RELVAL *v) {
-    assert(ANY_WORD(v));
+inline static bool IS_WORD_UNBOUND(const REBCEL *v) {
+    assert(ANY_WORD_KIND(CELL_KIND(v)));
     return v->extra.binding == nullptr;
 }
 
 #define IS_WORD_BOUND(v) \
-    cast(bool, not IS_WORD_UNBOUND(v))
+    (not IS_WORD_UNBOUND(v))
 
-inline static REBSTR *VAL_WORD_SPELLING(const RELVAL *v) {
-    assert(ANY_WORD(v));
+inline static REBSTR *VAL_WORD_SPELLING(const REBCEL *v) {
+    assert(ANY_WORD_KIND(CELL_KIND(v)));
     return v->payload.any_word.spelling;
 }
 
-inline static REBSTR *VAL_WORD_CANON(const RELVAL *v) {
-    assert(ANY_WORD(v));
+inline static REBSTR *VAL_WORD_CANON(const REBCEL *v) {
+    assert(ANY_WORD_KIND(CELL_KIND(v)));
     return STR_CANON(v->payload.any_word.spelling);
 }
 
@@ -76,13 +76,14 @@ inline static REBSTR *VAL_WORD_CANON(const RELVAL *v) {
 // But they won't if there are any words outstanding that hold that spelling,
 // so this is a safe technique as long as these words are GC-mark-visible.
 //
-inline static REBSTR *VAL_STORED_CANON(const RELVAL *v) {
-    assert(ANY_WORD(v));
+inline static REBSTR *VAL_STORED_CANON(const REBCEL *v) {
+    assert(ANY_WORD_KIND(CELL_KIND(v)));
     assert(GET_SER_INFO(v->payload.any_word.spelling, STRING_INFO_CANON));
     return v->payload.any_word.spelling;
 }
 
-inline static OPT_REBSYM VAL_WORD_SYM(const RELVAL *v) {
+inline static OPT_REBSYM VAL_WORD_SYM(const REBCEL *v) {
+    assert(ANY_WORD_KIND(CELL_KIND(v)));
     return STR_SYMBOL(v->payload.any_word.spelling);
 }
 
@@ -104,7 +105,7 @@ inline static void INIT_WORD_INDEX(RELVAL *v, REBCNT i) {
     v->payload.any_word.index = cast(REBINT, i);
 }
 
-inline static REBCNT VAL_WORD_INDEX(const RELVAL *v) {
+inline static REBCNT VAL_WORD_INDEX(const REBCEL *v) {
     assert(IS_WORD_BOUND(v));
     REBINT i = v->payload.any_word.index;
     assert(i > 0);

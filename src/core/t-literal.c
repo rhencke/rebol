@@ -51,30 +51,16 @@
 //
 //  CT_Literal: C
 //
-// !!! `(quote 'a) = (quote a)` is true in historical Rebol, due to the
-// rules of "lax equality".  These rules are up in the air as they pertain
-// to the IS and ISN'T transition.
+// !!! Currently, in order to have a GENERIC dispatcher (e.g. REBTYPE())
+// then one also must implement a comparison function.  However, compare
+// functions specifically take REBCEL, so you can't pass a literal to them.
+// The handling for LITERAL! is in the comparison dispatch itself.
 //
-// !!! How these comparisons are supposed to work is a mystery, but integer
-// does it like:
-//
-//     if (mode >= 0)  return (VAL_INT64(a) == VAL_INT64(b));
-//     if (mode == -1) return (VAL_INT64(a) >= VAL_INT64(b));
-//     return (VAL_INT64(a) > VAL_INT64(b));
-//
-REBINT CT_Literal(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Literal(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
-    if (mode < 0)
-        fail ("LITERAL! currently only implements equality testing");
-
-    if (VAL_LITERAL_DEPTH(a) != VAL_LITERAL_DEPTH(b))
-        return 0;
-
-    a = VAL_UNESCAPED(a);
-    b = VAL_UNESCAPED(b);
-
-    bool is_case = (mode == 1);
-    return (Cmp_Value(a, b, is_case) == 0) ? 1 : 0;
+    UNUSED(a); UNUSED(b); UNUSED(mode);
+    assert(!"CT_Literal should never be called");
+    return 0;
 }
 
 
@@ -90,7 +76,7 @@ REB_R MAKE_Literal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     assert(kind == REB_LITERAL);
     UNUSED(kind);
 
-    return Init_Literal(out, arg);
+    return Quotify(Move_Value(out, arg), 1);
 }
 
 
@@ -103,32 +89,6 @@ REB_R MAKE_Literal(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 REB_R TO_Literal(REBVAL *out, enum Reb_Kind kind, const REBVAL *data) {
     UNUSED(out);
     fail (Error_Bad_Make(kind, data));
-}
-
-
-//
-//  MF_Literal: C
-//
-// Molding just puts the number of backslashes before the item that it has.
-//
-void MF_Literal(REB_MOLD *mo, const RELVAL *v, bool form)
-{
-    // !!! There is currently no distinction between MOLD and FORM, but:
-    //
-    //      print ["What should this print?:" quote \\\"something"]
-    //
-    UNUSED(form);
-
-    REBCNT depth = VAL_LITERAL_DEPTH(v);
-    REBCNT i;
-    for (i = 0; i < depth; ++i)
-        Append_Unencoded(mo->series, "\\");
-
-    const RELVAL *wrap = VAL_UNESCAPED(v);
-    if (not IS_NULLED(wrap)) {
-        bool real_form = false; // don't ever "form"
-        Mold_Or_Form_Value(mo, wrap, real_form);
-    }
 }
 
 
@@ -155,7 +115,12 @@ REB_R PD_Literal(
     UNUSED(picker);
     UNUSED(opt_setval);
 
-    Move_Value(pvs->out, VAL_UNESCAPED(pvs->out));
+    if (KIND_BYTE(pvs->out) == REB_LITERAL)
+        Move_Value(pvs->out, KNOWN(pvs->out->payload.literal.cell));
+    else {
+        assert(KIND_BYTE(pvs->out) >= REB_MAX);
+        mutable_KIND_BYTE(pvs->out) %= REB_64;
+    }
 
     // We go through a dispatcher here and use R_REDO_UNCHECKED here because
     // it avoids having to pay for the check of literal types in the general
@@ -183,15 +148,14 @@ REB_R PD_Literal(
 //
 REBTYPE(Literal)
 {
-    REBVAL *val = D_ARG(1);
+    REBVAL *literal = D_ARG(1);
 
-    REBCNT depth = VAL_ESCAPE_DEPTH(val);
-    Move_Value(val, VAL_UNESCAPED(val));
-
-    enum Reb_Kind kind = VAL_TYPE(val);
+    enum Reb_Kind kind = CELL_KIND(VAL_UNESCAPED(literal));
     REBVAL *param = ACT_PARAM(FRM_PHASE(frame_), 1);
     if (not TYPE_CHECK(param, kind))
         fail (Error_Arg_Type(frame_, param, kind));
+
+    REBCNT depth = VAL_LITERAL_DEPTH(literal);
 
     switch (VAL_WORD_SYM(verb)) {
       case SYM_REFLECT: {
@@ -236,6 +200,18 @@ REBTYPE(Literal)
     depth = 0;
 
   escaped:;
+
+    // Keep the frame, but adjust the pivoting cell to be unescaped.  So
+    // either get the contained cell if it's a "real REB_LITERAL", or tweak
+    // the type bits back into normal range if a tricky in-cell literal.
+    //
+    if (KIND_BYTE(literal) == REB_LITERAL)
+        Move_Value(D_ARG(1), KNOWN(literal->payload.literal.cell));
+    else {
+        assert(KIND_BYTE(literal) >= REB_64);
+        mutable_KIND_BYTE(D_ARG(1)) %= REB_64;
+    }
+
     REB_R r = Generic_Dispatcher(frame_); // type was checked above
 
     // It's difficult to interpret an arbitrary REB_R result value for the
@@ -276,5 +252,5 @@ REBNATIVE(literal)
 {
     INCLUDE_PARAMS_OF_LITERAL;
 
-    return Init_Literal(D_OUT, ARG(optional));
+    return Quotify(Move_Value(D_OUT, ARG(optional)), 1);
 }

@@ -70,7 +70,7 @@
         return cast(REBSPC*, c);
     }
 
-    inline static REBSPC *VAL_SPECIFIER(const REBVAL *v) {
+    inline static REBSPC *VAL_SPECIFIER(const RELVAL *v) {
         assert(ANY_ARRAY(v));
         if (not v->extra.binding)
             return SPECIFIED;
@@ -321,6 +321,66 @@ inline static REBNOD *SPC_BINDING(REBSPC *specifier)
 }
 
 
+// If the cell we're writing into is a stack cell, there's a chance that
+// management/reification of the binding can be avoided.
+//
+inline static void INIT_BINDING_MAY_MANAGE(REBCEL *out, REBNOD* binding) {
+    out->extra.binding = binding; // payload and header should be valid
+
+    if (KIND_BYTE(out) == REB_LITERAL) {
+        RELVAL *old = out->payload.literal.cell;
+        if (old->extra.binding == binding)
+            return; // it's okay to reuse the literal payload
+
+        REBARR *a = Alloc_Singular(
+            NODE_FLAG_MANAGED | ARRAY_FLAG_NULLEDS_LEGAL
+        );
+        RELVAL *cell = ARR_SINGLE(a);
+        cell->header = old->header;
+        cell->extra.binding = binding;
+        cell->payload = old->payload;
+
+        out->payload.literal.cell = cell; // update to new binding
+    }
+
+    if (
+        not binding // unbound
+        or GET_SER_FLAG(binding, NODE_FLAG_MANAGED) // managed already
+        or GET_VAL_FLAG(out, NODE_FLAG_TRANSIENT) // can't pass up/down stack
+    ){
+        return;
+    }
+
+    assert(GET_SER_FLAG(binding, SERIES_FLAG_STACK));
+ 
+    REBFRM *f = FRM(LINK(binding).keysource);
+    assert(IS_END(f->param)); // cannot manage frame varlist in mid fulfill!
+    UNUSED(f); // !!! not actually used yet, coming soon
+
+    if (out->header.bits & NODE_FLAG_STACK) {
+        //
+        // If the cell we're writing to is a stack cell, there's a chance
+        // that management/reification of the binding can be avoided.
+        //
+        REBCNT bind_depth = 1; // !!! need to find v's binding stack level
+        REBCNT out_depth;
+        if (not (out->header.bits & CELL_FLAG_STACK))
+            out_depth = 0;
+        else
+            out_depth = 1; // !!! need to find out's stack level
+
+        bool smarts_enabled = false; 
+        if (smarts_enabled and out_depth >= bind_depth)
+            return; // binding will outlive `out`, don't manage
+
+        // no luck...`out` might outlive the binding, must manage
+    }
+
+    binding->header.bits |= NODE_FLAG_MANAGED; // burdens the GC, now...
+    out->extra.binding = binding;
+}
+
+
 //=////////////////////////////////////////////////////////////////////////=//
 //
 //  VARIABLE ACCESS
@@ -363,10 +423,10 @@ inline static REBNOD *SPC_BINDING(REBSPC *specifier)
 // as inline so that locations using it can avoid overhead in invocation.
 //
 inline static REBCTX *Get_Var_Context(
-    const RELVAL *any_word,
+    const REBCEL *any_word,
     REBSPC *specifier
 ){
-    assert(ANY_WORD(any_word));
+    assert(ANY_WORD_KIND(CELL_KIND(any_word)));
 
     REBNOD *binding = VAL_BINDING(any_word);
     assert(binding); // caller should check so context won't be null
@@ -446,7 +506,7 @@ inline static REBCTX *Get_Var_Context(
 }
 
 static inline const REBVAL *Get_Opt_Var_May_Fail(
-    const RELVAL *any_word,
+    const REBCEL *any_word,
     REBSPC *specifier
 ){
     if (not VAL_BINDING(any_word))
@@ -460,7 +520,7 @@ static inline const REBVAL *Get_Opt_Var_May_Fail(
 }
 
 static inline const REBVAL *Try_Get_Opt_Var(
-    const RELVAL *any_word,
+    const REBCEL *any_word,
     REBSPC *specifier
 ){
     if (not VAL_BINDING(any_word))
@@ -475,14 +535,14 @@ static inline const REBVAL *Try_Get_Opt_Var(
 
 inline static void Move_Opt_Var_May_Fail(
     REBVAL *out,
-    const RELVAL *any_word,
+    const REBCEL *any_word,
     REBSPC *specifier
 ){
     Move_Value(out, Get_Opt_Var_May_Fail(any_word, specifier));
 }
 
 static inline REBVAL *Get_Mutable_Var_May_Fail(
-    const RELVAL *any_word,
+    const REBCEL *any_word,
     REBSPC *specifier
 ){
     if (not VAL_BINDING(any_word))
@@ -514,7 +574,7 @@ static inline REBVAL *Get_Mutable_Var_May_Fail(
 }
 
 inline static REBVAL *Sink_Var_May_Fail(
-    const RELVAL *any_word,
+    const REBCEL *any_word,
     REBSPC *specifier
 ){
     REBVAL *var = Get_Mutable_Var_May_Fail(any_word, specifier);
@@ -571,9 +631,10 @@ inline static REBVAL *Derelativize(
         // The stored binding is relative to a function, and so the specifier
         // needs to be a frame to have a precise invocation to lookup in.
 
-        assert(ANY_WORD(v) or ANY_ARRAY(v));
-
       #if !defined(NDEBUG)
+        enum Reb_Kind kind = CELL_KIND(VAL_UNESCAPED(v));
+        assert(ANY_WORD_KIND(kind) or ANY_ARRAY_KIND(kind));
+
         if (not specifier) {
             printf("Relative item used with SPECIFIED\n");
             panic (v);
@@ -677,7 +738,7 @@ inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
 // would need such derivation.
 //
 
-inline static REBSPC *Derive_Specifier(REBSPC *parent, const RELVAL *item) {
+inline static REBSPC *Derive_Specifier(REBSPC *parent, const REBCEL *item) {
     if (IS_SPECIFIC(item))
         return VAL_SPECIFIER(KNOWN(item));;
     return parent;

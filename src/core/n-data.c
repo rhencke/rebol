@@ -118,7 +118,7 @@ REBNATIVE(as_pair)
 //
 //  "Binds words or words in arrays to the specified context."
 //
-//      value [action! any-array! any-word!]
+//      value [action! any-array! any-word! literal!]
 //          "Value whose binding is to be set (modified) (returned)"
 //      target [any-word! any-context!]
 //          "The target context or a word whose binding should be the target"
@@ -137,6 +137,8 @@ REBNATIVE(bind)
     INCLUDE_PARAMS_OF_BIND;
 
     REBVAL *v = ARG(value);
+    REBCNT num_quotes = Dequotify(v); // if LITERAL!, transform to be unquoted
+
     REBVAL *target = ARG(target);
 
     REBCNT flags = REF(only) ? BIND_0 : BIND_DEEP;
@@ -176,13 +178,13 @@ REBNATIVE(bind)
         // Bind a single word
 
         if (Try_Bind_Word(context, v))
-            RETURN (v);
+            RETURN (Quotify(v, num_quotes));
 
         // not in context, bind/new means add it if it's not.
         //
         if (REF(new) or (IS_SET_WORD(v) and REF(set))) {
             Append_Context(context, v, NULL);
-            RETURN (v);
+            RETURN (Quotify(v, num_quotes));
         }
 
         fail (Error_Not_In_Context_Raw(v));
@@ -196,10 +198,11 @@ REBNATIVE(bind)
     if (IS_ACTION(v)) {
         Move_Value(D_OUT, v);
         INIT_BINDING(D_OUT, context);
-        return D_OUT;
+        return Quotify(D_OUT, num_quotes);
     }
 
-    assert(ANY_ARRAY(v));
+    if (not ANY_ARRAY(v))
+        fail (Error_Invalid(v)); // LITERAL! could have been any type
 
     RELVAL *at;
     if (REF(copy)) {
@@ -228,7 +231,7 @@ REBNATIVE(bind)
         flags
     );
 
-    return D_OUT;
+    return Quotify(D_OUT, num_quotes);
 }
 
 
@@ -440,11 +443,14 @@ REBNATIVE(collect_words)
 
 inline static void Get_Opt_Polymorphic_May_Fail(
     REBVAL *out,
-    const RELVAL *v,
+    const RELVAL *source_orig,
     REBSPC *specifier,
     bool hard // should GROUP!s in paths not be evaluated
 ){
-    if (IS_BAR(v)) {
+    const REBCEL *source = VAL_UNESCAPED(source_orig);
+    enum Reb_Kind kind = CELL_KIND(source);
+
+    if (kind == REB_BAR) {
         //
         // `a: 10 | b: 20 | get [a | b]` will give back `[10 | 20]`.
         // While seemingly not a very useful feature standalone, this
@@ -453,13 +459,13 @@ inline static void Get_Opt_Polymorphic_May_Fail(
         //
         Init_Bar(out);
     }
-    else if (IS_BLANK(v)) {
+    else if (kind == REB_BLANK) {
         Init_Nulled(out); // may be turned to blank after loop, or error
     }
-    else if (ANY_WORD(v)) {
-        Move_Opt_Var_May_Fail(out, v, specifier);
+    else if (ANY_WORD_KIND(kind)) {
+        Move_Opt_Var_May_Fail(out, source, specifier);
     }
-    else if (ANY_PATH(v)) {
+    else if (ANY_PATH_KIND(kind)) {
         //
         // `get 'foo/bar` acts as `:foo/bar`
         // except GET doesn't allow GROUP!s in the PATH!, unless you use
@@ -468,9 +474,9 @@ inline static void Get_Opt_Polymorphic_May_Fail(
         if (Eval_Path_Throws_Core(
             out,
             NULL, // not requesting symbol means refinements not allowed
-            VAL_ARRAY(v),
-            VAL_INDEX(v),
-            Derive_Specifier(specifier, v),
+            VAL_ARRAY(source),
+            VAL_INDEX(source),
+            Derive_Specifier(specifier, source),
             NULL, // not requesting value to set means it's a get
             hard ? DO_FLAG_PATH_HARD_QUOTE : DO_FLAG_NO_PATH_GROUPS
         )){
@@ -478,7 +484,7 @@ inline static void Get_Opt_Polymorphic_May_Fail(
         }
     }
     else
-        fail (Error_Invalid_Core(v, specifier));
+        fail (Error_Invalid_Core(source_orig, specifier));
 }
 
 
@@ -489,7 +495,7 @@ inline static void Get_Opt_Polymorphic_May_Fail(
 //
 //      return: [<opt> any-value!]
 //      source "Word or path to get, or block of words or paths"
-//          [<blank> any-word! any-path! block!]
+//          [<blank> any-word! any-path! block! literal!]
 //      /try "Return blank for variables that are unset" ;-- Is this good?
 //      /hard "Do not evaluate GROUP!s in PATH! (assume pre-COMPOSE'd)"
 //  ]
@@ -530,7 +536,7 @@ REBNATIVE(get)
 
 
 inline static void Set_Opt_Polymorphic_May_Fail(
-    const RELVAL *target,
+    const RELVAL *target_orig,
     REBSPC *target_specifier,
     const RELVAL *setval,
     REBSPC *setval_specifier,
@@ -540,7 +546,10 @@ inline static void Set_Opt_Polymorphic_May_Fail(
     if (enfix and not IS_ACTION(setval))
         fail ("Attempt to SET/ENFIX on a non-ACTION!");
 
-    if (IS_BAR(target)) {
+    const REBCEL *target = VAL_UNESCAPED(target_orig);
+    enum Reb_Kind kind = CELL_KIND(target);
+
+    if (kind == REB_BAR) {
         //
         // Just skip it, e.g. `set [a | b] [1 2 3]` sets a to 1, and b
         // to 3, but drops the 2.  This functionality was achieved
@@ -548,13 +557,13 @@ inline static void Set_Opt_Polymorphic_May_Fail(
         // are cases of `in obj 'word` which give back blank if the word
         // is not there, so it leads to too many silent errors.
     }
-    else if (ANY_WORD(target)) {
+    else if (ANY_WORD_KIND(kind)) {
         REBVAL *var = Sink_Var_May_Fail(target, target_specifier);
         Derelativize(var, setval, setval_specifier);
         if (enfix)
             SET_VAL_FLAG(var, VALUE_FLAG_ENFIXED);
     }
-    else if (ANY_PATH(target)) {
+    else if (ANY_PATH_KIND(kind)) {
         DECLARE_LOCAL (specific);
         Derelativize(specific, setval, setval_specifier);
         PUSH_GC_GUARD(specific);
@@ -591,7 +600,7 @@ inline static void Set_Opt_Polymorphic_May_Fail(
         DROP_GC_GUARD(specific);
     }
     else
-        fail (Error_Invalid_Core(target, target_specifier));
+        fail (Error_Invalid_Core(target_orig, target_specifier));
 }
 
 
@@ -602,7 +611,7 @@ inline static void Set_Opt_Polymorphic_May_Fail(
 //
 //      return: [<opt> any-value!]
 //          {Will be the values set to, or void if any set values are void}
-//      target [any-word! any-path! block!]
+//      target [any-word! any-path! block! literal!]
 //          {Word or path, or block of words and paths}
 //      value [<opt> any-value!]
 //          "Value or block of values"
@@ -642,8 +651,6 @@ REBNATIVE(set)
     }
 
     if (not IS_BLOCK(target)) {
-        assert(ANY_WORD(target) or ANY_PATH(target));
-
         Set_Opt_Polymorphic_May_Fail(
             target,
             SPECIFIED,
@@ -1324,6 +1331,8 @@ REBNATIVE(quote)
 
     if (REF(soft) and IS_QUOTABLY_SOFT(v))
         fail ("QUOTE/SOFT not currently implemented, should clone EVAL");
+
+    Recycle();
 
     Move_Value(D_OUT, v);
     SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);

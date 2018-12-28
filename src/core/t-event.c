@@ -39,7 +39,7 @@
 //
 //  CT_Event: C
 //
-REBINT CT_Event(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Event(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     REBINT diff = Cmp_Event(a, b);
     if (mode >=0) return diff == 0;
@@ -52,7 +52,7 @@ REBINT CT_Event(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 // Given two events, compare them.
 //
-REBINT Cmp_Event(const RELVAL *t1, const RELVAL *t2)
+REBINT Cmp_Event(const REBCEL *t1, const REBCEL *t2)
 {
     REBINT  diff;
 
@@ -233,7 +233,7 @@ void Set_Event_Vars(REBVAL *evt, RELVAL *blk, REBSPC *specifier)
 //
 // Will return BLANK! if the variable is not available.
 //
-static REBVAL *Get_Event_Var(RELVAL *out, const RELVAL *v, REBSTR *name)
+static REBVAL *Get_Event_Var(RELVAL *out, const REBCEL *v, REBSTR *name)
 {
     switch (STR_SYMBOL(name)) {
     case SYM_TYPE: {
@@ -434,7 +434,7 @@ REBTYPE(Event)
 //
 //  MF_Event: C
 //
-void MF_Event(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Event(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 

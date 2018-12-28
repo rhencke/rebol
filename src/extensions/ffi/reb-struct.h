@@ -474,10 +474,10 @@ extern void cleanup_ffi_closure(const REBVAL *v);
 
 extern const REBVAL *T_Struct(REBFRM *frame_, REBVAL *verb);
 extern const REBVAL *PD_Struct(REBPVS *pvs, const REBVAL *picker, const REBVAL *opt_setval);
-extern REBINT CT_Struct(const RELVAL *a, const RELVAL *b, REBINT mode);
+extern REBINT CT_Struct(const REBCEL *a, const REBCEL *b, REBINT mode);
 extern void MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
 extern void TO_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg);
-extern void MF_Struct(REB_MOLD *mo, const RELVAL *v, bool form);
+extern void MF_Struct(REB_MOLD *mo, const REBCEL *v, bool form);
 
 extern const REBVAL *Routine_Dispatcher(REBFRM *f);
 

@@ -440,7 +440,7 @@ void GC_Kill_Interning(REBSTR *intern)
 // Note that words are kept UTF8 encoded.
 // Positive result if s > t and negative if s < t.
 //
-REBINT Compare_Word(const RELVAL *s, const RELVAL *t, bool strict)
+REBINT Compare_Word(const REBCEL *s, const REBCEL *t, bool strict)
 {
     const REBYTE *sp = cb_cast(STR_HEAD(VAL_WORD_SPELLING(s)));
     const REBYTE *tp = cb_cast(STR_HEAD(VAL_WORD_SPELLING(t)));

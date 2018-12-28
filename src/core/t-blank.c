@@ -34,7 +34,7 @@
 //
 //  MF_Bar: C
 //
-void MF_Bar(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Bar(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // no distinction between MOLD and FORM
     UNUSED(v);
@@ -47,7 +47,7 @@ void MF_Bar(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 // !!! Will be deprecated with generic escaping, e.g. `\|`
 //
-void MF_Lit_bar(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Lit_bar(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // no distinction between MOLD and FORM
     UNUSED(v);
@@ -58,7 +58,7 @@ void MF_Lit_bar(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 //  MF_Blank: C
 //
-void MF_Blank(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Blank(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // no distinction between MOLD and FORM
     UNUSED(v);
@@ -71,7 +71,7 @@ void MF_Blank(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 // !!! No literal notation for VOID! values has been decided.
 //
-void MF_Void(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Void(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // no distinction between MOLD and FORM
     UNUSED(v);
@@ -135,9 +135,10 @@ REB_R TO_Unit(REBVAL *out, enum Reb_Kind kind, const REBVAL *data) {
 // Must have a comparison function, otherwise SORT would not work on arrays
 // with blanks or voids in them.
 //
-REBINT CT_Unit(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Unit(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
-    if (mode >= 0) return (VAL_TYPE(a) == VAL_TYPE(b));
+    if (mode >= 0)
+        return (CELL_KIND(a) == CELL_KIND(b));
     return -1;
 }
 
@@ -201,7 +202,7 @@ REBTYPE(Unit)
 //
 //  MF_Handle: C
 //
-void MF_Handle(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Handle(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     // Value has no printable form, so just print its name.
 
@@ -215,7 +216,7 @@ void MF_Handle(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 //  CT_Handle: C
 //
-REBINT CT_Handle(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Handle(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     // Would it be meaningful to allow user code to compare HANDLE!?
     //

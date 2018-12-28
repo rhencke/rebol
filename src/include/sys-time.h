@@ -61,16 +61,22 @@
     #define VAL_NANO(v) \
         ((v)->payload.time.nanoseconds)
 #else
-    inline static REBI64 VAL_NANO(const RELVAL *v) {
+    inline static REBI64 VAL_NANO(const REBCEL *v) {
         assert(
-            IS_TIME(v) or (IS_DATE(v) and GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
+            CELL_KIND(v) == REB_TIME or (
+                CELL_KIND(v) == REB_DATE
+                and GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME)
+            )
         );
         return v->payload.time.nanoseconds;
     }
 
-    inline static REBI64 &VAL_NANO(RELVAL *v) {
+    inline static REBI64 &VAL_NANO(REBCEL *v) {
         assert(
-            IS_TIME(v) or (IS_DATE(v) and GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
+            CELL_KIND(v) == REB_TIME or (
+                CELL_KIND(v) == REB_DATE
+                and GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME)
+            )
         );
         return v->payload.time.nanoseconds;
     }

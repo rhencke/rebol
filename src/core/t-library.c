@@ -34,7 +34,7 @@
 //
 //  CT_Library: C
 //
-REBINT CT_Library(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Library(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode >= 0) {
         return VAL_LIBRARY(a) == VAL_LIBRARY(b);
@@ -82,7 +82,7 @@ REB_R TO_Library(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  MF_Library: C
 //
-void MF_Library(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Library(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 

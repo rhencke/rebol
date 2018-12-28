@@ -2043,7 +2043,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         case TOKEN_LITERAL: {
             if (lit_depth != 0) { // e.g. `\ \`, nothing seen since last one
                 DS_PUSH_TRASH;
-                Init_Literal_Nulled(DS_TOP, lit_depth);
+                Quotify(Init_Nulled(DS_TOP), lit_depth);
             }
 
             lit_depth = ss->end - bp;
@@ -2052,7 +2052,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 goto loop; // so wrap next value
 
             DS_PUSH_TRASH;
-            Init_Literal_Nulled(DS_TOP, lit_depth);
+            Quotify(Init_Nulled(DS_TOP), lit_depth);
             lit_depth = 0;
             goto loop; } // wrap next value
 
@@ -2474,7 +2474,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             // Transform the topmost value on the stack into a LITERAL!, to
             // account for the `\\\` that was preceding it.
             //
-            Init_Escaped(DS_TOP, KNOWN(DS_TOP), lit_depth);
+            Quotify(DS_TOP, lit_depth);
             lit_depth = 0;
         }
 
@@ -2523,7 +2523,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
     if (lit_depth != 0) {
         DS_PUSH_TRASH;
-        Init_Literal_Nulled(DS_TOP, lit_depth);
+        Quotify(Init_Nulled(DS_TOP), lit_depth);
     }
 
     // Note: ss->newline_pending may be true; used for ARRAY_FLAG_TAIL_NEWLINE

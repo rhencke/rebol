@@ -372,12 +372,13 @@ typedef struct Reb_Tuple_Payload {
 
 struct Reb_Literal_Payload {
     //
-    // Fixed-size array that fits in a series node with no additional storage.
     // It's necessary to create some storage outside the value--at least for
     // some levels of depth--because the cell itself can't be big enough to
-    // hold any other cell (by definition!)
+    // hold any other cell (by definition!).  This cell lives in a singular
+    // array, which can be found with Singular_From_Cell()...but the payload
+    // stores the cell pointer to make it faster for most accesses.
     //
-    REBARR *singular;
+    RELVAL *cell;
 
     // The depth is the number of backslashes, e.g. `\x` is a depth of 1,
     // while `\\\x` is a depth of 3.  It is stored in the cell payload and not
@@ -785,7 +786,7 @@ union Reb_Value_Payload {
 };
 
 #ifdef CPLUSPLUS_11
-    struct Reb_Relative_Value
+    struct Reb_Cell
 #else
     struct Reb_Value
 #endif
@@ -828,12 +829,22 @@ union Reb_Value_Payload {
         // up violating strict aliasing.  Think *very hard* before changing!
         //
       public:
-        Reb_Relative_Value () = default;
+        Reb_Cell () = default;
       private:
-        Reb_Relative_Value (Reb_Relative_Value const & other) = delete;
-        void operator= (Reb_Relative_Value const &rhs) = delete;
+        Reb_Cell (Reb_Cell const & other) = delete;
+        void operator= (Reb_Cell const &rhs) = delete;
       #endif
     };
+
+#ifdef CPLUSPLUS_11
+    //
+    // A Reb_Relative_Value is a point of view on a cell where VAL_TYPE() can
+    // be called and will always give back a value in range < REB_MAX.  All
+    // KIND_BYTE() > REB_64 are considered to be REB_LITERAL variants of the
+    // byte modulo 64.
+    //
+    struct Reb_Relative_Value : public Reb_Cell {};
+#endif
 
 
 #if defined(DEBUG_TRASH_MEMORY)

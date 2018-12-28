@@ -210,7 +210,7 @@ REBYTE *Prep_Mold_Overestimated(REB_MOLD *mo, REBCNT num_bytes)
 //
 // Emit the initial datatype function, depending on /ALL option
 //
-void Pre_Mold(REB_MOLD *mo, const RELVAL *v)
+void Pre_Mold(REB_MOLD *mo, const REBCEL *v)
 {
     Emit(mo, GET_MOLD_FLAG(mo, MOLD_FLAG_ALL) ? "#[T " : "make T ", v);
 }
@@ -234,7 +234,7 @@ void End_Mold(REB_MOLD *mo)
 // For series that has an index, add the index for mold/all.
 // Add closing block.
 //
-void Post_Mold(REB_MOLD *mo, const RELVAL *v)
+void Post_Mold(REB_MOLD *mo, const REBCEL *v)
 {
     if (VAL_INDEX(v)) {
         Append_Utf8_Codepoint(mo->series, ' ');
@@ -438,11 +438,11 @@ void Form_Array_At(
 //
 //  MF_Fail: C
 //
-void MF_Fail(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Fail(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 
-    if (VAL_TYPE(v) == REB_0) {
+    if (CELL_KIND(v) == REB_0) {
         //
         // REB_0 is reserved for special purposes, and should only be molded
         // in debug scenarios.
@@ -464,12 +464,12 @@ void MF_Fail(REB_MOLD *mo, const RELVAL *v, bool form)
 //
 //  MF_Unhooked: C
 //
-void MF_Unhooked(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Unhooked(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(mo);
     UNUSED(form);
 
-    const REBVAL *type = Datatype_From_Kind(VAL_TYPE(v));
+    const REBVAL *type = Datatype_From_Kind(CELL_KIND(v));
     UNUSED(type); // !!! put in error message?
 
     fail ("Datatype does not have extension with a MOLD handler registered");
@@ -505,7 +505,23 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
     #endif
     }
 
-    if (IS_NULLED(v)) {
+    // Mold hooks take a REBCEL* and not a RELVAL*, so they expect any literal
+    // output to have already been done.
+
+    REBCNT depth = VAL_NUM_QUOTES(v);
+    const REBCEL *cell = VAL_UNESCAPED(v);
+    enum Reb_Kind kind = CELL_KIND(cell);
+
+    REBCNT i;
+    for (i = 0; i < depth; ++i)
+        Append_Unencoded(mo->series, "\\");
+
+    if (kind != REB_MAX_NULLED) {
+        MOLD_HOOK hook = Mold_Or_Form_Hooks[kind];
+        assert(hook != nullptr); // all types have a hook, even if it fails
+        hook(mo, cell, form);
+    }
+    else if (depth == 0) {
         //
         // NULLs should only be molded out in debug scenarios, but this still
         // happens a lot, e.g. PROBE() of context arrays when they have unset
@@ -513,18 +529,14 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
         // debug_break() here would be very annoying (the method used for
         // REB_0 items)
         //
-    #ifdef NDEBUG
+      #ifdef NDEBUG
         panic (v);
-    #else
+      #else
         printf("!!! Request to MOLD or FORM a NULL !!!\n");
         Append_Unencoded(s, "!!!null!!!");
         return;
-    #endif
+      #endif
     }
-
-    MOLD_HOOK hook = Mold_Or_Form_Hooks[VAL_TYPE(v)];
-    assert(hook != nullptr); // all types have a hook, even if it just fails
-    hook(mo, v, form);
 
     ASSERT_SERIES_TERM(s);
 }

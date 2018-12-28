@@ -44,7 +44,7 @@ static inline void INIT_BITS_NOT(REBSER *s, bool negated) {
 //
 //  CT_Bitset: C
 //
-REBINT CT_Bitset(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Bitset(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode >= 0) return (
         BITS_NOT(VAL_SERIES(a)) == BITS_NOT(VAL_SERIES(b))
@@ -79,7 +79,7 @@ REBSER *Make_Bitset(REBCNT len)
 //
 //  MF_Bitset: C
 //
-void MF_Bitset(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Bitset(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // all bitsets are "molded" at this time
 
@@ -90,7 +90,9 @@ void MF_Bitset(REB_MOLD *mo, const RELVAL *v, bool form)
     if (BITS_NOT(s))
         Append_Unencoded(mo->series, "[not bits ");
 
-    MF_Binary(mo, v, false); // false = mold, don't form
+    DECLARE_LOCAL (binary);
+    Init_Binary(binary, s);
+    MF_Binary(mo, binary, false); // false = mold, don't form
 
     if (BITS_NOT(s))
         Append_Utf8_Codepoint(mo->series, ']');

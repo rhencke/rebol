@@ -239,8 +239,8 @@ REB_R Reflect_Core(REBFRM *frame_)
 {
     INCLUDE_PARAMS_OF_REFLECT;
 
-    REBVAL *v = ARG(value);
-    enum Reb_Kind kind = VAL_UNESCAPED_KIND(v);
+    const REBCEL *cell = VAL_UNESCAPED(ARG(value));
+    enum Reb_Kind kind = CELL_KIND(cell);
 
     switch (VAL_WORD_SYM(ARG(property))) {
       case SYM_0:
@@ -255,7 +255,7 @@ REB_R Reflect_Core(REBFRM *frame_)
       case SYM_KIND: // simpler answer, low-level datatype (e.g. LITERAL!)
         if (kind == REB_MAX_NULLED)
             return nullptr;
-        return Init_Datatype(D_OUT, VAL_TYPE(v));
+        return Init_Datatype(D_OUT, VAL_TYPE(ARG(value)));
 
       case SYM_TYPE: // higher order-answer, may build structured result
         if (kind == REB_MAX_NULLED) // not a real "datatype"
@@ -268,12 +268,7 @@ REB_R Reflect_Core(REBFRM *frame_)
         //
         // If the escaping count of the value is zero, this returns it as is.
         //
-        Init_Escaped(
-            D_OUT,
-            D_OUT, // input value pointer can be same as output
-            VAL_ESCAPE_DEPTH(ARG(value))
-        );
-        return D_OUT;
+        return Quotify(D_OUT, VAL_NUM_QUOTES(ARG(value)));
 
       default:
         // !!! Are there any other universal reflectors?
@@ -290,7 +285,7 @@ REB_R Reflect_Core(REBFRM *frame_)
     GENERIC_HOOK hook = Generic_Hooks[kind];
     DECLARE_LOCAL (verb);
     Init_Word(verb, Canon(SYM_REFLECT));
-    return hook(frame_, verb);
+    return hook(frame_, verb); // if literal, will call REBTYPE(Literal)
 }
 
 

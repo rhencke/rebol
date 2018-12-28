@@ -55,7 +55,7 @@ const struct {
 //
 //  CT_Gob: C
 //
-REBINT CT_Gob(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Gob(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode >= 0)
         return VAL_GOB(a) == VAL_GOB(b) && VAL_GOB_INDEX(a) == VAL_GOB_INDEX(b);
@@ -940,7 +940,7 @@ REB_R PD_Gob(
 //
 //  MF_Gob: C
 //
-void MF_Gob(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Gob(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 

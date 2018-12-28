@@ -261,7 +261,7 @@ REB_R Series_Common_Action_Maybe_Unhandled(
 // Compare two arrays and return the difference of the first
 // non-matching value.
 //
-REBINT Cmp_Array(const RELVAL *sval, const RELVAL *tval, bool is_case)
+REBINT Cmp_Array(const REBCEL *sval, const REBCEL *tval, bool is_case)
 {
     RELVAL *s = VAL_ARRAY_AT(sval);
     RELVAL *t = VAL_ARRAY_AT(tval);

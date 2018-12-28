@@ -74,11 +74,13 @@ inline static void TERM_BIN_LEN(REBSER *s, REBCNT len) {
 #define VAL_BIN_HEAD(v) \
     BIN_HEAD(VAL_SERIES(v))
 
-inline static REBYTE *VAL_BIN_AT(const RELVAL *v) {
+inline static REBYTE *VAL_BIN_AT(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_BINARY or CELL_KIND(v) == REB_BITSET);
     return BIN_AT(VAL_SERIES(v), VAL_INDEX(v));
 }
 
-inline static REBYTE *VAL_BIN_TAIL(const RELVAL *v) {
+inline static REBYTE *VAL_BIN_TAIL(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_BINARY or CELL_KIND(v) == REB_BITSET);
     return SER_TAIL(REBYTE, VAL_SERIES(v));
 }
 

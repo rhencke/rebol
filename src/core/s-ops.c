@@ -153,15 +153,15 @@ REBYTE *Analyze_String_For_Scan(
 REBSER *Temp_UTF8_At_Managed(
     REBSIZ *offset_out,
     REBSIZ *opt_size_out,
-    const RELVAL *str,
+    const REBCEL *str,
     REBCNT length_limit
 ){
-#if !defined(NDEBUG)
-    if (not ANY_STRING(str)) {
+  #if !defined(NDEBUG)
+    if (not ANY_STRING_KIND(CELL_KIND(str))) {
         printf("Temp_UTF8_At_Managed() called on non-ANY-STRING!");
         panic (str);
     }
-#endif
+  #endif
 
     assert(length_limit <= VAL_LEN_AT(str));
 

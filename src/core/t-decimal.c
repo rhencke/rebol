@@ -277,7 +277,7 @@ bool Eq_Decimal2(REBDEC a, REBDEC b)
 //
 //  CT_Decimal: C
 //
-REBINT CT_Decimal(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Decimal(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode >= 0) {
         if (mode == 0)
@@ -296,29 +296,42 @@ REBINT CT_Decimal(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MF_Decimal: C
 //
-// Notice this covers both DECIMAL! and PERCENT!
+// Code mostly duplicated in MF_Percent.
 //
-void MF_Decimal(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Decimal(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 
-    switch (VAL_TYPE(v)) {
-    case REB_DECIMAL:
-    case REB_PERCENT: {
-        REBYTE buf[60];
-        REBINT len = Emit_Decimal(
-            buf,
-            VAL_DECIMAL(v),
-            IS_PERCENT(v) ? DEC_MOLD_PERCENT : 0,
-            GET_MOLD_FLAG(mo, MOLD_FLAG_COMMA_PT) ? ',' : '.',
-            mo->digits
-        );
-        Append_Unencoded_Len(mo->series, s_cast(buf), len);
-        break; }
+    REBYTE buf[60];
+    REBINT len = Emit_Decimal(
+        buf,
+        VAL_DECIMAL(v),
+        0, // e.g. not DEC_MOLD_PERCENT
+        GET_MOLD_FLAG(mo, MOLD_FLAG_COMMA_PT) ? ',' : '.',
+        mo->digits
+    );
+    Append_Unencoded_Len(mo->series, s_cast(buf), len);
+}
 
-    default:
-        panic (v);
-    }
+
+//
+//  MF_Percent: C
+//
+// Code mostly duplicated in MF_Decimal.
+//
+void MF_Percent(REB_MOLD *mo, const REBCEL *v, bool form)
+{
+    UNUSED(form);
+
+    REBYTE buf[60];
+    REBINT len = Emit_Decimal(
+        buf,
+        VAL_DECIMAL(v),
+        DEC_MOLD_PERCENT,
+        GET_MOLD_FLAG(mo, MOLD_FLAG_COMMA_PT) ? ',' : '.',
+        mo->digits
+    );
+    Append_Unencoded_Len(mo->series, s_cast(buf), len);
 }
 
 
@@ -448,8 +461,7 @@ REBTYPE(Decimal)
     switch (sym) {
 
     case SYM_COPY:
-        Move_Value(D_OUT, val);
-        return D_OUT;
+        return Move_Value(D_OUT, val);
 
     case SYM_NEGATE:
         d1 = -d1;

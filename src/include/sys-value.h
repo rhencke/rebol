@@ -166,22 +166,39 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Every value has 6 bits reserved for its VAL_TYPE().  The reason only 6
-// are used is because low-level TYPESET!s are only 64-bits (so they can fit
-// into a REBVAL payload, along with a key symbol to represent a function
-// parameter).  If there were more types, they couldn't be flagged in a
-// typeset that fit in a REBVAL under that constraint.
+// At the moment, only 6 bits are used in the type byte to express unique
+// types.  The higher values in the byte are used to express that the type
+// is a LITERAL!, but one that is at a level of escaping that's small enough
+// to fit into the cell itself.  So the UNESCAPED_TYPE() for such values is
+// just the type byte modulo 64.
 //
-// !!! A full header byte is used, to simplify masking and hopefully offer
-// a speedup.  Larger values could be used for some purposes, but they could
-// not be put in typesets as written.
+// Note also that low-level TYPESET!s are only 64-bits (so they can fit into
+// a REBVAL payload, along with a symbol, to represent an action parameter).
+// If there were more low-level types, they couldn't be flagged in a typeset
+// that fit in a REBVAL under that constraint.
 //
-
-#define VAL_TYPE_RAW(v) \
-    cast(enum Reb_Kind, KIND_BYTE(v))
 
 #define FLAGIT_KIND(t) \
     (cast(REBU64, 1) << (t)) // makes a 64-bit bitflag
+
+// A cell may have a larger KIND_BYTE() than legal Reb_Kind to represent a
+// literal in-situ, but the payload bits are for VAL_UNESCAPED_TYPE()
+//
+#if !defined(CPLUSPLUS_11)
+    #define CELL_KIND(cell) \
+        cast(enum Reb_Kind, KIND_BYTE(cell) % REB_64)
+#else
+    inline static enum Reb_Kind CELL_KIND(const REBCEL *cell)
+        { return cast(enum Reb_Kind, KIND_BYTE(cell) % REB_64); }
+
+    inline static enum Reb_Kind CELL_KIND(const RELVAL *v) = delete;
+#endif
+
+inline static enum Reb_Kind VAL_TYPE_RAW(const RELVAL *v) {
+    if (KIND_BYTE(v) >= REB_64)
+        return REB_LITERAL;
+    return cast(enum Reb_Kind, KIND_BYTE(v));
+}
 
 #ifdef NDEBUG
     #define VAL_TYPE(v) \
@@ -204,7 +221,7 @@
                 | VALUE_FLAG_FALSEY // all the "bad" types are also falsey
             )) == NODE_FLAG_CELL
         ){
-            assert(VAL_TYPE_RAW(v) <= REB_MAX);
+            assert(VAL_TYPE_RAW(v) <= REB_MAX_NULLED);
             return VAL_TYPE_RAW(v); // majority of calls hopefully return here
         }
 
@@ -221,14 +238,19 @@
 
         // Cell is good, so let the good cases pass through
         //
-        if (VAL_TYPE_RAW(v) == REB_MAX_NULLED)
+        if (KIND_BYTE(v) == REB_MAX_NULLED)
             return REB_MAX_NULLED;
-        if (VAL_TYPE_RAW(v) == REB_LOGIC)
+        if (KIND_BYTE(v) == REB_LOGIC)
             return REB_LOGIC;
+
+        // Checking of literals is done when they are unliteralized
+        //
+        if (KIND_BYTE(v) >= REB_64)
+            return REB_LITERAL;
 
         // Unreadable blank is signified in the Extra by a negative tick
         //
-        if (VAL_TYPE_RAW(v) == REB_BLANK) {
+        if (KIND_BYTE(v) == REB_BLANK) {
             if (v->extra.tick < 0) {
                 printf("VAL_TYPE() called on unreadable BLANK!\n");
               #ifdef DEBUG_COUNT_TICKS
@@ -241,11 +263,11 @@
 
         // Special messages for END and trash (as these are common)
         //
-        if (VAL_TYPE_RAW(v) == REB_0_END) {
+        if (KIND_BYTE(v) == REB_0_END) {
             printf("VAL_TYPE() called on END marker\n");
             panic_at (v, file, line);
         }
-        if (VAL_TYPE_RAW(v) == REB_T_TRASH) {
+        if (KIND_BYTE(v) == REB_T_TRASH) {
             printf("VAL_TYPE() called on trash cell\n");
             panic_at (v, file, line);
         }
@@ -257,35 +279,6 @@
     #define VAL_TYPE(v) \
         VAL_TYPE_Debug((v), __FILE__, __LINE__)
 #endif
-
-
-inline static RELVAL *ARR_SINGLE(REBARR *a); // prototype needed
-
-#if !defined(__cplusplus)
-    inline static REBVAL *KNOWN(const RELVAL *v); // prototype needed
-
-    inline static REBVAL *VAL_UNESCAPED(const RELVAL *v) {
-        if (not IS_LITERAL(v))
-            return cast(REBVAL*, m_cast(RELVAL*, v));
-        return KNOWN(ARR_SINGLE(v->payload.literal.singular));
-    }
-#else
-    template<typename T>
-    inline static T *VAL_UNESCAPED(T *v) {
-        if (not IS_LITERAL(v))
-            return v;
-        return cast(T*, ARR_SINGLE(v->payload.literal.singular));
-    }
-#endif
-
-inline static enum Reb_Kind VAL_UNESCAPED_KIND(const RELVAL *v) {
-    //
-    // !!! The idea is this would be more complicated...the type byte modulo
-    // some amount, and all values over REB_MAX_PLUS_MAX would be literal.
-    // Implementation detail, just show it for now.
-    //
-    return VAL_TYPE(VAL_UNESCAPED(v));
-}
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -316,7 +309,7 @@ inline static enum Reb_Kind VAL_UNESCAPED_KIND(const RELVAL *v) {
         // pattern does not catch bad flag checks in asserts.  Review.
 
         template <uintptr_t f>
-        inline static void SET_VAL_FLAG_cplusplus(RELVAL *v) {
+        inline static void SET_VAL_FLAG_cplusplus(REBCEL *v) {
             static_assert(
                 f and (f & (f - 1)) == 0, // only one bit is set
                 "use SET_VAL_FLAGS() to set multiple bits"
@@ -327,7 +320,7 @@ inline static enum Reb_Kind VAL_UNESCAPED_KIND(const RELVAL *v) {
             SET_VAL_FLAG_cplusplus<f>(v)
         
         template <uintptr_t f>
-        inline static bool GET_VAL_FLAG_cplusplus(const RELVAL *v) {
+        inline static bool GET_VAL_FLAG_cplusplus(const REBCEL *v) {
             static_assert(
                 f and (f & (f - 1)) == 0, // only one bit is set
                 "use ANY_VAL_FLAGS() or ALL_VAL_FLAGS() to test multiple bits"
@@ -383,44 +376,44 @@ inline static enum Reb_Kind VAL_UNESCAPED_KIND(const RELVAL *v) {
             mutable_SECOND_BYTE(flags) = 0; \
         } \
 
-    inline static void SET_VAL_FLAGS(RELVAL *v, uintptr_t f) {
-        enum Reb_Kind kind = VAL_TYPE_RAW(v);
+    inline static void SET_VAL_FLAGS(REBCEL *v, uintptr_t f) {
+        enum Reb_Kind kind = CELL_KIND(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         v->header.bits |= f;
     }
 
-    inline static void SET_VAL_FLAG(RELVAL *v, uintptr_t f) {
-        enum Reb_Kind kind = VAL_TYPE_RAW(v);
+    inline static void SET_VAL_FLAG(REBCEL *v, uintptr_t f) {
+        enum Reb_Kind kind = CELL_KIND(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         v->header.bits |= f;
     }
 
-    inline static bool GET_VAL_FLAG(const RELVAL *v, uintptr_t f) {
-        enum Reb_Kind kind = VAL_TYPE_RAW(v);
+    inline static bool GET_VAL_FLAG(const REBCEL *v, uintptr_t f) {
+        enum Reb_Kind kind = CELL_KIND(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         return did (v->header.bits & f);
     }
 
-    inline static bool ANY_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
-        enum Reb_Kind kind = VAL_TYPE_RAW(v);
+    inline static bool ANY_VAL_FLAGS(const REBCEL *v, uintptr_t f) {
+        enum Reb_Kind kind = CELL_KIND(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         return (v->header.bits & f) != 0;
     }
 
-    inline static bool ALL_VAL_FLAGS(const RELVAL *v, uintptr_t f) {
-        enum Reb_Kind kind = VAL_TYPE_RAW(v);
+    inline static bool ALL_VAL_FLAGS(const REBCEL *v, uintptr_t f) {
+        enum Reb_Kind kind = CELL_KIND(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         return (v->header.bits & f) == f;
     }
 
-    inline static void CLEAR_VAL_FLAGS(RELVAL *v, uintptr_t f) {
-        enum Reb_Kind kind = VAL_TYPE_RAW(v);
+    inline static void CLEAR_VAL_FLAGS(REBCEL *v, uintptr_t f) {
+        enum Reb_Kind kind = CELL_KIND(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         v->header.bits &= ~f;
     }
 
-    inline static void CLEAR_VAL_FLAG(RELVAL *v, uintptr_t f) {
-        enum Reb_Kind kind = VAL_TYPE_RAW(v);
+    inline static void CLEAR_VAL_FLAG(REBCEL *v, uintptr_t f) {
+        enum Reb_Kind kind = CELL_KIND(v);
         CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
         assert(f and (f & (f - 1)) == 0); // checks that only one bit is set
         v->header.bits &= ~f;
@@ -800,7 +793,7 @@ inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
 // An ANY-ARRAY! in the deep copy of a function body must be relative also to
 // the same function if it contains any instances of such relative words.
 //
-inline static bool IS_RELATIVE(const RELVAL *v) {
+inline static bool IS_RELATIVE(const REBCEL *v) {
     if (Not_Bindable(v) or not v->extra.binding)
         return false; // INTEGER! and other types are inherently "specific"
     return GET_SER_FLAG(v->extra.binding, ARRAY_FLAG_PARAMLIST);
@@ -831,17 +824,17 @@ inline static REBACT *VAL_RELATIVE(const RELVAL *v) {
 // Use for: "invalid conversion from 'Reb_Value*' to 'Reb_Specific_Value*'"
 
 #if !defined(__cplusplus) // poorer protection in C, loses constness
-    inline static REBVAL *KNOWN(const RELVAL *v) {
+    inline static REBVAL *KNOWN(const REBCEL *v) {
         assert(IS_END(v) or IS_SPECIFIC(v));
-        return m_cast(REBVAL*, c_cast(RELVAL*, v));
+        return m_cast(REBVAL*, c_cast(REBCEL*, v));
     }
 #else
-    inline static const REBVAL *KNOWN(const RELVAL *v) {
+    inline static const REBVAL *KNOWN(const REBCEL *v) {
         assert(IS_END(v) or IS_SPECIFIC(v)); // END for KNOWN(ARR_HEAD()), etc.
         return cast(const REBVAL*, v);
     }
 
-    inline static REBVAL *KNOWN(RELVAL *v) {
+    inline static REBVAL *KNOWN(REBCEL *v) {
         assert(IS_END(v) or IS_SPECIFIC(v)); // END for KNOWN(ARR_HEAD()), etc.
         return cast(REBVAL*, v);
     }
@@ -1070,9 +1063,6 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
 // opposed to in the value payload.  This means it can be tested quickly, and
 // that a single check can test for BLANK!, logic false, or nulled.
 //
-// Conditional truth and falsehood allows an interpretation where a BLANK!
-// is a "falsey" value as well.
-//
 
 #define FALSE_VALUE \
     c_cast(const REBVAL*, &PG_False_Value[0])
@@ -1081,6 +1071,14 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
     c_cast(const REBVAL*, &PG_True_Value[0])
 
 inline static bool IS_TRUTHY(const RELVAL *v) {
+    if (KIND_BYTE(v) >= REB_64) {
+        //
+        // LITERAL! at an escape level low enough to reuse cell.  So if that
+        // cell happens to be false/blank/nulled, VALUE_FLAG_FALSEY will
+        // be set, but don't heed it! `if quote \_ [-- "this is truthy"]`
+        //
+        return true;
+    }
     if (GET_VAL_FLAG(v, VALUE_FLAG_FALSEY))
         return false;
     if (IS_VOID(v))
@@ -1090,7 +1088,6 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
 
 #define IS_FALSEY(v) \
     (not IS_TRUTHY(v))
-
 
 #define Init_Logic(out,b) \
     RESET_CELL_EXTRA((out), REB_LOGIC, (b) ? 0 : VALUE_FLAG_FALSEY)
@@ -1109,20 +1106,19 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
 // So ANY and ALL use IS_TRUTHY() directly
 //
 inline static bool IS_CONDITIONAL_TRUE(const REBVAL *v) {
-    if (GET_VAL_FLAG(v, VALUE_FLAG_FALSEY))
+    if (IS_FALSEY(v))
         return false;
-    if (IS_VOID(v))
-        fail (Error_Void_Conditional_Raw());
-    if (IS_BLOCK(v) and GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED))
-        fail (Error_Block_Conditional_Raw(v));
+    if (VAL_TYPE_RAW(v) == REB_BLOCK)
+        if (GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED))
+            fail (Error_Block_Conditional_Raw(v));
     return true;
 }
 
 #define IS_CONDITIONAL_FALSE(v) \
     (not IS_CONDITIONAL_TRUE(v))
 
-inline static bool VAL_LOGIC(const RELVAL *v) {
-    assert(IS_LOGIC(v));
+inline static bool VAL_LOGIC(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_LOGIC);
     return NOT_VAL_FLAG((v), VALUE_FLAG_FALSEY);
 }
 
@@ -1202,12 +1198,12 @@ inline static REBVAL *Init_Char(RELVAL *out, REBUNI uni) {
 #else
     // allows an assert, but also lvalue: `VAL_INT64(v) = xxx`
     //
-    inline static REBI64 & VAL_INT64(RELVAL *v) { // C++ reference type
-        assert(IS_INTEGER(v));
+    inline static REBI64 & VAL_INT64(REBCEL *v) { // C++ reference type
+        assert(CELL_KIND(v) == REB_INTEGER);
         return v->payload.integer;
     }
-    inline static REBI64 VAL_INT64(const RELVAL *v) {
-        assert(IS_INTEGER(v));
+    inline static REBI64 VAL_INT64(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_INTEGER);
         return v->payload.integer;
     }
 #endif
@@ -1260,12 +1256,12 @@ inline static REBYTE VAL_UINT8(const RELVAL *v) {
 #else
     // allows an assert, but also lvalue: `VAL_DECIMAL(v) = xxx`
     //
-    inline static REBDEC & VAL_DECIMAL(RELVAL *v) { // C++ reference type
-        assert(IS_DECIMAL(v) or IS_PERCENT(v));
+    inline static REBDEC & VAL_DECIMAL(REBCEL *v) { // C++ reference type
+        assert(CELL_KIND(v) == REB_DECIMAL or CELL_KIND(v) == REB_PERCENT);
         return v->payload.decimal;
     }
-    inline static REBDEC VAL_DECIMAL(const RELVAL *v) {
-        assert(IS_DECIMAL(v) or IS_PERCENT(v));
+    inline static REBDEC VAL_DECIMAL(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_DECIMAL or CELL_KIND(v) == REB_PERCENT);
         return v->payload.decimal;
     }
 #endif
@@ -1303,8 +1299,11 @@ inline static REBVAL *Init_Percent(RELVAL *out, REBDEC d) {
 // !!! The naming of "deci" used by MONEY! as "decimal" is a confusing overlap
 // with DECIMAL!, although that name may be changing also.
 //
+// !!! It would be better if there were no "deci" structure independent of
+// a REBVAL itself, so long as it is designed to fit in a REBVAL anyway.
+//
 
-inline static deci VAL_MONEY_AMOUNT(const RELVAL *v) {
+inline static deci VAL_MONEY_AMOUNT(const REBCEL *v) {
     deci amount;
     amount.m0 = v->extra.m0;
     amount.m1 = v->payload.money.m1;
@@ -1359,33 +1358,33 @@ inline static REBVAL *Init_Money(RELVAL *out, deci amount) {
 #else
     // C++ build can give const-correctness so you don't change read-only data
 
-    inline static const REBYTE *VAL_TUPLE(const RELVAL *v) {
-        assert(IS_TUPLE(v));
+    inline static const REBYTE *VAL_TUPLE(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_TUPLE);
         return v->payload.tuple.tuple + 1;
     }
 
-    inline static REBYTE *VAL_TUPLE(RELVAL *v) {
-        assert(IS_TUPLE(v));
+    inline static REBYTE *VAL_TUPLE(REBCEL *v) {
+        assert(CELL_KIND(v) == REB_TUPLE);
         return v->payload.tuple.tuple + 1;
     }
 
-    inline static const REBYTE *VAL_TUPLE_DATA(const RELVAL *v) {
-        assert(IS_TUPLE(v));
+    inline static const REBYTE *VAL_TUPLE_DATA(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_TUPLE);
         return v->payload.tuple.tuple;
     }
 
-    inline static REBYTE *VAL_TUPLE_DATA(RELVAL *v) {
-        assert(IS_TUPLE(v));
+    inline static REBYTE *VAL_TUPLE_DATA(REBCEL *v) {
+        assert(CELL_KIND(v) == REB_TUPLE);
         return v->payload.tuple.tuple;
     }
 
-    inline static REBYTE VAL_TUPLE_LEN(const RELVAL *v) {
-        assert(IS_TUPLE(v));
+    inline static REBYTE VAL_TUPLE_LEN(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_TUPLE);
         return v->payload.tuple.tuple[0];
     }
 
-    inline static REBYTE &VAL_TUPLE_LEN(RELVAL *v) {
-        assert(IS_TUPLE(v));
+    inline static REBYTE &VAL_TUPLE_LEN(REBCEL *v) {
+        assert(CELL_KIND(v) == REB_TUPLE);
         return v->payload.tuple.tuple[0];
     }
 #endif
@@ -1511,23 +1510,23 @@ inline static void SET_EVENT_KEY(RELVAL *v, REBCNT k, REBCNT c) {
     #define VAL_GOB_INDEX(v) \
         (v)->payload.gob.index
 #else
-    inline static REBGOB* const &VAL_GOB(const RELVAL *v) {
-        assert(IS_GOB(v));
+    inline static REBGOB* const &VAL_GOB(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_GOB);
         return v->payload.gob.gob;
     }
 
-    inline static REBCNT const &VAL_GOB_INDEX(const RELVAL *v) {
-        assert(IS_GOB(v));
+    inline static REBCNT const &VAL_GOB_INDEX(const REBCEL *v) {
+        assert(CELL_KIND(v) == REB_GOB);
         return v->payload.gob.index;
     }
 
-    inline static REBGOB* &VAL_GOB(RELVAL *v) {
-        assert(IS_GOB(v));
+    inline static REBGOB* &VAL_GOB(REBCEL *v) {
+        assert(CELL_KIND(v) == REB_GOB);
         return v->payload.gob.gob;
     }
 
-    inline static REBCNT &VAL_GOB_INDEX(RELVAL *v) {
-        assert(IS_GOB(v));
+    inline static REBCNT &VAL_GOB_INDEX(REBCEL *v) {
+        assert(CELL_KIND(v) == REB_GOB);
         return v->payload.gob.index;
     }
 #endif
@@ -1581,7 +1580,7 @@ inline static REBVAL *Init_Gob(RELVAL *out, REBGOB *g) {
 #define UNBOUND \
    cast(REBNOD*, 0) // cast() doesn't like nullptr, fix
 
-inline static REBNOD *VAL_BINDING(const RELVAL *v) {
+inline static REBNOD *VAL_BINDING(const REBCEL *v) {
     assert(Is_Bindable(v));
     return v->extra.binding;
 }
@@ -1644,53 +1643,6 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
 }
 
 
-// If the cell we're writing into is a stack cell, there's a chance that
-// management/reification of the binding can be avoided.
-//
-inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
-    if (not binding) {
-        out->extra.binding = nullptr; // unbound
-        return;
-    }
-    if (GET_SER_FLAG(binding, NODE_FLAG_MANAGED)) {
-        out->extra.binding = binding; // managed is safe for any `out`
-        return;
-    }
-    if (out->header.bits & NODE_FLAG_TRANSIENT) {
-        out->extra.binding = binding; // can't be passed between frame levels
-        return;
-    }
-
-    assert(GET_SER_FLAG(binding, SERIES_FLAG_STACK));
- 
-    REBFRM *f = FRM(LINK(binding).keysource);
-    assert(IS_END(f->param)); // cannot manage frame varlist in mid fulfill!
-    UNUSED(f); // !!! not actually used yet, coming soon
-
-    if (out->header.bits & NODE_FLAG_STACK) {
-        //
-        // If the cell we're writing to is a stack cell, there's a chance
-        // that management/reification of the binding can be avoided.
-        //
-        REBCNT bind_depth = 1; // !!! need to find v's binding stack level
-        REBCNT out_depth;
-        if (not (out->header.bits & CELL_FLAG_STACK))
-            out_depth = 0;
-        else
-            out_depth = 1; // !!! need to find out's stack level
-
-        bool smarts_enabled = false; 
-        if (smarts_enabled and out_depth >= bind_depth)
-            return; // binding will outlive `out`, don't manage
-
-        // no luck...`out` might outlive the binding, must manage
-    }
-
-    binding->header.bits |= NODE_FLAG_MANAGED; // burdens the GC, now...
-    out->extra.binding = binding;
-}
-
-
 // !!! Because you cannot assign REBVALs to one another (e.g. `*dest = *src`)
 // a function is used.  The reason that a function is used is because this
 // gives more flexibility in decisions based on the destination cell regarding
@@ -1706,12 +1658,18 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
 {
     Move_Value_Header(out, v);
 
+    // Payloads cannot hold references to stackvars, raw bit transfer ok.
+    //
+    // Note: must be copied over *before* INIT_BINDING_MAY_MANAGE is called,
+    // so that if it's a REB_LITERAL it can find the literal->cell.
+    //
+    out->payload = v->payload;
+
     if (Not_Bindable(v))
         out->extra = v->extra; // extra isn't a binding (INTEGER! MONEY!...)
     else
         INIT_BINDING_MAY_MANAGE(out, v->extra.binding);
 
-    out->payload = v->payload; // payloads cannot hold references to stackvars
     return KNOWN(out);
 }
 

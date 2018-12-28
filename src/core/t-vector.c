@@ -301,7 +301,7 @@ REBARR *Vector_To_Array(const REBVAL *vect)
 // <, however the REBINT returned here is supposed to.  Review if this code
 // ever becomes relevant.
 //
-REBINT Compare_Vector(const RELVAL *v1, const RELVAL *v2)
+REBINT Compare_Vector(const REBCEL *v1, const REBCEL *v2)
 {
     REBSER *ser1 = VAL_SERIES(v1);
     REBSER *ser2 = VAL_SERIES(v2);
@@ -550,7 +550,7 @@ REB_R TO_Vector(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  CT_Vector: C
 //
-REBINT CT_Vector(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Vector(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     REBINT n = Compare_Vector(a, b);  // needs to be expanded for equality
     if (mode >= 0) {
@@ -722,7 +722,7 @@ REBTYPE(Vector)
 //
 //  MF_Vector: C
 //
-void MF_Vector(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Vector(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     REBSER *vect = VAL_SERIES(v);
 

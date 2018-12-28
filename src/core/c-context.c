@@ -491,18 +491,18 @@ void Collect_Context_Keys(
 static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL *head)
 {
     for (; NOT_END(head); ++head) {
-        enum Reb_Kind kind = VAL_UNESCAPED_KIND(head);
-        const RELVAL *v = VAL_UNESCAPED(head); // cell of `x` from `\\\x`
+        const REBCEL *cell = VAL_UNESCAPED(head); // cell of `x` from `\\\x`
+        enum Reb_Kind kind = CELL_KIND(cell);
 
         if (ANY_WORD_KIND(kind)) {
             if (kind != REB_SET_WORD and not (cl->flags & COLLECT_ANY_WORD))
                 continue; // kind of word we're not interested in collecting
 
-            REBSTR *canon = VAL_WORD_CANON(v);
+            REBSTR *canon = VAL_WORD_CANON(cell);
             if (not Try_Add_Binder_Index(&cl->binder, canon, cl->index)) {
                 if (cl->flags & COLLECT_NO_DUP) {
                     DECLARE_LOCAL (duplicate);
-                    Init_Word(duplicate, VAL_WORD_SPELLING(v));
+                    Init_Word(duplicate, VAL_WORD_SPELLING(cell));
                     fail (Error_Dup_Vars_Raw(duplicate)); // cleans bindings
                 }
                 continue; // tolerate duplicate
@@ -515,10 +515,10 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL *head)
                 Init_Typeset(
                     ARR_LAST(BUF_COLLECT),
                     TS_VALUE, // !!! Not used at the moment
-                    VAL_WORD_SPELLING(v)
+                    VAL_WORD_SPELLING(cell)
                 );
             else
-                Init_Word(ARR_LAST(BUF_COLLECT), VAL_WORD_SPELLING(v));
+                Init_Word(ARR_LAST(BUF_COLLECT), VAL_WORD_SPELLING(cell));
 
             continue;
         }
@@ -533,7 +533,7 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL *head)
         // behavior which is probably wrong.
         //
         if (kind == REB_BLOCK or kind == REB_GROUP)
-            Collect_Inner_Loop(cl, VAL_ARRAY_AT(v));
+            Collect_Inner_Loop(cl, VAL_ARRAY_AT(cell));
     }
 }
 

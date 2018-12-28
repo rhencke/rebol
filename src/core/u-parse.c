@@ -555,7 +555,8 @@ static REBIXO Parse_One_Rule(
 
         switch (VAL_TYPE(rule)) {
           case REB_LITERAL:
-            rule = Unliteralize(P_CELL, rule, P_RULE_SPECIFIER);
+            Derelativize(P_CELL, rule, P_RULE_SPECIFIER);
+            rule = Unquotify(P_CELL, 1);
             break; // fall through to direct match
 
           case REB_DATATYPE:
@@ -980,14 +981,15 @@ static REBIXO To_Thru_Non_Block_Rule(
         // other considerations for how non-block rules act with array input?
         //
         REBFLGS flags = P_HAS_CASE ? AM_FIND_CASE : 0;
-        DECLARE_LOCAL (word);
+        DECLARE_LOCAL (temp);
         if (IS_LIT_WORD(rule)) {
-            Derelativize(word, rule, P_RULE_SPECIFIER);
-            CHANGE_VAL_TYPE_BITS(word, REB_WORD);
-            rule = word;
+            Derelativize(temp, rule, P_RULE_SPECIFIER);
+            CHANGE_VAL_TYPE_BITS(temp, REB_WORD);
+            rule = temp;
         }
         else if (IS_LITERAL(rule)) { // make `\[foo bar]` match `[foo bar]`
-            rule = Unliteralize(word, rule, P_RULE_SPECIFIER);
+            Derelativize(temp, rule, P_RULE_SPECIFIER);
+            rule = Unquotify(temp, 1);
             flags |= AM_FIND_ONLY; // !!! Is this implied?
         }
 

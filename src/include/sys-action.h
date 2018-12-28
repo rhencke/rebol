@@ -257,8 +257,8 @@ inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
         | ACTION_FLAG_INVISIBLE)
 
 
-inline static REBACT *VAL_ACTION(const RELVAL *v) {
-    assert(IS_ACTION(v));
+inline static REBACT *VAL_ACTION(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_ACTION); // so it works on literals
     REBSER *s = SER(v->payload.action.paramlist);
     if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE))
         fail (Error_Series_Data_Freed_Raw());
@@ -277,18 +277,18 @@ inline static REBACT *VAL_ACTION(const RELVAL *v) {
 #define VAL_ACT_PARAM(v,n) \
     ACT_PARAM(VAL_ACTION(v), n)
 
-inline static REBARR *VAL_ACT_DETAILS(const RELVAL *v) {
-    assert(IS_ACTION(v));
+inline static REBARR *VAL_ACT_DETAILS(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_ACTION);
     return v->payload.action.details;
 }
 
-inline static REBNAT VAL_ACT_DISPATCHER(const RELVAL *v) {
-    assert(IS_ACTION(v));
+inline static REBNAT VAL_ACT_DISPATCHER(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_ACTION);
     return MISC(v->payload.action.details).dispatcher;
 }
 
-inline static REBCTX *VAL_ACT_META(const RELVAL *v) {
-    assert(IS_ACTION(v));
+inline static REBCTX *VAL_ACT_META(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_ACTION);
     return MISC(v->payload.action.paramlist).meta;
 }
 

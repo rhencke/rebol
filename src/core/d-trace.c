@@ -168,16 +168,19 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
                     f->specifier
                 );
                 if (not var) {
-                    Debug_Fmt_(" : \\\\end\\\\"); // displays as "\\end\\"
+                    Debug_Fmt_(" : // end");
                 }
                 else if (IS_NULLED(var)) {
-                    Debug_Fmt_(" : \\\\null\\\\"); // displays as "\\null\\"
+                    Debug_Fmt_(" : // null");
                 }
                 else if (IS_ACTION(var)) {
                     const bool locals = false;
                     const char *type_utf8 = STR_HEAD(Get_Type_Name(var));
                     DECLARE_LOCAL (words);
-                    Init_Block(words, List_Func_Words(var, locals));
+                    Init_Block(
+                        words,
+                        Make_Action_Words_Arr(VAL_ACTION(var), locals)
+                    );
                     Debug_Fmt_(" : %s %50r", type_utf8, words);
                 }
                 else if (

@@ -38,7 +38,7 @@
 // the words are equal or not (1 or 0).  This creates bad invariants for
 // sorting etc.  Review.
 //
-REBINT CT_Word(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Word(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     REBINT e;
     REBINT diff;
@@ -128,51 +128,73 @@ REB_R TO_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 }
 
 
-//
-//  MF_Word: C
-//
-void MF_Word(REB_MOLD *mo, const RELVAL *v, bool form) {
-    UNUSED(form); // no difference between MOLD and FORM at this time
-
+inline static void Mold_Word(REB_MOLD *mo, const REBCEL *v)
+{
     REBSTR *spelling = VAL_WORD_SPELLING(v);
     const char *head = STR_HEAD(spelling); // UTF-8
     size_t size = STR_SIZE(spelling); // number of UTF-8 bytes
+    Append_Utf8_Utf8(mo->series, head, size);
+}
 
-    REBSER *s = mo->series;
 
-    switch (VAL_TYPE(v)) {
-    case REB_WORD: {
-        Append_Utf8_Utf8(s, head, size);
-        break; }
+//
+//  MF_Word: C
+//
+void MF_Word(REB_MOLD *mo, const REBCEL *v, bool form) {
+    UNUSED(form);
+    Mold_Word(mo, v);
+}
 
-    case REB_SET_WORD:
-        Append_Utf8_Utf8(s, head, size);
-        Append_Utf8_Codepoint(s, ':');
-        break;
 
-    case REB_GET_WORD:
-        Append_Utf8_Codepoint(s, ':');
-        Append_Utf8_Utf8(s, head, size);
-        break;
+//
+//  MF_Set_word: C
+//
+void MF_Set_word(REB_MOLD *mo, const REBCEL *v, bool form) {
+    UNUSED(form);
+    Mold_Word(mo, v);
+    Append_Utf8_Codepoint(mo->series, ':');
+}
 
-    case REB_LIT_WORD:
-        Append_Utf8_Codepoint(s, '\'');
-        Append_Utf8_Utf8(s, head, size);
-        break;
 
-    case REB_REFINEMENT:
-        Append_Utf8_Codepoint(s, '/');
-        Append_Utf8_Utf8(s, head, size);
-        break;
+//
+//  MF_Get_word: C
+//
+void MF_Get_word(REB_MOLD *mo, const REBCEL *v, bool form) {
+    UNUSED(form);
+    Append_Utf8_Codepoint(mo->series, ':');
+    Mold_Word(mo, v);
+}
 
-    case REB_ISSUE:
-        Append_Utf8_Codepoint(s, '#');
-        Append_Utf8_Utf8(s, head, size);
-        break;
 
-    default:
-        panic (v);
-    }
+//
+//  MF_Lit_word: C
+//
+// !!! Note: will be deprecated by generic backslash literals.
+//
+void MF_Lit_word(REB_MOLD *mo, const REBCEL *v, bool form) {
+    UNUSED(form);
+    Append_Utf8_Codepoint(mo->series, '\'');
+    Mold_Word(mo, v);
+}
+
+
+//
+//  MF_Refinement: C
+//
+void MF_Refinement(REB_MOLD *mo, const REBCEL *v, bool form) {
+    UNUSED(form);
+    Append_Utf8_Codepoint(mo->series, '/');
+    Mold_Word(mo, v);
+}
+
+
+//
+//  MF_Issue: C
+//
+void MF_Issue(REB_MOLD *mo, const REBCEL *v, bool form) {
+    UNUSED(form);
+    Append_Utf8_Codepoint(mo->series, '#');
+    Mold_Word(mo, v);
 }
 
 

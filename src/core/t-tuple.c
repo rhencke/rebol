@@ -34,7 +34,7 @@
 //
 //  CT_Tuple: C
 //
-REBINT CT_Tuple(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Tuple(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     REBINT num = Cmp_Tuple(a, b);
     if (mode > 1) return (num == 0 && VAL_TUPLE_LEN(a) == VAL_TUPLE_LEN(b));
@@ -159,7 +159,7 @@ REB_R TO_Tuple(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 // Given two tuples, compare them.
 //
-REBINT Cmp_Tuple(const RELVAL *t1, const RELVAL *t2)
+REBINT Cmp_Tuple(const REBCEL *t1, const REBCEL *t2)
 {
     REBCNT  len;
     const REBYTE *vp1, *vp2;
@@ -276,7 +276,7 @@ REB_R PD_Tuple(
 //
 //  MF_Tuple: C
 //
-void MF_Tuple(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Tuple(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 

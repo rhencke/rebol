@@ -31,16 +31,15 @@
 #include "sys-core.h"
 
 //
-//  List_Func_Words: C
+//  Make_Action_Words_Arr: C
 //
-// Return a block of function words, unbound.
-// Note: skips 0th entry.
+// Returns array of function words, unbound.
 //
-REBARR *List_Func_Words(const RELVAL *func, bool pure_locals)
+REBARR *Make_Action_Words_Arr(REBACT *act, bool locals)
 {
     REBDSP dsp_orig = DSP;
 
-    REBVAL *param = VAL_ACT_PARAMS_HEAD(func);
+    REBVAL *param = ACT_PARAMS_HEAD(act);
     for (; NOT_END(param); param++) {
         if (Is_Param_Hidden(param)) // specialization hides parameters
             continue;
@@ -48,35 +47,35 @@ REBARR *List_Func_Words(const RELVAL *func, bool pure_locals)
         enum Reb_Kind kind;
 
         switch (VAL_PARAM_CLASS(param)) {
-        case PARAM_CLASS_NORMAL:
+          case PARAM_CLASS_NORMAL:
             kind = REB_WORD;
             break;
 
-        case PARAM_CLASS_TIGHT:
+          case PARAM_CLASS_TIGHT:
             kind = REB_ISSUE;
             break;
 
-        case PARAM_CLASS_REFINEMENT:
+          case PARAM_CLASS_REFINEMENT:
             kind = REB_REFINEMENT;
             break;
 
-        case PARAM_CLASS_HARD_QUOTE:
+          case PARAM_CLASS_HARD_QUOTE:
             kind = REB_GET_WORD;
             break;
 
-        case PARAM_CLASS_SOFT_QUOTE:
+          case PARAM_CLASS_SOFT_QUOTE:
             kind = REB_LIT_WORD;
             break;
 
-        case PARAM_CLASS_LOCAL:
-        case PARAM_CLASS_RETURN: // "magic" local - prefilled invisibly
-            if (not pure_locals)
+          case PARAM_CLASS_LOCAL:
+          case PARAM_CLASS_RETURN: // "magic" local - prefilled invisibly
+            if (not locals)
                 continue; // treat as invisible, e.g. for WORDS-OF
 
             kind = REB_SET_WORD;
             break;
 
-        default:
+          default:
             assert(false);
             DEAD_END;
         }

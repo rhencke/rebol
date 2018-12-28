@@ -50,13 +50,13 @@ void Bind_Values_Inner_Loop(
     REBFLGS flags
 ){
     for (; NOT_END(head); ++head) {
-        enum Reb_Kind kind = VAL_UNESCAPED_KIND(head);
-        RELVAL *v = VAL_UNESCAPED(head); // cell of `x` from `\\\x`
+        const REBCEL *cell = VAL_UNESCAPED(head); // may equal v, e.g. `\x`
+        enum Reb_Kind kind = CELL_KIND(cell);
 
         REBU64 type_bit = FLAGIT_KIND(kind);
 
         if (type_bit & bind_types) {
-            REBSTR *canon = VAL_WORD_CANON(v);
+            REBSTR *canon = VAL_WORD_CANON(cell);
             REBINT n = Get_Binder_Index_Else_0(binder, canon);
             if (n > 0) {
                 //
@@ -70,22 +70,25 @@ void Bind_Values_Inner_Loop(
                 // We're overwriting any previous binding, which may have
                 // been relative.
 
-                INIT_BINDING_MAY_MANAGE(v, NOD(context));
-                INIT_WORD_INDEX(v, n);
+                REBCNT depth = Dequotify(head); // must ensure new cell
+                INIT_BINDING_MAY_MANAGE(head, NOD(context));
+                INIT_WORD_INDEX(head, n);
+                Quotify(head, depth); // new cell made for higher escapes
             }
             else if (type_bit & add_midstream_types) {
                 //
                 // Word is not in context, so add it if option is specified
                 //
-                Expand_Context(context, 1);
-                Append_Context(context, v, 0);
-                Add_Binder_Index(binder, canon, VAL_WORD_INDEX(v));
+                REBCNT depth = Dequotify(head); // must ensure new cell
+                Append_Context(context, head, 0);
+                Add_Binder_Index(binder, canon, VAL_WORD_INDEX(head));
+                Quotify(head, depth); // new cell made for higher escapes
             }
         }
-        else if (ANY_ARRAY(v) and (flags & BIND_DEEP)) {
+        else if (ANY_ARRAY_KIND(kind) and (flags & BIND_DEEP)) {
             Bind_Values_Inner_Loop(
                 binder,
-                VAL_ARRAY_AT(v),
+                VAL_ARRAY_AT(cell),
                 context,
                 bind_types,
                 add_midstream_types,
@@ -195,9 +198,7 @@ static void Bind_Relative_Inner_Loop(
     REBU64 bind_types
 ) {
     for (; NOT_END(head); ++head) {
-        enum Reb_Kind kind = VAL_UNESCAPED_KIND(head);
-        RELVAL *v = VAL_UNESCAPED(head); // cell of `x` from `\\\x`
-
+        //
         // The two-pass copy-and-then-bind should have gotten rid of all the
         // relative values to other functions during the copy.
         //
@@ -205,24 +206,30 @@ static void Bind_Relative_Inner_Loop(
         // with relative values and run them through the specification
         // process if they were not just getting overwritten.
         //
-        assert(not IS_RELATIVE(v));
+        assert(not IS_RELATIVE(head));
+
+        const REBCEL *cell = VAL_UNESCAPED(head);
+        enum Reb_Kind kind = CELL_KIND(cell);
 
         REBU64 type_bit = FLAGIT_KIND(kind);
         if (type_bit & bind_types) {
-            REBINT n = Get_Binder_Index_Else_0(binder, VAL_WORD_CANON(v));
+            REBINT n = Get_Binder_Index_Else_0(binder, VAL_WORD_CANON(cell));
             if (n != 0) {
                 //
                 // Word's canon symbol is in frame.  Relatively bind it.
                 // (clear out existing binding flags first).
                 //
-                Unbind_Any_Word(v);
-                INIT_BINDING(v, paramlist); // incomplete func
-                INIT_WORD_INDEX(v, n);
+                REBCNT depth = Dequotify(head); // must ensure new cell
+                Unbind_Any_Word(head);
+                INIT_BINDING(head, paramlist); // incomplete func
+                INIT_WORD_INDEX(head, n);
+                Quotify(head, depth); // new cell made for higher escapes
             }
         }
-        else if (ANY_ARRAY(v)) {
+        else if (ANY_ARRAY_KIND(kind)) {
+
             Bind_Relative_Inner_Loop(
-                binder, VAL_ARRAY_AT(v), paramlist, bind_types
+                binder, VAL_ARRAY_AT(cell), paramlist, bind_types
             );
 
             // !!! Technically speaking it is not necessary for an array to
@@ -231,7 +238,9 @@ static void Bind_Relative_Inner_Loop(
             // easiest to debug if there is a clear mark on arrays that are
             // part of a deep copy of a function body either way.
             //
-            INIT_BINDING(v, paramlist); // incomplete func
+            REBCNT depth = Dequotify(head); // must ensure new cell
+            INIT_BINDING(head, paramlist); // incomplete func
+            Quotify(head, depth); // new cell made for higher escapes
         }
     }
 }

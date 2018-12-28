@@ -210,7 +210,8 @@ REB_R Compose_To_Stack_Core(
     );
 
     for (; NOT_END(f->value); Fetch_Next_In_Frame(nullptr, f)) {
-        enum Reb_Kind kind = VAL_UNESCAPED_KIND(f->value); // notice `\\(...)`
+        const REBCEL *cell = VAL_UNESCAPED(f->value);
+        enum Reb_Kind kind = CELL_KIND(cell); // notice `\\(...)`
 
         if (not ANY_ARRAY_KIND(kind)) { // won't substitute/recurse
             DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
@@ -222,14 +223,14 @@ REB_R Compose_To_Stack_Core(
         REBSPC *match_specifier = nullptr;
         const RELVAL *match = nullptr;
 
-        REBCNT escapes = VAL_ESCAPE_DEPTH(f->value);
+        REBCNT quotes = VAL_NUM_QUOTES(f->value);
 
         if (kind != REB_GROUP) {
             //
             // Don't compose at this level, but may need to walk deeply to
             // find compositions inside it if /DEEP and it's an array
         }
-        else if (escapes == 0) {
+        else if (quotes == 0) {
             if (Is_Doubled_Group(f->value)) { // non-spliced compose, if match
                 RELVAL *inner = VAL_ARRAY_AT(f->value);
                 if (Match_For_Compose(inner, label)) {
@@ -247,7 +248,8 @@ REB_R Compose_To_Stack_Core(
         }
         else { // all escaped groups just lose one level of their escaping
             DS_PUSH_TRASH;
-            Unliteralize(DS_TOP, f->value, specifier);
+            Derelativize(DS_TOP, f->value, specifier);
+            Unquotify(DS_TOP, 1);
             changed = true;
             continue;
         }
@@ -315,11 +317,10 @@ REB_R Compose_To_Stack_Core(
         else if (deep) {
             // compose/deep [does [(1 + 2)] nested] => [does [3] nested]
 
-            const RELVAL *unescaped = VAL_UNESCAPED(f->value);
             REBDSP dsp_deep = DSP;
             REB_R r = Compose_To_Stack_Core(
                 out,
-                unescaped, // real array without the backslashes
+                cast(const RELVAL*, cell), // real array w/no backslashes
                 specifier,
                 label,
                 true, // deep (guaranteed true if we get here)
@@ -345,7 +346,7 @@ REB_R Compose_To_Stack_Core(
             }
 
             REBFLGS flags = NODE_FLAG_MANAGED | ARRAY_FLAG_FILE_LINE;
-            if (GET_SER_FLAG(VAL_ARRAY(unescaped), ARRAY_FLAG_TAIL_NEWLINE))
+            if (GET_SER_FLAG(VAL_ARRAY(cell), ARRAY_FLAG_TAIL_NEWLINE))
                 flags |= ARRAY_FLAG_TAIL_NEWLINE;
 
             REBARR *popped = Pop_Stack_Values_Core(dsp_deep, flags);
@@ -356,7 +357,7 @@ REB_R Compose_To_Stack_Core(
                 popped // can't push and pop in same step, need this variable!
             );
 
-            Init_Escaped(DS_TOP, DS_TOP, escapes); // put back backslashes
+            Quotify(DS_TOP, quotes); // put back backslashes
 
             if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);

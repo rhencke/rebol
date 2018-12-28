@@ -34,7 +34,7 @@
 //
 //  CT_Char: C
 //
-REBINT CT_Char(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Char(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     REBINT num;
 
@@ -136,7 +136,7 @@ static REBINT Math_Arg_For_Char(REBVAL *arg, REBVAL *verb)
 //
 //  MF_Char: C
 //
-void MF_Char(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Char(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     REBSER *out = mo->series;
 

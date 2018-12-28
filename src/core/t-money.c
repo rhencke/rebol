@@ -35,7 +35,7 @@
 //
 //  CT_Money: C
 //
-REBINT CT_Money(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Money(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     bool e = deci_is_equal(VAL_MONEY_AMOUNT(a), VAL_MONEY_AMOUNT(b));
 
@@ -110,7 +110,7 @@ REB_R TO_Money(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  MF_Money: C
 //
-void MF_Money(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Money(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 

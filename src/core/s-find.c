@@ -34,20 +34,17 @@
 //
 //  Compare_Binary_Vals: C
 //
-// Compare two binary values.
-//
 // Compares bytes, not chars. Return the difference.
 //
-// Used for: Binary comparision function
-//
-REBINT Compare_Binary_Vals(const RELVAL *v1, const RELVAL *v2)
+REBINT Compare_Binary_Vals(const REBCEL *v1, const REBCEL *v2)
 {
     REBCNT l1 = VAL_LEN_AT(v1);
     REBCNT l2 = VAL_LEN_AT(v2);
     REBCNT len = MIN(l1, l2);
     REBINT n;
 
-    if (IS_IMAGE(v1)) len *= 4;
+    if (CELL_KIND(v1) == REB_IMAGE)
+        len *= 4;
 
     // Image is not "byte size" (note multiplied by 4 above) but still calls
     // binary compare...can't use VAL_BIN_AT as long as it does, because
@@ -201,9 +198,9 @@ REBINT Compare_Uni_Str(
 //
 // Used for: general string comparions (various places)
 //
-REBINT Compare_String_Vals(const RELVAL *v1, const RELVAL *v2, bool uncase)
+REBINT Compare_String_Vals(const REBCEL *v1, const REBCEL *v2, bool uncase)
 {
-    assert(not IS_BINARY(v1) and not IS_BINARY(v2));
+    assert(CELL_KIND(v1) != REB_BINARY and CELL_KIND(v2) != REB_BINARY);
 
     REBCNT l1  = VAL_LEN_AT(v1);
     REBCNT l2  = VAL_LEN_AT(v2);

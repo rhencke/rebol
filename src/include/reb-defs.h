@@ -128,6 +128,29 @@ typedef struct Reb_Node REBNOD;
 #endif
 
 
+//=//// ESCAPE-ALIASABLE CELLS ////////////////////////////////////////////=//
+//
+// The system uses a trick in which the type byte is bumped by multiples of
+// 64 to indicate up to 3 levels of escaping.  VAL_TYPE() will report these
+// as being REB_LITERAL, but the entire payload for them is in the cell.
+//
+// Most of the time, routines want to see these as being LITERAL!.  But some
+// lower-level routines (like molding or comparison) want to be able to act
+// on them in-place witout making a copy.  To ensure they see the value for
+// the "type that it is" and use CELL_KIND() and not VAL_TYPE(), this alias
+// for RELVAL prevents VAL_TYPE() operations.
+//
+#if !defined(CPLUSPLUS_11)
+    #define REBCEL \
+        struct Reb_Value // same as RELVAL, no checking in C build
+#else
+    struct Reb_Cell; // won't implicitly downcast to RELVAL
+    #define REBCEL \
+        struct Reb_Cell // *might* have KIND_BYTE() > REB_64
+#endif
+
+
+
 //=//// SERIES SUBCLASSES /////////////////////////////////////////////////=//
 //
 // Note that because the Reb_Series structure includes a Reb_Value by value,
@@ -189,7 +212,7 @@ typedef REBVAL *REB_R;
 
 //=//// DISPATCHERS ///////////////////////////////////////////////////////=//
 //
-typedef REBINT (*COMPARE_HOOK)(const RELVAL *a, const RELVAL *b, REBINT s);
+typedef REBINT (*COMPARE_HOOK)(const REBCEL *a, const REBCEL *b, REBINT s);
 typedef REB_R (*MAKE_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
 typedef REB_R (*TO_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
 
@@ -198,7 +221,7 @@ typedef REB_R (*TO_HOOK)(REBVAL*, enum Reb_Kind, const REBVAL*);
 //
 struct rebol_mold;
 typedef struct rebol_mold REB_MOLD;
-typedef void (*MOLD_HOOK)(REB_MOLD *mo, const RELVAL *v, bool form);
+typedef void (*MOLD_HOOK)(REB_MOLD *mo, const REBCEL *v, bool form);
 
 
 // These definitions are needed in %sys-rebval.h, and can't be put in

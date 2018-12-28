@@ -45,16 +45,22 @@ REBOL [
         ** !!! Review how these might be auto-generated from the table.
         */
 
-        /* We use VAL_TYPE_RAW() for checking the bindable flag because it
-           is called *extremely often*; the extra debug checks in VAL_TYPE()
-           make it prohibitively more expensive than a simple check of a
-           flag, while these tests are very fast. */
+        /* We use CELL_KIND() for checking the bindable flag because the cell
+         * may be a literal which is using the same payload as its wrapped
+         * value.  That means the extra field could be used for anything, even
+         * if VAL_TYPE_RAW() reports REB_LITERAL.
+         *
+         * Note this is called *extremely often*...so the debug build would
+         * be seriously slowed down by things like the checking in VAL_TYPE().
+         * Assume/hope using the less checked CELL_KIND() is okay, and any
+         * problems will be caught by asserts elsewhere.
+         */
 
         #define Is_Bindable(v) \
-            (VAL_TYPE_RAW(v) < REB_LOGIC)
+            (KIND_BYTE(v) % REB_64 < REB_LOGIC)
 
         #define Not_Bindable(v) \
-            (VAL_TYPE_RAW(v) >= REB_LOGIC)
+            (KIND_BYTE(v) % REB_64 >= REB_LOGIC)
 
         /* For other checks, we pay the cost in the debug build of all the
            associated baggage that VAL_TYPE() carries over VAL_TYPE_RAW() */
@@ -180,16 +186,16 @@ action      action      +       +       +       -
 
 ; ANY-WORD!, order matters (tests like ANY_WORD use >= REB_WORD, <= REB_ISSUE)
 ;
-word        word        *       *       *       word
-set-word    word        *       *       *       word
-get-word    word        *       *       *       word
-lit-word    word        *       *       *       word
-refinement  word        *       *       *       word
-issue       word        *       *       *       word
+word        word        *       *       +       word
+set-word    word        *       *       +       word
+get-word    word        *       *       +       word
+lit-word    word        *       *       +       word
+refinement  word        *       *       +       word
+issue       word        *       *       +       word
 
-; LITERAL! is a container for what may be a relative value, and have a binding
+; LITERAL! is "bindable", but nulls binding if it contains an unbindable type
 ;
-literal     literal     +       +       +       literal
+literal     literal     +       +       -       literal
 
 ; ANY-ARRAY!, order matters (and contiguous with ANY-SERIES below matters!)
 ;
@@ -232,8 +238,8 @@ port        port        context +       context context
 
 logic       logic       -       +       +       -
 integer     integer     -       +       +       [number scalar]
-decimal     decimal     -       *       *       [number scalar]
-percent     decimal     -       *       *       [number scalar]
+decimal     decimal     -       *       +       [number scalar]
+percent     decimal     -       *       +       [number scalar]
 money       money       -       +       +       scalar
 char        char        -       +       +       scalar
 pair        pair        +       +       +       scalar

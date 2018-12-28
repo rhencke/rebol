@@ -170,6 +170,7 @@ inline static const char *STR_HEAD(REBSTR *str) {
 }
 
 inline static REBSTR *STR_CANON(REBSTR *str) {
+    assert(SER_WIDE(str) == 1);
     while (NOT_SER_INFO(str, STRING_INFO_CANON))
         str = LINK(str).synonym; // circularly linked list
     return str;
@@ -248,7 +249,7 @@ inline static void TERM_UNI_LEN(REBSER *s, REBCNT len) {
 // One should thus always prefer to use VAL_UNI_AT() if possible, over trying
 // to calculate a position from scratch.
 //
-inline static REBUNI *VAL_UNI_AT(const RELVAL *v) {
+inline static REBUNI *VAL_UNI_AT(const REBCEL *v) {
     return AS_REBUNI(UNI_AT(VAL_SERIES(v), VAL_INDEX(v)));
 }
 

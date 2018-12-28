@@ -45,7 +45,7 @@ inline static void RESET_IMAGE(REBYTE *p, REBCNT num_pixels) {
 //
 //  CT_Image: C
 //
-REBINT CT_Image(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Image(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode < 0)
         return -1;
@@ -54,7 +54,7 @@ REBINT CT_Image(const RELVAL *a, const RELVAL *b, REBINT mode)
         VAL_IMAGE_WIDE(a) == VAL_IMAGE_WIDE(a)
         && VAL_IMAGE_HIGH(b) == VAL_IMAGE_HIGH(b)
     ) {
-        return (0 == Cmp_Value(a, b, mode == 1)) ? 1 : 0;
+        return (0 == Compare_Binary_Vals(a, b)) ? 1 : 0;
     }
 
     return 0;
@@ -988,7 +988,7 @@ static void Make_Complemented_Image(REBVAL *out, const REBVAL *value)
 //
 //  MF_Image: C
 //
-void MF_Image(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Image(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // no difference between MOLD and FORM at this time
 

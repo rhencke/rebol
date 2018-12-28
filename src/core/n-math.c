@@ -422,7 +422,7 @@ REBNATIVE(shift)
 
 //  CT_Fail: C
 //
-REBINT CT_Fail(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Fail(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     UNUSED(a);
     UNUSED(b);
@@ -434,7 +434,7 @@ REBINT CT_Fail(const RELVAL *a, const RELVAL *b, REBINT mode)
 
 //  CT_Unhooked: C
 //
-REBINT CT_Unhooked(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Unhooked(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     UNUSED(a);
     UNUSED(b);
@@ -469,6 +469,39 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
 {
     REBCNT ta = VAL_TYPE(a);
     REBCNT tb = VAL_TYPE(b);
+
+    if (ta == REB_LITERAL and tb == REB_LITERAL) {
+        //
+        // !!! `(quote 'a) = (quote a)` was true in historical Rebol, due to
+        // the rules of "lax equality".  These rules are up in the air as they
+        // pertain to the IS and ISN'T transition.
+        //
+        if (VAL_LITERAL_DEPTH(a) != VAL_LITERAL_DEPTH(b))
+            return 0;
+
+        // This code wants to modify the value, but we can't modify the
+        // embedded values in highly-scaped literals.  Move the data out.
+
+        if (KIND_BYTE(a) == REB_LITERAL) {
+            const REBCEL *acell = VAL_UNESCAPED(a);
+            Move_Value_Header(a, cast(const RELVAL*, acell));
+            a->extra = acell->extra;
+            a->payload = acell->payload;
+        }
+        else
+            mutable_KIND_BYTE(a) %= REB_64;
+
+        if (KIND_BYTE(b) == REB_LITERAL) {
+            const REBCEL *bcell = VAL_UNESCAPED(b);
+            Move_Value_Header(b, cast(const RELVAL*, bcell));
+            b->extra = bcell->extra;
+            b->payload = bcell->payload;
+        }
+        else
+            mutable_KIND_BYTE(b) %= REB_64;
+    }
+    else if (ta == REB_LITERAL or tb == REB_LITERAL)
+        return 0;
 
     if (ta != tb) {
         if (strictness == 1) return 0;
@@ -539,15 +572,20 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
         fail (Error_Invalid_Compare_Raw(Type_Of(a), Type_Of(b)));
     }
 
-    if (ta == REB_MAX_NULLED)
-        return 1; // nulls always equal
-
   compare:;
 
-    // At this point, both args are of the same datatype.
-    COMPARE_HOOK hook = Compare_Hooks[VAL_TYPE(a)];
-    if (hook == nullptr)
-        return 0; // !!! Is this correct (?)
+    enum Reb_Kind kind = VAL_TYPE(a);
+
+    if (kind == REB_MAX_NULLED) {
+        assert(VAL_TYPE(b) == REB_MAX_NULLED);
+        return 1; // nulls always equal
+    }
+
+    // At this point, the types should match...e.g. be able to be passed to
+    // the same comparison dispatcher.  They might not be *exactly* equal.
+    //
+    COMPARE_HOOK hook = Compare_Hooks[kind];
+    assert(Compare_Hooks[VAL_TYPE(b)] == hook);
 
     REBINT result = hook(a, b, strictness);
     if (result < 0)

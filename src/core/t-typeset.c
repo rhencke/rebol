@@ -67,7 +67,7 @@ const struct {
 //
 //  CT_Typeset: C
 //
-REBINT CT_Typeset(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Typeset(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode < 0) return -1;
     return EQUAL_TYPESET(a, b);
@@ -279,7 +279,7 @@ REBARR *Typeset_To_Array(const REBVAL *tset)
 //
 //  MF_Typeset: C
 //
-void MF_Typeset(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     REBINT n;
 
@@ -288,7 +288,7 @@ void MF_Typeset(REB_MOLD *mo, const RELVAL *v, bool form)
         Append_Utf8_Codepoint(mo->series, '[');
     }
 
-#if !defined(NDEBUG)
+  #if !defined(NDEBUG)
     REBSTR *spelling = VAL_KEY_SPELLING(v);
     if (spelling == NULL) {
         //
@@ -318,7 +318,7 @@ void MF_Typeset(REB_MOLD *mo, const RELVAL *v, bool form)
             goto skip_types;
         }
     }
-#endif
+  #endif
 
     assert(not TYPE_CHECK(v, REB_0)); // REB_0 is used for internal purposes
 

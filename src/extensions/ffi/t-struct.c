@@ -288,7 +288,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
 }
 
 
-void MF_Struct(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Struct(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 
@@ -1484,7 +1484,7 @@ REBINT Cmp_Struct(const RELVAL *s, const RELVAL *t)
 //
 //  CT_Struct: C
 //
-REBINT CT_Struct(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Struct(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     switch (mode) {
     case 1: // strict equality

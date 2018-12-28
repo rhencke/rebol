@@ -36,7 +36,7 @@
 //
 //  CT_Integer: C
 //
-REBINT CT_Integer(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Integer(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode >= 0)  return (VAL_INT64(a) == VAL_INT64(b));
     if (mode == -1) return (VAL_INT64(a) >= VAL_INT64(b));
@@ -361,7 +361,7 @@ REBNATIVE(to_integer)
 //
 //  MF_Integer: C
 //
-void MF_Integer(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Integer(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 

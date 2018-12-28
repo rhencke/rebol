@@ -30,19 +30,19 @@
 
 #include "sys-core.h"
 
-static bool Same_Action(const RELVAL *a1, const RELVAL *a2)
+static bool Same_Action(const REBCEL *a, const REBCEL *b)
 {
-    assert(IS_ACTION(a1) && IS_ACTION(a2));
+    assert(CELL_KIND(a) == REB_ACTION and CELL_KIND(b) == REB_ACTION);
 
-    if (VAL_ACT_PARAMLIST(a1) == VAL_ACT_PARAMLIST(a2)) {
-        assert(VAL_ACT_DETAILS(a1) == VAL_ACT_DETAILS(a2));
+    if (VAL_ACT_PARAMLIST(a) == VAL_ACT_PARAMLIST(b)) {
+        assert(VAL_ACT_DETAILS(a) == VAL_ACT_DETAILS(b));
 
         // All actions that have the same paramlist are not necessarily the
         // "same action".  For instance, every RETURN shares a common
         // paramlist, but the binding is different in the REBVAL instances
         // in order to know where to "exit from".
-
-        return VAL_BINDING(a1) == VAL_BINDING(a2);
+        //
+        return VAL_BINDING(a) == VAL_BINDING(b);
     }
 
     return false;
@@ -52,10 +52,10 @@ static bool Same_Action(const RELVAL *a1, const RELVAL *a2)
 //
 //  CT_Action: C
 //
-REBINT CT_Action(const RELVAL *a1, const RELVAL *a2, REBINT mode)
+REBINT CT_Action(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode >= 0)
-        return Same_Action(a1, a2) ? 1 : 0;
+        return Same_Action(a, b) ? 1 : 0;
     return -1;
 }
 
@@ -126,7 +126,7 @@ REB_R TO_Action(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 //  MF_Action: C
 //
-void MF_Action(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Action(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form);
 
@@ -139,7 +139,8 @@ void MF_Action(REB_MOLD *mo, const RELVAL *v, bool form)
     // functions temporarily uses the word list as a substitute (which
     // drops types)
     //
-    REBARR *words_list = List_Func_Words(v, true); // show pure locals
+    const bool locals = true;
+    REBARR *words_list = Make_Action_Words_Arr(VAL_ACTION(v), locals);
     Mold_Array_At(mo, words_list, 0, "[]");
     Free_Unmanaged_Array(words_list);
 
@@ -231,9 +232,12 @@ REBTYPE(Action)
                 return D_OUT;
             return nullptr; }
 
-        case SYM_WORDS:
-            Init_Block(D_OUT, List_Func_Words(value, false)); // no locals
-            return D_OUT;
+        case SYM_WORDS: {
+            const bool locals = false;
+            return Init_Block(
+                D_OUT,
+                Make_Action_Words_Arr(VAL_ACTION(value), locals)
+            ); }
 
         case SYM_BODY:
             Get_Maybe_Fake_Action_Body(D_OUT, value);

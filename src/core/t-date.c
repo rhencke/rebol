@@ -37,7 +37,7 @@
 //
 //  CT_Date: C
 //
-REBINT CT_Date(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Date(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode == 1) {
         if (GET_VAL_FLAG(a, DATE_FLAG_HAS_ZONE)) {
@@ -85,10 +85,10 @@ REBINT CT_Date(const RELVAL *a, const RELVAL *b, REBINT mode)
 //
 //  MF_Date: C
 //
-void MF_Date(REB_MOLD *mo, const RELVAL *v_orig, bool form)
+void MF_Date(REB_MOLD *mo, const REBCEL *v_orig, bool form)
 {
-    // We don't want to modify the incoming date value we are molding,
-    // so we make a copy that we can tweak during the emit process
+    // We can't/shouldn't modify the incoming date value we are molding, so we
+    // make a copy that we can tweak during the emit process
 
     DECLARE_LOCAL (v);
     Move_Value(v, KNOWN(v_orig));
@@ -406,7 +406,7 @@ void Subtract_Date(REBVAL *d1, REBVAL *d2, REBVAL *result)
 //
 //  Cmp_Date: C
 //
-REBINT Cmp_Date(const RELVAL *d1, const RELVAL *d2)
+REBINT Cmp_Date(const REBCEL *d1, const REBCEL *d2)
 {
     REBINT diff = Diff_Date(VAL_DATE(d1), VAL_DATE(d2));
     if (diff != 0)

@@ -597,7 +597,7 @@ REBTYPE(Varargs)
 // Simple comparison function stub (required for every type--rules TBD for
 // levels of "exactness" in equality checking, or sort-stable comparison.)
 //
-REBINT CT_Varargs(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Varargs(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     UNUSED(mode);
 
@@ -621,7 +621,7 @@ REBINT CT_Varargs(const RELVAL *a, const RELVAL *b, REBINT mode)
 // has reached its end, or if the frame the varargs is attached to is no
 // longer on the stack.
 //
-void MF_Varargs(REB_MOLD *mo, const RELVAL *v, bool form) {
+void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
     UNUSED(form);
 
     Pre_Mold(mo, v);  // #[varargs! or make varargs!

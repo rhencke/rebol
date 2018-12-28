@@ -341,12 +341,12 @@ e-types/emit {
      * KIND_BYTE() of value cells to mark their usage of alternate payloads
      * during algorithmic transformations (e.g. specialization).  Others are
      * used to signal special behaviors when returned from native dispatchers.
+     *
+     * NOTE ABOUT C++11 ENUM TYPING: It is best not to specify an "underlying
+     * type" because that prohibits certain optimizations, which the compiler
+     * can make based on knowing a value is only in the range of the enum.
      */
-  #ifdef CPLUSPLUS_11
-    enum Reb_Kind : int_fast8_t ^{ /* C++11 has "typed enums" */
-  #else
-    enum Reb_Kind ^{
-  #endif
+    enum Reb_Kind {
         REB_0 = 0, /* reserved for internal purposes */
         REB_0_END = REB_0, /* ...most commonly array termination cells... */
         $[Rebs],
@@ -369,7 +369,17 @@ e-types/emit {
         REB_R_IMMEDIATE = REB_MAX_PLUS_FIVE,
 
         REB_MAX_PLUS_MAX
-    ^};
+    };
+
+    /*
+     * Current hard limit, higher types used for LITERAL!.  In code which
+     * is using the 64 split to implement the literal trick, use REB_64
+     * instead of just 64 to make places dependent on that trick findable.
+     *
+     * !!! If one were desperate for "special" types, things like 64/128/192
+     * could be used, as there is no such thing as a "literal END", etc.
+     */
+    #define REB_64 64
 
     /*
      * While the VAL_TYPE() is a full byte, only 64 states can fit in the
@@ -377,7 +387,7 @@ e-types/emit {
      * necessary if this number exceeds 64 (note some values beyond the
      * real DATATYPE! values set special signal bits in parameter typesets.)
      */
-    STATIC_ASSERT(REB_MAX_PLUS_MAX < 64);
+    STATIC_ASSERT(REB_MAX_PLUS_MAX <= REB_64);
 }
 e-types/emit newline
 
@@ -388,6 +398,12 @@ e-types/emit {
      * These routines are based on VAL_TYPE(), which does much more checking
      * than VAL_TYPE_RAW() in the debug build.  In some commonly called
      * routines, it may be worth it to use the less checked version.
+     *
+     * Note that due to a raw type encoding trick, IS_LITERAL() is unusual.
+     * `VAL_TYPE(v) == REB_LITERAL` isn't `VAL_TYPE_RAW(v) == REB_LITERAL`,
+     * they mean different things.  This is because raw types > REB_64 are
+     * used to encode literals whose escaping level is low enough that it
+     * can use the same cell bits as the escaped value.
      */
 }
 e-types/emit newline

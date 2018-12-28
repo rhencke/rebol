@@ -35,10 +35,15 @@
 //
 //  CT_Map: C
 //
-REBINT CT_Map(const RELVAL *a, const RELVAL *b, REBINT mode)
+// !!! Was never implemented in R3-Alpha; called into raw array comparison,
+// which is clearly incorrect.  Needs to be written.
+//
+REBINT CT_Map(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
-    if (mode < 0) return -1;
-    return 0 == Cmp_Array(a, b, false);
+    UNUSED(a);
+    UNUSED(b);
+    UNUSED(mode);
+    fail ("https://github.com/rebol/rebol-issues/issues/2340");
 }
 
 
@@ -629,7 +634,7 @@ REBCTX *Alloc_Context_From_Map(REBMAP *map)
 //
 //  MF_Map: C
 //
-void MF_Map(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Map(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     REBMAP *m = VAL_MAP(v);
 

@@ -1802,7 +1802,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         while (DSP != f->dsp_orig) {
             if (IS_INTEGER(DS_TOP)) {
                 if (not IS_NULLED(f->out))
-                    Init_Escaped(f->out, f->out, VAL_INT32(DS_TOP));
+                    Quotify(f->out, VAL_INT32(DS_TOP));
                 DS_DROP;
                 continue;
             }
@@ -2048,7 +2048,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_LITERAL: {
-        Unliteralize(f->out, current, f->specifier);
+        Derelativize(f->out, current, f->specifier);
+        Unquotify(f->out, 1); // take off one level of quoting
         break; }
 
 //==//////////////////////////////////////////////////////////////////////==//

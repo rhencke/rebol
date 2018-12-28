@@ -207,9 +207,9 @@ inline static void FAIL_IF_INACCESSIBLE_CTX(REBCTX *c) {
     }
 }
 
-inline static REBCTX *VAL_CONTEXT(const RELVAL *v) {
-    assert(ANY_CONTEXT(v));
-    assert(not v->payload.any_context.phase or VAL_TYPE(v) == REB_FRAME);
+inline static REBCTX *VAL_CONTEXT(const REBCEL *v) {
+    assert(ANY_CONTEXT_KIND(CELL_KIND(v)));
+    assert(not v->payload.any_context.phase or CELL_KIND(v) == REB_FRAME);
     REBCTX *c = CTX(v->payload.any_context.varlist);
     FAIL_IF_INACCESSIBLE_CTX(c);
     return c;

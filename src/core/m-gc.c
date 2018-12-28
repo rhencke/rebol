@@ -250,7 +250,7 @@ inline static void Queue_Mark_Binding_Deep(const RELVAL *v) {
         // It's a context, any reasonable added check?
     }
     else {
-        assert(IS_VARARGS(v));
+        assert(KIND_BYTE(v) % REB_64 == REB_VARARGS);
         assert(IS_SER_ARRAY(binding));
         assert(not IS_SER_DYNAMIC(binding)); // singular
     }
@@ -306,17 +306,37 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     in_mark = true;
   #endif
 
+    enum Reb_Kind kind;
+    if (KIND_BYTE(v) != REB_LITERAL)
+        kind = CELL_KIND(cast(const REBCEL*, v)); // mod 64 of the kind byte
+    else {
+        assert(v->payload.literal.depth > 3);
+
+        RELVAL *cell = v->payload.literal.cell;
+      #if !defined(NDEBUG)
+        if (Is_Bindable(cell))
+            assert(v->extra.binding == cell->extra.binding);
+        else
+            assert(not v->extra.binding);
+      #endif
+
+        Mark_Rebser_Only(SER(Singular_From_Cell(cell)));
+
+        assert(KIND_BYTE(cell) <= REB_MAX_NULLED); // REB_LITERAL check below
+        kind = cast(enum Reb_Kind, KIND_BYTE(cell));
+        v = cell;
+    }
+
     // This switch is done via contiguous REB_XXX values, in order to
     // facilitate use of a "jump table optimization":
     //
     // http://stackoverflow.com/questions/17061967/c-switch-and-jump-tables
     //
-    enum Reb_Kind kind = VAL_TYPE_RAW(v); // Note: unreadable BLANK!s are ok
     switch (kind) {
-    case REB_0_END:
+      case REB_0_END:
         break; // use Queue_Mark_Opt_Value_Deep() if END would be a bug
 
-    case REB_ACTION: {
+      case REB_ACTION: {
         REBACT *a = VAL_ACTION(v);
         Queue_Mark_Action_Deep(a);
         Queue_Mark_Binding_Deep(v);
@@ -332,12 +352,12 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       #endif
         break; }
 
-    case REB_WORD:
-    case REB_SET_WORD:
-    case REB_GET_WORD:
-    case REB_LIT_WORD:
-    case REB_REFINEMENT:
-    case REB_ISSUE: {
+      case REB_WORD:
+      case REB_SET_WORD:
+      case REB_GET_WORD:
+      case REB_LIT_WORD:
+      case REB_REFINEMENT:
+      case REB_ISSUE: {
         REBSTR *spelling = v->payload.any_word.spelling;
 
         // A word marks the specific spelling it uses, but not the canon
@@ -372,20 +392,19 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     #endif
         break; }
 
-    case REB_LITERAL: {
-        assert(v->payload.literal.depth > 0);
-        assert(v->extra.trash == nullptr); // may hold relative values...
+      case REB_LITERAL:
+        //
+        // REB_LITERAL should not be contained in a literal; instead, the
+        // depth of the existing literal should just have been incremented.
+        //
+        panic ("REB_LITERAL with (KIND_BYTE() % REB_64) > 0");
 
-        REBARR *a = v->payload.literal.singular;
-        Queue_Mark_Singular_Array(a); // any extra efficiency possible here?
-        break; }
-
-    case REB_PATH:
-    case REB_SET_PATH:
-    case REB_GET_PATH:
-    case REB_LIT_PATH:
-    case REB_BLOCK:
-    case REB_GROUP: {
+      case REB_PATH:
+      case REB_SET_PATH:
+      case REB_GET_PATH:
+      case REB_LIT_PATH:
+      case REB_BLOCK:
+      case REB_GROUP: {
         REBSER *s = v->payload.any_series.series;
         if (GET_SER_INFO(s, SERIES_INFO_INACCESSIBLE)) {
             //
@@ -405,13 +424,13 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         }
         break; }
 
-    case REB_BINARY:
-    case REB_TEXT:
-    case REB_FILE:
-    case REB_EMAIL:
-    case REB_URL:
-    case REB_TAG:
-    case REB_BITSET: {
+      case REB_BINARY:
+      case REB_TEXT:
+      case REB_FILE:
+      case REB_EMAIL:
+      case REB_URL:
+      case REB_TAG:
+      case REB_BITSET: {
         REBSER *s = v->payload.any_series.series;
 
         assert(SER_WIDE(s) <= sizeof(REBUNI));
@@ -427,7 +446,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
             Mark_Rebser_Only(s);
         break; }
 
-    case REB_HANDLE: { // See %sys-handle.h
+      case REB_HANDLE: { // See %sys-handle.h
         REBARR *singular = v->extra.singular;
         if (singular == NULL) {
             //
@@ -467,23 +486,23 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         }
         break; }
 
-    case REB_IMAGE:
+      case REB_IMAGE:
         Mark_Rebser_Only(VAL_SERIES(v));
         break;
 
-    case REB_VECTOR:
+      case REB_VECTOR:
         Mark_Rebser_Only(VAL_SERIES(v));
         break;
 
-    case REB_LOGIC:
-    case REB_INTEGER:
-    case REB_DECIMAL:
-    case REB_PERCENT:
-    case REB_MONEY:
-    case REB_CHAR:
+      case REB_LOGIC:
+      case REB_INTEGER:
+      case REB_DECIMAL:
+      case REB_PERCENT:
+      case REB_MONEY:
+      case REB_CHAR:
         break;
 
-    case REB_PAIR: {
+      case REB_PAIR: {
         //
         // Ren-C's PAIR! uses a special kind of REBSER that does no additional
         // memory allocation, but embeds two REBVALs in the REBSER itself.
@@ -496,24 +515,23 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         pairing->header.bits |= NODE_FLAG_MARKED; // read via REBSER
         break; }
 
-    case REB_TUPLE:
-    case REB_TIME:
-    case REB_DATE:
+      case REB_TUPLE:
+      case REB_TIME:
+      case REB_DATE:
         break;
 
-    case REB_MAP: {
+      case REB_MAP: {
         REBMAP* map = VAL_MAP(v);
         Queue_Mark_Map_Deep(map);
-        break;
-    }
+        break; }
 
-    case REB_DATATYPE:
+      case REB_DATATYPE:
         // Type spec is allowed to be NULL.  See %typespec.r file
         if (VAL_TYPE_SPEC(v))
             Queue_Mark_Array_Deep(VAL_TYPE_SPEC(v));
         break;
 
-    case REB_TYPESET:
+      case REB_TYPESET:
         //
         // Not all typesets have symbols--only those that serve as the
         // keys of objects (or parameters of functions)
@@ -522,18 +540,18 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
             Mark_Rebser_Only(v->extra.key_spelling);
         break;
 
-    case REB_VARARGS: {
+      case REB_VARARGS: {
         if (v->payload.varargs.phase) // null if came from MAKE VARARGS!
             Queue_Mark_Action_Deep(v->payload.varargs.phase);
 
         Queue_Mark_Binding_Deep(v);
         break; }
 
-    case REB_OBJECT:
-    case REB_FRAME:
-    case REB_MODULE:
-    case REB_ERROR:
-    case REB_PORT: { // Note: VAL_CONTEXT() fails on SER_INFO_INACCESSIBLE
+      case REB_OBJECT:
+      case REB_FRAME:
+      case REB_MODULE:
+      case REB_ERROR:
+      case REB_PORT: { // Note: VAL_CONTEXT() fails on SER_INFO_INACCESSIBLE
         REBCTX *context = CTX(v->payload.any_context.varlist);
         Queue_Mark_Context_Deep(context);
 
@@ -593,15 +611,15 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 
         break; }
 
-    case REB_GOB:
+      case REB_GOB:
         Queue_Mark_Gob_Deep(VAL_GOB(v));
         break;
 
-    case REB_EVENT:
+      case REB_EVENT:
         Queue_Mark_Event_Deep(v);
         break;
 
-    case REB_STRUCT: {
+      case REB_STRUCT: {
         //
         // !!! The ultimate goal for STRUCT! is that it be part of the FFI
         // extension and fall into the category of a "user defined type".
@@ -637,23 +655,23 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
             Mark_Rebser_Only(v->payload.structure.data);
         break; }
 
-    case REB_LIBRARY: {
+      case REB_LIBRARY: {
         Queue_Mark_Array_Deep(VAL_LIBRARY(v));
         REBCTX *meta = VAL_LIBRARY_META(v);
         if (meta != NULL)
             Queue_Mark_Context_Deep(meta);
         break; }
 
-    case REB_BLANK:
-    case REB_BAR:
-    case REB_LIT_BAR:
-    case REB_VOID:
+      case REB_BLANK:
+      case REB_BAR:
+      case REB_LIT_BAR:
+      case REB_VOID:
         break;
 
-    case REB_MAX_NULLED:
+      case REB_MAX_NULLED:
         break; // use Queue_Mark_Value_Deep() if NULLED would be a bug
 
-    default:
+      default:
         panic (v);
     }
 

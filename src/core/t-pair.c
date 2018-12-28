@@ -34,10 +34,12 @@
 //
 //  CT_Pair: C
 //
-REBINT CT_Pair(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Pair(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
-    if (mode >= 0) return Cmp_Pair(a, b) == 0; // works for INTEGER=0 too (spans x y)
-    if (IS_PAIR(b) && 0 == VAL_INT64(b)) { // for negative? and positive?
+    if (mode >= 0)
+        return Cmp_Pair(a, b) == 0; // works for INTEGER=0 too (spans x y)
+
+    if (0 == VAL_INT64(b)) { // for negative? and positive?
         if (mode == -1)
             return (VAL_PAIR_X(a) >= 0 || VAL_PAIR_Y(a) >= 0); // not LT
         return (VAL_PAIR_X(a) > 0 && VAL_PAIR_Y(a) > 0); // NOT LTE
@@ -126,7 +128,7 @@ REB_R TO_Pair(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 // Given two pairs, compare them.
 //
-REBINT Cmp_Pair(const RELVAL *t1, const RELVAL *t2)
+REBINT Cmp_Pair(const REBCEL *t1, const REBCEL *t2)
 {
     REBDEC diff;
 
@@ -264,7 +266,7 @@ static void Get_Math_Arg_For_Pair(
 //
 //  MF_Pair: C
 //
-void MF_Pair(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Pair(REB_MOLD *mo, const REBCEL *v, bool form)
 {
     UNUSED(form); // currently no distinction between MOLD and FORM
 

@@ -78,9 +78,9 @@
 
 inline static bool Is_Block_Style_Varargs(
     REBVAL **shared_out,
-    const RELVAL *vararg
+    const REBCEL *vararg
 ){
-    assert(IS_VARARGS(vararg));
+    assert(CELL_KIND(vararg) == REB_VARARGS);
 
     if (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST) {
         *shared_out = nullptr; // avoid compiler warning in -Og build
@@ -104,9 +104,9 @@ inline static bool Is_Block_Style_Varargs(
 
 inline static bool Is_Frame_Style_Varargs_Maybe_Null(
     REBFRM **f_out,
-    const RELVAL *vararg
+    const REBCEL *vararg
 ){
-    assert(IS_VARARGS(vararg));
+    assert(CELL_KIND(vararg) == REB_VARARGS);
 
     if (not (vararg->extra.binding->header.bits & ARRAY_FLAG_VARLIST)) {
         *f_out = nullptr; // avoid compiler warning in -Og build
@@ -135,8 +135,8 @@ inline static bool Is_Frame_Style_Varargs_May_Fail(
 }
 
 
-inline static const REBVAL *Param_For_Varargs_Maybe_Null(const RELVAL *v) {
-    assert(IS_VARARGS(v));
+inline static const REBVAL *Param_For_Varargs_Maybe_Null(const REBCEL *v) {
+    assert(CELL_KIND(v) == REB_VARARGS);
 
     REBACT *phase = v->payload.varargs.phase;
     if (phase) {

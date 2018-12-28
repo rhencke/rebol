@@ -44,7 +44,7 @@
 //     CT_Get_Path()
 //     CT_Lit_Path()
 //
-REBINT CT_Array(const RELVAL *a, const RELVAL *b, REBINT mode)
+REBINT CT_Array(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     REBINT num = Cmp_Array(a, b, mode == 1);
     if (mode >= 0)
@@ -701,9 +701,16 @@ RELVAL *Pick_Block(REBVAL *out, const REBVAL *block, const REBVAL *picker)
 //
 //  MF_Array: C
 //
-void MF_Array(REB_MOLD *mo, const RELVAL *v, bool form)
+void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    if (form && (IS_BLOCK(v) || IS_GROUP(v))) {
+    // Routine may be called on value that reports REB_LITERAL, even if it
+    // has no additional payload and is aliasing the cell itself.  Checking
+    // the type could be avoided if each type had its own dispatcher, but
+    // this routine seems to need to be generic.
+    //
+    enum Reb_Kind kind = CELL_KIND(v);
+
+    if (form and (kind == REB_BLOCK or kind == REB_GROUP)) {
         Form_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), 0);
         return;
     }
@@ -732,9 +739,8 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, bool form)
     else {
         const char *sep;
 
-        enum Reb_Kind kind = VAL_TYPE(v);
-        switch(kind) {
-        case REB_BLOCK:
+        switch (kind) {
+          case REB_BLOCK:
             if (GET_MOLD_FLAG(mo, MOLD_FLAG_ONLY)) {
                 CLEAR_MOLD_FLAG(mo, MOLD_FLAG_ONLY); // only top level
                 sep = "\000\000";
@@ -743,25 +749,27 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, bool form)
                 sep = "[]";
             break;
 
-        case REB_GROUP:
+          case REB_GROUP:
             sep = "()";
             break;
 
-        case REB_GET_PATH:
+          case REB_GET_PATH:
             Append_Utf8_Codepoint(mo->series, ':');
             sep = "/";
             break;
 
-        case REB_LIT_PATH:
+          case REB_LIT_PATH: // !!! will be deprecated with backslash literals
             Append_Utf8_Codepoint(mo->series, '\'');
-            // fall through
-        case REB_PATH:
-        case REB_SET_PATH:
+            goto path_or_set_path;
+
+          case REB_PATH:
+          case REB_SET_PATH:
+          path_or_set_path:
             sep = "/";
             break;
 
-        default:
-            sep = NULL;
+          default:
+            panic ("Unknown array kind passed to MF_Array");
         }
 
         if (VAL_LEN_AT(v) == 0 and sep[0] == '/')
@@ -772,7 +780,7 @@ void MF_Array(REB_MOLD *mo, const RELVAL *v, bool form)
                 Append_Utf8_Codepoint(mo->series, '/'); // 1-arity path `foo/`
         }
 
-        if (VAL_TYPE(v) == REB_SET_PATH)
+        if (kind == REB_SET_PATH)
             Append_Utf8_Codepoint(mo->series, ':');
     }
 }
