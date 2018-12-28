@@ -657,12 +657,15 @@ REBARR *Collect_Unique_Words_Managed(
     // We do not want to fail() during the bind at this point in time (the
     // system doesn't know how to clean up, and the only cleanup it does
     // assumes you were collecting for a keylist...it doesn't have access to
-    // the "ignore" bindings.)  Do a pre-pass to fail first.
-
-    RELVAL *check = VAL_ARRAY_AT(ignore);
-    for (; NOT_END(check); ++check) {
-        if (not ANY_WORD(check))
-            fail (Error_Invalid_Core(check, VAL_SPECIFIER(ignore)));
+    // the "ignore" bindings.)  Do a pre-pass to fail first, if there are
+    // any non-words in a block the user passed in.
+    //
+    if (not IS_NULLED(ignore)) {
+        RELVAL *check = VAL_ARRAY_AT(ignore);
+        for (; NOT_END(check); ++check) {
+            if (not ANY_WORD(check))
+                fail (Error_Invalid_Core(check, VAL_SPECIFIER(ignore)));
+        }
     }
 
     struct Reb_Collector collector;

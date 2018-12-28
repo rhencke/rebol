@@ -180,6 +180,7 @@ REBTYPE(Unit)
 
       case SYM_COPY: { // since `copy/deep [1 _ 2]` is legal, allow `copy _`
         INCLUDE_PARAMS_OF_COPY;
+        UNUSED(ARG(value)); // already referenced as `unit`
         if (REF(part)) {
             UNUSED(ARG(limit));
             fail (Error_Bad_Refines_Raw());
@@ -188,6 +189,8 @@ REBTYPE(Unit)
         UNUSED(REF(types));
         UNUSED(ARG(kinds));
         return Init_Blank(D_OUT); }
+
+      default: break;
     }
 
     fail (Error_Illegal_Action(VAL_TYPE(unit), verb));
