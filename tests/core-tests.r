@@ -80,6 +80,7 @@
 %context/bind.test.reb
 %context/boundq.test.reb
 %context/bindq.test.reb
+%context/collect-words.test.reb
 %context/resolve.test.reb
 %context/set.test.reb
 %context/unset.test.reb
