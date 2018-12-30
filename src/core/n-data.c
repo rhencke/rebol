@@ -1306,41 +1306,6 @@ REBNATIVE(unset_q)
 
 
 //
-//  quote: native/body [
-//
-//  "Returns value passed in without evaluation."
-//
-//      return: {The input value, verbatim--unless /SOFT and soft quoted type}
-//          [<opt> any-value!]
-//      :value {Value to quote, <opt> is impossible (see UNEVAL)}
-//          [any-value!]
-//      /soft {Evaluate if a GROUP!, GET-WORD!, or GET-PATH!}
-//  ][
-//      if soft and [match [group! get-word! get-path!] :value] [
-//          eval value
-//      ] else [
-//          :value ;-- also sets unevaluated bit, how could a user do so?
-//      ]
-//  ]
-//
-REBNATIVE(quote)
-{
-    INCLUDE_PARAMS_OF_QUOTE;
-
-    REBVAL *v = ARG(value);
-
-    if (REF(soft) and IS_QUOTABLY_SOFT(v))
-        fail ("QUOTE/SOFT not currently implemented, should clone EVAL");
-
-    Recycle();
-
-    Move_Value(D_OUT, v);
-    SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
-    return D_OUT;
-}
-
-
-//
 //  null: native [
 //
 //  "Generator for the absence of a value"

@@ -173,7 +173,7 @@ inline static bool Do_Branch_Core_Throws(
 }
 
 #define Do_Branch_With_Throws(out,branch,condition) \
-    Do_Branch_Core_Throws((out), (branch), NULLIZE(condition))
+    Do_Branch_Core_Throws((out), (branch), NULLIFY_NULLED(condition))
 
 #define Do_Branch_Throws(out,branch) \
     Do_Branch_Core_Throws((out), (branch), END_NODE)

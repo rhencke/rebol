@@ -427,7 +427,7 @@ static REB_R Transport_Actor(
         return rebRun(
             "take*/part/(", ARG(deep), ")/(", ARG(last), ")",
                 CTX_VAR(ctx, STD_PORT_CONNECTIONS),
-                NULLIZE(ARG(limit)),
+                NULLIFY_NULLED(ARG(limit)),
                 rebEND
         ); }
 

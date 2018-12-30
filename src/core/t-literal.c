@@ -238,19 +238,65 @@ REBTYPE(Literal)
 
 
 //
-//  literal: native [
+//  literal: native/body [
 //
-//  {Constructs a literal form of the given value (e.g. makes `\x` from `x`)}
+//  "Returns value passed in without evaluation"
 //
-//      return: [literal!]
-//      optional [<opt> any-value!]
+//      return: {The input value, verbatim--unless /SOFT and soft quoted type}
+//          [<opt> any-value!]
+//      :value {Value to quote, <opt> is impossible (see UNEVAL)}
+//          [any-value!]
+//      /soft {Evaluate if a GROUP!, GET-WORD!, or GET-PATH!}
+//  ][
+//      if soft and [match [group! get-word! get-path!] :value] [
+//          eval value
+//      ] else [
+//          :value ;-- also sets unevaluated bit, how could a user do so?
+//      ]
 //  ]
 //
 REBNATIVE(literal)
 //
-// Note: currently aliased in %base-defs.r as LIT and UNEVAL.
+// Note: currently aliased in %base-defs.r as LIT and QUOTE.
+// QUOTE meaning is slated to be changed, see UNEVAL.
 {
     INCLUDE_PARAMS_OF_LITERAL;
 
-    return Quotify(Move_Value(D_OUT, ARG(optional)), 1);
+    REBVAL *v = ARG(value);
+
+    if (REF(soft) and IS_QUOTABLY_SOFT(v))
+        fail ("QUOTE/SOFT not currently implemented, should clone EVAL");
+
+    Recycle();
+
+    Move_Value(D_OUT, v);
+    SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);
+    return D_OUT;
+}
+
+
+//
+//  uneval: native [
+//
+//  {Constructs a quoted form of the evaluated argument}
+//
+//      return: "(e.g. makes `\3` from `1 + 2`)"
+//          [literal!]
+//      optional [<opt> any-value!]
+//      /depth "Number of quoting levels to apply (default 1)"
+//      count [integer!]
+//  ]
+//
+REBNATIVE(uneval)
+//
+// UNEVAL is currently slated to be a synonym for QUOTE, once existing uses
+// have been changed to LIT or whatever escaping character gets picked (\, %)
+{
+    INCLUDE_PARAMS_OF_UNEVAL;
+
+    REBINT depth = REF(depth) ? VAL_INT32(ARG(count)) : 1;
+    if (depth < 0)
+        fail (Error_Invalid(ARG(count)));
+
+    return Quotify(Move_Value(D_OUT, ARG(optional)), depth);
 }

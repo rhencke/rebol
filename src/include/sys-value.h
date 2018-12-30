@@ -892,8 +892,11 @@ inline static bool IS_ENDISH_NULLED(const RELVAL *v) {
 // interface only accepts nullptr.  Any internal code with a REBVAL* that may
 // be a "nulled cell" must translate any such cells to nullptr.
 //
-inline static const REBVAL *NULLIZE(const REBVAL *cell)
+inline static const REBVAL *NULLIFY_NULLED(const REBVAL *cell)
   { return VAL_TYPE(cell) == REB_MAX_NULLED ? nullptr : cell; }
+
+inline static const REBVAL *REIFY_NULL(const REBVAL *cell)
+  { return cell == nullptr ? NULLED_CELL : cell; }
 
 
 //=////////////////////////////////////////////////////////////////////////=//

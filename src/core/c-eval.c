@@ -470,11 +470,17 @@ bool Eval_Core_Throws(REBFRM * const f)
     assert(f->out != FRM_CELL(f)); // overwritten by temporary calculations
     assert(f->flags.bits & DO_FLAG_DEFAULT_DEBUG); // must use DO_MASK_DEFAULT
 
-    // Caching VAL_TYPE_RAW(f->value) in a local can make a slight performance
+    // Caching KIND_BYTE(f->value) in a local can make a slight performance
     // difference, though how much depends on what the optimizer figures out.
     // Either way, it's useful to have handy in the debugger.
     //
-    enum Reb_Kind eval_type;
+    // Note: int8_fast_t picks `char` on MSVC, shouldn't `int` be faster?
+    // https://stackoverflow.com/a/5069643/
+    //
+    union {
+        int byte; // values bigger than REB_64 are used for in-situ literals
+        enum Reb_Kind pun; // for debug viewing *if* byte < REB_MAX_PLUS_MAX
+    } kind;
 
     const REBVAL *current_gotten;
     TRASH_POINTER_IF_DEBUG(current_gotten);
@@ -514,13 +520,13 @@ bool Eval_Core_Throws(REBFRM * const f)
         current = f->u.reval.value;
         TRASH_POINTER_IF_DEBUG(f->u.defer.arg); // same memory location
         current_gotten = nullptr;
-        eval_type = VAL_TYPE(current);
+        kind.byte = KIND_BYTE(current);
 
         f->flags.bits &= ~DO_FLAG_REEVALUATE_CELL;
         goto reevaluate;
     }
 
-    eval_type = VAL_TYPE_RAW(f->value);
+    kind.byte = KIND_BYTE(f->value);
 
   do_next:;
 
@@ -553,7 +559,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     Fetch_Next_In_Frame(&current, f);
 
-    assert(eval_type != REB_0_END and eval_type == VAL_TYPE_RAW(current));
+    assert(kind.byte != REB_0_END and kind.byte == KIND_BYTE(current));
 
   reevaluate:;
 
@@ -667,7 +673,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     //     foo: ('quote) => [print quote]
 
-    if (eval_type == REB_WORD and EVALUATING(current)) {
+    if (kind.byte == REB_WORD and EVALUATING(current)) {
         if (not current_gotten)
             current_gotten = Try_Get_Opt_Var(current, f->specifier);
         else
@@ -691,7 +697,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto give_up_forward_quote_priority;
     }
 
-    if (eval_type == REB_PATH and EVALUATING(current)) {
+    if (kind.byte == REB_PATH and EVALUATING(current)) {
         //
         // !!! Words aren't the only way that functions can be dispatched,
         // one can also use paths.  It gets tricky here, because path GETs
@@ -732,7 +738,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto give_up_forward_quote_priority;
     }
 
-    if (eval_type == REB_ACTION and EVALUATING(current)) {
+    if (kind.byte == REB_ACTION and EVALUATING(current)) {
         //
         // A literal ACTION! in a BLOCK! may also forward quote
         //
@@ -780,7 +786,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     // http://stackoverflow.com/questions/17061967/c-switch-and-jump-tables
 
-    assert(eval_type == VAL_TYPE_RAW(current));
+    assert(kind.byte == KIND_BYTE(current));
 
     if (not EVALUATING(current)) {
         Derelativize(f->out, current, f->specifier);
@@ -795,7 +801,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto post_switch;
     }
 
-    switch (eval_type) {
+    switch (kind.byte) {
 
       case REB_0_END:
         goto finished;
@@ -1758,7 +1764,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             current_gotten = f->gotten;
             Fetch_Next_In_Frame(&current, f);
-            eval_type = VAL_TYPE(current);
+            kind.byte = KIND_BYTE(current);
 
             Drop_Action(f);
             goto reevaluate; }
@@ -2031,8 +2037,8 @@ bool Eval_Core_Throws(REBFRM * const f)
                 goto return_thrown;
             }
             if (IS_END(FRM_CELL(f))) {
-                eval_type = VAL_TYPE_RAW(f->value);
-                if (eval_type == REB_0_END)
+                kind.byte = KIND_BYTE(f->value);
+                if (kind.byte == REB_0_END)
                     goto finished;
                 goto do_next; // quickly process next item, no infix test
             }
@@ -2043,7 +2049,14 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// [LITERAL!]
+// [LITERAL!] (at 4 or more levels of escaping)
+//
+// This is the form of literal that's too escaped to just overlay in the cell
+// by using a higher kind byte.  See the `default:` case in this switch for
+// handling of the more compact forms, that are much more common.
+//
+// (Highly escaped literals should be rare, but for completeness you need to
+// be able to escape any value, including any escaped one...!)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
@@ -2339,8 +2352,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto finished;
         }
 
-        eval_type = VAL_TYPE_RAW(f->value);
-        if (eval_type == REB_0_END)
+        kind.byte = KIND_BYTE(f->value);
+        if (kind.byte == REB_0_END)
             goto finished;
         goto do_next; // quickly process next item, no infix test needed
 
@@ -2392,13 +2405,18 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// If garbage, panic on the value to generate more debug information about
-// its origins (what series it lives in, where the cell was assigned...)
+// [LITERAL!] (at 3 levels of escaping or less)...or a garbage type byte
+//
+// All the values for types at >= REB_64 currently represent the special
+// compact form of literals, which overlay inside the cell they escape.
+// The real type comes from the type modulo 64.
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-      default:
-        panic (current);
+      default: {
+        Derelativize(f->out, current, f->specifier);
+        Unquotify_In_Situ(f->out, 1); // checks for illegal REB_XXX bytes
+        break; }
     }
 
     //==////////////////////////////////////////////////////////////////==//
@@ -2460,12 +2478,12 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto post_switch_shove_gotten;
     }
 
-    eval_type = VAL_TYPE_RAW(f->value);
+    kind.byte = KIND_BYTE(f->value);
 
-    if (eval_type == REB_0_END)
+    if (kind.byte == REB_0_END)
         goto finished; // hitting end is common, avoid do_next's switch()
 
-    if (eval_type == REB_PATH) {
+    if (kind.byte == REB_PATH) {
         if (
             VAL_LEN_AT(f->value) != 0
             or (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
@@ -2493,7 +2511,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto process_action;
     }
 
-    if (eval_type != REB_WORD or not EVALUATING(f->value)) {
+    if (kind.byte != REB_WORD or not EVALUATING(f->value)) {
         if (not (f->flags.bits & DO_FLAG_TO_END))
             goto finished; // only want 1 EVALUATE of work, so stop evaluating
 

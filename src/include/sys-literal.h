@@ -139,25 +139,44 @@ inline static RELVAL *Quotify_Core(
 #endif
 
 
-// Turns `\x` into `x`, or `\\\[1 + 2]` into `\\(1 + 2)`, etc.
+// Only works on small escape levels that fit in a cell (<=3).  So it can
+// do `\\\x -> \\x`, `\\x -> \x` or `\x -> x`.  Use Unquotify() for the more
+// generic routine, but this is needed by the evaluator most commonly, so it
+// is broken out to a separate routine.
 //
-inline static RELVAL *Unquotify_Core(
-    RELVAL *v,
-    REBCNT unquotes
-){
-    if (KIND_BYTE(v) != REB_LITERAL) {
-        assert(KIND_BYTE(v) > REB_64); // can't unliteralize a non-literal
-        assert(cast(REBCNT, KIND_BYTE(v) / REB_64) >= unquotes);
-        mutable_KIND_BYTE(v) -= REB_64 * unquotes;
-        return v;
-    }
+inline static RELVAL *Unquotify_In_Situ(RELVAL *v, REBCNT unquotes)
+{
+    assert(KIND_BYTE(v) > REB_64); // can't unliteralize a non-literal
+    assert(cast(REBCNT, KIND_BYTE(v) / REB_64) >= unquotes);
+    mutable_KIND_BYTE(v) -= REB_64 * unquotes;
+    assert(
+        KIND_BYTE(v) % 64 != REB_0
+        and KIND_BYTE(v) % 64 != REB_LITERAL
+        and KIND_BYTE(v) % 64 <= REB_MAX_NULLED
+    );
+    return v;
+}
+
+
+// Turns `\x` into `x`, or `\\\\\[1 + 2]` into `\\\\(1 + 2)`, etc.
+//
+// Works on escape levels that fit in the cell (<= 3) as well as those that
+// require a second cell to point at in a REB_LITERAL payload.
+//
+inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
+    if (KIND_BYTE(v) != REB_LITERAL)
+        return Unquotify_In_Situ(v, unquotes);
 
     REBCNT depth = v->payload.literal.depth;
     assert(depth > 3 and depth >= unquotes);
     depth -= unquotes;
 
     RELVAL *cell = v->payload.literal.cell;
-    assert(KIND_BYTE(cell) != REB_LITERAL and KIND_BYTE(cell) < REB_64);
+    assert(
+        KIND_BYTE(cell) != REB_0
+        and KIND_BYTE(cell) != REB_LITERAL
+        and KIND_BYTE(cell) <= REB_MAX_NULLED
+    );
 
     if (depth > 3) { // unescaped can't encode in single value
         v->payload.literal.depth = depth;

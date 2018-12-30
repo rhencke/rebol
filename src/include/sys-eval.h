@@ -460,7 +460,7 @@ inline static void Set_Frame_Detected_Fetch(
       case DETECTED_AS_CELL: {
         const REBVAL *cell = cast(const REBVAL*, p);
         if (IS_NULLED(cell))
-            fail ("NULLED cell leaked to API, see NULLIZE() in C sources");
+            fail ("NULLED cell API leak, see NULLIFY_NULLED() in C sources");
 
         // If the cell is in an API holder with SERIES_INFO_API_RELEASE then
         // it will be released on the *next* call (see top of function)

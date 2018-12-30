@@ -27,7 +27,7 @@ REBOL [
 c-break-debug: :c-debug-break ;-- easy to mix up
 
 lit: :literal ;-- because it's shorter
-uneval: :literal ;-- because sometimes it helps capture *why* you're escaping
+quote: :literal ;-- QUOTE is likely slated to become UNEVAL synonym
 
 ??: ;; shorthand form to use in debug sessions, not intended to be committed
 probe: func [

@@ -198,7 +198,7 @@ inline static bool Either_Test_Core_Throws(
             out,
             true, // `fully` (ensure argument consumed)
             test,
-            NULLIZE(arg), // convert nulled cells to C nullptr for API
+            NULLIFY_NULLED(arg), // convert nulled cells to C nullptr for API
             rebEND
         )){
             return true;

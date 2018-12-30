@@ -347,7 +347,7 @@ REBNATIVE(do)
             fully,
             sys_do_helper,
             source,
-            NULLIZE(ARG(arg)), // nulled cells => nullptr for API
+            NULLIFY_NULLED(ARG(arg)), // nulled cells => nullptr for API
             REF(only) ? TRUE_VALUE : FALSE_VALUE,
             rebEND
         )){

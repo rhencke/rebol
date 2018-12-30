@@ -515,7 +515,7 @@ REBVAL *RL_rebRun(const void *p, va_list *vaptr)
         return result;
 
     rebRelease(result);
-    return nullptr; // API uses nullptr for NULL (see notes on NULLIZE)
+    return nullptr; // see NULLIFY_NULLED()
 }
 
 
@@ -632,42 +632,15 @@ const void *RL_rebEval(const REBVAL *v)
 //
 //  rebUneval: RL_API
 //
-// nulls are not legal to splice into blocks.  So the rebUneval() expression
-// works around it by splicing in a GROUP!, and if it's not null then it puts
-// a QUOTE and the value inside.
-//
-//    null => `()`
-//    non-null => `(quote ...)`
-//
-// There's a parallel Rebol action! that does this called UNEVAL, which is
-// for use with REDUCE and COMPOSE/ONLY.  However, rather than return REBVAL*
-// directly, this acts as an "instruction" that can be passed to the rebRun()
-// variadic stream.  This leaves the implementation method more open, and
-// has the benefit of not requiring a rebRelease().
+// This operation is being proposed to take the name `rebQ()`.  It may be
+// worth it to have a separate API entry for `REBVAL *rebQuote()`, also.
 //
 const void *RL_rebUneval(const REBVAL *v)
 {
     REBARR *instruction = Alloc_Instruction();
     RELVAL *single = ARR_SINGLE(instruction);
-    if (not v) {
-        //
-        // !!! Would like to be using a NULLED cell here, but the current
-        // indicator for whether something is a rebEval() or rebUneval() is
-        // if VALUE_FLAG_EVAL_FLIP is set, and we'd have to set that flag to
-        // get the evaluator not to choke on the nulled cell.  The mechanism
-        // should be revisited where instructions encode what they are in the
-        // header/info/link/misc.
-        //
-        Move_Value(single, NAT_VALUE(null));
-    }
-    else {
-        REBARR *a = Make_Arr(2);
-        SET_SER_INFO(a, SERIES_INFO_HOLD);
-        Move_Value(Alloc_Tail_Array(a), NAT_VALUE(quote));
-        Move_Value(Alloc_Tail_Array(a), v);
-
-        Init_Group(single, a);
-    }
+    Move_Value(single, REIFY_NULL(v));
+    Quotify(single, 1);
 
     // !!! See notes in rebEval() about adding opcodes.  No particular need
     // for one right now, just put in the value.

@@ -116,8 +116,8 @@
 (\\\[a b c] = \\\[a b c])
 
 (kind of quote \foo = literal!) ;; low level "KIND"
-(type of quote \foo = lit word!) ;; higher-level "TYPE"
-(type of quote \\[a b c] = lit lit block!)
+(type of quote \foo = uneval word!) ;; higher-level "TYPE"
+(type of quote \\[a b c] = uneval/depth block! 2)
 
 
 ;; Some generic actions have been tweaked to know to extend their
@@ -186,7 +186,7 @@
 
 (
     for-each item compose [
-        (lit :+)
+        (uneval :+)
         word
         set-word:
         :get-word
@@ -232,7 +232,7 @@
         '|
         #[void]
     ][
-        lit-item: lit :item
+        lit-item: uneval :item
 
         comment "Just testing for crashes; discards mold result"
         mold :lit-item
@@ -240,6 +240,9 @@
         (e1: trap [equal1: :item = :item]) then [e1/where: e1/near: _]
         (e2: trap [equal2: lit-item = lit-item]) then [e2/where: e2/near: _]
         if :e1 != :e2 [
+            print mold type of :item
+            print mold e1
+            print mold e2
             fail "no error parity"
         ]
         if equal1 != equal2 [

@@ -978,7 +978,7 @@ acquisition_loop:
         case DETECTED_AS_CELL: {
             const REBVAL *splice = cast(const REBVAL*, p);
             if (IS_NULLED(splice))
-                fail ("VOID cell leaked to API, see NULLIZE() in C sources");
+                fail ("NULLED cell API leak, see NULLIFY_NULLED() in the C");
 
             DS_PUSH_TRASH;
             Move_Value(DS_TOP, splice);
@@ -1024,18 +1024,7 @@ acquisition_loop:
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
             }
             else { // rebUneval()
-                assert(
-                    (
-                        IS_ACTION(single)
-                        and VAL_ACTION(single) == NAT_ACTION(null)
-                    ) or (
-                        IS_GROUP(single)
-                        and (ANY_SER_INFOS(
-                            VAL_ARRAY(single),
-                            SERIES_INFO_HOLD | SERIES_INFO_FROZEN
-                        ))
-                    )
-                );
+                assert(VAL_NUM_QUOTES(single) > 0);
 
                 DS_PUSH_TRASH;
                 Move_Value(DS_TOP, single);
