@@ -136,8 +136,6 @@ REBNATIVE(make)
 #endif
 
     MAKE_HOOK hook = Make_Hooks[kind];
-    if (hook == nullptr)
-        fail (Error_Bad_Make(kind, arg));
 
     REB_R r = hook(D_OUT, kind, arg); // might throw, fail...
     if (r == R_THROWN)
@@ -195,8 +193,6 @@ REBNATIVE(to)
     enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
 
     TO_HOOK hook = To_Hooks[new_kind];
-    if (not hook)
-        fail (Error_Invalid(v));
 
     REB_R r = hook(D_OUT, new_kind, v); // may fail();
     if (r == R_THROWN) {

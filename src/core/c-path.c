@@ -48,7 +48,7 @@ REB_R PD_Fail(
     UNUSED(picker);
     UNUSED(opt_setval);
 
-    return R_UNHANDLED;
+    fail (Error_Invalid(pvs->out));
 }
 
 
@@ -90,8 +90,8 @@ bool Next_Path_Throws(REBPVS *pvs)
     if (IS_NULLED(pvs->out))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
-    PATH_HOOK hook = Path_Hooks[VAL_TYPE(pvs->out)];
-    assert(hook != nullptr); // &PD_Fail is used instead of NULL
+    enum Reb_Kind kind = VAL_TYPE(pvs->out);
+    PATH_HOOK hook = Path_Hooks[kind]; // &PD_Fail is used instead of NULL
 
     if (IS_GET_WORD(pvs->value)) { // e.g. object/:field
         Move_Opt_Var_May_Fail(PVS_PICKER(pvs), pvs->value, pvs->specifier);
@@ -618,8 +618,8 @@ REBNATIVE(pick)
     pvs->special = NULL;
 
   redo:;
-    PATH_HOOK hook = Path_Hooks[VAL_TYPE(D_OUT)];
-    assert(hook != nullptr); // &PD_Fail is used instead of null
+    enum Reb_Kind kind = VAL_TYPE(D_OUT);
+    PATH_HOOK hook = Path_Hooks[kind];
 
     REB_R r = hook(pvs, PVS_PICKER(pvs), NULL);
     if (not r or r == pvs->out)
@@ -706,8 +706,8 @@ REBNATIVE(poke)
     pvs->opt_label = NULL; // applies to e.g. :append/only returning APPEND
     pvs->special = ARG(value);
 
-    PATH_HOOK hook = Path_Hooks[VAL_TYPE(location)];
-    assert(hook); // &PD_Fail is used instead of nullptr
+    enum Reb_Kind kind = VAL_TYPE(location);
+    PATH_HOOK hook = Path_Hooks[kind];
 
     const REBVAL *r = hook(pvs, PVS_PICKER(pvs), ARG(value));
     switch (VAL_TYPE_RAW(r)) {

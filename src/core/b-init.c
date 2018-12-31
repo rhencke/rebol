@@ -699,7 +699,7 @@ static REBARR *Startup_Natives(const REBVAL *boot_natives)
         SET_VAL_FLAG(&Natives[n], CELL_FLAG_PROTECTED);
 
         REBVAL *catalog_item = Move_Value(Alloc_Tail_Array(catalog), name);
-        CHANGE_VAL_TYPE_BITS(catalog_item, REB_WORD);
+        mutable_KIND_BYTE(catalog_item) = REB_WORD;
 
         if (VAL_WORD_SYM(name) == SYM_GENERIC)
             generic_word = name;
@@ -760,7 +760,7 @@ static REBARR *Startup_Generics(const REBVAL *boot_generics)
     for (; NOT_END(item); ++item)
         if (IS_SET_WORD(item)) {
             DS_PUSH_RELVAL(item, specifier);
-            CHANGE_VAL_TYPE_BITS(DS_TOP, REB_WORD); // change pushed to WORD!
+            mutable_KIND_BYTE(DS_TOP) = REB_WORD; // change pushed to WORD!
         }
 
     return Pop_Stack_Values(dsp_orig); // catalog of generics
@@ -1028,10 +1028,10 @@ static void Init_System_Object(
     //
     REBVAL *std_error = Get_System(SYS_STANDARD, STD_ERROR);
     assert(IS_OBJECT(std_error));
-    CHANGE_VAL_TYPE_BITS(std_error, REB_ERROR);
-    CHANGE_VAL_TYPE_BITS(CTX_ARCHETYPE(VAL_CONTEXT(std_error)), REB_ERROR);
+    mutable_KIND_BYTE(std_error) = REB_ERROR;
+    mutable_KIND_BYTE(CTX_ARCHETYPE(VAL_CONTEXT(std_error))) = REB_ERROR;
     assert(CTX_KEY_SYM(VAL_CONTEXT(std_error), 1) == SYM_SELF);
-    CHANGE_VAL_TYPE_BITS(VAL_CONTEXT_VAR(std_error, 1), REB_ERROR);
+    mutable_KIND_BYTE(VAL_CONTEXT_VAR(std_error, 1)) = REB_ERROR;
 }
 
 void Shutdown_System_Object(void)

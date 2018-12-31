@@ -984,7 +984,7 @@ static REBIXO To_Thru_Non_Block_Rule(
         DECLARE_LOCAL (temp);
         if (IS_LIT_WORD(rule)) {
             Derelativize(temp, rule, P_RULE_SPECIFIER);
-            CHANGE_VAL_TYPE_BITS(temp, REB_WORD);
+            mutable_KIND_BYTE(temp) = REB_WORD;
             rule = temp;
         }
         else if (IS_LITERAL(rule)) { // make `\[foo bar]` match `[foo bar]`
@@ -2167,10 +2167,9 @@ REBNATIVE(subparse)
                         );
 
                         if (IS_LIT_WORD(rule))
-                            CHANGE_VAL_TYPE_BITS( // keeps binding flags
-                                ARR_AT(ARR(P_INPUT), P_POS - 1),
-                                REB_WORD
-                            );
+                            mutable_KIND_BYTE(
+                                ARR_AT(ARR(P_INPUT), P_POS - 1)
+                            ) = REB_WORD;
                     }
                     else {
                         DECLARE_LOCAL (specified);

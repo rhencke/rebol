@@ -2437,13 +2437,13 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
             if (ss->token == TOKEN_LIT) {
                 RESET_VAL_HEADER(DS_TOP, REB_LIT_PATH);
-                CHANGE_VAL_TYPE_BITS(ARR_HEAD(arr), REB_WORD);
+                mutable_KIND_BYTE(ARR_HEAD(arr)) = REB_WORD;
             }
             else if (IS_GET_WORD(ARR_HEAD(arr))) {
                 if (ss->begin and *ss->end == ':')
                     fail (Error_Syntax(ss));
                 RESET_VAL_HEADER(DS_TOP, REB_GET_PATH);
-                CHANGE_VAL_TYPE_BITS(ARR_HEAD(arr), REB_WORD);
+                mutable_KIND_BYTE(ARR_HEAD(arr)) = REB_WORD;
             }
             else {
                 if (ss->begin and *ss->end == ':') {

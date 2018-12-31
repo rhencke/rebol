@@ -1348,16 +1348,15 @@ REBTYPE(Fail)
 //
 // https://en.wikipedia.org/wiki/Multiple_dispatch
 // https://en.wikipedia.org/wiki/Generic_function
+// https://stackoverflow.com/q/53574843/
 //
 REB_R Generic_Dispatcher(REBFRM *f)
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
-
-    enum Reb_Kind kind = VAL_TYPE(FRM_ARG(f, 1));
     REBVAL *verb = KNOWN(ARR_HEAD(details));
     assert(IS_WORD(verb));
-    assert(kind < REB_MAX);
 
+    enum Reb_Kind kind = VAL_TYPE(FRM_ARG(f, 1));
     GENERIC_HOOK hook = Generic_Hooks[kind];
     return hook(f, verb); // note: LITERAL! will re-dispatch to Generic_Hooks
 }

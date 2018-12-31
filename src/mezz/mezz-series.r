@@ -499,7 +499,7 @@ collect-with: func [
         enclose 'append function [f [frame!] <with> out] [
             ;-- ENCLOSE (vs. ADAPT) in order to alter return result
 
-            if not :f/value [return null] ;-- doesn't "count" as collected
+            if null? :f/value [return null] ;-- doesn't "count" as collected
 
             f/series: out: default [make block! 16] ;-- won't return null now
             :f/value ;-- ELIDE leaves as result (F/VALUE invalid after DO F)

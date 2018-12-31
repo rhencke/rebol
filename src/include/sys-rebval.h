@@ -70,15 +70,6 @@
 //
 
 
-#define FLAG_KIND_BYTE(kind) \
-    FLAG_SECOND_BYTE(kind)
-
-#define KIND_BYTE(v) \
-    SECOND_BYTE((v)->header)
-
-#define mutable_KIND_BYTE(v) \
-    mutable_SECOND_BYTE((v)->header)
-
 
 // v-- BEGIN GENERAL CELL BITS HERE, third byte in the header
 

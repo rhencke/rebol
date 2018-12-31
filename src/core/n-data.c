@@ -1229,7 +1229,7 @@ REBNATIVE(as)
     }
 
     Move_Value(D_OUT, v);
-    CHANGE_VAL_TYPE_BITS(D_OUT, new_kind);
+    mutable_KIND_BYTE(D_OUT) = new_kind;
     return Trust_Const(D_OUT);
 }
 

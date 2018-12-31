@@ -813,6 +813,8 @@ REBCTX *Make_Error_Managed_Core(
         assert(IS_END(value)); // ...same
     }
 
+    mutable_KIND_BYTE(CTX_ARCHETYPE(error)) = REB_ERROR;
+
     // C struct mirroring fixed portion of error fields
     //
     ERROR_VARS *vars = ERR_VARS(error);

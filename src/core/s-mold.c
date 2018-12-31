@@ -518,7 +518,6 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
 
     if (kind != REB_MAX_NULLED) {
         MOLD_HOOK hook = Mold_Or_Form_Hooks[kind];
-        assert(hook != nullptr); // all types have a hook, even if it fails
         hook(mo, cell, form);
     }
     else if (depth == 0) {

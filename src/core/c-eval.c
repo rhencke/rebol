@@ -1528,7 +1528,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(IS_ISSUE(DS_TOP));
 
             if (not IS_WORD_BOUND(DS_TOP)) { // the loop didn't index it
-                CHANGE_VAL_TYPE_BITS(DS_TOP, REB_REFINEMENT);
+                mutable_KIND_BYTE(DS_TOP) = REB_REFINEMENT;
                 fail (Error_Bad_Refine_Raw(DS_TOP)); // so duplicate or junk
             }
 
@@ -1941,7 +1941,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       case REB_GET_WORD:
         Move_Opt_Var_May_Fail(f->out, current, f->specifier);
-        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
         break;
 
 //==/////////////////////////////////////////////////////////////////////==//
@@ -1955,8 +1954,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       case REB_LIT_WORD:
         Derelativize(f->out, current, f->specifier);
-        CHANGE_VAL_TYPE_BITS(f->out, REB_WORD);
-        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+        mutable_KIND_BYTE(f->out) = REB_WORD;
         break;
 
 //==//// INERT WORD AND STRING TYPES /////////////////////////////////////==//
@@ -2235,9 +2233,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 // [LIT-PATH!]
 //
-// We only set the type, in order to preserve the header bits... (there
-// currently aren't any for ANY-PATH!, but there might be someday.)
-//
 // Note that this aliases a REBSER under two value types.  While once iffy,
 // it's now allowed with AS, so it is considered fair game.  See #2233
 //
@@ -2245,8 +2240,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       case REB_LIT_PATH:
         Derelativize(f->out, current, f->specifier);
-        CHANGE_VAL_TYPE_BITS(f->out, REB_PATH);
-        assert(NOT_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED));
+        mutable_KIND_BYTE(f->out) = REB_PATH;
 
         // It should be an error if you say `append 'a/b/c 'd` without making
         // the a/b/c mutable.
@@ -2363,8 +2357,12 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 // LIT-BAR! decays into an ordinary BAR! if seen here by the evaluator.
 //
-// !!! Considerations of the "lit-bit" proposal would add a literal form
-// for every type, which would make this datatype unnecssary.
+// !!! With arbitrary literals, this datatype (along with LIT-WORD! and
+// LIT-PATH!) will go away.  But so long as code with the old style expects
+// `reduce ['|] = [|]`, then this is needed.
+//
+// !!! These should *NOT* be switched over until a permanent character is
+// chosen for escaping (backslash is currently controversial).
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
@@ -2376,7 +2374,13 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 // [VOID!]
 //
-// VOID is "evaluatively unfriendly", and unlike NULL is an actual value.
+// "A void! is a means of giving a hot potato back that is a warning about
+//  something, but you don't want to force an error 'in the moment'...in case
+//  the returned information wasn't going to be used anyway."
+//
+// https://forum.rebol.info/t/947
+//
+// If we get here, the evaluator is actually seeing it, and it's time to fail.
 //
 //==//////////////////////////////////////////////////////////////////////==//
 

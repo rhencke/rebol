@@ -44,8 +44,6 @@ repo: context [
     tools: what-dir
 ]
 
-;;
-
 spaced-tab: unspaced [space space space space]
 
 to-c-name: function [
@@ -360,13 +358,8 @@ write-if-changed: function [
     dest [file!]
     content [text! block!]
 ][
-    if block? content [
-        content: spaced content
-    ]
-
-    if not binary? content [
-        content: to binary! content
-    ]
+    if block? content [content: spaced content]
+    content: to binary! content
 
     any [
         not exists? dest

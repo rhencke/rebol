@@ -96,7 +96,7 @@ function: adapt 'function [set [spec body] modernize-action spec body]
 meth: enfix adapt 'meth [set [spec body] modernize-action spec body]
 method: enfix adapt 'method [set [spec body] modernize-action spec body]
 
-trim: adapt 'trim [ // there's a bug in TRIM/AUTO in 8994d23
+trim: adapt 'trim [ ;; there's a bug in TRIM/AUTO in 8994d23
     if auto [
         while [not tail? series and [series/1 = LF]] [
             take series
@@ -105,11 +105,13 @@ trim: adapt 'trim [ // there's a bug in TRIM/AUTO in 8994d23
 ]
 
 mutable: func [x [any-value!]] [
-    //
-    // Some cases which did not notice immutability in the bootstrap build
-    // now do, e.g. MAKE OBJECT! on a block that you LOAD.  This is a no-op
-    // in the older build, but should run MUTABLE in the new build when it
-    // emerges as being needed.
-    //
+    ;
+    ; Some cases which did not notice immutability in the bootstrap build
+    ; now do, e.g. MAKE OBJECT! on a block that you LOAD.  This is a no-op
+    ; in the older build, but should run MUTABLE in the new build when it
+    ; emerges as being needed.
+    ;
     :x
 ]
+
+lit: :quote ;; QUOTE is likely slated to act like UNEVAL, LIT replaces it

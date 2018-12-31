@@ -160,23 +160,77 @@
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// CELL WRITABILITY //////////////////////////////////////////////////=//
 //
-//  VALUE "KIND" (1 out of 64 different foundational types)
+// Asserting writiablity helps avoid very bad catastrophies that might ensue
+// if "implicit end markers" could be overwritten.  These are the ENDs that
+// are actually other bitflags doing double duty inside a data structure, and
+// there is no REBVAL storage backing the position.
 //
-//=////////////////////////////////////////////////////////////////////////=//
+// (A fringe benefit is catching writes to other unanticipated locations.)
 //
-// At the moment, only 6 bits are used in the type byte to express unique
-// types.  The higher values in the byte are used to express that the type
-// is a LITERAL!, but one that is at a level of escaping that's small enough
-// to fit into the cell itself.  So the UNESCAPED_TYPE() for such values is
-// just the type byte modulo 64.
+
+#if defined(DEBUG_CELL_WRITABILITY)
+    //
+    // In the debug build, functions aren't inlined, and the overhead actually
+    // adds up very quickly of getting the 3 parameters passed in.  Run the
+    // risk of repeating macro arguments to speed up this critical test.
+    //
+    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
+        do { \
+            if (not ((c)->header.bits & NODE_FLAG_CELL)) { \
+                printf("Non-cell passed to cell writing routine\n"); \
+                panic_at ((c), (file), (line)); \
+            } \
+            else if (not ((c)->header.bits & NODE_FLAG_NODE)) { \
+                printf("Non-node passed to cell writing routine\n"); \
+                panic_at ((c), (file), (line)); \
+            } else if (\
+                (c)->header.bits & (CELL_FLAG_PROTECTED | NODE_FLAG_FREE) \
+            ){ \
+                printf("Protected/free cell passed to writing routine\n"); \
+                panic_at ((c), (file), (line)); \
+            } \
+        } while (0)
+#else
+    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
+        NOOP
+#endif
+
+
+//=//// "KIND" HEADER BYTE (e.g. REB_XXX type) ////////////////////////////=//
 //
-// Note also that low-level TYPESET!s are only 64-bits (so they can fit into
-// a REBVAL payload, along with a symbol, to represent an action parameter).
-// If there were more low-level types, they couldn't be flagged in a typeset
-// that fit in a REBVAL under that constraint.
+// The "kind" of fundamental datatype a cell is lives in the second byte for
+// a very deliberate reason.  This means that the signal for an end can be
+// a zero byte, allow a C string that is one character long (plus zero
+// terminator) to function as an end signal...using only two bytes, while
+// still not conflicting with arbitrary UTF-8 strings (including empty ones).
 //
+// An additional trick is that while there are only up to 64 fundamental types
+// in the system (including END), higher values in the byte are used to encode
+// escaping levels.  Up to 3 encoding levels can be in the cell itself, with
+// additional levels achieved with REB_LITERAL and pointing to another cell.
+//
+
+#define FLAG_KIND_BYTE(kind) \
+    FLAG_SECOND_BYTE(kind)
+
+#define KIND_BYTE(v) \
+    SECOND_BYTE((v)->header)
+
+// Note: Only change bits of existing cells if the new type payload matches
+// the type and bits (e.g. ANY-WORD! to another ANY-WORD!).  Otherwise the
+// value-specific flags might be misinterpreted.
+//
+#if !defined(__cplusplus)
+    #define mutable_KIND_BYTE(v) \
+        mutable_SECOND_BYTE((v)->header)
+#else
+    inline static REBYTE& mutable_KIND_BYTE(RELVAL *v) {
+        ASSERT_CELL_WRITABLE_EVIL_MACRO(v, __FILE__, __LINE__);
+        return mutable_SECOND_BYTE((v)->header);
+    }
+#endif
 
 #define FLAGIT_KIND(t) \
     (cast(REBU64, 1) << (t)) // makes a 64-bit bitflag
@@ -426,48 +480,6 @@ inline static enum Reb_Kind VAL_TYPE_RAW(const RELVAL *v) {
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
-//  CELL WRITABILITY
-//
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// Asserting writiablity helps avoid very bad catastrophies that might ensue
-// if "implicit end markers" could be overwritten.  These are the ENDs that
-// are actually other bitflags doing double duty inside a data structure, and
-// there is no REBVAL storage backing the position.
-//
-// (A fringe benefit is catching writes to other unanticipated locations.)
-//
-
-#if defined(DEBUG_CELL_WRITABILITY)
-    //
-    // In the debug build, functions aren't inlined, and the overhead actually
-    // adds up very quickly of getting the 3 parameters passed in.  Run the
-    // risk of repeating macro arguments to speed up this critical test.
-    //
-    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
-        do { \
-            if (not ((c)->header.bits & NODE_FLAG_CELL)) { \
-                printf("Non-cell passed to cell writing routine\n"); \
-                panic_at ((c), (file), (line)); \
-            } \
-            else if (not ((c)->header.bits & NODE_FLAG_NODE)) { \
-                printf("Non-node passed to cell writing routine\n"); \
-                panic_at ((c), (file), (line)); \
-            } else if (\
-                (c)->header.bits & (CELL_FLAG_PROTECTED | NODE_FLAG_FREE) \
-            ){ \
-                printf("Protected/free cell passed to writing routine\n"); \
-                panic_at ((c), (file), (line)); \
-            } \
-        } while (0)
-#else
-    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
-        NOOP
-#endif
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
 //  CELL HEADERS AND PREPARATION
 //
 //=////////////////////////////////////////////////////////////////////////=//
@@ -631,17 +643,6 @@ inline static void Prep_Stack_Cell_Core(
     #define Prep_Stack_Cell(c) \
         Prep_Stack_Cell_Core(c)
 #endif
-
-
-inline static void CHANGE_VAL_TYPE_BITS(RELVAL *v, enum Reb_Kind kind) {
-    //
-    // Note: Only use if you are sure the new type payload is in sync with
-    // the type and bits (e.g. changing ANY-WORD! to another ANY-WORD!).
-    // Otherwise the value-specific flags might be misinterpreted.
-    //
-    ASSERT_CELL_WRITABLE_EVIL_MACRO(v, __FILE__, __LINE__);
-    mutable_KIND_BYTE(v) = kind;
-}
 
 
 //=////////////////////////////////////////////////////////////////////////=//

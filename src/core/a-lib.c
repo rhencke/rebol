@@ -590,7 +590,7 @@ REBVAL *RL_rebRunInline(const REBVAL *array)
 
     DECLARE_LOCAL (group);
     Move_Value(group, array);
-    CHANGE_VAL_TYPE_BITS(group, REB_GROUP);
+    mutable_KIND_BYTE(group) = REB_GROUP;
 
     return rebRun(rebEval(group), rebEND);
 }
