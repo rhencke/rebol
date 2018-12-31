@@ -38,10 +38,8 @@ enum Reb_Token {
     TOKEN_WORD,
     TOKEN_SET, // order matters (see KIND_OF_WORD_FROM_TOKEN)
     TOKEN_GET, // ^-- same
-    TOKEN_LIT, // ^-- same
     TOKEN_BLANK, // not needed
     TOKEN_BAR,
-    TOKEN_LIT_BAR,
     TOKEN_LOGIC, // not needed
     TOKEN_INTEGER,
     TOKEN_DECIMAL,
@@ -50,7 +48,8 @@ enum Reb_Token {
     TOKEN_TIME,
     TOKEN_DATE,
     TOKEN_CHAR,
-    TOKEN_LITERAL,
+    TOKEN_APOSTROPHE,
+    TOKEN_BACKSLASH,
     TOKEN_BLOCK_BEGIN,
     TOKEN_GROUP_BEGIN,
     TOKEN_STRING,

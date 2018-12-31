@@ -1277,49 +1277,19 @@ acquisition_loop:
             ++cp; // skip ':'
             goto scanword;
 
-        case LEX_SPECIAL_APOSTROPHE:
-            if (IS_LEX_NUMBER(cp[1])) { // no '2nd
-                ss->token = TOKEN_LIT;
-                fail (Error_Syntax(ss));
-            }
-            if (cp[1] == ':') { // no ':X
-                ss->token = TOKEN_LIT;
-                fail (Error_Syntax(ss));
-            }
-            if (
-                cp[1] == '|'
-                and (IS_LEX_DELIMIT(cp[2]) or IS_LEX_ANY_SPACE(cp[2]))
-            ){
-                ss->token = TOKEN_LIT_BAR;
-                return; // '| is a LIT-BAR!, '|foo is LIT-WORD!
-            }
-            if (ONLY_LEX_FLAG(flags, LEX_SPECIAL_WORD)) {
-                ss->token = TOKEN_LIT;
-                return; // common case
-            }
-            if (not IS_LEX_WORD(cp[1])) {
-                // Various special cases of < << <> >> > >= <=
-                if ((cp[1] == '-' or cp[1] == '+') and IS_LEX_NUMBER(cp[2])) {
-                    ss->token = TOKEN_WORD;
-                    fail (Error_Syntax(ss));
-                }
-                if (cp[1] == '<' or cp[1] == '>') {
-                    cp++;
-                    if (cp[1] == '<' or cp[1] == '>' or cp[1] == '=')
-                        ++cp;
-                    ss->token = TOKEN_LIT;
-                    if (not IS_LEX_DELIMIT(cp[1]))
-                        fail (Error_Syntax(ss));
-                    ss->end = cp + 1;
-                    return;
-                }
-            }
-            if (cp[1] == '\'') {
-                ss->token = TOKEN_WORD;
-                fail (Error_Syntax(ss));
-            }
-            ss->token = TOKEN_LIT;
-            goto scanword;
+        case LEX_SPECIAL_APOSTROPHE: // parallels code used for BACKSLASH
+            while (*cp == '\'')
+                ++cp;
+            ss->end = cp;
+            ss->token = TOKEN_APOSTROPHE;
+            return;
+
+        case LEX_SPECIAL_BACKSLASH: // in Ren-C used for LITERAL!
+            while (*cp == '\\')
+                ++cp;
+            ss->end = cp;
+            ss->token = TOKEN_BACKSLASH;
+            return;
 
         case LEX_SPECIAL_COMMA:         /* ,123 */
         case LEX_SPECIAL_PERIOD:        /* .123 .123.456.789 */
@@ -1511,13 +1481,6 @@ acquisition_loop:
                 return;
             }
             ss->token = TOKEN_MONEY;
-            return;
-
-        case LEX_SPECIAL_BACKSLASH: // in Ren-C used for LITERAL!
-            while (*cp == '\\')
-                ++cp;
-            ss->end = cp;
-            ss->token = TOKEN_LITERAL;
             return;
 
         default:
@@ -1916,7 +1879,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
     if (just_once)
         ss->opts &= ~SCAN_FLAG_NEXT; // e.g. recursion loads one entire BLOCK!
 
-    REBCNT lit_depth = 0;
+    REBINT lit_depth = 0; // negative signals it was an apostrophe lit
 
   loop:
     while (
@@ -1947,44 +1910,13 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             ++bp;
             break;
 
-        case TOKEN_LIT_BAR:
-            DS_PUSH_TRASH;
-            Init_Lit_Bar(DS_TOP);
-            ++bp;
-            break;
-
         case TOKEN_BLANK:
             DS_PUSH_TRASH;
             Init_Blank(DS_TOP);
             ++bp;
             break;
 
-        case TOKEN_LIT:
-            //
-            // !!! Special-case hack added for '/ ... a better answer would
-            // be needed here to properly handle comments/tabs/etc.  Hacks for
-            // :/ and :/ are purposefully omitted, in the event that SET-PATH!
-            // and GET-PATH! are replaced by SET/GET variants of other types.
-            //
-            if (
-                len == 1 and bp[1] == '/' and ep == bp + 1
-                and (bp[2] == '\0' or bp[2] == ' ' or bp[2] == '\n')
-            ){
-                ++ss->begin;
-                ++bp;
-                ++ep;
-                DS_PUSH_TRASH;
-                Init_Any_Array(
-                    DS_TOP,
-                    ss->token == TOKEN_LIT ? REB_LIT_PATH : REB_GET_PATH,
-                    Make_Arr(0)
-                );
-                break;
-            }
-            goto token_get;
-
         case TOKEN_GET:
-        token_get:
             if (ep[-1] == ':') {
                 if (len == 1 or ss->mode_char != '/')
                     fail (Error_Syntax(ss));
@@ -2029,19 +1961,24 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_LITERAL: {
+        case TOKEN_APOSTROPHE:
+        case TOKEN_BACKSLASH: {
             if (lit_depth != 0) { // e.g. `\ \`, nothing seen since last one
                 DS_PUSH_TRASH;
-                Quotify(Init_Nulled(DS_TOP), lit_depth);
+                Quotify_R2(Init_Nulled(DS_TOP), lit_depth);
             }
 
             lit_depth = ss->end - bp;
             assert(lit_depth >= 1);
+
+            if (ss->token == TOKEN_APOSTROPHE)
+                lit_depth = -lit_depth; // signal preference for "old style"
+
             if (not ANY_CR_LF_END(*ss->begin)) // more to come...(maybe)
                 goto loop; // so wrap next value
 
             DS_PUSH_TRASH;
-            Quotify(Init_Nulled(DS_TOP), lit_depth);
+            Quotify_R2(Init_Nulled(DS_TOP), lit_depth);
             lit_depth = 0;
             goto loop; } // wrap next value
 
@@ -2435,11 +2372,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
             DS_PUSH_TRASH; // now push a path to take the stolen token's place
 
-            if (ss->token == TOKEN_LIT) {
-                RESET_VAL_HEADER(DS_TOP, REB_LIT_PATH);
-                mutable_KIND_BYTE(ARR_HEAD(arr)) = REB_WORD;
-            }
-            else if (IS_GET_WORD(ARR_HEAD(arr))) {
+            if (IS_GET_WORD(ARR_HEAD(arr))) {
                 if (ss->begin and *ss->end == ':')
                     fail (Error_Syntax(ss));
                 RESET_VAL_HEADER(DS_TOP, REB_GET_PATH);
@@ -2458,12 +2391,12 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
             ss->token = TOKEN_PATH;
         }
 
-        if (lit_depth > 0) {
+        if (lit_depth != 0) {
             //
             // Transform the topmost value on the stack into a LITERAL!, to
             // account for the `\\\` that was preceding it.
             //
-            Quotify(DS_TOP, lit_depth);
+            Quotify_R2(DS_TOP, lit_depth);
             lit_depth = 0;
         }
 
@@ -2512,7 +2445,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
     if (lit_depth != 0) {
         DS_PUSH_TRASH;
-        Quotify(Init_Nulled(DS_TOP), lit_depth);
+        Quotify_R2(Init_Nulled(DS_TOP), lit_depth);
     }
 
     // Note: ss->newline_pending may be true; used for ARRAY_FLAG_TAIL_NEWLINE

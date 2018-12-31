@@ -139,6 +139,38 @@ inline static RELVAL *Quotify_Core(
 #endif
 
 
+// !!! For compatibility, quoting still allows apostrophe at scan time.  If
+// quoting is at exactly one level and fits WORD!, PATH!, or BAR!... then it
+// will permit that if the incoming quote count is negative.  Otherwise it
+// uses new-style arbitrary escaping.
+//
+// This should only be called by the scanner for now, and is an experiment
+// to let people who want to try apostrophe-generic escaping try it.
+//
+inline static void Quotify_R2(REBVAL *v, REBINT depth) {
+    if (depth == 0)
+        NOOP;
+    else if (depth > 0)
+        Quotify(v, depth);
+    else {
+        depth = -depth;
+        if (depth == 1) {
+            enum Reb_Kind kind = VAL_TYPE(v);
+            if (kind == REB_WORD)
+                mutable_KIND_BYTE(v) = REB_LIT_WORD;
+            else if (kind == REB_PATH)
+                mutable_KIND_BYTE(v) = REB_LIT_PATH;
+            else if (kind == REB_BAR)
+                mutable_KIND_BYTE(v) = REB_LIT_BAR;
+            else
+                Quotify(v, depth); // fall back to generic escaping
+        }
+        else
+            Quotify(v, depth);
+    }
+}
+
+
 // Only works on small escape levels that fit in a cell (<=3).  So it can
 // do `\\\x -> \\x`, `\\x -> \x` or `\x -> x`.  Use Unquotify() for the more
 // generic routine, but this is needed by the evaluator most commonly, so it
