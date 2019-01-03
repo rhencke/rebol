@@ -34,16 +34,6 @@
 //
 
 
-// Defines `enum Reb_Kind`, which is the enumeration of low-level cell types
-// in Rebol (e.g. REB_BLOCK, REB_TEXT, etc.)
-//
-// The ordering encodes properties of the types for efficiency, so adding or
-// removing a type generally means shuffling their values.  They are generated
-// from a table and the numbers should not be exported to clients.
-//
-#include "tmp-kinds.h"
-
-
 //=//// REBYTE 8-BIT UNSIGNED /////////////////////////////////////////////=//
 //
 // Using unsigned characters helps convey information is not limited to
@@ -55,6 +45,16 @@
 // https://stackoverflow.com/a/16138470/211160
 //
 typedef unsigned char REBYTE; // don't change to uint8_t, see note
+
+
+// Defines `enum Reb_Kind`, which is the enumeration of low-level cell types
+// in Rebol (e.g. REB_BLOCK, REB_TEXT, etc.)
+//
+// The ordering encodes properties of the types for efficiency, so adding or
+// removing a type generally means shuffling their values.  They are generated
+// from a table and the numbers should not be exported to clients.
+//
+#include "tmp-kinds.h"
 
 
 //=//// REBOL NUMERIC TYPES ("REBXXX") ////////////////////////////////////=//

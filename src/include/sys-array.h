@@ -556,7 +556,7 @@ inline static bool Splices_Into_Type_Without_Only(
 inline static bool Is_Doubled_Group(const RELVAL *group) {
     assert(IS_GROUP(group));
     RELVAL *inner = VAL_ARRAY_AT(group);
-    if (VAL_TYPE_RAW(inner) != REB_GROUP or VAL_LEN_AT(group) != 1)
+    if (KIND_BYTE(inner) != REB_GROUP or VAL_LEN_AT(group) != 1)
         return false; // plain (...) GROUP!
     return true; // a ((...)) GROUP!, inject as rule
 }

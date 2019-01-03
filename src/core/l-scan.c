@@ -1315,7 +1315,10 @@ acquisition_loop:
             }
             // falls through
         case LEX_SPECIAL_LESSER:
-            if (IS_LEX_ANY_SPACE(cp[1]) or cp[1] == ']' or cp[1] == 0) {
+            if (
+                IS_LEX_ANY_SPACE(cp[1])
+                or cp[1] == ']' or cp[1] == ')' or cp[1] == 0
+            ){
                 ss->token = TOKEN_WORD; // changed for </tag>
                 return;
             }

@@ -45,132 +45,134 @@ REBOL [
         ** !!! Review how these might be auto-generated from the table.
         */
 
-        /* We use CELL_KIND() for checking the bindable flag because the cell
-         * may be a literal which is using the same payload as its wrapped
-         * value.  That means the extra field could be used for anything, even
-         * if VAL_TYPE_RAW() reports REB_LITERAL.
+        /*
+         * Note that an "in-situ" LITERAL! (not a REB_LITERAL kind byte, but
+         * using larger REB_MAX values) is bindable if the cell it's overlaid
+         * into is bindable.  It has to handle binding exactly as it would if
+         * it were not a literal form.
          *
-         * Note this is called *extremely often*...so the debug build would
-         * be seriously slowed down by things like the checking in VAL_TYPE().
-         * Assume/hope using the less checked CELL_KIND() is okay, and any
-         * problems will be caught by asserts elsewhere.
+         * Actual REB_LITERALs (used for higher escape values) have to use a
+         * separate cell for storage.  The REB_LITERAL type is in the range
+         * of enum values that report bindability, even if it's storing a type
+         * that uses the ->extra field for something else.  This is mitigated
+         * by putting nullptr in the binding field of the REB_LITERAL portion
+         * of the cell, instead of mirroring the ->extra field of the
+         * contained cell...so it comes off as "specified" in those cases.
          */
 
         #define Is_Bindable(v) \
-            (KIND_BYTE(v) % REB_64 < REB_LOGIC)
+            (CELL_KIND_UNCHECKED(v) < REB_LOGIC) /* gets checked elsewhere */
 
         #define Not_Bindable(v) \
-            (KIND_BYTE(v) % REB_64 >= REB_LOGIC)
+            (CELL_KIND_UNCHECKED(v) >= REB_LOGIC) /* gets checked elsewhere */
 
-        /* For other checks, we pay the cost in the debug build of all the
-           associated baggage that VAL_TYPE() carries over VAL_TYPE_RAW() */
+        /*
+         * Testing for LITERAL! is special, as it isn't just the REB_LITERAL
+         * type, but also multiplexed as values > REB_64.  So it costs more.
+         */
+
+        inline static bool IS_LITERAL_KIND(REBYTE k)
+            { return k == REB_LITERAL or k >= REB_64; }
+
+        #define IS_LITERAL(v) \
+            IS_LITERAL_KIND(KIND_BYTE(v))
 
         #define ANY_VALUE(v) \
-            (VAL_TYPE(v) != REB_MAX_NULLED)
+            (KIND_BYTE(v) != REB_MAX_NULLED)
 
-        inline static bool ANY_SCALAR_KIND(enum Reb_Kind k) {
-            return k >= REB_LOGIC and k <= REB_DATE;
-        }
+        inline static bool ANY_SCALAR_KIND(REBYTE k)
+            { return k >= REB_LOGIC and k <= REB_DATE; }
 
         #define ANY_SCALAR(v) \
-            ANY_SCALAR_KIND(VAL_TYPE(v))
+            ANY_SCALAR_KIND(KIND_BYTE(v))
 
-        inline static bool ANY_SERIES_KIND(enum Reb_Kind k) {
-            return k >= REB_PATH and k <= REB_VECTOR;
-        }
+        inline static bool ANY_SERIES_KIND(REBYTE k)
+           { return k >= REB_PATH and k <= REB_VECTOR; }
 
         #define ANY_SERIES(v) \
-            ANY_SERIES_KIND(VAL_TYPE(v))
+            ANY_SERIES_KIND(KIND_BYTE(v))
 
-        inline static bool ANY_STRING_KIND(enum Reb_Kind k) {
-            return k >= REB_TEXT and k <= REB_TAG;
-        }
+        inline static bool ANY_STRING_KIND(REBYTE k)
+            { return k >= REB_TEXT and k <= REB_TAG; }
 
         #define ANY_STRING(v) \
-            ANY_STRING_KIND(VAL_TYPE(v))
+            ANY_STRING_KIND(KIND_BYTE(v))
 
-        inline static bool ANY_BINSTR_KIND(enum Reb_Kind k) {
-            return k >= REB_BINARY and k <= REB_TAG;
-        }
+        inline static bool ANY_BINSTR_KIND(REBYTE k)
+            { return k >= REB_BINARY and k <= REB_TAG; }
 
         #define ANY_BINSTR(v) \
-            ANY_BINSTR_KIND(VAL_TYPE(v))
+            ANY_BINSTR_KIND(KIND_BYTE(v))
 
-        inline static bool ANY_ARRAY_KIND(enum Reb_Kind k) {
-            return k >= REB_PATH and k <= REB_BLOCK;
-        }
+        inline static bool ANY_ARRAY_KIND(REBYTE k)
+            { return k >= REB_PATH and k <= REB_BLOCK; }
 
         #define ANY_ARRAY(v) \
-            ANY_ARRAY_KIND(VAL_TYPE(v))
+            ANY_ARRAY_KIND(KIND_BYTE(v))
 
-        inline static bool ANY_WORD_KIND(enum Reb_Kind k) {
-            return k >= REB_WORD and k <= REB_ISSUE;
-        }
+        inline static bool ANY_WORD_KIND(REBYTE k)
+            { return k >= REB_WORD and k <= REB_ISSUE; }
 
         #define ANY_WORD(v) \
-            ANY_WORD_KIND(VAL_TYPE(v))
+            ANY_WORD_KIND(KIND_BYTE(v))
 
-        inline static bool ANY_PATH_KIND(enum Reb_Kind k) {
-            return k >= REB_PATH and k <= REB_LIT_PATH;
-        }
+        inline static bool ANY_PATH_KIND(REBYTE k)
+            { return k >= REB_PATH and k <= REB_LIT_PATH; }
 
         #define ANY_PATH(v) \
-            ANY_PATH_KIND(VAL_TYPE(v))
+            ANY_PATH_KIND(KIND_BYTE(v))
 
-        inline static bool ANY_CONTEXT_KIND(enum Reb_Kind k) {
-            return k >= REB_OBJECT and k <= REB_PORT;
-        }
+        inline static bool ANY_CONTEXT_KIND(REBYTE k)
+            { return k >= REB_OBJECT and k <= REB_PORT; }
 
         #define ANY_CONTEXT(v) \
-            ANY_CONTEXT_KIND(VAL_TYPE(v))
+            ANY_CONTEXT_KIND(KIND_BYTE(v))
 
         /* !!! There was an IS_NUMBER() macro defined in R3-Alpha which was
-           REB_INTEGER and REB_DECIMAL.  But ANY-NUMBER! the typeset included
-           PERCENT! so this adds that and gets rid of IS_NUMBER() */
-
-        inline static bool ANY_NUMBER_KIND(enum Reb_Kind k) {
+         * REB_INTEGER and REB_DECIMAL.  But ANY-NUMBER! the typeset included
+         * PERCENT! so this adds that and gets rid of IS_NUMBER()
+         */
+        inline static bool ANY_NUMBER_KIND(REBYTE k) {
             return k == REB_INTEGER or k == REB_DECIMAL or k == REB_PERCENT;
         }
 
         #define ANY_NUMBER(v) \
-            ANY_NUMBER_KIND(VAL_TYPE(v))
+            ANY_NUMBER_KIND(KIND_BYTE(v))
 
         /* !!! Being able to locate inert types based on range *almost* works,
-           but REB_ISSUE and REB_REFINEMENT want to be picked up as ANY-WORD!.
-           This trick will have to be rethought, esp if words and strings
-           get unified, but it's here to show how choosing these values
-           carefully can help with speeding up tests. */
-
-        inline static bool ANY_INERT_KIND(enum Reb_Kind k) {
+         * but REB_ISSUE and REB_REFINEMENT want to be picked up as ANY-WORD!.
+         * This trick will have to be rethought, esp if words and strings
+         * get unified, but it's here to show how choosing these values
+         * carefully can help with speeding up tests.
+         */
+        inline static bool ANY_INERT_KIND(REBYTE k) {
             return (k >= REB_BLOCK and k <= REB_BLANK)
                 or k == REB_ISSUE or k == REB_REFINEMENT;
         }
 
         #define ANY_INERT(v) \
-            ANY_INERT_KIND(VAL_TYPE(v))
+            ANY_INERT_KIND(KIND_BYTE(v))
 
         /* Doing a SET-WORD! or SET-PATH!, or a plain SET assignment, does
-           not generally tolerate either voids or nulls.  By having them
-           sequential in the type chart they can be tested together fast. */
-
-        inline static bool IS_NULLED_OR_VOID_KIND(enum Reb_Kind k) {
-            return k >= REB_VOID;
-        }
+         * not generally tolerate either voids or nulls.  Review if some
+         * optimization could be made to test both at once more quickly
+         * (putting them at 1 and 2, perhaps then < 3 could be the test).
+         */
+        inline static bool IS_NULLED_OR_VOID_KIND(REBYTE k)
+            { return k == REB_MAX_NULLED or k == REB_VOID; }
 
         #define IS_NULLED_OR_VOID(v) \
-            IS_NULLED_OR_VOID_KIND(VAL_TYPE(v))
+            IS_NULLED_OR_VOID_KIND(KIND_BYTE(v))
 
-        /*
-         * This is another kind of test that might have some way to speed up
+        /* This is another kind of test that might have some way to speed up
          * based on types or bits, or as an alternate to another speedup if
          * it turns out to be more common
          */
-        inline static bool IS_NULLED_OR_BLANK_KIND(enum Reb_Kind k) {
-            return k == REB_MAX_NULLED or k == REB_BLANK;
-        }
+        inline static bool IS_NULLED_OR_BLANK_KIND(REBYTE k)
+            { return k == REB_MAX_NULLED or k == REB_BLANK; }
 
         #define IS_NULLED_OR_BLANK(v) \
-            IS_NULLED_OR_BLANK_KIND(VAL_TYPE(v))
+            IS_NULLED_OR_BLANK_KIND(KIND_BYTE(v))
     }
 ]
 

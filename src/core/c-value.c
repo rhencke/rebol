@@ -56,7 +56,7 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
 
     REBNOD *containing = Try_Find_Containing_Node_Debug(v);
 
-    switch (VAL_TYPE_RAW(v)) {
+    switch (KIND_BYTE(v)) {
     case REB_MAX_NULLED:
     case REB_BLANK:
     case REB_LOGIC:
@@ -89,7 +89,7 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
         break;
     }
 
-    printf("Kind=%d\n", cast(int, VAL_TYPE_RAW(v)));
+    printf("kind_byte=%d\n", cast(int, KIND_BYTE(v)));
     fflush(stdout);
 
     if (containing and not (containing->header.bits & NODE_FLAG_CELL)) {

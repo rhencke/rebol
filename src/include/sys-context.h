@@ -101,7 +101,7 @@ inline static REBARR *CTX_KEYLIST(REBCTX *c) {
     // just the keylist of the underlying function.
     //
     REBVAL *archetype = CTX_ARCHETYPE(c);
-    assert(VAL_TYPE_RAW(archetype) == REB_FRAME);
+    assert(KIND_BYTE(archetype) == REB_FRAME);
     return ACT_PARAMLIST(archetype->payload.any_context.phase);
 }
 

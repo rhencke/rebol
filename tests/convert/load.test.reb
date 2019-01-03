@@ -3,7 +3,7 @@
     (block? load/all "1")
 ]
 [#22 ; a
-    (error? trap [load "':a"])
+    (uneval lit :a = load "':a")
 ]
 [#22 ; b
     (error? trap [load "':a:"])

@@ -559,7 +559,10 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     Fetch_Next_In_Frame(&current, f);
 
-    assert(kind.byte != REB_0_END and kind.byte == KIND_BYTE(current));
+    assert(
+        kind.byte != REB_0_END
+        and kind.byte == KIND_BYTE_UNCHECKED(current)
+    );
 
   reevaluate:;
 
@@ -580,7 +583,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // called "current" holds the current head of the expression that the
     // main switch would process.
 
-    if (VAL_TYPE_RAW(f->value) != REB_WORD) // END would be REB_0
+    if (KIND_BYTE(f->value) != REB_WORD) // END would be REB_0
         goto give_up_backward_quote_priority;
 
     if (not EVALUATING(f->value))
@@ -786,7 +789,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     // http://stackoverflow.com/questions/17061967/c-switch-and-jump-tables
 
-    assert(kind.byte == KIND_BYTE(current));
+    assert(kind.byte == KIND_BYTE_UNCHECKED(current));
 
     if (not EVALUATING(current)) {
         Derelativize(f->out, current, f->specifier);
@@ -1627,10 +1630,10 @@ bool Eval_Core_Throws(REBFRM * const f)
         else if (not r) { // API and internal code can both return `nullptr`
             Init_Nulled(f->out);
         }
-        else if (VAL_TYPE_RAW(r) <= REB_MAX) { // should be an API value
+        else if (CELL_KIND(r) <= REB_MAX_NULLED) { // should be an API value
             Handle_Api_Dispatcher_Result(f, r);
         }
-        else switch (VAL_TYPE_RAW(r)) { // it's a "pseudotype" instruction
+        else switch (KIND_BYTE(r)) { // it's a "pseudotype" instruction
             //
             // !!! Thrown values used to be indicated with a bit on the value
             // itself, but now it's conveyed through a return value.  This

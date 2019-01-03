@@ -395,12 +395,13 @@ e-types/emit {
     /*
      * SINGLE TYPE CHECK MACROS, e.g. IS_BLOCK() or IS_TAG()
      *
-     * These routines are based on VAL_TYPE(), which does much more checking
-     * than VAL_TYPE_RAW() in the debug build.  In some commonly called
-     * routines, it may be worth it to use the less checked version.
+     * These routines are based on VAL_TYPE(), which is distinct and costs
+     * more than KIND_BYTE() in the debug build.  In some commonly called
+     * routines that don't differentiate literal types, it may be worth it
+     * to use KIND_BYTE() for optimization purposes.
      *
      * Note that due to a raw type encoding trick, IS_LITERAL() is unusual.
-     * `VAL_TYPE(v) == REB_LITERAL` isn't `VAL_TYPE_RAW(v) == REB_LITERAL`,
+     * `KIND_BYTE(v) == REB_LITERAL` isn't `VAL_TYPE(v) == REB_LITERAL`,
      * they mean different things.  This is because raw types > REB_64 are
      * used to encode literals whose escaping level is low enough that it
      * can use the same cell bits as the escaped value.
@@ -411,11 +412,13 @@ e-types/emit newline
 boot-types: copy []
 n: 1
 for-each-record t type-table [
-    e-types/emit 't {
-        #define IS_${T/NAME}(v) \
-            (VAL_TYPE(v) == REB_${T/NAME}) /* $<n> */
-    }
-    e-types/emit newline
+    if t/name != 'literal [ ; see IS_LITERAL(), handled specially
+        e-types/emit 't {
+            #define IS_${T/NAME}(v) \
+                (KIND_BYTE(v) == REB_${T/NAME}) /* $<n> */
+        }
+        e-types/emit newline
+    ]
 
     append boot-types to-word adjoin form t/name "!"
     n: n + 1

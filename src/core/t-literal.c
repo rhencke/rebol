@@ -265,9 +265,7 @@ REBNATIVE(literal)
     REBVAL *v = ARG(value);
 
     if (REF(soft) and IS_QUOTABLY_SOFT(v))
-        fail ("QUOTE/SOFT not currently implemented, should clone EVAL");
-
-    Recycle();
+        fail ("LITERAL/SOFT not currently implemented, should clone EVAL");
 
     Move_Value(D_OUT, v);
     SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED);

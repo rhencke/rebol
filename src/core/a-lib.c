@@ -883,10 +883,10 @@ REBVAL *RL_rebRescue(
 
     // Analogous to how TRAP works, if you don't have a handler for the
     // error case then you can't return an ERROR!, since all errors indicate
-    // a failure.  Use VAL_TYPE_RAW() as R_THROWN or other special things can
-    // be used internally.
+    // a failure.  Use KIND_BYTE() since R_THROWN or other special things can
+    // be used internally, and literal errors don't count either.
     //
-    if (VAL_TYPE_RAW(result) == REB_ERROR) {
+    if (KIND_BYTE(result) == REB_ERROR) {
         if (Is_Api_Value(result))
             rebRelease(result);
         return rebVoid();

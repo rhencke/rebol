@@ -198,7 +198,7 @@
 #endif
 
 
-//=//// "KIND" HEADER BYTE (e.g. REB_XXX type) ////////////////////////////=//
+//=//// "KIND" HEADER BYTE (a REB_XXX type or variation) //////////////////=//
 //
 // The "kind" of fundamental datatype a cell is lives in the second byte for
 // a very deliberate reason.  This means that the signal for an end can be
@@ -215,8 +215,64 @@
 #define FLAG_KIND_BYTE(kind) \
     FLAG_SECOND_BYTE(kind)
 
-#define KIND_BYTE(v) \
+#define KIND_BYTE_UNCHECKED(v) \
     SECOND_BYTE((v)->header)
+
+#if !defined(NDEBUG)
+    #define KIND_BYTE KIND_BYTE_UNCHECKED
+#else
+    inline static REBYTE KIND_BYTE_Debug(
+        const RELVAL *v,
+        const char *file,
+        int line
+    ){
+        // KIND_BYTE is called *a lot*, so that makes it a great place to do
+        // sanity checks in the debug build.  But a debug build will not
+        // inline this function, and makes *no* optimizations.  Using no
+        // stack space e.g. no locals) is ideal.  (If -Og "debug" optimization
+        // is used, that should actually be able to be fast, since it isn't
+        // needing to keep an actual local around to display.)
+
+        if (
+            (v->header.bits & (
+                NODE_FLAG_CELL
+                | NODE_FLAG_FREE
+                | VALUE_FLAG_FALSEY // all the "bad" types are also falsey
+            )) == NODE_FLAG_CELL
+        ){
+            return KIND_BYTE_UNCHECKED(v->header); // majority return here
+        }
+
+        // Could be a LOGIC! false, blank, or NULL bit pattern in bad cell
+        //
+        if (not (v->header.bits & NODE_FLAG_CELL)) {
+            printf("KIND_BYTE() called on non-cell\n");
+            panic_at (v, file, line);
+        }
+        if (v->header.bits & NODE_FLAG_FREE) {
+            printf("KIND_BYTE() called on invalid cell--marked FREE\n");
+            panic_at (v, file, line);
+        }
+
+        // Unreadable blank is signified in the Extra by a negative tick
+        //
+        if (KIND_BYTE_UNCHECKED(v) == REB_BLANK) {
+            if (v->extra.tick < 0) {
+                printf("KIND_BYTE() called on unreadable BLANK!\n");
+              #ifdef DEBUG_COUNT_TICKS
+                printf("Was made on tick: %d\n", cast(int, -v->extra.tick));
+              #endif
+                panic_at (v, file, line);
+            }
+            return REB_BLANK;
+        }
+
+        return KIND_BYTE_UNCHECKED(v);
+    }
+
+    #define KIND_BYTE(v) \
+        KIND_BYTE_Debug((v), __FILE__, __LINE__)
+#endif
 
 // Note: Only change bits of existing cells if the new type payload matches
 // the type and bits (e.g. ANY-WORD! to another ANY-WORD!).  Otherwise the
@@ -237,101 +293,66 @@
 
 // A cell may have a larger KIND_BYTE() than legal Reb_Kind to represent a
 // literal in-situ, but the payload bits are for VAL_UNESCAPED_TYPE()
-//
-#if !defined(CPLUSPLUS_11)
-    #define CELL_KIND(cell) \
-        cast(enum Reb_Kind, KIND_BYTE(cell) % REB_64)
-#else
-    inline static enum Reb_Kind CELL_KIND(const REBCEL *cell)
-        { return cast(enum Reb_Kind, KIND_BYTE(cell) % REB_64); }
 
-    inline static enum Reb_Kind CELL_KIND(const RELVAL *v) = delete;
+#define CELL_KIND_UNCHECKED(cell) \
+    cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(cell) % REB_64)
+
+#if defined(NDEBUG)
+    #define CELL_KIND CELL_KIND_UNCHECKED
+#else
+    #if !defined(CPLUSPLUS_11)
+        #define CELL_KIND(cell) \
+            cast(enum Reb_Kind, KIND_BYTE(cell) % REB_64)
+    #else
+        inline static enum Reb_Kind CELL_KIND(const REBCEL *cell)
+            { return cast(enum Reb_Kind, KIND_BYTE(cell) % REB_64); }
+    #endif
 #endif
 
-inline static enum Reb_Kind VAL_TYPE_RAW(const RELVAL *v) {
-    if (KIND_BYTE(v) >= REB_64)
-        return REB_LITERAL;
-    return cast(enum Reb_Kind, KIND_BYTE(v));
-}
 
-#ifdef NDEBUG
-    #define VAL_TYPE(v) \
-        VAL_TYPE_RAW(v)
-#else
-    inline static enum Reb_Kind VAL_TYPE_Debug(
-        const RELVAL *v, const char *file, int line
-    ){
-        // VAL_TYPE is called *a lot*, so that makes it a great place to do
-        // sanity checks in the debug build.  But a debug build will not
-        // inline this function, and makes *no* optimizations.  Using no
-        // stack space e.g. no locals) is ideal.  (If -Og "debug" optimization
-        // is used, that should actually be able to be fast, since it isn't
-        // needing to keep an actual local around to display.)
+//=//// VALUE TYPE (always REB_XXX <= REB_MAX) ////////////////////////////=//
+//
+// When asking about a value's "type", you want to see something like a
+// double-quoted WORD! as a LITERAL! value...despite the kind byte being
+// REB_WORD + REB_64 + REB_64.  Use CELL_KIND() if you wish to know that the
+// cell pointer you pass in is carrying a word payload, it does a modulus.
+//
+// This has additional checks as well, that you're not using "pseudotypes"
+// or garbage, or REB_0_END (which should be checked separately with IS_END())
+//
 
-        if (
-            (v->header.bits & (
-                NODE_FLAG_CELL
-                | NODE_FLAG_FREE
-                | VALUE_FLAG_FALSEY // all the "bad" types are also falsey
-            )) == NODE_FLAG_CELL
-        ){
-            assert(VAL_TYPE_RAW(v) <= REB_MAX_NULLED);
-            return VAL_TYPE_RAW(v); // majority of calls hopefully return here
-        }
-
-        // Could be a LOGIC! false, blank, or NULL bit pattern in bad cell
-        //
-        if (not (v->header.bits & NODE_FLAG_CELL)) {
-            printf("VAL_TYPE() called on non-cell\n");
-            panic_at (v, file, line);
-        }
-        if (v->header.bits & NODE_FLAG_FREE) {
-            printf("VAL_TYPE() called on invalid cell--marked FREE\n");
-            panic_at (v, file, line);
-        }
-
-        // Cell is good, so let the good cases pass through
-        //
-        if (KIND_BYTE(v) == REB_MAX_NULLED)
-            return REB_MAX_NULLED;
-        if (KIND_BYTE(v) == REB_LOGIC)
-            return REB_LOGIC;
-
-        // Checking of literals is done when they are unliteralized
-        //
+#if !defined(NDEBUG)
+    inline static enum Reb_Kind VAL_TYPE(const RELVAL *v) {
         if (KIND_BYTE(v) >= REB_64)
             return REB_LITERAL;
-
-        // Unreadable blank is signified in the Extra by a negative tick
-        //
-        if (KIND_BYTE(v) == REB_BLANK) {
-            if (v->extra.tick < 0) {
-                printf("VAL_TYPE() called on unreadable BLANK!\n");
-              #ifdef DEBUG_COUNT_TICKS
-                printf("Was made on tick: %d\n", cast(int, -v->extra.tick));
-              #endif
-                panic_at (v, file, line);
-            }
-            return REB_BLANK;
-        }
+        return cast(enum Reb_Kind, KIND_BYTE(v));
+    }
+#else
+    inline static enum Reb_Kind VAL_TYPE_Debug(
+        const RELVAL *v
+        const char *file,
+        int line
+    ){
+        REBYTE kind_byte = KIND_BYTE(v);
 
         // Special messages for END and trash (as these are common)
         //
-        if (KIND_BYTE(v) == REB_0_END) {
-            printf("VAL_TYPE() called on END marker\n");
+        if (kind_byte % REB_64 == REB_0_END) {
+            printf("VAL_TYPE() on END marker (use IS_END() or KIND_BYTE())\n");
             panic_at (v, file, line);
         }
-        if (KIND_BYTE(v) == REB_T_TRASH) {
-            printf("VAL_TYPE() called on trash cell\n");
+        if (kind_byte % REB_64 > REB_MAX_NULLED) {
+            printf("VAL_TYPE() on pseudotype/garbage (use KIND_BYTE())\n");
             panic_at (v, file, line);
         }
 
-        printf("non-RAW VAL_TYPE() called on pseudotype (or garbage)");
-        panic_at (v, file, line);
+        if (kind_byte >= REB_64)
+            return REB_LITERAL;
+        return cast(enum Reb_Kind, kind_byte);
     }
 
     #define VAL_TYPE(v) \
-        VAL_TYPE_Debug((v), __FILE__, __LINE__)
+        VAL_TYPE_Debug(v, __FILE__, __LINE__)
 #endif
 
 
@@ -681,7 +702,7 @@ inline static void Prep_Stack_Cell_Core(
 
     inline static bool IS_TRASH_DEBUG(const RELVAL *v) {
         assert(v->header.bits & NODE_FLAG_CELL);
-        return VAL_TYPE_RAW(v) == REB_T_TRASH;
+        return KIND_BYTE(v) == REB_T_TRASH;
     }
 #else
     #define TRASH_CELL_IF_DEBUG(v) \
@@ -1027,11 +1048,11 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
         Init_Unreadable_Blank_Debug((out), __FILE__, __LINE__)
 
     inline static bool IS_BLANK_RAW(const RELVAL *v) {
-        return VAL_TYPE_RAW(v) == REB_BLANK;
+        return KIND_BYTE(v) == REB_BLANK;
     }
 
     inline static bool IS_UNREADABLE_DEBUG(const RELVAL *v) {
-        if (VAL_TYPE_RAW(v) != REB_BLANK)
+        if (KIND_BYTE(v) != REB_BLANK)
             return false;
         return v->extra.tick < 0;
     }
@@ -1112,7 +1133,7 @@ inline static bool IS_TRUTHY(const RELVAL *v) {
 inline static bool IS_CONDITIONAL_TRUE(const REBVAL *v) {
     if (IS_FALSEY(v))
         return false;
-    if (VAL_TYPE_RAW(v) == REB_BLOCK)
+    if (KIND_BYTE(v) == REB_BLOCK)
         if (GET_VAL_FLAG(v, VALUE_FLAG_UNEVALUATED))
             fail (Error_Block_Conditional_Raw(v));
     return true;
@@ -1632,7 +1653,7 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
 {
     assert(out != v); // usually a sign of a mistake; not worth supporting
     assert(NOT_END(v)); // SET_END() is the only way to write an end
-    assert(VAL_TYPE_RAW(v) <= REB_MAX_NULLED); // don't move pseudotypes
+    assert(KIND_BYTE(v) % REB_64 <= REB_MAX_NULLED); // don't move pseudotypes
 
     ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);
 

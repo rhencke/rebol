@@ -346,7 +346,7 @@ REBCTX *Make_Context_For_Action(
 //
 #define FINALIZE_REFINE_IF_FULFILLED \
     assert(evoked != refine or evoked->payload.partial.dsp == 0); \
-    if (VAL_TYPE_RAW(refine) == REB_X_PARTIAL) { \
+    if (KIND_BYTE(refine) == REB_X_PARTIAL) { \
         if (not GET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG)) { \
             if (refine->payload.partial.dsp != 0) \
                 Init_Blank(DS_AT(refine->payload.partial.dsp)); /* full! */ \
@@ -558,7 +558,7 @@ bool Specialize_Action_Throws(
             goto specialized_arg;
         }
 
-        if (VAL_TYPE_RAW(refine) == REB_X_PARTIAL) {
+        if (KIND_BYTE(refine) == REB_X_PARTIAL) {
             if (IS_NULLED(arg)) { // we *know* it's not completely fulfilled
                 SET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG);
                 goto unspecialized_arg;
@@ -712,7 +712,7 @@ bool Specialize_Action_Throws(
 
     REBVAL *partial = first_partial;
     while (partial) {
-        assert(VAL_TYPE_RAW(partial) == REB_X_PARTIAL);
+        assert(KIND_BYTE(partial) == REB_X_PARTIAL);
         REBVAL *next_partial = partial->extra.next_partial; // overwritten
 
         if (NOT_VAL_FLAG(partial, PARTIAL_FLAG_IN_USE)) {

@@ -297,7 +297,7 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
         if (not r) {
             // null
         }
-        else switch (VAL_TYPE_RAW(r)) {
+        else switch (KIND_BYTE(r)) {
         case REB_R_REDO:
             assert(false); // shouldn't be possible for final phase
             break;
@@ -310,10 +310,11 @@ REB_R Measured_Dispatcher_Hook(REBFRM * const f)
             assert(false); // internal use only, shouldn't be returned
             break;
 
+        case REB_R_THROWN:
+            break;
+
         default:
-            // may be thrown, may not be
-            assert(NOT_END(r));
-            assert(VAL_TYPE_RAW(r) < REB_MAX_PLUS_MAX);
+            assert(VAL_TYPE(r) <= REB_MAX_NULLED); // does cell checking
             break;
         }
     }

@@ -250,7 +250,7 @@ void Dump_Stack(REBFRM *f, REBCNT level)
         "STACK[%d](%s) - %d\n",
         cast(int, level),
         Frame_Label_Or_Anonymous_UTF8(f),
-        VAL_TYPE_RAW(f->value)
+        KIND_BYTE(f->value)
     );
 
     if (not Is_Action_Frame(f)) {

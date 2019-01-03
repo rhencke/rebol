@@ -855,7 +855,7 @@ REBACT *Make_Action(
     ASSERT_ARRAY_MANAGED(paramlist);
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
-    assert(VAL_TYPE_RAW(rootparam) == REB_ACTION); // !!! not fully formed...
+    assert(KIND_BYTE(rootparam) == REB_ACTION); // !!! not fully formed...
     assert(rootparam->payload.action.paramlist == paramlist);
     assert(rootparam->extra.binding == UNBOUND); // archetype
 

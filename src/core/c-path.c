@@ -134,7 +134,7 @@ bool Next_Path_Throws(REBPVS *pvs)
             PVS_OPT_SETVAL(pvs)
         );
 
-        switch (VAL_TYPE_RAW(r)) {
+        switch (KIND_BYTE(r)) {
 
         case REB_0_END: // unhandled
             assert(r == R_UNHANDLED); // shouldn't be other ends
@@ -211,10 +211,10 @@ bool Next_Path_Throws(REBPVS *pvs)
         else if (not r) {
             Init_Nulled(pvs->out);
         }
-        else if (VAL_TYPE_RAW(r) <= REB_MAX_NULLED) {
+        else if (CELL_KIND(r) <= REB_MAX_NULLED) {
             Handle_Api_Dispatcher_Result(pvs, r);
         }
-        else switch (VAL_TYPE_RAW(r)) {
+        else switch (KIND_BYTE(r)) {
 
         case REB_0_END:
             fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
@@ -625,7 +625,7 @@ REBNATIVE(pick)
     if (not r or r == pvs->out)
         return r;
 
-    switch (VAL_TYPE_RAW(r)) {
+    switch (KIND_BYTE(r)) {
       case REB_0_END:
         assert(r == R_UNHANDLED);
         fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
@@ -710,7 +710,7 @@ REBNATIVE(poke)
     PATH_HOOK hook = Path_Hooks[kind];
 
     const REBVAL *r = hook(pvs, PVS_PICKER(pvs), ARG(value));
-    switch (VAL_TYPE_RAW(r)) {
+    switch (KIND_BYTE(r)) {
     case REB_0_END:
         assert(r == R_UNHANDLED);
         fail (Error_Bad_Path_Poke_Raw(PVS_PICKER(pvs)));

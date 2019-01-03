@@ -138,7 +138,7 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
 
     while (true) {
         if (not (
-            VAL_TYPE_RAW(f->value) == REB_ACTION
+            KIND_BYTE(f->value) == REB_ACTION
             or (Trace_Flags & TRACE_FLAG_FUNCTION)
         )){
             // If a caller reuses a frame (as we are doing by single-stepping),
@@ -280,7 +280,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
     // exposed vs. skipped as "not the last phase" (e.g. the function with
     // this frame's label will still be running, not running under a new name)
     //
-    if (VAL_TYPE_RAW(r) == REB_R_REDO) {
+    if (KIND_BYTE(r) == REB_R_REDO) {
         const bool checked = NOT_VAL_FLAG(r, VALUE_FLAG_FALSEY);
         if (not checked)
             last_phase = false;
@@ -302,12 +302,12 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         else if (r == nullptr) {
             Debug_Fmt("// null\n");
         }
-        if (VAL_TYPE_RAW(r) <= REB_MAX_NULLED) {
+        if (CELL_KIND(r) <= REB_MAX_NULLED) {
             Handle_Api_Dispatcher_Result(f, r);
             r = f->out;
             goto process_out;
         }
-        else switch (VAL_TYPE_RAW(r)) {
+        else switch (KIND_BYTE(r)) {
 
         case REB_0_END:
             assert(false);

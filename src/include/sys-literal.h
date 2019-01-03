@@ -30,13 +30,13 @@
 // of the escaping cannot fit in a value cell, so a "singular" array is used
 // (a compact form with only a series tracking node, sizeof(REBVAL)*2)
 //
-// HOWEVER... there is an efficiency trick, which uses the VAL_TYPE_RAW()
-// byte div 4 as the "lit level" of a value.  Then the byte mod 4 becomes the
-// actual type.  So only an actual REB_LITERAL at "apparent lit-level 0" has
-// its own payload...as a last resort if the level exceeded what the type byte
-// can encode.  This saves on storage and GC load for small levels of
-// literalness, at the cost of making VAL_TYPE() do an extra comparison to
-// clip all values above 64 to act as REB_LITERAL.
+// HOWEVER... there is an efficiency trick, which uses the KIND_BYTE() div 4
+// as the "lit level" of a value.  Then the byte mod 4 becomes the actual
+// type.  So only an actual REB_LITERAL at "apparent lit-level 0" has its own
+// payload...as a last resort if the level exceeded what the type byte can
+// encode.  This saves on storage and GC load for small levels of literalness,
+// at the cost of making VAL_TYPE() do an extra comparison to clip all values
+// above 64 to act as REB_LITERAL.
 //
 
 inline static REBCNT VAL_LITERAL_DEPTH(const RELVAL *v) {

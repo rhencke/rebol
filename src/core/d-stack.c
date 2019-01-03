@@ -190,7 +190,7 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
     //
     Collapsify_Array(near, SPECIFIED, 3);
 
-    if (ANY_ARRAY_KIND(VAL_TYPE_RAW(f->value)))
+    if (NOT_END(f->value) and ANY_ARRAY_KIND(VAL_TYPE(f->value)))
         Init_Any_Array(out, VAL_TYPE(f->value), near);
     else
         Init_Block(out, near);
