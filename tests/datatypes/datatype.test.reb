@@ -21,8 +21,6 @@
 (datatype? integer!)
 (datatype? issue!)
 (datatype? library!)
-(datatype? lit-path!)
-(datatype? lit-word!)
 (datatype? logic!)
 (datatype? map!)  ; map! =? hash! in R2/Forward, R2 2.7.7+
 (datatype? module!)

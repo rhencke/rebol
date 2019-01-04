@@ -630,12 +630,11 @@ const void *RL_rebEval(const REBVAL *v)
 
 
 //
-//  rebUneval: RL_API
+//  rebQ: RL_API
 //
-// This operation is being proposed to take the name `rebQ()`.  It may be
-// worth it to have a separate API entry for `REBVAL *rebQuote()`, also.
+// Instruction used to add a quoting level to the argument.
 //
-const void *RL_rebUneval(const REBVAL *v)
+const void *RL_rebQ(const REBVAL *v)
 {
     REBARR *instruction = Alloc_Instruction();
     RELVAL *single = ARR_SINGLE(instruction);

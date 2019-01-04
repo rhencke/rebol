@@ -514,7 +514,7 @@ void Mold_Or_Form_Value(REB_MOLD *mo, const RELVAL *v, bool form)
 
     REBCNT i;
     for (i = 0; i < depth; ++i)
-        Append_Unencoded(mo->series, "\\");
+        Append_Unencoded(mo->series, "'");
 
     if (kind != REB_MAX_NULLED) {
         MOLD_HOOK hook = Mold_Or_Form_Hooks[kind];

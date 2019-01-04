@@ -247,7 +247,7 @@ reword: function [
     ; To be used in a parse rule, words must be turned into strings, though
     ; it would be nice if they didn't have to be, e.g.
     ;
-    ;     parse "abc" [quote abc] => true
+    ;     parse "abc" [lit abc] => true
     ;
     ; Integers have to be converted also.
     ;
@@ -304,7 +304,7 @@ reword: function [
                 ; match necessarily happened, as the enclosing rule may have
                 ; a `suffix` left to take into account.
                 ;
-                compose quote (keyword-match: quote (keyword))
+                compose lit (keyword-match: lit (keyword))
             ]
 
             keep [
@@ -317,8 +317,8 @@ reword: function [
     ; Note that `any-keyword-rule` will look something like:
     ;
     ; [
-    ;     "keyword1" (keyword-match: quote keyword1)
-    ;     | "keyword2" (keyword-match: quote keyword2)
+    ;     "keyword1" (keyword-match: lit keyword1)
+    ;     | "keyword2" (keyword-match: lit keyword2)
     ;     | fail
     ; ]
 

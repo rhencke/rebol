@@ -371,7 +371,7 @@ REBVAL *Real_Var_From_Pseudo(REBVAL *pseudo_var) {
     // expand and invalidate the location.  (The `context` for fabricated
     // variables is locked at fixed size.)
     //
-    assert(IS_LIT_WORD(pseudo_var));
+    assert(IS_QUOTED_WORD(pseudo_var));
     return Get_Mutable_Var_May_Fail(pseudo_var, SPECIFIED);
 }
 
@@ -877,7 +877,7 @@ REBNATIVE(for)
 //      return: "Last body result, or null if BREAK"
 //          [<opt> any-value!]
 //      'word "Variable set to each position in the series at skip distance"
-//          [word! lit-word! blank!]
+//          [word! 'word! blank!]
 //      series "The series to iterate over"
 //          [<blank> any-series!]
 //      skip "Number of positions to skip each time"

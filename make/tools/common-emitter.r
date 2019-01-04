@@ -40,7 +40,7 @@ cscape: function [
     template "${Expr} case as-is, ${expr} lowercased, ${EXPR} is uppercased"
         [text!]
     /with "Lookup var words in additional context (besides user context)"
-    context [any-word! any-context! block!]
+    context [any-word! lit-word! any-context! block!]
 ][
     string: trim/auto copy template
 

@@ -154,7 +154,7 @@ unless: checked-enfix [
         :right [any-value! <...>]
         :look [any-value! <...>]
     ][
-        set* quote right: take* right
+        set* lit right: take* right
         if unset? 'left or [not group? right] or [block? first look] [
             fail/where [
                 "UNLESS has been repurposed in Ren-C as an infix operator"

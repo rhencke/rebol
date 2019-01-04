@@ -36,14 +36,14 @@ REBOL [
 ; also can't LOAD several WORD! forms that Ren-C can (e.g. `->`)
 ;
 ; So %b-init.c manually adds the keys via Add_Lib_Keys_R3Alpha_Cant_Make().
-; R3-ALPHA-QUOTE annotates to warn not to try and assign SET-WORD! forms, and
+; R3-ALPHA-LIT annotates to warn not to try and assign SET-WORD! forms, and
 ; to bind interned strings.
 ;
-r3-alpha-quote: func [:spelling [word! text!]] [
+r3-alpha-lit: func [:spelling [word! text!]] [
     either word? spelling [
         spelling
     ][
-        bind (to word! spelling) (binding of 'r3-alpha-quote)
+        bind (to word! spelling) (binding of 'r3-alpha-lit)
     ]
 ]
 
@@ -96,7 +96,7 @@ for-each [comparison-op function-name] compose [
     =       equal?
     <>      not-equal?
     <       lesser?
-    (r3-alpha-quote "=<") equal-or-lesser?
+    (r3-alpha-lit "=<") equal-or-lesser?
     >       greater?
     >=      greater-or-equal?
 
@@ -157,9 +157,9 @@ my: enfix func [
 ; Lambdas are experimental quick function generators via a symbol.  The
 ; identity is used to shake up enfix ordering.
 ;
-set/enfix (r3-alpha-quote "=>") :lambda
-set (r3-alpha-quote "<-") :identity ;-- not enfix, just affects enfix
-set/enfix (r3-alpha-quote "->") :shove
+set/enfix (r3-alpha-lit "=>") :lambda
+set (r3-alpha-lit "<-") :identity ;-- not enfix, just affects enfix
+set/enfix (r3-alpha-lit "->") :shove
 
 
 ; These constructs used to be enfix to complete their left hand side.  Yet
@@ -167,6 +167,6 @@ set/enfix (r3-alpha-quote "->") :shove
 ; to allow longer runs of evaluation.  "Invisible functions" (those which
 ; `return: []`) permit a more flexible version of the mechanic.
 
-set (r3-alpha-quote "<|") :invisible-eval-all
-set (r3-alpha-quote "|>") :right-bar
+set (r3-alpha-lit "<|") :invisible-eval-all
+set (r3-alpha-lit "|>") :right-bar
 ||: :once-bar

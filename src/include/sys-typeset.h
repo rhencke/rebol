@@ -266,7 +266,6 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 // ordinary argument hit the end (e.g. the trick used for `>> help` when
 // the arity is 1 usually as `>> help foo`)
 //
-#define REB_TS_ENDABLE REB_0
 #define Is_Param_Endable(v) \
     TYPE_CHECK((v), REB_TS_ENDABLE)
 
@@ -279,7 +278,6 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 // a VARARGS! type are different things.  (A function may accept a
 // variadic number of VARARGS! values, for instance.)
 //
-#define REB_TS_VARIADIC REB_MAX_PLUS_ONE
 #define Is_Param_Variadic(v) \
     TYPE_CHECK((v), REB_TS_VARIADIC)
 
@@ -288,13 +286,11 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 // that a variadic doesn't have, which is to make decisions about rejecting
 // a parameter *before* the function body runs.
 //
-#define REB_TS_SKIPPABLE REB_MAX_PLUS_TWO
 #define Is_Param_Skippable(v) \
     TYPE_CHECK((v), REB_TS_SKIPPABLE)
 
 // Can't be reflected (set with PROTECT/HIDE) or local in spec as `foo:`
 //
-#define REB_TS_HIDDEN REB_MAX_PLUS_THREE
 #define Is_Param_Hidden(v) \
     TYPE_CHECK((v), REB_TS_HIDDEN)
 
@@ -310,7 +306,6 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 // solution to separate the property of bindability from visibility, as
 // the SELF solution shakes out--so that SELF may be hidden but bind.
 //
-#define REB_TS_UNBINDABLE REB_MAX_PLUS_FOUR
 #define Is_Param_Unbindable(v) \
     TYPE_CHECK((v), REB_TS_UNBINDABLE)
 
@@ -319,8 +314,8 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 // "handle blanks specially" (in contrast to BLANK!, which just means a
 // parameter can be passed in as a blank, and the function runs normally)
 //
-#define REB_TS_NOOP_IF_BLANK \
-    REB_MAX_PLUS_FIVE
+#define Is_Param_Noop_If_Blank(v) \
+    TYPE_CHECK((v), REB_TS_NOOP_IF_BLANK
 
 
 #ifdef NDEBUG
@@ -370,3 +365,26 @@ inline static OPT_REBSYM VAL_KEY_SYM(const REBCEL *v) {
 #define VAL_PARAM_SPELLING(p) VAL_KEY_SPELLING(p)
 #define VAL_PARAM_CANON(p) VAL_KEY_CANON(p)
 #define VAL_PARAM_SYM(p) VAL_KEY_SYM(p)
+
+
+// !!! Temporary workaround--there were natives that depend on type checking
+// LIT-WORD! and LIT-PATH! or would crash.  We could change those to use
+// QUOTED! and force them to manually check in the native dispatcher, but
+// instead keep it going with the hopes that in the future typesets will
+// become more sophisticated and be able to expand beyond their 64-bit limit
+// to account for generic quoting.
+//
+inline static bool Typecheck_Including_Quoteds(const RELVAL *param, const RELVAL *v) {
+    if (TYPE_CHECK(param, VAL_TYPE(v)))
+        return true;
+
+    if (KIND_BYTE(v) == REB_WORD + REB_64)  // what was a "lit word"
+        if (TYPE_CHECK(param, REB_TS_QUOTED_WORD))
+            return true;
+
+    if (KIND_BYTE(v) == REB_PATH + REB_64) // what was a "lit path"
+        if (TYPE_CHECK(param, REB_TS_QUOTED_PATH))
+            return true;
+
+    return false;
+}

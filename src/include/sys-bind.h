@@ -70,8 +70,8 @@
         return cast(REBSPC*, c);
     }
 
-    inline static REBSPC *VAL_SPECIFIER(const RELVAL *v) {
-        assert(ANY_ARRAY(v));
+    inline static REBSPC *VAL_SPECIFIER(const REBCEL *v) {
+        assert(ANY_ARRAY_KIND(CELL_KIND(v)));
         if (not v->extra.binding)
             return SPECIFIED;
 
@@ -327,10 +327,10 @@ inline static REBNOD *SPC_BINDING(REBSPC *specifier)
 inline static void INIT_BINDING_MAY_MANAGE(REBCEL *out, REBNOD* binding) {
     out->extra.binding = binding; // payload and header should be valid
 
-    if (KIND_BYTE(out) == REB_LITERAL) {
-        RELVAL *old = out->payload.literal.cell;
+    if (KIND_BYTE(out) == REB_QUOTED) {
+        RELVAL *old = out->payload.quoted.cell;
         if (old->extra.binding == binding)
-            return; // it's okay to reuse the literal payload
+            return; // it's okay to reuse the payload
 
         REBARR *a = Alloc_Singular(
             NODE_FLAG_MANAGED | ARRAY_FLAG_NULLEDS_LEGAL
@@ -340,7 +340,7 @@ inline static void INIT_BINDING_MAY_MANAGE(REBCEL *out, REBNOD* binding) {
         cell->extra.binding = binding;
         cell->payload = old->payload;
 
-        out->payload.literal.cell = cell; // update to new binding
+        out->payload.quoted.cell = cell; // update to new binding
     }
 
     if (

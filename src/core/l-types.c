@@ -235,7 +235,8 @@ REB_R Reflect_Core(REBFRM *frame_)
 {
     INCLUDE_PARAMS_OF_REFLECT;
 
-    const REBCEL *cell = VAL_UNESCAPED(ARG(value));
+    REBVAL *v = ARG(value);
+    const REBCEL *cell = VAL_UNESCAPED(v);
     enum Reb_Kind kind = CELL_KIND(cell);
 
     switch (VAL_WORD_SYM(ARG(property))) {
@@ -248,10 +249,10 @@ REB_R Reflect_Core(REBFRM *frame_)
         //
         fail (Error_Cannot_Reflect(kind, ARG(property)));
 
-      case SYM_KIND: // simpler answer, low-level datatype (e.g. LITERAL!)
+      case SYM_KIND: // simpler answer, low-level datatype (e.g. QUOTED!)
         if (kind == REB_MAX_NULLED)
             return nullptr;
-        return Init_Datatype(D_OUT, VAL_TYPE(ARG(value)));
+        return Init_Datatype(D_OUT, VAL_TYPE(v));
 
       case SYM_TYPE: // higher order-answer, may build structured result
         if (kind == REB_MAX_NULLED) // not a real "datatype"
@@ -259,12 +260,15 @@ REB_R Reflect_Core(REBFRM *frame_)
         else
             Init_Datatype(D_OUT, kind);
 
-        // `type of quote \\\[a b c]` is `\\\#[block!]`.  Until datatypes get
-        // a firm literal notation, you can say `lit lit lit block!`
+        // `type of lit '''[a b c]` is `'''#[block!]`.  Until datatypes get
+        // a firm literal notation, you can say `uneval uneval block!`
         //
         // If the escaping count of the value is zero, this returns it as is.
         //
-        return Quotify(D_OUT, VAL_NUM_QUOTES(ARG(value)));
+        return Quotify(D_OUT, VAL_NUM_QUOTES(v));
+
+      case SYM_QUOTES:
+        return Init_Integer(D_OUT, VAL_NUM_QUOTES(v));
 
       default:
         // !!! Are there any other universal reflectors?

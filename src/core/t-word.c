@@ -126,6 +126,13 @@ REB_R MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
+    // !!! Compatibility hack for old TO WORD! of LIT-WORD!
+    //
+    if (IS_QUOTED(arg)) {
+        DECLARE_LOCAL (dequoted);
+        Dequotify(Move_Value(dequoted, arg));
+        return MAKE_Word(out, kind, dequoted);
+    }
     return MAKE_Word(out, kind, arg);
 }
 

@@ -1083,7 +1083,7 @@ void Decay_Series(REBSER *s)
 
         if (IS_SER_ARRAY(s)) {
             RELVAL *v = ARR_HEAD(ARR(s));
-            if (NOT_END(v) and CELL_KIND(v) == REB_HANDLE) {
+            if (CELL_KIND_UNCHECKED(v) == REB_HANDLE) {
                 if (v->extra.singular == ARR(s)) {
                     //
                     // Some handles use the managed form just because they

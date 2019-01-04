@@ -71,25 +71,29 @@ REBINT Cmp_Event(const REBCEL *t1, const REBCEL *t2)
 //
 static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
 {
-    RELVAL *arg;
-    REBINT n;
-
     switch (VAL_WORD_SYM(word)) {
-    case SYM_TYPE:
-        if (!IS_WORD(val) && !IS_LIT_WORD(val))
+      case SYM_TYPE: {
+        //
+        // !!! Rather limiting symbol-to-integer transformation for event
+        // type, based on R3-Alpha-era optimization ethos.
+
+        if (not IS_WORD(val) and not IS_QUOTED_WORD(val))
             return false;
-        arg = Get_System(SYS_VIEW, VIEW_EVENT_TYPES);
-        if (IS_BLOCK(arg)) {
-            REBSTR *w = VAL_WORD_CANON(val);
-            for (n = 0, arg = VAL_ARRAY_HEAD(arg); NOT_END(arg); arg++, n++) {
-                if (IS_WORD(arg) && VAL_WORD_CANON(arg) == w) {
-                    VAL_EVENT_TYPE(event) = n;
-                    return true;
-                }
+
+        REBSTR *canon = VAL_WORD_CANON(VAL_UNESCAPED(val));
+
+        RELVAL *typelist = Get_System(SYS_VIEW, VIEW_EVENT_TYPES);
+        assert(IS_BLOCK(typelist));
+
+        RELVAL *item = VAL_ARRAY_HEAD(typelist);
+        REBINT n;
+        for (n = 0; NOT_END(item); ++item, ++n) {
+            if (IS_WORD(item) and VAL_WORD_CANON(item) == canon) {
+                VAL_EVENT_TYPE(event) = n;
+                return true;
             }
-            fail (Error_Invalid(val));
         }
-        return false;
+        fail (Error_Invalid(val)); }
 
     case SYM_PORT:
         if (IS_PORT(val)) {
@@ -134,19 +138,18 @@ static bool Set_Event_Var(REBVAL *event, const REBVAL *word, const REBVAL *val)
         if (IS_CHAR(val)) {
             VAL_EVENT_DATA(event) = VAL_CHAR(val);
         }
-        else if (IS_LIT_WORD(val) || IS_WORD(val)) {
-            arg = Get_System(SYS_VIEW, VIEW_EVENT_KEYS);
-            if (IS_BLOCK(arg)) {
-                arg = VAL_ARRAY_AT(arg);
-                for (n = VAL_INDEX(arg); NOT_END(arg); n++, arg++) {
-                    if (IS_WORD(arg) && VAL_WORD_CANON(arg) == VAL_WORD_CANON(val)) {
-                        VAL_EVENT_DATA(event) = (n+1) << 16;
-                        break;
-                    }
+        else if (IS_WORD(val) or IS_QUOTED_WORD(val)) {
+            REBSTR *canon = VAL_WORD_CANON(VAL_UNESCAPED(val));
+
+            RELVAL *event_keys = Get_System(SYS_VIEW, VIEW_EVENT_KEYS);
+            assert(IS_BLOCK(event_keys));
+            RELVAL *item = VAL_ARRAY_AT(event_keys);
+            REBINT n;
+            for (n = VAL_INDEX(item); NOT_END(item); ++n, ++item) {
+                if (IS_WORD(item) && VAL_WORD_CANON(item) == canon) {
+                    VAL_EVENT_DATA(event) = (n + 1) << 16;
+                    break;
                 }
-                if (IS_END(arg))
-                    return false;
-                break;
             }
             return false;
         }

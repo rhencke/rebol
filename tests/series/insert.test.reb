@@ -54,19 +54,19 @@
 )
 ; lit-path
 (
-    a: make lit-path! 0
+    a: uneval make path! 0
     insert :a 0
-    :a == to lit-path! [0]
+    :a == uneval to path! [0]
 )
 (
-    a: to lit-path! [0]
-    b: make lit-path! 0
+    a: uneval to path! [0]
+    b: uneval make path! 0
     insert :b first :a
     :a == :b
 )
 (
-    a: to lit-path! [0]
-    b: make lit-path! 0
+    a: uneval to path! [0]
+    b: uneval make path! 0
     insert :b :a
     :a == :b
 )

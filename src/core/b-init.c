@@ -271,6 +271,26 @@ static REBARR *Startup_Datatypes(REBARR *boot_types, REBARR *boot_typespecs)
         Append_Value(catalog, KNOWN(word));
     }
 
+    // !!! Near-term hack to create LIT-WORD! and LIT-PATH!, to try and keep
+    // the typechecks working in function specs.  They are set to the words
+    // themselves, so that parse rules will work with them (e.g. bootstrap)
+
+    REBVAL *lit_word = Append_Context(
+        Lib_Context,
+        nullptr,
+        Canon(SYM_LIT_WORD_X)
+    );
+    Init_Datatype(lit_word, REB_WORD);
+    Quotify(lit_word, 1);
+
+    REBVAL *lit_path = Append_Context(
+        Lib_Context,
+        nullptr,
+        Canon(SYM_LIT_PATH_X)
+    );
+    Init_Datatype(lit_path, REB_PATH);
+    Quotify(lit_path, 1);
+
     return catalog;
 }
 
@@ -336,14 +356,14 @@ REBNATIVE(generic)
     // type and do the same thing as to the plain version, on the thing that
     // is inside the literal, but add escaping.
     //
-    //     >> add (quote \\1) 2
-    //     == \\3
+    //     >> add (lit ''1) 2
+    //     == ''3
     //
     // Whether this makes any sense or not is decided by the generic code for
-    // LITERAL! at the moment.  It picks the few it thinks it can handle and
+    // QUOTED! at the moment.  It picks the few it thinks it can handle and
     // does one thing or another with it.
     //
-    TYPE_SET(ARR_AT(paramlist, 1), REB_LITERAL);
+    TYPE_SET(ARR_AT(paramlist, 1), REB_QUOTED);
 
     REBACT *generic = Make_Action(
         paramlist,

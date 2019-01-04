@@ -295,11 +295,10 @@ inline static void Finalize_Arg(
     }
 
     if (not Is_Param_Variadic(param)) {
-        if (TYPE_CHECK(param, VAL_TYPE(arg))) {
+        if (Typecheck_Including_Quoteds(param, arg)) {
             SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
             return;
         }
-
         fail (Error_Arg_Type(f_state, param, VAL_TYPE(arg)));
     }
 
@@ -664,17 +663,17 @@ bool Eval_Core_Throws(REBFRM * const f)
     // It's a backward quoter!  But...before allowing it to try, first give an
     // operation on the left which quotes to the right priority.  So:
     //
-    //     foo: quote => [print quote]
+    //     foo: lit => [print lit]
     //
     // Would be interpreted as:
     //
-    //     foo: (quote =>) [print quote]
+    //     foo: (lit =>) [print lit]
     //
     // This is a good argument for not making enfixed operations that
     // hard-quote things that can dispatch functions.  A soft-quote would give
     // more flexibility to override the left hand side's precedence:
     //
-    //     foo: ('quote) => [print quote]
+    //     foo: ('lit) => [print lit]
 
     if (kind.byte == REB_WORD and EVALUATING(current)) {
         if (not current_gotten)
@@ -893,7 +892,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // which avoids reification on stack nodes of lower stack
                 // levels--so it's not going to cause problems -yet-
                 //
-                SET_VAL_FLAG(f->arg, CELL_FLAG_STACK);
+                f->arg->header.bits |= CELL_FLAG_STACK; // unreadable blank ok
             }
 
             assert(f->arg->header.bits & NODE_FLAG_CELL);
@@ -1111,7 +1110,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 assert(
                     (f->refine != ORDINARY_ARG and IS_NULLED(f->special))
-                    or TYPE_CHECK(f->param, VAL_TYPE(f->special))
+                    or Typecheck_Including_Quoteds(f->param, f->special)
                 );
 
                 if (f->arg != f->special) {
@@ -1433,7 +1432,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
               case PARAM_CLASS_HARD_QUOTE:
                 if (Is_Param_Skippable(f->param)) {
-                    if (not TYPE_CHECK(f->param, VAL_TYPE(f->value))) {
+                    if (not Typecheck_Including_Quoteds(f->param, f->value)) {
                         assert(Is_Param_Endable(f->param));
                         Init_Endish_Nulled(f->arg); // not DO_FLAG_BARRIER_HIT
                         SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
@@ -1800,7 +1799,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // the result of a CHAIN) we can run those chained functions in the
         // same REBFRM, for efficiency.
         //
-        // !!! There is also a feature where the LITERAL! dispatcher wants to
+        // !!! There is also a feature where the QUOTED! dispatcher wants to
         // run through ordinary dispatch for generic dispatch, but then add
         // its level of "literality" to the output result.  Right now that's
         // done by having it push a plain integer to the stack, saying how
@@ -1946,20 +1945,6 @@ bool Eval_Core_Throws(REBFRM * const f)
         Move_Opt_Var_May_Fail(f->out, current, f->specifier);
         break;
 
-//==/////////////////////////////////////////////////////////////////////==//
-//
-// [LIT-WORD!]
-//
-// Note we only want to reset the type bits in the header, not the whole
-// header--because header bits may contain other flags.
-//
-//==//////////////////////////////////////////////////////////////////////==//
-
-      case REB_LIT_WORD:
-        Derelativize(f->out, current, f->specifier);
-        mutable_KIND_BYTE(f->out) = REB_WORD;
-        break;
-
 //==//// INERT WORD AND STRING TYPES /////////////////////////////////////==//
 
     case REB_REFINEMENT:
@@ -2050,7 +2035,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// [LITERAL!] (at 4 or more levels of escaping)
+// [QUOTED!] (at 4 or more levels of escaping)
 //
 // This is the form of literal that's too escaped to just overlay in the cell
 // by using a higher kind byte.  See the `default:` case in this switch for
@@ -2061,7 +2046,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 //==//////////////////////////////////////////////////////////////////////==//
 
-      case REB_LITERAL: {
+      case REB_QUOTED: {
         Derelativize(f->out, current, f->specifier);
         Unquotify(f->out, 1); // take off one level of quoting
         break; }
@@ -2234,25 +2219,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// [LIT-PATH!]
-//
-// Note that this aliases a REBSER under two value types.  While once iffy,
-// it's now allowed with AS, so it is considered fair game.  See #2233
-//
-//==//////////////////////////////////////////////////////////////////////==//
-
-      case REB_LIT_PATH:
-        Derelativize(f->out, current, f->specifier);
-        mutable_KIND_BYTE(f->out) = REB_PATH;
-
-        // It should be an error if you say `append 'a/b/c 'd` without making
-        // the a/b/c mutable.
-        //
-        f->out->header.bits |= (f->flags.bits & DO_FLAG_CONST);
-        break;
-
-//==//////////////////////////////////////////////////////////////////////==//
-//
 // Treat all the other Is_Bindable() types as inert
 //
 //==//////////////////////////////////////////////////////////////////////==//
@@ -2356,25 +2322,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// [LIT-BAR!]
-//
-// LIT-BAR! decays into an ordinary BAR! if seen here by the evaluator.
-//
-// !!! With arbitrary literals, this datatype (along with LIT-WORD! and
-// LIT-PATH!) will go away.  But so long as code with the old style expects
-// `reduce ['|] = [|]`, then this is needed.
-//
-// !!! These should *NOT* be switched over until a permanent character is
-// chosen for escaping (backslash is currently controversial).
-//
-//==//////////////////////////////////////////////////////////////////////==//
-
-      case REB_LIT_BAR:
-        Init_Bar(f->out);
-        break;
-
-//==//////////////////////////////////////////////////////////////////////==//
-//
 // [VOID!]
 //
 // "A void! is a means of giving a hot potato back that is a warning about
@@ -2412,7 +2359,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//////////////////////////////////////////////////////////////////////==//
 //
-// [LITERAL!] (at 3 levels of escaping or less)...or a garbage type byte
+// [QUOTED!] (at 3 levels of escaping or less)...or a garbage type byte
 //
 // All the values for types at >= REB_64 currently represent the special
 // compact form of literals, which overlay inside the cell they escape.
@@ -2611,8 +2558,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         // Left-quoting by enfix needs to be done in the lookahead before an
         // evaluation, not this one that's after.  This happens in cases like:
         //
-        //     left-quote: enfix func [:value] [:value]
-        //     quote <something> left-quote
+        //     left-lit: enfix func [:value] [:value]
+        //     lit <something> left-lit
         //
         // But due to the existence of <end>-able and <skip>-able parameters,
         // the left quoting function might be okay with seeing nothing on the

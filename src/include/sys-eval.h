@@ -442,7 +442,7 @@ inline static void Set_Frame_Detected_Fetch(
         assert(GET_SER_FLAG(f->source->array, ARRAY_FLAG_NULLEDS_LEGAL));
         break; }
 
-      case DETECTED_AS_SERIES: { // "instructions" like rebEval(), rebUneval()
+      case DETECTED_AS_SERIES: { // "instructions" like rebEval(), rebQ()
         REBARR *instruction = ARR(m_cast(void*, p));
 
         // The instruction should be unmanaged, and will be freed on the next
@@ -612,7 +612,7 @@ inline static void Quote_Next_In_Frame(REBVAL *dest, REBFRM *f) {
     SET_VAL_FLAG(dest, VALUE_FLAG_UNEVALUATED);
 
     // SEE ALSO: The `inert:` branch in %c-eval.c, which is similar.  We
-    // want `append quote (a b c) 'd` to be an error, which means the quoting
+    // want `append '(a b c) 'd` to be an error, which means the quoting
     // has to get the const flag if intended.
     //
     dest->header.bits |= (f->flags.bits & DO_FLAG_CONST);
@@ -781,7 +781,7 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
 // It also reuses the frame...but has to clear and restore the frame's
 // flags.  It is currently used only by SET-WORD! and SET-PATH!.
 //
-// Note: Consider pathological case `x: eval quote y: eval eval quote z: ...`
+// Note: Consider pathological case `x: eval lit y: eval eval lit z: ...`
 // This can be done without making a new frame, but the eval cell which holds
 // the SET-WORD! needs to be put back in place before returning, so that the
 // set knows where to write.  The caller handles this with the data stack.
@@ -1048,13 +1048,13 @@ inline static REBIXO Eval_Va_Core(
     f->source->vaptr = vaptr;
     f->source->pending = END_NODE; // signal next fetch comes from va_list
 
-  #if defined(DEBUG_UNREADABLE_BLANKS)
+  #if !defined(NDEBUG)
     //
     // We reuse logic in Fetch_Next_In_Frame() and Set_Frame_Detected_Fetch()
     // but the previous f->value will be tested for NODE_FLAG_ROOT.
     //
     DECLARE_LOCAL (junk);
-    f->value = Init_Unreadable_Blank(junk); // shows where garbage came from
+    f->value = Init_Void(junk); // shows where garbage came from
   #else
     f->value = BLANK_VALUE; // less informative but faster to initialize
   #endif

@@ -454,7 +454,6 @@ bool Is_Value_Frozen(const RELVAL *v) {
     if (
         IS_BLANK(v)
         || IS_BAR(v)
-        || IS_LIT_BAR(v)
         || ANY_SCALAR(v)
         || ANY_WORD(v)
         || IS_ACTION(v) // paramlist is identity, hash

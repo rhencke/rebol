@@ -19,8 +19,16 @@
 
 (10 = match :even? 10)
 (null = match :even? 3)
-(null = match 'odd? 20)
-(7 = match 'odd? 7)
+
+;; !!! MATCH is a tricky action that quotes its first argument, -but- if it
+;; is a word that calls an action, it builds a frame and invokes that action.
+;; It's taking on some of the responsibility of the evaluator, and is hence
+;; experimental and problematic.  Currently we error on quoted WORD!s, until
+;; such time as the feature is thought out more to know exactly what it
+;; should do...as it wouldn't see the quote if it were thought of as eval'ing.
+;;
+;; (null = match 'odd? 20)
+;; (7 = match 'odd? 7)
 
 (void? match blank! _)
 (null = match blank! 10)
@@ -50,7 +58,7 @@
         ; Rather than have MATCH return a falsey result in these cases of
         ; success, pass back a BAR! in the hopes of drawing attention.
 
-        set* quote result: do f ;-- can't access f/arg after the DO
+        set* lit result: do f ;-- can't access f/arg after the DO
 
         if not :arg and [not null? :result] [
             return '| ;-- BAR! if matched a falsey type

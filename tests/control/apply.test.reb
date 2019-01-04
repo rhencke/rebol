@@ -56,10 +56,10 @@
 ; EVAL/ONLY
 (
     o: make object! [a: 0]
-    b: eval/only (quote o/a:) 1 + 2
+    b: eval/only (lit o/a:) 1 + 2
     did all [
         o/a = 1
-        b = 3 ;-- above acts as `b: (eval/only (quote o/a:) 1) + 2`
+        b = 3 ;-- above acts as `b: (eval/only (lit o/a:) 1) + 2`
     ]
 )
 (

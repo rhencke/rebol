@@ -131,7 +131,6 @@ const char * const Token_Names[] = {
     "date",
     "char",
     "apostrophe",
-    "backslash",
     "block-begin",
     "group-begin",
     "string",

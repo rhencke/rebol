@@ -45,6 +45,7 @@ REBARR *Make_Action_Words_Arr(REBACT *act, bool locals)
             continue;
 
         enum Reb_Kind kind;
+        bool quoted = false;
 
         switch (VAL_PARAM_CLASS(param)) {
           case PARAM_CLASS_NORMAL:
@@ -64,7 +65,8 @@ REBARR *Make_Action_Words_Arr(REBACT *act, bool locals)
             break;
 
           case PARAM_CLASS_SOFT_QUOTE:
-            kind = REB_LIT_WORD;
+            kind = REB_WORD;
+            quoted = true;
             break;
 
           case PARAM_CLASS_LOCAL:
@@ -82,6 +84,8 @@ REBARR *Make_Action_Words_Arr(REBACT *act, bool locals)
 
         DS_PUSH_TRASH;
         Init_Any_Word(DS_TOP, kind, VAL_PARAM_SPELLING(param));
+        if (quoted)
+            Quotify(DS_TOP, 1);
     }
 
     return Pop_Stack_Values(dsp_orig);
@@ -350,8 +354,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     //=//// ANY-WORD! PARAMETERS THEMSELVES (MAKE TYPESETS w/SYMBOL) //////=//
 
-        if (not ANY_WORD(item))
+        if (not (ANY_WORD(item) or IS_QUOTED_WORD(item))) {
             fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
+        }
 
         // !!! If you say [<with> x /foo y] the <with> terminates and a
         // refinement is started.  Same w/<local>.  Is this a good idea?
@@ -452,7 +457,10 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             INIT_VAL_PARAM_CLASS(typeset, PARAM_CLASS_HARD_QUOTE);
             break;
 
-        case REB_LIT_WORD:
+        case REB_QUOTED:
+            if (VAL_NUM_QUOTES(item) != 1 or CELL_KIND(item) != REB_WORD)
+                fail ("QUOTED! argument must be a WORD! to soft quote");
+
             assert(mode == SPEC_MODE_NORMAL);
             INIT_VAL_PARAM_CLASS(typeset, PARAM_CLASS_SOFT_QUOTE);
             break;
@@ -1358,7 +1366,7 @@ REB_R Generic_Dispatcher(REBFRM *f)
 
     enum Reb_Kind kind = VAL_TYPE(FRM_ARG(f, 1));
     GENERIC_HOOK hook = Generic_Hooks[kind];
-    return hook(f, verb); // note: LITERAL! will re-dispatch to Generic_Hooks
+    return hook(f, verb); // note: QUOTED! will re-dispatch to Generic_Hooks
 }
 
 
@@ -1500,7 +1508,7 @@ REB_R Returner_Dispatcher(REBFRM *f)
     // Typeset bits for locals in frames are usually ignored, but the RETURN:
     // local uses them for the return types of a function.
     //
-    if (not TYPE_CHECK(typeset, VAL_TYPE(f->out)))
+    if (not Typecheck_Including_Quoteds(typeset, f->out))
         fail (Error_Bad_Return_Type(f, VAL_TYPE(f->out)));
 
     return f->out;

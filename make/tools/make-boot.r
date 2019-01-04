@@ -335,12 +335,13 @@ e-types/emit {
      * able to quickly check if a type IS_BINDABLE().  When types are added,
      * or removed, the numbers must shuffle around to preserve invariants.
      *
-     * While REB_MAX indicates the maximum actual "DATATYPE!", there are a
-     * list of REB_MAX_PLUS_ONE, REB_MAX_PLUS_TWO, etc. values which are used
+     * While REB_MAX indicates the maximum legal VAL_TYPE(), there is also a
+     * list of PSEUDOTYPE_ONE, PSEUDOTYPE_TWO, etc. values which are used
      * for special internal states and flags.  Some of these are used in the
      * KIND_BYTE() of value cells to mark their usage of alternate payloads
      * during algorithmic transformations (e.g. specialization).  Others are
      * used to signal special behaviors when returned from native dispatchers.
+     * Still others are used as special indicators in typeset bitsets.
      *
      * NOTE ABOUT C++11 ENUM TYPING: It is best not to specify an "underlying
      * type" because that prohibits certain optimizations, which the compiler
@@ -349,30 +350,51 @@ e-types/emit {
     enum Reb_Kind {
         REB_0 = 0, /* reserved for internal purposes */
         REB_0_END = REB_0, /* ...most commonly array termination cells... */
+        REB_TS_ENDABLE = REB_0, /* bit set in typesets for endability */
+
+        /*** REAL TYPES ***/
+
         $[Rebs],
         REB_MAX, /* one past valid types, does double duty as NULL signal */
         REB_MAX_NULLED = REB_MAX,
 
-        REB_MAX_PLUS_ONE, /* used for internal markings and algorithms */
-        REB_R_THROWN = REB_MAX_PLUS_ONE,
+        /*** PSEUDOTYPES ***/
 
-        REB_MAX_PLUS_TWO, /* used to indicate trash in the debug build */
-        REB_R_INVISIBLE = REB_MAX_PLUS_TWO,
+        PSEUDOTYPE_ONE,
+        REB_R_THROWN = PSEUDOTYPE_ONE,
+        REB_TS_VARIADIC = PSEUDOTYPE_ONE,
+        REB_X_PARTIAL = PSEUDOTYPE_ONE,
 
-        REB_MAX_PLUS_THREE, /* used for experimental typeset flag */
-        REB_R_REDO = REB_MAX_PLUS_THREE,
+        PSEUDOTYPE_TWO,
+        REB_R_INVISIBLE = PSEUDOTYPE_TWO,
+        REB_TS_SKIPPABLE = PSEUDOTYPE_TWO,
+      #if defined(DEBUG_TRASH_MEMORY)
+        REB_T_TRASH = PSEUDOTYPE_TWO, /* identify trash in debug build */
+      #endif
 
-        REB_MAX_PLUS_FOUR, /* also used for experimental typeset flag */
-        REB_R_REFERENCE = REB_MAX_PLUS_FOUR,
+        PSEUDOTYPE_THREE,
+        REB_R_REDO = PSEUDOTYPE_THREE,
+        REB_TS_HIDDEN = PSEUDOTYPE_THREE,
 
-        REB_MAX_PLUS_FIVE,
-        REB_R_IMMEDIATE = REB_MAX_PLUS_FIVE,
+        PSEUDOTYPE_FOUR,
+        REB_R_REFERENCE = PSEUDOTYPE_FOUR,
+        REB_TS_UNBINDABLE = PSEUDOTYPE_FOUR,
+
+        PSEUDOTYPE_FIVE,
+        REB_R_IMMEDIATE = PSEUDOTYPE_FIVE,
+        REB_TS_NOOP_IF_BLANK = PSEUDOTYPE_FIVE,
+
+        PSEUDOTYPE_SIX,
+        REB_TS_QUOTED_WORD = PSEUDOTYPE_SIX, /* !!! temp compatibility */
+
+        PSEUDOTYPE_SEVEN,
+        REB_TS_QUOTED_PATH = PSEUDOTYPE_SEVEN, /* !!! temp compatibility */
 
         REB_MAX_PLUS_MAX
     };
 
     /*
-     * Current hard limit, higher types used for LITERAL!.  In code which
+     * Current hard limit, higher types used for QUOTED!.  In code which
      * is using the 64 split to implement the literal trick, use REB_64
      * instead of just 64 to make places dependent on that trick findable.
      *
@@ -401,7 +423,7 @@ e-types/emit {
      * to use KIND_BYTE() for optimization purposes.
      *
      * Note that due to a raw type encoding trick, IS_LITERAL() is unusual.
-     * `KIND_BYTE(v) == REB_LITERAL` isn't `VAL_TYPE(v) == REB_LITERAL`,
+     * `KIND_BYTE(v) == REB_QUOTED` isn't `VAL_TYPE(v) == REB_QUOTED`,
      * they mean different things.  This is because raw types > REB_64 are
      * used to encode literals whose escaping level is low enough that it
      * can use the same cell bits as the escaped value.
@@ -412,7 +434,7 @@ e-types/emit newline
 boot-types: copy []
 n: 1
 for-each-record t type-table [
-    if t/name != 'literal [ ; see IS_LITERAL(), handled specially
+    if t/name != 'quoted [ ; see IS_QUOTED(), handled specially
         e-types/emit 't {
             #define IS_${T/NAME}(v) \
                 (KIND_BYTE(v) == REB_${T/NAME}) /* $<n> */
@@ -541,7 +563,7 @@ boot-sysobj: load %sysobj.r
 change at-value version version
 change at-value commit git-commit
 change at-value build now/utc
-change at-value product to lit-word! product
+change at-value product uneval to word! product
 
 change/only at-value platform reduce [
     any [config/platform-name | "Unknown"]

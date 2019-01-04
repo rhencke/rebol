@@ -114,4 +114,14 @@ mutable: func [x [any-value!]] [
     :x
 ]
 
-lit: :quote ;; QUOTE is likely slated to act like UNEVAL, LIT replaces it
+lit: :quote ;; Renamed due to the QUOTED! datatype
+quote: null
+uneval: func [x [<opt> any-value!]] [
+    switch type of x [
+        null [lit ()]
+        word! [to lit-word! x]
+        path! [to lit-path! x]
+
+        fail "UNEVAL can only work on WORD!, PATH!, NULL in old Rebols"
+    ]
+]

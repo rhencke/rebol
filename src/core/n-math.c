@@ -467,50 +467,50 @@ REBINT CT_Unhooked(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
 {
-    REBCNT ta = VAL_TYPE(a);
-    REBCNT tb = VAL_TYPE(b);
-
-    if (ta == REB_LITERAL and tb == REB_LITERAL) {
-        //
-        // !!! `(quote 'a) = (quote a)` was true in historical Rebol, due to
-        // the rules of "lax equality".  These rules are up in the air as they
-        // pertain to the IS and ISN'T transition.
-        //
-        if (VAL_LITERAL_DEPTH(a) != VAL_LITERAL_DEPTH(b))
+    // !!! `(first ['a]) = (first [a])` was true in historical Rebol, due
+    // the rules of "lax equality".  These rules are up in the air as they
+    // pertain to the IS and ISN'T transition.  But to avoid having to
+    // worry about changing all the tests right now, this defines quoted
+    // equality as only worryig about the depth in strict equalty.
+    //
+    if (strictness == 1)
+        if (VAL_NUM_QUOTES(a) != VAL_NUM_QUOTES(b))
             return 0;
 
-        // This code wants to modify the value, but we can't modify the
-        // embedded values in highly-scaped literals.  Move the data out.
+    // This code wants to modify the value, but we can't modify the
+    // embedded values in highly-escaped literals.  Move the data out.
 
-        if (KIND_BYTE(a) == REB_LITERAL) {
-            const REBCEL *acell = VAL_UNESCAPED(a);
-            Move_Value_Header(a, cast(const RELVAL*, acell));
-            a->extra = acell->extra;
-            a->payload = acell->payload;
-        }
-        else
-            mutable_KIND_BYTE(a) %= REB_64;
-
-        if (KIND_BYTE(b) == REB_LITERAL) {
-            const REBCEL *bcell = VAL_UNESCAPED(b);
-            Move_Value_Header(b, cast(const RELVAL*, bcell));
-            b->extra = bcell->extra;
-            b->payload = bcell->payload;
-        }
-        else
-            mutable_KIND_BYTE(b) %= REB_64;
+    enum Reb_Kind ta;
+    if (KIND_BYTE(a) == REB_QUOTED) { // 4 or more quote levels
+        const REBCEL *acell = VAL_UNESCAPED(a);
+        Move_Value_Header(a, cast(const RELVAL*, acell));
+        a->extra = acell->extra;
+        a->payload = acell->payload;
+        ta = CELL_KIND(a);
     }
-    else if (ta == REB_LITERAL or tb == REB_LITERAL)
-        return 0;
+    else
+        mutable_KIND_BYTE(a) = ta = CELL_KIND(a); // maybe quoted or not
+
+    enum Reb_Kind tb;
+    if (KIND_BYTE(b) == REB_QUOTED) { // 4 or more quote levels
+        const REBCEL *bcell = VAL_UNESCAPED(b);
+        Move_Value_Header(b, cast(const RELVAL*, bcell));
+        b->extra = bcell->extra;
+        b->payload = bcell->payload;
+        tb = CELL_KIND(b);
+    }
+    else
+        mutable_KIND_BYTE(b) = tb = CELL_KIND(b); // maybe quoted or not
 
     if (ta != tb) {
-        if (strictness == 1) return 0;
+        if (strictness == 1)
+            return 0;
 
         switch (ta) {
-        case REB_MAX_NULLED:
+          case REB_MAX_NULLED:
             return 0; // nothing coerces to void
 
-        case REB_INTEGER:
+          case REB_INTEGER:
             if (tb == REB_DECIMAL || tb == REB_PERCENT) {
                 REBDEC dec_a = cast(REBDEC, VAL_INT64(a));
                 Init_Decimal(a, dec_a);
@@ -523,8 +523,8 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
             }
             break;
 
-        case REB_DECIMAL:
-        case REB_PERCENT:
+          case REB_DECIMAL:
+          case REB_PERCENT:
             if (tb == REB_INTEGER) {
                 REBDEC dec_b = cast(REBDEC, VAL_INT64(b));
                 Init_Decimal(b, dec_b);
@@ -538,7 +538,7 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
                 goto compare;
             break;
 
-        case REB_MONEY:
+          case REB_MONEY:
             if (tb == REB_INTEGER) {
                 Init_Money(b, int_to_deci(VAL_INT64(b)));
                 goto compare;
@@ -549,21 +549,23 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
             }
             break;
 
-        case REB_WORD:
-        case REB_SET_WORD:
-        case REB_GET_WORD:
-        case REB_LIT_WORD:
-        case REB_REFINEMENT:
-        case REB_ISSUE:
+          case REB_WORD:
+          case REB_SET_WORD:
+          case REB_GET_WORD:
+          case REB_REFINEMENT:
+          case REB_ISSUE:
             if (ANY_WORD(b)) goto compare;
             break;
 
-        case REB_TEXT:
-        case REB_FILE:
-        case REB_EMAIL:
-        case REB_URL:
-        case REB_TAG:
+          case REB_TEXT:
+          case REB_FILE:
+          case REB_EMAIL:
+          case REB_URL:
+          case REB_TAG:
             if (ANY_STRING(b)) goto compare;
+            break;
+
+          default:
             break;
         }
 

@@ -192,6 +192,11 @@ skip
 to
 thru
 quote
+literal ;-- should both LIT and LITERAL be supported, or just LIT?
+lit
+lit-word! ;-- !!! compatibility hack; not a DATATYPE!, so parse keyword
+lit-path! ;-- !!! compatibility hack; not a DATATYPE!, so parse keyword
+match
 do
 into
 only
@@ -381,6 +386,7 @@ detect
 reflect
 ; type (provided by event)
 kind
+quotes
 
 ; There was a special case in R3-Alpha for REBNATIVE(exclude) which wasn't an
 ; "ACTION!" (which meant no enum value) but it called a common routine that

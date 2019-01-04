@@ -102,7 +102,7 @@
 )
 
 (
-    aopd3: specialize quote (specialize 'append/only [])/part [
+    aopd3: specialize lit (specialize 'append/only [])/part [
         count: 3
         limit: 1
     ]
@@ -121,7 +121,7 @@
     for-each code [
         [specialize 'append/only/only []]
         [specialize 'append/asdf []]
-        [specialize quote (specialize 'append/only [])/only []]
+        [specialize lit (specialize 'append/only [])/only []]
     ][
         is-bad: me and ['bad-refine = (trap [do code])/id]
     ]

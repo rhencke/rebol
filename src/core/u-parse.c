@@ -81,14 +81,18 @@
 #define P_RULE              (f->value + 0) // rvalue, don't change pointer
 #define P_RULE_SPECIFIER    (f->specifier + 0) // rvalue, don't change pointer
 
-#define P_INPUT_VALUE       (FRM_ARGS_HEAD(f) + 0)
+#define P_INPUT_VALUE       (f->rootvar + 1)
 #define P_TYPE              VAL_TYPE(P_INPUT_VALUE)
 #define P_INPUT             VAL_SERIES(P_INPUT_VALUE)
 #define P_INPUT_SPECIFIER   VAL_SPECIFIER(P_INPUT_VALUE)
 #define P_POS               VAL_INDEX(P_INPUT_VALUE)
 
-#define P_FIND_FLAGS        VAL_INT64(FRM_ARGS_HEAD(f) + 1)
+#define P_FIND_FLAGS        VAL_INT64(f->rootvar + 2)
 #define P_HAS_CASE          (did (P_FIND_FLAGS & AM_FIND_CASE))
+
+#define P_NUM_QUOTES_VALUE  (f->rootvar + 3)
+#define P_NUM_QUOTES        VAL_INT32(P_NUM_QUOTES_VALUE)
+
 
 #define P_OUT (f->out)
 
@@ -167,7 +171,7 @@ static bool Subparse_Throws(
     REBCNT find_flags
 ){
     assert(ANY_ARRAY(rules));
-    assert(ANY_SERIES(input));
+    assert(ANY_SERIES_KIND(CELL_KIND(VAL_UNESCAPED(input))));
 
     // Since SUBPARSE is a native that the user can call directly, and it
     // is "effectively variadic" reading its instructions inline out of the
@@ -181,7 +185,7 @@ static bool Subparse_Throws(
     //
     if (VAL_INDEX(rules) >= VAL_LEN_HEAD(rules)) {
         *interrupted_out = false;
-        Init_Integer(out, VAL_INDEX(input));
+        Init_Integer(out, VAL_INDEX(VAL_UNESCAPED(input)));
         return false;
     }
 
@@ -214,22 +218,23 @@ static bool Subparse_Throws(
     assert(f->refine == END_NODE); // passed to Begin_Action()
     f->special = END_NODE;
 
-  #if defined(NDEBUG)
-    assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 2); // elides RETURN:
-  #else
-    assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 3); // checks RETURN:
-    Prep_Stack_Cell(FRM_ARGS_HEAD(f) + 2);
-    Init_Nulled(FRM_ARGS_HEAD(f) + 2);
-  #endif
-
-    Prep_Stack_Cell(FRM_ARGS_HEAD(f) + 0);
-    Derelativize(FRM_ARGS_HEAD(f) + 0, input, input_specifier);
+    Derelativize(Prep_Stack_Cell(f->rootvar + 1), input, input_specifier);
 
     // We always want "case-sensitivity" on binary bytes, vs. treating as
     // case-insensitive bytes for ASCII characters.
     //
-    Prep_Stack_Cell(FRM_ARGS_HEAD(f) + 1);
-    Init_Integer(FRM_ARGS_HEAD(f) + 1, find_flags);
+    Init_Integer(Prep_Stack_Cell(f->rootvar + 2), find_flags);
+
+    // Need to track NUM-QUOTES somewhere that it can be read from the frame
+    //
+    Init_Nulled(Prep_Stack_Cell(f->rootvar + 3));
+
+  #if defined(NDEBUG)
+    assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 3); // elides RETURN:
+  #else
+    assert(ACT_NUM_PARAMS(NAT_ACTION(subparse)) == 4); // checks RETURN:
+    Init_Nulled(Prep_Stack_Cell(f->rootvar + 4));
+  #endif
 
     // !!! By calling the subparse native here directly from its C function
     // vs. going through the evaluator, we don't get the opportunity to do
@@ -337,15 +342,31 @@ static void Print_Parse_Index(REBFRM *f) {
 //
 static void Set_Parse_Series(
     REBFRM *f,
-    const REBVAL *any_series
-) {
-    Move_Value(FRM_ARGS_HEAD(f) + 0, any_series);
-    VAL_INDEX(FRM_ARGS_HEAD(f) + 0) =
-        (VAL_INDEX(any_series) > VAL_LEN_HEAD(any_series))
-            ? VAL_LEN_HEAD(any_series)
-            : VAL_INDEX(any_series);
+    const RELVAL *any_series,
+    REBSPC *specifier
+){
+    if (any_series != P_INPUT_VALUE) // we may just be checking, not setting
+        Derelativize(P_INPUT_VALUE, any_series, specifier);
 
-    if (IS_BINARY(any_series) || (P_FIND_FLAGS & AM_FIND_CASE))
+    // If the input is quoted, e.g. `parse lit ''''[...] [rules]`, we dequote
+    // it while we are processing the ARG().  This is because we are trying
+    // to update and maintain the value as we work in a way that can be shown
+    // in the debug stack frame.  Calling VAL_UNESCAPED() constantly would be
+    // slower, and also gives back a const value which may be shared with
+    // other quoted instances, so we couldn't update the VAL_INDEX() directly.
+    //
+    // But we save the number of quotes in a local variable.  This way we can
+    // put the quotes back on whenever doing a COPY etc.
+    //
+    Init_Integer(P_NUM_QUOTES_VALUE, VAL_NUM_QUOTES(P_INPUT_VALUE));
+    Dequotify(P_INPUT_VALUE);
+    if (not ANY_SERIES(P_INPUT_VALUE)) // #1263
+        fail (Error_Parse_Series_Raw(P_INPUT_VALUE));
+
+    if (VAL_INDEX(P_INPUT_VALUE) > VAL_LEN_HEAD(P_INPUT_VALUE))
+        VAL_INDEX(P_INPUT_VALUE) = VAL_LEN_HEAD(P_INPUT_VALUE);
+
+    if (IS_BINARY(P_INPUT_VALUE) || (P_FIND_FLAGS & AM_FIND_CASE))
         P_FIND_FLAGS |= AM_FIND_CASE;
     else
         P_FIND_FLAGS &= ~AM_FIND_CASE;
@@ -489,7 +510,7 @@ static REBIXO Parse_One_Rule(
             return END_FLAG; // Other cases below can assert if item is END
     }
 
-    switch (VAL_TYPE(rule)) { // handle rules w/same behavior for all P_INPUT
+    switch (KIND_BYTE(rule)) { // handle rules w/same behavior for all P_INPUT
       case REB_BLANK:
         return pos; // blank rules "match" but don't affect the parse position
 
@@ -554,7 +575,7 @@ static REBIXO Parse_One_Rule(
         }
 
         switch (VAL_TYPE(rule)) {
-          case REB_LITERAL:
+          case REB_QUOTED:
             Derelativize(P_CELL, rule, P_RULE_SPECIFIER);
             rule = Unquotify(P_CELL, 1);
             break; // fall through to direct match
@@ -569,15 +590,18 @@ static REBIXO Parse_One_Rule(
                 return pos + 1; // type was found in the typeset
             return END_FLAG;
 
-          case REB_LIT_WORD:
-            if (IS_WORD(item) and VAL_WORD_CANON(item) == VAL_WORD_CANON(rule))
-                return pos + 1;
-            return END_FLAG;
-
-          case REB_LIT_PATH:
-            if (IS_PATH(item) and Cmp_Array(item, rule, false) == 0)
-                return pos + 1;
-            return END_FLAG;
+          case REB_WORD:
+            if (VAL_WORD_SYM(rule) == SYM_LIT_WORD_X) { // hack for lit-word!
+                if (IS_QUOTED_WORD(item))
+                    return pos + 1;
+                return END_FLAG;
+            }
+            if (VAL_WORD_SYM(rule) == SYM_LIT_PATH_X) { // hack for lit-path!
+                if (IS_QUOTED_PATH(item))
+                    return pos + 1;
+                return END_FLAG;
+            }
+            fail (Error_Parse_Rule());
 
           default:
             break;
@@ -729,20 +753,13 @@ static REBIXO To_Thru_Block_Rule(
                             return SER_LEN(P_INPUT);
                         goto next_alternate_rule;
                     }
-                    else if (cmd == SYM_QUOTE) {
-                        rule = ++blk; // next rule is the quoted value
+                    else if (
+                        cmd == SYM_LIT or cmd == SYM_LITERAL
+                        or cmd == SYM_QUOTE // temporarily same for bootstrap
+                    ){
+                        rule = ++blk; // next rule is the literal value
                         if (IS_END(rule))
                             fail (Error_Parse_Rule());
-
-                        if (IS_GROUP(rule)) {
-                            if (not Is_Doubled_Group(rule))
-                               fail ("QUOTE needs doubled GROUP! ((...))");
-                            rule = Process_Group_For_Parse(f, cell, rule);
-                            if (rule == R_THROWN) {
-                                Move_Value(P_OUT, cell);
-                                return THROWN_FLAG;
-                            }
-                        }
                     }
                     else
                         fail (Error_Parse_Rule());
@@ -982,12 +999,7 @@ static REBIXO To_Thru_Non_Block_Rule(
         //
         REBFLGS flags = P_HAS_CASE ? AM_FIND_CASE : 0;
         DECLARE_LOCAL (temp);
-        if (IS_LIT_WORD(rule)) {
-            Derelativize(temp, rule, P_RULE_SPECIFIER);
-            mutable_KIND_BYTE(temp) = REB_WORD;
-            rule = temp;
-        }
-        else if (IS_LITERAL(rule)) { // make `\[foo bar]` match `[foo bar]`
+        if (IS_QUOTED(rule)) { // make `'[foo bar]` match `[foo bar]`
             Derelativize(temp, rule, P_RULE_SPECIFIER);
             rule = Unquotify(temp, 1);
             flags |= AM_FIND_ONLY; // !!! Is this implied?
@@ -1120,7 +1132,7 @@ static REBIXO To_Thru_Non_Block_Rule(
 // Perform an EVALAUTE on the *input* as a code block, and match the following
 // rule against the evaluative result.
 //
-//     parse [1 + 2] [do [quote 3]] => true
+//     parse [1 + 2] [do [lit 3]] => true
 //
 // The rule may be in a block or inline.
 //
@@ -1143,7 +1155,7 @@ static REBIXO To_Thru_Non_Block_Rule(
 // !!! The way this feature was expressed in R3-Alpha isolates it from
 // participating in iteration or as the target of an outer rule, e.g.
 //
-//     parse [1 + 2] [set var do [quote 3]] ;-- var gets 1, not 3
+//     parse [1 + 2] [set var do [lit 3]] ;-- var gets 1, not 3
 //
 // Other problems arise since the caller doesn't know about the trickiness
 // of this evaluation, e.g. this won't work either:
@@ -1207,7 +1219,7 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
     }
 
     // We want to reuse the same frame we're in, because if you say
-    // something like `parse [1 + 2] [do [quote 3]]`, the`[quote 3]` rule
+    // something like `parse [1 + 2] [do [lit 3]]`, the `[lit 3]` rule
     // should be consumed.  We also want to be able to use a nested rule
     // inline, such as `do skip` not only allow `do [skip]`.
     //
@@ -1266,8 +1278,9 @@ static REBIXO Do_Eval_Rule(REBFRM *f)
 //  {Internal support function for PARSE (acts as variadic to consume rules)}
 //
 //      return: [<opt> integer!]
-//      input [any-series!]
+//      input [any-series! quoted!]
 //      find-flags [integer!]
+//      <local> num-quotes
 //  ]
 //
 REBNATIVE(subparse)
@@ -1299,7 +1312,14 @@ REBNATIVE(subparse)
 // be caught by PARSE before returning.
 //
 {
+    INCLUDE_PARAMS_OF_SUBPARSE;
+
+    UNUSED(ARG(find_flags)); // used via P_FIND_FLAGS
+
     REBFRM *f = frame_; // nice alias of implicit native parameter
+
+    Set_Parse_Series(f, ARG(input), SPECIFIED); // doesn't reset, just checks
+    UNUSED(ARG(num_quotes)); // Set_Parse_Series sets this
 
     assert(IS_END(P_OUT)); // invariant provided by evaluator
 
@@ -1382,7 +1402,7 @@ REBNATIVE(subparse)
             //
             // Code below may jump here to re-process groups, consider:
             //
-            //    rule: quote (print "Hi")
+            //    rule: lit (print "Hi")
             //    parse "a" [(('rule)) "a"]
             //
             // First it processes the group to get RULE, then it looks that
@@ -1583,9 +1603,12 @@ REBNATIVE(subparse)
                     //
                     // if (flags != 0) fail (Error_Parse_Rule());
 
-                    Move_Value(
-                        Sink_Var_May_Fail(rule, P_RULE_SPECIFIER),
-                        P_INPUT_VALUE
+                    Quotify(
+                        Move_Value(
+                            Sink_Var_May_Fail(rule, P_RULE_SPECIFIER),
+                            P_INPUT_VALUE
+                        ),
+                        P_NUM_QUOTES
                     );
                     FETCH_NEXT_RULE(f);
                     continue;
@@ -1593,14 +1616,11 @@ REBNATIVE(subparse)
 
                 // :word - change the index for the series to a new position
                 if (IS_GET_WORD(rule)) {
-                    DECLARE_LOCAL (temp);
-                    Move_Opt_Var_May_Fail(temp, rule, P_RULE_SPECIFIER);
-                    if (not ANY_SERIES(temp)) { // #1263
-                        DECLARE_LOCAL (non_series);
-                        Derelativize(non_series, P_RULE, P_RULE_SPECIFIER);
-                        fail (Error_Parse_Series_Raw(non_series));
-                    }
-                    Set_Parse_Series(f, temp);
+                    Set_Parse_Series(
+                        f,
+                        Get_Opt_Var_May_Fail(rule, P_RULE_SPECIFIER),
+                        SPECIFIED
+                    );
 
                     // !!! `continue` is used here without any post-"match"
                     // processing, so the only way `begin` will get set for
@@ -1664,19 +1684,10 @@ REBNATIVE(subparse)
                     return R_THROWN;
                 }
 
-                // !!! This allows the series to be changed, as per #1263,
-                // but note the positions being returned and checked aren't
-                // prepared for this, they only exchange numbers ATM (!!!)
-                //
-                if (not ANY_SERIES(save))
-                    fail (Error_Parse_Series_Raw(save));
-
-                Set_Parse_Series(f, save);
+                Set_Parse_Series(f, save, SPECIFIED);
                 FETCH_NEXT_RULE(f);
                 continue;
             }
-            else
-                assert(IS_LIT_PATH(rule));
 
             if (P_POS > SER_LEN(P_INPUT))
                 P_POS = SER_LEN(P_INPUT);
@@ -1726,7 +1737,7 @@ REBNATIVE(subparse)
 
             if (IS_INTEGER(rule)) {
                 //
-                // `parse [1 1] [1 3 1]` must be `parse [1 1] [1 3 quote 1]`
+                // `parse [1 1] [1 3 1]` must be `parse [1 1] [1 3 lit 1]`
                 //
                 fail ("For matching, INTEGER!s must be literal with QUOTE");
             }
@@ -1799,7 +1810,9 @@ REBNATIVE(subparse)
                         i = To_Thru_Non_Block_Rule(f, subrule, is_thru);
                     break; }
 
-                case SYM_QUOTE: {
+                case SYM_QUOTE: // temporarily behaving like LIT for bootstrap
+                case SYM_LITERAL:
+                case SYM_LIT: {
                     if (not IS_SER_ARRAY(P_INPUT))
                         fail (Error_Parse_Rule()); // see #2253
 
@@ -1819,6 +1832,55 @@ REBNATIVE(subparse)
                         i = END_FLAG;
                     break;
                 }
+
+                // !!! This is a hack to try and get some semblance of
+                // compatibility in a world where 'X and 'X/Y/Z don't have
+                // unique datatype "kinds", but are both QUOTED! (versions of
+                // WORD! and PATH! respectively).  By making a LIT-WORD! and
+                // LIT-PATH! parse rule keyword, situations can be worked
+                // around, but MATCH should be used in the general case.
+                //
+                case SYM_LIT_WORD_X: // lit-word!
+                case SYM_LIT_PATH_X: // lit-path!
+                    i = Parse_One_Rule(f, P_POS, rule);
+                    break;
+
+                // Because there are no LIT-XXX! datatypes, a special rule
+                // must be used if you want to match quoted types.  MATCH is
+                // brought in to do this duty, bringing along with it the
+                // features of the native.
+                //
+                case SYM_MATCH: {
+                    if (not IS_SER_ARRAY(P_INPUT))
+                        fail (Error_Parse_Rule()); // see #2253
+
+                    if (IS_END(f->value))
+                        fail (Error_Parse_End());
+
+                    if (not subrule) // capture only on iteration #1
+                        FETCH_NEXT_RULE_KEEP_LAST(&subrule, f);
+
+                    RELVAL *cmp = ARR_AT(ARR(P_INPUT), P_POS);
+
+                    if (IS_END(cmp))
+                        i = END_FLAG;
+                    else {
+                        DECLARE_LOCAL (temp);
+                        if (Either_Test_Core_Throws(
+                            temp,
+                            subrule, P_RULE_SPECIFIER,
+                            cmp, P_INPUT_SPECIFIER
+                        )){
+                            Move_Value(P_OUT, temp);
+                            return R_THROWN;
+                        }
+
+                        if (VAL_LOGIC(temp))
+                            i = P_POS + 1;
+                        else
+                            i = END_FLAG;
+                    }
+                    break; }
 
                 case SYM_INTO: {
                     if (IS_END(f->value))
@@ -2020,10 +2082,13 @@ REBNATIVE(subparse)
                 count = (begin > P_POS) ? 0 : P_POS - begin;
 
                 if (flags & PF_COPY) {
-                    DECLARE_LOCAL (temp);
+                    REBVAL *sink = Sink_Var_May_Fail(
+                        set_or_copy_word,
+                        P_RULE_SPECIFIER
+                    );
                     if (ANY_ARRAY(P_INPUT_VALUE)) {
                         Init_Any_Array(
-                            temp,
+                            sink,
                             P_TYPE,
                             Copy_Array_At_Max_Shallow(
                                 ARR(P_INPUT),
@@ -2035,7 +2100,7 @@ REBNATIVE(subparse)
                     }
                     else if (IS_BINARY(P_INPUT_VALUE)) {
                         Init_Binary(
-                            temp,
+                            sink,
                             Copy_Sequence_At_Len(P_INPUT, begin, count)
                         );
                     }
@@ -2046,16 +2111,13 @@ REBNATIVE(subparse)
                         Init_Any_Series_At(begin_val, P_TYPE, P_INPUT, begin);
 
                         Init_Any_Series(
-                            temp,
+                            sink,
                             P_TYPE,
                             Copy_String_At_Len(begin_val, count)
                         );
                     }
 
-                    Move_Value(
-                        Sink_Var_May_Fail(set_or_copy_word, P_RULE_SPECIFIER),
-                        temp
-                    );
+                    Quotify(sink, P_NUM_QUOTES);
                 }
                 else if (flags & PF_SET) {
                     if (IS_SER_ARRAY(P_INPUT)) {
@@ -2166,10 +2228,8 @@ REBNATIVE(subparse)
                             1
                         );
 
-                        if (IS_LIT_WORD(rule))
-                            mutable_KIND_BYTE(
-                                ARR_AT(ARR(P_INPUT), P_POS - 1)
-                            ) = REB_WORD;
+                        if (IS_QUOTED(rule))
+                            Unquotify(ARR_AT(ARR(P_INPUT), P_POS - 1), 1);
                     }
                     else {
                         DECLARE_LOCAL (specified);
@@ -2238,9 +2298,9 @@ REBNATIVE(subparse)
 //  "Parse series according to grammar rules, return last match position"
 //
 //      return: "null if rules failed, else terminal position of match"
-//          [<opt> any-series!]
+//          [<opt> any-series! quoted!]
 //      input "Input series to parse"
-//          [<blank> any-series!]
+//          [<blank> any-series! quoted!]
 //      rules "Rules to parse by"
 //          [<blank> block!]
 //      /case "Uses case-sensitive comparison"

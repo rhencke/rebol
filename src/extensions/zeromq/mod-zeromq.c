@@ -378,7 +378,7 @@ REBNATIVE(zmq_socket) {
     void *ctx = VAL_HANDLE_VOID_POINTER(ARG(ctx));
 
     int type = rebUnbox( // !!! GROUP! needed for MATCH quirk
-        "(match integer!", rebUneval(ARG(type)), ") or [select make map! ["
+        "(match integer!", rebQ(ARG(type)), ") or [select make map! ["
             "REQ", rebI(ZMQ_REQ),
             "REP", rebI(ZMQ_REP),
             "DEALER", rebI(ZMQ_DEALER), // >= 0MQ 2.1, was XREQ prior to that
@@ -388,8 +388,8 @@ REBNATIVE(zmq_socket) {
             "PUSH", rebI(ZMQ_PUSH),
             "PULL", rebI(ZMQ_PULL),
             "PAIR", rebI(ZMQ_PAIR),
-        "]", rebUneval(ARG(type)), "] or [",
-            "fail [{Unknown zmq_socket() type:}", rebUneval(ARG(type)), "]",
+        "]", rebQ(ARG(type)), "] or [",
+            "fail [{Unknown zmq_socket() type:}", rebQ(ARG(type)), "]",
         "]");
 
     void *socket = zmq_socket(ctx, type);

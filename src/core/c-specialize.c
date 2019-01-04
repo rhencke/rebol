@@ -1254,7 +1254,7 @@ REBNATIVE(does)
         SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED); // is inaccessible
         f->varlist = nullptr; // just let it GC, for now
 
-        // May not be at end or thrown, e.g. (x: does quote y x = 'y)
+        // May not be at end or thrown, e.g. (x: does lit y x = 'y)
         //
         Drop_Frame(f);
 

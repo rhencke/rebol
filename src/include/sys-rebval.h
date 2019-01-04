@@ -361,21 +361,18 @@ typedef struct Reb_Tuple_Payload {
 } REBTUP;
 
 
-struct Reb_Literal_Payload {
+struct Reb_Quoted_Payload {
     //
     // It's necessary to create some storage outside the value--at least for
     // some levels of depth--because the cell itself can't be big enough to
-    // hold any other cell (by definition!).  This cell lives in a singular
-    // array, which can be found with Singular_From_Cell()...but the payload
-    // stores the cell pointer to make it faster for most accesses.
+    // hold any other cell (by definition!).  Cell pointer cached for speed.
     //
-    RELVAL *cell;
+    RELVAL *cell; // lives in singular array, find with Singular_From_Cell()
 
-    // The depth is the number of backslashes, e.g. `\x` is a depth of 1,
-    // while `\\\x` is a depth of 3.  It is stored in the cell payload and not
-    // the MISC() or LINK() of the singular, so that when you add or remove
-    // lit levels to the same value a new series isn't required...all the
-    // information to account for the difference is in the cell.
+    // The depth is the number of apostrophes, e.g. ''''X is a depth of 4.
+    // It is stored in the cell payload and not the MISC() or LINK() of the
+    // singular, so that when you add or remove quote levels to the same value
+    // a new series isn't required...the cell just has a different count.
     //
     REBCNT depth;
 };
@@ -541,8 +538,6 @@ struct Reb_Varargs_Payload {
 // all the partially specialized (or unspecified) refinements as it traverses
 // in order to revisit them and fill them in more efficiently.  This special
 // payload is used along with a singly linked list via extra.next_partial
-//
-#define REB_X_PARTIAL REB_MAX_PLUS_ONE
 
 #define PARTIAL_FLAG_IN_USE \
     FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT)
@@ -550,7 +545,7 @@ struct Reb_Varargs_Payload {
 #define PARTIAL_FLAG_SAW_NULL_ARG \
     FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + 1)
 
-struct Reb_Partial_Payload {
+struct Reb_Partial_Payload { // Used with REB_X_PARTIAL
     REBDSP dsp; // the DSP of this partial slot (if ordered on the stack)
     REBCNT index; // maps to the index of this parameter in the paramlist
 };
@@ -765,7 +760,7 @@ union Reb_Value_Payload {
     // These use `specific` or `relative` in `binding`, based on IS_RELATIVE()
 
     struct Reb_Word_Payload any_word;
-    struct Reb_Literal_Payload literal;
+    struct Reb_Quoted_Payload quoted;
     struct Reb_Series_Payload any_series;
     struct Reb_Action_Payload action;
     struct Reb_Context_Payload any_context;
@@ -831,16 +826,10 @@ union Reb_Value_Payload {
     //
     // A Reb_Relative_Value is a point of view on a cell where VAL_TYPE() can
     // be called and will always give back a value in range < REB_MAX.  All
-    // KIND_BYTE() > REB_64 are considered to be REB_LITERAL variants of the
+    // KIND_BYTE() > REB_64 are considered to be REB_QUOTED variants of the
     // byte modulo 64.
     //
     struct Reb_Relative_Value : public Reb_Cell {};
-#endif
-
-
-#if defined(DEBUG_TRASH_MEMORY)
-    #define REB_T_TRASH \
-        REB_MAX_PLUS_TWO // used in debug build to help identify trash nodes
 #endif
 
 

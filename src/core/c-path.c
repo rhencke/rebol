@@ -90,9 +90,6 @@ bool Next_Path_Throws(REBPVS *pvs)
     if (IS_NULLED(pvs->out))
         fail (Error_No_Value_Core(pvs->value, pvs->specifier));
 
-    enum Reb_Kind kind = VAL_TYPE(pvs->out);
-    PATH_HOOK hook = Path_Hooks[kind]; // &PD_Fail is used instead of NULL
-
     if (IS_GET_WORD(pvs->value)) { // e.g. object/:field
         Move_Opt_Var_May_Fail(PVS_PICKER(pvs), pvs->value, pvs->specifier);
     }
@@ -127,6 +124,11 @@ bool Next_Path_Throws(REBPVS *pvs)
 
     Fetch_Next_In_Frame(nullptr, pvs); // may be at end
 
+  redo:;
+
+    enum Reb_Kind kind = VAL_TYPE(pvs->out);
+    PATH_HOOK hook = Path_Hooks[kind]; // &PD_Fail is used instead of NULL
+
     if (IS_END(pvs->value) and PVS_IS_SET_PATH(pvs)) {
         const REBVAL *r = hook(
             pvs,
@@ -135,20 +137,19 @@ bool Next_Path_Throws(REBPVS *pvs)
         );
 
         switch (KIND_BYTE(r)) {
-
-        case REB_0_END: // unhandled
+          case REB_0_END: // unhandled
             assert(r == R_UNHANDLED); // shouldn't be other ends
             fail (Error_Bad_Path_Poke_Raw(PVS_PICKER(pvs)));
 
-        case REB_R_THROWN:
+          case REB_R_THROWN:
             panic ("Path dispatch isn't allowed to throw, only GROUP!s");
 
-        case REB_R_INVISIBLE: // dispatcher assigned target with opt_setval
+          case REB_R_INVISIBLE: // dispatcher assigned target with opt_setval
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED)
                 fail ("Path setting was not via an enfixable reference");
             break; // nothing left to do, have to take the dispatcher's word
 
-        case REB_R_REFERENCE: { // dispatcher wants a set *if* at end of path
+          case REB_R_REFERENCE: { // dispatcher wants a set *if* at end of path
             Move_Value(pvs->u.ref.cell, PVS_OPT_SETVAL(pvs));
 
             if (pvs->flags.bits & DO_FLAG_SET_PATH_ENFIXED) {
@@ -157,7 +158,7 @@ bool Next_Path_Throws(REBPVS *pvs)
             }
             break; }
 
-        case REB_R_IMMEDIATE: {
+          case REB_R_IMMEDIATE: {
             //
             // Imagine something like:
             //
@@ -182,7 +183,10 @@ bool Next_Path_Throws(REBPVS *pvs)
             Move_Value(pvs->u.ref.cell, pvs->out);
             break; }
 
-        default:
+          case REB_R_REDO: // e.g. used by REB_QUOTED to retrigger, sometimes
+            goto redo;
+
+          default:
             //
             // Something like a generic D_OUT.  We could in theory take those
             // to just be variations of R_IMMEDIATE, but it's safer to break
@@ -215,14 +219,13 @@ bool Next_Path_Throws(REBPVS *pvs)
             Handle_Api_Dispatcher_Result(pvs, r);
         }
         else switch (KIND_BYTE(r)) {
-
-        case REB_0_END:
+          case REB_0_END:
             fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
 
-        case REB_R_THROWN:
+          case REB_R_THROWN:
             panic ("Path dispatch isn't allowed to throw, only GROUP!s");
 
-        case REB_R_INVISIBLE:
+          case REB_R_INVISIBLE:
             assert(PVS_IS_SET_PATH(pvs));
             if (
                 hook != Path_Hooks[REB_STRUCT]
@@ -240,7 +243,7 @@ bool Next_Path_Throws(REBPVS *pvs)
             assert(IS_END(pvs->value));
             break;
 
-        case REB_R_REFERENCE: {
+          case REB_R_REFERENCE: {
             bool was_const = GET_VAL_FLAG(pvs->out, VALUE_FLAG_CONST);
             Derelativize(
                 pvs->out,
@@ -256,7 +259,10 @@ bool Next_Path_Throws(REBPVS *pvs)
             // to be R_IMMEDIATE, and it is needed.
             break; }
 
-        default:
+          case REB_R_REDO: // e.g. used by REB_QUOTED to retrigger, sometimes
+            goto redo;
+
+          default:
             panic ("REB_R value not supported for path dispatch");
         }
     }

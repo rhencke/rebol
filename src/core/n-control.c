@@ -141,21 +141,79 @@ REBNATIVE(either)
 // This routine is just for basic efficiency behind constructs like ELSE
 // that want to avoid frame creation overhead.  So BLOCK! just means typeset.
 //
-inline static bool Either_Test_Core_Throws(
+bool Either_Test_Core_Throws(
     REBVAL *out, // GC-safe output cell
-    REBVAL *test, // modified
-    const REBVAL *arg
+    const RELVAL *test,
+    REBSPC *test_specifier,
+    const RELVAL *arg,
+    REBSPC *arg_specifier
 ){
-    switch (VAL_TYPE(test)) {
+    if (IS_BLOCK(test)) {
+        RELVAL *item = VAL_ARRAY_AT(test);
+        if (IS_END(item)) {
+            //
+            // !!! If the test is just [], what's that?  People aren't likely
+            // to write it literally, but COMPOSE/etc. might make it.
+            //
+            fail ("No tests found in BLOCK! passed to EITHER-TEST.");
+        }
 
-    case REB_LOGIC: // test for "truthy" or "falsey"
+        REBSPC *specifier = Derive_Specifier(test_specifier, test);
+        for (; NOT_END(item); ++item) {
+            const REBCEL *item_cell = VAL_UNESCAPED(item);
+            REBCNT sum_quotes = VAL_NUM_QUOTES(item);
+
+            const RELVAL *var;
+            if (CELL_KIND(item_cell) == REB_WORD) {
+                var = Get_Opt_Var_May_Fail(item_cell, specifier);
+                sum_quotes += VAL_NUM_QUOTES(var);
+            }
+            else
+                var = item;
+
+            const REBCEL *var_cell = VAL_UNESCAPED(var);
+
+            if (CELL_KIND(var_cell) == REB_DATATYPE) {
+                if (
+                    VAL_TYPE_KIND(var_cell) == CELL_KIND(VAL_UNESCAPED(arg))
+                    and VAL_NUM_QUOTES(arg) == sum_quotes
+                ){
+                    Init_True(out);
+                    return false;
+                }
+            }
+            else if (IS_TYPESET(var)) {
+                if (
+                    TYPE_CHECK(var, CELL_KIND(VAL_UNESCAPED(arg)))
+                    and VAL_NUM_QUOTES(arg) == sum_quotes
+                ){
+                    Init_True(out);
+                    return false;
+                }
+            }
+            else
+                fail (Error_Invalid_Type(VAL_TYPE(var)));
+        }
+        Init_False(out);
+        return false;
+    }
+
+    const REBCEL *test_cell = VAL_UNESCAPED(test);
+    const REBCEL *arg_cell = VAL_UNESCAPED(arg);
+
+    switch (CELL_KIND(test)) {
+      case REB_LOGIC: // test for "truthy" or "falsey"
         //
         // If this is the result of composing together a test with a literal,
         // it may be the *test* that changes...so in effect, we could be
         // "testing the test" on a fixed value.  Allow literal blocks (e.g.
         // use IS_TRUTHY() instead of IS_CONDITIONAL_TRUE())
         //
-        Init_Logic(out, VAL_LOGIC(test) == IS_TRUTHY(arg));
+        Init_Logic(
+            out,
+            VAL_LOGIC(test_cell) == IS_TRUTHY(arg_cell)
+                and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
+        );
         return false;
 
       case REB_WORD:
@@ -176,7 +234,7 @@ inline static bool Either_Test_Core_Throws(
             out,
             &opt_label,
             test,
-            SPECIFIED,
+            test_specifier,
             push_refinements
         )){
             return true;
@@ -185,7 +243,8 @@ inline static bool Either_Test_Core_Throws(
         assert(lowest_ordered_dsp == DSP); // would have made specialization
         UNUSED(lowest_ordered_dsp);
 
-        Move_Value(test, out);
+        test = out;
+        test_specifier = SPECIFIED;
 
         if (not IS_ACTION(test))
             fail ("EITHER-TEST only takes WORD! and PATH! for ACTION! vars");
@@ -194,11 +253,14 @@ inline static bool Either_Test_Core_Throws(
       case REB_ACTION: {
       handle_action:;
 
+        DECLARE_LOCAL (arg_specified);
+        Derelativize(arg_specified, arg, arg_specifier);
+
         if (Apply_Only_Throws(
             out,
             true, // `fully` (ensure argument consumed)
-            test,
-            NULLIFY_NULLED(arg), // convert nulled cells to C nullptr for API
+            KNOWN(test),
+            NULLIFY_NULLED(arg_specified), // nulled cells to nullptr for API
             rebEND
         )){
             return true;
@@ -211,47 +273,20 @@ inline static bool Either_Test_Core_Throws(
         return false; }
 
       case REB_DATATYPE:
-        Init_Logic(out, VAL_TYPE_KIND(test) == VAL_TYPE(arg));
+        Init_Logic(
+            out,
+            VAL_TYPE_KIND(test_cell) == CELL_KIND(arg_cell)
+                and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
+        );
         return false;
 
       case REB_TYPESET:
-        Init_Logic(out, TYPE_CHECK(test, VAL_TYPE(arg)));
+        Init_Logic(
+            out,
+            TYPE_CHECK(test_cell, CELL_KIND(arg_cell))
+                and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
+        );
         return false;
-
-    case REB_BLOCK: {
-        RELVAL *item = VAL_ARRAY_AT(test);
-        if (IS_END(item)) {
-            //
-            // !!! If the test is just [], what's that?  People aren't likely
-            // to write it literally, but COMPOSE/etc. might make it.
-            //
-            fail ("No tests found BLOCK! passed to EITHER-TEST.");
-        }
-
-        REBSPC *specifier = VAL_SPECIFIER(test);
-        for (; NOT_END(item); ++item) {
-            const RELVAL *var
-                = IS_WORD(item)
-                    ? Get_Opt_Var_May_Fail(item, specifier)
-                    : item;
-
-            if (IS_DATATYPE(var)) {
-                if (VAL_TYPE_KIND(var) == VAL_TYPE(arg)) {
-                    Init_True(out);
-                    return false;
-                }
-            }
-            else if (IS_TYPESET(var)) {
-                if (TYPE_CHECK(var, VAL_TYPE(arg))) {
-                    Init_True(out);
-                    return false;
-                }
-            }
-            else
-                fail (Error_Invalid_Type(VAL_TYPE(var)));
-        }
-        Init_False(out);
-        return false; }
 
       default:
         break;
@@ -283,8 +318,13 @@ REBNATIVE(either_test)
 {
     INCLUDE_PARAMS_OF_EITHER_TEST;
 
-    if (Either_Test_Core_Throws(D_OUT, ARG(test), ARG(arg)))
+    if (Either_Test_Core_Throws(
+        D_OUT,
+        ARG(test), SPECIFIED,
+        ARG(arg), SPECIFIED
+    )){
         return R_THROWN;
+    }
 
     if (VAL_LOGIC(D_OUT))
         RETURN (ARG(arg));
@@ -386,8 +426,8 @@ REBNATIVE(also)
 //      'test "Typeset membership, LOGIC! to test for truth, filter function"
 //          [
 //              word! path! ;- special "first-arg-stealing" magic
-//              lit-word! lit-path! ;-- like EITHER-TEST's WORD! and PATH!
 //              datatype! typeset! block! logic! action! ;-- like EITHER-TEST
+//              quoted! ;-- same test, but make quote level part of the test
 //          ]
 //      :args [any-value! <...>]
 //  ]
@@ -403,21 +443,9 @@ REBNATIVE(match)
 
     REBVAL *test = ARG(test);
 
-    switch (VAL_TYPE(test)) {
-
-    case REB_LIT_WORD:
-    case REB_LIT_PATH: {
-        if (NOT_VAL_FLAG(test, VALUE_FLAG_UNEVALUATED)) // soft quote eval'd
-            fail (Error_Invalid(test)); // disallow `MATCH (QUOTE 'NULL?) ...`
-
-        if (IS_LIT_WORD(test))
-            mutable_KIND_BYTE(test) = REB_WORD;
-        else
-            mutable_KIND_BYTE(test) = REB_PATH;
-        goto either_test; }
-
-    case REB_WORD:
-    case REB_PATH: {
+    switch (KIND_BYTE(test)) {
+      case REB_WORD:
+      case REB_PATH: {
         if (NOT_VAL_FLAG(test, VALUE_FLAG_UNEVALUATED)) // soft quote eval'd
             goto either_test; // allow `MATCH ('NULL?) ...`
 
@@ -507,7 +535,7 @@ REBNATIVE(match)
 
         return nullptr; }
 
-    default:
+      default:
         break;
     }
 
@@ -535,7 +563,7 @@ either_test:;
     VAL_TYPESET_BITS(varpar) &= ~FLAGIT_KIND(REB_MAX_NULLED);
 
     DECLARE_LOCAL (temp);
-    if (Either_Test_Core_Throws(temp, test, D_OUT))
+    if (Either_Test_Core_Throws(temp, test, SPECIFIED, D_OUT, SPECIFIED))
         return R_THROWN;
 
     if (VAL_LOGIC(temp)) {
@@ -1008,7 +1036,7 @@ REBNATIVE(switch)
 //      ]
 //      if set-path? target [target: compose target]
 //      either all [
-//          value? set* quote gotten: get/hard target
+//          value? set* lit gotten: get/hard target
 //          only or [not blank? :gotten]
 //      ][
 //          :gotten ;; so that `x: y: default z` leads to `x = y`

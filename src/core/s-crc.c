@@ -199,7 +199,6 @@ uint32_t Hash_Value(const RELVAL *v)
         panic (NULL);
 
     case REB_BAR:
-    case REB_LIT_BAR:
     case REB_BLANK:
         hash = 0;
         break;
@@ -279,7 +278,6 @@ uint32_t Hash_Value(const RELVAL *v)
     case REB_PATH:
     case REB_SET_PATH:
     case REB_GET_PATH:
-    case REB_LIT_PATH:
         //
         // !!! Lame hash just to get it working.  There will be lots of
         // collisions.  Intentionally bad to avoid writing something that
@@ -314,7 +312,6 @@ uint32_t Hash_Value(const RELVAL *v)
     case REB_WORD:
     case REB_SET_WORD:
     case REB_GET_WORD:
-    case REB_LIT_WORD:
     case REB_REFINEMENT:
     case REB_ISSUE: {
         //

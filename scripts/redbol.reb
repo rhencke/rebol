@@ -276,9 +276,11 @@ type?: emulate [
     ][
         case [
             not word [type of :value]
-            unset? 'value [quote unset!] ;-- https://trello.com/c/rmsTJueg
-            blank? :value [quote none!] ;-- https://trello.com/c/vJTaG3w5
-            group? :value [quote paren!] ;-- https://trello.com/c/ANlT44nH
+            unset? 'value ['unset!] ;-- https://trello.com/c/rmsTJueg
+            blank? :value ['none!] ;-- https://trello.com/c/vJTaG3w5
+            group? :value ['paren!] ;-- https://trello.com/c/ANlT44nH
+            (match ['word!] :value) ['lit-word!]
+            (match ['path!] :value) ['lit-path!]
         ] else [
             to-word type of :value
         ]
@@ -310,7 +312,7 @@ set: emulate [
 
         apply 'set [
             target: either any-context? target [words of target] [target]
-            set* (quote value:) :value
+            set* (lit value:) :value
             some: some
             opt: set_ANY
         ]
@@ -331,7 +333,7 @@ get: emulate [
         if block? :source [
             return source ;-- this is what it did :-/
         ]
-        set* quote result: either any-context? source [
+        set* lit result: either any-context? source [
             get words of source
         ][
             get source
@@ -371,7 +373,7 @@ do: emulate [
 
         if next_DO [
             if args [fail "Can't use DO/NEXT with ARGS"]
-            source: evaluate/set :source quote result:
+            source: evaluate/set :source lit result:
             if var [set var source] ;-- DO/NEXT put the *position* in the var
             return :result ;-- DO/NEXT returned the *evaluative result*
         ]
@@ -524,14 +526,14 @@ compose: emulate [
             not block? value [:value]
             into [
                 insert out apply 'compose [
-                    set* (quote value:) :value
+                    set* (lit value:) :value
                     deep: deep
                     only: only
                 ]
             ]
         ] else [
             apply 'compose [
-                set* (quote value:) :value
+                set* (lit value:) :value
                 deep: deep
                 only: only
             ]
@@ -920,6 +922,7 @@ append: emulate [oldsplicer :append]
 insert: emulate [oldsplicer :insert]
 change: emulate [oldsplicer :change]
 
+quote: emulate [:lit]
 
 cloaker: helper [function [ ;-- specialized as CLOAK and DECLOAK
     {Simple and insecure data scrambler, was native C code in Rebol2/R3-Alpha}

@@ -307,12 +307,12 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
   #endif
 
     enum Reb_Kind kind;
-    if (KIND_BYTE(v) != REB_LITERAL)
-        kind = CELL_KIND(cast(const REBCEL*, v)); // mod 64 of the kind byte
+    if (KIND_BYTE_UNCHECKED(v) != REB_QUOTED)
+        kind = CELL_KIND_UNCHECKED(cast(const REBCEL*, v)); // mod 64 of byte
     else {
-        assert(v->payload.literal.depth > 3);
+        assert(v->payload.quoted.depth > 3);
 
-        RELVAL *cell = v->payload.literal.cell;
+        RELVAL *cell = v->payload.quoted.cell;
       #if !defined(NDEBUG)
         if (Is_Bindable(cell))
             assert(v->extra.binding == cell->extra.binding);
@@ -322,7 +322,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 
         Mark_Rebser_Only(SER(Singular_From_Cell(cell)));
 
-        assert(KIND_BYTE(cell) <= REB_MAX_NULLED); // REB_LITERAL check below
+        assert(KIND_BYTE(cell) <= REB_MAX_NULLED); // REB_QUOTED check below
         kind = cast(enum Reb_Kind, KIND_BYTE(cell));
         v = cell;
     }
@@ -355,7 +355,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
       case REB_WORD:
       case REB_SET_WORD:
       case REB_GET_WORD:
-      case REB_LIT_WORD:
       case REB_REFINEMENT:
       case REB_ISSUE: {
         REBSTR *spelling = v->payload.any_word.spelling;
@@ -392,17 +391,16 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
     #endif
         break; }
 
-      case REB_LITERAL:
+      case REB_QUOTED:
         //
-        // REB_LITERAL should not be contained in a literal; instead, the
+        // REB_QUOTED should not be contained in a quoted; instead, the
         // depth of the existing literal should just have been incremented.
         //
-        panic ("REB_LITERAL with (KIND_BYTE() % REB_64) > 0");
+        panic ("REB_QUOTED with (KIND_BYTE() % REB_64) > 0");
 
       case REB_PATH:
       case REB_SET_PATH:
       case REB_GET_PATH:
-      case REB_LIT_PATH:
       case REB_BLOCK:
       case REB_GROUP: {
         REBSER *s = v->payload.any_series.series;
@@ -664,7 +662,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 
       case REB_BLANK:
       case REB_BAR:
-      case REB_LIT_BAR:
       case REB_VOID:
         break;
 
@@ -689,7 +686,7 @@ inline static void Queue_Mark_Opt_Value_Deep(const RELVAL *v)
 inline static void Queue_Mark_Value_Deep(const RELVAL *v)
 {
     assert(NOT_END(v));
-    assert(KIND_BYTE(v) != REB_MAX_NULLED); // Note: Unreadable blanks ok
+    assert(KIND_BYTE_UNCHECKED(v) != REB_MAX_NULLED); // Unreadable blank ok
     Queue_Mark_Opt_End_Cell_Deep(v);
 }
 
@@ -1230,7 +1227,7 @@ static void Mark_Frame_Stack_Deep(void)
 
         if (not Is_Action_Frame(f)) {
             //
-            // Consider something like `eval copy quote (recycle)`, because
+            // Consider something like `eval copy '(recycle)`, because
             // while evaluating the group it has no anchor anywhere in the
             // root set and could be GC'd.  The Reb_Frame's array ref is it.
             //
@@ -1722,12 +1719,8 @@ void Push_Guard_Node(const REBNOD *node)
         // going to happen immediately, and value could theoretically become
         // valid before then.)
         //
-        const REBVAL* value = cast(const REBVAL*, node);
-        assert(
-            IS_END(value)
-            or IS_BLANK_RAW(value)
-            or VAL_TYPE(value) <= REB_MAX_NULLED
-        );
+        const REBVAL* v = cast(const REBVAL*, node);
+        assert(CELL_KIND_UNCHECKED(v) <= REB_MAX_NULLED);
 
       #ifdef STRESS_CHECK_GUARD_VALUE_POINTER
         //
@@ -1737,7 +1730,7 @@ void Push_Guard_Node(const REBNOD *node)
         // being able to resize and reallocate the data pointer.  But this is
         // a somewhat expensive check, so only feasible to run occasionally.
         //
-        REBNOD *containing = Try_Find_Containing_Node_Debug(value);
+        REBNOD *containing = Try_Find_Containing_Node_Debug(v);
         if (containing)
             panic (containing);
       #endif

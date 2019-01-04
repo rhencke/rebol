@@ -267,13 +267,13 @@
 
     (10 == getf 10)
     ('a == getf a)
-    (quote 'a == getf 'a)
-    (quote :a == getf :a)
-    (quote a: == getf a:)
-    (quote (10 + 20) == getf (10 + 20))
+    (lit 'a == getf 'a)
+    (lit :a == getf :a)
+    (lit a: == getf a:)
+    (lit (10 + 20) == getf (10 + 20))
     (
         o: context [f: 10]
-        quote :o/f == getf :o/f
+        lit :o/f == getf :o/f
     )
 ]
 
@@ -286,9 +286,9 @@
 
     (10 == litf 10)
     ('a == litf a)
-    (quote 'a == litf 'a)
+    (lit 'a == litf 'a)
     (a: 10 | 10 == litf :a)
-    (quote a: == litf a:)
+    (lit a: == litf a:)
     (30 == litf (10 + 20))
     (
         o: context [f: 10]

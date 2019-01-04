@@ -25,7 +25,7 @@ make-port*: function [
 ][
     ; The first job is to identify the scheme specified:
 
-    really switch type of spec [
+    switch type of spec [
         file! [
             name: pick [dir file] dir? spec
             spec: join-of [ref:] spec
@@ -48,12 +48,15 @@ make-port*: function [
             name: port/scheme/name
             spec: port/spec
         ]
+
+        fail
     ]
 
     ; Get the scheme definition:
+    name: dequote name
     all [
-        match [word! lit-word!] name
-        scheme: get try in system/schemes as word! name
+        word? name
+        scheme: get try in system/schemes name
     ] else [
         cause-error 'access 'no-scheme name
     ]
@@ -103,7 +106,7 @@ make-port*: function [
             ; scheme name: [//]
             copy s1 some scheme-char ":" opt "//" ( ; "//" is optional ("URN")
                 append out compose [
-                    scheme: (to lit-word! to text! s1)
+                    scheme: (uneval to word! to text! s1)
                 ]
             )
 
@@ -179,7 +182,7 @@ make-scheme: function [
     def [block!]
         "Scheme specification"
     /with
-    'base-name
+    base-name [word!]
         "Scheme name to use as base"
 ][
     with: either with [get in system/schemes base-name][system/standard/scheme]

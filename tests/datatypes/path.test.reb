@@ -201,9 +201,9 @@
 )
 
 ; / is a length 0 PATH! in Ren-C
-(type of quote / = path!)
-(length of quote / = 0)
+(type of lit / = path!)
+(length of lit / = 0)
 
 ; foo/ is a length 1 PATH! in Ren-C
-(type of quote foo/ = path!)
-(length of quote foo/ = 1)
+(type of lit foo/ = path!)
+(length of lit foo/ = 1)

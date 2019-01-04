@@ -193,10 +193,10 @@
 
 ; A couple of tests for the problematic DO operation
 
-(did parse [1 + 2] [do [quote 3] end])
+(did parse [1 + 2] [do [lit 3] end])
 (did parse [1 + 2] [do integer! end])
 (did parse [1 + 2] [do [integer!] end])
-(not parse [1 + 2] [do [quote 100] end])
+(not parse [1 + 2] [do [lit 100] end])
 (did parse [reverse copy [a b c]] [do [into ['c 'b 'a]] end])
 (not parse [reverse copy [a b c]] [do [into ['a 'b 'c]] end])
 
@@ -272,14 +272,21 @@
 (not parse "ab" ["a" ((1 = 2)) "b" end])
 
 
-;; LITERAL! BEHAVIOR
+;; QUOTED! BEHAVIOR
 ;; Support for the new literal types
 ;;
 (
-    parse [... [a b]] [to \[a b]]
+    parse [... [a b]] [to '[a b]]
     == [[a b]]
 )(
-    did parse [... [a b]] [thru \[a b] end]
+    did parse [... [a b]] [thru '[a b] end]
 )(
-    did parse [1 1 1] [some \1 end]
+    did parse [1 1 1] [some '1 end]
+)
+
+(
+    did all [
+       lit ''[] == parse lit ''[1 + 2] [copy x to end]
+       x == lit ''[1 + 2]
+    ]
 )

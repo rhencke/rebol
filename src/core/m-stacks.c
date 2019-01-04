@@ -301,7 +301,7 @@ void Expand_Data_Stack_May_Fail(REBCNT amount)
     REBCNT n;
     for (n = len_old; n < len_new; ++n) {
         Init_Unreadable_Blank(cell);
-        SET_VAL_FLAGS(cell, CELL_FLAG_STACK | CELL_FLAG_TRANSIENT);
+        cell->header.bits |= (CELL_FLAG_STACK | CELL_FLAG_TRANSIENT);
         ++cell;
     }
 

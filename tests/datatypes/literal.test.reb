@@ -1,52 +1,51 @@
-;; Ren-C's LITERAL! is a generic and arbitrary-depth variant of the
-;; LIT-XXX! types from historical Rebol.  It uses a backslash instead of
-;; a tick mark to do its escaping.
+;; Ren-C's QUOTED! is a generic and arbitrary-depth variant of the
+;; LIT-XXX! types from historical Rebol.
 
 ;; SET and GET should see through escaping and work anyway
 
 (
-    unset \a
-    set quote \\\\\a <seta>
-    <seta> = get quote \\a
+    unset 'a
+    set lit '''''a <seta>
+    <seta> = get lit ''a
 )(
-    unset \a
-    set quote \a <seta>
-    <seta> = get quote \\\\\\\a
+    unset 'a
+    set lit 'a <seta>
+    <seta> = get lit '''''''a
 )(
     unset [a b]
-    set [\\\\\a \\b] [<seta> <setb>]
-    [<seta> <setb>] = get [\a \\\\\\\b]
+    set ['''''a ''b] [<seta> <setb>]
+    [<seta> <setb>] = get ['a '''''''b]
 )
 
 ;; Test basic binding, e.g. to make sure functions detect SET-WORD!
 
 (
     x: 10
-    set \x: 20
+    set 'x: 20
     x = 20
 )(
     x: 10
     y: _
     foo: function [] [
-        set \x: 20
-        set \y x
+        set 'x: 20
+        set 'y x
     ]
     foo
     x = 10 and (y = 20)
 )
 
-;; Try again, but set a LITERAL! (and not WORD! that results from literal)
+;; Try again, but set a QUOTED! (and not WORD! that results from literal)
 
 (
     x: 10
-    set quote \x: 20
+    set lit 'x: 20
     x = 20
 )(
     x: 10
     y: _
     foo: function [] [
-        set quote \x: 20
-        set quote \y x
+        set lit 'x: 20
+        set lit 'y x
     ]
     foo
     x = 10 and (y = 20)
@@ -56,14 +55,14 @@
 
 (
     x: 10
-    set quote \\\\\\x: 20
+    set lit ''''''x: 20
     x = 20
 )(
     x: 10
     y: _
     foo: function [] [
-        set quote \\\\\\\x: 20
-        set quote \\\\\\\y x
+        set lit '''''''x: 20
+        set lit '''''''y x
     ]
     foo
     x = 10 and (y = 20)
@@ -79,7 +78,7 @@
     a: 0
     o1: make object! [a: 1]
     o2: make object! [a: 2]
-    word: \\\\\\\\\\a:
+    word: ''''''''''a:
     w1: bind word o1
     w2: bind word o2
     (0 = get word) and (1 = get w1) and (2 = get w2)
@@ -88,7 +87,7 @@
         a: 0
         o1: make object! [a: 1]
         o2: make object! [a: 2]
-        word: \\\\\\\\\\a:
+        word: ''''''''''a:
         w1: bind word o1
         w2: bind word o2
         (0 = get word) and (1 = get w1) and (2 = get w2)
@@ -97,27 +96,29 @@
 )
 
 
-(null? \)
-(null? do [\])
-([\] = reduce [\\])
-([\\] = reduce [\\\])
-([\ \\ \\\ \\\\] = reduce [\\ \\\ \\\\ \\\\\])
+(null? ')
+(null? do ['])
+(['] = reduce [''])
+([''] = reduce ['''])
+([' '' ''' ''''] = reduce ['' ''' '''' '''''])
 
 (
     [1 (2 + 3) [4 + 5] a/+/b c/+/d: :e/+/f]
     = reduce
-    [\1 \(2 + 3) \[4 + 5] \a/+/b \c/+/d: \:e/+/f]
+    ['1 '(2 + 3) '[4 + 5] 'a/+/b 'c/+/d: ':e/+/f]
 )
 
-(quote \[a b c] = uneval [a b c])
-(quote \(a b c) == uneval quote (a b c))
-(not (quote \[A B C] == uneval [a b c]))
-(\\\[a b c] != \\\\\[a b c])
-(\\\[a b c] = \\\[a b c])
+(lit '[a b c] = uneval [a b c])
+(lit '(a b c) == uneval lit (a b c))
+(not (lit '[A B C] == uneval [a b c]))
+('''[a b c] !== '''''[a b c])
+('''[a b c] == '''[a b c])
+('''[a b c] = '''''[a b c])
 
-(kind of quote \foo = literal!) ;; low level "KIND"
-(type of quote \foo = uneval word!) ;; higher-level "TYPE"
-(type of quote \\[a b c] = uneval/depth block! 2)
+
+(kind of lit 'foo = quoted!) ;; low level "KIND"
+(type of lit 'foo = uneval word!) ;; higher-level "TYPE"
+(type of lit ''[a b c] = uneval/depth block! 2)
 
 
 ;; Some generic actions have been tweaked to know to extend their
@@ -127,15 +128,15 @@
 ;; controlled by something in the function spec vs. be a random
 ;; list that added the behavior.
 
-(quote \\\\3 = add quote \\\\1 2)
+(lit ''''3 = add lit ''''1 2)
 
-(quote \\\[b c d] = find \\\\[a b c d] \b)
+(lit '''[b c d] = find ''''[a b c d] 'b)
 
-(null = find \\\\[a b c d] \q)
+(null = find ''''[a b c d] 'q)
 
-(quote \\\[a b c] = copy quote \\\[a b c])
+(lit '''[a b c] = copy lit '''[a b c])
 
-(quote \(1 2 3 <four>) = append mutable \\(1 2 3) <four>)
+(lit '(1 2 3 <four>) = append mutable ''(1 2 3) <four>)
 
 
 ;; Routines could be adapted to do all kinds of interesting things
@@ -143,22 +144,28 @@
 ;; of escaping off of any GROUP! it sees.
 
 (
-    compose [(1 + 2) \(1 + 2) \\(1 + 2)]
-    == [3 (1 + 2) \(1 + 2)]
+    compose [(1 + 2) '(1 + 2) ''(1 + 2)]
+    == [3 (1 + 2) '(1 + 2)]
 )(
-    compose/deep [a \\[b (1 + 2) c] d]
-    == [a \\[b 3 c] d]
+    compose/deep [a ''[b (1 + 2) c] d]
+    == [a ''[b 3 c] d]
 )
 
 
 ;; All escaped values are truthy, regardless of what it is they are escaping
-;;
-(did quote \_)
-(did quote \#[false])
-(did quote \)
-(did quote \\\\\\\\_)
-(did quote \\\\\\\\#[false])
-(did quote \\\\\\\\)
+
+(did lit '_)
+(did lit '#[false])
+(did lit ')
+(did lit ''''''''_)
+(did lit ''''''''#[false])
+(did lit '''''''')
+
+
+;; Spliced-oriented processing should "see through" the quote of the appended
+;; item, but preserve the quoting level of the appended-to item:
+
+('''a/b/c/d/e/f = append copy lit '''a/b/c 'd/e/f)
 
 
 ;; An escaped word that can't fit in a cell and has to do an additional
@@ -171,7 +178,7 @@
     a: 0
     o1: make object! [a: 1]
     o2: make object! [a: 2]
-    word: \\\\\\\\\a
+    word: '''''''''a
     w1: bind word o1
     w2: bind word o2
     did all [
@@ -181,7 +188,6 @@
     ]
 )
 
-
 ;; Smoke test for literalizing items of every type
 
 (
@@ -190,15 +196,13 @@
         word
         set-word:
         :get-word
-        'lit-word
         /refinement
         #issue
-        \literal
+        'quoted
         pa/th
         set/pa/th
         :get/pa/th
-        'lit/pa/th
-        (quote (group))
+        (lit (group))
         [block]
         #{AE1020BD0304EA}
         "text"
@@ -229,7 +233,6 @@
         ("try library here")
         _
         |
-        '|
         #[void]
     ][
         lit-item: uneval :item

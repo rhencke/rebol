@@ -25,32 +25,33 @@
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// In Ren-C, any value can be "lit" escaped, any number of times.  Since there
+// In Ren-C, any value can be "quote" escaped, any number of times.  As there
 // is no limit to how many levels of escaping there can be, the general case
 // of the escaping cannot fit in a value cell, so a "singular" array is used
 // (a compact form with only a series tracking node, sizeof(REBVAL)*2)
 //
 // HOWEVER... there is an efficiency trick, which uses the KIND_BYTE() div 4
 // as the "lit level" of a value.  Then the byte mod 4 becomes the actual
-// type.  So only an actual REB_LITERAL at "apparent lit-level 0" has its own
+// type.  So only an actual REB_QUOTED at "apparent lit-level 0" has its own
 // payload...as a last resort if the level exceeded what the type byte can
-// encode.  This saves on storage and GC load for small levels of literalness,
+// encode.  This saves on storage and GC load for small levels of quotedness,
 // at the cost of making VAL_TYPE() do an extra comparison to clip all values
-// above 64 to act as REB_LITERAL.
+// above 64 to act as REB_QUOTED.
 //
 
-inline static REBCNT VAL_LITERAL_DEPTH(const RELVAL *v) {
+inline static REBCNT VAL_QUOTED_DEPTH(const RELVAL *v) {
     if (KIND_BYTE(v) >= REB_64) // shallow enough to use type byte trick...
         return KIND_BYTE(v) / REB_64; // ...see explanation above
-    assert(KIND_BYTE(v) == REB_LITERAL);
-    return v->payload.literal.depth;
+    assert(KIND_BYTE(v) == REB_QUOTED);
+    return v->payload.quoted.depth;
 }
 
 inline static REBCNT VAL_NUM_QUOTES(const RELVAL *v) {
-    if (not IS_LITERAL(v))
+    if (not IS_QUOTED(v))
         return 0;
-    return VAL_LITERAL_DEPTH(v);
+    return VAL_QUOTED_DEPTH(v);
 }
+
 
 // It is necessary to be able to store relative values in escaped cells.
 //
@@ -58,16 +59,16 @@ inline static RELVAL *Quotify_Core(
     RELVAL *v,
     REBCNT depth
 ){
-    if (KIND_BYTE(v) == REB_LITERAL) { // reuse payload, bump count
-        assert(v->payload.literal.depth > 3); // or should've used kind byte
-        v->payload.literal.depth += depth;
+    if (KIND_BYTE(v) == REB_QUOTED) { // reuse payload, bump count
+        assert(v->payload.quoted.depth > 3); // or should've used kind byte
+        v->payload.quoted.depth += depth;
         return v;
     }
 
     enum Reb_Kind kind = cast(enum Reb_Kind, KIND_BYTE(v) % REB_64);
     depth += KIND_BYTE(v) / REB_64;
 
-    if (depth <= 3) { // can encode in a cell with no REB_LITERAL payload
+    if (depth <= 3) { // can encode in a cell with no REB_QUOTED payload
         mutable_KIND_BYTE(v) = kind + (REB_64 * depth);
     }
     else {
@@ -97,11 +98,11 @@ inline static RELVAL *Quotify_Core(
         SET_VAL_FLAG(cell, CELL_FLAG_PROTECTED); // maybe shared; can't change
       #endif
  
-        RESET_VAL_HEADER(v, REB_LITERAL);
+        RESET_VAL_HEADER(v, REB_QUOTED);
         if (Is_Bindable(cell))
             v->extra = cell->extra; // must be in sync with cell (if binding)
         else {
-            // We say all REB_LITERAL cells are bindable, so their binding gets
+            // We say all REB_QUOTED cells are bindable, so their binding gets
             // checked even if the contained cell isn't bindable.  By setting
             // the binding to null if the contained cell isn't bindable, that
             // prevents needing to make Is_Bindable() a more complex check,
@@ -109,8 +110,8 @@ inline static RELVAL *Quotify_Core(
             //
             v->extra.binding = nullptr;
         }
-        v->payload.literal.cell = cell;
-        v->payload.literal.depth = depth;
+        v->payload.quoted.cell = cell;
+        v->payload.quoted.depth = depth;
 
       #if !defined(NDEBUG) && defined(DEBUG_COUNT_TICKS)
         //
@@ -139,80 +140,49 @@ inline static RELVAL *Quotify_Core(
 #endif
 
 
-// !!! For compatibility, quoting still allows apostrophe at scan time.  If
-// quoting is at exactly one level and fits WORD!, PATH!, or BAR!... then it
-// will permit that if the incoming quote count is negative.  Otherwise it
-// uses new-style arbitrary escaping.
-//
-// This should only be called by the scanner for now, and is an experiment
-// to let people who want to try apostrophe-generic escaping try it.
-//
-inline static void Quotify_R2(REBVAL *v, REBINT depth) {
-    if (depth == 0)
-        NOOP;
-    else if (depth > 0)
-        Quotify(v, depth);
-    else {
-        depth = -depth;
-        if (depth == 1) {
-            enum Reb_Kind kind = VAL_TYPE(v);
-            if (kind == REB_WORD)
-                mutable_KIND_BYTE(v) = REB_LIT_WORD;
-            else if (kind == REB_PATH)
-                mutable_KIND_BYTE(v) = REB_LIT_PATH;
-            else if (kind == REB_BAR)
-                mutable_KIND_BYTE(v) = REB_LIT_BAR;
-            else
-                Quotify(v, depth); // fall back to generic escaping
-        }
-        else
-            Quotify(v, depth);
-    }
-}
-
-
 // Only works on small escape levels that fit in a cell (<=3).  So it can
-// do `\\\x -> \\x`, `\\x -> \x` or `\x -> x`.  Use Unquotify() for the more
-// generic routine, but this is needed by the evaluator most commonly, so it
-// is broken out to a separate routine.
+// do '''X -> ''X, ''X -> 'X or 'X -> X.  Use Unquotify() for the more
+// generic routine, but this is needed by the evaluator most commonly.
 //
 inline static RELVAL *Unquotify_In_Situ(RELVAL *v, REBCNT unquotes)
 {
-    assert(KIND_BYTE(v) > REB_64); // can't unliteralize a non-literal
+    assert(KIND_BYTE(v) >= REB_64); // not an in-situ quoted value otherwise
     assert(cast(REBCNT, KIND_BYTE(v) / REB_64) >= unquotes);
     mutable_KIND_BYTE(v) -= REB_64 * unquotes;
     assert(
         KIND_BYTE(v) % 64 != REB_0
-        and KIND_BYTE(v) % 64 != REB_LITERAL
+        and KIND_BYTE(v) % 64 != REB_QUOTED
         and KIND_BYTE(v) % 64 <= REB_MAX_NULLED
     );
     return v;
 }
 
 
-// Turns `\x` into `x`, or `\\\\\[1 + 2]` into `\\\\(1 + 2)`, etc.
+// Turns 'X into X, or '''''[1 + 2] into '''(1 + 2), etc.
 //
 // Works on escape levels that fit in the cell (<= 3) as well as those that
-// require a second cell to point at in a REB_LITERAL payload.
+// require a second cell to point at in a REB_QUOTED payload.
 //
 inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
-    if (KIND_BYTE(v) != REB_LITERAL)
+    if (unquotes == 0)
+        return v;
+
+    if (KIND_BYTE(v) != REB_QUOTED)
         return Unquotify_In_Situ(v, unquotes);
 
-    REBCNT depth = v->payload.literal.depth;
+    REBCNT depth = v->payload.quoted.depth;
     assert(depth > 3 and depth >= unquotes);
     depth -= unquotes;
 
-    RELVAL *cell = v->payload.literal.cell;
+    RELVAL *cell = v->payload.quoted.cell;
     assert(
         KIND_BYTE(cell) != REB_0
-        and KIND_BYTE(cell) != REB_LITERAL
+        and KIND_BYTE(cell) != REB_QUOTED
         and KIND_BYTE(cell) <= REB_MAX_NULLED
     );
 
-    if (depth > 3) { // unescaped can't encode in single value
-        v->payload.literal.depth = depth;
-    }
+    if (depth > 3) // still can't do in-situ escaping within a single cell
+        v->payload.quoted.depth = depth;
     else {
         Move_Value_Header(v, cell);
         mutable_KIND_BYTE(v) += (REB_64 * depth);
@@ -237,28 +207,28 @@ inline static RELVAL *Unquotify_Core(RELVAL *v, REBCNT unquotes) {
 
 
 inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v) {
-    if (KIND_BYTE(v) != REB_LITERAL)
+    if (KIND_BYTE(v) != REB_QUOTED)
         return v; // kind byte may be > 64
 
     // The reason this routine returns `const` is because you can't modify
     // the contained value without affecting other views of it, if it is
     // shared in an escaping.  Modifications must be done with awareness of
-    // the original RELVAL, and that it might be a LITERAL!.
+    // the original RELVAL, and that it might be a QUOTED!.
     //
-    return v->payload.literal.cell;
+    return v->payload.quoted.cell;
 }
 
 
 inline static REBCNT Dequotify(RELVAL *v) {
-    if (KIND_BYTE(v) != REB_LITERAL) {
+    if (KIND_BYTE(v) != REB_QUOTED) {
         REBCNT depth = KIND_BYTE(v) / REB_64;
         mutable_KIND_BYTE(v) %= REB_64;
         return depth;
     }
 
-    REBCNT depth = v->payload.literal.depth;
-    RELVAL *cell = v->payload.literal.cell;
-    assert(KIND_BYTE(cell) != REB_LITERAL and KIND_BYTE(cell) < REB_64);
+    REBCNT depth = v->payload.quoted.depth;
+    RELVAL *cell = v->payload.quoted.cell;
+    assert(KIND_BYTE(cell) != REB_QUOTED and KIND_BYTE(cell) < REB_64);
 
     Move_Value_Header(v, cell);
   #if !defined(NDEBUG)
@@ -270,4 +240,21 @@ inline static REBCNT Dequotify(RELVAL *v) {
     v->extra = cell->extra;
     v->payload = cell->payload;
     return depth;
+}
+
+
+// !!! Temporary workaround for what was IS_LIT_WORD() (now not its own type)
+//
+inline static bool IS_QUOTED_WORD(const RELVAL *v) {
+    return IS_QUOTED(v)
+        and VAL_QUOTED_DEPTH(v) == 1
+        and CELL_KIND(VAL_UNESCAPED(v)) == REB_WORD;
+}
+
+// !!! Temporary workaround for what was IS_LIT_PATH() (now not its own type)
+//
+inline static bool IS_QUOTED_PATH(const RELVAL *v) {
+    return IS_QUOTED(v)
+        and VAL_QUOTED_DEPTH(v) == 1
+        and CELL_KIND(VAL_UNESCAPED(v)) == REB_PATH;
 }

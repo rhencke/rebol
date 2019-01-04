@@ -30,6 +30,16 @@ REBOL [
 context: object: :has
 
 
+quote: func [dummy:] [
+    fail/where [
+        "LIT (or LITERAL) has replaced QUOTE.  QUOTE is currently not"
+        "defined to make it easier to find cases and fix them.  It will"
+        "ultimately be re-introduced as a way to add quote levels to an"
+        "evaluated argument (e.g. x: 10 | quote x => '10)"
+    ] 'dummy
+]
+
+
 ; To be more visually pleasing, properties like LENGTH can be extracted using
 ; a reflector as simply `length of series`, with no hyphenation.  This is
 ; because OF quotes the word on the left, and passes it to REFLECT.
@@ -131,7 +141,7 @@ rejoin: function [
     ;
     values: copy []
     pos: block
-    while [pos: evaluate/set pos (quote evaluated:)][
+    while [pos: evaluate/set pos (lit evaluated:)][
         append/only values :evaluated
     ]
 
@@ -198,7 +208,7 @@ applique: function [
             arg: block/1
             try next block
         ] else [
-            try evaluate/set block quote arg:
+            try evaluate/set block lit arg:
         ]
 
         if refinement? params/1 [

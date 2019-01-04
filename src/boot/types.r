@@ -46,16 +46,16 @@ REBOL [
         */
 
         /*
-         * Note that an "in-situ" LITERAL! (not a REB_LITERAL kind byte, but
+         * Note that an "in-situ" QUOTED! (not a REB_QUOTED kind byte, but
          * using larger REB_MAX values) is bindable if the cell it's overlaid
          * into is bindable.  It has to handle binding exactly as it would if
          * it were not a literal form.
          *
-         * Actual REB_LITERALs (used for higher escape values) have to use a
-         * separate cell for storage.  The REB_LITERAL type is in the range
+         * Actual REB_QUOTEDs (used for higher escape values) have to use a
+         * separate cell for storage.  The REB_QUOTED type is in the range
          * of enum values that report bindability, even if it's storing a type
          * that uses the ->extra field for something else.  This is mitigated
-         * by putting nullptr in the binding field of the REB_LITERAL portion
+         * by putting nullptr in the binding field of the REB_QUOTED portion
          * of the cell, instead of mirroring the ->extra field of the
          * contained cell...so it comes off as "specified" in those cases.
          */
@@ -67,15 +67,18 @@ REBOL [
             (CELL_KIND_UNCHECKED(v) >= REB_LOGIC) /* gets checked elsewhere */
 
         /*
-         * Testing for LITERAL! is special, as it isn't just the REB_LITERAL
+         * Testing for QUOTED! is special, as it isn't just the REB_QUOTED
          * type, but also multiplexed as values > REB_64.  So it costs more.
          */
 
-        inline static bool IS_LITERAL_KIND(REBYTE k)
-            { return k == REB_LITERAL or k >= REB_64; }
+        inline static bool IS_QUOTED_KIND(REBYTE k)
+            { return k == REB_QUOTED or k >= REB_64; }
 
-        #define IS_LITERAL(v) \
-            IS_LITERAL_KIND(KIND_BYTE(v))
+        #define IS_QUOTED(v) \
+            IS_QUOTED_KIND(KIND_BYTE(v))
+
+        /* Type categories.
+         */
 
         #define ANY_VALUE(v) \
             (KIND_BYTE(v) != REB_MAX_NULLED)
@@ -117,7 +120,7 @@ REBOL [
             ANY_WORD_KIND(KIND_BYTE(v))
 
         inline static bool ANY_PATH_KIND(REBYTE k)
-            { return k >= REB_PATH and k <= REB_LIT_PATH; }
+            { return k >= REB_PATH and k <= REB_GET_PATH; }
 
         #define ANY_PATH(v) \
             ANY_PATH_KIND(KIND_BYTE(v))
@@ -166,7 +169,7 @@ REBOL [
 
         /* This is another kind of test that might have some way to speed up
          * based on types or bits, or as an alternate to another speedup if
-         * it turns out to be more common
+         * it turns out to be more common.
          */
         inline static bool IS_NULLED_OR_BLANK_KIND(REBYTE k)
             { return k == REB_MAX_NULLED or k == REB_BLANK; }
@@ -191,20 +194,18 @@ action      action      +       +       +       -
 word        word        *       *       +       word
 set-word    word        *       *       +       word
 get-word    word        *       *       +       word
-lit-word    word        *       *       +       word
 refinement  word        *       *       +       word
 issue       word        *       *       +       word
 
-; LITERAL! is "bindable", but nulls binding if it contains an unbindable type
+; QUOTED! is "bindable", but nulls binding if it contains an unbindable type
 ;
-literal     literal     +       +       -       literal
+quoted     quoted       +       +       -       quoted
 
 ; ANY-ARRAY!, order matters (and contiguous with ANY-SERIES below matters!)
 ;
 path        array       *       *       *       [series path array]
 set-path    array       *       *       *       [series path array]
 get-path    array       *       *       *       [series path array]
-lit-path    array       *       *       *       [series path array]
 group       array       *       *       *       [series array]
 ; -- start of inert bindable types (that aren't refinement! and issue!)
 block       array       *       *       *       [series array]
@@ -267,7 +268,6 @@ library     library     -       +       +       -
 blank       unit        +       -       +       -
 ; end of inert unbindable types
 bar         unit        -       -       +       -
-lit-bar     unit        -       -       +       -
 void        unit        -       -       +       -
 
 ; Note that the "null?" state has no associated NULL! datatype.  Internally

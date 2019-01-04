@@ -491,7 +491,7 @@ void Collect_Context_Keys(
 static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL *head)
 {
     for (; NOT_END(head); ++head) {
-        const REBCEL *cell = VAL_UNESCAPED(head); // cell of `x` from `\\\x`
+        const REBCEL *cell = VAL_UNESCAPED(head); // cell of X from '''X
         enum Reb_Kind kind = CELL_KIND(cell);
 
         if (ANY_WORD_KIND(kind)) {
@@ -663,7 +663,7 @@ REBARR *Collect_Unique_Words_Managed(
     if (not IS_NULLED(ignore)) {
         RELVAL *check = VAL_ARRAY_AT(ignore);
         for (; NOT_END(check); ++check) {
-            if (not ANY_WORD(check))
+            if (not ANY_WORD_KIND(CELL_KIND(VAL_UNESCAPED(check))))
                 fail (Error_Invalid_Core(check, VAL_SPECIFIER(ignore)));
         }
     }
@@ -684,8 +684,8 @@ REBARR *Collect_Unique_Words_Managed(
     if (IS_BLOCK(ignore)) {
         RELVAL *item = VAL_ARRAY_AT(ignore);
         for (; NOT_END(item); ++item) {
-            assert(ANY_WORD(item)); // pre-pass checked this
-            REBSTR *canon = VAL_WORD_CANON(item);
+            const REBCEL *unescaped = VAL_UNESCAPED(item); // allow 'X, ''#Y
+            REBSTR *canon = VAL_WORD_CANON(unescaped);
 
             // A block may have duplicate words in it (this situation could
             // arise when `function [/test /test] []` calls COLLECT-WORDS
@@ -722,8 +722,8 @@ REBARR *Collect_Unique_Words_Managed(
     if (IS_BLOCK(ignore)) {
         RELVAL *item = VAL_ARRAY_AT(ignore);
         for (; NOT_END(item); ++item) {
-            assert(ANY_WORD(item));
-            REBSTR *canon = VAL_WORD_CANON(item);
+            const REBCEL *unescaped = VAL_UNESCAPED(item); // allow 'X, ''#Y
+            REBSTR *canon = VAL_WORD_CANON(unescaped);
 
         #if !defined(NDEBUG)
             REBINT i = Get_Binder_Index_Else_0(&cl->binder, canon);

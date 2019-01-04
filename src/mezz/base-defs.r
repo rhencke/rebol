@@ -27,7 +27,6 @@ REBOL [
 c-break-debug: :c-debug-break ;-- easy to mix up
 
 lit: :literal ;-- because it's shorter
-quote: :literal ;-- QUOTE is likely slated to become UNEVAL synonym
 
 ??: ;; shorthand form to use in debug sessions, not intended to be committed
 probe: func [
@@ -49,7 +48,7 @@ probe: func [
 
 ; Convenience helper for making enfixed functions
 
-set/enfix quote enfix: func [
+set/enfix lit enfix: func [
     "Convenience version of SET/ENFIX, e.g `+: enfix :add`"
     return: <void> "`x: y: enfix :z` wouldn't enfix x, so returns void"
     :target [set-word! set-path!]
@@ -197,7 +196,6 @@ eval func [
     void?:
     blank?:
     bar?:
-    lit-bar?:
     logic?:
     integer?:
     decimal?:
@@ -211,7 +209,6 @@ eval func [
     word?:
     set-word?:
     get-word?:
-    lit-word?:
     refinement?:
     issue?:
     binary?:
@@ -223,13 +220,11 @@ eval func [
     bitset?:
     image?:
     vector?:
-    literal?:
     block?:
     group?:
     path?:
     set-path?:
     get-path?:
-    lit-path?:
     map?:
     datatype?:
     typeset?:
@@ -257,6 +252,24 @@ eval func [
     any-scalar?:
     any-array?:
 |
+
+
+;; Note: `LIT-WORD!: UNEVAL WORD!` and `LIT-PATH!: UNEVAL PATH!` is actually
+;; set up in %b-init.c.  Also LIT-WORD! and LIT-PATH! are handled specially in
+;; %words.r for bootstrap compatibility as a parse keyword.
+
+lit-word?: func [value [<opt> any-value!]] [
+    type of :value == lit-word! ;; note plain = would not work here
+]
+to-lit-word: func [value [any-value!]] [
+    uneval to word! dequote :value
+]
+lit-path?: func [value [<opt> any-value!]] [
+    type of :value == lit-path! ;; note plain = would not work here
+]
+to-lit-path: func [value [any-value!]] [
+    uneval to path! dequote :value
+]
 
 
 print: func [

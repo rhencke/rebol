@@ -159,10 +159,12 @@ bool Update_Typeset_Bits_Core(
 
     const RELVAL *maybe_word = head;
     for (; NOT_END(maybe_word); ++maybe_word) {
-        const RELVAL *item;
+        REBCNT num_quotes = VAL_NUM_QUOTES(maybe_word);
+        const REBCEL *unescaped = VAL_UNESCAPED(maybe_word);
 
-        if (IS_WORD(maybe_word)) {
-            item = Get_Opt_Var_May_Fail(maybe_word, specifier);
+        const RELVAL *item;
+        if (CELL_KIND(unescaped) == REB_WORD) {
+            item = Get_Opt_Var_May_Fail(unescaped, specifier);
             if (not item)
                 fail (Error_No_Value_Core(maybe_word, specifier));
         }
@@ -201,11 +203,38 @@ bool Update_Typeset_Bits_Core(
             }
         }
         else if (IS_DATATYPE(item)) {
-            assert(VAL_TYPE_KIND(item) != REB_0);
-            TYPE_SET(typeset, VAL_TYPE_KIND(item));
+            if (num_quotes == 0)
+                TYPE_SET(typeset, VAL_TYPE_KIND(item));
+            else {
+                const REBCEL *cell = VAL_UNESCAPED(item);
+                if (num_quotes > 1)
+                   fail ("General type quoting not supported, use QUOTED!");
+
+                if (VAL_TYPE_KIND(cell) == REB_WORD)
+                    TYPE_SET(typeset, REB_TS_QUOTED_WORD);
+                else if (VAL_TYPE_KIND(cell) == REB_PATH)
+                    TYPE_SET(typeset, REB_TS_QUOTED_PATH);
+                else
+                    fail ("WORD!/PATH! quote typechecking only, use QUOTED!");
+            }
         }
         else if (IS_TYPESET(item)) {
+            if (num_quotes != 0)
+                fail ("General typeset quoting not supported, use QUOTED!");
+
             VAL_TYPESET_BITS(typeset) |= VAL_TYPESET_BITS(item);
+        }
+        else if (IS_QUOTED(item)) {
+            const REBCEL *cell = VAL_UNESCAPED(item);
+            if (CELL_KIND(cell) != REB_DATATYPE)
+                fail ("General typeset quoting not supported, use QUOTED!");
+
+            if (VAL_TYPE_KIND(cell) == REB_WORD)
+                TYPE_SET(typeset, REB_TS_QUOTED_WORD);
+            else if (VAL_TYPE_KIND(cell) == REB_PATH)
+                TYPE_SET(typeset, REB_TS_QUOTED_PATH);
+            else
+                fail ("WORD!/PATH! quote typechecking only, use QUOTED!");
         }
         else
             fail (Error_Invalid_Core(item, specifier));

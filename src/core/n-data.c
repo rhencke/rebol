@@ -109,7 +109,6 @@ REBNATIVE(as_pair)
         IS_INTEGER(x) ? VAL_INT64(x) : VAL_DECIMAL(x),
         IS_INTEGER(y) ? VAL_INT64(y) : VAL_DECIMAL(y)
     );
-;
 }
 
 
@@ -118,9 +117,9 @@ REBNATIVE(as_pair)
 //
 //  "Binds words or words in arrays to the specified context."
 //
-//      value [action! any-array! any-word! literal!]
+//      value [action! any-array! any-word! quoted!]
 //          "Value whose binding is to be set (modified) (returned)"
-//      target [any-word! any-context!]
+//      target [any-word! 'word! any-context!]
 //          "The target context or a word whose binding should be the target"
 //      /copy
 //          "Bind and return a deep copy of a block, don't modify original"
@@ -137,9 +136,14 @@ REBNATIVE(bind)
     INCLUDE_PARAMS_OF_BIND;
 
     REBVAL *v = ARG(value);
-    REBCNT num_quotes = Dequotify(v); // if LITERAL!, transform to be unquoted
+    REBCNT num_quotes = Dequotify(v); // if QUOTED!, transform to be unquoted
 
     REBVAL *target = ARG(target);
+    if (IS_QUOTED(target)) {
+        Dequotify(target);
+        if (not IS_WORD(target))
+            fail ("Only quoted as BIND target is WORD! (replaces ANY-WORD!)");
+    }
 
     REBCNT flags = REF(only) ? BIND_0 : BIND_DEEP;
 
@@ -202,7 +206,7 @@ REBNATIVE(bind)
     }
 
     if (not ANY_ARRAY(v))
-        fail (Error_Invalid(v)); // LITERAL! could have been any type
+        fail (Error_Invalid(v)); // QUOTED! could have been any type
 
     RELVAL *at;
     if (REF(copy)) {
@@ -233,6 +237,92 @@ REBNATIVE(bind)
 
     return Quotify(D_OUT, num_quotes);
 }
+
+
+//
+//  in: native [
+//
+//  "Returns the word or block bound into the given context."
+//
+//      return: [<opt> any-word! 'word! block! group!]
+//      context [any-context! block!]
+//      word [any-word! 'word! block! group!] "(modified if series)"
+//  ]
+//
+REBNATIVE(in)
+//
+// !!! Currently this is just the same as BIND, with the arguments reordered.
+// That may change... IN is proposed to do virtual biding.
+//
+// !!! The argument names here are bad... not necessarily a context and not
+// necessarily a word.  `code` or `source` to be bound in a `target`, perhaps?
+{
+    INCLUDE_PARAMS_OF_IN;
+
+    REBVAL *val = ARG(context); // object, error, port, block
+    REBVAL *word = ARG(word);
+
+    REBCNT num_quotes = VAL_NUM_QUOTES(word);
+    Dequotify(word);
+
+    DECLARE_LOCAL (safe);
+
+    if (IS_BLOCK(val) || IS_GROUP(val)) {
+        if (IS_WORD(word)) {
+            const REBVAL *v;
+            REBCNT i;
+            for (i = VAL_INDEX(val); i < VAL_LEN_HEAD(val); i++) {
+                Get_Simple_Value_Into(
+                    safe,
+                    VAL_ARRAY_AT_HEAD(val, i),
+                    VAL_SPECIFIER(val)
+                );
+
+                v = safe;
+                if (IS_OBJECT(v)) {
+                    REBCTX *context = VAL_CONTEXT(v);
+                    REBCNT index = Find_Canon_In_Context(
+                        context, VAL_WORD_CANON(word), false
+                    );
+                    if (index != 0)
+                        return Init_Any_Word_Bound(
+                            D_OUT,
+                            VAL_TYPE(word),
+                            VAL_WORD_SPELLING(word),
+                            context,
+                            index
+                        );
+                }
+            }
+            return nullptr;
+        }
+
+        fail (Error_Invalid(word));
+    }
+
+    REBCTX *context = VAL_CONTEXT(val);
+
+    // Special form: IN object block
+    if (IS_BLOCK(word) or IS_GROUP(word)) {
+        Bind_Values_Deep(VAL_ARRAY_HEAD(word), context);
+        Quotify(word, num_quotes);
+        RETURN (word);
+    }
+
+    REBCNT index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), false);
+    if (index == 0)
+        return nullptr;
+
+    Init_Any_Word_Bound(
+        D_OUT,
+        VAL_TYPE(word),
+        VAL_WORD_SPELLING(word),
+        context,
+        index
+    );
+    return Quotify(D_OUT, num_quotes);
+}
+
 
 
 //
@@ -297,7 +387,6 @@ bool Did_Get_Binding_Of(REBVAL *out, const REBVAL *v)
     case REB_WORD:
     case REB_SET_WORD:
     case REB_GET_WORD:
-    case REB_LIT_WORD:
     case REB_REFINEMENT:
     case REB_ISSUE: {
         if (IS_WORD_UNBOUND(v))
@@ -495,7 +584,7 @@ inline static void Get_Opt_Polymorphic_May_Fail(
 //
 //      return: [<opt> any-value!]
 //      source "Word or path to get, or block of words or paths"
-//          [<blank> any-word! any-path! block! literal!]
+//          [<blank> any-word! any-path! block! quoted!]
 //      /try "Return blank for variables that are unset" ;-- Is this good?
 //      /hard "Do not evaluate GROUP!s in PATH! (assume pre-COMPOSE'd)"
 //  ]
@@ -611,7 +700,7 @@ inline static void Set_Opt_Polymorphic_May_Fail(
 //
 //      return: [<opt> any-value!]
 //          {Will be the values set to, or void if any set values are void}
-//      target [any-word! any-path! block! literal!]
+//      target [any-word! any-path! block! quoted!]
 //          {Word or path, or block of words and paths}
 //      value [<opt> any-value!]
 //          "Value or block of values"
@@ -748,83 +837,6 @@ REBNATIVE(opt)
         return Init_Void(D_OUT);
 
     RETURN (ARG(optional));
-}
-
-
-//
-//  in: native [
-//
-//  "Returns the word or block bound into the given context."
-//
-//      return: [<opt> any-word! block! group!]
-//      context [any-context! block!]
-//      word [any-word! block! group!] "(modified if series)"
-//  ]
-//
-REBNATIVE(in)
-//
-// !!! The argument names here are bad... not necessarily a context and not
-// necessarily a word.  `code` or `source` to be bound in a `target`, perhaps?
-{
-    INCLUDE_PARAMS_OF_IN;
-
-    REBVAL *val = ARG(context); // object, error, port, block
-    REBVAL *word = ARG(word);
-
-    DECLARE_LOCAL (safe);
-
-    if (IS_BLOCK(val) || IS_GROUP(val)) {
-        if (IS_WORD(word)) {
-            const REBVAL *v;
-            REBCNT i;
-            for (i = VAL_INDEX(val); i < VAL_LEN_HEAD(val); i++) {
-                Get_Simple_Value_Into(
-                    safe,
-                    VAL_ARRAY_AT_HEAD(val, i),
-                    VAL_SPECIFIER(val)
-                );
-
-                v = safe;
-                if (IS_OBJECT(v)) {
-                    REBCTX *context = VAL_CONTEXT(v);
-                    REBCNT index = Find_Canon_In_Context(
-                        context, VAL_WORD_CANON(word), false
-                    );
-                    if (index != 0)
-                        return Init_Any_Word_Bound(
-                            D_OUT,
-                            VAL_TYPE(word),
-                            VAL_WORD_SPELLING(word),
-                            context,
-                            index
-                        );
-                }
-            }
-            return nullptr;
-        }
-
-        fail (Error_Invalid(word));
-    }
-
-    REBCTX *context = VAL_CONTEXT(val);
-
-    // Special form: IN object block
-    if (IS_BLOCK(word) or IS_GROUP(word)) {
-        Bind_Values_Deep(VAL_ARRAY_HEAD(word), context);
-        RETURN (word);
-    }
-
-    REBCNT index = Find_Canon_In_Context(context, VAL_WORD_CANON(word), false);
-    if (index == 0)
-        return nullptr;
-
-    return Init_Any_Word_Bound(
-        D_OUT,
-        VAL_TYPE(word),
-        VAL_WORD_SPELLING(word),
-        context,
-        index
-    );
 }
 
 
@@ -1059,9 +1071,9 @@ REBNATIVE(free_q)
 //
 //  {Aliases underlying data of one series to act as another of same class}
 //
-//      return: [<opt> any-series! any-word!]
-//      type [datatype!]
-//      value [<blank> any-series! any-word!]
+//      return: [<opt> any-series! any-word! quoted!]
+//      type [datatype! quoted!]
+//      value [<blank> any-series! any-word! quoted!]
 //  ]
 //
 REBNATIVE(as)
@@ -1069,28 +1081,37 @@ REBNATIVE(as)
     INCLUDE_PARAMS_OF_AS;
 
     REBVAL *v = ARG(value);
-    enum Reb_Kind new_kind = VAL_TYPE_KIND(ARG(type));
+    Dequotify(v); // number of incoming quotes not relevant
+    if (not ANY_SERIES(v) and not ANY_WORD(v))
+        fail (Error_Invalid(v));
+
+    REBVAL *t = ARG(type);
+    REBCNT quotes = VAL_NUM_QUOTES(t); // number of quotes on type *do* matter
+    Dequotify(t);
+    if (not IS_DATATYPE(t))
+        fail (Error_Invalid(t));
+
+    enum Reb_Kind new_kind = VAL_TYPE_KIND(t);
 
     switch (new_kind) {
-    case REB_BLOCK:
-    case REB_GROUP:
-    case REB_PATH:
-    case REB_LIT_PATH:
-    case REB_GET_PATH:
+      case REB_BLOCK:
+      case REB_GROUP:
+      case REB_PATH:
+      case REB_GET_PATH:
         if (new_kind == VAL_TYPE(v))
-            RETURN (v); // no-op
+            RETURN (Quotify(v, quotes)); // just may change quotes
 
         if (not ANY_ARRAY(v))
             goto bad_cast;
         break;
 
-    case REB_TEXT:
-    case REB_TAG:
-    case REB_FILE:
-    case REB_URL:
-    case REB_EMAIL: {
+      case REB_TEXT:
+      case REB_TAG:
+      case REB_FILE:
+      case REB_URL:
+      case REB_EMAIL: {
         if (new_kind == VAL_TYPE(v))
-            RETURN (v); // no-op
+            RETURN (Quotify(v, quotes)); // just may change quotes
 
         // !!! Until UTF-8 Everywhere, turning ANY-WORD! into an ANY-STRING!
         // means it has to be UTF-8 decoded into REBUNI (UCS-2).  We do that
@@ -1106,7 +1127,8 @@ REBNATIVE(as)
             );
             SET_SER_INFO(string, SERIES_INFO_FROZEN);
             return Inherit_Const(
-                Init_Any_Series(D_OUT, new_kind, string), v
+                Quotify(Init_Any_Series(D_OUT, new_kind, string), quotes),
+                v
             );
         }
 
@@ -1130,7 +1152,8 @@ REBNATIVE(as)
                 Decay_Series(VAL_SERIES(v));
             }
             return Inherit_Const(
-                Init_Any_Series(D_OUT, new_kind, string), v
+                Quotify(Init_Any_Series(D_OUT, new_kind, string), quotes),
+                v
             );
         }
 
@@ -1138,14 +1161,13 @@ REBNATIVE(as)
             goto bad_cast;
         break; }
 
-    case REB_WORD:
-    case REB_GET_WORD:
-    case REB_SET_WORD:
-    case REB_LIT_WORD:
-    case REB_ISSUE:
-    case REB_REFINEMENT: {
+      case REB_WORD:
+      case REB_GET_WORD:
+      case REB_SET_WORD:
+      case REB_ISSUE:
+      case REB_REFINEMENT: {
         if (new_kind == VAL_TYPE(v))
-            RETURN (v); // no-op
+            RETURN (Quotify(v, quotes)); // just may change quotes
 
         // !!! Until UTF-8 Everywhere, turning ANY-STRING! into an ANY-WORD!
         // means you have to have an interning of it.
@@ -1163,11 +1185,14 @@ REBNATIVE(as)
             REBSER *temp = Temp_UTF8_At_Managed(
                 &offset, &utf8_size, v, VAL_LEN_AT(v)
             );
-            return Inherit_Const(Init_Any_Word(
-                D_OUT,
-                new_kind,
-                Intern_UTF8_Managed(BIN_AT(temp, offset), utf8_size)
-            ), v);
+            return Inherit_Const(
+                Quotify(Init_Any_Word(
+                    D_OUT,
+                    new_kind,
+                    Intern_UTF8_Managed(BIN_AT(temp, offset), utf8_size)
+                ), quotes),
+                v
+            );
         }
 
         // !!! Since pre-UTF8-everywhere ANY-WORD! was saved in UTF-8 it would
@@ -1180,20 +1205,23 @@ REBNATIVE(as)
         //
         if (IS_BINARY(v)) {
             Freeze_Sequence(VAL_SERIES(v));
-            return Inherit_Const(Init_Any_Word(
-                D_OUT,
-                new_kind,
-                Intern_UTF8_Managed(VAL_BIN_AT(v), VAL_LEN_AT(v))
-            ), v);
+            return Inherit_Const(
+                Quotify(Init_Any_Word(
+                    D_OUT,
+                    new_kind,
+                    Intern_UTF8_Managed(VAL_BIN_AT(v), VAL_LEN_AT(v))
+                ), quotes),
+                v
+            );
         }
 
         if (not ANY_WORD(v))
             goto bad_cast;
         break; }
 
-    case REB_BINARY: {
+      case REB_BINARY: {
         if (new_kind == VAL_TYPE(v))
-            RETURN (v); // no-op
+            RETURN (Quotify(v, quotes)); // just may change quotes
 
         // !!! A locked BINARY! shouldn't (?) complain if it exposes a
         // REBSTR holding UTF-8 data, even prior to the UTF-8 conversion.
@@ -1201,7 +1229,8 @@ REBNATIVE(as)
         if (ANY_WORD(v)) {
             assert(Is_Value_Frozen(v));
             return Inherit_Const(
-                Init_Binary(D_OUT, VAL_WORD_SPELLING(v)), v
+                Quotify(Init_Binary(D_OUT, VAL_WORD_SPELLING(v)), quotes),
+                v
             );
         }
 
@@ -1217,20 +1246,23 @@ REBNATIVE(as)
             else
                 Decay_Series(VAL_SERIES(v));
 
-            return Inherit_Const(Init_Binary(D_OUT, bin), v);
+            return Inherit_Const(
+                Quotify(Init_Binary(D_OUT, bin), quotes),
+                v
+            );
         }
 
         fail (v); }
 
-    bad_cast:;
-    default:
+      bad_cast:;
+      default:
         // all applicable types should be handled above
         fail (Error_Bad_Cast_Raw(v, ARG(type)));
     }
 
     Move_Value(D_OUT, v);
     mutable_KIND_BYTE(D_OUT) = new_kind;
-    return Trust_Const(D_OUT);
+    return Trust_Const(Quotify(D_OUT, quotes));
 }
 
 

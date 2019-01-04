@@ -251,7 +251,8 @@ REBNATIVE(console)
 
     REBVAL *code;
     if (REF(provoke)) {
-        code = rebRun("quote", ARG(provocation), rebEND);
+        code = rebArg("provocation", rebEND); // fetch as an API handle
+        UNUSED(ARG(provocation));
         goto provoked;
     }
     else
@@ -270,10 +271,10 @@ REBNATIVE(console)
         //
         REBVAL *trapped; // goto crosses initialization
         trapped = rebRun(
-            "lib/entrap [",
+            "entrap [",
                 "ext-console-impl", // action! that takes 2 args, run it
-                rebUneval(code), // group!/block! executed prior (or blank!)
-                rebUneval(result), // prior result in a block, or error/null
+                rebQ(code), // group!/block! executed prior (or blank!)
+                rebQ(result), // prior result in a block, or error/null
                 rebR(rebLogic(REF(resumable))),
             "]", rebEND
         );
@@ -281,7 +282,7 @@ REBNATIVE(console)
         rebRelease(code);
         rebRelease(result);
 
-        if (rebDid("lib/error?", trapped, rebEND)) {
+        if (rebDid("error?", trapped, rebEND)) {
             //
             // If the HOST-CONSOLE function has any of its own implementation
             // that could raise an error (or act as an uncaught throw) it
@@ -338,8 +339,6 @@ REBNATIVE(console)
         // reason to fall back to the default skin).
         //
         Enable_Ctrl_C();
-        if (not is_console_instruction)
-            assert(GET_VAL_FLAG(code, VALUE_FLAG_CONST));
         result = rebRescue(cast(REBDNG*, &Run_Sandboxed_Code), code);
         Disable_Ctrl_C();
 

@@ -636,6 +636,7 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
     }
     else {
         enum Reb_Kind kind;
+        bool quoted = false;
         switch ((pclass = VAL_PARAM_CLASS(param))) {
         case PARAM_CLASS_NORMAL:
             kind = REB_WORD;
@@ -650,7 +651,8 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
             break;
 
         case PARAM_CLASS_SOFT_QUOTE:
-            kind = REB_LIT_WORD;
+            kind = REB_WORD;
+            quoted = true;
             break;
 
         default:
@@ -659,6 +661,8 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
 
         DECLARE_LOCAL (param_word);
         Init_Any_Word(param_word, kind, VAL_PARAM_SPELLING(param));
+        if (quoted)
+            Quotify(param_word, 1);
         Mold_Value(mo, param_word);
     }
 

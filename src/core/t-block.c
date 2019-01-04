@@ -703,7 +703,7 @@ RELVAL *Pick_Block(REBVAL *out, const REBVAL *block, const REBVAL *picker)
 //
 void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    // Routine may be called on value that reports REB_LITERAL, even if it
+    // Routine may be called on value that reports REB_QUOTED, even if it
     // has no additional payload and is aliasing the cell itself.  Checking
     // the type could be avoided if each type had its own dispatcher, but
     // this routine seems to need to be generic.
@@ -758,13 +758,8 @@ void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
             sep = "/";
             break;
 
-          case REB_LIT_PATH: // !!! will be deprecated with backslash literals
-            Append_Utf8_Codepoint(mo->series, '\'');
-            goto path_or_set_path;
-
           case REB_PATH:
           case REB_SET_PATH:
-          path_or_set_path:
             sep = "/";
             break;
 

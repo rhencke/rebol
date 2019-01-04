@@ -964,7 +964,7 @@ acquisition_loop:
         if (not p) { // libRebol representation of <opt>/NULL
 
             if (not (ss->opts & SCAN_FLAG_NULLEDS_LEGAL))
-                fail ("can't splice null in ANY-ARRAY!...use rebUneval()");
+                fail ("can't splice null in ANY-ARRAY!...use rebQ()");
 
             DS_PUSH_TRASH;
             Init_Nulled(DS_TOP); // convert to cell void for evaluator
@@ -1010,7 +1010,7 @@ acquisition_loop:
 
         case DETECTED_AS_SERIES: {
             //
-            // An "instruction", currently just rebEval() and rebUneval().
+            // An "instruction", currently just rebEval() and rebQ().
 
             REBARR *instruction = cast(REBARR*, c_cast(void*, p));
             REBVAL *single = KNOWN(ARR_SINGLE(instruction));
@@ -1023,7 +1023,7 @@ acquisition_loop:
                 Move_Value(DS_TOP, single);
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
             }
-            else { // rebUneval()
+            else { // rebQ()
                 assert(VAL_NUM_QUOTES(single) > 0);
 
                 DS_PUSH_TRASH;
@@ -1282,13 +1282,6 @@ acquisition_loop:
                 ++cp;
             ss->end = cp;
             ss->token = TOKEN_APOSTROPHE;
-            return;
-
-        case LEX_SPECIAL_BACKSLASH: // in Ren-C used for LITERAL!
-            while (*cp == '\\')
-                ++cp;
-            ss->end = cp;
-            ss->token = TOKEN_BACKSLASH;
             return;
 
         case LEX_SPECIAL_COMMA:         /* ,123 */
@@ -1882,7 +1875,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
     if (just_once)
         ss->opts &= ~SCAN_FLAG_NEXT; // e.g. recursion loads one entire BLOCK!
 
-    REBINT lit_depth = 0; // negative signals it was an apostrophe lit
+    REBCNT lit_depth = 0;
 
   loop:
     while (
@@ -1890,8 +1883,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
         Locate_Token_May_Push_Mold(mo, ss),
         (ss->token != TOKEN_END)
     ){
-        assert(ss->begin != NULL and ss->end != NULL);
-        assert(ss->begin < ss->end);
+        assert(ss->begin and ss->end and ss->begin < ss->end);
 
         const REBYTE *bp = ss->begin;
         const REBYTE *ep = ss->end;
@@ -1964,24 +1956,20 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
                 fail (Error_Syntax(ss));
             break;
 
-        case TOKEN_APOSTROPHE:
-        case TOKEN_BACKSLASH: {
-            if (lit_depth != 0) { // e.g. `\ \`, nothing seen since last one
+        case TOKEN_APOSTROPHE: {
+            if (lit_depth != 0) { // e.g. `' '`, nothing seen since last one
                 DS_PUSH_TRASH;
-                Quotify_R2(Init_Nulled(DS_TOP), lit_depth);
+                Quotify(Init_Nulled(DS_TOP), lit_depth);
             }
 
+            assert(ss->end > bp);
             lit_depth = ss->end - bp;
-            assert(lit_depth >= 1);
-
-            if (ss->token == TOKEN_APOSTROPHE)
-                lit_depth = -lit_depth; // signal preference for "old style"
 
             if (not ANY_CR_LF_END(*ss->begin)) // more to come...(maybe)
                 goto loop; // so wrap next value
 
             DS_PUSH_TRASH;
-            Quotify_R2(Init_Nulled(DS_TOP), lit_depth);
+            Quotify(Init_Nulled(DS_TOP), lit_depth);
             lit_depth = 0;
             goto loop; } // wrap next value
 
@@ -2396,10 +2384,10 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
         if (lit_depth != 0) {
             //
-            // Transform the topmost value on the stack into a LITERAL!, to
-            // account for the `\\\` that was preceding it.
+            // Transform the topmost value on the stack into a QUOTED!, to
+            // account for the ''' that was preceding it.
             //
-            Quotify_R2(DS_TOP, lit_depth);
+            Quotify(DS_TOP, lit_depth);
             lit_depth = 0;
         }
 
@@ -2448,7 +2436,7 @@ REBVAL *Scan_To_Stack(SCAN_STATE *ss) {
 
     if (lit_depth != 0) {
         DS_PUSH_TRASH;
-        Quotify_R2(Init_Nulled(DS_TOP), lit_depth);
+        Quotify(Init_Nulled(DS_TOP), lit_depth);
     }
 
     // Note: ss->newline_pending may be true; used for ARRAY_FLAG_TAIL_NEWLINE

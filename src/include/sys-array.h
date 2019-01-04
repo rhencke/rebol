@@ -523,8 +523,8 @@ inline static RELVAL *VAL_ARRAY_TAIL(const RELVAL *v) {
 //
 //     [a b c d/e/f] -- append copy [a b c] 'd/e/f
 //      a/b/c/d/e/f  -- append copy 'a/b/c [d e f]
-//     (a b c d/e/f) -- append copy quote (a b c) 'd/e/f
-//      a/b/c/d/e/f  -- append copy 'a/b/c quote (d e f)
+//     (a b c d/e/f) -- append copy '(a b c) 'd/e/f
+//      a/b/c/d/e/f  -- append copy 'a/b/c '(d e f)
 //      a/b/c/d/e/f  -- append copy 'a/b/c 'd/e/f
 //
 // This rule influences the behavior of TO conversions as well:
@@ -545,9 +545,11 @@ inline static bool Splices_Into_Type_Without_Only(
         fail ("VOID! cannot be put into arrays without using /ONLY");
 
     assert(ANY_ARRAY_KIND(array_kind));
-    return IS_GROUP(arg)
-        or IS_BLOCK(arg)
-        or (ANY_PATH(arg) and ANY_PATH_KIND(array_kind));
+
+    enum Reb_Kind arg_kind = CELL_KIND(VAL_UNESCAPED(arg));
+    return arg_kind == REB_GROUP
+        or arg_kind == REB_BLOCK
+        or (ANY_PATH_KIND(arg_kind) and ANY_PATH_KIND(array_kind));
 }
 
 

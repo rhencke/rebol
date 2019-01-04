@@ -209,7 +209,7 @@
 // An additional trick is that while there are only up to 64 fundamental types
 // in the system (including END), higher values in the byte are used to encode
 // escaping levels.  Up to 3 encoding levels can be in the cell itself, with
-// additional levels achieved with REB_LITERAL and pointing to another cell.
+// additional levels achieved with REB_QUOTED and pointing to another cell.
 //
 
 #define FLAG_KIND_BYTE(kind) \
@@ -218,11 +218,11 @@
 #define KIND_BYTE_UNCHECKED(v) \
     SECOND_BYTE((v)->header)
 
-#if !defined(NDEBUG)
+#if defined(NDEBUG)
     #define KIND_BYTE KIND_BYTE_UNCHECKED
 #else
     inline static REBYTE KIND_BYTE_Debug(
-        const RELVAL *v,
+        const REBCEL *v,
         const char *file,
         int line
     ){
@@ -235,13 +235,23 @@
 
         if (
             (v->header.bits & (
-                NODE_FLAG_CELL
+                NODE_FLAG_NODE
+                | NODE_FLAG_CELL
                 | NODE_FLAG_FREE
                 | VALUE_FLAG_FALSEY // all the "bad" types are also falsey
-            )) == NODE_FLAG_CELL
+            )) == (NODE_FLAG_CELL | NODE_FLAG_NODE)
         ){
-            return KIND_BYTE_UNCHECKED(v->header); // majority return here
+            return KIND_BYTE_UNCHECKED(v); // majority return here
         }
+
+        // Non-cells are allowed to signal REB_END; see Init_Endlike_Header.
+        // (We should not be seeing any rebEND signals here, because we have
+        // a REBVAL*, and rebEND is a 2-byte character string that can be
+        // at any alignment...not necessarily that of a Reb_Header union!)
+        //
+        if (KIND_BYTE_UNCHECKED(v) == REB_0_END)
+            if (v->header.bits & NODE_FLAG_NODE)
+                return REB_0_END;
 
         // Could be a LOGIC! false, blank, or NULL bit pattern in bad cell
         //
@@ -309,11 +319,13 @@
     #endif
 #endif
 
+inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
+
 
 //=//// VALUE TYPE (always REB_XXX <= REB_MAX) ////////////////////////////=//
 //
 // When asking about a value's "type", you want to see something like a
-// double-quoted WORD! as a LITERAL! value...despite the kind byte being
+// double-quoted WORD! as a QUOTED! value...despite the kind byte being
 // REB_WORD + REB_64 + REB_64.  Use CELL_KIND() if you wish to know that the
 // cell pointer you pass in is carrying a word payload, it does a modulus.
 //
@@ -321,15 +333,15 @@
 // or garbage, or REB_0_END (which should be checked separately with IS_END())
 //
 
-#if !defined(NDEBUG)
+#if defined(NDEBUG)
     inline static enum Reb_Kind VAL_TYPE(const RELVAL *v) {
         if (KIND_BYTE(v) >= REB_64)
-            return REB_LITERAL;
+            return REB_QUOTED;
         return cast(enum Reb_Kind, KIND_BYTE(v));
     }
 #else
     inline static enum Reb_Kind VAL_TYPE_Debug(
-        const RELVAL *v
+        const RELVAL *v,
         const char *file,
         int line
     ){
@@ -347,7 +359,7 @@
         }
 
         if (kind_byte >= REB_64)
-            return REB_LITERAL;
+            return REB_QUOTED;
         return cast(enum Reb_Kind, kind_byte);
     }
 
@@ -637,7 +649,7 @@ inline static void Prep_Non_Stack_Cell_Core(
 #define CELL_MASK_STACK \
     (NODE_FLAG_NODE | NODE_FLAG_CELL | CELL_FLAG_STACK)
 
-inline static void Prep_Stack_Cell_Core(
+inline static RELVAL *Prep_Stack_Cell_Core(
     RELVAL *c
 
   #if defined(DEBUG_TRACK_CELLS)
@@ -655,6 +667,7 @@ inline static void Prep_Stack_Cell_Core(
     c->header.bits = CELL_MASK_STACK | FLAG_KIND_BYTE(REB_0);
   #endif
     TRACK_CELL_IF_DEBUG(cast(RELVAL*, c), file, line);
+    return c;
 }
 
 #if defined(DEBUG_TRACK_CELLS)
@@ -702,7 +715,7 @@ inline static void Prep_Stack_Cell_Core(
 
     inline static bool IS_TRASH_DEBUG(const RELVAL *v) {
         assert(v->header.bits & NODE_FLAG_CELL);
-        return KIND_BYTE(v) == REB_T_TRASH;
+        return KIND_BYTE_UNCHECKED(v) == REB_T_TRASH;
     }
 #else
     #define TRASH_CELL_IF_DEBUG(v) \
@@ -992,9 +1005,6 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
 #define Init_Bar(out) \
     RESET_CELL((out), REB_BAR);
 
-#define Init_Lit_Bar(out) \
-    RESET_CELL((out), REB_LIT_BAR);
-
 
 //=////////////////////////////////////////////////////////////////////////=//
 //
@@ -1047,12 +1057,11 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
     #define Init_Unreadable_Blank(out) \
         Init_Unreadable_Blank_Debug((out), __FILE__, __LINE__)
 
-    inline static bool IS_BLANK_RAW(const RELVAL *v) {
-        return KIND_BYTE(v) == REB_BLANK;
-    }
+    #define IS_BLANK_RAW(v) \
+        (KIND_BYTE_UNCHECKED(v) == REB_BLANK)
 
     inline static bool IS_UNREADABLE_DEBUG(const RELVAL *v) {
-        if (KIND_BYTE(v) != REB_BLANK)
+        if (KIND_BYTE_UNCHECKED(v) != REB_BLANK)
             return false;
         return v->extra.tick < 0;
     }
@@ -1095,12 +1104,12 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
 #define TRUE_VALUE \
     c_cast(const REBVAL*, &PG_True_Value[0])
 
-inline static bool IS_TRUTHY(const RELVAL *v) {
+inline static bool IS_TRUTHY(const REBCEL *v) {
     if (KIND_BYTE(v) >= REB_64) {
         //
-        // LITERAL! at an escape level low enough to reuse cell.  So if that
+        // QUOTED! at an escape level low enough to reuse cell.  So if that
         // cell happens to be false/blank/nulled, VALUE_FLAG_FALSEY will
-        // be set, but don't heed it! `if quote \_ [-- "this is truthy"]`
+        // be set, but don't heed it! `if lit '_ [-- "this is truthy"]`
         //
         return true;
     }
@@ -1653,7 +1662,7 @@ inline static void Move_Value_Header(RELVAL *out, const RELVAL *v)
 {
     assert(out != v); // usually a sign of a mistake; not worth supporting
     assert(NOT_END(v)); // SET_END() is the only way to write an end
-    assert(KIND_BYTE(v) % REB_64 <= REB_MAX_NULLED); // don't move pseudotypes
+    assert(CELL_KIND_UNCHECKED(v) <= REB_MAX_NULLED); // no pseudotype moves
 
     ASSERT_CELL_WRITABLE_EVIL_MACRO(out, __FILE__, __LINE__);
 
@@ -1686,7 +1695,7 @@ inline static REBVAL *Move_Value(RELVAL *out, const REBVAL *v)
     // Payloads cannot hold references to stackvars, raw bit transfer ok.
     //
     // Note: must be copied over *before* INIT_BINDING_MAY_MANAGE is called,
-    // so that if it's a REB_LITERAL it can find the literal->cell.
+    // so that if it's a REB_QUOTED it can find the literal->cell.
     //
     out->payload = v->payload;
 

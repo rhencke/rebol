@@ -430,7 +430,7 @@ void Virtual_Bind_Deep_To_New_Context(
         for (; NOT_END(item); ++item) {
             if (IS_WORD(item))
                 rebinding = true;
-            else if (not IS_LIT_WORD(item)) {
+            else if (not IS_QUOTED_WORD(item)) {
                 //
                 // Better to fail here, because if we wait until we're in
                 // the middle of building the context, the managed portion
@@ -532,7 +532,7 @@ void Virtual_Bind_Deep_To_New_Context(
             }
         }
         else {
-            assert(IS_LIT_WORD(item)); // checked previously
+            assert(IS_QUOTED_WORD(item)); // checked previously
 
             // A LIT-WORD! indicates that we wish to use the original binding.
             // So `for-each 'x [1 2 3] [...]` will actually set that x
@@ -548,7 +548,7 @@ void Virtual_Bind_Deep_To_New_Context(
             Init_Typeset(
                 key,
                 TS_VALUE, // !!! Currently not paid attention to
-                VAL_WORD_SPELLING(item)
+                VAL_WORD_SPELLING(VAL_UNESCAPED(item))
             );
             TYPE_SET(key, REB_TS_UNBINDABLE);
             TYPE_SET(key, REB_TS_HIDDEN);

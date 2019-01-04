@@ -43,19 +43,6 @@ void MF_Bar(REB_MOLD *mo, const REBCEL *v, bool form)
 
 
 //
-//  MF_Lit_bar: C
-//
-// !!! Will be deprecated with generic escaping, e.g. `\|`
-//
-void MF_Lit_bar(REB_MOLD *mo, const REBCEL *v, bool form)
-{
-    UNUSED(form); // no distinction between MOLD and FORM
-    UNUSED(v);
-    Append_Unencoded(mo->series, "'|");
-}
-
-
-//
 //  MF_Blank: C
 //
 void MF_Blank(REB_MOLD *mo, const REBCEL *v, bool form)

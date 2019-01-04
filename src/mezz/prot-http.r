@@ -326,7 +326,7 @@ check-response: function [port] [
         ]
         remove/part conn/data d2
         state/state: 'reading-data
-        if quote (txt) <> last body-of :net-log [ ; net-log is in active state
+        if lit (txt) <> last body-of :net-log [ ; net-log is in active state
             print "Dumping Webserver headers and body"
             net-log/S info
             trap [
@@ -745,7 +745,7 @@ sys/make-scheme [
             ]
             port/state/connection: conn: make port! compose [
                 scheme: (
-                    to lit-word! either port/spec/scheme = 'http ['tcp]['tls]
+                    either port/spec/scheme = 'http [lit 'tcp][lit 'tls]
                 )
                 host: port/spec/host
                 port-id: port/spec/port-id

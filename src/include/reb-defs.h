@@ -132,9 +132,9 @@ typedef struct Reb_Node REBNOD;
 //
 // The system uses a trick in which the type byte is bumped by multiples of
 // 64 to indicate up to 3 levels of escaping.  VAL_TYPE() will report these
-// as being REB_LITERAL, but the entire payload for them is in the cell.
+// as being REB_QUOTED, but the entire payload for them is in the cell.
 //
-// Most of the time, routines want to see these as being LITERAL!.  But some
+// Most of the time, routines want to see these as being QUOTED!.  But some
 // lower-level routines (like molding or comparison) want to be able to act
 // on them in-place witout making a copy.  To ensure they see the value for
 // the "type that it is" and use CELL_KIND() and not VAL_TYPE(), this alias

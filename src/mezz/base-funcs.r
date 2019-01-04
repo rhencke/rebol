@@ -76,7 +76,7 @@ maybe: enfix func [
             ; https://github.com/rebol/rebol-issues/issues/2275
             ;
             if null? :optional [return do compose [(as get-path! target)]]
-            do compose [(target) quote ((:optional))]
+            do compose [(target) lit ((:optional))]
         ]
     ]
 ]
@@ -139,7 +139,7 @@ function: func [
         <void> (append new-spec <void>)
     |
         ((either var [[
-            set var: any-word! (
+            set var: match [any-word! 'word!] (
                 append exclusions var ;-- exclude args/refines
                 append new-spec var
             )
@@ -409,7 +409,7 @@ redescribe: function [
             ;
             opt [[set note: text!] (
                 on-demand-meta
-                either equal? param (quote return:) [
+                either equal? param (lit return:) [
                     meta/return-note: all [
                         not equal? note {}
                         copy note
@@ -611,12 +611,12 @@ iterate-skip: redescribe [
 ](
     specialize enclose 'for-skip function [f] [
         if blank? word: f/word [return null]
-        f/word: to lit-word! word ;-- do not create new virtual binding
+        f/word: uneval to word! word ;-- do not create new virtual binding
         saved: f/series: get word
 
         ; !!! https://github.com/rebol/rebol-issues/issues/2331
         comment [
-            trap [set* quote result: do f] then lambda e [
+            trap [set* lit result: do f] then lambda e [
                 set* word saved
                 fail e
             ]

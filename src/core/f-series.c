@@ -386,7 +386,6 @@ chkDecimal:
     case REB_PATH:
     case REB_SET_PATH:
     case REB_GET_PATH:
-    case REB_LIT_PATH:
         return Cmp_Array(s, t, is_case);
 
     case REB_TEXT:
@@ -410,7 +409,6 @@ chkDecimal:
     case REB_WORD:
     case REB_SET_WORD:
     case REB_GET_WORD:
-    case REB_LIT_WORD:
     case REB_REFINEMENT:
     case REB_ISSUE:
         return Compare_Word(s,t,is_case);
