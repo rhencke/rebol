@@ -225,11 +225,9 @@ inline static void Finalize_Arg(
     REBVAL *arg,
     REBVAL *refine
 ){
-    if (IS_END(arg)) {
+    REBYTE kind_byte = KIND_BYTE(arg);
 
-        // This is a legal result for COMMENT in `do [1 + comment "foo"]`.
-        // No different from `do [1 +]`, where Eval_Core_Throws() gives END.
-
+    if (kind_byte == REB_0_END) { // `1 + comment "foo"` => `1 +`, arg is END
         if (not Is_Param_Endable(param))
             fail (Error_No_Arg(f_state, param));
 
@@ -250,7 +248,7 @@ inline static void Finalize_Arg(
         or IS_REFINEMENT(refine) // ensure arg not null
     );
 
-    if (IS_NULLED(arg)) {
+    if (kind_byte == REB_MAX_NULLED) {
         if (IS_REFINEMENT(refine)) {
             //
             // We can only revoke the refinement if this is the 1st
@@ -288,7 +286,7 @@ inline static void Finalize_Arg(
             fail (Error_Bad_Refine_Revoke(param, arg));
     }
 
-    if (IS_BLANK(arg) and TYPE_CHECK(param, REB_TS_NOOP_IF_BLANK)) {
+    if (kind_byte == REB_BLANK and TYPE_CHECK(param, REB_TS_NOOP_IF_BLANK)) {
         SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
         FRM_PHASE_OR_DUMMY(f_state) = PG_Dummy_Action;
         return;

@@ -32,50 +32,33 @@
 
 
 
-static bool Equal_Context(const REBCEL *val, const REBCEL *arg)
+static bool Equal_Context(const REBCEL *v1, const REBCEL *v2)
 {
-    REBCTX *f1;
-    REBCTX *f2;
-    REBVAL *key1;
-    REBVAL *key2;
-    REBVAL *var1;
-    REBVAL *var2;
-
-    // ERROR! and OBJECT! may both be contexts, for instance, but they will
-    // not compare equal just because their keys and fields are equal
-    //
-    if (CELL_KIND(arg) != CELL_KIND(val))
+    if (CELL_KIND(v1) != CELL_KIND(v2)) // e.g. ERROR! won't equal OBJECT!
         return false;
 
-    f1 = VAL_CONTEXT(val);
-    f2 = VAL_CONTEXT(arg);
+    REBCTX *c1 = VAL_CONTEXT(v1);
+    REBCTX *c2 = VAL_CONTEXT(v2);
+    if (c1 == c2)
+        return true; // short-circuit, always equal if same context pointer
 
-    // Short circuit equality: `same?` objects always equal
-    //
-    if (f1 == f2)
-        return true;
-
-    // We can't short circuit on unequal frame lengths alone, because hidden
+    // Note: can't short circuit on unequal frame lengths alone, as hidden
     // fields of objects (notably `self`) do not figure into the `equal?`
     // of their public portions.
 
-    key1 = CTX_KEYS_HEAD(f1);
-    key2 = CTX_KEYS_HEAD(f2);
-    var1 = CTX_VARS_HEAD(f1);
-    var2 = CTX_VARS_HEAD(f2);
+    const REBVAL *key1 = CTX_KEYS_HEAD(c1);
+    const REBVAL *key2 = CTX_KEYS_HEAD(c2);
+    const REBVAL *var1 = CTX_VARS_HEAD(c1);
+    const REBVAL *var2 = CTX_VARS_HEAD(c2);
 
-    // Compare each entry, in order.  This order dependence suggests that
-    // an object made with `make object! [[a b][a: 1 b: 2]]` will not be equal
-    // to `make object! [[b a][b: 1 a: 2]]`.  Although Rebol does not allow
-    // positional picking out of objects, it does allow positional setting
-    // currently (which it likely should not), hence they are functionally
-    // distinct for now.  Yet those two should probably be `equal?`.
+    // Compare each entry, in order.  Skip any hidden fields, field names are
+    // compared case-insensitively.
+    //
+    // !!! The order dependence suggests that `make object! [a: 1 b: 2]` will
+    // not be equal to `make object! [b: 1 a: 2]`.  See #2341
     //
     for (; NOT_END(key1) && NOT_END(key2); key1++, key2++, var1++, var2++) {
-    no_advance:
-        //
-        // Hidden vars shouldn't affect the comparison.
-        //
+      no_advance:
         if (Is_Param_Hidden(key1)) {
             key1++; var1++;
             if (IS_END(key1)) break;
@@ -87,22 +70,11 @@ static bool Equal_Context(const REBCEL *val, const REBCEL *arg)
             goto no_advance;
         }
 
-        // Do ordinary comparison of the typesets
-        //
-        if (Cmp_Value(key1, key2, false) != 0)
+        if (VAL_KEY_CANON(key1) != VAL_KEY_CANON(key2)) // case-insensitive
             return false;
 
-        // The typesets contain a symbol as well which must match for
-        // objects to consider themselves to be equal (but which do not
-        // count in comparison of the typesets)
-        //
-        if (VAL_KEY_CANON(key1) != VAL_KEY_CANON(key2))
-            return false;
-
-        // !!! A comment here said "Use Compare_Modify_Values();"...but it
-        // doesn't... it calls Cmp_Value (?)
-        //
-        if (Cmp_Value(var1, var2, false) != 0)
+        const bool is_case = false;
+        if (Cmp_Value(var1, var2, is_case) != 0) // case-insensitive
             return false;
     }
 

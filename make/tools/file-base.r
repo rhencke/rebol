@@ -153,13 +153,13 @@ core: [
     [t-image.c <no-uninitialized>]
     t-integer.c
     t-library.c
-    t-literal.c
     t-logic.c
     t-map.c
     t-money.c
     t-object.c
     t-pair.c
     t-port.c
+    t-quoted.c
     t-string.c
     t-time.c
     t-tuple.c

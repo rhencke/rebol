@@ -593,7 +593,7 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-typeset.h" // TS_XXX needed for array copying inline functions
 #include "sys-array.h"
 
-#include "sys-literal.h" // requires singular arrays for cell storage
+#include "sys-quoted.h" // requires singular arrays for cell storage
 
 #include "sys-action.h"
 #include "sys-context.h" // needs actions defined for FRAME! contexts

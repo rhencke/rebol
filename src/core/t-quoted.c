@@ -1,5 +1,5 @@
 //
-//  File: %t-literal.c
+//  File: %t-quoted.c
 //  Summary: "QUOTED! datatype that acts as container for ANY-VALUE!"
 //  Section: datatypes
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"

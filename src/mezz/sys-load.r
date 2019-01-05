@@ -420,7 +420,7 @@ do-needs: function [
     {Process the NEEDS block of a program header. Returns unapplied mixins.}
 
     needs "Needs block, header or version"
-        [block! object! tuple! blank!]
+        [block! object! tuple! blank!] ;-- has to handle blank! if in object!
     /no-share "Force module to use its own non-shared global namespace"
     /no-lib "Don't export to the runtime library"
     /no-user "Don't export to the user context (mixins returned)"
@@ -440,7 +440,7 @@ do-needs: function [
     ]
 
     switch type of needs [
-        blank! [return blank]
+        blank! [return blank] ;-- may have come from SELECT, not just arg
 
         tuple! [ ;-- simple version number check for interpreter itself
             case [

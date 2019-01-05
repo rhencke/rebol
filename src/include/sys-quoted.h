@@ -1,6 +1,6 @@
 //
-//  File: %sys-literal.h
-//  Summary: {Definitions for Literal Datatype}
+//  File: %sys-quoted.h
+//  Summary: {Definitions for QUOTED! Datatype}
 //  Project: "Rebol 3 Interpreter and Run-time (Ren-C branch)"
 //  Homepage: https://github.com/metaeducation/ren-c/
 //
@@ -34,9 +34,13 @@
 // as the "lit level" of a value.  Then the byte mod 4 becomes the actual
 // type.  So only an actual REB_QUOTED at "apparent lit-level 0" has its own
 // payload...as a last resort if the level exceeded what the type byte can
-// encode.  This saves on storage and GC load for small levels of quotedness,
-// at the cost of making VAL_TYPE() do an extra comparison to clip all values
-// above 64 to act as REB_QUOTED.
+// encode.
+//
+// This saves on storage and GC load for small levels of quotedness, at the
+// cost of making VAL_TYPE() do an extra comparison to clip all values above
+// 64 to act as REB_QUOTED.  Operations like IS_WORD() are not speed affected,
+// as they do not need to worry about the aliasing and can just test the byte
+// against the unquoted REB_WORD value they are interested in.
 //
 
 inline static REBCNT VAL_QUOTED_DEPTH(const RELVAL *v) {
