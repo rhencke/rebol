@@ -470,26 +470,27 @@ void Set_Location_Of_Error(
 
 
 //
-//  Make_Error_Object_Throws: C
+// MAKE_Error: C
 //
-// Creates an error object from arg and puts it in value.  The arg can be a
-// string or an object body block.  Evaluating the body may throw.
+// Hook for MAKE ERROR! (distinct from MAKE for ANY-CONTEXT!, due to %types.r)
 //
-// This function is called by MAKE ERROR!.  Note that most often
-// system errors from %errors.r are thrown by C code using
-// Make_Error(), but this routine accommodates verification of
-// errors created through user code...which may be mezzanine
-// Rebol itself.  A goal is to not allow any such errors to
-// be formed differently than the C code would have made them,
-// and to cross through the point of R3-Alpha error compatibility,
-// which makes this a rather tortured routine.  However, it
-// maps out the existing landscape so that if it is to be changed
-// then it can be seen exactly what is changing.
+// Note: Most often system errors from %errors.r are thrown by C code using
+// Make_Error(), but this routine accommodates verification of errors created
+// through user code...which may be mezzanine Rebol itself.  A goal is to not
+// allow any such errors to be formed differently than the C code would have
+// made them, and to cross through the point of R3-Alpha error compatibility,
+// which makes this a rather tortured routine.  However, it maps out the
+// existing landscape so that if it is to be changed then it can be seen
+// exactly what is changing.
 //
-bool Make_Error_Object_Throws(
+REB_R MAKE_Error(
     REBVAL *out, // output location **MUST BE GC SAFE**!
+    enum Reb_Kind kind,
     const REBVAL *arg
-) {
+){
+    assert(kind == REB_ERROR);
+    UNUSED(kind);
+
     // Frame from the error object template defined in %sysobj.r
     //
     REBCTX *root_error = VAL_CONTEXT(Get_System(SYS_STANDARD, STD_ERROR));
@@ -531,7 +532,7 @@ bool Make_Error_Object_Throws(
         DECLARE_LOCAL (evaluated);
         if (Do_Any_Array_At_Throws(evaluated, arg)) {
             Move_Value(out, evaluated);
-            return true;
+            return R_THROWN;
         }
 
         vars = ERR_VARS(error);
@@ -641,8 +642,19 @@ bool Make_Error_Object_Throws(
 
     Set_Location_Of_Error(error, FS_TOP);
 
-    Init_Error(out, error);
-    return false;
+    return Init_Error(out, error);
+}
+
+
+//
+//  TO_Error: C
+//
+// !!! Historically this was identical to MAKE ERROR!, but MAKE and TO are
+// being rethought.
+//
+REB_R TO_Error(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+{
+    return MAKE_Error(out, kind, arg);
 }
 
 

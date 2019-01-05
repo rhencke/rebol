@@ -42,7 +42,6 @@
 %datatypes/integer.test.reb
 %datatypes/issue.test.reb
 %datatypes/list.test.reb
-%datatypes/literal.test.reb
 %datatypes/lit-path.test.reb
 %datatypes/lit-word.test.reb
 %datatypes/logic.test.reb
@@ -58,6 +57,7 @@
 %datatypes/path.test.reb
 %datatypes/percent.test.reb
 %datatypes/port.test.reb
+%datatypes/quoted.test.reb
 %datatypes/refinement.test.reb
 %datatypes/set-path.test.reb
 %datatypes/set-word.test.reb

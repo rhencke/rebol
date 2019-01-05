@@ -1907,6 +1907,18 @@ bool Eval_Core_Throws(REBFRM * const f)
         if (IS_END(f->value)) // `do [a:]` is illegal
             fail (Error_Need_Non_End_Core(current, f->specifier));
 
+        // !!! We make a special exemption for '#[void] to allow assignment
+        // and set a value to void, because it makes it possible to represent
+        // a value that can be stored in an ANY-CONTEXT!.  Review implications
+        // on code that backwards quotes literal voids.  :-/
+        //
+        if (KIND_BYTE(f->value) == REB_VOID + REB_64) {
+            Init_Void(Sink_Var_May_Fail(current, f->specifier));
+            Init_Void(f->out);
+            Fetch_Next_In_Frame(nullptr, f); // advances f->value
+            goto post_switch;
+        }
+
         REBFLGS flags =
             (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
             | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)

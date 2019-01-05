@@ -256,86 +256,86 @@ REBINT CT_Context(const REBCEL *a, const REBCEL *b, REBINT mode)
 
 
 //
-//  MAKE_Context: C
+//  MAKE_Frame: C
 //
-// !!! MAKE functions currently don't have an explicit protocol for
-// thrown values.  So out just might be set as thrown.  Review.
+// !!! The feature of MAKE FRAME! from a VARARGS! would be interesting as a
+// way to support usermode authoring of things like MATCH.
+//
+// For now just support ACTION! (or path/word to specify an action)
+//
+REB_R MAKE_Frame(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+{
+    REBDSP lowest_ordered_dsp = DSP; // Data stack gathers any refinements
+
+    REBSTR *opt_label;
+    if (Get_If_Word_Or_Path_Throws( // Allows `MAKE FRAME! 'APPEND/DUP`, etc.
+        out,
+        &opt_label,
+        arg,
+        SPECIFIED,
+        true // push_refinements (e.g. don't auto-specialize ACTION! if PATH!)
+    )){
+        return out;
+    }
+
+    if (not IS_ACTION(out))
+        fail (Error_Bad_Make(kind, arg));
+
+    REBCTX *exemplar = Make_Context_For_Action(
+        out, // being used here as input (e.g. the ACTION!)
+        lowest_ordered_dsp, // will weave in the refinements pushed
+        nullptr // no binder needed, not running any code
+    );
+
+    // See notes in %c-specialize.c about the special encoding used to
+    // put /REFINEMENTs in refinement slots (instead of true/false/null)
+    // to preserve the order of execution.
+
+    return Init_Frame(out, exemplar);
+}
+
+
+//
+//  TO_Frame: C
+//
+// Currently can't convert anything TO a frame; nothing has enough information
+// to have an equivalent representation (an OBJECT! could be an expired frame
+// perhaps, but still would have no ACTION OF property)
+//
+REB_R TO_Frame(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
+{
+    UNUSED(out);
+    fail (Error_Bad_Make(kind, arg));
+}
+
+
+//
+//  MAKE_Context: C
 //
 REB_R MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    if (kind == REB_FRAME) {
-        //
-        // !!! The feature of MAKE FRAME! from a VARARGS! would be interesting
-        // as a way to support usermode authoring of things like MATCH.
-        // For now just support ACTION! (or path/word to specify an action)
-        //
-        REBDSP lowest_ordered_dsp = DSP;
-
-        REBSTR *opt_label;
-        if (Get_If_Word_Or_Path_Throws(
-            out,
-            &opt_label,
-            arg,
-            SPECIFIED,
-            true // push_refinements, don't specialize ACTION! if PATH!
-        )){
-            return out; // !!! no explicit Throws() protocol, review
-        }
-
-        if (not IS_ACTION(out))
-            fail (Error_Bad_Make(kind, arg));
-
-        REBCTX *exemplar = Make_Context_For_Action(
-            out, // being used here as input (e.g. the ACTION!)
-            lowest_ordered_dsp, // will weave in the refinements pushed
-            nullptr // no binder needed, not running any code
-        );
-
-        // See notes in %c-specialize.c about the special encoding used to
-        // put /REFINEMENTs in refinement slots (instead of true/false/null)
-        // to preserve the order of execution.
-        //
-        return Init_Frame(out, exemplar);
-    }
-
-    if (kind == REB_OBJECT && IS_BLOCK(arg)) {
-        //
-        // Simple object creation with no evaluation, so all values are
-        // handled "as-is".  Should have a spec block and a body block.
-        //
-        // Note: In %r3-legacy.r, the old evaluative MAKE OBJECT! is
-        // done by redefining MAKE itself, and calling the CONSTRUCT
-        // generator if the make def is not the [[spec][body]] format.
-
-        if (
-            VAL_LEN_AT(arg) != 2
-            || !IS_BLOCK(VAL_ARRAY_AT(arg)) // spec
-            || !IS_BLOCK(VAL_ARRAY_AT(arg) + 1) // body
-        ) {
-            fail (Error_Bad_Make(kind, arg));
-        }
-
-        // !!! Spec block is currently ignored, but required.
-
-        return Init_Object(
-            out,
-            Construct_Context_Managed(
-                REB_OBJECT,
-                VAL_ARRAY_AT(VAL_ARRAY_AT(arg) + 1),
-                VAL_SPECIFIER(arg),
-                NULL // no parent
-            )
-        );
-    }
-
-    // make error! [....]
+    // Other context kinds (FRAME!, ERROR!, PORT!) have their own hooks.
     //
-    // arg is block/string, but let Make_Error_Object_Throws do the
-    // type checking.
-    //
-    if (kind == REB_ERROR) {
-        if (Make_Error_Object_Throws(out, arg))
+    assert(kind == REB_OBJECT or kind == REB_MODULE);
+
+    if (IS_BLOCK(arg)) {
+        REBCTX *ctx = Make_Selfish_Context_Detect_Managed(
+            REB_OBJECT,
+            VAL_ARRAY_AT(arg),
+            nullptr // no parent
+        );
+        Init_Any_Context(out, kind, ctx); // GC guards it
+
+        // !!! This binds the actual body data, not a copy of it.  See
+        // Virtual_Bind_Deep_To_New_Context() for future directions.
+        //
+        Bind_Values_Deep(VAL_ARRAY_AT(arg), ctx);
+
+        DECLARE_LOCAL (dummy);
+        if (Do_Any_Array_At_Throws(dummy, arg)) {
+            Move_Value(out, dummy);
             return R_THROWN;
+        }
 
         return out;
     }
@@ -383,15 +383,9 @@ REB_R MAKE_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Context(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    if (kind == REB_ERROR) {
-        //
-        // arg is checked to be block or string
-        //
-        if (Make_Error_Object_Throws(out, arg))
-            fail (Error_No_Catch_For_Throw(out));
-
-        return out;
-    }
+    // Other context kinds (FRAME!, ERROR!, PORT!) have their own hooks.
+    //
+    assert(kind == REB_OBJECT or kind == REB_MODULE);
 
     if (kind == REB_OBJECT) {
         //
@@ -587,7 +581,7 @@ REBCTX *Copy_Context_Core_Managed(REBCTX *original, REBU64 types)
 //
 void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
 {
-    REBSER *out = mo->series;
+    REBSER *s = mo->series;
 
     REBCTX *c = VAL_CONTEXT(v);
 
@@ -596,12 +590,12 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
     if (Find_Pointer_In_Series(TG_Mold_Stack, c) != NOT_FOUND) {
         if (not form) {
             Pre_Mold(mo, v); // If molding, get #[object! etc.
-            Append_Utf8_Codepoint(out, '[');
+            Append_Utf8_Codepoint(s, '[');
         }
-        Append_Unencoded(out, "...");
+        Append_Unencoded(s, "...");
 
         if (not form) {
-            Append_Utf8_Codepoint(out, ']');
+            Append_Utf8_Codepoint(s, ']');
             End_Mold(mo);
         }
         return;
@@ -625,8 +619,8 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
         // Remove the final newline...but only if WE added to the buffer
         //
         if (had_output) {
-            SET_SERIES_LEN(out, SER_LEN(out) - 1);
-            TERM_SEQUENCE(out);
+            SET_SERIES_LEN(s, SER_LEN(s) - 1);
+            TERM_SEQUENCE(s);
         }
 
         Drop_Pointer_From_Series(TG_Mold_Stack, c);
@@ -637,88 +631,39 @@ void MF_Context(REB_MOLD *mo, const REBCEL *v, bool form)
 
     Pre_Mold(mo, v);
 
-    Append_Utf8_Codepoint(out, '[');
+    Append_Utf8_Codepoint(s, '[');
 
     mo->indent++;
 
-    // !!! New experimental Ren-C code for the [[spec][body]] format of the
-    // non-evaluative MAKE OBJECT!.
-
-    // First loop: spec block.  This is difficult because unlike functions,
-    // objects are dynamically modified with new members added.  If the spec
-    // were captured with strings and other data in it as separate from the
-    // "keylist" information, it would have to be updated to reflect newly
-    // added fields in order to be able to run a corresponding MAKE OBJECT!.
-    //
-    // To get things started, we aren't saving the original spec that made
-    // the object...but regenerate one from the keylist.  If this were done
-    // with functions, they would "forget" their help strings in MOLDing.
-
-    New_Indented_Line(mo);
-    Append_Utf8_Codepoint(out, '[');
-
-    REBVAL *keys_head = CTX_KEYS_HEAD(c);
-    REBVAL *vars_head = CTX_VARS_HEAD(VAL_CONTEXT(v));
-
-    bool first = true;
-    REBVAL *key = keys_head;
-    REBVAL *var = vars_head;
-    for (; NOT_END(key); ++key, ++var) {
-        if (Is_Param_Hidden(key))
-            continue;
-
-        if (first)
-            first = false;
-        else
-            Append_Utf8_Codepoint(out, ' ');
-
-        // !!! Feature of "private" words in object specs not yet implemented,
-        // but if it paralleled how <local> works for functions then it would
-        // be shown as SET-WORD!
-        //
-        DECLARE_LOCAL (any_word);
-        Init_Any_Word(any_word, REB_WORD, VAL_KEY_SPELLING(key));
-        Mold_Value(mo, any_word);
-    }
-
-    Append_Utf8_Codepoint(out, ']');
-    New_Indented_Line(mo);
-    Append_Utf8_Codepoint(out, '[');
-
-    mo->indent++;
-
-    key = keys_head;
-    var = vars_head;
+    REBVAL *key = CTX_KEYS_HEAD(c);
+    REBVAL *var = CTX_VARS_HEAD(VAL_CONTEXT(v));
 
     for (; NOT_END(key); var ? (++key, ++var) : ++key) {
         if (Is_Param_Hidden(key))
             continue;
 
-        // Having the key mentioned in the spec and then not being assigned
-        // a value in the body is how voids are denoted.
-        //
-        if (var && IS_NULLED(var))
-            continue;
-
         New_Indented_Line(mo);
 
         REBSTR *spelling = VAL_KEY_SPELLING(key);
-        Append_Utf8_Utf8(out, STR_HEAD(spelling), STR_SIZE(spelling));
+        Append_Utf8_Utf8(s, STR_HEAD(spelling), STR_SIZE(spelling));
 
-        Append_Unencoded(out, ": ");
+        Append_Unencoded(s, ": ");
+        if (not ANY_INERT(var))
+            Append_Unencoded(s, "'"); // need quoting for non-inert values
 
-        if (var)
-            Mold_Value(mo, var);
+        if (not var) { // !!! is this branch still active?
+            Append_Unencoded(s, ": --optimized out--");
+        }
+        else if (IS_NULLED(var)) { // no mold defined for null
+            // Just allowing plain `field: '` will null the field.
+        }
         else
-            Append_Unencoded(out, ": --optimized out--");
+            Mold_Value(mo, var);
     }
 
     mo->indent--;
     New_Indented_Line(mo);
-    Append_Utf8_Codepoint(out, ']');
-    mo->indent--;
-    New_Indented_Line(mo);
-    Append_Utf8_Codepoint(out, ']');
+    Append_Utf8_Codepoint(s, ']');
 
     End_Mold(mo);
 
@@ -1044,7 +989,6 @@ REBNATIVE(construct)
         (target == REB_OBJECT or target == REB_MODULE)
         and (IS_BLOCK(body) or IS_BLANK(body))
     ){
-
         // First we scan the object for top-level set words in
         // order to make an appropriately sized context.  Then
         // we put it into an object in D_OUT to GC protect it.

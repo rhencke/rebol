@@ -1118,7 +1118,7 @@ generate: function [ "Make a generator."
         append words w
     ]
     words: unique words
-    spec: flatten map-each w words [reduce[<static> w]]
+    spec: flatten map-each w words [reduce [<static> w]]
     append spec [<static> count]
     insert spec [/reset init [block!]]
     body: compose/deep [
@@ -1128,7 +1128,7 @@ generate: function [ "Make a generator."
             count: 1
             return do result
         ]
-        count: me + 1 
+        count: me + 1
         result: (to group! (iteration))
         (either empty? condition
             [[ return result ]]

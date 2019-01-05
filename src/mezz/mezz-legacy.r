@@ -168,13 +168,6 @@ rejoin: function [
 ; bridges until further notice.
 ;
 make: enclose 'lib/make func [f] [
-    all [
-        :f/type = object!
-        block? :f/def
-        not block? first f/def
-    ] then [
-        return has f/def
-    ]
     if object? :f/type [
         return construct :f/type :f/def
     ]

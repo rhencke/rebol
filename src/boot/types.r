@@ -228,9 +228,9 @@ map         map         +       +       +       -
 varargs     varargs     +       +       +       -
 
 object      context     *       *       *       context
-frame       context     *       *       *       context
 module      context     *       *       *       context
-error       context     *       *       +       context
+error       context     *       +       +       context
+frame       context     *       +       *       context
 port        port        context +       context context
 
 ; ^-------- Everything above is a "bindable" type, see Is_Bindable() --------^
