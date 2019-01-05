@@ -49,7 +49,7 @@ extend: func [
 
 join-all: function [
     "Reduces and appends a block of values together."
-    return: [<opt> any-series!]
+    return: [<opt> any-path! any-series! quoted!]
         "Will be the type of the first non-null series produced by evaluation"
     block [block!]
         "Values to join together"

@@ -274,10 +274,7 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 //  TO_Array: C
 //
 REB_R TO_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-    if (
-        kind == VAL_TYPE(arg) // always act as COPY if types match
-        or Splices_Into_Type_Without_Only(kind, arg) // see comments
-    ){
+    if (ANY_ARRAY_OR_PATH(arg)) {
         return Init_Any_Array(
             out,
             kind,
@@ -606,10 +603,12 @@ void Shuffle_Block(REBVAL *value, bool secure)
 //
 //     PD_Block
 //     PD_Group
+//
+// It is delegated to by path dispatch if the path payload is an array:
+//
 //     PD_Path
 //     PD_Get_Path
 //     PD_Set_Path
-//     PD_Lit_Path
 //
 REB_R PD_Array(
     REBPVS *pvs,
@@ -715,7 +714,7 @@ void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
     //
     enum Reb_Kind kind = CELL_KIND(v);
 
-    if (form and (kind == REB_BLOCK or kind == REB_GROUP)) {
+    if (form) {
         Form_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), 0);
         return;
     }
@@ -770,35 +769,14 @@ void MF_Array(REB_MOLD *mo, const REBCEL *v, bool form)
             sep = "()";
             break;
 
-          case REB_GET_PATH:
-            Append_Utf8_Codepoint(mo->series, ':');
-            goto path;
-
-          case REB_PATH:
-          case REB_SET_PATH:
-          path:;
-            sep = "/";
-            break;
-
           default:
             panic ("Unknown array kind passed to MF_Array");
         }
 
-        if (VAL_LEN_AT(v) == 0 and sep[0] == '/')
-            Append_Utf8_Codepoint(mo->series, '/'); // 0-arity path is `/`
-        else {
-            Mold_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), sep);
-            if (VAL_LEN_AT(v) == 1 and sep [0] == '/')
-                Append_Utf8_Codepoint(mo->series, '/'); // 1-arity path `foo/`
-        }
+        Mold_Array_At(mo, VAL_ARRAY(v), VAL_INDEX(v), sep);
 
-        if (
-            kind == REB_SET_PATH
-            or kind == REB_SET_GROUP
-            or kind == REB_SET_BLOCK
-        ){
+        if (kind == REB_SET_GROUP or kind == REB_SET_BLOCK)
             Append_Utf8_Codepoint(mo->series, ':');
-        }
     }
 }
 

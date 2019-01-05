@@ -90,12 +90,12 @@ REBNATIVE(mutable)
     INCLUDE_PARAMS_OF_MUTABLE;
 
     REBVAL *v = ARG(value);
+
     if (IS_NULLED(v))
         return nullptr; // make it easier to pass through values
 
     CLEAR_CELL_FLAG(v, CONST); // don't trip const test for readonly
-    if (ANY_SERIES(v) or ANY_CONTEXT(v))
-        FAIL_IF_READ_ONLY_SERIES(v);
+    FAIL_IF_READ_ONLY_VALUE(v);
     SET_CELL_FLAG(v, EXPLICITLY_MUTABLE);
 
     RETURN (v);
@@ -376,7 +376,7 @@ static REB_R Protect_Unprotect_Core(REBFRM *frame_, REBFLGS flags)
 //
 //  {Protect a series or a variable from being modified.}
 //
-//      value [word! any-series! bitset! map! object! module!]
+//      value [word! path! any-series! bitset! map! object! module!]
 //      /deep
 //          "Protect all sub-series/objects as well"
 //      /words
@@ -453,6 +453,8 @@ REBNATIVE(unprotect)
 //
 bool Is_Value_Frozen(const RELVAL *v) {
     const REBCEL *cell = VAL_UNESCAPED(v);
+    UNUSED(v); // debug build trashes, to avoid accidental usage below
+
     enum Reb_Kind kind = CELL_KIND(cell);
     if (
         kind == REB_BLANK
@@ -464,7 +466,7 @@ bool Is_Value_Frozen(const RELVAL *v) {
         return true;
     }
 
-    if (ANY_ARRAY_KIND(kind))
+    if (ANY_ARRAY_OR_PATH_KIND(kind))
         return Is_Array_Deeply_Frozen(VAL_ARRAY(cell));
 
     if (ANY_CONTEXT_KIND(kind))
@@ -511,7 +513,7 @@ void Ensure_Value_Frozen(const RELVAL *v, REBSER *opt_locker) {
     const REBCEL *cell = VAL_UNESCAPED(v);
     enum Reb_Kind kind = CELL_KIND(cell);
 
-    if (ANY_ARRAY_KIND(kind)) {
+    if (ANY_ARRAY_OR_PATH_KIND(kind)) {
         Deep_Freeze_Array(VAL_ARRAY(cell));
         if (opt_locker)
             SET_SER_INFO(VAL_ARRAY(cell), SERIES_INFO_AUTO_LOCKED);
@@ -570,7 +572,7 @@ REBNATIVE(lock)
     if (!REF(clone))
         Move_Value(D_OUT, v);
     else {
-        if (ANY_ARRAY(v)) {
+        if (ANY_ARRAY_OR_PATH(v)) {
             Init_Any_Array_At(
                 D_OUT,
                 VAL_TYPE(v),

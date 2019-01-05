@@ -1,4 +1,9 @@
 ; series/rejoin.test.reb
+;
+; REJOIN is deprecated in Ren-C in favor of JOIN-ALL:
+;
+; https://forum.rebol.info/t/rejoin-ugliness-and-the-usefulness-of-tests/248
+
 (
     [] = rejoin []
 )
@@ -25,10 +30,10 @@
     [1] = rejoin [[] 1]
 )
 (
-    'a/b/c = rejoin ['a/b 'c]
+    'a/b/c = join-all ['a/b 'c]
 )
 (
-    'a/b/c/d = rejoin ['a/b 'c 'd]
+    'a/b/c/d = join-all ['a/b 'c 'd]
 )
 (
     "" = rejoin [{}]

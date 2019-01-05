@@ -34,60 +34,6 @@
     insert b a
     a == b
 )
-; path
-(
-    a: make path! 0
-    insert a 0
-    a == as path! [0]
-)
-(
-    a: copy as path! [0]
-    b: make path! 0
-    insert b first a
-    a == b
-)
-(
-    a: copy as path! [0]
-    b: make path! 0
-    insert :b a
-    a == b
-)
-; lit-path
-(
-    a: uneval make path! 0
-    insert :a 0
-    :a == uneval to path! [0]
-)
-(
-    a: uneval to path! [0]
-    b: uneval make path! 0
-    insert :b first :a
-    :a == :b
-)
-(
-    a: uneval to path! [0]
-    b: uneval make path! 0
-    insert :b :a
-    :a == :b
-)
-; set-path
-(
-    a: make set-path! 0
-    insert :a 0
-    :a == to set-path! [0]
-)
-(
-    a: to set-path! [0]
-    b: make set-path! 0
-    insert :b first :a
-    :a == :b
-)
-(
-    a: to set-path! [0]
-    b: make set-path! 0
-    insert :b :a
-    :a == :b
-)
 ; text
 (
     a: make text! 0

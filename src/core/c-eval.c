@@ -2653,7 +2653,9 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (kind.byte == REB_PATH) {
         if (
             Dampen_Lookahead(f)
-            or VAL_LEN_AT(f->value) != 0
+            or VAL_LEN_AT(f->value) != 2
+            or not IS_BLANK(ARR_AT(VAL_ARRAY(f->value), 0))
+            or not IS_BLANK(ARR_AT(VAL_ARRAY(f->value), 1))
             or not EVALUATING(f->value)
         ){
             if (not (f->flags.bits & DO_FLAG_TO_END))

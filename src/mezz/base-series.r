@@ -111,33 +111,50 @@ repend: redescribe [
 )
 
 
-; REPEND very literally does what it says, which is to reduce the argument
-; and call APPEND.  This is not necessarily the most useful operation.
-; Note that `x: 10 | repend [] 'x` would give you `[x]` in R3-Alpha
-; and not 10.  The new JOIN (temporarily ADJOIN) and JOIN-OF operations
-; can take more license with their behavior if it makes the function more
-; convenient, and not be beholden to the behavior that the name REPEND would
-; seem to suggest.
+; This is a userspace implementation of JOIN.  It is implemented on top of
+; APPEND at the moment while it is being worked out, but since APPEND will
+; fundamentally not operate on PATH! or TUPLE! it is going to be a bit
+; inefficient.  However, it's easier to work it out as a userspace routine
+; to figure out exactly what it should do, and make it a native later.
 ;
-join: func [
-    {Concatenates values to the end of a copy of a series}
+join: function [
+    {Concatenates values to the end of a copy of a value}
 
-    return: [any-series! port! map! gob! object! module! bitset!]
-    series [any-series! port! map! gob! object! module! bitset!]
+    return:
+        [<requote> any-series! any-path! tuple! port!
+            map! gob! object! module! bitset!]
+    head
+        [<dequote> any-series! any-path! tuple! port!
+            map! gob! object! module! bitset!]
     value [<opt> any-value!]
 ][
-    case [
-        block? :value [append copy series reduce :value]
-        group? :value [
-            fail 'value "Can't JOIN a GROUP! onto a series (use APPEND)."
+    type: type of head
+    head: copy if find reduce [path! set-path! get-path! tuple!] type [
+        to block! head
+    ] else [
+        type: _
+        head
+    ]
+
+    result: switch type of :value [
+        block! [append head reduce :value]
+        group! [
+            fail 'value "Can't JOIN a GROUP! onto a series (use AS BLOCK!)."
         ]
-        action? :value [
+        action! [
             fail 'value "Can't JOIN an ACTION! onto a series (use APPEND)."
         ]
         default [
-            append/only copy series :value  ; paths, words, not in block
+            append/only head :value
         ]
     ]
+
+    if type [
+        assert [block? result]
+        result: to type result
+    ]
+
+    return result
 ]
 
 

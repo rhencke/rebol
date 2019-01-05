@@ -1,8 +1,8 @@
 (
     block: copy [a b c]
-    path: as path! block
+    path: to path! block
     append block 'd
-    path = 'a/b/c/d
+    path = 'a/b/c  ; AS was not legal
 )
 (
     block: copy [a b c]

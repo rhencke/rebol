@@ -205,7 +205,7 @@ REBNATIVE(bind)
         return D_OUT;
     }
 
-    if (not ANY_ARRAY(v))
+    if (not ANY_ARRAY_OR_PATH(v))
         fail (Error_Invalid(v)); // QUOTED! could have been any type
 
     RELVAL *at;
@@ -1072,11 +1072,11 @@ REBNATIVE(free_q)
 //
 //  as: native [
 //
-//  {Aliases underlying data of one series to act as another of same class}
+//  {Aliases underlying data of one value to act as another of same class}
 //
-//      return: [<opt> any-series! any-word! quoted!]
+//      return: [<opt> any-path! any-series! any-word! quoted!]
 //      type [datatype! quoted!]
-//      value [<blank> any-series! any-word! quoted!]
+//      value [<blank> any-path! any-series! any-word! quoted!]
 //  ]
 //
 REBNATIVE(as)
@@ -1085,7 +1085,7 @@ REBNATIVE(as)
 
     REBVAL *v = ARG(value);
     Dequotify(v); // number of incoming quotes not relevant
-    if (not ANY_SERIES(v) and not ANY_WORD(v))
+    if (not ANY_SERIES(v) and not ANY_WORD(v) and not ANY_PATH(v))
         fail (Error_Invalid(v));
 
     REBVAL *t = ARG(type);
@@ -1095,16 +1095,46 @@ REBNATIVE(as)
         fail (Error_Invalid(t));
 
     enum Reb_Kind new_kind = VAL_TYPE_KIND(t);
+    if (new_kind == VAL_TYPE(v))
+        RETURN (Quotify(v, quotes)); // just may change quotes
 
     switch (new_kind) {
       case REB_BLOCK:
       case REB_GROUP:
-      case REB_PATH:
-      case REB_GET_PATH:
-        if (new_kind == VAL_TYPE(v))
-            RETURN (Quotify(v, quotes)); // just may change quotes
+        if (ANY_PATH(v)) {
+            //
+            // This forces the freezing of the path's array; otherwise the
+            // BLOCK! or GROUP! would be able to mutate the immutable path.
+            // There is currently no such thing as a shallow non-removable
+            // bit, though we could use SERIES_INFO_HOLD for that.  For now,
+            // freeze deeply and anyone who doesn't like the effect can use
+            // TO PATH! and accept the copying.
+            //
+            Deep_Freeze_Array(VAL_ARRAY(v));
+            break;
+        }
 
         if (not ANY_ARRAY(v))
+            goto bad_cast;
+        break;
+
+      case REB_PATH:
+      case REB_GET_PATH:
+      case REB_SET_PATH:
+        //
+        // !!! If AS aliasing were to be permitted, it gets pretty complex.
+        // See notes above in aliasing paths as group or block.  We can
+        // only alias it if we ensure it is frozen.  Not only that, a path
+        // may be optimized to not have an array, hence we may have to
+        // fabricate one.  It would create some complexity with arrays not
+        // at their head, because paths would wind up having an index that
+        // they heeded but could not change.  Also, the array would have
+        // to be checked for validity, e.g. not containing any PATH! or
+        // FILE! or types that wouldn't be allowed.  There's less flexibility
+        // than in a TO conversion to do adjustments.  Long story short: it
+        // is probably not worth it...and TO should be used instead.
+
+        if (not ANY_PATH(v))
             goto bad_cast;
         break;
 
@@ -1113,9 +1143,7 @@ REBNATIVE(as)
       case REB_FILE:
       case REB_URL:
       case REB_EMAIL: {
-        if (new_kind == VAL_TYPE(v))
-            RETURN (Quotify(v, quotes)); // just may change quotes
-
+        //
         // !!! Until UTF-8 Everywhere, turning ANY-WORD! into an ANY-STRING!
         // means it has to be UTF-8 decoded into REBUNI (UCS-2).  We do that
         // but make sure it is locked, so that when it does give access to
@@ -1169,9 +1197,7 @@ REBNATIVE(as)
       case REB_SET_WORD:
       case REB_ISSUE:
       case REB_REFINEMENT: {
-        if (new_kind == VAL_TYPE(v))
-            RETURN (Quotify(v, quotes)); // just may change quotes
-
+        //
         // !!! Until UTF-8 Everywhere, turning ANY-STRING! into an ANY-WORD!
         // means you have to have an interning of it.
         //
@@ -1223,9 +1249,7 @@ REBNATIVE(as)
         break; }
 
       case REB_BINARY: {
-        if (new_kind == VAL_TYPE(v))
-            RETURN (Quotify(v, quotes)); // just may change quotes
-
+        //
         // !!! A locked BINARY! shouldn't (?) complain if it exposes a
         // REBSTR holding UTF-8 data, even prior to the UTF-8 conversion.
         //
@@ -1263,6 +1287,9 @@ REBNATIVE(as)
         fail (Error_Bad_Cast_Raw(v, ARG(type)));
     }
 
+    // Fallthrough for cases where changing the type byte and potentially
+    // updating the quotes is enough.
+    //
     Move_Value(D_OUT, v);
     mutable_KIND_BYTE(D_OUT) = new_kind;
     return Trust_Const(Quotify(D_OUT, quotes));

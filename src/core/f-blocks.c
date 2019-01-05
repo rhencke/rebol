@@ -349,7 +349,7 @@ REBARR *Copy_Rerelativized_Array_Deep_Managed(
 
         Move_Value_Header(dest, src);
 
-        if (ANY_ARRAY(src)) {
+        if (ANY_ARRAY_OR_PATH(src)) {
             dest->payload.any_series.series = SER(
                 Copy_Rerelativized_Array_Deep_Managed(
                     VAL_ARRAY(src), before, after
@@ -404,7 +404,7 @@ void Uncolor_Array(REBARR *a)
 
     RELVAL *val;
     for (val = ARR_HEAD(a); NOT_END(val); ++val)
-        if (ANY_ARRAY(val) or IS_MAP(val) or ANY_CONTEXT(val))
+        if (ANY_ARRAY_OR_PATH(val) or IS_MAP(val) or ANY_CONTEXT(val))
             Uncolor(val);
 }
 
@@ -418,7 +418,7 @@ void Uncolor(RELVAL *v)
 {
     REBARR *array;
 
-    if (ANY_ARRAY(v))
+    if (ANY_ARRAY_OR_PATH(v))
         array = VAL_ARRAY(v);
     else if (IS_MAP(v))
         array = MAP_PAIRLIST(VAL_MAP(v));

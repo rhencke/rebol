@@ -186,7 +186,7 @@ REB_R Compose_To_Stack_Core(
         const REBCEL *cell = VAL_UNESCAPED(f->value);
         enum Reb_Kind kind = CELL_KIND(cell); // notice `\\(...)`
 
-        if (not ANY_ARRAY_KIND(kind)) { // won't substitute/recurse
+        if (not ANY_ARRAY_OR_PATH_KIND(kind)) { // won't substitute/recurse
             Derelativize(DS_PUSH(), f->value, specifier); // keep newline flag
             continue;
         }
@@ -358,11 +358,11 @@ REB_R Compose_To_Stack_Core(
 //
 //  {Evaluates only contents of GROUP!-delimited expressions in an array}
 //
-//      return: [any-array!]
+//      return: [any-array! any-path!]
 //      :label "Distinguish compose groups, e.g. [(plain) (<*> composed)]"
 //          [<skip> tag!]
 //      value "Array to use as the template for substitution"
-//          [any-array!]
+//          [any-array! any-path!]
 //      /deep "Compose deeply into nested arrays"
 //      /only "Insert arrays as single value (not as contents of array)"
 //  ]

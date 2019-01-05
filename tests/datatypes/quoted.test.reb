@@ -160,10 +160,10 @@
 (did lit '''''''')
 
 
-;; Spliced-oriented processing should "see through" the quote of the appended
-;; item, but preserve the quoting level of the appended-to item:
+; Spliced-oriented processing should "see through" the quote of the appended
+; item, but preserve the quoting level of the appended-to item:
 
-('''a/b/c/d/e/f = append copy lit '''a/b/c 'd/e/f)
+('''a/b/c/d/e/f = join lit '''a/b/c 'd/e/f)
 
 
 ;; An escaped word that can't fit in a cell and has to do an additional

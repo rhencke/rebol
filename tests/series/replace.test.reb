@@ -15,21 +15,20 @@
 ([1 2 8 5] = replace mutable [1 2 3 4 5] [3 4] 8)
 ([1 2 a 5] = replace mutable [1 2 3 4 5] [3 4] 'a)
 ([a g c d] = replace mutable [a b c d] 'b 'g)
-('a/b/g/d/e = replace mutable 'a/b/c/d/e 'c 'g)
-('a/b/g/h/i/d/e = replace mutable 'a/b/c/d/e 'c 'g/h/i)
 (#{006400} = replace mutable #{000100} #{01} 100)
 (%file.ext = replace mutable %file.sub.ext ".sub." #".")
 ("abra-abra" = replace mutable "abracadabra" "cad" #"-")
 ("abra-c-adabra" = replace mutable "abracadabra" #"c" "-c-")
 
-; Red has a bizarre behavior for this which is in the tests:
+; Red has a bizarre behavior for this which is in their tests:
 ; https://github.com/red/red/blob/12ad56be0fc474f7738c0ef891725e49f9738010/tests/source/units/replace-test.red#L24
 ;
 ;    ('a/b/c/h/i/d/e = replace 'a/b/g/h/i/d/e 'g/h/i 'c)
 ;
 ; That's not what Rebol2 does, and not consistent with BLOCK! replacement
-;
-('a/b/c/d/e = replace mutable 'a/b/g/h/i/d/e 'g/h/i 'c)
+; Ren-C doesn't allow REPLACE on paths in any case--they are immutable, one
+; must convert to a block and back (the conversion may fail as not all blocks
+; can become paths)
 
 ; REPLACE/ALL
 
@@ -37,8 +36,6 @@
 ([1 4 5 3 4 5] = replace/all mutable [1 2 3 2] 2 [4 5])
 ([1 8 9 8 9] = replace/all mutable [1 2 3 2 3] [2 3] [8 9])
 ([1 8 8] = replace/all mutable [1 2 3 2 3] [2 3] 8)
-('a/b/g/d/g = replace/all mutable 'a/b/c/d/c 'c 'g)
-('a/b/g/h/d/g/h = replace/all mutable 'a/b/c/d/c 'c 'g/h)
 (#{640164} = replace/all mutable #{000100} #{00} #{64})
 (%file.sub.ext = replace/all mutable %file!sub!ext #"!" #".")
 (<tag body end> = replace/all mutable <tag_body_end> "_" " ")
@@ -53,10 +50,7 @@
 (%file.txt = replace/case/all mutable %file.TXT.txt.TXT %.TXT "")
 (<tag xyXx> = replace/case mutable <tag xXXx> "X" "y")
 (<tag xyyx> = replace/case/all mutable <tag xXXx> "X" "y")
-('a/X/o/X = replace/case mutable 'a/X/x/X 'x 'o)
-('a/o/x/o = replace/case/all mutable 'a/X/x/X 'X 'o)
 (["a" "B" "x"] = replace/case/all mutable ["a" "B" "a" "b"] ["a" "b"] "x")
-((lit :x/b/A/x/B) = replace/case/all mutable lit :a/b/A/a/B [a] 'x)
 ((lit (x A x)) = replace/case/all mutable lit (a A a) 'a 'x)
 
 ;((make hash! [x a b [a B]]) = replace/case make hash! [a B a b [a B]] [a B] 'x)

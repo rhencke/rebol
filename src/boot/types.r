@@ -90,10 +90,16 @@ REBOL [
             ANY_SCALAR_KIND(KIND_BYTE(v))
 
         inline static bool ANY_SERIES_KIND(REBYTE k)
-           { return k >= REB_GET_PATH and k <= REB_VECTOR; }
+           { return k >= REB_GET_GROUP and k <= REB_VECTOR; }
 
         #define ANY_SERIES(v) \
             ANY_SERIES_KIND(KIND_BYTE(v))
+
+        inline static bool ANY_SERIES_OR_PATH_KIND(REBYTE k)
+           { return k >= REB_GET_PATH and k <= REB_VECTOR; }
+
+        #define ANY_SERIES_OR_PATH(v) \
+            ANY_SERIES_OR_PATH_KIND(KIND_BYTE(v))
 
         inline static bool ANY_STRING_KIND(REBYTE k)
             { return k >= REB_TEXT and k <= REB_TAG; }
@@ -107,8 +113,14 @@ REBOL [
         #define ANY_BINSTR(v) \
             ANY_BINSTR_KIND(KIND_BYTE(v))
 
-        inline static bool ANY_ARRAY_KIND(REBYTE k)
+        inline static bool ANY_ARRAY_OR_PATH_KIND(REBYTE k)
             { return k >= REB_GET_PATH and k <= REB_BLOCK; }
+
+        #define ANY_ARRAY_OR_PATH(v) \
+            ANY_ARRAY_OR_PATH_KIND(KIND_BYTE(v))
+
+        inline static bool ANY_ARRAY_KIND(REBYTE k)
+            { return k >= REB_GET_GROUP and k <= REB_BLOCK; }
 
         #define ANY_ARRAY(v) \
             ANY_ARRAY_KIND(KIND_BYTE(v))
@@ -304,14 +316,20 @@ issue       "identifying marker word"
 ;         order matters, contiguous with ANY-SERIES! below matters
 ;         + 2 will UNSETIFY_ANY_GET_KIND(), + 1 will UNSETIFY_ANY_SET_KIND()
 
+; ===========================================================================
+; ANY-PATH!, order matters (contiguous with ANY-ARRAY below matters!)
+
 get-path    "the value of a path"
-            array       *       *       *       [path array series]
+            path        *       *       *       [path]
 
 set-path    "definition of a path's value"
-            array       *       *       *       [path array series]
+            path        *       *       *       [path]
 
 path        "refinements to functions, objects, files"
-            array       *       *       *       [path array series]
+            path        *       *       *       [path]
+
+; ===========================================================================
+; ANY-ARRAY!, order matters (contiguous with ANY-SERIES below matters!)
 
 get-group   "array that evaluates and runs GET on the resulting word/path"
             array       *       *       *       [group array series]

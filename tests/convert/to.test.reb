@@ -10,8 +10,8 @@
 
 ; https://forum.rebol.info/t/justifiable-asymmetry-to-on-block/751
 ;
-([a/b/c] = to block! 'a/b/c)
-(lit (a/b/c) = to group! 'a/b/c)
+([a b c] = to block! 'a/b/c)
+(lit (a b c) = to group! 'a/b/c)
 ([a b c] = to block! lit (a b c))
 (lit (a b c) = to group! [a b c])
 (lit a/b/c = to path! [a b c])

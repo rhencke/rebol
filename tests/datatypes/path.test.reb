@@ -7,12 +7,15 @@
 [#1947
     (path? load "#[path! [[a] 1]]")
 ]
-(
-    all [
-        path? a: load "#[path! [[a b c] 2]]"
-        2 == index? a
-    ]
-)
+
+;; ANY-PATH! are no longer positional
+;;(
+;;    all [
+;;        path? a: load "#[path! [[a b c] 2]]"
+;;        2 == index? a
+;;    ]
+;;)
+
 ("a/b" = mold 'a/b)
 (
     a-word: 1
@@ -29,7 +32,7 @@
 )
 (
     blk: reduce [charset "a" 3]
-    3 == do reduce [as path! reduce ['blk charset "a"]]
+    3 == do reduce [to path! reduce ['blk charset "a"]]
 )
 (
     blk: [[] 3]
@@ -134,13 +137,10 @@
     b: [b 1]
     1 = b/b
 )]
-; recursive path
+
+; Paths are immutable
 (
-    a: make object! []
-    path: mutable 'a/a
-    change/only back tail of path path
-    error? trap [do path]
-    true
+    did trap [mutable 'a/a]
 )
 
 [#71 (
@@ -171,18 +171,18 @@
 ; PATH! beginning with an inert item will itself be inert
 ;
 [
-    (/ref/inement/path = as path! [/ref inement path])
-    (/refinement/3 = as path! [/refinement 3])
+    (/ref/inement/path = to path! [/ref inement path])
+    (/refinement/3 = to path! [/refinement 3])
     ((/refinement)/3 = #"f")
     (r: /refinement | r/3 = #"f")
 ][
-    (#iss/ue/path = as path! [#iss ue path])
-    (#issue/3 = as path! [#issue 3])
+    (#iss/ue/path = to path! [#iss ue path])
+    (#issue/3 = to path! [#issue 3])
     ((#issue)/3 = #"s")
     (i: #issue | i/3 = #"s")
 ][
-    ("te"/xt/path = as path! ["te" xt path])
-    ("text"/3 = as path! ["text" 3])
+    ("te"/xt/path = to path! ["te" xt path])
+    ("text"/3 = to path! ["text" 3])
     (("text")/3 = #"x")
     (t: "text" | t/3 = #"x")
 ]
@@ -194,16 +194,22 @@
     all [
         1 = bl/a
         [e/r 42] = bl/('q/w)
-        [e/r 42] = reduce to-path [bl q/w]
+        [e/r 42] = reduce to-path [bl ('q/w)]
         42 = bl/('q/w)/('e/r)
-        42 = reduce to-path [bl q/w e/r]
+        42 = reduce to-path [bl ('q/w) ('e/r)]
     ]
 )
 
-; / is a length 0 PATH! in Ren-C
+; / is a length 2 PATH! in Ren-C
 (path! = type of lit /)
-(0 = length of lit /)
+(2 = length of lit /)
+(lit / = to path! [_ _])
 
 ; foo/ is a length 1 PATH! in Ren-C
 (path! = type of lit foo/ )
-(1 = length of lit foo/ )
+(2 = length of lit foo/ )
+(lit foo/ = to path! [foo _])
+
+; Not currently true, TO BLOCK! is acting like BLOCKIFY, review
+; ([_ _] = to block! lit /)
+; ([foo _] = to block! lit foo/ )  ; !!! low priority scanner bug on /)

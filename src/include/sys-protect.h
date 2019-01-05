@@ -86,11 +86,23 @@ inline static void FAIL_IF_READ_ONLY_ARRAY_CORE(
     FAIL_IF_READ_ONLY_ARRAY_CORE((array), SPECIFIED)
 
 
-inline static void FAIL_IF_READ_ONLY_CONTEXT(REBVAL *context) {
+inline static void FAIL_IF_READ_ONLY_CONTEXT(RELVAL *context) {
     assert(ANY_CONTEXT(context));
     REBARR *varlist = context->payload.any_context.varlist;
     FAIL_IF_READ_ONLY_SER(SER(varlist));
 
     // !!! CONST is a work in progress, experimental, but would need handling
     // here too...
+}
+
+
+inline static void FAIL_IF_READ_ONLY_VALUE(RELVAL *v) {
+    if (ANY_SERIES(v))
+        FAIL_IF_READ_ONLY_SERIES(v);
+    else if (ANY_CONTEXT(v))
+        FAIL_IF_READ_ONLY_CONTEXT(v);
+    else if (ANY_SCALAR(v) or IS_BLANK(v))
+        fail ("Scalars are immutable");
+    else if (ANY_PATH(v))
+        fail ("Paths are immutable");
 }
