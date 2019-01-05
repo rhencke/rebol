@@ -255,11 +255,18 @@ REB_R Compose_To_Stack_Core(
         }
 
         if (match) {
+            //
+            // We want to skip over any label, so if <*> is the label and
+            // a match like (<*> 1 + 2) was found, we want the evaluator
+            // to only see (1 + 2).
+            //
+            REBCNT index = VAL_INDEX(match) + (IS_NULLED(label) ? 0 : 1);
+
             REBIXO indexor = Eval_Array_At_Core(
                 Init_Nulled(out), // want empty () to vanish as a NULL would
                 nullptr, // no opt_first
                 VAL_ARRAY(match),
-                VAL_INDEX(match) + IS_NULLED(label) ? 0 : 1,
+                index,
                 match_specifier,
                 (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
                     | DO_FLAG_TO_END

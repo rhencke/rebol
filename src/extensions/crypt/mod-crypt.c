@@ -47,6 +47,13 @@
 #include "dh/dh.h"
 #include "aes/aes.h"
 
+// %bigint_impl.h defines min and max, which triggers warnings in clang about
+// C++ compatibility even if building as C...due to some header file that
+// sys-core.h includes.
+//
+#undef min
+#undef max
+
 #ifdef IS_ERROR
 #undef IS_ERROR //winerror.h defines this, so undef it to avoid the warning
 #endif

@@ -73,8 +73,8 @@
         "ODBC module code currently assumes SQLHANDLE is a pointer type"
     );
     static_assert(
-        NULL == SQL_NULL_HANDLE,
-        "ODBC module code currently asssumes SQL_NULL_HANDLE is NULL"
+        0 == SQL_NULL_HANDLE, // Note it is long, not pointer, on Mac ODBC
+        "ODBC module code currently asssumes SQL_NULL_HANDLE is 0"
     );
 #endif
 
