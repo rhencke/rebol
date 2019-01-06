@@ -354,24 +354,98 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     //=//// ANY-WORD! PARAMETERS THEMSELVES (MAKE TYPESETS w/SYMBOL) //////=//
 
-        if (not (ANY_WORD(item) or IS_QUOTED_WORD(item))) {
+        enum Reb_Param_Class pclass;
+        REBSTR *spelling;
+        switch (VAL_TYPE(item)) {
+          case REB_WORD:
+            //
+            // Because FUNC does not do any locals gathering by default, the
+            // main purpose of <with> is for instructing it not to do the
+            // definitional returns.  However, it also makes changing between
+            // FUNC and FUNCTION more fluid.
+            //
+            // !!! If you write something like `func [x <with> x] [...]` that
+            // should be sanity checked with an error...TBD.
+            //
+            if (mode == SPEC_MODE_WITH)
+                continue;
+
+            assert(mode != SPEC_MODE_WITH); // should have continued...
+            pclass = (mode == SPEC_MODE_LOCAL)
+                ? PARAM_CLASS_LOCAL
+                : PARAM_CLASS_NORMAL;
+            spelling = VAL_WORD_SPELLING(item);
+            break;
+
+          case REB_GET_WORD:
+            if (mode != SPEC_MODE_NORMAL)
+                goto mode_mismatch;
+
+            pclass = PARAM_CLASS_HARD_QUOTE;
+            spelling = VAL_WORD_SPELLING(item);
+            break;
+
+          case REB_QUOTED: {
+            const REBCEL *cell = VAL_UNESCAPED(item);
+            if (VAL_NUM_QUOTES(item) != 1 or CELL_KIND(cell) != REB_WORD)
+                fail ("QUOTED! argument must be a WORD! to soft quote");
+
+            if (mode != SPEC_MODE_NORMAL)
+                goto mode_mismatch;
+
+            pclass = PARAM_CLASS_SOFT_QUOTE;
+            spelling = VAL_WORD_SPELLING(cell);
+            break; }
+
+          case REB_REFINEMENT:
+
+            // !!! If you say [<with> x /foo y] the <with> terminates and a
+            // refinement is started.  Same w/<local>.  Is this a good idea?
+            // Note that historically, help hides any refinements that appear
+            // behind a /local, but this feature has no parallel in Ren-C.
+            //
+            mode = SPEC_MODE_NORMAL;
+
+            refinement_seen = true;
+            pclass = PARAM_CLASS_REFINEMENT;
+            spelling = VAL_WORD_SPELLING(item);
+
+            // !!! The typeset bits of a refinement are not currently used.
+            // They are checked for TRUE or FALSE but this is done literally
+            // by the code.  This means that every refinement has some spare
+            // bits available in it for another purpose.
+            break;
+
+          case REB_SET_WORD:
+            // tolerate as-is if in <local> or <with> mode...
+            pclass = PARAM_CLASS_LOCAL;
+            spelling = VAL_WORD_SPELLING(item);
+            //
+            // !!! Typeset bits of pure locals also not currently used,
+            // though definitional return should be using it for the return
+            // type of the function.
+            //
+            break;
+
+          case REB_ISSUE:
+            //
+            // !!! Because of their role in the preprocessor in Red, and a
+            // likely need for a similar behavior in Rebol, ISSUE! might not
+            // be the ideal choice to mark tight parameters.
+            //
+            if (mode != SPEC_MODE_NORMAL)
+                goto mode_mismatch;
+
+            pclass = PARAM_CLASS_TIGHT;
+            spelling = VAL_WORD_SPELLING(item);
+            break;
+
+          mode_mismatch:
+          default:
             fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
         }
 
-        // !!! If you say [<with> x /foo y] the <with> terminates and a
-        // refinement is started.  Same w/<local>.  Is this a good idea?
-        // Note that historically, help hides any refinements that appear
-        // behind a /local, but this feature has no parallel in Ren-C.
-        //
-        if (mode != SPEC_MODE_NORMAL) {
-            if (IS_REFINEMENT(item)) {
-                mode = SPEC_MODE_NORMAL;
-            }
-            else if (not IS_WORD(item) and not IS_SET_WORD(item))
-                fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
-        }
-
-        REBSTR *canon = VAL_WORD_CANON(item);
+        REBSTR *canon = STR_CANON(spelling);
 
         // In rhythm of TYPESET! BLOCK! TEXT! we want to be on a string spot
         // at the time of the push of each new typeset.
@@ -402,8 +476,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                     FLAGIT_KIND(REB_ACTION)
                     | FLAGIT_KIND(REB_VOID)
                 ),
-            VAL_WORD_SPELLING(item) // don't canonize, see #2258
+            spelling // don't canonize, see #2258
         );
+        INIT_VAL_PARAM_CLASS(typeset, pclass);
 
         // All these would cancel a definitional return (leave has same idea):
         //
@@ -425,78 +500,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 definitional_return_dsp = DSP; // RETURN: explicitly tolerated
             else
                 flags &= ~(MKF_RETURN | MKF_FAKE_RETURN);
-        }
-
-        if (mode == SPEC_MODE_WITH and not IS_SET_WORD(item)) {
-            //
-            // Because FUNC does not do any locals gathering by default, the
-            // main purpose of <with> is for instructing it not to do the
-            // definitional returns.  However, it also makes changing between
-            // FUNC and FUNCTION more fluid.
-            //
-            // !!! If you write something like `func [x <with> x] [...]` that
-            // should be sanity checked with an error...TBD.
-            //
-            DS_DROP; // forge the typeset, used in `definitional_return` case
-            continue;
-        }
-
-        switch (VAL_TYPE(item)) {
-        case REB_WORD:
-            assert(mode != SPEC_MODE_WITH); // should have continued...
-            INIT_VAL_PARAM_CLASS(
-                typeset,
-                (mode == SPEC_MODE_LOCAL)
-                    ? PARAM_CLASS_LOCAL
-                    : PARAM_CLASS_NORMAL
-            );
-            break;
-
-        case REB_GET_WORD:
-            assert(mode == SPEC_MODE_NORMAL);
-            INIT_VAL_PARAM_CLASS(typeset, PARAM_CLASS_HARD_QUOTE);
-            break;
-
-        case REB_QUOTED:
-            if (VAL_NUM_QUOTES(item) != 1 or CELL_KIND(item) != REB_WORD)
-                fail ("QUOTED! argument must be a WORD! to soft quote");
-
-            assert(mode == SPEC_MODE_NORMAL);
-            INIT_VAL_PARAM_CLASS(typeset, PARAM_CLASS_SOFT_QUOTE);
-            break;
-
-        case REB_REFINEMENT:
-            refinement_seen = true;
-            INIT_VAL_PARAM_CLASS(typeset, PARAM_CLASS_REFINEMENT);
-
-            // !!! The typeset bits of a refinement are not currently used.
-            // They are checked for TRUE or FALSE but this is done literally
-            // by the code.  This means that every refinement has some spare
-            // bits available in it for another purpose.
-            break;
-
-        case REB_SET_WORD:
-            // tolerate as-is if in <local> or <with> mode...
-            INIT_VAL_PARAM_CLASS(typeset, PARAM_CLASS_LOCAL);
-            //
-            // !!! Typeset bits of pure locals also not currently used,
-            // though definitional return should be using it for the return
-            // type of the function.
-            //
-            break;
-
-        case REB_ISSUE:
-            //
-            // !!! Because of their role in the preprocessor in Red, and a
-            // likely need for a similar behavior in Rebol, ISSUE! might not
-            // be the ideal choice to mark tight parameters.
-            //
-            assert(mode == SPEC_MODE_NORMAL);
-            INIT_VAL_PARAM_CLASS(typeset, PARAM_CLASS_TIGHT);
-            break;
-
-        default:
-            fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
         }
     }
 
