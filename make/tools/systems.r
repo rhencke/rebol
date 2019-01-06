@@ -75,7 +75,7 @@ systems: [
         ; was: "Macintosh, FAT PPC, 68K"
 
     0.2.04 osx-ppc/osx "osx-ppc"
-        #SGD #BEN #LLC #F64 <NCM> /HID /DYN %M ;originally targeted OS/X 10.2
+        #SGD #BEN #LLC #F64 <NCM> /HID /DYN %M ; originally targeted OS X 10.2
 
     0.2.05 osx-x86/osx "osx-x86"
         #SGD #LEN #LLC #NSER #F64 <NCM> <NPS> <ARC> /HID /ARC /DYN %M

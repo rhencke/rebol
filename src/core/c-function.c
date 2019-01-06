@@ -82,7 +82,6 @@ REBARR *Make_Action_Words_Arr(REBACT *act, bool locals)
             DEAD_END;
         }
 
-        
         Init_Any_Word(DS_PUSH(), kind, VAL_PARAM_SPELLING(param));
         if (quoted)
             Quotify(DS_TOP, 1);
@@ -355,23 +354,11 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         REBSTR *spelling;
         switch (VAL_TYPE(item)) {
           case REB_WORD:
-            //
-            // Because FUNC does not do any locals gathering by default, the
-            // main purpose of <with> is for instructing it not to do the
-            // definitional returns.  However, it also makes changing between
-            // FUNC and FUNCTION more fluid.
-            //
-            // !!! If you write something like `func [x <with> x] [...]` that
-            // should be sanity checked with an error...TBD.
-            //
-            if (mode == SPEC_MODE_WITH)
-                continue;
+            spelling = VAL_WORD_SPELLING(item);
 
-            assert(mode != SPEC_MODE_WITH); // should have continued...
             pclass = (mode == SPEC_MODE_LOCAL)
                 ? PARAM_CLASS_LOCAL
                 : PARAM_CLASS_NORMAL;
-            spelling = VAL_WORD_SPELLING(item);
             break;
 
           case REB_GET_WORD:
@@ -443,6 +430,24 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
 
         REBSTR *canon = STR_CANON(spelling);
+        if (STR_SYMBOL(canon) == SYM_RETURN and pclass != PARAM_CLASS_LOCAL) {
+            //
+            // Cancel definitional return if any non-SET-WORD! uses the name
+            // RETURN when defining a FUNC.
+            //
+            flags &= ~(MKF_RETURN | MKF_FAKE_RETURN);
+        }
+
+        // Because FUNC does not do any locals gathering by default, the main
+        // purpose of tolerating <with> is for instructing it not to do the
+        // definitional returns.  However, it also makes changing between
+        // FUNC and FUNCTION more fluid.
+        //
+        // !!! If you write something like `func [x <with> x] [...]` that
+        // should be sanity checked with an error...TBD.
+        //
+        if (mode == SPEC_MODE_WITH)
+            continue;
 
         // In rhythm of TYPESET! BLOCK! TEXT! we want to be on a string spot
         // at the time of the push of each new typeset.
@@ -463,7 +468,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // Note there are currently two ways to get NULL: <opt> and <end>.
         // If the typeset bits contain REB_MAX_NULLED, that indicates <opt>.
         // But Is_Param_Endable() indicates <end>.
-        
+
         Init_Typeset(
             DS_PUSH(),
             (flags & MKF_ANY_VALUE)
@@ -492,7 +497,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 Init_Word(word, canon);
                 fail (Error_Dup_Vars_Raw(word)); // most dup checks done later
             }
-            if (IS_SET_WORD(item))
+            if (pclass == PARAM_CLASS_LOCAL)
                 definitional_return_dsp = DSP; // RETURN: explicitly tolerated
             else
                 flags &= ~(MKF_RETURN | MKF_FAKE_RETURN);

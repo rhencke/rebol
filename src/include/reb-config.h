@@ -197,7 +197,7 @@ Special internal defines used by RT, not Host-Kit developers:
 #endif
 
 
-//* Mac OS/X ********************************************************
+//* Mac OS X ********************************************************
 
 #ifdef TO_OSX_PPC
 #endif

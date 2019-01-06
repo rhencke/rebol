@@ -83,9 +83,10 @@ matrix:
         - STANDARD=c++11
         - RIGOROUS=no
         - STATIC=no # static linking switch not honored
-        - WITH_FFI="dynamic"
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=dynamic
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + ZeroMQ +"
+        - BREW=yes
       # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
 
     # OSX x64, release, clang++
@@ -112,9 +113,10 @@ matrix:
         - STANDARD=c++14
         - RIGOROUS=no
         - STATIC=no # static linking switch not honored
-        - WITH_FFI="no" # no FFI in this build
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=no # no FFI in this build
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + ZeroMQ +"
+        - BREW=yes
       # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
 
     # OSX x64, release, clang
@@ -133,10 +135,12 @@ matrix:
         - STANDARD=c
         - RIGOROUS=no
         - STATIC=no
-        - WITH_FFI="no"
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=no
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="" # No ODBC or ZeroMQ in this build
-      # libraries (ODBC, ZeroMQ...) added via brew in `install` step below
+        - BREW=no
+       # The "Brew" OS X package installer appears to have stopped maintaining
+       # their service on this older system.  It hangs.  So just don't use it.
 
     # Linux x86, release, gcc
     #
@@ -152,7 +156,7 @@ matrix:
         - STATIC=yes
         - TCC=i386-tcc
         - ARCH_CFLAGS=-m32
-        - WITH_FFI="dynamic"
+        - WITH_FFI=dynamic
         - EXTENSIONS="" # 32-bit version does not have ODBC or ZeroMQ
       addons:
         apt:
@@ -179,8 +183,8 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - TCC=tcc
-        - WITH_FFI="dynamic"
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=dynamic
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + ZeroMQ +"
         - ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer-3.4
         - ASAN_OPTIONS=symbolize=1
@@ -213,7 +217,7 @@ matrix:
         - STANDARD=gnu99
         - RIGOROUS=yes
         - STATIC=yes
-        - WITH_FFI="dynamic"
+        - WITH_FFI=dynamic
         - EXTENSIONS="" # no ODBC, ZeroMQ, FFI dependencies
       addons:
         apt:
@@ -248,8 +252,8 @@ matrix:
         - STATIC=yes
         - HOST=i686-w64-mingw32
         - ARCH_CFLAGS=-m32
-        - WITH_FFI="dynamic"
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=dynamic
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + Clipboard +"
       addons:
         apt:
@@ -275,8 +279,8 @@ matrix:
         - TCC=x86_64-win32-tcc
         - TCC_CPP_EXTRA_FLAGS='-I../external/tcc/win32/include -DPVAR=TVAR -DTVAR="extern __attribute__((dllimport))"'
         - HOST=x86_64-w64-mingw32
-        - WITH_FFI="dynamic"
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=dynamic
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + Clipboard +"
       addons:
         apt:
@@ -311,8 +315,8 @@ matrix:
         - TCC=x86_64-win32-tcc
         - TCC_CPP_EXTRA_FLAGS='-I../external/tcc/win32/include -DPVAR=TVAR -DTVAR="extern __attribute__((dllimport))"'
         - HOST=x86_64-w64-mingw32
-        - WITH_FFI="dynamic"
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=dynamic
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS="ODBC + Clipboard +"
       addons:
         apt:
@@ -335,8 +339,8 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - HOST=arm-eabi
-        - WITH_FFI="no"
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=no
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS=""
 
     # Android5, release, gcc
@@ -353,10 +357,10 @@ matrix:
         - RIGOROUS=yes
         - STATIC=yes
         - HOST=arm-eabi
-        - WITH_FFI="no"
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=no
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS=""
-        - TCC="arm-tcc"
+        - TCC=arm-tcc
         - ARCH_CFLAGS="-DANDROID -DTCC_ARM_EABI -DTCC_ARM_VFP -DTCC_ARM_HARDFLOAT"
       addons:
         apt:
@@ -377,8 +381,8 @@ matrix:
         - STANDARD=c
         - RIGOROUS=no
         - STATIC=no
-        - WITH_FFI="no"
-        - ODBC_REQUIRES_LTDL="no"
+        - WITH_FFI=no
+        - ODBC_REQUIRES_LTDL=no
         - EXTENSIONS=- # requests inclusion of no extensions (default?)
 
 # The install step occurs before the `script:` step runs.  The language that
@@ -408,8 +412,7 @@ install:
 
   - |
     if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      export REBOL_TOOL=./r3-osx-x64-8994d23
-
+      #
       # The Travis OS X images have brew preinstalled, but get old and out of
       # sync with the package database.  This means brew has to update.  It's
       # supposed to do this automatically, but circa 2017 it broke in some
@@ -423,10 +426,24 @@ install:
       #
       # https://github.com/Homebrew/legacy-homebrew/issues/35662
       #
-      brew update > /dev/null
+      if [[ "$BREW" == "yes" ]]; then # seems to not work on old OS X
+        brew update > /dev/null
 
-      brew install unixodbc # for ODBC extension
-      brew install zmq # for ZeroMQ extension
+        brew install unixodbc # for ODBC extension
+        brew install zmq # for ZeroMQ extension
+
+        export REBOL_TOOL=./r3-osx-x64-8994d23
+      else
+        # Brew was being installed even on minimal release builds, making it
+        # unnoticed that there was a .dylib dependency from the bootstrap
+        # release executable on ZeroMQ and ODBC.  This old debug build was
+        # captured at the same version number as the bootstrap executables.
+        # Use it for now until the next capture for the old OS X.
+        #
+        wget http://hostilefork.com/media/shared/ren-c/r3-osx-x64-8994d23-debug
+        chmod +x ./r3-osx-x64-8994d23-debug
+        export REBOL_TOOL=$PWD/r3-osx-x64-8994d23-debug
+      fi
     fi
 
   - |

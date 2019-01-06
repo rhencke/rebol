@@ -1,6 +1,6 @@
 ; GENERATE
 
-( { GENERATE } 
+( { GENERATE }
     { Start with 1 then double while x < 100 }
     {  => 1 2 4 8 16 32 64  }
     for-each x sequence: generate [x: 1] [x < 100] [x: 2 * x] [t: x]
