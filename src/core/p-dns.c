@@ -143,7 +143,7 @@ static REB_R DNS_Actor(REBFRM *frame_, REBVAL *port, REBVAL *verb)
         }
         else
             Init_Tuple(D_OUT, cast(REBYTE*, &DEVREQ_NET(sock)->remote_ip), 4);
- 
+
 
         OS_DO_DEVICE_SYNC(sock, RDC_CLOSE);
         return D_OUT; }

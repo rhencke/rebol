@@ -126,13 +126,35 @@ REB_R MAKE_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 //
 REB_R TO_Word(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
-    // !!! Compatibility hack for old TO WORD! of LIT-WORD!
+    // This is here to convert `to word! /a` into `a`.  It also allows
+    // `to word! ////a////` and variants, because it seems interesting to try
+    // that vs. erroring for a bit, to see if it turns out to be useful.
     //
-    if (IS_QUOTED(arg)) {
-        DECLARE_LOCAL (dequoted);
-        Dequotify(Move_Value(dequoted, arg));
-        return MAKE_Word(out, kind, dequoted);
+    // !!! This seems like something TO does more generally, e.g.
+    // `to integer! /"10"` making 10.  We might call these "solo paths" as
+    // a generalization of "refinement paths"
+    //
+    if (IS_PATH(arg)) {
+        REBARR *a = VAL_ARRAY(arg);
+        REBCNT index = 0;
+        while (KIND_BYTE(ARR_AT(a, index)) == REB_BLANK)
+            ++index;
+        if (IS_END(ARR_AT(a, index)))
+            fail ("Can't MAKE ANY-WORD! from PATH! that's all BLANK!s");
+
+        RELVAL *non_blank = ARR_AT(a, index);
+        ++index;
+        while (KIND_BYTE(ARR_AT(a, index)) == REB_BLANK)
+            ++index;
+
+        if (NOT_END(ARR_AT(a, index)))
+            fail ("Can't MAKE ANY-WORD! from PATH! with > 1 non-BLANK! item");
+        
+        DECLARE_LOCAL (solo);
+        Derelativize(solo, non_blank, VAL_SPECIFIER(arg));
+        return MAKE_Word(out, kind, solo);
     }
+
     return MAKE_Word(out, kind, arg);
 }
 
@@ -247,10 +269,10 @@ REB_R PD_Word(
             return pvs->out;
         }
 
-        return R_UNHANDLED;
+        fail ("ANY-WORD! picking only supports INTEGER!, currently");
     }
 
-    return R_UNHANDLED;
+    fail ("Can't use ANY-WORD! with SET-PATH");
 }
 
 

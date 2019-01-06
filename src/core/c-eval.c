@@ -1004,7 +1004,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 if (IS_REFINEMENT(f->special)) {
                     assert(
-                        VAL_WORD_SPELLING(f->special)
+                        VAL_REFINEMENT_SPELLING(f->special)
                         == VAL_PARAM_SPELLING(f->param)
                     ); // !!! Maybe not, if REDESCRIBE renamed args, but...
                     f->refine = f->arg;
@@ -1087,7 +1087,7 @@ bool Eval_Core_Throws(REBFRM * const f)
               used_refinement:;
 
                 assert(not IS_POINTER_TRASH_DEBUG(f->refine)); // must be set
-                Init_Refinement(f->arg, VAL_PARAM_SPELLING(f->param));
+                Refinify(Init_Word(f->arg, VAL_PARAM_SPELLING(f->param)));
                 SET_CELL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
             }
@@ -1576,7 +1576,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(IS_ISSUE(DS_TOP));
 
             if (not IS_WORD_BOUND(DS_TOP)) { // the loop didn't index it
-                mutable_KIND_BYTE(DS_TOP) = REB_REFINEMENT;
+                mutable_KIND_BYTE(DS_TOP) = REB_WORD;
                 fail (Error_Bad_Refine_Raw(DS_TOP)); // so duplicate or junk
             }
 
@@ -1593,7 +1593,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(
                 IS_REFINEMENT(f->refine)
                 and (
-                    VAL_WORD_SPELLING(f->refine)
+                    VAL_REFINEMENT_SPELLING(f->refine)
                     == VAL_PARAM_SPELLING(f->param - 1)
                 )
             );
@@ -2002,7 +2002,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //==//// INERT WORD AND STRING TYPES /////////////////////////////////////==//
 
-    case REB_REFINEMENT:
     case REB_ISSUE:
         // ^-- ANY-WORD!
         goto inert;
@@ -2091,19 +2090,25 @@ bool Eval_Core_Throws(REBFRM * const f)
 //
 // [PATH!]
 //
+// Paths starting with inert values do not evaluate.  `/foo/bar` has a blank
+// at its head, and it evaluates to itself.
+//
+// Other paths run through the GET-PATH! mechanism and then EVAL the result.
+// If the get of the path is null, then it will be an error.
+//
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_PATH: {
-        //
-        // Length-0 paths look like `/`, and do a special dispatch (currently
-        // hacked up to just act as the DIVIDE native, but ultimtely would
-        // be another form of dispatch based on the left type...and numbers
-        // would use this for division).  This dispatch happens after the
-        // switch statement along with enfix, so if we see it here that means
-        // there was nothing to the left.
-        //
-        if (VAL_LEN_AT(current) == 0)
-            fail ("Empty path must have left argument for 'split' behavior");
+        assert(PAYLOAD(Series, current).index == 0); // rule for now
+
+        if (ANY_INERT(ARR_HEAD(VAL_ARRAY(current)))) {
+            //
+            // !!! TODO: Make special exception for `/` here, look up function
+            // it is bound to.
+            //
+            Derelativize(f->out, current, f->specifier);
+            break;
+        }
 
         REBVAL *where = GET_EVAL_FLAG(f, NEXT_ARG_FROM_OUT) ? cell : f->out;
 

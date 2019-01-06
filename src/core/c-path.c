@@ -34,6 +34,33 @@
 
 
 //
+//  Init_Any_Path_At_Core: C
+//
+REBVAL *Init_Any_Path_At_Core(
+    RELVAL *out,
+    enum Reb_Kind kind,
+    REBARR *a,
+    REBCNT index,
+    REBNOD *binding
+){
+    assert(ANY_PATH_KIND(kind));
+    ENSURE_SERIES_MANAGED(SER(a));
+    ASSERT_SERIES_TERM(SER(a));
+    assert(index == 0); // !!! current rule
+
+    RESET_CELL(out, kind);
+    PAYLOAD(Series, out).rebser = SER(a);
+    VAL_INDEX(out) = index;
+    INIT_BINDING(out, binding);
+
+    if (ARR_LEN(a) < 2)
+        panic (a);
+
+    return KNOWN(out);
+}
+
+
+//
 //  PD_Fail: C
 //
 // In order to avoid having to pay for a check for NULL in the path dispatch
@@ -317,8 +344,13 @@ bool Eval_Path_Throws_Core(
     const REBVAL *opt_setval, // Note: may be the same as out!
     REBFLGS flags
 ){
+    assert(index == 0); // !!! current rule, immutable proxy w/AS may relax it
+
     if (flags & EVAL_FLAG_SET_PATH_ENFIXED)
         assert(opt_setval); // doesn't make any sense for GET-PATH! or PATH!
+
+    while (KIND_BYTE(ARR_AT(array, index)) == REB_BLANK)
+        ++index; // pre-feed any blanks
 
     // Treat a 0-length PATH! as if it gives back an ACTION! which does "what
     // a zero length path would do", e.g. an analogue to division (though in
@@ -328,19 +360,6 @@ bool Eval_Path_Throws_Core(
         if (label_out)
             *label_out = nullptr;
         Move_Value(out, NAT_VALUE(path_0));
-        return false;
-    }
-
-    // Paths that start with inert values do not evaluate.  So `/foo/bar` has
-    // a REFINEMENT! at its head, and it will just be inert.  This also
-    // means that `/foo/1` is inert, as opposed to #"o".  Note that this
-    // is different from `(/foo)/1` or `ref: /foo | ref/1`, both of which
-    // would be #"o".
-    //
-    if (ANY_INERT(ARR_AT(array, index))) {
-        if (opt_setval)
-            fail ("Can't perform SET_PATH! on path with inert head");
-        Init_Any_Array_At(out, REB_PATH, array, index);
         return false;
     }
 
@@ -412,18 +431,32 @@ bool Eval_Path_Throws_Core(
         Derelativize(pvs->out, pvs->value, pvs->specifier);
     }
 
-    if (IS_NULLED(pvs->out))
-        fail (Error_No_Value_Core(pvs->value, pvs->specifier));
-
     Fetch_Next_In_Frame(nullptr, pvs);
 
     if (IS_END(pvs->value)) {
-        // If it was a single element path, return the value rather than
-        // try to dispatch it (would cause a crash at time of writing)
         //
-        // !!! Is this the desired behavior, or should it be an error?
+        // We want `set /a` and `get /a` to work.  The GET case should work
+        // with just what we loaded in pvs->out being returned (which may be
+        // null, in case it's the caller's responsibility to error).  But
+        // the SET case needs us to write back to the "reference" location.
+        //
+        if (PVS_IS_SET_PATH(pvs)) {
+            if (not pvs->u.ref.cell)
+                fail ("Can't update temporary immediate value via SET-PATH!");
+
+            // !!! When we got the cell, we got it mutable, which is bad...
+            // it means we can't use `GET /A` on immutable objects.  But if
+            // we got the cell immutably we couldn't safely write to it.
+            // Prioritize rethinking this when the feature gets used more.
+            //
+            assert(not GET_CELL_FLAG(pvs->u.ref.cell, PROTECTED));
+            Move_Value(pvs->u.ref.cell, PVS_OPT_SETVAL(pvs));
+        }
     }
     else {
+        if (IS_NULLED(pvs->out))
+            fail (Error_No_Value_Core(pvs->value, pvs->specifier));
+
         if (Next_Path_Throws(pvs))
             goto return_thrown;
 
@@ -958,7 +991,7 @@ REB_R MAKE_Path(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     if (ARR_LEN(arr) < 2) // !!! Should pass produced array as BLOCK! to error
         fail ("MAKE PATH! must produce path of at least length 2");
 
-    return Init_Any_Array(out, kind, arr);
+    return Init_Any_Path(out, kind, arr);
 }
 
 
@@ -978,8 +1011,25 @@ static void Push_Path_Recurses(RELVAL *path, REBSPC *specifier)
 //  TO_Path: C
 //
 REB_R TO_Path(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
-    if (not ANY_ARRAY(arg))
-        fail (Error_Bad_Make(kind, arg)); // "to path! 0" has no meaning
+    if (ANY_PATH(arg)) {  // e.g. `to set-path! 'a/b/c`
+        assert(kind != VAL_TYPE(arg));  // TO should have called COPY
+
+        Move_Value(out, arg);
+        mutable_KIND_BYTE(out) = kind;
+        return out;
+    }
+
+    if (not ANY_ARRAY(arg)) {  // e.g. `to path! foo` becomes `/foo`
+        //
+        // !!! This is slated to be able to fit into a single cell, with no
+        // array allocation.
+        //
+        REBARR *a = Make_Arr(2);
+        Init_Blank(ARR_AT(a, 0));
+        Move_Value(ARR_AT(a, 1), arg);
+        TERM_ARRAY_LEN(a, 2);
+        return Init_Any_Path(out, kind, a);
+    }
 
     REBDSP dsp_orig = DSP;
     RELVAL *item = VAL_ARRAY_AT(arg);
@@ -993,7 +1043,7 @@ REB_R TO_Path(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
     if (DSP - dsp_orig < 2)
         fail ("TO PATH! must produce a path of at least length 2");
 
-    return Init_Any_Array(out, kind, Pop_Stack_Values(dsp_orig));
+    return Init_Any_Path(out, kind, Pop_Stack_Values(dsp_orig));
 }
 
 

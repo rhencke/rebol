@@ -234,7 +234,7 @@ static void Insert_Gobs(
     arg = sarg;
 
     // Create or expand the pane series:
-    
+
     REBARR *pane = GOB_PANE(gob);
 
     if (not pane) {
@@ -268,7 +268,7 @@ static void Insert_Gobs(
                 fail ("GOB! not expected to have parent");
             Move_Value(item, KNOWN(val));
             ++item;
-            
+
             GOB_PARENT(VAL_GOB(val)) = gob;
             SET_GOB_FLAG(VAL_GOB(val), GOBS_NEW);
         }

@@ -46,7 +46,7 @@
 (
     gob: make gob! 10x20
     did all [
-        0 = length of gob 
+        0 = length of gob
         append gob make gob! 3x4
         1 = length of gob
         gob/1/offset = 3x4

@@ -444,7 +444,7 @@ for-each-system: function [
         set platform-number integer!
         any [
             set id tuple!
-            [quote _ (
+            [blank! (
                 os: _
                 os-name: _
                 os-base: _
@@ -455,7 +455,7 @@ for-each-system: function [
                 os-base: os/2
             )]
             [
-                quote _ (build-label: _)
+                blank! (build-label: _)
                     |
                 set build-label text! (
                     build-label: to-word build-label
