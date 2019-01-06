@@ -779,7 +779,7 @@ static REBARR *Startup_Generics(const REBVAL *boot_generics)
     RELVAL *item = head;
     for (; NOT_END(item); ++item)
         if (IS_SET_WORD(item)) {
-            DS_PUSH_RELVAL(item, specifier);
+            Derelativize(DS_PUSH(), item, specifier);
             mutable_KIND_BYTE(DS_TOP) = REB_WORD; // change pushed to WORD!
         }
 

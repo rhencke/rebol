@@ -82,8 +82,8 @@ REBARR *Make_Action_Words_Arr(REBACT *act, bool locals)
             DEAD_END;
         }
 
-        DS_PUSH_TRASH;
-        Init_Any_Word(DS_TOP, kind, VAL_PARAM_SPELLING(param));
+        
+        Init_Any_Word(DS_PUSH(), kind, VAL_PARAM_SPELLING(param));
         if (quoted)
             Quotify(DS_TOP, 1);
     }
@@ -191,10 +191,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // the function description--it will be extracted from the slot before
     // it is turned into a rootkey for param_notes.
     //
-    DS_PUSH_TRASH; // paramlist[0] will become ACT_ARCHETYPE()
-    Init_Unreadable_Blank(DS_TOP);
-    DS_PUSH(EMPTY_BLOCK); // param_types[0] (to be OBJECT! canon value, if any)
-    DS_PUSH(EMPTY_TEXT); // param_notes[0] (holds description, then canon)
+    Init_Unreadable_Blank(DS_PUSH()); // paramlist[0] becomes ACT_ARCHETYPE()
+    Move_Value(DS_PUSH(), EMPTY_BLOCK); // param_types[0] (object canon)
+    Move_Value(DS_PUSH(), EMPTY_TEXT); // param_notes[0] (desc, then canon)
 
     bool has_description = false;
     bool has_types = false;
@@ -222,11 +221,10 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 continue;
 
             if (IS_TYPESET(DS_TOP))
-                DS_PUSH(EMPTY_BLOCK); // need a block to be in position
+                Move_Value(DS_PUSH(), EMPTY_BLOCK); // need block in position
 
             if (IS_BLOCK(DS_TOP)) { // we're in right spot to push notes/title
-                DS_PUSH_TRASH;
-                Init_Text(DS_TOP, Copy_String_At_Len(item, -1));
+                Init_Text(DS_PUSH(), Copy_String_At_Len(item, -1));
             }
             else { // !!! A string was already pushed.  Should we append?
                 assert(IS_TEXT(DS_TOP));
@@ -289,9 +287,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             REBVAL *typeset;
             if (IS_TYPESET(DS_TOP)) {
                 REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
-                DS_PUSH_TRASH;
                 Init_Block(
-                    DS_TOP,
+                    DS_PUSH(),
                     Copy_Array_At_Deep_Managed(
                         VAL_ARRAY(item),
                         VAL_INDEX(item),
@@ -299,7 +296,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                     )
                 );
 
-                typeset = DS_TOP - 1; // volatile if you DS_PUSH!
+                typeset = DS_TOP - 1; // volatile if you DS_PUSH()!
             }
             else {
                 assert(IS_TEXT(DS_TOP)); // !!! are blocks after notes good?
@@ -451,9 +448,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // at the time of the push of each new typeset.
         //
         if (IS_TYPESET(DS_TOP))
-            DS_PUSH(EMPTY_BLOCK);
+            Move_Value(DS_PUSH(), EMPTY_BLOCK);
         if (IS_BLOCK(DS_TOP))
-            DS_PUSH(EMPTY_TEXT);
+            Move_Value(DS_PUSH(), EMPTY_TEXT);
         assert(IS_TEXT(DS_TOP));
 
         // Non-annotated arguments disallow ACTION!, VOID! and NULL.  Not
@@ -466,10 +463,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // Note there are currently two ways to get NULL: <opt> and <end>.
         // If the typeset bits contain REB_MAX_NULLED, that indicates <opt>.
         // But Is_Param_Endable() indicates <end>.
-        //
-        DS_PUSH_TRASH;
-        REBVAL *typeset = Init_Typeset(
-            DS_TOP, // volatile if you DS_PUSH!
+        
+        Init_Typeset(
+            DS_PUSH(),
             (flags & MKF_ANY_VALUE)
                 ? TS_OPT_VALUE
                 : TS_VALUE & ~(
@@ -478,7 +474,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 ),
             spelling // don't canonize, see #2258
         );
-        INIT_VAL_PARAM_CLASS(typeset, pclass);
+        INIT_VAL_PARAM_CLASS(DS_TOP, pclass);
 
         // All these would cancel a definitional return (leave has same idea):
         //
@@ -506,9 +502,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Go ahead and flesh out the TYPESET! BLOCK! TEXT! triples.
     //
     if (IS_TYPESET(DS_TOP))
-        DS_PUSH(EMPTY_BLOCK);
+        Move_Value(DS_PUSH(), EMPTY_BLOCK);
     if (IS_BLOCK(DS_TOP))
-        DS_PUSH(EMPTY_TEXT);
+        Move_Value(DS_PUSH(), EMPTY_TEXT);
     assert((DSP - dsp_orig) % 3 == 0); // must be a multiple of 3
 
     // Definitional RETURN slots must have their argument value fulfilled with
@@ -530,13 +526,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // they are allowed to return anything.  Generally speaking, the
             // checks are on the input side, not the output.
             //
-            DS_PUSH_TRASH;
-            Init_Typeset(DS_TOP, TS_OPT_VALUE, Canon(SYM_RETURN));
+            Init_Typeset(DS_PUSH(), TS_OPT_VALUE, Canon(SYM_RETURN));
             INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN);
             definitional_return_dsp = DSP;
 
-            DS_PUSH(EMPTY_BLOCK);
-            DS_PUSH(EMPTY_TEXT);
+            Move_Value(DS_PUSH(), EMPTY_BLOCK);
+            Move_Value(DS_PUSH(), EMPTY_TEXT);
             // no need to move it--it's already at the tail position
         }
         else {
@@ -1707,7 +1702,7 @@ REB_R Chainer_Dispatcher(REBFRM *f)
     REBVAL *chained = KNOWN(ARR_LAST(pipeline));
     for (; chained != ARR_HEAD(pipeline); --chained) {
         assert(IS_ACTION(chained));
-        DS_PUSH(KNOWN(chained));
+        Move_Value(DS_PUSH(), KNOWN(chained));
     }
 
     // Extract the first function, itself which might be a chain.

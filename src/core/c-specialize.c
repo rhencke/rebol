@@ -188,9 +188,8 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
         if (IS_ISSUE(special)) {
             REBCNT partial_index = VAL_WORD_INDEX(special);
-            DS_PUSH_TRASH;
             Init_Any_Word_Bound( // push an ISSUE! to data stack
-                DS_TOP,
+                DS_PUSH(),
                 REB_ISSUE,
                 VAL_STORED_CANON(special),
                 exemplar,
@@ -460,7 +459,7 @@ bool Specialize_Action_Throws(
     // arguments for whether they become fully specialized or not.
 
     REBDSP dsp_paramlist = DSP;
-    DS_PUSH(ACT_ARCHETYPE(unspecialized));
+    Move_Value(DS_PUSH(), ACT_ARCHETYPE(unspecialized));
 
     REBVAL *param = rootkey + 1;
     REBVAL *arg = CTX_VARS_HEAD(exemplar);
@@ -636,7 +635,7 @@ bool Specialize_Action_Throws(
     unspecialized_arg:;
 
         assert(NOT_VAL_FLAG(arg, ARG_MARKED_CHECKED));
-        DS_PUSH(param); // if evoked, will get DS_DROP'd from the paramlist
+        Move_Value(DS_PUSH(), param); // if evoked, will be DROP'd from paramlist
         continue;
 
     specialized_arg:;
@@ -660,7 +659,7 @@ bool Specialize_Action_Throws(
         // for enumeration in the evaluator to line up with the frame values
         // of the underlying function.
 
-        DS_PUSH(param);
+        Move_Value(DS_PUSH(), param);
         TYPE_SET(DS_TOP, REB_TS_HIDDEN);
         continue;
     }

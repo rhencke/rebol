@@ -274,8 +274,7 @@ REBNATIVE(request_file_p)
                 "local-to-file", rebR(rebTextW(ofn.lpstrFile)),
                 rebEND
             );
-            DS_PUSH_TRASH;
-            Move_Value(DS_TOP, solo);
+            Move_Value(DS_PUSH(), solo);
             rebRelease(solo);
         }
         else {
@@ -292,7 +291,7 @@ REBNATIVE(request_file_p)
                     "local-to-file", rebR(rebTextW(item)),
                     rebEND
                 );
-                DS_PUSH_TRASH;
+                DS_PUSH();
                 Move_Value(DS_TOP, solo);
                 rebRelease(solo);
             }
@@ -330,8 +329,7 @@ REBNATIVE(request_file_p)
                     );
                     rebFree(buffer);
 
-                    DS_PUSH_TRASH;
-                    Move_Value(DS_TOP, file);
+                    Move_Value(DS_PUSH(), file);
 
                     item += item_len + 1; // next
                 }
@@ -442,8 +440,7 @@ REBNATIVE(request_file_p)
                         "as file!", rebT(item->data), // UTF-8
                         rebEND
                     );
-                    DS_PUSH_TRASH;
-                    Move_Value(DS_TOP, file);
+                    Move_Value(DS_PUSH(), file);
                     rebRelease(file);
                 }
                 g_slist_free(list);
@@ -458,8 +455,7 @@ REBNATIVE(request_file_p)
                 "as file!", rebT(gtk_file_chooser_get_filename(chooser)),
                 rebEND
             );
-            DS_PUSH_TRASH;
-            Move_Value(DS_TOP, file);
+            Move_Value(DS_PUSH(), file);
             g_free(filename);
         }
     }

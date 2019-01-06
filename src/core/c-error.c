@@ -77,7 +77,7 @@ void Assert_State_Balanced_Debug(
 ){
     if (s->dsp != DSP) {
         printf(
-            "DS_PUSH()x%d without DS_POP/DS_DROP\n",
+            "DS_PUSH()x%d without DS_DROP()\n",
             cast(int, DSP - s->dsp)
         );
         panic_at (nullptr, file, line);
@@ -428,8 +428,7 @@ void Set_Location_Of_Error(
         if (f->original == PG_Dummy_Action)
             continue;
 
-        DS_PUSH_TRASH;
-        Get_Frame_Label_Or_Blank(DS_TOP, f);
+        Get_Frame_Label_Or_Blank(DS_PUSH(), f);
     }
     Init_Block(&vars->where, Pop_Stack_Values(dsp_orig));
 

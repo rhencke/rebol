@@ -64,8 +64,7 @@ bool Reduce_To_Stack_Throws(
 
         if (IS_NULLED(out)) {
             if (flags & REDUCE_FLAG_TRY) {
-                DS_PUSH_TRASH;
-                Init_Blank(DS_TOP);
+                Init_Blank(DS_PUSH());
                 if (line)
                     SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
@@ -73,7 +72,7 @@ bool Reduce_To_Stack_Throws(
                 fail (Error_Reduce_Made_Null_Raw());
         }
         else {
-            DS_PUSH(out);
+            Move_Value(DS_PUSH(), out);
             if (line)
                 SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
         }
@@ -214,7 +213,7 @@ REB_R Compose_To_Stack_Core(
         enum Reb_Kind kind = CELL_KIND(cell); // notice `\\(...)`
 
         if (not ANY_ARRAY_KIND(kind)) { // won't substitute/recurse
-            DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
+            Derelativize(DS_PUSH(), f->value, specifier); // keep newline flag
             continue;
         }
 
@@ -247,8 +246,7 @@ REB_R Compose_To_Stack_Core(
             }
         }
         else { // all escaped groups just lose one level of their escaping
-            DS_PUSH_TRASH;
-            Derelativize(DS_TOP, f->value, specifier);
+            Derelativize(DS_PUSH(), f->value, specifier);
             Unquotify(DS_TOP, 1);
             changed = true;
             continue;
@@ -295,12 +293,12 @@ REB_R Compose_To_Stack_Core(
                     // Only proxy newline flag from the template on *first*
                     // value spliced in (it may have its own newline flag)
                     //
-                    DS_PUSH_RELVAL(push, VAL_SPECIFIER(out));
+                    Derelativize(DS_PUSH(), push, VAL_SPECIFIER(out));
                     if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
                         SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
 
                     while (++push, NOT_END(push))
-                        DS_PUSH_RELVAL(push, VAL_SPECIFIER(out));
+                        Derelativize(DS_PUSH(), push, VAL_SPECIFIER(out));
                 }
             }
             else if (IS_VOID(out) and splice) {
@@ -310,7 +308,7 @@ REB_R Compose_To_Stack_Core(
                 // compose [(1 + 2) inserts as-is] => [3 inserts as-is]
                 // compose/only [([a b c]) unmerged] => [[a b c] unmerged]
 
-                DS_PUSH(out); // Note: not legal to eval to stack direct!
+                Move_Value(DS_PUSH(), out); // Not legal to eval to stack direct!
                 if (GET_VAL_FLAG(f->value, VALUE_FLAG_NEWLINE_BEFORE))
                     SET_VAL_FLAG(DS_TOP, VALUE_FLAG_NEWLINE_BEFORE);
             }
@@ -347,8 +345,7 @@ REB_R Compose_To_Stack_Core(
                 // may be controlled by a switch if it turns out to be needed.
                 //
                 DS_DROP_TO(dsp_deep);
-                DS_PUSH_TRASH;
-                Derelativize(DS_TOP, f->value, specifier);
+                Derelativize(DS_PUSH(), f->value, specifier);
                 continue;
             }
 
@@ -357,9 +354,8 @@ REB_R Compose_To_Stack_Core(
                 flags |= ARRAY_FLAG_TAIL_NEWLINE;
 
             REBARR *popped = Pop_Stack_Values_Core(dsp_deep, flags);
-            DS_PUSH_TRASH;
             Init_Any_Array(
-                DS_TOP,
+                DS_PUSH(),
                 kind,
                 popped // can't push and pop in same step, need this variable!
             );
@@ -374,7 +370,7 @@ REB_R Compose_To_Stack_Core(
         else {
             // compose [[(1 + 2)] (3 + 4)] => [[(1 + 2)] 7] ;-- non-deep
             //
-            DS_PUSH_RELVAL(f->value, specifier); // preserves newline flag
+            Derelativize(DS_PUSH(), f->value, specifier); // keep newline flag
         }
     }
 
@@ -465,7 +461,7 @@ static void Flatten_Core(
             );
         }
         else
-            DS_PUSH_RELVAL(item, specifier);
+            Derelativize(DS_PUSH(), item, specifier);
     }
 }
 

@@ -576,7 +576,7 @@ REBTYPE(Varargs)
             }
             if (IS_END(D_OUT))
                 break;
-            DS_PUSH(D_OUT);
+            Move_Value(DS_PUSH(), D_OUT);
         }
 
         // !!! What if caller wanted a REB_GROUP, REB_PATH, or an /INTO?

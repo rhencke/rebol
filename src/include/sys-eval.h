@@ -961,7 +961,7 @@ inline static void Reify_Va_To_Array_In_Frame(
     assert(FRM_IS_VALIST(f));
 
     if (truncated) {
-        DS_PUSH_TRASH;
+        DS_PUSH();
         Init_Word(DS_TOP, Canon(SYM___OPTIMIZED_OUT__));
     }
 
@@ -969,8 +969,9 @@ inline static void Reify_Va_To_Array_In_Frame(
         assert(f->source->pending == END_NODE);
 
         do {
-            // may be a NULLED cell.  Preserve VALUE_FLAG_EVAL_FLIP flag.
-            DS_PUSH_RELVAL_KEEP_EVAL_FLIP(f->value, f->specifier);
+            // Preserve VALUE_FLAG_EVAL_FLIP flag.  Note: may be a NULLED cell
+            //
+            Derelativize_Keep_Eval_Flip(DS_PUSH(), f->value, f->specifier);
             Fetch_Next_In_Frame(nullptr, f);
         } while (NOT_END(f->value));
 

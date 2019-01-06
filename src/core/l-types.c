@@ -443,7 +443,7 @@ bool Scan_Hex2(REBUNI *out, const void *p, bool unicode)
 // !!! Is this redundant with Scan_Decimal?  Appears to be similar code.
 //
 const REBYTE *Scan_Dec_Buf(
-    REBYTE *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    REBYTE *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len // max size of buffer
 ) {
@@ -523,7 +523,7 @@ const REBYTE *Scan_Dec_Buf(
 // Scan and convert a decimal value.  Return zero if error.
 //
 const REBYTE *Scan_Decimal(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len,
     bool dec_only
@@ -617,7 +617,7 @@ const REBYTE *Scan_Decimal(
 // Allow preceding + - and any combination of ' marks.
 //
 const REBYTE *Scan_Integer(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len
 ) {
@@ -712,7 +712,7 @@ const REBYTE *Scan_Integer(
 // Scan and convert money.  Return zero if error.
 //
 const REBYTE *Scan_Money(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len
 ) {
@@ -741,7 +741,7 @@ const REBYTE *Scan_Money(
 // Scan and convert a date. Also can include a time and zone.
 //
 const REBYTE *Scan_Date(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len
 ) {
@@ -989,7 +989,7 @@ end_date:
 // Scan and convert a file name.
 //
 const REBYTE *Scan_File(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len
 ) {
@@ -1032,7 +1032,7 @@ const REBYTE *Scan_File(
 // Scan and convert email.
 //
 const REBYTE *Scan_Email(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len
 ) {
@@ -1103,7 +1103,7 @@ const REBYTE *Scan_Email(
 // on Windows, are expressed as STRING!.)
 //
 const REBYTE *Scan_URL(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len
 ){
@@ -1117,7 +1117,7 @@ const REBYTE *Scan_URL(
 // Scan and convert a pair
 //
 const REBYTE *Scan_Pair(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len
 ) {
@@ -1163,7 +1163,7 @@ const REBYTE *Scan_Pair(
 // Scan and convert a tuple.
 //
 const REBYTE *Scan_Tuple(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len
 ) {
@@ -1215,7 +1215,7 @@ const REBYTE *Scan_Tuple(
 // Scan and convert binary strings.
 //
 const REBYTE *Scan_Binary(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT len
 ) {
@@ -1255,7 +1255,7 @@ const REBYTE *Scan_Binary(
 // Scan any string that does not require special decoding.
 //
 const REBYTE *Scan_Any(
-    REBVAL *out, // may live in data stack (do not call DS_PUSH, GC, eval)
+    RELVAL *out, // may live in data stack (do not call DS_PUSH(), GC, eval)
     const REBYTE *cp,
     REBCNT num_bytes,
     enum Reb_Kind type

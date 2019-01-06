@@ -607,7 +607,7 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
             if (IS_NULLED(les->out))
                 Init_Void(les->out); // nulled is used to signal breaking only
             else
-                DS_PUSH(les->out); // anything not null is added to the result
+                Move_Value(DS_PUSH(), les->out); // non nulls added to result
             break;
         }
     } while (more_data and not broke);

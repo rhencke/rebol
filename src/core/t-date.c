@@ -340,7 +340,7 @@ static REBDAT Normalize_Date(REBINT day, REBINT month, REBINT year, REBINT tz)
 // Adjust date and time for the timezone.
 // The result should be used for output, not stored.
 //
-void Adjust_Date_Zone(REBVAL *d, bool to_utc)
+void Adjust_Date_Zone(RELVAL *d, bool to_utc)
 {
     if (NOT_VAL_FLAG(d, DATE_FLAG_HAS_ZONE))
         return;

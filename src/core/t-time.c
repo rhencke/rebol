@@ -75,7 +75,7 @@ REBI64 Join_Time(REB_TIMEF *tf, bool neg)
 //
 // Scan string and convert to time.  Return zero if error.
 //
-const REBYTE *Scan_Time(REBVAL *out, const REBYTE *cp, REBCNT len)
+const REBYTE *Scan_Time(RELVAL *out, const REBYTE *cp, REBCNT len)
 {
     TRASH_CELL_IF_DEBUG(out);
     cast(void, len); // !!! should len be paid attention to?

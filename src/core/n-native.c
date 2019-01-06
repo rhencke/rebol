@@ -517,7 +517,7 @@ REBNATIVE(compile)
             // back and fill in its dispatcher and TCC_State after the
             // compilation...
             //
-            DS_PUSH(KNOWN(var));
+            Move_Value(DS_PUSH(), KNOWN(var));
 
             REBARR *details = VAL_ACT_DETAILS(var);
             RELVAL *source = ARR_AT(details, IDX_NATIVE_BODY);
@@ -693,7 +693,7 @@ REBNATIVE(compile)
         ACT_DISPATCHER(VAL_ACTION(var)) = c_func;
         Move_Value(ARR_AT(details, IDX_TCC_NATIVE_STATE), handle);
 
-        DS_DROP;
+        DS_DROP();
     }
 
     return nullptr;

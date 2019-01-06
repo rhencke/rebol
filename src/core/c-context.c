@@ -969,9 +969,8 @@ REBARR *Context_To_Array(REBCTX *context, REBINT mode)
     for (; NOT_END(key); n++, key++, var++) {
         if (not Is_Param_Hidden(key)) {
             if (mode & 1) {
-                DS_PUSH_TRASH;
                 Init_Any_Word_Bound(
-                    DS_TOP,
+                    DS_PUSH(),
                     (mode & 2) ? REB_SET_WORD : REB_WORD,
                     VAL_KEY_SPELLING(key),
                     context,
@@ -990,7 +989,7 @@ REBARR *Context_To_Array(REBCTX *context, REBINT mode)
                 if (IS_NULLED(var))
                     fail (Error_Null_Object_Block_Raw());
 
-                DS_PUSH(var);
+                Move_Value(DS_PUSH(), var);
             }
         }
     }

@@ -1784,7 +1784,7 @@ REBARR *Snapshot_All_Actions(void)
                 if (GET_SER_FLAG(s, ARRAY_FLAG_PARAMLIST)) {
                     REBVAL *v = KNOWN(ARR_HEAD(ARR(s)));
                     assert(IS_ACTION(v));
-                    DS_PUSH(v);
+                    Move_Value(DS_PUSH(), v);
                 }
                 break;
             }

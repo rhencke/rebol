@@ -602,7 +602,7 @@ inline static void SET_SIGNAL(REBFLGS f) { // used in %sys-series.h
 #include "sys-frame.h" // needs words for frame-label-returning helpers
 
 #include "sys-stack.h"
-#include "sys-bind.h" // does DS_PUSH and DS_TOP
+#include "sys-bind.h" // needs DS_PUSH() and DS_TOP from %sys-stack.h
 
 #include "sys-protect.h"
 

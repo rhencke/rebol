@@ -92,8 +92,7 @@ void Startup_Typesets(void)
         // the typesets, rather an extra data field used when the typeset is
         // in a context key slot to identify that field's name
         //
-        DS_PUSH_TRASH;
-        Init_Typeset(DS_TOP, Typesets[n].bits, NULL);
+        Init_Typeset(DS_PUSH(), Typesets[n].bits, NULL);
 
         Move_Value(
             Append_Context(Lib_Context, NULL, Canon(Typesets[n].sym)),
@@ -287,17 +286,16 @@ REBARR *Typeset_To_Array(const REBVAL *tset)
     REBINT n;
     for (n = 1; n < REB_MAX_NULLED; ++n) {
         if (TYPE_CHECK(tset, cast(enum Reb_Kind, n))) {
-            DS_PUSH_TRASH;
             if (n == REB_MAX_NULLED) {
                 //
                 // !!! A BLANK! value is currently supported in typesets to
                 // indicate that they take optional values.  This may wind up
                 // as a feature of MAKE ACTION! only.
                 //
-                Init_Blank(DS_TOP);
+                Init_Blank(DS_PUSH());
             }
             else
-                Init_Datatype(DS_TOP, cast(enum Reb_Kind, n));
+                Init_Datatype(DS_PUSH(), cast(enum Reb_Kind, n));
         }
     }
 

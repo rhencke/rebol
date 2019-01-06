@@ -1228,8 +1228,7 @@ REBNATIVE(copy_odbc)
         }
         TERM_ARRAY_LEN(record, num_columns);
 
-        DS_PUSH_TRASH;
-        Init_Block(DS_TOP, record);
+        Init_Block(DS_PUSH(), record);
         ++row;
     }
 

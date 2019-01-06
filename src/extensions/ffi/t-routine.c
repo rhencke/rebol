@@ -645,7 +645,7 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
             if (IS_END(f->out))
                 break;
 
-            DS_PUSH(f->out);
+            Move_Value(DS_PUSH(), f->out);
             SET_END(f->out); // expected by Do_Vararg_Op
         } while (true);
 
@@ -1011,8 +1011,7 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
     // ACT_ARCHETYPE (see comments on `struct Reb_Action`)
     //
     REBDSP dsp_orig = DSP;
-    DS_PUSH_TRASH;
-    Init_Unreadable_Blank(DS_TOP); // GC-safe form of "trash"
+    Init_Unreadable_Blank(DS_PUSH()); // GC-safe form of "trash"
 
     // arguments can be complex, defined as structures.  A "schema" is a
     // REBVAL that holds either an INTEGER! for simple types, or a HANDLE!
@@ -1061,9 +1060,8 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 //
                 // For that reason, varargs was not in the list by default.
                 //
-                DS_PUSH_TRASH;
                 Init_Typeset(
-                    DS_TOP,
+                    DS_PUSH(),
                     TS_VALUE & ~FLAGIT_KIND(REB_VARARGS),
                     Canon(SYM_VARARGS)
                 );
@@ -1079,10 +1077,9 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 DECLARE_LOCAL (block);
                 Derelativize(block, item, VAL_SPECIFIER(ffi_spec));
 
-                DS_PUSH_TRASH;
                 Schema_From_Block_May_Fail(
                     Alloc_Tail_Array(args_schemas), // schema (out)
-                    DS_TOP, // param (out)
+                    DS_PUSH(), // param (out)
                     block // block (in)
                 );
 

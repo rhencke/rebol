@@ -118,25 +118,16 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
     // "head" value not in the array.  These cases could substitute the symbol
     // for the currently executing function.  Reconsider when such cases
     // appear and can be studied.
-    /*
-    if (...) {
-        DS_PUSH_TRASH;
-        Init_Word(DS_TOP, ...?)
-    }
-    */
 
     REBINT start = FRM_INDEX(f) - 3;
-    if (start > 0) {
-        DS_PUSH_TRASH;
-        Init_Word(DS_TOP, Canon(SYM_ELLIPSIS));
-    }
+    if (start > 0)
+        Init_Word(DS_PUSH(), Canon(SYM_ELLIPSIS));
     else if (start < 0)
         start = 0;
 
     REBCNT count = 0;
     RELVAL *item = ARR_AT(FRM_ARRAY(f), start);
     for (; NOT_END(item) and count < 6; ++item, ++count) {
-        DS_PUSH_TRASH;
         if (IS_NULLED(item)) {
             //
             // If a va_list is used to do a non-evaluative call (something
@@ -148,10 +139,10 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
             // substitute a placeholder to avoid crashing the GC.
             //
             assert(GET_SER_FLAG(FRM_ARRAY(f), ARRAY_FLAG_NULLEDS_LEGAL));
-            Init_Word(DS_TOP, Canon(SYM___VOID__));
+            Init_Word(DS_PUSH(), Canon(SYM___VOID__));
         }
         else
-            Derelativize(DS_TOP, item, f->specifier);
+            Derelativize(DS_PUSH(), item, f->specifier);
 
         if (count == FRM_INDEX(f) - start - 1) {
             //
@@ -162,15 +153,12 @@ REBVAL *Init_Near_For_Frame(RELVAL *out, REBFRM *f)
             // mean "error source is to the left" or just "frame is at a
             // breakpoint at that position".
             //
-            DS_PUSH_TRASH;
-            Init_Word(DS_TOP, Canon(SYM__T_T));
+            Init_Word(DS_PUSH(), Canon(SYM__T_T));
         }
     }
 
-    if (NOT_END(item)) {
-        DS_PUSH_TRASH;
-        Init_Word(DS_TOP, Canon(SYM_ELLIPSIS));
-    }
+    if (NOT_END(item))
+        Init_Word(DS_PUSH(), Canon(SYM_ELLIPSIS));
 
     // !!! This code can be called on an executing frame, such as when an
     // error happens in that frame.  Or it can be called on a pending frame

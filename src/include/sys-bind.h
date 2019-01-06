@@ -701,18 +701,16 @@ inline static REBVAL *Derelativize(
 #endif
 
 
-#define DS_PUSH_RELVAL(v,specifier) \
-    (DS_PUSH_TRASH, Derelativize(DS_TOP, (v), (specifier)))
-
-inline static void DS_PUSH_RELVAL_KEEP_EVAL_FLIP(
+inline static REBVAL *Derelativize_Keep_Eval_Flip(
+    RELVAL *out,
     const RELVAL *v,
     REBSPC *specifier
 ){
-    DS_PUSH_TRASH;
     bool flip = GET_VAL_FLAG(v, VALUE_FLAG_EVAL_FLIP);
-    Derelativize(DS_TOP, v, specifier);
+    Derelativize(out, v, specifier);
     if (flip)
-        SET_VAL_FLAG(DS_TOP, VALUE_FLAG_EVAL_FLIP);
+        SET_VAL_FLAG(out, VALUE_FLAG_EVAL_FLIP);
+    return KNOWN(out);
 }
 
 

@@ -228,8 +228,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
     for(; NOT_END(item); ++item) {
         REBFLD *field = VAL_ARRAY(item);
 
-        DS_PUSH_TRASH;
-        Init_Set_Word(DS_TOP, FLD_NAME(field)); // required name
+        Init_Set_Word(DS_PUSH(), FLD_NAME(field)); // required name
 
         REBARR *typespec = Make_Arr(2); // required type
 
@@ -280,8 +279,7 @@ REBARR *Struct_To_Array(REBSTU *stu)
             get_scalar(dest, stu, field, 0);
         }
 
-        DS_PUSH_TRASH;
-        Init_Block(DS_TOP, typespec); // required type
+        Init_Block(DS_PUSH(), typespec); // required type
     }
 
     return Pop_Stack_Values(dsp_orig);
@@ -1328,8 +1326,7 @@ REB_R MAKE_Struct(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         ++field_idx;
 
-        DS_PUSH_TRASH;
-        Init_Block(DS_TOP, field); // really should be an OBJECT!
+        Init_Block(DS_PUSH(), field); // really should be an OBJECT!
     }
 
     REBARR *fieldlist = Pop_Stack_Values_Core(dsp_orig, NODE_FLAG_MANAGED);

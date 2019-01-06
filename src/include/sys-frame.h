@@ -324,7 +324,7 @@ inline static bool Is_Action_Frame_Fulfilling(REBFRM *f)
 }
 
 
-inline static void Get_Frame_Label_Or_Blank(REBVAL *out, REBFRM *f) {
+inline static void Get_Frame_Label_Or_Blank(RELVAL *out, REBFRM *f) {
     assert(Is_Action_Frame(f));
     if (f->opt_label != NULL)
         Init_Word(out, f->opt_label); // invoked via WORD! or PATH!

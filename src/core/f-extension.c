@@ -282,8 +282,7 @@ REBNATIVE(load_extension)
         // the list of the exports and pass it to the module code.
         //
         if (is_export) {
-            DS_PUSH_TRASH;
-            Init_Word(DS_TOP, VAL_WORD_SPELLING(name));
+            Init_Word(DS_PUSH(), VAL_WORD_SPELLING(name));
             if (0 == Try_Bind_Word(module_ctx, DS_TOP))
                 panic ("Couldn't bind word just added -- problem");
         }

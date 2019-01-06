@@ -101,13 +101,10 @@ inline static REBVAL *DS_AT(REBDSP d) {
 
 // Note: DS_Movable_Top is DS_TOP, but it asserts on ENDs...
 //
-#define DS_PUSH_TRASH \
+#define DS_PUSH() \
     (++DS_Index, ++DS_Movable_Top, IS_END(DS_Movable_Top) \
         ? Expand_Data_Stack_May_Fail(STACK_EXPAND_BASIS) \
         : TRASH_CELL_IF_DEBUG(DS_Movable_Top)) \
-
-#define DS_PUSH(v) \
-    (DS_PUSH_TRASH, Move_Value(DS_TOP, (v))) \
 
 
 //
@@ -119,29 +116,23 @@ inline static REBVAL *DS_AT(REBDSP d) {
 //
 
 #ifdef NDEBUG
-    #define DS_DROP \
+    #define DS_DROP() \
         (--DS_Index, --DS_Movable_Top)
 
     #define DS_DROP_TO(dsp) \
         (DS_Movable_Top -= (DS_Index - (dsp)), DS_Index = (dsp))
 #else
-    inline static void DS_DROP_Core(void) {
-        Init_Unreadable_Blank(DS_TOP); // TRASH makes ASSERT_ARRAY fail
+    inline static void DS_DROP(void) {
+        Init_Unreadable_Blank(DS_TOP); // mostly trashy but safe for NOT_END()
         --DS_Index;
         --DS_Movable_Top;
     }
 
-    #define DS_DROP \
-        DS_DROP_Core()
-
-    inline static void DS_DROP_TO_Core(REBDSP dsp) {
+    inline static void DS_DROP_TO(REBDSP dsp) {
         assert(DSP >= dsp);
         while (DSP != dsp)
-            DS_DROP;
+            DS_DROP();
     }
-
-    #define DS_DROP_TO(dsp) \
-        DS_DROP_TO_Core(dsp)
 #endif
 
 // If Pop_Stack_Values_Core is used ARRAY_FLAG_FILE_LINE, it means the system

@@ -42,20 +42,16 @@ void Startup_Data_Stack(REBCNT size)
     // that indices into the data stack can be unsigned (no need for -1 to
     // mean empty, because 0 can)
     //
-    // DS_PUSH checks what you're pushing isn't void, as most arrays can't
-    // contain them.  But DS_PUSH_MAYBE_VOID allows you to, in case you
-    // are building a context varlist or similar.
-    //
     DS_Array = Make_Arr_Core(1, ARRAY_FLAG_NULLEDS_LEGAL);
     Init_Unreadable_Blank(ARR_HEAD(DS_Array));
 
-    // The END marker will signal DS_PUSH that it has run out of space,
+    // The END marker will signal DS_PUSH() that it has run out of space,
     // and it will perform the allocation at that time.
     //
     TERM_ARRAY_LEN(DS_Array, 1);
     ASSERT_ARRAY(DS_Array);
 
-    // Reuse the expansion logic that happens on a DS_PUSH to get the
+    // Reuse the expansion logic that happens on a DS_PUSH() to get the
     // initial stack size.  It requires you to be on an END to run.
     //
     DS_Index = 1;
@@ -64,7 +60,7 @@ void Startup_Data_Stack(REBCNT size)
 
     // Now drop the hypothetical thing pushed that triggered the expand.
     //
-    DS_DROP;
+    DS_DROP();
 }
 
 
@@ -259,7 +255,7 @@ REBCTX *Get_Context_From_Stack(void)
 // which could do a push or pop.  (Currently stable w.r.t. pop but there may
 // be compaction at some point.)
 //
-void Expand_Data_Stack_May_Fail(REBCNT amount)
+REBVAL *Expand_Data_Stack_May_Fail(REBCNT amount)
 {
     REBCNT len_old = ARR_LEN(DS_Array);
 
@@ -312,6 +308,7 @@ void Expand_Data_Stack_May_Fail(REBCNT amount)
     assert(cell == ARR_TAIL(DS_Array));
 
     ASSERT_ARRAY(DS_Array);
+    return DS_TOP;
 }
 
 

@@ -693,7 +693,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
 //
 
 #if defined(DEBUG_TRASH_MEMORY)
-    inline static void Set_Trash_Debug(
+    inline static RELVAL *Set_Trash_Debug(
         RELVAL *v
 
       #ifdef DEBUG_TRACK_CELLS
@@ -708,6 +708,7 @@ inline static RELVAL *Prep_Stack_Cell_Core(
             | VALUE_FLAG_FALSEY; // speeds up VAL_TYPE_Debug() check
 
         TRACK_CELL_IF_DEBUG(v, file, line);
+        return v;
     }
 
     #define TRASH_CELL_IF_DEBUG(v) \
@@ -718,8 +719,9 @@ inline static RELVAL *Prep_Stack_Cell_Core(
         return KIND_BYTE_UNCHECKED(v) == REB_T_TRASH;
     }
 #else
-    #define TRASH_CELL_IF_DEBUG(v) \
-        NOOP
+    inline static REBVAL *TRASH_CELL_IF_DEBUG(RELVAL *v) {
+        return cast(REBVAL*, v); // #define of (v) gives compiler warnings
+    } // https://stackoverflow.com/q/29565161/
 #endif
 
 

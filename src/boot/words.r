@@ -35,8 +35,8 @@ datatypes
 ; this list is applied, so you only see typesets in this file.
 ;-----------------------------------------------------------------------------
 
-; !!! Kept for functionality of #[none] in the loader for <r3-legacy>
-none
+none ; !!! Kept to be able to LOAD #[none] for legacy reasons
+unset ; !!! Kept to be able to LOAD #[unset] for legacy reasons
 
 generic ;-- used in boot, see %generics.r
 

@@ -239,7 +239,7 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             if (IS_END(out))
                 break;
 
-            DS_PUSH(out);
+            Move_Value(DS_PUSH(), out);
         } while (true);
 
         return Init_Any_Array(out, kind, Pop_Stack_Values(dsp_orig));
@@ -254,7 +254,7 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             REBVAL *generated = rebRun(rebEval(arg), rebEND);
             if (not generated)
                 break;
-            DS_PUSH(generated);
+            Move_Value(DS_PUSH(), generated);
             rebRelease(generated);
         }
         return Init_Any_Array(out, kind, Pop_Stack_Values(dsp_orig));

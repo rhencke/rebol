@@ -994,8 +994,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     REBCNT partial_index = VAL_WORD_INDEX(f->special);
                     REBSTR *partial_canon = VAL_STORED_CANON(f->special);
 
-                    DS_PUSH_TRASH;
-                    Init_Issue(DS_TOP, partial_canon);
+                    Init_Issue(DS_PUSH(), partial_canon);
                     INIT_BINDING(DS_TOP, f->varlist);
                     DS_TOP->payload.any_word.index = partial_index;
 
@@ -1017,7 +1016,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     goto unused_refinement;
 
                 if (VAL_STORED_CANON(ordered) == param_canon) {
-                    DS_DROP; // we're lucky: this was next refinement used
+                    DS_DROP(); // we're lucky: this was next refinement used
                     f->refine = f->arg; // remember so we can revoke!
                     goto used_refinement;
                 }
@@ -1553,7 +1552,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(VAL_STORED_CANON(DS_TOP) == VAL_PARAM_CANON(f->param - 1));
             assert(VAL_PARAM_CLASS(f->param - 1) == PARAM_CLASS_REFINEMENT);
 
-            DS_DROP;
+            DS_DROP();
             f->flags.bits |= DO_FLAG_DOING_PICKUPS;
             goto process_args_for_pickup_or_to_end;
         }
@@ -1809,7 +1808,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             if (IS_INTEGER(DS_TOP)) {
                 if (not IS_NULLED(f->out))
                     Quotify(f->out, VAL_INT32(DS_TOP));
-                DS_DROP;
+                DS_DROP();
                 continue;
             }
 
@@ -1823,7 +1822,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             REBSTR *opt_label = f->opt_label;
             Drop_Action(f);
             Push_Action(f, VAL_ACTION(DS_TOP), VAL_BINDING(DS_TOP));
-            DS_DROP;
+            DS_DROP();
 
             // We use the same mechanism as enfix operations do...give the
             // next chain step its first argument coming from f->out

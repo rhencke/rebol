@@ -351,7 +351,7 @@ err:
 // Scan and convert a binary string.
 //
 const REBYTE *Decode_Binary(
-    REBVAL *value,
+    RELVAL *out,
     const REBYTE *src,
     REBCNT len,
     REBINT base,
@@ -373,7 +373,7 @@ const REBYTE *Decode_Binary(
 
     if (!ser) return 0;
 
-    Init_Binary(value, ser);
+    Init_Binary(out, ser);
 
     return src;
 }

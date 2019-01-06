@@ -215,10 +215,8 @@ REBTYPE(Quoted)
     // if it had one...though it remains to be seen how much people are using
     // super-deep escaping, and series won't be usually necessary.
     //
-    if (depth != 0) {
-        DS_PUSH_TRASH;
-        Init_Integer(DS_TOP, depth);
-    }
+    if (depth != 0)
+        Init_Integer(DS_PUSH(), depth);
 
     return r;
 }
