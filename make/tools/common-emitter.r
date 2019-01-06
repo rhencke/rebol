@@ -161,11 +161,11 @@ cscape: function [
             |
             newline
             [
-                // IF deleted in Ren-C, but ((...)) with logic not available
-                // in the bootstrap build.  Should be just:
-                //
-                //    ((did all [not nonwhite | removed]))
-                //
+                ; IF deleted in Ren-C, but ((...)) with logic not available
+                ; in the bootstrap build.  Should be just:
+                ;
+                ;    ((did all [not nonwhite | removed]))
+                ;
                 (go-on?: either all [not nonwhite | removed] [
                     [accept]
                 ][

@@ -35,8 +35,3 @@
     e: trap [load "/:"]
     error? e and [e/id = 'scan-invalid]
 )]
-
-; These are comments in Ren-C
-;
-(load "//:" = [])
-(load "///:" = [])
