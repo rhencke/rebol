@@ -56,7 +56,7 @@ spec-of: function [
             select original-meta 'parameter-notes
         ]
 
-        for-each param words of :action [
+        for-each param parameters of :action [
             keep compose [
                 (param) ((select types param)) (select notes param)
             ]
@@ -313,7 +313,7 @@ help: function [
     args: _ ;-- plain arguments
     refinements: _ ;-- refinements and refinement arguments
 
-    parse words of :value [
+    parse parameters of :value [
         copy args any [word! | get-word! | lit-word! | issue!]
         copy refinements any [
             refinement! | word! | get-word! | lit-word! | issue!
@@ -518,9 +518,7 @@ what: function [
     for-each [word val] ctx [
         if action? :val [
             arg: either args [
-                arg: words of :val
-                clear find arg /local
-                mold arg
+                mold parameters of :val
             ][
                 title-of :val
             ]

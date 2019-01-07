@@ -422,7 +422,7 @@ redescribe: function [
                             fail [param "not found in frame to describe"]
                         ]
 
-                        actual: first find words of :value param
+                        actual: first find parameters of :value param
                         if not strict-equal? param actual [
                             fail [param {doesn't match word type of} actual]
                         ]
@@ -667,76 +667,6 @@ lock-of: redescribe [
     "If value is already locked, return it...otherwise CLONE it and LOCK it."
 ](
     specialize 'lock [clone: true]
-)
-
-
-; To help for discoverability, there is SET-INFIX and INFIX?.  However, the
-; term can be a misnomer if the function is more advanced, and using the
-; "lookback" capabilities in another way.  Hence these return descriptive
-; errors when people are "outside the bounds" of assurance RE:infixedness.
-
-arity-of: function [
-    "Get the number of fixed parameters (not refinements or refinement args)"
-    value [any-word! any-path! action!]
-][
-    if path? :value [fail "arity-of for paths is not yet implemented."]
-
-    if not action? :value [
-        value: get value
-        if not action? :value [return 0]
-    ]
-
-    if variadic? :value [
-        fail "arity-of cannot give reliable answer for variadic actions"
-    ]
-
-    ; !!! Should willingness to take endability cause a similar error?
-    ; Arguably the answer tells you an arity that at least it *will* accept,
-    ; so it's not completely false.
-
-    arity: 0
-    for-each param reflect :value 'words [
-        if refinement? :param [
-            return arity
-        ]
-        arity: arity + 1
-    ]
-    arity
-]
-
-nfix?: function [
-    n [integer!]
-    name [text!]
-    source [any-word! any-path!]
-][
-    case [
-        not enfixed? source [false]
-        equal? n arity: arity-of source [true]
-        n < arity [
-            ; If the queried arity is lower than the arity of the function,
-            ; assume it's ok...e.g. PREFIX? callers know INFIX? exists (but
-            ; we don't assume INFIX? callers know PREFIX?/ENDFIX? exist)
-            false
-        ]
-    ] else [
-        fail [
-            name "used on enfixed function with arity" arity
-                |
-            "Use ENFIXED? for generalized (tricky) testing"
-        ]
-    ]
-]
-
-postfix?: redescribe [
-    {TRUE if an arity 1 function is SET/ENFIX to act as postfix.}
-](
-    specialize :nfix? [n: 1 | name: "POSTFIX?"]
-)
-
-infix?: redescribe [
-    {TRUE if an arity 2 function is SET/ENFIX to act as infix.}
-](
-    specialize :nfix? [n: 2 | name: "INFIX?"]
 )
 
 

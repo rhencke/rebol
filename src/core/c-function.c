@@ -30,64 +30,180 @@
 
 #include "sys-core.h"
 
+// Project parameter class back into a full value, e.g. PARAM_CLASS_REFINEMENT
+// becomes `/spelling`.
 //
-//  Make_Action_Words_Arr: C
+// !!! See notes on Is_Param_Hidden() for why caller isn't filtering locals.
+// For now, this will return `false` on locals and RETURN: to not show them.
+//
+inline static bool Reconstitute_Spec_Param(
+    RELVAL *out,
+    enum Reb_Param_Class pclass,
+    REBSTR *spelling
+){
+    enum Reb_Kind kind;
+    bool quoted = false;
+
+    switch (pclass) {
+      case PARAM_CLASS_NORMAL:
+        kind = REB_WORD;
+        break;
+
+      case PARAM_CLASS_TIGHT:
+        kind = REB_ISSUE;
+        break;
+
+      case PARAM_CLASS_REFINEMENT:
+        kind = REB_REFINEMENT;
+        break;
+
+      case PARAM_CLASS_HARD_QUOTE:
+        kind = REB_GET_WORD;
+        break;
+
+      case PARAM_CLASS_SOFT_QUOTE:
+        kind = REB_WORD;
+        quoted = true;
+        break;
+
+      case PARAM_CLASS_LOCAL:
+      case PARAM_CLASS_RETURN: // "magic" local - prefilled invisibly
+        return false; // see note on return convention
+
+      default:
+        assert(false);
+        DEAD_END;
+    }
+
+    Init_Any_Word(out, kind, spelling);
+    if (quoted)
+        Quotify(out, 1);
+
+    return true;
+}
+
+
+//
+//  Make_Action_Parameters_Arr: C
 //
 // Returns array of function words, unbound.
 //
-REBARR *Make_Action_Words_Arr(REBACT *act, bool locals)
+// We have to take into account specialization of refinements in order to give
+// the words in the correct order.  If someone has:
+//
+//     [aa /b bb /c cc]
+//
+// They can specialize with c as enabled.  This means that to the caller,
+// the function now seems like one originally written with spec `aa cc /b bb`.
+// But the frame order doesn't change, so a naive traversal would make it
+// seem cc was an arg to /b:
+//
+//     [aa /b bb cc]
+//
+// Understanding the full story of how refinement order is efficiently
+// preserved requires reading the comments in %c-special.c.
+//
+REBARR *Make_Action_Parameters_Arr(REBACT *act)
 {
     REBDSP dsp_orig = DSP;
 
+    // Pre-scan to find out array size needed after removing hidden params,
+    // and get the actual order that refinements are used in.
+
+    REBCNT num_visible = 0;
+
     REBVAL *param = ACT_PARAMS_HEAD(act);
-    for (; NOT_END(param); param++) {
-        if (Is_Param_Hidden(param)) // specialization hides parameters
-            continue;
+    REBVAL *special = ACT_SPECIALTY_HEAD(act);
 
-        enum Reb_Kind kind;
-        bool quoted = false;
-
-        switch (VAL_PARAM_CLASS(param)) {
-          case PARAM_CLASS_NORMAL:
-            kind = REB_WORD;
-            break;
-
-          case PARAM_CLASS_TIGHT:
-            kind = REB_ISSUE;
-            break;
-
-          case PARAM_CLASS_REFINEMENT:
-            kind = REB_REFINEMENT;
-            break;
-
-          case PARAM_CLASS_HARD_QUOTE:
-            kind = REB_GET_WORD;
-            break;
-
-          case PARAM_CLASS_SOFT_QUOTE:
-            kind = REB_WORD;
-            quoted = true;
-            break;
-
-          case PARAM_CLASS_LOCAL:
-          case PARAM_CLASS_RETURN: // "magic" local - prefilled invisibly
-            if (not locals)
-                continue; // treat as invisible, e.g. for WORDS-OF
-
-            kind = REB_SET_WORD;
-            break;
-
-          default:
-            assert(false);
-            DEAD_END;
+    REBCNT index = 1;
+    for (; NOT_END(param); ++param, ++special, ++index) {
+        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        if (
+            not Is_Param_Hidden(param) // specialization hides parameters
+            and pclass != PARAM_CLASS_LOCAL
+            and pclass != PARAM_CLASS_RETURN
+        ){
+            ++num_visible;
         }
-
-        Init_Any_Word(DS_PUSH(), kind, VAL_PARAM_SPELLING(param));
-        if (quoted)
-            Quotify(DS_TOP, 1);
+        else if (pclass == PARAM_CLASS_REFINEMENT) {
+            //
+            // In the exemplar frame for specialization, refinements are
+            // either VOID! if unspecialized, BLANK! if not in use, or
+            // an ISSUE! of what refinement should be pushed at that position.
+            //
+            if (IS_ISSUE(special))
+                Move_Value(DS_PUSH(), special);
+        }
     }
 
-    return Pop_Stack_Values(dsp_orig);
+    // Refinements are now on stack such that topmost is first in-use
+    // specialized refinement.
+
+    REBARR *arr = Make_Arr(num_visible);
+    RELVAL *dest = ARR_HEAD(arr);
+
+    // Now second loop, where we print out just the normal args...stop at
+    // the first refinement.
+    //
+    param = ACT_PARAMS_HEAD(act);
+    for (; NOT_END(param); ++param) {
+        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        if (pclass == PARAM_CLASS_REFINEMENT)
+            break;
+        if (Is_Param_Hidden(param))
+            continue;
+
+        if (Reconstitute_Spec_Param(dest, pclass, VAL_PARAM_SPELLING(param)))
+            ++dest;
+    }
+
+    REBVAL *first_refine = param; // remember where we were
+
+    // Now jump around and take care of the args to specialized refinements.
+    // We don't print out the refinement itslf
+
+    while (DSP != dsp_orig) {
+        param = ACT_PARAMS_HEAD(act) + VAL_WORD_INDEX(DS_TOP); // skips refine
+        DS_DROP(); // we know it's used...position was all we needed
+        for (; NOT_END(param); ++param) {
+            enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+            if (pclass == PARAM_CLASS_REFINEMENT)
+                break;
+            if (Is_Param_Hidden(param))
+                continue;
+
+            REBSTR *spelling = VAL_PARAM_SPELLING(param);
+            if (Reconstitute_Spec_Param(dest, pclass, spelling))
+                ++dest;
+        }
+    }
+
+    // Finally, output any unspecialized refinements and their args, which
+    // we want to come after any args to specialized-used refinements.
+
+    param = first_refine;
+
+    bool skipping = false;
+    for (; NOT_END(param); ++param) {
+        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        if (pclass == PARAM_CLASS_REFINEMENT) {
+            if (Is_Param_Hidden(param)) {
+                skipping = true;
+                continue;
+            }
+            else
+                skipping = false; // we want to output
+        }
+        else if (skipping or Is_Param_Hidden(param))
+            continue;
+
+        if (Reconstitute_Spec_Param(dest, pclass, VAL_PARAM_SPELLING(param)))
+            ++dest;
+    }
+
+    TERM_ARRAY_LEN(arr, num_visible);
+    ASSERT_ARRAY(arr);
+    return arr;
 }
 
 

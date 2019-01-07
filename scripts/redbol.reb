@@ -117,7 +117,7 @@ any-object?: emulate [:any-context?]
 blankify-refinement-args: helper [
     function [return: <void> f [frame!]] [
         seen-refinement: false
-        for-each w (words of action of f) [
+        for-each w (parameters of action of f) [
             case [
                 refinement? w [
                     seen-refinement: true
@@ -380,7 +380,7 @@ do: emulate [
 
         if action? :source [
             code: reduce [:source]
-            params: words of :source
+            params: parameters of :source
             iterate params [
                 append code switch type of params/1 [
                     word! [take normals]

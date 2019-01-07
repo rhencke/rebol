@@ -139,10 +139,9 @@ void MF_Action(REB_MOLD *mo, const REBCEL *v, bool form)
     // functions temporarily uses the word list as a substitute (which
     // drops types)
     //
-    const bool locals = true;
-    REBARR *words_list = Make_Action_Words_Arr(VAL_ACTION(v), locals);
-    Mold_Array_At(mo, words_list, 0, "[]");
-    Free_Unmanaged_Array(words_list);
+    REBARR *parameters = Make_Action_Parameters_Arr(VAL_ACTION(v));
+    Mold_Array_At(mo, parameters, 0, "[]");
+    Free_Unmanaged_Array(parameters);
 
     // !!! Previously, ACTION! would mold the body out.  This created a large
     // amount of output, and also many function variations do not have
@@ -223,27 +222,30 @@ REBTYPE(Action)
         return Init_Action_Maybe_Bound(D_OUT, proxy, VAL_BINDING(value)); }
 
     case SYM_REFLECT: {
-        REBSYM sym = VAL_WORD_SYM(arg);
+        INCLUDE_PARAMS_OF_REFLECT;
+        UNUSED(ARG(value));
 
-        switch (sym) {
-
-        case SYM_BINDING: {
+        REBSYM property = VAL_WORD_SYM(ARG(property));
+        switch (property) {
+          case SYM_BINDING: {
             if (Did_Get_Binding_Of(D_OUT, value))
                 return D_OUT;
             return nullptr; }
 
-        case SYM_WORDS: {
-            const bool locals = false;
+          case SYM_WORDS:
+            fail ("Use PARAMETERS OF for parameter ordering, not WORDS OF");
+
+          case SYM_PARAMETERS:
             return Init_Block(
                 D_OUT,
-                Make_Action_Words_Arr(VAL_ACTION(value), locals)
-            ); }
+                Make_Action_Parameters_Arr(VAL_ACTION(value))
+            );
 
-        case SYM_BODY:
+          case SYM_BODY:
             Get_Maybe_Fake_Action_Body(D_OUT, value);
             return D_OUT;
 
-        case SYM_TYPES: {
+          case SYM_TYPES: {
             REBARR *copy = Make_Arr(VAL_ACT_NUM_PARAMS(value));
 
             // The typesets have a symbol in them for the parameters, and
@@ -261,52 +263,41 @@ REBTYPE(Action)
             TERM_ARRAY_LEN(copy, VAL_ACT_NUM_PARAMS(value));
             assert(IS_END(typeset));
 
-            return Init_Block(D_OUT, copy);
-        }
+            return Init_Block(D_OUT, copy); }
 
-        // We use a heuristic that if the first element of a function's body
-        // is a series with the file and line bits set, then that's what it
-        // returns for FILE OF and LINE OF.
-        //
-        case SYM_FILE: {
+          case SYM_FILE:
+          case SYM_LINE: {
+            //
+            // Use a heuristic that if the first element of a function's body
+            // is a series with the file and line bits set, then that's what
+            // it returns for FILE OF and LINE OF.
+
             REBARR *details = VAL_ACT_DETAILS(value);
-            if (ARR_LEN(details) < 1)
-                return nullptr;
-
-            if (not ANY_ARRAY(ARR_HEAD(details)))
+            if (ARR_LEN(details) < 1 or not ANY_ARRAY(ARR_HEAD(details)))
                 return nullptr;
 
             REBARR *a = VAL_ARRAY(ARR_HEAD(details));
             if (NOT_SER_FLAG(a, ARRAY_FLAG_FILE_LINE))
                 return nullptr;
 
-            // !!! How to tell whether it's a URL! or a FILE! ?
-            //
-            Scan_File(
-                D_OUT, cb_cast(STR_HEAD(LINK(a).file)), SER_LEN(LINK(a).file)
-            );
+            if (property == SYM_FILE) {
+                Scan_File( // !!! How to tell whether it's a URL! or a FILE! ? 
+                    D_OUT,
+                    cb_cast(STR_HEAD(LINK(a).file)),
+                    SER_LEN(LINK(a).file)
+                );
+            }
+            else
+                Init_Integer(D_OUT, MISC(a).line);
+
             return D_OUT; }
 
-        case SYM_LINE: {
-            REBARR *details = VAL_ACT_DETAILS(value);
-            if (ARR_LEN(details) < 1)
-                return nullptr;
-
-            if (not ANY_ARRAY(ARR_HEAD(details)))
-                return nullptr;
-
-            REBARR *a = VAL_ARRAY(ARR_HEAD(details));
-            if (NOT_SER_FLAG(a, ARRAY_FLAG_FILE_LINE))
-                return nullptr;
-
-            return Init_Integer(D_OUT, MISC(a).line); }
-
-        default:
+          default:
             fail (Error_Cannot_Reflect(VAL_TYPE(value), arg));
         }
         break; }
 
-    default:
+      default:
         break;
     }
 

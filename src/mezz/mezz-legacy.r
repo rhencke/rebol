@@ -193,7 +193,7 @@ applique: function [
     /only
 ][
     frame: make frame! :action
-    params: words of :action
+    params: parameters of :action
     using-args: true
 
     while [block: sync-invisibles block] [

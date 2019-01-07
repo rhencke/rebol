@@ -878,11 +878,12 @@ REBNATIVE(specialize)
 
     REBVAL *specializee = ARG(specializee);
 
-    REBDSP lowest_ordered_dsp = DSP;
-
-    // Any partial refinement specializations are pushed to the stack, and
-    // gives ordering information that TRUE assigned in a code block can't.
+    // Refinement specializations via path are pushed to the stack, giving
+    // order information that can't be meaningfully gleaned from an arbitrary
+    // code block (e.g. `specialize 'append [dup: x | if y [part: z]`, we
+    // shouldn't think that intends any ordering of /dup/part or /part/dup)
     //
+    REBDSP lowest_ordered_dsp = DSP; // capture before any refinements pushed
     REBSTR *opt_name;
     if (Get_If_Word_Or_Path_Throws(
         D_OUT,
@@ -891,9 +892,7 @@ REBNATIVE(specialize)
         SPECIFIED,
         true // push_refines = true (don't generate temp specialization)
     )){
-        // e.g. `specialize 'append/(throw 10 'dup) [value: 20]`
-        //
-        return R_THROWN;
+        return R_THROWN; // e.g. `specialize 'append/(throw 10 'dup) [...]`
     }
 
     // Note: Even if there was a PATH! doesn't mean there were refinements
@@ -901,7 +900,7 @@ REBNATIVE(specialize)
 
     if (not IS_ACTION(D_OUT))
         fail (Error_Invalid(specializee));
-    Move_Value(specializee, D_OUT); // Frees D_OUT, and GC safe (in ARG slot)
+    Move_Value(specializee, D_OUT); // Frees up D_OUT, GC guards action
 
     if (Specialize_Action_Throws(
         D_OUT,
@@ -910,9 +909,7 @@ REBNATIVE(specialize)
         ARG(def),
         lowest_ordered_dsp
     )){
-        // e.g. `specialize 'append/dup [value: throw 10]`
-        //
-        return R_THROWN;
+        return R_THROWN; // e.g. `specialize 'append/dup [value: throw 10]`
     }
 
     return D_OUT;

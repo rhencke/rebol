@@ -672,20 +672,8 @@ REB_R Context_Common_Action_Maybe_Unhandled(
         case SYM_TAIL_Q: // !!! Should this be legal?
             return Init_Logic(D_OUT, CTX_LEN(c) == 0);
 
-        case SYM_WORDS: {
-            if (not IS_FRAME(value))
-                return Init_Block(D_OUT, Context_To_Array(c, 1));
-
-            // !!! For FRAME!, it is desirable to know the parameter classes
-            // and to know what's a local vs. a refinement, etc.  This is
-            // the intersection of some "new" stuff with some crufty R3-Alpha
-            // reflection abilities.
-            //
-            const bool locals = true;
-            return Init_Block(
-                D_OUT,
-                Make_Action_Words_Arr(ACT(CTX_KEYLIST(c)), locals)
-            ); }
+        case SYM_WORDS:
+            return Init_Block(D_OUT, Context_To_Array(c, 1));
 
         case SYM_VALUES:
             return Init_Block(D_OUT, Context_To_Array(c, 2));

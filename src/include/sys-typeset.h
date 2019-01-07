@@ -289,7 +289,13 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 #define Is_Param_Skippable(v) \
     TYPE_CHECK((v), REB_TS_SKIPPABLE)
 
-// Can't be reflected (set with PROTECT/HIDE) or local in spec as `foo:`
+// Can't be reflected (set with PROTECT/HIDE) or specialized out
+//
+// !!! Note: Currently, the semantics of Is_Param_Hidden() are rather sketchy.
+// The flag (REB_TS_HIDDEN) is not put on PARAM_CLASS_LOCAL/PARAM_CLASS_RETURN
+// and it hasn't been figured out how such a flag would be managed on a per
+// object or frame instance while sharing the same paramlist/keylist (a method
+// like CELL_FLAG_PROTECTED might be needed if that feature is interesting).
 //
 #define Is_Param_Hidden(v) \
     TYPE_CHECK((v), REB_TS_HIDDEN)
