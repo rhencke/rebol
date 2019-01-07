@@ -302,7 +302,9 @@
     (cast(REBU64, 1) << (t)) // makes a 64-bit bitflag
 
 // A cell may have a larger KIND_BYTE() than legal Reb_Kind to represent a
-// literal in-situ, but the payload bits are for VAL_UNESCAPED_TYPE()
+// literal in-situ, and you may want to know its actual CELL_KIND().
+
+inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 
 #define CELL_KIND_UNCHECKED(cell) \
     cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(cell) % REB_64)
@@ -316,10 +318,13 @@
     #else
         inline static enum Reb_Kind CELL_KIND(const REBCEL *cell)
             { return cast(enum Reb_Kind, KIND_BYTE(cell) % REB_64); }
+
+        // Don't want to ask an ordinary value cell its kind modulo 64 is;
+        // it may be REB_QUOTED and we need to call VAL_UNESCAPED() first!
+        //
+        inline static enum Reb_Kind CELL_KIND(const REBVAL *v) = delete;
     #endif
 #endif
-
-inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 
 
 //=//// VALUE TYPE (always REB_XXX <= REB_MAX) ////////////////////////////=//

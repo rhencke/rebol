@@ -1626,7 +1626,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         else if (not r) { // API and internal code can both return `nullptr`
             Init_Nulled(f->out);
         }
-        else if (CELL_KIND(r) <= REB_MAX_NULLED) { // should be an API value
+        else if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) { // API, from Alloc_Value()
             Handle_Api_Dispatcher_Result(f, r);
         }
         else switch (KIND_BYTE(r)) { // it's a "pseudotype" instruction

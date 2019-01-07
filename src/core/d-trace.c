@@ -300,7 +300,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
         else if (r == nullptr) {
             Debug_Fmt("// null\n");
         }
-        if (CELL_KIND(r) <= REB_MAX_NULLED) {
+        else if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) { // API, from Alloc_Value()
             Handle_Api_Dispatcher_Result(f, r);
             r = f->out;
             goto process_out;

@@ -215,7 +215,7 @@ bool Next_Path_Throws(REBPVS *pvs)
         else if (not r) {
             Init_Nulled(pvs->out);
         }
-        else if (CELL_KIND(r) <= REB_MAX_NULLED) {
+        else if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) { // API, from Alloc_Value()
             Handle_Api_Dispatcher_Result(pvs, r);
         }
         else switch (KIND_BYTE(r)) {

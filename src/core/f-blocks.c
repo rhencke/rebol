@@ -149,7 +149,18 @@ void Clonify(
     if (C_STACK_OVERFLOWING(&types))
         Fail_Stack_Overflow();
 
-    if (types & FLAGIT_KIND(VAL_TYPE(v)) & TS_SERIES_OBJ) {
+    // !!! It may be possible to do this faster/better, the impacts on higher
+    // quoting levels could be incurring more cost than necessary...but for
+    // now err on the side of correctness.  Unescape the value while cloning
+    // and then escape it back.
+    //
+    REBCNT num_quotes = VAL_NUM_QUOTES(v);
+    Dequotify(v);
+
+    enum Reb_Kind kind = cast(enum Reb_Kind, KIND_BYTE(v));
+    assert(kind <= REB_MAX_NULLED); // we dequoted it
+
+    if (types & FLAGIT_KIND(kind) & TS_SERIES_OBJ) {
         //
         // Objects and series get shallow copied at minimum
         //
@@ -218,6 +229,8 @@ void Clonify(
         if (NOT_VAL_FLAG(v, VALUE_FLAG_EXPLICITLY_MUTABLE))
             v->header.bits |= (flags & ARRAY_FLAG_CONST_SHALLOW);
     }
+
+    Quotify(v, num_quotes);
 }
 
 
