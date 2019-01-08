@@ -281,7 +281,7 @@ dig-action-meta-fields: function [value [action!]] [
         ]
     ]
 
-    underlying: try ensure* action! any [
+    underlying: try ensure [<opt> action!] any [
         get 'meta/specializee
         get 'meta/adaptee
         all [block? :meta/chainees | first meta/chainees]
@@ -298,23 +298,23 @@ dig-action-meta-fields: function [value [action!]] [
     ]
 
     return construct system/standard/action-meta [
-        description: try ensure* text! any [
+        description: try ensure [<opt> text!] any [
             select meta 'description
             copy try select fields 'description
         ]
-        return-type: try ensure* block! any [
+        return-type: try ensure [<opt> block!] any [
             select meta 'return-type
             copy try select fields 'return-type
         ]
-        return-note: try ensure* text! any [
+        return-note: try ensure [<opt> text!] any [
             select meta 'return-note
             copy try select fields 'return-note
         ]
-        parameter-types: try ensure* frame! any [
+        parameter-types: try ensure [<opt> frame!] any [
             select meta 'parameter-types
             inherit-frame try get 'fields/parameter-types
         ]
-        parameter-notes: try ensure* frame! any [
+        parameter-notes: try ensure [<opt> frame!] any [
             select meta 'parameter-notes
             inherit-frame try get 'fields/parameter-notes
         ]
@@ -518,28 +518,6 @@ ensure: redescribe [
             ] else [
                 fail [
                     "ENSURE failed with argument of type" type of :arg
-                ]
-            ]
-        ]
-    ]
-)
-
-ensure*: redescribe [
-    {Pass through value if it matches test -or- if it is null}
-](
-    specialize 'either-test [
-        branch: func [
-            return: [<opt>]
-            arg [<opt> any-value!]
-        ][
-            ; !!! Can't use FAIL/WHERE until there is a good way to SPECIALIZE
-            ; a conditional with a branch referring to invocation parameters:
-            ;
-            ; https://github.com/metaeducation/ren-c/issues/587
-            ;
-            if value? :arg [
-                fail [
-                    "ENSURE* failed with argument of type" type of :arg
                 ]
             ]
         ]

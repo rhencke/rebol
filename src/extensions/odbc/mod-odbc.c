@@ -506,7 +506,7 @@ SQLRETURN ODBC_GetCatalog(
         // it passed the array at the catalog word, vs TEXT!.
         //
         REBVAL *value = rebRun(
-            "ensure* text! pick", block, rebI(arg + 1), rebEND
+            "ensure [<opt> text!] pick", block, rebI(arg + 1), rebEND
         );
         if (value) {
             REBCNT len = rebUnbox("length of", value, rebEND);

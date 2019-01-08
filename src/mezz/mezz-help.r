@@ -28,16 +28,16 @@ spec-of: function [
     ]
 
     return collect-block [
-        keep/line ensure* text! any [
+        keep/line ensure [<opt> text!] any [
             select meta 'description
             select original-meta 'description
         ]
 
-        return-type: try ensure* block! any [
+        return-type: try ensure [<opt> block!] any [
             select meta 'return-type
             select original-meta 'return-type
         ]
-        return-note: try ensure* text! any [
+        return-note: try ensure [<opt> text!] any [
             select meta 'return-note
             select original-meta 'return-note
         ]
@@ -47,11 +47,11 @@ spec-of: function [
             ]
         ]
 
-        types: try ensure* frame! any [
+        types: try ensure [<opt> frame!] any [
             select meta 'parameter-types
             select original-meta 'parameter-types
         ]
-        notes: try ensure* frame! any [
+        notes: try ensure [<opt> frame!] any [
             select meta 'parameter-notes
             select original-meta 'parameter-notes
         ]
@@ -345,16 +345,16 @@ help: function [
     ;
     meta: try meta-of :value
 
-    original-name: try <- ensure* word! any [
+    original-name: try <- ensure [<opt> word!] any [
         select meta 'specializee-name
         select meta 'adaptee-name
     ] also lambda name [
         uppercase mold name
     ]
 
-    specializee: try ensure* action! select meta 'specializee
-    adaptee: try ensure* action! select meta 'adaptee
-    chainees: try ensure* block! select meta 'chainees
+    specializee: try ensure [<opt> action!] select meta 'specializee
+    adaptee: try ensure [<opt> action!] select meta 'adaptee
+    chainees: try ensure [<opt> block!] select meta 'chainees
 
     classification: case [
         :specializee [
@@ -388,10 +388,10 @@ help: function [
 
     print-args: function [list /indent-words] [
         for-each param list [
-            type: try ensure* block! (
+            type: try ensure [<opt> block!] (
                 select fields/parameter-types to-word param
             )
-            note: try ensure* text! (
+            note: try ensure [<opt> text!] (
                 select fields/parameter-notes to-word param
             )
 

@@ -191,6 +191,16 @@ bool Either_Test_Core_Throws(
                     return false;
                 }
             }
+            else if (IS_TAG(var)) {
+                if (
+                    CELL_KIND(VAL_UNESCAPED(arg)) == REB_MAX_NULLED
+                    and 0 == Compare_String_Vals(var, Root_Opt_Tag, true)
+                    and VAL_NUM_QUOTES(arg) == sum_quotes
+                ){
+                    Init_True(out);
+                    return false;
+                }
+            }
             else
                 fail (Error_Invalid_Type(VAL_TYPE(var)));
         }
@@ -201,7 +211,8 @@ bool Either_Test_Core_Throws(
     const REBCEL *test_cell = VAL_UNESCAPED(test);
     const REBCEL *arg_cell = VAL_UNESCAPED(arg);
 
-    switch (CELL_KIND(test)) {
+    enum Reb_Kind test_kind = CELL_KIND(test);
+    switch (test_kind) {
       case REB_LOGIC: // test for "truthy" or "falsey"
         //
         // If this is the result of composing together a test with a literal,
@@ -217,7 +228,9 @@ bool Either_Test_Core_Throws(
         return false;
 
       case REB_WORD:
-      case REB_PATH: {
+      case REB_PATH:
+      case REB_GET_WORD:
+      case REB_GET_PATH: {
         //
         // !!! Because we do not push refinements here, this means that a
         // specialized action will be generated if the user says something
@@ -244,10 +257,16 @@ bool Either_Test_Core_Throws(
         UNUSED(lowest_ordered_dsp);
 
         test = out;
+        test_cell = out;
         test_specifier = SPECIFIED;
 
-        if (not IS_ACTION(test))
+        if (IS_DATATYPE(test))
+            goto handle_datatype;
+        if (IS_TYPESET(test))
+            goto handle_typeset;
+        if (not IS_ACTION(test)) {
             fail ("EITHER-TEST only takes WORD! and PATH! for ACTION! vars");
+        }
         goto handle_action; }
 
       case REB_ACTION: {
@@ -273,6 +292,7 @@ bool Either_Test_Core_Throws(
         return false; }
 
       case REB_DATATYPE:
+      handle_datatype:
         Init_Logic(
             out,
             VAL_TYPE_KIND(test_cell) == CELL_KIND(arg_cell)
@@ -281,10 +301,20 @@ bool Either_Test_Core_Throws(
         return false;
 
       case REB_TYPESET:
+      handle_typeset:
         Init_Logic(
             out,
             TYPE_CHECK(test_cell, CELL_KIND(arg_cell))
                 and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
+        );
+        return false;
+
+     case REB_TAG: // just support <opt> for now
+        Init_Logic(
+            out,
+            CELL_KIND(arg_cell) == REB_MAX_NULLED
+            and 0 == Compare_String_Vals(test_cell, Root_Opt_Tag, true)
+            and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
         );
         return false;
 
@@ -303,11 +333,13 @@ bool Either_Test_Core_Throws(
 //
 //      return: "Input argument if it matched, or branch result"
 //          [<opt> any-value!]
-//      test "Typeset membership, LOGIC! to test for truth, filter function"
+//      'test "Typeset membership, LOGIC! to test for truth, filter function"
 //          [
-//              word! path! action! ;-- arity-1 filter function, opt named
-//              datatype! typeset! block! ;-- typeset specification forms
+//              datatype! typeset! ;-- literals accepted
 //              logic! ;-- tests TO-LOGIC compatibility
+//              word! path! ;-- soft quoted to get literals
+//              get-word! get-path! action! ;-- arity-1 filter function
+//              block! ;-- combine [or or or] vs. [[and and] or [and and]]
 //          ]
 //      arg [<opt> any-value!]
 //      branch "If arity-1 ACTION!, receives the non-matching argument"

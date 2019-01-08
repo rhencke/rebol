@@ -2026,7 +2026,7 @@ REBNATIVE(set_env)
 
   #ifdef TO_WINDOWS
     WCHAR *key_wide = rebSpellW(variable, rebEND);
-    WCHAR *opt_val_wide = rebSpellW("ensure* [text!]", value, rebEND);
+    WCHAR *opt_val_wide = rebSpellW("ensure [<opt> text!]", value, rebEND);
 
     if (not SetEnvironmentVariable(key_wide, opt_val_wide)) // null unsets
         fail ("environment variable couldn't be modified");
