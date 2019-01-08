@@ -1866,7 +1866,7 @@ REBNATIVE(subparse)
                         i = END_FLAG;
                     else {
                         DECLARE_LOCAL (temp);
-                        if (Either_Test_Core_Throws(
+                        if (Match_Core_Throws(
                             temp,
                             subrule, P_RULE_SPECIFIER,
                             cmp, P_INPUT_SPECIFIER

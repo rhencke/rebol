@@ -505,7 +505,7 @@ set*: redescribe [
 ensure: redescribe [
     {Pass through value if it matches test, otherwise trigger a FAIL}
 ](
-    specialize 'either-test [
+    specialize 'match [
         branch: func [arg [<opt> any-value!]] [
             ;
             ; !!! Can't use FAIL/WHERE until there is a good way to SPECIALIZE
@@ -513,12 +513,9 @@ ensure: redescribe [
             ;
             ; https://github.com/metaeducation/ren-c/issues/587
             ;
-            if null? :arg [
-                fail "ENSURE doesn't allow null arguments, see ENSURE*"
-            ] else [
-                fail [
-                    "ENSURE failed with argument of type" type of :arg
-                ]
+            fail [
+                "ENSURE failed with argument of type"
+                    type of :arg else ["NULL"]
             ]
         ]
     ]

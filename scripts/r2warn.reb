@@ -198,7 +198,7 @@ switch: checked [
 
 apply: checked [
     adapt 'apply [
-        if not match [set-word! bar!] first def [
+        (match [set-word! bar!] first def) or [
             fail [
                 {APPLY has changed, see https://trello.com/c/P2HCcu0V}
                 {Use a BAR! as the first item in the definition block to}

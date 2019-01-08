@@ -319,7 +319,7 @@ inline static void Finalize_Arg(
         //
         // If the function is not going to be run immediately, it might be
         // getting deferred just for capturing arguments before running (e.g.
-        // with `match even? x`) or it could be a means of generating a
+        // with `match :even? x`) or it could be a means of generating a
         // specialization to be used many times (`does dump var`).  The
         // former case might have variadics work, the latter can't.  Let
         // frame expiration or not be the judge later.

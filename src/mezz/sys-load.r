@@ -190,7 +190,7 @@ load-header: function [
         return 'bad-header
     ]
 
-    if null? match [block! blank!] try :hdr/options [
+    (match [block! blank!] try :hdr/options) else [
         return 'bad-header
     ]
 

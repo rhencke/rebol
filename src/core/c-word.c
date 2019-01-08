@@ -218,7 +218,6 @@ REBSTR *Intern_UTF8_Managed(const REBYTE *utf8, size_t size)
         num_slots
     );
 
-
     // The hash table only indexes the canon form of each spelling.  So when
     // testing a slot to see if it's a match (or a collision that needs to
     // be skipped to try again) the search uses a comparison that is

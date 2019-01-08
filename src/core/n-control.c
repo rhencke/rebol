@@ -133,122 +133,58 @@ REBNATIVE(either)
 }
 
 
-//  Either_Test_Core_Throws: C
-//
-// Note: There was an idea of turning the `test` BLOCK! into some kind of
-// dialect.  That was later supplanted by idea of MATCH...which bridges with
-// a natural interface to functions like PARSE for providing such dialects.
-// This routine is just for basic efficiency behind constructs like ELSE
-// that want to avoid frame creation overhead.  So BLOCK! just means typeset.
-//
-bool Either_Test_Core_Throws(
+inline static bool Single_Test_Throws(
     REBVAL *out, // GC-safe output cell
     const RELVAL *test,
     REBSPC *test_specifier,
     const RELVAL *arg,
-    REBSPC *arg_specifier
+    REBSPC *arg_specifier,
+    REBCNT sum_quotes
 ){
-    if (IS_BLOCK(test)) {
-        RELVAL *item = VAL_ARRAY_AT(test);
-        if (IS_END(item)) {
-            //
-            // !!! If the test is just [], what's that?  People aren't likely
-            // to write it literally, but COMPOSE/etc. might make it.
-            //
-            fail ("No tests found in BLOCK! passed to EITHER-TEST.");
-        }
+    // Note the user could write `rule!: [integer! rule!]`, and then try to
+    // `match rule! <infinite>`...have to worry about stack overflows here.
+    //
+    if (C_STACK_OVERFLOWING(&sum_quotes))
+        Fail_Stack_Overflow();
 
-        REBSPC *specifier = Derive_Specifier(test_specifier, test);
-        for (; NOT_END(item); ++item) {
-            const REBCEL *item_cell = VAL_UNESCAPED(item);
-            REBCNT sum_quotes = VAL_NUM_QUOTES(item);
-
-            const RELVAL *var;
-            if (CELL_KIND(item_cell) == REB_WORD) {
-                var = Get_Opt_Var_May_Fail(item_cell, specifier);
-                sum_quotes += VAL_NUM_QUOTES(var);
-            }
-            else
-                var = item;
-
-            const REBCEL *var_cell = VAL_UNESCAPED(var);
-
-            if (CELL_KIND(var_cell) == REB_DATATYPE) {
-                if (
-                    VAL_TYPE_KIND(var_cell) == CELL_KIND(VAL_UNESCAPED(arg))
-                    and VAL_NUM_QUOTES(arg) == sum_quotes
-                ){
-                    Init_True(out);
-                    return false;
-                }
-            }
-            else if (IS_TYPESET(var)) {
-                if (
-                    TYPE_CHECK(var, CELL_KIND(VAL_UNESCAPED(arg)))
-                    and VAL_NUM_QUOTES(arg) == sum_quotes
-                ){
-                    Init_True(out);
-                    return false;
-                }
-            }
-            else if (IS_TAG(var)) {
-                if (
-                    CELL_KIND(VAL_UNESCAPED(arg)) == REB_MAX_NULLED
-                    and 0 == Compare_String_Vals(var, Root_Opt_Tag, true)
-                    and VAL_NUM_QUOTES(arg) == sum_quotes
-                ){
-                    Init_True(out);
-                    return false;
-                }
-            }
-            else
-                fail (Error_Invalid_Type(VAL_TYPE(var)));
-        }
-        Init_False(out);
-        return false;
-    }
+    // We may need to add in the quotes of the dereference.  e.g.
+    //
+    //     >> quoted-word!: quote word!
+    //     >> match ['quoted-word!] lit ''foo
+    //     == ''foo
+    //
+    sum_quotes += VAL_NUM_QUOTES(test);
 
     const REBCEL *test_cell = VAL_UNESCAPED(test);
     const REBCEL *arg_cell = VAL_UNESCAPED(arg);
 
-    enum Reb_Kind test_kind = CELL_KIND(test);
-    switch (test_kind) {
-      case REB_LOGIC: // test for "truthy" or "falsey"
-        //
-        // If this is the result of composing together a test with a literal,
-        // it may be the *test* that changes...so in effect, we could be
-        // "testing the test" on a fixed value.  Allow literal blocks (e.g.
-        // use IS_TRUTHY() instead of IS_CONDITIONAL_TRUE())
-        //
-        Init_Logic(
-            out,
-            VAL_LOGIC(test_cell) == IS_TRUTHY(arg_cell)
-                and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
-        );
-        return false;
+    enum Reb_Kind test_kind = CELL_KIND(test_cell);
 
-      case REB_WORD:
-      case REB_PATH:
-      case REB_GET_WORD:
-      case REB_GET_PATH: {
-        //
-        // !!! Because we do not push refinements here, this means that a
-        // specialized action will be generated if the user says something
-        // like `either-test 'foo?/bar x [...]`.  It's possible to avoid
-        // this by pushing a frame before the Get_If_Word_Or_Path_Throws()
-        // and gathering the refinements on the stack, but a bit more work
-        // for an uncommon case...revisit later.
-        //
+    // If test is a WORD! or PATH! then GET it.  To help keep things clear,
+    // require GET-WORD! or GET-PATH! for actions to convey they are not being
+    // invoked inline, and disallow them on non-actions to help discern them
+    // (maybe relax that later)
+    //
+    //    maybe [integer! :even?] 4 ;-- this is ok
+    //    maybe [:integer! even?] 4 ;-- this is not
+    //
+    if (
+        test_kind == REB_WORD
+        or test_kind == REB_GET_WORD or test_kind == REB_GET_PATH
+    ){
         const bool push_refinements = false;
+
+        DECLARE_LOCAL (dequoted_test); // wouldn't need if Get took any escape
+        Dequotify(Derelativize(dequoted_test, test, test_specifier));
 
         REBSTR *opt_label = NULL;
         REBDSP lowest_ordered_dsp = DSP;
-        if (Get_If_Word_Or_Path_Throws(
+        if (Get_If_Word_Or_Path_Throws( // !!! take any escape level?
             out,
             &opt_label,
-            test,
-            test_specifier,
-            push_refinements
+            dequoted_test,
+            SPECIFIED,
+            push_refinements // !!! Look into pushing e.g. `match :foo?/bar x`
         )){
             return true;
         }
@@ -256,56 +192,121 @@ bool Either_Test_Core_Throws(
         assert(lowest_ordered_dsp == DSP); // would have made specialization
         UNUSED(lowest_ordered_dsp);
 
-        test = out;
-        test_cell = out;
-        test_specifier = SPECIFIED;
+        if (IS_NULLED(out))
+            fail (Error_No_Value_Raw(dequoted_test));
 
-        if (IS_DATATYPE(test))
-            goto handle_datatype;
-        if (IS_TYPESET(test))
-            goto handle_typeset;
-        if (not IS_ACTION(test)) {
-            fail ("EITHER-TEST only takes WORD! and PATH! for ACTION! vars");
+        if (IS_ACTION(out)) {
+            if (IS_GET_WORD(dequoted_test) or IS_GET_PATH(dequoted_test)) {
+                // ok
+            } else
+                fail ("ACTION! match rule must be GET-WORD!/GET-PATH!");
         }
-        goto handle_action; }
+        else {
+            sum_quotes += VAL_NUM_QUOTES(out);
+            Dequotify(out); // we want to use the dequoted version for test
+        }
+
+        test = out;
+        test_cell = VAL_UNESCAPED(test);
+        test_kind = CELL_KIND(test_cell);
+        test_specifier = SPECIFIED;
+    }
+
+    switch (test_kind) {
+      case REB_PATH: { // AND the tests together
+        RELVAL *item = VAL_ARRAY_AT(test_cell);
+        REBSPC *specifier = Derive_Specifier(test_specifier, test);
+
+        for (; NOT_END(item); ++item) {
+            if (IS_GET_WORD(VAL_UNESCAPED(item)))
+                fail ("GET-WORD! may be slated to be illegal in PATH!s");
+
+            if (IS_QUOTED(item))
+                fail ("QUOTED! items may be slated to be illegal in PATH!s");
+
+            if (Single_Test_Throws(
+                out,
+                item,
+                specifier,
+                arg,
+                arg_specifier,
+                sum_quotes
+            )){
+                return true;
+            }
+
+            if (not VAL_LOGIC(out)) // any ANDing failing skips block
+                return false; // false=no throw
+        }
+        assert(VAL_LOGIC(out)); // if all tests succeeded in block
+        return false; } // return the LOGIC! truth, false=no throw
+
+      case REB_BLOCK: { // OR the tests together
+        RELVAL *item = VAL_ARRAY_AT(test_cell);
+        REBSPC *specifier = Derive_Specifier(test_specifier, test);
+        for (; NOT_END(item); ++item) {
+            if (Single_Test_Throws(
+                out,
+                item,
+                specifier,
+                arg,
+                arg_specifier,
+                sum_quotes
+            )){
+                return true;
+            }
+            if (VAL_LOGIC(out)) // test succeeded
+                return false; // return the LOGIC! truth, false=no throw
+        }
+        assert(not VAL_LOGIC(out));
+        return false; }
+
+      case REB_LOGIC: // test for "truthy" or "falsey"
+        //
+        // Note: testing a literal block for truth or falsehood could make
+        // sense if the *test* varies (e.g. true or false from variable).
+        //
+        Init_Logic(
+            out,
+            VAL_LOGIC(test_cell) == IS_TRUTHY(arg) // vs IS_CONDITIONAL_TRUE()
+                and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
+        );
+        return false;
 
       case REB_ACTION: {
-      handle_action:;
-
         DECLARE_LOCAL (arg_specified);
         Derelativize(arg_specified, arg, arg_specifier);
+        Dequotify(arg_specified); // e.g. '':refinement? wants unquoted
+        PUSH_GC_GUARD(arg_specified);
 
-        if (Apply_Only_Throws(
+        bool threw = Apply_Only_Throws(
             out,
             true, // `fully` (ensure argument consumed)
             KNOWN(test),
             NULLIFY_NULLED(arg_specified), // nulled cells to nullptr for API
             rebEND
-        )){
+        );
+
+        DROP_GC_GUARD(arg_specified);
+        if (threw)
             return true;
-        }
 
-        if (IS_VOID(out))
-            fail (Error_Void_Conditional_Raw());
-
-        Init_Logic(out, IS_TRUTHY(out));
+        Init_Logic(out, IS_TRUTHY(out)); // errors on VOID!
         return false; }
 
       case REB_DATATYPE:
-      handle_datatype:
         Init_Logic(
             out,
             VAL_TYPE_KIND(test_cell) == CELL_KIND(arg_cell)
-                and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
+                and VAL_NUM_QUOTES(arg) == sum_quotes
         );
         return false;
 
       case REB_TYPESET:
-      handle_typeset:
         Init_Logic(
             out,
             TYPE_CHECK(test_cell, CELL_KIND(arg_cell))
-                and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
+                and VAL_NUM_QUOTES(arg) == sum_quotes
         );
         return false;
 
@@ -318,53 +319,68 @@ bool Either_Test_Core_Throws(
         );
         return false;
 
+      case REB_INTEGER: // interpret as length
+        Init_Logic(
+            out,
+            ANY_SERIES_KIND(CELL_KIND(arg_cell))
+                and VAL_LEN_AT(arg_cell) == VAL_UINT32(test_cell)
+                and VAL_NUM_QUOTES(test) == VAL_NUM_QUOTES(arg)
+        );
+        return false;
+
       default:
         break;
     }
 
-    fail (Error_Invalid_Type(VAL_TYPE(arg)));
+    fail (Error_Invalid_Type(test_kind));
 }
 
 
 //
-//  either-test: native [
+//  Match_Core_Throws: C
 //
-//  {If argument passes test, return it as-is, otherwise take the branch}
+// MATCH is based on the idea of running a group of tests represented by
+// single items.  e.g. `match 2 block` would check to see if the block was
+// length 2, and `match :even? num` would pass back the value if it were even.
 //
-//      return: "Input argument if it matched, or branch result"
-//          [<opt> any-value!]
-//      'test "Typeset membership, LOGIC! to test for truth, filter function"
-//          [
-//              datatype! typeset! ;-- literals accepted
-//              logic! ;-- tests TO-LOGIC compatibility
-//              word! path! ;-- soft quoted to get literals
-//              get-word! get-path! action! ;-- arity-1 filter function
-//              block! ;-- combine [or or or] vs. [[and and] or [and and]]
-//          ]
-//      arg [<opt> any-value!]
-//      branch "If arity-1 ACTION!, receives the non-matching argument"
-//          [block! action!]
-//  ]
+// A block can pull together these single tests.  They are OR'd by default,
+// but if you use PATH! inside them then those are AND'ed.  Hence:
 //
-REBNATIVE(either_test)
-{
-    INCLUDE_PARAMS_OF_EITHER_TEST;
-
-    if (Either_Test_Core_Throws(
-        D_OUT,
-        ARG(test), SPECIFIED,
-        ARG(arg), SPECIFIED
+//     match [block!/2 integer!/[:even?]] value
+//
+// ...that would either match a block of length 2 or an even integer.
+//
+// In the quoted era, the concept is that match ['integer!] x would match '2.
+//
+// !!! Future directions may allow `match :(> 2) value` to auto-specialize a
+// function to reduce it down to single arity so it can be called.
+//
+// !!! The choice of paths for the AND-ing rules is a bit edgy considering
+// how wily paths are, but it makes sense (paths are minimum length 2, and
+// no need for an AND group of length 1)...and allows for you to define a
+// rule and then reuse it by reference from a word and know if it's an AND
+// rule or an OR'd rule.
+//
+bool Match_Core_Throws(
+    REBVAL *out, // GC-safe output cell
+    const RELVAL *test,
+    REBSPC *test_specifier,
+    const RELVAL *arg,
+    REBSPC *arg_specifier
+){
+    if (Single_Test_Throws(
+        out,
+        test,
+        test_specifier,
+        arg,
+        arg_specifier,
+        0 // number of quotes to add in, start at zero
     )){
-        return R_THROWN;
+        return true;
     }
 
-    if (VAL_LOGIC(D_OUT))
-        RETURN (ARG(arg));
-
-    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(arg)))
-        return R_THROWN;
-
-    return D_OUT;
+    assert(IS_LOGIC(out));
+    return false;
 }
 
 
@@ -457,6 +473,59 @@ REBNATIVE(also)
 //          [<opt> any-value!]
 //      'test "Typeset membership, LOGIC! to test for truth, filter function"
 //          [
+//              word! ;-- GET to find actual test
+//              action! get-word! get-path! ;-- arity-1 filter function
+//              path! ;-- AND'd tests
+//              block! ;-- OR'd tests
+//              datatype! typeset! ;-- literals accepted
+//              logic! ;-- tests TO-LOGIC compatibility
+//              tag! ;-- just <opt> for now
+//              integer! ;-- matches length of series
+//              quoted! ;-- same test, but make quote level part of the test
+//          ]
+//      value [<opt> any-value!]
+//      /else "Instead of returning null on non-matches, run a branch"
+//      branch [block! action!]
+//  ]
+//
+REBNATIVE(match)
+{
+    INCLUDE_PARAMS_OF_MATCH;
+
+    if (Match_Core_Throws(D_OUT, ARG(test), SPECIFIED, ARG(value), SPECIFIED))
+        return R_THROWN;
+
+    if (VAL_LOGIC(D_OUT)) {
+        if (IS_FALSEY(ARG(value)) and not REF(else)) {
+            //
+            // Don't want `if match [blank! ...] whatever [...]` to fail to
+            // run the branch silently, despite match succeeding.  Caller
+            // must consciously use /ELSE for that case.
+            //
+            return Init_Void(D_OUT);
+        }
+        RETURN (ARG(value));
+    }
+
+    if (REF(else)) {
+        if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(value)))
+            return R_THROWN;
+        return D_OUT;
+    }
+
+    return nullptr;
+}
+
+
+//
+//  match2: native [
+//
+//  {Check value using tests (match types, TRUE or FALSE, or filter action)}
+//
+//      return: "Input if it matched, otherwise null (void if falsey match)"
+//          [<opt> any-value!]
+//      'test "Typeset membership, LOGIC! to test for truth, filter function"
+//          [
 //              word! path! ;- special "first-arg-stealing" magic
 //              datatype! typeset! block! logic! action! ;-- like EITHER-TEST
 //              quoted! ;-- same test, but make quote level part of the test
@@ -464,14 +533,19 @@ REBNATIVE(also)
 //      :args [any-value! <...>]
 //  ]
 //
-REBNATIVE(match)
+REBNATIVE(match2)
 //
-// This routine soft quotes its `test` argument, and has to be variadic, in
-// order to get the special `MATCH PARSE "AAA" [SOME "A"]` -> "AAA" behavior.
-// But despite quoting its first argument, it processes it in a way to try
-// and mimic EITHER-TEST for compatibility for other cases.
+// !!! This experimental MATCH variant implemented a special frame making
+// `MATCH PARSE "AAA" [SOME "A"]` -> "AAA" behavior.  It would build a frame
+// for the function, steal its argument, and return that.  Because this had
+// to be variadic, it was a bit of a problem in its interaction with enfix:
+//
+// https://github.com/metaeducation/ren-c/issues/820
+//
+// It has been moved aside for the moment until that issue is worked out,
+// because it was interfering with the usability of MATCH.
 {
-    INCLUDE_PARAMS_OF_MATCH;
+    INCLUDE_PARAMS_OF_MATCH2;
 
     REBVAL *test = ARG(test);
 
@@ -595,7 +669,7 @@ either_test:;
     VAL_TYPESET_BITS(varpar) &= ~FLAGIT_KIND(REB_MAX_NULLED);
 
     DECLARE_LOCAL (temp);
-    if (Either_Test_Core_Throws(temp, test, SPECIFIED, D_OUT, SPECIFIED))
+    if (Match_Core_Throws(temp, test, SPECIFIED, D_OUT, SPECIFIED))
         return R_THROWN;
 
     if (VAL_LOGIC(temp)) {

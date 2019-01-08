@@ -322,7 +322,7 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
         // Don't want to ask an ordinary value cell its kind modulo 64 is;
         // it may be REB_QUOTED and we need to call VAL_UNESCAPED() first!
         //
-        inline static enum Reb_Kind CELL_KIND(const REBVAL *v) = delete;
+        inline static enum Reb_Kind CELL_KIND(const RELVAL *v) = delete;
     #endif
 #endif
 
@@ -1255,19 +1255,19 @@ inline static REBVAL *Init_Integer(RELVAL *out, REBI64 i64) {
     return cast(REBVAL*, out);
 }
 
-inline static int32_t VAL_INT32(const RELVAL *v) {
+inline static int32_t VAL_INT32(const REBCEL *v) {
     if (VAL_INT64(v) > INT32_MAX or VAL_INT64(v) < INT32_MIN)
         fail (Error_Out_Of_Range(KNOWN(v)));
     return cast(int32_t, VAL_INT64(v));
 }
 
-inline static uint32_t VAL_UINT32(const RELVAL *v) {
+inline static uint32_t VAL_UINT32(const REBCEL *v) {
     if (VAL_INT64(v) < 0 or VAL_INT64(v) > UINT32_MAX)
         fail (Error_Out_Of_Range(KNOWN(v)));
     return cast(uint32_t, VAL_INT64(v));
 }
 
-inline static REBYTE VAL_UINT8(const RELVAL *v) {
+inline static REBYTE VAL_UINT8(const REBCEL *v) {
     if (VAL_INT64(v) > 255 or VAL_INT64(v) < 0)
         fail (Error_Out_Of_Range(KNOWN(v)));
     return cast(REBYTE, VAL_INT32(v));

@@ -486,10 +486,10 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
         Move_Value_Header(a, cast(const RELVAL*, acell));
         a->extra = acell->extra;
         a->payload = acell->payload;
-        ta = CELL_KIND(a);
+        ta = CELL_KIND(acell);
     }
     else
-        mutable_KIND_BYTE(a) = ta = CELL_KIND(a); // maybe quoted or not
+        mutable_KIND_BYTE(a) = ta = CELL_KIND_UNCHECKED(a); // quoted or not
 
     enum Reb_Kind tb;
     if (KIND_BYTE(b) == REB_QUOTED) { // 4 or more quote levels
@@ -497,10 +497,10 @@ REBINT Compare_Modify_Values(RELVAL *a, RELVAL *b, REBINT strictness)
         Move_Value_Header(b, cast(const RELVAL*, bcell));
         b->extra = bcell->extra;
         b->payload = bcell->payload;
-        tb = CELL_KIND(b);
+        tb = CELL_KIND(bcell);
     }
     else
-        mutable_KIND_BYTE(b) = tb = CELL_KIND(b); // maybe quoted or not
+        mutable_KIND_BYTE(b) = tb = CELL_KIND_UNCHECKED(b); // quoted or not
 
     if (ta != tb) {
         if (strictness == 1)

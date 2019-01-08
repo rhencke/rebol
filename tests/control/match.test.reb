@@ -7,8 +7,10 @@
 ; https://github.com/metaeducation/ren-c/pull/730
 ;
 
-("aaa" = match parse "aaa" [some "a" end])
-(null = match parse "aaa" [some "b" end])
+; Functionality temporarily moved to MATCH2 due to varargs/enfix interactions
+
+("aaa" = match2 parse "aaa" [some "a" end])
+(null = match2 parse "aaa" [some "b" end])
 
 (10 = match integer! 10)
 (null = match integer! "ten")
@@ -34,40 +36,32 @@
 (null = match blank! 10)
 (null = match blank! false)
 
-; Since its other features were implemented with a fairly complex enclosed
-; specialization, it's good to keep that usermode implementation around,
-; just to test those features.
+
+;; Quoting levels are taken into account with the rule, and the number of
+;; quotes is summed with whatever is found in the lookup.
+
+(lit 'foo = match 'word! lit 'foo)
+(null = match 'word! lit foo)
 
 [
-    (did match2: enclose specialize 'either-test [
-        branch: [null] ;-- runs on test failure
-    ] function [
-        return: [<opt> any-value!]
-        f [frame!]
-    ][
-        arg: :f/arg else [
-            fail "MATCH cannot take null as input" ;-- EITHER-TEST allows it
-        ]
+    (did quoted-word!: uneval word!)
 
-        ; Ideally we'd pass through all input results on a "match" and give
-        ; null to indicate a non-match.  But what about:
-        ;
-        ;     if match [logic!] 1 > 2 [...]
-        ;     if match [blank!] find "abc" "d" [...]
-        ;
-        ; Rather than have MATCH return a falsey result in these cases of
-        ; success, pass back a BAR! in the hopes of drawing attention.
-
-        set* lit result: do f ;-- can't access f/arg after the DO
-
-        if not :arg and [not null? :result] [
-            return '| ;-- BAR! if matched a falsey type
-        ]
-        :result ;-- return null if no match, else truthy result
-    ])
-
-    (10 = match2 integer! 10)
-    (null = match2 integer! "ten")
-    (bar? match2 blank! _)
-    (null = match2 blank! 10)
+    (''foo = match ['quoted-word!] lit ''foo)
+    (null = match ['quoted-word!] lit '''foo)
+    ('''foo = match '['quoted-word!] lit '''foo)
 ]
+
+
+;; PATH! is AND'ed together, while blocks are OR'd
+
+(1020 = match integer!/[:even?] 1020)
+(null = match integer!/[:odd?] 304)
+([a b] = match [block!/2 integer!/[:even?]] [a b])
+(null = match [block!/3 integer!/[:even?]] null)
+(304 = match [block!/3 integer!/[:even?]] 304)
+(null = match [block!/3 integer!/[:even?]] 303)
+
+(
+    even-int: 'integer!/[:even?]
+    lit '304 = match '[block!/3 even-int] lit '304
+)

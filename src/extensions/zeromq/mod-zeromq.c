@@ -836,13 +836,13 @@ REBNATIVE(zmq_poll)
 
     int i;
     for (i = 0; i < nitems; ++i) {
-        REBVAL *socket = rebRun( // !!! GROUP! needed for MATCH quirk
+        REBVAL *socket = rebRun(
             "(match handle! pick", spec, rebI(i * 2), ") else [",
                 "fail {Expected HANDLE! in spec position}",
             "]");
         pollitems[i].socket = VAL_HANDLE_VOID_POINTER(socket);
 
-        pollitems[i].events = rebUnbox( // !!! GROUP! needed for MATCH quirk
+        pollitems[i].events = rebUnbox(
             "(match integer! pick", spec, rebI(i * 2 + 1), ") else [",
                 "fail {Expected INTEGER! in spec position}",
             "]");
