@@ -809,7 +809,7 @@ load-module: function [
         ensure block! code
 
         if exports [
-            if unset? 'hdr/exports [
+            if null? select hdr 'exports [
                 append hdr compose [exports: ((export-list))]
             ] else [
                 append exports hdr/exports

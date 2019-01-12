@@ -388,7 +388,7 @@ REB_R PD_Context(
     REBCNT n = Find_Canon_In_Context(c, VAL_WORD_CANON(picker), always);
 
     if (n == 0)
-        return nullptr;
+        return R_UNHANDLED;
 
     if (opt_setval) {
         FAIL_IF_READ_ONLY_CONTEXT(pvs->out);

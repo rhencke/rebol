@@ -282,9 +282,9 @@ dig-action-meta-fields: function [value [action!]] [
     ]
 
     underlying: try ensure [<opt> action!] any [
-        get 'meta/specializee
-        get 'meta/adaptee
-        all [block? :meta/chainees | first meta/chainees]
+        select meta 'specializee
+        select meta 'adaptee
+        first try match block! select meta 'chainees
     ]
 
     fields: try all [:underlying | dig-action-meta-fields :underlying]
@@ -312,11 +312,11 @@ dig-action-meta-fields: function [value [action!]] [
         ]
         parameter-types: try ensure [<opt> frame!] any [
             select meta 'parameter-types
-            inherit-frame try get 'fields/parameter-types
+            inherit-frame try select fields 'parameter-types
         ]
         parameter-notes: try ensure [<opt> frame!] any [
             select meta 'parameter-notes
-            inherit-frame try get 'fields/parameter-notes
+            inherit-frame try select fields 'parameter-notes
         ]
     ]
 ]
@@ -347,7 +347,7 @@ redescribe: function [
             fail [{archetype META-OF doesn't have DESCRIPTION slot} meta]
         ]
 
-        if notes: try get 'meta/parameter-notes [
+        if notes: try select meta 'parameter-notes [
             if not frame? notes [
                 fail [{PARAMETER-NOTES in META-OF is not a FRAME!} notes]
             ]

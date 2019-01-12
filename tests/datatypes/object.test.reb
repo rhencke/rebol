@@ -181,3 +181,9 @@
     o: make object! [a: _]
     same? (binding of in o 'self) (binding of in o 'a)
 )]
+
+[
+    ; https://github.com/metaeducation/ren-c/issues/907
+
+    (did trap [o: make object! [ ] o/i: 1])
+]
