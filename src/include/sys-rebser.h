@@ -301,81 +301,17 @@
 STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == VALUE_FLAG_CONST);
 
 
-//=//// PARAMLIST_FLAG_RETURN /////////////////////////////////////////////=//
-//
-// Has a definitional RETURN in the last paramlist slot.
-//
-#define PARAMLIST_FLAG_RETURN \
-    FLAG_LEFT_BIT(23)
+// These flags are available for use by specific array subclasses (e.g. a
+// PARAMLIST might use it for different things from a VARLIST)
 
-
-//=//// PARAMLIST_FLAG_VOIDER /////////////////////////////////////////////=//
-//
-// Uses Voider_Dispatcher().  Right now there's not a good way to communicate
-// the findings of Make_Paramlist() back to the caller, so this flag is used.
-//
-#define PARAMLIST_FLAG_VOIDER \
-    FLAG_LEFT_BIT(24)
-
-
-//=//// PARAMLIST_FLAG_DEFERS_LOOKBACK ////////////////////////////////////=//
-//
-// This is a calculated property, which is cached by Make_Action().
-//
-// Tells you whether a function defers its first real argument when used as a
-// lookback.  Because lookback dispatches cannot use refinements, the answer
-// is always the same for invocation via a plain word.
-//
-#define PARAMLIST_FLAG_DEFERS_LOOKBACK \
-    FLAG_LEFT_BIT(25)
-
-
-//=//// PARAMLIST_FLAG_QUOTES_FIRST_ARG ///////////////////////////////////=//
-//
-// This is a calculated property, which is cached by Make_Action().
-//
-// This is another cached property, needed because lookahead/lookback is done
-// so frequently, and it's quicker to check a bit on the function than to
-// walk the parameter list every time that function is called.
-//
-#define PARAMLIST_FLAG_QUOTES_FIRST_ARG \
-    FLAG_LEFT_BIT(26)
-
-
-//=//// PARAMLIST_FLAG_INVISIBLE //////////////////////////////////////////=//
-//
-// This is a calculated property, which is cached by Make_Action().
-//
-// An "invisible" function is one that does not touch its frame output cell,
-// leaving it completely alone.  This is how `10 comment ["hi"] + 20` can
-// work...if COMMENT destroyed the 10 in the output cell it would be lost and
-// the addition could no longer work.
-//
-#define PARAMLIST_FLAG_INVISIBLE \
-    FLAG_LEFT_BIT(27)
-
-
-//=//// PARAMLIST_FLAG_NATIVE /////////////////////////////////////////////=//
-//
-// Native functions are flagged that their dispatcher represents a native in
-// order to say that their ACT_DETAILS() follow the protocol that the [0]
-// slot is "equivalent source" (may be a TEXT!, as in user natives, or a
-// BLOCK!).  The [1] slot is a module or other context into which APIs like
-// rebRun() etc. should consider for binding, in addition to lib.  A BLANK!
-// in the 1 slot means no additional consideration...bind to lib only.
-//
-#define PARAMLIST_FLAG_NATIVE \
-    FLAG_LEFT_BIT(28)
-
-
-//=//// PARAMLIST_FLAG_UNLOADABLE_NATIVE //////////////////////////////////=//
-//
-// !!! Currently there isn't support for unloading extensions once they have
-// been loaded.  Previously, this flag was necessary to indicate a native was
-// in a DLL, and something like it may become necessary again.
-//
-#define PARAMLIST_FLAG_UNLOADABLE_NATIVE \
-    FLAG_LEFT_BIT(29)
+#define ARRAY_FLAG_23 FLAG_LEFT_BIT(23)
+#define ARRAY_FLAG_24 FLAG_LEFT_BIT(24)
+#define ARRAY_FLAG_25 FLAG_LEFT_BIT(25)
+#define ARRAY_FLAG_26 FLAG_LEFT_BIT(26)
+#define ARRAY_FLAG_27 FLAG_LEFT_BIT(27)
+#define ARRAY_FLAG_28 FLAG_LEFT_BIT(28)
+#define ARRAY_FLAG_29 FLAG_LEFT_BIT(29)
+#define ARRAY_FLAG_30 FLAG_LEFT_BIT(30)
 
 
 // ^-- STOP ARRAY FLAGS AT FLAG_LEFT_BIT(31) --^
@@ -386,15 +322,8 @@ STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == VALUE_FLAG_CONST);
 // be used for anything but optimizations.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(29 < 32, "ARRAY_FLAG_XXX too high");
+    static_assert(30 < 32, "ARRAY_FLAG_XXX too high");
 #endif
-
-
-// These are the flags which are scanned for and set during Make_Action
-//
-#define PARAMLIST_MASK_CACHED \
-    (PARAMLIST_FLAG_DEFERS_LOOKBACK | PARAMLIST_FLAG_QUOTES_FIRST_ARG \
-        | PARAMLIST_FLAG_INVISIBLE)
 
 
 //=////////////////////////////////////////////////////////////////////////=//
@@ -417,13 +346,13 @@ STATIC_ASSERT(SERIES_INFO_0_IS_TRUE == NODE_FLAG_NODE);
 STATIC_ASSERT(SERIES_INFO_1_IS_FALSE == NODE_FLAG_FREE);
 
 
-//=//// SERIES_INFO_2 /////////////////////////////////////////////////////=//
+//=//// SERIES_INFO_UNUSED_2 //////////////////////////////////////////////=//
 //
 // reclaimed.
 //
 // Note: Same bit position as NODE_FLAG_MANAGED in flags, if that is relevant.
 //
-#define SERIES_INFO_2 \
+#define SERIES_INFO_UNUSED_2 \
     FLAG_LEFT_BIT(2)
 
 
@@ -567,20 +496,9 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
     FLAG_LEFT_BIT(25)
 
 
-//=//// FRAME_INFO_FAILED /////////////////////////////////////////////////=//
+//=//// SERIES_INFO_UNUSED_26 /////////////////////////////////////////////=//
 //
-// In the specific case of a frame being freed due to a failure, this mark
-// is put on the context node.  What this allows is for the system to account
-// for which nodes are being GC'd due to lack of a rebRelease(), as opposed
-// to those being GC'd due to failure.
-//
-// What this means is that the system can use managed handles by default
-// while still letting "rigorous" code track cases where it made use of the
-// GC facility vs. doing explicit tracking.  Essentially, it permits a kind
-// of valgrind/address-sanitizer way of looking at a codebase vs. just taking
-// for granted that it will GC things.
-//
-#define FRAME_INFO_FAILED \
+#define SERIES_INFO_UNUSED_26 \
     FLAG_LEFT_BIT(26)
 
 
@@ -615,27 +533,15 @@ STATIC_ASSERT(SERIES_INFO_7_IS_FALSE == NODE_FLAG_CELL);
     FLAG_LEFT_BIT(28)
 
 
-//=//// SERIES_INFO_API_RELEASE ///////////////////////////////////////////=//
+//=//// SERIES_INFO_UNUSED_29 ///////////////////////////////////////////=//
 //
-// The rebT() function can be used with an API handle to tell a variadic
-// function to release that handle after encountering it.
-//
-// !!! API handles are singular arrays, because there is already a stake in
-// making them efficient.  However it means they have to share header and
-// info bits, when most are not applicable to them.  This is a tradeoff, and
-// contention for bits may become an issue in the future.
-//
-#define SERIES_INFO_API_RELEASE \
+#define SERIES_INFO_UNUSED_29 \
     FLAG_LEFT_BIT(29)
 
 
-//=//// SERIES_INFO_API_INSTRUCTION ///////////////////////////////////////=//
+//=//// SERIES_INFO_UNUSED_30 /////////////////////////////////////////////=//
 //
-// Rather than have LINK() and MISC() fields used to distinguish an API
-// handle like an INTEGER! from something like a rebEval(), a flag helps
-// keep those free for different purposes.
-//
-#define SERIES_INFO_API_INSTRUCTION \
+#define SERIES_INFO_UNUSED_30 \
     FLAG_LEFT_BIT(30)
 
 

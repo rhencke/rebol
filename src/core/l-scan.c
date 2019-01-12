@@ -1000,7 +1000,7 @@ acquisition_loop:
 
             if (Is_Api_Value(splice)) { // moved to DS_TOP, can release *now*
                 REBARR *a = Singular_From_Cell(splice);
-                if (GET_SER_INFO(a, SERIES_INFO_API_RELEASE))
+                if (GET_SER_FLAG(a, SINGULAR_FLAG_API_RELEASE))
                     rebRelease(m_cast(REBVAL*, splice)); // !!! m_cast
             }
 

@@ -135,10 +135,10 @@ void Startup_Frame_Stack(void)
     Push_Action(f, PG_Dummy_Action, UNBOUND);
 
     REBSTR *opt_label = nullptr;
-    Begin_Action(f, opt_label, m_cast(REBVAL*, END_NODE));
+    Begin_Action(f, opt_label);
     assert(IS_END(f->arg));
     f->param = END_NODE; // signal all arguments gathered
-    assert(f->refine == END_NODE); // passed to Begin_Action();
+    assert(f->refine == ORDINARY_ARG); // Begin_Action() sets
     f->arg = m_cast(REBVAL*, END_NODE);
     f->special = END_NODE;
 

@@ -662,10 +662,10 @@ const void *RL_rebR(REBVAL *v)
         fail ("Cannot apply rebR() to non-API value");
 
     REBARR *a = Singular_From_Cell(v);
-    if (GET_SER_INFO(a, SERIES_INFO_API_RELEASE))
+    if (GET_SER_FLAG(a, SINGULAR_FLAG_API_RELEASE))
         fail ("Cannot apply rebR() more than once to the same API value");
 
-    SET_SER_INFO(a, SERIES_INFO_API_RELEASE);
+    SET_SER_FLAG(a, SINGULAR_FLAG_API_RELEASE);
     return v; // returned as const void* to discourage use outside variadics
 }
 
@@ -845,10 +845,10 @@ REBVAL *RL_rebRescue(
 
     Reuse_Varlist_If_Available(f); // needed to attach API handles to
     Push_Action(f, PG_Dummy_Action, UNBOUND);
-    Begin_Action(f, opt_label, m_cast(REBVAL*, END_NODE));
+    Begin_Action(f, opt_label);
     assert(IS_END(f->arg));
     f->param = END_NODE; // signal all arguments gathered
-    assert(f->refine == END_NODE); // passed to Begin_Action();
+    assert(f->refine == ORDINARY_ARG); // Begin_Action() sets
     f->arg = m_cast(REBVAL*, END_NODE);
     f->special = END_NODE;
 
@@ -859,7 +859,7 @@ REBVAL *RL_rebRescue(
         assert(f->varlist); // action must be running
         REBARR *stub = f->varlist; // will be stubbed, with info bits reset
         Drop_Action(f);
-        SET_SER_INFO(stub, FRAME_INFO_FAILED); // signal API leaks ok
+        SET_SER_FLAG(stub, VARLIST_FLAG_FRAME_FAILED); // signal API leaks ok
         Abort_Frame(f);
         return Init_Error(Alloc_Value(), error_ctx);
     }

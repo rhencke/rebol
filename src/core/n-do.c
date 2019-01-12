@@ -432,7 +432,7 @@ REBNATIVE(do)
         FRM_BINDING(f) = VAL_BINDING(source); // !!! should archetype match?
 
         REBSTR *opt_label = nullptr;
-        Begin_Action(f, opt_label, ORDINARY_ARG);
+        Begin_Action(f, opt_label);
 
         bool threw = (*PG_Eval_Throws)(f);
 
@@ -835,7 +835,7 @@ REBNATIVE(apply)
     FRM_PHASE(f) = VAL_ACTION(applicand);
     FRM_BINDING(f) = VAL_BINDING(applicand);
 
-    Begin_Action(f, opt_label, ORDINARY_ARG);
+    Begin_Action(f, opt_label);
     assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg)); // see Eval_Core_Throws()
 
     bool action_threw = (*PG_Eval_Throws)(f);

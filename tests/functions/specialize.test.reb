@@ -140,3 +140,20 @@
         [a b c 10 10 10] = do f
     ]
 )
+
+; Partial specialization can do some complex reordering of argument gathering,
+; which the evaluator needs to accomodate with backwards quoting skippables
+; and other enfix situations.
+(
+    foo: function [/a aa /b :bb [<skip> integer!]] [
+        any [
+            if set? 'bb [bb * 10]
+            #ignored
+        ]
+    ]
+    foob: enfix :foo/b
+    did all [
+        100 = (10 foob)
+        #ignored = ("not an integer!" foob)
+    ]
+)

@@ -317,17 +317,7 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
 
   #if !defined(NDEBUG)
     REBSTR *spelling = VAL_KEY_SPELLING(v);
-    if (spelling == NULL) {
-        //
-        // Note that although REB_MAX_NULLED is used as an implementation detail
-        // for special typesets in function paramlists or context keys to
-        // indicate <opt>-style optionality, the "absence of a type" is not
-        // generally legal in user typesets.  Only legal "key" typesets
-        // (that have symbols).
-        //
-        assert(not TYPE_CHECK(v, REB_MAX_NULLED));
-    }
-    else {
+    if (spelling) {
         //
         // In debug builds we're probably more interested in the symbol than
         // the typesets, if we are looking at a PARAMLIST or KEYLIST.
@@ -347,14 +337,23 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
     }
   #endif
 
-    assert(not TYPE_CHECK(v, REB_0)); // REB_0 is used for internal purposes
+    // Convert bits to type name strings.  Note that "endability" and
+    // "optionality" are not really good fits for things in a typeset, as no
+    // "type" exists for their bits.  However, you can get them if you say
+    // `TYPESETS OF` on an action.  This should be thought about.
 
-    // Convert bits to types.
-    //
+    if (TYPE_CHECK(v, REB_0_END))
+        Emit(mo, "<end> ");
+
+    if (TYPE_CHECK(v, REB_MAX_NULLED))
+        Emit(mo, "<opt> ");
+
+    // !!! What about REB_TS_SKIPPABLE and other parameter properties, that
+    // don't really fit into "types", but you can get with TYPESETS OF action?
+
     for (n = REB_0 + 1; n < REB_MAX; n++) {
-        if (TYPE_CHECK(v, cast(enum Reb_Kind, n))) {
+        if (TYPE_CHECK(v, cast(enum Reb_Kind, n)))
             Emit(mo, "+DN ", SYM_DATATYPE_X, Canon(cast(REBSYM, n)));
-        }
     }
     Trim_Tail(mo->series, ' ');
 

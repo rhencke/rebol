@@ -303,7 +303,7 @@ ATTRIBUTE_NO_RETURN void Fail_Core(const void *p)
             assert(f->varlist); // action must be running
             REBARR *stub = f->varlist; // will be stubbed, info bits reset
             Drop_Action(f);
-            SET_SER_INFO(stub, FRAME_INFO_FAILED); // API leaks o.k.
+            SET_SER_FLAG(stub, VARLIST_FLAG_FRAME_FAILED); // API leaks o.k.
         }
 
         REBFRM *prior = f->prior;

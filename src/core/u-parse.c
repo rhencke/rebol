@@ -211,11 +211,11 @@ static bool Subparse_Throws(
     Reuse_Varlist_If_Available(f);
     Push_Action(f, NAT_ACTION(subparse), UNBOUND);
 
-    Begin_Action(f, Canon(SYM_SUBPARSE), m_cast(REBVAL*, END_NODE));
+    Begin_Action(f, Canon(SYM_SUBPARSE));
 
     f->param = END_NODE; // informs infix lookahead
     f->arg = m_cast(REBVAL*, END_NODE);
-    assert(f->refine == END_NODE); // passed to Begin_Action()
+    assert(f->refine == ORDINARY_ARG); // Begin_Action() sets
     f->special = END_NODE;
 
     Derelativize(Prep_Stack_Cell(f->rootvar + 1), input, input_specifier);

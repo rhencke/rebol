@@ -822,6 +822,11 @@ bool Specialize_Action_Throws(
     );
     assert(CTX_KEYLIST(exemplar) == ACT_PARAMLIST(unspecialized));
 
+    assert(
+        GET_SER_FLAG(paramlist, PARAMLIST_FLAG_INVISIBLE)
+        == GET_SER_FLAG(unspecialized, PARAMLIST_FLAG_INVISIBLE)
+    );
+
     // The "body" is the FRAME! value of the specialization.  It takes on the
     // binding we want to use (which we can't put in the exemplar archetype,
     // that binding has to be UNBOUND).  It also remembers the original
@@ -913,6 +918,204 @@ REBNATIVE(specialize)
     }
 
     return D_OUT;
+}
+
+
+//
+//  For_Each_Unspecialized_Param: C
+//
+// We have to take into account specialization of refinements in order to know
+// the correct order.  If someone has:
+//
+//     [aa /b bb /c cc]
+//
+// They can specialize with c as enabled.  This means that to the caller,
+// the function now seems like one originally written with spec `aa cc /b bb`.
+// But the frame order doesn't change, so a naive traversal would make it
+// seem cc was an arg to /b:
+//
+//     [aa /b bb cc]
+//
+// This list could be cached when the function is generated, but it's not
+// prohibitive to do this iteration...though it does require two passes in the
+// general case).  Because this is a complex procedure, it is factored out.
+//
+// Unspecialized parameters are visited in two passes: unsorted, then sorted.
+//
+void For_Each_Unspecialized_Param(
+    REBACT *act,
+    PARAM_HOOK hook,
+    void *opaque
+){
+    REBDSP dsp_orig = DSP;
+
+    // Do an initial scan to push the partial refinements in the reverse
+    // order that they apply.  While walking the parameters in a potentially
+    // "unsorted" fashion, offer them to the passed-in hook in case it has a
+    // use for this first pass (e.g. just counting, to make an array big
+    // enough to hold what's going to be given to it in the second pass.
+
+    REBVAL *param = ACT_PARAMS_HEAD(act);
+    REBVAL *special = ACT_SPECIALTY_HEAD(act);
+
+    REBCNT index = 1;
+    for (; NOT_END(param); ++param, ++special, ++index) {
+        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        if (
+            Is_Param_Hidden(param) // specialization hides parameters
+            or pclass == PARAM_CLASS_RETURN
+            or pclass == PARAM_CLASS_LOCAL
+        ){
+            if (pclass == PARAM_CLASS_REFINEMENT) {
+                //
+                // In the exemplar frame for specialization, refinements are
+                // either VOID! if unspecialized, BLANK! if not in use, or
+                // an ISSUE! of what refinement should be pushed at that position.
+                //
+                if (IS_ISSUE(special))
+                    Move_Value(DS_PUSH(), special);
+            }
+            continue;
+        }
+
+        if (not hook(param, false, opaque)) { // false => unsorted pass
+            DS_DROP_TO(dsp_orig);
+            return;
+        }
+    }
+
+    // Refinements are now on stack such that topmost is first in-use
+    // specialized refinement.
+
+    // Now second loop, where we print out just the normal args...stop at
+    // the first refinement.
+    //
+    param = ACT_PARAMS_HEAD(act);
+    for (; NOT_END(param); ++param) {
+        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        if (pclass == PARAM_CLASS_REFINEMENT)
+            break;
+        if (
+            Is_Param_Hidden(param)
+            or pclass == PARAM_CLASS_LOCAL
+            or pclass == PARAM_CLASS_RETURN
+        ){
+            continue;
+        }
+
+        if (not hook(param, true, opaque)) { // true => sorted pass
+            DS_DROP_TO(dsp_orig);
+            return;
+        }
+    }
+
+    REBVAL *first_refine = param; // remember where we were
+
+    // Now jump around and take care of the args to specialized refinements.
+    // We don't print out the refinement itslf
+
+    while (DSP != dsp_orig) {
+        param = ACT_PARAMS_HEAD(act) + VAL_WORD_INDEX(DS_TOP); // skips refine
+        DS_DROP(); // we know it's used...position was all we needed
+        for (; NOT_END(param); ++param) {
+            enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+            if (pclass == PARAM_CLASS_REFINEMENT)
+                break;
+            if (
+                Is_Param_Hidden(param)
+                or pclass == PARAM_CLASS_LOCAL
+                or pclass == PARAM_CLASS_RETURN
+            ){
+                continue;
+            }
+
+            if (not hook(param, true, opaque)) { // true => sorted pass
+                DS_DROP_TO(dsp_orig);
+                return;
+            }
+        }
+    }
+
+    // Finally, output any unspecialized refinements and their args, which
+    // we want to come after any args to specialized-used refinements.
+
+    param = first_refine;
+
+    bool skipping = false;
+    for (; NOT_END(param); ++param) {
+        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        if (pclass == PARAM_CLASS_REFINEMENT) {
+            if (Is_Param_Hidden(param)) {
+                skipping = true;
+                continue;
+            }
+            else
+                skipping = false; // we want to output
+        }
+        else if (
+            skipping
+            or Is_Param_Hidden(param)
+            or pclass == PARAM_CLASS_LOCAL
+            or pclass == PARAM_CLASS_RETURN
+        ){
+            continue;
+        }
+
+        if (not hook(param, true, opaque)) // true => sorted pass
+            return; // stack should be balanced here
+    }
+}
+
+
+
+struct First_Param_State {
+    REBACT *act;
+    REBVAL *first_unspecialized;
+    bool saw_refinement;
+};
+
+static bool First_Param_Hook(REBVAL *param, bool sorted_pass, void *opaque)
+{
+    struct First_Param_State *s = cast(struct First_Param_State*, opaque);
+    assert(not s->first_unspecialized); // should stop enumerating if found
+
+    if (not sorted_pass and s->saw_refinement)
+        return true; // can't learn anything until second pass
+
+    if (VAL_PARAM_CLASS(param) == PARAM_CLASS_REFINEMENT) {
+        if (sorted_pass)
+            return false; // we know WORD!-based invocations will be 0 arity
+        s->saw_refinement = true; // Note: may have already seen one
+        return true; // continue the enumeration
+    }
+
+    s->first_unspecialized = param;
+    return false; // found first_unspecialized, no need to look more
+}
+
+//
+//  First_Unspecialized_Param: C
+//
+// This can be somewhat complex in the worst case:
+//
+//     >> foo: func [/a aa /b bb /c cc /d dd] [...]
+//     >> foo-d: :foo/d
+//
+// This means that the last parameter (DD) is actually the first of FOO-D.
+// But since For_Each_Unspecialized_Param() gives the hook an opportunity to
+// run during its preliminary walk, the hook will bail out on the enumeration
+// if it sees a parameter before a refinement in the first pass.
+//
+REBVAL *First_Unspecialized_Param(REBACT *act)
+{
+    struct First_Param_State s;
+    s.act = act;
+    s.first_unspecialized = nullptr;
+    s.saw_refinement = false;
+
+    For_Each_Unspecialized_Param(act, &First_Param_Hook, &s);
+
+    return s.first_unspecialized; // may be null
 }
 
 
@@ -1060,7 +1263,7 @@ bool Make_Invocation_Frame_Throws(
 
     REBSTR *opt_label = nullptr; // !!! for now
     Push_Action(f, VAL_ACTION(action), VAL_BINDING(action));
-    Begin_Action(f, opt_label, ORDINARY_ARG);
+    Begin_Action(f, opt_label);
 
     // !!! A hack here is needed to slip in a lie to make the dispatcher not
     // run the action, but rather to throw back to us.

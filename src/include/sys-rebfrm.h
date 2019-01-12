@@ -184,11 +184,15 @@ STATIC_ASSERT(DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 // flags, and may or may not be worth it for the feature.
 
 
-//=//// DO_FLAG_UNUSED_16 /////////////////////////////////////////////////=//
+//=//// DO_FLAG_FULFILLING_ENFIX //////////////////////////////////////////=//
 //
-// Reclaimed bit.
+// Due to the unusual influences of partial refinement specialization, a frame
+// may wind up with its enfix parameter as being something like the last cell
+// in the argument list...when it has to then go back and fill earlier args
+// as normal.  There's no good place to hold the memory that one is doing an
+// enfix fulfillment besides a bit on the frame itself.
 //
-#define DO_FLAG_UNUSED_16 \
+#define DO_FLAG_FULFILLING_ENFIX \
     FLAG_LEFT_BIT(16)
 
 
@@ -987,9 +991,6 @@ typedef bool (*REBEVL)(REBFRM * const);
 
 #define ORDINARY_ARG \
     m_cast(REBVAL*, EMPTY_BLOCK)
-
-#define LOOKBACK_ARG \
-    m_cast(REBVAL*, EMPTY_TEXT)
 
 
 #if !defined(DEBUG_CHECK_CASTS) || !defined(CPLUSPLUS_11)

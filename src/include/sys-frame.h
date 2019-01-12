@@ -464,11 +464,10 @@ inline static void Enter_Native(REBFRM *f) {
 }
 
 
-inline static void Begin_Action(
-    REBFRM *f,
-    REBSTR *opt_label,
-    REBVAL *mode // LOOKBACK_ARG or ORDINARY_ARG or END
-){
+inline static void Begin_Action(REBFRM *f, REBSTR *opt_label)
+{
+    assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
+
     assert(not f->original);
     f->original = FRM_PHASE_OR_DUMMY(f);
 
@@ -479,12 +478,7 @@ inline static void Begin_Action(
     f->label_utf8 = cast(const char*, Frame_Label_Or_Anonymous_UTF8(f));
   #endif
 
-    assert(
-        mode == LOOKBACK_ARG
-        or mode == ORDINARY_ARG
-        or mode == END_NODE
-    );
-    f->refine = mode;
+    f->refine = ORDINARY_ARG;
 }
 
 
@@ -603,7 +597,7 @@ inline static void Push_Action(
 
 
 inline static void Drop_Action(REBFRM *f) {
-    assert(NOT_SER_INFO(f->varlist, FRAME_INFO_FAILED));
+    assert(NOT_SER_FLAG(f->varlist, VARLIST_FLAG_FRAME_FAILED));
 
     assert(
         not f->opt_label

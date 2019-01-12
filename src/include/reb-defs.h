@@ -224,6 +224,15 @@ typedef struct rebol_mold REB_MOLD;
 typedef void (*MOLD_HOOK)(REB_MOLD *mo, const REBCEL *v, bool form);
 
 
+//=//// PARAMETER ENUMERATION /////////////////////////////////////////////=//
+//
+// !!! Due to a current limitation of the prototype scanner, a function type
+// can't be used directly in a function definition and have it be picked up
+// for %tmp-internals.h, it has to be a typedef.
+//
+typedef bool (*PARAM_HOOK)(REBVAL *v, bool sorted_pass, void *opaque);
+
+
 // These definitions are needed in %sys-rebval.h, and can't be put in
 // %sys-rebact.h because that depends on Reb_Array, which depends on
 // Reb_Series, which depends on values... :-/

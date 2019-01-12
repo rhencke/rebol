@@ -242,7 +242,6 @@ inline static void Finalize_Arg(
 
     assert(
         refine == ORDINARY_ARG // check arg type
-        or refine == LOOKBACK_ARG // check arg type
         or refine == ARG_TO_UNUSED_REFINEMENT // ensure arg null
         or refine == ARG_TO_REVOKED_REFINEMENT // ensure arg null
         or IS_REFINEMENT(refine) // ensure arg not null
@@ -274,15 +273,10 @@ inline static void Finalize_Arg(
             return;
         }
 
-        // fall through to check arg for if <opt> is ok
-        //
-        assert(refine == ORDINARY_ARG or refine == LOOKBACK_ARG);
+        assert(refine == ORDINARY_ARG); // fall through, check if <opt> ok
     }
-    else {
-        // If the argument is set, then the refinement shouldn't be
-        // in a revoked or unused state.
-        //
-        if (IS_FALSEY(refine))
+    else { // argument is set...
+        if (IS_FALSEY(refine)) // ...so refinement shouldn't be revoked/unused
             fail (Error_Bad_Refine_Revoke(param, arg));
     }
 
@@ -333,36 +327,6 @@ inline static void Finalize_Arg(
 
 inline static void Finalize_Current_Arg(REBFRM *f) {
     Finalize_Arg(f, f->param, f->arg, f->refine);
-}
-
-
-// !!! Somewhat hacky mechanism for getting the first argument of an action,
-// used when doing typechecks for Is_Param_Skippable() on functions that
-// quote their first argument.  Must take into account specialization, as
-// that may have changed the first actual parameter to something other than
-// the first paramlist parameter.
-//
-// Despite being implemented less elegantly than it should be, this is an
-// important feature, since it's how `case [true [a] default [b]]` gets the
-// enfixed DEFAULT function to realize the left side is a BLOCK! and not
-// either a SET-WORD! or a SET-PATH!, so it <skip>s the opportunity to hard
-// quote it and defers execution...in this case, meaning it won't run at all.
-//
-inline static void Seek_First_Param(REBFRM *f, REBACT *action) {
-    f->param = ACT_PARAMS_HEAD(action);
-    f->special = ACT_SPECIALTY_HEAD(action);
-    for (; NOT_END(f->param); ++f->param, ++f->special) {
-        if (
-            f->special != f->param
-            and GET_VAL_FLAG(f->special, ARG_MARKED_CHECKED)
-        ){
-            continue;
-        }
-        if (VAL_PARAM_CLASS(f->param) == PARAM_CLASS_LOCAL)
-            continue;
-        return;
-    }
-    fail ("Seek_First_Param() failed");
 }
 
 
@@ -655,7 +619,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     // It's known to be an ACTION! since only actions can be enfix...
     //
-    if (NOT_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_QUOTES_FIRST_ARG))
+    if (NOT_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_QUOTES_FIRST))
         goto give_up_backward_quote_priority;
 
     // It's a backward quoter!  But...before allowing it to try, first give an
@@ -682,22 +646,24 @@ bool Eval_Core_Throws(REBFRM * const f)
             );
 
         if (
-            current_gotten
-            and IS_ACTION(current_gotten)
-            and NOT_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
-            and GET_SER_FLAG(
-                VAL_ACTION(current_gotten),
-                PARAMLIST_FLAG_QUOTES_FIRST_ARG
-            )
+            not current_gotten
+            or not IS_ACTION(current_gotten)
+            or GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
         ){
-            Seek_First_Param(f, VAL_ACTION(current_gotten));
-            if (Is_Param_Skippable(f->param))
-                if (not TYPE_CHECK(f->param, VAL_TYPE(f->value)))
-                    goto give_up_forward_quote_priority;
-
-            goto give_up_backward_quote_priority;
+            goto give_up_forward_quote_priority;
         }
-        goto give_up_forward_quote_priority;
+
+        REBACT *current_act = VAL_ACTION(current_gotten);
+        if (NOT_SER_FLAG(current_act, PARAMLIST_FLAG_QUOTES_FIRST))
+            goto give_up_forward_quote_priority;
+
+        if (GET_SER_FLAG(current_act, PARAMLIST_FLAG_SKIPPABLE_FIRST)) {
+            REBVAL *first = First_Unspecialized_Param(current_act);
+            if (not TYPE_CHECK(first, VAL_TYPE(f->value)))
+                goto give_up_forward_quote_priority;
+        }
+
+        goto give_up_backward_quote_priority;
     }
 
     if (kind.byte == REB_PATH and EVALUATING(current)) {
@@ -735,7 +701,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 and NOT_VAL_FLAG(var_at, VALUE_FLAG_ENFIXED)
                 and GET_SER_FLAG(
                     VAL_ACTION(var_at),
-                    PARAMLIST_FLAG_QUOTES_FIRST_ARG
+                    PARAMLIST_FLAG_QUOTES_FIRST
                 )
             ){
                 goto give_up_backward_quote_priority;
@@ -749,7 +715,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // A literal ACTION! in a BLOCK! may also forward quote
         //
         assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED)); // not WORD!/PATH!
-        if (GET_SER_FLAG(VAL_ACTION(current), PARAMLIST_FLAG_QUOTES_FIRST_ARG))
+        if (GET_SER_FLAG(VAL_ACTION(current), PARAMLIST_FLAG_QUOTES_FIRST))
             goto give_up_backward_quote_priority;
     }
 
@@ -758,13 +724,17 @@ bool Eval_Core_Throws(REBFRM * const f)
     // Okay, right quoting left wins out!  But if its parameter is <skip>able,
     // let it voluntarily opt out of it the type doesn't match its interests.
 
-    Seek_First_Param(f, VAL_ACTION(f->gotten));
-    if (Is_Param_Skippable(f->param))
-        if (not TYPE_CHECK(f->param, VAL_TYPE(current)))
+    if (GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_SKIPPABLE_FIRST)) {
+        REBVAL *first = First_Unspecialized_Param(VAL_ACTION(f->gotten));
+        if (not TYPE_CHECK(first, VAL_TYPE(current)))
             goto give_up_backward_quote_priority;
+    }
 
     Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
-    Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
+    Begin_Action(f, VAL_WORD_SPELLING(f->value));
+
+    assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
+    f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
 
     // Lookback args are fetched from f->out, then copied into an arg
     // slot.  Put the backwards quoted value into f->out, and in the
@@ -831,7 +801,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         REBSTR *opt_label = nullptr; // not invoked through a word, "nameless"
 
         Push_Action(f, VAL_ACTION(current), VAL_BINDING(current));
-        Begin_Action(f, opt_label, ORDINARY_ARG);
+        Begin_Action(f, opt_label);
         Expire_Out_Cell_Unless_Invisible(f);
         goto process_action; }
 
@@ -859,7 +829,7 @@ bool Eval_Core_Throws(REBFRM * const f)
       #endif
 
         assert(DSP >= f->dsp_orig); // path processing may push REFINEMENT!s
-        assert(f->refine == LOOKBACK_ARG or f->refine == ORDINARY_ARG);
+        assert(f->refine == ORDINARY_ARG);
 
         TRASH_POINTER_IF_DEBUG(current); // shouldn't be used below
         TRASH_POINTER_IF_DEBUG(current_gotten);
@@ -1162,12 +1132,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     //=//// IF LOOKBACK, THEN USE PREVIOUS EXPRESSION RESULT FOR ARG //////=//
 
-            if (f->refine == LOOKBACK_ARG) {
-                //
-                // Switch to ordinary arg up front, so gotos below are good to
-                // go for the next argument
-                //
-                f->refine = ORDINARY_ARG;
+            if (f->flags.bits & DO_FLAG_FULFILLING_ENFIX) {
+                f->flags.bits &= ~DO_FLAG_FULFILLING_ENFIX; // gotos below
 
                 if (f->out->header.bits & OUT_MARKED_STALE) {
                     //
@@ -1838,7 +1804,9 @@ bool Eval_Core_Throws(REBFRM * const f)
             // This might be interesting or it might be bugs waiting to
             // happen, trying it out of curiosity for now.
             //
-            Begin_Action(f, opt_label, LOOKBACK_ARG);
+            Begin_Action(f, opt_label);
+            assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
+            f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
             goto process_action;
         }
 
@@ -1872,13 +1840,11 @@ bool Eval_Core_Throws(REBFRM * const f)
             // the switch.  So you only see enfix in cases like `(+ 1 2)`,
             // or after PARAMLIST_FLAG_INVISIBLE e.g. `10 comment "hi" + 20`.
             //
-            Begin_Action(
-                f,
-                VAL_WORD_SPELLING(current), // use word as stack frame label
-                GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
-                    ? LOOKBACK_ARG
-                    : ORDINARY_ARG
-            );
+            Begin_Action(f, VAL_WORD_SPELLING(current)); // use word as label
+
+            assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
+            if (GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED))
+                f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
             goto process_action;
         }
 
@@ -2124,7 +2090,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // possibly once again if the lookahead reported non-enfix.  It's
             // something that really should be made to work *when it can*.
             //
-            Begin_Action(f, opt_label, ORDINARY_ARG);
+            Begin_Action(f, opt_label);
             Expire_Out_Cell_Unless_Invisible(f);
             goto process_action;
         }
@@ -2443,7 +2409,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         assert(NOT_SER_FLAG(
             VAL_ACTION(f->gotten),
-            PARAMLIST_FLAG_QUOTES_FIRST_ARG
+            PARAMLIST_FLAG_QUOTES_FIRST
         ));
         goto post_switch_shove_gotten;
     }
@@ -2475,7 +2441,9 @@ bool Eval_Core_Throws(REBFRM * const f)
         Push_Action(f, NAT_ACTION(path_0), binding);
 
         REBSTR *opt_label = nullptr;
-        Begin_Action(f, opt_label, LOOKBACK_ARG);
+        Begin_Action(f, opt_label);
+        assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
+        f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
 
         Fetch_Next_In_Frame(nullptr, f); // advances f->value
         goto process_action;
@@ -2569,7 +2537,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //=//// IT'S A WORD ENFIXEDLY TIED TO A FUNCTION (MAY BE "INVISIBLE") /////=//
 
-    if (GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_QUOTES_FIRST_ARG)) {
+    if (GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_QUOTES_FIRST)) {
         //
         // Left-quoting by enfix needs to be done in the lookahead before an
         // evaluation, not this one that's after.  This happens in cases like:
@@ -2584,7 +2552,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto lookback_quote_too_late;
     }
 
-  post_switch_shove_gotten:; // assert(!PARAMLIST_FLAG_QUOTES_FIRST_ARG) prior
+  post_switch_shove_gotten:; // assert(!PARAMLIST_FLAG_QUOTES_FIRST) prior
 
     if (
         (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
@@ -2659,7 +2627,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
 
     if (IS_WORD(f->value))
-        Begin_Action(f, VAL_WORD_SPELLING(f->value), LOOKBACK_ARG);
+        Begin_Action(f, VAL_WORD_SPELLING(f->value));
     else {
         // Should be a SHOVE.  There needs to be a way to telegraph the label
         // on the value if it was a PATH! to here.
@@ -2667,8 +2635,11 @@ bool Eval_Core_Throws(REBFRM * const f)
         assert(Is_Frame_Gotten_Shoved(f));
         assert(IS_PATH(f->value) or IS_GROUP(f->value) or IS_ACTION(f->value));
         REBSTR *opt_label = nullptr;
-        Begin_Action(f, opt_label, LOOKBACK_ARG);
+        Begin_Action(f, opt_label);
     }
+
+    assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
+    f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
 
     Fetch_Next_In_Frame(nullptr, f); // advances f->value
     goto process_action;

@@ -59,6 +59,23 @@
 // entire REBVAL if it is needed.
 //
 
+//=//// VARLIST_FLAG_FRAME_FAILED /////////////////////////////////////////=//
+//
+// In the specific case of a frame being freed due to a failure, this mark
+// is put on the context node.  What this allows is for the system to account
+// for which nodes are being GC'd due to lack of a rebRelease(), as opposed
+// to those being GC'd due to failure.
+//
+// What this means is that the system can use managed handles by default
+// while still letting "rigorous" code track cases where it made use of the
+// GC facility vs. doing explicit tracking.  Essentially, it permits a kind
+// of valgrind/address-sanitizer way of looking at a codebase vs. just taking
+// for granted that it will GC things.
+//
+#define VARLIST_FLAG_FRAME_FAILED \
+    ARRAY_FLAG_23
+
+
 #ifdef NDEBUG
     #define ASSERT_CONTEXT(c) cast(void, 0)
 #else
@@ -418,8 +435,8 @@ inline static REBCTX *Steal_Context_Vars(REBCTX *c, REBNOD *keysource) {
     // singular "stub", holding only the CTX_ARCHETYPE.  This is needed
     // for the ->binding to allow Derelativize(), see SPC_BINDING().
     //
-    // Note: previously this had to preserve FRAME_INFO_FAILED, but now
-    // those marking failure are asked to do so manually to the stub
+    // Note: previously this had to preserve VARLIST_FLAG_FRAME_FAILED, but
+    // now those marking failure are asked to do so manually to the stub
     // after this returns (hence they need to cache the varlist first).
     //
     stub->info = Endlike_Header(

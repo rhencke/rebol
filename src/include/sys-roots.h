@@ -47,6 +47,31 @@
 // roots could be discovered without a "pre-pass" in the GC.
 //
 
+
+//=//// SINGULAR_FLAG_API_RELEASE /////////////////////////////////////////=//
+//
+// The rebT() function can be used with an API handle to tell a variadic
+// function to release that handle after encountering it.
+//
+// !!! API handles are singular arrays, because there is already a stake in
+// making them efficient.  However it means they have to share header and
+// info bits, when most are not applicable to them.  This is a tradeoff, and
+// contention for bits may become an issue in the future.
+//
+#define SINGULAR_FLAG_API_RELEASE \
+    ARRAY_FLAG_23
+
+
+//=//// SINGULAR_FLAG_API_INSTRUCTION /////////////////////////////////////=//
+//
+// Rather than have LINK() and MISC() fields used to distinguish an API
+// handle like an INTEGER! from something like a rebEval(), a flag helps
+// keep those free for different purposes.
+//
+#define SINGULAR_FLAG_API_INSTRUCTION \
+    ARRAY_FLAG_24
+
+
 // What distinguishes an API value is that it has both the NODE_FLAG_CELL and
 // NODE_FLAG_ROOT bits set.
 //
@@ -99,12 +124,12 @@ inline static void Free_Value(REBVAL *v)
 inline static REBARR *Alloc_Instruction(void) {
     REBSER *s = Alloc_Series_Node(
         SERIES_FLAG_FIXED_SIZE // not tracked as stray manual, but unmanaged
+        | SINGULAR_FLAG_API_INSTRUCTION
+        | SINGULAR_FLAG_API_RELEASE
     );
     s->info = Endlike_Header(
         FLAG_WIDE_BYTE_OR_0(0) // signals array, also implicit terminator
             | FLAG_LEN_BYTE_OR_255(1) // signals singular
-            | SERIES_INFO_API_INSTRUCTION
-            | SERIES_INFO_API_RELEASE
     );
     SER_CELL(s)->header.bits =
         CELL_MASK_NON_STACK_END | NODE_FLAG_ROOT;

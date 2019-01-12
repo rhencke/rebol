@@ -30,17 +30,36 @@
 
 #include "sys-core.h"
 
-// Project parameter class back into a full value, e.g. PARAM_CLASS_REFINEMENT
+
+struct Params_Of_State {
+    REBARR *arr;
+    REBCNT num_visible;
+    RELVAL *dest;
+};
+
+// Reconstitute parameter back into a full value, e.g. PARAM_CLASS_REFINEMENT
 // becomes `/spelling`.
 //
 // !!! See notes on Is_Param_Hidden() for why caller isn't filtering locals.
-// For now, this will return `false` on locals and RETURN: to not show them.
 //
-inline static bool Reconstitute_Spec_Param(
-    RELVAL *out,
-    enum Reb_Param_Class pclass,
-    REBSTR *spelling
+static bool Params_Of_Hook(
+    REBVAL *param,
+    bool sorted_pass,
+    void *opaque
 ){
+    struct Params_Of_State *s = cast(struct Params_Of_State*, opaque);
+    enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+
+    if (not sorted_pass) { // first pass we just count unspecialized params
+        ++s->num_visible;
+        return true;
+    }
+
+    if (not s->arr) { // if first step on second pass, make the array
+        s->arr = Make_Arr(s->num_visible);
+        s->dest = ARR_HEAD(s->arr);
+    }
+
     enum Reb_Kind kind;
     bool quoted = false;
 
@@ -66,171 +85,91 @@ inline static bool Reconstitute_Spec_Param(
         quoted = true;
         break;
 
-      case PARAM_CLASS_LOCAL:
-      case PARAM_CLASS_RETURN: // "magic" local - prefilled invisibly
-        return false; // see note on return convention
-
       default:
         assert(false);
         DEAD_END;
     }
 
-    Init_Any_Word(out, kind, spelling);
+    Init_Any_Word(s->dest, kind, VAL_PARAM_SPELLING(param));
     if (quoted)
-        Quotify(out, 1);
+        Quotify(s->dest, 1);
+    ++s->dest;
 
     return true;
 }
-
 
 //
 //  Make_Action_Parameters_Arr: C
 //
 // Returns array of function words, unbound.
 //
-// We have to take into account specialization of refinements in order to give
-// the words in the correct order.  If someone has:
-//
-//     [aa /b bb /c cc]
-//
-// They can specialize with c as enabled.  This means that to the caller,
-// the function now seems like one originally written with spec `aa cc /b bb`.
-// But the frame order doesn't change, so a naive traversal would make it
-// seem cc was an arg to /b:
-//
-//     [aa /b bb cc]
-//
-// Understanding the full story of how refinement order is efficiently
-// preserved requires reading the comments in %c-special.c.
-//
 REBARR *Make_Action_Parameters_Arr(REBACT *act)
 {
-    REBDSP dsp_orig = DSP;
+    struct Params_Of_State s;
+    s.arr = nullptr;
+    s.num_visible = 0;
 
-    // Pre-scan to find out array size needed after removing hidden params,
-    // and get the actual order that refinements are used in.
+    For_Each_Unspecialized_Param(act, &Params_Of_Hook, &s);
 
-    REBCNT num_visible = 0;
+    if (not s.arr)
+        return Make_Arr(1); // no unspecialized parameters, empty array
 
-    REBVAL *param = ACT_PARAMS_HEAD(act);
-    REBVAL *special = ACT_SPECIALTY_HEAD(act);
-
-    REBCNT index = 1;
-    for (; NOT_END(param); ++param, ++special, ++index) {
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-        if (
-            not Is_Param_Hidden(param) // specialization hides parameters
-            and pclass != PARAM_CLASS_LOCAL
-            and pclass != PARAM_CLASS_RETURN
-        ){
-            ++num_visible;
-        }
-        else if (pclass == PARAM_CLASS_REFINEMENT) {
-            //
-            // In the exemplar frame for specialization, refinements are
-            // either VOID! if unspecialized, BLANK! if not in use, or
-            // an ISSUE! of what refinement should be pushed at that position.
-            //
-            if (IS_ISSUE(special))
-                Move_Value(DS_PUSH(), special);
-        }
-    }
-
-    // Refinements are now on stack such that topmost is first in-use
-    // specialized refinement.
-
-    REBARR *arr = Make_Arr(num_visible);
-    RELVAL *dest = ARR_HEAD(arr);
-
-    // Now second loop, where we print out just the normal args...stop at
-    // the first refinement.
-    //
-    param = ACT_PARAMS_HEAD(act);
-    for (; NOT_END(param); ++param) {
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-        if (pclass == PARAM_CLASS_REFINEMENT)
-            break;
-        if (Is_Param_Hidden(param))
-            continue;
-
-        if (Reconstitute_Spec_Param(dest, pclass, VAL_PARAM_SPELLING(param)))
-            ++dest;
-    }
-
-    REBVAL *first_refine = param; // remember where we were
-
-    // Now jump around and take care of the args to specialized refinements.
-    // We don't print out the refinement itslf
-
-    while (DSP != dsp_orig) {
-        param = ACT_PARAMS_HEAD(act) + VAL_WORD_INDEX(DS_TOP); // skips refine
-        DS_DROP(); // we know it's used...position was all we needed
-        for (; NOT_END(param); ++param) {
-            enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-            if (pclass == PARAM_CLASS_REFINEMENT)
-                break;
-            if (Is_Param_Hidden(param))
-                continue;
-
-            REBSTR *spelling = VAL_PARAM_SPELLING(param);
-            if (Reconstitute_Spec_Param(dest, pclass, spelling))
-                ++dest;
-        }
-    }
-
-    // Finally, output any unspecialized refinements and their args, which
-    // we want to come after any args to specialized-used refinements.
-
-    param = first_refine;
-
-    bool skipping = false;
-    for (; NOT_END(param); ++param) {
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-        if (pclass == PARAM_CLASS_REFINEMENT) {
-            if (Is_Param_Hidden(param)) {
-                skipping = true;
-                continue;
-            }
-            else
-                skipping = false; // we want to output
-        }
-        else if (skipping or Is_Param_Hidden(param))
-            continue;
-
-        if (Reconstitute_Spec_Param(dest, pclass, VAL_PARAM_SPELLING(param)))
-            ++dest;
-    }
-
-    TERM_ARRAY_LEN(arr, num_visible);
-    ASSERT_ARRAY(arr);
-    return arr;
+    TERM_ARRAY_LEN(s.arr, s.num_visible);
+    ASSERT_ARRAY(s.arr);
+    return s.arr;
 }
 
 
+static bool Typesets_Of_Hook(
+    REBVAL *param,
+    bool sorted_pass,
+    void *opaque
+){
+    struct Params_Of_State *s = cast(struct Params_Of_State*, opaque);
+
+    if (not sorted_pass) { // first pass we just count unspecialized params
+        ++s->num_visible;
+        return true;
+    }
+
+    if (not s->arr) { // if first step on second pass, make the array
+        s->arr = Make_Arr(s->num_visible);
+        s->dest = ARR_HEAD(s->arr);
+    }
+
+    // It's already a typeset, but remove the parameter spelling.
+    //
+    // !!! Typesets must be revisited in a world with user-defined types, as
+    // well as to accomodate multiple quoting levels.
+    //
+    Move_Value(s->dest, param);
+    assert(IS_TYPESET(s->dest));
+    s->dest->extra.key_spelling = nullptr;
+    ++s->dest;
+
+    return true;
+}
+
 //
-//  List_Func_Typesets: C
+//  Make_Action_Typesets_Arr: C
 //
 // Return a block of function arg typesets.
 // Note: skips 0th entry.
 //
-REBARR *List_Func_Typesets(REBVAL *func)
+REBARR *Make_Action_Typesets_Arr(REBACT *act)
 {
-    REBARR *array = Make_Arr(VAL_ACT_NUM_PARAMS(func));
-    REBVAL *typeset = VAL_ACT_PARAMS_HEAD(func);
+    struct Params_Of_State s;
+    s.arr = nullptr;
+    s.num_visible = 0;
 
-    for (; NOT_END(typeset); typeset++) {
-        assert(IS_TYPESET(typeset));
+    For_Each_Unspecialized_Param(act, &Typesets_Of_Hook, &s);
 
-        REBVAL *value = Move_Value(Alloc_Tail_Array(array), typeset);
+    if (not s.arr)
+        return Make_Arr(1); // no unspecialized parameters, empty array
 
-        // !!! It's already a typeset, but this will clear out the header
-        // bits.  This may not be desirable over the long run (what if
-        // a typeset wishes to encode hiddenness, protectedness, etc?)
-        //
-        RESET_VAL_HEADER(value, REB_TYPESET);
-    }
-
-    return array;
+    TERM_ARRAY_LEN(s.arr, s.num_visible);
+    ASSERT_ARRAY(s.arr);
+    return s.arr;
 }
 
 
@@ -993,72 +932,6 @@ REBACT *Make_Action(
     assert(rootparam->payload.action.paramlist == paramlist);
     assert(rootparam->extra.binding == UNBOUND); // archetype
 
-    // Precalculate cached function flags.
-    //
-    // PARAMLIST_FLAG_DEFERS_LOOKBACK is only relevant for un-refined-calls.
-    // No lookback function calls trigger from PATH!.  HOWEVER: specialization
-    // does come into play because it may change what the first "real"
-    // argument is.  But again, we're only interested in specialization's
-    // removal of *non-refinement* arguments.
-
-    bool first_arg = true;
-
-    REBVAL *param = KNOWN(rootparam) + 1;
-    for (; NOT_END(param); ++param) {
-        switch (VAL_PARAM_CLASS(param)) {
-          case PARAM_CLASS_LOCAL:
-            break; // skip
-
-          case PARAM_CLASS_RETURN:
-            assert(VAL_PARAM_SYM(param) == SYM_RETURN);
-            if (VAL_TYPESET_BITS(param) == 0) // e.g. `return []`, invisible
-                SET_SER_FLAG(paramlist, PARAMLIST_FLAG_INVISIBLE);
-            break;
-
-          case PARAM_CLASS_REFINEMENT:
-            first_arg = false; // not a candidate for deferring lookback args
-            break;
-
-          case PARAM_CLASS_NORMAL:
-            //
-            // First argument is not tight, and not specialized, so cache flag
-            // to report that fact.
-            //
-            if (first_arg and not Is_Param_Hidden(param)) {
-                SET_SER_FLAG(paramlist, PARAMLIST_FLAG_DEFERS_LOOKBACK);
-                first_arg = false;
-            }
-            break;
-
-        // Otherwise, at least one argument but not one that requires the
-        // deferring of lookback.
-
-          case PARAM_CLASS_TIGHT:
-            //
-            // If first argument is tight, and not specialized, no flag needed
-            //
-            if (first_arg and not Is_Param_Hidden(param))
-                first_arg = false;
-            break;
-
-          case PARAM_CLASS_HARD_QUOTE:
-            if (TYPE_CHECK(param, REB_MAX_NULLED))
-                fail ("Hard quoted function parameters cannot receive nulls");
-            goto quote_check;
-
-          case PARAM_CLASS_SOFT_QUOTE:
-          quote_check:;
-            if (first_arg and not Is_Param_Hidden(param)) {
-                SET_SER_FLAG(paramlist, PARAMLIST_FLAG_QUOTES_FIRST_ARG);
-                first_arg = false;
-            }
-            break;
-
-          default:
-            assert(false);
-        }
-    }
-
     // "details" for an action is an array of cells which can be anything
     // the dispatcher understands it to be, by contract.  Terminate it
     // at the given length implicitly.
@@ -1072,8 +945,12 @@ REBACT *Make_Action(
 
     assert(IS_POINTER_TRASH_DEBUG(LINK(paramlist).trash));
 
-    if (opt_underlying)
+    if (opt_underlying) {
         LINK(paramlist).underlying = opt_underlying;
+
+        if (GET_SER_FLAG(opt_underlying, PARAMLIST_FLAG_RETURN))
+            SET_SER_FLAG(paramlist, PARAMLIST_FLAG_RETURN);
+    }
     else {
         // To avoid NULL checking when a function is called and looking for
         // underlying, just use the action's own paramlist if needed.
@@ -1112,7 +989,45 @@ REBACT *Make_Action(
     assert(NOT_SER_FLAG(paramlist, ARRAY_FLAG_FILE_LINE));
     assert(NOT_SER_FLAG(details, ARRAY_FLAG_FILE_LINE));
 
-    return ACT(paramlist);
+    REBACT *act = ACT(paramlist); // now it's a legitimate REBACT
+
+    // Precalculate cached function flags.  This involves finding the first
+    // unspecialized argument which would be taken at a callsite, which can
+    // be tricky to figure out with partial refinement specialization.  So
+    // the work of doing that is factored into a routine (`PARAMETERS OF`
+    // uses it as well).
+
+    if (GET_SER_FLAG(act, PARAMLIST_FLAG_RETURN)) {
+        REBVAL *typeset = ACT_PARAM(act, ACT_NUM_PARAMS(act));
+        assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
+        if (VAL_TYPESET_BITS(typeset) == 0) // e.g. `return []`, invisible
+            SET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE);
+    }
+
+    REBVAL *first_unspecialized = First_Unspecialized_Param(act);
+    if (first_unspecialized) {
+        switch (VAL_PARAM_CLASS(first_unspecialized)) {
+          case PARAM_CLASS_NORMAL:
+            SET_SER_FLAG(act, PARAMLIST_FLAG_DEFERS_LOOKBACK); // see notes
+            break;
+
+          case PARAM_CLASS_TIGHT:
+            break;
+
+          case PARAM_CLASS_HARD_QUOTE:
+          case PARAM_CLASS_SOFT_QUOTE:
+            SET_SER_FLAG(act, PARAMLIST_FLAG_QUOTES_FIRST);
+            break;
+
+          default:
+            assert(false);
+        }
+
+        if (TYPE_CHECK(first_unspecialized, REB_TS_SKIPPABLE))
+            SET_SER_FLAG(act, PARAMLIST_FLAG_SKIPPABLE_FIRST);
+    }
+
+    return act;
 }
 
 

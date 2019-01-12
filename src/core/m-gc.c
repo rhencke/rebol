@@ -970,8 +970,10 @@ static void Mark_Root_Series(void)
                 else if (
                     SER(LINK(s).owner)->info.bits & SERIES_INFO_INACCESSIBLE
                 ){
-                    if (NOT_SER_INFO(LINK(s).owner, FRAME_INFO_FAILED)) {
-                        //
+                    if (NOT_SER_FLAG(
+                        LINK(s).owner,
+                        VARLIST_FLAG_FRAME_FAILED
+                    )){
                         // Long term, it is likely that implicit managed-ness
                         // will allow users to leak API handles.  It will
                         // always be more efficient to not do that, so having

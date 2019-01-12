@@ -308,7 +308,7 @@ inline static void Set_Frame_Detected_Fetch(
 
     REBARR *a; // ^--goto
     a = Singular_From_Cell(f->value);
-    if (NOT_SER_INFO(a, SERIES_INFO_API_RELEASE)) {
+    if (NOT_SER_FLAG(a, SINGULAR_FLAG_API_RELEASE)) {
         if (opt_lookback)
             *opt_lookback = f->value; // keep-alive API value or instruction
         goto detect;
@@ -336,7 +336,7 @@ inline static void Set_Frame_Detected_Fetch(
         *opt_lookback = FRM_CELL(f);
     }
 
-    if (GET_SER_INFO(a, SERIES_INFO_API_INSTRUCTION))
+    if (GET_SER_FLAG(a, SINGULAR_FLAG_API_INSTRUCTION))
         Free_Instruction(Singular_From_Cell(f->value));
     else
         rebRelease(cast(const REBVAL*, f->value));
@@ -449,7 +449,7 @@ inline static void Set_Frame_Detected_Fetch(
         // entry to this routine (optionally copying out its contents into
         // the frame's cell for stable lookback--if necessary).
         //
-        assert(GET_SER_INFO(instruction, SERIES_INFO_API_INSTRUCTION));
+        assert(GET_SER_FLAG(instruction, SINGULAR_FLAG_API_INSTRUCTION));
         assert(NOT_SER_FLAG(instruction, NODE_FLAG_MANAGED));
         f->value = ARR_SINGLE(instruction);
         break; }
@@ -462,7 +462,7 @@ inline static void Set_Frame_Detected_Fetch(
         if (IS_NULLED(cell))
             fail ("NULLED cell API leak, see NULLIFY_NULLED() in C sources");
 
-        // If the cell is in an API holder with SERIES_INFO_API_RELEASE then
+        // If the cell is in an API holder with SINGULAR_FLAG_API_RELEASE then
         // it will be released on the *next* call (see top of function)
 
         f->source->array = nullptr;
@@ -637,7 +637,7 @@ inline static void Abort_Frame(REBFRM *f) {
 
         // Aborting valist frames is done by just feeding all the values
         // through until the end.  This is assumed to do any work, such
-        // as SERIES_INFO_API_RELEASE, which might be needed on an item.  It
+        // as SINGULAR_FLAG_API_RELEASE, which might be needed on an item.  It
         // also ensures that va_end() is called, which happens when the frame
         // manages to feed to the end.
         //

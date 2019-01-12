@@ -613,7 +613,7 @@ REBNATIVE(match2)
             | DO_FLAG_FULLY_SPECIALIZED
             | DO_FLAG_PROCESS_ACTION;
 
-        Begin_Action(f, opt_label, ORDINARY_ARG);
+        Begin_Action(f, opt_label);
 
         bool threw = (*PG_Eval_Throws)(f);
 

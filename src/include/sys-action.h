@@ -35,6 +35,104 @@
 //
 
 
+//=//// PARAMLIST_FLAG_RETURN /////////////////////////////////////////////=//
+//
+// Has a definitional RETURN in the last paramlist slot.
+//
+#define PARAMLIST_FLAG_RETURN \
+    ARRAY_FLAG_23
+
+
+//=//// PARAMLIST_FLAG_VOIDER /////////////////////////////////////////////=//
+//
+// Uses Voider_Dispatcher().  Right now there's not a good way to communicate
+// the findings of Make_Paramlist() back to the caller, so this flag is used.
+//
+#define PARAMLIST_FLAG_VOIDER \
+    ARRAY_FLAG_24
+
+
+//=//// PARAMLIST_FLAG_INVISIBLE //////////////////////////////////////////=//
+//
+// This is a calculated property, which is cached by Make_Action().
+//
+// An "invisible" function is one that does not touch its frame output cell,
+// leaving it completely alone.  This is how `10 comment ["hi"] + 20` can
+// work...if COMMENT destroyed the 10 in the output cell it would be lost and
+// the addition could no longer work.
+//
+#define PARAMLIST_FLAG_INVISIBLE \
+    ARRAY_FLAG_25
+
+
+//=//// PARAMLIST_FLAG_DEFERS_LOOKBACK ////////////////////////////////////=//
+//
+// This is a calculated property, which is cached by Make_Action().
+//
+// Tells you whether a function defers its first real argument when used as a
+// lookback.  Because lookback dispatches cannot use refinements, the answer
+// is always the same for invocation via a plain word.
+//
+#define PARAMLIST_FLAG_DEFERS_LOOKBACK \
+    ARRAY_FLAG_26
+
+
+//=//// PARAMLIST_FLAG_QUOTES_FIRST ///////////////////////////////////////=//
+//
+// This is a calculated property, which is cached by Make_Action().
+//
+// This is another cached property, needed because lookahead/lookback is done
+// so frequently, and it's quicker to check a bit on the function than to
+// walk the parameter list every time that function is called.
+//
+#define PARAMLIST_FLAG_QUOTES_FIRST \
+    ARRAY_FLAG_27
+
+
+//=//// PARAMLIST_FLAG_SKIPPABLE_FIRST ////////////////////////////////////=//
+//
+// This is a calculated property, which is cached by Make_Action().
+//
+// It is good for the evaluator to have a fast test for knowing if the first
+// argument to a function is willing to be skipped, as this comes into play
+// in quote resolution.  (It's why `x: default [10]` can have default looking
+// for SET-WORD! and SET-PATH! to its left, but `case [... default [x]]` can
+// work too when it doesn't see a SET-WORD! or SET-PATH! to the left.)
+//
+#define PARAMLIST_FLAG_SKIPPABLE_FIRST \
+    ARRAY_FLAG_28
+
+
+//=//// PARAMLIST_FLAG_NATIVE /////////////////////////////////////////////=//
+//
+// Native functions are flagged that their dispatcher represents a native in
+// order to say that their ACT_DETAILS() follow the protocol that the [0]
+// slot is "equivalent source" (may be a TEXT!, as in user natives, or a
+// BLOCK!).  The [1] slot is a module or other context into which APIs like
+// rebRun() etc. should consider for binding, in addition to lib.  A BLANK!
+// in the 1 slot means no additional consideration...bind to lib only.
+//
+#define PARAMLIST_FLAG_NATIVE \
+    ARRAY_FLAG_29
+
+
+//=//// PARAMLIST_FLAG_UNLOADABLE_NATIVE //////////////////////////////////=//
+//
+// !!! Currently there isn't support for unloading extensions once they have
+// been loaded.  Previously, this flag was necessary to indicate a native was
+// in a DLL, and something like it may become necessary again.
+//
+#define PARAMLIST_FLAG_UNLOADABLE_NATIVE \
+    ARRAY_FLAG_30
+
+
+// These are the flags which are scanned for and set during Make_Action
+//
+#define PARAMLIST_MASK_CACHED \
+    (PARAMLIST_FLAG_DEFERS_LOOKBACK | PARAMLIST_FLAG_INVISIBLE \
+        | PARAMLIST_FLAG_QUOTES_FIRST | PARAMLIST_FLAG_SKIPPABLE_FIRST)
+
+
 //=//// PSEUDOTYPES FOR RETURN VALUES /////////////////////////////////////=//
 //
 // An arbitrary cell pointer may be returned from a native--in which case it

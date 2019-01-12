@@ -241,6 +241,12 @@ REBTYPE(Action)
                 Make_Action_Parameters_Arr(VAL_ACTION(value))
             );
 
+          case SYM_TYPESETS:
+            return Init_Block(
+                D_OUT,
+                Make_Action_Typesets_Arr(VAL_ACTION(value))
+            );
+
           case SYM_BODY:
             Get_Maybe_Fake_Action_Body(D_OUT, value);
             return D_OUT;

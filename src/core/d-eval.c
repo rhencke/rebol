@@ -263,12 +263,11 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
         );
     }
 
-    if (f->refine == ORDINARY_ARG) {
+    assert(f->refine == ORDINARY_ARG);
+    if (not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX)) {
         if (not (f->out->header.bits & OUT_MARKED_STALE))
             assert(GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE));
     }
-    else
-        assert(f->refine == LOOKBACK_ARG);
 }
 
 
