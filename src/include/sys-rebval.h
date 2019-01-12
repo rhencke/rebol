@@ -158,7 +158,7 @@
 // to tag a function value cell in a context as being "enfixed", hence it
 // will acquire its first argument from the left.  See SET/ENFIX and ENFIX.
 //
-// The reasion it is a generic VALUE_FLAG_XXX and not an ACTION_FLAG_XXX is
+// The reasion it is a generic VALUE_FLAG_XXX and not an PARAMLIST_FLAG_XXX is
 // so that it can be dealt with without specifically knowing that the cell
 // involved is an action.  One benefit is that testing for an enfix action
 // can be done just by looking at this bit--since only actions have it set.
@@ -166,7 +166,7 @@
 // But also, this bit is not copied by Move_Value.  As a result, if you say
 // something like `foo: :+`, foo will contain the non-enfixed form of the
 // function.  To do that would require more nuance in Move_Value if it were
-// an ACTION_FLAG_XXX, testing for action-ness vs. just masking it out.
+// an PARAMLIST_FLAG_XXX, testing for action-ness vs. just masking it out.
 //
 #define VALUE_FLAG_ENFIXED \
     FLAG_LEFT_BIT(20)

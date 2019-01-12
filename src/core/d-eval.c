@@ -265,7 +265,7 @@ void Do_Process_Action_Checks_Debug(REBFRM *f) {
 
     if (f->refine == ORDINARY_ARG) {
         if (not (f->out->header.bits & OUT_MARKED_STALE))
-            assert(GET_ACT_FLAG(phase, ACTION_FLAG_INVISIBLE));
+            assert(GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE));
     }
     else
         assert(f->refine == LOOKBACK_ARG);
@@ -295,13 +295,13 @@ void Do_After_Action_Checks_Debug(REBFRM *f) {
     // double checks any function marked with RETURN in the debug build,
     // so native return types are checked instead of just trusting the C.
     //
-    if (GET_ACT_FLAG(phase, ACTION_FLAG_RETURN)) {
+    if (GET_SER_FLAG(phase, PARAMLIST_FLAG_RETURN)) {
         REBVAL *typeset = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
         assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
         if (
             not Typecheck_Including_Quoteds(typeset, f->out)
             and not (
-                GET_ACT_FLAG(phase, ACTION_FLAG_INVISIBLE)
+                GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE)
                 and IS_NULLED(f->out) // this happens with `do [return]`
             )
         ){

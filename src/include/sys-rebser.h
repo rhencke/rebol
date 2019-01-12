@@ -301,6 +301,83 @@
 STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == VALUE_FLAG_CONST);
 
 
+//=//// PARAMLIST_FLAG_RETURN /////////////////////////////////////////////=//
+//
+// Has a definitional RETURN in the last paramlist slot.
+//
+#define PARAMLIST_FLAG_RETURN \
+    FLAG_LEFT_BIT(23)
+
+
+//=//// PARAMLIST_FLAG_VOIDER /////////////////////////////////////////////=//
+//
+// Uses Voider_Dispatcher().  Right now there's not a good way to communicate
+// the findings of Make_Paramlist() back to the caller, so this flag is used.
+//
+#define PARAMLIST_FLAG_VOIDER \
+    FLAG_LEFT_BIT(24)
+
+
+//=//// PARAMLIST_FLAG_DEFERS_LOOKBACK ////////////////////////////////////=//
+//
+// This is a calculated property, which is cached by Make_Action().
+//
+// Tells you whether a function defers its first real argument when used as a
+// lookback.  Because lookback dispatches cannot use refinements, the answer
+// is always the same for invocation via a plain word.
+//
+#define PARAMLIST_FLAG_DEFERS_LOOKBACK \
+    FLAG_LEFT_BIT(25)
+
+
+//=//// PARAMLIST_FLAG_QUOTES_FIRST_ARG ///////////////////////////////////=//
+//
+// This is a calculated property, which is cached by Make_Action().
+//
+// This is another cached property, needed because lookahead/lookback is done
+// so frequently, and it's quicker to check a bit on the function than to
+// walk the parameter list every time that function is called.
+//
+#define PARAMLIST_FLAG_QUOTES_FIRST_ARG \
+    FLAG_LEFT_BIT(26)
+
+
+//=//// PARAMLIST_FLAG_INVISIBLE //////////////////////////////////////////=//
+//
+// This is a calculated property, which is cached by Make_Action().
+//
+// An "invisible" function is one that does not touch its frame output cell,
+// leaving it completely alone.  This is how `10 comment ["hi"] + 20` can
+// work...if COMMENT destroyed the 10 in the output cell it would be lost and
+// the addition could no longer work.
+//
+#define PARAMLIST_FLAG_INVISIBLE \
+    FLAG_LEFT_BIT(27)
+
+
+//=//// PARAMLIST_FLAG_NATIVE /////////////////////////////////////////////=//
+//
+// Native functions are flagged that their dispatcher represents a native in
+// order to say that their ACT_DETAILS() follow the protocol that the [0]
+// slot is "equivalent source" (may be a TEXT!, as in user natives, or a
+// BLOCK!).  The [1] slot is a module or other context into which APIs like
+// rebRun() etc. should consider for binding, in addition to lib.  A BLANK!
+// in the 1 slot means no additional consideration...bind to lib only.
+//
+#define PARAMLIST_FLAG_NATIVE \
+    FLAG_LEFT_BIT(28)
+
+
+//=//// PARAMLIST_FLAG_UNLOADABLE_NATIVE //////////////////////////////////=//
+//
+// !!! Currently there isn't support for unloading extensions once they have
+// been loaded.  Previously, this flag was necessary to indicate a native was
+// in a DLL, and something like it may become necessary again.
+//
+#define PARAMLIST_FLAG_UNLOADABLE_NATIVE \
+    FLAG_LEFT_BIT(29)
+
+
 // ^-- STOP ARRAY FLAGS AT FLAG_LEFT_BIT(31) --^
 //
 // Arrays can use all the way up to the 32-bit limit on the flags (since
@@ -309,8 +386,15 @@ STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == VALUE_FLAG_CONST);
 // be used for anything but optimizations.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(22 < 32, "ARRAY_FLAG_XXX too high");
+    static_assert(29 < 32, "ARRAY_FLAG_XXX too high");
 #endif
+
+
+// These are the flags which are scanned for and set during Make_Action
+//
+#define PARAMLIST_MASK_CACHED \
+    (PARAMLIST_FLAG_DEFERS_LOOKBACK | PARAMLIST_FLAG_QUOTES_FIRST_ARG \
+        | PARAMLIST_FLAG_INVISIBLE)
 
 
 //=////////////////////////////////////////////////////////////////////////=//

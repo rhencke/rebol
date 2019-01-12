@@ -106,7 +106,10 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
             if (GET_VAL_FLAG(child_gotten, VALUE_FLAG_ENFIXED)) {
                 if (
                     pclass == PARAM_CLASS_TIGHT
-                    or GET_VAL_FLAG(child_gotten, ACTION_FLAG_DEFERS_LOOKBACK)
+                    or GET_SER_FLAG(
+                        VAL_ACTION(child_gotten),
+                        PARAMLIST_FLAG_DEFERS_LOOKBACK
+                    )
                 ){
                     Init_For_Vararg_End(out, op);
                     return true;

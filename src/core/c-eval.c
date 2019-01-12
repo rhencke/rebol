@@ -378,13 +378,13 @@ inline static void Seek_First_Param(REBFRM *f, REBACT *action) {
 inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
     REBACT *phase = FRM_PHASE_OR_DUMMY(f);
     if (phase != PG_Dummy_Action)
-        if (GET_ACT_FLAG(phase, ACTION_FLAG_INVISIBLE)) {
-            if (not GET_ACT_FLAG(f->original, ACTION_FLAG_INVISIBLE))
+        if (GET_SER_FLAG(phase, PARAMLIST_FLAG_INVISIBLE)) {
+            if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE))
                 fail ("All invisible action phases must be invisible");
             return;
         }
 
-    if (GET_ACT_FLAG(f->original, ACTION_FLAG_INVISIBLE))
+    if (GET_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE))
         return;
 
   #ifdef DEBUG_UNREADABLE_BLANKS
@@ -401,7 +401,7 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
     // !!! Should natives be able to count on f->out being END?  This was
     // at one time the case, but this code was in one instance.
     //
-    if (not GET_ACT_FLAG(FRM_PHASE_OR_DUMMY(f), ACTION_FLAG_INVISIBLE)) {
+    if (NOT_SER_FLAG(FRM_PHASE_OR_DUMMY(f), PARAMLIST_FLAG_INVISIBLE)) {
         if (SPORADICALLY(2))
             Init_Unreadable_Blank(f->out);
         else
@@ -655,7 +655,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     // It's known to be an ACTION! since only actions can be enfix...
     //
-    if (NOT_VAL_FLAG(f->gotten, ACTION_FLAG_QUOTES_FIRST_ARG))
+    if (NOT_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_QUOTES_FIRST_ARG))
         goto give_up_backward_quote_priority;
 
     // It's a backward quoter!  But...before allowing it to try, first give an
@@ -685,7 +685,10 @@ bool Eval_Core_Throws(REBFRM * const f)
             current_gotten
             and IS_ACTION(current_gotten)
             and NOT_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED)
-            and GET_VAL_FLAG(current_gotten, ACTION_FLAG_QUOTES_FIRST_ARG)
+            and GET_SER_FLAG(
+                VAL_ACTION(current_gotten),
+                PARAMLIST_FLAG_QUOTES_FIRST_ARG
+            )
         ){
             Seek_First_Param(f, VAL_ACTION(current_gotten));
             if (Is_Param_Skippable(f->param))
@@ -730,7 +733,10 @@ bool Eval_Core_Throws(REBFRM * const f)
                 var_at
                 and IS_ACTION(var_at)
                 and NOT_VAL_FLAG(var_at, VALUE_FLAG_ENFIXED)
-                and GET_VAL_FLAG(var_at, ACTION_FLAG_QUOTES_FIRST_ARG)
+                and GET_SER_FLAG(
+                    VAL_ACTION(var_at),
+                    PARAMLIST_FLAG_QUOTES_FIRST_ARG
+                )
             ){
                 goto give_up_backward_quote_priority;
             }
@@ -743,7 +749,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         // A literal ACTION! in a BLOCK! may also forward quote
         //
         assert(NOT_VAL_FLAG(current, VALUE_FLAG_ENFIXED)); // not WORD!/PATH!
-        if (GET_VAL_FLAG(current, ACTION_FLAG_QUOTES_FIRST_ARG))
+        if (GET_SER_FLAG(VAL_ACTION(current), PARAMLIST_FLAG_QUOTES_FIRST_ARG))
             goto give_up_backward_quote_priority;
     }
 
@@ -1742,7 +1748,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             goto process_action;
 
           case REB_R_INVISIBLE: {
-            assert(GET_ACT_FLAG(FRM_PHASE(f), ACTION_FLAG_INVISIBLE));
+            assert(GET_SER_FLAG(FRM_PHASE(f), PARAMLIST_FLAG_INVISIBLE));
 
             // !!! Ideally we would check that f->out hadn't changed, but
             // that would require saving the old value somewhere...
@@ -1864,7 +1870,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // Note: The usual dispatch of enfix functions is not via a
             // REB_WORD in this switch, it's by some code at the end of
             // the switch.  So you only see enfix in cases like `(+ 1 2)`,
-            // or after ACTION_FLAG_INVISIBLE e.g. `10 comment "hi" + 20`.
+            // or after PARAMLIST_FLAG_INVISIBLE e.g. `10 comment "hi" + 20`.
             //
             Begin_Action(
                 f,
@@ -2098,19 +2104,17 @@ bool Eval_Core_Throws(REBFRM * const f)
         }
 
         if (IS_ACTION(f->out)) {
-            //
+            if (GET_VAL_FLAG(f->out, VALUE_FLAG_ENFIXED))
+                fail ("Use `->` to shove left enfix operands into PATH!s");
+
             // !!! While it is (or would be) possible to fetch an enfix or
             // invisible function from a PATH!, at this point it would be too
             // late in the current scheme...since the lookahead step only
             // honors WORD!.  PATH! support is expected for the future, but
             // requires overhaul of the R3-Alpha path implementation.
             //
-            if (ANY_VAL_FLAGS(
-                f->out,
-                ACTION_FLAG_INVISIBLE | VALUE_FLAG_ENFIXED
-            )){
-                fail ("Use `->` to shove left enfix operands into PATH!s");
-            }
+            if (GET_SER_FLAG(VAL_ACTION(f->out), PARAMLIST_FLAG_INVISIBLE))
+                fail ("Use `->` with invisibles fetched from PATH!");
 
             Push_Action(f, VAL_ACTION(f->out), VAL_BINDING(f->out));
 
@@ -2403,8 +2407,8 @@ bool Eval_Core_Throws(REBFRM * const f)
     // waits for `1 + 2` to finish.  This is because the right hand argument
     // of math operations tend to be declared #tight.
     //
-    // Slightly more nuanced is why ACTION_FLAG_INVISIBLE functions have to be
-    // considered in the lookahead also.  Consider this case:
+    // Slightly more nuanced is why PARAMLIST_FLAG_INVISIBLE functions have to
+    // be considered in the lookahead also.  Consider this case:
     //
     //    evaluate/set [1 + 2 * comment ["hi"] 3 4 / 5] 'val
     //
@@ -2437,7 +2441,10 @@ bool Eval_Core_Throws(REBFRM * const f)
         // Tried to SHOVE, and didn't hit a situation like `add -> + 1`.  So
         // now the shoving process falls through, as in `10 -> + 1`.
         //
-        assert(NOT_VAL_FLAG(f->gotten, ACTION_FLAG_QUOTES_FIRST_ARG));
+        assert(NOT_SER_FLAG(
+            VAL_ACTION(f->gotten),
+            PARAMLIST_FLAG_QUOTES_FIRST_ARG
+        ));
         goto post_switch_shove_gotten;
     }
 
@@ -2527,7 +2534,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         if (
             f->gotten
             and IS_ACTION(VAL(f->gotten))
-            and GET_VAL_FLAG(VAL(f->gotten), ACTION_FLAG_INVISIBLE)
+            and GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_INVISIBLE)
         ){
             // Even if not EVALUATE, we do not want START_NEW_EXPRESSION on
             // "invisible" functions.  e.g. `do [1 + 2 comment "hi"]` should
@@ -2562,7 +2569,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
 //=//// IT'S A WORD ENFIXEDLY TIED TO A FUNCTION (MAY BE "INVISIBLE") /////=//
 
-    if (GET_VAL_FLAG(f->gotten, ACTION_FLAG_QUOTES_FIRST_ARG)) {
+    if (GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_QUOTES_FIRST_ARG)) {
         //
         // Left-quoting by enfix needs to be done in the lookahead before an
         // evaluation, not this one that's after.  This happens in cases like:
@@ -2577,11 +2584,11 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto lookback_quote_too_late;
     }
 
-  post_switch_shove_gotten:; // assert(!ACTION_FLAG_QUOTES_FIRST_ARG) pre-goto
+  post_switch_shove_gotten:; // assert(!PARAMLIST_FLAG_QUOTES_FIRST_ARG) prior
 
     if (
         (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
-        and NOT_VAL_FLAG(f->gotten, ACTION_FLAG_INVISIBLE)
+        and NOT_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_INVISIBLE)
     ){
         // Don't do enfix lookahead if asked *not* to look.  See the
         // PARAM_CLASS_TIGHT parameter convention for the use of this, as
@@ -2612,7 +2619,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // unlikely such functions would want to run before deferred enfix.
     //
     if (
-        GET_VAL_FLAG(f->gotten, ACTION_FLAG_DEFERS_LOOKBACK)
+        GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK)
         and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
         and not f->prior->u.defer.arg
         and not Is_Param_Endable(f->prior->param)

@@ -64,17 +64,17 @@
 
 
 // COMPILE replaces &Pending_Native_Dispatcher that user natives start with,
-// so the dispatcher alone can't be usd to detect them.  ACTION_FLAG_XXX are
+// so the dispatcher alone can't be usd to detect them.  PARAMLIST_FLAG_X are
 // in too short of a supply to give them their own flag.  Other natives put
 // their source in ACT_DETAILS [0] and their context in ACT_DETAILS [1], so
 // for the moment just assume if the source is text it's a user native.
 //
 bool Is_User_Native(const RELVAL *action) {
-    if (NOT_VAL_FLAG(action, ACTION_FLAG_NATIVE))
+    if (NOT_SER_FLAG(VAL_ACTION(action), PARAMLIST_FLAG_NATIVE))
         return false;
 
     REBARR *details = ACT_DETAILS(VAL_ACTION(action));
-    assert(ARR_LEN(details) >= 2); // ACTION_FLAG_NATIVE needs source+context
+    assert(ARR_LEN(details) >= 2); // PARAMLIST_FLAG_NATIVE needs source+ctx
     return IS_TEXT(ARR_AT(details, IDX_NATIVE_BODY));
 }
 
@@ -340,7 +340,7 @@ REBNATIVE(make_native)
 
     Init_Blank(ARR_AT(details, IDX_TCC_NATIVE_STATE)); // no TCC_State, yet...
 
-    SET_VAL_FLAGS(ACT_ARCHETYPE(native), ACTION_FLAG_NATIVE);
+    SET_SER_FLAG(native, PARAMLIST_FLAG_NATIVE);
     return Init_Action_Unbound(D_OUT, native);
   #endif
 }

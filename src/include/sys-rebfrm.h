@@ -634,12 +634,8 @@ struct Reb_Frame {
     // `original`
     //
     // If a function call is currently in effect, FRM_PHASE() is how you get
-    // at the curren function being run.  Because functions are identified and
-    // passed by a platform pointer as their paramlist REBARR*, you must use
-    // `ACT_ARCHETYPE(FRM_PHASE(f))` to get a pointer to a canon REBVAL
-    // representing that function (to examine its value flags, for instance).
-    //
-    // !!! ACTION_FLAG_XXX should probably be used for frequently checks.
+    // at the current function being run.  This is the action that started
+    // the process.
     //
     // Compositions of functions (adaptations, specializations, hijacks, etc)
     // update the FRAME!'s payload in the f->varlist archetype to say what

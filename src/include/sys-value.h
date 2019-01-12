@@ -547,9 +547,7 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
     ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
 
     // The debug build puts some extra type information onto flags
-    // which needs to be cleared out.  (e.g. ACTION_FLAG_XXX has the bit
-    // pattern for REB_ACTION inside of it, to help make sure that flag
-    // doesn't get used with things that aren't actions.)
+    // which needs to be cleared out.
     //
     CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(extra);
 

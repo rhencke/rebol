@@ -272,9 +272,9 @@ REBNATIVE(load_extension)
         // if it's in a DLL...as a reminder to revisit the issue.
         //
         if (not IS_BLANK(lib))
-            SET_VAL_FLAG(
-                ACT_ARCHETYPE(VAL_ACTION(native)),
-                ACTION_FLAG_UNLOADABLE_NATIVE
+            SET_SER_FLAG(
+                VAL_ACTION(native),
+                PARAMLIST_FLAG_UNLOADABLE_NATIVE
             );
 
         // !!! The mechanics of exporting is something modules do and have to

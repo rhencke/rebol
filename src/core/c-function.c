@@ -314,6 +314,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     bool has_types = false;
     bool has_notes = false;
 
+    bool is_voider = false;
+    bool has_return = false;
+
     enum Reb_Spec_Mode mode = SPEC_MODE_NORMAL;
 
     bool refinement_seen = false;
@@ -366,7 +369,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 continue;
             }
             else if (0 == Compare_String_Vals(item, Root_Void_Tag, true)) {
-                header_bits |= ACTION_FLAG_VOIDER; // use Voider_Dispatcher()
+                is_voider = true; // use Voider_Dispatcher()
 
                 // Fake as if they said [void!] !!! make more efficient
                 //
@@ -663,7 +666,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // definitional_return handled specially when paramlist copied
             // off of the stack...
         }
-        header_bits |= ACTION_FLAG_RETURN;
+        has_return = true;
     }
 
     // Slots, which is length +1 (includes the rootvar or rootparam)
@@ -688,6 +691,10 @@ REBARR *Make_Paramlist_Managed_May_Fail(
     // Must make the function "paramlist" even if "empty", for identity.
     //
     REBARR *paramlist = Make_Arr_Core(num_slots, SERIES_MASK_ACTION);
+    if (is_voider)
+        SET_SER_FLAG(paramlist, PARAMLIST_FLAG_VOIDER);
+    if (has_return)
+        SET_SER_FLAG(paramlist, PARAMLIST_FLAG_RETURN);
 
     if (true) {
         REBVAL *canon = RESET_CELL_EXTRA(
@@ -988,7 +995,7 @@ REBACT *Make_Action(
 
     // Precalculate cached function flags.
     //
-    // Note: ACTION_FLAG_DEFERS_LOOKBACK is only relevant for un-refined-calls.
+    // PARAMLIST_FLAG_DEFERS_LOOKBACK is only relevant for un-refined-calls.
     // No lookback function calls trigger from PATH!.  HOWEVER: specialization
     // does come into play because it may change what the first "real"
     // argument is.  But again, we're only interested in specialization's
@@ -999,33 +1006,26 @@ REBACT *Make_Action(
     REBVAL *param = KNOWN(rootparam) + 1;
     for (; NOT_END(param); ++param) {
         switch (VAL_PARAM_CLASS(param)) {
-        case PARAM_CLASS_LOCAL:
+          case PARAM_CLASS_LOCAL:
             break; // skip
 
-        case PARAM_CLASS_RETURN: {
+          case PARAM_CLASS_RETURN:
             assert(VAL_PARAM_SYM(param) == SYM_RETURN);
-
-            // See notes on ACTION_FLAG_INVISIBLE.
-            //
-            if (VAL_TYPESET_BITS(param) == 0)
-                SET_VAL_FLAG(rootparam, ACTION_FLAG_INVISIBLE);
-            break; }
-
-        case PARAM_CLASS_REFINEMENT:
-            //
-            // hit before hitting any basic args, so not a brancher, and not
-            // a candidate for deferring lookback arguments.
-            //
-            first_arg = false;
+            if (VAL_TYPESET_BITS(param) == 0) // e.g. `return []`, invisible
+                SET_SER_FLAG(paramlist, PARAMLIST_FLAG_INVISIBLE);
             break;
 
-        case PARAM_CLASS_NORMAL:
+          case PARAM_CLASS_REFINEMENT:
+            first_arg = false; // not a candidate for deferring lookback args
+            break;
+
+          case PARAM_CLASS_NORMAL:
             //
             // First argument is not tight, and not specialized, so cache flag
             // to report that fact.
             //
             if (first_arg and not Is_Param_Hidden(param)) {
-                SET_VAL_FLAG(rootparam, ACTION_FLAG_DEFERS_LOOKBACK);
+                SET_SER_FLAG(paramlist, PARAMLIST_FLAG_DEFERS_LOOKBACK);
                 first_arg = false;
             }
             break;
@@ -1033,7 +1033,7 @@ REBACT *Make_Action(
         // Otherwise, at least one argument but not one that requires the
         // deferring of lookback.
 
-        case PARAM_CLASS_TIGHT:
+          case PARAM_CLASS_TIGHT:
             //
             // If first argument is tight, and not specialized, no flag needed
             //
@@ -1041,23 +1041,20 @@ REBACT *Make_Action(
                 first_arg = false;
             break;
 
-        case PARAM_CLASS_HARD_QUOTE:
+          case PARAM_CLASS_HARD_QUOTE:
             if (TYPE_CHECK(param, REB_MAX_NULLED))
                 fail ("Hard quoted function parameters cannot receive nulls");
-
             goto quote_check;
 
-        case PARAM_CLASS_SOFT_QUOTE:
-
-        quote_check:;
-
+          case PARAM_CLASS_SOFT_QUOTE:
+          quote_check:;
             if (first_arg and not Is_Param_Hidden(param)) {
-                SET_VAL_FLAG(rootparam, ACTION_FLAG_QUOTES_FIRST_ARG);
+                SET_SER_FLAG(paramlist, PARAMLIST_FLAG_QUOTES_FIRST_ARG);
                 first_arg = false;
             }
             break;
 
-        default:
+          default:
             assert(false);
         }
     }
@@ -1202,10 +1199,10 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
 
         RELVAL *body = ARR_HEAD(details);
 
-        // The ACTION_FLAG_LEAVE/ACTION_FLAG_RETURN tricks for definitional
-        // scoping make it seem like a generator authored more code in the
-        // action's body...but the code isn't *actually* there and an
-        // optimized internal trick is used.  Fake the code if needed.
+        // The PARAMLIST_FLAG_RETURN tricks for definitional return make it
+        // seem like a generator authored more code in the action's body...but
+        // the code isn't *actually* there and an optimized internal trick is
+        // used.  Fake the code if needed.
 
         REBVAL *example;
         REBCNT real_body_index;
@@ -1213,7 +1210,7 @@ void Get_Maybe_Fake_Action_Body(REBVAL *out, const REBVAL *action)
             example = Get_System(SYS_STANDARD, STD_PROC_BODY);
             real_body_index = 4;
         }
-        else if (GET_ACT_FLAG(a, ACTION_FLAG_RETURN)) {
+        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_RETURN)) {
             example = Get_System(SYS_STANDARD, STD_FUNC_BODY);
             real_body_index = 4;
         }
@@ -1338,20 +1335,18 @@ REBACT *Make_Interpreted_Action_May_Fail(
 
     // We look at the *actual* function flags; e.g. the person may have used
     // the FUNC generator (with MKF_RETURN) but then named a parameter RETURN
-    // which overrides it, so the value won't have ACTION_FLAG_RETURN.
-    //
-    REBVAL *value = ACT_ARCHETYPE(a);
+    // which overrides it, so the value won't have PARAMLIST_FLAG_RETURN.
 
     REBARR *copy;
     if (VAL_ARRAY_LEN_AT(code) == 0) { // optimize empty body case
 
-        if (GET_VAL_FLAG(value, ACTION_FLAG_INVISIBLE)) {
+        if (GET_SER_FLAG(a, PARAMLIST_FLAG_INVISIBLE)) {
             ACT_DISPATCHER(a) = &Commenter_Dispatcher;
         }
-        else if (GET_VAL_FLAG(value, ACTION_FLAG_VOIDER)) {
+        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_VOIDER)) {
             ACT_DISPATCHER(a) = &Voider_Dispatcher;
         }
-        else if (GET_VAL_FLAG(value, ACTION_FLAG_RETURN)) {
+        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_RETURN)) {
             REBVAL *typeset = ACT_PARAM(a, ACT_NUM_PARAMS(a));
             assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
             if (not TYPE_CHECK(typeset, REB_MAX_NULLED)) // what do [] returns
@@ -1367,11 +1362,11 @@ REBACT *Make_Interpreted_Action_May_Fail(
     }
     else { // body not empty, pick dispatcher based on output disposition
 
-        if (GET_VAL_FLAG(value, ACTION_FLAG_INVISIBLE))
+        if (GET_SER_FLAG(a, PARAMLIST_FLAG_INVISIBLE))
             ACT_DISPATCHER(a) = &Elider_Dispatcher; // no f->out mutation
-        else if (GET_VAL_FLAG(value, ACTION_FLAG_VOIDER))
+        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_VOIDER))
             ACT_DISPATCHER(a) = &Voider_Dispatcher; // forces f->out void
-        else if (GET_VAL_FLAG(value, ACTION_FLAG_RETURN))
+        else if (GET_SER_FLAG(a, PARAMLIST_FLAG_RETURN))
             ACT_DISPATCHER(a) = &Returner_Dispatcher; // type checks f->out
         else
             ACT_DISPATCHER(a) = &Unchecked_Dispatcher; // unchecked f->out

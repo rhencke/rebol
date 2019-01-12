@@ -373,7 +373,7 @@ REBNATIVE(generic)
         IDX_NATIVE_MAX // details array capacity
     );
 
-    SET_VAL_FLAG(ACT_ARCHETYPE(generic), ACTION_FLAG_NATIVE);
+    SET_SER_FLAG(generic, PARAMLIST_FLAG_NATIVE);
 
     REBARR *details = ACT_DETAILS(generic);
     Init_Word(ARR_AT(details, IDX_NATIVE_BODY), VAL_WORD_CANON(ARG(verb)));
@@ -618,7 +618,7 @@ REBVAL *Make_Native(
         IDX_NATIVE_MAX // details array capacity
     );
 
-    SET_VAL_FLAG(ACT_ARCHETYPE(act), ACTION_FLAG_NATIVE);
+    SET_SER_FLAG(act, PARAMLIST_FLAG_NATIVE);
 
     REBARR *details = ACT_DETAILS(act);
 

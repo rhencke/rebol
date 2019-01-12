@@ -41,14 +41,6 @@
 // is at the idea stage, but is evolving.
 //
 
-#ifdef NDEBUG
-    #define WORD_FLAG(n) \
-        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
-#else
-    #define WORD_FLAG(n) \
-        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | FLAG_KIND_BYTE(REB_WORD))
-#endif
-
 
 inline static bool IS_WORD_UNBOUND(const REBCEL *v) {
     assert(ANY_WORD_KIND(CELL_KIND(v)));

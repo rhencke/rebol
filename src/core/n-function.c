@@ -216,7 +216,7 @@ REBNATIVE(return)
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
     if (
-        GET_ACT_FLAG(target_fun, ACTION_FLAG_INVISIBLE)
+        GET_SER_FLAG(target_fun, PARAMLIST_FLAG_INVISIBLE)
         and IS_ENDISH_NULLED(v)
     ){
         // The only legal way invisibles can use RETURN is with no argument.
@@ -540,7 +540,7 @@ REBNATIVE(enclose)
     rootparam->payload.action.paramlist = paramlist;
 
     // !!! We don't want to inherit the flags of the original action, such
-    // as ACTION_FLAG_NATIVE.  For now just clear out all the type-specific
+    // as PARAMLIST_FLAG_NATIVE.  For now just clear out all the type-specific
     // bits and let Make_Action() cache the flags it needs.
     //
     mutable_CUSTOM_BYTE(rootparam) = 0;
@@ -780,7 +780,7 @@ REBNATIVE(tighten)
     }
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
-    CLEAR_VAL_FLAGS(rootparam, ACTION_FLAG_CACHED_MASK);
+    CLEAR_SER_FLAGS(paramlist, PARAMLIST_MASK_CACHED);
     rootparam->payload.action.paramlist = paramlist;
     INIT_BINDING(rootparam, UNBOUND);
 

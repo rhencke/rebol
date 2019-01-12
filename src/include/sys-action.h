@@ -51,8 +51,8 @@
 #define R_THROWN \
     cast(REBVAL*, &PG_R_Thrown)
 
-// See ACTION_FLAG_INVISIBLE...this is what any function with that flag needs
-// to return.
+// See PARAMLIST_FLAG_INVISIBLE...this is what any function with that flag
+// needs to return.
 //
 // It is also used by path dispatch when it has taken performing a SET-PATH!
 // into its own hands, but doesn't want to bother saying to move the value
@@ -113,14 +113,6 @@ inline static REBARR *ACT_PARAMLIST(REBACT *a) {
 #define ACT_ARCHETYPE(a) \
     cast(REBVAL*, cast(REBSER*, ACT_PARAMLIST(a))->content.dynamic.data)
 
-// Functions hold their flags in their canon value, some of which are cached
-// flags put there during Make_Action().
-//
-// !!! Review if (and how) a HIJACK might affect these flags (?)
-//
-#define GET_ACT_FLAG(a, flag) \
-    GET_VAL_FLAG(ACT_ARCHETYPE(a), (flag))
-
 #define ACT_DISPATCHER(a) \
     (MISC(ACT_ARCHETYPE(a)->payload.action.details).dispatcher)
 
@@ -128,7 +120,7 @@ inline static REBARR *ACT_PARAMLIST(REBACT *a) {
     ACT_ARCHETYPE(a)->payload.action.details
 
 // These are indices into the details array agreed upon by actions which have
-// the ACTION_FLAG_NATIVE set.
+// the PARAMLIST_FLAG_NATIVE set.
 //
 #define IDX_NATIVE_BODY 0 // text string source code of native (for SOURCE)
 #define IDX_NATIVE_CONTEXT 1 // libRebol binds strings here (and lib)
@@ -183,78 +175,6 @@ inline static REBVAL *ACT_SPECIALTY_HEAD(REBACT *a) {
 //
 #define ACT_PARAMS_HEAD(a) \
     (cast(REBVAL*, SER(ACT_PARAMLIST(a))->content.dynamic.data) + 1)
-
-
-
-//=////////////////////////////////////////////////////////////////////////=//
-//
-//  ACTION!
-//
-//=////////////////////////////////////////////////////////////////////////=//
-
-#ifdef NDEBUG
-    #define ACTION_FLAG(n) \
-        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
-#else
-    #define ACTION_FLAG(n) \
-        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | FLAG_KIND_BYTE(REB_ACTION))
-#endif
-
-// RETURN in the last paramlist slot
-//
-#define ACTION_FLAG_RETURN ACTION_FLAG(0)
-
-// Uses the Voider_Dispatcher() (implies ACTION_FLAG_RETURN + arity-0 RETURN)
-//
-#define ACTION_FLAG_VOIDER ACTION_FLAG(1)
-
-// DEFERS_LOOKBACK_ARG flag is a cached property, which tells you whether a
-// function defers its first real argument when used as a lookback.  Because
-// lookback dispatches cannot use refinements at this time, the answer is
-// static for invocation via a plain word.  This property is calculated at
-// the time of Make_Action().
-//
-#define ACTION_FLAG_DEFERS_LOOKBACK ACTION_FLAG(2)
-
-// This is another cached property, needed because lookahead/lookback is done
-// so frequently, and it's quicker to check a bit on the function than to
-// walk the parameter list every time that function is called.
-//
-#define ACTION_FLAG_QUOTES_FIRST_ARG ACTION_FLAG(3)
-
-// Native functions are flagged that their dispatcher represents a native in
-// order to say that their ACT_DETAILS() follow the protocol that the [0]
-// slot is "equivalent source" (may be a TEXT!, as in user natives, or a
-// BLOCK!).  The [1] slot is a module or other context into which APIs like
-// rebRun() etc. should consider for binding, in addition to lib.  A BLANK!
-// in the 1 slot means no additional consideration...bind to lib only.
-//
-#define ACTION_FLAG_NATIVE ACTION_FLAG(4)
-
-#define ACTION_FLAG_UNUSED_5 ACTION_FLAG(5)
-
-// This flag is set when the native (e.g. extensions) can be unloaded
-//
-#define ACTION_FLAG_UNLOADABLE_NATIVE ACTION_FLAG(6)
-
-// An "invisible" function is one that does not touch its frame output cell,
-// leaving it completely alone.  This is how `10 comment ["hi"] + 20` can
-// work...if COMMENT destroyed the 10 in the output cell it would be lost and
-// the addition could no longer work.
-//
-// !!! One property considered for invisible items was if they might not be
-// quoted in soft-quoted positions.  This would require fetching something
-// that might not otherwise need to be fetched, to test the flag.  Review.
-//
-#define ACTION_FLAG_INVISIBLE ACTION_FLAG(7)
-
-// ^--- !!! STOP AT ACTION_FLAG(7) !!! ---^
-
-// These are the flags which are scanned for and set during Make_Action
-//
-#define ACTION_FLAG_CACHED_MASK \
-    (ACTION_FLAG_DEFERS_LOOKBACK | ACTION_FLAG_QUOTES_FIRST_ARG \
-        | ACTION_FLAG_INVISIBLE)
 
 
 inline static REBACT *VAL_ACTION(const REBCEL *v) {

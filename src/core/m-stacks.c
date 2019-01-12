@@ -229,7 +229,7 @@ REBCTX *Get_Context_From_Stack(void)
     // know for a fact it's a user function and not a native on the stack.)
     //
   #if !defined(NDEBUG)
-    if (not GET_ACT_FLAG(phase, ACTION_FLAG_NATIVE)) {
+    if (NOT_SER_FLAG(phase, PARAMLIST_FLAG_NATIVE)) {
         printf("!!! WARNING: calling API code from unsafe location\n");
         printf("(only do this in special debugging scenarios...)\n");
         return Lib_Context;
