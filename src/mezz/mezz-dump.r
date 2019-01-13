@@ -35,7 +35,7 @@ dump: function [
 
     val-to-text: function [return: [text!] val [<opt> any-value!]] [
         case [
-            not set? 'val ["// null"]
+            not set? 'val ["-- null"]
             object? :val [unspaced ["make object! [" (dump-obj val) "]"]]
             default [mold/limit :val system/options/dump-size]
         ]

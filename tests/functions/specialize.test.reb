@@ -146,14 +146,13 @@
 ; and other enfix situations.
 (
     foo: function [/a aa /b :bb [<skip> integer!]] [
-        any [
-            if set? 'bb [bb * 10]
-            #ignored
+        reduce [
+            a either set? 'aa [aa] [<null>] b either set? 'bb [bb] [<null>]
         ]
     ]
     foob: enfix :foo/b
     did all [
-        100 = (10 foob)
-        #ignored = ("not an integer!" foob)
+        [_ <null> /b 10] = (10 foob)
+        [_ <null> _ <null>] = ("not an integer!" foob)
     ]
 )

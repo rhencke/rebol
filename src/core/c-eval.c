@@ -210,6 +210,28 @@ inline static bool In_Unspecialized_Mode(REBFRM *f) {
 }
 
 
+inline static void Revoke_Refinement_Arg(
+    REBFRM *f_state, // name helps avoid accidental references to f->arg, etc.
+    const RELVAL *param,
+    REBVAL *arg,
+    REBVAL *refine
+){
+    assert(IS_NULLED(arg)); // may be "endish nulled"
+    assert(IS_REFINEMENT(refine));
+
+    // We can only revoke the refinement if this is the first refinement arg.
+    // If it's a later arg, then the first didn't trigger revocation, or
+    // refine wouldn't be logic.
+    //
+    if (refine + 1 != arg)
+        fail (Error_Bad_Refine_Revoke(param, arg));
+
+    Init_Blank(refine); // can't re-enable...
+    SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+
+    f_state->refine = ARG_TO_REVOKED_REFINEMENT; // !!! correct to change?
+}
+
 // Typechecking has to be broken out into a subroutine because it is not
 // always the case that one is typechecking the current argument.  See the
 // documentation on REBFRM.deferred for why.
@@ -232,6 +254,11 @@ inline static void Finalize_Arg(
             fail (Error_No_Arg(f_state, param));
 
         Init_Endish_Nulled(arg);
+        if (IS_REFINEMENT(refine)) {
+            Revoke_Refinement_Arg(f_state, param, arg, refine);
+            return;
+        }
+
         SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
         return;
     }
@@ -249,19 +276,8 @@ inline static void Finalize_Arg(
 
     if (kind_byte == REB_MAX_NULLED) {
         if (IS_REFINEMENT(refine)) {
-            //
-            // We can only revoke the refinement if this is the 1st
-            // refinement arg.  If it's a later arg, then the first
-            // didn't trigger revocation, or refine wouldn't be logic.
-            //
-            if (refine + 1 != arg)
-                fail (Error_Bad_Refine_Revoke(param, arg));
-
-            Init_Blank(refine); // can't re-enable...
-            SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
-
-            refine = ARG_TO_REVOKED_REFINEMENT;
-            return; // don't type check for optionality
+            Revoke_Refinement_Arg(f_state, param, arg, refine);
+            return; // don't check for optionality, refinement args always are
         }
 
         if (IS_FALSEY(refine)) {
@@ -1162,16 +1178,13 @@ bool Eval_Core_Throws(REBFRM * const f)
                         goto continue_arg_loop;
                     }
 
-                    // The NODE_FLAG_MARKED flag is also used by BAR! to keep
+                    // The OUT_MARKED_STALE flag is also used by BAR! to keep
                     // a result in f->out, so that the barrier doesn't destroy
                     // data in cases like `(1 + 2 | comment "hi")` => 3, but
                     // left enfix should treat that just like an end.
-                    //
-                    if (not Is_Param_Endable(f->param))
-                        fail (Error_No_Arg(f, f->param));
 
-                    Init_Endish_Nulled(f->arg);
-                    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+                    SET_END(f->arg);
+                    Finalize_Current_Arg(f);
                     goto continue_arg_loop;
                 }
 

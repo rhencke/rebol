@@ -417,8 +417,8 @@ static REB_R Loop_Each_Core(struct Loop_Each_State *les) {
             // incarnation to run...with some variables unset.  Null those
             // variables here.
             //
-            //     >> for-each [x y] [1] [-- x y]
-            //     -- x: 1 y: // null
+            //     >> for-each [x y] [1] [?? x y]
+            //     ?? x: 1 y: -- null
             //
             if (not more_data) {
                 Init_Nulled(var);

@@ -130,11 +130,7 @@ console!: make object! [
         set* (lit last-result:) :v
         case [
             null? :v [
-                ; Because NULL has no representation, there's nothing really
-                ; to print after an "==".  It could use invalid forms, e.g.
-                ; "== \\null\\" or just go with a comment.
-                ;
-                print "// null"
+                print "-- null" ; no value representation, so use a comment
             ]
 
             void? :v [
