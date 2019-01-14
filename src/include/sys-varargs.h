@@ -45,36 +45,6 @@
 // is shared between the instances, to reflect the state.
 //
 
-#ifdef NDEBUG
-    #define VARARGS_FLAG(n) \
-        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
-#else
-    #define VARARGS_FLAG(n) \
-        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | FLAG_KIND_BYTE(REB_VARARGS))
-#endif
-
-
-// While it would be possible to say that enfixing a function whose first
-// argument is a VARARGS! is plainly illegal, we experimentally allow the
-// left hand side of an evaluation to be a source of "0 or 1" arguments for
-// a VARARGS!.
-//
-// !!! This is a bit shady (in cases besides an <end> on the left being a
-// varargs that reports TAIL? as TRUE).  That's because most variadics expect
-// their evaluation to happen when they TAKE a VARARGS!, and not beforehand.
-// But you can't defer the evaluation of a left-hand expression, because it's
-// usually too late.  Even if it isn't technically too late for some reason
-// (e.g. it's #tight, or quoted) there's still a bit of an oddity, because
-// variadics on the right have the option to *not* do a TAKE and leave the
-// value for consumption by the next operation.  That doesn't apply when the
-// variadic is being "faked in" from the left.
-//
-// But despite the lack of "purity", one might argue it's better to do
-// something vs. just give an error.  Especially since people are unlikely to
-// enfix a variadic on accident, and may be fine with these rules.
-//
-#define VARARGS_FLAG_ENFIXED VARARGS_FLAG(0)
-
 
 inline static bool Is_Block_Style_Varargs(
     REBVAL **shared_out,
@@ -135,13 +105,39 @@ inline static bool Is_Frame_Style_Varargs_May_Fail(
 }
 
 
+// !!! A left-hand-side variadic parameter is a complex concept.  It started
+// out as a thought experiment, where the left was a "source of 0 or 1 args",
+// in order to implement something like `<skip>`.  However, the need to create
+// the SHOVE operator showed a more meaningful and technically complex
+// interpretation of a variadic left-hand side, which used its right hand side
+// to make a decision about how the left would be processed (quoted, tight,
+// or normal).
+//
+// This new interpretation has not been fully realized, as SHOVE is very
+// tricky.  So this enfix varargs implementation for userspace is old, where
+// it lets the left hand side evaluate into a temporary array.  It really is
+// just a placeholder for trying to rewire the mechanics used by SHOVE so that
+// they can be offered to any userspace routine.
+//
+#define Is_Varargs_Enfix(v) \
+    ((v)->payload.varargs.signed_param_index < 0)
+
+
 inline static const REBVAL *Param_For_Varargs_Maybe_Null(const REBCEL *v) {
     assert(CELL_KIND(v) == REB_VARARGS);
 
     REBACT *phase = v->payload.varargs.phase;
     if (phase) {
         REBARR *paramlist = ACT_PARAMLIST(phase);
-        return KNOWN(ARR_AT(paramlist, v->payload.varargs.param_offset + 1));
+        if (v->payload.varargs.signed_param_index < 0) // e.g. enfix
+            return KNOWN(ARR_AT(
+                paramlist,
+                -(v->payload.varargs.signed_param_index)
+            ));
+        return KNOWN(ARR_AT(
+            paramlist,
+            v->payload.varargs.signed_param_index
+        ));
     }
 
     // A vararg created from a block AND never passed as an argument so no

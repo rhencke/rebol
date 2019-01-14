@@ -146,13 +146,16 @@
 ; and other enfix situations.
 (
     foo: function [/a aa /b :bb [<skip> integer!]] [
-        reduce [
-            a either set? 'aa [aa] [<null>] b either set? 'bb [bb] [<null>]
-        ]
+        reduce [a (:aa else [<null>]) b (:bb else [<null>])]
     ]
     foob: enfix :foo/b
     did all [
         [_ <null> /b 10] = (10 foob)
         [_ <null> _ <null>] = ("not an integer!" foob)
+        [/a 20 /b 10] = (10 -> foob/a 20)
+        comment [
+            {Currently SHOVE and <skip> don't work together}
+            [/a 20 _ <null>] = ("not an integer!" -> foob/a 20)
+        ]
     ]
 )

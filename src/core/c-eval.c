@@ -247,6 +247,8 @@ inline static void Finalize_Arg(
     REBVAL *arg,
     REBVAL *refine
 ){
+    assert(not Is_Param_Variadic(param)); // Use Finalize_Variadic_Arg()
+
     REBYTE kind_byte = KIND_BYTE(arg);
 
     if (kind_byte == REB_0_END) { // `1 + comment "foo"` => `1 +`, arg is END
@@ -302,30 +304,40 @@ inline static void Finalize_Arg(
         return;
     }
 
-    if (not Is_Param_Variadic(param)) {
-        if (Typecheck_Including_Quoteds(param, arg)) {
-            SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
-            return;
-        }
+    if (not Typecheck_Including_Quoteds(param, arg))
         fail (Error_Arg_Type(f_state, param, VAL_TYPE(arg)));
-    }
+
+    SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+}
+
+inline static void Finalize_Current_Arg(REBFRM *f) {
+    Finalize_Arg(f, f->param, f->arg, f->refine);
+}
+
+// While "checking" the variadic argument we actually re-stamp it with
+// this parameter and frame's signature.  It reuses whatever the original
+// data feed was (this frame, another frame, or just an array from MAKE
+// VARARGS!)
+//
+inline static void Finalize_Variadic_Arg_Core(REBFRM *f, bool enfix) {
+    assert(Is_Param_Variadic(f->param)); // use Finalize_Arg()
 
     // Varargs are odd, because the type checking doesn't actually check the
     // types inside the parameter--it always has to be a VARARGS!.
     //
-    if (not IS_VARARGS(arg))
-        fail (Error_Not_Varargs(f_state, param, VAL_TYPE(arg)));
+    if (not IS_VARARGS(f->arg))
+        fail (Error_Not_Varargs(f, f->param, VAL_TYPE(f->arg)));
 
-    // While "checking" the variadic argument we actually re-stamp it with
-    // this parameter and frame's signature.  It reuses whatever the original
-    // data feed was (this frame, another frame, or just an array from MAKE
-    // VARARGS!)
+    // Store the offset so that both the arg and param locations can quickly
+    // be recovered, while using only a single slot in the REBVAL.  But make
+    // the sign denote whether the parameter was enfixed or not.
     //
-    // Store the offset so that both the arg and param locations can
-    // be quickly recovered, while using only a single slot in the REBVAL.
-    //
-    arg->payload.varargs.param_offset = arg - FRM_ARGS_HEAD(f_state);
-    if (FRM_PHASE_OR_DUMMY(f_state) == PG_Dummy_Action) {
+    f->arg->payload.varargs.signed_param_index =
+        enfix
+            ? -(f->arg - FRM_ARGS_HEAD(f) + 1)
+            : f->arg - FRM_ARGS_HEAD(f) + 1;
+
+    if (FRM_PHASE_OR_DUMMY(f) == PG_Dummy_Action) {
         //
         // If the function is not going to be run immediately, it might be
         // getting deferred just for capturing arguments before running (e.g.
@@ -334,16 +346,18 @@ inline static void Finalize_Arg(
         // former case might have variadics work, the latter can't.  Let
         // frame expiration or not be the judge later.
         //
-        arg->payload.varargs.phase = f_state->original;
+        f->arg->payload.varargs.phase = f->original;
     }
     else
-        arg->payload.varargs.phase = FRM_PHASE(f_state);
-    SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+        f->arg->payload.varargs.phase = FRM_PHASE(f);
+    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
 }
 
-inline static void Finalize_Current_Arg(REBFRM *f) {
-    Finalize_Arg(f, f->param, f->arg, f->refine);
-}
+#define Finalize_Variadic_Arg(f) \
+    Finalize_Variadic_Arg_Core((f), false)
+
+#define Finalize_Enfix_Variadic_Arg(f) \
+    Finalize_Variadic_Arg_Core((f), true)
 
 
 #ifdef DEBUG_EXPIRED_LOOKBACK
@@ -1128,7 +1142,10 @@ bool Eval_Core_Throws(REBFRM * const f)
                 f->arg == f->special // !!! should this ever allow gathering?
                 /* f->flags.bits & DO_FLAG_FULLY_SPECIALIZED */
             ){
-                Finalize_Current_Arg(f);
+                if (Is_Param_Variadic(f->param))
+                    Finalize_Variadic_Arg(f);
+                else
+                    Finalize_Current_Arg(f);
                 goto continue_arg_loop; // looping to verify args/refines
             }
 
@@ -1167,14 +1184,10 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // from the global empty array.
                     //
                     if (Is_Param_Variadic(f->param)) {
-                        RESET_VAL_HEADER_EXTRA(
-                            f->arg,
-                            REB_VARARGS,
-                            VARARGS_FLAG_ENFIXED // in case anyone cares
-                        );
+                        RESET_CELL(f->arg, REB_VARARGS);
                         INIT_BINDING(f->arg, EMPTY_ARRAY); // feed finished
 
-                        Finalize_Current_Arg(f);
+                        Finalize_Enfix_Variadic_Arg(f);
                         goto continue_arg_loop;
                     }
 
@@ -1259,7 +1272,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // Now that we've gotten the argument figured out, make a
                 // singular array to feed it to the variadic.
                 //
-                // !!! See notes on VARARGS_FLAG_ENFIXED about how this is
+                // !!! See notes on IS_VARARGS_ENFIX about how this is
                 // somewhat shady, as any evaluations happen *before* the
                 // TAKE on the VARARGS.  Experimental feature.
                 //
@@ -1275,15 +1288,13 @@ bool Eval_Core_Throws(REBFRM * const f)
                         Init_Block(ARR_SINGLE(array1), feed); // index 0
                     }
 
-                    RESET_VAL_HEADER_EXTRA(
-                        f->arg,
-                        REB_VARARGS,
-                        VARARGS_FLAG_ENFIXED // don't evaluate *again* on TAKE
-                    );
+                    RESET_CELL(f->arg, REB_VARARGS);
                     INIT_BINDING(f->arg, array1);
+                    Finalize_Enfix_Variadic_Arg(f);
                 }
+                else
+                    Finalize_Current_Arg(f);
 
-                Finalize_Current_Arg(f);
                 goto continue_arg_loop;
             }
 
@@ -1298,7 +1309,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 RESET_CELL(f->arg, REB_VARARGS);
                 INIT_BINDING(f->arg, f->varlist); // frame-based VARARGS!
 
-                Finalize_Current_Arg(f); // sets VARARGS! offset and paramlist
+                Finalize_Variadic_Arg(f);
                 goto continue_arg_loop;
             }
 

@@ -526,7 +526,7 @@ struct Reb_Varargs_Payload {
     // the function frame at any point.  Despite this, we proxy the
     // VALUE_FLAG_UNEVALUATED from the last TAKE to reflect its status.
     //
-    REBCNT param_offset;
+    REBINT signed_param_index; // if negative, consider the arg enfixed
 
     REBACT *phase; // where to look up parameter by its offset
 };

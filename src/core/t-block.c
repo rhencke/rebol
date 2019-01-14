@@ -217,8 +217,13 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             REBCTX *context = CTX(arg->extra.binding);
             REBFRM *param_frame = CTX_FRAME_MAY_FAIL(context);
 
-            REBVAL *param = ACT_PARAMS_HEAD(FRM_PHASE(param_frame))
-                + arg->payload.varargs.param_offset;
+            REBVAL *param = KNOWN(
+                ARR_HEAD(ACT_PARAMLIST(FRM_PHASE(param_frame)))
+            );
+            if (arg->payload.varargs.signed_param_index < 0)
+                param += -(arg->payload.varargs.signed_param_index);
+            else
+                param += arg->payload.varargs.signed_param_index;
 
             if (TYPE_CHECK(param, REB_MAX_NULLED))
                 fail (Error_Null_Vararg_Array_Raw());

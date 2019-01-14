@@ -198,9 +198,9 @@ bool Do_Vararg_Op_Maybe_End_Throws(
             goto type_check_and_return;
         }
 
-        if (GET_VAL_FLAG(vararg, VARARGS_FLAG_ENFIXED)) {
+        if (Is_Varargs_Enfix(vararg)) {
             //
-            // See notes on VARARGS_FLAG_ENFIXED about how the left hand side
+            // See notes on Is_Varargs_Enfix() about how the left hand side
             // is synthesized into an array-style varargs with either 0 or
             // 1 item to be taken.  But any evaluation has already happened
             // before the TAKE.  So although we honor the pclass to disallow
@@ -291,12 +291,15 @@ bool Do_Vararg_Op_Maybe_End_Throws(
         // (so long as it is still live on the stack)
 
         // The enfixed case always synthesizes an array to hold the evaluated
-        // left hand side value.  (See notes on VARARGS_FLAG_ENFIXED.)
+        // left hand side value.  (See notes on Is_Varargs_Enfix().)
         //
-        assert(NOT_VAL_FLAG(vararg, VARARGS_FLAG_ENFIXED));
+        assert(not Is_Varargs_Enfix(vararg));
 
         opt_vararg_frame = f;
-        arg = FRM_ARG(f, vararg->payload.varargs.param_offset + 1);
+        if (vararg->payload.varargs.signed_param_index < 0)
+            arg = FRM_ARG(f, -(vararg->payload.varargs.signed_param_index));
+        else
+            arg = FRM_ARG(f, vararg->payload.varargs.signed_param_index);
 
         if (Vararg_Op_If_No_Advance_Handled(
             out,
@@ -433,7 +436,7 @@ REB_R MAKE_Varargs(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
         RESET_CELL(out, REB_VARARGS);
         out->payload.varargs.phase = nullptr;
-        UNUSED(out->payload.varargs.param_offset); // trashes in C++11 build
+        UNUSED(out->payload.varargs.signed_param_index); // trashes in C++11
         INIT_BINDING(out, array1);
 
         return out;
