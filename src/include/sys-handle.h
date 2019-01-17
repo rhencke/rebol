@@ -46,19 +46,13 @@
 // and changing one won't change the others.
 //
 
-#define HANDLE_FLAG(n) \
-    FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
-
-// Note: In the C language, sizeof(void*) may not be the same size as a
-// function pointer; hence they can't necessarily be cast between each other.
-// In practice, a void* is generally big enough to hold a CFUNC*, and many
-// APIs do assume this.
-//
-#define HANDLE_FLAG_CFUNC HANDLE_FLAG(0)
-
+inline static bool Is_Handle_Cfunc(const RELVAL *v) {
+    assert(IS_HANDLE(v));
+    return v->payload.handle.length == 0;
+}
 
 inline static uintptr_t VAL_HANDLE_LEN(const RELVAL *v) {
-    assert(IS_HANDLE(v));
+    assert(not Is_Handle_Cfunc(v));
     if (v->extra.singular)
         return ARR_HEAD(v->extra.singular)->payload.handle.length;
     else
@@ -66,8 +60,7 @@ inline static uintptr_t VAL_HANDLE_LEN(const RELVAL *v) {
 }
 
 inline static void *VAL_HANDLE_VOID_POINTER(const RELVAL *v) {
-    assert(IS_HANDLE(v));
-    assert(NOT_VAL_FLAG(v, HANDLE_FLAG_CFUNC));
+    assert(not Is_Handle_Cfunc(v));
     if (v->extra.singular)
         return ARR_HEAD(v->extra.singular)->payload.handle.data.pointer;
     else
@@ -78,8 +71,7 @@ inline static void *VAL_HANDLE_VOID_POINTER(const RELVAL *v) {
     cast(t *, VAL_HANDLE_VOID_POINTER(v))
 
 inline static CFUNC *VAL_HANDLE_CFUNC(const RELVAL *v) {
-    assert(IS_HANDLE(v));
-    assert(GET_VAL_FLAG(v, HANDLE_FLAG_CFUNC));
+    assert(Is_Handle_Cfunc(v));
     if (v->extra.singular)
         return ARR_HEAD(v->extra.singular)->payload.handle.data.cfunc;
     else
@@ -101,8 +93,7 @@ inline static void SET_HANDLE_LEN(RELVAL *v, uintptr_t length) {
 }
 
 inline static void SET_HANDLE_POINTER(RELVAL *v, void *pointer) {
-    assert(IS_HANDLE(v));
-    assert(NOT_VAL_FLAG(v, HANDLE_FLAG_CFUNC));
+    assert(not Is_Handle_Cfunc(v));
     if (v->extra.singular)
         ARR_HEAD(v->extra.singular)->payload.handle.data.pointer = pointer;
     else
@@ -110,8 +101,7 @@ inline static void SET_HANDLE_POINTER(RELVAL *v, void *pointer) {
 }
 
 inline static void SET_HANDLE_CFUNC(RELVAL *v, CFUNC *cfunc) {
-    assert(IS_HANDLE(v));
-    assert(GET_VAL_FLAG(v, HANDLE_FLAG_CFUNC));
+    assert(Is_Handle_Cfunc(v));
     if (v->extra.singular)
         ARR_HEAD(v->extra.singular)->payload.handle.data.cfunc = cfunc;
     else
@@ -123,6 +113,7 @@ inline static REBVAL *Init_Handle_Simple(
     void *pointer,
     uintptr_t length
 ){
+    assert(length != 0); // can't be 0 unless cfunc (see also malloc(0))
     RESET_CELL(out, REB_HANDLE);
     out->extra.singular = NULL;
     out->payload.handle.data.pointer = pointer;
@@ -132,13 +123,12 @@ inline static REBVAL *Init_Handle_Simple(
 
 inline static REBVAL *Init_Handle_Cfunc(
     RELVAL *out,
-    CFUNC *cfunc,
-    uintptr_t length
+    CFUNC *cfunc
 ){
-    RESET_VAL_HEADER_EXTRA(out, REB_HANDLE, HANDLE_FLAG_CFUNC);
-    out->extra.singular = NULL;
+    RESET_CELL(out, REB_HANDLE);
+    out->extra.singular = nullptr;
     out->payload.handle.data.cfunc = cfunc;
-    out->payload.handle.length = length;
+    out->payload.handle.length = 0; // signals cfunc
     return KNOWN(out);
 }
 
@@ -191,20 +181,16 @@ inline static REBVAL *Init_Handle_Managed(
 inline static REBVAL *Init_Handle_Managed_Cfunc(
     RELVAL *out,
     CFUNC *cfunc,
-    uintptr_t length,
     CLEANUP_CFUNC *cleaner
 ){
-    Init_Handle_Managed_Common(out, length, cleaner);
+    Init_Handle_Managed_Common(out, 0, cleaner);
 
     // Leave the non-singular cfunc as trash; clients should not be using
     //
-    RESET_VAL_HEADER_EXTRA(out, REB_HANDLE, HANDLE_FLAG_CFUNC);
+    RESET_VAL_HEADER(out, REB_HANDLE);
     
-    RESET_VAL_HEADER_EXTRA(
-        ARR_HEAD(out->extra.singular),
-        REB_HANDLE,
-        HANDLE_FLAG_CFUNC
-    );
+    RESET_VAL_HEADER(ARR_HEAD(out->extra.singular), REB_HANDLE);
     ARR_HEAD(out->extra.singular)->payload.handle.data.cfunc = cfunc;
+    ARR_HEAD(out->extra.singular)->payload.handle.length = 0;
     return KNOWN(out);
 }

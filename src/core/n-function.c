@@ -272,14 +272,12 @@ REBNATIVE(typechecker)
     archetype->payload.action.paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
 
-    REBVAL *param = Init_Param(
+    Init_Param(
         Alloc_Tail_Array(paramlist),
         REB_P_NORMAL,
         Canon(SYM_VALUE),
         TS_OPT_VALUE // Allow null (e.g. <opt>), returns false
     );
-    assert(not Is_Param_Endable(param));
-    UNUSED(param);
 
     MISC(paramlist).meta = NULL; // !!! auto-generate info for HELP?
 
@@ -830,7 +828,7 @@ REBNATIVE(tighten)
 
 
 
-REB_R N_Shot_Dispatcher(REBFRM *f)
+REB_R Downshot_Dispatcher(REBFRM *f) // runs until count is reached
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     assert(ARR_LEN(details) == 1);
@@ -848,7 +846,7 @@ REB_R N_Shot_Dispatcher(REBFRM *f)
 }
 
 
-REB_R N_Upshot_Dispatcher(REBFRM *f)
+REB_R Upshot_Dispatcher(REBFRM *f) // won't run until count is reached
 {
     REBARR *details = ACT_DETAILS(FRM_PHASE(f));
     assert(ARR_LEN(details) == 1);
@@ -893,20 +891,18 @@ REBNATIVE(n_shot)
 
     // !!! Should anything DO would accept be legal, as DOES would run?
     //
-    REBVAL *param = Init_Param(
+    Init_Param(
         Alloc_Tail_Array(paramlist),
         REB_P_NORMAL,
         Canon(SYM_VALUE), // !!! would SYM_CODE be better?
         FLAGIT_KIND(REB_BLOCK) | FLAGIT_KIND(REB_ACTION)
     );
-    assert(not Is_Param_Endable(param));
-    UNUSED(param);
 
     MISC(paramlist).meta = NULL; // !!! auto-generate info for HELP?
 
     REBACT *n_shot = Make_Action(
         paramlist,
-        n >= 0 ? &N_Shot_Dispatcher : &N_Upshot_Dispatcher,
+        n >= 0 ? &Downshot_Dispatcher : &Upshot_Dispatcher,
         nullptr, // no underlying action (use paramlist)
         nullptr, // no specialization exemplar (or inherited exemplar)
         1 // details array capacity

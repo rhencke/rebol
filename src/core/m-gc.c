@@ -471,7 +471,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
                 // references at once), the data pointers in all but the
                 // shared singular value are NULL.
                 //
-                if (GET_VAL_FLAG(v, HANDLE_FLAG_CFUNC))
+                if (Is_Handle_Cfunc(v))
                     assert(
                         IS_CFUNC_TRASH_DEBUG(v->payload.handle.data.cfunc)
                     );

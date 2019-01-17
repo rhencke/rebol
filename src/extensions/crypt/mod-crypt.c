@@ -190,7 +190,12 @@ REBNATIVE(rc4)
             VAL_LEN_AT(ARG(crypt_key))
         );
 
-        return Init_Handle_Managed(D_OUT, rc4_ctx, 0, &cleanup_rc4_ctx);
+        return Init_Handle_Managed(
+            D_OUT,
+            rc4_ctx,
+            sizeof(RC4_CTX),
+            &cleanup_rc4_ctx
+        );
     }
 
     rebJumps("fail {Refinement /key or /stream has to be present}", rebEND);
@@ -586,7 +591,12 @@ REBNATIVE(aes)
         if (REF(decrypt))
             AES_convert_key(aes_ctx);
 
-        return Init_Handle_Managed(D_OUT, aes_ctx, 0, &cleanup_aes_ctx);
+        return Init_Handle_Managed(
+            D_OUT,
+            aes_ctx,
+            sizeof(AES_CTX),
+            &cleanup_aes_ctx
+        );
     }
 
     rebJumps("fail {Refinement /key or /stream has to be present}", rebEND);

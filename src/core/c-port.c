@@ -554,5 +554,5 @@ void Secure_Port(
 //
 void Make_Port_Actor_Handle(REBVAL *out, PORT_HOOK paf)
 {
-    Init_Handle_Cfunc(out, cast(CFUNC*, paf), 0);
+    Init_Handle_Cfunc(out, cast(CFUNC*, paf));
 }
