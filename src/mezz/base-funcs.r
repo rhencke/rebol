@@ -291,7 +291,7 @@ dig-action-meta-fields: function [value [action!]] [
 
     inherit-frame: function [parent [<blank> frame!]] [
         child: make frame! :value
-        for-each param child [
+        for-each param words of child [ ;-- `for-each param child` locks child
             child/(param): maybe select parent param
         ]
         return child
