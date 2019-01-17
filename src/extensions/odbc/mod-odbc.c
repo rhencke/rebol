@@ -407,7 +407,7 @@ SQLRETURN ODBC_BindParameter(
         break; }
 
     case REB_DATE: {
-        if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME)) {
+        if (not Does_Date_Have_Time(v)) {
             p->buffer_size = sizeof(DATE_STRUCT);
             p->buffer = rebAllocN(char, p->buffer_size);
 

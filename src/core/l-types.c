@@ -772,7 +772,8 @@ const REBYTE *Scan_Date(
     REBINT day;
     REBINT month;
     REBINT year;
-    REBINT tz;
+    REBINT tz = NO_DATE_ZONE;
+    out->payload.time.nanoseconds = NO_DATE_TIME; // may be overwritten
 
     REBCNT size = cast(REBCNT, ep - cp);
     if (size >= 4) {
@@ -887,20 +888,16 @@ const REBYTE *Scan_Date(
 
     cp = ep;
 
-    if (cp >= end) {
-        RESET_VAL_HEADER(out, REB_DATE);
-        goto end_date; // needs header set
-    }
+    if (cp >= end)
+        goto end_date;
 
     if (*cp == '/' || *cp == ' ') {
         sep = *cp++;
 
-        if (cp >= end) {
-            RESET_VAL_HEADER(out, REB_DATE);
-            goto end_date; // needs header set
-        }
+        if (cp >= end)
+            goto end_date;
 
-        cp = Scan_Time(out, cp, 0);
+        cp = Scan_Time(out, cp, 0); // writes out->payload.time.nanoseconds
         if (
             cp == NULL
             or not IS_TIME(out)
@@ -909,11 +906,8 @@ const REBYTE *Scan_Date(
         ){
             return_NULL;
         }
-
-        RESET_VAL_HEADER_EXTRA(out, REB_DATE, DATE_FLAG_HAS_TIME);
+        assert(out->payload.time.nanoseconds != NO_DATE_TIME);
     }
-    else
-        RESET_VAL_HEADER(out, REB_DATE); // no DATE_FLAG_HAS_TIME
 
     // past this point, header is set, so `goto end_date` is legal.
 
@@ -960,24 +954,18 @@ const REBYTE *Scan_Date(
             tz = -tz;
 
         cp = ep;
-
-        SET_VAL_FLAG(out, DATE_FLAG_HAS_ZONE);
-        INIT_VAL_ZONE(out, tz);
     }
 
 end_date:
-    assert(IS_DATE(out)); // don't reset header here; overwrites flags
+    RESET_VAL_HEADER(out, REB_DATE); // may be overwriting scanned REB_TIME
+    // payload.time.nanoseconds is set, may be NO_DATE_TIME, don't RESET_CELL
+
     VAL_YEAR(out)  = year;
     VAL_MONTH(out) = month;
     VAL_DAY(out) = day;
+    out->extra.date.date.zone = tz; // may be NO_DATE_ZONE
 
-    // if VAL_NANO() was set, then DATE_FLAG_HAS_TIME should be true
-    // if VAL_ZONE() was set, then DATE_FLAG_HAS_ZONE should be true
-
-    // This step used to be skipped if tz was 0, but now that is a
-    // state distinguished from "not having a time zone"
-    //
-    Adjust_Date_Zone(out, true);
+    Adjust_Date_Zone(out, true); // no effect if NO_DATE_ZONE
 
     return cp;
 }

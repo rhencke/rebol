@@ -40,15 +40,15 @@
 REBINT CT_Date(const REBCEL *a, const REBCEL *b, REBINT mode)
 {
     if (mode == 1) {
-        if (GET_VAL_FLAG(a, DATE_FLAG_HAS_ZONE)) {
-            if (NOT_VAL_FLAG(b, DATE_FLAG_HAS_ZONE))
+        if (Does_Date_Have_Zone(a)) {
+            if (not Does_Date_Have_Zone(b))
                 return 0; // can't be equal
 
             if (VAL_DATE(a).bits != VAL_DATE(b).bits)
                 return 0; // both have zones, all bits must be equal
         }
         else {
-            if (GET_VAL_FLAG(b, DATE_FLAG_HAS_ZONE))
+            if (Does_Date_Have_Zone(b))
                 return 0; // a doesn't have, b does, can't be equal
 
             REBDAT dat_a = a->extra.date;
@@ -59,15 +59,15 @@ REBINT CT_Date(const REBCEL *a, const REBCEL *b, REBINT mode)
                 return 0; // canonized to 0 zone not equal
         }
 
-        if (GET_VAL_FLAG(a, DATE_FLAG_HAS_TIME)) {
-            if (NOT_VAL_FLAG(b, DATE_FLAG_HAS_TIME))
+        if (Does_Date_Have_Time(a)) {
+            if (not Does_Date_Have_Time(b))
                 return 0; // can't be equal;
 
             if (VAL_NANO(a) != VAL_NANO(b))
                 return 0; // both have times, all bits must be equal
         }
         else {
-            if (GET_VAL_FLAG(b, DATE_FLAG_HAS_TIME))
+            if (Does_Date_Have_Time(b))
                 return 0; // a doesn't have, b, does, can't be equal
 
             // neither have times so equal
@@ -103,7 +103,7 @@ void MF_Date(REB_MOLD *mo, const REBCEL *v_orig, bool form)
         return;
     }
 
-    if (GET_VAL_FLAG(v, DATE_FLAG_HAS_ZONE)) {
+    if (Does_Date_Have_Zone(v)) {
         const bool to_utc = false;
         Adjust_Date_Zone(v, to_utc);
     }
@@ -123,11 +123,11 @@ void MF_Date(REB_MOLD *mo, const REBCEL *v_orig, bool form)
 
     Append_Unencoded(mo->series, s_cast(buf));
 
-    if (GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME)) {
+    if (Does_Date_Have_Time(v)) {
         Append_Utf8_Codepoint(mo->series, '/');
         MF_Time(mo, v, form);
 
-        if (GET_VAL_FLAG(v, DATE_FLAG_HAS_ZONE)) {
+        if (Does_Date_Have_Zone(v)) {
             bp = &buf[0];
 
             REBINT tz = VAL_ZONE(v);
@@ -342,11 +342,11 @@ static REBDAT Normalize_Date(REBINT day, REBINT month, REBINT year, REBINT tz)
 //
 void Adjust_Date_Zone(RELVAL *d, bool to_utc)
 {
-    if (NOT_VAL_FLAG(d, DATE_FLAG_HAS_ZONE))
+    if (not Does_Date_Have_Zone(d))
         return;
 
-    if (NOT_VAL_FLAG(d, DATE_FLAG_HAS_TIME)) {
-        CLEAR_VAL_FLAG(d, DATE_FLAG_HAS_ZONE); // !!! Is this necessary?
+    if (not Does_Date_Have_Time(d)) {
+        d->extra.date.date.zone = NO_DATE_ZONE; // !!! Is this necessary?
         return;
     }
 
@@ -358,7 +358,7 @@ void Adjust_Date_Zone(RELVAL *d, bool to_utc)
         secs = -secs;
     secs += VAL_NANO(d);
 
-    VAL_NANO(d) = (secs + TIME_IN_DAY) % TIME_IN_DAY;
+    d->payload.time.nanoseconds = (secs + TIME_IN_DAY) % TIME_IN_DAY;
 
     REBCNT n = VAL_DAY(d) - 1;
 
@@ -387,19 +387,21 @@ void Subtract_Date(REBVAL *d1, REBVAL *d2, REBVAL *result)
         fail (Error_Overflow_Raw());
 
     REBI64 t1;
-    if (GET_VAL_FLAG(d1, DATE_FLAG_HAS_TIME))
+    if (Does_Date_Have_Time(d1))
         t1 = VAL_NANO(d1);
     else
         t1 = 0L;
 
     REBI64 t2;
-    if (GET_VAL_FLAG(d2, DATE_FLAG_HAS_TIME))
+    if (Does_Date_Have_Time(d2))
         t2 = VAL_NANO(d2);
     else
         t2 = 0L;
 
-    RESET_CELL(result, REB_TIME);
-    VAL_NANO(result) = (t1 - t2) + (cast(REBI64, diff) * TIME_IN_DAY);
+    Init_Time_Nanoseconds(
+        result,
+        (t1 - t2) + (cast(REBI64, diff) * TIME_IN_DAY)
+    );
 }
 
 
@@ -412,14 +414,14 @@ REBINT Cmp_Date(const REBCEL *d1, const REBCEL *d2)
     if (diff != 0)
         return diff;
 
-    if (NOT_VAL_FLAG(d1, DATE_FLAG_HAS_TIME)) {
-        if (NOT_VAL_FLAG(d2, DATE_FLAG_HAS_TIME))
+    if (not Does_Date_Have_Time(d1)) {
+        if (not Does_Date_Have_Time(d2))
             return 0; // equal if no diff and neither has a time
 
         return -1; // d2 is bigger if no time on d1
     }
 
-    if (NOT_VAL_FLAG(d2, DATE_FLAG_HAS_TIME))
+    if (not Does_Date_Have_Time(d2))
         return 1; // d1 is bigger if no time on d2
 
     return Cmp_Time(d1, d2);
@@ -491,8 +493,8 @@ REB_R MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         REBI64 secs;
         REBINT tz;
         if (IS_END(item)) {
-            secs = 0;
-            tz = 0;
+            secs = NO_DATE_TIME;
+            tz = NO_DATE_ZONE;
         }
         else {
             if (not IS_TIME(item))
@@ -502,7 +504,7 @@ REB_R MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
             ++item;
 
             if (IS_END(item))
-                tz = 0;
+                tz = NO_DATE_ZONE;
             else {
                 if (not IS_TIME(item))
                     goto bad_make;
@@ -519,9 +521,9 @@ REB_R MAKE_Date(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
 
         Normalize_Time(&secs, &day);
 
-        RESET_VAL_HEADER_EXTRA(out, REB_DATE, DATE_FLAG_HAS_TIME);
+        RESET_CELL(out, REB_DATE);
         VAL_DATE(out) = Normalize_Date(day, month, year, tz);
-        VAL_NANO(out) = secs;
+        out->payload.time.nanoseconds = secs;
 
         const bool to_utc = true;
         Adjust_Date_Zone(out, to_utc);
@@ -604,7 +606,7 @@ void Pick_Or_Poke_Date(
             break;
 
         case SYM_TIME:
-            if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
+            if (not Does_Date_Have_Time(v))
                 Init_Nulled(opt_out);
             else {
                 Move_Value(opt_out, v); // want v's adjusted VAL_NANO()
@@ -614,11 +616,11 @@ void Pick_Or_Poke_Date(
             break;
 
         case SYM_ZONE:
-            if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_ZONE)) {
+            if (not Does_Date_Have_Zone(v)) {
                 Init_Nulled(opt_out);
             }
             else {
-                assert(GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME));
+                assert(Does_Date_Have_Time(v));
 
                 Init_Time_Nanoseconds(
                     opt_out,
@@ -633,7 +635,8 @@ void Pick_Or_Poke_Date(
             const bool to_utc = false;
             Adjust_Date_Zone(opt_out, to_utc); // !!! necessary?
 
-            CLEAR_VAL_FLAGS(opt_out, DATE_FLAG_HAS_TIME | DATE_FLAG_HAS_ZONE);
+            opt_out->payload.time.nanoseconds = NO_DATE_TIME;
+            opt_out->extra.date.date.zone = NO_DATE_ZONE;
             break; }
 
         case SYM_WEEKDAY:
@@ -647,14 +650,13 @@ void Pick_Or_Poke_Date(
 
         case SYM_UTC: {
             Move_Value(opt_out, v);
-            SET_VAL_FLAG(opt_out, DATE_FLAG_HAS_ZONE);
             INIT_VAL_ZONE(opt_out, 0);
             const bool to_utc = true;
             Adjust_Date_Zone(opt_out, to_utc);
             break; }
 
         case SYM_HOUR:
-            if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
+            if (not Does_Date_Have_Time(v))
                 Init_Nulled(opt_out);
             else {
                 REB_TIMEF time;
@@ -664,7 +666,7 @@ void Pick_Or_Poke_Date(
             break;
 
         case SYM_MINUTE:
-            if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
+            if (not Does_Date_Have_Time(v))
                 Init_Nulled(opt_out);
             else {
                 REB_TIMEF time;
@@ -674,7 +676,7 @@ void Pick_Or_Poke_Date(
             break;
 
         case SYM_SECOND:
-            if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
+            if (not Does_Date_Have_Time(v))
                 Init_Nulled(opt_out);
             else {
                 REB_TIMEF time;
@@ -708,8 +710,8 @@ void Pick_Or_Poke_Date(
         // the extracted "secs" or "tz" fields are valid by virtue of updating
         // the flags in the value itself.
         //
-        REBI64 secs = GET_VAL_FLAG(v, DATE_FLAG_HAS_TIME) ? VAL_NANO(v) : 0;
-        REBINT tz = GET_VAL_FLAG(v, DATE_FLAG_HAS_ZONE) ? VAL_ZONE(v) : 0;
+        REBI64 secs = Does_Date_Have_Time(v) ? VAL_NANO(v) : NO_DATE_TIME;
+        REBINT tz = Does_Date_Have_Zone(v) ? VAL_ZONE(v) : NO_DATE_ZONE;
 
         switch (sym) {
         case SYM_YEAR:
@@ -726,11 +728,11 @@ void Pick_Or_Poke_Date(
 
         case SYM_TIME:
             if (IS_NULLED(opt_poke)) { // clear out the time component
-                CLEAR_VAL_FLAGS(v, DATE_FLAG_HAS_TIME | DATE_FLAG_HAS_ZONE);
+                v->payload.time.nanoseconds = NO_DATE_TIME;
+                v->extra.date.date.zone = NO_DATE_ZONE;
                 return;
             }
 
-            SET_VAL_FLAG(v, DATE_FLAG_HAS_TIME); // hence secs is applicable
             if (IS_TIME(opt_poke) || IS_DATE(opt_poke))
                 secs = VAL_NANO(opt_poke);
             else if (IS_INTEGER(opt_poke))
@@ -743,19 +745,19 @@ void Pick_Or_Poke_Date(
 
         case SYM_ZONE:
             if (IS_NULLED(opt_poke)) { // clear out the zone component
-                CLEAR_VAL_FLAG(v, DATE_FLAG_HAS_ZONE);
+                v->extra.date.date.zone = NO_DATE_ZONE;
                 return;
             }
 
-            if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME))
+            if (not Does_Date_Have_Time(v))
                 fail ("Can't set /ZONE in a DATE! with no time component");
 
-            SET_VAL_FLAG(v, DATE_FLAG_HAS_ZONE); // hence tz is applicable
             if (IS_TIME(opt_poke))
                 tz = cast(REBINT, VAL_NANO(opt_poke) / (ZONE_MINS * MIN_SEC));
             else if (IS_DATE(opt_poke))
                 tz = VAL_ZONE(opt_poke);
-            else tz = Int_From_Date_Arg(opt_poke) * (60 / ZONE_MINS);
+            else
+                tz = Int_From_Date_Arg(opt_poke) * (60 / ZONE_MINS);
             if (tz > MAX_ZONE || tz < -MAX_ZONE)
                 fail (Error_Out_Of_Range(opt_poke));
             break;
@@ -770,20 +772,12 @@ void Pick_Or_Poke_Date(
                 fail (Error_Invalid(opt_poke));
             VAL_DATE(v) = VAL_DATE(opt_poke);
 
-            // If the poked date's time zone bitfield is not in effect, that
-            // needs to be copied to the date we're assigning.
-            //
-            if (GET_VAL_FLAG(opt_poke, DATE_FLAG_HAS_ZONE))
-                SET_VAL_FLAG(v, DATE_FLAG_HAS_ZONE);
-            else
-                CLEAR_VAL_FLAG(v, DATE_FLAG_HAS_ZONE);
+            assert(Does_Date_Have_Zone(opt_poke) == Does_Date_Have_Zone(v));
             return;
 
         case SYM_HOUR: {
-            if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME)) {
-                secs = 0;
-                SET_VAL_FLAG(v, DATE_FLAG_HAS_TIME); // secs is applicable
-            }
+            if (not Does_Date_Have_Time(v))
+                secs = 0; // secs is applicable
 
             REB_TIMEF time;
             Split_Time(secs, &time);
@@ -792,10 +786,8 @@ void Pick_Or_Poke_Date(
             break; }
 
         case SYM_MINUTE: {
-            if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME)) {
-                secs = 0;
-                SET_VAL_FLAG(v, DATE_FLAG_HAS_TIME); // secs is applicable
-            }
+            if (not Does_Date_Have_Time(v))
+                secs = 0; // secs is applicable
 
             REB_TIMEF time;
             Split_Time(secs, &time);
@@ -804,10 +796,8 @@ void Pick_Or_Poke_Date(
             break; }
 
         case SYM_SECOND: {
-            if (NOT_VAL_FLAG(v, DATE_FLAG_HAS_TIME)) {
-                secs = 0;
-                SET_VAL_FLAG(v, DATE_FLAG_HAS_TIME); // secs is applicable
-            }
+            if (not Does_Date_Have_Time(v))
+                secs = 0; // secs is applicable
 
             REB_TIMEF time;
             Split_Time(secs, &time);
@@ -837,12 +827,11 @@ void Pick_Or_Poke_Date(
         //
         Normalize_Time(&secs, &day); // note secs is 0 if no time component
 
-        // Note that tz will be 0 if no zone component flag set; shouldn't
-        // matter for date normalization, it just passes it through
+        // No time zone component flag set shouldn't matter for date
+        // normalization, it just passes it through
         //
         VAL_DATE(v) = Normalize_Date(day, month, year, tz);
-        if (secs != 0)
-            VAL_NANO(v) = secs;
+        v->payload.time.nanoseconds = secs; // may be NO_DATE_TIME
 
         const bool to_utc = true;
         Adjust_Date_Zone(v, to_utc);
@@ -893,7 +882,7 @@ REBTYPE(Date)
     REBCNT day = VAL_DAY(val) - 1;
     REBCNT month = VAL_MONTH(val) - 1;
     REBCNT year = VAL_YEAR(val);
-    REBI64 secs = GET_VAL_FLAG(val, DATE_FLAG_HAS_TIME) ? VAL_NANO(val) : 0;
+    REBI64 secs = Does_Date_Have_Time(val) ? VAL_NANO(val) : NO_DATE_TIME;
 
     REBVAL *arg = D_ARGC > 1 ? D_ARG(2) : NULL;
 
@@ -906,12 +895,14 @@ REBTYPE(Date)
         }
         else if (type == REB_TIME) {
             if (sym == SYM_ADD) {
-                SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
+                if (secs == NO_DATE_TIME)
+                    secs = 0;
                 secs += VAL_NANO(arg);
                 goto fixTime;
             }
             if (sym == SYM_SUBTRACT) {
-                SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
+                if (secs == NO_DATE_TIME)
+                    secs = 0;
                 secs -= VAL_NANO(arg);
                 goto fixTime;
             }
@@ -930,12 +921,14 @@ REBTYPE(Date)
         else if (type == REB_DECIMAL) {
             REBDEC dec = Dec64(arg);
             if (sym == SYM_ADD) {
-                SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
+                if (secs == NO_DATE_TIME)
+                    secs = 0;
                 secs += (REBI64)(dec * TIME_IN_DAY);
                 goto fixTime;
             }
             if (sym == SYM_SUBTRACT) {
-                SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
+                if (secs == NO_DATE_TIME)
+                    secs = 0;
                 secs -= (REBI64)(dec * TIME_IN_DAY);
                 goto fixTime;
             }
@@ -977,7 +970,7 @@ REBTYPE(Date)
             month = cast(REBCNT, Random_Range(12, secure));
             day = cast(REBCNT, Random_Range(31, secure));
 
-            if (GET_VAL_FLAG(val, DATE_FLAG_HAS_TIME))
+            if (secs != NO_DATE_TIME)
                 secs = Random_Range(TIME_IN_DAY, secure);
 
             goto fixDate;
@@ -1026,13 +1019,12 @@ fixDate:
         day,
         month,
         year,
-        GET_VAL_FLAG(val, DATE_FLAG_HAS_ZONE) ? VAL_ZONE(val) : 0
+        Does_Date_Have_Zone(val) ? VAL_ZONE(val) : 0
     );
 
 setDate:
     VAL_DATE(D_OUT) = date;
-    if (GET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME))
-        VAL_NANO(D_OUT) = secs;
+    D_OUT->payload.time.nanoseconds = secs; // may be NO_DATE_TIME
     return D_OUT;
 }
 
@@ -1071,12 +1063,11 @@ REBNATIVE(make_date_ymdsnz)
     VAL_MONTH(D_OUT) = VAL_INT32(ARG(month));
     VAL_DAY(D_OUT) = VAL_INT32(ARG(day));
 
-    SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_ZONE);
     INIT_VAL_ZONE(D_OUT, VAL_INT32(ARG(zone)) / ZONE_MINS);
 
-    SET_VAL_FLAG(D_OUT, DATE_FLAG_HAS_TIME);
-    VAL_NANO(D_OUT)
+    D_OUT->payload.time.nanoseconds
         = SECS_TO_NANO(VAL_INT64(ARG(seconds))) + VAL_INT64(ARG(nano));
 
+    assert(Does_Date_Have_Time(D_OUT));
     return D_OUT;
 }

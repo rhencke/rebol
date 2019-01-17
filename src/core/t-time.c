@@ -145,12 +145,11 @@ const REBYTE *Scan_Time(RELVAL *out, const REBYTE *cp, REBCNT len)
     else
         merid = '\0';
 
-    RESET_VAL_HEADER(out, REB_TIME);
-
+    REBI64 nanoseconds;
     if (part3 >= 0 || part4 < 0) { // HH:MM mode
         if (merid != '\0') {
             if (part1 > 12)
-                return NULL;
+                return nullptr;
 
             if (part1 == 12)
                 part1 = 0;
@@ -162,23 +161,22 @@ const REBYTE *Scan_Time(RELVAL *out, const REBYTE *cp, REBCNT len)
         if (part3 < 0)
             part3 = 0;
 
-        VAL_NANO(out) = HOUR_TIME(part1) + MIN_TIME(part2) + SEC_TIME(part3);
+        nanoseconds =  HOUR_TIME(part1) + MIN_TIME(part2) + SEC_TIME(part3);
     }
-    else {
-        // MM:SS mode
-
+    else { // MM:SS mode
         if (merid != '\0')
-            return NULL; // no AM/PM for minutes
+            return nullptr; // no AM/PM for minutes
 
-        VAL_NANO(out) = MIN_TIME(part1) + SEC_TIME(part2);
+        nanoseconds = MIN_TIME(part1) + SEC_TIME(part2);
     }
 
     if (part4 > 0)
-        VAL_NANO(out) += part4;
+        nanoseconds += part4;
 
     if (neg)
-        VAL_NANO(out) = -VAL_NANO(out);
+        nanoseconds = -nanoseconds;
 
+    Init_Time_Nanoseconds(out, nanoseconds);
     return cp;
 }
 
@@ -460,7 +458,7 @@ void Poke_Time_Immediate(
         fail (Error_Invalid(picker));
     }
 
-    VAL_NANO(value) = Join_Time(&tf, false);
+    value->payload.time.nanoseconds = Join_Time(&tf, false);
 }
 
 
@@ -715,7 +713,5 @@ REBTYPE(Time)
 
 fixTime:
 setTime:
-    RESET_CELL(D_OUT, REB_TIME);
-    VAL_NANO(D_OUT) = secs;
-    return D_OUT;
+    return Init_Time_Nanoseconds(D_OUT, secs);
 }

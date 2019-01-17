@@ -325,8 +325,8 @@ REBNATIVE(now)
     // have enough granularity to give back date, time, and time zone.
     //
     assert(IS_DATE(timestamp));
-    assert(GET_VAL_FLAG(timestamp, DATE_FLAG_HAS_TIME));
-    assert(GET_VAL_FLAG(timestamp, DATE_FLAG_HAS_ZONE));
+    assert(Does_Date_Have_Time(timestamp));
+    assert(Does_Date_Have_Zone(timestamp));
 
     Move_Value(D_OUT, timestamp);
     rebRelease(timestamp);
@@ -338,7 +338,7 @@ REBNATIVE(now)
         // seconds portion (with the nanoseconds set to 0).  This achieves
         // that by extracting the seconds and then multiplying by nanoseconds.
         //
-        VAL_NANO(D_OUT) = SECS_TO_NANO(VAL_SECS(D_OUT));
+        D_OUT->payload.time.nanoseconds = SECS_TO_NANO(VAL_SECS(D_OUT));
     }
 
     if (REF(utc)) {
@@ -352,7 +352,7 @@ REBNATIVE(now)
         //
         // Clear out the time zone flag
         //
-        CLEAR_VAL_FLAG(D_OUT, DATE_FLAG_HAS_ZONE);
+        D_OUT->extra.date.date.zone = NO_DATE_ZONE;
     }
     else {
         if (
@@ -372,14 +372,16 @@ REBNATIVE(now)
     REBINT n = -1;
 
     if (REF(date)) {
-        CLEAR_VAL_FLAGS(D_OUT, DATE_FLAG_HAS_TIME | DATE_FLAG_HAS_ZONE);
+        D_OUT->payload.time.nanoseconds = NO_DATE_TIME;
+        D_OUT->extra.date.date.zone = NO_DATE_ZONE;
     }
     else if (REF(time)) {
-        RESET_VAL_HEADER(D_OUT, REB_TIME); // reset clears date flags
+        RESET_VAL_HEADER(D_OUT, REB_TIME);
     }
     else if (REF(zone)) {
-        VAL_NANO(D_OUT) = VAL_ZONE(D_OUT) * ZONE_MINS * MIN_SEC;
-        RESET_VAL_HEADER(D_OUT, REB_TIME); // reset clears date flags
+        D_OUT->payload.time.nanoseconds
+            = VAL_ZONE(D_OUT) * ZONE_MINS * MIN_SEC;
+        RESET_VAL_HEADER(D_OUT, REB_TIME);
     }
     else if (REF(weekday))
         n = Week_Day(VAL_DATE(D_OUT));

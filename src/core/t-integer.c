@@ -434,8 +434,7 @@ REBTYPE(Integer)
                 }
                 if (n > 0) {
                     if (IS_TIME(val2)) {
-                        VAL_NANO(val) = SEC_TIME(VAL_INT64(val));
-                        mutable_KIND_BYTE(val) = REB_TIME;
+                        Init_Time_Nanoseconds(val, SEC_TIME(VAL_INT64(val)));
                         return T_Time(frame_, verb);
                     }
                     if (IS_DATE(val2))
