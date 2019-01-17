@@ -28,13 +28,8 @@
 //
 //
 
-#ifdef NDEBUG
-    #define DATE_FLAG(n) \
-        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
-#else
-    #define DATE_FLAG(n) \
-        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | FLAG_KIND_BYTE(REB_DATE))
-#endif
+#define DATE_FLAG(n) \
+    FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
 
 // `DATE_FLAG_HAS_TIME` answers whether a date's Reb_Time payload is valid.
 // All dates have REBYMD information in their ->extra field, but not all

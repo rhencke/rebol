@@ -46,13 +46,8 @@
 // and changing one won't change the others.
 //
 
-#ifdef NDEBUG
-    #define HANDLE_FLAG(n) \
-        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
-#else
-    #define HANDLE_FLAG(n) \
-        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | FLAG_KIND_BYTE(REB_HANDLE))
-#endif
+#define HANDLE_FLAG(n) \
+    FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
 
 // Note: In the C language, sizeof(void*) may not be the same size as a
 // function pointer; hence they can't necessarily be cast between each other.

@@ -175,26 +175,51 @@
     // In the debug build, functions aren't inlined, and the overhead actually
     // adds up very quickly of getting the 3 parameters passed in.  Run the
     // risk of repeating macro arguments to speed up this critical test.
-    //
-    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
+
+    #define ASSERT_CELL_READABLE_EVIL_MACRO(c,file,line) \
         do { \
             if (not ((c)->header.bits & NODE_FLAG_CELL)) { \
-                printf("Non-cell passed to cell writing routine\n"); \
+                printf("Non-cell passed to cell read/write routine\n"); \
                 panic_at ((c), (file), (line)); \
             } \
             else if (not ((c)->header.bits & NODE_FLAG_NODE)) { \
-                printf("Non-node passed to cell writing routine\n"); \
+                printf("Non-node passed to cell read/write routine\n"); \
                 panic_at ((c), (file), (line)); \
-            } else if (\
-                (c)->header.bits & (CELL_FLAG_PROTECTED | NODE_FLAG_FREE) \
-            ){ \
+            } \
+        } while (0) // assume trash-oriented checks will catch "free" cells
+
+    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
+        do { \
+            ASSERT_CELL_READABLE_EVIL_MACRO(c, file, line); \
+            if ((c)->header.bits & (CELL_FLAG_PROTECTED | NODE_FLAG_FREE)) { \
                 printf("Protected/free cell passed to writing routine\n"); \
                 panic_at ((c), (file), (line)); \
             } \
         } while (0)
+
+    inline static const REBCEL *READABLE(
+        const REBCEL *c,
+        const char *file,
+        int line
+    ){
+        ASSERT_CELL_READABLE_EVIL_MACRO(c, file, line);
+        return c;
+    }
+
+    inline static REBCEL *WRITABLE(
+        REBCEL *c,
+        const char *file,
+        int line
+    ){
+        ASSERT_CELL_WRITABLE_EVIL_MACRO(c, file, line);
+        return c;
+    }
 #else
-    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line) \
-        NOOP
+    #define ASSERT_CELL_READABLE_EVIL_MACRO(c,file,line)    NOOP
+    #define ASSERT_CELL_WRITABLE_EVIL_MACRO(c,file,line)    NOOP
+
+    #define READABLE(c,file,line) (c)
+    #define WRITABLE(c,file,ilne) (c)
 #endif
 
 
@@ -373,143 +398,79 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 #endif
 
 
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// GETTING, SETTING, and CLEARING VALUE FLAGS ////////////////////////=//
 //
-//  VALUE FLAGS
+// The header of a cell contains information about what kind of cell it is,
+// as well as some flags that are reserved for system purposes.  These are
+// the NODE_FLAG_XXX and VALUE_FLAG_XXX flags, that work on any cell.
 //
-//=////////////////////////////////////////////////////////////////////////=//
+// (A previous concept where cells could use some of the header bits to carry
+// more data that wouldn't fit in the "extra" or "payload" is deprecated.
+// If those three pointers are not enough for the data a type needs, then it
+// has to use an additional allocation and point to that.)
 //
-// VALUE_FLAG_XXX flags are applicable to all types.  Type-specific flags are
-// named things like TYPESET_FLAG_XXX or WORD_FLAG_XXX and only apply to the
-// type that they reference.  Both use these XXX_VAL_FLAG accessors.
-//
 
-#ifdef NDEBUG
-    #define SET_VAL_FLAGS(v,f) \
-        (v)->header.bits |= (f)
+#define SET_VAL_FLAGS(v,f) \
+    (WRITABLE(v, __FILE__, __LINE__)->header.bits |= (f))
 
-    #ifdef CPLUSPLUS_11
-        //
-        // In the C++ release build we sanity check that only one bit is set.
-        // The assert is done at compile-time, you must use a constant flag.
-        // If you need dynamic flag checking, use GET_VAL_FLAGS even for one.
-        //
-        // Note this is not included as a runtime assert because it is costly,
-        // and it's not included in the debug build because the flags are
-        // "contaminated" with additional data that's hard to mask out at
-        // compile-time due to the weirdness of CLEAR_8_RIGHT_BITS.  This
-        // pattern does not catch bad flag checks in asserts.  Review.
+#define ANY_VAL_FLAGS(v,f) \
+    ((READABLE(v, __FILE__, __LINE__)->header.bits & (f)) != 0)
 
-        template <uintptr_t f>
-        inline static void SET_VAL_FLAG_cplusplus(REBCEL *v) {
-            static_assert(
-                f and (f & (f - 1)) == 0, // only one bit is set
-                "use SET_VAL_FLAGS() to set multiple bits"
-            );
-            v->header.bits |= f;
-        }
-        #define SET_VAL_FLAG(v,f) \
-            SET_VAL_FLAG_cplusplus<f>(v)
-        
-        template <uintptr_t f>
-        inline static bool GET_VAL_FLAG_cplusplus(const REBCEL *v) {
-            static_assert(
-                f and (f & (f - 1)) == 0, // only one bit is set
-                "use ANY_VAL_FLAGS() or ALL_VAL_FLAGS() to test multiple bits"
-            );
-            return did (v->header.bits & f);
-        }
-        #define GET_VAL_FLAG(v,f) \
-            GET_VAL_FLAG_cplusplus<f>(v)
-    #else
-        #define SET_VAL_FLAG(v,f) \
-            SET_VAL_FLAGS((v), (f))
+inline static bool ALL_VAL_FLAGS(REBCEL *v, uintptr_t f) // repeats parameter
+    { return (READABLE(v, __FILE__, __LINE__)->header.bits & f) == f; }
 
-        #define GET_VAL_FLAG(v, f) \
-            (did ((v)->header.bits & (f)))
-    #endif
+#define CLEAR_VAL_FLAGS(v,f) \
+    (WRITABLE(v, __FILE__, __LINE__)->header.bits &= ~(f))
 
-    #define ANY_VAL_FLAGS(v,f) \
-        (((v)->header.bits & (f)) != 0)
-
-    #define ALL_VAL_FLAGS(v,f) \
-        (((v)->header.bits & (f)) == (f))
-
-    #define CLEAR_VAL_FLAGS(v,f) \
-        ((v)->header.bits &= ~(f))
-
-    #define CLEAR_VAL_FLAG(v,f) \
-        CLEAR_VAL_FLAGS((v), (f))
-
-    #define CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(flags) \
-        NOOP
+#if defined(NDEBUG) || !defined(CPLUSPLUS_11)
+    //
+    // Debug builds don't inline functions; don't add another of layer of call
+    // for a compile-time check that the release build can take care of.
+    // 
+    #define SET_VAL_FLAG(v,f)       SET_VAL_FLAGS((v), (f))
+    #define GET_VAL_FLAG(v, f)      ANY_VAL_FLAGS((v), (f))
+    #define CLEAR_VAL_FLAG(v,f)     CLEAR_VAL_FLAGS((v), (f))
 #else
-    // For safety in the debug build, all the type-specific flags include a
-    // type (or type representing a category) as part of the flag.  This type
-    // is checked first, and then masked out to use the single-bit-flag value
-    // which is intended.
-    //
-    // But flag testing routines are called *a lot*, and debug builds do not
-    // inline functions.  So it's worth doing a sketchy macro so this somewhat
-    // borderline assert doesn't wind up taking up 20% of the debug's runtime.
-    //
-    #define CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(flags) \
-        enum Reb_Kind category = cast(enum Reb_Kind, SECOND_BYTE(flags)); \
-        assert(kind < REB_MAX_PLUS_MAX); /* see REB_MAX_PLUS_MAX */ \
-        if (category != REB_0) { \
-            if (kind != category) { \
-                if (category == REB_WORD) \
-                    assert(ANY_WORD_KIND(kind)); \
-                else if (category == REB_OBJECT) \
-                    assert(ANY_CONTEXT_KIND(kind)); \
-                else \
-                    assert(false); \
-            } \
-            mutable_SECOND_BYTE(flags) = 0; \
-        } \
+    // Use compile-time check on variants for dealing with exactly one bit.
+    // While this may seem kind of overkill, it's actually good for forcing
+    // you to distinguish if you were trying to test that ANY of the bits
+    // were set, vs ALL of the bits set...an easy thing to get confused on.
 
-    inline static void SET_VAL_FLAGS(REBCEL *v, uintptr_t f) {
-        enum Reb_Kind kind = CELL_KIND(v);
-        CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
+    template <uintptr_t f>
+    inline static void SET_VAL_FLAG_cplusplus(REBCEL *v) {
+        static_assert(
+            f and (f & (f - 1)) == 0, // only one bit is set
+            "use SET_VAL_FLAGS() to set multiple bits"
+        );
+        ASSERT_CELL_WRITABLE_EVIL_MACRO(v, __FILE__, __LINE__);
         v->header.bits |= f;
     }
-
-    inline static void SET_VAL_FLAG(REBCEL *v, uintptr_t f) {
-        enum Reb_Kind kind = CELL_KIND(v);
-        CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
-        v->header.bits |= f;
+    #define SET_VAL_FLAG(v,f) \
+        SET_VAL_FLAG_cplusplus<f>(v)
+        
+    template <uintptr_t f>
+    inline static bool GET_VAL_FLAG_cplusplus(const REBCEL *v) {
+        static_assert(
+            f and (f & (f - 1)) == 0, // only one bit is set
+            "use ANY_VAL_FLAGS() or ALL_VAL_FLAGS() to test multiple bits"
+        );
+        ASSERT_CELL_READABLE_EVIL_MACRO(v, __FILE__, __LINE__);
+        return (v->header.bits & f);
     }
+    #define GET_VAL_FLAG(v,f) \
+        GET_VAL_FLAG_cplusplus<f>(v)
 
-    inline static bool GET_VAL_FLAG(const REBCEL *v, uintptr_t f) {
-        enum Reb_Kind kind = CELL_KIND(v);
-        CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
-        return did (v->header.bits & f);
-    }
-
-    inline static bool ANY_VAL_FLAGS(const REBCEL *v, uintptr_t f) {
-        enum Reb_Kind kind = CELL_KIND(v);
-        CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
-        return (v->header.bits & f) != 0;
-    }
-
-    inline static bool ALL_VAL_FLAGS(const REBCEL *v, uintptr_t f) {
-        enum Reb_Kind kind = CELL_KIND(v);
-        CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
-        return (v->header.bits & f) == f;
-    }
-
-    inline static void CLEAR_VAL_FLAGS(REBCEL *v, uintptr_t f) {
-        enum Reb_Kind kind = CELL_KIND(v);
-        CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
+    template <uintptr_t f>
+    inline static void CLEAR_VAL_FLAG_cplusplus(REBCEL *v) {
+        static_assert(
+            f and (f & (f - 1)) == 0, // only one bit is set
+            "use CLEAR_VAL_FLAGS() to remove multiple bits"
+        );
+        ASSERT_CELL_WRITABLE_EVIL_MACRO(v, __FILE__, __LINE__);
         v->header.bits &= ~f;
     }
-
-    inline static void CLEAR_VAL_FLAG(REBCEL *v, uintptr_t f) {
-        enum Reb_Kind kind = CELL_KIND(v);
-        CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(f);
-        assert(f and (f & (f - 1)) == 0); // checks that only one bit is set
-        v->header.bits &= ~f;
-    }
+    #define CLEAR_VAL_FLAG(v,f) \
+        CLEAR_VAL_FLAG_cplusplus<f>(v)
 #endif
 
 #define NOT_VAL_FLAG(v,f) \
@@ -523,15 +484,13 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // RESET_VAL_HEADER clears out the header of *most* bits, setting it to a
-// new type.  The type takes up the full second byte of the header, despite
-// the fact it only needs 6 bits.  However, the performance advantage of not
-// needing to mask to do VAL_TYPE() is worth it...also there may be a use for
-// 256 types (although type bitsets are only 64-bits at the moment)
+// new type.  The type takes up the full second byte of the header (see
+// details in %sys-quoted.h for how this byte is used).
 //
 // The value is expected to already be "pre-formatted" with the NODE_FLAG_CELL
 // bit, so that is left as-is.  It is also expected that CELL_FLAG_STACK has
 // been set if the value is stack-based (e.g. on the C stack or in a frame),
-// so that is left as-is also.
+// so that is left as-is also.  See CELL_MASK_PERSIST.
 //
 
 inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
@@ -545,11 +504,6 @@ inline static REBVAL *RESET_VAL_HEADER_EXTRA_Core(
   #endif
 ){
     ASSERT_CELL_WRITABLE_EVIL_MACRO(v, file, line);
-
-    // The debug build puts some extra type information onto flags
-    // which needs to be cleared out.
-    //
-    CHECK_VALUE_FLAGS_EVIL_MACRO_DEBUG(extra);
 
     v->header.bits &= CELL_MASK_PERSIST;
     v->header.bits |= FLAG_KIND_BYTE(kind) | extra;

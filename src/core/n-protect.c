@@ -136,10 +136,11 @@ static void Protect_Key(REBCTX *context, REBCNT index, REBFLGS flags)
     // from any objects that were sharing it.
     //
     if (flags & PROT_WORD) {
+        ASSERT_CELL_READABLE_EVIL_MACRO(var, __FILE__, __LINE__);
         if (flags & PROT_SET)
-            SET_VAL_FLAG(var, CELL_FLAG_PROTECTED);
+            var->header.bits |= CELL_FLAG_PROTECTED;
         else
-            CLEAR_VAL_FLAG(var, CELL_FLAG_PROTECTED);
+            var->header.bits &= ~CELL_FLAG_PROTECTED; // can't CLEAR_VAL_FLAG
     }
 
     if (flags & PROT_HIDE) {
