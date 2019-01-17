@@ -216,22 +216,16 @@
     FLAG_LEFT_BIT(23)
 
 
-// ^-- STOP BEFORE TYPE_SPECIFIC_BIT
-//
 // After 8 bits for node flags, 8 bits for the datatype, and 8 generic value
 // bits...there's only 8 more bits left on 32-bit platforms in the header.
-// Those are used for flags that are sensitive to the datatype.
 //
-#define TYPE_SPECIFIC_BIT (24)
-STATIC_ASSERT(23 < TYPE_SPECIFIC_BIT);
+// !!! This is slated for an interesting feature of fitting an immutable
+// single element array into a cell.  The proposal is called "mirror bytes".
 
-
-// v-- BEGIN PER-TYPE CUSTOM BITS HERE, fourth byte in the header
-
-#define CUSTOM_BYTE(v) \
+#define MIRROR_BYTE(v) \
     FOURTH_BYTE((v)->header)
 
-#define mutable_CUSTOM_BYTE(v) \
+#define mutable_MIRROR_BYTE(v) \
     mutable_FOURTH_BYTE((v)->header)
 
 
@@ -539,15 +533,9 @@ struct Reb_Varargs_Payload {
 // in order to revisit them and fill them in more efficiently.  This special
 // payload is used along with a singly linked list via extra.next_partial
 
-#define PARTIAL_FLAG_IN_USE \
-    FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT)
-
-#define PARTIAL_FLAG_SAW_NULL_ARG \
-    FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + 1)
-
 struct Reb_Partial_Payload { // Used with REB_X_PARTIAL
     REBDSP dsp; // the DSP of this partial slot (if ordered on the stack)
-    REBCNT index; // maps to the index of this parameter in the paramlist
+    REBINT signed_index; // index in the paramlist, negative if not "in use"
 };
 
 

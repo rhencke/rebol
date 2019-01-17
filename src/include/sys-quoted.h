@@ -116,18 +116,6 @@ inline static RELVAL *Quotify_Core(
         }
         v->payload.quoted.cell = cell;
         v->payload.quoted.depth = depth;
-
-      #if !defined(NDEBUG) && defined(DEBUG_COUNT_TICKS)
-        //
-        // Throw in a little corruption just to throw a wrench into anyone
-        // who might be checking flags on a literal.
-        //
-        // !!! Would it perform better to store the depth here instead of
-        // the payload?  Limiting to 256 levels of escaping doesn't seem
-        // that prohibitive.
-        //
-        mutable_CUSTOM_BYTE(v) = TG_Tick % 256;
-      #endif
     }
 
     return v;

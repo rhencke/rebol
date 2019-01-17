@@ -346,12 +346,11 @@ REBCTX *Make_Context_For_Action(
 #define FINALIZE_REFINE_IF_FULFILLED \
     assert(evoked != refine or evoked->payload.partial.dsp == 0); \
     if (KIND_BYTE(refine) == REB_X_PARTIAL) { \
-        if (not GET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG)) { \
-            if (refine->payload.partial.dsp != 0) \
-                Init_Blank(DS_AT(refine->payload.partial.dsp)); /* full! */ \
-            else if (refine == evoked) \
-                evoked = NULL; /* allow another evoke to be last partial! */ \
-        } \
+        /* Partial, and wasn't flipped to REB_X_PARTIAL_SAW_NULL_ARG... */ \
+        if (refine->payload.partial.dsp != 0) \
+            Init_Blank(DS_AT(refine->payload.partial.dsp)); /* full! */ \
+        else if (refine == evoked) \
+            evoked = NULL; /* allow another evoke to be last partial! */ \
     }
 
 
@@ -503,20 +502,22 @@ bool Specialize_Action_Throws(
 
                 RESET_CELL(refine, REB_X_PARTIAL);
                 refine->payload.partial.dsp = partial_dsp;
-                refine->payload.partial.index = index;
                 TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
 
                 last_partial = refine;
 
-                if (partial_dsp == 0)
+                if (partial_dsp == 0) {
+                    refine->payload.partial.signed_index
+                        = -cast(REBINT, index); // negative signals unused
                     goto unspecialized_arg_but_may_evoke;
+                }
 
                 // Though Make_Frame_For_Specialization() knew this slot was
                 // partial when it ran, user code might have run to fill in
                 // all the null arguments.  We need to know the stack position
                 // of the ordering, to BLANK! it from the partial stack if so.
                 //
-                SET_VAL_FLAG(refine, PARTIAL_FLAG_IN_USE);
+                refine->payload.partial.signed_index = index; // + in use
                 goto specialized_arg_no_typecheck;
             }
 
@@ -559,7 +560,7 @@ bool Specialize_Action_Throws(
 
         if (KIND_BYTE(refine) == REB_X_PARTIAL) {
             if (IS_NULLED(arg)) { // we *know* it's not completely fulfilled
-                SET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG);
+                mutable_KIND_BYTE(refine) = REB_X_PARTIAL_SAW_NULL_ARG;
                 goto unspecialized_arg;
             }
 
@@ -582,7 +583,9 @@ bool Specialize_Action_Throws(
             TYPE_SET(DS_TOP, REB_TS_HIDDEN);
 
             evoked = refine; // gets reset to NULL if ends up fulfilled
-            SET_VAL_FLAG(refine, PARTIAL_FLAG_IN_USE);
+            assert(refine->payload.partial.signed_index < 0);
+            refine->payload.partial.signed_index =
+                -refine->payload.partial.signed_index; // negate to mark used
             goto specialized_arg;
         }
 
@@ -617,14 +620,14 @@ bool Specialize_Action_Throws(
         else
             last_partial->extra.next_partial = refine;
 
-        RESET_CELL_EXTRA(refine, REB_X_PARTIAL, PARTIAL_FLAG_IN_USE);
+        RESET_CELL(refine, REB_X_PARTIAL_SAW_NULL_ARG); // this is a null arg
         refine->payload.partial.dsp = 0; // no ordered position on stack
-        refine->payload.partial.index = index - (arg - refine);
+        refine->payload.partial.signed_index
+            = index - (arg - refine); // positive to indicate used
         TRASH_POINTER_IF_DEBUG(refine->extra.next_partial);
 
         last_partial = refine;
 
-        SET_VAL_FLAG(refine, PARTIAL_FLAG_SAW_NULL_ARG); // this is a null arg
         evoked = refine; // ...we won't ever set this back to NULL later
         goto unspecialized_arg;
 
@@ -711,10 +714,13 @@ bool Specialize_Action_Throws(
 
     REBVAL *partial = first_partial;
     while (partial) {
-        assert(KIND_BYTE(partial) == REB_X_PARTIAL);
+        assert(
+            KIND_BYTE(partial) == REB_X_PARTIAL
+            or KIND_BYTE(partial) == REB_X_PARTIAL_SAW_NULL_ARG
+        );
         REBVAL *next_partial = partial->extra.next_partial; // overwritten
 
-        if (NOT_VAL_FLAG(partial, PARTIAL_FLAG_IN_USE)) {
+        if (partial->payload.partial.signed_index < 0) { // not in use
             if (ordered == DS_TOP)
                 Init_Nulled(partial); // no more partials coming
             else {
@@ -724,10 +730,14 @@ bool Specialize_Action_Throws(
             goto continue_loop;
         }
 
-        if (NOT_VAL_FLAG(partial, PARTIAL_FLAG_SAW_NULL_ARG)) { // filled
+        if (KIND_BYTE(partial) != REB_X_PARTIAL_SAW_NULL_ARG) { // filled
             Init_Refinement(
                 partial,
-                VAL_PARAM_SPELLING(rootkey + partial->payload.partial.index)
+                VAL_PARAM_SPELLING(
+                    rootkey + ((partial->payload.partial.signed_index > 0)
+                            ? partial->payload.partial.signed_index
+                            : -(partial->payload.partial.signed_index))
+                )
             );
             SET_VAL_FLAG(partial, ARG_MARKED_CHECKED);
             goto continue_loop;
@@ -739,7 +749,11 @@ bool Specialize_Action_Throws(
             // code block will come after all the refinements in the path,
             // making it *first* in the exemplar partial/unspecialized slots.
             //
-            REBCNT evoked_index = evoked->payload.partial.index;
+            assert(evoked->payload.partial.signed_index > 0); // in use
+            REBCNT evoked_index = cast(
+                REBCNT,
+                evoked->payload.partial.signed_index
+            );
             Init_Any_Word_Bound(
                 partial,
                 REB_ISSUE,

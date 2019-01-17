@@ -28,8 +28,6 @@
 //
 //
 
-#define DATE_FLAG(n) \
-    FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
 
 // All dates have REBYMD information in their ->extra field, but not all
 // of them also have associated time information.  This value for the nano

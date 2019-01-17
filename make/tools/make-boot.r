@@ -370,6 +370,7 @@ e-types/emit {
         REB_R_INVISIBLE = PSEUDOTYPE_TWO,
         REB_P_TIGHT = PSEUDOTYPE_TWO,
         REB_TS_SKIPPABLE = PSEUDOTYPE_TWO,
+        REB_X_PARTIAL_SAW_NULL_ARG = PSEUDOTYPE_TWO,
       #if defined(DEBUG_TRASH_MEMORY)
         REB_T_TRASH = PSEUDOTYPE_TWO, /* identify trash in debug build */
       #endif

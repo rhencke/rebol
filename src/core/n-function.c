@@ -538,12 +538,6 @@ REBNATIVE(enclose)
     REBVAL *rootparam = KNOWN(ARR_HEAD(paramlist));
     rootparam->payload.action.paramlist = paramlist;
 
-    // !!! We don't want to inherit the flags of the original action, such
-    // as PARAMLIST_FLAG_NATIVE.  For now just clear out all the type-specific
-    // bits and let Make_Action() cache the flags it needs.
-    //
-    mutable_CUSTOM_BYTE(rootparam) = 0;
-
     // See %sysobj.r for `enclosed-meta:` object template
 
     REBVAL *example = Get_System(SYS_STANDARD, STD_ENCLOSED_META);
