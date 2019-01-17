@@ -374,7 +374,7 @@ REBNATIVE(do)
         REBVAL *param = ACT_PARAMS_HEAD(VAL_ACTION(source));
         while (
             NOT_END(param)
-            and (VAL_PARAM_CLASS(param) == PARAM_CLASS_LOCAL)
+            and (VAL_PARAM_CLASS(param) == REB_P_LOCAL)
         ){
             ++param;
         }

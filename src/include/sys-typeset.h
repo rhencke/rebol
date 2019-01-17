@@ -128,15 +128,15 @@ inline static REBSTR *Get_Type_Name(const RELVAL *value)
 // wasn't affected much.
 //
 
-enum Reb_Param_Class {
+typedef enum Reb_Kind Reb_Param_Class;
+
     //
-    // `PARAM_CLASS_LOCAL` is a "pure" local, which will be set to null by
+    // `REB_P_LOCAL` is a "pure" local, which will be set to null by
     // argument fulfillment.  It is indicated by a SET-WORD! in the function
     // spec, or by coming after a <local> tag in the function generators.
     //
-    PARAM_CLASS_LOCAL = 0,
 
-    // `PARAM_CLASS_NORMAL` is cued by an ordinary WORD! in the function spec
+    // `REB_P_NORMAL` is cued by an ordinary WORD! in the function spec
     // to indicate that you would like that argument to be evaluated normally.
     //
     //     >> foo: function [a] [print [{a is} a]]
@@ -150,9 +150,8 @@ enum Reb_Param_Class {
     //     a is 1
     //     ** Script error: + does not allow void! for its value1 argument
     //
-    PARAM_CLASS_NORMAL = 0x01,
 
-    // `PARAM_CLASS_HARD_QUOTE` is cued by a GET-WORD! in the function spec
+    // `REB_P_HARD_QUOTE` is cued by a GET-WORD! in the function spec
     // dialect.  It indicates that a single value of content at the callsite
     // should be passed through *literally*, without any evaluation:
     //
@@ -164,13 +163,11 @@ enum Reb_Param_Class {
     //     >> foo (1 + 2)
     //     a is (1 + 2)
     //
-    PARAM_CLASS_HARD_QUOTE = 0x02, // GET-WORD! in spec
 
-    // `PARAM_CLASS_REFINEMENT`
+    // `REB_P_REFINEMENT`
     //
-    PARAM_CLASS_REFINEMENT = 0x03,
 
-    // `PARAM_CLASS_TIGHT` makes enfixed first arguments "lazy" and other
+    // `REB_P_TIGHT` makes enfixed first arguments "lazy" and other
     // arguments will use the DO_FLAG_NO_LOOKAHEAD.
     //
     // R3-Alpha's notion of infix OP!s changed the way parameters were
@@ -188,14 +185,12 @@ enum Reb_Param_Class {
     // completed as far as they can be on both the left and right hand side of
     // enfixed expressions.
     //
-    PARAM_CLASS_TIGHT = 0x04,
 
-    // PARAM_CLASS_RETURN acts like a pure local, but is pre-filled with a
+    // REB_P_RETURN acts like a pure local, but is pre-filled with a
     // ACTION! bound to the frame, that takes 0 or 1 arg and returns it.
     //
-    PARAM_CLASS_RETURN = 0x05,
 
-    // `PARAM_CLASS_SOFT_QUOTE` is cued by a LIT-WORD! in the function spec
+    // `REB_P_SOFT_QUOTE` is cued by a LIT-WORD! in the function spec
     // dialect.  It quotes with the exception of GROUP!, GET-WORD!, and
     // GET-PATH!...which will be evaluated:
     //
@@ -211,33 +206,17 @@ enum Reb_Param_Class {
     // a convenient way to allow callers to "escape" a quoted context when
     // they need to.
     //
-    // Note: Value chosen for PCLASS_ANY_QUOTE_MASK in common with hard quote
-    //
-    PARAM_CLASS_SOFT_QUOTE = 0x06,
 
-    PARAM_CLASS_UNUSED_0x07 = 0x07,
 
-    PARAM_CLASS_MAX
-};
+inline static bool IS_PARAM_KIND(REBYTE k)
+    { return k >= REB_P_NORMAL and k <= REB_P_RETURN; }
 
-#define PCLASS_ANY_QUOTE_MASK 0x02
+#define IS_PARAM(v) \
+    IS_PARAM_KIND(KIND_BYTE(v))
 
-#define PCLASS_NUM_BITS 3
-#define PCLASS_BYTE_MASK 0x07 // for 3 bits, 0x00000111
-
-inline static enum Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
-    assert(IS_TYPESET(v));
-    return cast(
-        enum Reb_Param_Class,
-        CUSTOM_BYTE(v)
-        /* (const_CUSTOM_BYTE(v) & PCLASS_BYTE_MASK) */ // resurrect if needed
-    );
-}
-
-inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
-    /* mutable_CUSTOM_BYTE(v) &= ~PCLASS_BYTE_MASK;
-    mutable_CUSTOM_BYTE(v) |= c; */ // can resurrect if needed
-    mutable_CUSTOM_BYTE(v) = c;
+inline static Reb_Param_Class VAL_PARAM_CLASS(const RELVAL *v) {
+    assert(IS_PARAM(v));
+    return cast(Reb_Param_Class, KIND_BYTE_UNCHECKED(v));
 }
 
 
@@ -247,17 +226,8 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 //
 //=////////////////////////////////////////////////////////////////////////=//
 //
-// Typesets could use flags encoded as TYPESET_FLAG_XXX in the type-specific
-// flags byte of the header.  However, that gets somewhat cramped because
-// three of those bits are used for the PARAM_CLASS.
-//
-// Hence an alternative option is to use out-of-range of 1...REB_MAX datatypes
-// as "psuedo-types" in the typeset bits.
-//
-// !!! An experiment switched to using entirely pseudo-type bits, so there was
-// no sharing of the PARAM_CLASS byte, to see if that sped up VAL_PARAM_CLASS
-// to make a difference.  It was a somewhat minor speedup, so it has been
-// kept...but could be abandoned if having more bits were at issue.
+// At the moment, typeset flags are folded into the 64-bit test of the typeset
+// bits using out-of-range of 1...REB_MAX datatypes as "psuedo-types".
 //
 
 // Endability is distinct from optional, and it means that a parameter is
@@ -292,7 +262,7 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
 // Can't be reflected (set with PROTECT/HIDE) or specialized out
 //
 // !!! Note: Currently, the semantics of Is_Param_Hidden() are rather sketchy.
-// The flag (REB_TS_HIDDEN) is not put on PARAM_CLASS_LOCAL/PARAM_CLASS_RETURN
+// The flag (REB_TS_HIDDEN) is not put on REB_P_LOCAL/REB_P_RETURN
 // and it hasn't been figured out how such a flag would be managed on a per
 // object or frame instance while sharing the same paramlist/keylist (a method
 // like CELL_FLAG_PROTECTED might be needed if that feature is interesting).
@@ -324,53 +294,65 @@ inline static void INIT_VAL_PARAM_CLASS(RELVAL *v, enum Reb_Param_Class c) {
     TYPE_CHECK((v), REB_TS_NOOP_IF_BLANK
 
 
-#ifdef NDEBUG
-    #define TYPESET_FLAG(n) \
-        FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n))
-#else
-    #define TYPESET_FLAG(n) \
-        (FLAG_LEFT_BIT(TYPE_SPECIFIC_BIT + (n)) | FLAG_KIND_BYTE(REB_TYPESET))
-#endif
-
-
-// ^-- STOP AT TYPESET_FLAG(-1) (e.g. don't use them) --^
-//
-// !!! TYPESET_FLAG_XXX is not currently in use, only "pseudotype" flags are.
-// This is so a whole byte is taken for the parameter class, to make fetching
-// and setting it faster.
-//
-#ifdef CPLUSPLUS_11
-static_assert(0 < 8 - PCLASS_NUM_BITS, "TYPESET_FLAG_XXX too high");
-#endif
-
 
 //=//// PARAMETER SYMBOL //////////////////////////////////////////////////=//
 //
 // Name should be NULL unless typeset in object keylist or func paramlist
 
-inline static void INIT_TYPESET_NAME(RELVAL *typeset, REBSTR *str) {
-    assert(IS_TYPESET(typeset));
-    typeset->extra.key_spelling = str;
-}
 
 inline static REBSTR *VAL_KEY_SPELLING(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_TYPESET);
+    assert(IS_PARAM_KIND(CELL_KIND(v)));
     return v->extra.key_spelling;
 }
 
 inline static REBSTR *VAL_KEY_CANON(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_TYPESET);
+    assert(IS_PARAM_KIND(CELL_KIND(v)));
     return STR_CANON(VAL_KEY_SPELLING(v));
 }
 
 inline static OPT_REBSYM VAL_KEY_SYM(const REBCEL *v) {
-    assert(CELL_KIND(v) == REB_TYPESET);
+    assert(IS_PARAM_KIND(CELL_KIND(v)));
     return STR_SYMBOL(VAL_KEY_SPELLING(v)); // mirrors canon's symbol
 }
 
 #define VAL_PARAM_SPELLING(p) VAL_KEY_SPELLING(p)
 #define VAL_PARAM_CANON(p) VAL_KEY_CANON(p)
 #define VAL_PARAM_SYM(p) VAL_KEY_SYM(p)
+
+inline static REBVAL *Init_Typeset(RELVAL *out, REBU64 bits)
+{
+    RESET_CELL(out, REB_TYPESET);
+    VAL_TYPESET_BITS(out) = bits;
+    return cast(REBVAL*, out);
+}
+
+
+inline static REBVAL *Init_Param(
+    RELVAL *out,
+    Reb_Param_Class pclass,
+    REBSTR *spelling,
+    REBU64 bits
+){
+    RESET_CELL(out, pclass);
+    out->extra.key_spelling = spelling;
+    VAL_TYPESET_BITS(out) = bits;
+    assert(IS_PARAM(out));
+    return cast(REBVAL*, out);
+}
+
+// Context keys and action parameters use a compatible representation (this
+// enables using action paramlists as FRAME! context keylists).  However,
+// Rebol objects historically don't do any typechecking, so this just says
+// any value is legal.
+//
+// !!! An API for hinting types in FRAME! contexts could be useful, if that
+// was then used to make an ACTION! out of it...which is a conceptual idea
+// for the "real way to make actions":
+//
+// 
+//
+#define Init_Context_Key(out,spelling) \
+    Init_Param((out), REB_P_NORMAL, (spelling), TS_VALUE)
 
 
 // !!! Temporary workaround--there were natives that depend on type checking
@@ -380,7 +362,10 @@ inline static OPT_REBSYM VAL_KEY_SYM(const REBCEL *v) {
 // become more sophisticated and be able to expand beyond their 64-bit limit
 // to account for generic quoting.
 //
-inline static bool Typecheck_Including_Quoteds(const RELVAL *param, const RELVAL *v) {
+inline static bool Typecheck_Including_Quoteds(
+    const RELVAL *param,
+    const RELVAL *v
+){
     if (TYPE_CHECK(param, VAL_TYPE(v)))
         return true;
 

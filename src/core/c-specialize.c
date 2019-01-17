@@ -155,7 +155,7 @@ REBCTX *Make_Context_For_Action_Int_Partials(
 
     //=//// NON-REFINEMENT SLOT HANDLING //////////////////////////////////=//
 
-        if (VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT) {
+        if (VAL_PARAM_CLASS(param) != REB_P_REFINEMENT) {
             if (Is_Param_Hidden(param)) {
                 assert(GET_VAL_FLAG(special, ARG_MARKED_CHECKED));
                 Move_Value(arg, special); // !!! copy the flag?
@@ -473,7 +473,7 @@ bool Specialize_Action_Throws(
 
     for (; NOT_END(param); ++param, ++arg, ++index) {
         switch (VAL_PARAM_CLASS(param)) {
-        case PARAM_CLASS_REFINEMENT: {
+        case REB_P_REFINEMENT: {
             FINALIZE_REFINE_IF_FULFILLED; // see macro
             refine = arg;
 
@@ -539,8 +539,8 @@ bool Specialize_Action_Throws(
             SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
             goto specialized_arg_no_typecheck; }
 
-        case PARAM_CLASS_RETURN:
-        case PARAM_CLASS_LOCAL:
+        case REB_P_RETURN:
+        case REB_P_LOCAL:
             assert(IS_NULLED(arg)); // no bindings, you can't set these
             goto unspecialized_arg;
 
@@ -640,7 +640,7 @@ bool Specialize_Action_Throws(
 
     specialized_arg:;
 
-        assert(VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT);
+        assert(VAL_PARAM_CLASS(param) != REB_P_REFINEMENT);
 
         // !!! If argument was previously specialized, should have been type
         // checked already... don't type check again (?)
@@ -677,7 +677,7 @@ bool Specialize_Action_Throws(
     RELVAL *rootparam = ARR_HEAD(paramlist);
     rootparam->payload.action.paramlist = paramlist;
 
-    // PARAM_CLASS_REFINEMENT slots which started partially specialized (or
+    // REB_P_REFINEMENT slots which started partially specialized (or
     // unspecialized) in the exemplar now all contain REB_X_PARTIAL, but we
     // must now convert these transitional placeholders to...
     //
@@ -960,13 +960,13 @@ void For_Each_Unspecialized_Param(
 
     REBCNT index = 1;
     for (; NOT_END(param); ++param, ++special, ++index) {
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
         if (
             Is_Param_Hidden(param) // specialization hides parameters
-            or pclass == PARAM_CLASS_RETURN
-            or pclass == PARAM_CLASS_LOCAL
+            or pclass == REB_P_RETURN
+            or pclass == REB_P_LOCAL
         ){
-            if (pclass == PARAM_CLASS_REFINEMENT) {
+            if (pclass == REB_P_REFINEMENT) {
                 //
                 // In the exemplar frame for specialization, refinements are
                 // either VOID! if unspecialized, BLANK! if not in use, or
@@ -992,13 +992,13 @@ void For_Each_Unspecialized_Param(
     //
     param = ACT_PARAMS_HEAD(act);
     for (; NOT_END(param); ++param) {
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-        if (pclass == PARAM_CLASS_REFINEMENT)
+        Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        if (pclass == REB_P_REFINEMENT)
             break;
         if (
             Is_Param_Hidden(param)
-            or pclass == PARAM_CLASS_LOCAL
-            or pclass == PARAM_CLASS_RETURN
+            or pclass == REB_P_LOCAL
+            or pclass == REB_P_RETURN
         ){
             continue;
         }
@@ -1018,13 +1018,13 @@ void For_Each_Unspecialized_Param(
         param = ACT_PARAMS_HEAD(act) + VAL_WORD_INDEX(DS_TOP); // skips refine
         DS_DROP(); // we know it's used...position was all we needed
         for (; NOT_END(param); ++param) {
-            enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-            if (pclass == PARAM_CLASS_REFINEMENT)
+            Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+            if (pclass == REB_P_REFINEMENT)
                 break;
             if (
                 Is_Param_Hidden(param)
-                or pclass == PARAM_CLASS_LOCAL
-                or pclass == PARAM_CLASS_RETURN
+                or pclass == REB_P_LOCAL
+                or pclass == REB_P_RETURN
             ){
                 continue;
             }
@@ -1043,8 +1043,8 @@ void For_Each_Unspecialized_Param(
 
     bool skipping = false;
     for (; NOT_END(param); ++param) {
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-        if (pclass == PARAM_CLASS_REFINEMENT) {
+        Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        if (pclass == REB_P_REFINEMENT) {
             if (Is_Param_Hidden(param)) {
                 skipping = true;
                 continue;
@@ -1055,8 +1055,8 @@ void For_Each_Unspecialized_Param(
         else if (
             skipping
             or Is_Param_Hidden(param)
-            or pclass == PARAM_CLASS_LOCAL
-            or pclass == PARAM_CLASS_RETURN
+            or pclass == REB_P_LOCAL
+            or pclass == REB_P_RETURN
         ){
             continue;
         }
@@ -1082,7 +1082,7 @@ static bool First_Param_Hook(REBVAL *param, bool sorted_pass, void *opaque)
     if (not sorted_pass and s->saw_refinement)
         return true; // can't learn anything until second pass
 
-    if (VAL_PARAM_CLASS(param) == PARAM_CLASS_REFINEMENT) {
+    if (VAL_PARAM_CLASS(param) == REB_P_REFINEMENT) {
         if (sorted_pass)
             return false; // we know WORD!-based invocations will be 0 arity
         s->saw_refinement = true; // Note: may have already seen one
@@ -1302,24 +1302,24 @@ bool Make_Invocation_Frame_Throws(
     REBVAL *param = CTX_KEYS_HEAD(CTX(f->varlist));
     REBVAL *arg = CTX_VARS_HEAD(CTX(f->varlist));
     for (; NOT_END(param); ++param, ++arg) {
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
         switch (pclass) {
-        case PARAM_CLASS_REFINEMENT:
+        case REB_P_REFINEMENT:
             refine = param;
             break;
 
-        case PARAM_CLASS_NORMAL:
-        case PARAM_CLASS_TIGHT:
-        case PARAM_CLASS_HARD_QUOTE:
-        case PARAM_CLASS_SOFT_QUOTE:
+        case REB_P_NORMAL:
+        case REB_P_TIGHT:
+        case REB_P_HARD_QUOTE:
+        case REB_P_SOFT_QUOTE:
             if (not refine or VAL_LOGIC(refine)) {
                 *first_arg_ptr = arg;
                 goto found_first_arg_ptr;
             }
             break;
 
-        case PARAM_CLASS_LOCAL:
-        case PARAM_CLASS_RETURN:
+        case REB_P_LOCAL:
+        case REB_P_RETURN:
             break;
 
         default:

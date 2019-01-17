@@ -225,12 +225,10 @@ REBVAL *Append_Context(
     // also check that redundant keys aren't getting added here.
     //
     EXPAND_SERIES_TAIL(SER(keylist), 1);
-    REBVAL *key = Init_Typeset(
-        ARR_LAST(keylist), // !!! non-dynamic, could optimize
-        TS_VALUE, // !!! Currently not paid attention to
+    Init_Context_Key(
+        ARR_LAST(keylist),
         opt_spelling ? opt_spelling : VAL_WORD_SPELLING(opt_any_word)
     );
-    UNUSED(key);
     TERM_ARRAY_LEN(keylist, ARR_LEN(keylist));
 
     // Add a slot to the var list
@@ -512,9 +510,8 @@ static void Collect_Inner_Loop(struct Reb_Collector *cl, const RELVAL *head)
 
             EXPAND_SERIES_TAIL(SER(BUF_COLLECT), 1);
             if (cl->flags & COLLECT_AS_TYPESET)
-                Init_Typeset(
+                Init_Context_Key(
                     ARR_LAST(BUF_COLLECT),
-                    TS_VALUE, // !!! Not used at the moment
                     VAL_WORD_SPELLING(cell)
                 );
             else
@@ -589,9 +586,8 @@ REBARR *Collect_Keylist_Managed(
         ) {
             // No prior or no SELF in prior, so we'll add it as the first key
             //
-            RELVAL *self_key = Init_Typeset(
+            RELVAL *self_key = Init_Context_Key(
                 ARR_AT(BUF_COLLECT, 1),
-                TS_VALUE, // !!! Currently not paid attention to
                 Canon(SYM_SELF)
             );
 
@@ -1472,7 +1468,7 @@ void Assert_Context_Core(REBCTX *c)
             panic (c);
         }
 
-        if (not IS_TYPESET(key))
+        if (not IS_PARAM(key))
             panic (key);
 
         if (IS_END(var)) {

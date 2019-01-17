@@ -529,13 +529,7 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
             Queue_Mark_Array_Deep(VAL_TYPE_SPEC(v));
         break;
 
-      case REB_TYPESET:
-        //
-        // Not all typesets have symbols--only those that serve as the
-        // keys of objects (or parameters of functions)
-        //
-        if (v->extra.key_spelling != NULL)
-            Mark_Rebser_Only(v->extra.key_spelling);
+      case REB_TYPESET: // !!! Currently just 64-bits of bitset
         break;
 
       case REB_VARARGS: {
@@ -667,6 +661,17 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
 
       case REB_MAX_NULLED:
         break; // use Queue_Mark_Value_Deep() if NULLED would be a bug
+
+      case REB_P_NORMAL:
+      case REB_P_TIGHT:
+      case REB_P_HARD_QUOTE:
+      case REB_P_SOFT_QUOTE:
+      case REB_P_REFINEMENT:
+      case REB_P_LOCAL:
+      case REB_P_RETURN:
+        assert(SER_WIDE(v->extra.key_spelling) == 1); // UTF-8 REBSTR
+        Mark_Rebser_Only(v->extra.key_spelling);
+        break;
 
       default:
         panic (v);
@@ -862,22 +867,21 @@ static void Propagate_All_GC_Marks(void)
 
         for (; NOT_END(v); ++v) {
             Queue_Mark_Opt_Value_Deep(v);
+
+          #if !defined(NDEBUG)
             //
-        #if !defined(NDEBUG)
-            //
-            // Voids are illegal in most arrays, but the varlist of a context
-            // uses void values to denote that the variable is not set.  Also
+            // Nulls are illegal in most arrays, but context varlists use
+            // "nulled cells" to denote that the variable is not set.  Also
             // reified C va_lists as Eval_Core_Throws() sources can have them.
             //
             if (
-                not IS_BLANK_RAW(v)
-                and IS_NULLED(v)
+                KIND_BYTE_UNCHECKED(v) == REB_MAX_NULLED
                 and NOT_SER_FLAG(a, ARRAY_FLAG_VARLIST)
                 and NOT_SER_FLAG(a, ARRAY_FLAG_NULLEDS_LEGAL)
             ){
                 panic(a);
             }
-        #endif
+          #endif
         }
     }
 }

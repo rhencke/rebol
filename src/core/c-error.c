@@ -808,11 +808,7 @@ REBCTX *Make_Error_Managed_Core(
 
                 const REBVAL *arg = cast(const REBVAL*, p);
 
-                Init_Typeset(
-                    key,
-                    TS_VALUE, // !!! Currently not in use
-                    VAL_WORD_SPELLING(temp)
-                );
+                Init_Context_Key(key, VAL_WORD_SPELLING(temp));
                 Move_Value(value, arg);
 
                 key++;
@@ -963,8 +959,6 @@ REBCTX *Error_Bad_Func_Def(const REBVAL *spec, const REBVAL *body)
 //
 REBCTX *Error_No_Arg(REBFRM *f, const RELVAL *param)
 {
-    assert(IS_TYPESET(param));
-
     DECLARE_LOCAL (param_word);
     Init_Word(param_word, VAL_PARAM_SPELLING(param));
 
@@ -1019,10 +1013,11 @@ REBCTX *Error_Not_Varargs(
     // an "honest" parameter has to be made to give the error.
     //
     DECLARE_LOCAL (honest_param);
-    Init_Typeset(
+    Init_Param(
         honest_param,
-        FLAGIT_KIND(REB_VARARGS), // actually expected
-        VAL_PARAM_SPELLING(param)
+        REB_P_NORMAL,
+        VAL_PARAM_SPELLING(param),
+        FLAGIT_KIND(REB_VARARGS) // actually expected
     );
 
     return Error_Arg_Type(f, honest_param, kind);
@@ -1083,12 +1078,10 @@ REBCTX *Error_Bad_Func_Def_Core(const RELVAL *item, REBSPC *specifier)
 //
 REBCTX *Error_Bad_Refine_Revoke(const RELVAL *param, const REBVAL *arg)
 {
-    assert(IS_TYPESET(param));
-
     DECLARE_LOCAL (param_name);
     Init_Word(param_name, VAL_PARAM_SPELLING(param));
 
-    while (VAL_PARAM_CLASS(param) != PARAM_CLASS_REFINEMENT)
+    while (VAL_PARAM_CLASS(param) != REB_P_REFINEMENT)
         --param;
 
     DECLARE_LOCAL (refine_name);
@@ -1219,8 +1212,6 @@ REBCTX *Error_Arg_Type(
     const RELVAL *param,
     enum Reb_Kind actual
 ) {
-    assert(IS_TYPESET(param));
-
     DECLARE_LOCAL (param_word);
     Init_Word(param_word, VAL_PARAM_SPELLING(param));
 

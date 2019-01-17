@@ -32,17 +32,51 @@
 
 #include "reb-struct.h"
 
+static struct {
+    REBSYM sym,
+    uintptr_t bits
+} syms_to_typesets[] = {
+    {SYM_VOID, FLAGIT_KIND(REB_MAX_NULLED)},
+    {SYM_UINT8, FLAGIT_KIND(REB_INTEGER)},
+    {SYM_INT8, FLAGIT_KIND(REB_INTEGER)},
+    {SYM_UINT16, FLAGIT_KIND(REB_INTEGER)},
+    {SYM_INT16, FLAGIT_KIND(REB_INTEGER)},
+    {SYM_UINT32, FLAGIT_KIND(REB_INTEGER)},
+    {SYM_INT32, FLAGIT_KIND(REB_INTEGER)},
+    {SYM_UINT64, FLAGIT_KIND(REB_INTEGER)},
+    {SYM_INT64 FLAGIT_KIND(REB_INTEGER)},
+    {SYM_FLOAT, FLAGIT_KIND(REB_DECIMAL)},
+    {SYM_DOUBLE, FLAGIT_KIND(REB_DECIMAL)},
+    {
+        SYM_POINTER,
+        FLAGIT_KIND(REB_INTEGER)
+            | FLAGIT_KIND(REB_TEXT)
+            | FLAGIT_KIND(REB_BINARY)
+            | FLAGIT_KIND(REB_VECTOR)
+            | FLAGIT_KIND(REB_ACTION) // legal if routine or callback
+    },
+    {SYM_REBVAL, TS_VALUE}
+    {SYM_0, 0}
+};
+
+
 //
 // Writes into `out` a Rebol value representing the "schema", which describes
 // either a basic FFI type or the layout of a STRUCT! (not including data).
 //
 static void Schema_From_Block_May_Fail(
     REBVAL *schema_out, // => INTEGER! or HANDLE! for struct
-    REBVAL *param_out, // => TYPESET!
-    const REBVAL *blk
+    REBVAL *opt_param_out, // => parameter for use in ACTION!s
+    const REBVAL *blk,
+    REBSTR *opt_spelling
 ){
     TRASH_CELL_IF_DEBUG(schema_out);
-    TRASH_CELL_IF_DEBUG(param_out);
+    if (not opt_spelling)
+        assert(not opt_param_out);
+    else {
+        assert(opt_param_out);
+        TRASH_CELL_IF_DEBUG(param_out);
+    }
 
     assert(IS_BLOCK(blk));
     if (VAL_LEN_AT(blk) == 0)
@@ -81,94 +115,63 @@ static void Schema_From_Block_May_Fail(
         // one structure in the place of another.  Actual struct compatibility
         // is not checked until runtime, when the call happens.
         //
-        Init_Typeset(param_out, FLAGIT_KIND(REB_STRUCT), NULL);
+        if (opt_spelling)
+            Init_Param(
+                opt_param_out,
+                REB_P_NORMAL,
+                opt_spelling,
+                FLAGIT_KIND(REB_STRUCT)
+            );
         return;
     }
 
     if (IS_STRUCT(item)) {
         Init_Block(schema_out, VAL_STRUCT_SCHEMA(item));
-        Init_Typeset(param_out, FLAGIT_KIND(REB_STRUCT), NULL);
+        if (opt_spelling)
+            Init_Param(
+                opt_param_out,
+                REB_P_NORMAL,
+                opt_spelling,
+                FLAGIT_KIND(REB_STRUCT)
+            );
         return;
     }
 
     if (VAL_LEN_AT(blk) != 1)
         fail (Error_Invalid(blk));
 
-    if (IS_WORD(item)) {
-        //
-        // Drop the binding off word (then note SYM_VOID turns schema to blank)
-        //
-        Init_Word(schema_out, VAL_WORD_SPELLING(item));
+    // !!! It was presumed the only parameter convention that made sense was
+    // a normal args, but quoted ones could work too.  In particular, anything
+    // passed to the C as a REBVAL*.  Not a huge priority.
+    //
+    if (not IS_WORD(item))
+        fail (Error_Invalid(blk));
 
-        switch (VAL_WORD_SYM(item)) {
-        case SYM_VOID:
-            Init_Blank(schema_out); // only valid for return types
-            Init_Typeset(param_out, FLAGIT_KIND(REB_MAX_NULLED), NULL);
-            break;
+    Init_Word(schema_out, VAL_WORD_SPELLING(item));
 
-        case SYM_UINT8:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_INTEGER), NULL);
-            break;
-
-        case SYM_INT8:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_INTEGER), NULL);
-            break;
-
-        case SYM_UINT16:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_INTEGER), NULL);
-            break;
-
-        case SYM_INT16:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_INTEGER), NULL);
-            break;
-
-        case SYM_UINT32:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_INTEGER), NULL);
-            break;
-
-        case SYM_INT32:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_INTEGER), NULL);
-            break;
-
-        case SYM_UINT64:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_INTEGER), NULL);
-            break;
-
-        case SYM_INT64:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_INTEGER), NULL);
-            break;
-
-        case SYM_FLOAT:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_DECIMAL), NULL);
-            break;
-
-        case SYM_DOUBLE:
-            Init_Typeset(param_out, FLAGIT_KIND(REB_DECIMAL), NULL);
-            break;
-
-        case SYM_POINTER:
-            Init_Typeset(
-                param_out,
-                FLAGIT_KIND(REB_INTEGER)
-                    | FLAGIT_KIND(REB_TEXT)
-                    | FLAGIT_KIND(REB_BINARY)
-                    | FLAGIT_KIND(REB_VECTOR)
-                    | FLAGIT_KIND(REB_ACTION), // legal if routine or callback
-                NULL
-            );
-            break;
-
-        case SYM_REBVAL:
-            Init_Typeset(param_out, TS_VALUE, NULL);
-            break;
-
-        default:
-            fail ("Invalid FFI type indicator");
-        }
-        return;
+    REBSYM sym = VAL_WORD_SYM(item);
+    if (sym == SYM_VOID) {
+        assert(sym == SYM_RETURN); // can only do void for return types
+        Init_Blank(schema_out);
     }
 
-    fail (Error_Invalid(blk));
+    if (opt_spelling) {
+        int index = 0;
+        for (; ; ++index) {
+            if (syms_to_typesets[index].sym == REB_0)
+                fail ("Invalid FFI type indicator");
+
+            if (syms_to_typesets[index].sym == sym)
+                Init_Param(
+                    opt_param_out,
+                    REB_P_NORMAL,
+                    opt_spelling
+                    syms_to_tyepsets[index].bits
+                );
+                break;
+            }
+        }
+    }
 }
 
 
@@ -776,12 +779,11 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
             Schema_From_Block_May_Fail(
                 schema,
                 param, // sets type bits in param
-                DS_AT(dsp + 1) // will error if this is not a block
+                DS_AT(dsp + 1), // will error if this is not a block
+                Canon(SYM_ELLIPSIS)
             );
 
             args_fftypes[i] = SCHEMA_FFTYPE(schema);
-
-            INIT_TYPESET_NAME(param, Canon(SYM_ELLIPSIS));
 
             *SER_AT(void*, arg_offsets, i) = cast(void*, arg_to_ffi(
                 store, // data appended to store
@@ -924,7 +926,7 @@ static void callback_dispatcher_core(struct Reb_Callback_Invocation *inv)
         assert(IS_BLANK(RIN_RET_SCHEMA(inv->rin)));
     else {
         DECLARE_LOCAL (param);
-        Init_Typeset(param, 0, Canon(SYM_RETURN));
+        Init_Param(param, REB_P_NORMAL, Canon(SYM_RETURN), 0);
         arg_to_ffi(
             NULL, // store must be NULL if dest is non-NULL,
             inv->ret, // destination pointer
@@ -1060,13 +1062,13 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 //
                 // For that reason, varargs was not in the list by default.
                 //
-                Init_Typeset(
+                Init_Param(
                     DS_PUSH(),
-                    TS_VALUE & ~FLAGIT_KIND(REB_VARARGS),
-                    Canon(SYM_VARARGS)
+                    REB_P_NORMAL,
+                    Canon(SYM_VARARGS),
+                    TS_VALUE & ~FLAGIT_KIND(REB_VARARGS)
                 );
                 TYPE_SET(DS_TOP, REB_TS_VARIADIC);
-                INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_NORMAL);
             }
             else { // ordinary argument
                 if (is_variadic)
@@ -1080,14 +1082,13 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 Schema_From_Block_May_Fail(
                     Alloc_Tail_Array(args_schemas), // schema (out)
                     DS_PUSH(), // param (out)
-                    block // block (in)
+                    block, // block (in)
+                    name
                 );
 
-                INIT_TYPESET_NAME(DS_TOP, name);
-                INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_NORMAL);
                 ++num_fixed;
             }
-            break;}
+            break; }
 
         case REB_SET_WORD:
             switch (VAL_WORD_SYM(item)) {
@@ -1103,8 +1104,9 @@ REBACT *Alloc_Ffi_Action_For_Spec(REBVAL *ffi_spec, ffi_abi abi) {
                 DECLARE_LOCAL (param);
                 Schema_From_Block_May_Fail(
                     ret_schema,
-                    param, // dummy (a return/output has no arg to typecheck)
-                    block
+                    nullptr, // dummy (a return/output has no arg to typecheck)
+                    block,
+                    nullptr // no symbol name
                 );
                 break;}
 

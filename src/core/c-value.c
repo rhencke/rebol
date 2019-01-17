@@ -56,11 +56,11 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
 
     REBNOD *containing = Try_Find_Containing_Node_Debug(v);
 
-    switch (KIND_BYTE(v)) {
-    case REB_MAX_NULLED:
-    case REB_BLANK:
-    case REB_LOGIC:
-    case REB_BAR:
+    switch (KIND_BYTE_UNCHECKED(v)) {
+      case REB_MAX_NULLED:
+      case REB_BLANK:
+      case REB_LOGIC:
+      case REB_BAR:
       #if defined(DEBUG_TRACK_CELLS)
         printf("REBVAL init ");
 
@@ -85,11 +85,11 @@ ATTRIBUTE_NO_RETURN void Panic_Value_Debug(const RELVAL *v) {
         fflush(stdout);
         break;
 
-    default:
+      default:
         break;
     }
 
-    printf("kind_byte=%d\n", cast(int, KIND_BYTE(v)));
+    printf("kind_byte=%d\n", cast(int, KIND_BYTE_UNCHECKED(v)));
     fflush(stdout);
 
     if (containing and not (containing->header.bits & NODE_FLAG_CELL)) {
@@ -222,8 +222,24 @@ void* Probe_Core_Debug(
         panic (p);
 
     case DETECTED_AS_CELL: {
-        Probe_Print_Helper(p, "Value", file, line);
-        Mold_Value(mo, cast(const REBVAL*, p));
+        const REBVAL *v = cast(const REBVAL*, p);
+        if (IS_PARAM(v)) {
+            Probe_Print_Helper(p, "Param Cell", file, line);
+
+            REBSTR *spelling = VAL_KEY_SPELLING(v);
+            Append_Unencoded(mo->series, "(");
+            Append_Utf8_Utf8(
+                mo->series,
+                STR_HEAD(spelling),
+                STR_SIZE(spelling)
+            );
+            Append_Unencoded(mo->series, ") ");
+            Append_Unencoded(mo->series, "..."); // probe types?
+        }
+        else {
+            Probe_Print_Helper(p, "Value", file, line);
+            Mold_Value(mo, v);
+        }
         break; }
 
     case DETECTED_AS_END:

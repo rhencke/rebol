@@ -151,11 +151,7 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
             // Wasn't already collected...so we added it...
             //
             EXPAND_SERIES_TAIL(SER(BUF_COLLECT), 1);
-            Init_Typeset(
-                ARR_LAST(BUF_COLLECT),
-                TS_VALUE, // !!! Currently ignored
-                VAL_WORD_SPELLING(word)
-            );
+            Init_Context_Key(ARR_LAST(BUF_COLLECT), VAL_WORD_SPELLING(word));
         }
         if (IS_END(word + 1))
             break; // fix bug#708
@@ -169,15 +165,10 @@ static void Append_To_Context(REBCTX *context, REBVAL *arg)
     len = CTX_LEN(context) + 1;
     Expand_Context(context, ARR_LEN(BUF_COLLECT) - len);
 
-    RELVAL *collect_key;
-    for (
-        collect_key = ARR_AT(BUF_COLLECT, len);
-        NOT_END(collect_key);
-        ++collect_key
-    ){
-        assert(IS_TYPESET(collect_key));
+    RELVAL *collect_key; // goto crosses initialization
+    collect_key = ARR_AT(BUF_COLLECT, len);
+    for (; NOT_END(collect_key); ++collect_key)
         Append_Context(context, NULL, VAL_KEY_SPELLING(collect_key));
-    }
 
     // Set new values to obj words
     for (word = item; NOT_END(word); word += 2) {

@@ -869,7 +869,7 @@ bool Eval_Core_Throws(REBFRM * const f)
       process_args_for_pickup_or_to_end:;
 
         for (; NOT_END(f->param); ++f->param, ++f->arg, ++f->special) {
-            enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
+            Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
 
             // !!! If not an APPLY or a typecheck of existing values, the data
             // array which backs the frame may not have any initialization of
@@ -927,7 +927,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // storing the parameter indices to revisit in the binding of the
             // REFINEMENT! words (e.g. /B and /C above) on the data stack.
 
-            if (pclass == PARAM_CLASS_REFINEMENT) {
+            if (pclass == REB_P_REFINEMENT) {
                 if (f->flags.bits & DO_FLAG_DOING_PICKUPS) {
                     if (DSP != f->dsp_orig)
                         goto next_pickup;
@@ -1076,12 +1076,12 @@ bool Eval_Core_Throws(REBFRM * const f)
             // refinement pickups ending prevents double-doing this work.
 
             switch (pclass) {
-              case PARAM_CLASS_LOCAL:
+              case REB_P_LOCAL:
                 Init_Nulled(f->arg); // !!! f->special?
                 SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
-              case PARAM_CLASS_RETURN:
+              case REB_P_RETURN:
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
                 Move_Value(f->arg, NAT_VALUE(return)); // !!! f->special?
                 INIT_BINDING(f->arg, f->varlist);
@@ -1208,19 +1208,19 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // !!! See notes on potential semantics problem below.
 
                 switch (pclass) {
-                  case PARAM_CLASS_NORMAL:
+                  case REB_P_NORMAL:
                     Move_Value(f->arg, f->out);
                     if (GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED))
                         SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
                     break;
 
-                  case PARAM_CLASS_TIGHT:
+                  case REB_P_TIGHT:
                     Move_Value(f->arg, f->out);
                     if (GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED))
                         SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
                     break;
 
-                  case PARAM_CLASS_HARD_QUOTE:
+                  case REB_P_HARD_QUOTE:
                   #if !defined(NDEBUG)
                     //
                     // Only in debug builds, the before-switch lookahead sets
@@ -1235,7 +1235,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
                     break;
 
-                  case PARAM_CLASS_SOFT_QUOTE:
+                  case REB_P_SOFT_QUOTE:
                   #if !defined(NDEBUG)
                     //
                     // Only in debug builds, the before-switch lookahead sets
@@ -1384,7 +1384,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
    //=//// REGULAR ARG-OR-REFINEMENT-ARG (consumes 1 EVALUATE's worth) ////=//
 
-              case PARAM_CLASS_NORMAL: {
+              case REB_P_NORMAL: {
                 REBFLGS flags = (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
                     | DO_FLAG_FULFILLING_ARG
                     | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
@@ -1398,9 +1398,9 @@ bool Eval_Core_Throws(REBFRM * const f)
                 }
                 break; }
 
-              case PARAM_CLASS_TIGHT: {
+              case REB_P_TIGHT: {
                 //
-                // PARAM_CLASS_NORMAL does "normal" normal infix lookahead,
+                // REB_P_NORMAL does "normal" normal infix lookahead,
                 // e.g. `square 1 + 2` would pass 3 to single-arity `square`.
                 // But if the argument to square is declared #tight, it will
                 // act as `(square 1) + 2`, by not applying lookahead to see
@@ -1423,7 +1423,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     //=//// HARD QUOTED ARG-OR-REFINEMENT-ARG /////////////////////////////=//
 
-              case PARAM_CLASS_HARD_QUOTE:
+              case REB_P_HARD_QUOTE:
                 if (Is_Param_Skippable(f->param)) {
                     if (not Typecheck_Including_Quoteds(f->param, f->value)) {
                         assert(Is_Param_Endable(f->param));
@@ -1443,7 +1443,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     //=//// SOFT QUOTED ARG-OR-REFINEMENT-ARG  ////////////////////////////=//
 
-              case PARAM_CLASS_SOFT_QUOTE:
+              case REB_P_SOFT_QUOTE:
                 if (IS_BAR(f->value)) { // BAR! stops a soft quote
                     f->flags.bits |= DO_FLAG_BARRIER_HIT;
                     Fetch_Next_In_Frame(nullptr, f);
@@ -1477,8 +1477,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             // this code which checks the typeset and also handles it when
             // a void arg signals the revocation of a refinement usage.
 
-            assert(pclass != PARAM_CLASS_REFINEMENT);
-            assert(pclass != PARAM_CLASS_LOCAL);
+            assert(pclass != REB_P_REFINEMENT);
+            assert(pclass != REB_P_LOCAL);
             assert(
                 not In_Typecheck_Mode(f) // already handled, unless...
                 or not (f->flags.bits & DO_FLAG_FULLY_SPECIALIZED) // ...this!
@@ -1546,7 +1546,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             );
 
             assert(VAL_STORED_CANON(DS_TOP) == VAL_PARAM_CANON(f->param - 1));
-            assert(VAL_PARAM_CLASS(f->param - 1) == PARAM_CLASS_REFINEMENT);
+            assert(VAL_PARAM_CLASS(f->param - 1) == REB_P_REFINEMENT);
 
             DS_DROP();
             f->flags.bits |= DO_FLAG_DOING_PICKUPS;
@@ -2583,7 +2583,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         and NOT_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_INVISIBLE)
     ){
         // Don't do enfix lookahead if asked *not* to look.  See the
-        // PARAM_CLASS_TIGHT parameter convention for the use of this, as
+        // REB_P_TIGHT parameter convention for the use of this, as
         // well as it being set if DO_FLAG_TO_END wants to clear out the
         // invisibles at this frame level before returning.
         //

@@ -261,10 +261,9 @@ REBTYPE(Action)
             //
             REBVAL *param = VAL_ACT_PARAMS_HEAD(value);
             REBVAL *typeset = KNOWN(ARR_HEAD(copy));
-            for (; NOT_END(param); param++, typeset++) {
-                assert(VAL_PARAM_SPELLING(param) != NULL);
-                Move_Value(typeset, param);
-                INIT_TYPESET_NAME(typeset, NULL);
+            for (; NOT_END(param); ++param, ++typeset) {
+                assert(IS_PARAM(param));
+                Init_Typeset(typeset, VAL_TYPESET_BITS(param));
             }
             TERM_ARRAY_LEN(copy, VAL_ACT_NUM_PARAMS(value));
             assert(IS_END(typeset));

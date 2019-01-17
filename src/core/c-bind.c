@@ -501,11 +501,7 @@ void Virtual_Bind_Deep_To_New_Context(
     REBCNT index = 1;
     while (index <= num_vars) {
         if (IS_WORD(item)) {
-            Init_Typeset(
-                key,
-                TS_VALUE, // !!! Currently not paid attention to
-                VAL_WORD_SPELLING(item)
-            );
+            Init_Context_Key(key, VAL_WORD_SPELLING(item));
 
             // !!! For loops, nothing should be able to be aware of this
             // synthesized variable until the loop code has initialized it
@@ -545,11 +541,7 @@ void Virtual_Bind_Deep_To_New_Context(
             // itself into the slot, and give it NODE_FLAG_MARKED...then
             // hide it from the context and binding.
             //
-            Init_Typeset(
-                key,
-                TS_VALUE, // !!! Currently not paid attention to
-                VAL_WORD_SPELLING(VAL_UNESCAPED(item))
-            );
+            Init_Context_Key(key, VAL_WORD_SPELLING(VAL_UNESCAPED(item)));
             TYPE_SET(key, REB_TS_UNBINDABLE);
             TYPE_SET(key, REB_TS_HIDDEN);
             Derelativize(var, item, specifier);

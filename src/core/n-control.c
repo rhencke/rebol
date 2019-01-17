@@ -657,7 +657,7 @@ either_test:;
     // parameter class... make it allow NULL too.
     //
     VAL_TYPESET_BITS(varpar) |= FLAGIT_KIND(REB_MAX_NULLED);
-    INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_NORMAL); // !!! hack
+    mutable_KIND_BYTE(varpar) = REB_P_NORMAL; // !!! hack
 
     if (Do_Vararg_Op_Maybe_End_Throws(D_OUT, ARG(args), VARARG_OP_TAKE))
         return R_THROWN;
@@ -665,7 +665,7 @@ either_test:;
     if (IS_END(D_OUT))
         fail ("Frame hack is written to need argument!");
 
-    INIT_VAL_PARAM_CLASS(varpar, PARAM_CLASS_HARD_QUOTE);
+    mutable_KIND_BYTE(varpar) = REB_P_HARD_QUOTE;
     VAL_TYPESET_BITS(varpar) &= ~FLAGIT_KIND(REB_MAX_NULLED);
 
     DECLARE_LOCAL (temp);

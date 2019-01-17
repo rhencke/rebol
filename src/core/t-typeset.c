@@ -87,12 +87,7 @@ void Startup_Typesets(void)
 
     REBINT n;
     for (n = 0; Typesets[n].sym != 0; n++) {
-        //
-        // Note: the symbol in the typeset is not the symbol of a word holding
-        // the typesets, rather an extra data field used when the typeset is
-        // in a context key slot to identify that field's name
-        //
-        Init_Typeset(DS_PUSH(), Typesets[n].bits, NULL);
+        Init_Typeset(DS_PUSH(), Typesets[n].bits);
 
         Move_Value(
             Append_Context(Lib_Context, NULL, Canon(Typesets[n].sym)),
@@ -121,21 +116,6 @@ void Shutdown_Typesets(void)
 
 
 //
-//  Init_Typeset: C
-//
-// Name should be set when a typeset is being used as a function parameter
-// specifier, or as a key in an object.
-//
-REBVAL *Init_Typeset(RELVAL *out, REBU64 bits, REBSTR *opt_name)
-{
-    RESET_CELL(out, REB_TYPESET);
-    INIT_TYPESET_NAME(out, opt_name);
-    VAL_TYPESET_BITS(out) = bits;
-    return cast(REBVAL*, out);
-}
-
-
-//
 //  Update_Typeset_Bits_Core: C
 //
 // This sets the bits in a bitset according to a block of datatypes.  There
@@ -153,7 +133,7 @@ bool Update_Typeset_Bits_Core(
     const RELVAL *head,
     REBSPC *specifier
 ) {
-    assert(IS_TYPESET(typeset));
+    assert(IS_TYPESET(typeset) or IS_PARAM(typeset));
     VAL_TYPESET_BITS(typeset) = 0;
 
     const RELVAL *maybe_word = head;
@@ -194,7 +174,7 @@ bool Update_Typeset_Bits_Core(
                 TYPE_SET(typeset, REB_MAX_NULLED);
             }
             else if (0 == Compare_String_Vals(item, Root_Skip_Tag, true)) {
-                if (VAL_PARAM_CLASS(typeset) != PARAM_CLASS_HARD_QUOTE)
+                if (VAL_PARAM_CLASS(typeset) != REB_P_HARD_QUOTE)
                     fail ("Only hard-quoted parameters are <skip>-able");
 
                 TYPE_SET(typeset, REB_TS_SKIPPABLE);
@@ -256,7 +236,7 @@ REB_R MAKE_Typeset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 
     if (!IS_BLOCK(arg)) goto bad_make;
 
-    Init_Typeset(out, 0, NULL);
+    Init_Typeset(out, 0);
     Update_Typeset_Bits_Core(out, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg));
     return out;
 
@@ -315,28 +295,6 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
         Append_Utf8_Codepoint(mo->series, '[');
     }
 
-  #if !defined(NDEBUG)
-    REBSTR *spelling = VAL_KEY_SPELLING(v);
-    if (spelling) {
-        //
-        // In debug builds we're probably more interested in the symbol than
-        // the typesets, if we are looking at a PARAMLIST or KEYLIST.
-        //
-        Append_Unencoded(mo->series, "(");
-
-        Append_Utf8_Utf8(mo->series, STR_HEAD(spelling), STR_SIZE(spelling));
-        Append_Unencoded(mo->series, ") ");
-
-        // REVIEW: should detect when a lot of types are active and condense
-        // only if the number of types is unreasonable (often for keys/params)
-        //
-        if (true) {
-            Append_Unencoded(mo->series, "...");
-            goto skip_types;
-        }
-    }
-  #endif
-
     // Convert bits to type name strings.  Note that "endability" and
     // "optionality" are not really good fits for things in a typeset, as no
     // "type" exists for their bits.  However, you can get them if you say
@@ -356,10 +314,6 @@ void MF_Typeset(REB_MOLD *mo, const REBCEL *v, bool form)
             Emit(mo, "+DN ", SYM_DATATYPE_X, Canon(cast(REBSYM, n)));
     }
     Trim_Tail(mo->series, ' ');
-
-#if !defined(NDEBUG)
-skip_types:
-#endif
 
     if (not form) {
         Append_Utf8_Codepoint(mo->series, ']');

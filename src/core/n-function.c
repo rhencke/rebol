@@ -212,7 +212,7 @@ REBNATIVE(return)
     // So TYPESET! bits in the RETURN param are used for legal return types.
     //
     REBVAL *typeset = ACT_PARAM(target_fun, ACT_NUM_PARAMS(target_fun));
-    assert(VAL_PARAM_CLASS(typeset) == PARAM_CLASS_RETURN);
+    assert(VAL_PARAM_CLASS(typeset) == REB_P_RETURN);
     assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
 
     if (
@@ -272,13 +272,14 @@ REBNATIVE(typechecker)
     archetype->payload.action.paramlist = paramlist;
     INIT_BINDING(archetype, UNBOUND);
 
-    REBVAL *param = Init_Typeset(
+    REBVAL *param = Init_Param(
         Alloc_Tail_Array(paramlist),
-        TS_OPT_VALUE, // Allow null (e.g. <opt>), returns false
-        Canon(SYM_VALUE)
+        REB_P_NORMAL,
+        Canon(SYM_VALUE),
+        TS_OPT_VALUE // Allow null (e.g. <opt>), returns false
     );
-    INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_NORMAL);
     assert(not Is_Param_Endable(param));
+    UNUSED(param);
 
     MISC(paramlist).meta = NULL; // !!! auto-generate info for HELP?
 
@@ -774,9 +775,9 @@ REBNATIVE(tighten)
 
     RELVAL *param = ARR_AT(paramlist, 1); // first parameter (0 is ACTION!)
     for (; NOT_END(param); ++param) {
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-        if (pclass == PARAM_CLASS_NORMAL)
-            INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_TIGHT);
+        Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+        if (pclass == REB_P_NORMAL)
+            mutable_KIND_BYTE(param) = REB_P_TIGHT;
     }
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
@@ -892,13 +893,14 @@ REBNATIVE(n_shot)
 
     // !!! Should anything DO would accept be legal, as DOES would run?
     //
-    REBVAL *param = Init_Typeset(
+    REBVAL *param = Init_Param(
         Alloc_Tail_Array(paramlist),
-        FLAGIT_KIND(REB_BLOCK) | FLAGIT_KIND(REB_ACTION),
-        Canon(SYM_VALUE) // SYM_CODE ?
+        REB_P_NORMAL,
+        Canon(SYM_VALUE), // !!! would SYM_CODE be better?
+        FLAGIT_KIND(REB_BLOCK) | FLAGIT_KIND(REB_ACTION)
     );
-    INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_NORMAL);
     assert(not Is_Param_Endable(param));
+    UNUSED(param);
 
     MISC(paramlist).meta = NULL; // !!! auto-generate info for HELP?
 

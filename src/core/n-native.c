@@ -532,19 +532,19 @@ REBNATIVE(compile)
             for (; NOT_END(param); ++param) {
                 REBSTR *spelling = VAL_PARAM_SPELLING(param);
 
-                enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+                Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
                 switch (pclass) {
-                case PARAM_CLASS_LOCAL:
-                case PARAM_CLASS_RETURN:
+                case REB_P_LOCAL:
+                case REB_P_RETURN:
                     assert(false); // natives shouldn't generally use these...
                     break;
 
-                case PARAM_CLASS_REFINEMENT:
-                case PARAM_CLASS_NORMAL:
-                case PARAM_CLASS_SOFT_QUOTE:
-                case PARAM_CLASS_HARD_QUOTE:
+                case REB_P_REFINEMENT:
+                case REB_P_NORMAL:
+                case REB_P_SOFT_QUOTE:
+                case REB_P_HARD_QUOTE:
                     Append_Unencoded(mo->series, "    ");
-                    if (pclass == PARAM_CLASS_REFINEMENT)
+                    if (pclass == REB_P_REFINEMENT)
                         Append_Unencoded(mo->series, "REFINE(");
                     else
                         Append_Unencoded(mo->series, "PARAM(");

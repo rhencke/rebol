@@ -608,14 +608,7 @@ REBCTX *Alloc_Context_From_Map(REBMAP *map)
     for (; NOT_END(mval); mval += 2) {
         assert(NOT_END(mval + 1));
         if (ANY_WORD(mval) and not IS_NULLED(mval + 1)) {
-            // !!! Used to leave SET_WORD typed values here... but why?
-            // (Objects did not make use of the set-word vs. other distinctions
-            // that function specs did.)
-            Init_Typeset(
-                key,
-                TS_OPT_VALUE, // !!! Not used at the moment
-                VAL_WORD_SPELLING(mval)
-            );
+            Init_Context_Key(key, VAL_WORD_SPELLING(mval));
             ++key;
             Move_Value(var, &mval[1]);
             ++var;

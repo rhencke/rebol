@@ -192,7 +192,7 @@ ATTRIBUTE_NO_RETURN void Panic_Core(
         UNUSED(v);
         strncat(buf, "value", PANIC_BUF_SIZE - strlen(buf));
       #else
-        if (NOT_END(v) and IS_ERROR(v)) {
+        if (KIND_BYTE_UNCHECKED(v) == REB_ERROR) {
             printf("...panicking on an ERROR! value...");
             PROBE(v);
         }

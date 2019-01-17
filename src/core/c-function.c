@@ -37,7 +37,7 @@ struct Params_Of_State {
     RELVAL *dest;
 };
 
-// Reconstitute parameter back into a full value, e.g. PARAM_CLASS_REFINEMENT
+// Reconstitute parameter back into a full value, e.g. REB_P_REFINEMENT
 // becomes `/spelling`.
 //
 // !!! See notes on Is_Param_Hidden() for why caller isn't filtering locals.
@@ -48,7 +48,7 @@ static bool Params_Of_Hook(
     void *opaque
 ){
     struct Params_Of_State *s = cast(struct Params_Of_State*, opaque);
-    enum Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+    Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
 
     if (not sorted_pass) { // first pass we just count unspecialized params
         ++s->num_visible;
@@ -64,23 +64,23 @@ static bool Params_Of_Hook(
     bool quoted = false;
 
     switch (pclass) {
-      case PARAM_CLASS_NORMAL:
+      case REB_P_NORMAL:
         kind = REB_WORD;
         break;
 
-      case PARAM_CLASS_TIGHT:
+      case REB_P_TIGHT:
         kind = REB_ISSUE;
         break;
 
-      case PARAM_CLASS_REFINEMENT:
+      case REB_P_REFINEMENT:
         kind = REB_REFINEMENT;
         break;
 
-      case PARAM_CLASS_HARD_QUOTE:
+      case REB_P_HARD_QUOTE:
         kind = REB_GET_WORD;
         break;
 
-      case PARAM_CLASS_SOFT_QUOTE:
+      case REB_P_SOFT_QUOTE:
         kind = REB_WORD;
         quoted = true;
         break;
@@ -277,7 +277,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             if (mode == SPEC_MODE_WITH)
                 continue;
 
-            if (IS_TYPESET(DS_TOP))
+            if (IS_PARAM(DS_TOP))
                 Move_Value(DS_PUSH(), EMPTY_BLOCK); // need block in position
 
             if (IS_BLOCK(DS_TOP)) { // we're in right spot to push notes/title
@@ -342,7 +342,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // Save the block for parameter types.
             //
             REBVAL *typeset;
-            if (IS_TYPESET(DS_TOP)) {
+            if (IS_PARAM(DS_TOP)) {
                 REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
                 Init_Block(
                     DS_PUSH(),
@@ -365,7 +365,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                     fail (Error_Bad_Func_Def_Core(item, VAL_SPECIFIER(spec)));
                 }
 
-                assert(IS_TYPESET(DS_TOP - 2));
+                assert(IS_PARAM(DS_TOP - 2));
                 typeset = DS_TOP - 2;
 
                 assert(IS_BLOCK(DS_TOP - 1));
@@ -408,22 +408,22 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     //=//// ANY-WORD! PARAMETERS THEMSELVES (MAKE TYPESETS w/SYMBOL) //////=//
 
-        enum Reb_Param_Class pclass;
+        Reb_Param_Class pclass;
         REBSTR *spelling;
         switch (VAL_TYPE(item)) {
           case REB_WORD:
             spelling = VAL_WORD_SPELLING(item);
 
             pclass = (mode == SPEC_MODE_LOCAL)
-                ? PARAM_CLASS_LOCAL
-                : PARAM_CLASS_NORMAL;
+                ? REB_P_LOCAL
+                : REB_P_NORMAL;
             break;
 
           case REB_GET_WORD:
             if (mode != SPEC_MODE_NORMAL)
                 goto mode_mismatch;
 
-            pclass = PARAM_CLASS_HARD_QUOTE;
+            pclass = REB_P_HARD_QUOTE;
             spelling = VAL_WORD_SPELLING(item);
             break;
 
@@ -435,7 +435,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             if (mode != SPEC_MODE_NORMAL)
                 goto mode_mismatch;
 
-            pclass = PARAM_CLASS_SOFT_QUOTE;
+            pclass = REB_P_SOFT_QUOTE;
             spelling = VAL_WORD_SPELLING(cell);
             break; }
 
@@ -449,7 +449,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             mode = SPEC_MODE_NORMAL;
 
             refinement_seen = true;
-            pclass = PARAM_CLASS_REFINEMENT;
+            pclass = REB_P_REFINEMENT;
             spelling = VAL_WORD_SPELLING(item);
 
             // !!! The typeset bits of a refinement are not currently used.
@@ -460,7 +460,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
           case REB_SET_WORD:
             // tolerate as-is if in <local> or <with> mode...
-            pclass = PARAM_CLASS_LOCAL;
+            pclass = REB_P_LOCAL;
             spelling = VAL_WORD_SPELLING(item);
             //
             // !!! Typeset bits of pure locals also not currently used,
@@ -478,7 +478,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             if (mode != SPEC_MODE_NORMAL)
                 goto mode_mismatch;
 
-            pclass = PARAM_CLASS_TIGHT;
+            pclass = REB_P_TIGHT;
             spelling = VAL_WORD_SPELLING(item);
             break;
 
@@ -488,7 +488,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
 
         REBSTR *canon = STR_CANON(spelling);
-        if (STR_SYMBOL(canon) == SYM_RETURN and pclass != PARAM_CLASS_LOCAL) {
+        if (STR_SYMBOL(canon) == SYM_RETURN and pclass != REB_P_LOCAL) {
             //
             // Cancel definitional return if any non-SET-WORD! uses the name
             // RETURN when defining a FUNC.
@@ -510,7 +510,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // In rhythm of TYPESET! BLOCK! TEXT! we want to be on a string spot
         // at the time of the push of each new typeset.
         //
-        if (IS_TYPESET(DS_TOP))
+        if (IS_PARAM(DS_TOP))
             Move_Value(DS_PUSH(), EMPTY_BLOCK);
         if (IS_BLOCK(DS_TOP))
             Move_Value(DS_PUSH(), EMPTY_TEXT);
@@ -527,17 +527,17 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         // If the typeset bits contain REB_MAX_NULLED, that indicates <opt>.
         // But Is_Param_Endable() indicates <end>.
 
-        Init_Typeset(
+        Init_Param(
             DS_PUSH(),
+            pclass,
+            spelling, // don't canonize, see #2258
             (flags & MKF_ANY_VALUE)
                 ? TS_OPT_VALUE
                 : TS_VALUE & ~(
                     FLAGIT_KIND(REB_ACTION)
                     | FLAGIT_KIND(REB_VOID)
-                ),
-            spelling // don't canonize, see #2258
+                )
         );
-        INIT_VAL_PARAM_CLASS(DS_TOP, pclass);
 
         // All these would cancel a definitional return (leave has same idea):
         //
@@ -555,7 +555,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 Init_Word(word, canon);
                 fail (Error_Dup_Vars_Raw(word)); // most dup checks done later
             }
-            if (pclass == PARAM_CLASS_LOCAL)
+            if (pclass == REB_P_LOCAL)
                 definitional_return_dsp = DSP; // RETURN: explicitly tolerated
             else
                 flags &= ~(MKF_RETURN | MKF_FAKE_RETURN);
@@ -564,7 +564,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
     // Go ahead and flesh out the TYPESET! BLOCK! TEXT! triples.
     //
-    if (IS_TYPESET(DS_TOP))
+    if (IS_PARAM(DS_TOP))
         Move_Value(DS_PUSH(), EMPTY_BLOCK);
     if (IS_BLOCK(DS_TOP))
         Move_Value(DS_PUSH(), EMPTY_TEXT);
@@ -589,8 +589,12 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // they are allowed to return anything.  Generally speaking, the
             // checks are on the input side, not the output.
             //
-            Init_Typeset(DS_PUSH(), TS_OPT_VALUE, Canon(SYM_RETURN));
-            INIT_VAL_PARAM_CLASS(DS_TOP, PARAM_CLASS_RETURN);
+            Init_Param(
+                DS_PUSH(),
+                REB_P_RETURN,
+                Canon(SYM_RETURN),
+                TS_OPT_VALUE
+            );
             definitional_return_dsp = DSP;
 
             Move_Value(DS_PUSH(), EMPTY_BLOCK);
@@ -599,8 +603,8 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         }
         else {
             REBVAL *param = DS_AT(definitional_return_dsp);
-            assert(VAL_PARAM_CLASS(param) == PARAM_CLASS_LOCAL);
-            INIT_VAL_PARAM_CLASS(param, PARAM_CLASS_RETURN);
+            assert(VAL_PARAM_CLASS(param) == REB_P_LOCAL);
+            mutable_KIND_BYTE(param) = REB_P_RETURN;
 
             // definitional_return handled specially when paramlist copied
             // off of the stack...
@@ -662,7 +666,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
         REBVAL *src = DS_AT(dsp_orig + 1) + 3;
 
         for (; src <= DS_TOP; src += 3) {
-            assert(IS_TYPESET(src));
             if (not Try_Add_Binder_Index(&binder, VAL_PARAM_CANON(src), 1020))
                 duplicate = VAL_PARAM_SPELLING(src);
 
@@ -1007,15 +1010,15 @@ REBACT *Make_Action(
     REBVAL *first_unspecialized = First_Unspecialized_Param(act);
     if (first_unspecialized) {
         switch (VAL_PARAM_CLASS(first_unspecialized)) {
-          case PARAM_CLASS_NORMAL:
+          case REB_P_NORMAL:
             SET_SER_FLAG(act, PARAMLIST_FLAG_DEFERS_LOOKBACK); // see notes
             break;
 
-          case PARAM_CLASS_TIGHT:
+          case REB_P_TIGHT:
             break;
 
-          case PARAM_CLASS_HARD_QUOTE:
-          case PARAM_CLASS_SOFT_QUOTE:
+          case REB_P_HARD_QUOTE:
+          case REB_P_SOFT_QUOTE:
             SET_SER_FLAG(act, PARAMLIST_FLAG_QUOTES_FIRST);
             break;
 

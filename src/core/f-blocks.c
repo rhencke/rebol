@@ -157,8 +157,8 @@ void Clonify(
     REBCNT num_quotes = VAL_NUM_QUOTES(v);
     Dequotify(v);
 
-    enum Reb_Kind kind = cast(enum Reb_Kind, KIND_BYTE(v));
-    assert(kind <= REB_MAX_NULLED); // we dequoted it
+    enum Reb_Kind kind = cast(enum Reb_Kind, KIND_BYTE_UNCHECKED(v));
+    assert(kind < REB_MAX_PLUS_MAX); // we dequoted it (pseudotypes ok)
 
     if (types & FLAGIT_KIND(kind) & TS_SERIES_OBJ) {
         //
@@ -202,15 +202,14 @@ void Clonify(
         // If we're going to copy deeply, we go back over the shallow
         // copied series and "clonify" the values in it.
         //
-        if (types & FLAGIT_KIND(VAL_TYPE(v)) & TS_ARRAYS_OBJ) {
+        if (types & FLAGIT_KIND(kind) & TS_ARRAYS_OBJ) {
             REBVAL *sub = KNOWN(ARR_HEAD(ARR(series)));
             for (; NOT_END(sub); ++sub)
                 Clonify(sub, flags, types);
         }
     }
-    else if (
-        types & FLAGIT_KIND(VAL_TYPE(v)) & FLAGIT_KIND(REB_ACTION)
-    ){
+    else if (types & FLAGIT_KIND(kind) & FLAGIT_KIND(REB_ACTION)) {
+        //
         // !!! While Ren-C has abandoned the concept of copying the body
         // of functions (they are black boxes which may not *have* a
         // body), it would still theoretically be possible to do what

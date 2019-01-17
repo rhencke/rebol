@@ -342,16 +342,16 @@ bool Redo_Action_Throws(REBFRM *f, REBACT *run)
         if (GET_VAL_FLAG(f->special, ARG_MARKED_CHECKED))
             continue; // a parameter that was "specialized out" of this phase
 
-        enum Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
+        Reb_Param_Class pclass = VAL_PARAM_CLASS(f->param);
 
         if (
-            pclass == PARAM_CLASS_LOCAL
-            or pclass == PARAM_CLASS_RETURN
+            pclass == REB_P_LOCAL
+            or pclass == REB_P_RETURN
         ){
              continue; // don't add a callsite expression for it (can't)!
         }
 
-        if (pclass == PARAM_CLASS_REFINEMENT) {
+        if (pclass == REB_P_REFINEMENT) {
             if (IS_BLANK(f->arg)) {
                 ignoring = true; // don't add to PATH!
                 continue;
