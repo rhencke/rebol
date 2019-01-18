@@ -44,7 +44,6 @@ REB_R PD_Fail(
     const REBVAL *picker,
     const REBVAL *opt_setval
 ){
-    UNUSED(pvs);
     UNUSED(picker);
     UNUSED(opt_setval);
 
@@ -63,7 +62,6 @@ REB_R PD_Unhooked(
     const REBVAL *picker,
     const REBVAL *opt_setval
 ){
-    UNUSED(pvs);
     UNUSED(picker);
     UNUSED(opt_setval);
 

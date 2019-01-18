@@ -372,7 +372,7 @@ REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
             d2 = deci_to_decimal(VAL_MONEY_AMOUNT(t));
         else
             d2 = VAL_DECIMAL(t);
-      
+
       chkDecimal:;
 
         if (Eq_Decimal(d1, d2))

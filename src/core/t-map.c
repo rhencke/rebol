@@ -128,7 +128,7 @@ REBINT Find_Key_Hashed(
         RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
         if (0 == Cmp_Value(k, key, true)) { // exact match
             if (cased)
-                return slot; // don't need to check synonyms, stop looking 
+                return slot; // don't need to check synonyms, stop looking
             goto found_synonym; // confirm exact match is the only match
         }
 

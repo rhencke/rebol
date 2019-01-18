@@ -2673,8 +2673,12 @@ bool Eval_Core_Throws(REBFRM * const f)
   post_switch_shove_gotten:; // assert(!PARAMLIST_FLAG_QUOTES_FIRST) prior
 
     if (
-        (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
-        and NOT_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_INVISIBLE)
+        (f->flags.bits & DO_FLAG_NO_LOOKAHEAD) // so `1 + 2 * 3` => 9, not 7
+        and not ANY_SER_FLAGS(
+            VAL_ACTION(f->gotten),
+            PARAMLIST_FLAG_DEFERS_LOOKBACK // `1 + if false [2] else [3]` => 4
+                | PARAMLIST_FLAG_INVISIBLE // `1 + 2 + comment "foo" 3` => 6
+        )
     ){
         // Don't do enfix lookahead if asked *not* to look.  See the
         // REB_P_TIGHT parameter convention for the use of this, as
