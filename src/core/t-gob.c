@@ -83,7 +83,7 @@ REBGOB *Make_Gob(void)
 //
 //  Cmp_Gob: C
 //
-REBINT Cmp_Gob(const RELVAL *g1, const RELVAL *g2)
+REBINT Cmp_Gob(const REBCEL *g1, const REBCEL *g2)
 {
     REBINT n;
 

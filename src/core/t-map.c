@@ -70,20 +70,6 @@ static REBCTX *Error_Conflicting_Key(const RELVAL *key, REBSPC *specifier)
     return Error_Conflicting_Key_Raw(specific);
 }
 
-#define FOUND_SYNONYM \
-    do { \
-        if (synonym_slot != -1) /* another spelling already matched */ \
-            fail (Error_Conflicting_Key(key, specifier)); \
-        synonym_slot = slot; /* save and continue checking */ \
-    } while (0)
-
-#define FOUND_EXACT \
-    do { \
-        if (cased) \
-            return slot; /* don't need to check synonyms, stop looking */ \
-        FOUND_SYNONYM; /* need to confirm exact match is the only match */ \
-    } while (0)
-
 
 //
 //  Find_Key_Hashed: C
@@ -137,62 +123,32 @@ REBINT Find_Key_Hashed(
     //
     REBINT synonym_slot = -1; // no synonyms seen yet...
 
-    if (ANY_WORD(key)) {
-        REBCNT n;
-        while ((n = indexes[slot]) != 0) {
-            RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
-            if (ANY_WORD(k)) {
-                if (VAL_WORD_SPELLING(key) == VAL_WORD_SPELLING(k))
-                    FOUND_EXACT;
-                else if (not cased)
-                    if (VAL_WORD_CANON(key) == VAL_WORD_CANON(k))
-                        FOUND_SYNONYM;
-            }
-            if (wide > 1 && IS_NULLED(k + 1) && zombie_slot == -1)
-                zombie_slot = slot;
-
-            slot += skip;
-            if (slot >= len)
-                slot -= len;
+    REBCNT n;
+    while ((n = indexes[slot]) != 0) {
+        RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
+        if (0 == Cmp_Value(k, key, true)) { // exact match
+            if (cased)
+                return slot; // don't need to check synonyms, stop looking 
+            goto found_synonym; // confirm exact match is the only match
         }
-    }
-    else if (ANY_BINSTR(key)) {
-        REBCNT n;
-        while ((n = indexes[slot]) != 0) {
-            RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
-            if (VAL_TYPE(k) == VAL_TYPE(key)) {
-                if (0 == Compare_String_Vals(k, key, false))
-                    FOUND_EXACT;
-                else if (not cased and not IS_BINARY(key))
-                    if (0 == Compare_String_Vals(k, key, true))
-                        FOUND_SYNONYM;
-            }
-            if (wide > 1 && IS_NULLED(k + 1) && zombie_slot == -1)
-                zombie_slot = slot;
 
-            slot += skip;
-            if (slot >= len)
-                slot -= len;
-        }
-    }
-    else {
-        REBCNT n;
-        while ((n = indexes[slot]) != 0) {
-            RELVAL *k = ARR_AT(array, (n - 1) * wide); // stored key
-            if (VAL_TYPE(k) == VAL_TYPE(key)) {
-                if (0 == Cmp_Value(k, key, true))
-                    FOUND_EXACT;
-                else if (not cased)
-                    if (IS_CHAR(k) && 0 == Cmp_Value(k, key, false))
-                        FOUND_SYNONYM; // CHAR! is only non-STRING!/WORD! case
-            }
-            if (wide > 1 && IS_NULLED(k + 1) && zombie_slot == -1)
-                zombie_slot = slot;
+        if (not cased) {
+            if (0 == Cmp_Value(k, key, false)) { // non-strict match
 
-            slot += skip;
-            if (slot >= len)
-                slot -= len;
+              found_synonym:;
+
+                if (synonym_slot != -1) // another equivalent already matched
+                    fail (Error_Conflicting_Key(key, specifier));
+                synonym_slot = slot; // save and continue checking
+            }
         }
+
+        if (wide > 1 && IS_NULLED(k + 1) && zombie_slot == -1)
+            zombie_slot = slot;
+
+        slot += skip;
+        if (slot >= len)
+            slot -= len;
     }
 
     if (synonym_slot != -1) {
@@ -203,8 +159,11 @@ REBINT Find_Key_Hashed(
     if (zombie_slot != -1) { // zombie encountered; overwrite with new key
         assert(mode == 0);
         slot = zombie_slot;
-        REBCNT n = indexes[slot];
-        Derelativize(ARR_AT(array, (n - 1) * wide), key, specifier);
+        Derelativize(
+            ARR_AT(array, (indexes[slot] - 1) * wide),
+            key,
+            specifier
+        );
     }
 
     if (mode > 1) { // append new value to the target series

@@ -316,124 +316,146 @@ diff_of_ends:
 //
 // is_case should be true for case sensitive compare
 //
-REBINT Cmp_Value(const RELVAL *s, const RELVAL *t, bool is_case)
+REBINT Cmp_Value(const RELVAL *sval, const RELVAL *tval, bool is_case)
 {
-    REBDEC  d1, d2;
+    if (is_case and (VAL_NUM_QUOTES(sval) != VAL_NUM_QUOTES(tval)))
+        return VAL_NUM_QUOTES(sval) - VAL_NUM_QUOTES(tval);
 
-    if (VAL_TYPE(t) != VAL_TYPE(s) and not (ANY_NUMBER(s) and ANY_NUMBER(t)))
-        return VAL_TYPE(s) - VAL_TYPE(t);
+    const REBCEL *s = VAL_UNESCAPED(sval);
+    const REBCEL *t = VAL_UNESCAPED(tval);
+    enum Reb_Kind s_kind = CELL_KIND(s);
+    enum Reb_Kind t_kind = CELL_KIND(t);
 
-    assert(NOT_END(s) and NOT_END(t));
+    if (
+        s_kind != t_kind
+        and not (ANY_NUMBER_KIND(s_kind) and ANY_NUMBER_KIND(t_kind))
+    ){
+        return s_kind - t_kind;
+    }
 
-    switch(VAL_TYPE(s)) {
-    case REB_INTEGER:
-        if (IS_DECIMAL(t)) {
+    // !!! The strange and ad-hoc way this routine was written has some
+    // special-case handling for numeric types.  It only allows the values to
+    // be of unequal types below if they are both ANY-NUMBER!, so those cases
+    // are more complex and jump around, reusing code via a goto and passing
+    // the canonized decimal form via d1/d2.
+    //
+    REBDEC d1;
+    REBDEC d2;
+
+    switch (s_kind) {
+      case REB_INTEGER:
+        if (t_kind == REB_DECIMAL) {
             d1 = cast(REBDEC, VAL_INT64(s));
             d2 = VAL_DECIMAL(t);
             goto chkDecimal;
         }
         return THE_SIGN(VAL_INT64(s) - VAL_INT64(t));
 
-    case REB_LOGIC:
+      case REB_LOGIC:
         return VAL_LOGIC(s) - VAL_LOGIC(t);
 
-    case REB_CHAR:
+      case REB_CHAR:
         if (is_case)
             return THE_SIGN(VAL_CHAR(s) - VAL_CHAR(t));
         return THE_SIGN((REBINT)(UP_CASE(VAL_CHAR(s)) - UP_CASE(VAL_CHAR(t))));
 
-    case REB_PERCENT:
-    case REB_DECIMAL:
-    case REB_MONEY:
-        if (IS_MONEY(s))
+      case REB_PERCENT:
+      case REB_DECIMAL:
+      case REB_MONEY:
+        if (s_kind == REB_MONEY)
             d1 = deci_to_decimal(VAL_MONEY_AMOUNT(s));
         else
             d1 = VAL_DECIMAL(s);
-        if (IS_INTEGER(t))
+        if (t_kind == REB_INTEGER)
             d2 = cast(REBDEC, VAL_INT64(t));
-        else if (IS_MONEY(t))
+        else if (t_kind == REB_MONEY)
             d2 = deci_to_decimal(VAL_MONEY_AMOUNT(t));
         else
             d2 = VAL_DECIMAL(t);
-chkDecimal:
+      
+      chkDecimal:;
+
         if (Eq_Decimal(d1, d2))
             return 0;
         if (d1 < d2)
             return -1;
         return 1;
 
-    case REB_PAIR:
+      case REB_PAIR:
         return Cmp_Pair(s, t);
 
-    case REB_EVENT:
+      case REB_EVENT:
         return Cmp_Event(s, t);
 
-    case REB_GOB:
+      case REB_GOB:
         return Cmp_Gob(s, t);
 
-    case REB_TUPLE:
+      case REB_TUPLE:
         return Cmp_Tuple(s, t);
 
-    case REB_TIME:
+      case REB_TIME:
         return Cmp_Time(s, t);
 
-    case REB_DATE:
+      case REB_DATE:
         return Cmp_Date(s, t);
 
-    case REB_BLOCK:
-    case REB_GROUP:
-    case REB_MAP:
-    case REB_PATH:
-    case REB_SET_PATH:
-    case REB_GET_PATH:
+      case REB_BLOCK:
+      case REB_GROUP:
+      case REB_MAP:
+      case REB_PATH:
+      case REB_SET_PATH:
+      case REB_GET_PATH:
         return Cmp_Array(s, t, is_case);
 
-    case REB_TEXT:
-    case REB_FILE:
-    case REB_EMAIL:
-    case REB_URL:
-    case REB_TAG:
+      case REB_TEXT:
+      case REB_FILE:
+      case REB_EMAIL:
+      case REB_URL:
+      case REB_TAG:
         return Compare_String_Vals(s, t, not is_case);
 
-    case REB_BITSET:
-    case REB_BINARY:
-    case REB_IMAGE:
+      case REB_BITSET:
+      case REB_BINARY:
+      case REB_IMAGE:
         return Compare_Binary_Vals(s, t);
 
-    case REB_VECTOR:
+      case REB_VECTOR:
         return Compare_Vector(s, t);
 
-    case REB_DATATYPE:
+      case REB_DATATYPE:
         return VAL_TYPE_KIND(s) - VAL_TYPE_KIND(t);
 
-    case REB_WORD:
-    case REB_SET_WORD:
-    case REB_GET_WORD:
-    case REB_REFINEMENT:
-    case REB_ISSUE:
+      case REB_WORD:
+      case REB_SET_WORD:
+      case REB_GET_WORD:
+      case REB_REFINEMENT:
+      case REB_ISSUE:
         return Compare_Word(s,t,is_case);
 
-    case REB_ERROR:
-    case REB_OBJECT:
-    case REB_MODULE:
-    case REB_PORT:
+      case REB_ERROR:
+      case REB_OBJECT:
+      case REB_MODULE:
+      case REB_PORT:
         return VAL_CONTEXT(s) - VAL_CONTEXT(t);
 
-    case REB_ACTION:
+      case REB_ACTION:
         return VAL_ACT_PARAMLIST(s) - VAL_ACT_PARAMLIST(t);
 
-    case REB_LIBRARY:
+      case REB_LIBRARY:
         return VAL_LIBRARY(s) - VAL_LIBRARY(t);
 
-    case REB_STRUCT:
+      case REB_STRUCT:
         fail ("Temporary disablement of comparison of STRUCT!");
         /* return Cmp_Struct(s, t); */
 
-    case REB_BLANK:
-    case REB_MAX_NULLED:
-    default:
+      case REB_BLANK:
+      case REB_BAR:
+      case REB_MAX_NULLED: // !!! should nulls be allowed at this level?
+      case REB_VOID:
         break;
 
+      default:
+        panic (nullptr); // all cases should be handled above
     }
     return 0;
 }

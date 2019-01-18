@@ -324,7 +324,7 @@ inline static REBNOD *SPC_BINDING(REBSPC *specifier)
 // If the cell we're writing into is a stack cell, there's a chance that
 // management/reification of the binding can be avoided.
 //
-inline static void INIT_BINDING_MAY_MANAGE(REBCEL *out, REBNOD* binding) {
+inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding) {
     out->extra.binding = binding; // payload and header should be valid
 
     if (KIND_BYTE(out) == REB_QUOTED) {

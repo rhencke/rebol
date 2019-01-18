@@ -84,3 +84,39 @@
     (120 = select/case m #"C")
     (60 = select/case m #"c")
 ]
+
+; Currently, non-strict equality considers 'A and A to be equal, while strict
+; equality consders them unequal.  Generalized quoting extends this to more
+; quote levels...any number of quotes of the same value will be non-strict
+; equal, while strict equality compares both properties.  This may not stick
+; around as it merges case-insensitive comparison with type comparison.
+
+[
+    (
+        b2: copy lit ''[x y]
+        b4: copy lit ''''[m n o p]
+        m: make map! compose [
+            a 0 'a 1 ''a 2 '''a 3 ''''a 4
+            ((b2)) II ((b4)) IIII
+        ]
+        true
+    )
+
+    (0 = select/case m lit a)
+    (1 = select/case m lit 'a)
+    (2 = select/case m lit ''a)
+    (3 = select/case m lit '''a)
+    (4 = select/case m lit ''''a)
+
+    ((trap [select m lit a])/id = 'conflicting-key)
+    ((trap [m/(lit a)])/id = 'conflicting-key)
+
+    ((trap [select m lit ''''a])/id = 'conflicting-key)
+    ((trap [m/(lit ''''a)])/id = 'conflicting-key)
+
+    ('II = m/[x y])
+    ('IIII = m/[m n o p])
+
+    ((trap [append b2 'z])/id = 'series-auto-locked)
+    ((trap [append b4 'q])/id = 'series-auto-locked)
+]

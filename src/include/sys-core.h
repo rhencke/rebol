@@ -577,7 +577,7 @@ extern void reb_qsort_r(void *a, size_t n, size_t es, void *thunk, cmp_t *cmp);
 
 // Lives in %sys-bind.h, but needed for Move_Value() and Derelativize()
 //
-inline static void INIT_BINDING_MAY_MANAGE(REBCEL *out, REBNOD* binding);
+inline static void INIT_BINDING_MAY_MANAGE(RELVAL *out, REBNOD* binding);
 
 #include "sys-value.h" // basic definitions that don't need series accessors
 

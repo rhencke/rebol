@@ -247,7 +247,7 @@
     #define KIND_BYTE KIND_BYTE_UNCHECKED
 #else
     inline static REBYTE KIND_BYTE_Debug(
-        const REBCEL *v,
+        const RELVAL *v,
         const char *file,
         int line
     ){
@@ -305,6 +305,20 @@
         return KIND_BYTE_UNCHECKED(v);
     }
 
+  #ifdef CPLUSPLUS_11
+    //
+    // Since KIND_BYTE() is used by checks like IS_WORD() for efficiency, we
+    // don't want that to contaminate the use with cells, because if you
+    // bothered to change the type view to a cell you did so because you
+    // were interested in its unquoted kind.
+    //
+    inline static REBYTE KIND_BYTE_Debug(
+        const REBCEL *v,
+        const char *file,
+        int line
+    ) = delete;
+  #endif
+
     #define KIND_BYTE(v) \
         KIND_BYTE_Debug((v), __FILE__, __LINE__)
 #endif
@@ -339,10 +353,13 @@ inline static const REBCEL *VAL_UNESCAPED(const RELVAL *v);
 #else
     #if !defined(CPLUSPLUS_11)
         #define CELL_KIND(cell) \
-            cast(enum Reb_Kind, KIND_BYTE(cell) % REB_64)
+            cast(enum Reb_Kind, KIND_BYTE(cast(const RELVAL*, cell)) % REB_64)
     #else
-        inline static enum Reb_Kind CELL_KIND(const REBCEL *cell)
-            { return cast(enum Reb_Kind, KIND_BYTE(cell) % REB_64); }
+        inline static enum Reb_Kind CELL_KIND(const REBCEL *cell) {
+            return cast(enum Reb_Kind,
+                KIND_BYTE(cast(const RELVAL*, cell)) % REB_64
+            );
+        }
 
         // Don't want to ask an ordinary value cell its kind modulo 64 is;
         // it may be REB_QUOTED and we need to call VAL_UNESCAPED() first!
@@ -1063,7 +1080,7 @@ inline static REBVAL *Voidify_If_Nulled_Or_Blank(REBVAL *cell) {
 #define TRUE_VALUE \
     c_cast(const REBVAL*, &PG_True_Value[0])
 
-inline static bool IS_TRUTHY(const REBCEL *v) {
+inline static bool IS_TRUTHY(const RELVAL *v) {
     if (KIND_BYTE(v) >= REB_64) {
         //
         // QUOTED! at an escape level low enough to reuse cell.  So if that

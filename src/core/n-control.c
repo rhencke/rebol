@@ -218,7 +218,7 @@ inline static bool Single_Test_Throws(
         REBSPC *specifier = Derive_Specifier(test_specifier, test);
 
         for (; NOT_END(item); ++item) {
-            if (IS_GET_WORD(VAL_UNESCAPED(item)))
+            if (IS_GET_WORD(item))
                 fail ("GET-WORD! may be slated to be illegal in PATH!s");
 
             if (IS_QUOTED(item))

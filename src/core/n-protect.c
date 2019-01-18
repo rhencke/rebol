@@ -452,24 +452,26 @@ REBNATIVE(unprotect)
 // in order to do things like use blocks as map keys, etc.
 //
 bool Is_Value_Frozen(const RELVAL *v) {
+    const REBCEL *cell = VAL_UNESCAPED(v);
+    enum Reb_Kind kind = CELL_KIND(cell);
     if (
-        IS_BLANK(v)
-        || IS_BAR(v)
-        || ANY_SCALAR(v)
-        || ANY_WORD(v)
-        || IS_ACTION(v) // paramlist is identity, hash
+        kind == REB_BLANK
+        or kind == REB_BAR
+        or ANY_SCALAR_KIND(kind)
+        or ANY_WORD_KIND(kind)
+        or kind == REB_ACTION // paramlist is identity, hash
     ){
         return true;
     }
 
-    if (ANY_ARRAY(v))
-        return Is_Array_Deeply_Frozen(VAL_ARRAY(v));
+    if (ANY_ARRAY_KIND(kind))
+        return Is_Array_Deeply_Frozen(VAL_ARRAY(cell));
 
-    if (ANY_CONTEXT(v))
-        return Is_Context_Deeply_Frozen(VAL_CONTEXT(v));
+    if (ANY_CONTEXT_KIND(kind))
+        return Is_Context_Deeply_Frozen(VAL_CONTEXT(cell));
 
-    if (ANY_SERIES(v))
-        return Is_Series_Frozen(VAL_SERIES(v));
+    if (ANY_SERIES_KIND(kind))
+        return Is_Series_Frozen(VAL_SERIES(cell));
 
     return false;
 }
@@ -506,22 +508,25 @@ void Ensure_Value_Frozen(const RELVAL *v, REBSER *opt_locker) {
     if (Is_Value_Frozen(v))
         return;
 
-    if (ANY_ARRAY(v)) {
-        Deep_Freeze_Array(VAL_ARRAY(v));
+    const REBCEL *cell = VAL_UNESCAPED(v);
+    enum Reb_Kind kind = CELL_KIND(cell);
+
+    if (ANY_ARRAY_KIND(kind)) {
+        Deep_Freeze_Array(VAL_ARRAY(cell));
         if (opt_locker)
-            SET_SER_INFO(VAL_ARRAY(v), SERIES_INFO_AUTO_LOCKED);
+            SET_SER_INFO(VAL_ARRAY(cell), SERIES_INFO_AUTO_LOCKED);
     }
-    else if (ANY_CONTEXT(v)) {
-        Deep_Freeze_Context(VAL_CONTEXT(v));
+    else if (ANY_CONTEXT_KIND(kind)) {
+        Deep_Freeze_Context(VAL_CONTEXT(cell));
         if (opt_locker)
-            SET_SER_INFO(VAL_CONTEXT(v), SERIES_INFO_AUTO_LOCKED);
+            SET_SER_INFO(VAL_CONTEXT(cell), SERIES_INFO_AUTO_LOCKED);
     }
-    else if (ANY_SERIES(v)) {
-        Freeze_Sequence(VAL_SERIES(v));
-        if (opt_locker != NULL)
-            SET_SER_INFO(VAL_SERIES(v), SERIES_INFO_AUTO_LOCKED);
+    else if (ANY_SERIES_KIND(kind)) {
+        Freeze_Sequence(VAL_SERIES(cell));
+        if (opt_locker)
+            SET_SER_INFO(VAL_SERIES(cell), SERIES_INFO_AUTO_LOCKED);
     } else
-        fail (Error_Invalid_Type(VAL_TYPE(v))); // not yet implemented
+        fail (Error_Invalid_Type(kind)); // not yet implemented
 }
 
 

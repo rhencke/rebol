@@ -188,41 +188,40 @@ REBINT Hash_UTF8(const REBYTE *utf8, REBSIZ size)
 //
 uint32_t Hash_Value(const RELVAL *v)
 {
+    const REBCEL *cell = VAL_UNESCAPED(v); // hash contained quoted content
+    enum Reb_Kind kind = CELL_KIND(cell);
+
     uint32_t hash;
 
-    switch(VAL_TYPE(v)) {
-    case REB_MAX_NULLED:
-        //
-        // While a void might technically be hashed, it can't be a value *or*
-        // a key in a map.
-        //
-        panic (NULL);
+    switch (kind) {
+      case REB_MAX_NULLED:
+        panic (nullptr); // nulls can't be values or keys in MAP!s
 
-    case REB_BAR:
-    case REB_BLANK:
+      case REB_BAR:
+      case REB_BLANK:
         hash = 0;
         break;
 
-    case REB_LOGIC:
-        hash = VAL_LOGIC(v) ? 1 : 0;
+      case REB_LOGIC:
+        hash = VAL_LOGIC(cell) ? 1 : 0;
         break;
 
-    case REB_INTEGER:
+      case REB_INTEGER:
         //
         // R3-Alpha XOR'd with (VAL_INT64(val) >> 32).  But: "XOR with high
         // bits collapses -1 with 0 etc.  (If your key k is |k| < 2^32 high
         // bits are 0-informative." -Giulio
         //
-        hash = cast(uint32_t, VAL_INT64(v));
+        hash = cast(uint32_t, VAL_INT64(cell));
         break;
 
-    case REB_DECIMAL:
-    case REB_PERCENT:
+      case REB_DECIMAL:
+      case REB_PERCENT:
         // depends on INT64 sharing the DEC64 bits
-        hash = (VAL_INT64(v) >> 32) ^ (VAL_INT64(v));
+        hash = (VAL_INT64(cell) >> 32) ^ (VAL_INT64(cell));
         break;
 
-    case REB_MONEY: {
+      case REB_MONEY: {
         //
         // !!! R3-Alpha used a sketchy "Reb_All" union for this, violating the
         // rule of only reading from the union you last read from.  Access
@@ -230,54 +229,54 @@ uint32_t Hash_Value(const RELVAL *v)
         // accomplish the same thing (whether it was good or not, at least it
         // isn't breaking the C standard)
 
-        const REBYTE *payload = cast(const REBYTE*, &v->payload.money);
+        const REBYTE *payload = cast(const REBYTE*, &cell->payload.money);
 
         uintptr_t bits0;
         uintptr_t bits1;
         memcpy(&bits0, payload, sizeof(uintptr_t));
         memcpy(&bits1, payload + sizeof(uintptr_t), sizeof(uintptr_t));
 
-        hash = bits0 ^ bits1 ^ v->extra.m0;
+        hash = bits0 ^ bits1 ^ cell->extra.m0;
         break; }
 
-    case REB_CHAR:
-        hash = LO_CASE(VAL_CHAR(v));
+      case REB_CHAR:
+        hash = LO_CASE(VAL_CHAR(cell));
         break;
 
-    case REB_PAIR: {
-        hash = Hash_Value(VAL_PAIR(v));
-        hash ^= Hash_Value(PAIRING_KEY(VAL_PAIR(v)));
-        break; }
-
-    case REB_TUPLE:
-        hash = Hash_Bytes_Or_Uni(VAL_TUPLE(v), VAL_TUPLE_LEN(v), 1);
+      case REB_PAIR:
+        hash = Hash_Value(VAL_PAIR(cell));
+        hash ^= Hash_Value(PAIRING_KEY(VAL_PAIR(cell)));
         break;
 
-    case REB_TIME:
-    case REB_DATE:
-        hash = cast(REBCNT, VAL_NANO(v) ^ (VAL_NANO(v) / SEC_SEC));
-        if (IS_DATE(v))
-            hash ^= VAL_DATE(v).bits;
+      case REB_TUPLE:
+        hash = Hash_Bytes_Or_Uni(VAL_TUPLE(cell), VAL_TUPLE_LEN(cell), 1);
         break;
 
-    case REB_BINARY:
-    case REB_TEXT:
-    case REB_FILE:
-    case REB_EMAIL:
-    case REB_URL:
-    case REB_TAG:
+      case REB_TIME:
+      case REB_DATE:
+        hash = cast(REBCNT, VAL_NANO(cell) ^ (VAL_NANO(cell) / SEC_SEC));
+        if (kind == REB_DATE)
+            hash ^= VAL_DATE(cell).bits;
+        break;
+
+      case REB_BINARY:
+      case REB_TEXT:
+      case REB_FILE:
+      case REB_EMAIL:
+      case REB_URL:
+      case REB_TAG:
         hash = Hash_Bytes_Or_Uni(
-            VAL_RAW_DATA_AT(v),
-            VAL_LEN_HEAD(v),
-            SER_WIDE(VAL_SERIES(v))
+            VAL_RAW_DATA_AT(cell),
+            VAL_LEN_HEAD(cell),
+            SER_WIDE(VAL_SERIES(cell))
         );
         break;
 
-    case REB_BLOCK:
-    case REB_GROUP:
-    case REB_PATH:
-    case REB_SET_PATH:
-    case REB_GET_PATH:
+      case REB_BLOCK:
+      case REB_GROUP:
+      case REB_PATH:
+      case REB_SET_PATH:
+      case REB_GET_PATH:
         //
         // !!! Lame hash just to get it working.  There will be lots of
         // collisions.  Intentionally bad to avoid writing something that
@@ -291,29 +290,29 @@ uint32_t Hash_Value(const RELVAL *v)
         // problems.  Do not hash mutable arrays unless you are sure hashings
         // won't cross a mutation.
         //
-        hash = ARR_LEN(VAL_ARRAY(v));
+        hash = ARR_LEN(VAL_ARRAY(cell));
         break;
 
-    case REB_DATATYPE: {
-        hash = Hash_String(Canon(VAL_TYPE_SYM(v)));
+      case REB_DATATYPE: {
+        hash = Hash_String(Canon(SYM_FROM_KIND(kind)));
         break; }
 
-    case REB_BITSET:
-    case REB_IMAGE:
-    case REB_VECTOR:
-    case REB_TYPESET:
+      case REB_BITSET:
+      case REB_IMAGE:
+      case REB_VECTOR:
+      case REB_TYPESET:
         //
         // These types are currently not supported.
         //
         // !!! Why not?
         //
-        fail (Error_Invalid_Type(VAL_TYPE(v)));
+        fail (Error_Invalid_Type(kind));
 
-    case REB_WORD:
-    case REB_SET_WORD:
-    case REB_GET_WORD:
-    case REB_REFINEMENT:
-    case REB_ISSUE: {
+      case REB_WORD:
+      case REB_SET_WORD:
+      case REB_GET_WORD:
+      case REB_REFINEMENT:
+      case REB_ISSUE: {
         //
         // Note that the canon symbol may change for a group of word synonyms
         // if that canon is GC'd--it picks another synonym.  Thus the pointer
@@ -323,23 +322,23 @@ uint32_t Hash_Value(const RELVAL *v)
         // !!! Should this hash be cached on the words somehow, e.g. in the
         // data payload before the actual string?
         //
-        hash = Hash_String(VAL_WORD_SPELLING(v));
+        hash = Hash_String(VAL_WORD_SPELLING(cell));
         break; }
 
-    case REB_ACTION:
+      case REB_ACTION:
         //
         // Because function equality is by identity only and they are
         // immutable once created, it is legal to put them in hashes.  The
         // VAL_ACT is the paramlist series, guaranteed unique per function
         //
-        hash = cast(REBCNT, cast(uintptr_t, VAL_ACTION(v)) >> 4);
+        hash = cast(REBCNT, cast(uintptr_t, VAL_ACTION(cell)) >> 4);
         break;
 
-    case REB_FRAME:
-    case REB_MODULE:
-    case REB_ERROR:
-    case REB_PORT:
-    case REB_OBJECT:
+      case REB_FRAME:
+      case REB_MODULE:
+      case REB_ERROR:
+      case REB_PORT:
+      case REB_OBJECT:
         //
         // !!! ANY-CONTEXT has a uniquely identifying context pointer for that
         // context.  However, this does not help with "natural =" comparison
@@ -352,37 +351,34 @@ uint32_t Hash_Value(const RELVAL *v)
         // However, since it was historically allowed it is allowed for
         // all ANY-CONTEXT! types at the moment.
         //
-        hash = cast(uint32_t, cast(uintptr_t, VAL_CONTEXT(v)) >> 4);
+        hash = cast(uint32_t, cast(uintptr_t, VAL_CONTEXT(cell)) >> 4);
         break;
 
-    case REB_MAP:
+      case REB_MAP:
         //
         // Looking up a map in a map is fairly analogous to looking up an
         // object in a map.  If one is permitted, so should the other be.
         // (Again this will just find the map by identity, not by comparing
         // the values of one against the values of the other...)
         //
-        hash = cast(uint32_t, cast(uintptr_t, VAL_MAP(v)) >> 4);
+        hash = cast(uint32_t, cast(uintptr_t, VAL_MAP(cell)) >> 4);
         break;
 
-    case REB_GOB:
-    case REB_EVENT:
-    case REB_HANDLE:
-    case REB_STRUCT:
-    case REB_LIBRARY:
+      case REB_GOB:
+      case REB_EVENT:
+      case REB_HANDLE:
+      case REB_STRUCT:
+      case REB_LIBRARY:
         //
         // !!! Review hashing behavior or needs of these types if necessary.
         //
-        fail (Error_Invalid_Type(VAL_TYPE(v)));
+        fail (Error_Invalid_Type(kind));
 
-    default:
-        // The list above should be comprehensive.  panic in order to keep
-        // there from being an uninitialized ret warning.
-        //
-        panic (NULL);
+      default:
+        panic (nullptr); // List should be comprehensive
     }
 
-    return hash ^ crc32_table[VAL_TYPE(v)];
+    return hash ^ crc32_table[kind];
 }
 
 
