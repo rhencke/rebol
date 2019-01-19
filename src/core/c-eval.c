@@ -1077,13 +1077,34 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             switch (pclass) {
               case REB_P_LOCAL:
-                Init_Nulled(f->arg); // !!! f->special?
+                //
+                // When REDOing a function frame, it is sent back up to do
+                // typechecking (f->special == f->arg), and the check takes
+                // care of clearing the locals, they may not be null...
+                //
+                if (f->special != f->param and f->special != f->arg)
+                    assert(IS_NULLED(f->special));
+
+                Init_Nulled(f->arg);
                 SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
 
               case REB_P_RETURN:
+                //
+                // Not always null in specialized frames, if that frame was
+                // filled by inline specialization that ran the evaluator
+                // (e.g. `f: does lit 'x` makes an f with an expired return)
+                // Also, as with locals, could be modified during a call and
+                // then a REDO of the frame could happen.
+                //
+                if (f->special != f->param and f->special != f->arg)
+                    assert(
+                        IS_NULLED(f->special)
+                        or NAT_ACTION(return) == VAL_ACTION(f->special)
+                    );
                 assert(VAL_PARAM_SYM(f->param) == SYM_RETURN);
-                Move_Value(f->arg, NAT_VALUE(return)); // !!! f->special?
+
+                Move_Value(f->arg, NAT_VALUE(return));
                 INIT_BINDING(f->arg, f->varlist);
                 SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
                 goto continue_arg_loop;
