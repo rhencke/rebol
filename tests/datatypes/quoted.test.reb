@@ -117,7 +117,7 @@
 
 
 (quoted! = kind of lit 'foo) ;; low level "KIND"
-(uneval word! = type of lit 'foo) ;; higher-level "TYPE"
+((uneval word!) = type of lit 'foo) ;; higher-level "TYPE"
 ((type of lit ''[a b c]) = uneval/depth block! 2)
 
 
@@ -128,15 +128,15 @@
 ;; controlled by something in the function spec vs. be a random
 ;; list that added the behavior.
 
-(lit ''''3 = add lit ''''1 2)
+((lit ''''3) == add lit ''''1 2)
 
-(lit '''[b c d] = find ''''[a b c d] 'b)
+((lit '''[b c d]) == find ''''[a b c d] 'b)
 
-(null = find ''''[a b c d] 'q)
+(null == find ''''[a b c d] 'q)
 
-(lit '''[a b c] = copy lit '''[a b c])
+((lit '''[a b c]) == copy lit '''[a b c])
 
-(lit '(1 2 3 <four>) = append mutable ''(1 2 3) <four>)
+((lit '(1 2 3 <four>)) == append mutable ''(1 2 3) <four>)
 
 
 ;; Routines could be adapted to do all kinds of interesting things
@@ -144,11 +144,9 @@
 ;; of escaping off of any GROUP! it sees.
 
 (
-    compose [(1 + 2) '(1 + 2) ''(1 + 2)]
-    == [3 (1 + 2) '(1 + 2)]
+    [3 (1 + 2) '(1 + 2)] == compose [(1 + 2) '(1 + 2) ''(1 + 2)]
 )(
-    compose/deep [a ''[b (1 + 2) c] d]
-    == [a ''[b 3 c] d]
+    [a ''[b 3 c] d] == compose/deep [a ''[b (1 + 2) c] d]
 )
 
 
@@ -183,8 +181,8 @@
     w2: bind word o2
     did all [
         a = 0
-        get w1 = 1
-        get w2 = 2
+        1 = get w1
+        2 = get w2
     ]
 )
 

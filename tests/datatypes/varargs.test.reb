@@ -48,11 +48,11 @@
         true
     )
 
-    (do [normal] = 0)
-    (do [10 normal] = 10)
-    (do [10 20 normal] = 20)
-    (do [x: 30 | y: 'x | 1 2 x normal] = 30)
-    (do [multiply 3 9 normal] = 27) ;-- seen as ((multiply 3 9) normal)
+    (0 = do [normal])
+    (10 = do [10 normal])
+    (20 = do [10 20 normal])
+    (30 = do [x: 30 | y: 'x | 1 2 x normal])
+    (27 = do [multiply 3 9 normal]) ;-- seen as ((multiply 3 9) normal)
 ][
     (
         tight: enfix function [#v [integer! <...>]] [
@@ -65,11 +65,11 @@
         true
     )
 
-    (do [tight] = 0)
-    (do [10 tight] = 10)
-    (do [10 20 tight] = 20)
-    (do [x: 30 | y: 'x | 1 2 x tight] = 30)
-    (do [multiply 3 9 tight] = 27) ;-- seen as (multiply 3 (9 tight))
+    (0 = do [tight])
+    (10 = do [10 tight])
+    (20 = do [10 20 tight])
+    (30 = do [x: 30 | y: 'x | 1 2 x tight])
+    (27 = do [multiply 3 9 tight]) ;-- seen as (multiply 3 (9 tight))
 ][
     (
         soft: enfix function ['v [any-value! <...>]] [
@@ -82,9 +82,9 @@
         true
     )
 
-    (do [soft] = [])
-    (do [a soft] = [a])
-    (do [(1 + 2) (3 + 4) soft] = [7])
+    ([] = do [soft])
+    ([a] = do [a soft])
+    ([7] = do [(1 + 2) (3 + 4) soft])
 ][
     (
         hard: enfix function [:v [any-value! <...>]] [
@@ -97,9 +97,9 @@
         true
     )
 
-    (do [hard] = [])
-    (do [a hard] = [a])
-    (do [(1 + 2) (3 + 4) hard] = [(3 + 4)])
+    ([] = do [hard])
+    ([a] = do [a hard])
+    ([(3 + 4)] = do [(1 + 2) (3 + 4) hard])
 ]
 
 

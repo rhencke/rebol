@@ -15,7 +15,7 @@
     set/enfix 'foo :+
     did all [
         enfixed? 'foo
-        3 = 1 foo 2
+        1 foo 2 = 3
     ]
 )
 (
@@ -90,7 +90,7 @@
 
 ; #TIGHT parameter
 ;
-(9 = 1 + 2 -> * 3)
+(9 = (1 + 2 -> * 3))
 (7 = add 1 2 -> * 3)
 (7 = add 1 2 -> (:*) 3)
 
@@ -112,6 +112,6 @@
 
     (error? trap [1 obj/magic 2])
 
-    (3 = 1 -> obj/magic 2)
-    (-1 = 1 -> obj/magic/minus 2)
+    (3 = (1 -> obj/magic 2))
+    (-1 = (1 -> obj/magic/minus 2))
 ]

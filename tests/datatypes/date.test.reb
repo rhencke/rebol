@@ -35,6 +35,6 @@
     did all [
         error? trap [load "1/11/-00"]
         error? trap [load "1/11/-0"]
-        load "1/11/0" = load "1/11/00"
+        (load "1/11/0") = (load "1/11/00")
     ]
 )]

@@ -276,8 +276,7 @@
 ;; Support for the new literal types
 ;;
 (
-    parse [... [a b]] [to '[a b]]
-    == [[a b]]
+    [[a b]] == parse [... [a b]] [to '[a b]]
 )(
     did parse [... [a b]] [thru '[a b] end]
 )(

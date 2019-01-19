@@ -549,7 +549,7 @@ first-generic-sym: sym-n
 boot-generics: load boot/tmp-generics.r
 for-each item boot-generics [
     if set-word? :item [
-        if first-generic-sym < (add-sym/exists to-word item else [0]) [
+        if first-generic-sym < ((add-sym/exists to-word item) else [0]) [
             fail ["Duplicate generic found:" item]
         ]
     ]

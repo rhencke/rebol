@@ -119,7 +119,7 @@ for-each [comparison-op function-name] compose [
     ; all things considered is still pretty natural (and popular in many
     ; languages)...and a small price to pay.  Hence no TIGHTEN call here.
     ;
-    set/enfix comparison-op (get function-name)
+    set/enfix comparison-op (tighten get function-name)
 ]
 
 

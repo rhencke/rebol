@@ -313,8 +313,8 @@ trim: function [
     ;
     if lines [
         parse series [while [change [some rule] space skip | skip] end]
-        if first series = space [take series]
-        if last series = space [take/last series]
+        if space = first series [take series]
+        if space = last series [take/last series]
         return series
     ]
 

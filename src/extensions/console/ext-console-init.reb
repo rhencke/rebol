@@ -567,7 +567,7 @@ ext-console-impl: function [
                 print "** Hit Ctrl-C to break into the console in 5 seconds"
 
                 repeat n 25 [
-                    if remainder n 5 = 1 [
+                    if 1 = remainder n 5 [
                         write-stdout form (5 - to-integer (n / 5))
                     ] else [
                         write-stdout "."
@@ -599,7 +599,7 @@ ext-console-impl: function [
     ]
 
     if block? :result [
-        assert [length of result = 1]
+        assert [1 = length of result]
         set* lit result: :result/1
     ] else [
         assert [unset? 'result]

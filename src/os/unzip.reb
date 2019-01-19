@@ -161,7 +161,7 @@ ctx-zip: context [
 
         compressed-data: deflate data
 
-        if length of compressed-data < length of data [
+        if (length of compressed-data) < (length of data) [
             method: 'deflate
         ] else [
             method: 'store ;-- deflating didn't help

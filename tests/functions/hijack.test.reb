@@ -75,5 +75,5 @@
     two: func [a b] [a + b]
     one: specialize 'two [a: 10]
     hijack 'one func [b] [20 - b]
-    one 20 = 0
+    0 = one 20
 )

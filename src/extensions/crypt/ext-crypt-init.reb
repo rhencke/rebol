@@ -20,10 +20,10 @@ hmac-sha256: function [
     key: copy k
     message: copy m
     blocksize: 64
-    if length of key > blocksize [
+    if blocksize < length of key [
         key: sha256 key
     ]
-    if length of key < blocksize [
+    if blocksize > length of key [
         insert/dup tail key #{00} (blocksize - length of key)
     ]
     insert/dup opad: copy #{} #{5C} blocksize

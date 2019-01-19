@@ -359,8 +359,8 @@ REBNATIVE(decode_gif)
     //
     REBVAL *result = rebRun("case [",
         "empty?", frames, "[FAIL {No frames found in GIF}]",
-        "length of", frames, "= 1", "[first", frames, "]",
-        "default [", frames, "]"
+        "1 = length of", frames, "[first", frames, "]",
+        "default [", frames, "]",
     "]", rebEND);
 
     rebRelease(frames);

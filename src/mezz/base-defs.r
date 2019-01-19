@@ -259,13 +259,13 @@ eval func [
 ;; %words.r for bootstrap compatibility as a parse keyword.
 
 lit-word?: func [value [<opt> any-value!]] [
-    type of :value == lit-word! ;; note plain = would not work here
+    lit-word! == type of :value  ;; note plain = would not work here
 ]
 to-lit-word: func [value [any-value!]] [
     uneval to word! dequote :value
 ]
 lit-path?: func [value [<opt> any-value!]] [
-    type of :value == lit-path! ;; note plain = would not work here
+    lit-path! == type of :value  ;; note plain = would not work here
 ]
 to-lit-path: func [value [any-value!]] [
     uneval to path! dequote :value
