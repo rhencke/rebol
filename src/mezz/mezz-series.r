@@ -236,7 +236,7 @@ reword: function [
                 set prefix delimiter-types
                 set suffix opt delimiter-types
                 end
-            ] or [
+            ] else [
                 fail ["Invalid /ESCAPE delimiter block" delimiters]
             ]
         ]
@@ -378,7 +378,7 @@ reword: function [
         (append out a)
     ]
 
-    parse/(try if case_REWORD [/case]) source rule or [
+    parse/(try if case_REWORD [/case]) source rule else [
         fail "Unexpected error in REWORD's parse rule, should not happen."
     ]
 
@@ -431,18 +431,18 @@ extract: func [
     ]
     if not index [pos: 1]
     if block? pos [
-        parse pos [some [any-number! | logic!] end] or [
+        parse pos [some [any-number! | logic!] end] else [
             cause-error 'Script 'invalid-arg reduce [pos]
         ]
         out: make (type of series) len * length of pos
-        if not default_EXTRACT and [any-string? out] [value: copy ""]
+        if (not default_EXTRACT) and [any-string? out] [value: copy ""]
         iterate-skip series width [iterate pos [
             val: pick series pos/1 else [value]
             append/only out :val
         ]]
     ] else [
         out: make (type of series) len
-        if not default_EXTRACT and [any-string? out] [value: copy ""]
+        if (not default_EXTRACT) and [any-string? out] [value: copy ""]
         iterate-skip series width [
             val: pick series pos else [value]
             append/only out :val
@@ -639,7 +639,7 @@ split: function [
         [block! integer! char! bitset! text! tag!]
     /into "If dlm is integer, split in n pieces (vs. pieces of length n)"
 ][
-    if block? dlm and [parse dlm [some integer! end]] [
+    parse (try match block! dlm) [some integer! end] then [
         return map-each len dlm [
             if len <= 0 [
                 series: skip series negate len
@@ -704,14 +704,17 @@ split: function [
         ; If the last thing in the series is a delimiter, there is an
         ; implied empty field after it, which we add here.
         ;
-        switch type of dlm [
+        (switch type of dlm [
             bitset! [did find dlm try last series]
             char! [dlm = last series]
             text! [
-                (did find series dlm) and [empty? find/last/tail series dlm]
+                did all [
+                    find series dlm
+                    empty? find/last/tail series dlm
+                ]
             ]
             block! [false]
-        ] and [
+        ]) and [
             add-fill-val
         ]
     ]

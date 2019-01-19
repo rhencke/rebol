@@ -126,7 +126,7 @@ cscape: function [
                     delimit (unspaced [suffix newline]) sub
                 ]
                 fail ["Invalid CSCAPE mode:" mode]
-            ] or [
+            ] else [
                 copy ""
             ]
 

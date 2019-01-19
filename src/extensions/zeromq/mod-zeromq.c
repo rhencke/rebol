@@ -377,8 +377,8 @@ REBNATIVE(zmq_socket) {
 
     void *ctx = VAL_HANDLE_VOID_POINTER(ARG(ctx));
 
-    int type = rebUnbox( // !!! GROUP! needed for MATCH quirk
-        "(match integer!", rebQ(ARG(type)), ") or [select make map! ["
+    int type = rebUnbox(
+        "match integer!", ARG(type), "else [select ["
             "REQ", rebI(ZMQ_REQ),
             "REP", rebI(ZMQ_REP),
             "DEALER", rebI(ZMQ_DEALER), // >= 0MQ 2.1, was XREQ prior to that
@@ -388,7 +388,7 @@ REBNATIVE(zmq_socket) {
             "PUSH", rebI(ZMQ_PUSH),
             "PULL", rebI(ZMQ_PULL),
             "PAIR", rebI(ZMQ_PAIR),
-        "]", rebQ(ARG(type)), "] or [",
+        "]", rebQ(ARG(type)), "] else [",
             "fail [{Unknown zmq_socket() type:}", rebQ(ARG(type)), "]",
         "]");
 
@@ -544,17 +544,16 @@ REBNATIVE(zmq_setsockopt) {
         REBVAL *opts = Make_Sockopts_Table(); // !!! should cache on startup
 
         REBVAL *pos = rebRun(
-            "find", opts, "as issue!", ARG(name), "or [",
-                "fail [{Couldn't find option constant for}", ARG(name), "]",
+            "(find", opts, "as issue!", rebQ(ARG(name)), ") else [",
+                "fail [{Couldn't find option for}", rebQ(ARG(name)), "]",
             "]");
 
         // !!! Is it overzealous to disallow integer arguments that are 0 or 1
         // to a "boolean" parameter, forcing people to use LOGIC?
         //
         name = rebUnboxInteger(
-            "if type of", ARG(value), "<> ensure datatype! second", pos, "[",
-                "fail [", ARG(name), "{needs to be} an (second", pos, ")]",
-            "]",
+            "if (type of", ARG(value), ") <> ensure datatype! second", pos,
+                "[fail [", ARG(name), "{needs to be} an (second", pos, ")]]",
             "third", pos);
 
         rebRelease(pos);
@@ -618,8 +617,8 @@ REBNATIVE(zmq_getsockopt) {
         REBVAL *opts = Make_Sockopts_Table(); // !!! should cache on startup
 
         REBVAL *pos = rebRun(
-            "find", opts, "as issue!", ARG(name), "or [",
-                "fail [{Couldn't find option constant for}", ARG(name), "]",
+            "(find", opts, "as issue!", rebQ(ARG(name)), ") else [",
+                "fail [{Couldn't find option for}", rebQ(ARG(name)), "]",
             "]");
 
         datatype = rebRun("ensure datatype! second", pos);

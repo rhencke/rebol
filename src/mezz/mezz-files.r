@@ -90,7 +90,7 @@ input: function [
     all [
         port? system/ports/input
         open? system/ports/input
-    ] or [
+    ] else [
         system/ports/input: open [scheme: 'console]
     ]
 
@@ -147,7 +147,10 @@ confirm: function [
 ][
     choices: default [["y" "yes"] ["n" "no"]]
 
-    if block? choices and [length of choices > 2] [
+    all [
+        block? choices
+        length of choices > 2
+
         fail/where [
             "maximum 2 arguments allowed for choices [true false]"
             "got:" mold choices

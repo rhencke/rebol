@@ -118,11 +118,7 @@ console!: make object! [
         ; We don't want to use PRINT here because it would put the cursor on
         ; a new line.
         ;
-        write-stdout <- block? prompt and [
-            unspaced prompt
-        ] or [
-            form prompt
-        ]
+        write-stdout unspaced prompt
         write-stdout space
     ]
 
@@ -454,7 +450,7 @@ ext-console-impl: function [
         ; care of that.
         ;
         assert [unset? 'result]
-        if unset? 'system/console or [not system/console] [
+        if (unset? 'system/console) or [not system/console] [
             emit [start-console]
         ]
         return <prompt>

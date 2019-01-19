@@ -87,7 +87,7 @@ make-callback: function [
         opt text!
         any [arg-rule | attr-rule]
         end
-    ] or [
+    ] else [
         fail ["Unrecognized pattern in MAKE-CALLBACK function spec" args]
     ]
 

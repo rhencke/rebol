@@ -223,7 +223,7 @@ parse-ext-build-spec: function [
                 | end
                 | (print "wrong format for options") return false
             ]
-        ] or [
+        ] else [
             fail ["Could not parse extension build spec" mold spec]
         ]
 
@@ -1275,7 +1275,7 @@ process-module: func [
                 match [file! block!] s [
                     gen-obj/dir s src-dir/extensions/%
                 ]
-                object? s and [find [#object-library #object-file] s/class] [
+                (object? s) and [find [#object-library #object-file] s/class] [
                     s
                     ; #object-library has already been taken care of above
                     ; if s/class = #object-library [s]
@@ -1295,7 +1295,7 @@ process-module: func [
                             output: lib
                         ]
                     ]
-                    object? lib and [
+                    (object? lib) and [
                         find [#dynamic-extension #static-extension] lib/class
                     ][
                         lib
@@ -1522,7 +1522,7 @@ for-each file os-file-block [
     ;
     file: join-of %objs/ (ensure [word! path!] file)
     path: first split-path (ensure file! file)
-    find folders path or [append folders path]
+    find folders path else [append folders path]
 ]
 add-new-obj-folders ext-objs folders
 

@@ -271,7 +271,7 @@ function: func [
 ; the purposes of distinguishing a derived action, it must be copied.
 ;
 dig-action-meta-fields: function [value [action!]] [
-    meta: meta-of :value or [
+    meta: meta-of :value else [
         return construct system/standard/action-meta [
             description: _
             return-type: _
@@ -433,7 +433,7 @@ redescribe: function [
             )]
         ]
         end
-    ] or [
+    ] else [
         fail [{REDESCRIBE specs should be STRING! and ANY-WORD! only:} spec]
     ]
 
@@ -985,7 +985,7 @@ fail: function [
         block! [make error! spaced reason]
     ]
 
-    if not error? :reason or [not pick reason 'where] [
+    if (not error? :reason) or [not pick reason 'where] [
         ;
         ; If no specific location specified, and error doesn't already have a
         ; location, make it appear to originate from the frame calling FAIL.

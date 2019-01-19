@@ -257,7 +257,7 @@ ctx-zip: context [
         offset: num-entries: 0
         central-directory: copy #{}
 
-        if not only and [all [file? source | dir? source]] [
+        if (not only) and [all [file? source | dir? source]] [
             root: source
             source: read source
         ] else [

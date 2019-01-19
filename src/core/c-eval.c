@@ -409,12 +409,17 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // Factored out code for entering a child frame with an already evaluated
 // value in order to reuse the post-switch enfix code.
 //
-static inline bool Eval_Post_Switch_Throws(REBFRM *f, REBVAL *preload) {
+static inline bool Eval_Post_Switch_Throws(
+    REBFRM *f,
+    REBVAL *preload,
+    bool lookahead // lookahead to run tight enfix functions
+){
     REBFLGS flags =
         (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
         | DO_FLAG_FULFILLING_ARG
         | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-        | (f->flags.bits & DO_FLAG_CONST);
+        | (f->flags.bits & DO_FLAG_CONST)
+        | (lookahead ? 0 : DO_FLAG_NO_LOOKAHEAD);
 
     DECLARE_SUBFRAME (child, f); // capture DSP *now*
 
@@ -1388,7 +1393,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // put off before, this time using the 10 as AND's left-hand arg.
             //
             if (f->u.defer.arg) {
-                if (Eval_Post_Switch_Throws(f, f->u.defer.arg)) {
+                if (Eval_Post_Switch_Throws(f, f->u.defer.arg, true)) {
                     Move_Value(f->out, f->u.defer.arg);
                     goto abort_action;
                 }
@@ -1484,7 +1489,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 assert(f->u.defer.arg == nullptr);
                 if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE)) {
-                    if (Eval_Post_Switch_Throws(f, f->arg)) {
+                    if (Eval_Post_Switch_Throws(f, f->arg, false)) {
                         Move_Value(f->out, f->arg);
                         goto abort_action;
                     }
@@ -1529,7 +1534,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 assert(f->u.defer.arg == nullptr);
                 if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE)) {
-                    if (Eval_Post_Switch_Throws(f, f->arg)) {
+                    if (Eval_Post_Switch_Throws(f, f->arg, false)) {
                         Move_Value(f->out, f->arg);
                         goto abort_action;
                     }

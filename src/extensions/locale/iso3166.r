@@ -58,7 +58,7 @@ parse init-code [
          #"[" thru #"]"
     ] iso-3166-table-cnt
     to end
-] or [
+] else [
     fail "Failed to update iso-3166-table"
 ]
 

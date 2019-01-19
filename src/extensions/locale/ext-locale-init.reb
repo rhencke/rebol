@@ -457,7 +457,7 @@ if 'Windows <> first system/platform [
         iso-639 (iso-639-table)
         iso-3166 (iso-3166-table)
     ][
-        env-lang: get-env "LANG" or [return _]
+        env-lang: get-env "LANG" else [return _]
         territory: _
 
         letter: charset [#"a" - #"z" #"A" - #"Z"]
@@ -465,7 +465,7 @@ if 'Windows <> first system/platform [
             copy lang: [some letter]
             opt [#"_" copy territory: [some letter]]
             to end
-        ] or [
+        ] else [
             print ["Malformatted LANG environment variable:" env-lang]
             return _
         ]

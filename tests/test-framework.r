@@ -203,7 +203,7 @@ make object! compose [
                         :position
                     ]
                     end
-                ] or [
+                ] else [
                     fail "do-recover log file parsing problem"
                 ]
                 last-vector

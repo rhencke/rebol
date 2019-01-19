@@ -277,7 +277,7 @@ elf-format: context [
                 (mode: 'write) :pos program-header-rule
             ]
             to end
-        ] or [
+        ] else [
             fail "Error updating offsets in program headers"
         ]
 
@@ -290,7 +290,7 @@ elf-format: context [
                 (mode: 'write) :pos section-header-rule
             ]
             to end
-        ] or [
+        ] else [
             fail "Error updating offsets in section headers"
         ]
     ]
@@ -330,7 +330,7 @@ elf-format: context [
 
         parse skip executable string-header-offset [
             (mode: 'read) section-header-rule to end
-        ] or [
+        ] else [
             fail "Error finding string section in ELF binary"
         ]
 
@@ -420,7 +420,7 @@ elf-format: context [
                 )
                 (mode: 'write) :pos section-header-rule
                 to end
-            ] or [
+            ] else [
                 fail "Error updating string table size in string header"
             ]
 
@@ -446,7 +446,7 @@ elf-format: context [
                 )
                 (mode: 'write) section-header-rule
                 to end
-            ] or [
+            ] else [
                 fail "Error creating new section for the embedded data"
             ]
 
@@ -488,7 +488,7 @@ elf-format: context [
 
         parse executable [
             (mode: 'write) header-rule to end
-        ] or [
+        ] else [
             fail "Error updating the ELF header"
         ]
     ]
@@ -501,7 +501,7 @@ elf-format: context [
     ][
         header-data: read/part file 64 ; 64-bit size, 32-bit is smaller
 
-        parse header-data [(mode: 'read) header-rule to end] or [
+        parse header-data [(mode: 'read) header-rule to end] else [
             return null
         ]
 
@@ -513,7 +513,7 @@ elf-format: context [
         ;
         parse skip section-headers-data (e_shstrndx * e_shentsize) [
             (mode: 'read) section-header-rule to end
-        ] or [
+        ] else [
             fail "Error finding string section in ELF binary"
         ]
 
@@ -595,8 +595,7 @@ pe-format: context [
             any [
                 find words to word! word
                 find def to set-word! word
-            ] or [
-                append def reduce [to set-word! word]
+                append def to set-word! word
             ]
         ]
 
@@ -1346,7 +1345,7 @@ get-encap: function [
         pe-format/get-embedding rebol-path
             |
         generic-format/get-embedding rebol-path
-    ] or [
+    ] else [
         return blank
     ]
 

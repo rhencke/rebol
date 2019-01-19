@@ -62,7 +62,7 @@ emit-proto: func [return: <void> proto] [
         block? header
         2 <= length of header
         set-word? header/1
-    ] or [
+    ] else [
         fail [
             proto
             newline
@@ -101,7 +101,7 @@ emit-proto: func [return: <void> proto] [
                 )
             ]]
             end
-        ] or [
+        ] else [
             fail ["Couldn't extract API schema from prototype:" proto]
         ]
     ]

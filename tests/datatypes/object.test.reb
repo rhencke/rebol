@@ -169,7 +169,7 @@
 [#2076 (
     o: make object! [x: 10]
     e: trap [append o [self: 1]]
-    error? e and [e/id = 'hidden]
+    (error? e) and [e/id = 'hidden]
 )]
 
 [#187 (
@@ -185,5 +185,13 @@
 [
     ; https://github.com/metaeducation/ren-c/issues/907
 
-    (did trap [o: make object! [ ] o/i: 1])
+    (
+        o: make object! []
+        true
+    )
+
+    (did trap [o/i: 1])
+    (did trap [set? 'o/i])
+    (did trap [unset? 'o/i])
+    (null = in o 'i)
 ]

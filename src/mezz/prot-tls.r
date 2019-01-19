@@ -377,7 +377,7 @@ client-hello: function [
         not set? 'ver [[1.0 1.2]]
         decimal? ver [reduce [ver ver]]
         block? ver [
-            parse ver [decimal! decimal! end] or [
+            parse ver [decimal! decimal! end] else [
                 fail "BLOCK! /VERSION must be two DECIMAL! (min ver, max ver)"
             ]
             ver
@@ -1371,7 +1371,7 @@ do-commands: function [
     any [
         no-wait
         port? wait [ctx/connection 30]
-    ] or [
+    ] else [
         fail "port timeout"
     ]
 ]
@@ -1427,7 +1427,7 @@ tls-read-data: function [
 
         data: skip data len
 
-        if tail? data and [issue? ctx/mode] [
+        if (tail? data) and [issue? ctx/mode] [
             debug [
                 "READING FINISHED"
                 length of head of ctx/data-buffer

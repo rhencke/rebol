@@ -64,7 +64,7 @@ parse init-code [
          #"[" thru #"]"
     ] iso-639-table-cnt
     to end
-] or [
+] else [
     fail "Failed to update iso-639-table"
 ]
 

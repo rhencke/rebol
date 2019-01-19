@@ -405,7 +405,7 @@ host-start: function [
         {Return HOME path (e.g. $HOME on *nix)}
         return: [<opt> file!]
     ][
-        get-env: attempt [:system/modules/Process/get-env] or [
+        get-env: attempt [:system/modules/Process/get-env] else [
             loud-print [
                 "Interpreter not built with GET-ENV, can't detect HOME dir" LF
                 "(Build with Process extension enabled to address this)"
@@ -481,7 +481,7 @@ host-start: function [
         option [text!] {Command-line option (switch) used}
     ][
         take argv
-        return first argv or [die [option {parameter missing}]]
+        return first argv else [die [option {parameter missing}]]
     ]
 
     ; As we process command line arguments, we build up an "instruction" block
@@ -583,7 +583,7 @@ host-start: function [
             )
         |
             "--resources" end (
-                o/resources: to-dir param-or-die "RESOURCES" or [
+                o/resources: (to-dir param-or-die "RESOURCES") else [
                     die "RESOURCES directory not found"
                 ]
             )
@@ -674,7 +674,7 @@ host-start: function [
     ; As long as there was no `--script` pased on the command line explicitly,
     ; the first item after the options is implicitly the script.
     ;
-    if not o/script and [not tail? argv] [
+    if (not o/script) and [not tail? argv] [
         o/script: local-to-file take argv
         quit-when-done: default [true]
     ]
@@ -771,7 +771,7 @@ comment [
         ])
     ]
 
-    switch type of boot-embedded [
+    (switch type of boot-embedded [
         blank! [
             false ;-- signal the `AND []` that there's no embedded code
         ]
@@ -798,7 +798,7 @@ comment [
         ]
 
         die "Bad embedded boot data (not a BLOCK! or a BINARY!)"
-    ] and [
+    ]) and [
         ;boot-print ["executing embedded script:" mold code]
         system/script: construct system/standard/script [
             title: select first code 'title

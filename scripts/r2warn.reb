@@ -155,7 +155,7 @@ unless: checked-enfix [
         :look [any-value! <...>]
     ][
         set* lit right: take* right
-        if unset? 'left or [not group? right] or [block? first look] [
+        if (unset? 'left) or [not group? right] or [block? first look] [
             fail/where [
                 "UNLESS has been repurposed in Ren-C as an infix operator"
                 "which defaults to the left hand side, unless the right"
@@ -198,7 +198,7 @@ switch: checked [
 
 apply: checked [
     adapt 'apply [
-        (match [set-word! bar!] first def) or [
+        (match [set-word! bar!] first def) else [
             fail [
                 {APPLY has changed, see https://trello.com/c/P2HCcu0V}
                 {Use a BAR! as the first item in the definition block to}
@@ -264,7 +264,10 @@ op?: deprecated [
 
 also: checked [
     adapt 'also [
-        if (block? :branch) and [not semiquoted? 'branch] [
+        all [
+            block? :branch
+            not semiquoted? 'branch
+
             fail/where [
                 {ALSO serves a different purpose in Ren-C, so use ELIDE for}
                 {old-ALSO-like tasks.}
@@ -303,7 +306,10 @@ try: checked [
         ; Most historical usages of TRY took literal blocks as arguments.
         ; This is a good way of catching them, while allowing new usages.
         ;
-        if block? :optional and [semiquoted? 'optional] [
+        all [
+            block? :optional
+            semiquoted? 'optional
+
             fail/where [
                 {TRY/EXCEPT was replaced by TRAP/WITH, matching CATCH/WITH}
                 {and is more coherent.  See: https://trello.com/c/IbnfBaLI}

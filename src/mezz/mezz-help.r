@@ -513,7 +513,7 @@ what: function [
     list: make block! 400
     size: 0
 
-    ctx: all [set? 'name try select system/modules :name ] or [lib]
+    ctx: all [set? 'name try select system/modules :name ] else [lib]
 
     for-each [word val] ctx [
         if action? :val [
@@ -580,7 +580,10 @@ require-commit: function [
     ; can look at the date of the running Rebol and know that a build that is
     ; older than that won't work.
     ;
-    if date: select c 'date and [rebol/build < date] [
+    all [
+        date: select c 'date
+        rebol/build < date
+
         fail [
             "This script needs a build newer or equal to" date
             "so run `upgrade`"
@@ -590,7 +593,7 @@ require-commit: function [
     ; If there's a specific ID then assume that if the current build does not
     ; have that ID then there *could* be a problem.
     ;
-    if id: select c 'id and [id <> commit] [
+    if (id: select c 'id) and [id <> commit] [
         print [
             "This script has only been tested again commit" id LF
 

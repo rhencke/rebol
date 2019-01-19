@@ -78,7 +78,7 @@ filter-flag: function [
     parse to text! flag [
         copy header: to ":"
         ":" copy option: to end
-    ] or [
+    ] else [
         fail ["Tag must be <prefix:flag> ->" (flag)]
     ]
 
@@ -1200,7 +1200,7 @@ generator-class: make object! [
                     | skip
                 ]
                 end
-            ] or [
+            ] else [
                 fail ["failed to do var substitution:" cmd]
             ]
         ]

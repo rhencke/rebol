@@ -219,7 +219,7 @@
             either num > 1 [break] [true]
         ]
     ]
-    error? e and [e/id = 'overflow]
+    (error? e) and [e/id = 'overflow]
 )]
 (
     e: trap [
@@ -229,7 +229,7 @@
             either num > 1 [break] [true]
         ]
     ]
-    error? e and [e/id = 'overflow]
+    (error? e) and [e/id = 'overflow]
 )
 
 [#1994 (
@@ -241,7 +241,7 @@
             true
         ]
     ]
-    error? e and [e/id = 'overflow]
+    (error? e) and [e/id = 'overflow]
 )]
 (
     e: trap [
@@ -252,7 +252,7 @@
             true
         ]
     ]
-    error? e and [e/id = 'overflow]
+    (error? e) and [e/id = 'overflow]
 )
 
 [#1993

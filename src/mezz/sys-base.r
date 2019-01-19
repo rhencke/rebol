@@ -88,7 +88,7 @@ do*: function [
         if original-script [system/script: original-script]
         if original-path [change-dir original-path]
 
-        if quit_FINALIZER and [only] [
+        if quit_FINALIZER and 'only [
             quit/with :value ;-- "rethrow" the QUIT if DO/ONLY
         ]
 
@@ -121,7 +121,7 @@ do*: function [
     hdr: ensure [object! blank!] take code
     is-module: 'module = select hdr 'type
 
-    if text? source and [not is-module] [
+    if (text? source) and [not is-module] [
         ;
         ; Return result without "script overhead" (e.g. don't change the
         ; working directory to the base of the file path supplied)

@@ -235,7 +235,7 @@ math: function [
         all [
             1 = length of ret
             any-number? ret/1
-        ] or [
+        ] else [
             fail [
                 unspaced ["Cannot be REDUCED to a number(" mold ret ")"]
                 ":" mold res

@@ -130,7 +130,7 @@ to-c-name: function [
             fail ["identifier" string "starts with digit in to-c-name"]
         ]
 
-        find c-chars s/1 or [
+        find c-chars s/1 else [
             fail ["Non-alphanumeric or hyphen in" string "in to-c-name"]
         ]
     ]

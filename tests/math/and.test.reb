@@ -125,3 +125,44 @@
         x = true
     ]
 )
+
+
+; QUOTED! words and paths are allowed as the right hand side of AND/OR, as
+; a synonym for that word or path in a BLOCK!.
+
+[
+    (
+        x: 1
+        y: truesum: does [print "y" x: x * 2 true]
+        n: falsesum: does [print "n" x: x * 3 false]
+        o: make object! [
+            y: :truesum
+            n: :falsesum
+        ]
+        true
+    )
+
+    (did y and 'y)
+    (not y and 'n)
+    (not n and 'y)
+    (not n and 'n)
+    (x = 216)
+
+    (did o/y and 'o/y)
+    (not o/y and 'o/n)
+    (not o/n and 'o/y)
+    (not o/n and 'o/n)
+    (216 * 216 = x)
+
+    (did y or 'y)
+    (did y or 'n)
+    (did n or 'y)
+    (not n or 'n)
+    (216 * 216 * 216 = x)
+
+    (did o/y or 'o/y)
+    (did o/y or 'o/n)
+    (did o/n or 'o/y)
+    (not o/n or 'o/n)
+    (216 * 216 * 216 * 216 = x)
+]

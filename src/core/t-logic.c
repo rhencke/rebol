@@ -215,10 +215,10 @@ REBNATIVE(xor_q)
 //
 //      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
-//      left "Expression which will always be evaluated"
+//      #left "Expression which will always be evaluated"
 //          [<opt> any-value!]
-//      :right "If BLOCK!, evaluated only if TO LOGIC! of LEFT is true"
-//          [block! group!]
+//      :right "BLOCK! or QUOTED! evaluated only if LEFT is logically true"
+//          [block! group! 'word! 'path!]
 //  ]
 //
 REBNATIVE(and)
@@ -228,18 +228,23 @@ REBNATIVE(and)
     REBVAL *left = ARG(left);
     REBVAL *right = ARG(right);
 
-    if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
-        fail ("left hand side of AND should not be literal block");
+    if (IS_BLOCK(left) or IS_QUOTED(left))
+        if (GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
+            fail ("left side of AND should not be literal block or quote");
 
     if (IS_FALSEY(left)) {
-        if (IS_GROUP(right)) { // no need to evaluate right if BLOCK!
+        if (IS_GROUP(right)) { // no need to evaluate right if block/quoted
             if (Do_Any_Array_At_Throws(D_OUT, right))
                 return R_THROWN;
         }
         RETURN (left); // preserve falsey value
     }
 
-    if (Do_Any_Array_At_Throws(D_OUT, right))
+    if (IS_QUOTED(right)) {
+        if (Eval_Value_Throws(D_OUT, Unquotify(right, 1)))
+            return R_THROWN;
+    }
+    else if (Do_Any_Array_At_Throws(D_OUT, right))
         return R_THROWN;
 
     return D_OUT; // preserve the exact truthy or falsey value
@@ -252,10 +257,10 @@ REBNATIVE(and)
 //
 //      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
-//      left "Expression which will always be evaluated"
+//      #left "Expression which will always be evaluated"
 //          [<opt> any-value!]
-//      :right "If BLOCK!, evaluated only if TO LOGIC! of LEFT is false"
-//          [block! group!]
+//      :right "BLOCK! or QUOTED! evaluated only if LEFT is logically false"
+//          [block! group! 'word! 'path!]
 //  ]
 REBNATIVE(or)
 {
@@ -264,18 +269,23 @@ REBNATIVE(or)
     REBVAL *left = ARG(left);
     REBVAL *right = ARG(right);
 
-    if (IS_BLOCK(left) and GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
-        fail ("left hand side of OR should not be literal block");
+    if (IS_BLOCK(left) or IS_QUOTED(left))
+        if (GET_VAL_FLAG(left, VALUE_FLAG_UNEVALUATED))
+            fail ("left side of OR should not be literal block or quote");
 
     if (IS_TRUTHY(left)) {
-        if (IS_GROUP(right)) { // no need to evaluate right if BLOCK!
+        if (IS_GROUP(right)) { // no need to evaluate right if block/quoted
             if (Do_Any_Array_At_Throws(D_OUT, right))
                 return R_THROWN;
         }
         RETURN (left);
     }
 
-    if (Do_Any_Array_At_Throws(D_OUT, right))
+    if (IS_QUOTED(right)) {
+        if (Eval_Value_Throws(D_OUT, Unquotify(right, 1)))
+            return R_THROWN;
+    }
+    else if (Do_Any_Array_At_Throws(D_OUT, right))
         return R_THROWN;
 
     return D_OUT; // preserve the exact truthy or falsey value
@@ -289,7 +299,7 @@ REBNATIVE(or)
 //
 //      return: "Conditionally true value, or LOGIC! false for failure case"
 //          [<opt> any-value!]
-//      left "Expression which will always be evaluated"
+//      #left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "Expression that's also always evaluated (can't short circuit)"
 //          [group!]
@@ -330,7 +340,7 @@ REBNATIVE(xor)
 //
 //      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
-//      left "Expression which will always be evaluated"
+//      #left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      right "Expression that's also always evaluated (can't short circuit)"
 //          [<opt> any-value!] ;-- not a literal GROUP! as with XOR

@@ -105,7 +105,7 @@ args: any [
 
     ; This is the only piece that should be necessary if not dealing w/legacy
     system/options/args
-] or [
+] else [
     fail "No platform specified."
 ]
 

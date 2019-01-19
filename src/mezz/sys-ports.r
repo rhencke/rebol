@@ -32,13 +32,13 @@ make-port*: function [
         ]
         url! [
             spec: join decode-url spec [to set-word! 'ref spec]
-            name: select spec to set-word! 'scheme
+            name: try select spec to set-word! 'scheme
         ]
         block! [
-            name: select spec to set-word! 'scheme
+            name: try select spec to set-word! 'scheme
         ]
         object! [
-            name: get in spec 'scheme
+            name: try get in spec 'scheme
         ]
         word! [
             name: spec
@@ -211,7 +211,7 @@ make-scheme: function [
         scheme/actor: actor
     ]
 
-    match [object! handle!] :scheme/actor or [
+    match [object! handle!] :scheme/actor else [
         fail ["Scheme actor" :scheme/name "can't be" type of :scheme/actor]
     ]
 

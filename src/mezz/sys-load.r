@@ -215,7 +215,7 @@ load-header: function [
                         ;
                         gunzip first transcode/next rest
                     ]
-                ] or [
+                ] else [
                     return 'bad-compress
                 ]
             ] ; else assumed not compressed
@@ -228,7 +228,7 @@ load-header: function [
 
         case [
             find hdr/options 'compress [ ; script encoded only
-                rest: attempt [gunzip first rest] or [
+                rest: attempt [gunzip first rest] else [
                     return 'bad-compress
                 ]
             ]
@@ -278,7 +278,7 @@ load: function [
     ; Note that IMPORT has its own loader, and does not use LOAD directly.
     ; /type with anything other than 'extension disables extension loading.
 
-    if header and [self/all] [
+    if header and 'self/all [
         fail "Cannot use /ALL and /HEADER refinements together"
     ]
 
@@ -392,7 +392,7 @@ load: function [
         header
         empty? data
         1 < length of data
-    ] or [
+    ] else [
         data: first data
     ]
 
@@ -465,7 +465,7 @@ do-needs: function [
             (join mods [name vers hash])
         ]
         end
-    ] or [
+    ] else [
         cause-error 'script 'invalid-arg here
     ]
 
@@ -562,7 +562,7 @@ load-module: function [
 
             ; If no further processing is needed, shortcut return
 
-            if not version and [delay or [module? :mod]] [
+            if (not version) and [delay or [module? :mod]] [
                 return reduce [source (try match module! :mod)]
             ]
         ]
@@ -580,7 +580,7 @@ load-module: function [
             tmp: file-type? source
             case [
                 tmp = 'rebol [
-                    data: read source or [
+                    data: read source else [
                         return blank
                     ]
                 ]
@@ -632,7 +632,7 @@ load-module: function [
                     )
                 ]
                 end
-            ] or [
+            ] else [
                 cause-error 'script 'invalid-arg tmp
             ]
 
@@ -697,7 +697,7 @@ load-module: function [
         name: :hdr/name
     ]
 
-    if not no-lib and [not word? :name] [ ; requires name for full import
+    if (not no-lib) and [not word? :name] [ ; requires name for full import
         ; Unnamed module can't be imported to lib, so /no-lib here
         no-lib: true  ; Still not /no-lib in IMPORT
 
@@ -764,7 +764,7 @@ load-module: function [
     ]
 
     ; If no further processing is needed, shortcut return
-    if (not override?) and [any [mod delay]] [return reduce [name mod]]
+    if (not override?) and [mod or 'delay] [return reduce [name mod]]
 
     ; If /delay, save the intermediate form
     if delay [
@@ -808,7 +808,7 @@ load-module: function [
         ]
     ]
 
-    if not no-lib and [override?] [
+    if (not no-lib) and 'override? [
         if pos [
             pos/2: mod ; replace delayed module
         ] else [

@@ -61,7 +61,7 @@ decode-key-value-text: function [
 
     meta: copy []
 
-    parse text data-fields or [
+    parse text data-fields else [
         fail [
             {Expected key value format on line} (text-line-of position)
             {and lines must end with newline.}
