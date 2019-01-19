@@ -215,7 +215,7 @@ parse-ext-build-spec: function [
 ][
     ext: make extension-class spec
 
-    if set? 'ext/options [
+    if in ext 'options [
         ensure block! ext/options
         parse ext/options [
             any [

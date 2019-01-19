@@ -211,17 +211,18 @@ bool Next_Path_Throws(REBPVS *pvs)
         }
 
         if (r == pvs->out) {
+            // Common case... result where we expect it
         }
         else if (not r) {
             Init_Nulled(pvs->out);
+        }
+        else if (r == R_UNHANDLED) {
+            fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
         }
         else if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) { // API, from Alloc_Value()
             Handle_Api_Dispatcher_Result(pvs, r);
         }
         else switch (KIND_BYTE(r)) {
-          case REB_0_END:
-            fail (Error_Bad_Path_Pick_Raw(PVS_PICKER(pvs)));
-
           case REB_R_THROWN:
             panic ("Path dispatch isn't allowed to throw, only GROUP!s");
 
