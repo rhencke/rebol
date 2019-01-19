@@ -1562,6 +1562,28 @@ REB_R Elider_Dispatcher(REBFRM *f)
     SET_END(dummy);
 
     if (Interpreted_Dispatch_Throws(dummy, f)) {
+        //
+        // !!! In the implementation of invisibles, it seems reasonable to
+        // want to be able to RETURN to its own frame.  But in that case, we
+        // don't want to actually overwrite the f->out content or this would
+        // be no longer invisible.  Until a better idea comes along, repeat
+        // the work of catching here.  (Note this does not handle REDO too,
+        // and the hypothetical better idea should do so.)
+        //
+        const REBVAL *label = VAL_THROWN_LABEL(dummy);
+        if (IS_ACTION(label)) {
+            if (
+                VAL_ACTION(label) == NAT_ACTION(unwind)
+                and VAL_BINDING(label) == NOD(f->varlist)
+            ){
+                CATCH_THROWN(dummy, dummy);
+                if (IS_NULLED(dummy)) // !!! catch process loses "endish" flag
+                    return R_INVISIBLE;
+
+                fail ("Only 0-arity RETURN should be used in invisibles.");
+            }
+        }
+
         Move_Value(f->out, dummy);
         return R_THROWN;
     }
