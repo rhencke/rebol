@@ -122,6 +122,10 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
     UPDATE_EXPRESSION_START(f); // !!! See FRM_INDEX() for caveats
 
     f->out->header.bits |= OUT_MARKED_STALE;
+
+    if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
+        assert(not (f->flags.bits & DO_FLAG_NO_LOOKAHEAD));
+
     return false;
 }
 
@@ -409,17 +413,12 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // Factored out code for entering a child frame with an already evaluated
 // value in order to reuse the post-switch enfix code.
 //
-static inline bool Eval_Post_Switch_Throws(
-    REBFRM *f,
-    REBVAL *preload,
-    bool lookahead // lookahead to run tight enfix functions
-){
+static inline bool Eval_Post_Switch_Throws(REBFRM *f, REBVAL *preload) {
     REBFLGS flags =
         (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
         | DO_FLAG_FULFILLING_ARG
         | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-        | (f->flags.bits & DO_FLAG_CONST)
-        | (lookahead ? 0 : DO_FLAG_NO_LOOKAHEAD);
+        | (f->flags.bits & DO_FLAG_CONST);
 
     DECLARE_SUBFRAME (child, f); // capture DSP *now*
 
@@ -436,6 +435,24 @@ static inline bool Eval_Post_Switch_Throws(
         flags | DO_FLAG_POST_SWITCH,
         child
     );
+}
+
+
+inline static bool Dampen_Lookahead(REBFRM *f) {
+    if (
+        (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+        and (f->prior->flags.bits & DO_FLAG_NO_LOOKAHEAD)
+    ){
+        f->prior->flags.bits &= ~DO_FLAG_NO_LOOKAHEAD; // dampens once
+        return true;
+    }
+
+    if (f->flags.bits & DO_FLAG_NO_LOOKAHEAD) {
+        f->flags.bits &= ~DO_FLAG_NO_LOOKAHEAD; // dampens once
+        return true;
+    }
+
+    return false;
 }
 
 
@@ -545,6 +562,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             f->out->header.bits |= OUT_MARKED_STALE;
 
             f->flags.bits &= ~DO_FLAG_PROCESS_ACTION;
+
+            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
             goto process_action;
         }
 
@@ -817,6 +836,8 @@ bool Eval_Core_Throws(REBFRM * const f)
   #endif
 
     Fetch_Next_In_Frame(nullptr, f); // skip the WORD! that invoked the action
+
+    assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
     goto process_action;
 
   give_up_backward_quote_priority:;
@@ -873,6 +894,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         Push_Action(f, VAL_ACTION(current), VAL_BINDING(current));
         Begin_Action(f, opt_label);
         Expire_Out_Cell_Unless_Invisible(f);
+
+        assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
         goto process_action; }
 
     //==////////////////////////////////////////////////////////////////==//
@@ -892,6 +915,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         // not all parameters will consume arguments for all calls.
 
       process_action:; // Note: Also jumped to by the redo_checked code
+
+        assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
 
       #if !defined(NDEBUG)
         assert(f->original); // set by Begin_Action()
@@ -1229,6 +1254,14 @@ bool Eval_Core_Throws(REBFRM * const f)
             if (f->flags.bits & DO_FLAG_FULFILLING_ENFIX) {
                 f->flags.bits &= ~DO_FLAG_FULFILLING_ENFIX; // gotos below
 
+                // When we see `1 + 2 * 3`, when we're at the 2, we don't
+                // want to let the * run yet.  So set a flag which says we
+                // won't do lookahead that will be cleared when function
+                // takes an argument *or* when a new expression starts.
+                //
+                if (not TYPE_CHECK(f->param, REB_TS_DEFERS))
+                    f->flags.bits |= DO_FLAG_NO_LOOKAHEAD;
+
                 if (f->out->header.bits & OUT_MARKED_STALE) {
                     //
                     // Seeing an END in the output slot could mean that there
@@ -1270,12 +1303,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 switch (pclass) {
                   case REB_P_NORMAL:
-                    Move_Value(f->arg, f->out);
-                    if (GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED))
-                        SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
-                    break;
-
-                  case REB_P_TIGHT:
                     Move_Value(f->arg, f->out);
                     if (GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED))
                         SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
@@ -1392,23 +1419,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             // `condition` slot a second chance to run the enfix processing it
             // put off before, this time using the 10 as AND's left-hand arg.
             //
-            if (f->u.defer.arg) {
-                if (Eval_Post_Switch_Throws(f, f->u.defer.arg, true)) {
-                    Move_Value(f->out, f->u.defer.arg);
-                    goto abort_action;
-                }
-
-                Finalize_Arg(
-                    f,
-                    f->u.defer.param,
-                    f->u.defer.arg,
-                    f->u.defer.refine
-                );
-
-                f->u.defer.arg = nullptr;
-                TRASH_POINTER_IF_DEBUG(f->u.defer.param);
-                TRASH_POINTER_IF_DEBUG(f->u.defer.refine);
-            }
+            if (f->u.defer.arg)
+                fail ("THIS SCENARIO NOW NOT SUPPORTED, USE A GROUP!");
 
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE //////////////////////=//
 
@@ -1432,29 +1444,6 @@ bool Eval_Core_Throws(REBFRM * const f)
                     | (f->flags.bits & DO_FLAG_CONST);
 
                 DECLARE_SUBFRAME (child, f); // capture DSP *now*
-                SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
-                if (Eval_Step_In_Subframe_Throws(f->arg, f, flags, child)) {
-                    Move_Value(f->out, f->arg);
-                    goto abort_action;
-                }
-                break; }
-
-              case REB_P_TIGHT: {
-                //
-                // REB_P_NORMAL does "normal" normal infix lookahead,
-                // e.g. `square 1 + 2` would pass 3 to single-arity `square`.
-                // But if the argument to square is declared #tight, it will
-                // act as `(square 1) + 2`, by not applying lookahead to see
-                // the `+` during the argument evaluation.
-                //
-                REBFLGS flags =
-                    (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-                    | DO_FLAG_NO_LOOKAHEAD
-                    | DO_FLAG_FULFILLING_ARG
-                    | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-                    | (f->flags.bits & DO_FLAG_CONST);
-
-                DECLARE_SUBFRAME (child, f);
                 SET_END(f->arg); // Finalize_Arg() sets to Endish_Nulled
                 if (Eval_Step_In_Subframe_Throws(f->arg, f, flags, child)) {
                     Move_Value(f->out, f->arg);
@@ -1489,7 +1478,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 assert(f->u.defer.arg == nullptr);
                 if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE)) {
-                    if (Eval_Post_Switch_Throws(f, f->arg, false)) {
+                    if (Eval_Post_Switch_Throws(f, f->arg)) {
                         Move_Value(f->out, f->arg);
                         goto abort_action;
                     }
@@ -1534,7 +1523,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 assert(f->u.defer.arg == nullptr);
                 if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE)) {
-                    if (Eval_Post_Switch_Throws(f, f->arg, false)) {
+                    if (Eval_Post_Switch_Throws(f, f->arg)) {
                         Move_Value(f->out, f->arg);
                         goto abort_action;
                     }
@@ -1664,14 +1653,13 @@ bool Eval_Core_Throws(REBFRM * const f)
                 // means the ELSE waits and lets the THEN run, even though
                 // it appears as a step above it.
                 //
-                Reb_Param_Class dclass = VAL_PARAM_CLASS(f->u.defer.param);
-                if (dclass != REB_P_TIGHT)
-                    f->flags.bits |= DO_FLAG_ALREADY_DEFERRED_ENFIX;
+                f->flags.bits |= DO_FLAG_ALREADY_DEFERRED_ENFIX;
 
+                f->u.defer.arg = nullptr;
                 TRASH_POINTER_IF_DEBUG(f->u.defer.param);
                 TRASH_POINTER_IF_DEBUG(f->u.defer.refine);
             }
-            TRASH_POINTER_IF_DEBUG(f->u.defer.arg);
+
         }
 
     //==////////////////////////////////////////////////////////////////==//
@@ -1691,7 +1679,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         );
 
         Expire_Out_Cell_Unless_Invisible(f);
-        assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
+        assert(f->u.defer.arg == nullptr); // variadics examine
 
         // While you can't evaluate into an array cell (because it may move)
         // an evaluation is allowed to be performed into stable cells on the
@@ -1714,6 +1702,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         const REBVAL *r; // initialization would be skipped by gotos
         r = (*PG_Dispatcher)(f); // default just calls FRM_PHASE(f)
+        TRASH_POINTER_IF_DEBUG(f->u.defer.arg);
 
         if (r == f->out) {
             assert(not (f->out->header.bits & OUT_MARKED_STALE));
@@ -1822,22 +1811,41 @@ bool Eval_Core_Throws(REBFRM * const f)
             // run the f->phase again.  The dispatcher may have changed the
             // value of what f->phase is, for instance.
 
-            if (GET_VAL_FLAG(r, VALUE_FLAG_FALSEY)) // R_REDO_UNCHECKED
+            if (GET_VAL_FLAG(r, VALUE_FLAG_FALSEY)) { // R_REDO_UNCHECKED
+                assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
+                f->u.defer.arg = nullptr;
                 goto redo_unchecked;
+            }
 
           redo_checked:; // R_REDO_CHECKED
 
             Expire_Out_Cell_Unless_Invisible(f);
-            assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
 
             f->param = ACT_PARAMS_HEAD(FRM_PHASE(f));
             f->arg = FRM_ARGS_HEAD(f);
             f->special = f->arg;
             f->refine = ORDINARY_ARG; // no gathering, but need for assert
+
+            assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
+            f->u.defer.arg = nullptr;
             goto process_action;
 
           case REB_R_INVISIBLE: {
             assert(GET_SER_FLAG(FRM_PHASE(f), PARAMLIST_FLAG_INVISIBLE));
+
+            if (GET_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD)) {
+                if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+                    f->prior->flags.bits |= DO_FLAG_NO_LOOKAHEAD;
+                else
+                    f->flags.bits |= DO_FLAG_NO_LOOKAHEAD;
+                CLEAR_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
+            }
+            else {
+                if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+                    f->prior->flags.bits &= ~DO_FLAG_NO_LOOKAHEAD;
+                else
+                    f->flags.bits &= ~DO_FLAG_NO_LOOKAHEAD;
+            }
 
             // !!! Ideally we would check that f->out hadn't changed, but
             // that would require saving the old value somewhere...
@@ -1930,6 +1938,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             Begin_Action(f, opt_label);
             assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
             f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
+
+            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
             goto process_action;
         }
 
@@ -1968,6 +1978,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
             if (GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED))
                 f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
+
+            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
             goto process_action;
         }
 
@@ -2215,6 +2227,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             Begin_Action(f, opt_label);
             Expire_Out_Cell_Unless_Invisible(f);
+            assert(f->u.defer.arg == nullptr);
             goto process_action;
         }
 
@@ -2544,8 +2557,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     if (kind.byte == REB_PATH) {
         if (
-            VAL_LEN_AT(f->value) != 0
-            or (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
+            Dampen_Lookahead(f)
+            or VAL_LEN_AT(f->value) != 0
             or not EVALUATING(f->value)
         ){
             if (not (f->flags.bits & DO_FLAG_TO_END))
@@ -2569,10 +2582,13 @@ bool Eval_Core_Throws(REBFRM * const f)
         f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
 
         Fetch_Next_In_Frame(nullptr, f); // advances f->value
+        assert(f->u.defer.arg == nullptr);
         goto process_action;
     }
 
     if (kind.byte != REB_WORD or not EVALUATING(f->value)) {
+        Dampen_Lookahead(f);
+
         if (not (f->flags.bits & DO_FLAG_TO_END))
             goto finished; // only want 1 EVALUATE of work, so stop evaluating
 
@@ -2613,6 +2629,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         or NOT_VAL_FLAG(VAL(f->gotten), VALUE_FLAG_ENFIXED)
     ){
       lookback_quote_too_late:; // run as if starting new expression
+        Dampen_Lookahead(f);
 
         if (not (f->flags.bits & DO_FLAG_TO_END)) {
             //
@@ -2677,26 +2694,26 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   post_switch_shove_gotten:; // assert(!PARAMLIST_FLAG_QUOTES_FIRST) prior
 
-    if (
-        (f->flags.bits & DO_FLAG_NO_LOOKAHEAD) // so `1 + 2 * 3` => 9, not 7
-        and not ANY_SER_FLAGS(
-            VAL_ACTION(f->gotten),
-            PARAMLIST_FLAG_DEFERS_LOOKBACK // `1 + if false [2] else [3]` => 4
-                | PARAMLIST_FLAG_INVISIBLE // `1 + 2 + comment "foo" 3` => 6
-        )
-    ){
-        // Don't do enfix lookahead if asked *not* to look.  See the
-        // REB_P_TIGHT parameter convention for the use of this, as
-        // well as it being set if DO_FLAG_TO_END wants to clear out the
-        // invisibles at this frame level before returning.
-        //
-        if (Is_Frame_Gotten_Shoved(f)) {
-            Prep_Stack_Cell(FRM_SHOVE(f->prior));
-            Move_Value(FRM_SHOVE(f->prior), f->gotten);
-            SET_VAL_FLAGS(FRM_SHOVE(f->prior), VALUE_FLAG_ENFIXED);
-            f->gotten = FRM_SHOVE(f->prior);
+    if (not ANY_SER_FLAGS(
+        VAL_ACTION(f->gotten),
+        PARAMLIST_FLAG_DEFERS_LOOKBACK // `1 + if false [2] else [3]` => 4
+            | PARAMLIST_FLAG_INVISIBLE // `1 + 2 + comment "foo" 3` => 6
+    )){
+        if (Dampen_Lookahead(f)) {
+            //
+            // Don't do enfix lookahead if asked *not* to look.  See the
+            // REB_P_TIGHT parameter convention for the use of this, as
+            // well as it being set if DO_FLAG_TO_END wants to clear out the
+            // invisibles at this frame level before returning.
+            //
+            if (Is_Frame_Gotten_Shoved(f)) {
+                Prep_Stack_Cell(FRM_SHOVE(f->prior));
+                Move_Value(FRM_SHOVE(f->prior), f->gotten);
+                SET_VAL_FLAGS(FRM_SHOVE(f->prior), VALUE_FLAG_ENFIXED);
+                f->gotten = FRM_SHOVE(f->prior);
+            }
+            goto finished;
         }
-        goto finished;
     }
 
     // A deferral occurs, e.g. with:
@@ -2712,6 +2729,10 @@ bool Eval_Core_Throws(REBFRM * const f)
     // its code, it will get here and run the ELSE *before* yielding the
     // argument fulfillment to the RETURN above it.
     //
+    assert(
+        not (f->flags.bits & DO_FLAG_FULFILLING_ARG)
+        or not IS_POINTER_TRASH_DEBUG(f->prior->u.defer.arg)
+    );
     if (
         GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK)
         and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
@@ -2719,7 +2740,18 @@ bool Eval_Core_Throws(REBFRM * const f)
         and not (f->flags.bits & DO_FLAG_ALREADY_DEFERRED_ENFIX)
     ){
         assert(not (f->flags.bits & DO_FLAG_TO_END));
-        assert(Is_Action_Frame_Fulfilling(f->prior));
+        if (not Is_Action_Frame_Fulfilling(f->prior)) {
+            //
+            // This should mean it's a variadic frame, e.g. when we have
+            // the 2 in the output slot and are at the THEN in:
+            //
+            //     variadic2 1 2 then (t => [print ["t is" t] <then>])
+            //
+            // We want to treat this like a barrier.
+            //
+            f->flags.bits |= DO_FLAG_BARRIER_HIT;
+            goto finished;
+        }
 
         // Must be true if fulfilling an argument that is *not* a deferral
         //
@@ -2747,12 +2779,14 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     f->flags.bits &= ~DO_FLAG_ALREADY_DEFERRED_ENFIX;
 
-    // This is a case for an evaluative lookback argument we don't want to
-    // defer, e.g. a #tight argument or a normal one which is not being
-    // requested in the context of parameter fulfillment.  We want to reuse
-    // the f->out value and get it into the new function's frame.
+    // An evaluative lookback argument we don't want to defer, e.g. a normal
+    // argument or a deferable one which is not being requested in the context
+    // of parameter fulfillment.  We want to reuse the f->out value and get it
+    // into the new function's frame.
 
     Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
+
+    Dampen_Lookahead(f); // not until after action pushed, invisibles cache it
 
     if (IS_WORD(f->value))
         Begin_Action(f, VAL_WORD_SPELLING(f->value));
@@ -2770,6 +2804,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
 
     Fetch_Next_In_Frame(nullptr, f); // advances f->value
+    assert(f->u.defer.arg == nullptr);
     goto process_action;
 
   abort_action:;

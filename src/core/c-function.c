@@ -68,10 +68,6 @@ static bool Params_Of_Hook(
         kind = REB_WORD;
         break;
 
-      case REB_P_TIGHT:
-        kind = REB_ISSUE;
-        break;
-
       case REB_P_REFINEMENT:
         kind = REB_REFINEMENT;
         break;
@@ -467,19 +463,6 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // though definitional return should be using it for the return
             // type of the function.
             //
-            break;
-
-          case REB_ISSUE:
-            //
-            // !!! Because of their role in the preprocessor in Red, and a
-            // likely need for a similar behavior in Rebol, ISSUE! might not
-            // be the ideal choice to mark tight parameters.
-            //
-            if (mode != SPEC_MODE_NORMAL)
-                goto mode_mismatch;
-
-            pclass = REB_P_TIGHT;
-            spelling = VAL_WORD_SPELLING(item);
             break;
 
           mode_mismatch:
@@ -1011,10 +994,8 @@ REBACT *Make_Action(
     if (first_unspecialized) {
         switch (VAL_PARAM_CLASS(first_unspecialized)) {
           case REB_P_NORMAL:
-            SET_SER_FLAG(act, PARAMLIST_FLAG_DEFERS_LOOKBACK); // see notes
-            break;
-
-          case REB_P_TIGHT:
+            if (TYPE_CHECK(first_unspecialized, REB_TS_DEFERS))
+                SET_SER_FLAG(act, PARAMLIST_FLAG_DEFERS_LOOKBACK); // see note
             break;
 
           case REB_P_HARD_QUOTE:

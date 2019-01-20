@@ -221,19 +221,23 @@ REBNATIVE(eval_enfix)
     // this frame...so when it asserts about "f->prior->deferred" it means
     // the frame of EVAL-ENFIX that is invoking it.
     //
-    assert(IS_POINTER_TRASH_DEBUG(FS_TOP->u.defer.arg));
+    assert(frame_ == FS_TOP);
+    assert(FS_TOP->u.defer.arg == nullptr);
     FS_TOP->u.defer.arg = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
 
     REBFLGS flags = DO_MASK_DEFAULT
         | DO_FLAG_FULFILLING_ARG
         | DO_FLAG_POST_SWITCH;
 
+    assert(not (FS_TOP->flags.bits & DO_FLAG_NO_LOOKAHEAD));
+
     if (Eval_Step_In_Subframe_Throws(D_OUT, f, flags, child)) {
         DROP_GC_GUARD(temp);
         return R_THROWN;
     }
 
-    TRASH_POINTER_IF_DEBUG(FS_TOP->u.defer.arg);
+    assert(not (FS_TOP->flags.bits & DO_FLAG_NO_LOOKAHEAD));
+    FS_TOP->u.defer.arg = nullptr;
 
     DROP_GC_GUARD(temp);
     return D_OUT;
@@ -434,6 +438,7 @@ REBNATIVE(do)
         REBSTR *opt_label = nullptr;
         Begin_Action(f, opt_label);
 
+        f->u.defer.arg = nullptr;
         bool threw = (*PG_Eval_Throws)(f);
 
         Drop_Frame(f);
@@ -838,6 +843,7 @@ REBNATIVE(apply)
     Begin_Action(f, opt_label);
     assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg)); // see Eval_Core_Throws()
 
+    f->u.defer.arg = nullptr;
     bool action_threw = (*PG_Eval_Throws)(f);
 
     Drop_Frame(f);

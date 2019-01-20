@@ -43,33 +43,33 @@
             while [not tail? v] [
                 sum: sum + take v
             ]
-            return sum
+            return sum + 1
         ]
         true
     )
 
-    (0 = do [normal])
-    (10 = do [10 normal])
-    (20 = do [10 20 normal])
-    (30 = do [x: 30 | y: 'x | 1 2 x normal])
-    (27 = do [multiply 3 9 normal]) ;-- seen as ((multiply 3 9) normal)
+    (1 = do [normal])
+    (11 = do [10 normal])
+    (21 = do [10 20 normal])
+    (31 = do [x: 30 | y: 'x | 1 2 x normal])
+    (30 = do [multiply 3 9 normal]) ;-- seen as ((multiply 3 (9 normal))
 ][
     (
-        tight: enfix function [#v [integer! <...>]] [
+        defers: enfix function [v [<defer> integer! <...>]] [
             sum: 0
             while [not tail? v] [
                 sum: sum + take v
             ]
-            return sum
+            return sum + 1
         ]
         true
     )
 
-    (0 = do [tight])
-    (10 = do [10 tight])
-    (20 = do [10 20 tight])
-    (30 = do [x: 30 | y: 'x | 1 2 x tight])
-    (27 = do [multiply 3 9 tight]) ;-- seen as (multiply 3 (9 tight))
+    (1 = do [defers])
+    (11 = do [10 defers])
+    (21 = do [10 20 defers])
+    (31 = do [x: 30 | y: 'x | 1 2 x defers])
+    (28 = do [multiply 3 9 defers]) ;-- seen as (multiply 3 9) defers))
 ][
     (
         soft: enfix function ['v [any-value! <...>]] [
@@ -140,3 +140,33 @@
     1 = (1 <| 2 | 3 + 4 | 5 + 6)
 )
 
+; WATERSHED TEST: This involves the parity of variadics with normal actions,
+; showing that simply taking arguments in order gives compatible results.
+;
+; https://github.com/metaeducation/ren-c/issues/912
+
+(
+    vblock: collect [
+        log: adapt 'keep [value: reduce value]
+        variadic2: func [v [any-value! <...>]] [
+           log [<1> take v]
+           log [<2> take v]
+           if not tail? v [fail "THEN SHOULD APPEAR AS IF IT IS VARARGS END"]
+           return "returned"
+       ]
+       result: variadic2 "a" "b" then (t => [log [<t> t] "then"])
+       log [<result> result]
+    ]
+
+    nblock: collect [
+        log: adapt 'keep [value: reduce value]
+        normal2: func [n1 n2] [
+            log [<1> n1 <2> n2]
+            return "returned"
+        ]
+        result: normal2 "a" "b" then (t => [log [<t> t] "then"])
+        log [<result> result]
+    ]
+
+    vblock == nblock
+)

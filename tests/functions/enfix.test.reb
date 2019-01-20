@@ -85,14 +85,8 @@
 ; NORMAL parameter
 ;
 (9 = (1 + 2 -> multiply 3))
-(9 = (add 1 2 -> multiply 3))
-(9 = (add 1 2 -> (:multiply) 3))
-
-; #TIGHT parameter
-;
-(9 = (1 + 2 -> * 3))
-(7 = add 1 2 -> * 3)
-(7 = add 1 2 -> (:*) 3)
+(7 = (add 1 2 -> multiply 3))
+(7 = (add 1 2 -> (:multiply) 3))
 
 ; :HARD-QUOTE parameter
 (
@@ -105,7 +99,7 @@
 ; SHOVE should be able to handle refinements and contexts.
 [
     (did obj: make object! [
-        magic: enfix func [#a #b /minus] [
+        magic: enfix func [a b /minus] [
             either minus [a - b] [a + b]
         ]
     ])

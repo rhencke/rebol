@@ -132,7 +132,6 @@ inline static bool Apply_Only_Throws(
         &va, // va_end() handled by Eval_Va_Core on success, fail, throw, etc.
         (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
             | DO_FLAG_EXPLICIT_EVALUATE
-            | DO_FLAG_NO_LOOKAHEAD
             | (fully ? DO_FLAG_NO_RESIDUE : 0)
             | (FS_TOP->flags.bits & DO_FLAG_CONST)
             | (applicand->header.bits & DO_FLAG_CONST)

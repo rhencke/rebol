@@ -593,6 +593,21 @@ inline static void Push_Action(
 
     assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
     assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
+
+    // There's a current state for the DO_FLAG_NO_LOOKAHEAD which invisible
+    // actions want to put back as it was when the invisible operation ends.
+    // (It gets overwritten during the invisible's own argument gathering).
+    // Cache it on the varlist and put it back when an R_INVISIBLE result
+    // comes back.
+    //
+    if (GET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE)) {
+        if (f->flags.bits & DO_FLAG_FULFILLING_ARG) {
+            if (f->prior->flags.bits & DO_FLAG_NO_LOOKAHEAD)
+                SET_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
+            else if (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
+                SET_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
+        }
+    }
 }
 
 
@@ -657,9 +672,15 @@ inline static void Drop_Action(REBFRM *f) {
         // big enough for ensuing calls.  
         //
         // But no series bits we didn't set should be set...and right now,
-        // only Enter_Native() sets HOLD.  Clear that.
+        // only Enter_Native() sets HOLD.  Clear that.  Also, it's possible
+        // for a "telegraphed" no lookahead bit used by an invisible to be
+        // left on, so clear it too.
         //
-        CLEAR_SER_INFOS(f->varlist, SERIES_INFO_HOLD);
+        CLEAR_SER_INFOS(
+            f->varlist,
+            SERIES_INFO_HOLD
+                | SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD
+        );
         assert(0 == (SER(f->varlist)->info.bits & ~( // <- note bitwise not
             SERIES_INFO_0_IS_TRUE // parallels NODE_FLAG_NODE
             | FLAG_WIDE_BYTE_OR_0(0) // don't mask out wide (0 for arrays))

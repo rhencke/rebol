@@ -1323,7 +1323,6 @@ bool Make_Invocation_Frame_Throws(
             break;
 
         case REB_P_NORMAL:
-        case REB_P_TIGHT:
         case REB_P_HARD_QUOTE:
         case REB_P_SOFT_QUOTE:
             if (not refine or VAL_LOGIC(refine)) {

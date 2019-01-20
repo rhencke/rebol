@@ -180,6 +180,9 @@ bool Update_Typeset_Bits_Core(
                 TYPE_SET(typeset, REB_TS_SKIPPABLE);
                 TYPE_SET(typeset, REB_TS_ENDABLE); // skip => null
             }
+            else if (0 == Compare_String_Vals(item, Root_Defer_Tag, true)) {
+                TYPE_SET(typeset, REB_TS_DEFERS);
+            }
         }
         else if (IS_DATATYPE(item)) {
             if (num_quotes == 0)

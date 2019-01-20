@@ -65,7 +65,7 @@ comment: enfix func [
 
     return: []
         {The evaluator will skip over the result (not seen, not even void)}
-    #returned [<opt> <end> any-value!]
+    returned [<opt> <end> any-value!]
         {The returned value.} ;-- by protocol of enfixed `return: []`
     :discarded [block! any-string! binary! any-scalar!]
         "Literal value to be ignored." ;-- `comment print "hi"` disallowed

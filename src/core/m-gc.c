@@ -663,7 +663,6 @@ static void Queue_Mark_Opt_End_Cell_Deep(const RELVAL *v)
         break; // use Queue_Mark_Value_Deep() if NULLED would be a bug
 
       case REB_P_NORMAL:
-      case REB_P_TIGHT:
       case REB_P_HARD_QUOTE:
       case REB_P_SOFT_QUOTE:
       case REB_P_REFINEMENT:

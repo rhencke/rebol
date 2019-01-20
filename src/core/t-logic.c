@@ -215,7 +215,7 @@ REBNATIVE(xor_q)
 //
 //      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
-//      #left "Expression which will always be evaluated"
+//      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "BLOCK! or QUOTED! evaluated only if LEFT is logically true"
 //          [block! group! 'word! 'path!]
@@ -257,7 +257,7 @@ REBNATIVE(and)
 //
 //      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
-//      #left "Expression which will always be evaluated"
+//      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "BLOCK! or QUOTED! evaluated only if LEFT is logically false"
 //          [block! group! 'word! 'path!]
@@ -299,7 +299,7 @@ REBNATIVE(or)
 //
 //      return: "Conditionally true value, or LOGIC! false for failure case"
 //          [<opt> any-value!]
-//      #left "Expression which will always be evaluated"
+//      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      :right "Expression that's also always evaluated (can't short circuit)"
 //          [group!]
@@ -340,7 +340,7 @@ REBNATIVE(xor)
 //
 //      return: "Conditionally true or false value (not coerced to LOGIC!)"
 //          [<opt> any-value!]
-//      #left "Expression which will always be evaluated"
+//      left "Expression which will always be evaluated"
 //          [<opt> any-value!]
 //      right "Expression that's also always evaluated (can't short circuit)"
 //          [<opt> any-value!] ;-- not a literal GROUP! as with XOR

@@ -35,7 +35,7 @@ so: enfix func [
 
     return: <void>
     condition "Condition to test (voids are treated as false)"
-        [<opt> any-value!]
+        [<opt> <defer> any-value!]
 ][
     if not opt condition [
         fail/where ["Postfix 'SO assertion' failed"] 'condition

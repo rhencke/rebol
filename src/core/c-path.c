@@ -741,8 +741,8 @@ REBNATIVE(poke)
 //
 //  {Temporary native in lieu of PD_Xxx() dispatch so `/` performs division}
 //
-//      #left [<opt> any-value!]
-//      #right [<opt> any-value!]
+//      left [<opt> any-value!]
+//      right [<opt> any-value!]
 //  ]
 //
 REBNATIVE(path_0)

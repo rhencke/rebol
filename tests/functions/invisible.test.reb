@@ -137,10 +137,10 @@
         left-normal*: enfix right-normal*:
             <- func [return: [<opt> bar!] x [bar! <end>]] [:x]
 
-        left-tight: enfix right-tight:
-            <- func [return: [<opt> bar!] #x [bar!]] [:x]
-        left-tight*: enfix right-tight*:
-            <- func [return: [<opt> bar!] #x [bar! <end>]] [:x]
+        left-defer: enfix
+            <- func [return: [<opt> bar!] x [<defer> bar!]] [:x]
+        left-defer*: enfix
+            <- func [return: [<opt> bar!] x [<defer> bar! <end>]] [:x]
 
         left-soft: enfix right-soft:
             <- func [return: [<opt> bar!] 'x [bar!]] [:x]
@@ -163,13 +163,9 @@
     (null? do [| left-normal*])
     (null? do [left-normal*])
 
-    ('no-arg = (trap [right-tight |])/id)
-    (null? do [right-tight* |])
-    (null? do [right-tight*])
-
-    ('no-arg = (trap [| left-tight])/id)
-    (null? do [| left-tight*])
-    (null? do [left-tight*])
+    ('no-arg = (trap [| left-defer])/id)
+    (null? do [| left-defer*])
+    (null? do [left-defer*])
 
     ('no-arg = (trap [right-soft |])/id)
     (null? do [right-soft* |])
@@ -197,11 +193,6 @@
         left-normal*: enfix right-normal*:
             <- func [return: [<opt> bar!] x [bar! <...> <end>]] [take* x]
 
-        left-tight: enfix right-tight:
-            <- func [return: [<opt> bar!] #x [bar! <...>]] [take x]
-        left-tight*: enfix right-tight*:
-            <- func [return: [<opt> bar!] #x [bar! <...> <end>]] [take* x]
-
         left-soft: enfix right-soft:
             <- func [return: [<opt> bar!] 'x [bar! <...>]] [take x]
         left-soft*: enfix right-soft*:
@@ -223,13 +214,9 @@
     (null? do [| left-normal*])
     (null? do [left-normal*])
 
-    (error? trap [right-tight |])
-    (null? do [right-tight* |])
-    (null? do [right-tight*])
-
-    (error? trap [| left-tight])
-    (null? do [| left-tight*])
-    (null? do [left-tight*])
+    (error? trap [| left-defer])
+    (null? do [| left-defer*])
+    (null? do [left-defer*])
 
     (error? trap [right-soft |])
     (null? do [right-soft* |])

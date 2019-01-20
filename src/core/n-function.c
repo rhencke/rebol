@@ -731,33 +731,33 @@ REBNATIVE(variadic_q)
 
 
 //
-//  tighten: native [
+//  deferify: native [
 //
-//  {Returns alias of an ACTION! whose "normal" args are gathered "tightly"}
+//  {Returns alias of an ACTION! whose first normal arg is skinned as <defer>}
 //
 //      return: [action!]
 //      action [action!]
 //  ]
 //
-REBNATIVE(tighten)
+REBNATIVE(deferify)
 //
-// This routine exists to avoid the overhead of a user-function stub where
-// all the parameters are #tight, e.g. the behavior of R3-Alpha's OP!s.
-// So `+: enfix tighten :add` is a faster equivalent of:
+// !!! This routine should be generalized to allow one to "re-skin" functions
+// with different parameter conventions, to avoid having to create a usermode
+// function stub for something where the only difference is a parameter
+// convention (e.g. an identical function that quotes its third argument
+// doesn't actually need a new body).
 //
-//     +: enfix func [#arg1 [any-value!] #arg2 [any-value!] [
-//         add :arg1 :arg2
-//     ]
+// Care should be taken not to allow the expansion of parameter types accepted
+// to allow passing unexpected types to a native, because it could crash.  At
+// least for natives, accepted types should only be able to be narrowed.
 //
-// But also, the parameter types and help notes are kept in sync.
-//
+// Keeps the parameter types and help notes in sync, also.
 {
-    INCLUDE_PARAMS_OF_TIGHTEN;
+    INCLUDE_PARAMS_OF_DEFERIFY;
 
     REBACT *original = VAL_ACTION(ARG(action));
 
-    // Copy the paramlist, which serves as the function's unique identity,
-    // and set the tight flag on all the parameters.
+    // Copy the paramlist, which serves as the action's unique identity.
 
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         ACT_PARAMLIST(original),
@@ -765,12 +765,13 @@ REBNATIVE(tighten)
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED // flags not auto-copied
     );
 
-    RELVAL *param = ARR_AT(paramlist, 1); // first parameter (0 is ACTION!)
-    for (; NOT_END(param); ++param) {
-        Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-        if (pclass == REB_P_NORMAL)
-            mutable_KIND_BYTE(param) = REB_P_TIGHT;
-    }
+    RELVAL *param = ARR_AT(paramlist, 1); // first param (0 is ACT_ARCHETYPE)
+    Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
+    if (pclass != REB_P_NORMAL)
+        fail ("DEFERIFY currently only works if first argument is normal.");
+    if (TYPE_CHECK(param, REB_TS_DEFERS))
+        fail ("ACTION! already defers its first argument");
+    TYPE_SET(param, REB_TS_DEFERS);
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
     CLEAR_SER_FLAGS(paramlist, PARAMLIST_MASK_CACHED);
@@ -794,7 +795,7 @@ REBNATIVE(tighten)
     // which is used when the frame is being pushed.
     //
     REBCNT details_len = ARR_LEN(ACT_DETAILS(original));
-    REBACT *tightened = Make_Action(
+    REBACT *defers = Make_Action(
         paramlist,
         ACT_DISPATCHER(original),
         ACT_UNDERLYING(original), // !!! ^-- notes above may be outdated
@@ -808,15 +809,15 @@ REBNATIVE(tighten)
     // value information (rarely what you meant, but it's meant here).
     //
     RELVAL *src = ARR_HEAD(ACT_DETAILS(original));
-    RELVAL *dest = ARR_HEAD(ACT_DETAILS(tightened));
+    RELVAL *dest = ARR_HEAD(ACT_DETAILS(defers));
     for (; NOT_END(src); ++src, ++dest)
         Blit_Cell(dest, src);
-    TERM_ARRAY_LEN(ACT_DETAILS(tightened), details_len);
+    TERM_ARRAY_LEN(ACT_DETAILS(defers), details_len);
 
     return Init_Action_Maybe_Bound(
         D_OUT,
-        tightened, // REBACT* archetype doesn't contain a binding
-        VAL_BINDING(ARG(action)) // e.g. keep binding for `tighten 'return`
+        defers, // REBACT* archetype doesn't contain a binding
+        VAL_BINDING(ARG(action)) // e.g. keep binding for `deferify 'return`
     );
 }
 

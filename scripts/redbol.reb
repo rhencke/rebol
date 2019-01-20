@@ -781,9 +781,9 @@ decompress: emulate [
     ]
 ]
 
-and: emulate-enfix [tighten :intersect]
-or: emulate-enfix [tighten :union]
-xor: emulate-enfix [tighten :difference]
+and: emulate-enfix [:intersect]
+or: emulate-enfix [:union]
+xor: emulate-enfix [:difference]
 
 ; Ren-C NULL means no branch ran, Rebol2 this is communicated by #[none]
 ; Ren-C #[void] when branch ran w/null result, Rebol2 would call that #[unset]

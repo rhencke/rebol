@@ -123,6 +123,7 @@ PVAR REBVAL *Root_End_Tag; // marks endable argument (NULL if at end of input)
 PVAR REBVAL *Root_Blank_Tag; // marks that passing blank won't run the action
 PVAR REBVAL *Root_Local_Tag; // marks beginning of a list of "pure locals"
 PVAR REBVAL *Root_Skip_Tag; // marks a hard quote as "skippable" if wrong type
+PVAR REBVAL *Root_Defer_Tag; // parameter defers enfix (e.g. left of THEN)
 
 PVAR REBVAL *Root_Empty_Text; // read-only ""
 PVAR REBVAL *Root_Empty_Binary; // read-only #{}

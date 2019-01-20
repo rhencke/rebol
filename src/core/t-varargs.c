@@ -84,10 +84,8 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
         return true;
     }
 
-    if (
-        (pclass == REB_P_NORMAL || pclass == REB_P_TIGHT)
-        && IS_WORD(opt_look)
-    ){
+    if (pclass == REB_P_NORMAL and IS_WORD(opt_look)) {
+        //
         // When a variadic argument is being TAKE-n, deferred left hand side
         // argument needs to be seen as end of variadic input.  Otherwise,
         // `summation 1 2 3 |> 100` acts as `summation 1 2 (3 |> 100)`.
@@ -105,7 +103,7 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
         if (child_gotten and VAL_TYPE(child_gotten) == REB_ACTION) {
             if (GET_VAL_FLAG(child_gotten, VALUE_FLAG_ENFIXED)) {
                 if (
-                    pclass == REB_P_TIGHT
+                    pclass == REB_P_NORMAL
                     or GET_SER_FLAG(
                         VAL_ACTION(child_gotten),
                         PARAMLIST_FLAG_DEFERS_LOOKBACK
@@ -216,11 +214,8 @@ bool Do_Vararg_Op_Maybe_End_Throws(
         }
 
         switch (pclass) {
-        case REB_P_NORMAL:
-        case REB_P_TIGHT: {
+        case REB_P_NORMAL: {
             REBFLGS flags = DO_MASK_DEFAULT | DO_FLAG_FULFILLING_ARG;
-            if (pclass == REB_P_TIGHT)
-                flags |= DO_FLAG_NO_LOOKAHEAD;
 
             DECLARE_FRAME (f_temp);
             Push_Frame_At(
@@ -325,19 +320,6 @@ bool Do_Vararg_Op_Maybe_End_Throws(
                 f,
                 DO_MASK_DEFAULT
                     | DO_FLAG_FULFILLING_ARG,
-                child
-            )){
-                return true;
-            }
-            f->gotten = nullptr; // cache must be forgotten...
-            break; }
-
-        case REB_P_TIGHT: {
-            DECLARE_FRAME_CORE (child, f->source);
-            if (Eval_Step_In_Subframe_Throws(
-                SET_END(out),
-                f,
-                DO_FLAG_FULFILLING_ARG | DO_FLAG_NO_LOOKAHEAD,
                 child
             )){
                 return true;
@@ -646,10 +628,6 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
         switch ((pclass = VAL_PARAM_CLASS(param))) {
         case REB_P_NORMAL:
             kind = REB_WORD;
-            break;
-
-        case REB_P_TIGHT:
-            kind = REB_ISSUE;
             break;
 
         case REB_P_HARD_QUOTE:

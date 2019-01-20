@@ -205,9 +205,6 @@ STATIC_ASSERT(DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 // infix `*` when gathering its argument, that was saved until the `1 + 2`
 // finished its processing.
 //
-// See REB_P_TIGHT for more explanation on the parameter class which
-// adds this flag to its argument gathering call.
-//
 #define DO_FLAG_NO_LOOKAHEAD \
     FLAG_LEFT_BIT(17)
 

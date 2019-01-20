@@ -64,21 +64,7 @@ for-each [math-op function-name] [
     or+     union
     xor+    difference
 ][
-    ; Ren-C's infix math obeys the "tight" parameter convention of R3-Alpha.
-    ; But since the prefix functions themselves have normal parameters, this
-    ; would require a wrapping function...adding a level of inefficiency:
-    ;
-    ;     +: enfix func [#a #b] [add :a :b]
-    ;
-    ; TIGHTEN optimizes this by making a "re-skinned" version of the function
-    ; with tight parameters, without adding extra overhead when called.  This
-    ; mechanism will eventually generalized to do any rewriting of convention
-    ; one wants (e.g. to switch one parameter from normal to quoted).
-    ;
-    ; Note: TIGHTEN currently changes all normal parameters to #tight, which
-    ; which for the set operations creates an awkward looking /SKIP's SIZE.
-    ;
-    set/enfix math-op (tighten get function-name)
+    set/enfix math-op (get function-name)
 ]
 
 
@@ -112,14 +98,7 @@ for-each [comparison-op function-name] compose [
     ; !!! See discussion about the future of comparison operators:
     ; https://forum.rebol.info/t/349
     ;
-    ; While they were "tight" in R3-Alpha, Ren-C makes them use normal
-    ; parameters.  So you can write `if length of block = 10 + 20 [...]` and
-    ; other expressive things.  It comes at the cost of making it so that
-    ; `if not x = y [...]` is interpreted as `if (not x) = y [...]`, which
-    ; all things considered is still pretty natural (and popular in many
-    ; languages)...and a small price to pay.  Hence no TIGHTEN call here.
-    ;
-    set/enfix comparison-op (tighten get function-name)
+    set/enfix comparison-op (get function-name)
 ]
 
 
@@ -154,21 +133,10 @@ my: enfix func [
 ]
 
 
-; Lambdas are experimental quick function generators via a symbol.  The
-; identity is used to shake up enfix ordering.  They have to be tight (on
-; their right hand side) when enfixed, otherwise this will break:
+; Lambdas are experimental quick function generators via a symbol.
+; The identity is used to shake up enfix ordering.
 ;
-;     if condition [code] then x => [code w/x] else [stuff]
-;
-; The problem is, if => wasn't right tight then ELSE would process this as:
-;
-;     if condition [code] then (x => [code w/x] else [stuff])
-;
-; !!! This property is not relevant for the moment with soft-quoted branches,
-; which is done to allow `if condition '[block by value]`, hence a lambda
-; must be in a GROUP! anyway.
-;
-set/enfix (r3-alpha-lit "=>") tighten :lambda
+set/enfix (r3-alpha-lit "=>") :lambda
 set (r3-alpha-lit "<-") :identity ;-- not enfix, just affects enfix
 set/enfix (r3-alpha-lit "->") :shove
 
