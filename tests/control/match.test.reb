@@ -7,10 +7,8 @@
 ; https://github.com/metaeducation/ren-c/pull/730
 ;
 
-; Functionality temporarily moved to MATCH2 due to varargs/enfix interactions
-
-("aaa" = match2 parse "aaa" [some "a" end])
-(null = match2 parse "aaa" [some "b" end])
+("aaa" = match parse "aaa" [some "a" end])
+(null = match parse "aaa" [some "b" end])
 
 (10 = match integer! 10)
 (null = match integer! "ten")
@@ -52,10 +50,15 @@
 ]
 
 
-;; PATH! is AND'ed together, while blocks are OR'd
+; PATH! is AND'ed together, while blocks are OR'd
+;
+; !!! REVIEW: this is likely not the best idea, should probably be TUPLE!
+; with generalized tuple mechanics.  Otherwise it collides with the inline
+; MATCH experiment, e.g. `match parse/case "AAA" [some "A"]`.  But tuples
+; are not generalized yet.
 
-(1020 = match integer!/[:even?] 1020)
-(null = match integer!/[:odd?] 304)
+(1020 = match [integer!/[:even?]] 1020)
+(null = match [integer!/[:odd?]] 304)
 ([a b] = match [block!/2 integer!/[:even?]] [a b])
 (null = match [block!/3 integer!/[:even?]] null)
 (304 = match [block!/3 integer!/[:even?]] 304)

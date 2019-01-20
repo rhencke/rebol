@@ -2637,6 +2637,13 @@ bool Eval_Core_Throws(REBFRM * const f)
         and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
         and not (f->flags.bits & DO_FLAG_DEFERRING_ENFIX)
     ){
+        if (f->prior->flags.bits & DO_FLAG_ERROR_ON_DEFERRED_ENFIX)
+            fail (
+                "Operations that inline functions by proxy (such as MATCH and"
+                " ENSURE) cannot directly interoperate with THEN or ELSE."
+                " Put the expression to the left in a GROUP!."
+            );
+
         if (not Is_Action_Frame_Fulfilling(f->prior)) {
             //
             // This should mean it's a variadic frame, e.g. when we have

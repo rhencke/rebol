@@ -505,7 +505,7 @@ set*: redescribe [
 ensure: redescribe [
     {Pass through value if it matches test, otherwise trigger a FAIL}
 ](
-    specialize 'match [
+    specialize 'either-match [
         branch: func [arg [<opt> any-value!]] [
             ;
             ; !!! Can't use FAIL/WHERE until there is a good way to SPECIALIZE

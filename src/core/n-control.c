@@ -465,6 +465,47 @@ REBNATIVE(also)
 
 
 //
+//  either-match: native [
+//
+//  {Check value using tests (match types, TRUE or FALSE, or filter action)}
+//
+//      return: "Input if it matched, otherwise branch result"
+//          [<opt> any-value!]
+//      'test "Typeset membership, LOGIC! to test for truth, filter function"
+//          [
+//              word! ;-- GET to find actual test
+//              action! get-word! get-path! ;-- arity-1 filter function
+//              path! ;-- AND'd tests
+//              block! ;-- OR'd tests
+//              datatype! typeset! ;-- literals accepted
+//              logic! ;-- tests TO-LOGIC compatibility
+//              tag! ;-- just <opt> for now
+//              integer! ;-- matches length of series
+//              quoted! ;-- same test, but make quote level part of the test
+//          ]
+//       value [<opt> any-value!]
+//      'branch "Branch to run on non-matches, passed VALUE if ACTION!"
+//          [block! action! quoted!]
+//  ]
+//
+REBNATIVE(either_match)
+{
+    INCLUDE_PARAMS_OF_EITHER_MATCH;
+
+    if (Match_Core_Throws(D_OUT, ARG(test), SPECIFIED, ARG(value), SPECIFIED))
+        return R_THROWN;
+
+    if (VAL_LOGIC(D_OUT))
+        RETURN (ARG(value));
+
+    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(value)))
+        return R_THROWN;
+
+    return D_OUT;
+}
+
+
+//
 //  match: native [
 //
 //  {Check value using tests (match types, TRUE or FALSE, or filter action)}
@@ -483,69 +524,22 @@ REBNATIVE(also)
 //              integer! ;-- matches length of series
 //              quoted! ;-- same test, but make quote level part of the test
 //          ]
-//      value [<opt> any-value!]
-//      /else "Instead of returning null on non-matches, run a branch"
-//      'branch [block! action! quoted!]
+//      :args [<opt> any-value! <...>]
 //  ]
 //
 REBNATIVE(match)
+//
+// MATCH implements a special frame making behavior, to accomplish:
+//
+//     >> match parse "aaa" [some "a"]
+//     == "AAA"
+//
+// To do this, it builds a frame for the function, steals its argument, and
+// returns it.  Hence it has to be variadic.  EITHER-MATCH provides a more
+// easily reusable variant of the MATCH logic (e.g. specialized by ENSURE)
+//
 {
     INCLUDE_PARAMS_OF_MATCH;
-
-    if (Match_Core_Throws(D_OUT, ARG(test), SPECIFIED, ARG(value), SPECIFIED))
-        return R_THROWN;
-
-    if (VAL_LOGIC(D_OUT)) {
-        if (IS_FALSEY(ARG(value)) and not REF(else)) {
-            //
-            // Don't want `if match [blank! ...] whatever [...]` to fail to
-            // run the branch silently, despite match succeeding.  Caller
-            // must consciously use /ELSE for that case.
-            //
-            return Init_Void(D_OUT);
-        }
-        RETURN (ARG(value));
-    }
-
-    if (REF(else)) {
-        if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(value)))
-            return R_THROWN;
-        return D_OUT;
-    }
-
-    return nullptr;
-}
-
-
-//
-//  match2: native [
-//
-//  {Check value using tests (match types, TRUE or FALSE, or filter action)}
-//
-//      return: "Input if it matched, otherwise null (void if falsey match)"
-//          [<opt> any-value!]
-//      'test "Typeset membership, LOGIC! to test for truth, filter function"
-//          [
-//              word! path! ;- special "first-arg-stealing" magic
-//              datatype! typeset! block! logic! action! ;-- like EITHER-TEST
-//              quoted! ;-- same test, but make quote level part of the test
-//          ]
-//      :args [any-value! <...>]
-//  ]
-//
-REBNATIVE(match2)
-//
-// !!! This experimental MATCH variant implemented a special frame making
-// `MATCH PARSE "AAA" [SOME "A"]` -> "AAA" behavior.  It would build a frame
-// for the function, steal its argument, and return that.  Because this had
-// to be variadic, it was a bit of a problem in its interaction with enfix:
-//
-// https://github.com/metaeducation/ren-c/issues/820
-//
-// It has been moved aside for the moment until that issue is worked out,
-// because it was interfering with the usability of MATCH.
-{
-    INCLUDE_PARAMS_OF_MATCH2;
 
     REBVAL *test = ARG(test);
 
@@ -553,7 +547,7 @@ REBNATIVE(match2)
       case REB_WORD:
       case REB_PATH: {
         if (NOT_VAL_FLAG(test, VALUE_FLAG_UNEVALUATED)) // soft quote eval'd
-            goto either_test; // allow `MATCH ('NULL?) ...`
+            goto either_match; // allow `MATCH ('NULL?) ...`
 
         REBSTR *opt_label = NULL;
         REBDSP lowest_ordered_dsp = DSP;
@@ -572,7 +566,7 @@ REBNATIVE(match2)
         if (not IS_ACTION(test)) {
             if (ANY_WORD(test) or ANY_PATH(test))
                 fail (Error_Invalid(test)); // disallow `X: 'Y | MATCH X ...`
-            goto either_test; // will typecheck the result
+            goto either_match; // will typecheck the result
         }
 
         // It was a non-soft quote eval'd word, the kind we want to give the
@@ -645,28 +639,23 @@ REBNATIVE(match2)
         break;
     }
 
-either_test:;
+  either_match:;
 
     // For the "non-magic" cases that are handled by plain EITHER-TEST, call
     // through with the transformed test.  Just take one normal arg via
     // variadic.
 
-    REBVAL *varpar = PAR(args);
-
-    // !!! Hard-quoted arguments don't accept nulls, but we're tweaking the
-    // parameter class... make it allow NULL too.
-    //
-    VAL_TYPESET_BITS(varpar) |= FLAGIT_KIND(REB_MAX_NULLED);
-    mutable_KIND_BYTE(varpar) = REB_P_NORMAL; // !!! hack
-
-    if (Do_Vararg_Op_Maybe_End_Throws(D_OUT, ARG(args), VARARG_OP_TAKE))
+    if (Do_Vararg_Op_Maybe_End_Throws_Core(
+        D_OUT,
+        VARARG_OP_TAKE,
+        ARG(args),
+        REB_P_NORMAL
+    )){
         return R_THROWN;
+    }
 
     if (IS_END(D_OUT))
         fail ("Frame hack is written to need argument!");
-
-    mutable_KIND_BYTE(varpar) = REB_P_HARD_QUOTE;
-    VAL_TYPESET_BITS(varpar) &= ~FLAGIT_KIND(REB_MAX_NULLED);
 
     DECLARE_LOCAL (temp);
     if (Match_Core_Throws(temp, test, SPECIFIED, D_OUT, SPECIFIED))

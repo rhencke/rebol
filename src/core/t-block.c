@@ -234,8 +234,8 @@ REB_R MAKE_Array(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg) {
         do {
             if (Do_Vararg_Op_Maybe_End_Throws(
                 out,
-                arg,
-                VARARG_OP_TAKE
+                VARARG_OP_TAKE,
+                arg
             )){
                 DS_DROP_TO(dsp_orig);
                 return R_THROWN;

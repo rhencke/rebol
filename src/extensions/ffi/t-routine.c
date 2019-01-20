@@ -639,8 +639,8 @@ const REBVAL *Routine_Dispatcher(REBFRM *f)
         do {
             if (Do_Vararg_Op_Maybe_End_Throws(
                 f->out,
-                vararg,
-                VARARG_OP_TAKE
+                VARARG_OP_TAKE,
+                vararg
             )){
                 return R_THROWN;
             }

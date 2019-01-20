@@ -351,6 +351,7 @@ e-types/emit {
         REB_0 = 0, /* reserved for internal purposes */
         REB_0_END = REB_0, /* ...most commonly array termination cells... */
         REB_TS_ENDABLE = REB_0, /* bit set in typesets for endability */
+        REB_P_DETECT = REB_0, /* detect paramclass from vararg */
 
         /*** REAL TYPES ***/
 

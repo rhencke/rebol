@@ -241,10 +241,10 @@
 
 ; Use experimental MATCH2 to get input on success, see #2165
 (
-    "abc" = match2 parse "abc" ["a" "b" "c" end]
+    "abc" = match parse "abc" ["a" "b" "c" end]
 )
 (
-    null? match2 parse "abc" ["a" "b" "d" end]
+    null? match parse "abc" ["a" "b" "d" end]
 )
 
 

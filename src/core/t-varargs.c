@@ -159,16 +159,17 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
 //
 // If an evaluation is involved, then a thrown value is possibly returned.
 //
-bool Do_Vararg_Op_Maybe_End_Throws(
+bool Do_Vararg_Op_Maybe_End_Throws_Core(
     REBVAL *out,
+    enum Reb_Vararg_Op op,
     const RELVAL *vararg,
-    enum Reb_Vararg_Op op
+    enum Reb_Kind pclass // use REB_P_DETECT to use what's in the vararg
 ){
     TRASH_CELL_IF_DEBUG(out);
 
     const RELVAL *param = Param_For_Varargs_Maybe_Null(vararg);
-    Reb_Param_Class pclass =
-        (param == NULL) ? REB_P_HARD_QUOTE :  VAL_PARAM_CLASS(param);
+    if (pclass == REB_P_DETECT)
+        pclass = VAL_PARAM_CLASS(param);
 
     REBVAL *arg; // for updating VALUE_FLAG_UNEVALUATED
 
@@ -467,8 +468,8 @@ REB_R PD_Varargs(
 
     if (Do_Vararg_Op_Maybe_End_Throws(
         pvs->out,
-        location,
-        VARARG_OP_FIRST
+        VARARG_OP_FIRST,
+        location
     )){
         assert(false); // VARARG_OP_FIRST can't throw
         return R_THROWN;
@@ -503,8 +504,8 @@ REBTYPE(Varargs)
         case SYM_TAIL_Q: {
             if (Do_Vararg_Op_Maybe_End_Throws(
                 D_OUT,
-                value,
-                VARARG_OP_TAIL_Q
+                VARARG_OP_TAIL_Q,
+                value
             )){
                 assert(false);
                 return R_THROWN;
@@ -530,8 +531,8 @@ REBTYPE(Varargs)
         if (not REF(part)) {
             if (Do_Vararg_Op_Maybe_End_Throws(
                 D_OUT,
-                value,
-                VARARG_OP_TAKE
+                VARARG_OP_TAKE,
+                value
             )){
                 return R_THROWN;
             }
@@ -557,8 +558,8 @@ REBTYPE(Varargs)
         while (limit-- > 0) {
             if (Do_Vararg_Op_Maybe_End_Throws(
                 D_OUT,
-                value,
-                VARARG_OP_TAKE
+                VARARG_OP_TAKE,
+                value
             )){
                 return R_THROWN;
             }

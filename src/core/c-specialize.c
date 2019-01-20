@@ -1230,7 +1230,7 @@ bool Make_Invocation_Frame_Throws(
     REBFRM *f,
     REBVAL **first_arg_ptr, // returned so that MATCH can steal it
     const REBVAL *action,
-    REBVAL *varargs,
+    const REBVAL *varargs,
     REBDSP lowest_ordered_dsp
 ){
     assert(IS_ACTION(action));
@@ -1268,7 +1268,9 @@ bool Make_Invocation_Frame_Throws(
     // it is desired that any voids encountered be processed as if they are
     // not specialized...and gather at the callsite if necessary.
     //
-    f->flags.bits = DO_MASK_DEFAULT | DO_FLAG_PROCESS_ACTION;
+    f->flags.bits = DO_MASK_DEFAULT
+        | DO_FLAG_PROCESS_ACTION
+        | DO_FLAG_ERROR_ON_DEFERRED_ENFIX; // can't deal with ELSE/THEN/etc.
 
     Push_Frame_Core(f);
     Reuse_Varlist_If_Available(f);
@@ -1351,6 +1353,93 @@ found_first_arg_ptr:
 
 
 //
+//  Make_Frame_From_Varargs_Throws: C
+//
+// Routines like MATCH or DOES are willing to do impromptu specializations
+// from a feed of instructions, so that a frame for an ACTION! can be made
+// without actually running it yet.  This is also exposed by MAKE ACTION!.
+//
+// This pre-manages the exemplar, because it has to be done specially (it gets
+// "stolen" out from under an evaluator's REBFRM*, and was manually tracked
+// but never in the manual series list.)
+//
+bool Make_Frame_From_Varargs_Throws(
+    REBVAL *out,
+    const REBVAL *specializee,
+    const REBVAL *varargs
+){
+    REBSTR *opt_label;
+    REBDSP lowest_ordered_dsp = DSP;
+    if (Get_If_Word_Or_Path_Throws(
+        out,
+        &opt_label,
+        specializee,
+        SPECIFIED,
+        true // push_refinements = true
+    )){
+        return true;
+    }
+    UNUSED(opt_label); // not used here
+
+    if (not IS_ACTION(out))
+        fail (Error_Invalid(specializee));
+
+    DECLARE_LOCAL (action);
+    Move_Value(action, out);
+    PUSH_GC_GUARD(action);
+
+    // We interpret phrasings like `x: does all [...]` to mean something
+    // like `x: specialize 'all [block: [...]]`.  While this originated
+    // from the Rebmu code golfing language to eliminate a pair of bracket
+    // characters from `x: does [all [...]]`, it actually has different
+    // semantics...which can be useful in their own right, plus the
+    // resulting function will run faster.
+
+    DECLARE_FRAME (f); // REBFRM whose built FRAME! context we will steal
+
+    REBVAL *first_arg;
+    if (Make_Invocation_Frame_Throws(
+        out,
+        f,
+        &first_arg,
+        action,
+        varargs,
+        lowest_ordered_dsp
+    )){
+        return true;
+    }
+    UNUSED(first_arg); // MATCH uses to get its answer faster, we don't need
+
+    REBACT *act = VAL_ACTION(action);
+
+    assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)); // not invoked yet
+    assert(FRM_BINDING(f) == VAL_BINDING(action));
+
+    REBCTX *exemplar = Steal_Context_Vars(CTX(f->varlist), NOD(act));
+    assert(ACT_NUM_PARAMS(act) == CTX_LEN(exemplar));
+
+    LINK(exemplar).keysource = NOD(act);
+
+    SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED); // is inaccessible
+    f->varlist = nullptr; // just let it GC, for now
+
+    // May not be at end or thrown, e.g. (x: does lit y x = 'y)
+    //
+    Drop_Frame(f);
+    DROP_GC_GUARD(action); // has to be after drop to balance at right time
+
+    // The exemplar may or may not be managed as of yet.  We want it
+    // managed, but Push_Action() does not use ordinary series creation to
+    // make its nodes, so manual ones don't wind up in the tracking list.
+    //
+    SET_SER_FLAG(exemplar, NODE_FLAG_MANAGED); // can't use Manage_Series
+
+    Init_Frame(out, exemplar);
+    return false;
+}
+
+
+//
 //  does: native [
 //
 //  {Specializes DO for a value (or for args of another named function)}
@@ -1414,70 +1503,14 @@ REBNATIVE(does)
         GET_VAL_FLAG(specializee, VALUE_FLAG_UNEVALUATED)
         and (IS_WORD(specializee) or IS_PATH(specializee))
     ){
-        REBSTR *opt_label;
-        REBDSP lowest_ordered_dsp = DSP;
-        if (Get_If_Word_Or_Path_Throws(
+        if (Make_Frame_From_Varargs_Throws(
             D_OUT,
-            &opt_label,
             specializee,
-            SPECIFIED,
-            true // push_refinements = true
+            ARG(args)
         )){
             return R_THROWN;
         }
-
-        if (not IS_ACTION(D_OUT))
-            fail (Error_Invalid(specializee));
-
-        Move_Value(specializee, D_OUT);
-
-        // We interpret phrasings like `x: does all [...]` to mean something
-        // like `x: specialize 'all [block: [...]]`.  While this originated
-        // from the Rebmu code golfing language to eliminate a pair of bracket
-        // characters from `x: does [all [...]]`, it actually has different
-        // semantics...which can be useful in their own right, plus the
-        // resulting function will run faster.
-
-        DECLARE_FRAME (f); // REBFRM whose built FRAME! context we will steal
-
-        REBVAL *first_arg;
-        if (Make_Invocation_Frame_Throws(
-            D_OUT,
-            f,
-            &first_arg,
-            specializee,
-            ARG(args),
-            lowest_ordered_dsp
-        )){
-            return R_THROWN;
-        }
-        assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED)); // not invoked yet
-        assert(FRM_BINDING(f) == VAL_BINDING(specializee));
-        exemplar = Steal_Context_Vars(
-            CTX(f->varlist),
-            NOD(VAL_ACTION(specializee))
-        );
-        LINK(exemplar).keysource = NOD(VAL_ACTION(specializee));
-        assert(
-            ACT_NUM_PARAMS(VAL_ACTION(specializee))
-            == CTX_LEN(exemplar)
-        );
-
-        SET_SER_FLAG(f->varlist, NODE_FLAG_MANAGED); // is inaccessible
-        f->varlist = nullptr; // just let it GC, for now
-
-        // May not be at end or thrown, e.g. (x: does lit y x = 'y)
-        //
-        Drop_Frame(f);
-
-        // The exemplar may or may not be managed as of yet.  We want it
-        // managed, but Push_Action() does not use ordinary series creation to
-        // make its nodes, so manual ones don't wind up in the tracking list.
-        //
-        SET_SER_FLAG(exemplar, NODE_FLAG_MANAGED); // can't use Manage_Series
-
-        UNUSED(first_arg);
-        UNUSED(opt_label);
+        exemplar = VAL_CONTEXT(D_OUT);
     }
     else {
         // On all other types, we just make it act like a specialized call to
@@ -1505,7 +1538,7 @@ REBNATIVE(does)
         Move_Value(specializee, NAT_VALUE(do));
     }
 
-    REBACT *unspecialized = VAL_ACTION(specializee);
+    REBACT *unspecialized = ACT(CTX_KEYLIST(exemplar));
 
     REBCNT num_slots = ACT_NUM_PARAMS(unspecialized) + 1;
     REBARR *paramlist = Make_Arr_Core(num_slots, SERIES_MASK_ACTION);

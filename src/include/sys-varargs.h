@@ -146,3 +146,7 @@ inline static const REBVAL *Param_For_Varargs_Maybe_Null(const REBCEL *v) {
     assert(not (v->extra.binding->header.bits & ARRAY_FLAG_VARLIST));
     return nullptr;
 }
+
+
+#define Do_Vararg_Op_Maybe_End_Throws(out,op,vararg) \
+    Do_Vararg_Op_Maybe_End_Throws_Core((out), (op), (vararg), REB_P_DETECT)

@@ -228,6 +228,35 @@ REBINT CT_Context(const REBCEL *a, const REBCEL *b, REBINT mode)
 //
 REB_R MAKE_Frame(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
 {
+    // MAKE FRAME! on a VARARGS! supports the userspace authoring of ACTION!s
+    // like MATCH.  However, MATCH is kept as a native for performance--as
+    // many usages will not be variadic, and the ones that are do not need
+    // to create GC-managed FRAME! objects.
+    //
+    if (IS_VARARGS(arg)) {
+        DECLARE_LOCAL (temp);
+        SET_END(temp);
+        PUSH_GC_GUARD(temp);
+
+        if (Do_Vararg_Op_Maybe_End_Throws_Core(
+            temp,
+            VARARG_OP_TAKE,
+            arg,
+            REB_P_HARD_QUOTE
+        )){
+            assert(!"Hard quoted vararg ops should not throw");
+        }
+
+        if (IS_END(temp))
+            fail ("Cannot MAKE FRAME! on an empty VARARGS!");
+
+        bool threw = Make_Frame_From_Varargs_Throws(out, temp, arg);
+
+        DROP_GC_GUARD(temp);
+
+        return threw ? R_THROWN : out;
+    }
+
     REBDSP lowest_ordered_dsp = DSP; // Data stack gathers any refinements
 
     REBSTR *opt_label;
