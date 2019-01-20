@@ -184,7 +184,13 @@ union Reb_Header {
     // might add some kind of optimization or instrumentation, though the
     // unused bits are currently in weird byte positions.
     //
-    uintptr_t bits;
+    uintptr_t capacity; // how big we want this union to be for cell rules
+
+    // uintptr_t may not be the fastest type for operating on 32 bits.  So
+    // we do our accesses through whatever is, while making sure the header
+    // itself is the right size.
+
+    uint_fast32_t bits;
 
   #if !defined(NDEBUG)
     char bytes_pun[4];

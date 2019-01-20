@@ -141,7 +141,7 @@ inline static bool Vararg_Op_If_No_Advance_Handled(
 
 
 //
-//  Do_Vararg_Op_Maybe_End_Throws: C
+//  Do_Vararg_Op_Maybe_End_Throws_Core: C
 //
 // Service routine for working with a VARARGS!.  Supports TAKE-ing or just
 // returning whether it's at the end or not.  The TAKE is not actually a
