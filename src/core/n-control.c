@@ -615,7 +615,6 @@ REBNATIVE(match2)
 
         Begin_Action(f, opt_label);
 
-        f->u.defer.arg = nullptr;
         bool threw = (*PG_Eval_Throws)(f);
 
         Drop_Frame(f);

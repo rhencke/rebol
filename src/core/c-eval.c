@@ -126,6 +126,8 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
         assert(not (f->flags.bits & DO_FLAG_NO_LOOKAHEAD));
 
+    assert(not (f->flags.bits & DO_FLAG_DEFERRING_ENFIX));
+
     return false;
 }
 
@@ -214,109 +216,95 @@ inline static bool In_Unspecialized_Mode(REBFRM *f) {
 }
 
 
-inline static void Revoke_Refinement_Arg(
-    REBFRM *f_state, // name helps avoid accidental references to f->arg, etc.
-    const RELVAL *param,
-    REBVAL *arg,
-    REBVAL *refine
-){
-    assert(IS_NULLED(arg)); // may be "endish nulled"
-    assert(IS_REFINEMENT(refine));
+inline static void Revoke_Refinement_Arg(REBFRM *f) {
+    assert(IS_NULLED(f->arg)); // may be "endish nulled"
+    assert(IS_REFINEMENT(f->refine));
 
     // We can only revoke the refinement if this is the first refinement arg.
     // If it's a later arg, then the first didn't trigger revocation, or
-    // refine wouldn't be logic.
+    // refine wouldn't be a refinement.
     //
-    if (refine + 1 != arg)
-        fail (Error_Bad_Refine_Revoke(param, arg));
+    if (f->refine + 1 != f->arg)
+        fail (Error_Bad_Refine_Revoke(f->param, f->arg));
 
-    Init_Blank(refine); // can't re-enable...
-    SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+    Init_Blank(f->refine); // can't re-enable...
+    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
 
-    f_state->refine = ARG_TO_REVOKED_REFINEMENT; // !!! correct to change?
+    f->refine = ARG_TO_REVOKED_REFINEMENT;
 }
 
-// Typechecking has to be broken out into a subroutine because it is not
-// always the case that one is typechecking the current argument.  See the
-// documentation on REBFRM.deferred for why.
-//
 // It's called "Finalize" because in addition to checking, any other handling
 // that an argument needs once being put into a frame is handled.  VARARGS!,
 // for instance, that may come from an APPLY need to have their linkage
 // updated to the parameter they are now being used in.
 //
-inline static void Finalize_Arg(
-    REBFRM *f_state, // name helps avoid accidental references to f->arg, etc.
-    const RELVAL *param,
-    REBVAL *arg,
-    REBVAL *refine
-){
-    assert(not Is_Param_Variadic(param)); // Use Finalize_Variadic_Arg()
+inline static void Finalize_Arg(REBFRM *f) {
+    assert(not Is_Param_Variadic(f->param)); // Use Finalize_Variadic_Arg()
 
-    REBYTE kind_byte = KIND_BYTE(arg);
+    REBYTE kind_byte = KIND_BYTE(f->arg);
 
     if (kind_byte == REB_0_END) { // `1 + comment "foo"` => `1 +`, arg is END
-        if (not Is_Param_Endable(param))
-            fail (Error_No_Arg(f_state, param));
+        if (not Is_Param_Endable(f->param))
+            fail (Error_No_Arg(f, f->param));
 
-        Init_Endish_Nulled(arg);
-        if (IS_REFINEMENT(refine)) {
-            Revoke_Refinement_Arg(f_state, param, arg, refine);
+        Init_Endish_Nulled(f->arg);
+        if (IS_REFINEMENT(f->refine)) {
+            Revoke_Refinement_Arg(f);
             return;
         }
 
-        SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+        SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
         return;
     }
 
   #if defined(DEBUG_STALE_ARGS) // see notes on flag definition
-    assert(NOT_VAL_FLAG(arg, ARG_MARKED_CHECKED));
+    assert(NOT_VAL_FLAG(f->arg, ARG_MARKED_CHECKED));
   #endif
 
     assert(
-        refine == ORDINARY_ARG // check arg type
-        or refine == ARG_TO_UNUSED_REFINEMENT // ensure arg null
-        or refine == ARG_TO_REVOKED_REFINEMENT // ensure arg null
-        or IS_REFINEMENT(refine) // ensure arg not null
+        f->refine == ORDINARY_ARG // check arg type
+        or f->refine == ARG_TO_UNUSED_REFINEMENT // ensure arg null
+        or f->refine == ARG_TO_REVOKED_REFINEMENT // ensure arg null
+        or IS_REFINEMENT(f->refine) // ensure arg not null
     );
 
     if (kind_byte == REB_MAX_NULLED) {
-        if (IS_REFINEMENT(refine)) {
-            Revoke_Refinement_Arg(f_state, param, arg, refine);
+        if (IS_REFINEMENT(f->refine)) {
+            Revoke_Refinement_Arg(f);
             return; // don't check for optionality, refinement args always are
         }
 
-        if (IS_FALSEY(refine)) {
+        if (IS_FALSEY(f->refine)) {
             //
             // BLANK! means refinement already revoked, null is okay
             // false means refinement was never in use, so also okay
             //
-            SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+            SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
             return;
         }
 
-        assert(refine == ORDINARY_ARG); // fall through, check if <opt> ok
+        assert(f->refine == ORDINARY_ARG); // fall through, check if <opt> ok
     }
     else { // argument is set...
-        if (IS_FALSEY(refine)) // ...so refinement shouldn't be revoked/unused
-            fail (Error_Bad_Refine_Revoke(param, arg));
+        if (IS_FALSEY(f->refine)) // ...so refinement is not revoked/unused
+            fail (Error_Bad_Refine_Revoke(f->param, f->arg));
     }
 
-    if (kind_byte == REB_BLANK and TYPE_CHECK(param, REB_TS_NOOP_IF_BLANK)) {
-        SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
-        FRM_PHASE_OR_DUMMY(f_state) = PG_Dummy_Action;
+    if (
+        kind_byte == REB_BLANK
+        and TYPE_CHECK(f->param, REB_TS_NOOP_IF_BLANK) // e.g. <blank> param
+    ){
+        SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
+        FRM_PHASE_OR_DUMMY(f) = PG_Dummy_Action;
         return;
     }
 
-    if (not Typecheck_Including_Quoteds(param, arg))
-        fail (Error_Arg_Type(f_state, param, VAL_TYPE(arg)));
+    if (not Typecheck_Including_Quoteds(f->param, f->arg))
+        fail (Error_Arg_Type(f, f->param, VAL_TYPE(f->arg)));
 
-    SET_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+    SET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED);
 }
 
-inline static void Finalize_Current_Arg(REBFRM *f) {
-    Finalize_Arg(f, f->param, f->arg, f->refine);
-}
 
 // While "checking" the variadic argument we actually re-stamp it with
 // this parameter and frame's signature.  It reuses whatever the original
@@ -410,15 +398,29 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 }
 
 
-// Factored out code for entering a child frame with an already evaluated
-// value in order to reuse the post-switch enfix code.
+// When arguments are hard quoted or soft-quoted, they don't call into the
+// evaluator to do it.  But they need to use the logic of the evaluator for
+// noticing when to defer enfix:
+//
+//     foo: func [...] [
+//          return quote 1 then ["this needs to be returned"]
+//     ]
+//
+// If the first time the THEN was seen was not after the 1, but when the
+// quote ran, it would get deferred until after the RETURN.  This is not
+// consistent with the pattern people expect.
+//
+// !!! This should be handled with a more efficient check, that goes ahead and
+// fetches f->gotten, checks to see if it is deferable enfix, and does the
+// deferment.  Then it wouldn't need to make a frame.
 //
 static inline bool Eval_Post_Switch_Throws(REBFRM *f, REBVAL *preload) {
     REBFLGS flags =
         (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
         | DO_FLAG_FULFILLING_ARG
         | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-        | (f->flags.bits & DO_FLAG_CONST);
+        | (f->flags.bits & DO_FLAG_CONST)
+        | DO_FLAG_NO_LOOKAHEAD;
 
     DECLARE_SUBFRAME (child, f); // capture DSP *now*
 
@@ -542,16 +544,6 @@ bool Eval_Core_Throws(REBFRM * const f)
         | DO_FLAG_REEVALUATE_CELL
     )){
         if (f->flags.bits & DO_FLAG_POST_SWITCH) {
-            //
-            // !!! Previously this was only used for enfix deferral on normal
-            // arguments, but support was added for soft and hard quoted args.
-            // They run through the same procedure, even though they are not
-            // re-entering a frame after an evaluation (they directly quote
-            // the value without a recursion).  Likely could be improved.
-            //
-            /* assert(f->prior->u.defer.arg); */
-            assert(NOT_END(f->out));
-
             f->flags.bits &= ~DO_FLAG_POST_SWITCH;
             goto post_switch;
         }
@@ -562,13 +554,10 @@ bool Eval_Core_Throws(REBFRM * const f)
             f->out->header.bits |= OUT_MARKED_STALE;
 
             f->flags.bits &= ~DO_FLAG_PROCESS_ACTION;
-
-            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
             goto process_action;
         }
 
         current = f->u.reval.value;
-        TRASH_POINTER_IF_DEBUG(f->u.defer.arg); // same memory location
         current_gotten = nullptr;
         kind.byte = KIND_BYTE(current);
 
@@ -836,8 +825,6 @@ bool Eval_Core_Throws(REBFRM * const f)
   #endif
 
     Fetch_Next_In_Frame(nullptr, f); // skip the WORD! that invoked the action
-
-    assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
     goto process_action;
 
   give_up_backward_quote_priority:;
@@ -895,7 +882,6 @@ bool Eval_Core_Throws(REBFRM * const f)
         Begin_Action(f, opt_label);
         Expire_Out_Cell_Unless_Invisible(f);
 
-        assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
         goto process_action; }
 
     //==////////////////////////////////////////////////////////////////==//
@@ -916,7 +902,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       process_action:; // Note: Also jumped to by the redo_checked code
 
-        assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
+        assert(not (f->flags.bits & DO_FLAG_DEFERRING_ENFIX));
 
       #if !defined(NDEBUG)
         assert(f->original); // set by Begin_Action()
@@ -1231,7 +1217,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 if (Is_Param_Variadic(f->param))
                     Finalize_Variadic_Arg(f);
                 else
-                    Finalize_Current_Arg(f);
+                    Finalize_Arg(f);
                 goto continue_arg_loop; // looping to verify args/refines
             }
 
@@ -1291,7 +1277,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     // left enfix should treat that just like an end.
 
                     SET_END(f->arg);
-                    Finalize_Current_Arg(f);
+                    Finalize_Arg(f);
                     goto continue_arg_loop;
                 }
 
@@ -1381,7 +1367,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     Finalize_Enfix_Variadic_Arg(f);
                 }
                 else
-                    Finalize_Current_Arg(f);
+                    Finalize_Arg(f);
 
                 goto continue_arg_loop;
             }
@@ -1401,28 +1387,16 @@ bool Eval_Core_Throws(REBFRM * const f)
                 goto continue_arg_loop;
             }
 
-    //=//// AFTER THIS, PARAMS CONSUME FROM CALLSITE IF NOT APPLY ////////=//
+    //=//// AFTER THIS, PARAMS CONSUME FROM CALLSITE IF NOT APPLY /////////=//
 
             assert(f->refine == ORDINARY_ARG or IS_REFINEMENT(f->refine));
 
-    //=//// START BY HANDLING ANY DEFERRED ENFIX PROCESSING //////////////=//
+    //=//// START BY ERRORING IF WE HAD DEFERRED ENFIX PROCESSING /////////=//
 
-            // `if 10 and (20) [...]` starts by filling IF's `condition` slot
-            // with 10, because AND has a "non-tight" (normal) left hand
-            // argument.  Were `if 10` a complete expression, that's allowed.
-            //
-            // But now we're consuming another argument at the callsite, e.g.
-            // the `branch`.  So by definition `if 10` wasn't finished.
-            //
-            // We kept a `f->defer` field that points at the previous filled
-            // slot.  So we can re-enter a sub-frame and give the IF's
-            // `condition` slot a second chance to run the enfix processing it
-            // put off before, this time using the 10 as AND's left-hand arg.
-            //
-            if (f->u.defer.arg)
+            if (f->flags.bits & DO_FLAG_DEFERRING_ENFIX) // see flag notes
                 fail ("THIS SCENARIO NOW NOT SUPPORTED, USE A GROUP!");
 
-    //=//// ERROR ON END MARKER, BAR! IF APPLICABLE //////////////////////=//
+    //=//// ERROR ON END MARKER, BAR! IF APPLICABLE ///////////////////////=//
 
             if (IS_END(f->value) or (f->flags.bits & DO_FLAG_BARRIER_HIT)) {
                 if (not Is_Param_Endable(f->param))
@@ -1474,14 +1448,9 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 //     return quote 1 then (x => [x + 1])
                 //
-                // !!! This is likely inefficient, but it's brief to reuse.
-                //
-                assert(f->u.defer.arg == nullptr);
-                if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE)) {
-                    if (Eval_Post_Switch_Throws(f, f->arg)) {
-                        Move_Value(f->out, f->arg);
-                        goto abort_action;
-                    }
+                if (Eval_Post_Switch_Throws(f, f->arg)) {
+                    Move_Value(f->out, f->arg);
+                    goto abort_action;
                 }
 
                 if (GET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED))
@@ -1496,7 +1465,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                     f->flags.bits |= DO_FLAG_BARRIER_HIT;
                     Fetch_Next_In_Frame(nullptr, f);
                     SET_END(f->arg);
-                    Finalize_Current_Arg(f);
+                    Finalize_Arg(f);
                     goto continue_arg_loop;
                 }
 
@@ -1519,14 +1488,9 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 //     return if false '[foo] else '[bar]
                 //
-                // !!! This is likely inefficient, but it's brief to reuse.
-                //
-                assert(f->u.defer.arg == nullptr);
-                if (NOT_SER_FLAG(f->original, PARAMLIST_FLAG_INVISIBLE)) {
-                    if (Eval_Post_Switch_Throws(f, f->arg)) {
-                        Move_Value(f->out, f->arg);
-                        goto abort_action;
-                    }
+                if (Eval_Post_Switch_Throws(f, f->arg)) {
+                    Move_Value(f->out, f->arg);
+                    goto abort_action;
                 }
                 break;
 
@@ -1548,11 +1512,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 or not (f->flags.bits & DO_FLAG_FULLY_SPECIALIZED) // ...this!
             );
 
-            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
-            if (f->u.defer.arg)
-                continue; // don't do typechecking on this *yet*...
-
-            Finalize_Arg(f, f->param, f->arg, f->refine);
+            Finalize_Arg(f);
 
           continue_arg_loop:;
 
@@ -1621,47 +1581,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         assert(IS_END(f->param)); // signals !Is_Action_Frame_Fulfilling()
 
-        if (not In_Typecheck_Mode(f)) { // was fulfilling...
-            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
-            if (f->u.defer.arg) {
-                //
-                // We deferred typechecking, but still need to do it...
-                //
-                Finalize_Arg(
-                    f,
-                    f->u.defer.param,
-                    f->u.defer.arg,
-                    f->u.defer.refine
-                );
-
-                // If we had found another argument, we would have jumped the
-                // evaluator back into the post-switch and forced the deferred
-                // enfix to go ahead and run so the next argument could be
-                // fetched.  We didn't find one, and are going ahead and
-                // running the function.  Usually this means we want to signal
-                // not to defer again, e.g. the ELSE here should run after IF
-                //
-                //     return if condition [...] else [...]
-                //
-                // But if something says it takes its argument tightly, then
-                // we should allow another deferral.  Notable case:
-                //
-                //     if condition [...] then x => [...] else [...]
-                //
-                // The lambda => wants to be an argument to THEN, ignoring
-                // the else.  Hence it declares its argument tight.  That
-                // means the ELSE waits and lets the THEN run, even though
-                // it appears as a step above it.
-                //
-                f->flags.bits |= DO_FLAG_ALREADY_DEFERRED_ENFIX;
-
-                f->u.defer.arg = nullptr;
-                TRASH_POINTER_IF_DEBUG(f->u.defer.param);
-                TRASH_POINTER_IF_DEBUG(f->u.defer.refine);
-            }
-
-        }
-
     //==////////////////////////////////////////////////////////////////==//
     //
     // ACTION! ARGUMENTS NOW GATHERED, DISPATCH PHASE
@@ -1679,7 +1598,6 @@ bool Eval_Core_Throws(REBFRM * const f)
         );
 
         Expire_Out_Cell_Unless_Invisible(f);
-        assert(f->u.defer.arg == nullptr); // variadics examine
 
         // While you can't evaluate into an array cell (because it may move)
         // an evaluation is allowed to be performed into stable cells on the
@@ -1702,7 +1620,6 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         const REBVAL *r; // initialization would be skipped by gotos
         r = (*PG_Dispatcher)(f); // default just calls FRM_PHASE(f)
-        TRASH_POINTER_IF_DEBUG(f->u.defer.arg);
 
         if (r == f->out) {
             assert(not (f->out->header.bits & OUT_MARKED_STALE));
@@ -1811,11 +1728,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             // run the f->phase again.  The dispatcher may have changed the
             // value of what f->phase is, for instance.
 
-            if (GET_VAL_FLAG(r, VALUE_FLAG_FALSEY)) { // R_REDO_UNCHECKED
-                assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
-                f->u.defer.arg = nullptr;
+            if (GET_VAL_FLAG(r, VALUE_FLAG_FALSEY)) // R_REDO_UNCHECKED
                 goto redo_unchecked;
-            }
 
           redo_checked:; // R_REDO_CHECKED
 
@@ -1826,8 +1740,6 @@ bool Eval_Core_Throws(REBFRM * const f)
             f->special = f->arg;
             f->refine = ORDINARY_ARG; // no gathering, but need for assert
 
-            assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
-            f->u.defer.arg = nullptr;
             goto process_action;
 
           case REB_R_INVISIBLE: {
@@ -1939,7 +1851,6 @@ bool Eval_Core_Throws(REBFRM * const f)
             assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
             f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
 
-            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
             goto process_action;
         }
 
@@ -1979,7 +1890,6 @@ bool Eval_Core_Throws(REBFRM * const f)
             if (GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED))
                 f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
 
-            assert(not IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
             goto process_action;
         }
 
@@ -2227,7 +2137,6 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             Begin_Action(f, opt_label);
             Expire_Out_Cell_Unless_Invisible(f);
-            assert(f->u.defer.arg == nullptr);
             goto process_action;
         }
 
@@ -2527,8 +2436,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   post_switch:;
 
-    assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg));
-
 //=//// IF NOT A WORD!, IT DEFINITELY STARTS A NEW EXPRESSION /////////////=//
 
     // For long-pondered technical reasons, only WORD! is able to dispatch
@@ -2563,6 +2470,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         ){
             if (not (f->flags.bits & DO_FLAG_TO_END))
                 goto finished; // just 1 step of work, so stop evaluating
+
+            assert(not (f->flags.bits & DO_FLAG_FULFILLING_ARG)); // one only
             goto do_next;
         }
 
@@ -2582,7 +2491,6 @@ bool Eval_Core_Throws(REBFRM * const f)
         f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
 
         Fetch_Next_In_Frame(nullptr, f); // advances f->value
-        assert(f->u.defer.arg == nullptr);
         goto process_action;
     }
 
@@ -2606,12 +2514,11 @@ bool Eval_Core_Throws(REBFRM * const f)
         // !!! a particularly egregious hack in EVAL-ENFIX lets us simulate
         // enfix for a function whose value is not enfix.  This means the
         // value in f->gotten isn't the fetched function, but the function
-        // plus a VALUE_FLAG_ENFIXED.  We discern this hacky case by noting
-        // if f->u.defer.arg is precisely equal to BLANK_VALUE.
+        // plus a VALUE_FLAG_ENFIXED.  Account for this hack.
         //
         assert(
             f->gotten == Try_Get_Opt_Var(f->value, f->specifier)
-            or (f->prior->u.defer.arg == BLANK_VALUE) // !!! hack
+            or (f->prior->original == NAT_ACTION(eval_enfix)) // !!! hack
         );
     }
 
@@ -2722,24 +2629,14 @@ bool Eval_Core_Throws(REBFRM * const f)
     //
     // The first time the ELSE is seen, IF is fulfilling its branch argument
     // and doesn't know if its done or not.  So this code senses that and
-    // runs, returning the output without running ELSE.  Then, the IF does
-    // not need to force the ELSE to run in order to fulfill another argument.
-    // So it concludes the typechecking on the block argument, and sets the
-    // DO_FLAG_ALREADY_DEFERRED_ENFIX flag.  That means after the IF runs
-    // its code, it will get here and run the ELSE *before* yielding the
-    // argument fulfillment to the RETURN above it.
+    // runs, returning the output without running ELSE, but setting a flag
+    // to know not to do the deferral more than once.
     //
-    assert(
-        not (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-        or not IS_POINTER_TRASH_DEBUG(f->prior->u.defer.arg)
-    );
     if (
         GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK)
         and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-        and not f->prior->u.defer.arg
-        and not (f->flags.bits & DO_FLAG_ALREADY_DEFERRED_ENFIX)
+        and not (f->flags.bits & DO_FLAG_DEFERRING_ENFIX)
     ){
-        assert(not (f->flags.bits & DO_FLAG_TO_END));
         if (not Is_Action_Frame_Fulfilling(f->prior)) {
             //
             // This should mean it's a variadic frame, e.g. when we have
@@ -2757,9 +2654,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         assert(f->out == f->prior->arg);
 
-        f->prior->u.defer.arg = f->prior->arg; // see defer comments in REBFRM
-        f->prior->u.defer.param = f->prior->param;
-        f->prior->u.defer.refine = f->prior->refine;
+        f->prior->flags.bits |= DO_FLAG_DEFERRING_ENFIX;
 
         if (Is_Frame_Gotten_Shoved(f)) {
             Prep_Stack_Cell(FRM_SHOVE(f->prior));
@@ -2777,7 +2672,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto finished;
     }
 
-    f->flags.bits &= ~DO_FLAG_ALREADY_DEFERRED_ENFIX;
+    f->flags.bits &= ~DO_FLAG_DEFERRING_ENFIX;
 
     // An evaluative lookback argument we don't want to defer, e.g. a normal
     // argument or a deferable one which is not being requested in the context
@@ -2804,7 +2699,6 @@ bool Eval_Core_Throws(REBFRM * const f)
     f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
 
     Fetch_Next_In_Frame(nullptr, f); // advances f->value
-    assert(f->u.defer.arg == nullptr);
     goto process_action;
 
   abort_action:;

@@ -252,9 +252,17 @@ STATIC_ASSERT(DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
 // Special escaping operations must be used in order to get evaluation
 // behavior.
 //
+// Path processing uses this same flag, to say that if a path has GROUP!s in
+// it, operations like DEFAULT do not want to run them twice...once on a get
+// path and then on a set path.  This means the path needs to be COMPOSEd and
+// then use GET/HARD and SET/HARD.
+//
 #define DO_FLAG_EXPLICIT_EVALUATE \
     FLAG_LEFT_BIT(21)
 STATIC_ASSERT(DO_FLAG_EXPLICIT_EVALUATE == VALUE_FLAG_EVAL_FLIP);
+
+#define DO_FLAG_PATH_HARD_QUOTE \
+    DO_FLAG_EXPLICIT_EVALUATE
 
 
 //=//// DO_FLAG_CONST /////////////////////////////////////////////////////=//
@@ -275,17 +283,9 @@ STATIC_ASSERT(DO_FLAG_EXPLICIT_EVALUATE == VALUE_FLAG_EVAL_FLIP);
 STATIC_ASSERT(DO_FLAG_CONST == VALUE_FLAG_CONST);
 
 
-//=//// DO_FLAG_ALREADY_DEFERRED_ENFIX ////////////////////////////////////=//
+//=//// DO_FLAG_UNUSED_23 /////////////////////////////////////////////////=//
 //
-// Ren-C introduced evaluative left hand sides that looked at more than one
-// argument.  (Otherwise `IF CONDITION [...] ELSE [...]` would force ELSE to
-// produce a result solely on seeing a block on its left.)  These evaluations
-// only allow up to one function to run on their left, otherwise there would
-// be problems e.g. with `RETURN IF CONDITION [...] ELSE [...]`, which then
-// interprets as `(RETURN IF CONDITION [...]) ELSE [...]`.  This flag tracks
-// the case that e.g. ELSE already yielded to IF, and shouldn't yield again.
-//
-#define DO_FLAG_ALREADY_DEFERRED_ENFIX \
+#define DO_FLAG_UNUSED_23 \
     FLAG_LEFT_BIT(23)
 
 
@@ -351,13 +351,27 @@ STATIC_ASSERT(DO_FLAG_CONST == VALUE_FLAG_CONST);
     FLAG_LEFT_BIT(27)
 
 
-//=//// DO_FLAG_PATH_HARD_QUOTE ///////////////////////////////////////////=//
+//=//// DO_FLAG_DEFERRING_ENFIX ///////////////////////////////////////////=//
 //
-// If a path has GROUP!s in it, operations like DEFAULT do not want to run
-// them twice...once on a get path and then on a set path.  This means the
-// path needs to be COMPOSEd and then use GET/HARD and SET/HARD.
+// Defer notes when there is a pending enfix operation that was seen while an
+// argument was being gathered, that decided not to run yet.  It will run only
+// if it turns out that was the last argument that was being gathered...
+// otherwise it will error.
 //
-#define DO_FLAG_PATH_HARD_QUOTE \
+//    if 1 [2] then [3]     ;-- legal
+//    if 1 then [2] [3]     ;-- **error**
+//    if (1 then [2]) [3]   ;-- legal, arguments weren't being gathered
+//
+// This flag is marked on a parent frame by the argument fulfillment the
+// first time it sees a left-deferring operation like a THEN or ELSE, and is
+// used to decide whether to report an error or not.
+//
+// (At one point, mechanics were added to make the second case not an
+// error.  However, this gave the evaluator complex properties of re-entry
+// that made its behavior harder to characterize.  This means that only a
+// flag is needed, vs complex marking of a parameter to re-enter eval with.)
+//
+#define DO_FLAG_DEFERRING_ENFIX \
     FLAG_LEFT_BIT(28)
 
 
@@ -730,36 +744,15 @@ struct Reb_Frame {
     // During parameter fulfillment, this might point to the `arg` slot
     // of a refinement which is having its arguments processed.  Or it may
     // point to another *read-only* value whose content signals information
-    // about how arguments should be handled.  The specific address of the
-    // value can be used to test without typing, but then can also be
-    // checked with conditional truth and falsehood.
+    // about how arguments should be handled.
     //
-    // * If NULLED_CELL, then refinements are being skipped and the arguments
-    //   that follow should not be written to.
+    // See comments at the points of definition for:
     //
-    // * If BLANK_VALUE, this is an arg to a refinement that was not used in
-    //   the invocation.  No consumption should be performed, arguments should
-    //   be written as unset, and any non-unset specializations of arguments
-    //   should trigger an error.
-    //
-    // * If FALSE_VALUE, this is an arg to a refinement that was used in the
-    //   invocation but has been *revoked*.  It still consumes expressions
-    //   from the callsite for each remaining argument, but those expressions
-    //   must not evaluate to any value.
-    //
-    // * If IS_TRUE() the refinement is active but revokable.  So if evaluation
-    //   produces no value, `refine` must be mutated to be FALSE.
-    //
-    // * If EMPTY_BLOCK, it's an ordinary arg...and not a refinement.  It will
-    //   be evaluated normally but is not involved with revocation.
-    //
-    // * If EMPTY_TEXT, the evaluator's next argument fulfillment is the
-    //   left-hand argument of a lookback operation.  After that fulfillment,
-    //   it will be transitioned to EMPTY_BLOCK.
-    //
-    // Because of how this lays out, IS_TRUTHY() can be used to determine if
-    // an argument should be type checked normally...while IS_FALSEY() means
-    // that the arg must be a NULL.
+    //     SKIPPING_REFINEMENT_ARGS
+    //     ARG_TO_UNUSED_REFINEMENT
+    //     ARG_TO_IRREVOCABLE_REFINEMENT
+    //     ARG_TO_REVOKED_REFINEMENT
+    //     ORDINARY_ARG
     //
     // In path processing, ->refine points to the soft-quoted product of the
     // current path item (the "picker").  So on the second step of processing
@@ -768,40 +761,7 @@ struct Reb_Frame {
     REBVAL *refine;
 
   union {
-    // `deferred`
     //
-    // The deferred pointer is used to mark an argument cell which *might*
-    // need to do more enfix processing in the frame--but only if it turns out
-    // to be the last argument being processed.  For instance, in both of
-    // these cases the AND finds itself gathering an argument to a function
-    // where there is an evaluated 10 on the left hand side:
-    //
-    //    x: 10
-    //
-    //    if block? x and ... [...]
-    //
-    //    if x and ... [...]
-    //
-    // In the former case, the evaluated 10 is fulfilling the one and only
-    // argument to BLOCK?.  The latter case has it fulfilling the *first* of
-    // two arguments to IF.  Since AND has REB_P_NORMAL for its left
-    // argument (as opposed to REB_P_TIGHT), it wishes to interpret the
-    // first case as `if (block? 10) and ... [...], but still let the second
-    // case work too.  Yet discerning these in advance is costly/complex.
-    //
-    // The trick used is to not run the AND, go ahead and let the cell fill
-    // the frame either way, and set `deferred` in the frame above to point
-    // at the cell.  If the function finishes gathering arguments and deferred
-    // wasn't cleared by some other operation (like in the `if x` case), then
-    // that cell is re-dispatched with DO_FLAG_POST_SWITCH to give the
-    // impression that the AND had "tightly" taken the argument all along.
-    //
-    struct {
-        REBVAL *arg;
-        const RELVAL *param;
-        REBVAL *refine;
-    } defer;
-
     // References are used by path dispatch.
     //
     struct {
@@ -926,11 +886,7 @@ struct Reb_Frame {
 typedef bool (*REBEVL)(REBFRM * const);
 
 
-//=////////////////////////////////////////////////////////////////////////=//
-//
-// SPECIAL VALUE MODES FOR (REBFRM*)->REFINE
-//
-//=////////////////////////////////////////////////////////////////////////=//
+//=//// SPECIAL VALUE MODES FOR (REBFRM*)->REFINE /////////////////////////=//
 //
 // f->refine is a bit tricky.  If it IS_LOGIC() and TRUE, then this means that
 // a refinement is active but revokable, having its arguments gathered.  So

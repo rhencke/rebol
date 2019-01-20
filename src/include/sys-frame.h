@@ -589,8 +589,6 @@ inline static void Push_Action(
     //
     f->special = ACT_SPECIALTY_HEAD(act);
 
-    f->u.defer.arg = nullptr;
-
     assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
     assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
 

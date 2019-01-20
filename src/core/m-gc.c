@@ -1318,12 +1318,7 @@ static void Mark_Frame_Stack_Deep(void)
                 continue;
             }
 
-            // Filling in a deferred argument may mean Eval_Core_Throws() has
-            // to put END markers into a cell that's behind the current param,
-            // so that's a case where an END might be seen.
-            //
-            assert(NOT_END(arg) or arg == f->u.defer.arg);
-            Queue_Mark_Opt_End_Cell_Deep(arg);
+            Queue_Mark_Opt_Value_Deep(arg);
         }
 
       propagate_and_continue:;

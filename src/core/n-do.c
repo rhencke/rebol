@@ -204,6 +204,12 @@ REBNATIVE(eval_enfix)
     // Since enfix dispatch only works for words (for the moment), we lie
     // and use the label found in path processing as a word.
     //
+    // !!! This is another devious thing, because this is not a word that is
+    // bound to look up to to f->gotten.  There's an explicit check in the
+    // evaluator for that match in the debug build, which has to have an
+    // exception made for NAT_FUNC(eval_enfix).  More stuff to think about
+    // when doing this the right way.
+    //
     DECLARE_LOCAL (word);
     Init_Word(word, opt_label);
     f->value = word;
@@ -222,8 +228,6 @@ REBNATIVE(eval_enfix)
     // the frame of EVAL-ENFIX that is invoking it.
     //
     assert(frame_ == FS_TOP);
-    assert(FS_TOP->u.defer.arg == nullptr);
-    FS_TOP->u.defer.arg = m_cast(REBVAL*, BLANK_VALUE); // !!! signal our hack
 
     REBFLGS flags = DO_MASK_DEFAULT
         | DO_FLAG_FULFILLING_ARG
@@ -237,7 +241,6 @@ REBNATIVE(eval_enfix)
     }
 
     assert(not (FS_TOP->flags.bits & DO_FLAG_NO_LOOKAHEAD));
-    FS_TOP->u.defer.arg = nullptr;
 
     DROP_GC_GUARD(temp);
     return D_OUT;
@@ -438,7 +441,6 @@ REBNATIVE(do)
         REBSTR *opt_label = nullptr;
         Begin_Action(f, opt_label);
 
-        f->u.defer.arg = nullptr;
         bool threw = (*PG_Eval_Throws)(f);
 
         Drop_Frame(f);
@@ -818,9 +820,7 @@ REBNATIVE(apply)
 
     Push_Frame_At_End(f, DO_MASK_DEFAULT | DO_FLAG_PROCESS_ACTION);
 
-    if (REF(opt))
-        f->u.defer.arg = nullptr; // needed if !(DO_FLAG_FULLY_SPECIALIZED)
-    else {
+    if (not REF(opt)) {
         //
         // If nulls are taken literally as null arguments, then no arguments
         // are gathered at the callsite, so the "ordering information"
@@ -841,9 +841,7 @@ REBNATIVE(apply)
     FRM_BINDING(f) = VAL_BINDING(applicand);
 
     Begin_Action(f, opt_label);
-    assert(IS_POINTER_TRASH_DEBUG(f->u.defer.arg)); // see Eval_Core_Throws()
 
-    f->u.defer.arg = nullptr;
     bool action_threw = (*PG_Eval_Throws)(f);
 
     Drop_Frame(f);
