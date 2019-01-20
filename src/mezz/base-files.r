@@ -215,13 +215,20 @@ split-path: func [
     reduce [dir pos]
 ]
 
+
 intern: function [
-    "Imports (internalize) words and their values from the lib into the user context."
+    "Imports (internalizes) words/values from the lib into the user context."
     data [block! any-word!] "Word or block of words to be added (deeply)"
 ][
-    index: 1 + length of usr: system/contexts/user ; optimization
-    data: bind/new :data usr   ; Extend the user context with new words
-    resolve/only usr lib index ; Copy only the new values into the user context
+    ; for optimization below (index for resolve)
+    index: 1 + length of usr: system/contexts/user
+
+    ; Extend the user context with new words
+    data: bind/new :data usr
+
+    ; Copy only the new values into the user context
+    resolve/only usr lib index
+
     :data
 ]
 
