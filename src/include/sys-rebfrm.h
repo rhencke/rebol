@@ -196,16 +196,9 @@ STATIC_ASSERT(DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
     FLAG_LEFT_BIT(16)
 
 
-//=//// DO_FLAG_NO_LOOKAHEAD //////////////////////////////////////////////=//
+//=//// DO_FLAG_UNUSED_17 /////////////////////////////////////////////////=//
 //
-// Infix functions may (depending on the #tight or non-tight parameter
-// acquisition modes) want to suppress further infix lookahead while getting
-// a function argument.  This precedent was started in R3-Alpha, where with
-// `1 + 2 * 3` it didn't want infix `+` to "look ahead" past the 2 to see the
-// infix `*` when gathering its argument, that was saved until the `1 + 2`
-// finished its processing.
-//
-#define DO_FLAG_NO_LOOKAHEAD \
+#define DO_FLAG_UNUSED_17 \
     FLAG_LEFT_BIT(17)
 
 
@@ -310,20 +303,9 @@ STATIC_ASSERT(DO_FLAG_CONST == VALUE_FLAG_CONST);
     FLAG_LEFT_BIT(23)
 
 
-//=//// DO_FLAG_BARRIER_HIT ///////////////////////////////////////////////=//
+//=//// DO_FLAG_UNUSED_24 /////////////////////////////////////////////////=//
 //
-// Evaluation of arguments can wind up seeing a barrier and "consuming" it.
-// This is true of a BAR!, but also GROUP!s which have no effective content:
-//
-//    >> 1 + (comment "vaporizes, but disrupts like a BAR! would") 2
-//    ** Script Error: + is missing its value2 argument
-//
-// But the evaluation will advance the frame.  So if a function has more than
-// one argument it has to remember that one of its arguments saw a "barrier",
-// otherwise it would receive an end signal on an earlier argument yet then
-// get a later argument fulfilled.
-//
-#define DO_FLAG_BARRIER_HIT \
+#define DO_FLAG_UNUSED_24 \
     FLAG_LEFT_BIT(24)
 
 
@@ -372,27 +354,9 @@ STATIC_ASSERT(DO_FLAG_CONST == VALUE_FLAG_CONST);
     FLAG_LEFT_BIT(27)
 
 
-//=//// DO_FLAG_DEFERRING_ENFIX ///////////////////////////////////////////=//
+//=//// DO_FLAG_GET_NEXT_ARG_FROM_OUT /////////////////////////////////////=//
 //
-// Defer notes when there is a pending enfix operation that was seen while an
-// argument was being gathered, that decided not to run yet.  It will run only
-// if it turns out that was the last argument that was being gathered...
-// otherwise it will error.
-//
-//    if 1 [2] then [3]     ;-- legal
-//    if 1 then [2] [3]     ;-- **error**
-//    if (1 then [2]) [3]   ;-- legal, arguments weren't being gathered
-//
-// This flag is marked on a parent frame by the argument fulfillment the
-// first time it sees a left-deferring operation like a THEN or ELSE, and is
-// used to decide whether to report an error or not.
-//
-// (At one point, mechanics were added to make the second case not an
-// error.  However, this gave the evaluator complex properties of re-entry
-// that made its behavior harder to characterize.  This means that only a
-// flag is needed, vs complex marking of a parameter to re-enter eval with.)
-//
-#define DO_FLAG_DEFERRING_ENFIX \
+#define DO_FLAG_GET_NEXT_ARG_FROM_OUT \
     FLAG_LEFT_BIT(28)
 
 
@@ -412,18 +376,13 @@ STATIC_ASSERT(DO_FLAG_CONST == VALUE_FLAG_CONST);
     FLAG_LEFT_BIT(29)
 
 
-#if !defined(NDEBUG)
+//=//// DO_FLAG_UNUSED_30 /////////////////////////////////////////////////=//
+//
+#define DO_FLAG_UNUSED_30 \
+    FLAG_LEFT_BIT(30)
 
-    //=//// DO_FLAG_FINAL_DEBUG ///////////////////////////////////////////=//
-    //
-    // It's assumed that each run through a frame will re-initialize the do
-    // flags, and if a frame's memory winds up reused (e.g. by successive
-    // calls in a reduce) that code has to reset the DO_FLAG_XXX each time.
-    // To make sure this is the case, this is set on each exit from
-    // Eval_Core_Throws(), and each entry checks to ensure it is not present.
-    //
-    #define DO_FLAG_FINAL_DEBUG \
-        FLAG_LEFT_BIT(30)
+
+#if !defined(NDEBUG)
 
     //=//// DO_FLAG_DEFAULT_DEBUG /////////////////////////////////////////=//
     //
@@ -482,7 +441,7 @@ STATIC_ASSERT(31 < 32); // otherwise DO_FLAG_XXX too high
     ((k) >= REB_BLOCK)
 
 
-struct Reb_Frame_Source {
+struct Reb_Frame_Feed {
     //
     // A frame may be sourced from a va_list of pointers, or not.  If this is
     // NULL it is assumed that the values are sourced from a simple array.
@@ -508,13 +467,64 @@ struct Reb_Frame_Source {
     // connected with a bit saying whether it was the level that protected it,
     // so it can know to release the hold when it's done.
     //
-    bool took_hold;
+    union Reb_Header flags;
 
     // This holds the index of the *next* item in the array to fetch as
     // f->value for processing.  It's invalid if the frame is for a C va_list.
     //
     REBCNT index;
 };
+
+#define FEED_MASK_DEFAULT 0
+
+#define FEED_FLAG_TOOK_HOLD \
+    FLAG_LEFT_BIT(0)
+
+// Infix functions may (depending on the #tight or non-tight parameter
+// acquisition modes) want to suppress further infix lookahead while getting
+// a function argument.  This precedent was started in R3-Alpha, where with
+// `1 + 2 * 3` it didn't want infix `+` to "look ahead" past the 2 to see the
+// infix `*` when gathering its argument, that was saved until the `1 + 2`
+// finished its processing.
+//
+#define FEED_FLAG_NO_LOOKAHEAD \
+    FLAG_LEFT_BIT(1)
+
+// Defer notes when there is a pending enfix operation that was seen while an
+// argument was being gathered, that decided not to run yet.  It will run only
+// if it turns out that was the last argument that was being gathered...
+// otherwise it will error.
+//
+//    if 1 [2] then [3]     ;-- legal
+//    if 1 then [2] [3]     ;-- **error**
+//    if (1 then [2]) [3]   ;-- legal, arguments weren't being gathered
+//
+// This flag is marked on a parent frame by the argument fulfillment the
+// first time it sees a left-deferring operation like a THEN or ELSE, and is
+// used to decide whether to report an error or not.
+//
+// (At one point, mechanics were added to make the second case not an
+// error.  However, this gave the evaluator complex properties of re-entry
+// that made its behavior harder to characterize.  This means that only a
+// flag is needed, vs complex marking of a parameter to re-enter eval with.)
+//
+#define FEED_FLAG_DEFERRING_ENFIX \
+    FLAG_LEFT_BIT(2)
+
+
+// Evaluation of arguments can wind up seeing a barrier and "consuming" it.
+// This is true of a BAR!, but also GROUP!s which have no effective content:
+//
+//    >> 1 + (comment "vaporizes, but disrupts like a BAR! would") 2
+//    ** Script Error: + is missing its value2 argument
+//
+// But the evaluation will advance the frame.  So if a function has more than
+// one argument it has to remember that one of its arguments saw a "barrier",
+// otherwise it would receive an end signal on an earlier argument yet then
+// get a later argument fulfilled.
+//
+#define FEED_FLAG_BARRIER_HIT \
+    FLAG_LEFT_BIT(3)
 
 
 // NOTE: The ordering of the fields in `Reb_Frame` are specifically done so
@@ -600,7 +610,7 @@ struct Reb_Frame {
     //
     REBVAL *out;
 
-    // `source.array`, `source.vaptr`
+    // `feed.array`, `feed.vaptr`, etc.
     //
     // This is the source from which new values will be fetched.  In addition
     // to working with an array, it is also possible to feed the evaluator
@@ -612,7 +622,7 @@ struct Reb_Frame {
     // Since frames may share source information, this needs to be done with
     // a dereference.
     //
-    struct Reb_Frame_Source *source;
+    struct Reb_Frame_Feed *feed;
 
     // `specifier`
     //
@@ -827,7 +837,7 @@ struct Reb_Frame {
     // series to a file and line number associated with their creation,
     // either their source code or some trace back to the code that generated
     // them.  As the feature gets better, it will certainly be useful to be
-    // able to quickly see the information in the debugger for f->source.
+    // able to quickly see the information in the debugger for f->feed.
     //
     const char *file; // is REBYTE (UTF-8), but char* for debug watch
     int line;
@@ -877,23 +887,23 @@ struct Reb_Frame {
 // value between evaluations; it's not cleared.
 //
 
-#define DECLARE_FRAME_CORE(name, source_ptr) \
+#define DECLARE_FRAME_CORE(name,feed_ptr) \
     REBFRM name##struct; \
-    name##struct.source = (source_ptr); \
+    name##struct.feed = (feed_ptr); \
     REBFRM * const name = &name##struct; \
     Prep_Stack_Cell(&name->cell); \
     Init_Unreadable_Blank(&name->cell); \
     name->dsp_orig = DSP;
 
 #define DECLARE_FRAME(name) \
-    struct Reb_Frame_Source name##source; \
-    DECLARE_FRAME_CORE(name, &name##source)
+    struct Reb_Frame_Feed name##feed; \
+    DECLARE_FRAME_CORE(name, &name##feed)
 
 #define DECLARE_END_FRAME(name) \
     DECLARE_FRAME_CORE(name, &TG_Frame_Source_End)
 
 #define DECLARE_SUBFRAME(name, parent) \
-    DECLARE_FRAME_CORE(name, (parent)->source)
+    DECLARE_FRAME_CORE(name, (parent)->feed)
 
 
 #define FS_TOP (TG_Top_Frame + 0) // avoid assign to FS_TOP via + 0

@@ -139,12 +139,12 @@ static inline void CATCH_THROWN(
 
 
 inline static bool FRM_IS_VALIST(REBFRM *f) {
-    return f->source->vaptr != nullptr;
+    return f->feed->vaptr != nullptr;
 }
 
 inline static REBARR *FRM_ARRAY(REBFRM *f) {
     assert(IS_END(f->value) or not FRM_IS_VALIST(f));
-    return f->source->array;
+    return f->feed->array;
 }
 
 // !!! Though the evaluator saves its `index`, the index is not meaningful
@@ -155,16 +155,16 @@ inline static REBARR *FRM_ARRAY(REBFRM *f) {
 //
 inline static REBCNT FRM_INDEX(REBFRM *f) {
     if (IS_END(f->value))
-        return ARR_LEN(f->source->array);
+        return ARR_LEN(f->feed->array);
 
     assert(not FRM_IS_VALIST(f));
-    return f->source->index - 1;
+    return f->feed->index - 1;
 }
 
 inline static REBCNT FRM_EXPR_INDEX(REBFRM *f) {
     assert(not FRM_IS_VALIST(f));
     return f->expr_index == END_FLAG
-        ? ARR_LEN((f)->source->array)
+        ? ARR_LEN((f)->feed->array)
         : f->expr_index - 1;
 }
 
@@ -177,13 +177,13 @@ inline static REBSTR* FRM_FILE(REBFRM *f) {
     // be kept as a UTF-8 string inside the frame without needing interning
     // as a series.  But for now, just signal that it came from C code.
     //
-    if (not f->source->array)
+    if (not f->feed->array)
         return nullptr;
 
-    if (NOT_SER_FLAG(f->source->array, ARRAY_FLAG_FILE_LINE))
+    if (NOT_SER_FLAG(f->feed->array, ARRAY_FLAG_FILE_LINE))
         return nullptr;
 
-    return LINK(f->source->array).file;
+    return LINK(f->feed->array).file;
 }
 
 inline static const char* FRM_FILE_UTF8(REBFRM *f) {
@@ -196,13 +196,13 @@ inline static const char* FRM_FILE_UTF8(REBFRM *f) {
 }
 
 inline static int FRM_LINE(REBFRM *f) {
-    if (not f->source->array)
+    if (not f->feed->array)
         return 0;
 
-    if (NOT_SER_FLAG(f->source->array, ARRAY_FLAG_FILE_LINE))
+    if (NOT_SER_FLAG(f->feed->array, ARRAY_FLAG_FILE_LINE))
         return 0;
 
-    return MISC(SER(f->source->array)).line;
+    return MISC(SER(f->feed->array)).line;
 }
 
 #define FRM_OUT(f) \
@@ -592,18 +592,16 @@ inline static void Push_Action(
     assert(NOT_SER_FLAG(f->varlist, NODE_FLAG_MANAGED));
     assert(NOT_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE));
 
-    // There's a current state for the DO_FLAG_NO_LOOKAHEAD which invisible
+    // There's a current state for the FEED_FLAG_NO_LOOKAHEAD which invisible
     // actions want to put back as it was when the invisible operation ends.
     // (It gets overwritten during the invisible's own argument gathering).
     // Cache it on the varlist and put it back when an R_INVISIBLE result
     // comes back.
     //
     if (GET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE)) {
-        if (f->flags.bits & DO_FLAG_FULFILLING_ARG) {
-            if (f->prior->flags.bits & DO_FLAG_NO_LOOKAHEAD)
-                SET_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
-            else if (f->flags.bits & DO_FLAG_NO_LOOKAHEAD)
-                SET_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
+        if (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD) {
+            assert(f->flags.bits & DO_FLAG_FULFILLING_ARG);
+            SET_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
         }
     }
 }
@@ -618,7 +616,9 @@ inline static void Drop_Action(REBFRM *f) {
     );
 
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
-        f->flags.bits &= ~DO_FLAG_BARRIER_HIT;
+        f->feed->flags.bits &= ~FEED_FLAG_BARRIER_HIT;
+
+    f->flags.bits &= ~DO_FLAG_FULFILLING_ENFIX;
 
     assert(
         GET_SER_INFO(f->varlist, SERIES_INFO_INACCESSIBLE)

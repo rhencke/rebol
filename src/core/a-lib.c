@@ -1508,11 +1508,11 @@ intptr_t RL_rebPromise(const void *p, va_list *vaptr)
     DECLARE_FRAME (f);
     f->flags = Endlike_Header(flags); // read by Set_Frame_Detected_Fetch
 
-    f->source->index = TRASHED_INDEX; // avoids warning in release build
-    f->source->array = nullptr;
-    f->source->took_hold = false;
-    f->source->vaptr = vaptr;
-    f->source->pending = END_NODE; // signal next fetch comes from va_list
+    f->feed->index = TRASHED_INDEX; // avoids warning in release build
+    f->feed->array = nullptr;
+    f->feed->flags.bits = FEED_MASK_DEFAULT;
+    f->feed->vaptr = vaptr;
+    f->feed->pending = END_NODE; // signal next fetch comes from va_list
 
   #if defined(DEBUG_UNREADABLE_BLANKS)
     //
@@ -1537,16 +1537,16 @@ intptr_t RL_rebPromise(const void *p, va_list *vaptr)
     // The array is managed, but let's unmanage it so it doesn't get GC'd and
     // use it as the ID of the table entry for the promise.
     //
-    assert(GET_SER_FLAG(f->source->array, NODE_FLAG_MANAGED));
-    CLEAR_SER_FLAG(f->source->array, NODE_FLAG_MANAGED);
+    assert(GET_SER_FLAG(f->feed->array, NODE_FLAG_MANAGED));
+    CLEAR_SER_FLAG(f->feed->array, NODE_FLAG_MANAGED);
 
     EM_ASM_({
         setTimeout(function() { // evaluate the code w/no other code on GUI
             _RL_rebPromise_callback($0); // for emscripten_sleep_with_yield()
         }, 0);
-    }, f->source->array);
+    }, f->feed->array);
 
-    return cast(intptr_t, f->source->array);
+    return cast(intptr_t, f->feed->array);
   #endif
 }
 

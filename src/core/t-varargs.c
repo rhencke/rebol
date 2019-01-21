@@ -197,22 +197,13 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
             goto type_check_and_return;
         }
 
-        if (Is_Varargs_Enfix(vararg)) {
-            //
-            // See notes on Is_Varargs_Enfix() about how the left hand side
-            // is synthesized into an array-style varargs with either 0 or
-            // 1 item to be taken.  But any evaluation has already happened
-            // before the TAKE.  So although we honor the pclass to disallow
-            // TAIL? or FIRST testing on evaluative parameters, we don't
-            // want to double evaluation...so return that single element.
-            //
-            REBVAL *single = KNOWN(ARR_SINGLE(VAL_ARRAY(shared)));
-            Move_Value(out, single);
-            if (GET_VAL_FLAG(single, VALUE_FLAG_UNEVALUATED))
-                SET_VAL_FLAG(out, VALUE_FLAG_UNEVALUATED); // not auto-copied
-            SET_END(shared);
-            goto type_check_and_return;
-        }
+        // Note this may be Is_Varargs_Enfix(), where the left hand side was
+        // synthesized into an array-style varargs with either 0 or 1 item to
+        // be taken.
+        //
+        // !!! Note also that if the argument is evaluative, it will be
+        // evaluated when the TAKE occurs...which may be never, if no TAKE of
+        // this argument happens.  Review if that should be an error.
 
         switch (pclass) {
         case REB_P_NORMAL: {
@@ -237,7 +228,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
 
             if (
                 IS_END(f_temp->value)
-                or (f_temp->flags.bits & DO_FLAG_BARRIER_HIT)
+                or (f_temp->feed->flags.bits & FEED_FLAG_BARRIER_HIT)
             ){
                 SET_END(shared);
             }
@@ -246,8 +237,8 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
                 // be ready to use again we're throwing it away, and need to
                 // effectively "undo the prefetch" by taking it down by 1.
                 //
-                assert(f_temp->source->index > 0);
-                VAL_INDEX(shared) = f_temp->source->index - 1; // all sharings
+                assert(f_temp->feed->index > 0);
+                VAL_INDEX(shared) = f_temp->feed->index - 1; // all sharings
             }
 
             Drop_Frame(f_temp);
@@ -300,7 +291,7 @@ bool Do_Vararg_Op_Maybe_End_Throws_Core(
         if (Vararg_Op_If_No_Advance_Handled(
             out,
             op,
-            (f->flags.bits & DO_FLAG_BARRIER_HIT)
+            (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT)
                 ? END_NODE
                 : f->value, // might be END
             f->specifier,
@@ -668,8 +659,12 @@ void MF_Varargs(REB_MOLD *mo, const REBCEL *v, bool form) {
     else if (Is_Frame_Style_Varargs_Maybe_Null(&f, v)) {
         if (f == NULL)
             Append_Unencoded(mo->series, "!!!");
-        else if (IS_END(f->value) or (f->flags.bits & DO_FLAG_BARRIER_HIT))
+        else if (
+            IS_END(f->value)
+            or (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT)
+        ){
             Append_Unencoded(mo->series, "[]");
+        }
         else if (pclass == REB_P_HARD_QUOTE) {
             Append_Unencoded(mo->series, "[");
             Mold_Value(mo, f->value); // one value can be shown if hard quoted

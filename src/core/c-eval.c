@@ -7,7 +7,7 @@
 //=////////////////////////////////////////////////////////////////////////=//
 //
 // Copyright 2012 REBOL Technologies
-// Copyright 2012-2018 Rebol Open Source Contributors
+// Copyright 2012-2019 Rebol Open Source Contributors
 // REBOL is a trademark of REBOL Technologies
 //
 // See README.md and CREDITS.md for more information
@@ -124,9 +124,9 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
     f->out->header.bits |= OUT_MARKED_STALE;
 
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
-        assert(not (f->flags.bits & DO_FLAG_NO_LOOKAHEAD));
+        assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
 
-    assert(not (f->flags.bits & DO_FLAG_DEFERRING_ENFIX));
+    assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
 
     return false;
 }
@@ -410,50 +410,30 @@ inline static void Expire_Out_Cell_Unless_Invisible(REBFRM *f) {
 // quote ran, it would get deferred until after the RETURN.  This is not
 // consistent with the pattern people expect.
 //
-// !!! This should be handled with a more efficient check, that goes ahead and
-// fetches f->gotten, checks to see if it is deferable enfix, and does the
-// deferment.  Then it wouldn't need to make a frame.
-//
-static inline bool Eval_Post_Switch_Throws(REBFRM *f, REBVAL *preload) {
-    REBFLGS flags =
-        (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-        | DO_FLAG_FULFILLING_ARG
-        | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
-        | (f->flags.bits & DO_FLAG_CONST)
-        | DO_FLAG_NO_LOOKAHEAD;
+void Lookahead_To_Sync_Enfix_Defer_Flag(REBFRM *f) {
+    assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
+    assert(not f->gotten);
 
-    DECLARE_SUBFRAME (child, f); // capture DSP *now*
+    f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
 
-    if (Is_Frame_Gotten_Shoved(f)) {
-        Prep_Stack_Cell(FRM_SHOVE(child));
-        Move_Value(FRM_SHOVE(child), f->gotten);
-        SET_VAL_FLAG(FRM_SHOVE(child), VALUE_FLAG_ENFIXED);
-        f->gotten = FRM_SHOVE(child);
-    }
+    if (not IS_WORD(f->value))
+        return;
 
-    return Eval_Step_In_Subframe_Throws(
-        preload, // preload previous f->arg as left enfix
-        f,
-        flags | DO_FLAG_POST_SWITCH,
-        child
-    );
+    f->gotten = Try_Get_Opt_Var(f->value, f->specifier);
+
+    if (not f->gotten or not IS_ACTION(f->gotten))
+        return;
+
+    if (GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK))
+        f->feed->flags.bits |= FEED_FLAG_DEFERRING_ENFIX;
 }
 
 
 inline static bool Dampen_Lookahead(REBFRM *f) {
-    if (
-        (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-        and (f->prior->flags.bits & DO_FLAG_NO_LOOKAHEAD)
-    ){
-        f->prior->flags.bits &= ~DO_FLAG_NO_LOOKAHEAD; // dampens once
+    if (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD) {
+        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
         return true;
     }
-
-    if (f->flags.bits & DO_FLAG_NO_LOOKAHEAD) {
-        f->flags.bits &= ~DO_FLAG_NO_LOOKAHEAD; // dampens once
-        return true;
-    }
-
     return false;
 }
 
@@ -483,11 +463,11 @@ inline static bool Dampen_Lookahead(REBFRM *f) {
 //     f->value
 //     Pre-fetched first value to execute (cannot be an END marker)
 //
-//     f->source
+//     f->feed
 //     Contains the REBARR* or C va_list of subsequent values to fetch.
 //
 //     f->specifier
-//     Resolver for bindings of values in f->source, SPECIFIED if all resolved
+//     Resolver for bindings of values in f->feed, SPECIFIED if all resolved
 //
 //     f->gotten
 //     Must be either be the Get_Var() lookup of f->value, or END
@@ -812,7 +792,8 @@ bool Eval_Core_Throws(REBFRM * const f)
     Begin_Action(f, VAL_WORD_SPELLING(f->value));
 
     assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
-    f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
+    f->flags.bits |=
+        (DO_FLAG_FULFILLING_ENFIX | DO_FLAG_GET_NEXT_ARG_FROM_OUT);
 
     // Lookback args are fetched from f->out, then copied into an arg
     // slot.  Put the backwards quoted value into f->out, and in the
@@ -824,6 +805,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     SET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED);
   #endif
 
+    f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
     Fetch_Next_In_Frame(nullptr, f); // skip the WORD! that invoked the action
     goto process_action;
 
@@ -902,7 +884,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
       process_action:; // Note: Also jumped to by the redo_checked code
 
-        assert(not (f->flags.bits & DO_FLAG_DEFERRING_ENFIX));
+        assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
 
       #if !defined(NDEBUG)
         assert(f->original); // set by Begin_Action()
@@ -1235,18 +1217,10 @@ bool Eval_Core_Throws(REBFRM * const f)
                 goto continue_arg_loop;
             }
 
-    //=//// IF LOOKBACK, THEN USE PREVIOUS EXPRESSION RESULT FOR ARG //////=//
+    //=//// HANDLE IF NEXT ARG IS IN OUT SLOT (e.g. ENFIX, CHAIN) /////////=//
 
-            if (f->flags.bits & DO_FLAG_FULFILLING_ENFIX) {
-                f->flags.bits &= ~DO_FLAG_FULFILLING_ENFIX; // gotos below
-
-                // When we see `1 + 2 * 3`, when we're at the 2, we don't
-                // want to let the * run yet.  So set a flag which says we
-                // won't do lookahead that will be cleared when function
-                // takes an argument *or* when a new expression starts.
-                //
-                if (not TYPE_CHECK(f->param, REB_TS_DEFERS))
-                    f->flags.bits |= DO_FLAG_NO_LOOKAHEAD;
+            if (f->flags.bits & DO_FLAG_GET_NEXT_ARG_FROM_OUT) {
+                f->flags.bits &= ~DO_FLAG_GET_NEXT_ARG_FROM_OUT;
 
                 if (f->out->header.bits & OUT_MARKED_STALE) {
                     //
@@ -1281,17 +1255,54 @@ bool Eval_Core_Throws(REBFRM * const f)
                     goto continue_arg_loop;
                 }
 
-                // The argument might be variadic, but even if it is we only
-                // have one argument to be taken from the left.  So start by
-                // calculating that one value into f->arg.
-                //
-                // !!! See notes on potential semantics problem below.
+                if (Is_Param_Variadic(f->param)) {
+                    //
+                    // Stow unevaluated cell into an array-form variadic, so
+                    // the user can do 0 or 1 TAKEs of it.
+                    //
+                    // !!! It be evaluated when they TAKE (it if it's an
+                    // evaluative arg), but not if they don't.  Should failing
+                    // to TAKE be seen as an error?  Failing to take first
+                    // gives out-of-order evaluation.
+                    //
+                    assert(NOT_END(f->out));
+                    REBARR *array1;
+                    if (IS_END(f->out))
+                        array1 = EMPTY_ARRAY;
+                    else {
+                        REBARR *feed = Alloc_Singular(NODE_FLAG_MANAGED);
+                        Move_Value(ARR_SINGLE(feed), f->out);
 
-                switch (pclass) {
+                        array1 = Alloc_Singular(NODE_FLAG_MANAGED);
+                        Init_Block(ARR_SINGLE(array1), feed); // index 0
+                    }
+
+                    RESET_CELL(f->arg, REB_VARARGS);
+                    INIT_BINDING(f->arg, array1);
+                    Finalize_Enfix_Variadic_Arg(f);
+                }
+                else switch (pclass) {
                   case REB_P_NORMAL:
                     Move_Value(f->arg, f->out);
                     if (GET_VAL_FLAG(f->out, VALUE_FLAG_UNEVALUATED))
                         SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
+
+                    // When we see `1 + 2 * 3`, when we're at the 2, we don't
+                    // want to let the * run yet.  So set a flag which says we
+                    // won't do lookahead that will be cleared when function
+                    // takes an argument *or* when a new expression starts.
+                    //
+                    // This flag is only set for evaluative left enfix.  What
+                    // it does is puts the enfix into a *single step defer*.
+                    //
+                    if (f->flags.bits & DO_FLAG_FULFILLING_ENFIX) {
+                        assert(
+                            not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD)
+                        );
+                        if (not TYPE_CHECK(f->param, REB_TS_DEFERS))
+                            f->feed->flags.bits |= FEED_FLAG_NO_LOOKAHEAD;
+                    }
+                    Finalize_Arg(f);
                     break;
 
                   case REB_P_HARD_QUOTE:
@@ -1307,6 +1318,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                     Move_Value(f->arg, f->out);
                     SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
+                    Finalize_Arg(f);
                     break;
 
                   case REB_P_SOFT_QUOTE:
@@ -1335,6 +1347,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                         Move_Value(f->arg, f->out);
                         SET_VAL_FLAG(f->arg, VALUE_FLAG_UNEVALUATED);
                     }
+                    Finalize_Arg(f);
                     break;
 
                   default:
@@ -1343,36 +1356,10 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 Expire_Out_Cell_Unless_Invisible(f);
 
-                // Now that we've gotten the argument figured out, make a
-                // singular array to feed it to the variadic.
-                //
-                // !!! See notes on IS_VARARGS_ENFIX about how this is
-                // somewhat shady, as any evaluations happen *before* the
-                // TAKE on the VARARGS.  Experimental feature.
-                //
-                if (Is_Param_Variadic(f->param)) {
-                    REBARR *array1;
-                    if (IS_END(f->arg))
-                        array1 = EMPTY_ARRAY;
-                    else {
-                        REBARR *feed = Alloc_Singular(NODE_FLAG_MANAGED);
-                        Move_Value(ARR_SINGLE(feed), f->arg);
-
-                        array1 = Alloc_Singular(NODE_FLAG_MANAGED);
-                        Init_Block(ARR_SINGLE(array1), feed); // index 0
-                    }
-
-                    RESET_CELL(f->arg, REB_VARARGS);
-                    INIT_BINDING(f->arg, array1);
-                    Finalize_Enfix_Variadic_Arg(f);
-                }
-                else
-                    Finalize_Arg(f);
-
                 goto continue_arg_loop;
             }
 
-    //=//// VARIADIC ARG (doesn't consume anything *yet*) /////////////////=//
+    //=//// NON-ENFIX VARIADIC ARG (doesn't consume anything *yet*) ///////=//
 
             // Evaluation argument "hook" parameters (marked in MAKE ACTION!
             // by a `[[]]` in the spec, and in FUNC by `<...>`).  They point
@@ -1391,14 +1378,57 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             assert(f->refine == ORDINARY_ARG or IS_REFINEMENT(f->refine));
 
-    //=//// START BY ERRORING IF WE HAD DEFERRED ENFIX PROCESSING /////////=//
+            // If this is a non-enfix action, we're at least at *second* slot:
+            //
+            //     1 + non-enfix-action <we-are-here> * 3
+            //
+            // That's enough to indicate we're not going to read this as
+            // `(1 + non-enfix-action <we-are-here>) * 3`.  Contrast with the
+            // zero-arity case:
+            //
+            //     >> two: does [2]
+            //     >> 1 + two * 3
+            //     == 9
+            //
+            // We don't get here to clear the flag, so it's `(1 + two) * 3`
+            //
+            // But if it's an eenfixEnfix arg gathering could still be like:
+            //
+            //      1 + <we-are-here> * 3
+            //
+            // So it has to wait until -after- the callsite gather happens to
+            // be assured it can delete the flag, to ensure that:
+            //
+            //      >> 1 + 2 * 3
+            //      == 9
+            //
+            if (not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX))
+                f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
 
-            if (f->flags.bits & DO_FLAG_DEFERRING_ENFIX) // see flag notes
-                fail ("THIS SCENARIO NOW NOT SUPPORTED, USE A GROUP!");
+            // Once a deferred flag is set, it must be cleared during the
+            // evaluation of the argument it was set for... OR the function
+            // call has to end.  If we need to gather an argument when that
+            // is happening, it means neither of those things are true, e.g.:
+            //
+            //     if 1 then [<bad>] [print "this is illegal"]
+            //     if (1 then [<good>]) [print "but you can do this"]
+            //
+            // The situation also arises in multiple arity infix:
+            //
+            //     arity-3-op: func [a b c] [...]
+            //
+            //     1 arity-3-op 2 + 3 <ambiguous>
+            //     1 arity-3-op (2 + 3) <unambiguous>
+            //
+            if (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX)
+                fail (Error_Ambiguous_Infix_Raw());
 
     //=//// ERROR ON END MARKER, BAR! IF APPLICABLE ///////////////////////=//
 
-            if (IS_END(f->value) or (f->flags.bits & DO_FLAG_BARRIER_HIT)) {
+            if (
+                IS_END(f->value)
+                or (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT)
+            ){
                 if (not Is_Param_Endable(f->param))
                     fail (Error_No_Arg(f, f->param));
 
@@ -1448,10 +1478,7 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 //     return quote 1 then (x => [x + 1])
                 //
-                if (Eval_Post_Switch_Throws(f, f->arg)) {
-                    Move_Value(f->out, f->arg);
-                    goto abort_action;
-                }
+                Lookahead_To_Sync_Enfix_Defer_Flag(f);
 
                 if (GET_VAL_FLAG(f->arg, ARG_MARKED_CHECKED))
                     goto continue_arg_loop;
@@ -1462,7 +1489,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
               case REB_P_SOFT_QUOTE:
                 if (IS_BAR(f->value)) { // BAR! stops a soft quote
-                    f->flags.bits |= DO_FLAG_BARRIER_HIT;
+                    f->feed->flags.bits |= FEED_FLAG_BARRIER_HIT;
                     Fetch_Next_In_Frame(nullptr, f);
                     SET_END(f->arg);
                     Finalize_Arg(f);
@@ -1488,15 +1515,22 @@ bool Eval_Core_Throws(REBFRM * const f)
                 //
                 //     return if false '[foo] else '[bar]
                 //
-                if (Eval_Post_Switch_Throws(f, f->arg)) {
-                    Move_Value(f->out, f->arg);
-                    goto abort_action;
-                }
+                Lookahead_To_Sync_Enfix_Defer_Flag(f);
+
                 break;
 
               default:
                 assert(false);
             }
+
+            // If FEED_FLAG_NO_LOOKAHEAD was set going into the argument
+            // gathering above, it should have been cleared or converted into
+            // FEED_FLAG_DEFER_ENFIX.
+            //
+            //     1 + 2 * 3
+            //           ^-- this deferred its chance, so 1 + 2 will complete
+            //
+            assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
 
     //=//// TYPE CHECKING FOR (MOST) ARGS AT END OF ARG LOOP //////////////=//
 
@@ -1594,7 +1628,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         assert(
             IS_END(f->value)
             or FRM_IS_VALIST(f)
-            or IS_VALUE_IN_ARRAY_DEBUG(f->source->array, f->value)
+            or IS_VALUE_IN_ARRAY_DEBUG(f->feed->array, f->value)
         );
 
         Expire_Out_Cell_Unless_Invisible(f);
@@ -1745,18 +1779,11 @@ bool Eval_Core_Throws(REBFRM * const f)
           case REB_R_INVISIBLE: {
             assert(GET_SER_FLAG(FRM_PHASE(f), PARAMLIST_FLAG_INVISIBLE));
 
-            if (GET_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD)) {
-                if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-                    f->prior->flags.bits |= DO_FLAG_NO_LOOKAHEAD;
-                else
-                    f->flags.bits |= DO_FLAG_NO_LOOKAHEAD;
-                CLEAR_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
-            }
+            if (NOT_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD))
+                f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
             else {
-                if (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-                    f->prior->flags.bits &= ~DO_FLAG_NO_LOOKAHEAD;
-                else
-                    f->flags.bits &= ~DO_FLAG_NO_LOOKAHEAD;
+                f->feed->flags.bits |= FEED_FLAG_NO_LOOKAHEAD;
+                CLEAR_SER_INFO(f->varlist, SERIES_INFO_TELEGRAPH_NO_LOOKAHEAD);
             }
 
             // !!! Ideally we would check that f->out hadn't changed, but
@@ -1848,8 +1875,8 @@ bool Eval_Core_Throws(REBFRM * const f)
             // happen, trying it out of curiosity for now.
             //
             Begin_Action(f, opt_label);
-            assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
-            f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
+            assert(not (f->flags.bits & DO_FLAG_GET_NEXT_ARG_FROM_OUT));
+            f->flags.bits |= DO_FLAG_GET_NEXT_ARG_FROM_OUT;
 
             goto process_action;
         }
@@ -1888,7 +1915,8 @@ bool Eval_Core_Throws(REBFRM * const f)
 
             assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
             if (GET_VAL_FLAG(current_gotten, VALUE_FLAG_ENFIXED))
-                f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
+                f->flags.bits |=
+                    (DO_FLAG_FULFILLING_ENFIX | DO_FLAG_GET_NEXT_ARG_FROM_OUT);
 
             goto process_action;
         }
@@ -1920,6 +1948,12 @@ bool Eval_Core_Throws(REBFRM * const f)
       case REB_SET_WORD: {
         if (IS_END(f->value)) // `do [a:]` is illegal
             fail (Error_Need_Non_End_Core(current, f->specifier));
+
+        // While other values could wind up being a single element, SET-WORD!
+        // will always mean at least two, so `1 + x: whatever ...`  Thus it
+        // always disables the "no lookahead" property.
+        //
+        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
 
         // !!! We make a special exemption for '#[void] to allow assignment
         // and set a value to void, because it makes it possible to represent
@@ -2175,6 +2209,12 @@ bool Eval_Core_Throws(REBFRM * const f)
         if (IS_END(f->value)) // `do [a/b:]` is illegal
             fail (Error_Need_Non_End_Core(current, f->specifier));
 
+        // As with SET-WORD!, a SET-PATH! always is at least two elements.
+        // Consider `1 + foo/bar: whatever ...`.  This overrides the no
+        // lookahead behavior flag right up front.
+        //
+        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+
         REBFLGS flags =
             (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
             | (f->flags.bits & DO_FLAG_EXPLICIT_EVALUATE)
@@ -2328,6 +2368,13 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_BAR:
+        //
+        // Though it's only one item, it satisfies the rule of "not going to
+        // be any lookaheads", so we don't want to leave the flag stale on
+        // the frame waiting for a value take that will never come.
+        //
+        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
+
         if (f->flags.bits & DO_FLAG_FULFILLING_ARG) {
             //
             // May be fulfilling a variadic argument (or an argument to an
@@ -2335,7 +2382,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // an END...though if the frame is not at an END then it has
             // more potential evaluation after the current action invocation.
             //
-            f->flags.bits |= DO_FLAG_BARRIER_HIT;
+            f->feed->flags.bits |= FEED_FLAG_BARRIER_HIT;
             goto finished;
         }
 
@@ -2413,7 +2460,7 @@ bool Eval_Core_Throws(REBFRM * const f)
     // and consider its job done.  It has to notice that the word `+` looks up
     // to an ACTION! that was assigned with SET/ENFIX, and keep going.
     //
-    // Next, there's a subtlety with DO_FLAG_NO_LOOKAHEAD which explains why
+    // Next, there's a subtlety with FEED_FLAG_NO_LOOKAHEAD which explains why
     // processing of the 2 argument doesn't greedily continue to advance, but
     // waits for `1 + 2` to finish.  This is because the right hand argument
     // of math operations tend to be declared #tight.
@@ -2459,8 +2506,10 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     kind.byte = KIND_BYTE(f->value);
 
-    if (kind.byte == REB_0_END)
+    if (kind.byte == REB_0_END) {
+        f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
         goto finished; // hitting end is common, avoid do_next's switch()
+    }
 
     if (kind.byte == REB_PATH) {
         if (
@@ -2488,7 +2537,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         REBSTR *opt_label = nullptr;
         Begin_Action(f, opt_label);
         assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
-        f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
+        f->flags.bits |=
+            (DO_FLAG_FULFILLING_ENFIX | DO_FLAG_GET_NEXT_ARG_FROM_OUT);
 
         Fetch_Next_In_Frame(nullptr, f); // advances f->value
         goto process_action;
@@ -2536,6 +2586,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         or NOT_VAL_FLAG(VAL(f->gotten), VALUE_FLAG_ENFIXED)
     ){
       lookback_quote_too_late:; // run as if starting new expression
+
         Dampen_Lookahead(f);
 
         if (not (f->flags.bits & DO_FLAG_TO_END)) {
@@ -2601,13 +2652,16 @@ bool Eval_Core_Throws(REBFRM * const f)
 
   post_switch_shove_gotten:; // assert(!PARAMLIST_FLAG_QUOTES_FIRST) prior
 
-    if (not ANY_SER_FLAGS(
+    if ((f->flags.bits & DO_FLAG_FULFILLING_ARG)
+        and not ANY_SER_FLAGS(
         VAL_ACTION(f->gotten),
         PARAMLIST_FLAG_DEFERS_LOOKBACK // `1 + if false [2] else [3]` => 4
             | PARAMLIST_FLAG_INVISIBLE // `1 + 2 + comment "foo" 3` => 6
     )){
         if (Dampen_Lookahead(f)) {
-            //
+            assert(not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX));
+            f->feed->flags.bits |= FEED_FLAG_DEFERRING_ENFIX;
+
             // Don't do enfix lookahead if asked *not* to look.  See the
             // REB_P_TIGHT parameter convention for the use of this, as
             // well as it being set if DO_FLAG_TO_END wants to clear out the
@@ -2635,14 +2689,18 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (
         GET_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_DEFERS_LOOKBACK)
         and (f->flags.bits & DO_FLAG_FULFILLING_ARG)
-        and not (f->flags.bits & DO_FLAG_DEFERRING_ENFIX)
+        and not (f->feed->flags.bits & FEED_FLAG_DEFERRING_ENFIX)
     ){
-        if (f->prior->flags.bits & DO_FLAG_ERROR_ON_DEFERRED_ENFIX)
-            fail (
-                "Operations that inline functions by proxy (such as MATCH and"
-                " ENSURE) cannot directly interoperate with THEN or ELSE."
-                " Put the expression to the left in a GROUP!."
-            );
+        if (f->prior->flags.bits & DO_FLAG_ERROR_ON_DEFERRED_ENFIX) {
+            //
+            // Operations that inline functions by proxy (such as MATCH and
+            // ENSURE) cannot directly interoperate with THEN or ELSE...they
+            // are building a frame with PG_Dummy_Action as the function, so
+            // running a deferred operation in the same step is not an option.
+            // The expression to the left must be in a GROUP!.
+            //
+            fail (Error_Ambiguous_Infix_Raw());
+        }
 
         if (not Is_Action_Frame_Fulfilling(f->prior)) {
             //
@@ -2653,7 +2711,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             //
             // We want to treat this like a barrier.
             //
-            f->flags.bits |= DO_FLAG_BARRIER_HIT;
+            f->feed->flags.bits |= FEED_FLAG_BARRIER_HIT;
             goto finished;
         }
 
@@ -2661,7 +2719,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         assert(f->out == f->prior->arg);
 
-        f->prior->flags.bits |= DO_FLAG_DEFERRING_ENFIX;
+        f->feed->flags.bits |= FEED_FLAG_DEFERRING_ENFIX;
 
         if (Is_Frame_Gotten_Shoved(f)) {
             Prep_Stack_Cell(FRM_SHOVE(f->prior));
@@ -2679,7 +2737,8 @@ bool Eval_Core_Throws(REBFRM * const f)
         goto finished;
     }
 
-    f->flags.bits &= ~DO_FLAG_DEFERRING_ENFIX;
+    f->feed->flags.bits &= ~FEED_FLAG_DEFERRING_ENFIX;
+    f->feed->flags.bits &= ~FEED_FLAG_NO_LOOKAHEAD;
 
     // An evaluative lookback argument we don't want to defer, e.g. a normal
     // argument or a deferable one which is not being requested in the context
@@ -2703,7 +2762,8 @@ bool Eval_Core_Throws(REBFRM * const f)
     }
 
     assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
-    f->flags.bits |= DO_FLAG_FULFILLING_ENFIX;
+    f->flags.bits |=
+        (DO_FLAG_FULFILLING_ENFIX | DO_FLAG_GET_NEXT_ARG_FROM_OUT);
 
     Fetch_Next_In_Frame(nullptr, f); // advances f->value
     goto process_action;

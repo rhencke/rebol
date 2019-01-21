@@ -173,7 +173,7 @@ inline static void Push_Frame_Core(REBFRM *f)
 
   #if !defined(NDEBUG)
     //
-    // !!! TBD: the relevant file/line update when f->source->array changes
+    // !!! TBD: the relevant file/line update when f->feed->array changes
     //
     f->file = FRM_FILE_UTF8(f);
     f->line = FRM_LINE(f);
@@ -194,14 +194,14 @@ inline static void Push_Frame_Core(REBFRM *f)
         // which is created will have a hold put on it to be released when
         // the frame is finished.
         //
-        assert(not f->source->took_hold);
+        assert(not (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD));
     }
     else {
-        if (GET_SER_INFO(f->source->array, SERIES_INFO_HOLD))
+        if (GET_SER_INFO(f->feed->array, SERIES_INFO_HOLD))
             NOOP; // already temp-locked
         else {
-            SET_SER_INFO(f->source->array, SERIES_INFO_HOLD);
-            f->source->took_hold = true;
+            SET_SER_INFO(f->feed->array, SERIES_INFO_HOLD);
+            f->feed->flags.bits |= FEED_FLAG_TOOK_HOLD;
         }
     }
 
@@ -216,7 +216,7 @@ inline static void Push_Frame_Core(REBFRM *f)
 inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
     f->flags = Endlike_Header(flags);
 
-    assert(f->source == &TG_Frame_Source_End); // see DECLARE_END_FRAME
+    assert(f->feed == &TG_Frame_Source_End); // see DECLARE_END_FRAME
     f->gotten = nullptr;
     SET_FRAME_VALUE(f, END_NODE);
     f->specifier = SPECIFIED;
@@ -225,7 +225,7 @@ inline static void Push_Frame_At_End(REBFRM *f, REBFLGS flags) {
 }
 
 inline static void UPDATE_EXPRESSION_START(REBFRM *f) {
-    f->expr_index = f->source->index; // this is garbage if DO_FLAG_VA_LIST
+    f->expr_index = f->feed->index; // this is garbage if DO_FLAG_VA_LIST
 }
 
 inline static void Reuse_Varlist_If_Available(REBFRM *f) {
@@ -252,11 +252,11 @@ inline static void Push_Frame_At(
     f->gotten = nullptr; // Eval_Core_Throws() must fetch for REB_WORD, etc.
     SET_FRAME_VALUE(f, ARR_AT(array, index));
 
-    f->source->vaptr = nullptr;
-    f->source->array = array;
-    f->source->took_hold = false;
-    f->source->index = index + 1;
-    f->source->pending = f->value + 1;
+    f->feed->vaptr = nullptr;
+    f->feed->array = array;
+    f->feed->flags.bits = FEED_MASK_DEFAULT;
+    f->feed->index = index + 1;
+    f->feed->pending = f->value + 1;
 
     f->specifier = specifier;
 
@@ -341,8 +341,8 @@ inline static void Set_Frame_Detected_Fetch(
 
     if (not p) { // libRebol's null/<opt> (IS_NULLED prohibited below)
 
-        f->source->array = nullptr;
-        f->source->took_hold = false;
+        f->feed->array = nullptr;
+        f->feed->flags.bits = FEED_MASK_DEFAULT;
         f->value = NULLED_CELL;
 
     } else switch (Detect_Rebol_Pointer(p)) {
@@ -357,7 +357,7 @@ inline static void Set_Frame_Detected_Fetch(
             Intern("sys-do.h"),
             start_line,
             cast(const REBYTE*, p),
-            f->source->vaptr
+            f->feed->vaptr
         );
 
         // !!! In the working definition, the "topmost level" of a variadic
@@ -405,7 +405,7 @@ inline static void Set_Frame_Detected_Fetch(
         // !!! for now, assume scan went to the end; ultimately it would need
         // to pass the "source".
         //
-        f->source->vaptr = NULL;
+        f->feed->vaptr = NULL;
 
         if (DSP == dsp_orig) {
             //
@@ -415,7 +415,7 @@ inline static void Set_Frame_Detected_Fetch(
             // feed is actually over so as to put null... so get another
             // value out of the va_list and keep going.
             //
-            p = va_arg(*f->source->vaptr, const void*);
+            p = va_arg(*f->feed->vaptr, const void*);
             goto detect;
         }
 
@@ -429,12 +429,12 @@ inline static void Set_Frame_Detected_Fetch(
         MANAGE_ARRAY(reified);
 
         f->value = ARR_HEAD(reified);
-        f->source->pending = f->value + 1; // may be END
-        f->source->array = reified;
-        f->source->took_hold = false;
-        f->source->index = 1;
+        f->feed->pending = f->value + 1; // may be END
+        f->feed->array = reified;
+        f->feed->flags.bits = FEED_MASK_DEFAULT;
+        f->feed->index = 1;
 
-        assert(GET_SER_FLAG(f->source->array, ARRAY_FLAG_NULLEDS_LEGAL));
+        assert(GET_SER_FLAG(f->feed->array, ARRAY_FLAG_NULLEDS_LEGAL));
         break; }
 
       case DETECTED_AS_SERIES: { // "instructions" like rebEval(), rebQ()
@@ -460,8 +460,8 @@ inline static void Set_Frame_Detected_Fetch(
         // If the cell is in an API holder with SINGULAR_FLAG_API_RELEASE then
         // it will be released on the *next* call (see top of function)
 
-        f->source->array = nullptr;
-        f->source->took_hold = false;
+        f->feed->array = nullptr;
+        f->feed->flags.bits = FEED_MASK_DEFAULT;
         f->value = cell; // note that END is detected separately
         assert(
             not IS_RELATIVE(f->value) or (
@@ -476,13 +476,13 @@ inline static void Set_Frame_Detected_Fetch(
         // We're at the end of the variadic input, so end of the line.
         //
         f->value = END_NODE;
-        TRASH_POINTER_IF_DEBUG(f->source->pending);
+        TRASH_POINTER_IF_DEBUG(f->feed->pending);
 
         // The va_end() is taken care of here, or if there is a throw/fail it
         // is taken care of by Abort_Frame_Core()
         //
-        va_end(*f->source->vaptr);
-        f->source->vaptr = nullptr;
+        va_end(*f->feed->vaptr);
+        f->feed->vaptr = nullptr;
 
         // !!! Error reporting expects there to be an array.  The whole story
         // of errors when there's a va_list is not told very well, and what
@@ -490,9 +490,9 @@ inline static void Set_Frame_Detected_Fetch(
         // are reified from the beginning, else there's not going to be
         // a way to present errors in context.  Fake an empty array for now.
         //
-        f->source->array = EMPTY_ARRAY;
-        f->source->took_hold = false;
-        f->source->index = 0;
+        f->feed->array = EMPTY_ARRAY;
+        f->feed->flags.bits = FEED_MASK_DEFAULT;
+        f->feed->index = 0;
         break; }
 
       case DETECTED_AS_FREED_CELL:
@@ -508,11 +508,11 @@ inline static void Set_Frame_Detected_Fetch(
 // Fetch_Next_In_Frame() (see notes above)
 //
 // Once a va_list is "fetched", it cannot be "un-fetched".  Hence only one
-// unit of fetch is done at a time, into f->value.  f->source->pending thus
+// unit of fetch is done at a time, into f->value.  f->feed->pending thus
 // must hold a signal that data remains in the va_list and it should be
 // consulted further.  That signal is an END marker.
 //
-// More generally, an END marker in f->source->pending for this routine is a
+// More generally, an END marker in f->feed->pending for this routine is a
 // signal that the vaptr (if any) should be consulted next.
 //
 inline static void Fetch_Next_In_Frame(
@@ -538,7 +538,7 @@ inline static void Fetch_Next_In_Frame(
     //
     f->gotten = nullptr;
 
-    if (NOT_END(f->source->pending)) {
+    if (NOT_END(f->feed->pending)) {
         //
         // We assume the ->pending value lives in a source array, and can
         // just be incremented since the array has SERIES_INFO_HOLD while it
@@ -546,19 +546,19 @@ inline static void Fetch_Next_In_Frame(
         // means the release build doesn't need to call ARR_AT().
         //
         assert(
-            f->source->array // incrementing plain array of REBVAL[]
-            or f->source->pending == ARR_AT(f->source->array, f->source->index)
+            f->feed->array // incrementing plain array of REBVAL[]
+            or f->feed->pending == ARR_AT(f->feed->array, f->feed->index)
         );
 
         if (opt_lookback)
             *opt_lookback = f->value; // must be non-movable, GC-safe
 
-        f->value = f->source->pending;
+        f->value = f->feed->pending;
 
-        ++f->source->pending; // might be becoming an END marker, here
-        ++f->source->index;
+        ++f->feed->pending; // might be becoming an END marker, here
+        ++f->feed->index;
     }
-    else if (not f->source->vaptr) {
+    else if (not f->feed->vaptr) {
         //
         // The frame was either never variadic, or it was but got spooled into
         // an array by Reify_Va_To_Array_In_Frame().  The first END we hit
@@ -568,18 +568,18 @@ inline static void Fetch_Next_In_Frame(
             *opt_lookback = f->value; // all values would have been spooled
 
         f->value = END_NODE;
-        TRASH_POINTER_IF_DEBUG(f->source->pending);
+        TRASH_POINTER_IF_DEBUG(f->feed->pending);
 
-        ++f->source->index; // for consistency in index termination state
+        ++f->feed->index; // for consistency in index termination state
 
-        if (f->source->took_hold) {
-            assert(GET_SER_INFO(f->source->array, SERIES_INFO_HOLD));
-            CLEAR_SER_INFO(f->source->array, SERIES_INFO_HOLD);
+        if (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD) {
+            assert(GET_SER_INFO(f->feed->array, SERIES_INFO_HOLD));
+            CLEAR_SER_INFO(f->feed->array, SERIES_INFO_HOLD);
 
             // !!! Future features may allow you to move on to another array.
             // If so, the "hold" bit would need to be reset like this.
             //
-            f->source->took_hold = false;
+            f->feed->flags.bits &= ~FEED_FLAG_TOOK_HOLD;
         }
     }
     else {
@@ -587,8 +587,8 @@ inline static void Fetch_Next_In_Frame(
         // and handled in different ways.  Notably, a UTF-8 string can be
         // differentiated and loaded.
         //
-        const void *p = va_arg(*f->source->vaptr, const void*);
-        f->source->index = TRASHED_INDEX; // avoids warning in release build
+        const void *p = va_arg(*f->feed->vaptr, const void*);
+        f->feed->index = TRASHED_INDEX; // avoids warning in release build
         Set_Frame_Detected_Fetch(opt_lookback, f, p);
     }
 
@@ -628,7 +628,7 @@ inline static void Abort_Frame(REBFRM *f) {
         goto pop;
 
     if (FRM_IS_VALIST(f)) {
-        assert(not f->source->took_hold);
+        assert(not (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD));
 
         // Aborting valist frames is done by just feeding all the values
         // through until the end.  This is assumed to do any work, such
@@ -653,14 +653,14 @@ inline static void Abort_Frame(REBFRM *f) {
             Fetch_Next_In_Frame(nullptr, f);
     }
     else {
-        if (f->source->took_hold) {
+        if (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD) {
             //
             // The frame was either never variadic, or it was but got spooled
             // into an array by Reify_Va_To_Array_In_Frame()
             //
-            assert(GET_SER_INFO(f->source->array, SERIES_INFO_HOLD));
-            CLEAR_SER_INFO(f->source->array, SERIES_INFO_HOLD);
-            f->source->took_hold = false; // !!! unnecessary to clear it?
+            assert(GET_SER_INFO(f->feed->array, SERIES_INFO_HOLD));
+            CLEAR_SER_INFO(f->feed->array, SERIES_INFO_HOLD);
+            f->feed->flags.bits &= ~FEED_FLAG_TOOK_HOLD; // !!! needed?
         }
     }
 
@@ -722,20 +722,13 @@ inline static bool Eval_Step_Throws(
 ){
     assert(IS_END(out));
 
-    assert(not (f->flags.bits & (DO_FLAG_TO_END | DO_FLAG_NO_LOOKAHEAD)));
-    uintptr_t prior_flags = f->flags.bits;
+    assert(not (f->flags.bits & DO_FLAG_TO_END));
+    assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
+    assert(not (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT));
 
     f->out = out;
     f->dsp_orig = DSP;
     bool threw = (*PG_Eval_Throws)(f); // should already be pushed
-
-    // The & on the following line is purposeful.  See Init_Endlike_Header.
-    // DO_FLAG_NO_LOOKAHEAD may be set by an operation like ELIDE.
-    //
-    // Since this routine is used by BLOCK!-style varargs, it must retain
-    // knowledge of if BAR! was hit.
-    //
-    (&f->flags)->bits = prior_flags | (f->flags.bits & DO_FLAG_BARRIER_HIT);
 
     return threw;
 }
@@ -752,21 +745,13 @@ inline static bool Eval_Step_Maybe_Stale_Throws(
 ){
     assert(NOT_END(out));
 
-    assert(not (f->flags.bits & (DO_FLAG_TO_END | DO_FLAG_NO_LOOKAHEAD)));
-    uintptr_t prior_flags = f->flags.bits;
-    f->flags.bits |= DO_FLAG_PRESERVE_STALE;
+    assert(not (f->flags.bits & DO_FLAG_TO_END));
+    assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
+    assert(not (f->feed->flags.bits & FEED_FLAG_BARRIER_HIT));
 
     f->out = out;
     f->dsp_orig = DSP;
     bool threw = (*PG_Eval_Throws)(f); // should already be pushed
-
-    // The & on the following line is purposeful.  See Init_Endlike_Header.
-    // DO_FLAG_NO_LOOKAHEAD may be set by an operation like ELIDE.
-    //
-    // Since this routine is used by BLOCK!-style varargs, it must retain
-    // knowledge of if BAR! was hit.
-    //
-    (&f->flags)->bits = prior_flags | (f->flags.bits & DO_FLAG_BARRIER_HIT);
 
     return threw;
 }
@@ -818,11 +803,13 @@ inline static bool Eval_Step_In_Subframe_Throws(
     REBFLGS flags,
     REBFRM *child // passed w/dsp_orig preload, refinements can be on stack
 ){
+    assert(not (higher->feed->flags.bits & FEED_FLAG_BARRIER_HIT));
+
     child->out = out;
 
-    // !!! Should they share a source instead of updating?
+    // !!! Should they share a feed instead of updating?
     //
-    assert(child->source == higher->source);
+    assert(child->feed == higher->feed);
     child->value = higher->value;
     child->gotten = higher->gotten;
     child->specifier = higher->specifier;
@@ -835,7 +822,7 @@ inline static bool Eval_Step_In_Subframe_Throws(
     //
   #if !defined(NDEBUG)
     TRASH_POINTER_IF_DEBUG(higher->gotten);
-    REBCNT old_index = higher->source->index;
+    REBCNT old_index = higher->feed->index;
   #endif
 
     child->flags = Endlike_Header(flags);
@@ -854,20 +841,17 @@ inline static bool Eval_Step_In_Subframe_Throws(
     assert(
         IS_END(child->value)
         or FRM_IS_VALIST(child)
-        or old_index != child->source->index
+        or old_index != child->feed->index
         or (flags & DO_FLAG_REEVALUATE_CELL)
         or (flags & DO_FLAG_POST_SWITCH)
         or Is_Evaluator_Throwing_Debug()
     );
 
-    // !!! Should they share a source instead of updating?
+    // !!! Should they share a feed instead of updating?
     //
     higher->value = child->value;
     higher->gotten = child->gotten;
     assert(higher->specifier == child->specifier); // !!! can't change?
-
-    if (child->flags.bits & DO_FLAG_BARRIER_HIT)
-        higher->flags.bits |= DO_FLAG_BARRIER_HIT;
 
     return threw;
 }
@@ -887,21 +871,21 @@ inline static REBIXO Eval_Array_At_Core(
     DECLARE_FRAME (f);
     f->flags = Endlike_Header(flags); // SET_FRAME_VALUE() *could* use
 
-    f->source->vaptr = nullptr;
-    f->source->array = array;
-    f->source->took_hold = false;
+    f->feed->vaptr = nullptr;
+    f->feed->array = array;
+    f->feed->flags.bits = FEED_MASK_DEFAULT;
 
     f->gotten = nullptr; // SET_FRAME_VALUE() asserts this is nullptr
     if (opt_first) {
         SET_FRAME_VALUE(f, opt_first);
-        f->source->index = index;
-        f->source->pending = ARR_AT(array, index);
+        f->feed->index = index;
+        f->feed->pending = ARR_AT(array, index);
         assert(NOT_END(f->value));
     }
     else {
         SET_FRAME_VALUE(f, ARR_AT(array, index));
-        f->source->index = index + 1;
-        f->source->pending = f->value + 1;
+        f->feed->index = index + 1;
+        f->feed->pending = f->value + 1;
         if (IS_END(f->value))
             return END_FLAG;
     }
@@ -919,9 +903,9 @@ inline static REBIXO Eval_Array_At_Core(
 
     assert(
         not (flags & DO_FLAG_TO_END)
-        or f->source->index == ARR_LEN(array) + 1
+        or f->feed->index == ARR_LEN(array) + 1
     );
-    return f->source->index;
+    return f->feed->index;
 }
 
 
@@ -962,7 +946,7 @@ inline static void Reify_Va_To_Array_In_Frame(
     }
 
     if (NOT_END(f->value)) {
-        assert(f->source->pending == END_NODE);
+        assert(f->feed->pending == END_NODE);
 
         do {
             // Preserve VALUE_FLAG_EVAL_FLIP flag.  Note: may be a NULLED cell
@@ -972,41 +956,41 @@ inline static void Reify_Va_To_Array_In_Frame(
         } while (NOT_END(f->value));
 
         if (truncated)
-            f->source->index = 2; // skip the --optimized-out--
+            f->feed->index = 2; // skip the --optimized-out--
         else
-            f->source->index = 1; // position at start of the extracted values
+            f->feed->index = 1; // position at start of the extracted values
     }
     else {
-        assert(IS_POINTER_TRASH_DEBUG(f->source->pending));
+        assert(IS_POINTER_TRASH_DEBUG(f->feed->pending));
 
         // Leave at end of frame, but give back the array to serve as
         // notice of the truncation (if it was truncated)
         //
-        f->source->index = 0;
+        f->feed->index = 0;
     }
 
-    assert(not f->source->vaptr); // feeding forward should have called va_end
+    assert(not f->feed->vaptr); // feeding forward should have called va_end
 
     // special array...may contain voids and eval flip is kept
-    f->source->array = Pop_Stack_Values_Keep_Eval_Flip(dsp_orig);
-    MANAGE_ARRAY(f->source->array); // held alive while frame running
-    SET_SER_FLAG(f->source->array, ARRAY_FLAG_NULLEDS_LEGAL);
+    f->feed->array = Pop_Stack_Values_Keep_Eval_Flip(dsp_orig);
+    MANAGE_ARRAY(f->feed->array); // held alive while frame running
+    SET_SER_FLAG(f->feed->array, ARRAY_FLAG_NULLEDS_LEGAL);
 
     // The array just popped into existence, and it's tied to a running
     // frame...so safe to say we're holding it.  (This would be more complex
     // if we reused the empty array if dsp_orig == DSP, since someone else
     // might have a hold on it...not worth the complexity.) 
     //
-    assert(not f->source->took_hold);
-    SET_SER_INFO(f->source->array, SERIES_INFO_HOLD);
-    f->source->took_hold = true;
+    assert(not (f->feed->flags.bits & FEED_FLAG_TOOK_HOLD));
+    SET_SER_INFO(f->feed->array, SERIES_INFO_HOLD);
+    f->feed->flags.bits |= FEED_FLAG_TOOK_HOLD;
 
     if (truncated)
-        SET_FRAME_VALUE(f, ARR_AT(f->source->array, 1)); // skip `--optimized--`
+        SET_FRAME_VALUE(f, ARR_AT(f->feed->array, 1)); // skip `--optimized--`
     else
-        SET_FRAME_VALUE(f, ARR_HEAD(f->source->array));
+        SET_FRAME_VALUE(f, ARR_HEAD(f->feed->array));
 
-    f->source->pending = f->value + 1;
+    f->feed->pending = f->value + 1;
 }
 
 
@@ -1039,11 +1023,11 @@ inline static REBIXO Eval_Va_Core(
     DECLARE_FRAME (f);
     f->flags = Endlike_Header(flags); // read by Set_Frame_Detected_Fetch
 
-    f->source->index = TRASHED_INDEX; // avoids warning in release build
-    f->source->array = nullptr;
-    f->source->took_hold = false; // no hold until Reify_Va_To_Array_In_Frame
-    f->source->vaptr = vaptr;
-    f->source->pending = END_NODE; // signal next fetch comes from va_list
+    f->feed->index = TRASHED_INDEX; // avoids warning in release build
+    f->feed->array = nullptr;
+    f->feed->flags.bits = FEED_MASK_DEFAULT; // see Reify_Va_To_Array_In_Frame
+    f->feed->vaptr = vaptr;
+    f->feed->pending = END_NODE; // signal next fetch comes from va_list
 
   #if !defined(NDEBUG)
     //

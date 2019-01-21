@@ -1258,7 +1258,7 @@ bool Make_Invocation_Frame_Throws(
     // === FIRST PART OF CODE FROM DO_SUBFRAME ===
     f->out = out;
 
-    f->source = parent->source;
+    f->feed = parent->feed;
     f->value = parent->value;
     f->gotten = parent->gotten;
     f->specifier = parent->specifier;
@@ -1301,9 +1301,6 @@ bool Make_Invocation_Frame_Throws(
     parent->value = f->value;
     parent->gotten = f->gotten;
     assert(parent->specifier == f->specifier); // !!! can't change?
-
-    if (f->flags.bits & DO_FLAG_BARRIER_HIT)
-        parent->flags.bits |= DO_FLAG_BARRIER_HIT;
 
     if (threw)
         return true;

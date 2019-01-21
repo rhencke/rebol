@@ -198,11 +198,11 @@ static bool Subparse_Throws(
     SET_FRAME_VALUE(f, VAL_ARRAY_AT(rules)); // not an END due to test above
     f->specifier = Derive_Specifier(rules_specifier, rules);
 
-    f->source->vaptr = nullptr;
-    f->source->array = VAL_ARRAY(rules);
-    f->source->took_hold = false;
-    f->source->index = VAL_INDEX(rules) + 1;
-    f->source->pending = f->value + 1;
+    f->feed->vaptr = nullptr;
+    f->feed->array = VAL_ARRAY(rules);
+    f->feed->flags.bits = FEED_MASK_DEFAULT;
+    f->feed->index = VAL_INDEX(rules) + 1;
+    f->feed->pending = f->value + 1;
 
     f->flags.bits = DO_MASK_DEFAULT; // terminates f->cell
 

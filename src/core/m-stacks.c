@@ -101,7 +101,7 @@ void Startup_Frame_Stack(void)
     Init_Unreadable_Blank(FRM_CELL(f));
 
     f->out = m_cast(REBVAL*, END_NODE); // should not be written
-    f->source = &TG_Frame_Source_End;
+    f->feed = &TG_Frame_Source_End;
     Push_Frame_At_End(f, DO_MASK_DEFAULT);
 
     // It's too early to be using Make_Paramlist_Managed_May_Fail()

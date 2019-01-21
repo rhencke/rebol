@@ -94,6 +94,8 @@ Script: [
     expect-type:        [:arg1 :arg2 {field must be of type} :arg3]
     cannot-use:         [{cannot use} :arg1 {on} :arg2 {value}]
 
+    ambiguous-infix:    {Ambiguous infix expression--use GROUP! to clarify}
+
     do-running-frame:   [{Must COPY a FRAME! that's RUNNING? before DOing it}]
     do-expired-frame:   [{Cannot DO a FRAME! whose stack storage expired}]
 

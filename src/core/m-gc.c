@@ -1180,13 +1180,13 @@ static void Mark_Frame_Stack_Deep(void)
         // earlier in the recycle process (don't want to create new arrays
         // once the recycling has started...)
         //
-        assert(not f->source->vaptr or IS_POINTER_TRASH_DEBUG(f->source->vaptr));
+        assert(not f->feed->vaptr or IS_POINTER_TRASH_DEBUG(f->feed->vaptr));
 
-        // Note: f->source->pending should either live in f->source->array, or
+        // Note: f->feed->pending should either live in f->feed->array, or
         // it may be trash (e.g. if it's an apply).  GC can ignore it.
         //
-        if (f->source->array)
-            Queue_Mark_Array_Deep(f->source->array);
+        if (f->feed->array)
+            Queue_Mark_Array_Deep(f->feed->array);
 
         // END is possible, because the frame could be sitting at the end of
         // a block when a function runs, e.g. `do [zero-arity]`.  That frame

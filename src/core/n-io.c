@@ -243,7 +243,7 @@ REBNATIVE(new_line_q)
         REBFRM *f;
         REBVAL *shared;
         if (Is_Frame_Style_Varargs_May_Fail(&f, pos)) {
-            if (not f->source->array) {
+            if (not f->feed->array) {
                 //
                 // C va_args input to frame, as from the API, but not in the
                 // process of using string components which *might* have
@@ -253,11 +253,11 @@ REBNATIVE(new_line_q)
                 //    bool case_one = rebDid("new-line?", "[\n]");
                 //    bool case_two = rebDid(new_line_q, "[\n]");
                 //
-                assert(f->source->index == TRASHED_INDEX);
+                assert(f->feed->index == TRASHED_INDEX);
                 return Init_Logic(D_OUT, false);
             }
 
-            arr = f->source->array;
+            arr = f->feed->array;
             item = f->value;
         }
         else if (Is_Block_Style_Varargs(&shared, pos)) {
