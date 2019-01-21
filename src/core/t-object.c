@@ -740,6 +740,21 @@ REBTYPE(Context)
         if (VAL_TYPE(value) != REB_FRAME)
             break;
 
+        if (sym == SYM_ACTION) {
+            //
+            // Currently this can be answered for any frame, even if it is
+            // expired...though it probably shouldn't do this unless it's
+            // an indefinite lifetime object, so that paramlists could be
+            // GC'd if all the frames pointing to them were expired but still
+            // referenced somewhere.
+            //
+            return Init_Action_Maybe_Bound(
+                D_OUT,
+                value->payload.any_context.phase, // archetypal, so no binding
+                value->extra.binding // e.g. where to return for a RETURN
+            );
+        }
+
         REBFRM *f = CTX_FRAME_MAY_FAIL(c);
 
         switch (sym) {
@@ -762,13 +777,6 @@ REBTYPE(Context)
 
           case SYM_NEAR:
             return Init_Near_For_Frame(D_OUT, f);
-
-          case SYM_ACTION: {
-            return Init_Action_Maybe_Bound(
-                D_OUT,
-                value->payload.any_context.phase, // archetypal, so no binding
-                value->extra.binding // e.g. where to return for a RETURN
-            ); }
 
           case SYM_PARENT: {
             //
