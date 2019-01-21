@@ -145,17 +145,17 @@
 ; which the evaluator needs to accomodate with backwards quoting skippables
 ; and other enfix situations.
 (
-    foo: function [/a aa /b :bb [<skip> integer!]] [
-        reduce [a (:aa else [<null>]) b (:bb else [<null>])]
+    foo: function [/a aa /b :bb [<skip> word!]] [
+        reduce [a (:aa else '<null>) b (:bb else '<null>)]
     ]
     foob: enfix :foo/b
     did all [
-        [_ <null> /b 10] = (10 foob)
-        [_ <null> _ <null>] = ("not an integer!" foob)
-        [/a 20 /b 10] = (10 -> foob/a 20)
+        [_ <null> /b word] = (word foob)
+        [_ <null> _ <null>] = (<not a word> foob)
+        [/a 20 /b word] = (word -> foob/a 20)
         comment [
             {Currently SHOVE and <skip> don't work together}
-            [/a 20 _ <null>] = ("not an integer!" -> foob/a 20)
+            [/a 20 _ <null>] = (<not a word> -> foob/a 20)
         ]
     ]
 )

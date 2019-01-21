@@ -1085,7 +1085,6 @@ void For_Each_Unspecialized_Param(
 struct First_Param_State {
     REBACT *act;
     REBVAL *first_unspecialized;
-    bool saw_refinement;
 };
 
 static bool First_Param_Hook(REBVAL *param, bool sorted_pass, void *opaque)
@@ -1093,15 +1092,11 @@ static bool First_Param_Hook(REBVAL *param, bool sorted_pass, void *opaque)
     struct First_Param_State *s = cast(struct First_Param_State*, opaque);
     assert(not s->first_unspecialized); // should stop enumerating if found
 
-    if (not sorted_pass and s->saw_refinement)
+    if (not sorted_pass)
         return true; // can't learn anything until second pass
 
-    if (VAL_PARAM_CLASS(param) == REB_P_REFINEMENT) {
-        if (sorted_pass)
-            return false; // we know WORD!-based invocations will be 0 arity
-        s->saw_refinement = true; // Note: may have already seen one
-        return true; // continue the enumeration
-    }
+    if (VAL_PARAM_CLASS(param) == REB_P_REFINEMENT)
+        return false; // we know WORD!-based invocations will be 0 arity
 
     s->first_unspecialized = param;
     return false; // found first_unspecialized, no need to look more
@@ -1116,16 +1111,12 @@ static bool First_Param_Hook(REBVAL *param, bool sorted_pass, void *opaque)
 //     >> foo-d: :foo/d
 //
 // This means that the last parameter (DD) is actually the first of FOO-D.
-// But since For_Each_Unspecialized_Param() gives the hook an opportunity to
-// run during its preliminary walk, the hook will bail out on the enumeration
-// if it sees a parameter before a refinement in the first pass.
 //
 REBVAL *First_Unspecialized_Param(REBACT *act)
 {
     struct First_Param_State s;
     s.act = act;
     s.first_unspecialized = nullptr;
-    s.saw_refinement = false;
 
     For_Each_Unspecialized_Param(act, &First_Param_Hook, &s);
 
