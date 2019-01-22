@@ -398,6 +398,9 @@ e-types/emit {
         PSEUDOTYPE_SEVEN,
         REB_TS_QUOTED_PATH = PSEUDOTYPE_SEVEN, /* !!! temp compatibility */
 
+        PSEUDOTYPE_EIGHT,
+        REB_TS_SKIN_EXPANDED = PSEUDOTYPE_EIGHT,
+
         REB_MAX_PLUS_MAX
     };
 

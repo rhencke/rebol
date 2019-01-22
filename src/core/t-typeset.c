@@ -116,7 +116,7 @@ void Shutdown_Typesets(void)
 
 
 //
-//  Update_Typeset_Bits_Core: C
+//  Add_Typeset_Bits_Core: C
 //
 // This sets the bits in a bitset according to a block of datatypes.  There
 // is special handling by which BAR! will set the "variadic" bit on the
@@ -128,13 +128,14 @@ void Shutdown_Typesets(void)
 // will act as WORD!.  Also, is essentially having "keywords" and should be
 // reviewed to see if anything actually used it.
 //
-bool Update_Typeset_Bits_Core(
+bool Add_Typeset_Bits_Core(
     RELVAL *typeset,
     const RELVAL *head,
     REBSPC *specifier
 ) {
     assert(IS_TYPESET(typeset) or IS_PARAM(typeset));
-    VAL_TYPESET_BITS(typeset) = 0;
+    if (VAL_TYPESET_BITS(typeset) != 0)
+        head = head;
 
     const RELVAL *maybe_word = head;
     for (; NOT_END(maybe_word); ++maybe_word) {
@@ -237,7 +238,7 @@ REB_R MAKE_Typeset(REBVAL *out, enum Reb_Kind kind, const REBVAL *arg)
     if (!IS_BLOCK(arg)) goto bad_make;
 
     Init_Typeset(out, 0);
-    Update_Typeset_Bits_Core(out, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg));
+    Add_Typeset_Bits_Core(out, VAL_ARRAY_AT(arg), VAL_SPECIFIER(arg));
     return out;
 
   bad_make:

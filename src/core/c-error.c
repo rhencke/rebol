@@ -1226,24 +1226,38 @@ REBCTX *Error_Arg_Type(
     REBFRM *f,
     const RELVAL *param,
     enum Reb_Kind actual
-) {
+){
     DECLARE_LOCAL (param_word);
     Init_Word(param_word, VAL_PARAM_SPELLING(param));
 
     DECLARE_LOCAL (label);
     Get_Frame_Label_Or_Blank(label, f);
 
-    if (actual != REB_MAX_NULLED)
-        return Error_Expect_Arg_Raw(
+    if (FRM_PHASE(f) != f->original) {
+        //
+        // When RESKIN has been used, or if an ADAPT messes up a type and
+        // it isn't allowed by an inner phase, then it causes an error.  But
+        // it's confusing to say that the original function didn't take that
+        // type--it was on its interface.  A different message is needed.
+        //
+        if (actual == REB_MAX_NULLED)
+            return Error_Phase_No_Arg_Raw(label, param_word);
+
+        return Error_Phase_Bad_Arg_Type_Raw(
             label,
             Datatype_From_Kind(actual),
             param_word
         );
+    }
 
-    // Although REB_MAX_NULLED is not a type, the typeset bits are used
-    // to check it.  Since Datatype_From_Kind() will fail, use another error.
-    //
-    return Error_Arg_Required_Raw(label, param_word);
+    if (actual == REB_MAX_NULLED) // no Datatype_From_Kind()
+        return Error_Arg_Required_Raw(label, param_word);
+
+    return Error_Expect_Arg_Raw(
+        label,
+        Datatype_From_Kind(actual),
+        param_word
+    );
 }
 
 

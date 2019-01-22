@@ -337,7 +337,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
 
             // Save the block for parameter types.
             //
-            REBVAL *typeset;
+            REBVAL *param;
             if (IS_PARAM(DS_TOP)) {
                 REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
                 Init_Block(
@@ -349,7 +349,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                     )
                 );
 
-                typeset = DS_TOP - 1; // volatile if you DS_PUSH()!
+                param = DS_TOP - 1; // volatile if you DS_PUSH()!
             }
             else {
                 assert(IS_TEXT(DS_TOP)); // !!! are blocks after notes good?
@@ -362,7 +362,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
                 }
 
                 assert(IS_PARAM(DS_TOP - 2));
-                typeset = DS_TOP - 2;
+                param = DS_TOP - 2;
 
                 assert(IS_BLOCK(DS_TOP - 1));
                 if (VAL_ARRAY(DS_TOP - 1) != EMPTY_ARRAY)
@@ -383,8 +383,9 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // Leaves VAL_TYPESET_SYM as-is.
             //
             REBSPC *derived = Derive_Specifier(VAL_SPECIFIER(spec), item);
-            Update_Typeset_Bits_Core(
-                typeset,
+            param->payload.typeset.bits = 0;
+            Add_Typeset_Bits_Core(
+                param,
                 VAL_ARRAY_HEAD(item),
                 derived
             );
@@ -394,7 +395,7 @@ REBARR *Make_Paramlist_Managed_May_Fail(
             // not "passed in" that way...the refinement is inactive.
             //
             if (refinement_seen) {
-                if (TYPE_CHECK(typeset, REB_MAX_NULLED))
+                if (TYPE_CHECK(param, REB_MAX_NULLED))
                     fail (Error_Refinement_Arg_Opt_Raw());
             }
 
@@ -984,9 +985,9 @@ REBACT *Make_Action(
     // uses it as well).
 
     if (GET_SER_FLAG(act, PARAMLIST_FLAG_RETURN)) {
-        REBVAL *typeset = ACT_PARAM(act, ACT_NUM_PARAMS(act));
-        assert(VAL_PARAM_SYM(typeset) == SYM_RETURN);
-        if (VAL_TYPESET_BITS(typeset) == 0) // e.g. `return []`, invisible
+        REBVAL *param = ACT_PARAM(act, ACT_NUM_PARAMS(act));
+        assert(VAL_PARAM_SYM(param) == SYM_RETURN);
+        if (VAL_TYPESET_BITS(param) == 0) // e.g. `return []`, invisible
             SET_SER_FLAG(act, PARAMLIST_FLAG_INVISIBLE);
     }
 
@@ -1797,4 +1798,3 @@ bool Get_If_Word_Or_Path_Throws(
 
     return false;
 }
-

@@ -731,21 +731,112 @@ REBNATIVE(variadic_q)
 
 
 //
-//  deferify: native [
+//   skinner-return-helper: native [
 //
-//  {Returns alias of an ACTION! whose first normal arg is skinned as <defer>}
+//   {Internal function that pushes a deferred callback for return type check}
 //
-//      return: [action!]
+//       returned [<opt> any-value!]
+//
+//   ]
+//
+REBNATIVE(skinner_return_helper)
+{
+    INCLUDE_PARAMS_OF_SKINNER_RETURN_HELPER;
+
+    REBFRM *f = frame_;
+    REBVAL *v = ARG(returned);
+
+    // !!! Same code as in Returner_Dispatcher()...should it be moved to a
+    // shared inline location?
+
+    REBACT *phase = ACT(FRM_BINDING(f));
+
+    REBVAL *param = ACT_PARAM(phase, ACT_NUM_PARAMS(phase));
+    assert(VAL_PARAM_SYM(param) == SYM_RETURN);
+
+    // Typeset bits for locals in frames are usually ignored, but the RETURN:
+    // local uses them for the return types of a function.
+    //
+    if (not Typecheck_Including_Quoteds(param, v))
+        fail (Error_Bad_Return_Type(f, VAL_TYPE(v)));
+
+    RETURN (v);
+}
+
+
+//
+//  Skinner_Dispatcher: C
+//
+// Reskinned functions may expand what types the original function took, in
+// which case the typechecking the skinned function did may not be enough for
+// any parameters that appear to be ARG_MARKED_CHECKED in the frame...they
+// were checked against the expanded criteria, not that of the original
+// function.  So it has to clear the ARG_MARKED_CHECKED off any of those
+// parameters it finds...so if they wind up left in the frame the evaluator
+// still knows it has to recheck them.
+//
+REB_R Skinner_Dispatcher(REBFRM *f)
+{
+    REBARR *details = ACT_DETAILS(FRM_PHASE(f));
+    REBVAL *skinned = KNOWN(ARR_HEAD(details));
+
+    REBVAL *param = ACT_PARAMS_HEAD(FRM_PHASE(f));
+    REBVAL *arg = FRM_ARGS_HEAD(f);
+    for (; NOT_END(param); ++param, ++arg) {
+        if (TYPE_CHECK(param, REB_TS_SKIN_EXPANDED))
+            CLEAR_VAL_FLAG(arg, ARG_MARKED_CHECKED);
+    }
+
+    // If the return type has been expanded, then the only way we're going to
+    // get a chance to check it is by pushing some kind of handler here for
+    // it.  It has to be a 1-argument function, and it needs enough of an
+    // identity to know which return type it's checking.  :-/  We cheat and
+    // use the binding to find the paramlist we wish to check.
+    //
+    // !!! This is kind of an ugly hack, because this action is now a
+    // "relative value"...and no actions are supposed to be relative to
+    // parameter lists.  But we couldn't use the frame even if we wanted to,
+    // the phase is getting overwritten so we couldn't find the return.  So
+    // just hope that it stays on the stack and doesn't do much besides
+    // get dropped by that processing, which can account for it.
+    //
+    Init_Action_Maybe_Bound(
+        DS_PUSH(),
+        NAT_ACTION(skinner_return_helper),
+        NOD(FRM_PHASE(f))
+    );
+
+    FRM_PHASE(f) = VAL_ACTION(skinned);
+
+    // We captured the binding for the skin when the action was made; if the
+    // user rebound the action, then don't overwrite with the one in the
+    // initial skin--assume they meant to change it.
+
+    // If we frame checked now, we'd fail, because we just put the new phase
+    // into place with more restricted types.  Let the *next* check kick in,
+    // and it will now react to the cleared ARG_MARKED_CHECKED flags.
+    //
+    return R_REDO_UNCHECKED;
+}
+
+
+//
+//  reskinned: native [
+//
+//  {Returns alias of an ACTION! with modified typing for the given parameter}
+//
+//      return: "A new action value with the modified parameter conventions"
+//          [action!]
+//      skin "Mutation spec, e.g. [param1 #add [integer!] 'param2 [tag!]]"
+//          [block!]
 //      action [action!]
 //  ]
 //
-REBNATIVE(deferify)
+REBNATIVE(reskinned)
 //
-// !!! This routine should be generalized to allow one to "re-skin" functions
-// with different parameter conventions, to avoid having to create a usermode
-// function stub for something where the only difference is a parameter
-// convention (e.g. an identical function that quotes its third argument
-// doesn't actually need a new body).
+// This avoids having to create a usermode function stub for something where
+// the only difference is a parameter convention (e.g. an identical function
+// that quotes its third argument doesn't actually need a new body).
 //
 // Care should be taken not to allow the expansion of parameter types accepted
 // to allow passing unexpected types to a native, because it could crash.  At
@@ -753,22 +844,191 @@ REBNATIVE(deferify)
 //
 // Keeps the parameter types and help notes in sync, also.
 {
-    INCLUDE_PARAMS_OF_DEFERIFY;
+    INCLUDE_PARAMS_OF_RESKINNED;
 
     REBACT *original = VAL_ACTION(ARG(action));
 
-    // Copy the paramlist, which serves as the action's unique identity.
-
+    // We make a copy of the ACTION's paramlist vs. trying to fiddle the
+    // action in place.  One reason to do this is that there'd have to be code
+    // written to account for the caching done by Make_Action() based on the
+    // parameters and their conventions (e.g. PARAMLIST_FLAG_QUOTES_FIRST),
+    // and we don't want to try and update all that here and get it wrong.
+    //
+    // Another good reason is that if something messes up halfway through
+    // the transformation process, the partially built new action gets thrown
+    // out.  It would not be atomic if we were fiddling bits directly in
+    // something the user already has pointers to.
+    //
+    // Another reason is to give the skin its own dispatcher, so it can take
+    // responsibility for any performance hit incurred by extra type checking
+    // that has to be done due to its meddling.  Typically if you ADAPT a
+    // function and the frame is fulfilled, with ARG_MARKED_CHECKED on an
+    // argument, it's known that there's no point in checking it again if
+    // the arg doesn't get freshly overwritten.  Reskinning changes that.
+    //
+    // !!! Note: Typechecking today is nearly as cheap as the check to avoid
+    // it, but the attempt to avoid typechecking is based on a future belief
+    // of a system in which the checks are more expensive...which it will be
+    // if it has to search hierarchies or lists of quoted forms/etc.
+    //
     REBARR *paramlist = Copy_Array_Shallow_Flags(
         ACT_PARAMLIST(original),
         SPECIFIED, // no relative values in parameter lists
         SERIES_MASK_ACTION | NODE_FLAG_MANAGED // flags not auto-copied
     );
+    PUSH_GC_GUARD(paramlist);
+
+    bool need_skin_phase = false; // only needed if types were broadened
 
     RELVAL *param = ARR_AT(paramlist, 1); // first param (0 is ACT_ARCHETYPE)
-    Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
-    if (pclass != REB_P_NORMAL)
-        fail ("DEFERIFY currently only works if first argument is normal.");
+    RELVAL *item = VAL_ARRAY_AT(ARG(skin));
+    Reb_Param_Class pclass;
+    while (NOT_END(item)) {
+        bool change;
+        if (KIND_BYTE(item) != REB_ISSUE or VAL_WORD_SYM(item) != SYM_CHANGE)
+            change = false;
+        else {
+            change = true;
+            ++item;
+        }
+
+        if (IS_WORD(item))
+            pclass = REB_P_NORMAL;
+        else if (IS_SET_WORD(item))
+            pclass = REB_P_RETURN;
+        else if (IS_GET_WORD(item))
+            pclass = REB_P_HARD_QUOTE;
+        else if (
+            IS_QUOTED(item)
+            and VAL_NUM_QUOTES(item) == 1
+            and CELL_KIND(VAL_UNESCAPED(item)) == REB_WORD
+        ){
+            pclass = REB_P_SOFT_QUOTE;
+        }
+        else
+            fail (Error_Invalid_Core(item, VAL_SPECIFIER(ARG(skin))));
+
+        REBSTR *canon = VAL_WORD_CANON(VAL_UNESCAPED(item));
+
+        // We assume user gives us parameters in order, but if they don't we
+        // cycle around to the beginning again.  So it's most efficient if
+        // in order, but still works if not.
+
+        bool wrapped_around = false;
+        while (true) {
+            if (IS_END(param)) {
+                if (wrapped_around) {
+                    DECLARE_LOCAL (word);
+                    Init_Word(word, canon);
+                    fail (Error_Invalid(word));
+                }
+
+                param = ARR_AT(paramlist, 1);
+                wrapped_around = true;
+            }
+
+            if (VAL_PARAM_CANON(param) == canon)
+                break;
+            ++param;
+        }
+
+        // Got a match and a potential new parameter class.  Don't let the
+        // class be changed on accident just because they forgot to use the
+        // right marking, require an instruction.  (Better names needed, these
+        // were just already in %words.r)
+
+        if (pclass != KIND_BYTE(param)) {
+            if (change)
+                mutable_KIND_BYTE(param) = pclass;
+            else if (pclass != REB_P_NORMAL) // assume plain word is no change
+                fail ("If parameter convention is reskinned, use #change");
+        }
+
+        ++item;
+
+        // The next thing is either a BLOCK! (in which case we take its type
+        // bits verbatim), or #add or #remove, so you can tweak w.r.t. just
+        // some bits.
+
+        REBSYM sym = SYM_0;
+        if (REB_ISSUE == KIND_BYTE(item)) {
+            sym = VAL_WORD_SYM(item);
+            if (sym != SYM_REMOVE and sym != SYM_ADD)
+                fail ("RESKIN only supports #add and #remove instructions");
+            ++item;
+        }
+
+        if (REB_BLOCK != KIND_BYTE(item)) {
+            if (change) // [#change 'arg] is okay w/no block
+                continue;
+            fail ("Expected BLOCK! after instruction");
+        }
+
+        REBSPC *specifier = VAL_SPECIFIER(item);
+
+        switch (sym) {
+          case SYM_0: // completely override type bits
+            param->payload.typeset.bits = 0;
+            Add_Typeset_Bits_Core(param, VAL_ARRAY_AT(item), specifier);
+            TYPE_SET(param, REB_TS_SKIN_EXPANDED);
+            need_skin_phase = true; // !!! Worth it to check for expansion?
+            break;
+
+          case SYM_ADD: // leave existing bits, add new ones
+            Add_Typeset_Bits_Core(param, VAL_ARRAY_AT(item), specifier);
+            TYPE_SET(param, REB_TS_SKIN_EXPANDED);
+            need_skin_phase = true;
+            break;
+
+          case SYM_REMOVE: {
+            DECLARE_LOCAL (temp); // make temporary typeset, remove its bits
+            Init_Typeset(temp, 0);
+            Add_Typeset_Bits_Core(temp, VAL_ARRAY_AT(item), specifier);
+
+            param->payload.typeset.bits &= ~temp->payload.typeset.bits;
+
+            // ENCLOSE doesn't type check the return result by default.  So
+            // if you constrain the return types, there will have to be a
+            // phase to throw a check into the stack.  Otherwise, constraining
+            // types is no big deal...any type that passed the narrower check
+            // will pass the broader one.
+            //
+            if (VAL_PARAM_SYM(param) == SYM_RETURN)
+                need_skin_phase = true;
+            break; }
+
+          default:
+            assert(false);
+        }
+
+        ++item;
+    }
+
+    // The most sensible case for a type-expanding reskin is if there is some
+    // amount of injected usermode code to narrow the type back to something
+    // the original function can deal with.  It might be argued that usermode
+    // code would have worked on more types than it annotated, and you may
+    // know that and be willing to risk an error if you're wrong.  But with
+    // a native--if you give it types it doesn't expect--it can crash.
+    //
+    // Hence we abide by the type contract, and need a phase to check that
+    // we are honoring it.  The only way to guarantee we get that phase is if
+    // we're using something that already does the checks...e.g. an Adapter
+    // or an Encloser.
+    //
+    // (Type-narrowing and quoting convention changing things are fine, there
+    // is no risk posed to the underlying action call.)
+    //
+    if (ACT_DISPATCHER(original) == &Skinner_Dispatcher)
+        need_skin_phase = false; // already taken care of, reuse it
+    else if (
+        need_skin_phase and (
+            ACT_DISPATCHER(original) != &Adapter_Dispatcher
+            and ACT_DISPATCHER(original) != &Encloser_Dispatcher
+        )
+    ){
+        fail ("Type-expanding RESKIN only works on ADAPT/ENCLOSE actions");
+    }
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
     CLEAR_SER_FLAGS(paramlist, PARAMLIST_MASK_CACHED);
@@ -780,41 +1040,42 @@ REBNATIVE(deferify)
     // function will affect the original, and vice-versa.
     //
     MISC(paramlist).meta = ACT_META(original);
-
-    // Our function has a new identity, but we don't want to be using that
-    // identity for the pushed frame.  If we did that, then if the underlying
-    // function were interpreted, we would have to make a copy of its body
-    // and rebind it to the new paramlist.  HOWEVER we want the new tightened
-    // parameter specification to take effect--and that's not reflected in
-    // the original paramlist, e.g. the one to which that block is bound.
+    
+    // If we only *narrowed* the type conventions, then we don't need to put
+    // in a new dispatcher.  But if we *expanded* them, the type checking
+    // done by the skinned version for ARG_MARKED_CHECKED may not be enough.
     //
-    // This is why we pass the original in as the "underlying" function,
-    // which is used when the frame is being pushed.
-    //
-    REBCNT details_len = ARR_LEN(ACT_DETAILS(original));
+    REBCNT details_len = need_skin_phase ? 1 :ARR_LEN(ACT_DETAILS(original));
     REBACT *defers = Make_Action(
         paramlist,
-        ACT_DISPATCHER(original),
+        need_skin_phase ? &Skinner_Dispatcher : ACT_DISPATCHER(original),
         ACT_UNDERLYING(original), // !!! ^-- notes above may be outdated
         ACT_EXEMPLAR(original), // don't add to the original's specialization
         details_len // details array capacity
     );
 
-    // We're reusing the original dispatcher, so we also reuse the original
-    // function body.  Note that Blit_Cell ensures that the cell formatting
-    // on the source and target are the same, and it preserves relative
-    // value information (rarely what you meant, but it's meant here).
-    //
-    RELVAL *src = ARR_HEAD(ACT_DETAILS(original));
-    RELVAL *dest = ARR_HEAD(ACT_DETAILS(defers));
-    for (; NOT_END(src); ++src, ++dest)
-        Blit_Cell(dest, src);
+    if (need_skin_phase)
+        Move_Value(ARR_HEAD(ACT_DETAILS(defers)), ARG(action));
+    else {
+        // We're reusing the original dispatcher, so also reuse the original
+        // function body.  Note Blit_Cell() ensures that the cell formatting
+        // on the source and target are the same, and it preserves relative
+        // value information (rarely what you meant, but it's meant here).
+        //
+        RELVAL *src = ARR_HEAD(ACT_DETAILS(original));
+        RELVAL *dest = ARR_HEAD(ACT_DETAILS(defers));
+        for (; NOT_END(src); ++src, ++dest)
+            Blit_Cell(dest, src);
+    }
+
     TERM_ARRAY_LEN(ACT_DETAILS(defers), details_len);
+
+    DROP_GC_GUARD(paramlist);
 
     return Init_Action_Maybe_Bound(
         D_OUT,
         defers, // REBACT* archetype doesn't contain a binding
-        VAL_BINDING(ARG(action)) // e.g. keep binding for `deferify 'return`
+        VAL_BINDING(ARG(action)) // inherit binding (user can rebind)
     );
 }
 

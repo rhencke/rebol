@@ -807,6 +807,26 @@ inline static RELVAL *Prep_Stack_Cell_Core(
 inline static bool IS_RELATIVE(const REBCEL *v) {
     if (Not_Bindable(v) or not v->extra.binding)
         return false; // INTEGER! and other types are inherently "specific"
+
+  #if !defined(NDEBUG)
+    //
+    // !!! A trick used by RESKINNED for checking return types after its
+    // dispatcher is no longer on a stack uses CHAIN's mechanics to run a
+    // single argument function that does the test.  To avoid creating a new
+    // ACTION! for each such scenario, it makes the value it queues distinct
+    // by putting the paramlist that has the return to check in the binding.
+    // Ordinarily this would make it a "relative value" which actions never
+    // should be, but it's a pretty good trick so it subverts debug checks.
+    // Review if this category of trick can be checked for more cleanly.
+    if (
+        KIND_BYTE_UNCHECKED(v) == REB_ACTION
+        and Natives[N_skinner_return_helper_ID].payload.action.paramlist
+            == v->payload.action.paramlist
+    ){
+        return false;
+    }
+  #endif
+
     return GET_SER_FLAG(v->extra.binding, ARRAY_FLAG_PARAMLIST);
 }
 

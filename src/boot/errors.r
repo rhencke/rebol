@@ -90,6 +90,12 @@ Script: [
     no-arg:             [:arg1 {is missing its} :arg2 {argument}]
     expect-arg:         [:arg1 {does not allow} :arg2 {for its} :arg3 {argument}]
     arg-required:       [:arg1 {requires} :arg2 {argument to not be null}]
+    
+    phase-bad-arg-type:
+        [:arg1 {internal phase disallows} :arg2 {for its} :arg3 {argument}]
+    phase-no-arg:
+        [:arg1 {internal phase requres} :arg2 {argument to not be null}]
+
     expect-val:         [{expected} :arg1 {not} :arg2]
     expect-type:        [:arg1 :arg2 {field must be of type} :arg3]
     cannot-use:         [{cannot use} :arg1 {on} :arg2 {value}]

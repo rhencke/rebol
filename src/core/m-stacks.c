@@ -197,32 +197,34 @@ void Shutdown_Frame_Stack(void)
 REBCTX *Get_Context_From_Stack(void)
 {
     REBFRM *f = FS_TOP;
-    REBACT *phase;
-    while (true) {
-        if (f == FS_BOTTOM) {
-            //
-            // Special case, no natives are in effect, so basically API code
-            // running directly from an `int main()`.  This is dangerous, as
-            // it means any failures will crash.  For the moment, go with
-            // user, though console code would probably prefer to be in the
-            // console module (configure this in rebStartup()?).
-            //
-            return VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER));
-        }
+    REBACT *phase = nullptr; // avoid potential uninitialized variable warning
+
+    for (; f != FS_BOTTOM; f = f->prior) {
+        if (not Is_Action_Frame(f))
+            continue;
 
         phase = FRM_PHASE_OR_DUMMY(f);
         if (phase == PG_Dummy_Action) {
             //
             // Some frames are set up just to catch failures, but aren't
-            // tied to a function call themselves.  Ignore them (unless they
-            // are FS_BOTTOM, handled above.)
+            // tied to a function call themselves.  Ignore them.
             //
-            f = f->prior;
             continue;
         }
 
         break;
     }
+
+    if (f == FS_BOTTOM) {
+        //
+        // No natives are in effect, so this is API code running directly from
+        // an `int main()`.  This is dangerous, as it means any failures will
+        // (no TRAP is in effect yet).  For the moment, say such code binds
+        // into the user context.
+        //
+        return VAL_CONTEXT(Get_System(SYS_CONTEXTS, CTX_USER));
+    }
+
 
     // The topmost stack level must be a native if we call this function.
     // (So don't call it from something like Returner_Dispatcher, where you
