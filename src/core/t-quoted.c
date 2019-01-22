@@ -279,6 +279,31 @@ REBNATIVE(uneval) // !!! This will be renamed QUOTE in the future
 
 
 //
+//  unquote: native [
+//
+//  {Remove quoting levels from the evaluated argument}
+//
+//      return: [<opt> any-value!]
+//      optional [<opt> any-value!]
+//      /depth "Number of quoting levels to remove (default 1)"
+//      count [integer!]
+//  ]
+//
+REBNATIVE(unquote)
+{
+    INCLUDE_PARAMS_OF_UNQUOTE;
+
+    REBINT depth = REF(depth) ? VAL_INT32(ARG(count)) : 1;
+    if (depth < 0)
+        fail (Error_Invalid(ARG(count)));
+    if (cast(REBCNT, depth) > VAL_NUM_QUOTES(ARG(optional)))
+        fail (Error_Invalid(ARG(count)));
+
+    return Unquotify(Move_Value(D_OUT, ARG(optional)), depth);
+}
+
+
+//
 //  quoted?: native [
 //
 //  {Tells you if the argument is QUOTED! or not}

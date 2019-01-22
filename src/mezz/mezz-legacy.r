@@ -30,13 +30,13 @@ REBOL [
 context: object: :has
 
 
-quote: func [dummy:] [
-    fail/where [
+quote: func [] [
+    fail 'return [
         "LIT (or LITERAL) has replaced QUOTE.  QUOTE is currently not"
         "defined to make it easier to find cases and fix them.  It will"
         "ultimately be re-introduced as a way to add quote levels to an"
         "evaluated argument (e.g. x: 10 | quote x => '10)"
-    ] 'dummy
+    ]
 ]
 
 

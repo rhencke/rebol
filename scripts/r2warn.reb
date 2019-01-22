@@ -55,8 +55,8 @@ repurposed: deprecated: func [block [block!]] [
     ]
     append block {Emulation of the old meanings available via %redbol.reb}
 
-    return func [dummy:] compose/only [
-        fail/where (delimit LF block) 'dummy
+    return func [] compose/only [
+        fail 'return (delimit LF block)
     ]
 ]
 
@@ -156,7 +156,7 @@ unless: checked-enfix [
     ][
         set* lit right: take* right
         if (unset? 'left) or [not group? right] or [block? first look] [
-            fail/where [
+            fail 'look [
                 "UNLESS has been repurposed in Ren-C as an infix operator"
                 "which defaults to the left hand side, unless the right"
                 "side has a value which overrides it.  You may use IF-NOT"
@@ -166,7 +166,7 @@ unless: checked-enfix [
                 "!!! NOTE: `if not` as two words isn't the same in Ren-C,"
                 "as `if not x = y` is read as `if (not x) = y` since `=`"
                 "completes its left hand side.  Be careful rewriting."
-            ] 'look
+            ]
         ]
 
         (do as block! right) or [:left]
@@ -182,7 +182,7 @@ switch: checked [
                 'null <> c
                 not datatype? get c
             ] then [
-                fail/where [
+                fail 'cases [
                     {Temporarily disabled word/path SWITCH clause:} :c LF
 
                     {You may have meant to use a LIT-WORD! / LIT-PATH!} LF
@@ -190,7 +190,7 @@ switch: checked [
                     {SWITCH in Ren-C evaluates its match clauses.  But to}
                     {help catch old uses, only datatype lookups enabled.}
                     {SWITCH: :LIB/SWITCH overrides.}
-                ] 'cases
+                ]
             ]
         ]
     ]
@@ -268,11 +268,11 @@ also: checked [
             block? :branch
             not semiquoted? 'branch
 
-            fail/where [
+            fail 'branch [
                 {ALSO serves a different purpose in Ren-C, so use ELIDE for}
                 {old-ALSO-like tasks.}
                 {See: https://trello.com/c/Y03HJTY4}
-            ] 'branch
+            ]
         ]
         ;-- fall through to normal ALSO implementation
     ]
@@ -310,11 +310,11 @@ try: checked [
             block? :optional
             semiquoted? 'optional
 
-            fail/where [
+            fail 'optional [
                 {TRY/EXCEPT was replaced by TRAP/WITH, matching CATCH/WITH}
                 {and is more coherent.  See: https://trello.com/c/IbnfBaLI}
                 {TRY now converts nulls to blanks, passing through ANY-VALUE!}
-            ] 'optional
+            ]
         ]
         ;-- fall through to native TRY implementation
     ]

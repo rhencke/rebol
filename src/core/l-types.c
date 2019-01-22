@@ -285,6 +285,7 @@ REB_R Reflect_Core(REBFRM *frame_)
     GENERIC_HOOK hook = Generic_Hooks[kind];
     DECLARE_LOCAL (verb);
     Init_Word(verb, Canon(SYM_REFLECT));
+    Dequotify(ARG(value));
     return hook(frame_, verb); // if literal, will call REBTYPE(Literal)
 }
 

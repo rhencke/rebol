@@ -26,7 +26,7 @@ verify: function [
             ;
             while [bar? first conditions] [conditions: my next]
 
-            fail/where [
+            fail 'conditions [
                 "Assertion condition returned"
                  choose [
                     (unset? 'result) "null"
@@ -36,7 +36,7 @@ verify: function [
                 ]
                 ":"
                 copy/part conditions pos
-            ] 'conditions
+            ]
         ]
 
         conditions: pos ;-- move expression position and continue

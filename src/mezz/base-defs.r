@@ -135,7 +135,7 @@ spaced-text: chain [:spaced | specialize 'else [branch: [copy ""]]]
 newlined: chain [
     adapt specialize 'delimit [delimiter: newline] [
         if text? :line [
-            fail/where "NEWLINED on TEXT! semantics being debated" 'line
+            fail 'line "NEWLINED on TEXT! semantics being debated"
         ]
     ]
         |

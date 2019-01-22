@@ -151,10 +151,10 @@ confirm: function [
         block? choices
         length of choices > 2
 
-        fail/where [
+        fail 'choices [
             "maximum 2 arguments allowed for choices [true false]"
             "got:" mold choices
-        ] 'choices
+        ]
     ]
 
     response: ask question

@@ -38,7 +38,7 @@ so: enfix func [
         [<opt> any-value!]
 ][
     if not opt condition [
-        fail/where ["Postfix 'SO assertion' failed"] 'condition
+        fail 'condition ["Postfix 'SO assertion' failed"]
     ]
 ]
 
@@ -61,9 +61,9 @@ maybe: enfix func [
         ; While DEFAULT requires a BLOCK!, MAYBE does not.  Catch mistakes
         ; such as `x: maybe [...]`
         ;
-        fail/where [
+        fail 'optional [
             "Literal" type of :optional "used w/MAYBE, use () if intentional"
-        ] 'optional
+        ]
     ]
 
     case [
@@ -534,9 +534,9 @@ really: func [
     ; as `x: really [...]`
     ;
     if semiquoted? 'value [
-        fail/where [
+        fail 'value [
             "Literal" type of :value "used w/REALLY, use () if intentional"
-        ] 'value
+        ]
     ]
 
     :value
@@ -706,9 +706,9 @@ once-bar: func [
             |
         '|| = look: take lookahead ;-- hack...recognize selfs
     ] else [
-        fail/where [
+        fail 'right [
             "|| expected single expression, found residual of" :look
-        ] 'right
+        ]
     ]
 ]
 
@@ -962,6 +962,8 @@ cause-error: func [
 fail: function [
     {Interrupts execution by reporting an error (a TRAP can intercept it).}
 
+    :blame "Point to variable or parameter to blame"
+        [<skip> 'word! 'path!]
     reason "ERROR! value, message text, or failure spec"
         [<end> error! text! block!]
     /where "Specify an originating location other than the FAIL itself"
@@ -982,10 +984,17 @@ fail: function [
     ;
     error: switch type of :reason [
         error! [reason]
-
-        null [make error! "(no message)"]
         text! [make error! reason]
-        block! [make error! spaced reason]
+        block! [make error! spaced reason else ["(no message)"]]
+
+        null [
+            make error! if :blame [spaced [
+                unquote blame "is invalid:"
+                    (mold/limit try get :blame 1000) else [";-- null"]
+            ]] else [
+                "(no message)"
+            ]
+        ]
     ]
 
     if (not error? :reason) or [not pick reason 'where] [
@@ -993,7 +1002,13 @@ fail: function [
         ; If no specific location specified, and error doesn't already have a
         ; location, make it appear to originate from the frame calling FAIL.
         ;
-        location: default [binding of 'reason]
+        location: default [
+            if (match 'word! :blame) and [frame? binding of blame] [
+                unquote blame
+            ] else [
+                binding of 'reason
+            ]
+        ]
 
         ; !!! Does SET-LOCATION-OF-ERROR need to be a native?
         ;

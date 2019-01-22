@@ -128,17 +128,14 @@ join: func [ ;-- renamed to ADJOIN in %sys-start.r for user context, temporary
     case [
         block? :value [repend series :value]
         group? :value [
-            fail/where
-                <- "Can't JOIN a GROUP! onto a series (use APPEND)."
-                <- 'value
+            fail 'value "Can't JOIN a GROUP! onto a series (use APPEND)."
         ]
         action? :value [
-            fail/where
-                <- "Can't JOIN an ACTION! onto a series (use APPEND)."
-                <- 'value
+            fail 'value "Can't JOIN an ACTION! onto a series (use APPEND)."
         ]
-    ] else [
-        append/only series :value ;-- paths, words, not in block
+        default [
+            append/only series :value ;-- paths, words, not in block
+        ]
     ]
 ]
 
