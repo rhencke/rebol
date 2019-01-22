@@ -1598,18 +1598,21 @@ REBNATIVE(repeat)
 }
 
 
-// Common code for UNTIL & UNTIL-NOT (same frame param layout)
 //
-inline static REB_R Until_Core(
-    REBFRM *frame_,
-    bool trigger // body keeps running so until evaluation matches this
-){
+//  until: native [
+//
+//  {Evaluates the body until it produces a conditionally true value}
+//
+//      return: [<opt> any-value!]
+//          {Last body result, or null if a BREAK occurred}
+//      body [block! action!]
+//  ]
+//
+REBNATIVE(until)
+{
     INCLUDE_PARAMS_OF_UNTIL;
 
     do {
-
-    skip_check:;
-
         if (Do_Branch_Throws(D_OUT, ARG(body))) {
             bool broke;
             if (not Catching_Break_Or_Continue(D_OUT, &broke))
@@ -1617,72 +1620,35 @@ inline static REB_R Until_Core(
             if (broke)
                 return Init_Nulled(D_OUT);
 
-            // UNTIL and UNTIL-NOT both follow the precedent that the way
-            // a CONTINUE/WITH works is to act as if the loop body returned
-            // the value passed to the WITH.  Since the condition and body are
-            // the same in this case, the implications are a strange, though
-            // logical.  CONTINUE/WITH FALSE will break UNTIL-NOT, and
-            // CONTINUE/WITH TRUE breaks UNTIL.
+            // The way a CONTINUE with a value works is to act as if the loop
+            // body evaluated to the value.  Since the condition and body are
+            // the same in this case.  CONTINUE TRUE will stop the UNTIL and
+            // return TRUE, CONTINUE 10 will stop and return 10, etc.
             //
-            // But this is different for null, since loop bodies returning
-            // conditions must be true or false...and continue needs to work.
-            // Hence it just means to continue either way.
-            //
-            if (IS_NULLED(D_OUT))
-                goto skip_check;
-        }
-        else { // didn't throw, see above about null difference from CONTINUE
-            if (IS_VOID(D_OUT))
-                fail (Error_Void_Conditional_Raw());
+            // Plain CONTINUE is interpreted as CONTINUE NULL, and hence will
+            // continue to run the loop.
         }
 
-        if (IS_TRUTHY(D_OUT) == trigger)
-            return D_OUT;
+        if (IS_TRUTHY(D_OUT)) // will fail on voids (neither true nor false)
+            return D_OUT; // body evaluated conditionally true, return value
 
     } while (true);
 }
 
 
 //
-//  until: native [
+//  while: native [
 //
-//  "Evaluates the body until it evaluates to a conditionally true value"
+//  {While a condition is conditionally true, evaluates the body}
 //
 //      return: [<opt> any-value!]
-//          {Last body result or BREAK value.}
+//          "Last body result, or null if BREAK"
+//      condition [block! action!]
 //      body [block! action!]
 //  ]
 //
-REBNATIVE(until)
+REBNATIVE(while)
 {
-    return Until_Core(frame_, true); // run loop until result IS_TRUTHY()
-}
-
-
-//
-//  until-not: native [
-//
-//  "Evaluates the body until it evaluates to a conditionally false value"
-//
-//      return: [<opt> any-value!]
-//          {Last body result or BREAK value.}
-//      body [block! action!]
-//  ]
-//
-REBNATIVE(until_not)
-//
-// Faster than running NOT, and doesn't need groups for `until [...not (x =`
-{
-    return Until_Core(frame_, false); // run loop until result IS_FALSEY()
-}
-
-
-// Common code for WHILE & WHILE-NOT
-//
-inline static REB_R While_Core(
-    REBFRM *frame_,
-    bool trigger // body keeps running so long as condition matches
-){
     INCLUDE_PARAMS_OF_WHILE;
 
     DECLARE_LOCAL (cell); // unsafe to use ARG() slots as frame output cells
@@ -1698,12 +1664,9 @@ inline static REB_R While_Core(
             return R_THROWN; // don't see BREAK/CONTINUE in the *condition*
         }
 
-        if (IS_VOID(cell))
-            fail (Error_Void_Conditional_Raw()); // neither truthy nor falsey
-
-        if (IS_TRUTHY(cell) != trigger) {
+        if (IS_FALSEY(cell)) { // will error if void (neither true nor false)
             DROP_GC_GUARD(cell);
-            return D_OUT; // trigger didn't match, return last body result
+            return D_OUT; // condition was false, so return last body result
         }
 
         if (Do_Branch_With_Throws(D_OUT, ARG(body), cell)) {
@@ -1717,44 +1680,8 @@ inline static REB_R While_Core(
                 return Init_Nulled(D_OUT);
             }
         }
-        Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->empty
+
+        Voidify_If_Nulled_Or_Blank(D_OUT); // null->BREAK, blank->never ran
+
     } while (true);
-
-    DEAD_END;
-}
-
-
-//
-//  while: native [
-//
-//  {While a condition is conditionally true, evaluates the body.}
-//
-//      return: [<opt> any-value!]
-//          "Last body result, or null if BREAK"
-//      condition [block! action!]
-//      body [block! action!]
-//  ]
-//
-REBNATIVE(while)
-{
-    return While_Core(frame_, true); // run loop while condition IS_TRUTHY()
-}
-
-
-//
-//  while-not: native [
-//
-//  {While a condition is conditionally false, evaluate the body.}
-//
-//      return: [<opt> any-value!]
-//          "Last body result, or null if BREAK"
-//      condition [block! action!]
-//      body [block! action!]
-//  ]
-//
-REBNATIVE(while_not)
-//
-// Faster than running NOT, and doesn't need groups for `while [not (x =`
-{
-    return While_Core(frame_, false); // run loop while condition IS_FALSEY()
 }

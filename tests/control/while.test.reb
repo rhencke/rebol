@@ -76,6 +76,7 @@
 
 (  ; bug#1519
     cycle?: true
+    if-not: adapt 'if [condition: not :condition]
     f1: does [
         if-not 1 > 2 [
             while [if cycle? [unwind :if-not] cycle?] [cycle?: false 2]

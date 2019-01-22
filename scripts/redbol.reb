@@ -803,7 +803,7 @@ devoider: helper [
 ]
 
 if: emulate [devoider :if]
-unless: emulate [devoider :if-not]
+unless: emulate [devoider adapt 'if [condition: not :condition]]
 case: emulate [devoider :case]
 switch: emulate [redescribe [
     {Ren-C SWITCH evaluates matches: https://trello.com/c/9ChhSWC4/}
@@ -847,7 +847,7 @@ foreach: emulate [
         ;
         use :vars [
             position: data
-            while-not [tail? position] compose [
+            while [not tail? position] compose [
                 (collect [
                     for-each item vars [
                         case [

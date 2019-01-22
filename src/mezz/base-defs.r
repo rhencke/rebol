@@ -106,7 +106,7 @@ end: func [
     return: []
     :omit [any-value! <...>]
 ][
-    while-not [tail? omit] [take omit]
+    while [not tail? omit] [take omit]
 ]
 
 

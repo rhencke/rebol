@@ -78,31 +78,6 @@ REBNATIVE(if)
 
 
 //
-//  if-not: native [
-//
-//  {When TO LOGIC! CONDITION is false, execute branch}
-//
-//      return: "null if branch not run, otherwise branch result"
-//          [<opt> any-value!]
-//      condition [<opt> any-value!]
-//      'branch [block! action! quoted!]
-//  ]
-//
-REBNATIVE(if_not)
-{
-    INCLUDE_PARAMS_OF_IF_NOT;
-
-    if (IS_CONDITIONAL_TRUE(ARG(condition))) // fails on void, literal blocks
-        return nullptr;
-
-    if (Do_Branch_With_Throws(D_OUT, ARG(branch), ARG(condition)))
-        return R_THROWN;
-
-    return Voidify_If_Nulled(D_OUT); // null means no branch (cues ELSE, etc.)
-}
-
-
-//
 //  either: native [
 //
 //  {Choose a branch to execute, based on TO-LOGIC of the CONDITION value}
