@@ -820,7 +820,6 @@ REBNATIVE(case)
         // The last condition will "fall out" if there is no branch/choice:
         //
         //     case [1 > 2 [...] 3 > 4 [...] 10 + 20] = 30
-        //     choose [1 > 2 (literal group) 3 > 4 <tag> 10 + 20] = 30
         //
         if (IS_END(f->value)) {
             DROP_GC_GUARD(cell);

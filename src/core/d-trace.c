@@ -168,10 +168,10 @@ bool Traced_Eval_Hook_Throws(REBFRM * const f)
                     f->specifier
                 );
                 if (not var) {
-                    Debug_Fmt_(" : -- end");
+                    Debug_Fmt_(" ; end");
                 }
                 else if (IS_NULLED(var)) {
-                    Debug_Fmt_(" : -- null");
+                    Debug_Fmt_(" ; null");
                 }
                 else if (IS_ACTION(var)) {
                     const char *type_utf8 = STR_HEAD(Get_Type_Name(var));
@@ -298,7 +298,7 @@ REB_R Traced_Dispatcher_Hook(REBFRM * const f)
             Debug_Values(f->out, 1, 50);
         }
         else if (r == nullptr) {
-            Debug_Fmt("-- null\n");
+            Debug_Fmt("; null\n");
         }
         else if (GET_VAL_FLAG(r, NODE_FLAG_ROOT)) { // API, from Alloc_Value()
             Handle_Api_Dispatcher_Result(f, r);

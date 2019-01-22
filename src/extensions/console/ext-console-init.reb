@@ -126,7 +126,7 @@ console!: make object! [
         set* (lit last-result:) :v
         case [
             null? :v [
-                print "-- null" ; no value representation, so use a comment
+                print "; null"  ; no representation, use comment
             ]
 
             void? :v [

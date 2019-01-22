@@ -514,7 +514,7 @@ what: function [
     list: make block! 400
     size: 0
 
-    ; copy to get around error: "temporary hold for iteratione
+    ; copy to get around error: "temporary hold for iteration"
     ctx: copy all [set? 'name try select system/modules :name ] else [lib]
 
     for-each [word val] ctx [

@@ -226,7 +226,7 @@ applique: function [
         ]
     ]
 
-    do frame ;-- nulls are optionals
+    do frame  ; nulls are optionals
 ]
 
 

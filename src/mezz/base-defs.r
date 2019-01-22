@@ -39,7 +39,7 @@ probe: func [
     either set? 'value [
         write-stdout mold :value
     ][
-        write-stdout "-- null" ;; MOLD won't take nulls
+        write-stdout "; null"  ; MOLD won't take nulls
     ]
     write-stdout newline
     :value

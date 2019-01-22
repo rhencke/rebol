@@ -28,18 +28,18 @@ verify: function [
 
             fail 'conditions [
                 "Assertion condition returned"
-                 choose [
-                    (unset? 'result) "null"
-                    (void? result) "void"
-                    (blank? result) "blank"
-                    (result = false) "false"
+                 case [
+                    unset? 'result ["null"]
+                    void? result ["void"]
+                    blank? result ["blank"]
+                    result = false ["false"]
                 ]
                 ":"
                 copy/part conditions pos
             ]
         ]
 
-        conditions: pos ;-- move expression position and continue
+        conditions: pos   ; move expression position and continue
     ]
 ]
 

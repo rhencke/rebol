@@ -990,7 +990,7 @@ fail: function [
         null [
             make error! if :blame [spaced [
                 unquote blame "is invalid:"
-                    (mold/limit try get :blame 1000) else [";-- null"]
+                    (mold/limit try get :blame 1000) else ["\null\"]
             ]] else [
                 "(no message)"
             ]

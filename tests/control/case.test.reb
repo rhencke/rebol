@@ -14,13 +14,13 @@
 )
 
 (
-    null? case [false []] ;-- null indicates no branch was taken
+    null? case [false []]  ; null indicates no branch was taken
 )
 (
-    null? case [] ;-- empty case block is legal (e.g. as COMPOSE product)
+    null? case []  ; empty case block is legal (e.g. as COMPOSE product)
 )
 (
-    void? case [true []] ;-- void indicates branch was taken (vs. null)
+    void? case [true []]  ; void indicates branch was taken (vs. null)
 )
 (
     void? case [
@@ -34,7 +34,7 @@
 
 (
     'a = case [
-        first [a b c] ;-- no corresponding branch, means "case fallout"
+        first [a b c]  ; no corresponding branch, means "case fallout"
     ]
 )
 
@@ -48,7 +48,7 @@
 (
     error? trap [
         case [
-            true add 1 2 ;-- branch slots must be BLOCK!, ACTION!, softquote
+            true add 1 2  ; branch slots must be BLOCK!, ACTION!, softquote
         ]
     ]
 )
