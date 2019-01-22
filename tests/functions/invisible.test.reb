@@ -137,10 +137,8 @@
         left-normal*: enfix right-normal*:
             <- func [return: [<opt> bar!] x [bar! <end>]] [:x]
 
-        left-defer: enfix
-            <- func [return: [<opt> bar!] x [<defer> bar!]] [:x]
-        left-defer*: enfix
-            <- func [return: [<opt> bar!] x [<defer> bar! <end>]] [:x]
+        left-defer: enfix tweak (copy :left-normal) #defer on
+        left-defer*: enfix tweak (copy :left-normal*) #defer on
 
         left-soft: enfix right-soft:
             <- func [return: [<opt> bar!] 'x [bar!]] [:x]

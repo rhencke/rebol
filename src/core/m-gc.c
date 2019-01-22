@@ -1200,17 +1200,7 @@ static void Mark_Frame_Stack_Deep(void)
         // code that a frame runs that might disrupt that relationship so it
         // would fetch differently should have meant clearing f->gotten.
         //
-        // However, the SHOVE operation is special, and puts an enfix ACTION!
-        // into the frame's `shove` cell and points f->gotten to that.  It
-        // needs to be marked here.
-        //
-        if (not f->gotten)
-            NOOP;
-        else if (f->gotten == FRM_SHOVE(f)) {
-            assert(GET_VAL_FLAG(FRM_SHOVE(f), VALUE_FLAG_ENFIXED));
-            Queue_Mark_Value_Deep(FRM_SHOVE(f));
-        }
-        else
+        if (f->gotten)
             assert(
                 IS_POINTER_TRASH_DEBUG(f->gotten)
                 or f->gotten == Try_Get_Opt_Var(f->value, f->specifier)

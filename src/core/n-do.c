@@ -89,30 +89,166 @@ REBNATIVE(eval)
 //
 //      return: [<opt> any-value!]
 //          "REVIEW: How might this handle shoving enfix invisibles?"
-//      :left [<...> <end> any-value!]
+//      :left [<end> <opt> any-value!]
 //          "Requests parameter convention based on enfixee's first argument"
-//      :enfixee [<end> word! path! group! action!]
-//          "Needs ACTION!...but WORD!s fetched, PATH!s/GROUP!s evaluated"
-//      :args [<...> <end> any-value!]
-//          "Will handle args the way the enfixee expects"
+//      :right [<...> <end> any-value!]
+//          "(uses magic -- SHOVE can't be written easily in usermode yet)"
 //  ]
 //
-REBNATIVE(shove)
+REBNATIVE(shove) // see `tweak :shove #shove on` in %base-defs.r
+//
+// PATH!s do not do infix lookup in Rebol, and there are good reasons for this
+// in terms of both performance and semantics.  However, it is sometimes
+// needed to dispatch via a path--for instance to call an enfix function that
+// lives in a context, or even to call one that has refinements.
+//
+// The SHOVE operation is used to push values from the left to act as the
+// first argument of an operation, e.g.:
+//
+//      >> 10 -> lib/(print "Hi!" first [multiply]) 20
+//      Hi!
+//      200
+//
+// It's becoming more possible to write something like this in usermode, but
+// it would be inefficient.  This version of shove is a light variation on
+// the EVAL native, which retriggers the actual enfix machinery.
 {
     INCLUDE_PARAMS_OF_SHOVE;
 
-    UNUSED(ARG(left));
-    UNUSED(ARG(enfixee));
-    UNUSED(ARG(args));
+    REBFRM *f = frame_;
+    REBFRM *f_right;
+    if (
+        not Is_Frame_Style_Varargs_May_Fail(&f_right, ARG(right))
+        or f_right != f
+    ){
+        fail (
+            "SHOVE (->) is written using evaluator magic, and cannot apply"
+            " to any variadic feed besides the one for the current frame."
+            " Doing SHOVE in usermode would be cool, but it's not there yet."
+        );
+    }
 
-    // !!! It's nice to imagine the system evolving to where actions this odd
-    // could be written generically vs. being hardcoded in the evaluator.
-    // But for now it is too "meta", and Eval_Core_Throws() detects
-    // NAT_ACTION(shove) when used as enfix...and implements it there.
+    // It's best for SHOVE to do type checking here, as opposed to setting
+    // some kind of DO_FLAG_SHOVING and passing that into the evaluator, then
+    // expecting it to notice if you shoved into an INTEGER! or something.
     //
-    // Only way this native would be called would be if it were not enfixed.
+    // !!! Pure invisibility should work; see SYNC-INVISIBLES for ideas,
+    // something like this should be in the tests and be able to work:
+    //
+    //    >> 10 -> comment "ignore me" lib/+ 20
+    //    == 30
+    //
+    // !!! To get the feature working as a first cut, this doesn't try get too
+    // fancy with apply-like mechanics and slipstream refinements on the
+    // stack to enfix functions with refinements.  It specializes the ACTION!.
+    // We can do better, but seeing as how you couldn't call enfix actions
+    // with refinements *at all* before, this is a step up.
 
-    fail ("SHOVE may only be run as an ENFIX operation");
+    REBVAL *shovee = ARG(right); // reuse arg cell for the shoved-into
+
+    REBSTR *opt_label = nullptr;
+    if (IS_WORD(f->value) or IS_PATH(f->value)) {
+        if (Get_If_Word_Or_Path_Throws(
+            D_OUT, // can't eval directly into arg slot
+            &opt_label,
+            f->value,
+            f->specifier,
+            false // !!! see above; false = don't push refinements
+        )){
+            return R_THROWN;
+        }
+
+        Move_Value(shovee, D_OUT);
+    }
+    else if (IS_GROUP(f->value)) {
+        REBIXO indexor = Eval_Array_At_Core(
+            D_OUT, // can't eval directly into arg slot
+            nullptr, // opt_first (null means nothing, not nulled cell)
+            VAL_ARRAY(f->value),
+            VAL_INDEX(f->value),
+            Derive_Specifier(f->specifier, f->value),
+            (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
+                | DO_FLAG_TO_END
+                | (f->flags.bits & DO_FLAG_CONST)
+                | (f->value->header.bits & DO_FLAG_CONST)
+        );
+        if (indexor == THROWN_FLAG)
+            return R_THROWN;
+        if (IS_END(D_OUT)) // !!! need SHOVE frame for type error
+            fail ("GROUP! passed to SHOVE did not evaluate to content");
+
+        Move_Value(shovee, D_OUT);
+    }
+    else
+        Move_Value(shovee, KNOWN(f->value));
+
+    if (not IS_ACTION(shovee))
+        fail ("SHOVE's immediate right must evaluate to an ACTION!");
+
+    // Even if the function isn't enfix, say it is.  This permits things
+    // like `5 + 5 -> subtract 7` to give 3.
+    //
+    SET_VAL_FLAG(shovee, VALUE_FLAG_ENFIXED);
+
+    // Trying to EVAL a SET-WORD! or SET-PATH! with no args would be an error.
+    // So interpret it specially...GET the value and SET it back.  Note this
+    // is tricky stuff to do when a SET-PATH! has groups in it to avoid a
+    // double evaluation--the API is used here for simplicity.
+    //
+    REBVAL *left = ARG(left);
+    REBVAL *composed_set_path = nullptr;
+
+    // Since we're simulating enfix dispatch, we need to move the first arg
+    // where enfix gets it from...the frame output slot.
+    //
+    // We quoted the argument on the left, but the ACTION! we are feeding
+    // into may want it evaluative.  (Enfix handling itself does soft quoting)
+    //
+    TRASH_CELL_IF_DEBUG(D_OUT);
+
+    if (NOT_SER_FLAG(VAL_ACTION(shovee), PARAMLIST_FLAG_QUOTES_FIRST)) {
+        if (IS_SET_WORD(left)) {
+            Move_Value(D_OUT, Get_Opt_Var_May_Fail(left, SPECIFIED));
+        }
+        else if (IS_SET_PATH(left)) {
+            f->gotten = nullptr; // calling arbitrary code, may disrupt!
+            composed_set_path = rebRun("compose", left, rebEND);
+            REBVAL *temp = rebRun("get/hard", composed_set_path, rebEND);
+            Move_Value(D_OUT, temp);
+            rebRelease(temp);
+        }
+        else if (Eval_Value_Throws(D_OUT, ARG(left)))
+            return R_THROWN;
+    }
+    else {
+        Move_Value(D_OUT, ARG(left));
+      #if !defined(NDEBUG)
+        SET_VAL_FLAG(D_OUT, VALUE_FLAG_UNEVALUATED); // enfix checks in debug
+      #endif
+    }
+
+    DECLARE_SUBFRAME (child, frame_);
+
+    REBFLGS flags = DO_MASK_DEFAULT | DO_FLAG_REEVALUATE_CELL;
+    child->u.reval.value = shovee; // DO_FLAG_REEVALUATE_CELL retriggers this
+
+    if (Eval_Step_In_Subframe_Throws(D_OUT, frame_, flags, child)) {
+        rebRelease(composed_set_path); // ok if nullptr
+        return R_THROWN;
+    }
+
+    if (NOT_SER_FLAG(VAL_ACTION(shovee), PARAMLIST_FLAG_QUOTES_FIRST)) {
+        if (IS_SET_WORD(left)) {
+            Move_Value(Sink_Var_May_Fail(left, SPECIFIED), D_OUT);
+        }
+        else if (IS_SET_PATH(left)) {
+            f->gotten = nullptr; // calling arbitrary code, may disrupt!
+            rebElide("set/hard", composed_set_path, D_OUT, rebEND);
+            rebRelease(composed_set_path);
+        }
+    }
+
+    return D_OUT;
 }
 
 

@@ -196,9 +196,21 @@ STATIC_ASSERT(DO_FLAG_7_IS_FALSE == NODE_FLAG_CELL);
     FLAG_LEFT_BIT(16)
 
 
-//=//// DO_FLAG_UNUSED_17 /////////////////////////////////////////////////=//
+//=//// DO_FLAG_DIDNT_LEFT_QUOTE_PATH /////////////////////////////////////=//
 //
-#define DO_FLAG_UNUSED_17 \
+// There is a contention between operators that want to quote their left hand
+// side and ones that want to quote their right hand side.  The left hand side
+// wins in order for things like `help default` to work.  But deciding on
+// whether the left hand side should win or not if it's a PATH! is a tricky
+// case, as one must evaluate the path to know if it winds up producing a
+// right quoting action or not.
+//
+// So paths win automatically unless a special (rare) override is used.  But
+// if that path doesn't end up being a right quoting operator, it's less
+// confusing to give an error message informing the user to use -> vs. just
+// make it appear there was no left hand side.
+//
+#define DO_FLAG_DIDNT_LEFT_QUOTE_PATH \
     FLAG_LEFT_BIT(17)
 
 
@@ -551,29 +563,6 @@ struct Reb_Frame {
     // evaluations.
     //
     RELVAL cell;
-
-    // `shove`
-    //
-    // The SHOVE operation is used to push values from the left--which may
-    // need further evaluation if tight or enfix normal--in to act as the left
-    // hand side of an operation, e.g.:
-    //
-    //      add 1 2 -> lib/(print "Hi!" first [multiply]) 10
-    //
-    // The right side of the operator can do arbitrary evaluation, producing
-    // a synthetic ACTION! as the target.  To make matters worse, once this
-    // synthetic value is made it still may be necessary to go back and run
-    // more code on the left side (e.g. enfix only saw the `2` on the left
-    // when the `->` was first encountered, and it has to run the add BEFORE
-    // feeding it into the multiply.)
-    //
-    // In addition, the need to run arbitrary code on the left means there
-    // could be multiple shoves in effect.  This requires a GC-safe cell which
-    // can't really be used for anything else.  However, there's no need to
-    // initialize it until f->gotten indicates it...which only happens with
-    // shove operations.
-    //
-    RELVAL shove;
 
     // `flags`
     //

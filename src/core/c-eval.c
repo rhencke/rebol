@@ -123,6 +123,15 @@ static inline bool Start_New_Expression_Throws(REBFRM *f) {
 
     f->out->header.bits |= OUT_MARKED_STALE;
 
+    // Want to keep this flag between an operation and an ensuing enfix in
+    // the same frame, so can't clear in Drop_Action(), e.g. due to:
+    //
+    //     left-lit: enfix :lit
+    //     o: make object! [f: does [1]]
+    //     o/f left-lit ;--- want error mentioning -> here, need flag for that
+    //
+    f->flags.bits &= ~DO_FLAG_DIDNT_LEFT_QUOTE_PATH;
+
     if (not (f->flags.bits & DO_FLAG_FULFILLING_ARG))
         assert(not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD));
 
@@ -529,19 +538,23 @@ bool Eval_Core_Throws(REBFRM * const f)
         }
 
         if (f->flags.bits & DO_FLAG_PROCESS_ACTION) {
-            assert(f->refine == ORDINARY_ARG); // !!! should APPLY do enfix?
-
-            f->out->header.bits |= OUT_MARKED_STALE;
-
             f->flags.bits &= ~DO_FLAG_PROCESS_ACTION;
+
+            f->out->header.bits |= OUT_MARKED_STALE; // !!! necessary?
             goto process_action;
+        }
+
+        f->flags.bits &= ~DO_FLAG_REEVALUATE_CELL;
+
+        if (GET_VAL_FLAG(f->u.reval.value, VALUE_FLAG_ENFIXED)) {
+            f->value = VOID_VALUE; // !!! special signal to push_enfix_action
+            f->gotten = f->u.reval.value;
+            goto push_enfix_action;
         }
 
         current = f->u.reval.value;
         current_gotten = nullptr;
         kind.byte = KIND_BYTE(current);
-
-        f->flags.bits &= ~DO_FLAG_REEVALUATE_CELL;
         goto reevaluate;
     }
 
@@ -613,68 +626,6 @@ bool Eval_Core_Throws(REBFRM * const f)
     if (not f->gotten or NOT_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED))
         goto give_up_backward_quote_priority;
 
-    // SHOVE says it quotes its left argument, even if it doesn't know that
-    // is what it ultimately wants...because it wants a shot at its most
-    // aggressive scenario.  Once it finds out the enfixee wants normal or
-    // tight, though, it could get in trouble.
-    //
-    if (VAL_ACTION(f->gotten) == NAT_ACTION(shove)) {
-        Fetch_Next_In_Frame(nullptr, f);
-        if (IS_END(f->value))
-            goto finished; // proposed behavior, drop out result...
-
-        Prep_Stack_Cell(FRM_SHOVE(f));
-
-        REBSTR *opt_label = nullptr;
-        if (IS_WORD(f->value) or IS_PATH(f->value)) {
-            //
-            // We've only got one shot for the value.  If we don't push the
-            // refinements here, we'll lose them.  Start by biting the
-            // bullet and letting it synthesize a specialization (?)
-            //
-            if (Get_If_Word_Or_Path_Throws(
-                FRM_SHOVE(f),
-                &opt_label,
-                f->value,
-                f->specifier,
-                false // ok, crazypants, don't push refinements (?)
-            )){
-                Move_Value(f->out, FRM_SHOVE(f));
-                goto return_thrown;
-            }
-        }
-        else if (IS_GROUP(f->value)) {
-            REBIXO indexor = Eval_Array_At_Core(
-                SET_END(FRM_SHOVE(f)),
-                nullptr, // opt_first (null means nothing, not nulled cell)
-                VAL_ARRAY(f->value),
-                VAL_INDEX(f->value),
-                Derive_Specifier(f->specifier, f->value),
-                (DO_MASK_DEFAULT & ~DO_FLAG_CONST)
-                    | DO_FLAG_TO_END
-                    | (f->flags.bits & DO_FLAG_CONST)
-                    | (f->value->header.bits & DO_FLAG_CONST)
-            );
-            if (indexor == THROWN_FLAG) {
-                Move_Value(f->out, FRM_SHOVE(f));
-                goto return_thrown;
-            }
-            if (IS_END(FRM_SHOVE(f))) // !!! need SHOVE frame for type error
-                fail ("GROUP! passed to SHOVE did not evaluate to content");
-        }
-        else if (IS_ACTION(f->value)) {
-            Move_Value(FRM_SHOVE(f), KNOWN(f->value));
-        }
-        else
-            fail ("SHOVE only accepts WORD!, PATH!, GROUP!, or ACTION!");
-
-        // Even if the function isn't enfix, say it is.  This permits things
-        // like `5 + 5 -> subtract 7` to give 3.
-        //
-        SET_VAL_FLAG(FRM_SHOVE(f), VALUE_FLAG_ENFIXED);
-        f->gotten = FRM_SHOVE(f);
-    }
-
     // It's known to be an ACTION! since only actions can be enfix...
     //
     if (NOT_SER_FLAG(VAL_ACTION(f->gotten), PARAMLIST_FLAG_QUOTES_FIRST))
@@ -726,46 +677,25 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     if (kind.byte == REB_PATH and EVALUATING(current)) {
         //
-        // !!! Words aren't the only way that functions can be dispatched,
-        // one can also use paths.  It gets tricky here, because path GETs
-        // are dodgier than word fetches.  Not only can it have GROUP!s and
-        // have side effects to "examining" what it looks up to, but there are
-        // other implications.
+        // A path may look up to a function that quotes its first argument or
+        // not.  We can't know without evaluating it, and if we do and it
+        // turns out to not quote we've wasted work (or if it had GROUP!s and
+        // side effects, done work that cannot be undone).
         //
-        // As a temporary workaround to make HELP/DOC DEFAULT work, where
-        // DEFAULT hard quotes left, we have to recognize that path as a
-        // function call which quotes its first argument...so splice in some
-        // handling here that peeks at the head of the path and sees if it
-        // applies.  Note this is very brittle, and can be broken as easily as
-        // saying `o: make object! [h: help]` and then `o/h/doc default`.
+        // Hence it is not allowed to left quote a path unless you use the
+        // exemption granted to `->` to do so.  This means you can do things
+        // like `help/doc default`.
         //
-        // There are ideas on the table for how to remedy this long term.
-        // For now, see comments in the WORD branch above for more details.
-        //
-        if (
-            VAL_LEN_AT(current) > 0
-            and IS_WORD(VAL_ARRAY_AT(current))
-        ){
-            assert(not current_gotten); // no caching for paths
-
-            REBSPC *derived = Derive_Specifier(f->specifier, current);
-
-            RELVAL *path_at = VAL_ARRAY_AT(current);
-            const REBVAL *var_at = Try_Get_Opt_Var(path_at, derived);
-
-            if (
-                var_at
-                and IS_ACTION(var_at)
-                and NOT_VAL_FLAG(var_at, VALUE_FLAG_ENFIXED)
-                and GET_SER_FLAG(
-                    VAL_ACTION(var_at),
-                    PARAMLIST_FLAG_QUOTES_FIRST
-                )
-            ){
-                goto give_up_backward_quote_priority;
-            }
+        if (NOT_SER_FLAG(
+            VAL_ACTION(f->gotten),
+            PARAMLIST_FLAG_LEFT_QUOTE_OVERRIDES
+        )){
+            // Make a note we did this, so that if the left quoting operator
+            // ends up running we can give it a better error.
+            //
+            f->flags.bits |= DO_FLAG_DIDNT_LEFT_QUOTE_PATH;
+            goto give_up_backward_quote_priority;
         }
-        goto give_up_forward_quote_priority;
     }
 
     if (kind.byte == REB_ACTION and EVALUATING(current)) {
@@ -1224,6 +1154,16 @@ bool Eval_Core_Throws(REBFRM * const f)
 
                 if (f->out->header.bits & OUT_MARKED_STALE) {
                     //
+                    // Something like `lib/help left-lit` is allowed to work,
+                    // but if it were just `obj/int-value left-lit` then the
+                    // path evaluation won...but LEFT-LIT still gets run.
+                    // It appears it has nothing to its left, but since we
+                    // remembered what happened we can give an informative
+                    // error message vs. a perplexing one.
+                    //
+                    if (f->flags.bits & DO_FLAG_DIDNT_LEFT_QUOTE_PATH)
+                        fail (Error_Literal_Left_Path_Raw());
+
                     // Seeing an END in the output slot could mean that there
                     // was really "nothing" to the left, or it could be a
                     // consequence of a frame being in an argument gathering
@@ -1299,8 +1239,12 @@ bool Eval_Core_Throws(REBFRM * const f)
                         assert(
                             not (f->feed->flags.bits & FEED_FLAG_NO_LOOKAHEAD)
                         );
-                        if (not TYPE_CHECK(f->param, REB_TS_DEFERS))
+                        if (NOT_SER_FLAG(
+                            FRM_PHASE(f),
+                            PARAMLIST_FLAG_DEFERS_LOOKBACK
+                        )){
                             f->feed->flags.bits |= FEED_FLAG_NO_LOOKAHEAD;
+                        }
                     }
                     Finalize_Arg(f);
                     break;
@@ -1646,8 +1590,7 @@ bool Eval_Core_Throws(REBFRM * const f)
         //
         /*assert(f->out->header.bits & (CELL_FLAG_STACK | NODE_FLAG_ROOT)); */
 
-        if (not Is_Frame_Gotten_Shoved(f))
-            f->gotten = nullptr; // arbitrary code changes fetched variables
+        f->gotten = nullptr; // arbitrary code changes fetched variables
 
         // Note that the dispatcher may push ACTION! values to the data stack
         // which are used to process the return result after the switch.
@@ -2032,8 +1975,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 //==//////////////////////////////////////////////////////////////////////==//
 
       case REB_GROUP: {
-        if (not Is_Frame_Gotten_Shoved(f))
-            f->gotten = nullptr; // arbitrary code changes fetched variables
+        f->gotten = nullptr; // arbitrary code changes fetched variables
 
         // Since current may be f->cell, extract properties to reuse it.
         //
@@ -2487,22 +2429,7 @@ bool Eval_Core_Throws(REBFRM * const f)
 
     // For long-pondered technical reasons, only WORD! is able to dispatch
     // enfix.  If it's necessary to dispatch an enfix function via path, then
-    // a word must be used to do it, e.g. `x: -> lib/method [...] [...]`.
-    // That word can be an action with a variadic left argument, that can
-    // decide what parameter convention to use to the left based on what it
-    // sees to the right.
-
-    if (Is_Frame_Gotten_Shoved(f)) {
-        //
-        // Tried to SHOVE, and didn't hit a situation like `add -> + 1`.  So
-        // now the shoving process falls through, as in `10 -> + 1`.
-        //
-        assert(NOT_SER_FLAG(
-            VAL_ACTION(f->gotten),
-            PARAMLIST_FLAG_QUOTES_FIRST
-        ));
-        goto post_switch_shove_gotten;
-    }
+    // a word is used to do it, like `->` in `x: -> lib/method [...] [...]`.
 
     kind.byte = KIND_BYTE(f->value);
 
@@ -2647,10 +2574,11 @@ bool Eval_Core_Throws(REBFRM * const f)
         // the left quoting function might be okay with seeing nothing on the
         // left.  Start a new expression and let it error if that's not ok.
         //
+        if (f->flags.bits & DO_FLAG_DIDNT_LEFT_QUOTE_PATH)
+            fail (Error_Literal_Left_Path_Raw());
+
         goto lookback_quote_too_late;
     }
-
-  post_switch_shove_gotten:; // assert(!PARAMLIST_FLAG_QUOTES_FIRST) prior
 
     if ((f->flags.bits & DO_FLAG_FULFILLING_ARG)
         and not ANY_SER_FLAGS(
@@ -2666,13 +2594,7 @@ bool Eval_Core_Throws(REBFRM * const f)
             // REB_P_TIGHT parameter convention for the use of this, as
             // well as it being set if DO_FLAG_TO_END wants to clear out the
             // invisibles at this frame level before returning.
-            //
-            if (Is_Frame_Gotten_Shoved(f)) {
-                Prep_Stack_Cell(FRM_SHOVE(f->prior));
-                Move_Value(FRM_SHOVE(f->prior), f->gotten);
-                SET_VAL_FLAGS(FRM_SHOVE(f->prior), VALUE_FLAG_ENFIXED);
-                f->gotten = FRM_SHOVE(f->prior);
-            }
+
             goto finished;
         }
     }
@@ -2721,13 +2643,6 @@ bool Eval_Core_Throws(REBFRM * const f)
 
         f->feed->flags.bits |= FEED_FLAG_DEFERRING_ENFIX;
 
-        if (Is_Frame_Gotten_Shoved(f)) {
-            Prep_Stack_Cell(FRM_SHOVE(f->prior));
-            Move_Value(FRM_SHOVE(f->prior), f->gotten);
-            SET_VAL_FLAG(FRM_SHOVE(f->prior), VALUE_FLAG_ENFIXED);
-            f->gotten = FRM_SHOVE(f->prior);
-        }
-
         // Leave the enfix operator pending in the frame, and it's up to the
         // parent frame to decide whether to use DO_FLAG_POST_SWITCH to jump
         // back in and finish fulfilling this arg or not.  If it does resume
@@ -2745,21 +2660,18 @@ bool Eval_Core_Throws(REBFRM * const f)
     // of parameter fulfillment.  We want to reuse the f->out value and get it
     // into the new function's frame.
 
+  push_enfix_action:;
+
     Push_Action(f, VAL_ACTION(f->gotten), VAL_BINDING(f->gotten));
 
     Dampen_Lookahead(f); // not until after action pushed, invisibles cache it
 
-    if (IS_WORD(f->value))
-        Begin_Action(f, VAL_WORD_SPELLING(f->value));
-    else {
-        // Should be a SHOVE.  There needs to be a way to telegraph the label
-        // on the value if it was a PATH! to here.
-        //
-        assert(Is_Frame_Gotten_Shoved(f));
-        assert(IS_PATH(f->value) or IS_GROUP(f->value) or IS_ACTION(f->value));
-        REBSTR *opt_label = nullptr;
-        Begin_Action(f, opt_label);
-    }
+    // Note we jump here from reevaluate, with no label, ATM
+    //
+    Begin_Action(
+        f,
+        f->value != VOID_VALUE ? VAL_WORD_SPELLING(f->value) : nullptr
+    );
 
     assert(not (f->flags.bits & DO_FLAG_FULFILLING_ENFIX));
     f->flags.bits |=

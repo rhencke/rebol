@@ -55,13 +55,14 @@
     (30 = do [multiply 3 9 normal]) ;-- seen as ((multiply 3 (9 normal))
 ][
     (
-        defers: enfix function [v [<defer> integer! <...>]] [
+        defers: enfix function [v [integer! <...>]] [
             sum: 0
             while [not tail? v] [
                 sum: sum + take v
             ]
             return sum + 1
         ]
+        tweak :defers #defer on
         true
     )
 
@@ -191,7 +192,7 @@
                     f: make frame! args
                     for-each ['first-key 'first-val] f [break]
                     either-match false do f [return first-val]
-                    return null 
+                    return null
                 ]
             ]
         ]

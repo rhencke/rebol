@@ -312,6 +312,7 @@ STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == VALUE_FLAG_CONST);
 #define ARRAY_FLAG_28 FLAG_LEFT_BIT(28)
 #define ARRAY_FLAG_29 FLAG_LEFT_BIT(29)
 #define ARRAY_FLAG_30 FLAG_LEFT_BIT(30)
+#define ARRAY_FLAG_31 FLAG_LEFT_BIT(31)
 
 
 // ^-- STOP ARRAY FLAGS AT FLAG_LEFT_BIT(31) --^
@@ -322,7 +323,7 @@ STATIC_ASSERT(ARRAY_FLAG_CONST_SHALLOW == VALUE_FLAG_CONST);
 // be used for anything but optimizations.
 //
 #ifdef CPLUSPLUS_11
-    static_assert(30 < 32, "ARRAY_FLAG_XXX too high");
+    static_assert(31 < 32, "ARRAY_FLAG_XXX too high");
 #endif
 
 

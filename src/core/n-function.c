@@ -769,9 +769,6 @@ REBNATIVE(deferify)
     Reb_Param_Class pclass = VAL_PARAM_CLASS(param);
     if (pclass != REB_P_NORMAL)
         fail ("DEFERIFY currently only works if first argument is normal.");
-    if (TYPE_CHECK(param, REB_TS_DEFERS))
-        fail ("ACTION! already defers its first argument");
-    TYPE_SET(param, REB_TS_DEFERS);
 
     RELVAL *rootparam = ARR_HEAD(paramlist);
     CLEAR_SER_FLAGS(paramlist, PARAMLIST_MASK_CACHED);
@@ -821,6 +818,57 @@ REBNATIVE(deferify)
     );
 }
 
+
+//
+//  tweak: native [
+//
+//  {Modify a special property (currently only for ACTION!)}
+//
+//      return: "Same action identity as input"
+//          [action!]
+//      action "(modified) Action to modify property of"
+//          [action!]
+//      property "Currently either #shove or #defer"
+//          [issue!]
+//      enable [logic!]
+//  ]
+//
+REBNATIVE(tweak)
+{
+    INCLUDE_PARAMS_OF_TWEAK;
+
+    REBACT *act = VAL_ACTION(ARG(action));
+    REBVAL *first = First_Unspecialized_Param(act);
+    if (not first)
+        fail ("Cannot TWEAK action enfix behavior unless it has >= 1 params");
+
+    Reb_Param_Class pclass = VAL_PARAM_CLASS(first);
+    REBFLGS flag;
+
+    switch (VAL_WORD_SYM(ARG(property))) {
+      case SYM_SHOVE: { // Override the "no left quoting of PATH!s" rule
+        if (pclass != REB_P_SOFT_QUOTE and pclass != REB_P_HARD_QUOTE)
+            fail ("TWEAK #shove only for actions with quoted 1st params");
+        flag = PARAMLIST_FLAG_LEFT_QUOTE_OVERRIDES;
+        break; }
+
+      case SYM_DEFER: // Special enfix behavior used by THEN, ELSE, ALSO...
+        if (pclass != REB_P_NORMAL)
+            fail ("TWEAK #defer only for actions with evaluative 1st params");
+        flag = PARAMLIST_FLAG_DEFERS_LOOKBACK;
+        break;
+
+      default:
+        fail ("TWEAK currently only supports #shove and #defer");
+    }
+
+    if (VAL_LOGIC(ARG(enable)))
+        SET_SER_FLAG(act, flag);
+    else
+        CLEAR_SER_FLAG(act, flag);
+
+    RETURN (ARG(action));
+}
 
 
 REB_R Downshot_Dispatcher(REBFRM *f) // runs until count is reached

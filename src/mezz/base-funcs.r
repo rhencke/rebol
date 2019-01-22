@@ -35,12 +35,15 @@ so: enfix func [
 
     return: <void>
     condition "Condition to test (voids are treated as false)"
-        [<opt> <defer> any-value!]
+        [<opt> any-value!]
 ][
     if not opt condition [
         fail/where ["Postfix 'SO assertion' failed"] 'condition
     ]
 ]
+
+tweak :so #defer on
+
 
 maybe: enfix func [
     "Set word or path to a default value if that value is a value"

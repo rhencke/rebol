@@ -126,6 +126,23 @@
     ARRAY_FLAG_30
 
 
+//=//// PARAMLIST_FLAG_LEFT_QUOTE_OVERRIDES ///////////////////////////////=//
+//
+// This is used by the SHOVE (->) operation, to allow it to quote PATH! on
+// the left...which is generally prohibited.  The reason it is generally not
+// allowed is because figuring out if a path looks up to an action that might
+// want to right quote and override a left quote is computationally expensive
+// and also might have side effects if it contains GROUP!.
+//
+// The downside of anything using this flag is that it will have trouble with
+// accidentally overriding things that meant to right quote, e.g.
+//
+//      lib/help/doc ->
+//
+#define PARAMLIST_FLAG_LEFT_QUOTE_OVERRIDES \
+    ARRAY_FLAG_31
+
+
 // These are the flags which are scanned for and set during Make_Action
 //
 #define PARAMLIST_MASK_CACHED \

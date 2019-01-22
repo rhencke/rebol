@@ -197,10 +197,8 @@ void Eval_Core_Expression_Checks_Debug(REBFRM *f) {
     );
 
     if (f->gotten) {
-        if (not Is_Frame_Gotten_Shoved(f)) {
-            assert(IS_WORD(f->value));
-            assert(Try_Get_Opt_Var(f->value, f->specifier) == f->gotten);
-        }
+        assert(IS_WORD(f->value));
+        assert(Try_Get_Opt_Var(f->value, f->specifier) == f->gotten);
     }
 
     assert(not Is_Evaluator_Throwing_Debug()); // no evals between throws
@@ -316,12 +314,8 @@ void Eval_Core_Exit_Checks_Debug(REBFRM *f) {
     Eval_Core_Shared_Checks_Debug(f);
 
     if (f->gotten) {
-        if (f->gotten == FRM_SHOVE(f->prior))
-            assert(GET_VAL_FLAG(FRM_SHOVE(f->prior), VALUE_FLAG_ENFIXED));
-        else {
-            assert(IS_WORD(f->value));
-            assert(Try_Get_Opt_Var(f->value, f->specifier) == f->gotten);
-        }
+        assert(IS_WORD(f->value));
+        assert(Try_Get_Opt_Var(f->value, f->specifier) == f->gotten);
     }
 
     if (NOT_END(f->value) and not FRM_IS_VALIST(f)) {

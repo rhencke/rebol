@@ -84,7 +84,7 @@
 
 ; NORMAL parameter
 ;
-(9 = (1 + 2 -> multiply 3))
+(7 = (1 + 2 -> multiply 3))
 (7 = (add 1 2 -> multiply 3))
 (7 = (add 1 2 -> (:multiply) 3))
 
@@ -109,3 +109,36 @@
     (3 = (1 -> obj/magic 2))
     (-1 = (1 -> obj/magic/minus 2))
 ]
+
+
+; PATH! cannot be directly quoted left, must use ->
+
+[
+    (
+        left-lit: enfix :lit
+        o: make object! [i: 10 f: does [20]]
+        true
+    )
+
+    ((trap [o/i left-lit])/id = 'literal-left-path)
+    (o/i -> left-lit = 'o/i)
+
+    ((trap [o/f left-lit])/id = 'literal-left-path)
+    (o/f -> left-lit = 'o/f)
+]
+
+; Rather than error when SET-WORD! or SET-PATH! are used as the left hand
+; side of a -> operation going into an operation that evaluates its left,
+; the value of that SET-WORD! or SET-PATH! is fetched and passed right, then
+; written back into the variable.
+
+(
+    x: 10
+    x: -> + 20
+    x = 30
+)(
+    o: make object! [x: 10]
+    count: 0
+    o/(count: count + 1 'x): -> + 20
+    (o/x = 30) and (count = 1) ;-- shouldn't double-evaluate path group
+)

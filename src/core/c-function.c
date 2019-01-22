@@ -994,8 +994,6 @@ REBACT *Make_Action(
     if (first_unspecialized) {
         switch (VAL_PARAM_CLASS(first_unspecialized)) {
           case REB_P_NORMAL:
-            if (TYPE_CHECK(first_unspecialized, REB_TS_DEFERS))
-                SET_SER_FLAG(act, PARAMLIST_FLAG_DEFERS_LOOKBACK); // see note
             break;
 
           case REB_P_HARD_QUOTE:

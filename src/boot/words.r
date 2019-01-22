@@ -204,6 +204,11 @@ into
 only
 end  ; must be last (SYM_END referred to by GET_VAR() in %u-parse.c)
 
+; properties for action TWEAK function (passed as ISSUE!)
+;
+defer
+shove
+
 ; Event:
 type
 key

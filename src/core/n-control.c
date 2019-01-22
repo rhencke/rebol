@@ -391,12 +391,12 @@ bool Match_Core_Throws(
 //
 //      return: "Input value if not null, or branch result (possibly null)"
 //          [<opt> any-value!]
-//      optional "Run branch if this is null"
-//          [<opt> <defer> any-value!]
+//      optional "<deferred argument> Run branch if this is null"
+//          [<opt> any-value!]
 //      'branch [block! action! quoted!]
 //  ]
 //
-REBNATIVE(else)
+REBNATIVE(else) // see `tweak :else #defer on` in %base-defs.r
 {
     INCLUDE_PARAMS_OF_ELSE; // faster than EITHER-TEST specialized w/`VALUE?`
 
@@ -417,13 +417,13 @@ REBNATIVE(else)
 //
 //      return: "null if input is null, or branch result (voided if null)"
 //          [<opt> any-value!]
-//      optional "Run branch if this is not null"
-//          [<opt> <defer> any-value!]
+//      optional "<deferred argument> Run branch if this is not null"
+//          [<opt> any-value!]
 //      'branch "If arity-1 ACTION!, receives value that triggered branch"
 //          [block! action! quoted!]
 //  ]
 //
-REBNATIVE(then)
+REBNATIVE(then) // see `tweak :then #defer on` in %base-defs.r
 {
     INCLUDE_PARAMS_OF_THEN; // faster than EITHER-TEST specialized w/`NULL?`
 
@@ -444,13 +444,13 @@ REBNATIVE(then)
 //
 //      return: "The same value as input, regardless of if branch runs"
 //          [<opt> any-value!]
-//      optional "Run branch if this is not null"
-//          [<opt> <defer> any-value!]
+//      optional "<deferred argument> Run branch if this is not null"
+//          [<opt> any-value!]
 //      'branch "If arity-1 ACTION!, receives value that triggered branch"
 //          [block! action! quoted!]
 //  ]
 //
-REBNATIVE(also)
+REBNATIVE(also) // see `tweak :also #defer on` in %base-defs.r
 {
     INCLUDE_PARAMS_OF_ALSO; // `then func [x] [(...) :x]` => `also [...]`
 

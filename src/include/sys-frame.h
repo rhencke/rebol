@@ -222,16 +222,6 @@ inline static int FRM_LINE(REBFRM *f) {
 #define FRM_CELL(f) \
     cast(REBVAL*, &(f)->cell)
 
-#define FRM_SHOVE(f) \
-    cast(REBVAL*, &(f)->shove)
-
-inline static bool Is_Frame_Gotten_Shoved(REBFRM *f) {
-    if (f->gotten != FRM_SHOVE(f))
-        return false;
-    assert(GET_VAL_FLAG(f->gotten, VALUE_FLAG_ENFIXED));
-    return true; // see REBNATIVE(shove)
-}
-
 #define FRM_PRIOR(f) \
     ((f)->prior + 0) // prevent assignment via this macro
 

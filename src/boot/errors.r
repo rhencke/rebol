@@ -95,6 +95,7 @@ Script: [
     cannot-use:         [{cannot use} :arg1 {on} :arg2 {value}]
 
     ambiguous-infix:    {Ambiguous infix expression--use GROUP! to clarify}
+    literal-left-path:  {Use -> to pass literal left PATH! parameters right}
 
     do-running-frame:   [{Must COPY a FRAME! that's RUNNING? before DOing it}]
     do-expired-frame:   [{Cannot DO a FRAME! whose stack storage expired}]
