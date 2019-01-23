@@ -389,10 +389,17 @@ standard: construct [] [
             _
     ]
 
+    ; !!! "Type specs" were an unfinished R3-Alpha concept, that when you said
+    ; SPEC-OF INTEGER! or similar, you would not just get a textual name for
+    ; it but optionally other information (like numeric limits).  The gist is
+    ; reasonable, though having arbitrary precision integers is more useful.
+    ; Since the feature was never developed, Ren-C merged the %typespec.r
+    ; descriptions into the %types.r for easier maintenance.  So all that's
+    ; left is the name, but an object is synthesized on SPEC OF requests just
+    ; as a placeholder to remember the idea.
+    ;
     type-spec: construct [] [
-        title:
-        type:
-            _
+        title: _
     ]
 
     utype: _

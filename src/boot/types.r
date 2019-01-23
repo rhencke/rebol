@@ -36,14 +36,14 @@ REBOL [
     }
     Macros: {
         /*
-        ** ORDER-DEPENDENT TYPE MACROS, e.g. ANY_BLOCK_KIND() or IS_BINDABLE()
-        **
-        ** These macros embed specific knowledge of the type ordering.  They
-        ** are specified in %types.r, so anyone changing the order of types is
-        ** more likely to notice the impact, and adjust them.
-        **
-        ** !!! Review how these might be auto-generated from the table.
-        */
+         * ORDER-DEPENDENT TYPE MACROS, e.g. ANY_BLOCK_KIND() or IS_BINDABLE()
+         *
+         * These macros embed specific knowledge of the type ordering.  They
+         * are specified in %types.r, so anyone changing the order of types is
+         * more likely to notice the impact, and adjust them.
+         *
+         * !!! Review how these might be auto-generated from the table.
+         */
 
         /*
          * Note that an "in-situ" QUOTED! (not a REB_QUOTED kind byte, but
@@ -180,58 +180,112 @@ REBOL [
 ]
 
 
-[name       class       path    make    mold     typesets]
+[name       description  ; used by HELP
+            class       path    make    mold    typesets]  ; makes TS_XXX
 
 ; Note: 0 is reserved for an array terminator (REB_0), and not a "type"
 
-; There is only one "invokable" type in Ren-C, and it takes the name ACTION!
-; instead of the name FUNCTION!: https://forum.rebol.info/t/596
+action      "an invokable Rebol subroutine"  ;  https://forum.rebol.info/t/596
+            action      +       +       +       []
 
-action      action      +       +       +       -
+; ===========================================================================
+; ANY-WORD!, order matters, e.g. ANY_WORD() uses >= REB_WORD and <= REB_ISSUE
 
-; ANY-WORD!, order matters (tests like ANY_WORD use >= REB_WORD, <= REB_ISSUE)
-;
-word        word        *       *       +       word
-set-word    word        *       *       +       word
-get-word    word        *       *       +       word
-refinement  word        *       *       +       word
-issue       word        *       *       +       word
+word        "word (symbol or variable)"
+            word        *       *       +       [word]
 
+set-word    "definition of a word's value"
+            word        *       *       +       [word]
+
+get-word    "the value of a word (variable)"
+            word        *       *       +       [word]
+
+refinement  "variation of meaning or location"
+            word        *       *       +       [word]
+
+issue       "identifying marker word"
+            word        *       *       +       [word]
+
+; ===========================================================================
 ; QUOTED! is "bindable", but nulls binding if it contains an unbindable type
-;
-quoted     quoted       +       +       -       quoted
 
-; ANY-ARRAY!, order matters (and contiguous with ANY-SERIES below matters!)
-;
-path        array       *       *       *       [series path array]
-set-path    array       *       *       *       [series path array]
-get-path    array       *       *       *       [series path array]
-group       array       *       *       *       [series array]
-; -- start of inert bindable types (that aren't refinement! and issue!)
-block       array       *       *       *       [series array]
+quoted     "quoted container"
+            quoted       +       +       -      [quoted]
 
-; ANY-SERIES!, order matters (and contiguous with ANY-ARRAY above matters!)
-;
-binary      string      *       *       +       [series]
-text        string      *       *       *       [series string]
-file        string      *       *       *       [series string]
-email       string      *       *       *       [series string]
-url         string      *       *       *       [series string]
-tag         string      *       *       *       [series string]
+; ===========================================================================
+; ANY-ARRAY!, order matters (contiguous with ANY-SERIES below matters!)
 
-bitset      bitset      +       +       +       -
-image       image       +       +       +       [series]
-vector      vector      +       +       +       [series]
+path        "refinements to functions, objects, files"
+            array       *       *       *       [series path array]
 
-map         map         +       +       +       -
+set-path    "definition of a path's value"
+            array       *       *       *       [series path array]
 
-varargs     varargs     +       +       +       -
+get-path    "the value of a path"
+            array       *       *       *       [series path array]
 
-object      context     *       *       *       context
-module      context     *       *       *       context
-error       context     *       +       +       context
-frame       context     *       +       *       context
-port        port        context +       context context
+group       "array that evaluates expressions as an isolated group"
+            array       *       *       *       [series array]
+
+; -- start of inert bindable types (that aren't refinement! and issue!) --
+
+block       "array of values that blocks evaluation unless DO is used"
+            array       *       *       *       [series array]
+
+; ===========================================================================
+; ANY-SERIES!, order matters, and contiguous with ANY-ARRAY above matters
+
+binary      "string series of bytes"
+            string      *       *       +       [series]
+
+text        "text string series of characters"
+            string      *       *       *       [series string]
+
+file        "file name or path"
+            string      *       *       *       [series string]
+
+email       "email address"
+            string      *       *       *       [series string]
+
+url         "uniform resource locator or identifier"
+            string      *       *       *       [series string]
+
+tag         "markup string (HTML or XML)"
+            string      *       *       *       [series string]
+
+; ^-------------------- end of ANY-STRING! types ----------------------------^
+
+; v--------------- continue non-string ANY-SERIES! types --------------------v
+
+bitset      "set of bit flags"
+            bitset      +       +       +       []
+
+image       "RGB image with alpha channel"
+            image       +       +       +       [series]
+
+vector      "high performance arrays (single datatype)"
+            vector      +       +       +       [series]
+
+map         "name-value pairs (hash associative)"
+            map         +       +       +       []
+
+varargs     "evaluator position for variable numbers of arguments"
+            varargs     +       +       +       []
+
+object      "context of names with values"
+            context     *       *       *       [context]
+
+module      "loadable context of code and data"
+            context     *       *       *       [context]
+
+error       "error context with id, arguments, and stack origin"
+            context     *       +       +       [context]
+
+frame       "arguments and locals of a specific action invocation"
+            context     *       +       *       [context]
+
+port        "external series, an I/O channel"
+            port        context +       context [context]
 
 ; ^-------- Everything above is a "bindable" type, see Is_Bindable() --------^
 
@@ -239,36 +293,74 @@ port        port        context +       context context
 
 ; scalars
 
-logic       logic       -       +       +       -
-integer     integer     -       +       +       [number scalar]
-decimal     decimal     -       *       +       [number scalar]
-percent     decimal     -       *       +       [number scalar]
-money       money       -       +       +       scalar
-char        char        -       +       +       scalar
-pair        pair        +       +       +       scalar
-tuple       tuple       +       +       +       scalar
-time        time        +       +       +       scalar
-date        date        +       +       +       -
+logic       "boolean true or false"
+            logic       -       +       +       []
+
+integer     "64 bit integer"
+            integer     -       +       +       [number scalar]
+
+decimal     "64bit floating point number (IEEE standard)"
+            decimal     -       *       +       [number scalar]
+
+percent     "special form of decimals (used mainly for layout)"
+            decimal     -       *       +       [number scalar]
+
+money       "high precision decimals with denomination (opt)"
+            money       -       +       +       [scalar]
+
+char        "8bit and 16bit character"
+            char        -       +       +       [scalar]
+
+pair        "two dimensional point or size"
+            pair        +       +       +       [scalar]
+
+tuple       "sequence of small integers (colors, versions, IP)"
+            tuple       +       +       +       [scalar]
+
+time        "time of day or duration"
+            time        +       +       +       [scalar]
+
+date        "day, month, year, time of day, and timezone"
+            date        +       +       +       []
 
 ; type system
 
-datatype    datatype    -       +       +       -
-typeset     typeset     -       +       +       -
+datatype    "type of datatype"
+            datatype    -       +       +       []
+
+typeset     "set of datatypes"
+            typeset     -       +       +       []
 
 ; things likely to become user-defined types or extensions
 
-gob         gob         +       +       +       -
-event       event       +       +       +       -
-handle      handle      -       -       +       -
-struct      ?           ?       ?       ?       -
-library     library     -       +       +       -
+gob         "graphical object"
+            gob         +       +       +       []
 
+event       "user interface event (efficiently sized)"
+            event       +       +       +       []
+
+handle      "arbitrary internal object or value"
+            handle      -       -       +       []
+
+struct      "native structure definition"
+            ?           ?       ?       ?       []
+
+library     "external library reference"
+            library     -       +       +       []
+
+; ===========================================================================
 ; "unit types" https://en.wikipedia.org/wiki/Unit_type
 
-blank       unit        +       -       +       -
-; end of inert unbindable types
-bar         unit        -       -       +       -
-void        unit        -       -       +       -
+blank       "placeholder unit type which also is conditionally false"
+            unit        +       -       +       []
+
+; -- end of inert unbindable types --
+
+bar         "expression evaluation barrier"
+            unit        -       -       +       []
+
+void        "signal returned by actions that have no result"
+            unit        -       -       +       []
 
 ; Note that the "null?" state has no associated NULL! datatype.  Internally
 ; it uses REB_MAX, but like the REB_0 it stays off the type map.  It is

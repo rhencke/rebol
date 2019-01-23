@@ -460,11 +460,11 @@ e-types/emit trim/auto copy ensure text! types-header/macros
 
 e-types/emit {
     /*
-    ** TYPESET DEFINITIONS (e.g. TS_ARRAY or TS_STRING)
-    **
-    ** Note: User-facing typesets, such as ANY-VALUE!, do not include null
-    ** (absence of a value), nor do they include the internal "REB_0" type.
-    */
+     * TYPESET DEFINITIONS (e.g. TS_ARRAY or TS_STRING)
+     *
+     * Note: User-facing typesets, such as ANY-VALUE!, do not include null
+     * (absence of a value), nor do they include the internal "REB_0" type.
+     */
 
     /*
      * Subtract 1 to get mask for everything but REB_MAX_NULLED
@@ -482,15 +482,14 @@ e-types/emit {
 typeset-sets: copy []
 
 for-each-record t type-table [
-    for-each ts compose [(t/typesets)] [
+    for-each ts t/typesets [
         spot: any [
-            try select typeset-sets ts
-            first back insert tail-of typeset-sets reduce [ts copy []]
+            select typeset-sets ts
+            first back insert tail typeset-sets reduce [ts copy []]
         ]
         append spot t/name
     ]
 ]
-remove/part typeset-sets 2 ; the - markers
 
 for-each [ts types] typeset-sets [
     flagits: collect [
@@ -871,11 +870,9 @@ e-bootblock/emit {
 
 ;-- Build typespecs block (in same order as datatypes table):
 
-boot-typespecs: make block! 100
-specs: load %typespec.r
-for-each-record t type-table [
-    if t/name <> 0 [
-        append/only boot-typespecs really select specs to-word t/name
+boot-typespecs: collect [
+    for-each-record t type-table [
+        keep/only reduce [t/description]
     ]
 ]
 
